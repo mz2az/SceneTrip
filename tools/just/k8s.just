@@ -1,11 +1,10 @@
-# Local Kubernetes (kind) and observability (SigNoz).
+# 로컬 Kubernetes(kind)와 관측성(SigNoz).
 #
-# Guides:  docs/installs/k8s_install.md · docs/installs/signoz_install.md
-# Class:   docs/education/k8s-observability-class.html  (`just slides`)
+# 가이드: docs/installs/k8s_install.md · docs/installs/signoz_install.md
+# 강의:   docs/education/k8s-observability-class.html  (`just slides`)
 #
-# Every recipe here targets the local kind cluster only. The scripts refuse to run
-# against any other context — a rule a person has to remember every time is not a
-# rule, so it is enforced instead of documented.
+# 여기 레시피는 전부 로컬 kind 클러스터만 대상으로 한다. 스크립트가 다른 컨텍스트에서는
+# 실행을 거부한다 — 사람이 매번 지켜야 하는 규칙은 규칙이 아니므로, 문서로 적지 않고 막는다.
 
 CLUSTER    := "scenetrip"
 K8S_NS     := "scenetrip"
@@ -13,165 +12,164 @@ SIGNOZ_NS  := "signoz"
 API_URL    := "http://localhost:8081"
 SIGNOZ_URL := "http://localhost:8080"
 
-# ── cluster ───────────────────────────────────────────────────────────────────
+# ── 클러스터 ──────────────────────────────────────────────────────────────────
 
-# Create the kind cluster and install SigNoz. Idempotent — safe to re-run.
+# kind 클러스터를 만들고 SigNoz 를 설치한다. 멱등 — 여러 번 실행해도 안전하다.
 [group('k8s')]
 cluster-up:
     ./tools/scripts/cluster-up.sh
 
-# Bring up the whole local environment. Today that is the cluster and SigNoz.
+# 로컬 환경 전체 기동. 현재는 클러스터와 SigNoz 를 의미한다.
 [group('k8s')]
 up: cluster-up
-    @echo "ready — 'just signoz' for the UI, 'just cluster-doctor' for status"
+    @echo "준비 완료 — UI 는 'just signoz', 상태는 'just cluster-doctor'"
 
-# Delete the cluster. Collected telemetry and any database data go with it.
+# 클러스터 삭제. 수집한 텔레메트리와 DB 데이터도 함께 사라진다.
 [group('k8s')]
-[confirm("This deletes the kind cluster along with all collected telemetry. Continue?")]
+[confirm("kind 클러스터를 수집된 텔레메트리와 함께 삭제합니다. 진행할까요?")]
 cluster-down:
     kind delete cluster --name {{CLUSTER}}
 
-# Switch kubectl to the local cluster.
+# kubectl 컨텍스트를 로컬 클러스터로 전환
 [group('k8s')]
 cluster-context:
     kubectl config use-context kind-{{CLUSTER}}
     @kubectl config current-context
 
-# Tools, cluster, SigNoz, and workloads in one screen.
+# 도구·클러스터·SigNoz·워크로드를 한 화면에
 [group('k8s')]
 cluster-doctor:
     ./tools/scripts/cluster-doctor.sh
 
-# Everything running in the application namespace.
+# 애플리케이션 네임스페이스에서 돌고 있는 것 전부
 [group('k8s')]
 cluster-status:
     kubectl get all -n {{K8S_NS}}
 
-# Prove the cluster works: deploy nginx, call it, clean up.
+# 클러스터가 실제로 도는지 증명 — nginx 를 띄우고 호출한 뒤 정리한다
 [group('k8s')]
 cluster-test-drive:
     ./tools/scripts/cluster-test-drive.sh
 
-# ── application deployment ────────────────────────────────────────────────────
+# ── 애플리케이션 배포 ─────────────────────────────────────────────────────────
 
-# The kind load step is what makes the image visible to the cluster. Skipping it is
-# the most common local-Kubernetes mistake: nothing errors, the old image just
-# keeps running.
+# kind load 단계가 이미지를 클러스터에 보이게 만든다. 이걸 빠뜨리는 것이 로컬
+# Kubernetes 에서 가장 흔한 실수다 — 오류가 나지 않고 옛 이미지가 조용히 계속 돈다.
 #
-# Build a module image and load it into the kind node, e.g. `just image scene-api`.
+# 모듈 이미지를 빌드해 kind 노드에 적재. 예: `just image scene-api`
 [group('k8s')]
 image module tag="dev":
     ./tools/scripts/image-build.sh {{module}} {{tag}}
 
-# Apply a module's manifests and wait for the rollout, e.g. `just deploy scene-api local`.
+# 모듈 매니페스트를 적용하고 롤아웃을 기다린다. 예: `just deploy scene-api local`
 [group('k8s')]
 deploy module env="local":
     ./tools/scripts/deploy.sh {{module}} {{env}}
 
-# Rebuild, reload, and restart a module after a code change.
+# 코드 변경 후 재빌드 → 적재 → 롤링 재시작
 [group('k8s')]
 update module:
     ./tools/scripts/image-build.sh {{module}}
     kubectl rollout restart deployment/{{module}} -n {{K8S_NS}}
     kubectl rollout status  deployment/{{module}} -n {{K8S_NS}} --timeout=180s
 
-# Roll a module back to its previous revision.
+# 모듈을 이전 리비전으로 되돌린다
 [group('k8s')]
-[confirm("This rolls back a running deployment. Continue?")]
+[confirm("실행 중인 배포를 롤백합니다. 진행할까요?")]
 rollback module env="local":
     ./tools/scripts/deploy.sh {{module}} {{env}} --rollback
 
-# Remove a module from the cluster, leaving the cluster and SigNoz in place.
+# 클러스터와 SigNoz 는 그대로 두고 모듈만 제거
 [group('k8s')]
 undeploy module:
     kubectl delete -f platform/kubernetes/{{module}} -n {{K8S_NS}} --ignore-not-found
 
-# Follow a module's logs, e.g. `just logs scene-api`.
+# 모듈 로그 따라가기. 예: `just logs scene-api`
 [group('k8s')]
 logs module:
     kubectl logs -f deployment/{{module}} -n {{K8S_NS}}
 
-# Open a shell in a module's pod.
+# 모듈 파드에 셸 접속
 [group('k8s')]
 pod-shell module:
     kubectl exec -it deployment/{{module}} -n {{K8S_NS}} -- /bin/sh
 
-# Liveness and readiness of the deployed API.
+# 배포된 API 의 liveness·readiness 확인
 [group('k8s')]
 health:
-    @curl -sS {{API_URL}}/actuator/health/liveness || echo "no response from {{API_URL}}"
+    @curl -sS {{API_URL}}/actuator/health/liveness || echo "{{API_URL}} 응답 없음"
     @echo
     @curl -sS {{API_URL}}/actuator/health/readiness || true
     @echo
 
-# ── observability ─────────────────────────────────────────────────────────────
+# ── 관측성 ────────────────────────────────────────────────────────────────────
 
-# Where the SigNoz UI is and what to filter on.
+# SigNoz UI 주소와 필터 안내
 [group('observability')]
 signoz:
     @echo "SigNoz UI : {{SIGNOZ_URL}}"
-    @echo "filter    : service.name = scenetrip-<module>"
-    @echo "no port-forward needed — NodePort 30080 is mapped to host 8080"
+    @echo "필터      : service.name = scenetrip-<모듈>"
+    @echo "port-forward 불필요 — NodePort 30080 이 호스트 8080 에 매핑돼 있습니다"
 
-# Open the SigNoz UI in a browser.
+# 브라우저에서 SigNoz UI 열기
 [group('observability')]
 signoz-open:
     @open {{SIGNOZ_URL}} 2>/dev/null || xdg-open {{SIGNOZ_URL}} 2>/dev/null || echo "{{SIGNOZ_URL}}"
 
-# Helm release and pod status. Pods Running with migrator Completed is healthy.
+# Helm 릴리스와 파드 상태. 파드가 Running, migrator 가 Completed 면 정상이다.
 [group('observability')]
 signoz-status:
     -@helm list -n {{SIGNOZ_NS}}
     @kubectl get pods -n {{SIGNOZ_NS}}
 
-# Scale SigNoz to zero to reclaim memory. Data and settings are kept.
+# SigNoz 를 0 으로 줄여 메모리 회수. 데이터와 설정은 유지된다.
 [group('observability')]
 signoz-pause:
     kubectl scale statefulset,deployment --all --replicas=0 -n {{SIGNOZ_NS}}
 
-# Bring SigNoz back up after a pause.
+# 일시 중지한 SigNoz 를 다시 깨운다
 [group('observability')]
 signoz-resume:
     kubectl scale statefulset,deployment --all --replicas=1 -n {{SIGNOZ_NS}}
 
-# Occupies the terminal; Ctrl+C to stop.
+# 터미널을 붙잡고 있는다. Ctrl+C 로 중지.
 #
-# Forward the OTLP collector so an app on the host can send telemetry.
+# 맥에서 직접 도는 앱이 텔레메트리를 보낼 수 있도록 OTLP 수집기를 포워딩
 [group('observability')]
 signoz-forward:
-    @echo "OTLP endpoint -> localhost:4317 (grpc) / localhost:4318 (http)"
+    @echo "OTLP 엔드포인트 -> localhost:4317 (grpc) / localhost:4318 (http)"
     kubectl port-forward -n {{SIGNOZ_NS}} svc/signoz-ingester 4317:4317 4318:4318
 
-# Query ClickHouse directly to confirm telemetry landed.
+# ClickHouse 를 직접 조회해 텔레메트리가 실제로 적재됐는지 확인
 [group('observability')]
 signoz-verify service="scenetrip-scene-api" minutes="10":
     ./tools/scripts/signoz-verify.sh {{service}} {{minutes}}
 
-# Watch log ingestion counts on an interval. Ctrl+C to stop.
+# 로그 적재량을 주기적으로 출력. Ctrl+C 로 중지.
 [group('observability')]
 signoz-watch service="scenetrip-scene-api" interval="5":
     ./tools/scripts/signoz-watch.sh {{service}} {{interval}}
 
-# Remove SigNoz completely, including collected telemetry.
+# SigNoz 를 수집된 텔레메트리까지 통째로 제거
 [group('observability')]
-[confirm("This deletes SigNoz and every log, trace, and dashboard it stored. Continue?")]
+[confirm("SigNoz 와 저장된 모든 로그·트레이스·대시보드를 삭제합니다. 진행할까요?")]
 signoz-uninstall:
     -helm uninstall signoz -n {{SIGNOZ_NS}}
     -kubectl delete pvc --all -n {{SIGNOZ_NS}}
     -kubectl delete namespace {{SIGNOZ_NS}}
 
-# ── learning material ─────────────────────────────────────────────────────────
+# ── 학습 자료 ─────────────────────────────────────────────────────────────────
 
-# Open the Kubernetes + observability class slides (offline, single file).
+# Kubernetes·관측성 강의 슬라이드 열기 (오프라인 단일 파일)
 [group('docs')]
 slides:
     @open docs/education/k8s-observability-class.html 2>/dev/null \
       || xdg-open docs/education/k8s-observability-class.html 2>/dev/null \
-      || echo "open in a browser: docs/education/k8s-observability-class.html"
+      || echo "브라우저에서 여세요: docs/education/k8s-observability-class.html"
 
-# List the setup guides.
+# 설치 가이드 목록
 [group('docs')]
 guides:
-    @echo "docs/installs/k8s_install.md      local Kubernetes setup (kind, kubectl, helm, k9s)"
-    @echo "docs/installs/signoz_install.md   SigNoz install and log search"
-    @echo "docs/education/                   class slides — 'just slides'"
+    @echo "docs/installs/k8s_install.md      로컬 Kubernetes 설치 (kind, kubectl, helm, k9s)"
+    @echo "docs/installs/signoz_install.md   SigNoz 설치와 로그 검색"
+    @echo "docs/education/                   강의 슬라이드 — 'just slides'"

@@ -272,6 +272,19 @@ Documentation is a first-class artifact, not an afterthought. Every doc has exac
 | `docs/ai/` | agent designs, prompt library, tool schemas, eval methodology + results |
 | `docs/project/` | plans, status, decision log, retrospectives, meeting notes |
 
+### Language policy
+
+**Korean is the default language for this repository.** Documentation, `justfile` comments
+and recipe descriptions, script messages, and README files are written in Korean, because
+that is the language the team works in.
+
+**`AGENTS.md` and `CLAUDE.md` are the sole exception and stay in English.** They are read
+directly by AI coding tools as operating instructions, and English keeps them unambiguous
+for every model and tool that consumes them. When you edit either file, keep it English.
+
+Code identifiers — target names, recipe names, file paths, variables — are always English
+regardless of the surrounding prose.
+
 Rules:
 
 - Filenames are `kebab-case.md`. Prefix with a number only when reading order matters.

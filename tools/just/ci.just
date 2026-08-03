@@ -1,37 +1,37 @@
-# CI/CD entry points.
+# CI/CD 진입점.
 #
-# GitHub Actions workflows are thin wrappers: they check out the repo, install
-# just + bazelisk, and call one of these recipes. Pipeline logic lives here, not
-# in YAML, so it stays runnable on a laptop.
+# GitHub Actions 워크플로는 얇은 껍데기다 — 체크아웃하고 just 와 bazelisk 를 설치한 뒤
+# 아래 레시피 하나를 호출한다. 파이프라인 로직은 YAML 이 아니라 여기 있고,
+# 그래서 노트북에서도 그대로 돌아간다.
 
-# Build and test only what the current branch actually affects.
+# 현재 브랜치가 실제로 영향을 준 대상만 빌드·테스트
 [group('ci')]
 ci-affected base="origin/main":
     ./tools/scripts/affected-targets.sh {{base}} | xargs -r {{BAZEL}} test --
 
-# Full pipeline against the whole workspace. Used on main and nightly.
+# 워크스페이스 전체 파이프라인. main 과 야간 빌드에서 쓴다.
 [group('ci')]
 ci-full: gen-check fmt-check lint
     {{BAZEL}} test {{ALL}} --config=ci
 
-# Security scanning: dependency audit and secret detection.
+# 보안 점검 — 의존성 감사와 시크릿 탐지
 [group('ci')]
 ci-security:
     ./tools/scripts/security-scan.sh
 
-# Build and publish release artifacts for a tag.
+# 태그에 대한 릴리스 산출물 빌드·배포
 [group('ci')]
-[confirm("This publishes release artifacts. Continue?")]
+[confirm("릴리스 산출물을 배포합니다. 진행할까요?")]
 ci-release version:
     @echo ">>> RELEASE {{version}}"
     ./tools/scripts/release.sh {{version}}
 
-# Lint the GitHub Actions workflow files themselves.
+# GitHub Actions 워크플로 파일 자체를 린트
 [group('ci')]
 ci-lint-workflows:
     ./tools/scripts/workflow-lint.sh
 
-# Print the Bazel invocation CI would run, without running it.
+# CI 가 실행할 Bazel 명령을 실행하지 않고 출력만
 [group('ci')]
 ci-explain:
     @echo "{{BAZEL}} test {{ALL}} --config=ci"
