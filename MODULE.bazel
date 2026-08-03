@@ -1,0 +1,56 @@
+# SceneTrip — bzlmod dependency graph.
+#
+# This is the ONLY place external dependencies are declared. WORKSPACE is not used.
+#
+# IMPORTANT: the versions below are starting points. Verify each against
+# https://registry.bazel.build before the first build, then run `just deps-update`
+# to write MODULE.bazel.lock and commit it.
+#
+# Language rule sets are added as the first module of that language lands — keep
+# this file free of rules nothing depends on yet.
+
+module(
+    name = "scenetrip",
+    version = "0.1.0",
+    compatibility_level = 1,
+)
+
+# --- core ---------------------------------------------------------------------
+
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "platforms", version = "0.0.10")
+bazel_dep(name = "rules_pkg", version = "1.0.1")
+
+# BUILD file formatting and linting (used by `just fmt` / `just lint`).
+bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
+
+# --- BUILD file generation ----------------------------------------------------
+# Gazelle drives `just gen`. rules_go is required by gazelle itself even before
+# the first Go module exists.
+
+bazel_dep(name = "rules_go", version = "0.50.1")
+bazel_dep(name = "gazelle", version = "0.39.1")
+
+# ==============================================================================
+# Add the block below when the first module of that language lands.
+# Verify the version against registry.bazel.build at that time.
+# ==============================================================================
+#
+# Python (agents/, services/):
+#   bazel_dep(name = "rules_python", version = "0.36.0")
+#   pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+#   pip.parse(hub_name = "pypi", python_version = "3.12",
+#             requirements_lock = "//:requirements.lock")
+#   use_repo(pip, "pypi")
+#
+# TypeScript / JavaScript (apps/):
+#   bazel_dep(name = "aspect_rules_js", version = "2.1.0")
+#   bazel_dep(name = "aspect_rules_ts", version = "3.3.1")
+#
+# Protobuf / gRPC (contracts/proto):
+#   bazel_dep(name = "protobuf", version = "27.3")
+#   bazel_dep(name = "rules_proto", version = "6.0.2")
+#
+# Container images (:image / :push targets):
+#   bazel_dep(name = "rules_oci", version = "2.0.1")
+#   bazel_dep(name = "container_structure_test", version = "1.16.0")

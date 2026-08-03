@@ -1,0 +1,25 @@
+# SceneTrip local Kubernetes cluster (kind).
+#
+# Applied by `just cluster-up`. Never create the cluster by hand — the port
+# mappings below can only be set at creation time, so a hand-made cluster
+# silently loses host access to the API and the SigNoz UI.
+#
+# Host port | NodePort | Purpose
+# ----------|----------|-------------------------------
+#   8080    |  30080   | SigNoz UI
+#   8081    |  30081   | application API (first service)
+#
+# NOTE: these host ports are shared with any other kind cluster on this machine.
+# Running two projects' clusters at once will collide — stop one first.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: scenetrip
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
+      - containerPort: 30081
+        hostPort: 8081
+        protocol: TCP

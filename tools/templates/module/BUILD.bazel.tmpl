@@ -1,0 +1,24 @@
+# Targets for {{PATH}}.
+#
+# Follow the naming convention in AGENTS.md §4.1 — predictable labels let both people
+# and AI agents construct a target without reading this file first:
+#
+#   :{{NAME}}           primary library for this module
+#   :bin                executable entry point
+#   :unit_test          fast and hermetic          (tags = ["unit"])
+#   :integration_test   needs external fixtures    (tags = ["integration"])
+#   :image              OCI container image
+#   :push               registry push              (tags = ["manual"])
+#
+# Replace the placeholder below with real {{LANG}} rules, then run:
+#   just gen && just build-module {{PATH}}
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "{{NAME}}",
+    srcs = glob(
+        ["src/**"],
+        allow_empty = True,
+    ),
+)

@@ -1,0 +1,66 @@
+# SceneTrip Bazel configuration.
+#
+# Named configs are selected by just recipes (--config=ci, --config=release, ...).
+# Do not pass ad hoc flags on the command line; add a config here instead so that
+# local runs and CI stay identical.
+
+# --- common -------------------------------------------------------------------
+
+common --enable_platform_specific_config
+common --incompatible_disallow_empty_glob
+
+# --- build --------------------------------------------------------------------
+
+build --verbose_failures
+build --incompatible_strict_action_env          # hermetic: ignore host env drift
+build --experimental_repository_cache_hardlinks
+build --nolegacy_external_runfiles
+
+# Keep the workspace root clean; symlinks are gitignored.
+build --symlink_prefix=bazel-
+
+# --- test ---------------------------------------------------------------------
+
+test --test_output=errors
+test --test_summary=terse
+test --build_tests_only
+test --test_verbose_timeout_warnings
+
+# --- compilation modes --------------------------------------------------------
+
+build:debug --compilation_mode=dbg
+build:release --compilation_mode=opt
+build:release --stamp
+
+# --- CI -----------------------------------------------------------------------
+# Selected by `just ci-full`. Optimized for readable logs and full signal.
+
+build:ci --announce_rc
+build:ci --show_timestamps
+build:ci --color=yes
+build:ci --keep_going
+build:ci --curses=no
+test:ci --test_output=errors
+test:ci --flaky_test_attempts=2
+test:ci --build_tests_only
+
+# --- lint ---------------------------------------------------------------------
+# `just lint` runs buildifier plus tools/scripts/lint.sh today. When a Bazel lint
+# aspect is added under tools/bazel/defs/, wire it here and switch the recipe to
+# `--config=lint` so linting participates in the build cache.
+
+# --- remote cache -------------------------------------------------------------
+# Uncomment and point at the shared cache once it exists. Read-only for local
+# developers; CI holds the write credential.
+#
+# build:remote --remote_cache=grpcs://<cache-host>
+# build:remote --remote_timeout=3600
+# build:remote --remote_upload_local_results=false
+# build:ci --config=remote
+# build:ci --remote_upload_local_results=true
+
+# --- personal overrides -------------------------------------------------------
+# Create .bazelrc.user for machine-local settings. It is gitignored and must
+# never be required for a build to succeed.
+
+try-import %workspace%/.bazelrc.user

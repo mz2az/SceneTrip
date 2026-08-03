@@ -1,0 +1,26 @@
+# Stable NodePort for the SigNoz UI.
+#
+# The Helm chart creates svc/signoz as ClusterIP, which is not reachable from the
+# host. We add our own Service rather than editing the chart's — a chart upgrade
+# would revert an edit, but leaves this one alone.
+#
+# NodePort 30080 is mapped to host port 8080 by platform/kind/cluster.yaml, so the
+# UI is reachable at http://localhost:8080 with no port-forward.
+apiVersion: v1
+kind: Service
+metadata:
+  name: signoz-ui
+  namespace: signoz
+  labels:
+    app.kubernetes.io/managed-by: scenetrip
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: signoz
+    app.kubernetes.io/instance: signoz
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30080
+      protocol: TCP

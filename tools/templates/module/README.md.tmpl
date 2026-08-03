@@ -1,0 +1,41 @@
+# {{NAME}}
+
+> Module type: `{{KIND}}` · Language: `{{LANG}}` · Path: `{{PATH}}`
+
+## Purpose
+
+One paragraph: what this module does and why it exists. Delete this line once written.
+
+## Interface
+
+| Aspect | Value |
+| --- | --- |
+| Protocol | HTTP / gRPC / CLI / n-a |
+| Port | TBD |
+| Contracts | `contracts/…` (list the definitions this module implements or consumes) |
+
+## Dependencies
+
+| Depends on | Why |
+| --- | --- |
+| `libs/…` | |
+| `services/…` | via contract, never by direct import |
+
+## Commands
+
+```bash
+just build-module {{PATH}}    # build
+just test-module  {{PATH}}    # test
+just run //{{PATH}}:bin       # run locally
+```
+
+## Configuration
+
+| Env var | Required | Default | Purpose |
+| --- | --- | --- | --- |
+
+Secrets come from the secret manager. Only `.env.example` is committed.
+
+## Operations
+
+Runbook: `docs/ops/` · Dashboards: TBD · Alerts: TBD

@@ -1,0 +1,29 @@
+# Root package: workspace-wide tooling targets only.
+# Application code never lives here — see AGENTS.md §2 for placement rules.
+
+load("@buildifier_prebuilt//:rules.bzl", "buildifier")
+load("@gazelle//:def.bzl", "gazelle")
+
+package(default_visibility = ["//visibility:public"])
+
+# gazelle:prefix github.com/scenetrip/scenetrip
+# gazelle:exclude bazel-*
+# gazelle:exclude third_party
+gazelle(name = "gazelle")
+
+# Rewrite BUILD files in place. Invoked by `just fmt`.
+buildifier(
+    name = "buildifier",
+    exclude_patterns = ["./bazel-*/**"],
+    lint_mode = "fix",
+    mode = "fix",
+)
+
+# Fail on unformatted or lint-dirty BUILD files. Invoked by `just fmt-check` and
+# `just lint`, and therefore by `just check` and CI.
+buildifier(
+    name = "buildifier_check",
+    exclude_patterns = ["./bazel-*/**"],
+    lint_mode = "warn",
+    mode = "diff",
+)

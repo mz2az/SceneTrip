@@ -1,0 +1,30 @@
+# CLAUDE.md — {{NAME}} agent module
+
+Module-local rules. These override the root `CLAUDE.md` for anything under `{{PATH}}`.
+
+## Scope
+
+What this agent is responsible for, and explicitly what it is not.
+
+## Prompts
+
+- Live in `{{PATH}}/prompts/` as versioned files — never inline string literals.
+- Referenced from Bazel targets via `data`.
+- A prompt change requires an eval run: `just agent-eval {{NAME}}`.
+
+## Tools
+
+- Tool I/O schemas live in `contracts/schemas/`.
+- Both the caller and the implementation validate against the schema.
+- Model output is untrusted input: validate before use, never `eval`, never pass
+  unescaped to a shell, SQL query, or file path.
+
+## Evaluation
+
+- Offline evals are tests: `//{{PATH}}:eval_test` (deterministic, fixtures only).
+- Live-model evals are tagged `integration` + `requires-network` and never gate CI.
+- Results are recorded in `docs/ai/`.
+
+## Configuration
+
+Model IDs, temperature, and token limits are configuration, never hardcoded in logic.

@@ -1,0 +1,55 @@
+# --- Bazel --------------------------------------------------------------------
+/bazel-*
+.bazelrc.user
+user.bazelrc
+
+# --- secrets (never commit; .env.example files ARE committed) ------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credentials.json
+service-account*.json
+
+# --- language artifacts (Bazel owns real outputs; these are IDE/tool leftovers) -
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.tsbuildinfo
+
+# --- tooling caches ------------------------------------------------------------
+.cache/
+coverage/
+*.lcov
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- terraform -----------------------------------------------------------------
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# --- editors / OS --------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# --- local scratch -------------------------------------------------------------
+/tmp/
+/scratch/
+*.local.*
