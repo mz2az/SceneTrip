@@ -1,17 +1,17 @@
 ---
-name: Feature
-about: Propose new capability
+name: 기능
+about: 새로운 기능 제안
 labels: feature
 ---
 
-**Problem** (user-facing, not a solution)
+**문제** (해결책이 아니라 사용자 관점의 문제)
 
-**Proposed scope**
+**제안하는 범위**
 
-**Non-goals**
+**하지 않을 것**
 
-**Success metric**
+**성공 지표**
 
-**Modules affected**
+**영향받는 모듈**
 
-**Contract changes required?** yes / no — if yes, `contracts/` changes land first.
+**계약 변경이 필요한가?** 예 / 아니오 — 예라면 `contracts/` 변경이 먼저 들어간다.

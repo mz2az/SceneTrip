@@ -1,6 +1,5 @@
 # libs/proto
 
-Bazel proto libraries built from definitions in contracts/proto.
+contracts/proto 의 정의로부터 만든 Bazel proto 라이브러리.
 
-One directory per package. See [libs/README.md](../README.md) for the promotion rule
-and dependency direction.
+패키지 하나당 디렉터리 하나. 승격 규칙과 의존 방향은 [libs/README.md](../README.md) 참조.

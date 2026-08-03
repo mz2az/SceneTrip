@@ -1,18 +1,18 @@
-# Architecture documentation
+# 아키텍처 문서
 
-How the system is put together and why.
+시스템이 어떻게 구성돼 있고 왜 그렇게 됐는가.
 
-| Document | Purpose |
+| 문서 | 목적 |
 | --- | --- |
-| `system-overview.md` | the whole system on one page, with a context diagram |
-| `service-map.md` | every service, its responsibility, and its dependencies |
-| `data-model.md` | ownership boundaries — which service owns which data |
-| `tech-stack.md` | chosen technologies and the reasoning |
-| [`adr/`](adr/) | decision records |
+| `system-overview.md` | 시스템 전체를 한 장에, 컨텍스트 다이어그램과 함께 |
+| `service-map.md` | 모든 서비스와 각자의 책임·의존성 |
+| `data-model.md` | 소유 경계 — 어떤 서비스가 어떤 데이터를 소유하는가 |
+| `tech-stack.md` | 선택한 기술과 그 이유 |
+| [`adr/`](adr/) | 결정 기록 |
 
-## Rules
+## 규칙
 
-- Diagrams are Mermaid, in Markdown. Binary image exports are not reviewable.
-- Every service appears in `service-map.md` — an undocumented service does not exist.
-- Data ownership is explicit: exactly one service owns each table or collection.
-- A decision with lasting consequences gets an ADR, not a paragraph buried in a page.
+- 다이어그램은 마크다운 안의 Mermaid. 바이너리 이미지는 리뷰가 안 된다.
+- 모든 서비스는 `service-map.md` 에 나타난다 — 문서에 없는 서비스는 존재하지 않는 것이다.
+- 데이터 소유는 명시적이다. 테이블·컬렉션마다 소유 서비스가 정확히 하나다.
+- 오래 영향을 남기는 결정은 어느 문서 중간의 한 문단이 아니라 ADR 로 남긴다.

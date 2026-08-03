@@ -1,7 +1,7 @@
 # tools/bazel/defs
 
-Reusable Starlark macros. Each `.bzl` file documents its macros with docstrings.
+재사용하는 Starlark 매크로. 각 `.bzl` 파일은 docstring 으로 자기 매크로를 설명한다.
 
-Candidates that belong here as the repo grows: a service macro bundling
-library + binary + image + tests with the standard names and tags, a proto bundle macro,
-and a lint aspect.
+저장소가 커지면서 여기로 올 만한 것들: 표준 이름·태그를 갖춘
+라이브러리 + 바이너리 + 이미지 + 테스트를 한 번에 묶는 서비스 매크로, proto 번들 매크로,
+린트 애스펙트.

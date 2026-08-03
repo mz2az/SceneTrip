@@ -1,7 +1,7 @@
 # contracts/asyncapi
 
-Event and stream specifications: topics, payload schemas, delivery semantics.
+이벤트·스트림 명세: 토픽, 페이로드 스키마, 전달 보장.
 
-- Document ordering guarantees, retry behavior, and dead-letter handling per channel.
-- Producers and consumers are both validated against these specs by `just test-contract`.
-- Payload evolution follows the same compatibility rules as protobuf: additive only.
+- 채널마다 순서 보장, 재시도 동작, 데드레터 처리를 문서화한다.
+- 생산자와 소비자 양쪽 모두 `just test-contract` 로 이 명세에 대해 검증된다.
+- 페이로드 진화는 protobuf 와 같은 호환성 규칙을 따른다 — 추가만 허용.

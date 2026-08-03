@@ -9,34 +9,34 @@ superseded-by:
 
 # ADR {{NUMBER}}: {{TITLE}}
 
-## Context
+## 배경
 
-What forces are at play? What problem are we solving? Include constraints that are
-real (deadlines, team size, existing systems), not hypothetical.
+어떤 힘이 작용하고 있는가? 무슨 문제를 푸는가? 가상이 아니라 **실제** 제약
+(기한, 팀 규모, 기존 시스템)을 적는다.
 
-## Decision
+## 결정
 
-The decision, stated in the active voice: "We will …".
+능동태로 한 문장: "우리는 …한다."
 
-## Alternatives considered
+## 검토한 대안
 
-| Option | Why not |
+| 선택지 | 채택하지 않은 이유 |
 | --- | --- |
 
-## Consequences
+## 결과
 
-**Positive**
-
--
-
-**Negative / accepted costs**
+**좋아지는 것**
 
 -
 
-**Follow-up work**
+**나빠지는 것 / 감수하는 비용**
 
 -
 
-## Verification
+**후속 작업**
 
-How we will know this decision was right or wrong, and when we will revisit it.
+-
+
+## 검증
+
+이 결정이 옳았는지 그렇지 않았는지 무엇으로 알 것이며, 언제 다시 볼 것인가.

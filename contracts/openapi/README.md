@@ -1,7 +1,7 @@
 # contracts/openapi
 
-REST API specifications, one file per service: `<service>-v<major>.yaml`.
+REST API 명세. 서비스당 파일 하나: `<서비스>-v<메이저>.yaml`
 
-- The spec is authored first and is authoritative; handlers implement it.
-- Frontend clients are generated from these files — apps never hand-write clients.
-- Breaking changes bump the major version and ship a new file.
+- 명세를 먼저 쓰고 그것이 정본이다. 핸들러가 명세를 따라간다.
+- 프론트엔드 클라이언트는 이 파일로부터 생성된다 — 앱이 직접 작성하지 않는다.
+- 파괴적 변경은 메이저 버전을 올리고 새 파일로 낸다.

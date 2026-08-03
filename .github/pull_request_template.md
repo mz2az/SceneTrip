@@ -1,24 +1,24 @@
-## What changed
+## 무엇이 바뀌었나
 
-<!-- One paragraph. What does this do that the repo could not do before? -->
+<!-- 한 문단. 이 변경 덕분에 저장소가 새로 할 수 있게 된 것은 무엇인가? -->
 
-## Why
+## 왜
 
-<!-- The problem, or a link to the PRD / issue / ADR. -->
+<!-- 문제, 또는 PRD·이슈·ADR 링크 -->
 
-## Blast radius
+## 영향 범위
 
-<!-- Which modules and environments are affected? `just rdeps <target>` if unsure. -->
+<!-- 어떤 모듈과 환경이 영향을 받는가? 불확실하면 `just rdeps <타깃>` -->
 
-## Verification
+## 검증
 
-- [ ] `just check` passes locally
-- [ ] Tests added or updated in the correct lane
-- [ ] `just gen` produces no diff
-- [ ] Contracts updated before the implementation (if the wire format changed)
-- [ ] Module README and affected docs updated
-- [ ] No secrets, absolute paths, or debug output
+- [ ] 로컬에서 `just check` 통과
+- [ ] 올바른 레인에 테스트를 추가하거나 갱신함
+- [ ] `just gen` 을 돌려도 diff 가 생기지 않음
+- [ ] 통신 형식이 바뀌었다면 계약을 구현보다 먼저 수정함
+- [ ] 모듈 README 와 관련 문서를 갱신함
+- [ ] 시크릿·절대 경로·디버그 출력 없음
 
-## Rollback
+## 롤백
 
-<!-- How to undo this if it goes wrong in production. -->
+<!-- 운영에서 문제가 생기면 어떻게 되돌리는가 -->

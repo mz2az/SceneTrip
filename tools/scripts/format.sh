@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Language formatters. BUILD files are handled by buildifier in the just recipe.
-# Invoked by: just fmt [--check]
+# 언어별 포매터. BUILD 파일은 레시피 안의 buildifier 가 담당한다.
+# 호출: just fmt [--check]
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 CHECK=0
 [ "${1:-}" = "--check" ] && CHECK=1
-cd "$REPO_ROOT" || die "cannot enter $REPO_ROOT"
+cd "$REPO_ROOT" || die "$REPO_ROOT 로 이동할 수 없습니다"
 
 ran=0
 
@@ -14,7 +14,7 @@ if have gofmt && compgen -G "**/*.go" >/dev/null 2>&1; then
   ran=1
   if [ "$CHECK" -eq 1 ]; then
     out="$(gofmt -l . || true)"
-    [ -z "$out" ] || die "unformatted Go files:\n$out"
+    [ -z "$out" ] || die "포맷이 어긋난 Go 파일:\n$out"
   else
     gofmt -w .
   fi
@@ -30,4 +30,4 @@ if have prettier && [ -f package.json ]; then
   if [ "$CHECK" -eq 1 ]; then prettier --check .; else prettier --write .; fi
 fi
 
-[ "$ran" -eq 1 ] || pending "no language formatters applicable yet (no source modules)"
+[ "$ran" -eq 1 ] || pending "아직 적용할 언어 포매터가 없습니다 (소스 모듈 없음)"

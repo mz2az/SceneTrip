@@ -1,13 +1,13 @@
-# third_party/ — vendored code
+# third_party/ — 벤더링한 코드
 
-Prefer a pinned dependency in `MODULE.bazel`. Vendor only when there is no alternative.
+`MODULE.bazel` 에 버전을 고정한 의존성이 우선이다. 대안이 없을 때만 벤더링한다.
 
-Every vendored directory carries a `PROVENANCE.md` recording:
+벤더링한 디렉터리마다 `PROVENANCE.md` 를 둔다:
 
-- upstream URL and exact commit or version
-- licence and its location in the tree
-- every local modification, and why
-- who to contact before upgrading
+- 업스트림 URL 과 정확한 커밋 또는 버전
+- 라이선스와 트리 안에서의 위치
+- 로컬 수정 사항 전부와 그 이유
+- 업그레이드 전에 연락할 담당자
 
-Unmodified vendored code is never edited in place — patch it in a build rule so upgrades
-stay mechanical.
+수정하지 않은 벤더 코드는 제자리에서 고치지 않는다 — 빌드 규칙에서 패치를 적용해
+업그레이드가 기계적으로 유지되게 한다.

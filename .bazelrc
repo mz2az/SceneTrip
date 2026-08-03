@@ -1,39 +1,39 @@
-# SceneTrip Bazel configuration.
+# SceneTrip Bazel 설정.
 #
-# Named configs are selected by just recipes (--config=ci, --config=release, ...).
-# Do not pass ad hoc flags on the command line; add a config here instead so that
-# local runs and CI stay identical.
+# 이름 붙은 config 는 just 레시피가 고른다(--config=ci, --config=release 등).
+# 명령줄에서 임시 플래그를 붙이지 말고 여기에 config 를 추가한다. 그래야 로컬과 CI 가
+# 어긋나지 않는다.
 
-# --- common -------------------------------------------------------------------
+# --- 공통 --------------------------------------------------------------------
 
 common --enable_platform_specific_config
 common --incompatible_disallow_empty_glob
 
-# --- build --------------------------------------------------------------------
+# --- 빌드 --------------------------------------------------------------------
 
 build --verbose_failures
-build --incompatible_strict_action_env          # hermetic: ignore host env drift
+build --incompatible_strict_action_env          # 격리: 호스트 환경 차이를 무시한다
 build --experimental_repository_cache_hardlinks
 build --nolegacy_external_runfiles
 
-# Keep the workspace root clean; symlinks are gitignored.
+# 워크스페이스 루트를 깨끗하게 유지한다. 심볼릭 링크는 gitignore 대상이다.
 build --symlink_prefix=bazel-
 
-# --- test ---------------------------------------------------------------------
+# --- 테스트 ------------------------------------------------------------------
 
 test --test_output=errors
 test --test_summary=terse
 test --build_tests_only
 test --test_verbose_timeout_warnings
 
-# --- compilation modes --------------------------------------------------------
+# --- 컴파일 모드 --------------------------------------------------------------
 
 build:debug --compilation_mode=dbg
 build:release --compilation_mode=opt
 build:release --stamp
 
-# --- CI -----------------------------------------------------------------------
-# Selected by `just ci-full`. Optimized for readable logs and full signal.
+# --- CI ----------------------------------------------------------------------
+# `just ci-full` 이 고른다. 읽기 좋은 로그와 최대한의 신호를 목표로 한다.
 
 build:ci --announce_rc
 build:ci --show_timestamps
@@ -44,23 +44,23 @@ test:ci --test_output=errors
 test:ci --flaky_test_attempts=2
 test:ci --build_tests_only
 
-# --- lint ---------------------------------------------------------------------
-# `just lint` runs buildifier plus tools/scripts/lint.sh today. When a Bazel lint
-# aspect is added under tools/bazel/defs/, wire it here and switch the recipe to
-# `--config=lint` so linting participates in the build cache.
+# --- 린트 --------------------------------------------------------------------
+# 현재 `just lint` 는 buildifier 와 tools/scripts/lint.sh 를 돌린다. tools/bazel/defs/ 에
+# 린트 애스펙트를 추가하면 여기에 연결하고 레시피를 `--config=lint` 로 바꾼다.
+# 그러면 린트도 빌드 캐시의 혜택을 받는다.
 
-# --- remote cache -------------------------------------------------------------
-# Uncomment and point at the shared cache once it exists. Read-only for local
-# developers; CI holds the write credential.
+# --- 원격 캐시 ----------------------------------------------------------------
+# 공용 캐시가 생기면 주석을 풀고 주소를 채운다. 로컬 개발자는 읽기 전용이고,
+# 쓰기 자격 증명은 CI 가 갖는다.
 #
-# build:remote --remote_cache=grpcs://<cache-host>
+# build:remote --remote_cache=grpcs://<캐시-호스트>
 # build:remote --remote_timeout=3600
 # build:remote --remote_upload_local_results=false
 # build:ci --config=remote
 # build:ci --remote_upload_local_results=true
 
-# --- personal overrides -------------------------------------------------------
-# Create .bazelrc.user for machine-local settings. It is gitignored and must
-# never be required for a build to succeed.
+# --- 개인 설정 ----------------------------------------------------------------
+# 머신 전용 설정은 .bazelrc.user 에 만든다. gitignore 대상이며, 빌드 성공에
+# 이 파일이 필요해서는 안 된다.
 
 try-import %workspace%/.bazelrc.user

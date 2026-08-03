@@ -1,40 +1,37 @@
-# Education material
+# 교육 자료
 
-Teaching material for onboarding engineers and students onto SceneTrip's local
-Kubernetes and observability stack.
+SceneTrip 의 로컬 Kubernetes·관측성 스택에 엔지니어와 학생을 온보딩하기 위한 자료.
 
-| Material | Format | Duration |
+| 자료 | 형식 | 소요 |
 | --- | --- | --- |
-| [k8s-observability-class.html](k8s-observability-class.html) | single-file HTML deck, 35 slides | ~3 hours with hands-on |
+| [k8s-observability-class.html](k8s-observability-class.html) | 단일 파일 HTML 덱, 35슬라이드 | 실습 포함 약 3시간 |
 
 ```bash
-just slides    # open in a browser
+just slides    # 브라우저에서 열기
 ```
 
-## What it covers
+## 다루는 범위
 
-| Part | Topic |
+| 파트 | 주제 |
 | --- | --- |
-| 1 | Why containers and Kubernetes — the problem each one actually solves |
-| 2 | kind: cluster as code, port mappings, namespaces, the traps |
-| 3 | Images, manifests, deployment, automation, `just`, Bazel |
-| 4 | Instrumentation: structured logs, metrics, traces, OpenTelemetry |
-| 5 | SigNoz: searching logs, connecting traces, verifying ingestion |
+| 1 | 왜 컨테이너와 Kubernetes 인가 — 각각이 실제로 푸는 문제 |
+| 2 | kind: 코드로서의 클러스터, 포트 매핑, 네임스페이스, 함정들 |
+| 3 | 이미지, 매니페스트, 배포, 자동화, `just`, Bazel |
+| 4 | 계측: 구조화 로그, 메트릭, 트레이스, OpenTelemetry |
+| 5 | SigNoz: 로그 검색, 트레이스 연결, 적재 검증 |
 
-The deck is **offline and self-contained** — no network, no CDN, no build step. Dark and
-light themes both work. It is a normal HTML file, so it diffs in review like any other
-source file.
+덱은 **오프라인 단일 파일**이다 — 네트워크도, CDN 도, 빌드 단계도 없다. 다크·라이트
+테마 모두 동작한다. 평범한 HTML 파일이라 다른 소스 파일과 똑같이 리뷰에서 diff 된다.
 
-## Keeping it honest
+## 정확하게 유지하기
 
-The slides name real paths, real recipes, and real failure modes from this repository.
-When any of these change, the slide changes in the same commit:
+슬라이드는 이 저장소의 실제 경로·레시피·실패 사례를 이름으로 부른다. 아래가 바뀌면
+같은 커밋에서 슬라이드도 고친다.
 
-- `just` recipe names and arguments
-- paths under `platform/` and `tools/`
-- the `service.name` convention (`scenetrip-<module>`)
-- host port mappings
+- `just` 레시피 이름과 인자
+- `platform/`·`tools/` 아래 경로
+- `service.name` 규칙(`scenetrip-<모듈>`)
+- 호스트 포트 매핑
 
-A slide that teaches a command which no longer exists is worse than no slide — students
-lose trust in the whole deck. Run `just guides` and `just --list` against the deck before
-teaching from it.
+없어진 명령을 가르치는 슬라이드는 없는 것보다 나쁘다 — 학생이 덱 전체를 믿지 않게 된다.
+강의 전에 `just guides` 와 `just --list` 를 덱과 대조하라.

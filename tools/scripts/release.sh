@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Build and publish release artifacts.
-# Invoked by: just ci-release
+# 릴리스 산출물을 빌드·배포한다.
+# 호출: just ci-release
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-pending "release process not defined — see docs/ops/README.md"
+pending "릴리스 절차 미정의 — docs/ops/README.md 참조"

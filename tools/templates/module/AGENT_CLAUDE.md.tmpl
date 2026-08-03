@@ -1,30 +1,30 @@
-# CLAUDE.md — {{NAME}} agent module
+# CLAUDE.md — {{NAME}} 에이전트 모듈
 
-Module-local rules. These override the root `CLAUDE.md` for anything under `{{PATH}}`.
+이 모듈에만 적용되는 규칙. `{{PATH}}` 아래에서는 루트 `CLAUDE.md` 보다 우선한다.
 
-## Scope
+## 범위
 
-What this agent is responsible for, and explicitly what it is not.
+이 에이전트가 책임지는 것, 그리고 명시적으로 책임지지 않는 것.
 
-## Prompts
+## 프롬프트
 
-- Live in `{{PATH}}/prompts/` as versioned files — never inline string literals.
-- Referenced from Bazel targets via `data`.
-- A prompt change requires an eval run: `just agent-eval {{NAME}}`.
+- `{{PATH}}/prompts/` 에 버전 관리되는 파일로 둔다 — 인라인 문자열 금지.
+- Bazel 타깃의 `data` 로 참조한다.
+- 프롬프트를 바꾸면 평가를 함께 돌린다: `just agent-eval {{NAME}}`
 
-## Tools
+## 도구
 
-- Tool I/O schemas live in `contracts/schemas/`.
-- Both the caller and the implementation validate against the schema.
-- Model output is untrusted input: validate before use, never `eval`, never pass
-  unescaped to a shell, SQL query, or file path.
+- 도구 입출력 스키마는 `contracts/schemas/` 에 둔다.
+- 호출하는 쪽과 구현하는 쪽 모두 스키마로 검증한다.
+- 모델 출력은 신뢰할 수 없는 입력이다: 쓰기 전에 검증하고, `eval` 하지 않으며,
+  셸·SQL·파일 경로에 그대로 끼워 넣지 않는다.
 
-## Evaluation
+## 평가
 
-- Offline evals are tests: `//{{PATH}}:eval_test` (deterministic, fixtures only).
-- Live-model evals are tagged `integration` + `requires-network` and never gate CI.
-- Results are recorded in `docs/ai/`.
+- 오프라인 평가는 테스트다: `//{{PATH}}:eval_test` (결정적, 픽스처만 사용)
+- 실제 모델 평가는 `integration` + `requires-network` 태그를 달고 CI 를 막지 않는다.
+- 결과는 `docs/ai/` 에 기록한다.
 
-## Configuration
+## 설정
 
-Model IDs, temperature, and token limits are configuration, never hardcoded in logic.
+모델 ID, temperature, 토큰 한도는 설정이다. 로직에 하드코딩하지 않는다.

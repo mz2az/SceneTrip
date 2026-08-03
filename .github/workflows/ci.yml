@@ -1,5 +1,5 @@
-# Thin wrapper: check out, install just + bazelisk, call a just recipe.
-# Pipeline logic lives in tools/just/ci.just so `just ci` reproduces this locally.
+# 얇은 껍데기: 체크아웃하고 just·bazelisk 를 설치한 뒤 just 레시피를 호출한다.
+# 파이프라인 로직은 tools/just/ci.just 에 있어 `just ci` 로 로컬에서 그대로 재현된다.
 name: CI
 
 on:
@@ -20,23 +20,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install just
+      - name: just 설치
         uses: extractions/setup-just@v2
 
-      - name: Install bazelisk
+      - name: bazelisk 설치
         run: |
           curl -fsSLo /usr/local/bin/bazel \
             https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
           chmod +x /usr/local/bin/bazel
 
-      - name: Cache Bazel
+      - name: Bazel 캐시
         uses: actions/cache@v4
         with:
           path: ~/.cache/bazel
           key: bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}
           restore-keys: bazel-${{ runner.os }}-
 
-      - name: Verify
+      - name: 검증
         run: just ci-full
 
   security:
@@ -45,5 +45,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: extractions/setup-just@v2
-      - name: Scan
+      - name: 보안 점검
         run: just ci-security

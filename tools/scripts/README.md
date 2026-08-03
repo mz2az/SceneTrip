@@ -1,14 +1,15 @@
-# tools/scripts/ — script library
+# tools/scripts/ — 스크립트 모음
 
-Scripts invoked by just recipes. Never called directly by contributors.
+just 레시피가 호출하는 스크립트. 기여자가 직접 실행하지 않는다.
 
-## Conventions
+## 관례
 
-- `source _lib.sh` for `log`, `warn`, `die`, `have`, `pending`, and `REPO_ROOT`.
-- `set -euo pipefail` (inherited from `_lib.sh`).
-- Idempotent: safe to run twice.
-- No absolute paths; resolve everything from `REPO_ROOT`.
-- Scripts that gate CI must exit non-zero on failure and print why.
+- `source _lib.sh` 로 `log`·`warn`·`die`·`have`·`pending`·`REPO_ROOT` 와
+  Kubernetes 컨텍스트 가드를 얻는다.
+- `set -euo pipefail` (`_lib.sh` 에서 상속).
+- 멱등 — 두 번 실행해도 안전하다.
+- 절대 경로를 쓰지 않는다. 전부 `REPO_ROOT` 기준으로 해석한다.
+- CI 를 막는 스크립트는 실패 시 0 이 아닌 코드로 끝나고 이유를 출력한다.
 
-Scripts printing `pending: …` are deliberate placeholders for tooling that has not been
-chosen yet. They exit 0 so gates stay green, and each names what must be wired up.
+`pending: …` 을 출력하는 스크립트는 아직 도구를 정하지 않은 영역의 **의도적 자리표시자**다.
+게이트를 초록으로 유지하기 위해 0 으로 끝나며, 각자 무엇을 연결해야 하는지 밝힌다.

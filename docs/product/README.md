@@ -1,16 +1,16 @@
-# Product documentation
+# 제품 문서
 
-What SceneTrip is, who it serves, and what it must do.
+SceneTrip 이 무엇이고, 누구를 위한 것이며, 무엇을 해야 하는가.
 
-| Document | Purpose |
+| 문서 | 목적 |
 | --- | --- |
-| `vision.md` | the problem, the users, the bet |
-| `roadmap.md` | sequenced outcomes, not a dated Gantt chart |
-| `personas.md` | who we are building for |
-| `prd/<feature>.md` | per-feature requirements: problem, scope, success metrics, non-goals |
+| `vision.md` | 문제, 사용자, 우리가 거는 승부수 |
+| `roadmap.md` | 날짜가 박힌 간트가 아니라 순서를 갖춘 결과물 |
+| `personas.md` | 우리가 만들어 주는 대상 |
+| `prd/<기능>.md` | 기능별 요구사항: 문제, 범위, 성공 지표, 하지 않을 것 |
 
-## Writing a PRD
+## PRD 쓰는 법
 
-State the user problem before the solution. Every PRD declares explicit **non-goals** —
-scope creep is prevented at the spec, not in code review. Success is a measurable metric
-with a target, not "users are happy".
+해결책보다 사용자 문제를 먼저 쓴다. 모든 PRD 는 **하지 않을 것(non-goals)** 을 명시한다 —
+범위 확산은 코드 리뷰가 아니라 명세에서 막는 것이다. 성공은 "사용자가 만족한다"가 아니라
+목표값이 있는 측정 가능한 지표다.

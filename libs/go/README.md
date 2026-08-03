@@ -1,6 +1,5 @@
 # libs/go
 
-Go packages shared across backend services.
+여러 백엔드 서비스가 공유하는 Go 패키지.
 
-One directory per package. See [libs/README.md](../README.md) for the promotion rule
-and dependency direction.
+패키지 하나당 디렉터리 하나. 승격 규칙과 의존 방향은 [libs/README.md](../README.md) 참조.

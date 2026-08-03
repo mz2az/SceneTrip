@@ -1,5 +1,5 @@
 # tests/contract
 
-Verify that every producer and consumer honors the definitions in contracts/. These are fast and gate CI.
+모든 생산자와 소비자가 contracts/ 의 정의를 지키는지 검증한다. 빠르고 CI 를 막는다.
 
-See [tests/README.md](../README.md) for lane discipline and tagging rules.
+레인 규율과 태그 규칙은 [tests/README.md](../README.md) 참조.

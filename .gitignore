@@ -3,7 +3,7 @@
 .bazelrc.user
 user.bazelrc
 
-# --- secrets (never commit; .env.example files ARE committed) ------------------
+# --- 시크릿 (절대 커밋 금지. .env.example 은 커밋한다) --------------------------
 .env
 .env.*
 !.env.example
@@ -13,7 +13,7 @@ user.bazelrc
 credentials.json
 service-account*.json
 
-# --- language artifacts (Bazel owns real outputs; these are IDE/tool leftovers) -
+# --- 언어별 산출물 (진짜 결과물은 Bazel 이 소유. 아래는 IDE·도구 찌꺼기) ---------
 node_modules/
 __pycache__/
 *.py[cod]
@@ -24,7 +24,7 @@ build/
 *.egg-info/
 .tsbuildinfo
 
-# --- tooling caches ------------------------------------------------------------
+# --- 도구 캐시 -----------------------------------------------------------------
 .cache/
 coverage/
 *.lcov
@@ -40,7 +40,7 @@ coverage/
 !*.tfvars.example
 crash.log
 
-# --- editors / OS --------------------------------------------------------------
+# --- 에디터 / OS ---------------------------------------------------------------
 .DS_Store
 Thumbs.db
 .idea/
@@ -49,7 +49,7 @@ Thumbs.db
 !.vscode/settings.json
 !.vscode/extensions.json
 
-# --- local scratch -------------------------------------------------------------
+# --- 로컬 임시 파일 -------------------------------------------------------------
 /tmp/
 /scratch/
 *.local.*

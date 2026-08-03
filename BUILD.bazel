@@ -1,5 +1,5 @@
-# Root package: workspace-wide tooling targets only.
-# Application code never lives here — see AGENTS.md §2 for placement rules.
+# 루트 패키지: 워크스페이스 전역 도구 타깃만 둔다.
+# 애플리케이션 코드는 절대 여기 두지 않는다 — 배치 규칙은 AGENTS.md §2 참조.
 
 load("@buildifier_prebuilt//:rules.bzl", "buildifier")
 load("@gazelle//:def.bzl", "gazelle")
@@ -11,7 +11,7 @@ package(default_visibility = ["//visibility:public"])
 # gazelle:exclude third_party
 gazelle(name = "gazelle")
 
-# Rewrite BUILD files in place. Invoked by `just fmt`.
+# BUILD 파일을 제자리에서 정리한다. `just fmt` 가 호출한다.
 buildifier(
     name = "buildifier",
     exclude_patterns = ["./bazel-*/**"],
@@ -19,8 +19,8 @@ buildifier(
     mode = "fix",
 )
 
-# Fail on unformatted or lint-dirty BUILD files. Invoked by `just fmt-check` and
-# `just lint`, and therefore by `just check` and CI.
+# 포맷이 어긋나거나 린트를 통과하지 못한 BUILD 파일이 있으면 실패한다.
+# `just fmt-check` 와 `just lint` 가 호출하므로 `just check` 와 CI 도 거쳐 간다.
 buildifier(
     name = "buildifier_check",
     exclude_patterns = ["./bazel-*/**"],

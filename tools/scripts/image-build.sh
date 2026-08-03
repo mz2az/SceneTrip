@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
-# Build a module's container image and load it into the kind node.
-# Usage: image-build.sh <module-name> [tag]
-# Invoked by: just image
+# 모듈 컨테이너 이미지를 빌드해 kind 노드에 적재한다.
+# 사용법: image-build.sh <모듈이름> [태그]
+# 호출: just image
 #
-# The `kind load` step is not optional. kind nodes keep their own image store, so
-# an image that exists on the host is invisible to the cluster; the pod fails with
-# ErrImageNeverPull, or worse, silently keeps running the previous image.
+# kind load 는 선택이 아니다. kind 노드는 자기 이미지 저장소를 따로 쓰므로 호스트에만
+# 있는 이미지는 클러스터에서 보이지 않는다. 파드가 ErrImageNeverPull 로 멈추거나,
+# 더 나쁘게는 이전 이미지가 조용히 계속 돈다.
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
-cd "$REPO_ROOT" || die "cannot enter $REPO_ROOT"
+cd "$REPO_ROOT" || die "$REPO_ROOT 로 이동할 수 없습니다"
 
-MODULE="${1:?module name required, e.g. scene-api}"
+MODULE="${1:?모듈 이름이 필요합니다. 예: scene-api}"
 TAG="${2:-dev}"
 
 DIR=""
 for base in services apps agents; do
   [ -d "$base/$MODULE" ] && DIR="$base/$MODULE" && break
 done
-[ -n "$DIR" ] || die "module '$MODULE' not found under services/, apps/, or agents/"
-[ -f "$DIR/Dockerfile" ] || die "$DIR/Dockerfile does not exist — add one before building an image"
+[ -n "$DIR" ] || die "모듈 '$MODULE' 을 services/·apps/·agents/ 에서 찾을 수 없습니다"
+[ -f "$DIR/Dockerfile" ] || die "$DIR/Dockerfile 이 없습니다 — 이미지를 빌드하려면 먼저 추가하세요"
 
-log "building $MODULE:$TAG from $DIR"
+log "$DIR 에서 $MODULE:$TAG 빌드"
 docker build -t "$MODULE:$TAG" "$DIR"
 
-log "loading $MODULE:$TAG into kind node"
+log "$MODULE:$TAG 를 kind 노드에 적재"
 kind load docker-image "$MODULE:$TAG" --name "$CLUSTER_NAME"
 
-log "done — $MODULE:$TAG is available inside the cluster"
+log "완료 — $MODULE:$TAG 를 클러스터 안에서 쓸 수 있습니다"

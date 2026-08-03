@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Run `bazel test`, translating exit code 4 ("no test targets were found") into a
-# warning rather than a failure. An empty lane is a legitimate state while a module
-# is being scaffolded; a real test failure still fails the gate.
-# Invoked by: the test lanes in tools/just/test.just
+# `bazel test` 를 실행하되, 종료 코드 4("테스트 대상 없음")를 실패가 아니라 경고로 바꾼다.
+# 호출: tools/just/test.just 의 테스트 레인
+#
+# 모듈을 만들어 가는 중에 레인이 비어 있는 것은 정상 상태다.
+# 실제 테스트 실패는 그대로 게이트를 막는다.
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
-cd "$REPO_ROOT" || die "cannot enter $REPO_ROOT"
+cd "$REPO_ROOT" || die "$REPO_ROOT 로 이동할 수 없습니다"
 
 set +e
 "${BAZEL:-bazel}" test "$@"
@@ -13,7 +14,7 @@ code=$?
 set -e
 
 if [ "$code" -eq 4 ]; then
-  warn "no test targets matched: $*"
+  warn "일치하는 테스트 대상이 없습니다: $*"
   exit 0
 fi
 exit "$code"

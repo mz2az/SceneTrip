@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Print SigNoz log ingestion counts on an interval. Ctrl+C to stop.
-# Usage: signoz-watch.sh [service.name] [interval-seconds]
-# Invoked by: just signoz-watch
+# SigNoz 로그 적재량을 주기적으로 출력한다. Ctrl+C 로 중지.
+# 사용법: signoz-watch.sh [service.name] [간격초]
+# 호출: just signoz-watch
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 require_kind_context
@@ -10,7 +10,7 @@ SERVICE="${1:-scenetrip-scene-api}"
 INTERVAL="${2:-5}"
 CH=chi-signoz-telemetrystore-clickhouse-cluster-0-0-0
 
-echo "service.name = $SERVICE   refresh = ${INTERVAL}s   (Ctrl+C to stop)"
+echo "service.name = $SERVICE   갱신 = ${INTERVAL}초   (Ctrl+C 로 중지)"
 while true; do
   kubectl exec -n "$SIGNOZ_NS" "$CH" -- clickhouse-client --query \
     "SELECT formatDateTime(now(),'%H:%M:%S') AS time,

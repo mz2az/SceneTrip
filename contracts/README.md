@@ -1,35 +1,33 @@
-# contracts/ — interface source of truth
+# contracts/ — 인터페이스의 정본
 
-Every wire interface in SceneTrip is defined here, by hand, before it is implemented.
-Generated stubs and clients are Bazel build outputs — they are never committed.
+SceneTrip 의 모든 통신 인터페이스는 여기서, 손으로, 구현보다 **먼저** 정의된다.
+생성된 스텁과 클라이언트는 Bazel 빌드 산출물이며 커밋하지 않는다.
 
-| Directory | Contents |
+| 디렉터리 | 내용 |
 | --- | --- |
-| `proto/` | gRPC services and protobuf messages |
-| `openapi/` | REST API specifications |
-| `asyncapi/` | event and stream specifications |
-| `schemas/` | JSON Schema / Avro, including AI agent tool schemas |
+| `proto/` | gRPC 서비스와 protobuf 메시지 |
+| `openapi/` | REST API 명세 |
+| `asyncapi/` | 이벤트·스트림 명세 |
+| `schemas/` | JSON Schema / Avro — AI 에이전트 도구 스키마 포함 |
 
-## The contract-first rule
+## 계약 우선 규칙
 
-When a wire format changes:
+통신 형식이 바뀔 때는:
 
 ```
-1. edit contracts/          2. just gen          3. implement against the stubs
+1. contracts/ 수정      2. just gen         3. 생성된 스텁에 맞춰 구현
 ```
 
-Never the reverse. An implementation that drifts from its contract is a defect in the
-implementation.
+역순은 없다. 계약에서 벗어난 구현은 **구현 쪽의 결함**이다.
 
-## Compatibility
+## 호환성
 
-- Breaking changes require a new version directory (`scene/v1` → `scene/v2`), never an
-  edit in place.
-- Removing or renumbering a protobuf field is breaking. Reserve, do not reuse.
-- Every contract change is validated by `just test-contract`.
+- 파괴적 변경은 새 버전 디렉터리를 만든다(`scene/v1` → `scene/v2`). 제자리 수정은 금지.
+- protobuf 필드를 지우거나 번호를 재사용하는 것은 파괴적 변경이다. `reserved` 를 쓴다.
+- 모든 계약 변경은 `just test-contract` 로 검증한다.
 
 ```bash
-just new-contract <kind> <name>
+just new-contract <종류> <이름>
 just gen
 just test-contract
 ```

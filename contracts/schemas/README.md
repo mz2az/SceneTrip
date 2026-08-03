@@ -1,7 +1,7 @@
 # contracts/schemas
 
-JSON Schema and Avro definitions, including **AI agent tool schemas**.
+JSON Schema 와 Avro 정의. **AI 에이전트 도구 스키마**를 포함한다.
 
-Agent tools are a wire interface like any other: the schema is defined here, the agent
-validates its arguments against it, and the implementing service validates again on
-receipt. Never trust a model to produce a well-formed payload.
+에이전트 도구도 다른 것과 똑같은 통신 인터페이스다 — 스키마를 여기 정의하고,
+에이전트가 인자를 검증하고, 받는 서비스가 한 번 더 검증한다.
+모델이 형식에 맞는 페이로드를 만들어 줄 것이라고 믿지 않는다.

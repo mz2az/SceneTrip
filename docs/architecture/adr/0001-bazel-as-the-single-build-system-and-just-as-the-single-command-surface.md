@@ -1,84 +1,82 @@
 ---
 number: 0001
-title: Bazel as the single build system and just as the single command surface
+title: Bazel 을 유일한 빌드 시스템으로, just 를 유일한 명령 창구로 삼는다
 status: accepted
 date: 2026-08-04
 supersedes:
 superseded-by:
 ---
 
-# ADR 0001: Bazel as the single build system and just as the single command surface
+# ADR 0001: Bazel 을 유일한 빌드 시스템으로, just 를 유일한 명령 창구로 삼는다
 
-## Context
+## 배경
 
-SceneTrip is a monorepo holding multiple backend services, multiple frontend
-applications, and multiple AI agent modules, alongside all planning, infrastructure, and
-operational artifacts. Much of the development will be carried out by AI agents rather
-than by a person typing commands.
+SceneTrip 은 여러 백엔드 서비스, 여러 프론트엔드 앱, 여러 AI 에이전트 모듈을 담고,
+기획·인프라·운영 산출물까지 함께 두는 모노레포다. 그리고 개발의 상당 부분을 사람이
+직접 명령을 치는 대신 **AI 에이전트가 수행**한다.
 
-That combination creates two specific pressures:
+이 조합이 만드는 압력은 두 가지다.
 
-1. **Polyglot growth.** Go, TypeScript, and Python modules will coexist. Per-language
-   build tooling multiplies: each new module would otherwise bring its own build command,
-   its own test runner, its own caching story, and its own CI job.
-2. **Machine-operable commands.** An AI agent cannot reliably infer that this service
-   uses `make test` while that app uses `pnpm test:ci`. Every variation is a chance to run
-   the wrong thing, or to report success from a command that verified nothing.
+1. **언어가 늘어난다.** Go, TypeScript, Python 이 공존한다. 언어별 빌드 도구를 그대로
+   두면 모듈이 하나 늘 때마다 빌드 명령, 테스트 러너, 캐시 전략, CI 잡이 함께 늘어난다.
+2. **명령이 기계가 다룰 수 있어야 한다.** AI 에이전트는 "이 서비스는 `make test`,
+   저 앱은 `pnpm test:ci`"를 추론해 낼 수 없다. 변형 하나하나가 잘못된 명령을 실행하거나,
+   아무것도 검증하지 않은 명령의 성공을 보고할 기회가 된다.
 
-## Decision
+## 결정
 
-We will use **Bazel as the only build system** and **`just` as the only command surface**.
+**Bazel 을 유일한 빌드 시스템으로, `just` 를 유일한 명령 창구로 쓴다.**
 
-- Every build, test, run, package, and image step is a Bazel target. No language-native
-  build invocation is authoritative.
-- Every command a human or agent runs is a `just` recipe. Raw `bazel` invocations do not
-  appear in documentation or CI workflows.
-- CI workflows are thin wrappers that install `just` and `bazelisk` and call a recipe, so
-  `just ci` reproduces the pipeline locally.
+- 모든 빌드·테스트·실행·패키징·이미지 생성은 Bazel 타깃이다. 언어별 빌드 호출은
+  정본이 아니다.
+- 사람이든 에이전트든 실행하는 모든 명령은 `just` 레시피다. 날것의 `bazel` 호출은
+  문서에도 CI 워크플로에도 나타나지 않는다.
+- CI 워크플로는 얇은 껍데기다 — `just` 와 `bazelisk` 를 설치하고 레시피를 호출한다.
+  그래서 `just ci` 가 파이프라인을 로컬에서 그대로 재현한다.
 
-## Alternatives considered
+## 검토한 대안
 
-| Option | Why not |
+| 선택지 | 채택하지 않은 이유 |
 | --- | --- |
-| Per-language native tooling with a task runner on top | No shared cache, no cross-language dependency graph, no way to compute what a change actually affects. Cost grows with every language added. |
-| Nx or Turborepo | Strong for JS/TS monorepos, weak for Go and Python in the same tree. We expect all three from the start. |
-| Make instead of just | Make's target model fights non-file tasks, and its variable and shell semantics are a persistent source of subtle bugs. `just` has argument passing, recipe grouping, and `--list` discovery — which is what makes the surface self-describing to an agent. |
-| Bazel with no command wrapper | Bazel's flag surface is large and easy to get subtly wrong. Wrapping it means the correct flags for a lane are defined once and used identically by every developer and by CI. |
+| 언어별 네이티브 도구 + 그 위에 태스크 러너 | 캐시가 공유되지 않고, 언어를 가로지르는 의존성 그래프가 없으며, 변경이 무엇에 영향을 주는지 계산할 수 없다. 언어가 늘 때마다 비용이 커진다. |
+| Nx 또는 Turborepo | JS/TS 모노레포에는 강하지만 같은 트리의 Go·Python 에는 약하다. 우리는 처음부터 셋 다 예상한다. |
+| just 대신 Make | Make 의 타깃 모델은 파일이 아닌 작업과 잘 맞지 않고, 변수·셸 의미론이 미묘한 버그를 꾸준히 만든다. `just` 는 인자 전달, 레시피 그룹, `--list` 발견성을 제공하며 — 바로 그 점이 명령 목록을 에이전트가 스스로 읽을 수 있게 만든다. |
+| Bazel 만 쓰고 명령 래퍼는 두지 않기 | Bazel 의 플래그 표면은 넓고 미묘하게 틀리기 쉽다. 감싸 두면 레인별 올바른 플래그를 한 번만 정의하고 모든 개발자와 CI 가 똑같이 쓴다. |
 
-## Consequences
+## 결과
 
-**Positive**
+**좋아지는 것**
 
-- One dependency graph across all languages; correct incremental builds and remote
-  caching become available to every module at once.
-- `just --list` is a self-describing command inventory — an agent discovers what it can do
-  without reading build files.
-- Local and CI runs are identical by construction, so "green locally, red in CI" becomes a
-  bug in a recipe rather than a fact of life.
-- Test lanes are defined by Bazel tags, so a mis-tagged test is a reviewable defect rather
-  than an invisible one.
+- 모든 언어를 관통하는 단일 의존성 그래프. 정확한 증분 빌드와 원격 캐시의 혜택이
+  모든 모듈에 한꺼번에 열린다.
+- `just --list` 가 스스로를 설명하는 명령 목록이 된다 — 에이전트가 빌드 파일을 읽지
+  않고도 무엇을 할 수 있는지 안다.
+- 로컬과 CI 가 구조적으로 같은 명령을 돈다. "로컬은 초록, CI 는 빨강"이 어쩔 수 없는
+  현상이 아니라 레시피의 버그가 된다.
+- 테스트 레인이 Bazel 태그로 정의되므로, 태그를 잘못 단 테스트는 눈에 보이지 않는
+  문제가 아니라 리뷰 가능한 결함이 된다.
 
-**Negative / accepted costs**
+**나빠지는 것 / 감수하는 비용**
 
-- Bazel has a real learning curve, and adding a new language means writing rules rather
-  than running an installer.
-- Tooling that assumes native layouts (some IDE integrations, some third-party CLIs) needs
-  adapter work.
-- Contributors must add a `just` recipe rather than running a tool ad hoc — deliberate
-  friction, and the point of the decision.
+- Bazel 은 학습 곡선이 실재하고, 언어를 추가하려면 설치 명령 한 줄이 아니라 규칙을
+  써야 한다.
+- 네이티브 레이아웃을 전제하는 도구(일부 IDE 연동, 일부 서드파티 CLI)는 어댑터 작업이
+  필요하다.
+- 기여자는 도구를 즉흥적으로 실행하는 대신 `just` 레시피를 추가해야 한다 — 의도한
+  마찰이며, 이 결정의 요점이다.
 
-**Follow-up work**
+**후속 작업**
 
-- Enable a shared remote cache; the config block is stubbed in `.bazelrc`.
-- Add language rule sets to `MODULE.bazel` as the first module of each language lands.
-- Replace the placeholder scripts in `tools/scripts/` (those printing `pending:`) as the
-  corresponding tooling is chosen.
+- 공용 원격 캐시 활성화. 설정 블록은 `.bazelrc` 에 주석으로 준비돼 있다.
+- 각 언어의 첫 모듈이 들어올 때 `MODULE.bazel` 에 규칙 세트 추가.
+- `tools/scripts/` 의 자리표시자 스크립트(`미구현:` 을 출력하는 것들)를 해당 도구가
+  정해지는 대로 교체.
 
-## Verification
+## 검증
 
-This decision is working if a new module can be built and tested by someone who knows only
-`just build` and `just test`; if CI and local runs disagree only when a recipe is wrong;
-and if adding the third language does not require a second build system.
+`just build` 와 `just test` 만 아는 사람이 새 모듈을 빌드하고 테스트할 수 있고,
+CI 와 로컬이 어긋나는 경우가 레시피가 틀렸을 때뿐이며, 세 번째 언어를 추가할 때
+두 번째 빌드 시스템이 필요하지 않다면 이 결정은 작동하고 있는 것이다.
 
-We revisit if Bazel's cost of onboarding a new language exceeds the cost of running a
-separate build system for it — measured concretely, not felt.
+Bazel 로 새 언어를 온보딩하는 비용이 그 언어만 별도 빌드 시스템으로 돌리는 비용을
+넘어서면 다시 논의한다 — 느낌이 아니라 실측으로.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Scaffold a new contract definition.
-# Invoked by: just new-contract
+# 새 계약 정의를 생성한다.
+# 호출: just new-contract
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-pending "contract scaffolding not implemented — add templates under tools/templates/contract/"
+pending "계약 스캐폴딩 미구현 — tools/templates/contract/ 에 템플릿을 추가하세요"

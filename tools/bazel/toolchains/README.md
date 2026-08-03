@@ -1,7 +1,6 @@
 # tools/bazel/toolchains
 
-Hermetic toolchain declarations. Compilers, interpreters, and SDKs are downloaded and
-pinned by Bazel — never taken from the host.
+격리된 툴체인 선언. 컴파일러·인터프리터·SDK 는 Bazel 이 내려받아 버전을 고정한다 —
+호스트에 설치된 것을 가져다 쓰지 않는다.
 
-If a build succeeds only because something happens to be installed on the machine, the
-toolchain is missing from this directory.
+머신에 뭔가 깔려 있어서 빌드가 성공하고 있다면, 그 툴체인이 이 디렉터리에 빠진 것이다.

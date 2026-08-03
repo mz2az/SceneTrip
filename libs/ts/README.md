@@ -1,6 +1,5 @@
 # libs/ts
 
-TypeScript packages shared across frontend applications.
+여러 프론트엔드 애플리케이션이 공유하는 TypeScript 패키지.
 
-One directory per package. See [libs/README.md](../README.md) for the promotion rule
-and dependency direction.
+패키지 하나당 디렉터리 하나. 승격 규칙과 의존 방향은 [libs/README.md](../README.md) 참조.

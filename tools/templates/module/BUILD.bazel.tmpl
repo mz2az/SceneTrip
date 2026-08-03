@@ -1,16 +1,16 @@
-# Targets for {{PATH}}.
+# {{PATH}} 의 타깃.
 #
-# Follow the naming convention in AGENTS.md §4.1 — predictable labels let both people
-# and AI agents construct a target without reading this file first:
+# AGENTS.md §4.1 의 이름 규칙을 따른다 — 라벨을 예측할 수 있어야 사람도 AI 도
+# 이 파일을 먼저 읽지 않고 타깃을 조립할 수 있다.
 #
-#   :{{NAME}}           primary library for this module
-#   :bin                executable entry point
-#   :unit_test          fast and hermetic          (tags = ["unit"])
-#   :integration_test   needs external fixtures    (tags = ["integration"])
-#   :image              OCI container image
-#   :push               registry push              (tags = ["manual"])
+#   :{{NAME}}           이 모듈의 주 라이브러리
+#   :bin                실행 진입점
+#   :unit_test          빠르고 격리됨          (tags = ["unit"])
+#   :integration_test   외부 픽스처 필요        (tags = ["integration"])
+#   :image              OCI 컨테이너 이미지
+#   :push               레지스트리 푸시        (tags = ["manual"])
 #
-# Replace the placeholder below with real {{LANG}} rules, then run:
+# 아래 자리표시자를 실제 {{LANG}} 규칙으로 바꾼 뒤 실행:
 #   just gen && just build-module {{PATH}}
 
 package(default_visibility = ["//visibility:public"])

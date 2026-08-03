@@ -1,26 +1,26 @@
-# Operations documentation
+# 운영 문서
 
-| Document | Purpose |
+| 문서 | 목적 |
 | --- | --- |
-| `runbooks/<service>.md` | how to operate and recover each service |
-| `slo.md` | service level objectives and error budgets |
-| `oncall.md` | rotation, escalation, severity definitions |
-| `deployment.md` | how a change reaches production, and how to roll it back |
-| `incidents/<date>-<slug>.md` | postmortems |
+| `runbooks/<서비스>.md` | 서비스별 운영과 복구 방법 |
+| `slo.md` | 서비스 수준 목표와 오류 예산 |
+| `oncall.md` | 로테이션, 에스컬레이션, 심각도 정의 |
+| `deployment.md` | 변경이 운영에 도달하는 경로와 되돌리는 방법 |
+| `incidents/<날짜>-<슬러그>.md` | 장애 회고 |
 
-## Runbook requirements
+## 런북 요건
 
-Every service has a runbook before it reaches production, covering: what it does, its
-dependencies, its alerts and what each one means, the first three diagnostic steps, how
-to roll back, and who to escalate to.
+모든 서비스는 운영에 올라가기 전에 런북을 갖는다. 담고 있어야 할 것: 무슨 일을 하는지,
+무엇에 의존하는지, 어떤 알림이 있고 각각이 무슨 뜻인지, 최초 진단 3단계, 롤백 방법,
+에스컬레이션 대상.
 
-## Postmortems
+## 장애 회고
 
-Blameless, written within 48 hours, with a timeline, contributing factors, and action
-items that have owners and dates. Action items without an owner are not action items.
+책임 추궁 없이, 48시간 안에, 타임라인·기여 요인·조치 항목과 함께 쓴다.
+담당자와 기한이 없는 조치 항목은 조치 항목이 아니다.
 
 ```bash
-just tf-plan <env>            # read-only
-just deploy <module> <env>    # confirm-gated
-just rollback <module> <env>  # confirm-gated
+just tf-plan <env>            # 읽기 전용
+just deploy <모듈> <env>       # 확인 절차 있음
+just rollback <모듈> <env>     # 확인 절차 있음
 ```

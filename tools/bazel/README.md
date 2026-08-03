@@ -1,10 +1,10 @@
-# tools/bazel/ — Bazel extensions
+# tools/bazel/ — Bazel 확장
 
-| Directory | Contents |
+| 디렉터리 | 내용 |
 | --- | --- |
-| `defs/` | reusable Starlark macros and rules shared across modules |
-| `toolchains/` | hermetic toolchain declarations and registrations |
+| `defs/` | 모듈들이 공유하는 재사용 Starlark 매크로와 규칙 |
+| `toolchains/` | 격리된 툴체인 선언과 등록 |
 
-Write a macro here rather than copy-pasting rule invocations into a third `BUILD.bazel`.
-Macros keep target naming and tagging consistent, which is what makes target labels
-predictable across the repo (AGENTS.md §4.1).
+세 번째 `BUILD.bazel` 에 같은 규칙을 복사해 넣는 대신 여기 매크로를 쓴다. 매크로가
+타깃 이름과 태그를 일정하게 유지하고, 그래야 저장소 전체에서 타깃 라벨을 예측할 수
+있다(AGENTS.md §4.1).

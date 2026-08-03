@@ -1,36 +1,36 @@
-# agents/ — AI agent modules
+# agents/ — AI 에이전트 모듈
 
-One directory per agent runtime: an LLM-driven component with prompts, tools, and an
-orchestration graph. Multiple agents are expected.
+에이전트 런타임 하나당 디렉터리 하나. 프롬프트·도구·오케스트레이션 그래프를 갖는
+LLM 기반 구성요소다. 에이전트도 여러 개가 생기는 것을 전제한다.
 
 ```
-agents/<name>/
-├── BUILD.bazel   required
-├── README.md     required — capability, tools, models, guardrails
-├── CLAUDE.md     module-local rules for AI contributors
-├── prompts/      versioned prompt files (never inline strings)
+agents/<이름>/
+├── BUILD.bazel   필수
+├── README.md     필수 — 능력, 도구, 모델, 가드레일
+├── CLAUDE.md     이 모듈에서만 적용되는 AI 기여자용 규칙
+├── prompts/      버전 관리되는 프롬프트 파일 (인라인 문자열 금지)
 ├── src/
-├── evals/        evaluation datasets and scenarios
+├── evals/        평가 데이터셋과 시나리오
 └── tests/
 ```
 
-## Rules
+## 규칙
 
-- **Prompts are files**, versioned and referenced as Bazel `data`.
-- **Tool I/O is schema-defined** in `contracts/schemas/` and validated on both sides.
-- **Model IDs and parameters are configuration**, never hardcoded in logic.
-- **LLM output is untrusted input.** Validate before use. Never `eval` it; never
-  interpolate it into a shell command, SQL query, or file path.
-- **An agent never touches a database directly** — it calls a service.
-- **Evals are tests.** Offline evals are deterministic and gate CI; live-model evals are
-  tagged `requires-network` and run deliberately.
+- **프롬프트는 파일이다.** 버전 관리하고 Bazel `data` 로 참조한다.
+- **도구 입출력은 스키마로 정의한다.** `contracts/schemas/` 에 두고 양쪽에서 검증한다.
+- **모델 ID 와 파라미터는 설정이다.** 로직에 하드코딩하지 않는다.
+- **LLM 출력은 신뢰할 수 없는 입력이다.** 쓰기 전에 검증하고, `eval` 하지 않으며,
+  셸 명령·SQL 질의·파일 경로에 그대로 끼워 넣지 않는다.
+- **에이전트는 데이터베이스를 직접 만지지 않는다** — 서비스를 호출한다.
+- **평가(eval)는 테스트다.** 오프라인 평가는 결정적이며 CI 를 막는다. 실제 모델 평가는
+  `requires-network` 태그를 달고 의도적으로만 실행한다.
 
-## Commands
+## 명령
 
 ```bash
-just new-agent <name> [lang]
-just agent-run  <name> -- <args>
-just agent-eval <name>            # offline, deterministic
-just agent-eval-live <name>       # live model, costs money, [confirm]-gated
+just new-agent <이름> [언어]
+just agent-run  <이름> -- <인자>
+just agent-eval <이름>            # 오프라인, 결정적
+just agent-eval-live <이름>       # 실제 모델, 비용 발생, 확인 절차 있음
 just agent-lint-prompts
 ```

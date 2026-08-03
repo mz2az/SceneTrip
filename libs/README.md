@@ -1,23 +1,23 @@
-# libs/ — shared libraries
+# libs/ — 공유 라이브러리
 
-Code imported by two or more modules. Grouped by language so Bazel toolchains and
-Gazelle rules stay simple.
+둘 이상의 모듈이 import 하는 코드. Bazel 툴체인과 Gazelle 규칙이 단순해지도록
+언어별로 묶는다.
 
-| Directory | Contents |
+| 디렉터리 | 내용 |
 | --- | --- |
-| `libs/go/` | Go packages shared by services |
-| `libs/python/` | Python packages shared by services and agents |
-| `libs/ts/` | TypeScript packages shared by apps |
-| `libs/proto/` | shared Bazel proto libraries built from `contracts/proto` |
+| `libs/go/` | 여러 서비스가 공유하는 Go 패키지 |
+| `libs/python/` | 서비스와 에이전트가 공유하는 Python 패키지 |
+| `libs/ts/` | 여러 앱이 공유하는 TypeScript 패키지 |
+| `libs/proto/` | `contracts/proto` 로부터 만든 공용 Bazel proto 라이브러리 |
 
-## Rules
+## 규칙
 
-- **Promotion, not duplication.** The moment a utility is needed by a second module, it
-  moves here — copying it is a defect.
-- A library has no knowledge of any specific service, app, or agent.
-- A library never reaches back into `services/`, `apps/`, or `agents/`.
-- Every library has tests. A library with no tests does not get imported.
+- **복제가 아니라 승격.** 두 번째 모듈이 어떤 유틸리티를 필요로 하는 순간 이곳으로
+  옮긴다 — 복사하는 것은 결함이다.
+- 라이브러리는 특정 서비스·앱·에이전트를 알지 못한다.
+- 라이브러리는 `services/`·`apps/`·`agents/` 를 거꾸로 참조하지 않는다.
+- 모든 라이브러리에 테스트가 있다. 테스트 없는 라이브러리는 import 대상이 아니다.
 
 ```bash
-just new-lib <lang> <name>
+just new-lib <언어> <이름>
 ```
