@@ -66,10 +66,9 @@ Bazel이 "빌드할 수 있는 대상 하나"를 부르는 이름입니다. 예�
 
 ### just / justfile / 레시피(recipe)
 
-**just는 명령어를 실행해주는 도구**입니다. Bazel 명령은 길고 복잡해질 수 있어서
-(`bazel test //services/scene-api:unit_test --test_output=all ...` 같은 식),
-이 저장소는 그런 긴 명령을 짧은 이름으로 감싸서 씁니다. 예를 들어 `just test`라고만
-치면 됩니다.
+**just는 명령어를 실행해주는 도구**입니다. Bazel을 직접 쓰려면 대상 이름과 여러 플래그를
+길게 붙여야 하고, 상황마다 붙일 플래그가 달라 틀리기 쉽습니다. 이 저장소는 그런 긴 명령을
+짧은 이름으로 감싸서 씁니다. 예를 들어 `just test`라고만 치면 됩니다.
 
 - **justfile**: 이 짧은 명령들이 정의되어 있는 설정 파일. 저장소 루트에 있습니다.
 - **레시피(recipe)**: justfile 안에 정의된 명령 하나하나. `just test`, `just build`
