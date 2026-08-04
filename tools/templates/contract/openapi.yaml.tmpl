@@ -1,0 +1,42 @@
+openapi: 3.1.0
+
+# {{NAME}} 의 REST 계약. 이 파일이 정본이고 핸들러가 여기를 따라간다.
+#
+# 규칙 (contracts/README.md · contracts/openapi/README.md):
+#   - 손으로 쓴다. 구현에서 역생성하지 않는다.
+#   - iOS·Android 클라이언트는 이 파일로부터 생성된다. 앱이 직접 쓰지 않는다.
+#   - 파괴적 변경은 메이저 버전을 올리고 새 파일로 낸다 — 제자리 수정 금지.
+
+info:
+  title: {{NAME}}
+  version: 1.0.0
+  description: |
+    TODO: 이 API 가 무엇을 책임지는지 한 문단으로.
+
+servers:
+  - url: http://localhost:8080/v1
+    description: 로컬 개발
+
+paths:
+  /TODO:
+    get:
+      operationId: todo
+      summary: TODO
+      responses:
+        "200":
+          description: TODO
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
