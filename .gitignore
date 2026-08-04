@@ -12,9 +12,11 @@ user.bazelrc
 *.p12
 credentials.json
 service-account*.json
+kubeconfig
+kubeconfig.*
 
 # --- 언어별 산출물 (진짜 결과물은 Bazel 이 소유. 아래는 IDE·도구 찌꺼기) ---------
-node_modules/
+# Python (agents/, libs/python/)
 __pycache__/
 *.py[cod]
 .venv/
@@ -22,7 +24,30 @@ venv/
 dist/
 build/
 *.egg-info/
-.tsbuildinfo
+
+# Java / Kotlin (services/, apps/ Android) — Gradle·IntelliJ 가 남기는 찌꺼기
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+*.iml
+*.hprof
+captures/
+
+# Android
+*.apk
+*.aab
+*.dex
+.cxx/
+
+# Swift / Xcode (apps/ iOS)
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+*.xcscmblueprint
+*.moved-aside
+.swiftpm/
+Pods/
 
 # --- 도구 캐시 -----------------------------------------------------------------
 .cache/

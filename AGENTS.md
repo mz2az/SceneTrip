@@ -176,17 +176,31 @@ Tags are how `just` slices the graph. Apply them or your test will run in the wr
   Kotlin/Android, `requirements.txt` for Python agents, `Package.swift`/`Package.resolved` for
   Swift iOS libs) exist to feed the Bazel extensions and to keep IDEs working — they are **inputs
   to Bazel**, never a parallel build path.
-- After changing any dependency manifest: `just gen` (re-runs Maven/pip/SwiftPM resolution), then
-  `just build`. Commit the resulting lockfile changes in the same commit.
+- After changing any dependency declaration: `just deps-update`, then `just build`. Commit the
+  resulting `MODULE.bazel.lock` diff in the same commit.
+- Apple rules (`rules_apple`, `rules_swift`, `apple_support`) stay commented out until the first
+  iOS module lands. Declaring them on a machine without the full Xcode app crashes the entire
+  build, not just the iOS targets.
 
-### 4.5 BUILD file generation
+### 4.5 BUILD files are hand-written
 
-Run `just gen` to regenerate BUILD files where Gazelle supports the language. Gazelle's coverage
-is strongest for Go — this repo uses it only to drive the tool itself (§ MODULE.bazel), not for
-application code. JVM (Java/Kotlin), Swift, and proto BUILD files are **hand-maintained**: when
-you add a source file, add it to the target's `srcs` in the same edit. Hand-written targets that
-do come from a generator must be preserved with `# keep` comments. Never hand-edit a generated
-section.
+There is no BUILD file generator in this repo **yet**. Write `BUILD.bazel` by hand: when you add a
+source file, add it to the target's `srcs` in the same edit. Follow the target naming in §4.1 so
+labels stay predictable without reading the file first. `just gen` covers only contract-derived
+artifacts (proto stubs, API clients, mocks) — never BUILD files.
+
+Gazelle, the usual choice, ships only Go and proto natively; every other language needs a separate
+extension. Those extensions do exist, so this is "not yet", not "impossible" — it was removed
+because the repo has zero modules today, each extension is its own `bazel_dep` plus config, and the
+gazelle binary drags in `rules_go` for no benefit. Add the matching extension when a language's
+first module lands:
+
+| Language | Extension |
+| --- | --- |
+| Java | `bazel-contrib/rules_jvm` → `java/gazelle` |
+| Swift | `cgrindel/rules_swift_package_manager` → `swift_gazelle_plugin` |
+| Python | `rules_python_gazelle_plugin` |
+| Kotlin | **none usable.** Aspect's Kotlin plugin is self-declared EXPERIMENTAL and emits only `kt_jvm_library`/`kt_jvm_binary`. Our Kotlin is Android, and Gazelle has no Android extension — `android_library`/`android_binary` stay hand-written. |
 
 ---
 
@@ -207,13 +221,15 @@ recipe grouped by area.
 | `just run <target> [args]` | run a binary target |
 | `just fmt` | format everything (code, BUILD files, docs) |
 | `just lint` | all linters + static analysis |
-| `just gen` | regenerate BUILD files, protos, clients, mocks |
+| `just gen` | regenerate contract-derived code (proto stubs, clients, mocks) |
+| `just deps-update` | refresh `MODULE.bazel.lock` after editing `MODULE.bazel` |
 | `just check` | **pre-PR gate**: fmt-check + lint + build + test |
 | `just ci` | exactly what CI runs |
 | `just clean` | drop build outputs |
-| `just new-service <name>` | scaffold a backend service |
-| `just new-app <name>` | scaffold a frontend app |
-| `just new-agent <name>` | scaffold an AI agent module |
+| `just new-service <name>` | scaffold a Spring Boot backend service (Java) |
+| `just new-app-ios <name>` | scaffold a native iOS app (Swift) |
+| `just new-app-android <name>` | scaffold a native Android app (Kotlin) |
+| `just new-agent <name>` | scaffold an AI agent module (Python) |
 
 ### 5.2 Rules for adding commands
 
@@ -250,7 +266,7 @@ A change is done only when **all** of these hold:
 
 - [ ] `just check` passes locally
 - [ ] New/changed behavior is covered by a test in the correct lane
-- [ ] `BUILD.bazel` files updated and `just gen` produces no diff
+- [ ] `BUILD.bazel` files hand-updated for every added/removed source file
 - [ ] Contracts updated before implementation when the wire format changed
 - [ ] Module `README.md` reflects reality
 - [ ] No secrets, no absolute paths, no debug prints, no `TODO` without a tracking link
@@ -395,7 +411,7 @@ of another task.
 - Running `./gradlew build` / `xcodebuild` / `pytest` as the authoritative build or test step.
 - Adding a command to CI or docs without a corresponding `just` recipe.
 - Adding a source file without updating `BUILD.bazel`.
-- Hand-editing generated code or generated BUILD sections.
+- Hand-editing generated code (proto stubs, API clients) instead of the contract it came from.
 - Importing across module boundaries instead of via `libs/` or `contracts/`.
 - Creating a new top-level directory instead of using the placement table in §2.
 - Writing implementation before the contract when the wire format changes.

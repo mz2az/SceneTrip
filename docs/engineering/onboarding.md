@@ -96,13 +96,15 @@ services/scene-api/
 추가된다 — 지금은 전부 주석 상태다. 새 모듈을 만들기 전에 `MODULE.bazel`을 열어 필요한
 블록이 이미 활성화돼 있는지 확인한다.
 
-**알아둘 것 두 가지:**
+**알아둘 것 하나:**
 
-- `MODULE.bazel`의 `rules_go`/`gazelle` 의존성은 Gazelle 바이너리 자체가 Go로 만들어져
-  있어서 있는 것이다. **이 저장소에 Go 애플리케이션 코드는 없다.**
-- Gazelle의 BUILD 파일 자동 생성은 Go 기준으로 가장 성숙하고 JVM/Swift는 커버하지 않는다.
-  즉 `services/`·`apps/` 모듈의 `BUILD.bazel`은 당분간 **손으로 관리**한다 — 소스 파일을
-  추가하면 그 자리에서 바로 `srcs`에 넣는다.
+- **BUILD 파일 자동 생성기는 아직 없다.** 모든 `BUILD.bazel` 은 **손으로 관리**한다 —
+  소스 파일을 추가하면 그 자리에서 바로 `srcs` 에 넣는다.
+  흔히 쓰는 Gazelle 은 Go·proto 만 내장이고 다른 언어는 확장을 따로 붙이는 구조다.
+  Java·Swift·Python 은 쓸 만한 확장이 있지만, 모듈이 아직 하나도 없어서 붙일 이유가
+  없다 — 첫 모듈이 생길 때 그 언어 것만 붙인다(후보는 `MODULE.bazel` 주석 참고).
+  **Kotlin 만은 예외로, 당분간 방법이 없다**: 쓸 수 있는 플러그인이 실험 단계인 데다
+  Android 규칙(`android_library` 등)을 만들어 주지 못한다.
 
 ## 6. 격리(hermeticity) 원칙과 딱 하나의 예외
 
@@ -151,13 +153,13 @@ Linux 원격 실행이 안 된다. Android SDK는 재배포가 허용돼서 상�
 | 바이너리 실행 | `just run //services/scene-api:bin -- --port=8080` |
 | 전부 포맷 | `just fmt` |
 | 전부 린트 | `just lint` |
-| BUILD/proto/클라이언트/mock 재생성 | `just gen` |
+| proto/클라이언트/mock 재생성 (BUILD 파일 아님) | `just gen` |
 | **PR 전 게이트 — 커밋 전 필수** | `just check` |
 | CI 재현 | `just ci` |
-| 새 백엔드 서비스 | `just new-service <name> java` |
-| 새 iOS 앱 | `just new-app <name> swift` |
-| 새 Android 앱 | `just new-app <name> kotlin` |
-| 새 AI 에이전트 | `just new-agent <name> python` |
+| 새 백엔드 서비스 | `just new-service <name>` |
+| 새 iOS 앱 | `just new-app-ios <name>` |
+| 새 Android 앱 | `just new-app-android <name>` |
+| 새 AI 에이전트 | `just new-agent <name>` |
 | 새 공유 라이브러리 | `just new-lib <lang> <name>` |
 | 새 계약 정의 | `just new-contract proto scene/v1` |
 | 바꿨을 때 영향받는 범위 확인 | `just rdeps <target>` |

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Gazelle 외의 코드 생성: protobuf 스텁, API 클라이언트, 목(mock).
-# 호출: just gen (`bazel run //:gazelle` 다음)
+# 계약(contracts/)에서 파생되는 코드 생성: protobuf 스텁, API 클라이언트, 목(mock).
+# BUILD 파일은 여기서 만들지 않는다 — 손으로 쓴다(AGENTS.md §4.5).
+# 호출: just gen
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 cd "$REPO_ROOT" || die "$REPO_ROOT 로 이동할 수 없습니다"

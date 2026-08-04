@@ -2,14 +2,8 @@
 # 애플리케이션 코드는 절대 여기 두지 않는다 — 배치 규칙은 AGENTS.md §2 참조.
 
 load("@buildifier_prebuilt//:rules.bzl", "buildifier")
-load("@gazelle//:def.bzl", "gazelle")
 
 package(default_visibility = ["//visibility:public"])
-
-# gazelle:prefix github.com/scenetrip/scenetrip
-# gazelle:exclude bazel-*
-# gazelle:exclude third_party
-gazelle(name = "gazelle")
 
 # BUILD 파일을 제자리에서 정리한다. `just fmt` 가 호출한다.
 buildifier(
