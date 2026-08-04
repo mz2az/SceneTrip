@@ -5,9 +5,10 @@
 
 | 디렉터리 | 내용 |
 | --- | --- |
-| `libs/go/` | 여러 서비스가 공유하는 Go 패키지 |
-| `libs/python/` | 서비스와 에이전트가 공유하는 Python 패키지 |
-| `libs/ts/` | 여러 앱이 공유하는 TypeScript 패키지 |
+| `libs/java/` | 여러 Spring Boot 서비스가 공유하는 Java 패키지 |
+| `libs/kotlin/` | 여러 Android 앱이 공유하는 Kotlin 패키지 |
+| `libs/swift/` | 여러 iOS 앱이 공유하는 Swift 패키지 |
+| `libs/python/` | AI 에이전트가 공유하는 Python 패키지 |
 | `libs/proto/` | `contracts/proto` 로부터 만든 공용 Bazel proto 라이브러리 |
 
 ## 규칙

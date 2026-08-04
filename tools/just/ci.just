@@ -12,7 +12,7 @@ ci-affected base="origin/main":
 # 워크스페이스 전체 파이프라인. main 과 야간 빌드에서 쓴다.
 [group('ci')]
 ci-full: gen-check fmt-check lint
-    {{BAZEL}} test {{ALL}} --config=ci
+    ./tools/scripts/bazel-test.sh {{ALL}} --config=ci
 
 # 보안 점검 — 의존성 감사와 시크릿 탐지
 [group('ci')]

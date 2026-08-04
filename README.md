@@ -104,9 +104,11 @@ just cluster-down        # 전부 삭제 (확인 절차 있음)
 | [bazelisk](https://github.com/bazelbuild/bazelisk) (`bazel` 이름으로 설치) | `.bazelversion`에 고정된 Bazel 버전을 자동으로 맞춤 |
 | [just](https://github.com/casey/just) 1.34 이상 | 명령 실행기 |
 | git | 버전 관리 |
+| **Xcode** (iOS 앱을 빌드할 경우) | Apple 라이선스상 Bazel이 대신 받아올 수 없는 유일한 예외 — `apps/<name>-ios/` 를 빌드하려면 머신에 실제로 설치돼 있어야 합니다. 버전은 `tools/bazel/toolchains/`에 고정 |
+| **Android Studio / Android SDK** (Android 앱을 빌드할 경우) | Bazel이 `rules_android`로 상당 부분 자동 설치하지만, 최초 라이선스 동의와 로컬 SDK 경로 설정은 사람이 한 번 해야 합니다 |
 
-컴파일러·인터프리터·SDK는 이 목록에 **없습니다** — Bazel이 격리된 형태로 직접 제공합니다.
-`just doctor`로 확인하세요.
+그 외 JVM(Java) 백엔드와 Python AI 에이전트의 컴파일러·인터프리터는 이 목록에 **없습니다** —
+Bazel이 격리된 형태로 직접 제공합니다. `just doctor`로 확인하세요.
 
 로컬 클러스터를 띄우려면 추가로 필요한 것
 ([설치 가이드](./docs/installs/k8s_install.md) 참고):
