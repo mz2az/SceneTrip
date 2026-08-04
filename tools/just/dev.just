@@ -28,10 +28,11 @@ lint:
     {{BAZEL}} run //:buildifier_check
     ./tools/scripts/lint.sh
 
-# BUILD 파일, protobuf 스텁, API 클라이언트, 목(mock) 재생성
+# protobuf 스텁, API 클라이언트, 목(mock) 재생성.
+# BUILD 파일은 손으로 쓴다 — Gazelle 은 Java·Kotlin·Swift 를 지원하지 않아 제거했다
+# (MODULE.bazel 의 "BUILD 파일 생성" 절 참고).
 [group('dev')]
 gen:
-    {{BAZEL}} run //:gazelle
     ./tools/scripts/generate.sh
 
 # 생성물이 오래됐으면 실패. CI 가 쓴다.

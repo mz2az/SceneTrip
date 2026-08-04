@@ -2,11 +2,11 @@
 #
 # 외부 의존성을 선언하는 **유일한** 곳이다. WORKSPACE 는 쓰지 않는다.
 #
-# 주의: 아래 버전은 출발점이다. 첫 빌드 전에 https://registry.bazel.build 에서
-# 각각을 확인하고 `just deps-update` 로 MODULE.bazel.lock 을 만들어 커밋한다.
+# 스택은 ADR 0002 로 확정됐다: 백엔드 Spring(Java) · AI Python · iOS 네이티브(Swift) ·
+# Android 네이티브(Kotlin). 그 네 언어의 규칙만 여기 있고, 그 밖의 언어는 넣지 않는다.
 #
-# 언어별 규칙 세트는 그 언어의 첫 모듈이 들어올 때 추가한다 — 아무도 의존하지 않는
-# 규칙으로 이 파일을 채우지 않는다.
+# 이 파일을 고친 뒤에는 `just deps-update` 로 MODULE.bazel.lock 을 갱신해 같은 커밋에
+# 포함한다.
 
 module(
     name = "scenetrip",
@@ -16,37 +16,96 @@ module(
 
 # --- 코어 ---------------------------------------------------------------------
 
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
-bazel_dep(name = "platforms", version = "0.0.10")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 
 # BUILD 파일 포맷·린트 (`just fmt` / `just lint` 가 사용)
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
 # --- BUILD 파일 생성 ------------------------------------------------------------
-# Gazelle 이 `just gen` 을 구동한다. 첫 Go 모듈이 생기기 전에도 gazelle 자체가
-# rules_go 를 필요로 한다.
-
-bazel_dep(name = "rules_go", version = "0.50.1")
-bazel_dep(name = "gazelle", version = "0.39.1")
+# Gazelle(과 그것이 끌고 오는 rules_go)은 제거했다. Gazelle 은 본래 Go 용 BUILD 파일
+# 생성기이고, 우리 스택인 Java·Kotlin·Swift 는 Gazelle 이 아예 지원하지 않는다.
+# 저장소에 Go 코드가 한 줄도 없는데 Go 툴체인 전체를 내려받을 이유가 없다.
+#
+# 따라서 이 저장소의 BUILD.bazel 은 손으로 쓴다 — AGENTS.md §4 의 이름 규칙을 지키면
+# 라벨은 여전히 예측 가능하다.
+#
+# Python 모듈이 여러 개로 늘어 BUILD 관리가 번거로워지면 그때 Python 전용 플러그인만
+# 얹는 걸 검토한다 (rules_python_gazelle_plugin — Python 에만 적용됨).
 
 # ==============================================================================
-# 아래 블록은 해당 언어의 첫 모듈이 들어올 때 추가한다.
-# 그 시점에 registry.bazel.build 에서 버전을 확인할 것.
+# SceneTrip 확정 스택: 백엔드 Spring(Java) · AI Python · iOS 네이티브 · Android 네이티브.
+# (Flutter 는 채택하지 않음 — iOS/Android 를 각각 따로 만든다.)
+#
+# 규칙 자체(bazel_dep)는 아래처럼 미리 선언해 둔다. 다만 실제 패키지 목록을 받아오는
+# 확장(pip.parse / maven.install 등)은 그 언어의 첫 모듈이 생기고 requirements.lock
+# 이나 Maven 아티팩트 목록 같은 실제 파일이 만들어질 때 주석을 푼다 — 지금 그 확장까지
+# 활성화하면 존재하지 않는 파일을 찾다가 build 자체가 깨진다. (AGENTS.md §4.4)
+#
+# 버전은 registry.bazel.build 기준 확인 시점의 정식(비-rc) 최신판이다. 첫 빌드 전에
+# 다시 한번 확인하고 `just deps-update` 로 MODULE.bazel.lock 을 갱신·커밋한다.
+# ==============================================================================
+
+# --- Python (agents/ 의 AI 에이전트, 필요하면 services/ 도) -----------------------
+# Bazel에게 "Python"이 뭔지 알려주는 규칙. 이게 없으면 python_library/python_binary
+# 타깃 자체를 쓸 수 없다.
+bazel_dep(name = "rules_python", version = "2.2.0")
+
+# 첫 Python 모듈이 생기고 requirements.lock 이 만들어지면 주석 해제.
+# pip.parse 는 그 lock 파일의 패키지들을 Bazel이 받아 쓸 외부 저장소로 등록하는 확장이다.
+# pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+# pip.parse(hub_name = "pypi", python_version = "3.12",
+#           requirements_lock = "//:requirements.lock")
+# use_repo(pip, "pypi")
+
+# --- Java / Spring (services/) --------------------------------------------------
+# rules_java: java_library / java_binary 등 자바 빌드 규칙 자체.
+# rules_jvm_external: Maven 저장소(Spring Boot 등) 라이브러리를 MODULE.bazel에서
+# 선언할 수 있게 해준다 — Java판 pip라고 보면 된다.
+bazel_dep(name = "rules_java", version = "9.7.0")
+bazel_dep(name = "rules_jvm_external", version = "7.1")
+
+# 첫 Spring 서비스가 생기고 필요한 Maven 아티팩트가 정해지면 주석 해제.
+# maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+# maven.install(
+#     artifacts = ["org.springframework.boot:spring-boot-starter-web:3.3.0"],
+#     repositories = ["https://repo1.maven.org/maven2"],
+# )
+# use_repo(maven, "maven")
+
+# --- iOS 네이티브 (apps/) ---------------------------------------------------------
+# rules_swift: Swift 컴파일. rules_apple: 그 결과를 .app/.ipa 로 묶음.
+# apple_support: Xcode 툴체인을 Bazel에 연결.
+#
+# 셋 중 하나라도 bazel_dep로 선언하는 순간, macOS에서는 Bazel이 iOS 타깃 유무와
+# 무관하게 "모든" 로컬 액션을 실행하기 전에 Xcode 버전을 확인하려고 시도한다. 이
+# 컴퓨터처럼 Xcode 정식 앱 없이 Command Line Tools만 있으면 그 확인이 실패해서
+# `just build`/`just check`가 저장소 전체 규모로 깨진다(실제로 재현해서 확인함 —
+# apple_support+//crosstool:generate_layering_check_modulemap 에서 FATAL 크래시).
+# 그래서 첫 iOS 모듈을 실제로 만들고, 빌드 머신마다 정식 Xcode 설치가 끝난 뒤에만
+# 아래 세 줄의 주석을 푼다.
+# bazel_dep(name = "apple_support", version = "2.8.0")
+# bazel_dep(name = "rules_swift", version = "3.6.1")
+# bazel_dep(name = "rules_apple", version = "4.5.3")
+
+# --- Android 네이티브 (apps/) ------------------------------------------------------
+# rules_android: android_library/android_binary 등 APK를 만드는 규칙.
+# rules_kotlin: Kotlin 컴파일.
+bazel_dep(name = "rules_android", version = "0.7.3")
+bazel_dep(name = "rules_kotlin", version = "2.4.0")
+
+# 첫 Android 모듈이 생기면, 이 컴퓨터의 Android SDK 위치(보통 ANDROID_HOME)를 Bazel에
+# 알려주는 확장을 추가한다.
+# android_sdk_repository_extension = use_extension(
+#     "@rules_android//rules:rules.bzl", "android_sdk_repository_extension")
+# use_repo(android_sdk_repository_extension, "androidsdk")
+
+# ==============================================================================
+# 스택이 아직 확정되지 않아 보류 중인 것들 — 필요해지면 추가한다.
 # ==============================================================================
 #
-# Python (agents/, services/):
-#   bazel_dep(name = "rules_python", version = "0.36.0")
-#   pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
-#   pip.parse(hub_name = "pypi", python_version = "3.12",
-#             requirements_lock = "//:requirements.lock")
-#   use_repo(pip, "pypi")
-#
-# TypeScript / JavaScript (apps/):
-#   bazel_dep(name = "aspect_rules_js", version = "2.1.0")
-#   bazel_dep(name = "aspect_rules_ts", version = "3.3.1")
-#
-# Protobuf / gRPC (contracts/proto):
+# Protobuf / gRPC (contracts/proto) — 서비스 간 통신을 proto로 하기로 하면:
 #   bazel_dep(name = "protobuf", version = "27.3")
 #   bazel_dep(name = "rules_proto", version = "6.0.2")
 #

@@ -5,9 +5,17 @@ status: accepted
 date: 2026-08-04
 supersedes:
 superseded-by:
+amended-by: 0002
 ---
 
 # ADR 0001: Bazel 을 유일한 빌드 시스템으로, just 를 유일한 명령 창구로 삼는다
+
+> **보정 안내 (ADR 0002).** 이 ADR 의 **결정은 그대로 유효하다** — Bazel 과 `just` 는
+> 계속 쓴다. 다만 아래 배경에 적힌 "Go, TypeScript, Python 이 공존한다"는 저장소 골격을
+> 세울 당시의 **가정**이었고, 실제 스택은
+> [ADR 0002](./0002-product-stack-spring-python-native-mobile.md) 에서 백엔드
+> Spring(Java) · AI Python · iOS 네이티브(Swift) · Android 네이티브(Kotlin) 로 확정됐다.
+> ADR 은 고쳐 쓰지 않으므로 본문은 작성 당시 그대로 둔다.
 
 ## 배경
 

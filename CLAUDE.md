@@ -53,12 +53,13 @@ You will use these constantly. Full list: `just --list`.
 | Run a binary | `just run //services/scene-api:bin` |
 | Format | `just fmt` |
 | Lint | `just lint` |
-| Regenerate BUILD/protos/mocks | `just gen` |
+| Regenerate protos/clients/mocks | `just gen` |
 | **Pre-handoff gate** | `just check` |
 | Reproduce CI exactly | `just ci` |
-| New backend service | `just new-service <name>` |
-| New frontend app | `just new-app <name>` |
-| New AI agent | `just new-agent <name>` |
+| New backend service (Spring/Java) | `just new-service <name>` |
+| New iOS app (Swift) | `just new-app-ios <name>` |
+| New Android app (Kotlin) | `just new-app-android <name>` |
+| New AI agent (Python) | `just new-agent <name>` |
 
 **If the command you need does not exist, add the recipe** to the right file in `tools/just/`
 rather than running the underlying tool ad hoc. Adding the recipe *is* part of the task.
@@ -112,7 +113,8 @@ These are the mistakes that actually happen. Check yourself against them.
 | --- | --- |
 | Added a source file | Add it to `srcs` of the owning target in the same edit |
 | Added a cross-module import | Add the `deps` entry; if the dep is not in `libs/` or `contracts/`, the import is illegal |
-| Added an external dependency | Edit `MODULE.bazel` only, then `just gen`, then commit the lockfile diff |
+| Added an external dependency | Edit `MODULE.bazel` only, then `just deps-update`, then commit the `MODULE.bazel.lock` diff |
+| Added a BUILD target | Write it by hand — there is no generator (Gazelle was removed; see AGENTS.md §4.5) |
 | Test needs a database/container | Tag it `integration`, put it in the integration lane, never in `:unit_test` |
 | Test needs the network | Tag `requires-network` — and first ask whether it can be faked instead |
 | Build fails with a missing file | Check `srcs`/`data` before touching the code — it is usually a BUILD file gap |
@@ -126,20 +128,23 @@ time, no absolute paths, no non-deterministic output.**
 
 ## 5. Multi-module awareness
 
-This repo holds many backends, many frontends, and many agents. Before adding code, ask which
-category the work belongs to:
+This repo holds many Spring backends, two native mobile apps, and many Python agents. Before adding
+code, ask which category the work belongs to:
 
-| Category | Directory | Owns | Talks to others via |
-| --- | --- | --- | --- |
-| Backend service | `services/<name>/` | its data, its API surface | `contracts/proto`, `contracts/openapi` |
-| Frontend app | `apps/<name>/` | its UI and view state | generated API clients from `contracts/` |
-| AI agent | `agents/<name>/` | its prompts, tools, orchestration | `contracts/schemas` for tool I/O; services for data |
-| Shared library | `libs/<lang>/<name>/` | reusable logic only | direct Bazel `deps` |
+| Category | Directory | Language | Owns | Talks to others via |
+| --- | --- | --- | --- | --- |
+| Backend service | `services/<name>/` | Java (Spring Boot) | its data, its API surface | `contracts/proto`, `contracts/openapi` |
+| iOS app | `apps/<name>/` | Swift | its UI and view state | generated API clients from `contracts/` |
+| Android app | `apps/<name>/` | Kotlin | its UI and view state | generated API clients from `contracts/` |
+| AI agent | `agents/<name>/` | Python | its prompts, tools, orchestration | `contracts/schemas` for tool I/O; services for data |
+| Shared library | `libs/{java,python,swift,kotlin}/<name>/` | — | reusable logic only | direct Bazel `deps` |
 
 Rules that keep the graph clean:
 
 - **Duplication across two modules is a signal, not a solution** — promote it to `libs/`.
-- **A frontend never hand-writes an API client** — it consumes generated clients.
+- **An app never hand-writes an API client** — it consumes generated clients.
+- **iOS and Android share no code.** They are separate native modules; what they share is the
+  contract, enforced by `tests/contract/`. Do not invent a cross-platform layer.
 - **An agent never calls a database directly** — it goes through a service.
 - **A service never imports another service's internals** — it calls its contract.
 

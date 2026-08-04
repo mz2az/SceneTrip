@@ -1,21 +1,43 @@
 #!/usr/bin/env bash
 # tools/templates/ 의 템플릿으로 새 모듈을 만든다.
 # 사용법: new-module.sh <service|app|agent|lib> <이름> <언어>
-# 호출: just new-service | new-app | new-agent | new-lib
+# 호출: just new-service | new-app-ios | new-app-android | new-agent | new-lib
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 KIND="${1:?종류가 필요합니다: service|app|agent|lib}"
 NAME="${2:?모듈 이름이 필요합니다}"
-LANG="${3:?언어가 필요합니다}"
+# 주의: 셸의 LANG 은 로케일 환경변수다. 여기에 언어 이름을 넣으면 이후 실행되는
+# sed·sort 등의 동작이 바뀔 수 있으므로 별도 이름을 쓴다.
+MODULE_LANG="${3:?언어가 필요합니다}"
 
 [[ "$NAME" =~ ^[a-z][a-z0-9-]*$ ]] || die "모듈 이름은 kebab-case 여야 합니다: $NAME"
+
+# 확정된 스택 밖의 언어를 막는다. 언어를 늘리려면 먼저 ADR 을 쓰고,
+# MODULE.bazel 에 규칙을 추가한 뒤 이 목록을 고친다.
+case "$MODULE_LANG" in
+  java|python|swift|kotlin) ;;
+  *) die "지원하지 않는 언어: $MODULE_LANG (java|python|swift|kotlin 중 하나)" ;;
+esac
+
+# 분류와 언어가 어긋나는 조합을 막는다.
+case "$KIND:$MODULE_LANG" in
+  service:java|service:python) ;;
+  app:swift|app:kotlin) ;;
+  agent:python) ;;
+  lib:java|lib:python|lib:swift|lib:kotlin) ;;
+  *) die "$KIND 에 맞지 않는 언어입니다: $MODULE_LANG
+  service -> java | python      (Spring 백엔드)
+  app     -> swift | kotlin     (iOS | Android)
+  agent   -> python             (AI 에이전트)
+  lib     -> java | python | swift | kotlin" ;;
+esac
 
 case "$KIND" in
   service) DEST="services/$NAME" ;;
   app)     DEST="apps/$NAME" ;;
   agent)   DEST="agents/$NAME" ;;
-  lib)     DEST="libs/$LANG/$NAME" ;;
+  lib)     DEST="libs/$MODULE_LANG/$NAME" ;;
   *)       die "알 수 없는 종류: $KIND (service|app|agent|lib 중 하나)" ;;
 esac
 
@@ -29,7 +51,7 @@ mkdir -p "$ABS/src" "$ABS/tests"
 render() {
   sed -e "s|{{NAME}}|$NAME|g" \
       -e "s|{{KIND}}|$KIND|g" \
-      -e "s|{{LANG}}|$LANG|g" \
+      -e "s|{{LANG}}|$MODULE_LANG|g" \
       -e "s|{{PATH}}|$DEST|g" "$1"
 }
 

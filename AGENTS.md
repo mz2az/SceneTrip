@@ -16,7 +16,7 @@ Two invariants govern everything:
 
 | Invariant | Rule |
 | --- | --- |
-| **Bazel is the only build system** | Every build, test, run, package, and image step is a Bazel target. No language-native build invocation (`go build`, `npm run build`, `pytest`, `tsc`) is used as the source of truth. |
+| **Bazel is the only build system** | Every build, test, run, package, and image step is a Bazel target. No language-native build invocation (`./gradlew build`, `mvn package`, `xcodebuild`, `pytest`) is used as the source of truth. |
 | **`just` is the only entry point** | Every command a human or agent runs is a `just` recipe. Raw `bazel …` lines never appear in docs, CI workflows, or scripts. If a command is worth running twice, it becomes a recipe. |
 
 Consequence: **CI and local development execute identical commands.** A green `just ci` locally
@@ -34,11 +34,11 @@ SceneTrip/
 ├── MODULE.bazel           # bzlmod dependency graph
 ├── .bazelrc               # build flags + named configs
 │
-├── apps/                  # FRONTENDS (multiple). One directory per deployable UI.
-├── services/              # BACKENDS (multiple). One directory per deployable server.
-├── agents/                # AI AGENTS (multiple). One directory per agent runtime.
+├── apps/                  # MOBILE APPS. Native iOS (Swift) and native Android (Kotlin).
+├── services/              # BACKENDS (multiple). Spring Boot (Java). One dir per server.
+├── agents/                # AI AGENTS (multiple). Python. One directory per agent runtime.
 ├── libs/                  # shared libraries, grouped by language
-│   ├── go/  python/  ts/  proto/
+│   ├── java/  python/  swift/  kotlin/  proto/
 │
 ├── contracts/             # INTERFACE SOURCE OF TRUTH — hand-written, never generated
 │   ├── proto/             # gRPC / protobuf service + message definitions
@@ -155,16 +155,21 @@ Tags are how `just` slices the graph. Apply them or your test will run in the wr
 ### 4.4 Dependency management
 
 - External deps are added **only** to `MODULE.bazel` (bzlmod). Legacy `WORKSPACE` is not used.
-- Language dependency manifests (`go.mod`, `requirements.txt`, `package.json`) exist to feed the
-  Bazel extensions and to keep IDEs working — they are **inputs to Bazel**, never a parallel build
-  path.
-- After changing any dependency manifest: `just gen` (re-runs Gazelle/pip/npm resolution), then
-  `just build`. Commit the resulting lockfile changes in the same commit.
+- Per-language deps are declared through the matching bzlmod extension in `MODULE.bazel`:
+  `maven.install` for Java/Spring and Android, `pip.parse` for Python. Manifests that exist only to
+  keep an IDE happy (`requirements.txt`, `Package.swift`) are **inputs**, never a parallel build path.
+- Apple rules (`rules_apple`, `rules_swift`, `apple_support`) stay commented out until the first iOS
+  module lands. Declaring them on a machine without the full Xcode app crashes the entire build, not
+  just the iOS targets.
+- After changing any dependency declaration: `just deps-update`, then `just build`. Commit the
+  resulting `MODULE.bazel.lock` diff in the same commit.
 
-### 4.5 BUILD file generation
+### 4.5 BUILD files are hand-written
 
-Run `just gen` to regenerate BUILD files where Gazelle supports the language. Hand-written targets
-must be preserved with `# keep` comments. Never hand-edit a generated section.
+There is no BUILD file generator in this repo. Gazelle was removed — it is a Go tool, and Java,
+Kotlin, and Swift have no Gazelle support at all. Write `BUILD.bazel` by hand, following the target
+naming in §4.1 so labels stay predictable without reading the file. `just gen` covers only
+contract-derived artifacts (proto stubs, API clients, mocks).
 
 ---
 
@@ -185,13 +190,14 @@ recipe grouped by area.
 | `just run <target> [args]` | run a binary target |
 | `just fmt` | format everything (code, BUILD files, docs) |
 | `just lint` | all linters + static analysis |
-| `just gen` | regenerate BUILD files, protos, clients, mocks |
+| `just gen` | regenerate contract-derived code (proto stubs, clients, mocks) |
 | `just check` | **pre-PR gate**: fmt-check + lint + build + test |
 | `just ci` | exactly what CI runs |
 | `just clean` | drop build outputs |
-| `just new-service <name>` | scaffold a backend service |
-| `just new-app <name>` | scaffold a frontend app |
-| `just new-agent <name>` | scaffold an AI agent module |
+| `just new-service <name>` | scaffold a Spring backend service (Java) |
+| `just new-app-ios <name>` | scaffold a native iOS app (Swift) |
+| `just new-app-android <name>` | scaffold a native Android app (Kotlin) |
+| `just new-agent <name>` | scaffold an AI agent module (Python) |
 
 ### 5.2 Rules for adding commands
 
@@ -228,7 +234,7 @@ A change is done only when **all** of these hold:
 
 - [ ] `just check` passes locally
 - [ ] New/changed behavior is covered by a test in the correct lane
-- [ ] `BUILD.bazel` files updated and `just gen` produces no diff
+- [ ] `BUILD.bazel` files hand-updated for every added/removed source file
 - [ ] Contracts updated before implementation when the wire format changed
 - [ ] Module `README.md` reflects reality
 - [ ] No secrets, no absolute paths, no debug prints, no `TODO` without a tracking link
@@ -332,10 +338,10 @@ of another task.
 
 ## 11. Anti-patterns — do not do these
 
-- Running `go build` / `npm run build` / `pytest` / `tsc` as the authoritative build or test step.
+- Running `./gradlew build` / `mvn package` / `xcodebuild` / `pytest` as the authoritative build or test step.
 - Adding a command to CI or docs without a corresponding `just` recipe.
 - Adding a source file without updating `BUILD.bazel`.
-- Hand-editing generated code or generated BUILD sections.
+- Hand-editing generated code (proto stubs, API clients) instead of the contract it came from.
 - Importing across module boundaries instead of via `libs/` or `contracts/`.
 - Creating a new top-level directory instead of using the placement table in §2.
 - Writing implementation before the contract when the wire format changes.

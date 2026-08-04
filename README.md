@@ -1,13 +1,13 @@
 # SceneTrip
 
 SceneTrip 제품의 전체 수명주기를 담는 모노레포입니다 — 기획, 설계, 구현, 테스트,
-인프라, CI/CD, 운영까지. 여러 개의 백엔드 서비스와 프론트엔드 앱, AI 에이전트 모듈이
+인프라, CI/CD, 운영까지. 여러 개의 백엔드 서비스와 모바일 앱, AI 에이전트 모듈이
 한 저장소 안에 나란히 존재합니다.
 
 ## 전체를 규정하는 두 가지 규칙
 
-1. **빌드와 테스트는 Bazel이 전부 담당합니다.** 언어별 빌드 명령(`go build`, `npm run build`,
-   `pytest`)을 정본으로 삼지 않습니다.
+1. **빌드와 테스트는 Bazel이 전부 담당합니다.** 언어별 빌드 명령(`./gradlew build`,
+   `xcodebuild`, `pytest`)을 정본으로 삼지 않습니다.
 2. **모든 명령의 입구는 `just` 하나입니다.** 모든 명령은 레시피이며, 문서·스크립트·CI 어디에도
    날것의 `bazel` 호출을 적지 않습니다.
 
@@ -24,14 +24,27 @@ just test       # 빠른 단위 테스트 레인
 just check      # PR 전 게이트 — 커밋 전에 반드시 초록이어야 합니다
 ```
 
+## 기술 스택
+
+| 영역 | 기술 | 사는 곳 |
+| --- | --- | --- |
+| 백엔드 | Java · Spring Boot | `services/` |
+| iOS 앱 | Swift (네이티브) | `apps/` |
+| Android 앱 | Kotlin (네이티브) | `apps/` |
+| AI 에이전트 | Python | `agents/` |
+
+iOS 와 Android 는 **각각 네이티브로** 만듭니다 — 크로스 플랫폼 프레임워크를 쓰지
+않으므로 두 앱은 코드를 공유하지 않고, 대신 `contracts/` 의 정의를 공유합니다.
+선택 배경은 [ADR 0002](./docs/architecture/adr/0002-product-stack-spring-python-native-mobile.md).
+
 ## 무엇이 어디에 있는가
 
 | 디렉터리 | 내용 |
 | --- | --- |
 | `services/` | 백엔드 서버 (배포 단위 하나당 디렉터리 하나) |
-| `apps/` | 프론트엔드 애플리케이션 |
+| `apps/` | iOS · Android 네이티브 앱 |
 | `agents/` | AI 에이전트 모듈 |
-| `libs/` | 언어별 공유 라이브러리 |
+| `libs/` | 언어별 공유 라이브러리 (`java` · `python` · `swift` · `kotlin` · `proto`) |
 | `contracts/` | proto / OpenAPI / AsyncAPI / JSON Schema — 인터페이스의 정본 |
 | `platform/` | Terraform, Kubernetes, Helm, 환경별 설정 |
 | `tests/` | 모듈을 가로지르는 e2e·통합·계약·부하 테스트 |
@@ -85,6 +98,7 @@ just cluster-down        # 전부 삭제 (확인 절차 있음)
 
 | 읽을 것 | 용도 |
 | --- | --- |
+| [GUIDE.md](./GUIDE.md) | 이 구조를 처음 보는 사람을 위한 입문 가이드 — 용어부터 설명 |
 | [AGENTS.md](./AGENTS.md) | 저장소 계약 — 구조, Bazel, just, 품질 기준 (영문) |
 | [CLAUDE.md](./CLAUDE.md) | AI 에이전트가 이 저장소에서 일하는 절차 (영문) |
 | [docs/](./docs/README.md) | 전체 문서 인덱스 |
