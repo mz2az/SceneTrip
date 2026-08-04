@@ -10,24 +10,30 @@ cd "$REPO_ROOT" || die "$REPO_ROOT 로 이동할 수 없습니다"
 
 ran=0
 
-if have gofmt && compgen -G "**/*.go" >/dev/null 2>&1; then
+if have google-java-format && compgen -G "**/*.java" >/dev/null 2>&1; then
   ran=1
+  files=$(find . -name "*.java" -not -path "./bazel-*")
   if [ "$CHECK" -eq 1 ]; then
-    out="$(gofmt -l . || true)"
-    [ -z "$out" ] || die "포맷이 어긋난 Go 파일:\n$out"
+    out="$(google-java-format --dry-run --set-exit-if-changed $files 2>&1 || true)"
+    [ -z "$out" ] || die "포맷이 어긋난 Java 파일:\n$out"
   else
-    gofmt -w .
+    google-java-format -i $files
   fi
+fi
+
+if have ktlint && compgen -G "**/*.kt" >/dev/null 2>&1; then
+  ran=1
+  if [ "$CHECK" -eq 1 ]; then ktlint; else ktlint -F; fi
+fi
+
+if have swiftformat && compgen -G "**/*.swift" >/dev/null 2>&1; then
+  ran=1
+  if [ "$CHECK" -eq 1 ]; then swiftformat --lint .; else swiftformat .; fi
 fi
 
 if have ruff && compgen -G "**/*.py" >/dev/null 2>&1; then
   ran=1
   if [ "$CHECK" -eq 1 ]; then ruff format --check .; else ruff format .; fi
-fi
-
-if have prettier && [ -f package.json ]; then
-  ran=1
-  if [ "$CHECK" -eq 1 ]; then prettier --check .; else prettier --write .; fi
 fi
 
 [ "$ran" -eq 1 ] || pending "아직 적용할 언어 포매터가 없습니다 (소스 모듈 없음)"

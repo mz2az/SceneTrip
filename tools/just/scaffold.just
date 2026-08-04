@@ -4,15 +4,16 @@
 # 모든 모듈이 BUILD.bazel, README.md, 테스트 타깃, 올바른 태그를 갖고 시작한다.
 # 그래야 그래프가 균일하게 유지되고, 사람도 AI 도 모듈 구조를 예측할 수 있다.
 
-# 새 백엔드 서비스 생성. 예: `just new-service scene-api go`
+# 새 백엔드 서비스 생성 (Spring Boot). 예: `just new-service scene-api java`
 [group('scaffold')]
-new-service name lang="go":
+new-service name lang="java":
     ./tools/scripts/new-module.sh service {{name}} {{lang}}
     @echo "services/{{name}} 생성됨 — 다음: just build-module services/{{name}}"
 
-# 새 프론트엔드 앱 생성. 예: `just new-app web ts`
+# 새 네이티브 앱 생성. 플랫폼별로 언어를 명시한다 — 기본값 없음.
+# 예: `just new-app trip-ios swift` / `just new-app trip-android kotlin`
 [group('scaffold')]
-new-app name lang="ts":
+new-app name lang:
     ./tools/scripts/new-module.sh app {{name}} {{lang}}
     @echo "apps/{{name}} 생성됨 — 다음: just build-module apps/{{name}}"
 
@@ -22,7 +23,7 @@ new-agent name lang="python":
     ./tools/scripts/new-module.sh agent {{name}} {{lang}}
     @echo "agents/{{name}} 생성됨 — 다음: just build-module agents/{{name}}"
 
-# 새 공유 라이브러리 생성. 예: `just new-lib go telemetry`
+# 새 공유 라이브러리 생성. 예: `just new-lib java telemetry`
 [group('scaffold')]
 new-lib lang name:
     ./tools/scripts/new-module.sh lib {{name}} {{lang}}
