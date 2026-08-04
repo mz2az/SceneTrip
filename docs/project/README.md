@@ -4,7 +4,7 @@
 
 | 문서 | 목적 |
 | --- | --- |
-| `plans/<기능>.md` | 코드보다 먼저 쓰는 구현 계획 |
+| [`plans/`](./plans/README.md) | 코드보다 먼저 쓰는 구현 계획 |
 | `status.md` | 현재 상태: 진행 중, 막힌 것, 다음 |
 | `decision-log.md` | ADR 까지는 아닌 가벼운 결정 |
 | `retrospectives/<날짜>.md` | 배운 것 |
