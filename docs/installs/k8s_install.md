@@ -706,13 +706,18 @@ kubectl get services
 다음 명령을 실행합니다.
 
 ```bash
-kubectl port-forward service/nginx 8080:80
+kubectl port-forward service/nginx 8888:80
 ```
+
+> **8080·8081 은 쓰지 마세요.** §7.4 에서 kind 가 두 포트를 이미 호스트에 매핑해 두었고,
+> §7.3 의 `just cluster-up` 이 8080 에 SigNoz UI 를 띄웠습니다. 같은 포트로 port-forward 를
+> 겹쳐 열면 리스너가 둘이 되어 어느 쪽이 응답할지 OS 바인딩 순서에 달리게 됩니다.
+> 이 실습에는 비어 있는 8888 을 씁니다.
 
 명령을 실행한 터미널은 그대로 유지합니다. 브라우저에서 다음 주소를 엽니다.
 
 ```text
-http://localhost:8080
+http://localhost:8888
 ```
 
 Nginx 환영 화면이 보이면 Kubernetes가 정상적으로 작동하는 것입니다.

@@ -12,6 +12,8 @@ user.bazelrc
 *.p12
 credentials.json
 service-account*.json
+kubeconfig
+kubeconfig.*
 
 # --- 언어별 산출물 (진짜 결과물은 Bazel 이 소유. 아래는 IDE·도구 찌꺼기) ---------
 node_modules/
