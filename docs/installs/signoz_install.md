@@ -146,12 +146,12 @@ helm list -n signoz && kubectl get pods -n signoz
 
 ### 리소스 요구사항
 
-SigNoz는 **ClickHouse + ClickHouse Operator + Zookeeper + PostgreSQL**을 포함해 가볍지 않습니다. Pod 6개가 상주하고 **PVC 18GiB**를 잡습니다.
+SigNoz는 **ClickHouse + ClickHouse Operator + Zookeeper + PostgreSQL**을 포함해 가볍지 않습니다. Pod 6개가 상주하고 **PVC 38GiB**를 잡습니다.
 
 | 항목 | 요구사항 |
 |---|---|
 | Docker Desktop 할당 메모리 | **최소 6GB** 권장 (SigNoz 몫 4GB + 클러스터 오버헤드) |
-| 디스크 | PVC 18GiB (zookeeper 8Gi + postgres 10Gi) + ClickHouse 데이터 |
+| 디스크 | PVC 38GiB (zookeeper 8Gi + postgres 10Gi + clickhouse 20Gi) |
 | 사전 확인 | 클러스터 노드가 모두 `Ready` |
 
 > **주의 — 8GB MacBook 사용자**
@@ -415,10 +415,14 @@ kubectl get pvc -n signoz
 ```
 
 ```text
-NAME                                     STATUS  CAPACITY  STORAGECLASS
-data-signoz-telemetrykeeper-zookeeper-0  Bound   8Gi       standard
-pgdata-signoz-metastore-postgres-0       Bound   10Gi      standard
+NAME                                                                          STATUS  CAPACITY  STORAGECLASS
+data-signoz-telemetrykeeper-zookeeper-0                                       Bound   8Gi       standard
+data-volumeclaim-template-chi-signoz-telemetrystore-clickhouse-cluster-0-0-0  Bound   20Gi      standard
+pgdata-signoz-metastore-postgres-0                                            Bound   10Gi      standard
 ```
+
+**PVC 3개, 합계 38GiB** 입니다. ClickHouse 볼륨은 차트가 아니라 ClickHouse Operator 가
+만들기 때문에 다른 둘보다 늦게(30초~1분) 나타납니다 — 바로 안 보여도 정상입니다.
 
 kind 의 기본 `standard` 스토리지클래스(rancher.io/local-path)로 **자동 Bound**됩니다. 별도 설정이 필요 없습니다.
 
