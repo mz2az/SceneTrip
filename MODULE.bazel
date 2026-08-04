@@ -26,14 +26,32 @@ bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
 # --- BUILD 파일 생성 ------------------------------------------------------------
-# 생성기를 두지 않는다. Gazelle 은 Go 용 BUILD 파일 생성기이고, 우리 스택인
-# Java·Kotlin·Swift 는 아예 커버하지 않는다. gazelle 바이너리 자체가 Go 로 구현돼
-# 있어 rules_go 까지 함께 끌고 오는데(저장소에 Go 코드가 있다는 뜻은 아니다),
-# 정작 이 저장소에서 해 줄 수 있는 일이 없으면서 Go 툴체인 전체를 내려받는다.
+# 지금은 생성기를 두지 않는다. BUILD.bazel 은 손으로 쓴다 — AGENTS.md §4.1 의 이름
+# 규칙을 지키면 라벨은 여전히 예측 가능하다.
 #
-# 따라서 BUILD.bazel 은 손으로 쓴다 — AGENTS.md §4.1 의 이름 규칙을 지키면 라벨은
-# 여전히 예측 가능하다. Python 모듈이 늘어 BUILD 관리가 번거로워지면 그때 Python
-# 전용 플러그인(rules_python_gazelle_plugin)만 얹는 걸 검토한다.
+# 흔히 쓰는 Gazelle 은 Go·proto 만 내장이고 다른 언어는 **언어별 확장을 따로 붙이는**
+# 구조다. 확장 자체는 존재하므로 "쓸 수 없다"가 아니라 "지금 붙일 때가 아니다" 다:
+#
+#   - 저장소에 모듈이 아직 0 개다. 생성해 줄 BUILD 파일 자체가 없다.
+#   - 확장은 언어마다 별도 bazel_dep 과 설정이 필요하다. 넷을 다 붙이면 관리 대상이
+#     그만큼 늘어난다.
+#   - gazelle 바이너리가 Go 로 구현돼 있어 rules_go 를 함께 끌고 온다(저장소에 Go
+#     코드가 있다는 뜻은 아니다). 얻는 것 없이 Go 툴체인을 내려받게 된다.
+#   - **Android 는 아예 답이 없다.** 아래 표 참고.
+#
+# 첫 모듈이 들어올 때 그 언어의 확장만 골라 붙인다:
+#
+#   Java   bazel-contrib/rules_jvm 의 java/gazelle
+#          (java_library·java_binary·java_test·java_test_suite 생성)
+#   Swift  cgrindel/rules_swift_package_manager 의 swift_gazelle_plugin
+#          (swift_library·swift_binary·swift_test 생성) — 아래 Swift 블록의
+#          rules_swift_package_manager 가 바로 이것을 품고 있다
+#   Python rules_python_gazelle_plugin
+#   Kotlin **없다고 보는 게 맞다.** Aspect 의 kotlin 플러그인은 스스로 EXPERIMENTAL
+#          ("not yet ready for use")이라 밝히고 있고, 생성 대상도 kt_jvm_library /
+#          kt_jvm_binary 뿐이다. 우리 Kotlin 용도는 Android 앱이라 정작 필요한
+#          android_library·android_binary·kt_android_library 를 만들어 주지 못한다.
+#          Gazelle 에 Android 확장은 공식·비공식 모두 사실상 없다.
 
 # ==============================================================================
 # 아래 블록은 해당 언어의 첫 모듈이 들어올 때 주석을 푼다.

@@ -332,8 +332,9 @@ just new-app-android <이름>  # 새 Android 앱(Kotlin) 뼈대 생성
 just new-agent       <이름>  # 새 AI 에이전트(Python) 뼈대 생성
 ```
 
-> `BUILD.bazel` 파일은 **손으로 씁니다.** 자동 생성기(Gazelle)는 Go 전용 도구라
-> Java·Kotlin·Swift를 지원하지 않아 이 저장소에서 제거했습니다.
+> `BUILD.bazel` 파일은 **손으로 씁니다.** 자동 생성기(Gazelle)를 아직 붙이지 않았기
+> 때문입니다 — 언어별 확장이 따로 필요한데 아직 모듈이 하나도 없어서입니다. 자세한
+> 사정은 `MODULE.bazel`의 "BUILD 파일 생성" 절에 있습니다.
 
 ---
 

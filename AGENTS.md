@@ -184,14 +184,23 @@ Tags are how `just` slices the graph. Apply them or your test will run in the wr
 
 ### 4.5 BUILD files are hand-written
 
-There is no BUILD file generator in this repo. Gazelle is a Go tool and covers none of our four
-languages — Java, Kotlin, and Swift are unsupported outright — so it was removed rather than kept
-as dead weight that drags in a full Go toolchain.
+There is no BUILD file generator in this repo **yet**. Write `BUILD.bazel` by hand: when you add a
+source file, add it to the target's `srcs` in the same edit. Follow the target naming in §4.1 so
+labels stay predictable without reading the file first. `just gen` covers only contract-derived
+artifacts (proto stubs, API clients, mocks) — never BUILD files.
 
-Write `BUILD.bazel` by hand: when you add a source file, add it to the target's `srcs` in the same
-edit. Follow the target naming in §4.1 so labels stay predictable without reading the file first.
-`just gen` covers only contract-derived artifacts (proto stubs, API clients, mocks) — never BUILD
-files.
+Gazelle, the usual choice, ships only Go and proto natively; every other language needs a separate
+extension. Those extensions do exist, so this is "not yet", not "impossible" — it was removed
+because the repo has zero modules today, each extension is its own `bazel_dep` plus config, and the
+gazelle binary drags in `rules_go` for no benefit. Add the matching extension when a language's
+first module lands:
+
+| Language | Extension |
+| --- | --- |
+| Java | `bazel-contrib/rules_jvm` → `java/gazelle` |
+| Swift | `cgrindel/rules_swift_package_manager` → `swift_gazelle_plugin` |
+| Python | `rules_python_gazelle_plugin` |
+| Kotlin | **none usable.** Aspect's Kotlin plugin is self-declared EXPERIMENTAL and emits only `kt_jvm_library`/`kt_jvm_binary`. Our Kotlin is Android, and Gazelle has no Android extension — `android_library`/`android_binary` stay hand-written. |
 
 ---
 

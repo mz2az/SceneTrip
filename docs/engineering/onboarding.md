@@ -98,10 +98,13 @@ services/scene-api/
 
 **알아둘 것 하나:**
 
-- **BUILD 파일 자동 생성기는 없다.** 흔히 쓰는 Gazelle 은 Go 용 도구라 우리 네 언어 중
-  Java·Kotlin·Swift 를 아예 커버하지 못한다. 하는 일 없이 Go 툴체인만 끌고 오므로
-  이 저장소에서는 제거했다. 따라서 모든 `BUILD.bazel` 은 **손으로 관리**한다 —
+- **BUILD 파일 자동 생성기는 아직 없다.** 모든 `BUILD.bazel` 은 **손으로 관리**한다 —
   소스 파일을 추가하면 그 자리에서 바로 `srcs` 에 넣는다.
+  흔히 쓰는 Gazelle 은 Go·proto 만 내장이고 다른 언어는 확장을 따로 붙이는 구조다.
+  Java·Swift·Python 은 쓸 만한 확장이 있지만, 모듈이 아직 하나도 없어서 붙일 이유가
+  없다 — 첫 모듈이 생길 때 그 언어 것만 붙인다(후보는 `MODULE.bazel` 주석 참고).
+  **Kotlin 만은 예외로, 당분간 방법이 없다**: 쓸 수 있는 플러그인이 실험 단계인 데다
+  Android 규칙(`android_library` 등)을 만들어 주지 못한다.
 
 ## 6. 격리(hermeticity) 원칙과 딱 하나의 예외
 

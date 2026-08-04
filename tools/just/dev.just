@@ -29,8 +29,8 @@ lint:
     ./tools/scripts/lint.sh
 
 # protobuf 스텁, API 클라이언트, 목(mock) 재생성.
-# BUILD 파일은 손으로 쓴다 — Gazelle 은 Java·Kotlin·Swift 를 지원하지 않아 제거했다
-# (MODULE.bazel 의 "BUILD 파일 생성" 절 참고).
+# BUILD 파일은 여기서 만들지 않는다 — 손으로 쓴다. 생성기를 아직 붙이지 않은 이유와
+# 언어별 확장 후보는 MODULE.bazel 의 "BUILD 파일 생성" 절 참고.
 [group('dev')]
 gen:
     ./tools/scripts/generate.sh

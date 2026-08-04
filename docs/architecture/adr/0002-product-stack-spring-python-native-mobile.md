@@ -68,9 +68,14 @@ superseded-by:
 **후속 작업**
 
 - `libs/` 를 `java`·`kotlin`·`swift`·`python`·`proto` 로 재편 — 완료.
-- Gazelle 과 `rules_go` 제거 — 완료. Gazelle 은 Go 용 BUILD 생성기이고 우리 네 언어 중
-  Java·Kotlin·Swift 를 아예 커버하지 않는다. 하는 일 없이 Go 툴체인만 끌고 오므로
-  걷어냈고, 이 저장소의 `BUILD.bazel` 은 손으로 쓴다.
+- Gazelle 과 `rules_go` 제거 — 완료. 다만 이유는 "쓸 수 없어서"가 아니라 **"지금
+  붙일 때가 아니어서"** 다. Gazelle 은 Go·proto 만 내장이고 나머지는 언어별 확장을
+  따로 붙이는 구조인데, 저장소에 모듈이 0 개라 생성할 BUILD 파일 자체가 없고, 확장은
+  언어마다 별도 `bazel_dep` 과 설정이 필요하며, gazelle 바이너리가 `rules_go` 를 함께
+  끌고 온다. 첫 모듈이 들어올 때 그 언어의 확장만 골라 붙인다(후보는 `MODULE.bazel`
+  주석에 정리). **단 Kotlin 은 예외다** — Aspect 플러그인이 스스로 EXPERIMENTAL 이라
+  밝히고 `kt_jvm_*` 만 생성해서, Android 앱에 필요한 `android_library`·`android_binary`
+  를 만들지 못한다. Android BUILD 파일은 계속 손으로 쓴다.
 - **네 언어의 규칙 세트는 `MODULE.bazel` 에 주석으로 둔다.** "아무도 의존하지 않는
   규칙으로 이 파일을 채우지 않는다"는 원래 방침을 유지하되, 주석 안의 버전은
   registry.bazel.build 에서 실제로 확인한 값으로 적어 두어 첫 모듈이 들어올 때
