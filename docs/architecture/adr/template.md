@@ -5,6 +5,7 @@ status: proposed        # proposed | accepted | superseded | deprecated
 date: {{DATE}}
 supersedes:
 superseded-by:
+amended-by:             # 결정은 유효하지만 전제·맥락이 다른 ADR 로 보정된 경우
 ---
 
 # ADR {{NUMBER}}: {{TITLE}}

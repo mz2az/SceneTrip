@@ -2,11 +2,13 @@
 #
 # 외부 의존성을 선언하는 **유일한** 곳이다. WORKSPACE 는 쓰지 않는다.
 #
-# 주의: 아래 버전은 출발점이다. 첫 빌드 전에 https://registry.bazel.build 에서
-# 각각을 확인하고 `just deps-update` 로 MODULE.bazel.lock 을 만들어 커밋한다.
+# 스택은 ADR 0002 로 확정됐다: 백엔드 Spring Boot(Java) · AI Python ·
+# iOS 네이티브(Swift) · Android 네이티브(Kotlin).
 #
 # 언어별 규칙 세트는 그 언어의 첫 모듈이 들어올 때 추가한다 — 아무도 의존하지 않는
-# 규칙으로 이 파일을 채우지 않는다.
+# 규칙으로 이 파일을 채우지 않는다. 아래 주석 블록의 버전은 registry.bazel.build 에서
+# 실제로 확인한 값이지만, 주석을 풀 때 한 번 더 확인하고 `just deps-update` 로
+# MODULE.bazel.lock 을 갱신해 같은 커밋에 포함한다.
 
 module(
     name = "scenetrip",
@@ -24,23 +26,40 @@ bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
 # --- BUILD 파일 생성 ------------------------------------------------------------
-# Gazelle 이 `just gen` 을 구동한다. gazelle 바이너리 자체가 Go 로 구현돼 있어
-# rules_go 를 필요로 한다 — 이 저장소에 Go 애플리케이션 코드가 있다는 뜻이 아니다.
-# 실제로 이 두 의존성은 오직 Gazelle 툴체인용이다. 참고로 Gazelle 의 언어 지원은
-# Go 기준으로 가장 성숙하며 JVM/Swift/Kotlin 은 커버하지 않는다 — 아래 언어들의
-# BUILD.bazel 은 당분간 손으로 관리한다 (AGENTS.md §4.5 참고).
-
-bazel_dep(name = "rules_go", version = "0.50.1")
-bazel_dep(name = "gazelle", version = "0.39.1")
+# 지금은 생성기를 두지 않는다. BUILD.bazel 은 손으로 쓴다 — AGENTS.md §4.1 의 이름
+# 규칙을 지키면 라벨은 여전히 예측 가능하다.
+#
+# 흔히 쓰는 Gazelle 은 Go·proto 만 내장이고 다른 언어는 **언어별 확장을 따로 붙이는**
+# 구조다. 확장 자체는 존재하므로 "쓸 수 없다"가 아니라 "지금 붙일 때가 아니다" 다:
+#
+#   - 저장소에 모듈이 아직 0 개다. 생성해 줄 BUILD 파일 자체가 없다.
+#   - 확장은 언어마다 별도 bazel_dep 과 설정이 필요하다. 넷을 다 붙이면 관리 대상이
+#     그만큼 늘어난다.
+#   - gazelle 바이너리가 Go 로 구현돼 있어 rules_go 를 함께 끌고 온다(저장소에 Go
+#     코드가 있다는 뜻은 아니다). 얻는 것 없이 Go 툴체인을 내려받게 된다.
+#   - **Android 는 아예 답이 없다.** 아래 표 참고.
+#
+# 첫 모듈이 들어올 때 그 언어의 확장만 골라 붙인다:
+#
+#   Java   bazel-contrib/rules_jvm 의 java/gazelle
+#          (java_library·java_binary·java_test·java_test_suite 생성)
+#   Swift  cgrindel/rules_swift_package_manager 의 swift_gazelle_plugin
+#          (swift_library·swift_binary·swift_test 생성) — 아래 Swift 블록의
+#          rules_swift_package_manager 가 바로 이것을 품고 있다
+#   Python rules_python_gazelle_plugin
+#   Kotlin **없다고 보는 게 맞다.** Aspect 의 kotlin 플러그인은 스스로 EXPERIMENTAL
+#          ("not yet ready for use")이라 밝히고 있고, 생성 대상도 kt_jvm_library /
+#          kt_jvm_binary 뿐이다. 우리 Kotlin 용도는 Android 앱이라 정작 필요한
+#          android_library·android_binary·kt_android_library 를 만들어 주지 못한다.
+#          Gazelle 에 Android 확장은 공식·비공식 모두 사실상 없다.
 
 # ==============================================================================
-# 아래 블록은 해당 언어의 첫 모듈이 들어올 때 추가한다.
-# 그 시점에 registry.bazel.build 에서 버전을 확인할 것.
+# 아래 블록은 해당 언어의 첫 모듈이 들어올 때 주석을 푼다.
 # ==============================================================================
 #
 # JVM / Java — Spring Boot 백엔드 (services/), 공유 라이브러리 (libs/java/):
-#   bazel_dep(name = "rules_java", version = "8.5.1")
-#   bazel_dep(name = "rules_jvm_external", version = "6.3")
+#   bazel_dep(name = "rules_java", version = "9.7.0")
+#   bazel_dep(name = "rules_jvm_external", version = "7.1")
 #   maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 #   maven.install(name = "maven", artifacts = [...], lock_file = "//:maven_install.json")
 #   use_repo(maven, "maven")
@@ -49,23 +68,31 @@ bazel_dep(name = "gazelle", version = "0.39.1")
 #   # 첫 서비스가 들어올 때 결정한다.
 #
 # Kotlin — Android 앱 (apps/<name>-android/), 공유 라이브러리 (libs/kotlin/):
-#   bazel_dep(name = "rules_kotlin", version = "1.9.6")
-#   bazel_dep(name = "rules_android", version = "0.6.0")
+#   bazel_dep(name = "rules_kotlin", version = "2.4.0")
+#   bazel_dep(name = "rules_android", version = "0.7.3")
 #   # 로컬/CI 에 Android SDK 가 설치돼 있어야 한다 (rules_android 의 SDK extension 으로
 #   # 버전 고정 가능 — 완전 격리는 아니지만 Xcode보다는 재현성이 좋다).
 #
 # Swift — iOS 앱 (apps/<name>-ios/), 공유 라이브러리 (libs/swift/):
-#   bazel_dep(name = "rules_apple", version = "3.16.0")
-#   bazel_dep(name = "rules_swift", version = "2.3.1")
+#   bazel_dep(name = "apple_support", version = "2.8.0")
+#   bazel_dep(name = "rules_swift", version = "3.6.1")
+#   bazel_dep(name = "rules_apple", version = "4.5.3")
 #   bazel_dep(name = "rules_swift_package_manager", version = "0.34.0")  # 서드파티 SPM 의존성
 #   bazel_dep(name = "rules_xcodeproj", version = "2.10.0", dev_dependency = True)  # IDE 용 .xcodeproj 생성
 #   # 주의: Xcode 자체는 Bazel 이 받아올 수 없다 (Apple 라이선스상 재배포 금지).
 #   # 빌드/CI 머신마다 tools/bazel/toolchains/ 에 고정한 버전의 Xcode 가 실제로 설치돼
 #   # 있어야 한다 — AGENTS.md §4.3 의 "no host toolchains" 원칙에 대한 유일한 예외.
 #   # iOS 빌드/테스트는 macOS 실행기에서만 돈다 (Linux 원격 실행 불가).
+#   #
+#   # 이 블록은 특히 조심해서 푼다. apple_support 를 선언하기만 해도 macOS 에서는
+#   # Bazel 이 iOS 타깃 유무와 무관하게 "모든" 로컬 액션 전에 Xcode 버전을 확인한다.
+#   # 정식 Xcode 없이 Command Line Tools 만 있으면 그 확인이 실패해 저장소 전체
+#   # 빌드가 FATAL 크래시로 죽는다(DottedVersion 파싱 실패 — 실측 확인). 첫 iOS
+#   # 모듈을 만들고, 빌드에 참여하는 모든 macOS 장비에 정식 Xcode 설치를 확인한
+#   # 뒤에만 주석을 푼다.
 #
 # Python — AI 에이전트 (agents/), 공유 라이브러리 (libs/python/):
-#   bazel_dep(name = "rules_python", version = "0.36.0")
+#   bazel_dep(name = "rules_python", version = "2.2.0")
 #   pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 #   pip.parse(hub_name = "pypi", python_version = "3.12",
 #             requirements_lock = "//:requirements.lock")

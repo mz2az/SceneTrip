@@ -14,8 +14,17 @@ indent_size = 4
 [{BUILD,BUILD.bazel,MODULE.bazel,*.bzl}]
 indent_size = 4
 
-[*.go]
-indent_style = tab
+# Java: google-java-format 기본값이 2칸이다 (just fmt 가 쓰는 포매터).
+[*.java]
+indent_size = 2
+
+# Kotlin 공식 스타일과 ktlint 기본값
+[*.{kt,kts}]
+indent_size = 4
+
+# Swift 관례(Xcode 기본값)
+[*.swift]
+indent_size = 4
 
 [*.md]
 trim_trailing_whitespace = false

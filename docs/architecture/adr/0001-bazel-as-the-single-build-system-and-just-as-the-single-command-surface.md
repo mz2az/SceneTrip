@@ -5,9 +5,22 @@ status: accepted
 date: 2026-08-04
 supersedes:
 superseded-by:
+amended-by: 0002
 ---
 
 # ADR 0001: Bazel 을 유일한 빌드 시스템으로, just 를 유일한 명령 창구로 삼는다
+
+> **보정 안내 (ADR 0002).** 이 ADR 의 **결정은 그대로 유효하다** — Bazel 과 `just` 는
+> 계속 쓴다. 다만 처음 작성 당시 배경에 적혀 있던 "Go, TypeScript, Python 이 공존한다"는
+> 저장소 골격을 세울 때의 **가정**이었고 사실이 아니었다. 실제 스택은
+> [ADR 0002](./0002-product-stack-spring-python-native-mobile.md) 에서 백엔드
+> Spring Boot(Java) · AI Python · iOS 네이티브(Swift) · Android 네이티브(Kotlin) 로
+> 확정됐다.
+>
+> ADR 은 원칙적으로 append-only 지만(AGENTS.md §8), 이 문단은 **초기 세팅 기간의
+> 예외**로 아래 배경을 제자리에서 정정했다. 틀린 전제를 그대로 둔 채 읽히는 것보다
+> 낫다고 판단했다. 초기 세팅이 끝난 뒤에는 이 예외를 쓰지 않는다 — 이후의 변경은
+> 새 ADR 로만 한다.
 
 ## 배경
 
@@ -17,9 +30,9 @@ SceneTrip 은 여러 백엔드 서비스, 여러 프론트엔드 앱, 여러 AI 
 
 이 조합이 만드는 압력은 두 가지다.
 
-1. **언어가 늘어난다.** 백엔드는 Java(Spring Boot), 프론트는 Swift(iOS)와 Kotlin(Android),
-   AI 에이전트는 Python — 넷이 공존한다. 언어별 빌드 도구를 그대로 두면 모듈이 하나 늘 때마다
-   빌드 명령, 테스트 러너, 캐시 전략, CI 잡이 함께 늘어난다.
+1. **언어가 늘어난다.** 백엔드는 Java(Spring Boot), 앱은 Swift(iOS)와 Kotlin(Android),
+   AI 에이전트는 Python — 넷이 공존한다. 언어별 빌드 도구를 그대로 두면 모듈이 하나 늘
+   때마다 빌드 명령, 테스트 러너, 캐시 전략, CI 잡이 함께 늘어난다.
 2. **명령이 기계가 다룰 수 있어야 한다.** AI 에이전트는 "이 서비스는 `make test`,
    저 앱은 `pnpm test:ci`"를 추론해 낼 수 없다. 변형 하나하나가 잘못된 명령을 실행하거나,
    아무것도 검증하지 않은 명령의 성공을 보고할 기회가 된다.

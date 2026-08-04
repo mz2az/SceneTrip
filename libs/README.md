@@ -1,7 +1,6 @@
 # libs/ — 공유 라이브러리
 
-둘 이상의 모듈이 import 하는 코드. Bazel 툴체인과 Gazelle 규칙이 단순해지도록
-언어별로 묶는다.
+둘 이상의 모듈이 import 하는 코드. Bazel 툴체인 설정이 단순해지도록 언어별로 묶는다.
 
 | 디렉터리 | 내용 |
 | --- | --- |
@@ -17,8 +16,14 @@
   옮긴다 — 복사하는 것은 결함이다.
 - 라이브러리는 특정 서비스·앱·에이전트를 알지 못한다.
 - 라이브러리는 `services/`·`apps/`·`agents/` 를 거꾸로 참조하지 않는다.
+- **iOS 와 Android 는 코드를 공유하지 않는다.** 두 앱은 각자 네이티브로 구현하므로
+  `libs/swift/` 와 `libs/kotlin/` 은 서로 독립이다. 두 앱이 같은 규칙을 지켜야 한다면
+  코드가 아니라 `contracts/` 의 정의를 공유한다.
 - 모든 라이브러리에 테스트가 있다. 테스트 없는 라이브러리는 import 대상이 아니다.
 
 ```bash
-just new-lib <언어> <이름>
+just new-lib java   <이름>
+just new-lib kotlin <이름>
+just new-lib swift  <이름>
+just new-lib python <이름>
 ```
