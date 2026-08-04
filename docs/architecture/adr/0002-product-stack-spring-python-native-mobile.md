@@ -67,12 +67,16 @@ superseded-by:
 
 **후속 작업**
 
-- `MODULE.bazel` 에 Java·Python·Android·Kotlin 규칙 선언 — 완료. Apple 규칙 3종은
-  **의도적으로 주석 상태**로 둔다(아래 검증 참고).
-- Gazelle 과 `rules_go` 제거 — 완료. Gazelle 은 Go 용 BUILD 생성기이고 Java·Kotlin·
-  Swift 를 지원하지 않으므로, 이 저장소의 BUILD 파일은 손으로 쓴다.
-- `libs/` 를 `java`·`python`·`swift`·`kotlin`·`proto` 로 재편 — 완료.
-- 첫 Spring 서비스와 함께 Java 정적 분석(ErrorProne 또는 Checkstyle) 연결.
+- `libs/` 를 `java`·`kotlin`·`swift`·`python`·`proto` 로 재편 — 완료.
+- Gazelle 과 `rules_go` 제거 — 완료. Gazelle 은 Go 용 BUILD 생성기이고 우리 네 언어 중
+  Java·Kotlin·Swift 를 아예 커버하지 않는다. 하는 일 없이 Go 툴체인만 끌고 오므로
+  걷어냈고, 이 저장소의 `BUILD.bazel` 은 손으로 쓴다.
+- **네 언어의 규칙 세트는 `MODULE.bazel` 에 주석으로 둔다.** "아무도 의존하지 않는
+  규칙으로 이 파일을 채우지 않는다"는 원래 방침을 유지하되, 주석 안의 버전은
+  registry.bazel.build 에서 실제로 확인한 값으로 적어 두어 첫 모듈이 들어올 때
+  그대로 풀 수 있게 했다.
+- 첫 Spring Boot 서비스와 함께: Java 정적 분석(ErrorProne 또는 Checkstyle) 연결,
+  실행 가능 jar 패키징 방식 결정(`rules_java` 만으로는 안 된다).
 - CI 에 macOS 러너 잡 추가 — 첫 iOS 모듈이 생길 때.
 
 ## 검증

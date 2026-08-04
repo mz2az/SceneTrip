@@ -25,9 +25,9 @@ jobs:
 
       - name: bazelisk 설치
         run: |
-          curl -fsSLo /usr/local/bin/bazel \
+          sudo curl -fsSLo /usr/local/bin/bazel \
             https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
-          chmod +x /usr/local/bin/bazel
+          sudo chmod +x /usr/local/bin/bazel
 
       - name: Bazel 캐시
         uses: actions/cache@v4

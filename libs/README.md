@@ -4,10 +4,10 @@
 
 | 디렉터리 | 내용 |
 | --- | --- |
-| `libs/java/` | 여러 Spring 서비스가 공유하는 Java 패키지 |
-| `libs/python/` | 서비스와 AI 에이전트가 공유하는 Python 패키지 |
-| `libs/swift/` | iOS 앱이 공유하는 Swift 패키지 |
-| `libs/kotlin/` | Android 앱이 공유하는 Kotlin 패키지 |
+| `libs/java/` | 여러 Spring Boot 서비스가 공유하는 Java 패키지 |
+| `libs/kotlin/` | 여러 Android 앱이 공유하는 Kotlin 패키지 |
+| `libs/swift/` | 여러 iOS 앱이 공유하는 Swift 패키지 |
+| `libs/python/` | AI 에이전트가 공유하는 Python 패키지 |
 | `libs/proto/` | `contracts/proto` 로부터 만든 공용 Bazel proto 라이브러리 |
 
 ## 규칙
@@ -23,7 +23,7 @@
 
 ```bash
 just new-lib java   <이름>
-just new-lib python <이름>
-just new-lib swift  <이름>
 just new-lib kotlin <이름>
+just new-lib swift  <이름>
+just new-lib python <이름>
 ```

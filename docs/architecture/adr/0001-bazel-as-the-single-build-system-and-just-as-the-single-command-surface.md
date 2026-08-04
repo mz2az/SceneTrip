@@ -14,8 +14,9 @@ amended-by: 0002
 > 계속 쓴다. 다만 아래 배경에 적힌 "Go, TypeScript, Python 이 공존한다"는 저장소 골격을
 > 세울 당시의 **가정**이었고, 실제 스택은
 > [ADR 0002](./0002-product-stack-spring-python-native-mobile.md) 에서 백엔드
-> Spring(Java) · AI Python · iOS 네이티브(Swift) · Android 네이티브(Kotlin) 로 확정됐다.
-> ADR 은 고쳐 쓰지 않으므로 본문은 작성 당시 그대로 둔다.
+> Spring Boot(Java) · AI Python · iOS 네이티브(Swift) · Android 네이티브(Kotlin) 로
+> 확정됐다. ADR 은 고쳐 쓰지 않으므로(AGENTS.md §8) 본문은 작성 당시 그대로 둔다 —
+> 스택에 대한 최신 서술은 ADR 0002 를 본다.
 
 ## 배경
 

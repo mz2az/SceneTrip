@@ -16,7 +16,7 @@ Two invariants govern everything:
 
 | Invariant | Rule |
 | --- | --- |
-| **Bazel is the only build system** | Every build, test, run, package, and image step is a Bazel target. No language-native build invocation (`./gradlew build`, `mvn package`, `xcodebuild`, `pytest`) is used as the source of truth. |
+| **Bazel is the only build system** | Every build, test, run, package, and image step is a Bazel target. No language-native build invocation (`./gradlew build`, `xcodebuild`, `pytest`) is used as the source of truth. |
 | **`just` is the only entry point** | Every command a human or agent runs is a `just` recipe. Raw `bazel …` lines never appear in docs, CI workflows, or scripts. If a command is worth running twice, it becomes a recipe. |
 
 Consequence: **CI and local development execute identical commands.** A green `just ci` locally
@@ -34,11 +34,11 @@ SceneTrip/
 ├── MODULE.bazel           # bzlmod dependency graph
 ├── .bazelrc               # build flags + named configs
 │
-├── apps/                  # MOBILE APPS. Native iOS (Swift) and native Android (Kotlin).
-├── services/              # BACKENDS (multiple). Spring Boot (Java). One dir per server.
-├── agents/                # AI AGENTS (multiple). Python. One directory per agent runtime.
+├── apps/                  # FRONTENDS (multiple). One directory per native iOS/Android app.
+├── services/              # BACKENDS (multiple). One directory per deployable Spring Boot server.
+├── agents/                # AI AGENTS (multiple). One directory per agent runtime.
 ├── libs/                  # shared libraries, grouped by language
-│   ├── java/  python/  swift/  kotlin/  proto/
+│   ├── java/  kotlin/  swift/  python/  proto/
 │
 ├── contracts/             # INTERFACE SOURCE OF TRUTH — hand-written, never generated
 │   ├── proto/             # gRPC / protobuf service + message definitions
@@ -70,8 +70,8 @@ Before creating any file, resolve its home with this table. Do not invent new to
 
 | The thing you are creating | Goes in |
 | --- | --- |
-| A deployable HTTP/gRPC server | `services/<name>/` |
-| A deployable web/mobile UI | `apps/<name>/` |
+| A deployable Spring Boot HTTP/gRPC server | `services/<name>/` |
+| A deployable native iOS or Android app | `apps/<name>/` |
 | An LLM agent runtime, tool, or orchestration graph | `agents/<name>/` |
 | Code imported by ≥2 modules | `libs/<lang>/<name>/` |
 | A protobuf/OpenAPI/JSON-Schema definition | `contracts/<kind>/` |
@@ -96,8 +96,15 @@ services/scene-api/
 ├── CLAUDE.md          # OPTIONAL — module-local rules that override the root
 ├── src/               # implementation
 ├── tests/             # module-local unit + integration tests
-└── deploy/            # module-owned k8s/helm overlays (env values live in platform/)
+└── deploy/            # module-owned deploy config (see below)
 ```
+
+`deploy/` means different things by module kind:
+
+- `services/<name>/deploy/` — k8s/helm overlays (env-specific values live in `platform/`).
+- `apps/<name>/deploy/` — store-submission config: fastlane lanes, signing/provisioning
+  references, `Info.plist`/`AndroidManifest.xml` build variants. Never a k8s manifest — mobile
+  apps ship to the App Store / Play Store, not a cluster.
 
 Rules:
 
@@ -123,10 +130,14 @@ reading the `BUILD.bazel` first.
 | `:bin` | the executable entry point, when distinct from `:<module-name>` |
 | `:unit_test` | fast, hermetic, no network, no external services |
 | `:integration_test` | needs containers/fixtures; tagged `integration` |
-| `:image` | OCI container image |
-| `:push` | image push (always `tags = ["manual"]`) |
+| `:image` | OCI container image — `services/` only |
+| `:push` | image push (always `tags = ["manual"]`) — `services/` only |
+| `:ipa` | signed iOS install artifact — `apps/<name>-ios/` only, always `tags = ["manual"]` |
+| `:aab` / `:apk` | Android install artifact (App Bundle / APK) — `apps/<name>-android/` only |
 | `:lint` | module-specific lint target |
 | `:<name>_proto` / `:<name>_<lang>_proto` | proto library and language bindings |
+
+`apps/` (iOS/Android) modules never define `:image`/`:push` — they are not containerized.
 
 ### 4.2 Required tags
 
@@ -145,6 +156,12 @@ Tags are how `just` slices the graph. Apply them or your test will run in the wr
 
 - **No host toolchains.** Compilers, interpreters, and SDKs are declared in `MODULE.bazel` and
   registered in `tools/bazel/toolchains/`. Never depend on what happens to be installed.
+  - **Deliberate exception: Xcode.** Apple's license forbids redistributing Xcode, so Bazel
+    cannot fetch it — every machine (dev laptop or CI runner) building an `apps/<name>-ios/`
+    module must have the exact pinned Xcode version installed locally, selected via
+    `xcode_version` in `tools/bazel/toolchains/`. This is the one accepted breach of this rule.
+    It also means iOS build/test targets only run on macOS executors — no Linux remote
+    execution for them.
 - **No network at build time.** All external dependencies are pinned in `MODULE.bazel` /
   lockfiles. If a build needs the network, it is wrong.
 - **No absolute paths.** No `/Users/...`, no `$HOME`, no machine-specific paths in any BUILD file
@@ -155,21 +172,26 @@ Tags are how `just` slices the graph. Apply them or your test will run in the wr
 ### 4.4 Dependency management
 
 - External deps are added **only** to `MODULE.bazel` (bzlmod). Legacy `WORKSPACE` is not used.
-- Per-language deps are declared through the matching bzlmod extension in `MODULE.bazel`:
-  `maven.install` for Java/Spring and Android, `pip.parse` for Python. Manifests that exist only to
-  keep an IDE happy (`requirements.txt`, `Package.swift`) are **inputs**, never a parallel build path.
-- Apple rules (`rules_apple`, `rules_swift`, `apple_support`) stay commented out until the first iOS
-  module lands. Declaring them on a machine without the full Xcode app crashes the entire build, not
-  just the iOS targets.
+- Language dependency manifests (`build.gradle(.kts)`/`maven_install.json` for JVM services and
+  Kotlin/Android, `requirements.txt` for Python agents, `Package.swift`/`Package.resolved` for
+  Swift iOS libs) exist to feed the Bazel extensions and to keep IDEs working — they are **inputs
+  to Bazel**, never a parallel build path.
 - After changing any dependency declaration: `just deps-update`, then `just build`. Commit the
   resulting `MODULE.bazel.lock` diff in the same commit.
+- Apple rules (`rules_apple`, `rules_swift`, `apple_support`) stay commented out until the first
+  iOS module lands. Declaring them on a machine without the full Xcode app crashes the entire
+  build, not just the iOS targets.
 
 ### 4.5 BUILD files are hand-written
 
-There is no BUILD file generator in this repo. Gazelle was removed — it is a Go tool, and Java,
-Kotlin, and Swift have no Gazelle support at all. Write `BUILD.bazel` by hand, following the target
-naming in §4.1 so labels stay predictable without reading the file. `just gen` covers only
-contract-derived artifacts (proto stubs, API clients, mocks).
+There is no BUILD file generator in this repo. Gazelle is a Go tool and covers none of our four
+languages — Java, Kotlin, and Swift are unsupported outright — so it was removed rather than kept
+as dead weight that drags in a full Go toolchain.
+
+Write `BUILD.bazel` by hand: when you add a source file, add it to the target's `srcs` in the same
+edit. Follow the target naming in §4.1 so labels stay predictable without reading the file first.
+`just gen` covers only contract-derived artifacts (proto stubs, API clients, mocks) — never BUILD
+files.
 
 ---
 
@@ -191,10 +213,11 @@ recipe grouped by area.
 | `just fmt` | format everything (code, BUILD files, docs) |
 | `just lint` | all linters + static analysis |
 | `just gen` | regenerate contract-derived code (proto stubs, clients, mocks) |
+| `just deps-update` | refresh `MODULE.bazel.lock` after editing `MODULE.bazel` |
 | `just check` | **pre-PR gate**: fmt-check + lint + build + test |
 | `just ci` | exactly what CI runs |
 | `just clean` | drop build outputs |
-| `just new-service <name>` | scaffold a Spring backend service (Java) |
+| `just new-service <name>` | scaffold a Spring Boot backend service (Java) |
 | `just new-app-ios <name>` | scaffold a native iOS app (Swift) |
 | `just new-app-android <name>` | scaffold a native Android app (Kotlin) |
 | `just new-agent <name>` | scaffold an AI agent module (Python) |
@@ -225,7 +248,7 @@ recipe grouped by area.
  5. IMPLEMENT    Minimal code to pass. Update BUILD.bazel in the same edit.
  6. VERIFY       `just check` must pass. Never hand off red.
  7. DOCUMENT     Update the module README, docs/, and any ADR affected by the change.
- 8. COMMIT       Conventional commit, scoped to the module (see §7).
+ 8. COMMIT       Branch and commit per the JIRA ticket key, on a branch off `main` (see §7).
 ```
 
 ### Definition of Done
@@ -242,21 +265,59 @@ A change is done only when **all** of these hold:
 
 ---
 
-## 7. Commit & PR conventions
+## 7. Git workflow, commit & PR conventions
+
+### 7.1 Branching model — GitHub Flow
+
+- `main` is always deployable.
+- All work happens on a branch cut from `main` — never commit directly to `main`.
+- Merges to `main` happen **only** through a reviewed PR.
+- A merge to `main` triggers deployment automatically.
+  *(Target policy. The pipeline that performs this auto-deploy is not implemented yet — see
+  `.github/workflows/`. Treat `main` as if it deploys the moment you merge even before the
+  pipeline exists: never merge broken or half-finished work "just for now.")*
+
+### 7.2 Branch naming
+
+Branch name = the JIRA ticket key, optionally followed by a short kebab-case description.
 
 ```
-<type>(<scope>): <imperative summary>
-
-<body: what and why, not how>
-
-Refs: <issue/ADR>
+MZ2AZ-91-브랜드-네이밍
 ```
 
-- **type**: `feat` `fix` `refactor` `docs` `test` `chore` `perf` `ci` `build` `infra`
-- **scope**: the module path segment — `scene-api`, `web`, `trip-planner`, `contracts`, `platform`,
-  `bazel`, `just`
+### 7.3 Commit messages
+
+Every commit message includes its JIRA ticket key, so JIRA/GitHub integrations can link the
+commit back to the ticket automatically. Keep the key's case and hyphenation exact — the
+integration matches on it literally.
+
+```
+<type>: <imperative summary> (<JIRA-KEY>)
+```
+
+- **type**: `feat` `fix` `docs` `refactor` `test` `chore` — `chore` also covers
+  infra/CI/config-only changes (Terraform, Kubernetes manifests, `.env`, workflow files).
 - One logical change per commit. Never mix a refactor with a behavior change.
-- PR description states: what changed, why, blast radius, how it was verified, rollback plan.
+
+Example:
+
+```
+feat: 지도 SDK 적용 (MZ2AZ-10)
+```
+
+### 7.4 PR titles
+
+```
+[<JIRA-KEY>] <type>: <imperative summary>
+```
+
+Example:
+
+```
+[MZ2AZ-10] feat: 지도 SDK 적용
+```
+
+PR description states: what changed, why, blast radius, how it was verified, rollback plan.
 
 ---
 
@@ -338,7 +399,7 @@ of another task.
 
 ## 11. Anti-patterns — do not do these
 
-- Running `./gradlew build` / `mvn package` / `xcodebuild` / `pytest` as the authoritative build or test step.
+- Running `./gradlew build` / `xcodebuild` / `pytest` as the authoritative build or test step.
 - Adding a command to CI or docs without a corresponding `just` recipe.
 - Adding a source file without updating `BUILD.bazel`.
 - Hand-editing generated code (proto stubs, API clients) instead of the contract it came from.
