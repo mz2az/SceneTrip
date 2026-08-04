@@ -12,12 +12,12 @@ ran=0
 
 if have google-java-format && compgen -G "**/*.java" >/dev/null 2>&1; then
   ran=1
-  files=$(find . -name "*.java" -not -path "./bazel-*")
+  mapfile -t files < <(find . -name "*.java" -not -path "./bazel-*")
   if [ "$CHECK" -eq 1 ]; then
-    out="$(google-java-format --dry-run --set-exit-if-changed $files 2>&1 || true)"
+    out="$(google-java-format --dry-run --set-exit-if-changed "${files[@]}" 2>&1 || true)"
     [ -z "$out" ] || die "포맷이 어긋난 Java 파일:\n$out"
   else
-    google-java-format -i $files
+    google-java-format -i "${files[@]}"
   fi
 fi
 
