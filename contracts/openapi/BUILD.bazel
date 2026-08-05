@@ -15,6 +15,9 @@ load("@openapi_tools_generator_bazel//:defs.bzl", "openapi_generator")
 
 package(default_visibility = ["//visibility:public"])
 
+# 계약 테스트(//tests/contract)가 이 명세를 직접 참조한다.
+exports_files(["scene-api-v1.yaml"])
+
 # scene-api 의 Spring 서버 인터페이스.
 # 컨트롤러가 이 인터페이스를 구현하면 계약 위반이 컴파일 오류가 된다.
 openapi_generator(
