@@ -568,8 +568,10 @@ components:
         code:
           type: string
           description: |
-            기계가 분기하는 식별자. `PLACE_NOT_FOUND`, `CONTENT_NOT_FOUND`,
-            `INVALID_BBOX`, `INVALID_SORT`, `DUPLICATE_CART_ITEM` 등.
+            기계가 분기하는 식별자. 클라이언트 로직은 이 값만 보고 판단한다.
+
+            **전체 목록과 각 코드의 뜻은 `docs/api/errors.md` 에 있다.** 여기에
+            같은 목록을 두면 한쪽만 고쳐져 어긋나므로 옮겨 적지 않는다.
           example: PLACE_NOT_FOUND
         message:
           type: string
