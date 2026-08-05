@@ -1,0 +1,22 @@
+# scene-api 의 환경별 설정.
+#
+# 기본값은 이미지 안의 services/scene-api/src/main/resources/application.yaml 에 있고,
+# 환경마다 달라지는 값만 여기서 환경변수로 덮어쓴다. Spring 은 SPRING_ 접두 환경변수를
+# 설정 키로 자동 변환한다 (SERVER_PORT → server.port).
+#
+# **시크릿은 여기 두지 않는다** (AGENTS.md §9). ConfigMap 은 평문이고 저장소에
+# 커밋된다. 비밀번호·토큰은 Secret 으로 분리하고 값은 시크릿 매니저에서 온다.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scene-api
+  labels:
+    app.kubernetes.io/name: scene-api
+    app.kubernetes.io/part-of: scenetrip
+    app.kubernetes.io/managed-by: scenetrip
+data:
+  SPRING_PROFILES_ACTIVE: "local"
+
+  # 컨테이너 메모리 한도에 맞춰 힙을 잡는다. Java 21 은 cgroup 한도를 인식하지만
+  # 기본 비율(25%)이 낮아 512Mi 한도에서 힙이 128Mi 밖에 안 잡힌다.
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=40"
