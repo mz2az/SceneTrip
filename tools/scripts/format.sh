@@ -40,7 +40,10 @@ missing_tool() {
 if has_files '*.java'; then
   if have google-java-format; then
     ran=1
-    mapfile -t files < <(find_sources '*.java')
+    # mapfile 을 쓰지 않는 이유: bash 4 이상에만 있는데 macOS 기본 bash 는 3.2 다.
+    # 팀 전원이 macOS 라 그대로 두면 "command not found" 로 게이트가 죽는다.
+    files=()
+    while IFS= read -r f; do files+=("$f"); done < <(find_sources '*.java')
     if [ "$CHECK" -eq 1 ]; then
       out="$(google-java-format --dry-run --set-exit-if-changed "${files[@]}" 2>&1 || true)"
       [ -z "$out" ] || die "포맷이 어긋난 Java 파일:\n$out"

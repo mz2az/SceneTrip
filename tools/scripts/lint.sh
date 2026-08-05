@@ -27,7 +27,9 @@ missing_tool() {
 if has_files '*.java'; then
   if have checkstyle; then
     ran=1
-    mapfile -t files < <(find_sources '*.java')
+    # mapfile 은 bash 4 이상 전용이고 macOS 기본 bash 는 3.2 다 — format.sh 의 같은 주석 참조.
+    files=()
+    while IFS= read -r f; do files+=("$f"); done < <(find_sources '*.java')
     checkstyle -c /google_checks.xml "${files[@]}"
   else
     missing_tool Java checkstyle
