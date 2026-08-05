@@ -37,21 +37,25 @@ missing_tool() {
 }
 
 # --- Java (services/, libs/java/) ---------------------------------------------
+#
+# 포매터를 호스트에서 찾지 않는다. Bazel 이 //:google_java_format 으로 버전을 고정해
+# 받아오므로 "깔려 있나" 를 물을 필요가 없고, 사람마다 버전이 달라 결과가 갈리는 일도
+# 없다 (AGENTS.md §4.3). buildifier 와 같은 방식이다.
 if has_files '*.java'; then
-  if have google-java-format; then
-    ran=1
-    # mapfile 을 쓰지 않는 이유: bash 4 이상에만 있는데 macOS 기본 bash 는 3.2 다.
-    # 팀 전원이 macOS 라 그대로 두면 "command not found" 로 게이트가 죽는다.
-    files=()
-    while IFS= read -r f; do files+=("$f"); done < <(find_sources '*.java')
-    if [ "$CHECK" -eq 1 ]; then
-      out="$(google-java-format --dry-run --set-exit-if-changed "${files[@]}" 2>&1 || true)"
-      [ -z "$out" ] || die "포맷이 어긋난 Java 파일:\n$out"
-    else
-      google-java-format -i "${files[@]}"
-    fi
+  ran=1
+  # mapfile 을 쓰지 않는 이유: bash 4 이상에만 있는데 macOS 기본 bash 는 3.2 다.
+  # 팀 전원이 macOS 라 그대로 두면 "command not found" 로 게이트가 죽는다.
+  files=()
+  while IFS= read -r f; do files+=("$f"); done < <(find_sources '*.java')
+  if [ "$CHECK" -eq 1 ]; then
+    out="$("${BAZEL:-bazel}" run --ui_event_filters=-info,-stdout --noshow_progress \
+      //:google_java_format -- --dry-run --set-exit-if-changed "${files[@]}" 2>&1 || true)"
+    # 도구가 고칠 파일 이름만 뱉는다. 빌드 로그 줄은 걸러낸다.
+    out="$(printf '%s\n' "$out" | grep -vE '^(INFO|WARNING|Target|  bazel-bin|$)' || true)"
+    [ -z "$out" ] || die "포맷이 어긋난 Java 파일:\n$out"
   else
-    missing_tool Java google-java-format
+    "${BAZEL:-bazel}" run --ui_event_filters=-info,-stdout --noshow_progress \
+      //:google_java_format -- -i "${files[@]}"
   fi
 fi
 

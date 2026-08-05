@@ -4,8 +4,10 @@
     "com.google.code.findbugs:jsr305": 495355163,
     "com.google.code.gson:gson": 597770368,
     "com.google.errorprone:error_prone_annotations": -1035138750,
+    "com.google.googlejavaformat:google-java-format": -1066280999,
     "com.google.guava:guava": 1943808618,
     "com.google.j2objc:j2objc-annotations": 2003271689,
+    "com.puppycrawl.tools:checkstyle": 680098671,
     "org.junit.platform:junit-platform-console": 839501022,
     "org.springframework.boot:spring-boot-loader": -593650108,
     "org.springframework.boot:spring-boot-starter-actuator": -1209590048,
@@ -19,18 +21,24 @@
     "com.fasterxml.jackson.core:jackson-annotations": 1145483352,
     "com.google.code.findbugs:jsr305": 870839855,
     "com.google.code.gson:gson": -1575757252,
-    "com.google.errorprone:error_prone_annotations": 833623751,
-    "com.google.guava:failureaccess": -1890754729,
-    "com.google.guava:guava": -163533230,
+    "com.google.errorprone:error_prone_annotations": 213918278,
+    "com.google.googlejavaformat:google-java-format": -135627531,
+    "com.google.guava:failureaccess": 1715931538,
+    "com.google.guava:guava": 504897348,
     "com.google.guava:listenablefuture": 1079558157,
-    "com.google.j2objc:j2objc-annotations": 248818742,
+    "com.google.j2objc:j2objc-annotations": -1008747351,
     "com.jayway.jsonpath:json-path": -843320851,
+    "com.puppycrawl.tools:checkstyle": 1082261917,
     "com.vaadin.external.google:android-json": -815169796,
+    "commons-beanutils:commons-beanutils": 852036681,
+    "commons-codec:commons-codec": -1543128303,
+    "commons-collections:commons-collections": 7509648,
     "commons-logging:commons-logging": -1473372610,
-    "io.micrometer:micrometer-commons": -497857416,
-    "io.micrometer:micrometer-core": 676088806,
-    "io.micrometer:micrometer-jakarta9": 1507923138,
-    "io.micrometer:micrometer-observation": 104243727,
+    "info.picocli:picocli": 996750497,
+    "io.micrometer:micrometer-commons": 617951965,
+    "io.micrometer:micrometer-core": -1032017353,
+    "io.micrometer:micrometer-jakarta9": -1488456246,
+    "io.micrometer:micrometer-observation": 1201840335,
     "jakarta.activation:jakarta.activation-api": -1623326611,
     "jakarta.annotation:jakarta.annotation-api": 196616042,
     "jakarta.xml.bind:jakarta.xml.bind-api": -1145319810,
@@ -38,76 +46,99 @@
     "net.bytebuddy:byte-buddy-agent": 1099087346,
     "net.minidev:accessors-smart": 2098330403,
     "net.minidev:json-smart": 1407038084,
+    "net.sf.saxon:Saxon-HE": -560158028,
+    "org.antlr:antlr4-runtime": 460090011,
+    "org.apache.commons:commons-lang3": -889837011,
+    "org.apache.commons:commons-text": -1636534692,
+    "org.apache.httpcomponents:httpclient": 1902644691,
+    "org.apache.httpcomponents:httpcore": 922448651,
     "org.apache.logging.log4j:log4j-api": -535303980,
     "org.apache.logging.log4j:log4j-to-slf4j": 211091329,
+    "org.apache.maven.doxia:doxia-core": 1523249265,
+    "org.apache.maven.doxia:doxia-logging-api": 1448116252,
+    "org.apache.maven.doxia:doxia-module-xdoc": 1254169599,
+    "org.apache.maven.doxia:doxia-sink-api": -1516873446,
     "org.apache.tomcat.embed:tomcat-embed-core": 310227507,
     "org.apache.tomcat.embed:tomcat-embed-el": 1305005618,
     "org.apache.tomcat.embed:tomcat-embed-websocket": -1413301720,
+    "org.apache.xbean:xbean-reflect": -780502532,
     "org.apiguardian:apiguardian-api": 1279798469,
     "org.assertj:assertj-core": -313838767,
     "org.awaitility:awaitility": 146142818,
-    "org.checkerframework:checker-qual": -1533199059,
+    "org.codehaus.plexus:plexus-classworlds": 830297444,
+    "org.codehaus.plexus:plexus-component-annotations": -599131582,
+    "org.codehaus.plexus:plexus-container-default": -836965060,
+    "org.codehaus.plexus:plexus-utils": -2106813517,
+    "org.commonmark:commonmark": 1195553091,
+    "org.commonmark:commonmark-ext-gfm-tables": -558121472,
     "org.hamcrest:hamcrest": 1282317766,
     "org.hdrhistogram:HdrHistogram": 310945399,
-    "org.jspecify:jspecify": 117231129,
-    "org.junit.jupiter:junit-jupiter": -1180454764,
-    "org.junit.jupiter:junit-jupiter-api": -452374709,
-    "org.junit.jupiter:junit-jupiter-engine": 1758090696,
-    "org.junit.jupiter:junit-jupiter-params": -1984293032,
-    "org.junit.platform:junit-platform-commons": 880945443,
-    "org.junit.platform:junit-platform-console": 1596411199,
-    "org.junit.platform:junit-platform-engine": -2133752461,
-    "org.junit.platform:junit-platform-launcher": -1164782491,
-    "org.junit.platform:junit-platform-reporting": -708741566,
+    "org.javassist:javassist": -1946021694,
+    "org.jspecify:jspecify": -109882726,
+    "org.junit.jupiter:junit-jupiter": -242286586,
+    "org.junit.jupiter:junit-jupiter-api": 972758922,
+    "org.junit.jupiter:junit-jupiter-engine": 1731586075,
+    "org.junit.jupiter:junit-jupiter-params": -1281326584,
+    "org.junit.platform:junit-platform-commons": 411167634,
+    "org.junit.platform:junit-platform-console": -1878872186,
+    "org.junit.platform:junit-platform-engine": 389656162,
+    "org.junit.platform:junit-platform-launcher": 2084826755,
+    "org.junit.platform:junit-platform-reporting": 2140994334,
     "org.mockito:mockito-core": 616585472,
-    "org.mockito:mockito-junit-jupiter": 243891871,
+    "org.mockito:mockito-junit-jupiter": 716666350,
     "org.objenesis:objenesis": 1798216877,
     "org.opentest4j.reporting:open-test-reporting-tooling-spi": 1212162497,
     "org.opentest4j:opentest4j": -1711174392,
     "org.ow2.asm:asm": -1101379267,
+    "org.reflections:reflections": -61158837,
     "org.skyscreamer:jsonassert": -852848867,
     "org.slf4j:jul-to-slf4j": 1118476727,
     "org.slf4j:slf4j-api": 500377983,
-    "org.springframework.boot:spring-boot": 1601871284,
-    "org.springframework.boot:spring-boot-actuator": 445976301,
-    "org.springframework.boot:spring-boot-actuator-autoconfigure": -46063594,
-    "org.springframework.boot:spring-boot-autoconfigure": -938916806,
-    "org.springframework.boot:spring-boot-health": 421956340,
-    "org.springframework.boot:spring-boot-http-converter": 1323149312,
-    "org.springframework.boot:spring-boot-jackson": -1599397325,
+    "org.slf4j:slf4j-simple": -1055624668,
+    "org.springframework.boot:spring-boot": -2016441667,
+    "org.springframework.boot:spring-boot-actuator": -1678817493,
+    "org.springframework.boot:spring-boot-actuator-autoconfigure": 1838233811,
+    "org.springframework.boot:spring-boot-autoconfigure": -1660830850,
+    "org.springframework.boot:spring-boot-health": 1871531012,
+    "org.springframework.boot:spring-boot-http-converter": -1892379925,
+    "org.springframework.boot:spring-boot-jackson": -1616673789,
     "org.springframework.boot:spring-boot-loader": 1572336122,
-    "org.springframework.boot:spring-boot-micrometer-metrics": -764830621,
-    "org.springframework.boot:spring-boot-micrometer-observation": -594996287,
-    "org.springframework.boot:spring-boot-servlet": -342521775,
-    "org.springframework.boot:spring-boot-starter": 1960558628,
-    "org.springframework.boot:spring-boot-starter-actuator": -1362716948,
-    "org.springframework.boot:spring-boot-starter-jackson": 2473505,
+    "org.springframework.boot:spring-boot-micrometer-metrics": -1965711561,
+    "org.springframework.boot:spring-boot-micrometer-observation": 578901184,
+    "org.springframework.boot:spring-boot-servlet": -1988576070,
+    "org.springframework.boot:spring-boot-starter": 743120937,
+    "org.springframework.boot:spring-boot-starter-actuator": 1154141323,
+    "org.springframework.boot:spring-boot-starter-jackson": 2142837570,
     "org.springframework.boot:spring-boot-starter-logging": 118495084,
-    "org.springframework.boot:spring-boot-starter-micrometer-metrics": 1530397277,
-    "org.springframework.boot:spring-boot-starter-test": -652773190,
-    "org.springframework.boot:spring-boot-starter-tomcat": 1296963836,
-    "org.springframework.boot:spring-boot-starter-tomcat-runtime": -276331412,
-    "org.springframework.boot:spring-boot-starter-web": -317925100,
-    "org.springframework.boot:spring-boot-test": -1657952922,
-    "org.springframework.boot:spring-boot-test-autoconfigure": -1269963730,
-    "org.springframework.boot:spring-boot-tomcat": -1478870246,
-    "org.springframework.boot:spring-boot-web-server": 2040491494,
-    "org.springframework.boot:spring-boot-webmvc": 73526615,
-    "org.springframework:spring-aop": 991476878,
-    "org.springframework:spring-beans": 347641091,
-    "org.springframework:spring-context": 907173487,
-    "org.springframework:spring-core": -397361785,
-    "org.springframework:spring-expression": -1071285727,
-    "org.springframework:spring-test": 252940480,
-    "org.springframework:spring-web": 1225780139,
-    "org.springframework:spring-webmvc": -864579766,
+    "org.springframework.boot:spring-boot-starter-micrometer-metrics": -535937512,
+    "org.springframework.boot:spring-boot-starter-test": -817721119,
+    "org.springframework.boot:spring-boot-starter-tomcat": 551198941,
+    "org.springframework.boot:spring-boot-starter-tomcat-runtime": -1277689107,
+    "org.springframework.boot:spring-boot-starter-web": -1034300187,
+    "org.springframework.boot:spring-boot-test": 716270079,
+    "org.springframework.boot:spring-boot-test-autoconfigure": 887181594,
+    "org.springframework.boot:spring-boot-tomcat": 1542973197,
+    "org.springframework.boot:spring-boot-web-server": -1129608763,
+    "org.springframework.boot:spring-boot-webmvc": 1418261913,
+    "org.springframework:spring-aop": -1418859709,
+    "org.springframework:spring-beans": -384632645,
+    "org.springframework:spring-context": -1228221475,
+    "org.springframework:spring-core": -561650770,
+    "org.springframework:spring-expression": -1803559463,
+    "org.springframework:spring-test": -479333256,
+    "org.springframework:spring-web": 1383396543,
+    "org.springframework:spring-webmvc": -1919592687,
+    "org.xmlresolver:xmlresolver": -2072175398,
+    "org.xmlresolver:xmlresolver:jar:data": 792867476,
     "org.xmlunit:xmlunit-core": -1543079851,
     "org.yaml:snakeyaml": 1068613154,
     "tools.jackson.core:jackson-core": 704806230,
     "tools.jackson.core:jackson-databind": -1784115690
   },
   "conflict_resolution": {
-    "com.google.errorprone:error_prone_annotations:2.5.1": "com.google.errorprone:error_prone_annotations:2.18.0"
+    "com.google.errorprone:error_prone_annotations:2.5.1": "com.google.errorprone:error_prone_annotations:2.47.0",
+    "com.google.guava:guava:32.0.1-jre": "com.google.guava:guava:33.6.0-jre",
+    "com.google.j2objc:j2objc-annotations:2.8": "com.google.j2objc:j2objc-annotations:3.1"
   },
   "artifacts": {
     "ch.qos.logback:logback-classic": {
@@ -142,21 +173,27 @@
     },
     "com.google.errorprone:error_prone_annotations": {
       "shasums": {
-        "jar": "9e6814cb71816988a4fd1b07a993a8f21bb7058d522c162b1de849e19bea54ae"
+        "jar": "5364bc6f22e72e98195e406a58d3ba1c09ffa11dea0729592cb870dc2de4056d"
       },
-      "version": "2.18.0"
+      "version": "2.47.0"
+    },
+    "com.google.googlejavaformat:google-java-format": {
+      "shasums": {
+        "jar": "57f9b550a662dcbbdf344073e3f5812b837a0e6e430548d8a0a3c9090cada65d"
+      },
+      "version": "1.36.1"
     },
     "com.google.guava:failureaccess": {
       "shasums": {
-        "jar": "a171ee4c734dd2da837e4b16be9df4661afab72a41adaf31eb84dfdaf936ca26"
+        "jar": "cbfc3906b19b8f55dd7cfd6dfe0aa4532e834250d7f080bd8d211a3e246b59cb"
       },
-      "version": "1.0.1"
+      "version": "1.0.3"
     },
     "com.google.guava:guava": {
       "shasums": {
-        "jar": "bd7fa227591fb8509677d0d1122cf95158f3b8a9f45653f58281d879f6dc48c5"
+        "jar": "dc573e1fca4fd5454f4a5fd3d7da2df03002876a4175bafc14a95980dd7713b3"
       },
-      "version": "32.0.1-jre"
+      "version": "33.6.0-jre"
     },
     "com.google.guava:listenablefuture": {
       "shasums": {
@@ -166,9 +203,9 @@
     },
     "com.google.j2objc:j2objc-annotations": {
       "shasums": {
-        "jar": "f02a95fa1a5e95edb3ed859fd0fb7df709d121a35290eff8b74dce2ab7f4d6ed"
+        "jar": "84d3a150518485f8140ea99b8a985656749629f6433c92b80c75b36aba3b099b"
       },
-      "version": "2.8"
+      "version": "3.1"
     },
     "com.jayway.jsonpath:json-path": {
       "shasums": {
@@ -176,17 +213,47 @@
       },
       "version": "2.10.0"
     },
+    "com.puppycrawl.tools:checkstyle": {
+      "shasums": {
+        "jar": "cbe0e5ea088c6f258e8b9f5f39278446bdce2513a6e8609dac7cf2fd1c4e8d4c"
+      },
+      "version": "13.9.0"
+    },
     "com.vaadin.external.google:android-json": {
       "shasums": {
         "jar": "dfb7bae2f404cfe0b72b4d23944698cb716b7665171812a0a4d0f5926c0fac79"
       },
       "version": "0.0.20131108.vaadin1"
     },
+    "commons-beanutils:commons-beanutils": {
+      "shasums": {
+        "jar": "9e44ba68ec9a3f21286fa2a8bbb003b735c0f69101bb43144b79f4f8aaa74709"
+      },
+      "version": "1.11.0"
+    },
+    "commons-codec:commons-codec": {
+      "shasums": {
+        "jar": "e599d5318e97aa48f42136a2927e6dfa4e8881dff0e6c8e3109ddbbff51d7b7d"
+      },
+      "version": "1.11"
+    },
+    "commons-collections:commons-collections": {
+      "shasums": {
+        "jar": "eeeae917917144a68a741d4c0dff66aa5c5c5fd85593ff217bced3fc8ca783b8"
+      },
+      "version": "3.2.2"
+    },
     "commons-logging:commons-logging": {
       "shasums": {
         "jar": "6d7a744e4027649fbb50895df9497d109f98c766a637062fe8d2eabbb3140ba4"
       },
       "version": "1.3.5"
+    },
+    "info.picocli:picocli": {
+      "shasums": {
+        "jar": "f86e30fffd10d2b13b8caa8d4b237a7ee61f2ffccf5b1941de718b765d235bf8"
+      },
+      "version": "4.7.7"
     },
     "io.micrometer:micrometer-commons": {
       "shasums": {
@@ -254,6 +321,42 @@
       },
       "version": "2.6.0"
     },
+    "net.sf.saxon:Saxon-HE": {
+      "shasums": {
+        "jar": "8f3a9216a537367132293eacbba9df062eace8f8b16a184af59e2e4839d4cd41"
+      },
+      "version": "12.9"
+    },
+    "org.antlr:antlr4-runtime": {
+      "shasums": {
+        "jar": "dd3e8a13a2d669bf84fb8d834de35ce4875f27157698d206241ec8488aadcaf7"
+      },
+      "version": "4.13.2"
+    },
+    "org.apache.commons:commons-lang3": {
+      "shasums": {
+        "jar": "dac807f65b07698ff39b1b07bfef3d87ae3fd46d91bbf8a2bc02b2a831616f68"
+      },
+      "version": "3.8.1"
+    },
+    "org.apache.commons:commons-text": {
+      "shasums": {
+        "jar": "8185b3a5311092d83ed1f184c2d093b3105d726bbd76867c32b3511542bb99a8"
+      },
+      "version": "1.3"
+    },
+    "org.apache.httpcomponents:httpclient": {
+      "shasums": {
+        "jar": "6fe9026a566c6a5001608cf3fc32196641f6c1e5e1986d1037ccdbd5f31ef743"
+      },
+      "version": "4.5.13"
+    },
+    "org.apache.httpcomponents:httpcore": {
+      "shasums": {
+        "jar": "f956209e450cb1d0c51776dfbd23e53e9dd8db9a1298ed62b70bf0944ba63b28"
+      },
+      "version": "4.4.14"
+    },
     "org.apache.logging.log4j:log4j-api": {
       "shasums": {
         "jar": "c4b642a7f047275215de117e0e3847eb2c7711d84a0aa7433e7b3c096daf341d"
@@ -265,6 +368,30 @@
         "jar": "d7b78fc0aaaa5e8ada388b29d718b0ab187e512965bed0b259bb4ab299f13db2"
       },
       "version": "2.25.4"
+    },
+    "org.apache.maven.doxia:doxia-core": {
+      "shasums": {
+        "jar": "5e49cd827bebbcea5829d3b3883d17ad1ce15ebd6394aeb50ad50d7dfd939fcd"
+      },
+      "version": "1.12.0"
+    },
+    "org.apache.maven.doxia:doxia-logging-api": {
+      "shasums": {
+        "jar": "985306162c0a9f4c309d46109447f30f02bf6fc9bc16a3e039d59e1dabd0192f"
+      },
+      "version": "1.12.0"
+    },
+    "org.apache.maven.doxia:doxia-module-xdoc": {
+      "shasums": {
+        "jar": "e8731ba00a4edd34b20eff9e4a729c2045c62cb796c3e491692607de4476ab01"
+      },
+      "version": "1.12.0"
+    },
+    "org.apache.maven.doxia:doxia-sink-api": {
+      "shasums": {
+        "jar": "5dca6aaaa9e70d8a0766e143ddcf9db09de5fde0fbcc78cb635d74e764dfcca5"
+      },
+      "version": "1.12.0"
     },
     "org.apache.tomcat.embed:tomcat-embed-core": {
       "shasums": {
@@ -284,6 +411,12 @@
       },
       "version": "11.0.22"
     },
+    "org.apache.xbean:xbean-reflect": {
+      "shasums": {
+        "jar": "104e5e9bb5a669f86722f32281960700f7ec8e3209ef51b23eb9b6d23d1629cb"
+      },
+      "version": "3.7"
+    },
     "org.apiguardian:apiguardian-api": {
       "shasums": {
         "jar": "b509448ac506d607319f182537f0b35d71007582ec741832a1f111e5b5b70b38"
@@ -302,11 +435,41 @@
       },
       "version": "4.3.0"
     },
-    "org.checkerframework:checker-qual": {
+    "org.codehaus.plexus:plexus-classworlds": {
       "shasums": {
-        "jar": "e316255bbfcd9fe50d165314b85abb2b33cb2a66a93c491db648e498a82c2de1"
+        "jar": "52f77c5ec49f787c9c417ebed5d6efd9922f44a202f217376e4f94c0d74f3549"
       },
-      "version": "3.33.0"
+      "version": "2.6.0"
+    },
+    "org.codehaus.plexus:plexus-component-annotations": {
+      "shasums": {
+        "jar": "bde3617ce9b5bcf9584126046080043af6a4b3baea40a3b153f02e7bbc32acac"
+      },
+      "version": "2.1.0"
+    },
+    "org.codehaus.plexus:plexus-container-default": {
+      "shasums": {
+        "jar": "6dceb1246b188153bdcb6f962d543d51ddb672cca07cad94a78fbabc9edf0a39"
+      },
+      "version": "2.1.0"
+    },
+    "org.codehaus.plexus:plexus-utils": {
+      "shasums": {
+        "jar": "76d174792540e2775af94d03d10fb2d3c776e2cd0ac0ebf427d3e570072bb9ce"
+      },
+      "version": "3.3.0"
+    },
+    "org.commonmark:commonmark": {
+      "shasums": {
+        "jar": "f8b28e00f97c568329ee1b2496cfec5c3ef8664b565ea09cf8988894183b956d"
+      },
+      "version": "0.28.0"
+    },
+    "org.commonmark:commonmark-ext-gfm-tables": {
+      "shasums": {
+        "jar": "80439c7c4809daa6c35ccb260f48f8b71cda30e8cc923dbd68bb3be049359ecb"
+      },
+      "version": "0.28.0"
     },
     "org.hamcrest:hamcrest": {
       "shasums": {
@@ -320,11 +483,17 @@
       },
       "version": "2.2.2"
     },
+    "org.javassist:javassist": {
+      "shasums": {
+        "jar": "57d0a9e9286f82f4eaa851125186997f811befce0e2060ff0a15a77f5a9dd9a7"
+      },
+      "version": "3.28.0-GA"
+    },
     "org.jspecify:jspecify": {
       "shasums": {
-        "jar": "1fad6e6be7557781e4d33729d49ae1cdc8fdda6fe477bb0cc68ce351eafdfbab"
+        "jar": "070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66"
       },
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     "org.junit.jupiter:junit-jupiter": {
       "shasums": {
@@ -416,6 +585,12 @@
       },
       "version": "9.7.1"
     },
+    "org.reflections:reflections": {
+      "shasums": {
+        "jar": "938a2d08fe54050d7610b944d8ddc3a09355710d9e6be0aac838dbc04e9a2825"
+      },
+      "version": "0.10.2"
+    },
     "org.skyscreamer:jsonassert": {
       "shasums": {
         "jar": "719095c07d4203961320da593441d8b3b643c18eb1d81aa98ea933bb7eb351ba"
@@ -431,6 +606,12 @@
     "org.slf4j:slf4j-api": {
       "shasums": {
         "jar": "44508fd1576500688c790b190acdd16fec4f8c79a3e0b900afd70503cf055f55"
+      },
+      "version": "2.0.18"
+    },
+    "org.slf4j:slf4j-simple": {
+      "shasums": {
+        "jar": "8268bd018a5709b07209e0d8ca6221a37584ba1bc12ba985b8335a82c648bdd0"
       },
       "version": "2.0.18"
     },
@@ -632,6 +813,13 @@
       },
       "version": "7.0.8"
     },
+    "org.xmlresolver:xmlresolver": {
+      "shasums": {
+        "data": "b0c487ad2f3e558be8d829c916d2458d10aca6a5bafa7a4d0524b70845e48a5c",
+        "jar": "1fe4d5b92f708dcdb82dbce12919e0171e6b5ca62c6dca6220483625098feb5f"
+      },
+      "version": "5.3.3"
+    },
     "org.xmlunit:xmlunit-core": {
       "shasums": {
         "jar": "50970e6069c21182689eb44ae9f8193970e080b6f37fc13f22aa4201cca2dfe4"
@@ -662,17 +850,36 @@
       "ch.qos.logback:logback-core",
       "org.slf4j:slf4j-api"
     ],
+    "com.google.googlejavaformat:google-java-format": [
+      "com.google.guava:guava",
+      "org.commonmark:commonmark",
+      "org.commonmark:commonmark-ext-gfm-tables"
+    ],
     "com.google.guava:guava": [
-      "com.google.code.findbugs:jsr305",
       "com.google.errorprone:error_prone_annotations",
       "com.google.guava:failureaccess",
       "com.google.guava:listenablefuture",
       "com.google.j2objc:j2objc-annotations",
-      "org.checkerframework:checker-qual"
+      "org.jspecify:jspecify"
     ],
     "com.jayway.jsonpath:json-path": [
       "net.minidev:json-smart",
       "org.slf4j:slf4j-api"
+    ],
+    "com.puppycrawl.tools:checkstyle": [
+      "com.google.guava:guava",
+      "commons-beanutils:commons-beanutils",
+      "info.picocli:picocli",
+      "net.sf.saxon:Saxon-HE",
+      "org.antlr:antlr4-runtime",
+      "org.apache.maven.doxia:doxia-core",
+      "org.apache.maven.doxia:doxia-module-xdoc",
+      "org.reflections:reflections",
+      "org.slf4j:slf4j-api",
+      "org.slf4j:slf4j-simple"
+    ],
+    "commons-beanutils:commons-beanutils": [
+      "commons-collections:commons-collections"
     ],
     "io.micrometer:micrometer-commons": [
       "org.jspecify:jspecify"
@@ -702,9 +909,44 @@
     "net.minidev:json-smart": [
       "net.minidev:accessors-smart"
     ],
+    "net.sf.saxon:Saxon-HE": [
+      "org.xmlresolver:xmlresolver",
+      "org.xmlresolver:xmlresolver:jar:data"
+    ],
+    "org.apache.commons:commons-text": [
+      "org.apache.commons:commons-lang3"
+    ],
+    "org.apache.httpcomponents:httpclient": [
+      "commons-codec:commons-codec",
+      "commons-logging:commons-logging",
+      "org.apache.httpcomponents:httpcore"
+    ],
     "org.apache.logging.log4j:log4j-to-slf4j": [
       "org.apache.logging.log4j:log4j-api",
       "org.slf4j:slf4j-api"
+    ],
+    "org.apache.maven.doxia:doxia-core": [
+      "org.apache.commons:commons-lang3",
+      "org.apache.commons:commons-text",
+      "org.apache.httpcomponents:httpclient",
+      "org.apache.httpcomponents:httpcore",
+      "org.apache.maven.doxia:doxia-logging-api",
+      "org.apache.maven.doxia:doxia-sink-api",
+      "org.codehaus.plexus:plexus-component-annotations",
+      "org.codehaus.plexus:plexus-container-default",
+      "org.codehaus.plexus:plexus-utils"
+    ],
+    "org.apache.maven.doxia:doxia-logging-api": [
+      "org.codehaus.plexus:plexus-container-default"
+    ],
+    "org.apache.maven.doxia:doxia-module-xdoc": [
+      "org.apache.maven.doxia:doxia-core",
+      "org.apache.maven.doxia:doxia-sink-api",
+      "org.codehaus.plexus:plexus-component-annotations",
+      "org.codehaus.plexus:plexus-utils"
+    ],
+    "org.apache.maven.doxia:doxia-sink-api": [
+      "org.apache.maven.doxia:doxia-logging-api"
     ],
     "org.apache.tomcat.embed:tomcat-embed-websocket": [
       "org.apache.tomcat.embed:tomcat-embed-core"
@@ -714,6 +956,14 @@
     ],
     "org.awaitility:awaitility": [
       "org.hamcrest:hamcrest"
+    ],
+    "org.codehaus.plexus:plexus-container-default": [
+      "org.apache.xbean:xbean-reflect",
+      "org.codehaus.plexus:plexus-classworlds",
+      "org.codehaus.plexus:plexus-utils"
+    ],
+    "org.commonmark:commonmark-ext-gfm-tables": [
+      "org.commonmark:commonmark"
     ],
     "org.junit.jupiter:junit-jupiter": [
       "org.junit.jupiter:junit-jupiter-api",
@@ -775,10 +1025,18 @@
     "org.opentest4j.reporting:open-test-reporting-tooling-spi": [
       "org.apiguardian:apiguardian-api"
     ],
+    "org.reflections:reflections": [
+      "com.google.code.findbugs:jsr305",
+      "org.javassist:javassist",
+      "org.slf4j:slf4j-api"
+    ],
     "org.skyscreamer:jsonassert": [
       "com.vaadin.external.google:android-json"
     ],
     "org.slf4j:jul-to-slf4j": [
+      "org.slf4j:slf4j-api"
+    ],
+    "org.slf4j:slf4j-simple": [
       "org.slf4j:slf4j-api"
     ],
     "org.springframework.boot:spring-boot": [
@@ -1044,6 +1302,12 @@
       "com.google.errorprone.annotations",
       "com.google.errorprone.annotations.concurrent"
     ],
+    "com.google.googlejavaformat:google-java-format": [
+      "com.google.googlejavaformat",
+      "com.google.googlejavaformat.java",
+      "com.google.googlejavaformat.java.filer",
+      "com.google.googlejavaformat.java.javadoc"
+    ],
     "com.google.guava:failureaccess": [
       "com.google.common.util.concurrent.internal"
     ],
@@ -1085,12 +1349,78 @@
       "com.jayway.jsonpath.spi.json",
       "com.jayway.jsonpath.spi.mapper"
     ],
+    "com.puppycrawl.tools:checkstyle": [
+      "com.puppycrawl.tools.checkstyle",
+      "com.puppycrawl.tools.checkstyle.ant",
+      "com.puppycrawl.tools.checkstyle.api",
+      "com.puppycrawl.tools.checkstyle.checks",
+      "com.puppycrawl.tools.checkstyle.checks.annotation",
+      "com.puppycrawl.tools.checkstyle.checks.blocks",
+      "com.puppycrawl.tools.checkstyle.checks.coding",
+      "com.puppycrawl.tools.checkstyle.checks.design",
+      "com.puppycrawl.tools.checkstyle.checks.header",
+      "com.puppycrawl.tools.checkstyle.checks.imports",
+      "com.puppycrawl.tools.checkstyle.checks.indentation",
+      "com.puppycrawl.tools.checkstyle.checks.javadoc",
+      "com.puppycrawl.tools.checkstyle.checks.javadoc.utils",
+      "com.puppycrawl.tools.checkstyle.checks.metrics",
+      "com.puppycrawl.tools.checkstyle.checks.modifier",
+      "com.puppycrawl.tools.checkstyle.checks.naming",
+      "com.puppycrawl.tools.checkstyle.checks.regexp",
+      "com.puppycrawl.tools.checkstyle.checks.sizes",
+      "com.puppycrawl.tools.checkstyle.checks.whitespace",
+      "com.puppycrawl.tools.checkstyle.filefilters",
+      "com.puppycrawl.tools.checkstyle.filters",
+      "com.puppycrawl.tools.checkstyle.grammar",
+      "com.puppycrawl.tools.checkstyle.grammar.java",
+      "com.puppycrawl.tools.checkstyle.grammar.javadoc",
+      "com.puppycrawl.tools.checkstyle.gui",
+      "com.puppycrawl.tools.checkstyle.internal.annotation",
+      "com.puppycrawl.tools.checkstyle.meta",
+      "com.puppycrawl.tools.checkstyle.site",
+      "com.puppycrawl.tools.checkstyle.utils",
+      "com.puppycrawl.tools.checkstyle.xpath",
+      "com.puppycrawl.tools.checkstyle.xpath.iterators"
+    ],
     "com.vaadin.external.google:android-json": [
       "org.json"
+    ],
+    "commons-beanutils:commons-beanutils": [
+      "org.apache.commons.beanutils",
+      "org.apache.commons.beanutils.converters",
+      "org.apache.commons.beanutils.expression",
+      "org.apache.commons.beanutils.locale",
+      "org.apache.commons.beanutils.locale.converters"
+    ],
+    "commons-codec:commons-codec": [
+      "org.apache.commons.codec",
+      "org.apache.commons.codec.binary",
+      "org.apache.commons.codec.cli",
+      "org.apache.commons.codec.digest",
+      "org.apache.commons.codec.language",
+      "org.apache.commons.codec.language.bm",
+      "org.apache.commons.codec.net"
+    ],
+    "commons-collections:commons-collections": [
+      "org.apache.commons.collections",
+      "org.apache.commons.collections.bag",
+      "org.apache.commons.collections.bidimap",
+      "org.apache.commons.collections.buffer",
+      "org.apache.commons.collections.collection",
+      "org.apache.commons.collections.comparators",
+      "org.apache.commons.collections.functors",
+      "org.apache.commons.collections.iterators",
+      "org.apache.commons.collections.keyvalue",
+      "org.apache.commons.collections.list",
+      "org.apache.commons.collections.map",
+      "org.apache.commons.collections.set"
     ],
     "commons-logging:commons-logging": [
       "org.apache.commons.logging",
       "org.apache.commons.logging.impl"
+    ],
+    "info.picocli:picocli": [
+      "picocli"
     ],
     "io.micrometer:micrometer-commons": [
       "io.micrometer.common",
@@ -1235,6 +1565,144 @@
       "net.minidev.json.reader",
       "net.minidev.json.writer"
     ],
+    "net.sf.saxon:Saxon-HE": [
+      "net.sf.saxon",
+      "net.sf.saxon.dom",
+      "net.sf.saxon.event",
+      "net.sf.saxon.expr",
+      "net.sf.saxon.expr.accum",
+      "net.sf.saxon.expr.compat",
+      "net.sf.saxon.expr.elab",
+      "net.sf.saxon.expr.flwor",
+      "net.sf.saxon.expr.instruct",
+      "net.sf.saxon.expr.number",
+      "net.sf.saxon.expr.oper",
+      "net.sf.saxon.expr.parser",
+      "net.sf.saxon.expr.sort",
+      "net.sf.saxon.functions",
+      "net.sf.saxon.functions.hof",
+      "net.sf.saxon.functions.registry",
+      "net.sf.saxon.gizmo",
+      "net.sf.saxon.java",
+      "net.sf.saxon.jaxp",
+      "net.sf.saxon.lib",
+      "net.sf.saxon.ma",
+      "net.sf.saxon.ma.arrays",
+      "net.sf.saxon.ma.json",
+      "net.sf.saxon.ma.map",
+      "net.sf.saxon.ma.trie",
+      "net.sf.saxon.ma.zeno",
+      "net.sf.saxon.om",
+      "net.sf.saxon.pattern",
+      "net.sf.saxon.pull",
+      "net.sf.saxon.query",
+      "net.sf.saxon.regex",
+      "net.sf.saxon.regex.charclass",
+      "net.sf.saxon.resource",
+      "net.sf.saxon.s9api",
+      "net.sf.saxon.s9api.push",
+      "net.sf.saxon.s9api.streams",
+      "net.sf.saxon.sapling",
+      "net.sf.saxon.serialize",
+      "net.sf.saxon.serialize.charcode",
+      "net.sf.saxon.stax",
+      "net.sf.saxon.str",
+      "net.sf.saxon.style",
+      "net.sf.saxon.sxpath",
+      "net.sf.saxon.trace",
+      "net.sf.saxon.trans",
+      "net.sf.saxon.trans.packages",
+      "net.sf.saxon.trans.rules",
+      "net.sf.saxon.transpile",
+      "net.sf.saxon.tree",
+      "net.sf.saxon.tree.iter",
+      "net.sf.saxon.tree.jiter",
+      "net.sf.saxon.tree.linked",
+      "net.sf.saxon.tree.tiny",
+      "net.sf.saxon.tree.util",
+      "net.sf.saxon.tree.wrapper",
+      "net.sf.saxon.type",
+      "net.sf.saxon.value",
+      "net.sf.saxon.xpath",
+      "net.sf.saxon.z"
+    ],
+    "org.antlr:antlr4-runtime": [
+      "org.antlr.v4.runtime",
+      "org.antlr.v4.runtime.atn",
+      "org.antlr.v4.runtime.dfa",
+      "org.antlr.v4.runtime.misc",
+      "org.antlr.v4.runtime.tree",
+      "org.antlr.v4.runtime.tree.pattern",
+      "org.antlr.v4.runtime.tree.xpath"
+    ],
+    "org.apache.commons:commons-lang3": [
+      "org.apache.commons.lang3",
+      "org.apache.commons.lang3.arch",
+      "org.apache.commons.lang3.builder",
+      "org.apache.commons.lang3.concurrent",
+      "org.apache.commons.lang3.event",
+      "org.apache.commons.lang3.exception",
+      "org.apache.commons.lang3.math",
+      "org.apache.commons.lang3.mutable",
+      "org.apache.commons.lang3.reflect",
+      "org.apache.commons.lang3.text",
+      "org.apache.commons.lang3.text.translate",
+      "org.apache.commons.lang3.time",
+      "org.apache.commons.lang3.tuple"
+    ],
+    "org.apache.commons:commons-text": [
+      "org.apache.commons.text",
+      "org.apache.commons.text.diff",
+      "org.apache.commons.text.lookup",
+      "org.apache.commons.text.matcher",
+      "org.apache.commons.text.similarity",
+      "org.apache.commons.text.translate"
+    ],
+    "org.apache.httpcomponents:httpclient": [
+      "org.apache.http.auth",
+      "org.apache.http.auth.params",
+      "org.apache.http.client",
+      "org.apache.http.client.config",
+      "org.apache.http.client.entity",
+      "org.apache.http.client.methods",
+      "org.apache.http.client.params",
+      "org.apache.http.client.protocol",
+      "org.apache.http.client.utils",
+      "org.apache.http.conn",
+      "org.apache.http.conn.params",
+      "org.apache.http.conn.routing",
+      "org.apache.http.conn.scheme",
+      "org.apache.http.conn.socket",
+      "org.apache.http.conn.ssl",
+      "org.apache.http.conn.util",
+      "org.apache.http.cookie",
+      "org.apache.http.cookie.params",
+      "org.apache.http.impl.auth",
+      "org.apache.http.impl.client",
+      "org.apache.http.impl.conn",
+      "org.apache.http.impl.conn.tsccm",
+      "org.apache.http.impl.cookie",
+      "org.apache.http.impl.execchain"
+    ],
+    "org.apache.httpcomponents:httpcore": [
+      "org.apache.http",
+      "org.apache.http.annotation",
+      "org.apache.http.concurrent",
+      "org.apache.http.config",
+      "org.apache.http.entity",
+      "org.apache.http.impl",
+      "org.apache.http.impl.bootstrap",
+      "org.apache.http.impl.entity",
+      "org.apache.http.impl.io",
+      "org.apache.http.impl.pool",
+      "org.apache.http.io",
+      "org.apache.http.message",
+      "org.apache.http.params",
+      "org.apache.http.pool",
+      "org.apache.http.protocol",
+      "org.apache.http.ssl",
+      "org.apache.http.util"
+    ],
     "org.apache.logging.log4j:log4j-api": [
       "org.apache.logging.log4j",
       "org.apache.logging.log4j.internal",
@@ -1250,6 +1718,32 @@
     ],
     "org.apache.logging.log4j:log4j-to-slf4j": [
       "org.apache.logging.slf4j"
+    ],
+    "org.apache.maven.doxia:doxia-core": [
+      "org.apache.maven.doxia",
+      "org.apache.maven.doxia.document",
+      "org.apache.maven.doxia.document.io.xpp3",
+      "org.apache.maven.doxia.index",
+      "org.apache.maven.doxia.macro",
+      "org.apache.maven.doxia.macro.manager",
+      "org.apache.maven.doxia.macro.snippet",
+      "org.apache.maven.doxia.macro.toc",
+      "org.apache.maven.doxia.markup",
+      "org.apache.maven.doxia.parser",
+      "org.apache.maven.doxia.parser.manager",
+      "org.apache.maven.doxia.parser.module",
+      "org.apache.maven.doxia.sink.impl",
+      "org.apache.maven.doxia.util"
+    ],
+    "org.apache.maven.doxia:doxia-logging-api": [
+      "org.apache.maven.doxia.logging"
+    ],
+    "org.apache.maven.doxia:doxia-module-xdoc": [
+      "org.apache.maven.doxia.module.xdoc"
+    ],
+    "org.apache.maven.doxia:doxia-sink-api": [
+      "org.apache.maven.doxia.sink",
+      "org.codehaus.doxia.sink"
     ],
     "org.apache.tomcat.embed:tomcat-embed-core": [
       "jakarta.security.auth.message",
@@ -1345,6 +1839,10 @@
       "org.apache.tomcat.websocket.pojo",
       "org.apache.tomcat.websocket.server"
     ],
+    "org.apache.xbean:xbean-reflect": [
+      "org.apache.xbean.propertyeditor",
+      "org.apache.xbean.recipe"
+    ],
     "org.apiguardian:apiguardian-api": [
       "org.apiguardian.api"
     ],
@@ -1389,37 +1887,79 @@
       "org.awaitility.reflect.exception",
       "org.awaitility.spi"
     ],
-    "org.checkerframework:checker-qual": [
-      "org.checkerframework.checker.builder.qual",
-      "org.checkerframework.checker.calledmethods.qual",
-      "org.checkerframework.checker.compilermsgs.qual",
-      "org.checkerframework.checker.fenum.qual",
-      "org.checkerframework.checker.formatter.qual",
-      "org.checkerframework.checker.guieffect.qual",
-      "org.checkerframework.checker.i18n.qual",
-      "org.checkerframework.checker.i18nformatter.qual",
-      "org.checkerframework.checker.index.qual",
-      "org.checkerframework.checker.initialization.qual",
-      "org.checkerframework.checker.interning.qual",
-      "org.checkerframework.checker.lock.qual",
-      "org.checkerframework.checker.mustcall.qual",
-      "org.checkerframework.checker.nullness.qual",
-      "org.checkerframework.checker.optional.qual",
-      "org.checkerframework.checker.propkey.qual",
-      "org.checkerframework.checker.regex.qual",
-      "org.checkerframework.checker.signature.qual",
-      "org.checkerframework.checker.signedness.qual",
-      "org.checkerframework.checker.tainting.qual",
-      "org.checkerframework.checker.units.qual",
-      "org.checkerframework.common.aliasing.qual",
-      "org.checkerframework.common.initializedfields.qual",
-      "org.checkerframework.common.reflection.qual",
-      "org.checkerframework.common.returnsreceiver.qual",
-      "org.checkerframework.common.subtyping.qual",
-      "org.checkerframework.common.util.report.qual",
-      "org.checkerframework.common.value.qual",
-      "org.checkerframework.dataflow.qual",
-      "org.checkerframework.framework.qual"
+    "org.codehaus.plexus:plexus-classworlds": [
+      "org.codehaus.classworlds",
+      "org.codehaus.plexus.classworlds",
+      "org.codehaus.plexus.classworlds.launcher",
+      "org.codehaus.plexus.classworlds.realm",
+      "org.codehaus.plexus.classworlds.strategy"
+    ],
+    "org.codehaus.plexus:plexus-component-annotations": [
+      "org.codehaus.plexus.component.annotations"
+    ],
+    "org.codehaus.plexus:plexus-container-default": [
+      "org.codehaus.plexus",
+      "org.codehaus.plexus.component",
+      "org.codehaus.plexus.component.builder",
+      "org.codehaus.plexus.component.collections",
+      "org.codehaus.plexus.component.composition",
+      "org.codehaus.plexus.component.configurator",
+      "org.codehaus.plexus.component.configurator.converters",
+      "org.codehaus.plexus.component.configurator.converters.basic",
+      "org.codehaus.plexus.component.configurator.converters.composite",
+      "org.codehaus.plexus.component.configurator.converters.lookup",
+      "org.codehaus.plexus.component.configurator.converters.special",
+      "org.codehaus.plexus.component.configurator.expression",
+      "org.codehaus.plexus.component.discovery",
+      "org.codehaus.plexus.component.factory",
+      "org.codehaus.plexus.component.factory.java",
+      "org.codehaus.plexus.component.manager",
+      "org.codehaus.plexus.component.repository",
+      "org.codehaus.plexus.component.repository.exception",
+      "org.codehaus.plexus.component.repository.io",
+      "org.codehaus.plexus.configuration",
+      "org.codehaus.plexus.configuration.io",
+      "org.codehaus.plexus.configuration.source",
+      "org.codehaus.plexus.configuration.xml",
+      "org.codehaus.plexus.container.initialization",
+      "org.codehaus.plexus.context",
+      "org.codehaus.plexus.lifecycle",
+      "org.codehaus.plexus.lifecycle.phase",
+      "org.codehaus.plexus.logging",
+      "org.codehaus.plexus.logging.console",
+      "org.codehaus.plexus.personality.plexus.lifecycle.phase"
+    ],
+    "org.codehaus.plexus:plexus-utils": [
+      "org.codehaus.plexus.util",
+      "org.codehaus.plexus.util.cli",
+      "org.codehaus.plexus.util.cli.shell",
+      "org.codehaus.plexus.util.dag",
+      "org.codehaus.plexus.util.introspection",
+      "org.codehaus.plexus.util.io",
+      "org.codehaus.plexus.util.reflection",
+      "org.codehaus.plexus.util.xml",
+      "org.codehaus.plexus.util.xml.pull"
+    ],
+    "org.commonmark:commonmark": [
+      "org.commonmark",
+      "org.commonmark.internal",
+      "org.commonmark.internal.inline",
+      "org.commonmark.internal.renderer",
+      "org.commonmark.internal.util",
+      "org.commonmark.node",
+      "org.commonmark.parser",
+      "org.commonmark.parser.beta",
+      "org.commonmark.parser.block",
+      "org.commonmark.parser.delimiter",
+      "org.commonmark.renderer",
+      "org.commonmark.renderer.html",
+      "org.commonmark.renderer.markdown",
+      "org.commonmark.renderer.text",
+      "org.commonmark.text"
+    ],
+    "org.commonmark:commonmark-ext-gfm-tables": [
+      "org.commonmark.ext.gfm.tables",
+      "org.commonmark.ext.gfm.tables.internal"
     ],
     "org.hamcrest:hamcrest": [
       "org.hamcrest",
@@ -1437,6 +1977,25 @@
     "org.hdrhistogram:HdrHistogram": [
       "org.HdrHistogram",
       "org.HdrHistogram.packedarray"
+    ],
+    "org.javassist:javassist": [
+      "javassist",
+      "javassist.bytecode",
+      "javassist.bytecode.analysis",
+      "javassist.bytecode.annotation",
+      "javassist.bytecode.stackmap",
+      "javassist.compiler",
+      "javassist.compiler.ast",
+      "javassist.convert",
+      "javassist.expr",
+      "javassist.runtime",
+      "javassist.scopedpool",
+      "javassist.tools",
+      "javassist.tools.reflect",
+      "javassist.tools.rmi",
+      "javassist.tools.web",
+      "javassist.util",
+      "javassist.util.proxy"
     ],
     "org.jspecify:jspecify": [
       "org.jspecify.annotations"
@@ -1612,6 +2171,13 @@
       "org.objectweb.asm",
       "org.objectweb.asm.signature"
     ],
+    "org.reflections:reflections": [
+      "org.reflections",
+      "org.reflections.scanners",
+      "org.reflections.serializers",
+      "org.reflections.util",
+      "org.reflections.vfs"
+    ],
     "org.skyscreamer:jsonassert": [
       "org.json",
       "org.skyscreamer.jsonassert",
@@ -1625,6 +2191,9 @@
       "org.slf4j.event",
       "org.slf4j.helpers",
       "org.slf4j.spi"
+    ],
+    "org.slf4j:slf4j-simple": [
+      "org.slf4j.simple"
     ],
     "org.springframework.boot:spring-boot": [
       "org.springframework.boot",
@@ -2191,6 +2760,18 @@
       "org.springframework.web.servlet.view.xml",
       "org.springframework.web.servlet.view.xslt"
     ],
+    "org.xmlresolver:xmlresolver": [
+      "org.xmlresolver",
+      "org.xmlresolver.cache",
+      "org.xmlresolver.catalog.entry",
+      "org.xmlresolver.catalog.query",
+      "org.xmlresolver.exceptions",
+      "org.xmlresolver.loaders",
+      "org.xmlresolver.logging",
+      "org.xmlresolver.sources",
+      "org.xmlresolver.tools",
+      "org.xmlresolver.utils"
+    ],
     "org.xmlunit:xmlunit-core": [
       "org.xmlunit",
       "org.xmlunit.builder",
@@ -2289,13 +2870,19 @@
       "com.google.code.findbugs:jsr305",
       "com.google.code.gson:gson",
       "com.google.errorprone:error_prone_annotations",
+      "com.google.googlejavaformat:google-java-format",
       "com.google.guava:failureaccess",
       "com.google.guava:guava",
       "com.google.guava:listenablefuture",
       "com.google.j2objc:j2objc-annotations",
       "com.jayway.jsonpath:json-path",
+      "com.puppycrawl.tools:checkstyle",
       "com.vaadin.external.google:android-json",
+      "commons-beanutils:commons-beanutils",
+      "commons-codec:commons-codec",
+      "commons-collections:commons-collections",
       "commons-logging:commons-logging",
+      "info.picocli:picocli",
       "io.micrometer:micrometer-commons",
       "io.micrometer:micrometer-core",
       "io.micrometer:micrometer-jakarta9",
@@ -2307,17 +2894,34 @@
       "net.bytebuddy:byte-buddy-agent",
       "net.minidev:accessors-smart",
       "net.minidev:json-smart",
+      "net.sf.saxon:Saxon-HE",
+      "org.antlr:antlr4-runtime",
+      "org.apache.commons:commons-lang3",
+      "org.apache.commons:commons-text",
+      "org.apache.httpcomponents:httpclient",
+      "org.apache.httpcomponents:httpcore",
       "org.apache.logging.log4j:log4j-api",
       "org.apache.logging.log4j:log4j-to-slf4j",
+      "org.apache.maven.doxia:doxia-core",
+      "org.apache.maven.doxia:doxia-logging-api",
+      "org.apache.maven.doxia:doxia-module-xdoc",
+      "org.apache.maven.doxia:doxia-sink-api",
       "org.apache.tomcat.embed:tomcat-embed-core",
       "org.apache.tomcat.embed:tomcat-embed-el",
       "org.apache.tomcat.embed:tomcat-embed-websocket",
+      "org.apache.xbean:xbean-reflect",
       "org.apiguardian:apiguardian-api",
       "org.assertj:assertj-core",
       "org.awaitility:awaitility",
-      "org.checkerframework:checker-qual",
+      "org.codehaus.plexus:plexus-classworlds",
+      "org.codehaus.plexus:plexus-component-annotations",
+      "org.codehaus.plexus:plexus-container-default",
+      "org.codehaus.plexus:plexus-utils",
+      "org.commonmark:commonmark",
+      "org.commonmark:commonmark-ext-gfm-tables",
       "org.hamcrest:hamcrest",
       "org.hdrhistogram:HdrHistogram",
+      "org.javassist:javassist",
       "org.jspecify:jspecify",
       "org.junit.jupiter:junit-jupiter",
       "org.junit.jupiter:junit-jupiter-api",
@@ -2334,9 +2938,11 @@
       "org.opentest4j.reporting:open-test-reporting-tooling-spi",
       "org.opentest4j:opentest4j",
       "org.ow2.asm:asm",
+      "org.reflections:reflections",
       "org.skyscreamer:jsonassert",
       "org.slf4j:jul-to-slf4j",
       "org.slf4j:slf4j-api",
+      "org.slf4j:slf4j-simple",
       "org.springframework.boot:spring-boot",
       "org.springframework.boot:spring-boot-actuator",
       "org.springframework.boot:spring-boot-actuator-autoconfigure",
@@ -2370,6 +2976,8 @@
       "org.springframework:spring-test",
       "org.springframework:spring-web",
       "org.springframework:spring-webmvc",
+      "org.xmlresolver:xmlresolver",
+      "org.xmlresolver:xmlresolver:jar:data",
       "org.xmlunit:xmlunit-core",
       "org.yaml:snakeyaml",
       "tools.jackson.core:jackson-core",
@@ -2385,9 +2993,22 @@
         "ch.qos.logback.classic.spi.LogbackServiceProvider"
       ]
     },
+    "com.google.googlejavaformat:google-java-format": {
+      "java.util.spi.ToolProvider": [
+        "com.google.googlejavaformat.java.GoogleJavaFormatToolProvider"
+      ],
+      "javax.tools.Tool": [
+        "com.google.googlejavaformat.java.GoogleJavaFormatTool"
+      ]
+    },
     "io.micrometer:micrometer-observation": {
       "io.micrometer.context.ThreadLocalAccessor": [
         "io.micrometer.observation.contextpropagation.ObservationThreadLocalAccessor"
+      ]
+    },
+    "net.sf.saxon:Saxon-HE": {
+      "javax.xml.transform.TransformerFactory": [
+        "net.sf.saxon.TransformerFactoryImpl"
       ]
     },
     "org.apache.logging.log4j:log4j-api": {
@@ -2455,6 +3076,11 @@
       ],
       "org.opentest4j.reporting.tooling.spi.htmlreport.Contributor": [
         "org.junit.platform.reporting.open.xml.JUnitContributor"
+      ]
+    },
+    "org.slf4j:slf4j-simple": {
+      "org.slf4j.spi.SLF4JServiceProvider": [
+        "org.slf4j.simple.SimpleServiceProvider"
       ]
     },
     "org.springframework.boot:spring-boot": {

@@ -4,30 +4,14 @@
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-# 저장소에 그 언어의 소스가 있으면 포매터·린터는 선택이 아니라 필수다 — 없으면
-# `just check` 가 실패한다(format.sh · lint.sh). 그래서 doctor 로 알리기 전에 먼저 깐다.
+# 언어 도구를 여기서 깔지 않는다.
 #
-# 소스가 없는 언어의 도구는 깔지 않는다. 아무도 쓰지 않는 도구를 필수로 만들면
-# 세팅만 무거워진다.
-log "언어 도구 설치"
-install_lang_tool() {
-  local pattern="$1" tool="$2" formula="$3"
-  find "$REPO_ROOT" -type d \( -name 'bazel-*' -o -name '.git' \) -prune \
-    -o -type f -name "$pattern" -print 2>/dev/null | grep -q . || return 0
-  have "$tool" && return 0
-  if have brew; then
-    log "  $tool 설치 ($pattern 소스가 있음)"
-    brew install "$formula"
-  else
-    warn "$pattern 소스가 있는데 $tool 이(가) 없고 brew 도 없습니다 — 직접 설치하세요"
-  fi
-}
-
-install_lang_tool '*.java' google-java-format google-java-format
-install_lang_tool '*.java' checkstyle checkstyle
-install_lang_tool '*.py' ruff ruff
-install_lang_tool '*.kt' ktlint ktlint
-install_lang_tool '*.swift' swiftformat swiftformat
+# Java 는 Bazel 이 받아온다 — //:google_java_format · //:checkstyle (buildifier 와 같은
+# 방식). 그래서 워크스테이션에 아무것도 깔 필요가 없고, CI 러너도 별도 설치 없이 같은
+# 버전을 쓴다. 호스트 설치에 의존하면 사람마다 도구 버전이 달라 포맷 결과가 갈린다.
+#
+# 다른 언어의 첫 모듈이 들어올 때도 같은 방식으로 붙인다 — 루트 BUILD.bazel 에 타깃을
+# 만들고 tools/scripts/{format,lint}.sh 가 그것을 부르게 한다.
 
 log "도구 확인"
 "$REPO_ROOT/tools/scripts/doctor.sh"

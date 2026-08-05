@@ -71,6 +71,15 @@ maven.install(
         # 실행 가능 jar 의 부트스트랩 클래스. jar 루트에 풀려 들어가고
         # MANIFEST 의 Main-Class 가 이것을 가리킨다. 없으면 jar 가 실행되지 않는다.
         "org.springframework.boot:spring-boot-loader:4.1.0",
+
+        # Java 포매터·린터. 호스트에 깔지 않고 Bazel 이 받아 //:google_java_format ·
+        # //:checkstyle 로 실행한다 — buildifier 와 같은 방식이다.
+        #
+        # 호스트 설치에 의존하면 두 가지가 깨진다. AGENTS.md §4.3 의 "깔려 있는 것에
+        # 의존하지 않는다" 를 어기고, 더 실질적으로는 **사람마다 도구 버전이 달라져
+        # 포맷 결과가 갈린다.** 실제로 CI 러너에 도구가 없어 빌드가 실패했다.
+        "com.google.googlejavaformat:google-java-format:1.36.1",
+        "com.puppycrawl.tools:checkstyle:13.9.0",
         # Bazel 의 java_test 는 JUnit4 러너를 기본으로 쓴다. Spring Boot 가 가져오는
         # 것은 JUnit5(Jupiter)이므로 그것을 실행할 콘솔 런처가 따로 필요하다.
         # tools/bazel/defs/java_junit5_test.bzl 이 이 의존성을 쓴다.
