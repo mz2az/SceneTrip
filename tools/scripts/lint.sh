@@ -24,14 +24,16 @@ missing_tool() {
 }
 
 # --- Java (services/, libs/java/) ---------------------------------------------
+#
+# 린터를 호스트에서 찾지 않는다. Bazel 이 //:checkstyle 로 버전을 고정해 받아온다 —
+# format.sh 의 같은 주석 참조.
 if has_files '*.java'; then
-  if have checkstyle; then
-    ran=1
-    mapfile -t files < <(find_sources '*.java')
-    checkstyle -c /google_checks.xml "${files[@]}"
-  else
-    missing_tool Java checkstyle
-  fi
+  ran=1
+  # mapfile 은 bash 4 이상 전용이고 macOS 기본 bash 는 3.2 다 — format.sh 의 같은 주석 참조.
+  files=()
+  while IFS= read -r f; do files+=("$f"); done < <(find_sources '*.java')
+  "${BAZEL:-bazel}" run --ui_event_filters=-info,-stdout --noshow_progress \
+    //:checkstyle -- -c /google_checks.xml "${files[@]}"
 fi
 
 # --- Kotlin (apps/ Android, libs/kotlin/) -------------------------------------

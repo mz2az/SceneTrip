@@ -18,7 +18,7 @@ module(
 
 # --- 코어 ---------------------------------------------------------------------
 
-bazel_dep(name = "bazel_skylib", version = "1.8.1")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 
@@ -46,6 +46,50 @@ openapi_gen.client(
     version = "7.2.0",
 )
 use_repo(openapi_gen, "openapi_tools_generator_bazel_cli")
+
+# --- JVM / Java ----------------------------------------------------------------
+#
+# Spring Boot 백엔드 (services/), 공유 라이브러리 (libs/java/).
+# 빌드 경로 결정은 ADR 0003 참고 — Bazel 이 실행 가능 jar 를 만들고 컨테이너에는
+# 그 산출물만 담는다. Gradle·Maven 을 빌드 경로로 쓰지 않는다.
+#
+# rules_spring 이 필요한 이유: java_binary 의 deploy jar 는 같은 경로의 리소스를
+# 첫 번째 것만 남기고 버리는데, Spring 은 여러 jar 에 흩어진 자동 구성 목록
+# (META-INF/spring/…AutoConfiguration.imports)이 **합쳐져야** 동작한다. 그대로 두면
+# 앱은 뜨지만 자동 구성이 조용히 반만 걸린다.
+bazel_dep(name = "rules_java", version = "9.7.0")
+bazel_dep(name = "rules_jvm_external", version = "7.1")
+bazel_dep(name = "rules_spring", version = "2.6.3")
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    name = "maven",
+    artifacts = [
+        "org.springframework.boot:spring-boot-starter-web:4.1.0",
+        "org.springframework.boot:spring-boot-starter-actuator:4.1.0",
+        "org.springframework.boot:spring-boot-starter-test:4.1.0",
+        # 실행 가능 jar 의 부트스트랩 클래스. jar 루트에 풀려 들어가고
+        # MANIFEST 의 Main-Class 가 이것을 가리킨다. 없으면 jar 가 실행되지 않는다.
+        "org.springframework.boot:spring-boot-loader:4.1.0",
+
+        # Java 포매터·린터. 호스트에 깔지 않고 Bazel 이 받아 //:google_java_format ·
+        # //:checkstyle 로 실행한다 — buildifier 와 같은 방식이다.
+        #
+        # 호스트 설치에 의존하면 두 가지가 깨진다. AGENTS.md §4.3 의 "깔려 있는 것에
+        # 의존하지 않는다" 를 어기고, 더 실질적으로는 **사람마다 도구 버전이 달라져
+        # 포맷 결과가 갈린다.** 실제로 CI 러너에 도구가 없어 빌드가 실패했다.
+        "com.google.googlejavaformat:google-java-format:1.36.1",
+        "com.puppycrawl.tools:checkstyle:13.9.0",
+        # Bazel 의 java_test 는 JUnit4 러너를 기본으로 쓴다. Spring Boot 가 가져오는
+        # 것은 JUnit5(Jupiter)이므로 그것을 실행할 콘솔 런처가 따로 필요하다.
+        # tools/bazel/defs/java_junit5_test.bzl 이 이 의존성을 쓴다.
+        "org.junit.platform:junit-platform-console:6.0.3",
+    ],
+    known_contributing_modules = ["protobuf"],
+    lock_file = "//:maven_install.json",
+    repositories = ["https://repo1.maven.org/maven2"],
+)
+use_repo(maven, "maven")
 
 # --- BUILD 파일 생성 ------------------------------------------------------------
 # 지금은 생성기를 두지 않는다. BUILD.bazel 은 손으로 쓴다 — AGENTS.md §4.1 의 이름
@@ -79,15 +123,8 @@ use_repo(openapi_gen, "openapi_tools_generator_bazel_cli")
 # 아래 블록은 해당 언어의 첫 모듈이 들어올 때 주석을 푼다.
 # ==============================================================================
 #
-# JVM / Java — Spring Boot 백엔드 (services/), 공유 라이브러리 (libs/java/):
-#   bazel_dep(name = "rules_java", version = "9.7.0")
-#   bazel_dep(name = "rules_jvm_external", version = "7.1")
-#   maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
-#   maven.install(name = "maven", artifacts = [...], lock_file = "//:maven_install.json")
-#   use_repo(maven, "maven")
-#   # Spring Boot 실행 가능 jar 패키징은 rules_java 만으로는 안 된다. 커뮤니티 규칙
-#   # (예: salesforce/rules_spring) 또는 tools/bazel/defs/ 의 자체 매크로가 필요하다 —
-#   # 첫 서비스가 들어올 때 결정한다.
+# JVM / Java — **위 "JVM / Java" 절에서 이미 활성화됐다.** 첫 서비스(scene-api)와
+# 함께 풀었고, 패키징 방식은 ADR 0003 으로 확정했다.
 #
 # Kotlin — Android 앱 (apps/<name>-android/), 공유 라이브러리 (libs/kotlin/):
 #   bazel_dep(name = "rules_kotlin", version = "2.4.0")

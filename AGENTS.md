@@ -294,6 +294,17 @@ Branch name = the JIRA ticket key, optionally followed by a short kebab-case des
 MZ2AZ-91-브랜드-네이밍
 ```
 
+**Use the story or task key — never a subtask key.** A branch is a PR and a PR is the unit
+of review. Cutting a branch per subtask fragments review across many small PRs and hides
+story-level progress on the JIRA board. One story, one branch, one PR.
+
+```
+MZ2AZ-149-검색지도-백엔드-api     ← story key
+MZ2AZ-165-api-명세               ← WRONG: MZ2AZ-165 is a subtask of MZ2AZ-149
+```
+
+Subtask keys still get used — in commit messages (§7.3), where they belong.
+
 ### 7.3 Commit messages
 
 Every commit message includes its JIRA ticket key, so JIRA/GitHub integrations can link the
@@ -307,6 +318,9 @@ integration matches on it literally.
 - **type**: `feat` `fix` `docs` `refactor` `test` `chore` — `chore` also covers
   infra/CI/config-only changes (Terraform, Kubernetes manifests, `.env`, workflow files).
 - One logical change per commit. Never mix a refactor with a behavior change.
+- **Use the key of the subtask the change actually belongs to**, not the branch's story key.
+  A branch spans a whole story, but each commit lands one piece of it. JIRA links the commit
+  to that subtask and rolls it up to the story, so nothing is lost by being specific.
 
 Example:
 

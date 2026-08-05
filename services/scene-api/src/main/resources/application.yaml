@@ -1,0 +1,28 @@
+# scene-api 기본 설정.
+#
+# 환경마다 달라지는 값은 여기 두지 않는다 — platform/kubernetes/scene-api/configmap.yaml
+# 이 환경변수로 덮어쓴다. 시크릿은 어느 쪽에도 두지 않는다 (AGENTS.md §9).
+
+spring:
+  application:
+    name: scenetrip-scene-api
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # 필요한 것만 연다. 열어 둔 엔드포인트는 그대로 공격면이 된다.
+        include: health
+  endpoint:
+    health:
+      # liveness·readiness 그룹은 기본으로 꺼져 있다. 이것을 켜야
+      # /actuator/health/liveness 와 /actuator/health/readiness 가 생기고,
+      # Deployment 의 프로브 3종이 각각 다른 것을 보게 된다.
+      probes:
+        enabled: true
+      # 상세 정보는 노출하지 않는다. 내부 구성요소 이름이 그대로 드러난다.
+      show-details: never

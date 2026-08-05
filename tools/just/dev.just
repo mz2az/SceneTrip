@@ -43,10 +43,18 @@ gen-check: gen
         exit 1; \
     }
 
-# MODULE.bazel 을 고친 뒤 외부 의존성 잠금 파일 갱신
+# MODULE.bazel 을 고친 뒤 외부 의존성 잠금 파일 갱신.
+#
+# 잠금 파일이 둘이다. bzlmod 자체의 MODULE.bazel.lock 과, Maven 아티팩트의
+# maven_install.json 이다. 후자를 빠뜨리면 새 의존성이 해석되지 않아 빌드가
+# "찾을 수 없다" 로 죽는다 — 둘 다 갱신하고 같은 커밋에 넣는다 (AGENTS.md §4.4).
 [group('dev')]
 deps-update:
     {{BAZEL}} mod tidy
+    @if grep -q 'maven.install' MODULE.bazel; then \
+        echo "==> Maven 아티팩트 재고정"; \
+        REPIN=1 {{BAZEL}} run @maven//:pin; \
+    fi
 
 # 해석된 외부 의존성 그래프 출력
 [group('dev')]

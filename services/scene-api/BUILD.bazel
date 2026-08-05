@@ -1,0 +1,80 @@
+# services/scene-api 의 타깃.
+#
+# AGENTS.md §4.1 의 이름 규칙을 따른다:
+#   :scene-api    이 모듈의 주 라이브러리
+#   :bin          실행 가능 jar (Spring Boot)
+#   :unit_test    빠르고 격리됨 (tags = ["unit"])
+#
+# 빌드 경로는 ADR 0003 — Bazel 이 실행 가능 jar 를 만들고 Dockerfile 은 그것을 담기만
+# 한다. Gradle·Maven 을 빌드 경로로 쓰지 않으므로 이 저장소에 build.gradle 은 없다.
+#
+# :image / :push 는 아직 없다. 컨테이너는 당분간 Dockerfile 경로를 쓰고
+# (`just image scene-api`), rules_oci 로 옮기는 것은 후속 작업이다 — ADR 0003 참조.
+
+load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_spring//springboot:springboot.bzl", "springboot")
+load("//tools/bazel/defs:java_junit5_test.bzl", "java_junit5_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# deps 와 runtime_deps 를 나눈 이유:
+#
+# `spring-boot-starter-*` 는 POM 만 있는 묶음 아티팩트라 클래스가 없다. 컴파일에는
+# 클래스를 실제로 담은 아티팩트(spring-boot, spring-boot-autoconfigure)가 필요하고,
+# 스타터는 런타임 클래스패스를 채우는 용도로 runtime_deps 에 둔다.
+#
+# Spring Boot 4 는 자동 구성이 여러 모듈로 쪼개져 있어(spring-boot-webmvc,
+# spring-boot-actuator-autoconfigure …) 스타터 없이 직접 나열하면 빠뜨리기 쉽다.
+java_library(
+    name = "scene-api",
+    srcs = glob(["src/main/java/**/*.java"]),
+    resources = glob(["src/main/resources/**"]),
+    runtime_deps = [
+        "@maven//:org_springframework_boot_spring_boot_starter_actuator",
+        "@maven//:org_springframework_boot_spring_boot_starter_web",
+    ],
+    deps = [
+        "@maven//:org_springframework_boot_spring_boot",
+        "@maven//:org_springframework_boot_spring_boot_autoconfigure",
+    ],
+)
+
+# 실행 가능 jar. rules_spring 이 자동 구성 목록처럼 "합쳐져야 하는" 리소스를 병합해
+# 준다 — 평범한 java_binary 의 deploy jar 는 같은 경로의 첫 번째 것만 남기고 버린다.
+#
+# boot_launcher_class 를 명시하는 이유: rules_spring 의 기본값은 Boot 2 시절의
+# org.springframework.boot.loader.JarLauncher 인데, Boot 3 에서 런처가 다시 쓰이면서
+# 패키지가 …loader.launch 로 바뀌었다. 기본값을 그대로 두면 MANIFEST 의 Main-Class 가
+# 존재하지 않는 클래스를 가리켜 jar 가 실행되지 않는다.
+#
+# deps 에 spring-boot-loader 를 넣는 이유: springboot_pkg.sh 가 이름에
+# 'spring-boot-loader' 가 든 jar 를 찾아 BOOT-INF/lib 이 아니라 **jar 루트**에 풀어
+# 넣는다. 부트스트랩 클래스는 중첩 jar 밖에 있어야 JVM 이 찾을 수 있기 때문이다.
+springboot(
+    name = "bin",
+    boot_app_class = "com.mz2az.scenetrip.sceneapi.SceneApiApplication",
+    boot_launcher_class = "org.springframework.boot.loader.launch.JarLauncher",
+    java_library = ":scene-api",
+    deps = ["@maven//:org_springframework_boot_spring_boot_loader"],
+)
+
+java_junit5_test(
+    name = "unit_test",
+    size = "small",
+    srcs = glob(["tests/java/**/*.java"]),
+    tags = ["unit"],
+    test_package = "com.mz2az.scenetrip.sceneapi",
+    runtime_deps = [
+        "@maven//:org_springframework_boot_spring_boot_starter_actuator",
+        "@maven//:org_springframework_boot_spring_boot_starter_test",
+        "@maven//:org_springframework_boot_spring_boot_starter_web",
+    ],
+    deps = [
+        ":scene-api",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_springframework_boot_spring_boot_test",
+        "@maven//:org_springframework_spring_beans",
+        "@maven//:org_springframework_spring_context",
+        "@maven//:org_springframework_spring_test",
+    ],
+)

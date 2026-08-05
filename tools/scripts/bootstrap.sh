@@ -4,6 +4,15 @@
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
+# 언어 도구를 여기서 깔지 않는다.
+#
+# Java 는 Bazel 이 받아온다 — //:google_java_format · //:checkstyle (buildifier 와 같은
+# 방식). 그래서 워크스테이션에 아무것도 깔 필요가 없고, CI 러너도 별도 설치 없이 같은
+# 버전을 쓴다. 호스트 설치에 의존하면 사람마다 도구 버전이 달라 포맷 결과가 갈린다.
+#
+# 다른 언어의 첫 모듈이 들어올 때도 같은 방식으로 붙인다 — 루트 BUILD.bazel 에 타깃을
+# 만들고 tools/scripts/{format,lint}.sh 가 그것을 부르게 한다.
+
 log "도구 확인"
 "$REPO_ROOT/tools/scripts/doctor.sh"
 
