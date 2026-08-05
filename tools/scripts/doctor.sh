@@ -34,6 +34,48 @@ log "선택 도구"
 check_optional docker "로컬 클러스터, 이미지 적재"
 check_optional gh     "풀 리퀘스트 자동화"
 
+# --- 포매터·린터 ---------------------------------------------------------------
+#
+# format.sh 와 lint.sh 는 도구가 없으면 **조용히 건너뛴다**. 실패가 아니라 통과다.
+# 그래서 "그 언어의 소스는 있는데 도구가 없는" 조합이 가장 위험하다 — `just check` 는
+# 초록인데 아무것도 정리되지 않고, 포매터를 가진 사람과 아닌 사람이 서로 다른 결과를
+# 커밋하게 된다. 여기서 그 조합만 실패로 잡는다.
+#
+# 소스가 아직 없는 언어는 실패시키지 않는다. 모듈이 하나도 없는 지금 모든 포매터를
+# 필수로 만들면, 아무도 쓰지 않는 도구 때문에 워크스테이션 점검이 빨간불이 된다.
+#
+# BUILD 파일 포매터(buildifier)는 Bazel 이 `//:buildifier` 로 받아오므로 여기 없다.
+
+check_lang_tool() {
+  local lang="$1" glob="$2" first="$3"
+  shift 2
+  local tool
+  for tool in "$@"; do
+    if have "$tool"; then
+      # --version 을 지원하지 않는 도구(예: 래퍼 스크립트로 깔린 checkstyle)가 있어
+      # 실패를 삼킨다. pipefail 아래에서는 이게 없으면 점검 자체가 죽는다.
+      printf '  정상  %-20s %s\n' "$tool" "$("$tool" --version 2>&1 | head -1 || true)"
+      return 0
+    fi
+  done
+  if has_files "$glob"; then
+    printf '  없음  %-20s -> %s 소스가 있는데 도구가 없습니다. just fmt/lint 가 조용히 건너뜁니다\n' \
+      "$first" "$lang"
+    status=1
+  else
+    printf '  대기  %-20s (%s 모듈이 아직 없어 필요 없음)\n' "$first" "$lang"
+  fi
+}
+
+log "포매터·린터"
+check_lang_tool Java   '*.java'  google-java-format
+check_lang_tool Java   '*.java'  checkstyle
+check_lang_tool Kotlin '*.kt'    ktlint
+check_lang_tool Swift  '*.swift' swiftformat swift-format
+check_lang_tool Swift  '*.swift' swiftlint
+check_lang_tool Python '*.py'    ruff
+check_lang_tool 셸     '*.sh'    shellcheck
+
 log "워크스페이스"
 [ -f "$REPO_ROOT/MODULE.bazel" ] || { echo "  MODULE.bazel 없음"; status=1; }
 [ -f "$REPO_ROOT/.bazelversion" ] && echo "  고정된 bazel 버전: $(cat "$REPO_ROOT/.bazelversion")"
@@ -41,5 +83,7 @@ log "워크스페이스"
 if [ "$status" -eq 0 ]; then
   log "워크스테이션 준비 완료"
 else
-  die "필수 도구가 빠져 있습니다"
+  die "빠진 도구가 있습니다 — 위의 '없음' 줄을 설치하세요.
+       포매터·린터는 없어도 just fmt/lint 가 통과해 버리므로, 없는 채로 두면
+       정리되지 않은 코드가 그대로 커밋됩니다."
 fi
