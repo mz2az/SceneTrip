@@ -1,0 +1,885 @@
+openapi: 3.0.3
+
+# scene-api 의 REST 계약. 이 파일이 정본이고 핸들러가 여기를 따라간다.
+#
+# 규칙 (contracts/README.md · contracts/openapi/README.md):
+#   - 손으로 쓴다. 구현에서 역생성하지 않는다.
+#   - iOS·Android 클라이언트는 이 파일로부터 생성된다. 앱이 직접 쓰지 않는다.
+#   - 파괴적 변경은 메이저 버전을 올리고 새 파일로 낸다 — 제자리 수정 금지.
+#
+# 설계 배경과 v1 에서 뺀 필드의 목록: docs/project/plans/scene-api-search-map.md
+
+info:
+  title: scene-api
+  version: 1.0.0
+  description: |
+    SceneTrip 앱 **작품검색 탭**을 받치는 API. 작품·촬영지·인물을 검색하고,
+    지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담는다.
+
+    ## 언어
+
+    사람이 읽는 모든 문자열(작품 제목, 장소명, 주소, 장면 설명)은
+    `Accept-Language` 헤더를 따른다. 해당 언어의 번역이 없으면 `ko` 로 폴백하고,
+    실제로 무엇을 골랐는지 `Content-Language` 응답 헤더로 알린다.
+
+    ## 검색 범위
+
+    검색은 **장소명 · 장소 별칭 · 작품 제목 · 작품 별칭 · 인물 이름** 다섯 곳을
+    한 번에 훑는다. 별칭이 있으므로 `Goblin` 으로도 `도깨비` 가 걸린다.
+
+    **알려진 한계** — 수집된 장소명은 현재 한국어 표기뿐이라, 영어로 입력하면
+    작품만 걸리고 장소는 걸리지 않는다. 장소 영문명 확보는 별도 작업이다.
+
+    ## 인증
+
+    v1 에는 로그인이 없다. 장바구니만 `X-Device-Id` 헤더의 기기 UUID 로 주체를
+    구분한다. 로그인이 생기면 이 UUID 를 실제 사용자 계정에 이어 붙인다.
+
+    ## 정렬과 상위 N
+
+    목록의 기본 정렬은 **인기도 내림차순**이다. 지도 전체를 훑으면 핀이 수천 개가
+    되므로 `limit` 이 상한이고, 잘린 경우 `total` 이 `items` 길이보다 크게 나온다.
+    프론트는 이 차이로 "더 있음" 을 판단한다.
+
+    **v1 의 인기도는 임시로 고정한 값이다.** 사용자 행동(조회·검색·저장) 기반의
+    실제 계산은 로그가 쌓인 뒤에 붙인다. 그래서 점수 자체는 응답에 넣지 않는다 —
+    지금 값에는 의미가 없고, 프론트가 쓸 것은 점수가 아니라 **정렬된 순서**다.
+    나중에 계산 방식이 바뀌어도 이 계약은 그대로다.
+  license:
+    name: UNLICENSED
+
+servers:
+  - url: http://localhost:8080/v1
+    description: 로컬 개발
+
+tags:
+  - name: search
+    description: 통합 검색과 자동완성
+  - name: contents
+    description: 작품 조회
+  - name: places
+    description: 촬영지 조회 — 목록·지도·상세
+  - name: cart
+    description: 장바구니 — 담기까지만 (루트 만들기는 범위 밖)
+
+paths:
+  /search/suggestions:
+    get:
+      tags: [search]
+      operationId: suggest
+      summary: 자동완성 제안
+      description: |
+        입력 중인 문자열에 대해 장소·작품·인물 제안을 인기도 순으로 돌려준다.
+        앞글자 일치를 우선하고 부분 일치가 뒤따른다.
+
+        **이름과 별칭만 본다. 설명·줄거리는 보지 않는다.** 목록 검색
+        (`GET /contents`·`GET /places`)과 범위가 다른 점에 주의한다. 자동완성은
+        한 줄짜리 제안이라 "줄거리 어딘가에 그 낱말이 있다" 를 보여 줄 방법이
+        없고, 이름용 정규화(`term_norm`)는 문장에 맞지 않는다.
+
+        각 항목이 `type` 과 `id` 를 들고 있으므로 프론트는 눌린 항목이 어디로
+        가는지 추가 조회 없이 안다 — `place` 는 장소 상세, `content` 는 작품 상세,
+        `person` 은 그 인물의 작품 목록(`GET /contents?personId=`).
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - name: q
+          in: query
+          required: true
+          description: 입력 중인 검색어. 앞뒤 공백은 서버가 제거한다.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+          example: gob
+        - name: limit
+          in: query
+          description: 제안 개수 상한
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        "200":
+          description: 제안 목록. 걸린 것이 없으면 빈 배열이다.
+          headers:
+            Content-Language:
+              $ref: "#/components/headers/ContentLanguage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestionList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /contents:
+    get:
+      tags: [contents]
+      operationId: listContents
+      summary: 작품 목록·검색
+      description: |
+        목업의 **작품 탭** 목록. `q` 가 없으면 인기도 상위 작품을 돌려준다.
+
+        `q` 는 이 작품에 딸린 **모든 텍스트**에 걸린다.
+
+        | 걸리는 곳 | 예 |
+        | --- | --- |
+        | 작품 제목 · 작품 별칭 | `도깨비` · `Goblin` |
+        | 인물 이름 (배우·감독) | `공유` → 공유 출연작 |
+        | 작품 설명 | `재벌` → 설명에 그 말이 든 작품 |
+
+        **장면 설명은 보지 않는다.** 장면은 장소와 작품 사이에 붙은 값이라
+        어느 한쪽의 검색 대상으로 삼으면 경계가 흐려진다. 각 탭은 자기
+        엔티티의 이름과 설명만 본다.
+
+        결과는 합쳐서 중복을 제거하고 **인기도 내림차순**으로 정렬한다. 같은
+        작품이 제목과 배우 양쪽에 걸려도 한 번만 나온다.
+
+        설명까지 뒤지므로 흔한 낱말은 결과가 많다. 정렬이 인기도순이고
+        `limit`·`offset` 이 있으므로, 프론트는 위에서부터 필요한 만큼만 받아
+        무한 스크롤로 이어 붙인다. `total` 로 남은 양을 안다.
+
+        `personId` 는 인물을 **정확히 지목**할 때 쓴다 — 자동완성에서 인물
+        제안을 누른 경우다. 동명이인이 있어도 어긋나지 않는다는 점이 `q` 와
+        다르다. 둘을 함께 주면 교집합이다.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - name: q
+          in: query
+          description: 작품 제목·별칭·인물 이름·작품 설명을 함께 검색
+          schema:
+            type: string
+            maxLength: 100
+          example: 공유
+        - name: personId
+          in: query
+          description: 이 인물이 참여한 작품만
+          schema:
+            type: integer
+            format: int64
+        - name: category
+          in: query
+          description: 작품 분류
+          schema:
+            $ref: "#/components/schemas/ContentCategory"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: 인기도 내림차순 작품 목록
+          headers:
+            Content-Language:
+              $ref: "#/components/headers/ContentLanguage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /contents/{contentId}:
+    get:
+      tags: [contents]
+      operationId: getContent
+      summary: 작품 상세
+      description: |
+        목업의 **작품 상세** 화면. 줄거리·출연진·별칭까지 포함한다.
+        촬영지 목록은 별도 조회다 — `GET /contents/{contentId}/places`.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - $ref: "#/components/parameters/ContentId"
+      responses:
+        "200":
+          description: 작품 상세
+          headers:
+            Content-Language:
+              $ref: "#/components/headers/ContentLanguage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /contents/{contentId}/places:
+    get:
+      tags: [contents, places]
+      operationId: listContentPlaces
+      summary: 한 작품의 촬영지 목록
+      description: |
+        작품 상세 화면의 **촬영 장소 리스트**이자, 지도에 찍을 핀의 원본이다.
+
+        목업은 각 행에 번호를 매겨 촬영 순서처럼 보여 주지만, 수집 데이터에
+        촬영 순서가 없다. 응답은 인기도 내림차순이고 번호는 프론트가 배열
+        순서대로 매긴다.
+
+        `lat`·`lng` 를 함께 주면 각 항목의 `distanceMeters` 가 채워진다.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - $ref: "#/components/parameters/ContentId"
+        - $ref: "#/components/parameters/OriginLat"
+        - $ref: "#/components/parameters/OriginLng"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: 이 작품의 촬영지 목록
+          headers:
+            Content-Language:
+              $ref: "#/components/headers/ContentLanguage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaceList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /places:
+    get:
+      tags: [places]
+      operationId: listPlaces
+      summary: 촬영지 목록·검색·지도 조회
+      description: |
+        하나의 엔드포인트가 목업의 세 가지 상황을 모두 담당한다.
+
+        | 상황 | 파라미터 |
+        | --- | --- |
+        | 장소 탭 검색 | `q` |
+        | 지도 뷰포트 안의 핀 | `bbox` |
+        | 현 지도 내 성지 검색 (반경 5km) | `lat` + `lng` + `radiusMeters` |
+
+        **`bbox` 와 `radiusMeters` 는 함께 쓸 수 없다.** 둘 다 오면 400 이다.
+        영역 조건이 하나도 없으면 전국을 대상으로 인기도 상위를 돌려준다.
+
+        `sort=distance` 는 기준점이 있을 때만 유효하다 — `lat`·`lng` 없이 주면 400.
+
+        `q` 는 이 장소에 딸린 **모든 텍스트**에 걸린다.
+
+        | 걸리는 곳 | 예 |
+        | --- | --- |
+        | 장소명 · 장소 별칭 | `여의도공원` |
+        | 장소 설명 | `한강` → 설명에 그 말이 든 장소 |
+        | 이 장소에서 촬영된 작품의 제목·별칭 | `도깨비` → 도깨비 촬영지들 |
+
+        검색어 하나로 두 탭이 동시에 채워진다. `도깨비` 를 치면 작품 탭에는
+        작품이, 장소 탭에는 그 작품의 촬영지가 나온다 — 그래서 작품 제목이
+        여기에도 걸린다. 작품을 **정확히 지목**하려면 `contentId` 를 쓴다.
+
+        **장면 설명은 보지 않는다.** 장면은 장소와 작품 사이에 붙은 값이라
+        어느 한쪽의 검색 대상으로 삼으면 경계가 흐려진다.
+
+        결과는 중복을 제거하고 **인기도 내림차순**으로 정렬한다. 흔한 낱말은
+        결과가 많으므로 `limit`·`offset` 으로 나눠 받는다.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - name: q
+          in: query
+          description: 장소명·별칭·장소 설명·등장 작품 제목을 함께 검색
+          schema:
+            type: string
+            maxLength: 100
+          example: 감자탕
+        - name: contentId
+          in: query
+          description: 이 작품에 등장한 장소만
+          schema:
+            type: integer
+            format: int64
+        - name: bbox
+          in: query
+          description: |
+            지도 뷰포트. `minLng,minLat,maxLng,maxLat` 순서의 쉼표 구분 4개 —
+            GeoJSON 과 같은 경도-위도 순서다.
+          schema:
+            type: string
+            pattern: '^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$'
+          example: 126.9,37.5,127.1,37.6
+        - $ref: "#/components/parameters/OriginLat"
+        - $ref: "#/components/parameters/OriginLng"
+        - name: radiusMeters
+          in: query
+          description: 기준점으로부터의 반경. 목업의 "현 지도 내 성지 검색" 은 5000 을 쓴다.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100000
+        - name: sort
+          in: query
+          description: 정렬 기준
+          schema:
+            type: string
+            enum: [popularity, distance]
+            default: popularity
+        - name: limit
+          in: query
+          description: |
+            돌려줄 개수 상한. 지도용이라 목록 기본값보다 크다.
+            `total` 이 이 값보다 크면 인기도 상위만 잘려 나온 것이다.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: 조건에 맞는 촬영지 목록
+          headers:
+            Content-Language:
+              $ref: "#/components/headers/ContentLanguage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaceList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /places/{placeId}:
+    get:
+      tags: [places]
+      operationId: getPlace
+      summary: 촬영지 상세
+      description: |
+        목업의 **촬영지 상세** 화면. 이 장소에서 촬영된 작품들과 각 장면 설명을
+        함께 돌려준다.
+
+        "이어서 걷기 좋은 곳" 은 별도 필드가 아니다. 이 장소의 좌표로
+        `GET /places?lat=&lng=&radiusMeters=1000&limit=3` 을 부르면 된다.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: "#/components/parameters/OriginLat"
+        - $ref: "#/components/parameters/OriginLng"
+      responses:
+        "200":
+          description: 촬영지 상세
+          headers:
+            Content-Language:
+              $ref: "#/components/headers/ContentLanguage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaceDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /cart:
+    get:
+      tags: [cart]
+      operationId: getCart
+      summary: 장바구니 조회
+      description: 담은 순서(오래된 것부터)로 돌려준다.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - $ref: "#/components/parameters/DeviceId"
+      responses:
+        "200":
+          description: 장바구니 내용. 비어 있으면 빈 배열이다.
+          headers:
+            Content-Language:
+              $ref: "#/components/headers/ContentLanguage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /cart/items:
+    post:
+      tags: [cart]
+      operationId: addCartItem
+      summary: 장바구니에 담기
+      description: |
+        목업에는 담는 경로가 셋이다 — 장소 카드의 `+`, 상세의 저장 버튼,
+        장면 팝업의 북마크. 셋 다 이 하나를 부른다.
+
+        같은 장소를 두 번 담으면 409 다. 프론트는 이때
+        "이미 저장된 장소입니다" 토스트를 띄운다.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - $ref: "#/components/parameters/DeviceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CartItemCreate"
+      responses:
+        "201":
+          description: 담긴 항목
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: 이미 담긴 장소
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /cart/items/{placeId}:
+    delete:
+      tags: [cart]
+      operationId: removeCartItem
+      summary: 장바구니에서 빼기
+      description: 목업 상세 화면의 "저장됨" 토글을 되돌리는 동작.
+      parameters:
+        - $ref: "#/components/parameters/DeviceId"
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: 삭제됨
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  parameters:
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      description: 응답 언어. 생략하거나 해당 번역이 없으면 `ko` 로 폴백한다.
+      schema:
+        $ref: "#/components/schemas/Lang"
+
+    DeviceId:
+      name: X-Device-Id
+      in: header
+      required: true
+      description: |
+        앱이 최초 실행 시 생성해 보관하는 기기 UUID. 장바구니의 주체다.
+        로그인이 도입되면 이 값을 사용자 계정에 이어 붙인다.
+      schema:
+        type: string
+        format: uuid
+
+    ContentId:
+      name: contentId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+    OriginLat:
+      name: lat
+      in: query
+      description: 거리 계산의 기준 위도. `lng` 와 반드시 짝으로 준다.
+      schema:
+        type: number
+        format: double
+        minimum: -90
+        maximum: 90
+
+    OriginLng:
+      name: lng
+      in: query
+      description: 거리 계산의 기준 경도. `lat` 와 반드시 짝으로 준다.
+      schema:
+        type: number
+        format: double
+        minimum: -180
+        maximum: 180
+
+  headers:
+    ContentLanguage:
+      description: 서버가 실제로 고른 언어. 요청한 언어와 다를 수 있다(폴백).
+      schema:
+        $ref: "#/components/schemas/Lang"
+
+  responses:
+    BadRequest:
+      description: 파라미터가 규칙에 맞지 않음
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: 대상이 없음
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+
+  schemas:
+    Lang:
+      type: string
+      enum: [ko, en, ja, zh-Hant]
+      default: ko
+      description: 지원 언어. `zh-Hant` 는 번체(대만·홍콩)로 간체와 구분한다.
+
+    ContentCategory:
+      type: string
+      enum: [drama, movie, variety, kpop]
+
+    EntityType:
+      type: string
+      enum: [place, content, person]
+      description: |
+        검색 결과의 종류. 목록 화면의 탭은 장소·작품 둘뿐이고,
+        `person` 은 자동완성에만 나타나 작품 목록으로 연결된다.
+
+    RoleType:
+      type: string
+      enum: [actor, director]
+      description: 이 작품에서의 직군. 사람의 속성이 아니라 사람과 작품 사이의 속성이다.
+
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: |
+            기계가 분기하는 식별자. `PLACE_NOT_FOUND`, `CONTENT_NOT_FOUND`,
+            `INVALID_BBOX`, `INVALID_SORT`, `DUPLICATE_CART_ITEM` 등.
+          example: PLACE_NOT_FOUND
+        message:
+          type: string
+          description: 사람이 읽는 설명. 사용자에게 그대로 보여 줄 문구가 아니다.
+        traceId:
+          type: string
+          nullable: true
+          description: 이 요청의 추적 ID. SigNoz 에서 같은 값으로 조회할 수 있다.
+
+    SuggestionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Suggestion"
+
+    Suggestion:
+      type: object
+      required: [type, id, name]
+      properties:
+        type:
+          $ref: "#/components/schemas/EntityType"
+        id:
+          type: integer
+          format: int64
+          description: 종류에 따라 장소·작품·인물의 ID
+        name:
+          type: string
+          description: 화면에 보여 줄 대표 이름
+          example: 도깨비
+        matchedTerm:
+          type: string
+          nullable: true
+          description: |
+            실제로 걸린 표기. 별칭으로 걸렸을 때 `name` 과 다르다 —
+            `Goblin` 으로 쳐서 `도깨비` 가 나왔다면 이 값이 `Goblin` 이다.
+        subtitle:
+          type: string
+          nullable: true
+          description: |
+            같은 이름을 구별하기 위한 보조 문구. 작품은 `방송사 · 연도`,
+            장소는 주소의 시·구, 인물은 대표 작품이 들어간다.
+          example: "tvN · 2016"
+
+    ContentList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentSummary"
+        total:
+          type: integer
+          description: 조건에 맞는 전체 개수. `items` 길이보다 크면 잘린 것이다.
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    ContentSummary:
+      type: object
+      required: [id, category, title, placeCount]
+      properties:
+        id:
+          type: integer
+          format: int64
+        category:
+          $ref: "#/components/schemas/ContentCategory"
+        title:
+          type: string
+          example: 도깨비
+        posterUrl:
+          type: string
+          nullable: true
+          format: uri
+        broadcaster:
+          type: string
+          nullable: true
+          example: tvN
+        releaseYear:
+          type: integer
+          nullable: true
+          example: 2016
+        genres:
+          type: array
+          description: 수집 원본에서 `;` 로 구분된 값을 분해한 것
+          items:
+            type: string
+          example: ["판타지", "멜로"]
+        placeCount:
+          type: integer
+          description: 이 작품의 촬영지 수
+
+    ContentDetail:
+      allOf:
+        - $ref: "#/components/schemas/ContentSummary"
+        - type: object
+          properties:
+            description:
+              type: string
+              nullable: true
+              description: 줄거리
+            aliases:
+              type: array
+              description: 다른 표기. 영어 제목이 여기 들어간다.
+              items:
+                type: string
+              example: ["Guardian: The Lonely and Great God", "Goblin"]
+            cast:
+              type: array
+              items:
+                $ref: "#/components/schemas/PersonRef"
+
+    PersonRef:
+      type: object
+      required: [personId, name, roleType]
+      properties:
+        personId:
+          type: integer
+          format: int64
+        name:
+          type: string
+        roleType:
+          $ref: "#/components/schemas/RoleType"
+
+    ContentRef:
+      type: object
+      required: [contentId, title]
+      properties:
+        contentId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        posterUrl:
+          type: string
+          nullable: true
+          format: uri
+
+    PlaceList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlaceSummary"
+        total:
+          type: integer
+          description: |
+            조건에 맞는 전체 개수. `items` 길이보다 크면 인기도 상위만 잘려
+            나온 것이다 — 지도에서 "더 있음" 을 판단하는 근거다.
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    PlaceSummary:
+      type: object
+      required: [id, name, latitude, longitude]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          example: 여의도공원
+        type:
+          type: string
+          nullable: true
+          description: |
+            수집된 장소 유형을 가공 없이 그대로 돌려준다. 현재 37종의 자유
+            문자열이라 필터 값으로 쓰기에 적합하지 않다 — 목업의 카테고리 칩으로
+            묶는 매핑은 데이터 정제 후에 정한다.
+          example: 카페
+        address:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        imageUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: 대표 이미지. 정렬 순서상 첫 번째 사진이다.
+        distanceMeters:
+          type: integer
+          nullable: true
+          description: 요청에 `lat`·`lng` 가 있을 때만 채워진다.
+        contents:
+          type: array
+          description: 이 장소에 등장한 작품들. 목업 장소 카드의 작품 배지에 대응한다.
+          items:
+            $ref: "#/components/schemas/ContentRef"
+        sceneDescription:
+          type: string
+          nullable: true
+          description: |
+            이 장소가 작품에서 어떻게 등장했는지. `contentId` 로 좁혀 조회했을 때
+            (또는 `GET /contents/{contentId}/places`) 그 작품 기준으로 채워진다.
+            작품을 특정하지 않은 조회에서는 `null` 이다.
+
+    PlaceDetail:
+      allOf:
+        - $ref: "#/components/schemas/PlaceSummary"
+        - type: object
+          properties:
+            description:
+              type: string
+              nullable: true
+              description: 장소 자체의 설명. 작품별 장면 설명은 `scenes` 쪽이다.
+            naverPlaceUrl:
+              type: string
+              nullable: true
+              format: uri
+              description: 네이버 지도 링크. 길찾기 연동에 쓴다.
+            imageUrls:
+              type: array
+              description: 정렬 순서대로의 전체 사진
+              items:
+                type: string
+                format: uri
+            scenes:
+              type: array
+              description: |
+                이 장소에서 촬영된 작품과 장면. 목업의 "이 장소의 장면" 가로
+                스크롤 카드에 대응한다.
+              items:
+                $ref: "#/components/schemas/Scene"
+
+    Scene:
+      type: object
+      required: [contentId, contentTitle]
+      properties:
+        contentId:
+          type: integer
+          format: int64
+        contentTitle:
+          type: string
+        posterUrl:
+          type: string
+          nullable: true
+          format: uri
+        sceneDescription:
+          type: string
+          nullable: true
+          description: 이 작품에서 이 장소가 어떻게 등장했는지
+
+    Cart:
+      type: object
+      required: [items, totalCount]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItem"
+        totalCount:
+          type: integer
+
+    CartItemCreate:
+      type: object
+      required: [placeId]
+      properties:
+        placeId:
+          type: integer
+          format: int64
+        sourceContentId:
+          type: integer
+          nullable: true
+          format: int64
+          description: |
+            어떤 작품을 보다가 담았는지. 선택 사항이지만, 장바구니 목록에
+            대표 작품을 보여 주려면 필요하다.
+
+    CartItem:
+      type: object
+      required: [placeId, name, addedAt]
+      properties:
+        placeId:
+          type: integer
+          format: int64
+        name:
+          type: string
+        address:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        imageUrl:
+          type: string
+          nullable: true
+          format: uri
+        sourceContentId:
+          type: integer
+          nullable: true
+          format: int64
+        sourceContentTitle:
+          type: string
+          nullable: true
+        addedAt:
+          type: string
+          format: date-time
