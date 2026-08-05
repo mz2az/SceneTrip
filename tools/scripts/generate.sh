@@ -14,7 +14,10 @@ if compgen -G "contracts/proto/**/*.proto" >/dev/null 2>&1; then
 fi
 
 if compgen -G "contracts/openapi/*.yaml" >/dev/null 2>&1; then
-  pending "OpenAPI 클라이언트 생성이 아직 연결되지 않았습니다 — tools/bazel/defs/ 에 규칙을 추가하세요"
+  log "OpenAPI 명세 발견 — contracts/openapi/ 의 생성 타깃을 빌드합니다"
+  # 생성기는 코드를 뽑기 전에 명세를 파싱·검증한다. 그래서 이 빌드가 곧 명세
+  # 검사이기도 하다. `just check` 의 `bazel build //...` 에도 이미 포함돼 있다.
+  "${BAZEL:-bazel}" build //contracts/openapi/...
 fi
 
 log "생성 완료"
