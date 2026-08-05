@@ -76,6 +76,20 @@ spec:
               port: http
             periodSeconds: 10
             failureThreshold: 3
+          # 종료 직전에 잠깐 기다린다. 이것이 없으면 무중단 배포가 되지 않는다.
+          #
+          # 파드를 지우면 두 가지가 **동시에** 일어난다 — kubelet 이 SIGTERM 을 보내
+          # 애플리케이션이 새 연결을 거부하기 시작하는 것과, 엔드포인트 컨트롤러가
+          # 이 파드를 Service 에서 빼는 것이다. 전자가 먼저 이기면 Service 는 아직
+          # 이 파드로 요청을 보내는데 파드는 이미 거부한다.
+          #
+          # preStop 이 그 순서를 만든다. 이 5 초 동안 컨테이너는 계속 응답하고,
+          # 그 사이 엔드포인트 제거가 전파된다. 그 뒤에 SIGTERM 이 가고
+          # application.yaml 의 graceful shutdown 이 남은 요청을 마무리한다.
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
