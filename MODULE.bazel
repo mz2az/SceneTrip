@@ -221,7 +221,7 @@ swift_deps.from_package(
     resolved = "//:Package.resolved",
     swift = "//:Package.swift",
 )
-use_repo(swift_deps, "swiftpkg_spm_nmapsmap")
+use_repo(swift_deps, "swift_package", "swiftpkg_spm_nmapsmap")
 
 # --- BUILD 파일 생성 ------------------------------------------------------------
 # 지금은 생성기를 두지 않는다. BUILD.bazel 은 손으로 쓴다 — AGENTS.md §4.1 의 이름

@@ -21,27 +21,3 @@ struct SceneTripApp: App {
         }
     }
 }
-
-/// 작품검색 탭. 지도는 항상 보이고 그 위에 바텀시트가 얹힌다 (계획서 §3-1).
-/// 지금은 지도만 — 시트·검색·칩은 이 위에 쌓는다.
-struct SearchTabView: View {
-    var body: some View {
-        NaverMapView()
-            .ignoresSafeArea()
-    }
-}
-
-/// 네이버 지도를 SwiftUI 에 얹는 최소 래퍼. 카메라·핀은 다음 단계에서 붙인다.
-struct NaverMapView: UIViewRepresentable {
-    func makeUIView(context _: Context) -> NMFNaverMapView {
-        let view = NMFNaverMapView()
-        view.showZoomControls = false
-        // 서울 시청 근처. 첫 진입 카메라 규칙은 MZ2AZ-162 에서 다시 잡는다.
-        view.mapView.moveCamera(
-            NMFCameraUpdate(scrollTo: NMGLatLng(lat: 37.5666, lng: 126.9784))
-        )
-        return view
-    }
-
-    func updateUIView(_: NMFNaverMapView, context _: Context) {}
-}

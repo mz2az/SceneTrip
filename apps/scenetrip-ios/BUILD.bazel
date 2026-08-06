@@ -30,7 +30,8 @@
 # 붙이지 않는다 — 리눅스에서도 지어지므로 붙이면 오히려 기존 ubuntu 잡의 검사
 # 범위에서 빠진다.
 
-load("@rules_apple//apple:ios.bzl", "ios_application")
+load("@rules_apple//apple:ios.bzl", "ios_application", "ios_unit_test")
+load("@rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
 load("@rules_swift//swift:swift.bzl", "swift_library")
 
 package(default_visibility = ["//visibility:public"])
@@ -85,7 +86,53 @@ ios_application(
     families = ["iphone"],
     infoplists = ["Info.plist"],
     minimum_os_version = "17.0",
+    # 목데이터. 서버가 이미 같은 것을 내려주므로(GET /v1/contents · /v1/places)
+    # 생성 클라이언트를 붙이면(계획서 §5-5) 이 리소스는 걷어낸다.
+    resources = ["assets/scenetrip_v6.json"],
     tags = ["ios"],
     target_compatible_with = APPLE_ONLY,
     deps = [":scenetrip-ios"],
+)
+
+# 검색 규칙(계획서 §3-2 · §3-3 · §3-5)을 고정하는 테스트.
+#
+# **리눅스에서는 돌지 않는다.** `tools/just/test.just` 의 IOS_TEST_FILTER 가 리눅스일
+# 때만 `-ios` 를 태그 필터에 덧붙인다 — .bazelrc 의 test:linux 줄만으로는 막지 못한다
+# (명령줄 필터가 덮어쓰므로). macOS 에서는 붙이지 않으므로 여기서 실제로 돈다.
+swift_library(
+    name = "unit_test_lib",
+    testonly = True,
+    srcs = glob(["tests/**/*.swift"]),
+    module_name = "SceneTripTests",
+    tags = [
+        "ios",
+        "manual",
+    ],
+    target_compatible_with = APPLE_ONLY,
+    deps = [":scenetrip-ios"],
+)
+
+# 기본 러너는 기기를 지정하지 않으면 **iPhone 6s Plus** 를 만든다. 최신 iOS 런타임을
+# 못 돌리는 기기라 테스트가 시작 전에 SIGTERM 으로 죽는다("tests exited with '15'", 실측).
+#
+# 이것을 `.bazelrc` 의 전역 `--ios_simulator_device` 로 고치려다 **앱 실행이 깨졌다** —
+# 그 플래그는 `bazel run //…:bin` 의 러너에도 걸리는데, 짝이 되는
+# `--ios_simulator_version` 이 없으면 런타임 id 가 비어 "Invalid runtime" 으로 죽는다.
+# 그래서 기기 지정을 테스트 러너 안으로 좁힌다. 앱 실행은 이미 떠 있는 시뮬레이터를
+# 그대로 쓴다.
+#
+# iPhone 16 을 고른 이유는 Xcode 16·26 이미지에 다 들어 있어서다.
+ios_test_runner(
+    name = "sim_runner",
+    device_type = "iPhone 16",
+    tags = ["ios"],
+)
+
+ios_unit_test(
+    name = "unit_test",
+    minimum_os_version = "17.0",
+    runner = ":sim_runner",
+    tags = ["ios"],
+    target_compatible_with = APPLE_ONLY,
+    deps = [":unit_test_lib"],
 )
