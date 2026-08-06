@@ -102,6 +102,7 @@ java_junit5_test(
         "@maven//:org_assertj_assertj_core",
         "@maven//:org_hamcrest_hamcrest",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_springframework_boot_spring_boot_test",
         "@maven//:org_springframework_boot_spring_boot_test_autoconfigure",
         "@maven//:org_springframework_boot_spring_boot_webmvc_test",

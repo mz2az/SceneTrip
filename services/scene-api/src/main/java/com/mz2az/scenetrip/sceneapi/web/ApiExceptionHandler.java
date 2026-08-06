@@ -4,6 +4,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.ApiError;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -23,8 +24,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
  *
  * <p><b>스택 트레이스는 응답에 넣지 않는다.</b> 내부 클래스 이름과 경로가 그대로 드러나고, 클라이언트가 할 수 있는 일은 없다. 로그로만 남긴다.
  *
- * <p>{@code traceId} 는 아직 채우지 않는다. 추적 ID 는 OpenTelemetry 연결(MZ2AZ-182) 이후에 생긴다 — 지금 임의의 UUID 를 넣으면
- * SigNoz 에서 조회되지 않는 값이라 없느니만 못하다.
+ * <p>{@code traceId} 는 500 응답에만 넣는다. OpenTelemetry 에이전트가 MDC 에 넣어 준 값이라 SigNoz 에서 그대로 조회된다 — 사용자가 그
+ * 문자열 하나만 알려 주면 요청 하나를 찾아낼 수 있다.
  */
 @RestControllerAdvice
 class ApiExceptionHandler {
@@ -89,6 +90,23 @@ class ApiExceptionHandler {
   ResponseEntity<ApiError> handleUnexpected(Exception e) {
     log.error("처리하지 못한 예외", e);
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .body(new ApiError("INTERNAL_ERROR", "서버에서 요청을 처리하지 못했습니다"));
+        .body(new ApiError("INTERNAL_ERROR", "서버에서 요청을 처리하지 못했습니다").traceId(currentTraceId()));
+  }
+
+  /**
+   * 이 요청의 추적 ID.
+   *
+   * <p>OpenTelemetry 에이전트가 MDC 에 넣어 준 값을 읽는다({@code OTEL_INSTRUMENTATION_LOGBACK_MDC_ENABLED}). 그래서
+   * <b>OpenTelemetry API 에 컴파일 의존이 없다</b> — 에이전트가 붙지 않은 환경(단위 테스트, 수집기 없는 로컬 실행)에서는 그냥 {@code null}
+   * 이 되고 코드는 그대로 돈다.
+   *
+   * <p>이 값이 왜 응답에 나가는가: 사용자가 500 을 받았을 때 이 문자열 하나로 SigNoz 에서 그 요청의 트레이스와 로그를 찾을 수 있다. 없으면 "몇 시쯤 오류가
+   * 났다" 로부터 시작해야 한다.
+   *
+   * <p>500 에만 넣는다. 400·404 는 클라이언트가 무엇을 잘못했는지 이미 {@code code} 로 알 수 있어 서버 로그를 뒤질 일이 없다.
+   */
+  private static String currentTraceId() {
+    String traceId = MDC.get("trace_id");
+    return (traceId == null || traceId.isBlank()) ? null : traceId;
   }
 }

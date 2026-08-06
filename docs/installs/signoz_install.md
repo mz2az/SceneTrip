@@ -476,7 +476,7 @@ mkdir -p ~/otel && curl -L -o ~/otel/opentelemetry-javaagent.jar \
 
 > **`latest`로 받지 마세요. 버전을 고정해야 합니다.**
 > 에이전트 **2.14.0**은 Spring Boot 4에서 모든 HTTP 응답 본문을 0바이트로 만들고(상태 코드·헤더는 정상), logback 계측이 `NoSuchFieldError`를 일으켜 기동 자체를 실패시킵니다. 둘 다 실측으로 확인했습니다.
-> 컨테이너가 쓰는 버전은 모듈 `Dockerfile`의 `OTEL_AGENT_VERSION`이 정본입니다 — 그 값과 맞추세요.
+> 컨테이너가 쓰는 버전은 **`MODULE.bazel`의 `http_file` 하나가 정본**입니다 — 그 값과 맞추세요. Bazel이 sha256까지 확인해 받고, `just image <모듈>`이 그것을 이미지에 담습니다([ADR 0004](../architecture/adr/0004-opentelemetry-javaagent.md)). 컨테이너 쪽은 `-javaagent`가 `ENTRYPOINT`에 이미 들어 있어 따로 줄 것이 없습니다 — 보낼 곳만 `platform/kubernetes/<모듈>/configmap.yaml`의 `OTEL_*`이 정합니다.
 
 ```bash
 JAVA_TOOL_OPTIONS="-javaagent:$HOME/otel/opentelemetry-javaagent.jar" \

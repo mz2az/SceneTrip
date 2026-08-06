@@ -37,6 +37,15 @@ if grep -q '^springboot(' "$DIR/BUILD.bazel" 2>/dev/null; then
   trap 'rm -rf "$CONTEXT"' EXIT
   cp "$DIR/Dockerfile" "$CONTEXT/"
   cp "$ARTIFACT" "$CONTEXT/bin.jar"
+
+  # OpenTelemetry 자바 에이전트도 Bazel 이 받아 온 것을 담는다 (ADR 0004).
+  # Dockerfile 안에서 curl 로 받으면 이미지 빌드가 네트워크를 타고, 받은 파일이
+  # 우리가 기대한 것인지 확인하지 않는다. Bazel 은 sha256 이 어긋나면 실패한다.
+  log "OpenTelemetry 에이전트 준비"
+  "${BAZEL:-bazel}" build //:otel_javaagent
+  AGENT="bazel-bin/opentelemetry-javaagent.jar"
+  [ -f "$AGENT" ] || die "$AGENT 이 만들어지지 않았습니다"
+  cp "$AGENT" "$CONTEXT/opentelemetry-javaagent.jar"
 else
   # 아직 Bazel 산출물을 담는 형태가 아닌 모듈(예: 파이썬 에이전트)은 모듈 폴더를
   # 그대로 컨텍스트로 쓴다. 그 언어의 첫 이미지가 생길 때 여기를 넓힌다.
