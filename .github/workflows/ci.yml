@@ -39,6 +39,75 @@ jobs:
       - name: 검증
         run: just ci-full
 
+  # 통합 레인. 실제 PostgreSQL 이 필요해 잡을 나눈다 (ADR 0005).
+  #
+  # 이 잡의 services 블록이 ADR 0001 의 "CI 워크플로는 얇은 껍데기" 에 대한 **유일한
+  # 예외**다. 서비스 컨테이너 선언은 Actions 고유 문법이라 just 레시피로 감쌀 수 없다.
+  # 그 위에서 도는 명령은 전부 just 레시피여야 한다 — 아래 steps 를 보면 그렇다.
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        # 로컬 kind 와 같은 이미지를 쓴다 (platform/kubernetes/postgres/statefulset.yaml).
+        # 갈라지면 "CI 에서만 되는" 상황이 생긴다.
+        image: imresamu/postgis:17-3.5
+        env:
+          POSTGRES_DB: scenetrip
+          POSTGRES_USER: scenetrip
+          # 러너 안에서만 사는 임시 DB 의 값이다. 진짜 자격 증명이 아니다.
+          POSTGRES_PASSWORD: scenetrip-local
+        ports:
+          - 5432:5432
+        # 준비되기 전에 마이그레이션을 돌리면 "연결 거부" 로 죽는다.
+        options: >-
+          --health-cmd "pg_isready -U scenetrip"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # 이 값이 있으면 스크립트들이 포트포워드를 세우지 않고 여기로 바로 붙는다
+      # (tools/scripts/_lib.sh 의 db_connect).
+      SCENETRIP_DB_HOST: localhost
+      SCENETRIP_DB_PORT: "5432"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: just 설치
+        uses: extractions/setup-just@v2
+
+      - name: bazelisk 설치
+        run: |
+          sudo curl -fsSLo /usr/local/bin/bazel \
+            https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
+          sudo chmod +x /usr/local/bin/bazel
+
+      - name: Bazel 캐시
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-integration-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}
+          restore-keys: bazel-integration-${{ runner.os }}-
+
+      # 아래 셋은 노트북에서 치는 것과 같은 명령이다. 로컬에서는 kind 가, 여기서는
+      # 서비스 컨테이너가 DB 를 준다는 것만 다르다.
+      - name: 스키마
+        run: just db-migrate
+
+      - name: 데이터 적재
+        run: just seed
+
+      - name: 검색 색인 갱신
+        run: just db-refresh-search
+
+      - name: 통합 테스트
+        run: just test-integration
+
   security:
     runs-on: ubuntu-latest
     timeout-minutes: 15

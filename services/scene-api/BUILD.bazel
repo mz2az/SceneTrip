@@ -11,7 +11,7 @@
 # :image / :push 는 아직 없다. 컨테이너는 당분간 Dockerfile 경로를 쓰고
 # (`just image scene-api`), rules_oci 로 옮기는 것은 후속 작업이다 — ADR 0003 참조.
 
-load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 load("@rules_spring//springboot:springboot.bzl", "springboot")
 load("//tools/bazel/defs:java_junit5_test.bzl", "java_junit5_test")
 
@@ -30,10 +30,11 @@ java_library(
     srcs = glob(["src/main/java/**/*.java"]),
     resources = glob(["src/main/resources/**"]),
     runtime_deps = [
-        # Flyway 는 코드에서 부르지 않는다. 클래스패스에 있으면 Spring 이 자동 구성으로
-        # 찾아 기동 시 마이그레이션을 돌린다 — 그래서 deps 가 아니라 runtime_deps 다.
-        # 세 아티팩트가 각각 왜 필요한지는 MODULE.bazel 에 적었다.
-        "@maven//:org_flywaydb_flyway_core",
+        # 방언과 드라이버는 코드에서 부르지 않는다. 클래스패스에 있으면 Flyway 와 Spring
+        # 이 찾아 쓴다 — 그래서 deps 가 아니라 runtime_deps 다. 세 아티팩트가 각각 왜
+        # 필요한지는 MODULE.bazel 에 적었다.
+        #
+        # flyway-core 는 여기 없다. DbMigrate 가 직접 부르므로 deps 로 올라갔다.
         "@maven//:org_flywaydb_flyway_database_postgresql",
         "@maven//:org_postgresql_postgresql",
         "@maven//:org_springframework_boot_spring_boot_starter_actuator",
@@ -50,6 +51,9 @@ java_library(
         # 명세와 어긋나면 컴파일이 실패한다 — 계약이 지켜지는지를 사람이 아니라
         # 컴파일러가 본다.
         "//contracts/openapi:scene_api_spring_lib",
+        # DbMigrate 가 Flyway 를 직접 부른다 — 앱 없이 스키마만 올리는 명령이다.
+        # 앱 기동 시의 자동 구성은 그대로이고, 이것은 그 밖의 경로다 (ADR 0005).
+        "@maven//:org_flywaydb_flyway_core",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:jakarta_validation_jakarta_validation_api",
         "@maven//:org_slf4j_slf4j_api",
@@ -87,6 +91,24 @@ springboot(
     boot_launcher_class = "org.springframework.boot.loader.launch.JarLauncher",
     java_library = ":scene-api",
     deps = ["@maven//:org_springframework_boot_spring_boot_loader"],
+)
+
+# 스키마만 올리는 명령. `just db-migrate` 가 돌린다.
+#
+# 앱은 기동할 때 Flyway 를 자동으로 돌리지만, **앱 없이 스키마만 필요한 자리**가 있다 —
+# CI 의 통합 테스트와, 배포 전에 마이그레이션만 먼저 올리는 경우다 (ADR 0005).
+#
+# :scene-api 에 의존하므로 마이그레이션 파일이 앱과 같은 것 하나다. 두 벌이 되면
+# "앱은 올라가는데 CI 는 스키마가 다른" 상황이 생긴다.
+java_binary(
+    name = "migrate",
+    main_class = "com.mz2az.scenetrip.sceneapi.DbMigrate",
+    runtime_deps = [
+        ":scene-api",
+        "@maven//:org_flywaydb_flyway_core",
+        "@maven//:org_flywaydb_flyway_database_postgresql",
+        "@maven//:org_postgresql_postgresql",
+    ],
 )
 
 # 실제 PostgreSQL 에 SQL 을 태우는 레인. `just test-integration` 이 돌린다.
