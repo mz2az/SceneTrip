@@ -97,9 +97,9 @@ pod-shell module:
 # 배포된 API 의 liveness·readiness 확인
 [group('k8s')]
 health:
-    @curl -sS {{API_URL}}/actuator/health/liveness || echo "{{API_URL}} 응답 없음"
+    @curl -sS {{API_URL}}/v1/actuator/health/liveness || echo "{{API_URL}} 응답 없음"
     @echo
-    @curl -sS {{API_URL}}/actuator/health/readiness || true
+    @curl -sS {{API_URL}}/v1/actuator/health/readiness || true
     @echo
 
 # ── 데이터베이스 ──────────────────────────────────────────────────────────────

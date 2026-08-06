@@ -31,6 +31,21 @@ server:
   port: 8080
   shutdown: graceful
 
+  servlet:
+    # 명세가 약속한 주소를 실제로 만든다.
+    #
+    # contracts/openapi/scene-api-v1.yaml 의 servers.url 이 `.../v1` 이다. OpenAPI 에서
+    # servers 는 "이 API 가 어디에 매달려 있는가" 이고 paths 는 그 아래의 경로라, 생성기는
+    # 서버 인터페이스에 `/places` 만 매핑한다 — 접두사는 배포가 붙이는 몫이다.
+    #
+    # 그 몫을 아무도 하지 않아 명세와 서버가 어긋나 있었다. 명세로 생성한 앱 클라이언트는
+    # `/v1/places` 를 부르는데 서버는 `/places` 로만 답했다 — 앱이 붙는 순간 모든 호출이
+    # 실패하는 상태였고, 실제 요청으로 확인했다.
+    #
+    # **actuator 도 함께 밀린다.** /actuator/health 가 아니라 /v1/actuator/health 다.
+    # 쿠버네티스 프로브 3종과 `just health` 가 그 경로를 쓰므로 같이 고쳤다.
+    context-path: /v1
+
 management:
   endpoints:
     web:
