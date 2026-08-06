@@ -19,8 +19,14 @@ import org.springframework.stereotype.Repository;
  * <p>엔드포인트 하나가 목업의 세 상황을 모두 담당한다 — 장소 탭 검색({@code q}), 지도 뷰포트 안의 핀({@code bbox}), 현 지도 내 성지
  * 검색({@code lat}·{@code lng}·{@code radiusMeters}). 조건이 붙는 자리만 다르고 나머지는 같은 질의다.
  *
- * <p>{@code q} 는 장소명·별칭·장소 설명에 더해 <b>이 장소에서 촬영된 작품의 제목·별칭</b>에도 걸린다. 그것이 없으면 `도깨비` 를 쳤을 때 장소 탭이 빈
- * 화면이 된다 — 검색어 하나로 작품 탭과 장소 탭이 동시에 채워지는 구조이기 때문이다.
+ * <p>{@code q} 는 이 장소에 딸린 <b>모든 텍스트</b>에 걸린다 — 장소명·별칭·장소 설명에 더해, 이 장소에서 촬영된 작품의 제목·별칭·설명과 그 작품에 참여한
+ * 인물의 이름까지다.
+ *
+ * <p><b>{@link com.mz2az.scenetrip.sceneapi.content.ContentStore} 와 같은 텍스트 뭉치를 본다.</b> 다른 것은 결과를
+ * 작품으로 내느냐 장소로 내느냐뿐이다. 검색어 하나로 두 탭이 동시에 채워지고 사용자는 탭을 먼저 고르지 않으므로, 한쪽만 넓게 걸리면 다른 탭이 빈 화면이 되어 고장으로
+ * 보인다 — 실제로 `공유` 를 치면 작품 탭에는 도깨비가 뜨는데 장소 탭만 비어 있었다.
+ *
+ * <p>장소는 {@code place_content} 를 통해 작품에 이어져 있으므로, 작품 쪽에 걸린 것은 그 작품의 촬영지로 옮겨진다.
  */
 @Repository
 public class PlaceStore {
@@ -93,6 +99,29 @@ public class PlaceStore {
           SELECT pi.place_id
           FROM place_i18n pi CROSS JOIN params p
           WHERE p.norm <> '' AND pi.description ILIKE '%' || CAST(:q AS TEXT) || '%'
+
+          UNION
+
+          -- 이 장소에서 촬영된 작품의 설명
+          SELECT pc.place_id
+          FROM content_i18n ci
+          CROSS JOIN params p
+          JOIN place_content pc ON pc.content_id = ci.content_id
+          WHERE p.norm <> '' AND ci.description ILIKE '%' || CAST(:q AS TEXT) || '%'
+
+          UNION
+
+          -- 그 작품에 참여한 인물 -> 작품 -> 장소
+          --
+          -- 배우 이름으로 장소 탭이 채워지는 경로다. 없으면 '공유' 를 쳤을 때 작품
+          -- 탭에는 도깨비가 뜨는데 장소 탭만 비어, 사용자에게는 고장으로 보인다.
+          SELECT pc.place_id
+          FROM search_term st
+          CROSS JOIN params p
+          JOIN content_cast cc ON cc.person_id = st.entity_id
+          JOIN place_content pc ON pc.content_id = cc.content_id
+          WHERE p.norm <> '' AND st.entity_type = 'person'
+            AND st.term_norm LIKE '%' || p.norm || '%'
       ),
       display AS (
           SELECT DISTINCT ON (pi.place_id)
