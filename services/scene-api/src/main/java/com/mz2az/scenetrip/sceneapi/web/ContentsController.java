@@ -2,6 +2,7 @@ package com.mz2az.scenetrip.sceneapi.web;
 
 import com.mz2az.scenetrip.sceneapi.api.ContentsApi;
 import com.mz2az.scenetrip.sceneapi.api.model.ContentCategory;
+import com.mz2az.scenetrip.sceneapi.api.model.ContentDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.ContentList;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceList;
@@ -45,6 +46,22 @@ class ContentsController implements ContentsApi {
 
     ContentList body = new ContentList(page.items(), page.total(), limit, offset);
     return Responses.ok(body, Responses.used(acceptLanguage, page.anyInRequestedLang()));
+  }
+
+  /**
+   * 작품 상세.
+   *
+   * <p>촬영지 목록은 여기 넣지 않는다 — 개수가 많고 페이지네이션이 필요해서 별도 조회다.
+   */
+  @Override
+  public ResponseEntity<ContentDetail> getContent(Long contentId, Lang acceptLanguage) {
+    ContentStore.Detail detail =
+        contentStore
+            .findDetail(contentId, acceptLanguage)
+            .orElseThrow(
+                () -> ApiException.notFound("CONTENT_NOT_FOUND", "작품 " + contentId + " 이(가) 없습니다"));
+
+    return Responses.ok(detail.content(), Responses.used(acceptLanguage, detail.inRequestedLang()));
   }
 
   /**

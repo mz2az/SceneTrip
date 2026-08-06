@@ -2,13 +2,16 @@ package com.mz2az.scenetrip.sceneapi.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.mz2az.scenetrip.sceneapi.api.model.PlaceDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceSummary;
+import com.mz2az.scenetrip.sceneapi.api.model.Scene;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.place.PlaceStore;
 import java.util.List;
@@ -122,5 +125,44 @@ class PlacesControllerTest {
     assertThat(Bbox.parse("126.9,37.5,127.1")).isEmpty();
     assertThat(Bbox.parse("126.9,37.5,127.1,37.6"))
         .isEqualTo(Optional.of(new Bbox(126.9, 37.5, 127.1, 37.6)));
+  }
+
+  @Test
+  @DisplayName("장소 상세는 사진 전부와 장면 목록을 준다")
+  void returnsPlaceDetail() throws Exception {
+    PlaceDetail detail =
+        new PlaceDetail(2L, "북촌한옥마을", 37.5818, 126.9848)
+            .type("한옥마을")
+            .scenes(
+                List.of(
+                    new Scene(2L, "도깨비").sceneDescription("시간이 멈춘 장면…"),
+                    new Scene(4L, "케이팝 데몬 헌터스")));
+    when(store.findDetail(eq(2L), any(), any(), any()))
+        .thenReturn(Optional.of(new PlaceStore.Detail(detail, true)));
+
+    // 한 장소가 여러 작품에 나오는 것이 정상이다 — 목업의 "이 장소의 장면" 가로 스크롤.
+    mvc.perform(get("/places/2"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("북촌한옥마을"))
+        .andExpect(jsonPath("$.scenes[0].contentTitle").value("도깨비"))
+        .andExpect(jsonPath("$.scenes[1].contentId").value(4));
+  }
+
+  @Test
+  @DisplayName("없는 장소는 404")
+  void missingPlaceIsNotFound() throws Exception {
+    when(store.findDetail(any(Long.class), any(), any(), any())).thenReturn(Optional.empty());
+
+    mvc.perform(get("/places/999"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("PLACE_NOT_FOUND"));
+  }
+
+  @Test
+  @DisplayName("상세에서도 기준점은 짝이어야 한다")
+  void detailRequiresCompleteOrigin() throws Exception {
+    mvc.perform(get("/places/2").param("lng", "126.9"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INCOMPLETE_ORIGIN"));
   }
 }

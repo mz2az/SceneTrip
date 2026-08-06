@@ -2,6 +2,7 @@ package com.mz2az.scenetrip.sceneapi.web;
 
 import com.mz2az.scenetrip.sceneapi.api.PlacesApi;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import com.mz2az.scenetrip.sceneapi.api.model.PlaceDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceList;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.place.PlaceStore;
@@ -56,5 +57,26 @@ class PlacesController implements PlacesApi {
 
     PlaceList body = new PlaceList(page.items(), page.total(), limit, offset);
     return Responses.ok(body, Responses.used(acceptLanguage, page.anyInRequestedLang()));
+  }
+
+  /**
+   * 촬영지 상세.
+   *
+   * <p>"이어서 걷기 좋은 곳" 은 별도 필드가 아니다. 이 장소의 좌표로 {@code GET
+   * /places?lat=&lng=&radiusMeters=1000&limit=3} 을 부르면 된다 — 같은 것을 두 곳에서 계산하지 않는다.
+   */
+  @Override
+  public ResponseEntity<PlaceDetail> getPlace(
+      Long placeId, Lang acceptLanguage, Double lat, Double lng) {
+
+    PlaceQueryRules.requireCompleteOrigin(lat, lng);
+
+    PlaceStore.Detail detail =
+        store
+            .findDetail(placeId, acceptLanguage, lat, lng)
+            .orElseThrow(
+                () -> ApiException.notFound("PLACE_NOT_FOUND", "장소 " + placeId + " 이(가) 없습니다"));
+
+    return Responses.ok(detail.place(), Responses.used(acceptLanguage, detail.inRequestedLang()));
   }
 }
