@@ -6,6 +6,11 @@ on:
   pull_request:
   push:
     branches: [main]
+  # 손으로 돌릴 수 있어야 한다. 2026-08-07 에 GitHub 이 pull_request(synchronize)
+  # 이벤트를 흘려 커밋 두 개가 CI 를 아예 타지 않았고, 그때 이 트리거가 없어서
+  # 다시 돌릴 방법이 없었다 — PR 을 닫았다 여는 것도 듣지 않았다. macOS 러너가
+  # 불안정한 편이라(같은 날 4 번 중 3 번이 GitHub 쪽 문제) 이 손잡이가 필요하다.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
