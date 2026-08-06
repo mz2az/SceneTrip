@@ -12,6 +12,7 @@
 #   kotlin  → Android 앱 클라이언트 (apps/<name>-android 가 생길 때)
 
 load("@openapi_tools_generator_bazel//:defs.bzl", "openapi_generator")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -20,8 +21,78 @@ exports_files(["scene-api-v1.yaml"])
 
 # scene-api 의 Spring 서버 인터페이스.
 # 컨트롤러가 이 인터페이스를 구현하면 계약 위반이 컴파일 오류가 된다.
+#
+# interfaceOnly 를 켜는 이유: 이것이 없으면 생성기가 자기 나름의 Spring Boot 애플리
+# 케이션을 통째로 만든다 — @SpringBootApplication 클래스, HomeController,
+# springdoc 설정, 그리고 501 을 반환하는 컨트롤러 스텁까지. 우리에게는 이미
+# SceneApiApplication 이 있고, 생성된 껍데기가 클래스패스에 같이 있으면 자동 구성이
+# 어느 쪽을 잡을지가 우연에 맡겨진다.
+#
+# useSpringBoot3 는 jakarta.* 임포트를 쓰게 한다. 끄면 javax.* 가 나오는데 Spring
+# Boot 4 에는 그 클래스가 없어 컴파일이 깨진다.
+#
+# openApiNullable 을 끄는 이유: org.openapitools.jackson.nullable 라는 별도 라이브러리를
+# 끌어온다. "값이 없음" 과 "필드가 아예 없음" 을 구분하는 용도인데, 우리 명세는 PATCH
+# 가 없어 그 구분이 필요한 자리가 없다.
 openapi_generator(
     name = "scene_api_spring",
+    additional_properties = {
+        "interfaceOnly": "true",
+        "useSpringBoot3": "true",
+        "openApiNullable": "false",
+        "hideGenerationTimestamp": "true",
+        "useTags": "true",
+    },
+    api_package = "com.mz2az.scenetrip.sceneapi.api",
     generator = "spring",
+    model_package = "com.mz2az.scenetrip.sceneapi.api.model",
     spec = "scene-api-v1.yaml",
+)
+
+# java_library 는 srcs 에 디렉터리를 받지 못한다. 위 규칙의 산출물은 트리 아티팩트
+# (디렉터리)라서, 컴파일에 넣으려면 srcjar 로 묶어야 한다.
+#
+# zip 이 아니라 JDK 의 jar 를 쓰는 이유: Bazel 이 받아 온 JDK 라 호스트에 무엇이
+# 깔려 있든 결과가 같다 (AGENTS.md §4.3). 호스트의 zip 에 기대면 그것이 없는 CI
+# 러너에서 빌드가 깨진다 — 포매터에서 이미 한 번 겪은 실패다.
+genrule(
+    name = "scene_api_spring_srcjar",
+    srcs = [":scene_api_spring"],
+    outs = ["scene_api_spring.srcjar"],
+    cmd = "$(JAVABASE)/bin/jar --create --file $@ -C $(location :scene_api_spring)/src/main/java .",
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+)
+
+# 서블릿 API 는 컴파일에만 쓴다.
+#
+# 생성된 ApiUtil 이 HttpServletResponse 를 참조하는데, 실행 시에는 같은 클래스를
+# tomcat-embed-core 가 이미 들고 있다. 둘 다 클래스패스에 올리면 같은 이름의 클래스가
+# 두 벌이 되고, 어느 쪽이 로드되는지가 jar 순서에 좌우된다.
+#
+# neverlink 는 "컴파일에는 쓰되 실행 클래스패스에는 넣지 마라" 는 표시다.
+java_library(
+    name = "servlet_api_compile_only",
+    neverlink = True,
+    exports = ["@maven//:jakarta_servlet_jakarta_servlet_api"],
+)
+
+# 컨트롤러가 구현할 인터페이스와 응답 모델.
+#
+# **이 라이브러리가 계약을 강제하는 지점이다.** 명세에서 필드가 사라지거나 타입이
+# 바뀌면 여기서 만들어진 클래스가 바뀌고, 그것을 쓰는 컨트롤러가 컴파일되지 않는다.
+# 계약 테스트(//tests/contract)는 "명세가 생성기를 통과하는가" 만 보지만, 이쪽은
+# "서버 코드가 그 명세와 맞는가" 를 본다.
+java_library(
+    name = "scene_api_spring_lib",
+    srcs = [":scene_api_spring_srcjar"],
+    deps = [
+        ":servlet_api_compile_only",
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        "@maven//:io_swagger_core_v3_swagger_annotations",
+        "@maven//:jakarta_annotation_jakarta_annotation_api",
+        "@maven//:jakarta_validation_jakarta_validation_api",
+        "@maven//:org_springframework_spring_context",
+        "@maven//:org_springframework_spring_core",
+        "@maven//:org_springframework_spring_web",
+    ],
 )
