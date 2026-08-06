@@ -59,10 +59,33 @@ DBML 문서가 스스로 셋을 지적해 뒀다 — *"`Export to PostgreSQL` �
 | `place.geom` | `geography` | `GEOGRAPHY(Point,4326)` — DBML 이 괄호·쉼표 타입을 파싱하지 못해 note 로 뺐다 |
 | 정렬 인덱스 | `(popularity_score, id)` | `... DESC, id DESC` — DBML 에 `DESC` 문법이 없다 |
 | `search_term` | Table | **MATERIALIZED VIEW** — DBML 에 뷰 개념이 없어 Table 로 표현했을 뿐이다. Table 로 만들면 안 된다 |
+| Enum 7 개 | `Enum lang { … }` | **TEXT + 제약** — 아래 |
 
 `search_term` 은 다섯 곳(`place_i18n`·`place_alias`·`content_i18n`·`content_alias`·
 `person_i18n`)을 `UNION ALL` 한 MV 다. 적재 후 `REFRESH MATERIALIZED VIEW CONCURRENTLY`
 가 필요하며, `CONCURRENTLY` 를 쓰려면 **유니크 인덱스가 하나 있어야 한다.**
+
+### 넷째 항목 — Enum 은 DBML 의 표현이지 스키마의 결정이 아니다
+
+문서가 셋을 지적했지만 실제로 옮겨 보니 넷이었다. **원본 문서(MZ2AZ-111)는 `lang`,
+`category`, `role_type`, `trans_status`, `entity_type` 을 전부 `TEXT` 로 정의한다.**
+DBML 쪽이 Enum 인 것은 DBML 에 CHECK 제약 문법이 없어 "값이 이 넷 중 하나" 를 적을
+방법이 Enum 밖에 없었기 때문이고, `geography` 나 `search_term` 이 Table 로 표현된 것과
+같은 종류의 변환이다. 실제로 DBML 문서의 "DBML로 옮기면서 생긴 차이" 표에 그렇게 적혀
+있다.
+
+실무적으로도 TEXT 쪽이 맞다. PostgreSQL Enum 은 **값을 뺄 수 없고**, 추가한 값은 같은
+트랜잭션 안에서 쓸 수 없다 — Flyway 는 마이그레이션을 트랜잭션으로 감싸므로 "값 추가 +
+그 값으로 데이터 이관" 을 한 마이그레이션에 담을 수 없게 된다. CHECK 제약은 DROP/ADD 로
+갈아 끼우면 끝난다.
+
+| 값 | SQL |
+| --- | --- |
+| `lang`, `trans_status` | **DOMAIN** — 여러 테이블이 공유하므로 제약을 한 곳에서 고칠 수 있게 |
+| 나머지 | 컬럼에 **CHECK** 직접 |
+
+`search_term.entity_type` 과 `user_event.entity_type` 은 값이 같아도 각자 CHECK 를
+가진다. DBML 이 두 Enum 으로 분리한 의도(늘어날 방향이 다르다)를 그대로 옮긴 것이다.
 
 ## 5. 명세와 스키마가 어긋나는 지점
 
@@ -79,8 +102,10 @@ DBML content     id · category · broadcaster · poster_url · popularity_score
 "데이터가 실제로 있으니 넣는다" 로 정했는데, 그 데이터를 담을 컬럼을 만들지 않으면
 명세가 거짓이 된다.**
 
-**결정: 스키마에 컬럼을 더한다.** `content.release_year INT` 와 `content.genre` 를
-넣는다. 근거는 셋이다 — V6 CSV 의 `title_year`·`title_genre` 가 4 작품 전부 채워져
+**결정: 스키마에 컬럼을 더한다.** `content.release_year INT` 와 `content.genres TEXT[]`
+를 넣는다. (컬럼 이름은 명세의 `genres` 에 맞췄다. 별도 테이블로 빼지 않은 이유는
+장르로 조인·집계할 요구가 아직 없고 명세도 문자열 배열로 내보내기 때문이다 — 장르별
+필터가 생기면 그때 코드 테이블로 승격한다.) 근거는 셋이다 — V6 CSV 의 `title_year`·`title_genre` 가 4 작품 전부 채워져
 있고, 목업의 작품 카드가 연도·장르를 표시하며, 명세가 이미 머지되어 프론트에
 전달됐다. 명세에서 빼는 것은 이미 전달한 계약을 줄이는 변경이라 더 비싸다.
 
@@ -102,7 +127,9 @@ platform/kubernetes/postgres/
 services/scene-api/src/main/resources/db/migration/
 ├── V1__extensions.sql          postgis · pg_trgm
 ├── V2__schema.sql              테이블 14 개 + 인덱스
-└── V3__search_term.sql         MATERIALIZED VIEW + 유니크 인덱스
+├── V3__search_term.sql         search_normalize() + MATERIALIZED VIEW + 유니크 인덱스
+└── V4__drop_unused_postgis_extensions.sql
+                                이미지가 기본으로 켜는 tiger geocoder·topology 제거
 
 services/scene-api/src/main/resources/seed/
 └── v6-sample.csv               확인용 소수 행
@@ -114,17 +141,34 @@ tools/just/dev.just             seed 레시피
 ## 7. 완료 조건
 
 ```
-1. just deploy postgres local        파드 Running, PVC 바인딩
-2. just deploy scene-api local       Flyway 마이그레이션이 돌고 앱이 뜬다
-3. just db-psql \dt                  테이블 14 개 확인
-4. just seed                         샘플이 들어간다
-5. search_term 조회                  '도깨비' · 'Goblin' 둘 다 걸린다
-6. 반경 검색 SQL                     GiST 인덱스를 타는지 EXPLAIN 으로 확인
-7. just check                        게이트 초록
+1. just deploy postgres local        파드 Running, PVC 바인딩              ✅ MZ2AZ-176
+2. just deploy scene-api local       Flyway 마이그레이션이 돌고 앱이 뜬다   ✅ MZ2AZ-176
+3. just db-schema                    테이블 14 개 확인                      ✅ MZ2AZ-176
+4. just seed                         샘플이 들어간다                        ⬜ MZ2AZ-177
+5. search_term 조회                  '도깨비' · 'Goblin' 둘 다 걸린다       ✅ MZ2AZ-176 (임시 데이터)
+6. 반경 검색 SQL                     GiST 인덱스를 타는지 EXPLAIN 으로 확인  ✅ MZ2AZ-176
+7. just check                        게이트 초록                            ✅
 ```
 
 5 번이 핵심이다. 스키마가 제대로 섰는지는 테이블 개수가 아니라 **검색이 실제로
-동작하는가**로 판정한다.
+동작하는가**로 판정한다. 적재(177) 전이라 트랜잭션 안에 임시 행을 넣고 확인한 뒤
+`ROLLBACK` 했다 — `도깨비`·`Goblin`·`쓸쓸하고찬란하神도깨비`(구두점·공백 무시) 셋 다
+걸렸고, 6 번은 5,000 개를 흩뿌린 뒤 `Bitmap Index Scan on place_geom_idx` 를 확인했다.
+
+## 7-1. 만들면서 드러난 것 (실측)
+
+문서만으로는 알 수 없었고 실제로 돌려 보고서야 나온 것들이다. 셋 다 **조용히 실패하는**
+종류라 적어 둔다.
+
+| 무엇 | 증상 | 대응 |
+| --- | --- | --- |
+| Spring Boot 4 는 자동 구성을 기술별 모듈로 쪼갰다 | `flyway-core` 만 넣으면 **오류 없이 마이그레이션이 안 돈다.** 앱은 뜨고 헬스체크도 초록이다 | `spring-boot-starter-flyway` 를 넣어야 `FlywayAutoConfiguration` 이 온다 |
+| DB 로케일이 `C` 라 `[[:alnum:]]` 이 ASCII 만 문자로 친다 | 정규화를 allowlist(남길 문자 지정)로 쓰면 `도깨비` 가 통째로 지워져 빈 문자열이 된다 | blocklist(지울 문자 지정)로 뒤집었다 — `search_normalize()` |
+| PostGIS 이미지가 `postgis_tiger_geocoder`·`postgis_topology` 를 기본으로 켠다 | 테이블 35 개와 스키마 셋이 생겨 `\dt` 가 우리 스키마를 보여 주지 못한다 | `V4` 에서 제거. 미국 주소 지오코딩과 위상 모델은 쓰지 않는다 |
+
+한 가지 더 — **적용된 마이그레이션 파일은 고치지 않는다.** Flyway 가 체크섬을 기록해
+두어 파일이 바뀌면 다음 기동에서 검증 실패로 죽는다. 위 셋째 항목을 `V1` 에 넣지 않고
+`V4` 로 붙인 이유가 그것이다.
 
 ## 8. 아직 정하지 않은 것
 
@@ -133,4 +177,14 @@ tools/just/dev.just             seed 레시피
 | 1 | ~~`release_year`·`genre` 컬럼~~ | **결정됨(§5)** — 더한다. DBML 문서 갱신은 후속 |
 | 2 | 스키마 v1 의 나머지 미결 항목 | DBML 문서 말미의 `search_term.subtitle`, `user_event.surface`, `scene_image`, `route`, 사용자 테이블 — 전부 이번 범위 밖으로 둔다 |
 | 3 | 원격 환경의 DB | `platform/environments/` 가 비어 있다. 로컬만 만든다 |
-| 4 | MVP2 테이블(`user_event`·`saved_place`) | 사용자 테이블이 없어 `user_id` 가 참조할 대상이 없다. 스키마에는 만들되 FK 는 걸지 않는다 |
+| 4 | ~~MVP2 테이블(`user_event`·`saved_place`)~~ | **결정됨** — 만들었다. `user_id` 에만 FK 를 걸지 않았다. `impression`·`position` 은 소급 수집이 불가능해서 지금 만든다 |
+| 5 | 스키마 마이그레이션의 자동 테스트 | 지금은 단위 레인이 **파일이 패키징됐는지**까지만 본다(`MigrationResourceTest`). 스키마가 실제로 서는지는 `just deploy` 후 사람이 확인한다. Testcontainers 로 통합 레인에 넣을 수 있으나 Maven 의존성과 테스트 시점 Docker 요구가 늘어난다 — 엔드포인트(149)가 생겨 검증할 것이 많아질 때 함께 판단한다 |
+
+## 9. 후속 (이 티켓 밖)
+
+| 항목 | 내용 |
+| --- | --- |
+| DBML 문서 갱신 | `content.release_year`·`content.genres` 추가와 Enum→TEXT 를 [MZ2AZ-111](https://mz2az.atlassian.net/browse/MZ2AZ-111) 에 반영 |
+| 인기도 계산 | 지금은 적재 시 하드코딩. 사용자 행동(`user_event`)이 쌓이면 배치로 계산 |
+| 장르 다국어 | `content.genres` 는 현재 수집 언어(한국어) 문자열이다. 장르별 필터가 생기면 코드 테이블로 승격하고 i18n 을 붙인다 |
+| 원격 환경 DB | `platform/environments/` 가 생기면 ConfigMap 참조를 Secret 참조로 바꾼다. 애플리케이션은 그대로다 |

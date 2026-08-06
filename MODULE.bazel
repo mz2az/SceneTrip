@@ -72,6 +72,27 @@ maven.install(
         # MANIFEST 의 Main-Class 가 이것을 가리킨다. 없으면 jar 가 실행되지 않는다.
         "org.springframework.boot:spring-boot-loader:4.1.0",
 
+        # DB. 버전은 전부 spring-boot-dependencies:4.1.0 이 관리하는 값과 맞췄다 —
+        # Spring 의 자동 구성은 특정 Flyway·드라이버 버전대를 전제하고 짜여 있어서,
+        # 최신판으로 올려 두면 "빈은 생겼는데 마이그레이션이 안 돈다" 같은 조용한
+        # 어긋남이 난다. 여기는 BOM 이 아니라 손으로 고정하는 자리이므로 명시한다.
+        #
+        # 아티팩트가 셋이나 되는 이유가 있다. 둘 다 빠뜨려 봤고 증상이 서로 다르다.
+        #
+        #   spring-boot-starter-flyway    Boot 4 는 자동 구성을 기술별 모듈로 쪼갰다.
+        #                                 FlywayAutoConfiguration 은 spring-boot-flyway
+        #                                 에 있고 이 스타터가 그것을 끌어온다. 없으면
+        #                                 **오류 없이 마이그레이션이 그냥 안 돈다** —
+        #                                 앱은 뜨고 헬스체크도 초록이다 (실측).
+        #   flyway-database-postgresql    Flyway 10 부터 DB 별 지원이 코어에서 떨어져
+        #                                 나갔다. 없으면 "no database provider" 로 죽는다.
+        #   flyway-core                   엔진. 스타터가 끌어오지만 버전을 여기서 고정한다.
+        "org.springframework.boot:spring-boot-starter-jdbc:4.1.0",
+        "org.springframework.boot:spring-boot-starter-flyway:4.1.0",
+        "org.flywaydb:flyway-core:12.4.0",
+        "org.flywaydb:flyway-database-postgresql:12.4.0",
+        "org.postgresql:postgresql:42.7.11",
+
         # Java 포매터·린터. 호스트에 깔지 않고 Bazel 이 받아 //:google_java_format ·
         # //:checkstyle 로 실행한다 — buildifier 와 같은 방식이다.
         #

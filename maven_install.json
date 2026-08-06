@@ -8,9 +8,14 @@
     "com.google.guava:guava": 1943808618,
     "com.google.j2objc:j2objc-annotations": 2003271689,
     "com.puppycrawl.tools:checkstyle": 680098671,
+    "org.flywaydb:flyway-core": 273775491,
+    "org.flywaydb:flyway-database-postgresql": 1275710526,
     "org.junit.platform:junit-platform-console": 839501022,
+    "org.postgresql:postgresql": -1963352047,
     "org.springframework.boot:spring-boot-loader": -593650108,
     "org.springframework.boot:spring-boot-starter-actuator": -1209590048,
+    "org.springframework.boot:spring-boot-starter-flyway": 525687325,
+    "org.springframework.boot:spring-boot-starter-jdbc": -569138914,
     "org.springframework.boot:spring-boot-starter-test": -780181529,
     "org.springframework.boot:spring-boot-starter-web": 1844596909,
     "repositories": -1949687017
@@ -30,6 +35,7 @@
     "com.jayway.jsonpath:json-path": -843320851,
     "com.puppycrawl.tools:checkstyle": 1082261917,
     "com.vaadin.external.google:android-json": -815169796,
+    "com.zaxxer:HikariCP": -1650230914,
     "commons-beanutils:commons-beanutils": 852036681,
     "commons-codec:commons-codec": -1543128303,
     "commons-collections:commons-collections": 7509648,
@@ -71,6 +77,8 @@
     "org.codehaus.plexus:plexus-utils": -2106813517,
     "org.commonmark:commonmark": 1195553091,
     "org.commonmark:commonmark-ext-gfm-tables": -558121472,
+    "org.flywaydb:flyway-core": -185732339,
+    "org.flywaydb:flyway-database-postgresql": 83584832,
     "org.hamcrest:hamcrest": 1282317766,
     "org.hdrhistogram:HdrHistogram": 310945399,
     "org.javassist:javassist": -1946021694,
@@ -90,6 +98,7 @@
     "org.opentest4j.reporting:open-test-reporting-tooling-spi": 1212162497,
     "org.opentest4j:opentest4j": -1711174392,
     "org.ow2.asm:asm": -1101379267,
+    "org.postgresql:postgresql": -457385259,
     "org.reflections:reflections": -61158837,
     "org.skyscreamer:jsonassert": -852848867,
     "org.slf4j:jul-to-slf4j": 1118476727,
@@ -99,16 +108,22 @@
     "org.springframework.boot:spring-boot-actuator": -1678817493,
     "org.springframework.boot:spring-boot-actuator-autoconfigure": 1838233811,
     "org.springframework.boot:spring-boot-autoconfigure": -1660830850,
+    "org.springframework.boot:spring-boot-flyway": 1830604211,
     "org.springframework.boot:spring-boot-health": 1871531012,
     "org.springframework.boot:spring-boot-http-converter": -1892379925,
     "org.springframework.boot:spring-boot-jackson": -1616673789,
+    "org.springframework.boot:spring-boot-jdbc": 1887826511,
     "org.springframework.boot:spring-boot-loader": 1572336122,
     "org.springframework.boot:spring-boot-micrometer-metrics": -1965711561,
     "org.springframework.boot:spring-boot-micrometer-observation": 578901184,
+    "org.springframework.boot:spring-boot-persistence": 1776603857,
     "org.springframework.boot:spring-boot-servlet": -1988576070,
+    "org.springframework.boot:spring-boot-sql": -1608833533,
     "org.springframework.boot:spring-boot-starter": 743120937,
     "org.springframework.boot:spring-boot-starter-actuator": 1154141323,
+    "org.springframework.boot:spring-boot-starter-flyway": 48340781,
     "org.springframework.boot:spring-boot-starter-jackson": 2142837570,
+    "org.springframework.boot:spring-boot-starter-jdbc": -1429094318,
     "org.springframework.boot:spring-boot-starter-logging": 118495084,
     "org.springframework.boot:spring-boot-starter-micrometer-metrics": -535937512,
     "org.springframework.boot:spring-boot-starter-test": -817721119,
@@ -118,6 +133,7 @@
     "org.springframework.boot:spring-boot-test": 716270079,
     "org.springframework.boot:spring-boot-test-autoconfigure": 887181594,
     "org.springframework.boot:spring-boot-tomcat": 1542973197,
+    "org.springframework.boot:spring-boot-transaction": -401121057,
     "org.springframework.boot:spring-boot-web-server": -1129608763,
     "org.springframework.boot:spring-boot-webmvc": 1418261913,
     "org.springframework:spring-aop": -1418859709,
@@ -125,7 +141,9 @@
     "org.springframework:spring-context": -1228221475,
     "org.springframework:spring-core": -561650770,
     "org.springframework:spring-expression": -1803559463,
+    "org.springframework:spring-jdbc": 682989730,
     "org.springframework:spring-test": -479333256,
+    "org.springframework:spring-tx": 812997310,
     "org.springframework:spring-web": 1383396543,
     "org.springframework:spring-webmvc": -1919592687,
     "org.xmlresolver:xmlresolver": -2072175398,
@@ -224,6 +242,12 @@
         "jar": "dfb7bae2f404cfe0b72b4d23944698cb716b7665171812a0a4d0f5926c0fac79"
       },
       "version": "0.0.20131108.vaadin1"
+    },
+    "com.zaxxer:HikariCP": {
+      "shasums": {
+        "jar": "f1e612fa27345be3107a85431e8a8aeb205c15364ab2f2d411e40a9d7bb08095"
+      },
+      "version": "7.0.2"
     },
     "commons-beanutils:commons-beanutils": {
       "shasums": {
@@ -471,6 +495,18 @@
       },
       "version": "0.28.0"
     },
+    "org.flywaydb:flyway-core": {
+      "shasums": {
+        "jar": "c3f93df1f3e0c9d14652adb5ade97401f2ede503859ac693c2af5c06e2797799"
+      },
+      "version": "12.4.0"
+    },
+    "org.flywaydb:flyway-database-postgresql": {
+      "shasums": {
+        "jar": "abc075a5c3cbf37dc64b28fec7e2398fb14f31109f7ab6271854738797407b85"
+      },
+      "version": "12.4.0"
+    },
     "org.hamcrest:hamcrest": {
       "shasums": {
         "jar": "5d66b6a4a680755cb6ed7cb104fa7835ef644667586ff0737adeb977c39ecdbc"
@@ -585,6 +621,12 @@
       },
       "version": "9.7.1"
     },
+    "org.postgresql:postgresql": {
+      "shasums": {
+        "jar": "1981b31d3993c58702783c1cddf10a34e48c1f413d70ff1cb6def0a143484647"
+      },
+      "version": "42.7.11"
+    },
     "org.reflections:reflections": {
       "shasums": {
         "jar": "938a2d08fe54050d7610b944d8ddc3a09355710d9e6be0aac838dbc04e9a2825"
@@ -639,6 +681,12 @@
       },
       "version": "4.1.0"
     },
+    "org.springframework.boot:spring-boot-flyway": {
+      "shasums": {
+        "jar": "ae208fe4ff07de13340080a1533635f529dc19cf2f5c2f2ccd3bdf34578b5438"
+      },
+      "version": "4.1.0"
+    },
     "org.springframework.boot:spring-boot-health": {
       "shasums": {
         "jar": "cbd92b42254fe264a5d4556538049139aabbfdc367f5d06fb5b4cf97aa70fc18"
@@ -654,6 +702,12 @@
     "org.springframework.boot:spring-boot-jackson": {
       "shasums": {
         "jar": "10b6e63a40b257168854093f413eaab8b8a9afb7e989fcc7f6732b42c3f173d1"
+      },
+      "version": "4.1.0"
+    },
+    "org.springframework.boot:spring-boot-jdbc": {
+      "shasums": {
+        "jar": "3b5aab97e72d8a15a40546c31365ed2090cf25451e18762add8ed22cbb4ead43"
       },
       "version": "4.1.0"
     },
@@ -675,9 +729,21 @@
       },
       "version": "4.1.0"
     },
+    "org.springframework.boot:spring-boot-persistence": {
+      "shasums": {
+        "jar": "d9d926224c738bd6152718c078134e3aea1057db4d6a452c37ad120893e0e4d6"
+      },
+      "version": "4.1.0"
+    },
     "org.springframework.boot:spring-boot-servlet": {
       "shasums": {
         "jar": "5f694a7c6c357a87032bc92db0e7e0e03b64010f77892e5992c86b10f568a5ae"
+      },
+      "version": "4.1.0"
+    },
+    "org.springframework.boot:spring-boot-sql": {
+      "shasums": {
+        "jar": "2826a5380675337f4c5b3e90db02279e68a2c9a7eb2b2ac312828c05fb827a9a"
       },
       "version": "4.1.0"
     },
@@ -693,9 +759,21 @@
       },
       "version": "4.1.0"
     },
+    "org.springframework.boot:spring-boot-starter-flyway": {
+      "shasums": {
+        "jar": "3ec2faf7c8cb7a657067923d5a4c7deb1a1a62f2b51750be63d554d4b8d59a3d"
+      },
+      "version": "4.1.0"
+    },
     "org.springframework.boot:spring-boot-starter-jackson": {
       "shasums": {
         "jar": "4214c534cca5c7c7e1cf92db90f178a3dffdede503fb68ac3c0dd905f331431f"
+      },
+      "version": "4.1.0"
+    },
+    "org.springframework.boot:spring-boot-starter-jdbc": {
+      "shasums": {
+        "jar": "ce3e3dfdde267f11d21960715967b59713575cab8e5e8b3b00fba6a3bb022c99"
       },
       "version": "4.1.0"
     },
@@ -753,6 +831,12 @@
       },
       "version": "4.1.0"
     },
+    "org.springframework.boot:spring-boot-transaction": {
+      "shasums": {
+        "jar": "5402dfeef5d6633b485d6ce8d1cfb2116c7a55e70f8f5dbd31b69ca43e006f13"
+      },
+      "version": "4.1.0"
+    },
     "org.springframework.boot:spring-boot-web-server": {
       "shasums": {
         "jar": "a8541ccbd29f5a8db7e6092fa83463aa4d1c002fac07b8b5babe118ad6c4a3d3"
@@ -795,9 +879,21 @@
       },
       "version": "7.0.8"
     },
+    "org.springframework:spring-jdbc": {
+      "shasums": {
+        "jar": "7d6bbf130ed919d5f4f01ec0ea771ab59ac3936ab29f50fd3a705c0119871e32"
+      },
+      "version": "7.0.8"
+    },
     "org.springframework:spring-test": {
       "shasums": {
         "jar": "6ffb7796075a204915edc4bb9e54dc420183cecb520d753004f660f153763c8e"
+      },
+      "version": "7.0.8"
+    },
+    "org.springframework:spring-tx": {
+      "shasums": {
+        "jar": "57e8fdb6de949e7ec2617683fec03af0253bdbdf4bf3d2651a926a94413df283"
       },
       "version": "7.0.8"
     },
@@ -877,6 +973,9 @@
       "org.reflections:reflections",
       "org.slf4j:slf4j-api",
       "org.slf4j:slf4j-simple"
+    ],
+    "com.zaxxer:HikariCP": [
+      "org.slf4j:slf4j-api"
     ],
     "commons-beanutils:commons-beanutils": [
       "commons-collections:commons-collections"
@@ -964,6 +1063,12 @@
     ],
     "org.commonmark:commonmark-ext-gfm-tables": [
       "org.commonmark:commonmark"
+    ],
+    "org.flywaydb:flyway-core": [
+      "tools.jackson.core:jackson-databind"
+    ],
+    "org.flywaydb:flyway-database-postgresql": [
+      "org.flywaydb:flyway-core"
     ],
     "org.junit.jupiter:junit-jupiter": [
       "org.junit.jupiter:junit-jupiter-api",
@@ -1053,6 +1158,11 @@
     "org.springframework.boot:spring-boot-autoconfigure": [
       "org.springframework.boot:spring-boot"
     ],
+    "org.springframework.boot:spring-boot-flyway": [
+      "org.flywaydb:flyway-core",
+      "org.springframework.boot:spring-boot",
+      "org.springframework.boot:spring-boot-jdbc"
+    ],
     "org.springframework.boot:spring-boot-health": [
       "org.springframework.boot:spring-boot"
     ],
@@ -1064,6 +1174,12 @@
       "org.springframework.boot:spring-boot",
       "tools.jackson.core:jackson-databind"
     ],
+    "org.springframework.boot:spring-boot-jdbc": [
+      "org.springframework.boot:spring-boot",
+      "org.springframework.boot:spring-boot-sql",
+      "org.springframework.boot:spring-boot-transaction",
+      "org.springframework:spring-jdbc"
+    ],
     "org.springframework.boot:spring-boot-micrometer-metrics": [
       "io.micrometer:micrometer-core",
       "org.springframework.boot:spring-boot",
@@ -1073,9 +1189,16 @@
       "io.micrometer:micrometer-observation",
       "org.springframework.boot:spring-boot"
     ],
+    "org.springframework.boot:spring-boot-persistence": [
+      "org.springframework.boot:spring-boot",
+      "org.springframework:spring-tx"
+    ],
     "org.springframework.boot:spring-boot-servlet": [
       "org.springframework.boot:spring-boot",
       "org.springframework:spring-web"
+    ],
+    "org.springframework.boot:spring-boot-sql": [
+      "org.springframework.boot:spring-boot"
     ],
     "org.springframework.boot:spring-boot-starter": [
       "jakarta.annotation:jakarta.annotation-api",
@@ -1091,8 +1214,19 @@
       "org.springframework.boot:spring-boot-starter",
       "org.springframework.boot:spring-boot-starter-micrometer-metrics"
     ],
+    "org.springframework.boot:spring-boot-starter-flyway": [
+      "org.springframework.boot:spring-boot-flyway",
+      "org.springframework.boot:spring-boot-jdbc",
+      "org.springframework.boot:spring-boot-starter",
+      "org.springframework.boot:spring-boot-starter-jdbc"
+    ],
     "org.springframework.boot:spring-boot-starter-jackson": [
       "org.springframework.boot:spring-boot-jackson",
+      "org.springframework.boot:spring-boot-starter"
+    ],
+    "org.springframework.boot:spring-boot-starter-jdbc": [
+      "com.zaxxer:HikariCP",
+      "org.springframework.boot:spring-boot-jdbc",
       "org.springframework.boot:spring-boot-starter"
     ],
     "org.springframework.boot:spring-boot-starter-logging": [
@@ -1153,6 +1287,11 @@
       "org.apache.tomcat.embed:tomcat-embed-core",
       "org.springframework.boot:spring-boot-web-server"
     ],
+    "org.springframework.boot:spring-boot-transaction": [
+      "org.springframework.boot:spring-boot",
+      "org.springframework.boot:spring-boot-persistence",
+      "org.springframework:spring-tx"
+    ],
     "org.springframework.boot:spring-boot-web-server": [
       "org.springframework.boot:spring-boot",
       "org.springframework:spring-web"
@@ -1184,7 +1323,16 @@
     "org.springframework:spring-expression": [
       "org.springframework:spring-core"
     ],
+    "org.springframework:spring-jdbc": [
+      "org.springframework:spring-beans",
+      "org.springframework:spring-core",
+      "org.springframework:spring-tx"
+    ],
     "org.springframework:spring-test": [
+      "org.springframework:spring-core"
+    ],
+    "org.springframework:spring-tx": [
+      "org.springframework:spring-beans",
       "org.springframework:spring-core"
     ],
     "org.springframework:spring-web": [
@@ -1384,6 +1532,16 @@
     ],
     "com.vaadin.external.google:android-json": [
       "org.json"
+    ],
+    "com.zaxxer:HikariCP": [
+      "com.zaxxer.hikari",
+      "com.zaxxer.hikari.hibernate",
+      "com.zaxxer.hikari.metrics",
+      "com.zaxxer.hikari.metrics.dropwizard",
+      "com.zaxxer.hikari.metrics.micrometer",
+      "com.zaxxer.hikari.metrics.prometheus",
+      "com.zaxxer.hikari.pool",
+      "com.zaxxer.hikari.util"
     ],
     "commons-beanutils:commons-beanutils": [
       "org.apache.commons.beanutils",
@@ -1961,6 +2119,79 @@
       "org.commonmark.ext.gfm.tables",
       "org.commonmark.ext.gfm.tables.internal"
     ],
+    "org.flywaydb:flyway-core": [
+      "org.flywaydb.core",
+      "org.flywaydb.core.api",
+      "org.flywaydb.core.api.callback",
+      "org.flywaydb.core.api.configuration",
+      "org.flywaydb.core.api.exception",
+      "org.flywaydb.core.api.executor",
+      "org.flywaydb.core.api.locations",
+      "org.flywaydb.core.api.logging",
+      "org.flywaydb.core.api.migration",
+      "org.flywaydb.core.api.migration.baseline",
+      "org.flywaydb.core.api.output",
+      "org.flywaydb.core.api.output.errors",
+      "org.flywaydb.core.api.pattern",
+      "org.flywaydb.core.api.resolver",
+      "org.flywaydb.core.api.resource",
+      "org.flywaydb.core.extensibility",
+      "org.flywaydb.core.internal",
+      "org.flywaydb.core.internal.authentication",
+      "org.flywaydb.core.internal.authentication.postgres",
+      "org.flywaydb.core.internal.callback",
+      "org.flywaydb.core.internal.clazz",
+      "org.flywaydb.core.internal.command",
+      "org.flywaydb.core.internal.command.clean",
+      "org.flywaydb.core.internal.configuration",
+      "org.flywaydb.core.internal.configuration.extensions",
+      "org.flywaydb.core.internal.configuration.models",
+      "org.flywaydb.core.internal.configuration.resolvers",
+      "org.flywaydb.core.internal.database",
+      "org.flywaydb.core.internal.database.base",
+      "org.flywaydb.core.internal.database.h2",
+      "org.flywaydb.core.internal.database.sqlite",
+      "org.flywaydb.core.internal.exception",
+      "org.flywaydb.core.internal.exception.sqlExceptions",
+      "org.flywaydb.core.internal.info",
+      "org.flywaydb.core.internal.jdbc",
+      "org.flywaydb.core.internal.license",
+      "org.flywaydb.core.internal.logging",
+      "org.flywaydb.core.internal.logging.apachecommons",
+      "org.flywaydb.core.internal.logging.buffered",
+      "org.flywaydb.core.internal.logging.javautil",
+      "org.flywaydb.core.internal.logging.log4j2",
+      "org.flywaydb.core.internal.logging.multi",
+      "org.flywaydb.core.internal.logging.slf4j",
+      "org.flywaydb.core.internal.nc",
+      "org.flywaydb.core.internal.nc.schemahistory",
+      "org.flywaydb.core.internal.parser",
+      "org.flywaydb.core.internal.plugin",
+      "org.flywaydb.core.internal.proprietaryInterfaces",
+      "org.flywaydb.core.internal.proprietaryStubs",
+      "org.flywaydb.core.internal.publishing",
+      "org.flywaydb.core.internal.reports",
+      "org.flywaydb.core.internal.resolver",
+      "org.flywaydb.core.internal.resolver.java",
+      "org.flywaydb.core.internal.resolver.script",
+      "org.flywaydb.core.internal.resolver.sql",
+      "org.flywaydb.core.internal.resource",
+      "org.flywaydb.core.internal.resource.classpath",
+      "org.flywaydb.core.internal.resource.filesystem",
+      "org.flywaydb.core.internal.scanner",
+      "org.flywaydb.core.internal.scanner.classpath",
+      "org.flywaydb.core.internal.scanner.classpath.jboss",
+      "org.flywaydb.core.internal.scanner.cloud",
+      "org.flywaydb.core.internal.scanner.filesystem",
+      "org.flywaydb.core.internal.schemahistory",
+      "org.flywaydb.core.internal.sqlscript",
+      "org.flywaydb.core.internal.strategy",
+      "org.flywaydb.core.internal.util"
+    ],
+    "org.flywaydb:flyway-database-postgresql": [
+      "org.flywaydb.database.cockroachdb",
+      "org.flywaydb.database.postgresql"
+    ],
     "org.hamcrest:hamcrest": [
       "org.hamcrest",
       "org.hamcrest.beans",
@@ -2171,6 +2402,46 @@
       "org.objectweb.asm",
       "org.objectweb.asm.signature"
     ],
+    "org.postgresql:postgresql": [
+      "org.postgresql",
+      "org.postgresql.copy",
+      "org.postgresql.core",
+      "org.postgresql.core.v3",
+      "org.postgresql.core.v3.adaptivefetch",
+      "org.postgresql.core.v3.replication",
+      "org.postgresql.ds",
+      "org.postgresql.ds.common",
+      "org.postgresql.fastpath",
+      "org.postgresql.geometric",
+      "org.postgresql.gss",
+      "org.postgresql.hostchooser",
+      "org.postgresql.jdbc",
+      "org.postgresql.jdbc2",
+      "org.postgresql.jdbc2.optional",
+      "org.postgresql.jdbc3",
+      "org.postgresql.jdbcurlresolver",
+      "org.postgresql.largeobject",
+      "org.postgresql.osgi",
+      "org.postgresql.plugin",
+      "org.postgresql.replication",
+      "org.postgresql.replication.fluent",
+      "org.postgresql.replication.fluent.logical",
+      "org.postgresql.replication.fluent.physical",
+      "org.postgresql.shaded.com.ongres.saslprep",
+      "org.postgresql.shaded.com.ongres.scram.client",
+      "org.postgresql.shaded.com.ongres.scram.common",
+      "org.postgresql.shaded.com.ongres.scram.common.exception",
+      "org.postgresql.shaded.com.ongres.scram.common.util",
+      "org.postgresql.shaded.com.ongres.stringprep",
+      "org.postgresql.ssl",
+      "org.postgresql.ssl.jdbc4",
+      "org.postgresql.sspi",
+      "org.postgresql.translation",
+      "org.postgresql.util",
+      "org.postgresql.util.internal",
+      "org.postgresql.xa",
+      "org.postgresql.xml"
+    ],
     "org.reflections:reflections": [
       "org.reflections",
       "org.reflections.scanners",
@@ -2319,6 +2590,13 @@
       "org.springframework.boot.autoconfigure.web",
       "org.springframework.boot.autoconfigure.web.format"
     ],
+    "org.springframework.boot:spring-boot-flyway": [
+      "org.springframework.boot.flyway",
+      "org.springframework.boot.flyway.actuate.endpoint",
+      "org.springframework.boot.flyway.autoconfigure",
+      "org.springframework.boot.flyway.docker.compose",
+      "org.springframework.boot.flyway.testcontainers"
+    ],
     "org.springframework.boot:spring-boot-health": [
       "org.springframework.boot.health.actuate.endpoint",
       "org.springframework.boot.health.application",
@@ -2335,6 +2613,18 @@
     "org.springframework.boot:spring-boot-jackson": [
       "org.springframework.boot.jackson",
       "org.springframework.boot.jackson.autoconfigure"
+    ],
+    "org.springframework.boot:spring-boot-jdbc": [
+      "org.springframework.boot.jdbc",
+      "org.springframework.boot.jdbc.autoconfigure",
+      "org.springframework.boot.jdbc.autoconfigure.health",
+      "org.springframework.boot.jdbc.autoconfigure.metrics",
+      "org.springframework.boot.jdbc.docker.compose",
+      "org.springframework.boot.jdbc.health",
+      "org.springframework.boot.jdbc.init",
+      "org.springframework.boot.jdbc.metadata",
+      "org.springframework.boot.jdbc.metrics",
+      "org.springframework.boot.jdbc.testcontainers"
     ],
     "org.springframework.boot:spring-boot-loader": [
       "org.springframework.boot.loader.jar",
@@ -2388,6 +2678,9 @@
     "org.springframework.boot:spring-boot-micrometer-observation": [
       "org.springframework.boot.micrometer.observation.autoconfigure"
     ],
+    "org.springframework.boot:spring-boot-persistence": [
+      "org.springframework.boot.persistence.autoconfigure"
+    ],
     "org.springframework.boot:spring-boot-servlet": [
       "org.springframework.boot.servlet",
       "org.springframework.boot.servlet.actuate.web.exchanges",
@@ -2397,6 +2690,11 @@
       "org.springframework.boot.servlet.autoconfigure.actuate.web.exchanges",
       "org.springframework.boot.servlet.autoconfigure.actuate.web.mappings",
       "org.springframework.boot.servlet.filter"
+    ],
+    "org.springframework.boot:spring-boot-sql": [
+      "org.springframework.boot.sql.autoconfigure.init",
+      "org.springframework.boot.sql.init",
+      "org.springframework.boot.sql.init.dependency"
     ],
     "org.springframework.boot:spring-boot-test": [
       "org.springframework.boot.test.context",
@@ -2428,6 +2726,10 @@
       "org.springframework.boot.tomcat.metrics",
       "org.springframework.boot.tomcat.reactive",
       "org.springframework.boot.tomcat.servlet"
+    ],
+    "org.springframework.boot:spring-boot-transaction": [
+      "org.springframework.boot.transaction.autoconfigure",
+      "org.springframework.boot.transaction.jta.autoconfigure"
     ],
     "org.springframework.boot:spring-boot-web-server": [
       "org.springframework.boot.web.server",
@@ -2616,6 +2918,25 @@
       "org.springframework.expression.spel.standard",
       "org.springframework.expression.spel.support"
     ],
+    "org.springframework:spring-jdbc": [
+      "org.springframework.jdbc",
+      "org.springframework.jdbc.config",
+      "org.springframework.jdbc.core",
+      "org.springframework.jdbc.core.metadata",
+      "org.springframework.jdbc.core.namedparam",
+      "org.springframework.jdbc.core.simple",
+      "org.springframework.jdbc.core.support",
+      "org.springframework.jdbc.datasource",
+      "org.springframework.jdbc.datasource.embedded",
+      "org.springframework.jdbc.datasource.init",
+      "org.springframework.jdbc.datasource.lookup",
+      "org.springframework.jdbc.object",
+      "org.springframework.jdbc.support",
+      "org.springframework.jdbc.support.incrementer",
+      "org.springframework.jdbc.support.lob",
+      "org.springframework.jdbc.support.rowset",
+      "org.springframework.jdbc.support.xml"
+    ],
     "org.springframework:spring-test": [
       "org.springframework.mock.env",
       "org.springframework.mock.http",
@@ -2669,6 +2990,21 @@
       "org.springframework.test.web.servlet.result",
       "org.springframework.test.web.servlet.setup",
       "org.springframework.test.web.support"
+    ],
+    "org.springframework:spring-tx": [
+      "org.springframework.dao",
+      "org.springframework.dao.annotation",
+      "org.springframework.dao.support",
+      "org.springframework.jca.endpoint",
+      "org.springframework.jca.support",
+      "org.springframework.transaction",
+      "org.springframework.transaction.annotation",
+      "org.springframework.transaction.config",
+      "org.springframework.transaction.event",
+      "org.springframework.transaction.interceptor",
+      "org.springframework.transaction.jta",
+      "org.springframework.transaction.reactive",
+      "org.springframework.transaction.support"
     ],
     "org.springframework:spring-web": [
       "org.springframework.http",
@@ -2878,6 +3214,7 @@
       "com.jayway.jsonpath:json-path",
       "com.puppycrawl.tools:checkstyle",
       "com.vaadin.external.google:android-json",
+      "com.zaxxer:HikariCP",
       "commons-beanutils:commons-beanutils",
       "commons-codec:commons-codec",
       "commons-collections:commons-collections",
@@ -2919,6 +3256,8 @@
       "org.codehaus.plexus:plexus-utils",
       "org.commonmark:commonmark",
       "org.commonmark:commonmark-ext-gfm-tables",
+      "org.flywaydb:flyway-core",
+      "org.flywaydb:flyway-database-postgresql",
       "org.hamcrest:hamcrest",
       "org.hdrhistogram:HdrHistogram",
       "org.javassist:javassist",
@@ -2938,6 +3277,7 @@
       "org.opentest4j.reporting:open-test-reporting-tooling-spi",
       "org.opentest4j:opentest4j",
       "org.ow2.asm:asm",
+      "org.postgresql:postgresql",
       "org.reflections:reflections",
       "org.skyscreamer:jsonassert",
       "org.slf4j:jul-to-slf4j",
@@ -2947,16 +3287,22 @@
       "org.springframework.boot:spring-boot-actuator",
       "org.springframework.boot:spring-boot-actuator-autoconfigure",
       "org.springframework.boot:spring-boot-autoconfigure",
+      "org.springframework.boot:spring-boot-flyway",
       "org.springframework.boot:spring-boot-health",
       "org.springframework.boot:spring-boot-http-converter",
       "org.springframework.boot:spring-boot-jackson",
+      "org.springframework.boot:spring-boot-jdbc",
       "org.springframework.boot:spring-boot-loader",
       "org.springframework.boot:spring-boot-micrometer-metrics",
       "org.springframework.boot:spring-boot-micrometer-observation",
+      "org.springframework.boot:spring-boot-persistence",
       "org.springframework.boot:spring-boot-servlet",
+      "org.springframework.boot:spring-boot-sql",
       "org.springframework.boot:spring-boot-starter",
       "org.springframework.boot:spring-boot-starter-actuator",
+      "org.springframework.boot:spring-boot-starter-flyway",
       "org.springframework.boot:spring-boot-starter-jackson",
+      "org.springframework.boot:spring-boot-starter-jdbc",
       "org.springframework.boot:spring-boot-starter-logging",
       "org.springframework.boot:spring-boot-starter-micrometer-metrics",
       "org.springframework.boot:spring-boot-starter-test",
@@ -2966,6 +3312,7 @@
       "org.springframework.boot:spring-boot-test",
       "org.springframework.boot:spring-boot-test-autoconfigure",
       "org.springframework.boot:spring-boot-tomcat",
+      "org.springframework.boot:spring-boot-transaction",
       "org.springframework.boot:spring-boot-web-server",
       "org.springframework.boot:spring-boot-webmvc",
       "org.springframework:spring-aop",
@@ -2973,7 +3320,9 @@
       "org.springframework:spring-context",
       "org.springframework:spring-core",
       "org.springframework:spring-expression",
+      "org.springframework:spring-jdbc",
       "org.springframework:spring-test",
+      "org.springframework:spring-tx",
       "org.springframework:spring-web",
       "org.springframework:spring-webmvc",
       "org.xmlresolver:xmlresolver",
@@ -3038,6 +3387,46 @@
         "org.apache.tomcat.websocket.server.DefaultServerEndpointConfigurator"
       ]
     },
+    "org.flywaydb:flyway-core": {
+      "org.flywaydb.core.extensibility.Plugin": [
+        "org.flywaydb.core.api.migration.baseline.BaselineAppliedMigration",
+        "org.flywaydb.core.api.migration.baseline.BaselineMigrationConfigurationExtension",
+        "org.flywaydb.core.api.migration.baseline.BaselineMigrationResolver",
+        "org.flywaydb.core.api.migration.baseline.BaselineResourceTypeProvider",
+        "org.flywaydb.core.internal.NullFlywayTelemetryManager",
+        "org.flywaydb.core.internal.configuration.resolvers.EnvironmentProvisionerNone",
+        "org.flywaydb.core.internal.configuration.resolvers.EnvironmentVariableResolver",
+        "org.flywaydb.core.internal.configuration.resolvers.PlaceholderPropertyResolver",
+        "org.flywaydb.core.internal.database.base.TestContainersDatabaseType",
+        "org.flywaydb.core.internal.database.h2.H2DatabaseType",
+        "org.flywaydb.core.internal.database.sqlite.SQLiteDatabaseType",
+        "org.flywaydb.core.internal.jdbc.ErrorOverrideInitializerStub",
+        "org.flywaydb.core.internal.proprietaryStubs.AuthCommandExtensionStub",
+        "org.flywaydb.core.internal.proprietaryStubs.CheckCommandExtensionStub",
+        "org.flywaydb.core.internal.proprietaryStubs.DeployCommandExtensionStub",
+        "org.flywaydb.core.internal.proprietaryStubs.DiffCommandExtensionStub",
+        "org.flywaydb.core.internal.proprietaryStubs.DiffTextCommandExtensionStub",
+        "org.flywaydb.core.internal.proprietaryStubs.GenerateCommandExtensionStub",
+        "org.flywaydb.core.internal.proprietaryStubs.LicensingConfigurationExtensionStub",
+        "org.flywaydb.core.internal.proprietaryStubs.ModelCommandExtensionStub",
+        "org.flywaydb.core.internal.proprietaryStubs.OfflinePermitConfigurationExtensionStub",
+        "org.flywaydb.core.internal.proprietaryStubs.PATTokenConfigurationExtensionStub",
+        "org.flywaydb.core.internal.proprietaryStubs.PrepareCommandExtensionStub",
+        "org.flywaydb.core.internal.proprietaryStubs.UndoCommandExtensionStub",
+        "org.flywaydb.core.internal.publishing.PublishingConfigurationExtension",
+        "org.flywaydb.core.internal.resource.CoreResourceTypeProvider",
+        "org.flywaydb.core.internal.scanner.classpath.ClasspathLocationHandlerImpl",
+        "org.flywaydb.core.internal.scanner.filesystem.FilesystemLocationHandler",
+        "org.flywaydb.core.internal.schemahistory.BaseAppliedMigration"
+      ]
+    },
+    "org.flywaydb:flyway-database-postgresql": {
+      "org.flywaydb.core.extensibility.Plugin": [
+        "org.flywaydb.database.cockroachdb.CockroachDBDatabaseType",
+        "org.flywaydb.database.postgresql.PostgreSQLConfigurationExtension",
+        "org.flywaydb.database.postgresql.PostgreSQLDatabaseType"
+      ]
+    },
     "org.junit.jupiter:junit-jupiter-engine": {
       "org.junit.platform.engine.TestEngine": [
         "org.junit.jupiter.engine.JupiterTestEngine"
@@ -3076,6 +3465,11 @@
       ],
       "org.opentest4j.reporting.tooling.spi.htmlreport.Contributor": [
         "org.junit.platform.reporting.open.xml.JUnitContributor"
+      ]
+    },
+    "org.postgresql:postgresql": {
+      "java.sql.Driver": [
+        "org.postgresql.Driver"
       ]
     },
     "org.slf4j:slf4j-simple": {

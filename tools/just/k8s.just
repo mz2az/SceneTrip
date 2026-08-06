@@ -102,6 +102,42 @@ health:
     @curl -sS {{API_URL}}/actuator/health/readiness || true
     @echo
 
+# ── 데이터베이스 ──────────────────────────────────────────────────────────────
+#
+# Service 가 ClusterIP 라 노트북에서 5432 로 직접 닿지 않는다 (의도한 것이다 —
+# platform/kubernetes/postgres/service.yaml). 그래서 psql 은 전부 파드 안에서 돈다.
+
+# DB 에 psql 로 붙는다. 인자를 주면 그 SQL 만 실행하고 끝난다.
+# 예: `just db-psql` · `just db-psql '\dt'` · `just db-psql 'SELECT count(*) FROM place;'`
+[group('db')]
+db-psql *sql:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "{{ sql }}" ]; then
+        kubectl exec -it statefulset/postgres -n {{ K8S_NS }} -- psql -U scenetrip -d scenetrip
+    else
+        kubectl exec -i statefulset/postgres -n {{ K8S_NS }} -- \
+            psql -U scenetrip -d scenetrip -v ON_ERROR_STOP=1 -c "{{ sql }}"
+    fi
+
+# 적용된 마이그레이션 이력. 실패한 것이 있으면 success 가 f 로 남는다.
+[group('db')]
+db-migrations:
+    @just db-psql 'SELECT installed_rank, version, description, success, execution_time FROM flyway_schema_history ORDER BY installed_rank;'
+
+# 스키마가 실제로 섰는지 한눈에 — 테이블·뷰·확장
+[group('db')]
+db-schema:
+    @just db-psql '\dt public.*'
+    @just db-psql '\dm public.*'
+    @just db-psql 'SELECT extname, extversion FROM pg_extension ORDER BY extname;'
+
+# 적재 후 검색 색인 갱신. CONCURRENTLY 라 갱신 중에도 검색이 계속 응답한다.
+[group('db')]
+db-refresh-search:
+    @just db-psql 'REFRESH MATERIALIZED VIEW CONCURRENTLY search_term;'
+    @just db-psql 'SELECT entity_type, count(*) FROM search_term GROUP BY entity_type ORDER BY entity_type;'
+
 # ── 관측성 ────────────────────────────────────────────────────────────────────
 
 # SigNoz UI 주소와 필터 안내

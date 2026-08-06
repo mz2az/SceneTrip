@@ -7,6 +7,26 @@ spring:
   application:
     name: scenetrip-scene-api
 
+  datasource:
+    # 호스트 이름 postgres 는 platform/kubernetes/postgres/service.yaml 의 Service
+    # 이름이다. 같은 네임스페이스 안에서는 이 이름만으로 닿는다.
+    #
+    # **비밀번호는 여기 두지 않는다.** 이미지 안에 박히면 이미지를 가진 사람이 곧
+    # 자격 증명을 가진 것이 된다 (AGENTS.md §9). SPRING_DATASOURCE_PASSWORD 환경변수로
+    # 들어오고, 값의 출처는 배포 환경이 정한다 — 로컬은 ConfigMap, 원격은 Secret.
+    # 값이 없으면 접속이 거부되어 기동이 실패한다. 조용히 넘어가지 않는다.
+    url: jdbc:postgresql://postgres:5432/scenetrip
+    username: scenetrip
+
+  flyway:
+    # 기동할 때 스키마를 최신으로 맞춘다. docs/installs/k8s_install.md §16 이 규정한
+    # 순서이고, 그래서 Deployment 에 DB 를 기다리는 initContainer 가 있다.
+    enabled: true
+    locations: classpath:db/migration
+    # 빈 DB 에 baseline 을 찍지 않는다. 찍으면 V1 부터가 "이미 적용된 것"으로 간주되어
+    # 테이블이 하나도 없는 채로 기동이 성공해 버린다.
+    baseline-on-migrate: false
+
 server:
   port: 8080
   shutdown: graceful
