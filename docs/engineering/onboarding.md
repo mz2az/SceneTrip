@@ -168,6 +168,7 @@ Linux 원격 실행이 안 된다. Android SDK는 재배포가 허용돼서 상�
 | 전부 린트 | `just lint` |
 | proto/클라이언트/mock 재생성 (BUILD 파일 아님) | `just gen` |
 | VS Code 코드 탐색 복구 (F12·Ctrl+클릭) | `just ide` |
+| API 명세를 브라우저로 훑어보기 | `just docs-api` |
 | **PR 전 게이트 — 커밋 전 필수** | `just check` |
 | CI 재현 | `just ci` |
 | 새 백엔드 서비스 | `just new-service <name>` |
