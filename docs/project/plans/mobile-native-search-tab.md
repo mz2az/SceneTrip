@@ -238,25 +238,56 @@ Gazelle 에 Android 확장은 공식·비공식 모두 사실상 없다.
 BUILD 파일을 직접 고쳐야 하고, 잊으면 "파일은 있는데 빌드에 안 들어간" 상태가 된다.**
 Android 모듈 README 에 이 사실을 적어 둔다.
 
-### 5-3. iOS 타깃에 플랫폼 제약을 건다
+### 5-3. iOS 타깃을 리눅스 러너로부터 지킨다
+
+초안은 `target_compatible_with = ["@platforms//os:macos"]` 한 줄이면 리눅스 러너가 iOS
+타깃을 조용히 건너뛴다고 봤다. **구현하면서 실측하니 틀렸다** (macOS 로컬 + 우분투 컨테이너,
+2026-08-06). 두 가지가 어긋난다.
+
+- `ios_application` 은 빌드 시 타깃 플랫폼을 `ios_sim_arm64` 등으로 **전환**하고,
+  `target_compatible_with` 는 그 전환 **뒤에** 평가된다. macos 만 허용하면 전환된 iOS
+  플랫폼이 제약을 만족하지 못해 `:bin` 이 **어디서도** 지어지지 않는다 — 와일드카드 빌드는
+  비호환 타깃을 조용히 건너뛰므로 `just check` 는 초록인 채로 앱 번들만 빠진다.
+- 전환된 플랫폼은 호스트가 리눅스든 macOS 든 같은 값이라 **호스트 OS 를 구분하지 못한다.**
+  리눅스에서는 조용한 스킵이 아니라 **툴체인 해석 실패(하드 에러)** 가 난다 — 명시 요청이든
+  와일드카드든 마찬가지다.
+
+실제로 쓰는 장치는 두 겹이다 (`apps/scenetrip-ios/BUILD.bazel` 머리말에도 같은 내용).
 
 ```python
-target_compatible_with = ["@platforms//os:macos"]
+# BUILD.bazel — 모든 iOS 타깃에
+tags = ["ios"]
+target_compatible_with = select({
+    "@platforms//os:ios": [],
+    "@platforms//os:macos": [],
+    "//conditions:default": ["@platforms//:incompatible"],
+})
 ```
 
-`just ci-full` 은 `bazel test //...` 를 돌린다. `//...` 는 저장소의 모든 타깃이라 iOS 도
-포함되고, 리눅스 러너가 그것을 빌드하려다 실패한다. 이 선언이 있으면 Bazel 이 호환되지 않는
-타깃을 자동으로 건너뛴다.
+```
+# .bazelrc — enable_platform_specific_config 가 호스트 OS 이름의 config 를 자동 적용
+build:linux --build_tag_filters=-ios
+test:linux  --test_tag_filters=-ios
+```
 
-이것은 검사를 회피하는 장치가 아니라 **"이 타깃은 이 플랫폼에서만 지어진다"를 코드에 적는
-것** 이다. 같은 `just ci-full` 명령이 리눅스 잡과 macOS 잡 양쪽에서 각자 할 일을 하게 된다.
+리눅스를 실제로 지키는 것은 **태그 필터**다. select 는 "Apple 플랫폼에서만 지어진다"는
+의미 선언으로 남긴다 — 검사 회피가 아니라 실행 환경 제약을 코드에 적는 것이라는 취지는
+그대로다. 이렇게 하면 같은 `just ci-full` 이 리눅스 잡과 macOS 잡 양쪽에서 각자 할 일을
+하게 된다.
 
-**Android 타깃에는 이 선언을 붙이지 않는다.** 리눅스에서도 지어지므로 붙이면 오히려 기존
-ubuntu 잡의 검사 범위에서 빠진다.
+두 가지 유의점.
 
-`platforms` 모듈은 이미 `MODULE.bazel` 에 있다. 다만 `target_compatible_with` 를 쓰는 것은
-이번이 처음이라 저장소 문서 어디에도 용례가 없다 — `docs/engineering/onboarding.md` 의
-Bazel 절에 한 줄 남긴다.
+- 현행 우분투 레인이 아직 안 깨진 것은 `--build_tests_only` 덕이다 — `bazel test //...` 가
+  테스트 아닌 타깃(`:bin`)을 아예 분석하지 않는다. 태그 필터는 `just build`(전체 빌드)와
+  앞으로 생길 iOS 테스트 타깃을 지키는 장치다.
+- 테스트 레인 레시피가 명령줄에서 `--test_tag_filters` 를 넘기면 `.bazelrc` 값을
+  **덮어쓴다**(태그 필터는 누적이 아니다). 첫 iOS 테스트 타깃이 생기면 그 레시피들에
+  `-ios` 를 함께 넣는다 — §5-4 의 CI macOS 잡과 같은 시점에 정리한다.
+
+**Android 타깃에는 태그도 제약도 붙이지 않는다.** 리눅스에서도 지어지므로 붙이면 오히려
+기존 ubuntu 잡의 검사 범위에서 빠진다.
+
+`target_compatible_with` 용례 설명은 `docs/engineering/onboarding.md` 격리 절에 남겼다.
 
 ### 5-4. CI 에 macOS 잡을 추가한다
 

@@ -1,0 +1,61 @@
+# apps/scenetrip-ios 의 타깃.
+#
+# AGENTS.md §4.1 의 이름 규칙을 따른다 — 라벨을 예측할 수 있어야 사람도 AI 도
+# 이 파일을 먼저 읽지 않고 타깃을 조립할 수 있다.
+#
+#   :scenetrip-ios      이 모듈의 주 라이브러리 (swift_library)
+#   :bin                시뮬레이터/기기에 설치하는 .app 번들 (ios_application)
+#
+# :unit_test 는 아직 없다 — 검증할 로직이 생기는 첫 화면 작업에서 함께 만든다.
+# :image / :push 는 모바일 모듈에 해당 없음 (MODULE.bazel 컨테이너 절 참고).
+#
+# iOS 는 macOS + Xcode 에서만 지어진다. 그것을 리눅스 러너로부터 지키는 장치는
+# **두 겹**이고, 둘 다 실측(우분투 컨테이너)으로 확인했다 — 계획서
+# docs/project/plans/mobile-native-search-tab.md §5-3.
+#
+# 1. tags = ["ios"] + .bazelrc 의 `build:linux --build_tag_filters=-ios`.
+#    이것이 실제로 리눅스 와일드카드 빌드에서 이 모듈을 걸러내는 장치다.
+#    계획 초안은 target_compatible_with 만으로 충분하다고 봤지만 틀렸다:
+#    ios_application 은 빌드 시 타깃 플랫폼을 ios_sim/ios_device 로 **전환**하고
+#    target_compatible_with 는 전환 뒤에 평가되므로, 전환된 iOS 플랫폼은 어느
+#    호스트에서든 같은 값이다 — 리눅스를 구분하지 못하고, 리눅스에서는 조용한
+#    스킵이 아니라 툴체인 해석 실패(하드 에러)가 난다.
+#
+# 2. target_compatible_with(아래 select). "Apple 플랫폼에서만 지어진다"는 의미
+#    선언이다. macos(전환 전)와 ios(전환 후)를 허용해야 한다 — macos 만 적으면
+#    :bin 이 어디서도 지어지지 않는데, 와일드카드 빌드는 비호환 타깃을 조용히
+#    건너뛰므로 `just check` 는 초록인 채로 앱 번들만 빠진다(실측).
+#
+# 새 타깃을 추가할 때 tags = ["ios"] 를 잊지 않는다. Android 모듈에는 둘 다
+# 붙이지 않는다 — 리눅스에서도 지어지므로 붙이면 오히려 기존 ubuntu 잡의 검사
+# 범위에서 빠진다.
+
+load("@rules_apple//apple:ios.bzl", "ios_application")
+load("@rules_swift//swift:swift.bzl", "swift_library")
+
+package(default_visibility = ["//visibility:public"])
+
+APPLE_ONLY = select({
+    "@platforms//os:ios": [],
+    "@platforms//os:macos": [],
+    "//conditions:default": ["@platforms//:incompatible"],
+})
+
+swift_library(
+    name = "scenetrip-ios",
+    srcs = glob(["src/**/*.swift"]),
+    module_name = "SceneTrip",
+    tags = ["ios"],
+    target_compatible_with = APPLE_ONLY,
+)
+
+ios_application(
+    name = "bin",
+    bundle_id = "com.mz2az.scenetrip",
+    families = ["iphone"],
+    infoplists = ["Info.plist"],
+    minimum_os_version = "17.0",
+    tags = ["ios"],
+    target_compatible_with = APPLE_ONLY,
+    deps = [":scenetrip-ios"],
+)

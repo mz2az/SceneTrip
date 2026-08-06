@@ -19,6 +19,20 @@ build --nolegacy_external_runfiles
 # 워크스페이스 루트를 깨끗하게 유지한다. 심볼릭 링크는 gitignore 대상이다.
 build --symlink_prefix=bazel-
 
+# --- 플랫폼별: 리눅스는 iOS 타깃을 거른다 ---------------------------------------
+# iOS 는 macOS + Xcode 에서만 지어진다. target_compatible_with 만으로는 리눅스
+# 와일드카드 빌드를 지키지 못한다(실측) — ios_application 이 타깃 플랫폼을 iOS 로
+# 전환한 뒤 제약이 평가되므로 호스트 OS 를 구분하지 못하고, 리눅스에서는 조용한
+# 스킵 대신 툴체인 해석 실패로 빌드 전체가 죽는다. 그래서 iOS 모듈의 모든 타깃에
+# tags = ["ios"] 를 달고, 리눅스에서만 태그로 걸러낸다 (enable_platform_specific_config
+# 가 호스트 OS 이름의 config 를 자동 적용한다). macOS 에서는 아무것도 거르지 않는다.
+#
+# 주의: 테스트 레인 레시피가 명령줄에서 --test_tag_filters 를 넘기면 이 값을
+# **덮어쓴다** (태그 필터는 누적이 아니다). 첫 iOS 테스트 타깃이 생기면 그 레시피들에
+# -ios 를 함께 넣어야 한다 — CI macOS 잡을 만들 때(계획서 §5-4) 같이 정리한다.
+build:linux --build_tag_filters=-ios
+test:linux --test_tag_filters=-ios
+
 # --- Java --------------------------------------------------------------------
 # 언어 수준을 고정하지 않으면 Bazel 이 -source 11 -target 11 로 컴파일한다.
 # Spring Boot 4 는 Java 17 이상을 요구하므로 그 조합에서는 빌드가 깨진다.
