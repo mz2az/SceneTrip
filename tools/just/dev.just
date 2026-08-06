@@ -28,6 +28,18 @@ lint:
     {{BAZEL}} run //:buildifier_check
     ./tools/scripts/lint.sh
 
+# 이 저장소에는 pom.xml·build.gradle 이 없어(Bazel 로만 빌드한다) 자바 확장이 프로젝트를
+# 인식하지 못하고, 정의로 가기(F12·Ctrl+클릭)가 동작하지 않는다. 소스 루트와 jar 목록을
+# .vscode/settings.json 에 직접 써 준다.
+#
+# 경로에 기계마다 다른 Bazel output_base 가 들어가므로 커밋된 값을 쓰지 않고 매번
+# 생성한다. 의존성이나 명세를 고친 뒤 다시 실행한다.
+#
+# VS Code 자바 확장이 읽을 클래스패스 생성 (정의로 가기가 안 될 때)
+[group('dev')]
+ide:
+    ./tools/scripts/ide-vscode.sh
+
 # protobuf 스텁, API 클라이언트, 목(mock) 재생성.
 # BUILD 파일은 여기서 만들지 않는다 — 손으로 쓴다. 생성기를 아직 붙이지 않은 이유와
 # 언어별 확장 후보는 MODULE.bazel 의 "BUILD 파일 생성" 절 참고.

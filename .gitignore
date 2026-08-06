@@ -71,7 +71,10 @@ Thumbs.db
 .idea/
 *.swp
 .vscode/*
-!.vscode/settings.json
+# settings.json 은 커밋하지 않는다. `just ide` 가 만드는 파일이고, 그 안의 jar 경로에
+# Bazel output_base 가 들어간다 — 사용자 이름과 워크스페이스 해시로 만들어져 기계마다
+# 다르다. 커밋하면 그것을 만든 사람 말고는 전부 없는 경로를 가리키게 된다.
+# 저장소를 처음 받은 사람은 `just ide` 를 한 번 실행하면 된다.
 !.vscode/extensions.json
 
 # --- 로컬 임시 파일 -------------------------------------------------------------

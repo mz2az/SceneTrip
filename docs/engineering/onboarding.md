@@ -20,8 +20,21 @@ SceneTrip은 백엔드(Spring Boot), 모바일 앱(iOS/Android 네이티브), AI
 ```bash
 just setup      # 최초 1회, 멱등
 just doctor     # 도구가 다 있고 버전이 맞는지 확인
+just ide        # VS Code 에서 자바 코드 탐색이 되게 한다 (아래 설명)
 just --list     # 전체 명령을 그룹별로 훑어보기
 ```
+
+**`just ide` 를 왜 따로 실행하는가.** VS Code 의 자바 확장은 프로젝트를 `pom.xml` ·
+`build.gradle` · `.classpath` 셋 중 하나로만 인식한다. 이 저장소는 Bazel 로만 빌드하므로
+셋 다 없고, 확장은 `.java` 파일을 낱장으로 취급해 **정의로 가기(F12·Ctrl+클릭)가 아무 일도
+하지 않는다.** `just ide` 가 소스 루트와 jar 목록을 `.vscode/settings.json` 에 써 주면 해결된다.
+
+그 파일은 **커밋되지 않는다.** jar 경로에 Bazel `output_base` 가 들어가고 그 값은 사용자
+이름과 워크스페이스 해시로 만들어져 기계마다 다르기 때문이다. 각자 한 번씩 실행한다.
+의존성(`MODULE.bazel`)이나 API 명세를 고친 뒤에는 다시 실행해야 새 클래스가 잡힌다.
+
+계약에서 생성되는 인터페이스(`PlacesApi` 등)도 이때 함께 연결된다 — 그 소스는 저장소에
+없고 빌드할 때 `bazel-bin/` 아래에 생기므로, 빌드 없이는 확장이 찾을 수 없다.
 
 **공통으로 필요한 것**: [bazelisk](https://github.com/bazelbuild/bazelisk)(`bazel`이라는
 이름으로), [just](https://github.com/casey/just) 1.34+, git. 컴파일러·인터프리터·SDK는
@@ -154,6 +167,7 @@ Linux 원격 실행이 안 된다. Android SDK는 재배포가 허용돼서 상�
 | 전부 포맷 | `just fmt` |
 | 전부 린트 | `just lint` |
 | proto/클라이언트/mock 재생성 (BUILD 파일 아님) | `just gen` |
+| VS Code 코드 탐색 복구 (F12·Ctrl+클릭) | `just ide` |
 | **PR 전 게이트 — 커밋 전 필수** | `just check` |
 | CI 재현 | `just ci` |
 | 새 백엔드 서비스 | `just new-service <name>` |
