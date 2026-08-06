@@ -2,7 +2,9 @@ package com.mz2az.scenetrip.sceneapi.place;
 
 import com.mz2az.scenetrip.sceneapi.api.model.ContentRef;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import com.mz2az.scenetrip.sceneapi.api.model.PlaceDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceSummary;
+import com.mz2az.scenetrip.sceneapi.api.model.Scene;
 import java.net.URI;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -10,6 +12,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -210,11 +214,142 @@ public class PlaceStore {
       ORDER BY pc.place_id, c.popularity_score DESC, c.id DESC
       """;
 
+  /**
+   * 촬영지 상세.
+   *
+   * <p>목록과 다른 것은 장소 설명·네이버 링크·사진 전부·장면 목록이 붙는 것뿐이다.
+   *
+   * <p>"이어서 걷기 좋은 곳" 은 별도 필드가 아니다. 이 장소의 좌표로 {@code GET /places?lat=&lng=&radiusMeters=1000} 을 부르면
+   * 된다 — 같은 것을 두 곳에서 계산하지 않는다.
+   */
+  private static final String DETAIL_SQL =
+      """
+      WITH display AS (
+          SELECT DISTINCT ON (pi.place_id)
+              pi.place_id, pi.name, pi.address, pi.description,
+              pi.lang = :lang AS in_requested_lang
+          FROM place_i18n pi
+          WHERE pi.place_id = :id AND pi.lang IN (:lang, 'ko')
+          ORDER BY pi.place_id, (pi.lang = :lang) DESC
+      ),
+      origin AS (
+          SELECT CASE
+                     WHEN CAST(:lat AS DOUBLE PRECISION) IS NULL THEN NULL
+                     ELSE ST_SetSRID(
+                              ST_MakePoint(CAST(:lng AS DOUBLE PRECISION),
+                                           CAST(:lat AS DOUBLE PRECISION)),
+                              4326)::geography
+                 END AS point
+      )
+      SELECT
+          p.id, d.name, p.type, d.address, d.description, p.naver_place_url,
+          d.in_requested_lang,
+          ST_Y(p.geom::geometry) AS latitude,
+          ST_X(p.geom::geometry) AS longitude,
+          CASE WHEN o.point IS NULL THEN NULL
+               ELSE round(ST_Distance(p.geom, o.point))::INT END AS distance_meters
+      FROM place p
+      JOIN display d ON d.place_id = p.id
+      CROSS JOIN origin o
+      WHERE p.id = :id
+      """;
+
+  /** 사진 전부. 정렬 순서대로이고 첫 번째가 대표 이미지다. */
+  private static final String IMAGES_SQL =
+      "SELECT url FROM place_image WHERE place_id = :id ORDER BY sort_order, id";
+
+  /**
+   * 이 장소에서 촬영된 작품과 장면.
+   *
+   * <p>목록의 {@code sceneDescription} 과 달리 여기서는 작품을 특정하지 않아도 전부 나온다. 상세 화면은 "이 장소의 장면" 을 가로 스크롤 카드로
+   * 보여 주므로 여러 작품이 나란히 있는 것이 정상이다.
+   */
+  private static final String SCENES_SQL =
+      """
+      WITH display AS (
+          SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title
+          FROM content_i18n ci
+          WHERE ci.lang IN (:lang, 'ko')
+          ORDER BY ci.content_id, (ci.lang = :lang) DESC
+      ),
+      scene AS (
+          SELECT DISTINCT ON (pci.place_content_id)
+              pci.place_content_id, pci.relation_description
+          FROM place_content_i18n pci
+          WHERE pci.lang IN (:lang, 'ko')
+          ORDER BY pci.place_content_id, (pci.lang = :lang) DESC
+      )
+      SELECT c.id AS content_id, d.title, c.poster_url, s.relation_description
+      FROM place_content pc
+      JOIN content c ON c.id = pc.content_id
+      JOIN display d ON d.content_id = c.id
+      LEFT JOIN scene s ON s.place_content_id = pc.id
+      WHERE pc.place_id = :id
+      ORDER BY c.popularity_score DESC, c.id DESC
+      """;
+
+  /** 상세와 언어 폴백 여부. 없으면 {@link Optional#empty()}. */
+  public record Detail(PlaceDetail place, boolean inRequestedLang) {}
+
   private final JdbcClient jdbc;
 
   PlaceStore(JdbcClient jdbc) {
     this.jdbc = jdbc;
   }
+
+  public Optional<Detail> findDetail(long placeId, Lang lang, Double lat, Double lng) {
+    boolean hasOrigin = lat != null && lng != null;
+    List<DetailRow> rows =
+        jdbc.sql(DETAIL_SQL)
+            .param("id", placeId)
+            .param("lang", lang.getValue())
+            .param("lat", hasOrigin ? lat : null)
+            .param("lng", hasOrigin ? lng : null)
+            .query(PlaceStore::mapDetail)
+            .list();
+
+    if (rows.isEmpty()) {
+      return Optional.empty();
+    }
+    DetailRow row = rows.get(0);
+    PlaceDetail detail = row.place();
+
+    detail.setImageUrls(
+        jdbc.sql(IMAGES_SQL).param("id", placeId).query(String.class).list().stream()
+            .map(PlaceStore::uri)
+            .filter(Objects::nonNull)
+            .toList());
+
+    detail.setScenes(
+        jdbc.sql(SCENES_SQL)
+            .param("id", placeId)
+            .param("lang", lang.getValue())
+            .query(
+                (rs, rowNum) ->
+                    new Scene(rs.getLong("content_id"), rs.getString("title"))
+                        .posterUrl(uri(rs.getString("poster_url")))
+                        .sceneDescription(rs.getString("relation_description")))
+            .list());
+
+    return Optional.of(new Detail(detail, row.inRequestedLang()));
+  }
+
+  private static DetailRow mapDetail(ResultSet rs, int rowNum) throws SQLException {
+    PlaceDetail detail =
+        new PlaceDetail(
+                rs.getLong("id"),
+                rs.getString("name"),
+                rs.getDouble("latitude"),
+                rs.getDouble("longitude"))
+            .type(rs.getString("type"))
+            .address(rs.getString("address"))
+            .description(rs.getString("description"))
+            .naverPlaceUrl(uri(rs.getString("naver_place_url")))
+            .distanceMeters(integerOrNull(rs, "distance_meters"));
+    return new DetailRow(detail, rs.getBoolean("in_requested_lang"));
+  }
+
+  private record DetailRow(PlaceDetail place, boolean inRequestedLang) {}
 
   public Page list(Criteria criteria) {
     // formatted() 를 쓰지 않는다. 이 SQL 에는 LIKE '%' 의 퍼센트 기호가 있어

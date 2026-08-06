@@ -1,13 +1,17 @@
 package com.mz2az.scenetrip.sceneapi.content;
 
 import com.mz2az.scenetrip.sceneapi.api.model.ContentCategory;
+import com.mz2az.scenetrip.sceneapi.api.model.ContentDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.ContentSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import com.mz2az.scenetrip.sceneapi.api.model.PersonRef;
+import com.mz2az.scenetrip.sceneapi.api.model.RoleType;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -123,6 +127,125 @@ public class ContentStore {
         rows.isEmpty() ? 0 : rows.get(0).total(),
         rows.stream().anyMatch(Row::inRequestedLang));
   }
+
+  /**
+   * 작품 상세.
+   *
+   * <p>목록과 다른 것은 줄거리·별칭·출연진이 붙는 것뿐이다. 촬영지 목록은 여기 넣지 않는다 — 개수가 많고 페이지네이션이 필요해서 별도 조회다 ({@code GET
+   * /contents/&#123;id&#125;/places}).
+   */
+  private static final String DETAIL_SQL =
+      """
+      WITH display AS (
+          SELECT DISTINCT ON (ci.content_id)
+              ci.content_id, ci.title, ci.description, ci.lang,
+              ci.lang = :lang AS in_requested_lang
+          FROM content_i18n ci
+          WHERE ci.content_id = :id AND ci.lang IN (:lang, 'ko')
+          ORDER BY ci.content_id, (ci.lang = :lang) DESC
+      )
+      SELECT
+          c.id, c.category, c.poster_url, c.broadcaster, c.release_year, c.genres,
+          d.title, d.description, d.lang AS display_lang, d.in_requested_lang,
+          (SELECT count(*) FROM place_content pc WHERE pc.content_id = c.id) AS place_count
+      FROM content c
+      JOIN display d ON d.content_id = c.id
+      WHERE c.id = :id
+      """;
+
+  /**
+   * 다른 표기 전부.
+   *
+   * <p>별칭 테이블만 보면 안 된다. 적재할 때 영문 표기 하나를 {@code content_i18n} 의 {@code en} 제목으로 승격했으므로, 별칭 테이블에는 그것이
+   * 없다. 명세의 예시가 {@code ["Guardian: The Lonely and Great God", "Goblin"]} 인데 앞의 것이 바로 승격된 영문 제목이다.
+   *
+   * <p>지금 화면에 보이는 제목은 뺀다. 같은 글자를 제목과 별칭 두 곳에 보여 줄 이유가 없다.
+   */
+  private static final String ALIASES_SQL =
+      """
+      SELECT DISTINCT term FROM (
+          SELECT ci.title AS term FROM content_i18n ci
+           WHERE ci.content_id = :id AND ci.lang <> CAST(:displayLang AS TEXT)
+          UNION
+          SELECT ca.alias FROM content_alias ca WHERE ca.content_id = :id
+      ) t
+      WHERE term <> CAST(:displayTitle AS TEXT)
+      ORDER BY term
+      """;
+
+  /** 출연진. 배우를 감독보다 앞에 둔다 — 목업의 작품 카드가 먼저 보여 주는 것이 배우다. */
+  private static final String CAST_SQL =
+      """
+      WITH display AS (
+          SELECT DISTINCT ON (pi.person_id) pi.person_id, pi.name
+          FROM person_i18n pi
+          WHERE pi.lang IN (:lang, 'ko')
+            AND pi.person_id IN (SELECT person_id FROM content_cast WHERE content_id = :id)
+          ORDER BY pi.person_id, (pi.lang = :lang) DESC
+      )
+      SELECT cc.person_id, d.name, cc.role_type
+      FROM content_cast cc
+      JOIN display d ON d.person_id = cc.person_id
+      WHERE cc.content_id = :id
+      ORDER BY (cc.role_type = 'actor') DESC, cc.sort_order NULLS LAST, cc.person_id
+      """;
+
+  /** 상세와 언어 폴백 여부. 없으면 {@link Optional#empty()}. */
+  public record Detail(ContentDetail content, boolean inRequestedLang) {}
+
+  public Optional<Detail> findDetail(long contentId, Lang lang) {
+    List<DetailRow> rows =
+        jdbc.sql(DETAIL_SQL)
+            .param("id", contentId)
+            .param("lang", lang.getValue())
+            .query(ContentStore::mapDetail)
+            .list();
+
+    if (rows.isEmpty()) {
+      return Optional.empty();
+    }
+    DetailRow row = rows.get(0);
+    ContentDetail detail = row.content();
+
+    detail.setAliases(
+        jdbc.sql(ALIASES_SQL)
+            .param("id", contentId)
+            .param("displayLang", row.displayLang())
+            .param("displayTitle", detail.getTitle())
+            .query(String.class)
+            .list());
+
+    detail.setCast(
+        jdbc.sql(CAST_SQL)
+            .param("id", contentId)
+            .param("lang", lang.getValue())
+            .query(
+                (rs, rowNum) ->
+                    new PersonRef(
+                        rs.getLong("person_id"),
+                        rs.getString("name"),
+                        RoleType.fromValue(rs.getString("role_type"))))
+            .list());
+
+    return Optional.of(new Detail(detail, row.inRequestedLang()));
+  }
+
+  private static DetailRow mapDetail(ResultSet rs, int rowNum) throws SQLException {
+    ContentDetail detail =
+        new ContentDetail(
+                rs.getLong("id"),
+                ContentCategory.fromValue(rs.getString("category")),
+                rs.getString("title"),
+                rs.getInt("place_count"))
+            .posterUrl(uri(rs.getString("poster_url")))
+            .broadcaster(rs.getString("broadcaster"))
+            .releaseYear(integerOrNull(rs, "release_year"))
+            .genres(stringArray(rs.getArray("genres")))
+            .description(rs.getString("description"));
+    return new DetailRow(detail, rs.getString("display_lang"), rs.getBoolean("in_requested_lang"));
+  }
+
+  private record DetailRow(ContentDetail content, String displayLang, boolean inRequestedLang) {}
 
   /**
    * 그 작품이 있는가.

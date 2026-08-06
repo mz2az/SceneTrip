@@ -11,10 +11,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.mz2az.scenetrip.sceneapi.api.model.ContentCategory;
+import com.mz2az.scenetrip.sceneapi.api.model.ContentDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.ContentSummary;
+import com.mz2az.scenetrip.sceneapi.api.model.PersonRef;
+import com.mz2az.scenetrip.sceneapi.api.model.RoleType;
 import com.mz2az.scenetrip.sceneapi.content.ContentStore;
 import com.mz2az.scenetrip.sceneapi.place.PlaceStore;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -98,10 +102,32 @@ class ContentsControllerTest {
   }
 
   @Test
-  @DisplayName("구현하지 않은 작업은 501 로 정직하게 말한다")
-  void unimplementedOperationsReturnNotImplemented() throws Exception {
-    // 명세에 있는 경로가 조용히 404 가 되면 프론트는 "경로를 잘못 알았나" 를 의심한다.
-    // 501 은 "경로는 맞고 아직 안 만들었다" 는 뜻이다. MZ2AZ-169 에서 채운다.
-    mvc.perform(get("/contents/1")).andExpect(status().isNotImplemented());
+  @DisplayName("작품 상세는 줄거리·별칭·출연진까지 준다")
+  void returnsContentDetail() throws Exception {
+    ContentDetail detail =
+        new ContentDetail(2L, ContentCategory.DRAMA, "도깨비", 58)
+            .description("불멸의 삶을 끝내기 위해…")
+            .aliases(List.of("Guardian: The Lonely and Great God", "Goblin"))
+            .cast(List.of(new PersonRef(5L, "공유", RoleType.ACTOR)));
+    when(store.findDetail(eq(2L), any()))
+        .thenReturn(Optional.of(new ContentStore.Detail(detail, true)));
+
+    mvc.perform(get("/contents/2"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.title").value("도깨비"))
+        .andExpect(jsonPath("$.aliases[1]").value("Goblin"))
+        .andExpect(jsonPath("$.cast[0].name").value("공유"))
+        .andExpect(jsonPath("$.cast[0].roleType").value("actor"));
+  }
+
+  @Test
+  @DisplayName("없는 작품은 404 — 빈 응답이 아니다")
+  void missingContentIsNotFound() throws Exception {
+    when(store.findDetail(any(Long.class), any())).thenReturn(Optional.empty());
+
+    // 200 에 빈 객체로 돌려주면 프론트는 "데이터가 아직 없는 작품" 으로 오해한다.
+    mvc.perform(get("/contents/999"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("CONTENT_NOT_FOUND"));
   }
 }

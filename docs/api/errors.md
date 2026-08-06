@@ -91,9 +91,9 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 기본 처리로 넘기면 된다.
 
 > [!note] 구현 중이다
-> 핸들러는 `services/scene-api` 의 `ApiExceptionHandler` 하나다. 위 코드 중 검색·작품
-> 목록이 쓰는 것(`INVALID_PARAMETER`·`INTERNAL_ERROR`)은 동작하고, 나머지는 해당
-> 엔드포인트를 구현하면서 붙는다(MZ2AZ-167~171).
+> 핸들러는 `services/scene-api` 의 `ApiExceptionHandler` 하나다. 장바구니 코드
+> (`MISSING_DEVICE_ID`·`CART_ITEM_NOT_FOUND`·`DUPLICATE_CART_ITEM`)만 아직
+> 붙지 않았다(MZ2AZ-170). 나머지는 전부 동작한다.
 >
 > **아직 구현하지 않은 엔드포인트는 `501` 을 돌려준다.** 명세에 있는 경로가 조용히
 > `404` 가 되면 프론트는 경로를 잘못 알았다고 의심하게 된다. `501` 은 "경로는 맞고
