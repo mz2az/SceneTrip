@@ -60,6 +60,11 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 | `CONTENT_NOT_FOUND` | 그 `contentId` 의 작품이 없다 |
 | `PLACE_NOT_FOUND` | 그 `placeId` 의 장소가 없다 |
 | `CART_ITEM_NOT_FOUND` | 장바구니에 그 장소가 담겨 있지 않다 |
+| `ENDPOINT_NOT_FOUND` | **경로 자체가 없다.** 명세에 없는 주소를 불렀다 |
+
+앞의 셋과 `ENDPOINT_NOT_FOUND` 는 뜻이 다르다. 앞의 셋은 "경로는 맞는데 그 id 의 대상이
+없다" 이고, 마지막은 "그런 주소가 아예 없다" 다. 후자는 대개 **API 버전 접두사를 빠뜨렸거나
+경로에 오타가 난 경우**다 — 명세의 `servers.url` 을 확인한다.
 
 ### 충돌 (`409`)
 

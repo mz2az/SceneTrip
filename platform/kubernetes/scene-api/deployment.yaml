@@ -112,21 +112,28 @@ spec:
           #   liveness  죽은 프로세스가 살아 있는 것처럼 보이는 것
           #
           # startupProbe 가 성공할 때까지 나머지 둘은 아예 실행되지 않는다.
+          #
+          # 경로에 /v1 이 붙는 이유: application.yaml 의 server.servlet.context-path 가
+          # /v1 이라 actuator 도 그 아래로 밀린다. 명세(contracts/openapi)가 약속한 주소를
+          # 맞추려고 넣은 설정인데, 상태 점검 경로까지 함께 움직인다.
+          #
+          # 여기를 빠뜨리면 프로브가 404 를 받아 파드가 **영원히 준비되지 않는다.**
+          # 애플리케이션은 멀쩡히 떠 있는데 롤아웃만 실패해서 원인을 찾기 어렵다.
           startupProbe:
             httpGet:
-              path: /actuator/health
+              path: /v1/actuator/health
               port: http
             periodSeconds: 2
             failureThreshold: 30 # 최대 60초까지 기동을 기다린다
           readinessProbe:
             httpGet:
-              path: /actuator/health/readiness
+              path: /v1/actuator/health/readiness
               port: http
             periodSeconds: 5
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /actuator/health/liveness
+              path: /v1/actuator/health/liveness
               port: http
             periodSeconds: 10
             failureThreshold: 3

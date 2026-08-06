@@ -49,6 +49,60 @@ openapi_generator(
     spec = "scene-api-v1.yaml",
 )
 
+# 사람이 읽는 API 레퍼런스. `just docs-api` 가 이것을 빌드해 브라우저로 연다.
+#
+# 명세 자체(scene-api-v1.yaml)를 읽어도 되지만 900 줄이고 $ref 로 흩어져 있어, 엔드포인트
+# 하나가 무엇을 받고 무엇을 돌려주는지 한눈에 보이지 않는다. 이 산출물은 그것을
+# 엔드포인트별로 펼쳐 놓는다.
+#
+# 명세를 하나로 합쳐 정규화한 JSON.
+#
+# 두 가지 일을 한다. 첫째로 $ref 로 흩어진 조각을 한 파일에 모으고, 둘째로 이 규칙이
+# 돌면서 명세를 파싱·검증하므로 문법이 깨지면 여기서 빌드가 멈춘다.
+#
+# 아래 문서 페이지가 이것을 그대로 박아 넣는다. YAML 이 아니라 JSON 인 이유는
+# 자바스크립트가 추가 라이브러리 없이 읽을 수 있는 형식이기 때문이다.
+openapi_generator(
+    name = "scene_api_openapi_json",
+    generator = "openapi",
+    spec = "scene-api-v1.yaml",
+)
+
+exports_files(["redoc-page.sh"])
+
+# 사람이 읽는 API 레퍼런스. `just docs-api` 가 이것을 빌드해 브라우저로 연다.
+#
+# **생성기의 문서 기능을 쓰지 않는 이유** (실제로 넷을 다 돌려 보고 내린 결론):
+#   html2      응답 스키마 창이 26 곳 중 24 곳 빈다. allOf 조합 스키마의 JSON 을 만들지
+#              못해 `var schemaWrapper = ;` 라는 깨진 자바스크립트가 나온다. 화면 구조는
+#              멀쩡해 보이고 내용만 비어서 알아채기 어렵다.
+#   html       표는 채우지만 enum 의 허용값을 빼먹는다. Lang 이 ko·en·ja·zh-Hant 라는
+#              것이 어디에도 안 나온다. 디자인도 낡았다.
+#   markdown   파일 25 개로 흩어지고 enum 은 빈 표가 된다.
+#   asciidoc   변환기가 따로 필요하다.
+# 우리 명세는 ContentDetail·PlaceDetail 이 allOf 를 쓰고 Lang·ContentCategory 가 enum 이라
+# 위 한계에 정면으로 걸린다.
+#
+# Redoc 은 그 둘을 제대로 그린다. 명세를 그대로 읽어 화면을 만들기 때문에 생성기의
+# 중간 변환에서 정보가 떨어져 나갈 자리가 없다.
+#
+# 산출물은 파일 하나다. 번들과 명세를 페이지 안에 박아 넣어 네트워크도 서버도 필요
+# 없다 — 왜 그래야 하는지는 redoc-page.sh 에 적었다.
+#
+# 생성물은 커밋하지 않는다. 명세가 바뀌면 다시 만들면 되고, 커밋하면 명세와 문서가
+# 어긋난 상태가 저장소에 남는다 (contracts/README.md).
+genrule(
+    name = "scene_api_html",
+    srcs = [
+        ":scene_api_openapi_json",
+        "@redoc_standalone_js//file",
+    ],
+    outs = ["scene_api_html/index.html"],
+    cmd = "$(location redoc-page.sh) $(location @redoc_standalone_js//file) " +
+          "$(location :scene_api_openapi_json)/openapi.json $@",
+    tools = ["redoc-page.sh"],
+)
+
 # java_library 는 srcs 에 디렉터리를 받지 못한다. 위 규칙의 산출물은 트리 아티팩트
 # (디렉터리)라서, 컴파일에 넣으려면 srcjar 로 묶어야 한다.
 #

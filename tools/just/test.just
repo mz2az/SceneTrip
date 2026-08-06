@@ -8,10 +8,13 @@
 test *targets=ALL:
     ./tools/scripts/bazel-test.sh {{targets}} --test_tag_filters=-integration,-e2e,-slow,-manual
 
+# 클러스터의 실제 PostgreSQL 에 SQL 을 태운다. 먼저 `just cluster-up` 과 `just seed` 가
+# 되어 있어야 한다 — 스크립트가 포트포워드를 세우고 접속 정보를 넘긴다.
+#
 # 컨테이너·데이터베이스·픽스처가 필요한 테스트
 [group('test')]
 test-integration *targets=ALL:
-    ./tools/scripts/bazel-test.sh {{targets}} --test_tag_filters=integration --test_output=errors
+    ./tools/scripts/integration-test.sh {{targets}}
 
 # 전체 스택을 관통하는 end-to-end 테스트
 [group('test')]

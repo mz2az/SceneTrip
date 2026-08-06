@@ -55,3 +55,18 @@ java_binary(
     main_class = "com.puppycrawl.tools.checkstyle.Main",
     runtime_deps = ["@maven//:com_puppycrawl_tools_checkstyle"],
 )
+
+# OpenTelemetry 자바 에이전트를 bazel-bin 아래로 옮긴다.
+#
+# tools/scripts/image-build.sh 가 이것을 빌드해 이미지 컨텍스트에 넣는다.
+#
+# 별칭(alias)으로 두면 안 된다. 외부 저장소의 파일은 bazel-bin 이 아니라 실행 루트
+# 아래에 있어서, 스크립트가 워크스페이스 기준 경로로 찾지 못한다. genrule 로 한 번
+# 복사하면 bin.jar 와 똑같이 bazel-bin/<경로> 로 예측 가능해진다.
+genrule(
+    name = "otel_javaagent",
+    srcs = ["@otel_javaagent//file"],
+    outs = ["opentelemetry-javaagent.jar"],
+    cmd = "cp $< $@",
+    visibility = ["//visibility:public"],
+)

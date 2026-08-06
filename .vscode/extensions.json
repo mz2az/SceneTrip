@@ -1,0 +1,8 @@
+{
+  // 자바 확장 팩이 없으면 위 java.project.* 설정을 읽는 주체가 아예 없다.
+  "recommendations": [
+    "redhat.java",
+    "vscjava.vscode-java-debug",
+    "vscjava.vscode-java-test"
+  ]
+}

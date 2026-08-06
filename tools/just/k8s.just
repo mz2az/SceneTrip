@@ -97,9 +97,9 @@ pod-shell module:
 # 배포된 API 의 liveness·readiness 확인
 [group('k8s')]
 health:
-    @curl -sS {{API_URL}}/actuator/health/liveness || echo "{{API_URL}} 응답 없음"
+    @curl -sS {{API_URL}}/v1/actuator/health/liveness || echo "{{API_URL}} 응답 없음"
     @echo
-    @curl -sS {{API_URL}}/actuator/health/readiness || true
+    @curl -sS {{API_URL}}/v1/actuator/health/readiness || true
     @echo
 
 # ── 데이터베이스 ──────────────────────────────────────────────────────────────
@@ -111,14 +111,14 @@ health:
 # 예: `just db-psql` · `just db-psql '\dt'` · `just db-psql 'SELECT count(*) FROM place;'`
 [group('db')]
 db-psql *sql:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [ -z "{{ sql }}" ]; then
-        kubectl exec -it statefulset/postgres -n {{ K8S_NS }} -- psql -U scenetrip -d scenetrip
-    else
-        kubectl exec -i statefulset/postgres -n {{ K8S_NS }} -- \
-            psql -U scenetrip -d scenetrip -v ON_ERROR_STOP=1 -c "{{ sql }}"
-    fi
+    ./tools/scripts/db-psql.sh "{{ sql }}"
+
+# 접속 대상은 SCENETRIP_DB_HOST 가 있으면 그것, 없으면 kind 클러스터다 (ADR 0005).
+#
+# 앱을 띄우지 않고 스키마만 올린다 — CI 와 "배포 전 마이그레이션" 에 쓴다
+[group('db')]
+db-migrate:
+    ./tools/scripts/db-migrate.sh
 
 # 적용된 마이그레이션 이력. 실패한 것이 있으면 success 가 f 로 남는다.
 [group('db')]

@@ -26,11 +26,12 @@ import org.springframework.stereotype.Repository;
  * <p>{@code q} 는 이 장소에 딸린 <b>모든 텍스트</b>에 걸린다 — 장소명·별칭·장소 설명에 더해, 이 장소에서 촬영된 작품의 제목·별칭·설명과 그 작품에 참여한
  * 인물의 이름까지다.
  *
- * <p><b>{@link com.mz2az.scenetrip.sceneapi.content.ContentStore} 와 같은 텍스트 뭉치를 본다.</b> 다른 것은 결과를
- * 작품으로 내느냐 장소로 내느냐뿐이다. 검색어 하나로 두 탭이 동시에 채워지고 사용자는 탭을 먼저 고르지 않으므로, 한쪽만 넓게 걸리면 다른 탭이 빈 화면이 되어 고장으로
- * 보인다 — 실제로 `공유` 를 치면 작품 탭에는 도깨비가 뜨는데 장소 탭만 비어 있었다.
+ * <p><b>{@link com.mz2az.scenetrip.sceneapi.content.ContentStore} 와 대칭이다.</b> 검색어에 걸린 것과 이어진 장소를
+ * 이쪽이 모으고, 이어진 작품을 그쪽이 모은다. 사용자는 검색 전에 탭을 고르지 않으므로 검색어 하나가 두 탭을 모두 채워야 한다 — 한쪽만 넓게 걸리면 반대쪽이 빈 화면이
+ * 되어 고장으로 보인다.
  *
- * <p>장소는 {@code place_content} 를 통해 작품에 이어져 있으므로, 작품 쪽에 걸린 것은 그 작품의 촬영지로 옮겨진다.
+ * <p><b>다리는 하나만 건넌다.</b> 작품에 걸려 그 작품의 촬영지까지는 오지만, 그 촬영지에 걸린 또 다른 작품의 촬영지까지 가지는 않는다. 무한히 번지면 결과가 사실상
+ * 전체 목록이 되어 검색이 뜻을 잃는다.
  */
 @Repository
 public class PlaceStore {
@@ -80,12 +81,32 @@ public class PlaceStore {
       WITH params AS (
           SELECT search_normalize(COALESCE(CAST(:q AS TEXT), '')) AS norm
       ),
+      -- 검색어에 걸린 것과 이어진 장소를 전부 모은다.
+      --
+      -- 직접 걸린 장소(이름·설명)에 더해, 작품이나 인물에 걸렸으면 그 작품의 촬영지를
+      -- 함께 담는다. ContentStore 가 반대 방향으로 같은 일을 하므로, 검색어 하나가
+      -- 두 탭을 모두 채운다.
+      --
+      -- **한 다리만 건넌다.** 작품에 걸려 그 작품의 촬영지까지는 오지만, 그 촬영지에
+      -- 걸린 또 다른 작품의 촬영지까지 가지는 않는다. 무한히 번지면 결과가 사실상
+      -- 전체 목록이 되어 검색이 뜻을 잃는다.
       matched AS (
           -- 장소명·장소 별칭
           SELECT st.entity_id AS place_id
           FROM search_term st CROSS JOIN params p
           WHERE p.norm <> '' AND st.entity_type = 'place'
             AND st.term_norm LIKE '%' || p.norm || '%'
+
+          UNION
+
+          -- 장소 설명
+          --
+          -- 설명은 search_term 에 없다. 그 뷰는 이름류만 모으므로(V3) 원본을 직접
+          -- 훑는다. term_norm 은 공백·구두점을 지운 형태라 짧은 이름에는 맞지만
+          -- 문장에 쓰면 뜻을 잃는다.
+          SELECT pi.place_id
+          FROM place_i18n pi CROSS JOIN params p
+          WHERE p.norm <> '' AND pi.description ILIKE '%' || CAST(:q AS TEXT) || '%'
 
           UNION
 
@@ -96,13 +117,6 @@ public class PlaceStore {
           JOIN place_content pc ON pc.content_id = st.entity_id
           WHERE p.norm <> '' AND st.entity_type = 'content'
             AND st.term_norm LIKE '%' || p.norm || '%'
-
-          UNION
-
-          -- 장소 설명
-          SELECT pi.place_id
-          FROM place_i18n pi CROSS JOIN params p
-          WHERE p.norm <> '' AND pi.description ILIKE '%' || CAST(:q AS TEXT) || '%'
 
           UNION
 
@@ -167,15 +181,21 @@ public class PlaceStore {
              OR EXISTS (SELECT 1 FROM place_content pc
                          WHERE pc.place_id = p.id
                            AND pc.content_id = CAST(:contentId AS BIGINT)))
-        -- 뷰포트. ST_MakeEnvelope 는 geometry 를 만들므로 geography 로 캐스팅해 맞춘다.
+        -- 뷰포트는 geometry 로 본다. geography 로 하면 경도 -180~180 사각형에서
+        -- "Antipodal (180 degrees long) edge detected!" 로 질의가 통째로 실패한다 —
+        -- 구면 위에서는 180 도짜리 간선이 어느 쪽으로 도는지 정할 수 없다(실측).
+        --
+        -- 뜻으로도 geometry 가 맞다. 지도의 뷰포트는 위경도 평면의 직사각형이고
+        -- 클라이언트가 보내는 네 숫자가 바로 그것이다.
+        --
+        -- && 는 경계상자 겹침 연산자다. V6 의 표현식 인덱스가 이것을 받는다.
         AND (CAST(:minLng AS DOUBLE PRECISION) IS NULL
-             OR ST_Intersects(
-                    p.geom,
-                    ST_MakeEnvelope(CAST(:minLng AS DOUBLE PRECISION),
-                                    CAST(:minLat AS DOUBLE PRECISION),
-                                    CAST(:maxLng AS DOUBLE PRECISION),
-                                    CAST(:maxLat AS DOUBLE PRECISION),
-                                    4326)::geography))
+             OR p.geom::geometry && ST_MakeEnvelope(
+                    CAST(:minLng AS DOUBLE PRECISION),
+                    CAST(:minLat AS DOUBLE PRECISION),
+                    CAST(:maxLng AS DOUBLE PRECISION),
+                    CAST(:maxLat AS DOUBLE PRECISION),
+                    4326))
         -- 반경. ST_DWithin 이 GiST 인덱스를 탄다 — ST_Distance 로 걸면 전수 계산이 된다.
         AND (CAST(:radiusMeters AS INTEGER) IS NULL
              OR o.point IS NULL

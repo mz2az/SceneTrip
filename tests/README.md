@@ -20,3 +20,19 @@
 - `e2e` — 전체 스택
 - `slow` — 30초 초과
 - `manual` — 와일드카드로 절대 선택되지 않음
+
+## CI 에서 어떻게 도는가
+
+`integration` 은 **별도 잡**에서 돈다. 실제 PostgreSQL 이 필요해서, 워크플로가 서비스
+컨테이너를 붙인 뒤 노트북에서와 같은 명령을 부른다 — `just db-migrate` · `just seed` ·
+`just db-refresh-search` · `just test-integration` (ADR 0005).
+
+로컬에서는 그 DB 를 kind 클러스터가 준다.
+
+```bash
+just cluster-up && just seed && just db-refresh-search
+just test-integration
+```
+
+`e2e` 는 **아직 CI 에서 돌지 않는다.** 전체 스택이 필요해 서비스 컨테이너로 해결되지
+않고, 지금 타깃이 0 개다. 첫 e2e 테스트가 들어올 때 ADR 0005 를 보정하며 정한다.

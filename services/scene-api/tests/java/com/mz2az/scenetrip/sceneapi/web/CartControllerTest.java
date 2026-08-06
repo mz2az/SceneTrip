@@ -149,4 +149,17 @@ class CartControllerTest {
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("CART_ITEM_NOT_FOUND"));
   }
+
+  @Test
+  @DisplayName("깨진 JSON 본문은 400 — 서버 결함이 아니다")
+  void malformedBodyIsBadRequest() throws Exception {
+    // 500 으로 나가면 클라이언트가 재시도해도 된다고 오해한다. 보낸 것을 고쳐야 한다.
+    mvc.perform(
+            post("/cart/items")
+                .header("X-Device-Id", DEVICE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"placeId\":"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+  }
 }

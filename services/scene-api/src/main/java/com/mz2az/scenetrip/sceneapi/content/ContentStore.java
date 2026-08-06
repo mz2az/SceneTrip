@@ -18,8 +18,12 @@ import org.springframework.stereotype.Repository;
 /**
  * 작품 목록·검색.
  *
- * <p>{@code q} 는 이 작품에 딸린 <b>모든 텍스트</b>에 걸린다 — 제목·별칭·인물 이름·작품 설명. 인물로 걸린 것은 {@code content_cast} 를
- * 타고 작품으로 바뀐 뒤 나머지와 합쳐진다. 같은 작품이 제목과 배우 양쪽에 걸려도 한 번만 나온다.
+ * <p>{@code q} 는 이 작품에 딸린 <b>모든 텍스트</b>에 걸린다 — 제목·별칭·작품 설명·인물 이름에 더해, 이 작품이 성지로 가진 <b>장소의
+ * 이름·별칭·설명</b> 까지다. 인물로 걸린 것은 {@code content_cast} 를, 장소로 걸린 것은 {@code place_content} 를 타고 작품으로 바뀐
+ * 뒤 나머지와 합쳐진다. 같은 작품이 제목과 배우 양쪽에 걸려도 한 번만 나온다.
+ *
+ * <p><b>{@link com.mz2az.scenetrip.sceneapi.place.PlaceStore} 와 대칭이다.</b> 검색어에 걸린 것과 이어진 작품을 이쪽이
+ * 모으고, 이어진 장소를 그쪽이 모은다. 두 방향이 모두 있어야 검색어 하나가 두 탭을 함께 채운다.
  *
  * <p><b>장면 설명은 보지 않는다.</b> 장면은 장소와 작품 사이에 붙은 값이라 어느 한쪽의 검색 대상으로 삼으면 경계가 흐려진다.
  */
@@ -74,6 +78,32 @@ public class ContentStore {
           SELECT ci.content_id
           FROM content_i18n ci CROSS JOIN params p
           WHERE p.norm <> '' AND ci.description ILIKE '%' || CAST(:q AS TEXT) || '%'
+
+          UNION
+
+          -- 이 작품이 성지로 가진 장소의 이름·별칭 -> 그 작품
+          --
+          -- '북촌한옥마을' 을 치면 거기서 촬영된 작품들이 작품 탭에 뜬다. PlaceStore 의
+          -- 반대 방향이다 — 그쪽은 작품에 걸린 것을 그 작품의 촬영지로 옮기고, 여기는
+          -- 장소에 걸린 것을 그 장소의 촬영작으로 옮긴다.
+          SELECT pc.content_id
+          FROM search_term st
+          CROSS JOIN params p
+          JOIN place_content pc ON pc.place_id = st.entity_id
+          WHERE p.norm <> '' AND st.entity_type = 'place'
+            AND st.term_norm LIKE '%' || p.norm || '%'
+
+          UNION
+
+          -- 이 작품이 성지로 가진 장소의 설명 -> 그 작품
+          --
+          -- 설명은 search_term 에 없다. 그 뷰는 이름류만 모으므로(V3) 원본 테이블을
+          -- 직접 훑는다 — 위의 '작품 설명' 분기와 같은 이유, 같은 방식이다.
+          SELECT pc.content_id
+          FROM place_i18n pi
+          CROSS JOIN params p
+          JOIN place_content pc ON pc.place_id = pi.place_id
+          WHERE p.norm <> '' AND pi.description ILIKE '%' || CAST(:q AS TEXT) || '%'
       ),
       display AS (
           SELECT DISTINCT ON (ci.content_id)

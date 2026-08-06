@@ -62,6 +62,15 @@ CREATE TEMP TABLE seed_staging (
     poster_url        TEXT
 ) ON COMMIT DROP;
 
+-- 경로가 박혀 있는 이유:
+--
+-- \copy 는 **psql 이 도는 쪽**의 파일을 읽는다. 파드 안에서 돌면 파드의 /tmp 이고,
+-- 노트북이나 CI 러너에서 돌면 그쪽의 /tmp 다. seed.sh 가 어느 쪽이든 psql 이 도는
+-- 기계의 이 경로에 CSV 를 놓아 준다 (ADR 0005).
+--
+-- 변수로 받지 않는 이유: psql 은 \copy 인자에 변수 치환을 하지 않는다(문서에 명시).
+-- 표준입력으로 받을 수도 없다 — -f 로 준 스크립트에서 \copy FROM STDIN 은 그 스크립트
+-- 파일의 다음 줄들을 데이터로 읽는다. 둘 다 실측으로 확인했다.
 \copy seed_staging FROM '/tmp/seed-input.csv' WITH (FORMAT csv, HEADER true)
 
 -- 넣지 않는 컬럼과 이유:

@@ -40,6 +40,9 @@ check: fmt-check lint build test
     @echo "check 통과 — 커밋해도 좋습니다"
 
 # CI 가 실행하는 전부를 CI 순서 그대로. 파이프라인을 로컬에서 재현한다.
+#
+# CI 는 이것을 두 잡으로 나눠 돈다 — ci-full 과, DB 를 붙인 통합 잡이다 (ADR 0005).
+# 여기서는 `just cluster-up` 으로 띄운 클러스터가 그 DB 를 대신하므로 한 줄로 이어 붙인다.
 [group('gate')]
 ci: gen-check fmt-check lint build test test-integration
     @echo "ci 통과"

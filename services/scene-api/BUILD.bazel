@@ -11,7 +11,7 @@
 # :image / :push 는 아직 없다. 컨테이너는 당분간 Dockerfile 경로를 쓰고
 # (`just image scene-api`), rules_oci 로 옮기는 것은 후속 작업이다 — ADR 0003 참조.
 
-load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 load("@rules_spring//springboot:springboot.bzl", "springboot")
 load("//tools/bazel/defs:java_junit5_test.bzl", "java_junit5_test")
 
@@ -30,10 +30,11 @@ java_library(
     srcs = glob(["src/main/java/**/*.java"]),
     resources = glob(["src/main/resources/**"]),
     runtime_deps = [
-        # Flyway 는 코드에서 부르지 않는다. 클래스패스에 있으면 Spring 이 자동 구성으로
-        # 찾아 기동 시 마이그레이션을 돌린다 — 그래서 deps 가 아니라 runtime_deps 다.
-        # 세 아티팩트가 각각 왜 필요한지는 MODULE.bazel 에 적었다.
-        "@maven//:org_flywaydb_flyway_core",
+        # 방언과 드라이버는 코드에서 부르지 않는다. 클래스패스에 있으면 Flyway 와 Spring
+        # 이 찾아 쓴다 — 그래서 deps 가 아니라 runtime_deps 다. 세 아티팩트가 각각 왜
+        # 필요한지는 MODULE.bazel 에 적었다.
+        #
+        # flyway-core 는 여기 없다. DbMigrate 가 직접 부르므로 deps 로 올라갔다.
         "@maven//:org_flywaydb_flyway_database_postgresql",
         "@maven//:org_postgresql_postgresql",
         "@maven//:org_springframework_boot_spring_boot_starter_actuator",
@@ -50,6 +51,10 @@ java_library(
         # 명세와 어긋나면 컴파일이 실패한다 — 계약이 지켜지는지를 사람이 아니라
         # 컴파일러가 본다.
         "//contracts/openapi:scene_api_spring_lib",
+        # DbMigrate 가 Flyway 를 직접 부른다 — 앱 없이 스키마만 올리는 명령이다.
+        # 앱 기동 시의 자동 구성은 그대로이고, 이것은 그 밖의 경로다 (ADR 0005).
+        "@maven//:org_flywaydb_flyway_core",
+        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:jakarta_validation_jakarta_validation_api",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_springframework_boot_spring_boot",
@@ -62,6 +67,10 @@ java_library(
         # 그 제약 위반을 잡아 409 로 바꾼다.
         "@maven//:org_springframework_spring_tx",
         "@maven//:org_springframework_spring_web",
+        # NoResourceFoundException 이 여기 있다. spring-web 이 아니라 spring-webmvc 다 —
+        # 매핑되지 않은 경로를 정적 리소스 처리기가 다루기 때문이다. 그것을 404 로 바꾸지
+        # 않으면 마지막 그물에 걸려 500 으로 나간다 (ApiExceptionHandler).
+        "@maven//:org_springframework_spring_webmvc",
     ],
 )
 
@@ -84,6 +93,59 @@ springboot(
     deps = ["@maven//:org_springframework_boot_spring_boot_loader"],
 )
 
+# 스키마만 올리는 명령. `just db-migrate` 가 돌린다.
+#
+# 앱은 기동할 때 Flyway 를 자동으로 돌리지만, **앱 없이 스키마만 필요한 자리**가 있다 —
+# CI 의 통합 테스트와, 배포 전에 마이그레이션만 먼저 올리는 경우다 (ADR 0005).
+#
+# :scene-api 에 의존하므로 마이그레이션 파일이 앱과 같은 것 하나다. 두 벌이 되면
+# "앱은 올라가는데 CI 는 스키마가 다른" 상황이 생긴다.
+java_binary(
+    name = "migrate",
+    main_class = "com.mz2az.scenetrip.sceneapi.DbMigrate",
+    runtime_deps = [
+        ":scene-api",
+        "@maven//:org_flywaydb_flyway_core",
+        "@maven//:org_flywaydb_flyway_database_postgresql",
+        "@maven//:org_postgresql_postgresql",
+    ],
+)
+
+# 실제 PostgreSQL 에 SQL 을 태우는 레인. `just test-integration` 이 돌린다.
+#
+# 왜 필요한가: :unit_test 는 Store 를 가짜로 바꿔 끼우므로 SQL 이 한 줄도 실행되지
+# 않는다. Store 4 개의 질의 1,100 줄이 컬럼 오타 하나에도 게이트를 통과하고, 운영에서
+# 처음 터진다. 실제로 검색 분기 하나가 빠져 작품 탭이 비어 있었는데 게이트는 내내
+# 초록이었다 — 이 레인이 그 자리를 메운다.
+#
+# 태그의 뜻:
+#   integration     `just test` 에서 제외되고 `just test-integration` 에서만 돈다.
+#   requires-network  샌드박스의 망 차단을 풀어 준다. DB 로 TCP 를 열어야 한다.
+#   external        캐시하지 않고 매번 실행한다. 입력 파일이 그대로여도 DB 내용은
+#                   바뀌므로, 캐시된 초록은 "지금도 통과한다" 는 뜻이 아니다.
+#
+# size 가 medium 인 이유: 접속과 질의가 있어 small 의 기본 제한(60 초)에 걸릴 수 있다.
+java_junit5_test(
+    name = "integration_test",
+    size = "medium",
+    srcs = glob(["tests/integration/java/**/*.java"]),
+    tags = [
+        "external",
+        "integration",
+        "requires-network",
+    ],
+    test_package = "com.mz2az.scenetrip.sceneapi",
+    runtime_deps = [
+        "@maven//:org_postgresql_postgresql",
+    ],
+    deps = [
+        ":scene-api",
+        "//contracts/openapi:scene_api_spring_lib",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_springframework_spring_jdbc",
+    ],
+)
+
 java_junit5_test(
     name = "unit_test",
     size = "small",
@@ -99,9 +161,13 @@ java_junit5_test(
     deps = [
         ":scene-api",
         "//contracts/openapi:scene_api_spring_lib",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        # Span.makeCurrent() 가 여기 있다. api 가 전이로 끌어오지만 직접 쓰므로 명시한다.
+        "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:org_assertj_assertj_core",
         "@maven//:org_hamcrest_hamcrest",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_springframework_boot_spring_boot_test",
         "@maven//:org_springframework_boot_spring_boot_test_autoconfigure",
         "@maven//:org_springframework_boot_spring_boot_webmvc_test",

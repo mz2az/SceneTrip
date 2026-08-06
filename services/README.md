@@ -4,7 +4,12 @@
 전제하며, 서로 대등한 관계다 — 중첩하지 않는다.
 
 기본 언어는 **Java(Spring Boot)** 다. 헬스체크 경로는 Spring Actuator 기준으로
-`/actuator/health` 이며, `just cluster-doctor` 와 배포 매니페스트가 이 경로를 쓴다.
+`/actuator/health` 이며, `just health` 와 배포 매니페스트가 이 경로를 쓴다.
+
+**API 버전을 경로에 두는 서비스는 그 앞에 접두사가 붙는다.** `server.servlet.context-path`
+가 actuator 까지 함께 밀기 때문이다 — scene-api 는 `/v1/actuator/health` 다. 계약
+(`contracts/openapi/*.yaml`)의 `servers.url` 이 정본이고, 프로브 경로를 거기에 맞춘다.
+빠뜨리면 애플리케이션은 멀쩡한데 프로브만 404 를 받아 파드가 영원히 준비되지 않는다.
 
 ```
 services/<이름>/
