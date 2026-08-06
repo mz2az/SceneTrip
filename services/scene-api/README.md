@@ -7,8 +7,28 @@
 SceneTrip 앱의 **검색·지도 탭**을 받치는 백엔드다. 작품·촬영지·인물을 검색하고, 지도
 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담는 API 를 제공한다.
 
-**엔드포인트는 아직 없다.** 기동·상태 점검과 **DB 스키마 마이그레이션**까지 한다 —
-실제 엔드포인트는 [MZ2AZ-149](https://mz2az.atlassian.net/browse/MZ2AZ-149) 가 채운다.
+엔드포인트는 **9개**이고 전부 구현돼 있다. 경로는 명세의 `servers.url` 을 따라 `/v1`
+아래에 있다.
+
+| 경로 | 하는 일 |
+| --- | --- |
+| `GET /v1/search/suggestions` | 자동완성. **이름·별칭만** 본다 (설명 제외) |
+| `GET /v1/contents` | 작품 목록·검색 |
+| `GET /v1/contents/{contentId}` | 작품 상세 |
+| `GET /v1/contents/{contentId}/places` | 한 작품의 촬영지 |
+| `GET /v1/places` | 촬영지 목록·검색·지도 조회 (`q`·`bbox`·반경) |
+| `GET /v1/places/{placeId}` | 촬영지 상세 |
+| `GET /v1/cart` | 장바구니 조회 |
+| `POST /v1/cart/items` | 장바구니에 담기 |
+| `DELETE /v1/cart/items/{placeId}` | 장바구니에서 빼기 |
+
+**검색은 통합검색이다.** `GET /contents?q=` 와 `GET /places?q=` 가 같은 텍스트 뭉치(장소명·
+장소 설명·작품 제목·작품 설명·인물 이름)를 보고, 걸린 것을 `place_content` 로 **양방향**
+으로 옮긴다. 그래서 `도깨비` 를 쳐도 `북촌한옥마을` 을 쳐도 두 탭이 모두 채워진다.
+엔드포인트를 나눈 이유는 탭마다 페이지네이션이 따로 필요해서다.
+
+두 방향이 어긋나면 한쪽 탭이 조용히 비므로 `SearchSymmetryIntegrationTest` 가 지킨다
+(아래 [테스트](#테스트)).
 
 ## 인터페이스
 
@@ -17,15 +37,23 @@ SceneTrip 앱의 **검색·지도 탭**을 받치는 백엔드다. 작품·촬�
 | 프로토콜 | HTTP |
 | 컨테이너 포트 | `8080` |
 | 클러스터 노출 | NodePort `30081` → 호스트 `8081` (`platform/kind/cluster.yaml` 이 매핑) |
-| 계약 | [`contracts/openapi/scene-api-v1.yaml`](../../contracts/openapi/scene-api-v1.yaml) — **아직 구현하지 않음.** MZ2AZ-149 에서 생성된 인터페이스를 구현한다 |
+| 경로 접두사 | `/v1` — `server.servlet.context-path`. 명세의 `servers.url` 이 정본이다 |
+| 계약 | [`contracts/openapi/scene-api-v1.yaml`](../../contracts/openapi/scene-api-v1.yaml) — 컨트롤러가 여기서 **생성된 인터페이스를 구현**한다. 명세와 어긋나면 컴파일이 실패한다 |
+
+`/v1` 은 손으로 붙인 접두사다. OpenAPI 의 `servers.url` 은 "이 API 가 어디에 매달려 있는가"
+이고 `paths` 는 그 아래의 경로라, 생성기는 서버 인터페이스에 `/places` 만 매핑한다 —
+접두사는 배포가 붙이는 몫이다. **actuator 도 함께 밀린다**(아래 상태 점검 경로).
+
+응답에서 **값이 없는 필드는 빠진다** (`spring.jackson.default-property-inclusion: non_null`).
+기준점 없이 부른 목록에 `distanceMeters` 가 없고, 500 이 아닌 오류에 `traceId` 가 없다.
 
 ### 상태 점검 경로
 
 | 경로 | 용도 |
 | --- | --- |
-| `/actuator/health` | 전체 상태. `startupProbe` 가 본다 |
-| `/actuator/health/liveness` | 프로세스가 살아 있는가. `livenessProbe` |
-| `/actuator/health/readiness` | 트래픽을 받을 준비가 됐는가. `readinessProbe` |
+| `/v1/actuator/health` | 전체 상태. `startupProbe` 가 본다 |
+| `/v1/actuator/health/liveness` | 프로세스가 살아 있는가. `livenessProbe` |
+| `/v1/actuator/health/readiness` | 트래픽을 받을 준비가 됐는가. `readinessProbe` |
 
 `liveness`·`readiness` 그룹은 Spring 기본값이 꺼져 있어 `application.yaml` 에서 켰다.
 
@@ -36,6 +64,9 @@ SceneTrip 앱의 **검색·지도 탭**을 받치는 백엔드다. 작품·촬�
 | Spring Boot 4.1 (`web`, `actuator`) | HTTP 서버와 상태 점검 |
 | `@maven//:...spring_boot_loader` | 실행 가능 jar 의 부트스트랩. `springboot()` 의 `deps` 로 넘긴다 |
 | Spring Boot 4.1 (`jdbc`, `flyway`) | DataSource 와 마이그레이션 자동 구성 |
+| Spring Boot 4.1 (`validation`) | `@Size`·`@Min` 을 **실제로 검사하는 구현**. 없으면 표식만 붙고 검사가 일어나지 않아, 명세가 400 을 약속한 요청이 통과한다 |
+| `spring-webmvc` | `NoResourceFoundException` — 없는 경로를 404 로 바꾼다. `spring-web` 이 아니다 |
+| `contracts/openapi:scene_api_spring_lib` | 명세에서 생성한 인터페이스와 응답 모델 |
 | Flyway 12.4 + `flyway-database-postgresql` | 스키마 마이그레이션 |
 | PostgreSQL JDBC 42.7 | 드라이버 |
 | **PostgreSQL 17 + PostGIS 3.5** | `platform/kubernetes/postgres/`. 같은 네임스페이스의 `postgres` Service |
@@ -57,6 +88,8 @@ initContainer 가 있다.
 | `V2__schema.sql` | 테이블 14 개 + 인덱스 |
 | `V3__search_term.sql` | `search_normalize()` 함수와 `search_term` MATERIALIZED VIEW |
 | `V4__drop_unused_postgis_extensions.sql` | 이미지가 기본으로 켜는 tiger geocoder·topology 제거 |
+| `V5__cart_item.sql` | 장바구니. 기기 UUID 와 장소의 복합 기본키가 중복 담기를 막는다 |
+| `V6__place_geometry_index.sql` | 지도 뷰포트 질의(`geom::geometry`)가 탈 표현식 GiST 인덱스 |
 
 **적용된 마이그레이션 파일은 고치지 않는다.** Flyway 가 체크섬을 기록해 두어, 파일이
 바뀌면 다음 기동에서 검증 실패로 죽는다. 뒤에 새 번호로 붙인다.
@@ -103,11 +136,41 @@ Gradle·Maven 을 빌드 경로로 쓰지 않으므로 이 모듈에 `build.grad
 `Dockerfile` 은 빌드하지 않는다 — 최종 이미지에 JDK 가 들어가지 않는다.
 빌드 컨텍스트는 `tools/scripts/image-build.sh` 가 임시 디렉터리에 만든다.
 
+## 테스트
+
+레인이 둘이고 **보는 것이 다르다.**
+
+| 타깃 | 레인 | 무엇을 보는가 | DB |
+| --- | --- | --- | --- |
+| `:unit_test` | `just test` | HTTP 계층 — 파라미터 검증, 오류 코드, 응답 모양 | 필요 없음 (Store 를 가짜로 끼움) |
+| `:integration_test` | `just test-integration` | Store 의 SQL 이 실제로 성립하는가 | **실제 PostgreSQL** |
+
+통합 테스트가 필요한 이유는 단위 테스트가 Store 를 가짜로 바꿔 끼우기 때문이다. 그
+상태에서는 SQL 이 한 줄도 실행되지 않아, 컬럼 이름 오타나 `ST_DWithin` 의 인자 순서
+같은 것이 게이트를 그대로 통과해 운영에서 처음 터진다. 실제로 검색 분기 하나가 빠져
+장소 이름으로 검색하면 작품 탭이 비어 있었는데, 게이트는 내내 초록이었다.
+
+```bash
+just cluster-up          # 최초 1회 — 클러스터와 postgres
+just seed                # 데이터 적재
+just db-refresh-search   # 검색 색인 갱신
+just test-integration    # 포트포워드를 세우고 실행한다
+```
+
+`just test-integration` 이 `kubectl port-forward` 를 세우고 접속 정보를 환경변수로
+넘긴다. 접속 정보가 없으면 테스트는 **건너뛰지 않고 실패한다** — 조용히 0 개 실행되고
+초록인 상태가 가장 나쁘기 때문이다.
+
+가장 중요한 것은 `SearchSymmetryIntegrationTest` 다. "검색어 하나가 작품 탭과 장소 탭을
+모두 채운다" 를 지킨다. 두 Store 의 매칭 규칙이 각자의 SQL 에 나뉘어 적혀 있어, 검색
+대상을 늘릴 때 한쪽만 고치면 다시 어긋난다.
+
 ## 명령
 
 ```bash
 just build-module services/scene-api    # 빌드
 just test-module  services/scene-api    # 테스트
+just test-integration                   # 실제 DB 에 SQL 을 태우는 레인
 just run //services/scene-api:bin       # 로컬 실행 (기본 8080)
 
 just image  scene-api                   # 이미지 굽고 kind 에 적재
@@ -119,7 +182,7 @@ just logs   scene-api                   # 로그 따라가기
 배포 후 확인 — `port-forward` 가 필요 없다.
 
 ```bash
-curl http://localhost:8081/actuator/health
+curl http://localhost:8081/v1/actuator/health
 ```
 
 ## 설정
