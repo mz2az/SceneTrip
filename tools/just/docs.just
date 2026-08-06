@@ -30,7 +30,10 @@ adr-new title:
 adr-list:
     @grep -H '^status:' docs/architecture/adr/*.md 2>/dev/null || echo "아직 ADR 이 없습니다"
 
-# contracts/ 로부터 API 레퍼런스 문서 재생성
+# 명세(contracts/openapi/)를 엔드포인트별로 펼친 단일 HTML 을 만들어 브라우저로 연다.
+# 생성물은 커밋하지 않는다 — 명세가 진실이고 문서는 그때그때 만든다.
+#
+# contracts/ 로부터 API 레퍼런스를 만들어 브라우저로 열기
 [group('docs')]
 docs-api:
     ./tools/scripts/docs-api.sh

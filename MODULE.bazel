@@ -79,6 +79,29 @@ http_file(
     urls = ["https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.30.0/opentelemetry-javaagent.jar"],
 )
 
+# --- API 문서 렌더러 ------------------------------------------------------------
+#
+# 명세를 사람이 읽는 화면으로 그리는 자바스크립트다. `just docs-api` 가 이것과 명세를
+# 합쳐 혼자 열리는 HTML 한 장을 만든다 (contracts/openapi/BUILD.bazel).
+#
+# **왜 생성기의 문서 기능을 안 쓰는가.** OpenAPI Generator 7.2.0 의 html2 는 응답 스키마
+# 창이 26 곳 중 24 곳 비어 나오고(allOf 조합 스키마를 JSON 으로 만들지 못한다), html 은
+# 표는 채우지만 enum 의 허용값을 빼먹는다. 우리 명세는 ContentDetail·PlaceDetail 이
+# allOf 를 쓰고 Lang·ContentCategory 가 enum 이라 둘 다 정면으로 걸린다.
+#
+# **왜 CDN 을 걸지 않는가.** 문서를 열 때마다 네트워크를 타면 비행기 안에서도, 사내망
+# 에서도 빈 화면이 된다. 여기서 받아 파일에 박아 넣으면 그런 일이 없다. sha256 을
+# 고정하므로 받은 것이 우리가 기대한 것인지도 확인된다 — otel 에이전트와 같은 방식이다.
+#
+# 버전을 latest 가 아니라 v2.5.0 으로 박은 이유: latest 는 내용이 바뀌는 URL 이라
+# sha256 이 어느 날 갑자기 어긋나 빌드가 깨진다.
+http_file(
+    name = "redoc_standalone_js",
+    downloaded_file_path = "redoc.standalone.js",
+    sha256 = "0ec05be285ac885a330289b02f470e1bdbd2b6b3223a9fa213f24bf805a851d1",
+    urls = ["https://cdn.redoc.ly/redoc/v2.5.0/bundles/redoc.standalone.js"],
+)
+
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
     name = "maven",

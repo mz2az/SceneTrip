@@ -20,3 +20,18 @@
 - `e2e` — 전체 스택
 - `slow` — 30초 초과
 - `manual` — 와일드카드로 절대 선택되지 않음
+
+## CI 가 덮지 않는 레인
+
+**`integration` 과 `e2e` 는 GitHub CI 에서 돌지 않는다.** 러너에 실제 PostgreSQL 도
+클러스터도 없어서 `just ci-full` 이 두 태그를 제외한다. 그러니 이 레인들은 **사람이
+돌려야 지켜진다.**
+
+```bash
+just cluster-up && just seed && just db-refresh-search
+just test-integration
+```
+
+레인을 러너에서 돌리려면 CI 잡이 DB 를 띄우고 마이그레이션과 적재까지 해야 한다.
+지금은 `just seed` 가 `kubectl exec` 로 동작해 클러스터에 묶여 있다 — 그것을 푸는 것이
+선결 과제다.
