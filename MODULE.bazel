@@ -68,6 +68,10 @@ maven.install(
         "org.springframework.boot:spring-boot-starter-web:4.1.0",
         "org.springframework.boot:spring-boot-starter-actuator:4.1.0",
         "org.springframework.boot:spring-boot-starter-test:4.1.0",
+        # @WebMvcTest 는 starter-test 에 없다. Spring Boot 4 는 자동 구성뿐 아니라
+        # **테스트 슬라이스도** 기술별 모듈로 쪼갰다 — Flyway 때와 같은 패턴이다.
+        # 컨트롤러를 DB 없이 HTTP 계층만 띄워 검사하는 데 쓴다.
+        "org.springframework.boot:spring-boot-webmvc-test:4.1.0",
         # 실행 가능 jar 의 부트스트랩 클래스. jar 루트에 풀려 들어가고
         # MANIFEST 의 Main-Class 가 이것을 가리킨다. 없으면 jar 가 실행되지 않는다.
         "org.springframework.boot:spring-boot-loader:4.1.0",
@@ -89,6 +93,22 @@ maven.install(
         #   flyway-core                   엔진. 스타터가 끌어오지만 버전을 여기서 고정한다.
         "org.springframework.boot:spring-boot-starter-jdbc:4.1.0",
         "org.springframework.boot:spring-boot-starter-flyway:4.1.0",
+
+        # 명세에서 생성한 Spring 인터페이스를 컴파일하는 데 필요한 것들.
+        # 컨트롤러가 그 인터페이스를 구현하므로 계약 위반이 컴파일 오류가 된다
+        # (contracts/openapi/BUILD.bazel).
+        #
+        # starter-validation 은 컴파일이 아니라 **실행**을 위해 필요하다.
+        # jakarta.validation-api 는 @Size·@Min 같은 표식만 정의하고, 그것을 실제로
+        # 검사하는 구현(hibernate-validator)은 별도다. 없으면 표식이 붙어 있는데도
+        # 아무 검사가 일어나지 않아, 명세가 400 을 약속한 요청이 그대로 통과한다.
+        "org.springframework.boot:spring-boot-starter-validation:4.1.0",
+        "jakarta.validation:jakarta.validation-api:3.1.1",
+        "jakarta.annotation:jakarta.annotation-api:3.0.0",
+        "jakarta.servlet:jakarta.servlet-api:6.1.0",
+        # 생성 코드가 @Operation·@Schema 로 명세를 코드에 다시 적어 둔다. 우리가 읽는
+        # 것은 아니지만 없으면 컴파일이 안 된다.
+        "io.swagger.core.v3:swagger-annotations:2.2.53",
         "org.flywaydb:flyway-core:12.4.0",
         "org.flywaydb:flyway-database-postgresql:12.4.0",
         "org.postgresql:postgresql:42.7.11",
