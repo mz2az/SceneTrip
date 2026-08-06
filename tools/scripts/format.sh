@@ -70,8 +70,13 @@ if has_files '*.kt'; then
 fi
 
 # --- Swift (apps/ iOS, libs/swift/) -------------------------------------------
+#
+# Apple 플랫폼에서만 돈다 — 근거는 lint.sh 의 같은 절 주석. 건너뛴 사실은 --check
+# 모드에서도 경고로 남긴다. 실제 검사는 CI 의 verify-macos 잡이 한다.
 if has_files '*.swift'; then
-  if have swiftformat; then
+  if [ "$(uname -s)" != "Darwin" ]; then
+    warn "Swift 포맷 검사를 건너뜁니다 — Apple 플랫폼이 아닙니다. CI 의 verify-macos 잡이 검사합니다."
+  elif have swiftformat; then
     ran=1
     if [ "$CHECK" -eq 1 ]; then swiftformat --lint .; else swiftformat .; fi
   elif have swift-format; then

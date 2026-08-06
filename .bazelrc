@@ -28,8 +28,16 @@ build --symlink_prefix=bazel-
 # 가 호스트 OS 이름의 config 를 자동 적용한다). macOS 에서는 아무것도 거르지 않는다.
 #
 # 주의: 테스트 레인 레시피가 명령줄에서 --test_tag_filters 를 넘기면 이 값을
-# **덮어쓴다** (태그 필터는 누적이 아니다). 첫 iOS 테스트 타깃이 생기면 그 레시피들에
-# -ios 를 함께 넣어야 한다 — CI macOS 잡을 만들 때(계획서 §5-4) 같이 정리한다.
+# **덮어쓴다** (태그 필터는 누적이 아니다). 즉 아래 test:linux 줄은 `just test` 계열에
+# 실제로는 걸리지 않는다.
+#
+# 지금 무해한 이유는 iOS 테스트 타깃이 0 개이기 때문이다 (apps/scenetrip-ios/BUILD.bazel
+# 의 ":unit_test 는 아직 없다"). **첫 iOS 테스트 타깃이 생기는 시점**이 이것을 정리할
+# 때다 — CI macOS 잡을 만들 때 같이 하려 했으나(계획서 §5-4) 그 잡만으로는 고칠 수
+# 없다는 것이 드러났다. 레시피에 -ios 를 그냥 더하면 macOS 잡에서도 iOS 테스트가
+# 걸러져 정작 검사해야 할 곳이 검사를 안 하게 된다. 올바른 해법은 필터를 명령줄에서
+# 빼 .bazelrc 로 옮겨 플랫폼별 config 가 이기게 하는 것이고, 그것은 tools/just/test.just
+# 를 함께 고쳐야 한다.
 build:linux --build_tag_filters=-ios
 test:linux --test_tag_filters=-ios
 
