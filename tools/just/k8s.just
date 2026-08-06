@@ -132,6 +132,18 @@ db-schema:
     @just db-psql '\dm public.*'
     @just db-psql 'SELECT extname, extversion FROM pg_extension ORDER BY extname;'
 
+# V6 수집 데이터를 적재한다. 인자가 없으면 저장소의 표본 12 행.
+#
+# 전량은 볼트의 CSV 를 가리킨다 — 저장소에는 두지 않는다. 데이터가 정제 전이라
+# 정본은 볼트에 있고, 저장소에는 볼트 없이도 동작을 확인할 만큼만 둔다.
+# 예: `just seed` · `just seed ~/mz2az/.../촬영지_TOP_v6_정예4작품.csv`
+#
+# **적재된 기존 데이터를 지우고 다시 넣는다.** content·person 에 자연키가 없어
+# ON CONFLICT 로는 멱등을 만들 수 없다. 로컬 kind 에서만 동작한다.
+[group('db')]
+seed *csv:
+    ./tools/scripts/seed.sh {{ csv }}
+
 # 적재 후 검색 색인 갱신. CONCURRENTLY 라 갱신 중에도 검색이 계속 응답한다.
 [group('db')]
 db-refresh-search:

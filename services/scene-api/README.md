@@ -68,6 +68,20 @@ just db-psql              # psql 접속 (파드 안에서 실행)
 just db-refresh-search    # 적재 후 search_term 갱신
 ```
 
+### 데이터 적재
+
+스키마는 Flyway 가, **데이터는 `just seed` 가** 넣는다. 마이그레이션에 `INSERT` 를
+넣지 않은 이유는 데이터가 바뀔 때마다 마이그레이션이 쌓이기 때문이다 — 정제된
+V7·V8 이 나와도 명령 한 번으로 갈아 끼운다.
+
+```bash
+just seed                    # 저장소의 표본 12 행
+just seed <볼트 CSV 경로>    # 전량
+```
+
+**적재된 기존 데이터를 지우고 다시 넣는다.** 자세한 것은
+[`seed/README.md`](seed/README.md).
+
 ### search_term 은 왜 MATERIALIZED VIEW 인가
 
 검색어 색인은 `place_i18n`·`place_alias`·`content_i18n`·`content_alias`·`person_i18n`

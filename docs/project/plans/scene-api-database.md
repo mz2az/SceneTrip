@@ -131,12 +131,20 @@ services/scene-api/src/main/resources/db/migration/
 └── V4__drop_unused_postgis_extensions.sql
                                 이미지가 기본으로 켜는 tiger geocoder·topology 제거
 
-services/scene-api/src/main/resources/seed/
-└── v6-sample.csv               확인용 소수 행
+services/scene-api/seed/
+├── v6-sample.csv               확인용 12 행 (4 작품 × 장소 3 곳)
+├── v6.sql                      CSV → 14 개 테이블 변환. 표본·전량 공용
+└── README.md                   표본 선정 근거와 정제 전이라 감수한 것들
 
-tools/scripts/seed.sh           CSV → DB. `just seed` 가 호출
-tools/just/dev.just             seed 레시피
+tools/scripts/seed.sh           CSV 를 파드로 옮기고 v6.sql 을 먹인다
+tools/just/k8s.just             seed 레시피
 ```
+
+계획과 두 곳이 다르다. **`src/main/resources/seed/` 가 아니라 `seed/`** 인 이유는
+앱이 이 CSV 를 읽지 않기 때문이다 — 읽는 것은 `seed.sh` 다. `resources/` 에 두면
+쓰지도 않는 데이터가 실행 jar 에 들어간다. **레시피가 `dev.just` 가 아니라
+`k8s.just`** 인 이유는 적재가 클러스터의 DB 파드를 상대로 돌기 때문이다 — `db-psql`
+같은 이웃 레시피와 같은 자리다.
 
 ## 7. 완료 조건
 
@@ -144,16 +152,33 @@ tools/just/dev.just             seed 레시피
 1. just deploy postgres local        파드 Running, PVC 바인딩              ✅ MZ2AZ-176
 2. just deploy scene-api local       Flyway 마이그레이션이 돌고 앱이 뜬다   ✅ MZ2AZ-176
 3. just db-schema                    테이블 14 개 확인                      ✅ MZ2AZ-176
-4. just seed                         샘플이 들어간다                        ⬜ MZ2AZ-177
-5. search_term 조회                  '도깨비' · 'Goblin' 둘 다 걸린다       ✅ MZ2AZ-176 (임시 데이터)
+4. just seed                         샘플이 들어간다                        ✅ MZ2AZ-177
+5. search_term 조회                  '도깨비' · 'Goblin' 둘 다 걸린다       ✅ MZ2AZ-177
 6. 반경 검색 SQL                     GiST 인덱스를 타는지 EXPLAIN 으로 확인  ✅ MZ2AZ-176
 7. just check                        게이트 초록                            ✅
 ```
 
 5 번이 핵심이다. 스키마가 제대로 섰는지는 테이블 개수가 아니라 **검색이 실제로
-동작하는가**로 판정한다. 적재(177) 전이라 트랜잭션 안에 임시 행을 넣고 확인한 뒤
-`ROLLBACK` 했다 — `도깨비`·`Goblin`·`쓸쓸하고찬란하神도깨비`(구두점·공백 무시) 셋 다
-걸렸고, 6 번은 5,000 개를 흩뿌린 뒤 `Bitmap Index Scan on place_geom_idx` 를 확인했다.
+동작하는가**로 판정한다. 6 번은 5,000 개를 흩뿌린 뒤 `Bitmap Index Scan on
+place_geom_idx` 를 확인했다.
+
+적재 후 실측:
+
+```
+표본 12 행  →  작품 4 · 장소 10 · place_content 12 · search_term 45
+전량 164 행 →  작품 4 · 장소 155 · place_content 157 · search_term 190
+
+'도깨' 검색       도깨비 (ko, 109)  ·  Goblin (lang 없음, 89)
+'케데헌' 검색     케데헌 (content)              ← 별칭
+'공유' 검색       공유 (person)                 ← 인물
+북촌한옥마을      도깨비 / 케이팝 데몬 헌터스   ← N:M
+일월수목원        눈물의 여왕 / 이태원 클라쓰   ← N:M
+광화문 반경 5km   북촌한옥마을 955m · 낙산공원 2754m · N서울타워 2908m
+```
+
+`just seed` 를 두 번 연속 돌려 결과가 같은 것도 확인했다(작품 4 · 장소 10 · id 1~10).
+전량 164 행도 같은 변환으로 오류 없이 들어간다 — 저장소에 두지 않을 뿐 변환이
+표본 전용은 아니다.
 
 ## 7-1. 만들면서 드러난 것 (실측)
 
@@ -169,6 +194,18 @@ tools/just/dev.just             seed 레시피
 한 가지 더 — **적용된 마이그레이션 파일은 고치지 않는다.** Flyway 가 체크섬을 기록해
 두어 파일이 바뀌면 다음 기동에서 검증 실패로 죽는다. 위 셋째 항목을 `V1` 에 넣지 않고
 `V4` 로 붙인 이유가 그것이다.
+
+적재(177)에서도 하나 더 나왔다. **`ON CONFLICT` 로 멱등을 만들 수 없다.** `place` 는
+`naver_place_url` 이 유니크라 되지만 `content`·`person` 에는 자연키가 없다 — 같은
+작품을 두 번 넣어도 DB 는 그것이 같은 작품인지 알 방법이 없다. 그래서 `just seed` 는
+**시드 데이터를 통째로 갈아 끼운다**(`TRUNCATE ... RESTART IDENTITY CASCADE`).
+로컬 개발 DB 의 표본 데이터라서 성립하는 방식이고, `seed.sh` 가 kind 컨텍스트가
+아니면 실행을 거부한다.
+
+수집 데이터 자체의 문제도 드러났다. 정제 전이라 예상된 것이고, 스키마를 바꾸지 않고
+넘어간다 — 목록은 [`services/scene-api/seed/README.md`](../../../services/scene-api/seed/README.md)
+에 있다. 가장 눈에 띄는 것은 **같은 장소의 `place_type` 이 행마다 다른 경우**다
+(일월수목원 = `자연` · `공원`).
 
 ## 8. 아직 정하지 않은 것
 
@@ -188,3 +225,6 @@ tools/just/dev.just             seed 레시피
 | 인기도 계산 | 지금은 적재 시 하드코딩. 사용자 행동(`user_event`)이 쌓이면 배치로 계산 |
 | 장르 다국어 | `content.genres` 는 현재 수집 언어(한국어) 문자열이다. 장르별 필터가 생기면 코드 테이블로 승격하고 i18n 을 붙인다 |
 | 원격 환경 DB | `platform/environments/` 가 생기면 ConfigMap 참조를 Secret 참조로 바꾼다. 애플리케이션은 그대로다 |
+| `place_type` 코드표 | 지금은 한국어 라벨 37 종이 그대로 들어간다. 스키마 주석은 '코드값' 이라고 되어 있으나 매핑표가 정의된 적이 없다. 유형 필터가 생길 때 함께 정한다 |
+| 장소 다국어 | `place_i18n` 에 `ko` 만 있다. 수집 데이터에 영어 장소명이 없다 — 번역이 들어오면 채운다 |
+| 데이터 정제 | `place_type` 이 같은 장소에서 갈리는 문제 등. 정제된 V7 이 나오면 `just seed <새 경로>` 로 갈아 끼운다 |
