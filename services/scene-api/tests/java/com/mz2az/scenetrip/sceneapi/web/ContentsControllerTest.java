@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.mz2az.scenetrip.sceneapi.api.model.ContentCategory;
 import com.mz2az.scenetrip.sceneapi.api.model.ContentSummary;
 import com.mz2az.scenetrip.sceneapi.content.ContentStore;
+import com.mz2az.scenetrip.sceneapi.place.PlaceStore;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,9 @@ class ContentsControllerTest {
   @Autowired private MockMvc mvc;
 
   @MockitoBean private ContentStore store;
+
+  // 이 컨트롤러는 /contents/{id}/places 도 담당해서 장소 저장소를 함께 쓴다.
+  @MockitoBean private PlaceStore placeStore;
 
   private void givenContents(int total, ContentSummary... items) {
     when(store.list(any(), any(), any(), any(), anyInt(), anyInt()))

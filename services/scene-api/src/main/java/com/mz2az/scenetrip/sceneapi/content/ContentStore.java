@@ -124,6 +124,20 @@ public class ContentStore {
         rows.stream().anyMatch(Row::inRequestedLang));
   }
 
+  /**
+   * 그 작품이 있는가.
+   *
+   * <p>{@code GET /contents/&#123;id&#125;/places} 가 이것을 먼저 본다. 없는 작품의 촬영지를 조회하면 빈 목록이 나오는데, 그것은
+   * "촬영지가 아직 없는 작품" 과 구별되지 않는다. 앞의 것은 404 여야 하고 뒤의 것은 빈 배열이 맞다.
+   */
+  public boolean exists(long contentId) {
+    return Boolean.TRUE.equals(
+        jdbc.sql("SELECT EXISTS (SELECT 1 FROM content WHERE id = :id)")
+            .param("id", contentId)
+            .query(Boolean.class)
+            .single());
+  }
+
   private static Row mapRow(ResultSet rs, int rowNum) throws SQLException {
     ContentSummary summary =
         new ContentSummary(
