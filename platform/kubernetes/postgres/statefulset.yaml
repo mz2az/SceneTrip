@@ -1,0 +1,100 @@
+# PostgreSQL + PostGIS.
+#
+# **Deployment 가 아니라 StatefulSet 인 이유:** 데이터가 파드 재시작에 살아남아야 한다.
+# StatefulSet 의 volumeClaimTemplates 는 파드가 죽어도 같은 PVC 를 다시 붙여 주지만,
+# Deployment 에 PVC 를 달면 롤링 업데이트 때 새 파드가 같은 볼륨을 잡으려다 교착된다.
+#
+# **PostGIS 이미지를 쓰는 이유:** 일반 postgres 로는 스키마가 만들어지지 않는다.
+# DBML 이 place.geom 을 GEOGRAPHY(Point,4326) 로 정의하고 GiST 인덱스를 건다.
+#
+# **공식 postgis/postgis 가 아니라 imresamu/postgis 인 이유:** 공식 이미지는 amd64 만
+# 낸다. Apple Silicon 에서 "no match for platform in manifest" 로 파드가 뜨지 않는다
+# (실측). imresamu 는 공식 postgis/docker-postgis 저장소의 2 위 기여자로 같은 빌드를
+# 멀티아키텍처로 내며, arm64(로컬)와 amd64(CI) 를 한 태그로 덮는다.
+#
+# 개인 네임스페이스라는 점은 감수한다. 로컬 개발 DB 이고, 원격 환경이 생기면 그때
+# 공급망을 다시 본다.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: scenetrip
+    app.kubernetes.io/managed-by: scenetrip
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: scenetrip
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999 # postgres 이미지의 postgres 사용자
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: postgres
+          image: imresamu/postgis:17-3.5
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: postgres
+          env:
+            # 기본 데이터 디렉터리는 마운트 지점 자체라, 볼륨에 lost+found 같은 것이
+            # 있으면 initdb 가 "디렉터리가 비어 있지 않다" 며 실패한다. 한 단계 아래로
+            # 내려 그 문제를 피한다.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          # 프로브는 pg_isready 로 본다. TCP 연결만으로는 "포트는 열렸는데 아직 복구
+          # 중" 인 상태를 통과시킨다.
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-U", "scenetrip", "-d", "scenetrip"]
+            periodSeconds: 2
+            failureThreshold: 60 # initdb + PostGIS 확장 설치에 시간이 걸린다
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "scenetrip", "-d", "scenetrip"]
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "scenetrip", "-d", "scenetrip"]
+            periodSeconds: 15
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi

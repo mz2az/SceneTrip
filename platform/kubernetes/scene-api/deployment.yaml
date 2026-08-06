@@ -32,6 +32,44 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       terminationGracePeriodSeconds: 30
+      # DB 가 응답할 때까지 기다렸다가 앱을 띄운다.
+      #
+      # 없으면 어떻게 되냐면 — 앱은 기동하면서 Flyway 마이그레이션을 돌리려고 DB 에
+      # 접속한다. DB 가 아직이면 예외로 죽고, 파드는 CrashLoopBackOff 에 들어간다.
+      # 재시작 간격이 지수적으로 늘어나서 DB 가 10 초 뒤에 떠도 앱은 몇 분을 더 기다린다.
+      # `just deploy postgres local` 을 먼저 하는 것으로도 대부분 맞지만, 순서를
+      # 사람의 기억에 맡기지 않는다 (docs/installs/k8s_install.md §16).
+      #
+      # 이미지를 postgres 것으로 쓰는 이유: pg_isready 가 들어 있고 이미 노드에 적재돼
+      # 있어 추가로 받아올 것이 없다. busybox 로 포트만 확인하면 "포트는 열렸는데 아직
+      # 복구 중" 인 상태를 통과시킨다 — StatefulSet 의 프로브와 같은 이유다.
+      initContainers:
+        - name: wait-for-db
+          image: imresamu/postgis:17-3.5
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432 -U "$POSTGRES_USER"; do
+                echo "postgres 대기 중..."
+                sleep 2
+              done
+          envFrom:
+            - configMapRef:
+                name: postgres
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
       containers:
         - name: scene-api
           image: scene-api:dev
@@ -43,6 +81,22 @@ spec:
           envFrom:
             - configMapRef:
                 name: scene-api
+          # DB 자격 증명은 postgres 의 ConfigMap 을 그대로 가리킨다. 값을 여기 옮겨
+          # 적으면 한쪽만 바뀌는 날이 온다 — 접속 정보의 정본은 DB 를 정의한 쪽 하나다.
+          #
+          # 원격 환경에서는 이 두 블록의 configMapKeyRef 가 secretKeyRef 로 바뀐다.
+          # 참조 방식만 바뀌고 애플리케이션은 그대로다.
+          env:
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres
+                  key: POSTGRES_PASSWORD
           resources:
             requests:
               cpu: 100m
