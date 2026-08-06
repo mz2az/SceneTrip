@@ -36,13 +36,30 @@ kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 || kubectl create namespace "
 log "$MANIFESTS 를 네임스페이스 $NAMESPACE 에 적용"
 kubectl apply -f "$MANIFESTS" -n "$NAMESPACE"
 
-if kubectl get "deployment/$MODULE" -n "$NAMESPACE" >/dev/null 2>&1; then
-  if ! kubectl rollout status "deployment/$MODULE" -n "$NAMESPACE" --timeout=180s; then
+# Deployment 와 StatefulSet 둘 다 기다린다.
+#
+# 이전에는 Deployment 만 봤다. 그래서 상태를 가진 모듈(예: postgres)은 파드가
+# ImagePullBackOff 로 죽어 있는데도 "배포 완료" 라고 보고했다 — 게이트가 거짓말을 하는
+# 그 실패 방식이다. 기다리지 않으면 뒤따르는 배포(백엔드)가 DB 가 준비된 줄 알고 뜬다.
+WORKLOAD=""
+for kind in deployment statefulset; do
+  if kubectl get "$kind/$MODULE" -n "$NAMESPACE" >/dev/null 2>&1; then
+    WORKLOAD="$kind/$MODULE"
+    break
+  fi
+done
+
+if [ -n "$WORKLOAD" ]; then
+  log "$WORKLOAD 롤아웃 대기"
+  if ! kubectl rollout status "$WORKLOAD" -n "$NAMESPACE" --timeout=300s; then
     warn "롤아웃이 끝나지 않았습니다 — 파드 상태는 아래와 같습니다"
-    kubectl get pods -n "$NAMESPACE" -l "app=$MODULE" || kubectl get pods -n "$NAMESPACE"
-    kubectl describe pod -n "$NAMESPACE" -l "app=$MODULE" | tail -30
+    kubectl get pods -n "$NAMESPACE" -l "app.kubernetes.io/name=$MODULE" 2>/dev/null ||
+      kubectl get pods -n "$NAMESPACE"
+    kubectl describe pod -n "$NAMESPACE" -l "app.kubernetes.io/name=$MODULE" 2>/dev/null | tail -30
     die "배포 실패"
   fi
+else
+  warn "$MODULE 에 대응하는 Deployment·StatefulSet 이 없습니다 — 롤아웃을 기다리지 않았습니다"
 fi
 
 log "$MODULE 배포 완료"
