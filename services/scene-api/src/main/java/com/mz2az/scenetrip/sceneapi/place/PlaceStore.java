@@ -167,15 +167,21 @@ public class PlaceStore {
              OR EXISTS (SELECT 1 FROM place_content pc
                          WHERE pc.place_id = p.id
                            AND pc.content_id = CAST(:contentId AS BIGINT)))
-        -- 뷰포트. ST_MakeEnvelope 는 geometry 를 만들므로 geography 로 캐스팅해 맞춘다.
+        -- 뷰포트는 geometry 로 본다. geography 로 하면 경도 -180~180 사각형에서
+        -- "Antipodal (180 degrees long) edge detected!" 로 질의가 통째로 실패한다 —
+        -- 구면 위에서는 180 도짜리 간선이 어느 쪽으로 도는지 정할 수 없다(실측).
+        --
+        -- 뜻으로도 geometry 가 맞다. 지도의 뷰포트는 위경도 평면의 직사각형이고
+        -- 클라이언트가 보내는 네 숫자가 바로 그것이다.
+        --
+        -- && 는 경계상자 겹침 연산자다. V6 의 표현식 인덱스가 이것을 받는다.
         AND (CAST(:minLng AS DOUBLE PRECISION) IS NULL
-             OR ST_Intersects(
-                    p.geom,
-                    ST_MakeEnvelope(CAST(:minLng AS DOUBLE PRECISION),
-                                    CAST(:minLat AS DOUBLE PRECISION),
-                                    CAST(:maxLng AS DOUBLE PRECISION),
-                                    CAST(:maxLat AS DOUBLE PRECISION),
-                                    4326)::geography))
+             OR p.geom::geometry && ST_MakeEnvelope(
+                    CAST(:minLng AS DOUBLE PRECISION),
+                    CAST(:minLat AS DOUBLE PRECISION),
+                    CAST(:maxLng AS DOUBLE PRECISION),
+                    CAST(:maxLat AS DOUBLE PRECISION),
+                    4326))
         -- 반경. ST_DWithin 이 GiST 인덱스를 탄다 — ST_Distance 로 걸면 전수 계산이 된다.
         AND (CAST(:radiusMeters AS INTEGER) IS NULL
              OR o.point IS NULL
