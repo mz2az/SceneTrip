@@ -8,6 +8,7 @@
     "com.google.guava:guava": 1943808618,
     "com.google.j2objc:j2objc-annotations": 2003271689,
     "com.puppycrawl.tools:checkstyle": 680098671,
+    "io.opentelemetry:opentelemetry-api": -2021454397,
     "io.swagger.core.v3:swagger-annotations": -1787153467,
     "jakarta.annotation:jakarta.annotation-api": -906475446,
     "jakarta.servlet:jakarta.servlet-api": -3550902,
@@ -52,6 +53,9 @@
     "io.micrometer:micrometer-core": -1032017353,
     "io.micrometer:micrometer-jakarta9": -1488456246,
     "io.micrometer:micrometer-observation": 1201840335,
+    "io.opentelemetry:opentelemetry-api": -1250082759,
+    "io.opentelemetry:opentelemetry-common": 853358262,
+    "io.opentelemetry:opentelemetry-context": -792891075,
     "io.swagger.core.v3:swagger-annotations": 1023890074,
     "jakarta.activation:jakarta.activation-api": -1623326611,
     "jakarta.annotation:jakarta.annotation-api": 196616042,
@@ -323,6 +327,24 @@
         "jar": "2fc95a327578d3b2a81c3ff40e646a4a21e46b0153ccbbf91690142bf80d9661"
       },
       "version": "1.17.0"
+    },
+    "io.opentelemetry:opentelemetry-api": {
+      "shasums": {
+        "jar": "8b5f245fbeebfa8bb6f4b51d187ffd54de77a0acdcdef3bf10d735aa7a5af87d"
+      },
+      "version": "1.56.0"
+    },
+    "io.opentelemetry:opentelemetry-common": {
+      "shasums": {
+        "jar": "74973a303e309730841fd6a3031afd30e7d166dfa0e2bfe5c2350afaf29a2086"
+      },
+      "version": "1.56.0"
+    },
+    "io.opentelemetry:opentelemetry-context": {
+      "shasums": {
+        "jar": "92ad6a4edbee09472045706305d21c9f705f86a31b25c8807f9ae57119304bf5"
+      },
+      "version": "1.56.0"
     },
     "io.swagger.core.v3:swagger-annotations": {
       "shasums": {
@@ -1068,6 +1090,12 @@
       "io.micrometer:micrometer-commons",
       "org.jspecify:jspecify"
     ],
+    "io.opentelemetry:opentelemetry-api": [
+      "io.opentelemetry:opentelemetry-context"
+    ],
+    "io.opentelemetry:opentelemetry-context": [
+      "io.opentelemetry:opentelemetry-common"
+    ],
     "jakarta.xml.bind:jakarta.xml.bind-api": [
       "jakarta.activation:jakarta.activation-api"
     ],
@@ -1743,6 +1771,27 @@
       "io.micrometer.observation.contextpropagation",
       "io.micrometer.observation.docs",
       "io.micrometer.observation.transport"
+    ],
+    "io.opentelemetry:opentelemetry-api": [
+      "io.opentelemetry.api",
+      "io.opentelemetry.api.baggage",
+      "io.opentelemetry.api.baggage.propagation",
+      "io.opentelemetry.api.common",
+      "io.opentelemetry.api.internal",
+      "io.opentelemetry.api.logs",
+      "io.opentelemetry.api.metrics",
+      "io.opentelemetry.api.trace",
+      "io.opentelemetry.api.trace.propagation",
+      "io.opentelemetry.api.trace.propagation.internal"
+    ],
+    "io.opentelemetry:opentelemetry-common": [
+      "io.opentelemetry.common"
+    ],
+    "io.opentelemetry:opentelemetry-context": [
+      "io.opentelemetry.context",
+      "io.opentelemetry.context.internal.shaded",
+      "io.opentelemetry.context.propagation",
+      "io.opentelemetry.context.propagation.internal"
     ],
     "io.swagger.core.v3:swagger-annotations": [
       "io.swagger.v3.oas.annotations",
@@ -3453,6 +3502,9 @@
       "io.micrometer:micrometer-core",
       "io.micrometer:micrometer-jakarta9",
       "io.micrometer:micrometer-observation",
+      "io.opentelemetry:opentelemetry-api",
+      "io.opentelemetry:opentelemetry-common",
+      "io.opentelemetry:opentelemetry-context",
       "io.swagger.core.v3:swagger-annotations",
       "jakarta.activation:jakarta.activation-api",
       "jakarta.annotation:jakarta.annotation-api",

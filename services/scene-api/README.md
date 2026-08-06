@@ -150,4 +150,28 @@ curl http://localhost:8081/actuator/health
 종료는 `SIGTERM` → graceful shutdown 이다. `Dockerfile` 의 `ENTRYPOINT` 가 exec
 형식이라 `java` 가 PID 1 이 되고 신호를 직접 받는다.
 
-런북: `docs/ops/` · 대시보드: SigNoz (MZ2AZ-182 에서 연결) · 알림: 미정
+## 관측성
+
+**OpenTelemetry 자바 에이전트가 이미지 안에 있다**([ADR 0004](../../docs/architecture/adr/0004-opentelemetry-javaagent.md)).
+코드에 계측이 없고 `-javaagent` 가 `ENTRYPOINT` 에 붙어 있다. Spring MVC·JDBC·
+HikariCP·Logback 이 자동으로 계측된다.
+
+에이전트 버전과 sha256 은 `MODULE.bazel` 한 곳이 정본이고, `just image scene-api` 가
+Bazel 로 받아 이미지에 담는다. 보낼 곳은 `platform/kubernetes/scene-api/configmap.yaml`
+의 `OTEL_*` 이 정한다.
+
+```bash
+just signoz              # UI 주소와 필터 안내
+just signoz-verify       # 텔레메트리가 실제로 적재됐는지 ClickHouse 로 확인
+just signoz-forward      # 맥에서 직접 실행할 때 OTLP 포워딩
+```
+
+**500 응답의 `traceId` 가 SigNoz 의 트레이스 ID 다.** 사용자가 그 문자열 하나를
+알려 주면 요청 하나를 그대로 찾을 수 있다. 에이전트가 MDC 에 넣어 준 값을 읽으므로
+애플리케이션에 OpenTelemetry 의존성이 없다 — 에이전트가 없으면 그냥 비어 있다.
+
+> SigNoz 에 **관리자 계정이 없으면 수집기가 파이프라인 설정을 받지 못해 OTLP 포트
+> 자체가 열리지 않는다.** 앱에는 `Connection refused` 로 보인다.
+> `docs/installs/signoz_install.md` 참조.
+
+런북: `docs/ops/` · 대시보드: SigNoz · 알림: 미정

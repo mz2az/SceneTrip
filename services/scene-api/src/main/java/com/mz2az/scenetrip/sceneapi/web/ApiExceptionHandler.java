@@ -1,11 +1,14 @@
 package com.mz2az.scenetrip.sceneapi.web;
 
 import com.mz2az.scenetrip.sceneapi.api.model.ApiError;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -23,8 +26,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
  *
  * <p><b>스택 트레이스는 응답에 넣지 않는다.</b> 내부 클래스 이름과 경로가 그대로 드러나고, 클라이언트가 할 수 있는 일은 없다. 로그로만 남긴다.
  *
- * <p>{@code traceId} 는 아직 채우지 않는다. 추적 ID 는 OpenTelemetry 연결(MZ2AZ-182) 이후에 생긴다 — 지금 임의의 UUID 를 넣으면
- * SigNoz 에서 조회되지 않는 값이라 없느니만 못하다.
+ * <p>{@code traceId} 는 500 응답에만 넣는다. OpenTelemetry 에이전트가 MDC 에 넣어 준 값이라 SigNoz 에서 그대로 조회된다 — 사용자가 그
+ * 문자열 하나만 알려 주면 요청 하나를 찾아낼 수 있다.
  */
 @RestControllerAdvice
 class ApiExceptionHandler {
@@ -54,7 +57,11 @@ class ApiExceptionHandler {
     MethodArgumentNotValidException.class,
     MethodArgumentTypeMismatchException.class,
     MissingServletRequestParameterException.class,
-    HttpMediaTypeNotSupportedException.class
+    HttpMediaTypeNotSupportedException.class,
+    // 읽을 수 없는 요청 본문 — 깨진 JSON, 타입이 맞지 않는 필드.
+    // 처음에 빠뜨렸더니 500 으로 나갔다. 클라이언트가 보낸 것이 잘못됐는데 서버 결함처럼
+    // 보이면, 재시도해도 된다고 오해하게 된다. 실제 호출로 잡았다.
+    HttpMessageNotReadableException.class
   })
   ResponseEntity<ApiError> handleValidation(Exception e) {
     // UUID 가 아닌 X-Device-Id 는 헤더가 없는 것과 같은 뜻이다 — 장바구니의 주체를
@@ -89,6 +96,27 @@ class ApiExceptionHandler {
   ResponseEntity<ApiError> handleUnexpected(Exception e) {
     log.error("처리하지 못한 예외", e);
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .body(new ApiError("INTERNAL_ERROR", "서버에서 요청을 처리하지 못했습니다"));
+        .body(new ApiError("INTERNAL_ERROR", "서버에서 요청을 처리하지 못했습니다").traceId(currentTraceId()));
+  }
+
+  /**
+   * 이 요청의 추적 ID.
+   *
+   * <p>OpenTelemetry API 로 현재 스팬에서 읽는다. 계측과 내보내기는 자바 에이전트가 하고 여기서는 <b>읽기만</b> 한다 — SDK 의존성이 없다.
+   *
+   * <p>에이전트가 붙지 않은 환경(단위 테스트, 수집기 없는 로컬 실행)에서는 빈 구현이 답해 유효하지 않은 스팬이 나오고, 그때는 {@code null} 을 돌려준다.
+   * 코드는 그대로 돈다.
+   *
+   * <p><b>MDC 에서 읽으려다 실패했다.</b> 에이전트의 logback 계측은 트레이스 ID 를 <i>로그 이벤트</i>에 붙일 뿐, 스레드의 MDC 맵에 넣지
+   * 않는다. {@code MDC.get("trace_id")} 는 언제나 {@code null} 이었고 실제 호출로 잡았다.
+   *
+   * <p>이 값이 왜 응답에 나가는가: 사용자가 500 을 받았을 때 이 문자열 하나로 SigNoz 에서 그 요청의 트레이스와 로그를 찾을 수 있다. 없으면 "몇 시쯤 오류가
+   * 났다" 로부터 시작해야 한다.
+   *
+   * <p>500 에만 넣는다. 400·404 는 클라이언트가 무엇을 잘못했는지 이미 {@code code} 로 알 수 있어 서버 로그를 뒤질 일이 없다.
+   */
+  private static String currentTraceId() {
+    SpanContext context = Span.current().getSpanContext();
+    return context.isValid() ? context.getTraceId() : null;
   }
 }

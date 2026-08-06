@@ -50,6 +50,7 @@ java_library(
         # 명세와 어긋나면 컴파일이 실패한다 — 계약이 지켜지는지를 사람이 아니라
         # 컴파일러가 본다.
         "//contracts/openapi:scene_api_spring_lib",
+        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:jakarta_validation_jakarta_validation_api",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_springframework_boot_spring_boot",
@@ -99,9 +100,13 @@ java_junit5_test(
     deps = [
         ":scene-api",
         "//contracts/openapi:scene_api_spring_lib",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        # Span.makeCurrent() 가 여기 있다. api 가 전이로 끌어오지만 직접 쓰므로 명시한다.
+        "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:org_assertj_assertj_core",
         "@maven//:org_hamcrest_hamcrest",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_springframework_boot_spring_boot_test",
         "@maven//:org_springframework_boot_spring_boot_test_autoconfigure",
         "@maven//:org_springframework_boot_spring_boot_webmvc_test",

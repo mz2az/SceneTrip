@@ -14,6 +14,11 @@ import com.mz2az.scenetrip.sceneapi.api.model.EntityType;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.Suggestion;
 import com.mz2az.scenetrip.sceneapi.search.SuggestionStore;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.api.trace.TraceFlags;
+import io.opentelemetry.api.trace.TraceState;
+import io.opentelemetry.context.Scope;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -121,5 +126,40 @@ class SearchControllerTest {
     mvc.perform(get("/search/suggestions").param("q", "  도깨비  ")).andExpect(status().isOk());
 
     verify(store).suggest(eq("도깨비"), any(), anyInt());
+  }
+
+  @Test
+  @DisplayName("500 응답에 추적 ID 가 실린다")
+  void serverErrorCarriesTraceId() throws Exception {
+    when(store.suggest(any(), any(), anyInt())).thenThrow(new IllegalStateException("DB 접속 실패"));
+
+    // 실제로는 자바 에이전트가 스팬을 만든다. 여기서는 API 만으로 스팬 하나를 현재
+    // 컨텍스트에 올려 둔다 — SDK 없이도 되는 일이라 단위 레인에서 돌아간다.
+    SpanContext context =
+        SpanContext.create(
+            "4bf92f3577b34da6a3ce929d0e0e4736",
+            "00f067aa0ba902b7",
+            TraceFlags.getSampled(),
+            TraceState.getDefault());
+
+    try (Scope ignored = Span.wrap(context).makeCurrent()) {
+      // 사용자가 이 문자열 하나를 알려 주면 SigNoz 에서 그 요청을 그대로 찾을 수 있다.
+      mvc.perform(get("/search/suggestions").param("q", "도깨비"))
+          .andExpect(status().isInternalServerError())
+          .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
+          .andExpect(jsonPath("$.traceId").value("4bf92f3577b34da6a3ce929d0e0e4736"));
+    }
+  }
+
+  @Test
+  @DisplayName("에이전트가 없으면 추적 ID 없이 나간다")
+  void serverErrorWithoutAgentHasNoTraceId() throws Exception {
+    // 수집기 없는 로컬 실행이나 단위 테스트가 이 상태다. 유효한 스팬이 없으면
+    // 그 자리를 비우고 코드는 그대로 돈다.
+    when(store.suggest(any(), any(), anyInt())).thenThrow(new IllegalStateException("DB 접속 실패"));
+
+    mvc.perform(get("/search/suggestions").param("q", "도깨비"))
+        .andExpect(status().isInternalServerError())
+        .andExpect(jsonPath("$.traceId").doesNotExist());
   }
 }
