@@ -90,11 +90,7 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 있기 때문이다. 새 코드를 더하는 것은 파괴적이지 않다 — 클라이언트는 모르는 코드를
 기본 처리로 넘기면 된다.
 
-> [!note] 구현 중이다
-> 핸들러는 `services/scene-api` 의 `ApiExceptionHandler` 하나다. 장바구니 코드
-> (`MISSING_DEVICE_ID`·`CART_ITEM_NOT_FOUND`·`DUPLICATE_CART_ITEM`)만 아직
-> 붙지 않았다(MZ2AZ-170). 나머지는 전부 동작한다.
->
-> **아직 구현하지 않은 엔드포인트는 `501` 을 돌려준다.** 명세에 있는 경로가 조용히
-> `404` 가 되면 프론트는 경로를 잘못 알았다고 의심하게 된다. `501` 은 "경로는 맞고
-> 아직 만들지 않았다" 는 뜻이다.
+> [!note] 전부 구현됐다
+> 위 코드는 모두 `services/scene-api` 의 `ApiExceptionHandler` 하나에서 나온다.
+> 코드를 늘릴 때는 이 문서와 명세의 `ApiError` 설명, 그리고 그 코드를 내는 핸들러
+> 셋을 같은 커밋에서 고친다.

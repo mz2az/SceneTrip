@@ -58,6 +58,9 @@ java_library(
         "@maven//:org_springframework_spring_context",
         "@maven//:org_springframework_spring_core",
         "@maven//:org_springframework_spring_jdbc",
+        # DuplicateKeyException 이 여기 있다. 장바구니 중복은 DB 의 기본키가 막고,
+        # 그 제약 위반을 잡아 409 로 바꾼다.
+        "@maven//:org_springframework_spring_tx",
         "@maven//:org_springframework_spring_web",
     ],
 )
@@ -106,5 +109,6 @@ java_junit5_test(
         "@maven//:org_springframework_spring_context",
         "@maven//:org_springframework_spring_core",
         "@maven//:org_springframework_spring_test",
+        "@maven//:org_springframework_spring_web",
     ],
 )

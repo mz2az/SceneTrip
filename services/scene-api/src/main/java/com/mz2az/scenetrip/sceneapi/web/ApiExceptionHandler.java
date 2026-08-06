@@ -57,6 +57,18 @@ class ApiExceptionHandler {
     HttpMediaTypeNotSupportedException.class
   })
   ResponseEntity<ApiError> handleValidation(Exception e) {
+    // UUID 가 아닌 X-Device-Id 는 헤더가 없는 것과 같은 뜻이다 — 장바구니의 주체를
+    // 알 수 없다. 클라이언트가 둘을 나눠 처리할 일이 없으므로 코드도 하나로 준다.
+    //
+    // 이름을 두 가지로 보는 이유: Spring 이 알려 주는 이름이 자리에 따라 헤더 이름
+    // (X-Device-Id)이기도 하고 메서드 파라미터 이름(xDeviceId)이기도 하다. 하나만
+    // 보면 형식 오류가 INVALID_PARAMETER 로 새어 나간다(실측).
+    if (e instanceof MethodArgumentTypeMismatchException mismatch
+        && ("xDeviceId".equalsIgnoreCase(mismatch.getName())
+            || "X-Device-Id".equalsIgnoreCase(mismatch.getName()))) {
+      return ResponseEntity.badRequest()
+          .body(new ApiError("MISSING_DEVICE_ID", "X-Device-Id 헤더가 UUID 형식이 아닙니다"));
+    }
     return ResponseEntity.badRequest().body(new ApiError(INVALID_PARAMETER, e.getMessage()));
   }
 

@@ -260,12 +260,33 @@ btree 로 찾기 위한 형태다(`Queen of Tears` → `queenoftears`). 46 자�
   ↓
 [완료] 생성·검증 타깃 연결 (spring)                  ← 명세가 게이트에 걸리게 됨
   ↓
-      services/scene-api/ 모듈 + DB 적재            ← MZ2AZ-181 완료가 전제
+[완료] services/scene-api/ 모듈 + DB 적재            ← MZ2AZ-181, MZ2AZ-152
   ↓
-      엔드포인트 구현 (테스트 먼저)                    ← MZ2AZ-166 ~ 171
+[완료] 엔드포인트 구현                                ← MZ2AZ-166 ~ 171
   ↓
-      just check → PR
+[완료] just check → PR
 ```
+
+## 8-1. 엔드포인트 9 개의 착지점
+
+| 명세 | 구현 | 티켓 |
+| --- | --- | --- |
+| `GET /search/suggestions` | `SearchController` + `SuggestionStore` | 166 |
+| `GET /contents` | `ContentsController` + `ContentStore` | 166 |
+| `GET /contents/{id}` | `ContentsController.getContent` | 169 |
+| `GET /contents/{id}/places` | `ContentsController` + `PlaceStore` | 168 |
+| `GET /places` | `PlacesController` + `PlaceStore` | 167·168 |
+| `GET /places/{id}` | `PlacesController.getPlace` | 169 |
+| `GET /cart` · `POST /cart/items` · `DELETE /cart/items/{id}` | `CartController` + `CartStore` | 170 |
+
+인기도 상위 N(171)은 별도 엔드포인트가 아니다. 모든 목록의 기본 정렬이
+`popularity_score DESC, id DESC` 이고 `limit`·`total` 이 함께 나간다.
+
+**장바구니는 `cart_item` 테이블을 새로 만들었다**(`V5`). 명세가 주체를
+`X-Device-Id` 의 기기 UUID 로 정했는데 스키마 v1 의 `saved_place.user_id` 는
+`BIGINT` 라 담을 수 없다. `saved_place` 에 덧붙이면 한 테이블이 "기기의
+장바구니(MVP1, 담기)" 와 "사용자의 찜(MVP2, 토글)" 을 겸하게 되고, 나중에 사용자
+기준으로 옮길 때 둘을 다시 분리하는 일이 더해진다.
 
 각 엔드포인트는 실패하는 테스트를 먼저 쓴다(AGENTS.md §6-4). 컨테이너나 DB 가 필요한
 테스트는 `integration` 태그를 붙여 `just test-integration` 레인으로 보낸다 —
