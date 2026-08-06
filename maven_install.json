@@ -23,6 +23,7 @@
     "org.springframework.boot:spring-boot-starter-test": -780181529,
     "org.springframework.boot:spring-boot-starter-validation": 2089040224,
     "org.springframework.boot:spring-boot-starter-web": 1844596909,
+    "org.springframework.boot:spring-boot-webmvc-test": 1870457770,
     "repositories": -1949687017
   },
   "__RESOLVED_ARTIFACTS_HASH": {
@@ -149,6 +150,7 @@
     "org.springframework.boot:spring-boot-validation": 717888536,
     "org.springframework.boot:spring-boot-web-server": -1129608763,
     "org.springframework.boot:spring-boot-webmvc": 1418261913,
+    "org.springframework.boot:spring-boot-webmvc-test": -845107466,
     "org.springframework:spring-aop": -1418859709,
     "org.springframework:spring-beans": -384632645,
     "org.springframework:spring-context": -1228221475,
@@ -910,6 +912,12 @@
       },
       "version": "4.1.0"
     },
+    "org.springframework.boot:spring-boot-webmvc-test": {
+      "shasums": {
+        "jar": "71748074bb59d2420df911c4029e8cb8400ccad8a5050f12e7beea61a9cd4d98"
+      },
+      "version": "4.1.0"
+    },
     "org.springframework:spring-aop": {
       "shasums": {
         "jar": "1178f039e087884174e2affc46e484f4a8bd7f2a4e011d33dd9137709f740f80"
@@ -1376,6 +1384,12 @@
       "org.springframework.boot:spring-boot-servlet",
       "org.springframework:spring-web",
       "org.springframework:spring-webmvc"
+    ],
+    "org.springframework.boot:spring-boot-webmvc-test": [
+      "org.springframework.boot:spring-boot-http-converter",
+      "org.springframework.boot:spring-boot-test-autoconfigure",
+      "org.springframework.boot:spring-boot-web-server",
+      "org.springframework.boot:spring-boot-webmvc"
     ],
     "org.springframework:spring-aop": [
       "org.springframework:spring-beans",
@@ -2964,6 +2978,9 @@
       "org.springframework.boot.webmvc.autoconfigure.error",
       "org.springframework.boot.webmvc.error"
     ],
+    "org.springframework.boot:spring-boot-webmvc-test": [
+      "org.springframework.boot.webmvc.test.autoconfigure"
+    ],
     "org.springframework:spring-aop": [
       "org.aopalliance.aop",
       "org.aopalliance.intercept",
@@ -3534,6 +3551,7 @@
       "org.springframework.boot:spring-boot-validation",
       "org.springframework.boot:spring-boot-web-server",
       "org.springframework.boot:spring-boot-webmvc",
+      "org.springframework.boot:spring-boot-webmvc-test",
       "org.springframework:spring-aop",
       "org.springframework:spring-beans",
       "org.springframework:spring-context",

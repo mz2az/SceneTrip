@@ -68,6 +68,10 @@ maven.install(
         "org.springframework.boot:spring-boot-starter-web:4.1.0",
         "org.springframework.boot:spring-boot-starter-actuator:4.1.0",
         "org.springframework.boot:spring-boot-starter-test:4.1.0",
+        # @WebMvcTest 는 starter-test 에 없다. Spring Boot 4 는 자동 구성뿐 아니라
+        # **테스트 슬라이스도** 기술별 모듈로 쪼갰다 — Flyway 때와 같은 패턴이다.
+        # 컨트롤러를 DB 없이 HTTP 계층만 띄워 검사하는 데 쓴다.
+        "org.springframework.boot:spring-boot-webmvc-test:4.1.0",
         # 실행 가능 jar 의 부트스트랩 클래스. jar 루트에 풀려 들어가고
         # MANIFEST 의 Main-Class 가 이것을 가리킨다. 없으면 jar 가 실행되지 않는다.
         "org.springframework.boot:spring-boot-loader:4.1.0",
