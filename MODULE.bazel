@@ -202,9 +202,26 @@ use_repo(maven, "maven")
 bazel_dep(name = "apple_support", version = "2.8.0")
 bazel_dep(name = "rules_swift", version = "3.6.1")
 bazel_dep(name = "rules_apple", version = "4.5.3")
-bazel_dep(name = "rules_swift_package_manager", version = "0.34.0")  # 서드파티 SPM 의존성
+
+# 1.x 가 필요하다. 주석으로 대기하던 0.34.0 은 SPM 의 **binaryTarget 을 Bazel 규칙으로
+# 옮기지 못한다** — pkg_info.json 에 xcframework 다운로드 URL 까지 읽어 두고도
+# `:<이름>.rspm` 타깃을 만들지 않아 "target does not exist" 로 분석이 깨진다(실측).
+# 네이버 지도 SDK 가 바로 그 형태(binaryTarget 래퍼)라 정면으로 걸린다.
+bazel_dep(name = "rules_swift_package_manager", version = "1.23.0")  # 서드파티 SPM 의존성
 
 bazel_dep(name = "rules_xcodeproj", version = "2.10.0", dev_dependency = True)  # IDE 용 .xcodeproj 생성
+
+# 서드파티 Swift 의존성은 //:Package.swift 에 선언하고 여기서 Bazel 저장소로 바꾼다.
+# maven 절과 같은 규약이다 — 선언은 매니페스트에, 잠금은 커밋된 resolved 파일에.
+swift_deps = use_extension(
+    "@rules_swift_package_manager//:extensions.bzl",
+    "swift_deps",
+)
+swift_deps.from_package(
+    resolved = "//:Package.resolved",
+    swift = "//:Package.swift",
+)
+use_repo(swift_deps, "swiftpkg_spm_nmapsmap")
 
 # --- BUILD 파일 생성 ------------------------------------------------------------
 # 지금은 생성기를 두지 않는다. BUILD.bazel 은 손으로 쓴다 — AGENTS.md §4.1 의 이름

@@ -41,12 +41,42 @@ APPLE_ONLY = select({
     "//conditions:default": ["@platforms//:incompatible"],
 })
 
+# 네이버 지도 클라이언트 ID 를 소스에 박지 않는다 (계획서 §5-2 설정 절).
+# `.env` 에 두고 --define 으로 넘겨 이 파일을 만든다. .env 는 gitignore 대상이라
+# 값이 저장소에 들어가지 않고, 생성물은 bazel-out 안에만 있다.
+#
+# 값을 넘기지 않으면 빈 문자열이 들어가고 지도는 인증 실패 화면을 띄운다 —
+# 빌드가 깨지지 않으므로 ID 없는 사람도 나머지 화면은 그대로 볼 수 있다.
+genrule(
+    name = "secrets_swift",
+    outs = ["Secrets.swift"],
+    cmd = """cat > $@ <<'EOF'
+// 생성 파일 — 고치지 않는다. //apps/scenetrip-ios:secrets_swift 가 만든다.
+enum Secrets {
+    static let naverClientId = "$(naver_client_id)"
+}
+EOF""",
+    tags = ["ios"],
+)
+
 swift_library(
     name = "scenetrip-ios",
-    srcs = glob(["src/**/*.swift"]),
+    srcs = glob(["src/**/*.swift"]) + [":secrets_swift"],
     module_name = "SceneTrip",
-    tags = ["ios"],
+    # "manual" 은 와일드카드(`//...`)에서만 뺀다 — :bin 을 통해서는 그대로 지어지므로
+    # 검사 범위가 줄지 않는다.
+    #
+    # 없으면 `just build` 가 이 라이브러리를 **macOS 설정 그대로** 지으려 하고,
+    # 네이버 SDK 의 xcframework 임포트가 "Errors encountered while applying Starlark
+    # transition" 으로 죽는다(실측). 그 프레임워크는 iOS 슬라이스만 있어서 macOS
+    # 설정에서는 고를 것이 없기 때문이다. :bin(ios_application)은 타깃 플랫폼을
+    # ios_sim_arm64 등으로 전환한 뒤 짓기 때문에 같은 문제가 없다.
+    tags = [
+        "ios",
+        "manual",
+    ],
     target_compatible_with = APPLE_ONLY,
+    deps = ["@swiftpkg_spm_nmapsmap//:NMapsMap"],
 )
 
 ios_application(

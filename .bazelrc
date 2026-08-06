@@ -41,6 +41,15 @@ build --symlink_prefix=bazel-
 build:linux --build_tag_filters=-ios
 test:linux --test_tag_filters=-ios
 
+# --- 네이버 지도 클라이언트 ID --------------------------------------------------
+# 기본값은 **빈 값**이다. 실제 값은 `.env` 에서 오고 `just ios-run` 이 --define 으로
+# 덮어쓴다 (apps/scenetrip-ios/BUILD.bazel 의 secrets_swift).
+#
+# 기본값을 두는 이유: 이것이 없으면 genrule 이 "정의되지 않은 변수" 로 죽어 **ID 를
+# 갖지 않은 사람의 `just check` 가 통과할 수 없다.** 백엔드만 만지는 팀원과 CI 러너가
+# 그렇다. 빈 값이면 지도만 인증 실패 화면이 되고 빌드와 나머지 화면은 멀쩡하다.
+build --define=naver_client_id=
+
 # --- Java --------------------------------------------------------------------
 # 언어 수준을 고정하지 않으면 Bazel 이 -source 11 -target 11 로 컴파일한다.
 # Spring Boot 4 는 Java 17 이상을 요구하므로 그 조합에서는 빌드가 깨진다.

@@ -21,6 +21,16 @@ build-release *targets=ALL:
 run target *args:
     {{BAZEL}} run {{target}} {{args}}
 
+# iOS 앱을 시뮬레이터에 띄운다. `.env` 의 네이버 클라이언트 ID 를 빌드에 주입한다
+# (dotenv-load 가 루트 justfile 에 켜져 있다). ID 가 없으면 빈 값으로 지어지고
+# 지도만 인증 실패 화면이 된다 — .bazelrc 의 같은 이름 절 참고.
+#
+# 러너가 앱 로그를 붙잡고 있으므로 프롬프트가 바로 돌아오지 않는다. Ctrl+C 로
+# 빠져나와도 시뮬레이터의 앱은 별도 프로세스라 그대로 살아 있다.
+[group('build')]
+ios-run:
+    {{BAZEL}} run //apps/scenetrip-ios:bin --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+
 # 빌드 그래프 질의. 예: `just query 'deps(//apps/web:web)'`
 [group('build')]
 query expr:
