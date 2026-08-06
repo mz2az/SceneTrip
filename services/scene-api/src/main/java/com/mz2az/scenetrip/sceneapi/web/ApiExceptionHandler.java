@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 예외를 계약의 {@link ApiError} 로 바꾼다.
@@ -77,6 +78,24 @@ class ApiExceptionHandler {
           .body(new ApiError("MISSING_DEVICE_ID", "X-Device-Id 헤더가 UUID 형식이 아닙니다"));
     }
     return ResponseEntity.badRequest().body(new ApiError(INVALID_PARAMETER, e.getMessage()));
+  }
+
+  /**
+   * 명세에 없는 경로를 불렀다.
+   *
+   * <p>이것이 없으면 아래의 마지막 그물({@code Exception.class})이 대신 받아 <b>500</b> 을 낸다. 그 차이가 클라이언트에게는 크다 —
+   * {@code errors.md} 가 "500 은 서버 결함이니 재시도해도 된다" 고 규정했으므로, 경로를 잘못 쓴 클라이언트가 규칙대로 재시도를 반복한다. 영원히 실패할
+   * 요청을. 게다가 진짜 서버 장애와 구분되지 않아 로그가 오염된다.
+   *
+   * <p>Spring 은 매핑되지 않은 경로를 <b>정적 리소스 요청</b>으로 보고 이 예외를 던진다. 이름이 "리소스를 못 찾았다" 라 도메인의 404 ({@code
+   * PLACE_NOT_FOUND} 등)와 헷갈리기 쉬운데, 이쪽은 <b>경로 자체가 없다</b>는 뜻이라 코드를 나눈다.
+   *
+   * <p>실제로 겪은 경로다. 명세가 약속한 {@code /v1} 접두사를 서버가 붙이지 않던 때, {@code /v1/contents} 호출이 500 으로 나갔다.
+   */
+  @ExceptionHandler(NoResourceFoundException.class)
+  ResponseEntity<ApiError> handleNoResource(NoResourceFoundException e) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(new ApiError("ENDPOINT_NOT_FOUND", "그런 경로가 없습니다: " + e.getResourcePath()));
   }
 
   /** 장바구니 엔드포인트의 X-Device-Id 처럼 필수 헤더가 빠진 경우. */

@@ -63,6 +63,10 @@ java_library(
         # 그 제약 위반을 잡아 409 로 바꾼다.
         "@maven//:org_springframework_spring_tx",
         "@maven//:org_springframework_spring_web",
+        # NoResourceFoundException 이 여기 있다. spring-web 이 아니라 spring-webmvc 다 —
+        # 매핑되지 않은 경로를 정적 리소스 처리기가 다루기 때문이다. 그것을 404 로 바꾸지
+        # 않으면 마지막 그물에 걸려 500 으로 나간다 (ApiExceptionHandler).
+        "@maven//:org_springframework_spring_webmvc",
     ],
 )
 
