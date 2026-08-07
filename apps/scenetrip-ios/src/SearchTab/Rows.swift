@@ -1,35 +1,35 @@
+import SceneApiClient
 import SwiftUI
 
-/// 작품 탭 한 줄. 배우로 걸린 작품에는 "출연 김수현" 배지를 달아 제목으로 걸린 것과
-/// 구분한다 (계획서 §3-3).
+/// 작품 탭 한 줄.
 struct WorkRow: View {
-    let work: Work
-    let badge: String?
+    let content: ContentSummary
+
+    private var meta: String {
+        [
+            content.broadcaster,
+            content.releaseYear.map(String.init),
+            content.genres?.joined(separator: " "),
+        ]
+        .compactMap { $0 }
+        .filter { !$0.isEmpty }
+        .joined(separator: " · ")
+    }
 
     var body: some View {
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(.systemGray5))
+            RemoteImage(url: content.posterUrl, symbol: "film")
                 .frame(width: 46, height: 62)
-                .overlay(Image(systemName: "film").foregroundStyle(.secondary))
+                .clipShape(.rect(cornerRadius: 6))
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(work.title).font(.headline).foregroundStyle(.primary)
-                Text(work.head.workMeta).font(.caption).foregroundStyle(.secondary)
-                HStack(spacing: 6) {
-                    Text("촬영지 \(work.placeCount)")
-                        .font(.caption2)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(Color(.systemGray6)))
-                    if let badge {
-                        Text(badge)
-                            .font(.caption2)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Capsule().fill(Color.accentColor.opacity(0.15)))
-                            .foregroundStyle(Color.accentColor)
-                    }
-                }
-                .foregroundStyle(.secondary)
+                Text(content.title).font(.headline).foregroundStyle(.primary)
+                Text(meta).font(.caption).foregroundStyle(.secondary)
+                Text("촬영지 \(content.placeCount)")
+                    .font(.caption2)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Capsule().fill(Color(.systemGray6)))
+                    .foregroundStyle(.secondary)
             }
             Spacer()
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
@@ -41,21 +41,26 @@ struct WorkRow: View {
 
 /// 장소 탭 한 줄.
 struct PlaceRow: View {
-    let row: SceneRow
+    let place: PlaceSummary
+
+    private var works: String {
+        (place.contents ?? []).map(\.title).joined(separator: ", ")
+    }
 
     var body: some View {
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(.systemGray5))
+            RemoteImage(url: place.imageUrl, symbol: "mappin.and.ellipse")
                 .frame(width: 54, height: 54)
-                .overlay(Image(systemName: "mappin.and.ellipse").foregroundStyle(.secondary))
+                .clipShape(.rect(cornerRadius: 6))
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(row.placeName).font(.subheadline.weight(.semibold))
+                Text(place.name).font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
-                Text(row.address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                Text("\(row.title) · \(row.placeType)")
-                    .font(.caption2).foregroundStyle(.tertiary)
+                if let address = place.address {
+                    Text(address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Text([works, place.type ?? ""].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
             }
             Spacer()
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
@@ -65,58 +70,32 @@ struct PlaceRow: View {
     }
 }
 
-/// 드릴다운 2단 — 작품 상세. 그 작품의 촬영지 목록이 온다.
-struct WorkDetail: View {
-    let work: Work
-    @Binding var chip: String
-    let rows: [SceneRow]
-    let onSelect: (SceneRow) -> Void
-    let onBack: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            DetailHeader(title: work.title, subtitle: work.head.workMeta, onBack: onBack)
-            ChipRow(selected: $chip)
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(rows) { row in
-                        Button { onSelect(row) } label: { PlaceRow(row: row) }
-                            .buttonStyle(.plain)
-                        Divider().padding(.leading, 14)
-                    }
-                }
-            }
-        }
-    }
-}
-
 /// 드릴다운 3단 — 촬영지 상세.
 struct PlaceDetail: View {
-    let row: SceneRow
-    let others: [SceneRow]
+    let place: PlaceSummary
     let onBack: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            DetailHeader(title: row.placeName, subtitle: row.address, onBack: onBack)
+            DetailHeader(title: place.name, subtitle: place.address ?? "", onBack: onBack)
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    if !row.sceneDesc.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("장면").font(.caption).foregroundStyle(.secondary)
-                            Text(row.sceneDesc).font(.subheadline)
-                        }
+                    RemoteImage(url: place.imageUrl, symbol: "photo")
+                        .frame(height: 180)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(.rect(cornerRadius: 10))
+                    if let scene = place.sceneDescription, !scene.isEmpty {
+                        labelled("장면") { Text(scene).font(.subheadline) }
                     }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("작품").font(.caption).foregroundStyle(.secondary)
-                        Text("\(row.title) · \(row.placeType)").font(.subheadline)
+                    if let type = place.type, !type.isEmpty {
+                        labelled("유형") { Text(type).font(.subheadline) }
                     }
-                    if !others.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("이곳에서 촬영한 다른 작품").font(.caption)
-                                .foregroundStyle(.secondary)
-                            ForEach(others) { other in
-                                Text("· \(other.title)").font(.subheadline)
+                    if let contents = place.contents, !contents.isEmpty {
+                        labelled("이곳에서 촬영한 작품") {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(contents, id: \.contentId) { ref in
+                                    Text("· \(ref.title)").font(.subheadline)
+                                }
                             }
                         }
                     }
@@ -124,6 +103,16 @@ struct PlaceDetail: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(14)
             }
+        }
+    }
+
+    private func labelled(
+        _ label: String,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            content()
         }
     }
 }
@@ -141,10 +130,53 @@ struct DetailHeader: View {
             .foregroundStyle(.primary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.headline).lineLimit(1)
-                Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                if !subtitle.isEmpty {
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
             }
             Spacer()
         }
         .padding(.horizontal, 14).padding(.bottom, 10)
+    }
+}
+
+/// 오류 화면 (계획서 §3-6).
+///
+/// **서버의 `message` 를 보여 주지 않는다.** 계약이 "사용자에게 그대로 보여 줄 문구가
+/// 아니다" 라고 못 박았다. 문구는 여기서 상태 코드별로 갖는다.
+///
+/// `traceId` 는 `500` 에만 실리므로 "없으면 숨긴다" 가 아니라 **있을 때만 그린다**.
+/// 눌러서 복사하게 한 것은 외국인 대상 앱이라 받아 적게 하는 것이 무리여서다
+/// (§3-6 팀 확인 항목 #1 의 초안 — 확정은 논의로 한다).
+struct ErrorView: View {
+    let failure: ApiFailure
+    let onRetry: () -> Void
+
+    private var message: String {
+        switch failure.statusCode {
+        case nil: "서버에 연결하지 못했습니다."
+        case 500: "잠시 문제가 생겼습니다."
+        default: "요청을 처리하지 못했습니다."
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.largeTitle).foregroundStyle(.secondary)
+            Text(message).font(.subheadline)
+            if failure.isRetryable {
+                Button("다시 시도", action: onRetry)
+                    .buttonStyle(.borderedProminent)
+            }
+            if let traceId = failure.traceId {
+                Text(traceId)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
     }
 }

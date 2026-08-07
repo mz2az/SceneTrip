@@ -1,68 +1,40 @@
+import SceneApiClient
 import SwiftUI
 
 /// 작품검색 탭 (계획서 §3).
 ///
-/// 지도는 항상 보이고 그 위에 바텀시트가 얹혀 드릴다운한다 — 목록 → 작품 상세 →
-/// 촬영지 상세. 목록은 작품 / 장소 두 탭이며 **검색어 하나로 둘이 동시에 채워진다**
-/// (§3-2). 데이터는 아직 목데이터이고, 생성 클라이언트가 붙으면 SceneData 만 갈린다.
+/// 지도는 항상 보이고 그 위에 바텀시트가 얹혀 드릴다운한다. 목록은 작품 / 장소 두
+/// 탭이며 **검색어 하나로 둘이 동시에 채워진다** — 두 탭이 같은 `q` 로 서로 다른
+/// 엔드포인트를 부른다 (§3-2 · §4).
 struct SearchTabView: View {
     @StateObject private var data = SceneData()
 
     @State private var draft = ""
-    @State private var query = ""
     @State private var tab: Tab = .work
     @State private var chip = CategoryChip.all
     @State private var detent: BottomSheet<AnyView>.Detent = .medium
-    @State private var selectedWork: Work?
-    @State private var selectedPlace: SceneRow?
+    @State private var selectedPlace: PlaceSummary?
+    @State private var suggestions: [Suggestion] = []
     @State private var fitToken = 0
     @FocusState private var searchFocused: Bool
 
     enum Tab: String, CaseIterable { case work = "작품", place = "장소" }
 
-    // MARK: - 결과
-
-    /// 검색어에 걸리는 촬영지. 드릴다운 중이면 그 범위로 좁힌다.
-    ///
-    /// 검색어가 비어 있으면 전체를 보여 준다 — 첫 진입에 지도가 비어 있으면
-    /// "지도는 항상 보인다"(§3-1)가 무의미해진다. 프로토타입도 같다.
-    private var searchRows: [SceneRow] {
-        if let place = selectedPlace {
-            return [place]
-        }
-        if let work = selectedWork {
-            return work.rows
-        }
-        guard !query.isEmpty else { return data.rows }
-        return data.rows.filter { SceneSearch.matches($0, query) }
-    }
-
     /// 화면에 실제로 쓰는 촬영지 — 칩까지 적용한 것.
     ///
     /// **목록과 지도가 이것을 같이 쓴다** (§3-5 확정). 프로토타입은 칩이 목록만
     /// 좁히고 지도 핀은 검색 결과 전체를 유지했으나, 실제 숫자를 보고 뒤집었다 —
-    /// 도깨비 촬영지 58 곳 중 음식점은 12 곳이라, 목록에 없는 핀 46 개가 남으면
-    /// 그 핀을 눌렀을 때 목록에 없는 장소가 열린다.
-    private var placeRows: [SceneRow] {
-        guard chip != CategoryChip.all else { return searchRows }
-        return searchRows.filter { CategoryChip.of($0.placeType) == chip }
+    /// 목록에 없는 핀이 남으면 그 핀을 눌렀을 때 목록에 없는 장소가 열린다.
+    private var visiblePlaces: [PlaceSummary] {
+        guard chip != CategoryChip.all else { return data.places }
+        return data.places.filter { CategoryChip.of($0.type) == chip }
     }
-
-    private var workRows: [Work] {
-        query.isEmpty ? data.works : SceneSearch.works(data.works, query: query)
-    }
-
-    private var suggestions: [Suggestion] {
-        SceneSearch.suggestions(rows: data.rows, works: data.works, query: draft)
-    }
-
-    // MARK: - 화면
 
     var body: some View {
         ZStack(alignment: .top) {
             // 카메라는 fitToken 이 오를 때만 움직인다. 칩은 올리지 않는다 (§3-5).
-            NaverMapView(pins: placeRows, fitToken: fitToken) { row in
-                selectedPlace = row
+            NaverMapView(pins: visiblePlaces, fitToken: fitToken) { place in
+                selectedPlace = place
                 tab = .place
                 detent = .medium
             }
@@ -81,6 +53,7 @@ struct SearchTabView: View {
             }
         }
         .animation(.easeInOut(duration: 0.15), value: searchFocused)
+        .task { data.search("") }
     }
 
     // MARK: 검색바
@@ -92,7 +65,9 @@ struct SearchTabView: View {
                 TextField("작품·배우·장소로 검색", text: $draft)
                     .focused($searchFocused)
                     .submitLabel(.search)
+                    .autocorrectionDisabled()
                     .onSubmit { commit(draft) }
+                    .onChange(of: draft) { _, term in Task { await suggest(term) } }
                 if !draft.isEmpty {
                     Button {
                         draft = ""
@@ -120,20 +95,26 @@ struct SearchTabView: View {
 
     // MARK: 자동완성 (§3-3)
 
+    //
+    // 랭킹과 갈래(작품·인물·장소)는 **서버가 정한다** — `GET /v1/search/suggestions`
+    // 가 type 으로 구분해 돌려주고, 명세에 "앞글자 일치 우선, 동점이면 인기도순"
+    // 이라고 적혀 있다. 프론트가 같은 규칙을 두 번 구현하면 iOS·Android 가 갈린다.
+
     private var suggestionList: some View {
         VStack(spacing: 0) {
             if draft.isEmpty {
                 sectionLabel("추천 검색어")
-                ForEach(["도깨비", "김수현", "북촌한옥마을", "마포구"], id: \.self) { term in
+                ForEach(["도깨비", "공유", "북촌한옥마을"], id: \.self) { term in
                     Button { commit(term) } label: {
                         row(icon: "magnifyingglass", text: term, detail: "")
                     }
                     .buttonStyle(.plain)
                 }
             } else {
-                ForEach(suggestions) { item in
-                    Button { commit(item.text) } label: {
-                        row(icon: item.symbol, text: item.text, detail: item.detail)
+                ForEach(suggestions, id: \.id) { item in
+                    Button { commit(item.name) } label: {
+                        row(icon: symbol(item.type), text: item.name,
+                            detail: item.subtitle ?? "")
                     }
                     .buttonStyle(.plain)
                 }
@@ -144,6 +125,14 @@ struct SearchTabView: View {
         .shadow(color: .black.opacity(0.12), radius: 10, y: 3)
         .padding(.horizontal, 14)
         .frame(maxHeight: 380)
+    }
+
+    private func symbol(_ type: EntityType) -> String {
+        switch type {
+        case .content: "film"
+        case .person: "person"
+        case .place: "mappin.and.ellipse"
+        }
     }
 
     private func sectionLabel(_ title: String) -> some View {
@@ -170,15 +159,20 @@ struct SearchTabView: View {
     // MARK: 시트 내용
 
     @ViewBuilder private var sheetContent: some View {
-        if let place = selectedPlace {
-            PlaceDetail(row: place, others: data.sharingPlace(place)) { back() }
-        } else if let work = selectedWork {
-            WorkDetail(work: work, chip: $chip, rows: placeRows) { row in
-                selectedPlace = row
-                bumpFit()
-            } onBack: { back() }
-        } else {
-            listContent
+        switch data.phase {
+        case let .failed(failure):
+            ErrorView(failure: failure) { data.retry() }
+        case .loading where data.places.isEmpty && data.contents.isEmpty:
+            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+        default:
+            if let place = selectedPlace {
+                PlaceDetail(place: place) {
+                    selectedPlace = nil
+                    fitToken += 1
+                }
+            } else {
+                listContent
+            }
         }
     }
 
@@ -186,8 +180,7 @@ struct SearchTabView: View {
         VStack(spacing: 0) {
             Picker("", selection: $tab) {
                 ForEach(Tab.allCases, id: \.self) { each in
-                    Text("\(each.rawValue) \(each == .work ? workRows.count : placeRows.count)")
-                        .tag(each)
+                    Text("\(each.rawValue) \(count(each))").tag(each)
                 }
             }
             .pickerStyle(.segmented)
@@ -201,24 +194,18 @@ struct SearchTabView: View {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     if tab == .work {
-                        ForEach(workRows) { work in
-                            Button {
-                                selectedWork = work
-                                tab = .place
-                                bumpFit()
-                            } label: {
-                                WorkRow(work: work, badge: SceneSearch.castBadge(work, query: query))
-                            }
-                            .buttonStyle(.plain)
+                        ForEach(data.contents, id: \.id) { content in
+                            Button { open(content) } label: { WorkRow(content: content) }
+                                .buttonStyle(.plain)
                             Divider().padding(.leading, 14)
                         }
                     } else {
-                        ForEach(placeRows) { row in
+                        ForEach(visiblePlaces, id: \.id) { place in
                             Button {
-                                selectedPlace = row
-                                bumpFit()
+                                selectedPlace = place
+                                fitToken += 1
                             } label: {
-                                PlaceRow(row: row)
+                                PlaceRow(place: place)
                             }
                             .buttonStyle(.plain)
                             Divider().padding(.leading, 14)
@@ -229,32 +216,37 @@ struct SearchTabView: View {
         }
     }
 
+    private func count(_ tab: Tab) -> Int {
+        tab == .work ? data.contents.count : visiblePlaces.count
+    }
+
     // MARK: 동작
 
-    /// 검색 확정 — 추천어 선택이나 엔터. 이때만 핀을 갈고 카메라를 맞춘다 (§3-5).
-    /// 글자마다 갱신하지 않는다.
+    /// 검색 확정 — 추천어 선택이나 엔터. 이때만 서버를 부르고 카메라를 맞춘다 (§3-5).
+    /// 글자마다 부르지 않는다.
     private func commit(_ term: String) {
         draft = term
-        query = term
         chip = CategoryChip.all
-        selectedWork = nil
         selectedPlace = nil
         searchFocused = false
         detent = .medium
-        bumpFit()
-    }
-
-    private func bumpFit() {
+        data.search(term)
         fitToken += 1
     }
 
-    private func back() {
-        if selectedPlace != nil {
-            selectedPlace = nil
-        } else {
-            selectedWork = nil
+    /// 작품을 고르면 그 작품의 촬영지만 남긴다.
+    private func open(_ content: ContentSummary) {
+        commit(content.title)
+        tab = .place
+    }
+
+    private func suggest(_ term: String) async {
+        let query = term.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else {
+            suggestions = []
+            return
         }
-        bumpFit()
+        suggestions = await (try? SearchAPI.suggest(q: query, limit: 8).items) ?? []
     }
 }
 

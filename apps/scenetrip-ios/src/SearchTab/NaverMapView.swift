@@ -1,4 +1,5 @@
 import NMapsMap
+import SceneApiClient
 import SwiftUI
 
 /// 네이버 지도를 SwiftUI 에 얹는다. 핀은 `pins` 가 바뀔 때만 다시 그린다.
@@ -7,10 +8,11 @@ import SwiftUI
 /// 카메라를 결과 범위로 맞추고, 카테고리 칩은 핀만 갈고 카메라는 건드리지 않는다.
 /// 칩을 껐다 켤 때 보던 위치를 잃지 않게 하는 것이 그 규칙의 목적이다.
 struct NaverMapView: UIViewRepresentable {
-    let pins: [SceneRow]
+    let pins: [PlaceSummary]
+
     /// 값이 바뀐 순간에만 카메라를 그 범위로 맞춘다. 칩 조작에서는 그대로 둔다.
     let fitToken: Int
-    let onTapPin: (SceneRow) -> Void
+    let onTapPin: (PlaceSummary) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onTapPin: onTapPin)
@@ -34,16 +36,16 @@ struct NaverMapView: UIViewRepresentable {
     }
 
     final class Coordinator {
-        var onTapPin: (SceneRow) -> Void
+        var onTapPin: (PlaceSummary) -> Void
         private var markers: [NMFMarker] = []
         private var lastPinKey: String = ""
+
         /// 첫 렌더에서는 카메라를 맞추지 않는다 — 초기값이 fitToken 의 초기값과 같다.
-        /// 첫 진입은 서울 중심으로 열려야 하고(MZ2AZ-162, 계획서 §3-1), 전체 데이터에
-        /// 맞추면 전국이 잡혀 "서울 여행 앱" 으로 보이지 않는다.
+        /// 첫 진입은 서울 중심으로 열려야 한다 (MZ2AZ-162, 계획서 §3-1).
         private var lastFitToken: Int = 0
         private weak var mapView: NMFMapView?
 
-        init(onTapPin: @escaping (SceneRow) -> Void) {
+        init(onTapPin: @escaping (PlaceSummary) -> Void) {
             self.onTapPin = onTapPin
         }
 
@@ -51,21 +53,20 @@ struct NaverMapView: UIViewRepresentable {
             self.mapView = mapView
         }
 
-        func render(pins: [SceneRow], fitToken: Int, on mapView: NMFMapView) {
-            let key = pins.map(\.id).joined(separator: ",")
-            let pinsChanged = key != lastPinKey
-            let shouldFit = fitToken != lastFitToken
-
-            if pinsChanged {
+        func render(pins: [PlaceSummary], fitToken: Int, on mapView: NMFMapView) {
+            let key = pins.map { String($0.id) }.joined(separator: ",")
+            if key != lastPinKey {
                 lastPinKey = key
                 markers.forEach { $0.mapView = nil }
-                markers = pins.map { row in
-                    let marker = NMFMarker(position: NMGLatLng(lat: row.lat, lng: row.lng))
-                    marker.captionText = row.placeName
+                markers = pins.map { place in
+                    let marker = NMFMarker(
+                        position: NMGLatLng(lat: place.latitude, lng: place.longitude)
+                    )
+                    marker.captionText = place.name
                     marker.captionMinZoom = 13
                     marker.iconTintColor = .systemBlue
                     marker.touchHandler = { [weak self] _ in
-                        self?.onTapPin(row)
+                        self?.onTapPin(place)
                         return true
                     }
                     marker.mapView = mapView
@@ -74,23 +75,25 @@ struct NaverMapView: UIViewRepresentable {
             }
 
             // 카메라는 fitToken 이 바뀐 순간에만 움직인다 — 칩은 이 값을 올리지 않는다.
-            if shouldFit {
+            if fitToken != lastFitToken {
                 lastFitToken = fitToken
                 fit(pins, on: mapView)
             }
         }
 
-        private func fit(_ pins: [SceneRow], on mapView: NMFMapView) {
+        private func fit(_ pins: [PlaceSummary], on mapView: NMFMapView) {
             guard !pins.isEmpty else { return }
             if pins.count == 1, let only = pins.first {
                 mapView.moveCamera(
                     NMFCameraUpdate(
-                        scrollTo: NMGLatLng(lat: only.lat, lng: only.lng), zoomTo: 15
+                        scrollTo: NMGLatLng(lat: only.latitude, lng: only.longitude),
+                        zoomTo: 15
                     )
                 )
                 return
             }
-            let lats = pins.map(\.lat), lngs = pins.map(\.lng)
+            let lats = pins.map(\.latitude)
+            let lngs = pins.map(\.longitude)
             let bounds = NMGLatLngBounds(
                 southWest: NMGLatLng(lat: lats.min()!, lng: lngs.min()!),
                 northEast: NMGLatLng(lat: lats.max()!, lng: lngs.max()!)

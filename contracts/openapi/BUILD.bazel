@@ -13,6 +13,8 @@
 
 load("@openapi_tools_generator_bazel//:defs.bzl", "openapi_generator")
 load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_swift//swift:swift.bzl", "swift_library")
+load("//tools/bazel/defs:merge_tree_sources.bzl", "merge_tree_sources")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -66,6 +68,51 @@ openapi_generator(
     name = "scene_api_openapi_json",
     generator = "openapi",
     spec = "scene-api-v1.yaml",
+)
+
+# iOS 앱이 쓰는 Swift 클라이언트.
+#
+# 앱은 API 클라이언트를 손으로 쓰지 않는다 (CLAUDE.md §5). 두 앱이 같은 명세에서
+# 생성한 클라이언트를 쓰는 것이 "iOS 와 Android 가 어긋나지 않게 한다" 를 지키는
+# 가장 값싼 방법이기도 하다 (계획서 §1 · §5-5).
+#
+# library=urlsession 인 이유: 기본값인 alamofire 는 서드파티 의존성을 하나 더 끌어온다.
+# 우리가 쓰는 것은 GET 여섯 개뿐이라 URLSession 으로 충분하고, 의존성이 적을수록
+# Bazel 에 물릴 것도 적다.
+#
+# responseAs=AsyncAwait 인 이유: 화면이 SwiftUI 라 async/await 이 그대로 맞물린다.
+# 기본값(콜백)은 SwiftUI 에서 쓰려면 다시 감싸야 한다.
+openapi_generator(
+    name = "scene_api_swift",
+    additional_properties = {
+        "library": "urlsession",
+        "responseAs": "AsyncAwait",
+        "projectName": "SceneApiClient",
+        "hideGenerationTimestamp": "true",
+        "useSPMFileStructure": "true",
+    },
+    generator = "swift5",
+    spec = "scene-api-v1.yaml",
+)
+
+# 생성물을 그대로 swift_library 에 넣을 수 없다 — 소스 아닌 파일이 섞여 있고,
+# 걸러서 디렉터리로 넘겨도 rules_swift 가 오브젝트 이름을 맞추지 못한다.
+# 근거와 대안 비교는 merge_tree_sources.bzl 머리말에 적었다.
+merge_tree_sources(
+    name = "scene_api_swift_srcs",
+    src = ":scene_api_swift",
+    out = "SceneApiClient.swift",
+    extensions = ["swift"],
+    subdir = "Sources",
+)
+
+# 앱이 실제로 import 하는 모듈. scene_api_spring_lib 의 Swift 판이며 같은 일을 한다 —
+# 명세에서 필드가 사라지거나 타입이 바뀌면 여기서 만들어진 타입이 바뀌고, 그것을 쓰는
+# 화면 코드가 컴파일되지 않는다.
+swift_library(
+    name = "scene_api_swift_lib",
+    srcs = [":scene_api_swift_srcs"],
+    module_name = "SceneApiClient",
 )
 
 exports_files(["redoc-page.sh"])

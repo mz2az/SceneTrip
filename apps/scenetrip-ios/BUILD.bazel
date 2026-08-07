@@ -77,7 +77,10 @@ swift_library(
         "manual",
     ],
     target_compatible_with = APPLE_ONLY,
-    deps = ["@swiftpkg_spm_nmapsmap//:NMapsMap"],
+    deps = [
+        "//contracts/openapi:scene_api_swift_lib",
+        "@swiftpkg_spm_nmapsmap//:NMapsMap",
+    ],
 )
 
 ios_application(
@@ -86,9 +89,6 @@ ios_application(
     families = ["iphone"],
     infoplists = ["Info.plist"],
     minimum_os_version = "17.0",
-    # 목데이터. 서버가 이미 같은 것을 내려주므로(GET /v1/contents · /v1/places)
-    # 생성 클라이언트를 붙이면(계획서 §5-5) 이 리소스는 걷어낸다.
-    resources = ["assets/scenetrip_v6.json"],
     tags = ["ios"],
     target_compatible_with = APPLE_ONLY,
     deps = [":scenetrip-ios"],
