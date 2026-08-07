@@ -70,53 +70,6 @@ struct PlaceRow: View {
     }
 }
 
-/// 드릴다운 3단 — 촬영지 상세.
-struct PlaceDetail: View {
-    let place: PlaceSummary
-    let onBack: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            DetailHeader(title: place.name, subtitle: place.address ?? "", onBack: onBack)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    RemoteImage(url: place.imageUrl, symbol: "photo")
-                        .frame(height: 180)
-                        .frame(maxWidth: .infinity)
-                        .clipShape(.rect(cornerRadius: 10))
-                    if let scene = place.sceneDescription, !scene.isEmpty {
-                        labelled("장면") { Text(scene).font(.subheadline) }
-                    }
-                    if let type = place.type, !type.isEmpty {
-                        labelled("유형") { Text(type).font(.subheadline) }
-                    }
-                    if let contents = place.contents, !contents.isEmpty {
-                        labelled("이곳에서 촬영한 작품") {
-                            VStack(alignment: .leading, spacing: 4) {
-                                ForEach(contents, id: \.contentId) { ref in
-                                    Text("· \(ref.title)").font(.subheadline)
-                                }
-                            }
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-            }
-        }
-    }
-
-    private func labelled(
-        _ label: String,
-        @ViewBuilder content: () -> some View
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
-            content()
-        }
-    }
-}
-
 struct DetailHeader: View {
     let title: String
     let subtitle: String

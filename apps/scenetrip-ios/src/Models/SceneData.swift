@@ -57,6 +57,13 @@ final class SceneData: ObservableObject {
     func places(ofContent id: Int64) async throws -> [PlaceSummary] {
         try await PlacesAPI.listContentPlaces(contentId: id, limit: 200).items
     }
+
+    /// 촬영지 상세. 목록용 `PlaceSummary` 에는 없는 것들이 여기 있다 — 장소 사진 여러
+    /// 장, 네이버 링크, 그리고 **작품별 장면**(`scenes`). 한 장소에서 여러 작품을
+    /// 찍었으면 그 수만큼 온다.
+    func detail(ofPlace id: Int64) async throws -> PlaceDetail {
+        try await PlacesAPI.getPlace(placeId: id)
+    }
 }
 
 /// 화면이 오류를 다루는 데 필요한 만큼만 추린 것 (계획서 §3-6).

@@ -166,7 +166,7 @@ struct SearchTabView: View {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         default:
             if let place = selectedPlace {
-                PlaceDetail(place: place) {
+                PlaceDetailView(summary: place, load: data.detail(ofPlace:)) {
                     selectedPlace = nil
                     fitToken += 1
                 }
