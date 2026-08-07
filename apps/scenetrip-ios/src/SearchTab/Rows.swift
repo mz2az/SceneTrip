@@ -40,8 +40,13 @@ struct WorkRow: View {
 }
 
 /// 장소 탭 한 줄.
+///
+/// 오른쪽 `+` 가 계약이 적어 둔 담는 경로 셋 중 첫째다 — "장소 카드의 `+`, 상세의
+/// 저장 버튼, 장면 팝업의 북마크. 셋 다 이 하나를 부른다."
 struct PlaceRow: View {
     let place: PlaceSummary
+    var onAdd: (() -> Void)?
+    var saved = false
 
     private var works: String {
         (place.contents ?? []).map(\.title).joined(separator: ", ")
@@ -63,6 +68,15 @@ struct PlaceRow: View {
                     .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
             }
             Spacer()
+            if let onAdd {
+                Button(action: onAdd) {
+                    Image(systemName: saved ? "checkmark.circle.fill" : "plus.circle")
+                        .font(.title3)
+                        .foregroundStyle(saved ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(saved)
+            }
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 14).padding(.vertical, 10)

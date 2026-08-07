@@ -8,6 +8,7 @@ import SwiftUI
 /// 엔드포인트를 부른다 (§3-2 · §4).
 struct SearchTabView: View {
     @StateObject private var data = SceneData()
+    @StateObject private var cart = CartStore()
 
     @State private var draft = ""
     @State private var tab: Tab = .work
@@ -53,7 +54,27 @@ struct SearchTabView: View {
             }
         }
         .animation(.easeInOut(duration: 0.15), value: searchFocused)
-        .task { data.search("") }
+        .task {
+            data.search("")
+            await cart.refresh()
+        }
+        .overlay(alignment: .bottom) {
+            // 계약이 409 에 "이미 저장된 장소입니다" 를 띄우라고 적어 뒀다. 베타도
+            // 스낵바였다 — 담기는 화면을 옮기지 않으므로 알림이 그 자리에 떠야 한다.
+            if let toast = cart.toast {
+                Text(toast)
+                    .font(.subheadline)
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .background(Capsule().fill(.ultraThinMaterial))
+                    .padding(.bottom, 40)
+                    .transition(.opacity)
+                    .task {
+                        try? await Task.sleep(for: .seconds(2))
+                        cart.clearToast()
+                    }
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: cart.toast)
     }
 
     // MARK: 검색바
@@ -81,11 +102,23 @@ struct SearchTabView: View {
             .padding(.vertical, 11)
             .background(Capsule().fill(Color(.systemBackground)).shadow(radius: 3, y: 1))
 
+            // 담긴 개수를 배지로 보여 준다 — 베타의 CartIconButton 과 같다.
+            // 장바구니 화면 자체는 별도 티켓이라 여기서는 개수까지만 보인다.
             Button {} label: {
                 Image(systemName: "bag")
                     .font(.system(size: 17, weight: .medium))
                     .frame(width: 42, height: 42)
                     .background(Circle().fill(Color(.systemBackground)).shadow(radius: 3, y: 1))
+                    .overlay(alignment: .topTrailing) {
+                        if !cart.items.isEmpty {
+                            Text("\(cart.items.count)")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5).padding(.vertical, 2)
+                                .background(Capsule().fill(Color.red))
+                                .offset(x: 4, y: -2)
+                        }
+                    }
             }
             .foregroundStyle(.primary)
         }
@@ -170,6 +203,7 @@ struct SearchTabView: View {
                     selectedPlace = nil
                     fitToken += 1
                 }
+                .environmentObject(cart)
             } else {
                 listContent
             }
@@ -205,7 +239,11 @@ struct SearchTabView: View {
                                 selectedPlace = place
                                 fitToken += 1
                             } label: {
-                                PlaceRow(place: place)
+                                PlaceRow(
+                                    place: place,
+                                    onAdd: { Task { await cart.add(placeId: place.id) } },
+                                    saved: cart.contains(place.id)
+                                )
                             }
                             .buttonStyle(.plain)
                             Divider().padding(.leading, 14)

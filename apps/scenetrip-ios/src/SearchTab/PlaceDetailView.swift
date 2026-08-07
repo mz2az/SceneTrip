@@ -14,6 +14,8 @@ struct PlaceDetailView: View {
     let load: (Int64) async throws -> PlaceDetail
     let onBack: () -> Void
 
+    @EnvironmentObject private var cart: CartStore
+    @Environment(\.openURL) private var openURL
     @State private var detail: PlaceDetail?
     @State private var scene: SceneItem?
 
@@ -51,8 +53,38 @@ struct PlaceDetailView: View {
             detail = try? await load(summary.id)
         }
         .sheet(item: $scene) { picked in
-            ScenePopup(scene: picked, placeName: summary.name)
+            ScenePopup(scene: picked, placeId: summary.id, placeName: summary.name)
                 .presentationDetents([.medium])
+                .environmentObject(cart)
+        }
+    }
+
+    /// 베타의 장소 상세와 같은 두 버튼이다 — 담기와 네이버 지도.
+    ///
+    /// 담기는 계약이 적어 둔 세 경로 중 하나이고(§ `/cart/items`), 이미 담긴 장소면
+    /// 체크 + "저장됨" 으로 바뀐다. 네이버 지도는 외부 앱/브라우저로 넘긴다 —
+    /// 길찾기와 영업정보는 우리가 만들 것이 아니다.
+    private var actions: some View {
+        HStack(spacing: 8) {
+            let saved = cart.contains(summary.id)
+            Button {
+                Task { await cart.add(placeId: summary.id) }
+            } label: {
+                Label(
+                    saved ? "저장됨" : "장바구니에 담기",
+                    systemImage: saved ? "checkmark" : "bag.badge.plus"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(saved)
+
+            if let link = detail?.naverPlaceUrl, let url = URL(string: link) {
+                Button { openURL(url) } label: {
+                    Label("네이버 지도", systemImage: "arrow.up.right.square")
+                }
+                .buttonStyle(.bordered)
+            }
         }
     }
 
@@ -123,7 +155,10 @@ struct SceneCard: View {
 /// 목업 §2.7 — 장면 팝업. 카드는 두 줄로 잘리므로 전문은 여기서 본다.
 struct ScenePopup: View {
     let scene: SceneItem
+    let placeId: Int64
     let placeName: String
+
+    @EnvironmentObject private var cart: CartStore
 
     var body: some View {
         ScrollView {
@@ -145,14 +180,22 @@ struct ScenePopup: View {
                     Text(description).font(.subheadline)
                 }
 
-                // 장바구니는 MZ2AZ-170 이 서버에 이미 구현돼 있다. 화면 연결은 별도
-                // 티켓이라 여기서는 자리만 둔다 — 계획서 §2 "장바구니는 담기까지만".
-                Button {} label: {
-                    Label("담기", systemImage: "bag.badge.plus")
-                        .frame(maxWidth: .infinity)
+                // 담는 경로 셋 중 하나. 어느 쪽에서 담아도 같은 엔드포인트다.
+                // 작품을 함께 넘겨 "어느 작품 때문에 담았는지" 를 서버가 기억한다.
+                let saved = cart.contains(placeId)
+                Button {
+                    Task {
+                        await cart.add(placeId: placeId, sourceContentId: scene.contentId)
+                    }
+                } label: {
+                    Label(
+                        saved ? "저장됨" : "장바구니에 담기",
+                        systemImage: saved ? "checkmark" : "bag.badge.plus"
+                    )
+                    .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(true)
+                .disabled(saved)
             }
             .padding(18)
         }
