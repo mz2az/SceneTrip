@@ -41,6 +41,8 @@ struct PlaceDetailView: View {
                             .foregroundStyle(.secondary)
                     }
 
+                    actions
+
                     if !scenes.isEmpty {
                         sceneSection
                     }

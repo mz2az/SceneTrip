@@ -17,6 +17,7 @@ struct SearchTabView: View {
     @State private var selectedPlace: PlaceSummary?
     @State private var suggestions: [Suggestion] = []
     @State private var fitToken = 0
+    @State private var showCart = false
     @FocusState private var searchFocused: Bool
 
     enum Tab: String, CaseIterable { case work = "작품", place = "장소" }
@@ -75,6 +76,9 @@ struct SearchTabView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: cart.toast)
+        .sheet(isPresented: $showCart) {
+            CartSheet().environmentObject(cart)
+        }
     }
 
     // MARK: 검색바
@@ -102,9 +106,9 @@ struct SearchTabView: View {
             .padding(.vertical, 11)
             .background(Capsule().fill(Color(.systemBackground)).shadow(radius: 3, y: 1))
 
-            // 담긴 개수를 배지로 보여 준다 — 베타의 CartIconButton 과 같다.
-            // 장바구니 화면 자체는 별도 티켓이라 여기서는 개수까지만 보인다.
-            Button {} label: {
+            // 담긴 개수를 배지로 보여 주고, 누르면 담긴 목록을 편다 —
+            // 베타의 CartIconButton + showCartSheet 와 같다.
+            Button { showCart = true } label: {
                 Image(systemName: "bag")
                     .font(.system(size: 17, weight: .medium))
                     .frame(width: 42, height: 42)
