@@ -109,10 +109,19 @@ merge_tree_sources(
 # 앱이 실제로 import 하는 모듈. scene_api_spring_lib 의 Swift 판이며 같은 일을 한다 —
 # 명세에서 필드가 사라지거나 타입이 바뀌면 여기서 만들어진 타입이 바뀌고, 그것을 쓰는
 # 화면 코드가 컴파일되지 않는다.
+# tags = ["ios"] 가 필요하다. 리눅스에는 Swift 툴체인이 없어서 이 타깃을 지으려 하면
+# rules_swift 의 linux-toolchain 해석이 실패하고 **`just gen` 과 `just build` 가 통째로
+# 죽는다**(실측 — CI 우분투 잡이 네 커밋 연속 빨간불이었다). `generate.sh` 가
+# `//contracts/openapi/...` 를 와일드카드로 짓기 때문에 여기까지 걸린다.
+#
+# 같은 태그로 apps/scenetrip-ios 를 거르고 있고(.bazelrc 의 build:linux), macOS 잡은
+# 아무것도 거르지 않으므로 이 라이브러리는 verify-macos 에서 그대로 검사된다.
+# Android 클라이언트(kotlin 생성기)는 리눅스에서도 지어지므로 이 태그를 달지 않는다.
 swift_library(
     name = "scene_api_swift_lib",
     srcs = [":scene_api_swift_srcs"],
     module_name = "SceneApiClient",
+    tags = ["ios"],
 )
 
 exports_files(["redoc-page.sh"])
