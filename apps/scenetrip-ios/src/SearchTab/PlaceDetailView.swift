@@ -55,9 +55,8 @@ struct PlaceDetailView: View {
             detail = try? await load(summary.id)
         }
         .sheet(item: $scene) { picked in
-            ScenePopup(scene: picked, placeId: summary.id, placeName: summary.name)
+            ScenePopup(scene: picked, placeName: summary.name)
                 .presentationDetents([.medium])
-                .environmentObject(cart)
         }
     }
 
@@ -154,13 +153,18 @@ struct SceneCard: View {
     }
 }
 
-/// 목업 §2.7 — 장면 팝업. 카드는 두 줄로 잘리므로 전문은 여기서 본다.
+/// 장면 팝업. 카드에서 두 줄로 잘린 설명의 전문을 본다.
+///
+/// **담기 버튼을 두지 않는다.** 베타에는 있었으나 잘못된 설계였다 — 장바구니에 담기는
+/// 단위는 **장소**인데(계약의 `CartItemCreate` 가 `placeId` 를 받는다), 장면 팝업은
+/// "이 장소에서 어느 작품의 어떤 장면을 찍었나" 를 보는 자리다. 거기서 담으면
+/// 사용자는 장면을 담는다고 생각하는데 실제로는 장소가 담긴다.
+///
+/// 담는 자리는 이미 둘 있다 — 장소 목록 행의 `+`, 장소 상세의 저장 버튼. 둘 다
+/// 장소를 다루는 자리다.
 struct ScenePopup: View {
     let scene: SceneItem
-    let placeId: Int64
     let placeName: String
-
-    @EnvironmentObject private var cart: CartStore
 
     var body: some View {
         ScrollView {
@@ -181,23 +185,6 @@ struct ScenePopup: View {
                 if let description = scene.sceneDescription {
                     Text(description).font(.subheadline)
                 }
-
-                // 담는 경로 셋 중 하나. 어느 쪽에서 담아도 같은 엔드포인트다.
-                // 작품을 함께 넘겨 "어느 작품 때문에 담았는지" 를 서버가 기억한다.
-                let saved = cart.contains(placeId)
-                Button {
-                    Task {
-                        await cart.add(placeId: placeId, sourceContentId: scene.contentId)
-                    }
-                } label: {
-                    Label(
-                        saved ? "저장됨" : "장바구니에 담기",
-                        systemImage: saved ? "checkmark" : "bag.badge.plus"
-                    )
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(saved)
             }
             .padding(18)
         }

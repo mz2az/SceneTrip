@@ -1,3 +1,4 @@
+import SceneApiClient
 @testable import SceneTrip
 import XCTest
 
@@ -53,6 +54,14 @@ final class ClientRulesTests: XCTestCase {
         XCTAssertFalse(ApiFailure(statusCode: 400, traceId: nil).isRetryable)
         XCTAssertFalse(ApiFailure(statusCode: 404, traceId: nil).isRetryable)
         XCTAssertFalse(ApiFailure(statusCode: 409, traceId: nil).isRetryable)
+    }
+
+    /// 생성 클라이언트가 연결 실패에 쓰는 음수 코드(-1, -2)를 HTTP 코드로 넘기면
+    /// 안 된다. 넘기면 서버가 꺼져 있을 때 재시도 버튼이 사라진다.
+    func testNegativeCodesAreTreatedAsUnreachable() {
+        XCTAssertNil(ApiFailure(ErrorResponse.error(-1, nil, nil, URLError(.cannotConnectToHost))).statusCode)
+        XCTAssertNil(ApiFailure(ErrorResponse.error(-2, nil, nil, URLError(.badServerResponse))).statusCode)
+        XCTAssertTrue(ApiFailure(ErrorResponse.error(-1, nil, nil, URLError(.timedOut))).isRetryable)
     }
 
     /// 서버에 닿지도 못한 경우(코드 없음)도 재시도 대상이다 — 앱이 고칠 것이 없다는

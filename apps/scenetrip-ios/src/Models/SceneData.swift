@@ -88,11 +88,19 @@ struct ApiFailure: Equatable {
 
     init(_ error: Error) {
         guard case let ErrorResponse.error(code, data, _, _) = error else {
-            // 네트워크가 아예 닿지 않은 경우 — 서버가 안 떠 있으면 여기로 온다.
             self.init(statusCode: nil, traceId: nil)
             return
         }
-        self.init(statusCode: code, traceId: Self.traceId(from: data))
+        // **생성 클라이언트는 음수를 HTTP 코드가 아닌 신호로 쓴다.** 연결 자체가
+        // 실패하면 -1, 응답이 HTTP 가 아니면 -2 다
+        // (URLSessionImplementations.swift:164,169). 그것을 상태 코드로 그대로 넘기면
+        // 서버가 꺼져 있을 때 "요청을 처리하지 못했습니다" 가 뜨고 재시도 버튼이
+        // 사라진다(실측) — 정작 재시도가 필요한 상황인데.
+        let reachedServer = code > 0
+        self.init(
+            statusCode: reachedServer ? code : nil,
+            traceId: reachedServer ? Self.traceId(from: data) : nil
+        )
     }
 
     /// `traceId` 는 `500` 응답에만 실린다. 다른 코드에서는 키 자체가 빠지므로

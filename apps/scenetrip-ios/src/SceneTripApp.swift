@@ -25,7 +25,7 @@ struct SceneTripApp: App {
     /// SceneApiClient.Scene 과 SwiftUI.Scene 이 부딪힌다.
     var body: some SwiftUI.Scene {
         WindowGroup {
-            SearchTabView()
+            RootTabs()
         }
     }
 }
