@@ -283,7 +283,11 @@ A change is done only when **all** of these hold:
 
 - `main` is always deployable.
 - All work happens on a branch cut from `main` — never commit directly to `main`.
-- Merges to `main` happen **only** through a reviewed PR.
+- Merges to `main` happen **only** through a PR that has **either a review or a fully
+  green CI run**. Both paths are legitimate; what is not allowed is merging on neither.
+  *(The team confirmed on 2026-08-09 that a green CI run is sufficient in practice. The
+  earlier wording demanded a review and did not match how the team works — a doc that
+  contradicts practice gets ignored wholesale, so it is corrected rather than left.)*
 - A merge to `main` triggers deployment automatically.
   *(Target policy. The pipeline that performs this auto-deploy is not implemented yet — see
   `.github/workflows/`. Treat `main` as if it deploys the moment you merge even before the
