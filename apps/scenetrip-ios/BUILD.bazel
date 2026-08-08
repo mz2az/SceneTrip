@@ -1,0 +1,138 @@
+# apps/scenetrip-ios 의 타깃.
+#
+# AGENTS.md §4.1 의 이름 규칙을 따른다 — 라벨을 예측할 수 있어야 사람도 AI 도
+# 이 파일을 먼저 읽지 않고 타깃을 조립할 수 있다.
+#
+#   :scenetrip-ios      이 모듈의 주 라이브러리 (swift_library)
+#   :bin                시뮬레이터/기기에 설치하는 .app 번들 (ios_application)
+#
+# :unit_test 는 아직 없다 — 검증할 로직이 생기는 첫 화면 작업에서 함께 만든다.
+# :image / :push 는 모바일 모듈에 해당 없음 (MODULE.bazel 컨테이너 절 참고).
+#
+# iOS 는 macOS + Xcode 에서만 지어진다. 그것을 리눅스 러너로부터 지키는 장치는
+# **두 겹**이고, 둘 다 실측(우분투 컨테이너)으로 확인했다 — 계획서
+# docs/project/plans/mobile-native-search-tab.md §5-3.
+#
+# 1. tags = ["ios"] + .bazelrc 의 `build:linux --build_tag_filters=-ios`.
+#    이것이 실제로 리눅스 와일드카드 빌드에서 이 모듈을 걸러내는 장치다.
+#    계획 초안은 target_compatible_with 만으로 충분하다고 봤지만 틀렸다:
+#    ios_application 은 빌드 시 타깃 플랫폼을 ios_sim/ios_device 로 **전환**하고
+#    target_compatible_with 는 전환 뒤에 평가되므로, 전환된 iOS 플랫폼은 어느
+#    호스트에서든 같은 값이다 — 리눅스를 구분하지 못하고, 리눅스에서는 조용한
+#    스킵이 아니라 툴체인 해석 실패(하드 에러)가 난다.
+#
+# 2. target_compatible_with(아래 select). "Apple 플랫폼에서만 지어진다"는 의미
+#    선언이다. macos(전환 전)와 ios(전환 후)를 허용해야 한다 — macos 만 적으면
+#    :bin 이 어디서도 지어지지 않는데, 와일드카드 빌드는 비호환 타깃을 조용히
+#    건너뛰므로 `just check` 는 초록인 채로 앱 번들만 빠진다(실측).
+#
+# 새 타깃을 추가할 때 tags = ["ios"] 를 잊지 않는다. Android 모듈에는 둘 다
+# 붙이지 않는다 — 리눅스에서도 지어지므로 붙이면 오히려 기존 ubuntu 잡의 검사
+# 범위에서 빠진다.
+
+load("@rules_apple//apple:ios.bzl", "ios_application", "ios_unit_test")
+load("@rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
+load("@rules_swift//swift:swift.bzl", "swift_library")
+
+package(default_visibility = ["//visibility:public"])
+
+APPLE_ONLY = select({
+    "@platforms//os:ios": [],
+    "@platforms//os:macos": [],
+    "//conditions:default": ["@platforms//:incompatible"],
+})
+
+# 네이버 지도 클라이언트 ID 를 소스에 박지 않는다 (계획서 §5-2 설정 절).
+# `.env` 에 두고 --define 으로 넘겨 이 파일을 만든다. .env 는 gitignore 대상이라
+# 값이 저장소에 들어가지 않고, 생성물은 bazel-out 안에만 있다.
+#
+# 값을 넘기지 않으면 빈 문자열이 들어가고 지도는 인증 실패 화면을 띄운다 —
+# 빌드가 깨지지 않으므로 ID 없는 사람도 나머지 화면은 그대로 볼 수 있다.
+genrule(
+    name = "secrets_swift",
+    outs = ["Secrets.swift"],
+    cmd = """cat > $@ <<'EOF'
+// 생성 파일 — 고치지 않는다. //apps/scenetrip-ios:secrets_swift 가 만든다.
+enum Secrets {
+    static let naverClientId = "$(naver_client_id)"
+}
+EOF""",
+    tags = ["ios"],
+)
+
+swift_library(
+    name = "scenetrip-ios",
+    srcs = glob(["src/**/*.swift"]) + [":secrets_swift"],
+    module_name = "SceneTrip",
+    # "manual" 은 와일드카드(`//...`)에서만 뺀다 — :bin 을 통해서는 그대로 지어지므로
+    # 검사 범위가 줄지 않는다.
+    #
+    # 없으면 `just build` 가 이 라이브러리를 **macOS 설정 그대로** 지으려 하고,
+    # 네이버 SDK 의 xcframework 임포트가 "Errors encountered while applying Starlark
+    # transition" 으로 죽는다(실측). 그 프레임워크는 iOS 슬라이스만 있어서 macOS
+    # 설정에서는 고를 것이 없기 때문이다. :bin(ios_application)은 타깃 플랫폼을
+    # ios_sim_arm64 등으로 전환한 뒤 짓기 때문에 같은 문제가 없다.
+    tags = [
+        "ios",
+        "manual",
+    ],
+    target_compatible_with = APPLE_ONLY,
+    deps = [
+        "//contracts/openapi:scene_api_swift_lib",
+        "@swiftpkg_spm_nmapsmap//:NMapsMap",
+    ],
+)
+
+ios_application(
+    name = "bin",
+    bundle_id = "com.mz2az.scenetrip",
+    families = ["iphone"],
+    infoplists = ["Info.plist"],
+    minimum_os_version = "17.0",
+    tags = ["ios"],
+    target_compatible_with = APPLE_ONLY,
+    deps = [":scenetrip-ios"],
+)
+
+# 검색 규칙(계획서 §3-2 · §3-3 · §3-5)을 고정하는 테스트.
+#
+# **리눅스에서는 돌지 않는다.** `tools/just/test.just` 의 IOS_TEST_FILTER 가 리눅스일
+# 때만 `-ios` 를 태그 필터에 덧붙인다 — .bazelrc 의 test:linux 줄만으로는 막지 못한다
+# (명령줄 필터가 덮어쓰므로). macOS 에서는 붙이지 않으므로 여기서 실제로 돈다.
+swift_library(
+    name = "unit_test_lib",
+    testonly = True,
+    srcs = glob(["tests/**/*.swift"]),
+    module_name = "SceneTripTests",
+    tags = [
+        "ios",
+        "manual",
+    ],
+    target_compatible_with = APPLE_ONLY,
+    deps = [":scenetrip-ios"],
+)
+
+# 기본 러너는 기기를 지정하지 않으면 **iPhone 6s Plus** 를 만든다. 최신 iOS 런타임을
+# 못 돌리는 기기라 테스트가 시작 전에 SIGTERM 으로 죽는다("tests exited with '15'", 실측).
+#
+# 이것을 `.bazelrc` 의 전역 `--ios_simulator_device` 로 고치려다 **앱 실행이 깨졌다** —
+# 그 플래그는 `bazel run //…:bin` 의 러너에도 걸리는데, 짝이 되는
+# `--ios_simulator_version` 이 없으면 런타임 id 가 비어 "Invalid runtime" 으로 죽는다.
+# 그래서 기기 지정을 테스트 러너 안으로 좁힌다. 앱 실행은 이미 떠 있는 시뮬레이터를
+# 그대로 쓴다.
+#
+# iPhone 16 을 고른 이유는 Xcode 16·26 이미지에 다 들어 있어서다.
+ios_test_runner(
+    name = "sim_runner",
+    device_type = "iPhone 16",
+    tags = ["ios"],
+)
+
+ios_unit_test(
+    name = "unit_test",
+    minimum_os_version = "17.0",
+    runner = ":sim_runner",
+    tags = ["ios"],
+    target_compatible_with = APPLE_ONLY,
+    deps = [":unit_test_lib"],
+)

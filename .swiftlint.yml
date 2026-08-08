@@ -1,0 +1,30 @@
+# SwiftLint 설정.
+#
+# 계획서 §6 남은것 #4 가 "빈 프로젝트에 먼저 쓰면 남의 기본값을 베끼게 된다. 화면을
+# 몇 개 옮긴 뒤 **실제로 나온 경고를 근거로** 쓴다" 고 미뤄 둔 파일이다. 검색 탭
+# 첫 구현(약 700 줄)에서 나온 52 건을 보고 썼다.
+#
+# **대부분은 설정이 아니라 코드로 고쳤다.** identifier_name 37 건은 클로저 인자
+# 이름을 제대로 붙여 없앴고, force_try·function_parameter_count·large_tuple·
+# cyclomatic_complexity 는 테스트 픽스처와 자동완성 함수를 다시 써서 없앴다.
+# 규칙을 끄는 것으로 해결한 것은 아래 한 건뿐이다.
+
+excluded:
+  # 서드파티 SPM 체크아웃. 우리 코드가 아니고 우리가 고칠 수도 없다 —
+  # 네이버 지도 SDK 의 Package.swift 가 여기서 6 건을 만들고 있었다.
+  - .build
+  # Bazel 이 만드는 심볼릭 링크. 따라 들어가면 생성물을 검사하게 된다.
+  - bazel-bin
+  - bazel-out
+  - bazel-testlogs
+  - bazel-SceneTrip
+
+disabled_rules:
+  # **swiftformat 과 정면으로 충돌한다.** swiftformat 은 여러 줄 컬렉션 리터럴에
+  # 후행 쉼표를 **넣고**, swiftlint 의 이 규칙은 **빼라고** 한다. 두 도구를 다
+  # 게이트에 걸어 둔 이상 한쪽이 이 결정을 가져야 하고, 포맷은 포매터 몫이다.
+  #
+  # 규칙을 끄는 쪽을 골랐지 swiftformat 을 바꾸지 않은 이유: 후행 쉼표가 있으면
+  # 줄을 더할 때 diff 가 한 줄만 바뀐다. 이 저장소는 목록형 선언(의존성·매핑표)이
+  # 많아 그 이득이 실제로 크다.
+  - trailing_comma

@@ -6,8 +6,8 @@
 
 | 앱 | 언어 | 공유 라이브러리 |
 | --- | --- | --- |
-| iOS | Swift | `libs/swift/` |
-| Android | Kotlin | `libs/kotlin/` |
+| [`scenetrip-ios/`](./scenetrip-ios/) | Swift | `libs/swift/` |
+| Android (예정 — `scenetrip-android/`) | Kotlin | `libs/kotlin/` |
 
 ```
 apps/<이름>/
@@ -33,9 +33,9 @@ apps/<이름>/
 ## 빌드 환경 주의
 
 - **iOS 빌드는 정식 Xcode 앱이 설치된 macOS 에서만 된다.** Command Line Tools 만으로는
-  안 된다. Apple 관련 Bazel 규칙(`rules_apple`·`rules_swift`·`apple_support`)은 첫 iOS
-  모듈을 만들 때 `MODULE.bazel` 에서 주석을 푼다 — 그 전에 활성화하면 Xcode 가 없는
-  장비에서 저장소 전체 빌드가 깨진다.
+  안 된다. Apple 관련 Bazel 규칙(`rules_apple`·`rules_swift`·`apple_support`)은
+  scenetrip-ios 와 함께 `MODULE.bazel` 에 활성화됐다 — 이 시점부터 **저장소를 빌드하는
+  모든 macOS 장비에 정식 Xcode 가 필요하다.** 없으면 iOS 와 무관한 타깃의 빌드까지 깨진다.
 - **Android 빌드는 Android SDK 가 필요하다.** 마찬가지로 첫 Android 모듈과 함께
   `MODULE.bazel` 에 SDK 위치를 알려주는 확장을 추가한다.
 

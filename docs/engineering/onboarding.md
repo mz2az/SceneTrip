@@ -106,8 +106,9 @@ services/scene-api/
 | `contracts/proto` | protobuf | `libs/proto/` | `protobuf` + `rules_proto` |
 
 이 규칙 세트들은 **해당 언어의 첫 모듈이 실제로 들어올 때** `MODULE.bazel`에 주석 해제되어
-추가된다 — 지금은 전부 주석 상태다. 새 모듈을 만들기 전에 `MODULE.bazel`을 열어 필요한
-블록이 이미 활성화돼 있는지 확인한다.
+추가된다 — Java 는 scene-api 와, Swift 는 scenetrip-ios 와 함께 활성화됐고 나머지는 아직
+주석 상태다. 새 모듈을 만들기 전에 `MODULE.bazel`을 열어 필요한 블록이 이미 활성화돼
+있는지 확인한다.
 
 **알아둘 것 하나:**
 
@@ -131,6 +132,20 @@ services/scene-api/
 모든 머신(로컬이든 CI든)에 `tools/bazel/toolchains/`에 고정한 버전의 Xcode가 실제로
 설치돼 있어야 한다. 자연스러운 결과로 **iOS 빌드/테스트는 macOS 실행기에서만 돈다** —
 Linux 원격 실행이 안 된다. Android SDK는 재배포가 허용돼서 상대적으로 더 격리 가능하다.
+
+그 "macOS 에서만"을 코드에 적는 장치는 두 겹이다 — 첫 용례는
+`apps/scenetrip-ios/BUILD.bazel`, 실측 근거는 그 파일 머리말과 계획서
+(docs/project/plans/mobile-native-search-tab.md §5-3)에 있다.
+
+1. **`tags = ["ios"]` + `.bazelrc` 의 `build:linux --build_tag_filters=-ios`** —
+   리눅스 와일드카드 빌드에서 iOS 타깃을 실제로 걸러내는 장치. `target_compatible_with`
+   만으로는 안 된다: `ios_application` 이 타깃 플랫폼을 iOS 로 전환한 뒤 제약이
+   평가되므로 호스트 OS 를 구분하지 못하고, 리눅스에서는 툴체인 해석 실패로 죽는다.
+2. **`target_compatible_with`(macos·ios 를 허용하는 select)** — "Apple 플랫폼에서만
+   지어진다"는 의미 선언.
+
+Android 타깃에는 둘 다 붙이지 않는다(리눅스에서도 지어지므로 붙이면 오히려 검사
+범위에서 빠진다).
 
 ## 7. 작업 루프
 

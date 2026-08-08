@@ -268,6 +268,9 @@ A change is done only when **all** of these hold:
 - [ ] New/changed behavior is covered by a test in the correct lane
 - [ ] `BUILD.bazel` files hand-updated for every added/removed source file
 - [ ] Contracts updated before implementation when the wire format changed
+- [ ] When `contracts/` changed: every `docs/project/plans/` doc that consumes that contract was
+      re-read and updated, or confirmed unaffected — those plans are point-in-time snapshots and
+      go stale silently (see the note at the top of `mobile-native-search-tab.md`)
 - [ ] Module `README.md` reflects reality
 - [ ] No secrets, no absolute paths, no debug prints, no `TODO` without a tracking link
 - [ ] Docs updated for any behavior a user or operator can observe
