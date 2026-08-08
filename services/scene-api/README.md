@@ -173,11 +173,20 @@ just test-module  services/scene-api    # 테스트
 just test-integration                   # 실제 DB 에 SQL 을 태우는 레인
 just run //services/scene-api:bin       # 로컬 실행 (기본 8080)
 
+just stack-up                           # 클러스터부터 데이터까지 한 번에 (아래 참고)
+
 just image  scene-api                   # 이미지 굽고 kind 에 적재
 just deploy scene-api local             # 클러스터에 배포
+just seed                               # 데이터 적재 — 배포만으로는 DB 가 비어 있다
+just db-refresh-search                  # 검색 색인 갱신 — 없으면 검색만 0 건
 just update scene-api                   # 코드 변경 후 재빌드 → 적재 → 롤링 재시작
 just logs   scene-api                   # 로그 따라가기
 ```
+
+**단계를 직접 밟을 때 빠지는 것이 `seed` 와 `db-refresh-search` 다.** 둘 다 빠져도
+배포는 성공하고 health 는 초록이며, `/v1/contents` 가 200 에 빈 배열을 준다. 화면만
+비고 아무것도 깨지지 않아 가장 찾기 어렵다. 그래서 순서를 기억하지 않아도 되도록
+`just stack-up` 이 전 단계를 묶고, 마지막에 실제 요청으로 건수까지 확인한다.
 
 배포 후 확인 — `port-forward` 가 필요 없다.
 

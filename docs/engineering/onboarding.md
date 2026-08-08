@@ -214,12 +214,19 @@ Android 타깃에는 둘 다 붙이지 않는다(리눅스에서도 지어지므
 ## 10. 로컬 인프라 (kind + SigNoz)
 
 ```bash
-just cluster-up          # kind 클러스터 + SigNoz 설치. 멱등, 3~4분
+just stack-up            # 클러스터 + DB + 스키마 + 데이터 + API 까지 한 번에
+just cluster-up          # 인프라만 — kind 클러스터 + SigNoz 설치. 멱등, 3~4분
 just cluster-doctor       # 도구·클러스터·SigNoz·워크로드 상태 한눈에
 just cluster-test-drive  # 클러스터가 실제로 도는지 end-to-end 확인
 just signoz               # SigNoz UI 주소 안내
 just cluster-down         # 전부 삭제 (확인 절차 있음)
 ```
+
+**API 에 요청을 보내 볼 거라면 `just stack-up` 을 쓴다.** `just cluster-up` 은 그릇만
+만든다 — 클러스터가 서고 배포도 성공하고 health 도 초록인데 `/v1/contents` 는 빈 배열을
+주는 상태가 된다. 데이터 적재(`just seed`)와 검색 색인 갱신(`just db-refresh-search`)이
+별도 단계이기 때문이고, `stack-up` 이 그 순서를 묶은 뒤 실제 요청으로 건수까지 확인한다.
+모바일 앱을 서버에 붙여 볼 때도 이것부터다.
 
 `localhost:8080`이 SigNoz UI, `localhost:8081`이 애플리케이션 API다 — `platform/kind/cluster.yaml`이
 호스트 포트를 클러스터 생성 시점에 매핑해 둬서 `port-forward`가 따로 필요 없다. kind 클러스터는
