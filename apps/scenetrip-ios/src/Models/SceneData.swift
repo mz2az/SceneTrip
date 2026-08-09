@@ -53,9 +53,22 @@ final class SceneData: ObservableObject {
         search(lastQuery)
     }
 
-    /// 작품 하나를 골랐을 때 그 작품의 촬영지.
+    /// 작품 하나를 골랐을 때 그 작품의 촬영지 **전부**.
+    ///
+    /// 이 엔드포인트의 `limit` 상한은 100 이다 — 목록 API 의 200 을 그대로 넣으면
+    /// `400 INVALID_PARAMETER` 가 온다(실측). 상한을 넘는 작품은 `offset` 으로
+    /// 이어 받는다. 핀 번호가 곧 행 번호라 일부만 그리면 번호가 어긋난다.
     func places(ofContent id: Int64) async throws -> [PlaceSummary] {
-        try await PlacesAPI.listContentPlaces(contentId: id, limit: 200).items
+        var all: [PlaceSummary] = []
+        while true {
+            let page = try await PlacesAPI.listContentPlaces(
+                contentId: id, limit: 100, offset: all.count
+            )
+            all.append(contentsOf: page.items)
+            if page.items.isEmpty || all.count >= page.total {
+                return all
+            }
+        }
     }
 
     /// 촬영지 상세. 목록용 `PlaceSummary` 에는 없는 것들이 여기 있다 — 장소 사진 여러
