@@ -51,10 +51,18 @@ SceneTrip 의 Android 네이티브 앱. 첫 화면인 **작품검색 탭**(지�
 
 ```bash
 just build-module apps/scenetrip-android    # 빌드
+just android-run                            # 에뮬레이터에 띄운다
 ```
 
-에뮬레이터 실행 레시피는 아직 없다. 첫 화면 작업에서 `just android-run` 을 함께
-만든다 — iOS 의 `just ios-run` 과 같은 자리다.
+`just android-run` 은 AVD 가 없으면 만들고, 에뮬레이터가 꺼져 있으면 부팅을 기다린
+뒤 설치·실행한다. 끝나도 에뮬레이터는 살아 있어서, 다시 부르면 빌드·설치만 한다.
+
+`just ios-run` 이 `bazel run` 한 줄인 것과 달리 스크립트를 거친다 — `android_binary`
+는 APK 만 내놓을 뿐 설치·실행을 하지 않기 때문이다. 이유는
+`tools/scripts/android-run.sh` 머리말에 적혀 있다.
+
+**에뮬레이터는 별도 패키지다.** 빌드에 필요한 platform·build-tools 만으로는 뜨지
+않는다. 없으면 스크립트가 받을 명령을 알려주고 멈춘다 (약 1.5GB, onboarding.md 참고).
 
 ## 설정
 

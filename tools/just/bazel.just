@@ -31,6 +31,15 @@ run target *args:
 ios-run:
     {{BAZEL}} run //apps/scenetrip-ios:bin --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
 
+# `bazel run` 한 줄로 끝나는 ios-run 과 달리 스크립트를 거친다 — `android_binary` 는
+# APK 만 내놓을 뿐 설치·실행을 하지 않는다. 그 몫(AVD 생성·부팅 대기·설치·실행)을
+# tools/scripts/android-run.sh 가 대신하며, 이유는 그 파일 머리말에 적혀 있다.
+
+# Android 앱을 에뮬레이터에 띄운다 (없으면 AVD 생성·부팅까지)
+[group('build')]
+android-run:
+    ./tools/scripts/android-run.sh
+
 # 빌드 그래프 질의. 예: `just query 'deps(//apps/web:web)'`
 [group('build')]
 query expr:
