@@ -71,6 +71,11 @@ echo 'ANDROID_HOME=/opt/homebrew/share/android-commandlinetools' >> .env
 brew install ktlint
 ```
 
+CI 는 ktlint 버전을 `.github/workflows/ci.yml` 의 `KTLINT_VERSION` 으로 못 박는다 —
+Android 모듈은 리눅스에서도 지어져 `verify` 와 `verify-macos` 가 같은 `.kt` 를
+검사하기 때문이다. brew 가 그보다 앞서 나가 로컬만 빨간불이 나면, 그 값을 올려
+맞춘다.
+
 **JDK 가 없으면 2번에서 막힌다.** `sdkmanager` 자체가 자바 프로그램이기 때문이다.
 macOS 의 `/usr/bin/java` 는 "자바를 설치하세요" 안내만 띄우는 껍데기다. Bazel 이 이미
 받아 둔 JDK 를 빌려 쓰면 따로 설치할 필요가 없다.
