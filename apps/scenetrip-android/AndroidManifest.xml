@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  bundle id 는 iOS 와 같은 com.mz2az.scenetrip 다. 스토어가 다르므로 충돌하지 않고,
+  같은 제품이라는 것이 드러난다.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.mz2az.scenetrip">
+
+    <!-- 지도와 서버 호출에 필요하다. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:label="SceneTrip"
+        android:supportsRtl="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

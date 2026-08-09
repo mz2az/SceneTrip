@@ -66,6 +66,9 @@ sdkmanager --sdk_root=/opt/homebrew/share/android-commandlinetools \
 
 # 4) 경로를 .env 에 적는다. just 레시피가 자동으로 읽는다
 echo 'ANDROID_HOME=/opt/homebrew/share/android-commandlinetools' >> .env
+
+# 5) Kotlin 포매터. .kt 파일이 있으면 just check 가 이것을 요구한다
+brew install ktlint
 ```
 
 **JDK 가 없으면 2번에서 막힌다.** `sdkmanager` 자체가 자바 프로그램이기 때문이다.
