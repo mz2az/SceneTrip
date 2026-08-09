@@ -268,6 +268,9 @@ A change is done only when **all** of these hold:
 - [ ] New/changed behavior is covered by a test in the correct lane
 - [ ] `BUILD.bazel` files hand-updated for every added/removed source file
 - [ ] Contracts updated before implementation when the wire format changed
+- [ ] When `contracts/` changed: every `docs/project/plans/` doc that consumes that contract was
+      re-read and updated, or confirmed unaffected — those plans are point-in-time snapshots and
+      go stale silently (see the note at the top of `mobile-native-search-tab.md`)
 - [ ] Module `README.md` reflects reality
 - [ ] No secrets, no absolute paths, no debug prints, no `TODO` without a tracking link
 - [ ] Docs updated for any behavior a user or operator can observe
@@ -280,7 +283,11 @@ A change is done only when **all** of these hold:
 
 - `main` is always deployable.
 - All work happens on a branch cut from `main` — never commit directly to `main`.
-- Merges to `main` happen **only** through a reviewed PR.
+- Merges to `main` happen **only** through a PR that has **either a review or a fully
+  green CI run**. Both paths are legitimate; what is not allowed is merging on neither.
+  *(The team confirmed on 2026-08-09 that a green CI run is sufficient in practice. The
+  earlier wording demanded a review and did not match how the team works — a doc that
+  contradicts practice gets ignored wholesale, so it is corrected rather than left.)*
 - A merge to `main` triggers deployment automatically.
   *(Target policy. The pipeline that performs this auto-deploy is not implemented yet — see
   `.github/workflows/`. Treat `main` as if it deploys the moment you merge even before the

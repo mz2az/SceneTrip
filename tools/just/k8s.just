@@ -19,10 +19,21 @@ SIGNOZ_URL := "http://localhost:8080"
 cluster-up:
     ./tools/scripts/cluster-up.sh
 
-# 로컬 환경 전체 기동. 현재는 클러스터와 SigNoz 를 의미한다.
+# 인프라만 기동 — 클러스터와 SigNoz. 애플리케이션과 데이터는 'just stack-up'.
 [group('k8s')]
 up: cluster-up
     @echo "준비 완료 — UI 는 'just signoz', 상태는 'just cluster-doctor'"
+    @echo "API 에 데이터까지 필요하면: just stack-up"
+
+# 단계를 하나 빠뜨려도 아무것도 깨지지 않고 화면만 빈다 — seed 를 빼면 API 가 빈
+# 배열을 주고, 색인 갱신을 빼면 검색만 0 건이 된다. 둘 다 health 는 초록이라 알아채기
+# 어렵다. 그래서 순서를 사람의 기억이 아니라 이 레시피가 들고 있고, 마지막에 실제
+# 요청으로 건수까지 확인한다. 인자를 주면 볼트의 전량 CSV 를 적재한다.
+#
+# 클러스터부터 데이터까지 한 번에 — 앱을 붙여 화면을 보려면 이것을 쓴다
+[group('k8s')]
+stack-up *csv:
+    ./tools/scripts/stack-up.sh {{ csv }}
 
 # 클러스터 삭제. 수집한 텔레메트리와 DB 데이터도 함께 사라진다.
 [group('k8s')]

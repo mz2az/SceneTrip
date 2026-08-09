@@ -81,3 +81,6 @@ Thumbs.db
 /tmp/
 /scratch/
 *.local.*
+
+# Swift Package Manager 작업 디렉터리 (해석 결과는 Package.resolved 로 커밋한다)
+.build/

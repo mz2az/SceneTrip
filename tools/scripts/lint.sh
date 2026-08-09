@@ -47,8 +47,19 @@ if has_files '*.kt'; then
 fi
 
 # --- Swift (apps/ iOS, libs/swift/) -------------------------------------------
+#
+# Apple 플랫폼에서만 돈다. `.bazelrc` 가 리눅스에서 `ios` 태그를 걸러내는 것과 같은
+# 경계다 — 리눅스는 이 모듈을 짓지도 않으므로 린트만 도는 것이 앞뒤가 맞지 않고,
+# swiftlint 는 리눅스에서 별도 배포라 설치가 느리고 잘 깨진다.
+#
+# **조용히 건너뛰지는 않는다.** 이 파일 머리말의 기준("검사해서 통과한 것과 아예
+# 검사하지 않은 것은 다르다")이 여기에도 걸린다. 건너뛴 사실을 남기고, 그 대신
+# 어디가 검사하는지 함께 적는다 — CI 의 verify-macos 잡이다
+# (`.github/workflows/ci.yml`). 그 잡이 없으면 Swift 는 아무 데서도 검사되지 않는다.
 if has_files '*.swift'; then
-  if have swiftlint; then
+  if [ "$(uname -s)" != "Darwin" ]; then
+    warn "Swift 린트를 건너뜁니다 — Apple 플랫폼이 아닙니다. CI 의 verify-macos 잡이 검사합니다."
+  elif have swiftlint; then
     ran=1
     swiftlint
   else

@@ -106,8 +106,9 @@ services/scene-api/
 | `contracts/proto` | protobuf | `libs/proto/` | `protobuf` + `rules_proto` |
 
 이 규칙 세트들은 **해당 언어의 첫 모듈이 실제로 들어올 때** `MODULE.bazel`에 주석 해제되어
-추가된다 — 지금은 전부 주석 상태다. 새 모듈을 만들기 전에 `MODULE.bazel`을 열어 필요한
-블록이 이미 활성화돼 있는지 확인한다.
+추가된다 — Java 는 scene-api 와, Swift 는 scenetrip-ios 와 함께 활성화됐고 나머지는 아직
+주석 상태다. 새 모듈을 만들기 전에 `MODULE.bazel`을 열어 필요한 블록이 이미 활성화돼
+있는지 확인한다.
 
 **알아둘 것 하나:**
 
@@ -131,6 +132,20 @@ services/scene-api/
 모든 머신(로컬이든 CI든)에 `tools/bazel/toolchains/`에 고정한 버전의 Xcode가 실제로
 설치돼 있어야 한다. 자연스러운 결과로 **iOS 빌드/테스트는 macOS 실행기에서만 돈다** —
 Linux 원격 실행이 안 된다. Android SDK는 재배포가 허용돼서 상대적으로 더 격리 가능하다.
+
+그 "macOS 에서만"을 코드에 적는 장치는 두 겹이다 — 첫 용례는
+`apps/scenetrip-ios/BUILD.bazel`, 실측 근거는 그 파일 머리말과 계획서
+(docs/project/plans/mobile-native-search-tab.md §5-3)에 있다.
+
+1. **`tags = ["ios"]` + `.bazelrc` 의 `build:linux --build_tag_filters=-ios`** —
+   리눅스 와일드카드 빌드에서 iOS 타깃을 실제로 걸러내는 장치. `target_compatible_with`
+   만으로는 안 된다: `ios_application` 이 타깃 플랫폼을 iOS 로 전환한 뒤 제약이
+   평가되므로 호스트 OS 를 구분하지 못하고, 리눅스에서는 툴체인 해석 실패로 죽는다.
+2. **`target_compatible_with`(macos·ios 를 허용하는 select)** — "Apple 플랫폼에서만
+   지어진다"는 의미 선언.
+
+Android 타깃에는 둘 다 붙이지 않는다(리눅스에서도 지어지므로 붙이면 오히려 검사
+범위에서 빠진다).
 
 ## 7. 작업 루프
 
@@ -199,12 +214,19 @@ Linux 원격 실행이 안 된다. Android SDK는 재배포가 허용돼서 상�
 ## 10. 로컬 인프라 (kind + SigNoz)
 
 ```bash
-just cluster-up          # kind 클러스터 + SigNoz 설치. 멱등, 3~4분
+just stack-up            # 클러스터 + DB + 스키마 + 데이터 + API 까지 한 번에
+just cluster-up          # 인프라만 — kind 클러스터 + SigNoz 설치. 멱등, 3~4분
 just cluster-doctor       # 도구·클러스터·SigNoz·워크로드 상태 한눈에
 just cluster-test-drive  # 클러스터가 실제로 도는지 end-to-end 확인
 just signoz               # SigNoz UI 주소 안내
 just cluster-down         # 전부 삭제 (확인 절차 있음)
 ```
+
+**API 에 요청을 보내 볼 거라면 `just stack-up` 을 쓴다.** `just cluster-up` 은 그릇만
+만든다 — 클러스터가 서고 배포도 성공하고 health 도 초록인데 `/v1/contents` 는 빈 배열을
+주는 상태가 된다. 데이터 적재(`just seed`)와 검색 색인 갱신(`just db-refresh-search`)이
+별도 단계이기 때문이고, `stack-up` 이 그 순서를 묶은 뒤 실제 요청으로 건수까지 확인한다.
+모바일 앱을 서버에 붙여 볼 때도 이것부터다.
 
 `localhost:8080`이 SigNoz UI, `localhost:8081`이 애플리케이션 API다 — `platform/kind/cluster.yaml`이
 호스트 포트를 클러스터 생성 시점에 매핑해 둬서 `port-forward`가 따로 필요 없다. kind 클러스터는
