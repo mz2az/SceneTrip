@@ -157,8 +157,11 @@ require_emulator_image
 ensure_avd
 boot_emulator
 
+# `.env` 의 네이버 클라이언트 ID 를 빌드에 주입한다 — ios-run 과 같은 경로다.
+# 없으면 빈 값으로 지어지고 지도만 인증에 실패한다(앱은 뜬다).
 log "APK 빌드"
-"${BAZEL:-bazel}" build //apps/scenetrip-android:bin
+"${BAZEL:-bazel}" build //apps/scenetrip-android:bin \
+  --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
 
 APK="$REPO_ROOT/bazel-bin/apps/scenetrip-android/bin.apk"
 [ -f "$APK" ] || die "APK 가 없습니다: $APK"

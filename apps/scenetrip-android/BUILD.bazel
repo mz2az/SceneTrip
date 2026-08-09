@@ -27,6 +27,11 @@ kt_android_library(
     name = "scenetrip-android",
     srcs = glob(["src/**/*.kt"]),
     manifest = "AndroidManifest.xml",
+    deps = [
+        # 지도 SDK. aar 이라 rules_jvm_external 이 aar_import 로 감싸 준다.
+        # androidx.appcompat · okhttp 등 전이 의존성이 함께 딸려 온다.
+        "@maven_android//:com_naver_maps_map_sdk",
+    ],
 )
 
 android_binary(
@@ -37,6 +42,21 @@ android_binary(
         "applicationId": "com.mz2az.scenetrip",
         "minSdkVersion": "26",
         "targetSdkVersion": "36",
+        # **비워 두면 앱이 죽는다.** 적지 않으면 PackageInfo.versionName 이 null 이
+        # 되는데, 지도 SDK 는 그것을 그대로 받아 User-Agent 를 만들며
+        # `versionName.replace("-", ".")` 를 부른다 — 지도를 띄우는 순간 NPE 다
+        # (SDK 3.23.3 의 com.naver.maps.map.b.b$a 를 디스어셈블해 확인).
+        #
+        # 스토어에 낼 때 올릴 값이므로 지금은 최소값으로 둔다.
+        "versionCode": "1",
+        "versionName": "0.1.0",
+        # 매니페스트의 ${naverNcpKeyId} 를 채운다. 값은 `.env` → `just android-run`
+        # → --define 경로로 온다. iOS 는 같은 값을 genrule 로 Swift 파일에 넣지만
+        # (:secrets_swift), Android SDK 는 **매니페스트에서 읽는 쪽이 정상 경로다** —
+        # 코드로 NaverMapSdk.client 를 넣었더니 SDK 내부에서 NPE 로 죽었다(실측).
+        #
+        # 소스에 박히지 않는 것은 양쪽 같다. 값이 비면 지도만 인증에 실패한다.
+        "naverNcpKeyId": "$(naver_client_id)",
     },
     deps = [":scenetrip-android"],
 )

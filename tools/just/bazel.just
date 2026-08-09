@@ -38,7 +38,7 @@ ios-run:
 # Android 앱을 에뮬레이터에 띄운다 (없으면 AVD 생성·부팅까지)
 [group('build')]
 android-run:
-    ./tools/scripts/android-run.sh
+    NAVER_MAP_CLIENT_ID="${NAVER_MAP_CLIENT_ID:-}" ./tools/scripts/android-run.sh
 
 # 빌드 그래프 질의. 예: `just query 'deps(//apps/web:web)'`
 [group('build')]
