@@ -299,7 +299,8 @@ public class PlaceStore {
           WHERE pci.lang IN (:lang, 'ko')
           ORDER BY pci.place_content_id, (pci.lang = :lang) DESC
       )
-      SELECT c.id AS content_id, d.title, c.poster_url, s.relation_description
+      SELECT c.id AS content_id, d.title, c.poster_url, pc.scene_image_url,
+             s.relation_description
       FROM place_content pc
       JOIN content c ON c.id = pc.content_id
       JOIN display d ON d.content_id = c.id
@@ -348,7 +349,8 @@ public class PlaceStore {
                 (rs, rowNum) ->
                     new Scene(rs.getLong("content_id"), rs.getString("title"))
                         .posterUrl(uri(rs.getString("poster_url")))
-                        .sceneDescription(rs.getString("relation_description")))
+                        .sceneDescription(rs.getString("relation_description"))
+                        .sceneImageUrl(uri(rs.getString("scene_image_url"))))
             .list());
 
     return Optional.of(new Detail(detail, row.inRequestedLang()));

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.mz2az.scenetrip.sceneapi.IntegrationDatabase;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceSummary;
+import com.mz2az.scenetrip.sceneapi.api.model.Scene;
 import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -100,6 +101,77 @@ class PlaceStoreIntegrationTest {
   @DisplayName("없는 id 는 빈 값 — 예외가 아니다")
   void missingDetailIsEmpty() {
     assertThat(store.findDetail(-1L, Lang.KO, null, null)).isEmpty();
+  }
+
+  /**
+   * 장면 목록의 순서는 계약이다.
+   *
+   * <p>명세가 {@code scenes[]} 를 인기도 내림차순으로 약속한다. 한 장소가 여러 작품에 걸릴 때 어느 것을 먼저 보여 줄지가 화면에서 갈리지 않도록 서버가
+   * 정하기로 한 것이라, 정렬이 빠지면 iOS 와 Android 가 각자 다른 순서를 그린다. 작품이 하나뿐인 장소로는 이것을 확인할 수 없으므로 둘 이상 걸린 장소를 골라서
+   * 본다.
+   */
+  @Test
+  @DisplayName("장면 목록이 인기도 내림차순이다")
+  void scenesAreSortedByPopularity() {
+    long id = placeWithMultipleContents();
+
+    List<Scene> scenes =
+        store.findDetail(id, Lang.KO, null, null).orElseThrow().place().getScenes();
+
+    assertThat(scenes).hasSizeGreaterThan(1);
+    assertThat(scenes)
+        .as("인기도 내림차순 — 순서를 서버가 정한다는 계약")
+        .isSortedAccordingTo((a, b) -> Integer.compare(popularity(b), popularity(a)));
+  }
+
+  /**
+   * 장면 스틸이 실제로 실려 오는가.
+   *
+   * <p>{@code scene_image_url} 은 수집 CSV 에 있었으나 오래 적재되지 않았고(ADR 0006), 컬럼이 {@code
+   * place_content_i18n} 이 아니라 {@code place_content} 에 있다. 조인을 한 단계 잘못 걸어도 문법 오류가 나지 않고 전부 {@code
+   * null} 이 되므로 — 화면에서는 사진이 없는 것과 구분되지 않는다 — 값이 실제로 오는지를 여기서 본다.
+   */
+  @Test
+  @DisplayName("장면 스틸이 응답에 실린다")
+  void scenesCarryStillImages() {
+    long id = placeWithSceneImage();
+
+    List<Scene> scenes =
+        store.findDetail(id, Lang.KO, null, null).orElseThrow().place().getScenes();
+
+    assertThat(scenes)
+        .as("적재된 장면 스틸이 하나도 실려 오지 않으면 조인이 끊긴 것이다")
+        .anyMatch(s -> s.getSceneImageUrl() != null);
+  }
+
+  private int popularity(Scene scene) {
+    return jdbc.sql("SELECT popularity_score FROM content WHERE id = :id")
+        .param("id", scene.getContentId())
+        .query(Integer.class)
+        .single();
+  }
+
+  /** 촬영작이 둘 이상 걸린 장소. 없으면 정렬을 확인할 수 없으므로 테스트가 실패해야 한다. */
+  private long placeWithMultipleContents() {
+    return jdbc.sql(
+            """
+            SELECT place_id FROM place_content
+            GROUP BY place_id HAVING count(*) > 1
+            ORDER BY place_id LIMIT 1
+            """)
+        .query(Long.class)
+        .single();
+  }
+
+  private long placeWithSceneImage() {
+    return jdbc.sql(
+            """
+            SELECT place_id FROM place_content
+            WHERE scene_image_url IS NOT NULL
+            ORDER BY place_id LIMIT 1
+            """)
+        .query(Long.class)
+        .single();
   }
 
   /**

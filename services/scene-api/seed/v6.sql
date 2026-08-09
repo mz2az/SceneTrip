@@ -74,7 +74,6 @@ CREATE TEMP TABLE seed_staging (
 \copy seed_staging FROM '/tmp/seed-input.csv' WITH (FORMAT csv, HEADER true)
 
 -- 넣지 않는 컬럼과 이유:
---   scene_image_url   장면 스틸을 담을 테이블이 없다. 저작권 문제로 미도입 (MZ2AZ-111)
 --   source_url        앱이 읽지 않는다. 값은 01_Raw 수집 CSV 에 보존된다
 --   recent_rank       164 행 전량이 비어 있다
 --   audience_acc      164 행 전량이 비어 있다
@@ -255,6 +254,7 @@ SELECT
     p.place_id,
     c.content_id,
     s.scene_description,
+    s.scene_image_url,
     s.last_updated
 FROM (
     SELECT DISTINCT ON (place_naver_url, title) * FROM seed_staging
@@ -263,9 +263,10 @@ FROM (
 JOIN t_place   p ON p.place_naver_url = s.place_naver_url
 JOIN t_content c ON c.title = s.title;
 
-INSERT INTO place_content (id, place_id, content_id, updated_at)
+INSERT INTO place_content (id, place_id, content_id, scene_image_url, updated_at)
 SELECT
     place_content_id, place_id, content_id,
+    NULLIF(scene_image_url, ''),
     COALESCE(NULLIF(last_updated, '')::TIMESTAMPTZ, now())
 FROM t_place_content;
 
