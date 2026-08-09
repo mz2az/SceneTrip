@@ -211,6 +211,46 @@ bazel_dep(name = "rules_swift_package_manager", version = "1.23.0")  # 서드파
 
 bazel_dep(name = "rules_xcodeproj", version = "2.10.0", dev_dependency = True)  # IDE 용 .xcodeproj 생성
 
+# --- Kotlin / Android -----------------------------------------------------------
+#
+# Android 앱 (apps/<name>-android/), 공유 라이브러리 (libs/kotlin/).
+#
+# **Android SDK 는 Bazel 이 받아오지 못한다.** Xcode 와 같은 종류의 예외지만 정도가
+# 가볍다 — 애플과 달리 재배포가 막혀 있지 않아 버전 고정은 되고, GUI 프로그램
+# (Android Studio)도 필요 없다. 설치 절차는 docs/engineering/onboarding.md 에 있고
+# 빠졌는지는 `just doctor` 가 본다.
+#
+# SDK 경로는 기계마다 달라 `.env` 의 ANDROID_HOME 으로 넘긴다. rules_android 가
+# 그 환경변수를 읽는다.
+#
+# iOS 와 달리 **CI 에 새 잡이 필요 없다.** Android 는 리눅스에서 지어지므로 기존
+# ubuntu `verify` 잡이 그대로 검사한다 — 계획서 §5-2.
+bazel_dep(name = "rules_kotlin", version = "2.4.0")
+bazel_dep(name = "rules_android", version = "0.7.3")
+
+# SDK 저장소는 `bazel_dep` 만으로 생기지 않는다. 확장을 등록해야 `@androidsdk` 가
+# 잡힌다 — 등록 전에는 "No repository visible as '@androidsdk'" 로 죽는다(실측).
+#
+# **`path` 를 적지 않는다.** 비워 두면 확장이 `ANDROID_HOME` 환경변수를 읽는다.
+# 경로를 여기 박으면 brew 로 깐 사람과 Android Studio 로 깐 사람이 갈린다
+# (`/opt/homebrew/share/…` vs `~/Library/Android/sdk`). 값은 `.env` 에서 온다.
+#
+# api_level·build_tools_version 은 고정한다. 이것이 Xcode 와 다른 점이다 — SDK 를
+# 받아오지는 못해도 **어느 버전을 쓸지는 저장소가 정한다.** 사람마다 다른 버전으로
+# 지으면 산출물이 갈린다 (AGENTS.md §4.3).
+#
+# 36 / 36.1.0 을 고른 이유: 둘 다 안정판이다. build-tools 37.0.0 도 나와 있으나
+# rules_android 0.7.3 과의 호환을 확인하지 않았다.
+android_sdk_repository_extension = use_extension(
+    "@rules_android//rules/android_sdk_repository:rule.bzl",
+    "android_sdk_repository_extension",
+)
+android_sdk_repository_extension.configure(
+    api_level = 36,
+    build_tools_version = "36.1.0",
+)
+use_repo(android_sdk_repository_extension, "androidsdk")
+
 # 서드파티 Swift 의존성은 //:Package.swift 에 선언하고 여기서 Bazel 저장소로 바꾼다.
 # maven 절과 같은 규약이다 — 선언은 매니페스트에, 잠금은 커밋된 resolved 파일에.
 swift_deps = use_extension(
@@ -258,11 +298,8 @@ use_repo(swift_deps, "swift_package", "swiftpkg_spm_nmapsmap")
 # JVM / Java — **위 "JVM / Java" 절에서 이미 활성화됐다.** 첫 서비스(scene-api)와
 # 함께 풀었고, 패키징 방식은 ADR 0003 으로 확정했다.
 #
-# Kotlin — Android 앱 (apps/<name>-android/), 공유 라이브러리 (libs/kotlin/):
-#   bazel_dep(name = "rules_kotlin", version = "2.4.0")
-#   bazel_dep(name = "rules_android", version = "0.7.3")
-#   # 로컬/CI 에 Android SDK 가 설치돼 있어야 한다 (rules_android 의 SDK extension 으로
-#   # 버전 고정 가능 — 완전 격리는 아니지만 Xcode보다는 재현성이 좋다).
+# Kotlin — **아래 "Kotlin / Android" 절에서 이미 활성화됐다.** 첫 Android 앱과 함께
+# 풀었다. 팀원 SDK 설치는 `just doctor` 가 확인한다.
 #
 # Swift — **위 "Swift / iOS" 절에서 이미 활성화됐다.** 첫 iOS 앱(scenetrip-ios)과
 # 함께 풀었고, 팀 전원 정식 Xcode 설치를 확인한 뒤였다.
