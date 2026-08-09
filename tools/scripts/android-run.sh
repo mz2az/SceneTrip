@@ -63,9 +63,10 @@ ensure_java() {
   local jdk
   jdk="$(find "$("${BAZEL:-bazel}" info output_base)/external" -maxdepth 1 \
     -name '*remotejdk21_macos_aarch64' 2>/dev/null | head -1)"
-  [ -n "$jdk" ] && [ -x "$jdk/bin/java" ] ||
+  if [ -z "$jdk" ] || [ ! -x "$jdk/bin/java" ]; then
     die "동작하는 자바를 찾지 못했습니다.
        'just build' 를 한 번 돌려 Bazel 이 JDK 를 받게 한 뒤 다시 시도하세요."
+  fi
   JAVA_HOME_FOR_SDK="$jdk"
 }
 
