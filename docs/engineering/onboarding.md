@@ -45,8 +45,39 @@ JVM(Java)과 Python은 Bazel이 격리된 형태로 직접 받아오므로 미�
 | 무엇을 만지든 | 추가로 필요 | 왜 |
 | --- | --- | --- |
 | `apps/<name>-ios/` (iOS) | **Xcode** (버전은 `tools/bazel/toolchains/`에 고정) | Apple 라이선스상 Bazel이 대신 받아올 수 없는 유일한 예외. 없으면 iOS 타깃은 아예 안 돈다 |
-| `apps/<name>-android/` (Android) | Android Studio 또는 Android SDK, 최초 라이선스 동의 | `rules_android`가 대부분 자동화하지만 최초 1회는 사람이 눌러야 한다 |
+| `apps/<name>-android/` (Android) | **Android SDK** (Android Studio 불필요) + 라이선스 동의 + `.env` 의 `ANDROID_HOME` | 아래 설치 절차 참고. Xcode 와 달리 GUI 프로그램은 필요 없다 |
 | 로컬 클러스터(`just cluster-up` 등) | Docker Desktop, kind, kubectl, Helm, k9s | [k8s 설치 가이드](../installs/k8s_install.md) 참고 |
+
+### Android SDK 설치 (Android 를 만질 때만)
+
+`just doctor` 가 빠진 것을 알려 준다. 처음이라면 순서대로 하면 된다 —
+**앞의 것이 없으면 뒤로 못 간다.**
+
+```bash
+# 1) 다운로더 설치. 이것만으로는 앱을 짓지 못한다 — 내용물은 아래에서 받는다
+brew install --cask android-commandlinetools
+
+# 2) 라이선스 동의. 안 하면 다운로드가 거부된다
+sdkmanager --sdk_root=/opt/homebrew/share/android-commandlinetools --licenses
+
+# 3) 구성요소. 세 가지면 충분하다 (약 360MB)
+sdkmanager --sdk_root=/opt/homebrew/share/android-commandlinetools \
+  "platform-tools" "platforms;android-36" "build-tools;36.1.0"
+
+# 4) 경로를 .env 에 적는다. just 레시피가 자동으로 읽는다
+echo 'ANDROID_HOME=/opt/homebrew/share/android-commandlinetools' >> .env
+```
+
+**JDK 가 없으면 2번에서 막힌다.** `sdkmanager` 자체가 자바 프로그램이기 때문이다.
+macOS 의 `/usr/bin/java` 는 "자바를 설치하세요" 안내만 띄우는 껍데기다. Bazel 이 이미
+받아 둔 JDK 를 빌려 쓰면 따로 설치할 필요가 없다.
+
+```bash
+export JAVA_HOME=$(ls -d "$(bazel info output_base)"/external/*remotejdk21_macos_aarch64 | head -1)
+export PATH="$JAVA_HOME/bin:$PATH"
+```
+
+Android Studio 로 이미 깔았다면 경로가 `~/Library/Android/sdk` 다. `.env` 에 그쪽을 적으면 된다.
 
 ## 3. 저장소 구조 — 코드가 어디로 가는지
 
