@@ -2,13 +2,17 @@ import SwiftUI
 
 /// 지도 위에 얹히는 3단 스냅 시트 (계획서 §3-1).
 ///
-/// 스냅 비율 14% / 42% / 최대는 두 앱이 **같은 숫자**를 써야 한다 — 플랫폼 기본값
+/// 스냅 비율 14% / 48% / 최대는 두 앱이 **같은 숫자**를 써야 한다 — 플랫폼 기본값
 /// (iOS `UISheetPresentationController`, Android `BottomSheetBehavior`)에 맡기면
 /// 미묘하게 갈린다. 최대 높이는 검색바 바로 아래까지이며 기기별로 계산한다.
+///
+/// 중간 단은 42% 로 시작했다가 48% 로 올렸다 — 42% 에서는 작품 상세의 설명까지만
+/// 보이고 촬영지 행이 한 줄도 안 보였다(실측). 48% 면 설명과 촬영지 두 줄이 같이
+/// 보인다.
 struct BottomSheet<Content: View>: View {
     enum Detent: CGFloat, CaseIterable {
         case collapsed = 0.14
-        case medium = 0.42
+        case medium = 0.48
         case expanded = 1.0
     }
 

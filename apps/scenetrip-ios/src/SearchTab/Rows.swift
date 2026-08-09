@@ -45,6 +45,10 @@ struct WorkRow: View {
 /// 저장 버튼, 장면 팝업의 북마크. 셋 다 이 하나를 부른다."
 struct PlaceRow: View {
     let place: PlaceSummary
+
+    /// 지도 핀에 박힌 번호와 같은 값 — 행과 핀을 눈으로 잇는 다리다. 번호가 없는
+    /// 자리(장바구니 등 지도 밖 목록)에서는 배지를 그리지 않는다.
+    var number: Int?
     var onAdd: (() -> Void)?
     var saved = false
 
@@ -54,6 +58,22 @@ struct PlaceRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            if let number {
+                Text("\(number)")
+                    .font(.caption2.weight(.heavy))
+                    .foregroundStyle(.white)
+                    .frame(width: 22, height: 22)
+                    .background(
+                        Circle().fill(
+                            LinearGradient(
+                                colors: [Color(PinImage.light), Color(PinImage.deep)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                    )
+            }
+
             RemoteImage(url: place.imageUrl, symbol: "mappin.and.ellipse")
                 .frame(width: 54, height: 54)
                 .clipShape(.rect(cornerRadius: 6))
