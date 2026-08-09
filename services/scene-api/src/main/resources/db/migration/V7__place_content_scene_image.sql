@@ -23,10 +23,10 @@
 --
 -- 방송사·제작사의 장면 스틸을 서비스가 실어 나르는 문제에 팀의 결론이 아직 없다.
 -- 그 상태로 적재하기로 한 결정과 그것을 되돌리는 조건은
--- docs/architecture/adr/0006-scene-still-images-pending-rights.md 에 있다.
+-- docs/architecture/adr/0007-scene-still-images-pending-rights.md 에 있다.
 -- **원격 환경에 이 데이터를 올리기 전에 그 ADR 을 먼저 읽는다.**
 
 ALTER TABLE place_content ADD COLUMN scene_image_url TEXT;
 
 COMMENT ON COLUMN place_content.scene_image_url IS
-    '장면 스틸 URL. 언어 무관이라 _i18n 이 아니라 여기 둔다. 저작권 미결 — ADR 0006';
+    '장면 스틸 URL. 언어 무관이라 _i18n 이 아니라 여기 둔다. 저작권 미결 — ADR 0007';

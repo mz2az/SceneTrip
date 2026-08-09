@@ -149,7 +149,7 @@ GET /v1/search/suggestions?q=gob
 그것을 장면 사진으로 읽는다.
 
 장면 스틸의 저작권 판단은 아직 끝나지 않았다. 지금 넣기로 한 근거와 되돌리는
-조건은 [ADR 0006](../architecture/adr/0006-scene-still-images-pending-rights.md).
+조건은 [ADR 0007](../architecture/adr/0007-scene-still-images-pending-rights.md).
 
 거리를 보여 주려면 `lat`·`lng` 를 함께 보낸다. 그러면 각 항목에 `distanceMeters` 가
 채워진다. 안 보내면 `null` 이다.

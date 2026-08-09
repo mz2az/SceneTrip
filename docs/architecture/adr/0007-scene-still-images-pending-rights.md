@@ -1,5 +1,5 @@
 ---
-number: 0006
+number: 0007
 title: 장면 스틸을 저작권 미결 상태로 적재한다
 status: accepted
 date: 2026-08-09
@@ -8,7 +8,7 @@ superseded-by:
 amended-by:
 ---
 
-# ADR 0006: 장면 스틸을 저작권 미결 상태로 적재한다
+# ADR 0007: 장면 스틸을 저작권 미결 상태로 적재한다
 
 ## 배경
 

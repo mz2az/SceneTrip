@@ -127,7 +127,7 @@ class PlaceStoreIntegrationTest {
   /**
    * 장면 스틸이 실제로 실려 오는가.
    *
-   * <p>{@code scene_image_url} 은 수집 CSV 에 있었으나 오래 적재되지 않았고(ADR 0006), 컬럼이 {@code
+   * <p>{@code scene_image_url} 은 수집 CSV 에 있었으나 오래 적재되지 않았고(ADR 0007), 컬럼이 {@code
    * place_content_i18n} 이 아니라 {@code place_content} 에 있다. 조인을 한 단계 잘못 걸어도 문법 오류가 나지 않고 전부 {@code
    * null} 이 되므로 — 화면에서는 사진이 없는 것과 구분되지 않는다 — 값이 실제로 오는지를 여기서 본다.
    */
