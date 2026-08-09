@@ -16,6 +16,18 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Kotlin 포매터·린터 버전을 여기 한 곳에서 고정한다.
+#
+# Swift 도구(swiftformat·swiftlint)와 달리 **ktlint 는 두 잡에서 모두 돈다** —
+# Android 모듈은 리눅스에서도 지어지므로 verify 와 verify-macos 가 같은 .kt 를
+# 검사한다. 러너마다 버전이 갈리면 한 잡만 빨간불이 나고, 원인이 코드가 아니라
+# 도구 버전이라 추적이 오래 걸린다. 그래서 brew 에 맡기지 않고 못 박는다.
+#
+# 로컬은 `brew install ktlint` 라 자동으로 최신을 따라간다(onboarding.md).
+# 두 값이 벌어지면 여기 숫자를 올린다.
+env:
+  KTLINT_VERSION: "1.8.0"
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -33,6 +45,14 @@ jobs:
           sudo curl -fsSLo /usr/local/bin/bazel \
             https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
           sudo chmod +x /usr/local/bin/bazel
+
+      # ubuntu-latest 이미지에 ktlint 는 들어 있지 않다. 자체 실행 jar 라
+      # 러너에 미리 깔린 JDK 로 그대로 돈다.
+      - name: 검사 도구 설치
+        run: |
+          sudo curl -fsSLo /usr/local/bin/ktlint \
+            "https://github.com/pinterest/ktlint/releases/download/${KTLINT_VERSION}/ktlint"
+          sudo chmod +x /usr/local/bin/ktlint
 
       - name: Bazel 캐시
         uses: actions/cache@v4
@@ -78,8 +98,15 @@ jobs:
       # **macos-latest 에는 없다.** 그래서 verify 는 통과하는데 이 잡만 셸 린트에서
       # 죽었다(실측, run 31118229436). lint.sh 의 셸 절은 "항상 대상이 있는" 검사라
       # 어느 러너에서도 건너뛰지 않는다.
+      #
+      # ktlint 만 brew 가 아니라 고정 버전을 내려받는다 — 위 `env.KTLINT_VERSION`
+      # 주석 참조. verify 잡과 같은 바이너리를 써야 두 잡의 판정이 일치한다.
       - name: 검사 도구 설치
-        run: brew install --quiet swiftformat swiftlint shellcheck
+        run: |
+          brew install --quiet swiftformat swiftlint shellcheck
+          sudo curl -fsSLo /usr/local/bin/ktlint \
+            "https://github.com/pinterest/ktlint/releases/download/${KTLINT_VERSION}/ktlint"
+          sudo chmod +x /usr/local/bin/ktlint
 
       # macOS 의 Bazel 기본 출력 경로는 `~/.cache/bazel` 이 아니라
       # `/var/tmp/_bazel_<사용자>` 다. verify 잡의 캐시 경로를 그대로 베끼면 없는

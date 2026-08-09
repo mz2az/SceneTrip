@@ -76,6 +76,48 @@ check_lang_tool Swift  '*.swift' swiftlint
 check_lang_tool Python '*.py'    ruff
 check_lang_tool 셸     '*.sh'    shellcheck
 
+# --- 모바일 SDK ----------------------------------------------------------------
+#
+# Bazel 은 툴체인을 직접 받아오지만 **모바일 SDK 만은 예외**다 (AGENTS.md §4.3).
+# 없으면 `just check` 가 원인을 알기 어려운 툴체인 오류로 죽으므로 여기서 먼저 잡는다.
+#
+# 포매터와 같은 원리로 **모듈이 있을 때만** 실패시킨다. Android 모듈이 없는 사람에게
+# 500MB 짜리 SDK 를 필수로 만들면 점검이 상시 빨간불이 된다.
+
+check_mobile_sdk() {
+  local kind="$1" glob="$2" probe="$3" hint="$4"
+  if [ -e "$probe" ]; then
+    printf '  정상  %-20s %s\n' "$kind" "$probe"
+  elif has_files "$glob"; then
+    printf '  없음  %-20s -> %s\n' "$kind" "$hint"
+    status=1
+  else
+    printf '  대기  %-20s (%s 모듈이 아직 없어 필요 없음)\n' "$kind" "$kind"
+  fi
+}
+
+log "모바일 SDK"
+
+# iOS — Xcode. Command Line Tools 만 있으면 저장소 전체 빌드가 FATAL 로 죽는다.
+if [ "$(uname -s)" = "Darwin" ]; then
+  check_mobile_sdk "Xcode" '*.swift' "/Applications/Xcode.app" \
+    "정식 Xcode 가 필요합니다 (Command Line Tools 만으로는 부족). App Store 에서 설치"
+else
+  printf '  건너뜀 %-20s (Apple 플랫폼이 아닙니다)\n' "Xcode"
+fi
+
+# Android — SDK. 경로는 기계마다 달라 .env 의 ANDROID_HOME 을 본다.
+if [ -n "${ANDROID_HOME:-}" ]; then
+  check_mobile_sdk "Android SDK" '*.kt' "$ANDROID_HOME/platforms" \
+    "ANDROID_HOME 은 설정됐는데 platforms/ 가 없습니다. sdkmanager 로 platform·build-tools 를 받으세요"
+elif has_files '*.kt'; then
+  printf '  없음  %-20s -> %s\n' "Android SDK" \
+    "ANDROID_HOME 이 없습니다. .env 에 SDK 경로를 적으세요 (docs/engineering/onboarding.md)"
+  status=1
+else
+  printf '  대기  %-20s (Android 모듈이 아직 없어 필요 없음)\n' "Android SDK"
+fi
+
 log "워크스페이스"
 [ -f "$REPO_ROOT/MODULE.bazel" ] || { echo "  MODULE.bazel 없음"; status=1; }
 [ -f "$REPO_ROOT/.bazelversion" ] && echo "  고정된 bazel 버전: $(cat "$REPO_ROOT/.bazelversion")"
