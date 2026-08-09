@@ -69,7 +69,19 @@ echo 'ANDROID_HOME=/opt/homebrew/share/android-commandlinetools' >> .env
 
 # 5) Kotlin 포매터. .kt 파일이 있으면 just check 가 이것을 요구한다
 brew install ktlint
+
+# 6) 에뮬레이터. 3번의 구성요소로는 빌드만 되고 앱이 뜨지는 않는다 (약 1.5GB)
+sdkmanager --sdk_root=/opt/homebrew/share/android-commandlinetools \
+  "emulator" "system-images;android-36;google_apis;arm64-v8a"
 ```
+
+6번을 건너뛰어도 `just build` 는 통과한다 — **APK 가 만들어지는 것과 그것이 뜨는 것은
+다르다.** `just android-run` 이 실행할 명령을 알려주고 멈추므로, 지금 안 받아도 나중에
+막히지는 않는다.
+
+AVD(어떤 기기를 흉내 낼지 적어 둔 설정)는 손으로 만들지 않는다. `just android-run` 이
+없으면 Pixel 7 로 만든다 — 사람마다 다른 기기를 고르면 「내 화면에선 잘리는데」 가
+생긴다.
 
 CI 는 ktlint 버전을 `.github/workflows/ci.yml` 의 `KTLINT_VERSION` 으로 못 박는다 —
 Android 모듈은 리눅스에서도 지어져 `verify` 와 `verify-macos` 가 같은 `.kt` 를
