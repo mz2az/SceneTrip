@@ -23,8 +23,13 @@ pending() { printf '\033[1;33m미구현:\033[0m %s\n' "$*"; }
 #
 # 파이프도 쓰지 않는다 — `set -o pipefail` 아래에서 find 가 SIGPIPE 를 받으면
 # 파일이 있는데도 실패로 잡힌다.
+# `*.xcodeproj` 를 빼는 이유: `just ios-xcode` 가 만든 Xcode 프로젝트 안에는
+# rules_xcodeproj 가 넣은 파이썬 스크립트가 들어 있다. 그것을 우리 소스로 세면
+# **아무도 파이썬을 쓰지 않는데 게이트가 ruff 를 요구한다**(실측). 생성물이므로
+# 포맷·린트 대상이 아니다 — gitignore 대상이기도 하다.
 find_sources() {
-  find "$REPO_ROOT" -type d \( -name 'bazel-*' -o -name '.git' -o -name '.venv' \) -prune \
+  find "$REPO_ROOT" -type d \
+    \( -name 'bazel-*' -o -name '.git' -o -name '.venv' -o -name '*.xcodeproj' \) -prune \
     -o -type f -name "$1" -print 2>/dev/null
 }
 

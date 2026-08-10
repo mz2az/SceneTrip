@@ -27,6 +27,8 @@ run target *args:
 #
 # 러너가 앱 로그를 붙잡고 있으므로 프롬프트가 바로 돌아오지 않는다. Ctrl+C 로
 # 빠져나와도 시뮬레이터의 앱은 별도 프로세스라 그대로 살아 있다.
+
+# iOS 앱을 시뮬레이터에 띄운다 (실기기는 just ios-xcode)
 [group('build')]
 ios-run:
     {{BAZEL}} run //apps/scenetrip-ios:bin --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
@@ -39,6 +41,25 @@ ios-run:
 [group('build')]
 android-run:
     NAVER_MAP_CLIENT_ID="${NAVER_MAP_CLIENT_ID:-}" ./tools/scripts/android-run.sh
+
+# `just ios-run` 은 시뮬레이터까지다. **진짜 아이폰에 올리려면 애플 서명이 필요한데,
+# 그 서명 파일은 사람마다·기기마다 다르다.** BUILD 파일에 박으면 그것을 가진 한 사람만
+# 빌드할 수 있다. 그래서 서명은 Xcode 에게 맡기고 우리는 프로젝트 파일만 만들어 준다.
+#
+# 실제 빌드는 생성된 프로젝트 안에서 Bazel 이 한다 — 빌드 경로가 갈라지지 않는다.
+#
+# 아이폰에 올리는 절차는 apps/scenetrip-ios/README.md 의 "실기기" 절 참고.
+#
+# **네이버 지도 키 주의** — Xcode 가 부르는 빌드에는 이 레시피의 --define 이 닿지 않는다.
+# `.bazelrc.user` 에 아래 한 줄을 넣어 두어야 지도가 뜬다(그 파일은 gitignore 대상이다).
+#
+#     build --define=naver_client_id=<발급받은 키>
+
+# Bazel 프로젝트를 Xcode 로 연다 (실기기 설치용)
+[group('build')]
+ios-xcode:
+    {{BAZEL}} run //apps/scenetrip-ios:xcodeproj
+    open apps/scenetrip-ios/SceneTrip.xcodeproj
 
 # 빌드 그래프 질의. 예: `just query 'deps(//apps/web:web)'`
 [group('build')]

@@ -33,6 +33,7 @@
 load("@rules_apple//apple:ios.bzl", "ios_application", "ios_unit_test")
 load("@rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
 load("@rules_swift//swift:swift.bzl", "swift_library")
+load("@rules_xcodeproj//xcodeproj:defs.bzl", "top_level_target", "xcodeproj")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -135,4 +136,47 @@ ios_unit_test(
     tags = ["ios"],
     target_compatible_with = APPLE_ONLY,
     deps = [":unit_test_lib"],
+)
+
+# Xcode 프로젝트 생성 — 실기기에 앱을 올리는 유일한 현실적인 길이다.
+#
+# ## 왜 필요한가
+#
+# `just ios-run` 은 **시뮬레이터까지**다. 진짜 아이폰에 올리려면 애플이 발급한
+# 서명이 있어야 하는데, 그 서명 파일은 사람마다·기기마다 다르다. BUILD 파일에
+# 박으면 그것을 가진 한 사람만 빌드할 수 있다.
+#
+# Xcode 는 애플 ID 만 있으면 서명을 **자동으로** 만들어 준다. 그래서 서명은 Xcode 에
+# 맡기고 우리는 프로젝트 파일만 만들어 준다. 생성된 프로젝트는 껍데기이고 실제
+# 빌드는 그 안에서 Bazel 이 한다 — 빌드 경로가 갈라지지 않는다(ADR 0001 제1법칙).
+#
+# ## 지금은 시뮬레이터까지다 — 실기기를 켜려면 한 줄이 더 필요하다
+#
+# `target_environments` 에 `"device"` 를 넣는 순간 rules_apple 이 **서명 파일을
+# 요구한다** (실측: "The provisioning_profile attribute must be set for device
+# builds"). 그 파일은 사람마다·기기마다 다르고 무료 애플 ID 로 만들면 7일마다 새로
+# 발급된다. 저장소에 넣을 수 있는 물건이 아니다.
+#
+# **그래서 여기서 켜 두지 않는다.** 켜 두면 아이폰이 없는 팀원의 빌드까지 깨진다.
+# 아이폰을 가진 사람이 아래 절차를 한 번 하면 자기 기계에서만 켜진다 —
+# apps/scenetrip-ios/README.md 의 "실기기에 올리기" 절.
+#
+# ## manual 태그
+#
+# `just build` 가 이것까지 짓지 않게 한다. 프로젝트 파일 생성은 사람이 필요할 때
+# 부르는 것이지 빌드 검증 대상이 아니다.
+xcodeproj(
+    name = "xcodeproj",
+    project_name = "SceneTrip",
+    tags = [
+        "ios",
+        "manual",
+    ],
+    target_compatible_with = APPLE_ONLY,
+    top_level_targets = [
+        top_level_target(
+            ":bin",
+            target_environments = ["simulator"],
+        ),
+    ],
 )
