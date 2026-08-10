@@ -48,6 +48,38 @@ final class SceneData: ObservableObject {
         }
     }
 
+    /// **지금 화면에 보이는 지도 범위** 안의 촬영지만 (목업 "현 지도 내 성지 검색").
+    ///
+    /// 반경이 아니라 뷰포트다. 사용자가 얼마나 확대했는지·어디를 보고 있는지는
+    /// 그때그때 다르고, 이 기능은 **보이는 그대로** 를 묻는 것이다. 그래서 고정
+    /// 반경(`radiusMeters`)이 아니라 `bbox` 를 보낸다.
+    ///
+    /// **`q` 를 함께 보내지 않는다** — "이 화면 안" 과 "이 단어" 는 서로 다른
+    /// 질문이라 섞으면 결과를 설명할 수 없다.
+    ///
+    /// 작품 탭은 건드리지 않는다. 뷰포트는 장소의 성질이지 작품의 성질이 아니다.
+    func searchInViewport(bbox: String) {
+        lastQuery = ""
+        inFlight?.cancel()
+        phase = .loading
+        inFlight = Task { [weak self] in
+            do {
+                let spots = try await PlacesAPI.listPlaces(
+                    bbox: bbox,
+                    limit: 200
+                )
+                guard !Task.isCancelled else { return }
+                self?.places = spots.items
+                self?.phase = .loaded
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                self?.phase = .failed(ApiFailure(error))
+            }
+        }
+    }
+
     /// §3-6 의 재시도. 마지막 검색어를 그대로 다시 보낸다.
     func retry() {
         search(lastQuery)

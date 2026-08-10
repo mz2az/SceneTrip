@@ -88,6 +88,16 @@ struct PlaceRow: View {
                     .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
             }
             Spacer()
+            // 담긴 상태에서 다시 누르면 뺀다.
+            //
+            // 전에는 `.disabled(saved)` 로 버튼을 꺼 버려서 **한 번 담으면 목록에서
+            // 뺄 길이 없었다.** 장바구니 시트를 열어야만 뺄 수 있었다.
+            //
+            // 확인창을 두지 않는다 — 담기가 한 번에 되는데 빼기만 물어보면 무겁고,
+            // 잘못 빼도 다시 담으면 그만이라 되돌리는 비용이 낮다.
+            //
+            // 아이콘은 `−` 가 아니라 체크를 유지한다. 이 자리의 첫 임무는 "이미
+            // 담겼는지" 를 알려 주는 것이고, `−` 로 바꾸면 그 상태가 보이지 않는다.
             if let onAdd {
                 Button(action: onAdd) {
                     Image(systemName: saved ? "checkmark.circle.fill" : "plus.circle")
@@ -95,7 +105,7 @@ struct PlaceRow: View {
                         .foregroundStyle(saved ? Color.accentColor : .secondary)
                 }
                 .buttonStyle(.plain)
-                .disabled(saved)
+                .accessibilityLabel(saved ? "장바구니에서 빼기" : "장바구니에 담기")
             }
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
