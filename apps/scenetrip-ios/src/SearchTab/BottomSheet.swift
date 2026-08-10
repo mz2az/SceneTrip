@@ -19,6 +19,10 @@ struct BottomSheet<Content: View>: View {
     @Binding var detent: Detent
     /// 검색바가 차지하는 높이. 최대 단계는 이 아래까지만 올라온다.
     let topInset: CGFloat
+
+    /// 지금 덮고 있는 **실제 높이(pt)**. 지도가 로고·축척을 이 위에 올려 두는 데 쓴다.
+    /// 끄는 중에도 계속 바뀌므로 손을 떼기 전에도 따라간다.
+    var onHeightChange: (CGFloat) -> Void = { _ in }
     @ViewBuilder let content: () -> Content
 
     @State private var drag: CGFloat = 0
@@ -44,6 +48,9 @@ struct BottomSheet<Content: View>: View {
                     .shadow(color: .black.opacity(0.15), radius: 8, y: -2)
             )
             .frame(maxHeight: .infinity, alignment: .bottom)
+            .onChange(of: height, initial: true) { _, current in
+                onHeightChange(current)
+            }
             .gesture(
                 DragGesture()
                     .onChanged { drag = $0.translation.height }

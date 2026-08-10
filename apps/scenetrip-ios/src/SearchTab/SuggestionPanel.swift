@@ -16,19 +16,31 @@ struct SuggestionPanel: View {
     /// 들어간다 (검색어 치환이 아니다). suggest 응답의 첫 작품을 부모가
     /// `GET /contents/{id}` 로 채운 것이다.
     let topWork: ContentDetail?
-    let onCommit: (String) -> Void
+    /// 두 번째 값은 **고른 것의 갈래** 다. 어느 탭을 열지 화면이 그것으로 정한다.
+    /// 갈래를 모르는 경우(직접 입력 후 엔터)는 nil 이다.
+    let onCommit: (String, EntityType?) -> Void
     let onOpenWork: (ContentDetail) -> Void
 
     /// 장소 제안을 골랐다 — 검색어 커밋이 아니라 **그 장소로 이동**하는 동작이다.
     let onSelectPlace: (Suggestion) -> Void
 
+    /// 검색창이 비었을 때 보여 주는 추천. 갈래별로 하나씩 둔다 — 셋이 각각 작품·
+    /// 인물·장소라서 어느 탭이 열리는지도 함께 익힌다.
+    private static let recommended: [(term: String, type: EntityType)] = [
+        ("도깨비", .content),
+        ("공유", .person),
+        ("북촌한옥마을", .place),
+    ]
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if draft.isEmpty {
                 sectionLabel("추천 검색어")
-                ForEach(["도깨비", "공유", "북촌한옥마을"], id: \.self) { term in
-                    Button { onCommit(term) } label: {
-                        row(icon: "magnifyingglass", text: term, detail: "")
+                // 글자만 두면 **고른 것이 장소인지 작품인지 알 수 없어** 늘 작품 탭이
+                // 열렸다(실측: 북촌한옥마을을 눌러도 작품 탭). 갈래를 함께 적는다.
+                ForEach(Self.recommended, id: \.term) { item in
+                    Button { onCommit(item.term, item.type) } label: {
+                        row(icon: symbol(item.type), text: item.term, detail: "")
                     }
                     .buttonStyle(.plain)
                 }
@@ -67,7 +79,7 @@ struct SuggestionPanel: View {
                                     if item.type == .place {
                                         onSelectPlace(item)
                                     } else {
-                                        onCommit(item.name)
+                                        onCommit(item.name, item.type)
                                     }
                                 } label: {
                                     Label(item.name, systemImage: symbol(item.type))

@@ -54,6 +54,9 @@ final class CartStore: ObservableObject {
     func remove(placeId: Int64) async {
         try? await CartAPI.removeCartItem(xDeviceId: deviceId, placeId: placeId)
         placeIds.remove(placeId)
+        // 담을 때 알려 줬으니 뺄 때도 알려 준다. 목록 행에서 빼면 아이콘만 바뀌어
+        // 눌렸는지 확신이 안 선다.
+        toast = "장바구니에서 뺐습니다"
         await refresh()
     }
 

@@ -69,16 +69,21 @@ struct PlaceDetailView: View {
         HStack(spacing: 8) {
             let saved = cart.contains(summary.id)
             Button {
-                Task { await cart.add(placeId: summary.id) }
+                Task {
+                    if saved {
+                        await cart.remove(placeId: summary.id)
+                    } else {
+                        await cart.add(placeId: summary.id)
+                    }
+                }
             } label: {
                 Label(
-                    saved ? "저장됨" : "장바구니에 담기",
+                    saved ? "담김 · 누르면 빼기" : "장바구니에 담기",
                     systemImage: saved ? "checkmark" : "bag.badge.plus"
                 )
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(saved)
 
             if let link = detail?.naverPlaceUrl, let url = URL(string: link) {
                 Button { openURL(url) } label: {
@@ -114,16 +119,18 @@ struct PlaceDetailView: View {
 
 /// 가로로 넘기는 장면 카드.
 ///
-/// 프로토타입은 여기에 **씬 스틸**을 썼다(`_SceneCardH` 가 `row.sceneImage`). 서버는
-/// 그 이미지를 주지 못한다 — 수집 CSV 에는 `scene_image_url` 이 164 행 전부 채워져
-/// 있지만 스키마에 담을 자리가 없어 적재에서 버려진다(실측). 그래서 포스터로 대신한다.
-/// 자리를 만드는 것은 권호와 상의할 항목이며 계획서 §6 에 올렸다.
+/// **장면 스틸을 쓴다** (`sceneImageUrl`). 한동안 포스터로 대신했는데, 그러면 한 작품의
+/// 장면이 여럿일 때 카드가 전부 같은 그림이 됐다 — "이 장면이 찍힌 곳" 을 보여 주는
+/// 것이 이 앱의 핵심이라 포스터로는 대체가 안 된다.
+///
+/// 스틸이 없는 장면은 포스터로 물러선다. 계약이 "수집분에 없는 장면이 있어 null 이 올
+/// 수 있다" 고 적어 뒀다.
 struct SceneCard: View {
     let scene: SceneItem
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            RemoteImage(url: scene.posterUrl, symbol: "film")
+            RemoteImage(url: scene.sceneImageUrl ?? scene.posterUrl, symbol: "film")
                 .frame(width: 190, height: 110)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -166,13 +173,24 @@ struct ScenePopup: View {
     let scene: SceneItem
     let placeName: String
 
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                RemoteImage(url: scene.posterUrl, symbol: "film")
+                RemoteImage(url: scene.sceneImageUrl ?? scene.posterUrl, symbol: "film")
                     .frame(height: 200)
                     .frame(maxWidth: .infinity)
                     .clipShape(.rect(cornerRadius: 12))
+                    // 닫기는 아래로 끌어내리는 것뿐이었다. 그 동작을 아는 사용자만
+                    // 팝업을 닫을 수 있다.
+                    //
+                    // 포스터 **위에** 겹친다. 포스터가 팝업 맨 위를 꽉 채우고 있어
+                    // 바깥 여백에 두면 버튼 하나 때문에 위쪽이 벌어진다.
+                    //
+                    // 원 배경을 까는 이유: 포스터는 작품마다 밝기가 제각각이라
+                    // 선 아이콘만 두면 밝은 포스터에서 보이지 않는다.
+                    .overlay(alignment: .topTrailing) { closeButton }
 
                 Text(scene.contentTitle)
                     .font(.caption.weight(.bold))
@@ -188,6 +206,23 @@ struct ScenePopup: View {
             }
             .padding(18)
         }
+    }
+
+    /// 보이는 원은 28pt 인데 누를 수 있는 자리는 44pt 다. 애플이 권하는 최소
+    /// 터치 크기가 44pt 이고, 그보다 작으면 손가락이 자꾸 빗나간다.
+    private var closeButton: some View {
+        Button {
+            dismiss()
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(.black.opacity(0.45)))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("닫기")
     }
 }
 
