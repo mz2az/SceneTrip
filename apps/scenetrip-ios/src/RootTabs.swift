@@ -38,6 +38,13 @@ struct RootTabs: View {
 
     @State private var selected: Tab = .search
 
+    /// 경로여정 탭의 상태는 **여기서 든다.**
+    ///
+    /// 그 탭은 검색 탭과 달리 살려 두지 않는다 — 지도를 든 화면이 둘 다 상시로 떠
+    /// 있으면 첫 화면의 비용이 두 배가 되고, 코스 목록은 다시 만들어도 값이 싸다.
+    /// 대신 만든 코스까지 사라지면 안 되므로 **데이터만** 탭 밖에서 든다.
+    @StateObject private var routes = RouteStore()
+
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
@@ -47,7 +54,9 @@ struct RootTabs: View {
                     .opacity(selected == .search ? 1 : 0)
                     .allowsHitTesting(selected == .search)
 
-                if selected != .search {
+                if selected == .route {
+                    RouteTabView().environmentObject(routes)
+                } else if selected != .search {
                     StubTab(tab: selected)
                 }
             }
