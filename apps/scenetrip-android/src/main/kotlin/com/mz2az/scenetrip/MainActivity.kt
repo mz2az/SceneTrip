@@ -3,7 +3,8 @@ package com.mz2az.scenetrip
 import android.app.Activity
 import android.os.Bundle
 import com.naver.maps.geometry.LatLng
-import com.naver.maps.map.CameraPosition
+import com.naver.maps.geometry.LatLngBounds
+import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
 
@@ -38,11 +39,16 @@ class MainActivity : Activity() {
     /**
      * 첫 진입 카메라 (MZ2AZ-162 의 Android 몫).
      *
-     * 좌표와 줌은 iOS 와 **같은 값**이다 (`NaverMapView.swift:48`). 두 앱이 다른 데를
-     * 비추면 같은 제품으로 보이지 않는다.
+     * **남한 전체**를 비춘다. iOS 와 같은 범위여야 한다 — 두 앱이 다른 데를 비추면
+     * 같은 제품으로 보이지 않는다.
+     *
+     * MZ2AZ-162 는 처음에 서울 중심으로 적혀 있었고 이 파일도 그렇게 만들어졌다.
+     * 그 결정이 iOS 쪽에서 뒤집혔다 — 촬영지가 서울에만 있지 않아 지방 촬영지를 가진
+     * 작품이 첫 화면에서 통째로 사라졌기 때문이다. 여기는 그때 함께 고쳐지지 않아
+     * 한동안 서울을 비추고 있었다.
      */
     private fun configure(map: NaverMap) {
-        map.cameraPosition = CameraPosition(SEOUL, SEOUL_ZOOM)
+        map.moveCamera(CameraUpdate.fitBounds(KOREA, FIT_PADDING))
     }
 
     // MapView 는 액티비티 생명주기를 스스로 따라가지 못한다. 전달하지 않으면 화면을
@@ -83,7 +89,16 @@ class MainActivity : Activity() {
     }
 
     private companion object {
-        val SEOUL = LatLng(37.5666, 126.9784)
-        const val SEOUL_ZOOM = 11.0
+        /**
+         * 남한 전체가 들어오는 범위. 제주까지 담고 울릉도·독도는 뺐다 — 그것까지
+         * 넣으면 동해가 화면의 절반을 차지해 정작 촬영지가 몰린 서남부가 작아진다.
+         *
+         * 네 숫자는 iOS 의 `NaverMapView.swift` 안 `Coordinator.korea` 와 **같아야
+         * 한다.** 한쪽만 고치면 두 앱의 첫 화면이 갈린다.
+         */
+        val KOREA = LatLngBounds(LatLng(33.0, 125.8), LatLng(38.7, 129.8))
+
+        /** iOS 의 `NMFCameraUpdate(fit:padding:)` 에 준 값과 같다. */
+        const val FIT_PADDING = 24
     }
 }
