@@ -19,8 +19,17 @@
     -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!--
+      **평문 HTTP 를 허용한다.** Android 9 부터 기본으로 막히는데, 개발 중 서버는
+      `http://10.0.2.2:8081` 이다. 막힌 상태에서는 호출이 조용히 실패해 화면이 빈
+      목록으로만 보이므로 원인을 찾기 어렵다.
+
+      스토어에 낼 때는 빼야 한다 — 그때는 서버가 HTTPS 다. 지금 빼 두면 개발이
+      돌지 않으므로 남기되, 여기 적어 둔다.
+    -->
     <application
         android:label="SceneTrip"
+        android:usesCleartextTraffic="true"
         android:supportsRtl="true">
 
         <!--

@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -53,6 +54,7 @@ fun SearchBar(
     onSubmit: () -> Unit,
     onClear: () -> Unit,
     onOpenCart: () -> Unit,
+    onFocus: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -89,7 +91,10 @@ fun SearchBar(
                 textStyle = LocalTextStyle.current.merge(IOS.body).copy(color = IOS.label),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { if (it.isFocused) onFocus() },
             )
         }
 

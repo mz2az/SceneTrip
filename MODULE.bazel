@@ -402,6 +402,13 @@ maven_android.install(
         "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7",
         "androidx.lifecycle:lifecycle-viewmodel-compose-android:2.8.7",
 
+        # 코루틴. Compose 화면이 서버 호출을 기다리는 데 쓴다 — 생성된 클라이언트가
+        # 블로킹 호출이라 IO 디스패처로 옮겨야 하고, 그것이 코루틴의 몫이다.
+        # rules_kotlin 은 stdlib 만 들고 오지 코루틴은 주지 않는다.
+        "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2",
+
         # 생성된 코틀린 API 클라이언트가 쓰는 것. **우리가 고른 것이 아니라
         # 생성기가 내놓은 코드가 부르는 것**이라, 생성기 설정(library·
         # serializationLibrary)을 바꾸면 이 셋도 함께 바뀐다.

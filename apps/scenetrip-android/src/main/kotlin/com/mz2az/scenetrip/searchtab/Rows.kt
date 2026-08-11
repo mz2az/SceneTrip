@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -15,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -25,6 +26,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
+import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.ui.IOS
 
 /**
@@ -37,7 +40,9 @@ import com.mz2az.scenetrip.ui.IOS
 @Composable
 fun WorkRow(
     content: ContentSummary,
+    liked: Boolean,
     onTap: () -> Unit,
+    onToggleLike: () -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -48,7 +53,13 @@ fun WorkRow(
                 .clickable(onClick = onTap)
                 .padding(horizontal = IOS.gutter, vertical = 10.dp),
     ) {
-        Placeholder(width = 46.dp, height = 62.dp)
+        RemoteImage(
+            url = content.posterUrl?.toString(),
+            modifier =
+                Modifier
+                    .size(width = 46.dp, height = 62.dp)
+                    .clip(RoundedCornerShape(6.dp)),
+        )
 
         Column(
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -69,9 +80,20 @@ fun WorkRow(
             )
         }
 
-        // **하트를 여기 두지 않는다.** 8/11 회의가 「작품에는 찜(하트)」 를 확정했지만
-        // iOS 에 아직 없다 (MZ2AZ-231 · MZ2AZ-251). 한쪽에만 먼저 넣으면 두 앱이
-        // 갈리므로, 그 티켓에서 **양쪽에 동시에** 넣는다.
+        // **작품에는 하트, 장소에는 플러스** (8/11 회의 확정). 장소의 `+` 와 같은
+        // 자리에 두어 사용자가 규칙을 한 번만 배우게 한다. iOS `Rows.swift` 의
+        // `WorkRow` 와 같은 아이콘·같은 색이다.
+        Icon(
+            imageVector = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+            contentDescription = if (liked) "찜 빼기" else "찜하기",
+            tint = if (liked) IOS.accent else IOS.secondaryLabel,
+            modifier =
+                Modifier
+                    .clip(CircleShape)
+                    .clickable(onClick = onToggleLike)
+                    .padding(2.dp)
+                    .size(24.dp),
+        )
         Chevron()
     }
 }
@@ -108,7 +130,13 @@ fun PlaceRow(
             }
         }
 
-        Placeholder(width = 54.dp, height = 54.dp)
+        RemoteImage(
+            url = place.imageUrl?.toString(),
+            modifier =
+                Modifier
+                    .size(54.dp)
+                    .clip(RoundedCornerShape(6.dp)),
+        )
 
         Column(
             verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -116,14 +144,14 @@ fun PlaceRow(
         ) {
             Text(place.name, style = IOS.subheadlineSemibold, color = IOS.label)
             Text(
-                text = place.address,
+                text = place.address.orEmpty(),
                 style = IOS.caption,
                 color = IOS.secondaryLabel,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = place.subtitle,
+                text = place.worksAndType,
                 style = IOS.caption2,
                 color = IOS.tertiaryLabel,
                 maxLines = 1,
@@ -157,26 +185,5 @@ private fun Chevron() {
         contentDescription = null,
         tint = IOS.tertiaryLabel,
         modifier = Modifier.size(16.dp),
-    )
-}
-
-/**
- * 사진 자리.
- *
- * iOS 는 `RemoteImage` 로 실제 사진을 받아 오지만 여기서는 회색 네모다 —
- * **서버를 아직 부르지 않기 때문이지 디자인이 달라서가 아니다.** 크기와 모서리는
- * iOS 와 같게 두어, 클라이언트가 붙었을 때 레이아웃이 흔들리지 않게 한다.
- */
-@Composable
-private fun Placeholder(
-    width: androidx.compose.ui.unit.Dp,
-    height: androidx.compose.ui.unit.Dp,
-) {
-    Spacer(
-        modifier =
-            Modifier
-                .size(width = width, height = height)
-                .clip(RoundedCornerShape(6.dp))
-                .background(IOS.systemGray6),
     )
 }

@@ -11,12 +11,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.geometry.LatLngBounds
 import com.naver.maps.map.CameraUpdate
@@ -87,6 +89,7 @@ fun NaverMapCanvas(
     // 시트에 가리면 안 되므로 시트 높이를 그대로 따라가야 한다.
     val density = LocalDensity.current
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    var fitted by remember { mutableStateOf(false) }
     DisposableEffect(map, sheetHeight) {
         val target = map
         if (target != null) {
@@ -106,6 +109,20 @@ fun NaverMapCanvas(
                 cameraBottom,
                 true,
             )
+
+            // **첫 진입 카메라는 여백을 정한 뒤에 맞춘다.**
+            //
+            // iOS 는 화면 전체에 맞추는데도 한반도가 시트 위 영역에 다 들어온다 —
+            // `contentInset` 이 카메라 계산에 함께 들어가기 때문이다. 안드로이드는
+            // 여백보다 먼저 맞추면 그 셈이 빠져 지도가 확대돼 보인다(실측 — 서울
+            // 핀이 검색바 위로 잘렸다).
+            //
+            // 그래서 여백이 정해진 뒤 한 번만 맞춘다. 시트를 끌 때마다 다시 맞추면
+            // 사용자가 옮겨 둔 화면이 튕겨 돌아가므로 첫 번째만이다.
+            if (!fitted && cameraBottom > 0) {
+                fitted = true
+                target.showWholeKorea(density)
+            }
             val logoBottom = maxOf(0, sheetPx - cameraBottom) + with(density) { 6.dp.toPx() }.toInt()
             val side = with(density) { 4.dp.toPx() }.toInt()
             target.uiSettings.setLogoMargin(side, 0, side, logoBottom)
@@ -126,6 +143,13 @@ fun NaverMapCanvas(
             // 줌 버튼(＋/−)을 끈다 — iOS 에 없다. 대신 지도 위 원형 버튼이 그 몫을
             // 한다. 축척은 **켜 둔다**: "축척은 반드시 필요해, 지도잖아" 가 iOS 쪽
             // 결정이었다.
+            // **지도 글자를 한국어로 못 박는다.** 기본값은 기기 로케일을 따라가는데,
+            // 영어 기기에서는 `Daegu 대구` 처럼 두 언어가 겹쳐 나와 지저분하고
+            // iOS(한국어 기기)와도 갈린다. 두 앱이 같아야 하므로 값을 박는다.
+            //
+            // 외국인 대상 앱이므로 나중에 사용자 언어 설정을 따라가야 한다 —
+            // 그때는 iOS 도 함께 바꾼다 (MZ2AZ-117).
+            ready.setLocale(java.util.Locale.KOREAN)
             ready.uiSettings.isZoomControlEnabled = false
             ready.uiSettings.isLocationButtonEnabled = false
             ready.uiSettings.isScaleBarEnabled = true
@@ -148,12 +172,19 @@ fun NaverMapCanvas(
  */
 val KOREA: LatLngBounds = LatLngBounds(LatLng(33.0, 125.8), LatLng(38.7, 129.8))
 
-/** iOS 의 `NMFCameraUpdate(fit:padding:)` 에 준 값과 같다. */
-const val KOREA_FIT_PADDING = 24
+/**
+ * iOS 의 `NMFCameraUpdate(fit:padding:)` 에 준 값과 **같은 뜻**이어야 하는 여백.
+ *
+ * **단위가 다르다.** iOS 는 pt 를 받고 안드로이드는 **px** 를 받는다. 24 를 그대로
+ * 넘기면 3배 밀도 화면에서 8dp 가 되어 지도가 iOS 보다 확대돼 보인다(실측 —
+ * 서울 핀이 화면 위로 잘렸다). 그래서 dp 로 두고 쓸 때 곱한다.
+ */
+val KOREA_FIT_PADDING = 24.dp
 
 /** 첫 진입에서 [KOREA] 가 다 보이게 맞춘다. */
-fun NaverMap.showWholeKorea() {
-    moveCamera(CameraUpdate.fitBounds(KOREA, KOREA_FIT_PADDING))
+fun NaverMap.showWholeKorea(density: Density) {
+    val padding = with(density) { KOREA_FIT_PADDING.roundToPx() }
+    moveCamera(CameraUpdate.fitBounds(KOREA, padding))
 }
 
 /**
