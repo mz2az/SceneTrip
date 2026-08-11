@@ -8,13 +8,15 @@
 # 을 돌리므로 게이트에 자동으로 포함된다.
 #
 # 언어를 늘릴 때: generator 만 바꿔 타깃을 추가한다.
-#   swift5  → iOS 앱 클라이언트   (apps/<name>-ios 가 생길 때)
-#   kotlin  → Android 앱 클라이언트 (apps/<name>-android 가 생길 때)
+#   swift5  → iOS 앱 클라이언트   (apps/<name>-ios)
+#   kotlin  → Android 앱 클라이언트 (apps/<name>-android)
 
 load("@openapi_tools_generator_bazel//:defs.bzl", "openapi_generator")
 load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
 load("@rules_swift//swift:swift.bzl", "swift_library")
 load("//tools/bazel/defs:merge_tree_sources.bzl", "merge_tree_sources")
+load("//tools/bazel/defs:tree_srcjar.bzl", "tree_srcjar")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -204,5 +206,92 @@ java_library(
         "@maven//:org_springframework_spring_context",
         "@maven//:org_springframework_spring_core",
         "@maven//:org_springframework_spring_web",
+    ],
+)
+
+# Android 앱의 코틀린 클라이언트.
+#
+# **앱은 API 클라이언트를 손으로 쓰지 않는다** (CLAUDE.md §5). iOS 가 위에서 생성한
+# 것을 쓰듯 Android 도 같은 계약에서 생성한 것을 쓴다 — 그래야 두 앱이 서버와
+# 어긋나는 일이 계약을 고칠 때 한 번에 드러난다.
+#
+# library 를 jvm-okhttp4 로 두는 이유: okhttp 가 이미 앱에 들어와 있다. 네이버 지도
+# SDK 의 전이 의존성이라 새 라이브러리가 아니다. retrofit2 를 고르면 그것 하나가
+# 더 붙는다.
+#
+# serializationLibrary 를 moshi 로 두는 이유: gson 도 이미 들어와 있지만(같은 경로)
+# gson 은 코틀린의 널 가능성을 모른다 — 명세가 required 로 적은 필드가 비어 와도
+# non-null 프로퍼티에 null 이 들어가고, 터지는 자리는 한참 뒤다. moshi 는 코드젠으로
+# 그것을 파싱 시점에 잡는다.
+openapi_generator(
+    name = "scene_api_kotlin",
+    additional_properties = {
+        "library": "jvm-okhttp4",
+        "serializationLibrary": "moshi",
+        "hideGenerationTimestamp": "true",
+        "useTags": "true",
+        "packageName": "com.mz2az.scenetrip.sceneapi.client",
+    },
+    api_package = "com.mz2az.scenetrip.sceneapi.client.api",
+    generator = "kotlin",
+    model_package = "com.mz2az.scenetrip.sceneapi.client.model",
+    spec = "scene-api-v1.yaml",
+)
+
+# 생성물을 srcjar 로 감싼다.
+#
+# Swift 는 `merge_tree_sources` 로 **파일 하나에 합쳐서** 트리 아티팩트 문제를
+# 피했다. 코틀린은 그럴 수 없다 — 파일마다 `package` 선언이 있고 한 파일에 하나만
+# 올 수 있어 합치면 컴파일이 깨진다. 대신 zip 으로 묶는다 (tools/bazel/defs).
+tree_srcjar(
+    name = "scene_api_kotlin_srcjar",
+    src = ":scene_api_kotlin",
+    out = "SceneApiClient.srcjar",
+    extensions = ["kt"],
+    subdir = "src/main/kotlin",
+)
+
+# 컴파일된 코틀린 클라이언트. Android 앱이 이것을 deps 로 잡을 예정이다.
+#
+# `kt_android_library` 가 아니라 `kt_jvm_library` 인 이유: 생성 코드는 okhttp 와
+# moshi 만 쓰고 안드로이드 API 를 부르지 않는다. 순수 JVM 으로 두면 나중에 서버
+# 사이드나 테스트에서도 같은 클라이언트를 쓸 수 있다.
+#
+# srcs 에 srcjar 를 그대로 넣는다 — 코틀린 컴파일러가 소스가 든 zip 을 받아 안에서
+# 꺼내 쓴다. 트리 아티팩트를 넣을 수 없어 우회한 결과다 (tools/bazel/defs).
+#
+# ## 지금은 `manual` 이다 — 컴파일되지 않는다
+#
+# **생성기의 결함이다. 우리 명세는 정상이다.**
+#
+# 명세가 `Lang` 에 `default: ko` 를 두는데(scene-api-v1.yaml), 생성기 7.2.0 의
+# kotlin 백엔드가 그것을 **한정하지 않은 채로** 뱉는다:
+#
+#   fun addCartItem(..., acceptLanguage: Lang? = ko)   ← `Lang.ko` 여야 한다
+#
+# 그래서 `unresolved reference 'ko'` 로 40 개 파일 중 API 4 개가 깨진다. spring·
+# swift5 백엔드는 같은 명세에서 멀쩡한 코드를 낸다.
+#
+# 고르는 길이 셋이고 **셋 다 이 파일 밖에 영향을 준다** — 그래서 정하지 않고 둔다.
+#
+#   1. 생성기 버전을 올린다   MODULE.bazel 의 openapi_gen 을 고치는 일이라
+#                            **spring·swift5 산출물도 함께 바뀐다.** iOS 와 서버가
+#                            지금 잘 돌고 있으므로 회귀 확인이 필요하다.
+#   2. 생성 코드를 후처리한다  tree_srcjar 에 sed 를 한 줄 끼우면 되지만, 생성물을
+#                            손보는 것은 나중에 "왜 이게 여기 있지" 가 되기 쉽다.
+#   3. 명세에서 default 를 뺀다 **계약을 바꾸는 일이다.** 서버·iOS 가 함께 영향을
+#                            받고, 기본 언어가 없어지는 것은 의미상으로도 손해다.
+#
+# 1 번이 유력하다. 게이트를 붉게 두지 않으려고 `manual` 로 빼 뒀다 — 고치는 사람이
+# 이 태그를 지우는 것이 곧 완료 조건이다.
+kt_jvm_library(
+    name = "scene_api_kotlin_lib",
+    srcs = [":scene_api_kotlin_srcjar"],
+    tags = ["manual"],
+    deps = [
+        "@maven_android//:com_squareup_moshi_moshi",
+        "@maven_android//:com_squareup_moshi_moshi_adapters",
+        "@maven_android//:com_squareup_moshi_moshi_kotlin",
+        "@maven_android//:com_squareup_okhttp3_okhttp",
     ],
 )

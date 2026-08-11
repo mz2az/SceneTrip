@@ -56,118 +56,127 @@
     "androidx.savedstate:savedstate": -1545293289,
     "androidx.savedstate:savedstate-ktx": 877332601,
     "com.naver.maps:map-sdk": 2108457782,
+    "com.squareup.moshi:moshi": 623265116,
+    "com.squareup.moshi:moshi-adapters": 1157845343,
+    "com.squareup.moshi:moshi-kotlin": -1806344484,
+    "com.squareup.okhttp3:okhttp": 916942239,
     "org.jetbrains.kotlin:kotlin-compose-compiler-plugin-embeddable": -1148288165,
     "repositories": 225288892
   },
   "__RESOLVED_ARTIFACTS_HASH": {
-    "androidx.activity:activity-compose:aar": 89687385,
-    "androidx.activity:activity-ktx:aar": -1603486976,
-    "androidx.activity:activity:aar": 376887856,
-    "androidx.annotation:annotation": -1880170472,
-    "androidx.annotation:annotation-experimental:aar": -765634475,
-    "androidx.annotation:annotation-jvm": 909624050,
-    "androidx.appcompat:appcompat-resources:aar": 1448964669,
-    "androidx.appcompat:appcompat:aar": -823688831,
-    "androidx.arch.core:core-common": 1401024178,
-    "androidx.arch.core:core-runtime:aar": -1470388958,
-    "androidx.autofill:autofill:aar": -1321344432,
-    "androidx.collection:collection": -1734660378,
-    "androidx.collection:collection-jvm": -452885604,
-    "androidx.collection:collection-ktx": -495573934,
-    "androidx.compose.animation:animation-android:aar": -1759991923,
-    "androidx.compose.animation:animation-core-android:aar": 397271935,
-    "androidx.compose.animation:animation-core:aar": 1757555155,
-    "androidx.compose.animation:animation:aar": -1241529916,
-    "androidx.compose.foundation:foundation-android:aar": -222958833,
-    "androidx.compose.foundation:foundation-layout-android:aar": 1090693850,
-    "androidx.compose.foundation:foundation-layout:aar": 693659097,
-    "androidx.compose.foundation:foundation:aar": -2147240457,
-    "androidx.compose.material3:material3-android:aar": -1060136565,
-    "androidx.compose.material3:material3:aar": -1140689318,
-    "androidx.compose.material:material-icons-core-android:aar": -171097051,
-    "androidx.compose.material:material-icons-core:aar": -923867474,
-    "androidx.compose.material:material-ripple-android:aar": 1611388366,
-    "androidx.compose.material:material-ripple:aar": 398246500,
-    "androidx.compose.runtime:runtime-android:aar": -412854603,
-    "androidx.compose.runtime:runtime-saveable-android:aar": 1617554407,
-    "androidx.compose.runtime:runtime-saveable:aar": 1299801889,
-    "androidx.compose.runtime:runtime:aar": 1215595737,
-    "androidx.compose.ui:ui-android:aar": -1320628529,
-    "androidx.compose.ui:ui-geometry-android:aar": -799378258,
-    "androidx.compose.ui:ui-geometry:aar": -1972623207,
-    "androidx.compose.ui:ui-graphics-android:aar": -1886178159,
-    "androidx.compose.ui:ui-graphics:aar": 1873641394,
-    "androidx.compose.ui:ui-text-android:aar": -598851210,
-    "androidx.compose.ui:ui-text:aar": 844115183,
-    "androidx.compose.ui:ui-unit-android:aar": -1103181146,
-    "androidx.compose.ui:ui-unit:aar": 1926267760,
-    "androidx.compose.ui:ui-util-android:aar": 1768122229,
-    "androidx.compose.ui:ui-util:aar": 561705306,
-    "androidx.compose.ui:ui:aar": 1925751617,
-    "androidx.concurrent:concurrent-futures": -651568638,
-    "androidx.core:core-ktx:aar": 353038240,
-    "androidx.core:core:aar": 1085011881,
-    "androidx.cursoradapter:cursoradapter:aar": 1144319174,
-    "androidx.customview:customview-poolingcontainer:aar": -718705321,
-    "androidx.customview:customview:aar": -1960106709,
-    "androidx.drawerlayout:drawerlayout:aar": -626679139,
-    "androidx.emoji2:emoji2-views-helper:aar": 100704842,
-    "androidx.emoji2:emoji2:aar": -230792005,
-    "androidx.fragment:fragment-ktx:aar": -1693958891,
-    "androidx.fragment:fragment:aar": -754653288,
-    "androidx.graphics:graphics-path:aar": -1284238918,
-    "androidx.interpolator:interpolator:aar": 1251126518,
-    "androidx.lifecycle:lifecycle-common": -904928140,
-    "androidx.lifecycle:lifecycle-common-java8": -180986964,
-    "androidx.lifecycle:lifecycle-common-jvm": 23422668,
-    "androidx.lifecycle:lifecycle-livedata-core-ktx:aar": -1849181668,
-    "androidx.lifecycle:lifecycle-livedata-core:aar": -1555594349,
-    "androidx.lifecycle:lifecycle-livedata:aar": 1581093837,
-    "androidx.lifecycle:lifecycle-process:aar": -1255808719,
-    "androidx.lifecycle:lifecycle-runtime-android:aar": -1310259218,
-    "androidx.lifecycle:lifecycle-runtime-compose-android:aar": -2126001783,
-    "androidx.lifecycle:lifecycle-runtime-compose:aar": -1874992398,
-    "androidx.lifecycle:lifecycle-runtime-ktx-android:aar": 1363958916,
-    "androidx.lifecycle:lifecycle-runtime-ktx:aar": -183150665,
-    "androidx.lifecycle:lifecycle-runtime:aar": -1825628420,
-    "androidx.lifecycle:lifecycle-viewmodel-android:aar": 1160364895,
-    "androidx.lifecycle:lifecycle-viewmodel-compose-android:aar": -1178811045,
-    "androidx.lifecycle:lifecycle-viewmodel-compose:aar": -172557202,
-    "androidx.lifecycle:lifecycle-viewmodel-ktx:aar": 1738840472,
-    "androidx.lifecycle:lifecycle-viewmodel-savedstate:aar": 807276746,
-    "androidx.lifecycle:lifecycle-viewmodel:aar": -698424896,
-    "androidx.loader:loader:aar": 2097477466,
-    "androidx.profileinstaller:profileinstaller:aar": 816744500,
-    "androidx.recyclerview:recyclerview:aar": 130382601,
-    "androidx.resourceinspection:resourceinspection-annotation": -475994165,
-    "androidx.savedstate:savedstate-ktx:aar": 1386438163,
-    "androidx.savedstate:savedstate:aar": 937458987,
-    "androidx.startup:startup-runtime:aar": -276791145,
-    "androidx.swiperefreshlayout:swiperefreshlayout:aar": 1734789638,
-    "androidx.tracing:tracing:aar": -143220286,
-    "androidx.vectordrawable:vectordrawable-animated:aar": 2123189662,
-    "androidx.vectordrawable:vectordrawable:aar": 1585167434,
-    "androidx.versionedparcelable:versionedparcelable:aar": -2119707912,
-    "androidx.viewpager:viewpager:aar": 725575607,
+    "androidx.activity:activity-compose:aar": 1242193464,
+    "androidx.activity:activity-ktx:aar": 1633038819,
+    "androidx.activity:activity:aar": 1338709381,
+    "androidx.annotation:annotation": -600772145,
+    "androidx.annotation:annotation-experimental:aar": -693670381,
+    "androidx.annotation:annotation-jvm": 981588144,
+    "androidx.appcompat:appcompat-resources:aar": 950245510,
+    "androidx.appcompat:appcompat:aar": 859843901,
+    "androidx.arch.core:core-common": 1614344072,
+    "androidx.arch.core:core-runtime:aar": 60819918,
+    "androidx.autofill:autofill:aar": -362582437,
+    "androidx.collection:collection": 1780725725,
+    "androidx.collection:collection-jvm": 826512723,
+    "androidx.collection:collection-ktx": -1984557483,
+    "androidx.compose.animation:animation-android:aar": 1629826888,
+    "androidx.compose.animation:animation-core-android:aar": -922017639,
+    "androidx.compose.animation:animation-core:aar": -1368607820,
+    "androidx.compose.animation:animation:aar": -407458226,
+    "androidx.compose.foundation:foundation-android:aar": 248904306,
+    "androidx.compose.foundation:foundation-layout-android:aar": -127118766,
+    "androidx.compose.foundation:foundation-layout:aar": -1082085121,
+    "androidx.compose.foundation:foundation:aar": 1410422819,
+    "androidx.compose.material3:material3-android:aar": -1990688727,
+    "androidx.compose.material3:material3:aar": 300096251,
+    "androidx.compose.material:material-icons-core-android:aar": -431109955,
+    "androidx.compose.material:material-icons-core:aar": 936599341,
+    "androidx.compose.material:material-ripple-android:aar": -1356043831,
+    "androidx.compose.material:material-ripple:aar": 2114394485,
+    "androidx.compose.runtime:runtime-android:aar": -556633079,
+    "androidx.compose.runtime:runtime-saveable-android:aar": 1630126280,
+    "androidx.compose.runtime:runtime-saveable:aar": 211518010,
+    "androidx.compose.runtime:runtime:aar": -1602793691,
+    "androidx.compose.ui:ui-android:aar": 165542956,
+    "androidx.compose.ui:ui-geometry-android:aar": 2083685606,
+    "androidx.compose.ui:ui-geometry:aar": -1738490448,
+    "androidx.compose.ui:ui-graphics-android:aar": 996296526,
+    "androidx.compose.ui:ui-graphics:aar": 1089805415,
+    "androidx.compose.ui:ui-text-android:aar": -2115380820,
+    "androidx.compose.ui:ui-text:aar": 285050627,
+    "androidx.compose.ui:ui-unit-android:aar": 47843497,
+    "androidx.compose.ui:ui-unit:aar": 51967644,
+    "androidx.compose.ui:ui-util-android:aar": -248848081,
+    "androidx.compose.ui:ui-util:aar": 2093100384,
+    "androidx.compose.ui:ui:aar": -343480860,
+    "androidx.concurrent:concurrent-futures": 998048270,
+    "androidx.core:core-ktx:aar": 1153336417,
+    "androidx.core:core:aar": -424579699,
+    "androidx.cursoradapter:cursoradapter:aar": 82042612,
+    "androidx.customview:customview-poolingcontainer:aar": 1890503677,
+    "androidx.customview:customview:aar": -707715890,
+    "androidx.drawerlayout:drawerlayout:aar": -2046122435,
+    "androidx.emoji2:emoji2-views-helper:aar": -121553161,
+    "androidx.emoji2:emoji2:aar": -455135216,
+    "androidx.fragment:fragment-ktx:aar": 271496922,
+    "androidx.fragment:fragment:aar": -1307103434,
+    "androidx.graphics:graphics-path:aar": -119342397,
+    "androidx.interpolator:interpolator:aar": 2025150660,
+    "androidx.lifecycle:lifecycle-common": 1090209442,
+    "androidx.lifecycle:lifecycle-common-java8": 888292843,
+    "androidx.lifecycle:lifecycle-common-jvm": -1978898986,
+    "androidx.lifecycle:lifecycle-livedata-core-ktx:aar": -737523803,
+    "androidx.lifecycle:lifecycle-livedata-core:aar": 877390358,
+    "androidx.lifecycle:lifecycle-livedata:aar": 1447094200,
+    "androidx.lifecycle:lifecycle-process:aar": 2067541208,
+    "androidx.lifecycle:lifecycle-runtime-android:aar": -2073577202,
+    "androidx.lifecycle:lifecycle-runtime-compose-android:aar": 164135719,
+    "androidx.lifecycle:lifecycle-runtime-compose:aar": -975555759,
+    "androidx.lifecycle:lifecycle-runtime-ktx-android:aar": -2082479536,
+    "androidx.lifecycle:lifecycle-runtime-ktx:aar": -1852773528,
+    "androidx.lifecycle:lifecycle-runtime:aar": 91820866,
+    "androidx.lifecycle:lifecycle-viewmodel-android:aar": -318835263,
+    "androidx.lifecycle:lifecycle-viewmodel-compose-android:aar": 997818185,
+    "androidx.lifecycle:lifecycle-viewmodel-compose:aar": -1303127025,
+    "androidx.lifecycle:lifecycle-viewmodel-ktx:aar": -162030416,
+    "androidx.lifecycle:lifecycle-viewmodel-savedstate:aar": 471098337,
+    "androidx.lifecycle:lifecycle-viewmodel:aar": -1026850326,
+    "androidx.loader:loader:aar": 280783384,
+    "androidx.profileinstaller:profileinstaller:aar": -210280528,
+    "androidx.recyclerview:recyclerview:aar": 1834234964,
+    "androidx.resourceinspection:resourceinspection-annotation": -801509553,
+    "androidx.savedstate:savedstate-ktx:aar": -786615947,
+    "androidx.savedstate:savedstate:aar": -678556482,
+    "androidx.startup:startup-runtime:aar": -957639386,
+    "androidx.swiperefreshlayout:swiperefreshlayout:aar": 377401846,
+    "androidx.tracing:tracing:aar": -1067869576,
+    "androidx.vectordrawable:vectordrawable-animated:aar": 1348923962,
+    "androidx.vectordrawable:vectordrawable:aar": 1107619327,
+    "androidx.versionedparcelable:versionedparcelable:aar": -923625950,
+    "androidx.viewpager:viewpager:aar": 212265431,
     "com.getkeepsafe.relinker:relinker:aar": -572368767,
     "com.google.code.gson:gson": -1194933807,
     "com.google.guava:listenablefuture": -786583461,
-    "com.naver.maps:geometry:aar": 729992378,
-    "com.naver.maps:map-sdk:aar": 1587300286,
-    "com.squareup.okhttp3:okhttp": -298299630,
-    "com.squareup.okhttp3:okhttp-brotli": -58509937,
-    "com.squareup.okio:okio-jvm": 1025591842,
+    "com.naver.maps:geometry:aar": 622866560,
+    "com.naver.maps:map-sdk:aar": 1139798770,
+    "com.squareup.moshi:moshi": 132852261,
+    "com.squareup.moshi:moshi-adapters": 575230264,
+    "com.squareup.moshi:moshi-kotlin": 1840205792,
+    "com.squareup.okhttp3:okhttp": 548136098,
+    "com.squareup.okhttp3:okhttp-brotli": -269664992,
+    "com.squareup.okio:okio": 1707721274,
+    "com.squareup.okio:okio-jvm": -2063728597,
     "org.brotli:dec": 2053297664,
     "org.jetbrains.kotlin:kotlin-compose-compiler-plugin-embeddable": 925151027,
-    "org.jetbrains.kotlin:kotlin-stdlib": 1147254990,
+    "org.jetbrains.kotlin:kotlin-reflect": -543145873,
+    "org.jetbrains.kotlin:kotlin-stdlib": -201748203,
     "org.jetbrains.kotlin:kotlin-stdlib-common": 1404126489,
-    "org.jetbrains.kotlin:kotlin-stdlib-jdk7": -737700595,
-    "org.jetbrains.kotlin:kotlin-stdlib-jdk8": -932223706,
-    "org.jetbrains.kotlinx:atomicfu": -1556744050,
-    "org.jetbrains.kotlinx:atomicfu-jvm": -1136612197,
-    "org.jetbrains.kotlinx:kotlinx-coroutines-android": -592164409,
-    "org.jetbrains.kotlinx:kotlinx-coroutines-core": 813424340,
-    "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm": 713213467,
+    "org.jetbrains.kotlin:kotlin-stdlib-jdk7": -1940243477,
+    "org.jetbrains.kotlin:kotlin-stdlib-jdk8": 581022236,
+    "org.jetbrains.kotlinx:atomicfu": -1275321439,
+    "org.jetbrains.kotlinx:atomicfu-jvm": -233611107,
+    "org.jetbrains.kotlinx:kotlinx-coroutines-android": 1248024829,
+    "org.jetbrains.kotlinx:kotlinx-coroutines-core": 1317689830,
+    "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm": 1654825997,
     "org.jetbrains:annotations": 2042566210
   },
   "artifacts": {
@@ -735,11 +744,29 @@
       },
       "version": "3.23.3"
     },
+    "com.squareup.moshi:moshi": {
+      "shasums": {
+        "jar": "767f7592c6c61eb693549a26d333c121f5383826bd287b899867aa326dae55e4"
+      },
+      "version": "1.15.2"
+    },
+    "com.squareup.moshi:moshi-adapters": {
+      "shasums": {
+        "jar": "efa90fb3419a5a88bd5e029cbafdcecce1812430b15cb86770f60eaf0b45c409"
+      },
+      "version": "1.15.2"
+    },
+    "com.squareup.moshi:moshi-kotlin": {
+      "shasums": {
+        "jar": "5c39cd77e83b111af9c54708173af96a89fd3b09d15019a11da355e83e97d75a"
+      },
+      "version": "1.15.2"
+    },
     "com.squareup.okhttp3:okhttp": {
       "shasums": {
-        "jar": "7580f14fa1691206e37081ad3f92063b1603b328da0bb316f2fef02e0562e7ec"
+        "jar": "b1050081b14bb7a3a7e55a4d3ef01b5dcfabc453b4573a4fc019767191d5f4e0"
       },
-      "version": "4.10.0"
+      "version": "4.12.0"
     },
     "com.squareup.okhttp3:okhttp-brotli": {
       "shasums": {
@@ -747,11 +774,17 @@
       },
       "version": "4.10.0"
     },
+    "com.squareup.okio:okio": {
+      "shasums": {
+        "jar": "8e63292e5c53bb93c4a6b0c213e79f15990fed250c1340f1c343880e1c9c39b5"
+      },
+      "version": "3.6.0"
+    },
     "com.squareup.okio:okio-jvm": {
       "shasums": {
-        "jar": "be64a0cc1f28ea9cd5c970dd7e7557af72c808d738c495b397bf897c9921e907"
+        "jar": "d8b35adc28768f43ae5afe6a7d1aa2a878ba51e0b96a4f308811f3b1f5b13e55"
       },
-      "version": "3.0.0"
+      "version": "3.7.0"
     },
     "org.brotli:dec": {
       "shasums": {
@@ -765,11 +798,17 @@
       },
       "version": "2.4.0"
     },
+    "org.jetbrains.kotlin:kotlin-reflect": {
+      "shasums": {
+        "jar": "8a6cd5a3cf092acee274ce2c444dc36eefdb631579859dd4d857b3309a529c91"
+      },
+      "version": "1.8.21"
+    },
     "org.jetbrains.kotlin:kotlin-stdlib": {
       "shasums": {
-        "jar": "03a5c3965cc37051128e64e46748e394b6bd4c97fa81c6de6fc72bfd44e3421b"
+        "jar": "3b479313ab6caea4e5e25d3dee8ca80c302c89ba73e1af4dafaa100f6ef9296a"
       },
-      "version": "1.8.22"
+      "version": "1.9.21"
     },
     "org.jetbrains.kotlin:kotlin-stdlib-common": {
       "shasums": {
@@ -779,15 +818,15 @@
     },
     "org.jetbrains.kotlin:kotlin-stdlib-jdk7": {
       "shasums": {
-        "jar": "af1ec40c3b951afdcc0c2a0173c7b81763c5281c2d5bafbf0a8544a24c5dcc0c"
+        "jar": "33d148db0e11debd0d90677d28242bced907f9c77730000fd597867089039d86"
       },
-      "version": "1.8.20"
+      "version": "1.8.21"
     },
     "org.jetbrains.kotlin:kotlin-stdlib-jdk8": {
       "shasums": {
-        "jar": "e398b67977622718bf18ff99b739c7d9da060f33fb458a2e25203221c16af010"
+        "jar": "3db752a30074f06ee6c57984aa6f27da44f4d2bbc7f5442651f6988f1cb2b7d7"
       },
-      "version": "1.8.20"
+      "version": "1.8.21"
     },
     "org.jetbrains.kotlinx:atomicfu": {
       "shasums": {
@@ -1430,21 +1469,38 @@
       "com.squareup.okhttp3:okhttp",
       "com.squareup.okhttp3:okhttp-brotli"
     ],
-    "com.squareup.okhttp3:okhttp": [
+    "com.squareup.moshi:moshi": [
       "com.squareup.okio:okio-jvm",
-      "org.jetbrains.kotlin:kotlin-stdlib"
+      "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    ],
+    "com.squareup.moshi:moshi-adapters": [
+      "com.squareup.moshi:moshi",
+      "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    ],
+    "com.squareup.moshi:moshi-kotlin": [
+      "com.squareup.moshi:moshi",
+      "org.jetbrains.kotlin:kotlin-reflect",
+      "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    ],
+    "com.squareup.okhttp3:okhttp": [
+      "com.squareup.okio:okio",
+      "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     ],
     "com.squareup.okhttp3:okhttp-brotli": [
       "com.squareup.okhttp3:okhttp",
       "org.brotli:dec",
       "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     ],
+    "com.squareup.okio:okio": [
+      "com.squareup.okio:okio-jvm"
+    ],
     "com.squareup.okio:okio-jvm": [
-      "org.jetbrains.kotlin:kotlin-stdlib-common",
-      "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+      "org.jetbrains.kotlin:kotlin-stdlib"
+    ],
+    "org.jetbrains.kotlin:kotlin-reflect": [
+      "org.jetbrains.kotlin:kotlin-stdlib"
     ],
     "org.jetbrains.kotlin:kotlin-stdlib": [
-      "org.jetbrains.kotlin:kotlin-stdlib-common",
       "org.jetbrains:annotations"
     ],
     "org.jetbrains.kotlin:kotlin-stdlib-jdk7": [
@@ -1508,6 +1564,18 @@
     "com.google.guava:listenablefuture": [
       "com.google.common.util.concurrent"
     ],
+    "com.squareup.moshi:moshi": [
+      "com.squareup.moshi",
+      "com.squareup.moshi.internal"
+    ],
+    "com.squareup.moshi:moshi-adapters": [
+      "com.squareup.moshi",
+      "com.squareup.moshi.adapters"
+    ],
+    "com.squareup.moshi:moshi-kotlin": [
+      "com.squareup.moshi",
+      "com.squareup.moshi.kotlin.reflect"
+    ],
     "com.squareup.okhttp3:okhttp": [
       "okhttp3",
       "okhttp3.internal",
@@ -1545,6 +1613,70 @@
       "androidx.compose.compiler.plugins.kotlin.k2",
       "androidx.compose.compiler.plugins.kotlin.lower",
       "androidx.compose.compiler.plugins.kotlin.lower.hiddenfromobjc"
+    ],
+    "org.jetbrains.kotlin:kotlin-reflect": [
+      "kotlin.reflect.full",
+      "kotlin.reflect.jvm",
+      "kotlin.reflect.jvm.internal",
+      "kotlin.reflect.jvm.internal.calls",
+      "kotlin.reflect.jvm.internal.impl",
+      "kotlin.reflect.jvm.internal.impl.builtins",
+      "kotlin.reflect.jvm.internal.impl.builtins.functions",
+      "kotlin.reflect.jvm.internal.impl.builtins.jvm",
+      "kotlin.reflect.jvm.internal.impl.descriptors",
+      "kotlin.reflect.jvm.internal.impl.descriptors.annotations",
+      "kotlin.reflect.jvm.internal.impl.descriptors.deserialization",
+      "kotlin.reflect.jvm.internal.impl.descriptors.impl",
+      "kotlin.reflect.jvm.internal.impl.descriptors.java",
+      "kotlin.reflect.jvm.internal.impl.descriptors.runtime.components",
+      "kotlin.reflect.jvm.internal.impl.descriptors.runtime.structure",
+      "kotlin.reflect.jvm.internal.impl.incremental",
+      "kotlin.reflect.jvm.internal.impl.incremental.components",
+      "kotlin.reflect.jvm.internal.impl.load.java",
+      "kotlin.reflect.jvm.internal.impl.load.java.components",
+      "kotlin.reflect.jvm.internal.impl.load.java.descriptors",
+      "kotlin.reflect.jvm.internal.impl.load.java.lazy",
+      "kotlin.reflect.jvm.internal.impl.load.java.lazy.descriptors",
+      "kotlin.reflect.jvm.internal.impl.load.java.lazy.types",
+      "kotlin.reflect.jvm.internal.impl.load.java.sources",
+      "kotlin.reflect.jvm.internal.impl.load.java.structure",
+      "kotlin.reflect.jvm.internal.impl.load.java.typeEnhancement",
+      "kotlin.reflect.jvm.internal.impl.load.kotlin",
+      "kotlin.reflect.jvm.internal.impl.load.kotlin.header",
+      "kotlin.reflect.jvm.internal.impl.metadata",
+      "kotlin.reflect.jvm.internal.impl.metadata.builtins",
+      "kotlin.reflect.jvm.internal.impl.metadata.deserialization",
+      "kotlin.reflect.jvm.internal.impl.metadata.jvm",
+      "kotlin.reflect.jvm.internal.impl.metadata.jvm.deserialization",
+      "kotlin.reflect.jvm.internal.impl.name",
+      "kotlin.reflect.jvm.internal.impl.platform",
+      "kotlin.reflect.jvm.internal.impl.protobuf",
+      "kotlin.reflect.jvm.internal.impl.renderer",
+      "kotlin.reflect.jvm.internal.impl.resolve",
+      "kotlin.reflect.jvm.internal.impl.resolve.calls.inference",
+      "kotlin.reflect.jvm.internal.impl.resolve.constants",
+      "kotlin.reflect.jvm.internal.impl.resolve.deprecation",
+      "kotlin.reflect.jvm.internal.impl.resolve.descriptorUtil",
+      "kotlin.reflect.jvm.internal.impl.resolve.jvm",
+      "kotlin.reflect.jvm.internal.impl.resolve.sam",
+      "kotlin.reflect.jvm.internal.impl.resolve.scopes",
+      "kotlin.reflect.jvm.internal.impl.resolve.scopes.receivers",
+      "kotlin.reflect.jvm.internal.impl.serialization",
+      "kotlin.reflect.jvm.internal.impl.serialization.deserialization",
+      "kotlin.reflect.jvm.internal.impl.serialization.deserialization.builtins",
+      "kotlin.reflect.jvm.internal.impl.serialization.deserialization.descriptors",
+      "kotlin.reflect.jvm.internal.impl.storage",
+      "kotlin.reflect.jvm.internal.impl.types",
+      "kotlin.reflect.jvm.internal.impl.types.checker",
+      "kotlin.reflect.jvm.internal.impl.types.error",
+      "kotlin.reflect.jvm.internal.impl.types.extensions",
+      "kotlin.reflect.jvm.internal.impl.types.model",
+      "kotlin.reflect.jvm.internal.impl.types.typeUtil",
+      "kotlin.reflect.jvm.internal.impl.types.typesApproximation",
+      "kotlin.reflect.jvm.internal.impl.util",
+      "kotlin.reflect.jvm.internal.impl.util.capitalizeDecapitalize",
+      "kotlin.reflect.jvm.internal.impl.util.collectionUtils",
+      "kotlin.reflect.jvm.internal.impl.utils"
     ],
     "org.jetbrains.kotlin:kotlin-stdlib": [
       "kotlin",
@@ -1716,11 +1848,16 @@
       "com.google.guava:listenablefuture",
       "com.naver.maps:geometry:aar",
       "com.naver.maps:map-sdk:aar",
+      "com.squareup.moshi:moshi",
+      "com.squareup.moshi:moshi-adapters",
+      "com.squareup.moshi:moshi-kotlin",
       "com.squareup.okhttp3:okhttp",
       "com.squareup.okhttp3:okhttp-brotli",
+      "com.squareup.okio:okio",
       "com.squareup.okio:okio-jvm",
       "org.brotli:dec",
       "org.jetbrains.kotlin:kotlin-compose-compiler-plugin-embeddable",
+      "org.jetbrains.kotlin:kotlin-reflect",
       "org.jetbrains.kotlin:kotlin-stdlib",
       "org.jetbrains.kotlin:kotlin-stdlib-common",
       "org.jetbrains.kotlin:kotlin-stdlib-jdk7",
@@ -1827,11 +1964,16 @@
       "com.google.guava:listenablefuture",
       "com.naver.maps:geometry:aar",
       "com.naver.maps:map-sdk:aar",
+      "com.squareup.moshi:moshi",
+      "com.squareup.moshi:moshi-adapters",
+      "com.squareup.moshi:moshi-kotlin",
       "com.squareup.okhttp3:okhttp",
       "com.squareup.okhttp3:okhttp-brotli",
+      "com.squareup.okio:okio",
       "com.squareup.okio:okio-jvm",
       "org.brotli:dec",
       "org.jetbrains.kotlin:kotlin-compose-compiler-plugin-embeddable",
+      "org.jetbrains.kotlin:kotlin-reflect",
       "org.jetbrains.kotlin:kotlin-stdlib",
       "org.jetbrains.kotlin:kotlin-stdlib-common",
       "org.jetbrains.kotlin:kotlin-stdlib-jdk7",
@@ -1938,11 +2080,16 @@
       "com.google.guava:listenablefuture",
       "com.naver.maps:geometry:aar",
       "com.naver.maps:map-sdk:aar",
+      "com.squareup.moshi:moshi",
+      "com.squareup.moshi:moshi-adapters",
+      "com.squareup.moshi:moshi-kotlin",
       "com.squareup.okhttp3:okhttp",
       "com.squareup.okhttp3:okhttp-brotli",
+      "com.squareup.okio:okio",
       "com.squareup.okio:okio-jvm",
       "org.brotli:dec",
       "org.jetbrains.kotlin:kotlin-compose-compiler-plugin-embeddable",
+      "org.jetbrains.kotlin:kotlin-reflect",
       "org.jetbrains.kotlin:kotlin-stdlib",
       "org.jetbrains.kotlin:kotlin-stdlib-common",
       "org.jetbrains.kotlin:kotlin-stdlib-jdk7",
@@ -1968,6 +2115,16 @@
       ],
       "org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar": [
         "androidx.compose.compiler.plugins.kotlin.k2.ComposeFirExtensionRegistrar"
+      ]
+    },
+    "org.jetbrains.kotlin:kotlin-reflect": {
+      "kotlin.reflect.jvm.internal.impl.builtins.BuiltInsLoader": [
+        "kotlin.reflect.jvm.internal.impl.serialization.deserialization.builtins.BuiltInsLoaderImpl"
+      ],
+      "kotlin.reflect.jvm.internal.impl.resolve.ExternalOverridabilityCondition": [
+        "kotlin.reflect.jvm.internal.impl.load.java.ErasedOverridabilityCondition",
+        "kotlin.reflect.jvm.internal.impl.load.java.FieldOverridabilityCondition",
+        "kotlin.reflect.jvm.internal.impl.load.java.JavaIncompatibilityRulesOverridabilityCondition"
       ]
     },
     "org.jetbrains.kotlinx:kotlinx-coroutines-android": {
