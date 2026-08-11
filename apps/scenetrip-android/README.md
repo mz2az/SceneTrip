@@ -10,7 +10,34 @@ SceneTrip 의 Android 네이티브 앱. 첫 화면인 **작품검색 탭**(지�
 **iOS 와 같은 문서를 기준으로 삼는다.** 거기 없는 동작은 어느 쪽에서도 임의로 만들지
 않는다 — 두 앱이 갈리는 것은 화면을 만들 때가 아니라 규칙이 한쪽에만 적혀 있을 때다.
 
-현재는 **모듈이 서는지 확인하는 자리표시자**다. `MainActivity` 가 앱 이름만 띄운다.
+## 화면은 Jetpack Compose 로 짓는다
+
+**SwiftUI 와 같은 선언형이라 iOS 코드가 구조를 유지한 채 옮겨진다** — `@State` 가
+`remember`, `VStack` 이 `Column` 이 된다. 뷰 + XML 로 가면 같은 화면에 RecyclerView ·
+Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그만큼 두 앱의 구조가
+갈려 위의 "iOS 와 같은 문서를 기준으로" 를 지키기 어려워진다.
+
+지도만 예외다. 네이버가 Compose 용 지도를 내놓지 않아 `MapView` 를 `AndroidView` 로
+감싼다 (`searchtab/NaverMap.kt`) — iOS 가 `UIViewRepresentable` 로 하는 것과 같은 일이다.
+
+컴파일러 플러그인이 필요하다. `//tools/bazel/kotlin:compose_compiler_plugin` 이며
+**버전이 Kotlin 컴파일러와 같아야 한다.** 빠뜨리면 컴파일은 되는데 화면이 갱신되지
+않는다 — 조용히 잘못 도는 쪽이라 찾기 어렵다.
+
+## 지금 어디까지 됐나
+
+| | 상태 |
+| --- | --- |
+| 지도 · 첫 진입 카메라(남한 전체) | 됨 |
+| 작품 / 장소 두 탭, 첫 화면 「인기 N」 표기 | 됨 |
+| 카테고리 칩 — 목록과 지도를 **같이** 좁힌다 | 됨 |
+| 장바구니 담기(＋ → ✓), 작품 찜(♡ → ♥) | 화면 안에서만. 서버 없음 |
+| 핀 번호 — 첫 화면 작품 탭에서만 민 핀 | 됨 |
+| 자동완성 · 드릴다운 · 반경 검색 · 현위치 | 아직 |
+| 시트 높이 끌기 + 지도 여백 연동 | 아직 — iOS 에서 가장 손이 많이 간 부분이라 나중에 |
+
+**서버를 부르지 않는다.** 아래 "계약" 참고.
+
 화면 구현은 iOS 에서 확정된 순서(§3-1 화면 구조 → §3-2 검색 범위 → §3-3 자동완성 →
 §3-5 칩 → §3-6 오류 화면)를 그대로 따라간다.
 
@@ -24,13 +51,26 @@ SceneTrip 의 Android 네이티브 앱. 첫 화면인 **작품검색 탭**(지�
 | --- | --- |
 | 프로토콜 | 해당 없음 (클라이언트 앱) |
 | 산출물 | `:bin` — 기기/에뮬레이터에 설치하는 APK |
-| 계약 | `contracts/openapi/scene-api-v1.yaml` — kotlin 생성 클라이언트로 소비한다 (생성 타깃은 아직 없음) |
+| 계약 | `contracts/openapi/scene-api-v1.yaml` — `//contracts/openapi:scene_api_kotlin_lib` 로 소비한다 |
 
 ## 의존성
 
 | 의존 대상 | 이유 |
 | --- | --- |
 | `services/scene-api` | 직접 import 가 아니라 계약(`contracts/openapi/`)을 통해 |
+| `@maven_android//:com_naver_maps_map_sdk` | 지도. 버전은 iOS 와 같은 3.23.3 |
+| Jetpack Compose (`@maven_android//:androidx_compose_*`) | 화면. 버전 못은 `MODULE.bazel` 에 있다 |
+
+**아직 계약 클라이언트를 쓰지 않는다.** 생성까지는 되지만 컴파일이 막혀 있다 —
+생성기 7.2.0 의 코틀린 백엔드가 enum 기본값을 한정하지 않고 뱉는다
+(`Lang? = ko`, `Lang.ko` 여야 함). 같은 명세로 spring·swift5 는 멀쩡하다. 근거와
+선택지는 `contracts/openapi/BUILD.bazel` 의 `scene_api_kotlin_lib` 에 적어 두었고,
+그 타깃의 `manual` 태그를 지우는 것이 완료 조건이다.
+
+그때까지 화면은 `searchtab/Model.kt` 의 고정 데이터로 짓는다. 자료형 이름과 필드를
+계약과 같게 맞춰 두었으므로 클라이언트가 들어오면 그 파일만 지우면 된다.
+**앱이 API 클라이언트를 손으로 쓰지 않는다는 규칙**(CLAUDE.md §5)은 그대로다 —
+고정 데이터는 클라이언트가 아니다.
 
 ## 빌드가 되는 조건
 
