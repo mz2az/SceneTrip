@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,7 +52,7 @@ fun WorkRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onTap)
-                .padding(horizontal = IOS.gutter, vertical = 10.dp),
+                .padding(horizontal = IOS.gutter, vertical = 7.dp),
     ) {
         RemoteImage(
             url = content.posterUrl?.toString(),
@@ -113,7 +114,7 @@ fun PlaceRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onTap)
-                .padding(horizontal = IOS.gutter, vertical = 10.dp),
+                .padding(horizontal = IOS.gutter, vertical = 7.dp),
     ) {
         // 지도 핀에 박힌 번호와 같은 값 — 행과 핀을 눈으로 잇는 다리다. 그래서
         // 배지의 그러데이션도 핀과 **같은 두 색**이어야 한다.
@@ -163,7 +164,9 @@ fun PlaceRow(
         // 유지하는 이유는 iOS 주석에 있다 — 이 자리의 첫 임무는 "이미 담겼는지" 를
         // 알려 주는 것이고, `−` 로 바꾸면 그 상태가 보이지 않는다.
         Icon(
-            imageVector = if (saved) Icons.Filled.CheckCircle else Icons.Filled.AddCircle,
+            // iOS 는 `plus.circle`(선) → `checkmark.circle.fill`(채움) 이다.
+            // Material 의 AddCircle 은 채운 원이라 담기 전부터 채워져 보인다.
+            imageVector = if (saved) Icons.Filled.CheckCircle else Icons.Outlined.AddCircle,
             contentDescription = if (saved) "장바구니에서 빼기" else "장바구니에 담기",
             tint = if (saved) IOS.accent else IOS.secondaryLabel,
             modifier =

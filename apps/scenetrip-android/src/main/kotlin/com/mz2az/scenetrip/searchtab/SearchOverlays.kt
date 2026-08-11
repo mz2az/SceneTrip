@@ -18,11 +18,10 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
@@ -99,10 +98,7 @@ fun SearchBar(
         }
 
         if (draft.isNotEmpty()) {
-            Icon(
-                Icons.Filled.Clear,
-                contentDescription = "지우기",
-                tint = IOS.tertiaryLabel,
+            ClearIcon(
                 modifier =
                     Modifier
                         .clip(CircleShape)
@@ -123,7 +119,7 @@ fun SearchBar(
 
         Box {
             Icon(
-                Icons.Filled.ShoppingCart,
+                Icons.Outlined.ShoppingCart,
                 contentDescription = "장바구니",
                 // iOS 는 이 자리를 강조색으로 그린다 — 실기 스크린샷으로 확인했다.
                 tint = IOS.accent,
@@ -254,5 +250,34 @@ fun ScopeIcon(
             Offset(0f, c.y) to Offset(r * 0.30f, c.y),
             Offset(size.width, c.y) to Offset(size.width - r * 0.30f, c.y),
         ).forEach { (from, to) -> drawLine(tint, from, to, strokeWidth = w) }
+    }
+}
+
+/**
+ * 검색어 지우기 — iOS 의 `xmark.circle.fill`.
+ *
+ * **채운 회색 원 안에 흰 ✕** 다. Material core 에는 같은 모양이 없다 —
+ * `Icons.Filled.Clear` 는 맨 ✕ 글리프라 나란히 놓으면 다르게 보인다.
+ */
+@Composable
+fun ClearIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val c = Offset(size.width / 2, size.height / 2)
+        val r = size.minDimension / 2
+        drawCircle(IOS.tertiaryLabel, r, c)
+        val arm = r * 0.42f
+        val w = r * 0.16f
+        drawLine(
+            IOS.systemBackground,
+            Offset(c.x - arm, c.y - arm),
+            Offset(c.x + arm, c.y + arm),
+            strokeWidth = w,
+        )
+        drawLine(
+            IOS.systemBackground,
+            Offset(c.x - arm, c.y + arm),
+            Offset(c.x + arm, c.y - arm),
+            strokeWidth = w,
+        )
     }
 }

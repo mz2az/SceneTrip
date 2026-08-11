@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.geometry.LatLngBounds
+import com.naver.maps.map.CameraAnimation
 import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
@@ -206,7 +207,11 @@ fun NaverMap.fit(
 ) {
     if (places.isEmpty()) return
     if (places.size == 1) {
-        moveCamera(CameraUpdate.scrollAndZoomTo(places.first().position, 14.0))
+        moveCamera(
+            CameraUpdate
+                .scrollAndZoomTo(places.first().position, 14.0)
+                .animate(CameraAnimation.Easing, 400L),
+        )
         return
     }
     val bounds =
@@ -216,7 +221,13 @@ fun NaverMap.fit(
                 places.forEach { include(it.position) }
             }.build()
     val padding = with(density) { KOREA_FIT_PADDING.roundToPx() }
-    moveCamera(CameraUpdate.fitBounds(bounds, padding))
+    // **애니메이션을 준다.** iOS 는 `.easeIn` 0.4 초다. 순간이동하면 사용자가
+    // 지도가 어디서 어디로 옮겨 갔는지 따라가지 못한다.
+    moveCamera(
+        CameraUpdate
+            .fitBounds(bounds, padding)
+            .animate(CameraAnimation.Easing, 400L),
+    )
 }
 
 /** 첫 진입에서 [KOREA] 가 다 보이게 맞춘다. */
@@ -240,10 +251,11 @@ fun MapPins(
     map: NaverMap?,
     places: List<PlaceSummary>,
     numbered: Boolean,
+    onTap: (PlaceSummary) -> Unit = {},
 ) {
     if (map == null) return
     val metrics = LocalContext.current.resources.displayMetrics
-    DisposableEffect(map, places, numbered) {
+    DisposableEffect(map, places, numbered, onTap) {
         val markers =
             places.mapIndexed { index, place ->
                 Marker().apply {
@@ -255,6 +267,14 @@ fun MapPins(
                     // 실제 위치보다 위에 뜬다. iOS 는 꼬리를 45/50 지점에 둔다.
                     anchor = PointF(0.5f, 45f / 50f)
                     captionText = place.name
+                    // **줌 13 이상에서만 이름표를 띄운다.** iOS 와 같은 값이다.
+                    // 전국 뷰에서 이름을 다 그리면 "인천스마트밸리지식산업센터" 같은
+                    // 긴 이름들이 서로 겹쳐 검은 뭉텅이가 된다(실측).
+                    captionMinZoom = 13.0
+                    setOnClickListener {
+                        onTap(place)
+                        true
+                    }
                     this.map = map
                 }
             }

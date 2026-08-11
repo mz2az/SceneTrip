@@ -33,26 +33,64 @@ val PlaceSummary.worksAndType: String
         ).filter { it.isNotEmpty() }.joinToString(" · ")
 
 /**
- * 카테고리 칩. iOS `CategoryChip` 과 **같은 분류여야 한다** — 두 앱이 다른
- * 카테고리를 보여 주면 같은 데이터를 쓰는 의미가 없다 (MZ2AZ-196 이 그 문제다).
+ * 카테고리 칩.
+ *
+ * **이름과 분류를 iOS `Models/SceneData.swift` 의 `CategoryChip` 에서 그대로
+ * 가져온다.** 처음에는 「자연·문화·도시·식음료」 로 지어 썼는데, iOS 는
+ * 「음식점·카페 / 명소·자연 / 거리·다리 / 건물·시설」 이라 **같은 장소가 서로 다른
+ * 칩에 들어갔다.** 같은 데이터를 쓰는 두 앱이 다른 분류를 보여 주면 같은 앱이 아니다.
+ *
+ * 어느 쪽도 아닌 분류는 「건물·시설」 로 떨어진다 — iOS 와 같은 기본값이다.
  */
-enum class CategoryChip(
-    val label: String,
-) {
-    ALL("전체"),
-    NATURE("자연"),
-    CULTURE("문화"),
-    CITY("도시"),
-    FOOD("식음료"),
-    ;
+object CategoryChip {
+    const val ALL = "전체"
 
-    companion object {
-        fun of(type: String?): CategoryChip =
-            when (type) {
-                "자연", "해변", "산", "공원" -> NATURE
-                "문화", "역사", "전통", "박물관" -> CULTURE
-                "카페", "식당", "음식점" -> FOOD
-                else -> CITY
-            }
+    private val groups: List<Pair<String, Set<String>>> =
+        listOf(
+            "음식점·카페" to setOf("음식점", "카페", "바", "편의점", "마트", "시장"),
+            "명소·자연" to
+                setOf(
+                    "명소",
+                    "자연",
+                    "공원",
+                    "해변",
+                    "항구",
+                    "전망대",
+                    "사찰",
+                    "성당",
+                    "고궁",
+                    "한옥",
+                    "한옥마을",
+                    "마을",
+                    "테마파크",
+                    "체험시설",
+                    "캠핑장",
+                ),
+            "거리·다리" to setOf("거리", "다리", "역/교통", "공항"),
+            "건물·시설" to
+                setOf(
+                    "건물",
+                    "호텔",
+                    "병원",
+                    "학교",
+                    "박물관/미술관",
+                    "서점",
+                    "상점",
+                    "백화점",
+                    "쇼핑몰",
+                    "경기장",
+                    "스포츠시설",
+                    "예식장",
+                    "장례식장",
+                    "세트장",
+                    "관공서",
+                ),
+        )
+
+    val names: List<String> = listOf(ALL) + groups.map { it.first }
+
+    fun of(placeType: String?): String {
+        if (placeType == null) return "건물·시설"
+        return groups.firstOrNull { placeType in it.second }?.first ?: "건물·시설"
     }
 }

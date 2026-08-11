@@ -40,7 +40,7 @@ fun <T> SegmentedControl(
                 .fillMaxWidth()
                 .padding(horizontal = IOS.gutter)
                 .clip(RoundedCornerShape(9.dp))
-                .background(IOS.systemGray6)
+                .background(IOS.segmentTrack)
                 .padding(2.dp),
     ) {
         options.forEach { option ->
@@ -64,12 +64,12 @@ fun <T> SegmentedControl(
                                 Modifier
                             },
                         ).clickable { onSelect(option) }
-                        .padding(vertical = 6.dp),
+                        .padding(vertical = 5.dp),
             ) {
                 Text(
                     text = label(option),
                     style =
-                        IOS.subheadline.copy(
+                        IOS.footnote.copy(
                             fontWeight = if (isOn) FontWeight.SemiBold else FontWeight.Normal,
                         ),
                     color = IOS.label,
@@ -88,8 +88,8 @@ fun <T> SegmentedControl(
  */
 @Composable
 fun ChipRow(
-    selected: CategoryChip,
-    onSelect: (CategoryChip) -> Unit,
+    selected: String,
+    onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyRow(
@@ -101,19 +101,19 @@ fun ChipRow(
             androidx.compose.foundation.layout.Arrangement
                 .spacedBy(8.dp),
     ) {
-        items(CategoryChip.values().size) { index ->
-            val chip = CategoryChip.values()[index]
-            val isOn = selected == chip
+        items(CategoryChip.names.size) { index ->
+            val name = CategoryChip.names[index]
+            val isOn = selected == name
             Text(
-                text = chip.label,
+                text = name,
                 style = IOS.subheadline,
                 color = if (isOn) IOS.systemBackground else IOS.label,
                 modifier =
                     Modifier
                         .clip(CircleShape)
                         .background(if (isOn) IOS.accent else IOS.systemGray6)
-                        .clickable { onSelect(if (isOn) CategoryChip.ALL else chip) }
-                        .padding(horizontal = 13.dp, vertical = 7.dp),
+                        .clickable { onSelect(if (isOn) CategoryChip.ALL else name) }
+                        .padding(horizontal = 13.dp, vertical = 6.dp),
             )
         }
     }

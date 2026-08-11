@@ -30,12 +30,18 @@ object IOS {
     //
     // iOS 는 커스텀 accent 에셋을 두지 않는다. 즉 `Color.accentColor` 는 시스템
     // 기본인 **systemBlue** 다. 여기에 보라색 Material 기본을 쓰면 그 순간 갈린다.
-    val accent = Color(0xFF007AFF)
-    val systemRed = Color(0xFFFF3B30)
+    // **화면에서 실제로 잰 값이다.** 문서의 systemBlue 는 #007AFF 지만 iOS 26 이
+    // 실제로 칠하는 값은 #0088FF 였다(스크린샷 픽셀 측정). 교과서 값을 쓰면 두 앱을
+    // 나란히 놓았을 때 파랑이 미묘하게 달라 보인다. 빨강도 같은 이유다.
+    val accent = Color(0xFF0088FF)
+    val systemRed = Color(0xFFFF383C)
 
     val systemBackground = Color(0xFFFFFFFF)
     val systemGray3 = Color(0xFFC7C7CC)
     val systemGray6 = Color(0xFFF2F2F7)
+
+    /** 세그먼트 컨트롤의 트랙. systemGray6 보다 살짝 어둡다 — 실측 #EEEEEF. */
+    val segmentTrack = Color(0xFFEEEEEF)
 
     /** `.primary` — 완전한 검정이 아니라 label 색이다. */
     val label = Color(0xFF000000)
@@ -59,6 +65,7 @@ object IOS {
     // iOS 텍스트 스타일의 기본 크기(Large)다. SwiftUI 의 `.headline` 등이
     // 이 값으로 그려진다.
     val headline = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+    val footnote = TextStyle(fontSize = 13.sp)
     val subheadline = TextStyle(fontSize = 15.sp)
     val subheadlineSemibold = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     val body = TextStyle(fontSize = 17.sp)

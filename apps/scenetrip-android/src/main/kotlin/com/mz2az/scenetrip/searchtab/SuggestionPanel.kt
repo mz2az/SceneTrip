@@ -150,7 +150,8 @@ fun DetailHeader(
         Icon(
             Icons.Filled.KeyboardArrowLeft,
             contentDescription = "뒤로",
-            tint = IOS.accent,
+            // iOS 는 이 화살표를 검정으로 그린다(실측). 강조색이 아니다.
+            tint = IOS.label,
             modifier = Modifier.clip(CircleShape).clickable(onClick = onBack).size(28.dp),
         )
         Column(modifier = Modifier.weight(1f)) {
@@ -172,5 +173,5 @@ fun DetailHeader(
             }
         }
     }
-    Box(Modifier.fillMaxWidth().height(0.5.dp).background(IOS.separator))
+    // **구분선을 두지 않는다.** iOS 의 `DetailHeader` 에는 없다(실측).
 }

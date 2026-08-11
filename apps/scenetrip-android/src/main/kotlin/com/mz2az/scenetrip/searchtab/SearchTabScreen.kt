@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.data.CartStore
@@ -63,6 +64,7 @@ fun SearchTabScreen() {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val density = LocalDensity.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val data = remember { SceneData(scope) }
     val cart = remember { CartStore(context) }
     val likes = remember { LikeStore(context) }
@@ -186,6 +188,7 @@ fun SearchTabScreen() {
         selectedContent = null
         contentPlaces = emptyList()
         searching = false
+        keyboard?.hide()
         detent = Detent.MEDIUM
         data.search(term)
     }
@@ -197,7 +200,17 @@ fun SearchTabScreen() {
             // 첫 진입 카메라는 `NaverMapCanvas` 가 여백을 정한 뒤 스스로 맞춘다.
             onMapReady = { map = it },
         )
-        MapPins(map = map, places = mapPlaces, numbered = numbersOnPins)
+        MapPins(
+            map = map,
+            places = mapPlaces,
+            numbered = numbersOnPins,
+            // 핀을 누르면 그 장소의 상세가 열린다 — iOS `onTapPin` 과 같다.
+            onTap = { place ->
+                selectedPlace = place
+                if (selectedContent == null) tab = ListTab.PLACE
+                detent = Detent.MEDIUM
+            },
+        )
 
         BottomSheet(
             detent = detent,
@@ -275,6 +288,7 @@ fun SearchTabScreen() {
                         saved = { cart.contains(it) },
                         liked = { likes.contains(it) },
                         onToggleLike = { likes.toggle(it) },
+                        onSelectPlace = { selectedPlace = it },
                         onOpenContent = { content ->
                             selectedContent = content
                             detent = Detent.MEDIUM
@@ -372,7 +386,9 @@ fun SearchTabScreen() {
                         label = "내 위치",
                         onClick = {},
                         modifier = Modifier.align(Alignment.CenterEnd).padding(end = 20.dp),
-                    ) { tint, size -> ScopeIcon(tint, Modifier.size(size)) }
+                        // iOS 는 이 아이콘만 강조색이다(실측). 나머지 지도 조작
+                        // 버튼은 검정이다.
+                    ) { _, size -> ScopeIcon(IOS.accent, Modifier.size(size)) }
                 }
             }
         }
@@ -410,8 +426,8 @@ private fun ListContent(
     onClearSearch: () -> Unit,
     tab: ListTab,
     onTabChange: (ListTab) -> Unit,
-    chip: CategoryChip,
-    onChipChange: (CategoryChip) -> Unit,
+    chip: String,
+    onChipChange: (String) -> Unit,
     isInitial: Boolean,
     places: List<PlaceSummary>,
     contents: List<ContentSummary>,
@@ -419,6 +435,7 @@ private fun ListContent(
     liked: (Long) -> Boolean,
     onToggleLike: (Long) -> Unit,
     onOpenContent: (ContentSummary) -> Unit,
+    onSelectPlace: (PlaceSummary) -> Unit,
     onAdd: (PlaceSummary) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -464,7 +481,7 @@ private fun ListContent(
                         place = place,
                         number = index + 1,
                         saved = saved(place.id),
-                        onTap = {},
+                        onTap = { onSelectPlace(place) },
                         onAdd = { onAdd(place) },
                     )
                     RowDivider()
