@@ -1,27 +1,16 @@
 package com.mz2az.scenetrip.searchtab
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,9 +18,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.mz2az.scenetrip.ui.IOS
 import com.naver.maps.map.NaverMap
 
 /** 목록의 두 탭. iOS `SearchTabView.Tab` 과 같다. */
@@ -45,35 +34,32 @@ enum class ListTab(
 /**
  * 작품검색 탭 (MZ2AZ-194).
  *
- * iOS `SearchTabView.swift` 를 옮긴 것이다. **동작 규칙을 새로 정하지 않는다** —
- * 확정 동작 문서(볼트 `(3주차)경로탭 개발/01_검색 탭 확정 동작 (버그정리 후).md`)가
- * 이미 답을 갖고 있고, 두 앱이 어긋나면 ADR 0002 가 네이티브 두 벌을 택하며 스스로
- * 건 검증 항목에 정면으로 걸린다.
- *
- * ## SwiftUI 와 얼마나 같은가
- *
- * 상태 선언이 `@State private var committed = ""` → `var committed by remember {...}`,
- * 세로 쌓기가 `VStack` → `Column`, 목록이 `ForEach` → `LazyColumn` 이다. 구조가
- * 그대로 남는 것이 Compose 를 고른 이유다.
+ * iOS `SearchTabView.swift` 를 옮긴 것이다. **동작 규칙도 겉모습도 새로 정하지
+ * 않는다** — iOS 소스가 기준이고, 색·간격·컴포넌트 모양까지 그대로 따른다
+ * (ADR 0008 · `ui/IOSTheme.kt`).
  *
  * ## 아직 없는 것
  *
- * 서버를 부르지 않는다 — 코틀린 API 클라이언트가 아직 없어서다(Model.kt 의 설명).
- * 자동완성 · 드릴다운 · 반경 검색 · 현위치도 아직이다. 지금 있는 것은 **검색어로
- * 거르기 · 두 탭 · 카테고리 칩 · 장바구니 담기 · 목록과 핀의 번호 일치**다.
+ * 서버를 부르지 않는다 — 코틀린 API 클라이언트는 생성·컴파일까지 됐지만 아직
+ * 화면에 잇지 않았다 (Model.kt). 자동완성 · 드릴다운 · 반경 검색 · 현위치도 아직이다.
  */
 @Composable
 fun SearchTabScreen() {
     var draft by remember { mutableStateOf("") }
 
-    // **확정된 검색어.** `draft` 는 타이핑하는 동안에도 바뀌므로 "지금 이 목록이
+    // **확정된** 검색어. `draft` 는 타이핑하는 동안에도 바뀌므로 "지금 이 목록이
     // 무엇을 검색한 결과인가" 를 그것으로 판단하면 헤더가 글자마다 깜빡인다.
     var committed by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(ListTab.WORK) }
     var chip by remember { mutableStateOf(CategoryChip.ALL) }
-    val cart = remember { mutableStateOf(setOf<Long>()) }
-    val liked = remember { mutableStateOf(setOf<Long>()) }
+    var detent by remember { mutableStateOf(Detent.MEDIUM) }
+    var cart by remember { mutableStateOf(setOf<Long>()) }
+    var liked by remember { mutableStateOf(setOf<Long>()) }
     var map by remember { mutableStateOf<NaverMap?>(null) }
+    var sheetHeight by remember { mutableStateOf(0.dp) }
+
+    // / 반경 검색이 켜져 있나. 켜져 있으면 버튼이 해제 버튼으로 바뀐다.
+    var nearby by remember { mutableStateOf(false) }
 
     // 아무것도 좁히지 않은 첫 화면인가.
     val isInitial = committed.isEmpty()
@@ -87,21 +73,21 @@ fun SearchTabScreen() {
         Fixtures.places
             .filter { committed.isEmpty() || it.name.contains(committed) }
             .filter { chip == CategoryChip.ALL || CategoryChip.of(it.type) == chip }
-            // 첫 화면은 **인기 상위 10곳만** 본다. 전부 보여 주면 목록도 지도도 읽을 수
-            // 없다 — 무엇부터 봐야 할지가 사라진다.
+            // 첫 화면은 **인기 상위 10곳만** 본다.
             .let { if (isInitial) it.take(10) else it }
 
     val visibleContents =
         Fixtures.contents
             .filter { committed.isEmpty() || it.title.contains(committed) }
 
-    // 핀에 번호를 찍을 것인가. 번호는 "목록의 N 번 = 지도의 N 번" 을 잇는 장치인데,
-    // 첫 화면의 작품 탭에서는 목록이 작품이고 핀은 장소라 이어 볼 짝이 없다.
+    // 번호는 "목록의 N 번 = 지도의 N 번" 을 잇는 장치인데, 첫 화면의 작품 탭에서는
+    // 목록이 작품이고 핀은 장소라 이어 볼 짝이 없다.
     val numbersOnPins = !(isInitial && tab == ListTab.WORK)
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         NaverMapCanvas(
             modifier = Modifier.fillMaxSize(),
+            sheetHeight = sheetHeight,
             onMapReady = {
                 map = it
                 it.showWholeKorea()
@@ -109,86 +95,83 @@ fun SearchTabScreen() {
         )
         MapPins(map = map, places = visiblePlaces, numbered = numbersOnPins)
 
-        SearchBar(
-            draft = draft,
-            onDraftChange = { draft = it },
-            onSubmit = { committed = draft },
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(12.dp),
-        )
-
-        ResultSheet(
-            tab = tab,
-            onTabChange = { tab = it },
-            chip = chip,
-            onChipChange = { chip = it },
-            isInitial = isInitial,
-            places = visiblePlaces,
-            contents = visibleContents,
-            cart = cart.value,
-            liked = liked.value,
-            onToggleCart = { id ->
-                cart.value = if (id in cart.value) cart.value - id else cart.value + id
-            },
-            onToggleLike = { id ->
-                liked.value = if (id in liked.value) liked.value - id else liked.value + id
-            },
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
-    }
-}
-
-@Composable
-private fun SearchBar(
-    draft: String,
-    onDraftChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        tonalElevation = 3.dp,
-        shadowElevation = 3.dp,
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextField(
-                value = draft,
-                onValueChange = onDraftChange,
-                singleLine = true,
-                placeholder = { Text("작품 · 배우 · 장소를 검색") },
-                colors =
-                    TextFieldDefaults.colors(
-                        focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                        unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                    ),
-                modifier = Modifier.weight(1f),
+        BottomSheet(
+            detent = detent,
+            onDetentChange = { detent = it },
+            topInset = SEARCH_BAR_INSET,
+            onHeightChange = { sheetHeight = it },
+        ) {
+            ListContent(
+                tab = tab,
+                onTabChange = { tab = it },
+                chip = chip,
+                onChipChange = { chip = it },
+                isInitial = isInitial,
+                places = visiblePlaces,
+                contents = visibleContents,
+                cart = cart,
+                liked = liked,
+                onToggleCart = { id -> cart = if (id in cart) cart - id else cart + id },
+                onToggleLike = { id -> liked = if (id in liked) liked - id else liked + id },
             )
-            Text(
-                text = "검색",
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier =
-                    Modifier
-                        .clickable(onClick = onSubmit)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+        }
+
+        // 검색바 아래에 조작 줄이 붙는다 — iOS 와 같은 배치다.
+        // 「현 지도 내 성지 검색」은 가운데, 조작 버튼은 오른쪽이며 위 검색창의
+        // 장바구니와 같은 세로선에 놓아 지도를 덜 가린다.
+        Column(modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding()) {
+            SearchBar(
+                draft = draft,
+                cartCount = cart.size,
+                onDraftChange = { draft = it },
+                onSubmit = {
+                    committed = draft.trim()
+                    detent = Detent.MEDIUM
+                },
+                onClear = {
+                    draft = ""
+                    committed = ""
+                },
+                onOpenCart = {},
             )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            ) {
+                NearbyButton(
+                    on = nearby,
+                    count = visiblePlaces.size,
+                    onToggle = {
+                        nearby = !nearby
+                        draft = ""
+                        committed = ""
+                        chip = CategoryChip.ALL
+                        if (nearby) {
+                            tab = ListTab.PLACE
+                            detent = Detent.MEDIUM
+                        }
+                    },
+                )
+                MapControl(
+                    label = "내 위치",
+                    onClick = {},
+                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 20.dp),
+                ) { tint, size -> ScopeIcon(tint, Modifier.size(size)) }
+            }
         }
     }
 }
 
 /**
- * 하단 시트.
+ * 검색바가 차지하는 높이. 시트의 최대 단계가 이 아래까지만 올라온다.
  *
- * iOS 는 높이를 세 단으로 끌어 조절한다(`BottomSheet.swift`). 여기서는 **고정
- * 높이**로 두었다 — 끌기와 지도 여백(contentInset)의 연동은 iOS 에서 가장 손이 많이
- * 간 부분이라, 목록·칩·번호가 맞는지부터 눈으로 보고 나서 옮기는 편이 낫다.
+ * iOS 는 기기별로 계산하지만(`topInset`), 여기서는 검색바 구성이 고정이라 상수로
+ * 둔다 — 세로 여백 8 + 11 + 11 + 아이콘 22 + 상태바 여유.
  */
+private val SEARCH_BAR_INSET: Dp = 108.dp
+
 @Composable
-private fun ResultSheet(
+private fun ListContent(
     tab: ListTab,
     onTabChange: (ListTab) -> Unit,
     chip: CategoryChip,
@@ -200,86 +183,60 @@ private fun ResultSheet(
     liked: Set<Long>,
     onToggleCart: (Long) -> Unit,
     onToggleLike: (Long) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    Surface(
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        shadowElevation = 8.dp,
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .fillMaxSize(0.52f),
-    ) {
-        Column {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(MaterialTheme.colorScheme.outlineVariant)
-                            .fillMaxWidth(0.12f)
-                            .padding(vertical = 2.dp),
-                ) { Text(" ", style = MaterialTheme.typography.labelSmall) }
-            }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // 첫 화면의 숫자는 **전체가 아니라 인기순으로 추린 것**이다. 그냥 "장소 10"
+        // 이라고만 두면 전국에 10곳뿐인 것으로 읽힌다.
+        SegmentedControl(
+            options = ListTab.values().toList(),
+            selected = tab,
+            label = { entry ->
+                val count = if (entry == ListTab.WORK) contents.size else places.size
+                (if (isInitial) "인기 " else "") + "${entry.label} $count"
+            },
+            onSelect = onTabChange,
+        )
+        androidx.compose.foundation.layout
+            .Spacer(Modifier.height(8.dp))
 
-            TabRow(selectedTabIndex = tab.ordinal) {
-                ListTab.values().forEach { entry ->
-                    val count = if (entry == ListTab.WORK) contents.size else places.size
-                    Tab(
-                        selected = tab == entry,
-                        onClick = { onTabChange(entry) },
-                        // 첫 화면에서만 **「인기」** 를 붙인다. 검색 결과일 때
-                        // 붙이면 인기순이 아닌데 인기라고 말하는 셈이 된다.
-                        text = {
-                            Text(if (isInitial) "인기 ${entry.label} $count" else "${entry.label} $count")
-                        },
+        if (tab == ListTab.PLACE) {
+            ChipRow(selected = chip, onSelect = onChipChange)
+            androidx.compose.foundation.layout
+                .Spacer(Modifier.height(8.dp))
+        }
+
+        LazyColumn {
+            if (tab == ListTab.WORK) {
+                itemsIndexed(contents) { _, content ->
+                    WorkRow(content = content, onTap = {})
+                    RowDivider()
+                }
+            } else {
+                // 번호는 지도 핀과 같은 배열의 같은 순서다 — "3번 행 = 3번 핀".
+                itemsIndexed(places) { index, place ->
+                    PlaceRow(
+                        place = place,
+                        number = index + 1,
+                        saved = place.id in cart,
+                        onTap = {},
+                        onAdd = { onToggleCart(place.id) },
                     )
-                }
-            }
-
-            if (tab == ListTab.PLACE) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    CategoryChip.values().forEach { entry ->
-                        FilterChip(
-                            selected = chip == entry,
-                            onClick = { onChipChange(entry) },
-                            label = { Text(entry.label) },
-                        )
-                    }
-                }
-            }
-
-            LazyColumn {
-                if (tab == ListTab.WORK) {
-                    items(contents, key = { it.id }) { content ->
-                        ContentRow(
-                            content = content,
-                            liked = content.id in liked,
-                            onTap = {},
-                            onToggleLike = { onToggleLike(content.id) },
-                        )
-                    }
-                } else {
-                    itemsIndexed(places) { index, place ->
-                        PlaceRow(
-                            place = place,
-                            number = index + 1,
-                            inCart = place.id in cart,
-                            onTap = {},
-                            onToggleCart = { onToggleCart(place.id) },
-                        )
-                    }
+                    RowDivider()
                 }
             }
         }
     }
+}
+
+/** iOS 는 `Divider().padding(.leading, 14)` 다 — 왼쪽이 들여쓰기된 선. */
+@Composable
+private fun RowDivider() {
+    Box(
+        modifier =
+            Modifier
+                .padding(start = IOS.gutter)
+                .fillMaxWidth()
+                .height(0.5.dp)
+                .background(IOS.separator),
+    )
 }

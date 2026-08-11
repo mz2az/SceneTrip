@@ -27,8 +27,16 @@ data class PlaceSummary(
     val address: String,
     val lat: Double,
     val lng: Double,
+    /** 이 장소를 성지로 가진 작품들. iOS `PlaceSummary.contents` 와 같은 자리. */
+    val works: List<String> = emptyList(),
 ) {
     val position: LatLng get() = LatLng(lat, lng)
+
+    /** 행의 셋째 줄 — iOS 는 `작품들 · 분류` 를 이어 붙인다. */
+    val subtitle: String get() =
+        listOf(works.joinToString(", "), type)
+            .filter { it.isNotEmpty() }
+            .joinToString(" · ")
 }
 
 data class ContentSummary(
@@ -37,7 +45,14 @@ data class ContentSummary(
     val year: Int,
     val type: String,
     val placeCount: Int,
-)
+    val broadcaster: String = "",
+) {
+    /** 행의 둘째 줄 — iOS `WorkRow.meta` 와 같은 조립 순서다 (방송사 · 연도 · 장르). */
+    val meta: String get() =
+        listOf(broadcaster, year.toString(), type)
+            .filter { it.isNotEmpty() }
+            .joinToString(" · ")
+}
 
 /**
  * 목록을 좁히는 칩. iOS `CategoryChip` 과 **같은 분류여야 한다** — 두 앱이 다른
@@ -71,23 +86,23 @@ enum class CategoryChip(
 object Fixtures {
     val places =
         listOf(
-            PlaceSummary(1, "북촌한옥마을", "문화", "서울 종로구 계동길", 37.5826, 126.9831),
-            PlaceSummary(2, "남산서울타워", "도시", "서울 용산구 남산공원길", 37.5512, 126.9882),
-            PlaceSummary(3, "광화문광장", "역사", "서울 종로구 세종대로", 37.5720, 126.9769),
-            PlaceSummary(4, "감천문화마을", "문화", "부산 사하구 감내2로", 35.0975, 129.0107),
-            PlaceSummary(5, "청사포다릿돌전망대", "해변", "부산 해운대구 청사포로", 35.1585, 129.1959),
-            PlaceSummary(6, "주문진 방파제", "해변", "강원 강릉시 주문진읍", 37.8925, 128.8318),
-            PlaceSummary(7, "아바이마을", "문화", "강원 속초시 청호동", 38.2015, 128.5946),
-            PlaceSummary(8, "동피랑벽화마을", "문화", "경남 통영시 동피랑1길", 34.8451, 128.4249),
-            PlaceSummary(9, "섭지코지", "자연", "제주 서귀포시 성산읍", 33.4239, 126.9310),
-            PlaceSummary(10, "카페 드 파리", "카페", "서울 마포구 와우산로", 37.5533, 126.9250),
+            PlaceSummary(1, "북촌한옥마을", "문화", "서울 종로구 계동길", 37.5826, 126.9831, listOf("도깨비", "케이팝 데몬 헌터스")),
+            PlaceSummary(2, "남산서울타워", "도시", "서울 용산구 남산공원길", 37.5512, 126.9882, listOf("이태원 클라쓰")),
+            PlaceSummary(3, "광화문광장", "역사", "서울 종로구 세종대로", 37.5720, 126.9769, listOf("도깨비")),
+            PlaceSummary(4, "감천문화마을", "문화", "부산 사하구 감내2로", 35.0975, 129.0107, listOf("케이팝 데몬 헌터스")),
+            PlaceSummary(5, "청사포다릿돌전망대", "해변", "부산 해운대구 청사포로", 35.1585, 129.1959, listOf("우리들의 블루스")),
+            PlaceSummary(6, "주문진 방파제", "해변", "강원 강릉시 주문진읍", 37.8925, 128.8318, listOf("도깨비")),
+            PlaceSummary(7, "아바이마을", "문화", "강원 속초시 청호동", 38.2015, 128.5946, listOf("가을동화")),
+            PlaceSummary(8, "동피랑벽화마을", "문화", "경남 통영시 동피랑1길", 34.8451, 128.4249, listOf("우리들의 블루스")),
+            PlaceSummary(9, "섭지코지", "자연", "제주 서귀포시 성산읍", 33.4239, 126.9310, listOf("우리들의 블루스")),
+            PlaceSummary(10, "카페 드 파리", "카페", "서울 마포구 와우산로", 37.5533, 126.9250, listOf("이태원 클라쓰")),
         )
 
     val contents =
         listOf(
-            ContentSummary(1, "도깨비", 2016, "드라마", 12),
-            ContentSummary(2, "이태원 클라쓰", 2020, "드라마", 9),
-            ContentSummary(3, "케이팝 데몬 헌터스", 2025, "영화", 7),
-            ContentSummary(4, "우리들의 블루스", 2022, "드라마", 6),
+            ContentSummary(1, "도깨비", 2016, "판타지 로맨스", 12, "tvN"),
+            ContentSummary(2, "이태원 클라쓰", 2020, "드라마", 9, "JTBC"),
+            ContentSummary(3, "케이팝 데몬 헌터스", 2025, "애니메이션", 7, "Netflix"),
+            ContentSummary(4, "우리들의 블루스", 2022, "드라마", 6, "tvN"),
         )
 }

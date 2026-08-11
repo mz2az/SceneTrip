@@ -1,10 +1,18 @@
 package com.mz2az.scenetrip.searchtab
 
+import android.graphics.PointF
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -30,10 +38,12 @@ import com.naver.maps.map.overlay.Marker
 @Composable
 fun NaverMapCanvas(
     modifier: Modifier = Modifier,
+    sheetHeight: Dp = 0.dp,
     onMapReady: (NaverMap) -> Unit = {},
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    var map by remember { mutableStateOf<NaverMap?>(null) }
 
     // `remember` 없이 만들면 **재구성마다 지도가 새로 생긴다.** 화면이 깜빡이는
     // 정도가 아니라 타일을 매번 다시 받아 오고 카메라 위치도 초기화된다.
@@ -70,6 +80,39 @@ fun NaverMapCanvas(
         }
     }
 
+    // 시트가 덮는 만큼 지도의 여백을 준다. iOS `applyInset` 과 같은 계산이다.
+    //
+    // **카메라 여백과 로고 여백을 따로 둔다.** 시트를 끝까지 올려도 카메라가 화면
+    // 절반 아래로는 밀리지 않아야 하고(그러면 핀이 위쪽 띠에 몰린다), 반대로 로고는
+    // 시트에 가리면 안 되므로 시트 높이를 그대로 따라가야 한다.
+    val density = LocalDensity.current
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    DisposableEffect(map, sheetHeight) {
+        val target = map
+        if (target != null) {
+            // 화면 높이는 뷰가 아니라 설정에서 읽는다 — 이 효과가 도는 시점에
+            // MapView 가 아직 배치되지 않아 height 가 0 인 경우가 있다.
+            val heightPx = with(density) { screenHeight.toPx() }
+            val sheetPx = with(density) { sheetHeight.toPx() }.toInt()
+            val cameraBottom = minOf(sheetPx, (heightPx * 0.48f).toInt())
+            // **다섯째 인자가 핵심이다.** 네 인자짜리는 여백을 주면서 카메라를 함께
+            // 옮겨, 남한 전체로 맞춰 둔 화면이 위로 밀린다(실측 — 평양이 보였다).
+            // `keepCamera = true` 면 보이는 화면은 그대로 두고 여백만 바뀐다 —
+            // iOS 의 `contentInset` 과 같은 뜻이다.
+            target.setContentPadding(
+                0,
+                with(density) { 108.dp.toPx() }.toInt(),
+                0,
+                cameraBottom,
+                true,
+            )
+            val logoBottom = maxOf(0, sheetPx - cameraBottom) + with(density) { 6.dp.toPx() }.toInt()
+            val side = with(density) { 4.dp.toPx() }.toInt()
+            target.uiSettings.setLogoMargin(side, 0, side, logoBottom)
+        }
+        onDispose {}
+    }
+
     AndroidView(
         factory = { mapView },
         modifier = modifier,
@@ -77,7 +120,20 @@ fun NaverMapCanvas(
         // 부르면 콜백이 쌓인다.
         onReset = null,
     ) { view ->
-        view.getMapAsync(onMapReady)
+        view.getMapAsync { ready ->
+            // iOS `makeUIView` 와 같은 설정이다 (NaverMapView.swift:93~96).
+            //
+            // 줌 버튼(＋/−)을 끈다 — iOS 에 없다. 대신 지도 위 원형 버튼이 그 몫을
+            // 한다. 축척은 **켜 둔다**: "축척은 반드시 필요해, 지도잖아" 가 iOS 쪽
+            // 결정이었다.
+            ready.uiSettings.isZoomControlEnabled = false
+            ready.uiSettings.isLocationButtonEnabled = false
+            ready.uiSettings.isScaleBarEnabled = true
+            ready.uiSettings.logoGravity =
+                android.view.Gravity.BOTTOM or android.view.Gravity.START
+            map = ready
+            onMapReady(ready)
+        }
     }
 }
 
@@ -117,12 +173,19 @@ fun MapPins(
     numbered: Boolean,
 ) {
     if (map == null) return
+    val metrics = LocalContext.current.resources.displayMetrics
     DisposableEffect(map, places, numbered) {
         val markers =
             places.mapIndexed { index, place ->
                 Marker().apply {
                     position = place.position
-                    captionText = if (numbered) "${index + 1}. ${place.name}" else place.name
+                    // **직접 그린 핀을 쓴다.** 네이버 기본 마커(초록 물방울)를 그대로
+                    // 두면 iOS 의 하늘→보라 그러데이션 핀과 한눈에 달라 보인다.
+                    icon = PinImage.numbered(if (numbered) index + 1 else null, metrics)
+                    // 꼬리 끝이 좌표를 가리켜야 한다. 기본 앵커는 그림 가운데라 핀이
+                    // 실제 위치보다 위에 뜬다. iOS 는 꼬리를 45/50 지점에 둔다.
+                    anchor = PointF(0.5f, 45f / 50f)
+                    captionText = place.name
                     this.map = map
                 }
             }

@@ -3,12 +3,13 @@ package com.mz2az.scenetrip
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.mz2az.scenetrip.searchtab.SearchTabScreen
+import com.mz2az.scenetrip.ui.IOS
 
 /**
  * 앱의 유일한 액티비티. iOS 의 `SceneTripApp.swift` 에 해당한다.
@@ -35,6 +36,11 @@ import com.mz2az.scenetrip.searchtab.SearchTabScreen
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // **iOS 에는 타이틀바가 없다.** 안드로이드 기본 테마는 검은 ActionBar 를
+        // 얹는데, 그것 하나로 두 앱이 다른 제품처럼 보인다. 테마는 매니페스트에서
+        // NoActionBar 로 지정하고, 여기서는 상태바 뒤까지 그리게 한다 — iOS 가
+        // 지도를 상태바 아래까지 채우는 것과 같다.
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent { SceneTripApp() }
     }
@@ -48,9 +54,12 @@ class MainActivity : ComponentActivity() {
  */
 @Composable
 fun SceneTripApp() {
+    // **MaterialTheme 의 기본 색을 쓰지 않는다.** 기본값은 보라 계열이라 iOS 의
+    // systemBlue 와 갈린다. 색은 전부 `ui/IOSTheme.kt` 에서 명시로 가져온다 —
+    // 테마는 글꼴 기본값 정도로만 남긴다.
     MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            SearchTabScreen()
+        Surface(modifier = Modifier.fillMaxSize(), color = IOS.systemBackground) {
+            RootTabs()
         }
     }
 }
