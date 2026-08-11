@@ -41,9 +41,22 @@ bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True
 bazel_dep(name = "openapi_tools_generator_bazel", version = "0.2.3")
 
 openapi_gen = use_extension("@openapi_tools_generator_bazel//:extension.bzl", "openapi_gen")
+
+# **7.2.0 에서 7.24.0 으로 올렸다.** 코틀린 백엔드가 enum 기본값을 한정하지 않고
+# 뱉는 결함 때문이다 — 명세의 `Lang: default: ko` 가 `Lang? = ko` 로 나와
+# `unresolved reference 'ko'` 로 컴파일이 깨졌다. 7.24.0 은 `Lang? = Lang.ko` 로
+# 낸다(올리기 전에 JAR 을 직접 돌려 확인).
+#
+# 같은 명세로 spring·swift5 는 7.2.0 에서도 멀쩡했다. 즉 우리 명세의 문제가 아니라
+# 생성기 한 백엔드의 문제였고, 그래서 명세를 고치는 대신 생성기를 올렸다.
+#
+# **이 값을 바꾸면 세 산출물이 모두 바뀐다** — spring 서버 인터페이스 · swift5 iOS
+# 클라이언트 · kotlin Android 클라이언트. 회귀는 빌드 실패로 드러난다: 서비스 코드가
+# 생성된 인터페이스를 구현하고 앱이 생성된 클라이언트를 부르므로, 시그니처가 달라지면
+# `just check` 가 잡는다.
 openapi_gen.client(
-    sha256 = "1cf0c80de12c0fdc8594289c19e414b402108ef10b8dd0bfda1953151341ab5d",
-    version = "7.2.0",
+    sha256 = "4b83ccc6fd43056c8c631cd0195e5100bd0550912502527bab09ac76152dab0c",
+    version = "7.24.0",
 )
 use_repo(openapi_gen, "openapi_tools_generator_bazel_cli")
 

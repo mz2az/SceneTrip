@@ -260,34 +260,13 @@ tree_srcjar(
 # srcs 에 srcjar 를 그대로 넣는다 — 코틀린 컴파일러가 소스가 든 zip 을 받아 안에서
 # 꺼내 쓴다. 트리 아티팩트를 넣을 수 없어 우회한 결과다 (tools/bazel/defs).
 #
-# ## 지금은 `manual` 이다 — 컴파일되지 않는다
-#
-# **생성기의 결함이다. 우리 명세는 정상이다.**
-#
-# 명세가 `Lang` 에 `default: ko` 를 두는데(scene-api-v1.yaml), 생성기 7.2.0 의
-# kotlin 백엔드가 그것을 **한정하지 않은 채로** 뱉는다:
-#
-#   fun addCartItem(..., acceptLanguage: Lang? = ko)   ← `Lang.ko` 여야 한다
-#
-# 그래서 `unresolved reference 'ko'` 로 40 개 파일 중 API 4 개가 깨진다. spring·
-# swift5 백엔드는 같은 명세에서 멀쩡한 코드를 낸다.
-#
-# 고르는 길이 셋이고 **셋 다 이 파일 밖에 영향을 준다** — 그래서 정하지 않고 둔다.
-#
-#   1. 생성기 버전을 올린다   MODULE.bazel 의 openapi_gen 을 고치는 일이라
-#                            **spring·swift5 산출물도 함께 바뀐다.** iOS 와 서버가
-#                            지금 잘 돌고 있으므로 회귀 확인이 필요하다.
-#   2. 생성 코드를 후처리한다  tree_srcjar 에 sed 를 한 줄 끼우면 되지만, 생성물을
-#                            손보는 것은 나중에 "왜 이게 여기 있지" 가 되기 쉽다.
-#   3. 명세에서 default 를 뺀다 **계약을 바꾸는 일이다.** 서버·iOS 가 함께 영향을
-#                            받고, 기본 언어가 없어지는 것은 의미상으로도 손해다.
-#
-# 1 번이 유력하다. 게이트를 붉게 두지 않으려고 `manual` 로 빼 뒀다 — 고치는 사람이
-# 이 태그를 지우는 것이 곧 완료 조건이다.
+# 생성기를 7.2.0 에서 7.24.0 으로 올린 이유가 이 타깃이다. 7.2.0 의 kotlin 백엔드가
+# 명세의 `Lang: default: ko` 를 한정하지 않고 뱉어(`Lang? = ko`) 컴파일이 깨졌다.
+# 같은 명세로 spring·swift5 는 멀쩡했으므로 명세가 아니라 생성기의 문제였다.
+# 근거는 MODULE.bazel 의 openapi_gen 절에 있다.
 kt_jvm_library(
     name = "scene_api_kotlin_lib",
     srcs = [":scene_api_kotlin_srcjar"],
-    tags = ["manual"],
     deps = [
         "@maven_android//:com_squareup_moshi_moshi",
         "@maven_android//:com_squareup_moshi_moshi_adapters",
