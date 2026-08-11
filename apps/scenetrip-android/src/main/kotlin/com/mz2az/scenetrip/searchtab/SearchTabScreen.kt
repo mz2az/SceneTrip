@@ -12,7 +12,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -82,10 +85,30 @@ fun SearchTabScreen() {
     // 드릴다운 2단 — 고른 작품과 그 작품의 촬영지.
     var selectedContent by remember { mutableStateOf<ContentSummary?>(null) }
     var contentPlaces by remember { mutableStateOf<List<PlaceSummary>>(emptyList()) }
+    var contentLoading by remember { mutableStateOf(false) }
+
+    // 드릴다운 3단 — 고른 촬영지.
+    var selectedPlace by remember { mutableStateOf<PlaceSummary?>(null) }
+
+    // 지도가 남한 밖으로 나갔나 — 「한국으로」 버튼을 그때만 띄운다.
+    var outsideKorea by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         data.search("")
         cart.refresh()
+    }
+
+    // 지도가 남한 밖으로 나갔는지 지켜본다.
+    //
+    // 카메라가 움직일 때마다 상태를 갱신하면 화면이 매 프레임 다시 그려진다.
+    // 이 버튼은 즉각적일 필요가 없어 **1 초에 한 번**만 확인한다 — iOS 와 같다.
+    LaunchedEffect(map) {
+        val target = map ?: return@LaunchedEffect
+        while (true) {
+            val outside = target.isOutsideKorea()
+            if (outside != outsideKorea) outsideKorea = outside
+            kotlinx.coroutines.delay(1000)
+        }
     }
 
     // 자동완성은 **글자마다** 부른다. 검색 확정과 달라서, 늦게 온 응답이 최신을
@@ -113,9 +136,37 @@ fun SearchTabScreen() {
     // 목록이 작품이고 핀은 장소라 이어 볼 짝이 없다.
     val numbersOnPins = !(isInitial && tab == ListTab.WORK)
 
+    // 첫 화면에서 장소 탭으로 옮기면 인기 10곳이 **한 화면에 다 들어오게** 맞춘다.
+    // 서울 중심 그대로면 강릉·포항이 화면 밖이라 목록의 절반이 어디 있는지 보이지
+    // 않는다. 작품 탭은 특정 촬영지를 가리키지 않으므로 남한 전체로 돌아간다.
+    LaunchedEffect(tab, map) {
+        if (!isInitial) return@LaunchedEffect
+        val target = map ?: return@LaunchedEffect
+        if (tab == ListTab.PLACE) {
+            target.fit(visiblePlaces, density)
+        } else {
+            target.showWholeKorea(density)
+        }
+    }
+
     // 지도에 꽂는 핀. 작품을 골랐으면 그 작품의 촬영지, 아니면 검색 결과다 —
     // 어느 쪽이든 **시트의 목록과 같은 배열**이라 행 번호가 곧 핀 번호다.
     val mapPlaces = selectedContent?.let { contentPlaces } ?: visiblePlaces
+
+    // 드릴다운하면 그 작품의 촬영지가 **한 화면에 다 들어오게** 맞춘다. iOS 가
+    // `fitToken` 을 올리는 자리다 — 도깨비 촬영지 57곳이 전국에 흩어져 있어
+    // 서울 그대로면 목록의 대부분이 화면 밖이다.
+    LaunchedEffect(contentPlaces) {
+        if (contentPlaces.isEmpty()) return@LaunchedEffect
+        map?.fit(contentPlaces, density)
+    }
+
+    // 검색을 확정하면 결과 범위로 맞춘다. **결과가 도착한 뒤**여야 한다 — 확정
+    // 즉시 맞추면 직전 검색의 핀 범위로 맞춰지고, 새 핀이 와도 카메라는 그대로다.
+    LaunchedEffect(data.places, committed) {
+        if (committed.isEmpty() || nearby || data.places.isEmpty()) return@LaunchedEffect
+        map?.fit(visiblePlaces, density)
+    }
 
     fun commit(
         term: String,
@@ -164,17 +215,42 @@ fun SearchTabScreen() {
                     Centered(null)
                 }
 
+                selectedPlace != null -> {
+                    PlaceDetailView(
+                        summary = selectedPlace!!,
+                        saved = cart.contains(selectedPlace!!.id),
+                        detailOf = { data.placeDetail(it) },
+                        onBack = { selectedPlace = null },
+                        onToggleSave = {
+                            val place = selectedPlace!!
+                            scope.launch {
+                                if (cart.contains(place.id)) {
+                                    cart.remove(place.id)
+                                } else {
+                                    cart.add(place.id)
+                                }
+                            }
+                        },
+                    )
+                }
+
                 selectedContent != null -> {
-                    ContentPlaces(
-                        content = selectedContent!!,
+                    ContentDetailView(
+                        summary = selectedContent!!,
                         places = contentPlaces,
-                        cart = cart,
+                        loading = contentLoading,
+                        saved = { cart.contains(it) },
+                        detailOf = { data.contentDetail(it) },
                         onBack = {
                             selectedContent = null
                             contentPlaces = emptyList()
                         },
-                        onAdd = { place ->
+                        onSelectPlace = { selectedPlace = it },
+                        onSave = { place ->
                             scope.launch {
+                                // **어느 작품 때문에 담았는지 함께 보낸다** — 같은
+                                // 장소가 여러 작품에 나오므로 이것이 없으면 나중에
+                                // 되짚을 수 없다 (MZ2AZ-208).
                                 if (cart.contains(place.id)) {
                                     cart.remove(place.id)
                                 } else {
@@ -202,7 +278,11 @@ fun SearchTabScreen() {
                         onOpenContent = { content ->
                             selectedContent = content
                             detent = Detent.MEDIUM
-                            scope.launch { contentPlaces = data.placesOf(content.id) }
+                            contentLoading = true
+                            scope.launch {
+                                contentPlaces = data.placesOf(content.id)
+                                contentLoading = false
+                            }
                         },
                         onAdd = { place ->
                             scope.launch {
@@ -274,6 +354,20 @@ fun SearchTabScreen() {
                             }
                         },
                     )
+                    if (outsideKorea) {
+                        MapControl(
+                            label = "한국으로",
+                            onClick = { map?.showWholeKorea(density) },
+                            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 68.dp),
+                        ) { tint, size ->
+                            Icon(
+                                Icons.Filled.Place,
+                                contentDescription = "한국으로",
+                                tint = tint,
+                                modifier = Modifier.size(size),
+                            )
+                        }
+                    }
                     MapControl(
                         label = "내 위치",
                         onClick = {},
@@ -375,32 +469,6 @@ private fun ListContent(
                     )
                     RowDivider()
                 }
-            }
-        }
-    }
-}
-
-/** 드릴다운 2단 — 고른 작품의 촬영지. */
-@Composable
-private fun ContentPlaces(
-    content: ContentSummary,
-    places: List<PlaceSummary>,
-    cart: CartStore,
-    onBack: () -> Unit,
-    onAdd: (PlaceSummary) -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        DetailHeader(title = content.title, subtitle = "촬영지 ${content.placeCount}", onBack = onBack)
-        LazyColumn {
-            itemsIndexed(places) { index, place ->
-                PlaceRow(
-                    place = place,
-                    number = index + 1,
-                    saved = cart.contains(place.id),
-                    onTap = {},
-                    onAdd = { onAdd(place) },
-                )
-                RowDivider()
             }
         }
     }

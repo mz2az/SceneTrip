@@ -117,6 +117,18 @@ class SceneData(
                 .getOrDefault(emptyList())
         }
 
+    /** 작품 상세 — 줄거리·출연진은 여기에만 있다. */
+    suspend fun contentDetail(id: Long) =
+        withContext(Dispatchers.IO) {
+            runCatching { contentsApi.getContent(id) }.getOrNull()
+        }
+
+    /** 촬영지 상세 — 작품별 장면은 여기에만 있다. */
+    suspend fun placeDetail(id: Long) =
+        withContext(Dispatchers.IO) {
+            runCatching { placesApi.getPlace(id) }.getOrNull()
+        }
+
     /** 자동완성. 글자마다 부르지만 결과가 늦게 오면 버린다 — 호출부가 판단한다. */
     suspend fun suggest(query: String): List<Suggestion> =
         withContext(Dispatchers.IO) {

@@ -181,6 +181,44 @@ val KOREA: LatLngBounds = LatLngBounds(LatLng(33.0, 125.8), LatLng(38.7, 129.8))
  */
 val KOREA_FIT_PADDING = 24.dp
 
+/** 지금 보이는 범위가 남한을 **완전히 벗어났는가.** iOS `MapCamera.isOutsideKorea`. */
+fun NaverMap.isOutsideKorea(): Boolean {
+    val bounds = contentBounds
+    val lngApart =
+        bounds.eastLongitude < KOREA.westLongitude ||
+            bounds.westLongitude > KOREA.eastLongitude
+    val latApart =
+        bounds.northLatitude < KOREA.southLatitude ||
+            bounds.southLatitude > KOREA.northLatitude
+    return lngApart || latApart
+}
+
+/**
+ * 주어진 핀들이 **한 화면에 다 들어오게** 맞춘다.
+ *
+ * iOS `fitToken` 이 오를 때 하는 일이다 — 첫 화면에서 장소 탭으로 옮기면 인기
+ * 10곳이 다 보여야 한다. 서울 중심 그대로면 강릉·포항이 화면 밖이라 목록의 절반이
+ * 어디 있는지 보이지 않는다.
+ */
+fun NaverMap.fit(
+    places: List<PlaceSummary>,
+    density: Density,
+) {
+    if (places.isEmpty()) return
+    if (places.size == 1) {
+        moveCamera(CameraUpdate.scrollAndZoomTo(places.first().position, 14.0))
+        return
+    }
+    val bounds =
+        LatLngBounds
+            .Builder()
+            .apply {
+                places.forEach { include(it.position) }
+            }.build()
+    val padding = with(density) { KOREA_FIT_PADDING.roundToPx() }
+    moveCamera(CameraUpdate.fitBounds(bounds, padding))
+}
+
 /** 첫 진입에서 [KOREA] 가 다 보이게 맞춘다. */
 fun NaverMap.showWholeKorea(density: Density) {
     val padding = with(density) { KOREA_FIT_PADDING.roundToPx() }
