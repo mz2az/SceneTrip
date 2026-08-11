@@ -12,6 +12,7 @@ import SwiftUI
 struct SearchTabView: View {
     @StateObject var data = SceneData()
     @StateObject var cart = CartStore()
+    @StateObject var likes = LikeStore()
 
     @State var draft = ""
     /// **확정된** 검색어. `draft` 는 타이핑하는 동안에도 바뀌므로 "지금 이 목록이
@@ -333,8 +334,14 @@ struct SearchTabView: View {
                 LazyVStack(spacing: 0) {
                     if tab == .work {
                         ForEach(data.contents, id: \.id) { content in
-                            Button { open(content) } label: { WorkRow(content: content) }
-                                .buttonStyle(.plain)
+                            Button { open(content) } label: {
+                                WorkRow(
+                                    content: content,
+                                    onLike: { likes.toggle(content.id) },
+                                    liked: likes.contains(content.id)
+                                )
+                            }
+                            .buttonStyle(.plain)
                             Divider().padding(.leading, 14)
                         }
                     } else {

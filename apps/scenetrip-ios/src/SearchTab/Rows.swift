@@ -5,6 +5,11 @@ import SwiftUI
 struct WorkRow: View {
     let content: ContentSummary
 
+    /// 찜 토글. 넘기지 않으면 하트를 그리지 않는다 — 장바구니 목록처럼 찜이 뜻을
+    /// 갖지 않는 자리가 있다.
+    var onLike: (() -> Void)?
+    var liked = false
+
     private var meta: String {
         [
             content.broadcaster,
@@ -32,6 +37,20 @@ struct WorkRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            // **작품에는 하트, 장소에는 플러스** (8/11 회의 확정). 장소의 `+` 와 같은
+            // 자리에 두어 사용자가 규칙을 한 번만 배우게 한다.
+            //
+            // 채운 하트와 빈 하트로 상태를 보인다 — `−` 로 바꾸지 않는 것은 장소
+            // 쪽과 같은 이유다. 이 자리의 첫 임무는 "이미 담겼는지" 를 알려 주는 것.
+            if let onLike {
+                Button(action: onLike) {
+                    Image(systemName: liked ? "heart.fill" : "heart")
+                        .font(.title3)
+                        .foregroundStyle(liked ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(liked ? "찜 빼기" : "찜하기")
+            }
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
