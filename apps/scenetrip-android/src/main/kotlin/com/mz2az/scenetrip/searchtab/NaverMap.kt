@@ -14,6 +14,7 @@ import com.naver.maps.geometry.LatLngBounds
 import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
+import com.naver.maps.map.overlay.Marker
 
 /**
  * 네이버 지도를 Compose 안에 넣는다.
@@ -97,4 +98,34 @@ const val KOREA_FIT_PADDING = 24
 /** 첫 진입에서 [KOREA] 가 다 보이게 맞춘다. */
 fun NaverMap.showWholeKorea() {
     moveCamera(CameraUpdate.fitBounds(KOREA, KOREA_FIT_PADDING))
+}
+
+/**
+ * 지도에 핀을 꽂는다.
+ *
+ * **Compose 밖의 상태를 다룬다.** 마커는 Compose 트리에 들어가지 않고 지도 객체에
+ * 직접 붙으므로, 재구성마다 다시 만들면 이전 것이 남아 겹친다. 그래서 `DisposableEffect`
+ * 로 붙이고 떼는 짝을 명시한다 — 목록이 바뀌면 통째로 갈아 끼운다.
+ *
+ * 번호를 찍을지는 밖에서 정한다. "목록의 N 번 = 지도의 N 번" 이 성립하는 화면에서만
+ * 번호가 뜻을 갖기 때문이다 — iOS 의 `numbersOnPins` 와 같은 판단이다.
+ */
+@Composable
+fun MapPins(
+    map: NaverMap?,
+    places: List<PlaceSummary>,
+    numbered: Boolean,
+) {
+    if (map == null) return
+    DisposableEffect(map, places, numbered) {
+        val markers =
+            places.mapIndexed { index, place ->
+                Marker().apply {
+                    position = place.position
+                    captionText = if (numbered) "${index + 1}. ${place.name}" else place.name
+                    this.map = map
+                }
+            }
+        onDispose { markers.forEach { it.map = null } }
+    }
 }

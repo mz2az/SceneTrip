@@ -8,8 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.mz2az.scenetrip.searchtab.NaverMapCanvas
-import com.mz2az.scenetrip.searchtab.showWholeKorea
+import com.mz2az.scenetrip.searchtab.SearchTabScreen
 
 /**
  * 앱의 유일한 액티비티. iOS 의 `SceneTripApp.swift` 에 해당한다.
@@ -44,7 +43,6 @@ class MainActivity : ComponentActivity() {
 /**
  * 검색 탭 (MZ2AZ-194).
  *
- * 지금은 지도만 있다. 검색창·자동완성·하단 시트·장바구니를 이 위에 얹는다 —
  * 동작 규칙은 iOS 가 이미 확정했으므로 새로 정하지 않고 그대로 옮긴다
  * (볼트 `(3주차)경로탭 개발/01_검색 탭 확정 동작 (버그정리 후).md`).
  */
@@ -52,10 +50,7 @@ class MainActivity : ComponentActivity() {
 fun SceneTripApp() {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
-            NaverMapCanvas(
-                modifier = Modifier.fillMaxSize(),
-                onMapReady = { it.showWholeKorea() },
-            )
+            SearchTabScreen()
         }
     }
 }
