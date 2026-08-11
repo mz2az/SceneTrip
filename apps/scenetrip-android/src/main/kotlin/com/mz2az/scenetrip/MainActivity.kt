@@ -1,104 +1,61 @@
 package com.mz2az.scenetrip
 
-import android.app.Activity
 import android.os.Bundle
-import com.naver.maps.geometry.LatLng
-import com.naver.maps.geometry.LatLngBounds
-import com.naver.maps.map.CameraUpdate
-import com.naver.maps.map.MapView
-import com.naver.maps.map.NaverMap
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import com.mz2az.scenetrip.searchtab.NaverMapCanvas
+import com.mz2az.scenetrip.searchtab.showWholeKorea
 
 /**
- * 첫 화면. 지도를 띄우고 서울을 보여준다 (MZ2AZ-192).
+ * 앱의 유일한 액티비티. iOS 의 `SceneTripApp.swift` 에 해당한다.
  *
- * 작품검색 탭 전체는 계획서 §3 을 기준으로 iOS 와 **같은 규칙**으로 만든다 — 여기 없는
- * 동작을 어느 쪽에서도 임의로 만들지 않는다. 검색·자동완성·하단 시트·장바구니는
- * MZ2AZ-194 에서 이 위에 얹는다.
+ * **화면은 Compose 로 짓는다.** SwiftUI 와 같은 선언형이라 iOS 코드가 구조를 유지한
+ * 채 옮겨진다 — `@State` 가 `remember`, `VStack` 이 `Column` 이 되는 식이다. 뷰 +
+ * XML 로 가면 같은 화면에 RecyclerView·Adapter·ViewHolder·DiffUtil 이 붙어 코드가
+ * 두세 배가 되고, 그만큼 두 앱의 구조가 갈려 "iOS 와 같은 규칙" 을 지키기 어려워진다.
+ *
+ * 클라이언트 ID 는 여기서 넣지 않는다. SDK 가 **매니페스트의
+ * com.naver.maps.map.NCP_KEY_ID 를 스스로 읽는다** (AndroidManifest.xml).
+ * iOS 는 코드에서 넣으므로(SceneTripApp.swift) 두 앱의 모양이 갈리지만, 코드 주입을
+ * 시도했더니 SDK 안에서 죽었다 —
+ *   java.lang.NullPointerException: String.replace(...) on a null object
+ *   at NaverMapSdk$NcpKeyClient.a  ← setClient 안쪽
+ * 각 플랫폼 SDK 가 정상으로 삼는 경로가 다르다고 보고 여기서는 문서 경로를 따른다.
+ * 값이 소스에 박히지 않는 것은 양쪽 같다.
+ *
+ * **`Activity` 가 아니라 `ComponentActivity` 다.** `setContent` 가 액티비티에
+ * 생명주기·저장상태·`ViewModelStore` 를 요구하는데 맨 `Activity` 에는 없다.
+ *
+ * 지도 생명주기 콜백(onStart·onResume·…)을 여기서 넘기지 않는 것도 그래서다 —
+ * `NaverMapCanvas` 가 스스로 관찰한다.
  */
-class MainActivity : Activity() {
-    private lateinit var mapView: MapView
-
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // 클라이언트 ID 는 여기서 넣지 않는다. SDK 가 **매니페스트의
-        // com.naver.maps.map.NCP_KEY_ID 를 스스로 읽는다** (AndroidManifest.xml).
-        //
-        // iOS 는 코드에서 넣으므로(SceneTripApp.swift) 두 앱의 모양이 갈리지만,
-        // 코드 주입을 시도했더니 SDK 안에서 죽었다 —
-        //   java.lang.NullPointerException: String.replace(...) on a null object
-        //   at NaverMapSdk$NcpKeyClient.a  ← setClient 안쪽
-        // 각 플랫폼 SDK 가 정상으로 삼는 경로가 다르다고 보고 여기서는 문서 경로를
-        // 따른다. 값이 소스에 박히지 않는 것은 양쪽 같다.
-        mapView = MapView(this)
-        setContentView(mapView)
-        mapView.onCreate(savedInstanceState)
-        mapView.getMapAsync(::configure)
+        setContent { SceneTripApp() }
     }
+}
 
-    /**
-     * 첫 진입 카메라 (MZ2AZ-162 의 Android 몫).
-     *
-     * **남한 전체**를 비춘다. iOS 와 같은 범위여야 한다 — 두 앱이 다른 데를 비추면
-     * 같은 제품으로 보이지 않는다.
-     *
-     * MZ2AZ-162 는 처음에 서울 중심으로 적혀 있었고 이 파일도 그렇게 만들어졌다.
-     * 그 결정이 iOS 쪽에서 뒤집혔다 — 촬영지가 서울에만 있지 않아 지방 촬영지를 가진
-     * 작품이 첫 화면에서 통째로 사라졌기 때문이다. 여기는 그때 함께 고쳐지지 않아
-     * 한동안 서울을 비추고 있었다.
-     */
-    private fun configure(map: NaverMap) {
-        map.moveCamera(CameraUpdate.fitBounds(KOREA, FIT_PADDING))
-    }
-
-    // MapView 는 액티비티 생명주기를 스스로 따라가지 못한다. 전달하지 않으면 화면을
-    // 벗어났다 돌아왔을 때 지도가 검게 남거나 메모리를 붙잡고 있는다.
-    override fun onStart() {
-        super.onStart()
-        mapView.onStart()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        mapView.onResume()
-    }
-
-    override fun onPause() {
-        mapView.onPause()
-        super.onPause()
-    }
-
-    override fun onStop() {
-        mapView.onStop()
-        super.onStop()
-    }
-
-    override fun onDestroy() {
-        mapView.onDestroy()
-        super.onDestroy()
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        mapView.onSaveInstanceState(outState)
-    }
-
-    override fun onLowMemory() {
-        super.onLowMemory()
-        mapView.onLowMemory()
-    }
-
-    private companion object {
-        /**
-         * 남한 전체가 들어오는 범위. 제주까지 담고 울릉도·독도는 뺐다 — 그것까지
-         * 넣으면 동해가 화면의 절반을 차지해 정작 촬영지가 몰린 서남부가 작아진다.
-         *
-         * 네 숫자는 iOS 의 `NaverMapView.swift` 안 `Coordinator.korea` 와 **같아야
-         * 한다.** 한쪽만 고치면 두 앱의 첫 화면이 갈린다.
-         */
-        val KOREA = LatLngBounds(LatLng(33.0, 125.8), LatLng(38.7, 129.8))
-
-        /** iOS 의 `NMFCameraUpdate(fit:padding:)` 에 준 값과 같다. */
-        const val FIT_PADDING = 24
+/**
+ * 검색 탭 (MZ2AZ-194).
+ *
+ * 지금은 지도만 있다. 검색창·자동완성·하단 시트·장바구니를 이 위에 얹는다 —
+ * 동작 규칙은 iOS 가 이미 확정했으므로 새로 정하지 않고 그대로 옮긴다
+ * (볼트 `(3주차)경로탭 개발/01_검색 탭 확정 동작 (버그정리 후).md`).
+ */
+@Composable
+fun SceneTripApp() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            NaverMapCanvas(
+                modifier = Modifier.fillMaxSize(),
+                onMapReady = { it.showWholeKorea() },
+            )
+        }
     }
 }

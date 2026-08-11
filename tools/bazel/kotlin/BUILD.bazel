@@ -1,0 +1,39 @@
+# Kotlin 컴파일러 플러그인.
+#
+# `tools/bazel/defs/` 와 달리 여기에는 **실제 타깃**이 있다. `.bzl` 매크로가 아니라
+# 컴파일러에 붙이는 물건이라 라벨로 참조되어야 하기 때문이다 —
+# `kt_android_library(plugins = ["//tools/bazel/kotlin:compose_compiler_plugin"])`.
+#
+# 모듈 안에 두지 않고 여기 두는 이유: 앱이 둘 이상 생기거나 `libs/kotlin/` 이
+# 늘어나면 같은 플러그인을 각자 선언하게 된다. 그러면 버전이 갈리고, 갈린 것이
+# 컴파일 오류가 아니라 **런타임에 이상하게 동작하는 방식**으로 드러난다.
+
+load("@rules_kotlin//kotlin:core.bzl", "kt_compiler_plugin")
+
+package(default_visibility = ["//visibility:public"])
+
+# Jetpack Compose 컴파일러.
+#
+# Compose 는 라이브러리가 아니라 **언어 확장**에 가깝다. `@Composable` 함수는 평범한
+# 코틀린 함수로 컴파일되지 않고, 이 플러그인이 재구성(recomposition)을 추적할 수
+# 있도록 함수 시그니처를 통째로 다시 쓴다. 플러그인이 없으면 코드는 컴파일되지만
+# 화면이 갱신되지 않는다 — 조용히 잘못 도는 쪽이라 빠뜨리면 찾기 어렵다.
+#
+# **id 문자열은 바꾸면 안 된다.** 컴파일러가 플러그인을 찾는 열쇠이며 플러그인 jar
+# 안에 박혀 있다. `androidx.compose.compiler.plugins.kotlin` 는 Kotlin 2.x 에
+# 들어온 뒤로도 옛 이름을 그대로 쓴다 (JetBrains 로 옮겨 왔지만 id 는 유지).
+#
+# `target_embedded_compiler = True` 인 이유: rules_kotlin 은 셰이딩된 임베디드
+# 컴파일러를 쓴다. 이 값을 빼면 플러그인이 셰이딩되지 않은 클래스 경로를 기대해
+# `NoClassDefFoundError` 로 죽는다.
+#
+# 버전은 **Kotlin 컴파일러와 같아야 한다** — MODULE.bazel 의 같은 이름 아티팩트에
+# 이유를 적어 뒀다. rules_kotlin 을 올릴 때 둘을 함께 올린다.
+kt_compiler_plugin(
+    name = "compose_compiler_plugin",
+    id = "androidx.compose.compiler.plugins.kotlin",
+    target_embedded_compiler = True,
+    deps = [
+        "@maven_android//:org_jetbrains_kotlin_kotlin_compose_compiler_plugin_embeddable",
+    ],
+)
