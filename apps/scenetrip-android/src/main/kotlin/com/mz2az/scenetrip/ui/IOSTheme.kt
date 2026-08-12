@@ -84,6 +84,23 @@ object IOS {
     // 화면 좌우 여백은 iOS 가 14pt 로 통일돼 있다 (행·칩줄·세그먼트 전부).
     val gutter = 14.dp
 
+    // --- 표면 --------------------------------------------------------------
+    //
+    // **모서리·딤·재질을 한곳에 모은다.** 쓰는 곳마다 숫자를 적었더니 저장 버튼만
+    // 라운드렉트, 장바구니만 직각처럼 제각각 갈렸다(4 차 검사).
+
+    /** iOS 의 `Capsule()` 버튼 — 높이의 절반이라 알약이 된다. */
+    val capsuleButton = 100.dp
+
+    /** 시트 위쪽 모서리. iOS 장바구니 시트 반지름 실측 ≈16. */
+    val sheetCorner = 16.dp
+
+    /** 팝업이 화면 가장자리에서 띄우는 거리. iOS 는 좌·우·아래 9pt. */
+    val popupInset = 9.dp
+
+    /** 팝업 뒷배경 딤. iOS 는 **20%** 다 — 60% 로 두면 훨씬 어둡다. */
+    const val DIM = 0.20f
+
     /** 시트 스냅 비율. `BottomSheet.swift` 가 "두 앱이 같은 숫자" 라고 못 박은 값. */
     const val DETENT_COLLAPSED = 0.14f
     const val DETENT_MEDIUM = 0.48f

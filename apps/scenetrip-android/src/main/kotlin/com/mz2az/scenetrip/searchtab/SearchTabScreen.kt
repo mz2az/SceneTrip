@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -69,6 +70,7 @@ fun SearchTabScreen() {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val density = LocalDensity.current
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val keyboard = LocalSoftwareKeyboardController.current
 
     // 검색바는 상태바 **아래**에 놓이므로, 시트가 멈출 자리도 그만큼 내려간다.
@@ -171,7 +173,7 @@ fun SearchTabScreen() {
         if (!isInitial) return@LaunchedEffect
         val target = map ?: return@LaunchedEffect
         if (tab == ListTab.PLACE) {
-            target.fit(visiblePlaces, density)
+            target.fit(visiblePlaces, density, screenHeight, sheetHeight)
         } else {
             target.showWholeKorea(density)
         }
@@ -190,22 +192,27 @@ fun SearchTabScreen() {
         val target = map ?: return@LaunchedEffect
         val place = selectedPlace
         if (place != null) {
-            target.zoomTo(place)
+            target.zoomTo(place, density, screenHeight, sheetHeight)
         } else {
-            target.fit(if (selectedContent != null) contentPlaces else visiblePlaces, density)
+            target.fit(
+                if (selectedContent != null) contentPlaces else visiblePlaces,
+                density,
+                screenHeight,
+                sheetHeight,
+            )
         }
     }
 
     LaunchedEffect(contentPlaces) {
         if (contentPlaces.isEmpty()) return@LaunchedEffect
-        map?.fit(contentPlaces, density)
+        map?.fit(contentPlaces, density, screenHeight, sheetHeight)
     }
 
     // 검색을 확정하면 결과 범위로 맞춘다. **결과가 도착한 뒤**여야 한다 — 확정
     // 즉시 맞추면 직전 검색의 핀 범위로 맞춰지고, 새 핀이 와도 카메라는 그대로다.
     LaunchedEffect(data.places, committed) {
         if (committed.isEmpty() || nearby || data.places.isEmpty()) return@LaunchedEffect
-        map?.fit(visiblePlaces, density)
+        map?.fit(visiblePlaces, density, screenHeight, sheetHeight)
     }
 
     fun commit(
@@ -363,7 +370,12 @@ fun SearchTabScreen() {
                     searching = true
                 },
                 onSubmit = { commit(draft) },
-                onClear = { commit("") },
+                // iOS 는 ✕ 를 누르면 **포커스가 풀린다.** 유지하면 빈 검색어로
+                // 자동완성이 계속 떠 있고, 다시 눌러도 새로 뜨지 않는다(4 차 검사).
+                onClear = {
+                    commit("")
+                    searching = false
+                },
                 onOpenCart = { showCart = true },
                 onFocus = { searching = true },
             )

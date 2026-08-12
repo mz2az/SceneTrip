@@ -73,6 +73,10 @@ private fun CartContent(
         modifier =
             Modifier
                 .fillMaxSize()
+                // iOS 는 시트라 **위쪽 모서리가 둥글고** 그 위로 지도가 조금 보인다.
+                // 각진 채로 두면 "화면 전환" 이 아니라 "화면 교체" 로 보인다.
+                .padding(top = 12.dp)
+                .clip(RoundedCornerShape(topStart = IOS.sheetCorner, topEnd = IOS.sheetCorner))
                 .background(IOS.systemBackground)
                 .statusBarsPadding(),
     ) {

@@ -14,8 +14,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -176,7 +176,8 @@ private fun TabIcon(
         }
 
         RootTab.PROFILE -> {
-            Icon(Icons.Filled.Person, tab.label, Modifier.size(size), tint)
+            // iOS 는 **외곽선** 사람이다. 꽉 찬 실루엣이면 한눈에 다르다(4 차 검사).
+            Icon(Icons.Outlined.Person, tab.label, Modifier.size(size), tint)
         }
 
         // `point.topleft.down.to.point.bottomright.curvepath` — 왼쪽 위 점에서
@@ -202,31 +203,42 @@ private fun TabIcon(
         // `bubble.left.and.bubble.right` — 말풍선 둘이 겹친다.
         RootTab.COMMUNITY -> {
             Canvas(Modifier.size(size)) {
+                // 말풍선 둘 — **꼬리가 있어야** 채팅으로 읽힌다. 둥근 사각형만
+                // 두면 무엇인지 알 수 없다(4 차 검사).
                 val w = this.size.width
                 val h = this.size.height
-                val s = w * 0.09f
-                drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(0f, h * 0.08f),
-                    size =
-                        androidx.compose.ui.geometry
-                            .Size(w * 0.62f, h * 0.52f),
-                    cornerRadius =
-                        androidx.compose.ui.geometry
-                            .CornerRadius(w * 0.16f),
-                    style = Stroke(width = s),
-                )
-                drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(w * 0.36f, h * 0.36f),
-                    size =
-                        androidx.compose.ui.geometry
-                            .Size(w * 0.62f, h * 0.52f),
-                    cornerRadius =
-                        androidx.compose.ui.geometry
-                            .CornerRadius(w * 0.16f),
-                    style = Stroke(width = s),
-                )
+                val stroke = w * 0.09f
+                val radius =
+                    androidx.compose.ui.geometry
+                        .CornerRadius(w * 0.16f)
+
+                fun bubble(
+                    x: Float,
+                    y: Float,
+                    bw: Float,
+                    bh: Float,
+                    tailAt: Float,
+                ) {
+                    drawRoundRect(
+                        color = tint,
+                        topLeft = Offset(x, y),
+                        size =
+                            androidx.compose.ui.geometry
+                                .Size(bw, bh),
+                        cornerRadius = radius,
+                        style = Stroke(width = stroke),
+                    )
+                    val tx = x + bw * tailAt
+                    drawLine(
+                        tint,
+                        Offset(tx, y + bh),
+                        Offset(tx, y + bh + h * 0.12f),
+                        strokeWidth = stroke,
+                    )
+                }
+
+                bubble(0f, h * 0.06f, w * 0.60f, h * 0.42f, tailAt = 0.24f)
+                bubble(w * 0.40f, h * 0.34f, w * 0.60f, h * 0.42f, tailAt = 0.76f)
             }
         }
     }

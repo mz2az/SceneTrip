@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.searchtab
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,7 +26,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,7 +37,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -228,12 +230,18 @@ fun PlaceDetailView(
                         ) {
                             // iOS 는 `Label(_, systemImage:)` 라 **아이콘이 함께**
                             // 붙는다 — 담기 전에는 가방, 담긴 뒤에는 체크다.
-                            Icon(
-                                if (saved) Icons.Filled.Check else Icons.Outlined.ShoppingCart,
-                                contentDescription = null,
-                                tint = IOS.systemBackground,
-                                modifier = Modifier.size(17.dp),
-                            )
+                            if (saved) {
+                                Icon(
+                                    Icons.Filled.Check,
+                                    contentDescription = null,
+                                    tint = IOS.systemBackground,
+                                    modifier = Modifier.size(17.dp),
+                                )
+                            } else {
+                                // iOS 는 `bag.badge.plus` — **가방에 ＋ 배지**다.
+                                // 쇼핑카트로 대신하면 모양이 한눈에 다르다.
+                                BagPlusIcon(IOS.systemBackground, Modifier.size(17.dp))
+                            }
                             Text(
                                 text = if (saved) "담김 · 누르면 빼기" else "장바구니에 담기",
                                 style = IOS.subheadlineSemibold,
@@ -256,17 +264,14 @@ fun PlaceDetailView(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
+                                // iOS 는 `Label` 이라 **아이콘이 글자 앞**에 온다.
+                                // `arrow.up.right.square` — 네모 안의 대각선
+                                // 화살표이고, 밖으로 나간다는 표시다.
+                                ExternalLinkIcon(IOS.accent, Modifier.size(15.dp))
                                 Text(
                                     text = "네이버 지도",
                                     style = IOS.subheadlineSemibold,
                                     color = IOS.accent,
-                                )
-                                // iOS 의 `arrow.up.right.square` — 밖으로 나간다는 표시다.
-                                Icon(
-                                    Icons.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    tint = IOS.accent,
-                                    modifier = Modifier.size(15.dp),
                                 )
                             }
                         }
@@ -383,10 +388,26 @@ fun ScenePopup(
     placeName: String,
     onClose: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(
+        onDismissRequest = onClose,
+        properties =
+            DialogProperties(
+                usePlatformDefaultWidth = false,
+                // 기본 딤을 끄고 우리가 20% 로 직접 칠한다. 켜 두면 겹쳐서 두 배로
+                // 어두워진다.
+                decorFitsSystemWindows = false,
+            ),
+    ) {
         Box(
             contentAlignment = Alignment.BottomCenter,
-            modifier = Modifier.fillMaxSize().clickable(onClick = onClose),
+            // iOS 는 **좌·우·아래를 9pt 띄운 떠 있는 카드**이고 뒷배경 딤이 20% 다.
+            // 화면을 꽉 채우고 60% 로 어둡게 하면 첫인상이 완전히 다른 화면이 된다
+            // (4 차 검사).
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = IOS.DIM))
+                    .clickable(onClick = onClose),
         ) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -394,7 +415,11 @@ fun ScenePopup(
                     Modifier
                         .fillMaxWidth()
                         .fillMaxHeight(0.5f)
-                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                        .padding(
+                            start = IOS.popupInset,
+                            end = IOS.popupInset,
+                            bottom = IOS.popupInset,
+                        ).clip(RoundedCornerShape(IOS.sheetCorner))
                         .background(IOS.systemBackground)
                         .padding(18.dp),
             ) {
@@ -451,5 +476,75 @@ fun ScenePopup(
                 }
             }
         }
+    }
+}
+
+/** iOS 의 `arrow.up.right.square` — 네모 테두리 안의 대각선 화살표. */
+@Composable
+private fun ExternalLinkIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.width
+        val s = w * 0.10f
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(s / 2, s / 2),
+            size =
+                androidx.compose.ui.geometry
+                    .Size(w - s, w - s),
+            cornerRadius =
+                androidx.compose.ui.geometry
+                    .CornerRadius(w * 0.18f),
+            style = Stroke(width = s),
+        )
+        // 왼쪽 아래에서 오른쪽 위로 가는 화살표와 촉 둘.
+        drawLine(tint, Offset(w * 0.32f, w * 0.68f), Offset(w * 0.68f, w * 0.32f), strokeWidth = s)
+        drawLine(tint, Offset(w * 0.44f, w * 0.32f), Offset(w * 0.68f, w * 0.32f), strokeWidth = s)
+        drawLine(tint, Offset(w * 0.68f, w * 0.32f), Offset(w * 0.68f, w * 0.56f), strokeWidth = s)
+    }
+}
+
+/** iOS 의 `bag.badge.plus` — 손잡이 달린 가방 오른쪽 위에 ＋ 배지. */
+@Composable
+private fun BagPlusIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val s = w * 0.10f
+        // 가방 몸통.
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(s / 2, h * 0.34f),
+            size =
+                androidx.compose.ui.geometry
+                    .Size(w * 0.68f, h * 0.60f),
+            cornerRadius =
+                androidx.compose.ui.geometry
+                    .CornerRadius(w * 0.14f),
+            style = Stroke(width = s),
+        )
+        // 손잡이 — 몸통 위로 솟은 반원.
+        drawArc(
+            color = tint,
+            startAngle = 180f,
+            sweepAngle = 180f,
+            useCenter = false,
+            topLeft = Offset(w * 0.16f, h * 0.14f),
+            size =
+                androidx.compose.ui.geometry
+                    .Size(w * 0.36f, h * 0.40f),
+            style = Stroke(width = s),
+        )
+        // 오른쪽 위 ＋ 배지.
+        val cx = w * 0.80f
+        val cy = h * 0.24f
+        val arm = w * 0.15f
+        drawLine(tint, Offset(cx - arm, cy), Offset(cx + arm, cy), strokeWidth = s)
+        drawLine(tint, Offset(cx, cy - arm), Offset(cx, cy + arm), strokeWidth = s)
     }
 }

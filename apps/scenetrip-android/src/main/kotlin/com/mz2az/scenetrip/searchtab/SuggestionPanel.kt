@@ -365,41 +365,50 @@ private fun FilmIcon(
     Canvas(modifier) {
         val w = size.width
         val h = size.height
-        val stroke = w * 0.09f
+        // **채운 띠에 구멍을 뚫는다.** 외곽선으로 그렸더니 iOS 와 음/양이 뒤집혀
+        // 보였다(4 차 검사 — iOS 는 회색 띠에 흰 스프로킷).
         drawRoundRect(
             color = tint,
-            topLeft = Offset(stroke / 2, h * 0.13f),
+            topLeft = Offset(0f, h * 0.13f),
             size =
                 androidx.compose.ui.geometry
-                    .Size(w - stroke, h * 0.74f),
+                    .Size(w, h * 0.74f),
             cornerRadius =
                 androidx.compose.ui.geometry
                     .CornerRadius(w * 0.12f),
-            style = Stroke(width = stroke),
         )
-        // **좌우 스프로킷 구멍 다섯씩, 가운데 가로 칸막이 하나.** iOS `film` 을
-        // 확대해 세어 본 값이다(3 차 검사) — 셋으로 그렸더니 다른 모양이 됐다.
+        // 가운데 화면 두 칸을 파낸다.
+        val paneW = w * 0.40f
+        val paneH = h * 0.26f
+        drawRect(
+            Color.White,
+            Offset(w * 0.30f, h * 0.20f),
+            androidx.compose.ui.geometry
+                .Size(paneW, paneH),
+        )
+        drawRect(
+            Color.White,
+            Offset(w * 0.30f, h * 0.54f),
+            androidx.compose.ui.geometry
+                .Size(paneW, paneH),
+        )
+        // 좌우 스프로킷 구멍 다섯씩.
         val holeW = w * 0.11f
-        val holeH = h * 0.09f
+        val holeH = h * 0.08f
         repeat(5) { i ->
-            val y = h * (0.19f + i * 0.145f)
+            val y = h * (0.20f + i * 0.145f)
             drawRect(
-                tint,
-                Offset(w * 0.10f, y),
+                Color.White,
+                Offset(w * 0.08f, y),
                 androidx.compose.ui.geometry
                     .Size(holeW, holeH),
             )
             drawRect(
-                tint,
-                Offset(w * 0.79f, y),
+                Color.White,
+                Offset(w * 0.81f, y),
                 androidx.compose.ui.geometry
                     .Size(holeW, holeH),
             )
         }
-        // 세로 칸막이 둘이 필름 화면을 가르고, 가로 칸막이 하나가 위아래로 나눈다.
-        drawLine(tint, Offset(w * 0.28f, h * 0.13f), Offset(w * 0.28f, h * 0.87f), strokeWidth = stroke * 0.8f)
-        drawLine(tint, Offset(w * 0.72f, h * 0.13f), Offset(w * 0.72f, h * 0.87f), strokeWidth = stroke * 0.8f)
-        drawLine(tint, Offset(w * 0.28f, h * 0.50f), Offset(w * 0.72f, h * 0.50f), strokeWidth = stroke * 0.8f)
-        drawLine(tint, Offset(w * 0.68f, h * 0.13f), Offset(w * 0.68f, h * 0.87f), strokeWidth = stroke * 0.8f)
     }
 }
