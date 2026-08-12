@@ -41,6 +41,9 @@ object IOS {
 
     /** 검색어 지우기 원. iOS 는 연파랑이다 — 실측 #BFE1FF. */
     val clearCircle = Color(0xFFBFE1FF)
+
+    /** 장면 카드 테두리. iOS `systemGray5`. */
+    val systemGray5 = Color(0xFFE5E5EA)
     val systemGray6 = Color(0xFFF2F2F7)
 
     /** 세그먼트 컨트롤의 트랙. systemGray6 보다 살짝 어둡다 — 실측 #EEEEEF. */

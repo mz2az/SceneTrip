@@ -1,19 +1,29 @@
 package com.mz2az.scenetrip.searchtab
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,13 +34,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceDetail
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
+import com.mz2az.scenetrip.sceneapi.client.model.Scene
 import com.mz2az.scenetrip.ui.IOS
 
 /**
@@ -153,6 +168,7 @@ fun PlaceDetailView(
     detailOf: suspend (Long) -> PlaceDetail?,
     onBack: () -> Unit,
     onToggleSave: () -> Unit,
+    onOpenScene: (Scene) -> Unit,
 ) {
     var detail by remember(summary.id) { mutableStateOf<PlaceDetail?>(null) }
     val context = LocalContext.current
@@ -245,43 +261,14 @@ fun PlaceDetailView(
                             color = IOS.secondaryLabel,
                         )
                     }
-                }
-                itemsIndexed(scenes) { _, scene ->
-                    Row(
+                    // **가로로 넘기는 카드**다. 세로 목록으로 만들면 iOS 와 다른
+                    // 화면이 된다(대조 검사에서 놓쳤던 부분).
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = IOS.gutter),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = IOS.gutter, vertical = 10.dp),
                     ) {
-                        // **장면 스틸을 쓴다.** 포스터로 대신하면 한 작품의 장면이
-                        // 여럿일 때 카드가 전부 같은 그림이 된다 — "이 장면이 찍힌
-                        // 곳" 을 보여 주는 것이 이 앱의 핵심이다.
-                        RemoteImage(
-                            url = (scene.sceneImageUrl ?: scene.posterUrl)?.toString(),
-                            modifier =
-                                Modifier
-                                    .size(width = 120.dp, height = 70.dp)
-                                    .clip(RoundedCornerShape(8.dp)),
-                        )
-                        Column {
-                            Text(
-                                text = scene.contentTitle,
-                                style = IOS.caption2,
-                                color = IOS.accent,
-                            )
-                            Text(
-                                text = scene.sceneDescription ?: "장면 설명이 아직 없습니다",
-                                style = IOS.subheadline,
-                                color =
-                                    if (scene.sceneDescription == null) {
-                                        IOS.secondaryLabel
-                                    } else {
-                                        IOS.label
-                                    },
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                        items(scenes.size) { index ->
+                            SceneCard(scene = scenes[index], onClick = { onOpenScene(scenes[index]) })
                         }
                     }
                 }
@@ -301,5 +288,140 @@ private fun openUrl(
                 .Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
                 .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
         )
+    }
+}
+
+/**
+ * 가로로 넘기는 장면 카드.
+ *
+ * iOS `PlaceDetailView.swift` 의 `SceneCard` 와 같다. **장면 스틸을 쓴다**
+ * (`sceneImageUrl`). 한동안 포스터로 대신했는데, 그러면 한 작품의 장면이 여럿일 때
+ * 카드가 전부 같은 그림이 됐다 — "이 장면이 찍힌 곳" 을 보여 주는 것이 이 앱의
+ * 핵심이라 포스터로는 대체가 안 된다. 스틸이 없는 장면만 포스터로 물러선다.
+ */
+@Composable
+private fun SceneCard(
+    scene: Scene,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier =
+            Modifier
+                .width(190.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(IOS.systemBackground)
+                .border(1.dp, IOS.systemGray5, RoundedCornerShape(12.dp))
+                .clickable(onClick = onClick),
+    ) {
+        RemoteImage(
+            url = (scene.sceneImageUrl ?: scene.posterUrl)?.toString(),
+            modifier = Modifier.size(width = 190.dp, height = 110.dp),
+        )
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.height(96.dp).padding(10.dp),
+        ) {
+            Text(
+                text = scene.contentTitle,
+                style = IOS.caption2.copy(fontWeight = FontWeight.Bold),
+                color = IOS.accent,
+            )
+            Text(
+                text = scene.sceneDescription ?: "장면 설명이 아직 없습니다",
+                style = IOS.subheadline,
+                color = if (scene.sceneDescription == null) IOS.secondaryLabel else IOS.label,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/**
+ * 장면 팝업. 카드에서 두 줄로 잘린 설명의 전문을 본다.
+ *
+ * iOS `ScenePopup` 을 옮긴 것이다. **담기 버튼을 두지 않는다** — 장바구니에 담기는
+ * 단위는 **장소**인데(계약의 `CartItemCreate` 가 `placeId` 를 받는다), 장면 팝업은
+ * "이 장소에서 어느 작품의 어떤 장면을 찍었나" 를 보는 자리다. 거기서 담으면
+ * 사용자는 장면을 담는다고 생각하는데 실제로는 장소가 담긴다.
+ *
+ * 닫기 버튼을 **사진 위에 겹친다.** 사진이 팝업 맨 위를 꽉 채우고 있어 바깥 여백에
+ * 두면 버튼 하나 때문에 위쪽이 벌어진다. 원 배경을 까는 이유는 포스터마다 밝기가
+ * 제각각이라 선 아이콘만 두면 밝은 사진에서 보이지 않기 때문이다.
+ */
+@Composable
+fun ScenePopup(
+    scene: Scene,
+    placeName: String,
+    onClose: () -> Unit,
+) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(
+            contentAlignment = Alignment.BottomCenter,
+            modifier = Modifier.fillMaxSize().clickable(onClick = onClose),
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.5f)
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                        .background(IOS.systemBackground)
+                        .padding(18.dp),
+            ) {
+                Box {
+                    RemoteImage(
+                        url = (scene.sceneImageUrl ?: scene.posterUrl)?.toString(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                    )
+                    // 보이는 원은 28 인데 누를 수 있는 자리는 44 다 — 애플이 권하는
+                    // 최소 터치 크기이고, 그보다 작으면 손가락이 자꾸 빗나간다.
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopEnd)
+                                .size(44.dp)
+                                .clickable(onClick = onClose),
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier =
+                                Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.45f)),
+                        ) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = "닫기",
+                                tint = IOS.systemBackground,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = scene.contentTitle,
+                    style = IOS.caption2.copy(fontWeight = FontWeight.Bold),
+                    color = IOS.accent,
+                    modifier =
+                        Modifier
+                            .clip(CircleShape)
+                            .background(IOS.accent.copy(alpha = 0.15f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+                Text(placeName, style = IOS.headline, color = IOS.label)
+                scene.sceneDescription?.let {
+                    Text(it, style = IOS.subheadline, color = IOS.label)
+                }
+            }
+        }
     }
 }

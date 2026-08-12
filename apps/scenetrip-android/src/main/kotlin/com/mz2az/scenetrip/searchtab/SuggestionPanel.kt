@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.searchtab
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,7 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
@@ -280,13 +282,15 @@ private fun TypeIcon(
     tint: Color,
     size: androidx.compose.ui.unit.Dp,
 ) {
-    val icon =
-        when (type) {
-            EntityType.content -> Icons.Filled.PlayArrow
-            EntityType.person -> Icons.Filled.Person
-            EntityType.place -> Icons.Filled.Place
-        }
-    Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size))
+    when (type) {
+        // **필름 스트립을 직접 그린다.** iOS 는 `film` 인데 material-icons-core 에
+        // 같은 모양이 없고, 재생 삼각형으로 대신하면 한눈에 다르게 보인다.
+        EntityType.content -> FilmIcon(tint, Modifier.size(size))
+
+        EntityType.person -> Icon(Icons.Filled.Person, null, Modifier.size(size), tint)
+
+        EntityType.place -> Icon(Icons.Filled.Place, null, Modifier.size(size), tint)
+    }
 }
 
 @Composable
@@ -344,5 +348,55 @@ fun DetailHeader(
                 )
             }
         }
+    }
+}
+
+/**
+ * SF Symbols 의 `film` — 가운데 화면과 좌우 스프로킷 구멍이 있는 필름 조각.
+ *
+ * 둥근 사각형 테두리 안에 양옆으로 작은 네모 셋씩. 작은 크기(13~18dp)에서도
+ * 필름으로 읽히도록 구멍은 채워서 그린다.
+ */
+@Composable
+private fun FilmIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = w * 0.09f
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(stroke / 2, h * 0.13f),
+            size =
+                androidx.compose.ui.geometry
+                    .Size(w - stroke, h * 0.74f),
+            cornerRadius =
+                androidx.compose.ui.geometry
+                    .CornerRadius(w * 0.12f),
+            style = Stroke(width = stroke),
+        )
+        // 좌우 스프로킷 구멍 셋씩.
+        val holeW = w * 0.13f
+        val holeH = h * 0.13f
+        repeat(3) { i ->
+            val y = h * (0.23f + i * 0.235f)
+            drawRect(
+                tint,
+                Offset(w * 0.11f, y),
+                androidx.compose.ui.geometry
+                    .Size(holeW, holeH),
+            )
+            drawRect(
+                tint,
+                Offset(w * 0.76f, y),
+                androidx.compose.ui.geometry
+                    .Size(holeW, holeH),
+            )
+        }
+        // 가운데 세로 칸막이 둘 — 필름 화면을 나눈다.
+        drawLine(tint, Offset(w * 0.32f, h * 0.13f), Offset(w * 0.32f, h * 0.87f), strokeWidth = stroke * 0.8f)
+        drawLine(tint, Offset(w * 0.68f, h * 0.13f), Offset(w * 0.68f, h * 0.87f), strokeWidth = stroke * 0.8f)
     }
 }

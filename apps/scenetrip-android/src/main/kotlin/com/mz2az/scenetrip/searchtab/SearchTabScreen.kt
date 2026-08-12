@@ -41,6 +41,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.EntityType
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
+import com.mz2az.scenetrip.sceneapi.client.model.Scene
 import com.mz2az.scenetrip.sceneapi.client.model.Suggestion
 import com.mz2az.scenetrip.ui.IOS
 import com.naver.maps.map.NaverMap
@@ -104,6 +105,9 @@ fun SearchTabScreen() {
 
     // 드릴다운 3단 — 고른 촬영지.
     var selectedPlace by remember { mutableStateOf<PlaceSummary?>(null) }
+
+    // 장면 팝업 — 카드에서 두 줄로 잘린 설명의 전문을 본다.
+    var selectedScene by remember { mutableStateOf<Scene?>(null) }
 
     // 지도가 남한 밖으로 나갔나 — 「한국으로」 버튼을 그때만 띄운다.
     var outsideKorea by remember { mutableStateOf(false) }
@@ -270,6 +274,7 @@ fun SearchTabScreen() {
                         saved = cart.contains(selectedPlace!!.id),
                         detailOf = { data.placeDetail(it) },
                         onBack = { selectedPlace = null },
+                        onOpenScene = { selectedScene = it },
                         onToggleSave = {
                             val place = selectedPlace!!
                             scope.launch {
@@ -447,6 +452,14 @@ fun SearchTabScreen() {
                     ) { _, size -> ScopeIcon(IOS.accent, Modifier.size(size)) }
                 }
             }
+        }
+
+        selectedScene?.let { scene ->
+            ScenePopup(
+                scene = scene,
+                placeName = selectedPlace?.name.orEmpty(),
+                onClose = { selectedScene = null },
+            )
         }
 
         if (showCart) {
