@@ -25,11 +25,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
+import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
 
 /**
@@ -59,6 +61,7 @@ fun CartSheet(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
+        DisableDialogDim()
         CartContent(items = items, onRemove = onRemove, onClose = onClose)
     }
 }
@@ -146,7 +149,7 @@ private fun CartRow(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 14.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 19.dp),
     ) {
         // **강조색 원에 흰 숫자** — 목록의 번호 배지(핀과 짝을 이루는 보라
         // 그러데이션)와는 다른 것이다. 여기 번호는 담은 순서이지 지도 핀이 아니다.

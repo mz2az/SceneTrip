@@ -337,7 +337,11 @@ internal fun applyInset(
         // 위 여백은 검색바가 덮는 만큼이다. iOS 는 108pt 를 쓰는데, 안드로이드는
         // 검색바가 상태바 아래에 놓여 그만큼 덜 덮는다 — 3 차에서 -122 였던 세로
         // 어긋남이 4 차에 +25.4 로 뒤집혔던 것이 이 차이다.
-        val topInset = (108.dp - 25.dp).toPx().toInt()
+        // **iOS 와 같은 108 을 쓴다.** 4 차에서 세로가 +25.4 어긋나 25 를 깎았는데,
+        // 그 차이의 대부분(약 20)은 안드로이드 화면이 40dp 더 길어서 생기는
+        // 몫이라 값을 깎을 일이 아니었다(5 차 검사). 오히려 그만큼 지도 영역이
+        // 넓어져 검색 결과 맞춤이 7.7% 더 확대됐다.
+        val topInset = 108.dp.toPx().toInt()
         map.setContentPadding(0, topInset, 0, cameraBottom, keepCamera)
         val logoBottom = maxOf(0, sheetPx - cameraBottom) + 6.dp.toPx().toInt()
         val side = 4.dp.toPx().toInt()

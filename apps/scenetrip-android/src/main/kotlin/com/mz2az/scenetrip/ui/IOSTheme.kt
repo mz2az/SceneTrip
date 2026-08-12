@@ -92,8 +92,11 @@ object IOS {
     /** iOS 의 `Capsule()` 버튼 — 높이의 절반이라 알약이 된다. */
     val capsuleButton = 100.dp
 
-    /** 시트 위쪽 모서리. iOS 장바구니 시트 반지름 실측 ≈16. */
-    val sheetCorner = 16.dp
+    /** 시트 위쪽 모서리. iOS 실측 유효 반지름 ≈36 — 연속 곡률이라 커 보인다. */
+    val sheetCorner = 30.dp
+
+    /** 팝업 카드 모서리. 시트보다 조금 더 둥글다. */
+    val popupCorner = 36.dp
 
     /** 팝업이 화면 가장자리에서 띄우는 거리. iOS 는 좌·우·아래 9pt. */
     val popupInset = 9.dp

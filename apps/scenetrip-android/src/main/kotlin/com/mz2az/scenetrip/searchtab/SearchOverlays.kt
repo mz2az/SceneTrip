@@ -26,10 +26,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -56,6 +59,8 @@ fun SearchBar(
     onFocus: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val focus = remember { FocusRequester() }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier =
@@ -67,7 +72,12 @@ fun SearchBar(
                 .shadow(3.dp, CircleShape, ambientColor = IOS.label, spotColor = IOS.label)
                 .clip(CircleShape)
                 .background(IOS.systemBackground)
-                .padding(horizontal = IOS.gutter, vertical = 11.dp),
+                // **바 전체가 눌린다.** 글자 칸만 누를 수 있게 두면 ✕ 로 지운 뒤
+                // 다시 눌러도 포커스가 안 잡혀 추천 검색어가 뜨지 않는다(5 차 검사).
+                .clickable {
+                    focus.requestFocus()
+                    onFocus()
+                }.padding(horizontal = IOS.gutter, vertical = 11.dp),
     ) {
         Icon(
             Icons.Filled.Search,
@@ -93,6 +103,7 @@ fun SearchBar(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        .focusRequester(focus)
                         .onFocusChanged { if (it.isFocused) onFocus() },
             )
         }

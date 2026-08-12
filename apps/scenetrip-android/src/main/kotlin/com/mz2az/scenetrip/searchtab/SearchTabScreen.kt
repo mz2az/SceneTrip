@@ -92,6 +92,13 @@ fun SearchTabScreen() {
     var map by remember { mutableStateOf<NaverMap?>(null) }
     var sheetHeight by remember { mutableStateOf(0.dp) }
     var nearby by remember { mutableStateOf(false) }
+
+    // 검색을 확정했고 결과 도착을 기다리는 중 — 도착하면 그때 카메라를 맞춘다.
+    // **확정 즉시 맞추면 안 된다**(iOS 실측): 서버 응답이 오기 전에 지도가 직전
+    // 검색의 핀 범위로 맞춰지고, 새 핀이 도착해도 카메라는 그대로다.
+    //
+    // ✕ 로 지울 때도 켠다 — 4 차에 안드로이드만 직전 검색지에 머물러 있었다.
+    var pendingFit by remember { mutableStateOf(false) }
     var showCart by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
     var suggestions by remember { mutableStateOf<List<Suggestion>>(emptyList()) }
@@ -210,8 +217,9 @@ fun SearchTabScreen() {
 
     // 검색을 확정하면 결과 범위로 맞춘다. **결과가 도착한 뒤**여야 한다 — 확정
     // 즉시 맞추면 직전 검색의 핀 범위로 맞춰지고, 새 핀이 와도 카메라는 그대로다.
-    LaunchedEffect(data.places, committed) {
-        if (committed.isEmpty() || nearby || data.places.isEmpty()) return@LaunchedEffect
+    LaunchedEffect(data.places) {
+        if (!pendingFit || data.places.isEmpty()) return@LaunchedEffect
+        pendingFit = false
         map?.fit(visiblePlaces, density, screenHeight, sheetHeight)
     }
 
@@ -236,6 +244,7 @@ fun SearchTabScreen() {
         keyboard?.hide()
         detent = Detent.MEDIUM
         data.search(term)
+        pendingFit = true
     }
 
     Box(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {

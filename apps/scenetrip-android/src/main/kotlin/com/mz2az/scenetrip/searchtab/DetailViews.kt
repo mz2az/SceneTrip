@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -51,6 +52,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceDetail
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.Scene
+import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
 
 /**
@@ -219,10 +221,11 @@ fun PlaceDetailView(
                         modifier =
                             Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
+                                .clip(RoundedCornerShape(IOS.capsuleButton))
                                 .background(IOS.accent)
                                 .clickable(onClick = onToggleSave)
-                                .padding(vertical = 12.dp),
+                                // iOS 버튼 높이는 30.3pt 다(5 차 실측).
+                                .padding(vertical = 6.dp),
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -255,10 +258,10 @@ fun PlaceDetailView(
                             contentAlignment = Alignment.Center,
                             modifier =
                                 Modifier
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .clip(RoundedCornerShape(IOS.capsuleButton))
                                     .background(IOS.systemGray6)
                                     .clickable { openUrl(context, naver) }
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    .padding(horizontal = 14.dp, vertical = 6.dp),
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -393,11 +396,13 @@ fun ScenePopup(
         properties =
             DialogProperties(
                 usePlatformDefaultWidth = false,
-                // 기본 딤을 끄고 우리가 20% 로 직접 칠한다. 켜 두면 겹쳐서 두 배로
-                // 어두워진다.
                 decorFitsSystemWindows = false,
             ),
     ) {
+        // **`DialogProperties` 에는 딤을 끄는 값이 없다.** `decorFitsSystemWindows`
+        // 는 인셋 처리이지 딤과 무관한데 그걸 끄고 다 됐다고 믿었다가, 딤이 20% 가
+        // 아니라 68% 로 나왔다(5 차 검사 — 기본 60% 와 우리 20% 가 겹쳤다).
+        DisableDialogDim()
         Box(
             contentAlignment = Alignment.BottomCenter,
             // iOS 는 **좌·우·아래를 9pt 띄운 떠 있는 카드**이고 뒷배경 딤이 20% 다.
@@ -415,12 +420,17 @@ fun ScenePopup(
                     Modifier
                         .fillMaxWidth()
                         .fillMaxHeight(0.5f)
+                        // Dialog 는 시스템 내비게이션 바 인셋을 먹지 않아 카드가
+                        // 화면 맨 아래까지 내려온다 — 그 몫을 여기서 더한다.
+                        .navigationBarsPadding()
                         .padding(
                             start = IOS.popupInset,
                             end = IOS.popupInset,
                             bottom = IOS.popupInset,
-                        ).clip(RoundedCornerShape(IOS.sheetCorner))
-                        .background(IOS.systemBackground)
+                        ) // iOS 팝업 카드는 모서리가 훨씬 둥글고(유효 반지름 ≈36) 바탕이
+                        // 흰색이 아니라 systemGray6 다(실측 235,235,236).
+                        .clip(RoundedCornerShape(IOS.popupCorner))
+                        .background(IOS.systemGray6)
                         .padding(18.dp),
             ) {
                 Box {

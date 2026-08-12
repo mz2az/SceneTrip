@@ -183,7 +183,10 @@ fun PlaceRow(
                     Icons.Filled.CheckCircle,
                     contentDescription = "장바구니에서 빼기",
                     tint = IOS.accent,
-                    modifier = Modifier.size(20.dp),
+                    // **23 이어야 원이 20 으로 보인다.** Material 아이콘은 24 짜리
+                    // 그림 안에 여백을 두고 그려서, 20 을 주면 원이 17 로 나온다
+                    // (5 차 실측 17.14). 옆의 ＋ 는 직접 그려 여백이 없다.
+                    modifier = Modifier.size(23.dp),
                 )
             } else {
                 // iOS 는 20pt 다(3 차 실측 — 24 로 20% 컸다).

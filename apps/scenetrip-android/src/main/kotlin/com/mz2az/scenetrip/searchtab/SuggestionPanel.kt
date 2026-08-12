@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -289,7 +288,7 @@ private fun TypeIcon(
 
         EntityType.person -> Icon(Icons.Outlined.Person, null, Modifier.size(size), tint)
 
-        EntityType.place -> Icon(Icons.Outlined.Place, null, Modifier.size(size), tint)
+        EntityType.place -> MapPinIcon(tint, Modifier.size(size))
     }
 }
 
@@ -410,5 +409,40 @@ private fun FilmIcon(
                     .Size(holeW, holeH),
             )
         }
+    }
+}
+
+/**
+ * SF Symbols 의 `mappin.and.ellipse` — **구슬 머리 핀이 타원 받침에 꽂힌** 모양.
+ *
+ * Material 의 `Place` 는 속이 빈 물방울이라 도형 자체가 다르다(5 차 검사).
+ * 핀은 가는 대롱에 동그란 머리가 얹히고, 그 아래 원근으로 눌린 타원이 깔린다.
+ */
+@Composable
+private fun MapPinIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = w * 0.09f
+        // 바닥 타원 — 위에서 비스듬히 본 원.
+        drawOval(
+            color = tint,
+            topLeft = Offset(w * 0.10f, h * 0.62f),
+            size =
+                androidx.compose.ui.geometry
+                    .Size(w * 0.80f, h * 0.30f),
+            style = Stroke(width = stroke),
+        )
+        // 대롱과 구슬 머리.
+        drawLine(
+            tint,
+            Offset(w * 0.50f, h * 0.30f),
+            Offset(w * 0.50f, h * 0.78f),
+            strokeWidth = stroke,
+        )
+        drawCircle(tint, w * 0.17f, Offset(w * 0.50f, h * 0.22f), style = Stroke(width = stroke))
     }
 }
