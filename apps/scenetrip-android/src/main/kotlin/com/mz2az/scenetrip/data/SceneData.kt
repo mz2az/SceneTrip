@@ -49,7 +49,7 @@ class SceneData(
         private set
     var places by mutableStateOf<List<PlaceSummary>>(emptyList())
         private set
-    var failure by mutableStateOf<String?>(null)
+    var failure by mutableStateOf<ApiFailure?>(null)
         private set
 
     private val contentsApi = ContentsApi(API_BASE)
@@ -59,8 +59,12 @@ class SceneData(
     // 앞선 요청이 늦게 도착해 최신 결과를 덮지 않도록 취소한다 — iOS 의 `inFlight`.
     private var inFlight: Job? = null
 
+    /** 마지막으로 부른 것. 「다시 시도」가 같은 요청을 되풀이하는 데 쓴다. */
+    private var lastCall: (() -> Unit)? = null
+
     /** 검색어 하나로 두 탭을 채운다. 빈 문자열이면 전체를 받는다. */
     fun search(query: String) {
+        lastCall = { search(query) }
         inFlight?.cancel()
         phase = Phase.LOADING
         val keyword = query.trim().ifEmpty { null }
@@ -79,7 +83,7 @@ class SceneData(
                     failure = null
                     phase = Phase.LOADED
                 }.onFailure {
-                    failure = it.message ?: "불러오지 못했습니다"
+                    failure = ApiFailure.of(it)
                     phase = Phase.FAILED
                 }
             }
@@ -93,6 +97,7 @@ class SceneData(
      * 안" 과 "이 단어" 는 서로 다른 질문이라 섞으면 결과를 설명할 수 없다.
      */
     fun searchInViewport(bbox: String) {
+        lastCall = { searchInViewport(bbox) }
         inFlight?.cancel()
         phase = Phase.LOADING
         inFlight =
@@ -104,7 +109,7 @@ class SceneData(
                     failure = null
                     phase = Phase.LOADED
                 }.onFailure {
-                    failure = it.message ?: "불러오지 못했습니다"
+                    failure = ApiFailure.of(it)
                     phase = Phase.FAILED
                 }
             }
@@ -116,6 +121,11 @@ class SceneData(
             runCatching { contentsApi.listContentPlaces(contentId, limit = 100).items ?: emptyList() }
                 .getOrDefault(emptyList())
         }
+
+    /** 마지막 요청을 되풀이한다. iOS `data.retry()` 와 같다. */
+    fun retry() {
+        lastCall?.invoke()
+    }
 
     /** 작품 상세 — 줄거리·출연진은 여기에만 있다. */
     suspend fun contentDetail(id: Long) =

@@ -1,6 +1,8 @@
 package com.mz2az.scenetrip.searchtab
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -15,8 +17,10 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -29,12 +33,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.mz2az.scenetrip.data.ApiFailure
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.SceneData
@@ -282,7 +288,7 @@ fun SearchTabScreen() {
         ) {
             when {
                 data.phase == SceneData.Phase.FAILED -> {
-                    Centered(data.failure ?: "불러오지 못했습니다")
+                    ErrorView(failure = data.failure, onRetry = { data.retry() })
                 }
 
                 data.phase == SceneData.Phase.LOADING &&
@@ -526,6 +532,49 @@ private fun Centered(message: String?) {
             CircularProgressIndicator(color = IOS.accent)
         } else {
             Text(message, style = IOS.subheadline, color = IOS.secondaryLabel)
+        }
+    }
+}
+
+/**
+ * 오류 화면. iOS `Rows.swift` 의 `ErrorView` 와 같다.
+ *
+ * **문구가 세 갈래고 「다시 시도」는 재시도가 의미 있을 때만 뜬다.** 400 처럼 앱이
+ * 고쳐야 하는 오류에 버튼을 두면 눌러도 같은 화면이 돌아온다.
+ */
+@Composable
+private fun ErrorView(
+    failure: ApiFailure?,
+    onRetry: () -> Unit,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+    ) {
+        Icon(
+            Icons.Filled.Warning,
+            contentDescription = null,
+            tint = IOS.secondaryLabel,
+            modifier = Modifier.size(34.dp),
+        )
+        Text(
+            text = failure?.message ?: "요청을 처리하지 못했습니다.",
+            style = IOS.subheadline,
+            color = IOS.label,
+        )
+        if (failure == null || failure.isRetryable) {
+            Text(
+                text = "다시 시도",
+                style = IOS.subheadlineSemibold,
+                color = IOS.systemBackground,
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(IOS.capsuleButton))
+                        .background(IOS.accent)
+                        .clickable(onClick = onRetry)
+                        .padding(horizontal = 18.dp, vertical = 8.dp),
+            )
         }
     }
 }
