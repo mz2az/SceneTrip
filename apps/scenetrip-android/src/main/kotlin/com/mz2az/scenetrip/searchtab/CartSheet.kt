@@ -9,14 +9,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,13 +31,18 @@ import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.ui.IOS
 
 /**
- * 장바구니 시트.
+ * 장바구니 — 담은 장소를 보여 주고 뺄 수 있게 한다.
  *
- * iOS `SearchTab/CartSheet.swift` 와 같은 자리다. 담긴 장소를 보여 주고 빼기만 한다 —
- * 코스로 만드는 것은 경로여정 탭의 몫이다.
+ * iOS `SearchTab/CartSheet.swift` 를 옮긴 것이다. 그 주석이 경계를 정확히 적어 뒀다 —
+ * **"담기까지만 (루트 만들기는 MVP1 범위 밖)"**. 담긴 것을 보고 빼는 것까지가 여기이고,
+ * 이 목록을 코스로 엮는 것은 경로여정 탭이다.
  *
- * **행에서 빼면 확인창을 두지 않는다.** 담기가 한 번에 되는데 빼기만 물어보면 무겁고,
- * 잘못 빼도 다시 담으면 그만이라 되돌리는 비용이 낮다 (iOS `Rows.swift` 의 판단).
+ * **화면 전체를 덮는 모달이다.** 절반짜리 바텀시트로 만들었더니 지도와 탭바가 그대로
+ * 보여 iOS 와 다른 화면이 됐다(대조 검사). iOS 는 `NavigationStack` 을 시트로 띄우므로
+ * 아래가 보이지 않는다.
+ *
+ * **순번을 매기는 이유**도 iOS 주석에 있다 — 담은 순서가 나중에 코스의 기본 순서가
+ * 된다. 계약도 "담은 순서(오래된 것부터)로 돌려준다" 고 적어 뒀다.
  */
 @Composable
 fun CartSheet(
@@ -43,98 +50,94 @@ fun CartSheet(
     onRemove: (Long) -> Unit,
     onClose: () -> Unit,
 ) {
-    // 지도·시트를 덮는 스크림. 바깥을 누르면 닫힌다 — iOS 의 시트와 같은 동작이다.
-    Box(
+    Column(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(
-                    androidx.compose.ui.graphics.Color.Black
-                        .copy(alpha = 0.25f),
-                ).clickable(onClick = onClose),
-    )
-    Box(contentAlignment = Alignment.BottomCenter, modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .fillMaxSize(0.62f)
-                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .background(IOS.systemBackground),
+                .background(IOS.systemBackground)
+                .statusBarsPadding(),
+    ) {
+        // iOS 는 `navigationBarTitleDisplayMode(.inline)` — 제목이 가운데,
+        // 「닫기」가 오른쪽이다. 아이콘 ✕ 가 아니라 **글자**다.
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp),
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(width = 40.dp, height = 5.dp)
-                            .clip(CircleShape)
-                            .background(IOS.systemGray3),
-                )
-            }
+            Text(
+                text = if (items.isEmpty()) "장바구니" else "장바구니 ${items.size}곳",
+                style = IOS.headline,
+                color = IOS.label,
+            )
+            Text(
+                text = "닫기",
+                style = IOS.body,
+                color = IOS.accent,
+                modifier =
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .clip(CircleShape)
+                        .clickable(onClick = onClose)
+                        .padding(horizontal = IOS.gutter, vertical = 4.dp),
+            )
+        }
+        Box(Modifier.fillMaxWidth().height(0.5.dp).background(IOS.separator))
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 8.dp),
+        if (items.isEmpty()) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+                modifier = Modifier.fillMaxSize(),
             ) {
-                Text("장바구니", style = IOS.headline, color = IOS.label)
+                Text("담은 장소가 없습니다", style = IOS.headline, color = IOS.secondaryLabel)
                 Text(
-                    text = " ${items.size}",
-                    style = IOS.headline,
-                    color = IOS.accent,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    Icons.Filled.Close,
-                    contentDescription = "닫기",
-                    tint = IOS.secondaryLabel,
-                    modifier = Modifier.clip(CircleShape).clickable(onClick = onClose).size(22.dp),
+                    "장소를 저장하면 여기에 모입니다",
+                    style = IOS.subheadline,
+                    color = IOS.tertiaryLabel,
                 )
             }
-            Box(Modifier.fillMaxWidth().height(0.5.dp).background(IOS.separator))
-
-            if (items.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        "담은 장소가 없습니다",
-                        style = IOS.subheadline,
-                        color = IOS.secondaryLabel,
+        } else {
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                itemsIndexed(items, key = { _, item -> item.placeId }) { index, item ->
+                    CartRow(index = index, item = item, onRemove = { onRemove(item.placeId) })
+                    Box(
+                        Modifier
+                            .padding(start = IOS.gutter)
+                            .fillMaxWidth()
+                            .height(0.5.dp)
+                            .background(IOS.separator),
                     )
-                }
-            } else {
-                LazyColumn {
-                    items(items, key = { it.placeId }) { item ->
-                        CartRow(item = item, onRemove = { onRemove(item.placeId) })
-                        Box(
-                            Modifier
-                                .padding(start = IOS.gutter)
-                                .fillMaxWidth()
-                                .height(0.5.dp)
-                                .background(IOS.separator),
-                        )
-                    }
                 }
             }
         }
+        Box(Modifier.navigationBarsPadding().fillMaxWidth())
     }
 }
 
 @Composable
 private fun CartRow(
+    index: Int,
     item: CartItem,
     onRemove: () -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 8.dp),
     ) {
+        // **강조색 원에 흰 숫자** — 목록의 번호 배지(핀과 짝을 이루는 보라
+        // 그러데이션)와는 다른 것이다. 여기 번호는 담은 순서이지 지도 핀이 아니다.
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(24.dp).clip(CircleShape).background(IOS.accent),
+        ) {
+            Text("${index + 1}", style = IOS.caption2Heavy, color = IOS.systemBackground)
+        }
+
         RemoteImage(
             url = item.imageUrl?.toString(),
-            modifier = Modifier.size(46.dp).clip(RoundedCornerShape(6.dp)),
+            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)),
         )
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = item.name,
@@ -143,19 +146,25 @@ private fun CartRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = item.address.orEmpty(),
-                style = IOS.caption,
-                color = IOS.secondaryLabel,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // 어느 작품 때문에 담았는지를 서버가 기억한다 (sourceContentId).
+            // 같은 장소라도 담은 맥락이 다르면 사용자에게는 다른 의미다.
+            val second = item.sourceContentTitle ?: item.address
+            if (!second.isNullOrEmpty()) {
+                Text(
+                    text = second,
+                    style = IOS.caption,
+                    color = IOS.secondaryLabel,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
+
         Icon(
-            Icons.Filled.Close,
+            Icons.Filled.Delete,
             contentDescription = "빼기",
             tint = IOS.secondaryLabel,
-            modifier = Modifier.clip(CircleShape).clickable(onClick = onRemove).size(20.dp),
+            modifier = Modifier.clip(CircleShape).clickable(onClick = onRemove).size(22.dp),
         )
     }
 }

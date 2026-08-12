@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.SceneData
+import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.EntityType
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
@@ -84,6 +85,10 @@ fun SearchTabScreen() {
     var searching by remember { mutableStateOf(false) }
     var suggestions by remember { mutableStateOf<List<Suggestion>>(emptyList()) }
 
+    // 자동완성 맨 위에 포스터와 함께 띄우는 **가장 연관된 작품**. 랭킹은 서버가
+    // 정하므로 suggest 응답의 첫 작품을 `GET /contents/{id}` 로 채운 것이다.
+    var topWork by remember { mutableStateOf<ContentDetail?>(null) }
+
     // 드릴다운 2단 — 고른 작품과 그 작품의 촬영지.
     var selectedContent by remember { mutableStateOf<ContentSummary?>(null) }
     var contentPlaces by remember { mutableStateOf<List<PlaceSummary>>(emptyList()) }
@@ -121,7 +126,16 @@ fun SearchTabScreen() {
         } else {
             val asked = draft
             val items = data.suggest(asked.trim())
-            if (asked == draft) suggestions = items
+            if (asked != draft) return@LaunchedEffect
+            suggestions = items
+
+            val first = items.firstOrNull { it.type == EntityType.content }
+            if (first == null) {
+                topWork = null
+            } else if (topWork?.id != first.id) {
+                val detail = data.contentDetail(first.id)
+                if (asked == draft) topWork = detail
+            }
         }
     }
 
@@ -326,11 +340,31 @@ fun SearchTabScreen() {
                 onOpenCart = { showCart = true },
                 onFocus = { searching = true },
             )
-            if (searching && suggestions.isNotEmpty()) {
+            if (searching) {
                 // 자동완성은 검색창 **바로 아래에 붙어** 내려오는 드롭다운이다.
                 SuggestionPanel(
+                    draft = draft,
                     suggestions = suggestions,
-                    onPick = { commit(it.name, it.type) },
+                    topWork = topWork,
+                    onCommit = { term, kind -> commit(term, kind) },
+                    onOpenWork = { work ->
+                        // 검색어를 작품명으로 바꾸지 않고 **바로 상세로** 들어간다.
+                        // 치환하면 뒤로 갔을 때 검색어에 작품명이 남아 원래 결과로
+                        // 돌아갈 수 없다 (iOS 가 겪고 폐기한 구현이다).
+                        searching = false
+                        keyboard?.hide()
+                        selectedContent = work.toSummary()
+                        contentLoading = true
+                        scope.launch {
+                            contentPlaces = data.placesOf(work.id)
+                            contentLoading = false
+                        }
+                    },
+                    onSelectPlace = { item ->
+                        searching = false
+                        keyboard?.hide()
+                        commit(item.name, EntityType.place)
+                    },
                 )
             } else if (!searching) {
                 // 「현 지도 내 성지 검색」은 가운데, 조작 버튼은 오른쪽 — 위
@@ -503,3 +537,21 @@ private fun RowDivider() {
                 .background(IOS.separator),
     )
 }
+
+/**
+ * 상세를 목록 요약으로 줄인다.
+ *
+ * 자동완성의 포스터 카드에서 바로 작품 상세로 들어갈 때 쓴다 — 상세 화면은
+ * `ContentSummary` 로 그리기 시작하고 나머지는 스스로 채우기 때문이다.
+ */
+private fun ContentDetail.toSummary() =
+    ContentSummary(
+        id = id,
+        category = category,
+        title = title,
+        placeCount = placeCount,
+        posterUrl = posterUrl,
+        broadcaster = broadcaster,
+        releaseYear = releaseYear,
+        genres = genres,
+    )
