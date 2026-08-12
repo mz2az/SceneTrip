@@ -38,6 +38,9 @@ object IOS {
 
     val systemBackground = Color(0xFFFFFFFF)
     val systemGray3 = Color(0xFFC7C7CC)
+
+    /** 검색어 지우기 원. iOS 는 연파랑이다 — 실측 #BFE1FF. */
+    val clearCircle = Color(0xFFBFE1FF)
     val systemGray6 = Color(0xFFF2F2F7)
 
     /** 세그먼트 컨트롤의 트랙. systemGray6 보다 살짝 어둡다 — 실측 #EEEEEF. */

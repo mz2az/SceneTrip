@@ -4,11 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -66,6 +69,11 @@ fun SearchTabScreen() {
     val context = LocalContext.current
     val density = LocalDensity.current
     val keyboard = LocalSoftwareKeyboardController.current
+
+    // 검색바는 상태바 **아래**에 놓이므로, 시트가 멈출 자리도 그만큼 내려간다.
+    // iOS 는 안전영역 안에서 계산해 172pt 에서 멈추는데, 이것을 빼먹어 안드로이드
+    // 시트가 66dp 더 올라가 지도 조작 버튼을 덮었다(대조 검사).
+    val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val data = remember { SceneData(scope) }
     val cart = remember { CartStore(context) }
     val likes = remember { LikeStore(context) }
@@ -172,6 +180,18 @@ fun SearchTabScreen() {
     // 드릴다운하면 그 작품의 촬영지가 **한 화면에 다 들어오게** 맞춘다. iOS 가
     // `fitToken` 을 올리는 자리다 — 도깨비 촬영지 57곳이 전국에 흩어져 있어
     // 서울 그대로면 목록의 대부분이 화면 밖이다.
+    // 장소를 열면 그 장소로 **확대**하고, 닫으면 원래 보던 범위로 돌아간다.
+    // iOS 의 focusToken / fitToken 이 하는 일이다.
+    LaunchedEffect(selectedPlace) {
+        val target = map ?: return@LaunchedEffect
+        val place = selectedPlace
+        if (place != null) {
+            target.zoomTo(place)
+        } else {
+            target.fit(if (selectedContent != null) contentPlaces else visiblePlaces, density)
+        }
+    }
+
     LaunchedEffect(contentPlaces) {
         if (contentPlaces.isEmpty()) return@LaunchedEffect
         map?.fit(contentPlaces, density)
@@ -212,6 +232,8 @@ fun SearchTabScreen() {
             modifier = Modifier.fillMaxSize(),
             sheetHeight = sheetHeight,
             // 첫 진입 카메라는 `NaverMapCanvas` 가 여백을 정한 뒤 스스로 맞춘다.
+            // 첫 진입 카메라는 `NaverMapCanvas` 가 배치 뒤에 스스로 맞춘다 —
+            // 여기서 맞추면 뷰 크기가 0 일 수 있다.
             onMapReady = { map = it },
         )
         MapPins(
@@ -229,7 +251,7 @@ fun SearchTabScreen() {
         BottomSheet(
             detent = detent,
             onDetentChange = { detent = it },
-            topInset = SEARCH_BAR_INSET,
+            topInset = SEARCH_BAR_INSET + statusBar,
             onHeightChange = { sheetHeight = it },
         ) {
             when {

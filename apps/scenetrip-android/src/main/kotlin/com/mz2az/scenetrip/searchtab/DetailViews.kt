@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
@@ -154,6 +155,7 @@ fun PlaceDetailView(
     onToggleSave: () -> Unit,
 ) {
     var detail by remember(summary.id) { mutableStateOf<PlaceDetail?>(null) }
+    val context = LocalContext.current
     LaunchedEffect(summary.id) { detail = detailOf(summary.id) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -183,19 +185,49 @@ fun PlaceDetailView(
                     )
                 }
                 // 담긴 상태에서 다시 누르면 뺀다 — 목록 행과 같은 규칙이다.
-                Text(
-                    text = if (saved) "담김 · 누르면 빼기" else "장바구니에 담기",
-                    style = IOS.subheadlineSemibold,
-                    color = IOS.systemBackground,
-                    modifier =
-                        Modifier
-                            .padding(horizontal = IOS.gutter)
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(IOS.accent)
-                            .clickable(onClick = onToggleSave)
-                            .padding(vertical = 12.dp),
-                )
+                //
+                // 두 버튼이 한 줄이다. 담기는 계약이 적어 둔 세 경로 중 하나이고,
+                // 네이버 지도는 외부 앱/브라우저로 넘긴다 — 길찾기와 영업정보는
+                // 우리가 만들 것이 아니다.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(horizontal = IOS.gutter),
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(IOS.accent)
+                                .clickable(onClick = onToggleSave)
+                                .padding(vertical = 12.dp),
+                    ) {
+                        Text(
+                            text = if (saved) "담김 · 누르면 빼기" else "장바구니에 담기",
+                            style = IOS.subheadlineSemibold,
+                            color = IOS.systemBackground,
+                        )
+                    }
+                    val naver = detail?.naverPlaceUrl?.toString()
+                    if (naver != null) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier =
+                                Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(IOS.systemGray6)
+                                    .clickable { openUrl(context, naver) }
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                        ) {
+                            Text(
+                                text = "네이버 지도",
+                                style = IOS.subheadlineSemibold,
+                                color = IOS.accent,
+                            )
+                        }
+                    }
+                }
             }
 
             val scenes = detail?.scenes.orEmpty()
@@ -255,5 +287,19 @@ fun PlaceDetailView(
                 }
             }
         }
+    }
+}
+
+/** 외부 브라우저·앱으로 넘긴다. 네이버 지도의 길찾기·영업정보는 우리 몫이 아니다. */
+private fun openUrl(
+    context: android.content.Context,
+    url: String,
+) {
+    runCatching {
+        context.startActivity(
+            android.content
+                .Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
     }
 }

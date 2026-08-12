@@ -264,7 +264,9 @@ fun ClearIcon(modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val c = Offset(size.width / 2, size.height / 2)
         val r = size.minDimension / 2
-        drawCircle(IOS.tertiaryLabel, r, c)
+        // iOS 는 이 원을 **연파랑**으로 그린다 — 버튼 안이라 강조색이 옅게 배어
+        // 나온다(실측 #BFE1FF). 회색으로 두면 나란히 놓았을 때 다르게 보인다.
+        drawCircle(IOS.clearCircle, r, c)
         val arm = r * 0.42f
         val w = r * 0.16f
         drawLine(

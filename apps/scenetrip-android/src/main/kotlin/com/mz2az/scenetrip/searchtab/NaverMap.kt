@@ -3,10 +3,12 @@ package com.mz2az.scenetrip.searchtab
 import android.graphics.PointF
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -89,11 +91,26 @@ fun NaverMapCanvas(
     // 절반 아래로는 밀리지 않아야 하고(그러면 핀이 위쪽 띠에 몰린다), 반대로 로고는
     // 시트에 가리면 안 되므로 시트 높이를 그대로 따라가야 한다.
     val density = LocalDensity.current
+
+    // **첫 진입 카메라.** `getMapAsync` 콜백은 뷰가 배치되기 전에 오고, 그때
+    // `fitBounds` 를 부르면 크기가 0 인 화면을 기준으로 계산돼 한 단계 축소된
+    // 값이 나온다(대조 검사 — iOS 1.0 km/dp 인데 2.18 km/dp 였다).
+    //
+    // 그래서 **한 프레임 기다렸다가** 맞춘다. 여백도 그 전에는 주지 않는다 —
+    // `fitBounds` 는 여백을 뺀 영역에 맞추므로, 시트가 덮는 만큼 좁은 띠에
+    // 한반도를 우겨넣게 된다. iOS 는 화면 전체를 기준으로 맞춘다.
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     var fitted by remember { mutableStateOf(false) }
-    DisposableEffect(map, sheetHeight) {
+    LaunchedEffect(map) {
+        val target = map ?: return@LaunchedEffect
+        withFrameNanos {}
+        target.setContentPadding(0, 0, 0, 0, true)
+        target.showWholeKorea(density)
+        fitted = true
+    }
+    DisposableEffect(map, sheetHeight, fitted) {
         val target = map
-        if (target != null) {
+        if (target != null && fitted) {
             // 화면 높이는 뷰가 아니라 설정에서 읽는다 — 이 효과가 도는 시점에
             // MapView 가 아직 배치되지 않아 height 가 0 인 경우가 있다.
             val heightPx = with(density) { screenHeight.toPx() }
@@ -111,19 +128,6 @@ fun NaverMapCanvas(
                 true,
             )
 
-            // **첫 진입 카메라는 여백을 정한 뒤에 맞춘다.**
-            //
-            // iOS 는 화면 전체에 맞추는데도 한반도가 시트 위 영역에 다 들어온다 —
-            // `contentInset` 이 카메라 계산에 함께 들어가기 때문이다. 안드로이드는
-            // 여백보다 먼저 맞추면 그 셈이 빠져 지도가 확대돼 보인다(실측 — 서울
-            // 핀이 검색바 위로 잘렸다).
-            //
-            // 그래서 여백이 정해진 뒤 한 번만 맞춘다. 시트를 끌 때마다 다시 맞추면
-            // 사용자가 옮겨 둔 화면이 튕겨 돌아가므로 첫 번째만이다.
-            if (!fitted && cameraBottom > 0) {
-                fitted = true
-                target.showWholeKorea(density)
-            }
             val logoBottom = maxOf(0, sheetPx - cameraBottom) + with(density) { 6.dp.toPx() }.toInt()
             val side = with(density) { 4.dp.toPx() }.toInt()
             target.uiSettings.setLogoMargin(side, 0, side, logoBottom)
@@ -226,6 +230,29 @@ fun NaverMap.fit(
     moveCamera(
         CameraUpdate
             .fitBounds(bounds, padding)
+            .animate(CameraAnimation.Easing, 400L),
+    )
+}
+
+/**
+ * 선택한 장소 하나로 **확대**한다. iOS `zoom(to:)` — 줌 16, easeIn 0.5 초.
+ */
+fun NaverMap.zoomTo(place: PlaceSummary) {
+    moveCamera(
+        CameraUpdate
+            .scrollAndZoomTo(place.position, 16.0)
+            .animate(CameraAnimation.Easing, 500L),
+    )
+}
+
+/**
+ * 담은 장소가 가운데 오도록 **이동만** 한다 — 확대는 장소를 열 때만 한다.
+ * iOS `center(on:)` — easeIn 0.4 초.
+ */
+fun NaverMap.centerOn(place: PlaceSummary) {
+    moveCamera(
+        CameraUpdate
+            .scrollTo(place.position)
             .animate(CameraAnimation.Easing, 400L),
     )
 }

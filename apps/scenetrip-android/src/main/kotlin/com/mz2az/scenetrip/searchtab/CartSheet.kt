@@ -27,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.ui.IOS
 
@@ -46,6 +48,23 @@ import com.mz2az.scenetrip.ui.IOS
  */
 @Composable
 fun CartSheet(
+    items: List<CartItem>,
+    onRemove: (Long) -> Unit,
+    onClose: () -> Unit,
+) {
+    // **`Dialog` 로 띄운다.** 검색 탭 안에 그리면 하단 탭바가 그대로 남아 "다른
+    // 화면" 으로 보이지 않는다(대조 검사). `usePlatformDefaultWidth = false` 라야
+    // 좌우 여백 없이 화면을 다 덮는다.
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        CartContent(items = items, onRemove = onRemove, onClose = onClose)
+    }
+}
+
+@Composable
+private fun CartContent(
     items: List<CartItem>,
     onRemove: (Long) -> Unit,
     onClose: () -> Unit,
@@ -71,7 +90,8 @@ fun CartSheet(
             Text(
                 text = "닫기",
                 style = IOS.body,
-                color = IOS.accent,
+                // iOS 는 이 글자를 검정으로 그린다(실측). 강조색이 아니다.
+                color = IOS.label,
                 modifier =
                     Modifier
                         .align(Alignment.CenterEnd)
@@ -122,7 +142,7 @@ private fun CartRow(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 14.dp),
     ) {
         // **강조색 원에 흰 숫자** — 목록의 번호 배지(핀과 짝을 이루는 보라
         // 그러데이션)와는 다른 것이다. 여기 번호는 담은 순서이지 지도 핀이 아니다.

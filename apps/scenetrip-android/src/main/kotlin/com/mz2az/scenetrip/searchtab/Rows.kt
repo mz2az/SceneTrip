@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.searchtab
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,14 +18,16 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
@@ -163,19 +166,29 @@ fun PlaceRow(
         // 담긴 상태에서 다시 누르면 뺀다. 아이콘을 `−` 로 바꾸지 않고 체크를
         // 유지하는 이유는 iOS 주석에 있다 — 이 자리의 첫 임무는 "이미 담겼는지" 를
         // 알려 주는 것이고, `−` 로 바꾸면 그 상태가 보이지 않는다.
-        Icon(
-            // iOS 는 `plus.circle`(선) → `checkmark.circle.fill`(채움) 이다.
-            // Material 의 AddCircle 은 채운 원이라 담기 전부터 채워져 보인다.
-            imageVector = if (saved) Icons.Filled.CheckCircle else Icons.Outlined.AddCircle,
-            contentDescription = if (saved) "장바구니에서 빼기" else "장바구니에 담기",
-            tint = if (saved) IOS.accent else IOS.secondaryLabel,
+        // iOS 는 `plus.circle`(**테두리만 있는 원**) → `checkmark.circle.fill`(채움)
+        // 이다. Material 의 `Outlined.AddCircle` 도 원 안이 채워져 나와(대조 검사)
+        // 담기 전부터 담은 것처럼 보인다. 그래서 선 원은 직접 그린다.
+        Box(
+            contentAlignment = Alignment.Center,
             modifier =
                 Modifier
                     .clip(CircleShape)
                     .clickable(onClick = onAdd)
                     .padding(2.dp)
                     .size(24.dp),
-        )
+        ) {
+            if (saved) {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = "장바구니에서 빼기",
+                    tint = IOS.accent,
+                    modifier = Modifier.size(24.dp),
+                )
+            } else {
+                PlusCircle(IOS.secondaryLabel, Modifier.size(24.dp))
+            }
+        }
         Chevron()
     }
 }
@@ -189,4 +202,21 @@ private fun Chevron() {
         tint = IOS.tertiaryLabel,
         modifier = Modifier.size(16.dp),
     )
+}
+
+/** iOS 의 `plus.circle` — 테두리만 있는 원 안에 ＋. */
+@Composable
+private fun PlusCircle(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val c = Offset(size.width / 2, size.height / 2)
+        val r = size.minDimension / 2
+        val w = r * 0.13f
+        drawCircle(tint, r - w / 2, c, style = Stroke(width = w))
+        val arm = r * 0.46f
+        drawLine(tint, Offset(c.x - arm, c.y), Offset(c.x + arm, c.y), strokeWidth = w)
+        drawLine(tint, Offset(c.x, c.y - arm), Offset(c.x, c.y + arm), strokeWidth = w)
+    }
 }
