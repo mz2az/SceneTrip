@@ -49,7 +49,10 @@ object PinImage {
         val key = number ?: -1
         cache[key]?.let { return it }
 
-        val s = metrics.density
+        // **iOS 보다 14.6% 작게 나왔다**(6 차 실측 69×102 vs 79×117px).
+        // iOS 는 38×50 pt 를 @3x 로 굽는데, 안드로이드는 density 2.625 라
+        // 그대로 곱하면 그만큼 작다. 논리 크기를 맞추려면 보정해야 한다.
+        val s = metrics.density * 1.146f
         val bitmap = Bitmap.createBitmap((W * s).toInt(), (H * s).toInt(), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.scale(s, s)

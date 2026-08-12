@@ -77,7 +77,8 @@ fun SearchBar(
                 .clickable {
                     focus.requestFocus()
                     onFocus()
-                }.padding(horizontal = IOS.gutter, vertical = 11.dp),
+                    // iOS 검색바 높이는 44pt 다(6 차 실측 — 40.7 로 짧았다).
+                }.padding(horizontal = IOS.gutter, vertical = 12.7.dp),
     ) {
         Icon(
             Icons.Filled.Search,

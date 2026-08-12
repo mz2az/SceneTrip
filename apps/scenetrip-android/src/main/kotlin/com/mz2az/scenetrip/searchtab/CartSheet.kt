@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -62,6 +63,15 @@ fun CartSheet(
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         DisableDialogDim()
+        // **기본 딤을 껐으면 대신 칠해야 한다.** 끄기만 하고 두었더니 뒷배경이
+        // 전혀 안 어두워졌다(6 차 실측 배율 1.000, iOS 는 0.599). iOS 시트의 딤은
+        // 장면 팝업(20%)보다 짙다.
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = IOS.SHEET_DIM)),
+        )
         CartContent(items = items, onRemove = onRemove, onClose = onClose)
     }
 }
@@ -149,7 +159,7 @@ private fun CartRow(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 19.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 23.5.dp),
     ) {
         // **강조색 원에 흰 숫자** — 목록의 번호 배지(핀과 짝을 이루는 보라
         // 그러데이션)와는 다른 것이다. 여기 번호는 담은 순서이지 지도 핀이 아니다.

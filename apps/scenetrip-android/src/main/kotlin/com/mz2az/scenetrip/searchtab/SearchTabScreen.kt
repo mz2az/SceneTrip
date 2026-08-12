@@ -240,6 +240,9 @@ fun SearchTabScreen() {
         chip = CategoryChip.ALL
         selectedContent = null
         contentPlaces = emptyList()
+        // **열려 있던 상세도 닫는다.** 이걸 빠뜨려서 촬영지 상세를 연 채 검색하면
+        // 지도와 검색어만 바뀌고 시트는 그 상세에 남아 있었다(6 차 검사).
+        selectedPlace = null
         searching = false
         keyboard?.hide()
         detent = Detent.MEDIUM
@@ -381,9 +384,12 @@ fun SearchTabScreen() {
                 onSubmit = { commit(draft) },
                 // iOS 는 ✕ 를 누르면 **포커스가 풀린다.** 유지하면 빈 검색어로
                 // 자동완성이 계속 떠 있고, 다시 눌러도 새로 뜨지 않는다(4 차 검사).
+                // ✕ 는 **검색어만 지우고 패널은 열어 둔다.** iOS 도 그렇다.
+                // 닫아 버렸더니 다시 눌러도 포커스가 안 잡혀 추천 검색어가 영영
+                // 뜨지 않았다 — 검색을 두 번 못 하는 셈이었다(5·6 차).
                 onClear = {
                     commit("")
-                    searching = false
+                    searching = true
                 },
                 onOpenCart = { showCart = true },
                 onFocus = { searching = true },

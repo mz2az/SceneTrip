@@ -49,6 +49,13 @@ object IOS {
     /** 세그먼트 컨트롤의 트랙. systemGray6 보다 살짝 어둡다 — 실측 #EEEEEF. */
     val segmentTrack = Color(0xFFEEEEEF)
 
+    /**
+     * 장면 팝업 카드의 바탕. iOS 는 반투명 재질이라 뒤가 희미하게 비치는데,
+     * 흰 화면 위에서 잰 값이 #EBEBEB 다. systemGray6(#F2F2F7)를 쓰면 파란 기가
+     * 돌아 다르게 보인다(6 차 실측).
+     */
+    val popupSurface = Color(0xFFEBEBEB)
+
     /** `.primary` — 완전한 검정이 아니라 label 색이다. */
     val label = Color(0xFF000000)
 
@@ -103,6 +110,9 @@ object IOS {
 
     /** 팝업 뒷배경 딤. iOS 는 **20%** 다 — 60% 로 두면 훨씬 어둡다. */
     const val DIM = 0.20f
+
+    /** 시트(장바구니) 뒷배경 딤. 팝업보다 짙다 — iOS 실측 밝기 배율 0.599. */
+    const val SHEET_DIM = 0.40f
 
     /** 시트 스냅 비율. `BottomSheet.swift` 가 "두 앱이 같은 숫자" 라고 못 박은 값. */
     const val DETENT_COLLAPSED = 0.14f
