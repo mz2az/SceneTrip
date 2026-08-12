@@ -44,7 +44,7 @@ import com.naver.maps.map.overlay.Marker
 fun NaverMapCanvas(
     modifier: Modifier = Modifier,
     sheetHeight: Dp = 0.dp,
-    searchBarInset: Dp = 108.dp,
+    searchBarInset: Dp,
     onMapReady: (NaverMap) -> Unit = {},
 ) {
     val context = LocalContext.current

@@ -255,7 +255,7 @@ fun SearchTabScreen() {
         NaverMapCanvas(
             modifier = Modifier.fillMaxSize(),
             sheetHeight = sheetHeight,
-            // 첫 진입 카메라는 `NaverMapCanvas` 가 여백을 정한 뒤 스스로 맞춘다.
+            searchBarInset = SEARCH_BAR_INSET + statusBar,
             // 첫 진입 카메라는 `NaverMapCanvas` 가 배치 뒤에 스스로 맞춘다 —
             // 여기서 맞추면 뷰 크기가 0 일 수 있다.
             onMapReady = { map = it },
@@ -275,7 +275,9 @@ fun SearchTabScreen() {
         BottomSheet(
             detent = detent,
             onDetentChange = { detent = it },
-            topInset = SEARCH_BAR_INSET + statusBar,
+            // 조작 줄(「현 지도 내 성지 검색」·현위치)까지 덮지 않아야 한다 —
+            // 7 차에 시트가 그 위로 올라와 버튼이 시트 헤더에 겹쳐 그려졌다.
+            topInset = SEARCH_BAR_INSET + statusBar + CONTROL_ROW,
             onHeightChange = { sheetHeight = it },
         ) {
             when {
@@ -385,12 +387,13 @@ fun SearchTabScreen() {
                 onSubmit = { commit(draft) },
                 // iOS 는 ✕ 를 누르면 **포커스가 풀린다.** 유지하면 빈 검색어로
                 // 자동완성이 계속 떠 있고, 다시 눌러도 새로 뜨지 않는다(4 차 검사).
-                // ✕ 는 **검색어만 지우고 패널은 열어 둔다.** iOS 도 그렇다.
-                // 닫아 버렸더니 다시 눌러도 포커스가 안 잡혀 추천 검색어가 영영
-                // 뜨지 않았다 — 검색을 두 번 못 하는 셈이었다(5·6 차).
+                // **✕ 는 패널을 닫는다.** iOS 가 그렇다 — 5·6 차에 "닫으면 다시 안
+                // 뜬다" 는 증상을 보고 열어 두게 바꿨는데, 진짜 원인은 검색바를 다시
+                // 눌러도 포커스가 안 잡히던 것이었다. 그건 바 전체를 누를 수 있게
+                // 고쳤으므로(SearchOverlays) 이제 iOS 와 같이 닫아도 된다.
                 onClear = {
                     commit("")
-                    searching = true
+                    searching = false
                 },
                 onOpenCart = { showCart = true },
                 onFocus = { searching = true },
@@ -501,14 +504,20 @@ fun SearchTabScreen() {
 }
 
 /**
- * 검색바가 덮는 높이 중 **상태바를 뺀 몫**. 바깥 여백 8 + 바 높이(12.7×2 + 아이콘
- * 22) + 아래 여백 8 이다.
+ * 검색바가 덮는 높이. iOS `BottomSheet(topInset: 108)` 과 같은 값이다.
  *
- * iOS 는 이 자리에 108 을 쓰는데 그것은 iOS 검색바의 실제 높이에서 나온 값이라
- * 숫자만 옮기면 맞지 않는다 — 그대로 뒀더니 초기 지도 배율이 14.8% 어긋났다
- * (6 차 검사). **숫자가 아니라 뜻을 옮긴다.**
+ * **63 으로 줄였다가 되돌렸다.** 6 차가 "초기 지도 배율이 14.8% 어긋났다" 고 해서
+ * 이 값이 원인이라고 보고 실제 레이아웃에서 계산하게 바꿨는데, 7 차에 그 14.8% 가
+ * **기기 픽셀을 그대로 비교한 착시**였음이 드러났다(논리 배율은 이미 1.005 로 맞아
+ * 있었다). 맞은 것을 고치느라 세로를 0.7 → 25.5dp 로 깨뜨렸다.
+ *
+ * 값을 옮기기 전에 **두 기기의 밀도가 다르다는 것**(2.625 vs 3.0)을 먼저 셈에
+ * 넣어야 한다. 픽셀로 재면 같은 크기도 12.5% 달라 보인다.
  */
-private val SEARCH_BAR_INSET: Dp = 63.dp
+private val SEARCH_BAR_INSET: Dp = 108.dp
+
+/** 검색바 아래 조작 줄이 차지하는 높이 (여백 8 + 버튼 44). */
+private val CONTROL_ROW: Dp = 52.dp
 
 @Composable
 private fun Centered(message: String?) {

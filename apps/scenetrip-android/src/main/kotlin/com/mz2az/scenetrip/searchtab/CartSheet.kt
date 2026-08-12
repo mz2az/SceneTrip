@@ -60,7 +60,13 @@ fun CartSheet(
     // 좌우 여백 없이 화면을 다 덮는다.
     Dialog(
         onDismissRequest = onClose,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        properties =
+            DialogProperties(
+                usePlatformDefaultWidth = false,
+                // 이것이 없으면 창이 상태바 아래에서 시작해 **위쪽에 딤이 안 걸린다**
+                // (7 차 — 위 136px 이 원본 밝기 그대로였다).
+                decorFitsSystemWindows = false,
+            ),
     ) {
         DisableDialogDim()
         // **기본 딤을 껐으면 대신 칠해야 한다.** 끄기만 하고 두었더니 뒷배경이
@@ -70,7 +76,7 @@ fun CartSheet(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = IOS.SHEET_DIM)),
+                    .background(Color.Black.copy(alpha = IOS.DIM)),
         )
         CartContent(items = items, onRemove = onRemove, onClose = onClose)
     }
@@ -159,7 +165,7 @@ private fun CartRow(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 23.5.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 19.dp),
     ) {
         // **강조색 원에 흰 숫자** — 목록의 번호 배지(핀과 짝을 이루는 보라
         // 그러데이션)와는 다른 것이다. 여기 번호는 담은 순서이지 지도 핀이 아니다.

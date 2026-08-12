@@ -49,10 +49,13 @@ object PinImage {
         val key = number ?: -1
         cache[key]?.let { return it }
 
-        // **iOS 보다 14.6% 작게 나왔다**(6 차 실측 69×102 vs 79×117px).
-        // iOS 는 38×50 pt 를 @3x 로 굽는데, 안드로이드는 density 2.625 라
-        // 그대로 곱하면 그만큼 작다. 논리 크기를 맞추려면 보정해야 한다.
-        val s = metrics.density * 1.146f
+        // **보정하지 않는다.** 6 차에 "iOS 보다 14.6% 작다" 는 보고를 믿고 1.146 을
+        // 곱했다가 7 차에 정반대로 14.3% 커졌다. 6 차의 수치는 **기기 픽셀을 그대로
+        // 비교한 것**이었다 — 두 기기의 핀 비트맵은 이미 정확히 같은 80×119 px 였고,
+        // 밀도가 달라(2.625 vs 3.0) 픽셀로만 재면 12.5% 차이가 저절로 난다.
+        //
+        // dp 로 굽는 것이 맞다. 화면 밀도가 무엇이든 논리 크기가 iOS 의 pt 와 같아진다.
+        val s = metrics.density
         val bitmap = Bitmap.createBitmap((W * s).toInt(), (H * s).toInt(), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.scale(s, s)

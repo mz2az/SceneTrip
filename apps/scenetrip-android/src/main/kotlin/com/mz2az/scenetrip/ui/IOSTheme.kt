@@ -111,9 +111,6 @@ object IOS {
     /** 팝업 뒷배경 딤. iOS 는 **20%** 다 — 60% 로 두면 훨씬 어둡다. */
     const val DIM = 0.20f
 
-    /** 시트(장바구니) 뒷배경 딤. 팝업보다 짙다 — iOS 실측 밝기 배율 0.599. */
-    const val SHEET_DIM = 0.40f
-
     /** 시트 스냅 비율. `BottomSheet.swift` 가 "두 앱이 같은 숫자" 라고 못 박은 값. */
     const val DETENT_COLLAPSED = 0.14f
     const val DETENT_MEDIUM = 0.48f

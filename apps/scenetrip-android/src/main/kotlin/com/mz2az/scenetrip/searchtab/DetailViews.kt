@@ -224,9 +224,9 @@ fun PlaceDetailView(
                                 .clip(RoundedCornerShape(IOS.capsuleButton))
                                 .background(IOS.accent)
                                 .clickable(onClick = onToggleSave)
-                                // iOS 버튼 높이는 36.3pt 다(6 차 실측 — 5 차의
-                                // 30.3 은 캡슐 반지름을 높이로 잘못 읽은 값이었다).
-                                .padding(vertical = 9.5.dp),
+                                // iOS 버튼 높이는 30.3pt 다. 6 차가 36.3 이라 해서
+                                // 키웠다가 7 차에 40.4 로 커졌다 — 6 차 값이 틀렸다.
+                                .padding(vertical = 6.dp),
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -262,7 +262,7 @@ fun PlaceDetailView(
                                     .clip(RoundedCornerShape(IOS.capsuleButton))
                                     .background(IOS.systemGray6)
                                     .clickable { openUrl(context, naver) }
-                                    .padding(horizontal = 14.dp, vertical = 9.5.dp),
+                                    .padding(horizontal = 14.dp, vertical = 6.dp),
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -423,14 +423,7 @@ fun ScenePopup(
                         .fillMaxHeight(0.5f)
                         // Dialog 는 시스템 내비게이션 바 인셋을 먹지 않아 카드가
                         // 화면 맨 아래까지 내려온다 — 그 몫을 여기서 더한다.
-                        // **`navigationBarsPadding` 이 Dialog 안에서는 안 먹는다**
-                        // — 카드가 화면 아래로 흘러나가 아래 두 모서리가 잘렸다
-                        // (6 차 검사). 제스처 바 높이를 더해 직접 띄운다.
-                        .padding(
-                            start = IOS.popupInset,
-                            end = IOS.popupInset,
-                            bottom = IOS.popupInset + 24.dp,
-                        ) // iOS 팝업 카드는 모서리가 훨씬 둥글고(유효 반지름 ≈36) 바탕이
+                        .padding(start = IOS.popupInset, end = IOS.popupInset) // iOS 팝업 카드는 모서리가 훨씬 둥글고(유효 반지름 ≈36) 바탕이
                         // 흰색이 아니라 systemGray6 다(실측 235,235,236).
                         .clip(RoundedCornerShape(IOS.popupCorner))
                         .background(IOS.popupSurface)
