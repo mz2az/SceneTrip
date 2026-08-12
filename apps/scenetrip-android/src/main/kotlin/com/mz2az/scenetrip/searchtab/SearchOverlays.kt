@@ -103,7 +103,8 @@ fun SearchBar(
                     Modifier
                         .clip(CircleShape)
                         .clickable(onClick = onClear)
-                        .size(20.dp),
+                        // iOS 는 16.7pt 다(3 차 실측).
+                        .size(17.dp),
             )
             Spacer(Modifier.width(8.dp))
         }

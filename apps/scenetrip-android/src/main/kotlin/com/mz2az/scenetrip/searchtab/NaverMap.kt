@@ -101,36 +101,33 @@ fun NaverMapCanvas(
     // 한반도를 우겨넣게 된다. iOS 는 화면 전체를 기준으로 맞춘다.
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     var fitted by remember { mutableStateOf(false) }
-    LaunchedEffect(map) {
+    LaunchedEffect(map, sheetHeight) {
         val target = map ?: return@LaunchedEffect
+        if (fitted || sheetHeight <= 0.dp) return@LaunchedEffect
         withFrameNanos {}
+        // **여백을 먼저 주고 그 다음에 맞춘다.**
+        //
+        // 2 차에서 여백 뒤에 맞췄더니 2.2 배 축소돼 보였는데, 진짜 원인은 여백이
+        // 아니라 **뷰가 배치되기 전에 맞춘 것**이었다(크기 0 기준으로 계산됐다).
+        // 한 프레임 기다리는 것으로 그것이 풀렸고, 이제는 여백을 함께 넣어야
+        // iOS 와 **같은 자리**가 나온다 — iOS 도 `contentInset` 을 카메라 계산에
+        // 넣기 때문이다. 3 차에서 축척은 맞았는데 세로 중심이 122 단위 어긋난
+        // 것이 이 차이였다.
+        // **여백 없이 맞춘 뒤 여백을 준다.**
+        //
+        // 여백을 먼저 주면 시트가 덮는 좁은 띠에 한반도를 우겨넣어 2 배 축소된다.
+        // 여백 없이 맞추면 축척은 iOS 와 같아지지만(3 차 검사 0.7% 차) 세로 중심이
+        // 122 단위 어긋난다 — iOS 는 `contentInset` 을 걸 때 화면이 함께 밀리기
+        // 때문이다. 그래서 맞춘 뒤 **화면을 미는 쪽으로** 여백을 준다.
         target.setContentPadding(0, 0, 0, 0, true)
         target.showWholeKorea(density)
+        applyInset(target, density, screenHeight, sheetHeight, keepCamera = false)
         fitted = true
     }
     DisposableEffect(map, sheetHeight, fitted) {
         val target = map
         if (target != null && fitted) {
-            // 화면 높이는 뷰가 아니라 설정에서 읽는다 — 이 효과가 도는 시점에
-            // MapView 가 아직 배치되지 않아 height 가 0 인 경우가 있다.
-            val heightPx = with(density) { screenHeight.toPx() }
-            val sheetPx = with(density) { sheetHeight.toPx() }.toInt()
-            val cameraBottom = minOf(sheetPx, (heightPx * 0.48f).toInt())
-            // **다섯째 인자가 핵심이다.** 네 인자짜리는 여백을 주면서 카메라를 함께
-            // 옮겨, 남한 전체로 맞춰 둔 화면이 위로 밀린다(실측 — 평양이 보였다).
-            // `keepCamera = true` 면 보이는 화면은 그대로 두고 여백만 바뀐다 —
-            // iOS 의 `contentInset` 과 같은 뜻이다.
-            target.setContentPadding(
-                0,
-                with(density) { 108.dp.toPx() }.toInt(),
-                0,
-                cameraBottom,
-                true,
-            )
-
-            val logoBottom = maxOf(0, sheetPx - cameraBottom) + with(density) { 6.dp.toPx() }.toInt()
-            val side = with(density) { 4.dp.toPx() }.toInt()
-            target.uiSettings.setLogoMargin(side, 0, side, logoBottom)
+            applyInset(target, density, screenHeight, sheetHeight)
         }
         onDispose {}
     }
@@ -306,5 +303,33 @@ fun MapPins(
                 }
             }
         onDispose { markers.forEach { it.map = null } }
+    }
+}
+
+/**
+ * 시트가 덮는 만큼 지도에 여백을 준다. iOS `applyInset` 과 같은 계산이다.
+ *
+ * **카메라 여백과 로고 여백을 따로 둔다.** 시트를 끝까지 올려도 카메라가 화면
+ * 절반 아래로는 밀리지 않아야 하고(그러면 핀이 위쪽 띠에 몰린다), 반대로 로고는
+ * 시트에 가리면 안 되므로 시트 높이를 그대로 따라가야 한다.
+ *
+ * 다섯째 인자가 핵심이다. 네 인자짜리는 여백을 주면서 카메라를 함께 옮겨,
+ * 맞춰 둔 화면이 밀린다(실측 — 평양이 보였다).
+ */
+private fun applyInset(
+    map: NaverMap,
+    density: Density,
+    screenHeight: Dp,
+    sheetHeight: Dp,
+    keepCamera: Boolean = true,
+) {
+    with(density) {
+        val heightPx = screenHeight.toPx()
+        val sheetPx = sheetHeight.toPx().toInt()
+        val cameraBottom = minOf(sheetPx, (heightPx * 0.48f).toInt())
+        map.setContentPadding(0, 108.dp.toPx().toInt(), 0, cameraBottom, keepCamera)
+        val logoBottom = maxOf(0, sheetPx - cameraBottom) + 6.dp.toPx().toInt()
+        val side = 4.dp.toPx().toInt()
+        map.uiSettings.setLogoMargin(side, 0, side, logoBottom)
     }
 }

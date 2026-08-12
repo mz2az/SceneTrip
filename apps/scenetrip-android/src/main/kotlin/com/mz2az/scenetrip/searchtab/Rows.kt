@@ -183,10 +183,11 @@ fun PlaceRow(
                     Icons.Filled.CheckCircle,
                     contentDescription = "장바구니에서 빼기",
                     tint = IOS.accent,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             } else {
-                PlusCircle(IOS.secondaryLabel, Modifier.size(24.dp))
+                // iOS 는 20pt 다(3 차 실측 — 24 로 20% 컸다).
+                PlusCircle(IOS.secondaryLabel, Modifier.size(20.dp))
             }
         }
         Chevron()

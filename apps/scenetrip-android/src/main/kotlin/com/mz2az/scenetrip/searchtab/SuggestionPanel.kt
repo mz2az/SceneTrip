@@ -22,8 +22,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -287,9 +287,9 @@ private fun TypeIcon(
         // 같은 모양이 없고, 재생 삼각형으로 대신하면 한눈에 다르게 보인다.
         EntityType.content -> FilmIcon(tint, Modifier.size(size))
 
-        EntityType.person -> Icon(Icons.Filled.Person, null, Modifier.size(size), tint)
+        EntityType.person -> Icon(Icons.Outlined.Person, null, Modifier.size(size), tint)
 
-        EntityType.place -> Icon(Icons.Filled.Place, null, Modifier.size(size), tint)
+        EntityType.place -> Icon(Icons.Outlined.Place, null, Modifier.size(size), tint)
     }
 }
 
@@ -377,26 +377,29 @@ private fun FilmIcon(
                     .CornerRadius(w * 0.12f),
             style = Stroke(width = stroke),
         )
-        // 좌우 스프로킷 구멍 셋씩.
-        val holeW = w * 0.13f
-        val holeH = h * 0.13f
-        repeat(3) { i ->
-            val y = h * (0.23f + i * 0.235f)
+        // **좌우 스프로킷 구멍 다섯씩, 가운데 가로 칸막이 하나.** iOS `film` 을
+        // 확대해 세어 본 값이다(3 차 검사) — 셋으로 그렸더니 다른 모양이 됐다.
+        val holeW = w * 0.11f
+        val holeH = h * 0.09f
+        repeat(5) { i ->
+            val y = h * (0.19f + i * 0.145f)
             drawRect(
                 tint,
-                Offset(w * 0.11f, y),
+                Offset(w * 0.10f, y),
                 androidx.compose.ui.geometry
                     .Size(holeW, holeH),
             )
             drawRect(
                 tint,
-                Offset(w * 0.76f, y),
+                Offset(w * 0.79f, y),
                 androidx.compose.ui.geometry
                     .Size(holeW, holeH),
             )
         }
-        // 가운데 세로 칸막이 둘 — 필름 화면을 나눈다.
-        drawLine(tint, Offset(w * 0.32f, h * 0.13f), Offset(w * 0.32f, h * 0.87f), strokeWidth = stroke * 0.8f)
+        // 세로 칸막이 둘이 필름 화면을 가르고, 가로 칸막이 하나가 위아래로 나눈다.
+        drawLine(tint, Offset(w * 0.28f, h * 0.13f), Offset(w * 0.28f, h * 0.87f), strokeWidth = stroke * 0.8f)
+        drawLine(tint, Offset(w * 0.72f, h * 0.13f), Offset(w * 0.72f, h * 0.87f), strokeWidth = stroke * 0.8f)
+        drawLine(tint, Offset(w * 0.28f, h * 0.50f), Offset(w * 0.72f, h * 0.50f), strokeWidth = stroke * 0.8f)
         drawLine(tint, Offset(w * 0.68f, h * 0.13f), Offset(w * 0.68f, h * 0.87f), strokeWidth = stroke * 0.8f)
     }
 }

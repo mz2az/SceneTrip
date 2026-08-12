@@ -22,7 +22,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -219,11 +222,24 @@ fun PlaceDetailView(
                                 .clickable(onClick = onToggleSave)
                                 .padding(vertical = 12.dp),
                     ) {
-                        Text(
-                            text = if (saved) "담김 · 누르면 빼기" else "장바구니에 담기",
-                            style = IOS.subheadlineSemibold,
-                            color = IOS.systemBackground,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            // iOS 는 `Label(_, systemImage:)` 라 **아이콘이 함께**
+                            // 붙는다 — 담기 전에는 가방, 담긴 뒤에는 체크다.
+                            Icon(
+                                if (saved) Icons.Filled.Check else Icons.Outlined.ShoppingCart,
+                                contentDescription = null,
+                                tint = IOS.systemBackground,
+                                modifier = Modifier.size(17.dp),
+                            )
+                            Text(
+                                text = if (saved) "담김 · 누르면 빼기" else "장바구니에 담기",
+                                style = IOS.subheadlineSemibold,
+                                color = IOS.systemBackground,
+                            )
+                        }
                     }
                     val naver = detail?.naverPlaceUrl?.toString()
                     if (naver != null) {
@@ -236,11 +252,23 @@ fun PlaceDetailView(
                                     .clickable { openUrl(context, naver) }
                                     .padding(horizontal = 14.dp, vertical = 12.dp),
                         ) {
-                            Text(
-                                text = "네이버 지도",
-                                style = IOS.subheadlineSemibold,
-                                color = IOS.accent,
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(
+                                    text = "네이버 지도",
+                                    style = IOS.subheadlineSemibold,
+                                    color = IOS.accent,
+                                )
+                                // iOS 의 `arrow.up.right.square` — 밖으로 나간다는 표시다.
+                                Icon(
+                                    Icons.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = IOS.accent,
+                                    modifier = Modifier.size(15.dp),
+                                )
+                            }
                         }
                     }
                 }
