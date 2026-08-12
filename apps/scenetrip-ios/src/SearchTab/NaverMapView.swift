@@ -125,7 +125,10 @@ struct NaverMapView: UIViewRepresentable {
         private var lastPinKey: String = ""
 
         /// 첫 렌더에서는 카메라를 맞추지 않는다 — 초기값이 fitToken 의 초기값과 같다.
-        /// 첫 진입은 서울 중심으로 열려야 한다 (MZ2AZ-162, 계획서 §3-1).
+        /// 첫 진입 카메라는 `makeUIView` 가 `korea` 로 이미 맞춰 놨다(97행).
+        ///
+        /// MZ2AZ-162 는 처음에 **서울 중심**으로 적혀 있었으나 뒤집혔다. 촬영지가
+        /// 서울에만 있지 않아 지방 촬영지를 가진 작품이 첫 화면에서 통째로 사라졌다.
         private var lastFitToken: Int = 0
         private var lastFocusToken: Int = 0
         private var lastPanToken: Int = 0

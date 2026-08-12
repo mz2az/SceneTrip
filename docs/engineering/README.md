@@ -10,6 +10,7 @@
 | `git-workflow.md` | 브랜치, 커밋, 리뷰, 머지 |
 | `coding-standards.md` | 언어별 컨벤션과 품질 기준 |
 | `troubleshooting.md` | 자주 겪는 빌드·테스트 실패와 해결책 |
+| `ios-to-android-port.md` | iOS 화면을 안드로이드로 옮길 때 걸리는 함정 |
 
 규칙의 정본은 [AGENTS.md](../../AGENTS.md) 이고, 여기 문서는 그것을 풀어 설명하고
 예를 든다. 둘이 어긋나면 AGENTS.md 가 이기고 문서를 고친다.
