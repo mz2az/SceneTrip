@@ -44,6 +44,7 @@ import com.naver.maps.map.overlay.Marker
 fun NaverMapCanvas(
     modifier: Modifier = Modifier,
     sheetHeight: Dp = 0.dp,
+    searchBarInset: Dp = 108.dp,
     onMapReady: (NaverMap) -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -121,13 +122,13 @@ fun NaverMapCanvas(
         // 때문이다. 그래서 맞춘 뒤 **화면을 미는 쪽으로** 여백을 준다.
         target.setContentPadding(0, 0, 0, 0, true)
         target.showWholeKorea(density)
-        applyInset(target, density, screenHeight, sheetHeight, keepCamera = false)
+        applyInset(target, density, screenHeight, sheetHeight, searchBarInset, keepCamera = false)
         fitted = true
     }
     DisposableEffect(map, sheetHeight, fitted) {
         val target = map
         if (target != null && fitted) {
-            applyInset(target, density, screenHeight, sheetHeight)
+            applyInset(target, density, screenHeight, sheetHeight, searchBarInset)
         }
         onDispose {}
     }
@@ -207,18 +208,19 @@ fun NaverMap.fit(
     density: Density,
     screenHeight: Dp,
     sheetHeight: Dp,
+    searchBarInset: Dp,
 ) {
     if (places.isEmpty()) return
     // **한 곳이면 그 장소로 확대한다** — iOS `fit(_ pins:)` 가 `zoom(to:)` 로
     // 넘긴다(줌 16). 줌 14 로 해 뒀더니 같은 검색어에서 iOS 는 골목이 보이는데
     // 안드로이드는 경복궁·창덕궁까지 보였다(4 차 검사 — 3.2 배 차).
     if (places.size == 1) {
-        zoomTo(places.first(), density, screenHeight, sheetHeight)
+        zoomTo(places.first(), density, screenHeight, sheetHeight, searchBarInset)
         return
     }
     // iOS 는 **맞추기 전에 여백을 다시 건다.** 빠뜨리면 시트가 덮는 만큼을 셈에
     // 넣지 않아 결과가 조금씩 더 확대된다(4 차 검사 — 7.5% 차).
-    applyInset(this, density, screenHeight, sheetHeight)
+    applyInset(this, density, screenHeight, sheetHeight, searchBarInset)
     val bounds =
         LatLngBounds
             .Builder()
@@ -240,8 +242,9 @@ fun NaverMap.zoomTo(
     density: Density,
     screenHeight: Dp,
     sheetHeight: Dp,
+    searchBarInset: Dp,
 ) {
-    applyInset(this, density, screenHeight, sheetHeight)
+    applyInset(this, density, screenHeight, sheetHeight, searchBarInset)
     moveCamera(
         CameraUpdate
             .scrollAndZoomTo(place.position, 16.0)
@@ -328,6 +331,7 @@ internal fun applyInset(
     density: Density,
     screenHeight: Dp,
     sheetHeight: Dp,
+    searchBarInset: Dp,
     keepCamera: Boolean = true,
 ) {
     with(density) {
@@ -337,11 +341,13 @@ internal fun applyInset(
         // 위 여백은 검색바가 덮는 만큼이다. iOS 는 108pt 를 쓰는데, 안드로이드는
         // 검색바가 상태바 아래에 놓여 그만큼 덜 덮는다 — 3 차에서 -122 였던 세로
         // 어긋남이 4 차에 +25.4 로 뒤집혔던 것이 이 차이다.
-        // **iOS 와 같은 108 을 쓴다.** 4 차에서 세로가 +25.4 어긋나 25 를 깎았는데,
-        // 그 차이의 대부분(약 20)은 안드로이드 화면이 40dp 더 길어서 생기는
-        // 몫이라 값을 깎을 일이 아니었다(5 차 검사). 오히려 그만큼 지도 영역이
-        // 넓어져 검색 결과 맞춤이 7.7% 더 확대됐다.
-        val topInset = 108.dp.toPx().toInt()
+        // 위 여백은 **검색바가 덮는 높이**다. iOS 는 108 을 쓰는데 그것은 iOS
+        // 검색바의 실제 높이에서 나온 값이라, 안드로이드에 그대로 옮기면 맞지
+        // 않는다 — 108 로 뒀더니 초기 배율이 14.8% 어긋났다(6 차 검사).
+        //
+        // 그래서 **숫자를 옮기지 않고 뜻을 옮긴다.** 상태바 + 바깥 여백 + 바 높이를
+        // 화면이 재서 넘겨 준다.
+        val topInset = searchBarInset.toPx().toInt()
         map.setContentPadding(0, topInset, 0, cameraBottom, keepCamera)
         val logoBottom = maxOf(0, sheetPx - cameraBottom) + 6.dp.toPx().toInt()
         val side = 4.dp.toPx().toInt()

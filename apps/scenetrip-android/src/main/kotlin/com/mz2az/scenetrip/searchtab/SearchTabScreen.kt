@@ -180,7 +180,7 @@ fun SearchTabScreen() {
         if (!isInitial) return@LaunchedEffect
         val target = map ?: return@LaunchedEffect
         if (tab == ListTab.PLACE) {
-            target.fit(visiblePlaces, density, screenHeight, sheetHeight)
+            target.fit(visiblePlaces, density, screenHeight, sheetHeight, SEARCH_BAR_INSET + statusBar)
         } else {
             target.showWholeKorea(density)
         }
@@ -199,20 +199,21 @@ fun SearchTabScreen() {
         val target = map ?: return@LaunchedEffect
         val place = selectedPlace
         if (place != null) {
-            target.zoomTo(place, density, screenHeight, sheetHeight)
+            target.zoomTo(place, density, screenHeight, sheetHeight, SEARCH_BAR_INSET + statusBar)
         } else {
             target.fit(
                 if (selectedContent != null) contentPlaces else visiblePlaces,
                 density,
                 screenHeight,
                 sheetHeight,
+                searchBarInset = SEARCH_BAR_INSET + statusBar,
             )
         }
     }
 
     LaunchedEffect(contentPlaces) {
         if (contentPlaces.isEmpty()) return@LaunchedEffect
-        map?.fit(contentPlaces, density, screenHeight, sheetHeight)
+        map?.fit(contentPlaces, density, screenHeight, sheetHeight, SEARCH_BAR_INSET + statusBar)
     }
 
     // 검색을 확정하면 결과 범위로 맞춘다. **결과가 도착한 뒤**여야 한다 — 확정
@@ -220,7 +221,7 @@ fun SearchTabScreen() {
     LaunchedEffect(data.places) {
         if (!pendingFit || data.places.isEmpty()) return@LaunchedEffect
         pendingFit = false
-        map?.fit(visiblePlaces, density, screenHeight, sheetHeight)
+        map?.fit(visiblePlaces, density, screenHeight, sheetHeight, SEARCH_BAR_INSET + statusBar)
     }
 
     fun commit(
@@ -500,10 +501,14 @@ fun SearchTabScreen() {
 }
 
 /**
- * 검색바가 차지하는 높이. 시트의 최대 단계가 이 아래까지만 올라온다.
- * iOS `BottomSheet(topInset: 108)` 과 같은 값이다.
+ * 검색바가 덮는 높이 중 **상태바를 뺀 몫**. 바깥 여백 8 + 바 높이(12.7×2 + 아이콘
+ * 22) + 아래 여백 8 이다.
+ *
+ * iOS 는 이 자리에 108 을 쓰는데 그것은 iOS 검색바의 실제 높이에서 나온 값이라
+ * 숫자만 옮기면 맞지 않는다 — 그대로 뒀더니 초기 지도 배율이 14.8% 어긋났다
+ * (6 차 검사). **숫자가 아니라 뜻을 옮긴다.**
  */
-private val SEARCH_BAR_INSET: Dp = 108.dp
+private val SEARCH_BAR_INSET: Dp = 63.dp
 
 @Composable
 private fun Centered(message: String?) {
