@@ -66,7 +66,8 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 | `CONFLICTING_AREA_FILTER` | `bbox` 와 `radiusMeters` 를 함께 보냈다. 영역 조건은 하나만 쓴다 |
 | `INVALID_SORT` | `sort=distance` 인데 기준점(`lat`·`lng`)이 없다 |
 | `INCOMPLETE_ORIGIN` | `lat` 과 `lng` 중 하나만 보냈다. 둘은 짝이다 |
-| `MISSING_DEVICE_ID` | 장바구니 요청에 `X-Device-Id` 헤더가 없거나 UUID 형식이 아니다 |
+| `MISSING_DEVICE_ID` | `X-Device-Id` 헤더가 없거나 UUID 형식이 아니다. 장바구니·코스·찜·마켓이 전부 이 헤더를 요구한다 |
+| `UNKNOWN_COURSE_ITEM` | 편집 완료(`PUT /courses/{courseId}`)가 그 코스에 없는 항목 `id` 를 가리켰다. 이미 지워졌거나 남의 코스 것이다 — **새로 담는 장소라면 `id` 를 아예 비워야 한다** |
 
 ### 대상 없음 (`404`)
 
@@ -75,6 +76,7 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 | `CONTENT_NOT_FOUND` | 그 `contentId` 의 작품이 없다 |
 | `PLACE_NOT_FOUND` | 그 `placeId` 의 장소가 없다 |
 | `CART_ITEM_NOT_FOUND` | 장바구니에 그 장소가 담겨 있지 않다 |
+| `COURSE_NOT_FOUND` | 그 `courseId` 의 코스가 없다. **남의 코스도 여기에 해당한다** — 있다는 사실 자체를 알려 주지 않는다 |
 | `ENDPOINT_NOT_FOUND` | **경로 자체가 없다.** 명세에 없는 주소를 불렀다 |
 
 앞의 셋과 `ENDPOINT_NOT_FOUND` 는 뜻이 다르다. 앞의 셋은 "경로는 맞는데 그 id 의 대상이
@@ -86,6 +88,7 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 | `code` | 뜻 |
 | --- | --- |
 | `DUPLICATE_CART_ITEM` | 이미 담긴 장소를 또 담으려 했다 |
+| `COURSE_SHORTER_THAN_PROGRESS` | 여행 중인 코스를 지금 걷고 있는 일차보다 짧게 줄이려 했다. 3일차를 걷는 중이면 2일 코스로 만들 수 없다 |
 
 ### 서버 결함 (`500`)
 

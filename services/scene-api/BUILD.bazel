@@ -143,6 +143,7 @@ java_junit5_test(
         "//contracts/openapi:scene_api_spring_lib",
         "@maven//:org_assertj_assertj_core",
         "@maven//:org_springframework_spring_jdbc",
+        "@maven//:org_springframework_spring_tx",
     ],
 )
 
