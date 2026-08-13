@@ -51,6 +51,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.Scene
 import com.mz2az.scenetrip.sceneapi.client.model.Suggestion
 import com.mz2az.scenetrip.ui.IOS
+import com.naver.maps.map.LocationTrackingMode
 import com.naver.maps.map.NaverMap
 import kotlinx.coroutines.launch
 
@@ -98,6 +99,30 @@ fun SearchTabScreen() {
     var map by remember { mutableStateOf<NaverMap?>(null) }
     var sheetHeight by remember { mutableStateOf(0.dp) }
     var nearby by remember { mutableStateOf(false) }
+
+    // 「내 위치」 가 실패했을 때만 값이 찬다. 성공은 지도가 움직여서 알 수 있다
+    // (iOS `SearchTabView.locateFailure` 와 짝).
+    var locateFailure by remember { mutableStateOf<LocateOutcome?>(null) }
+    val locate =
+        rememberLocate(
+            onLocated = { found ->
+                val target = map ?: return@rememberLocate
+                // 파란 점은 iOS 의 `positionMode = .normal` 과 같은 자리다 —
+                // **오버레이만 따라다니고 카메라는 우리가 한 번만 옮긴다.**
+                // Follow 로 두면 카메라가 계속 붙잡혀 지도를 밀 수 없다.
+                target.locationSource = PlatformLocationSource(context)
+                target.locationTrackingMode = LocationTrackingMode.NoFollow
+                target.zoomToMyLocation(
+                    found.latitude,
+                    found.longitude,
+                    density,
+                    screenHeight,
+                    sheetHeight,
+                    SEARCH_BAR_INSET + statusBar,
+                )
+            },
+            onFailure = { locateFailure = it },
+        )
 
     // 검색을 확정했고 결과 도착을 기다리는 중 — 도착하면 그때 카메라를 맞춘다.
     // **확정 즉시 맞추면 안 된다**(iOS 실측): 서버 응답이 오기 전에 지도가 직전
@@ -482,13 +507,17 @@ fun SearchTabScreen() {
                     }
                     MapControl(
                         label = "내 위치",
-                        onClick = {},
+                        onClick = locate,
                         modifier = Modifier.align(Alignment.CenterEnd).padding(end = 20.dp),
                         // iOS 는 이 아이콘만 강조색이다(실측). 나머지 지도 조작
                         // 버튼은 검정이다.
                     ) { _, size -> ScopeIcon(IOS.accent, Modifier.size(size)) }
                 }
             }
+        }
+
+        locateFailure?.let { failure ->
+            LocateFailureDialog(failure) { locateFailure = null }
         }
 
         selectedScene?.let { scene ->
