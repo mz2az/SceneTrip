@@ -8,14 +8,16 @@ SceneTrip 앱의 **검색·지도 탭**과 **경로여정 탭**을 받치는 백
 검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고, 담은
 장소로 며칠짜리 코스를 짜는 API 를 제공한다.
 
-엔드포인트는 **16개**이고 전부 구현돼 있다. 경로는 명세의 `servers.url` 을 따라 `/v1`
+엔드포인트는 **19개**이고 전부 구현돼 있다. 경로는 명세의 `servers.url` 을 따라 `/v1`
 아래에 있다.
 
 > **경로여정 탭은 절반쯤 와 있다.** 명세(`scene-api-v1.yaml` v1.1.0)에 코스·작품찜·
-> 마켓·길찾기 경로 18개가 있고, 그중 **코스 7개가 구현됐다**
-> ([MZ2AZ-229](https://mz2az.atlassian.net/browse/MZ2AZ-229) ·
-> [MZ2AZ-230](https://mz2az.atlassian.net/browse/MZ2AZ-230), 아래 표). 나머지는
-> 아직 핸들러가 없어 `501` 이다 — 작품 찜(231), 마켓(232), 길찾기(233). 구현 순서는 [계획 문서 §9](../../docs/project/plans/course-api.md).
+> 마켓·길찾기 경로 18개가 있고, 그중 **10개가 구현됐다** — 코스 7
+> ([229](https://mz2az.atlassian.net/browse/MZ2AZ-229) ·
+> [230](https://mz2az.atlassian.net/browse/MZ2AZ-230))과 작품 찜 3
+> ([231](https://mz2az.atlassian.net/browse/MZ2AZ-231)). 나머지는 아직 핸들러가 없어
+> `501` 이다 — 마켓(232), 길찾기(233). 구현 순서는
+> [계획 문서 §9](../../docs/project/plans/course-api.md).
 >
 > **스키마는 이미 들어와 있다** (`V8`~`V10`). 그 과정에서 장바구니가 `cart_item` 에서
 > `saved_place` 로 옮겨 갔고 주체가 설치 UUID 에서 `app_user.id` 로 바뀌었다 —
@@ -39,6 +41,9 @@ SceneTrip 앱의 **검색·지도 탭**과 **경로여정 탭**을 받치는 백
 | `DELETE /v1/courses/{courseId}` | 코스 삭제 |
 | `PUT /v1/courses/{courseId}/progress` | 코스 시작·일차 이동 (여행 중, 즉시) |
 | `PUT /v1/courses/{courseId}/items/{itemId}/visit` | 방문 체크 (여행 중, 즉시) |
+| `GET /v1/favorites/contents` | 찜한 작품 목록 |
+| `POST /v1/favorites/contents` | 작품 찜하기 |
+| `DELETE /v1/favorites/contents/{contentId}` | 찜 해제 |
 
 **코스 편집은 완료를 누를 때 한 번이다.** 제목·기간·장소·순서·체류시간을 고치는 동안
 서버로는 아무것도 나가지 않고, `PUT` 이 최종 모습을 통째로 받는다. 그래서 되돌리기가
@@ -53,6 +58,11 @@ SceneTrip 앱의 **검색·지도 탭**과 **경로여정 탭**을 받치는 백
 들고, 프론트는 그것을 알 필요가 없다. 기동 로그에 `체류시간 기본값 N종 적재` 가 찍히니
 **N 이 0 이면 설정이 안 붙은 것이다** — 그 상태로도 서비스는 멀쩡히 돌기 때문에 로그가
 유일한 신호다.
+
+**작품에는 찜, 장소에는 장바구니다. 장소에 찜은 없다** (8/11 회의). 표도 따로다 —
+`saved_content` 와 `saved_place`. 그리고 **찜은 담기도 빼기도 멱등이라 `204` 뿐이다.**
+하트는 토글이라 같은 상태를 두 번 요청하는 일이 흔한데, 그때마다 오류를 내면 프론트가
+사용자에게 보여 줄 것이 없다 — 장바구니가 중복에 `409` 를 내는 것과 갈리는 지점이다.
 
 **검색은 통합검색이다.** `GET /contents?q=` 와 `GET /places?q=` 가 같은 텍스트 뭉치(장소명·
 장소 설명·작품 제목·작품 설명·인물 이름)를 보고, 걸린 것을 `place_content` 로 **양방향**
