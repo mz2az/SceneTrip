@@ -13,10 +13,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.mz2az.scenetrip.sceneapi.api.model.CartItem;
 import com.mz2az.scenetrip.sceneapi.cart.CartStore;
+import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,11 +33,22 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import(LanguageConfiguration.class)
 class CartControllerTest {
 
+  /** {@code X-Device-Id} 로 오는 값 — 앱이 만든 설치 UUID 다. */
   private static final String DEVICE = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
+
+  /** 그것을 {@link UserStore} 가 바꿔 주는 계정 id. 저장의 주체는 이쪽이다. */
+  private static final UUID USER = UUID.fromString("9d1e4b52-6c07-4a8f-b3d1-2e6f80c4a915");
 
   @Autowired private MockMvc mvc;
 
   @MockitoBean private CartStore store;
+
+  @MockitoBean private UserStore users;
+
+  @BeforeEach
+  void resolveAccount() {
+    when(users.resolve(UUID.fromString(DEVICE))).thenReturn(USER);
+  }
 
   private static CartItem item(long placeId, String name) {
     return new CartItem(placeId, name, OffsetDateTime.parse("2026-08-06T06:00:00Z"));
@@ -63,7 +76,7 @@ class CartControllerTest {
   @DisplayName("장바구니는 담은 순서 그대로 나온다")
   void listsInInsertionOrder() throws Exception {
     // 인기도순이 아니다. 사용자가 걸어갈 순서를 스스로 만든 목록이라 담은 순서가 뜻이다.
-    when(store.list(eq(UUID.fromString(DEVICE)), any()))
+    when(store.list(eq(USER), any()))
         .thenReturn(new CartStore.Contents(List.of(item(2L, "북촌한옥마을"), item(8L, "서강대교")), true));
 
     mvc.perform(get("/cart").header("X-Device-Id", DEVICE))
@@ -71,6 +84,20 @@ class CartControllerTest {
         .andExpect(jsonPath("$.totalCount").value(2))
         .andExpect(jsonPath("$.items[0].name").value("북촌한옥마을"))
         .andExpect(jsonPath("$.items[1].name").value("서강대교"));
+  }
+
+  @Test
+  @DisplayName("설치 UUID 를 계정으로 바꿔 Store 에 넘긴다")
+  void resolvesInstallUuidToAccount() throws Exception {
+    // 계약은 설치 UUID 를 받지만 저장의 주체는 app_user.id 다. 그 변환이 여기서
+    // 일어난다 — 앱은 이 사실을 모른다. Store 에 설치 UUID 가 그대로 흘러가면
+    // saved_place 의 외래키가 실제 DB 에서 터진다.
+    when(store.list(eq(USER), any())).thenReturn(new CartStore.Contents(List.of(), false));
+
+    mvc.perform(get("/cart").header("X-Device-Id", DEVICE)).andExpect(status().isOk());
+
+    verify(users).resolve(UUID.fromString(DEVICE));
+    verify(store).list(eq(USER), any());
   }
 
   @Test

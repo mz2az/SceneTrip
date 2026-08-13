@@ -8,6 +8,7 @@
 | [scene-api-service-module.md](./scene-api-service-module.md) | 백엔드 서비스 모듈과 클러스터 배포 (MZ2AZ-181) |
 | [mobile-native-search-tab.md](./mobile-native-search-tab.md) | 검색 탭 iOS · Android 네이티브 구현 (MZ2AZ-148) |
 | [route-tab.md](./route-tab.md) | 루트(코스) 탭 — 도로를 따라가는 경로 계산 (MZ2AZ-107) |
+| [course-api.md](./course-api.md) | 경로여정(코스) 백엔드 API — 코스·아이템·찜·마켓 (MZ2AZ-199) |
 
 ## 언제 여기에 쓰는가
 

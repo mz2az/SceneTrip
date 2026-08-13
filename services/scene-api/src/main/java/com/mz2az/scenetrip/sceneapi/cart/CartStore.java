@@ -14,12 +14,15 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 /**
- * 기기 단위 장바구니.
+ * 장소 장바구니.
  *
- * <p>주체는 {@code X-Device-Id} 헤더의 기기 UUID 다. 로그인이 없어 사용자를 식별할 방법이 그것뿐이다 — 로그인이 생기면 이 UUID 를 계정에 이어
- * 붙인다.
+ * <p>표 이름은 {@code saved_place} 이고 주체는 {@code app_user.id} 다. {@code X-Device-Id} 헤더로 오는 설치 UUID 를
+ * 계정으로 바꾸는 일은 {@link com.mz2az.scenetrip.sceneapi.user.UserStore} 가 하고, 여기는 이미 바뀐 값을 받는다.
  *
- * <p>담기까지만이다. 루트(코스) 만들기는 이 범위 밖이다.
+ * <p>이 표는 원래 {@code cart_item} 이었다. 8/11 회의가 「작품엔 찜, 장소엔 장바구니」로 가르면서 「장소 찜」이 없어졌고, 남은 하나의 이름이
+ * {@code saved_place} 로 정해졌다 (MZ2AZ-111 · MZ2AZ-199 스키마 문서). 작품 찜은 별도 표 {@code saved_content} 다.
+ *
+ * <p>담기까지만이다. 코스에 넣는 것은 코스 쪽이다.
  */
 @Repository
 public class CartStore {
@@ -57,11 +60,11 @@ public class CartStore {
           ci_.source_content_id,
           cd.title AS source_content_title,
           ci_.created_at
-      FROM cart_item ci_
+      FROM saved_place ci_
       JOIN place p ON p.id = ci_.place_id
       JOIN place_display pd ON pd.place_id = p.id
       LEFT JOIN content_display cd ON cd.content_id = ci_.source_content_id
-      WHERE ci_.device_id = CAST(:deviceId AS UUID)
+      WHERE ci_.user_id = CAST(:userId AS UUID)
       ORDER BY ci_.created_at, ci_.place_id
       """;
 
@@ -74,10 +77,10 @@ public class CartStore {
   /** 장바구니 내용과 언어 폴백 여부. */
   public record Contents(List<CartItem> items, boolean anyInRequestedLang) {}
 
-  public Contents list(UUID deviceId, Lang lang) {
+  public Contents list(UUID userId, Lang lang) {
     List<Row> rows =
         jdbc.sql(LIST_SQL)
-            .param("deviceId", deviceId.toString())
+            .param("userId", userId.toString())
             .param("lang", lang.getValue())
             .query(CartStore::mapRow)
             .list();
@@ -94,14 +97,14 @@ public class CartStore {
    *
    * @return 담긴 항목. 이미 있으면 {@link Optional#empty()}
    */
-  public Optional<CartItem> add(UUID deviceId, long placeId, Long sourceContentId, Lang lang) {
+  public Optional<CartItem> add(UUID userId, long placeId, Long sourceContentId, Lang lang) {
     try {
       jdbc.sql(
               """
-              INSERT INTO cart_item (device_id, place_id, source_content_id)
-              VALUES (CAST(:deviceId AS UUID), :placeId, CAST(:sourceContentId AS BIGINT))
+              INSERT INTO saved_place (user_id, place_id, source_content_id)
+              VALUES (CAST(:userId AS UUID), :placeId, CAST(:sourceContentId AS BIGINT))
               """)
-          .param("deviceId", deviceId.toString())
+          .param("userId", userId.toString())
           .param("placeId", placeId)
           .param("sourceContentId", sourceContentId)
           .update();
@@ -111,7 +114,7 @@ public class CartStore {
 
     // 방금 넣은 것을 다시 읽어 돌려준다. 좌표·이미지·작품 제목은 다른 테이블에 있어
     // INSERT 만으로는 응답을 채울 수 없다.
-    return list(deviceId, lang).items().stream().filter(i -> i.getPlaceId() == placeId).findFirst();
+    return list(userId, lang).items().stream().filter(i -> i.getPlaceId() == placeId).findFirst();
   }
 
   /**
@@ -119,11 +122,11 @@ public class CartStore {
    *
    * @return 실제로 지워졌으면 {@code true}. 담겨 있지 않았으면 {@code false}
    */
-  public boolean remove(UUID deviceId, long placeId) {
+  public boolean remove(UUID userId, long placeId) {
     return jdbc.sql(
-                "DELETE FROM cart_item WHERE device_id = CAST(:deviceId AS UUID)"
+                "DELETE FROM saved_place WHERE user_id = CAST(:userId AS UUID)"
                     + " AND place_id = :placeId")
-            .param("deviceId", deviceId.toString())
+            .param("userId", userId.toString())
             .param("placeId", placeId)
             .update()
         > 0;
