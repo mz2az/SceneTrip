@@ -137,12 +137,18 @@ public class CourseStore {
 
   private final JdbcClient jdbc;
   private final TravelEstimator travel;
+  private final DwellDefaults dwellDefaults;
   private final TransactionTemplate transactions;
 
   /** 다른 패키지의 통합 테스트가 직접 만들 수 있어야 해서 public 이다. */
-  public CourseStore(JdbcClient jdbc, TravelEstimator travel, TransactionTemplate transactions) {
+  public CourseStore(
+      JdbcClient jdbc,
+      TravelEstimator travel,
+      DwellDefaults dwellDefaults,
+      TransactionTemplate transactions) {
     this.jdbc = jdbc;
     this.travel = travel;
+    this.dwellDefaults = dwellDefaults;
     this.transactions = transactions;
   }
 
@@ -291,6 +297,43 @@ public class CourseStore {
         .update();
   }
 
+  /**
+   * 방문 체크. 여행 중에만 부른다.
+   *
+   * <p>토글이라 이미 체크된 것을 또 체크해도 오류가 아니다. <b>시각은 서버가 찍는다</b> — 클라이언트 시계는 틀어져 있을 수 있고, 방문 시각은 나중에 "어느
+   * 순서로 돌았나" 를 보는 값이라 한 기준으로 모여야 한다.
+   *
+   * <p>{@code course_id} 를 조건에 넣어 남의 코스 항목을 건드릴 수 없게 한다.
+   *
+   * @return 그 코스에 그 항목이 있었으면 {@code true}
+   */
+  public boolean markVisited(long courseId, long itemId, boolean visited) {
+    return jdbc.sql(
+                """
+                UPDATE course_item
+                   SET visited_at = CASE WHEN :visited THEN now() ELSE NULL END
+                 WHERE id = :itemId AND course_id = :courseId
+                """)
+            .param("visited", visited)
+            .param("itemId", itemId)
+            .param("courseId", courseId)
+            .update()
+        > 0;
+  }
+
+  /** 지금 여행 중인가. 방문 체크를 열어 줄지 정한다. */
+  public boolean isActive(UUID userId, long courseId) {
+    return Boolean.TRUE.equals(
+        jdbc.sql(
+                "SELECT status = 'active' FROM course"
+                    + " WHERE id = :courseId AND user_id = CAST(:userId AS UUID)")
+            .param("courseId", courseId)
+            .param("userId", userId.toString())
+            .query(Boolean.class)
+            .optional()
+            .orElse(false));
+  }
+
   public boolean delete(UUID userId, long courseId) {
     return jdbc.sql("DELETE FROM course WHERE id = :courseId AND user_id = CAST(:userId AS UUID)")
             .param("courseId", courseId)
@@ -303,6 +346,28 @@ public class CourseStore {
 
   /** {@code sort_order} 를 10 씩 띄운다. 중간 삽입에 대비한 관례다(V9 · place_image 와 같다). */
   private static final int SORT_STEP = 10;
+
+  /**
+   * 채워 넣을 체류시간.
+   *
+   * <p>클라이언트가 비워 보내면 장소 유형에 맞는 기본값을 서버가 고른다 — 그 표가 iOS·Android·서버 세 곳에 흩어지지 않게 하려는 것이다({@link
+   * DwellDefaults}). 직접 찍은 핀은 유형이 사용자가 고른 다섯 갈래라 수집 유형과 값 범위가 달라, 표를 태우지 않고 기본값으로 간다.
+   */
+  private int dwellMinutes(CourseItemInput in) {
+    if (in.getDwellMinutes() != null) {
+      return in.getDwellMinutes();
+    }
+    if (in.getPlaceId() == null) {
+      return dwellDefaults.forPlaceType(null);
+    }
+    String placeType =
+        jdbc.sql("SELECT type FROM place WHERE id = :placeId")
+            .param("placeId", in.getPlaceId())
+            .query(String.class)
+            .optional()
+            .orElse(null);
+    return dwellDefaults.forPlaceType(placeType);
+  }
 
   private long insertItem(long courseId, int dayNo, int sortOrder, CourseItemInput in) {
     Long pinId = in.getCustomPin() == null ? null : insertPin(courseId, in.getCustomPin());
@@ -320,7 +385,7 @@ public class CourseStore {
         .param("placeId", in.getPlaceId())
         .param("pinId", pinId)
         .param("sortOrder", sortOrder)
-        .param("dwellMin", in.getDwellMinutes())
+        .param("dwellMin", dwellMinutes(in))
         .param("sourceContentId", in.getSourceContentId())
         .query(Long.class)
         .single();
@@ -362,7 +427,7 @@ public class CourseStore {
                 """)
             .param("dayNo", dayNo)
             .param("sortOrder", sortOrder)
-            .param("dwellMin", in.getDwellMinutes())
+            .param("dwellMin", dwellMinutes(in))
             .param("sourceContentId", in.getSourceContentId())
             .param("itemId", in.getId())
             .param("courseId", courseId)

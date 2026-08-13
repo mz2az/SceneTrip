@@ -10,6 +10,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.CourseReplace;
 import com.mz2az.scenetrip.sceneapi.api.model.CourseStatus;
 import com.mz2az.scenetrip.sceneapi.api.model.CourseSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import com.mz2az.scenetrip.sceneapi.api.model.VisitUpdate;
 import com.mz2az.scenetrip.sceneapi.course.CourseStore;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.util.List;
@@ -103,6 +104,26 @@ class CourseController implements CoursesApi {
 
     store.updateProgress(courseId, courseProgress);
     return ResponseEntity.ok(read(user, courseId, acceptLanguage));
+  }
+
+  @Override
+  public ResponseEntity<Void> updateCourseItemVisit(
+      UUID xDeviceId, Long courseId, Long itemId, VisitUpdate visitUpdate) {
+
+    UUID user = users.resolve(xDeviceId);
+    requireCourse(user, courseId);
+
+    // 예정 코스에서는 방문 체크가 뜻이 없다. 400 이 아니라 409 인 이유는 요청 자체는
+    // 멀쩡하고 코스의 상태가 안 맞는 것이기 때문이다 — 시작 버튼을 누르면 통한다.
+    if (!store.isActive(user, courseId)) {
+      throw ApiException.conflict("COURSE_NOT_ACTIVE", "코스 " + courseId + " 은(는) 여행 중이 아닙니다");
+    }
+
+    if (!store.markVisited(courseId, itemId, Boolean.TRUE.equals(visitUpdate.getVisited()))) {
+      throw ApiException.notFound(
+          "COURSE_ITEM_NOT_FOUND", "코스 " + courseId + " 에 항목 " + itemId + " 이(가) 없습니다");
+    }
+    return ResponseEntity.noContent().build();
   }
 
   // ───────────── 안쪽 ─────────────

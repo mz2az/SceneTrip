@@ -11,7 +11,9 @@ import com.mz2az.scenetrip.sceneapi.api.model.CourseItem;
 import com.mz2az.scenetrip.sceneapi.api.model.CourseItemInput;
 import com.mz2az.scenetrip.sceneapi.api.model.CourseItemSource;
 import com.mz2az.scenetrip.sceneapi.api.model.CourseOrigin;
+import com.mz2az.scenetrip.sceneapi.api.model.CourseProgress;
 import com.mz2az.scenetrip.sceneapi.api.model.CourseReplace;
+import com.mz2az.scenetrip.sceneapi.api.model.CourseStatus;
 import com.mz2az.scenetrip.sceneapi.api.model.CustomPinInput;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.PinCategory;
@@ -52,7 +54,11 @@ class CourseStoreIntegrationTest {
     jdbc = IntegrationDatabase.jdbcClient();
     IntegrationDatabase.requireSeeded(jdbc);
     store =
-        new CourseStore(jdbc, new TravelEstimator(4.0, 1.3), IntegrationDatabase.transactions());
+        new CourseStore(
+            jdbc,
+            new TravelEstimator(4.0, 1.3),
+            dwellDefaults(),
+            IntegrationDatabase.transactions());
     users = new UserStore(jdbc);
   }
 
@@ -272,6 +278,90 @@ class CourseStoreIntegrationTest {
     assertThat(store.find(user, id, Lang.KO)).isEmpty();
   }
 
+  @Test
+  @DisplayName("체류시간을 비우면 장소 유형에 맞는 기본값이 붙는다")
+  void fillsDwellMinutesFromPlaceType() {
+    Long cafe =
+        jdbc.sql("SELECT id FROM place WHERE type = '카페' ORDER BY id LIMIT 1")
+            .query(Long.class)
+            .optional()
+            .orElse(null);
+    org.junit.jupiter.api.Assumptions.assumeTrue(cafe != null, "적재분에 카페 유형이 없다");
+
+    long id = store.create(user, new CourseCreate(1, CourseOrigin.SELF));
+    store.replace(id, replace(day(new CourseItemInput().placeId(cafe))));
+
+    // 표가 아는 유형이라 40 분. 프론트가 그 표를 들고 있을 필요가 없다는 것이 요점이다.
+    assertThat(onlyItem(id).getDwellMinutes()).isEqualTo(40);
+  }
+
+  @Test
+  @DisplayName("모르는 유형과 직접 찍은 핀은 폴백값이 붙는다")
+  void fallsBackWhenTypeIsUnknown() {
+    long id = store.create(user, new CourseCreate(2, CourseOrigin.SELF));
+
+    store.replace(
+        id,
+        replace(
+            day(new CourseItemInput().placeId(placeA)),
+            day(
+                new CourseItemInput()
+                    .customPin(new CustomPinInput("호텔 O", PinCategory.LODGING, 37.55, 126.97)))));
+
+    CourseDetail course = store.find(user, id, Lang.KO).orElseThrow();
+    assertThat(course.getDays().get(1).getItems().get(0).getDwellMinutes()).isEqualTo(60);
+  }
+
+  @Test
+  @DisplayName("보낸 체류시간이 있으면 기본값을 덮어쓰지 않는다")
+  void keepsExplicitDwellMinutes() {
+    long id = store.create(user, new CourseCreate(1, CourseOrigin.SELF));
+    store.replace(id, replace(day(item(placeA, 150))));
+
+    assertThat(onlyItem(id).getDwellMinutes()).isEqualTo(150);
+  }
+
+  @Test
+  @DisplayName("방문 체크는 토글이고 시각은 서버가 찍는다")
+  void marksVisited() {
+    long id = store.create(user, new CourseCreate(1, CourseOrigin.SELF));
+    store.replace(id, replace(day(item(placeA, 60))));
+    long itemId = onlyItem(id).getId();
+
+    assertThat(store.markVisited(id, itemId, true)).isTrue();
+    assertThat(onlyItem(id).getVisitedAt()).isNotNull();
+
+    // 두 번 눌러도 오류가 아니다.
+    assertThat(store.markVisited(id, itemId, true)).isTrue();
+
+    assertThat(store.markVisited(id, itemId, false)).isTrue();
+    assertThat(onlyItem(id).getVisitedAt()).isNull();
+  }
+
+  @Test
+  @DisplayName("남의 코스 항목은 체크할 수 없다")
+  void cannotVisitAnotherCoursesItem() {
+    long mine = store.create(user, new CourseCreate(1, CourseOrigin.SELF));
+    long other = store.create(user, new CourseCreate(1, CourseOrigin.SELF));
+    store.replace(other, replace(day(item(placeA, 60))));
+    long otherItemId =
+        store.find(user, other, Lang.KO).orElseThrow().getDays().get(0).getItems().get(0).getId();
+
+    assertThat(store.markVisited(mine, otherItemId, true)).isFalse();
+  }
+
+  @Test
+  @DisplayName("여행 중인지 묻는다 — 방문 체크를 열어 줄지 정하는 값")
+  void reportsWhetherTravelling() {
+    long id = store.create(user, new CourseCreate(2, CourseOrigin.SELF));
+    assertThat(store.isActive(user, id)).isFalse();
+
+    store.updateProgress(id, new CourseProgress(CourseStatus.ACTIVE).currentDayNo(1));
+
+    assertThat(store.isActive(user, id)).isTrue();
+    assertThat(store.isActive(UUID.randomUUID(), id)).isFalse();
+  }
+
   // ───────────── 거들기 ─────────────
 
   private static CourseReplace replace(CourseDayInput... days) {
@@ -283,12 +373,21 @@ class CourseStoreIntegrationTest {
   }
 
   private static CourseItemInput item(long placeId, int dwellMinutes) {
-    return new CourseItemInput(dwellMinutes).placeId(placeId);
+    return new CourseItemInput().placeId(placeId).dwellMinutes(dwellMinutes);
   }
 
   private static CourseItemInput pinItem(String name, double lat, double lng) {
-    return new CourseItemInput(60)
+    return new CourseItemInput()
+        .dwellMinutes(60)
         .customPin(new CustomPinInput(name, PinCategory.LODGING, lat, lng));
+  }
+
+  /** 「카페 40분, 나머지 60분」 만 아는 표. 유형별 기본값이 실제로 붙는지 보는 데 충분하다. */
+  private static DwellDefaults dwellDefaults() {
+    DwellDefaults defaults = new DwellDefaults();
+    defaults.setFallback(60);
+    defaults.putAll(java.util.Map.of("카페", 40));
+    return defaults;
   }
 
   private CourseItem onlyItem(long courseId) {

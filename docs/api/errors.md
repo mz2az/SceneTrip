@@ -77,6 +77,7 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 | `PLACE_NOT_FOUND` | 그 `placeId` 의 장소가 없다 |
 | `CART_ITEM_NOT_FOUND` | 장바구니에 그 장소가 담겨 있지 않다 |
 | `COURSE_NOT_FOUND` | 그 `courseId` 의 코스가 없다. **남의 코스도 여기에 해당한다** — 있다는 사실 자체를 알려 주지 않는다 |
+| `COURSE_ITEM_NOT_FOUND` | 그 코스에 그 항목이 없다. 방문 체크가 이미 지워진 장소를 가리켰다 |
 | `ENDPOINT_NOT_FOUND` | **경로 자체가 없다.** 명세에 없는 주소를 불렀다 |
 
 앞의 셋과 `ENDPOINT_NOT_FOUND` 는 뜻이 다르다. 앞의 셋은 "경로는 맞는데 그 id 의 대상이
@@ -89,6 +90,7 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 | --- | --- |
 | `DUPLICATE_CART_ITEM` | 이미 담긴 장소를 또 담으려 했다 |
 | `COURSE_SHORTER_THAN_PROGRESS` | 여행 중인 코스를 지금 걷고 있는 일차보다 짧게 줄이려 했다. 3일차를 걷는 중이면 2일 코스로 만들 수 없다 |
+| `COURSE_NOT_ACTIVE` | 예정 코스에 방문 체크를 하려 했다. 요청은 멀쩡하고 코스 상태가 안 맞는 것이라 400 이 아니다 — **「시작」을 누르면 통한다** |
 
 ### 서버 결함 (`500`)
 

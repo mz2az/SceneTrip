@@ -245,6 +245,66 @@ class CourseControllerTest {
   }
 
   @Test
+  @DisplayName("여행 중이 아니면 방문 체크는 409 — 요청이 아니라 코스 상태가 문제다")
+  void visitNeedsActiveCourse() throws Exception {
+    when(store.exists(USER, 7L)).thenReturn(true);
+    when(store.isActive(USER, 7L)).thenReturn(false);
+
+    mvc.perform(
+            put("/courses/7/items/3/visit")
+                .header("X-Device-Id", DEVICE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"visited\":true}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("COURSE_NOT_ACTIVE"));
+
+    verify(store, never())
+        .markVisited(anyLong(), anyLong(), org.mockito.ArgumentMatchers.anyBoolean());
+  }
+
+  @Test
+  @DisplayName("여행 중이면 방문 체크는 204, 없는 항목은 404")
+  void visitTogglesWhileTravelling() throws Exception {
+    when(store.exists(USER, 7L)).thenReturn(true);
+    when(store.isActive(USER, 7L)).thenReturn(true);
+    when(store.markVisited(7L, 3L, true)).thenReturn(true);
+    when(store.markVisited(7L, 99L, true)).thenReturn(false);
+
+    mvc.perform(
+            put("/courses/7/items/3/visit")
+                .header("X-Device-Id", DEVICE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"visited\":true}"))
+        .andExpect(status().isNoContent());
+
+    mvc.perform(
+            put("/courses/7/items/99/visit")
+                .header("X-Device-Id", DEVICE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"visited\":true}"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("COURSE_ITEM_NOT_FOUND"));
+  }
+
+  @Test
+  @DisplayName("체류시간을 비운 채로 담아도 통과한다 — 기본값은 서버가 채운다")
+  void dwellMinutesIsOptional() throws Exception {
+    when(store.exists(USER, 7L)).thenReturn(true);
+    when(store.currentDayNo(USER, 7L)).thenReturn(Optional.empty());
+    when(store.find(eq(USER), eq(7L), any()))
+        .thenReturn(Optional.of(course(7L, CourseStatus.UPCOMING)));
+
+    mvc.perform(
+            put("/courses/7")
+                .header("X-Device-Id", DEVICE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(replaceBody("[{\"items\":[{\"placeId\":1}]}]")))
+        .andExpect(status().isOk());
+
+    verify(store).replace(eq(7L), any(CourseReplace.class));
+  }
+
+  @Test
   @DisplayName("지우면 204, 없으면 404")
   void deleteReturnsNoContentOrNotFound() throws Exception {
     when(store.delete(USER, 7L)).thenReturn(true);
