@@ -38,7 +38,7 @@ struct ContentDetailView: View {
 
     private var castLine: String {
         let names = (detail?.cast ?? []).map(\.name)
-        return names.isEmpty ? "" : "출연 " + names.prefix(4).joined(separator: ", ")
+        return names.isEmpty ? "" : "출연: " + names.prefix(4).joined(separator: ", ")
     }
 
     var body: some View {
@@ -78,10 +78,10 @@ struct ContentDetailView: View {
                     if !castLine.isEmpty {
                         Text(castLine).font(.caption).foregroundStyle(.secondary)
                     }
-                    if let aliases = detail?.aliases, !aliases.isEmpty {
-                        Text(aliases.joined(separator: " · "))
-                            .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
-                    }
+                    // 별칭(`Goblin · Guardian: The Lonely and Great God · 쓸…`)은
+                    // 빼 둔다. 한 줄에 담기지 않아 늘 뒤가 잘렸고, **잘린 별칭은
+                    // 아무 값도 하지 않는다** — 사용자가 그 이름으로 찾아 들어온
+                    // 뒤라 이미 아는 정보이기 때문이다. 검색에는 그대로 쓰인다.
                 }
             }
             if let description = detail?.description, !description.isEmpty {

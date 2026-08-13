@@ -57,15 +57,25 @@ gen-check: gen
 
 # MODULE.bazel 을 고친 뒤 외부 의존성 잠금 파일 갱신.
 #
-# 잠금 파일이 둘이다. bzlmod 자체의 MODULE.bazel.lock 과, Maven 아티팩트의
-# maven_install.json 이다. 후자를 빠뜨리면 새 의존성이 해석되지 않아 빌드가
-# "찾을 수 없다" 로 죽는다 — 둘 다 갱신하고 같은 커밋에 넣는다 (AGENTS.md §4.4).
+# 잠금 파일이 셋이다. bzlmod 자체의 MODULE.bazel.lock 과, Maven 아티팩트의
+# maven_install.json · maven_android_install.json 이다. 빠뜨리면 새 의존성이
+# 해석되지 않아 빌드가 "찾을 수 없다" 로 죽는다 — 다 갱신하고 같은 커밋에 넣는다
+# (AGENTS.md §4.4).
+#
+# **maven 설치본마다 pin 타깃이 따로 있다.** `@maven//:pin` 하나만 돌리면 서비스 쪽
+# 잠금만 갱신되고 안드로이드 쪽은 낡은 채로 남는다. 저장소를 둘로 나눈 대가이며
+# (MODULE.bazel 의 maven_android 절), 나눈 이유가 있으므로 합치지 말고 여기서 둘 다
+# 부른다.
 [group('dev')]
 deps-update:
     {{BAZEL}} mod tidy
-    @if grep -q 'maven.install' MODULE.bazel; then \
-        echo "==> Maven 아티팩트 재고정"; \
+    @if grep -q 'name = "maven"' MODULE.bazel || grep -q 'maven.install(' MODULE.bazel; then \
+        echo "==> Maven 아티팩트 재고정 (서비스)"; \
         REPIN=1 {{BAZEL}} run @maven//:pin; \
+    fi
+    @if grep -q 'name = "maven_android"' MODULE.bazel; then \
+        echo "==> Maven 아티팩트 재고정 (Android)"; \
+        REPIN=1 {{BAZEL}} run @maven_android//:pin; \
     fi
 
 # 해석된 외부 의존성 그래프 출력

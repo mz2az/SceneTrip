@@ -27,6 +27,36 @@ SceneTrip 의 iOS 네이티브 앱. 첫 화면인 **작품검색 탭**(지도 + 
 Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의 대조군이다 —
 코드는 옮기지 않고 규칙만 가져온다 (ADR 0002).
 
+## 경로여정(코스) 탭 — **목 데이터 데모**
+
+`src/RouteTab/` 은 2026-08-11 스프린트 회의에서 확정된 화면을 **팀이 눈으로 보고 고치기
+위해** 만든 것이다. 서버 계약이 아직 없으므로(`contracts/openapi/` 에 경로 스키마가
+하나도 없다 — 백엔드가 따로 만드는 중) **화면 전체가 로컬 목 데이터로 돈다.**
+계약이 서면 `RouteStore` 의 본문과 `RouteMockData.swift` 가 통째로 갈린다.
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `RouteTabView.swift` | 첫 화면 — 코스가 없으면 「AI 로 짜기 / 직접 짜기」 갈림길, 있으면 목록 + 「코스 추가하기」 |
+| `RouteWizardView.swift` | 질문 흐름 — 기간 → 날짜(선택) → 작품 → 빡빡/널널 → 요약 |
+| `RouteEditorView.swift` · `RouteEditorControls.swift` · `RouteEditorParts.swift` | 편집 화면 — 일차 ＋/−, 드래그 정렬, 체류 시간, 동선 최적화, 장바구니·핀 찍기 |
+| `RouteMapView.swift` | 코스용 지도 — 번호 핀 + **직선** 경로, 지도 탭으로 핀 찍기 |
+| `RouteMarketView.swift` | 「인기 코스」 — 이름·정렬 기준 **미확정, 데모용** |
+| `RouteModels.swift` · `RouteStore.swift` · `RouteMockData.swift` | 값 타입, 상태, 목 데이터 |
+
+회의에서 확정돼 코드가 지키고 있는 것:
+
+- **시작 시각을 묻지 않는다.** 8/10 목업에는 있었으나 삭제 확정됐다.
+- **날짜는 선택이다.** 안 고르고 넘어갈 수 있고, 종료일은 일차 수에서 계산한다.
+- **작품은 찜한 것이 먼저, 나머지는 인기도순.**
+- **계획 단계에서는 길찾기 API 를 부르지 않는다.** 지도는 직선으로만 잇고 거리(km)만
+  보여 준다 — **예상 소요 시간은 표시하지 않는다.**
+- **AI 결과를 바로 저장하지 않는다.** 편집 화면을 거쳐 「코스 만들기」를 눌러야 남는다.
+
+아직 정해지지 않아 **일부러 비워 둔 것**:
+
+- 「빡빡하게 / 널널하게」는 UI 만 있고 일정에 반영되지 않는다 (로직 미정).
+- 「인기 코스」의 이름·정렬 기준, 여행 중 길찾기의 실제 연동.
+
 ## 인터페이스
 
 | 항목 | 값 |
@@ -56,8 +86,96 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 
 ```bash
 just build-module apps/scenetrip-ios    # 빌드
-just run //apps/scenetrip-ios:bin       # 시뮬레이터 실행
+just ios-run                            # 시뮬레이터에 띄운다
+just ios-xcode                          # Xcode 로 연다 (코드 탐색·디버깅·실기기)
 ```
+
+`just ios-xcode` 는 `SceneTrip.xcodeproj` 를 만들고 연다. **그 파일은 생성물이라
+커밋하지 않는다** — 사람마다 서명 설정과 기기 목록이 달라 서로 덮어쓴다. 정본은
+`BUILD.bazel` 의 `xcodeproj` 타깃이다.
+
+프로젝트를 열어도 **실제 빌드는 그 안에서 Bazel 이 한다.** 빌드 경로가 둘로 갈라지지
+않는다 (ADR 0001 제1법칙).
+
+> **네이버 지도 키 주의** — Xcode 가 부르는 빌드에는 `just ios-run` 의 `--define` 이
+> 닿지 않는다. `.bazelrc.user` 에 아래 한 줄을 넣어야 지도가 뜬다. 그 파일은
+> gitignore 대상이라 키가 저장소에 들어가지 않는다.
+>
+> ```
+> build --define=naver_client_id=<발급받은 키>
+> ```
+
+## 실기기에 올리기
+
+**시뮬레이터가 아니라 진짜 아이폰에서 보려면** 애플 서명이 필요하다. 서명 파일은
+사람마다·기기마다 다르고 무료 애플 ID 로 만들면 **7일마다 새로 발급된다.** 저장소에
+넣을 수 있는 물건이 아니라서 **기본으로 켜 두지 않았다** — 켜 두면 아이폰이 없는
+팀원의 빌드까지 깨진다.
+
+아이폰을 가진 사람이 자기 기계에서 한 번 켜면 된다.
+
+### 1. 애플 ID 를 Xcode 에 등록한다
+
+`Xcode → Settings → Accounts → +` 에서 애플 ID 를 넣는다. **유료 개발자 계정이 아니어도
+된다.** 무료 계정으로도 자기 기기에는 설치할 수 있다.
+
+### 2. BUILD.bazel 에서 device 를 켠다
+
+`apps/scenetrip-ios/BUILD.bazel` 의 `xcodeproj` 타깃에서 한 줄을 고친다.
+
+```python
+target_environments = ["simulator"],
+# ↓
+target_environments = ["device", "simulator"],
+```
+
+그리고 `ios_application` 에 서명을 붙인다. `local_provisioning_profile` 이 **내 기계에
+깔린 프로파일을 찾아 준다** — 경로를 손으로 적지 않아도 된다.
+
+```python
+load("@rules_apple//apple:apple.bzl", "local_provisioning_profile")
+load("@rules_xcodeproj//xcodeproj:defs.bzl", "xcode_provisioning_profile")
+
+local_provisioning_profile(
+    name = "local_profile",
+    profile_name = "iOS Team Provisioning Profile: com.mz2az.scenetrip",
+    tags = ["ios", "manual"],
+)
+
+xcode_provisioning_profile(
+    name = "provisioning_profile",
+    managed_by_xcode = True,          # 서명은 Xcode 가 한다
+    provisioning_profile = ":local_profile",
+    tags = ["ios", "manual"],
+)
+```
+
+`ios_application(name = "bin", ...)` 에 `provisioning_profile = ":provisioning_profile"`
+를 더한다.
+
+> **이 변경은 커밋하지 않는다.** 프로파일 이름이 사람마다 다르다. 팀 전원이 아이폰으로
+> 확인하게 되면 그때 `--define` 으로 이름을 받는 형태로 정리한다.
+
+### 3. Xcode 에서 실행한다
+
+```
+just ios-xcode
+→ 아이폰을 USB 로 연결 (한 번 연결하면 이후 같은 와이파이에서 무선으로도 된다)
+→ Xcode 상단에서 기기를 내 아이폰으로 선택 → Run
+→ 아이폰: 설정 → 일반 → VPN 및 기기 관리 → 개발자 앱 신뢰
+```
+
+### 알아 둘 것
+
+| 항목 | 내용 |
+| --- | --- |
+| iOS 버전 | 이 앱은 **iOS 17 이상**이다 (`minimum_os_version`) |
+| 무료 계정 만료 | **7일 뒤 앱이 안 열린다.** 다시 설치하면 된다 |
+| 무료 계정 앱 수 | 기기당 3개까지 |
+| 남에게 보내기 | 무료 계정으로는 **불가능**하다. 링크로 배포하려면 유료 개발자 계정($99/년)과 TestFlight 이 필요하다 |
+
+`Daily Todo.md` 의 「개발자 등록」이 그 유료 계정 얘기다. 멘토·심사위원에게 앱을
+돌려야 하는 시점이 오면 그때 필요하다.
 
 ## 설정
 

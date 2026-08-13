@@ -123,6 +123,41 @@ ensure_avd() {
     die "AVD 생성에 실패했습니다: $AVD_NAME"
 }
 
+# --- 기기 프레임(스킨) ----------------------------------------------------------
+#
+# 기본 에뮬레이터 창은 화면만 덩그러니 뜬다. 아이폰 시뮬레이터가 베젤을 기본으로
+# 그려 주기 때문에 나란히 놓으면 초라해 보인다. 스킨을 주면 같은 화면에 기기
+# 테두리가 둘린다.
+#
+# **스킨은 SDK 가 아니라 안드로이드 스튜디오가 갖고 있다.** 커맨드라인 도구만 받은
+# 사람에게는 없으므로, 없으면 조용히 건너뛴다 — 앱을 띄우는 데는 지장이 없다.
+# 다른 스킨을 쓰려면 SCENETRIP_EMULATOR_SKIN 에 디렉터리 경로를 준다.
+#
+# pixel_7 을 고른 이유는 AVD 와 같은 기기이기 때문이다. 스킨의 display 크기와
+# AVD 해상도가 어긋나면 화면이 테두리 밖으로 삐져나오거나 안쪽에 여백이 생긴다.
+STUDIO_SKINS="/Applications/Android Studio.app/Contents/plugins/android/resources/device-art-resources"
+SKIN_ARGS=()
+
+find_skin() {
+  local skin="${SCENETRIP_EMULATOR_SKIN:-$STUDIO_SKINS/pixel_7}"
+
+  if [ ! -f "$skin/layout" ]; then
+    if [ -n "${SCENETRIP_EMULATOR_SKIN:-}" ]; then
+      warn "SCENETRIP_EMULATOR_SKIN 에 layout 파일이 없습니다: $skin
+       테두리 없이 띄웁니다."
+    else
+      log "기기 스킨 없음 — 테두리 없이 띄운다 (안드로이드 스튜디오를 깔면 생긴다)"
+    fi
+    return
+  fi
+
+  # **경로를 통째로 -skin 에 주면 안 된다.** 에뮬레이터는 그것을 이름으로 보고
+  #   ERROR | unknown skin name '/Applications/Android Studio.app/...'
+  # 로 죽는다(실측). 부모 디렉터리를 -skindir 로, 마지막 한 칸만 -skin 으로 준다.
+  SKIN_ARGS=(-skindir "$(dirname "$skin")" -skin "$(basename "$skin")")
+  log "기기 스킨: $(basename "$skin")"
+}
+
 # --- 부팅 ---------------------------------------------------------------------
 #
 # `adb wait-for-device` 만으로는 부족하다. 그것은 기기가 **보이는** 시점에 돌아오고,
@@ -130,17 +165,45 @@ ensure_avd() {
 # "Can't find service: package" 로 죽는다. 그래서 sys.boot_completed 를 본다.
 boot_emulator() {
   if "$ADB" devices | grep -q "emulator-.*device\$"; then
-    log "이미 떠 있는 에뮬레이터를 재사용합니다"
+    # **스킨은 기동할 때만 정해진다.** 이미 떠 있는 것에는 적용되지 않으므로,
+    # 테두리를 바꾸려면 창을 닫고 다시 부르라고 알려 준다.
+    log "이미 떠 있는 에뮬레이터를 재사용합니다 (스킨을 바꾸려면 창을 닫고 다시 실행)"
     return
   fi
 
+  find_skin
+
   log "에뮬레이터 기동 — 처음 부팅은 1~2 분 걸린다"
   # 스크립트가 끝나도 살아 있어야 하므로 세션에서 떼어 낸다.
-  nohup "$EMULATOR" -avd "$AVD_NAME" -no-snapshot-save >/dev/null 2>&1 &
+  #
+  # `${SKIN_ARGS[@]+"${SKIN_ARGS[@]}"}` 로 펴는 이유: macOS 기본 bash 는 3.2 이고
+  # `set -u` 아래에서 빈 배열을 `"${ARR[@]}"` 로 펴면 unbound variable 로 죽는다.
+  nohup "$EMULATOR" -avd "$AVD_NAME" -no-snapshot-save \
+    ${SKIN_ARGS[@]+"${SKIN_ARGS[@]}"} >/dev/null 2>&1 &
   disown
 
-  "$ADB" wait-for-device
+  # **`adb wait-for-device` 는 시간 제한이 없다.** 에뮬레이터가 기동에 실패하면
+  # (잘못된 스킨 이름 하나로도 그렇게 된다 — 실측) 여기서 영원히 매달린다.
+  # 기다리는 동안 에뮬레이터 프로세스가 살아 있는지 함께 본다.
+  local emu_pid=$!
   local waited=0
+  while kill -0 "$emu_pid" 2>/dev/null; do
+    if "$ADB" devices | grep -q "emulator-.*device$"; then
+      break
+    fi
+    sleep 2
+    waited=$((waited + 2))
+    if [ "$waited" -ge 180 ]; then
+      die "3 분 안에 기기가 보이지 않습니다. 로그를 확인하세요."
+    fi
+  done
+  if ! kill -0 "$emu_pid" 2>/dev/null; then
+    die "에뮬레이터가 기동에 실패했습니다.
+       같은 명령을 직접 실행해 오류를 보세요:
+         $EMULATOR -avd $AVD_NAME ${SKIN_ARGS[*]+${SKIN_ARGS[*]}}"
+  fi
+
+  waited=0
   while [ "$waited" -lt 300 ]; do
     if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
       log "부팅 완료"

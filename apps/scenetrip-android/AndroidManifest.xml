@@ -19,8 +19,30 @@
     -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!--
+      「내 위치」 버튼 (MZ2AZ-252). iOS 는 Info.plist 의
+      NSLocationWhenInUseUsageDescription 이 같은 몫을 한다.
+
+      **둘 다 적는다.** FINE 만 적으면 Android 12 부터 사용자가 「대략적인 위치」를
+      고를 수 있는데, 그때 COARSE 가 선언돼 있지 않으면 아무것도 받지 못한다.
+      촬영지를 찾아 주는 앱이라 대략적인 위치로도 충분하므로 그 선택을 막지 않는다.
+
+      런타임에 한 번 더 물어봐야 한다 — 선언만으로는 좌표가 오지 않는다.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!--
+      **평문 HTTP 를 허용한다.** Android 9 부터 기본으로 막히는데, 개발 중 서버는
+      `http://10.0.2.2:8081` 이다. 막힌 상태에서는 호출이 조용히 실패해 화면이 빈
+      목록으로만 보이므로 원인을 찾기 어렵다.
+
+      스토어에 낼 때는 빼야 한다 — 그때는 서버가 HTTPS 다. 지금 빼 두면 개발이
+      돌지 않으므로 남기되, 여기 적어 둔다.
+    -->
     <application
         android:label="SceneTrip"
+        android:usesCleartextTraffic="true"
         android:supportsRtl="true">
 
         <!--
@@ -35,8 +57,18 @@
         <meta-data
             android:name="com.naver.maps.map.NCP_KEY_ID"
             android:value="${naverNcpKeyId}" />
+        <!--
+          **iOS 에는 타이틀바가 없다.** 기본 테마는 앱 이름이 적힌 검은 ActionBar 를
+          얹는데, 그것 하나로 두 앱이 다른 제품처럼 보인다 (ADR 0008).
+
+          플랫폼 테마를 쓰는 이유: `Theme.Material3.*.NoActionBar` 는
+          com.google.android.material 라이브러리를 요구한다. 화면은 Compose 로
+          그리므로 그 라이브러리가 필요 없고, 껍데기 테마 하나 때문에 의존성을
+          더할 이유가 없다.
+        -->
         <activity
             android:name=".MainActivity"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

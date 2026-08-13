@@ -27,10 +27,35 @@ kt_android_library(
     name = "scenetrip-android",
     srcs = glob(["src/**/*.kt"]),
     manifest = "AndroidManifest.xml",
+    # Compose 는 컴파일러 플러그인 없이는 **조용히 잘못 돈다** — 이유는
+    # //tools/bazel/kotlin:compose_compiler_plugin 의 주석에 있다.
+    plugins = ["//tools/bazel/kotlin:compose_compiler_plugin"],
     deps = [
         # 지도 SDK. aar 이라 rules_jvm_external 이 aar_import 로 감싸 준다.
         # androidx.appcompat · okhttp 등 전이 의존성이 함께 딸려 온다.
         "@maven_android//:com_naver_maps_map_sdk",
+
+        # 계약에서 생성한 API 클라이언트. **앱은 클라이언트를 손으로 쓰지 않는다**
+        # (CLAUDE.md §5). iOS 가 같은 계약에서 생성한 것을 쓰는 것과 짝이다.
+        "//contracts/openapi:scene_api_kotlin_lib",
+
+        # Compose. 껍데기(`ui`)가 아니라 **`-android` 짝**을 deps 에 적는다 —
+        # 실제 클래스가 그쪽에 있고, 껍데기만 넣으면 컴파일은 되는데 링크에서
+        # 클래스를 못 찾는다. 버전 못은 MODULE.bazel 에 있다.
+        "@maven_android//:androidx_activity_activity_compose",
+        "@maven_android//:androidx_compose_foundation_foundation_android",
+        "@maven_android//:androidx_compose_foundation_foundation_layout_android",
+        "@maven_android//:androidx_compose_material_material_icons_core_android",
+        "@maven_android//:androidx_compose_material3_material3_android",
+        "@maven_android//:androidx_compose_runtime_runtime_android",
+        "@maven_android//:androidx_compose_ui_ui_android",
+        "@maven_android//:androidx_compose_ui_ui_graphics_android",
+        "@maven_android//:androidx_compose_ui_ui_text_android",
+        "@maven_android//:androidx_compose_ui_ui_unit_android",
+        "@maven_android//:androidx_lifecycle_lifecycle_runtime_compose_android",
+        "@maven_android//:androidx_lifecycle_lifecycle_viewmodel_compose_android",
+        "@maven_android//:org_jetbrains_kotlinx_kotlinx_coroutines_android",
+        "@maven_android//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
     ],
 )
 

@@ -10,18 +10,22 @@ import SwiftUI
 /// 드릴다운은 검색 상태와 별개다: 작품을 골라도(`selectedContent`) 검색어와 검색
 /// 결과는 그대로 남아, 뒤로 가면 고르기 전 화면으로 돌아간다.
 struct SearchTabView: View {
-    @StateObject private var data = SceneData()
-    @StateObject private var cart = CartStore()
+    @StateObject var data = SceneData()
+    @StateObject var cart = CartStore()
+    @StateObject var likes = LikeStore()
 
-    @State private var draft = ""
-    @State private var tab: Tab = .work
-    @State private var chip = CategoryChip.all
-    @State private var detent: BottomSheet<AnyView>.Detent = .medium
-    @State private var selectedPlace: PlaceSummary?
+    @State var draft = ""
+    /// **확정된** 검색어. `draft` 는 타이핑하는 동안에도 바뀌므로 "지금 이 목록이
+    /// 무엇을 검색한 결과인가" 를 그것으로 판단하면 헤더가 글자마다 깜빡인다.
+    @State var committed = ""
+    @State var tab: Tab = .work
+    @State var chip = CategoryChip.all
+    @State var detent: BottomSheet<AnyView>.Detent = .medium
+    @State var selectedPlace: PlaceSummary?
 
     /// 드릴다운 2단 — 고른 작품과 그 작품의 촬영지 (`GET /contents/{id}/places`).
-    @State private var selectedContent: ContentSummary?
-    @State private var contentPlaces: [PlaceSummary] = []
+    @State var selectedContent: ContentSummary?
+    @State var contentPlaces: [PlaceSummary] = []
     @State private var contentLoading = false
 
     @State private var suggestions: [Suggestion] = []
@@ -44,8 +48,29 @@ struct SearchTabView: View {
     /// 담기(+)를 누른 장소 — 줌은 그대로 두고 그 핀이 가운데 오게 지도만 이동한다.
     @State private var panToken = 0
     @State private var panTarget: PlaceSummary?
-    @State private var showCart = false
-    @FocusState private var searchFocused: Bool
+    @State var showCart = false
+
+    /// 지도 중심을 읽어 오는 창구 — "현 지도 내 성지 검색" 이 누르는 순간에 쓴다.
+    @State var camera = MapCamera()
+
+    /// 반경 검색이 켜져 있나. 켜져 있으면 버튼이 해제 버튼으로 바뀐다(목업).
+    @State var nearby = false
+
+    /// 값이 오르면 지도가 남한 전체로 돌아간다 — 첫 화면의 작품 탭이 그 상태다.
+    @State var koreaToken = 0
+
+    /// 값이 오르면 내 위치로 이동한다.
+    @State var locateToken = 0
+
+    /// 「내 위치」 가 실패했을 때만 값이 찬다. 성공은 지도가 움직여서 알 수 있다.
+    @State private var locateFailure: LocateOutcome?
+
+    /// 지도가 남한 밖으로 나갔나 — "한국으로" 버튼을 그때만 띄운다.
+    @State var outsideKorea = false
+
+    /// 시트가 지금 덮고 있는 실제 높이(pt). 시트가 직접 알려 준다.
+    @State private var sheetHeight: CGFloat = 0
+    @FocusState var searchFocused: Bool
 
     enum Tab: String, CaseIterable { case work = "작품", place = "장소" }
 
@@ -55,20 +80,35 @@ struct SearchTabView: View {
     /// 좁히고 지도 핀은 검색 결과 전체를 유지했으나, 실제 숫자를 보고 뒤집었다 —
     /// 목록에 없는 핀이 남으면 그 핀을 눌렀을 때 목록에 없는 장소가 열린다.
     private var visiblePlaces: [PlaceSummary] {
-        guard chip != CategoryChip.all else { return data.places }
-        return data.places.filter { CategoryChip.of($0.type) == chip }
+        let filtered = chip == CategoryChip.all
+            ? data.places
+            : data.places.filter { CategoryChip.of($0.type) == chip }
+        // 첫 화면은 **인기 상위 10곳만** 본다. 155곳을 한꺼번에 보여 주면 목록도
+        // 지도도 읽을 수 없다 — 무엇부터 봐야 할지가 사라진다.
+        return isInitial ? Array(filtered.prefix(10)) : filtered
+    }
+
+    /// 아무것도 좁히지 않은 첫 화면인가 — 검색어도, 반경도, 고른 작품도 없는 상태.
+    private var isInitial: Bool {
+        committed.isEmpty && !nearby && selectedContent == nil
+    }
+
+    /// 핀에 번호를 찍을 것인가.
+    ///
+    /// 번호는 "목록의 N번 = 지도의 N번" 을 잇는 장치다. 첫 화면의 **작품 탭**에서는
+    /// 목록이 작품이고 핀은 장소라 이어 볼 짝이 없다 — 그때만 민 핀으로 둔다.
+    /// 장소 탭으로 옮기면 목록과 핀이 같은 10곳이 되므로 번호를 붙인다(인기 1위부터).
+    private var numbersOnPins: Bool {
+        !(isInitial && tab == .work)
     }
 
     /// 지도에 꽂는 핀. 작품을 골랐으면 그 작품의 촬영지, 아니면 검색 결과다 —
     /// 어느 쪽이든 **시트의 목록과 같은 배열**이라 행 번호가 곧 핀 번호다.
     private var mapPlaces: [PlaceSummary] {
-        selectedContent == nil ? visiblePlaces : contentPlaces
-    }
-
-    /// 시트가 지도를 덮는 비율 — 카메라가 남는 영역 기준으로 움직이게 넘긴다.
-    /// 최대 단계에서는 지도가 어차피 안 보이므로 중간 단 기준을 유지한다.
-    private var mapInsetFraction: CGFloat {
-        min(detent.rawValue, BottomSheet<AnyView>.Detent.medium.rawValue)
+        if selectedContent != nil {
+            return contentPlaces
+        }
+        return visiblePlaces
     }
 
     var body: some View {
@@ -77,12 +117,17 @@ struct SearchTabView: View {
             // 때만 움직인다. 칩은 어느 쪽도 올리지 않는다 (§3-5).
             NaverMapView(
                 pins: mapPlaces,
+                camera: camera,
+                numbered: numbersOnPins,
+                koreaToken: koreaToken,
+                locateToken: locateToken,
                 fitToken: fitToken,
                 focusToken: focusToken,
                 focus: selectedPlace,
                 panToken: panToken,
                 pan: panTarget,
-                bottomInsetFraction: mapInsetFraction
+                sheetHeight: sheetHeight,
+                onLocateFailure: { locateFailure = $0 }
             ) { place in
                 selectedPlace = place
                 if selectedContent == nil {
@@ -93,7 +138,11 @@ struct SearchTabView: View {
             }
             .ignoresSafeArea()
 
-            BottomSheet(detent: $detent, topInset: 108) {
+            BottomSheet(
+                detent: $detent,
+                topInset: 108,
+                onHeightChange: { sheetHeight = $0 }
+            ) {
                 AnyView(sheetContent)
             }
 
@@ -108,12 +157,33 @@ struct SearchTabView: View {
             // 자동완성은 검색창 **바로 아래에 붙어** 내려오는 드롭다운이다.
             VStack(spacing: 2) {
                 searchBar
+                if !searchFocused {
+                    // 「현 지도 내 성지 검색」은 가운데, 조작 버튼은 오른쪽 —
+                    // 위 검색창의 장바구니와 같은 세로선에 놓아 지도를 덜 가린다.
+                    ZStack {
+                        nearbyButton
+                        HStack(spacing: 8) {
+                            Spacer()
+                            if outsideKorea {
+                                mapControl("한국으로", symbol: "map") { koreaToken += 1 }
+                            }
+                            // 과녁 십자(dot.scope) — 네이버·카카오 지도의 현위치
+                            // 버튼과 같은 모양이다. location.circle 은 원 안에
+                            // 화살표라 "방향" 으로 읽힌다.
+                            mapControl("내 위치", symbol: "dot.scope") {
+                                locateToken += 1
+                            }
+                        }
+                        .padding(.trailing, 20)
+                    }
+                    .padding(.top, 8)
+                }
                 if searchFocused {
                     SuggestionPanel(
                         draft: draft,
                         suggestions: suggestions,
                         topWork: topWork,
-                        onCommit: { commit($0) },
+                        onCommit: { term, kind in commit(term, kind: kind) },
                         onOpenWork: { open(summary(of: $0)) },
                         onSelectPlace: { select(placeSuggestion: $0) }
                     )
@@ -122,8 +192,9 @@ struct SearchTabView: View {
             }
         }
         .animation(.easeInOut(duration: 0.15), value: searchFocused)
-        // 키보드가 떠도 레이아웃을 밀어 올리지 않는다 — 검색창·패널·시트는 제자리에
-        // 있어야 한다. 패널 총높이는 SuggestionPanel 이 키보드에 닿지 않게 붙든다.
+        // 「내 위치」 가 실패한 경우에만 뜬다. 문구와 「설정 열기」 는
+        // LocateAlert.swift 에 있다 — 경로 탭에서도 같은 버튼을 쓰게 된다.
+        .locateFailureAlert($locateFailure)
         .ignoresSafeArea(.keyboard)
         .task {
             data.search("")
@@ -131,6 +202,31 @@ struct SearchTabView: View {
         }
         // 카메라 fit 은 결과가 실제로 도착한 순간에 건다. 첫 진입 로드는 pendingFit
         // 이 false 라 서울 중심을 유지한다 (MZ2AZ-162, §3-1).
+        // 첫 화면에서 장소 탭으로 옮기면 인기 10곳이 **한 화면에 다 들어오게** 맞춘다.
+        // 서울 중심 줌 11 에서는 강릉·포항이 화면 밖이라 목록의 절반이 어디 있는지
+        // 보이지 않는다. 검색 결과일 때는 이미 확정 시점에 맞춰 뒀으므로 건드리지 않는다.
+        // 지도가 남한 밖으로 나갔는지 지켜본다.
+        //
+        // 카메라가 움직일 때마다 상태를 갱신하면 화면이 매 프레임 다시 그려진다.
+        // 이 버튼은 즉각적일 필요가 없어 1 초에 한 번만 확인한다.
+        .task {
+            while !Task.isCancelled {
+                let outside = camera.isOutsideKorea
+                if outside != outsideKorea {
+                    outsideKorea = outside
+                }
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+        .onChange(of: tab) { _, current in
+            guard isInitial else { return }
+            if current == .place, !visiblePlaces.isEmpty {
+                fitToken += 1
+            } else if current == .work {
+                // 작품 탭은 특정 촬영지를 가리키지 않는다 — 남한 전체로 돌아간다.
+                koreaToken += 1
+            }
+        }
         .onChange(of: data.phase) { _, phase in
             guard phase == .loaded, pendingFit else { return }
             pendingFit = false
@@ -166,53 +262,6 @@ struct SearchTabView: View {
         .sheet(isPresented: $showCart) {
             CartSheet().environmentObject(cart)
         }
-    }
-
-    // MARK: 검색바
-
-    /// 검색어와 장바구니가 **한 캡슐**이다 — 프로토타입의 검색바와 같다. 따로 떠
-    /// 있던 원형 버튼은 폐기했다.
-    private var searchBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("작품·배우·장소로 검색", text: $draft)
-                .focused($searchFocused)
-                .submitLabel(.search)
-                .autocorrectionDisabled()
-                .onSubmit { commit(draft) }
-                .onChange(of: draft) { _, term in Task { await suggest(term) } }
-            if !draft.isEmpty {
-                Button {
-                    draft = ""
-                    commit("")
-                } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
-                }
-            }
-
-            Divider().frame(height: 22)
-
-            Button { showCart = true } label: {
-                Image(systemName: "cart")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.primary)
-                    .overlay(alignment: .topTrailing) {
-                        if !cart.items.isEmpty {
-                            Text("\(cart.items.count)")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 5).padding(.vertical, 2)
-                                .background(Capsule().fill(Color.red))
-                                .offset(x: 10, y: -8)
-                        }
-                    }
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .background(Capsule().fill(Color(.systemBackground)).shadow(radius: 3, y: 1))
-        .padding(.horizontal, 14)
-        .padding(.top, 8)
     }
 
     // MARK: 시트 내용
@@ -255,9 +304,27 @@ struct SearchTabView: View {
 
     private var listContent: some View {
         VStack(spacing: 0) {
+            // 검색을 하고 들어온 목록이면 나가는 길을 준다.
+            //
+            // 화면은 초기목록 → 검색결과 → 작품상세 → 장소상세 로 쌓인다. 상세 둘은
+            // `<` 로 한 단계씩 나오는데 **검색결과에만 그것이 없어서**, 작품 상세에서
+            // `<` 를 눌러 여기까지 온 사용자가 더 나갈 자리를 못 찾았다. 검색바의
+            // ⊗ 로 지울 수는 있지만 방금 누른 것과 다른 자리라 이어지지 않는다.
+            //
+            // 그래서 **상세와 같은 헤더를 같은 자리에** 쓴다. 브라우저 뒤로가기처럼
+            // 한 번에 한 단계씩만 나온다 — 여기서 한 단계는 "검색 전" 이다.
+            if !committed.isEmpty {
+                DetailHeader(title: committed, subtitle: "") {
+                    draft = ""
+                    commit("")
+                }
+            }
+
+            // 첫 화면의 숫자는 **전체가 아니라 인기순으로 추린 것** 이다. 그냥
+            // "장소 10" 이라고만 두면 전국에 10곳뿐인 것으로 읽힌다.
             Picker("", selection: $tab) {
                 ForEach(Tab.allCases, id: \.self) { each in
-                    Text("\(each.rawValue) \(count(each))").tag(each)
+                    Text("\(isInitial ? "인기 " : "")\(each.rawValue) \(count(each))").tag(each)
                 }
             }
             .pickerStyle(.segmented)
@@ -272,8 +339,14 @@ struct SearchTabView: View {
                 LazyVStack(spacing: 0) {
                     if tab == .work {
                         ForEach(data.contents, id: \.id) { content in
-                            Button { open(content) } label: { WorkRow(content: content) }
-                                .buttonStyle(.plain)
+                            Button { open(content) } label: {
+                                WorkRow(
+                                    content: content,
+                                    onLike: { likes.toggle(content.id) },
+                                    liked: likes.contains(content.id)
+                                )
+                            }
+                            .buttonStyle(.plain)
                             Divider().padding(.leading, 14)
                         }
                     } else {
@@ -307,8 +380,26 @@ struct SearchTabView: View {
 
     /// 검색 확정 — 추천어 선택이나 엔터. 이때만 서버를 부른다 (§3-5). 글자마다
     /// 부르지 않는다. 카메라는 여기서 움직이지 않고 결과 도착 때 맞춘다 (pendingFit).
-    private func commit(_ term: String) {
+    /// 검색을 확정한다.
+    ///
+    /// `kind` 는 **사용자가 고른 것의 갈래** 다. 장소를 골랐으면 장소 탭이, 작품이나
+    /// 배우를 골랐으면 작품 탭이 열린다 — 배우로 찾는 것은 "그 배우가 나온 작품" 이지
+    /// 장소가 아니다. 직접 입력하고 엔터를 친 경우처럼 갈래를 모르면 탭을 그대로 둔다.
+    func commit(_ term: String, kind: EntityType? = nil) {
+        switch kind {
+        case .place:
+            tab = .place
+        case .content, .person:
+            tab = .work
+        case nil:
+            break
+        }
+
         draft = term
+        committed = term.trimmingCharacters(in: .whitespaces)
+        // 단어로 검색하는 순간 반경 모드는 끝난다 — 두 조건이 함께 걸려 있으면
+        // 결과가 왜 그렇게 나왔는지 화면만 보고는 설명할 수 없다.
+        nearby = false
         chip = CategoryChip.all
         selectedPlace = nil
         selectedContent = nil
@@ -341,7 +432,13 @@ struct SearchTabView: View {
     /// 담기 — 계약이 적어 둔 세 경로 중 목록 행의 `+`. 담는 순간 그 핀이 가운데
     /// 오게 지도를 **이동만** 한다. 확대는 장소를 열 때만 한다.
     private func save(_ place: PlaceSummary) {
+        // 이미 담긴 장소면 **뺀다.** 목록 행의 버튼은 담기 전용이 아니라 토글이다.
+        if cart.contains(place.id) {
+            Task { await cart.remove(placeId: place.id) }
+            return
+        }
         Task { await cart.add(placeId: place.id) }
+        // 지도를 옮기는 것은 담을 때만이다. 뺄 때 옮기면 사라진 것을 보여 주는 꼴이다.
         panTarget = place
         panToken += 1
     }
@@ -370,7 +467,7 @@ struct SearchTabView: View {
         )
     }
 
-    private func suggest(_ term: String) async {
+    func suggest(_ term: String) async {
         let query = term.trimmingCharacters(in: .whitespaces)
         guard !query.isEmpty else {
             suggestions = []

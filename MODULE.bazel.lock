@@ -355,7 +355,7 @@
     "@@openapi_tools_generator_bazel+//:extension.bzl%openapi_gen": {
       "general": {
         "bzlTransitiveDigest": "F2+MMhxcHdwCtkgx+/FajorjWEwViv+AcgsSAib89mk=",
-        "usagesDigest": "ljstzQjbyNlq3PxSKs7XbzfsfC0eQizXi2COMEY87bo=",
+        "usagesDigest": "PE+LruXLmZm+rnFhBEEWQA4pipcdmQG2+vHZ3X9cVr8=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -365,15 +365,15 @@
             "attributes": {
               "generated_rule_name": "openapi_tools_generator_bazel_cli",
               "artifact_urls": [
-                "https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.2.0/openapi-generator-cli-7.2.0.jar"
+                "https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.24.0/openapi-generator-cli-7.24.0.jar"
               ],
               "srcjar_urls": [],
-              "canonical_id": "org.openapitools:openapi-generator-cli:7.2.0",
+              "canonical_id": "org.openapitools:openapi-generator-cli:7.24.0",
               "rule_name": "java_import",
               "tags": [
-                "maven_coordinates=org.openapitools:openapi-generator-cli:7.2.0"
+                "maven_coordinates=org.openapitools:openapi-generator-cli:7.24.0"
               ],
-              "artifact_sha256": "1cf0c80de12c0fdc8594289c19e414b402108ef10b8dd0bfda1953151341ab5d"
+              "artifact_sha256": "4b83ccc6fd43056c8c631cd0195e5100bd0550912502527bab09ac76152dab0c"
             }
           }
         },
@@ -804,6 +804,54 @@
             "rules_swift_package_manager+",
             "cgrindel_bazel_starlib",
             "cgrindel_bazel_starlib+"
+          ]
+        ]
+      }
+    },
+    "@@rules_xcodeproj+//xcodeproj:extensions.bzl%internal": {
+      "general": {
+        "bzlTransitiveDigest": "6b7fhHheHHW4rL/pAs4tZ66yQ9d49pnEmU745HWme68=",
+        "usagesDigest": "GQbVa8u2mu62T+zrTqmhaC/CcTZCk9TbaEysay8z7s0=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "rules_xcodeproj_generated": {
+            "repoRuleId": "@@rules_xcodeproj+//xcodeproj:repositories.bzl%generated_files_repo",
+            "attributes": {}
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "rules_xcodeproj+",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
+      }
+    },
+    "@@rules_xcodeproj+//xcodeproj:extensions.bzl%non_module_deps": {
+      "general": {
+        "bzlTransitiveDigest": "6b7fhHheHHW4rL/pAs4tZ66yQ9d49pnEmU745HWme68=",
+        "usagesDigest": "J2kg7Z+qAy9OZSmQEZ2lDmfj16whViTPU0Koc1MwLYI=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "rules_xcodeproj_index_import": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+            "attributes": {
+              "build_file_content": "load(\"@bazel_skylib//rules:native_binary.bzl\", \"native_binary\")\n\nnative_binary(\n    name = \"index_import\",\n    src = \"index-import\",\n    out = \"index-import\",\n    visibility = [\"//visibility:public\"],\n)\n",
+              "sha256": "28c1ffa39d99e74ed70623899b207b41f79214c498c603915aef55972a851a15",
+              "url": "https://github.com/MobileNativeFoundation/index-import/releases/download/5.8.0.1/index-import.tar.gz"
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "rules_xcodeproj+",
+            "bazel_tools",
+            "bazel_tools"
           ]
         ]
       }

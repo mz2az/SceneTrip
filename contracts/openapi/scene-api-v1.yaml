@@ -85,7 +85,7 @@ info:
 
     **여행 전과 여행 중이 다르다.**
 
-    | | 계획 단계 (`status: planned`) | 여행 중 (`status: ongoing`) |
+    | | 계획 단계 (`status: upcoming`) | 여행 중 (`status: active`) |
     | --- | --- | --- |
     | 구간 표시 | 직선거리(m)만 | 실제 경로 |
     | 구간 소요 시간 | **주지 않는다** | 준다 |
@@ -335,10 +335,12 @@ paths:
         | 상황 | 파라미터 |
         | --- | --- |
         | 장소 탭 검색 | `q` |
-        | 지도 뷰포트 안의 핀 | `bbox` |
-        | 현 지도 내 성지 검색 (반경 5km) | `lat` + `lng` + `radiusMeters` |
+        | 지도 뷰포트 안의 핀 · 「현 지도 내 성지 검색」 | `bbox` |
+        | 한 점을 중심으로 한 반경 (「이어서 걷기 좋은 곳」) | `lat` + `lng` + `radiusMeters` |
 
         **`bbox` 와 `radiusMeters` 는 함께 쓸 수 없다.** 둘 다 오면 400 이다.
+        화면은 네모지 원이 아니므로 「이 화면 안」을 묻는 동작에는 `bbox` 를 쓴다 —
+        앱의 「현 지도 내 성지 검색」이 그렇게 부른다.
         영역 조건이 하나도 없으면 전국을 대상으로 인기도 상위를 돌려준다.
 
         `sort=distance` 는 기준점이 있을 때만 유효하다 — `lat`·`lng` 없이 주면 400.
@@ -393,7 +395,9 @@ paths:
         - $ref: "#/components/parameters/OriginLng"
         - name: radiusMeters
           in: query
-          description: 기준점으로부터의 반경. 목업의 "현 지도 내 성지 검색" 은 5000 을 쓴다.
+          description: |
+            기준점으로부터의 반경. 지금 이것을 쓰는 곳은 촬영지 상세의
+            "이어서 걷기 좋은 곳" 하나다 (`GET /places/{placeId}` 설명 참고).
           schema:
             type: integer
             minimum: 1
@@ -1833,7 +1837,7 @@ components:
 
     CourseDay:
       type: object
-      required: [dayNumber, items, stayMinutes, travelMinutes, totalMinutes, travelBasis]
+      required: [dayNumber, items, dwellMinutes, travelMinutes, totalMinutes, travelBasis]
       properties:
         dayNumber:
           type: integer
@@ -1845,7 +1849,7 @@ components:
           description: 갈 순서대로. 프론트는 받은 순서를 그대로 그리면 된다.
           items:
             $ref: "#/components/schemas/CourseItem"
-        stayMinutes:
+        dwellMinutes:
           type: integer
           description: 이 날 머무는 시간의 합
         travelMinutes:
@@ -1856,14 +1860,14 @@ components:
         totalMinutes:
           type: integer
           description: |
-            `stayMinutes + travelMinutes`. **시작 시각을 받지 않으므로 도착·출발 시각은
+            `dwellMinutes + travelMinutes`. **시작 시각을 받지 않으므로 도착·출발 시각은
             없다.** 화면은 "약 6시간 20분" 처럼 길이만 보여 준다.
         travelBasis:
           $ref: "#/components/schemas/TravelBasis"
 
     CourseItem:
       type: object
-      required: [id, source, name, latitude, longitude, dwellMin]
+      required: [id, source, name, latitude, longitude, dwellMinutes]
       properties:
         id:
           type: integer
@@ -1910,7 +1914,7 @@ components:
           type: string
           nullable: true
           format: uri
-        dwellMin:
+        dwellMinutes:
           type: integer
           minimum: 15
           maximum: 180
@@ -1986,7 +1990,7 @@ components:
 
     CourseItemInput:
       type: object
-      required: [dwellMin]
+      required: [dwellMinutes]
       description: |
         `placeId` 와 `customPin` 중 **정확히 하나**를 보낸다. 둘 다이거나 둘 다 없으면
         `400` 이다. OpenAPI 로는 이 조건을 표현할 방법이 마땅치 않아 서버가 검사한다.
@@ -2004,7 +2008,7 @@ components:
             등록된 촬영지. 장바구니에서 꺼내든 검색으로 찾든 같은 값이다.
         customPin:
           $ref: "#/components/schemas/CustomPinInput"
-        dwellMin:
+        dwellMinutes:
           type: integer
           minimum: 15
           maximum: 180
@@ -2183,7 +2187,7 @@ components:
 
     MarketDay:
       type: object
-      required: [dayNumber, items, stayMinutes, travelMinutes, totalMinutes, travelBasis]
+      required: [dayNumber, items, dwellMinutes, travelMinutes, totalMinutes, travelBasis]
       description: |
         `CourseDay` 와 모양이 닮았지만 별개 스키마다. 이쪽은 **올린 시점의 사본**이라
         장소에 코스 아이템 id 도 방문 체크도 없다.
@@ -2197,7 +2201,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MarketItem"
-        stayMinutes:
+        dwellMinutes:
           type: integer
         travelMinutes:
           type: integer
@@ -2208,7 +2212,7 @@ components:
 
     MarketItem:
       type: object
-      required: [placeId, name, latitude, longitude, dwellMin]
+      required: [placeId, name, latitude, longitude, dwellMinutes]
       properties:
         placeId:
           type: integer
@@ -2237,7 +2241,7 @@ components:
           type: string
           nullable: true
           format: uri
-        dwellMin:
+        dwellMinutes:
           type: integer
         distanceMetersFromPrevious:
           type: integer

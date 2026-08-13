@@ -5,6 +5,11 @@ import SwiftUI
 struct WorkRow: View {
     let content: ContentSummary
 
+    /// 찜 토글. 넘기지 않으면 하트를 그리지 않는다 — 장바구니 목록처럼 찜이 뜻을
+    /// 갖지 않는 자리가 있다.
+    var onLike: (() -> Void)?
+    var liked = false
+
     private var meta: String {
         [
             content.broadcaster,
@@ -32,6 +37,20 @@ struct WorkRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            // **작품에는 하트, 장소에는 플러스** (8/11 회의 확정). 장소의 `+` 와 같은
+            // 자리에 두어 사용자가 규칙을 한 번만 배우게 한다.
+            //
+            // 채운 하트와 빈 하트로 상태를 보인다 — `−` 로 바꾸지 않는 것은 장소
+            // 쪽과 같은 이유다. 이 자리의 첫 임무는 "이미 담겼는지" 를 알려 주는 것.
+            if let onLike {
+                Button(action: onLike) {
+                    Image(systemName: liked ? "heart.fill" : "heart")
+                        .font(.title3)
+                        .foregroundStyle(liked ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(liked ? "찜 빼기" : "찜하기")
+            }
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
@@ -88,6 +107,16 @@ struct PlaceRow: View {
                     .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
             }
             Spacer()
+            // 담긴 상태에서 다시 누르면 뺀다.
+            //
+            // 전에는 `.disabled(saved)` 로 버튼을 꺼 버려서 **한 번 담으면 목록에서
+            // 뺄 길이 없었다.** 장바구니 시트를 열어야만 뺄 수 있었다.
+            //
+            // 확인창을 두지 않는다 — 담기가 한 번에 되는데 빼기만 물어보면 무겁고,
+            // 잘못 빼도 다시 담으면 그만이라 되돌리는 비용이 낮다.
+            //
+            // 아이콘은 `−` 가 아니라 체크를 유지한다. 이 자리의 첫 임무는 "이미
+            // 담겼는지" 를 알려 주는 것이고, `−` 로 바꾸면 그 상태가 보이지 않는다.
             if let onAdd {
                 Button(action: onAdd) {
                     Image(systemName: saved ? "checkmark.circle.fill" : "plus.circle")
@@ -95,7 +124,7 @@ struct PlaceRow: View {
                         .foregroundStyle(saved ? Color.accentColor : .secondary)
                 }
                 .buttonStyle(.plain)
-                .disabled(saved)
+                .accessibilityLabel(saved ? "장바구니에서 빼기" : "장바구니에 담기")
             }
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }

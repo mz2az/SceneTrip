@@ -84,3 +84,8 @@ Thumbs.db
 
 # Swift Package Manager 작업 디렉터리 (해석 결과는 Package.resolved 로 커밋한다)
 .build/
+
+# Xcode 프로젝트는 생성물이다 — `just ios-xcode` 가 만든다. 사람마다 서명 설정과
+# 기기 목록이 달라 커밋하면 서로 덮어쓴다. 정본은 BUILD.bazel 의 xcodeproj 타깃이다.
+*.xcodeproj/
+*.xcworkspace/
