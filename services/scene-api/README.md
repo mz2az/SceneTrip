@@ -10,6 +10,17 @@ SceneTrip 앱의 **검색·지도 탭**을 받치는 백엔드다. 작품·촬�
 엔드포인트는 **9개**이고 전부 구현돼 있다. 경로는 명세의 `servers.url` 을 따라 `/v1`
 아래에 있다.
 
+> **경로여정 탭의 계약이 먼저 들어와 있다.** 명세(`scene-api-v1.yaml` v1.1.0)에는
+> 코스·작품찜·마켓·길찾기 경로 18개가 있지만 **이 서비스에는 아직 핸들러가 없다.**
+> 프론트가 붙기 전에 계약을 먼저 낸다는 결정에 따른 것이고
+> ([MZ2AZ-228](https://mz2az.atlassian.net/browse/MZ2AZ-228)), 구현 순서는
+> [계획 문서 §9](../../docs/project/plans/course-api.md) 에 있다. 아래 표는 실제로
+> 도는 것만 적는다.
+>
+> **스키마는 이미 들어와 있다** (`V8`~`V10`). 그 과정에서 장바구니가 `cart_item` 에서
+> `saved_place` 로 옮겨 갔고 주체가 설치 UUID 에서 `app_user.id` 로 바뀌었다 —
+> 아래 [데이터베이스](#데이터베이스) 참고. **계약과 앱은 그대로다.**
+
 | 경로 | 하는 일 |
 | --- | --- |
 | `GET /v1/search/suggestions` | 자동완성. **이름·별칭만** 본다 (설명 제외) |
@@ -88,8 +99,32 @@ initContainer 가 있다.
 | `V2__schema.sql` | 테이블 14 개 + 인덱스 |
 | `V3__search_term.sql` | `search_normalize()` 함수와 `search_term` MATERIALIZED VIEW |
 | `V4__drop_unused_postgis_extensions.sql` | 이미지가 기본으로 켜는 tiger geocoder·topology 제거 |
-| `V5__cart_item.sql` | 장바구니. 기기 UUID 와 장소의 복합 기본키가 중복 담기를 막는다 |
+| `V5__cart_item.sql` | 장바구니. **V8 이 이 표를 없앴다** (아래) |
 | `V6__place_geometry_index.sql` | 지도 뷰포트 질의(`geom::geometry`)가 탈 표현식 GiST 인덱스 |
+| `V7__place_content_scene_image.sql` | 장면 스틸 URL |
+| `V8__app_user.sql` | `app_user`·`user_device`, `cart_item` → `saved_place`, `user_event.user_id` → UUID |
+| `V9__course.sql` | `course`·`custom_pin`·`course_item`·`saved_content` |
+| `V10__market.sql` | `market_course`·`_item`·`_content`·`market_like` |
+
+### 주체는 계정이다 — 설치 UUID 가 아니다
+
+```
+X-Device-Id 헤더 (설치 UUID) → user_device.install_uuid → app_user.id → 저장
+```
+
+앱이 보내는 값은 그대로다. 변환은 `UserStore.resolve()` 안에 갇혀 있어 **계약에도 앱에도
+드러나지 않는다.** 처음 보는 설치본이면 비회원 계정을 하나 만들어 준다.
+
+설치 UUID 를 주체로 쓰지 않는 이유는 그것이 사람이 아니라 **설치본**을 가리키기
+때문이다. 앱을 지웠다 깔면 새로 생기는데 그것이 주체이면 그 사람의 장바구니와 코스가
+통째로 끊긴다. 로그인이 붙으면 `user_device` 가 가리키는 곳만 바꿔 달면 되고 데이터는
+움직이지 않는다.
+
+`app_user.id` 는 **애플리케이션이 만들어 넣는다.** 설계는 UUIDv7 을 권하지만
+`uuidv7()` 이 PostgreSQL 18 부터라(우리는 17) 컬럼에 기본값을 두지 않았다 —
+`gen_random_uuid()` 를 기본값으로 걸면 v4 가 되고, 나중에 v7 로 바꿔도 이미 들어간 행은
+v4 로 남아 두 세대가 섞인다. PG 18 로 올라가면 `DEFAULT uuidv7()` 을 붙이고 애플리케이션
+쪽을 지운다.
 
 **적용된 마이그레이션 파일은 고치지 않는다.** Flyway 가 체크섬을 기록해 두어, 파일이
 바뀌면 다음 기동에서 검증 실패로 죽는다. 뒤에 새 번호로 붙인다.
