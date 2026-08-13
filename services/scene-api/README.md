@@ -8,16 +8,21 @@ SceneTrip 앱의 **검색·지도 탭**과 **경로여정 탭**을 받치는 백
 검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고, 담은
 장소로 며칠짜리 코스를 짜는 API 를 제공한다.
 
-엔드포인트는 **19개**이고 전부 구현돼 있다. 경로는 명세의 `servers.url` 을 따라 `/v1`
+엔드포인트는 **26개**이고 전부 구현돼 있다. 경로는 명세의 `servers.url` 을 따라 `/v1`
 아래에 있다.
 
 > **경로여정 탭은 절반쯤 와 있다.** 명세(`scene-api-v1.yaml` v1.1.0)에 코스·작품찜·
-> 마켓·길찾기 경로 18개가 있고, 그중 **10개가 구현됐다** — 코스 7
+> 마켓·길찾기 경로 18개 중 **17개가 구현됐다** — 코스 7
 > ([229](https://mz2az.atlassian.net/browse/MZ2AZ-229) ·
-> [230](https://mz2az.atlassian.net/browse/MZ2AZ-230))과 작품 찜 3
-> ([231](https://mz2az.atlassian.net/browse/MZ2AZ-231)). 나머지는 아직 핸들러가 없어
-> `501` 이다 — 마켓(232), 길찾기(233). 구현 순서는
-> [계획 문서 §9](../../docs/project/plans/course-api.md).
+> [230](https://mz2az.atlassian.net/browse/MZ2AZ-230)), 작품 찜 3
+> ([231](https://mz2az.atlassian.net/browse/MZ2AZ-231)), 마켓 7
+> ([232](https://mz2az.atlassian.net/browse/MZ2AZ-232)). 남은 하나는 길찾기(233)이고
+> 선행 티켓을 기다리며 `501` 이다.
+>
+> **마켓의 쓰기 넷(올리기·담기·좋아요·내리기)은 지금 아무도 통과하지 못한다.** 가입
+> 사용자만 할 수 있는데 가입시키는 경로가 아직 없다(로그인 8/23 주차). 의도한 상태이고
+> 저장소 로직은 통합 테스트가 실제 DB 로 확인한다 — `app_user.registered_at` 이 채워지는
+> 순간 열린다.
 >
 > **스키마는 이미 들어와 있다** (`V8`~`V10`). 그 과정에서 장바구니가 `cart_item` 에서
 > `saved_place` 로 옮겨 갔고 주체가 설치 UUID 에서 `app_user.id` 로 바뀌었다 —
@@ -44,6 +49,12 @@ SceneTrip 앱의 **검색·지도 탭**과 **경로여정 탭**을 받치는 백
 | `GET /v1/favorites/contents` | 찜한 작품 목록 |
 | `POST /v1/favorites/contents` | 작품 찜하기 |
 | `DELETE /v1/favorites/contents/{contentId}` | 찜 해제 |
+| `GET /v1/market/courses` | 올라온 코스 목록. `q`=작품 이름, `sort`=담기순·좋아요순 |
+| `POST /v1/market/courses` | 올리기 — **사본을 뜬다** |
+| `GET /v1/market/courses/{marketCourseId}` | 올라온 코스 상세 |
+| `DELETE /v1/market/courses/{marketCourseId}` | 내리기 |
+| `POST /v1/market/courses/{marketCourseId}/saves` | 담기 — 내 코스로 복사 |
+| `POST /v1/market/courses/{marketCourseId}/likes` · `DELETE …` | 좋아요 토글 |
 
 **코스 편집은 완료를 누를 때 한 번이다.** 제목·기간·장소·순서·체류시간을 고치는 동안
 서버로는 아무것도 나가지 않고, `PUT` 이 최종 모습을 통째로 받는다. 그래서 되돌리기가
@@ -63,6 +74,12 @@ SceneTrip 앱의 **검색·지도 탭**과 **경로여정 탭**을 받치는 백
 `saved_content` 와 `saved_place`. 그리고 **찜은 담기도 빼기도 멱등이라 `204` 뿐이다.**
 하트는 토글이라 같은 상태를 두 번 요청하는 일이 흔한데, 그때마다 오류를 내면 프론트가
 사용자에게 보여 줄 것이 없다 — 장바구니가 중복에 `409` 를 내는 것과 갈리는 지점이다.
+
+**마켓에 올린 코스는 사본이다.** 올리는 순간의 일차·순서·머무는 시간을 통째로 뜬다.
+원본을 고쳐도 마켓의 것은 그대로다 — 남이 담아 간 코스가 갑자기 바뀌면 안 되기 때문이다.
+그래서 고치는 방법이 없고 「내리기」가 짝으로 있다. **직접 찍은 핀은 올릴 때 빠진다**
+(개인 숙소 위치). 장소 정보 자체는 사본으로 굳히지 않고 `place` 를 계속 참조한다 —
+사본이어야 하는 것은 장소가 아니라 순서와 머무는 시간이다.
 
 **검색은 통합검색이다.** `GET /contents?q=` 와 `GET /places?q=` 가 같은 텍스트 뭉치(장소명·
 장소 설명·작품 제목·작품 설명·인물 이름)를 보고, 걸린 것을 `place_content` 로 **양방향**

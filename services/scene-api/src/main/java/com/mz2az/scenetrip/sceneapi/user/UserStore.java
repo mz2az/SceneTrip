@@ -74,6 +74,26 @@ public class UserStore {
     return find(installUuid).orElseGet(() -> create(installUuid));
   }
 
+  /**
+   * 가입한 사용자인가.
+   *
+   * <p>비회원과 가입 사용자가 같은 표를 쓴다. 가입해도 행이 새로 생기지 않고 {@code registered_at} 이 채워질 뿐이라, 그 칸 하나가 판정의 전부다.
+   *
+   * <p>이 값이 <b>마켓과 길찾기의 문</b>이다. 비회원이 코스를 올린 뒤 앱을 지우면 그것을 아무도 내릴 수 없고, 길찾기는 호출마다 돈이 나가는데 계정이 없으면 누가
+   * 얼마나 썼는지 셀 수 없다.
+   *
+   * <p><b>지금은 언제나 {@code false} 다.</b> 가입시키는 경로가 아직 없다 — 로그인 스토리는 8/23 주차다. 그래서 마켓 API 는 계약대로 401 을
+   * 낸다. 로그인이 붙으면 이 메서드는 그대로 두고 {@code registered_at} 을 채우는 쪽만 생기면 된다.
+   */
+  public boolean isRegistered(UUID userId) {
+    return Boolean.TRUE.equals(
+        jdbc.sql("SELECT registered_at IS NOT NULL FROM app_user WHERE id = CAST(:id AS UUID)")
+            .param("id", userId.toString())
+            .query(Boolean.class)
+            .optional()
+            .orElse(false));
+  }
+
   private Optional<UUID> find(UUID installUuid) {
     return jdbc.sql(TOUCH_SQL)
         .param("installUuid", installUuid.toString())
