@@ -293,10 +293,12 @@ paths:
         | 상황 | 파라미터 |
         | --- | --- |
         | 장소 탭 검색 | `q` |
-        | 지도 뷰포트 안의 핀 | `bbox` |
-        | 현 지도 내 성지 검색 (반경 5km) | `lat` + `lng` + `radiusMeters` |
+        | 지도 뷰포트 안의 핀 · 「현 지도 내 성지 검색」 | `bbox` |
+        | 한 점을 중심으로 한 반경 (「이어서 걷기 좋은 곳」) | `lat` + `lng` + `radiusMeters` |
 
         **`bbox` 와 `radiusMeters` 는 함께 쓸 수 없다.** 둘 다 오면 400 이다.
+        화면은 네모지 원이 아니므로 「이 화면 안」을 묻는 동작에는 `bbox` 를 쓴다 —
+        앱의 「현 지도 내 성지 검색」이 그렇게 부른다.
         영역 조건이 하나도 없으면 전국을 대상으로 인기도 상위를 돌려준다.
 
         `sort=distance` 는 기준점이 있을 때만 유효하다 — `lat`·`lng` 없이 주면 400.
@@ -351,7 +353,9 @@ paths:
         - $ref: "#/components/parameters/OriginLng"
         - name: radiusMeters
           in: query
-          description: 기준점으로부터의 반경. 목업의 "현 지도 내 성지 검색" 은 5000 을 쓴다.
+          description: |
+            기준점으로부터의 반경. 지금 이것을 쓰는 곳은 촬영지 상세의
+            "이어서 걷기 좋은 곳" 하나다 (`GET /places/{placeId}` 설명 참고).
           schema:
             type: integer
             minimum: 1
