@@ -108,6 +108,24 @@ object IOS {
     /** 팝업이 화면 가장자리에서 띄우는 거리. iOS 는 좌·우·아래 9pt. */
     val popupInset = 9.dp
 
+    // --- 경고창 (UIAlertController) -----------------------------------------
+    //
+    // iOS 의 시스템 경고창은 Material 의 `AlertDialog` 와 생김새가 아주 다르다 —
+    // Material 은 왼쪽 정렬에 버튼이 오른쪽 아래로 몰리고, iOS 는 **가운데 정렬에
+    // 버튼이 가로로 반씩** 나뉜다. 그대로 두면 이 화면만 다른 앱처럼 보인다.
+
+    /** iOS 경고창의 고정 너비. 화면 폭과 무관하게 270pt 다. */
+    val alertWidth = 270.dp
+
+    /** 경고창 모서리. 팝업 카드(36)보다 훨씬 각지다. */
+    val alertCorner = 14.dp
+
+    /** 경고창 버튼 한 칸의 높이. */
+    val alertButton = 44.dp
+
+    /** 경고창 구분선. iOS 는 1px 이 아니라 **머리카락 굵기**다. */
+    val hairline = 0.5.dp
+
     /** 팝업 뒷배경 딤. iOS 는 **20%** 다 — 60% 로 두면 훨씬 어둡다. */
     const val DIM = 0.20f
 

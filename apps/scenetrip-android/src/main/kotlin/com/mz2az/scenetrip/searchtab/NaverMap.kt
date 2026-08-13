@@ -253,6 +253,29 @@ fun NaverMap.zoomTo(
 }
 
 /**
+ * 「내 위치」 로 한 번 날아간다 (MZ2AZ-252).
+ *
+ * `zoomTo` 와 갈라 둔 이유는 **줌이 다르기** 때문이다. 장소 하나를 열 때는 16 으로
+ * 바짝 붙지만, 「내 위치」 는 한 점이 아니라 **주변에 뭐가 있나**를 보려는 동작이라
+ * 한 단계 넓은 15 다. iOS `NaverMapView.swift` 의 값과 같아야 한다.
+ */
+fun NaverMap.zoomToMyLocation(
+    latitude: Double,
+    longitude: Double,
+    density: Density,
+    screenHeight: Dp,
+    sheetHeight: Dp,
+    searchBarInset: Dp,
+) {
+    applyInset(this, density, screenHeight, sheetHeight, searchBarInset)
+    moveCamera(
+        CameraUpdate
+            .scrollAndZoomTo(LatLng(latitude, longitude), 15.0)
+            .animate(CameraAnimation.Easing, 500L),
+    )
+}
+
+/**
  * 담은 장소가 가운데 오도록 **이동만** 한다 — 확대는 장소를 열 때만 한다.
  * iOS `center(on:)` — easeIn 0.4 초.
  */
