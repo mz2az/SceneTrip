@@ -62,6 +62,9 @@ struct SearchTabView: View {
     /// 값이 오르면 내 위치로 이동한다.
     @State var locateToken = 0
 
+    /// 「내 위치」 가 실패했을 때만 값이 찬다. 성공은 지도가 움직여서 알 수 있다.
+    @State private var locateFailure: LocateOutcome?
+
     /// 지도가 남한 밖으로 나갔나 — "한국으로" 버튼을 그때만 띄운다.
     @State var outsideKorea = false
 
@@ -123,7 +126,8 @@ struct SearchTabView: View {
                 focus: selectedPlace,
                 panToken: panToken,
                 pan: panTarget,
-                sheetHeight: sheetHeight
+                sheetHeight: sheetHeight,
+                onLocateFailure: { locateFailure = $0 }
             ) { place in
                 selectedPlace = place
                 if selectedContent == nil {
@@ -188,8 +192,9 @@ struct SearchTabView: View {
             }
         }
         .animation(.easeInOut(duration: 0.15), value: searchFocused)
-        // 키보드가 떠도 레이아웃을 밀어 올리지 않는다 — 검색창·패널·시트는 제자리에
-        // 있어야 한다. 패널 총높이는 SuggestionPanel 이 키보드에 닿지 않게 붙든다.
+        // 「내 위치」 가 실패한 경우에만 뜬다. 문구와 「설정 열기」 는
+        // LocateAlert.swift 에 있다 — 경로 탭에서도 같은 버튼을 쓰게 된다.
+        .locateFailureAlert($locateFailure)
         .ignoresSafeArea(.keyboard)
         .task {
             data.search("")

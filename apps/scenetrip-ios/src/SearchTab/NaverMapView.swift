@@ -83,10 +83,16 @@ struct NaverMapView: UIViewRepresentable {
     /// 비율이 아니라 실제 값이어야 한다. 비율로 계산하면 시트의 진짜 높이와 어긋나
     /// **로고와 축척이 시트보다 한참 위에** 떠 버린다(실측).
     let sheetHeight: CGFloat
+
+    /// 「내 위치」 가 실패했을 때만 불린다. 성공하면 지도가 움직이므로 알릴 것이 없다.
+    ///
+    /// `onTapPin` **앞에** 둔다 — 뒤에 두면 호출 쪽의 트레일링 클로저가 이쪽에
+    /// 붙어 버린다.
+    let onLocateFailure: (LocateOutcome) -> Void
     let onTapPin: (PlaceSummary) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onTapPin: onTapPin)
+        Coordinator(onTapPin: onTapPin, onLocateFailure: onLocateFailure)
     }
 
     func makeUIView(context: Context) -> NMFNaverMapView {
@@ -104,6 +110,7 @@ struct NaverMapView: UIViewRepresentable {
 
     func updateUIView(_ view: NMFNaverMapView, context: Context) {
         context.coordinator.onTapPin = onTapPin
+        context.coordinator.onLocateFailure = onLocateFailure
         context.coordinator.render(
             pins: pins,
             numbered: numbered,
@@ -119,8 +126,12 @@ struct NaverMapView: UIViewRepresentable {
         )
     }
 
-    final class Coordinator {
+    /// `NSObject` 를 상속하는 이유는 `CLLocationManagerDelegate` 때문이다.
+    /// 권한 응답과 좌표 도착이 **둘 다 비동기**라 델리게이트 없이는 「내 위치」 를
+    /// 만들 수 없다 — 예전 구현이 동기 코드라 파란 점만 켜고 끝났다.
+    final class Coordinator: NSObject, CLLocationManagerDelegate {
         var onTapPin: (PlaceSummary) -> Void
+        var onLocateFailure: (LocateOutcome) -> Void
         private var markers: [NMFMarker] = []
         private var lastPinKey: String = ""
 
@@ -136,6 +147,13 @@ struct NaverMapView: UIViewRepresentable {
         private var lastLocateToken: Int = 0
         private let locationManager = CLLocationManager()
 
+        /// 권한을 물어보는 중이라 **대답을 기다리는** 상태.
+        ///
+        /// 이것이 없으면 앱이 포그라운드로 돌아올 때마다 오는 권한 콜백에 반응해
+        /// 사용자가 누르지도 않았는데 지도가 내 위치로 튄다. 버튼을 눌러서 시작된
+        /// 흐름일 때만 참이다.
+        private var awaitingAuthorization = false
+
         /// 남한 전체가 들어오는 범위. 제주까지 담고 울릉도·독도는 뺐다 — 그것까지
         /// 넣으면 동해가 화면의 절반을 차지해 정작 촬영지가 몰린 서남부가 작아진다.
         static let korea = NMGLatLngBounds(
@@ -145,8 +163,17 @@ struct NaverMapView: UIViewRepresentable {
         private var sheetHeight: CGFloat = 0
         private weak var mapView: NMFMapView?
 
-        init(onTapPin: @escaping (PlaceSummary) -> Void) {
+        init(
+            onTapPin: @escaping (PlaceSummary) -> Void,
+            onLocateFailure: @escaping (LocateOutcome) -> Void
+        ) {
             self.onTapPin = onTapPin
+            self.onLocateFailure = onLocateFailure
+            super.init()
+            locationManager.delegate = self
+            // 촬영지를 찾아 주는 앱이지 내비게이션이 아니다. 미터 단위 정확도는
+            // 필요 없고, 낮은 정확도가 **훨씬 빨리·배터리를 덜 쓰고** 온다.
+            locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         }
 
         func attach(to mapView: NMFMapView) {
@@ -327,16 +354,69 @@ struct NaverMapView: UIViewRepresentable {
         ///
         /// `NMFMyPositionMode.direction` 이 아니라 `.normal` 을 쓴다. 나침반을 따라
         /// 지도가 회전하면 핀 번호와 목록을 대조하기 어려워진다.
+        /// 「내 위치」 버튼. 권한을 확인하고 **좌표를 한 번 받아 카메라를 옮긴다.**
+        ///
+        /// 예전에는 `positionMode = .normal` 만 세웠는데, SDK 문서가 그 모드를
+        /// *"위치는 추적하지만 지도는 움직이지 않는 모드"* 로 정의한다 — 파란 점만
+        /// 생기고 카메라는 제자리라, 남한 전체를 보고 있으면 누른 사람 눈에는
+        /// **아무 일도 안 일어난 것**으로 보였다 (MZ2AZ-252).
+        ///
+        /// 그렇다고 `.direction` 으로 바꾸면 안 된다 — 그건 카메라가 계속 따라다녀
+        /// 사용자가 지도를 못 민다. 지도 앱들이 하는 대로 **한 번만 날아가고**,
+        /// 파란 점은 `.normal` 로 계속 따라다니게 둔다.
         private func locate(on mapView: NMFMapView) {
+            // 파란 점은 권한 여부와 무관하게 미리 켜 둔다. 권한이 없으면 SDK 가
+            // 알아서 아무것도 그리지 않는다.
+            mapView.positionMode = .normal
+
             switch locationManager.authorizationStatus {
             case .notDetermined:
+                // 물어보고 끝낸다. 대답은 델리게이트로 온다.
+                awaitingAuthorization = true
                 locationManager.requestWhenInUseAuthorization()
             case .restricted, .denied:
-                return
+                onLocateFailure(.denied)
             default:
-                break
+                locationManager.requestLocation()
             }
-            mapView.positionMode = .normal
+        }
+
+        /// 권한 대답이 왔다. **버튼으로 시작된 흐름일 때만** 이어서 좌표를 받는다.
+        func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+            guard awaitingAuthorization else { return }
+            switch manager.authorizationStatus {
+            case .notDetermined:
+                return // 아직 사용자가 고르는 중이다.
+            case .restricted, .denied:
+                awaitingAuthorization = false
+                onLocateFailure(.denied)
+            default:
+                awaitingAuthorization = false
+                manager.requestLocation()
+            }
+        }
+
+        func locationManager(_: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+            guard let coordinate = locations.last?.coordinate, let mapView else { return }
+            applyInset(on: mapView)
+            let update = NMFCameraUpdate(
+                scrollTo: NMGLatLng(lat: coordinate.latitude, lng: coordinate.longitude),
+                // 장소 하나를 열 때(16)보다 한 단계 넓게 잡는다. 「내 위치」 는 한 점을
+                // 보려는 것이 아니라 **주변에 뭐가 있나**를 보려는 동작이다.
+                zoomTo: 15
+            )
+            update.animation = .easeIn
+            update.animationDuration = 0.5
+            mapView.moveCamera(update)
+        }
+
+        func locationManager(_: CLLocationManager, didFailWithError error: Error) {
+            // 권한 거부는 여기로도 온다. 이미 알린 것을 두 번 띄우지 않는다.
+            if let clError = error as? CLError, clError.code == .denied {
+                onLocateFailure(.denied)
+                return
+            }
+            onLocateFailure(.failed)
         }
 
         /// 주어진 범위가 다 보이게 맞춘다. 시트가 덮는 만큼은 빼고 계산한다.
