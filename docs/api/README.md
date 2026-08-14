@@ -9,7 +9,7 @@ SceneTrip API 를 사용하는 쪽을 위한 안내: 인증, 페이지네이션,
 
 | 문서 | 목적 |
 | --- | --- |
-| [`auth.md`](./auth.md) | 인증·인가 모델 — v1 은 인증이 없고 `X-Device-Id` 만 쓴다 |
+| [`auth.md`](./auth.md) | 인증·인가 모델 — 로그인은 없고, `X-Device-Id` 로 계정을 찾아 그 계정에 저장한다 |
 | [`errors.md`](./errors.md) | 오류 형식과 상태 코드 의미 |
 | [`scene-api-guide.md`](./scene-api-guide.md) | scene-api 사용 가이드 — 화면별 호출 패턴과 알려진 한계 |
 | `<서비스>-guide.md` | 서비스가 늘면 같은 형태로 하나씩 |
