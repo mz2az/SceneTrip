@@ -19,7 +19,7 @@
 | 로컬 주소 | `http://localhost:8081/v1` |
 | 형식 | JSON |
 | 언어 | `Accept-Language` 헤더 (`ko` · `en` · `ja` · `zh-Hant`) |
-| 장바구니 주체 | `X-Device-Id` 헤더 (UUID) — [auth.md](./auth.md) |
+| 저장 주체 | `X-Device-Id` 헤더(설치 UUID)로 찾아낸 계정 — [auth.md](./auth.md) |
 | 오류 | 공통 `ApiError` 형식 — [errors.md](./errors.md) |
 
 **언어는 헤더로 보낸다.** 서버가 실제로 고른 언어는 `Content-Language` 응답 헤더에
