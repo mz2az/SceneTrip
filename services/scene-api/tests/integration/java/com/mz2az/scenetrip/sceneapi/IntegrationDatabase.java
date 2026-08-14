@@ -1,8 +1,11 @@
 package com.mz2az.scenetrip.sceneapi;
 
 import java.util.List;
+import javax.sql.DataSource;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 통합 테스트가 붙을 실제 PostgreSQL.
@@ -27,13 +30,41 @@ public final class IntegrationDatabase {
    * <p>환경변수가 없으면 <b>건너뛰지 않고 실패한다.</b> 조용히 통과하면 "통합 테스트가 초록" 과 "통합 테스트가 아예 안 돌았다" 를 구분할 수 없게 된다.
    */
   public static JdbcClient jdbcClient() {
-    String url = require(URL_ENV);
-    DriverManagerDataSource dataSource = new DriverManagerDataSource(url);
-    dataSource.setDriverClassName("org.postgresql.Driver");
-    dataSource.setUsername(require(USER_ENV));
-    dataSource.setPassword(require(PASSWORD_ENV));
-    return JdbcClient.create(dataSource);
+    return JdbcClient.create(dataSource());
   }
+
+  /**
+   * 트랜잭션을 여는 도구.
+   *
+   * <p>이것이 필요한 이유는 지연 검사(`DEFERRABLE INITIALLY DEFERRED`) 때문이다. 자동 커밋에서는 문장 하나하나가 곧 트랜잭션이라 제약이 매 문장
+   * 끝에 걸리고, 순서를 통째로 다시 매기는 중간 상태에서 유니크 위반이 난다. 진짜 트랜잭션 안에서만 그 제약이 설계대로 동작한다.
+   *
+   * <p>운영에서는 스프링이 만들어 주지만 이 레인은 스프링 컨텍스트를 띄우지 않으므로 여기서 같은 것을 손으로 만든다. <b>트랜잭션 경계가 테스트에도 실제로 존재해야 지연
+   * 검사가 검증된다.</b>
+   */
+  public static TransactionTemplate transactions() {
+    return new TransactionTemplate(new DataSourceTransactionManager(dataSource()));
+  }
+
+  /**
+   * DataSource 는 하나만 만들어 돌려쓴다.
+   *
+   * <p>스프링은 트랜잭션에 묶인 접속을 <b>DataSource 객체를 열쇠로</b> 스레드에 매달아 둔다. {@code jdbcClient()} 와 {@code
+   * transactions()} 가 각자 새로 만들면 열쇠가 달라, 트랜잭션을 열어 두어도 질의는 그 밖의 새 접속으로 나간다 — 지연 검사가 걸리지 않고 롤백도 되지
+   * 않는다.
+   */
+  private static DataSource dataSource() {
+    if (shared == null) {
+      DriverManagerDataSource dataSource = new DriverManagerDataSource(require(URL_ENV));
+      dataSource.setDriverClassName("org.postgresql.Driver");
+      dataSource.setUsername(require(USER_ENV));
+      dataSource.setPassword(require(PASSWORD_ENV));
+      shared = dataSource;
+    }
+    return shared;
+  }
+
+  private static DataSource shared;
 
   private static String require(String name) {
     String value = System.getenv(name);

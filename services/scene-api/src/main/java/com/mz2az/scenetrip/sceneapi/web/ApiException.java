@@ -42,6 +42,25 @@ public class ApiException extends RuntimeException {
     return new ApiException(HttpStatus.CONFLICT, code, message);
   }
 
+  /**
+   * 가입해야 할 수 있는 동작이다.
+   *
+   * <p>넷뿐이다 — 마켓 좋아요·담기·올리기, 그리고 여행 중 길찾기. 검색·장바구니·작품 찜·코스 만들기는 계정 없이 다 된다. 로그인 벽을 앞에 세우면 사람들이 앱을 써
+   * 보기도 전에 나가기 때문이다.
+   */
+  public static ApiException signInRequired(String code, String message) {
+    return new ApiException(HttpStatus.UNAUTHORIZED, code, message);
+  }
+
+  /**
+   * 남의 것을 고치거나 지우려 했다.
+   *
+   * <p>{@code 404} 와 갈리는 자리에 주의한다. 존재 자체를 숨겨야 하면 404 이고(내 코스), 이미 누구에게나 보이는 것이면 403 이다(마켓에 올라온 코스).
+   */
+  public static ApiException forbidden(String code, String message) {
+    return new ApiException(HttpStatus.FORBIDDEN, code, message);
+  }
+
   public HttpStatus getStatus() {
     return status;
   }

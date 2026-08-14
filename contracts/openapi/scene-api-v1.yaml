@@ -1990,7 +1990,6 @@ components:
 
     CourseItemInput:
       type: object
-      required: [dwellMinutes]
       description: |
         `placeId` 와 `customPin` 중 **정확히 하나**를 보낸다. 둘 다이거나 둘 다 없으면
         `400` 이다. OpenAPI 로는 이 조건을 표현할 방법이 마땅치 않아 서버가 검사한다.
@@ -2013,8 +2012,15 @@ components:
           minimum: 15
           maximum: 180
           description: |
-            머무는 시간(분). 새로 담을 때 프론트가 장소 유형별 기본값을 채워 보낸다 —
-            고궁 90, 카페 40, 다리 15 처럼 다르고 모르는 유형은 60 이다.
+            머무는 시간(분).
+
+            **비우면 서버가 장소 유형에 맞는 기본값을 채운다** — 고궁 90, 카페 40,
+            다리 15 처럼 다르고 모르는 유형은 60 이다. 프론트가 그 표를 들고 있을 필요가
+            없다. 값이 필요하면 담은 뒤 응답의 `CourseItem.dwellMinutes` 를 보면 된다.
+
+            사용자가 슬라이더를 만졌으면 그 값을 보낸다. 이미 담긴 장소를 옮기기만 할
+            때도 지금 값을 그대로 실어 보내는 편이 안전하다 — 비우면 기본값으로
+            되돌아간다.
         sourceContentId:
           type: integer
           format: int64

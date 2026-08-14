@@ -2,6 +2,7 @@ package com.mz2az.scenetrip.sceneapi.web;
 
 import com.mz2az.scenetrip.sceneapi.api.model.ContentCategory;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import com.mz2az.scenetrip.sceneapi.api.model.MarketSort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -12,6 +13,11 @@ import org.springframework.core.convert.converter.Converter;
  * <p>이것이 없으면 {@code Accept-Language: ko} 가 바인딩되지 않는다. Spring 의 기본 String→enum 변환은 상수 이름 ({@code
  * KO})을 찾는데, 생성된 enum 의 값은 소문자({@code ko})이기 때문이다. 생성기가 원래 이 설정을 함께 만들어 주지만 {@code interfaceOnly} 로
  * 껍데기를 걷어내면서 같이 빠졌다.
+ *
+ * <p><b>명세에 enum 질의 파라미터·헤더를 새로 더하면 여기에도 변환기를 더해야 한다.</b> 빠뜨리면 그 파라미터를 쓴 요청이 전부 400 이 되는데, 컴파일도
+ * 통과하고 다른 경로는 멀쩡해서 그 엔드포인트를 실제로 불러 보기 전에는 드러나지 않는다 — {@code MarketSort} 가 그렇게 걸렸다.
+ *
+ * <p>요청·응답 <b>본문</b>에만 쓰이는 enum 은 여기 필요 없다. 그쪽은 Jackson 이 생성된 {@code fromValue} 를 쓴다.
  */
 @Configuration
 class LanguageConfiguration {
@@ -59,5 +65,16 @@ class LanguageConfiguration {
   @Bean
   Converter<String, ContentCategory> contentCategoryConverter() {
     return ContentCategory::fromValue;
+  }
+
+  /**
+   * 마켓 목록의 정렬 기준.
+   *
+   * <p>{@code ContentCategory} 와 같은 이유로 관대하게 받지 않는다. 모르는 값을 조용히 기본값으로 떨어뜨리면 "담기순으로 정렬했는데 좋아요순으로
+   * 나오는" 상태가 오류 없이 생긴다.
+   */
+  @Bean
+  Converter<String, MarketSort> marketSortConverter() {
+    return MarketSort::fromValue;
   }
 }
