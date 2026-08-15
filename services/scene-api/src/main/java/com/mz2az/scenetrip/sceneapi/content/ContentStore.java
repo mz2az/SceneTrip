@@ -104,6 +104,25 @@ public class ContentStore {
           CROSS JOIN params p
           JOIN place_content pc ON pc.place_id = pi.place_id
           WHERE p.norm <> '' AND pi.description ILIKE '%' || CAST(:q AS TEXT) || '%'
+
+          UNION
+
+          -- 이 작품의 장면 설명
+          --
+          -- '2화에서 지은탁이 등장하는 버스정류장' 처럼 어느 작품의 어느 장면이 어디서
+          -- 찍혔는가를 적은 문장이다. 작품에도 장소에도 속하지 않고 둘을 잇는 자리에
+          -- 붙어 있어 place_content 를 한 번 타고 온다. PlaceStore 의 같은 분기와
+          -- 짝이다 — 그쪽은 place_id 를, 여기는 content_id 를 꺼낸다.
+          --
+          -- **실제로 값이 차 있는 유일한 설명이다.** 위 두 분기가 보는 description 은
+          -- 수집이 안 돼 전부 NULL 이라, 이것이 붙기 전에는 설명으로 걸리는 검색이
+          -- 하나도 없었다 (MZ2AZ-263).
+          SELECT pc.content_id
+          FROM place_content_i18n pci
+          JOIN place_content pc ON pc.id = pci.place_content_id
+          CROSS JOIN params p
+          WHERE p.norm <> ''
+            AND pci.relation_description ILIKE '%' || CAST(:q AS TEXT) || '%'
       ),
       display AS (
           SELECT DISTINCT ON (ci.content_id)
