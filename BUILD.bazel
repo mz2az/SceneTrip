@@ -56,6 +56,20 @@ java_binary(
     runtime_deps = ["@maven//:com_puppycrawl_tools_checkstyle"],
 )
 
+# --- Kotlin --------------------------------------------------------------------
+
+# Kotlin 포매터 겸 린터. format.sh 와 lint.sh 가 둘 다 이것을 부른다 —
+# 검사만 하면 린트, `-F` 를 주면 포맷이다.
+#
+# main_class 는 배포 jar 의 매니페스트에서 확인한 값이다
+# (Main-Class: com.pinterest.ktlint.Main, 1.6.0). 아티팩트 이름이 ktlint-cli 이고
+# 내부 패키지 일부가 com.pinterest.ktlint.cli 로 갈렸지만 진입점은 여기다.
+java_binary(
+    name = "ktlint",
+    main_class = "com.pinterest.ktlint.Main",
+    runtime_deps = ["@maven//:com_pinterest_ktlint_ktlint_cli"],
+)
+
 # OpenTelemetry 자바 에이전트를 bazel-bin 아래로 옮긴다.
 #
 # tools/scripts/image-build.sh 가 이것을 빌드해 이미지 컨텍스트에 넣는다.

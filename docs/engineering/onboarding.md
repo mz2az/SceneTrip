@@ -67,15 +67,12 @@ sdkmanager --sdk_root=/opt/homebrew/share/android-commandlinetools \
 # 4) 경로를 .env 에 적는다. just 레시피가 자동으로 읽는다
 echo 'ANDROID_HOME=/opt/homebrew/share/android-commandlinetools' >> .env
 
-# 5) Kotlin 포매터. .kt 파일이 있으면 just check 가 이것을 요구한다
-brew install ktlint
-
-# 6) 에뮬레이터. 3번의 구성요소로는 빌드만 되고 앱이 뜨지는 않는다 (약 1.5GB)
+# 5) 에뮬레이터. 3번의 구성요소로는 빌드만 되고 앱이 뜨지는 않는다 (약 1.5GB)
 sdkmanager --sdk_root=/opt/homebrew/share/android-commandlinetools \
   "emulator" "system-images;android-36;google_apis;arm64-v8a"
 ```
 
-6번을 건너뛰어도 `just build` 는 통과한다 — **APK 가 만들어지는 것과 그것이 뜨는 것은
+5번을 건너뛰어도 `just build` 는 통과한다 — **APK 가 만들어지는 것과 그것이 뜨는 것은
 다르다.** `just android-run` 이 실행할 명령을 알려주고 멈추므로, 지금 안 받아도 나중에
 막히지는 않는다.
 
@@ -83,10 +80,9 @@ AVD(어떤 기기를 흉내 낼지 적어 둔 설정)는 손으로 만들지 않
 없으면 Pixel 7 로 만든다 — 사람마다 다른 기기를 고르면 「내 화면에선 잘리는데」 가
 생긴다.
 
-CI 는 ktlint 버전을 `.github/workflows/ci.yml` 의 `KTLINT_VERSION` 으로 못 박는다 —
-Android 모듈은 리눅스에서도 지어져 `verify` 와 `verify-macos` 가 같은 `.kt` 를
-검사하기 때문이다. brew 가 그보다 앞서 나가 로컬만 빨간불이 나면, 그 값을 올려
-맞춘다.
+**Kotlin 포매터는 깔지 않는다.** ktlint 은 Bazel 이 `//:ktlint` 로 받아온다
+(`MODULE.bazel`) — google-java-format·checkstyle·buildifier 와 같은 방식이다. 그래서
+`just fmt` · `just lint` 이 아무것도 미리 깔지 않은 기계에서도 그대로 돈다.
 
 **JDK 가 없으면 2번에서 막힌다.** `sdkmanager` 자체가 자바 프로그램이기 때문이다.
 macOS 의 `/usr/bin/java` 는 "자바를 설치하세요" 안내만 띄우는 껍데기다. Bazel 이 이미
