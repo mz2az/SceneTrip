@@ -186,11 +186,13 @@ maven.install(
         # 포맷 결과가 갈린다.** 실제로 CI 러너에 도구가 없어 빌드가 실패했다.
         "com.google.googlejavaformat:google-java-format:1.36.1",
         "com.puppycrawl.tools:checkstyle:13.9.0",
-        # ktlint 이 뒤늦게 합류한 이유는 Kotlin 소스가 MZ2AZ-194(검색 탭 Compose 이식)
-        # 전까지 없었기 때문이다. 그전에는 format.sh 가 Kotlin 절을 아예 건너뛰었다.
+        # ktlint 이 뒤늦게 합류한 것은 **결정이 아니라 방치였다.** 위 두 줄을 옮긴
+        # MZ2AZ-181(714b994) 시점에는 Kotlin 소스가 아예 없어 format.sh 의 Kotlin 절이
+        # 죽은 코드였다. MZ2AZ-194(검색 탭 Compose 이식)가 코틀린을 들여오며 그 절이
+        # 깨어났는데, 그때 181 의 결론을 코틀린에 옮겨 적은 사람이 없었다.
         #
-        # 호스트 의존으로 두었더니 **빠진 도구가 관계없는 검사까지 막았다.** --check
-        # 모드는 도구가 없으면 죽는데 Kotlin 절이 Java 절보다 뒤라, ktlint 없는 기계에서
+        # 방치의 대가는 **빠진 도구가 관계없는 검사까지 막는 것**이었다. --check 모드는
+        # 도구가 없으면 죽는데 Kotlin 절이 Java 절보다 뒤라, ktlint 없는 기계에서
         # `just check` 가 Java 포맷 결과를 보기도 전에 끝났다. MZ2AZ-263 의 Java 포맷
         # 실패가 로컬에서 안 잡히고 CI 에서 처음 드러난 것이 그래서다 (MZ2AZ-264).
         #
