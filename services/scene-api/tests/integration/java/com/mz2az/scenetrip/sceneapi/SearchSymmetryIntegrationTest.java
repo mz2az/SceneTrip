@@ -66,6 +66,48 @@ class SearchSymmetryIntegrationTest {
   }
 
   /**
+   * 장면 설명은 작품과 장소 <b>사이</b>에 붙는 유일한 텍스트다.
+   *
+   * <p>"2화에서 지은탁이 등장하는 버스정류장" 처럼 어느 작품의 어느 장면이 여기서 찍혔는지를 적은 문장이라 작품에도 장소에도 속하지 않는다. 그래서 걸리면 양쪽이 함께
+   * 차야 한다.
+   *
+   * <p>이 분기가 늦게 붙은 이유가 있다 — 검색이 훑던 설명 컬럼 둘({@code place_i18n}·{@code content_i18n})은 값이 하나도 없고, 값이
+   * 꽉 찬 것은 이 표뿐인데 그쪽을 보지 않았다. 그래서 <b>설명 검색이 통째로 죽어 있어도 게이트는 내내 초록이었다.</b>
+   */
+  @Test
+  @DisplayName("장면 설명에만 있는 말로 검색해도 양쪽 탭이 찬다")
+  void sceneDescriptionFillsBothTabs() {
+    String q = IntegrationDatabase.anySceneOnlyWord(jdbc);
+
+    assertThat(contentTotal(q)).as("작품 탭 — '%s' 장면이 나온 작품", q).isPositive();
+    assertThat(placeTotal(q)).as("장소 탭 — '%s' 장면을 찍은 장소", q).isPositive();
+  }
+
+  /**
+   * 자동완성은 여기까지 오지 않는다.
+   *
+   * <p>장면 설명은 값이 차 있어 {@code search_term} 에 넣고 싶어지는 자리다. 넣으면 제안 목록에 "2화에서 … 버스정류장입니다" 가 문장째로 뜬다 — 한
+   * 줄짜리 제안으로 쓸 수 없다. 계약이 약속한 경계이므로 여기서 못 박는다.
+   */
+  @Test
+  @DisplayName("그 말로 자동완성을 부르면 아무것도 제안하지 않는다")
+  void sceneDescriptionNeverSuggests() {
+    String q = IntegrationDatabase.anySceneOnlyWord(jdbc);
+
+    assertThat(
+            jdbc.sql(
+                    """
+                    SELECT count(*) FROM search_term
+                    WHERE term_norm LIKE '%' || search_normalize(:q) || '%'
+                    """)
+                .param("q", q)
+                .query(Long.class)
+                .single())
+        .as("search_term 에 '%s' 가 들어가면 제안 목록이 문장으로 오염된다", q)
+        .isZero();
+  }
+
+  /**
    * 걸리지 않는 검색어는 양쪽 모두 0 이어야 한다.
    *
    * <p>위 세 개만 있으면 "무엇이든 다 돌려주는" 구현도 통과한다. 반대 방향을 함께 봐야 단언에 뜻이 생긴다.

@@ -140,6 +140,24 @@ public class PlaceStore {
           JOIN place_content pc ON pc.content_id = cc.content_id
           WHERE p.norm <> '' AND st.entity_type = 'person'
             AND st.term_norm LIKE '%' || p.norm || '%'
+
+          UNION
+
+          -- 여기서 찍힌 장면의 설명
+          --
+          -- '2화에서 지은탁이 등장하는 버스정류장' 처럼 어느 작품의 어느 장면이 여기서
+          -- 찍혔는가를 적은 문장이다. 작품에도 장소에도 속하지 않고 그 둘을 잇는 자리에
+          -- 붙어 있어, 위의 두 설명 분기와 달리 place_content 를 한 번 타고 온다.
+          --
+          -- **실제로 값이 차 있는 유일한 설명이다.** place_i18n·content_i18n 의
+          -- description 은 수집이 안 돼 전부 NULL 이라, 이 분기가 붙기 전에는 설명으로
+          -- 걸리는 검색이 하나도 없었다 (MZ2AZ-263).
+          SELECT pc.place_id
+          FROM place_content_i18n pci
+          JOIN place_content pc ON pc.id = pci.place_content_id
+          CROSS JOIN params p
+          WHERE p.norm <> ''
+            AND pci.relation_description ILIKE '%' || CAST(:q AS TEXT) || '%'
       ),
       display AS (
           SELECT DISTINCT ON (pi.place_id)

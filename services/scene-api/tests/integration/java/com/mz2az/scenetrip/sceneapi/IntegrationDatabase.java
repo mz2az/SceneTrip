@@ -137,6 +137,37 @@ public final class IntegrationDatabase {
         "촬영지 있는 작품에 참여한 인물");
   }
 
+  /**
+   * <b>장면 설명에만</b> 나오는 낱말. 다른 어디에도 걸리지 않는 것으로 고른다.
+   *
+   * <p>이 조건이 이 헬퍼의 전부다. 그냥 장면 설명에서 아무 낱말이나 뽑으면 그것이 장소명이나 작품 제목이기도 할 수 있고, 그러면 장면 설명 분기가 아예 없어도 테스트가
+   * 통과한다 — 이름 분기가 대신 걸어 주기 때문이다. 세 곳(이름류·장소 설명·작품 설명)에 모두 걸리지 않는 낱말이어야 단언에 뜻이 생긴다.
+   *
+   * <p>낱말을 코드에 박지 않는 이유는 이 파일의 다른 헬퍼와 같다. 적재 데이터가 바뀌면 특정 낱말은 사라질 수 있고, 그때 깨지는 것은 결함이 아니라 잡음이다.
+   */
+  public static String anySceneOnlyWord(JdbcClient jdbc) {
+    return single(
+        jdbc,
+        """
+        SELECT w.word
+        FROM place_content_i18n pci
+        CROSS JOIN LATERAL
+            regexp_split_to_table(pci.relation_description, '[[:space:][:punct:]]+') AS w(word)
+        WHERE pci.lang = 'ko'
+          AND length(w.word) >= 3
+          AND NOT EXISTS (
+              SELECT 1 FROM search_term st
+              WHERE st.term_norm LIKE '%' || search_normalize(w.word) || '%')
+          AND NOT EXISTS (
+              SELECT 1 FROM place_i18n pi WHERE pi.description ILIKE '%' || w.word || '%')
+          AND NOT EXISTS (
+              SELECT 1 FROM content_i18n ci WHERE ci.description ILIKE '%' || w.word || '%')
+        ORDER BY w.word
+        LIMIT 1
+        """,
+        "장면 설명에만 나오는 낱말");
+  }
+
   /** 아무 장소 id 하나. 상세 조회 질의를 태워 보는 데 쓴다. */
   public static long anyPlaceId(JdbcClient jdbc) {
     List<Long> ids = jdbc.sql("SELECT id FROM place ORDER BY id LIMIT 1").query(Long.class).list();
