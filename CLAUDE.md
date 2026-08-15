@@ -40,26 +40,9 @@ user's explicit instruction  >  <module>/CLAUDE.md  >  CLAUDE.md  >  AGENTS.md  
 
 ## 2. Command quick reference
 
-You will use these constantly. Full list: `just --list`.
-
-| Intent | Command |
-| --- | --- |
-| Build everything | `just build` |
-| Build one module | `just build //services/scene-api/...` |
-| Fast tests | `just test` |
-| One test target | `just test //services/scene-api:unit_test` |
-| Integration lane | `just test-integration` |
-| E2E lane | `just test-e2e` |
-| Run a binary | `just run //services/scene-api:bin` |
-| Format | `just fmt` |
-| Lint | `just lint` |
-| Regenerate protos/clients/mocks | `just gen` |
-| **Pre-handoff gate** | `just check` |
-| Reproduce CI exactly | `just ci` |
-| New backend service (Spring/Java) | `just new-service <name>` |
-| New iOS app (Swift) | `just new-app-ios <name>` |
-| New Android app (Kotlin) | `just new-app-android <name>` |
-| New AI agent (Python) | `just new-agent <name>` |
+`just --list` prints the current surface with a description per recipe. Read it at session
+start (§1) instead of trusting a copy here — a copy goes stale silently and sends you to a
+recipe that no longer exists.
 
 **If the command you need does not exist, add the recipe** to the right file in `tools/just/`
 rather than running the underlying tool ad hoc. Adding the recipe *is* part of the task.
