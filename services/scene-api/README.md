@@ -153,6 +153,8 @@ initContainer 가 있다.
 | `V8__app_user.sql` | `app_user`·`user_device`, `cart_item` → `saved_place`, `user_event.user_id` → UUID |
 | `V9__course.sql` | `course`·`custom_pin`·`course_item`·`saved_content` |
 | `V10__market.sql` | `market_course`·`_item`·`_content`·`market_like` |
+| `V11__market_course_single_live_post.sql` | 한 코스의 살아 있는 사본은 하나. 부분 유니크 인덱스 — 내린 것은 남으므로 `WHERE unpublished_at IS NULL` 이 붙어야 다시 올릴 수 있다 |
+| `V12__poi.sql` | `poi` — 편의시설. **`place` 와 분리한다** (47만 대 155). 검색용 trgm 인덱스 둘 |
 
 ### 주체는 계정이다 — 설치 UUID 가 아니다
 
