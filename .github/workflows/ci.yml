@@ -16,22 +16,16 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Kotlin 포매터·린터 버전을 여기 한 곳에서 고정한다.
+# ktlint 는 여기 없다. Bazel 이 //:ktlint 로 받아오므로(MODULE.bazel) 러너에 깔 것이
+# 없고, 버전도 그 파일 한 곳에서 고정된다 — 로컬과 두 잡이 자동으로 같은 바이너리를
+#쓴다. 예전에는 이 자리에서 KTLINT_VERSION 을 못 박고 잡마다 내려받았는데, 로컬은
+# brew 라 따로 놀아서 값을 손으로 맞춰야 했다 (MZ2AZ-264).
 #
-# Swift 도구(swiftformat·swiftlint)와 달리 **ktlint 는 두 잡에서 모두 돈다** —
-# Android 모듈은 리눅스에서도 지어지므로 verify 와 verify-macos 가 같은 .kt 를
-# 검사한다. 러너마다 버전이 갈리면 한 잡만 빨간불이 나고, 원인이 코드가 아니라
-# 도구 버전이라 추적이 오래 걸린다. 그래서 brew 에 맡기지 않고 못 박는다.
-#
-# 로컬은 `brew install ktlint` 라 자동으로 최신을 따라간다(onboarding.md).
-# 두 값이 벌어지면 여기 숫자를 올린다.
-#
-# shellcheck 도 같은 이유로 고정한다. 러너 이미지가 주는 버전은 brew 가 주는 것보다
-# 낮아서, **로컬에서 통과한 스크립트가 CI 에서만 죽었다** (실측 — SC2015 는 0.11.0
-# 에서 나지 않는다). 검사 도구는 판정을 내리는 물건이라 버전이 갈리면 게이트가
+# shellcheck 은 아직 호스트 도구라 남는다. 러너 이미지가 주는 버전은 brew 가 주는
+# 것보다 낮아서, **로컬에서 통과한 스크립트가 CI 에서만 죽었다** (실측 — SC2015 는
+# 0.11.0 에서 나지 않는다). 검사 도구는 판정을 내리는 물건이라 버전이 갈리면 게이트가
 # 사람마다 다른 말을 한다.
 env:
-  KTLINT_VERSION: "1.8.0"
   SHELLCHECK_VERSION: "0.11.0"
 
 jobs:
@@ -52,15 +46,10 @@ jobs:
             https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
           sudo chmod +x /usr/local/bin/bazel
 
-      # ubuntu-latest 이미지에 ktlint 는 들어 있지 않다. 자체 실행 jar 라
-      # 러너에 미리 깔린 JDK 로 그대로 돈다.
-      #
       # shellcheck 은 이미지에 있지만 **버전이 낮다.** 위 env 절의 이유로 덮어쓴다.
+      # ktlint 는 Bazel 이 주므로 여기서 받지 않는다.
       - name: 검사 도구 설치
         run: |
-          sudo curl -fsSLo /usr/local/bin/ktlint \
-            "https://github.com/pinterest/ktlint/releases/download/${KTLINT_VERSION}/ktlint"
-          sudo chmod +x /usr/local/bin/ktlint
           curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
             | tar -xJ -C /tmp
           sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
@@ -110,15 +99,13 @@ jobs:
       # 죽었다(실측, run 31118229436). lint.sh 의 셸 절은 "항상 대상이 있는" 검사라
       # 어느 러너에서도 건너뛰지 않는다.
       #
-      # ktlint · shellcheck 은 brew 가 아니라 고정 버전을 내려받는다 — 위 env 절
-      # 주석 참조. verify 잡과 같은 바이너리를 써야 두 잡의 판정이 일치한다.
+      # shellcheck 은 brew 가 아니라 고정 버전을 내려받는다 — 위 env 절 주석 참조.
+      # verify 잡과 같은 바이너리를 써야 두 잡의 판정이 일치한다.
       # swiftformat · swiftlint 는 이 잡에서만 도니 brew 로 둔다.
+      # ktlint 는 Bazel 이 주므로 여기서 받지 않는다 — 그쪽은 저절로 두 잡이 같다.
       - name: 검사 도구 설치
         run: |
           brew install --quiet swiftformat swiftlint
-          sudo curl -fsSLo /usr/local/bin/ktlint \
-            "https://github.com/pinterest/ktlint/releases/download/${KTLINT_VERSION}/ktlint"
-          sudo chmod +x /usr/local/bin/ktlint
           curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.darwin.aarch64.tar.xz" \
             | tar -xJ -C /tmp
           sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck

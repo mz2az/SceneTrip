@@ -37,13 +37,15 @@ if has_files '*.java'; then
 fi
 
 # --- Kotlin (apps/ Android, libs/kotlin/) -------------------------------------
+#
+# Java 와 같은 이유로 호스트에서 찾지 않는다 (//:ktlint). 파일 목록을 명시적으로
+# 넘기는 이유는 format.sh 의 같은 절 주석 참조 — 인자가 없으면 조용히 0 개를 검사한다.
 if has_files '*.kt'; then
-  if have ktlint; then
-    ran=1
-    ktlint
-  else
-    missing_tool Kotlin ktlint
-  fi
+  ran=1
+  files=()
+  while IFS= read -r f; do files+=("$f"); done < <(find_sources '*.kt')
+  "${BAZEL:-bazel}" run --ui_event_filters=-info,-stdout --noshow_progress \
+    //:ktlint -- "${files[@]}"
 fi
 
 # --- Swift (apps/ iOS, libs/swift/) -------------------------------------------

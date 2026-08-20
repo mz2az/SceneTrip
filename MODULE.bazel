@@ -178,14 +178,33 @@ maven.install(
         "org.flywaydb:flyway-database-postgresql:12.4.0",
         "org.postgresql:postgresql:42.7.11",
 
-        # Java 포매터·린터. 호스트에 깔지 않고 Bazel 이 받아 //:google_java_format ·
-        # //:checkstyle 로 실행한다 — buildifier 와 같은 방식이다.
+        # 포매터·린터. 호스트에 깔지 않고 Bazel 이 받아 //:google_java_format ·
+        # //:checkstyle · //:ktlint 로 실행한다 — buildifier 와 같은 방식이다.
         #
         # 호스트 설치에 의존하면 두 가지가 깨진다. AGENTS.md §4.3 의 "깔려 있는 것에
         # 의존하지 않는다" 를 어기고, 더 실질적으로는 **사람마다 도구 버전이 달라져
         # 포맷 결과가 갈린다.** 실제로 CI 러너에 도구가 없어 빌드가 실패했다.
         "com.google.googlejavaformat:google-java-format:1.36.1",
         "com.puppycrawl.tools:checkstyle:13.9.0",
+        # ktlint 이 뒤늦게 합류한 것은 **결정이 아니라 방치였다.** 위 두 줄을 옮긴
+        # MZ2AZ-181(714b994) 시점에는 Kotlin 소스가 아예 없어 format.sh 의 Kotlin 절이
+        # 죽은 코드였다. MZ2AZ-194(검색 탭 Compose 이식)가 코틀린을 들여오며 그 절이
+        # 깨어났는데, 그때 181 의 결론을 코틀린에 옮겨 적은 사람이 없었다.
+        #
+        # 방치의 대가는 **빠진 도구가 관계없는 검사까지 막는 것**이었다. --check 모드는
+        # 도구가 없으면 죽는데 Kotlin 절이 Java 절보다 뒤라, ktlint 없는 기계에서
+        # `just check` 가 Java 포맷 결과를 보기도 전에 끝났다. MZ2AZ-263 의 Java 포맷
+        # 실패가 로컬에서 안 잡히고 CI 에서 처음 드러난 것이 그래서다 (MZ2AZ-264).
+        #
+        # 버전은 CI 가 못 박고 있던 값을 그대로 가져왔다(.github/workflows/ci.yml 의
+        # KTLINT_VERSION, 1.8.0). **판정을 바꾸지 않는 것이 이 변경의 조건이다** —
+        # 도구를 어디서 받느냐만 바꾸고 규칙은 그대로 두어야, 이 커밋 때문에 기존
+        # Kotlin 코드가 갑자기 빨간불이 나는 일이 없다.
+        #
+        # 진입점은 배포 jar 의 매니페스트에서 확인한 값이다 —
+        # Main-Class: com.pinterest.ktlint.Main. 아티팩트 이름이 ktlint-cli 로 바뀌고
+        # 내부 패키지가 ...ktlint.cli 로 갈렸어도 진입점은 그대로다.
+        "com.pinterest.ktlint:ktlint-cli:1.8.0",
         # Bazel 의 java_test 는 JUnit4 러너를 기본으로 쓴다. Spring Boot 가 가져오는
         # 것은 JUnit5(Jupiter)이므로 그것을 실행할 콘솔 런처가 따로 필요하다.
         # tools/bazel/defs/java_junit5_test.bzl 이 이 의존성을 쓴다.

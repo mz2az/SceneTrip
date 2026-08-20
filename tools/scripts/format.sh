@@ -60,12 +60,22 @@ if has_files '*.java'; then
 fi
 
 # --- Kotlin (apps/ Android, libs/kotlin/) -------------------------------------
+#
+# Java 와 같은 이유로 호스트에서 찾지 않는다 (//:ktlint).
+#
+# 파일 목록을 명시적으로 넘기는 것도 Java 절과 같은 이유다. `bazel run` 은 작업
+# 디렉터리를 러너 쪽으로 옮기므로, 인자 없이 부르면 ktlint 가 저장소가 아닌 곳을
+# 훑어 "No files matched" 로 조용히 0 개를 검사하고 통과한다(실측).
 if has_files '*.kt'; then
-  if have ktlint; then
-    ran=1
-    if [ "$CHECK" -eq 1 ]; then ktlint; else ktlint -F; fi
+  ran=1
+  files=()
+  while IFS= read -r f; do files+=("$f"); done < <(find_sources '*.kt')
+  if [ "$CHECK" -eq 1 ]; then
+    "${BAZEL:-bazel}" run --ui_event_filters=-info,-stdout --noshow_progress \
+      //:ktlint -- "${files[@]}"
   else
-    missing_tool Kotlin ktlint
+    "${BAZEL:-bazel}" run --ui_event_filters=-info,-stdout --noshow_progress \
+      //:ktlint -- -F "${files[@]}"
   fi
 fi
 

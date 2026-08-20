@@ -68,9 +68,9 @@ check_lang_tool() {
 }
 
 log "포매터·린터"
-# Java 도구(google-java-format · checkstyle)는 여기 없다 — buildifier 와 마찬가지로
-# Bazel 이 //:google_java_format · //:checkstyle 로 받아오므로 호스트 설치가 필요 없다.
-check_lang_tool Kotlin '*.kt'    ktlint
+# Java·Kotlin 도구(google-java-format · checkstyle · ktlint)는 여기 없다 — buildifier 와
+# 마찬가지로 Bazel 이 //:google_java_format · //:checkstyle · //:ktlint 로 받아오므로
+# 호스트 설치가 필요 없다.
 check_lang_tool Swift  '*.swift' swiftformat swift-format
 check_lang_tool Swift  '*.swift' swiftlint
 check_lang_tool Python '*.py'    ruff
