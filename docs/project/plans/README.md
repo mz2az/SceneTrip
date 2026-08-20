@@ -8,6 +8,7 @@
 | [scene-api-service-module.md](./scene-api-service-module.md) | 백엔드 서비스 모듈과 클러스터 배포 (MZ2AZ-181) |
 | [mobile-native-search-tab.md](./mobile-native-search-tab.md) | 검색 탭 iOS · Android 네이티브 구현 (MZ2AZ-148) |
 | [course-api.md](./course-api.md) | 경로여정(코스) 백엔드 API — 코스·아이템·찜·마켓 (MZ2AZ-199) |
+| [poi.md](./poi.md) | POI(편의시설) 도입 — 음식·숙박·관광·교통 47만 건 |
 
 ## 언제 여기에 쓰는가
 
