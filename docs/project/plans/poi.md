@@ -140,6 +140,9 @@ POI 는 자기 색인을 따로 가진다(§6). 자동완성은 지금 그대로
 
 ## 4. 스키마
 
+**정본은 볼트의 [[MZ2AZ-275 POI 도메인 스키마 (DBML)]] 다.** 이 절은 그것을 SQL 로 옮기면서
+갈린 곳과, DBML 이 표현하지 못해 손으로 붙인 것만 적는다 — `course-api.md` 와 같은 방식이다.
+
 ```sql
 CREATE TABLE poi (
     id         BIGSERIAL PRIMARY KEY,
@@ -147,7 +150,7 @@ CREATE TABLE poi (
     name       TEXT NOT NULL,
     geom       GEOGRAPHY(Point, 4326) NOT NULL,
     category       TEXT NOT NULL,   -- biz_lower, \/ 정규화 후
-    category_group TEXT NOT NULL,   -- biz_middle, 허용 목록 안의 값
+    category_group TEXT NOT NULL,   -- food · sight · stay · transit
     address    TEXT,
     road       TEXT,
     tel        TEXT,
@@ -157,6 +160,25 @@ CREATE TABLE poi (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
+
+### 4-0. 네 갈래는 원본 파일이 아니라 `biz_middle` 로 정한다
+
+갈래 이름은 출처 파일과 같지만 **파일을 그대로 믿지 않는다.** `poi_food` 안에 다른 종류가
+40건쯤 섞여 있다 — `그린랜드(펜션)` · `강릉커피박물관` · `가나아트파크(미술관)` 가 음식
+파일에 들어 있다. 파일로 정하면 그것들이 `food` 가 된다.
+
+| `biz_middle` | 행 | → `category_group` |
+| --- | --- | --- |
+| 음식점 · 카페 · 술집 | 377,694 | `food` |
+| 숙박 | 65,403 | `stay` |
+| 관광명소 · 종교 · 문화생활시설 · 레저/스포츠 | 27,983 | `sight` |
+| 교통시설 | 2,245 | `transit` |
+| **합** | **473,325** | |
+
+이 표가 곧 §3-4 의 허용 목록이다. **모르는 `biz_middle` 이 나오면 적재를 실패시킨다.**
+
+`biz_middle` 자체는 저장하지 않는다 — 네 갈래로 접고 나면 남는 정보가 `category`(=`biz_lower`)
+와 겹친다.
 
 **`place` 와 달리 `poi_i18n` 을 만들지 않는다.** 자료가 한국어뿐이라 표를 나눌 근거가
 없다. 다국어 표기가 생기면 그때 `place` 와 같은 모양으로 뗀다 — 지금 미리 만들면
@@ -315,14 +337,27 @@ GET /pois/{poiId}    상세
 
 | 항목 | 왜 지금 정하지 않는가 |
 | --- | --- |
-| 이름+좌표가 같은 122쌍 | 같은 가게인지 다른 가게인지(같은 건물의 두 층, 본점/분점) 자료만으로 판정할 수 없다. 합치면 되돌릴 수 없고, 두면 검색 결과에 두 줄이 뜰 뿐이다 — 되돌릴 수 있는 쪽을 고른다 |
-| 카테고리 칩 묶음 | `biz_lower` 가 115종이라 화면에 그대로 못 쓴다. 묶는 규칙은 목업이 정해진 뒤에 |
-| POI 를 찜할 수 있나 | 지금 찜은 작품에만 있다(`saved_content`). 장소 찜은 8/11 회의에서 「장소는 장바구니」로 정리됐는데, POI 가 장바구니에 들어가는지는 논의된 적이 없다 |
+| 이름+좌표가 같은 110쌍 | **판정 대기.** 파일 간 12건은 `source_id` 가 같아 `ON CONFLICT DO NOTHING` 이 해결한다. 나머지 110쌍은 `source_id` 가 달라 그대로 두면 둘 다 들어간다 — §10-1 |
+| 카테고리 칩 묶음 | `category` 가 115종이라 화면에 그대로 못 쓴다. 묶는 규칙은 목업이 정해진 뒤에 |
+| POI 를 장바구니에 담기 | **보류** — [MZ2AZ-281](https://mz2az.atlassian.net/browse/MZ2AZ-281). 8/11 회의가 「장소는 장바구니」로 정리했을 때 POI 는 존재하지 않았다. `saved_place` 의 기본키가 `(user_id, place_id)` 라 갈래를 나누면 **기본키 자체가 바뀐다** |
 | 자료 갱신 주기 | 지금은 한 번 넣고 끝이다. `source_id` 로 다시 넣을 길은 열어 뒀다 |
 | POI 상세에 무엇을 담나 | 지금 자료에는 전화번호가 전부다. 영업시간·사진은 없다 |
 
+### 10-1. 중복 110쌍 — 실측
+
+`source_id` 가 서로 다르면서 이름·좌표(소수 5자리 ≈ 1m)·주소가 같은 쌍이다.
+
+| 유형 | 쌍 | 모습 |
+| --- | --- | --- |
+| 종류까지 같음 | 77 | `뚱땡이짬뽕` 중식 × 2, `옛날그맛` 한식 × 2 |
+| 한쪽이 뭉뚱그린 종류 | 33 | `커피숍` = 커피전문점 + **카페기타** · `충북통닭` = 분식 + 치킨 |
+
+**전화번호가 갈리는 쌍은 3건뿐이고 둘은 오타로 보인다** — `02-6965-9285`/`02-6966-9285`,
+`031-552-2623`/`031-522-2623`.
+
 ## 11. 참고
 
+- 볼트: [[MZ2AZ-275 POI 도메인 스키마 (DBML)]] — 스키마 정본
 - [scene-api-search-map.md](./scene-api-search-map.md) — 검색·지도 명세 작업 방식
 - [course-api.md](./course-api.md) — 코스 도메인. §4-3 의 두 갈래 제약이 여기서 셋이 된다
 - [scene-api-database.md](./scene-api-database.md) — 스키마 v1
