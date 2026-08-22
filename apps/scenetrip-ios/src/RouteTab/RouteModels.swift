@@ -189,27 +189,129 @@ enum RouteGeometry {
             .reduce(0) { $0 + kilometers($1.0.place, $1.1.place) }
     }
 
-    /// 동선 최적화 — **최근접 이웃**으로 방문 순서만 다시 잡는다.
+    /// 동선 최적화 — **세 방법을 다 돌려 가장 짧은 것을 고른다** (MZ2AZ-247).
     ///
     /// 첫 장소는 고정한다. 사용자가 맨 위에 둔 곳은 대개 출발지(숙소·역)이고, 그것까지
     /// 바꾸면 최적화가 아니라 남의 일정이 된다.
     ///
-    /// 최적해를 구하지 않는다. 하루에 담기는 장소가 서너 곳이라 최적해와 차이가 거의
-    /// 없고, 데모에서 보여 줄 것은 "누르면 순서가 가까운 순으로 정리된다" 는 사실이다.
+    /// **API 를 부르지 않는다.** 위경도로 직선거리만 재는 순수 계산이라 호출이 0회다 —
+    /// 계획 단계가 직선거리만 쓴다는 규칙(계획서 11-1절)과 어긋나지 않고, 회의가
+    /// 동선 최적화를 뺐던 이유(*"누를 때마다 API 호출이 되는 거 아니에요?"*)에도
+    /// 걸리지 않는다(11-5절).
+    ///
+    /// ## 왜 최근접 이웃 하나로 두지 않았나
+    ///
+    /// 처음에는 그것만 있었다. 팀 목업도 그 방식이다. 그런데 최근접 이웃은 **뒤로 갈수록
+    /// 손해가 쌓인다** — 가까운 것부터 집다 보면 마지막에 멀리 떨어진 하나가 남아 되돌아
+    /// 가야 한다. 웹 프로토타입에서 세 방법을 나란히 재 보고 이 자리를 올렸다.
+    ///
+    /// 셋을 다 돌려도 사람이 기다릴 일이 없다. 중간 지점이 8개를 넘으면 완전탐색만
+    /// 건너뛴다 — 9개면 순열이 36만 가지가 된다.
     static func optimized(_ stops: [RouteStop]) -> [RouteStop] {
-        guard stops.count > 2, var current = stops.first else { return stops }
-        var remaining = Array(stops.dropFirst())
-        var ordered = [current]
+        guard stops.count > 2 else { return stops }
+        let matrix = distanceMatrix(stops)
+        let nearest = orderNearest(matrix)
+        var best = nearest
+        var bestCost = cost(matrix, nearest)
+
+        let twoOpt = orderTwoOpt(matrix, from: nearest)
+        if cost(matrix, twoOpt) < bestCost {
+            best = twoOpt
+            bestCost = cost(matrix, twoOpt)
+        }
+        if let exact = orderExact(matrix), cost(matrix, exact) < bestCost {
+            best = exact
+        }
+        return best.map { stops[$0] }
+    }
+
+    /// 직선거리 행렬(km). 같은 쌍을 여러 번 재지 않으려고 한 번만 만든다.
+    private static func distanceMatrix(_ stops: [RouteStop]) -> [[Double]] {
+        stops.indices.map { row in
+            stops.indices.map { column in
+                row == column ? 0 : kilometers(stops[row].place, stops[column].place)
+            }
+        }
+    }
+
+    private static func cost(_ matrix: [[Double]], _ order: [Int]) -> Double {
+        guard order.count > 1 else { return 0 }
+        return zip(order, order.dropFirst()).reduce(0) { $0 + matrix[$1.0][$1.1] }
+    }
+
+    /// 최근접 이웃. 가까운 것부터 집는다. 빠르지만 최적해는 아니다.
+    private static func orderNearest(_ matrix: [[Double]]) -> [Int] {
+        var current = 0
+        var remaining = Array(matrix.indices.dropFirst())
+        var order = [0]
         while !remaining.isEmpty {
             let anchor = current
-            let nearest = remaining.indices.min {
-                kilometers(anchor.place, remaining[$0].place)
-                    < kilometers(anchor.place, remaining[$1].place)
-            }!
-            current = remaining.remove(at: nearest)
-            ordered.append(current)
+            let index = remaining.indices.min { matrix[anchor][remaining[$0]] < matrix[anchor][remaining[$1]] }!
+            current = remaining.remove(at: index)
+            order.append(current)
         }
-        return ordered
+        return order
+    }
+
+    /// 2-opt. 선이 **꼬인 곳**을 찾아 그 구간을 뒤집는다. 나아지지 않을 때까지 돈다.
+    ///
+    /// 최근접 이웃이 만든 순서를 다듬는 용도다 — 맨바닥에서 시작하는 것보다 훨씬 빨리
+    /// 좋은 답에 닿는다.
+    private static func orderTwoOpt(_ matrix: [[Double]], from seed: [Int], rounds: Int = 60) -> [Int] {
+        var best = seed
+        // 0번(출발지)은 고정이므로 1번부터 뒤집는다.
+        let lower = 1
+        let upper = best.count - 1
+        guard upper > lower else { return best }
+        for _ in 0 ..< rounds {
+            var moved = false
+            for i in lower ..< upper {
+                for j in (i + 1) ... upper {
+                    var candidate = best
+                    candidate[i ... j].reverse()
+                    if cost(matrix, candidate) < cost(matrix, best) - 1e-9 {
+                        best = candidate
+                        moved = true
+                    }
+                }
+            }
+            if !moved { break }
+        }
+        return best
+    }
+
+    /// 모든 경우의 수. 중간 지점이 8개까지만 — 9개면 362,880 가지가 되어 화면이 멈춘다.
+    private static func orderExact(_ matrix: [[Double]]) -> [Int]? {
+        let middle = Array(matrix.indices.dropFirst())
+        guard middle.count <= 8 else { return nil }
+        var best: [Int]?
+        var bestCost = Double.infinity
+        permutations(middle) { permutation in
+            let order = [0] + permutation
+            let value = cost(matrix, order)
+            if value < bestCost {
+                best = order
+                bestCost = value
+            }
+        }
+        return best
+    }
+
+    /// 순열을 하나씩 흘려 준다. 전부 배열로 모으면 8개에서 40,320개가 메모리에 쌓인다.
+    private static func permutations(_ items: [Int], _ body: ([Int]) -> Void) {
+        var items = items
+        func recurse(_ start: Int) {
+            if start == items.count {
+                body(items)
+                return
+            }
+            for index in start ..< items.count {
+                items.swapAt(start, index)
+                recurse(start + 1)
+                items.swapAt(start, index)
+            }
+        }
+        recurse(0)
     }
 }
 
