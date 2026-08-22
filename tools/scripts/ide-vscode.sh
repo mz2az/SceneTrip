@@ -39,19 +39,26 @@ have "$BAZEL_BIN" || die "bazel 을 찾을 수 없습니다 — 'just setup' 을
 #
 # Maven jar 도 마찬가지다. 선언만 되어 있고 아직 받지 않은 아티팩트는 output_base 에
 # 없다. 빌드가 실제 다운로드를 일으킨다.
-# **앱 모듈은 뺀다.** 이 스크립트가 빌드 결과에서 읽는 것은 위 두 가지뿐이고 앱은
-# 어느 쪽에도 기여하지 않는다 — 자바 언어 서버는 Swift 도 Kotlin/Android 도 읽지 않는다.
+# **자바에 필요한 것만 짓는다.** 이 명령이 하는 일은 자바 확장이 읽을 클래스패스를 만드는
+# 것뿐이므로, 짓는 범위도 거기까지여야 한다.
 #
-# 빼지 않으면 ANDROID_HOME 이 없는 기계에서 aapt2 를 못 찾아 여기서 죽는다. 자바 코드에서
-# 정의로 가는 것과 APK 를 짓는 것은 아무 상관이 없는데도 그렇다 (MZ2AZ-282). 빠진 도구가
-# 관계없는 일을 막는 것은 ktlint 때와 같은 종류의 문제였다 (MZ2AZ-264).
+#   //services/...                            서비스 구현·테스트. @maven 의 자바 의존성을 끌어온다
+#   //contracts/openapi:scene_api_spring_lib  계약에서 생성한 자바 인터페이스
 #
-# 덕분에 Xcode 없이도 돈다 — 백엔드만 만지는 사람이나 리눅스에서도 쓸 수 있다.
+# 예전에는 `//...` 였다. 그것을 쓴 시점(2026-08-06)에는 apps/ 에 README 뿐이라 곧 "자바
+# 전부" 와 같은 뜻이었는데, 사흘 뒤 안드로이드 모듈이 들어오며 뜻이 조용히 넓어졌다.
+# 그때부터 ANDROID_HOME 이 없는 기계에서는 aapt2 를 못 찾아 **분석 단계에서** 죽었고,
+# 분석 실패는 전체를 멈추므로 .vscode/settings.json 이 아예 써지지 않았다 (MZ2AZ-282).
 #
-# `//...` 를 유지하는 이유는 모듈이 늘어나도 이 스크립트를 고치지 않기 위해서다(§2 와 같은
-# 뜻). 새 서비스나 libs/java 는 저절로 들어오고, 제외는 apps/ 하나뿐이다.
+# 자바 코드 탐색과 APK·앱 빌드는 아무 상관이 없다. Swift 도 Kotlin/Android 도 자바 언어
+# 서버가 읽지 않는다. 그래서 **Android SDK 도 Xcode 도 없이 돈다** — 백엔드만 만지는
+# 사람이나 리눅스에서도 쓸 수 있다.
+#
+# libs/java 나 새 서비스가 생기면 여기에 한 줄 더한다. `//...` 로 넓게 잡고 예외를 빼는
+# 방식이 손은 덜 가지만, 그러면 이 목록이 "무엇이 필요한가" 를 더 이상 말해 주지 못한다 —
+# 조용히 넓어지는 것이 애초의 문제였다.
 log "생성 소스와 의존성 빌드 (처음에는 몇 분 걸릴 수 있습니다)"
-"$BAZEL_BIN" build -- //... -//apps/... >/dev/null ||
+"$BAZEL_BIN" build //services/... //contracts/openapi:scene_api_spring_lib >/dev/null ||
   die "빌드 실패 — 'just build //services/... //contracts/...' 로 원인을 확인하세요"
 
 OUTPUT_BASE="$("$BAZEL_BIN" info output_base)"
