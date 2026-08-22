@@ -13,31 +13,47 @@ import SwiftUI
 ///
 /// 좋아요·담긴 수는 지어낸 값이다. 순서를 보여 주려고 넣었다.
 struct RouteMarketView: View {
+    /// 탭의 세그먼트 안에 들어가 있는가.
+    ///
+    /// 목업이 마켓을 「내 코스」와 나란한 세그먼트로 두면서 이 화면은 두 자리에서
+    /// 쓰이게 됐다. 시트로 열릴 때는 자기 내비게이션과 「닫기」가 필요하지만,
+    /// 세그먼트 안에서는 **둘 다 있으면 안 된다** — 내비게이션이 겹쳐 제목이 두 줄이
+    /// 되고, 닫을 것이 없는데 「닫기」가 뜬다.
+    var embedded = false
+
     @EnvironmentObject private var store: RouteStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var saved: Set<RouteCourse.ID> = []
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    ForEach(store.popularCourses.indices, id: \.self) { index in
-                        row(store.popularCourses[index], stats: store.popularStats[index])
+        if embedded {
+            list
+        } else {
+            NavigationStack {
+                list
+                    .navigationTitle("인기 코스")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("닫기") { dismiss() }
+                        }
                     }
-                } footer: {
-                    Text("이름과 정렬 기준이 아직 정해지지 않은 화면입니다 (데모)")
-                }
-            }
-            .listStyle(.insetGrouped)
-            .navigationTitle("인기 코스")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("닫기") { dismiss() }
-                }
             }
         }
+    }
+
+    private var list: some View {
+        List {
+            Section {
+                ForEach(store.popularCourses.indices, id: \.self) { index in
+                    row(store.popularCourses[index], stats: store.popularStats[index])
+                }
+            } footer: {
+                Text("이름과 정렬 기준이 아직 정해지지 않은 화면입니다 (데모)")
+            }
+        }
+        .listStyle(.insetGrouped)
     }
 
     private func row(_ course: RouteCourse, stats: (likes: Int, saves: Int)) -> some View {

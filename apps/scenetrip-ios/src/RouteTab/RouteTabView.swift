@@ -19,28 +19,42 @@ struct RouteTabView: View {
     @State private var fork = false
     @State private var wizard: RouteWizardKind?
     @State private var editing: RouteCourse?
-    @State private var market = false
+
+    /// 「내 코스 / 코스마켓」. 목업의 `S.homeSeg` 와 같은 자리다.
+    @State private var segment: Segment = .mine
+
+    enum Segment: String, CaseIterable, Identifiable {
+        case mine = "내 코스"
+        case market = "코스마켓"
+        var id: String { rawValue }
+    }
 
     var body: some View {
         NavigationStack {
-            Group {
-                if store.courses.isEmpty {
-                    emptyState
-                } else {
-                    courseList
+            VStack(spacing: 0) {
+                // **세그먼트가 마켓으로 가는 길이다.** 전에는 오른쪽 위 아이콘 버튼
+                // 하나였는데, 목업은 「내 코스」와 대등한 자리로 두었다 — 마켓은
+                // 곁다리가 아니라 이 탭의 절반이다.
+                Picker("", selection: $segment) {
+                    ForEach(Segment.allCases) { Text($0.rawValue).tag($0) }
                 }
-            }
-            .navigationTitle("경로여정")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        market = true
-                    } label: {
-                        Label("인기 코스", systemImage: "square.grid.2x2")
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
+
+                switch segment {
+                case .mine:
+                    if store.courses.isEmpty {
+                        emptyState
+                    } else {
+                        courseList
                     }
+                case .market:
+                    RouteMarketView(embedded: true)
                 }
             }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("코스")
         }
         .sheet(isPresented: $fork) { forkSheet }
         .sheet(item: $wizard) { kind in
@@ -49,29 +63,70 @@ struct RouteTabView: View {
         .fullScreenCover(item: $editing) { course in
             RouteEditorView(course: course, isNew: false)
         }
-        .sheet(isPresented: $market) {
-            RouteMarketView()
-        }
     }
 
     // MARK: 코스가 없을 때
 
+    /// 첫 사용자 화면. **갈림길이 아니라 빈 상태다.**
+    ///
+    /// 전에는 「코스를 어떻게 만들까요?」와 카드 두 장을 첫 화면에 그대로 두었는데,
+    /// 목업에서 그 물음은 **코스가 이미 있을 때 올라오는 액션시트**다(`sheet-newcourse`).
+    /// 둘을 한 화면에 뭉치니 위쪽 500pt 가 통째로 비었다(실측).
+    ///
+    /// 그래서 여기서는 사용자에게 상태를 말하고(*"아직 만든 코스가 없습니다"*), 할 일을
+    /// 버튼 둘로 준다. AI 를 채운 버튼으로 두는 것은 회의 확정 사항이다 —
+    /// *"AI가 짜 준다는 문구를 넣는다"* (정승길, 8/11). 다만 별도 띠로 광고하지 않고
+    /// 설명 문장과 버튼 이름에 녹인다.
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            RouteAIBanner(text: "AI 가 일정을 짜 드립니다")
-                .padding(.horizontal, 16)
+        VStack(spacing: 0) {
+            Spacer(minLength: 24)
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(
+                            colors: [Color(PinImage.light), Color(PinImage.deep)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ))
+                        .frame(width: 56, height: 56)
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 26, weight: .medium))
+                        .foregroundStyle(.white)
+                }
+                .padding(.bottom, 6)
 
-            Text("코스를 어떻게 만들까요?")
-                .font(.title3.weight(.semibold))
+                Text("아직 만든 코스가 없습니다")
+                    .font(.headline)
+                Text("보고 싶은 작품과 기간만 고르면,\n촬영지를 이어서 일차별 일정으로 짜 드립니다")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 20)
 
-            RouteForkCards(
-                onAI: { wizard = .aiPlan },
-                onManual: { wizard = .manual }
-            )
-            .padding(.horizontal, 16)
+            VStack(spacing: 10) {
+                Button { wizard = .aiPlan } label: {
+                    Label("AI 로 여정 짜기", systemImage: "sparkles")
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+
+                Button { wizard = .manual } label: {
+                    Text("직접 짜기")
+                        .font(.body.weight(.medium))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 22)
+
+            Spacer(minLength: 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
     }
 
     /// 코스가 있을 때 「코스 추가하기」가 여는 시트. 첫 화면과 **같은 두 갈래**다.
