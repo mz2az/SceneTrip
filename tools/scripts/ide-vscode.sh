@@ -39,8 +39,20 @@ have "$BAZEL_BIN" || die "bazel 을 찾을 수 없습니다 — 'just setup' 을
 #
 # Maven jar 도 마찬가지다. 선언만 되어 있고 아직 받지 않은 아티팩트는 output_base 에
 # 없다. 빌드가 실제 다운로드를 일으킨다.
+# **앱 모듈은 뺀다.** 이 스크립트가 빌드 결과에서 읽는 것은 위 두 가지뿐이고 앱은
+# 어느 쪽에도 기여하지 않는다 — 자바 언어 서버는 Swift 도 Kotlin/Android 도 읽지 않는다.
+#
+# 빼지 않으면 ANDROID_HOME 이 없는 기계에서 aapt2 를 못 찾아 여기서 죽는다. 자바 코드에서
+# 정의로 가는 것과 APK 를 짓는 것은 아무 상관이 없는데도 그렇다 (MZ2AZ-282). 빠진 도구가
+# 관계없는 일을 막는 것은 ktlint 때와 같은 종류의 문제였다 (MZ2AZ-264).
+#
+# 덕분에 Xcode 없이도 돈다 — 백엔드만 만지는 사람이나 리눅스에서도 쓸 수 있다.
+#
+# `//...` 를 유지하는 이유는 모듈이 늘어나도 이 스크립트를 고치지 않기 위해서다(§2 와 같은
+# 뜻). 새 서비스나 libs/java 는 저절로 들어오고, 제외는 apps/ 하나뿐이다.
 log "생성 소스와 의존성 빌드 (처음에는 몇 분 걸릴 수 있습니다)"
-"$BAZEL_BIN" build //... >/dev/null || die "빌드 실패 — 'just build' 로 원인을 확인하세요"
+"$BAZEL_BIN" build -- //... -//apps/... >/dev/null ||
+  die "빌드 실패 — 'just build //services/... //contracts/...' 로 원인을 확인하세요"
 
 OUTPUT_BASE="$("$BAZEL_BIN" info output_base)"
 [ -d "$OUTPUT_BASE" ] || die "output_base 를 찾을 수 없습니다: $OUTPUT_BASE"
