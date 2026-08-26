@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
+           -webkit-font-smoothing: antialiased; }
+    a { color: #0088FF; } a:hover { color: #0069c9; }
+  </style>
+</helmet>
+<div style="width: 402px; height: 874px; background: #F2F2F7; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="height: 59px; flex-shrink: 0;"></div>
+
+  <div style="padding: 4px 14px 8px; flex-shrink: 0;">
+    <div style="font-size: 34px; font-weight: 700; color: #000; letter-spacing: -0.4px;">코스</div>
+  </div>
+
+  <!-- 세그먼트 -->
+  <div style="padding: 8px 14px 8px; flex-shrink: 0;">
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 9px; background: #EEEEEF;">
+      <div style="padding: 6px 0; border-radius: 7px; background: #fff; text-align: center; font-size: 13px; font-weight: 600; color: #000; box-shadow: 0 1px 3px rgba(0,0,0,.12);">내 코스</div>
+      <div style="padding: 6px 0; border-radius: 7px; text-align: center; font-size: 13px; color: rgba(60,60,67,.6);">코스마켓</div>
+    </div>
+  </div>
+
+  <!-- 빈 상태 -->
+  <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 20px;">
+    <div style="width: 56px; height: 56px; border-radius: 28px; background: linear-gradient(135deg, #8FCCF7, #7A68ED); display: flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.2L18 8.8l-4.4 1.6L12 14.6l-1.6-4.2L6 8.8l4.4-1.6z"/><path d="M18.5 15l.8 2.1 2.2.8-2.2.8-.8 2.1-.8-2.1-2.2-.8 2.2-.8z"/></svg>
+    </div>
+    <div style="font-size: 17px; font-weight: 600; color: #000; margin-bottom: 6px;">아직 만든 코스가 없습니다</div>
+    <div style="font-size: 15px; color: rgba(60,60,67,.6); text-align: center; line-height: 1.45;">보고 싶은 작품과 기간만 고르면,<br>촬영지를 이어서 일차별 일정으로 짜 드립니다</div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px; align-self: stretch; margin-top: 22px;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 7px; height: 50px; border-radius: 12px; background: #0088FF; color: #fff; font-size: 17px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.2L18 8.8l-4.4 1.6L12 14.6l-1.6-4.2L6 8.8l4.4-1.6z"/></svg>
+        AI 로 여정 짜기
+      </div>
+      <div style="display: flex; align-items: center; justify-content: center; height: 50px; border-radius: 12px; background: rgba(0,136,255,.12); color: #0088FF; font-size: 17px; font-weight: 500;">직접 짜기</div>
+    </div>
+  </div>
+
+  <!-- 탭바 -->
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 8px 0 22px; background: #fff; border-top: 0.5px solid rgba(60,60,67,.29); flex-shrink: 0;">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="width: 26px; height: 26px; color: {{t.tone}};" data-icon="{{t.key}}">
+          <sc-if value="{{t.isSearch}}" hint-placeholder-val="{{true}}">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+          </sc-if>
+          <sc-if value="{{t.isRoute}}" hint-placeholder-val="{{true}}">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="7" cy="6" r="2.4"/><circle cx="17" cy="18" r="2.4"/><path d="M7 8.4v3.6a5 5 0 0 0 5 5h2.6"/></svg>
+          </sc-if>
+          <sc-if value="{{t.isCommunity}}" hint-placeholder-val="{{true}}">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 7h11v8H8l-4 3V7z"/><path d="M17 10h4v7l-3-2h-4"/></svg>
+          </sc-if>
+          <sc-if value="{{t.isProfile}}" hint-placeholder-val="{{true}}">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+          </sc-if>
+        </div>
+        <div style="font-size: 10px; color: {{t.tone}};">{{t.label}}</div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() {
+    const off = 'rgba(60,60,67,.6)';
+    return {
+      tabs: [
+        { key: 'search', label: '작품검색', tone: off, isSearch: true, isRoute: false, isCommunity: false, isProfile: false },
+        { key: 'route', label: '경로여정', tone: '#0088FF', isSearch: false, isRoute: true, isCommunity: false, isProfile: false },
+        { key: 'community', label: '커뮤니티', tone: off, isSearch: false, isRoute: false, isCommunity: true, isProfile: false },
+        { key: 'profile', label: '마이페이지', tone: off, isSearch: false, isRoute: false, isCommunity: false, isProfile: true },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

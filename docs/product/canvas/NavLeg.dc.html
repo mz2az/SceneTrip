@@ -1,0 +1,171 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
+           -webkit-font-smoothing: antialiased; }
+    a { color: #0088FF; } a:hover { color: #0069c9; }
+  </style>
+</helmet>
+<div style="width: 402px; height: 874px; background: #fff; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="height: 59px; flex-shrink: 0;"></div>
+
+  <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; flex-shrink: 0;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0088FF" stroke-width="2.2" stroke-linecap="round"><polyline points="15,5 8,12 15,19"/></svg>
+    <div style="flex-grow: 1; min-width: 0;">
+      <div style="font-size: 17px; font-weight: 600; color: #000;">대림창고 까지</div>
+      <div style="font-size: 12px; color: rgba(60,60,67,.6);">현재 위치에서 · 방금 계산함</div>
+    </div>
+  </div>
+
+  <!-- 지도 : 실제 경로 + 반경 안의 POI -->
+  <div style="height: 330px; flex-shrink: 0; position: relative; background: #EAF0E6;">
+    <svg viewBox="0 0 402 330" style="width: 100%; height: 100%; display: block;">
+      <rect width="402" height="330" fill="#EAF0E6"/>
+      <path d="M0 120 L402 106" stroke="#F3D9A4" stroke-width="8" fill="none"/>
+      <path d="M60 330 L96 150 L210 96" stroke="#F3D9A4" stroke-width="6" fill="none"/>
+      <path d="M292 0 L326 330" stroke="#CFE3F5" stroke-width="30" fill="none" opacity=".5"/>
+      <!-- 반경(지도에 보이는 범위) -->
+      <circle cx="150" cy="200" r="118" fill="#0088FF" fill-opacity=".06" stroke="#0088FF" stroke-opacity=".28" stroke-width="1.5" stroke-dasharray="6 5"/>
+      <!-- 실제 경로 : 도보(점선) → 대중교통(실선) → 도보 -->
+      <path d="M150 200 L176 176" stroke="#7A68ED" stroke-width="4" stroke-dasharray="2 5" stroke-linecap="round" fill="none"/>
+      <path d="M176 176 L262 128" stroke="#7A68ED" stroke-width="5" fill="none"/>
+      <path d="M262 128 L292 112" stroke="#7A68ED" stroke-width="4" stroke-dasharray="2 5" stroke-linecap="round" fill="none"/>
+      <text x="16" y="322" font-size="11" fill="rgba(60,60,67,.6)">NAVER · OpenStreetMap</text>
+    </svg>
+
+    <!-- 현재 위치 -->
+    <div style="position: absolute; left: 141px; top: 191px; width: 18px; height: 18px; border-radius: 9px; background: #0088FF; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.12);"></div>
+
+    <!-- 목적지 핀 -->
+    <div style="position: absolute; left: 275px; top: 71px;">
+      <svg width="34" height="42" viewBox="0 0 34 42"><defs><linearGradient id="np2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FCCF7"/><stop offset="1" stop-color="#7A68ED"/></linearGradient></defs><path d="M17 41C17 41 32 24 32 15A15 15 0 1 0 2 15C2 24 17 41 17 41Z" fill="url(#np2)"/><circle cx="17" cy="15" r="10" fill="#fff"/><text x="17" y="19" text-anchor="middle" font-size="11" font-weight="800" fill="#5B4FD6">2</text></svg>
+    </div>
+
+    <!-- 반경 안의 POI — 지도에는 점만 찍는다.
+         이름표를 지도에 얹으면 넷일 땐 괜찮지만 열 개가 넘으면 지도가 덮인다.
+         이름은 아래 목록으로 뺐다. -->
+    <sc-for list="{{pois}}" as="p" hint-placeholder-count="6">
+      <div style="position: absolute; left: {{p.x}}; top: {{p.y}}; width: 12px; height: 12px; border-radius: 6px; background: {{p.tone}}; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.28);"></div>
+    </sc-for>
+
+    <!-- 챗봇은 여기서도 상시 -->
+    <div style="position: absolute; right: 16px; bottom: 16px; width: 52px; height: 52px; border-radius: 26px; background: linear-gradient(135deg, #8FCCF7, #7A68ED); display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(0,0,0,.22);">
+      <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.2L18 8.8l-4.4 1.6L12 14.6l-1.6-4.2L6 8.8l4.4-1.6z"/><path d="M18.5 15l.8 2.1 2.2.8-2.2.8-.8 2.1-.8-2.1-2.2-.8 2.2-.8z"/></svg>
+    </div>
+  </div>
+
+  <!-- 요약 -->
+  <div style="display: flex; align-items: baseline; gap: 8px; padding: 14px 16px 10px; flex-shrink: 0;">
+    <div style="font-size: 24px; font-weight: 700; color: #000;">1시간 12분</div>
+    <div style="font-size: 13px; color: rgba(60,60,67,.6);">환승 1회 · 도보 640 m · 1,500원</div>
+  </div>
+
+  <!-- 구간 -->
+  <div style="flex-grow: 1; overflow: hidden; padding: 0 16px;">
+    <sc-for list="{{legs}}" as="leg" hint-placeholder-count="4">
+      <div style="display: flex; gap: 12px;">
+        <div style="display: flex; flex-direction: column; align-items: center; width: 26px; flex-shrink: 0;">
+          <div style="width: 26px; height: 26px; border-radius: 13px; background: {{leg.tone}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <sc-if value="{{leg.isWalk}}" hint-placeholder-val="{{true}}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="13" cy="4" r="2"/><path d="M9 21l2-6-3-3 1-5 4 3 3 1"/></svg>
+            </sc-if>
+            <sc-if value="{{leg.isRide}}" hint-placeholder-val="{{true}}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 10h14M8 21l1.5-4M16 21l-1.5-4"/></svg>
+            </sc-if>
+          </div>
+          <div style="flex-grow: 1; width: 2px; background: rgba(60,60,67,.15);"></div>
+        </div>
+        <div style="flex-grow: 1; padding-bottom: 14px; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 600; color: #000;">{{leg.title}}</div>
+          <div style="font-size: 12px; color: rgba(60,60,67,.6); margin-top: 2px;">{{leg.detail}}</div>
+          <sc-if value="{{leg.warn}}" hint-placeholder-val="{{true}}">
+            <div style="display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; padding: 3px 8px; border-radius: 100px; background: rgba(255,56,60,.1); font-size: 11px; font-weight: 600; color: #FF383C;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FF383C" stroke-width="2.2"><path d="M4 20h16M7 20V9l5-4 5 4v11"/></svg>계단 있음
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- 반경 안 POI — 이름은 여기 있다. 갈래 칩으로 거른다 (poi.category_group) -->
+  <div style="flex-shrink: 0; border-top: 0.5px solid rgba(60,60,67,.29);">
+    <div style="display: flex; align-items: center; gap: 6px; padding: 12px 16px 8px;">
+      <div style="font-size: 15px; font-weight: 600; color: #000;">이 근처</div>
+      <div style="font-size: 12px; color: rgba(60,60,67,.6);">반경 1 km · 34곳</div>
+    </div>
+    <div style="display: flex; gap: 6px; padding: 0 16px 10px; overflow: hidden;">
+      <sc-for list="{{groups}}" as="g" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 5px; height: 32px; padding: 0 11px; border-radius: 100px; background: {{g.bg}}; font-size: 13px; font-weight: {{g.weight}}; color: {{g.tone}}; flex-shrink: 0;">
+          <div style="width: 7px; height: 7px; border-radius: 4px; background: {{g.dot}};"></div>{{g.label}}
+        </div>
+      </sc-for>
+    </div>
+    <div style="display: flex; flex-direction: column;">
+      <sc-for list="{{near}}" as="n" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px; border-top: 0.5px solid rgba(60,60,67,.16);">
+          <div style="width: 10px; height: 10px; border-radius: 5px; background: {{n.tone}}; flex-shrink: 0;"></div>
+          <div style="flex-grow: 1; min-width: 0;">
+            <div style="font-size: 15px; font-weight: 600; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{n.name}}</div>
+            <div style="font-size: 11px; color: rgba(60,60,67,.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{n.meta}}</div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex-shrink: 0;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0088FF" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 10px; padding: 12px 16px 16px; flex-shrink: 0;">
+    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; height: 50px; border-radius: 12px; background: #0088FF; color: #fff; font-size: 17px; font-weight: 600;">여기 도착함</div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      // poi.category_group — food · sight · stay · transit (V12__poi.sql, 47만 건)
+      groups: [
+        { label: '전체',   bg: '#0088FF', weight: '600', tone: '#fff', dot: 'rgba(255,255,255,.85)' },
+        { label: '음식점', bg: '#F2F2F7', weight: '400', tone: '#000', dot: '#F0932B' },
+        { label: '명소',   bg: '#F2F2F7', weight: '400', tone: '#000', dot: '#2ECC71' },
+        { label: '교통',   bg: '#F2F2F7', weight: '400', tone: '#000', dot: '#0088FF' },
+        { label: '숙소',   bg: '#F2F2F7', weight: '400', tone: '#000', dot: '#7A68ED' },
+      ],
+      pois: [
+        { x: '58px',  y: '236px', tone: '#F0932B' },
+        { x: '196px', y: '244px', tone: '#0088FF' },
+        { x: '52px',  y: '148px', tone: '#2ECC71' },
+        { x: '206px', y: '196px', tone: '#7A68ED' },
+        { x: '112px', y: '262px', tone: '#F0932B' },
+        { x: '168px', y: '148px', tone: '#2ECC71' },
+      ],
+      near: [
+        { name: '성수동 왕갈비', meta: '음식점 · 서울 성동구 성수동2가 · 240 m', tone: '#F0932B' },
+        { name: '뚝섬역 2번 출구', meta: '교통 · 지하철 2호선 · 420 m', tone: '#0088FF' },
+        { name: '내 숙소 (직접 찍음)', meta: '숙소 · 핀 · 610 m', tone: '#7A68ED' },
+      ],
+      legs: [
+        { title: '뚝섬역 2번 출구까지', detail: '도보 8분 · 420 m',
+          tone: 'rgba(60,60,67,.45)', isWalk: true, isRide: false, warn: true },
+        { title: '2호선 · 성수 방면', detail: '4개 역 · 9분 · 1,500원',
+          tone: '#2DB400', isWalk: false, isRide: true, warn: false },
+        { title: '성수역에서 대림창고까지', detail: '도보 4분 · 220 m',
+          tone: 'rgba(60,60,67,.45)', isWalk: true, isRide: false, warn: false },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
