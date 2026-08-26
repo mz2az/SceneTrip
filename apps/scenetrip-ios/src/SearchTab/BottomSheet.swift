@@ -29,7 +29,13 @@ struct BottomSheet<Content: View>: View {
 
     var body: some View {
         GeometryReader { geo in
-            let maxH = geo.size.height - topInset
+            // **첫 레이아웃에서 높이가 0 일 수 있다.** 그대로 두면 아래
+            // `clamped(to: 80 ... maxH)` 의 범위가 뒤집혀(80 > maxH) 곧바로
+            // 죽는다 — 경로 편집 화면이 ZStack 안에서 이 시트를 쓰기 시작하면서
+            // 실제로 터졌다(2026-08-27, "Range requires lowerBound <= upperBound").
+            // 검색 탭에서는 지오메트리가 0 으로 오는 순간이 없어 드러나지 않았을 뿐,
+            // 여기서 막는 것이 맞다.
+            let maxH = max(80, geo.size.height - topInset)
             let height = (heightFor(detent, total: geo.size.height, maxH: maxH) - drag)
                 .clamped(to: 80 ... maxH)
 

@@ -15,13 +15,21 @@ extension RouteEditorView {
             stops: stops,
             fitToken: fitToken,
             pinning: pinning,
-            pending: pendingPin
+            pending: pendingPin,
+            showingMe: showingMe,
+            focused: focusedStop,
+            previews: previewPlaces,
+            guidePlaces: guide.places,
+            pickedGuide: guide.picked,
+            onTapGuide: { guide.picked = $0 },
+            bottomInset: panelHeight
         ) { pin in
             // 한 번 찍으면 모드를 끈다. 켜 둔 채로 두면 시트를 닫는 손짓이 다음 핀이 된다.
             pinning = false
             pendingPin = pin
         }
-        .frame(height: 210)
+        // 높이를 고정하지 않는다 — 이제 지도가 화면을 다 깔고 일정 시트가 그 위에
+        // 얹힌다(`RouteEditorView` 참고).
         .overlay(alignment: .top) {
             if pinning {
                 Text("지도를 눌러 장소를 찍으세요")
@@ -31,6 +39,47 @@ extension RouteEditorView {
                     .padding(.top, 10)
             }
         }
+        // 챗봇은 지도 위 오른쪽 아래에 **늘** 있다. 코스를 짜는 동안에도, 여행
+        // 중에도 같은 자리다 — 물어볼 것이 생겼을 때 찾아 헤매지 않게 한다.
+        // 핀을 찍는 동안에는 숨긴다. 지도를 눌러야 하는데 버튼이 손에 걸린다.
+
+        // 「내 위치」 **토글**. 오른쪽 위, 핀 찍는 동안에는 숨긴다(챗봇과 같은 이유).
+        //
+        // 검색 탭은 「누르면 그 자리로 날아가는」 버튼인데 여기서는 토글이다. 코스
+        // 화면에서 그냥 날아가면 **촬영지가 화면 밖으로 나가** 무엇을 보던 화면인지
+        // 알 수 없다(2026-08-24 사용자 지적). 켜 두면 목록에서 장소를 고를 때마다
+        // 「나와 그곳이 같이 보이는 크기」로 맞는다.
+        .overlay(alignment: .topTrailing) {
+            if !pinning {
+                VStack(spacing: 10) {
+                    locateButton
+                    // 챗봇도 오른쪽 위다. 원래 오른쪽 아래였는데 일정 시트가 그
+                    // 자리를 덮게 되면서 옮겼다 — 시트를 내려야 보이는 단추는
+                    // 없는 것과 같다.
+                    RouteChatButton(remaining: nil) { showGuide = true }
+                }
+                .padding(10)
+            }
+        }
+    }
+
+    private var locateButton: some View {
+        Button {
+            showingMe.toggle()
+        } label: {
+            Image(systemName: showingMe ? "location.fill" : "location")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(showingMe ? .white : Color.accentColor)
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle().fill(
+                        showingMe
+                            ? AnyShapeStyle(Color.accentColor)
+                            : AnyShapeStyle(.ultraThinMaterial)
+                    )
+                )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: 일차
@@ -81,6 +130,9 @@ extension RouteEditorView {
         .contentShape(.rect)
         .onTapGesture {
             dayIndex = index
+            // 일차가 바뀌면 고른 장소를 놓는다 — 안 놓으면 다른 일차의 장소를
+            // 계속 보고 있게 되고, 지도는 그 일차 전체로 맞춰야 한다.
+            focusedStop = nil
             fitToken += 1
         }
     }
@@ -116,35 +168,49 @@ extension RouteEditorView {
         .background(Color(.systemBackground))
     }
 
+    /// 네 가지가 **한 줄에 다 보인다.** 앞서 가로 스크롤이라 「핀 찍기」가 오른쪽
+    /// 밖으로 밀려 있었는데, 밀려 있으면 없는 것과 같다 — 무엇을 할 수 있는지
+    /// 화면을 밀어 봐야 아는 UI 는 직관적이지 않다(2026-08-25 사용자 지적).
+    ///
+    /// 넷이 들어가게 **글자를 짧게** 했다 — 「장소 검색」→「검색」. 출발·도착 고정은
+    /// 여기서 뺐다. 그것은 **어느 줄을 고정하는가**의 이야기라 그 줄 옆에 있어야
+    /// 뜻이 통한다(`RouteStopRow`).
     var actions: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                // 동선 최적화는 **지금 보고 있는 일차 안에서만** 순서를 바꾼다.
-                // 일차를 넘나들며 옮기면 사용자가 나눠 둔 하루가 무너진다.
-                action("동선 최적화", symbol: "arrow.triangle.swap") {
-                    course.days[dayIndex].stops = RouteGeometry.optimized(stops)
-                    fitToken += 1
-                }
-                action("장바구니", symbol: "bag") { showCart = true }
-                action(pinning ? "핀 찍기 취소" : "핀 찍기", symbol: "mappin.and.ellipse") {
-                    pinning.toggle()
-                }
+        HStack(spacing: 8) {
+            // 동선 최적화는 **지금 보고 있는 일차 안에서만** 순서를 바꾼다.
+            // 일차를 넘나들며 옮기면 사용자가 나눠 둔 하루가 무너진다.
+            action("동선 최적화", symbol: "arrow.triangle.swap") {
+                course.days[dayIndex].stops = RouteGeometry.optimized(
+                    stops, pinStart: pinStart, pinEnd: pinEnd
+                )
+                fitToken += 1
             }
-            .padding(.horizontal, 16).padding(.bottom, 10)
+            // 장바구니를 거치지 않고 **여기서 바로** 찾아 담는다.
+            action("검색", symbol: "magnifyingglass") { showSearch = true }
+            action("장바구니", symbol: "bag") { showCart = true }
+            action(pinning ? "취소" : "핀 찍기", symbol: "mappin.and.ellipse") {
+                pinning.toggle()
+            }
         }
+        .padding(.horizontal, 16).padding(.bottom, 10)
         .background(Color(.systemBackground))
     }
 
+    /// 넷이 한 줄에 들어가야 하므로 **아이콘 위, 글자 아래**로 쌓는다. 나란히 두면
+    /// 402pt 폭에 「동선 최적화」 하나가 절반을 먹는다.
     private func action(
         _ label: String,
         symbol: String,
         run: @escaping () -> Void
     ) -> some View {
         Button(action: run) {
-            Label(label, systemImage: symbol)
-                .font(.subheadline)
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(Capsule().fill(Color(.systemGray6)))
+            VStack(spacing: 3) {
+                Image(systemName: symbol).font(.system(size: 15))
+                Text(label).font(.caption2).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
         }
         .buttonStyle(.plain)
     }
