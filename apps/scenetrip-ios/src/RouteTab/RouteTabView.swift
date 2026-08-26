@@ -20,13 +20,21 @@ struct RouteTabView: View {
     @State private var wizard: RouteWizardKind?
     @State private var editing: RouteCourse?
 
+    /// 지우기 직전에 한 번 묻는다. `nil` 이면 안 묻는 중이다.
+    ///
+    /// **되돌릴 수 없다** — 서버에서 지우는 것이라 실행 취소가 없다. 며칠 걸려 짠
+    /// 일정이 손가락 한 번에 사라지면 안 된다.
+    @State private var doomed: RouteCourse?
+
     /// 「내 코스 / 코스마켓」. 목업의 `S.homeSeg` 와 같은 자리다.
     @State private var segment: Segment = .mine
 
     enum Segment: String, CaseIterable, Identifiable {
         case mine = "내 코스"
         case market = "코스마켓"
-        var id: String { rawValue }
+        var id: String {
+            rawValue
+        }
     }
 
     var body: some View {
@@ -55,6 +63,26 @@ struct RouteTabView: View {
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("코스")
+            .task { await store.refresh() }
+            .confirmationDialog(
+                doomed.map { "「\($0.title)」을 지울까요?" } ?? "",
+                isPresented: Binding(get: { doomed != nil }, set: {
+                    if !$0 {
+                        doomed = nil
+                    }
+                }),
+                titleVisibility: .visible
+            ) {
+                Button("삭제", role: .destructive) {
+                    guard let course = doomed else { return }
+                    doomed = nil
+                    Task { await store.delete(course) }
+                }
+                Button("취소", role: .cancel) { doomed = nil }
+            } message: {
+                Text("되돌릴 수 없습니다.")
+            }
+            .refreshable { await store.refresh() }
         }
         .sheet(isPresented: $fork) { forkSheet }
         .sheet(item: $wizard) { kind in
@@ -168,10 +196,6 @@ struct RouteTabView: View {
                 ForEach(store.courses.filter { !$0.isRunning }) { course in
                     row(course)
                 }
-                .onDelete { offsets in
-                    let targets = store.courses.filter { !$0.isRunning }
-                    offsets.map { targets[$0] }.forEach { store.delete($0) }
-                }
             } header: {
                 Text("내 코스 \(store.courses.count)")
             }
@@ -195,8 +219,28 @@ struct RouteTabView: View {
     }
 
     private func row(_ course: RouteCourse) -> some View {
+        rowButton(course)
+            // **`.onDelete` 만으로는 아무도 못 찾는다.** 밀어야 나오는 것을 알려 주는
+            // 표시가 화면에 없어서다(2026-08-24 사용자 지적). 글자가 붙은 빨간 버튼으로
+            // 바꾸면 한 번 밀어 본 사람에게는 무엇인지 분명해진다. 처음 여는 사람을
+            // 위한 길은 따로 있다 — 코스를 열면 맨 아래에 「코스 삭제」가 있다.
+            //
+            // 「여행 중」 코스도 지울 수 있어야 한다. 앞서 그 섹션에는 삭제가 아예
+            // 없어서, 시작해 둔 코스는 **여행을 끝내기 전까지 지울 방법이 없었다.**
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    doomed = course
+                } label: {
+                    Label("삭제", systemImage: "trash")
+                }
+            }
+    }
+
+    private func rowButton(_ course: RouteCourse) -> some View {
         Button {
-            editing = course
+            // 목록 카드에는 일차 속이 없다(`CourseSummary`). 열 때 상세를 받아온다 —
+            // 목록에서 전부 받아 두면 코스가 많을 때 첫 화면이 그만큼 느려진다.
+            Task { editing = await store.detail(course) ?? course }
         } label: {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {

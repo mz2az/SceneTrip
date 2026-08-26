@@ -168,19 +168,11 @@ struct ErrorView: View {
     let failure: ApiFailure
     let onRetry: () -> Void
 
-    private var message: String {
-        switch failure.statusCode {
-        case nil: "서버에 연결하지 못했습니다."
-        case 500: "잠시 문제가 생겼습니다."
-        default: "요청을 처리하지 못했습니다."
-        }
-    }
-
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.largeTitle).foregroundStyle(.secondary)
-            Text(message).font(.subheadline)
+            Text(failure.message).font(.subheadline)
             if failure.isRetryable {
                 Button("다시 시도", action: onRetry)
                     .buttonStyle(.borderedProminent)

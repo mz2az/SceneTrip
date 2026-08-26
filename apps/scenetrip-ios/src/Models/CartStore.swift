@@ -18,7 +18,7 @@ final class CartStore: ObservableObject {
     private let deviceId: UUID
 
     init() {
-        deviceId = Self.loadOrCreateDeviceId()
+        deviceId = InstallIdentity.current
     }
 
     func contains(_ placeId: Int64) -> Bool {
@@ -62,21 +62,5 @@ final class CartStore: ObservableObject {
 
     func clearToast() {
         toast = nil
-    }
-
-    /// 기기 UUID. 계약: "앱이 최초 실행 시 생성해 보관하는 기기 UUID. 장바구니의
-    /// 주체다. 로그인이 도입되면 이 값을 사용자 계정에 이어 붙인다."
-    ///
-    /// 매번 새로 만들면 앱을 껐다 켤 때마다 장바구니가 빈다.
-    private static func loadOrCreateDeviceId() -> UUID {
-        let key = "scenetrip.deviceId"
-        if let saved = UserDefaults.standard.string(forKey: key),
-           let parsed = UUID(uuidString: saved)
-        {
-            return parsed
-        }
-        let fresh = UUID()
-        UserDefaults.standard.set(fresh.uuidString, forKey: key)
-        return fresh
     }
 }

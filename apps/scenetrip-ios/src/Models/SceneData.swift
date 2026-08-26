@@ -126,6 +126,19 @@ struct ApiFailure: Equatable {
         statusCode == nil || statusCode == 500
     }
 
+    /// 사용자에게 보일 한 줄.
+    ///
+    /// **안드로이드의 `ApiFailure.message` 와 같은 문구여야 한다** — 두 앱이 같은
+    /// 상황에서 다른 말을 하면 같은 앱으로 보이지 않는다. 앞서 이 문구가 검색 탭의
+    /// `ErrorView` 안에만 있어서 다른 화면이 재사용할 수 없었다.
+    var message: String {
+        switch statusCode {
+        case nil: "서버에 연결하지 못했습니다."
+        case 500: "잠시 문제가 생겼습니다."
+        default: "요청을 처리하지 못했습니다."
+        }
+    }
+
     init(statusCode: Int?, traceId: String?) {
         self.statusCode = statusCode
         self.traceId = traceId

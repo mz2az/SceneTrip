@@ -34,6 +34,75 @@ final class RouteGeometryTests: XCTestCase {
         XCTAssertEqual(result.first?.place.name, "숙소")
     }
 
+    /// **도착을 고정하면 마지막이 그대로 남는다.** 숙소로 돌아오는 일정이다.
+    func testPinnedEndStaysLast() {
+        let stops = [
+            stop(37.60, 126.98, "경복궁"),
+            stop(37.51, 127.09, "코엑스"),
+            stop(37.58, 126.99, "북촌"),
+            stop(37.50, 127.10, "숙소"),
+        ]
+        let result = RouteGeometry.optimized(stops, pinStart: false, pinEnd: true)
+        XCTAssertEqual(result.last?.place.name, "숙소")
+        XCTAssertEqual(result.count, stops.count)
+    }
+
+    /// 양끝을 다 고정하면 둘 다 자리를 지킨다.
+    func testBothEndsStayPut() {
+        let stops = [
+            stop(37.50, 127.10, "숙소"),
+            stop(37.60, 126.98, "경복궁"),
+            stop(37.51, 127.09, "코엑스"),
+            stop(37.58, 126.99, "북촌"),
+            stop(37.45, 126.45, "인천공항"),
+        ]
+        let result = RouteGeometry.optimized(stops, pinStart: true, pinEnd: true)
+        XCTAssertEqual(result.first?.place.name, "숙소")
+        XCTAssertEqual(result.last?.place.name, "인천공항")
+    }
+
+    /// **아무것도 고정하지 않으면 첫 장소도 움직일 수 있다.**
+    ///
+    /// 현재 위치에서 출발하는 사람에게는 목록 첫 줄이 출발지가 아니다. 그 사람에게
+    /// 첫 줄을 붙들어 두는 것은 최적화를 그만큼 나쁘게 만들 뿐이다.
+    func testFreeModeMayMoveTheFirstStop() {
+        // 한쪽 끝에 홀로 떨어진 곳을 **첫 줄에** 둔다. 붙들려 있으면 거기서 출발해
+        // 되돌아와야 하지만, 풀어 주면 끝에서 시작하거나 끝내는 편이 짧다.
+        let stops = [
+            stop(37.55, 127.20, "외딴곳"),
+            stop(37.55, 126.98, "가운데1"),
+            stop(37.56, 126.99, "가운데2"),
+            stop(37.55, 126.90, "반대끝"),
+        ]
+        let pinned = RouteGeometry.totalKilometers(
+            RouteGeometry.optimized(stops, pinStart: true, pinEnd: false)
+        )
+        let free = RouteGeometry.totalKilometers(
+            RouteGeometry.optimized(stops, pinStart: false, pinEnd: false)
+        )
+        XCTAssertLessThanOrEqual(free, pinned, "풀어 준 쪽이 더 길면 최적화가 아니다")
+    }
+
+    /// 어느 조합이든 **장소를 잃거나 늘리지 않는다.**
+    func testEveryModeKeepsEveryStop() {
+        let stops = [
+            stop(37.50, 127.10, "가"),
+            stop(37.60, 126.98, "나"),
+            stop(37.51, 127.09, "다"),
+            stop(37.58, 126.99, "라"),
+            stop(37.45, 126.45, "마"),
+        ]
+        for pinStart in [true, false] {
+            for pinEnd in [true, false] {
+                let result = RouteGeometry.optimized(stops, pinStart: pinStart, pinEnd: pinEnd)
+                XCTAssertEqual(
+                    Set(result.map(\.id)), Set(stops.map(\.id)),
+                    "pinStart=\(pinStart) pinEnd=\(pinEnd) 에서 장소가 바뀌었다"
+                )
+            }
+        }
+    }
+
     /// 장소를 잃거나 늘리지 않는다 — 순서만 바꾼다.
     func testKeepsEveryStopExactlyOnce() {
         let stops = [
@@ -80,7 +149,7 @@ final class RouteGeometryTests: XCTestCase {
     /// 출발지 코앞(0.4km)에 「가까운 미끼」를 두고, 반대쪽에 중간 거리(2.6km),
     /// 그 너머에 먼 무리(8.8km)를 둔다. 최근접 이웃은 미끼를 먼저 집고 되돌아 나오느라
     /// 손해를 본다. 되돌아 나오는 그 한 번이 최적해와의 차이다.
-    func testBeatsPlainNearestNeighbour() {
+    func testBeatsPlainNearestNeighbour() throws {
         let stops = [
             stop(37.50, 127.000, "출발"),
             stop(37.50, 127.005, "미끼"), // 출발지 코앞 — 최근접 이웃이 먼저 문다
@@ -97,10 +166,10 @@ final class RouteGeometryTests: XCTestCase {
         var greedy = [current]
         while !remaining.isEmpty {
             let anchor = current
-            let index = remaining.indices.min {
+            let index = try XCTUnwrap(remaining.indices.min {
                 RouteGeometry.kilometers(anchor.place, remaining[$0].place)
                     < RouteGeometry.kilometers(anchor.place, remaining[$1].place)
-            }!
+            })
             current = remaining.remove(at: index)
             greedy.append(current)
         }
