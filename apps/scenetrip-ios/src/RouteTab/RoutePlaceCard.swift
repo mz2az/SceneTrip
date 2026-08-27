@@ -68,6 +68,17 @@ struct RoutePlaceCard: View {
                 }
             }
             Spacer()
+            // **더 보려면 네이버로** — 메뉴·예약·리뷰 전문은 그쪽에 있다.
+            // 맨 아래 큰 단추였는데 이름 옆 아이콘으로 줄였다 — 그 줄이 통째로
+            // 빠져야 정보가 한 화면에 다 보인다(2026-08-27 사용자 지적).
+            if let link = card?.naverUrl, let url = URL(string: link) {
+                Link(destination: url) {
+                    Image(systemName: "arrow.up.right.square.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color(red: 0.02, green: 0.68, blue: 0.31))
+                        .frame(width: 30, height: 30)
+                }
+            }
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .semibold))
@@ -123,23 +134,9 @@ struct RoutePlaceCard: View {
             .padding(.horizontal, 14).padding(.top, 12)
         }
 
-        if let link = card.naverUrl, let url = URL(string: link) {
-            // **더 보려면 네이버로.** 메뉴·예약·리뷰 전문은 그쪽에 있다.
-            Link(destination: url) {
-                HStack(spacing: 6) {
-                    Text("네이버에서 열기").font(.subheadline.weight(.semibold))
-                    Image(systemName: "arrow.up.right").font(.caption)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color(red: 0.02, green: 0.78, blue: 0.35).opacity(0.12))
-                )
-                .foregroundStyle(Color(red: 0.02, green: 0.60, blue: 0.28))
-            }
-            .padding(14)
-        }
+        // 네이버 링크는 머리줄의 아이콘이 맡는다(`header`). 여기 큰 단추로 두면
+        // 표 한 줄이 밀려 화면 밖으로 나간다.
+        Color.clear.frame(height: 14)
     }
 
     private var missing: some View {

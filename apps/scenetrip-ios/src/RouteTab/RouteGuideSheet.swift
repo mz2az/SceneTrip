@@ -62,8 +62,16 @@ struct RouteGuideSheet: View {
             .navigationTitle("여행 가이드")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { dismiss() }
+                // 오른쪽 위 X. 글자 단추(「닫기」)는 왼쪽에서 너무 크게 그려져
+                // 제목을 밀었다(2026-08-27 사용자 지적).
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
