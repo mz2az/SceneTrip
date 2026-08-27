@@ -21,6 +21,8 @@ extension RouteEditorView {
             previews: previewPlaces,
             guidePlaces: visibleGuidePlaces,
             pickedGuide: visiblePickedGuide,
+            ambientPlaces: visibleAmbientPois,
+            onViewport: viewportChanged,
             onTapGuide: { guide.picked = $0 },
             bottomInset: panelHeight
         ) { pin in
@@ -94,7 +96,7 @@ extension RouteEditorView {
     /// 「전체」는 마스터 스위치다. 다 켜져 있으면 끄고, 하나라도 꺼져 있으면 다 켠다.
     @ViewBuilder
     var poiFilter: some View {
-        if !guide.places.isEmpty {
+        if !poisForChips.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     let allOn = poiGroupsOn.count == RoutePoiGroup.allCases.count
@@ -105,7 +107,7 @@ extension RouteEditorView {
                         }
                     }
                     ForEach(RoutePoiGroup.allCases) { group in
-                        let count = guide.places.count { $0.poiGroup == group }
+                        let count = poisForChips.count { $0.poiGroup == group }
                         if count > 0 {
                             chip("\(group.label) \(count)",
                                  tone: RoutePoiTone.of(group),

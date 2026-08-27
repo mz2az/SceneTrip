@@ -68,6 +68,10 @@ struct RouteEditorView: View {
     /// 동선 최적화 단추가 **반짝여야 하는가.** 장소가 새로 담기면 켜진다 — 방금
     /// 담긴 곳은 줄 맨 끝이라 순서가 대개 엉망이 된다. 한 번 최적화하면 꺼진다.
     @State var optimizeNudge = false
+
+    /// 화면 범위 안의 주변 편의시설. 카메라가 멈출 때마다 다시 받는다.
+    @State var ambientPois: [RouteGuide.Place] = []
+    @State var ambientTask: Task<Void, Never>?
     @State var stayTarget: RouteStop?
     @State var directionsTarget: RouteStop?
     @State var blockedDay: Int?
@@ -392,7 +396,7 @@ struct RouteEditorView: View {
     }
 
     /// 이미 담긴 곳의 열쇠. 갈래는 `RouteDedupe` 가 정한다.
-    private var takenSpotKeys: Set<String> {
+    var takenSpotKeys: Set<String> {
         Set(course.days.flatMap(\.stops).map { RouteDedupe.key($0.place) })
     }
 

@@ -67,6 +67,14 @@ struct RouteMapView: UIViewRepresentable {
     /// 그중 고른 것.
     var pickedGuide: RouteGuide.Place?
 
+    /// **화면 범위 안의 주변 편의시설.** 챗봇 결과(`guidePlaces`)와 달리 카메라를
+    /// 움직이지 않는다 — 배경처럼 깔릴 뿐이다. 네이버 지도가 주변 가게를 늘
+    /// 보여 주는 것과 같은 자리다(2026-08-28).
+    var ambientPlaces: [RouteGuide.Place] = []
+
+    /// 카메라가 멈췄다. (남, 서, 북, 동, 가운데위도, 가운데경도, 줌).
+    var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
+
     /// 가이드 핀을 눌렀다. 정보 카드를 띄우는 쪽이 받는다.
     var onTapGuide: (RouteGuide.Place) -> Void = { _ in }
 
@@ -95,6 +103,8 @@ struct RouteMapView: UIViewRepresentable {
     func updateUIView(_ view: NMFNaverMapView, context: Context) {
         context.coordinator.onTapMap = onTapMap
         context.coordinator.onTapGuide = onTapGuide
+        context.coordinator.onViewport = onViewport
+        context.coordinator.renderAmbient(ambientPlaces, picked: pickedGuide, on: view.mapView)
         context.coordinator.pinning = pinning
         context.coordinator.apply(bottomInset: bottomInset, to: view.mapView)
         context.coordinator.render(
@@ -139,6 +149,10 @@ struct RouteMapView: UIViewRepresentable {
         /// 다시 그릴 때마다 지도가 튀면 손으로 옮긴 화면이 계속 되돌아간다.
         private var lastCameraKey = ""
         var onTapGuide: (RouteGuide.Place) -> Void = { _ in }
+        var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
+        /// 주변 편의시설 마커. 챗봇 결과와 살림을 따로 낸다 — 갱신 주기가 다르다.
+        var ambientMarkers: [NMFMarker] = []
+        var lastAmbientKey = ""
         private var lastInset: CGFloat = 0
 
         /// 시트가 덮는 만큼 지도의 「보이는 영역」을 줄인다. 카메라 맞추기가 이 값을
