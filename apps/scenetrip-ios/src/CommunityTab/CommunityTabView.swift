@@ -19,6 +19,9 @@ struct CommunityTabView: View {
     /// nil = 전체.
     @State private var board: CommunityPost.Board?
     @State private var composing = false
+
+    /// 읽고 있는 글. 목록 행은 두 줄로 잘리므로, 누르면 전문이 큰 팝업으로 뜬다.
+    @State private var reading: CommunityPost?
     @State private var marketCourses: [MarketCourseSummary] = []
 
     private let deviceId = InstallIdentity.current
@@ -47,6 +50,10 @@ struct CommunityTabView: View {
                 ) {
                     marketCourses = list.items
                 }
+            }
+            .sheet(item: $reading) { post in
+                CommunityPostView(post: post)
+                    .presentationDetents([.large])
             }
             .sheet(isPresented: $composing) {
                 CommunityComposeView { newBoard, title, body, courseTitle in
@@ -130,6 +137,23 @@ struct CommunityTabView: View {
     }
 
     private func myPostRow(_ post: CommunityPost) -> some View {
+        Button {
+            reading = post
+        } label: {
+            myPostBody(post)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .swipeActions {
+            Button(role: .destructive) {
+                store.remove(post)
+            } label: {
+                Label("지우기", systemImage: "trash")
+            }
+        }
+    }
+
+    private func myPostBody(_ post: CommunityPost) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
                 badge(post.board.rawValue, tint: .accentColor)
@@ -152,13 +176,6 @@ struct CommunityTabView: View {
             }
         }
         .padding(.vertical, 4)
-        .swipeActions {
-            Button(role: .destructive) {
-                store.remove(post)
-            } label: {
-                Label("지우기", systemImage: "trash")
-            }
-        }
     }
 
     private func marketRow(_ course: MarketCourseSummary) -> some View {

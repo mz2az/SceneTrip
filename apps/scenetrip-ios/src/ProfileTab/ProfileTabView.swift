@@ -11,7 +11,7 @@ import SwiftUI
 /// 아직 못 하는 것(로그인·알림·언어)은 흐리게 두고 「준비 중」이라고 적는다 —
 /// 눌리는데 아무 일도 없는 것이 제일 나쁘다.
 struct ProfileTabView: View {
-    @StateObject private var likes = LikeStore()
+    @ObservedObject private var likes = LikeStore.shared
 
     @State private var courses: [CourseSummary] = []
     @State private var courseCount: Int?

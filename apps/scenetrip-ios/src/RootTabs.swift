@@ -37,7 +37,9 @@ struct RootTabs: View {
         }
     }
 
-    @State private var selected: Tab = .search
+    /// 탭 선택을 `TabRouter` 가 든다 — 마이페이지가 「경로여정에서 열기」로
+    /// 탭을 바꿀 수 있어야 해서다(2026-08-28).
+    @ObservedObject private var router = TabRouter.shared
 
     /// 경로여정 탭의 상태는 **여기서 든다.**
     ///
@@ -52,20 +54,20 @@ struct RootTabs: View {
                 // 검색 탭은 항상 살려 둔다 — 다른 탭에 갔다 와도 지도와 검색 결과가
                 // 그대로여야 한다.
                 SearchTabView()
-                    .opacity(selected == .search ? 1 : 0)
-                    .allowsHitTesting(selected == .search)
+                    .opacity(router.selected == .search ? 1 : 0)
+                    .allowsHitTesting(router.selected == .search)
 
-                if selected == .route {
+                if router.selected == .route {
                     RouteTabView().environmentObject(routes)
-                } else if selected == .community {
+                } else if router.selected == .community {
                     CommunityTabView()
-                } else if selected == .profile {
+                } else if router.selected == .profile {
                     ProfileTabView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            TabBar(selected: $selected)
+            TabBar(selected: $router.selected)
         }
         .ignoresSafeArea(.keyboard)
     }

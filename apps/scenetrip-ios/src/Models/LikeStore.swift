@@ -15,6 +15,10 @@ import Foundation
 /// (MZ2AZ-235), 찜이 없으면 그 화면이 반쪽이 된다.
 @MainActor
 final class LikeStore: ObservableObject {
+    /// **앱에 하나뿐이다.** 검색 탭에서 누른 하트가 마이페이지에 바로 보여야
+    /// 한다 — 화면마다 따로 만들면 각자 처음 읽은 값에 멈춘다(2026-08-28 확인).
+    static let shared = LikeStore()
+
     @Published private(set) var contentIds: Set<Int64> = []
 
     private let key = "scenetrip.likedContents"

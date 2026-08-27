@@ -29,6 +29,9 @@ struct RouteTabView: View {
     /// 「내 코스 / 코스마켓」. 목업의 `S.homeSeg` 와 같은 자리다.
     @State private var segment: Segment = .mine
 
+    /// 마이페이지가 남긴 쪽지(열어 줄 코스)를 읽는다.
+    @ObservedObject private var router = TabRouter.shared
+
     enum Segment: String, CaseIterable, Identifiable {
         case mine = "내 코스"
         case market = "코스마켓"
@@ -70,17 +73,26 @@ struct RouteTabView: View {
             .toolbar {
                 if segment == .mine {
                     ToolbarItem(placement: .topBarTrailing) {
+                        // 이 탭의 첫 행동이라 **늘 반짝인다** — AI 가이드 단추와
+                        // 같은 피노 색이다(2026-08-28 사용자 요청).
                         Button {
                             fork = true
                         } label: {
                             Label("코스 추가", systemImage: "plus")
                                 .labelStyle(.titleAndIcon)
-                                .font(.subheadline.weight(.medium))
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 10).padding(.vertical, 6)
                         }
+                        .buttonStyle(.plain)
+                        .modifier(PinoNudge(on: true, cornerRadius: 15))
                     }
                 }
             }
-            .task { await store.refresh() }
+            .task {
+                await store.refresh()
+                openPending()
+            }
+            .onChange(of: router.pendingCourseId) { _, _ in openPending() }
             .confirmationDialog(
                 doomed.map { "「\($0.title)」을 지울까요?" } ?? "",
                 isPresented: Binding(get: { doomed != nil }, set: {
@@ -218,6 +230,16 @@ struct RouteTabView: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    /// 마이페이지에서 「경로여정에서 열기」로 넘어온 코스를 연다. 쪽지는 한 번
+    /// 읽고 버린다 — 남겨 두면 탭에 올 때마다 또 열린다.
+    private func openPending() {
+        guard let wanted = router.pendingCourseId,
+              let course = store.courses.first(where: { $0.serverId == wanted })
+        else { return }
+        router.pendingCourseId = nil
+        Task { editing = await store.detail(course) ?? course }
     }
 
     private func row(_ course: RouteCourse) -> some View {
