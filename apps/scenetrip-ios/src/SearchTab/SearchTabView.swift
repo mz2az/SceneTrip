@@ -12,7 +12,7 @@ import SwiftUI
 struct SearchTabView: View {
     @StateObject var data = SceneData()
     @StateObject var cart = CartStore()
-    @StateObject var likes = LikeStore()
+    @ObservedObject var likes = LikeStore.shared
 
     @State var draft = ""
     /// **확정된** 검색어. `draft` 는 타이핑하는 동안에도 바뀌므로 "지금 이 목록이

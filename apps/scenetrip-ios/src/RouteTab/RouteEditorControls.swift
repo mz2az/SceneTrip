@@ -77,13 +77,20 @@ extension RouteEditorView {
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(showingMe ? .white : Color.accentColor)
                 .frame(width: 44, height: 44)
+                // 꺼진 상태가 반투명이라 지도에 묻혔다(2026-08-28 사용자 지적).
+                // 흰 판 + 테두리 + 그림자로 **볼록하게** 세워 어느 상태든 단추로
+                // 보이게 한다.
                 .background(
                     Circle().fill(
-                        showingMe
-                            ? AnyShapeStyle(Color.accentColor)
-                            : AnyShapeStyle(.ultraThinMaterial)
+                        showingMe ? Color.accentColor : Color(.systemBackground)
                     )
                 )
+                .overlay(
+                    Circle().strokeBorder(
+                        showingMe ? .clear : Color(.systemGray4), lineWidth: 1
+                    )
+                )
+                .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -269,43 +276,8 @@ extension RouteEditorView {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
-            .modifier(ActionNudge(on: highlight))
+            .modifier(PinoNudge(on: highlight))
         }
         .buttonStyle(.plain)
-    }
-}
-
-/// 눌러 달라고 **숨 쉬듯 반짝이는** 강조. 장소가 새로 담겨 순서가 낡았을 때
-/// 동선 최적화 단추에 씌운다 — 한 번 누르면 벗겨져 평소 회색으로 돌아간다.
-private struct ActionNudge: ViewModifier {
-    let on: Bool
-    @State private var glow = false
-
-    func body(content: Content) -> some View {
-        content
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.accentColor.opacity(on ? (glow ? 0.26 : 0.08) : 0))
-                    .allowsHitTesting(false)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(
-                        Color.accentColor.opacity(on ? (glow ? 0.9 : 0.35) : 0),
-                        lineWidth: 1.5
-                    )
-                    .allowsHitTesting(false)
-            )
-            .foregroundStyle(on ? Color.accentColor : Color.primary)
-            .onChange(of: on, initial: true) { _, now in
-                guard now else {
-                    glow = false
-                    return
-                }
-                glow = false
-                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
-                    glow = true
-                }
-            }
     }
 }

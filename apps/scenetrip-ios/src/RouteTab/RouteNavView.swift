@@ -1,5 +1,6 @@
 import CoreLocation
 import NMapsMap
+import SceneApiClient
 import SwiftUI
 
 /// 「길찾기」를 누른 뒤 (MZ2AZ-225).
@@ -25,45 +26,52 @@ struct RouteNavView: View {
     /// 알아듣는 재료도 된다. 안 주면 목적지 하나만 안다.
     var dayStops: [RouteStop] = []
 
+    /// 이 코스의 서버 id. **방문 스탬프를 남기는 데 쓴다** — 없으면(저장 전 코스)
+    /// 스탬프 없이 화면만 닫힌다.
+    var courseId: Int64?
+
     @Environment(\.dismiss) private var dismiss
     @StateObject private var locator = RouteLocator()
-    @State private var arrived = false
+    @State var arrived = false
+
+    /// 방문 스탬프가 찍혔다는 알림. 잠깐 보였다 사라진다.
+    @State var stamped = false
 
     /// 가이드 대화창이 열려 있는가.
     @State private var showGuide = false
 
     /// 가이드와의 대화. **앱 공용이다** — 계획 화면에서 하던 대화가 여기로
     /// 이어지고, 닫아도 남는다.
-    @ObservedObject private var guide = RouteGuideSession.shared
+    @ObservedObject var guide = RouteGuideSession.shared
 
     /// 화면 범위 안의 주변 편의시설. **기본은 전부 꺼짐** — 길찾기 화면의
     /// 주인공은 경로라, 배경 점은 사용자가 켤 때만 나온다(2026-08-28 사용자 결정).
     /// 목록은 늘 받아 둔다(개수 칩을 보여 줘야 켤 마음이 생긴다) — 우리 자료
     /// 조건 질의라 부르는 값이 없다.
-    @State private var poiGroupsOn: Set<RoutePoiGroup> = []
-    @State private var ambientPois: [RouteGuide.Place] = []
-    @State private var ambientTask: Task<Void, Never>?
+    @State var poiGroupsOn: Set<RoutePoiGroup> = []
+    @State var ambientPois: [RouteGuide.Place] = []
+    @State var ambientTask: Task<Void, Never>?
 
     /// 성지(코스 번호 핀)를 지도에 그릴 것인가. **켜짐이 기본** — 여정의 뼈대다.
-    @State private var showSanctums = true
+    @State var showSanctums = true
 
     /// 지도에서 누른 성지. 장면 설명 카드가 뜬다.
-    @State private var pickedStop: RouteStop?
+    @State var pickedStop: RouteStop?
 
     /// **즉석에서 갈아탄 목적지.** 가이드가 찾아 준 가게로 「여기로 길찾기」를 누르면
     /// 원래 촬영지 대신 여기로 안내한다 — 걷다가 배가 고프면 목적지가 바뀌는 것이
     /// 내비게이션이다. `nil` 이면 원래 목적지(`stop`)다.
-    @State private var detour: RouteGuide.Place?
+    @State var detour: RouteGuide.Place?
 
     /// 카카오가 준 안내. 아직 안 왔으면 nil 이다.
-    @State private var result: RouteNavResult?
-    @State private var routeError: String?
-    @State private var asking = false
+    @State var result: RouteNavResult?
+    @State var routeError: String?
+    @State var asking = false
 
     /// 지금 위치. 아직 못 받았으면 nil 이고, 그때 지도는 파란 점을 그리지 않는다 —
     /// **없는 위치를 지어내 찍지 않는다.** 엉뚱한 자리에 내가 있다고 하는 것이
     /// 아무 표시도 없는 것보다 나쁘다.
-    private var here: (latitude: Double, longitude: Double)? {
+    var here: (latitude: Double, longitude: Double)? {
         if case let .found(latitude, longitude) = locator.state {
             return (latitude, longitude)
         }
@@ -159,6 +167,21 @@ struct RouteNavView: View {
         .onChange(of: locator.state) { _, state in
             guard case let .found(latitude, longitude) = state else { return }
             Task { await load(from: latitude, longitude: longitude) }
+            autoStampIfArrived((latitude, longitude))
+        }
+        .overlay(alignment: .top) {
+            if stamped {
+                Label("방문 스탬프를 찍었어요!", systemImage: "checkmark.seal.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14).padding(.vertical, 9)
+                    .background(Capsule().fill(Color(PinImage.deep)))
+                    .padding(.top, 54)
+                    .task {
+                        try? await Task.sleep(for: .seconds(2.5))
+                        withAnimation { stamped = false }
+                    }
+            }
         }
     }
 
@@ -185,115 +208,6 @@ struct RouteNavView: View {
             }
         }
         .padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 6)
-    }
-
-    /// 갈래 칩 — 편집 화면과 같은 부품에 **성지 칩**이 하나 더 붙는다.
-    /// 성지는 코스의 번호 핀이라 「전체」(편의시설 마스터 스위치) 소관 밖이다.
-    private var poiChips: some View {
-        RoutePoiChips(
-            places: ambientPois, groupsOn: $poiGroupsOn,
-            onGroupOff: { group in
-                // 챗봇이 찾아 준 핀은 이 칩의 소관이 아니다 — 주변 점에서 고른
-                // 것만 놓는다.
-                if let picked = guide.picked, picked.poiGroup == group,
-                   ambientPois.contains(where: { $0.id == picked.id })
-                {
-                    guide.picked = nil
-                }
-            },
-            extras: [
-                .init(
-                    id: "sanctum",
-                    label: "성지 \(dayStops.count)",
-                    tone: Color(PinImage.deep),
-                    isOn: showSanctums
-                ) {
-                    showSanctums.toggle()
-                    if !showSanctums {
-                        pickedStop = nil // 지도에서 사라진 핀의 카드는 닫는다
-                    }
-                },
-            ]
-        )
-        .padding(.vertical, 8)
-        .background(Color(.systemBackground))
-    }
-
-    /// 갈래 필터를 통과한 주변 점. 챗봇 결과와 겹치면 뺀다.
-    private var visibleAmbientPois: [RouteGuide.Place] {
-        let shown = Set(guide.places.map { RouteDedupe.key($0.asPlaceSummary) })
-        return ambientPois.filter { place in
-            poiGroupsOn.contains(place.poiGroup)
-                && !shown.contains(RouteDedupe.key(place.asPlaceSummary))
-        }
-    }
-
-    /// 카메라가 멈췄다 — 편집 화면과 같은 규칙(0.35초 조용하면, 줌 13 미만은 안 부름).
-    private func viewportChanged(
-        south: Double, west: Double, north: Double, east: Double,
-        centerLat: Double, centerLng: Double, zoom: Double
-    ) {
-        ambientTask?.cancel()
-        // 줌이 아니라 **화면의 실제 남북 폭**으로 거른다. 이 지도는 높이가
-        // 300pt 라 같은 동네를 봐도 줌 숫자가 낮게 나온다 — 줌 13 가드에 늘
-        // 걸려 주변 목록이 영영 비었다(2026-08-28 사용자 발견: 칩이 안 뜸).
-        _ = zoom
-        guard north - south <= 0.1 else { // 약 11 km — 이보다 넓으면 점이 먼지다
-            ambientPois = []
-            return
-        }
-        ambientTask = Task {
-            try? await Task.sleep(for: .milliseconds(350))
-            guard !Task.isCancelled else { return }
-            let found = await RouteGuide.pois(
-                south: south, west: west, north: north, east: east,
-                centerLat: centerLat, centerLng: centerLng, limit: 30
-            )
-            guard !Task.isCancelled else { return }
-            ambientPois = found
-        }
-    }
-
-    /// 지금 안내하는 목적지 — 갈아탔으면 그 가게, 아니면 원래 촬영지.
-    private var destination: (name: String, latitude: Double, longitude: Double) {
-        if let detour {
-            return (detour.name, detour.latitude, detour.longitude)
-        }
-        return (stop.place.name, stop.place.latitude, stop.place.longitude)
-    }
-
-    /// 목적지를 이 가게로 갈아타고 경로를 다시 받는다.
-    private func reroute(to place: RouteGuide.Place) {
-        detour = place
-        guide.picked = nil
-        result = nil // `load` 의 「이미 받았으면 안 받는다」 문을 다시 연다.
-        routeError = nil
-        if let here {
-            Task { await load(from: here.latitude, longitude: here.longitude) }
-        }
-    }
-
-    private func load(from latitude: Double, longitude: Double) async {
-        guard result == nil, !asking else { return }
-        asking = true
-        defer { asking = false }
-        do {
-            result = try await KakaoTransit.leg(
-                from: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
-                to: CLLocationCoordinate2D(
-                    latitude: destination.latitude,
-                    longitude: destination.longitude
-                ),
-                destinationName: destination.name
-            )
-            routeError = nil
-        } catch KakaoTransit.Failure.noKey {
-            routeError = "길찾기 키가 없어 안내를 받을 수 없습니다"
-        } catch KakaoTransit.Failure.noRoute {
-            routeError = "대중교통으로 갈 수 있는 길을 찾지 못했습니다"
-        } catch {
-            routeError = "길찾기 안내를 받지 못했습니다"
-        }
     }
 
     // MARK: 지도
@@ -419,7 +333,7 @@ struct RouteNavView: View {
 
     private var bottomBar: some View {
         Button {
-            arrived = true
+            markVisited()
             dismiss()
         } label: {
             Text("여기 도착함")

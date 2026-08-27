@@ -34,7 +34,9 @@ struct RouteEditorView: View {
     @State var fitToken = 0
 
     /// 「내 위치」 토글이 켜져 있는가. `RouteMapView.showingMe` 참고.
-    @State var showingMe = false
+    /// **켜짐이 기본이다**(2026-08-28) — 코스를 보는 사람은 대개 자기 위치와
+    /// 견주고 싶어서 본다. 끄는 것은 선택으로 남는다.
+    @State var showingMe = true
 
     /// 목록에서 고른 장소. 지도가 여기로 옮겨 간다.
     @State var focusedStop: RouteStop?
@@ -247,7 +249,7 @@ struct RouteEditorView: View {
             }
         }
         .sheet(item: $directionsTarget) { stop in
-            RouteNavView(stop: stop, dayStops: stops)
+            RouteNavView(stop: stop, dayStops: stops, courseId: course.serverId)
         }
         .alert("일차를 뺄 수 없습니다", isPresented: Binding(
             get: { blockedDay != nil },
@@ -359,9 +361,12 @@ struct RouteEditorView: View {
             // 되므로, 눌리는 쪽을 지키고 손잡이는 행 안에 그림으로 남겼다.
             .onMove { source, destination in
                 course.days[dayIndex].stops.move(fromOffsets: source, toOffset: destination)
+                // 손으로 순서를 바꿨다 — 동선이 낡았을 수 있다. 다시 권한다.
+                optimizeNudge = course.days[dayIndex].stops.count >= 2
             }
             .onDelete { offsets in
                 course.days[dayIndex].stops.remove(atOffsets: offsets)
+                optimizeNudge = course.days[dayIndex].stops.count >= 2
             }
 
             if stops.isEmpty {

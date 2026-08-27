@@ -29,6 +29,9 @@ struct RouteTabView: View {
     /// 「내 코스 / 코스마켓」. 목업의 `S.homeSeg` 와 같은 자리다.
     @State private var segment: Segment = .mine
 
+    /// 마이페이지가 남긴 쪽지(열어 줄 코스)를 읽는다.
+    @ObservedObject private var router = TabRouter.shared
+
     enum Segment: String, CaseIterable, Identifiable {
         case mine = "내 코스"
         case market = "코스마켓"
@@ -40,6 +43,7 @@ struct RouteTabView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                header
                 // **세그먼트가 마켓으로 가는 길이다.** 전에는 오른쪽 위 아이콘 버튼
                 // 하나였는데, 목업은 「내 코스」와 대등한 자리로 두었다 — 마켓은
                 // 곁다리가 아니라 이 탭의 절반이다.
@@ -62,8 +66,15 @@ struct RouteTabView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("코스")
-            .task { await store.refresh() }
+            // 내비게이션 바를 접고 머리줄을 직접 그린다 — 바에 단추를 넣으면
+            // 시스템이 유리 캡슐(흰 판)을 깔아 피노 색을 가린다(2026-08-28 사용자
+            // 지적, X 단추 때와 같은 문제).
+            .toolbar(.hidden, for: .navigationBar)
+            .task {
+                await store.refresh()
+                openPending()
+            }
+            .onChange(of: router.pendingCourseId) { _, _ in openPending() }
             .confirmationDialog(
                 doomed.map { "「\($0.title)」을 지울까요?" } ?? "",
                 isPresented: Binding(get: { doomed != nil }, set: {
@@ -179,6 +190,31 @@ struct RouteTabView: View {
         .presentationDetents([.height(420)])
     }
 
+    /// 손수 그린 머리줄. 큰 제목 대신 **코스 추가**가 그 자리를 쓴다 — 맨 아래
+    /// 행이던 시절에는 코스가 쌓일수록 추가하러 끝까지 내려가야 했다. 이 탭의
+    /// 첫 행동이라 피노 색으로 늘 반짝인다.
+    private var header: some View {
+        ZStack {
+            Text("코스").font(.headline)
+            HStack {
+                Spacer()
+                if segment == .mine {
+                    Button {
+                        fork = true
+                    } label: {
+                        Label("코스 추가", systemImage: "plus")
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                    }
+                    .buttonStyle(.plain)
+                    .modifier(PinoNudge(on: true, cornerRadius: 15))
+                }
+            }
+        }
+        .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 8)
+    }
+
     // MARK: 코스 목록
 
     private var courseList: some View {
@@ -199,23 +235,18 @@ struct RouteTabView: View {
             } header: {
                 Text("내 코스 \(store.courses.count)")
             }
-
-            // 「코스 추가하기」를 **목록의 한 행**으로 둔다. 처음에는 Section 의 footer 에
-            // 넣었는데, footer 는 iOS 가 회색 작은 글씨로 그리는 자리라 버튼이 눌리지
-            // 않는 것처럼 보였다(실측).
-            Section {
-                Button {
-                    fork = true
-                } label: {
-                    Label("코스 추가하기", systemImage: "plus")
-                        .font(.body.weight(.medium))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
-                }
-                .foregroundStyle(Color.accentColor)
-            }
         }
         .listStyle(.insetGrouped)
+    }
+
+    /// 마이페이지에서 「경로여정에서 열기」로 넘어온 코스를 연다. 쪽지는 한 번
+    /// 읽고 버린다 — 남겨 두면 탭에 올 때마다 또 열린다.
+    private func openPending() {
+        guard let wanted = router.pendingCourseId,
+              let course = store.courses.first(where: { $0.serverId == wanted })
+        else { return }
+        router.pendingCourseId = nil
+        Task { editing = await store.detail(course) ?? course }
     }
 
     private func row(_ course: RouteCourse) -> some View {
@@ -242,34 +273,29 @@ struct RouteTabView: View {
             // 목록에서 전부 받아 두면 코스가 많을 때 첫 화면이 그만큼 느려진다.
             Task { editing = await store.detail(course) ?? course }
         } label: {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     if course.madeByAI {
                         Image(systemName: "sparkles")
                             .font(.caption)
                             .foregroundStyle(Color.accentColor)
                     }
-                    Text(course.title).font(.headline)
+                    Text(course.title).font(.subheadline.weight(.semibold))
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption).foregroundStyle(.tertiary)
                 }
                 // 날짜를 안 정한 코스는 그 자리에 기간만 남는다 (회의 확정: 날짜는 선택).
+                // 곳 수·직선거리는 지웠다(2026-08-28) — 목록 카드에는 일차 속이
+                // 없어(`CourseSummary`) 늘 「0곳 · 0 km」였다. 틀린 숫자는 없느니만
+                // 못하고, 행도 그만큼 얇아진다.
                 Text(course.dateLabel ?? course.spanLabel)
                     .font(.caption).foregroundStyle(.secondary)
-                Text("\(course.stops.count)곳 · 직선 \(RouteFormat.kilometers(distance(course)))")
-                    .font(.caption2).foregroundStyle(.tertiary)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 2)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-    }
-
-    /// 일차별 이동거리의 합. **일차를 넘나드는 이동은 세지 않는다** — 자고 일어나
-    /// 다음 날 처음 가는 곳까지는 그날의 동선이 아니다.
-    private func distance(_ course: RouteCourse) -> Double {
-        course.days.reduce(0) { $0 + RouteGeometry.totalKilometers($1.stops) }
     }
 }
 

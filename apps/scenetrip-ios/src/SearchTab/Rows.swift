@@ -44,9 +44,11 @@ struct WorkRow: View {
             // 쪽과 같은 이유다. 이 자리의 첫 임무는 "이미 담겼는지" 를 알려 주는 것.
             if let onLike {
                 Button(action: onLike) {
+                    // 찜은 **빨강**이다(2026-08-28 확정) — 화면이 온통 파랑이라
+                    // 파란 하트는 묻혔다. 마이페이지의 하트와도 색이 맞는다.
                     Image(systemName: liked ? "heart.fill" : "heart")
                         .font(.title3)
-                        .foregroundStyle(liked ? Color.accentColor : .secondary)
+                        .foregroundStyle(liked ? Color.red : .secondary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(liked ? "찜 빼기" : "찜하기")

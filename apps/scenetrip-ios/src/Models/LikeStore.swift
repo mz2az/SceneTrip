@@ -15,13 +15,21 @@ import Foundation
 /// (MZ2AZ-235), 찜이 없으면 그 화면이 반쪽이 된다.
 @MainActor
 final class LikeStore: ObservableObject {
+    /// **앱에 하나뿐이다.** 검색 탭에서 누른 하트가 마이페이지에 바로 보여야
+    /// 한다 — 화면마다 따로 만들면 각자 처음 읽은 값에 멈춘다(2026-08-28 확인).
+    static let shared = LikeStore()
+
     @Published private(set) var contentIds: Set<Int64> = []
 
     private let key = "scenetrip.likedContents"
 
     init() {
-        let saved = UserDefaults.standard.array(forKey: key) as? [NSNumber] ?? []
-        contentIds = Set(saved.map(\.int64Value))
+        // 숫자로 저장하지만 **읽을 때는 문자열도 받아 준다** — 도구(`defaults`)로
+        // 심은 값이 문자열로 들어오는 일이 실제로 있었다(2026-08-28).
+        let saved = UserDefaults.standard.array(forKey: key) ?? []
+        contentIds = Set(saved.compactMap { item in
+            (item as? NSNumber)?.int64Value ?? (item as? String).flatMap { Int64($0) }
+        })
     }
 
     func contains(_ contentId: Int64) -> Bool {

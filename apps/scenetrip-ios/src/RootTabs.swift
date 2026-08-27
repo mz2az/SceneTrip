@@ -2,8 +2,9 @@ import SwiftUI
 
 /// 앱의 최상위 — 하단 탭 넷을 든다.
 ///
-/// **작품검색만 만들고 나머지 셋은 자리만 둔다** (계획서 §2 "경로여정·커뮤니티·
-/// 마이페이지 탭 | 자리만 만들고 비운다. 별도 에픽").
+/// 계획서 §2 는 「작품검색만 만들고 나머지는 자리만」이었다 — 이제 넷 다 화면이
+/// 있다. 경로여정은 본편이고, 커뮤니티·마이페이지는 **임시판**이다(2026-08-28,
+/// 각 파일 머리말 참고).
 ///
 /// 비어 있어도 지금 만드는 이유는 두 가지다. 화면이 하나뿐인 앱과 넷 중 하나인 앱은
 /// **검색 탭이 차지하는 세로 공간이 다르다** — 바텀시트의 최대 높이가 탭바 위까지이므로
@@ -36,7 +37,9 @@ struct RootTabs: View {
         }
     }
 
-    @State private var selected: Tab = .search
+    /// 탭 선택을 `TabRouter` 가 든다 — 마이페이지가 「경로여정에서 열기」로
+    /// 탭을 바꿀 수 있어야 해서다(2026-08-28).
+    @ObservedObject private var router = TabRouter.shared
 
     /// 경로여정 탭의 상태는 **여기서 든다.**
     ///
@@ -51,48 +54,22 @@ struct RootTabs: View {
                 // 검색 탭은 항상 살려 둔다 — 다른 탭에 갔다 와도 지도와 검색 결과가
                 // 그대로여야 한다.
                 SearchTabView()
-                    .opacity(selected == .search ? 1 : 0)
-                    .allowsHitTesting(selected == .search)
+                    .opacity(router.selected == .search ? 1 : 0)
+                    .allowsHitTesting(router.selected == .search)
 
-                if selected == .route {
+                if router.selected == .route {
                     RouteTabView().environmentObject(routes)
-                } else if selected != .search {
-                    StubTab(tab: selected)
+                } else if router.selected == .community {
+                    CommunityTabView()
+                } else if router.selected == .profile {
+                    ProfileTabView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            TabBar(selected: $selected)
+            TabBar(selected: $router.selected)
         }
         .ignoresSafeArea(.keyboard)
-    }
-}
-
-/// 아직 만들지 않은 탭. 빈 화면 대신 무엇이 올 자리인지 말해 준다.
-struct StubTab: View {
-    let tab: RootTabs.Tab
-
-    /// 사용법을 다시 보여 줄지. 켜면 `AppRoot` 대신 여기서 직접 덮는다.
-    @State private var replaying = false
-
-    var body: some View {
-        ContentUnavailableView {
-            Label(tab.label, systemImage: tab.symbol)
-        } description: {
-            Text("아직 준비 중입니다")
-        } actions: {
-            // 마이페이지에만 둔다. 사용법은 첫 실행에 한 번 지나가므로 **다시 여는
-            // 문이 없으면 두 번 다시 못 본다** — 시뮬레이터에서 확인하려고 앱을
-            // 지웠다 까는 일도 이것으로 없앤다.
-            if tab == .profile {
-                Button("사용법 다시 보기") { replaying = true }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground))
-        .fullScreenCover(isPresented: $replaying) {
-            OnboardingView { replaying = false }
-        }
     }
 }
 
