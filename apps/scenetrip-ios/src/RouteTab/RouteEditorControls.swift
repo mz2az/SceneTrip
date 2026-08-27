@@ -39,26 +39,20 @@ extension RouteEditorView {
                     .padding(.top, 10)
             }
         }
-        // 챗봇은 지도 위 오른쪽 아래에 **늘** 있다. 코스를 짜는 동안에도, 여행
-        // 중에도 같은 자리다 — 물어볼 것이 생겼을 때 찾아 헤매지 않게 한다.
-        // 핀을 찍는 동안에는 숨긴다. 지도를 눌러야 하는데 버튼이 손에 걸린다.
-
-        // 「내 위치」 **토글**. 오른쪽 위, 핀 찍는 동안에는 숨긴다(챗봇과 같은 이유).
+        // 「내 위치」 **토글**. 오른쪽 위, 핀 찍는 동안에는 숨긴다 — 지도를 눌러야
+        // 하는데 버튼이 손에 걸린다.
         //
         // 검색 탭은 「누르면 그 자리로 날아가는」 버튼인데 여기서는 토글이다. 코스
         // 화면에서 그냥 날아가면 **촬영지가 화면 밖으로 나가** 무엇을 보던 화면인지
         // 알 수 없다(2026-08-24 사용자 지적). 켜 두면 목록에서 장소를 고를 때마다
         // 「나와 그곳이 같이 보이는 크기」로 맞는다.
+        //
+        // 챗봇 단추는 여기 없다. 지도 위에 띄웠더니 오른쪽 위를 가렸다(2026-08-27
+        // 사용자 지적) — 일정 시트의 동작 줄(`actions`)로 내렸다.
         .overlay(alignment: .topTrailing) {
             if !pinning {
-                VStack(spacing: 10) {
-                    locateButton
-                    // 챗봇도 오른쪽 위다. 원래 오른쪽 아래였는데 일정 시트가 그
-                    // 자리를 덮게 되면서 옮겼다 — 시트를 내려야 보이는 단추는
-                    // 없는 것과 같다.
-                    RouteChatButton(remaining: nil) { showGuide = true }
-                }
-                .padding(10)
+                locateButton
+                    .padding(10)
             }
         }
     }
@@ -67,7 +61,9 @@ extension RouteEditorView {
         Button {
             showingMe.toggle()
         } label: {
-            Image(systemName: showingMe ? "location.fill" : "location")
+            // 과녁 십자(dot.scope) — 검색 탭의 현위치 버튼과 같은 모양이다.
+            // 켜짐은 모양이 아니라 배경색으로 구별한다.
+            Image(systemName: "dot.scope")
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(showingMe ? .white : Color.accentColor)
                 .frame(width: 44, height: 44)
@@ -191,9 +187,38 @@ extension RouteEditorView {
             action(pinning ? "취소" : "핀 찍기", symbol: "mappin.and.ellipse") {
                 pinning.toggle()
             }
+            // AI 가이드. 지도 위에 떠 있던 단추를 내렸다 — 시트 안이라 지도를
+            // 가리지 않고, 자리도 다른 동작들과 같은 줄이라 찾아 헤매지 않는다.
+            guideAction
         }
         .padding(.horizontal, 16).padding(.bottom, 10)
         .background(Color(.systemBackground))
+    }
+
+    /// 다른 동작과 같은 꼴이되 **피노 색 그라데이션**으로 눈에 띈다 — AI 가
+    /// 하는 일임을 색으로 말한다(`RouteChatButton` 과 같은 색).
+    private var guideAction: some View {
+        Button {
+            showGuide = true
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: "sparkles").font(.system(size: 15))
+                Text("AI 가이드").font(.caption2).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10).fill(
+                    LinearGradient(
+                        colors: [Color(PinImage.light), Color(PinImage.deep)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     /// 넷이 한 줄에 들어가야 하므로 **아이콘 위, 글자 아래**로 쌓는다. 나란히 두면
