@@ -62,7 +62,24 @@ struct RouteTabView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
+            // 큰 제목 「코스」를 접었다(2026-08-28) — 그 자리가 아깝다. 대신 오른쪽
+            // 위에 추가 단추를 둔다. 맨 아래 행이던 시절에는 코스가 쌓일수록
+            // 추가하러 끝까지 내려가야 했다.
             .navigationTitle("코스")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if segment == .mine {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            fork = true
+                        } label: {
+                            Label("코스 추가", systemImage: "plus")
+                                .labelStyle(.titleAndIcon)
+                                .font(.subheadline.weight(.medium))
+                        }
+                    }
+                }
+            }
             .task { await store.refresh() }
             .confirmationDialog(
                 doomed.map { "「\($0.title)」을 지울까요?" } ?? "",
@@ -199,21 +216,6 @@ struct RouteTabView: View {
             } header: {
                 Text("내 코스 \(store.courses.count)")
             }
-
-            // 「코스 추가하기」를 **목록의 한 행**으로 둔다. 처음에는 Section 의 footer 에
-            // 넣었는데, footer 는 iOS 가 회색 작은 글씨로 그리는 자리라 버튼이 눌리지
-            // 않는 것처럼 보였다(실측).
-            Section {
-                Button {
-                    fork = true
-                } label: {
-                    Label("코스 추가하기", systemImage: "plus")
-                        .font(.body.weight(.medium))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
-                }
-                .foregroundStyle(Color.accentColor)
-            }
         }
         .listStyle(.insetGrouped)
     }
@@ -242,34 +244,29 @@ struct RouteTabView: View {
             // 목록에서 전부 받아 두면 코스가 많을 때 첫 화면이 그만큼 느려진다.
             Task { editing = await store.detail(course) ?? course }
         } label: {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     if course.madeByAI {
                         Image(systemName: "sparkles")
                             .font(.caption)
                             .foregroundStyle(Color.accentColor)
                     }
-                    Text(course.title).font(.headline)
+                    Text(course.title).font(.subheadline.weight(.semibold))
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption).foregroundStyle(.tertiary)
                 }
                 // 날짜를 안 정한 코스는 그 자리에 기간만 남는다 (회의 확정: 날짜는 선택).
+                // 곳 수·직선거리는 지웠다(2026-08-28) — 목록 카드에는 일차 속이
+                // 없어(`CourseSummary`) 늘 「0곳 · 0 km」였다. 틀린 숫자는 없느니만
+                // 못하고, 행도 그만큼 얇아진다.
                 Text(course.dateLabel ?? course.spanLabel)
                     .font(.caption).foregroundStyle(.secondary)
-                Text("\(course.stops.count)곳 · 직선 \(RouteFormat.kilometers(distance(course)))")
-                    .font(.caption2).foregroundStyle(.tertiary)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 2)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-    }
-
-    /// 일차별 이동거리의 합. **일차를 넘나드는 이동은 세지 않는다** — 자고 일어나
-    /// 다음 날 처음 가는 곳까지는 그날의 동선이 아니다.
-    private func distance(_ course: RouteCourse) -> Double {
-        course.days.reduce(0) { $0 + RouteGeometry.totalKilometers($1.stops) }
     }
 }
 

@@ -97,6 +97,9 @@ swift_library(
 
 ios_application(
     name = "bin",
+    # 앱 아이콘 — 피노(지도 핀 고양이). 원본은 브랜드 캔버스의 SVG 이고
+    # (docs/product/canvas/brand/), 1024 한 장이면 iOS 가 전 크기를 만든다.
+    app_icons = glob(["resources/Assets.xcassets/AppIcon.appiconset/**"]),
     bundle_id = "com.mz2az.scenetrip",
     families = ["iphone"],
     infoplists = ["Info.plist"],
