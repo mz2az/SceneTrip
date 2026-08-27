@@ -44,6 +44,12 @@ struct RouteNavView: View {
     @State private var ambientPois: [RouteGuide.Place] = []
     @State private var ambientTask: Task<Void, Never>?
 
+    /// 성지(코스 번호 핀)를 지도에 그릴 것인가. **켜짐이 기본** — 여정의 뼈대다.
+    @State private var showSanctums = true
+
+    /// 지도에서 누른 성지. 장면 설명 카드가 뜬다.
+    @State private var pickedStop: RouteStop?
+
     /// **즉석에서 갈아탄 목적지.** 가이드가 찾아 준 가게로 「여기로 길찾기」를 누르면
     /// 원래 촬영지 대신 여기로 안내한다 — 걷다가 배가 고프면 목적지가 바뀌는 것이
     /// 내비게이션이다. `nil` 이면 원래 목적지(`stop`)다.
@@ -93,6 +99,25 @@ struct RouteNavView: View {
                     place: picked,
                     onReroute: { reroute(to: picked) },
                     onClose: { guide.picked = nil }
+                )
+                .padding(.horizontal, 12)
+                .padding(.bottom, 80)
+            } else if let tapped = pickedStop, !showGuide {
+                // 성지 카드 — 장면 설명 + 여기로 길찾기. 이미 코스에 있는 곳이라
+                // 담기는 없다. 지금 가는 곳 자신이면 길찾기 단추는 뺀다.
+                RouteStopCard(
+                    stop: tapped,
+                    onReroute: tapped.id == stop.id && detour == nil ? nil : {
+                        reroute(to: RouteGuide.Place(
+                            id: "stop-\(tapped.id)",
+                            name: tapped.place.name,
+                            category: tapped.place.type,
+                            latitude: tapped.place.latitude,
+                            longitude: tapped.place.longitude
+                        ))
+                        pickedStop = nil
+                    },
+                    onClose: { pickedStop = nil }
                 )
                 .padding(.horizontal, 12)
                 .padding(.bottom, 80)
@@ -162,11 +187,12 @@ struct RouteNavView: View {
         .padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 6)
     }
 
-    /// 갈래 칩 — 편집 화면과 같은 부품. 주변 목록이 와 있어야 나온다.
-    @ViewBuilder
+    /// 갈래 칩 — 편집 화면과 같은 부품에 **성지 칩**이 하나 더 붙는다.
+    /// 성지는 코스의 번호 핀이라 「전체」(편의시설 마스터 스위치) 소관 밖이다.
     private var poiChips: some View {
-        if !ambientPois.isEmpty {
-            RoutePoiChips(places: ambientPois, groupsOn: $poiGroupsOn) { group in
+        RoutePoiChips(
+            places: ambientPois, groupsOn: $poiGroupsOn,
+            onGroupOff: { group in
                 // 챗봇이 찾아 준 핀은 이 칩의 소관이 아니다 — 주변 점에서 고른
                 // 것만 놓는다.
                 if let picked = guide.picked, picked.poiGroup == group,
@@ -174,10 +200,23 @@ struct RouteNavView: View {
                 {
                     guide.picked = nil
                 }
-            }
-            .padding(.vertical, 8)
-            .background(Color(.systemBackground))
-        }
+            },
+            extras: [
+                .init(
+                    id: "sanctum",
+                    label: "성지 \(dayStops.count)",
+                    tone: Color(PinImage.deep),
+                    isOn: showSanctums
+                ) {
+                    showSanctums.toggle()
+                    if !showSanctums {
+                        pickedStop = nil // 지도에서 사라진 핀의 카드는 닫는다
+                    }
+                },
+            ]
+        )
+        .padding(.vertical, 8)
+        .background(Color(.systemBackground))
     }
 
     /// 갈래 필터를 통과한 주변 점. 챗봇 결과와 겹치면 뺀다.
@@ -264,10 +303,18 @@ struct RouteNavView: View {
             RouteNavMapView(
                 stop: stop,
                 dayStops: dayStops,
+                showDayStops: showSanctums,
+                onTapStop: { tapped in
+                    pickedStop = tapped
+                    guide.picked = nil // 카드는 한 장만
+                },
                 goal: detour.map { ($0.latitude, $0.longitude) },
                 guidePlaces: guide.places,
                 picked: guide.picked,
-                onTapPlace: { guide.picked = $0 },
+                onTapPlace: { tapped in
+                    guide.picked = tapped
+                    pickedStop = nil // 카드는 한 장만
+                },
                 legs: result?.legs ?? [],
                 here: here,
                 ambientPlaces: visibleAmbientPois,

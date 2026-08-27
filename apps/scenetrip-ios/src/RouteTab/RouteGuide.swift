@@ -177,6 +177,9 @@ enum RouteGuide {
             .init(name: "cy", value: "\(centerLat)"),
             .init(name: "cx", value: "\(centerLng)"),
             .init(name: "limit", value: "\(limit)"),
+            // 네이버에서 확인된 곳만 — 눌렀는데 「못 찾았습니다」가 자꾸 나오면
+            // 점 자체를 못 믿게 된다(2026-08-28 사용자 지적).
+            .init(name: "matched", value: "1"),
         ]
         guard let url = parts?.url,
               let (data, response) = try? await URLSession.shared.data(from: url),
@@ -278,6 +281,22 @@ enum RouteGuide {
 
         /// 서버가 준 큰 갈래(음식·숙박·명소·교통). 옛 서버는 안 보내므로 없을 수 있다.
         let group: String?
+
+        /// 코스의 촬영지를 가이드 장소 모양으로 바꿀 때 쓴다(성지 카드의
+        /// 「여기로 길찾기」 — 갈아탈 목적지는 이 타입이다).
+        init(
+            id: String, name: String, category: String?,
+            latitude: Double, longitude: Double
+        ) {
+            self.id = id
+            self.name = name
+            self.category = category
+            self.latitude = latitude
+            self.longitude = longitude
+            address = nil
+            distanceMeters = nil
+            group = nil
+        }
 
         init?(_ json: [String: Any]) {
             guard let latitude = Self.number(json["lat"]),

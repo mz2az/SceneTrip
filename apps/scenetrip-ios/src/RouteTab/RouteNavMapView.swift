@@ -25,6 +25,13 @@ struct RouteNavMapView: UIViewRepresentable {
     /// 요청). 번호는 편집 화면의 번호와 같다.
     var dayStops: [RouteStop] = []
 
+    /// 성지(코스 번호 핀)를 그릴 것인가. 칩으로 끄고 켠다 — 꺼도 지금 가는
+    /// 곳(피노)은 남는다.
+    var showDayStops = true
+
+    /// 번호 핀을 눌렀다. 성지 카드를 띄우는 쪽이 받는다.
+    var onTapStop: (RouteStop) -> Void = { _ in }
+
     /// 갈아탄 목적지. 있으면 **여기에 피노를 꽂는다** — 경로선은 이미 여기로
     /// 이어지는데 핀만 옛 촬영지에 남아 있으면 지도가 거짓말을 한다.
     var goal: (latitude: Double, longitude: Double)?
@@ -76,9 +83,11 @@ struct RouteNavMapView: UIViewRepresentable {
 
     func updateUIView(_ view: NMFNaverMapView, context: Context) {
         context.coordinator.onTapPlace = onTapPlace
+        context.coordinator.onTapStop = onTapStop
         context.coordinator.onViewport = onViewport
         context.coordinator.renderAmbient(ambientPlaces, picked: picked, on: view.mapView)
-        context.coordinator.render(stop: stop, dayStops: dayStops, goal: goal,
+        context.coordinator.render(stop: stop, dayStops: showDayStops ? dayStops : [],
+                                   goal: goal,
                                    guidePlaces: guidePlaces, picked: picked,
                                    here: here, legs: legs, on: view.mapView)
     }
@@ -96,6 +105,7 @@ struct RouteNavMapView: UIViewRepresentable {
         private var markers: [NMFMarker] = []
         private var lastKey = ""
         var onTapPlace: (RouteGuide.Place) -> Void = { _ in }
+        var onTapStop: (RouteStop) -> Void = { _ in }
         var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
         /// 주변 편의시설 마커 — 경로·추천 마커와 살림을 따로 낸다(갱신 주기가 다르다).
         var ambientMarkers: [NMFMarker] = []
@@ -189,6 +199,11 @@ struct RouteNavMapView: UIViewRepresentable {
                 marker.captionText = dayStop.place.name
                 marker.captionMinZoom = 12
                 marker.zIndex = 10
+                // 성지를 누르면 장면 설명 카드가 뜬다(2026-08-28 사용자 요청).
+                marker.touchHandler = { [weak self] _ in
+                    self?.onTapStop(dayStop)
+                    return true
+                }
                 marker.mapView = mapView
                 markers.append(marker)
             }

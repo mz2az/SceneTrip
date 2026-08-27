@@ -15,9 +15,24 @@ struct RoutePoiChips: View {
     /// 화면은 지도에서 사라진 핀을 놓고, 길찾기 화면은 챗봇 핀이면 놔둔다.
     var onGroupOff: (RoutePoiGroup) -> Void = { _ in }
 
+    /// 편의시설 갈래 앞에 끼워 넣는 칩 — 길찾기 화면의 「성지」(코스 번호 핀)가
+    /// 이것으로 들어온다. 「전체」 마스터 스위치의 소관 밖이다.
+    struct Extra: Identifiable {
+        let id: String
+        let label: String
+        let tone: Color
+        let isOn: Bool
+        let tap: () -> Void
+    }
+
+    var extras: [Extra] = []
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
+                ForEach(extras) { extra in
+                    chip(extra.label, tone: extra.tone, isOn: extra.isOn, tap: extra.tap)
+                }
                 let allOn = groupsOn.count == RoutePoiGroup.allCases.count
                 chip("전체", tone: nil, isOn: allOn) {
                     if allOn {
