@@ -243,7 +243,7 @@ struct RouteEditorView: View {
             }
         }
         .sheet(item: $directionsTarget) { stop in
-            RouteNavView(stop: stop)
+            RouteNavView(stop: stop, dayStops: stops)
         }
         .alert("일차를 뺄 수 없습니다", isPresented: Binding(
             get: { blockedDay != nil },

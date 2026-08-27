@@ -21,6 +21,10 @@ import SwiftUI
 struct RouteNavView: View {
     let stop: RouteStop
 
+    /// 그 일차의 코스 전체. 지도에 번호 핀으로 함께 그리고, 가이드가 「2번 주변」을
+    /// 알아듣는 재료도 된다. 안 주면 목적지 하나만 안다.
+    var dayStops: [RouteStop] = []
+
     @Environment(\.dismiss) private var dismiss
     @StateObject private var locator = RouteLocator()
     @State private var arrived = false
@@ -98,9 +102,20 @@ struct RouteNavView: View {
                         latitude: stop.place.latitude, longitude: stop.place.longitude
                     ),
                     context: RouteGuide.Context(
-                        stops: [],
+                        // 일차 전체를 번호째 준다 — 여행 중에도 「2번 주변 음식점」
+                        // 이 통해야 한다(2026-08-28 사용자 요청).
+                        stops: dayStops.enumerated().map { index, dayStop in
+                            .init(
+                                number: index + 1, name: dayStop.place.name,
+                                kind: dayStop.place.type,
+                                latitude: dayStop.place.latitude,
+                                longitude: dayStop.place.longitude
+                            )
+                        },
                         picked: .init(
-                            number: 0, name: stop.place.name, kind: stop.place.type,
+                            number: (dayStops.firstIndex { $0.id == stop.id })
+                                .map { $0 + 1 } ?? 0,
+                            name: stop.place.name, kind: stop.place.type,
                             latitude: stop.place.latitude, longitude: stop.place.longitude
                         )
                     ),
@@ -169,6 +184,7 @@ struct RouteNavView: View {
         ZStack(alignment: .bottomTrailing) {
             RouteNavMapView(
                 stop: stop,
+                dayStops: dayStops,
                 goal: detour.map { ($0.latitude, $0.longitude) },
                 guidePlaces: guide.places,
                 picked: guide.picked,
