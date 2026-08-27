@@ -37,6 +37,13 @@ extension RouteNavView {
         .background(Color(.systemBackground))
     }
 
+    /// 지도에 그릴 챗봇 결과 — **코스(그 일차)에 이미 담긴 곳은 뺀다.** 같은
+    /// 좌표에 번호 핀과 겹쳐 두 장으로 보인다(편집 지도와 같은 규칙).
+    var navGuidePlaces: [RouteGuide.Place] {
+        let taken = Set(dayStops.map { RouteDedupe.key($0.place) })
+        return guide.places.filter { !taken.contains(RouteDedupe.key($0.asPlaceSummary)) }
+    }
+
     /// 갈래 필터를 통과한 주변 점. 챗봇 결과와 겹치면 뺀다.
     var visibleAmbientPois: [RouteGuide.Place] {
         let shown = Set(guide.places.map { RouteDedupe.key($0.asPlaceSummary) })

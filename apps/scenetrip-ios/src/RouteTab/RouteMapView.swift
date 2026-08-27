@@ -381,7 +381,9 @@ struct RouteMapView: UIViewRepresentable {
             pendingMarker = nil
             guard let pin else { return }
             let marker = NMFMarker(position: NMGLatLng(lat: pin.latitude, lng: pin.longitude))
-            marker.iconImage = PinImage.numbered(nil)
+            // 옛 파란 민 핀 대신 진도 핀 — 마스코트 교체 후 파란 물방울은
+            // 지도에서 은퇴했다(2026-08-28).
+            marker.iconImage = PinoPin.marker()
             marker.mapView = mapView
             pendingMarker = marker
         }

@@ -102,8 +102,16 @@ struct RouteEditorView: View {
     }
 
     /// 갈래 필터를 통과한 가이드 장소. 지도는 이것만 그린다.
+    ///
+    /// **코스에 이미 담긴 곳은 뺀다** — 담는 순간 그 자리는 번호 핀의 것이다.
+    /// 안 빼면 같은 좌표에 챗봇 마커가 겹쳐 핀이 두 장으로 보인다(2026-08-28
+    /// 사용자 발견).
     var visibleGuidePlaces: [RouteGuide.Place] {
-        guide.places.filter { poiGroupsOn.contains($0.poiGroup) }
+        let taken = takenSpotKeys
+        return guide.places.filter {
+            poiGroupsOn.contains($0.poiGroup)
+                && !taken.contains(RouteDedupe.key($0.asPlaceSummary))
+        }
     }
 
     /// 고른 장소도 갈래가 꺼져 있으면 지도에서 감춘다.
