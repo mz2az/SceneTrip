@@ -101,6 +101,15 @@ struct RouteEditorView: View {
         guide.picked.flatMap { poiGroupsOn.contains($0.poiGroup) ? $0 : nil }
     }
 
+    /// 이 가이드 장소가 이미 코스(어느 일차든)에 들어 있는가. `RouteDedupe` 와
+    /// 같은 열쇠(이름+좌표)로 본다 — 담을 때 걸러지는 기준 그대로다.
+    func isAdded(_ place: RouteGuide.Place) -> Bool {
+        let key = RouteDedupe.key(place.asPlaceSummary)
+        return course.days.contains { day in
+            day.stops.contains { RouteDedupe.key($0.place) == key }
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             topBar
@@ -142,9 +151,17 @@ struct RouteEditorView: View {
         // 그때는 시트 안에 뜬다(`RouteGuideSheet`).
         .overlay(alignment: .bottom) {
             if let picked = guide.picked, !showGuide {
-                RoutePlaceCard(place: picked) { guide.picked = nil }
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 90) // 「저장하고 닫기」 줄 위
+                RoutePlaceCard(
+                    place: picked,
+                    onAdd: {
+                        add([picked.asPlaceSummary], pinned: true)
+                        guide.picked = nil // 담았으면 카드는 할 일을 다 했다
+                    },
+                    added: isAdded(picked),
+                    onClose: { guide.picked = nil }
+                )
+                .padding(.horizontal, 12)
+                .padding(.bottom, 90) // 「저장하고 닫기」 줄 위
             }
         }
         .task {
@@ -172,7 +189,8 @@ struct RouteEditorView: View {
                 session: guide,
                 here: guideHere,
                 context: guideContext,
-                onAdd: { add([$0], pinned: true) }
+                onAdd: { add([$0], pinned: true) },
+                isAdded: isAdded
             )
         }
         .sheet(isPresented: $showSearch) {

@@ -18,6 +18,14 @@ import SwiftUI
 struct RoutePlaceCard: View {
     let place: RouteGuide.Place
 
+    /// 「경로에 추가」. 주면 버튼이 뜬다 — 지도에서 고양이를 눌러 연 카드에서
+    /// 바로 코스에 담는다(2026-08-27 사용자 지적: 시트의 ⊕ 까지 돌아가야 했다).
+    var onAdd: (() -> Void)?
+
+    /// 이미 코스에 들어 있는가. 그러면 추가 단추 대신 **체크 표시**가 뜬다 —
+    /// 또 누르게 두면 같은 곳이 두 번 담긴다.
+    var added = false
+
     /// 「여기로 길찾기」. **여행 중 화면에서만 준다** — 계획 화면에서는 갈아탈 경로
     /// 자체가 없다. 주면 버튼이 뜬다.
     var onReroute: (() -> Void)?
@@ -124,6 +132,27 @@ struct RoutePlaceCard: View {
             row("별점", card.score.map { String(format: "%.2f", $0) })
         }
 
+        if let onAdd {
+            Button(action: onAdd) {
+                HStack(spacing: 6) {
+                    Image(systemName: added ? "checkmark.circle.fill" : "plus.circle.fill")
+                        .font(.caption)
+                    Text(added ? "경로에 있음" : "경로에 추가")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(added ? Color(.systemGray5) : Color.accentColor)
+                )
+                .foregroundStyle(added ? Color.secondary : Color.white)
+            }
+            .buttonStyle(.plain)
+            .disabled(added)
+            .padding(.horizontal, 14).padding(.top, 12)
+        }
+
         if let onReroute {
             // 즉석에서 목적지를 이 가게로 바꾼다 — 걷다가 배가 고프면 목적지가
             // 바뀌는 것이 내비게이션이다.
@@ -134,11 +163,14 @@ struct RoutePlaceCard: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.accentColor))
-                .foregroundStyle(.white)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.accentColor.opacity(onAdd == nil ? 1 : 0.14))
+                )
+                .foregroundStyle(onAdd == nil ? Color.white : Color.accentColor)
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 14).padding(.top, 12)
+            .padding(.horizontal, 14).padding(.top, onAdd == nil ? 12 : 8)
         }
 
         // 네이버 링크는 머리줄의 아이콘이 맡는다(`header`). 여기 큰 단추로 두면

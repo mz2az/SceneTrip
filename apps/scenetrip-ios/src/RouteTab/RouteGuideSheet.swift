@@ -31,6 +31,9 @@ struct RouteGuideSheet: View {
     /// 장소를 코스에 담는다. 촬영지가 아니라 편의시설이므로 **직접 찍은 핀**으로 넣는다.
     var onAdd: (PlaceSummary) -> Void = { _ in }
 
+    /// 이미 코스에 있는가. 있으면 ⊕ 대신 체크가 뜬다 — 두 번 담기지 않는다.
+    var isAdded: (RouteGuide.Place) -> Bool = { _ in false }
+
     /// 「여기로 길찾기」. 여행 중 화면만 준다 — 주면 카드에 버튼이 뜬다.
     var onReroute: ((RouteGuide.Place) -> Void)?
 
@@ -201,6 +204,8 @@ struct RouteGuideSheet: View {
                         if isPicked {
                             RoutePlaceCard(
                                 place: place,
+                                onAdd: { onAdd(place.asPlaceSummary) },
+                                added: isAdded(place),
                                 onReroute: onReroute.map { fire in { fire(place) } },
                                 onClose: { session.picked = nil }
                             )
@@ -247,13 +252,19 @@ struct RouteGuideSheet: View {
             Image(systemName: isPicked ? "chevron.up" : "chevron.down")
                 .font(.caption2).foregroundStyle(.tertiary)
 
-            Button {
-                onAdd(place.asPlaceSummary)
-            } label: {
-                Image(systemName: "plus.circle")
-                    .font(.footnote).foregroundStyle(Color.accentColor)
+            if isAdded(place) {
+                // 이미 담긴 곳 — 또 담지 않는다는 뜻으로 체크만 보여 준다.
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.footnote).foregroundStyle(.secondary)
+            } else {
+                Button {
+                    onAdd(place.asPlaceSummary)
+                } label: {
+                    Image(systemName: "plus.circle")
+                        .font(.footnote).foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.vertical, 2)
     }
