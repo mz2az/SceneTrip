@@ -31,6 +31,12 @@ struct RouteGuideSheet: View {
     /// 장소를 코스에 담는다. 촬영지가 아니라 편의시설이므로 **직접 찍은 핀**으로 넣는다.
     var onAdd: (PlaceSummary) -> Void = { _ in }
 
+    /// 이미 코스에 있는가. 있으면 ⊕ 대신 체크가 뜬다 — 두 번 담기지 않는다.
+    var isAdded: (RouteGuide.Place) -> Bool = { _ in false }
+
+    /// 체크를 한 번 더 눌렀다 — 경로에서 뺀다.
+    var onRemove: (RouteGuide.Place) -> Void = { _ in }
+
     /// 「여기로 길찾기」. 여행 중 화면만 준다 — 주면 카드에 버튼이 뜬다.
     var onReroute: ((RouteGuide.Place) -> Void)?
 
@@ -38,33 +44,26 @@ struct RouteGuideSheet: View {
 
     @State private var draft = ""
 
+    /// **되는 것만 보여 준다.** 앞서 한식집·카페·편의점 세 줄을 두었는데 셋 다
+    /// 제대로 동작하지 않았다(2026-08-27 사용자 확인) — 안 되는 예시는 첫인상에서
+    /// 신뢰를 깎는다. poi_nearby 가 확실히 답하는 질문 하나만 남긴다.
     private static let examples = [
-        "이 근처 한식집 알려줘",
-        "300미터 안에 카페 있어?",
-        "주변에 편의점 어디 있어",
+        "주변 음식점 알려줘",
     ]
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                if here == nil {
-                    // 「주변」이 어디인지 모르면 물어볼 수가 없다.
-                    ContentUnavailableView(
-                        "현재 위치를 알 수 없습니다",
-                        systemImage: "location.slash",
-                        description: Text("위치 권한을 켜면 주변 장소를 찾아 드립니다")
-                    )
-                } else {
-                    conversation
-                    composer
-                }
-            }
-            .navigationTitle("여행 가이드")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { dismiss() }
-                }
+        VStack(spacing: 0) {
+            header
+            if here == nil {
+                // 「주변」이 어디인지 모르면 물어볼 수가 없다.
+                ContentUnavailableView(
+                    "현재 위치를 알 수 없습니다",
+                    systemImage: "location.slash",
+                    description: Text("위치 권한을 켜면 주변 장소를 찾아 드립니다")
+                )
+            } else {
+                conversation
+                composer
             }
         }
         .presentationDetents([.medium, .large])
@@ -74,6 +73,28 @@ struct RouteGuideSheet: View {
         // (2026-08-27 사용자 지적). 뒷화면을 흐리게 덮는 것도 이 설정이 없앤다 —
         // 반쯤 올라온 시트의 요점이 「지도와 같이 보는 것」인데 흐리면 뜻이 없다.
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+    }
+
+    /// 손수 그린 머리줄. 내비게이션 바를 쓰지 않는 이유는 **X 다** — 바에 넣으면
+    /// 시스템이 유리 동그라미를 깔아 크게 그린다(2026-08-27 사용자 지적, 두 번째).
+    private var header: some View {
+        ZStack {
+            Text("여행 가이드").font(.headline)
+            HStack {
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 6)
     }
 
     // MARK: 대화
@@ -145,10 +166,13 @@ struct RouteGuideSheet: View {
                     .font(.subheadline)
                     .padding(.horizontal, 12).padding(.vertical, 9)
                     .background(
+                        // 사용자는 하늘색, 가이드는 **연보라** — AI 가이드 단추와
+                        // 경로선이 쓰는 피노 보라(`PinImage.light`)의 옅은 판이다.
+                        // 흰 말풍선은 시트 배경과 구별이 안 됐다(2026-08-27).
                         RoundedRectangle(cornerRadius: 14).fill(
                             turn.role == .user
                                 ? AnyShapeStyle(Color.accentColor.opacity(0.14))
-                                : AnyShapeStyle(Color(.systemBackground))
+                                : AnyShapeStyle(Color(PinImage.light).opacity(0.16))
                         )
                     )
 
@@ -183,6 +207,9 @@ struct RouteGuideSheet: View {
                         if isPicked {
                             RoutePlaceCard(
                                 place: place,
+                                onAdd: { onAdd(place.asPlaceSummary) },
+                                added: isAdded(place),
+                                onRemove: { onRemove(place) },
                                 onReroute: onReroute.map { fire in { fire(place) } },
                                 onClose: { session.picked = nil }
                             )
@@ -204,8 +231,9 @@ struct RouteGuideSheet: View {
                 session.picked = isPicked ? nil : place
             } label: {
                 HStack(spacing: 8) {
+                    // 목록 점도 지도 점과 같은 갈래 색이다 — 색이 끈이다.
                     Circle()
-                        .fill(isPicked ? Color.red : Color.accentColor)
+                        .fill(isPicked ? Color.red : RoutePoiTone.of(place.poiGroup))
                         .frame(width: 7, height: 7)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(place.name)
@@ -228,13 +256,24 @@ struct RouteGuideSheet: View {
             Image(systemName: isPicked ? "chevron.up" : "chevron.down")
                 .font(.caption2).foregroundStyle(.tertiary)
 
-            Button {
-                onAdd(place.asPlaceSummary)
-            } label: {
-                Image(systemName: "plus.circle")
-                    .font(.footnote).foregroundStyle(Color.accentColor)
+            if isAdded(place) {
+                // 이미 담긴 곳 — 체크가 뜨고, **한 번 더 누르면 뺀다.**
+                Button {
+                    onRemove(place)
+                } label: {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button {
+                    onAdd(place.asPlaceSummary)
+                } label: {
+                    Image(systemName: "plus.circle")
+                        .font(.footnote).foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.vertical, 2)
     }

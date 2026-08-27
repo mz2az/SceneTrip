@@ -59,8 +59,19 @@ struct RouteEditorView: View {
     /// 「주변」의 기준이 되는 자리. 가이드가 이것으로 찾는다.
     @StateObject var guideLocator = RouteLocator()
 
-    /// 가이드와의 대화. **시트 밖에서 든다** — 닫아도 남아야 한다.
-    @StateObject var guide = RouteGuideSession()
+    /// 가이드와의 대화. **앱 공용이다** — 길찾기 화면과 같은 대화를 본다.
+    @ObservedObject var guide = RouteGuideSession.shared
+
+    /// 지도에 보여 줄 편의시설 갈래. 기본은 전부 — 끄는 것은 사용자의 선택이다.
+    @State var poiGroupsOn: Set<RoutePoiGroup> = Set(RoutePoiGroup.allCases)
+
+    /// 동선 최적화 단추가 **반짝여야 하는가.** 장소가 새로 담기면 켜진다 — 방금
+    /// 담긴 곳은 줄 맨 끝이라 순서가 대개 엉망이 된다. 한 번 최적화하면 꺼진다.
+    @State var optimizeNudge = false
+
+    /// 화면 범위 안의 주변 편의시설. 카메라가 멈출 때마다 다시 받는다.
+    @State var ambientPois: [RouteGuide.Place] = []
+    @State var ambientTask: Task<Void, Never>?
     @State var stayTarget: RouteStop?
     @State var directionsTarget: RouteStop?
     @State var blockedDay: Int?
@@ -88,6 +99,35 @@ struct RouteEditorView: View {
         course.days.indices.contains(dayIndex) ? course.days[dayIndex].stops : []
     }
 
+    /// 갈래 필터를 통과한 가이드 장소. 지도는 이것만 그린다.
+    var visibleGuidePlaces: [RouteGuide.Place] {
+        guide.places.filter { poiGroupsOn.contains($0.poiGroup) }
+    }
+
+    /// 고른 장소도 갈래가 꺼져 있으면 지도에서 감춘다.
+    var visiblePickedGuide: RouteGuide.Place? {
+        guide.picked.flatMap { poiGroupsOn.contains($0.poiGroup) ? $0 : nil }
+    }
+
+    /// 이 가이드 장소가 이미 코스(어느 일차든)에 들어 있는가. `RouteDedupe` 와
+    /// 같은 열쇠(이름+좌표)로 본다 — 담을 때 걸러지는 기준 그대로다.
+    func isAdded(_ place: RouteGuide.Place) -> Bool {
+        let key = RouteDedupe.key(place.asPlaceSummary)
+        return course.days.contains { day in
+            day.stops.contains { RouteDedupe.key($0.place) == key }
+        }
+    }
+
+    /// 카드의 체크를 한 번 더 눌렀다 — **모든 일차에서** 뺀다. 담을 때와 같은
+    /// 열쇠로 지우므로, 담은 것과 다른 것이 지워질 일은 없다.
+    func removeGuidePlace(_ place: RouteGuide.Place) {
+        let key = RouteDedupe.key(place.asPlaceSummary)
+        for index in course.days.indices {
+            course.days[index].stops.removeAll { RouteDedupe.key($0.place) == key }
+        }
+        fitToken += 1
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             topBar
@@ -107,12 +147,16 @@ struct RouteEditorView: View {
                 map
                 BottomSheet(
                     detent: $panelDetent, topInset: 8,
+                    // 지도 40 : 일정 60. 반반이었는데 일정 쪽에 단추가 늘며
+                    // 좁아졌다(2026-08-28 사용자 요청).
+                    mediumFraction: 0.60,
                     onHeightChange: { panelHeight = $0 }
                 ) {
                     // `AnyView` 는 detent 타입을 맞추기 위한 것이다 — `Detent` 가
                     // 제네릭 안에 살아서 상태 선언이 내용 타입을 미리 못 안다.
                     AnyView(VStack(spacing: 0) {
                         dayTabs
+                        poiFilter
                         summary
                         actions
                         stopList
@@ -128,9 +172,18 @@ struct RouteEditorView: View {
         // 그때는 시트 안에 뜬다(`RouteGuideSheet`).
         .overlay(alignment: .bottom) {
             if let picked = guide.picked, !showGuide {
-                RoutePlaceCard(place: picked) { guide.picked = nil }
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 90) // 「저장하고 닫기」 줄 위
+                RoutePlaceCard(
+                    place: picked,
+                    onAdd: {
+                        add([picked.asPlaceSummary], pinned: true)
+                        guide.picked = nil // 담았으면 카드는 할 일을 다 했다
+                    },
+                    added: isAdded(picked),
+                    onRemove: { removeGuidePlace(picked) },
+                    onClose: { guide.picked = nil }
+                )
+                .padding(.horizontal, 12)
+                .padding(.bottom, 90) // 「저장하고 닫기」 줄 위
             }
         }
         .task {
@@ -158,7 +211,9 @@ struct RouteEditorView: View {
                 session: guide,
                 here: guideHere,
                 context: guideContext,
-                onAdd: { add([$0], pinned: true) }
+                onAdd: { add([$0], pinned: true) },
+                isAdded: isAdded,
+                onRemove: removeGuidePlace
             )
         }
         .sheet(isPresented: $showSearch) {
@@ -192,7 +247,7 @@ struct RouteEditorView: View {
             }
         }
         .sheet(item: $directionsTarget) { stop in
-            RouteNavView(stop: stop)
+            RouteNavView(stop: stop, dayStops: stops)
         }
         .alert("일차를 뺄 수 없습니다", isPresented: Binding(
             get: { blockedDay != nil },
@@ -247,9 +302,12 @@ struct RouteEditorView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.large)
         }
-        .padding(16)
+        // 줄을 낮게 잡는다 — 이 줄이 먹는 만큼 일정이 좁아진다(2026-08-28
+        // 사용자 요청: 단추 위아래와 글자를 줄여 아래쪽을 넓힌다).
+        .font(.subheadline)
+        .controlSize(.regular)
+        .padding(.horizontal, 16).padding(.vertical, 8)
         .background(Color(.systemBackground))
     }
 
@@ -338,7 +396,7 @@ struct RouteEditorView: View {
     }
 
     /// 이미 담긴 곳의 열쇠. 갈래는 `RouteDedupe` 가 정한다.
-    private var takenSpotKeys: Set<String> {
+    var takenSpotKeys: Set<String> {
         Set(course.days.flatMap(\.stops).map { RouteDedupe.key($0.place) })
     }
 
@@ -352,6 +410,10 @@ struct RouteEditorView: View {
         guard !fresh.isEmpty else { return }
         course.days[dayIndex].stops += fresh.map { RouteStop(place: $0, isPinned: pinned) }
         fitToken += 1
+        // 둘부터 순서라는 것이 생긴다 — 그때부터 최적화를 권한다.
+        if course.days[dayIndex].stops.count >= 2 {
+            optimizeNudge = true
+        }
     }
 
     /// 이 장소가 나온 작품. **서버가 코스 아이템에 안 실어 주므로** 촬영지 목록

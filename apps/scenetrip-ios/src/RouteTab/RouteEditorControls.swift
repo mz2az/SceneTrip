@@ -19,8 +19,10 @@ extension RouteEditorView {
             showingMe: showingMe,
             focused: focusedStop,
             previews: previewPlaces,
-            guidePlaces: guide.places,
-            pickedGuide: guide.picked,
+            guidePlaces: visibleGuidePlaces,
+            pickedGuide: visiblePickedGuide,
+            ambientPlaces: visibleAmbientPois,
+            onViewport: viewportChanged,
             onTapGuide: { guide.picked = $0 },
             bottomInset: panelHeight
         ) { pin in
@@ -39,24 +41,26 @@ extension RouteEditorView {
                     .padding(.top, 10)
             }
         }
-        // 챗봇은 지도 위 오른쪽 아래에 **늘** 있다. 코스를 짜는 동안에도, 여행
-        // 중에도 같은 자리다 — 물어볼 것이 생겼을 때 찾아 헤매지 않게 한다.
-        // 핀을 찍는 동안에는 숨긴다. 지도를 눌러야 하는데 버튼이 손에 걸린다.
-
-        // 「내 위치」 **토글**. 오른쪽 위, 핀 찍는 동안에는 숨긴다(챗봇과 같은 이유).
+        // 「내 위치」 **토글**. 오른쪽 위, 핀 찍는 동안에는 숨긴다 — 지도를 눌러야
+        // 하는데 버튼이 손에 걸린다.
         //
         // 검색 탭은 「누르면 그 자리로 날아가는」 버튼인데 여기서는 토글이다. 코스
         // 화면에서 그냥 날아가면 **촬영지가 화면 밖으로 나가** 무엇을 보던 화면인지
         // 알 수 없다(2026-08-24 사용자 지적). 켜 두면 목록에서 장소를 고를 때마다
         // 「나와 그곳이 같이 보이는 크기」로 맞는다.
+        //
+        // 챗봇 단추는 여기 없다. 지도 위에 띄웠더니 오른쪽 위를 가렸다(2026-08-27
+        // 사용자 지적) — 일정 시트의 동작 줄(`actions`)로 내렸다.
         .overlay(alignment: .topTrailing) {
             if !pinning {
                 VStack(spacing: 10) {
                     locateButton
-                    // 챗봇도 오른쪽 위다. 원래 오른쪽 아래였는데 일정 시트가 그
-                    // 자리를 덮게 되면서 옮겼다 — 시트를 내려야 보이는 단추는
-                    // 없는 것과 같다.
-                    RouteChatButton(remaining: nil) { showGuide = true }
+                    // **접힌 가이드.** 대화를 한 번 시작했으면 시트를 닫아도
+                    // 여기 작게 남아, 누르면 이어서 펼쳐진다. 처음 여는 것은
+                    // 아래 동작 줄의 「AI 가이드」다.
+                    if !guide.isEmpty, !showGuide {
+                        RouteGuideChip { showGuide = true }
+                    }
                 }
                 .padding(10)
             }
@@ -67,7 +71,9 @@ extension RouteEditorView {
         Button {
             showingMe.toggle()
         } label: {
-            Image(systemName: showingMe ? "location.fill" : "location")
+            // 과녁 십자(dot.scope) — 검색 탭의 현위치 버튼과 같은 모양이다.
+            // 켜짐은 모양이 아니라 배경색으로 구별한다.
+            Image(systemName: "dot.scope")
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(showingMe ? .white : Color.accentColor)
                 .frame(width: 44, height: 44)
@@ -78,6 +84,76 @@ extension RouteEditorView {
                             : AnyShapeStyle(.ultraThinMaterial)
                     )
                 )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: 편의시설 필터
+
+    /// 챗봇이 찍어 준 핀의 **갈래별 켜고 끄기.** 핀이 하나라도 있어야 나온다 —
+    /// 없는데 필터부터 보이면 무엇을 거르는 줄인지 알 수 없다.
+    ///
+    /// 「전체」는 마스터 스위치다. 다 켜져 있으면 끄고, 하나라도 꺼져 있으면 다 켠다.
+    @ViewBuilder
+    var poiFilter: some View {
+        if !poisForChips.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    let allOn = poiGroupsOn.count == RoutePoiGroup.allCases.count
+                    chip("전체", tone: nil, isOn: allOn) {
+                        poiGroupsOn = allOn ? [] : Set(RoutePoiGroup.allCases)
+                        if poiGroupsOn.isEmpty {
+                            guide.picked = nil
+                        }
+                    }
+                    ForEach(RoutePoiGroup.allCases) { group in
+                        let count = poisForChips.count { $0.poiGroup == group }
+                        if count > 0 {
+                            chip("\(group.label) \(count)",
+                                 tone: RoutePoiTone.of(group),
+                                 isOn: poiGroupsOn.contains(group))
+                            {
+                                if poiGroupsOn.contains(group) {
+                                    poiGroupsOn.remove(group)
+                                    // 감춘 갈래의 고른 핀은 놓는다 — 지도에 없는
+                                    // 것을 계속 골라 두면 카드만 남는다.
+                                    if guide.picked?.poiGroup == group {
+                                        guide.picked = nil
+                                    }
+                                } else {
+                                    poiGroupsOn.insert(group)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.top, 8)
+            .background(Color(.systemBackground))
+        }
+    }
+
+    private func chip(
+        _ label: String, tone: Color?, isOn: Bool, tap: @escaping () -> Void
+    ) -> some View {
+        Button(action: tap) {
+            HStack(spacing: 5) {
+                if let tone {
+                    Circle().fill(tone).frame(width: 7, height: 7)
+                }
+                Text(label).font(.caption.weight(isOn ? .semibold : .regular))
+            }
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(
+                Capsule().fill(isOn ? Color.accentColor.opacity(0.14) : Color(.systemGray6))
+            )
+            .overlay(
+                Capsule().strokeBorder(
+                    isOn ? Color.accentColor.opacity(0.5) : .clear, lineWidth: 1
+                )
+            )
+            .foregroundStyle(isOn ? Color.primary : Color.secondary)
         }
         .buttonStyle(.plain)
     }
@@ -179,11 +255,12 @@ extension RouteEditorView {
         HStack(spacing: 8) {
             // 동선 최적화는 **지금 보고 있는 일차 안에서만** 순서를 바꾼다.
             // 일차를 넘나들며 옮기면 사용자가 나눠 둔 하루가 무너진다.
-            action("동선 최적화", symbol: "arrow.triangle.swap") {
+            action("동선 최적화", symbol: "arrow.triangle.swap", highlight: optimizeNudge) {
                 course.days[dayIndex].stops = RouteGeometry.optimized(
                     stops, pinStart: pinStart, pinEnd: pinEnd
                 )
                 fitToken += 1
+                optimizeNudge = false // 권한 일을 했다 — 반짝임은 여기까지
             }
             // 장바구니를 거치지 않고 **여기서 바로** 찾아 담는다.
             action("검색", symbol: "magnifyingglass") { showSearch = true }
@@ -191,9 +268,38 @@ extension RouteEditorView {
             action(pinning ? "취소" : "핀 찍기", symbol: "mappin.and.ellipse") {
                 pinning.toggle()
             }
+            // AI 가이드. 지도 위에 떠 있던 단추를 내렸다 — 시트 안이라 지도를
+            // 가리지 않고, 자리도 다른 동작들과 같은 줄이라 찾아 헤매지 않는다.
+            guideAction
         }
         .padding(.horizontal, 16).padding(.bottom, 10)
         .background(Color(.systemBackground))
+    }
+
+    /// 다른 동작과 같은 꼴이되 **피노 색 그라데이션**으로 눈에 띈다 — AI 가
+    /// 하는 일임을 색으로 말한다(`RouteChatButton` 과 같은 색).
+    private var guideAction: some View {
+        Button {
+            showGuide = true
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: "sparkles").font(.system(size: 15))
+                Text("AI 가이드").font(.caption2).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10).fill(
+                    LinearGradient(
+                        colors: [Color(PinImage.light), Color(PinImage.deep)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     /// 넷이 한 줄에 들어가야 하므로 **아이콘 위, 글자 아래**로 쌓는다. 나란히 두면
@@ -201,6 +307,7 @@ extension RouteEditorView {
     private func action(
         _ label: String,
         symbol: String,
+        highlight: Bool = false,
         run: @escaping () -> Void
     ) -> some View {
         Button(action: run) {
@@ -211,7 +318,43 @@ extension RouteEditorView {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
+            .modifier(ActionNudge(on: highlight))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// 눌러 달라고 **숨 쉬듯 반짝이는** 강조. 장소가 새로 담겨 순서가 낡았을 때
+/// 동선 최적화 단추에 씌운다 — 한 번 누르면 벗겨져 평소 회색으로 돌아간다.
+private struct ActionNudge: ViewModifier {
+    let on: Bool
+    @State private var glow = false
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.accentColor.opacity(on ? (glow ? 0.26 : 0.08) : 0))
+                    .allowsHitTesting(false)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(
+                        Color.accentColor.opacity(on ? (glow ? 0.9 : 0.35) : 0),
+                        lineWidth: 1.5
+                    )
+                    .allowsHitTesting(false)
+            )
+            .foregroundStyle(on ? Color.accentColor : Color.primary)
+            .onChange(of: on, initial: true) { _, now in
+                guard now else {
+                    glow = false
+                    return
+                }
+                glow = false
+                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
+                    glow = true
+                }
+            }
     }
 }

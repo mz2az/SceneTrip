@@ -160,6 +160,33 @@ enum RouteGuide {
     /// 네이버에서 찾아 사진·영업시간·리뷰·별점을 묶어 온다. **못 찾아도 실패가
     /// 아니다** — 「네이버에 없다」도 사용자에게는 답이다. 우리 POI 자료(TMAP)에
     /// 있는 가게가 네이버에 없을 수 있고, 그것이 나쁜 가게라는 뜻은 아니다.
+    /// 지도 범위 안의 편의시설. **LLM 을 거치지 않는다** — 우리 자료를 그대로
+    /// 읽는 조건 질의라 부르는 값이 없다(2026-08-28 사용자 확인). 화면이 멈출
+    /// 때마다 불러 네이버처럼 주변을 늘 보여 주는 데 쓴다. 정식 자리는
+    /// MZ2AZ-283(장소 검색 API)이다.
+    ///
+    /// 실패하면 빈 목록이다 — 주변 점은 장식이라, 서버가 꺼져 있다고 화면이
+    /// 막히면 안 된다.
+    static func pois(
+        south: Double, west: Double, north: Double, east: Double,
+        centerLat: Double, centerLng: Double, limit: Int = 30
+    ) async -> [Place] {
+        var parts = URLComponents(string: baseUrl + "/api/pois")
+        parts?.queryItems = [
+            .init(name: "bbox", value: "\(south),\(west),\(north),\(east)"),
+            .init(name: "cy", value: "\(centerLat)"),
+            .init(name: "cx", value: "\(centerLng)"),
+            .init(name: "limit", value: "\(limit)"),
+        ]
+        guard let url = parts?.url,
+              let (data, response) = try? await URLSession.shared.data(from: url),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let rows = json["pois"] as? [[String: Any]]
+        else { return [] }
+        return rows.compactMap(Place.init)
+    }
+
     static func card(for place: Place) async -> Card? {
         guard let url = URL(string: baseUrl + "/api/place-card") else { return nil }
 
@@ -173,6 +200,9 @@ enum RouteGuide {
             "addr": place.address ?? "",
             "lat": place.latitude,
             "lng": place.longitude,
+            // 갈래를 주면 서버가 거리 컷을 갈래에 맞춘다 — 궁·공원·역은 좌표가
+            // 수백 m 어긋나는 게 정상이라 가게용 컷으로는 매칭이 다 떨어진다.
+            "group": place.group ?? place.poiGroup.serverName,
         ])
 
         guard let (data, response) = try? await URLSession.shared.data(for: request),
@@ -246,6 +276,9 @@ enum RouteGuide {
         let latitude: Double
         let longitude: Double
 
+        /// 서버가 준 큰 갈래(음식·숙박·명소·교통). 옛 서버는 안 보내므로 없을 수 있다.
+        let group: String?
+
         init?(_ json: [String: Any]) {
             guard let latitude = Self.number(json["lat"]),
                   let longitude = Self.number(json["lng"]),
@@ -256,6 +289,7 @@ enum RouteGuide {
             self.longitude = longitude
             id = String(describing: json["id"] ?? name)
             category = json["cat"] as? String ?? json["kind"] as? String
+            group = json["group"] as? String
             address = json["addr"] as? String
             distanceMeters = Self.number(json["dist_m"]).map { Int($0) }
         }

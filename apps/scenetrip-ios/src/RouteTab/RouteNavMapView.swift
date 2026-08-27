@@ -20,6 +20,11 @@ import SwiftUI
 struct RouteNavMapView: UIViewRepresentable {
     let stop: RouteStop
 
+    /// 그 일차의 코스 전체. **번호 핀으로 함께 그린다** — 목적지 하나만 보이면
+    /// 「다음에 어디로 가는 여정 중인가」가 지도에서 사라진다(2026-08-28 사용자
+    /// 요청). 번호는 편집 화면의 번호와 같다.
+    var dayStops: [RouteStop] = []
+
     /// 갈아탄 목적지. 있으면 **여기에 피노를 꽂는다** — 경로선은 이미 여기로
     /// 이어지는데 핀만 옛 촬영지에 남아 있으면 지도가 거짓말을 한다.
     var goal: (latitude: Double, longitude: Double)?
@@ -51,15 +56,17 @@ struct RouteNavMapView: UIViewRepresentable {
         view.showLocationButton = false
         view.mapView.logoAlign = .leftBottom
         context.coordinator.onTapPlace = onTapPlace
-        context.coordinator.render(stop: stop, goal: goal, guidePlaces: guidePlaces,
-                                   picked: picked, here: here, legs: legs, on: view.mapView)
+        context.coordinator.render(stop: stop, dayStops: dayStops, goal: goal,
+                                   guidePlaces: guidePlaces, picked: picked,
+                                   here: here, legs: legs, on: view.mapView)
         return view
     }
 
     func updateUIView(_ view: NMFNaverMapView, context: Context) {
         context.coordinator.onTapPlace = onTapPlace
-        context.coordinator.render(stop: stop, goal: goal, guidePlaces: guidePlaces,
-                                   picked: picked, here: here, legs: legs, on: view.mapView)
+        context.coordinator.render(stop: stop, dayStops: dayStops, goal: goal,
+                                   guidePlaces: guidePlaces, picked: picked,
+                                   here: here, legs: legs, on: view.mapView)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -86,6 +93,7 @@ struct RouteNavMapView: UIViewRepresentable {
 
         func render(
             stop: RouteStop,
+            dayStops: [RouteStop] = [],
             goal: (latitude: Double, longitude: Double)?,
             guidePlaces: [RouteGuide.Place],
             picked: RouteGuide.Place?,
@@ -96,7 +104,9 @@ struct RouteNavMapView: UIViewRepresentable {
             let spot = here.map { "\($0.latitude),\($0.longitude)" } ?? "-"
             let goalKey = goal.map { "\($0.latitude),\($0.longitude)" } ?? "-"
             let shape = legs.map { "\($0.mode)\($0.path.count)" }.joined(separator: "-")
-            let key = "\(stop.id)|\(spot)|\(goalKey)|\(shape)|" + guidePlaces.map(\.id).joined(separator: ",")
+            let key = "\(stop.id)|\(spot)|\(goalKey)|\(shape)|"
+                + guidePlaces.map(\.id).joined(separator: ",")
+                + "|" + dayStops.map { "\($0.id)" }.joined(separator: ",")
             guard key != lastKey else { return }
             lastKey = key
 
@@ -141,8 +151,24 @@ struct RouteNavMapView: UIViewRepresentable {
             // 끈이라 그대로 둔다(`PinoPin` 머리말).
             let goal = NMFMarker(position: target)
             goal.iconImage = PinoPin.marker()
+            goal.zIndex = 20
             goal.mapView = mapView
             markers.append(goal)
+
+            // 코스의 다른 곳들 — **번호 핀 그대로.** 지금 가는 곳(피노)과 갈아탄
+            // 목적지는 뺀다. 시간이 남아 딴 데를 들러도 「다음이 몇 번인가」가
+            // 지도에 남아 있어야 여정이 이어진다.
+            for (index, dayStop) in dayStops.enumerated() where dayStop.id != stop.id {
+                let marker = NMFMarker(position: NMGLatLng(
+                    lat: dayStop.place.latitude, lng: dayStop.place.longitude
+                ))
+                marker.iconImage = PinImage.numbered(index + 1)
+                marker.captionText = dayStop.place.name
+                marker.captionMinZoom = 12
+                marker.zIndex = 10
+                marker.mapView = mapView
+                markers.append(marker)
+            }
 
             // 현재 위치 — **레이더 파문.** 정지된 점은 촬영지 핀·편의시설 점 사이에
             // 묻힌다. 움직이는 것은 눈이 먼저 잡는다.
@@ -158,7 +184,7 @@ struct RouteNavMapView: UIViewRepresentable {
                     position: NMGLatLng(lat: place.latitude, lng: place.longitude)
                 )
                 let isPicked = place.id == picked?.id
-                marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot
+                marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot(place.poiGroup)
                 marker.anchor = isPicked ? CGPoint(x: 0.5, y: 1) : CGPoint(x: 0.5, y: 0.5)
                 marker.captionText = place.name
                 marker.captionMinZoom = 14

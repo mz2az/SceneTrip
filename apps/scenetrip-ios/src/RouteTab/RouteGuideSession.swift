@@ -19,6 +19,10 @@ import Foundation
 /// 서버도 잊는다.
 @MainActor
 final class RouteGuideSession: ObservableObject {
+    /// **앱에 하나뿐인 대화.** 계획 화면에서 묻던 것을 길찾기에서 이어 묻고,
+    /// 돌아와도 그대로다(2026-08-28 사용자 요청 — 화면마다 대화가 갈리지 않게).
+    static let shared = RouteGuideSession()
+
     @Published private(set) var turns: [RouteGuide.Turn] = []
     @Published private(set) var asking = false
 
@@ -58,10 +62,15 @@ final class RouteGuideSession: ObservableObject {
                 history: turns, here: here, sessionId: sessionId, context: context
             )
             tools = answer.tools
-            places = answer.places
-            // 새 답이 오면 고른 것을 놓는다 — 앞 질문에서 고른 가게가 새 목록에
-            // 없을 수 있다.
-            picked = nil
+            // **장소를 새로 찾아 왔을 때만 목록을 갈아 끼운다.** 「어디 기준이야?」
+            // 같은 되물음에는 장소가 안 실려 오는데, 그때 목록까지 지우면 방금
+            // 받은 추천과 ⊕ 담기 단추가 채팅 한 번에 사라진다(2026-08-27 사용자
+            // 지적). 고른 것을 놓는 것도 그때만이다 — 목록이 그대로면 고른 것도
+            // 그대로가 맞다.
+            if !answer.places.isEmpty {
+                places = answer.places
+                picked = nil
+            }
             turns.append(.init(
                 role: .assistant,
                 text: answer.reply.isEmpty ? "답을 받지 못했습니다." : answer.reply

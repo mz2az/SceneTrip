@@ -64,8 +64,10 @@ enum PinoPin {
     /// 처음에는 추천 전부를 파란 고양이로 그렸는데, 열다섯 마리가 몰리면 서로
     /// 겹쳐 지도가 고양이밭이 됐다(2026-08-27 사용자 결정). 추천은 점으로 낮추고
     /// **고른 하나만** 고양이가 된다 — 점 사이에서 고양이 하나가 곧 「지금 보는 곳」이다.
-    static var guideDot: NMFOverlayImage {
-        if let found = cachedDot {
+    /// 갈래마다 색이 다르다(`RoutePoiTone`) — 음식점·카페=빨강, 숙소=초록,
+    /// 교통=노랑, 명소=파랑(2026-08-27 사용자 확정).
+    static func guideDot(_ group: RoutePoiGroup) -> NMFOverlayImage {
+        if let found = cachedDots[group] {
             return found
         }
         let size: CGFloat = 16
@@ -77,15 +79,15 @@ enum PinoPin {
             UIColor.white.setFill()
             UIBezierPath(ovalIn: bounds.insetBy(dx: 0.5, dy: 0.5)).fill()
             context.cgContext.setShadow(offset: .zero, blur: 0, color: nil)
-            UIColor(red: 0.89, green: 0.16, blue: 0.20, alpha: 1).setFill()
+            UIColor(RoutePoiTone.of(group)).setFill()
             UIBezierPath(ovalIn: bounds.insetBy(dx: 3, dy: 3)).fill()
         }
         let overlay = NMFOverlayImage(image: image)
-        cachedDot = overlay
+        cachedDots[group] = overlay
         return overlay
     }
 
-    private static var cachedDot: NMFOverlayImage?
+    private static var cachedDots: [RoutePoiGroup: NMFOverlayImage] = [:]
 
     /// 지도 위에서는 흰 테두리만으로는 배경과 안 갈린다. **그림자를 깔아 띄운다.**
     private static func body(_ tint: Tint) -> some View {
