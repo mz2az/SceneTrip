@@ -143,6 +143,9 @@ struct RouteEditorView: View {
                 map
                 BottomSheet(
                     detent: $panelDetent, topInset: 8,
+                    // 지도 40 : 일정 60. 반반이었는데 일정 쪽에 단추가 늘며
+                    // 좁아졌다(2026-08-28 사용자 요청).
+                    mediumFraction: 0.60,
                     onHeightChange: { panelHeight = $0 }
                 ) {
                     // `AnyView` 는 detent 타입을 맞추기 위한 것이다 — `Detent` 가
@@ -295,9 +298,12 @@ struct RouteEditorView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.large)
         }
-        .padding(16)
+        // 줄을 낮게 잡는다 — 이 줄이 먹는 만큼 일정이 좁아진다(2026-08-28
+        // 사용자 요청: 단추 위아래와 글자를 줄여 아래쪽을 넓힌다).
+        .font(.subheadline)
+        .controlSize(.regular)
+        .padding(.horizontal, 16).padding(.vertical, 8)
         .background(Color(.systemBackground))
     }
 

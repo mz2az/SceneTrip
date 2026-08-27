@@ -20,6 +20,11 @@ struct BottomSheet<Content: View>: View {
     /// 검색바가 차지하는 높이. 최대 단계는 이 아래까지만 올라온다.
     let topInset: CGFloat
 
+    /// 중간 단의 비율을 화면이 바꿔 끼울 수 있다. 검색 탭은 48%(기본) 그대로,
+    /// 경로 편집은 단추가 많아 60% 를 쓴다(2026-08-28 사용자 요청 — 40:60).
+    /// 값을 안 주면 아무것도 달라지지 않는다.
+    var mediumFraction: CGFloat?
+
     /// 지금 덮고 있는 **실제 높이(pt)**. 지도가 로고·축척을 이 위에 올려 두는 데 쓴다.
     /// 끄는 중에도 계속 바뀌므로 손을 떼기 전에도 따라간다.
     var onHeightChange: (CGFloat) -> Void = { _ in }
@@ -73,7 +78,11 @@ struct BottomSheet<Content: View>: View {
     }
 
     private func heightFor(_ detent: Detent, total: CGFloat, maxH: CGFloat) -> CGFloat {
-        detent == .expanded ? maxH : total * detent.rawValue
+        switch detent {
+        case .expanded: maxH
+        case .medium: total * (mediumFraction ?? Detent.medium.rawValue)
+        case .collapsed: total * Detent.collapsed.rawValue
+        }
     }
 
     private func nearest(to height: CGFloat, total: CGFloat, maxH: CGFloat) -> Detent {
