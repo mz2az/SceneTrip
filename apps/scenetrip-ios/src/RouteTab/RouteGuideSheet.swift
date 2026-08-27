@@ -38,10 +38,11 @@ struct RouteGuideSheet: View {
 
     @State private var draft = ""
 
+    /// **되는 것만 보여 준다.** 앞서 한식집·카페·편의점 세 줄을 두었는데 셋 다
+    /// 제대로 동작하지 않았다(2026-08-27 사용자 확인) — 안 되는 예시는 첫인상에서
+    /// 신뢰를 깎는다. poi_nearby 가 확실히 답하는 질문 하나만 남긴다.
     private static let examples = [
-        "이 근처 한식집 알려줘",
-        "300미터 안에 카페 있어?",
-        "주변에 편의점 어디 있어",
+        "주변 음식점 알려줘",
     ]
 
     var body: some View {
