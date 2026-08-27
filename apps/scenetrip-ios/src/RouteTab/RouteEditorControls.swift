@@ -97,65 +97,16 @@ extension RouteEditorView {
     @ViewBuilder
     var poiFilter: some View {
         if !poisForChips.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    let allOn = poiGroupsOn.count == RoutePoiGroup.allCases.count
-                    chip("전체", tone: nil, isOn: allOn) {
-                        poiGroupsOn = allOn ? [] : Set(RoutePoiGroup.allCases)
-                        if poiGroupsOn.isEmpty {
-                            guide.picked = nil
-                        }
-                    }
-                    ForEach(RoutePoiGroup.allCases) { group in
-                        let count = poisForChips.count { $0.poiGroup == group }
-                        if count > 0 {
-                            chip("\(group.label) \(count)",
-                                 tone: RoutePoiTone.of(group),
-                                 isOn: poiGroupsOn.contains(group))
-                            {
-                                if poiGroupsOn.contains(group) {
-                                    poiGroupsOn.remove(group)
-                                    // 감춘 갈래의 고른 핀은 놓는다 — 지도에 없는
-                                    // 것을 계속 골라 두면 카드만 남는다.
-                                    if guide.picked?.poiGroup == group {
-                                        guide.picked = nil
-                                    }
-                                } else {
-                                    poiGroupsOn.insert(group)
-                                }
-                            }
-                        }
-                    }
+            RoutePoiChips(places: poisForChips, groupsOn: $poiGroupsOn) { group in
+                // 감춘 갈래의 고른 핀은 놓는다 — 지도에 없는 것을 계속 골라
+                // 두면 카드만 남는다.
+                if guide.picked?.poiGroup == group {
+                    guide.picked = nil
                 }
-                .padding(.horizontal, 16)
             }
             .padding(.top, 8)
             .background(Color(.systemBackground))
         }
-    }
-
-    private func chip(
-        _ label: String, tone: Color?, isOn: Bool, tap: @escaping () -> Void
-    ) -> some View {
-        Button(action: tap) {
-            HStack(spacing: 5) {
-                if let tone {
-                    Circle().fill(tone).frame(width: 7, height: 7)
-                }
-                Text(label).font(.caption.weight(isOn ? .semibold : .regular))
-            }
-            .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(
-                Capsule().fill(isOn ? Color.accentColor.opacity(0.14) : Color(.systemGray6))
-            )
-            .overlay(
-                Capsule().strokeBorder(
-                    isOn ? Color.accentColor.opacity(0.5) : .clear, lineWidth: 1
-                )
-            )
-            .foregroundStyle(isOn ? Color.primary : Color.secondary)
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: 일차

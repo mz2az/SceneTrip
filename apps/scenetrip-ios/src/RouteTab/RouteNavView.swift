@@ -36,6 +36,14 @@ struct RouteNavView: View {
     /// 이어지고, 닫아도 남는다.
     @ObservedObject private var guide = RouteGuideSession.shared
 
+    /// 화면 범위 안의 주변 편의시설. **기본은 전부 꺼짐** — 길찾기 화면의
+    /// 주인공은 경로라, 배경 점은 사용자가 켤 때만 나온다(2026-08-28 사용자 결정).
+    /// 목록은 늘 받아 둔다(개수 칩을 보여 줘야 켤 마음이 생긴다) — 우리 자료
+    /// 조건 질의라 부르는 값이 없다.
+    @State private var poiGroupsOn: Set<RoutePoiGroup> = []
+    @State private var ambientPois: [RouteGuide.Place] = []
+    @State private var ambientTask: Task<Void, Never>?
+
     /// **즉석에서 갈아탄 목적지.** 가이드가 찾아 준 가게로 「여기로 길찾기」를 누르면
     /// 원래 촬영지 대신 여기로 안내한다 — 걷다가 배가 고프면 목적지가 바뀌는 것이
     /// 내비게이션이다. `nil` 이면 원래 목적지(`stop`)다.
@@ -67,72 +75,139 @@ struct RouteNavView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                map
-                summary
-                Divider()
-                legList
-                bottomBar
-            }
-            .navigationTitle(destination.name)
-            .navigationBarTitleDisplayMode(.inline)
-            .task { locator.start() }
-            // 정보 카드는 화면 바닥에. 지도(300pt) 위에 얹으면 카드가 더 커서
-            // 뚫고 나간다 — 편집 화면과 같은 규칙이다.
-            .overlay(alignment: .bottom) {
-                if let picked = guide.picked, !showGuide {
-                    RoutePlaceCard(
-                        place: picked,
-                        onReroute: { reroute(to: picked) },
-                        onClose: { guide.picked = nil }
-                    )
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 80)
-                }
-            }
-            .sheet(isPresented: $showGuide) {
-                RouteGuideSheet(
-                    session: guide,
-                    here: here.map {
-                        CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
-                    } ?? CLLocationCoordinate2D(
-                        // 위치를 못 받았으면 **목적지 주변**으로 묻는다. 여행 중에
-                        // 「거기 가면 뭐가 있나」도 물을 만한 질문이다.
-                        latitude: stop.place.latitude, longitude: stop.place.longitude
-                    ),
-                    context: RouteGuide.Context(
-                        // 일차 전체를 번호째 준다 — 여행 중에도 「2번 주변 음식점」
-                        // 이 통해야 한다(2026-08-28 사용자 요청).
-                        stops: dayStops.enumerated().map { index, dayStop in
-                            .init(
-                                number: index + 1, name: dayStop.place.name,
-                                kind: dayStop.place.type,
-                                latitude: dayStop.place.latitude,
-                                longitude: dayStop.place.longitude
-                            )
-                        },
-                        picked: .init(
-                            number: (dayStops.firstIndex { $0.id == stop.id })
-                                .map { $0 + 1 } ?? 0,
-                            name: stop.place.name, kind: stop.place.type,
-                            latitude: stop.place.latitude, longitude: stop.place.longitude
-                        )
-                    ),
-                    onReroute: { reroute(to: $0) }
+        VStack(spacing: 0) {
+            header
+            map
+            poiChips
+            summary
+            Divider()
+            legList
+            bottomBar
+        }
+        .task { locator.start() }
+        // 정보 카드는 화면 바닥에. 지도(300pt) 위에 얹으면 카드가 더 커서
+        // 뚫고 나간다 — 편집 화면과 같은 규칙이다.
+        .overlay(alignment: .bottom) {
+            if let picked = guide.picked, !showGuide {
+                RoutePlaceCard(
+                    place: picked,
+                    onReroute: { reroute(to: picked) },
+                    onClose: { guide.picked = nil }
                 )
+                .padding(.horizontal, 12)
+                .padding(.bottom, 80)
             }
-            // 위치가 오면 그때 부른다. **누를 때만 부르는 것이 비용 통제 장치**이고,
-            // 이 화면 자체가 「길찾기」를 누른 결과라 여기서 한 번만 부르면 된다.
-            .onChange(of: locator.state) { _, state in
-                guard case let .found(latitude, longitude) = state else { return }
-                Task { await load(from: latitude, longitude: longitude) }
+        }
+        .sheet(isPresented: $showGuide) {
+            RouteGuideSheet(
+                session: guide,
+                here: here.map {
+                    CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+                } ?? CLLocationCoordinate2D(
+                    // 위치를 못 받았으면 **목적지 주변**으로 묻는다. 여행 중에
+                    // 「거기 가면 뭐가 있나」도 물을 만한 질문이다.
+                    latitude: stop.place.latitude, longitude: stop.place.longitude
+                ),
+                context: RouteGuide.Context(
+                    // 일차 전체를 번호째 준다 — 여행 중에도 「2번 주변 음식점」
+                    // 이 통해야 한다(2026-08-28 사용자 요청).
+                    stops: dayStops.enumerated().map { index, dayStop in
+                        .init(
+                            number: index + 1, name: dayStop.place.name,
+                            kind: dayStop.place.type,
+                            latitude: dayStop.place.latitude,
+                            longitude: dayStop.place.longitude
+                        )
+                    },
+                    picked: .init(
+                        number: (dayStops.firstIndex { $0.id == stop.id })
+                            .map { $0 + 1 } ?? 0,
+                        name: stop.place.name, kind: stop.place.type,
+                        latitude: stop.place.latitude, longitude: stop.place.longitude
+                    )
+                ),
+                onReroute: { reroute(to: $0) }
+            )
+        }
+        // 위치가 오면 그때 부른다. **누를 때만 부르는 것이 비용 통제 장치**이고,
+        // 이 화면 자체가 「길찾기」를 누른 결과라 여기서 한 번만 부르면 된다.
+        .onChange(of: locator.state) { _, state in
+            guard case let .found(latitude, longitude) = state else { return }
+            Task { await load(from: latitude, longitude: longitude) }
+        }
+    }
+
+    /// 손수 그린 머리줄 — 가이드 시트와 같은 이유다. 내비게이션 바에 「닫기」를
+    /// 넣으면 시스템이 유리 캡슐을 깔아 왼쪽에서 크게 그린다(2026-08-28 사용자
+    /// 지적, 세 번째라 이제 규칙이다: **닫기는 오른쪽 위 작은 X**).
+    private var header: some View {
+        ZStack {
+            Text(destination.name)
+                .font(.headline).lineLimit(1)
+                .padding(.horizontal, 44)
+            HStack {
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
             }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { dismiss() }
+        }
+        .padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 6)
+    }
+
+    /// 갈래 칩 — 편집 화면과 같은 부품. 주변 목록이 와 있어야 나온다.
+    @ViewBuilder
+    private var poiChips: some View {
+        if !ambientPois.isEmpty {
+            RoutePoiChips(places: ambientPois, groupsOn: $poiGroupsOn) { group in
+                // 챗봇이 찾아 준 핀은 이 칩의 소관이 아니다 — 주변 점에서 고른
+                // 것만 놓는다.
+                if let picked = guide.picked, picked.poiGroup == group,
+                   ambientPois.contains(where: { $0.id == picked.id })
+                {
+                    guide.picked = nil
                 }
             }
+            .padding(.vertical, 8)
+            .background(Color(.systemBackground))
+        }
+    }
+
+    /// 갈래 필터를 통과한 주변 점. 챗봇 결과와 겹치면 뺀다.
+    private var visibleAmbientPois: [RouteGuide.Place] {
+        let shown = Set(guide.places.map { RouteDedupe.key($0.asPlaceSummary) })
+        return ambientPois.filter { place in
+            poiGroupsOn.contains(place.poiGroup)
+                && !shown.contains(RouteDedupe.key(place.asPlaceSummary))
+        }
+    }
+
+    /// 카메라가 멈췄다 — 편집 화면과 같은 규칙(0.35초 조용하면, 줌 13 미만은 안 부름).
+    private func viewportChanged(
+        south: Double, west: Double, north: Double, east: Double,
+        centerLat: Double, centerLng: Double, zoom: Double
+    ) {
+        ambientTask?.cancel()
+        guard zoom >= 13 else {
+            ambientPois = []
+            return
+        }
+        ambientTask = Task {
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            let found = await RouteGuide.pois(
+                south: south, west: west, north: north, east: east,
+                centerLat: centerLat, centerLng: centerLng, limit: 30
+            )
+            guard !Task.isCancelled else { return }
+            ambientPois = found
         }
     }
 
@@ -190,7 +265,9 @@ struct RouteNavView: View {
                 picked: guide.picked,
                 onTapPlace: { guide.picked = $0 },
                 legs: result?.legs ?? [],
-                here: here
+                here: here,
+                ambientPlaces: visibleAmbientPois,
+                onViewport: viewportChanged
             )
             .frame(height: 300)
 

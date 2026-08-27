@@ -50,6 +50,13 @@ struct RouteNavMapView: UIViewRepresentable {
     /// 지어낸 자리에 「내가 여기 있다」를 찍는 것이 아무 표시도 없는 것보다 나쁘다.
     let here: (latitude: Double, longitude: Double)?
 
+    /// 화면 범위 안의 주변 편의시설 — 편집 지도와 같은 배경 점. **기본은 빈
+    /// 목록**이다(길찾기에서는 꺼진 것이 기본값, 2026-08-28 사용자 결정).
+    var ambientPlaces: [RouteGuide.Place] = []
+
+    /// 카메라가 멈췄다. (남, 서, 북, 동, 가운데위도, 가운데경도, 줌).
+    var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
+
     func makeUIView(context: Context) -> NMFNaverMapView {
         let view = NMFNaverMapView()
         view.showZoomControls = false
@@ -64,6 +71,8 @@ struct RouteNavMapView: UIViewRepresentable {
 
     func updateUIView(_ view: NMFNaverMapView, context: Context) {
         context.coordinator.onTapPlace = onTapPlace
+        context.coordinator.onViewport = onViewport
+        context.coordinator.renderAmbient(ambientPlaces, picked: picked, on: view.mapView)
         context.coordinator.render(stop: stop, dayStops: dayStops, goal: goal,
                                    guidePlaces: guidePlaces, picked: picked,
                                    here: here, legs: legs, on: view.mapView)
@@ -82,6 +91,10 @@ struct RouteNavMapView: UIViewRepresentable {
         private var markers: [NMFMarker] = []
         private var lastKey = ""
         var onTapPlace: (RouteGuide.Place) -> Void = { _ in }
+        var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
+        /// 주변 편의시설 마커 — 경로·추천 마커와 살림을 따로 낸다(갱신 주기가 다르다).
+        var ambientMarkers: [NMFMarker] = []
+        var lastAmbientKey = ""
 
         /// 레이더 파문. 지도 마커가 아니라 **지도 위에 얹은 뷰**다 — 이유는
         /// `RadarPulse` 머리말 참고.
