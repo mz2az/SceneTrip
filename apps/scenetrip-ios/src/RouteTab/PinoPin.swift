@@ -91,14 +91,43 @@ enum PinoPin {
 
     /// 지도 위에서는 흰 테두리만으로는 배경과 안 갈린다. **그림자를 깔아 띄운다.**
     private static func body(_ tint: Tint) -> some View {
-        PinoMascot(
-            pose: .plain,
-            tone: tint == .picked ? .picked : .onLight,
-            width: size.width * scale(tint),
-            isAlive: false
-        )
+        // 지도 핀 = 물방울 핀 안에 든 진도(jindo-pinbody). 고른 것은 색을 못
+        // 바꾸는 대신(그림이라) **빨간 테두리 물방울**을 뒤에 깔고 키운다.
+        ZStack {
+            if tint == .picked {
+                PinRing()
+                    .stroke(
+                        Color(red: 0.89, green: 0.16, blue: 0.20),
+                        style: .init(lineWidth: 4.5, lineJoin: .round)
+                    )
+                    .frame(
+                        width: size.width * scale(tint) * 0.72,
+                        height: size.height * scale(tint) * 0.98
+                    )
+            }
+            Image("jindo-pinbody")
+                .resizable()
+                .scaledToFit()
+                .frame(width: size.width * scale(tint))
+        }
         .shadow(color: .black.opacity(0.28), radius: 3, y: 2)
         // 그림자가 잘리지 않게 여백을 준다.
         .padding(4)
+    }
+}
+
+/// 물방울(핀) 외곽 — 고른 핀의 빨간 테. 그림 크기에 맞춰 그려야 해서
+/// `rect` 기준으로 만든다(옛 `PinoTeardrop` 은 좌표가 박혀 있어 못 쓴다).
+private struct PinRing: Shape {
+    func path(in rect: CGRect) -> Path {
+        let radius = rect.width / 2
+        let center = CGPoint(x: rect.midX, y: rect.minY + radius)
+        let bezier = UIBezierPath(
+            arcCenter: center, radius: radius,
+            startAngle: .pi * 0.75, endAngle: .pi * 0.25, clockwise: true
+        )
+        bezier.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        bezier.close()
+        return Path(bezier.cgPath)
     }
 }

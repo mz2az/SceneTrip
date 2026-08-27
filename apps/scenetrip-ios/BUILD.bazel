@@ -75,6 +75,9 @@ EOF""",
 swift_library(
     name = "scenetrip-ios",
     srcs = glob(["src/**/*.swift"]) + [":secrets_swift"],
+    # 마스코트 일러스트(진도 캐릭터 시트에서 오려 낸 6장). rules_apple 이
+    # xcassets 를 Assets.car 로 구워 번들에 넣는다.
+    data = glob(["resources/Images.xcassets/**"]),
     module_name = "SceneTrip",
     # "manual" 은 와일드카드(`//...`)에서만 뺀다 — :bin 을 통해서는 그대로 지어지므로
     # 검사 범위가 줄지 않는다.
