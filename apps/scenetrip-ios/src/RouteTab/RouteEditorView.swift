@@ -110,6 +110,16 @@ struct RouteEditorView: View {
         }
     }
 
+    /// 카드의 체크를 한 번 더 눌렀다 — **모든 일차에서** 뺀다. 담을 때와 같은
+    /// 열쇠로 지우므로, 담은 것과 다른 것이 지워질 일은 없다.
+    func removeGuidePlace(_ place: RouteGuide.Place) {
+        let key = RouteDedupe.key(place.asPlaceSummary)
+        for index in course.days.indices {
+            course.days[index].stops.removeAll { RouteDedupe.key($0.place) == key }
+        }
+        fitToken += 1
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             topBar
@@ -158,6 +168,7 @@ struct RouteEditorView: View {
                         guide.picked = nil // 담았으면 카드는 할 일을 다 했다
                     },
                     added: isAdded(picked),
+                    onRemove: { removeGuidePlace(picked) },
                     onClose: { guide.picked = nil }
                 )
                 .padding(.horizontal, 12)
@@ -190,7 +201,8 @@ struct RouteEditorView: View {
                 here: guideHere,
                 context: guideContext,
                 onAdd: { add([$0], pinned: true) },
-                isAdded: isAdded
+                isAdded: isAdded,
+                onRemove: removeGuidePlace
             )
         }
         .sheet(isPresented: $showSearch) {

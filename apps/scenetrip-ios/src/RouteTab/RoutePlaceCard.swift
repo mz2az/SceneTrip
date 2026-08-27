@@ -22,9 +22,13 @@ struct RoutePlaceCard: View {
     /// 바로 코스에 담는다(2026-08-27 사용자 지적: 시트의 ⊕ 까지 돌아가야 했다).
     var onAdd: (() -> Void)?
 
-    /// 이미 코스에 들어 있는가. 그러면 추가 단추 대신 **체크 표시**가 뜬다 —
-    /// 또 누르게 두면 같은 곳이 두 번 담긴다.
+    /// 이미 코스에 들어 있는가. 그러면 추가 단추가 **체크 표시**로 바뀐다 —
+    /// 두 번 담기지 않고, 그 상태에서 **한 번 더 누르면 경로에서 뺀다**
+    /// (2026-08-27 사용자 요청).
     var added = false
+
+    /// 「경로에서 빼기」. `added` 일 때 단추를 누르면 이것이 불린다.
+    var onRemove: (() -> Void)?
 
     /// 「여기로 길찾기」. **여행 중 화면에서만 준다** — 계획 화면에서는 갈아탈 경로
     /// 자체가 없다. 주면 버튼이 뜬다.
@@ -133,11 +137,11 @@ struct RoutePlaceCard: View {
         }
 
         if let onAdd {
-            Button(action: onAdd) {
+            Button(action: added ? (onRemove ?? {}) : onAdd) {
                 HStack(spacing: 6) {
                     Image(systemName: added ? "checkmark.circle.fill" : "plus.circle.fill")
                         .font(.caption)
-                    Text(added ? "경로에 있음" : "경로에 추가")
+                    Text(added ? "경로에 있음 · 누르면 빼기" : "경로에 추가")
                         .font(.subheadline.weight(.semibold))
                 }
                 .frame(maxWidth: .infinity)
@@ -149,7 +153,7 @@ struct RoutePlaceCard: View {
                 .foregroundStyle(added ? Color.secondary : Color.white)
             }
             .buttonStyle(.plain)
-            .disabled(added)
+            .disabled(added && onRemove == nil)
             .padding(.horizontal, 14).padding(.top, 12)
         }
 
