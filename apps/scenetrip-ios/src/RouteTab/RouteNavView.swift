@@ -195,7 +195,11 @@ struct RouteNavView: View {
         centerLat: Double, centerLng: Double, zoom: Double
     ) {
         ambientTask?.cancel()
-        guard zoom >= 13 else {
+        // 줌이 아니라 **화면의 실제 남북 폭**으로 거른다. 이 지도는 높이가
+        // 300pt 라 같은 동네를 봐도 줌 숫자가 낮게 나온다 — 줌 13 가드에 늘
+        // 걸려 주변 목록이 영영 비었다(2026-08-28 사용자 발견: 칩이 안 뜸).
+        _ = zoom
+        guard north - south <= 0.1 else { // 약 11 km — 이보다 넓으면 점이 먼지다
             ambientPois = []
             return
         }

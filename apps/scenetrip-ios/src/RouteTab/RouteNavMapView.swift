@@ -62,7 +62,12 @@ struct RouteNavMapView: UIViewRepresentable {
         view.showZoomControls = false
         view.showLocationButton = false
         view.mapView.logoAlign = .leftBottom
+        // 파문·주변 갱신이 카메라를 들어야 한다 — 파문이 처음 뜰 때가 아니라
+        // **지도를 만들 때** 등록한다. 안 그러면 위치를 받기 전까지 카메라
+        // 멈춤(idle)을 못 들어 주변 목록이 영영 안 온다.
+        view.mapView.addCameraDelegate(delegate: context.coordinator)
         context.coordinator.onTapPlace = onTapPlace
+        context.coordinator.onViewport = onViewport
         context.coordinator.render(stop: stop, dayStops: dayStops, goal: goal,
                                    guidePlaces: guidePlaces, picked: picked,
                                    here: here, legs: legs, on: view.mapView)
@@ -246,7 +251,6 @@ struct RouteNavMapView: UIViewRepresentable {
         private func showPulse(at spot: NMGLatLng, on mapView: NMFMapView) {
             host = mapView
             pulseAt = spot
-            mapView.addCameraDelegate(delegate: self)
 
             if pulse == nil {
                 let view = RadarPulse(tint: UIColor(Color.accentColor))
