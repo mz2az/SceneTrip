@@ -64,6 +64,10 @@ struct RouteEditorView: View {
 
     /// 지도에 보여 줄 편의시설 갈래. 기본은 전부 — 끄는 것은 사용자의 선택이다.
     @State var poiGroupsOn: Set<RoutePoiGroup> = Set(RoutePoiGroup.allCases)
+
+    /// 동선 최적화 단추가 **반짝여야 하는가.** 장소가 새로 담기면 켜진다 — 방금
+    /// 담긴 곳은 줄 맨 끝이라 순서가 대개 엉망이 된다. 한 번 최적화하면 꺼진다.
+    @State var optimizeNudge = false
     @State var stayTarget: RouteStop?
     @State var directionsTarget: RouteStop?
     @State var blockedDay: Int?
@@ -396,6 +400,10 @@ struct RouteEditorView: View {
         guard !fresh.isEmpty else { return }
         course.days[dayIndex].stops += fresh.map { RouteStop(place: $0, isPinned: pinned) }
         fitToken += 1
+        // 둘부터 순서라는 것이 생긴다 — 그때부터 최적화를 권한다.
+        if course.days[dayIndex].stops.count >= 2 {
+            optimizeNudge = true
+        }
     }
 
     /// 이 장소가 나온 작품. **서버가 코스 아이템에 안 실어 주므로** 촬영지 목록

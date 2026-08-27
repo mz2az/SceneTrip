@@ -245,11 +245,12 @@ extension RouteEditorView {
         HStack(spacing: 8) {
             // 동선 최적화는 **지금 보고 있는 일차 안에서만** 순서를 바꾼다.
             // 일차를 넘나들며 옮기면 사용자가 나눠 둔 하루가 무너진다.
-            action("동선 최적화", symbol: "arrow.triangle.swap") {
+            action("동선 최적화", symbol: "arrow.triangle.swap", highlight: optimizeNudge) {
                 course.days[dayIndex].stops = RouteGeometry.optimized(
                     stops, pinStart: pinStart, pinEnd: pinEnd
                 )
                 fitToken += 1
+                optimizeNudge = false // 권한 일을 했다 — 반짝임은 여기까지
             }
             // 장바구니를 거치지 않고 **여기서 바로** 찾아 담는다.
             action("검색", symbol: "magnifyingglass") { showSearch = true }
@@ -296,6 +297,7 @@ extension RouteEditorView {
     private func action(
         _ label: String,
         symbol: String,
+        highlight: Bool = false,
         run: @escaping () -> Void
     ) -> some View {
         Button(action: run) {
@@ -306,7 +308,43 @@ extension RouteEditorView {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
+            .modifier(ActionNudge(on: highlight))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// 눌러 달라고 **숨 쉬듯 반짝이는** 강조. 장소가 새로 담겨 순서가 낡았을 때
+/// 동선 최적화 단추에 씌운다 — 한 번 누르면 벗겨져 평소 회색으로 돌아간다.
+private struct ActionNudge: ViewModifier {
+    let on: Bool
+    @State private var glow = false
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.accentColor.opacity(on ? (glow ? 0.26 : 0.08) : 0))
+                    .allowsHitTesting(false)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(
+                        Color.accentColor.opacity(on ? (glow ? 0.9 : 0.35) : 0),
+                        lineWidth: 1.5
+                    )
+                    .allowsHitTesting(false)
+            )
+            .foregroundStyle(on ? Color.accentColor : Color.primary)
+            .onChange(of: on, initial: true) { _, now in
+                guard now else {
+                    glow = false
+                    return
+                }
+                glow = false
+                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
+                    glow = true
+                }
+            }
     }
 }
