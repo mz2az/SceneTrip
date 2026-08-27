@@ -119,9 +119,11 @@ struct PinoMascot: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             tail
+            torso
+            // 접힌 귀는 머리 **위에 얹힌다** — 세운 귀처럼 몸 뒤에 깔면 접힌
+            // 부분이 머리에 가려 그냥 민머리가 된다(아기 진돗개 사진 대조).
             ear(.left)
             ear(.right)
-            torso
             face
             prop
         }
@@ -155,33 +157,26 @@ struct PinoMascot: View {
     /// 귀는 몸통보다 **먼저** 그린다 — 밑동이 몸에 가려야 붙어 보인다.
     @ViewBuilder
     private func ear(_ side: Side) -> some View {
-        // **강아지 귀 — 끝이 앞으로 접혀 있다.** 성견의 쫑긋 귀 대신 어린
-        // 진돗개의 접힌 세모 귀를 골랐다(2026-08-28 사용자 결정 — 더 귀엽다).
-        // outer 가 세운 밑동, flap 이 앞으로 넘어온 끝, inner 가 접힌 면의 속살이다.
+        // **아기 진돗개의 귀는 서지 않는다.** 머리 위에 납작하게 접혀 끝이
+        // 바깥 아래로 처진다(2026-08-28 사용자 사진 대조 — 「아주 억울한 표정」).
+        // 밑변이 머리 위를 따라가고 꼭짓점이 바깥 아래로 늘어진 세모 한 장이다.
         let outer: [CGPoint] = side == .left
-            ? [.init(x: 26, y: 40), .init(x: 27, y: 7), .init(x: 55, y: 19)]
-            : [.init(x: 94, y: 40), .init(x: 93, y: 7), .init(x: 65, y: 19)]
-        let flap: [CGPoint] = side == .left
-            ? [.init(x: 27, y: 7), .init(x: 48, y: 13), .init(x: 38, y: 26)]
-            : [.init(x: 93, y: 7), .init(x: 72, y: 13), .init(x: 82, y: 26)]
+            ? [.init(x: 33, y: 7), .init(x: 54, y: 13), .init(x: 20, y: 28)]
+            : [.init(x: 87, y: 7), .init(x: 66, y: 13), .init(x: 100, y: 28)]
         let inner: [CGPoint] = side == .left
-            ? [.init(x: 31, y: 11), .init(x: 44, y: 14), .init(x: 38, y: 22)]
-            : [.init(x: 89, y: 11), .init(x: 76, y: 14), .init(x: 82, y: 22)]
+            ? [.init(x: 34, y: 12), .init(x: 46, y: 15), .init(x: 27, y: 23)]
+            : [.init(x: 86, y: 12), .init(x: 74, y: 15), .init(x: 93, y: 23)]
         let pivot = side == .left
-            ? UnitPoint(x: 34 / 120, y: 34 / 160)
-            : UnitPoint(x: 86 / 120, y: 34 / 160)
+            ? UnitPoint(x: 44 / 120, y: 9 / 160)
+            : UnitPoint(x: 76 / 120, y: 9 / 160)
 
         ZStack(alignment: .topLeading) {
             PinoTriangle(points: outer)
                 .fill(tone.gradient)
                 .overlay(PinoTriangle(points: outer).stroke(tone.stroke, style: .init(lineWidth: 3, lineJoin: .round)))
-            // 접힌 끝 — 밑동 위에 얹혀 귀가 꺾여 보이게 한다.
-            PinoTriangle(points: flap)
-                .fill(tone.gradient)
-                .overlay(PinoTriangle(points: flap).stroke(tone.stroke, style: .init(lineWidth: 2.5, lineJoin: .round)))
-            PinoTriangle(points: inner).fill(Pino.blush)
+            PinoTriangle(points: inner).fill(Pino.blush.opacity(0.7))
         }
-        .rotationEffect(.degrees(earTwitch ? (side == .left ? -7 : 5) : 0), anchor: pivot)
+        .rotationEffect(.degrees(earTwitch ? (side == .left ? -5 : 5) : 0), anchor: pivot)
     }
 
     /// 꼬리는 **소품 반대편**으로 간다.
@@ -223,12 +218,27 @@ struct PinoMascot: View {
             // 얼굴 배지 = 핀의 번호 배지. 같은 중심, 같은 반지름 비율.
             PinoDot(center: .init(x: 60, y: 52), radius: 31).fill(.white)
 
+            brows
             eyes
             noseAndMouth
             whiskers
 
             PinoDot(center: .init(x: 43.5, y: 58), radius: 4).fill(Pino.blush.opacity(0.55))
             PinoDot(center: .init(x: 76.5, y: 58), radius: 4).fill(Pino.blush.opacity(0.55))
+        }
+    }
+
+    /// **억울한 눈썹** — 안쪽 끝이 올라간 팔자. 아기 진돗개 표정의 절반은
+    /// 눈썹이 한다(웃는 눈의 sparkle 포즈에는 안 얹는다 — 웃는데 억울하면 이상하다).
+    @ViewBuilder
+    private var brows: some View {
+        if pose != .sparkle {
+            PinoCurve(from: .init(x: 41 + eyeShift, y: 40), control1: .init(x: 45 + eyeShift, y: 38),
+                      control2: .init(x: 49 + eyeShift, y: 36.5), end: .init(x: 53 + eyeShift, y: 36.5))
+                .stroke(Pino.whisker, style: .init(lineWidth: 2.2, lineCap: .round))
+            PinoCurve(from: .init(x: 79 + eyeShift, y: 40), control1: .init(x: 75 + eyeShift, y: 38),
+                      control2: .init(x: 71 + eyeShift, y: 36.5), end: .init(x: 67 + eyeShift, y: 36.5))
+                .stroke(Pino.whisker, style: .init(lineWidth: 2.2, lineCap: .round))
         }
     }
 
@@ -263,11 +273,12 @@ struct PinoMascot: View {
     @ViewBuilder
     private var noseAndMouth: some View {
         let nudge: CGFloat = pose == .paw ? 1.5 : 0
-        // 까맣고 둥근 개 코. 세모(고양이)에서 바뀐 자리다.
+        // 까맣고 **큰** 개 코 — 아기 진돗개는 얼굴에서 코가 제일 크다.
         PinoOval(
-            center: .init(x: 60 + nudge, y: 56.5),
-            radii: .init(width: 5, height: 3.8)
+            center: .init(x: 60 + nudge, y: 57.5),
+            radii: .init(width: 6.2, height: 4.6)
         ).fill(Pino.nose)
+        PinoDot(center: .init(x: 57.8 + nudge, y: 56), radius: 1.3).fill(.white.opacity(0.45))
 
         if pose == .speech {
             // 다문 미소. 말하는 중이라 입이 벌어져 있지 않다.
@@ -275,12 +286,12 @@ struct PinoMascot: View {
                       control2: .init(x: 64, y: 68), end: .init(x: 67, y: 62))
                 .stroke(Pino.eye, style: .init(lineWidth: 2, lineCap: .round))
         } else {
-            PinoCurve(from: .init(x: 60 + nudge, y: 60.3), control1: .init(x: 60 + nudge, y: 64.5),
-                      control2: .init(x: 56 + nudge, y: 66), end: .init(x: 53.6 + nudge, y: 63.2))
+            // 작고 **살짝 처진 입** — 억울함의 나머지 절반. 웃는 W 입은 버렸다.
+            PinoCurve(from: .init(x: 55.5 + nudge, y: 64.5), control1: .init(x: 58 + nudge, y: 66.5),
+                      control2: .init(x: 62 + nudge, y: 66.5), end: .init(x: 64.5 + nudge, y: 64.5))
                 .stroke(Pino.eye, style: .init(lineWidth: 1.8, lineCap: .round))
-            PinoCurve(from: .init(x: 60 + nudge, y: 60.3), control1: .init(x: 60 + nudge, y: 64.5),
-                      control2: .init(x: 64 + nudge, y: 66), end: .init(x: 66.4 + nudge, y: 63.2))
-                .stroke(Pino.eye, style: .init(lineWidth: 1.8, lineCap: .round))
+            PinoSegments(pairs: [(.init(x: 60 + nudge, y: 62.1), .init(x: 60 + nudge, y: 65.4))])
+                .stroke(Pino.eye, style: .init(lineWidth: 1.6, lineCap: .round))
         }
     }
 
