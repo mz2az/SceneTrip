@@ -72,11 +72,18 @@ struct RoutePlaceCard: View {
             // 맨 아래 큰 단추였는데 이름 옆 아이콘으로 줄였다 — 그 줄이 통째로
             // 빠져야 정보가 한 화면에 다 보인다(2026-08-27 사용자 지적).
             if let link = card?.naverUrl, let url = URL(string: link) {
+                // 아이콘만 두면 「더 보기」인지 아무도 모른다(2026-08-27 사용자
+                // 지적) — 원래 아래에 있던 단추를 글자째 줄인 미니 캡슐이다.
                 Link(destination: url) {
-                    Image(systemName: "arrow.up.right.square.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color(red: 0.02, green: 0.68, blue: 0.31))
-                        .frame(width: 30, height: 30)
+                    HStack(spacing: 3) {
+                        Text("네이버 더보기").font(.caption2.weight(.semibold))
+                        Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .semibold))
+                    }
+                    .padding(.horizontal, 8).padding(.vertical, 5)
+                    .background(
+                        Capsule().fill(Color(red: 0.02, green: 0.78, blue: 0.35).opacity(0.12))
+                    )
+                    .foregroundStyle(Color(red: 0.02, green: 0.60, blue: 0.28))
                 }
             }
             Button(action: onClose) {
