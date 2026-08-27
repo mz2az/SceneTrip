@@ -168,10 +168,15 @@ struct RouteNavMapView: UIViewRepresentable {
             goal.mapView = mapView
             markers.append(goal)
 
-            // 코스의 다른 곳들 — **번호 핀 그대로.** 지금 가는 곳(피노)과 갈아탄
-            // 목적지는 뺀다. 시간이 남아 딴 데를 들러도 「다음이 몇 번인가」가
+            // 코스의 다른 곳들 — **번호 핀 그대로.** 지금 가는 곳은 피노가 서
+            // 있으니 번호를 겹쳐 그리지 않는다. 단 **갈아탔을 때는 예외다** —
+            // 피노가 음식점으로 옮겨 가면 원래 목적지가 고양이도 번호도 아닌
+            // 상태가 되어 지도에서 사라졌다(2026-08-28 사용자 발견: 경복궁으로
+            // 가다 음식점을 끼워 넣으니 3번 핀이 증발). 들렀다가 이어 갈 곳이
             // 지도에 남아 있어야 여정이 이어진다.
-            for (index, dayStop) in dayStops.enumerated() where dayStop.id != stop.id {
+            for (index, dayStop) in dayStops.enumerated()
+                where !(goal == nil && dayStop.id == stop.id)
+            {
                 let marker = NMFMarker(position: NMGLatLng(
                     lat: dayStop.place.latitude, lng: dayStop.place.longitude
                 ))
