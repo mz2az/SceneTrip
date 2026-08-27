@@ -49,8 +49,9 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 
 `src/RouteTab/` 은 2026-08-11 스프린트 회의에서 확정된 화면이다. **서버에 저장된다** —
 `RouteStore` 가 `CoursesAPI`(코스)·`PlacesAPI`(장소)·`ContentsAPI`(작품)를 실제로 부른다.
-목 데이터로 돌던 것은 2026-08-22 전후로 걷어냈다 — 남은 목은 반경 POI 하나뿐이다
-(`RouteNavMock.swift` 머리말 참고 — `/pois` 읽기 API 가 아직 없어서다, MZ2AZ-278·279).
+목 데이터로 돌던 것은 2026-08-22 전후로 걷어냈고, 반경 POI 목도 2026-08-27 에 지웠다 —
+편의시설은 이제 챗봇(`RouteGuide`)이 찾아 준다. 우리 서버의 `/pois` 가 서면
+(MZ2AZ-283·284) 그쪽으로 갈아탄다.
 
 | 파일 | 하는 일 |
 | --- | --- |
@@ -62,7 +63,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | `RouteGeometry`(`RouteModels.swift` 안) | 동선 최적화 — 최근접 이웃·2-opt·완전탐색(≤8곳) 세 방법 중 가장 짧은 것. 출발·도착 고정은 각각 선택이다 |
 | `RouteMapView.swift` | 코스용 지도 — 번호 핀, 계획 단계는 **직선**만(예상 시간 표시 안 함) |
 | `KakaoTransit.swift` | 여행 중 「길찾기」 — 카카오 대중교통·도보(2026-08-24 도보도 카카오로 통일). **MVP1 동안 앱이 직접 부른다**, 백엔드 자리는 MZ2AZ-233 |
-| `RouteNavView.swift` · `RouteNavMapView.swift` · `RouteNavModels.swift` · `RouteNavMock.swift` | 「길찾기」 결과 화면 — 실제 경로(도보=점선, 대중교통=실선) + 반경 POI(목) + 챗봇 진입 |
+| `RouteNavView.swift` · `RouteNavMapView.swift` · `RouteNavModels.swift` · `RoutePoiTone.swift` | 「길찾기」 결과 화면 — 실제 경로(도보=점선, 대중교통=실선) + 가이드 추천 핀 + 챗봇 진입 |
 | `RouteBridge.swift` | 계약 타입(`CourseDetail` 등) ↔ 화면 타입(`RouteCourse` 등) 번역. 화면이 계약 타입을 직접 만지지 않는다 |
 | `RouteMarketView.swift` | 「인기 코스」 — 이름·정렬 기준 미확정. 목록은 여전히 지어낸 것이나 **속 장소는 서버의 진짜 장소**라 담기가 실제로 동작한다 |
 | `RouteModels.swift` · `RouteStore.swift` · `RouteMockData.swift` | 값 타입, 서버 연동 상태, (검색 탭 장바구니 예시 등) 남은 목 데이터 |
@@ -85,7 +86,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
   동선 최적화(직선거리)에 맡겨 두고 있다.
 - 「인기 코스」의 이름·정렬 기준, 그리고 진짜 코스 공유 API(MZ2AZ-232, 아직 백엔드 티켓
   없음 — 2026-08-24 결정: 당장은 만들지 않는다).
-- 반경 POI 는 지어낸 값이다. `/pois` 계약·구현(MZ2AZ-278·279)이 서면 걷어낸다.
+- 편의시설 조회는 프로토타입 서버를 빌려 쓴다. `/pois` 계약·구현(MZ2AZ-283·284)이 서면 갈아탄다.
 
 ## 최근 작업 로그
 
@@ -136,8 +137,8 @@ diff 를 먼저 확인할 것.
   (`RouteGeometry.optimized(pinStart:pinEnd:)`, 테스트 4개 추가로 총 11개).
 - 반경 POI(뚝섬역 등)가 **위치와 무관하게 늘 같은 자리**에 찍히는 문제를 확인했다 —
   `RouteNavMock.pois` 가 지어낸 고정값이라서다. 코드는 그대로 두고(고칠 방법이 API
-  없이는 없다), 필요한 API 두 건(MZ2AZ-278·279, `/pois` 계약과 구현)을 찾아 정권호에게
-  배당했다.
+  없이는 없다), 필요한 API 두 건(`/pois` 계약과 구현)을 찾아 정권호에게
+  배당했다. 그 티켓들은 8/27 지라 재편 때 MZ2AZ-283·284 로 다시 만들어졌다.
 - 길찾기 백엔드 티켓(MZ2AZ-233)도 정권호에게 배당하고, 8/11 판의 "T맵 종량제" 서술이
   낡았음을 댓글로 남겼다.
 - **도보 엔진을 T맵에서 카카오로 통일했다** — `TmapWalk.swift` 삭제, `KakaoTransit.swift`

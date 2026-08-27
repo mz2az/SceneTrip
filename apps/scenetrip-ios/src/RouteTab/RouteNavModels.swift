@@ -93,7 +93,7 @@ struct RouteNavResult {
 // MARK: - 주변 편의시설
 
 /// 편의시설의 갈래. **DB 의 `poi.category_group` 과 같은 값이어야 한다**
-/// (`V12__poi.sql`, MZ2AZ-276). 서버가 이 문자열을 그대로 내려준다.
+/// (`V12__poi.sql`, MZ2AZ-283). 서버가 이 문자열을 그대로 내려준다.
 enum RoutePoiGroup: String, CaseIterable, Identifiable {
     case food
     case sight

@@ -288,7 +288,7 @@ extension RouteGuide.Place {
     ///
     /// **촬영지가 아니라 편의시설이다.** 우리 `place` 표에 없으므로 서버에 `placeId`
     /// 로 보낼 수 없다 — 지도에 직접 찍은 핀과 같은 길로 들어간다(음수 id).
-    /// `/pois` 계약이 서면(MZ2AZ-278) `poiId` 로 제대로 보낼 수 있다.
+    /// `/pois` 계약이 서면(MZ2AZ-284) `poiId` 로 제대로 보낼 수 있다.
     var asPlaceSummary: PlaceSummary {
         RouteMock.pinnedPlace(
             name: name,
