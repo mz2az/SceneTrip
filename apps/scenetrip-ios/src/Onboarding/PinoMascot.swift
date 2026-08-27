@@ -155,13 +155,18 @@ struct PinoMascot: View {
     /// 귀는 몸통보다 **먼저** 그린다 — 밑동이 몸에 가려야 붙어 보인다.
     @ViewBuilder
     private func ear(_ side: Side) -> some View {
-        // 진돗개의 귀는 고양이보다 **크고 곧게 선다** — 실루엣의 절반이 귀다.
+        // **강아지 귀 — 끝이 앞으로 접혀 있다.** 성견의 쫑긋 귀 대신 어린
+        // 진돗개의 접힌 세모 귀를 골랐다(2026-08-28 사용자 결정 — 더 귀엽다).
+        // outer 가 세운 밑동, flap 이 앞으로 넘어온 끝, inner 가 접힌 면의 속살이다.
         let outer: [CGPoint] = side == .left
-            ? [.init(x: 26, y: 41), .init(x: 24, y: 0), .init(x: 56, y: 19)]
-            : [.init(x: 94, y: 41), .init(x: 96, y: 0), .init(x: 64, y: 19)]
+            ? [.init(x: 26, y: 40), .init(x: 27, y: 7), .init(x: 55, y: 19)]
+            : [.init(x: 94, y: 40), .init(x: 93, y: 7), .init(x: 65, y: 19)]
+        let flap: [CGPoint] = side == .left
+            ? [.init(x: 27, y: 7), .init(x: 48, y: 13), .init(x: 38, y: 26)]
+            : [.init(x: 93, y: 7), .init(x: 72, y: 13), .init(x: 82, y: 26)]
         let inner: [CGPoint] = side == .left
-            ? [.init(x: 32, y: 34), .init(x: 31, y: 11), .init(x: 48, y: 22)]
-            : [.init(x: 88, y: 34), .init(x: 89, y: 11), .init(x: 72, y: 22)]
+            ? [.init(x: 31, y: 11), .init(x: 44, y: 14), .init(x: 38, y: 22)]
+            : [.init(x: 89, y: 11), .init(x: 76, y: 14), .init(x: 82, y: 22)]
         let pivot = side == .left
             ? UnitPoint(x: 34 / 120, y: 34 / 160)
             : UnitPoint(x: 86 / 120, y: 34 / 160)
@@ -170,6 +175,10 @@ struct PinoMascot: View {
             PinoTriangle(points: outer)
                 .fill(tone.gradient)
                 .overlay(PinoTriangle(points: outer).stroke(tone.stroke, style: .init(lineWidth: 3, lineJoin: .round)))
+            // 접힌 끝 — 밑동 위에 얹혀 귀가 꺾여 보이게 한다.
+            PinoTriangle(points: flap)
+                .fill(tone.gradient)
+                .overlay(PinoTriangle(points: flap).stroke(tone.stroke, style: .init(lineWidth: 2.5, lineJoin: .round)))
             PinoTriangle(points: inner).fill(Pino.blush)
         }
         .rotationEffect(.degrees(earTwitch ? (side == .left ? -7 : 5) : 0), anchor: pivot)
