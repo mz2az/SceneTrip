@@ -1,134 +1,196 @@
 import SceneApiClient
 import SwiftUI
 
-/// 커뮤니티 — **임시판** (2026-08-28).
+/// 커뮤니티 — **게시판 임시판** (2026-08-28, 2차).
 ///
-/// 커뮤니티 기획(후기·사진·댓글)은 아직 없다. 그런데 이미 있는 진짜 공유물이
-/// 하나 있다 — **코스 마켓**(여행자들이 올린 코스, 실서버). 임시판은 그것을
-/// 피드로 보여 주고, 없는 것(후기·사진)은 「준비 중」으로 정직하게 적는다.
+/// 1차는 마켓 피드만 보여 줬는데 방향이 잡혔다 — *"디씨인사이드같은? 혹은 카페
+/// 같은"* **말머리가 있는 게시판**이다. 글의 갈래(코스 추천·장소 후기·인증샷·자유)를
+/// 칩으로 고르고, 글을 쓰고, 내 코스를 첨부한다.
 ///
-/// 담기는 경로여정 탭의 마켓이 맡는다 — 같은 기능을 두 군데 두면 어느 쪽이
-/// 진짜인지 흐려진다. 여기는 **구경과 좋아요**까지다.
+/// ## 지어낸 글은 없다
+///
+/// 게시판 서버가 아직 없어서 남의 글을 만들어 낼 방법이 없다 — 만들어 내면 안 된다.
+/// 그래서 이 판의 글은 둘뿐이다: **내가 쓴 글**(기기 저장, `CommunityStore`)과
+/// **마켓에 올라온 코스**(실서버 — 이것이 지금 있는 유일한 「남의 게시물」이다).
+/// 사진 첨부·댓글은 서버와 함께 온다 — 글쓰기 화면이 그렇게 말한다.
 struct CommunityTabView: View {
-    @State private var courses: [MarketCourseSummary] = []
-    @State private var loaded = false
-    @State private var notice: String?
+    @StateObject private var store = CommunityStore()
+
+    /// nil = 전체.
+    @State private var board: CommunityPost.Board?
+    @State private var composing = false
+    @State private var marketCourses: [MarketCourseSummary] = []
 
     private let deviceId = InstallIdentity.current
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Text("여행자들이 올린 코스를 구경하는 자리입니다. 후기·사진은 준비 중이에요.")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
-                }
-
-                Section("여행자들의 코스") {
-                    if !loaded {
-                        HStack(spacing: 8) {
-                            ProgressView().controlSize(.small)
-                            Text("불러오는 중입니다").font(.caption).foregroundStyle(.secondary)
-                        }
-                    } else if courses.isEmpty {
-                        Text("아직 올라온 코스가 없습니다")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    ForEach(courses, id: \.id) { course in
-                        card(course)
-                    }
-                }
-
-                Section("준비 중") {
-                    HStack(spacing: 12) {
-                        Image(systemName: "camera").foregroundStyle(.gray).frame(width: 26)
-                        Text("성지 인증샷 · 여행 후기").font(.subheadline)
-                        Spacer()
-                        Text("준비 중").font(.subheadline).foregroundStyle(.tertiary)
-                    }
-                    .foregroundStyle(.tertiary)
-                }
+            VStack(spacing: 0) {
+                boardChips
+                Divider()
+                postList
             }
             .navigationTitle("커뮤니티")
             .navigationBarTitleDisplayMode(.inline)
-            .task { await refresh() }
-            .refreshable { await refresh() }
-            .overlay(alignment: .bottom) {
-                if let notice {
-                    Text(notice)
-                        .font(.caption)
-                        .padding(.horizontal, 14).padding(.vertical, 8)
-                        .background(Capsule().fill(.thinMaterial))
-                        .padding(.bottom, 12)
-                        .task {
-                            try? await Task.sleep(for: .seconds(2.5))
-                            self.notice = nil
-                        }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        composing = true
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                    }
+                }
+            }
+            .task {
+                if let list = try? await MarketAPI.listMarketCourses(
+                    xDeviceId: deviceId, sort: .likes, limit: 30
+                ) {
+                    marketCourses = list.items
+                }
+            }
+            .sheet(isPresented: $composing) {
+                CommunityComposeView { newBoard, title, body, courseTitle in
+                    store.add(
+                        board: newBoard, title: title, body: body, courseTitle: courseTitle
+                    )
                 }
             }
         }
     }
 
-    private func card(_ course: MarketCourseSummary) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(course.title).font(.subheadline.weight(.semibold))
-                    Text("\(course.dayCount)일 · \(course.placeCount)곳")
-                        .font(.caption).foregroundStyle(.secondary)
+    // MARK: 말머리
+
+    private var boardChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                boardChip(nil, label: "전체")
+                ForEach(CommunityPost.Board.allCases) { item in
+                    boardChip(item, label: item.rawValue)
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 8)
+        }
+        .background(Color(.systemBackground))
+    }
+
+    private func boardChip(_ value: CommunityPost.Board?, label: String) -> some View {
+        let isOn = board == value
+        return Button {
+            board = value
+        } label: {
+            Text(label)
+                .font(.caption.weight(isOn ? .semibold : .regular))
+                .padding(.horizontal, 11).padding(.vertical, 6)
+                .background(
+                    Capsule().fill(isOn ? Color.accentColor.opacity(0.14) : Color(.systemGray6))
+                )
+                .overlay(
+                    Capsule().strokeBorder(
+                        isOn ? Color.accentColor.opacity(0.5) : .clear, lineWidth: 1
+                    )
+                )
+                .foregroundStyle(isOn ? Color.primary : Color.secondary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: 글 목록
+
+    private var minePosts: [CommunityPost] {
+        board == nil ? store.posts : store.posts.filter { $0.board == board }
+    }
+
+    private var showsMarket: Bool {
+        board == nil || board == .course
+    }
+
+    private var postList: some View {
+        List {
+            if minePosts.isEmpty, !(showsMarket && !marketCourses.isEmpty) {
+                ContentUnavailableView {
+                    Label("아직 글이 없습니다", systemImage: "bubble.left.and.bubble.right")
+                } description: {
+                    Text("첫 글을 남겨 보세요. 다른 여행자의 글은 서버가 열리면 보입니다.")
+                }
+                .listRowBackground(Color.clear)
+            }
+
+            ForEach(minePosts) { post in
+                myPostRow(post)
+            }
+
+            // 마켓의 코스가 「코스 추천」 게시물이다 — 지금 있는 유일한 남의 글.
+            if showsMarket {
+                ForEach(marketCourses, id: \.id) { course in
+                    marketRow(course)
+                }
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    private func myPostRow(_ post: CommunityPost) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                badge(post.board.rawValue, tint: .accentColor)
+                Text(post.title).font(.subheadline.weight(.semibold)).lineLimit(1)
+            }
+            if !post.body.isEmpty {
+                Text(post.body)
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            }
+            HStack(spacing: 8) {
+                Text("나").font(.caption2).foregroundStyle(.tertiary)
+                Text(post.createdAt.formatted(.relative(presentation: .named)))
+                    .font(.caption2).foregroundStyle(.tertiary)
+                if let courseTitle = post.courseTitle {
+                    Label(courseTitle, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                        .font(.caption2).foregroundStyle(Color(PinImage.deep))
+                        .lineLimit(1)
                 }
                 Spacer()
-                Button {
-                    Task { await toggleLike(course) }
-                } label: {
-                    HStack(spacing: 3) {
-                        Image(systemName: course.liked ? "heart.fill" : "heart")
-                            .foregroundStyle(course.liked ? .red : .secondary)
-                        Text("\(course.likeCount)")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                .buttonStyle(.plain)
             }
-            if let tags = course.contents, !tags.isEmpty {
-                Text(tags.map(\.title).prefix(3).joined(separator: " · "))
-                    .font(.caption2).foregroundStyle(Color.accentColor)
+        }
+        .padding(.vertical, 4)
+        .swipeActions {
+            Button(role: .destructive) {
+                store.remove(post)
+            } label: {
+                Label("지우기", systemImage: "trash")
             }
+        }
+    }
+
+    private func marketRow(_ course: MarketCourseSummary) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                badge("코스 추천", tint: Color(PinImage.deep))
+                Text(course.title).font(.subheadline.weight(.semibold)).lineLimit(1)
+            }
+            Text("\(course.dayCount)일 · \(course.placeCount)곳"
+                + ((course.contents?.isEmpty == false)
+                    ? " · " + course.contents!.map(\.title).prefix(2).joined(separator: " · ")
+                    : ""))
+                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             HStack(spacing: 10) {
-                Label("\(course.saveCount)명이 담음", systemImage: "square.and.arrow.down")
+                Text("여행자").font(.caption2).foregroundStyle(.tertiary)
+                Label("\(course.likeCount)", systemImage: "heart")
+                    .font(.caption2).foregroundStyle(.tertiary)
+                Label("\(course.saveCount)", systemImage: "square.and.arrow.down")
                     .font(.caption2).foregroundStyle(.tertiary)
                 Spacer()
                 Text("담기는 경로여정 탭에서")
                     .font(.caption2).foregroundStyle(.tertiary)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
 
-    private func refresh() async {
-        // 좋아요 순 — 커뮤니티는 「무엇이 사랑받나」를 보는 자리다. 마켓 화면
-        // (담김 순)과 정렬을 달리해 같은 목록의 다른 얼굴을 보여 준다.
-        if let list = try? await MarketAPI.listMarketCourses(
-            xDeviceId: deviceId, sort: .likes, limit: 30
-        ) {
-            courses = list.items
-        }
-        loaded = true
-    }
-
-    private func toggleLike(_ course: MarketCourseSummary) async {
-        do {
-            if course.liked {
-                try await MarketAPI.unlikeMarketCourse(xDeviceId: deviceId, marketCourseId: course.id)
-            } else {
-                try await MarketAPI.likeMarketCourse(xDeviceId: deviceId, marketCourseId: course.id)
-            }
-            await refresh()
-        } catch {
-            // 비회원은 서버가 401 로 막는다(계약 SignInRequired). 왜 안 되는지 말한다.
-            notice = "좋아요는 로그인이 생기면 쓸 수 있어요"
-        }
+    private func badge(_ text: String, tint: Color) -> some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(RoundedRectangle(cornerRadius: 5).fill(tint.opacity(0.13)))
+            .foregroundStyle(tint)
     }
 }

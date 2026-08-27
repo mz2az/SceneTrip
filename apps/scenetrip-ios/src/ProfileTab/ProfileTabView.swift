@@ -13,9 +13,13 @@ import SwiftUI
 struct ProfileTabView: View {
     @StateObject private var likes = LikeStore()
 
+    @State private var courses: [CourseSummary] = []
     @State private var courseCount: Int?
-    @State private var runningTitle: String?
+    @State private var likedWorks: [ContentSummary] = []
     @State private var replaying = false
+    @State private var showingReels = false
+    @State private var showingCourses = false
+    @State private var showingLikes = false
 
     private let deviceId = InstallIdentity.current
 
@@ -29,15 +33,56 @@ struct ProfileTabView: View {
                 }
 
                 Section("내 여행") {
-                    row(symbol: "point.topleft.down.to.point.bottomright.curvepath",
-                        tint: Color(PinImage.deep), title: "내 코스",
-                        value: courseCount.map { "\($0)개" } ?? "…")
-                    if let runningTitle {
-                        row(symbol: "figure.walk", tint: .green,
-                            title: "여행 중", value: runningTitle)
+                    // 누르면 목록이 바로 뜬다 — 숫자만 보여 주고 끝나면 「그래서
+                    // 뭐가 있는데」를 경로여정 탭까지 가서 확인해야 한다.
+                    Button {
+                        showingCourses = true
+                    } label: {
+                        row(symbol: "point.topleft.down.to.point.bottomright.curvepath",
+                            tint: Color(PinImage.deep), title: "내 코스",
+                            value: courseCount.map { "\($0)개" } ?? "…", chevron: true)
                     }
-                    row(symbol: "heart.fill", tint: .red, title: "찜한 작품",
-                        value: "\(likes.contentIds.count)개")
+                    .buttonStyle(.plain)
+                    Button {
+                        showingLikes = true
+                    } label: {
+                        row(symbol: "heart.fill", tint: .red, title: "찜한 작품",
+                            value: "\(likes.contentIds.count)개", chevron: true)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Section("AI 여행 릴스") {
+                    // 다녀온 코스와 사진으로 릴스를 자동으로 만들어 주는 기능의
+                    // **자리**다(2026-08-28 아이디어). 눌리면 무엇이 올지 보여
+                    // 준다 — 눌리는데 아무 일도 없는 단추가 제일 나쁘다.
+                    Button {
+                        showingReels = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "sparkles.rectangle.stack")
+                                .font(.system(size: 15))
+                                .foregroundStyle(.white)
+                                .frame(width: 26, height: 26)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6).fill(
+                                        LinearGradient(
+                                            colors: [Color(PinImage.light), Color(PinImage.deep)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                )
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("내 여행으로 릴스 만들기").font(.subheadline)
+                                Text("다녀온 코스와 사진을 AI 가 15초 영상으로")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text("곧").font(.caption).foregroundStyle(.tertiary)
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 Section("도움") {
@@ -77,6 +122,18 @@ struct ProfileTabView: View {
             .fullScreenCover(isPresented: $replaying) {
                 OnboardingView { replaying = false }
             }
+            .sheet(isPresented: $showingReels) {
+                ReelsTeaserView()
+                    .presentationDetents([.medium])
+            }
+            .sheet(isPresented: $showingCourses) {
+                MyCoursesSheet(courses: courses)
+                    .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showingLikes) {
+                LikedWorksSheet(works: likedWorks)
+                    .presentationDetents([.medium, .large])
+            }
         }
     }
 
@@ -94,7 +151,7 @@ struct ProfileTabView: View {
     }
 
     private func row(
-        symbol: String, tint: Color, title: String, value: String
+        symbol: String, tint: Color, title: String, value: String, chevron: Bool = false
     ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
@@ -104,13 +161,23 @@ struct ProfileTabView: View {
             Text(title).font(.subheadline)
             Spacer()
             Text(value).font(.subheadline).foregroundStyle(.secondary)
+            if chevron {
+                Image(systemName: "chevron.right")
+                    .font(.caption2).foregroundStyle(.tertiary)
+            }
         }
+        .contentShape(.rect)
     }
 
     private func load() async {
         // 실패하면 …로 남는다 — 마이페이지가 서버 때문에 죽으면 안 된다.
-        guard let list = try? await CoursesAPI.listCourses(xDeviceId: deviceId) else { return }
-        courseCount = list.items.count
-        runningTitle = list.items.first { $0.status == .active }?.title
+        if let list = try? await CoursesAPI.listCourses(xDeviceId: deviceId) {
+            courses = list.items
+            courseCount = list.items.count
+        }
+        // 찜은 id 만 기기에 있다 — 제목·포스터는 작품 목록에서 되짚는다.
+        if let works = try? await ContentsAPI.listContents(limit: 100).items {
+            likedWorks = works.filter { likes.contentIds.contains($0.id) }
+        }
     }
 }
