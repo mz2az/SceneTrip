@@ -56,10 +56,26 @@ struct RoutePlaceCard: View {
                 missing
             }
         }
+        // **흰 시트 위에서도 카드가 구별돼야 한다**(2026-08-28 사용자 지적 — 흰색
+        // 위 흰색이라 경계가 안 보였다). 가이드가 주는 정보라 말풍선과 같은
+        // 피노 연보라를 옅게 깔고 보라 테두리를 두른다.
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(PinImage.light).opacity(0.16),
+                            Color(PinImage.deep).opacity(0.07),
+                        ],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                )
+                .background(RoundedRectangle(cornerRadius: 16).fill(Color(.systemBackground)))
+                .shadow(color: .black.opacity(0.22), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color(PinImage.light).opacity(0.5), lineWidth: 1)
         )
         // **핀을 갈아탈 때마다 다시 받는다.** `.task {}` 로만 두면 SwiftUI 가 뷰를
         // 재사용할 때 한 번만 돌아서, 다른 고양이를 눌러도 앞 가게 정보가 그대로
