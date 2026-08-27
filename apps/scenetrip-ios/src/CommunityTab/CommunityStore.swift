@@ -32,6 +32,10 @@ struct CommunityPost: Identifiable, Codable {
 
 @MainActor
 final class CommunityStore: ObservableObject {
+    /// **앱에 하나뿐이다** — 커뮤니티에서 쓴 글이 마이페이지의 「내가 쓴 글」에
+    /// 바로 보여야 한다(`LikeStore.shared` 와 같은 이유).
+    static let shared = CommunityStore()
+
     @Published private(set) var posts: [CommunityPost] = []
 
     private let key = "scenetrip.communityPosts"

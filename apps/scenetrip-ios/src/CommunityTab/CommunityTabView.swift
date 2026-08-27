@@ -14,7 +14,7 @@ import SwiftUI
 /// **마켓에 올라온 코스**(실서버 — 이것이 지금 있는 유일한 「남의 게시물」이다).
 /// 사진 첨부·댓글은 서버와 함께 온다 — 글쓰기 화면이 그렇게 말한다.
 struct CommunityTabView: View {
-    @StateObject private var store = CommunityStore()
+    @ObservedObject private var store = CommunityStore.shared
 
     /// nil = 전체.
     @State private var board: CommunityPost.Board?

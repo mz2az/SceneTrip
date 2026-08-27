@@ -124,3 +124,63 @@ struct ProfileCartSheet: View {
         }
     }
 }
+
+/// 내가 쓴 글 (2026-08-28). 커뮤니티의 기기 저장 글을 마이페이지에서 되짚는다 —
+/// 누르면 커뮤니티와 **같은 전문 화면**이 열린다. 지우기도 여기서 된다(같은 저장소).
+struct MyPostsSheet: View {
+    @ObservedObject private var store = CommunityStore.shared
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var reading: CommunityPost?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ProfileSheetHeader(title: "내가 쓴 글") { dismiss() }
+            if store.posts.isEmpty {
+                ContentUnavailableView(
+                    "아직 쓴 글이 없습니다",
+                    systemImage: "square.and.pencil",
+                    description: Text("커뮤니티 탭에서 첫 글을 남겨 보세요")
+                )
+            } else {
+                List(store.posts) { post in
+                    Button {
+                        reading = post
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text(post.board.rawValue)
+                                    .font(.caption2.weight(.semibold))
+                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 5)
+                                            .fill(Color.accentColor.opacity(0.13))
+                                    )
+                                    .foregroundStyle(Color.accentColor)
+                                Text(post.title)
+                                    .font(.subheadline.weight(.medium)).lineLimit(1)
+                            }
+                            Text(post.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                .font(.caption2).foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 2)
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .swipeActions {
+                        Button(role: .destructive) {
+                            store.remove(post)
+                        } label: {
+                            Label("지우기", systemImage: "trash")
+                        }
+                    }
+                }
+                .listStyle(.plain)
+            }
+        }
+        .sheet(item: $reading) { post in
+            CommunityPostView(post: post)
+        }
+    }
+}

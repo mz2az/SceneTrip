@@ -36,6 +36,10 @@ struct ProfileTabView: View {
 
     private let deviceId = InstallIdentity.current
 
+    /// 커뮤니티에 쓴 글 — 기기 저장소를 마이페이지가 같이 본다.
+    @ObservedObject private var posts = CommunityStore.shared
+    @State private var showingPosts = false
+
     /// 뒷문은 프로세스당 한 번. 화면 상태가 아니라 **프로세스 상태**라 static 이다.
     private static var likesBackdoorUsed = false
 
@@ -78,6 +82,13 @@ struct ProfileTabView: View {
                     } label: {
                         row(symbol: "checkmark.seal.fill", tint: Color(PinImage.deep),
                             title: "방문 스탬프", value: "\(stamps.count)개", chevron: true)
+                    }
+                    .buttonStyle(.plain)
+                    Button {
+                        showingPosts = true
+                    } label: {
+                        row(symbol: "square.and.pencil", tint: .indigo, title: "내가 쓴 글",
+                            value: "\(posts.posts.count)개", chevron: true)
                     }
                     .buttonStyle(.plain)
                 }
@@ -182,6 +193,10 @@ struct ProfileTabView: View {
             }
             .sheet(isPresented: $showingStamps) {
                 StampsSheet(stamps: stamps)
+                    .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showingPosts) {
+                MyPostsSheet()
                     .presentationDetents([.medium, .large])
             }
         }
