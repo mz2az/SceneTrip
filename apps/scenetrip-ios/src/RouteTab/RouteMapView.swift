@@ -86,6 +86,8 @@ struct RouteMapView: UIViewRepresentable {
         view.showLocationButton = false
         view.mapView.logoAlign = .leftBottom
         view.mapView.touchDelegate = context.coordinator
+        // 파문(내 위치)이 카메라를 따라다니려면 움직임을 들어야 한다.
+        view.mapView.addCameraDelegate(delegate: context.coordinator)
         context.coordinator.render(stops: stops, pending: pending, on: view.mapView)
         return view
     }
@@ -111,24 +113,28 @@ struct RouteMapView: UIViewRepresentable {
     /// 지도를 그리는 일은 전부 메인 스레드에서 일어난다(UIKit 규칙). 명시해 두면
     /// 피노 핀처럼 SwiftUI 를 굽는 것도 여기서 그대로 부를 수 있다.
     @MainActor
-    final class Coordinator: NSObject, NMFMapViewTouchDelegate, CLLocationManagerDelegate {
+    final class Coordinator: NSObject, NMFMapViewTouchDelegate {
         var onTapMap: (RoutePin) -> Void
         var pinning = false
 
-        private var markers: [NMFMarker] = []
+        var markers: [NMFMarker] = []
         private var path: NMFPath?
         private var pendingMarker: NMFMarker?
         private var lastKey = ""
         private var lastFitToken = -1
 
-        private let locationManager = CLLocationManager()
-        private weak var mapForLocate: NMFMapView?
+        let locationManager = CLLocationManager()
+        weak var mapForLocate: NMFMapView?
         /// 권한을 물어보고 대답을 기다리는 중인가.
-        private var awaitingAuthorization = false
+        var awaitingAuthorization = false
 
         /// 마지막으로 받은 내 자리. 「나와 그곳을 같이 보여 준다」에 쓴다.
-        private var here: NMGLatLng?
-        private var showingMe = false
+        var here: NMGLatLng?
+        /// 내 위치의 레이더 파문. 여행 중 화면과 같은 방식 — `RadarPulse` 머리말 참고.
+        var pulse: RadarPulse?
+        /// 내 자리와 겹쳐서 키워 둔 핀. 겹침이 풀리면 원래 크기로 되돌린다.
+        var grown: NMFMarker?
+        var showingMe = false
         /// 이미 카메라를 옮긴 조합. 같은 것을 두 번 옮기지 않는다 — SwiftUI 가 뷰를
         /// 다시 그릴 때마다 지도가 튀면 손으로 옮긴 화면이 계속 되돌아간다.
         private var lastCameraKey = ""
@@ -175,7 +181,7 @@ struct RouteMapView: UIViewRepresentable {
                 if showingMe {
                     startLocating(on: mapView)
                 } else {
-                    stopLocating(on: mapView)
+                    stopLocating()
                 }
             }
 
@@ -190,9 +196,11 @@ struct RouteMapView: UIViewRepresentable {
             let contentChanged = key != lastKey
             if contentChanged {
                 lastKey = key
+                grown = nil // 마커를 새로 그리므로 키워 둔 참조도 버린다
                 drawPins(stops, focused: focused, previews: previews,
                          guidePlaces: guidePlaces, pickedGuide: pickedGuide, on: mapView)
                 drawLine(stops, on: mapView)
+                positionPulse()
             }
 
             // **카메라는 화면에 있는 것을 늘 다 담는다.**
@@ -229,57 +237,6 @@ struct RouteMapView: UIViewRepresentable {
                     }
                 }
             }
-        }
-
-        // MARK: 내 위치
-
-        /// 토글을 켰다. 파란 점을 띄우고 좌표를 받기 시작한다.
-        ///
-        /// 검색 탭(`NaverMapView.locate`)이 정한 규칙을 따른다 — `.normal` 은 점만
-        /// 띄우고 카메라는 그대로 두는 모드다. `.direction` 은 카메라가 계속 따라다녀
-        /// 지도를 못 민다. 카메라는 우리가 `move(to:)` 에서 직접 옮긴다.
-        private func startLocating(on mapView: NMFMapView) {
-            mapForLocate = mapView
-            mapView.positionMode = .normal
-
-            switch locationManager.authorizationStatus {
-            case .notDetermined:
-                awaitingAuthorization = true
-                locationManager.requestWhenInUseAuthorization()
-            case .restricted, .denied:
-                return // 앱 안에서 풀 수 없다.
-            default:
-                locationManager.requestLocation()
-            }
-        }
-
-        /// 토글을 껐다. 점을 지우고 **마지막 자리도 버린다** — 껐는데 「나와 그곳」이
-        /// 계속 보이면 끈 것이 아니다.
-        private func stopLocating(on mapView: NMFMapView) {
-            mapView.positionMode = .disabled
-            here = nil
-        }
-
-        func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-            guard awaitingAuthorization else { return }
-            switch manager.authorizationStatus {
-            case .notDetermined:
-                return
-            case .restricted, .denied:
-                awaitingAuthorization = false
-            default:
-                awaitingAuthorization = false
-                manager.requestLocation()
-            }
-        }
-
-        func locationManager(_: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-            guard let spot = locations.last else { return }
-            here = NMGLatLng(lat: spot.coordinate.latitude, lng: spot.coordinate.longitude)
-        }
-
-        func locationManager(_: CLLocationManager, didFailWithError _: Error) {
-            // 실내·기내 모드에서 실제로 난다. 자리를 모르면 그곳만 보여 준다.
         }
 
         // MARK: 카메라
@@ -442,9 +399,14 @@ struct RouteMapView: UIViewRepresentable {
                 }
             }
             guard !spots.isEmpty else { return }
-            let lats = spots.map(\.latitude)
-            let lngs = spots.map(\.longitude)
-            if spots.count == 1 {
+            var lats = spots.map(\.latitude)
+            var lngs = spots.map(\.longitude)
+            // 토글이 켜져 있으면 **나도 화면 안에** 있어야 한다 — 그러자고 켠 것이다.
+            if showingMe, let here {
+                lats.append(here.lat)
+                lngs.append(here.lng)
+            }
+            if lats.count == 1 {
                 let update = NMFCameraUpdate(
                     scrollTo: NMGLatLng(lat: lats[0], lng: lngs[0]), zoomTo: 15
                 )

@@ -110,6 +110,12 @@ final class RadarPulse: UIView {
         center = point
     }
 
+    /// 가운데 점을 숨긴다. 내 자리가 **이미 그려진 핀과 겹칠 때** 쓴다 — 점까지
+    /// 겹쳐 그리면 핀이 가려진다. 파문은 계속 퍼진다(그 핀이 뛰는 것처럼 보인다).
+    func setCoreHidden(_ hidden: Bool) {
+        core.isHidden = hidden
+    }
+
     /// 앱이 뒤로 갔다 오면 `CALayer` 애니메이션이 멎는다. 다시 걸어 준다.
     func restartIfNeeded() {
         guard rings.first?.animation(forKey: "pulse") == nil else { return }
