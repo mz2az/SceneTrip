@@ -125,6 +125,9 @@ struct MyCoursesSheet: View {
 struct LikedWorksSheet: View {
     let works: [ContentSummary]
 
+    /// 아직 받아오는 중인가. **비어 있음과 받는 중은 다른 화면이다.**
+    var loading = false
+
     /// 작품 목록을 못 받았을 때 그 이유. 있으면 「없습니다」 대신 이것을 보여
     /// 준다 — 없는 것과 못 받은 것은 다른 일이다.
     var failure: String?
@@ -142,6 +145,13 @@ struct LikedWorksSheet: View {
                     systemImage: "wifi.exclamationmark",
                     description: Text(failure).font(.caption2)
                 )
+            } else if loading, works.isEmpty {
+                VStack(spacing: 8) {
+                    ProgressView()
+                    Text("작품 목록을 받아오는 중입니다")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if works.isEmpty {
                 ContentUnavailableView(
                     "찜한 작품이 없습니다",

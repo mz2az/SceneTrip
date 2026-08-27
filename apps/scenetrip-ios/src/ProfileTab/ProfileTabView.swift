@@ -15,8 +15,16 @@ struct ProfileTabView: View {
 
     @State private var courses: [CourseSummary] = []
     @State private var courseCount: Int?
-    @State private var likedWorks: [ContentSummary] = []
+    /// 서버의 작품 전체. 찜 목록은 여기서 **그때그때 걸러 낸다** — 상태로 박아
+    /// 두면 하트를 새로 눌러도 다시 받기 전까지 목록이 낡는다(2026-08-28 버그).
+    @State private var allWorks: [ContentSummary] = []
+    @State private var likesLoading = true
     @State private var likesFailure: String?
+
+    private var likedWorks: [ContentSummary] {
+        allWorks.filter { likes.contentIds.contains($0.id) }
+    }
+
     @State private var cartItems: [CartItem] = []
     @State private var stamps: [VisitStamp] = []
     @State private var showingCart = false
@@ -157,8 +165,10 @@ struct ProfileTabView: View {
                     .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showingLikes) {
-                LikedWorksSheet(works: likedWorks, failure: likesFailure)
-                    .presentationDetents([.medium, .large])
+                LikedWorksSheet(
+                    works: likedWorks, loading: likesLoading, failure: likesFailure
+                )
+                .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showingCart) {
                 ProfileCartSheet(items: cartItems)
@@ -204,21 +214,39 @@ struct ProfileTabView: View {
     }
 
     private func load() async {
-        // 실패하면 …로 남는다 — 마이페이지가 서버 때문에 죽으면 안 된다.
-        if let list = try? await CoursesAPI.listCourses(xDeviceId: deviceId) {
+        // **넷을 나란히 받는다.** 앞서 줄줄이 기다렸더니 코스 상세(스탬프용)
+        // 하나가 느리면 찜 목록이 그동안 「없습니다」로 보였다(2026-08-28 버그 —
+        // 개수는 기기 값이라 바로 3인데 목록만 비어 있던 이유).
+        likesLoading = true
+
+        let worksTask = Task { () -> Result<[ContentSummary], Error> in
+            do {
+                return try await .success(ContentsAPI.listContents(limit: 100).items)
+            } catch {
+                return .failure(error)
+            }
+        }
+        let cartTask = Task { try? await CartAPI.getCart(xDeviceId: deviceId) }
+        let coursesTask = Task { try? await CoursesAPI.listCourses(xDeviceId: deviceId) }
+
+        switch await worksTask.value {
+        case let .success(works):
+            allWorks = works
+            likesFailure = nil
+        case let .failure(error):
+            likesFailure = String(describing: error).prefix(300) + ""
+        }
+        likesLoading = false
+
+        if let cart = await cartTask.value {
+            cartItems = cart.items
+        }
+        if let list = await coursesTask.value {
             courses = list.items
             courseCount = list.items.count
         }
-        // 찜은 id 만 기기에 있다 — 제목·포스터는 작품 목록에서 되짚는다.
-        // **실패를 삼키지 않는다** — try? 로 삼켰더니 팝업이 「없습니다」로 거짓말을
-        // 했다(2026-08-28 실측). 못 받았으면 못 받았다고 팝업이 말한다.
-        // 장바구니 — 검색 탭과 같은 API 를 읽기만 한다.
-        if let cart = try? await CartAPI.getCart(xDeviceId: deviceId) {
-            cartItems = cart.items
-        }
 
         // 방문 스탬프 — 코스마다 상세를 받아 visitedAt 이 찍힌 것만 모은다.
-        // 코스는 손에 꼽을 수만큼이라(N≤수십) 나란히 받아도 값이 싸다.
         stamps = await withTaskGroup(of: [VisitStamp].self) { group in
             for course in courses {
                 group.addTask {
@@ -241,14 +269,6 @@ struct ProfileTabView: View {
                 all += part
             }
             return all.sorted { $0.visitedAt > $1.visitedAt }
-        }
-
-        do {
-            let works = try await ContentsAPI.listContents(limit: 100).items
-            likedWorks = works.filter { likes.contentIds.contains($0.id) }
-            likesFailure = nil
-        } catch {
-            likesFailure = String(describing: error).prefix(300) + ""
         }
     }
 }
