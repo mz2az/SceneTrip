@@ -28,6 +28,18 @@ enum RoutePoiTone {
     }
 }
 
+extension RoutePoiGroup {
+    /// 프로토타입 서버(와 DB `poi.group`)가 쓰는 한국어 갈래 이름.
+    var serverName: String {
+        switch self {
+        case .food: "음식"
+        case .stay: "숙박"
+        case .sight: "명소"
+        case .transit: "교통"
+        }
+    }
+}
+
 extension RouteGuide.Place {
     /// 이 장소의 큰 갈래. 서버가 준 값을 먼저 믿고, 없으면(옛 서버) 업종
     /// 문자열에서 짐작한다 — 못 짐작하면 음식으로 둔다(50만 건의 대다수다).

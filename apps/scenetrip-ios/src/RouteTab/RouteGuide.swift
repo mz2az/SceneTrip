@@ -200,6 +200,9 @@ enum RouteGuide {
             "addr": place.address ?? "",
             "lat": place.latitude,
             "lng": place.longitude,
+            // 갈래를 주면 서버가 거리 컷을 갈래에 맞춘다 — 궁·공원·역은 좌표가
+            // 수백 m 어긋나는 게 정상이라 가게용 컷으로는 매칭이 다 떨어진다.
+            "group": place.group ?? place.poiGroup.serverName,
         ])
 
         guard let (data, response) = try? await URLSession.shared.data(for: request),
