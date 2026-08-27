@@ -1,7 +1,11 @@
 import SwiftUI
 import UIKit
 
-/// 피노 — SceneTrip 마스코트.
+/// 진도 — SceneTrip 마스코트. **진돗개**다 (2026-08-28, 고양이 피노에서 교체 —
+/// 한국형 마스코트로 가자는 결정. 코드 이름 Pino 는 혈통이라 그대로 둔다).
+///
+/// 「집까지 데려다주는 충직한 길잡이」 — 진돗개의 귀소 본능이 길찾기 앱의 서사와
+/// 맞물린다. 표식은 둘: **쫑긋 선 세모 귀**와 **등 위로 도르르 말린 꼬리**.
 ///
 /// ## 새로 그린 그림이 아니다
 ///
@@ -25,12 +29,12 @@ enum Pino {
     /// 두 벌이 어긋나면 캔버스에서 본 것과 앱이 달라진다.
     static let design = CGSize(width: 120, height: 160)
 
-    /// 새로 들인 색은 **둘뿐**이다 — 분홍(귀 속·볼)과 눈동자. 나머지는 지도 핀이
-    /// 이미 쓰던 값이라 마스코트와 지도가 저절로 한 세트로 보인다.
-    static let blush = Color(red: 0.969, green: 0.659, blue: 0.753) // #F7A8C0
-    static let eye = Color(red: 0.290, green: 0.247, blue: 0.659) // #4A3FA8
-    static let nose = Color(red: 0.941, green: 0.518, blue: 0.624) // #F0849F
-    static let whisker = Color(red: 0.725, green: 0.702, blue: 0.878) // #B9B3E0
+    /// 진돗개의 색 — 크림 흰 몸에 따뜻한 갈색 계열. 눈·코가 진해야 흰 얼굴에서
+    /// 표정이 산다.
+    static let blush = Color(red: 0.961, green: 0.788, blue: 0.659) // #F5C9A8 귀 속·볼
+    static let eye = Color(red: 0.353, green: 0.275, blue: 0.204) // #5A4634 진갈색
+    static let nose = Color(red: 0.227, green: 0.180, blue: 0.133) // #3A2E22 까만 코
+    static let whisker = Color(red: 0.851, green: 0.769, blue: 0.659) // #D9C4A8 옅은 수염
 
     /// 몸통 색. 바탕에 따라 갈린다.
     ///
@@ -38,26 +42,38 @@ enum Pino {
     /// 튜토리얼 위에서는 같은 옅은 몸이 묻힌다. 흰 바탕에서는 지도 핀이 실제로 쓰는
     /// 진한 그러데이션을 그대로 쓴다 — 「이 고양이가 그 핀이다」가 거기서 가장 잘 읽힌다.
     enum Tone {
-        /// 진한 바탕 위. 옅은 하늘색.
+        /// 진한 바탕 위(스플래시). 밝은 크림.
         case onDeep
-        /// 흰 바탕 위. 지도 핀과 **똑같은** 하늘→보라.
+        /// 흰 바탕 위. 같은 크림이되 **테두리가 황갈색**이다 — 흰 몸에 흰 테두리면
+        /// 흰 바탕에서 통째로 사라진다(진돗개 교체 때 확인).
         case onLight
-        /// 지금 고른 곳. 빨강 — 파랑·보라 사이에서 가장 잘 튄다.
+        /// 지금 고른 곳. 빨강 — 크림·파랑 사이에서 가장 잘 튄다.
         case picked
 
         var gradient: LinearGradient {
             let colors: [Color] = switch self {
             case .onDeep: [
-                    Color(red: 0.918, green: 0.961, blue: 0.996), // #EAF5FE
-                    Color(red: 0.749, green: 0.851, blue: 0.965), // #BFD9F6
+                    Color(red: 1.0, green: 0.976, blue: 0.937), // #FFF9EF
+                    Color(red: 0.953, green: 0.890, blue: 0.784), // #F3E3C8
                 ]
-            case .onLight: [Color(PinImage.light), Color(PinImage.deep)]
+            case .onLight: [
+                    Color(red: 1.0, green: 0.965, blue: 0.910), // #FFF6E8
+                    Color(red: 0.941, green: 0.851, blue: 0.722), // #F0D9B8
+                ]
             case .picked: [
                     Color(red: 1.00, green: 0.45, blue: 0.42),
                     Color(red: 0.89, green: 0.16, blue: 0.20),
                 ]
             }
             return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+        }
+
+        /// 몸·귀·팔의 테두리 색. 흰 바탕에서만 황갈색으로 갈린다.
+        var stroke: Color {
+            switch self {
+            case .onLight: Color(red: 0.784, green: 0.608, blue: 0.424) // #C89B6C
+            case .onDeep, .picked: .white
+            }
         }
     }
 
@@ -131,7 +147,7 @@ struct PinoMascot: View {
     private var torso: some View {
         PinoTeardrop()
             .fill(tone.gradient)
-            .overlay(PinoTeardrop().stroke(.white, lineWidth: 3.5))
+            .overlay(PinoTeardrop().stroke(tone.stroke, lineWidth: 3.5))
     }
 
     private enum Side { case left, right }
@@ -139,12 +155,13 @@ struct PinoMascot: View {
     /// 귀는 몸통보다 **먼저** 그린다 — 밑동이 몸에 가려야 붙어 보인다.
     @ViewBuilder
     private func ear(_ side: Side) -> some View {
+        // 진돗개의 귀는 고양이보다 **크고 곧게 선다** — 실루엣의 절반이 귀다.
         let outer: [CGPoint] = side == .left
-            ? [.init(x: 25, y: 39), .init(x: 28, y: 2), .init(x: 54, y: 18)]
-            : [.init(x: 95, y: 39), .init(x: 92, y: 2), .init(x: 66, y: 18)]
+            ? [.init(x: 26, y: 41), .init(x: 24, y: 0), .init(x: 56, y: 19)]
+            : [.init(x: 94, y: 41), .init(x: 96, y: 0), .init(x: 64, y: 19)]
         let inner: [CGPoint] = side == .left
-            ? [.init(x: 32, y: 34), .init(x: 34, y: 13), .init(x: 47, y: 22)]
-            : [.init(x: 88, y: 34), .init(x: 86, y: 13), .init(x: 73, y: 22)]
+            ? [.init(x: 32, y: 34), .init(x: 31, y: 11), .init(x: 48, y: 22)]
+            : [.init(x: 88, y: 34), .init(x: 89, y: 11), .init(x: 72, y: 22)]
         let pivot = side == .left
             ? UnitPoint(x: 34 / 120, y: 34 / 160)
             : UnitPoint(x: 86 / 120, y: 34 / 160)
@@ -152,7 +169,7 @@ struct PinoMascot: View {
         ZStack(alignment: .topLeading) {
             PinoTriangle(points: outer)
                 .fill(tone.gradient)
-                .overlay(PinoTriangle(points: outer).stroke(.white, style: .init(lineWidth: 3, lineJoin: .round)))
+                .overlay(PinoTriangle(points: outer).stroke(tone.stroke, style: .init(lineWidth: 3, lineJoin: .round)))
             PinoTriangle(points: inner).fill(Pino.blush)
         }
         .rotationEffect(.degrees(earTwitch ? (side == .left ? -7 : 5) : 0), anchor: pivot)
@@ -168,16 +185,26 @@ struct PinoMascot: View {
     }
 
     private var tail: some View {
+        // 등 위로 **도르르 말린 꼬리** — 진돗개의 표식이라 곡선이 하나 더 붙는다.
         let flip: (CGFloat) -> CGFloat = { tailOnLeft ? 120 - $0 : $0 }
-        return PinoCurve(
-            from: .init(x: flip(78), y: 106),
-            control1: .init(x: flip(100), y: 110),
-            control2: .init(x: flip(112), y: 92),
-            end: .init(x: flip(101), y: 74)
-        )
-        .stroke(tone.gradient, style: .init(lineWidth: 10, lineCap: .round))
+        return ZStack(alignment: .topLeading) {
+            PinoCurve(
+                from: .init(x: flip(78), y: 104),
+                control1: .init(x: flip(104), y: 108),
+                control2: .init(x: flip(110), y: 80),
+                end: .init(x: flip(93), y: 73)
+            )
+            .stroke(tone.gradient, style: .init(lineWidth: 10, lineCap: .round))
+            PinoCurve(
+                from: .init(x: flip(93), y: 73),
+                control1: .init(x: flip(83), y: 69),
+                control2: .init(x: flip(81), y: 79),
+                end: .init(x: flip(89), y: 81)
+            )
+            .stroke(tone.gradient, style: .init(lineWidth: 8, lineCap: .round))
+        }
         .rotationEffect(
-            .degrees((wag ? 9 : -7) * (tailOnLeft ? -1 : 1)),
+            .degrees((wag ? 8 : -5) * (tailOnLeft ? -1 : 1)),
             anchor: UnitPoint(x: flip(80) / 120, y: 104 / 160)
         )
     }
@@ -227,9 +254,11 @@ struct PinoMascot: View {
     @ViewBuilder
     private var noseAndMouth: some View {
         let nudge: CGFloat = pose == .paw ? 1.5 : 0
-        PinoTriangle(points: [
-            .init(x: 56.6 + nudge, y: 57), .init(x: 63.4 + nudge, y: 57), .init(x: 60 + nudge, y: 61.2),
-        ]).fill(Pino.nose)
+        // 까맣고 둥근 개 코. 세모(고양이)에서 바뀐 자리다.
+        PinoOval(
+            center: .init(x: 60 + nudge, y: 56.5),
+            radii: .init(width: 5, height: 3.8)
+        ).fill(Pino.nose)
 
         if pose == .speech {
             // 다문 미소. 말하는 중이라 입이 벌어져 있지 않다.
@@ -237,11 +266,11 @@ struct PinoMascot: View {
                       control2: .init(x: 64, y: 68), end: .init(x: 67, y: 62))
                 .stroke(Pino.eye, style: .init(lineWidth: 2, lineCap: .round))
         } else {
-            PinoCurve(from: .init(x: 60 + nudge, y: 61.2), control1: .init(x: 60 + nudge, y: 65),
-                      control2: .init(x: 56 + nudge, y: 66.5), end: .init(x: 53.6 + nudge, y: 63.6))
+            PinoCurve(from: .init(x: 60 + nudge, y: 60.3), control1: .init(x: 60 + nudge, y: 64.5),
+                      control2: .init(x: 56 + nudge, y: 66), end: .init(x: 53.6 + nudge, y: 63.2))
                 .stroke(Pino.eye, style: .init(lineWidth: 1.8, lineCap: .round))
-            PinoCurve(from: .init(x: 60 + nudge, y: 61.2), control1: .init(x: 60 + nudge, y: 65),
-                      control2: .init(x: 64 + nudge, y: 66.5), end: .init(x: 66.4 + nudge, y: 63.6))
+            PinoCurve(from: .init(x: 60 + nudge, y: 60.3), control1: .init(x: 60 + nudge, y: 64.5),
+                      control2: .init(x: 64 + nudge, y: 66), end: .init(x: 66.4 + nudge, y: 63.2))
                 .stroke(Pino.eye, style: .init(lineWidth: 1.8, lineCap: .round))
         }
     }
@@ -284,7 +313,7 @@ struct PinoMascot: View {
             // 굵게 깔고 그 위에 몸 색을 얹어야 몸통과 겹쳐도 팔로 읽힌다.
             PinoCurve(from: .init(x: 84, y: 76), control1: .init(x: 98, y: 84),
                       control2: .init(x: 105, y: 90), end: .init(x: 111, y: 99))
-                .stroke(.white, style: .init(lineWidth: 16, lineCap: .round))
+                .stroke(tone.stroke, style: .init(lineWidth: 16, lineCap: .round))
             PinoCurve(from: .init(x: 84, y: 76), control1: .init(x: 98, y: 84),
                       control2: .init(x: 105, y: 90), end: .init(x: 111, y: 99))
                 .stroke(tone.gradient, style: .init(lineWidth: 10, lineCap: .round))
@@ -293,7 +322,7 @@ struct PinoMascot: View {
             // 키워야 비로소 가리키는 앞발로 읽힌다.
             ZStack(alignment: .topLeading) {
                 PinoOval(center: .zero, radii: .init(width: 17, height: 13)).fill(tone.gradient)
-                PinoOval(center: .zero, radii: .init(width: 17, height: 13)).stroke(.white, lineWidth: 3.5)
+                PinoOval(center: .zero, radii: .init(width: 17, height: 13)).stroke(tone.stroke, lineWidth: 3.5)
                 PinoDot(center: .init(x: -6.5, y: -7.5), radius: 3.8).fill(Pino.blush)
                 PinoDot(center: .init(x: 2.5, y: -10), radius: 3.8).fill(Pino.blush)
                 PinoDot(center: .init(x: 10.5, y: -5.5), radius: 3.8).fill(Pino.blush)
@@ -346,7 +375,7 @@ struct PinoMascot: View {
     }
 }
 
-#Preview("피노 · 포즈") {
+#Preview("진도 · 포즈") {
     VStack(spacing: 24) {
         HStack(spacing: 20) {
             PinoMascot(pose: .plain, tone: .onDeep, width: 120)
