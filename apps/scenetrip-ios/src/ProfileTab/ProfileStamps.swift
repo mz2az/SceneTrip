@@ -47,33 +47,7 @@ struct StampsSheet: View {
 
     private func stampCell(_ stamp: VisitStamp) -> some View {
         VStack(spacing: 6) {
-            ZStack {
-                // 도장 테 — 피노 색 이중 원. 살짝 기울여 「찍었다」는 손맛을 준다.
-                Circle()
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [Color(PinImage.light), Color(PinImage.deep)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 3
-                    )
-                Circle()
-                    .strokeBorder(Color(PinImage.deep).opacity(0.35), lineWidth: 1)
-                    .padding(5)
-                VStack(spacing: 2) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Color(PinImage.deep))
-                    Text(stamp.name)
-                        .font(.system(size: 9, weight: .bold))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .padding(.horizontal, 8)
-                }
-            }
-            .frame(width: 88, height: 88)
-            .rotationEffect(.degrees(Double(stamp.id % 7) - 3))
-
+            StampBadge(stamp: stamp, size: 88)
             Text(stamp.visitedAt.formatted(date: .abbreviated, time: .omitted))
                 .font(.caption2).foregroundStyle(.secondary)
             if let workTitle = stamp.workTitle {
@@ -81,6 +55,41 @@ struct StampsSheet: View {
                     .font(.caption2).foregroundStyle(Color.accentColor).lineLimit(1)
             }
         }
+    }
+}
+
+/// 도장 하나 — 피노 색 이중 원 테에 살짝 기울여 「찍었다」는 손맛을 준다.
+/// 마이페이지 첫 화면(작게)과 스탬프첩(크게)이 같은 것을 쓴다.
+struct StampBadge: View {
+    let stamp: VisitStamp
+    var size: CGFloat = 64
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color(PinImage.light), Color(PinImage.deep)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ),
+                    lineWidth: size / 29
+                )
+            Circle()
+                .strokeBorder(Color(PinImage.deep).opacity(0.35), lineWidth: 1)
+                .padding(size / 18)
+            VStack(spacing: 1) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: size * 0.18))
+                    .foregroundStyle(Color(PinImage.deep))
+                Text(stamp.name)
+                    .font(.system(size: size * 0.1, weight: .bold))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .padding(.horizontal, size * 0.09)
+            }
+        }
+        .frame(width: size, height: size)
+        .rotationEffect(.degrees(Double(stamp.id % 7) - 3))
     }
 }
 

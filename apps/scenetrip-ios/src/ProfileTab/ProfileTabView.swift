@@ -77,13 +77,47 @@ struct ProfileTabView: View {
                             value: "\(cartItems.count)곳", chevron: true)
                     }
                     .buttonStyle(.plain)
-                    Button {
-                        showingStamps = true
-                    } label: {
-                        row(symbol: "checkmark.seal.fill", tint: Color(PinImage.deep),
-                            title: "방문 스탬프", value: "\(stamps.count)개", chevron: true)
+                }
+
+                // 스탬프는 목록 줄이 아니라 **첫 화면에 도장으로 바로 보인다** —
+                // 모은 것은 세는 게 아니라 자랑하는 것이다(2026-08-28 사용자 의견).
+                Section("방문 스탬프") {
+                    if stamps.isEmpty {
+                        HStack(spacing: 10) {
+                            Circle()
+                                .strokeBorder(
+                                    Color(.systemGray4),
+                                    style: StrokeStyle(lineWidth: 2, dash: [4, 3])
+                                )
+                                .frame(width: 44, height: 44)
+                            Text("여행 중 성지 100 m 안에 들어가면 도장이 찍혀요")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        Button {
+                            showingStamps = true
+                        } label: {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 10) {
+                                    ForEach(stamps.prefix(12)) { stamp in
+                                        StampBadge(stamp: stamp, size: 62)
+                                    }
+                                    if stamps.count > 12 {
+                                        Text("+\(stamps.count - 12)")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .padding(.vertical, 6)
+                            }
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                }
+
+                Section("커뮤니티") {
                     Button {
                         showingPosts = true
                     } label: {
