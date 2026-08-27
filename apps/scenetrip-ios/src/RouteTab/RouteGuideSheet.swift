@@ -154,10 +154,13 @@ struct RouteGuideSheet: View {
                     .font(.subheadline)
                     .padding(.horizontal, 12).padding(.vertical, 9)
                     .background(
+                        // 사용자는 하늘색, 가이드는 **연보라** — AI 가이드 단추와
+                        // 경로선이 쓰는 피노 보라(`PinImage.light`)의 옅은 판이다.
+                        // 흰 말풍선은 시트 배경과 구별이 안 됐다(2026-08-27).
                         RoundedRectangle(cornerRadius: 14).fill(
                             turn.role == .user
                                 ? AnyShapeStyle(Color.accentColor.opacity(0.14))
-                                : AnyShapeStyle(Color(.systemBackground))
+                                : AnyShapeStyle(Color(PinImage.light).opacity(0.16))
                         )
                     )
 
