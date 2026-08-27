@@ -77,13 +77,20 @@ extension RouteEditorView {
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(showingMe ? .white : Color.accentColor)
                 .frame(width: 44, height: 44)
+                // 꺼진 상태가 반투명이라 지도에 묻혔다(2026-08-28 사용자 지적).
+                // 흰 판 + 테두리 + 그림자로 **볼록하게** 세워 어느 상태든 단추로
+                // 보이게 한다.
                 .background(
                     Circle().fill(
-                        showingMe
-                            ? AnyShapeStyle(Color.accentColor)
-                            : AnyShapeStyle(.ultraThinMaterial)
+                        showingMe ? Color.accentColor : Color(.systemBackground)
                     )
                 )
+                .overlay(
+                    Circle().strokeBorder(
+                        showingMe ? .clear : Color(.systemGray4), lineWidth: 1
+                    )
+                )
+                .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
     }

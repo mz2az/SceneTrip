@@ -16,6 +16,11 @@ struct ProfileTabView: View {
     @State private var courses: [CourseSummary] = []
     @State private var courseCount: Int?
     @State private var likedWorks: [ContentSummary] = []
+    @State private var likesFailure: String?
+    @State private var cartItems: [CartItem] = []
+    @State private var stamps: [VisitStamp] = []
+    @State private var showingCart = false
+    @State private var showingStamps = false
     @State private var replaying = false
     @State private var showingReels = false
     @State private var showingCourses = false
@@ -48,6 +53,20 @@ struct ProfileTabView: View {
                     } label: {
                         row(symbol: "heart.fill", tint: .red, title: "찜한 작품",
                             value: "\(likes.contentIds.count)개", chevron: true)
+                    }
+                    .buttonStyle(.plain)
+                    Button {
+                        showingCart = true
+                    } label: {
+                        row(symbol: "bag.fill", tint: .orange, title: "장바구니",
+                            value: "\(cartItems.count)곳", chevron: true)
+                    }
+                    .buttonStyle(.plain)
+                    Button {
+                        showingStamps = true
+                    } label: {
+                        row(symbol: "checkmark.seal.fill", tint: Color(PinImage.deep),
+                            title: "방문 스탬프", value: "\(stamps.count)개", chevron: true)
                     }
                     .buttonStyle(.plain)
                 }
@@ -117,7 +136,14 @@ struct ProfileTabView: View {
             }
             .navigationTitle("마이페이지")
             .navigationBarTitleDisplayMode(.inline)
-            .task { await load() }
+            .task {
+                await load()
+                // 확인용 뒷문(`-openLikes 1`) — 합성 클릭이 안 닿는 시뮬레이터에서
+                // 팝업 속까지 찍어 보기 위한 것. 평소에는 아무 일도 없다.
+                if UserDefaults.standard.bool(forKey: "openLikes") {
+                    showingLikes = true
+                }
+            }
             .refreshable { await load() }
             .fullScreenCover(isPresented: $replaying) {
                 OnboardingView { replaying = false }
@@ -131,7 +157,15 @@ struct ProfileTabView: View {
                     .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showingLikes) {
-                LikedWorksSheet(works: likedWorks)
+                LikedWorksSheet(works: likedWorks, failure: likesFailure)
+                    .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showingCart) {
+                ProfileCartSheet(items: cartItems)
+                    .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showingStamps) {
+                StampsSheet(stamps: stamps)
                     .presentationDetents([.medium, .large])
             }
         }
@@ -176,8 +210,45 @@ struct ProfileTabView: View {
             courseCount = list.items.count
         }
         // 찜은 id 만 기기에 있다 — 제목·포스터는 작품 목록에서 되짚는다.
-        if let works = try? await ContentsAPI.listContents(limit: 100).items {
+        // **실패를 삼키지 않는다** — try? 로 삼켰더니 팝업이 「없습니다」로 거짓말을
+        // 했다(2026-08-28 실측). 못 받았으면 못 받았다고 팝업이 말한다.
+        // 장바구니 — 검색 탭과 같은 API 를 읽기만 한다.
+        if let cart = try? await CartAPI.getCart(xDeviceId: deviceId) {
+            cartItems = cart.items
+        }
+
+        // 방문 스탬프 — 코스마다 상세를 받아 visitedAt 이 찍힌 것만 모은다.
+        // 코스는 손에 꼽을 수만큼이라(N≤수십) 나란히 받아도 값이 싸다.
+        stamps = await withTaskGroup(of: [VisitStamp].self) { group in
+            for course in courses {
+                group.addTask {
+                    guard let detail = try? await CoursesAPI.getCourse(
+                        xDeviceId: deviceId, courseId: course.id
+                    ) else { return [] }
+                    return detail.days.flatMap(\.items).compactMap { item in
+                        item.visitedAt.map {
+                            VisitStamp(
+                                id: item.id, name: item.name,
+                                workTitle: item.sourceContentTitle,
+                                courseTitle: course.title, visitedAt: $0
+                            )
+                        }
+                    }
+                }
+            }
+            var all: [VisitStamp] = []
+            for await part in group {
+                all += part
+            }
+            return all.sorted { $0.visitedAt > $1.visitedAt }
+        }
+
+        do {
+            let works = try await ContentsAPI.listContents(limit: 100).items
             likedWorks = works.filter { likes.contentIds.contains($0.id) }
+            likesFailure = nil
+        } catch {
+            likesFailure = String(describing: error).prefix(300) + ""
         }
     }
 }

@@ -12,7 +12,15 @@ import Foundation
 final class TabRouter: ObservableObject {
     static let shared = TabRouter()
 
-    @Published var selected: RootTabs.Tab = .search
+    /// 확인용 뒷문 — `simctl launch … -initialTab profile` 로 첫 탭을 지정한다.
+    /// 합성 클릭이 시뮬레이터에 안 닿아(메모 ios-sim-verification) 탭 이동을
+    /// 기계로 할 길이 이것뿐이다. 인자를 안 주면 여느 때처럼 검색이다.
+    @Published var selected: RootTabs.Tab = switch UserDefaults.standard.string(forKey: "initialTab") {
+    case "route": .route
+    case "community": .community
+    case "profile": .profile
+    default: .search
+    }
 
     /// 경로 탭이 열어 줘야 할 코스의 서버 id.
     @Published var pendingCourseId: Int64?

@@ -29,21 +29,14 @@ struct CommunityTabView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                header
                 boardChips
                 Divider()
                 postList
             }
-            .navigationTitle("커뮤니티")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        composing = true
-                    } label: {
-                        Image(systemName: "square.and.pencil")
-                    }
-                }
-            }
+            // 내비게이션 바를 접는다 — 바의 단추에는 시스템이 유리 판을 깔아
+            // 테마 색이 묻힌다(코스 추가와 같은 문제).
+            .toolbar(.hidden, for: .navigationBar)
             .task {
                 if let list = try? await MarketAPI.listMarketCourses(
                     xDeviceId: deviceId, sort: .likes, limit: 30
@@ -63,6 +56,36 @@ struct CommunityTabView: View {
                 }
             }
         }
+    }
+
+    /// 손수 그린 머리줄 — 글쓰기가 피노 색 동그라미로 떠 있다.
+    private var header: some View {
+        ZStack {
+            Text("커뮤니티").font(.headline)
+            HStack {
+                Spacer()
+                Button {
+                    composing = true
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle().fill(
+                                LinearGradient(
+                                    colors: [Color(PinImage.light), Color(PinImage.deep)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        )
+                        .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 8)
     }
 
     // MARK: 말머리

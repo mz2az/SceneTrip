@@ -125,6 +125,10 @@ struct MyCoursesSheet: View {
 struct LikedWorksSheet: View {
     let works: [ContentSummary]
 
+    /// 작품 목록을 못 받았을 때 그 이유. 있으면 「없습니다」 대신 이것을 보여
+    /// 준다 — 없는 것과 못 받은 것은 다른 일이다.
+    var failure: String?
+
     @Environment(\.dismiss) private var dismiss
 
     @State private var expanded: Int64?
@@ -132,7 +136,13 @@ struct LikedWorksSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             ProfileSheetHeader(title: "찜한 작품") { dismiss() }
-            if works.isEmpty {
+            if let failure {
+                ContentUnavailableView(
+                    "작품 목록을 받지 못했습니다",
+                    systemImage: "wifi.exclamationmark",
+                    description: Text(failure).font(.caption2)
+                )
+            } else if works.isEmpty {
                 ContentUnavailableView(
                     "찜한 작품이 없습니다",
                     systemImage: "heart",
