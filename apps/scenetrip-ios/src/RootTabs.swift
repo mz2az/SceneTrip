@@ -72,14 +72,27 @@ struct RootTabs: View {
 struct StubTab: View {
     let tab: RootTabs.Tab
 
+    /// 사용법을 다시 보여 줄지. 켜면 `AppRoot` 대신 여기서 직접 덮는다.
+    @State private var replaying = false
+
     var body: some View {
-        ContentUnavailableView(
-            tab.label,
-            systemImage: tab.symbol,
-            description: Text("아직 준비 중입니다")
-        )
+        ContentUnavailableView {
+            Label(tab.label, systemImage: tab.symbol)
+        } description: {
+            Text("아직 준비 중입니다")
+        } actions: {
+            // 마이페이지에만 둔다. 사용법은 첫 실행에 한 번 지나가므로 **다시 여는
+            // 문이 없으면 두 번 다시 못 본다** — 시뮬레이터에서 확인하려고 앱을
+            // 지웠다 까는 일도 이것으로 없앤다.
+            if tab == .profile {
+                Button("사용법 다시 보기") { replaying = true }
+            }
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
+        .fullScreenCover(isPresented: $replaying) {
+            OnboardingView { replaying = false }
+        }
     }
 }
 

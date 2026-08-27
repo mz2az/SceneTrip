@@ -129,11 +129,20 @@ struct NaverMapView: UIViewRepresentable {
     /// `NSObject` 를 상속하는 이유는 `CLLocationManagerDelegate` 때문이다.
     /// 권한 응답과 좌표 도착이 **둘 다 비동기**라 델리게이트 없이는 「내 위치」 를
     /// 만들 수 없다 — 예전 구현이 동기 코드라 파란 점만 켜고 끝났다.
-    final class Coordinator: NSObject, CLLocationManagerDelegate {
+    /// 지도를 그리는 일은 전부 메인 스레드에서 일어난다(UIKit 규칙). 명시해 두면
+    /// 레이더 파문처럼 뷰를 얹는 것도 여기서 그대로 부를 수 있다.
+    @MainActor
+    final class Coordinator: NSObject, CLLocationManagerDelegate, NMFMapViewCameraDelegate {
         var onTapPin: (PlaceSummary) -> Void
         var onLocateFailure: (LocateOutcome) -> Void
         private var markers: [NMFMarker] = []
         private var lastPinKey: String = ""
+
+        /// 레이더 파문. 경로 탭(`RouteNavMapView`)과 **같은 것을 쓴다** — 같은 앱에서
+        /// 「내가 여기 있다」가 화면마다 다르게 생기면 그게 같은 뜻인지 알 수 없다.
+        private var pulse: RadarPulse?
+        /// 파문이 서 있어야 할 지도 좌표. 카메라가 움직이면 화면 좌표가 달라진다.
+        private var pulseAt: NMGLatLng?
 
         /// 첫 렌더에서는 카메라를 맞추지 않는다 — 초기값이 fitToken 의 초기값과 같다.
         /// 첫 진입 카메라는 `makeUIView` 가 `korea` 로 이미 맞춰 놨다(97행).
@@ -178,6 +187,40 @@ struct NaverMapView: UIViewRepresentable {
 
         func attach(to mapView: NMFMapView) {
             self.mapView = mapView
+            mapView.addCameraDelegate(delegate: self)
+        }
+
+        // MARK: 레이더 파문
+
+        /// 지도 위에 파문을 얹고 자리를 잡는다.
+        ///
+        /// SDK 의 파란 점(`positionMode`)만으로는 지도에 흩뿌려진 촬영지 핀 사이에
+        /// 묻힌다. 움직이는 것은 눈이 먼저 잡는다 — 경로 탭에서 먼저 넣었고 여기도
+        /// 같게 맞춘다(2026-08-24 사용자 요청).
+        private func showPulse(at spot: NMGLatLng, on mapView: NMFMapView) {
+            pulseAt = spot
+            if pulse == nil {
+                let view = RadarPulse(tint: UIColor(Color.accentColor))
+                mapView.addSubview(view)
+                pulse = view
+            }
+            pulse?.restartIfNeeded()
+            positionPulse()
+        }
+
+        private func positionPulse() {
+            guard let pulse, let pulseAt, let mapView else { return }
+            pulse.place(at: mapView.projection.point(from: pulseAt))
+        }
+
+        /// 지도가 움직이는 **동안 계속** 부른다. 멈춘 뒤에만 옮기면 미는 사이에
+        /// 파문이 제자리에 남아 따라오지 않는 것처럼 보인다.
+        func mapView(_: NMFMapView, cameraIsChangingByReason _: Int) {
+            positionPulse()
+        }
+
+        func mapView(_: NMFMapView, cameraDidChangeByReason _: Int, animated _: Bool) {
+            positionPulse()
         }
 
         // swiftlint:disable:next function_parameter_count
@@ -399,6 +442,10 @@ struct NaverMapView: UIViewRepresentable {
         func locationManager(_: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
             guard let coordinate = locations.last?.coordinate, let mapView else { return }
             applyInset(on: mapView)
+            showPulse(
+                at: NMGLatLng(lat: coordinate.latitude, lng: coordinate.longitude),
+                on: mapView
+            )
             let update = NMFCameraUpdate(
                 scrollTo: NMGLatLng(lat: coordinate.latitude, lng: coordinate.longitude),
                 // 장소 하나를 열 때(16)보다 한 단계 넓게 잡는다. 「내 위치」 는 한 점을

@@ -25,7 +25,8 @@ struct SceneTripApp: App {
     /// SceneApiClient.Scene 과 SwiftUI.Scene 이 부딪힌다.
     var body: some SwiftUI.Scene {
         WindowGroup {
-            RootTabs()
+            // 스플래시 → (처음이면) 사용법 → 앱. AppRoot 가 그 순서만 든다.
+            AppRoot()
         }
     }
 }

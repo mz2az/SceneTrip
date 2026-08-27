@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
+           -webkit-font-smoothing: antialiased; }
+    a { color: #0088FF; } a:hover { color: #0069c9; }
+  </style>
+</helmet>
+<div style="width: 402px; height: 874px; background: #fff; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="height: 59px; flex-shrink: 0;"></div>
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; flex-shrink: 0;">
+    <div style="font-size: 17px; color: #0088FF;">취소</div>
+    <div style="font-size: 17px; font-weight: 600; color: #000;">인기 촬영지 4박 5일</div>
+    <div style="font-size: 17px; font-weight: 600; color: #0088FF;">저장</div>
+  </div>
+
+  <!-- 지도 (자리표시 — 실제는 네이버 타일) -->
+  <div style="height: 300px; flex-shrink: 0; position: relative; background: #EAF0E6;">
+    <svg viewBox="0 0 402 300" style="width: 100%; height: 100%; display: block;">
+      <rect width="402" height="300" fill="#EAF0E6"/>
+      <path d="M0 210 L402 190" stroke="#F3D9A4" stroke-width="7" fill="none"/>
+      <path d="M120 300 L150 120 L250 60" stroke="#F3D9A4" stroke-width="5" fill="none"/>
+      <path d="M300 0 L340 300" stroke="#CFE3F5" stroke-width="26" fill="none" opacity=".55"/>
+      <line x1="352" y1="86" x2="96" y2="196" stroke="#7A68ED" stroke-width="3.5"/>
+      <text x="16" y="292" font-size="11" fill="rgba(60,60,67,.6)">NAVER · OpenStreetMap</text>
+    </svg>
+    <div style="position: absolute; left: 335px; top: 45px;">
+      <svg width="34" height="42" viewBox="0 0 34 42"><defs><linearGradient id="pin1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FCCF7"/><stop offset="1" stop-color="#7A68ED"/></linearGradient></defs><path d="M17 41C17 41 32 24 32 15A15 15 0 1 0 2 15C2 24 17 41 17 41Z" fill="url(#pin1)"/><circle cx="17" cy="15" r="10" fill="#fff"/><text x="17" y="19" text-anchor="middle" font-size="11" font-weight="800" fill="#5B4FD6">1</text></svg>
+    </div>
+    <div style="position: absolute; left: 79px; top: 155px;">
+      <svg width="34" height="42" viewBox="0 0 34 42"><defs><linearGradient id="pin3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FCCF7"/><stop offset="1" stop-color="#7A68ED"/></linearGradient></defs><path d="M17 41C17 41 32 24 32 15A15 15 0 1 0 2 15C2 24 17 41 17 41Z" fill="url(#pin3)"/><circle cx="17" cy="15" r="10" fill="#fff"/><text x="17" y="19" text-anchor="middle" font-size="11" font-weight="800" fill="#5B4FD6">3</text></svg>
+    </div>
+
+    <!-- AI 챗봇 — 지도 오른쪽 아래 상시. 구독자만, 무료는 횟수 제한. -->
+    <div style="position: absolute; right: 16px; bottom: 16px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+      <div style="padding: 3px 8px; border-radius: 100px; background: rgba(0,0,0,.62); color: #fff; font-size: 11px; font-weight: 600;">무료 7회 남음</div>
+      <div style="width: 56px; height: 56px; border-radius: 28px; background: linear-gradient(135deg, #8FCCF7, #7A68ED); display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(0,0,0,.22);">
+        <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.2L18 8.8l-4.4 1.6L12 14.6l-1.6-4.2L6 8.8l4.4-1.6z"/><path d="M18.5 15l.8 2.1 2.2.8-2.2.8-.8 2.1-.8-2.1-2.2-.8 2.2-.8z"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- 일차 탭 -->
+  <div style="display: flex; align-items: center; gap: 8px; padding: 10px 16px 0; flex-shrink: 0;">
+    <div style="display: flex; gap: 14px; flex-grow: 1;">
+      <sc-for list="{{days}}" as="d" hint-placeholder-count="5">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 15px; font-weight: {{d.weight}}; color: {{d.tone}};">{{d.label}}</div>
+          <div style="height: 2px; background: {{d.bar}};"></div>
+        </div>
+      </sc-for>
+    </div>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0088FF" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0088FF" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>
+  </div>
+
+  <!-- 요약 -->
+  <div style="display: flex; gap: 6px; padding: 10px 16px; font-size: 13px; color: rgba(60,60,67,.6); flex-shrink: 0;">
+    <div>5곳</div><div>·</div><div>직선 174.5 km</div>
+    <div style="flex-grow: 1;"></div>
+    <div style="color: rgba(60,60,67,.3);">이동 시간은 여행 중에</div>
+  </div>
+
+  <!-- 동작 칩 -->
+  <div style="display: flex; gap: 8px; padding: 0 16px 10px; flex-shrink: 0;">
+    <div style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 100px; background: #F2F2F7; font-size: 15px; color: #000;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.7"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>동선 최적화
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 100px; background: #F2F2F7; font-size: 15px; color: #000;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.7"><path d="M5 8h14l-1.2 11H6.2L5 8zM9 8V6a3 3 0 0 1 6 0v2"/></svg>장바구니
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 100px; background: #F2F2F7; font-size: 15px; color: #000;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.7"><path d="M12 21s7-7.6 7-12a7 7 0 1 0-14 0c0 4.4 7 12 7 12z"/><circle cx="12" cy="9" r="2.4"/></svg>핀 찍기
+    </div>
+  </div>
+
+  <!-- 목록 -->
+  <div style="flex-grow: 1; overflow: hidden;">
+    <sc-for list="{{rows}}" as="row" hint-placeholder-count="3">
+      <div style="padding: 8px 16px; border-bottom: 0.5px solid rgba(60,60,67,.29);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 22px; height: 22px; border-radius: 11px; background: linear-gradient(#8FCCF7, #7A68ED); color: #fff; font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">{{row.n}}</div>
+          <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1; min-width: 0;">
+            <div style="font-size: 15px; font-weight: 600; color: #000;">{{row.name}}</div>
+            <div style="font-size: 11px; color: rgba(60,60,67,.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{row.meta}}</div>
+          </div>
+          <div style="padding: 5px 9px; border-radius: 100px; background: rgba(0,136,255,.12); font-size: 12px; font-weight: 500; color: #0088FF; flex-shrink: 0;">30분</div>
+          <svg width="14" height="14" viewBox="0 0 24 24" stroke="rgba(60,60,67,.3)" stroke-width="2" style="flex-shrink: 0;"><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="13" x2="20" y2="13"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; padding-left: 34px; padding-top: 8px;">
+          <!-- 누를 때만 API 를 부른다. 미리 다 받아 두지 않는다. -->
+          <div style="display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; border-radius: 100px; background: rgba(0,136,255,.12); color: #0088FF; font-size: 15px; font-weight: 600;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0088FF" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l7-16 3 7 7 3z"/></svg>길찾기
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: rgba(60,60,67,.6);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(60,60,67,.6)" stroke-width="2"><line x1="12" y1="4" x2="12" y2="20"/><polyline points="6,14 12,20 18,14"/></svg>{{row.km}}
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; gap: 10px; padding: 16px; flex-shrink: 0; border-top: 0.5px solid rgba(60,60,67,.29);">
+    <div style="padding: 12px 16px; border-radius: 10px; background: #F2F2F7; font-size: 17px; color: #0088FF;">여행 종료</div>
+    <div style="flex-grow: 1; padding: 12px; border-radius: 10px; background: #0088FF; color: #fff; font-size: 17px; font-weight: 600; text-align: center;">저장하고 닫기</div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() {
+    const off = 'rgba(60,60,67,.6)';
+    return {
+      days: [
+        { label: '1일차', tone: '#0088FF', weight: '600', bar: '#0088FF' },
+        { label: '2일차', tone: off, weight: '400', bar: 'transparent' },
+        { label: '3일차', tone: off, weight: '400', bar: 'transparent' },
+        { label: '4일차', tone: off, weight: '400', bar: 'transparent' },
+        { label: '5일차', tone: off, weight: '400', bar: 'transparent' },
+      ],
+      rows: [
+        { n: 1, name: '주문진 방사제', meta: '해변 · 강원 강릉시 주문진읍', km: '161.1 km' },
+        { n: 2, name: '대림창고', meta: '카페 · 서울 성동구 성수이로 78', km: '6.4 km' },
+        { n: 3, name: '세빛섬', meta: '명소 · 서울 서초구 올림픽대로 683', km: '6.2 km' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -31,7 +31,50 @@ run target *args:
 # iOS 앱을 시뮬레이터에 띄운다 (실기기는 just ios-xcode)
 [group('build')]
 ios-run:
-    {{BAZEL}} run //apps/scenetrip-ios:bin --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+    {{BAZEL}} run //apps/scenetrip-ios:bin \
+        --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}" \
+        --define=kakao_rest_key="${KAKAO_REST_KEY:-}"
+
+# 껐다 켜는 것과 사용법을 다시 보는 것은 **다른 일**이다.
+#
+# 앱을 껐다 켜면 스플래시는 다시 나오지만 사용법 넉 장은 안 나온다 — 본 적 있다는
+# 표시가 `UserDefaults` 의 `scenetrip.onboarding.seenVersion` 에 남기 때문이다
+# (그렇게 두지 않으면 켤 때마다 튜토리얼이 나온다).
+#
+# **그 표시는 밖에서 지울 수 없다.** 시뮬레이터의 `cfprefsd` 가 값을 메모리에 들고
+# 있어서, 컨테이너의 plist 를 PlistBuddy 로 고쳐도 앱은 자기 캐시를 읽는다 —
+# `killall cfprefsd` 로도 안 내려온다(2026-08-23 실측: 파일에는 키가 아예 없는데
+# 앱은 「본 적 있다」로 동작했다). 그래서 지우는 레시피를 두지 않는다.
+#
+# 넉 장을 다시 보는 길은 둘이다.
+#
+#   앱 안에서   마이페이지 → 사용법 다시 보기   (가장 쉽다. 데이터가 안 날아간다)
+#   깨끗하게    just ios-reinstall             (설치 직후 상태)
+
+# 시뮬레이터의 앱을 껐다 켠다 (스플래시부터 다시 본다)
+[group('build')]
+ios-restart:
+    xcrun simctl terminate booted com.mz2az.scenetrip 2>/dev/null || true
+    xcrun simctl launch booted com.mz2az.scenetrip
+
+# **저장된 것이 다 날아간다.** 설치본 UUID(`scenetrip.deviceId`)가 새로 생기므로
+# 서버에 있는 코스와 장바구니가 남의 것이 되어 보이지 않는다. 화면만 확인할 때 쓴다.
+
+# 앱을 지웠다 다시 깐다 (설치 직후 — 사용법 넉 장부터. 저장된 것은 날아간다)
+[group('build')]
+ios-reinstall:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{BAZEL}} build //apps/scenetrip-ios:bin \
+        --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}" \
+        --define=kakao_rest_key="${KAKAO_REST_KEY:-}"
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    unzip -q bazel-bin/apps/scenetrip-ios/bin.ipa -d "$work"
+    xcrun simctl terminate booted com.mz2az.scenetrip 2>/dev/null || true
+    xcrun simctl uninstall booted com.mz2az.scenetrip 2>/dev/null || true
+    xcrun simctl install booted "$work/Payload/bin.app"
+    xcrun simctl launch booted com.mz2az.scenetrip
 
 # `bazel run` 한 줄로 끝나는 ios-run 과 달리 스크립트를 거친다 — `android_binary` 는
 # APK 만 내놓을 뿐 설치·실행을 하지 않는다. 그 몫(AVD 생성·부팅 대기·설치·실행)을

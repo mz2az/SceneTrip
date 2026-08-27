@@ -19,28 +19,70 @@ struct RouteTabView: View {
     @State private var fork = false
     @State private var wizard: RouteWizardKind?
     @State private var editing: RouteCourse?
-    @State private var market = false
+
+    /// 지우기 직전에 한 번 묻는다. `nil` 이면 안 묻는 중이다.
+    ///
+    /// **되돌릴 수 없다** — 서버에서 지우는 것이라 실행 취소가 없다. 며칠 걸려 짠
+    /// 일정이 손가락 한 번에 사라지면 안 된다.
+    @State private var doomed: RouteCourse?
+
+    /// 「내 코스 / 코스마켓」. 목업의 `S.homeSeg` 와 같은 자리다.
+    @State private var segment: Segment = .mine
+
+    enum Segment: String, CaseIterable, Identifiable {
+        case mine = "내 코스"
+        case market = "코스마켓"
+        var id: String {
+            rawValue
+        }
+    }
 
     var body: some View {
         NavigationStack {
-            Group {
-                if store.courses.isEmpty {
-                    emptyState
-                } else {
-                    courseList
+            VStack(spacing: 0) {
+                // **세그먼트가 마켓으로 가는 길이다.** 전에는 오른쪽 위 아이콘 버튼
+                // 하나였는데, 목업은 「내 코스」와 대등한 자리로 두었다 — 마켓은
+                // 곁다리가 아니라 이 탭의 절반이다.
+                Picker("", selection: $segment) {
+                    ForEach(Segment.allCases) { Text($0.rawValue).tag($0) }
                 }
-            }
-            .navigationTitle("경로여정")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        market = true
-                    } label: {
-                        Label("인기 코스", systemImage: "square.grid.2x2")
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
+
+                switch segment {
+                case .mine:
+                    if store.courses.isEmpty {
+                        emptyState
+                    } else {
+                        courseList
                     }
+                case .market:
+                    RouteMarketView(embedded: true)
                 }
             }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("코스")
+            .task { await store.refresh() }
+            .confirmationDialog(
+                doomed.map { "「\($0.title)」을 지울까요?" } ?? "",
+                isPresented: Binding(get: { doomed != nil }, set: {
+                    if !$0 {
+                        doomed = nil
+                    }
+                }),
+                titleVisibility: .visible
+            ) {
+                Button("삭제", role: .destructive) {
+                    guard let course = doomed else { return }
+                    doomed = nil
+                    Task { await store.delete(course) }
+                }
+                Button("취소", role: .cancel) { doomed = nil }
+            } message: {
+                Text("되돌릴 수 없습니다.")
+            }
+            .refreshable { await store.refresh() }
         }
         .sheet(isPresented: $fork) { forkSheet }
         .sheet(item: $wizard) { kind in
@@ -49,29 +91,70 @@ struct RouteTabView: View {
         .fullScreenCover(item: $editing) { course in
             RouteEditorView(course: course, isNew: false)
         }
-        .sheet(isPresented: $market) {
-            RouteMarketView()
-        }
     }
 
     // MARK: 코스가 없을 때
 
+    /// 첫 사용자 화면. **갈림길이 아니라 빈 상태다.**
+    ///
+    /// 전에는 「코스를 어떻게 만들까요?」와 카드 두 장을 첫 화면에 그대로 두었는데,
+    /// 목업에서 그 물음은 **코스가 이미 있을 때 올라오는 액션시트**다(`sheet-newcourse`).
+    /// 둘을 한 화면에 뭉치니 위쪽 500pt 가 통째로 비었다(실측).
+    ///
+    /// 그래서 여기서는 사용자에게 상태를 말하고(*"아직 만든 코스가 없습니다"*), 할 일을
+    /// 버튼 둘로 준다. AI 를 채운 버튼으로 두는 것은 회의 확정 사항이다 —
+    /// *"AI가 짜 준다는 문구를 넣는다"* (정승길, 8/11). 다만 별도 띠로 광고하지 않고
+    /// 설명 문장과 버튼 이름에 녹인다.
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            RouteAIBanner(text: "AI 가 일정을 짜 드립니다")
-                .padding(.horizontal, 16)
+        VStack(spacing: 0) {
+            Spacer(minLength: 24)
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(
+                            colors: [Color(PinImage.light), Color(PinImage.deep)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ))
+                        .frame(width: 56, height: 56)
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 26, weight: .medium))
+                        .foregroundStyle(.white)
+                }
+                .padding(.bottom, 6)
 
-            Text("코스를 어떻게 만들까요?")
-                .font(.title3.weight(.semibold))
+                Text("아직 만든 코스가 없습니다")
+                    .font(.headline)
+                Text("보고 싶은 작품과 기간만 고르면,\n촬영지를 이어서 일차별 일정으로 짜 드립니다")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 20)
 
-            RouteForkCards(
-                onAI: { wizard = .aiPlan },
-                onManual: { wizard = .manual }
-            )
-            .padding(.horizontal, 16)
+            VStack(spacing: 10) {
+                Button { wizard = .aiPlan } label: {
+                    Label("AI 로 여정 짜기", systemImage: "sparkles")
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+
+                Button { wizard = .manual } label: {
+                    Text("직접 짜기")
+                        .font(.body.weight(.medium))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 22)
+
+            Spacer(minLength: 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
     }
 
     /// 코스가 있을 때 「코스 추가하기」가 여는 시트. 첫 화면과 **같은 두 갈래**다.
@@ -113,10 +196,6 @@ struct RouteTabView: View {
                 ForEach(store.courses.filter { !$0.isRunning }) { course in
                     row(course)
                 }
-                .onDelete { offsets in
-                    let targets = store.courses.filter { !$0.isRunning }
-                    offsets.map { targets[$0] }.forEach { store.delete($0) }
-                }
             } header: {
                 Text("내 코스 \(store.courses.count)")
             }
@@ -140,8 +219,28 @@ struct RouteTabView: View {
     }
 
     private func row(_ course: RouteCourse) -> some View {
+        rowButton(course)
+            // **`.onDelete` 만으로는 아무도 못 찾는다.** 밀어야 나오는 것을 알려 주는
+            // 표시가 화면에 없어서다(2026-08-24 사용자 지적). 글자가 붙은 빨간 버튼으로
+            // 바꾸면 한 번 밀어 본 사람에게는 무엇인지 분명해진다. 처음 여는 사람을
+            // 위한 길은 따로 있다 — 코스를 열면 맨 아래에 「코스 삭제」가 있다.
+            //
+            // 「여행 중」 코스도 지울 수 있어야 한다. 앞서 그 섹션에는 삭제가 아예
+            // 없어서, 시작해 둔 코스는 **여행을 끝내기 전까지 지울 방법이 없었다.**
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    doomed = course
+                } label: {
+                    Label("삭제", systemImage: "trash")
+                }
+            }
+    }
+
+    private func rowButton(_ course: RouteCourse) -> some View {
         Button {
-            editing = course
+            // 목록 카드에는 일차 속이 없다(`CourseSummary`). 열 때 상세를 받아온다 —
+            // 목록에서 전부 받아 두면 코스가 많을 때 첫 화면이 그만큼 느려진다.
+            Task { editing = await store.detail(course) ?? course }
         } label: {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {

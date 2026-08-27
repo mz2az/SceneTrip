@@ -24,6 +24,16 @@ struct RouteWizardView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var index = 0
+
+    /// 모델이 코스를 짜는 중인가.
+    @State private var planning = false
+
+    /// 지금 어디에 있나. **질문을 시작할 때 미리 물어 둔다** — 마지막 화면에서
+    /// 물으면 위치가 오기를 기다리느라 코스 만들기가 그만큼 늦어진다. 질문 넷에
+    /// 답하는 동안이면 넉넉하다.
+    ///
+    /// 못 받아도 코스는 만들어진다(`near: nil` → 촬영지가 가장 몰린 곳).
+    @StateObject private var locator = RouteLocator()
     @State private var span: RouteSpan = .oneNight
     @State private var hasDate = false
     @State private var pickedDate = Date()
@@ -48,11 +58,27 @@ struct RouteWizardView: View {
         hasDate ? pickedDate : nil
     }
 
+    /// 자리를 받았으면 좌표, 아니면 `nil`. **권한이 없거나 실패해도 막지 않는다** —
+    /// 코스를 못 만드는 것보다 자리를 모르는 채 만드는 편이 낫다.
+    private var here: (lat: Double, lng: Double)? {
+        if case let .found(latitude, longitude) = locator.state {
+            return (latitude, longitude)
+        }
+        return nil
+    }
+
     var body: some View {
         if let draft {
             RouteEditorView(course: draft, isNew: true)
         } else {
             questions
+                // AI 로 짤 때만 묻는다. 「직접 짜기」는 자리를 쓸 데가 없는데 권한
+                // 창을 띄우면 사용자가 왜 묻는지 알 수 없다.
+                .task {
+                    if kind == .aiPlan {
+                        locator.start()
+                    }
+                }
         }
     }
 
@@ -106,11 +132,17 @@ struct RouteWizardView: View {
             Button {
                 advance()
             } label: {
-                Text(isLast ? finishLabel : "다음")
-                    .frame(maxWidth: .infinity)
+                HStack(spacing: 8) {
+                    if planning {
+                        ProgressView().tint(.white)
+                    }
+                    Text(planning ? "일정을 짜는 중입니다" : (isLast ? finishLabel : "다음"))
+                }
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .disabled(planning)
         }
         .padding(16)
         .background(Color(.systemBackground))
@@ -140,9 +172,20 @@ struct RouteWizardView: View {
             index += 1
             return
         }
-        draft = kind == .aiPlan
-            ? store.aiDraft(span: span, startDate: startDate, workIds: workIds, pace: pace)
-            : store.emptyCourse(span: span, startDate: startDate)
+        guard kind == .aiPlan else {
+            draft = store.emptyCourse(span: span, startDate: startDate)
+            return
+        }
+        // 모델이 답하는 데 몇 초가 걸린다. 그동안 화면이 멈춘 것처럼 보이면 안 된다.
+        planning = true
+        Task {
+            let course = await store.aiDraft(
+                span: span, startDate: startDate, workIds: workIds, pace: pace,
+                near: here
+            )
+            planning = false
+            draft = course
+        }
     }
 
     // MARK: 질문
@@ -212,7 +255,7 @@ struct RouteWizardView: View {
     /// 8/11 회의에서 "작품에는 하트, 장소에는 플러스" 로 갈라 놓은 그 표시다.
     private var workStep: some View {
         VStack(spacing: 0) {
-            ForEach(store.works, id: \.id) { work in
+            ForEach(store.sortedWorks, id: \.id) { work in
                 workRow(work)
                 Divider()
             }

@@ -63,31 +63,6 @@ enum RouteMock {
         places.first { $0.id == id }
     }
 
-    // MARK: 인기 코스
-
-    /// 남이 올린 코스. **이름이 아직 미정이다** — 8/11 회의 5장 #1 에 열려 있다
-    /// (「마켓」은 물건을 사는 느낌이라는 반대 의견). 화면에는 「인기 코스」로 쓴다.
-    static func popularCourses() -> [RouteCourse] {
-        [
-            RouteCourse(
-                title: "도깨비 성지순례 1박 2일",
-                startDate: nil,
-                days: [
-                    day([201, 202, 203]),
-                    day([214]),
-                ]
-            ),
-            RouteCourse(
-                title: "이태원 클라쓰 하루 코스",
-                startDate: nil,
-                days: [day([206, 207, 212, 205])]
-            ),
-        ]
-    }
-
-    /// 남이 올린 코스에 붙는 지어낸 숫자. 순서를 보여 주려고 넣었다.
-    static let popularStats: [(likes: Int, saves: Int)] = [(214, 87), (168, 52)]
-
     // MARK: 만들기
 
     static func day(_ ids: [Int64]) -> RouteDay {

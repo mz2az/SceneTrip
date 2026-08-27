@@ -1,0 +1,221 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
+           -webkit-font-smoothing: antialiased; }
+    .h  { font-size: 11px; font-weight: 700; color: rgba(60,60,67,.6); letter-spacing: .6px; text-transform: uppercase; }
+    .n  { font-size: 12px; color: rgba(60,60,67,.6); line-height: 1.5; }
+    .cell { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .cap { font-size: 12px; font-weight: 600; color: #000; }
+    .card { background: #fff; border-radius: 14px; padding: 18px; }
+  </style>
+</helmet>
+
+<div style="width: 900px; height: 1180px; background: #F2F2F7; padding: 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px;">
+
+  <div>
+    <div style="font-size: 30px; font-weight: 700; letter-spacing: -.5px;">마스코트</div>
+    <div class="n" style="margin-top: 4px;">지도 핀이 그대로 고양이가 된다 — 새 그림이 아니라 <b>이미 앱에 있는 핀</b>에 귀·얼굴·꼬리를 붙인 것이다.</div>
+  </div>
+
+  <!-- 만드는 법 -->
+  <div class="card">
+    <div class="h">어떻게 만들어졌나</div>
+    <div style="display: flex; gap: 26px; align-items: flex-end; margin-top: 14px;">
+
+      <div class="cell">
+        <svg width="96" height="128" viewBox="0 0 120 160">
+          <path d="M30.3 83.7 A 42 42 0 1 1 89.7 83.7 L 60 141 Z" fill="none" stroke="#C7C7CC" stroke-width="2" stroke-dasharray="5 4"/>
+          <circle cx="60" cy="54" r="42" fill="none" stroke="#C7C7CC" stroke-width="1" stroke-dasharray="3 3"/>
+          <circle cx="60" cy="54" r="2.5" fill="#C7C7CC"/>
+          <circle cx="60" cy="141" r="2.5" fill="#C7C7CC"/>
+        </svg>
+        <div class="cap">1. 지금 핀</div>
+        <div class="n" style="text-align: center; width: 118px;">머리 r14 @ (19,17)<br>꼬리 (19,45) — 3배</div>
+      </div>
+
+      <div style="font-size: 22px; color: #C7C7CC; padding-bottom: 46px;">→</div>
+
+      <div class="cell">
+        <svg width="96" height="128" viewBox="0 0 120 160" style="overflow: visible;">
+          <path d="M25 39 L 28 2 L 54 18 Z" fill="#DCEEFD" stroke="#C7C7CC" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M95 39 L 92 2 L 66 18 Z" fill="#DCEEFD" stroke="#C7C7CC" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M30.3 83.7 A 42 42 0 1 1 89.7 83.7 L 60 141 Z" fill="#EAF5FE" stroke="#C7C7CC" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        <div class="cap">2. 귀</div>
+        <div class="n" style="text-align: center; width: 118px;">머리 원 250°·290°<br>위로 뻗은 삼각형</div>
+      </div>
+
+      <div style="font-size: 22px; color: #C7C7CC; padding-bottom: 46px;">→</div>
+
+      <div class="cell">
+        <svg width="96" height="128" viewBox="0 0 120 160" style="overflow: visible;">
+          <path d="M25 39 L 28 2 L 54 18 Z" fill="#DCEEFD" stroke="#C7C7CC" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M95 39 L 92 2 L 66 18 Z" fill="#DCEEFD" stroke="#C7C7CC" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M30.3 83.7 A 42 42 0 1 1 89.7 83.7 L 60 141 Z" fill="#EAF5FE" stroke="#C7C7CC" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="60" cy="52" r="31" fill="#fff" stroke="#0088FF" stroke-width="2" stroke-dasharray="4 3"/>
+        </svg>
+        <div class="cap">3. 얼굴 배지</div>
+        <div class="n" style="text-align: center; width: 118px;"><b style="color:#0088FF;">번호 배지 자리 그대로</b><br>지도의 ①②③ 가 앉던 원</div>
+      </div>
+
+      <div style="font-size: 22px; color: #C7C7CC; padding-bottom: 46px;">→</div>
+
+      <div class="cell">
+        <svg width="96" height="128" viewBox="0 0 120 160" style="overflow: visible;">
+          <defs>
+            <linearGradient id="mb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FCCF7"/><stop offset="1" stop-color="#7A68ED"/></linearGradient>
+          </defs>
+          <path d="M78 106 C 100 110, 112 92, 101 74" fill="none" stroke="url(#mb)" stroke-width="10" stroke-linecap="round"/>
+          <path d="M25 39 L 28 2 L 54 18 Z" fill="url(#mb)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M32 34 L 34 13 L 47 22 Z" fill="#F7A8C0"/>
+          <path d="M95 39 L 92 2 L 66 18 Z" fill="url(#mb)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M88 34 L 86 13 L 73 22 Z" fill="#F7A8C0"/>
+          <path d="M30.3 83.7 A 42 42 0 1 1 89.7 83.7 L 60 141 Z" fill="url(#mb)" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/>
+          <circle cx="60" cy="52" r="31" fill="#fff"/>
+          <ellipse cx="49" cy="47" rx="4.2" ry="5.6" fill="#4A3FA8"/><ellipse cx="71" cy="47" rx="4.2" ry="5.6" fill="#4A3FA8"/>
+          <circle cx="50.4" cy="45" r="1.5" fill="#fff"/><circle cx="72.4" cy="45" r="1.5" fill="#fff"/>
+          <path d="M56.6 57 L 63.4 57 L 60 61.2 Z" fill="#F0849F"/>
+          <path d="M60 61.2 C 60 65, 56 66.5, 53.6 63.6 M60 61.2 C 60 65, 64 66.5, 66.4 63.6" fill="none" stroke="#4A3FA8" stroke-width="1.8" stroke-linecap="round"/>
+          <g stroke="#B9B3E0" stroke-width="1.5" stroke-linecap="round"><path d="M42 53 L 33 51"/><path d="M42 57 L 33.5 58"/><path d="M78 53 L 87 51"/><path d="M78 57 L 86.5 58"/></g>
+          <circle cx="43.5" cy="58" r="4" fill="#F7A8C0" opacity=".55"/><circle cx="76.5" cy="58" r="4" fill="#F7A8C0" opacity=".55"/>
+        </svg>
+        <div class="cap">4. 완성</div>
+        <div class="n" style="text-align: center; width: 118px;">꼬리는 물방울<br>오른쪽 아래에서</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 포즈 -->
+  <div class="card">
+    <div class="h">포즈 — 튜토리얼 넉 장에 하나씩</div>
+    <div style="display: flex; gap: 30px; margin-top: 16px; justify-content: space-around;">
+
+      <div class="cell">
+        <svg width="104" height="126" viewBox="0 0 130 160" style="overflow: visible;">
+          <defs><linearGradient id="p1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FCCF7"/><stop offset="1" stop-color="#7A68ED"/></linearGradient></defs>
+          <path d="M78 106 C 100 110, 112 92, 101 74" fill="none" stroke="url(#p1)" stroke-width="10" stroke-linecap="round"/>
+          <path d="M25 39 L 28 2 L 54 18 Z" fill="url(#p1)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M32 34 L 34 13 L 47 22 Z" fill="#F7A8C0"/>
+          <path d="M95 39 L 92 2 L 66 18 Z" fill="url(#p1)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M88 34 L 86 13 L 73 22 Z" fill="#F7A8C0"/>
+          <path d="M30.3 83.7 A 42 42 0 1 1 89.7 83.7 L 60 141 Z" fill="url(#p1)" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/>
+          <circle cx="60" cy="52" r="31" fill="#fff"/>
+          <ellipse cx="49" cy="47" rx="4.2" ry="5.6" fill="#4A3FA8"/><ellipse cx="71" cy="47" rx="4.2" ry="5.6" fill="#4A3FA8"/>
+          <circle cx="50.4" cy="45" r="1.5" fill="#fff"/><circle cx="72.4" cy="45" r="1.5" fill="#fff"/>
+          <path d="M56.6 57 L 63.4 57 L 60 61.2 Z" fill="#F0849F"/>
+          <path d="M60 61.2 C 60 65, 56 66.5, 53.6 63.6 M60 61.2 C 60 65, 64 66.5, 66.4 63.6" fill="none" stroke="#4A3FA8" stroke-width="1.8" stroke-linecap="round"/>
+          <!-- 돋보기 -->
+          <g transform="translate(86 84) rotate(18)"><circle cx="0" cy="0" r="16" fill="rgba(255,255,255,.55)" stroke="#7A68ED" stroke-width="4"/><path d="M11 11 L 22 22" stroke="#7A68ED" stroke-width="5" stroke-linecap="round"/></g>
+        </svg>
+        <div class="cap">찾는다</div>
+      </div>
+
+      <div class="cell">
+        <svg width="104" height="126" viewBox="0 0 130 160" style="overflow: visible;">
+          <defs><linearGradient id="p2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FCCF7"/><stop offset="1" stop-color="#7A68ED"/></linearGradient></defs>
+          <path d="M78 106 C 100 110, 112 92, 101 74" fill="none" stroke="url(#p2)" stroke-width="10" stroke-linecap="round"/>
+          <path d="M25 39 L 28 2 L 54 18 Z" fill="url(#p2)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M32 34 L 34 13 L 47 22 Z" fill="#F7A8C0"/>
+          <path d="M95 39 L 92 2 L 66 18 Z" fill="url(#p2)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M88 34 L 86 13 L 73 22 Z" fill="#F7A8C0"/>
+          <path d="M30.3 83.7 A 42 42 0 1 1 89.7 83.7 L 60 141 Z" fill="url(#p2)" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/>
+          <circle cx="60" cy="52" r="31" fill="#fff"/>
+          <path d="M43 47 C 46 42, 52 42, 55 47" fill="none" stroke="#4A3FA8" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M65 47 C 68 42, 74 42, 77 47" fill="none" stroke="#4A3FA8" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M56.6 57 L 63.4 57 L 60 61.2 Z" fill="#F0849F"/>
+          <path d="M60 61.2 C 60 65, 56 66.5, 53.6 63.6 M60 61.2 C 60 65, 64 66.5, 66.4 63.6" fill="none" stroke="#4A3FA8" stroke-width="1.8" stroke-linecap="round"/>
+          <!-- 반짝임 -->
+          <g fill="#FFD426"><path d="M100 22 l3.4 8 8 3.4 -8 3.4 -3.4 8 -3.4 -8 -8 -3.4 8 -3.4z"/><path d="M18 66 l2.2 5.2 5.2 2.2 -5.2 2.2 -2.2 5.2 -2.2 -5.2 -5.2 -2.2 5.2 -2.2z"/></g>
+        </svg>
+        <div class="cap">짜 준다</div>
+      </div>
+
+      <div class="cell">
+        <svg width="104" height="126" viewBox="0 0 130 160" style="overflow: visible;">
+          <defs><linearGradient id="p3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FCCF7"/><stop offset="1" stop-color="#7A68ED"/></linearGradient></defs>
+          <path d="M78 106 C 100 110, 112 92, 101 74" fill="none" stroke="url(#p3)" stroke-width="10" stroke-linecap="round"/>
+          <path d="M25 39 L 28 2 L 54 18 Z" fill="url(#p3)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M32 34 L 34 13 L 47 22 Z" fill="#F7A8C0"/>
+          <path d="M95 39 L 92 2 L 66 18 Z" fill="url(#p3)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M88 34 L 86 13 L 73 22 Z" fill="#F7A8C0"/>
+          <path d="M30.3 83.7 A 42 42 0 1 1 89.7 83.7 L 60 141 Z" fill="url(#p3)" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/>
+          <circle cx="60" cy="52" r="31" fill="#fff"/>
+          <ellipse cx="52" cy="47" rx="4.2" ry="5.6" fill="#4A3FA8"/><ellipse cx="74" cy="47" rx="4.2" ry="5.6" fill="#4A3FA8"/>
+          <circle cx="53.4" cy="45" r="1.5" fill="#fff"/><circle cx="75.4" cy="45" r="1.5" fill="#fff"/>
+          <path d="M56.6 57 L 63.4 57 L 60 61.2 Z" fill="#F0849F"/>
+          <path d="M60 61.2 C 60 65, 56 66.5, 53.6 63.6 M60 61.2 C 60 65, 64 66.5, 66.4 63.6" fill="none" stroke="#4A3FA8" stroke-width="1.8" stroke-linecap="round"/>
+          <!-- 가리키는 앞발 -->
+          <path d="M84 76 C 98 84, 105 90, 111 99" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round"/><path d="M84 76 C 98 84, 105 90, 111 99" fill="none" stroke="url(#p3)" stroke-width="10" stroke-linecap="round"/><g transform="translate(114 104)"><ellipse cx="0" cy="0" rx="17" ry="13" fill="url(#p3)" stroke="#fff" stroke-width="3.5"/><circle cx="-6.5" cy="-7.5" r="3.8" fill="#F7A8C0"/><circle cx="2.5" cy="-10" r="3.8" fill="#F7A8C0"/><circle cx="10.5" cy="-5.5" r="3.8" fill="#F7A8C0"/></g>
+        </svg>
+        <div class="cap">데려간다</div>
+      </div>
+
+      <div class="cell">
+        <svg width="104" height="126" viewBox="0 0 130 160" style="overflow: visible;">
+          <defs><linearGradient id="p4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FCCF7"/><stop offset="1" stop-color="#7A68ED"/></linearGradient></defs>
+          <path d="M78 106 C 100 110, 112 92, 101 74" fill="none" stroke="url(#p4)" stroke-width="10" stroke-linecap="round"/>
+          <path d="M25 39 L 28 2 L 54 18 Z" fill="url(#p4)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M32 34 L 34 13 L 47 22 Z" fill="#F7A8C0"/>
+          <path d="M95 39 L 92 2 L 66 18 Z" fill="url(#p4)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M88 34 L 86 13 L 73 22 Z" fill="#F7A8C0"/>
+          <path d="M30.3 83.7 A 42 42 0 1 1 89.7 83.7 L 60 141 Z" fill="url(#p4)" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/>
+          <circle cx="60" cy="52" r="31" fill="#fff"/>
+          <ellipse cx="49" cy="47" rx="4.2" ry="5.6" fill="#4A3FA8"/><ellipse cx="71" cy="47" rx="4.2" ry="5.6" fill="#4A3FA8"/>
+          <circle cx="50.4" cy="45" r="1.5" fill="#fff"/><circle cx="72.4" cy="45" r="1.5" fill="#fff"/>
+          <path d="M56.6 57 L 63.4 57 L 60 61.2 Z" fill="#F0849F"/>
+          <path d="M53 62 C 56 68, 64 68, 67 62" fill="none" stroke="#4A3FA8" stroke-width="2" stroke-linecap="round"/>
+          <!-- 말풍선 -->
+          <g transform="translate(120 14)"><rect x="-22" y="-15" width="46" height="30" rx="12" fill="#0088FF"/><path d="M-12 13 L -16 22 L -4 15 Z" fill="#0088FF"/><g fill="#fff"><circle cx="-11" cy="0" r="2.6"/><circle cx="1" cy="0" r="2.6"/><circle cx="13" cy="0" r="2.6"/></g></g>
+        </svg>
+        <div class="cap">거든다</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 이름 -->
+  <div class="card">
+    <div class="h">이름 — 피노 (2026-08-23 정승길 확정)</div>
+    <div style="display: flex; gap: 20px; align-items: center; margin-top: 14px;">
+      <div style="flex-shrink: 0;">
+        <div style="font-size: 40px; font-weight: 800; letter-spacing: -1px; line-height: 1;">피노</div>
+        <div style="font-size: 24px; font-weight: 700; color: #7A68ED; letter-spacing: 1.5px; margin-top: 2px;">PINO</div>
+      </div>
+      <div style="width: 1px; align-self: stretch; background: #E5E5EA;"></div>
+      <div class="n" style="flex-grow: 1;">
+        <b>PIN + o.</b> 지도 핀에서 나온 고양이니 이름도 핀에서 나온다.<br>
+        영어권·일본어권·중국어권이 모두 그대로 읽는다 — 외국인 대상 앱에서 이게 가장 컸다.<br>
+        어느 나라 말에도 걸리는 뜻이 없다.
+      </div>
+      <div style="width: 1px; align-self: stretch; background: #E5E5EA;"></div>
+      <div class="n" style="flex-shrink: 0; width: 210px;">
+        <b>안 고른 것</b><br>
+        씬냥 — 가장 한국적이지만 영어권이 발음을 못 한다<br>
+        묘 MYO — 뜻에 설명이 붙어야 한다<br>
+        컷 CUT — 고양이랑 이어지지 않는다
+      </div>
+    </div>
+    <div class="n" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #E5E5EA;">
+      <b>표기</b> — 영어 UI 에서는 <code style="background:#F2F2F7;padding:1px 5px;border-radius:4px;">PINO</code> 대문자,
+      한국어 문서·회의록에서는 <code style="background:#F2F2F7;padding:1px 5px;border-radius:4px;">피노</code>.
+      코드 식별자는 <code style="background:#F2F2F7;padding:1px 5px;border-radius:4px;">Pino</code>
+      (<code style="background:#F2F2F7;padding:1px 5px;border-radius:4px;">PinoMascot</code>,
+      <code style="background:#F2F2F7;padding:1px 5px;border-radius:4px;">PinoPose</code>).
+    </div>
+  </div>
+
+  <!-- 색 -->
+  <div class="card">
+    <div class="h">쓴 색 — 전부 앱에 이미 있던 값</div>
+    <div style="display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
+      <div style="display:flex;align-items:center;gap:8px;"><div style="width:34px;height:34px;border-radius:8px;background:#8FCCF7;"></div><div class="n"><b>#8FCCF7</b><br>pin light</div></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:14px;"><div style="width:34px;height:34px;border-radius:8px;background:#7A68ED;"></div><div class="n"><b>#7A68ED</b><br>pin deep</div></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:14px;"><div style="width:34px;height:34px;border-radius:8px;background:#0088FF;"></div><div class="n"><b>#0088FF</b><br>accent</div></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:14px;"><div style="width:34px;height:34px;border-radius:8px;background:#F7A8C0;"></div><div class="n"><b>#F7A8C0</b><br>귀·볼 (새로 씀)</div></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:14px;"><div style="width:34px;height:34px;border-radius:8px;background:#4A3FA8;"></div><div class="n"><b>#4A3FA8</b><br>눈 (deep 을 어둡게)</div></div>
+    </div>
+    <div class="n" style="margin-top: 12px;">새로 들인 색은 <b>둘뿐</b>이다 — 분홍 귀·볼, 눈동자. 나머지는 지도 핀이 이미 쓰던 값이라 마스코트와 지도가 저절로 한 세트로 보인다.</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

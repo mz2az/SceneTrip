@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  </style>
+</helmet>
+<div style="width: 402px; height: 874px; background: #fff; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="height: 59px; flex-shrink: 0;"></div>
+
+  <!-- 건너뛰기. 넷째 장에서는 없앤다 — 거기 버튼이 이미 「시작하기」다 -->
+  <div style="height: 44px; display: flex; align-items: center; justify-content: flex-end; padding: 0 16px; flex-shrink: 0;">
+    
+  </div>
+
+  <!-- 그림 -->
+  <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 24px; gap: 4px;">
+    
+    <div style="position: relative; width: 320px; height: 300px; display: flex; align-items: center; justify-content: center;">
+      <!-- 반경 -->
+      <svg width="320" height="300" viewBox="0 0 320 300" style="position: absolute; inset: 0;">
+        <circle cx="160" cy="152" r="131" fill="#0088FF" opacity=".06"/>
+        <circle cx="160" cy="152" r="131" fill="none" stroke="#0088FF" stroke-width="1.5" stroke-dasharray="6 6" opacity=".45"/>
+      </svg>
+      <!-- 갈래 넷. 색은 RouteNavMock.tone 그대로 -->
+      <div style="position: absolute; left: 8px; top: 40px; display: flex; align-items: center; gap: 6px; background: #fff; border-radius: 100px; padding: 6px 12px 6px 8px; box-shadow: 0 2px 10px rgba(0,0,0,.10);">
+        <div style="width: 9px; height: 9px; border-radius: 5px; background: #F0942C;"></div><div style="font-size: 13px; font-weight: 600;">음식점</div>
+      </div>
+      <div style="position: absolute; right: 2px; top: 148px; display: flex; align-items: center; gap: 6px; background: #fff; border-radius: 100px; padding: 6px 12px 6px 8px; box-shadow: 0 2px 10px rgba(0,0,0,.10);">
+        <div style="width: 9px; height: 9px; border-radius: 5px; background: #2ECC70;"></div><div style="font-size: 13px; font-weight: 600;">명소</div>
+      </div>
+      <div style="position: absolute; left: 10px; bottom: 62px; display: flex; align-items: center; gap: 6px; background: #fff; border-radius: 100px; padding: 6px 12px 6px 8px; box-shadow: 0 2px 10px rgba(0,0,0,.10);">
+        <div style="width: 9px; height: 9px; border-radius: 5px; background: #0088FF;"></div><div style="font-size: 13px; font-weight: 600;">교통</div>
+      </div>
+      <div style="position: absolute; right: 18px; bottom: 8px; display: flex; align-items: center; gap: 6px; background: #fff; border-radius: 100px; padding: 6px 12px 6px 8px; box-shadow: 0 2px 10px rgba(0,0,0,.10);">
+        <div style="width: 9px; height: 9px; border-radius: 5px; background: #7A68ED;"></div><div style="font-size: 13px; font-weight: 600;">숙소</div>
+      </div>
+      <div style="position: relative;">
+<svg width="186" height="228" viewBox="0 0 130 160" style="overflow: visible;">
+  <defs><linearGradient id="t4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FCCF7"/><stop offset="1" stop-color="#7A68ED"/></linearGradient></defs>
+  <ellipse cx="60" cy="150" rx="30" ry="6" fill="#7A68ED" opacity=".14"/>
+  <path d="M78 106 C 100 110, 112 92, 101 74" fill="none" stroke="url(#t4)" stroke-width="10" stroke-linecap="round"/>
+  <path d="M25 39 L 28 2 L 54 18 Z" fill="url(#t4)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M32 34 L 34 13 L 47 22 Z" fill="#F7A8C0"/>
+  <path d="M95 39 L 92 2 L 66 18 Z" fill="url(#t4)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M88 34 L 86 13 L 73 22 Z" fill="#F7A8C0"/>
+  <path d="M30.3 83.7 A 42 42 0 1 1 89.7 83.7 L 60 141 Z" fill="url(#t4)" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/>
+  <circle cx="60" cy="52" r="31" fill="#fff"/>
+  
+  <ellipse cx="49" cy="47" rx="4.2" ry="5.6" fill="#4A3FA8"/><ellipse cx="71" cy="47" rx="4.2" ry="5.6" fill="#4A3FA8"/>
+  <circle cx="50.4" cy="45" r="1.5" fill="#fff"/><circle cx="72.4" cy="45" r="1.5" fill="#fff"/>
+  <path d="M56.6 57 L 63.4 57 L 60 61.2 Z" fill="#F0849F"/>
+  <path d="M53 62 C 56 68, 64 68, 67 62" fill="none" stroke="#4A3FA8" stroke-width="2" stroke-linecap="round"/>
+  <g stroke="#B9B3E0" stroke-width="1.5" stroke-linecap="round"><path d="M42 53 L 33 51"/><path d="M42 57 L 33.5 58"/><path d="M78 53 L 87 51"/><path d="M78 57 L 86.5 58"/></g>
+  <circle cx="43.5" cy="58" r="4" fill="#F7A8C0" opacity=".55"/><circle cx="76.5" cy="58" r="4" fill="#F7A8C0" opacity=".55"/>
+  <g transform="translate(124 10)"><rect x="-24" y="-16" width="50" height="32" rx="13" fill="#0088FF"/><path d="M-13 14 L -18 24 L -4 16 Z" fill="#0088FF"/><g fill="#fff"><circle cx="-12" cy="0" r="2.8"/><circle cx="1" cy="0" r="2.8"/><circle cx="14" cy="0" r="2.8"/></g></g>
+</svg></div>
+    </div>
+  </div>
+
+  <!-- 글. 영어가 본문이고 한국어는 보조줄이다 — 외국인 대상 앱이라 -->
+  <div style="padding: 0 32px; text-align: center; flex-shrink: 0;">
+    <div style="font-size: 28px; font-weight: 700; color: #000; letter-spacing: -.5px; line-height: 1.25;">Eat on the way.<br>Ask when you are stuck.</div>
+    <div style="margin-top: 12px; font-size: 16px; color: rgba(60,60,67,.6); line-height: 1.5;">Restaurants, sights, transit and stays<br>around you. PINO handles the Korean.</div>
+    <div style="margin-top: 14px; font-size: 13px; color: rgba(60,60,67,.3); line-height: 1.45;">반경 안의 음식점·명소·교통·숙소, 그리고 챗봇</div>
+  </div>
+
+  <!-- 점 -->
+  <div style="display: flex; gap: 6px; justify-content: center; align-items: center; padding: 30px 0 22px; flex-shrink: 0;">
+    <div style="width: 7px; height: 7px; border-radius: 4px; background: rgba(60,60,67,.22);"></div><div style="width: 7px; height: 7px; border-radius: 4px; background: rgba(60,60,67,.22);"></div><div style="width: 7px; height: 7px; border-radius: 4px; background: rgba(60,60,67,.22);"></div><div style="width: 20px; height: 7px; border-radius: 4px; background: #0088FF;"></div>
+  </div>
+
+  <!-- 버튼. 50pt — 앱의 다른 큰 버튼과 같은 높이다 -->
+  <div style="padding: 0 16px 40px; flex-shrink: 0;">
+    <div style="height: 50px; border-radius: 12px; background: #0088FF; color: #fff; font-size: 17px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 7px;">Get started</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
