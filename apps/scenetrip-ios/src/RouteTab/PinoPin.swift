@@ -53,8 +53,10 @@ enum PinoPin {
         }
         let renderer = ImageRenderer(content: body(tint))
         renderer.scale = UIScreen.main.scale
-        // 굽지 못하면 옛 핀으로 떨어진다. 마스코트가 없다고 지도가 비면 안 된다.
-        let image = renderer.uiImage.map(NMFOverlayImage.init) ?? PinImage.numbered(nil)
+        // 굽지 못한 순간에만 옛 핀으로 떨어지되 **캐시에 넣지 않는다** — 첫
+        // 렌더가 실패한 채 캐시되면 파란 민 핀이 영영 남는다(2026-08-28).
+        guard let baked = renderer.uiImage else { return PinImage.numbered(nil) }
+        let image = NMFOverlayImage(image: baked)
         cached[tint] = image
         return image
     }
@@ -105,7 +107,9 @@ enum PinoPin {
                         height: size.height * scale(tint) * 0.98
                     )
             }
-            Image("jindo-pinbody")
+            // 타이트 크롭 판 — 원본 셀에는 투명 여백이 넓어 핀이 작게, 좌표
+            // 위에 떠 보였다(2026-08-28 사용자 지적: 옛 핀과 겹쳐 보임).
+            Image("jindo-pinbody-tight")
                 .resizable()
                 .scaledToFit()
                 .frame(width: size.width * scale(tint))

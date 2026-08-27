@@ -223,7 +223,7 @@ struct RouteNavView: View {
                     guide.picked = nil // 카드는 한 장만
                 },
                 goal: detour.map { ($0.latitude, $0.longitude) },
-                guidePlaces: guide.places,
+                guidePlaces: navGuidePlaces,
                 picked: guide.picked,
                 onTapPlace: { tapped in
                     guide.picked = tapped
