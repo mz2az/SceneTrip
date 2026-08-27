@@ -24,8 +24,12 @@ final class LikeStore: ObservableObject {
     private let key = "scenetrip.likedContents"
 
     init() {
-        let saved = UserDefaults.standard.array(forKey: key) as? [NSNumber] ?? []
-        contentIds = Set(saved.map(\.int64Value))
+        // 숫자로 저장하지만 **읽을 때는 문자열도 받아 준다** — 도구(`defaults`)로
+        // 심은 값이 문자열로 들어오는 일이 실제로 있었다(2026-08-28).
+        let saved = UserDefaults.standard.array(forKey: key) ?? []
+        contentIds = Set(saved.compactMap { item in
+            (item as? NSNumber)?.int64Value ?? (item as? String).flatMap { Int64($0) }
+        })
     }
 
     func contains(_ contentId: Int64) -> Bool {
