@@ -25,6 +25,13 @@ struct RouteNavMapView: UIViewRepresentable {
     /// 요청). 번호는 편집 화면의 번호와 같다.
     var dayStops: [RouteStop] = []
 
+    /// 성지(코스 번호 핀)를 그릴 것인가. 칩으로 끄고 켠다 — 꺼도 지금 가는
+    /// 곳(피노)은 남는다.
+    var showDayStops = true
+
+    /// 번호 핀을 눌렀다. 성지 카드를 띄우는 쪽이 받는다.
+    var onTapStop: (RouteStop) -> Void = { _ in }
+
     /// 갈아탄 목적지. 있으면 **여기에 피노를 꽂는다** — 경로선은 이미 여기로
     /// 이어지는데 핀만 옛 촬영지에 남아 있으면 지도가 거짓말을 한다.
     var goal: (latitude: Double, longitude: Double)?
@@ -50,12 +57,24 @@ struct RouteNavMapView: UIViewRepresentable {
     /// 지어낸 자리에 「내가 여기 있다」를 찍는 것이 아무 표시도 없는 것보다 나쁘다.
     let here: (latitude: Double, longitude: Double)?
 
+    /// 화면 범위 안의 주변 편의시설 — 편집 지도와 같은 배경 점. **기본은 빈
+    /// 목록**이다(길찾기에서는 꺼진 것이 기본값, 2026-08-28 사용자 결정).
+    var ambientPlaces: [RouteGuide.Place] = []
+
+    /// 카메라가 멈췄다. (남, 서, 북, 동, 가운데위도, 가운데경도, 줌).
+    var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
+
     func makeUIView(context: Context) -> NMFNaverMapView {
         let view = NMFNaverMapView()
         view.showZoomControls = false
         view.showLocationButton = false
         view.mapView.logoAlign = .leftBottom
+        // 파문·주변 갱신이 카메라를 들어야 한다 — 파문이 처음 뜰 때가 아니라
+        // **지도를 만들 때** 등록한다. 안 그러면 위치를 받기 전까지 카메라
+        // 멈춤(idle)을 못 들어 주변 목록이 영영 안 온다.
+        view.mapView.addCameraDelegate(delegate: context.coordinator)
         context.coordinator.onTapPlace = onTapPlace
+        context.coordinator.onViewport = onViewport
         context.coordinator.render(stop: stop, dayStops: dayStops, goal: goal,
                                    guidePlaces: guidePlaces, picked: picked,
                                    here: here, legs: legs, on: view.mapView)
@@ -64,7 +83,11 @@ struct RouteNavMapView: UIViewRepresentable {
 
     func updateUIView(_ view: NMFNaverMapView, context: Context) {
         context.coordinator.onTapPlace = onTapPlace
-        context.coordinator.render(stop: stop, dayStops: dayStops, goal: goal,
+        context.coordinator.onTapStop = onTapStop
+        context.coordinator.onViewport = onViewport
+        context.coordinator.renderAmbient(ambientPlaces, picked: picked, on: view.mapView)
+        context.coordinator.render(stop: stop, dayStops: showDayStops ? dayStops : [],
+                                   goal: goal,
                                    guidePlaces: guidePlaces, picked: picked,
                                    here: here, legs: legs, on: view.mapView)
     }
@@ -82,6 +105,11 @@ struct RouteNavMapView: UIViewRepresentable {
         private var markers: [NMFMarker] = []
         private var lastKey = ""
         var onTapPlace: (RouteGuide.Place) -> Void = { _ in }
+        var onTapStop: (RouteStop) -> Void = { _ in }
+        var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
+        /// 주변 편의시설 마커 — 경로·추천 마커와 살림을 따로 낸다(갱신 주기가 다르다).
+        var ambientMarkers: [NMFMarker] = []
+        var lastAmbientKey = ""
 
         /// 레이더 파문. 지도 마커가 아니라 **지도 위에 얹은 뷰**다 — 이유는
         /// `RadarPulse` 머리말 참고.
@@ -155,10 +183,15 @@ struct RouteNavMapView: UIViewRepresentable {
             goal.mapView = mapView
             markers.append(goal)
 
-            // 코스의 다른 곳들 — **번호 핀 그대로.** 지금 가는 곳(피노)과 갈아탄
-            // 목적지는 뺀다. 시간이 남아 딴 데를 들러도 「다음이 몇 번인가」가
+            // 코스의 다른 곳들 — **번호 핀 그대로.** 지금 가는 곳은 피노가 서
+            // 있으니 번호를 겹쳐 그리지 않는다. 단 **갈아탔을 때는 예외다** —
+            // 피노가 음식점으로 옮겨 가면 원래 목적지가 고양이도 번호도 아닌
+            // 상태가 되어 지도에서 사라졌다(2026-08-28 사용자 발견: 경복궁으로
+            // 가다 음식점을 끼워 넣으니 3번 핀이 증발). 들렀다가 이어 갈 곳이
             // 지도에 남아 있어야 여정이 이어진다.
-            for (index, dayStop) in dayStops.enumerated() where dayStop.id != stop.id {
+            for (index, dayStop) in dayStops.enumerated()
+                where !(goal == nil && dayStop.id == stop.id)
+            {
                 let marker = NMFMarker(position: NMGLatLng(
                     lat: dayStop.place.latitude, lng: dayStop.place.longitude
                 ))
@@ -166,6 +199,11 @@ struct RouteNavMapView: UIViewRepresentable {
                 marker.captionText = dayStop.place.name
                 marker.captionMinZoom = 12
                 marker.zIndex = 10
+                // 성지를 누르면 장면 설명 카드가 뜬다(2026-08-28 사용자 요청).
+                marker.touchHandler = { [weak self] _ in
+                    self?.onTapStop(dayStop)
+                    return true
+                }
                 marker.mapView = mapView
                 markers.append(marker)
             }
@@ -228,7 +266,6 @@ struct RouteNavMapView: UIViewRepresentable {
         private func showPulse(at spot: NMGLatLng, on mapView: NMFMapView) {
             host = mapView
             pulseAt = spot
-            mapView.addCameraDelegate(delegate: self)
 
             if pulse == nil {
                 let view = RadarPulse(tint: UIColor(Color.accentColor))
