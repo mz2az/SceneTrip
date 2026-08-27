@@ -19,8 +19,8 @@ extension RouteEditorView {
             showingMe: showingMe,
             focused: focusedStop,
             previews: previewPlaces,
-            guidePlaces: guide.places,
-            pickedGuide: guide.picked,
+            guidePlaces: visibleGuidePlaces,
+            pickedGuide: visiblePickedGuide,
             onTapGuide: { guide.picked = $0 },
             bottomInset: panelHeight
         ) { pin in
@@ -74,6 +74,76 @@ extension RouteEditorView {
                             : AnyShapeStyle(.ultraThinMaterial)
                     )
                 )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: 편의시설 필터
+
+    /// 챗봇이 찍어 준 핀의 **갈래별 켜고 끄기.** 핀이 하나라도 있어야 나온다 —
+    /// 없는데 필터부터 보이면 무엇을 거르는 줄인지 알 수 없다.
+    ///
+    /// 「전체」는 마스터 스위치다. 다 켜져 있으면 끄고, 하나라도 꺼져 있으면 다 켠다.
+    @ViewBuilder
+    var poiFilter: some View {
+        if !guide.places.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    let allOn = poiGroupsOn.count == RoutePoiGroup.allCases.count
+                    chip("전체", tone: nil, isOn: allOn) {
+                        poiGroupsOn = allOn ? [] : Set(RoutePoiGroup.allCases)
+                        if poiGroupsOn.isEmpty {
+                            guide.picked = nil
+                        }
+                    }
+                    ForEach(RoutePoiGroup.allCases) { group in
+                        let count = guide.places.count { $0.poiGroup == group }
+                        if count > 0 {
+                            chip("\(group.label) \(count)",
+                                 tone: RoutePoiTone.of(group),
+                                 isOn: poiGroupsOn.contains(group))
+                            {
+                                if poiGroupsOn.contains(group) {
+                                    poiGroupsOn.remove(group)
+                                    // 감춘 갈래의 고른 핀은 놓는다 — 지도에 없는
+                                    // 것을 계속 골라 두면 카드만 남는다.
+                                    if guide.picked?.poiGroup == group {
+                                        guide.picked = nil
+                                    }
+                                } else {
+                                    poiGroupsOn.insert(group)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.top, 8)
+            .background(Color(.systemBackground))
+        }
+    }
+
+    private func chip(
+        _ label: String, tone: Color?, isOn: Bool, tap: @escaping () -> Void
+    ) -> some View {
+        Button(action: tap) {
+            HStack(spacing: 5) {
+                if let tone {
+                    Circle().fill(tone).frame(width: 7, height: 7)
+                }
+                Text(label).font(.caption.weight(isOn ? .semibold : .regular))
+            }
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(
+                Capsule().fill(isOn ? Color.accentColor.opacity(0.14) : Color(.systemGray6))
+            )
+            .overlay(
+                Capsule().strokeBorder(
+                    isOn ? Color.accentColor.opacity(0.5) : .clear, lineWidth: 1
+                )
+            )
+            .foregroundStyle(isOn ? Color.primary : Color.secondary)
         }
         .buttonStyle(.plain)
     }

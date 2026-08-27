@@ -61,6 +61,9 @@ struct RouteEditorView: View {
 
     /// 가이드와의 대화. **시트 밖에서 든다** — 닫아도 남아야 한다.
     @StateObject var guide = RouteGuideSession()
+
+    /// 지도에 보여 줄 편의시설 갈래. 기본은 전부 — 끄는 것은 사용자의 선택이다.
+    @State var poiGroupsOn: Set<RoutePoiGroup> = Set(RoutePoiGroup.allCases)
     @State var stayTarget: RouteStop?
     @State var directionsTarget: RouteStop?
     @State var blockedDay: Int?
@@ -88,6 +91,16 @@ struct RouteEditorView: View {
         course.days.indices.contains(dayIndex) ? course.days[dayIndex].stops : []
     }
 
+    /// 갈래 필터를 통과한 가이드 장소. 지도는 이것만 그린다.
+    var visibleGuidePlaces: [RouteGuide.Place] {
+        guide.places.filter { poiGroupsOn.contains($0.poiGroup) }
+    }
+
+    /// 고른 장소도 갈래가 꺼져 있으면 지도에서 감춘다.
+    var visiblePickedGuide: RouteGuide.Place? {
+        guide.picked.flatMap { poiGroupsOn.contains($0.poiGroup) ? $0 : nil }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             topBar
@@ -113,6 +126,7 @@ struct RouteEditorView: View {
                     // 제네릭 안에 살아서 상태 선언이 내용 타입을 미리 못 안다.
                     AnyView(VStack(spacing: 0) {
                         dayTabs
+                        poiFilter
                         summary
                         actions
                         stopList

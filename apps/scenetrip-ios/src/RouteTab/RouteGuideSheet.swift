@@ -46,34 +46,18 @@ struct RouteGuideSheet: View {
     ]
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                if here == nil {
-                    // 「주변」이 어디인지 모르면 물어볼 수가 없다.
-                    ContentUnavailableView(
-                        "현재 위치를 알 수 없습니다",
-                        systemImage: "location.slash",
-                        description: Text("위치 권한을 켜면 주변 장소를 찾아 드립니다")
-                    )
-                } else {
-                    conversation
-                    composer
-                }
-            }
-            .navigationTitle("여행 가이드")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // 오른쪽 위 X. 글자 단추(「닫기」)는 왼쪽에서 너무 크게 그려져
-                // 제목을 밀었다(2026-08-27 사용자 지적).
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                }
+        VStack(spacing: 0) {
+            header
+            if here == nil {
+                // 「주변」이 어디인지 모르면 물어볼 수가 없다.
+                ContentUnavailableView(
+                    "현재 위치를 알 수 없습니다",
+                    systemImage: "location.slash",
+                    description: Text("위치 권한을 켜면 주변 장소를 찾아 드립니다")
+                )
+            } else {
+                conversation
+                composer
             }
         }
         .presentationDetents([.medium, .large])
@@ -83,6 +67,28 @@ struct RouteGuideSheet: View {
         // (2026-08-27 사용자 지적). 뒷화면을 흐리게 덮는 것도 이 설정이 없앤다 —
         // 반쯤 올라온 시트의 요점이 「지도와 같이 보는 것」인데 흐리면 뜻이 없다.
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+    }
+
+    /// 손수 그린 머리줄. 내비게이션 바를 쓰지 않는 이유는 **X 다** — 바에 넣으면
+    /// 시스템이 유리 동그라미를 깔아 크게 그린다(2026-08-27 사용자 지적, 두 번째).
+    private var header: some View {
+        ZStack {
+            Text("여행 가이드").font(.headline)
+            HStack {
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 6)
     }
 
     // MARK: 대화
@@ -216,8 +222,9 @@ struct RouteGuideSheet: View {
                 session.picked = isPicked ? nil : place
             } label: {
                 HStack(spacing: 8) {
+                    // 목록 점도 지도 점과 같은 갈래 색이다 — 색이 끈이다.
                     Circle()
-                        .fill(isPicked ? Color.red : Color.accentColor)
+                        .fill(isPicked ? Color.red : RoutePoiTone.of(place.poiGroup))
                         .frame(width: 7, height: 7)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(place.name)

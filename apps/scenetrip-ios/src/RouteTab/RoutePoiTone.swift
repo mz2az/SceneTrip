@@ -15,12 +15,46 @@ import SwiftUI
 /// 쓴다. 지도 점과 목록 점이 **같은 색이어야** 눈으로 이어진다.
 enum RoutePoiTone {
     /// 편의시설 갈래의 색. 지도 점과 목록 점이 **같은 색이어야** 눈으로 이어진다.
+    ///
+    /// 배정(2026-08-27 확정): 음식점·카페=빨강, 숙소=초록, 교통=노랑, 명소=파랑.
+    /// 보라는 안 쓴다 — 코스 번호 핀과 AI 말풍선이 이미 보라다.
     static func of(_ group: RoutePoiGroup) -> Color {
         switch group {
-        case .food: Color(red: 0.94, green: 0.58, blue: 0.17)
-        case .sight: Color(red: 0.18, green: 0.80, blue: 0.44)
-        case .stay: Color(PinImage.deep)
-        case .transit: Color.accentColor
+        case .food: Color(red: 0.89, green: 0.16, blue: 0.20)
+        case .stay: Color(red: 0.13, green: 0.66, blue: 0.37)
+        case .transit: Color(red: 0.93, green: 0.73, blue: 0.05)
+        case .sight: Color.accentColor
         }
+    }
+}
+
+extension RouteGuide.Place {
+    /// 이 장소의 큰 갈래. 서버가 준 값을 먼저 믿고, 없으면(옛 서버) 업종
+    /// 문자열에서 짐작한다 — 못 짐작하면 음식으로 둔다(50만 건의 대다수다).
+    var poiGroup: RoutePoiGroup {
+        switch group {
+        case "음식": return .food
+        case "숙박": return .stay
+        case "명소": return .sight
+        case "교통": return .transit
+        default: break
+        }
+        let kind = category ?? ""
+        if ["호텔", "모텔", "펜션", "게스트", "리조트", "숙박", "여관", "콘도"]
+            .contains(where: kind.contains)
+        {
+            return .stay
+        }
+        if ["역", "공항", "터미널", "정류", "철도", "렌터카", "주차"]
+            .contains(where: kind.contains)
+        {
+            return .transit
+        }
+        if ["관광", "명소", "박물관", "미술관", "궁", "공원", "문화", "사찰", "유적", "전시", "기념"]
+            .contains(where: kind.contains)
+        {
+            return .sight
+        }
+        return .food
     }
 }

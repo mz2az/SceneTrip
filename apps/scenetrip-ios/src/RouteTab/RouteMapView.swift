@@ -325,7 +325,7 @@ struct RouteMapView: UIViewRepresentable {
                     position: NMGLatLng(lat: place.latitude, lng: place.longitude)
                 )
                 let isPicked = place.id == pickedGuide?.id
-                marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot
+                marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot(place.poiGroup)
                 if isPicked {
                     marker.anchor = CGPoint(x: 0.5, y: 1)
                 } else {

@@ -246,6 +246,9 @@ enum RouteGuide {
         let latitude: Double
         let longitude: Double
 
+        /// 서버가 준 큰 갈래(음식·숙박·명소·교통). 옛 서버는 안 보내므로 없을 수 있다.
+        let group: String?
+
         init?(_ json: [String: Any]) {
             guard let latitude = Self.number(json["lat"]),
                   let longitude = Self.number(json["lng"]),
@@ -256,6 +259,7 @@ enum RouteGuide {
             self.longitude = longitude
             id = String(describing: json["id"] ?? name)
             category = json["cat"] as? String ?? json["kind"] as? String
+            group = json["group"] as? String
             address = json["addr"] as? String
             distanceMeters = Self.number(json["dist_m"]).map { Int($0) }
         }

@@ -158,7 +158,7 @@ struct RouteNavMapView: UIViewRepresentable {
                     position: NMGLatLng(lat: place.latitude, lng: place.longitude)
                 )
                 let isPicked = place.id == picked?.id
-                marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot
+                marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot(place.poiGroup)
                 marker.anchor = isPicked ? CGPoint(x: 0.5, y: 1) : CGPoint(x: 0.5, y: 0.5)
                 marker.captionText = place.name
                 marker.captionMinZoom = 14
