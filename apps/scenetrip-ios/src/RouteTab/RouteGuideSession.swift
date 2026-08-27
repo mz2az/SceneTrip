@@ -19,6 +19,10 @@ import Foundation
 /// 서버도 잊는다.
 @MainActor
 final class RouteGuideSession: ObservableObject {
+    /// **앱에 하나뿐인 대화.** 계획 화면에서 묻던 것을 길찾기에서 이어 묻고,
+    /// 돌아와도 그대로다(2026-08-28 사용자 요청 — 화면마다 대화가 갈리지 않게).
+    static let shared = RouteGuideSession()
+
     @Published private(set) var turns: [RouteGuide.Turn] = []
     @Published private(set) var asking = false
 

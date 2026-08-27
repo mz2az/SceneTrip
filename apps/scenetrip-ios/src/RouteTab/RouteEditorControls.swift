@@ -51,8 +51,16 @@ extension RouteEditorView {
         // 사용자 지적) — 일정 시트의 동작 줄(`actions`)로 내렸다.
         .overlay(alignment: .topTrailing) {
             if !pinning {
-                locateButton
-                    .padding(10)
+                VStack(spacing: 10) {
+                    locateButton
+                    // **접힌 가이드.** 대화를 한 번 시작했으면 시트를 닫아도
+                    // 여기 작게 남아, 누르면 이어서 펼쳐진다. 처음 여는 것은
+                    // 아래 동작 줄의 「AI 가이드」다.
+                    if !guide.isEmpty, !showGuide {
+                        RouteGuideChip { showGuide = true }
+                    }
+                }
+                .padding(10)
             }
         }
     }

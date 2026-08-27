@@ -42,3 +42,33 @@ struct RouteChatButton: View {
         }
     }
 }
+
+/// **접힌 가이드 창.** 대화창을 닫으면 사라지는 대신 이것으로 줄어들어 오른쪽에
+/// 붙어 있다가, 누르면 다시 펼쳐진다(2026-08-28 사용자 요청 — 화면마다 다른
+/// 단추 대신, 한 번 연 대화는 어디서든 같은 동그라미로 다시 부른다).
+///
+/// `RouteChatButton`(56pt·배지)보다 작다 — 지도를 가리지 않는 크기가 요점이다.
+struct RouteGuideChip: View {
+    var onTap: () -> Void = {}
+
+    var body: some View {
+        Button(action: onTap) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle().fill(
+                        LinearGradient(
+                            colors: [Color(PinImage.light), Color(PinImage.deep)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                )
+                .overlay(Circle().strokeBorder(.white.opacity(0.7), lineWidth: 1.5))
+                .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+}

@@ -32,8 +32,9 @@ struct RouteNavView: View {
     /// 가이드 대화창이 열려 있는가.
     @State private var showGuide = false
 
-    /// 가이드와의 대화. **시트 밖에서 든다** — 닫아도 남아야 한다.
-    @StateObject private var guide = RouteGuideSession()
+    /// 가이드와의 대화. **앱 공용이다** — 계획 화면에서 하던 대화가 여기로
+    /// 이어지고, 닫아도 남는다.
+    @ObservedObject private var guide = RouteGuideSession.shared
 
     /// **즉석에서 갈아탄 목적지.** 가이드가 찾아 준 가게로 「여기로 길찾기」를 누르면
     /// 원래 촬영지 대신 여기로 안내한다 — 걷다가 배가 고프면 목적지가 바뀌는 것이
@@ -72,7 +73,6 @@ struct RouteNavView: View {
                 summary
                 Divider()
                 legList
-                guideResults
                 bottomBar
             }
             .navigationTitle(destination.name)
@@ -195,9 +195,10 @@ struct RouteNavView: View {
             .frame(height: 300)
 
             // 챗봇은 여행 중에도 늘 손에 닿는 자리에 있다 — 길을 잃었을 때 물을
-            // 상대가 화면을 나가야 나온다면 아무도 못 쓴다.
-            RouteChatButton { showGuide = true }
-                .padding(16)
+            // 상대가 화면을 나가야 나온다면 아무도 못 쓴다. **접힌 동그라미**라
+            // 지도를 거의 가리지 않고, 계획 화면과 같은 모양이다.
+            RouteGuideChip { showGuide = true }
+                .padding(12)
         }
     }
 
@@ -287,48 +288,6 @@ struct RouteNavView: View {
         case .transit: Color(.systemGreen)
         }
     }
-
-    // MARK: 가이드가 찾아 준 곳
-
-    /// 챗봇에게 물어서 나온 곳만 여기 뜬다. **묻기 전에는 아무것도 없다** —
-    /// 늘 떠 있던 반경 목록을 걷어낸 자리다 — 위치와 무관하게 늘 같은 여섯 곳이라
-    /// 광화문에서도 「성수동 왕갈비 240 m」가 떴다(2026-08-27 걷어냄).
-    @ViewBuilder
-    private var guideResults: some View {
-        if !guide.places.isEmpty {
-            VStack(alignment: .leading, spacing: 0) {
-                Divider()
-                HStack(spacing: 6) {
-                    Text("가이드가 찾은 곳").font(.subheadline.weight(.semibold))
-                    Text("\(guide.places.count)곳")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("지우기") { guide.clear() }
-                        .font(.caption)
-                }
-                .padding(.horizontal, 16).padding(.vertical, 10)
-
-                ForEach(guide.places) { place in
-                    HStack(spacing: 10) {
-                        Circle().fill(Color.accentColor).frame(width: 8, height: 8)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(place.name).font(.subheadline.weight(.medium))
-                            Text([place.category, place.address]
-                                .compactMap { $0 }.joined(separator: " · "))
-                                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                        Spacer()
-                        if let meters = place.distanceMeters {
-                            Text("\(meters) m").font(.caption).foregroundStyle(.tertiary)
-                        }
-                    }
-                    .padding(.horizontal, 16).padding(.vertical, 8)
-                }
-            }
-        }
-    }
-
-    // MARK: 아래
 
     private var bottomBar: some View {
         Button {

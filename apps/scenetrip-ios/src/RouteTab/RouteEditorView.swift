@@ -59,8 +59,8 @@ struct RouteEditorView: View {
     /// 「주변」의 기준이 되는 자리. 가이드가 이것으로 찾는다.
     @StateObject var guideLocator = RouteLocator()
 
-    /// 가이드와의 대화. **시트 밖에서 든다** — 닫아도 남아야 한다.
-    @StateObject var guide = RouteGuideSession()
+    /// 가이드와의 대화. **앱 공용이다** — 길찾기 화면과 같은 대화를 본다.
+    @ObservedObject var guide = RouteGuideSession.shared
 
     /// 지도에 보여 줄 편의시설 갈래. 기본은 전부 — 끄는 것은 사용자의 선택이다.
     @State var poiGroupsOn: Set<RoutePoiGroup> = Set(RoutePoiGroup.allCases)
