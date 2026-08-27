@@ -43,6 +43,7 @@ struct RouteTabView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                header
                 // **세그먼트가 마켓으로 가는 길이다.** 전에는 오른쪽 위 아이콘 버튼
                 // 하나였는데, 목업은 「내 코스」와 대등한 자리로 두었다 — 마켓은
                 // 곁다리가 아니라 이 탭의 절반이다.
@@ -65,29 +66,10 @@ struct RouteTabView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            // 큰 제목 「코스」를 접었다(2026-08-28) — 그 자리가 아깝다. 대신 오른쪽
-            // 위에 추가 단추를 둔다. 맨 아래 행이던 시절에는 코스가 쌓일수록
-            // 추가하러 끝까지 내려가야 했다.
-            .navigationTitle("코스")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if segment == .mine {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        // 이 탭의 첫 행동이라 **늘 반짝인다** — AI 가이드 단추와
-                        // 같은 피노 색이다(2026-08-28 사용자 요청).
-                        Button {
-                            fork = true
-                        } label: {
-                            Label("코스 추가", systemImage: "plus")
-                                .labelStyle(.titleAndIcon)
-                                .font(.caption.weight(.semibold))
-                                .padding(.horizontal, 10).padding(.vertical, 6)
-                        }
-                        .buttonStyle(.plain)
-                        .modifier(PinoNudge(on: true, cornerRadius: 15))
-                    }
-                }
-            }
+            // 내비게이션 바를 접고 머리줄을 직접 그린다 — 바에 단추를 넣으면
+            // 시스템이 유리 캡슐(흰 판)을 깔아 피노 색을 가린다(2026-08-28 사용자
+            // 지적, X 단추 때와 같은 문제).
+            .toolbar(.hidden, for: .navigationBar)
             .task {
                 await store.refresh()
                 openPending()
@@ -206,6 +188,31 @@ struct RouteTabView: View {
             Spacer(minLength: 0)
         }
         .presentationDetents([.height(420)])
+    }
+
+    /// 손수 그린 머리줄. 큰 제목 대신 **코스 추가**가 그 자리를 쓴다 — 맨 아래
+    /// 행이던 시절에는 코스가 쌓일수록 추가하러 끝까지 내려가야 했다. 이 탭의
+    /// 첫 행동이라 피노 색으로 늘 반짝인다.
+    private var header: some View {
+        ZStack {
+            Text("코스").font(.headline)
+            HStack {
+                Spacer()
+                if segment == .mine {
+                    Button {
+                        fork = true
+                    } label: {
+                        Label("코스 추가", systemImage: "plus")
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                    }
+                    .buttonStyle(.plain)
+                    .modifier(PinoNudge(on: true, cornerRadius: 15))
+                }
+            }
+        }
+        .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 8)
     }
 
     // MARK: 코스 목록
