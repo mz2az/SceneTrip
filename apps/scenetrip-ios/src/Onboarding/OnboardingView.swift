@@ -31,7 +31,7 @@ struct OnboardingView: View {
         ),
         Lesson(
             pose: .sparkle,
-            title: "Set your pace.\nPINO plans the days.",
+            title: "Set your pace.\nJINDO plans the days.",
             // 5 와 3 은 지어낸 수가 아니라 `RoutePlanner.perDay` 의 값이다.
             // 그쪽을 고치면 이 문장도 함께 고쳐야 한다.
             body: "Packed fits 5 stops a day, Easy fits 3.\nNearby spots get grouped, day by day.",
@@ -46,7 +46,7 @@ struct OnboardingView: View {
         Lesson(
             pose: .speech,
             title: "Eat on the way.\nAsk when you are stuck.",
-            body: "Restaurants, sights, transit and stays\naround you. PINO handles the Korean.",
+            body: "Restaurants, sights, transit and stays\naround you. JINDO handles the Korean.",
             korean: "반경 안의 음식점·명소·교통·숙소, 그리고 챗봇"
         ),
     ]
