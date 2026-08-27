@@ -36,6 +36,9 @@ struct ProfileTabView: View {
 
     private let deviceId = InstallIdentity.current
 
+    /// 뒷문은 프로세스당 한 번. 화면 상태가 아니라 **프로세스 상태**라 static 이다.
+    private static var likesBackdoorUsed = false
+
     var body: some View {
         NavigationStack {
             List {
@@ -147,8 +150,11 @@ struct ProfileTabView: View {
             .task {
                 await load()
                 // 확인용 뒷문(`-openLikes 1`) — 합성 클릭이 안 닿는 시뮬레이터에서
-                // 팝업 속까지 찍어 보기 위한 것. 평소에는 아무 일도 없다.
-                if UserDefaults.standard.bool(forKey: "openLikes") {
+                // 팝업 속까지 찍어 보기 위한 것. **한 번만 발동한다** — 안 그러면
+                // 그 인자로 뜬 프로세스가 살아 있는 동안 마이페이지에 들어갈
+                // 때마다 팝업이 저절로 열린다(2026-08-28 사용자 발견).
+                if UserDefaults.standard.bool(forKey: "openLikes"), !Self.likesBackdoorUsed {
+                    Self.likesBackdoorUsed = true
                     showingLikes = true
                 }
             }
