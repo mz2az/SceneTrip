@@ -144,6 +144,9 @@ struct RouteMapView: UIViewRepresentable {
         var pulse: RadarPulse?
         /// 내 자리와 겹쳐서 키워 둔 핀. 겹침이 풀리면 원래 크기로 되돌린다.
         var grown: NMFMarker?
+        /// 진도 핀 뒤의 심장박동 헤일로. 고른 곳(빨강) > 눌러 둔 곳(파랑) 순.
+        var halo: HaloPulse?
+        var haloAt: NMGLatLng?
         var showingMe = false
         /// 이미 카메라를 옮긴 조합. 같은 것을 두 번 옮기지 않는다 — SwiftUI 가 뷰를
         /// 다시 그릴 때마다 지도가 튀면 손으로 옮긴 화면이 계속 되돌아간다.
@@ -226,6 +229,23 @@ struct RouteMapView: UIViewRepresentable {
             //
             // 한 곳을 **콕 집어 골랐을 때만** 예외다. 그때는 그 곳(또는 나와 그 곳)만
             // 크게 본다.
+            // 헤일로 대상: 고른 가게 > 목록에서 누른 코스 장소. 없으면 끈다.
+            if let pickedGuide {
+                updateHalo(
+                    style: .picked,
+                    at: NMGLatLng(lat: pickedGuide.latitude, lng: pickedGuide.longitude),
+                    on: mapView
+                )
+            } else if let focused {
+                updateHalo(
+                    style: .brand,
+                    at: NMGLatLng(lat: focused.place.latitude, lng: focused.place.longitude),
+                    on: mapView
+                )
+            } else {
+                updateHalo(style: .brand, at: nil, on: mapView)
+            }
+
             let cameraKey = "\(focused?.id.uuidString ?? "-")|\(showingMe)|\(key)"
             if cameraKey != lastCameraKey || fitToken != lastFitToken {
                 lastCameraKey = cameraKey
