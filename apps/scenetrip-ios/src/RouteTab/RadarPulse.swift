@@ -128,27 +128,35 @@ final class RadarPulse: UIView {
 /// 진도 핀 뒤에서 **심장박동처럼 퍼지는 헤일로** (2026-08-28).
 ///
 /// 정적 헤일로는 흰 몸을 세우는 데는 됐지만 눈을 끌지 못했다 — 현재위치
-/// 파문(`RadarPulse`)과 같은 원리로, 하늘→보라(핀 그라데이션)의 둥근 빛이
-/// 커지며 옅어지기를 반복한다. 고른 곳은 빨간 판을 쓴다.
+/// 파문(`RadarPulse`)과 같은 원리로, 하늘→보라(핀 그라데이션)의 빛 고리가
+/// 커지며 옅어지기를 반복한다. 고른 곳은 빨간 고리를 쓴다.
 ///
-/// `RadarPulse` 처럼 지도 **위에** 얹는 뷰라, 카메라가 움직일 때마다 자리를
-/// 다시 잡아 줘야 한다.
+/// ## 가운데가 뚫린 고리인 이유
+///
+/// `RadarPulse` 처럼 지도 **위에** 얹는 뷰다 — 지도 밑(`insertSubview(at: 0)`)에
+/// 깔면 지도 타일이 자기 서브뷰라 완전히 가려 아무것도 안 보인다(2026-08-28
+/// 사용자 확인). 위에 얹으면 이번엔 핀을 덮으므로, 가운데를 투명하게 뚫어
+/// 강아지 얼굴은 그대로 두고 **고리만** 핀 둘레로 퍼지게 한다.
+/// 카메라가 움직일 때마다 자리를 다시 잡아 줘야 하는 것은 파문과 같다.
 @MainActor
 final class HaloPulse: UIView {
     enum Style {
         case brand
         case picked
 
+        /// 안쪽 투명 → 하늘 → 보라 → 투명. 가운데 구멍이 핀 자리다.
         var colors: [CGColor] {
             switch self {
             case .brand: [
-                    PinImage.light.withAlphaComponent(0.65).cgColor,
-                    PinImage.deep.withAlphaComponent(0.45).cgColor,
+                    PinImage.light.withAlphaComponent(0).cgColor,
+                    PinImage.light.withAlphaComponent(0.75).cgColor,
+                    PinImage.deep.withAlphaComponent(0.65).cgColor,
                     PinImage.deep.withAlphaComponent(0).cgColor,
                 ]
             case .picked: [
-                    UIColor(red: 1.0, green: 0.45, blue: 0.42, alpha: 0.6).cgColor,
-                    UIColor(red: 0.89, green: 0.16, blue: 0.20, alpha: 0.45).cgColor,
+                    UIColor(red: 1.0, green: 0.45, blue: 0.42, alpha: 0).cgColor,
+                    UIColor(red: 1.0, green: 0.45, blue: 0.42, alpha: 0.75).cgColor,
+                    UIColor(red: 0.89, green: 0.16, blue: 0.20, alpha: 0.6).cgColor,
                     UIColor(red: 0.89, green: 0.16, blue: 0.20, alpha: 0).cgColor,
                 ]
             }
@@ -157,7 +165,7 @@ final class HaloPulse: UIView {
 
     private static let period: CFTimeInterval = 1.8
     private static let waves = 2
-    private static let spread: CGFloat = 76
+    private static let spread: CGFloat = 116
 
     let style: Style
     private var rings: [CAGradientLayer] = []
@@ -171,7 +179,8 @@ final class HaloPulse: UIView {
             let ring = CAGradientLayer()
             ring.type = .radial
             ring.colors = style.colors
-            ring.locations = [0, 0.55, 1]
+            // 반지름의 0~35% 는 투명(핀 자리), 35~70% 에서 하늘→보라, 끝에서 사라진다.
+            ring.locations = [0.35, 0.5, 0.7, 1]
             ring.startPoint = CGPoint(x: 0.5, y: 0.5)
             ring.endPoint = CGPoint(x: 1, y: 1)
             ring.frame = bounds

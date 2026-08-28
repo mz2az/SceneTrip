@@ -64,6 +64,11 @@ struct RouteNavMapView: UIViewRepresentable {
     /// 카메라가 멈췄다. (남, 서, 북, 동, 가운데위도, 가운데경도, 줌).
     var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
 
+    /// 「현재위치로」 단추를 누른 횟수. 값이 바뀌면 카메라가 내 자리로 확대해
+    /// 들어간다 — 길찾기에서 현재위치는 토글이 아니라 **늘 보이는 것**이고,
+    /// 단추는 화면을 그리로 되돌리는 일만 한다(2026-08-28 사용자 결정).
+    var recenterTick = 0
+
     func makeUIView(context: Context) -> NMFNaverMapView {
         let view = NMFNaverMapView()
         view.showZoomControls = false
@@ -85,6 +90,7 @@ struct RouteNavMapView: UIViewRepresentable {
         context.coordinator.onTapPlace = onTapPlace
         context.coordinator.onTapStop = onTapStop
         context.coordinator.onViewport = onViewport
+        context.coordinator.recenterIfAsked(recenterTick, here: here, on: view.mapView)
         context.coordinator.renderAmbient(ambientPlaces, picked: picked, on: view.mapView)
         context.coordinator.render(stop: stop, dayStops: showDayStops ? dayStops : [],
                                    goal: goal,
@@ -274,6 +280,27 @@ struct RouteNavMapView: UIViewRepresentable {
             mapView.moveCamera(update)
         }
 
+        /// 「현재위치로」 단추가 눌린 횟수를 기억해, 바뀌었을 때만 카메라를 옮긴다.
+        private var lastRecenterTick = 0
+
+        /// 내 자리로 카메라를 확대해 들어간다. 위치를 아직 못 받았으면 아무 일도
+        /// 안 한다 — 단추 자체가 그때는 숨어 있다.
+        func recenterIfAsked(
+            _ tick: Int,
+            here: (latitude: Double, longitude: Double)?,
+            on mapView: NMFMapView
+        ) {
+            guard tick != lastRecenterTick else { return }
+            lastRecenterTick = tick
+            guard let here else { return }
+            let update = NMFCameraUpdate(
+                scrollTo: NMGLatLng(lat: here.latitude, lng: here.longitude),
+                zoomTo: 16
+            )
+            update.animation = .easeIn
+            mapView.moveCamera(update)
+        }
+
         // MARK: 레이더 파문
 
         /// 지도 위에 파문을 얹고 자리를 잡는다.
@@ -314,7 +341,8 @@ struct RouteNavMapView: UIViewRepresentable {
             if halo == nil || halo?.style != style {
                 halo?.removeFromSuperview()
                 let view = HaloPulse(style: style)
-                mapView.insertSubview(view, at: 0)
+                // 지도 위에 얹는다 — 밑에 넣으면 타일에 가려 안 보인다.
+                mapView.addSubview(view)
                 halo = view
             }
             haloAt = spot

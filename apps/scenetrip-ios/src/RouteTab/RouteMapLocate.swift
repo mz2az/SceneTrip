@@ -142,8 +142,9 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
         if halo == nil || halo?.style != style {
             halo?.removeFromSuperview()
             let view = HaloPulse(style: style)
-            // 마커보다 아래에 깔려야 빛이 **뒤에서** 나온다.
-            mapView.insertSubview(view, at: 0)
+            // 지도 **위에** 얹는다 — 밑에 넣으면 타일에 가려 안 보인다(파문과 같은
+            // 규칙). 핀은 고리의 투명한 가운데로 비켜 간다(`HaloPulse` 머리말).
+            mapView.addSubview(view)
             halo = view
         }
         haloAt = spot
