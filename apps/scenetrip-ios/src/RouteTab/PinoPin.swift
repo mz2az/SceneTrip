@@ -29,8 +29,9 @@ enum PinoPin {
     /// 색깔별로 따로 담는다.
     private static var cached: [Tint: NMFOverlayImage] = [:]
 
-    /// 화면에 그릴 크기(pt). 핀 끝이 좌표를 가리키도록 아래쪽 가운데를 기준으로 앉힌다.
-    static let size = CGSize(width: 52, height: 68)
+    /// 화면에 그릴 크기(pt). 번호 핀(38×50)과 같은 급이다 — 마스코트라고 크면
+    /// 핀들 사이에서 저 혼자 다른 물건이 된다(2026-08-28 사용자 지적).
+    static let size = CGSize(width: 40, height: 52)
 
     /// 핀 색.
     enum Tint: Hashable {
@@ -68,21 +69,35 @@ enum PinoPin {
     /// **고른 하나만** 고양이가 된다 — 점 사이에서 고양이 하나가 곧 「지금 보는 곳」이다.
     /// 갈래마다 색이 다르다(`RoutePoiTone`) — 음식점·카페=빨강, 숙소=초록,
     /// 교통=노랑, 명소=파랑(2026-08-27 사용자 확정).
+    ///
+    /// 모양은 **강아지 발바닥**이다(2026-08-28) — 마스코트가 진돗개가 되면서
+    /// 「진도가 밟고 간 자리」로 읽힌다. 색 원리는 점일 때와 같다.
     static func guideDot(_ group: RoutePoiGroup) -> NMFOverlayImage {
         if let found = cachedDots[group] {
             return found
         }
-        let size: CGFloat = 16
+        let size: CGFloat = 20
         let image = UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { context in
-            let bounds = CGRect(x: 0, y: 0, width: size, height: size)
+            let tone = UIColor(RoutePoiTone.of(group))
+
+            // 발바닥 = 큰 패드 하나 + 발가락 셋. 흰 테두리가 지도에서 경계를 세운다.
+            let pad = UIBezierPath(ovalIn: CGRect(x: 5.2, y: 10.2, width: 9.6, height: 7.6))
+            let toes = [
+                UIBezierPath(ovalIn: CGRect(x: 3.4, y: 5.4, width: 4.4, height: 4.6)),
+                UIBezierPath(ovalIn: CGRect(x: 7.9, y: 3.2, width: 4.4, height: 4.6)),
+                UIBezierPath(ovalIn: CGRect(x: 12.4, y: 5.4, width: 4.4, height: 4.6)),
+            ]
+
             context.cgContext.setShadow(
-                offset: .zero, blur: 2, color: UIColor.black.withAlphaComponent(0.3).cgColor
+                offset: .zero, blur: 1.6, color: UIColor.black.withAlphaComponent(0.3).cgColor
             )
-            UIColor.white.setFill()
-            UIBezierPath(ovalIn: bounds.insetBy(dx: 0.5, dy: 0.5)).fill()
-            context.cgContext.setShadow(offset: .zero, blur: 0, color: nil)
-            UIColor(RoutePoiTone.of(group)).setFill()
-            UIBezierPath(ovalIn: bounds.insetBy(dx: 3, dy: 3)).fill()
+            for path in [pad] + toes {
+                tone.setFill()
+                path.fill()
+                UIColor.white.setStroke()
+                path.lineWidth = 1.3
+                path.stroke()
+            }
         }
         let overlay = NMFOverlayImage(image: image)
         cachedDots[group] = overlay
@@ -96,27 +111,41 @@ enum PinoPin {
         // 지도 핀 = 물방울 핀 안에 든 진도(jindo-pinbody). 고른 것은 색을 못
         // 바꾸는 대신(그림이라) **빨간 테두리 물방울**을 뒤에 깔고 키운다.
         ZStack {
-            if tint == .picked {
-                PinRing()
-                    .stroke(
-                        Color(red: 0.89, green: 0.16, blue: 0.20),
-                        style: .init(lineWidth: 4.5, lineJoin: .round)
+            // **파란 헤일로.** 몸이 흰색이라 밝은 지도에서 묻힌다 — 앱의 바탕색
+            // (핀 그라데이션 파랑)으로 뒤를 은은하게 밝힌다(2026-08-28 사용자
+            // 제안). 고른 것은 헤일로가 빨갛다.
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            (tint == .picked
+                                ? Color(red: 0.89, green: 0.16, blue: 0.20)
+                                : Color(PinImage.deep)).opacity(0.55),
+                            .clear,
+                        ],
+                        center: .center,
+                        startRadius: 1,
+                        endRadius: size.width * scale(tint) * 0.85
                     )
-                    .frame(
-                        width: size.width * scale(tint) * 0.72,
-                        height: size.height * scale(tint) * 0.98
-                    )
-            }
+                )
+                .frame(
+                    width: size.width * scale(tint) * 1.7,
+                    height: size.width * scale(tint) * 1.7
+                )
             // 타이트 크롭 판 — 원본 셀에는 투명 여백이 넓어 핀이 작게, 좌표
             // 위에 떠 보였다(2026-08-28 사용자 지적: 옛 핀과 겹쳐 보임).
             Image("jindo-pinbody-tight")
                 .resizable()
                 .scaledToFit()
                 .frame(width: size.width * scale(tint))
+                .shadow(
+                    color: Color(PinImage.deep).opacity(tint == .picked ? 0 : 0.7),
+                    radius: 3
+                )
         }
-        .shadow(color: .black.opacity(0.28), radius: 3, y: 2)
-        // 그림자가 잘리지 않게 여백을 준다.
-        .padding(4)
+        .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
+        // 헤일로가 잘리지 않게 여백을 준다.
+        .padding(6)
     }
 }
 
