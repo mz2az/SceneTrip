@@ -1,13 +1,14 @@
 import SwiftUI
 import UIKit
 
-/// 진도 — SceneTrip 마스코트, **일러스트 판** (2026-08-28).
+/// 해태 — SceneTrip 마스코트, **일러스트 판** (2026-08-28 진도에서 교체).
 ///
 /// ## 코드 벡터를 접고 그림으로 갔다
 ///
 /// 물방울 핀에 귀·꼬리를 붙이던 벡터 판은 「마스코트라 하기엔 안 귀엽다」로
-/// 끝났다(사용자 판정). 지금 판은 제미나이로 뽑은 **캐릭터 시트 6장**이다 —
-/// 발주서는 드롭박스 `jindo.html`, 원본 시트도 드롭박스에 있다.
+/// 끝났다(사용자 판정). 진돗개 일러스트를 거쳐 지금 판은 **해태**(구름 갈기·
+/// 뿔·파란 소용돌이 무늬 강아지)다 — 원본 시트는 드롭박스
+/// `haetae.png`·`haetae_pin.png`, Vision 피사체 분리로 오려 넣었다.
 ///
 /// ## 그림은 정지, 움직임은 코드
 ///
@@ -19,11 +20,11 @@ import UIKit
 ///
 /// | 포즈 | 그림 | 쓰임 |
 /// | --- | --- | --- |
-/// | plain | jindo-sit (앉아 정면) | 스플래시·마이페이지 |
-/// | magnifier | jindo-point (가리킴) | 튜토리얼 「찾는다」 |
-/// | sparkle | jindo-wave (웃는 눈 인사) + 반짝별 소품 | 튜토리얼 「짜 준다」 |
-/// | paw | jindo-pinhold (지도 핀 들고) | 튜토리얼 「데려간다」 |
-/// | speech | jindo-sit + 말풍선 소품 | 튜토리얼 「거든다」 |
+/// | plain | haetae-sit (앉아 정면) | 스플래시·마이페이지 |
+/// | magnifier | haetae-bow (엎드려 살피는 자세) | 튜토리얼 「찾는다」 |
+/// | sparkle | haetae-joy (웃는 눈 앉기) + 반짝별 소품 | 튜토리얼 「짜 준다」 |
+/// | paw | haetae-pinhold (지도 핀에서 빼꼼) | 튜토리얼 「데려간다」 |
+/// | speech | haetae-sit + 말풍선 소품 | 튜토리얼 「거든다」 |
 ///
 /// 소품(반짝별·말풍선)은 그림에 굽지 않고 **앱이 얹는다** — 장마다 자리가 달라서다.
 enum Pino {
@@ -44,8 +45,8 @@ enum Pino {
         case picked
     }
 
-    /// 그림의 가로:세로 비율 (시트 한 칸 341×286).
-    static let aspect: CGFloat = 286.0 / 341.0
+    /// 그림의 세로/가로 비율 (해태 앉기 컷아웃 525×582 — 진도와 달리 세로가 길다).
+    static let aspect: CGFloat = 582.0 / 525.0
 
     /// 프레임 바닥과 발끝 사이 — 그림 아래 여백만큼이다. 스플래시의 그림자가 쓴다.
     static func tipInset(width: CGFloat) -> CGFloat {
@@ -71,10 +72,10 @@ struct PinoMascot: View {
 
     private var imageName: String {
         switch pose {
-        case .plain, .speech: "jindo-sit"
-        case .magnifier: "jindo-point"
-        case .sparkle: "jindo-wave"
-        case .paw: "jindo-pinhold"
+        case .plain, .speech: "haetae-sit"
+        case .magnifier: "haetae-bow"
+        case .sparkle: "haetae-joy"
+        case .paw: "haetae-pinhold"
         }
     }
 

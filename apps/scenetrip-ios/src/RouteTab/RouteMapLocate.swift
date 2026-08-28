@@ -130,7 +130,7 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
 
     // MARK: 헤일로
 
-    /// 진도 핀 뒤의 심장박동. 자리·판이 그대로면 아무것도 안 한다.
+    /// 해태 핀 뒤의 심장박동. 자리·판이 그대로면 아무것도 안 한다.
     func updateHalo(style: HaloPulse.Style, at spot: NMGLatLng?, on mapView: NMFMapView) {
         guard let spot else {
             halo?.removeFromSuperview()
