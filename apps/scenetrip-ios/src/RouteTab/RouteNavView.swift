@@ -44,16 +44,9 @@ struct RouteNavView: View {
     /// 이어지고, 닫아도 남는다.
     @ObservedObject var guide = RouteGuideSession.shared
 
-    /// 화면 범위 안의 주변 편의시설. **기본은 전부 꺼짐** — 길찾기 화면의
-    /// 주인공은 경로라, 배경 점은 사용자가 켤 때만 나온다(2026-08-28 사용자 결정).
-    /// 목록은 늘 받아 둔다(개수 칩을 보여 줘야 켤 마음이 생긴다) — 우리 자료
-    /// 조건 질의라 부르는 값이 없다.
-    @State var poiGroupsOn: Set<RoutePoiGroup> = []
-    @State var ambientPois: [RouteGuide.Place] = []
-    @State var ambientTask: Task<Void, Never>?
-
-    /// 성지(코스 번호 핀)를 지도에 그릴 것인가. **켜짐이 기본** — 여정의 뼈대다.
-    @State var showSanctums = true
+    // 갈래 칩 줄(주변 편의시설·성지 토글)은 있었다가 뺐다(2026-08-28 사용자
+    // 결정: 「이거 전체를 빼버리자」) — 길찾기의 주인공은 경로다. 성지 번호
+    // 핀은 토글 없이 늘 그린다. 주변 편의시설은 챗봇이 찾아 줄 때만 나온다.
 
     /// 지도에서 누른 성지. 장면 설명 카드가 뜬다.
     @State var pickedStop: RouteStop?
@@ -95,7 +88,6 @@ struct RouteNavView: View {
         VStack(spacing: 0) {
             header
             map
-            poiChips
             summary
             Divider()
             legList
@@ -220,7 +212,6 @@ struct RouteNavView: View {
             RouteNavMapView(
                 stop: stop,
                 dayStops: dayStops,
-                showDayStops: showSanctums,
                 onTapStop: { tapped in
                     pickedStop = tapped
                     guide.picked = nil // 카드는 한 장만
@@ -234,8 +225,6 @@ struct RouteNavView: View {
                 },
                 legs: result?.legs ?? [],
                 here: here,
-                ambientPlaces: visibleAmbientPois,
-                onViewport: viewportChanged,
                 recenterTick: recenterTick
             )
             .frame(height: 300)
