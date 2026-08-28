@@ -72,8 +72,12 @@ struct RouteGuideSheet: View {
         }
     }
 
-    /// 손수 그린 머리줄. 내비게이션 바를 쓰지 않는 이유는 **X 다** — 바에 넣으면
-    /// 시스템이 유리 동그라미를 깔아 크게 그린다(2026-08-27 사용자 지적, 두 번째).
+    /// 손수 그린 머리줄. 내비게이션 바를 쓰지 않는 이유는 닫기 단추다 — 바에
+    /// 넣으면 시스템이 유리 동그라미를 깔아 크게 그린다(2026-08-27 사용자 지적).
+    ///
+    /// 아이콘은 X 가 아니라 **창 줄이기**(안쪽으로 모이는 화살)다 — 대화가
+    /// 사라지는 게 아니라 오른쪽 동그라미로 **접히는 것**이라서다(2026-08-28
+    /// 사용자 요청). 닫는 몸짓도 `guidePanel` 이 오른쪽 아래로 오므라들게 한다.
     private var header: some View {
         ZStack {
             Text("여행 가이드").font(.headline)
@@ -82,8 +86,8 @@ struct RouteGuideSheet: View {
                 Button {
                     onClose()
                 } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
+                    Image(systemName: "arrow.down.right.and.arrow.up.left")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 32, height: 32)
                         .contentShape(.rect)
@@ -352,7 +356,14 @@ extension View {
                     .shadow(color: .black.opacity(0.22), radius: 14, y: 6)
                     .padding(.trailing, 6)
                     .padding(.bottom, 8)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                    // 접힌 동그라미 **자리 쪽으로** 오므라들며 사라진다 — 창이
+                    // 닫히는 게 아니라 동그라미로 접힌다는 몸짓(2026-08-28 사용자
+                    // 요청). 동그라미는 두 화면 다 패널보다 위 오른편에 있다
+                    // (편집=지도 오른쪽 위, 길찾기=지도 오른쪽 아래) — 오른쪽
+                    // 아래로 오므리면 동그라미와 무관한 곳으로 사라져 「눌러서
+                    // 나왔다 들어간다」는 느낌이 죽는다(사용자 확인).
+                    .transition(.scale(scale: 0.05, anchor: .topTrailing)
+                        .combined(with: .opacity))
             }
         }
         .animation(.easeInOut(duration: 0.28), value: isOpen)
