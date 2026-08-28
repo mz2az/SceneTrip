@@ -126,7 +126,9 @@ struct RouteNavView: View {
                 .padding(.bottom, 80)
             }
         }
-        .sheet(isPresented: $showGuide) {
+        // 가이드는 시트가 아니라 **오른쪽 서랍**이다 — 편집 화면과 같은 몸짓
+        // (2026-08-28 사용자 요청). 지도·구간 목록이 계속 보인다.
+        .guidePanel(isOpen: showGuide) {
             RouteGuideSheet(
                 session: guide,
                 here: here.map {
@@ -154,7 +156,8 @@ struct RouteNavView: View {
                         latitude: stop.place.latitude, longitude: stop.place.longitude
                     )
                 ),
-                onReroute: { reroute(to: $0) }
+                onReroute: { reroute(to: $0) },
+                onClose: { showGuide = false }
             )
         }
         // 위치가 오면 그때 부른다. **누를 때만 부르는 것이 비용 통제 장치**이고,
