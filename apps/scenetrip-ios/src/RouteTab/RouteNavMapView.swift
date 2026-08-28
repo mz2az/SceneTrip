@@ -64,6 +64,11 @@ struct RouteNavMapView: UIViewRepresentable {
     /// 카메라가 멈췄다. (남, 서, 북, 동, 가운데위도, 가운데경도, 줌).
     var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
 
+    /// 「현재위치로」 단추를 누른 횟수. 값이 바뀌면 카메라가 내 자리로 확대해
+    /// 들어간다 — 길찾기에서 현재위치는 토글이 아니라 **늘 보이는 것**이고,
+    /// 단추는 화면을 그리로 되돌리는 일만 한다(2026-08-28 사용자 결정).
+    var recenterTick = 0
+
     func makeUIView(context: Context) -> NMFNaverMapView {
         let view = NMFNaverMapView()
         view.showZoomControls = false
@@ -85,6 +90,7 @@ struct RouteNavMapView: UIViewRepresentable {
         context.coordinator.onTapPlace = onTapPlace
         context.coordinator.onTapStop = onTapStop
         context.coordinator.onViewport = onViewport
+        context.coordinator.recenterIfAsked(recenterTick, here: here, on: view.mapView)
         context.coordinator.renderAmbient(ambientPlaces, picked: picked, on: view.mapView)
         context.coordinator.render(stop: stop, dayStops: showDayStops ? dayStops : [],
                                    goal: goal,
@@ -114,6 +120,9 @@ struct RouteNavMapView: UIViewRepresentable {
         /// 레이더 파문. 지도 마커가 아니라 **지도 위에 얹은 뷰**다 — 이유는
         /// `RadarPulse` 머리말 참고.
         private var pulse: RadarPulse?
+        /// 진도 핀(목적지/고른 곳) 뒤의 심장박동 헤일로.
+        private var halo: HaloPulse?
+        private var haloAt: NMGLatLng?
         /// 파문이 서 있어야 할 지도 좌표. 카메라가 움직이면 화면 좌표가 달라지므로
         /// 이 값을 들고 다니며 다시 계산한다.
         private var pulseAt: NMGLatLng?
@@ -235,6 +244,17 @@ struct RouteNavMapView: UIViewRepresentable {
                 markers.append(marker)
             }
 
+            // 헤일로 — 고른 가게가 있으면 거기(빨강), 아니면 목적지(파랑).
+            if let picked {
+                updateHalo(
+                    style: .picked,
+                    at: NMGLatLng(lat: picked.latitude, lng: picked.longitude),
+                    on: mapView
+                )
+            } else {
+                updateHalo(style: .brand, at: target, on: mapView)
+            }
+
             // 경로 전체가 보이게 맞춘다. 좌표가 없으면 출발지·목적지 둘만으로.
             // 카메라의 우선순위 —
             //   고른 가게가 있으면 **그 핀으로 확대**,
@@ -257,6 +277,27 @@ struct RouteNavMapView: UIViewRepresentable {
                 : guideSpots
             let bounds = NMGLatLngBounds(latLngs: extent)
             let update = NMFCameraUpdate(fit: bounds, padding: 56)
+            mapView.moveCamera(update)
+        }
+
+        /// 「현재위치로」 단추가 눌린 횟수를 기억해, 바뀌었을 때만 카메라를 옮긴다.
+        private var lastRecenterTick = 0
+
+        /// 내 자리로 카메라를 확대해 들어간다. 위치를 아직 못 받았으면 아무 일도
+        /// 안 한다 — 단추 자체가 그때는 숨어 있다.
+        func recenterIfAsked(
+            _ tick: Int,
+            here: (latitude: Double, longitude: Double)?,
+            on mapView: NMFMapView
+        ) {
+            guard tick != lastRecenterTick else { return }
+            lastRecenterTick = tick
+            guard let here else { return }
+            let update = NMFCameraUpdate(
+                scrollTo: NMGLatLng(lat: here.latitude, lng: here.longitude),
+                zoomTo: 16
+            )
+            update.animation = .easeIn
             mapView.moveCamera(update)
         }
 
@@ -288,14 +329,48 @@ struct RouteNavMapView: UIViewRepresentable {
             pulse.place(at: host.projection.point(from: pulseAt))
         }
 
+        /// 헤일로 갱신 — 편집 지도(`RouteMapLocate.updateHalo`)와 같은 규칙.
+        private func updateHalo(style: HaloPulse.Style, at spot: NMGLatLng?, on mapView: NMFMapView) {
+            host = mapView
+            guard let spot else {
+                halo?.removeFromSuperview()
+                halo = nil
+                haloAt = nil
+                return
+            }
+            if halo == nil || halo?.style != style {
+                halo?.removeFromSuperview()
+                let view = HaloPulse(style: style)
+                // 지도 위에 얹는다 — 밑에 넣으면 타일에 가려 안 보인다.
+                mapView.addSubview(view)
+                halo = view
+            }
+            haloAt = spot
+            halo?.restartIfNeeded()
+            positionHalo()
+        }
+
+        private func positionHalo() {
+            guard let halo, let haloAt, let host else { return }
+            var point = host.projection.point(from: haloAt)
+            point.y -= 24
+            halo.place(at: point)
+        }
+
         /// 지도가 움직이는 **동안 계속** 부른다. 멈춘 뒤에만 옮기면 미는 사이에
         /// 파문이 제자리에 남아 따라오지 않는 것처럼 보인다.
         nonisolated func mapView(_: NMFMapView, cameraIsChangingByReason _: Int) {
-            Task { @MainActor in self.positionPulse() }
+            Task { @MainActor in
+                self.positionPulse()
+                self.positionHalo()
+            }
         }
 
         nonisolated func mapView(_: NMFMapView, cameraDidChangeByReason _: Int, animated _: Bool) {
-            Task { @MainActor in self.positionPulse() }
+            Task { @MainActor in
+                self.positionPulse()
+                self.positionHalo()
+            }
         }
 
         private func draw(points: [NMGLatLng], on mapView: NMFMapView, dashed: Bool) {

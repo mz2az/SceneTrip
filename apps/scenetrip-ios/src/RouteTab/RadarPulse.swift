@@ -124,3 +124,107 @@ final class RadarPulse: UIView {
         }
     }
 }
+
+/// 진도 핀 뒤에서 **심장박동처럼 퍼지는 헤일로** (2026-08-28).
+///
+/// 정적 헤일로는 흰 몸을 세우는 데는 됐지만 눈을 끌지 못했다 — 현재위치
+/// 파문(`RadarPulse`)과 같은 원리로, 하늘→보라(핀 그라데이션)의 빛 고리가
+/// 커지며 옅어지기를 반복한다. 고른 곳은 빨간 고리를 쓴다.
+///
+/// ## 가운데가 뚫린 고리인 이유
+///
+/// `RadarPulse` 처럼 지도 **위에** 얹는 뷰다 — 지도 밑(`insertSubview(at: 0)`)에
+/// 깔면 지도 타일이 자기 서브뷰라 완전히 가려 아무것도 안 보인다(2026-08-28
+/// 사용자 확인). 위에 얹으면 이번엔 핀을 덮으므로, 가운데를 투명하게 뚫어
+/// 강아지 얼굴은 그대로 두고 **고리만** 핀 둘레로 퍼지게 한다.
+/// 카메라가 움직일 때마다 자리를 다시 잡아 줘야 하는 것은 파문과 같다.
+@MainActor
+final class HaloPulse: UIView {
+    enum Style {
+        case brand
+        case picked
+
+        /// 안쪽 투명 → 하늘 → 보라 → 투명. 가운데 구멍이 핀 자리다.
+        var colors: [CGColor] {
+            switch self {
+            case .brand: [
+                    PinImage.light.withAlphaComponent(0).cgColor,
+                    PinImage.light.withAlphaComponent(0.75).cgColor,
+                    PinImage.deep.withAlphaComponent(0.65).cgColor,
+                    PinImage.deep.withAlphaComponent(0).cgColor,
+                ]
+            case .picked: [
+                    UIColor(red: 1.0, green: 0.45, blue: 0.42, alpha: 0).cgColor,
+                    UIColor(red: 1.0, green: 0.45, blue: 0.42, alpha: 0.75).cgColor,
+                    UIColor(red: 0.89, green: 0.16, blue: 0.20, alpha: 0.6).cgColor,
+                    UIColor(red: 0.89, green: 0.16, blue: 0.20, alpha: 0).cgColor,
+                ]
+            }
+        }
+    }
+
+    private static let period: CFTimeInterval = 1.8
+    private static let waves = 2
+    private static let spread: CGFloat = 116
+
+    let style: Style
+    private var rings: [CAGradientLayer] = []
+
+    init(style: Style) {
+        self.style = style
+        super.init(frame: CGRect(x: 0, y: 0, width: Self.spread, height: Self.spread))
+        isUserInteractionEnabled = false
+
+        for index in 0 ..< Self.waves {
+            let ring = CAGradientLayer()
+            ring.type = .radial
+            ring.colors = style.colors
+            // 반지름의 0~35% 는 투명(핀 자리), 35~70% 에서 하늘→보라, 끝에서 사라진다.
+            ring.locations = [0.35, 0.5, 0.7, 1]
+            ring.startPoint = CGPoint(x: 0.5, y: 0.5)
+            ring.endPoint = CGPoint(x: 1, y: 1)
+            ring.frame = bounds
+            ring.opacity = 0
+            layer.addSublayer(ring)
+            rings.append(ring)
+            animate(ring, delay: Self.period / Double(Self.waves) * Double(index))
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
+        fatalError("스토리보드를 쓰지 않는다")
+    }
+
+    private func animate(_ ring: CAGradientLayer, delay: CFTimeInterval) {
+        let grow = CABasicAnimation(keyPath: "transform.scale")
+        grow.fromValue = 0.3
+        grow.toValue = 1.0
+
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0.95
+        fade.toValue = 0.0
+        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+
+        let group = CAAnimationGroup()
+        group.animations = [grow, fade]
+        group.duration = Self.period
+        group.repeatCount = .infinity
+        group.beginTime = CACurrentMediaTime() + delay
+        ring.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        ring.frame = bounds
+        ring.add(group, forKey: "halo")
+    }
+
+    /// 핀 **머리**(얼굴 원) 좌표에 맞춘다 — 끝점(좌표)에 두면 빛이 발밑에서 퍼진다.
+    func place(at point: CGPoint) {
+        center = point
+    }
+
+    func restartIfNeeded() {
+        guard rings.first?.animation(forKey: "halo") == nil else { return }
+        for (index, ring) in rings.enumerated() {
+            animate(ring, delay: Self.period / Double(Self.waves) * Double(index))
+        }
+    }
+}

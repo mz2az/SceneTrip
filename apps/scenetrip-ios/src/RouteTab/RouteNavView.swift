@@ -63,6 +63,9 @@ struct RouteNavView: View {
     /// 내비게이션이다. `nil` 이면 원래 목적지(`stop`)다.
     @State var detour: RouteGuide.Place?
 
+    /// 「현재위치로」 단추가 눌린 횟수. 지도에 넘겨 카메라를 내 자리로 되돌린다.
+    @State private var recenterTick = 0
+
     /// 카카오가 준 안내. 아직 안 왔으면 nil 이다.
     @State var result: RouteNavResult?
     @State var routeError: String?
@@ -232,15 +235,39 @@ struct RouteNavView: View {
                 legs: result?.legs ?? [],
                 here: here,
                 ambientPlaces: visibleAmbientPois,
-                onViewport: viewportChanged
+                onViewport: viewportChanged,
+                recenterTick: recenterTick
             )
             .frame(height: 300)
 
-            // 챗봇은 여행 중에도 늘 손에 닿는 자리에 있다 — 길을 잃었을 때 물을
-            // 상대가 화면을 나가야 나온다면 아무도 못 쓴다. **접힌 동그라미**라
-            // 지도를 거의 가리지 않고, 계획 화면과 같은 모양이다.
-            RouteGuideChip { showGuide = true }
-                .padding(12)
+            VStack(spacing: 8) {
+                // 현재위치로 **돌아가는** 단추. 길찾기에서 내 자리 파문은 늘 떠
+                // 있으므로 토글이 아니라, 지도를 밀다가 화면을 그리로 되돌려
+                // 확대해 들어가는 일만 한다(2026-08-28 사용자 결정). 위치를 아직
+                // 못 받았으면 누를 것이 없으니 숨긴다.
+                if here != nil {
+                    Button {
+                        recenterTick += 1
+                    } label: {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Color(PinImage.deep))
+                            .frame(width: 40, height: 40)
+                            .background(Circle().fill(.white))
+                            .overlay(Circle().strokeBorder(
+                                Color(PinImage.light).opacity(0.5), lineWidth: 1.5
+                            ))
+                            .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // 챗봇은 여행 중에도 늘 손에 닿는 자리에 있다 — 길을 잃었을 때 물을
+                // 상대가 화면을 나가야 나온다면 아무도 못 쓴다. **접힌 동그라미**라
+                // 지도를 거의 가리지 않고, 계획 화면과 같은 모양이다.
+                RouteGuideChip { showGuide = true }
+            }
+            .padding(12)
         }
     }
 

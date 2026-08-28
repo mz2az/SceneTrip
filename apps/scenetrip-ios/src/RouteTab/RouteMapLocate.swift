@@ -128,13 +128,51 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
         hypot(lhs.x - rhs.x, lhs.y - rhs.y)
     }
 
+    // MARK: 헤일로
+
+    /// 진도 핀 뒤의 심장박동. 자리·판이 그대로면 아무것도 안 한다.
+    func updateHalo(style: HaloPulse.Style, at spot: NMGLatLng?, on mapView: NMFMapView) {
+        guard let spot else {
+            halo?.removeFromSuperview()
+            halo = nil
+            haloAt = nil
+            return
+        }
+        mapForLocate = mapView // 위치 토글과 무관하게 헤일로도 카메라를 따라야 한다
+        if halo == nil || halo?.style != style {
+            halo?.removeFromSuperview()
+            let view = HaloPulse(style: style)
+            // 지도 **위에** 얹는다 — 밑에 넣으면 타일에 가려 안 보인다(파문과 같은
+            // 규칙). 핀은 고리의 투명한 가운데로 비켜 간다(`HaloPulse` 머리말).
+            mapView.addSubview(view)
+            halo = view
+        }
+        haloAt = spot
+        halo?.restartIfNeeded()
+        positionHalo()
+    }
+
+    /// 헤일로를 핀 **머리**(얼굴)에 맞춘다 — 좌표는 핀 끝이라 위로 올린다.
+    func positionHalo() {
+        guard let halo, let haloAt, let host = mapForLocate else { return }
+        var point = host.projection.point(from: haloAt)
+        point.y -= 30
+        halo.place(at: point)
+    }
+
     /// 지도가 움직이는 **동안 계속** 부른다 — 멈춘 뒤에만 옮기면 미는 사이에
     /// 파문이 제자리에 남는다(`RouteNavMapView` 와 같은 규칙).
     nonisolated func mapView(_: NMFMapView, cameraIsChangingByReason _: Int) {
-        Task { @MainActor in self.positionPulse() }
+        Task { @MainActor in
+            self.positionPulse()
+            self.positionHalo()
+        }
     }
 
     nonisolated func mapView(_: NMFMapView, cameraDidChangeByReason _: Int, animated _: Bool) {
-        Task { @MainActor in self.positionPulse() }
+        Task { @MainActor in
+            self.positionPulse()
+            self.positionHalo()
+        }
     }
 }
