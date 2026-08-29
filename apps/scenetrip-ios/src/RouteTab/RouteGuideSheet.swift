@@ -7,11 +7,13 @@ import SwiftUI
 /// 프로토타입 v6 의 「떠 있는 챗봇」을 옮긴 것이다. 지도 오른쪽 아래 동그란 단추를
 /// 누르면 열리고, 그 안에서 말로 주변 장소를 묻는다.
 ///
-/// ## 반쯤 올라온다
+/// ## 오른쪽에서 나오는 고정 창
 ///
-/// `.medium` 이라 **뒤로 지도가 보인다.** 「이 근처 한식집」을 물었을 때 답이 목록으로만
-/// 오면 그게 어디쯤인지 알 수 없다 — 찾은 곳이 지도에 함께 찍혀야 뜻이 있다.
-/// 검색·장바구니 시트와 같은 규칙이다.
+/// 바텀시트였다가 **오른쪽에서 미끄러져 나오는 고정 크기 창**으로 바꿨다
+/// (2026-08-28 사용자 요청 — 프로토타입의 떠 있는 챗봇과 같은 몸짓). 창이
+/// 화면을 다 덮지 않아 **지도가 계속 보인다** — 「이 근처 한식집」의 답이
+/// 어디쯤인지는 지도가 말해 준다. 띄우는 쪽이 `guidePanel`(이 파일 아래)로
+/// 감싸 오른쪽에 붙인다.
 ///
 /// ## 부른 도구를 보여 준다
 ///
@@ -40,7 +42,9 @@ struct RouteGuideSheet: View {
     /// 「여기로 길찾기」. 여행 중 화면만 준다 — 주면 카드에 버튼이 뜬다.
     var onReroute: ((RouteGuide.Place) -> Void)?
 
-    @Environment(\.dismiss) private var dismiss
+    /// X 를 눌렀다. 시트가 아니라 오버레이 창이라 `dismiss` 로는 안 닫힌다 —
+    /// 여닫는 상태는 띄운 쪽이 든다.
+    var onClose: () -> Void = {}
 
     @State private var draft = ""
 
@@ -66,27 +70,24 @@ struct RouteGuideSheet: View {
                 composer
             }
         }
-        .presentationDetents([.medium, .large])
-        .presentationBackground(.regularMaterial)
-        // **시트가 떠 있어도 지도를 만질 수 있다.** 이것이 없으면 지도를 누르는
-        // 순간 시트가 내려가서, 고양이 하나 눌러 보고는 챗봇을 다시 열어야 했다
-        // (2026-08-27 사용자 지적). 뒷화면을 흐리게 덮는 것도 이 설정이 없앤다 —
-        // 반쯤 올라온 시트의 요점이 「지도와 같이 보는 것」인데 흐리면 뜻이 없다.
-        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
     }
 
-    /// 손수 그린 머리줄. 내비게이션 바를 쓰지 않는 이유는 **X 다** — 바에 넣으면
-    /// 시스템이 유리 동그라미를 깔아 크게 그린다(2026-08-27 사용자 지적, 두 번째).
+    /// 손수 그린 머리줄. 내비게이션 바를 쓰지 않는 이유는 닫기 단추다 — 바에
+    /// 넣으면 시스템이 유리 동그라미를 깔아 크게 그린다(2026-08-27 사용자 지적).
+    ///
+    /// 아이콘은 X 가 아니라 **창 줄이기**(안쪽으로 모이는 화살)다 — 대화가
+    /// 사라지는 게 아니라 오른쪽 동그라미로 **접히는 것**이라서다(2026-08-28
+    /// 사용자 요청). 닫는 몸짓도 `guidePanel` 이 오른쪽 아래로 오므라들게 한다.
     private var header: some View {
         ZStack {
             Text("여행 가이드").font(.headline)
             HStack {
                 Spacer()
                 Button {
-                    dismiss()
+                    onClose()
                 } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
+                    Image(systemName: "arrow.down.right.and.arrow.up.left")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 32, height: 32)
                         .contentShape(.rect)
@@ -335,5 +336,36 @@ extension RouteGuide.Place {
             lat: latitude,
             lng: longitude
         )
+    }
+}
+
+/// 가이드 창을 **오른쪽 서랍**으로 붙인다 — 화면 오른쪽 아래에 고정 크기로
+/// 떠 있고, 여닫을 때 오른쪽에서 미끄러진다(2026-08-28 사용자 요청). 편집·
+/// 길찾기 화면이 같은 몸짓을 쓰도록 한 군데에 둔다.
+///
+/// 크기는 고정이다 — 시트의 detent 처럼 잡아 늘이는 물건이 아니다. 폭을
+/// 화면보다 좁게 둬서 **왼쪽으로 지도가 계속 보인다.**
+extension View {
+    func guidePanel(isOpen: Bool, @ViewBuilder panel: () -> some View) -> some View {
+        overlay(alignment: .bottomTrailing) {
+            if isOpen {
+                panel()
+                    .frame(width: 316, height: 470)
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .shadow(color: .black.opacity(0.22), radius: 14, y: 6)
+                    .padding(.trailing, 6)
+                    .padding(.bottom, 8)
+                    // 접힌 동그라미 **자리 쪽으로** 오므라들며 사라진다 — 창이
+                    // 닫히는 게 아니라 동그라미로 접힌다는 몸짓(2026-08-28 사용자
+                    // 요청). 동그라미는 두 화면 다 패널보다 위 오른편에 있다
+                    // (편집=지도 오른쪽 위, 길찾기=지도 오른쪽 아래) — 오른쪽
+                    // 아래로 오므리면 동그라미와 무관한 곳으로 사라져 「눌러서
+                    // 나왔다 들어간다」는 느낌이 죽는다(사용자 확인).
+                    .transition(.scale(scale: 0.05, anchor: .topTrailing)
+                        .combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.28), value: isOpen)
     }
 }

@@ -2,81 +2,17 @@ import NMapsMap
 import SceneApiClient
 import SwiftUI
 
-/// 길찾기 화면의 **주변 편의시설 칩과 방문 스탬프** — 본체(`RouteNavView.swift`)에서
+/// 길찾기 화면의 **경로 받기와 방문 스탬프** — 본체(`RouteNavView.swift`)에서
 /// 가른 파일이다(타입 길이 한도). 상태는 본체가 들고, 여기는 그 상태로 그리고 적는다.
+///
+/// 갈래 칩·주변 편의시설 배경 점은 여기 있다가 뺐다(2026-08-28 사용자 결정) —
+/// 길찾기에서 편의시설은 챗봇이 찾아 준 것만 그린다.
 extension RouteNavView {
-    /// 갈래 칩 — 편집 화면과 같은 부품에 **성지 칩**이 하나 더 붙는다.
-    /// 성지는 코스의 번호 핀이라 「전체」(편의시설 마스터 스위치) 소관 밖이다.
-    var poiChips: some View {
-        RoutePoiChips(
-            places: ambientPois, groupsOn: $poiGroupsOn,
-            onGroupOff: { group in
-                // 챗봇이 찾아 준 핀은 이 칩의 소관이 아니다 — 주변 점에서 고른
-                // 것만 놓는다.
-                if let picked = guide.picked, picked.poiGroup == group,
-                   ambientPois.contains(where: { $0.id == picked.id })
-                {
-                    guide.picked = nil
-                }
-            },
-            extras: [
-                .init(
-                    id: "sanctum",
-                    label: "성지 \(dayStops.count)",
-                    tone: Color(PinImage.deep),
-                    isOn: showSanctums
-                ) {
-                    showSanctums.toggle()
-                    if !showSanctums {
-                        pickedStop = nil // 지도에서 사라진 핀의 카드는 닫는다
-                    }
-                },
-            ]
-        )
-        .padding(.vertical, 8)
-        .background(Color(.systemBackground))
-    }
-
     /// 지도에 그릴 챗봇 결과 — **코스(그 일차)에 이미 담긴 곳은 뺀다.** 같은
     /// 좌표에 번호 핀과 겹쳐 두 장으로 보인다(편집 지도와 같은 규칙).
     var navGuidePlaces: [RouteGuide.Place] {
         let taken = Set(dayStops.map { RouteDedupe.key($0.place) })
         return guide.places.filter { !taken.contains(RouteDedupe.key($0.asPlaceSummary)) }
-    }
-
-    /// 갈래 필터를 통과한 주변 점. 챗봇 결과와 겹치면 뺀다.
-    var visibleAmbientPois: [RouteGuide.Place] {
-        let shown = Set(guide.places.map { RouteDedupe.key($0.asPlaceSummary) })
-        return ambientPois.filter { place in
-            poiGroupsOn.contains(place.poiGroup)
-                && !shown.contains(RouteDedupe.key(place.asPlaceSummary))
-        }
-    }
-
-    /// 카메라가 멈췄다 — 편집 화면과 같은 규칙(0.35초 조용하면, 줌 13 미만은 안 부름).
-    func viewportChanged(
-        south: Double, west: Double, north: Double, east: Double,
-        centerLat: Double, centerLng: Double, zoom: Double
-    ) {
-        ambientTask?.cancel()
-        // 줌이 아니라 **화면의 실제 남북 폭**으로 거른다. 이 지도는 높이가
-        // 300pt 라 같은 동네를 봐도 줌 숫자가 낮게 나온다 — 줌 13 가드에 늘
-        // 걸려 주변 목록이 영영 비었다(2026-08-28 사용자 발견: 칩이 안 뜸).
-        _ = zoom
-        guard north - south <= 0.1 else { // 약 11 km — 이보다 넓으면 점이 먼지다
-            ambientPois = []
-            return
-        }
-        ambientTask = Task {
-            try? await Task.sleep(for: .milliseconds(350))
-            guard !Task.isCancelled else { return }
-            let found = await RouteGuide.pois(
-                south: south, west: west, north: north, east: east,
-                centerLat: centerLat, centerLng: centerLng, limit: 30
-            )
-            guard !Task.isCancelled else { return }
-            ambientPois = found
-        }
     }
 
     /// 지금 안내하는 목적지 — 갈아탔으면 그 가게, 아니면 원래 촬영지.

@@ -216,14 +216,17 @@ struct RouteEditorView: View {
         } message: {
             Text(store.failure?.message ?? "")
         }
-        .sheet(isPresented: $showGuide) {
+        // 가이드는 시트가 아니라 **오른쪽 서랍**이다 — 오른쪽에서 미끄러져
+        // 나오는 고정 크기 창(2026-08-28 사용자 요청). 지도가 계속 보인다.
+        .guidePanel(isOpen: showGuide) {
             RouteGuideSheet(
                 session: guide,
                 here: guideHere,
                 context: guideContext,
                 onAdd: { add([$0], pinned: true) },
                 isAdded: isAdded,
-                onRemove: removeGuidePlace
+                onRemove: removeGuidePlace,
+                onClose: { showGuide = false }
             )
         }
         .sheet(isPresented: $showSearch) {

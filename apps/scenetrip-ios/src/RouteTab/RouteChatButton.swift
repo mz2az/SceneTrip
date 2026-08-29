@@ -23,19 +23,21 @@ struct RouteChatButton: View {
                     .background(Capsule().fill(Color.black.opacity(0.62)))
             }
             Button(action: onTap) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(.white)
+                // 반짝이 아이콘 대신 **해태 얼굴**(2026-08-28 사용자 요청) —
+                // 가이드가 마스코트 자신이라는 것이 단추에서 바로 보인다.
+                Image("haetae-face")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(7)
                     .frame(width: 56, height: 56)
-                    .background(
-                        Circle().fill(
-                            LinearGradient(
-                                colors: [Color(PinImage.light), Color(PinImage.deep)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    )
+                    .background(Circle().fill(.white))
+                    .overlay(Circle().strokeBorder(
+                        LinearGradient(
+                            colors: [Color(PinImage.light), Color(PinImage.deep)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ), lineWidth: 2.5
+                    ))
                     .shadow(color: .black.opacity(0.22), radius: 5, y: 3)
             }
             .buttonStyle(.plain)
@@ -53,21 +55,34 @@ struct RouteGuideChip: View {
 
     var body: some View {
         Button(action: onTap) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.white)
-                .frame(width: 40, height: 40)
-                .background(
-                    Circle().fill(
+            // 해태 얼굴 + 「내가 도와줄게!」 말풍선(2026-08-28 사용자 요청) —
+            // 마스코트가 말을 거는 모양이라 무엇을 하는 단추인지 설명이 필요 없다.
+            HStack(spacing: 6) {
+                Text("내가 도와줄게!")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(PinImage.deep))
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(Capsule().fill(.white))
+                    .overlay(Capsule().strokeBorder(
+                        Color(PinImage.light).opacity(0.6), lineWidth: 1
+                    ))
+                    .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+
+                Image("haetae-face")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(5)
+                    .frame(width: 46, height: 46)
+                    .background(Circle().fill(.white))
+                    .overlay(Circle().strokeBorder(
                         LinearGradient(
                             colors: [Color(PinImage.light), Color(PinImage.deep)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
-                        )
-                    )
-                )
-                .overlay(Circle().strokeBorder(.white.opacity(0.7), lineWidth: 1.5))
-                .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+                        ), lineWidth: 2
+                    ))
+                    .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+            }
         }
         .buttonStyle(.plain)
     }

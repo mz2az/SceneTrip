@@ -120,7 +120,7 @@ struct RouteNavMapView: UIViewRepresentable {
         /// 레이더 파문. 지도 마커가 아니라 **지도 위에 얹은 뷰**다 — 이유는
         /// `RadarPulse` 머리말 참고.
         private var pulse: RadarPulse?
-        /// 진도 핀(목적지/고른 곳) 뒤의 심장박동 헤일로.
+        /// 해태 핀(목적지/고른 곳) 뒤의 심장박동 헤일로.
         private var halo: HaloPulse?
         private var haloAt: NMGLatLng?
         /// 파문이 서 있어야 할 지도 좌표. 카메라가 움직이면 화면 좌표가 달라지므로
