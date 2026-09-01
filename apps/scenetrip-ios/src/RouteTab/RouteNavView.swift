@@ -20,7 +20,27 @@ import SwiftUI
 /// 노선·시간·요금과 편의시설은 **지어낸 값**이고, 화면이 무엇을 필요로 하는지를
 /// 먼저 보여 주려고 만들었다. 서버가 서면 `RouteNavResult` 를 채우는 쪽만 바뀐다.
 struct RouteNavView: View {
-    let stop: RouteStop
+    /// 지금 가는 곳. **여행 모드에서는 바뀐다** — 도착해 스탬프를 찍으면 다음 미방문
+    /// 성지로 넘어간다(2026-09-02, 계획 trip-mode.md). 처음 값은 부르는 쪽이 준다.
+    @State var stop: RouteStop
+
+    /// 이 화면에서 스탬프를 찍은 정지점들 — 서버 반영을 기다리지 않고 「다음」을 고르기 위해.
+    @State var visitedIds: Set<UUID> = []
+
+    /// 반경 안 머무름을 세는 판정기. 목적지가 바뀌면 새로 만든다.
+    @State var tripArrival = TripArrival()
+
+    /// 오늘 일차를 다 돌았다.
+    @State var dayDone = false
+
+    /// 5초 박자 — 머무름 재판정과 머리줄 갱신용. 값 자체는 뜻이 없다.
+    @State private var dwellTick = 0
+
+    /// 데모 주행의 가상 위치와 경로선 위 진행 꼭짓점(`DemoDrive`). 꺼져 있으면 안 쓴다.
+    @State var demoPosition: DemoDrive.Point?
+    @State var demoPathIndex = 0
+
+    @ObservedObject var footprints = FootprintStore.shared
 
     /// 그 일차의 코스 전체. 지도에 번호 핀으로 함께 그리고, 가이드가 「2번 주변」을
     /// 알아듣는 재료도 된다. 안 주면 목적지 하나만 안다.
@@ -31,7 +51,7 @@ struct RouteNavView: View {
     var courseId: Int64?
 
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var locator = RouteLocator()
+    @StateObject var locator = RouteLocator() // 데모 주행(RouteNavControls)이 가상 위치를 넣는다
     @State var arrived = false
 
     /// 방문 스탬프가 찍혔다는 알림. 잠깐 보였다 사라진다.
@@ -57,7 +77,7 @@ struct RouteNavView: View {
     @State var detour: RouteGuide.Place?
 
     /// 「현재위치로」 단추가 눌린 횟수. 지도에 넘겨 카메라를 내 자리로 되돌린다.
-    @State private var recenterTick = 0
+    @State var recenterTick = 0 // 다음 성지로 넘어갈 때(RouteNavControls)도 되돌린다
 
     /// 카카오가 준 안내. 아직 안 왔으면 nil 이다.
     @State var result: RouteNavResult?
@@ -93,7 +113,33 @@ struct RouteNavView: View {
             legList
             bottomBar
         }
-        .task { locator.start() }
+        .task {
+            if DemoDrive.isOn {
+                // 데모 주행 — 진짜 위치 대신 가상 위치. 첫 성지 남쪽 250 m 에서 걸어온다.
+                let start = DemoDrive.start(near: stop)
+                demoPosition = start
+                locator.inject(latitude: start.latitude, longitude: start.longitude)
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(DemoDrive.tick))
+                    demoStep()
+                }
+            } else {
+                locator.track() // 여행 모드 — 계속 받는다. 닫히면 끊는다.
+            }
+        }
+        .onDisappear { locator.stop() }
+        // **가만히 서 있으면 위치 업데이트가 안 온다**(25 m 이동 필터). 그러면 반경 안에
+        // 5분을 있어도 판정이 다시 돌지 않아 스탬프가 영영 안 찍힌다 — 그래서 5초마다
+        // 마지막 위치로 머무름을 다시 센다. 머리줄의 「도착까지 N분」도 이 박자로 바뀐다.
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                dwellTick += 1
+                if let here {
+                    autoStampIfArrived(here)
+                }
+            }
+        }
         // 정보 카드는 화면 바닥에. 지도(300pt) 위에 얹으면 카드가 더 커서
         // 뚫고 나간다 — 편집 화면과 같은 규칙이다.
         .overlay(alignment: .bottom) {
@@ -165,20 +211,21 @@ struct RouteNavView: View {
         .onChange(of: locator.state) { _, state in
             guard case let .found(latitude, longitude) = state else { return }
             Task { await load(from: latitude, longitude: longitude) }
+            footprints.record(latitude: latitude, longitude: longitude)
             autoStampIfArrived((latitude, longitude))
         }
-        .overlay(alignment: .top) {
+        // 도착 스탬프 — 화면 가운데 발바닥이 쾅. 연출이 끝나면 다음 성지로 넘어간다.
+        .overlay {
             if stamped {
-                Label("방문 스탬프를 찍었어요!", systemImage: "checkmark.seal.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14).padding(.vertical, 9)
-                    .background(Capsule().fill(Color(PinImage.deep)))
-                    .padding(.top, 54)
-                    .task {
-                        try? await Task.sleep(for: .seconds(2.5))
-                        withAnimation { stamped = false }
-                    }
+                ZStack {
+                    Color.black.opacity(0.25).ignoresSafeArea()
+                    PawStampOverlay(
+                        title: stopNumber.map { "\($0)번 성지 도착!" } ?? "도착!",
+                        subtitle: stop.place.name,
+                        onDone: { withAnimation { advanceToNextStop() } }
+                    )
+                }
+                .transition(.opacity)
             }
         }
     }
@@ -188,10 +235,28 @@ struct RouteNavView: View {
     /// 지적, 세 번째라 이제 규칙이다: **닫기는 오른쪽 위 작은 X**).
     private var header: some View {
         ZStack {
-            Text(destination.name)
-                .font(.headline).lineLimit(1)
-                .padding(.horizontal, 44)
+            VStack(spacing: 1) {
+                Text(destination.name)
+                    .font(.headline).lineLimit(1)
+                if let stopNumber, !dayStops.isEmpty {
+                    Text("\(stopNumber) / \(dayStops.count) · \(dwellHint)")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 44)
             HStack {
+                // 발자취 토글 — 켜면 지나간 자리가 지도에 점선으로 남는다(기기에만 저장).
+                Button {
+                    footprints.enabled.toggle()
+                } label: {
+                    Image(systemName: "shoeprints.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(footprints.enabled ? Color(PinImage.deep) : .secondary)
+                        .frame(width: 32, height: 32)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(footprints.enabled ? "발자취 기록 끄기" : "발자취 기록 켜기")
                 Spacer()
                 Button {
                     dismiss()
@@ -228,7 +293,9 @@ struct RouteNavView: View {
                 },
                 legs: result?.legs ?? [],
                 here: here,
-                recenterTick: recenterTick
+                recenterTick: recenterTick,
+                footprint: footprints.enabled ? footprints.points : [],
+                visitedStopIds: visitedIds.union(dayStops.filter(\.visited).map(\.id))
             )
             .frame(height: 300)
 
@@ -350,17 +417,48 @@ struct RouteNavView: View {
         }
     }
 
+    /// 「여기 도착함」은 남긴다 — 머무를 시간이 없거나 GPS 가 튈 때의 탈출구. 누르면
+    /// 스탬프 연출을 거쳐 다음 성지로 넘어간다(닫히지 않는다). 다 돌았으면 완료.
     private var bottomBar: some View {
-        Button {
-            markVisited()
-            dismiss()
-        } label: {
-            Text("여기 도착함")
-                .font(.body.weight(.semibold))
-                .frame(maxWidth: .infinity)
+        Group {
+            if dayDone {
+                VStack(spacing: 10) {
+                    Label(dayStops.isEmpty ? "도착했어요" : "오늘 일정을 모두 돌았어요",
+                          systemImage: "checkmark.seal.fill")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Color(PinImage.deep))
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("닫기").font(.body.weight(.semibold)).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+            } else {
+                Button {
+                    markVisited()
+                    withAnimation { stamped = true }
+                } label: {
+                    Text("여기 도착함")
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(stamped)
+            }
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
         .padding(16)
+    }
+
+    /// 머리줄의 힌트 — 반경 안이면 「도착까지 N분」, 아니면 거리 안내를 대신할 짧은 말.
+    private var dwellHint: String {
+        _ = dwellTick // 5초마다 다시 계산되게 묶어 둔다.
+        if let dwelt = tripArrival.dwelt() {
+            let left = max(0, Int(((TripMode.dwell - dwelt) / 60).rounded(.up)))
+            return left == 0 ? "도착 확인 중" : "머무르면 도착 · \(left)분"
+        }
+        return "반경 \(Int(TripMode.arriveRadiusMeters)) m 에 머무르면 스탬프"
     }
 }

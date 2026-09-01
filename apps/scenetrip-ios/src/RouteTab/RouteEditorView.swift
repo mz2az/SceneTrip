@@ -205,19 +205,7 @@ struct RouteEditorView: View {
             // 단추를 누른 뒤에 물으면 그만큼 기다린다.
             guideLocator.start()
 
-            // 확인용 뒷문(MZ2AZ-292) — 합성 클릭이 안 닿는 시뮬레이터에서 화면을
-            // 기계로 열어 캡쳐한다. `-openGuide 1` 은 가이드 서랍, `-navStop 2` 는
-            // 그 번호 성지의 길찾기. 찜 뒷문과 같은 프로세스당 한 번 규칙.
-            if !Self.captureBackdoorUsed {
-                Self.captureBackdoorUsed = true
-                if UserDefaults.standard.bool(forKey: "openGuide") {
-                    showGuide = true
-                }
-                let wanted = UserDefaults.standard.integer(forKey: "navStop")
-                if wanted > 0, stops.indices.contains(wanted - 1) {
-                    directionsTarget = stops[wanted - 1]
-                }
-            }
+            await runCaptureBackdoor()
         }
         // 저장이 실패하면 이유를 말한다. 버튼이 안 먹는 것처럼 보이면 사용자는
         // 같은 버튼을 계속 누르게 된다.
@@ -315,6 +303,16 @@ struct RouteEditorView: View {
             // 「코스 시작」은 저장된 코스에만 있다 — 아직 만들지도 않은 일정을 여행
             // 중으로 만들 수는 없다.
             if !isNew {
+                // 여행 중이면 **이어가기가 주된 동작**이다 — 정지점마다 있던 「길찾기」
+                // 단추를 없앴으니(2026-09-02 여행 모드) 길찾기 화면으로 가는 길은 이것과
+                // 홈의 「이어서 길찾기」 둘이다. 첫 미방문 성지로 연다.
+                if course.isRunning {
+                    Button("여행 이어가기") {
+                        directionsTarget = stops.first { !$0.visited } ?? stops.first
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(stops.isEmpty)
+                }
                 Button(course.isRunning ? "여행 종료" : "코스 시작") {
                     course.isRunning.toggle()
                     // 상태만 바꾼다 — 코스 내용을 함께 덮어쓰면 편집 중이던 것이
@@ -322,6 +320,11 @@ struct RouteEditorView: View {
                     // 지금 보고 있는 일차에서 시작한다 — 서버가 `currentDayNo` 를
                     // 요구하고, 1일차를 지나 보고 있다면 그 일차가 맞다.
                     Task { await store.setRunning(course, course.isRunning, dayNo: dayIndex + 1) }
+                    // **시작하면 바로 첫 성지로 길찾기.** 여기서 앱이 흐름을 이어받는다
+                    // (계획 trip-mode.md §2) — 도착·스탬프·다음 성지는 길찾기 화면이 한다.
+                    if course.isRunning, let first = stops.first(where: { !$0.visited }) ?? stops.first {
+                        directionsTarget = first
+                    }
                 }
                 .buttonStyle(.bordered)
             }
@@ -363,7 +366,6 @@ struct RouteEditorView: View {
                         : nil,
                     isPinned: index == 0 ? pinStart : pinEnd,
                     onStay: { stayTarget = stop },
-                    onDirections: { directionsTarget = stop },
                     onFocus: {
                         // **한 번 더 누르면 놓는다.** 놓을 방법이 없으면 한 곳을
                         // 고른 뒤 경로 전체를 다시 볼 수가 없다(2026-08-25 사용자 지적).
@@ -507,5 +509,34 @@ struct RouteEditorView: View {
         guard let index = course.days[dayIndex].stops.firstIndex(where: { $0.id == stop.id })
         else { return }
         course.days[dayIndex].stops[index].stayMinutes = minutes
+    }
+}
+
+/// 타입 본문 길이(swiftlint 350줄) 때문에 여기 둔다 — 같은 파일의 확장은 private 에 닿는다.
+private extension RouteEditorView {
+    /// 확인용 뒷문(MZ2AZ-292) — 합성 클릭이 안 닿는 시뮬레이터에서 화면을 기계로 열어
+    /// 캡쳐한다. `-openGuide 1` 은 가이드 서랍, `-navStop 2` 는 그 번호 성지의 길찾기.
+    /// 찜 뒷문과 같은 프로세스당 한 번 규칙.
+    func runCaptureBackdoor() async {
+        guard !Self.captureBackdoorUsed else { return }
+        Self.captureBackdoorUsed = true
+        if UserDefaults.standard.bool(forKey: "openGuide") {
+            showGuide = true
+        }
+        let wanted = UserDefaults.standard.integer(forKey: "navStop")
+        guard wanted > 0 else { return }
+        // 코스 상세(정지점)가 아직 안 왔을 수 있다 — 홈·뒷문에서 열면 목록의 요약으로
+        // 먼저 열리고 정지점은 뒤따라온다. 최대 3초 기다린다(2026-09-02 실측: 기다리지
+        // 않으면 뒷문이 빈 목록을 보고 그냥 끝났다).
+        for _ in 0 ..< 30 where !stops.indices.contains(wanted - 1) {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        guard stops.indices.contains(wanted - 1) else { return }
+        // 편집 화면(덮개)이 **창에 다 올라온 뒤** 시트를 띄운다. 바로 띄우면 UIKit 이
+        // "view is not in the window hierarchy" 로 표시를 거부하는데 SwiftUI 는 상태를
+        // 남겨 **보이지 않는 길찾기 화면**이 뒤에서 돈다(2026-09-02 실측 — 스탬프는
+        // 찍히는데 화면엔 없었다).
+        try? await Task.sleep(for: .milliseconds(700))
+        directionsTarget = stops[wanted - 1]
     }
 }

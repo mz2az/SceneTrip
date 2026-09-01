@@ -74,18 +74,71 @@ extension RouteNavView {
         }
     }
 
-    /// GPS 가 목적지 반경 100 m 에 들면 **저절로** 스탬프가 찍힌다(2026-08-28
-    /// 사용자 요청 — 진짜 갔다는 기록). 단추를 안 눌러도 남고, 화면은 잠깐
-    /// 「스탬프 찍힘」을 알린다.
+    /// 목적지 반경 안에 **머무르면** 저절로 스탬프가 찍힌다(2026-08-28 「반경에 들면」
+    /// → 2026-09-02 「머무르면」, 계획 trip-mode.md §2). 지나가기만 한 것은 도착이 아니다.
+    /// 위치가 올 때마다 부른다 — `TripArrival` 이 연속 체류 시간을 센다.
     func autoStampIfArrived(_ spot: (latitude: Double, longitude: Double)) {
         guard !arrived, detour == nil else { return }
         let hereSpot = PlaceSummary(
             id: 0, name: "여기", latitude: spot.latitude, longitude: spot.longitude
         )
         let meters = RouteGeometry.kilometers(hereSpot, stop.place) * 1000
-        if meters <= 100 {
+        if tripArrival.observe(distanceMeters: meters) {
             markVisited()
             withAnimation { stamped = true }
         }
+    }
+
+    /// 지금 목적지의 번호(1부터). 일차 목록에 없는 곳(오늘의 성지)이면 nil.
+    var stopNumber: Int? {
+        dayStops.firstIndex { $0.id == stop.id }.map { $0 + 1 }
+    }
+
+    /// 스탬프 다음 — **다음 미방문 성지로 목적지를 바꾼다.** 서버에 방문이 찍힌 것과
+    /// 이 화면에서 찍은 것을 다 뺀 첫 정지점이다. 남은 것이 없으면 오늘 일정 완료.
+    func advanceToNextStop() {
+        visitedIds.insert(stop.id)
+        stamped = false
+        let next = dayStops.first { !$0.visited && !visitedIds.contains($0.id) && $0.id != stop.id }
+        guard let next else {
+            dayDone = true
+            return
+        }
+        stop = next
+        arrived = false
+        detour = nil
+        result = nil
+        routeError = nil
+        guide.picked = nil
+        pickedStop = nil
+        tripArrival = TripArrival()
+        demoPathIndex = 0
+        recenterTick += 1
+        if let here {
+            Task { await load(from: here.latitude, longitude: here.longitude) }
+        }
+    }
+
+    /// 데모 주행 한 걸음(0.4초마다). 목적지까지의 경로선을 따라 움직이고, 반경 30 m 안에
+    /// 들면 그 자리에 서서 머무름(스탬프)을 기다린다. `-demoDrive N` 번 성지를 지나면 멈춘다.
+    /// 도착 판정·스탬프·다음 성지는 실제 규칙이 한다 — 여기는 위치만 낸다.
+    func demoStep() {
+        guard DemoDrive.isOn, !dayDone, !stamped,
+              let number = stopNumber, number <= DemoDrive.untilStop
+        else { return }
+        let target: DemoDrive.Point = (destination.latitude, destination.longitude)
+        var position = demoPosition ?? here.map { ($0.latitude, $0.longitude) } ?? DemoDrive.start(near: stop)
+        if DemoDrive.meters(position, target) > DemoDrive.stopWithinMeters {
+            let path = (result?.legs ?? []).flatMap(\.path).compactMap { pair -> DemoDrive.Point? in
+                pair.count >= 2 ? (pair[1], pair[0]) : nil // [경도, 위도] 순으로 온다
+            }
+            position = DemoDrive.step(
+                from: position, along: path, index: &demoPathIndex,
+                toward: target, meters: DemoDrive.metersPerSecond * DemoDrive.tick
+            )
+            demoPosition = position
+        }
+        // 서 있을 때도 같은 자리를 다시 넣는다 — 머무름 판정과 파문이 이어진다.
+        locator.inject(latitude: position.latitude, longitude: position.longitude)
     }
 }

@@ -160,7 +160,7 @@ enum RoutePlanner {
     /// 네모로 판단한다. 국경선을 정확히 그릴 이유가 없다 — 「한국 안이냐」가 아니라
     /// 「가까운 덩어리를 고르는 것이 뜻이 있느냐」를 가르는 것이기 때문이다.
     private static func isInKorea(_ point: (lat: Double, lng: Double)) -> Bool {
-        (32.5 ... 39.5).contains(point.lat) && (124.0 ... 132.5).contains(point.lng)
+        KoreaBounds.contains(latitude: point.lat, longitude: point.lng) // 발자취와 같은 네모
     }
 
     /// 반경 안을 한 덩어리로 묶는다. **이웃이 가장 많은 곳을 씨앗으로 삼는다** —

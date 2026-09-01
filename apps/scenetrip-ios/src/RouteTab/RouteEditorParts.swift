@@ -21,7 +21,7 @@ struct RouteStopRow: View {
     /// 다음 장소까지의 **직선거리.** 소요 시간은 없다 — 8/11 회의 2부 확정.
     let nextKilometers: Double?
 
-    /// 여행 중인가. 「길찾기」는 그때만 눌린다(잠긴 채로는 늘 보인다).
+    /// 여행 중인가. 고정 단추의 색이 이것을 따른다(길찾기 단추는 2026-09-02 에 없앴다).
     let running: Bool
 
     /// 지금 지도가 보고 있는 장소인가. 골라 둔 것을 목록에서도 알 수 있어야 한다.
@@ -58,30 +58,12 @@ struct RouteStopRow: View {
     }
 
     let onStay: () -> Void
-    let onDirections: () -> Void
 
     /// 행을 눌렀다. 지도를 이 장소로 옮긴다.
     var onFocus: () -> Void = {}
 
     /// 고정 단추를 눌렀다.
     var onTogglePin: () -> Void = {}
-
-    /// 잠긴 「길찾기」의 바탕. 챗봇과 같은 하늘→보라를 **아주 옅게** 깐다 —
-    /// 진하게 깔면 눌러도 되는 것처럼 보이고, 회색으로 두면 그냥 꺼진 버튼이 된다.
-    private var directionsFill: AnyShapeStyle {
-        running
-            ? AnyShapeStyle(Color.accentColor.opacity(0.12))
-            : AnyShapeStyle(LinearGradient(
-                colors: [Color(PinImage.light).opacity(0.18), Color(PinImage.deep).opacity(0.18)],
-                startPoint: .leading,
-                endPoint: .trailing
-            ))
-    }
-
-    /// 잠긴 글자색. 핀 보라를 쓰되 흐리게 — 읽히되 「지금은 못 누른다」로 보여야 한다.
-    private var directionsTint: some ShapeStyle {
-        Color(PinImage.deep).opacity(0.55)
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -153,40 +135,19 @@ struct RouteStopRow: View {
             .contentShape(.rect)
             .onTapGesture(perform: onFocus)
 
-            // 「길찾기」가 이 행의 주된 동작이다. 전에는 캡션 크기의 텍스트 줄이었는데,
-            // **누를 때만 API 를 부르는** 구조에서 이 버튼이 곧 호출 지점이라 누르는
-            // 것으로 보여야 한다. 애플 최소 터치 크기(44)도 지킨다 — 텍스트 줄은
-            // 15pt 밖에 안 됐다.
-            //
-            // **여행 전에는 잠긴 채로 보인다.** 앞서 여행 중에만 그렸는데, 사용자가
-            // 「길찾기 버튼이 없다」고 했다(2026-08-24) — 없는 것과 잠긴 것은 다르다.
-            // 없으면 기능 자체를 모르고, 잠겨 있으면 **어떻게 열리는지**를 안다.
-            // 잠그는 이유는 돈이다(계획서 course-api.md §7, 8/11 회의) — 계획 단계는
-            // 바깥 API 를 부르지 않는다.
+            // 정지점마다 있던 「길찾기」 단추는 **없앴다**(2026-09-02 여행 모드, 계획
+            // trip-mode.md). 여행 중 길찾기는 「코스 시작」·「여행 이어가기」·홈의 「이어서
+            // 길찾기」가 열고, 그 화면이 도착·스탬프·다음 성지를 이어 간다 — 정지점마다
+            // 사람이 누를 일이 없다. 그 자리에는 **방문 여부**가 온다.
             HStack(spacing: 10) {
-                Button(action: onDirections) {
-                    HStack(spacing: 6) {
-                        Image(systemName: running ? "location.north.fill" : "lock.fill")
-                            .font(.caption2.weight(.semibold))
-                        Text("길찾기")
-                            .font(.caption.weight(.semibold))
-                        // 잠겨 있을 때만 반짝임을 붙인다 — 「코스를 시작하면 열리는
-                        // 특별한 것」이라는 뜻이고, 챗봇 버튼과 같은 기호를 써서
-                        // 같은 결의 기능임을 알린다.
-                        if !running {
-                            Image(systemName: "sparkles")
-                                .font(.caption2)
-                        }
-                    }
-                    // 고정 단추와 **같은 높이**여야 한 줄로 보인다. 앞서 44 였는데
-                    // 옆의 30 짜리와 나란히 서니 둘이 어긋나 보였다(2026-08-25).
-                    .padding(.horizontal, 12)
-                    .frame(height: 30)
-                    .background(Capsule().fill(directionsFill))
-                    .foregroundStyle(running ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(directionsTint))
+                if stop.visited {
+                    Label("방문", systemImage: "checkmark.seal.fill")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .frame(height: 30)
+                        .background(Capsule().fill(Color(PinImage.deep).opacity(0.12)))
+                        .foregroundStyle(Color(PinImage.deep))
                 }
-                .buttonStyle(.plain)
-                .disabled(!running)
 
                 // 고정 단추는 **첫 줄과 마지막 줄에만** 붙는다. 「이 줄을 붙들어
                 // 둔다」는 뜻이라 그 줄에 있어야 한다.

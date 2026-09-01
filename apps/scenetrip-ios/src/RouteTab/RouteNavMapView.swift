@@ -69,6 +69,13 @@ struct RouteNavMapView: UIViewRepresentable {
     /// 단추는 화면을 그리로 되돌리는 일만 한다(2026-08-28 사용자 결정).
     var recenterTick = 0
 
+    /// 발자취 — 여행 모드 토글이 켜져 있을 때 내가 지나간 자리. 연보라 점선 한 줄.
+    var footprint: [FootprintPoint] = []
+
+    /// 방문(스탬프)한 정지점 — 번호 핀 옆에 발바닥 배지가 붙는다. 「찍혔다」가 지도에 남아야
+    /// 한다(2026-09-02 사용자 요청, 데모 영상).
+    var visitedStopIds: Set<UUID> = []
+
     func makeUIView(context: Context) -> NMFNaverMapView {
         let view = NMFNaverMapView()
         view.showZoomControls = false
@@ -92,6 +99,8 @@ struct RouteNavMapView: UIViewRepresentable {
         context.coordinator.onViewport = onViewport
         context.coordinator.recenterIfAsked(recenterTick, here: here, on: view.mapView)
         context.coordinator.renderAmbient(ambientPlaces, picked: picked, on: view.mapView)
+        context.coordinator.renderFootprint(footprint, on: view.mapView)
+        context.coordinator.visitedStopIds = visitedStopIds
         context.coordinator.render(stop: stop, dayStops: showDayStops ? dayStops : [],
                                    goal: goal,
                                    guidePlaces: guidePlaces, picked: picked,
@@ -143,7 +152,7 @@ struct RouteNavMapView: UIViewRepresentable {
             let shape = legs.map { "\($0.mode)\($0.path.count)" }.joined(separator: "-")
             let key = "\(stop.id)|\(spot)|\(goalKey)|\(shape)|"
                 + guidePlaces.map(\.id).joined(separator: ",")
-                + "|" + dayStops.map { "\($0.id)" }.joined(separator: ",")
+                + "|" + dayStops.map { "\($0.id)\(visitedStopIds.contains($0.id) ? "v" : "")" }.joined(separator: ",")
             guard key != lastKey else { return }
             lastKey = key
 
@@ -215,6 +224,10 @@ struct RouteNavMapView: UIViewRepresentable {
                 }
                 marker.mapView = mapView
                 markers.append(marker)
+
+                if visitedStopIds.contains(dayStop.id) {
+                    addVisitedBadge(at: marker.position, on: mapView)
+                }
             }
 
             // 현재 위치 — **레이더 파문.** 정지된 점은 촬영지 핀·편의시설 점 사이에
@@ -370,6 +383,43 @@ struct RouteNavMapView: UIViewRepresentable {
                 self.positionPulse()
                 self.positionHalo()
             }
+        }
+
+        /// 방문한 정지점(스탬프 배지용). `updateUIView` 가 넣어 준다.
+        var visitedStopIds: Set<UUID> = []
+
+        /// 방문한 곳 — 번호 핀 오른쪽 위에 발바닥 배지. 스탬프가 지도에 남는다.
+        private func addVisitedBadge(at position: NMGLatLng, on mapView: NMFMapView) {
+            let badge = NMFMarker(position: position)
+            badge.iconImage = PinoPin.pawBadge()
+            badge.anchor = CGPoint(x: -0.05, y: 1.35)
+            badge.zIndex = 12
+            badge.mapView = mapView
+            markers.append(badge)
+        }
+
+        /// 발자취 — 경로선과 헷갈리지 않게 **가늘고 옅은 점선**이다. 점 수·마지막 시각이
+        /// 같으면 다시 그리지 않는다(25 m 마다 한 점이라 자주 바뀌지 않는다).
+        private var footprintPath: NMFPath?
+        private var footprintKey = ""
+
+        func renderFootprint(_ points: [FootprintPoint], on mapView: NMFMapView) {
+            let key = "\(points.count)|\(points.last?.at.timeIntervalSince1970 ?? 0)"
+            guard key != footprintKey else { return }
+            footprintKey = key
+            footprintPath?.mapView = nil
+            footprintPath = nil
+            guard points.count > 1,
+                  let line = NMFPath(points: points.map { NMGLatLng(lat: $0.latitude, lng: $0.longitude) })
+            else { return }
+            line.width = 4
+            line.color = UIColor(Color(PinImage.light)).withAlphaComponent(0.9)
+            line.outlineWidth = 0
+            line.patternInterval = 10
+            line.patternIcon = NMFOverlayImage(image: Self.dash())
+            line.zIndex = -1 // 경로선 아래
+            line.mapView = mapView
+            footprintPath = line
         }
 
         private func draw(points: [NMGLatLng], on mapView: NMFMapView, dashed: Bool) {

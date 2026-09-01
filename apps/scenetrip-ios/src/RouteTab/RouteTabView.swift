@@ -89,6 +89,7 @@ struct RouteTabView: View {
             }
             .task {
                 await store.refresh()
+                await ensureDemoCourse()
                 openPending()
             }
             .onChange(of: router.pendingCourseId) { _, _ in openPending() }
@@ -264,6 +265,24 @@ struct RouteTabView: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    /// 데모 주행(`-demoCourse 1`) — 저장소의 데모 코스가 이 설치본에 없으면 만들고,
+    /// 여행 중으로 바꾼 뒤 그 코스를 열 쪽지를 남긴다. 프로세스당 한 번.
+    /// 실행 인자 없이는 아무 것도 하지 않는다(계획 trip-mode.md §7).
+    private static var demoCourseEnsured = false
+
+    private func ensureDemoCourse() async {
+        guard DemoDrive.wantsDemoCourse, !Self.demoCourseEnsured else { return }
+        Self.demoCourseEnsured = true
+        guard let file = DemoCourse.load() else { return }
+        if let existing = store.courses.first(where: { $0.title == file.title }) {
+            router.pendingCourseId = existing.serverId
+            return
+        }
+        guard let saved = await store.save(DemoCourse.course(from: file)) else { return }
+        await store.setRunning(saved, true, dayNo: 1)
+        router.pendingCourseId = saved.serverId
     }
 
     /// 마이페이지에서 「경로여정에서 열기」로 넘어온 코스를 연다. 쪽지는 한 번

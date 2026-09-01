@@ -10,6 +10,8 @@
 | [course-api.md](./course-api.md) | 경로여정(코스) 백엔드 API — 코스·아이템·찜·마켓 (MZ2AZ-199) |
 | [poi.md](./poi.md) | POI(편의시설) 도입 — 음식·숙박·관광·교통 47만 건 |
 | [mobile-home-tab.md](./mobile-home-tab.md) | 홈 탭 — 4탭을 3탭으로 재편하고 홈을 첫 화면으로 (iOS) |
+| [trip-mode.md](./trip-mode.md) | 여행 모드 — 코스 시작부터 스탬프·다음 성지까지 한 흐름, 발자취 (iOS) |
+| [poi-pipeline.md](./poi-pipeline.md) | POI 파이프라인 — TMAP 수집→네이버 매칭→상세 갱신을 Airflow 로 (계획만, 팀 결정 대기) |
 
 ## 언제 여기에 쓰는가
 

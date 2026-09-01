@@ -43,6 +43,20 @@ ios-run:
         --define=llm_model="$(llm LLM_MODEL)" \
         --define=llm_api_key="$(llm LLM_API_KEY)"
 
+# 중간발표 영상용 **데모 주행**. 설치된 앱을 데모 코스(1일차 1→N번)로 열고, 앱 안의 가상
+# GPS 가 경로선을 따라 천천히 움직인다 — 성지 반경에서 머무르면 발바닥 스탬프가 핀에 찍히고
+# 다음 성지로 넘어간다. 진짜 위치 대신 가상 위치를 쓰는 이유는 시뮬레이터·실기기 모두
+# 「걸어서 이동하는 GPS」를 화면에 담을 방법이 그것뿐이기 때문이다(계획 trip-mode.md §7).
+#   just ios-demo             ← 1번부터 3번까지, 각 성지 5초 머무름, 12 m/s (1→3 이 4~5분)
+#   just ios-demo 5 8 25      ← 5번까지, 8초 머무름, 25 m/s (영상을 짧게)
+# 먼저 `just ios-run` 으로 앱이 설치돼 있어야 한다.
+[group('build')]
+ios-demo until="3" dwell="5" speed="12":
+    xcrun simctl terminate booted com.mz2az.scenetrip 2>/dev/null || true
+    xcrun simctl launch booted com.mz2az.scenetrip \
+        -initialTab route -demoCourse 1 -navStop 1 \
+        -demoDrive {{until}} -tripDwellSeconds {{dwell}} -demoSpeed {{speed}} -footprintOn 1
+
 # 껐다 켜는 것과 사용법을 다시 보는 것은 **다른 일**이다.
 #
 # 앱을 껐다 켜면 스플래시는 다시 나오지만 사용법 넉 장은 안 나온다 — 본 적 있다는

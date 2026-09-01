@@ -1,0 +1,148 @@
+{
+  "title": "도깨비 외 1 2박 3일",
+  "pace": "tight",
+  "note": "중간발표 데모 코스 — 2026-09-02 정승길 설치본의 코스를 그대로 내보냈다. placeId 는 seed/v6.csv 의 장소 id 다. `-demoCourse 1` 실행 인자가 이 파일로 코스를 만든다(같은 제목이 이미 있으면 그것을 쓴다).",
+  "days": [
+    [
+      {
+        "placeId": 104,
+        "name": "한국은행앞",
+        "category": "거리",
+        "address": "서울 중구 남대문로 39",
+        "latitude": 37.562515,
+        "longitude": 126.979724,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 87,
+        "name": "BBQ",
+        "category": "카페",
+        "address": "서울 종로구 청계천로 81",
+        "latitude": 37.568534,
+        "longitude": 126.986587,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 101,
+        "name": "운현궁양관",
+        "category": "명소",
+        "address": "서울 종로구 삼일대로 460",
+        "latitude": 37.576667,
+        "longitude": 126.988199,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 152,
+        "name": "개뿔",
+        "category": "명소",
+        "address": "서울 종로구 낙산성곽서1길 26",
+        "latitude": 37.578178,
+        "longitude": 127.008047,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 64,
+        "name": "달커피앞",
+        "category": "카페",
+        "address": "서울 종로구 창신6가길 48",
+        "latitude": 37.576082,
+        "longitude": 127.012801,
+        "stayMinutes": 30
+      }
+    ],
+    [
+      {
+        "placeId": 60,
+        "name": "인사동",
+        "category": "명소",
+        "address": "서울 종로구 인사동길 53-2",
+        "latitude": 37.574792,
+        "longitude": 126.983791,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 61,
+        "name": "감고당길",
+        "category": "거리",
+        "address": "서울 종로구 안국동 175-91",
+        "latitude": 37.576612,
+        "longitude": 126.982685,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 96,
+        "name": "북촌·안국동 골목 일대",
+        "category": "카페",
+        "address": "서울 종로구 윤보선길 69",
+        "latitude": 37.579087,
+        "longitude": 126.983195,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 102,
+        "name": "삼청동거리",
+        "category": "거리",
+        "address": "서울 종로구 팔판동 67-1",
+        "latitude": 37.5820641053666,
+        "longitude": 126.981482777468,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 94,
+        "name": "갤러리원",
+        "category": "박물관/미술관",
+        "address": "서울 종로구 팔판길 1-12",
+        "latitude": 37.582686,
+        "longitude": 126.980467,
+        "stayMinutes": 30
+      }
+    ],
+    [
+      {
+        "placeId": 84,
+        "name": "인천 자유공원",
+        "category": "공원",
+        "address": "인천 제물포구 자유공원남로 51",
+        "latitude": 37.475097,
+        "longitude": 126.624385,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 143,
+        "name": "제물포구락부",
+        "category": "항구",
+        "address": "인천 제물포구 신포동 자유공원남로 25",
+        "latitude": 37.474581,
+        "longitude": 126.622669,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 79,
+        "name": "투모로우시티 앞",
+        "category": "거리",
+        "address": "인천 연수구 컨벤시아대로 204",
+        "latitude": 37.38854,
+        "longitude": 126.639957,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 78,
+        "name": "미추홀타워",
+        "category": "건물",
+        "address": "인천 연수구 송도동 갯벌로 12",
+        "latitude": 37.382542,
+        "longitude": 126.655842,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 80,
+        "name": "스마트밸리 지식산업센터",
+        "category": "건물",
+        "address": "인천 연수구 송도미래로 30",
+        "latitude": 37.366641,
+        "longitude": 126.64728,
+        "stayMinutes": 30
+      }
+    ]
+  ]
+}

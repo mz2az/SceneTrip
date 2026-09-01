@@ -117,6 +117,33 @@ enum PinoPin {
         return overlay
     }
 
+    /// 방문한 성지의 **발바닥 배지** — 번호 핀 옆에 붙는다(2026-09-02, 여행 모드).
+    /// 스탬프 연출(`PawStampOverlay`)이 끝난 뒤에도 지도에 「찍혔다」가 남아야 한다.
+    static func pawBadge() -> NMFOverlayImage {
+        if let cachedPawBadge {
+            return cachedPawBadge
+        }
+        let renderer = ImageRenderer(content:
+            ZStack {
+                Circle().fill(LinearGradient(
+                    colors: [Color(PinImage.light), Color(PinImage.deep)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ))
+                Circle().stroke(.white, lineWidth: 2)
+                PawShape().fill(.white).frame(width: 17, height: 17).rotationEffect(.degrees(-12))
+            }
+            .frame(width: 28, height: 28)
+            .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+            .padding(3))
+        renderer.scale = UIScreen.main.scale
+        guard let baked = renderer.uiImage else { return PinImage.numbered(nil) }
+        let image = NMFOverlayImage(image: baked)
+        cachedPawBadge = image
+        return image
+    }
+
+    private static var cachedPawBadge: NMFOverlayImage?
+
     /// 추천·배경 점의 **이름표 규칙** (2026-09-02).
     ///
     /// 이름은 **크게 확대했을 때만** 단다 — 추천은 줌 17, 배경은 18 부터. 앞서 14·16
