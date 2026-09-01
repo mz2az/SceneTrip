@@ -17,7 +17,11 @@ db_connect
 log "마이그레이션 적용 — $DB_HOST:$DB_PORT/$DB_NAME"
 
 # 출력을 갈무리하는 이유는 아래 진단 때문이다. 화면에는 그대로 흘려보낸다.
-OUTPUT_LOG="$(mktemp -t scenetrip-db-migrate)"
+#
+# 템플릿을 직접 쓰는 이유: `mktemp -t 이름` 은 macOS(BSD)에서는 되지만 GNU coreutils
+# 에서는 "too few X's in template" 로 죽는다. CI 러너가 리눅스라 로컬에서만 확인하면
+# 놓친다. X 여섯 개짜리 전체 경로는 양쪽에서 같게 동작한다.
+OUTPUT_LOG="$(mktemp "${TMPDIR:-/tmp}/scenetrip-db-migrate.XXXXXX")"
 trap 'rm -f "$OUTPUT_LOG"' EXIT
 
 # bazel run 은 --run_under 없이도 환경변수를 그대로 물려준다.
