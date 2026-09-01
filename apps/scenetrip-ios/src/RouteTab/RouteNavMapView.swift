@@ -231,10 +231,9 @@ struct RouteNavMapView: UIViewRepresentable {
                     position: NMGLatLng(lat: place.latitude, lng: place.longitude)
                 )
                 let isPicked = place.id == picked?.id
-                marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot(place.poiGroup)
+                marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot(for: place)
                 marker.anchor = isPicked ? CGPoint(x: 0.5, y: 1) : CGPoint(x: 0.5, y: 0.5)
-                marker.captionText = place.name
-                marker.captionMinZoom = 14
+                PinoPin.caption(marker, name: place.name, picked: isPicked, ambient: false)
                 marker.zIndex = isPicked ? 30 : 5
                 marker.touchHandler = { [weak self] _ in
                     self?.onTapPlace(place)

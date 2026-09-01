@@ -232,10 +232,14 @@ struct RouteGuideSheet: View {
                 session.picked = isPicked ? nil : place
             } label: {
                 HStack(spacing: 8) {
-                    // 목록 점도 지도 점과 같은 갈래 색이다 — 색이 끈이다.
-                    Circle()
-                        .fill(isPicked ? Color.red : RoutePoiTone.of(place.poiGroup))
-                        .frame(width: 7, height: 7)
+                    // 목록 점도 지도 점과 같은 갈래 색·같은 글리프다 — 그것이 끈이다.
+                    ZStack {
+                        Circle().fill(isPicked ? Color.red : RoutePoiTone.of(place.poiGroup))
+                        Image(systemName: place.poiSymbol)
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: 16, height: 16)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(place.name)
                             .font(.caption.weight(isPicked ? .bold : .medium))
