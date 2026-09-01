@@ -33,7 +33,7 @@ up: cluster-up
 # 클러스터부터 데이터까지 한 번에 — 앱을 붙여 화면을 보려면 이것을 쓴다
 [group('k8s')]
 stack-up *csv:
-    ./tools/scripts/stack-up.sh {{ csv }}
+    ./tools/scripts/stack-up.sh "{{ csv }}"
 
 # 클러스터 삭제. 수집한 텔레메트리와 DB 데이터도 함께 사라진다.
 [group('k8s')]
@@ -153,7 +153,7 @@ db-schema:
 # ON CONFLICT 로는 멱등을 만들 수 없다. 로컬 kind 에서만 동작한다.
 [group('db')]
 seed *csv:
-    ./tools/scripts/seed.sh {{ csv }}
+    ./tools/scripts/seed.sh "{{ csv }}"
 
 # 적재 후 검색 색인 갱신. CONCURRENTLY 라 갱신 중에도 검색이 계속 응답한다.
 [group('db')]

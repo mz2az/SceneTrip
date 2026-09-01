@@ -3,20 +3,21 @@
 # 사용법: seed.sh [CSV 경로]
 # 호출: just seed
 #
-# 인자가 없으면 저장소의 표본(services/scene-api/seed/v6-sample.csv)을 넣는다.
-# 전량은 볼트의 CSV 경로를 넘긴다:
+# 인자가 없으면 저장소의 기준 데이터(services/scene-api/seed/v6.csv — 정예 4 작품
+# 전량 164 행, 장소 155 곳)를 넣는다. 다른 CSV 를 넣으려면 경로를 넘긴다:
 #
-#   just seed ~/mz2az/01_Raw/정승길/1주차_data/result/촬영지_TOP_v6_정예4작품.csv
+#   just seed <CSV 경로>
 #
-# **저장소에 전량을 두지 않는 이유:** 데이터가 아직 정제 전이다. 수집 산출물의 정본은
-# 볼트에 있고, 저장소에는 볼트 없이도 동작을 확인할 수 있을 만큼만 둔다
-# (docs/project/plans/scene-api-database.md §3).
+# **전량이 저장소에 있는 이유(ADR 0009):** 팀원이 저장소만 클론해도 같은 화면을 봐야
+# 한다. 전에는 표본 12 행만 두고 전량은 볼트에서 받게 했는데, 볼트를 모르는 팀원은
+# 작품 4 · 장소 10 인 화면을 보고 "데이터가 왜 이렇게 적나" 부터 물었다(2026-09-01).
+# 수집 산출물의 정본은 여전히 볼트다 — 여기 있는 것은 그 스냅샷이다.
 #
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 cd "$REPO_ROOT" || die "$REPO_ROOT 로 이동할 수 없습니다"
 
-SAMPLE="services/scene-api/seed/v6-sample.csv"
+SAMPLE="services/scene-api/seed/v6.csv"
 TRANSFORM="services/scene-api/seed/v6.sql"
 CSV="${1:-$SAMPLE}"
 
@@ -25,7 +26,7 @@ POD="postgres-0"
 STAGED_CSV="/tmp/seed-input.csv"
 
 [ -f "$CSV" ] || die "CSV 를 찾을 수 없습니다: $CSV
-       인자 없이 실행하면 저장소의 표본($SAMPLE)을 넣습니다."
+       인자 없이 실행하면 저장소의 기준 데이터($SAMPLE)를 넣습니다."
 [ -f "$TRANSFORM" ] || die "변환 SQL 이 없습니다: $TRANSFORM"
 
 # 붙는 길이 둘이다 (ADR 0005).
@@ -53,7 +54,7 @@ fi
 
 ROWS=$(($(wc -l <"$CSV") - 1))
 if [ "$CSV" = "$SAMPLE" ]; then
-  log "표본 $ROWS 행을 적재합니다 — 전량은 'just seed <볼트 CSV 경로>'"
+  log "저장소의 기준 데이터 $ROWS 행(정예 4 작품)을 적재합니다 — 다른 판은 'just seed <CSV 경로>'"
 else
   log "$CSV ($ROWS 행) 을 적재합니다"
 fi

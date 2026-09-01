@@ -5,11 +5,15 @@ status: accepted
 date: 2026-08-06
 supersedes:
 superseded-by:
-amended-by:             # 결정은 유효하지만 전제·맥락이 다른 ADR 로 보정된 경우
+amended-by: 0009
 amends: 0001
 ---
 
 # ADR 0005: 통합 테스트의 의존성을 CI 가 직접 공급한다
+
+> **보정([0009](./0009-seed-dataset-in-repository.md), 2026-09-01):** 아래 본문의
+> "저장소에 표본 CSV(12 행)" 는 이제 정예 4 작품 전량(164 행, `seed/v6.csv`)이다.
+> "적재 데이터를 테스트 데이터로 쓴다" 는 결정은 그대로고, 그 데이터가 커졌을 뿐이다.
 
 > 이 ADR 은 [0001](./0001-bazel-as-the-single-build-system-and-just-as-the-single-command-surface.md)
 > 을 **보정한다.** 그 결정(Bazel + `just`, 얇은 CI 껍데기)은 그대로 유효하고, 어긋난 것은

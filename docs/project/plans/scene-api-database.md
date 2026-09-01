@@ -46,7 +46,7 @@ PostgreSQL 을 로컬 클러스터에 세우고, [MZ2AZ-111 DBML](https://mz2az.
 | 확장 | `postgis` · `pg_trgm` | `search_term` 의 `gin_trgm_ops` 인덱스에 필요 |
 | 마이그레이션 | Flyway, 앱 기동 시 실행 | 설치 가이드 §16 이 규정 |
 | 적재 | **별도 명령 `just seed`** | 스키마와 데이터를 분리한다. 정제된 V7·V8 이 나와도 명령 한 번으로 다시 넣는다. Flyway 마이그레이션에 INSERT 를 넣으면 데이터가 바뀔 때마다 새 마이그레이션을 쌓아야 한다 |
-| 저장소의 CSV | **샘플 몇 행만** | 데이터가 아직 정제 전이다. 볼트 없이도 `just seed` 로 동작을 확인할 수 있게 하되, 수집 산출물의 정본은 볼트에 둔다. 전량은 `just seed <볼트 경로>` |
+| 저장소의 CSV | **정예 4 작품 전량(164 행)** — 2026-09-01 변경, [ADR 0009](../../architecture/adr/0009-seed-dataset-in-repository.md) | 처음엔 "정제 전이라 샘플 12 행만, 전량은 볼트" 였다. 그러자 저장소만 클론한 팀원이 작품 4 · 장소 10 인 화면을 봤다. 4 작품으로 확정된 뒤 전량이 150 KB 라 저장소에 두는 비용이 없다. 정본은 여전히 볼트, 저장소는 스냅샷 |
 | 자격 증명 | 로컬은 ConfigMap 고정값, 원격은 Secret | 로컬 kind 는 외부에 나가지 않는다. 시크릿이 아닌 값을 시크릿처럼 다루면 진짜 시크릿 관리가 느슨해진다 (AGENTS.md §9) |
 
 ## 4. DBML 을 SQL 로 옮길 때 손봐야 할 것
@@ -132,9 +132,9 @@ services/scene-api/src/main/resources/db/migration/
                                 이미지가 기본으로 켜는 tiger geocoder·topology 제거
 
 services/scene-api/seed/
-├── v6-sample.csv               확인용 12 행 (4 작품 × 장소 3 곳)
-├── v6.sql                      CSV → 14 개 테이블 변환. 표본·전량 공용
-└── README.md                   표본 선정 근거와 정제 전이라 감수한 것들
+├── v6.csv                      정예 4 작품 전량 164 행 (장소 155 곳) — 볼트 CSV 의 스냅샷
+├── v6.sql                      CSV → 14 개 테이블 변환. 어느 CSV 에도 공용
+└── README.md                   데이터가 검증하는 것과 정제 전이라 감수한 것들
 
 tools/scripts/seed.sh           CSV 를 파드로 옮기고 v6.sql 을 먹인다
 tools/just/k8s.just             seed 레시피
