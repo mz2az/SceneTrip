@@ -20,7 +20,23 @@ data:
   POSTGRES_USER: "scenetrip"
   POSTGRES_PASSWORD: "scenetrip-local"
 
-  # 초기화 시 로케일. 한국어 정렬을 쓰지 않는 이유 — 검색은 term_norm(소문자 + 공백
-  # 제거)과 pg_trgm 이 담당하므로 DB 콜레이션에 기대지 않는다. C 로케일이 인덱스
-  # 동작이 단순하고 빠르다.
-  POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+  # 초기화 시 로케일. **정렬(collate)과 글자 판정(ctype)을 따로 준다.**
+  #
+  # 정렬은 C 다. 한국어 정렬 규칙을 쓰지 않는 이유는 그대로다 — 검색은 term_norm(소문자
+  # + 공백 제거)과 pg_trgm 이 담당하므로 DB 콜레이션에 기대지 않고, C 가 인덱스 동작이
+  # 단순하고 빠르다.
+  #
+  # 글자 판정은 C.utf8 이어야 한다. 여기를 C 로 두면 "글자란 ASCII 뿐" 이 되어 한글이
+  # 문자로 인정되지 않고, 그 결과가 조용하다 — 저장·조회는 멀쩡한데 다음 둘이 망가진다.
+  #
+  #   1. pg_trgm 이 한글에서 trigram 을 하나도 만들지 못한다. show_trgm('도깨비') 가
+  #      빈 배열이 되어 search_term_trgm_idx(V3)가 한글 부분 일치를 전혀 받지 못하고,
+  #      강제로 태워도 GIN 전체를 훑는다.
+  #   2. lower() 가 ASCII 만 소문자로 바꾼다. 'CAFÉ' 와 'café' 가 서로 걸리지 않는다.
+  #
+  # 정렬을 C 로 유지하므로 바이트 순서는 그대로다 — 'B' < 'a' 가 여전히 참이고, 기존
+  # btree 인덱스의 순서도 흔들리지 않는다.
+  #
+  # 이 값은 initdb 가 볼륨을 처음 만들 때만 쓰인다. 이미 만들어진 DB 에는 아무 영향이
+  # 없고 ALTER 로 바꿀 수도 없다 — `just db-recreate` 로 볼륨째 다시 만들어야 한다.
+  POSTGRES_INITDB_ARGS: "--lc-collate=C --lc-ctype=C.utf8 --encoding=UTF8"

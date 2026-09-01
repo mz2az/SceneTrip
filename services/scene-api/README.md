@@ -153,8 +153,37 @@ initContainer 가 있다.
 | `V8__app_user.sql` | `app_user`·`user_device`, `cart_item` → `saved_place`, `user_event.user_id` → UUID |
 | `V9__course.sql` | `course`·`custom_pin`·`course_item`·`saved_content` |
 | `V10__market.sql` | `market_course`·`_item`·`_content`·`market_like` |
-| `V11__market_course_single_live_post.sql` | 한 코스의 살아 있는 사본은 하나. 부분 유니크 인덱스 — 내린 것은 남으므로 `WHERE unpublished_at IS NULL` 이 붙어야 다시 올릴 수 있다 |
-| `V12__poi.sql` | `poi` — 편의시설. **`place` 와 분리한다** (47만 대 155). 검색용 trgm 인덱스 둘 |
+
+### 로케일 — `just db-migrate` 가 체크섬 오류를 내면 여기다
+
+DB 는 **정렬은 `C`, 글자 판정은 `C.utf8`** 로 만들어진다
+(`platform/kubernetes/postgres/configmap.yaml` 의 `POSTGRES_INITDB_ARGS`).
+
+글자 판정이 `C` 면 PostgreSQL 이 한글을 문자로 인정하지 않아 `pg_trgm` 이 trigram 을
+하나도 만들지 못하고, `search_term_trgm_idx` 가 한글 부분 일치를 전혀 받지 못한다.
+`lower()` 도 ASCII 만 소문자로 바꾼다. **저장·조회는 멀쩡해서 아무 신호가 없다** —
+검색이 느려지기만 한다.
+
+이 값은 initdb 가 볼륨을 처음 만들 때만 읽히고 `ALTER DATABASE` 로는 못 바꾼다. 그래서
+로케일을 고친 변경에는 `V3__search_term.sql` 의 주석 수정이 함께 들어 있고, 옛 볼륨을
+그대로 들고 있으면 Flyway 가 체크섬 불일치로 막는다. **그 오류는 "누가 마이그레이션을
+손댔다" 가 아니라 "DB 를 다시 만들어야 한다" 는 뜻이다.**
+
+```
+just db-recreate
+```
+
+볼륨을 지우고 새 로케일로 다시 만든 뒤 스키마·적재·색인까지 이어서 돌린다. 로컬에 적재한
+데이터는 사라지고 시드로 다시 채워진다. `just cluster-down` 과 달리 postgres 만 건드리므로
+SigNoz 에 쌓인 텔레메트리는 남는다. 지금 상태는 이렇게 확인한다.
+
+```
+just db-psql "SELECT datcollate, datctype FROM pg_database WHERE datname = current_database();"
+just db-psql "SELECT show_trgm('도깨비');"
+```
+
+두 번째가 `{}` 로 비어 나오면 로케일이 어긋난 것이다. 통합 테스트
+`SuggestionStoreIntegrationTest` 의 "한글에서 trigram 이 만들어진다" 가 이것을 지킨다.
 
 ### 주체는 계정이다 — 설치 UUID 가 아니다
 

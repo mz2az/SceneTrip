@@ -85,6 +85,28 @@ class SuggestionStoreIntegrationTest {
   }
 
   /**
+   * DB 가 한글을 글자로 인정하는가.
+   *
+   * <p>{@code pg_trgm} 은 값을 세 글자짜리 조각으로 쪼개 색인하는데, 무엇이 글자인지를 DB 로케일에 묻는다. {@code lc_ctype} 이 {@code
+   * C} 면 "글자란 ASCII 뿐" 이라 한글이 조각으로 쪼개지지 않고, {@code search_term_trgm_idx} 가 한글 부분 일치를 하나도 받지 못한다.
+   *
+   * <p><b>이 고장은 아무 신호를 내지 않는다.</b> 저장도 조회도 멀쩡하고 결과도 정확하다. 인덱스 이름이 실행 계획에 찍히기까지 해서 잘 도는 것처럼 보이는데,
+   * 실제로는 GIN 전체를 훑는다. 그래서 계획이 아니라 <b>조각이 만들어지는지</b>를 본다.
+   *
+   * <p>설정은 {@code platform/kubernetes/postgres/configmap.yaml} 의 {@code POSTGRES_INITDB_ARGS} 이고,
+   * 볼륨을 처음 만들 때만 읽힌다. 고치려면 {@code just db-recreate} 다.
+   */
+  @Test
+  @DisplayName("한글에서 trigram 이 만들어진다 — DB 로케일 확인")
+  void koreanProducesTrigrams() {
+    String trigrams = jdbc.sql("SELECT show_trgm('도깨비')::TEXT").query(String.class).single();
+
+    assertThat(trigrams)
+        .as("한글 trigram 이 비었다. lc_ctype 이 C 이면 이렇게 된다 — `just db-recreate`")
+        .isNotEqualTo("{}");
+  }
+
+  /**
    * 앞글자 조회가 인덱스를 타는가.
    *
    * <p><b>결과 단언으로는 잡을 수 없는 회귀다.</b> 인덱스를 놓쳐도 제안 목록은 글자 하나 달라지지 않고 느려지기만 한다. 그래서 계획을 직접 본다.

@@ -131,6 +131,19 @@ db-psql *sql:
 db-migrate:
     ./tools/scripts/db-migrate.sh
 
+# initdb 가 볼륨을 처음 만들 때만 읽는 설정(POSTGRES_INITDB_ARGS — 로케일·인코딩)을
+# 바꾸려면 볼륨을 지우는 수밖에 없다. 파드만 다시 띄우면 아무 일도 일어나지 않는다.
+# `just cluster-down` 과 달리 postgres 만 건드리므로 SigNoz 의 텔레메트리는 남는다.
+
+# 적재분은 `just seed` 와 같은 인자다. 비워 두면 저장소 표본이 들어가므로, 볼트 전량으로
+# 적재해 둔 DB 라면 경로를 반드시 함께 넘긴다.
+
+# DB 볼륨을 지우고 처음부터 다시 만든다 — 스키마·적재·색인까지 이어서
+[group('db')]
+[confirm("postgres 볼륨을 삭제하고 처음부터 다시 만듭니다. 적재된 데이터가 사라집니다. 진행할까요?")]
+db-recreate *csv:
+    ./tools/scripts/db-recreate.sh {{ csv }}
+
 # 적용된 마이그레이션 이력. 실패한 것이 있으면 success 가 f 로 남는다.
 [group('db')]
 db-migrations:
