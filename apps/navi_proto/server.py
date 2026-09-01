@@ -839,12 +839,15 @@ def match_ok(tmap_name, naver_name, dist_m, group=""):
     return False, f"가장 가까운 것도 {dist_m:.0f} m 떨어졌다"
 
 
-def naver_place_lookup(name, addr="", lat=None, lng=None, group=""):
+def naver_place_lookup(name, addr="", lat=None, lng=None, group="", cached_only=False):
     """이름(+주소)으로 네이버 장소를 찾아 상세 페이지 URL을 낸다.
 
     **비공식 엔드포인트라 실패를 정상 취급한다.** 못 찾으면 `found: False` 를
     돌려줄 뿐 예외를 던지지 않는다 — 47만 건 중 어느 것을 물어도 화면이 죽으면
     안 된다.
+
+    `cached_only` 면 네트워크를 타지 않는다 — 캐시에 있으면 그 값, 없으면 None.
+    화면 범위 조회가 「아는 것부터 즉시」 돌려주는 데 쓴다(§/api/pois).
     """
     # 갈래가 키에 들어간다 — 명소·교통은 거리 컷이 달라, 앞서 못 찾았다고
     # 적어 둔 부정 캐시를 그대로 믿으면 안 된다. 앞의 v2 는 **매칭 규칙의 판**이다
@@ -852,6 +855,8 @@ def naver_place_lookup(name, addr="", lat=None, lng=None, group=""):
     key = f"v2|{name}|{addr}|{group}" if group else f"v2|{name}|{addr}"
     if key in _NAVER_PLACE_CACHE:
         return _NAVER_PLACE_CACHE[key]
+    if cached_only:
+        return None
     q = f"{name} {addr}".strip()
     body = {
         "operationName": "getPlacesList",
@@ -4223,12 +4228,35 @@ class Handler(BaseHTTPRequestHandler):
             )
             if matched:
                 # **네이버에서 확인된 곳만 남긴다**(2026-08-28 사용자 요청 — 눌렀는데
-                # 「못 찾았습니다」 가 자꾸 나오면 점을 못 믿게 된다). 조회는 디스크
-                # 캐시가 받치므로 같은 동네 두 번째부터는 공짜다. 첫 방문 지연은
-                # 시간 예산으로 막는다 — 예산이 다하면 확인된 것만이라도 준다.
-                deadline = time.time() + 8
-                keep = []
+                # 「못 찾았습니다」 가 자꾸 나오면 점을 못 믿게 된다).
+                #
+                # **두 단계다**(2026-09-02). 앞서는 후보를 가까운 순으로 하나씩 네이버에
+                # 물으며 30곳이 차거나 8초가 지나야 돌려줬다. 그러면 캐시에 없는 후보가
+                # 하나라도 섞여 있는 한 **매번 8초를 다 쓴다** — 같은 동네 두 번째
+                # 요청도 8.3초였다(실측, 해운대). 그동안 앱은 빈 지도다.
+                #
+                # ① 캐시에 있는 것만 훑는다(네트워크 없음, 수 ms). 상한이 차면 바로 준다.
+                # ② 모자라면 못 본 후보를 2.5초만 확인해 채운다. 나머지는 다음 요청
+                #    (지도를 조금 움직일 때)마다 조금씩 채워진다 — 캐시는 디스크에
+                #    남으므로 동네를 오갈수록 즉시 뜨는 범위가 넓어진다.
+                keep, unseen = [], []
                 for p_ in rows:
+                    if len(keep) >= limit:
+                        break
+                    hit = naver_place_lookup(
+                        p_["name"],
+                        p_.get("addr") or "",
+                        p_["lat"],
+                        p_["lng"],
+                        p_.get("group") or "",
+                        cached_only=True,
+                    )
+                    if hit is None:
+                        unseen.append(p_)
+                    elif hit.get("found"):
+                        keep.append(p_)
+                deadline = time.time() + 2.5
+                for p_ in unseen:
                     if len(keep) >= limit or time.time() > deadline:
                         break
                     hit = naver_place_lookup(
