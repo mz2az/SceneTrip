@@ -57,6 +57,15 @@ build --define=naver_client_id=
 # 인데 아직 없다. 스토어에 내기 전에 옮기고 이 두 줄은 지운다.
 build --define=kakao_rest_key=
 
+# AI 코스 플래너가 부를 LLM 도 같은 규칙이다. 값은 apps/navi_proto/.env 의
+# LLM_URL·LLM_MODEL·LLM_API_KEY 에서 오고 `just ios-run` 이 넘긴다 — 챗봇 서버와
+# 같은 파일이라 팀원마다 자기 모델(로컬 MLX·Ollama·DeepSeek…)을 쓸 수 있다. 값이
+# 비면 RoutePlanner.swift 가 로컬 :8900 기본값을 쓰고, 그것도 없으면 규칙 폴백으로
+# 코스를 짠다 — 어느 경우에도 빌드는 깨지지 않는다.
+build --define=llm_url=
+build --define=llm_model=
+build --define=llm_api_key=
+
 # --- Java --------------------------------------------------------------------
 # 언어 수준을 고정하지 않으면 Bazel 이 -source 11 -target 11 로 컴파일한다.
 # Spring Boot 4 는 Java 17 이상을 요구하므로 그 조합에서는 빌드가 깨진다.

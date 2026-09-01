@@ -29,6 +29,7 @@ cd apps/navi_proto
 #    tmap_transit_ledger.json                       (합계 약 205 MB)
 
 # 2. 키 — .env.example 을 복사해 값을 채운다 (값은 승길에게).
+#    LLM_* 세 줄은 각자 취향 — 아래 「LLM 갈아타기」. iOS 앱도 이 파일을 읽는다.
 cp .env.example .env
 
 # 3. LLM 가상환경 — 처음 한 번. (맥 M 계열 전용 — MLX)
@@ -49,23 +50,27 @@ localhost:8900/v1/models` 가 JSON 이면 준비 끝. iOS 앱은
 ## LLM 갈아타기
 
 `server.py` 는 mlx 를 모른다 — **OpenAI 호환 `/v1/chat/completions` 규격만**
-안다. 그래서 뒤에 무엇이 있든 `.env` 두 줄이 스위치다:
+안다. 그래서 뒤에 무엇이 있든 `.env` 세 줄이 스위치다:
 
 ```
-LLM_URL=…/v1/chat/completions    ← server.py 가 부를 주소
+LLM_URL=http://127.0.0.1:8900    ← /v1/chat/completions 를 뺀 밑동 (코드가 붙인다)
 LLM_MODEL=…                      ← 그 서버가 아는 모델 이름
+LLM_API_KEY=                     ← 상용 API 만. 비우면 헤더를 안 보낸다
 ```
+
+**이 세 줄을 읽는 곳이 셋이고 전부 같은 파일을 본다** — `server.py`(챗봇, 요청마다),
+`llm.sh`(`just navi-llm` 이 띄울 모델), iOS 앱(`just ios-run` 이 빌드 때 `Secrets` 로
+넣는다 — `RoutePlanner.swift` 의 코스 플래너). 그래서 팀원마다 자기 `.env` 에 자기
+모델을 적으면 셋이 함께 갈아탄다. `.env` 는 gitignore 대상이라 남의 선택이 내게
+넘어오지 않는다. iOS 쪽은 **바꾼 뒤 `just ios-run` 을 다시 돌려야** 반영된다(빌드
+때 박히는 값이다).
 
 | 붙일 것 | 방법 |
 | --- | --- |
-| MLX (기본) | `just navi-llm` — 애플실리콘 전용. 모델은 첫 실행 때 허깅페이스에서 자동 수신(~5GB) |
-| Ollama | `brew install ollama && ollama pull qwen3:8b && ollama serve` 후 `LLM_URL=http://127.0.0.1:11434/v1/chat/completions`, `LLM_MODEL=qwen3:8b`. venv·llm.sh 불필요, 인텔맥·리눅스도 됨 |
-| llama.cpp · vLLM · LM Studio | 같은 원리 — 각자의 `/v1/chat/completions` 주소와 모델 이름만 |
-| 상용 API | **아직 안 됨** — LLM 호출에 인증 헤더(`Authorization: Bearer`)를 안 보낸다. 필요해지면 `LLM_API_KEY` 읽어 헤더 한 줄 더하는 패치가 먼저다. 그리고 지금 원칙은 「사용자 좌표·주변 목록이 밖으로 안 나간다」 — 상용 전환은 비용·프라이버시가 걸린 팀 결정(정식 이관 283·284·285 때) |
-
-주의 하나 — iOS 의 **AI 코스 플래너**(`RoutePlanner.swift`)는 `127.0.0.1:8900`
-고정이다. 다른 포트로 띄우면 챗봇은 갈아탄 모델로 돌고, 코스 플래너만
-규칙 폴백으로 동작한다(설계된 폴백이라 깨지지는 않는다).
+| MLX (기본) | `just navi-llm` — 애플실리콘 전용. 기본 모델 `Qwen3.6-35B-A3B-4bit`(MoE, 활성 3B — 8B 밀집보다 빠르고 35B 급). 첫 실행 때 허깅페이스에서 자동 수신(~20GB). 다른 MLX 모델은 `LLM_MODEL` 만 바꾼다 |
+| Ollama | `brew install ollama && ollama pull qwen3:8b && ollama serve` 후 `LLM_URL=http://127.0.0.1:11434`, `LLM_MODEL=qwen3:8b`. venv·llm.sh 불필요, 인텔맥·리눅스도 됨 |
+| llama.cpp · vLLM · LM Studio | 같은 원리 — 각자의 밑동 주소와 모델 이름만 |
+| DeepSeek 등 상용 API | `LLM_URL=https://api.deepseek.com`, `LLM_MODEL=deepseek-chat`, `LLM_API_KEY=<발급 키>` — `Authorization: Bearer` 로 붙는다. OpenAI 호환이면 어느 것이든 같다. **단** 사용자 좌표·주변 목록이 밖으로 나가고 요금이 붙는다 — 각자 판단이고, 팀 기본은 로컬이다. `enable_thinking` 같은 Qwen 전용 필드는 모르는 서버가 무시한다 |
 
 ## 무엇이 들어 있나
 

@@ -44,6 +44,10 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
    NAVER_MAP_CLIENT_ID=<네이버 지도 키>
    KAKAO_REST_KEY=<카카오 REST 키>
    ```
+   AI 코스 플래너가 부를 LLM 은 여기가 아니라 **`apps/navi_proto/.env` 의
+   `LLM_URL`·`LLM_MODEL`·`LLM_API_KEY`** 에서 온다(챗봇 서버와 같은 파일 —
+   `just ios-run` 이 빌드 때 읽어 넣는다). 로컬 MLX·Ollama·DeepSeek 등 각자 것을
+   쓸 수 있고, 바꾸면 `just ios-run` 을 다시 돌린다. 비어 있으면 로컬 `:8900`.
 3. **백엔드** — 앱은 `http://localhost:8081/v1` 을 부른다. 로컬 클러스터를
    띄워 둔다(`just cluster-up`, MZ2AZ-157 구성 그대로).
 4. **실행** — `just ios-run`.
@@ -228,6 +232,10 @@ just ios-xcode                          # Xcode 로 연다 (코드 탐색·디�
 >
 > ```
 > build --define=naver_client_id=<발급받은 키>
+> build --define=kakao_rest_key=<카카오 REST 키>
+> build --define=llm_url=http://127.0.0.1:8900
+> build --define=llm_model=<apps/navi_proto/.env 의 LLM_MODEL>
+> build --define=llm_api_key=
 > ```
 
 ## 실기기에 올리기

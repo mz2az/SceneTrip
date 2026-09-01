@@ -272,21 +272,30 @@ enum RoutePlanner {
     }
 }
 
-/// 로컬 LLM. OpenAI 호환 `/v1/chat/completions` 를 쓴다.
+/// 코스 플래너가 묻는 LLM. OpenAI 호환 `/v1/chat/completions` 를 쓴다.
 ///
-/// **밖으로 나가지 않는다.** 프로토타입이 MLX + Qwen3-8B 를 `127.0.0.1:8900` 에 띄워
-/// 두고 있고 우리도 그것을 그대로 쓴다. 모델이 없으면 조용히 nil 을 돌려준다 —
-/// 데모가 모델 유무에 매이면 안 된다.
+/// **어느 모델인지는 코드가 모른다.** 챗봇 서버(`apps/navi_proto`)와 **같은 `.env`**
+/// (`LLM_URL`·`LLM_MODEL`·`LLM_API_KEY`)를 `just ios-run` 이 빌드 때 `Secrets` 로 넣어
+/// 준다 — 팀원마다 로컬 MLX·Ollama·DeepSeek 등 자기 것을 쓸 수 있고, 여기서 모델명을
+/// 고정하면 챗봇과 다른 모델을 부르게 된다(mlx_lm 서버는 요청 모델명이 다르면 그 모델을
+/// 새로 적재하느라 수십 초 멈춘다 — 실측). 값이 비면 로컬 :8900 기본값이다.
+///
+/// 모델이 없으면 조용히 nil 을 돌려준다 — 데모가 모델 유무에 매이면 안 된다.
 enum LocalModel {
-    /// 프로토타입과 같은 자리다(`SceneTrip_navi/.env` 의 `LLM_URL`).
-    static let baseUrl = "http://127.0.0.1:8900"
-    static let model = "mlx-community/Qwen3-8B-4bit"
+    /// `/v1/chat/completions` 를 뺀 밑동. `.env` 의 `LLM_URL` 과 같은 규칙이다.
+    static let baseUrl = Secrets.llmUrl.isEmpty ? "http://127.0.0.1:8900" : Secrets.llmUrl
+    static let model = Secrets.llmModel.isEmpty ? "mlx-community/Qwen3.6-35B-A3B-4bit" : Secrets.llmModel
 
     static func complete(prompt: String, timeout: TimeInterval = 45) async -> String? {
-        guard let url = URL(string: baseUrl + "/v1/chat/completions") else { return nil }
+        let base = baseUrl.hasSuffix("/") ? String(baseUrl.dropLast()) : baseUrl
+        guard let url = URL(string: base + "/v1/chat/completions") else { return nil }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // 상용 API(DeepSeek 등)는 키가 있어야 받는다. 로컬 서버는 헤더를 무시한다.
+        if !Secrets.llmApiKey.isEmpty {
+            request.setValue("Bearer \(Secrets.llmApiKey)", forHTTPHeaderField: "Authorization")
+        }
         request.timeoutInterval = timeout
         request.httpBody = try? JSONSerialization.data(withJSONObject: [
             "model": model,

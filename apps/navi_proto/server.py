@@ -149,6 +149,13 @@ def engines():
 # ── 공통 ─────────────────────────────────────────────────────────────────────
 
 
+def llm_headers():
+    """LLM 호출에 붙일 인증 헤더. 상용 API(DeepSeek 등)는 키가 있어야 받고, 로컬
+    서버(MLX·Ollama)는 헤더를 무시하므로 키가 비어 있으면 아무것도 붙이지 않는다."""
+    key = cfg("LLM_API_KEY")
+    return {"Authorization": f"Bearer {key}"} if key else {}
+
+
 def http_json(url, *, data=None, headers=None, method=None, timeout=None):
     body = json.dumps(data).encode() if data is not None else None
     h = {"User-Agent": "SceneTrip_navi/0.1 (prototype)", "Accept": "application/json"}
@@ -501,6 +508,7 @@ def weights_by_llm(text):
                 "stream": False,
                 "options": {"temperature": 0},
             },
+            headers=llm_headers(),
             method="POST",
         )
         raw = (d.get("response") or "").strip()
@@ -1359,6 +1367,7 @@ def guide_call(messages, tools=None, timeout=120):
     return http_json(
         url.rstrip("/") + "/v1/chat/completions",
         data=body,
+        headers=llm_headers(),
         method="POST",
         timeout=timeout,
     )

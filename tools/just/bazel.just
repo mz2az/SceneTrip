@@ -31,9 +31,17 @@ run target *args:
 # iOS 앱을 시뮬레이터에 띄운다 (실기기는 just ios-xcode)
 [group('build')]
 ios-run:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # LLM 설정의 단일 출처는 apps/navi_proto/.env 다 — server.py·llm.sh 가 읽는 그 파일.
+    # 셸 변수가 있으면 그것이 우선(server.py 와 같은 규칙), 없으면 .env, 그것도 없으면 빈 값.
+    llm() { printenv "$1" 2>/dev/null || { sed -n "s/^$1=//p" apps/navi_proto/.env 2>/dev/null | tail -1; } || true; }
     {{BAZEL}} run //apps/scenetrip-ios:bin \
         --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}" \
-        --define=kakao_rest_key="${KAKAO_REST_KEY:-}"
+        --define=kakao_rest_key="${KAKAO_REST_KEY:-}" \
+        --define=llm_url="$(llm LLM_URL)" \
+        --define=llm_model="$(llm LLM_MODEL)" \
+        --define=llm_api_key="$(llm LLM_API_KEY)"
 
 # 껐다 켜는 것과 사용법을 다시 보는 것은 **다른 일**이다.
 #
@@ -97,6 +105,10 @@ android-run:
 # `.bazelrc.user` 에 아래 한 줄을 넣어 두어야 지도가 뜬다(그 파일은 gitignore 대상이다).
 #
 #     build --define=naver_client_id=<발급받은 키>
+#     build --define=kakao_rest_key=<카카오 REST 키>
+#     build --define=llm_url=http://127.0.0.1:8900
+#     build --define=llm_model=<apps/navi_proto/.env 의 LLM_MODEL>
+#     build --define=llm_api_key=
 
 # Bazel 프로젝트를 Xcode 로 연다 (실기기 설치용)
 [group('build')]
