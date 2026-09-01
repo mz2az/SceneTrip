@@ -249,9 +249,9 @@ just ios-xcode                          # Xcode 로 연다 (코드 탐색·디�
 `apps/scenetrip-ios/BUILD.bazel` 의 `xcodeproj` 타깃에서 한 줄을 고친다.
 
 ```python
-target_environments = ["simulator"],
+target_environments = (["simulator"],)
 # ↓
-target_environments = ["device", "simulator"],
+target_environments = (["device", "simulator"],)
 ```
 
 그리고 `ios_application` 에 서명을 붙인다. `local_provisioning_profile` 이 **내 기계에
@@ -262,16 +262,16 @@ load("@rules_apple//apple:apple.bzl", "local_provisioning_profile")
 load("@rules_xcodeproj//xcodeproj:defs.bzl", "xcode_provisioning_profile")
 
 local_provisioning_profile(
-    name = "local_profile",
-    profile_name = "iOS Team Provisioning Profile: com.mz2az.scenetrip",
-    tags = ["ios", "manual"],
+    name="local_profile",
+    profile_name="iOS Team Provisioning Profile: com.mz2az.scenetrip",
+    tags=["ios", "manual"],
 )
 
 xcode_provisioning_profile(
-    name = "provisioning_profile",
-    managed_by_xcode = True,          # 서명은 Xcode 가 한다
-    provisioning_profile = ":local_profile",
-    tags = ["ios", "manual"],
+    name="provisioning_profile",
+    managed_by_xcode=True,  # 서명은 Xcode 가 한다
+    provisioning_profile=":local_profile",
+    tags=["ios", "manual"],
 )
 ```
 

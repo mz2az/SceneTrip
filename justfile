@@ -27,6 +27,7 @@ import 'tools/just/k8s.just'
 import 'tools/just/ci.just'
 import 'tools/just/agent.just'
 import 'tools/just/scaffold.just'
+import 'tools/just/navi.just'
 
 # --- 진입점 -------------------------------------------------------------------
 
