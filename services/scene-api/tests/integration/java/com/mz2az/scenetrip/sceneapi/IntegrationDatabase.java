@@ -168,6 +168,32 @@ public final class IntegrationDatabase {
         "장면 설명에만 나오는 낱말");
   }
 
+  /**
+   * 어느 표기의 <b>가운데에만</b> 있는 말. 앞글자로는 아무것도 걸리지 않는 것으로 고른다.
+   *
+   * <p>자동완성은 앞글자 일치를 먼저 보고 자리가 남을 때만 부분 일치로 보충한다. 그 보충 갈래가 살아 있는지 확인하려면 <b>앞글자로는 절대 걸리지 않는</b> 입력이
+   * 필요하다. 아무 부분 문자열이나 쓰면 앞글자 갈래가 대신 걸어 주어, 보충 갈래를 통째로 지워도 테스트가 통과한다.
+   *
+   * <p>세 글자인 이유: {@code pg_trgm} 이 세 글자짜리 조각으로 색인하므로 그보다 짧은 검색어는 부분 일치를 아예 시도하지 않는다.
+   */
+  public static String anyMidOnlyTerm(JdbcClient jdbc) {
+    return single(
+        jdbc,
+        """
+        SELECT c.sub
+        FROM (
+            SELECT substring(st.term_norm FROM 2 FOR 3) AS sub
+            FROM search_term st
+            WHERE length(st.term_norm) >= 5
+        ) c
+        WHERE NOT EXISTS (
+            SELECT 1 FROM search_term s2 WHERE s2.term_norm LIKE c.sub || '%')
+        ORDER BY c.sub
+        LIMIT 1
+        """,
+        "표기 가운데에만 있는 세 글자");
+  }
+
   /** 아무 장소 id 하나. 상세 조회 질의를 태워 보는 데 쓴다. */
   public static long anyPlaceId(JdbcClient jdbc) {
     List<Long> ids = jdbc.sql("SELECT id FROM place ORDER BY id LIMIT 1").query(Long.class).list();
