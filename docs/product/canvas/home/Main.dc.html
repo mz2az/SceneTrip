@@ -1,0 +1,144 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+    a { color: #007AFF; } a:hover { color: #0060CC; }
+  </style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #F2F2F7; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+
+  <!-- 헤더: 인사 + 프로필(마이페이지 진입) -->
+  <div style="display: flex; align-items: center; gap: 10px; padding: 18px 20px 6px 20px;">
+    <img src="haetae-face.png" alt="해태" style="width: 44px; height: 38px; object-fit: contain;">
+    <div style="display: flex; flex-direction: column; gap: 1px; flex-grow: 1;">
+      <div style="font-size: 13px; color: #8A8A8E;">해태가 기다렸어요</div>
+      <div style="font-size: 19px; font-weight: 700; color: #1C1C1E;">오늘은 어느 장면으로 갈까요?</div>
+    </div>
+    <div style="width: 36px; height: 36px; border-radius: 18px; background: #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#1C1C1E" stroke-width="1.6" stroke-linecap="round">
+        <circle cx="10" cy="7" r="3.2"></circle>
+        <path d="M3.5 17c1.2-3 3.6-4.4 6.5-4.4s5.3 1.4 6.5 4.4"></path>
+      </svg>
+    </div>
+  </div>
+
+  <!-- 검색바 (작품검색 탭 진입) -->
+  <div style="margin: 10px 20px 0 20px; display: flex; align-items: center; gap: 8px; background: #FFFFFF; border-radius: 22px; padding: 12px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#8A8A8E" stroke-width="1.7" stroke-linecap="round">
+      <circle cx="8" cy="8" r="5.2"></circle>
+      <path d="M12.2 12.2L16 16"></path>
+    </svg>
+    <div style="font-size: 15px; color: #8A8A8E;">작품·배우·장소로 검색</div>
+  </div>
+
+  <!-- 내 여행 이어가기 — 늘 맨 위 고정 카드 -->
+  <div style="margin: 14px 20px 0 20px; border-radius: 22px; padding: 16px 18px; background: linear-gradient(135deg, #8FCCF7 0%, #7A69ED 100%); color: #FFFFFF; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 6px 16px rgba(122,105,237,0.28);">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.4px; background: rgba(255,255,255,0.22); border-radius: 10px; padding: 3px 9px;">여행 중</div>
+      <div style="font-size: 12px; opacity: 0.85;">1박 2일 · 10곳</div>
+    </div>
+    <div style="font-size: 18px; font-weight: 800;">도깨비 성지순례 1박 2일</div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="flex-grow: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.3); overflow: hidden;">
+        <div style="width: 40%; height: 6px; border-radius: 3px; background: #FFFFFF;"></div>
+      </div>
+      <div style="font-size: 12px; font-weight: 600;">스탬프 4/10</div>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <div style="flex-grow: 1; text-align: center; background: #FFFFFF; color: #5B49D6; font-size: 14px; font-weight: 700; border-radius: 14px; padding: 10px 0;">이어서 길찾기</div>
+      <div style="text-align: center; background: rgba(255,255,255,0.2); color: #FFFFFF; font-size: 14px; font-weight: 600; border-radius: 14px; padding: 10px 14px;">코스 보기</div>
+    </div>
+  </div>
+
+  <!-- 지금 뜨는 작품 (가로 스크롤) -->
+  <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 18px;">
+    <div style="display: flex; align-items: baseline; gap: 8px; padding: 0 20px;">
+      <div style="font-size: 17px; font-weight: 800; color: #1C1C1E;">지금 뜨는 작품</div>
+      <div style="font-size: 12px; color: #8A8A8E; flex-grow: 1;">촬영지가 많은 순</div>
+      <div style="font-size: 13px; color: #007AFF; font-weight: 600;">전체 보기</div>
+    </div>
+    <div style="display: flex; gap: 10px; padding: 0 20px; overflow: hidden;">
+      <div style="width: 108px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="width: 108px; height: 144px; border-radius: 14px; background: linear-gradient(160deg, #43507A, #1C2340); display: flex; align-items: flex-end; padding: 10px; box-sizing: border-box;">
+          <div style="color: #FFFFFF; font-size: 13px; font-weight: 700; line-height: 1.25;">도깨비</div>
+        </div>
+        <div style="font-size: 11px; color: #8A8A8E;">촬영지 57곳</div>
+      </div>
+      <div style="width: 108px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="width: 108px; height: 144px; border-radius: 14px; background: linear-gradient(160deg, #B98FD6, #6A4E9C); display: flex; align-items: flex-end; padding: 10px; box-sizing: border-box;">
+          <div style="color: #FFFFFF; font-size: 13px; font-weight: 700; line-height: 1.25;">눈물의 여왕</div>
+        </div>
+        <div style="font-size: 11px; color: #8A8A8E;">촬영지 67곳</div>
+      </div>
+      <div style="width: 108px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="width: 108px; height: 144px; border-radius: 14px; background: linear-gradient(160deg, #E37FB2, #7C3AA8); display: flex; align-items: flex-end; padding: 10px; box-sizing: border-box;">
+          <div style="color: #FFFFFF; font-size: 13px; font-weight: 700; line-height: 1.25;">케이팝 데몬 헌터스</div>
+        </div>
+        <div style="font-size: 11px; color: #8A8A8E;">촬영지 11곳</div>
+      </div>
+      <div style="width: 108px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="width: 108px; height: 144px; border-radius: 14px; background: linear-gradient(160deg, #E0A46B, #9C5A2E); display: flex; align-items: flex-end; padding: 10px; box-sizing: border-box;">
+          <div style="color: #FFFFFF; font-size: 13px; font-weight: 700; line-height: 1.25;">이태원 클라쓰</div>
+        </div>
+        <div style="font-size: 11px; color: #8A8A8E;">촬영지 21곳</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 오늘의 성지 카드뉴스 (첫 장) -->
+  <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 18px;">
+    <div style="display: flex; align-items: baseline; gap: 8px; padding: 0 20px;">
+      <div style="font-size: 17px; font-weight: 800; color: #1C1C1E;">오늘의 성지</div>
+      <div style="font-size: 12px; color: #8A8A8E;">매일 한 장면</div>
+    </div>
+    <div style="margin: 0 20px; border-radius: 20px; background: #FFFFFF; box-shadow: 0 2px 8px rgba(0,0,0,0.07); overflow: hidden; display: flex; flex-direction: column;">
+      <div style="height: 96px; background: linear-gradient(120deg, #7A69ED22, #8FCCF755), #E8EDF6; display: flex; align-items: flex-end; padding: 12px 16px; box-sizing: border-box;">
+        <div style="font-size: 12px; font-weight: 700; color: #5B49D6; background: #FFFFFF; border-radius: 10px; padding: 4px 10px;">케이팝 데몬 헌터스</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 16px 14px 16px;">
+        <div style="font-size: 15px; font-weight: 700; color: #1C1C1E;">삼청동거리 — 루미가 처음 서울을 내달린 골목</div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#7A69ED" stroke-width="1.6" stroke-linecap="round">
+            <path d="M7 12.5C7 12.5 11.5 9 11.5 5.6A4.5 4.5 0 0 0 2.5 5.6C2.5 9 7 12.5 7 12.5Z"></path>
+            <circle cx="7" cy="5.6" r="1.6"></circle>
+          </svg>
+          <div style="font-size: 12px; color: #8A8A8E; flex-grow: 1;">서울 종로구 팔판동 · 지금 나에게서 1.9 km</div>
+          <div style="font-size: 13px; color: #007AFF; font-weight: 700;">길찾기</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 하단 3탭 바: 가운데 동그란 홈 -->
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; background: rgba(255,255,255,0.96); border-top: 1px solid #E4E4E8; display: flex; align-items: flex-start; justify-content: space-around; padding-top: 10px;">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 3px; width: 90px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8A8A8E" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="10.5" cy="10.5" r="6.2"></circle>
+        <path d="M15.5 15.5L21 21"></path>
+      </svg>
+      <div style="font-size: 11px; color: #8A8A8E;">작품검색</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 3px; width: 90px; margin-top: -26px;">
+      <div style="width: 62px; height: 62px; border-radius: 31px; background: linear-gradient(135deg, #8FCCF7, #7A69ED); display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 14px rgba(122,105,237,0.42); border: 4px solid #F2F2F7;">
+        <img src="haetae-face.png" alt="홈" style="width: 40px; height: 34px; object-fit: contain;">
+      </div>
+      <div style="font-size: 11px; color: #5B49D6; font-weight: 700;">홈</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 3px; width: 90px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8A8A8E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.4c-.5.4-1.3 0-1.3-.7V6.5Z"></path>
+      </svg>
+      <div style="font-size: 11px; color: #8A8A8E;">커뮤니티</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

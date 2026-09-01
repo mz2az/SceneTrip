@@ -8,6 +8,7 @@
 | `_ios.md` | 아트보드가 지키는 값 — 색·글자·간격. 앱 소스에서 잰 것이다 |
 | `*.dc.html`, `canvas.json` | 경로여정 탭 캔버스 |
 | `brand/` | 마스코트 피노와 첫 실행 온보딩 캔버스 |
+| `home/` | 홈 탭 캔버스 — 4탭→3탭 재편, 홈이 첫 화면 (2026-09-01, 계획 [mobile-home-tab.md](../../project/plans/mobile-home-tab.md)) |
 
 ## 왜 여기인가
 

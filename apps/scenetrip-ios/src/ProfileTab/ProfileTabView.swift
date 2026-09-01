@@ -11,6 +11,10 @@ import SwiftUI
 /// 아직 못 하는 것(로그인·알림·언어)은 흐리게 두고 「준비 중」이라고 적는다 —
 /// 눌리는데 아무 일도 없는 것이 제일 나쁘다.
 struct ProfileTabView: View {
+    /// 홈이 덮개로 띄울 때 넘긴다 — 있으면 왼쪽 위에 닫기 단추가 생긴다
+    /// (2026-09-01 홈 재편: 이 화면은 탭이 아니라 홈의 프로필 단추가 연다).
+    var onClose: (() -> Void)?
+
     @ObservedObject private var likes = LikeStore.shared
 
     @State private var courses: [CourseSummary] = []
@@ -192,6 +196,14 @@ struct ProfileTabView: View {
             }
             .navigationTitle("마이페이지")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if let onClose {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(action: onClose) { Image(systemName: "xmark") }
+                            .accessibilityLabel("닫기")
+                    }
+                }
+            }
             .task {
                 await load()
                 // 확인용 뒷문(`-openLikes 1`) — 합성 클릭이 안 닿는 시뮬레이터에서
@@ -302,28 +314,7 @@ struct ProfileTabView: View {
         }
 
         // 방문 스탬프 — 코스마다 상세를 받아 visitedAt 이 찍힌 것만 모은다.
-        stamps = await withTaskGroup(of: [VisitStamp].self) { group in
-            for course in courses {
-                group.addTask {
-                    guard let detail = try? await CoursesAPI.getCourse(
-                        xDeviceId: deviceId, courseId: course.id
-                    ) else { return [] }
-                    return detail.days.flatMap(\.items).compactMap { item in
-                        item.visitedAt.map {
-                            VisitStamp(
-                                id: item.id, name: item.name,
-                                workTitle: item.sourceContentTitle,
-                                courseTitle: course.title, visitedAt: $0
-                            )
-                        }
-                    }
-                }
-            }
-            var all: [VisitStamp] = []
-            for await part in group {
-                all += part
-            }
-            return all.sorted { $0.visitedAt > $1.visitedAt }
-        }
+        // 홈의 「내 기록」도 같은 것을 부른다(`VisitStamp.collect`).
+        stamps = await VisitStamp.collect(courses: courses, deviceId: deviceId)
     }
 }

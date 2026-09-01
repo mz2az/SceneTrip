@@ -11,6 +11,44 @@ struct VisitStamp: Identifiable {
     let visitedAt: Date
 }
 
+extension VisitStamp {
+    /// 코스마다 상세를 받아 `visitedAt` 이 찍힌 것만 모은다. 최근 것부터.
+    ///
+    /// 코스 수만큼 요청이 나가지만 **나란히** 보낸다. 마이페이지와 홈이 같이 쓴다 —
+    /// 두 벌로 적어 두면 한쪽만 고쳐지는 날이 온다.
+    static func collect(courses: [CourseSummary], deviceId: UUID) async -> [VisitStamp] {
+        await withTaskGroup(of: [VisitStamp].self) { group in
+            for course in courses {
+                group.addTask {
+                    guard let detail = try? await CoursesAPI.getCourse(
+                        xDeviceId: deviceId, courseId: course.id
+                    ) else { return [] }
+                    return detail.days.flatMap(\.items).compactMap { item in
+                        item.visitedAt.map {
+                            VisitStamp(
+                                id: item.id, name: item.name,
+                                workTitle: item.sourceContentTitle,
+                                courseTitle: course.title, visitedAt: $0
+                            )
+                        }
+                    }
+                }
+            }
+            var all: [VisitStamp] = []
+            for await part in group {
+                all += part
+            }
+            return all.sorted { $0.visitedAt > $1.visitedAt }
+        }
+    }
+
+    /// 코스 목록부터 받아서 모은다 — 목록을 아직 안 든 화면(홈)용.
+    static func collect(deviceId: UUID) async -> [VisitStamp] {
+        guard let list = try? await CoursesAPI.listCourses(xDeviceId: deviceId) else { return [] }
+        return await collect(courses: list.items, deviceId: deviceId)
+    }
+}
+
 /// 방문 스탬프첩 (2026-08-28).
 ///
 /// 도장첩처럼 격자로 찍힌다 — 목록이 아니라 **모은 것**으로 보여야 다음 성지를
