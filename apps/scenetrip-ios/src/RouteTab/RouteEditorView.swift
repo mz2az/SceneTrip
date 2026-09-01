@@ -265,7 +265,10 @@ struct RouteEditorView: View {
             }
         }
         .sheet(item: $directionsTarget) { stop in
-            RouteNavView(stop: stop, dayStops: stops, courseId: course.serverId)
+            RouteNavView(
+                stop: stop, dayStops: stops, courseId: course.serverId,
+                onVisited: { markVisitedLocally($0) }
+            )
         }
         .alert("일차를 뺄 수 없습니다", isPresented: Binding(
             get: { blockedDay != nil },
@@ -514,6 +517,17 @@ struct RouteEditorView: View {
 
 /// 타입 본문 길이(swiftlint 350줄) 때문에 여기 둔다 — 같은 파일의 확장은 private 에 닿는다.
 private extension RouteEditorView {
+    /// 길찾기 화면이 스탬프를 찍었다 — 코스 상태의 그 정지점도 「다녀옴」으로. 이것이 없으면
+    /// 길찾기를 닫고 돌아온 목록·지도가 옛 상태라, 「여행 이어가기」가 1번부터 다시 갔다
+    /// (2026-09-02 사용자 발견).
+    func markVisitedLocally(_ visited: RouteStop) {
+        for day in course.days.indices {
+            if let index = course.days[day].stops.firstIndex(where: { $0.id == visited.id }) {
+                course.days[day].stops[index].visited = true
+            }
+        }
+    }
+
     /// 확인용 뒷문(MZ2AZ-292) — 합성 클릭이 안 닿는 시뮬레이터에서 화면을 기계로 열어
     /// 캡쳐한다. `-openGuide 1` 은 가이드 서랍, `-navStop 2` 는 그 번호 성지의 길찾기.
     /// 찜 뒷문과 같은 프로세스당 한 번 규칙.

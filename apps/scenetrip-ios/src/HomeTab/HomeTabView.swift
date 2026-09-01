@@ -82,7 +82,7 @@ struct HomeTabView: View {
                 Task { await reload() }
             }
         }
-        .fullScreenCover(item: $nav) { target in
+        .fullScreenCover(item: $nav, onDismiss: { Task { await reload() } }) { target in
             RouteNavView(stop: target.stop, dayStops: target.dayStops, courseId: target.courseId)
                 .environmentObject(routes)
         }

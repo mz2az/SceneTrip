@@ -205,7 +205,7 @@ struct RouteMapView: UIViewRepresentable {
             // 장소와 순서가 그대로면 다시 그리지 않는다. 체류 시간만 바꿔도 지도가
             // 깜빡이면 편집 중에 눈이 아프다.
             // 고른 장소·담을까 보는 곳이 바뀌어도 다시 그린다 — 고양이 색이 달라진다.
-            let key = stops.map { "\($0.id)" }.joined(separator: ",")
+            let key = stops.map { "\($0.id)\($0.visited ? "v" : "")" }.joined(separator: ",")
                 + "|\(focused?.id.uuidString ?? "-")"
                 + "|" + previews.map { String($0.id) }.joined(separator: ",")
                 + "|" + guidePlaces.map(\.id).joined(separator: ",")
@@ -336,6 +336,17 @@ struct RouteMapView: UIViewRepresentable {
                 marker.captionMinZoom = 12
                 marker.mapView = mapView
                 return marker
+            }
+
+            // 다녀온 성지 — 번호 핀 옆에 발바닥 배지(길찾기 지도와 같은 표시). 여행 중
+            // 편집 화면으로 돌아왔을 때 어디까지 갔는지 지도에서 바로 보여야 한다(2026-09-02).
+            for stop in stops where stop.visited {
+                let badge = NMFMarker(position: NMGLatLng(lat: stop.place.latitude, lng: stop.place.longitude))
+                badge.iconImage = PinoPin.pawBadge()
+                badge.anchor = CGPoint(x: -0.05, y: 1.35)
+                badge.zIndex = 12
+                badge.mapView = mapView
+                markers.append(badge)
             }
 
             // 담을까 보는 곳(검색·장바구니에서 체크한 것) — 빨간 고양이.

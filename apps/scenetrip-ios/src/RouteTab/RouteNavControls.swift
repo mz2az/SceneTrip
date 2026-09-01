@@ -64,6 +64,7 @@ extension RouteNavView {
     func markVisited() {
         guard !arrived else { return }
         arrived = true
+        onVisited?(stop)
         guard let courseId, let itemId = stop.serverItemId else { return }
         Task {
             try? await CoursesAPI.updateCourseItemVisit(

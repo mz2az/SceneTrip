@@ -50,6 +50,10 @@ struct RouteNavView: View {
     /// 스탬프 없이 화면만 닫힌다.
     var courseId: Int64?
 
+    /// 스탬프를 찍을 때 부른다 — 편집 화면이 자기 코스 상태에도 「다녀옴」을 바로 반영하게
+    /// (2026-09-02). 없으면 서버에만 남고, 부른 화면은 다시 열 때 서버 값으로 본다.
+    var onVisited: ((RouteStop) -> Void)?
+
     @Environment(\.dismiss) private var dismiss
     @StateObject var locator = RouteLocator() // 데모 주행(RouteNavControls)이 가상 위치를 넣는다
     @State var arrived = false

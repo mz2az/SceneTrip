@@ -141,12 +141,23 @@ struct RouteStopRow: View {
             // 사람이 누를 일이 없다. 그 자리에는 **방문 여부**가 온다.
             HStack(spacing: 10) {
                 if stop.visited {
-                    Label("방문", systemImage: "checkmark.seal.fill")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .frame(height: 30)
-                        .background(Capsule().fill(Color(PinImage.deep).opacity(0.12)))
-                        .foregroundStyle(Color(PinImage.deep))
+                    // **다녀온 곳은 크게 찍힌다.** 작은 「방문」 칩은 눈에 안 띄어 여행을
+                    // 이어 갈 때 어디까지 왔는지 못 알아봤다(2026-09-02 사용자 지적).
+                    // 길찾기 화면의 스탬프·핀 배지와 같은 발바닥이다.
+                    HStack(spacing: 7) {
+                        ZStack {
+                            Circle().fill(LinearGradient(
+                                colors: [Color(PinImage.light), Color(PinImage.deep)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            ))
+                            PawShape().fill(.white).frame(width: 22, height: 22).rotationEffect(.degrees(-12))
+                        }
+                        .frame(width: 38, height: 38)
+                        .shadow(color: Color(PinImage.deep).opacity(0.3), radius: 3, y: 1)
+                        Text("다녀옴").font(.subheadline.weight(.heavy)).foregroundStyle(Color(PinImage.deep))
+                    }
+                    .padding(.trailing, 4)
+                    .accessibilityLabel("다녀온 곳")
                 }
 
                 // 고정 단추는 **첫 줄과 마지막 줄에만** 붙는다. 「이 줄을 붙들어
