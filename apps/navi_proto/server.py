@@ -357,7 +357,7 @@ def pois_query(bbox=None, cat="", q="", limit=400, center=None, group=""):
     rows = pois_all()
     I = {k: i + 2 for i, k in enumerate(POI_KEEP)}
     i_name, i_grp = I["name"], I["group"]
-    i_mid, i_low = I["biz_middle"], I["biz_lower"]
+    i_mid, i_low, i_kind = I["biz_middle"], I["biz_lower"], I["kind"]
     out = []
     ql = (q or "").strip()
     s_ = w_ = n_ = e_ = None
@@ -368,7 +368,10 @@ def pois_query(bbox=None, cat="", q="", limit=400, center=None, group=""):
             continue
         if group and group != "전체" and r[i_grp] != group:
             continue
-        if cat and cat != "전체" and r[i_mid] != cat and r[i_low] != cat:
+        # **poi_categories 가 보여 주는 이름(biz_lower 가 비면 kind — 「한식」·「카페기타」)
+        # 으로도 걸려야 한다.** 전에는 biz_middle·biz_lower 만 봐서, 챗봇이 목록에서
+        # 고른 업종으로 물으면 늘 0 건이었다(2026-09-01 실측 — 여의도 반경 5 km 카페 0 곳).
+        if cat and cat != "전체" and cat not in (r[i_mid], r[i_low], r[i_kind]):
             continue
         if ql and ql not in r[i_name]:
             continue
