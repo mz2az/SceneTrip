@@ -67,4 +67,58 @@ class SuggestionStoreIntegrationTest {
 
     assertThat(result.items()).hasSizeLessThanOrEqualTo(3);
   }
+
+  /**
+   * 부분 일치 갈래가 살아 있는가.
+   *
+   * <p>질의가 앞글자 갈래와 부분 일치 갈래로 나뉘어 있어, 뒤쪽을 잃어도 대부분의 검색은 멀쩡히 동작한다. 앞글자로는 어떤 표기에도 걸리지 않는 말을 넣어야 그 갈래만
+   * 단독으로 확인된다.
+   */
+  @Test
+  @DisplayName("이름 가운데에만 있는 말로도 걸린다")
+  void matchesInsideTheName() {
+    String mid = IntegrationDatabase.anyMidOnlyTerm(jdbc);
+
+    SuggestionStore.Result result = store.suggest(mid, Lang.KO, 10);
+
+    assertThat(result.items()).as("'%s' — 앞글자로는 어떤 표기에도 걸리지 않는 말이다", mid).isNotEmpty();
+  }
+
+  /**
+   * 앞글자 조회가 인덱스를 타는가.
+   *
+   * <p><b>결과 단언으로는 잡을 수 없는 회귀다.</b> 인덱스를 놓쳐도 제안 목록은 글자 하나 달라지지 않고 느려지기만 한다. 그래서 계획을 직접 본다.
+   *
+   * <p>깨지는 경우는 여럿이고 전부 조용하다 — 앞글자 조건이 {@code WHERE} 밖으로 밀려나거나, 패턴 앞에 {@code %} 가 붙거나, 정규화를 CTE 로 묶어
+   * 상수 접기가 깨지거나.
+   *
+   * <p>{@code enable_seqscan} 을 끄는 이유: 적재 데이터가 작으면 순차 스캔이 실제로 더 싸서 플래너가 그쪽을 고른다. 그 상태에서는 인덱스를 쓸 수
+   * <b>있는지</b>를 확인할 수 없다. 여기서 보려는 것은 "지금 인덱스를 쓰느냐" 가 아니라 "질의가 인덱스를 쓸 수 있는 모양이냐" 다.
+   */
+  @Test
+  @DisplayName("앞글자 조회가 search_term_prefix_idx 를 탄다")
+  void prefixBranchCanUseIndex() {
+    String plan = explainSuggest("강남", Lang.KO, 10);
+
+    assertThat(plan)
+        .as("앞글자 갈래가 인덱스를 못 타는 모양이 됐다. 계획:%n%s", plan)
+        .contains("search_term_prefix_idx");
+  }
+
+  /** {@code EXPLAIN} 을 순차 스캔이 꺼진 트랜잭션 안에서 돌린다. {@code SET LOCAL} 이라 끝나면 저절로 돌아온다. */
+  private static String explainSuggest(String q, Lang lang, int limit) {
+    return IntegrationDatabase.transactions()
+        .execute(
+            status -> {
+              jdbc.sql("SET LOCAL enable_seqscan = off").update();
+              return String.join(
+                  "\n",
+                  jdbc.sql("EXPLAIN " + SuggestionStore.SUGGEST_SQL)
+                      .param("q", q)
+                      .param("lang", lang.getValue())
+                      .param("limit", limit)
+                      .query(String.class)
+                      .list());
+            });
+  }
 }
