@@ -1,8 +1,0 @@
-local_data/*
-!local_data/.gitkeep
-cache/
-.venv*/
-.env
-*.log
-__pycache__/
-*.nohup.log
