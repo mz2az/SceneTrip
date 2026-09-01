@@ -275,8 +275,12 @@ extension RouteEditorView {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
+            // **반짝임은 회색 바탕보다 먼저 얹는다.** `PinoNudge` 는 글자를 흰색으로 다시
+            // 얹기 위해 content 를 한 벌 더 그리는데, 바탕까지 content 에 들어 있으면 그
+            // 회색이 그라데이션을 덮어 「흰 글자만 남은 회색 단추」가 된다(2026-09-02 사용자
+            // 지적 — 단추가 사라진 것처럼 보였다). 바탕은 그 아래에 깐다.
             .modifier(PinoNudge(on: highlight))
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
         }
         .buttonStyle(.plain)
     }
