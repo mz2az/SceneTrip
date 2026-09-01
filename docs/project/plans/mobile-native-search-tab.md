@@ -334,11 +334,13 @@ Android 모듈 README 에 이 사실을 적어 둔다.
 ```python
 # BUILD.bazel — 모든 iOS 타깃에
 tags = ["ios"]
-target_compatible_with = select({
-    "@platforms//os:ios": [],
-    "@platforms//os:macos": [],
-    "//conditions:default": ["@platforms//:incompatible"],
-})
+target_compatible_with = select(
+    {
+        "@platforms//os:ios": [],
+        "@platforms//os:macos": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }
+)
 ```
 
 ```
