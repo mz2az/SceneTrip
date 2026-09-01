@@ -76,6 +76,9 @@ struct RouteEditorView: View {
     @State var ambientTask: Task<Void, Never>?
     @State var stayTarget: RouteStop?
     @State var directionsTarget: RouteStop?
+
+    /// 캡쳐 뒷문이 이 프로세스에서 이미 발동했는가(MZ2AZ-292).
+    private static var captureBackdoorUsed = false
     @State var blockedDay: Int?
 
     /// 동선 최적화가 손대지 않을 자리.
@@ -201,6 +204,20 @@ struct RouteEditorView: View {
             // 가이드가 「주변」을 찾으려면 자리가 있어야 한다. 미리 물어 둔다 —
             // 단추를 누른 뒤에 물으면 그만큼 기다린다.
             guideLocator.start()
+
+            // 확인용 뒷문(MZ2AZ-292) — 합성 클릭이 안 닿는 시뮬레이터에서 화면을
+            // 기계로 열어 캡쳐한다. `-openGuide 1` 은 가이드 서랍, `-navStop 2` 는
+            // 그 번호 성지의 길찾기. 찜 뒷문과 같은 프로세스당 한 번 규칙.
+            if !Self.captureBackdoorUsed {
+                Self.captureBackdoorUsed = true
+                if UserDefaults.standard.bool(forKey: "openGuide") {
+                    showGuide = true
+                }
+                let wanted = UserDefaults.standard.integer(forKey: "navStop")
+                if wanted > 0, stops.indices.contains(wanted - 1) {
+                    directionsTarget = stops[wanted - 1]
+                }
+            }
         }
         // 저장이 실패하면 이유를 말한다. 버튼이 안 먹는 것처럼 보이면 사용자는
         // 같은 버튼을 계속 누르게 된다.

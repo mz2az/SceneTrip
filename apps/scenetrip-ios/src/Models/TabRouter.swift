@@ -23,7 +23,15 @@ final class TabRouter: ObservableObject {
     }
 
     /// 경로 탭이 열어 줘야 할 코스의 서버 id.
-    @Published var pendingCourseId: Int64?
+    ///
+    /// 확인용 뒷문 — `-openCourseId 26` 으로 켜면 경로 탭이 그 코스 편집을 바로
+    /// 연다(`-initialTab route` 와 함께). 합성 클릭이 안 닿는 시뮬레이터에서
+    /// 화면 캡쳐·검증에 쓴다(MZ2AZ-292). 쪽지 규칙은 마이페이지와 같다 —
+    /// 한 번 읽으면 버린다.
+    @Published var pendingCourseId: Int64? = {
+        let raw = UserDefaults.standard.integer(forKey: "openCourseId")
+        return raw > 0 ? Int64(raw) : nil
+    }()
 
     /// 마이페이지가 부른다 — 탭을 바꾸고 쪽지를 남긴다.
     func openCourse(_ serverId: Int64) {
