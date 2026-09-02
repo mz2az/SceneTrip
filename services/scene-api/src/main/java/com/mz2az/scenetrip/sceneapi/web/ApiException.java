@@ -61,6 +61,25 @@ public class ApiException extends RuntimeException {
     return new ApiException(HttpStatus.FORBIDDEN, code, message);
   }
 
+  /**
+   * 요청도 대상도 멀쩡한데 처리할 수 없는 상태다. 길찾기에서 경로가 없을 때 — 섬·산속처럼 길이 안 이어지거나, 근처에 정류장이 없는 자리다.
+   *
+   * <p>400 이 아닌 이유: 클라이언트가 고칠 것이 없다. 500 이 아닌 이유: 서버 결함이 아니고 다시 불러도 같다. 그래서 재시도 버튼을 보이지 않는다.
+   */
+  public static ApiException unprocessable(String code, String message) {
+    return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, code, message);
+  }
+
+  /**
+   * 외부 제공자(길찾기)가 응답하지 않거나 호출 한도를 넘었다. 잠시 뒤 다시 시도할 수 있다.
+   *
+   * <p>500 과 갈리는 자리: 우리 결함이 아니라 일시적이다. 502·504 로 나누지 않는 이유는 앱이 하는 일이 같아서다 — 타임아웃이었는지 깨진 응답이었는지는 서버
+   * 로그에만 있고, 그것을 찾는 열쇠로 {@code traceId} 가 실린다.
+   */
+  public static ApiException unavailable(String code, String message) {
+    return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, code, message);
+  }
+
   public HttpStatus getStatus() {
     return status;
   }

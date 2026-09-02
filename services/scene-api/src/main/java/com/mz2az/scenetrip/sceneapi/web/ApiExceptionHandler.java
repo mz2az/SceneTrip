@@ -40,7 +40,13 @@ class ApiExceptionHandler {
 
   @ExceptionHandler(ApiException.class)
   ResponseEntity<ApiError> handleApiException(ApiException e) {
-    return ResponseEntity.status(e.getStatus()).body(new ApiError(e.getCode(), e.getMessage()));
+    ApiError body = new ApiError(e.getCode(), e.getMessage());
+    // 5xx 는 원인이 서버 안에 있다 — 503 이면 외부 제공자와의 통신. 앱은 code 로 할 일을 알지만
+    // 운영자가 고칠 단서는 로그에만 있으므로 그것을 찾는 열쇠를 싣는다.
+    if (e.getStatus().is5xxServerError()) {
+      body.traceId(currentTraceId());
+    }
+    return ResponseEntity.status(e.getStatus()).body(body);
   }
 
   /**
@@ -132,7 +138,7 @@ class ApiExceptionHandler {
    * <p>이 값이 왜 응답에 나가는가: 사용자가 500 을 받았을 때 이 문자열 하나로 SigNoz 에서 그 요청의 트레이스와 로그를 찾을 수 있다. 없으면 "몇 시쯤 오류가
    * 났다" 로부터 시작해야 한다.
    *
-   * <p>500 에만 넣는다. 400·404 는 클라이언트가 무엇을 잘못했는지 이미 {@code code} 로 알 수 있어 서버 로그를 뒤질 일이 없다.
+   * <p>5xx 에만 넣는다 — 500 과 503. 400·404 는 클라이언트가 무엇을 잘못했는지 이미 {@code code} 로 알 수 있어 서버 로그를 뒤질 일이 없다.
    */
   private static String currentTraceId() {
     SpanContext context = Span.current().getSpanContext();
