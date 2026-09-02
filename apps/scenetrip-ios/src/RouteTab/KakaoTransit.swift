@@ -51,11 +51,27 @@ enum KakaoTransit {
     /// 옮기면 걸어서 3분인 곳이 「갈 수 없는 곳」으로 보인다. 가까우면 걷는 것이 답이다.
     static let walkThresholdMeters = 900.0
 
+    /// 대중교통이 「노선 없음」이라 해도 이 거리까지는 걸어서라도 안내한다.
+    ///
+    /// 900 m 를 넘어도 노선 공백 지대가 있다(2026-09-02 실측 — 실제 코스 연속
+    /// 구간 48개 중 5개가 2 km 미만인데 NO_RESULTS). 「대중교통이 없다」와
+    /// 「갈 수 없다」는 다른 말이다.
+    static let walkFallbackMeters = 3000.0
+
+    /// 이보다 멀면 시내 대중교통의 일이 아니다 — 기차·시외버스 구간.
+    ///
+    /// `publictraffic` 은 시외를 아예 다루지 않는다(2026-09-02 실측 — 50 km 초과
+    /// 24쌍 전패: 서울↔강릉·익산·제주). 「못 찾았습니다」로 뭉뚱그리면 앱이
+    /// 무능해 보인다 — 시외라서 못 하는 것이라고 정직하게 말한다.
+    static let intercityMeters = 60000.0
+
     enum Failure: Error {
         /// 키가 안 들어왔다. `.env` 에 `KAKAO_REST_KEY` 가 없으면 이렇다.
         case noKey
         /// 카카오가 경로를 못 찾았다. 섬·산속처럼 대중교통이 닿지 않는 곳에서 난다.
         case noRoute
+        /// 시외 구간 — 기차·시외버스가 필요한 거리라 이 API 의 소관이 아니다.
+        case intercity
         /// 그 밖. 문서에 없는 엔드포인트라 막혔을 수도 있다.
         case transport
     }
@@ -81,7 +97,19 @@ enum KakaoTransit {
         }
 
         let routes = try await fetch(origin: origin, target: target, language: language)
-        guard let best = routes.first else { throw Failure.noRoute }
+        guard let best = routes.first else {
+            // 「노선 없음」≠「갈 수 없음」. 걸을 만한 거리면 도보로 답하고,
+            // 시외 거리면 시외라고 말한다 — 둘 다 아닐 때만 진짜 못 찾은 것이다.
+            if straight <= walkFallbackMeters {
+                if let walk = try? await fetchWalk(
+                    from: origin, to: target, destinationName: destinationName
+                ) {
+                    return walk
+                }
+                return walkOnly(meters: straight, destinationName: destinationName)
+            }
+            throw straight >= intercityMeters ? Failure.intercity : Failure.noRoute
+        }
         return await stitched(best, origin: origin, target: target, destinationName: destinationName)
     }
 

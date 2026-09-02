@@ -52,6 +52,8 @@ extension RouteNavView {
             routeError = "길찾기 키가 없어 안내를 받을 수 없습니다"
         } catch KakaoTransit.Failure.noRoute {
             routeError = "대중교통으로 갈 수 있는 길을 찾지 못했습니다"
+        } catch KakaoTransit.Failure.intercity {
+            routeError = "시외 구간이에요 — 기차·시외버스 안내는 준비 중입니다"
         } catch {
             routeError = "길찾기 안내를 받지 못했습니다"
         }
