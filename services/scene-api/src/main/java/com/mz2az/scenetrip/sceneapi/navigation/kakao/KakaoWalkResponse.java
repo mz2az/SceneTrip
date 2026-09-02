@@ -14,13 +14,18 @@ import java.util.List;
  *
  * <p>실측(2026-09-02)으로 확인한 것 — 150 m 부터 3.5 km 까지 전부 {@code OK} 였고, {@code legs} 는 늘 하나였다. step 마다
  * 안내문과 좌표가 오고 3.5 km 에서 좌표 187개였다. 안내문에 「계단」은 한 번도 없었다 — 도보 응답은 계단을 말해 주지 않는다.
+ *
+ * @param status 대중교통과 같은 값들
+ * @param route 경로 하나. 후보 배열이 아니다.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record KakaoWalkResponse(String status, Route route) {
 
+  /** 경로. */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Route(Properties properties, List<Leg> legs) {}
 
+  /** 합계. 미터와 초. */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Properties(Integer totalDistance, Integer totalTime) {}
 
@@ -28,23 +33,26 @@ public record KakaoWalkResponse(String status, Route route) {
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Leg(LegProperties properties, List<Step> steps) {}
 
+  /** 구간 묶음의 합계. 미터와 초. */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record LegProperties(Integer distance, Integer time) {}
 
+  /** 골목을 꺾을 때마다 하나 — 턴바이턴의 단위. */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Step(StepProperties properties, Path path) {}
 
+  /**
+   * 구간의 속성.
+   *
+   * @param distance 미터
+   * @param time 초
+   * @param guidance 턴바이턴 안내문. 「반석빌라 앞에서 차마시는 뜰 차뜰까지 오른쪽길로 95m 이동(북촌로11나길)」
+   * @param x 이 step 이 시작하는 자리의 경도
+   * @param y 이 step 이 시작하는 자리의 위도
+   */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record StepProperties(
-      Integer distance,
-      /** 초. */
-      Integer time,
-      /** 턴바이턴 안내문. 「반석빌라 앞에서 차마시는 뜰 차뜰까지 오른쪽길로 95m 이동(북촌로11나길)」. */
-      String guidance,
-      /** 이 step 이 시작하는 자리의 경도. */
-      Double x,
-      /** 이 step 이 시작하는 자리의 위도. */
-      Double y) {}
+      Integer distance, Integer time, String guidance, Double x, Double y) {}
 
   /** <b>{@code [경도, 위도]} 순서다.</b> */
   @JsonIgnoreProperties(ignoreUnknown = true)

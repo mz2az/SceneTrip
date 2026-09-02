@@ -59,6 +59,8 @@ public class KakaoRoutingClient {
   private final String key;
 
   /**
+   * 설정을 받아 클라이언트를 한 번 만든다. 싱글턴이라 이 생성자는 기동 때 한 번 돈다.
+   *
    * @param baseUrl 카카오 주소. 테스트에서 로컬 가짜 서버로 돌리기 위해 설정으로 뺐다.
    * @param key REST API 키. 비어 있어도 기동은 된다 — 길찾기 없이도 나머지 API 는 돌아야 하므로, 부를 때 503 을 낸다.
    * @param timeoutSeconds 응답을 기다리는 상한. 앱이 쓰던 12초와 같다.
@@ -98,6 +100,8 @@ public class KakaoRoutingClient {
   }
 
   /**
+   * 두 API 의 공통 호출부. 파라미터·헤더·예외 번역이 여기 있다.
+   *
    * @param kind {@code publictraffic} 또는 {@code walk}. URI 템플릿의 {@code {kind}} 자리에 들어가고, 관측 태그에는
    *     템플릿 그대로 찍힌다.
    */

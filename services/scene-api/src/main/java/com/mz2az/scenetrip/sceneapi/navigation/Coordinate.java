@@ -17,14 +17,14 @@ public record Coordinate(double lat, double lng) {
    * <p>실제 걷는 거리가 아니다 — 강·철길이 사이에 끼면 몇 배 차이 난다. 「대중교통을 물어볼지 말지」 같은 굵은 판단에만 쓴다.
    */
   public double distanceMetersTo(Coordinate other) {
-    double dLat = Math.toRadians(other.lat - lat);
-    double dLng = Math.toRadians(other.lng - lng);
+    double deltaLat = Math.toRadians(other.lat - lat);
+    double deltaLng = Math.toRadians(other.lng - lng);
     double a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2)
+        Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
             + Math.cos(Math.toRadians(lat))
                 * Math.cos(Math.toRadians(other.lat))
-                * Math.sin(dLng / 2)
-                * Math.sin(dLng / 2);
+                * Math.sin(deltaLng / 2)
+                * Math.sin(deltaLng / 2);
     return 2 * EARTH_RADIUS_METERS * Math.asin(Math.min(1, Math.sqrt(a)));
   }
 }

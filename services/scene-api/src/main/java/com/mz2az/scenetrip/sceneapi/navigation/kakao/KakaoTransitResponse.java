@@ -27,46 +27,60 @@ import java.util.List;
  *       노선(직행)이 섞였을 때다.
  *   <li>step 의 시간 필드는 {@code time} 이다. {@code duration} 은 없다 — 프로토타입 스위프트가 그 이름을 읽어 늘 nil 이었다.
  * </ul>
+ *
+ * @param status {@code OK} 외에 {@code NO_RESULTS}·{@code EQUAL_POINTS}·{@code
+ *     STARTNODES_NULL}·{@code ENDNODES_NULL}·{@code INVALID_REQUEST}. {@code OK} 가 아니어도 HTTP 200
+ *     이다.
+ * @param routes 경로 후보. 카카오가 정렬해서 주므로 첫 것이 카카오 기준 1위다. 거리에 따라 1~15개.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record KakaoTransitResponse(String status, List<Route> routes) {
 
-  /** 경로 후보 하나. 카카오가 정렬해서 주므로 {@code routes.get(0)} 이 카카오 기준 1위다. 거리에 따라 1~15개가 온다. */
+  /** 경로 후보 하나. */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Route(Properties properties, List<Step> steps) {}
 
+  /**
+   * 후보 하나의 합계.
+   *
+   * @param type {@code BUS} · {@code SUBWAY} · {@code BUS_AND_SUBWAY}
+   * @param totalDistance 문에서 문까지(m). 양 끝 도보 포함.
+   * @param totalTime 문에서 문까지(초). 양 끝 도보와 대기 포함 — 여기에 도보 시간을 또 더하면 두 번 센다.
+   * @param transfers 환승 횟수
+   * @param fare 요금
+   */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Properties(
-      /** {@code BUS} · {@code SUBWAY} · {@code BUS_AND_SUBWAY}. */
-      String type,
-      /** 문에서 문까지(m). 양 끝 도보 포함. */
-      Integer totalDistance,
-      /** 문에서 문까지(초). 양 끝 도보와 대기 포함 — 여기에 도보 시간을 또 더하면 두 번 센다. */
-      Integer totalTime,
-      Integer transfers,
-      Fare fare) {}
+      String type, Integer totalDistance, Integer totalTime, Integer transfers, Fare fare) {}
 
   /** 요금(원). {@code value} 하나거나 {@code min}/{@code max} 범위 — 둘이 같이 오지 않는다. */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Fare(Integer value, Integer min, Integer max) {}
 
+  /** 한 구간 — 탈 것 하나, 또는 걷기. */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Step(StepProperties properties, Path path) {}
 
+  /**
+   * 구간의 속성.
+   *
+   * @param type {@code BUS} · {@code SUBWAY} · {@code WALKING}
+   * @param guidance 안내문. 「마을 종로02 (북촌한옥마을입구 > 가회동주민센터)」「종로2가정류장까지 도보로 이동」
+   * @param distance 미터
+   * @param time 초
+   * @param stops 지나는 정거장. {@code WALKING} 에는 없다. 길이 − 1 이 「N 정거장」이다.
+   * @param vehicles 탈 수 있는 노선들. 같은 정류장 쌍을 잇는 노선이 여럿이면 여럿이다. {@code WALKING} 에는 없다.
+   */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record StepProperties(
-      /** {@code BUS} · {@code SUBWAY} · {@code WALKING}. */
       String type,
-      /** 안내문. 「마을 종로02 (북촌한옥마을입구 > 가회동주민센터)」「종로2가정류장까지 도보로 이동」. */
       String guidance,
       Integer distance,
-      /** 초. */
       Integer time,
-      /** 지나는 정거장. {@code WALKING} 에는 없다. 길이 − 1 이 「N 정거장」이다. */
       List<Stop> stops,
-      /** 탈 수 있는 노선들. 같은 정류장 쌍을 잇는 노선이 여럿이면 여럿이다. {@code WALKING} 에는 없다. */
       List<Vehicle> vehicles) {}
 
+  /** 정거장. */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Stop(String name) {}
 
