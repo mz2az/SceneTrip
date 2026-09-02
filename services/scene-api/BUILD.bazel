@@ -51,6 +51,11 @@ java_library(
         # 명세와 어긋나면 컴파일이 실패한다 — 계약이 지켜지는지를 사람이 아니라
         # 컴파일러가 본다.
         "//contracts/openapi:scene_api_spring_lib",
+        # 카카오 응답 record 의 @JsonIgnoreProperties. 카카오가 필드를 더해도 깨지지
+        # 않아야 하는데, 그것을 Boot 의 ObjectMapper 기본값에만 맡기지 않고 그 record
+        # 에 박아 둔다 — "이 응답은 우리 통제 밖" 이라는 표시다. 아티팩트는 이미
+        # 전이 의존으로 잠겨 있어 MODULE.bazel 은 그대로다.
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
         # DbMigrate 가 Flyway 를 직접 부른다 — 앱 없이 스키마만 올리는 명령이다.
         # 앱 기동 시의 자동 구성은 그대로이고, 이것은 그 밖의 경로다 (ADR 0005).
         "@maven//:org_flywaydb_flyway_core",
