@@ -56,6 +56,10 @@ java_library(
         # 에 박아 둔다 — "이 응답은 우리 통제 밖" 이라는 표시다. 아티팩트는 이미
         # 전이 의존으로 잠겨 있어 MODULE.bazel 은 그대로다.
         "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        # ObservationRegistry 타입. 카카오 클라이언트가 나가는 호출을 Spring 관측에 걸어
+        # 대중교통·도보를 uri 태그로 가른다. 런타임엔 액추에이터가 끌고 오지만 컴파일에
+        # 그 타입을 쓰려면 여기 있어야 한다. 잠금 파일에 이미 있어 MODULE.bazel 은 그대로다.
+        "@maven//:io_micrometer_micrometer_observation",
         # DbMigrate 가 Flyway 를 직접 부른다 — 앱 없이 스키마만 올리는 명령이다.
         # 앱 기동 시의 자동 구성은 그대로이고, 이것은 그 밖의 경로다 (ADR 0005).
         "@maven//:org_flywaydb_flyway_core",
