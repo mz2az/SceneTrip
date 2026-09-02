@@ -773,20 +773,142 @@ kubectl logs -n signoz signoz-0 --previous --tail=50
 
 ---
 
-### UI는 뜨는데 로그가 하나도 없음
+### UI는 뜨는데 로그·트레이스가 하나도 없음
 
-수집 경로가 끊긴 것입니다. 순서대로 확인하세요.
+수집 경로가 끊긴 것입니다. **판별이 빠른 것부터** 순서대로 확인하세요.
+2026-08-25 에 이 순서로 두 관문(계정 없음 → ClickHouse 메모리)을 통과했습니다.
 
-1. 애플리케이션에 OTel 에이전트가 실제로 붙었는지 (기동 로그에 OTel 배너가 뜨는지)
-2. **로컬 앱이라면 ingester port-forward를 열었는지** (§5) — 가장 흔한 원인입니다
-3. 로그 익스포터가 켜져 있는지 (`OTEL_LOGS_EXPORTER=otlp`) — **트레이스만 켜고 로그를 빼먹는 실수가 잦습니다**
-4. 클러스터 안 앱이라면 엔드포인트가 `signoz-ingester.signoz.svc.cluster.local:4317`인지
-
-수집기 자체 로그도 확인해 보세요.
+#### 0단계 — 관리자 계정이 있는가 (5초)
 
 ```bash
-kubectl logs -n signoz -l app.kubernetes.io/name=signoz-otel-collector --tail=50
+curl -s http://localhost:8080/api/v1/version
 ```
+
+```json
+{"version":"v0.135.1","ee":"Y","setupCompleted":false}
+```
+
+`setupCompleted` 가 `false` 면 **여기서 끝입니다.** 계정(=조직)이 없으면 collector 가 OpAMP 로 파이프라인 설정을 받지 못해 **OTLP 수신기(4317·4318)가 아예 열리지 않습니다.** 앱에는 `Connection refused` 로 보입니다.
+
+브라우저에서 `http://localhost:8080` 에 접속해 계정을 만드세요. 비밀번호는 **12자 이상 + 대문자 + 소문자 + 숫자 + 기호**여야 하고, 만족하지 않으면 `invalid_password` 로 거부됩니다.
+
+> **거부된 것을 성공으로 착각하기 쉽습니다.** 폼을 채우고 넘어갔는데 실제로는 만들어지지 않은 상태가 흔합니다. 반드시 위 `curl` 로 `true` 를 확인하세요.
+>
+> **분명히 만들었는데 또 `false` 라면** 계정이 지워진 것입니다. 아래 [재시작할 때마다 계정이 사라진다](#재시작할-때마다-signoz-계정이-사라진다) 를 보세요 — 차트의 결함이고 고치는 방법이 있습니다.
+
+계정을 만들면 **앱은 재시작할 필요가 없습니다.** 익스포터가 주기적으로 재시도하므로 알아서 붙습니다.
+
+#### 1단계 — 앱이 내보내고 있는가
+
+```bash
+kubectl logs -n scenetrip deployment/scene-api --since=5m | grep -c "Failed to export"
+```
+
+`0` 이면 앱은 정상이니 3단계로 갑니다. 0 이 아니면 전문을 봅니다.
+
+```text
+ERROR io.opentelemetry.exporter.otlp.internal.GrpcExporter - Failed to export spans.
+Caused by: java.net.ConnectException: Connection refused
+```
+
+`Connection refused` 는 **수신기가 안 열린 것**이므로 0단계로 돌아가세요. 그 밖에 확인할 것:
+
+1. 애플리케이션에 OTel 에이전트가 실제로 붙었는지 (로그에 `[otel.javaagent …]` 가 뜨는지)
+2. **로컬 앱이라면 ingester port-forward 를 열었는지** (§5)
+3. 익스포터 셋이 다 켜져 있는지 (`OTEL_TRACES_EXPORTER`·`OTEL_METRICS_EXPORTER`·`OTEL_LOGS_EXPORTER`) — **트레이스만 켜고 로그를 빼먹는 실수가 잦습니다**
+4. 클러스터 안 앱이라면 엔드포인트가 `signoz-ingester.signoz.svc.cluster.local:4317` 인지
+
+#### 2단계 — 수집기가 무엇을 겪는가
+
+```bash
+kubectl logs -n signoz deployment/signoz-ingester --tail=30
+```
+
+에러 서명 두 가지를 구분합니다.
+
+| 로그에 보이는 것 | 뜻 | 조치 |
+| --- | --- | --- |
+| `"component":"opamp-server-client"` + `Server returned an error response` | 설정을 못 받았다 | 0단계 (계정 없음) |
+| `clickhousetracesexporter` + `Could not write a batch of spans` | 받긴 받았는데 저장을 못 한다 | 3단계 |
+
+> 라벨 셀렉터로 조회한다면 `-l app.kubernetes.io/component=ingester` 를 쓰세요.
+> `app.kubernetes.io/name=signoz-otel-collector` 는 더 이상 맞지 않아 **`No resources found` 가 나오고, 그것을 「에러 없음」으로 오독하기 쉽습니다.**
+
+#### 3단계 — ClickHouse 메모리 (두 번째 관문)
+
+계정을 만들었는데도 안 들어온다면 여기입니다.
+
+```text
+error: code: 241, message: (total) memory limit exceeded:
+  would use 6.99 GiB (attempt to allocate chunk of 4.34 MiB),
+  current RSS: 6.34 GiB, maximum: 6.98 GiB
+```
+
+**ClickHouse 파드에 메모리 `limits` 가 없어서 VM 전체를 자기 몫으로 계산합니다**(`requests: 200Mi` 만 있음). 같은 VM 에서 postgres·서비스·ZooKeeper 가 함께 도는데도 혼자 90% 를 잡으니, 캐시가 며칠 쌓이면 4 MiB 조차 할당하지 못합니다.
+
+즉효 처방은 재시작입니다. **데이터는 PVC 에 있어 날아가지 않습니다.**
+
+```bash
+kubectl delete pod -n signoz chi-signoz-telemetrystore-clickhouse-cluster-0-0-0
+```
+
+재발을 막으려면 **Docker Desktop 메모리를 늘리세요**(Settings → Resources → Memory). 7.8 GiB 로는 부족했고 12~16 GiB 를 권합니다.
+
+#### 4단계 — 적재 확인
+
+```bash
+just signoz-verify                          # 최근 10분
+just signoz-verify scenetrip-scene-api 60   # 창을 넓혀서
+```
+
+> **트레이스·메트릭은 들어오는데 로그만 `0` 이면 정상일 수 있습니다.** 수집이 끊겨 있던 동안 발생한 로그는 버려지고, 그 뒤로 앱이 조용했다면 셀 것이 없습니다. 파드를 한 번 재시작해 기동 로그를 새로 만든 뒤 다시 확인하세요.
+
+```bash
+kubectl rollout restart deployment/scene-api -n scenetrip
+```
+
+---
+
+### 재시작할 때마다 SigNoz 계정이 사라진다
+
+**증상.** 관리자 계정을 만들어 잘 쓰다가, 파드나 Docker Desktop 을 재시작하면 `setupCompleted` 가 다시 `false` 가 됩니다. 계정이 없으니 collector 가 설정을 못 받아 OTLP 수신기도 닫힙니다(0단계와 같은 상태).
+
+**원인은 차트의 마운트 경로입니다.** 2026-08-25 에 실측으로 확인했습니다.
+
+`postgres:16` 이미지는 Dockerfile 에 `VOLUME /var/lib/postgresql/data` 를 선언합니다. containerd 는 그 선언을 존중해 **그 자리에 임시(ephemeral) 마운트를 만듭니다.** 그런데 차트는 PVC 를 그 **부모**인 `/var/lib/postgresql` 에 붙이므로, 임시 마운트가 PVC 의 `data` 하위 폴더를 **가려 버립니다.** postgres 는 임시 공간에 데이터를 쓰고, 컨테이너가 재시작되면 통째로 사라집니다. 빈 자리를 본 postgres 는 `initdb` 로 DB 를 새로 만들고 계정도 함께 없어집니다.
+
+```bash
+# 마운트가 둘이면 걸린 것입니다 — 아래쪽이 PVC 를 가리는 임시 마운트입니다
+kubectl exec -n signoz signoz-metastore-postgres-0 -- grep postgresql /proc/mounts
+#   /dev/vda1 /var/lib/postgresql      ext4 …   ← PVC
+#   /dev/vda1 /var/lib/postgresql/data ext4 …   ← 이미지 VOLUME (임시)
+
+# postgres 가 매번 DB 를 새로 만들었는지
+kubectl logs -n signoz signoz-metastore-postgres-0 | grep -c "running bootstrap script"
+```
+
+**고치는 법 — PVC 를 `data` 에 직접 붙입니다.** 명시적 마운트가 이미지 VOLUME 을 이깁니다.
+
+```bash
+IDX=$(kubectl get statefulset -n signoz signoz-metastore-postgres -o json \
+  | python3 -c "import sys,json;e=json.load(sys.stdin)['spec']['template']['spec']['containers'][0]['env'];print([i for i,x in enumerate(e) if x['name']=='PGDATA'][0])")
+
+kubectl patch statefulset -n signoz signoz-metastore-postgres --type=json -p "[
+  {\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/volumeMounts/3/mountPath\",\"value\":\"/var/lib/postgresql/data\"},
+  {\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/env/$IDX/value\",\"value\":\"/var/lib/postgresql/data/pgdata\"}
+]"
+
+kubectl delete pod -n signoz signoz-metastore-postgres-0   # 새 설정으로 재기동
+kubectl delete pod -n signoz signoz-0                      # 빈 DB 에 마이그레이션 재적용
+```
+
+`PGDATA` 를 하위 폴더로 내리는 것은 공식 postgres 이미지가 권하는 방식입니다. 마운트 지점 바로 위에 데이터를 두면 파일시스템에 따라 `lost+found` 때문에 초기화가 거부됩니다.
+
+패치 뒤에는 **계정을 한 번 더 만들어야 합니다.** 그 뒤로는 유지됩니다.
+
+> **`helm upgrade` 를 하면 이 패치가 되돌아갑니다.** 차트가 값으로 노출하지 않는 부분이라 지금은 수동 패치뿐입니다. 업그레이드한 뒤 계정이 또 사라지면 여기를 다시 보세요.
+
+**우리 서비스 DB(`scenetrip`)는 왜 멀쩡한가.** 같은 `VOLUME` 을 선언한 이미지를 쓰지만, `platform/kubernetes/postgres/` 는 PVC 를 `/var/lib/postgresql/data` 에 **직접** 붙이고 `PGDATA` 를 그 하위 `pgdata` 로 둡니다. 위 처방과 같은 모양입니다.
 
 ---
 
