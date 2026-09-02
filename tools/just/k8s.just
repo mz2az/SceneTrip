@@ -124,6 +124,17 @@ health:
 db-psql *sql:
     ./tools/scripts/db-psql.sh "{{ sql }}"
 
+# 터미널을 붙잡고 있는다. Ctrl+C 로 중지.
+#
+# `just db-psql` 은 파드 안에서 돌아 포워딩이 필요 없다. 이 레시피가 필요한 자리는
+# **저장소 밖 도구**다 — TablePlus·DBeaver 같은 GUI 나 노트북에 직접 깔린 psql.
+# 접속 정보를 함께 찍어 준다.
+
+# DB 를 노트북 포트로 잇는다 (GUI 클라이언트용)
+[group('db')]
+db-forward:
+    ./tools/scripts/db-forward.sh
+
 # 접속 대상은 SCENETRIP_DB_HOST 가 있으면 그것, 없으면 kind 클러스터다 (ADR 0005).
 #
 # 앱을 띄우지 않고 스키마만 올린다 — CI 와 "배포 전 마이그레이션" 에 쓴다
@@ -166,7 +177,7 @@ db-schema:
 # ON CONFLICT 로는 멱등을 만들 수 없다. 로컬 kind 에서만 동작한다.
 [group('db')]
 seed *csv:
-    ./tools/scripts/seed.sh {{ csv }}
+    ./tools/scripts/seed.sh "{{ csv }}"
 
 # 적재 후 검색 색인 갱신. CONCURRENTLY 라 갱신 중에도 검색이 계속 응답한다.
 [group('db')]
