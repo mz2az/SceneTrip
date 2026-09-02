@@ -124,12 +124,36 @@ health:
 db-psql *sql:
     ./tools/scripts/db-psql.sh "{{ sql }}"
 
+# 터미널을 붙잡고 있는다. Ctrl+C 로 중지.
+#
+# `just db-psql` 은 파드 안에서 돌아 포워딩이 필요 없다. 이 레시피가 필요한 자리는
+# **저장소 밖 도구**다 — TablePlus·DBeaver 같은 GUI 나 노트북에 직접 깔린 psql.
+# 접속 정보를 함께 찍어 준다.
+
+# DB 를 노트북 포트로 잇는다 (GUI 클라이언트용)
+[group('db')]
+db-forward:
+    ./tools/scripts/db-forward.sh
+
 # 접속 대상은 SCENETRIP_DB_HOST 가 있으면 그것, 없으면 kind 클러스터다 (ADR 0005).
 #
 # 앱을 띄우지 않고 스키마만 올린다 — CI 와 "배포 전 마이그레이션" 에 쓴다
 [group('db')]
 db-migrate:
     ./tools/scripts/db-migrate.sh
+
+# initdb 가 볼륨을 처음 만들 때만 읽는 설정(POSTGRES_INITDB_ARGS — 로케일·인코딩)을
+# 바꾸려면 볼륨을 지우는 수밖에 없다. 파드만 다시 띄우면 아무 일도 일어나지 않는다.
+# `just cluster-down` 과 달리 postgres 만 건드리므로 SigNoz 의 텔레메트리는 남는다.
+
+# 적재분은 `just seed` 와 같은 인자다. 비워 두면 저장소 표본이 들어가므로, 볼트 전량으로
+# 적재해 둔 DB 라면 경로를 반드시 함께 넘긴다.
+
+# DB 볼륨을 지우고 처음부터 다시 만든다 — 스키마·적재·색인까지 이어서
+[group('db')]
+[confirm("postgres 볼륨을 삭제하고 처음부터 다시 만듭니다. 적재된 데이터가 사라집니다. 진행할까요?")]
+db-recreate *csv:
+    ./tools/scripts/db-recreate.sh {{ csv }}
 
 # 적용된 마이그레이션 이력. 실패한 것이 있으면 success 가 f 로 남는다.
 [group('db')]
@@ -153,7 +177,7 @@ db-schema:
 # ON CONFLICT 로는 멱등을 만들 수 없다. 로컬 kind 에서만 동작한다.
 [group('db')]
 seed *csv:
-    ./tools/scripts/seed.sh {{ csv }}
+    ./tools/scripts/seed.sh "{{ csv }}"
 
 # 적재 후 검색 색인 갱신. CONCURRENTLY 라 갱신 중에도 검색이 계속 응답한다.
 [group('db')]

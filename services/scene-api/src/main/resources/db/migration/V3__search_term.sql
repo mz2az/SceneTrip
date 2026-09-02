@@ -15,12 +15,22 @@
 -- 반드시 갈라지므로, 한 곳(DB)에 두고 양쪽이 이것을 부른다.
 --
 -- 남길 문자를 고르는 방식(allowlist)이 아니라 지울 문자를 고르는 방식(blocklist)인
--- 이유가 중요하다. DB 로케일이 C 라서(platform/kubernetes/postgres/configmap.yaml)
--- [[:alnum:]] 은 ASCII 만 문자로 친다. allowlist 로 쓰면 '도깨비' 가 통째로 지워져
--- 빈 문자열이 된다. 지울 것만 지우면 한글·가나·한자는 그대로 남는다.
+-- 이유가 중요하다. [[:alnum:]] 같은 문자 클래스는 무엇이 문자인지를 DB 로케일에 묻는데,
+-- 그 답이 lc_ctype 에 따라 달라진다(platform/kubernetes/postgres/configmap.yaml).
 --
--- IMMUTABLE 로 선언해야 인덱스·MV 정의에서 쓸 수 있다. 실제로 같은 입력에 항상 같은
--- 값을 낸다 — lower() 와 regexp_replace() 둘 다 IMMUTABLE 이다.
+--   lc_ctype=C       regexp_replace('도깨비 시즌2','[^[:alnum:]]+','','g') -> '2'
+--   lc_ctype=C.utf8  같은 식                                              -> '도깨비시즌2'
+--
+-- 즉 allowlist 로 쓰면 로케일 설정 하나에 한글이 통째로 지워지느냐가 달린다. blocklist 는
+-- 지울 문자를 직접 나열하므로 로케일과 무관하게 같은 값을 낸다 — 색인과 조회가 갈라지면
+-- 오류 없이 0 건이 되는 함수라, 설정에 기대지 않는 쪽을 고른다.
+--
+-- IMMUTABLE 로 선언해야 인덱스·MV 정의에서 쓸 수 있다. 다만 **엄밀히는 거짓말이다** —
+-- lower() 의 결과는 lc_ctype 에 따라 달라진다('CAFÉ' 는 C 에서 'cafÉ', C.utf8 에서
+-- 'café'). PostgreSQL 이 lower() 를 IMMUTABLE 로 표시해 둔 탓에 막을 방법이 없다.
+-- 그래서 로케일을 바꾸면 Postgres 는 값이 변한 줄 모르고 인덱스·MV 를 그대로 둔다.
+-- 반드시 REFRESH MATERIALIZED VIEW 와 REINDEX 가 뒤따라야 하고, 빠뜨리면 색인은 옛
+-- 규칙 조회는 새 규칙이 되어 조용히 0 건이 된다. `just db-recreate` 가 그 순서를 안다.
 CREATE FUNCTION search_normalize(input TEXT) RETURNS TEXT
 LANGUAGE sql
 IMMUTABLE

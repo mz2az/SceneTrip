@@ -11,10 +11,15 @@
 # macOS 에서는 붙이지 않는다 — iOS 테스트를 실제로 돌려야 하는 유일한 곳이다.
 IOS_TEST_FILTER := if os() == "linux" { ",-ios" } else { "" }
 
+# 빠른 레인이 제외하는 태그. `test` 와 `test-module` 이 **같은 값을 써야 한다** —
+# 한쪽에만 필터가 없으면 그 레시피는 DB 가 필요한 통합 타깃까지 끌어와, 클러스터가
+# 뜨지 않은 자리에서 언제나 실패한다. 실제로 `test-module` 이 그 상태였다.
+FAST_TAG_FILTERS := "-integration,-e2e,-slow,-manual"
+
 # 빠르고 격리된 단위 테스트. 기본 레인이며 항상 초록이어야 한다.
 [group('test')]
 test *targets=ALL:
-    ./tools/scripts/bazel-test.sh {{targets}} --test_tag_filters=-integration,-e2e,-slow,-manual{{IOS_TEST_FILTER}}
+    ./tools/scripts/bazel-test.sh {{targets}} --test_tag_filters={{FAST_TAG_FILTERS}}{{IOS_TEST_FILTER}}
 
 # 클러스터의 실제 PostgreSQL 에 SQL 을 태운다. 먼저 `just cluster-up` 과 `just seed` 가
 # 되어 있어야 한다 — 스크립트가 포트포워드를 세우고 접속 정보를 넘긴다.
@@ -44,9 +49,14 @@ test-load:
 test-all: test test-integration test-contract test-e2e
 
 # 모듈 하나만 테스트. 예: `just test-module services/scene-api`
+#
+# `test` 와 같은 레인이다 — 대상만 한 모듈로 좁힌다. 필터를 빼면 그 모듈의 통합
+# 타깃까지 함께 돌아, 실제 PostgreSQL 이 없는 자리에서 빨간불이 난다. 통합 레인은
+# 그럴 때 조용히 건너뛰지 않고 실패하도록 되어 있어(IntegrationDatabase) 더 그렇다.
+# 그 모듈의 통합 테스트만 돌리려면 `just test-integration //<모듈>/...` 이다.
 [group('test')]
 test-module module:
-    ./tools/scripts/bazel-test.sh //{{module}}/...
+    ./tools/scripts/bazel-test.sh //{{module}}/... --test_tag_filters={{FAST_TAG_FILTERS}}{{IOS_TEST_FILTER}}
 
 # 캐시를 무시하고 다시 실행 — 결과가 의심스러울 때
 [group('test')]

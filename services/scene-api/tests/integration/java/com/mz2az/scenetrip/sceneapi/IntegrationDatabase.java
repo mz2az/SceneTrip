@@ -175,6 +175,10 @@ public final class IntegrationDatabase {
    * 필요하다. 아무 부분 문자열이나 쓰면 앞글자 갈래가 대신 걸어 주어, 보충 갈래를 통째로 지워도 테스트가 통과한다.
    *
    * <p>세 글자인 이유: {@code pg_trgm} 이 세 글자짜리 조각으로 색인하므로 그보다 짧은 검색어는 부분 일치를 아예 시도하지 않는다.
+   *
+   * <p>언어를 거르는 이유: 자동완성은 요청한 언어와 {@code NULL}, 그리고 {@code ko} 만 본다. 여기서 {@code lang = 'en'} 인 표기를
+   * 뽑으면 질의가 그 행을 걸러 내 제안이 0 건이 되는데, 그것은 부분 일치 갈래가 죽어서가 아니라 <b>입력을 잘못 골라서</b>다. 실제로 겪었다 — 적재분이 바뀌자
+   * 'Kim Seong-yoon' 에서 뽑힌 'ims' 가 후보로 올라와 테스트가 깨졌다.
    */
   public static String anyMidOnlyTerm(JdbcClient jdbc) {
     return single(
@@ -185,9 +189,12 @@ public final class IntegrationDatabase {
             SELECT substring(st.term_norm FROM 2 FOR 3) AS sub
             FROM search_term st
             WHERE length(st.term_norm) >= 5
+              AND (st.lang = 'ko' OR st.lang IS NULL)
         ) c
         WHERE NOT EXISTS (
-            SELECT 1 FROM search_term s2 WHERE s2.term_norm LIKE c.sub || '%')
+            SELECT 1 FROM search_term s2
+            WHERE (s2.lang = 'ko' OR s2.lang IS NULL)
+              AND s2.term_norm LIKE c.sub || '%')
         ORDER BY c.sub
         LIMIT 1
         """,
