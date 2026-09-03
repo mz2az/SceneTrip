@@ -206,6 +206,28 @@ db-schema:
 seed *csv:
     ./tools/scripts/seed.sh "{{ csv }}"
 
+# POI(편의시설)를 적재한다. 인자가 없으면 저장소의 표본 23 행.
+#
+# 전량(50만 행·190 MB)은 TMAP 약관상 저장소에 두지 않는다 — 승길이 준 파일을 경로로
+# 넘긴다. 여러 파일은 이어 붙여 **한 번에** 넣는다 — 파일을 넘나드는 중복을 한 번에 접는다.
+# `just poi-filter` 로 걸러 둔 파일을 준다. 예:
+#   just seed-poi "~/Downloads/압축 poi 2/허용목록만/"poi_{food,stay,sight,transit}.jsonl.gz
+#
+# 지우지 않는다 — source_id 로 UPSERT 라 다시 돌려도 안전하고, 좌표가 바뀐 판은 갱신된다.
+#
+# POI(편의시설) 적재 — 인자 없으면 저장소 표본 23 행, 있으면 그 .jsonl(.gz) 파일들
+[group('db')]
+[positional-arguments]
+seed-poi *files:
+    ./tools/scripts/seed-poi.sh "$@"
+
+#   just poi-filter "~/Downloads/압축 poi 2/poi_food.jsonl.gz" "~/Downloads/압축 poi 2/허용목록만/poi_food.jsonl.gz"
+#
+# POI 원본에서 허용목록 갈래만 남긴 파일을 만든다. 원본은 손대지 않는다
+[group('db')]
+poi-filter src dst:
+    ./tools/scripts/poi-filter.sh "{{ src }}" "{{ dst }}"
+
 # 적재 후 검색 색인 갱신. CONCURRENTLY 라 갱신 중에도 검색이 계속 응답한다.
 [group('db')]
 db-refresh-search:

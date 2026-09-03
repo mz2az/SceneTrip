@@ -134,10 +134,14 @@ services/scene-api/src/main/resources/db/migration/
 services/scene-api/seed/
 ├── candidates.csv              성지후보 10작품 87행 (김태환 수집 v3, 2026-08-24)
 ├── candidates.sql              CSV → 15 개 테이블 변환 (place_alias 포함)
+├── poi-sample.jsonl            POI 표본 23 행 — 전량은 저장소 밖 (poi.md §5-3)
+├── poi.sql                     JSONL → poi. UPSERT 라 지우지 않는다
 └── README.md                   표본 선정 근거와 정제 전이라 감수한 것들
 
 tools/scripts/seed.sh           CSV 를 파드로 옮기고 candidates.sql 을 먹인다
-tools/just/k8s.just             seed 레시피
+tools/scripts/seed-poi.sh       JSONL(.gz) 을 파드로 옮겨 풀고 poi.sql 을 먹인다
+tools/scripts/poi-filter.sh     POI 원본 → 허용목록 갈래만
+tools/just/k8s.just             seed · seed-poi · poi-filter 레시피
 ```
 
 계획과 두 곳이 다르다. **`src/main/resources/seed/` 가 아니라 `seed/`** 인 이유는
