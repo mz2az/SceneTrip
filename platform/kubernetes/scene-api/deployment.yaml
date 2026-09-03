@@ -97,6 +97,19 @@ spec:
                 configMapKeyRef:
                   name: postgres
                   key: POSTGRES_PASSWORD
+            # 카카오 REST 키 — 이 저장소의 첫 Secret 이다. DB 비밀번호와 달리 로컬이라도
+            # 진짜 값이라(새면 남이 우리 쿼터를 쓴다) ConfigMap 에 둘 수 없다. Secret 은
+            # 매니페스트 파일이 없고 `just secrets-apply` 가 .env 에서 만든다 — 이유는
+            # tools/scripts/secrets-apply.sh 머리말에.
+            #
+            # optional: Secret 이 없어도 파드는 뜬다. 키 없는 개발자가 검색·코스까지
+            # 못 쓰면 안 된다. 앱은 빈 키를 보고 길찾기만 503 을 낸다.
+            - name: KAKAO_REST_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: scene-api-secrets
+                  key: KAKAO_REST_KEY
+                  optional: true
           resources:
             requests:
               cpu: 100m

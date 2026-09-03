@@ -2,6 +2,7 @@ package com.mz2az.scenetrip.sceneapi.course;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 
 import com.mz2az.scenetrip.sceneapi.IntegrationDatabase;
 import com.mz2az.scenetrip.sceneapi.api.model.CourseCreate;
@@ -364,6 +365,55 @@ class CourseStoreIntegrationTest {
 
   // ───────────── 거들기 ─────────────
 
+  // ───────────── 길찾기가 목적지를 잡는 자리 ─────────────
+  //
+  // 길찾기는 목적지를 itemId 로만 받는다. 그 번호에서 좌표를 제대로 꺼내 오는지가 전부다 —
+  // 여기서 틀리면 카카오에 엉뚱한 목적지를 보내고 나머지가 다 맞아도 소용없다. 단위 테스트는
+  // CourseStore 를 통째로 가짜로 꽂으므로 이 SQL(COALESCE + ::geometry)은 여기서만 돈다.
+
+  @Test
+  @DisplayName("항목 좌표 — 촬영지면 장소의 좌표를 준다")
+  void itemLocationOfPlace() {
+    long id = store.create(user, new CourseCreate(1, CourseOrigin.SELF));
+    store.replace(id, replace(day(item(placeA, 60))));
+    long itemId = onlyItem(id).getId();
+
+    var loc = store.findItemLocation(id, itemId);
+
+    double[] expected = placeLatLng(placeA);
+    assertThat(loc).isPresent();
+    assertThat(loc.get().latitude()).isCloseTo(expected[0], within(1e-6));
+    assertThat(loc.get().longitude()).isCloseTo(expected[1], within(1e-6));
+  }
+
+  @Test
+  @DisplayName("항목 좌표 — 직접 찍은 핀이면 핀의 좌표를 준다")
+  void itemLocationOfCustomPin() {
+    long id = store.create(user, new CourseCreate(1, CourseOrigin.SELF));
+    store.replace(id, replace(day(pinItem("숙소", 37.55, 126.97))));
+    long itemId = onlyItem(id).getId();
+
+    var loc = store.findItemLocation(id, itemId);
+
+    assertThat(loc).isPresent();
+    assertThat(loc.get().latitude()).isCloseTo(37.55, within(1e-6));
+    assertThat(loc.get().longitude()).isCloseTo(126.97, within(1e-6));
+  }
+
+  @Test
+  @DisplayName("항목 좌표 — 코스 번호가 어긋나면 비어 있다 (남의 코스의 항목 번호를 막는 조건)")
+  void itemLocationRequiresMatchingCourse() {
+    long mine = store.create(user, new CourseCreate(1, CourseOrigin.SELF));
+    store.replace(mine, replace(day(item(placeA, 60))));
+    long itemId = onlyItem(mine).getId();
+    long other = store.create(user, new CourseCreate(1, CourseOrigin.SELF));
+
+    assertThat(store.findItemLocation(other, itemId))
+        .as("컨트롤러가 코스 소유를 먼저 확인하지만, 항목 번호까지 그 코스 것이어야 한다")
+        .isEmpty();
+    assertThat(store.findItemLocation(mine, 999_999L)).isEmpty();
+  }
+
   private static CourseReplace replace(CourseDayInput... days) {
     return new CourseReplace("테스트 코스", List.of(days));
   }
@@ -397,6 +447,16 @@ class CourseStoreIntegrationTest {
             .toList();
     assertThat(items).hasSize(1);
     return items.get(0);
+  }
+
+  /** 적재된 장소의 좌표를 DB 에서 직접 읽는다 — 기대값을 코드에 박지 않는다. */
+  private double[] placeLatLng(long placeId) {
+    return jdbc.sql(
+            "SELECT ST_Y(geom::geometry) AS lat, ST_X(geom::geometry) AS lng FROM place WHERE id ="
+                + " :id")
+        .param("id", placeId)
+        .query((rs, i) -> new double[] {rs.getDouble("lat"), rs.getDouble("lng")})
+        .single();
   }
 
   private int itemCount(long courseId) {

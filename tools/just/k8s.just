@@ -77,6 +77,33 @@ image module tag="dev":
 deploy module env="local":
     ./tools/scripts/deploy.sh {{module}} {{env}}
 
+# Secret 만은 매니페스트 파일이 없다 — deploy 가 폴더째 apply 하므로 파일에 두면
+# 빈 값으로 덮어쓰거나 키가 저장소에 올라간다. 이유는 secrets-apply.sh 머리말에.
+# 이미 떠 있는 파드는 새 값을 모른다 — 뒤에 `just restart scene-api`.
+
+# .env 의 비밀값을 클러스터 Secret 으로 넣는다. 처음 한 번, 키를 바꿀 때마다
+[group('k8s')]
+secrets-apply:
+    ./tools/scripts/secrets-apply.sh
+
+# 환경변수는 컨테이너가 뜰 때 한 번 읽힌다. Secret·ConfigMap 을 바꾼 뒤에 쓴다.
+# 코드가 바뀌었으면 이게 아니라 `just update` 다.
+
+# 이미지는 그대로 두고 파드만 다시 띄운다. 예: `just restart scene-api`
+[group('k8s')]
+restart module:
+    kubectl rollout restart deployment/{{module}} -n {{K8S_NS}}
+    kubectl rollout status  deployment/{{module}} -n {{K8S_NS}} --timeout=180s
+
+# 「맞나」가 아니라 「돌아가나」 — 키가 파드에 들어갔나, 카카오에 닿나, 응답이 우리
+# 모양인가. 게이트 초록으로는 못 잡는 환경 문제를 본다. 카카오를 진짜로 부르므로
+# (최대 7번) 자동 게이트에 넣지 않는다. 코스를 만들고 끝나면 지운다.
+
+# 배포된 길찾기가 실제로 답하는지 본다. 배포 직후 한 번
+[group('k8s')]
+navigation-smoke:
+    API_URL={{API_URL}} ./tools/scripts/navigation-smoke.sh
+
 # 코드 변경 후 재빌드 → 적재 → 롤링 재시작
 [group('k8s')]
 update module:
@@ -124,12 +151,36 @@ health:
 db-psql *sql:
     ./tools/scripts/db-psql.sh "{{ sql }}"
 
+# 터미널을 붙잡고 있는다. Ctrl+C 로 중지.
+#
+# `just db-psql` 은 파드 안에서 돌아 포워딩이 필요 없다. 이 레시피가 필요한 자리는
+# **저장소 밖 도구**다 — TablePlus·DBeaver 같은 GUI 나 노트북에 직접 깔린 psql.
+# 접속 정보를 함께 찍어 준다.
+
+# DB 를 노트북 포트로 잇는다 (GUI 클라이언트용)
+[group('db')]
+db-forward:
+    ./tools/scripts/db-forward.sh
+
 # 접속 대상은 SCENETRIP_DB_HOST 가 있으면 그것, 없으면 kind 클러스터다 (ADR 0005).
 #
 # 앱을 띄우지 않고 스키마만 올린다 — CI 와 "배포 전 마이그레이션" 에 쓴다
 [group('db')]
 db-migrate:
     ./tools/scripts/db-migrate.sh
+
+# initdb 가 볼륨을 처음 만들 때만 읽는 설정(POSTGRES_INITDB_ARGS — 로케일·인코딩)을
+# 바꾸려면 볼륨을 지우는 수밖에 없다. 파드만 다시 띄우면 아무 일도 일어나지 않는다.
+# `just cluster-down` 과 달리 postgres 만 건드리므로 SigNoz 의 텔레메트리는 남는다.
+
+# 적재분은 `just seed` 와 같은 인자다. 비워 두면 저장소 표본이 들어가므로, 볼트 전량으로
+# 적재해 둔 DB 라면 경로를 반드시 함께 넘긴다.
+
+# DB 볼륨을 지우고 처음부터 다시 만든다 — 스키마·적재·색인까지 이어서
+[group('db')]
+[confirm("postgres 볼륨을 삭제하고 처음부터 다시 만듭니다. 적재된 데이터가 사라집니다. 진행할까요?")]
+db-recreate *csv:
+    ./tools/scripts/db-recreate.sh {{ csv }}
 
 # 적용된 마이그레이션 이력. 실패한 것이 있으면 success 가 f 로 남는다.
 [group('db')]

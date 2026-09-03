@@ -132,11 +132,11 @@ services/scene-api/src/main/resources/db/migration/
                                 이미지가 기본으로 켜는 tiger geocoder·topology 제거
 
 services/scene-api/seed/
-├── v6.csv                      정예 4 작품 전량 164 행 (장소 155 곳) — 볼트 CSV 의 스냅샷
-├── v6.sql                      CSV → 14 개 테이블 변환. 어느 CSV 에도 공용
-└── README.md                   데이터가 검증하는 것과 정제 전이라 감수한 것들
+├── candidates.csv              성지후보 10작품 87행 (김태환 수집 v3, 2026-08-24)
+├── candidates.sql              CSV → 15 개 테이블 변환 (place_alias 포함)
+└── README.md                   표본 선정 근거와 정제 전이라 감수한 것들
 
-tools/scripts/seed.sh           CSV 를 파드로 옮기고 v6.sql 을 먹인다
+tools/scripts/seed.sh           CSV 를 파드로 옮기고 candidates.sql 을 먹인다
 tools/just/k8s.just             seed 레시피
 ```
 

@@ -321,6 +321,44 @@ public class CourseStore {
         > 0;
   }
 
+  /**
+   * 코스 항목 하나의 좌표. 여행 중 길찾기가 목적지를 잡는 데 쓴다.
+   *
+   * <p>{@link #find} 로도 얻을 수 있지만 그것은 코스 전체 — 모든 일차·항목에 이름·주소·이미지 조인까지 — 를 읽는다. 좌표 둘을 얻자고 그 값을 치를
+   * 이유가 없어 PK 조회 하나로 따로 둔다. 좌표를 고르는 규칙({@code COALESCE(p.geom, cp.geom)})은 {@link #find} 와 같다 —
+   * 촬영지면 장소의 좌표, 직접 찍은 핀이면 핀의 좌표.
+   *
+   * <p>소유는 여기서 확인하지 않는다 — {@link #markVisited} 와 같은 꼴로, 컨트롤러가 먼저 코스 소유를 확인한 뒤 부른다. {@code
+   * course_id} 조건이 남의 코스의 항목 번호를 막는다.
+   *
+   * @return 그 코스에 그 항목이 없으면 비어 있다
+   */
+  public Optional<ItemLocation> findItemLocation(long courseId, long itemId) {
+    return jdbc.sql(
+            """
+            SELECT ST_Y(g::geometry) AS latitude, ST_X(g::geometry) AS longitude
+            FROM (
+                SELECT COALESCE(p.geom, cp.geom) AS g
+                FROM course_item i
+                LEFT JOIN place p       ON p.id  = i.place_id
+                LEFT JOIN custom_pin cp ON cp.id = i.custom_pin_id
+                WHERE i.id = :itemId AND i.course_id = :courseId
+            ) t
+            """)
+        .param("itemId", itemId)
+        .param("courseId", courseId)
+        .query((rs, i) -> new ItemLocation(rs.getDouble("latitude"), rs.getDouble("longitude")))
+        .optional();
+  }
+
+  /**
+   * 항목의 위도·경도.
+   *
+   * <p>{@code navigation.Coordinate} 와 같은 모양이지만 일부러 따로 둔다 — 코스가 길찾기 패키지를 알 이유가 없다. 잇는 것은 컨트롤러다. 세
+   * 번째 사용처가 생기면 그때 공용으로 뽑는다.
+   */
+  public record ItemLocation(double latitude, double longitude) {}
+
   /** 지금 여행 중인가. 방문 체크를 열어 줄지 정한다. */
   public boolean isActive(UUID userId, long courseId) {
     return Boolean.TRUE.equals(

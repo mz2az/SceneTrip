@@ -9,11 +9,6 @@
 | [`scenetrip-ios/`](./scenetrip-ios/) | Swift | `libs/swift/` |
 | Android (예정 — `scenetrip-android/`) | Kotlin | `libs/kotlin/` |
 
-예외 하나 — [`navi_proto/`](./navi_proto/) 는 앱이 아니라 **파이썬 프로토타입
-서버**다(챗봇·POI 조회, MZ2AZ-293). 프론트 담당의 실험 모듈이라 여기 두었고,
-Bazel 없이 `just navi-run` 으로 돈다. 정식 자리는 MZ2AZ-283·284·285 — 그때
-이 폴더는 사라진다. 데이터는 깃에 없다(모듈 README 참고).
-
 ```
 apps/<이름>/
 ├── BUILD.bazel   필수

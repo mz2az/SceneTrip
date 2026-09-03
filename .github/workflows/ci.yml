@@ -53,12 +53,6 @@ jobs:
           curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
             | tar -xJ -C /tmp
           sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
-          # 파이썬이 저장소에 들어왔다(apps/navi_proto, MZ2AZ-293) — 게이트가
-          # ruff 를 요구한다. shellcheck 처럼 고정 버전 바이너리를 받는다 —
-          # pip 은 macOS 러너의 PEP 668(외부 관리 파이썬)에 막힌다(실측).
-          curl -fsSL "https://github.com/astral-sh/ruff/releases/download/0.16.5/ruff-x86_64-unknown-linux-gnu.tar.gz" \
-            | tar -xz -C /tmp
-          sudo install /tmp/ruff-x86_64-unknown-linux-gnu/ruff /usr/local/bin/ruff
 
       - name: Bazel 캐시
         uses: actions/cache@v4
@@ -115,10 +109,6 @@ jobs:
           curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.darwin.aarch64.tar.xz" \
             | tar -xJ -C /tmp
           sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
-          # ruff — verify 잡과 같은 고정 버전 바이너리(판정 일치, ruff.toml 참조).
-          curl -fsSL "https://github.com/astral-sh/ruff/releases/download/0.16.5/ruff-aarch64-apple-darwin.tar.gz" \
-            | tar -xz -C /tmp
-          sudo install /tmp/ruff-aarch64-apple-darwin/ruff /usr/local/bin/ruff
 
       # macOS 의 Bazel 기본 출력 경로는 `~/.cache/bazel` 이 아니라
       # `/var/tmp/_bazel_<사용자>` 다. verify 잡의 캐시 경로를 그대로 베끼면 없는

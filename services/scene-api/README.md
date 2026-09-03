@@ -153,8 +153,37 @@ initContainer 가 있다.
 | `V8__app_user.sql` | `app_user`·`user_device`, `cart_item` → `saved_place`, `user_event.user_id` → UUID |
 | `V9__course.sql` | `course`·`custom_pin`·`course_item`·`saved_content` |
 | `V10__market.sql` | `market_course`·`_item`·`_content`·`market_like` |
-| `V11__market_course_single_live_post.sql` | 한 코스의 살아 있는 사본은 하나. 부분 유니크 인덱스 — 내린 것은 남으므로 `WHERE unpublished_at IS NULL` 이 붙어야 다시 올릴 수 있다 |
-| `V12__poi.sql` | `poi` — 편의시설. **`place` 와 분리한다** (47만 대 155). 검색용 trgm 인덱스 둘 |
+
+### 로케일 — `just db-migrate` 가 체크섬 오류를 내면 여기다
+
+DB 는 **정렬은 `C`, 글자 판정은 `C.utf8`** 로 만들어진다
+(`platform/kubernetes/postgres/configmap.yaml` 의 `POSTGRES_INITDB_ARGS`).
+
+글자 판정이 `C` 면 PostgreSQL 이 한글을 문자로 인정하지 않아 `pg_trgm` 이 trigram 을
+하나도 만들지 못하고, `search_term_trgm_idx` 가 한글 부분 일치를 전혀 받지 못한다.
+`lower()` 도 ASCII 만 소문자로 바꾼다. **저장·조회는 멀쩡해서 아무 신호가 없다** —
+검색이 느려지기만 한다.
+
+이 값은 initdb 가 볼륨을 처음 만들 때만 읽히고 `ALTER DATABASE` 로는 못 바꾼다. 그래서
+로케일을 고친 변경에는 `V3__search_term.sql` 의 주석 수정이 함께 들어 있고, 옛 볼륨을
+그대로 들고 있으면 Flyway 가 체크섬 불일치로 막는다. **그 오류는 "누가 마이그레이션을
+손댔다" 가 아니라 "DB 를 다시 만들어야 한다" 는 뜻이다.**
+
+```
+just db-recreate
+```
+
+볼륨을 지우고 새 로케일로 다시 만든 뒤 스키마·적재·색인까지 이어서 돌린다. 로컬에 적재한
+데이터는 사라지고 시드로 다시 채워진다. `just cluster-down` 과 달리 postgres 만 건드리므로
+SigNoz 에 쌓인 텔레메트리는 남는다. 지금 상태는 이렇게 확인한다.
+
+```
+just db-psql "SELECT datcollate, datctype FROM pg_database WHERE datname = current_database();"
+just db-psql "SELECT show_trgm('도깨비');"
+```
+
+두 번째가 `{}` 로 비어 나오면 로케일이 어긋난 것이다. 통합 테스트
+`SuggestionStoreIntegrationTest` 의 "한글에서 trigram 이 만들어진다" 가 이것을 지킨다.
 
 ### 주체는 계정이다 — 설치 UUID 가 아니다
 
@@ -291,6 +320,7 @@ curl http://localhost:8081/v1/actuator/health
 | `SPRING_DATASOURCE_URL` | 아니오 | `jdbc:postgresql://postgres:5432/scenetrip` | DB 주소 |
 | `SPRING_DATASOURCE_USERNAME` | 아니오 | `scenetrip` | DB 사용자 |
 | `SPRING_DATASOURCE_PASSWORD` | **예** | 없음 | DB 비밀번호. 값이 없으면 접속이 거부되어 기동이 실패한다 |
+| `KAKAO_REST_KEY` | 아니오 | 없음 | 여행 중 길찾기(카카오 대중교통·도보). 없으면 기동은 하고 길찾기만 503 이다 |
 
 비밀번호는 `application.yaml` 에 두지 않는다 — 이미지 안에 박히면 이미지를 가진 사람이
 곧 자격 증명을 가진 것이 된다. 로컬에서는 `postgres` ConfigMap 의 키를
@@ -298,6 +328,32 @@ curl http://localhost:8081/v1/actuator/health
 접속 정보의 정본은 DB 를 정의한 쪽 하나다.
 
 시크릿은 시크릿 매니저에서 온다. 커밋하는 것은 `.env.example` 뿐이다.
+
+**카카오 키는 이 서비스의 첫 Secret 이다.** DB 비밀번호와 달리 로컬이라도 진짜
+값이라 ConfigMap 에 둘 수 없다. 매니페스트 파일이 없고 `just secrets-apply` 가
+저장소 루트 `.env` 의 값을 읽어 클러스터에 `scene-api-secrets` 를 만든다 — 파일에
+두면 `just deploy` 가 폴더째 apply 하면서 빈 값으로 덮어쓰기 때문이다. Deployment 는
+`secretKeyRef` + `optional` 로 가리켜 Secret 이 없어도 파드가 뜬다. 원격에서는 같은
+Secret 을 파이프라인이 시크릿 매니저에서 만들고, 그때 DB 비밀번호도 같은 길로 옮긴다.
+
+```sh
+just secrets-apply             # .env → Secret. 처음 한 번, 키 바꿀 때
+just restart scene-api         # 이미 떠 있으면 — 환경변수는 뜰 때 한 번 읽힌다
+```
+
+## 길찾기 — 이 서비스의 첫 외부 HTTP
+
+`POST /navigation/next-leg` 가 카카오 대중교통·도보 API 를 부른다. 왜 앱이 아니라 서버냐는
+[ADR 0009](../../docs/architecture/adr/0009-navigation-is-called-by-the-server.md), 규칙과 실측은
+[계획서](../../docs/project/plans/navigation-next-leg.md). 키는 `KAKAO_REST_KEY` — 위 설정 표.
+
+```sh
+just secrets-apply         # .env 의 키 → Secret
+just navigation-smoke      # 배포된 것이 실제로 답하나 — 카카오를 부른다
+```
+
+카카오 호출은 SigNoz 에서 `http.client.requests{uri="/v2/routing/{kind}"}` 로 대중교통·도보가
+갈려 보인다. 쿼터는 각각 하루 1,000건이고 이어붙이기 때문에 도보가 두 배 가까이 나간다.
 
 ## 운영
 

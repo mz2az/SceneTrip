@@ -1,32 +1,31 @@
 #!/usr/bin/env bash
-# V6 수집 CSV 를 DB 에 적재한다.
+# 성지후보 CSV(김태환 수집, 10작품)를 DB 에 적재한다.
 # 사용법: seed.sh [CSV 경로]
 # 호출: just seed
 #
-# 인자가 없으면 저장소의 기준 데이터(services/scene-api/seed/v6.csv — 정예 4 작품
-# 전량 164 행, 장소 155 곳)를 넣는다. 다른 CSV 를 넣으려면 경로를 넘긴다:
+# 인자가 없으면 저장소의 성지후보 전량(services/scene-api/seed/candidates.csv)을 넣는다.
+# 다른 CSV(다음 수집분 등)는 경로를 넘긴다 — 컬럼이 candidates.sql 의 staging 과 같아야 한다:
 #
-#   just seed <CSV 경로>
+#   just seed ~/Downloads/성지후보_10작품_v4.csv
 #
-# **전량이 저장소에 있는 이유(ADR 0009):** 팀원이 저장소만 클론해도 같은 화면을 봐야
-# 한다. 전에는 표본 12 행만 두고 전량은 볼트에서 받게 했는데, 볼트를 모르는 팀원은
-# 작품 4 · 장소 10 인 화면을 보고 "데이터가 왜 이렇게 적나" 부터 물었다(2026-09-01).
-# 수집 산출물의 정본은 여전히 볼트다 — 여기 있는 것은 그 스냅샷이다.
+# **저장소에 전량을 두는 이유:** 성지후보 v3 는 10작품으로 골라졌고 이미지가 우리 S3 에
+# 있어 앱에 그대로 보여 줄 수 있는 데이터다. 87행·165 KB. 정본은 여전히 볼트다
+# (services/scene-api/seed/README.md).
 #
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 cd "$REPO_ROOT" || die "$REPO_ROOT 로 이동할 수 없습니다"
 
-SAMPLE="services/scene-api/seed/v6.csv"
-TRANSFORM="services/scene-api/seed/v6.sql"
+SAMPLE="services/scene-api/seed/candidates.csv"
+TRANSFORM="services/scene-api/seed/candidates.sql"
 CSV="${1:-$SAMPLE}"
 
 POD="postgres-0"
-# v6.sql 의 \copy 가 읽는 경로. psql 이 도는 기계 기준이다.
+# candidates.sql 의 \copy 가 읽는 경로. psql 이 도는 기계 기준이다.
 STAGED_CSV="/tmp/seed-input.csv"
 
 [ -f "$CSV" ] || die "CSV 를 찾을 수 없습니다: $CSV
-       인자 없이 실행하면 저장소의 기준 데이터($SAMPLE)를 넣습니다."
+       인자 없이 실행하면 저장소의 성지후보($SAMPLE)를 넣습니다."
 [ -f "$TRANSFORM" ] || die "변환 SQL 이 없습니다: $TRANSFORM"
 
 # 붙는 길이 둘이다 (ADR 0005).
@@ -35,7 +34,7 @@ STAGED_CSV="/tmp/seed-input.csv"
 #          또는 이미 포워딩해 둔 주소.
 #   파드   없으면 kind 클러스터의 파드 안에서 psql 을 돌린다 — 지금까지의 방식.
 #
-# 어느 쪽이든 v6.sql 은 그대로다. 그 파일은 쿠버네티스를 모른다.
+# 어느 쪽이든 candidates.sql 은 그대로다. 그 파일은 쿠버네티스를 모른다.
 DIRECT=""
 if [ -n "${SCENETRIP_DB_HOST:-}" ]; then
   DIRECT="yes"
@@ -45,7 +44,7 @@ if [ -n "${SCENETRIP_DB_HOST:-}" ]; then
        맥이라면:  brew install libpq && brew link --force libpq
        또는 SCENETRIP_DB_HOST 를 지우고 kind 파드 경로로 실행하세요."
 else
-  # 파드 경로는 적재된 데이터를 지우고 다시 넣는다 (v6.sql 의 TRUNCATE).
+  # 파드 경로는 적재된 데이터를 지우고 다시 넣는다 (candidates.sql 의 TRUNCATE).
   # 로컬 kind 밖에서는 절대 돌면 안 된다.
   require_kind_context
   kubectl get "pod/$POD" -n "$NAMESPACE" >/dev/null 2>&1 || die "$POD 파드가 없습니다.
@@ -54,7 +53,7 @@ fi
 
 ROWS=$(($(wc -l <"$CSV") - 1))
 if [ "$CSV" = "$SAMPLE" ]; then
-  log "저장소의 기준 데이터 $ROWS 행(정예 4 작품)을 적재합니다 — 다른 판은 'just seed <CSV 경로>'"
+  log "저장소의 성지후보 $ROWS 행을 적재합니다 — 다른 CSV 는 'just seed <경로>'"
 else
   log "$CSV ($ROWS 행) 을 적재합니다"
 fi
@@ -62,7 +61,7 @@ warn "적재된 기존 데이터는 지워지고 다시 채워집니다"
 
 # 규칙은 하나다 — **psql 이 도는 기계의 /tmp/seed-input.csv 에 CSV 를 놓는다.**
 #
-# v6.sql 의 \copy 가 그 경로를 읽는데, "그 기계" 가 경로마다 다르다. 파드 경로에서는
+# candidates.sql 의 \copy 가 그 경로를 읽는데, "그 기계" 가 경로마다 다르다. 파드 경로에서는
 # 컨테이너이고 직접 경로에서는 이 노트북이나 CI 러너다. 어느 쪽이든 끝나면 지운다 —
 # 수집 데이터를 남기지 않는다.
 if [ -n "$DIRECT" ]; then
