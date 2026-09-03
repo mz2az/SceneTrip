@@ -86,9 +86,11 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 ### 데모 주행 — 중간발표 영상 (계획서 §7)
 
 ```sh
-just ios-run          # 앱 설치
-just ios-demo         # 1번 → 3번, 각 성지 5초 머무름
-just ios-demo 5 8 25  # 5번까지, 8초 머무름, 25 m/s (영상을 짧게)
+just ios-run                      # 앱 설치
+just ios-run "iPhone 17"          # 시뮬레이터가 두 대 떠 있으면 기종을 집어 준다
+just ios-demo                     # 1번 → 3번, 각 성지 5초 머무름
+just ios-demo 5 8 25              # 5번까지, 8초 머무름, 25 m/s (영상을 짧게)
+just ios-demo 1 5 12 <UDID>       # 두 대일 때는 UDID 로 (booted 는 모호하다)
 ```
 
 `-demoCourse 1 -navStop 1 -demoDrive N -tripDwellSeconds S -footprintOn 1` 로 앱을 띄운다.

@@ -29,14 +29,20 @@ run target *args:
 # 빠져나와도 시뮬레이터의 앱은 별도 프로세스라 그대로 살아 있다.
 
 # iOS 앱을 시뮬레이터에 띄운다 (실기기는 just ios-xcode)
+#
+# `device` 는 시뮬레이터 **기종 이름**(예: "iPhone 17"). 두 대가 떠 있으면 bazel 이 아무
+# 데나 깔아 남의 시뮬레이터를 덮는다(2026-09-03 실측 — main 워크트리의 17 Pro 와 겹쳤다).
+#   just ios-run "iPhone 17"
 [group('build')]
-ios-run:
+ios-run device="":
     #!/usr/bin/env bash
     set -euo pipefail
     # LLM 설정의 단일 출처는 apps/navi_proto/.env 다 — server.py·llm.sh 가 읽는 그 파일.
     # 셸 변수가 있으면 그것이 우선(server.py 와 같은 규칙), 없으면 .env, 그것도 없으면 빈 값.
     llm() { printenv "$1" 2>/dev/null || { sed -n "s/^$1=//p" apps/navi_proto/.env 2>/dev/null | tail -1; } || true; }
-    {{BAZEL}} run //apps/scenetrip-ios:bin \
+    pick=()
+    if [ -n "{{device}}" ]; then pick=(--ios_simulator_device="{{device}}"); fi
+    {{BAZEL}} run //apps/scenetrip-ios:bin "${pick[@]}" \
         --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}" \
         --define=kakao_rest_key="${KAKAO_REST_KEY:-}" \
         --define=llm_url="$(llm LLM_URL)" \
