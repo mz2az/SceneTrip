@@ -28,11 +28,12 @@ struct HomeTabView: View {
                     trips: model.trips,
                     hasCourses: !routes.courses.isEmpty,
                     loading: model.loading && model.trips.isEmpty,
+                    // 코스 여행의 길찾기는 **그 코스의 편집 화면 안**에서 돈다(2026-09-03,
+                    // 계획 trip-mode.md §8) — 별도 창을 띄우지 않고 코스를 열며 안내를 켠다.
                     onNavigate: { trip in
-                        guard let stop = trip.nextStop else { return }
-                        nav = HomeNavTarget(
-                            stop: stop, dayStops: trip.dayStops, courseId: trip.course.serverId
-                        )
+                        guard trip.nextStop != nil, let serverId = trip.course.serverId else { return }
+                        router.pendingTripStart = true
+                        router.openCourse(serverId)
                     },
                     // 「코스 보기」는 **코스 전체 목록**으로 간다(2026-09-02 사용자
                     // 결정). 처음엔 그 코스의 편집으로 바로 들어갔는데, 홈에서

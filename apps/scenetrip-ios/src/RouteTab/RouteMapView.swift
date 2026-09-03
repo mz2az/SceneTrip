@@ -82,6 +82,35 @@ struct RouteMapView: UIViewRepresentable {
     /// 안 주면 「전체 보기」가 절반은 시트 뒤에 숨는다.
     var bottomInset: CGFloat = 0
 
+    // 여행 안내(2026-09-03, 계획 trip-mode.md §8) — 별도 길찾기 창 대신 **이 지도**가
+    // 경로를 그린다. 계획선(직선)은 그대로 두고 그 위에 실제 길을 얹는다.
+
+    /// 안내 중의 내 자리 — 계속 받는 위치(또는 데모 주행). 있으면 한 번 받기 대신
+    /// 이것으로 파문을 띄운다.
+    var tripHere: TripSpot?
+
+    /// 지금 안내 중인 목적지. 해태 핀과 헤일로가 여기 선다.
+    var navTarget: RouteStop?
+
+    /// 그 목적지로 **가는 중**인가(도착해 서 있는 게 아니라). 가는 중이면 그곳에서 나가는
+    /// 계획선을 남긴다 — 도착하면 끊고 미리보기 점선이 그 자리를 잇는다.
+    var navGuiding = false
+
+    /// 안내 경로 — 구간별 **실제 길 좌표**. 비어 있으면 아무것도 안 긋는다(직선으로
+    /// 대신 긋지 않는다 — 계획선은 이미 있고, 그것은 「길」이 아니다).
+    var legs: [RouteLeg] = []
+
+    /// 「나와 목적지」로 카메라를 되돌리라는 신호. 값이 바뀔 때만 움직인다.
+    var recenterTick = 0
+
+    /// **내 자리에서 이곳까지 직선을 미리 긋는다** — 길찾기 결과가 오기 전, 또는 도착해
+    /// 다음 곳을 고르기 전. 실제 경로(`legs`)가 오면 부르는 쪽이 nil 로 바꿔 직선이
+    /// 사라지고 세세한 길만 남는다(2026-09-03 사용자 결정).
+    var previewTo: RouteStop?
+
+    /// 번호 핀을 눌렀다. 성지 카드를 띄우는 쪽이 받는다.
+    var onTapStop: (RouteStop) -> Void = { _ in }
+
     let onTapMap: (RoutePin) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -104,9 +133,12 @@ struct RouteMapView: UIViewRepresentable {
         context.coordinator.onTapMap = onTapMap
         context.coordinator.onTapGuide = onTapGuide
         context.coordinator.onViewport = onViewport
+        context.coordinator.onTapStop = onTapStop
         context.coordinator.renderAmbient(ambientPlaces, picked: pickedGuide, on: view.mapView)
         context.coordinator.pinning = pinning
         context.coordinator.apply(bottomInset: bottomInset, to: view.mapView)
+        context.coordinator.applyTrip(here: tripHere, on: view.mapView)
+        context.coordinator.renderPreview(to: previewTo, on: view.mapView)
         context.coordinator.render(
             stops: stops,
             pending: pending,
@@ -116,6 +148,10 @@ struct RouteMapView: UIViewRepresentable {
             previews: previews,
             guidePlaces: guidePlaces,
             pickedGuide: pickedGuide,
+            navTarget: navTarget,
+            navGuiding: navGuiding,
+            legs: legs,
+            recenterTick: recenterTick,
             on: view.mapView
         )
     }
@@ -128,7 +164,11 @@ struct RouteMapView: UIViewRepresentable {
         var pinning = false
 
         var markers: [NMFMarker] = []
-        private var path: NMFPath?
+        /// 계획선(직선). 다녀온 곳에서 끊기므로 여러 토막일 수 있다.
+        var planPaths: [NMFPath] = []
+        /// 「내 자리 → 다음 곳」 직선 미리보기(`RouteMapTrip.swift`).
+        var previewPath: NMFPath?
+        var lastPreviewKey = ""
         private var pendingMarker: NMFMarker?
         private var lastKey = ""
         private var lastFitToken = -1
@@ -147,6 +187,8 @@ struct RouteMapView: UIViewRepresentable {
         /// 진도 핀 뒤의 심장박동 헤일로. 고른 곳(빨강) > 눌러 둔 곳(파랑) 순.
         var halo: HaloPulse?
         var haloAt: NMGLatLng?
+        /// 헤일로를 좌표에서 얼마나 위에 띄우는가(해태 핀 30, 발바닥 핀 0).
+        var haloLift: CGFloat = 30
         var showingMe = false
         /// 이미 카메라를 옮긴 조합. 같은 것을 두 번 옮기지 않는다 — SwiftUI 가 뷰를
         /// 다시 그릴 때마다 지도가 튀면 손으로 옮긴 화면이 계속 되돌아간다.
@@ -157,6 +199,15 @@ struct RouteMapView: UIViewRepresentable {
         var ambientMarkers: [NMFMarker] = []
         var lastAmbientKey = ""
         private var lastInset: CGFloat = 0
+
+        /// 번호 핀을 눌렀다.
+        var onTapStop: (RouteStop) -> Void = { _ in }
+        /// 여행 안내가 준 내 자리. 있는 동안은 한 번 받기(`didUpdateLocations`)를 무시한다.
+        var tripHere: NMGLatLng?
+        /// 안내 경로선(구간마다 하나 — 도보 점선·대중교통 실선). `RouteMapTrip.swift` 가 그린다.
+        var legPaths: [NMFPath] = []
+        var lastLegsKey = ""
+        private var lastTripCameraKey = ""
 
         /// 시트가 덮는 만큼 지도의 「보이는 영역」을 줄인다. 카메라 맞추기가 이 값을
         /// 그대로 따른다. **크게 바뀔 때만 다시 맞춘다** — 시트를 끄는 동안 매 픽셀
@@ -189,9 +240,14 @@ struct RouteMapView: UIViewRepresentable {
             previews: [PlaceSummary] = [],
             guidePlaces: [RouteGuide.Place] = [],
             pickedGuide: RouteGuide.Place? = nil,
+            navTarget: RouteStop? = nil,
+            navGuiding: Bool = false,
+            legs: [RouteLeg] = [],
+            recenterTick: Int = 0,
             on mapView: NMFMapView
         ) {
             renderPending(pending, on: mapView)
+            renderLegs(legs, on: mapView)
 
             if showingMe != self.showingMe {
                 self.showingMe = showingMe
@@ -210,15 +266,39 @@ struct RouteMapView: UIViewRepresentable {
                 + "|" + previews.map { String($0.id) }.joined(separator: ",")
                 + "|" + guidePlaces.map(\.id).joined(separator: ",")
                 + "|\(pickedGuide?.id ?? "-")"
+                + "|\(navTarget?.id.uuidString ?? "-")\(navGuiding ? "g" : "")"
             let contentChanged = key != lastKey
             if contentChanged {
                 lastKey = key
                 grown = nil // 마커를 새로 그리므로 키워 둔 참조도 버린다
                 drawPins(stops, focused: focused, previews: previews,
-                         guidePlaces: guidePlaces, pickedGuide: pickedGuide, on: mapView)
-                drawLine(stops, on: mapView)
+                         guidePlaces: guidePlaces, pickedGuide: pickedGuide,
+                         navTarget: navTarget, on: mapView)
+                drawLine(stops, keepFrom: navGuiding ? navTarget : nil, on: mapView)
                 positionPulse()
             }
+
+            // **안내 중에는 카메라가 「나와 목적지와 길」을 본다.** 경로가 오거나 되돌리기
+            // 신호가 올 때만 움직인다 — 걸을 때마다 따라가면 손으로 옮긴 화면이 계속
+            // 되돌아간다(아래 일반 규칙과 같은 이유).
+            if let navTarget {
+                let tripKey = "\(navTarget.id)|\(legs.map { "\($0.mode)\($0.path.count)" }.joined())|\(recenterTick)"
+                if tripKey != lastTripCameraKey {
+                    lastTripCameraKey = tripKey
+                    DispatchQueue.main.async { [weak mapView] in
+                        guard let mapView else { return }
+                        self.fitTrip(to: navTarget, legs: legs, on: mapView)
+                    }
+                }
+                updateHalo(
+                    style: .brand,
+                    at: NMGLatLng(lat: navTarget.place.latitude, lng: navTarget.place.longitude),
+                    lift: navTarget.visited ? 0 : 30, // 도착했으면 발바닥 핀 — 자리 위에
+                    on: mapView
+                )
+                return
+            }
+            lastTripCameraKey = ""
 
             // **카메라는 화면에 있는 것을 늘 다 담는다.**
             //
@@ -240,6 +320,7 @@ struct RouteMapView: UIViewRepresentable {
                 updateHalo(
                     style: .brand,
                     at: NMGLatLng(lat: focused.place.latitude, lng: focused.place.longitude),
+                    lift: focused.visited ? 0 : 30,
                     on: mapView
                 )
             } else {
@@ -318,6 +399,7 @@ struct RouteMapView: UIViewRepresentable {
             previews: [PlaceSummary],
             guidePlaces: [RouteGuide.Place],
             pickedGuide: RouteGuide.Place?,
+            navTarget: RouteStop? = nil,
             on mapView: NMFMapView
         ) {
             markers.forEach { $0.mapView = nil }
@@ -325,7 +407,14 @@ struct RouteMapView: UIViewRepresentable {
                 let marker = NMFMarker(
                     position: NMGLatLng(lat: stop.place.latitude, lng: stop.place.longitude)
                 )
-                if stop.id == focused?.id {
+                if stop.visited {
+                    // **다녀온 곳은 번호 핀이 발바닥으로 바뀐다**(2026-09-03 사용자 요청 —
+                    // 「도착한 표시로 그 핀이 발바닥으로」). 자리 위에 얹는다.
+                    marker.iconImage = PinoPin.pawPin()
+                    marker.anchor = CGPoint(x: 0.5, y: 0.5)
+                    marker.zIndex = 8
+                } else if stop.id == focused?.id || stop.id == navTarget?.id {
+                    // 고른 곳과 **지금 안내 중인 목적지**는 해태다.
                     marker.iconImage = PinoPin.marker(.normal)
                     // 다른 핀에 가리지 않게 위로 올린다.
                     marker.zIndex = 10
@@ -334,19 +423,13 @@ struct RouteMapView: UIViewRepresentable {
                 }
                 marker.captionText = stop.place.name
                 marker.captionMinZoom = 12
+                // 번호 핀을 누르면 성지 카드(장면 설명·여기로 길찾기)가 뜬다.
+                marker.touchHandler = { [weak self] _ in
+                    self?.onTapStop(stop)
+                    return true
+                }
                 marker.mapView = mapView
                 return marker
-            }
-
-            // 다녀온 성지 — 번호 핀 옆에 발바닥 배지(길찾기 지도와 같은 표시). 여행 중
-            // 편집 화면으로 돌아왔을 때 어디까지 갔는지 지도에서 바로 보여야 한다(2026-09-02).
-            for stop in stops where stop.visited {
-                let badge = NMFMarker(position: NMGLatLng(lat: stop.place.latitude, lng: stop.place.longitude))
-                badge.iconImage = PinoPin.pawBadge()
-                badge.anchor = CGPoint(x: -0.05, y: 1.35)
-                badge.zIndex = 12
-                badge.mapView = mapView
-                markers.append(badge)
             }
 
             // 담을까 보는 곳(검색·장바구니에서 체크한 것) — 빨간 고양이.
@@ -385,25 +468,6 @@ struct RouteMapView: UIViewRepresentable {
                 marker.mapView = mapView
                 return marker
             }
-        }
-
-        /// **직선이다.** 8/11 회의 2부 확정 — 여행 전 계획에서는 길찾기 API 를 부르지
-        /// 않으므로 실제 도로 궤적을 알 수 없다. 곡선으로 그리면 실제 경로처럼
-        /// 읽히므로 오히려 거짓말이 된다.
-        private func drawLine(_ stops: [RouteStop], on mapView: NMFMapView) {
-            path?.mapView = nil
-            path = nil
-            guard stops.count > 1 else { return }
-            let points = stops.map {
-                NMGLatLng(lat: $0.place.latitude, lng: $0.place.longitude)
-            }
-            guard let line = NMFPath(points: points) else { return }
-            line.color = PinImage.deep
-            line.outlineColor = .white
-            line.width = 4
-            line.outlineWidth = 1
-            line.mapView = mapView
-            path = line
         }
 
         private func renderPending(_ pin: RoutePin?, on mapView: NMFMapView) {

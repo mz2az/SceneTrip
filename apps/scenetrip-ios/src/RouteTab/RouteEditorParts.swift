@@ -44,6 +44,13 @@ struct RouteStopRow: View {
     /// 그 고정이 지금 켜져 있는가.
     var isPinned = false
 
+    /// 지금 안내 중인 목적지인가(2026-09-03, 계획 trip-mode.md §8).
+    var isTarget = false
+
+    /// 「길찾기」를 눌렀다 — 여행 중이고 아직 안 간 곳에만 달린다. 편집 화면 지도에
+    /// 이 곳까지의 경로가 그려진다. 없으면 단추도 없다.
+    var onNavigate: (() -> Void)?
+
     enum PinKind {
         case start
         case end
@@ -134,6 +141,9 @@ struct RouteStopRow: View {
             // 버튼을 누를 때도 지도가 함께 움직인다.
             .contentShape(.rect)
             .onTapGesture(perform: onFocus)
+            // 다녀온 곳은 **흐려진다** — 어디까지 왔는지 목록에서 한눈에(2026-09-03 사용자
+            // 요청: 「회색 처리 비활성화」). 아래 줄의 발바닥이 「다녀옴」을 말한다.
+            .opacity(stop.visited ? 0.45 : 1)
 
             // 정지점마다 있던 「길찾기」 단추는 **없앴다**(2026-09-02 여행 모드, 계획
             // trip-mode.md). 여행 중 길찾기는 「코스 시작」·「여행 이어가기」·홈의 「이어서
@@ -144,20 +154,47 @@ struct RouteStopRow: View {
                     // **다녀온 곳은 크게 찍힌다.** 작은 「방문」 칩은 눈에 안 띄어 여행을
                     // 이어 갈 때 어디까지 왔는지 못 알아봤다(2026-09-02 사용자 지적).
                     // 길찾기 화면의 스탬프·핀 배지와 같은 발바닥이다.
-                    HStack(spacing: 7) {
+                    // 크기는 **한 줄 높이**에 맞춘다 — 38pt 로 두니 옆 칩들과 폭을 다투다
+                    // 「다녀옴」이 두 줄로 꺾였다(2026-09-03 사용자 지적). 글자는 절대 안 꺾는다.
+                    HStack(spacing: 6) {
                         ZStack {
                             Circle().fill(LinearGradient(
                                 colors: [Color(PinImage.light), Color(PinImage.deep)],
                                 startPoint: .topLeading, endPoint: .bottomTrailing
                             ))
-                            PawShape().fill(.white).frame(width: 22, height: 22).rotationEffect(.degrees(-12))
+                            PawShape().fill(.white).frame(width: 17, height: 17).rotationEffect(.degrees(-12))
                         }
-                        .frame(width: 38, height: 38)
-                        .shadow(color: Color(PinImage.deep).opacity(0.3), radius: 3, y: 1)
-                        Text("다녀옴").font(.subheadline.weight(.heavy)).foregroundStyle(Color(PinImage.deep))
+                        .frame(width: 30, height: 30)
+                        .shadow(color: Color(PinImage.deep).opacity(0.3), radius: 2, y: 1)
+                        Text("다녀옴").font(.caption.weight(.heavy)).foregroundStyle(Color(PinImage.deep))
+                            .lineLimit(1).fixedSize()
                     }
-                    .padding(.trailing, 4)
                     .accessibilityLabel("다녀온 곳")
+                }
+
+                // 여행 중 **이 곳으로 길찾기** — 별도 창이 아니라 이 화면의 지도에 경로가
+                // 그려진다(2026-09-03, 계획 trip-mode.md §8). 안내 중인 곳은 눌릴 것이 없어
+                // 「안내 중」 표시만 남긴다.
+                if isTarget {
+                    // `fixedSize` 는 안 된다 — Label 이 글자를 떨궈 아이콘만 남는다(2026-09-03 실측).
+                    Label("안내 중", systemImage: "location.fill")
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(1).layoutPriority(1)
+                        .padding(.horizontal, 9)
+                        .frame(height: 30)
+                        .background(Capsule().fill(Color(PinImage.deep)))
+                        .foregroundStyle(.white)
+                } else if let onNavigate, !stop.visited {
+                    Button(action: onNavigate) {
+                        Label("길찾기", systemImage: "location")
+                            .font(.caption2.weight(.medium))
+                            .lineLimit(1).layoutPriority(1)
+                            .padding(.horizontal, 9)
+                            .frame(height: 30)
+                            .background(Capsule().fill(Color(PinImage.deep).opacity(0.12)))
+                            .foregroundStyle(Color(PinImage.deep))
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 // 고정 단추는 **첫 줄과 마지막 줄에만** 붙는다. 「이 줄을 붙들어
@@ -169,6 +206,7 @@ struct RouteStopRow: View {
                                 .font(.caption2)
                             Text("\(pinKind.label) 고정").font(.caption2.weight(.medium))
                         }
+                        .lineLimit(1).fixedSize()
                         .padding(.horizontal, 9)
                         .frame(height: 30)
                         .background(Capsule().fill(
@@ -180,8 +218,11 @@ struct RouteStopRow: View {
                 }
 
                 if let nextKilometers {
+                    // `fixedSize` 를 붙이면 Label 이 글자를 떨궈 화살표만 남았다(2026-09-03 실측).
                     Label(RouteFormat.kilometers(nextKilometers), systemImage: "arrow.down")
                         .font(.caption)
+                        .lineLimit(1)
+                        .layoutPriority(1)
                         .foregroundStyle(running ? .secondary : .tertiary)
                 }
             }

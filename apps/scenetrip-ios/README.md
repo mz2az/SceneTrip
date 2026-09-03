@@ -54,31 +54,34 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 확인용 뒷문 `-initialTab` 은 그대로다: `search`·`community` 는 탭, `route`·`profile` 은
 홈 위의 덮개로 열린다. 인자가 없으면 홈이다(예전엔 검색).
 
-## 여행 모드 — 코스 시작부터 스탬프까지 한 흐름 (2026-09-02, 1단계)
+## 여행 모드 — 편집 화면 안에서 길찾기·스탬프 (2026-09-03, 2단계)
 
-계획은 [trip-mode.md](../../docs/project/plans/trip-mode.md). 정지점마다 있던 「길찾기」
-단추는 **없앴다** — 흐름을 잇는 주체가 사람이면 안 된다(사용자 제안).
+계획은 [trip-mode.md](../../docs/project/plans/trip-mode.md) §8. 1단계의 별도 길찾기 창은
+코스 여행에서 **더 안 쓴다** — 계획 화면(일차 탭·번호 핀·직선)과 여행이 갈라진 두 세계였다.
+이제 **편집 화면의 지도가 곧 여행 지도**다.
 
 ```
-[코스 시작] → 오늘 일차의 첫 미방문 성지로 길찾기 (RouteNavView)
-  → 위치를 계속 받는다 (앱 사용 중 · 25 m 마다)               RouteLocator.track
-  → 반경 100 m 안에 5분 머무르면 도착                           TripArrival (뒷문 -tripDwellSeconds 10)
-  → 발바닥 스탬프 쾅 + 햅틱 → visitedAt                         PawStampOverlay · markVisited
-  → 1.6초 뒤 다음 미방문 성지로 목적지가 바뀐다                   advanceToNextStop
+[코스 시작] / 행의 「길찾기」 / 홈 「이어서 길찾기」          startTrip → TripSession.start
+  → 이 지도에 현재 위치 → N번 실제 경로 (직선 계획선 위에)     RouteMapView.legs · tripHere
+  → 위치를 계속 받는다 (앱 사용 중 · 25 m 마다)                 RouteLocator.track
+  → 반경 100 m 안에 5분 머무르면 도착                            TripArrival (뒷문 -tripDwellSeconds 10)
+  → 발바닥 스탬프 쾅 + 햅틱 → visitedAt                          PawStampOverlay · markVisited
+       · N번 핀이 **발바닥 핀**으로 바뀌고 목록의 N번 줄은 흐려진다
+       · 경로선은 지운다. **다음으로 넘기지 않는다** — 둘러볼 시간은 사람의 것이다
+  → 아래 줄 「다음 · M번 ○○로 길찾기」를 사람이 누르면 그때 M번 경로
   → 다 돌면 「오늘 일정을 모두 돌았어요」
 ```
 
-- 입구 셋: 편집 화면 「코스 시작」(시작 즉시 열림) · 여행 중 편집 화면의 「여행 이어가기」 ·
-  홈의 「이어서 길찾기」. 정지점 행에는 단추 대신 **「방문」 배지**(`RouteStop.visited`, 서버
-  `visitedAt`)가 붙는다.
-- 「여기 도착함」은 남겼다 — 머무를 시간이 없거나 GPS 가 튈 때의 탈출구. 누르면 스탬프 연출을
-  거쳐 다음 성지로 넘어간다(화면이 닫히지 않는다).
-- **발자취**(젤다 「영걸의 길」): 길찾기 머리줄의 발자국 토글을 켜면 지나간 자리가 지도에
-  연보라 점선으로 남는다. `FootprintStore` — **기기 파일에만** 저장, 한국 안에서만, 25 m 마다 한
-  점. 마이페이지 「발자취」 절에서 거리 확인·끄기·지우기. 시간 되감기는 2단계.
+- 「여기 도착함」은 남겼다 — 머무를 시간이 없거나 GPS 가 튈 때의 탈출구. 저절로 찍힐 때와
+  같은 길을 지난다(스탬프 → 도착 상태로 서기).
+- 안내 띠(일정 시트 맨 위): 어디로 가는 중인지, 총 시간·환승·도보, 구간 조각(도보=회색·
+  대중교통=초록), 머무름 힌트. 오른쪽 X 가 「안내 끝」.
+- 번호 핀을 누르면 성지 카드(장면 설명)가 뜨고, 여행 중이면 「여기로 길찾기」가 있다.
+- **발자취**(젤다 「영걸의 길」): `FootprintStore` — **기기 파일에만** 저장, 한국 안에서만, 25 m 마다 한
+  점. 마이페이지 「발자취」 절에서 거리 확인·끄기·지우기. 시간 되감기는 계획서 §3.
+- 홈의 「오늘의 성지」(코스 없음)만 예전 길찾기 창(`RouteNavView`)을 쓴다.
 - 시뮬레이터에서 보기: `xcrun simctl location booted set <위도>,<경도>` 로 첫 성지 옆에 서고,
-  `-tripDwellSeconds 10` 으로 켰으면 10초 뒤 스탬프가 찍히고 다음 성지로 넘어간다.
-- 2단계(지오펜스 + 로컬 알림 + 권한 「항상」, 발자취 되감기)는 계획서 §3.
+  `-tripDwellSeconds 10` 으로 켰으면 10초 뒤 스탬프가 찍힌다. 다음은 단추를 눌러야 간다.
 
 ### 데모 주행 — 중간발표 영상 (계획서 §7)
 
@@ -92,7 +95,8 @@ just ios-demo 5 8 25  # 5번까지, 8초 머무름, 25 m/s (영상을 짧게)
 저장소의 데모 코스(`resources/demo/demo-course.json`, 「도깨비 외 1 2박 3일」 15곳)가 이
 설치본에 없으면 서버에 만들어 여행 중으로 바꾸고, 1번 성지 길찾기를 연다. 그다음은 **앱 안의
 가상 GPS**(`DemoDrive`)가 경로선을 따라 12 m/s 로 걸어가 반경 안에 서고, 머무름이 차면 발바닥
-스탬프 → 핀 옆에 발바닥 배지 → 다음 성지. 진짜 위치 서비스는 쓰지 않는다. 실행 인자가
+스탬프 → 핀이 발바닥으로. 다음 성지는 「다음 · N번으로」를 눌러야 간다(2026-09-03). 진짜 위치
+서비스는 쓰지 않는다. 실행 인자가
 없으면 이 코드는 아무 것도 하지 않는다 — 실제 사용자에게는 없는 기능이다.
 
 ## 다른 맥에서 돌리기 — 백엔드 담당용 (MZ2AZ-288)
@@ -171,11 +175,12 @@ just ios-demo 5 8 25  # 5번까지, 8초 머무름, 25 m/s (영상을 짧게)
 | `RouteWizardView.swift` | 질문 흐름 — 기간 → 날짜(선택) → 작품 → 빡빡/널널 → 요약 |
 | `RoutePlanner.swift` | AI 가 코스를 짠다 — 로컬 LLM(`127.0.0.1:8900`)에게 「이 후보 중 어느 것을」만 맡기고, 개수·순서는 코드가 지킨다 |
 | `RouteEditorView.swift` · `RouteEditorControls.swift` · `RouteEditorParts.swift` | 편집 화면 — 일차 ＋/−, 드래그 정렬, 체류 시간, 동선 최적화(출발·도착 고정 선택), 장소 검색·장바구니·핀 찍기 |
+| `RouteEditorTrip.swift` · `TripSession.swift` · `RouteMapTrip.swift` · `TripMode.swift` | 여행 안내 — 편집 화면 안의 안내 띠·아래 줄·스탬프(`RouteEditorTrip`), 목적지·경로·머무름·데모 주행 상태(`TripSession`), 지도의 파문·경로선·안내 카메라(`RouteMapTrip`), 반경·머무름 판정(`TripMode`) |
 | `RouteSearchSheet.swift` | 편집 화면 안에서 바로 장소를 찾아 담는 시트 — 장바구니를 거치지 않는다 |
 | `RouteGeometry`(`RouteModels.swift` 안) | 동선 최적화 — 최근접 이웃·2-opt·완전탐색(≤8곳) 세 방법 중 가장 짧은 것. 출발·도착 고정은 각각 선택이다 |
 | `RouteMapView.swift` | 코스용 지도 — 번호 핀, 계획 단계는 **직선**만(예상 시간 표시 안 함) |
 | `KakaoTransit.swift` | 여행 중 「길찾기」 — 카카오 대중교통·도보(2026-08-24 도보도 카카오로 통일). **MVP1 동안 앱이 직접 부른다**, 백엔드 자리는 MZ2AZ-233 |
-| `RouteNavView.swift` · `RouteNavMapView.swift` · `RouteNavModels.swift` · `RoutePoiTone.swift` | 「길찾기」 결과 화면 — 실제 경로(도보=점선, 대중교통=실선) + 가이드 추천 핀 + 챗봇 진입 |
+| `RouteNavView.swift` · `RouteNavMapView.swift` · `RouteNavModels.swift` · `RoutePoiTone.swift` | 예전 길찾기 창 — 이제 홈 「오늘의 성지」(코스 없음)에만 쓴다. `RouteNavModels` 의 `RouteLeg`·`RouteNavResult` 는 편집 지도도 쓴다 |
 | `RouteBridge.swift` | 계약 타입(`CourseDetail` 등) ↔ 화면 타입(`RouteCourse` 등) 번역. 화면이 계약 타입을 직접 만지지 않는다 |
 | `RouteMarketView.swift` | 「인기 코스」 — 이름·정렬 기준 미확정. 목록은 여전히 지어낸 것이나 **속 장소는 서버의 진짜 장소**라 담기가 실제로 동작한다 |
 | `RouteModels.swift` · `RouteStore.swift` · `RouteMockData.swift` | 값 타입, 서버 연동 상태, (검색 탭 장바구니 예시 등) 남은 목 데이터 |

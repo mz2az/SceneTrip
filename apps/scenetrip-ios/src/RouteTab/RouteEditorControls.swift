@@ -23,8 +23,22 @@ extension RouteEditorView {
             pickedGuide: visiblePickedGuide,
             ambientPlaces: visibleAmbientPois,
             onViewport: viewportChanged,
-            onTapGuide: { guide.picked = $0 },
-            bottomInset: panelHeight
+            onTapGuide: {
+                guide.picked = $0
+                pickedStop = nil // 카드는 한 장만
+            },
+            bottomInset: panelHeight,
+            // 여행 안내(2026-09-03) — 내 자리·목적지·실제 경로를 이 지도에.
+            tripHere: trip.here,
+            navTarget: trip.target,
+            navGuiding: trip.phase == .guiding,
+            legs: trip.result?.legs ?? [],
+            recenterTick: trip.recenterTick,
+            previewTo: previewTarget,
+            onTapStop: {
+                pickedStop = $0
+                guide.picked = nil // 카드는 한 장만
+            }
         ) { pin in
             // 한 번 찍으면 모드를 끈다. 켜 둔 채로 두면 시트를 닫는 손짓이 다음 핀이 된다.
             pinning = false
@@ -63,13 +77,21 @@ extension RouteEditorView {
                     }
                 }
                 .padding(10)
+                // 도착 알림 카드가 떠 있으면 그 밑으로 내려온다.
+                .padding(.top, trip.phase == .arrived ? tripBannerHeight : 0)
             }
         }
     }
 
     private var locateButton: some View {
         Button {
-            showingMe.toggle()
+            // 안내 중에는 토글이 아니라 **되돌리기**다 — 내 자리는 늘 보이고, 지도를
+            // 밀다가 나와 목적지로 돌아오는 일만 한다(길찾기 창의 규칙 그대로).
+            if trip.isActive {
+                trip.recenter()
+            } else {
+                showingMe.toggle()
+            }
         } label: {
             // 과녁 십자(dot.scope) — 검색 탭의 현위치 버튼과 같은 모양이다.
             // 켜짐은 모양이 아니라 배경색으로 구별한다.

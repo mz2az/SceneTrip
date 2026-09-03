@@ -41,6 +41,10 @@ final class TabRouter: ObservableObject {
     /// 연다(`-initialTab route` 와 함께). 화면 캡쳐·검증에 쓴다(MZ2AZ-292).
     @Published var pendingCourseId: Int64?
 
+    /// 홈 「이어서 길찾기」 — 코스를 열자마자 **첫 미방문 성지로 안내를 켠다**(2026-09-03,
+    /// 계획 trip-mode.md §8). 편집 화면이 읽고 끈다.
+    @Published var pendingTripStart = false
+
     /// 작품검색 탭이 열어 줘야 할 작품의 서버 id — 홈의 「지금 뜨는 작품」이 남긴다.
     @Published var pendingContentId: Int64?
 
