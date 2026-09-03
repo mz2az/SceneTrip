@@ -91,7 +91,7 @@ enum DemoDrive {
 }
 
 /// 저장소에 든 데모 코스(`resources/demo/demo-course.json`) — 팀원 누구의 맥에서도 같은
-/// 영상이 나오게 코스 하나를 함께 둔다. 장소 id 는 `seed/v6.csv` 의 것이다.
+/// 영상이 나오게 코스 하나를 함께 둔다. 장소 id 는 `seed/candidates.csv`(v3) 의 것이다.
 enum DemoCourse {
     struct File: Decodable {
         struct Stop: Decodable {

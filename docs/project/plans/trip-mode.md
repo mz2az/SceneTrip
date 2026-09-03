@@ -99,7 +99,7 @@ RouteEditorView       「코스 시작」 → 바로 길찾기 화면
 `-demoDrive N` 이 켜지면 길찾기 화면이 위치 서비스 대신 `DemoDrive` 가 내는 좌표를 받는다.
 
 - **데모 코스는 저장소에 있다** — `apps/scenetrip-ios/resources/demo/demo-course.json`(정승길
-  설치본의 「도깨비 외 1 2박 3일」, 3일차 15곳, 장소 id 는 `seed/v6.csv`). `-demoCourse 1` 이면
+  「도깨비 · 선재 2박 3일」 — 종로·수원 화성·인천 제물포 15곳, 장소 id 는 `seed/candidates.csv`(v3, 2026-09-03 갱신)). `-demoCourse 1` 이면
   경로여정이 뜰 때 같은 제목의 코스가 없으면 이 파일로 서버에 만들고, 그 코스를 연다. 팀원
   누구의 맥에서도 같은 영상이 나온다.
 - **움직임**: 지금 목적지까지의 경로선(카카오 길찾기 `legs.path`)을 따라 초당 `speed` m

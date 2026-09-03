@@ -51,9 +51,9 @@ ios-run:
 #   just ios-demo 5 8 25      ← 5번까지, 8초 머무름, 25 m/s (영상을 짧게)
 # 먼저 `just ios-run` 으로 앱이 설치돼 있어야 한다.
 [group('build')]
-ios-demo until="3" dwell="5" speed="12":
-    xcrun simctl terminate booted com.mz2az.scenetrip 2>/dev/null || true
-    xcrun simctl launch booted com.mz2az.scenetrip \
+ios-demo until="3" dwell="5" speed="12" device="booted":
+    xcrun simctl terminate {{device}} com.mz2az.scenetrip 2>/dev/null || true
+    xcrun simctl launch {{device}} com.mz2az.scenetrip \
         -initialTab route -demoCourse 1 -navStop 1 \
         -demoDrive {{until}} -tripDwellSeconds {{dwell}} -demoSpeed {{speed}} -footprintOn 1
 

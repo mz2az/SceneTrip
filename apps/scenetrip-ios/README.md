@@ -92,7 +92,7 @@ just ios-demo 5 8 25  # 5번까지, 8초 머무름, 25 m/s (영상을 짧게)
 ```
 
 `-demoCourse 1 -navStop 1 -demoDrive N -tripDwellSeconds S -footprintOn 1` 로 앱을 띄운다.
-저장소의 데모 코스(`resources/demo/demo-course.json`, 「도깨비 외 1 2박 3일」 15곳)가 이
+저장소의 데모 코스(`resources/demo/demo-course.json`, 「도깨비 · 선재 2박 3일」 15곳, 장소 id 는 시드 v3)가 이
 설치본에 없으면 서버에 만들어 여행 중으로 바꾸고, 1번 성지 길찾기를 연다. 그다음은 **앱 안의
 가상 GPS**(`DemoDrive`)가 경로선을 따라 12 m/s 로 걸어가 반경 안에 서고, 머무름이 차면 발바닥
 스탬프 → 핀이 발바닥으로. 다음 성지는 「다음 · N번으로」를 눌러야 간다(2026-09-03). 진짜 위치
