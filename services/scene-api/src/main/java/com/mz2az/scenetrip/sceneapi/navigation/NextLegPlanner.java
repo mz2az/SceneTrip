@@ -6,6 +6,7 @@ import static com.mz2az.scenetrip.sceneapi.navigation.kakao.KakaoRoutingClient.S
 import static com.mz2az.scenetrip.sceneapi.navigation.kakao.KakaoRoutingClient.STATUS_OK;
 import static com.mz2az.scenetrip.sceneapi.navigation.kakao.KakaoRoutingClient.STATUS_START_NODES_NULL;
 
+import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.LineString;
 import com.mz2az.scenetrip.sceneapi.api.model.NextLeg;
 import com.mz2az.scenetrip.sceneapi.api.model.RouteLeg;
@@ -26,6 +27,10 @@ import org.springframework.stereotype.Component;
  * <p>카카오를 부르는 것은 {@link KakaoRoutingClient} 가 하고, 이 클래스는 <b>무엇을 물을지·받은 것을 어떻게 읽을지</b>만 정한다. 카카오 응답의
  * {@code status} 를 읽는 것도 여기다 — {@code NO_RESULTS}·{@code EQUAL_POINTS} 는 오류가 아니라 정상 답이라 예외가 아니라 분기로
  * 다룬다.
+ *
+ * <p><b>문장을 만들지 않는다.</b> 「도보 3분 · 210 m」 같은 표시 문구는 앱이 {@code meters}·{@code seconds} 로 자기 로케일에 맞춰
+ * 조립한다. 서버가 문장을 만들면 그 문장의 언어를 서버가 떠안는다. 카카오 안내문은 원문 그대로 넘기고 {@code guidanceLang} 으로 무슨 언어인지만 알린다 —
+ * 번역할지는 앱이 정한다.
  *
  * <p>규칙 넷. 앱의 {@code KakaoTransit.swift} 에서 가져왔고, 실측(2026-09-02)으로 셋을 고쳤다.
  *
@@ -71,33 +76,40 @@ public class NextLegPlanner {
     this.walkOnlyUnderMeters = walkOnlyUnderMeters;
   }
 
-  /** 현재 위치에서 목적지까지. 카카오를 1~3번 부른다 — 도보만이면 1번, 대중교통이면 1번 + 양 끝 도보 최대 2번. */
-  public NextLeg plan(Coordinate here, Coordinate target) {
+  /**
+   * 현재 위치에서 목적지까지. 카카오를 1~3번 부른다 — 도보만이면 1번, 대중교통이면 1번 + 양 끝 도보 최대 2번.
+   *
+   * @param lang 앱의 {@code Accept-Language}. 카카오에는 {@code ko} 아니면 {@code en} 으로 간다.
+   */
+  public NextLeg plan(Coordinate here, Coordinate target, Lang lang) {
+    String kakaoLang = KakaoRoutingClient.toKakaoLang(lang);
+    NextLeg.GuidanceLangEnum guidanceLang = NextLeg.GuidanceLangEnum.fromValue(kakaoLang);
+
     double straight = here.distanceMetersTo(target);
     if (straight < walkOnlyUnderMeters) {
-      return walkOnly(here, target, CODE_ROUTE_NOT_FOUND);
+      return walkOnly(here, target, CODE_ROUTE_NOT_FOUND, kakaoLang, guidanceLang);
     }
 
-    KakaoTransitResponse res = kakao.transit(here, target);
+    KakaoTransitResponse res = kakao.transit(here, target, kakaoLang);
     String status = res.status();
     if (STATUS_OK.equals(status)) {
       if (res.routes() == null || res.routes().isEmpty()) {
         // OK 인데 후보가 없다 — 문서에 없는 조합이지만 NO_RESULTS 와 같이 다룬다.
         log.info("대중교통 응답이 OK 인데 후보가 비었다 — 도보로 넘어간다 ({} m)", Math.round(straight));
-        return walkOnly(here, target, CODE_ROUTE_NOT_FOUND);
+        return walkOnly(here, target, CODE_ROUTE_NOT_FOUND, kakaoLang, guidanceLang);
       }
-      return fromTransit(res.routes().get(0), here, target);
+      return fromTransit(res.routes().get(0), here, target, kakaoLang, guidanceLang);
     }
     if (STATUS_EQUAL_POINTS.equals(status)) {
-      return arrived();
+      return arrived(guidanceLang);
     }
     if (STATUS_NO_RESULTS.equals(status)) {
       log.info("대중교통 경로 없음 — 도보로 넘어간다 ({} m)", Math.round(straight));
-      return walkOnly(here, target, CODE_ROUTE_NOT_FOUND);
+      return walkOnly(here, target, CODE_ROUTE_NOT_FOUND, kakaoLang, guidanceLang);
     }
     if (STATUS_START_NODES_NULL.equals(status) || STATUS_END_NODES_NULL.equals(status)) {
       log.info("근처에 정류장 없음({}) — 도보로 넘어간다 ({} m)", status, Math.round(straight));
-      return walkOnly(here, target, CODE_NO_TRANSIT_NEARBY);
+      return walkOnly(here, target, CODE_NO_TRANSIT_NEARBY, kakaoLang, guidanceLang);
     }
     // INVALID_REQUEST 등 — 우리가 잘못 보낸 것이다. 500 그물로.
     throw new IllegalStateException("카카오 대중교통 응답 상태를 모른다: " + status);
@@ -111,11 +123,16 @@ public class NextLegPlanner {
    * @param codeIfNoRoute 걷는 길도 없을 때 낼 422 코드. 대중교통이 없어서 왔으면 「경로 없음」, 정류장이 없어서 왔으면 「근처에 대중교통 없음」 —
    *     어느 쪽인지 앱이 다르게 말할 수 있게 한다.
    */
-  private NextLeg walkOnly(Coordinate from, Coordinate to, String codeIfNoRoute) {
-    KakaoWalkResponse res = kakao.walk(from, to);
+  private NextLeg walkOnly(
+      Coordinate from,
+      Coordinate to,
+      String codeIfNoRoute,
+      String kakaoLang,
+      NextLeg.GuidanceLangEnum guidanceLang) {
+    KakaoWalkResponse res = kakao.walk(from, to, kakaoLang);
     String status = res.status();
     if (STATUS_EQUAL_POINTS.equals(status)) {
-      return arrived();
+      return arrived(guidanceLang);
     }
     if (STATUS_NO_RESULTS.equals(status)
         || STATUS_START_NODES_NULL.equals(status)
@@ -129,7 +146,7 @@ public class NextLegPlanner {
     KakaoWalkResponse.Properties p = res.route().properties();
     requireTotals(p == null ? null : p.totalDistance(), p == null ? null : p.totalTime());
     // 걷는 데 요금은 없다 — 이 0 은 「모름」이 아니라 진짜 0 이다.
-    return new NextLeg(ceilMinutes(p.totalTime()), 0, walkLegs(res.route()))
+    return new NextLeg(ceilMinutes(p.totalTime()), 0, guidanceLang, walkLegs(res.route()))
         .walkMeters(p.totalDistance())
         .fareWon(0);
   }
@@ -137,7 +154,11 @@ public class NextLegPlanner {
   // ───────────── 대중교통 ─────────────
 
   private NextLeg fromTransit(
-      KakaoTransitResponse.Route route, Coordinate here, Coordinate target) {
+      KakaoTransitResponse.Route route,
+      Coordinate here,
+      Coordinate target,
+      String kakaoLang,
+      NextLeg.GuidanceLangEnum guidanceLang) {
     KakaoTransitResponse.Properties p = route.properties();
     requireTotals(p == null ? null : p.totalDistance(), p == null ? null : p.totalTime());
     List<KakaoTransitResponse.Step> steps = route.steps() == null ? List.of() : route.steps();
@@ -150,6 +171,7 @@ public class NextLegPlanner {
         vehicleMeters += nz(step.properties().distance());
       }
     }
+
     List<RouteLeg> legs = new ArrayList<>();
     for (KakaoTransitResponse.Step step : steps) {
       legs.add(isWalking(step) ? walkLeg(step) : transitLeg(step));
@@ -160,19 +182,19 @@ public class NextLegPlanner {
     if (!steps.isEmpty() && !isWalking(steps.get(0))) {
       Coordinate boarding = firstPoint(steps.get(0));
       if (boarding != null) {
-        legs.addAll(0, stitch(here, boarding, "출발지→승차점"));
+        legs.addAll(0, stitch(here, boarding, kakaoLang, "출발지→승차점"));
       }
     }
     if (!steps.isEmpty() && !isWalking(steps.get(steps.size() - 1))) {
       Coordinate alighting = lastPoint(steps.get(steps.size() - 1));
       if (alighting != null) {
-        legs.addAll(stitch(alighting, target, "하차점→목적지"));
+        legs.addAll(stitch(alighting, target, kakaoLang, "하차점→목적지"));
       }
     }
 
     int walkMetersRaw = p.totalDistance() - vehicleMeters;
     Integer walkMeters = walkMetersRaw >= 0 ? walkMetersRaw : null;
-    return new NextLeg(ceilMinutes(p.totalTime()), nz(p.transfers()), legs)
+    return new NextLeg(ceilMinutes(p.totalTime()), nz(p.transfers()), guidanceLang, legs)
         .walkMeters(walkMeters)
         .fareWon(fare(p.fare()));
   }
@@ -183,9 +205,9 @@ public class NextLegPlanner {
    * <p>못 받으면 빈 목록이다. 본 경로는 이미 있으니 선이 조금 끊기는 쪽이 통째로 503 을 내는 것보다 낫다. 도보 쿼터가 대중교통보다 먼저 바닥나는 날이 이 자리에서
    * 조용히 시작되므로 WARN 으로 남긴다.
    */
-  private List<RouteLeg> stitch(Coordinate from, Coordinate to, String label) {
+  private List<RouteLeg> stitch(Coordinate from, Coordinate to, String kakaoLang, String label) {
     try {
-      KakaoWalkResponse res = kakao.walk(from, to);
+      KakaoWalkResponse res = kakao.walk(from, to, kakaoLang);
       if (STATUS_OK.equals(res.status()) && res.route() != null) {
         return walkLegs(res.route());
       }
@@ -210,15 +232,15 @@ public class NextLegPlanner {
       }
       for (KakaoWalkResponse.Step step : leg.steps()) {
         KakaoWalkResponse.StepProperties sp = step.properties();
-        String guidance = sp == null || sp.guidance() == null ? "걸어서 이동" : sp.guidance();
         legs.add(
             new RouteLeg(
-                RouteLeg.ModeEnum.WALK,
-                guidance,
-                walkDetail(sp == null ? null : sp.distance(), sp == null ? null : sp.time()),
-                lineString(step.path() == null ? null : step.path().points()),
-                // 도보 응답은 계단을 말해 주지 않는다 — 실측에서 「계단」 문구가 한 번도 없었다. 「없음」이 아니라 「모름」이다.
-                false));
+                    RouteLeg.ModeEnum.WALK,
+                    sp == null || sp.guidance() == null ? "" : sp.guidance(),
+                    lineString(step.path() == null ? null : step.path().points()),
+                    // 도보 응답은 계단을 말해 주지 않는다 — 실측에서 「계단」 문구가 한 번도 없었다. 「없음」이 아니라 「모름」이다.
+                    false)
+                .meters(sp == null ? null : sp.distance())
+                .seconds(sp == null ? null : sp.time()));
       }
     }
     return legs;
@@ -227,65 +249,36 @@ public class NextLegPlanner {
   /** 대중교통 응답 안의 WALKING step — 환승 도보. 통째로 한 step 이라 안내문도 하나다. */
   private static RouteLeg walkLeg(KakaoTransitResponse.Step step) {
     KakaoTransitResponse.StepProperties sp = step.properties();
-    String guidance = sp.guidance() == null ? "걸어서 이동" : sp.guidance();
+    String guidance = sp.guidance() == null ? "" : sp.guidance();
     return new RouteLeg(
-        RouteLeg.ModeEnum.WALK,
-        guidance,
-        walkDetail(sp.distance(), sp.time()),
-        lineString(step.path() == null ? null : step.path().points()),
-        hasStairs(guidance));
+            RouteLeg.ModeEnum.WALK,
+            guidance,
+            lineString(step.path() == null ? null : step.path().points()),
+            hasStairs(guidance))
+        .meters(sp.distance())
+        .seconds(sp.time());
   }
 
   private static RouteLeg transitLeg(KakaoTransitResponse.Step step) {
     KakaoTransitResponse.StepProperties sp = step.properties();
-    String title = vehicleName(sp);
-    if (title == null) {
-      title = sp.guidance() == null ? modeLabel(sp.type()) : sp.guidance();
-    }
-    String detail;
-    int minutes = ceilMinutes(nz(sp.time()));
-    if (sp.stops() != null && sp.stops().size() > 1) {
-      detail = (sp.stops().size() - 1) + " 정거장 · " + Math.max(1, minutes) + "분";
-    } else {
-      detail = Math.max(1, minutes) + "분";
-    }
+    String guidance = sp.guidance() == null ? "" : sp.guidance();
+    // 같은 정류장 쌍을 잇는 노선이 여럿이면 첫 것만 — 안내문이 「외 1대」로 나머지를 말해 준다.
+    KakaoTransitResponse.Vehicle vehicle =
+        sp.vehicles() == null || sp.vehicles().isEmpty() ? null : sp.vehicles().get(0);
     return new RouteLeg(
-        RouteLeg.ModeEnum.TRANSIT,
-        title,
-        detail,
-        lineString(step.path() == null ? null : step.path().points()),
-        // 카카오는 계단을 구조화해서 주지 않는다 — 안내문에 섞여 나올 때만 안다. 실측 13건엔 없었지만 지하철이면 나올 수 있다.
-        hasStairs(sp.guidance()));
+            RouteLeg.ModeEnum.TRANSIT,
+            guidance,
+            lineString(step.path() == null ? null : step.path().points()),
+            // 카카오는 계단을 구조화해서 주지 않는다 — 안내문에 섞여 나올 때만 안다. 실측 13건엔 없었지만 지하철이면 나올 수 있다.
+            hasStairs(guidance))
+        .meters(sp.distance())
+        .seconds(sp.time())
+        .stopCount(sp.stops() == null || sp.stops().size() < 2 ? null : sp.stops().size() - 1)
+        .vehicleType(vehicle == null ? null : vehicle.type())
+        .vehicleName(vehicle == null ? null : vehicle.name());
   }
 
   // ───────────── 잔손질 ─────────────
-
-  /** 「마을 종로02」「간선 143」. 같은 정류장 쌍을 잇는 노선이 여럿이면 첫 것만 — 안내문이 「외 1대」로 나머지를 말해 준다. */
-  private static String vehicleName(KakaoTransitResponse.StepProperties sp) {
-    if (sp.vehicles() == null || sp.vehicles().isEmpty()) {
-      return null;
-    }
-    KakaoTransitResponse.Vehicle v = sp.vehicles().get(0);
-    if (v.name() == null) {
-      return null;
-    }
-    return v.type() == null ? v.name() : v.type() + " " + v.name();
-  }
-
-  private static String modeLabel(String type) {
-    if ("SUBWAY".equals(type)) {
-      return "지하철";
-    }
-    if ("BUS".equals(type)) {
-      return "버스";
-    }
-    return "이동";
-  }
-
-  private static String walkDetail(Integer meters, Integer seconds) {
-    int minutes = Math.max(1, ceilMinutes(nz(seconds)));
-    return meters == null ? "도보 " + minutes + "분" : "도보 " + minutes + "분 · " + meters + " m";
-  }
 
   private static boolean hasStairs(String guidance) {
     return guidance != null && guidance.contains("계단");
@@ -309,8 +302,8 @@ public class NextLegPlanner {
   }
 
   /** 출발지와 목적지가 같다. 오류가 아니라 「이미 도착」이다 — 계약이 {@code legs: []} 로 정했다. */
-  private static NextLeg arrived() {
-    return new NextLeg(0, 0, List.of()).walkMeters(0).fareWon(0);
+  private static NextLeg arrived(NextLeg.GuidanceLangEnum guidanceLang) {
+    return new NextLeg(0, 0, guidanceLang, List.of()).walkMeters(0).fareWon(0);
   }
 
   /**

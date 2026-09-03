@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.sceneapi.navigation.kakao;
 
+import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.navigation.Coordinate;
 import com.mz2az.scenetrip.sceneapi.web.ApiException;
 import io.micrometer.observation.ObservationRegistry;
@@ -55,6 +56,20 @@ public class KakaoRoutingClient {
 
   private static final String CODE_UNAVAILABLE = "ROUTING_UNAVAILABLE";
 
+  /**
+   * 우리 언어를 카카오가 아는 값으로. <b>{@code ko} 아니면 {@code en}</b> — 한국어로 떨어지는 것보다 외국인에게 낫다.
+   *
+   * <p>{@code lang} 은 문서에 없는 파라미터다. 실측(2026-09-03): {@code en} 은 도보 턴바이턴과 대중교통 안내문·정류장 이름을 고유명사까지
+   * 로마자로 옮긴다(「Go 110m along Bukchon-ro 11-gil to Banseok Ville」). {@code ja}·{@code zh} 는 영어 문장에 한글
+   * 고유명사가 섞인 반쪽이고 {@code zh-Hant} 는 한국어로 떨어진다. 그래서 둘만 쓴다. 파이썬 프로토타입의 {@code kakao_lang()} 과 같은
+   * 판단이다.
+   *
+   * <p>비공식이라 언제 바뀔지 모른다. 깨지면 한국어로 돌아올 뿐 서비스는 죽지 않는다.
+   */
+  public static String toKakaoLang(Lang lang) {
+    return lang == Lang.KO ? "ko" : "en";
+  }
+
   private final RestClient restClient;
   private final String key;
 
@@ -89,14 +104,22 @@ public class KakaoRoutingClient {
             .build();
   }
 
-  /** 대중교통. 후보를 최대 15개 준다. 양 끝 도보는 step 에 없고 합계에만 들어 있다 — 응답 record 의 Javadoc 참고. */
-  public KakaoTransitResponse transit(Coordinate from, Coordinate to) {
-    return call("publictraffic", from, to, KakaoTransitResponse.class);
+  /**
+   * 대중교통. 후보를 최대 15개 준다. 양 끝 도보는 step 에 없고 합계에만 들어 있다 — 응답 record 의 Javadoc 참고.
+   *
+   * @param kakaoLang {@link #toKakaoLang} 이 준 값
+   */
+  public KakaoTransitResponse transit(Coordinate from, Coordinate to, String kakaoLang) {
+    return call("publictraffic", from, to, kakaoLang, KakaoTransitResponse.class);
   }
 
-  /** 도보. 실제 골목을 따라가는 좌표와 턴바이턴 안내문이 온다. */
-  public KakaoWalkResponse walk(Coordinate from, Coordinate to) {
-    return call("walk", from, to, KakaoWalkResponse.class);
+  /**
+   * 도보. 실제 골목을 따라가는 좌표와 턴바이턴 안내문이 온다.
+   *
+   * @param kakaoLang {@link #toKakaoLang} 이 준 값
+   */
+  public KakaoWalkResponse walk(Coordinate from, Coordinate to, String kakaoLang) {
+    return call("walk", from, to, kakaoLang, KakaoWalkResponse.class);
   }
 
   /**
@@ -105,7 +128,7 @@ public class KakaoRoutingClient {
    * @param kind {@code publictraffic} 또는 {@code walk}. URI 템플릿의 {@code {kind}} 자리에 들어가고, 관측 태그에는
    *     템플릿 그대로 찍힌다.
    */
-  private <T> T call(String kind, Coordinate from, Coordinate to, Class<T> type) {
+  private <T> T call(String kind, Coordinate from, Coordinate to, String kakaoLang, Class<T> type) {
     if (key.isEmpty()) {
       log.error("카카오 길찾기 키가 없어 부를 수 없습니다 — KAKAO_REST_KEY 를 설정하세요");
       throw ApiException.unavailable(CODE_UNAVAILABLE, "길찾기 제공자 설정이 없습니다");
@@ -118,14 +141,16 @@ public class KakaoRoutingClient {
               // 템플릿 문자열인 이유는 머리말 참고 — 관측의 uri 태그가 이 문자열을 그대로 쓴다.
               .uri(
                   "/v2/routing/{kind}?start_x={sx}&start_y={sy}&end_x={ex}&end_y={ey}"
-                      + "&s_name={sn}&e_name={en}&input_coord=WGS84&output_coord=WGS84",
+                      + "&s_name={sn}&e_name={en}&lang={lang}"
+                      + "&input_coord=WGS84&output_coord=WGS84",
                   kind,
                   from.lng(),
                   from.lat(),
                   to.lng(),
                   to.lat(),
                   "출발",
-                  "도착")
+                  "도착",
+                  kakaoLang)
               .header("Authorization", "KakaoAK " + key)
               .retrieve()
               .body(type);

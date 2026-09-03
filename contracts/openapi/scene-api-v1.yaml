@@ -2323,7 +2323,7 @@ components:
 
     NextLeg:
       type: object
-      required: [totalMinutes, transfers, legs]
+      required: [totalMinutes, transfers, guidanceLang, legs]
       description: |
         현재 위치에서 다음 목적지까지의 실제 경로. 여행 중에만 나온다.
 
@@ -2337,8 +2337,9 @@ components:
         totalMinutes:
           type: integer
           description: |
-            예상 소요 시간(분). 제공자가 준 합계에 서버가 기워 넣은 도보 시간을 더한
-            값이다 — 제공자의 합계에는 그 걸음이 들어 있지 않다.
+            예상 소요 시간(분). 제공자의 합계를 그대로 올림한 값이다 — 그 합계는
+            **문에서 문까지**라 양 끝 도보와 대기가 이미 들어 있다(실측 2026-09-02).
+            서버가 기워 넣은 도보 시간을 여기에 더하지 않는다. 더하면 두 번 센다.
         transfers:
           type: integer
           description: 환승 횟수. 도보만이면 0.
@@ -2356,6 +2357,17 @@ components:
           type: integer
           nullable: true
           description: 요금(원). 도보만이면 0, 모르면 `null`. 범위로 오면 중간값을 쓴다.
+        guidanceLang:
+          type: string
+          enum: [ko, en]
+          description: |
+            이 응답의 `legs[].guidance` 가 무슨 언어인가.
+
+            제공자(카카오)는 한국어와 영어만 준다. `Accept-Language` 가 `ko` 면 `ko`,
+            그 외(`en`·`ja`·`zh-Hant`)는 전부 `en` 으로 받는다 — 일본어 사용자에게
+            한국어보다 영어가 낫고, 영어판은 고유명사가 로마자라 표지판과 맞춘다.
+            **서버는 번역하지 않는다.** 앱이 이 값과 자기 로케일을 견줘 그대로 보여 줄지,
+            기기 안에서 번역할지 정한다.
         legs:
           type: array
           description: 출발지부터 목적지까지 순서대로. 좌표를 이어 붙이면 전체 경로선이 된다.
@@ -2364,19 +2376,50 @@ components:
 
     RouteLeg:
       type: object
-      required: [mode, title, detail, path, hasStairs]
-      description: 한 번의 안내를 이루는 조각 하나 — 걷거나, 타거나.
+      required: [mode, guidance, path, hasStairs]
+      description: |
+        한 번의 안내를 이루는 조각 하나 — 걷거나, 타거나.
+
+        **문장이 아니라 재료를 준다.** 「도보 3분 · 210 m」「3 정거장 · 7분」「마을 종로02」
+        같은 표시 문구는 앱이 `meters`·`seconds`·`stopCount`·`vehicleType`·`vehicleName`
+        으로 자기 로케일에 맞춰 조립한다. 서버가 문장을 만들면 그 문장의 언어를 서버가
+        떠안게 되고, 이 저장소는 표시 문구를 앱에 둔다.
       properties:
         mode:
           type: string
           enum: [walk, transit]
-        title:
+        guidance:
           type: string
-          description: 도보는 안내문(「…까지 오른쪽길로 95m」), 대중교통은 노선 이름.
-          example: 판교역 1번 출구까지 역사 내 이동
-        detail:
+          description: |
+            제공자의 안내문 원문. 언어는 `NextLeg.guidanceLang` 이 말한다.
+            도보는 턴바이턴(「반석빌라까지 110m 이동(북촌로11길)」 / 「Go 110m along
+            Bukchon-ro 11-gil to Banseok Ville」), 대중교통은 노선과 승·하차
+            (「마을 종로02외 1대 (북촌한옥마을입구 > 가회동주민센터)」).
+          example: Go 110m along Bukchon-ro 11-gil to Banseok Ville
+        meters:
+          type: integer
+          nullable: true
+          description: 이 구간의 거리(m). 모르면 `null`.
+        seconds:
+          type: integer
+          nullable: true
+          description: 이 구간의 시간(초). 모르면 `null`.
+        stopCount:
+          type: integer
+          nullable: true
+          description: 대중교통만. 지나는 정거장 수 — 「N 정거장」. 도보는 `null`.
+        vehicleType:
           type: string
-          description: 보조 문구. 「도보 3분 · 210 m」 「3 정거장 · 7분」 같은 것.
+          nullable: true
+          description: |
+            대중교통만. 「마을」「간선」「지선」「직행」「광역」 같은 제공자 원문. **어느 언어로
+            요청해도 한국어다** — 제공자가 이 필드는 번역하지 않는다. 앱이 자기 표로 옮긴다.
+          example: 마을
+        vehicleName:
+          type: string
+          nullable: true
+          description: 대중교통만. 「종로02」「143」「2호선」.
+          example: 종로02
         path:
           $ref: "#/components/schemas/LineString"
         hasStairs:
@@ -2385,7 +2428,6 @@ components:
             계단이 있는 구간인가. 카카오는 이것을 구조화해서 주지 않는다 — 대중교통
             안내문에 「계단」이 섞여 나올 때만 `true` 다. 도보 응답에는 그 문구조차
             없어 늘 `false` 인데, 이것은 「계단 없음」이 아니라 「모름」이다.
-
     LineString:
       type: object
       required: [type, coordinates]
