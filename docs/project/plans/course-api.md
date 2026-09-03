@@ -360,6 +360,15 @@ DB 는 그대로 둔다. `custom_pin` 이 코스에 매달려 있어도 행을 �
 MZ2AZ-233 을 시작하는 사람은 "501 스텁을 501 답게 고치는 일"이 아니라 **엔드포인트를
 새로 등록하는 일**부터라는 것을 알아 둔다.
 
+> **2026-09-03 덧붙임 — 구현됐다 ([MZ2AZ-296](https://mz2az.atlassian.net/browse/MZ2AZ-296)).** 이 절이 남긴 자리에 서버가 들어갔다. 어떻게 만들었고
+> 실측이 무엇을 뒤집었는지는 [navigation-next-leg.md](./navigation-next-leg.md), 결정은
+> [ADR 0009](../../architecture/adr/0009-navigation-is-called-by-the-server.md)·
+> [0010](../../architecture/adr/0010-server-does-not-translate-guidance.md). 선행으로 남겨 뒀던
+> MZ2AZ-205(남용 방지)는 **기다리지 않고 진행했다** — 「하루 몇 번」은 여전히 없고, 지금 통제는
+> 가입·활성 코스·한 구간씩이다. 위 표의 「카카오 도보 150 m 짜리 짧은 구간에서도 정상 응답」은
+> 대중교통에도 그대로 해당한다 — 150 m 에도 `NO_RESULTS` 가 아니라 버스 답이 온다(걷는 게
+> 빠른데). 900 m 컷의 이유가 그래서 「실패 회피」에서 「엉뚱한 답 회피」로 바뀌었다.
+
 MVP1 데모를 굴리기 위해 **iOS 앱이 지금 이 자리를 직접 메우고 있다**
 (`apps/scenetrip-ios/src/RouteTab/KakaoTransit.swift`) — 카카오 REST 키를 빌드 시점에
 바이너리에 박아 앱이 직접 부른다. 스토어에 내기 전에 반드시 이 티켓으로 옮겨야 한다 —
