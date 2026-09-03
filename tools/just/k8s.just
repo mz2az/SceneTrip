@@ -95,6 +95,15 @@ restart module:
     kubectl rollout restart deployment/{{module}} -n {{K8S_NS}}
     kubectl rollout status  deployment/{{module}} -n {{K8S_NS}} --timeout=180s
 
+# 「맞나」가 아니라 「돌아가나」 — 키가 파드에 들어갔나, 카카오에 닿나, 응답이 우리
+# 모양인가. 게이트 초록으로는 못 잡는 환경 문제를 본다. 카카오를 진짜로 부르므로
+# (최대 7번) 자동 게이트에 넣지 않는다. 코스를 만들고 끝나면 지운다.
+
+# 배포된 길찾기가 실제로 답하는지 본다. 배포 직후 한 번
+[group('k8s')]
+navigation-smoke:
+    API_URL={{API_URL}} ./tools/scripts/navigation-smoke.sh
+
 # 코드 변경 후 재빌드 → 적재 → 롤링 재시작
 [group('k8s')]
 update module:
