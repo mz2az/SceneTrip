@@ -14,10 +14,12 @@ excluded:
   # 네이버 지도 SDK 의 Package.swift 가 여기서 6 건을 만들고 있었다.
   - .build
   # Bazel 이 만드는 심볼릭 링크. 따라 들어가면 생성물을 검사하게 된다.
-  - bazel-bin
-  - bazel-out
-  - bazel-testlogs
-  - bazel-SceneTrip
+  #
+  # 이름을 하나씩 적지 않고 글롭으로 잡는다 — 넷째 링크는 **체크아웃 디렉터리 이름**을
+  # 따르므로(`bazel-SceneTrip`, 워크트리에서는 `bazel-main-2`) 이름을 박아 두면
+  # 워크트리에서 생성 클라이언트(`SceneApiClient.swift`) 914 건이 린트에 잡혔다
+  # (2026-09-03 실측). `.gitignore` 의 `/bazel-*` 와 같은 규칙이다.
+  - "bazel-*"
 
 disabled_rules:
   # **swiftformat 과 정면으로 충돌한다.** swiftformat 은 여러 줄 컬렉션 리터럴에

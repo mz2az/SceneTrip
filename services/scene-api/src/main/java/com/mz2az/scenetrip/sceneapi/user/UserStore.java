@@ -2,6 +2,10 @@ package com.mz2az.scenetrip.sceneapi.user;
 
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -58,11 +62,35 @@ public class UserStore {
       RETURNING user_id
       """;
 
+  private static final Logger log = LoggerFactory.getLogger(UserStore.class);
+
   private final JdbcClient jdbc;
 
-  /** 다른 패키지의 통합 테스트가 직접 만들 수 있어야 해서 public 이다. */
+  /**
+   * 가입 판정을 켤 것인가. 기본은 켬이고, <b>끄는 것은 로컬 kind 뿐이다.</b>
+   *
+   * <p>로그인 스토리가 붙기 전에는 아무도 가입할 수 없어 마켓과 길찾기가 전부 401 이다. 시뮬레이터에서 그 두 화면을 실제 서버로 보려면 벽을 잠시 치워야 하는데,
+   * 앱에 우회 코드를 넣으면 그것이 배포본에 실려 나간다. 서버 설정 하나로 두면 어느 환경에서 꺼져 있는지가 매니페스트에 그대로 보인다
+   * (platform/kubernetes/scene-api/configmap.yaml). 로그인이 붙으면 이 설정과 함께 지운다.
+   */
+  private final boolean requireRegistration;
+
+  /** 다른 패키지의 통합 테스트가 직접 만들 수 있어야 해서 public 이다. 가입 판정은 켠 채다 — 운영과 같은 조건으로 검사한다. */
   public UserStore(JdbcClient jdbc) {
+    this(jdbc, true);
+  }
+
+  @Autowired
+  public UserStore(
+      JdbcClient jdbc,
+      @Value("${scenetrip.auth.require-registration:true}") boolean requireRegistration) {
     this.jdbc = jdbc;
+    this.requireRegistration = requireRegistration;
+    if (!requireRegistration) {
+      log.warn(
+          "가입 판정이 꺼져 있습니다 (scenetrip.auth.require-registration=false) — 마켓·길찾기의 401 이 나지 않습니다. 로컬"
+              + " 검증 전용입니다.");
+    }
   }
 
   /**
@@ -84,8 +112,14 @@ public class UserStore {
    *
    * <p><b>지금은 언제나 {@code false} 다.</b> 가입시키는 경로가 아직 없다 — 로그인 스토리는 8/23 주차다. 그래서 마켓 API 는 계약대로 401 을
    * 낸다. 로그인이 붙으면 이 메서드는 그대로 두고 {@code registered_at} 을 채우는 쪽만 생기면 된다.
+   *
+   * <p>판정이 꺼져 있으면({@link #requireRegistration}) DB 를 보지 않고 {@code true} 다. 로컬 검증용이고, 켜진 환경의 동작은 한
+   * 줄도 바뀌지 않는다.
    */
   public boolean isRegistered(UUID userId) {
+    if (!requireRegistration) {
+      return true;
+    }
     return Boolean.TRUE.equals(
         jdbc.sql("SELECT registered_at IS NOT NULL FROM app_user WHERE id = CAST(:id AS UUID)")
             .param("id", userId.toString())
