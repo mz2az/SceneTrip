@@ -34,26 +34,38 @@ extension RouteNavView {
         }
     }
 
+    /// 경로를 **백엔드 계약**(`POST /navigation/next-leg`)으로 받는다 (MZ2AZ-297).
+    ///
+    /// main 의 프론트는 계약에만 의존한다 — 카카오를 직접 부르던 임시 판
+    /// (`KakaoTransit`)은 navi-proto 브랜치로 갔다. 서버가 아직 이 API 를
+    /// 구현하지 않았으므로(MZ2AZ-233), 지금 main 에서는 「준비 중」이 정상이다.
     func load(from latitude: Double, longitude: Double) async {
         guard result == nil, !asking else { return }
+        // 계약은 목적지를 **활성 코스의 항목**으로만 가리킨다 — 코스 밖
+        // 좌표(챗봇 가게로 갈아타기)는 계약에 없다.
+        guard detour == nil else {
+            routeError = "코스 밖 장소로의 길찾기는 준비 중이에요"
+            return
+        }
+        guard let courseId, let itemId = stop.serverItemId else {
+            routeError = "저장된 코스의 장소에서만 길찾기를 부를 수 있어요"
+            return
+        }
         asking = true
         defer { asking = false }
         do {
-            result = try await KakaoTransit.leg(
-                from: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
-                to: CLLocationCoordinate2D(
-                    latitude: destination.latitude,
-                    longitude: destination.longitude
-                ),
-                destinationName: destination.name
+            let leg = try await NavigationAPI.getNextLeg(
+                xDeviceId: InstallIdentity.current,
+                nextLegRequest: NextLegRequest(
+                    courseId: courseId, itemId: itemId,
+                    latitude: latitude, longitude: longitude
+                )
             )
+            result = RouteNavResult(contract: leg, destinationName: destination.name)
             routeError = nil
-        } catch KakaoTransit.Failure.noKey {
-            routeError = "길찾기 키가 없어 안내를 받을 수 없습니다"
-        } catch KakaoTransit.Failure.noRoute {
-            routeError = "대중교통으로 갈 수 있는 길을 찾지 못했습니다"
         } catch {
-            routeError = "길찾기 안내를 받지 못했습니다"
+            // 서버가 아직 없다(404/501). 되는 척하지 않는다 — 준비 중이라고 말한다.
+            routeError = "길찾기는 준비 중이에요 — 백엔드 API(MZ2AZ-233)가 서면 열립니다"
         }
     }
 
@@ -87,5 +99,43 @@ extension RouteNavView {
             markVisited()
             withAnimation { stamped = true }
         }
+    }
+}
+
+/// 계약 응답(`NextLeg`) → 화면 타입. 표시 문구는 계약 원칙대로 **앱이 조립**한다
+/// — 서버는 재료(meters·seconds·stopCount)만 준다.
+extension RouteNavResult {
+    init(contract: NextLeg, destinationName: String) {
+        let legs: [RouteLeg] = contract.legs.map { RouteLeg(contract: $0) }
+        self.init(
+            destination: destinationName,
+            totalMinutes: Int(contract.totalMinutes),
+            transfers: Int(contract.transfers),
+            walkMeters: contract.walkMeters.map { Int($0) },
+            fareWon: contract.fareWon.map { Int($0) },
+            legs: legs
+        )
+    }
+}
+
+extension RouteLeg {
+    init(contract leg: SceneApiClient.RouteLeg) {
+        var pieces: [String] = []
+        if let seconds = leg.seconds {
+            pieces.append("\(max(1, Int(seconds) / 60))분")
+        }
+        if let meters = leg.meters {
+            pieces.append("\(Int(meters)) m")
+        }
+        if let stops = leg.stopCount {
+            pieces.append("\(Int(stops)) 정거장")
+        }
+        self.init(
+            mode: leg.mode.rawValue == "walk" ? .walk : .transit,
+            title: leg.guidance,
+            detail: pieces.joined(separator: " · "),
+            path: leg.path.coordinates,
+            hasStairs: leg.hasStairs
+        )
     }
 }

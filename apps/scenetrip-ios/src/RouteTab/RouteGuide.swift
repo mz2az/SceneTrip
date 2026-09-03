@@ -27,29 +27,22 @@ import Foundation
 /// 답만 보면 그럴듯한 헛소리를 걸러 낼 수 없다. 「무엇을 근거로 말하는가」가
 /// 보여야 한다.
 ///
-/// ## 지금은 프로토타입 서버를 부른다
+/// ## main 에서는 아직 열리지 않는다 (2026-09-02, MZ2AZ-297)
 ///
-/// `poi_nearby` 는 **47만 건에서 고르는 질의**라 앱 안에서 할 수 없다. 우리 서버에
-/// 그 자리(`GET /pois`)가 아직 없어서(계약에도 없다 — MZ2AZ-283·284) MVP 데모
-/// 동안만 프로토타입 서버를 부른다. `KakaoTransit` 이 백엔드 대신 카카오를 직접
-/// 부르는 것과 같은 임시다.
-///
-/// **그쪽이 꺼져 있으면 조용히 실패하지 않는다** — 왜 안 되는지 화면이 말한다.
+/// `poi_nearby` 는 **47만 건에서 고르는 질의**라 앱 안에서 할 수 없고, 우리
+/// 백엔드에 그 자리가 아직 없다(계약에도 없다 — MZ2AZ-283·284, 챗봇은 285).
+/// **main 의 프론트는 백엔드 계약에만 의존한다** — 없는 API 를 프로토타입
+/// 직접 호출로 메우지 않고, 화면이 「준비 중」이라고 정직하게 말한다.
+/// 프로토타입을 직접 부르는 판은 navi-proto 브랜치에만 있다.
 enum RouteGuide {
-    /// 프로토타입 서버(`SceneTrip_navi`). `just run` 으로 띄운다.
-    ///
-    /// 시뮬레이터는 맥의 `localhost` 를 그대로 본다. 실기기에서는 맥의 LAN 주소로
-    /// 바꿔야 하는데, 그때쯤이면 우리 서버로 옮겨 갔을 것이다.
-    static let baseUrl = "http://127.0.0.1:8899"
-
     enum Failure: LocalizedError {
-        case offline
+        case notReady
         case server(String)
 
         var errorDescription: String? {
             switch self {
-            case .offline:
-                "가이드 서버에 연결하지 못했습니다"
+            case .notReady:
+                "여행 가이드는 준비 중이에요 — 백엔드 API(MZ2AZ-283·284·285)가 서면 열립니다"
             case let .server(message):
                 message
             }
@@ -101,132 +94,29 @@ enum RouteGuide {
     }
 
     static func ask(
-        history: [Turn],
-        here: CLLocationCoordinate2D,
-        sessionId: String,
-        context: Context? = nil
+        history _: [Turn],
+        here _: CLLocationCoordinate2D,
+        sessionId _: String,
+        context _: Context? = nil
     ) async throws -> Answer {
-        guard let url = URL(string: baseUrl + "/api/chat") else { throw Failure.offline }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // 8B 가 도구를 부르고 답을 짓는 데 실측 9~57초가 걸린다. 넉넉히 잡는다 —
-        // 짧게 잡으면 잘 되던 것이 시간 초과로 보인다.
-        request.timeoutInterval = 120
-        var body: [String: Any] = [
-            "here": [here.latitude, here.longitude],
-            "messages": history.map { ["role": $0.role.rawValue, "content": $0.text] },
-            "sid": sessionId,
-        ]
-        if let context {
-            body["context"] = context.json
-        }
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let data: Data
-        do {
-            let (body, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                throw Failure.offline
-            }
-            data = body
-        } catch let failure as Failure {
-            throw failure
-        } catch {
-            throw Failure.offline
-        }
-
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw Failure.offline
-        }
-        // 서버는 오류도 200 으로 준다 — LLM 이 꺼져 있는 것과 서버가 죽은 것은
-        // 사용자에게 다른 이야기이기 때문이다.
-        if let message = json["error"] as? String {
-            throw Failure.server(message)
-        }
-
-        return Answer(
-            reply: (json["reply"] as? String) ?? "",
-            tools: ((json["used"] as? [[String: Any]]) ?? [])
-                .compactMap { $0["tool"] as? String },
-            places: ((json["places"] as? [[String: Any]]) ?? []).compactMap(Place.init),
-            seconds: (json["took_s"] as? Double) ?? 0
-        )
+        // 백엔드가 서기 전에는 묻지 않는다 — 화면은 Failure 의 문구를 그대로 보인다.
+        throw Failure.notReady
     }
 
-    /// 핀을 눌렀을 때 띄울 정보 카드 (`POST /api/place-card`).
-    ///
-    /// 네이버에서 찾아 사진·영업시간·리뷰·별점을 묶어 온다. **못 찾아도 실패가
-    /// 아니다** — 「네이버에 없다」도 사용자에게는 답이다. 우리 POI 자료(TMAP)에
-    /// 있는 가게가 네이버에 없을 수 있고, 그것이 나쁜 가게라는 뜻은 아니다.
-    /// 지도 범위 안의 편의시설. **LLM 을 거치지 않는다** — 우리 자료를 그대로
-    /// 읽는 조건 질의라 부르는 값이 없다(2026-08-28 사용자 확인). 화면이 멈출
-    /// 때마다 불러 네이버처럼 주변을 늘 보여 주는 데 쓴다. 정식 자리는
-    /// MZ2AZ-283(장소 검색 API)이다.
-    ///
-    /// 실패하면 빈 목록이다 — 주변 점은 장식이라, 서버가 꺼져 있다고 화면이
-    /// 막히면 안 된다.
+    /// 지도 범위 안의 편의시설. 정식 자리는 MZ2AZ-283(장소 검색 API)이다.
     static func pois(
-        south: Double, west: Double, north: Double, east: Double,
-        centerLat: Double, centerLng: Double, limit: Int = 30
+        south _: Double, west _: Double, north _: Double, east _: Double,
+        centerLat _: Double, centerLng _: Double, limit _: Int = 30
     ) async -> [Place] {
-        var parts = URLComponents(string: baseUrl + "/api/pois")
-        parts?.queryItems = [
-            .init(name: "bbox", value: "\(south),\(west),\(north),\(east)"),
-            .init(name: "cy", value: "\(centerLat)"),
-            .init(name: "cx", value: "\(centerLng)"),
-            .init(name: "limit", value: "\(limit)"),
-            // 네이버에서 확인된 곳만 — 눌렀는데 「못 찾았습니다」가 자꾸 나오면
-            // 점 자체를 못 믿게 된다(2026-08-28 사용자 지적).
-            .init(name: "matched", value: "1"),
-        ]
-        guard let url = parts?.url,
-              let (data, response) = try? await URLSession.shared.data(from: url),
-              (response as? HTTPURLResponse)?.statusCode == 200,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let rows = json["pois"] as? [[String: Any]]
-        else { return [] }
-        return rows.compactMap(Place.init)
+        // 주변 점은 장식이다 — 백엔드 API(MZ2AZ-283)가 없는 동안은 조용히 빈
+        // 목록이다. 화면은 점이 없다고 막히지 않는다.
+        []
     }
 
-    static func card(for place: Place) async -> Card? {
-        guard let url = URL(string: baseUrl + "/api/place-card") else { return nil }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // 네이버 검색 → 상세를 이어 부르므로 한 호출보다 오래 걸린다.
-        request.timeoutInterval = 30
-        request.httpBody = try? JSONSerialization.data(withJSONObject: [
-            "name": place.name,
-            "addr": place.address ?? "",
-            "lat": place.latitude,
-            "lng": place.longitude,
-            // 갈래를 주면 서버가 거리 컷을 갈래에 맞춘다 — 궁·공원·역은 좌표가
-            // 수백 m 어긋나는 게 정상이라 가게용 컷으로는 매칭이 다 떨어진다.
-            "group": place.group ?? place.poiGroup.serverName,
-        ])
-
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse, http.statusCode == 200,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return nil }
-
-        return Card(
-            found: (json["found"] as? Bool) ?? false,
-            name: (json["name"] as? String) ?? place.name,
-            category: json["category"] as? String,
-            address: json["addr"] as? String,
-            hours: json["hours"] as? String,
-            phone: json["phone"] as? String,
-            reviewCount: json["review_count"] as? Int,
-            blogReviews: json["blog_reviews"] as? Int,
-            score: json["score"] as? Double,
-            images: (json["images"] as? [String]) ?? [],
-            naverUrl: json["url"] as? String,
-            why: json["why"] as? String
-        )
+    /// 핀을 눌렀을 때 띄울 정보 카드(네이버 상세). 정식 자리는 MZ2AZ-284 계보다.
+    static func card(for _: Place) async -> Card? {
+        // 정보 카드(네이버 상세)도 백엔드 몫이다 — 없는 동안은 「정보 없음」.
+        nil
     }
 
     /// 네이버에서 온 정보 카드.

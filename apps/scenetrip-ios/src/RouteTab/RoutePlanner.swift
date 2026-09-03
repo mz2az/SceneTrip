@@ -19,7 +19,7 @@ import SceneApiClient
 ///
 /// ## 모델이 없으면
 ///
-/// 로컬 모델(`http://127.0.0.1:8900`)이 안 떠 있을 수 있다. 그때는 **규칙만으로**
+/// main 에서는 LLM 을 부르지 않는다(MZ2AZ-297) — 늘 **규칙만으로**
 /// 짠다 — 인기순으로 상한만큼 골라 지리적으로 잇는다. 데모가 모델 유무에 매이면
 /// 안 된다.
 enum RoutePlanner {
@@ -272,38 +272,15 @@ enum RoutePlanner {
     }
 }
 
-/// 로컬 LLM. OpenAI 호환 `/v1/chat/completions` 를 쓴다.
+/// main 에서는 LLM 을 부르지 않는다 (2026-09-02, MZ2AZ-297).
 ///
-/// **밖으로 나가지 않는다.** 프로토타입이 MLX + Qwen3-8B 를 `127.0.0.1:8900` 에 띄워
-/// 두고 있고 우리도 그것을 그대로 쓴다. 모델이 없으면 조용히 nil 을 돌려준다 —
-/// 데모가 모델 유무에 매이면 안 된다.
+/// AI 코스의 LLM 후보 선택은 프론트 자체 시험(로컬 :8900)이었다 — main 의
+/// 프론트는 백엔드 계약에만 의존하므로, 정식 자리가 정해질 때까지(MZ2AZ-285
+/// 계보) **규칙 기반 폴백**만 쓴다. LLM 을 붙인 판은 navi-proto 브랜치에 있다.
 enum LocalModel {
-    /// 프로토타입과 같은 자리다(`SceneTrip_navi/.env` 의 `LLM_URL`).
-    static let baseUrl = "http://127.0.0.1:8900"
-    static let model = "mlx-community/Qwen3-8B-4bit"
-
-    static func complete(prompt: String, timeout: TimeInterval = 45) async -> String? {
-        guard let url = URL(string: baseUrl + "/v1/chat/completions") else { return nil }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = timeout
-        request.httpBody = try? JSONSerialization.data(withJSONObject: [
-            "model": model,
-            "messages": [["role": "user", "content": prompt]],
-            "temperature": 0.3,
-            // **끄지 않으면 생각을 길게 늘어놓다 시간이 다 간다.** Qwen3 의 기본이
-            // 켜짐이라 프로토타입도 이것을 끈다(실측: 도구 선택 2.4초, 답 4~10초).
-            "chat_template_kwargs": ["enable_thinking": false],
-        ])
-
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse, http.statusCode == 200,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let choices = json["choices"] as? [[String: Any]],
-              let message = choices.first?["message"] as? [String: Any],
-              let content = message["content"] as? String
-        else { return nil }
-        return content
+    static func complete(prompt _: String, timeout _: TimeInterval = 45) async -> String? {
+        // nil 을 돌려주면 부르는 쪽의 규칙 기반 경로가 그대로 동작한다 —
+        // 처음부터 「모델이 없을 수 있다」는 전제로 설계된 폴백이다.
+        nil
     }
 }
