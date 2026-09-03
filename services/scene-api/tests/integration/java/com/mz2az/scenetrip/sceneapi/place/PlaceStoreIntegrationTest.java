@@ -127,21 +127,42 @@ class PlaceStoreIntegrationTest {
   /**
    * 장면 스틸이 실제로 실려 오는가.
    *
-   * <p>{@code scene_image_url} 은 수집 CSV 에 있었으나 오래 적재되지 않았고(ADR 0007), 컬럼이 {@code
-   * place_content_i18n} 이 아니라 {@code place_content} 에 있다. 조인을 한 단계 잘못 걸어도 문법 오류가 나지 않고 전부 {@code
-   * null} 이 되므로 — 화면에서는 사진이 없는 것과 구분되지 않는다 — 값이 실제로 오는지를 여기서 본다.
+   * <p>{@code scene_image_url} 은 컬럼이 {@code place_content_i18n} 이 아니라 {@code place_content} 에 있다.
+   * 조인을 한 단계 잘못 걸어도 문법 오류가 나지 않고 전부 {@code null} 이 되므로 — 화면에서는 사진이 없는 것과 구분되지 않는다 — 값이 실제로 오는지를 여기서
+   * 본다.
+   *
+   * <p><b>스틸을 테스트가 직접 심는다.</b> 시드에 스틸이 있기를 기대하면 시드가 바뀔 때 깨진다 — 성지후보 v3 에는 그 컬럼 자체가 없어 실제로 깨졌다(ADR
+   * 0007 도 스틸이 오래 비어 있을 것이라 한다). 검사하는 것은 조인이지 데이터가 아니므로, 아무 장면 하나에 값을 넣고 보고 되돌린다.
    */
   @Test
   @DisplayName("장면 스틸이 응답에 실린다")
   void scenesCarryStillImages() {
-    long id = placeWithSceneImage();
+    long placeContentId =
+        jdbc.sql("SELECT id FROM place_content ORDER BY id LIMIT 1").query(Long.class).single();
+    long placeId =
+        jdbc.sql("SELECT place_id FROM place_content WHERE id = :id")
+            .param("id", placeContentId)
+            .query(Long.class)
+            .single();
+    String planted = "https://example.invalid/scene-still.jpg";
 
-    List<Scene> scenes =
-        store.findDetail(id, Lang.KO, null, null).orElseThrow().place().getScenes();
+    jdbc.sql("UPDATE place_content SET scene_image_url = :url WHERE id = :id")
+        .param("url", planted)
+        .param("id", placeContentId)
+        .update();
+    try {
+      List<Scene> scenes =
+          store.findDetail(placeId, Lang.KO, null, null).orElseThrow().place().getScenes();
 
-    assertThat(scenes)
-        .as("적재된 장면 스틸이 하나도 실려 오지 않으면 조인이 끊긴 것이다")
-        .anyMatch(s -> s.getSceneImageUrl() != null);
+      assertThat(scenes)
+          .as("심어 둔 장면 스틸이 실려 오지 않으면 조인이 끊긴 것이다")
+          // 생성된 모델은 이 필드를 URI 로 든다 — 문자열로 견준다.
+          .anyMatch(s -> planted.equals(String.valueOf(s.getSceneImageUrl())));
+    } finally {
+      jdbc.sql("UPDATE place_content SET scene_image_url = NULL WHERE id = :id")
+          .param("id", placeContentId)
+          .update();
+    }
   }
 
   private int popularity(Scene scene) {
@@ -157,17 +178,6 @@ class PlaceStoreIntegrationTest {
             """
             SELECT place_id FROM place_content
             GROUP BY place_id HAVING count(*) > 1
-            ORDER BY place_id LIMIT 1
-            """)
-        .query(Long.class)
-        .single();
-  }
-
-  private long placeWithSceneImage() {
-    return jdbc.sql(
-            """
-            SELECT place_id FROM place_content
-            WHERE scene_image_url IS NOT NULL
             ORDER BY place_id LIMIT 1
             """)
         .query(Long.class)

@@ -35,7 +35,7 @@ if [ -n "$CSV" ]; then
   [ -f "$CSV" ] || die "CSV 를 찾을 수 없습니다: $CSV"
   log "적재분 — $CSV"
 else
-  warn "적재분을 지정하지 않았습니다. 저장소 표본(services/scene-api/seed/v6-sample.csv)이 들어갑니다."
+  warn "적재분을 지정하지 않았습니다. 저장소의 성지후보 CSV(services/scene-api/seed/candidates.csv)가 들어갑니다."
   warn "볼트 전량으로 되돌리려면:  just db-recreate <볼트 CSV 경로>"
 fi
 
