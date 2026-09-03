@@ -27,6 +27,14 @@ SceneTrip 의 iOS 네이티브 앱. 첫 화면인 **작품검색 탭**(지도 + 
 Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의 대조군이다 —
 코드는 옮기지 않고 규칙만 가져온다 (ADR 0002).
 
+## main 은 계약만 부른다 (MZ2AZ-297, 2026-09-02)
+
+**main 의 프론트는 백엔드 계약(`contracts/openapi/scene-api-v1.yaml`)에만
+의존한다.** 백엔드가 없는 기능은 되는 척하지 않고 「준비 중」으로 표시된다 —
+그 빈 화면이 곧 백엔드가 채울 자리다. 프론트 자체 시험용 직접 연결(카카오
+직접 호출·프로토타입 :8899·로컬 LLM :8900)은 전부 **navi-proto 브랜치**에만
+있다. 데모·발표는 navi-proto 빌드로 한다.
+
 ## 다른 맥에서 돌리기 — 백엔드 담당용 (MZ2AZ-288)
 
 프론트는 전부 main 에 있다. 이 절의 목적은 **백엔드 담당이 앱을 직접 돌려
@@ -52,8 +60,10 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 
 | 화면 | 상태 |
 | --- | --- |
-| 작품검색·코스 목록·편집·마켓·길찾기·커뮤니티·마이페이지 | **된다** — 실서버(8081) + 카카오 직접 호출 |
-| 챗봇(여행 가이드)·주변 편의시설 점 | **안 된다** — 승길 맥의 프로토타입 서버(:8899)에 붙어 있다. 이 구멍이 곧 MZ2AZ-283·284·285 다 |
+| 작품검색·코스 목록·편집·마켓·커뮤니티·마이페이지 | **된다** — 실서버(8081) |
+| 길찾기 | **「준비 중」이 정상** — 계약(`POST /navigation/next-leg`)을 부르는데 서버가 아직 없다(MZ2AZ-233). 이 빈 화면이 백엔드가 채울 자리다 |
+| 챗봇(여행 가이드)·주변 편의시설 점·정보 카드 | **「준비 중」이 정상** — 백엔드 API(MZ2AZ-283·284·285) 대기 |
+| AI 코스 추천 | 규칙 기반으로만 짠다(LLM 은 navi-proto 전용) |
 | 찜·커뮤니티 글·방문 스탬프 일부 | 기기(UserDefaults) 저장 — 맥마다 따로 논다 |
 
 ### 함정
@@ -97,12 +107,12 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | --- | --- |
 | `RouteTabView.swift` | 첫 화면 — 코스가 없으면 「AI 로 짜기 / 직접 짜기」 갈림길, 있으면 목록 + 스와이프 삭제 + 「코스 추가하기」 |
 | `RouteWizardView.swift` | 질문 흐름 — 기간 → 날짜(선택) → 작품 → 빡빡/널널 → 요약 |
-| `RoutePlanner.swift` | AI 가 코스를 짠다 — 로컬 LLM(`127.0.0.1:8900`)에게 「이 후보 중 어느 것을」만 맡기고, 개수·순서는 코드가 지킨다 |
+| `RoutePlanner.swift` | AI 코스 — main 에서는 **규칙 기반만**(인기순+지리 잇기). LLM 후보 선택은 navi-proto 전용(MZ2AZ-297) |
 | `RouteEditorView.swift` · `RouteEditorControls.swift` · `RouteEditorParts.swift` | 편집 화면 — 일차 ＋/−, 드래그 정렬, 체류 시간, 동선 최적화(출발·도착 고정 선택), 장소 검색·장바구니·핀 찍기 |
 | `RouteSearchSheet.swift` | 편집 화면 안에서 바로 장소를 찾아 담는 시트 — 장바구니를 거치지 않는다 |
 | `RouteGeometry`(`RouteModels.swift` 안) | 동선 최적화 — 최근접 이웃·2-opt·완전탐색(≤8곳) 세 방법 중 가장 짧은 것. 출발·도착 고정은 각각 선택이다 |
 | `RouteMapView.swift` | 코스용 지도 — 번호 핀, 계획 단계는 **직선**만(예상 시간 표시 안 함) |
-| `KakaoTransit.swift` | 여행 중 「길찾기」 — 카카오 대중교통·도보(2026-08-24 도보도 카카오로 통일). **MVP1 동안 앱이 직접 부른다**, 백엔드 자리는 MZ2AZ-233 |
+| (길찾기 호출) | `NavigationAPI.getNextLeg`(계약) — 서버가 서면(MZ2AZ-233) 그대로 동작. 카카오 직접 호출 판(`KakaoTransit.swift`)은 navi-proto 로 갔다(MZ2AZ-297) |
 | `RouteNavView.swift` · `RouteNavMapView.swift` · `RouteNavModels.swift` · `RoutePoiTone.swift` | 「길찾기」 결과 화면 — 실제 경로(도보=점선, 대중교통=실선) + 가이드 추천 핀 + 챗봇 진입 |
 | `RouteBridge.swift` | 계약 타입(`CourseDetail` 등) ↔ 화면 타입(`RouteCourse` 등) 번역. 화면이 계약 타입을 직접 만지지 않는다 |
 | `RouteMarketView.swift` | 「인기 코스」 — 이름·정렬 기준 미확정. 목록은 여전히 지어낸 것이나 **속 장소는 서버의 진짜 장소**라 담기가 실제로 동작한다 |

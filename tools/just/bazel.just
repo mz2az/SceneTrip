@@ -32,8 +32,7 @@ run target *args:
 [group('build')]
 ios-run:
     {{BAZEL}} run //apps/scenetrip-ios:bin \
-        --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}" \
-        --define=kakao_rest_key="${KAKAO_REST_KEY:-}"
+        --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
 
 # 껐다 켜는 것과 사용법을 다시 보는 것은 **다른 일**이다.
 #
@@ -66,8 +65,7 @@ ios-reinstall:
     #!/usr/bin/env bash
     set -euo pipefail
     {{BAZEL}} build //apps/scenetrip-ios:bin \
-        --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}" \
-        --define=kakao_rest_key="${KAKAO_REST_KEY:-}"
+        --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
     work="$(mktemp -d)"
     trap 'rm -rf "$work"' EXIT
     unzip -q bazel-bin/apps/scenetrip-ios/bin.ipa -d "$work"
