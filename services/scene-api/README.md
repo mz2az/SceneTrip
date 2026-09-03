@@ -341,6 +341,20 @@ just secrets-apply             # .env → Secret. 처음 한 번, 키 바꿀 때
 just restart scene-api         # 이미 떠 있으면 — 환경변수는 뜰 때 한 번 읽힌다
 ```
 
+## 길찾기 — 이 서비스의 첫 외부 HTTP
+
+`POST /navigation/next-leg` 가 카카오 대중교통·도보 API 를 부른다. 왜 앱이 아니라 서버냐는
+[ADR 0009](../../docs/architecture/adr/0009-navigation-is-called-by-the-server.md), 규칙과 실측은
+[계획서](../../docs/project/plans/navigation-next-leg.md). 키는 `KAKAO_REST_KEY` — 위 설정 표.
+
+```sh
+just secrets-apply         # .env 의 키 → Secret
+just navigation-smoke      # 배포된 것이 실제로 답하나 — 카카오를 부른다
+```
+
+카카오 호출은 SigNoz 에서 `http.client.requests{uri="/v2/routing/{kind}"}` 로 대중교통·도보가
+갈려 보인다. 쿼터는 각각 하루 1,000건이고 이어붙이기 때문에 도보가 두 배 가까이 나간다.
+
 ## 운영
 
 컨테이너는 **비-root(UID 10001)** 로 돌고 루트 파일시스템이 읽기 전용이다.
