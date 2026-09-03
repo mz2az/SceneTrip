@@ -175,6 +175,8 @@ java_junit5_test(
         "@maven//:io_opentelemetry_opentelemetry_api",
         # Span.makeCurrent() 가 여기 있다. api 가 전이로 끌어오지만 직접 쓰므로 명시한다.
         "@maven//:io_opentelemetry_opentelemetry_context",
+        # KakaoRoutingClient 생성자가 ObservationRegistry 를 받는다 — 테스트가 NOOP 을 꽂는다.
+        "@maven//:io_micrometer_micrometer_observation",
         "@maven//:org_assertj_assertj_core",
         "@maven//:org_hamcrest_hamcrest",
         "@maven//:org_mockito_mockito_core",
