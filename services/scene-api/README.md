@@ -320,6 +320,7 @@ curl http://localhost:8081/v1/actuator/health
 | `SPRING_DATASOURCE_URL` | 아니오 | `jdbc:postgresql://postgres:5432/scenetrip` | DB 주소 |
 | `SPRING_DATASOURCE_USERNAME` | 아니오 | `scenetrip` | DB 사용자 |
 | `SPRING_DATASOURCE_PASSWORD` | **예** | 없음 | DB 비밀번호. 값이 없으면 접속이 거부되어 기동이 실패한다 |
+| `KAKAO_REST_KEY` | 아니오 | 없음 | 여행 중 길찾기(카카오 대중교통·도보). 없으면 기동은 하고 길찾기만 503 이다 |
 
 비밀번호는 `application.yaml` 에 두지 않는다 — 이미지 안에 박히면 이미지를 가진 사람이
 곧 자격 증명을 가진 것이 된다. 로컬에서는 `postgres` ConfigMap 의 키를
@@ -327,6 +328,18 @@ curl http://localhost:8081/v1/actuator/health
 접속 정보의 정본은 DB 를 정의한 쪽 하나다.
 
 시크릿은 시크릿 매니저에서 온다. 커밋하는 것은 `.env.example` 뿐이다.
+
+**카카오 키는 이 서비스의 첫 Secret 이다.** DB 비밀번호와 달리 로컬이라도 진짜
+값이라 ConfigMap 에 둘 수 없다. 매니페스트 파일이 없고 `just secrets-apply` 가
+저장소 루트 `.env` 의 값을 읽어 클러스터에 `scene-api-secrets` 를 만든다 — 파일에
+두면 `just deploy` 가 폴더째 apply 하면서 빈 값으로 덮어쓰기 때문이다. Deployment 는
+`secretKeyRef` + `optional` 로 가리켜 Secret 이 없어도 파드가 뜬다. 원격에서는 같은
+Secret 을 파이프라인이 시크릿 매니저에서 만들고, 그때 DB 비밀번호도 같은 길로 옮긴다.
+
+```sh
+just secrets-apply             # .env → Secret. 처음 한 번, 키 바꿀 때
+just restart scene-api         # 이미 떠 있으면 — 환경변수는 뜰 때 한 번 읽힌다
+```
 
 ## 운영
 

@@ -77,6 +77,24 @@ image module tag="dev":
 deploy module env="local":
     ./tools/scripts/deploy.sh {{module}} {{env}}
 
+# Secret 만은 매니페스트 파일이 없다 — deploy 가 폴더째 apply 하므로 파일에 두면
+# 빈 값으로 덮어쓰거나 키가 저장소에 올라간다. 이유는 secrets-apply.sh 머리말에.
+# 이미 떠 있는 파드는 새 값을 모른다 — 뒤에 `just restart scene-api`.
+
+# .env 의 비밀값을 클러스터 Secret 으로 넣는다. 처음 한 번, 키를 바꿀 때마다
+[group('k8s')]
+secrets-apply:
+    ./tools/scripts/secrets-apply.sh
+
+# 환경변수는 컨테이너가 뜰 때 한 번 읽힌다. Secret·ConfigMap 을 바꾼 뒤에 쓴다.
+# 코드가 바뀌었으면 이게 아니라 `just update` 다.
+
+# 이미지는 그대로 두고 파드만 다시 띄운다. 예: `just restart scene-api`
+[group('k8s')]
+restart module:
+    kubectl rollout restart deployment/{{module}} -n {{K8S_NS}}
+    kubectl rollout status  deployment/{{module}} -n {{K8S_NS}} --timeout=180s
+
 # 코드 변경 후 재빌드 → 적재 → 롤링 재시작
 [group('k8s')]
 update module:
