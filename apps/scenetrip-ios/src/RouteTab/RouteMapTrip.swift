@@ -82,12 +82,13 @@ extension RouteMapView.Coordinator {
     /// 번갈아 살짝 비껴 찍는다. 25 m 마다 한 점이라 수백 개여도 가볍다.
     ///
     /// **화면 간격은 줌과 무관하게 일정하다** — 기록은 25 m 마다지만 축소하면 자국이 겹쳐 노란
-    /// 줄이 됐다(2026-09-04 사용자 지적). 줌에 맞춰 솎아, 자국 사이가 화면에서 약 40pt 이상
-    /// (최소 50 m — 예전 간격의 두 배)이 되게 한다. 카메라가 움직이면 다시 솎는다.
+    /// 줄이 됐다(2026-09-04 사용자 지적). 줌에 맞춰 솎아, 자국 사이가 화면에서 약 28pt 이상
+    /// (최소 35 m)이 되게 한다. 카메라가 움직이면 다시 솎는다.
     func renderFootprints(_ all: [FootprintPoint], on mapView: NMFMapView) {
         lastFootPoints = all
         let metersPerPoint = mapView.projection.metersPerPixel()
-        let minMeters = max(50, 40 * metersPerPoint)
+        // 50 m · 40pt 는 너무 성겼다(2026-09-05 사용자 지적) → 35 m · 28pt.
+        let minMeters = max(35, 28 * metersPerPoint)
         var points: [FootprintPoint] = []
         for point in all {
             if let last = points.last {
