@@ -1354,6 +1354,38 @@ def tool_route(here, args, weights=None, seen=None):
     }
 
 
+# gpt-oss 는 답을 「채널」 표식으로 감싸 보낸다 — `<|channel|>analysis<|message|>생각<|end|>
+# <|start|>assistant<|channel|>final<|message|>답`, 도구 호출은 `commentary to=functions.이름
+# <|message|>{인자}`. mlx_lm 0.31 서버는 이를 풀지 않고 content 에 그대로 넣는다(2026-09-05
+# 실측, tool_calls 는 늘 비었다). 여기서 풀어 OpenAI 모양으로 맞춘다 — 표식이 없는 모델
+# (Qwen·Ollama·상용 API)은 손대지 않는다.
+_HARMONY_CALL = re.compile(
+    r"<\|channel\|>commentary to=functions\.([A-Za-z0-9_]+)"
+    r"(?:\s*<\|constrain\|>\w+)?<\|message\|>(.*?)(?=<\|call\|>|<\|end\|>|<\|start\|>|$)",
+    re.S,
+)
+_HARMONY_FINAL = re.compile(
+    r"<\|channel\|>final<\|message\|>(.*?)(?=<\|end\|>|<\|return\|>|<\|start\|>|$)", re.S
+)
+
+
+def harmony_unwrap(message):
+    """content 안의 gpt-oss 채널 표식을 풀어 `content`(답)·`tool_calls` 로 나눈다."""
+    text = message.get("content") or ""
+    if "<|channel|>" not in text or message.get("tool_calls"):
+        return message
+    calls = [
+        {"id": f"call_{i}", "type": "function", "function": {"name": name, "arguments": args.strip()}}
+        for i, (name, args) in enumerate(_HARMONY_CALL.findall(text))
+    ]
+    finals = _HARMONY_FINAL.findall(text)
+    out = dict(message)
+    out["content"] = finals[-1].strip() if finals else ""  # 생각만 있고 답이 없으면 빈 답
+    if calls:
+        out["tool_calls"] = calls
+    return out
+
+
 def guide_call(messages, tools=None, timeout=120):
     """로컬 LLM 에 한 번 묻는다. OpenAI 호환 규격."""
     url = cfg("LLM_URL")
@@ -1368,17 +1400,22 @@ def guide_call(messages, tools=None, timeout=120):
         # 다 쓴다(실측 — 120토큰을 전부 혼잣말로 쓰고 content 가 비었다).
         # 도구를 고르는 일에는 긴 사고가 필요 없고, 우리는 계산을 안 시킨다.
         # 이 필드를 모르는 서버는 무시하므로 Ollama·vLLM 에도 안전하다.
-        "chat_template_kwargs": {"enable_thinking": False},
+        # gpt-oss 는 `reasoning_effort` 로 생각 길이를 줄인다(low: 32토큰 · 4초, 실측).
+        "chat_template_kwargs": {"enable_thinking": False, "reasoning_effort": "low"},
     }
     if tools:
         body["tools"] = tools
-    return http_json(
+    d = http_json(
         url.rstrip("/") + "/v1/chat/completions",
         data=body,
         headers=llm_headers(),
         method="POST",
         timeout=timeout,
     )
+    for ch in (d.get("choices") or []) if isinstance(d, dict) else []:
+        if isinstance(ch.get("message"), dict):
+            ch["message"] = harmony_unwrap(ch["message"])
+    return d
 
 
 # **보여 준 장소를 대화별로 기억한다.** 이것이 없으면 「거기 어떻게 가요」 가

@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 if [ -z "${LLM_MODEL:-}" ] && [ -f .env ]; then
   LLM_MODEL="$(sed -n 's/^LLM_MODEL=//p' .env | tail -1)"
 fi
-MODEL="${LLM_MODEL:-mlx-community/Qwen3.6-35B-A3B-4bit}"
+MODEL="${LLM_MODEL:-mlx-community/gpt-oss-20b-MXFP4-Q8}"
 PORT="${LLM_PORT:-8900}"
 echo "로컬 LLM  →  http://127.0.0.1:$PORT   ($MODEL)"
 echo "  처음 한 번은 모델을 메모리에 올리느라 20~40초 걸린다."

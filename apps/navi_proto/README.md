@@ -67,7 +67,7 @@ LLM_API_KEY=                     ← 상용 API 만. 비우면 헤더를 안 보
 
 | 붙일 것 | 방법 |
 | --- | --- |
-| MLX (기본) | `just navi-llm` — 애플실리콘 전용. 기본 모델 `Qwen3.6-35B-A3B-4bit`(MoE, 활성 3B — 8B 밀집보다 빠르고 35B 급). 첫 실행 때 허깅페이스에서 자동 수신(~20GB). 다른 MLX 모델은 `LLM_MODEL` 만 바꾼다 |
+| MLX (기본) | `just navi-llm` — 애플실리콘 전용. 기본 모델 `gpt-oss-20b-MXFP4-Q8`(MoE, 활성 3.6B — 32GB 맥에서 답 4초 안팎). 첫 실행 때 허깅페이스에서 자동 수신(~12GB). 다른 MLX 모델은 `LLM_MODEL` 만 바꾼다. gpt-oss 는 답을 채널 표식(`<\|channel\|>final…`)으로 감싸 보내는데 mlx_lm 0.31 이 풀지 않아 `server.py` 의 `harmony_unwrap` 과 iOS `LocalModel.unwrap` 이 푼다. `Qwen3.6-35B-A3B-4bit` 은 이 맥(32GB)에서 Metal 메모리 부족으로 못 올렸다(2026-09-05) |
 | Ollama | `brew install ollama && ollama pull qwen3:8b && ollama serve` 후 `LLM_URL=http://127.0.0.1:11434`, `LLM_MODEL=qwen3:8b`. venv·llm.sh 불필요, 인텔맥·리눅스도 됨 |
 | llama.cpp · vLLM · LM Studio | 같은 원리 — 각자의 밑동 주소와 모델 이름만 |
 | DeepSeek 등 상용 API | `LLM_URL=https://api.deepseek.com`, `LLM_MODEL=deepseek-chat`, `LLM_API_KEY=<발급 키>` — `Authorization: Bearer` 로 붙는다. OpenAI 호환이면 어느 것이든 같다. **단** 사용자 좌표·주변 목록이 밖으로 나가고 요금이 붙는다 — 각자 판단이고, 팀 기본은 로컬이다. `enable_thinking` 같은 Qwen 전용 필드는 모르는 서버가 무시한다 |

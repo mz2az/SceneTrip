@@ -284,7 +284,7 @@ enum RoutePlanner {
 enum LocalModel {
     /// `/v1/chat/completions` 를 뺀 밑동. `.env` 의 `LLM_URL` 과 같은 규칙이다.
     static let baseUrl = Secrets.llmUrl.isEmpty ? "http://127.0.0.1:8900" : Secrets.llmUrl
-    static let model = Secrets.llmModel.isEmpty ? "mlx-community/Qwen3.6-35B-A3B-4bit" : Secrets.llmModel
+    static let model = Secrets.llmModel.isEmpty ? "mlx-community/gpt-oss-20b-MXFP4-Q8" : Secrets.llmModel
 
     static func complete(prompt: String, timeout: TimeInterval = 45) async -> String? {
         let base = baseUrl.hasSuffix("/") ? String(baseUrl.dropLast()) : baseUrl
@@ -303,7 +303,8 @@ enum LocalModel {
             "temperature": 0.3,
             // **끄지 않으면 생각을 길게 늘어놓다 시간이 다 간다.** Qwen3 의 기본이
             // 켜짐이라 프로토타입도 이것을 끈다(실측: 도구 선택 2.4초, 답 4~10초).
-            "chat_template_kwargs": ["enable_thinking": false],
+            // gpt-oss 는 `reasoning_effort` 로 생각 길이를 줄인다(low: 4초 안팎, 실측).
+            "chat_template_kwargs": ["enable_thinking": false, "reasoning_effort": "low"],
         ])
 
         guard let (data, response) = try? await URLSession.shared.data(for: request),
@@ -313,6 +314,25 @@ enum LocalModel {
               let message = choices.first?["message"] as? [String: Any],
               let content = message["content"] as? String
         else { return nil }
-        return content
+        return unwrap(content)
+    }
+
+    /// gpt-oss 는 답을 「채널」 표식으로 감싸 보낸다 — `<|channel|>analysis<|message|>생각<|end|>
+    /// <|start|>assistant<|channel|>final<|message|>답`. mlx_lm 0.31 서버는 이를 풀지 않고
+    /// content 에 그대로 넣는다(2026-09-05 실측). **마지막 final 채널만 답이다.** 표식이 없는
+    /// 모델(Qwen·Ollama·상용 API)은 그대로 돌려주고, 생각만 있고 답이 없으면 nil — 규칙 경로로.
+    static func unwrap(_ content: String) -> String? {
+        guard content.contains("<|channel|>") else { return content }
+        guard let mark = content.range(of: "<|channel|>final<|message|>", options: .backwards) else {
+            return nil
+        }
+        var answer = content[mark.upperBound...]
+        for stop in ["<|end|>", "<|return|>", "<|start|>"] {
+            if let cut = answer.range(of: stop) {
+                answer = answer[..<cut.lowerBound]
+            }
+        }
+        let text = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
     }
 }
