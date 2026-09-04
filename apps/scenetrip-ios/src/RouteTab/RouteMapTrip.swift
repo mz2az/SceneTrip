@@ -80,8 +80,26 @@ extension RouteMapView.Coordinator {
 
     /// 발자취 — 지나온 자리마다 **황금 발자국** 하나. 진행 방향으로 돌리고, 왼발·오른발처럼
     /// 번갈아 살짝 비껴 찍는다. 25 m 마다 한 점이라 수백 개여도 가볍다.
-    func renderFootprints(_ points: [FootprintPoint], on mapView: NMFMapView) {
-        let key = "\(points.count)|\(points.last?.at.timeIntervalSince1970 ?? 0)"
+    ///
+    /// **화면 간격은 줌과 무관하게 일정하다** — 기록은 25 m 마다지만 축소하면 자국이 겹쳐 노란
+    /// 줄이 됐다(2026-09-04 사용자 지적). 줌에 맞춰 솎아, 자국 사이가 화면에서 약 40pt 이상
+    /// (최소 50 m — 예전 간격의 두 배)이 되게 한다. 카메라가 움직이면 다시 솎는다.
+    func renderFootprints(_ all: [FootprintPoint], on mapView: NMFMapView) {
+        lastFootPoints = all
+        let metersPerPoint = mapView.projection.metersPerPixel()
+        let minMeters = max(50, 40 * metersPerPoint)
+        var points: [FootprintPoint] = []
+        for point in all {
+            if let last = points.last {
+                let gap = NMGLatLng(lat: last.latitude, lng: last.longitude)
+                    .distance(to: NMGLatLng(lat: point.latitude, lng: point.longitude))
+                if gap < minMeters {
+                    continue
+                }
+            }
+            points.append(point)
+        }
+        let key = "\(all.count)|\(all.last?.at.timeIntervalSince1970 ?? 0)|\(Int(minMeters))"
         guard key != lastFootKey else { return }
         lastFootKey = key
         footMarkers.forEach { $0.mapView = nil }

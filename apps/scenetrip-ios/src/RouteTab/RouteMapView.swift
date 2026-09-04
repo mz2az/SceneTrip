@@ -177,6 +177,8 @@ struct RouteMapView: UIViewRepresentable {
         /// 발자국 마커(`RouteMapTrip.swift`).
         var footMarkers: [NMFMarker] = []
         var lastFootKey = ""
+        /// 마지막으로 받은 발자취 전체 — 카메라가 움직이면 줌에 맞춰 다시 솎는다.
+        var lastFootPoints: [FootprintPoint] = []
         private var pendingMarker: NMFMarker?
         private var lastKey = ""
         private var lastFitToken = -1

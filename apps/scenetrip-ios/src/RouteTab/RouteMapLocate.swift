@@ -183,10 +183,14 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
         }
     }
 
-    nonisolated func mapView(_: NMFMapView, cameraDidChangeByReason _: Int, animated _: Bool) {
+    nonisolated func mapView(_ mapView: NMFMapView, cameraDidChangeByReason _: Int, animated _: Bool) {
         Task { @MainActor in
             self.positionPulse()
             self.positionHalo()
+            // 줌이 바뀌면 발자국을 다시 솎는다 — 화면 간격을 일정하게.
+            if !self.lastFootPoints.isEmpty {
+                self.renderFootprints(self.lastFootPoints, on: mapView)
+            }
         }
     }
 }
