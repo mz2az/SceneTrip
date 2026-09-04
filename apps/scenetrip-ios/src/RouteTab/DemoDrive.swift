@@ -13,7 +13,7 @@ import SceneApiClient
 enum DemoDrive {
     typealias Point = (latitude: Double, longitude: Double)
 
-    /// 몇 번 성지까지 가는가. 0 이면 꺼짐.
+    /// 몇 번 성지까지 가는가. 0 이면 꺼짐. 한도는 영상용이다 — `just ios-demo` 기본은 99(끝까지).
     ///
     /// **시뮬레이터에서는 인자가 없어도 켜진다**(2026-09-04 사용자 요청 — 새 코스에서 직접
     /// 「길찾기」를 눌러도 가상 GPS 가 길을 따라 걸어야 한다. 시뮬레이터엔 진짜 GPS 가 없다).
@@ -32,10 +32,15 @@ enum DemoDrive {
         untilStop > 0
     }
 
-    /// 초당 몇 m 움직이는가. 기본 12 — 도보의 열 배. 영상 길이 때문이다(1→3번이 약 2분).
+    /// 초당 몇 m 움직이는가(도보 구간). 기본 24 — 12 에서 두 배로(2026-09-04 사용자 요청).
     static var metersPerSecond: Double {
         let raw = UserDefaults.standard.double(forKey: "demoSpeed")
-        return raw > 0 ? raw : 12
+        return raw > 0 ? raw : 24
+    }
+
+    /// 구간 종류별 속도 — 대중교통 구간은 도보의 네 배(2026-09-04 사용자 요청).
+    static func speed(for mode: RouteLegMode) -> Double {
+        metersPerSecond * (mode == .transit ? 4 : 1)
     }
 
     /// 한 걸음의 간격(초). 0.4초면 지도의 파문이 끊기지 않고 움직인다.

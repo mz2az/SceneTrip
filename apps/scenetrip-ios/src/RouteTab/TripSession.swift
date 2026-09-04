@@ -233,12 +233,20 @@ final class TripSession: ObservableObject {
         let goal: DemoDrive.Point = (target.place.latitude, target.place.longitude)
         var position = demoPosition ?? here.map { ($0.latitude, $0.longitude) } ?? DemoDrive.start(near: target)
         if DemoDrive.meters(position, goal) > DemoDrive.stopWithinMeters {
-            let path = (result?.legs ?? []).flatMap(\.path).compactMap { pair -> DemoDrive.Point? in
-                pair.count >= 2 ? (pair[1], pair[0]) : nil // [경도, 위도] 순으로 온다
+            // 경로선을 구간별로 펴고, 지금 지나는 꼭짓점이 어느 구간인지로 속도를 정한다
+            // (도보 24 m/s · 대중교통 네 배).
+            var path: [DemoDrive.Point] = []
+            var modes: [RouteLegMode] = []
+            for leg in result?.legs ?? [] {
+                for pair in leg.path where pair.count >= 2 {
+                    path.append((pair[1], pair[0])) // [경도, 위도] 순으로 온다
+                    modes.append(leg.mode)
+                }
             }
+            let mode = modes.indices.contains(demoPathIndex) ? modes[demoPathIndex] : .walk
             position = DemoDrive.step(
                 from: position, along: path, index: &demoPathIndex,
-                toward: goal, meters: DemoDrive.metersPerSecond * DemoDrive.tick
+                toward: goal, meters: DemoDrive.speed(for: mode) * DemoDrive.tick
             )
             demoPosition = position
             DemoDrive.remember(position)

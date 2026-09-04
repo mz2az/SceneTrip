@@ -84,7 +84,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
   「지도에 발자취 보기」)을 켜면 **황금색 반투명 발자국**(진행 방향으로 회전)이 찍힌다. 기록은
   토글과 무관하게 늘 남는다 — 꺼 두었다가 켜도 볼 수 있게.
 - **시뮬레이터에서는 가상 GPS 가 기본으로 켜진다**(`DemoDrive`, `-demoDrive` 인자 없어도) —
-  어느 코스든 「길찾기」를 누르면 경로선을 따라 12 m/s 로 걸어 도착까지 간다. 끄려면
+  어느 코스든 「길찾기」를 누르면 경로선을 따라 도보 24 m/s(대중교통 구간은 네 배)로 도착까지 간다. 도착 뒤 「다음 · N번으로」를 누르면 그 자리에서 이어 걷는다. 끄려면
   `-demoDrive 0`. 실기기는 진짜 GPS.
 - 홈의 「오늘의 성지」(코스 없음)만 예전 길찾기 창(`RouteNavView`)을 쓴다.
 - 시뮬레이터에서 보기: `xcrun simctl location booted set <위도>,<경도>` 로 첫 성지 옆에 서고,
@@ -95,8 +95,8 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 ```sh
 just ios-run                      # 앱 설치
 just ios-run "iPhone 17"          # 시뮬레이터가 두 대 떠 있으면 기종을 집어 준다
-just ios-demo                     # 1번 → 3번, 각 성지 5초 머무름
-just ios-demo 5 8 25              # 5번까지, 8초 머무름, 25 m/s (영상을 짧게)
+just ios-demo                     # 끝까지, 각 성지 5초 머무름, 도보 24 m/s · 대중교통 네 배
+just ios-demo 3 8 40              # 3번까지만(영상), 8초 머무름, 40 m/s
 just ios-demo 1 5 12 <UDID>       # 두 대일 때는 UDID 로 (booted 는 모호하다)
 ```
 
