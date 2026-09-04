@@ -359,6 +359,11 @@ tools/just/k8s.just              seed-poi · poi-filter
 적재 결과 — food 404,827 · stay 65,444 · sight 27,998 · transit 2,245 = **500,514 행**, 26 초
 (kubectl cp 포함). 확인은 `just db-psql "SELECT category_group, count(*) FROM poi GROUP BY 1;"`.
 
+**배포 후 스모크** (2026-09-04, `just poi-smoke`) — kind 의 scene-api 에 강남역 2 km 뷰포트로
+`GET /pois` 를 흘렸다. 30 개 · 거리 오름차순 · `total` 4,103 · `Content-Language: ko`,
+갈래 필터 · `limit` · 400 두 종류 · 상세 · 404 전부 기대대로. 왕복 **8~18 ms** (예열 뒤).
+첫 요청은 256 ms — JIT·커넥션 풀이라 스모크가 한 번 버리고 잰다.
+
 ## 6. 검색
 
 `/pois?q=` 는 `/places?q=` 와 같은 모양이되 훨씬 단순하다. 다리를 건너지 않는다 —

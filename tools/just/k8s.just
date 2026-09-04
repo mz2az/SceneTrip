@@ -234,6 +234,13 @@ db-refresh-search:
     @just db-psql 'REFRESH MATERIALIZED VIEW CONCURRENTLY search_term;'
     @just db-psql 'SELECT entity_type, count(*) FROM search_term GROUP BY entity_type ORDER BY entity_type;'
 
+# 전량 적재 뒤에 돌린다(표본 23 행에는 강남이 없다). 인자로 다른 주소를 줄 수 있다.
+#
+# 배포된 서버에 편의시설 조회를 흘려 본다 — 강남 bbox 30 개·정렬·400·404·왕복 ms
+[group('k8s')]
+poi-smoke api="http://localhost:8081/v1":
+    ./tools/scripts/poi-smoke.sh "{{ api }}"
+
 # ── 관측성 ────────────────────────────────────────────────────────────────────
 
 # SigNoz UI 주소와 필터 안내
