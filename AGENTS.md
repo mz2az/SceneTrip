@@ -71,6 +71,7 @@ Before creating any file, resolve its home with this table. Do not invent new to
 | The thing you are creating | Goes in |
 | --- | --- |
 | A deployable Spring Boot HTTP/gRPC server | `services/<name>/` |
+| A data pipeline (Python batch that owns data but serves no API) | `services/<name>/` — ADR 0013 |
 | A deployable native iOS or Android app | `apps/<name>/` |
 | An LLM agent runtime, tool, or orchestration graph | `agents/<name>/` |
 | Code imported by ≥2 modules | `libs/<lang>/<name>/` |

@@ -3,7 +3,8 @@
 독립적으로 배포되는 백엔드 하나당 디렉터리 하나. 서비스는 여러 개가 생기는 것을
 전제하며, 서로 대등한 관계다 — 중첩하지 않는다.
 
-기본 언어는 **Java(Spring Boot)** 다. 헬스체크 경로는 Spring Actuator 기준으로
+기본 언어는 **Java(Spring Boot)** 다. HTTP 를 열지 않는 **데이터 파이프라인**은 파이썬으로
+둘 수 있다(`services/poi-pipeline`, ADR 0013) — 자기 데이터를 소유하되 API 대신 표를 채운다. 헬스체크 경로는 Spring Actuator 기준으로
 `/actuator/health` 이며, `just health` 와 배포 매니페스트가 이 경로를 쓴다.
 
 **API 버전을 경로에 두는 서비스는 그 앞에 접두사가 붙는다.** `server.servlet.context-path`

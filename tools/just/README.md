@@ -14,6 +14,7 @@
 | `ci.just` | `ci` | 파이프라인 진입점, 릴리스 |
 | `agent.just` | `agent` | AI 에이전트 실행과 평가 |
 | `scaffold.just` | `scaffold` | 새 서비스·앱·에이전트·라이브러리 생성 |
+| `pipeline.just` | `pipeline` | POI 수집·대조·적재, kind 의 Airflow |
 
 ## 레시피 추가하기
 

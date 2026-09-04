@@ -510,8 +510,9 @@ use_repo(swift_deps, "swift_package", "swiftpkg_spm_nmapsmap")
 # Swift — **위 "Swift / iOS" 절에서 이미 활성화됐다.** 첫 iOS 앱(scenetrip-ios)과
 # 함께 풀었고, 팀 전원 정식 Xcode 설치를 확인한 뒤였다.
 #
-# Python — AI 에이전트 (agents/), 공유 라이브러리 (libs/python/):
-#   bazel_dep(name = "rules_python", version = "2.2.0")
+# Python — **아래 "Python" 절에서 활성화됐다.** 첫 파이썬 모듈(services/poi-pipeline,
+# MZ2AZ-315)과 함께 풀었다. pip 확장은 아직 안 켰다 — 그 모듈이 표준 라이브러리만 쓴다.
+# 첫 pip 의존성이 들어올 때 아래를 푼다:
 #   pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 #   pip.parse(hub_name = "pypi", python_version = "3.12",
 #             requirements_lock = "//:requirements.lock")
@@ -525,3 +526,18 @@ use_repo(swift_deps, "swift_package", "swiftpkg_spm_nmapsmap")
 # 대신 :ipa / :aab 설치 산출물을 만든다):
 #   bazel_dep(name = "rules_oci", version = "2.0.1")
 #   bazel_dep(name = "container_structure_test", version = "1.16.0")
+
+# ==============================================================================
+# Python — 데이터 파이프라인 (services/poi-pipeline), 앞으로 AI 에이전트 (agents/)
+# ==============================================================================
+#
+# 툴체인은 Bazel 이 내려받는 3.12 다 — 호스트 파이썬(맥은 3.14, CI 는 다를 수 있다)을
+# 쓰지 않는다. 그래야 검사가 기계마다 같다. pip 확장은 첫 pip 의존성이 들어올 때
+# (위 "아래 블록은 …" 절 참조).
+bazel_dep(name = "rules_python", version = "2.2.0")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    is_default = True,
+    python_version = "3.12",
+)

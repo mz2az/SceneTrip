@@ -1,0 +1,11 @@
+# 파이프라인 데이터(원본 JSONL·장부·공공데이터 CSV)의 자리. Helm 릴리스와 별개라 재설치해도 남는다.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: poi-data
+  namespace: airflow
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
