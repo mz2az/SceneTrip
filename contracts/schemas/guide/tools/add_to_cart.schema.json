@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mz2az.dev/schemas/guide/tools/add_to_cart.schema.json",
+  "title": "add_to_cart",
+  "description": "보여 준 장소를 장바구니에 담는다(POST /cart/items 와 같은 일). 이름은 이번 대화에서 보여 준 목록 안에서만. X-Device-Id 가 필요하다.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "arguments": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "added": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "error": {
+          "type": "string",
+          "description": "그 이름은 찾은 목록에 없다 · 이미 담겨 있다"
+        }
+      }
+    }
+  }
+}

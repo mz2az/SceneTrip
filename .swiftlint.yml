@@ -18,6 +18,9 @@ excluded:
   - bazel-out
   - bazel-testlogs
   - bazel-SceneTrip
+  # 워크트리에서는 링크 이름이 디렉터리 이름을 따른다(bazel-main-2 · bazel-guide-239 …).
+  # 이름을 하나씩 적으면 워크트리마다 생성물 6천 줄을 검사하게 된다(2026-09-05 실측).
+  - bazel-*
 
 disabled_rules:
   # **swiftformat 과 정면으로 충돌한다.** swiftformat 은 여러 줄 컬렉션 리터럴에

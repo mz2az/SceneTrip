@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mz2az.dev/schemas/guide/tools/poi_nearby.schema.json",
+  "title": "poi_nearby",
+  "description": "지금 위치(또는 담은 지점·고른 곳) 주변의 편의시설을 찾는다. 서버는 GET /pois 와 같은 조회(PoiStore)를 쓰고 poi_naver 의 리뷰 수·별점으로 순위를 매겨 15곳까지 돌려준다. 모델에게는 좌표를 뺀 결과를, 화면에는 좌표가 있는 결과를 준다.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "arguments": {
+      "type": "object",
+      "required": [
+        "group"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "radius_m": {
+          "type": "integer",
+          "minimum": 50,
+          "maximum": 5000,
+          "default": 300,
+          "description": "반경. 300 m 가 걸어갈 만한 거리다"
+        },
+        "group": {
+          "enum": [
+            "음식",
+            "숙박",
+            "명소",
+            "교통"
+          ],
+          "description": "큰 갈래. PoiCategoryGroup 의 food·stay·sight·transit 에 대응"
+        },
+        "cat": {
+          "type": "string",
+          "description": "업종(한식·카페기타·치킨·호텔 …). PoiSummary.category 와 같은 값 공간"
+        },
+        "q": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "이름에 들어갈 말"
+        },
+        "near": {
+          "type": "string",
+          "description": "기준. 담은 지점 번호(\"1\") · \"선택\" · 빈 값(지금 위치)"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "required": [
+        "places"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "기준": {
+          "type": "string",
+          "description": "어디 주변인지 사람 말로. 「1번(서울 덕수궁 돌담길) 주변」"
+        },
+        "places": {
+          "type": "array",
+          "maxItems": 15,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "cat",
+              "group",
+              "dist_m"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "cat": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "addr": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dist_m": {
+                "type": "integer"
+              },
+              "score": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "네이버 별점. 없으면 null — 0 으로 채우지 않는다"
+              },
+              "review_count": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "near_spot": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "가까운 촬영지 이름 — 여기 온 이유"
+              }
+            }
+          }
+        },
+        "error": {
+          "type": "string",
+          "description": "기준 번호가 없을 때. 결과를 아예 주지 않아야 모델이 지어내지 못한다"
+        }
+      }
+    }
+  }
+}

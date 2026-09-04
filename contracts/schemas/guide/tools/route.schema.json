@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mz2az.dev/schemas/guide/tools/route.schema.json",
+  "title": "route",
+  "description": "지금 위치에서 앞서 poi_nearby 가 보여 준 장소까지 어떻게 가는지. 이름은 이번 대화에서 보여 준 목록 안에서만 찾는다(47만 건을 뒤지면 지어낸 이름에 엉뚱한 가게가 걸린다). 서버는 NextLegPlanner 와 같은 카카오 호출을 편의시설 좌표로 한다.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "arguments": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "poi_nearby 가 준 이름 그대로"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "to": {
+          "type": "string"
+        },
+        "total_min": {
+          "type": "integer"
+        },
+        "walk_m": {
+          "type": "integer"
+        },
+        "transfers": {
+          "type": "integer"
+        },
+        "legs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "mode",
+              "minutes"
+            ],
+            "properties": {
+              "mode": {
+                "enum": [
+                  "walk",
+                  "bus",
+                  "subway"
+                ]
+              },
+              "minutes": {
+                "type": "integer"
+              },
+              "line": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "from": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "to": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "stops": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "error": {
+          "type": "string",
+          "description": "아직 찾은 장소가 없다 · 그 이름은 목록에 없다 · 경로 없음"
+        }
+      }
+    }
+  }
+}

@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.1.2
+  version: 1.2.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -159,6 +159,8 @@ tags:
     description: 코스 공유 — 올리기·담기·내리기
   - name: navigation
     description: 길찾기 — 여행 중에만. 아직 구현되지 않았다
+  - name: guide
+    description: 여행 가이드 챗봇 — 앱은 화면 상태를 보내고, LLM 호출과 도구 실행은 서버가 한다 (ADR 0012)
 
 paths:
   /search/suggestions:
@@ -1413,6 +1415,60 @@ paths:
           description: |
             길찾기 제공자(카카오)가 응답하지 않거나 호출 한도를 넘었다. 잠시 뒤 다시
             시도할 수 있다. 서버 사정이라 `traceId` 가 실린다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /guide/chat:
+    post:
+      tags: [guide]
+      operationId: chatWithGuide
+      summary: 여행 가이드 챗봇 — 한 턴 주고받기
+      description: |
+        앱은 **대화 이력·지금 위치·화면 상태**를 보내고, 서버가 LLM 을 부르고 도구
+        (`poi_nearby`·`route`·`add_to_cart`)를 실행해 답을 만든다. 앱은 LLM 을 직접 부르지
+        않고 모델 이름·키를 모른다 — [ADR 0012](../../docs/architecture/adr/0012-guide-chat-is-served-by-the-server.md).
+
+        **화면 상태(`context`)가 곧 모델의 눈이다.** 담은 지점의 번호·이름·다녀옴 표시,
+        여행 단계·가는 곳·남은 직선거리·걸은 거리. 「다 돌았어?」「다음은 어디야?」는 이것만으로
+        도구 없이 답한다. 좌표는 모델에게 주지 않는다(스스로 거리를 재려 들고 틀린다).
+        번호를 좌표로 바꾸는 것은 서버다.
+
+        한 턴에 도구는 최대 3회 왕복한다. 넘으면 그때까지의 결과로 답한다. 실측(gpt-oss-20b,
+        2026-09-05): 도구 없는 답 2~9초, 도구 1회 포함 30초 — `tookSeconds` 로 돌려준다.
+        클라이언트 타임아웃은 120초 이상으로 둔다.
+
+        `sessionId` 는 대화 하나를 잇는 열쇠다. 서버는 그 대화에서 **보여 준 장소 목록**을
+        기억해 「거기 어떻게 가」의 「거기」를 푼다. 서버 재시작이면 잊는다 — 앱은 새 세션으로
+        다시 묻는다.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - $ref: "#/components/parameters/DeviceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuideChatRequest"
+      responses:
+        "200":
+          description: |
+            답과, 그 답을 만들며 부른 도구·찾은 장소·그린 경로. **`toolsUsed` 는 화면에 보인다** —
+            근거 없이 답한 것을 사용자가 알아볼 수 있어야 한다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuideChatReply"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          description: |
+            LLM 이 응답하지 않는다(꺼져 있거나 적재 중이거나 한도 초과). `code` 는
+            `GUIDE_UNAVAILABLE`. **조용히 규칙 기반으로 떨어지지 않는다** — 왜 답이 밋밋한지
+            사용자가 알아야 한다. 잠시 뒤 다시 시도할 수 있다.
           content:
             application/json:
               schema:
@@ -2842,3 +2898,187 @@ components:
             items:
               type: number
               format: double
+
+    GuideChatRequest:
+      type: object
+      required: [sessionId, latitude, longitude, messages]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: 대화 하나의 열쇠. 앱이 만들고 시트를 닫을 때까지 같은 값을 보낸다.
+        latitude:
+          type: number
+          format: double
+          description: 지금 사용자의 위치. 「주변」의 기준이자 길찾기의 출발점.
+        longitude:
+          type: number
+          format: double
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 40
+          description: 대화 이력 전부. 마지막이 이번 질문이다. 서버는 이력을 저장하지 않는다.
+          items:
+            $ref: "#/components/schemas/GuideMessage"
+        context:
+          $ref: "#/components/schemas/GuideContext"
+
+    GuideMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+          maxLength: 4000
+
+    GuideContext:
+      type: object
+      description: |
+        **화면이 지금 보여 주는 것.** 질문마다 다시 만들어 보낸다 — 순서를 바꾸거나 동선
+        최적화를 누르면 번호가 바뀌는데, 모델이 보는 번호와 지도의 번호가 같아야 한다.
+      required: [stops]
+      properties:
+        stops:
+          type: array
+          maxItems: 50
+          description: 지금 일차에 담긴 지점. 지도의 번호 핀과 **같은 번호**.
+          items:
+            $ref: "#/components/schemas/GuideStop"
+        picked:
+          $ref: "#/components/schemas/GuideStop"
+        trip:
+          $ref: "#/components/schemas/GuideTrip"
+
+    GuideStop:
+      type: object
+      required: [number, name, latitude, longitude]
+      properties:
+        number:
+          type: integer
+          minimum: 0
+          description: 지도의 번호. `picked` 에서는 0 이어도 된다.
+        name:
+          type: string
+        category:
+          type: string
+          nullable: true
+          description: 명소·식당·카페 같은 종류. 모델에게 「어떤 곳인지」를 주는 힌트다.
+        latitude:
+          type: number
+          format: double
+          description: 서버만 쓴다 — 번호를 좌표로 바꿀 때. 모델에게는 주지 않는다.
+        longitude:
+          type: number
+          format: double
+        visited:
+          type: boolean
+          default: false
+          description: 이번 여행에서 다녀왔는가(발바닥 도장).
+
+    GuideTrip:
+      type: object
+      description: |
+        여행 상태. 없으면 여행 중이 아닌 것이다. 모델이 「방문 여부를 모른다」고 답하지
+        않으려면 이것이 있어야 한다(2026-09-05 실측 — 발자국이 다 찍혔는데 몰랐다).
+      required: [phase, course, day, days, walkedKilometers]
+      properties:
+        phase:
+          type: string
+          enum: [plan, guiding, arrived]
+          description: 계획 보기 · 가는 중 · 도착함
+        course:
+          type: string
+          description: 코스 제목
+        day:
+          type: integer
+          minimum: 1
+          description: 지금 보는 일차(1부터)
+        days:
+          type: integer
+          minimum: 1
+        targetNumber:
+          type: integer
+          nullable: true
+          description: 가는(또는 방금 닿은) 곳의 번호. `plan` 이면 없다.
+        targetMeters:
+          type: integer
+          nullable: true
+          description: 내 자리에서 그 곳까지 **직선** m. 도로 거리가 아니고 모델에게도 그렇게 말한다.
+        walkedKilometers:
+          type: number
+          format: double
+          description: 최근 하루 발자국으로 잰 걸은 거리(km). 소수 첫째 자리.
+
+    GuideChatReply:
+      type: object
+      required: [reply, toolsUsed, places, tookSeconds]
+      properties:
+        reply:
+          type: string
+          description: 사용자에게 보일 답. 사용자가 쓴 언어로 온다. 마크다운일 수 있다.
+        toolsUsed:
+          type: array
+          description: 이번 턴에 실제로 부른 도구. 비면 도구 없이 상태·이력만으로 답한 것이다.
+          items:
+            $ref: "#/components/schemas/GuideToolUse"
+        places:
+          type: array
+          description: |
+            이번 턴에 `poi_nearby` 가 찾아 준 장소. **좌표가 있으므로 지도에 찍을 수 있다.**
+            비면 앞 턴의 목록을 그대로 둔다 — 「어디 기준이야?」 같은 되물음에 목록이 사라지면 안 된다.
+          items:
+            $ref: "#/components/schemas/PoiSummary"
+        route:
+          nullable: true
+          description: |
+            `route` 도구가 그린 경로. 목적지가 코스 항목이 아니라 **찾아 준 편의시설**이라
+            `POST /navigation/next-leg` 와 별개의 자리다(그 계약의 「따로 정한다」가 이것이다).
+          allOf:
+            - $ref: "#/components/schemas/NextLeg"
+        tookSeconds:
+          type: number
+          format: double
+          description: 서버가 잰 처리 시간. 화면이 「근거」줄에 같이 보인다.
+
+    GuideToolUse:
+      type: object
+      required: [tool, arguments]
+      properties:
+        tool:
+          type: string
+          enum: [poi_nearby, route, add_to_cart]
+        arguments:
+          $ref: "#/components/schemas/GuideToolArguments"
+
+    GuideToolArguments:
+      type: object
+      description: |
+        모델이 넣은 인자 — 검증을 통과한 값만. 세 도구의 인자를 한 모양에 모았다(생성기가 자유 객체를
+        못 만들어서다). 도구마다 쓰는 필드만 채워지고 나머지는 없다. 정본은 `contracts/schemas/guide/tools/`.
+      properties:
+        radiusMeters:
+          type: integer
+          nullable: true
+          description: "`poi_nearby` — 반경"
+        group:
+          $ref: "#/components/schemas/PoiCategoryGroup"
+        category:
+          type: string
+          nullable: true
+          description: "`poi_nearby` — 업종"
+        query:
+          type: string
+          nullable: true
+          description: "`poi_nearby` — 이름에 들어갈 말"
+        near:
+          type: string
+          nullable: true
+          description: "`poi_nearby` — 기준. 번호·`선택`·빈 값"
+        name:
+          type: string
+          nullable: true
+          description: "`route`·`add_to_cart` — 보여 준 장소의 이름"
