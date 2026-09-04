@@ -129,12 +129,31 @@ extension RouteMapView.Coordinator {
 
     /// 안내 경로 — **API 가 준 실제 길 좌표를 그대로 그린다.** 구간마다 따로 그어야
     /// 도보(점선)와 대중교통(실선)이 갈린다. 계획선(직선) 위에 굵게 얹는다.
-    func renderLegs(_ legs: [RouteLeg], on mapView: NMFMapView) {
-        let key = legs.map { "\($0.id)" }.joined(separator: ",")
+    func renderLegs(_ legs: [RouteLeg], to target: RouteStop?, on mapView: NMFMapView) {
+        let key = legs.map { "\($0.id)" }.joined(separator: ",") + "|\(target?.id.uuidString ?? "-")"
         guard key != lastLegsKey else { return }
         lastLegsKey = key
         legPaths.forEach { $0.mapView = nil }
         legPaths = []
+        // 카카오 경로는 목적지에서 가장 가까운 **도로 접점**에서 끝난다 — 건물 안·캠퍼스 안의
+        // 핀까지 마지막 몇십 m 는 길이 없다. 그 사이를 얇은 회색 점선으로 이어 「여기서부터
+        // 걸어 들어간다」가 보이게 한다(2026-09-04 사용자 결정).
+        if let target,
+           let lastPair = legs.last(where: { $0.path.count > 1 })?.path.last, lastPair.count >= 2,
+           let line = NMFPath(points: [
+               NMGLatLng(lat: lastPair[1], lng: lastPair[0]),
+               NMGLatLng(lat: target.place.latitude, lng: target.place.longitude),
+           ])
+        {
+            line.width = 4
+            line.color = UIColor(red: 0.54, green: 0.58, blue: 0.65, alpha: 0.85)
+            line.outlineWidth = 0
+            line.patternInterval = 8
+            line.patternIcon = NMFOverlayImage(image: Self.dash())
+            line.zIndex = 5
+            line.mapView = mapView
+            legPaths.append(line)
+        }
         for leg in legs where leg.path.count > 1 {
             let points = leg.path.compactMap { pair -> NMGLatLng? in
                 pair.count >= 2 ? NMGLatLng(lat: pair[1], lng: pair[0]) : nil

@@ -184,9 +184,9 @@ struct RouteStopRow: View {
                         .frame(height: 30)
                         .background(Capsule().fill(Color(PinImage.deep)))
                         .foregroundStyle(.white)
-                } else if let onNavigate, !stop.visited {
+                } else if let onNavigate {
                     Button(action: onNavigate) {
-                        Label("길찾기", systemImage: "location")
+                        Label(stop.visited ? "다시 길찾기" : "길찾기", systemImage: "location")
                             .font(.caption2.weight(.medium))
                             .lineLimit(1).layoutPriority(1)
                             .padding(.horizontal, 9)

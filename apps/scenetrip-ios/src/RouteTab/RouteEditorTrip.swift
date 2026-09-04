@@ -293,7 +293,7 @@ extension RouteEditorView {
         if let tapped = pickedStop, !showGuide, guide.picked == nil {
             RouteStopCard(
                 stop: tapped,
-                onReroute: course.isRunning && !tapped.visited && trip.target?.id != tapped.id
+                onReroute: course.isRunning && trip.target?.id != tapped.id
                     ? { startTrip(to: tapped) } : nil,
                 onClose: { pickedStop = nil }
             )

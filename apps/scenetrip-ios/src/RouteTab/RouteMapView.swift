@@ -255,7 +255,7 @@ struct RouteMapView: UIViewRepresentable {
             on mapView: NMFMapView
         ) {
             renderPending(pending, on: mapView)
-            renderLegs(legs, on: mapView)
+            renderLegs(legs, to: navTarget, on: mapView)
 
             if showingMe != self.showingMe {
                 self.showingMe = showingMe
