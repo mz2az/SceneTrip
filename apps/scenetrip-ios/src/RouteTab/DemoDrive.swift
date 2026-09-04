@@ -82,6 +82,14 @@ enum DemoDrive {
         UserDefaults.standard.set(position.longitude, forKey: lastLngKey)
     }
 
+    /// 데모의 출발점 — 서울시청. 코스 화면을 나가면 여기로 되돌린다(2026-09-04 사용자 요청:
+    /// 성능을 보여 주는 자리라 다음 코스도 늘 같은 자리에서 출발해야 한다).
+    static let home: Point = (37.5665, 126.9780)
+
+    static func resetToHome() {
+        remember(home)
+    }
+
     static func meters(_ from: Point, _ to: Point) -> Double {
         RouteGeometry.kilometers(
             PlaceSummary(id: 0, name: "", latitude: from.latitude, longitude: from.longitude),

@@ -236,7 +236,11 @@ struct RouteEditorView: View {
             await runPendingTripStart()
         }
         // 화면을 닫으면 안내도 끝난다 — 위치 받기가 뒤에서 계속 돌면 안 된다.
-        .onDisappear { trip.end() }
+        // 가상 GPS 는 서울시청으로 되돌린다 — 다음 코스도 같은 자리에서 출발(2026-09-04).
+        .onDisappear {
+            trip.end()
+            DemoDrive.resetToHome()
+        }
         // **안내 중에는 편의시설 점을 다 끈다**(2026-09-04 사용자 요청) — 경로선이 주인공인데
         // 음식점·명소 점이 그 위를 덮었다. 안내가 끝나면 다시 전부 켠다. 안내 중에 칩으로
         // 켜는 것은 그대로 된다.
