@@ -27,6 +27,9 @@ concurrency:
 # 사람마다 다른 말을 한다.
 env:
   SHELLCHECK_VERSION: "0.11.0"
+  # ruff 는 파이썬 포맷·린트(services/poi-pipeline, MZ2AZ-315). 판정 도구라 버전을 고정한다 —
+  # 로컬 brew 판(0.16.5)과 같게. pip 로 받는 이유: 두 러너 이미지 모두 python3 가 있고 brew 보다 빠르다.
+  RUFF_VERSION: "0.16.5"
 
 jobs:
   verify:
@@ -53,6 +56,7 @@ jobs:
           curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
             | tar -xJ -C /tmp
           sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          python3 -m pip install --quiet --user "ruff==${RUFF_VERSION}" && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Bazel 캐시
         uses: actions/cache@v4
