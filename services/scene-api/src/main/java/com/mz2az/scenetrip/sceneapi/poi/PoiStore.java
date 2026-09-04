@@ -6,8 +6,11 @@ import com.mz2az.scenetrip.sceneapi.api.model.PoiSummary;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -168,6 +171,18 @@ public class PoiStore {
             : bind(jdbc.sql(COUNT_SQL), criteria).query(Integer.class).single();
 
     return new Page(items, total);
+  }
+
+  /** 주어진 id 중 실제로 있는 것. 여럿 카드 조회가 「없는 id」를 그 자리에 표시하려고 쓴다. */
+  public Set<Long> existingIds(Collection<Long> ids) {
+    if (ids.isEmpty()) {
+      return Set.of();
+    }
+    return new HashSet<>(
+        jdbc.sql("SELECT id FROM poi WHERE id IN (:ids)")
+            .param("ids", ids)
+            .query(Long.class)
+            .list());
   }
 
   /** 상세 하나. 없으면 비어 있다 — 404 는 컨트롤러의 몫이다. */

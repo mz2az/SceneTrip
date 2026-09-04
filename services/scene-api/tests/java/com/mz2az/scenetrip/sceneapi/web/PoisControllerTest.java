@@ -12,11 +12,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.mz2az.scenetrip.sceneapi.api.model.PoiCard;
+import com.mz2az.scenetrip.sceneapi.api.model.PoiCardBatch;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCategoryGroup;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiSummary;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStore;
+import com.mz2az.scenetrip.sceneapi.poi.naver.PoiCardService;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -38,6 +41,7 @@ class PoisControllerTest {
 
   @Autowired private MockMvc mvc;
   @MockitoBean private PoiStore store;
+  @MockitoBean private PoiCardService cards;
 
   private static PoiSummary poi(long id, String name) {
     return new PoiSummary(id, name, "한식", PoiCategoryGroup.FOOD, 37.498, 127.027)
@@ -215,6 +219,64 @@ class PoisControllerTest {
         .andExpect(header().string("Content-Language", "ko"))
         .andExpect(jsonPath("$.name").value("모슬포호텔"))
         .andExpect(jsonPath("$.tel").value("064-794-3355"));
+  }
+
+  @Test
+  @DisplayName("카드 단건 — 200, 못 찾아도 200")
+  void cardFoundOrNot() throws Exception {
+    when(cards.card(7L))
+        .thenReturn(Optional.of(new PoiCard(7L).found(true).name("모슬포호텔").reviewCount(12)));
+    mvc.perform(get("/pois/7/card"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.found").value(true))
+        .andExpect(jsonPath("$.name").value("모슬포호텔"))
+        .andExpect(jsonPath("$.reviewCount").value(12));
+
+    when(cards.card(8L)).thenReturn(Optional.of(new PoiCard(8L).found(false).why("일치하는 장소가 없다")));
+    mvc.perform(get("/pois/8/card"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.found").value(false))
+        .andExpect(jsonPath("$.why").value("일치하는 장소가 없다"));
+  }
+
+  @Test
+  @DisplayName("카드 단건 — POI 가 없으면 404 POI_NOT_FOUND")
+  void cardMissingPoi() throws Exception {
+    when(cards.card(anyLong())).thenReturn(Optional.empty());
+
+    mvc.perform(get("/pois/999/card"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("POI_NOT_FOUND"));
+  }
+
+  @Test
+  @DisplayName("카드 여럿 — ids 가 쉼표로 쪼개져 순서대로 전달되고, retryAfterSeconds 가 실린다")
+  void cardsBatch() throws Exception {
+    when(cards.cards(List.of(1L, 2L, 3L)))
+        .thenReturn(
+            new PoiCardBatch(
+                    List.of(
+                        new PoiCard(1L).found(true),
+                        new PoiCard(2L).pending(true),
+                        new PoiCard(3L).pending(true)))
+                .retryAfterSeconds(7));
+
+    mvc.perform(get("/pois/cards").param("ids", "1,2,3"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(3))
+        .andExpect(jsonPath("$.items[1].pending").value(true))
+        .andExpect(jsonPath("$.retryAfterSeconds").value(7));
+  }
+
+  @Test
+  @DisplayName("카드 여럿 — ids 가 없거나 51 개면 400")
+  void cardsBatchValidation() throws Exception {
+    mvc.perform(get("/pois/cards")).andExpect(status().isBadRequest());
+
+    String fiftyOne = String.join(",", java.util.Collections.nCopies(51, "1"));
+    mvc.perform(get("/pois/cards").param("ids", fiftyOne))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
   }
 
   @Test

@@ -2,11 +2,15 @@ package com.mz2az.scenetrip.sceneapi.web;
 
 import com.mz2az.scenetrip.sceneapi.api.PoisApi;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import com.mz2az.scenetrip.sceneapi.api.model.PoiCard;
+import com.mz2az.scenetrip.sceneapi.api.model.PoiCardBatch;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCategoryGroup;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiList;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStore;
+import com.mz2az.scenetrip.sceneapi.poi.naver.PoiCardService;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,9 +26,11 @@ import org.springframework.web.bind.annotation.RestController;
 class PoisController implements PoisApi {
 
   private final PoiStore store;
+  private final PoiCardService cards;
 
-  PoisController(PoiStore store) {
+  PoisController(PoiStore store, PoiCardService cards) {
     this.store = store;
+    this.cards = cards;
   }
 
   @Override
@@ -68,6 +74,23 @@ class PoisController implements PoisApi {
                 () -> ApiException.notFound("POI_NOT_FOUND", "편의시설 " + poiId + " 이(가) 없습니다"));
 
     return Responses.ok(detail, Lang.KO);
+  }
+
+  /** 카드 단건. 표에 없으면 지금 출처에 묻는다. 못 찾아도 200 — 404 는 POI 자체가 없을 때뿐. */
+  @Override
+  public ResponseEntity<PoiCard> getPoiCard(Long poiId) {
+    PoiCard card =
+        cards
+            .card(poiId)
+            .orElseThrow(
+                () -> ApiException.notFound("POI_NOT_FOUND", "편의시설 " + poiId + " 이(가) 없습니다"));
+    return ResponseEntity.ok(card);
+  }
+
+  /** 카드 여럿. 표에 있는 것만, 없는 것은 pending. 출처를 부르지 않는다. */
+  @Override
+  public ResponseEntity<PoiCardBatch> listPoiCards(List<Long> ids) {
+    return ResponseEntity.ok(cards.cards(ids));
   }
 
   /** 정렬. 기본은 기준점이 있으면 거리순, 없으면 이름순 — 명세 §pois. {@code distance} 를 기준점 없이 달라고 하면 거부한다. 인기도는 없다. */

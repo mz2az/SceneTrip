@@ -146,6 +146,15 @@ class PoiStoreIntegrationTest {
   }
 
   @Test
+  @DisplayName("있는 id 만 골라낸다 — 여럿 카드 조회가 「없는 id」를 표시하는 근거")
+  void existingIds() {
+    long id = idOf(MOSEULPO_HOTEL_SOURCE_ID);
+
+    assertThat(store.existingIds(java.util.List.of(id, -1L, -2L))).containsExactly(id);
+    assertThat(store.existingIds(java.util.List.of())).isEmpty();
+  }
+
+  @Test
   @DisplayName("없는 id 는 빈 값 — 예외가 아니다")
   void missingDetailIsEmpty() {
     assertThat(store.findDetail(-1, null, null)).isEmpty();
