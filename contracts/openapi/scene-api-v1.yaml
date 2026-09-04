@@ -147,6 +147,8 @@ tags:
     description: 작품 조회
   - name: places
     description: 촬영지 조회 — 목록·지도·상세
+  - name: pois
+    description: 편의시설(POI) — 음식·숙박·명소·교통. 촬영지와 별개의 표
   - name: cart
     description: 장바구니 — 담긴 장소. 코스에 넣는 것은 `courses` 쪽이다
   - name: courses
@@ -487,6 +489,136 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PlaceDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /pois:
+    get:
+      tags: [pois]
+      operationId: listPois
+      summary: 편의시설 지도 조회
+      description: |
+        촬영지 곁의 **음식점·카페·숙박·관광명소·교통시설**. 촬영지(`/places`)와 다른 표를
+        본다 — 성지 155 개와 POI 50 만 개를 한 목록에 섞으면 `limit`·`total` 이 하나뿐이라
+        「성지만 더 보기」를 표현할 수 없다(`docs/project/plans/poi.md` §3-1). 앱이 둘을
+        따로 불러 각 자리에 꽂는다.
+
+        파라미터 모양은 `/places` 를 따른다. 다른 점만 적는다.
+
+        | | `/places` | `/pois` |
+        | --- | --- | --- |
+        | 갈래 | 없음 | `categoryGroup` 으로 거른다 |
+        | 정렬 | 인기도 · 거리 | **거리 · 이름순** — POI 에는 인기도가 없다 |
+        | `limit` | 기본 20 · 최대 100 | 기본 30 · 최대 200 |
+        | 이름 검색 `q` | 있음 | **아직 없음** (MZ2AZ-283) |
+
+        지금 이것을 쓰는 곳은 경로 탭의 **주변 편의시설 핀**이다 — 지도 카메라가 멈추면
+        앱이 뷰포트(`bbox`)와 화면 중심(`lat`·`lng`)을 보내고, 중심에 가까운 순으로 30 개를
+        찍는다. 상한에 걸릴 때 화면 가운데부터 채우는 이유: 앞에서부터 자르면 자료에 먼저
+        적힌 동네가 상한을 다 먹어 정작 보고 있는 자리가 빈다(프로토타입 실측 — 서울 전체를
+        보면 여의도·잠실만 찍히고 종로가 텅 비었다).
+
+        **`bbox` 와 `radiusMeters` 는 함께 쓸 수 없다.** 둘 다 오면 400.
+        `sort=distance` 는 기준점이 있을 때만 유효하다 — `lat`·`lng` 없이 주면 400.
+        영역 조건이 하나도 없으면 400 이다 — 50 만 건을 전국 대상으로 돌려줄 정렬 기준이 없다.
+
+        `total` 이 `items` 길이보다 크면 잘린 것이다. 앱은 그것을 「더 확대하세요」의
+        근거로 쓴다. 겹치는 핀을 솎는 규칙(격자당 하나)은 아직 없다 — 필요해지면 선택
+        파라미터로 더한다.
+
+        `Accept-Language` 를 받지만 **지금은 언제나 `ko` 로 응답한다.** 자료가 한국어뿐이다.
+        다국어 표기가 생기면 계약은 그대로 두고 서버가 채운다.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - name: bbox
+          in: query
+          description: |
+            지도 뷰포트. `minLng,minLat,maxLng,maxLat` 순서의 쉼표 구분 4개 —
+            GeoJSON 과 같은 경도-위도 순서다. `/places` 와 같다.
+          schema:
+            type: string
+            pattern: '^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$'
+          example: 127.017,37.489,127.037,37.507
+        - $ref: "#/components/parameters/OriginLat"
+        - $ref: "#/components/parameters/OriginLng"
+        - name: radiusMeters
+          in: query
+          description: 기준점으로부터의 반경. `lat`·`lng` 가 있어야 한다.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100000
+        - name: categoryGroup
+          in: query
+          description: 네 갈래 중 하나로 거른다. 없으면 전부.
+          schema:
+            $ref: "#/components/schemas/PoiCategoryGroup"
+        - name: sort
+          in: query
+          description: |
+            정렬. 기본은 기준점이 있으면 `distance`, 없으면 `alphabetical` 이다.
+            인기도 정렬은 없다 — POI 에는 순위를 매길 근거가 없다.
+            (`name` 이 아닌 이유: 코틀린 enum 의 내장 속성 이름과 겹쳐 생성이 깨진다.)
+          schema:
+            type: string
+            enum: [distance, alphabetical]
+        - name: limit
+          in: query
+          description: |
+            돌려줄 개수 상한. 앱의 주변 핀이 30 을 보낸다. 200 위는 화면에 먼지처럼
+            흩어질 뿐이라 잘라 낸다 — 그때는 앱이 확대를 유도한다.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 30
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: 조건에 맞는 편의시설 목록
+          headers:
+            Content-Language:
+              $ref: "#/components/headers/ContentLanguage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoiList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /pois/{poiId}:
+    get:
+      tags: [pois]
+      operationId: getPoi
+      summary: 편의시설 상세
+      description: |
+        핀을 눌렀을 때 바로 보여 줄 수 있는 것 — 우리 자료에 있는 이름·종류·주소·전화.
+        사진·영업시간·평점은 여기 없다. 그것은 바깥 출처에서 오는 것이라 별도
+        엔드포인트가 맡는다(예정).
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - name: poiId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: "#/components/parameters/OriginLat"
+        - $ref: "#/components/parameters/OriginLng"
+      responses:
+        "200":
+          description: 편의시설 상세
+          headers:
+            Content-Language:
+              $ref: "#/components/headers/ContentLanguage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoiDetail"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -1628,6 +1760,90 @@ components:
                 순서를 그대로 그린다.
               items:
                 $ref: "#/components/schemas/Scene"
+
+    PoiCategoryGroup:
+      type: string
+      enum: [food, stay, sight, transit]
+      description: |
+        네 갈래. 원본 분류(biz_middle 아홉 종)를 접은 것 — `docs/project/plans/poi.md` §4-0.
+        `food` 는 음식점·카페·술집, `sight` 는 관광명소·종교·문화생활시설·레저.
+
+    PoiList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoiSummary"
+        total:
+          type: integer
+          description: |
+            조건에 맞는 전체 개수. `items` 길이보다 크면 잘려 나온 것이다 —
+            앱이 「더 확대하세요」를 판단하는 근거다.
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    PoiSummary:
+      type: object
+      required: [id, name, category, categoryGroup, latitude, longitude]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          example: 명동교자 본점
+        category:
+          type: string
+          description: |
+            수집된 세부 종류를 가공 없이 그대로 돌려준다(한식·카페기타·펜션·지하철역 …
+            93 종). 필터 값으로 쓰기에 적합하지 않다 — 칩으로 묶는 규칙은 목업 뒤에 정한다.
+            `categoryGroup` 이 거르는 용도다.
+          example: 한식
+        categoryGroup:
+          $ref: "#/components/schemas/PoiCategoryGroup"
+        address:
+          type: string
+          nullable: true
+          description: 지번 주소. 시/군/구 + 동까지이고 건물번호는 없다.
+          example: 서울 중구 명동
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        distanceMeters:
+          type: integer
+          nullable: true
+          description: 요청에 `lat`·`lng` 가 있을 때만 채워진다.
+
+    PoiDetail:
+      allOf:
+        - $ref: "#/components/schemas/PoiSummary"
+        - type: object
+          properties:
+            road:
+              type: string
+              nullable: true
+              description: 도로명. 건물번호는 없다.
+              example: 명동10길
+            tel:
+              type: string
+              nullable: true
+              description: 28~60% 가 비어 있다.
+              example: 02-776-5348
+            region:
+              type: string
+              nullable: true
+              example: 서울
+            city:
+              type: string
+              nullable: true
+              example: 중구
 
     Scene:
       type: object
