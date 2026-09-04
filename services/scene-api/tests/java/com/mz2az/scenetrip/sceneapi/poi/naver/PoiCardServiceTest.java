@@ -95,7 +95,9 @@ class PoiCardServiceTest {
   @DisplayName("없으면 검색 → 고르기 → 상세 → 저장 — 그리고 카드")
   void fetchesAndSaves() {
     when(store.find(ID, NaverMatcher.RULE_VERSION)).thenReturn(Optional.empty());
-    when(fetcher.fetch(any())).thenReturn(new Fetched(cachedFound(), null, false));
+    NaverCard fetched = cachedFound();
+    when(fetcher.fetch(any())).thenReturn(new Fetched(fetched, null, false));
+    when(store.save(any())).thenReturn(fetched);
 
     PoiCard card = service.card(ID).orElseThrow();
 

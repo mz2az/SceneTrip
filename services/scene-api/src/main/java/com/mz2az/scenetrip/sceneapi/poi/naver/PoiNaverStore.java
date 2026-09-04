@@ -58,7 +58,9 @@ public class PoiNaverStore {
           address = EXCLUDED.address, phone = EXCLUDED.phone, hours = EXCLUDED.hours,
           score = EXCLUDED.score, review_count = EXCLUDED.review_count,
           blog_reviews = EXCLUDED.blog_reviews, images = EXCLUDED.images, url = EXCLUDED.url
-      """;
+      RETURNING
+      """
+          + COLUMNS;
 
   private final JdbcClient jdbc;
 
@@ -90,9 +92,12 @@ public class PoiNaverStore {
     return out;
   }
 
-  /** 있으면 덮어쓰고 없으면 넣는다. {@code checkedAt} 은 DB 시각으로 찍힌다 — 인자의 값은 무시한다. */
-  public void save(NaverCard card) {
-    jdbc.sql(SAVE_SQL)
+  /**
+   * 있으면 덮어쓰고 없으면 넣는다. {@code checkedAt} 은 DB 시각으로 찍힌다 — 인자의 값은 무시한다. 저장된 행을 그대로 돌려준다(RETURNING) —
+   * 시각을 알려고 한 번 더 읽지 않는다.
+   */
+  public NaverCard save(NaverCard card) {
+    return jdbc.sql(SAVE_SQL)
         .param("poiId", card.poiId())
         .param("found", card.found())
         .param("why", card.why())
@@ -108,7 +113,8 @@ public class PoiNaverStore {
         .param("blogReviews", card.blogReviews())
         .param("images", String.join("\n", card.images()))
         .param("url", card.url())
-        .update();
+        .query(PoiNaverStore::mapRow)
+        .single();
   }
 
   private static NaverCard mapRow(ResultSet rs, int rowNum) throws SQLException {
