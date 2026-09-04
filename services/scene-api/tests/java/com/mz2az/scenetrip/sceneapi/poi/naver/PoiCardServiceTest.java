@@ -15,9 +15,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.PoiCardBatch;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCategoryGroup;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiDetail;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStore;
-import com.mz2az.scenetrip.sceneapi.poi.naver.NaverMatcher.Candidate;
-import com.mz2az.scenetrip.sceneapi.poi.naver.NaverPlaceClient.Detail;
-import com.mz2az.scenetrip.sceneapi.poi.naver.NaverPlaceClient.Outcome;
+import com.mz2az.scenetrip.sceneapi.poi.naver.PoiCardFetcher.Fetched;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +36,7 @@ class PoiCardServiceTest {
 
   private PoiStore pois;
   private PoiNaverStore store;
-  private NaverPlaceClient client;
+  private PoiCardFetcher fetcher;
   private CardFiller filler;
   private PoiCardService service;
 
@@ -46,28 +44,6 @@ class PoiCardServiceTest {
     return new PoiDetail(ID, "정아각 본점[중식]", "중식", PoiCategoryGroup.FOOD, LAT, LNG)
         .region("경기")
         .city("시흥시");
-  }
-
-  private static Candidate near(String id, String name) {
-    return new Candidate(id, name, LAT + 0.0001, LNG); // 약 11 m
-  }
-
-  private static Candidate farAway(String id, String name) {
-    return new Candidate(id, name, LAT + 1.0, LNG); // 약 111 km
-  }
-
-  private static Detail detail() {
-    return new Detail(
-        "정아각본점",
-        "중식당",
-        "경기 시흥시 신천6길 1",
-        "031-313-2727",
-        "매일 11:00 - 21:00",
-        4.4,
-        1693,
-        200,
-        List.of("https://img.example/a.jpg"),
-        "https://map.naver.com/p/entry/place/5784380");
   }
 
   private static NaverCard cachedFound() {
@@ -94,9 +70,9 @@ class PoiCardServiceTest {
   void setUp() {
     pois = mock(PoiStore.class);
     store = mock(PoiNaverStore.class);
-    client = mock(NaverPlaceClient.class);
+    fetcher = mock(PoiCardFetcher.class);
     filler = mock(CardFiller.class);
-    service = new PoiCardService(pois, store, client, Optional.of(filler));
+    service = new PoiCardService(pois, store, fetcher, Optional.of(filler));
     when(pois.findDetail(eq(ID), any(), any())).thenReturn(Optional.of(poi()));
     when(filler.retryAfterSeconds()).thenReturn(7);
   }
@@ -112,89 +88,29 @@ class PoiCardServiceTest {
     assertThat(card.getName()).isEqualTo("정아각본점");
     assertThat(card.getNaverUrl().toString()).endsWith("/5784380");
     assertThat(card.getImages()).hasSize(1);
-    verify(client, never()).search(anyString());
+    verify(fetcher, never()).fetch(any());
   }
 
   @Test
   @DisplayName("없으면 검색 → 고르기 → 상세 → 저장 — 그리고 카드")
   void fetchesAndSaves() {
     when(store.find(ID, NaverMatcher.RULE_VERSION)).thenReturn(Optional.empty());
-    when(client.search("정아각 본점[중식]")).thenReturn(Outcome.ok(List.of(near("5784380", "정아각 본점"))));
-    when(client.detail("5784380")).thenReturn(Outcome.ok(detail()));
+    when(fetcher.fetch(any())).thenReturn(new Fetched(cachedFound(), null, false));
 
     PoiCard card = service.card(ID).orElseThrow();
 
     ArgumentCaptor<NaverCard> saved = ArgumentCaptor.forClass(NaverCard.class);
     verify(store).save(saved.capture());
-    assertThat(saved.getValue().found()).isTrue();
     assertThat(saved.getValue().naverId()).isEqualTo("5784380");
-    assertThat(saved.getValue().ruleVersion()).isEqualTo(NaverMatcher.RULE_VERSION);
-    assertThat(saved.getValue().score()).isEqualTo(4.4);
     assertThat(card.getFound()).isTrue();
-    assertThat(card.getReviewCount()).isEqualTo(1693);
-  }
-
-  @Test
-  @DisplayName("후보가 전부 안 맞으면 「없음」으로 저장한다 — 다시 묻지 않게")
-  void savesNotFound() {
-    when(store.find(anyLong(), anyString())).thenReturn(Optional.empty());
-    when(client.search(anyString())).thenReturn(Outcome.ok(List.of(near("1", "완전히 다른 가게"))));
-
-    PoiCard card = service.card(ID).orElseThrow();
-
-    ArgumentCaptor<NaverCard> saved = ArgumentCaptor.forClass(NaverCard.class);
-    verify(store).save(saved.capture());
-    assertThat(saved.getValue().found()).isFalse();
-    assertThat(saved.getValue().why()).isNotBlank();
-    assertThat(card.getFound()).isFalse();
-    assertThat(card.getWhy()).isEqualTo(saved.getValue().why());
-    verify(client, never()).detail(anyString());
-  }
-
-  @Test
-  @DisplayName("1 등이 far 밖이면 「이름 지역 시군구」로 한 번 더 검색한다")
-  void retriesWithDistrictWhenWanderedOff() {
-    when(store.find(anyLong(), anyString())).thenReturn(Optional.empty());
-    when(client.search("정아각 본점[중식]")).thenReturn(Outcome.ok(List.of(farAway("9", "정아각 본점"))));
-    when(client.search("정아각 본점[중식] 경기 시흥시"))
-        .thenReturn(Outcome.ok(List.of(near("5784380", "정아각 본점"))));
-    when(client.detail("5784380")).thenReturn(Outcome.ok(detail()));
-
-    PoiCard card = service.card(ID).orElseThrow();
-
-    assertThat(card.getFound()).isTrue();
-    verify(client).search("정아각 본점[중식] 경기 시흥시");
-  }
-
-  @Test
-  @DisplayName("후보가 0 건이어도 시군구로 한 번 더 — 그래도 없으면 「없음」")
-  void retriesOnEmptyThenGivesUp() {
-    when(store.find(anyLong(), anyString())).thenReturn(Optional.empty());
-    when(client.search(anyString())).thenReturn(Outcome.ok(List.of()));
-
-    PoiCard card = service.card(ID).orElseThrow();
-
-    verify(client).search("정아각 본점[중식] 경기 시흥시");
-    assertThat(card.getFound()).isFalse();
-    verify(store).save(any());
-  }
-
-  @Test
-  @DisplayName("가까운 후보가 있는데 이름이 다르면 재검색하지 않는다 — 검색어 문제가 아니다")
-  void doesNotRetryWhenNearButDifferent() {
-    when(store.find(anyLong(), anyString())).thenReturn(Optional.empty());
-    when(client.search(anyString())).thenReturn(Outcome.ok(List.of(near("1", "옆집 국밥"))));
-
-    service.card(ID);
-
-    verify(client, never()).search("정아각 본점[중식] 경기 시흥시");
+    assertThat(card.getName()).isEqualTo("정아각본점");
   }
 
   @Test
   @DisplayName("검색이 실패하면 저장하지 않고 found=false 로 답한다 — 다음에 다시 묻는다")
   void transientFailureIsNotSaved() {
     when(store.find(anyLong(), anyString())).thenReturn(Optional.empty());
-    when(client.search(anyString())).thenReturn(Outcome.failed("타임아웃", false));
+    when(fetcher.fetch(any())).thenReturn(new Fetched(null, "타임아웃", false));
 
     PoiCard card = service.card(ID).orElseThrow();
 
@@ -209,7 +125,7 @@ class PoiCardServiceTest {
   @DisplayName("막혔으면 일꾼에게 알린다")
   void blockedIsPassedToFiller() {
     when(store.find(anyLong(), anyString())).thenReturn(Optional.empty());
-    when(client.search(anyString())).thenReturn(Outcome.failed("HTTP 429", true));
+    when(fetcher.fetch(any())).thenReturn(new Fetched(null, "HTTP 429", true));
 
     service.card(ID);
 
@@ -223,7 +139,7 @@ class PoiCardServiceTest {
     when(pois.findDetail(eq(7L), any(), any())).thenReturn(Optional.empty());
 
     assertThat(service.card(7L)).isEmpty();
-    verify(client, never()).search(anyString());
+    verify(fetcher, never()).fetch(any());
   }
 
   @Test
@@ -260,7 +176,7 @@ class PoiCardServiceTest {
     assertThat(batch.getItems().get(3).getWhy()).contains("없다");
     assertThat(batch.getRetryAfterSeconds()).isEqualTo(7);
     verify(filler).enqueue(List.of(2L, 3L));
-    verify(client, never()).search(anyString());
+    verify(fetcher, never()).fetch(any());
   }
 
   @Test
@@ -278,7 +194,7 @@ class PoiCardServiceTest {
   @Test
   @DisplayName("일꾼이 없으면 pending 만 답하고 힌트는 상한 30")
   void batchWithoutFiller() {
-    PoiCardService noFiller = new PoiCardService(pois, store, client, Optional.empty());
+    PoiCardService noFiller = new PoiCardService(pois, store, fetcher, Optional.empty());
     when(pois.existingIds(List.of(2L))).thenReturn(Set.of(2L));
     when(store.findAll(any(), anyString())).thenReturn(Map.of());
 

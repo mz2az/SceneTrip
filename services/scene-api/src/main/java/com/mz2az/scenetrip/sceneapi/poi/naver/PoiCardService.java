@@ -2,13 +2,8 @@ package com.mz2az.scenetrip.sceneapi.poi.naver;
 
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCard;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCardBatch;
-import com.mz2az.scenetrip.sceneapi.api.model.PoiCategoryGroup;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiDetail;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStore;
-import com.mz2az.scenetrip.sceneapi.poi.naver.NaverMatcher.Candidate;
-import com.mz2az.scenetrip.sceneapi.poi.naver.NaverMatcher.Match;
-import com.mz2az.scenetrip.sceneapi.poi.naver.NaverPlaceClient.Detail;
-import com.mz2az.scenetrip.sceneapi.poi.naver.NaverPlaceClient.Outcome;
 import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -29,7 +24,7 @@ import org.springframework.stereotype.Service;
  * <ul>
  *   <li>{@link #card} 단건. 표에 없으면 <b>지금</b> 출처에 묻고 기다렸다 준다(≈0.35 초). 핀을 누른 사용자는 그 한 곳을 지금 보려는 것이다.
  *   <li>{@link #cards} 여럿. 표에 있는 것만 주고 없는 것은 {@code pending} 으로 표시해 줄에 넣는다. 출처를 부르지 않는다.
- *   <li>{@link #fetch} 출처에 한 번 묻는 순서 — 검색 → 후보 고르기 → (헛돌면 시군구 붙여 재검색) → 상세. 단건과 일꾼이 같이 쓴다.
+ *   <li>출처에 묻는 순서 자체는 {@link PoiCardFetcher} 에 있다 — 단건과 일꾼({@code PoiCardFiller})이 같이 쓴다.
  * </ul>
  *
  * <p>「못 받음」(타임아웃·차단)은 표에 쓰지 않는다 — 다음에 다시 묻는다. 「없음」은 쓴다 — 다시 물어도 없다.
@@ -39,30 +34,17 @@ public class PoiCardService {
 
   private static final Logger log = LoggerFactory.getLogger(PoiCardService.class);
 
-  /**
-   * 출처에 한 번 물은 결과. 받았으면 {@code card}(찾았든 못 찾았든), 못 받았으면 {@code transientWhy}.
-   *
-   * @param card 표에 쓸 결과. 못 받았으면 null
-   * @param transientWhy 못 받은 이유
-   * @param blocked 출처가 막았다
-   */
-  public record Fetched(NaverCard card, String transientWhy, boolean blocked) {
-    public boolean received() {
-      return card != null;
-    }
-  }
-
   private final PoiStore pois;
   private final PoiNaverStore store;
-  private final NaverPlaceClient client;
+  private final PoiCardFetcher fetcher;
   private final Optional<CardFiller> filler;
 
   /** {@code filler} 가 없으면(구현이 아직 없거나 꺼짐) 여럿 조회는 줄에 넣지 못하고 {@code pending} 만 답한다. */
   PoiCardService(
-      PoiStore pois, PoiNaverStore store, NaverPlaceClient client, Optional<CardFiller> filler) {
+      PoiStore pois, PoiNaverStore store, PoiCardFetcher fetcher, Optional<CardFiller> filler) {
     this.pois = pois;
     this.store = store;
-    this.client = client;
+    this.fetcher = fetcher;
     this.filler = filler;
   }
 
@@ -76,7 +58,7 @@ public class PoiCardService {
     if (cached.isPresent()) {
       return Optional.of(toCard(cached.get()));
     }
-    Fetched fetched = fetch(poi.get());
+    PoiCardFetcher.Fetched fetched = fetcher.fetch(poi.get());
     if (fetched.received()) {
       store.save(fetched.card());
       return Optional.of(toCard(fetched.card()));
@@ -122,84 +104,6 @@ public class PoiCardService {
       }
     }
     return batch;
-  }
-
-  /**
-   * 출처에 한 번 묻는다. 검색 → 후보 고르기 → 상세. 첫 검색이 헛돌면(후보 0 또는 가장 가까운 것도 far 밖) 이름에 「지역 시군구」를 붙여 한 번 더 — 실측에서
-   * 매칭률 +6~11p. 네이버는 같은 이름의 다른 동네 지점을 1 등으로 주는 일이 잦다(「보성식당」 140 km).
-   */
-  public Fetched fetch(PoiDetail poi) {
-    String name = poi.getName();
-    PoiCategoryGroup group = poi.getCategoryGroup();
-    double lat = poi.getLatitude();
-    double lng = poi.getLongitude();
-
-    Outcome<List<Candidate>> first = client.search(name);
-    if (!first.ok()) {
-      return new Fetched(null, first.why(), first.blocked());
-    }
-    Match match = NaverMatcher.pick(name, lat, lng, group, first.value());
-
-    if (!match.found() && wanderedOff(match, group)) {
-      String district = district(poi);
-      if (district != null) {
-        Outcome<List<Candidate>> second = client.search(name + " " + district);
-        if (!second.ok()) {
-          return new Fetched(null, second.why(), second.blocked());
-        }
-        Match retry = NaverMatcher.pick(name, lat, lng, group, second.value());
-        if (retry.found()) {
-          match = retry;
-        }
-      }
-    }
-
-    if (!match.found()) {
-      return new Fetched(
-          NaverCard.notFound(poi.getId(), match.why(), NaverMatcher.RULE_VERSION), null, false);
-    }
-    Outcome<Detail> detail = client.detail(match.candidate().id());
-    if (!detail.ok()) {
-      return new Fetched(null, detail.why(), detail.blocked());
-    }
-    Detail d = detail.value();
-    return new Fetched(
-        new NaverCard(
-            poi.getId(),
-            true,
-            null,
-            NaverMatcher.RULE_VERSION,
-            null,
-            match.candidate().id(),
-            d.name(),
-            d.category(),
-            d.address(),
-            d.phone(),
-            d.hours(),
-            d.score(),
-            d.reviewCount(),
-            d.blogReviews(),
-            d.images(),
-            d.url()),
-        null,
-        false);
-  }
-
-  /** 첫 검색이 헛돌았나 — 후보가 없거나, 가장 가까운 후보도 계단 밖. */
-  private static boolean wanderedOff(Match match, PoiCategoryGroup group) {
-    if (match.nearestMeters() == null) {
-      return true;
-    }
-    int far = group == PoiCategoryGroup.SIGHT || group == PoiCategoryGroup.TRANSIT ? 800 : 150;
-    return match.nearestMeters() > far;
-  }
-
-  /** 「경기 시흥시」. 둘 중 하나라도 없으면 재검색을 안 한다. */
-  private static String district(PoiDetail poi) {
-    if (poi.getRegion() == null || poi.getCity() == null) {
-      return null;
-    }
-    return poi.getRegion() + " " + poi.getCity();
   }
 
   /** 표의 행 → 계약. 판·출처 id 는 뺀다. 없는 값은 실리지 않는다. */
