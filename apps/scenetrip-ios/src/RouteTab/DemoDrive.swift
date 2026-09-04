@@ -47,8 +47,9 @@ enum DemoDrive {
     static let tick: TimeInterval = 0.4
 
     /// 이 반경(m) 안에 들면 걷기를 멈추고 머무름(스탬프)을 기다린다. 도착 판정 반경(100 m)
-    /// 보다 안쪽이라 판정이 확실히 걸린다.
-    static let stopWithinMeters = 30.0
+    /// 보다 훨씬 안쪽이라 판정이 확실히 걸린다. 30 m 였는데 확대한 지도에선 핀에 못 미친
+    /// 것처럼 보였다(2026-09-04 사용자 지적) → 12 m.
+    static let stopWithinMeters = 12.0
 
     /// 데모 코스(`resources/demo/demo-course.json`)를 서버에 만들어 열 것인가.
     static var wantsDemoCourse: Bool {
