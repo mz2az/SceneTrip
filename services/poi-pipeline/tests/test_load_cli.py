@@ -45,3 +45,19 @@ def test_cli_collect_refuses_without_key(tmp_path: Path, monkeypatch, capsys):
         ["collect", "--group", "숙박", "--areas", "제주", "--data", str(tmp_path)]
     )
     assert code == 2
+
+
+def test_cli_alive_skips_when_public_csv_missing(tmp_path: Path, capsys):
+    (tmp_path / "poi_food.jsonl").write_text("")
+    code = cli.main(
+        [
+            "alive",
+            "--lane",
+            "food",
+            "--data",
+            str(tmp_path),
+            "--public-csv",
+            str(tmp_path / "none"),
+        ]
+    )
+    assert code == cli.SKIP

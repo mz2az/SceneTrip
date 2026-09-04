@@ -51,6 +51,8 @@ with DAG(
     ]
     load = BashOperator(
         task_id="load_poi",
+        # 대조가 건너뛰어져도(CSV 없음) 명소·교통은 적재한다 — 실패만 아니면 간다.
+        trigger_rule="none_failed",
         bash_command=f"cd {REPO} && {CLI} load --data {DATA} --repo {REPO}",
         env={"SCENETRIP_DB_HOST": "{{ conn.scenetrip_db.host }}"},
         append_env=True,

@@ -23,6 +23,7 @@ RAW = {
     "sight": "poi_sight",
     "transit": "poi_transit",
 }
+SKIP = 99  # Airflow 가 「건너뜀」으로 읽는 종료 코드
 
 
 def cmd_collect(args) -> int:
@@ -72,8 +73,12 @@ def cmd_alive(args) -> int:
     started = time.time()
     public_grid, count = alive.load_grid(Path(args.public_csv), big)
     if count == 0:
-        print(f"공공데이터 CSV 가 없다: {args.public_csv}", file=sys.stderr)
-        return 2
+        # 99 = Airflow BashOperator 의 「건너뜀」. CSV 는 포털에서 손으로 받아야 해서 없는 날이
+        # 있다 — 그날은 대조를 건너뛰고 적재도 그 갈래를 건너뛴다(실패가 아니다).
+        print(
+            f"공공데이터 CSV 가 없다: {args.public_csv} — 건너뛴다(99)", file=sys.stderr
+        )
+        return SKIP
     print(
         f"공공데이터 {big} {count:,}곳 · 격자 {len(public_grid):,}칸 ({time.time() - started:.0f}초)"
     )
