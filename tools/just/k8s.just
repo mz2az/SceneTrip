@@ -241,6 +241,13 @@ db-refresh-search:
 poi-smoke api="http://localhost:8081/v1":
     ./tools/scripts/poi-smoke.sh "{{ api }}"
 
+# **실제 네이버를 부른다**(비공식) — 10 번 안쪽. 데모 직전엔 돌리지 말 것.
+#
+# 배포된 서버에 편의시설 카드를 흘려 본다 — 단건·표 재사용·여럿 pending 이 채워지는지
+[group('k8s')]
+poi-card-smoke api="http://localhost:8081/v1":
+    ./tools/scripts/poi-card-smoke.sh "{{ api }}"
+
 # ── 관측성 ────────────────────────────────────────────────────────────────────
 
 # SigNoz UI 주소와 필터 안내

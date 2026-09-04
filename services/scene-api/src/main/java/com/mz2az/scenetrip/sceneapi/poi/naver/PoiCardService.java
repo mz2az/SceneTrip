@@ -61,7 +61,9 @@ public class PoiCardService {
     PoiCardFetcher.Fetched fetched = fetcher.fetch(poi.get());
     if (fetched.received()) {
       store.save(fetched.card());
-      return Optional.of(toCard(fetched.card()));
+      // checked_at 은 DB 가 찍는다 — 저장한 행을 다시 읽어야 두 번째 조회와 같은 값이 나간다.
+      NaverCard saved = store.find(poiId, NaverMatcher.RULE_VERSION).orElse(fetched.card());
+      return Optional.of(toCard(saved));
     }
     if (fetched.blocked()) {
       filler.ifPresent(CardFiller::noteBlocked);
