@@ -157,12 +157,13 @@ enum PinoPin {
                     colors: [Color(PinImage.light), Color(PinImage.deep)],
                     startPoint: .topLeading, endPoint: .bottomTrailing
                 ))
-                Circle().stroke(.white, lineWidth: 2.5)
-                PawShape().fill(.white).frame(width: 24, height: 24).rotationEffect(.degrees(-12))
+                Circle().stroke(.white, lineWidth: 2)
+                PawShape().fill(.white).frame(width: 16, height: 16).rotationEffect(.degrees(-12))
             }
-            .frame(width: 40, height: 40)
-            .shadow(color: .black.opacity(0.28), radius: 3, y: 1.5)
-            .padding(4))
+            // 40 → 28. 현재위치 점보다 커서 그 위를 덮었다(2026-09-04 사용자 지적).
+            .frame(width: 28, height: 28)
+            .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+            .padding(3))
         renderer.scale = UIScreen.main.scale
         guard let baked = renderer.uiImage else { return PinImage.numbered(nil) }
         let image = NMFOverlayImage(image: baked)

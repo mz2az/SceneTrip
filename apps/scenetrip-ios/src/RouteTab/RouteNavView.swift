@@ -417,7 +417,7 @@ struct RouteNavView: View {
     private func tone(for mode: RouteLegMode) -> Color {
         switch mode {
         case .walk: Color(.tertiaryLabel)
-        case .transit: Color(.systemGreen)
+        case .bus, .subway, .transit: Color(.systemGreen)
         }
     }
 

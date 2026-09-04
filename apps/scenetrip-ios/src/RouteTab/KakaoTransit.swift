@@ -319,17 +319,16 @@ enum KakaoTransit {
                 legs.append(RouteLeg(
                     mode: .walk,
                     title: properties?.guidance ?? "걸어서 이동",
-                    detail: walkDetail(meters: distance, seconds: properties?.duration),
+                    detail: walkDetail(meters: distance, seconds: properties?.seconds),
                     path: points,
                     // 카카오는 계단을 구조화해서 주지 않는다 — 안내 문구에 섞여 나올
                     // 뿐이라 문자열에서 긁는다. T맵 `facilityType 17` 만이 제대로 준다.
                     hasStairs: (properties?.guidance ?? "").contains("계단")
                 ))
             } else if !kind.isEmpty {
-                let lane = (properties?.vehicles ?? []).compactMap(\.name).first
                 legs.append(RouteLeg(
-                    mode: .transit,
-                    title: lane ?? modeLabel(kind),
+                    mode: mode(for: kind),
+                    title: vehicleTitle(properties: properties, kind: kind),
                     detail: transitDetail(properties: properties),
                     path: points
                 ))
@@ -392,15 +391,36 @@ enum KakaoTransit {
         return parts.isEmpty ? "걸어서 이동" : parts.joined(separator: " · ")
     }
 
+    /// 「승차 정류장 → 하차 정류장 · N정거장 · M분」. 정류장 이름에 출구 번호가 섞여 온다.
     private static func transitDetail(properties: StepProperties?) -> String {
         var parts: [String] = []
-        if let count = properties?.stationCount, count > 0 {
-            parts.append("\(count)개 역")
+        let stops = (properties?.stops ?? []).compactMap(\.name)
+        if let first = stops.first, let last = stops.last, stops.count > 1 {
+            parts.append("\(first) → \(last)")
         }
-        if let seconds = properties?.duration, seconds > 0 {
+        let count = properties?.stationCount ?? max(0, stops.count - 1)
+        if count > 0 {
+            parts.append("\(count)정거장")
+        }
+        if let seconds = properties?.seconds, seconds > 0 {
             parts.append("\(max(1, Int(seconds / 60)))분")
         }
         return parts.isEmpty ? "이동" : parts.joined(separator: " · ")
+    }
+
+    /// 「간선 150」 · 「지하철 4호선」 — 탈것 종류 + 노선. 둘 다 없으면 갈래 이름.
+    private static func vehicleTitle(properties: StepProperties?, kind: String) -> String {
+        guard let vehicle = properties?.vehicles?.first else { return modeLabel(kind) }
+        let pieces = [vehicle.type, vehicle.name].compactMap { $0 }.filter { !$0.isEmpty }
+        return pieces.isEmpty ? modeLabel(kind) : pieces.joined(separator: " ")
+    }
+
+    private static func mode(for kind: String) -> RouteLegMode {
+        switch kind {
+        case "BUS", "EXPRESSBUS": .bus
+        case "SUBWAY", "TRAIN": .subway
+        default: .transit
+        }
     }
 
     private static func modeLabel(_ kind: String) -> String {
@@ -428,7 +448,10 @@ enum KakaoTransit {
             + sin(dLng / 2) * sin(dLng / 2) * cos(lat1) * cos(lat2)
         return 2 * radius * asin(min(1, sqrt(haversine)))
     }
+}
 
+/// 응답 모양 — 타입 본문 길이(swiftlint 350줄) 때문에 확장으로 뺐다. 같은 파일이라 fileprivate 가 닿는다.
+private extension KakaoTransit {
     // MARK: 응답 모양
 
     private struct Response: Decodable {
@@ -436,74 +459,90 @@ enum KakaoTransit {
         let routes: [Route]?
     }
 
-    fileprivate struct Route: Decodable {
+    struct Route: Decodable {
         let properties: RouteProperties?
         let steps: [Step]?
     }
 
-    fileprivate struct RouteProperties: Decodable {
+    struct RouteProperties: Decodable {
         let totalTime: Double?
         let totalDistance: Double?
         let transfers: Int?
         let fare: Fare?
     }
 
-    fileprivate struct Fare: Decodable {
+    struct Fare: Decodable {
         let value: Int?
         let min: Int?
         let max: Int?
     }
 
-    fileprivate struct Step: Decodable {
+    struct Step: Decodable {
         let properties: StepProperties?
         let path: Path?
     }
 
-    fileprivate struct StepProperties: Decodable {
+    /// 대중교통 한 구간. **실측 응답(2026-09-04)**: `time`(초) · `stops[]`(승차·경유·하차 정류장
+    /// 이름 전부) · `vehicles[{name, type}]`(「150」·「간선」, 지하철은 호선) · `guidance`
+    /// (「간선 150 (서울신문사 > 혜화역2번출구.마로니에공원)」). `duration`·`stationCount` 는
+    /// 문서에만 있고 실제로는 안 온다 — 둘 다 받되 없으면 `time`·`stops` 로 센다.
+    /// 출구 번호는 정류장 이름에 섞여 온다. 「어느 방면」은 주지 않는다.
+    struct StepProperties: Decodable {
         let type: String?
         let distance: Double?
         let duration: Double?
+        let time: Double?
         let guidance: String?
         let stationCount: Int?
+        let stops: [Stop]?
         let vehicles: [Vehicle]?
+
+        var seconds: Double? {
+            duration ?? time
+        }
     }
 
-    fileprivate struct Vehicle: Decodable {
+    struct Stop: Decodable {
         let name: String?
     }
 
-    fileprivate struct Path: Decodable {
+    struct Vehicle: Decodable {
+        let name: String?
+        let type: String?
+    }
+
+    struct Path: Decodable {
         let points: [[Double]]?
     }
 
     // MARK: 응답 모양 — 도보
 
-    fileprivate struct WalkResponse: Decodable {
+    struct WalkResponse: Decodable {
         let status: String?
         let route: WalkRoute?
     }
 
-    fileprivate struct WalkRoute: Decodable {
+    struct WalkRoute: Decodable {
         let properties: WalkRouteProperties?
         let legs: [WalkLeg]?
     }
 
-    fileprivate struct WalkRouteProperties: Decodable {
+    struct WalkRouteProperties: Decodable {
         let totalDistance: Double?
         let totalTime: Double?
     }
 
-    fileprivate struct WalkLeg: Decodable {
+    struct WalkLeg: Decodable {
         let steps: [WalkStep]?
     }
 
-    fileprivate struct WalkStep: Decodable {
+    struct WalkStep: Decodable {
         let properties: WalkStepProperties?
         let path: Path?
     }
 
     /// 대중교통 쪽 `StepProperties` 와 키가 다르다 — `duration` 이 아니라 `time`.
-    fileprivate struct WalkStepProperties: Decodable {
+    struct WalkStepProperties: Decodable {
         let guidance: String?
         let distance: Double?
         let time: Double?

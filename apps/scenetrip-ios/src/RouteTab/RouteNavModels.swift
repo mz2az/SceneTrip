@@ -25,13 +25,25 @@ import Foundation
 /// 한 구간의 이동 수단.
 enum RouteLegMode {
     case walk
+    /// 버스 — 카카오 `type: BUS`. 지하철과 갈라 그린다(2026-09-04 사용자 지적: "지하철인지
+    /// 버스인지 구분은 못 해?").
+    case bus
+    /// 지하철·전철 — 카카오 `type: SUBWAY`.
+    case subway
+    /// 그 밖의 탈것(기차·고속버스·해운).
     case transit
 
     var symbol: String {
         switch self {
         case .walk: "figure.walk"
-        case .transit: "tram.fill"
+        case .bus: "bus.fill"
+        case .subway: "tram.fill"
+        case .transit: "train.side.front.car"
         }
+    }
+
+    var isVehicle: Bool {
+        self != .walk
     }
 }
 

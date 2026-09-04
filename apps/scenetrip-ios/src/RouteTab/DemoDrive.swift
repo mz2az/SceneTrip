@@ -40,7 +40,7 @@ enum DemoDrive {
 
     /// 구간 종류별 속도 — 대중교통 구간은 도보의 두 배(= 처음 12 의 여덟 배, 2026-09-04 사용자 요청).
     static func speed(for mode: RouteLegMode) -> Double {
-        metersPerSecond * (mode == .transit ? 2 : 1)
+        metersPerSecond * (mode.isVehicle ? 2 : 1)
     }
 
     /// 한 걸음의 간격(초). 0.4초면 지도의 파문이 끊기지 않고 움직인다.
