@@ -1,5 +1,6 @@
 import CoreLocation
 import Foundation
+import SceneApiClient
 
 /// 지금 어디에 있나 — **한 번만** 물어보는 것.
 ///
@@ -41,6 +42,12 @@ final class RouteLocator: NSObject, ObservableObject, CLLocationManagerDelegate 
 
     /// 계속 받는 중인가. 권한 대답이 늦게 오면 그때 `track` 을 이어 가기 위한 표시.
     private var tracking = false
+
+    /// 받은 자리를 장소 모양으로. 거리 계산(`RouteGeometry`)이 `PlaceSummary` 를 받아서다.
+    var found: PlaceSummary? {
+        guard case let .found(latitude, longitude) = state else { return nil }
+        return PlaceSummary(id: 0, name: "여기", latitude: latitude, longitude: longitude)
+    }
 
     /// 화면이 뜰 때 부른다. 권한이 없으면 물어보고, 대답은 델리게이트로 온다.
     func start() {

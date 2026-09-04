@@ -104,26 +104,14 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
         let point = host.projection.point(from: here)
         pulse.place(at: point)
 
-        // **핀과 겹치면 점 대신 핀이 뛴다.** 가까운 핀(화면 28pt 안)을 찾아
-        // 키우고 가운데 점을 숨긴다 — 파문은 계속 퍼지므로 그 핀이 고동치는
-        // 것으로 읽힌다(2026-08-27 사용자 요청).
-        let near = markers.min { lhs, rhs in
-            gap(point, host.projection.point(from: lhs.position))
-                < gap(point, host.projection.point(from: rhs.position))
-        }
-        let hit: NMFMarker? = near.flatMap {
-            gap(point, host.projection.point(from: $0.position)) < 28 ? $0 : nil
-        }
-        if hit !== grown {
-            restoreGrown()
-            if let hit {
-                let size = hit.iconImage.image.size
-                hit.width = size.width * 1.3
-                hit.height = size.height * 1.3
-                grown = hit
-            }
-        }
-        pulse.setCoreHidden(hit != nil)
+        // **내 자리는 무엇에도 가려지지 않는다**(2026-09-04 사용자 지적 — 4번 핀과
+        // 이름표 뒤로 점이 숨어 어디 있는지 안 보였다). 앞서는 핀과 겹치면 점을
+        // 숨기고 그 핀을 키웠는데(2026-08-27), 촘촘한 코스에서는 늘 어느 핀과 겹쳐
+        // 점이 영영 안 보이는 쪽이 됐다. 점은 늘 그리고, 뷰를 맨 위로 올린다 —
+        // 헤일로·파문이 뒤에 추가돼도 내 자리가 위다.
+        pulse.setCoreHidden(false)
+        restoreGrown()
+        host.bringSubviewToFront(pulse)
     }
 
     /// 키워 둔 핀을 원래 크기(그림 크기 그대로)로 되돌린다.
@@ -131,10 +119,6 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
         grown?.width = CGFloat(NMF_MARKER_SIZE_AUTO)
         grown?.height = CGFloat(NMF_MARKER_SIZE_AUTO)
         grown = nil
-    }
-
-    private func gap(_ lhs: CGPoint, _ rhs: CGPoint) -> CGFloat {
-        hypot(lhs.x - rhs.x, lhs.y - rhs.y)
     }
 
     // MARK: 헤일로

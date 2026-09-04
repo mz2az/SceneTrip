@@ -236,8 +236,16 @@ extension RouteEditorView {
             // 동선 최적화는 **지금 보고 있는 일차 안에서만** 순서를 바꾼다.
             // 일차를 넘나들며 옮기면 사용자가 나눠 둔 하루가 무너진다.
             action("동선 최적화", symbol: "arrow.triangle.swap", highlight: optimizeNudge) {
+                // 현재 위치를 알고 출발이 아직 안 정해졌으면 **가장 가까운 곳이 출발**이다
+                // (2026-09-04 사용자 결정) — 한국에 와서 다시 누르는 사람은 지금 선 자리에서
+                // 도는 동선을 원한다. 그 줄을 출발 고정으로 켜고 나머지를 최적화한다.
+                var ordered = stops
+                if !pinStart, let here = guideLocator.found {
+                    ordered = RouteGeometry.startingNearest(ordered, to: here)
+                    pinStart = true
+                }
                 course.days[dayIndex].stops = RouteGeometry.optimized(
-                    stops, pinStart: pinStart, pinEnd: pinEnd
+                    ordered, pinStart: pinStart, pinEnd: pinEnd
                 )
                 fitToken += 1
                 optimizeNudge = false // 권한 일을 했다 — 반짝임은 여기까지

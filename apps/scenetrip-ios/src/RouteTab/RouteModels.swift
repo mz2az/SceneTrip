@@ -286,6 +286,19 @@ enum RouteGeometry {
         return best.map { stops[$0] }
     }
 
+    /// **지금 선 자리에서 가장 가까운 곳을 맨 앞으로.** 나머지 순서는 그대로 — 그다음은
+    /// `optimized(pinStart: true)` 가 정한다. 「출발 고정이 꺼진 채 현재 위치를 아는」
+    /// 사람의 동선 최적화 첫 걸음이다(2026-09-04 사용자 결정).
+    static func startingNearest(_ stops: [RouteStop], to here: PlaceSummary) -> [RouteStop] {
+        guard stops.count > 1 else { return stops }
+        let distances = stops.map { kilometers(here, $0.place) }
+        guard let nearest = distances.indices.min(by: { distances[$0] < distances[$1] }) else { return stops }
+        var ordered = stops
+        let first = ordered.remove(at: nearest)
+        ordered.insert(first, at: 0)
+        return ordered
+    }
+
     /// 직선거리 행렬(km). 같은 쌍을 여러 번 재지 않으려고 한 번만 만든다.
     private static func distanceMatrix(_ stops: [RouteStop]) -> [[Double]] {
         stops.indices.map { row in
