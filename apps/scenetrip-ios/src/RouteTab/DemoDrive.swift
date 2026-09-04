@@ -14,8 +14,18 @@ enum DemoDrive {
     typealias Point = (latitude: Double, longitude: Double)
 
     /// 몇 번 성지까지 가는가. 0 이면 꺼짐.
+    ///
+    /// **시뮬레이터에서는 인자가 없어도 켜진다**(2026-09-04 사용자 요청 — 새 코스에서 직접
+    /// 「길찾기」를 눌러도 가상 GPS 가 길을 따라 걸어야 한다. 시뮬레이터엔 진짜 GPS 가 없다).
+    /// `-demoDrive 0` 을 주면 시뮬레이터에서도 끈다. 실기기는 인자가 있을 때만.
     static var untilStop: Int {
-        UserDefaults.standard.integer(forKey: "demoDrive")
+        let defaults = UserDefaults.standard
+        #if targetEnvironment(simulator)
+            if defaults.object(forKey: "demoDrive") == nil {
+                return 99
+            }
+        #endif
+        return defaults.integer(forKey: "demoDrive")
     }
 
     static var isOn: Bool {

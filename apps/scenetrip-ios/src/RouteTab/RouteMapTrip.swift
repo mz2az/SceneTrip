@@ -78,6 +78,33 @@ extension RouteMapView.Coordinator {
         previewPath = line
     }
 
+    /// 발자취 — 지나온 자리마다 **황금 발자국** 하나. 진행 방향으로 돌리고, 왼발·오른발처럼
+    /// 번갈아 살짝 비껴 찍는다. 25 m 마다 한 점이라 수백 개여도 가볍다.
+    func renderFootprints(_ points: [FootprintPoint], on mapView: NMFMapView) {
+        let key = "\(points.count)|\(points.last?.at.timeIntervalSince1970 ?? 0)"
+        guard key != lastFootKey else { return }
+        lastFootKey = key
+        footMarkers.forEach { $0.mapView = nil }
+        footMarkers = []
+        for (index, point) in points.enumerated() {
+            let marker = NMFMarker(position: NMGLatLng(lat: point.latitude, lng: point.longitude))
+            marker.iconImage = PinoPin.footprint()
+            marker.anchor = CGPoint(x: 0.5, y: 0.5)
+            marker.zIndex = -2 // 계획선·경로선 아래
+            marker.isHideCollidedMarkers = false
+            // 다음 점을 향하는 각도. 마지막 점은 직전 점의 방향을 잇는다.
+            let from = index + 1 < points.count ? point : (index > 0 ? points[index - 1] : point)
+            let to = index + 1 < points.count ? points[index + 1] : point
+            let dx = (to.longitude - from.longitude) * cos(from.latitude * .pi / 180)
+            let dy = to.latitude - from.latitude
+            if dx != 0 || dy != 0 {
+                marker.angle = CGFloat(atan2(dx, dy) * 180 / .pi)
+            }
+            marker.mapView = mapView
+            footMarkers.append(marker)
+        }
+    }
+
     /// 안내 중 — 내 자리·목적지·경로선이 다 들어오게. 자리를 모르면 목적지만.
     func fitTrip(to target: RouteStop, legs: [RouteLeg], on mapView: NMFMapView) {
         let goal = NMGLatLng(lat: target.place.latitude, lng: target.place.longitude)

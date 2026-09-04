@@ -172,6 +172,29 @@ enum PinoPin {
 
     private static var cachedPawPin: NMFOverlayImage?
 
+    /// 지나온 자리의 **발자국** — 황금색 반투명 신발 자국(2026-09-04 사용자 요청: 해태 발바닥이
+    /// 아니라 사람 발자국, 흐리게). 진행 방향으로 돌려 찍는다(`NMFMarker.angle`).
+    static func footprint() -> NMFOverlayImage {
+        if let cachedFootprint {
+            return cachedFootprint
+        }
+        let size: CGFloat = 17
+        let image = UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { _ in
+            let config = UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+            guard let glyph = UIImage(systemName: "shoeprints.fill", withConfiguration: config)?
+                .withTintColor(UIColor(red: 0.85, green: 0.65, blue: 0.13, alpha: 0.5), renderingMode: .alwaysOriginal)
+            else { return }
+            let scale = min(size / glyph.size.width, size / glyph.size.height)
+            let drawn = CGSize(width: glyph.size.width * scale, height: glyph.size.height * scale)
+            glyph.draw(in: CGRect(x: (size - drawn.width) / 2, y: (size - drawn.height) / 2, width: drawn.width, height: drawn.height))
+        }
+        let overlay = NMFOverlayImage(image: image)
+        cachedFootprint = overlay
+        return overlay
+    }
+
+    private static var cachedFootprint: NMFOverlayImage?
+
     /// 추천·배경 점의 **이름표 규칙** (2026-09-02).
     ///
     /// 이름은 **크게 확대했을 때만** 단다 — 추천은 줌 17, 배경은 18 부터. 앞서 14·16

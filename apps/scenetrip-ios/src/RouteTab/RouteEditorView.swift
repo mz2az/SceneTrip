@@ -88,6 +88,9 @@ struct RouteEditorView: View {
     /// 지도의 번호 핀을 눌렀다 — 성지 카드(장면 설명·여기로 길찾기).
     @State var pickedStop: RouteStop?
 
+    /// 발자취 — 지도에 황금 발자국으로 그린다. 보기 토글은 지도 오른쪽 위.
+    @ObservedObject var footprints = FootprintStore.shared
+
     /// 지도 위 도착 알림 카드의 높이. 오른쪽 위 단추들이 그만큼 내려온다.
     @State var tripBannerHeight: CGFloat = 0
 

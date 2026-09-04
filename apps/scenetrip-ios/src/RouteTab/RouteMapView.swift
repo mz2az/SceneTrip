@@ -111,6 +111,10 @@ struct RouteMapView: UIViewRepresentable {
     /// 번호 핀을 눌렀다. 성지 카드를 띄우는 쪽이 받는다.
     var onTapStop: (RouteStop) -> Void = { _ in }
 
+    /// 발자취 — 지나온 자리. `footprintsOn` 이면 황금 발자국으로 그린다.
+    var footprints: [FootprintPoint] = []
+    var footprintsOn = false
+
     let onTapMap: (RoutePin) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -139,6 +143,7 @@ struct RouteMapView: UIViewRepresentable {
         context.coordinator.apply(bottomInset: bottomInset, to: view.mapView)
         context.coordinator.applyTrip(here: tripHere, on: view.mapView)
         context.coordinator.renderPreview(to: previewTo, on: view.mapView)
+        context.coordinator.renderFootprints(footprintsOn ? footprints : [], on: view.mapView)
         context.coordinator.render(
             stops: stops,
             pending: pending,
@@ -169,6 +174,9 @@ struct RouteMapView: UIViewRepresentable {
         /// 「내 자리 → 다음 곳」 직선 미리보기(`RouteMapTrip.swift`).
         var previewPath: NMFPath?
         var lastPreviewKey = ""
+        /// 발자국 마커(`RouteMapTrip.swift`).
+        var footMarkers: [NMFMarker] = []
+        var lastFootKey = ""
         private var pendingMarker: NMFMarker?
         private var lastKey = ""
         private var lastFitToken = -1

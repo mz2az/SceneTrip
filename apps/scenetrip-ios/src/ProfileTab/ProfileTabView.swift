@@ -172,7 +172,7 @@ struct ProfileTabView: View {
                         value: String(format: "%.1f km · %d점", footprints.kilometers, footprints.points.count),
                         chevron: false)
                     Toggle(isOn: $footprints.enabled) {
-                        Text("여행 중 발자취 기록").font(.subheadline)
+                        Text("지도에 발자취 보기").font(.subheadline)
                     }
                     Button(role: .destructive) {
                         clearingFootprints = true

@@ -38,7 +38,10 @@ extension RouteEditorView {
             onTapStop: {
                 pickedStop = $0
                 guide.picked = nil // 카드는 한 장만
-            }
+            },
+            // 최근 하루치만 — 지난 여행(데모 주행 여러 번)의 발자국까지 다 그리면 뭉친다.
+            footprints: footprints.points.filter { $0.at > Date().addingTimeInterval(-86400) },
+            footprintsOn: footprints.enabled
         ) { pin in
             // 한 번 찍으면 모드를 끈다. 켜 둔 채로 두면 시트를 닫는 손짓이 다음 핀이 된다.
             pinning = false
@@ -69,6 +72,11 @@ extension RouteEditorView {
             if !pinning {
                 VStack(spacing: 10) {
                     locateButton
+                    // 발자취 보기 토글 — 여행 중에만. 켜면 지나온 자리에 황금 발자국이 남는다
+                    // (2026-09-04 사용자 요청). 기록 자체는 안내 중이면 늘 남는다.
+                    if course.isRunning {
+                        footprintButton
+                    }
                     // **접힌 가이드.** 대화를 한 번 시작했으면 시트를 닫아도
                     // 여기 작게 남아, 누르면 이어서 펼쳐진다. 처음 여는 것은
                     // 아래 동작 줄의 「AI 가이드」다.
@@ -115,6 +123,26 @@ extension RouteEditorView {
                 .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
+    }
+
+    private var footprintButton: some View {
+        Button {
+            footprints.enabled.toggle()
+        } label: {
+            Image(systemName: "shoeprints.fill")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(footprints.enabled ? .white : Color(red: 0.72, green: 0.54, blue: 0.08))
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(
+                    footprints.enabled ? Color(red: 0.85, green: 0.65, blue: 0.13) : Color(.systemBackground)
+                ))
+                .overlay(Circle().strokeBorder(
+                    footprints.enabled ? .clear : Color(.systemGray4), lineWidth: 1
+                ))
+                .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(footprints.enabled ? "발자취 숨기기" : "발자취 보기")
     }
 
     // MARK: 편의시설 필터
