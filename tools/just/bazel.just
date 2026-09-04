@@ -53,11 +53,11 @@ ios-run device="":
 # GPS 가 경로선을 따라 천천히 움직인다 — 성지 반경에서 머무르면 발바닥 스탬프가 핀에 찍히고
 # 다음 성지로 넘어간다. 진짜 위치 대신 가상 위치를 쓰는 이유는 시뮬레이터·실기기 모두
 # 「걸어서 이동하는 GPS」를 화면에 담을 방법이 그것뿐이기 때문이다(계획 trip-mode.md §7).
-#   just ios-demo             ← 끝까지, 각 성지 5초 머무름, 도보 24 m/s · 대중교통 네 배
+#   just ios-demo             ← 끝까지, 각 성지 5초 머무름, 도보 48 m/s · 대중교통 두 배
 #   just ios-demo 3 8 40      ← 3번까지만(영상), 8초 머무름, 40 m/s
 # 먼저 `just ios-run` 으로 앱이 설치돼 있어야 한다.
 [group('build')]
-ios-demo until="99" dwell="5" speed="24" device="booted":
+ios-demo until="99" dwell="5" speed="48" device="booted":
     xcrun simctl terminate {{device}} com.mz2az.scenetrip 2>/dev/null || true
     xcrun simctl launch {{device}} com.mz2az.scenetrip \
         -initialTab route -demoCourse 1 -navStop 1 \

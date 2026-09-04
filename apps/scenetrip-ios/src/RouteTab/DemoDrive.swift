@@ -32,15 +32,15 @@ enum DemoDrive {
         untilStop > 0
     }
 
-    /// 초당 몇 m 움직이는가(도보 구간). 기본 24 — 12 에서 두 배로(2026-09-04 사용자 요청).
+    /// 초당 몇 m 움직이는가(도보 구간). 기본 48 — 처음 12 의 네 배(2026-09-04 사용자 요청).
     static var metersPerSecond: Double {
         let raw = UserDefaults.standard.double(forKey: "demoSpeed")
-        return raw > 0 ? raw : 24
+        return raw > 0 ? raw : 48
     }
 
-    /// 구간 종류별 속도 — 대중교통 구간은 도보의 네 배(2026-09-04 사용자 요청).
+    /// 구간 종류별 속도 — 대중교통 구간은 도보의 두 배(= 처음 12 의 여덟 배, 2026-09-04 사용자 요청).
     static func speed(for mode: RouteLegMode) -> Double {
-        metersPerSecond * (mode == .transit ? 4 : 1)
+        metersPerSecond * (mode == .transit ? 2 : 1)
     }
 
     /// 한 걸음의 간격(초). 0.4초면 지도의 파문이 끊기지 않고 움직인다.
@@ -70,8 +70,16 @@ enum DemoDrive {
 
     private static let lastLatKey = "demoDrive.lastLat", lastLngKey = "demoDrive.lastLng"
 
-    /// 마지막 가상 위치. 기기에 남는다.
+    /// 앱을 켠 뒤 한 번 시청으로 되돌렸는가. **켤 때마다 시청에서 시작한다** — 지난 실행의
+    /// 마지막 자리가 남아 있으면 "시청으로 돼 있는 거 맞아?"가 된다(2026-09-04 사용자 지적).
+    private static var resetThisLaunch = false
+
+    /// 마지막 가상 위치. 이번 실행 안에서만 이어진다(코스를 나가면 시청으로).
     static var lastPosition: Point? {
+        if !resetThisLaunch {
+            resetThisLaunch = true
+            resetToHome()
+        }
         let defaults = UserDefaults.standard
         guard defaults.object(forKey: lastLatKey) != nil else { return nil }
         return (defaults.double(forKey: lastLatKey), defaults.double(forKey: lastLngKey))
