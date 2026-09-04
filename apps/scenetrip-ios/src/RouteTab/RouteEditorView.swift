@@ -481,31 +481,6 @@ struct RouteEditorView: View {
         return titles.prefix(2).joined(separator: " · ")
     }
 
-    /// 가이드에게 줄 화면 상태 — **지금 일차의 번호 핀 그대로.**
-    ///
-    /// 순서를 바꾸거나 동선 최적화를 누르면 번호가 달라지는데, 그때마다 다시
-    /// 만들어지므로 모델이 보는 번호와 지도의 번호가 어긋나지 않는다
-    /// (2026-08-27 사용자 지적 — 앞서 아예 안 보내서 「2번이 어디냐」를 몰랐다).
-    var guideContext: RouteGuide.Context {
-        RouteGuide.Context(
-            stops: stops.enumerated().map { index, stop in
-                .init(
-                    number: index + 1,
-                    name: stop.place.name,
-                    kind: stop.place.type,
-                    latitude: stop.place.latitude,
-                    longitude: stop.place.longitude
-                )
-            },
-            picked: focusedStop.map {
-                .init(
-                    number: 0, name: $0.place.name, kind: $0.place.type,
-                    latitude: $0.place.latitude, longitude: $0.place.longitude
-                )
-            }
-        )
-    }
-
     /// 가이드에게 줄 「지금 자리」.
     ///
     /// 위치를 못 받았으면 **지금 보고 있는 장소**로 대신한다 — 코스를 짜는 중에는

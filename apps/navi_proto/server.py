@@ -1436,10 +1436,20 @@ def context_text(ctx):
         return ""
     out = []
     cart = ctx.get("cart") or []
+    trip = ctx.get("trip") or {}
+    target_no = trip.get("target_no")
     if cart:
+        def mark(c):
+            if c.get("visited"):
+                return " — 다녀옴 ✓"
+            if target_no and c.get("no") == target_no:
+                return " — 지금 가는 곳 ←" if trip.get("phase") == "guiding" else " — 방금 도착 ←"
+            return ""
+
         lines = "\n".join(
             f"  {c['no']}번 — {c['name']}"
             + (f" ({c['kind']})" if c.get("kind") else "")
+            + mark(c)
             for c in cart
         )
         out.append(
@@ -1447,6 +1457,39 @@ def context_text(ctx):
             + lines
             + "\n\n이 번호로 물으면(「1번 주변 맛집」) `poi_nearby` 의 "
             "`near` 에 그 번호를 넣어라."
+        )
+    if trip:
+        # **화면에서 일어난 일은 모델도 안다.** 발자국이 찍혔는데 「방문 여부는
+        # 알려지지 않았다」고 하면 말이 안 된다(2026-09-05 사용자 지적). 질문별 답을
+        # 적는 대신 상태를 넓힌다 — 「다 돌았어?」「다음은?」은 여기서 바로 답한다.
+        done = [c["no"] for c in cart if c.get("visited")]
+        left = [c["no"] for c in cart if not c.get("visited")]
+        phase = trip.get("phase")
+        rows = [f"  코스: {trip.get('course', '')} — {trip.get('day', 1)}일차 (총 {trip.get('days', 1)}일)"]
+        if phase == "guiding" and target_no:
+            dist = trip.get("target_dist_m")
+            rows.append(
+                f"  단계: 안내 중 — {target_no}번으로 가는 중"
+                + (f", 직선거리 약 {dist} m 남음 (도로 거리가 아니다)" if dist is not None else "")
+            )
+        elif phase == "arrived" and target_no:
+            rows.append(f"  단계: {target_no}번에 도착함 — 사용자가 「다음」을 누르면 다음 곳으로 간다")
+        else:
+            rows.append("  단계: 여행 중 (계획 보기) — 지금 안내 중인 곳은 없다")
+        rows.append(
+            f"  다녀온 곳: {', '.join(f'{n}번' for n in done) if done else '아직 없음'} ({len(done)}/{len(cart)})"
+        )
+        # 가는 중인 곳도 **아직 남은 곳**이다 — 빼면 모델이 「4번만 남았다」고 한다(실측).
+        left_text = ", ".join(f"{n}번" + (" (지금 가는 중)" if n == target_no and phase == "guiding" else "") for n in left)
+        rows.append(f"  남은 곳: {left_text if left else '없음 — 오늘 일차를 다 돌았다'} ({len(left)}곳)")
+        if trip.get("walked_km") is not None:
+            rows.append(f"  최근 하루 걸은 거리: {trip['walked_km']} km (발자국 기록)")
+        out.append(
+            "## 여행 상태 (화면이 지금 보여 주는 것 — 도구 없이 이대로 답한다)\n"
+            + "\n".join(rows)
+            + "\n\n「다 돌았어?」「다음은 어디야?」「몇 곳 남았어?」「지금 어디로 가는 중이야?」"
+            "「얼마나 걸었어?」 는 위 상태로 답한다. 도구를 부르지 마라. 여기 없는 것"
+            "(도로 거리·소요 시간·주변 가게)만 도구다."
         )
     picked = ctx.get("picked")
     if picked:

@@ -72,12 +72,34 @@ enum RouteGuide {
         /// 지금 고른 곳. 「여기 주변」이 가리키는 자리.
         let picked: Spot?
 
+        /// 여행 상태. **화면에서 일어난 일은 모델도 알아야 한다** (2026-09-05 사용자
+        /// 지적 — 발자국이 다 찍혔는데 「방문 여부는 알려지지 않았어요」라고 했다).
+        /// 질문마다 답을 적는 대신 상태의 항목을 넓힌다 — 「다 돌았어?」「다음은?」
+        /// 「몇 곳 남았어?」는 이것만으로 답한다. 도구는 여기 없는 것(주변·경로)에만.
+        var trip: Trip?
+
         struct Spot {
             let number: Int
             let name: String
             let kind: String?
             let latitude: Double
             let longitude: Double
+            /// 이번 여행에서 다녀왔는가(발바닥 도장).
+            var visited = false
+        }
+
+        struct Trip {
+            /// `plan`(계획 중) · `guiding`(가는 중) · `arrived`(도착).
+            let phase: String
+            let course: String
+            let day: Int
+            let days: Int
+            /// 지금 가는(또는 방금 닿은) 곳의 번호. 계획 중이면 nil.
+            let targetNumber: Int?
+            /// 내 자리에서 그 곳까지 **직선** m. 도로 거리가 아니다 — 모델에게도 그렇게 말한다.
+            let targetMeters: Int?
+            /// 최근 하루 발자국으로 잰 걸은 거리(km).
+            let walkedKilometers: Double
         }
 
         var json: [String: Any] {
@@ -87,6 +109,7 @@ enum RouteGuide {
                         "no": spot.number, "name": spot.name,
                         "kind": spot.kind ?? "",
                         "lat": spot.latitude, "lng": spot.longitude,
+                        "visited": spot.visited,
                     ]
                 },
             ]
@@ -95,6 +118,20 @@ enum RouteGuide {
                     "name": picked.name,
                     "lat": picked.latitude, "lng": picked.longitude,
                 ]
+            }
+            if let trip {
+                var state: [String: Any] = [
+                    "phase": trip.phase, "course": trip.course,
+                    "day": trip.day, "days": trip.days,
+                    "walked_km": (trip.walkedKilometers * 10).rounded() / 10,
+                ]
+                if let number = trip.targetNumber {
+                    state["target_no"] = number
+                }
+                if let meters = trip.targetMeters {
+                    state["target_dist_m"] = meters
+                }
+                out["trip"] = state
             }
             return out
         }
