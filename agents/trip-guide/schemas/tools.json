@@ -1,0 +1,332 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mz2az.com/schemas/trip-guide-tools.json",
+  "title": "trip-guide 에이전트의 도구 목록",
+  "description": "agents/trip-guide 가 모델에게 내미는 도구의 정의다. 에이전트는 모델이 보낸 인자를 이 스키마로 검증한 뒤에만 실행한다 — 모델이 형식에 맞는 페이로드를 만들어 줄 것이라고 믿지 않는다. 도구를 늘리면 방어 규칙도 함께 는다는 점을 기억할 것: 지금까지 늘어난 규칙은 거의 전부 near 인자 하나에서 나왔다.",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/tool"
+  },
+  "$defs": {
+    "tool": {
+      "type": "object",
+      "required": [
+        "type",
+        "function"
+      ],
+      "properties": {
+        "type": {
+          "const": "function"
+        },
+        "function": {
+          "type": "object",
+          "required": [
+            "name",
+            "description",
+            "parameters"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "parameters": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    }
+  },
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "search_places",
+        "description": "촬영지를 자유롭게 찾는다. 작품 이름, 장소 이름, 배우 이름, 지역, 장면 내용 무엇으로도 걸린다. 사용자가 무엇을 찾는지 분명하지 않을 때 먼저 부르는 도구다.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "query"
+          ],
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "description": "찾을 말. 예: '도깨비', '공유', '북촌한옥마을', '전주'"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 8
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_title_places",
+        "description": "한 작품의 대표 촬영지를 대표적인 순서대로 준다. 사용자가 작품을 콕 집어 말했을 때 쓴다. 순서 자체가 대표성이므로 앞에 오는 것부터 추천하면 된다.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "title"
+          ],
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "description": "작품 이름. 한국어와 영어 제목 모두 걸린다"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 8
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "places_near",
+        "description": "어떤 지점을 중심으로 반경 안의 촬영지를 찾는다. '이 근처', '2번 주변', '경복궁 근처' 같은 물음에만 쓴다. 어떤 지점이 어디인지 묻는 물음에는 부르지 마라 — 그 답은 이미 위의 '지금 상태' 에 있다.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "near"
+          ],
+          "properties": {
+            "near": {
+              "type": "string",
+              "minLength": 1,
+              "description": "기준점. '현위치' 이거나, 담은 지점의 번호('2') 이거나, 이번 대화에서 이미 보여 준 장소의 이름이다. 좌표는 넣지 마라 — 좌표는 이 도구가 알아서 찾는다"
+            },
+            "radius_m": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 20000,
+              "default": 2000
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 8
+            },
+            "sort": {
+              "type": "string",
+              "enum": [
+                "distance",
+                "popular"
+              ],
+              "default": "distance",
+              "description": "distance 는 가까운 순, popular 는 반경 안에서 유명한 순이다"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "place_detail",
+        "description": "한 장소를 자세히 본다. 그 장소가 어느 작품의 어떤 장면이었는지, 주소, 네이버 지도 링크를 준다. 이번 대화에서 이미 보여 준 장소만 부를 수 있다.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "장소 이름. 목록에 나온 그대로 적어라"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "update_cart",
+        "description": "오늘 코스에 장소를 담거나 뺀다. 사용자가 담아 달라고 했을 때만 부른다 — 추천했다고 해서 담지 마라.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "action",
+            "name"
+          ],
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "add",
+                "remove"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "장소 이름. 목록에 나온 그대로 적어라"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "draft_course",
+        "description": "담은 곳들을 걷기 좋은 순서로 이어 하루 동선 초안을 만든다. 담은 것이 두 곳 이상일 때만 뜻이 있다. 이 도구는 순서와 구간 거리만 준다 — 시간표는 사용자와 이야기하며 정해라.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "plan_course",
+        "description": "작품과 일수를 받아 일차별 여행 일정을 통째로 짠다. '도깨비 촬영지로 2박 3일 짜 줘' 처럼 **작품과 기간**을 말했을 때 쓴다. 담은 곳을 이어 붙이는 draft_course 와 다르다 — 이 도구는 후보를 직접 고르고, 날짜에 나누고, 순서와 시각까지 정해서 돌려준다. 시각·거리·순서는 이 도구가 계산한 값을 **그대로** 옮겨 말해라. 네가 다시 계산하거나 어림하지 마라.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "titles"
+          ],
+          "properties": {
+            "titles": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 5,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "돌고 싶은 작품 이름들. 장소 이름이 아니라 **작품 이름**을 넣어라 — 이 도구는 작품을 기준으로 촬영지를 모은다"
+            },
+            "days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 7,
+              "default": 1,
+              "description": "며칠짜리 일정인가. '2박 3일' 은 3 이다"
+            },
+            "pace": {
+              "type": "string",
+              "enum": [
+                "relaxed",
+                "normal",
+                "packed"
+              ],
+              "default": "normal",
+              "description": "relaxed 는 하루 3곳 느긋하게, normal 은 5곳, packed 는 7곳까지 빡빡하게"
+            },
+            "start": {
+              "type": "string",
+              "description": "첫날 출발점. '현위치' 이거나 이번 대화에서 이미 보여 준 장소의 이름이다. 좌표는 넣지 마라. 없으면 도구가 알아서 정한다"
+            },
+            "must": {
+              "type": "array",
+              "maxItems": 10,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "꼭 넣어야 하는 장소 이름들. 사용자가 콕 집어 말했을 때만 채워라"
+            },
+            "avoid": {
+              "type": "array",
+              "maxItems": 10,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "빼야 하는 장소 이름들"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "revise_plan",
+        "description": "이미 짜 둔 일정의 한 일차에서 장소를 빼거나 넣는다. 「2일차에서 개뿔 빼 줘」 · 「1일차에 북촌한옥마을도 넣어 줘」 처럼 **이미 만들어 놓은 일정을 고칠 때만** 쓴다. 일정을 처음 만드는 것은 plan_course 다. 일정을 통째로 다시 짜지 마라 — 사용자가 손대지 않은 일차까지 바뀐다.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "day"
+          ],
+          "properties": {
+            "day": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 7,
+              "description": "고칠 일차. 1 부터 센다"
+            },
+            "remove": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "그 일차에서 뺄 장소 이름들. 그 일차에 실제로 있는 이름이어야 한다"
+            },
+            "add": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "그 일차에 넣을 장소 이름들. 이번 대화에서 보여 준 적이 있는 장소만 넣을 수 있다 — 이름을 지어내지 마라"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "move_stop",
+        "description": "짜 둔 일정에서 장소 한 곳을 다른 일차로 옮긴다. 「그건 2일차로 옮겨 줘」 · 「남산타워는 마지막 날에 보고 싶어」 처럼 **옮기라고 말했을 때** 쓴다. revise_plan 으로 빼고 넣는 두 번 대신 이 도구 한 번이다.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "to_day"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "옮길 장소 이름. 지금 일정 안에 있는 이름이어야 한다"
+            },
+            "to_day": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 7,
+              "description": "옮겨 갈 일차"
+            }
+          }
+        }
+      }
+    }
+  ]
+}
