@@ -624,6 +624,93 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /pois/{poiId}/card:
+    get:
+      tags: [pois]
+      operationId: getPoiCard
+      summary: 편의시설 카드 — 사진·영업시간·평점 (바깥 출처)
+      description: |
+        핀을 눌렀을 때 뜨는 카드. 우리 자료에 없는 것 — 사진·영업시간·별점·리뷰 수 — 을
+        바깥 출처(네이버 장소)에서 가져온다. 서버가 그 출처에 한 번 물어 결과를 표에 두고,
+        두 번째부터는 표에서 준다.
+
+        **표에 없으면 지금 바로 묻는다** — 검색과 상세 두 호출, 약 0.35 초. 사용자가 「이거」
+        하고 누른 한 곳이라 그만큼은 기다린다. 여럿을 한 번에 채우려면 `GET /pois/cards` 다.
+
+        **못 찾아도 200 이다.** 「그 출처에 없다」도 답이다 — `found: false` 에 `why` 가 이유를
+        말한다. 출처가 막혔거나 서버 설정으로 꺼져 있어도 200 이다. 카드가 뜨는 화면이 바깥
+        사정으로 죽으면 안 된다. 404 는 `poiId` 자체가 없을 때뿐이다.
+
+        이 정보의 출처와 한계는 ADR 0011 — 데모 한정이고 정식 출시 전에 대체한다.
+      parameters:
+        - name: poiId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 카드. `found` 가 결과다
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoiCard"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /pois/cards:
+    get:
+      tags: [pois]
+      operationId: listPoiCards
+      summary: 편의시설 카드 여럿 — 있는 것은 주고, 없는 것은 뒤에서 채운다
+      description: |
+        목록 화면용. 보이는 행들의 `poiId` 를 한 번에 보내면 **표에 있는 것만** 카드로 주고,
+        없는 것은 `pending: true` 로 표시한 뒤 서버가 뒤에서 채운다. **이 경로는 바깥 출처를
+        부르지 않는다** — 응답은 언제나 몇 ms 다.
+
+        | 항목 | 뜻 |
+        | --- | --- |
+        | `found: true` | 찾았고 상세가 있다 |
+        | `found: false` | 물어봤는데 없었다. `why` 가 이유. 다시 묻지 않는다 |
+        | `pending: true` | 아직 안 물어봤다. 줄에 넣었으니 잠시 뒤 다시 물으면 위 둘 중 하나가 된다 |
+
+        `items` 는 **요청한 순서 그대로, 요청한 개수만큼**이다 — 목록 행과 1:1 로 붙인다.
+        없는 `poiId` 도 404 가 아니라 그 자리에 `found: false` 로 온다. 상태 코드는 요청
+        전체의 것이고, 하나가 없다고 나머지 29 개를 못 받게 하지 않는다.
+
+        **앱의 규칙** — `pending` 이 하나라도 있으면 `retryAfterSeconds` 만큼 기다렸다가
+        **`pending` 이었던 id 만** 다시 묻는다. 없어질 때까지, 최대 3 회. 그 뒤엔 사진 없이 둔다.
+        `retryAfterSeconds` 는 서버의 줄 길이와 최근 처리 속도로 계산한 어림이다 — 틀리면 다음
+        응답이 다시 계산해 준다. 1~30 사이다.
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: 쉼표로 이은 `poiId`. 1~50 개. 예 `ids=225568,448442,17121`
+          style: form
+          explode: false
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 50
+            items:
+              type: integer
+              format: int64
+      responses:
+        "200":
+          description: 요청한 순서대로의 카드들
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoiCardBatch"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /cart:
     get:
       tags: [cart]
@@ -1844,6 +1931,93 @@ components:
               type: string
               nullable: true
               example: 중구
+
+    PoiCard:
+      type: object
+      required: [poiId]
+      description: |
+        바깥 출처(네이버 장소)에서 가져온 카드. 세 상태다 — `pending`(아직 안 물어봄), `found: false`
+        (물어봤는데 없음), `found: true`(있음). `pending` 이 아니면 `found` 와 `checkedAt` 이 있다.
+        `found: true` 일 때 아래 정보는 **있는 것만** 실린다 — 별점이 없는 가게가 많고, 없는 값을
+        0 으로 채우면 「최악의 평점」으로 읽힌다.
+      properties:
+        poiId:
+          type: integer
+          format: int64
+        pending:
+          type: boolean
+          description: 아직 안 물어봤다. 이것이 `true` 면 다른 필드는 없다
+        found:
+          type: boolean
+          description: 물어본 결과. `pending` 이 아니면 있다
+        checkedAt:
+          type: string
+          format: date-time
+          description: 언제 확인한 정보인가. `pending` 이 아니면 있다
+        why:
+          type: string
+          nullable: true
+          description: "`found: false` 일 때 이유 한 줄. 예 「150 m 떨어져 이름이 정확히 같아야 하는데 「포490 강남점」이다」"
+        name:
+          type: string
+          nullable: true
+          description: 출처가 부르는 이름. 우리 이름(`PoiSummary.name`)과 다를 수 있다
+          example: 명동교자본점
+        category:
+          type: string
+          nullable: true
+          description: 출처의 분류 문구
+          example: 칼국수,만두
+        address:
+          type: string
+          nullable: true
+          description: 도로명 주소
+        phone:
+          type: string
+          nullable: true
+        hours:
+          type: string
+          nullable: true
+          description: 영업시간 문구 그대로. 구조화하지 않는다
+          example: 매일 10:30 - 21:00
+        score:
+          type: number
+          format: double
+          nullable: true
+          description: 별점 0~5. 없을 수 있다
+        reviewCount:
+          type: integer
+          nullable: true
+          description: 방문자 리뷰 수
+        blogReviews:
+          type: integer
+          nullable: true
+          description: 블로그 리뷰 수
+        images:
+          type: array
+          description: 최대 3 장. 출처의 CDN 주소를 앱이 직접 그린다 — 데모 한정(ADR 0011)
+          items:
+            type: string
+            format: uri
+        naverUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: 출처의 장소 페이지
+
+    PoiCardBatch:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: 요청한 순서대로, 요청한 개수만큼
+          items:
+            $ref: "#/components/schemas/PoiCard"
+        retryAfterSeconds:
+          type: integer
+          nullable: true
+          description: "`pending` 이 하나라도 있을 때만. 이만큼 뒤에 `pending` 이었던 id 만 다시 물어라. 1~30"
 
     Scene:
       type: object
