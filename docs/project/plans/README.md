@@ -13,6 +13,7 @@
 | [trip-mode.md](./trip-mode.md) | 여행 모드 — 코스 시작부터 스탬프·다음 성지까지 한 흐름, 발자취 (iOS) |
 | [poi-pipeline.md](./poi-pipeline.md) | POI 파이프라인 — TMAP 수집→네이버 매칭→상세 갱신을 Airflow 로 (계획만, 팀 결정 대기) |
 | [navigation-next-leg.md](./navigation-next-leg.md) | 여행 중 길찾기 백엔드 이관 — 카카오를 서버가 부른다 (MZ2AZ-296) |
+| [poi-card.md](./poi-card.md) | 편의시설 카드 — 사진·영업시간·평점을 네이버 장소에서 (데모 한정, ADR 0011) |
 
 ## 언제 여기에 쓰는가
 

@@ -297,6 +297,10 @@ just update scene-api                   # 코드 변경 후 재빌드 → 적재
 just logs   scene-api                   # 로그 따라가기
 ```
 
+**코드를 바꾼 뒤에는 `deploy` 가 아니라 `update` 다.** 이미지 태그가 같은 `dev` 라 `deploy` 는
+`deployment unchanged` 로 끝나고 옛 컨테이너가 그대로 돈다 — health 는 초록인데 새 경로만 404 다
+(2026-09-04 에 그렇게 한 번 헤맸다). `update` 가 빌드 뒤 롤링 재시작까지 한다.
+
 **단계를 직접 밟을 때 빠지는 것이 `seed` 와 `db-refresh-search` 다.** 둘 다 빠져도
 배포는 성공하고 health 는 초록이며, `/v1/contents` 가 200 에 빈 배열을 준다. 화면만
 비고 아무것도 깨지지 않아 가장 찾기 어렵다. 그래서 순서를 기억하지 않아도 되도록
@@ -340,6 +344,18 @@ Secret 을 파이프라인이 시크릿 매니저에서 만들고, 그때 DB 비
 just secrets-apply             # .env → Secret. 처음 한 번, 키 바꿀 때
 just restart scene-api         # 이미 떠 있으면 — 환경변수는 뜰 때 한 번 읽힌다
 ```
+
+### 편의시설 카드 — `scenetrip.naver.*`
+
+네이버 장소를 비공식으로 부른다([ADR 0011](../../docs/architecture/adr/0011-naver-place-unofficial-for-demo.md)).
+키는 없다. 전부 `application.yaml` 에 있고 환경변수로 덮을 수 있다(`SCENETRIP_NAVER_ENABLED=false`).
+
+| 키 | 기본값 | 용도 |
+| --- | --- | --- |
+| `enabled` | `true` | 스위치. 막히거나 형식이 바뀌면 내린다 — 카드만 「꺼져 있음」이 되고 나머지는 산다 |
+| `timeout-seconds` | `3` | 실측 0.3 초의 10 배 |
+| `min-interval-ms` | `300` | 뒤에서 채우는 일꾼의 한 건 사이 간격(초당 3 건) |
+| `pause-seconds` | `60` | 막혔을 때(403·429) 쉬는 시간. 연속 세 번이면 재시작 전까지 내린다 |
 
 ## 길찾기 — 이 서비스의 첫 외부 HTTP
 
