@@ -126,8 +126,12 @@ public class PoiStore {
   /** 구면 KNN. {@code <->} 를 ORDER BY 에 두면 GiST 가 가까운 순으로 꺼내 준다. 기준점이 없으면 컨트롤러가 이 정렬을 거부한다(400). */
   private static final String ORDER_BY_DISTANCE = "p.geom <-> o.point, p.id";
 
-  /** 이름이 같은 가게가 수백씩이라(스타벅스) {@code id} 를 뒤에 붙여야 페이지가 흔들리지 않는다. */
-  private static final String ORDER_BY_ALPHABETICAL = "p.name, p.id";
+  /**
+   * 이름순. {@code COLLATE "C"} 는 코드포인트 순서 — 한글은 그것이 곧 가나다순이다. DB 로케일에 맡기면 환경마다 다르다: kind 는 {@code C}
+   * 라 가나다순인데 CI 의 서비스 컨테이너는 {@code en_US} 라 glibc 나름의 순서로 「모슬포」를 「드림」 앞에 놓았다(2026-09-04 CI 실패). 이름이
+   * 같은 가게가 수백씩이라(스타벅스) {@code id} 를 뒤에 붙여야 페이지가 흔들리지 않는다.
+   */
+  private static final String ORDER_BY_ALPHABETICAL = "p.name COLLATE \"C\", p.id";
 
   private static final String DETAIL_SQL =
       ORIGIN_SQL
