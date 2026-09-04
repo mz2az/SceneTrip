@@ -131,7 +131,10 @@ final class TripSession: ObservableObject {
         }
         if DemoDrive.isOn, let target {
             // 데모 주행 — 진짜 위치 대신 가상 위치. 첫 성지 남쪽 250 m 에서 걸어온다.
-            let start = DemoDrive.start(near: target)
+            // 명시해서 켰으면(영상) 남쪽 250 m 에서, 시뮬레이터 기본이면 마지막 자리에서 이어 걷는다.
+            let start = demoPosition
+                ?? (DemoDrive.isExplicit ? nil : DemoDrive.lastPosition)
+                ?? DemoDrive.start(near: target)
             demoPosition = start
             locator.inject(latitude: start.latitude, longitude: start.longitude)
             tasks.append(Task { [weak self] in
@@ -238,6 +241,7 @@ final class TripSession: ObservableObject {
                 toward: goal, meters: DemoDrive.metersPerSecond * DemoDrive.tick
             )
             demoPosition = position
+            DemoDrive.remember(position)
         }
         // 서 있을 때도 같은 자리를 다시 넣는다 — 머무름 판정과 파문이 이어진다.
         locator.inject(latitude: position.latitude, longitude: position.longitude)

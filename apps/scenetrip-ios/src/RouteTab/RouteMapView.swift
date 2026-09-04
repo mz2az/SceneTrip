@@ -298,10 +298,12 @@ struct RouteMapView: UIViewRepresentable {
                         self.fitTrip(to: navTarget, legs: legs, on: mapView)
                     }
                 }
+                // 목적지 사본의 visited 는 낡을 수 있다(도착 직후) — 목록의 최신 값으로 본다.
+                let targetVisited = stops.first { $0.id == navTarget.id }?.visited ?? navTarget.visited
                 updateHalo(
                     style: .brand,
                     at: NMGLatLng(lat: navTarget.place.latitude, lng: navTarget.place.longitude),
-                    lift: navTarget.visited ? 0 : 30, // 도착했으면 발바닥 핀 — 자리 위에
+                    lift: targetVisited ? 0 : 30, // 도착했으면 발바닥 핀 — 자리 위에
                     on: mapView
                 )
                 return
@@ -328,7 +330,7 @@ struct RouteMapView: UIViewRepresentable {
                 updateHalo(
                     style: .brand,
                     at: NMGLatLng(lat: focused.place.latitude, lng: focused.place.longitude),
-                    lift: focused.visited ? 0 : 30,
+                    lift: (stops.first { $0.id == focused.id }?.visited ?? focused.visited) ? 0 : 30,
                     on: mapView
                 )
             } else {

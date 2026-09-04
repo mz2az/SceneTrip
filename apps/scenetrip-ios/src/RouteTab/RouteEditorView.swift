@@ -334,6 +334,24 @@ struct RouteEditorView: View {
     // MARK: 목록
 
     private var stopList: some View {
+        ScrollViewReader { proxy in
+            stopRows
+                // **다음 갈 곳이 맨 위에** — 안내가 켜지면 그 목적지, 도착하면 그다음 미방문 곳으로
+                // 목록을 밀어 올린다(2026-09-04 사용자 요청). 다녀온 줄은 위로 흘러가 남는다.
+                .onChange(of: trip.target?.id) { _, id in
+                    if let id {
+                        withAnimation { proxy.scrollTo(id, anchor: .top) }
+                    }
+                }
+                .onChange(of: trip.phase) { _, phase in
+                    if phase == .arrived, let next = nextUnvisited?.stop.id {
+                        withAnimation { proxy.scrollTo(next, anchor: .top) }
+                    }
+                }
+        }
+    }
+
+    private var stopRows: some View {
         List {
             ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
                 RouteStopRow(
@@ -376,6 +394,7 @@ struct RouteEditorView: View {
                         }
                     }
                 )
+                .id(stop.id)
             }
             // **편집 모드를 켜지 않는다.** 켜면 드래그 손잡이가 늘 보이는 대신 행 안의
             // 버튼(체류 시간 칩·길찾기)이 눌리지 않는다 — iOS 가 편집 중 행의 탭을

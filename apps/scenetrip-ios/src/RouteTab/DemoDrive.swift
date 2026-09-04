@@ -55,6 +55,27 @@ enum DemoDrive {
         (stop.place.latitude - 0.00225, stop.place.longitude - 0.0006)
     }
 
+    /// 인자로 **명시해서** 켰는가(`just ios-demo`). 영상용이라 늘 남쪽 250 m 에서 출발한다.
+    /// 시뮬레이터 기본 켜짐일 때는 **마지막 자리에서 이어 걷는다** — 안내를 껐다 켜거나 화면을
+    /// 닫았다 열어도 시청까지 되돌아가지 않는다(2026-09-04 사용자 지적).
+    static var isExplicit: Bool {
+        UserDefaults.standard.object(forKey: "demoDrive") != nil
+    }
+
+    private static let lastLatKey = "demoDrive.lastLat", lastLngKey = "demoDrive.lastLng"
+
+    /// 마지막 가상 위치. 기기에 남는다.
+    static var lastPosition: Point? {
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: lastLatKey) != nil else { return nil }
+        return (defaults.double(forKey: lastLatKey), defaults.double(forKey: lastLngKey))
+    }
+
+    static func remember(_ position: Point) {
+        UserDefaults.standard.set(position.latitude, forKey: lastLatKey)
+        UserDefaults.standard.set(position.longitude, forKey: lastLngKey)
+    }
+
     static func meters(_ from: Point, _ to: Point) -> Double {
         RouteGeometry.kilometers(
             PlaceSummary(id: 0, name: "", latitude: from.latitude, longitude: from.longitude),
