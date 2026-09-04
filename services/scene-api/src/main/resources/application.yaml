@@ -86,6 +86,15 @@ management:
 # 우회 계수는 직선거리가 실제 도로보다 짧다는 것을 메우는 값이다. 데이터가 쌓이면
 # 코드를 고치지 않고 여기서 조정한다.
 scenetrip:
+  # 편의시설 카드 — 네이버 장소(비공식, ADR 0011). 키는 없다.
+  naver:
+    # 스위치. 데모 중 막히거나 형식이 바뀌면 false 로 — 카드가 「꺼져 있음」이 되고 화면은 산다.
+    enabled: true
+    search-url: https://bff-gateway.place.naver.com/graphql
+    detail-url: https://map.naver.com/p/api/place/summary/{id}
+    # 실측 0.3 초의 10 배. 이보다 오래 걸리면 이번은 실패로 두고 다음에 다시 묻는다.
+    timeout-seconds: 3
+
   course:
     walking-speed-kmh: 4.0
     detour-factor: 1.3
