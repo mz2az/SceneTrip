@@ -166,8 +166,8 @@ struct RouteStopRow: View {
                         }
                         .frame(width: 30, height: 30)
                         .shadow(color: Color(PinImage.deep).opacity(0.3), radius: 2, y: 1)
-                        Text("다녀옴").font(.caption.weight(.heavy)).foregroundStyle(Color(PinImage.deep))
-                            .lineLimit(1).fixedSize()
+                        // 글자 「다녀옴」은 뺐다 — 옆의 「다시 길찾기」가 잘렸다(2026-09-04 사용자
+                        // 지적). 발바닥 도장만으로 뜻이 통한다.
                     }
                     .accessibilityLabel("다녀온 곳")
                 }
