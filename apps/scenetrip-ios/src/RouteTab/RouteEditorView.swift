@@ -234,6 +234,12 @@ struct RouteEditorView: View {
         }
         // 화면을 닫으면 안내도 끝난다 — 위치 받기가 뒤에서 계속 돌면 안 된다.
         .onDisappear { trip.end() }
+        // **안내 중에는 편의시설 점을 다 끈다**(2026-09-04 사용자 요청) — 경로선이 주인공인데
+        // 음식점·명소 점이 그 위를 덮었다. 안내가 끝나면 다시 전부 켠다. 안내 중에 칩으로
+        // 켜는 것은 그대로 된다.
+        .onChange(of: trip.isActive) { _, active in
+            poiGroupsOn = active ? [] : Set(RoutePoiGroup.allCases)
+        }
         // 저장이 실패하면 이유를 말한다. 버튼이 안 먹는 것처럼 보이면 사용자는
         // 같은 버튼을 계속 누르게 된다.
         .alert("저장하지 못했습니다", isPresented: Binding(
