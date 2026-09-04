@@ -52,16 +52,13 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
 
     func locationManager(_: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let spot = locations.last else { return }
+        // 여행 안내가 자리를 주고 있으면 한 번 받기는 무시한다 — 두 출처가 파문을 서로
+        // 끌어당기면 점이 튄다(`tripHere`, 2026-09-03).
+        guard tripHere == nil else { return }
         here = NMGLatLng(lat: spot.coordinate.latitude, lng: spot.coordinate.longitude)
         guard showingMe, let mapView = mapForLocate else { return }
 
-        if pulse == nil {
-            let view = RadarPulse(tint: UIColor(Color.accentColor))
-            mapView.addSubview(view)
-            pulse = view
-        }
-        pulse?.restartIfNeeded()
-        positionPulse()
+        showPulse(on: mapView)
 
         // 자리가 화면 밖이면 **범위를 넓혀 담는다.** 토글을 켰는데 아무 일도
         // 없으면 안 되는 것으로 보인다(2026-08-27 사용자 지적 — 추천 핀에만
@@ -88,6 +85,18 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
     }
 
     // MARK: 파문
+
+    /// 파문을 띄운다(없으면 만들고) — 한 번 받기와 여행 안내(`tripHere`)가 같이 쓴다.
+    func showPulse(on mapView: NMFMapView) {
+        mapForLocate = mapView
+        if pulse == nil {
+            let view = RadarPulse(tint: UIColor(Color.accentColor))
+            mapView.addSubview(view)
+            pulse = view
+        }
+        pulse?.restartIfNeeded()
+        positionPulse()
+    }
 
     /// 파문을 내 자리의 화면 좌표에 놓고, 핀과 겹치는지 본다.
     func positionPulse() {
@@ -131,7 +140,12 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
     // MARK: 헤일로
 
     /// 해태 핀 뒤의 심장박동. 자리·판이 그대로면 아무것도 안 한다.
-    func updateHalo(style: HaloPulse.Style, at spot: NMGLatLng?, on mapView: NMFMapView) {
+    ///
+    /// `lift` 는 좌표에서 얼마나 위에 띄우는가 — 해태 핀은 머리(얼굴)가 30pt 위에 있고,
+    /// 발바닥 핀은 자리 위에 바로 얹히므로 0 이다(2026-09-03 사용자 지적: 발바닥보다
+    /// 위에 떠 있었다).
+    func updateHalo(style: HaloPulse.Style, at spot: NMGLatLng?, lift: CGFloat = 30, on mapView: NMFMapView) {
+        haloLift = lift
         guard let spot else {
             halo?.removeFromSuperview()
             halo = nil
@@ -156,7 +170,7 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
     func positionHalo() {
         guard let halo, let haloAt, let host = mapForLocate else { return }
         var point = host.projection.point(from: haloAt)
-        point.y -= 30
+        point.y -= haloLift
         halo.place(at: point)
     }
 

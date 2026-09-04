@@ -1,0 +1,148 @@
+{
+  "title": "도깨비 · 선재 2박 3일",
+  "pace": "tight",
+  "note": "데모 주행용 코스 — 장소 id 는 seed/candidates.csv(성지후보 v3, MZ2AZ-298) 의 것이다. 1일차 종로(도깨비·선재 업고 튀어, 도보권), 2일차 수원 화성(선재), 3일차 인천 제물포(도깨비). 2026-09-03 에 v6 기준 파일을 갈아 끼웠다 — 두 워크트리가 DB 하나를 나눠 쓰므로 데이터는 main 의 시드를 따른다.",
+  "days": [
+    [
+      {
+        "placeId": 42,
+        "name": "서울 덕수궁 돌담길",
+        "category": "거리",
+        "address": "서울 중구 덕수궁길 116",
+        "latitude": 37.567558,
+        "longitude": 126.973424,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 75,
+        "name": "인사동 쇠고집",
+        "category": "식당",
+        "address": "서울특별시 종로구 종로1·2·3·4가동 인사동 종로2가 인사동3길 5-2 쇠고집",
+        "latitude": 37.57186,
+        "longitude": 126.98645,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 60,
+        "name": "서울 운현궁 양관",
+        "category": "건축물",
+        "address": "서울 종로구 삼일대로 460",
+        "latitude": 37.576667,
+        "longitude": 126.988199,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 22,
+        "name": "서울 중앙고등학교",
+        "category": "학교",
+        "address": "서울 종로구 창덕궁길 164",
+        "latitude": 37.583788,
+        "longitude": 126.987473,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 78,
+        "name": "서울 삼청동 돌담길",
+        "category": "거리",
+        "address": "서울특별시 종로구 삼청동",
+        "latitude": 37.5836,
+        "longitude": 126.9816,
+        "stayMinutes": 30
+      }
+    ],
+    [
+      {
+        "placeId": 26,
+        "name": "수원 행리단길",
+        "category": "거리",
+        "address": "경기 수원시 팔달구 화서문로 48",
+        "latitude": 37.285222,
+        "longitude": 127.013207,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 1,
+        "name": "수원 카페 몽테드",
+        "category": "카페",
+        "address": "경기 수원시 팔달구 화서문로48번길 14",
+        "latitude": 37.284771,
+        "longitude": 127.013614,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 71,
+        "name": "수원 행궁동 벽화마을",
+        "category": "마을",
+        "address": "경기 수원시 팔달구 화서문로 82-6",
+        "latitude": 37.285817,
+        "longitude": 127.01662,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 65,
+        "name": "수원 화성 화홍문",
+        "category": "문화재",
+        "address": "경기 수원시 팔달구 북수동 25-36",
+        "latitude": 37.287339,
+        "longitude": 127.017147,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 69,
+        "name": "수원 방화수류정·용연",
+        "category": "문화재",
+        "address": "경기 수원시 팔달구 화성성곽길 233",
+        "latitude": 37.287572,
+        "longitude": 127.018134,
+        "stayMinutes": 30
+      }
+    ],
+    [
+      {
+        "placeId": 12,
+        "name": "인천 자유공원",
+        "category": "공원",
+        "address": "인천광역시 제물포구 제물량로232번길 46",
+        "latitude": 37.475142,
+        "longitude": 126.622343,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 33,
+        "name": "인천 아트플랫폼",
+        "category": "전시시설",
+        "address": "인천 제물포구 제물량로218번길 3",
+        "latitude": 37.472789,
+        "longitude": 126.620609,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 66,
+        "name": "인천 배다리 헌책방골목",
+        "category": "거리",
+        "address": "인천 제물포구 금곡로 7-1",
+        "latitude": 37.472682,
+        "longitude": 126.636558,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 68,
+        "name": "인천 청라호수공원",
+        "category": "공원",
+        "address": "인천 서해구 크리스탈로 59",
+        "latitude": 37.530563,
+        "longitude": 126.636323,
+        "stayMinutes": 30
+      },
+      {
+        "placeId": 51,
+        "name": "인천 서운고등학교",
+        "category": "학교",
+        "address": "인천광역시 계양구 작전서운동 서운동 효서로 서운고등학교",
+        "latitude": 37.52691,
+        "longitude": 126.745887,
+        "stayMinutes": 30
+      }
+    ]
+  ]
+}

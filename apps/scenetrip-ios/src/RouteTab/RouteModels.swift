@@ -121,6 +121,10 @@ struct RouteStop: Identifiable, Hashable {
     /// 지도를 눌러 직접 찍은 핀인가. 숙소처럼 우리 데이터에 없는 곳이다.
     var isPinned = false
 
+    /// 서버에 방문(`visitedAt`)이 찍혔나. 여행 모드가 「다음 미방문 성지」를 고르는 근거다
+    /// (2026-09-02). 저장 전 장소는 false 고, 브리지가 서버 값을 옮겨 준다.
+    var visited = false
+
     static let defaultStayMinutes = 30
     static let stayOptions = [15, 30, 45, 60, 90, 120, 180]
 

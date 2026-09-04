@@ -14,11 +14,11 @@ import SwiftUI
 ///
 /// **서버가 없다.** 이 탭은 통째로 목 데이터로 돈다 — `RouteMockData.swift` 머리말 참고.
 struct RouteTabView: View {
-    @EnvironmentObject private var store: RouteStore
+    @EnvironmentObject var store: RouteStore
 
     @State private var fork = false
     @State private var wizard: RouteWizardKind?
-    @State private var editing: RouteCourse?
+    @State var editing: RouteCourse?
 
     /// 지우기 직전에 한 번 묻는다. `nil` 이면 안 묻는 중이다.
     ///
@@ -30,7 +30,7 @@ struct RouteTabView: View {
     @State private var segment: Segment = .mine
 
     /// 마이페이지가 남긴 쪽지(열어 줄 코스)를 읽는다.
-    @ObservedObject private var router = TabRouter.shared
+    @ObservedObject var router = TabRouter.shared
 
     enum Segment: String, CaseIterable, Identifiable {
         case mine = "내 코스"
@@ -72,6 +72,7 @@ struct RouteTabView: View {
             .toolbar(.hidden, for: .navigationBar)
             .task {
                 await store.refresh()
+                await ensureDemoCourse()
                 openPending()
             }
             .onChange(of: router.pendingCourseId) { _, _ in openPending() }
@@ -225,6 +226,7 @@ struct RouteTabView: View {
                 Section("여행 중") {
                     ForEach(running) { course in
                         row(course)
+                        continueTripRow(course)
                     }
                 }
             }

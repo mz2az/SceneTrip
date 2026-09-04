@@ -33,6 +33,10 @@ final class TabRouter: ObservableObject {
         return raw > 0 ? Int64(raw) : nil
     }()
 
+    /// 경로여정 목록의 「이어서 길찾기」 — 코스를 열자마자 **첫 미방문 성지로 안내를
+    /// 켠다**(2026-09-03, 계획 trip-mode.md §8 · main 은 MZ2AZ-311). 편집 화면이 읽고 끈다.
+    @Published var pendingTripStart = false
+
     /// 마이페이지가 부른다 — 탭을 바꾸고 쪽지를 남긴다.
     func openCourse(_ serverId: Int64) {
         pendingCourseId = serverId

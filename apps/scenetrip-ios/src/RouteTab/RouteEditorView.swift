@@ -18,7 +18,7 @@ import SwiftUI
 /// **거리(km)는 보여 주고 예상 소요 시간은 보여 주지 않는다** (8/11 회의 2부 확정).
 /// 직선거리에서 시간을 지어내면 사용자는 그것을 실제 이동 시간으로 읽는다.
 struct RouteEditorView: View {
-    @EnvironmentObject private var store: RouteStore
+    @EnvironmentObject var store: RouteStore
     @Environment(\.dismiss) private var dismiss
 
     /// 장바구니는 **검색 탭에서 이어진다.** 기기 UUID 가 같으므로 새로 만들어도 서버에
@@ -75,7 +75,21 @@ struct RouteEditorView: View {
     @State var ambientPois: [RouteGuide.Place] = []
     @State var ambientTask: Task<Void, Never>?
     @State var stayTarget: RouteStop?
-    @State var directionsTarget: RouteStop?
+
+    /// 여행 안내 — **이 화면 안에서 돈다**(2026-09-03, 계획 trip-mode.md §8). 별도
+    /// 길찾기 창은 코스 여행에서 더 안 쓴다. 목적지·경로·머무름·스탬프는 이것이 든다.
+    @StateObject var trip = TripSession()
+
+    /// 홈 「이어서 길찾기」가 이 코스를 열며 안내를 켜 달라고 남긴 표시를 읽는다.
+    /// 환경 객체가 아니라 공용 인스턴스다 — 이 화면은 덮개(fullScreenCover) 안에 떠서
+    /// 환경이 안 닿는다(2026-09-03 실측: `@EnvironmentObject` 로 두니 첫 진입에 죽었다).
+    @ObservedObject var router = TabRouter.shared
+
+    /// 지도의 번호 핀을 눌렀다 — 성지 카드(장면 설명·여기로 길찾기).
+    @State var pickedStop: RouteStop?
+
+    /// 지도 위 도착 알림 카드의 높이. 오른쪽 위 단추들이 그만큼 내려온다.
+    @State var tripBannerHeight: CGFloat = 0
 
     /// 캡쳐 뒷문이 이 프로세스에서 이미 발동했는가(MZ2AZ-292).
     private static var captureBackdoorUsed = false
@@ -158,6 +172,9 @@ struct RouteEditorView: View {
             // 내렸다 하는 시트**로 얹는다 — 검색 탭과 같은 부품, 같은 손맛이다.
             ZStack(alignment: .bottom) {
                 map
+                    // **도착 알림만** 지도 맨 위 카드로(2026-09-03 사용자 결정). 경로 정보는
+                    // 시트 안(`tripBanner`)에 — 지도를 카드로 다 가리지 않는다.
+                    .overlay(alignment: .top) { arrivalNotice }
                 BottomSheet(
                     detent: $panelDetent, topInset: 8,
                     // 지도 40 : 일정 60. 반반이었는데 일정 쪽에 단추가 늘며
@@ -168,6 +185,7 @@ struct RouteEditorView: View {
                     // `AnyView` 는 detent 타입을 맞추기 위한 것이다 — `Detent` 가
                     // 제네릭 안에 살아서 상태 선언이 내용 타입을 미리 못 안다.
                     AnyView(VStack(spacing: 0) {
+                        tripBanner
                         dayTabs
                         poiFilter
                         summary
@@ -197,28 +215,25 @@ struct RouteEditorView: View {
                 )
                 .padding(.horizontal, 12)
                 .padding(.bottom, 90) // 「저장하고 닫기」 줄 위
+            } else {
+                stopCardOverlay
             }
         }
+        // 도착 스탬프 — 화면 가운데 발바닥이 쾅.
+        .overlay { stampOverlay }
         .task {
+            // 스탬프가 찍히면 코스 상태·서버에 「다녀옴」 — 목록이 흐려지고 핀이 발바닥이 된다.
+            trip.onArrived = { markVisited($0) }
             await cart.refresh()
             // 가이드가 「주변」을 찾으려면 자리가 있어야 한다. 미리 물어 둔다 —
             // 단추를 누른 뒤에 물으면 그만큼 기다린다.
             guideLocator.start()
 
-            // 확인용 뒷문(MZ2AZ-292) — 합성 클릭이 안 닿는 시뮬레이터에서 화면을
-            // 기계로 열어 캡쳐한다. `-openGuide 1` 은 가이드 서랍, `-navStop 2` 는
-            // 그 번호 성지의 길찾기. 찜 뒷문과 같은 프로세스당 한 번 규칙.
-            if !Self.captureBackdoorUsed {
-                Self.captureBackdoorUsed = true
-                if UserDefaults.standard.bool(forKey: "openGuide") {
-                    showGuide = true
-                }
-                let wanted = UserDefaults.standard.integer(forKey: "navStop")
-                if wanted > 0, stops.indices.contains(wanted - 1) {
-                    directionsTarget = stops[wanted - 1]
-                }
-            }
+            await runCaptureBackdoor()
+            await runPendingTripStart()
         }
+        // 화면을 닫으면 안내도 끝난다 — 위치 받기가 뒤에서 계속 돌면 안 된다.
+        .onDisappear { trip.end() }
         // 저장이 실패하면 이유를 말한다. 버튼이 안 먹는 것처럼 보이면 사용자는
         // 같은 버튼을 계속 누르게 된다.
         .alert("저장하지 못했습니다", isPresented: Binding(
@@ -276,9 +291,6 @@ struct RouteEditorView: View {
                 setStay(stop, minutes: minutes)
             }
         }
-        .sheet(item: $directionsTarget) { stop in
-            RouteNavView(stop: stop, dayStops: stops, courseId: course.serverId)
-        }
         .alert("일차를 뺄 수 없습니다", isPresented: Binding(
             get: { blockedDay != nil },
             set: {
@@ -310,37 +322,6 @@ struct RouteEditorView: View {
         .background(Color(.systemBackground))
     }
 
-    private var bottomBar: some View {
-        HStack(spacing: 10) {
-            // 「코스 시작」은 저장된 코스에만 있다 — 아직 만들지도 않은 일정을 여행
-            // 중으로 만들 수는 없다.
-            if !isNew {
-                Button(course.isRunning ? "여행 종료" : "코스 시작") {
-                    course.isRunning.toggle()
-                    // 상태만 바꾼다 — 코스 내용을 함께 덮어쓰면 편집 중이던 것이
-                    // 저장돼 버려 「시작」이 「저장」을 겸하게 된다.
-                    // 지금 보고 있는 일차에서 시작한다 — 서버가 `currentDayNo` 를
-                    // 요구하고, 1일차를 지나 보고 있다면 그 일차가 맞다.
-                    Task { await store.setRunning(course, course.isRunning, dayNo: dayIndex + 1) }
-                }
-                .buttonStyle(.bordered)
-            }
-            Button {
-                Task { await saveAndClose() }
-            } label: {
-                Text(isNew ? "코스 만들기" : "저장하고 닫기")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        // 줄을 낮게 잡는다 — 이 줄이 먹는 만큼 일정이 좁아진다(2026-08-28
-        // 사용자 요청: 단추 위아래와 글자를 줄여 아래쪽을 넓힌다).
-        .font(.subheadline)
-        .controlSize(.regular)
-        .padding(.horizontal, 16).padding(.vertical, 8)
-        .background(Color(.systemBackground))
-    }
-
     // MARK: 목록
 
     private var stopList: some View {
@@ -362,8 +343,12 @@ struct RouteEditorView: View {
                         ? (index == 0 ? .start : (index == stops.count - 1 ? .end : nil))
                         : nil,
                     isPinned: index == 0 ? pinStart : pinEnd,
+                    // 도착하면 「안내 중」은 내린다 — 그 자리는 「다녀옴」의 것이다(2026-09-03
+                    // 사용자 지적: 도착했는데 안내 중이 남아 있었다).
+                    isTarget: trip.phase == .guiding && trip.target?.id == stop.id,
+                    // 여행 중, 아직 안 간 곳에만 「길찾기」 — 이 지도에 경로가 그려진다.
+                    onNavigate: course.isRunning && !stop.visited ? { startTrip(to: stop) } : nil,
                     onStay: { stayTarget = stop },
-                    onDirections: { directionsTarget = stop },
                     onFocus: {
                         // **한 번 더 누르면 놓는다.** 놓을 방법이 없으면 한 곳을
                         // 고른 뒤 경로 전체를 다시 볼 수가 없다(2026-08-25 사용자 지적).
@@ -409,7 +394,7 @@ struct RouteEditorView: View {
 
     /// 저장하고 닫는다. **실패하면 닫지 않는다** — 조용히 닫으면 저장된 줄 알고
     /// 나갔다가 목록에 없는 것을 보게 된다.
-    private func saveAndClose() async {
+    func saveAndClose() async {
         if await store.save(course) != nil {
             dismiss()
         }
@@ -507,5 +492,50 @@ struct RouteEditorView: View {
         guard let index = course.days[dayIndex].stops.firstIndex(where: { $0.id == stop.id })
         else { return }
         course.days[dayIndex].stops[index].stayMinutes = minutes
+    }
+}
+
+/// 타입 본문 길이(swiftlint 350줄) 때문에 여기 둔다.
+extension RouteEditorView {
+    /// 스탬프가 찍혔다 — 코스 상태의 그 정지점도 「다녀옴」으로. 목록이 흐려지고 지도의
+    /// 핀이 발바닥이 되며, 「다음 · N번으로」가 그다음 곳을 가리킨다.
+    func markVisitedLocally(_ visited: RouteStop) {
+        for day in course.days.indices {
+            if let index = course.days[day].stops.firstIndex(where: { $0.id == visited.id }) {
+                course.days[day].stops[index].visited = true
+            }
+        }
+    }
+
+    /// 확인용 뒷문(MZ2AZ-292) — 합성 클릭이 안 닿는 시뮬레이터에서 화면을 기계로 열어
+    /// 캡쳐한다. `-openGuide 1` 은 가이드 서랍, `-navStop 2` 는 그 번호 성지로 **이 화면
+    /// 안의 안내**를 켠다. 찜 뒷문과 같은 프로세스당 한 번 규칙.
+    func runCaptureBackdoor() async {
+        guard !Self.captureBackdoorUsed else { return }
+        Self.captureBackdoorUsed = true
+        if UserDefaults.standard.bool(forKey: "openGuide") {
+            showGuide = true
+        }
+        let wanted = UserDefaults.standard.integer(forKey: "navStop")
+        guard wanted > 0, await waitForStops(count: wanted) else { return }
+        startTrip(to: stops[wanted - 1])
+    }
+
+    /// 홈 「이어서 길찾기」 — 코스가 열리면 첫 미방문 성지로 안내를 켠다. 표시는 한 번 읽고 끈다.
+    func runPendingTripStart() async {
+        guard router.pendingTripStart else { return }
+        router.pendingTripStart = false
+        guard await waitForStops(count: 1), let next = nextUnvisited?.stop ?? stops.first else { return }
+        startTrip(to: next)
+    }
+
+    /// 코스 상세(정지점)가 아직 안 왔을 수 있다 — 홈·뒷문에서 열면 목록의 요약으로
+    /// 먼저 열리고 정지점은 뒤따라온다. 최대 3초 기다린다(2026-09-02 실측: 기다리지
+    /// 않으면 뒷문이 빈 목록을 보고 그냥 끝났다).
+    private func waitForStops(count: Int) async -> Bool {
+        for _ in 0 ..< 30 where stops.count < count {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return stops.count >= count
     }
 }

@@ -64,7 +64,8 @@ enum RouteBridge {
             ),
             serverItemId: item.id,
             stayMinutes: item.dwellMinutes,
-            isPinned: item.source == .custompin
+            isPinned: item.source == .custompin,
+            visited: item.visitedAt != nil
         )
     }
 
