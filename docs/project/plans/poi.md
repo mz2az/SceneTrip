@@ -419,9 +419,10 @@ GET /pois/{poiId}    상세
 | 1 | 이 문서 | 계획 |
 | 2 | 스키마 | `V12__poi.sql` — `poi` + 인덱스 ✅ MZ2AZ-276 · `V13__poi_geometry_index.sql` 뷰포트 인덱스 ✅ (§5-3) |
 | 3 | 적재 | `seed-poi.sh` · `poi.sql` · `poi-sample.jsonl` · `just seed-poi` · `just poi-filter` ✅ (§5-3) |
-| 4 | 계약 | `/pois` 두 경로 + `PoiSummary`·`PoiDetail` |
-| 5 | 검색 API | `PoiStore` · `PoiController` |
-| 6 | 코스에 담기 | `V13__course_item_poi.sql` + `CourseStore`·`MarketStore` 수정 |
+| 4 | 계약 | `/pois` 두 경로 + `PoiSummary`·`PoiDetail` ✅ |
+| 5 | 검색 API | `PoiStore` · `PoiController` ✅ (bbox·반경·갈래·거리순. `q` 는 MZ2AZ-283) |
+| 5-1 | 카드 | 사진·영업시간·평점 — [poi-card.md](./poi-card.md) ✅ |
+| 6 | 코스에 담기 | `V15__course_item_poi.sql` + `CourseStore`·`MarketStore` 수정 |
 | 7 | 프론트 | 별도 티켓 |
 
 2·3 을 먼저 하는 이유는 **자료가 실제로 들어가 봐야 4·5 의 모양이 정해지기** 때문이다.
@@ -482,4 +483,5 @@ GET /pois/{poiId}    상세
 | 날짜 | 내용 |
 | --- | --- |
 | 2026-08-20 | 최초 작성. 자료 실측 후 결정 여섯을 확정 — 별도 엔드포인트 · 코스에 담기 가능 · 이름+카테고리 검색 · `biz_middle` 허용 목록 · 종교시설 포함 · 자동완성 제외 |
+| 2026-09-05 | 계약·`PoiStore`·컨트롤러·스모크 완료(§9 의 4·5). 카드는 [poi-card.md](./poi-card.md). 코스 담기의 마이그레이션 번호는 V15 로 밀렸다(V13 뷰포트 인덱스, V14 카드 표) |
 | 2026-09-03 | 적재 완료(§5-3). 8/26 재수집판 네 갈래 500,514 행. 숫자를 다시 쟀다. 적재는 TRUNCATE 가 아니라 UPSERT. `kind` 가 세부 종류다(`biz_lower` 는 빈 값). 뷰포트 인덱스 `V13` 추가 |
