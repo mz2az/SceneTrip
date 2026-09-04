@@ -181,6 +181,25 @@ public class PoiStore {
         .optional();
   }
 
+  /**
+   * 목록 질의의 실행 계획. <b>통합 테스트가 인덱스를 타는지 확인하는 용도</b>다 — 인덱스 이름이 계획에 찍히는 것이 아니라 순차 스캔이 없는지를 본다. 운영 코드는
+   * 부르지 않는다.
+   */
+  String explainList(Criteria criteria) {
+    String sql =
+        "EXPLAIN "
+            + LIST_SQL.replace(
+                "__ORDER_BY__",
+                criteria.sort() == Sort.DISTANCE ? ORDER_BY_DISTANCE : ORDER_BY_ALPHABETICAL);
+    return String.join(
+        "\n",
+        bind(jdbc.sql(sql), criteria)
+            .param("limit", criteria.limit())
+            .param("offset", criteria.offset())
+            .query(String.class)
+            .list());
+  }
+
   private static JdbcClient.StatementSpec bind(JdbcClient.StatementSpec spec, Criteria c) {
     return spec.param("lat", c.hasOrigin() ? c.lat() : null)
         .param("lng", c.hasOrigin() ? c.lng() : null)
