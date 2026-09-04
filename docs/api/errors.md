@@ -63,6 +63,7 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 | `CONFLICTING_AREA_FILTER` | `bbox` 와 `radiusMeters` 를 함께 보냈다. 영역 조건은 하나만 쓴다 |
 | `INVALID_SORT` | `sort=distance` 인데 기준점(`lat`·`lng`)이 없다 |
 | `INCOMPLETE_ORIGIN` | `lat` 과 `lng` 중 하나만 보냈다. 둘은 짝이다 |
+| `MISSING_AREA_FILTER` | `GET /pois` 에 영역 조건(`bbox` 또는 `lat`·`lng`+`radiusMeters`)이 하나도 없다. 편의시설 50 만 건을 전국 대상으로 돌려줄 정렬 기준이 없다 — 촬영지(`/places`)는 인기도가 있어 허용하고, POI 는 없어 거부한다 |
 | `MISSING_DEVICE_ID` | `X-Device-Id` 헤더가 없거나 UUID 형식이 아니다. 장바구니·코스·찜·마켓이 전부 이 헤더를 요구한다 |
 | `SIGN_IN_REQUIRED` | (`401`) 가입해야 할 수 있는 동작이다. 마켓 좋아요·담기·올리기·내리기, 그리고 여행 중 길찾기 |
 | `NOT_MARKET_COURSE_AUTHOR` | (`403`) 남이 올린 코스는 내릴 수 없다. **마켓의 코스는 이미 누구에게나 보이므로 404 로 숨기지 않는다** — 내 코스가 `COURSE_NOT_FOUND` 로 존재를 숨기는 것과 갈리는 지점이다 |
@@ -74,6 +75,7 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 | --- | --- |
 | `CONTENT_NOT_FOUND` | 그 `contentId` 의 작품이 없다 |
 | `PLACE_NOT_FOUND` | 그 `placeId` 의 장소가 없다 |
+| `POI_NOT_FOUND` | 그 `poiId` 의 편의시설이 없다 |
 | `CART_ITEM_NOT_FOUND` | 장바구니에 그 장소가 담겨 있지 않다 |
 | `COURSE_NOT_FOUND` | 그 `courseId` 의 코스가 없다. **남의 코스도 여기에 해당한다** — 있다는 사실 자체를 알려 주지 않는다 |
 | `COURSE_ITEM_NOT_FOUND` | 그 코스에 그 항목이 없다. 방문 체크가 이미 지워진 장소를 가리켰다 |
