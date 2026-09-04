@@ -13,6 +13,10 @@ common --incompatible_disallow_empty_glob
 
 build --verbose_failures
 build --incompatible_strict_action_env          # 격리: 호스트 환경 차이를 무시한다
+# rules_python 이 __init__.py 를 몰래 만들며 DEBUG 경고를 찍는다 — 그 경고가 `bazel run` 을
+# 감싼 포맷 검사(format.sh)의 출력에 섞여 CI 가 「포맷이 어긋난 Java 파일」로 오독했다
+# (PR #72). 우리는 __init__.py 를 명시하므로 권장 플래그로 몰래 만들기를 끈다.
+build --incompatible_default_to_explicit_init_py
 build --experimental_repository_cache_hardlinks
 build --nolegacy_external_runfiles
 

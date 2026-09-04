@@ -10,6 +10,7 @@
 | [course-api.md](./course-api.md) | 경로여정(코스) 백엔드 API — 코스·아이템·찜·마켓 (MZ2AZ-199) |
 | [poi.md](./poi.md) | POI(편의시설) 도입 — 음식·숙박·관광·교통 47만 건 |
 | [navigation-next-leg.md](./navigation-next-leg.md) | 여행 중 길찾기 백엔드 이관 — 카카오를 서버가 부른다 (MZ2AZ-296) |
+| [poi-pipeline.md](./poi-pipeline.md) | POI 파이프라인 — TMAP 수집→생존 대조→적재를 파이썬 Airflow DAG 로 (MZ2AZ-315) |
 | [poi-card.md](./poi-card.md) | 편의시설 카드 — 사진·영업시간·평점을 네이버 장소에서 (데모 한정, ADR 0011) |
 
 ## 언제 여기에 쓰는가

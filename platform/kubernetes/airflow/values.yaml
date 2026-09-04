@@ -1,0 +1,70 @@
+# Airflow Helm 차트 값 — kind 로컬 전용 (MZ2AZ-315). 차트 버전은 tools/just/pipeline.just.
+#
+# 가볍게: LocalExecutor 하나, 메타 DB 는 차트가 딸려 주는 PostgreSQL, 트리거러·flower 없음.
+# DAG 와 파이프라인 코드는 ConfigMap 으로 마운트한다(`just airflow-dags`) — git-sync 를 붙일
+# 원격 저장소 자격 증명을 클러스터에 두지 않기 위해서다. 데이터는 PVC 하나.
+executor: LocalExecutor
+defaultAirflowRepository: scenetrip/airflow
+defaultAirflowTag: local
+images:
+  airflow:
+    pullPolicy: IfNotPresent
+
+webserver:
+  replicas: 1
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {memory: 1Gi}
+scheduler:
+  replicas: 1
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {memory: 1Gi}
+  extraVolumes:
+    - name: poi-data
+      persistentVolumeClaim:
+        claimName: poi-data
+  extraVolumeMounts:
+    - name: poi-data
+      mountPath: /opt/airflow/data
+triggerer:
+  enabled: false
+statsd:
+  enabled: false
+flower:
+  enabled: false
+redis:
+  enabled: false
+
+dags:
+  persistence:
+    enabled: false
+  gitSync:
+    enabled: false
+# ConfigMap poi-pipeline-dags → DAG 폴더. 코드는 이미지에 들어 있고(PYTHONPATH=/opt/airflow),
+# ConfigMap poi-pipeline-src 는 이미지를 다시 안 만들고 고칠 때 덮어쓰는 용도다.
+extraVolumes:
+  - name: poi-dags
+    configMap:
+      name: poi-pipeline-dags
+  - name: poi-src
+    configMap:
+      name: poi-pipeline-src
+extraVolumeMounts:
+  - name: poi-dags
+    mountPath: /opt/airflow/dags
+  - name: poi-src
+    mountPath: /opt/airflow/poi_pipeline
+
+extraEnv: |
+  - name: AIRFLOW__CORE__LOAD_EXAMPLES
+    value: "False"
+  - name: AIRFLOW__CORE__DEFAULT_TIMEZONE
+    value: "Asia/Seoul"
+  - name: AIRFLOW_VAR_POI_DATA_DIR
+    value: "/opt/airflow/data"
+  - name: AIRFLOW_VAR_SCENETRIP_REPO
+    value: "/opt/airflow/scenetrip"
+
+# 적재가 붙는 DB — scenetrip 네임스페이스의 postgres 서비스. seed-poi.sh 가 SCENETRIP_DB_HOST 로 읽는다.
+extraConfigMaps: {}

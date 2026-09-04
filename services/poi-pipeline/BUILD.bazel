@@ -1,0 +1,42 @@
+# services/poi-pipeline 의 타깃 — 저장소의 첫 파이썬 모듈.
+#
+# AGENTS.md §4.1 의 이름 규칙:
+#   :poi-pipeline   주 라이브러리 (표준 라이브러리만 — pip 의존성 없음)
+#   :bin            명령줄 진입점 (Airflow 의 BashOperator 가 부르는 얼굴)
+#   :unit_test      빠르고 격리됨. 네트워크·DB 없이 가짜 fetch 로 돈다
+#   :dags           Airflow 가 읽는 DAG 파일. Bazel 은 담기만 하고 import 하지 않는다
+#
+# 컨테이너 이미지는 아직 없다 — Airflow 이미지에 이 패키지를 얹는 것은 배포 단계에서
+# (services/poi-pipeline/deploy/). ADR 0013.
+
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+py_library(
+    name = "poi-pipeline",
+    srcs = glob(["src/poi_pipeline/*.py"]),
+    imports = ["src"],
+)
+
+py_binary(
+    name = "bin",
+    srcs = ["src/poi_pipeline/cli.py"],
+    imports = ["src"],
+    main = "src/poi_pipeline/cli.py",
+    deps = [":poi-pipeline"],
+)
+
+filegroup(
+    name = "dags",
+    srcs = glob(["dags/*.py"]),
+)
+
+py_test(
+    name = "unit_test",
+    size = "small",
+    srcs = glob(["tests/*.py"]),
+    main = "tests/run_tests.py",
+    tags = ["unit"],
+    deps = [":poi-pipeline"],
+)
