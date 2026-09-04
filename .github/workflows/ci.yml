@@ -113,7 +113,9 @@ jobs:
           curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.darwin.aarch64.tar.xz" \
             | tar -xJ -C /tmp
           sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
-          python3 -m pip install --quiet --user "ruff==${RUFF_VERSION}" \
+          # macOS 러너의 파이썬은 brew 가 관리해 pip 가 거부한다(externally-managed). 러너는 일회용이라
+          # 깨뜨려도 되고, brew 판 ruff 는 버전을 고정할 수 없어 pip 로 간다.
+          python3 -m pip install --quiet --user --break-system-packages "ruff==${RUFF_VERSION}" \
             && echo "$(python3 -m site --user-base)/bin" >> "$GITHUB_PATH"
 
       # macOS 의 Bazel 기본 출력 경로는 `~/.cache/bazel` 이 아니라
