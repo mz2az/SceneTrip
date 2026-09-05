@@ -1,0 +1,213 @@
+{
+  "_설명": "코스 추천 엔진 평가 사례. 버전 관리되는 데이터 파일이지 코드가 아니다. 사례를 늘리면 지표가 그만큼 촘촘해진다.",
+  "plan": [
+    {
+      "name": "하루-느긋",
+      "titles": [
+        "도깨비"
+      ],
+      "days": 1,
+      "pace": "relaxed"
+    },
+    {
+      "name": "하루-보통",
+      "titles": [
+        "도깨비"
+      ],
+      "days": 1,
+      "pace": "normal"
+    },
+    {
+      "name": "하루-빡빡",
+      "titles": [
+        "도깨비"
+      ],
+      "days": 1,
+      "pace": "packed"
+    },
+    {
+      "name": "이틀-보통",
+      "titles": [
+        "도깨비"
+      ],
+      "days": 2,
+      "pace": "normal"
+    },
+    {
+      "name": "사흘-보통",
+      "titles": [
+        "도깨비"
+      ],
+      "days": 3,
+      "pace": "normal"
+    },
+    {
+      "name": "사흘-빡빡",
+      "titles": [
+        "도깨비"
+      ],
+      "days": 3,
+      "pace": "packed"
+    },
+    {
+      "name": "두작품-이틀",
+      "titles": [
+        "도깨비",
+        "이태원 클라쓰"
+      ],
+      "days": 2,
+      "pace": "normal"
+    },
+    {
+      "name": "두작품-사흘",
+      "titles": [
+        "도깨비",
+        "이태원 클라쓰"
+      ],
+      "days": 3,
+      "pace": "relaxed"
+    },
+    {
+      "name": "출발점-남산",
+      "titles": [
+        "도깨비"
+      ],
+      "days": 2,
+      "pace": "normal",
+      "start": [
+        37.5512,
+        126.9882
+      ]
+    },
+    {
+      "name": "꼭넣기",
+      "titles": [
+        "도깨비"
+      ],
+      "days": 1,
+      "pace": "normal",
+      "must": [
+        "남산타워"
+      ]
+    },
+    {
+      "name": "빼기",
+      "titles": [
+        "도깨비"
+      ],
+      "days": 2,
+      "pace": "normal",
+      "avoid": [
+        "서울중앙고"
+      ]
+    },
+    {
+      "name": "일주일",
+      "titles": [
+        "도깨비"
+      ],
+      "days": 7,
+      "pace": "relaxed"
+    }
+  ],
+  "tool_choice": [
+    {
+      "name": "작품과-기간이면-plan_course",
+      "utterance": "도깨비 촬영지로 1박 2일 짜 줘",
+      "expect": "plan_course",
+      "args": {
+        "titles": [
+          "도깨비"
+        ],
+        "days": 2
+      }
+    },
+    {
+      "name": "담은것을-이으면-draft_course",
+      "utterance": "담은 걸로 동선 짜 줘",
+      "expect": "draft_course",
+      "args": {}
+    },
+    {
+      "name": "작품만-말하면-list_title_places",
+      "utterance": "도깨비 촬영지 알려줘",
+      "expect": "list_title_places",
+      "args": {
+        "title": "도깨비"
+      }
+    },
+    {
+      "name": "근처를-물으면-places_near",
+      "utterance": "이 근처 촬영지 뭐 있어",
+      "expect": "places_near",
+      "args": {
+        "near": "현위치"
+      }
+    },
+    {
+      "name": "빈-일정요청은-되물어야",
+      "utterance": "일정 짜 줘",
+      "expect": null,
+      "args": null
+    },
+    {
+      "name": "일정수정은-revise_plan",
+      "utterance": "2일차에서 거기 빼 줘",
+      "expect": "revise_plan",
+      "setup_plan": {
+        "titles": [
+          "도깨비"
+        ],
+        "days": 2
+      },
+      "args": {
+        "day": 2,
+        "remove": [
+          "__그_일차의_첫_정지점__"
+        ]
+      }
+    },
+    {
+      "name": "일정에-추가도-revise_plan",
+      "utterance": "1일차에 아까 그 곳도 넣어 줘",
+      "expect": "revise_plan",
+      "setup_plan": {
+        "titles": [
+          "도깨비"
+        ],
+        "days": 2,
+        "pace": "relaxed"
+      },
+      "args": {
+        "day": 1,
+        "add": [
+          "__일정에_없는_곳__"
+        ]
+      }
+    },
+    {
+      "name": "옮기기는-move_stop",
+      "utterance": "그건 2일차로 옮겨 줘",
+      "expect": "move_stop",
+      "setup_plan": {
+        "titles": [
+          "도깨비"
+        ],
+        "days": 2,
+        "pace": "relaxed"
+      },
+      "args": {
+        "name": "__1일차의_첫_정지점__",
+        "to_day": 2
+      }
+    },
+    {
+      "name": "편의시설은-poi_nearby",
+      "utterance": "이 근처 카페 있어?",
+      "expect": "poi_nearby",
+      "args": {
+        "group": "음식"
+      }
+    }
+  ]
+}
