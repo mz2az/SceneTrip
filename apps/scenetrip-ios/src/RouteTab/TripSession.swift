@@ -258,6 +258,15 @@ final class TripSession: ObservableObject {
         guard DemoDrive.isOn, phase == .guiding, !stamped, let target,
               targetNumber <= DemoDrive.untilStop
         else { return }
+        // **경로가 오기 전에는 서 있는다.** 서버가 카카오를 부르는 몇 초 동안 목적지로 직진해
+        // 버리면 수백 m 를 엉뚱한 길로 가고, 그 뒤 경로선의 첫 점으로 되돌아오는 것처럼 보인다
+        // (2026-09-05 사용자 지적: "경로선도 안 보여, 직진으로만 가"). 경로가 없다는 답(실패)이
+        // 오면 그때는 직진한다 — 시뮬레이터에서 걸음이 멈추면 안 되니까.
+        if result == nil, failure == nil {
+            locator.inject(latitude: demoPosition?.latitude ?? here?.latitude ?? target.place.latitude,
+                           longitude: demoPosition?.longitude ?? here?.longitude ?? target.place.longitude)
+            return
+        }
         let goal: DemoDrive.Point = (target.place.latitude, target.place.longitude)
         var position = demoPosition ?? here.map { ($0.latitude, $0.longitude) } ?? DemoDrive.start(near: target)
         if DemoDrive.meters(position, goal) > DemoDrive.stopWithinMeters {
