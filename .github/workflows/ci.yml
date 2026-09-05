@@ -21,12 +21,17 @@ concurrency:
 #쓴다. 예전에는 이 자리에서 KTLINT_VERSION 을 못 박고 잡마다 내려받았는데, 로컬은
 # brew 라 따로 놀아서 값을 손으로 맞춰야 했다 (MZ2AZ-264).
 #
-# shellcheck 은 아직 호스트 도구라 남는다. 러너 이미지가 주는 버전은 brew 가 주는
+# shellcheck 과 ruff 는 아직 호스트 도구라 남는다. 러너 이미지가 주는 버전은 brew 가 주는
 # 것보다 낮아서, **로컬에서 통과한 스크립트가 CI 에서만 죽었다** (실측 — SC2015 는
 # 0.11.0 에서 나지 않는다). 검사 도구는 판정을 내리는 물건이라 버전이 갈리면 게이트가
 # 사람마다 다른 말을 한다.
+# ruff 는 파이썬 포맷·린트를 **둘 다** 판정한다(tools/scripts/format.sh · lint.sh).
+# 저장소 첫 파이썬 모듈(agents/trip-guide)이 들어오면서 필요해졌다 — 그전에는 검사할
+# 파이썬 소스가 없어 format.sh 가 그냥 건너뛰었다. shellcheck 과 같은 이유로 버전을
+# 여기서 못 박는다: 판정을 내리는 물건이라 버전이 갈리면 게이트가 사람마다 다른 말을 한다.
 env:
   SHELLCHECK_VERSION: "0.11.0"
+  RUFF_VERSION: "0.16.5"
 
 jobs:
   verify:
@@ -47,9 +52,11 @@ jobs:
           sudo chmod +x /usr/local/bin/bazel
 
       # shellcheck 은 이미지에 있지만 **버전이 낮다.** 위 env 절의 이유로 덮어쓴다.
+      # ruff 는 이미지에 없다 — 없으면 format.sh 가 「파이썬을 검사할 수 없다」로 죽는다.
       # ktlint 는 Bazel 이 주므로 여기서 받지 않는다.
       - name: 검사 도구 설치
         run: |
+          pipx install "ruff==${RUFF_VERSION}"
           curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
             | tar -xJ -C /tmp
           sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
@@ -106,6 +113,7 @@ jobs:
       - name: 검사 도구 설치
         run: |
           brew install --quiet swiftformat swiftlint
+          pipx install "ruff==${RUFF_VERSION}"
           curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.darwin.aarch64.tar.xz" \
             | tar -xJ -C /tmp
           sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
