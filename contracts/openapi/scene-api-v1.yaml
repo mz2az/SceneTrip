@@ -147,6 +147,8 @@ tags:
     description: 작품 조회
   - name: places
     description: 촬영지 조회 — 목록·지도·상세
+  - name: pois
+    description: 편의시설(POI) — 음식·숙박·명소·교통. 촬영지와 별개의 표
   - name: cart
     description: 장바구니 — 담긴 장소. 코스에 넣는 것은 `courses` 쪽이다
   - name: courses
@@ -489,6 +491,223 @@ paths:
                 $ref: "#/components/schemas/PlaceDetail"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /pois:
+    get:
+      tags: [pois]
+      operationId: listPois
+      summary: 편의시설 지도 조회
+      description: |
+        촬영지 곁의 **음식점·카페·숙박·관광명소·교통시설**. 촬영지(`/places`)와 다른 표를
+        본다 — 성지 155 개와 POI 50 만 개를 한 목록에 섞으면 `limit`·`total` 이 하나뿐이라
+        「성지만 더 보기」를 표현할 수 없다(`docs/project/plans/poi.md` §3-1). 앱이 둘을
+        따로 불러 각 자리에 꽂는다.
+
+        파라미터 모양은 `/places` 를 따른다. 다른 점만 적는다.
+
+        | | `/places` | `/pois` |
+        | --- | --- | --- |
+        | 갈래 | 없음 | `categoryGroup` 으로 거른다 |
+        | 정렬 | 인기도 · 거리 | **거리 · 이름순** — POI 에는 인기도가 없다 |
+        | `limit` | 기본 20 · 최대 100 | 기본 30 · 최대 200 |
+        | 이름 검색 `q` | 있음 | **아직 없음** (MZ2AZ-283) |
+
+        지금 이것을 쓰는 곳은 경로 탭의 **주변 편의시설 핀**이다 — 지도 카메라가 멈추면
+        앱이 뷰포트(`bbox`)와 화면 중심(`lat`·`lng`)을 보내고, 중심에 가까운 순으로 30 개를
+        찍는다. 상한에 걸릴 때 화면 가운데부터 채우는 이유: 앞에서부터 자르면 자료에 먼저
+        적힌 동네가 상한을 다 먹어 정작 보고 있는 자리가 빈다(프로토타입 실측 — 서울 전체를
+        보면 여의도·잠실만 찍히고 종로가 텅 비었다).
+
+        **`bbox` 와 `radiusMeters` 는 함께 쓸 수 없다.** 둘 다 오면 400.
+        `sort=distance` 는 기준점이 있을 때만 유효하다 — `lat`·`lng` 없이 주면 400.
+        영역 조건이 하나도 없으면 400 이다 — 50 만 건을 전국 대상으로 돌려줄 정렬 기준이 없다.
+
+        `total` 이 `items` 길이보다 크면 잘린 것이다. 앱은 그것을 「더 확대하세요」의
+        근거로 쓴다. 겹치는 핀을 솎는 규칙(격자당 하나)은 아직 없다 — 필요해지면 선택
+        파라미터로 더한다.
+
+        `Accept-Language` 를 받지만 **지금은 언제나 `ko` 로 응답한다.** 자료가 한국어뿐이다.
+        다국어 표기가 생기면 계약은 그대로 두고 서버가 채운다.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - name: bbox
+          in: query
+          description: |
+            지도 뷰포트. `minLng,minLat,maxLng,maxLat` 순서의 쉼표 구분 4개 —
+            GeoJSON 과 같은 경도-위도 순서다. `/places` 와 같다.
+          schema:
+            type: string
+            pattern: '^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$'
+          example: 127.017,37.489,127.037,37.507
+        - $ref: "#/components/parameters/OriginLat"
+        - $ref: "#/components/parameters/OriginLng"
+        - name: radiusMeters
+          in: query
+          description: 기준점으로부터의 반경. `lat`·`lng` 가 있어야 한다.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100000
+        - name: categoryGroup
+          in: query
+          description: 네 갈래 중 하나로 거른다. 없으면 전부.
+          schema:
+            $ref: "#/components/schemas/PoiCategoryGroup"
+        - name: sort
+          in: query
+          description: |
+            정렬. 기본은 기준점이 있으면 `distance`, 없으면 `alphabetical` 이다.
+            인기도 정렬은 없다 — POI 에는 순위를 매길 근거가 없다.
+            (`name` 이 아닌 이유: 코틀린 enum 의 내장 속성 이름과 겹쳐 생성이 깨진다.)
+          schema:
+            type: string
+            enum: [distance, alphabetical]
+        - name: limit
+          in: query
+          description: |
+            돌려줄 개수 상한. 앱의 주변 핀이 30 을 보낸다. 200 위는 화면에 먼지처럼
+            흩어질 뿐이라 잘라 낸다 — 그때는 앱이 확대를 유도한다.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 30
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: 조건에 맞는 편의시설 목록
+          headers:
+            Content-Language:
+              $ref: "#/components/headers/ContentLanguage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoiList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /pois/{poiId}:
+    get:
+      tags: [pois]
+      operationId: getPoi
+      summary: 편의시설 상세
+      description: |
+        핀을 눌렀을 때 바로 보여 줄 수 있는 것 — 우리 자료에 있는 이름·종류·주소·전화.
+        사진·영업시간·평점은 여기 없다. 그것은 바깥 출처에서 오는 것이라 별도
+        엔드포인트가 맡는다(예정).
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - name: poiId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: "#/components/parameters/OriginLat"
+        - $ref: "#/components/parameters/OriginLng"
+      responses:
+        "200":
+          description: 편의시설 상세
+          headers:
+            Content-Language:
+              $ref: "#/components/headers/ContentLanguage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoiDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /pois/{poiId}/card:
+    get:
+      tags: [pois]
+      operationId: getPoiCard
+      summary: 편의시설 카드 — 사진·영업시간·평점 (바깥 출처)
+      description: |
+        핀을 눌렀을 때 뜨는 카드. 우리 자료에 없는 것 — 사진·영업시간·별점·리뷰 수 — 을
+        바깥 출처(네이버 장소)에서 가져온다. 서버가 그 출처에 한 번 물어 결과를 표에 두고,
+        두 번째부터는 표에서 준다.
+
+        **표에 없으면 지금 바로 묻는다** — 검색과 상세 두 호출, 약 0.35 초. 사용자가 「이거」
+        하고 누른 한 곳이라 그만큼은 기다린다. 여럿을 한 번에 채우려면 `GET /pois/cards` 다.
+
+        **못 찾아도 200 이다.** 「그 출처에 없다」도 답이다 — `found: false` 에 `why` 가 이유를
+        말한다. 출처가 막혔거나 서버 설정으로 꺼져 있어도 200 이다. 카드가 뜨는 화면이 바깥
+        사정으로 죽으면 안 된다. 404 는 `poiId` 자체가 없을 때뿐이다.
+
+        이 정보의 출처와 한계는 ADR 0011 — 데모 한정이고 정식 출시 전에 대체한다.
+      parameters:
+        - name: poiId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 카드. `found` 가 결과다
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoiCard"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /pois/cards:
+    get:
+      tags: [pois]
+      operationId: listPoiCards
+      summary: 편의시설 카드 여럿 — 있는 것은 주고, 없는 것은 뒤에서 채운다
+      description: |
+        목록 화면용. 보이는 행들의 `poiId` 를 한 번에 보내면 **표에 있는 것만** 카드로 주고,
+        없는 것은 `pending: true` 로 표시한 뒤 서버가 뒤에서 채운다. **이 경로는 바깥 출처를
+        부르지 않는다** — 응답은 언제나 몇 ms 다.
+
+        | 항목 | 뜻 |
+        | --- | --- |
+        | `found: true` | 찾았고 상세가 있다 |
+        | `found: false` | 물어봤는데 없었다. `why` 가 이유. 다시 묻지 않는다 |
+        | `pending: true` | 아직 안 물어봤다. 줄에 넣었으니 잠시 뒤 다시 물으면 위 둘 중 하나가 된다 |
+
+        `items` 는 **요청한 순서 그대로, 요청한 개수만큼**이다 — 목록 행과 1:1 로 붙인다.
+        없는 `poiId` 도 404 가 아니라 그 자리에 `found: false` 로 온다. 상태 코드는 요청
+        전체의 것이고, 하나가 없다고 나머지 29 개를 못 받게 하지 않는다.
+
+        **앱의 규칙** — `pending` 이 하나라도 있으면 `retryAfterSeconds` 만큼 기다렸다가
+        **`pending` 이었던 id 만** 다시 묻는다. 없어질 때까지, 최대 3 회. 그 뒤엔 사진 없이 둔다.
+        `retryAfterSeconds` 는 서버의 줄 길이와 최근 처리 속도로 계산한 어림이다 — 틀리면 다음
+        응답이 다시 계산해 준다. 1~30 사이다.
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: 쉼표로 이은 `poiId`. 1~50 개. 예 `ids=225568,448442,17121`
+          style: form
+          explode: false
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 50
+            items:
+              type: integer
+              format: int64
+      responses:
+        "200":
+          description: 요청한 순서대로의 카드들
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoiCardBatch"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -1628,6 +1847,177 @@ components:
                 순서를 그대로 그린다.
               items:
                 $ref: "#/components/schemas/Scene"
+
+    PoiCategoryGroup:
+      type: string
+      enum: [food, stay, sight, transit]
+      description: |
+        네 갈래. 원본 분류(biz_middle 아홉 종)를 접은 것 — `docs/project/plans/poi.md` §4-0.
+        `food` 는 음식점·카페·술집, `sight` 는 관광명소·종교·문화생활시설·레저.
+
+    PoiList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoiSummary"
+        total:
+          type: integer
+          description: |
+            조건에 맞는 전체 개수. `items` 길이보다 크면 잘려 나온 것이다 —
+            앱이 「더 확대하세요」를 판단하는 근거다.
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    PoiSummary:
+      type: object
+      required: [id, name, category, categoryGroup, latitude, longitude]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          example: 명동교자 본점
+        category:
+          type: string
+          description: |
+            수집된 세부 종류를 가공 없이 그대로 돌려준다(한식·카페기타·펜션·지하철역 …
+            93 종). 필터 값으로 쓰기에 적합하지 않다 — 칩으로 묶는 규칙은 목업 뒤에 정한다.
+            `categoryGroup` 이 거르는 용도다.
+          example: 한식
+        categoryGroup:
+          $ref: "#/components/schemas/PoiCategoryGroup"
+        address:
+          type: string
+          nullable: true
+          description: 지번 주소. 시/군/구 + 동까지이고 건물번호는 없다.
+          example: 서울 중구 명동
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        distanceMeters:
+          type: integer
+          nullable: true
+          description: 요청에 `lat`·`lng` 가 있을 때만 채워진다.
+
+    PoiDetail:
+      allOf:
+        - $ref: "#/components/schemas/PoiSummary"
+        - type: object
+          properties:
+            road:
+              type: string
+              nullable: true
+              description: 도로명. 건물번호는 없다.
+              example: 명동10길
+            tel:
+              type: string
+              nullable: true
+              description: 28~60% 가 비어 있다.
+              example: 02-776-5348
+            region:
+              type: string
+              nullable: true
+              example: 서울
+            city:
+              type: string
+              nullable: true
+              example: 중구
+
+    PoiCard:
+      type: object
+      required: [poiId]
+      description: |
+        바깥 출처(네이버 장소)에서 가져온 카드. 세 상태다 — `pending`(아직 안 물어봄), `found: false`
+        (물어봤는데 없음), `found: true`(있음). `pending` 이 아니면 `found` 와 `checkedAt` 이 있다.
+        `found: true` 일 때 아래 정보는 **있는 것만** 실린다 — 별점이 없는 가게가 많고, 없는 값을
+        0 으로 채우면 「최악의 평점」으로 읽힌다.
+      properties:
+        poiId:
+          type: integer
+          format: int64
+        pending:
+          type: boolean
+          description: 아직 안 물어봤다. 이것이 `true` 면 다른 필드는 없다
+        found:
+          type: boolean
+          description: 물어본 결과. `pending` 이 아니면 있다
+        checkedAt:
+          type: string
+          format: date-time
+          description: 언제 확인한 정보인가. `pending` 이 아니면 있다
+        why:
+          type: string
+          nullable: true
+          description: "`found: false` 일 때 이유 한 줄. 예 「150 m 떨어져 이름이 정확히 같아야 하는데 「포490 강남점」이다」"
+        name:
+          type: string
+          nullable: true
+          description: 출처가 부르는 이름. 우리 이름(`PoiSummary.name`)과 다를 수 있다
+          example: 명동교자본점
+        category:
+          type: string
+          nullable: true
+          description: 출처의 분류 문구
+          example: 칼국수,만두
+        address:
+          type: string
+          nullable: true
+          description: 도로명 주소
+        phone:
+          type: string
+          nullable: true
+        hours:
+          type: string
+          nullable: true
+          description: 영업시간 문구 그대로. 구조화하지 않는다
+          example: 매일 10:30 - 21:00
+        score:
+          type: number
+          format: double
+          nullable: true
+          description: 별점 0~5. 없을 수 있다
+        reviewCount:
+          type: integer
+          nullable: true
+          description: 방문자 리뷰 수
+        blogReviews:
+          type: integer
+          nullable: true
+          description: 블로그 리뷰 수
+        images:
+          type: array
+          description: 최대 3 장. 출처의 CDN 주소를 앱이 직접 그린다 — 데모 한정(ADR 0011)
+          items:
+            type: string
+            format: uri
+        naverUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: 출처의 장소 페이지
+
+    PoiCardBatch:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: 요청한 순서대로, 요청한 개수만큼
+          items:
+            $ref: "#/components/schemas/PoiCard"
+        retryAfterSeconds:
+          type: integer
+          nullable: true
+          description: "`pending` 이 하나라도 있을 때만. 이만큼 뒤에 `pending` 이었던 id 만 다시 물어라. 1~30"
 
     Scene:
       type: object
