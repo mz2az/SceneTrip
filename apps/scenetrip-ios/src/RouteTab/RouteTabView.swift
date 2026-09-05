@@ -249,20 +249,26 @@ struct RouteTabView: View {
         List {
             // 진행 중인 코스를 맨 위에 따로 모은다 — 여행 중에는 그것 말고 볼 것이 없다.
             let running = store.courses.filter(\.isRunning)
+            let planned = store.courses.filter { !$0.isRunning }
             if !running.isEmpty {
-                Section("여행 중") {
+                Section("여행 중 \(running.count)") {
                     ForEach(running) { course in
                         row(course)
-                        continueTripRow(course)
                     }
                 }
             }
+            // 헤더 숫자는 **이 절에 나열되는 것만** 센다 — 전체를 세니 「내 코스 3」 아래가
+            // 텅 빈 채였다(2026-09-05 사용자 지적: 셋 다 여행 중이었다).
             Section {
-                ForEach(store.courses.filter { !$0.isRunning }) { course in
+                if planned.isEmpty {
+                    Text(running.isEmpty ? "아직 만든 코스가 없습니다" : "모든 코스가 여행 중이에요")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                ForEach(planned) { course in
                     row(course)
                 }
             } header: {
-                Text("내 코스 \(store.courses.count)")
+                Text("예정 \(planned.count)")
             }
         }
         .listStyle(.insetGrouped)

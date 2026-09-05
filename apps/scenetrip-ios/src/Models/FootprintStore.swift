@@ -25,7 +25,9 @@ final class FootprintStore: ObservableObject {
 
     @Published private(set) var points: [FootprintPoint] = []
 
-    /// 기록 토글. 기기에 남는다(UserDefaults) — 여행 중 앱을 다시 켜도 상태가 이어진다.
+    /// **보기** 토글 — 지도에 발자국을 그릴 것인가. 기록은 안내 중이면 늘 남는다(기기에만).
+    /// 앞서 기록·보기가 한 스위치였는데, 꺼 두면 나중에 켜도 볼 게 없었다(2026-09-04 사용자
+    /// 요청: 토글은 「보이기/숨기기」). 기기에 남는다(UserDefaults).
     @Published var enabled: Bool {
         didSet { UserDefaults.standard.set(enabled, forKey: Self.enabledKey) }
     }
@@ -40,9 +42,9 @@ final class FootprintStore: ObservableObject {
         points = Self.load()
     }
 
-    /// 새 위치. 토글이 꺼져 있거나 한국 밖이거나 직전 점에서 25 m 안이면 버린다.
+    /// 새 위치. 한국 밖이거나 직전 점에서 25 m 안이면 버린다. 보기 토글과 무관하게 남는다.
     func record(latitude: Double, longitude: Double, at now: Date = Date()) {
-        guard enabled, KoreaBounds.contains(latitude: latitude, longitude: longitude) else { return }
+        guard KoreaBounds.contains(latitude: latitude, longitude: longitude) else { return }
         if let last = points.last {
             let meters = RouteGeometry.kilometers(
                 PlaceSummary(id: 0, name: "", latitude: last.latitude, longitude: last.longitude),

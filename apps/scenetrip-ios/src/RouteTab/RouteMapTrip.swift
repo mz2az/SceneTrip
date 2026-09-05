@@ -78,6 +78,52 @@ extension RouteMapView.Coordinator {
         previewPath = line
     }
 
+    /// 발자취 — 지나온 자리마다 **황금 발자국** 하나. 진행 방향으로 돌리고, 왼발·오른발처럼
+    /// 번갈아 살짝 비껴 찍는다. 25 m 마다 한 점이라 수백 개여도 가볍다.
+    ///
+    /// **화면 간격은 줌과 무관하게 일정하다** — 기록은 25 m 마다지만 축소하면 자국이 겹쳐 노란
+    /// 줄이 됐다(2026-09-04 사용자 지적). 줌에 맞춰 솎아, 자국 사이가 화면에서 약 28pt 이상
+    /// (최소 35 m)이 되게 한다. 카메라가 움직이면 다시 솎는다.
+    func renderFootprints(_ all: [FootprintPoint], on mapView: NMFMapView) {
+        lastFootPoints = all
+        let metersPerPoint = mapView.projection.metersPerPixel()
+        // 50 m · 40pt 는 너무 성겼다(2026-09-05 사용자 지적) → 35 m · 28pt.
+        let minMeters = max(35, 28 * metersPerPoint)
+        var points: [FootprintPoint] = []
+        for point in all {
+            if let last = points.last {
+                let gap = NMGLatLng(lat: last.latitude, lng: last.longitude)
+                    .distance(to: NMGLatLng(lat: point.latitude, lng: point.longitude))
+                if gap < minMeters {
+                    continue
+                }
+            }
+            points.append(point)
+        }
+        let key = "\(all.count)|\(all.last?.at.timeIntervalSince1970 ?? 0)|\(Int(minMeters))"
+        guard key != lastFootKey else { return }
+        lastFootKey = key
+        footMarkers.forEach { $0.mapView = nil }
+        footMarkers = []
+        for (index, point) in points.enumerated() {
+            let marker = NMFMarker(position: NMGLatLng(lat: point.latitude, lng: point.longitude))
+            marker.iconImage = PinoPin.footprint()
+            marker.anchor = CGPoint(x: 0.5, y: 0.5)
+            marker.zIndex = -2 // 계획선·경로선 아래
+            marker.isHideCollidedMarkers = false
+            // 다음 점을 향하는 각도. 마지막 점은 직전 점의 방향을 잇는다.
+            let from = index + 1 < points.count ? point : (index > 0 ? points[index - 1] : point)
+            let to = index + 1 < points.count ? points[index + 1] : point
+            let dx = (to.longitude - from.longitude) * cos(from.latitude * .pi / 180)
+            let dy = to.latitude - from.latitude
+            if dx != 0 || dy != 0 {
+                marker.angle = CGFloat(atan2(dx, dy) * 180 / .pi)
+            }
+            marker.mapView = mapView
+            footMarkers.append(marker)
+        }
+    }
+
     /// 안내 중 — 내 자리·목적지·경로선이 다 들어오게. 자리를 모르면 목적지만.
     func fitTrip(to target: RouteStop, legs: [RouteLeg], on mapView: NMFMapView) {
         let goal = NMGLatLng(lat: target.place.latitude, lng: target.place.longitude)
@@ -102,12 +148,31 @@ extension RouteMapView.Coordinator {
 
     /// 안내 경로 — **API 가 준 실제 길 좌표를 그대로 그린다.** 구간마다 따로 그어야
     /// 도보(점선)와 대중교통(실선)이 갈린다. 계획선(직선) 위에 굵게 얹는다.
-    func renderLegs(_ legs: [RouteLeg], on mapView: NMFMapView) {
-        let key = legs.map { "\($0.id)" }.joined(separator: ",")
+    func renderLegs(_ legs: [RouteLeg], to target: RouteStop?, on mapView: NMFMapView) {
+        let key = legs.map { "\($0.id)" }.joined(separator: ",") + "|\(target?.id.uuidString ?? "-")"
         guard key != lastLegsKey else { return }
         lastLegsKey = key
         legPaths.forEach { $0.mapView = nil }
         legPaths = []
+        // 카카오 경로는 목적지에서 가장 가까운 **도로 접점**에서 끝난다 — 건물 안·캠퍼스 안의
+        // 핀까지 마지막 몇십 m 는 길이 없다. 그 사이를 얇은 회색 점선으로 이어 「여기서부터
+        // 걸어 들어간다」가 보이게 한다(2026-09-04 사용자 결정).
+        if let target,
+           let lastPair = legs.last(where: { $0.path.count > 1 })?.path.last, lastPair.count >= 2,
+           let line = NMFPath(points: [
+               NMGLatLng(lat: lastPair[1], lng: lastPair[0]),
+               NMGLatLng(lat: target.place.latitude, lng: target.place.longitude),
+           ])
+        {
+            line.width = 4
+            line.color = UIColor(red: 0.54, green: 0.58, blue: 0.65, alpha: 0.85)
+            line.outlineWidth = 0
+            line.patternInterval = 8
+            line.patternIcon = NMFOverlayImage(image: Self.dash())
+            line.zIndex = 5
+            line.mapView = mapView
+            legPaths.append(line)
+        }
         for leg in legs where leg.path.count > 1 {
             let points = leg.path.compactMap { pair -> NMGLatLng? in
                 pair.count >= 2 ? NMGLatLng(lat: pair[1], lng: pair[0]) : nil

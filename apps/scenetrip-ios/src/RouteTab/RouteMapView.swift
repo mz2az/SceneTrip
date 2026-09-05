@@ -111,6 +111,10 @@ struct RouteMapView: UIViewRepresentable {
     /// 번호 핀을 눌렀다. 성지 카드를 띄우는 쪽이 받는다.
     var onTapStop: (RouteStop) -> Void = { _ in }
 
+    /// 발자취 — 지나온 자리. `footprintsOn` 이면 황금 발자국으로 그린다.
+    var footprints: [FootprintPoint] = []
+    var footprintsOn = false
+
     let onTapMap: (RoutePin) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -139,6 +143,7 @@ struct RouteMapView: UIViewRepresentable {
         context.coordinator.apply(bottomInset: bottomInset, to: view.mapView)
         context.coordinator.applyTrip(here: tripHere, on: view.mapView)
         context.coordinator.renderPreview(to: previewTo, on: view.mapView)
+        context.coordinator.renderFootprints(footprintsOn ? footprints : [], on: view.mapView)
         context.coordinator.render(
             stops: stops,
             pending: pending,
@@ -169,6 +174,11 @@ struct RouteMapView: UIViewRepresentable {
         /// 「내 자리 → 다음 곳」 직선 미리보기(`RouteMapTrip.swift`).
         var previewPath: NMFPath?
         var lastPreviewKey = ""
+        /// 발자국 마커(`RouteMapTrip.swift`).
+        var footMarkers: [NMFMarker] = []
+        var lastFootKey = ""
+        /// 마지막으로 받은 발자취 전체 — 카메라가 움직이면 줌에 맞춰 다시 솎는다.
+        var lastFootPoints: [FootprintPoint] = []
         private var pendingMarker: NMFMarker?
         private var lastKey = ""
         private var lastFitToken = -1
@@ -247,7 +257,7 @@ struct RouteMapView: UIViewRepresentable {
             on mapView: NMFMapView
         ) {
             renderPending(pending, on: mapView)
-            renderLegs(legs, on: mapView)
+            renderLegs(legs, to: navTarget, on: mapView)
 
             if showingMe != self.showingMe {
                 self.showingMe = showingMe
@@ -290,10 +300,12 @@ struct RouteMapView: UIViewRepresentable {
                         self.fitTrip(to: navTarget, legs: legs, on: mapView)
                     }
                 }
+                // 목적지 사본의 visited 는 낡을 수 있다(도착 직후) — 목록의 최신 값으로 본다.
+                let targetVisited = stops.first { $0.id == navTarget.id }?.visited ?? navTarget.visited
                 updateHalo(
                     style: .brand,
                     at: NMGLatLng(lat: navTarget.place.latitude, lng: navTarget.place.longitude),
-                    lift: navTarget.visited ? 0 : 30, // 도착했으면 발바닥 핀 — 자리 위에
+                    lift: targetVisited ? 0 : 30, // 도착했으면 발바닥 핀 — 자리 위에
                     on: mapView
                 )
                 return
@@ -320,7 +332,7 @@ struct RouteMapView: UIViewRepresentable {
                 updateHalo(
                     style: .brand,
                     at: NMGLatLng(lat: focused.place.latitude, lng: focused.place.longitude),
-                    lift: focused.visited ? 0 : 30,
+                    lift: (stops.first { $0.id == focused.id }?.visited ?? focused.visited) ? 0 : 30,
                     on: mapView
                 )
             } else {

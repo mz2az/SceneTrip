@@ -148,14 +148,20 @@ extension RouteEditorView {
                     ForEach(result.legs) { leg in
                         HStack(spacing: 4) {
                             Image(systemName: leg.mode.symbol).font(.system(size: 10, weight: .bold))
-                            Text(leg.detail.isEmpty ? leg.title : leg.detail).font(.caption2).lineLimit(1)
+                            // 탈것은 노선까지 — 「간선 150 · 서울신문사 → 혜화역2번출구 · 10정거장 · 19분」.
+                            Text(leg.mode.isVehicle
+                                ? [leg.title, leg.detail].filter { !$0.isEmpty }.joined(separator: " · ")
+                                : (leg.detail.isEmpty ? leg.title : leg.detail))
+                                .font(.caption2).lineLimit(1)
                             if leg.hasStairs {
                                 Image(systemName: "stairs").font(.system(size: 9)).foregroundStyle(Color(.systemRed))
                             }
                         }
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(Capsule().fill(
-                            leg.mode == .walk ? Color(.systemGray5) : Color(.systemGreen).opacity(0.18)
+                            leg.mode == .walk ? Color(.systemGray5)
+                                : leg.mode == .subway ? Color(.systemBlue).opacity(0.16)
+                                : Color(.systemGreen).opacity(0.18)
                         ))
                     }
                 }
@@ -304,7 +310,7 @@ extension RouteEditorView {
         if let tapped = pickedStop, !showGuide, guide.picked == nil {
             RouteStopCard(
                 stop: tapped,
-                onReroute: course.isRunning && !tapped.visited && trip.target?.id != tapped.id
+                onReroute: course.isRunning && trip.target?.id != tapped.id
                     ? { startTrip(to: tapped) } : nil,
                 onClose: { pickedStop = nil }
             )

@@ -173,19 +173,27 @@ navi-proto 의 홈 재편(`cd8debd`)과 편의시설 점을 옮겼다. 홈은 �
   「저장된 코스의 장소에서만 길찾기를 부를 수 있어요」.
 - 코스를 **시작**(`active`)해야 서버가 답한다. 시작 전에는 「코스를 시작한 뒤에…」(409).
 - 실패한 뒤에는 걸어도 다시 묻지 않는다(유료 호출). 503·연결 실패에만 「다시 시도」.
-- 「이어서 길찾기」는 경로여정 목록의 **여행 중 코스 행 아래**에 있다(main 에는 홈 탭이 없다).
+- 「이어서 길찾기」는 **홈의 「내 여행 이어가기」 카드**에 있다(2026-09-05 홈 탭 이식).
+- 다녀온 곳도 「다시 길찾기」가 된다. 도착하면 다음 갈 곳이 목록 맨 위로 올라온다.
+- 안내 중에는 편의시설 점을 끈다 — 경로선이 주인공이다. 끝나면 다시 켠다.
+- **발자취**: 안내 중 지나온 자리를 25 m 마다 기기에만 남기고(`FootprintStore`), 지도 오른쪽
+  위 발자국 단추로 황금 발자국을 보인다(줌에 맞춰 솎는다). 지우기는 마이페이지.
 - 옛 별도 길찾기 창(`RouteNavView`)은 코스 여행에서 더 안 쓴다. 파일은 남겨 둔다.
 
 ### 시뮬레이터에서 보기
 
+시뮬레이터는 진짜 GPS 가 없어 **가상 GPS 가 기본으로 켜진다**(`DemoDrive`, 실기기는 인자가
+있을 때만). 안내가 켜지면 서울시청(마지막 자리)에서 경로선을 따라 걷고(도보 48 m/s ·
+대중교통 두 배), 핀 12 m 앞에서 멈춰 **5초 머무르면** 스탬프가 찍힌다. 코스 화면을 나가면
+시청으로 되돌아간다.
+
 ```
-xcrun simctl location <UDID> set 37.5826,126.9831        # 북촌 — 시드 v3 장소가 촘촘하다
-xcrun simctl launch <UDID> com.mz2az.scenetrip -tripDwellSeconds 10   # 10초 머무르면 스탬프
+xcrun simctl launch <UDID> com.mz2az.scenetrip                     # 이대로 다 된다
+xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 를 끄고 simctl location 으로
 ```
 
-데모 주행(중간발표 영상용)은 `-demoCourse 1 -navStop 1 -demoDrive 3 -tripDwellSeconds 5` 로 켠다 —
-저장소의 `resources/demo/demo-course.json` 을 코스로 만들고 가상 GPS 가 경로선을 따라 걷는다.
-실행 인자 없이는 아무 것도 하지 않는다.
+영상용 데모 코스는 `-demoCourse 1 -navStop 1 -demoDrive 3` 으로 — 저장소의
+`resources/demo/demo-course.json` 을 코스로 만들고 1→3번까지 남쪽 250 m 에서 출발한다.
 
 ## 최근 작업 로그
 

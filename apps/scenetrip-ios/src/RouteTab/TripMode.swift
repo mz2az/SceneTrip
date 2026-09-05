@@ -14,7 +14,16 @@ enum TripMode {
     /// 5분을 기다릴 수 없어서다. 인자가 없으면 5분.
     static var dwell: TimeInterval {
         let raw = UserDefaults.standard.double(forKey: "tripDwellSeconds")
-        return raw > 0 ? raw : 300
+        if raw > 0 {
+            return raw
+        }
+        // 시뮬레이터는 가상 GPS 로 걷는 자리라 5분을 기다릴 이유가 없다(2026-09-04 사용자
+        // 지적: "왜 도착 인증이 안 돼?"). 실기기는 5분 그대로.
+        #if targetEnvironment(simulator)
+            return 5
+        #else
+            return 300
+        #endif
     }
 }
 

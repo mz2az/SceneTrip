@@ -88,6 +88,9 @@ struct RouteEditorView: View {
     /// 지도의 번호 핀을 눌렀다 — 성지 카드(장면 설명·여기로 길찾기).
     @State var pickedStop: RouteStop?
 
+    /// 발자취 — 지도에 황금 발자국으로 그린다. 보기 토글은 지도 오른쪽 위.
+    @ObservedObject var footprints = FootprintStore.shared
+
     /// 지도 위 도착 알림 카드의 높이. 오른쪽 위 단추들이 그만큼 내려온다.
     @State var tripBannerHeight: CGFloat = 0
 
@@ -234,7 +237,17 @@ struct RouteEditorView: View {
             await runPendingTripStart()
         }
         // 화면을 닫으면 안내도 끝난다 — 위치 받기가 뒤에서 계속 돌면 안 된다.
-        .onDisappear { trip.end() }
+        // 가상 GPS 는 서울시청으로 되돌린다 — 다음 코스도 같은 자리에서 출발(2026-09-04).
+        .onDisappear {
+            trip.end()
+            DemoDrive.resetToHome()
+        }
+        // **안내 중에는 편의시설 점을 다 끈다**(2026-09-04 사용자 요청) — 경로선이 주인공인데
+        // 음식점·명소 점이 그 위를 덮었다. 안내가 끝나면 다시 전부 켠다. 안내 중에 칩으로
+        // 켜는 것은 그대로 된다.
+        .onChange(of: trip.isActive) { _, active in
+            poiGroupsOn = active ? [] : Set(RoutePoiGroup.allCases)
+        }
         // 저장이 실패하면 이유를 말한다. 버튼이 안 먹는 것처럼 보이면 사용자는
         // 같은 버튼을 계속 누르게 된다.
         .alert("저장하지 못했습니다", isPresented: Binding(
@@ -326,6 +339,24 @@ struct RouteEditorView: View {
     // MARK: 목록
 
     private var stopList: some View {
+        ScrollViewReader { proxy in
+            stopRows
+                // **다음 갈 곳이 맨 위에** — 안내가 켜지면 그 목적지, 도착하면 그다음 미방문 곳으로
+                // 목록을 밀어 올린다(2026-09-04 사용자 요청). 다녀온 줄은 위로 흘러가 남는다.
+                .onChange(of: trip.target?.id) { _, id in
+                    if let id {
+                        withAnimation { proxy.scrollTo(id, anchor: .top) }
+                    }
+                }
+                .onChange(of: trip.phase) { _, phase in
+                    if phase == .arrived, let next = nextUnvisited?.stop.id {
+                        withAnimation { proxy.scrollTo(next, anchor: .top) }
+                    }
+                }
+        }
+    }
+
+    private var stopRows: some View {
         List {
             ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
                 RouteStopRow(
@@ -347,8 +378,9 @@ struct RouteEditorView: View {
                     // 도착하면 「안내 중」은 내린다 — 그 자리는 「다녀옴」의 것이다(2026-09-03
                     // 사용자 지적: 도착했는데 안내 중이 남아 있었다).
                     isTarget: trip.phase == .guiding && trip.target?.id == stop.id,
-                    // 여행 중, 아직 안 간 곳에만 「길찾기」 — 이 지도에 경로가 그려진다.
-                    onNavigate: course.isRunning && !stop.visited ? { startTrip(to: stop) } : nil,
+                    // 여행 중이면 어느 곳이든 「길찾기」 — 다녀온 곳도 다시 갈 수 있다(2026-09-04
+                    // 사용자 지적: 코스를 또 만들 필요는 없다). 이 지도에 경로가 그려진다.
+                    onNavigate: course.isRunning ? { startTrip(to: stop) } : nil,
                     onStay: { stayTarget = stop },
                     onFocus: {
                         // **한 번 더 누르면 놓는다.** 놓을 방법이 없으면 한 곳을
@@ -368,6 +400,7 @@ struct RouteEditorView: View {
                         }
                     }
                 )
+                .id(stop.id)
             }
             // **편집 모드를 켜지 않는다.** 켜면 드래그 손잡이가 늘 보이는 대신 행 안의
             // 버튼(체류 시간 칩·길찾기)이 눌리지 않는다 — iOS 가 편집 중 행의 탭을

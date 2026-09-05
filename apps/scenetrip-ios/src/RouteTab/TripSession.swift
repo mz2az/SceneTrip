@@ -153,8 +153,11 @@ final class TripSession: ObservableObject {
             self?.observe(TripSpot(latitude: latitude, longitude: longitude))
         }
         if DemoDrive.isOn, let target {
-            // 데모 주행 — 진짜 위치 대신 가상 위치. 첫 성지 남쪽 250 m 에서 걸어온다.
-            let start = DemoDrive.start(near: target)
+            // 데모 주행 — 진짜 위치 대신 가상 위치. 명시해서 켰으면(영상) 남쪽 250 m 에서,
+            // 시뮬레이터 기본이면 마지막 자리에서 이어 걷는다.
+            let start = demoPosition
+                ?? (DemoDrive.isExplicit ? nil : DemoDrive.lastPosition)
+                ?? DemoDrive.start(near: target)
             demoPosition = start
             locator.inject(latitude: start.latitude, longitude: start.longitude)
             tasks.append(Task { [weak self] in
@@ -258,14 +261,23 @@ final class TripSession: ObservableObject {
         let goal: DemoDrive.Point = (target.place.latitude, target.place.longitude)
         var position = demoPosition ?? here.map { ($0.latitude, $0.longitude) } ?? DemoDrive.start(near: target)
         if DemoDrive.meters(position, goal) > DemoDrive.stopWithinMeters {
-            let path = (result?.legs ?? []).flatMap(\.path).compactMap { pair -> DemoDrive.Point? in
-                pair.count >= 2 ? (pair[1], pair[0]) : nil // [경도, 위도] 순으로 온다
+            // 경로선을 구간별로 펴고, 지금 지나는 꼭짓점이 어느 구간인지로 속도를 정한다
+            // (도보 48 m/s · 대중교통 두 배).
+            var path: [DemoDrive.Point] = []
+            var modes: [RouteLegMode] = []
+            for leg in result?.legs ?? [] {
+                for pair in leg.path where pair.count >= 2 {
+                    path.append((pair[1], pair[0])) // [경도, 위도] 순으로 온다
+                    modes.append(leg.mode)
+                }
             }
+            let mode = modes.indices.contains(demoPathIndex) ? modes[demoPathIndex] : .walk
             position = DemoDrive.step(
                 from: position, along: path, index: &demoPathIndex,
-                toward: goal, meters: DemoDrive.metersPerSecond * DemoDrive.tick
+                toward: goal, meters: DemoDrive.speed(for: mode) * DemoDrive.tick
             )
             demoPosition = position
+            DemoDrive.remember(position)
         }
         // 서 있을 때도 같은 자리를 다시 넣는다 — 머무름 판정과 파문이 이어진다.
         locator.inject(latitude: position.latitude, longitude: position.longitude)

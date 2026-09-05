@@ -13,27 +13,43 @@ import SceneApiClient
 enum DemoDrive {
     typealias Point = (latitude: Double, longitude: Double)
 
-    /// 몇 번 성지까지 가는가. 0 이면 꺼짐.
+    /// 몇 번 성지까지 가는가. 0 이면 꺼짐. 한도는 영상용이다 — `just ios-demo` 기본은 99(끝까지).
+    ///
+    /// **시뮬레이터에서는 인자가 없어도 켜진다**(2026-09-04 사용자 요청 — 새 코스에서 직접
+    /// 「길찾기」를 눌러도 가상 GPS 가 길을 따라 걸어야 한다. 시뮬레이터엔 진짜 GPS 가 없다).
+    /// `-demoDrive 0` 을 주면 시뮬레이터에서도 끈다. 실기기는 인자가 있을 때만.
     static var untilStop: Int {
-        UserDefaults.standard.integer(forKey: "demoDrive")
+        let defaults = UserDefaults.standard
+        #if targetEnvironment(simulator)
+            if defaults.object(forKey: "demoDrive") == nil {
+                return 99
+            }
+        #endif
+        return defaults.integer(forKey: "demoDrive")
     }
 
     static var isOn: Bool {
         untilStop > 0
     }
 
-    /// 초당 몇 m 움직이는가. 기본 12 — 도보의 열 배. 영상 길이 때문이다(1→3번이 약 2분).
+    /// 초당 몇 m 움직이는가(도보 구간). 기본 48 — 처음 12 의 네 배(2026-09-04 사용자 요청).
     static var metersPerSecond: Double {
         let raw = UserDefaults.standard.double(forKey: "demoSpeed")
-        return raw > 0 ? raw : 12
+        return raw > 0 ? raw : 48
+    }
+
+    /// 구간 종류별 속도 — 대중교통 구간은 도보의 두 배(= 처음 12 의 여덟 배, 2026-09-04 사용자 요청).
+    static func speed(for mode: RouteLegMode) -> Double {
+        metersPerSecond * (mode.isVehicle ? 2 : 1)
     }
 
     /// 한 걸음의 간격(초). 0.4초면 지도의 파문이 끊기지 않고 움직인다.
     static let tick: TimeInterval = 0.4
 
     /// 이 반경(m) 안에 들면 걷기를 멈추고 머무름(스탬프)을 기다린다. 도착 판정 반경(100 m)
-    /// 보다 안쪽이라 판정이 확실히 걸린다.
-    static let stopWithinMeters = 30.0
+    /// 보다 훨씬 안쪽이라 판정이 확실히 걸린다. 30 m 였는데 확대한 지도에선 핀에 못 미친
+    /// 것처럼 보였다(2026-09-04 사용자 지적) → 12 m.
+    static let stopWithinMeters = 12.0
 
     /// 데모 코스(`resources/demo/demo-course.json`)를 서버에 만들어 열 것인가.
     static var wantsDemoCourse: Bool {
@@ -43,6 +59,43 @@ enum DemoDrive {
     /// 출발점 — 첫 성지에서 남쪽으로 약 250 m. 영상이 「걸어오는 것」으로 시작하게.
     static func start(near stop: RouteStop) -> Point {
         (stop.place.latitude - 0.00225, stop.place.longitude - 0.0006)
+    }
+
+    /// 인자로 **명시해서** 켰는가(`just ios-demo`). 영상용이라 늘 남쪽 250 m 에서 출발한다.
+    /// 시뮬레이터 기본 켜짐일 때는 **마지막 자리에서 이어 걷는다** — 안내를 껐다 켜거나 화면을
+    /// 닫았다 열어도 시청까지 되돌아가지 않는다(2026-09-04 사용자 지적).
+    static var isExplicit: Bool {
+        UserDefaults.standard.object(forKey: "demoDrive") != nil
+    }
+
+    private static let lastLatKey = "demoDrive.lastLat", lastLngKey = "demoDrive.lastLng"
+
+    /// 앱을 켠 뒤 한 번 시청으로 되돌렸는가. **켤 때마다 시청에서 시작한다** — 지난 실행의
+    /// 마지막 자리가 남아 있으면 "시청으로 돼 있는 거 맞아?"가 된다(2026-09-04 사용자 지적).
+    private static var resetThisLaunch = false
+
+    /// 마지막 가상 위치. 이번 실행 안에서만 이어진다(코스를 나가면 시청으로).
+    static var lastPosition: Point? {
+        if !resetThisLaunch {
+            resetThisLaunch = true
+            resetToHome()
+        }
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: lastLatKey) != nil else { return nil }
+        return (defaults.double(forKey: lastLatKey), defaults.double(forKey: lastLngKey))
+    }
+
+    static func remember(_ position: Point) {
+        UserDefaults.standard.set(position.latitude, forKey: lastLatKey)
+        UserDefaults.standard.set(position.longitude, forKey: lastLngKey)
+    }
+
+    /// 데모의 출발점 — 서울시청. 코스 화면을 나가면 여기로 되돌린다(2026-09-04 사용자 요청:
+    /// 성능을 보여 주는 자리라 다음 코스도 늘 같은 자리에서 출발해야 한다).
+    static let home: Point = (37.5665, 126.9780)
+
+    static func resetToHome() {
+        remember(home)
     }
 
     static func meters(_ from: Point, _ to: Point) -> Double {
