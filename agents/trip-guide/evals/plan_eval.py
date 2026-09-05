@@ -45,14 +45,18 @@ from src.planner import (
 )
 from src.session import Anchor, Session
 from src.tools import run_tool
-from tests.fixtures import INCHEON, SEOUL, FakeBook
+from tests.fixtures import INCHEON, SEOUL, PoiBook
 
 _CASES = Path(__file__).resolve().parent / "cases.json"
 
 
-def eval_book() -> FakeBook:
-    """평가용 고정 창구. 사례가 같은 데이터를 보게 한다."""
-    return FakeBook({"도깨비": SEOUL + INCHEON, "이태원 클라쓰": [SEOUL[1], *INCHEON]})
+def eval_book() -> PoiBook:
+    """평가용 고정 창구. 사례가 같은 데이터를 보게 한다.
+
+    편의시설까지 아는 창구를 쓴다 — `poi_nearby` 사례가 「이 창구엔 자료가 없다」로
+    떨어지면 도구 선택을 잰 것이 아니라 창구를 잰 것이 된다.
+    """
+    return PoiBook({"도깨비": SEOUL + INCHEON, "이태원 클라쓰": [SEOUL[1], *INCHEON]})
 
 
 @dataclass

@@ -137,3 +137,47 @@ def two_title_book() -> FakeBook:
             "이태원 클라쓰": [SEOUL[1], *INCHEON],
         }
     )
+
+
+# 편의시설 표본. scene-api 의 `GET /pois` 가 돌려주는 모양 그대로다
+# (contracts/openapi §PoiSummary) — 필드 이름이 다르면 시험이 시험 구실을 못 한다.
+SEOUL_POIS = [
+    {
+        "id": 470912,
+        "name": "스타벅스 한국프레스센터점",
+        "category": "카페기타",
+        "categoryGroup": "food",
+        "address": "서울 중구 태평로1가",
+        "latitude": 37.5671,
+        "longitude": 126.9775,
+        "distanceMeters": 104,
+    },
+    {
+        "id": 481233,
+        "name": "카페돌담콩",
+        "category": "카페기타",
+        "categoryGroup": "food",
+        "address": "서울 중구 정동",
+        "latitude": 37.5662,
+        "longitude": 126.9731,
+        "distanceMeters": 410,
+    },
+]
+
+
+class PoiBook(FakeBook):
+    """편의시설까지 아는 창구. scene-api 창구를 흉내 낸다."""
+
+    def __init__(self, catalog, pois=None):
+        super().__init__(catalog)
+        self.pois = list(pois if pois is not None else SEOUL_POIS)
+        self.poi_calls: list[tuple] = []
+
+    def pois_near(self, lat, lng, radius_m=300, group=None, limit=15):
+        self.poi_calls.append((lat, lng, radius_m, group, limit))
+        rows = [p for p in self.pois if group is None or p["categoryGroup"] == group]
+        return rows[:limit]
+
+
+def poi_book() -> PoiBook:
+    return PoiBook({"도깨비": SEOUL + INCHEON})

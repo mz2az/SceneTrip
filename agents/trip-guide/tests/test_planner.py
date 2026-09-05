@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import itertools
 import unittest
 
 from src.planner import (
@@ -429,7 +430,7 @@ class 수정(unittest.TestCase):
         legs = self.day(rev.plan, 1).legs
         start = load_config()["day"]["start_hour"] * 60
         self.assertEqual(legs[0].arrive, start)
-        for a, b in zip(legs, legs[1:]):
+        for a, b in itertools.pairwise(legs):
             self.assertLessEqual(a.arrive + a.dwell, b.arrive)
 
     def test_없는_곳을_빼려_하면_거절한다(self):

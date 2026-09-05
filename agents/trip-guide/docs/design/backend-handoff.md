@@ -28,14 +28,36 @@ POST /v1/chat
 | 기능 | 무엇 | LLM |
 | --- | --- | --- |
 | **코스 추천 엔진** | 작품·기간·속도 → 일차별 일정 (시각·순서·이동거리) | **안 씀** |
-| **챗봇** | 말 → 도구 9 개 → 답 | ①이해 ③설명에만 |
+| **챗봇** | 말 → 도구 10 개 → 답 | ①이해 ③설명에만 |
 | **일정 수정** | 「2일차에서 개뿔 빼줘」 → 그 일차만 재계산 | 도구 선택에만 |
 
-계산에는 모델이 없다. 그래서 같은 입력에 같은 일정이 나오고, 시험 91 개가 모델 없이 돈다.
+계산에는 모델이 없다. 그래서 같은 입력에 같은 일정이 나오고, 시험 99 개가 모델 없이 돈다.
 
 ---
 
-## 2. 에이전트가 부르는 API — 전부 GET, 5 종
+## 1-1. 백엔드 계약에 맞춘 것 (2026-09-05)
+
+권호님이 정의한 `POST /guide/chat`(MZ2AZ-239)과 편의시설 API(MZ2AZ-314)에 맞춰 세 가지를 고쳤다.
+
+| 맞춘 것 | 어떻게 |
+| --- | --- |
+| **응답 필드 이름** | `POST /guide/chat` 경로를 새로 내고 `reply`·`toolsUsed`·`places`·`route`·`tookSeconds` 를 계약과 똑같이 쓴다. 백엔드가 옮겨 담지 않고 그대로 앱에 넘길 수 있다 |
+| **`places` 모양** | `PoiSummary` 와 같은 필드(`id`·`name`·`category`·`categoryGroup`·`address`·`latitude`·`longitude`) |
+| **편의시설 도구** | `poi_nearby` 를 더했다. 인자 이름은 `contracts/schemas/guide/tools/poi_nearby.schema.json` 그대로 |
+
+기존 `POST /api/chat` 은 **앱이 지금 쓰는 임시 규약**이라 그대로 두었다 — 백엔드 창구가
+생기면 그쪽이 사라진다. 두 경로가 같은 엔진을 쓴다.
+
+### 오류도 계약대로
+
+| 상황 | `/guide/chat` |
+| --- | --- |
+| `messages` 가 비었다 | `400 {"code":"INVALID_PARAMETER"}` |
+| 모델이 안 뜬다·시간 초과 | `503 {"code":"GUIDE_UNAVAILABLE"}` — 규칙 기반으로 조용히 떨어지지 않는다 |
+
+---
+
+## 2. 에이전트가 부르는 API — 전부 GET, 6 종
 
 **`X-Device-Id` 를 보내지 않는다.** 이 다섯은 그 헤더를 요구하지 않는 공개 조회다.
 사용자 신원은 에이전트가 알 필요가 없고, 알면 권한이 새는 구조가 된다.
@@ -47,6 +69,7 @@ POST /v1/chat
 | 3 | `GET /contents/{id}/places?limit={n}` | 그 작품의 촬영지 | 1 과 같음 |
 | 4 | `GET /places?lat=&lng=&radiusMeters=&limit=&sort=distance` | 「이 근처」 | 1 + `distanceMeters` |
 | 5 | `GET /places/{placeId}` | 상세 (사용자가 한 곳을 콕 집었을 때만) | `scenes[]·naverUrl` |
+| 6 | `GET /pois?lat=&lng=&radiusMeters=&categoryGroup=&sort=distance&limit=` | **편의시설** — 「근처 카페」 | `items[].id·name·category·categoryGroup·address·latitude·longitude·distanceMeters` |
 
 ### 왜 2→3 을 두 번 부르나
 
@@ -62,14 +85,17 @@ POST /v1/chat
 ### 지금 안 쓰는 것
 
 쓰기 API(`/cart`·`/courses`·`/favorites`·`/market`)를 **하나도 부르지 않는다.**
-저장은 백엔드가 한다(§4). `/search/suggestions` 와 `/navigation/next-leg` 도 아직 안 쓴다.
+저장은 백엔드가 한다(§4). `/search/suggestions`·`/navigation/next-leg`·`/pois/{id}/card` 는 아직 안 쓴다.
 
 ---
 
 ## 3. 백엔드가 에이전트를 부르는 법
 
+**`POST /guide/chat` 을 쓴다.** 계약과 같은 필드 이름으로 돌려주므로 옮겨 담을 필요가 없다.
+(`/api/chat` 은 앱이 지금 8899 로 직접 부르는 임시 규약이라 필드 이름이 옛것이다.)
+
 ```
-POST http://{에이전트}/api/chat
+POST http://{에이전트}/guide/chat
 Content-Type: application/json
 ```
 
@@ -77,8 +103,8 @@ Content-Type: application/json
 
 ```json
 {
-  "sid": "s-8f21",
-  "here": [37.5826, 126.9910],
+  "sessionId": "s-8f21",
+  "latitude": 37.5826, "longitude": 126.9910,
   "messages": [{"role": "user", "content": "2일차에서 한미서점 빼줘"}],
   "context": {
     "courseId": 7,
@@ -90,9 +116,9 @@ Content-Type: application/json
 
 | 필드 | 필수 | 설명 |
 | --- | --- | --- |
-| `sid` | ○ | 대화 식별자. 에이전트가 이것으로 세션을 잇는다 |
+| `sessionId` | ○ | 대화 식별자. 에이전트가 이것으로 세션을 잇는다 |
 | `messages` | ○ | 마지막 `role:"user"` 만 쓴다. 없으면 `{error}` |
-| `here` | ✕ | `[위도, 경도]`. 없으면 「이 근처」 질문이 거절된다 |
+| `latitude`·`longitude` | ✕ | 없으면 「이 근처」 질문이 거절된다 |
 | `context.plan` | ✕ | **DB 에서 읽지 말 것.** §5 참조 |
 
 ### 응답 (성공, HTTP 200)
@@ -100,34 +126,35 @@ Content-Type: application/json
 ```json
 {
   "reply":   "2일차에서 한미서점을 뺐어요. 4곳이 되어 12:01에 마칩니다.",
-  "used":    [{"tool": "revise_plan"}],
-  "places":  [{"id": 1187, "name": "순보석", "lat": 37.47, "lng": 126.62,
-               "addr": "인천…", "kind": "관광지", "group": "명소"}],
+  "toolsUsed": [{"tool": "revise_plan", "arguments": {"day": 2, "remove": ["한미서점"]}}],
+  "places":  [{"id": 1187, "name": "순보석", "category": "관광지", "categoryGroup": "sight",
+               "address": "인천…", "latitude": 37.47, "longitude": 126.62}],
+  "route":   null,
   "effects": [{"op": "plan.revise", "day": 2, "add": [], "remove": ["한미서점"],
                "plan": {"...갱신된 일정 전체..."}}],
   "ui":      [{"op": "course.focus", "day": 2, "changed": ["한미서점"]}],
-  "took_s":  3.3
+  "tookSeconds": 3.3
 }
 ```
 
 | 필드 | 항상 있나 | 백엔드가 할 일 |
 | --- | --- | --- |
 | `reply` | ○ | 앱에 그대로 |
-| `used` | ○ (빈 배열 가능) | 앱에 그대로 — 「무엇을 근거로」 표시용 |
+| `toolsUsed` | ○ (빈 배열 가능) | 앱에 그대로 — 「무엇을 근거로」 표시용 |
 | `places` | ○ (빈 배열 가능) | 앱에 그대로 — 지도 핀 |
 | `effects` | ○ (빈 배열 가능) | **§4 대로 갈라 처리** |
 | `ui` | ○ (빈 배열 가능) | 검증 없이 통과 |
-| `took_s` | ○ | 앱에 그대로 |
+| `tookSeconds` | ○ | 앱에 그대로 |
 
-### 응답 (실패, **HTTP 200**)
+### 응답 (실패) — 계약대로
 
 ```json
-{"error": "DeepSeek 에 닿지 못했다: …"}
+400 {"code": "INVALID_PARAMETER", "message": "messages 가 비었다"}
+503 {"code": "GUIDE_UNAVAILABLE", "message": "…"}
 ```
 
-**HTTP 는 200 이다.** 앱이 「서버가 죽음」과 「모델이 꺼짐」을 구분해야 하기 때문이다
-(앱의 `RouteGuide.swift` 가 그 규약으로 되어 있다). 백엔드도 이 문자열을 그대로
-앱에 넘기면 된다.
+`503` 은 계약 §오류 의 「LLM 이 안 뜬다·시간 초과」다 — **규칙 기반으로 조용히
+떨어지지 않는다.**
 
 ### 두 번째 창구 — 마법사용 (선택)
 
@@ -139,7 +166,7 @@ POST http://{에이전트}/plan
 
 **모델을 부르지 않는다.** 앱의 AI 일정짜기 마법사처럼 값이 이미 구조화돼 있을 때 쓴다.
 실측 **0.02 초**(챗봇 경로는 3~5 초)이고 **API 키가 없어도 동작한다.**
-응답은 `{plan, effects, ui, took_s}` 로 챗봇 경로와 같은 모양이다.
+응답은 `{plan, effects, ui, tookSeconds}` 로 챗봇 경로와 같은 모양이다.
 
 ---
 
@@ -217,7 +244,7 @@ DB 것을 넘기면 챗봇이 **이미 없는 것을 빼려 하거나 옛 일정
 
 ---
 
-## 7. 도구 9 개 — 무엇이 어떤 호출·지시를 내는가
+## 7. 도구 10 개 — 무엇이 어떤 호출·지시를 내는가
 
 | 도구 | 사용자 말 | 부르는 GET | effects | ui |
 | --- | --- | --- | --- | --- |
@@ -230,6 +257,7 @@ DB 것을 넘기면 챗봇이 **이미 없는 것을 빼려 하거나 옛 일정
 | `plan_course` | "도깨비로 2박 3일" | `/contents/{id}/places?limit=20` | `plan.draft` | `course.open`+`sheet.collapse` |
 | `revise_plan` | "2일차에서 빼줘" | — | `plan.revise` | `course.focus` |
 | `move_stop` | "1일차로 옮겨줘" | — | `plan.move` | `course.focus` |
+| `poi_nearby` | "근처 카페" | `/pois?lat&lng&radiusMeters&categoryGroup` | — | `map.focus` |
 
 **도구가 거절되면 `effects`·`ui` 가 빈 배열로 나간다.** 실패했는데 화면이 바뀌거나
 DB 가 바뀌면 사용자는 됐다고 믿는다.
@@ -276,14 +304,14 @@ curl -X POST localhost:8899/plan -H 'Content-Type: application/json' \
   -d '{"titles":["도깨비"],"days":2,"pace":"normal"}'
 
 # 챗봇 경로
-curl -X POST localhost:8899/api/chat -H 'Content-Type: application/json' \
-  -d '{"sid":"t","here":[37.58,126.99],
+curl -X POST localhost:8899/guide/chat -H 'Content-Type: application/json' \
+  -d '{"sessionId":"t","latitude":37.58,"longitude":126.99,
        "messages":[{"role":"user","content":"도깨비 촬영지로 1박 2일 짜줘"}]}'
 ```
 
 시험과 평가는 모델도 네트워크도 부르지 않는다.
 
 ```sh
-python3 -m unittest discover -s tests -t .   # 91 개
+python3 -m unittest discover -s tests -t .   # 99 개
 python3 -m evals.plan_eval                   # 지표 5 종
 ```

@@ -172,6 +172,40 @@ class SceneApiPlaceBook(PlaceSource):
             out.append((place, int(distance) if distance is not None else -1))
         return out
 
+    # ── 편의시설 (MZ2AZ-314) ──────────────────────────────────────────────────
+
+    def pois_near(
+        self,
+        lat: float,
+        lng: float,
+        radius_m: int = 300,
+        group: str | None = None,
+        limit: int = 15,
+    ) -> list[dict[str, Any]]:
+        """`GET /pois` — 촬영지 곁의 음식점·카페·숙박·명소·교통.
+
+        **촬영지(`/places`)와 다른 표다.** 성지 155 개와 편의시설 50 만 개를 한 목록에
+        섞으면 「성지만 더 보기」를 표현할 수 없어 계약이 둘을 갈라 두었다
+        (docs/project/plans/poi.md §3-1).
+
+        계약이 못 박은 것 셋을 지킨다 —
+          · `bbox` 와 `radiusMeters` 를 함께 보내지 않는다 (둘 다 오면 400)
+          · `sort=distance` 는 기준점이 있을 때만 보낸다 (없이 주면 400)
+          · 영역 조건 없이 부르지 않는다 (50 만 건을 전국 대상으로 줄 정렬 기준이 없다)
+
+        갈래는 네 가지뿐이다(`PoiCategoryGroup`) — food·stay·sight·transit.
+        """
+        params: dict[str, Any] = {
+            "lat": lat,
+            "lng": lng,
+            "radiusMeters": radius_m,
+            "limit": limit,
+            "sort": "distance",
+        }
+        if group:
+            params["categoryGroup"] = group
+        return self._get("/pois", params).get("items", [])
+
     def resolve(self, name: str) -> Place | None:
         """이름으로 장소 하나를 찾는다. 정확히 같은 것만 인정한다.
 

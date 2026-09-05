@@ -327,6 +327,48 @@
           }
         }
       }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "poi_nearby",
+        "description": "촬영지 말고 **편의시설**을 찾는다 — 음식점·카페·숙박·명소·교통. 「근처 카페」·「밥 먹을 데」·「이 성지 옆에 주차장」 처럼 물었을 때 쓴다. 촬영지를 찾는 것은 places_near 다. 인자 이름은 백엔드 계약(contracts/schemas/guide/tools/poi_nearby.schema.json)을 그대로 따른다.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "group"
+          ],
+          "properties": {
+            "group": {
+              "enum": [
+                "음식",
+                "숙박",
+                "명소",
+                "교통"
+              ],
+              "description": "큰 갈래. PoiCategoryGroup 의 food·stay·sight·transit 에 대응"
+            },
+            "radius_m": {
+              "type": "integer",
+              "minimum": 50,
+              "maximum": 5000,
+              "default": 300,
+              "description": "반경. 300m 가 걸어갈 만한 거리다"
+            },
+            "near": {
+              "type": "string",
+              "description": "기준점. 「현위치」 · 담은 지점 번호(\"2\") · 이번 대화에서 보여 준 장소 이름"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 15,
+              "default": 10
+            }
+          }
+        }
+      }
     }
   ]
 }
