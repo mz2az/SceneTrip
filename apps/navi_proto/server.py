@@ -264,24 +264,30 @@ POI_CACHE = {"rows": None, "cats": None}
 #
 # **어디서도 지우지 않는다. 추천 순서만 바꾼다.** 근거가 분기 스냅샷
 # 하나뿐이고, 백화점처럼 등록 방식이 달라 안 잡히는 곳이 실제로 있다.
-POI_ALIVE_FILE = "local_data/poi_alive.jsonl"
-POI_ALIVE_GROUP = "음식"  # 공공데이터가 덮는 갈래. 숙박·명소는 아직 없다
+# 2026-09-05: 별도 파일(poi_alive*.jsonl)을 없애고 **원본 행의 `alive` 칸**으로 합쳤다
+# (사용자 결정 — 겹치는 파일 둘을 원본에 붙인다). 대조한 갈래(음식·숙박)의 행만 이 칸이
+# 있고, 명소·교통은 아예 없다 — 없는 것을 「죽었다」로 읽지 않기 위해서다.
+POI_ALIVE_GROUPS = {"음식", "숙박"}  # 원본에 `alive` 칸이 있는 갈래
 _ALIVE = {"ids": None}
 
 
 def alive_ids():
-    """공공데이터에서 확인된 POI id. **파일이 없으면 None — 그때는 안 거른다.**
+    """원본에서 `alive: true` 인 POI id. **칸이 한 행에도 없으면 None — 그때는 안 거른다.**
 
     없는 것을 「전부 죽었다」 로 읽으면 추천이 통째로 비어 버린다. 모르는 것을
     0 으로 두지 않는다.
     """
     if _ALIVE["ids"] is not None:
         return _ALIVE["ids"] or None
-    f = ROOT / POI_ALIVE_FILE
     ids = set()
-    if f.exists():
+    for rel, group in POI_FILES:
+        f = ROOT / rel
+        if group not in POI_ALIVE_GROUPS or not f.exists():
+            continue
         with f.open(encoding="utf-8") as fh:
             for line in fh:
+                if '"alive":true' not in line:
+                    continue
                 try:
                     ids.add(str(json.loads(line)["id"]))
                 except (ValueError, KeyError):
@@ -1217,7 +1223,7 @@ def tool_poi_nearby(here, args, limit=POI_TOP, popularity=True):
     if alive:
 
         def _ok(p):
-            return p.get("group") != POI_ALIVE_GROUP or str(p["id"]) in alive
+            return p.get("group") not in POI_ALIVE_GROUPS or str(p["id"]) in alive
 
         live = [c for c in cands if _ok(c[1])]
         rest = [c for c in cands if not _ok(c[1])]
@@ -1362,10 +1368,11 @@ def tool_route(here, args, weights=None, seen=None):
 _HARMONY_CALL = re.compile(
     r"<\|channel\|>commentary to=functions\.([A-Za-z0-9_]+)"
     r"(?:\s*<\|constrain\|>\w+)?<\|message\|>(.*?)(?=<\|call\|>|<\|end\|>|<\|start\|>|$)",
-    re.S,
+    re.DOTALL,
 )
 _HARMONY_FINAL = re.compile(
-    r"<\|channel\|>final<\|message\|>(.*?)(?=<\|end\|>|<\|return\|>|<\|start\|>|$)", re.S
+    r"<\|channel\|>final<\|message\|>(.*?)(?=<\|end\|>|<\|return\|>|<\|start\|>|$)",
+    re.DOTALL,
 )
 
 
@@ -1375,12 +1382,18 @@ def harmony_unwrap(message):
     if "<|channel|>" not in text or message.get("tool_calls"):
         return message
     calls = [
-        {"id": f"call_{i}", "type": "function", "function": {"name": name, "arguments": args.strip()}}
+        {
+            "id": f"call_{i}",
+            "type": "function",
+            "function": {"name": name, "arguments": args.strip()},
+        }
         for i, (name, args) in enumerate(_HARMONY_CALL.findall(text))
     ]
     finals = _HARMONY_FINAL.findall(text)
     out = dict(message)
-    out["content"] = finals[-1].strip() if finals else ""  # 생각만 있고 답이 없으면 빈 답
+    out["content"] = (
+        finals[-1].strip() if finals else ""
+    )  # 생각만 있고 답이 없으면 빈 답
     if calls:
         out["tool_calls"] = calls
     return out
@@ -1439,11 +1452,16 @@ def context_text(ctx):
     trip = ctx.get("trip") or {}
     target_no = trip.get("target_no")
     if cart:
+
         def mark(c):
             if c.get("visited"):
                 return " — 다녀옴 ✓"
             if target_no and c.get("no") == target_no:
-                return " — 지금 가는 곳 ←" if trip.get("phase") == "guiding" else " — 방금 도착 ←"
+                return (
+                    " — 지금 가는 곳 ←"
+                    if trip.get("phase") == "guiding"
+                    else " — 방금 도착 ←"
+                )
             return ""
 
         lines = "\n".join(
@@ -1465,23 +1483,37 @@ def context_text(ctx):
         done = [c["no"] for c in cart if c.get("visited")]
         left = [c["no"] for c in cart if not c.get("visited")]
         phase = trip.get("phase")
-        rows = [f"  코스: {trip.get('course', '')} — {trip.get('day', 1)}일차 (총 {trip.get('days', 1)}일)"]
+        rows = [
+            f"  코스: {trip.get('course', '')} — {trip.get('day', 1)}일차 (총 {trip.get('days', 1)}일)"
+        ]
         if phase == "guiding" and target_no:
             dist = trip.get("target_dist_m")
             rows.append(
                 f"  단계: 안내 중 — {target_no}번으로 가는 중"
-                + (f", 직선거리 약 {dist} m 남음 (도로 거리가 아니다)" if dist is not None else "")
+                + (
+                    f", 직선거리 약 {dist} m 남음 (도로 거리가 아니다)"
+                    if dist is not None
+                    else ""
+                )
             )
         elif phase == "arrived" and target_no:
-            rows.append(f"  단계: {target_no}번에 도착함 — 사용자가 「다음」을 누르면 다음 곳으로 간다")
+            rows.append(
+                f"  단계: {target_no}번에 도착함 — 사용자가 「다음」을 누르면 다음 곳으로 간다"
+            )
         else:
             rows.append("  단계: 여행 중 (계획 보기) — 지금 안내 중인 곳은 없다")
         rows.append(
             f"  다녀온 곳: {', '.join(f'{n}번' for n in done) if done else '아직 없음'} ({len(done)}/{len(cart)})"
         )
         # 가는 중인 곳도 **아직 남은 곳**이다 — 빼면 모델이 「4번만 남았다」고 한다(실측).
-        left_text = ", ".join(f"{n}번" + (" (지금 가는 중)" if n == target_no and phase == "guiding" else "") for n in left)
-        rows.append(f"  남은 곳: {left_text if left else '없음 — 오늘 일차를 다 돌았다'} ({len(left)}곳)")
+        left_text = ", ".join(
+            f"{n}번"
+            + (" (지금 가는 중)" if n == target_no and phase == "guiding" else "")
+            for n in left
+        )
+        rows.append(
+            f"  남은 곳: {left_text if left else '없음 — 오늘 일차를 다 돌았다'} ({len(left)}곳)"
+        )
         if trip.get("walked_km") is not None:
             rows.append(f"  최근 하루 걸은 거리: {trip['walked_km']} km (발자국 기록)")
         out.append(

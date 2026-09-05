@@ -23,8 +23,8 @@ iOS 앱의 **여행 가이드 챗봇**과 **주변 편의시설(POI) 조회**를
 cd apps/navi_proto
 
 # 1. 데이터 — 깃에 없다. 승길에게 11개 파일을 받아 local_data/ 에 넣는다.
-#    poi_food.jsonl  poi_stay.jsonl  poi_sight.jsonl  poi_transit.jsonl
-#    poi_alive.jsonl  poi_alive_stay.jsonl  places.json
+#    poi_food.jsonl  poi_stay.jsonl  poi_sight.jsonl  poi_transit.jsonl  places.json
+#    (음식·숙박 원본에는 `alive` 칸이 있다 — 2026-09-05 에 poi_alive*.jsonl 을 원본에 합쳤다)
 #    poi_food_coverage.json  poi_stay_coverage.json  poi_sight_coverage.json
 #    tmap_transit_ledger.json                       (합계 약 205 MB)
 
@@ -82,7 +82,7 @@ LLM_API_KEY=                     ← 상용 API 만. 비우면 헤더를 안 보
 | `match_public.py` | 공공데이터(소상공인 상가정보)로 영업 여부 확인 — 원본 CSV 는 `local_data/public_data/`에 둬야 하며 깃·전달분에 없다(공공데이터포털에서 재수령) |
 | `prompts/` | 챗봇 프롬프트(버전 관리되는 파일 — 코드에 안 박는다) |
 | `web/` | 검증용 웹 화면(지도·엔진 비교) — `server.py` 가 서빙 |
-| `local_data/` | **깃에 없다.** POI 파생 데이터 11개 + 런타임 캐시(`naver_match.jsonl`)가 산다 |
+| `local_data/` | **깃에 없다.** POI 원본 4개(음식·숙박엔 `alive` 칸) + 런타임 캐시(`naver_match.jsonl`)가 산다. 백엔드에 줄 것은 이 5개다 |
 
 ## 지켜 둘 것
 
