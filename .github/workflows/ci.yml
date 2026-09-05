@@ -199,6 +199,10 @@ jobs:
       - name: 데이터 적재
         run: just seed
 
+      # 인자 없이 치면 저장소의 표본 23 행. 전량(190 MB)은 TMAP 약관상 저장소에 없다.
+      - name: 편의시설 표본 적재
+        run: just seed-poi
+
       - name: 검색 색인 갱신
         run: just db-refresh-search
 

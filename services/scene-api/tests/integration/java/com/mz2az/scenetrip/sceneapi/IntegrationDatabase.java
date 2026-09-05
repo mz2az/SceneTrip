@@ -91,6 +91,18 @@ public final class IntegrationDatabase {
     }
   }
 
+  /**
+   * {@code poi} 가 비어 있으면 실패시킨다. CI 는 DB 를 매번 새로 띄우므로 워크플로에 {@code just seed-poi} 가 빠지면 이 표만 비어 있고,
+   * 그러면 POI 단언이 전부 공허하게 통과한다. 성지 쪽 {@link #requireSeeded} 와 같은 이유, 다른 표.
+   */
+  public static void requirePoiSeeded(JdbcClient jdbc) {
+    long rows = jdbc.sql("SELECT count(*) FROM poi").query(Long.class).single();
+    if (rows == 0) {
+      throw new IllegalStateException(
+          "poi 가 비어 있습니다. `just seed-poi` 를 먼저 실행하세요 — 인자 없이 치면 저장소의 표본 23 행이 들어갑니다.");
+    }
+  }
+
   /** 촬영작이 하나라도 있는 장소의 이름. 검색 대칭을 확인할 때 입력으로 쓴다. */
   public static String anyPlaceNameWithContent(JdbcClient jdbc) {
     return single(
