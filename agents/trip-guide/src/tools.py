@@ -36,6 +36,7 @@ from .planner import (
     plan_to_dict,
     revise_day,
 )
+from .sceneapi import SceneApiError
 from .session import Session
 
 # 계약 파일의 위치. 모듈 안이라 이 파일 기준 한 단계 위다.
@@ -160,6 +161,10 @@ def _brief(p: Place, distance_m: int | None = None) -> dict[str, Any]:
     if scene:
         out["장면"] = scene
     return out
+
+
+_POI_GROUPS = {"음식": "food", "숙박": "stay", "명소": "sight", "교통": "transit"}
+"""도구의 한국어 갈래를 계약의 `PoiCategoryGroup` 으로. 네 가지뿐이다."""
 
 
 def _place_id(place: Place) -> Any:
@@ -440,6 +445,59 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
             "일정을 장바구니에 담고 싶은지 사용자에게 물어라."
         )
         return out
+
+    if name == "poi_nearby":
+        # **편의시설은 촬영지와 다른 표다** (계약 §/pois). 성지 155 개와 POI 50 만 개를
+        # 한 목록에 섞으면 「성지만 더 보기」를 표현할 수 없다. 그래서 도구도 갈라 둔다.
+        finder = getattr(book, "pois_near", None)
+        if finder is None:
+            # CSV 창구에는 편의시설이 없다. 조용히 빈 목록을 주지 않는다 —
+            # 「근처에 카페가 없다」 와 「이 창구는 카페를 모른다」 는 다른 이야기다.
+            return _refuse(
+                "이 창구(csv)에는 편의시설 자료가 없다. scene-api 로 띄워야 한다"
+            )
+
+        anchor, err = session.resolve_anchor(args.get("near") or "현위치")
+        if err:
+            return _refuse(err)
+
+        group = _POI_GROUPS[args["group"]]
+        try:
+            rows = finder(
+                anchor.lat,
+                anchor.lng,
+                args.get("radius_m", 300),
+                group,
+                args.get("limit", 10),
+            )
+        except SceneApiError as exc:
+            return _refuse(str(exc))
+        if not rows:
+            return _refuse(
+                f"{anchor.label} 에서 {args.get('radius_m', 300)}m 안에는 "
+                f"{args['group']} 이(가) 없다"
+            )
+
+        # 화면에는 좌표를, 모델에게는 좌표 없는 것을 준다. 좌표를 보면 모델이
+        # 스스로 거리를 재려 들고 하버사인을 틀린다 — 계약 §4 가 같은 규칙을 적어 두었다.
+        session.show(
+            op="map.focus", placeIds=[r["id"] for r in rows if r.get("id") is not None]
+        )
+        return {
+            "기준": anchor.label,
+            "찾은 곳": [
+                {
+                    "이름": r.get("name", ""),
+                    "업종": r.get("category", ""),
+                    "주소": r.get("address") or "주소 미상",
+                    "거리": f"약 {r['distanceMeters']}m"
+                    if r.get("distanceMeters") is not None
+                    else "거리를 잴 수 없다",
+                }
+                for r in rows
+            ],
+            "주의": "편의시설이다. 촬영지가 아니다 — 섞어 말하지 마라",
+        }
 
     if name == "revise_plan":
         # 대화로 고치기 (MZ2AZ-201). 여기도 가운데는 알고리즘이다 — 모델은 「어느

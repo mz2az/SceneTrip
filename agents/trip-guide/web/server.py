@@ -12,10 +12,11 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
-import time
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -26,8 +27,8 @@ sys.path.insert(0, str(_HERE.parent))
 from src.agent import TripGuide
 from src.cli import open_source, set_here
 from src.deepseek import DeepSeekClient, ModelError, load_config
-from src.sceneapi import SceneApiError
 from src.planner import PlanError, PlanRequest, make_plan, plan_to_dict
+from src.sceneapi import SceneApiError
 from src.session import Anchor, Session
 
 
@@ -179,7 +180,71 @@ class Handler(BaseHTTPRequestHandler):
                     # 만들 이유가 없다.
                     "effects": [{"op": "plan.draft", "plan": payload}],
                     "ui": [{"op": "course.open", "day": 1}],
-                    "took_s": round(time.monotonic() - started, 3),
+                    "tookSeconds": round(time.monotonic() - started, 3),
+                }
+            )
+            return
+
+        if route == "/guide/chat":
+            # **백엔드 계약 모양** — POST /guide/chat (MZ2AZ-239).
+            # 백엔드가 우리 응답을 옮겨 담지 않고 그대로 앱에 넘길 수 있게, 필드
+            # 이름을 계약과 똑같이 맞춘다. `/api/chat` 은 앱이 지금 쓰는 임시
+            # 규약이라 따로 둔다 — 백엔드 창구가 생기면 그쪽이 사라진다.
+            messages = body.get("messages") or []
+            text = ""
+            for m in reversed(messages):
+                if isinstance(m, dict) and m.get("role") == "user":
+                    text = str(m.get("content") or "").strip()
+                    break
+            if not text:
+                self._send(
+                    {"code": "INVALID_PARAMETER", "message": "messages 가 비었다"}, 400
+                )
+                return
+
+            lat, lng = body.get("latitude"), body.get("longitude")
+            if lat is not None and lng is not None:
+                # 좌표가 이상하면 위치 없이 간다 — 「이 근처」 질문만 거절된다.
+                with contextlib.suppress(TypeError, ValueError):
+                    guide.session.here = Anchor("현위치", float(lat), float(lng))
+
+            before = len(guide.session.shown)
+            started = time.monotonic()
+            try:
+                turn = guide.ask(text)
+            except (ModelError, SceneApiError) as exc:
+                # 계약 §오류 — 규칙 기반으로 조용히 떨어지지 않는다.
+                self._send({"code": "GUIDE_UNAVAILABLE", "message": str(exc)}, 503)
+                return
+
+            fresh = guide.session.shown[before:]
+            self._send(
+                {
+                    "reply": turn.reply,
+                    "toolsUsed": [
+                        {"tool": r.name, "arguments": r.args} for r in turn.tool_runs
+                    ],
+                    "places": [
+                        {
+                            "id": int(p.place_id)
+                            if (p.place_id or "").isdigit()
+                            else None,
+                            "name": p.name,
+                            "category": p.kind or "촬영지",
+                            "categoryGroup": "sight",
+                            "address": p.address or None,
+                            "latitude": p.lat,
+                            "longitude": p.lng,
+                        }
+                        for p in fresh
+                        if p.has_coords()
+                    ],
+                    "route": None,
+                    "tookSeconds": round(time.monotonic() - started, 1),
+                    # 계약 밖의 확장 둘. 백엔드가 effects 를 갈라 처리하고 ui 는
+                    # 통과시킨다 — schemas/effects.json.
+                    "effects": turn.effects,
+                    "ui": turn.ui,
                 }
             )
             return
@@ -204,12 +269,10 @@ class Handler(BaseHTTPRequestHandler):
 
             here = body.get("here")
             if isinstance(here, list) and len(here) == 2:
-                try:
+                with contextlib.suppress(TypeError, ValueError):
                     guide.session.here = Anchor(
                         "현위치", float(here[0]), float(here[1])
                     )
-                except (TypeError, ValueError):
-                    pass
 
             # 앱을 붙여 볼 때 「왜 안 되지」 에 답하려면 무엇이 들어왔는지 보여야 한다.
             print(

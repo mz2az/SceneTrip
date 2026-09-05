@@ -11,7 +11,7 @@ import unittest
 
 from src.agent import TripGuide, detect_language
 from src.deepseek import ScriptedClient
-from src.session import Session
+from src.session import Anchor, Session
 from src.tools import ToolArgError, load_tool_specs, run_tool, validate_args
 
 from tests.fixtures import SEOUL, FakeBook, seoul_incheon_book
@@ -451,3 +451,68 @@ class 마법사_경로(unittest.TestCase):
         s = Session(book=seoul_incheon_book())
         call("plan_course", {"titles": ["도깨비"], "days": 2}, s)
         self.assertEqual([e["op"] for e in s.effects], ["plan.draft"])
+
+
+class 편의시설(unittest.TestCase):
+    """poi_nearby — 촬영지와 **다른 표**를 본다 (계약 §/pois)."""
+
+    def session(self):
+        from tests.fixtures import poi_book
+
+        s = Session(book=poi_book())
+        s.here = Anchor("현위치", 37.5665, 126.978)
+        return s
+
+    def test_갈래를_계약의_값으로_바꿔_보낸다(self):
+        """도구는 한국어로 받고 서버에는 food·stay·sight·transit 로 보낸다."""
+        s = self.session()
+        out = call("poi_nearby", {"group": "음식"}, s)
+        self.assertNotIn("결과없음", out)
+        self.assertEqual(s.book.poi_calls[0][3], "food")
+
+    def test_기본_반경은_300m(self):
+        s = self.session()
+        call("poi_nearby", {"group": "음식"}, s)
+        self.assertEqual(s.book.poi_calls[0][2], 300)
+
+    def test_모델에게_좌표를_주지_않는다(self):
+        """좌표를 보면 모델이 스스로 거리를 재려 들고 하버사인을 틀린다."""
+        s = self.session()
+        out = call("poi_nearby", {"group": "음식"}, s)
+        payload = str(out)
+        self.assertNotIn("37.567", payload)
+        self.assertNotIn("126.977", payload)
+
+    def test_화면에는_좌표가_가도록_id_를_보낸다(self):
+        s = self.session()
+        call("poi_nearby", {"group": "음식"}, s)
+        focus = next(u for u in s.ui if u["op"] == "map.focus")
+        self.assertEqual(focus["placeIds"], [470912, 481233])
+
+    def test_기준점을_못_풀면_거절한다(self):
+        from tests.fixtures import poi_book
+
+        s = Session(book=poi_book())  # here 를 안 잡았다
+        out = call("poi_nearby", {"group": "음식"}, s)
+        self.assertIn("결과없음", out)
+        self.assertEqual(s.book.poi_calls, [])
+
+    def test_없으면_이유를_준다(self):
+        from tests.fixtures import PoiBook
+
+        s = Session(book=PoiBook({"도깨비": SEOUL}, pois=[]))
+        s.here = Anchor("현위치", 37.5665, 126.978)
+        out = call("poi_nearby", {"group": "숙박"}, s)
+        self.assertIn("결과없음", out)
+
+    def test_편의시설_자료가_없는_창구는_그렇게_말한다(self):
+        """「근처에 카페가 없다」 와 「이 창구는 카페를 모른다」 는 다른 이야기다."""
+        s = Session(book=seoul_incheon_book())  # pois_near 가 없는 창구
+        s.here = Anchor("현위치", 37.5665, 126.978)
+        out = call("poi_nearby", {"group": "음식"}, s)
+        self.assertIn("csv", out["결과없음"])
+
+    def test_촬영지와_섞지_말라고_적어_보낸다(self):
+        s = self.session()
+        out = call("poi_nearby", {"group": "음식"}, s)
+        self.assertIn("촬영지가 아니다", out["주의"])

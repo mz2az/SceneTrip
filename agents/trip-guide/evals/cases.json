@@ -200,6 +200,14 @@
         "name": "__1일차의_첫_정지점__",
         "to_day": 2
       }
+    },
+    {
+      "name": "편의시설은-poi_nearby",
+      "utterance": "이 근처 카페 있어?",
+      "expect": "poi_nearby",
+      "args": {
+        "group": "음식"
+      }
     }
   ]
 }
