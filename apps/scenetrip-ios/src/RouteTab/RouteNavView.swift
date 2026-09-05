@@ -14,11 +14,12 @@ import SwiftUI
 /// 이름표로 덮인다** — 정작 봐야 할 경로선이 가린다. 지도에는 점만 찍고 이름은
 /// 아래 목록에 둔다. 점 색과 목록 점 색이 같아서 눈으로 이어진다.
 ///
-/// ## 값이 목이다
+/// ## 값은 서버가 준다
 ///
-/// 서버의 `POST /navigation/next-leg` 는 아직 `501` 이다(MZ2AZ-233). 여기 보이는
-/// 노선·시간·요금과 편의시설은 **지어낸 값**이고, 화면이 무엇을 필요로 하는지를
-/// 먼저 보여 주려고 만들었다. 서버가 서면 `RouteNavResult` 를 채우는 쪽만 바뀐다.
+/// `POST /navigation/next-leg` 가 섰다(MZ2AZ-296). 노선·시간·요금·경로선은 전부
+/// 계약 응답(`NextLeg`)에서 오고, 이 화면은 그것을 **조립해서 보여 주기만** 한다 —
+/// 표시 문구는 앱이, 재료는 서버가(ADR 0010). 안 될 때는 계약 응답별로 다르게
+/// 말한다(`RouteNavFailure`). `legs` 가 비면 오류가 아니라 **이미 도착**이다.
 struct RouteNavView: View {
     let stop: RouteStop
 
@@ -59,9 +60,10 @@ struct RouteNavView: View {
     /// 「현재위치로」 단추가 눌린 횟수. 지도에 넘겨 카메라를 내 자리로 되돌린다.
     @State private var recenterTick = 0
 
-    /// 카카오가 준 안내. 아직 안 왔으면 nil 이다.
+    /// 서버가 준 안내. 아직 안 왔으면 nil 이다.
     @State var result: RouteNavResult?
-    @State var routeError: String?
+    /// 안 된 이유. 결과가 오면 nil 로 돌아간다.
+    @State var failure: RouteNavFailure?
     @State var asking = false
 
     /// 지금 위치. 아직 못 받았으면 nil 이고, 그때 지도는 파란 점을 그리지 않는다 —
@@ -267,7 +269,13 @@ struct RouteNavView: View {
 
     private var summary: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let result {
+            if let result, result.legs.isEmpty {
+                // 출발지와 목적지가 같다 — 계약이 `legs: []` 로 말하는 「이미 도착」.
+                // 오류가 아니므로 경고 아이콘을 쓰지 않는다.
+                Label("이미 목적지에 있어요", systemImage: "checkmark.circle")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else if let result {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(RouteFormat.minutes(result.totalMinutes))
                         .font(.title2.weight(.bold))
@@ -276,10 +284,20 @@ struct RouteNavView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
-            } else if let routeError {
-                Label(routeError, systemImage: "exclamationmark.triangle")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            } else if let failure {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Label(failure.message, systemImage: "exclamationmark.triangle")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    // 다시 불러서 달라질 수 있는 것에만 단추를 둔다(`canRetry`).
+                    if failure.canRetry {
+                        Spacer(minLength: 0)
+                        Button("다시 시도") { retry() }
+                            .font(.subheadline.weight(.semibold))
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    }
+                }
             } else if asking {
                 HStack(spacing: 8) {
                     ProgressView()

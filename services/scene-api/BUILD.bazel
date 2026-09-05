@@ -189,6 +189,8 @@ java_junit5_test(
         "@maven//:org_springframework_spring_context",
         "@maven//:org_springframework_boot_spring_boot",
         "@maven//:org_springframework_spring_core",
+        # UserStoreTest 가 JdbcClient 를 목으로 만든다 — 스타터가 전이로 끌어오지만 직접 쓰므로 명시한다.
+        "@maven//:org_springframework_spring_jdbc",
         "@maven//:org_springframework_spring_test",
         "@maven//:org_springframework_spring_web",
     ],

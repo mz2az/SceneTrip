@@ -28,27 +28,28 @@ extension RouteNavView {
         detour = place
         guide.picked = nil
         result = nil // `load` 의 「이미 받았으면 안 받는다」 문을 다시 연다.
-        routeError = nil
+        failure = nil
         if let here {
             Task { await load(from: here.latitude, longitude: here.longitude) }
         }
     }
 
-    /// 경로를 **백엔드 계약**(`POST /navigation/next-leg`)으로 받는다 (MZ2AZ-297).
+    /// 경로를 **백엔드 계약**(`POST /navigation/next-leg`)으로 받는다 (MZ2AZ-297 · MZ2AZ-300).
     ///
     /// main 의 프론트는 계약에만 의존한다 — 카카오를 직접 부르던 임시 판
-    /// (`KakaoTransit`)은 navi-proto 브랜치로 갔다. 서버가 아직 이 API 를
-    /// 구현하지 않았으므로(MZ2AZ-233), 지금 main 에서는 「준비 중」이 정상이다.
+    /// (`KakaoTransit`)은 navi-proto 브랜치로 갔다. 서버는 MZ2AZ-296 으로 섰다:
+    /// 앱 → scene-api → 카카오. 안 될 때는 **왜 안 되는지를 계약 응답대로**
+    /// 말한다(`RouteNavFailure`) — 「준비 중」은 더 이상 사실이 아니다.
     func load(from latitude: Double, longitude: Double) async {
         guard result == nil, !asking else { return }
         // 계약은 목적지를 **활성 코스의 항목**으로만 가리킨다 — 코스 밖
         // 좌표(챗봇 가게로 갈아타기)는 계약에 없다.
         guard detour == nil else {
-            routeError = "코스 밖 장소로의 길찾기는 준비 중이에요"
+            failure = .detourUnsupported
             return
         }
         guard let courseId, let itemId = stop.serverItemId else {
-            routeError = "저장된 코스의 장소에서만 길찾기를 부를 수 있어요"
+            failure = .unsavedCourse
             return
         }
         asking = true
@@ -62,10 +63,19 @@ extension RouteNavView {
                 )
             )
             result = RouteNavResult(contract: leg, destinationName: destination.name)
-            routeError = nil
+            failure = nil
         } catch {
-            // 서버가 아직 없다(404/501). 되는 척하지 않는다 — 준비 중이라고 말한다.
-            routeError = "길찾기는 준비 중이에요 — 백엔드 API(MZ2AZ-233)가 서면 열립니다"
+            failure = RouteNavFailure(error)
+        }
+    }
+
+    /// 「다시 시도」. 결과를 비워 `load` 의 「이미 받았으면 안 받는다」 문을 다시 열고,
+    /// 위치를 아직 들고 있으면 그 자리에서 다시 묻는다.
+    func retry() {
+        result = nil
+        failure = nil
+        if let here {
+            Task { await load(from: here.latitude, longitude: here.longitude) }
         }
     }
 

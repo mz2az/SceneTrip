@@ -325,6 +325,7 @@ curl http://localhost:8081/v1/actuator/health
 | `SPRING_DATASOURCE_USERNAME` | 아니오 | `scenetrip` | DB 사용자 |
 | `SPRING_DATASOURCE_PASSWORD` | **예** | 없음 | DB 비밀번호. 값이 없으면 접속이 거부되어 기동이 실패한다 |
 | `KAKAO_REST_KEY` | 아니오 | 없음 | 여행 중 길찾기(카카오 대중교통·도보). 없으면 기동은 하고 길찾기만 503 이다 |
+| `SCENETRIP_AUTH_REQUIRE_REGISTRATION` | 아니오 | `true` | 가입 판정. `false` 면 마켓·길찾기의 401 이 나지 않는다. **로컬 kind 의 ConfigMap 만 끈다** — 로그인 전 시뮬레이터 검증용이고 기동 로그에 경고가 남는다 |
 
 비밀번호는 `application.yaml` 에 두지 않는다 — 이미지 안에 박히면 이미지를 가진 사람이
 곧 자격 증명을 가진 것이 된다. 로컬에서는 `postgres` ConfigMap 의 키를

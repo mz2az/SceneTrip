@@ -17,6 +17,11 @@ metadata:
 data:
   SPRING_PROFILES_ACTIVE: "local"
 
+  # 가입 판정을 끈다 — **로컬 kind 전용이다.** 로그인이 붙기 전이라 아무도 가입할 수
+  # 없고, 그대로 두면 시뮬레이터의 마켓·길찾기가 전부 401 이다. 원격 환경의 ConfigMap
+  # 에는 이 줄이 없어야 한다(기본값 true). 로그인이 붙으면 지운다 — MZ2AZ-302.
+  SCENETRIP_AUTH_REQUIRE_REGISTRATION: "false"
+
   # 컨테이너 메모리 한도에 맞춰 힙을 잡는다. Java 21 은 cgroup 한도를 인식하지만
   # 기본 비율(25%)이 낮아 512Mi 한도에서 힙이 128Mi 밖에 안 잡힌다.
   JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=40"

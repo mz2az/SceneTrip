@@ -193,8 +193,11 @@ e2e(2026-09-03, 로컬 클러스터): 북촌→홍익대부속중고 2 km — 31
 
 ## 8. 남은 것
 
-- **앱 갈아 끼우기** — `KakaoTransit.swift` 삭제, `RouteNavResult` 를 생성된 `NextLeg` 에서 채움, `detail` 을
-  `meters`·`seconds` 로 앱이 조립, `guidanceLang` 과 로케일 비교. `BUILD.bazel` 의 `kakao_rest_key` genrule 제거.
+- **앱 갈아 끼우기** — MZ2AZ-300 (iOS). `KakaoTransit.swift` 삭제·`RouteNavResult` 를 `NextLeg` 에서 채우는 것은
+  MZ2AZ-297 에서 끝났다. 2026-09-03 에 오류를 계약 코드별로 나눠 보여 주는 것(`RouteNavFailure`)과 「이미 도착」
+  (`legs: []`)을 넣었다. 남은 것은 `guidanceLang` 과 로케일 비교(MZ2AZ-305), 두 시뮬레이터 비교 기록(MZ2AZ-306).
+- **로그인 전 가입 벽** — 로컬 kind 는 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치웠다(MZ2AZ-302).
+  서버 설정 하나라 어느 환경이 꺼져 있는지 매니페스트에 보이고, 앱에는 우회가 없다. 로그인이 붙으면 설정째 지운다.
 - **남용 방지(MZ2AZ-205)** — 「한 계정이 하루 몇 번」은 아직 없다. 지금 통제는 가입·활성 코스·한 구간씩.
 - **새벽 실측** — 카카오가 시간을 보는지. §2-5 의 심야버스 단서로는 안 보는 쪽. 본다면 `NO_RESULTS` 에
   「심야」가 더해지고, 안 본다면 안 다니는 버스를 안내하는 문제가 남는다.
