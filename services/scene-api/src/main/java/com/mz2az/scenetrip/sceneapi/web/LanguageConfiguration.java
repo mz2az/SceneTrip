@@ -3,6 +3,7 @@ package com.mz2az.scenetrip.sceneapi.web;
 import com.mz2az.scenetrip.sceneapi.api.model.ContentCategory;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.MarketSort;
+import com.mz2az.scenetrip.sceneapi.api.model.PoiCategoryGroup;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -76,5 +77,15 @@ class LanguageConfiguration {
   @Bean
   Converter<String, MarketSort> marketSortConverter() {
     return MarketSort::fromValue;
+  }
+
+  /**
+   * 편의시설 갈래({@code GET /pois?categoryGroup=}).
+   *
+   * <p>위 둘과 같은 이유로 관대하게 받지 않는다. {@code food} 를 {@code foods} 로 잘못 보냈는데 전부 나오면 필터가 없는 것처럼 보인다.
+   */
+  @Bean
+  Converter<String, PoiCategoryGroup> poiCategoryGroupConverter() {
+    return PoiCategoryGroup::fromValue;
   }
 }

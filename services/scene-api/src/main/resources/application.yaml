@@ -95,6 +95,17 @@ scenetrip:
     # SCENETRIP_AUTH_REQUIRE_REGISTRATION=false 로 끈다. 꺼진 파드는 기동 로그에 경고를
     # 남긴다(UserStore). 로그인이 붙으면 설정째 지운다.
     require-registration: true
+  # 편의시설 카드 — 네이버 장소(비공식, ADR 0011). 키는 없다.
+  naver:
+    # 스위치. 데모 중 막히거나 형식이 바뀌면 false 로 — 카드가 「꺼져 있음」이 되고 화면은 산다.
+    enabled: true
+    search-url: https://bff-gateway.place.naver.com/graphql
+    detail-url: https://map.naver.com/p/api/place/summary/{id}
+    # 실측 0.3 초의 10 배. 이보다 오래 걸리면 이번은 실패로 두고 다음에 다시 묻는다.
+    timeout-seconds: 3
+    # 뒤에서 채우는 일꾼 — 한 건 사이 최소 간격(초당 3 건 상한)과, 막혔을 때 쉬는 시간.
+    min-interval-ms: 300
+    pause-seconds: 60
 
   course:
     walking-speed-kmh: 4.0

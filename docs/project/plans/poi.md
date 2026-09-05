@@ -2,8 +2,8 @@
 
 - **에픽**: [MZ2AZ-106](https://mz2az.atlassian.net/browse/MZ2AZ-106) "검색·지도" · [MZ2AZ-107](https://mz2az.atlassian.net/browse/MZ2AZ-107) "코스"
 - **작성일**: 2026-08-20
-- **상태**: 계획 — 티켓 분해 전
-- **자료**: `poi_food` · `poi_sight` · `poi_stay` · `poi_transit` (JSONL 4편, 160MB)
+- **상태**: 스키마·적재 완료(§9). 계약·검색 API 는 아직
+- **자료**: `poi_food` · `poi_sight` · `poi_stay` · `poi_transit` (JSONL 4편). 8/13 판 160MB → **8/26 판 190MB** (§5-3)
 
 ---
 
@@ -295,6 +295,75 @@ CREATE TEMP TABLE t_raw (doc TEXT);
 3번이 있어야 규칙이 **완전해진다.** 어느 자료로 몇 번을 다시 적재해도 같은 줄이 남아야
 하고, 그러려면 마지막에 반드시 결정적인 기준이 와야 한다.
 
+### 5-3. 실제 적재 (2026-09-03)
+
+§5 는 8/13 판을 보고 썼다. 실제로 넣은 것은 **8/26 재수집판**이고, 넣으면서 달라진 것을
+여기 적는다. 위 절은 고치지 않는다 — 무엇이 왜 뒤집혔는지가 보여야 한다.
+
+**자료가 바뀌었다.** 승길의 인계 문서(볼트 `07_POI 재수집분 인계 (백엔드).md`) — 8/13 판은
+`lat` 에 도로 진입점이 들어 있어 섬 숙소가 육지 선착장에 찍혔다(홍도모텔 109 km). 건물
+좌표로 다시 수집해 500,807 행(+27,381). 칸이 19개다 — `front_lat`·`front_lng`·`verified`
+가 늘었고 **셋 다 읽지 않는다.** 진입점은 경로 엔진이 알아서 도로에 붙이고, `verified`
+(공공데이터 대조)는 `0` 이 폐업을 뜻하지 않는 데다 분기마다 낡는 파생값이라 저장하지
+않는다. 팀에 물어 확정했다.
+
+**인계 문서가 놓친 것 하나.** 새 판은 `biz_lower` 가 **전 행 빈 값**이고 세부 종류(한식·
+중식…)가 `kind` 로 갔다. §2-1 은 「`kind` 는 `biz_lower` 와 전부 일치하므로 버린다」고
+했는데 그 전제가 뒤집혔다. `poi.sql` 은 `COALESCE(kind, biz_lower)` 로 두 판을 다 받는다.
+`kind` 는 93 종이다.
+
+**원본은 손대지 않고 걸러 낸 파일을 넣는다.** `just poi-filter` 가 원본 네 파일에서
+허용목록 갈래(§3-4)만 남긴 파일을 만든다. 빠지는 건 `poi_food` 의 114 행뿐이다 — 수집기가
+`keyword=음식점` 으로 긁다 담아 온 정육점·반찬가게(`음식료`, 쇼핑 갈래)·꽃집(`생활서비스`)·
+가구점이다. 나머지 세 파일은 빠지는 행이 없다. `poi.sql` 도 같은 목록으로 거르므로
+원본을 바로 넣어도 결과는 같다 — 파일을 미리 걸러 두는 건 「무엇을 넣었나」를 파일로
+남기기 위해서다. 네 파일을 `just seed-poi` 에 한 번에 준다.
+
+**TRUNCATE 가 아니라 UPSERT.** §5 는 「`v6.sql` 과 같은 모양」이라 했지만 지우지
+않는다. `source_id` 가 자연키라 `ON CONFLICT` 로 멱등이 되고, `course_item` 이 `poi` 를
+참조하게 되면(§4-2) TRUNCATE 는 사용자 코스를 지우는 일이 된다. 바뀐 것이 없으면
+건드리지 않아 「갱신」 건수가 실제로 값이 바뀐 행만 뜻한다. 표본을 두 번 돌려 21 행
+전부 「변화 없음」인 것을 확인했다.
+
+**중복을 다시 셌다** (§5-2 의 12/110 은 옛 자료). 8/26 판 넷 전체에서 `source_id` 중복
+22(같은 가게가 두 파일에 — 강릉커피박물관이 음식·명소 양쪽), 이름·좌표 같고 id 다른 묶음
+156 → 157 행을 접었다. 「합치지 않는 예외」에 걸린 묶음은 **0** — 옛 자료와 같다. 넷을
+따로 넣으면 파일을 넘나드는 중복이 안 접히므로 **한 번에** 넣는다.
+
+**뷰포트 인덱스가 하나 더 필요했다** — `V13__poi_geometry_index.sql`. §4-1 의 GiST 는
+geography 위에 있어 `geom::geometry && ST_MakeEnvelope(...)` 를 받지 못한다. `place` 가
+V6 에서 겪은 것과 같은 일이다.
+
+```
+강남역 2 km 뷰포트 · 중심 거리순 30개
+
+V13 없이 (음식점 404,830 행)          Parallel Seq Scan     36 ms
+V13 + geometry KNN 정렬 (500,514 행)  Index Scan           0.3 ms
+```
+
+표현식 인덱스가 있어야 플래너가 `geom::geometry` 의 선택도도 안다 — 없을 때는 4,027 행을
+17 행으로 어림했다. 표 전체 226 MB.
+
+```
+services/scene-api/seed/
+├── poi-sample.jsonl             표본 23 행 (갈래별 5 + 중복 한 쌍 + 버려질 행 하나)
+├── poi.sql                      JSONL → poi. 표본·전량 공용
+src/main/resources/db/migration/
+├── V12__poi.sql                 표 + 인덱스 (MZ2AZ-276)
+└── V13__poi_geometry_index.sql  뷰포트 인덱스
+tools/scripts/seed-poi.sh        gz 를 파드로 옮겨 풀고 poi.sql 을 먹인다
+tools/scripts/poi-filter.sh      원본 → 허용목록 갈래만
+tools/just/k8s.just              seed-poi · poi-filter
+```
+
+적재 결과 — food 404,827 · stay 65,444 · sight 27,998 · transit 2,245 = **500,514 행**, 26 초
+(kubectl cp 포함). 확인은 `just db-psql "SELECT category_group, count(*) FROM poi GROUP BY 1;"`.
+
+**배포 후 스모크** (2026-09-04, `just poi-smoke`) — kind 의 scene-api 에 강남역 2 km 뷰포트로
+`GET /pois` 를 흘렸다. 30 개 · 거리 오름차순 · `total` 4,103 · `Content-Language: ko`,
+갈래 필터 · `limit` · 400 두 종류 · 상세 · 404 전부 기대대로. 왕복 **8~18 ms** (예열 뒤).
+첫 요청은 256 ms — JIT·커넥션 풀이라 스모크가 한 번 버리고 잰다.
+
 ## 6. 검색
 
 `/pois?q=` 는 `/places?q=` 와 같은 모양이되 훨씬 단순하다. 다리를 건너지 않는다 —
@@ -348,11 +417,12 @@ GET /pois/{poiId}    상세
 | 순서 | 내용 | 산출물 |
 | --- | --- | --- |
 | 1 | 이 문서 | 계획 |
-| 2 | 스키마 | `V12__poi.sql` — `poi` + 인덱스 |
-| 3 | 적재 | `seed-poi.sh` · `poi.sql` · 표본 JSONL · `just seed-poi` |
-| 4 | 계약 | `/pois` 두 경로 + `PoiSummary`·`PoiDetail` |
-| 5 | 검색 API | `PoiStore` · `PoiController` |
-| 6 | 코스에 담기 | `V13__course_item_poi.sql` + `CourseStore`·`MarketStore` 수정 |
+| 2 | 스키마 | `V12__poi.sql` — `poi` + 인덱스 ✅ MZ2AZ-276 · `V13__poi_geometry_index.sql` 뷰포트 인덱스 ✅ (§5-3) |
+| 3 | 적재 | `seed-poi.sh` · `poi.sql` · `poi-sample.jsonl` · `just seed-poi` · `just poi-filter` ✅ (§5-3) |
+| 4 | 계약 | `/pois` 두 경로 + `PoiSummary`·`PoiDetail` ✅ |
+| 5 | 검색 API | `PoiStore` · `PoiController` ✅ (bbox·반경·갈래·거리순. `q` 는 MZ2AZ-283) |
+| 5-1 | 카드 | 사진·영업시간·평점 — [poi-card.md](./poi-card.md) ✅ |
+| 6 | 코스에 담기 | `V15__course_item_poi.sql` + `CourseStore`·`MarketStore` 수정 |
 | 7 | 프론트 | 별도 티켓 |
 
 2·3 을 먼저 하는 이유는 **자료가 실제로 들어가 봐야 4·5 의 모양이 정해지기** 때문이다.
@@ -413,3 +483,5 @@ GET /pois/{poiId}    상세
 | 날짜 | 내용 |
 | --- | --- |
 | 2026-08-20 | 최초 작성. 자료 실측 후 결정 여섯을 확정 — 별도 엔드포인트 · 코스에 담기 가능 · 이름+카테고리 검색 · `biz_middle` 허용 목록 · 종교시설 포함 · 자동완성 제외 |
+| 2026-09-05 | 계약·`PoiStore`·컨트롤러·스모크 완료(§9 의 4·5). 카드는 [poi-card.md](./poi-card.md). 코스 담기의 마이그레이션 번호는 V15 로 밀렸다(V13 뷰포트 인덱스, V14 카드 표) |
+| 2026-09-03 | 적재 완료(§5-3). 8/26 재수집판 네 갈래 500,514 행. 숫자를 다시 쟀다. 적재는 TRUNCATE 가 아니라 UPSERT. `kind` 가 세부 종류다(`biz_lower` 는 빈 값). 뷰포트 인덱스 `V13` 추가 |
