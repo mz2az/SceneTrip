@@ -23,8 +23,25 @@ extension RouteEditorView {
             pickedGuide: visiblePickedGuide,
             ambientPlaces: visibleAmbientPois,
             onViewport: viewportChanged,
-            onTapGuide: { guide.picked = $0 },
-            bottomInset: panelHeight
+            onTapGuide: {
+                guide.picked = $0
+                pickedStop = nil // 카드는 한 장만
+            },
+            bottomInset: panelHeight,
+            // 여행 안내(2026-09-03) — 내 자리·목적지·실제 경로를 이 지도에.
+            tripHere: trip.here,
+            navTarget: trip.target,
+            navGuiding: trip.phase == .guiding,
+            legs: trip.result?.legs ?? [],
+            recenterTick: trip.recenterTick,
+            previewTo: previewTarget,
+            onTapStop: {
+                pickedStop = $0
+                guide.picked = nil // 카드는 한 장만
+            },
+            // 최근 하루치만 — 지난 여행(데모 주행 여러 번)의 발자국까지 다 그리면 뭉친다.
+            footprints: footprints.points.filter { $0.at > Date().addingTimeInterval(-86400) },
+            footprintsOn: footprints.enabled
         ) { pin in
             // 한 번 찍으면 모드를 끈다. 켜 둔 채로 두면 시트를 닫는 손짓이 다음 핀이 된다.
             pinning = false
@@ -55,6 +72,11 @@ extension RouteEditorView {
             if !pinning {
                 VStack(spacing: 10) {
                     locateButton
+                    // 발자취 보기 토글 — 여행 중에만. 켜면 지나온 자리에 황금 발자국이 남는다
+                    // (2026-09-04 사용자 요청). 기록 자체는 안내 중이면 늘 남는다.
+                    if course.isRunning {
+                        footprintButton
+                    }
                     // **접힌 가이드.** 대화를 한 번 시작했으면 시트를 닫아도
                     // 여기 작게 남아, 누르면 이어서 펼쳐진다. 처음 여는 것은
                     // 아래 동작 줄의 「AI 가이드」다.
@@ -63,13 +85,21 @@ extension RouteEditorView {
                     }
                 }
                 .padding(10)
+                // 도착 알림 카드가 떠 있으면 그 밑으로 내려온다.
+                .padding(.top, trip.phase == .arrived ? tripBannerHeight : 0)
             }
         }
     }
 
     private var locateButton: some View {
         Button {
-            showingMe.toggle()
+            // 안내 중에는 토글이 아니라 **되돌리기**다 — 내 자리는 늘 보이고, 지도를
+            // 밀다가 나와 목적지로 돌아오는 일만 한다(길찾기 창의 규칙 그대로).
+            if trip.isActive {
+                trip.recenter()
+            } else {
+                showingMe.toggle()
+            }
         } label: {
             // 과녁 십자(dot.scope) — 검색 탭의 현위치 버튼과 같은 모양이다.
             // 켜짐은 모양이 아니라 배경색으로 구별한다.
@@ -93,6 +123,26 @@ extension RouteEditorView {
                 .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
+    }
+
+    private var footprintButton: some View {
+        Button {
+            footprints.enabled.toggle()
+        } label: {
+            Image(systemName: "shoeprints.fill")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(footprints.enabled ? .white : Color(red: 0.72, green: 0.54, blue: 0.08))
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(
+                    footprints.enabled ? Color(red: 0.85, green: 0.65, blue: 0.13) : Color(.systemBackground)
+                ))
+                .overlay(Circle().strokeBorder(
+                    footprints.enabled ? .clear : Color(.systemGray4), lineWidth: 1
+                ))
+                .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(footprints.enabled ? "발자취 숨기기" : "발자취 보기")
     }
 
     // MARK: 편의시설 필터
@@ -214,8 +264,16 @@ extension RouteEditorView {
             // 동선 최적화는 **지금 보고 있는 일차 안에서만** 순서를 바꾼다.
             // 일차를 넘나들며 옮기면 사용자가 나눠 둔 하루가 무너진다.
             action("동선 최적화", symbol: "arrow.triangle.swap", highlight: optimizeNudge) {
+                // 현재 위치를 알고 출발이 아직 안 정해졌으면 **가장 가까운 곳이 출발**이다
+                // (2026-09-04 사용자 결정) — 한국에 와서 다시 누르는 사람은 지금 선 자리에서
+                // 도는 동선을 원한다. 그 줄을 출발 고정으로 켜고 나머지를 최적화한다.
+                var ordered = stops
+                if !pinStart, let here = guideLocator.found {
+                    ordered = RouteGeometry.startingNearest(ordered, to: here)
+                    pinStart = true
+                }
                 course.days[dayIndex].stops = RouteGeometry.optimized(
-                    stops, pinStart: pinStart, pinEnd: pinEnd
+                    ordered, pinStart: pinStart, pinEnd: pinEnd
                 )
                 fitToken += 1
                 optimizeNudge = false // 권한 일을 했다 — 반짝임은 여기까지
@@ -275,8 +333,12 @@ extension RouteEditorView {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
+            // **반짝임은 회색 바탕보다 먼저 얹는다.** `PinoNudge` 는 글자를 흰색으로 다시
+            // 얹기 위해 content 를 한 벌 더 그리는데, 바탕까지 content 에 들어 있으면 그
+            // 회색이 그라데이션을 덮어 「흰 글자만 남은 회색 단추」가 된다(2026-09-02 사용자
+            // 지적 — 단추가 사라진 것처럼 보였다). 바탕은 그 아래에 깐다.
             .modifier(PinoNudge(on: highlight))
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
         }
         .buttonStyle(.plain)
     }

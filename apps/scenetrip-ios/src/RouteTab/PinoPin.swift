@@ -62,7 +62,7 @@ enum PinoPin {
         return image
     }
 
-    /// 가이드가 추천한 곳의 **빨간 점.**
+    /// 가이드가 추천한 곳의 **작은 점.**
     ///
     /// 처음에는 추천 전부를 파란 고양이로 그렸는데, 열다섯 마리가 몰리면 서로
     /// 겹쳐 지도가 고양이밭이 됐다(2026-08-27 사용자 결정). 추천은 점으로 낮추고
@@ -70,41 +70,150 @@ enum PinoPin {
     /// 갈래마다 색이 다르다(`RoutePoiTone`) — 음식점·카페=빨강, 숙소=초록,
     /// 교통=노랑, 명소=파랑(2026-08-27 사용자 확정).
     ///
-    /// 모양은 **강아지 발바닥**이다(2026-08-28) — 마스코트의 발자국,
-    /// 「해태가 밟고 간 자리」로 읽힌다. 색 원리는 점일 때와 같다.
-    static func guideDot(_ group: RoutePoiGroup) -> NMFOverlayImage {
-        if let found = cachedDots[group] {
+    /// 모양은 **갈래 색 원 안의 흰 업종 아이콘**이다(2026-09-01, `RoutePoiGlyph`).
+    /// 그 전엔 발바닥이었는데, 색만으로는 카페와 식당·지하철과 공항이 안 갈렸다
+    /// (사용자 요청). 글리프가 붙으니 점이 조금 커졌다(20→26 pt) — 12 pt 글리프가
+    /// 알아볼 수 있는 최소 크기다.
+    static func guideDot(for place: RouteGuide.Place) -> NMFOverlayImage {
+        guideDot(group: place.poiGroup, symbol: place.poiSymbol)
+    }
+
+    static func guideDot(group: RoutePoiGroup, symbol: String) -> NMFOverlayImage {
+        let key = DotKey(group: group, symbol: symbol)
+        if let found = cachedDots[key] {
             return found
         }
-        let size: CGFloat = 20
+        let size: CGFloat = 26
         let image = UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { context in
             let tone = UIColor(RoutePoiTone.of(group))
 
-            // 발바닥 = 큰 패드 하나 + 발가락 셋. 흰 테두리가 지도에서 경계를 세운다.
-            let pad = UIBezierPath(ovalIn: CGRect(x: 5.2, y: 10.2, width: 9.6, height: 7.6))
-            let toes = [
-                UIBezierPath(ovalIn: CGRect(x: 3.4, y: 5.4, width: 4.4, height: 4.6)),
-                UIBezierPath(ovalIn: CGRect(x: 7.9, y: 3.2, width: 4.4, height: 4.6)),
-                UIBezierPath(ovalIn: CGRect(x: 12.4, y: 5.4, width: 4.4, height: 4.6)),
-            ]
-
+            // 원 + 흰 테두리. 그림자가 지도에서 경계를 세운다.
             context.cgContext.setShadow(
-                offset: .zero, blur: 1.6, color: UIColor.black.withAlphaComponent(0.3).cgColor
+                offset: .zero, blur: 1.8, color: UIColor.black.withAlphaComponent(0.3).cgColor
             )
-            for path in [pad] + toes {
-                tone.setFill()
-                path.fill()
-                UIColor.white.setStroke()
-                path.lineWidth = 1.3
-                path.stroke()
-            }
+            let circle = UIBezierPath(ovalIn: CGRect(x: 2, y: 2, width: size - 4, height: size - 4))
+            tone.setFill()
+            circle.fill()
+            UIColor.white.setStroke()
+            circle.lineWidth = 1.5
+            circle.stroke()
+            context.cgContext.setShadow(offset: .zero, blur: 0, color: nil)
+
+            // 흰 글리프를 가운데에. 심볼이 없는 이름이면(OS 가 낮거나 오타) 점만 남긴다.
+            let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .bold)
+            guard let glyph = UIImage(systemName: symbol, withConfiguration: config)?
+                .withTintColor(.white, renderingMode: .alwaysOriginal)
+            else { return }
+            let box: CGFloat = 14
+            let scale = min(box / glyph.size.width, box / glyph.size.height)
+            let drawn = CGSize(width: glyph.size.width * scale, height: glyph.size.height * scale)
+            glyph.draw(in: CGRect(
+                x: (size - drawn.width) / 2, y: (size - drawn.height) / 2,
+                width: drawn.width, height: drawn.height
+            ))
         }
         let overlay = NMFOverlayImage(image: image)
-        cachedDots[group] = overlay
+        cachedDots[key] = overlay
         return overlay
     }
 
-    private static var cachedDots: [RoutePoiGroup: NMFOverlayImage] = [:]
+    /// 방문한 성지의 **발바닥 배지** — 번호 핀 옆에 붙는다(2026-09-02, 여행 모드).
+    /// 스탬프 연출(`PawStampOverlay`)이 끝난 뒤에도 지도에 「찍혔다」가 남아야 한다.
+    static func pawBadge() -> NMFOverlayImage {
+        if let cachedPawBadge {
+            return cachedPawBadge
+        }
+        let renderer = ImageRenderer(content:
+            ZStack {
+                Circle().fill(LinearGradient(
+                    colors: [Color(PinImage.light), Color(PinImage.deep)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ))
+                Circle().stroke(.white, lineWidth: 2)
+                PawShape().fill(.white).frame(width: 17, height: 17).rotationEffect(.degrees(-12))
+            }
+            .frame(width: 28, height: 28)
+            .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+            .padding(3))
+        renderer.scale = UIScreen.main.scale
+        guard let baked = renderer.uiImage else { return PinImage.numbered(nil) }
+        let image = NMFOverlayImage(image: baked)
+        cachedPawBadge = image
+        return image
+    }
+
+    private static var cachedPawBadge: NMFOverlayImage?
+
+    /// 다녀온 성지의 **발바닥 핀** — 번호 핀을 **통째로 갈음한다**(2026-09-03, 계획 trip-mode.md
+    /// §8). 배지는 번호 옆에 붙는 표시였는데, 도착한 자리는 「N번」이 아니라 「밟고 간 자리」다.
+    /// 자리 위에 얹는다(anchor 가운데).
+    static func pawPin() -> NMFOverlayImage {
+        if let cachedPawPin {
+            return cachedPawPin
+        }
+        let renderer = ImageRenderer(content:
+            ZStack {
+                Circle().fill(LinearGradient(
+                    colors: [Color(PinImage.light), Color(PinImage.deep)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ))
+                Circle().stroke(.white, lineWidth: 2)
+                PawShape().fill(.white).frame(width: 16, height: 16).rotationEffect(.degrees(-12))
+            }
+            // 40 → 28. 현재위치 점보다 커서 그 위를 덮었다(2026-09-04 사용자 지적).
+            .frame(width: 28, height: 28)
+            .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+            .padding(3))
+        renderer.scale = UIScreen.main.scale
+        guard let baked = renderer.uiImage else { return PinImage.numbered(nil) }
+        let image = NMFOverlayImage(image: baked)
+        cachedPawPin = image
+        return image
+    }
+
+    private static var cachedPawPin: NMFOverlayImage?
+
+    /// 지나온 자리의 **발자국** — 황금색 반투명 신발 자국(2026-09-04 사용자 요청: 해태 발바닥이
+    /// 아니라 사람 발자국, 흐리게). 진행 방향으로 돌려 찍는다(`NMFMarker.angle`).
+    static func footprint() -> NMFOverlayImage {
+        if let cachedFootprint {
+            return cachedFootprint
+        }
+        let size: CGFloat = 17
+        let image = UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { _ in
+            let config = UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+            guard let glyph = UIImage(systemName: "shoeprints.fill", withConfiguration: config)?
+                .withTintColor(UIColor(red: 0.85, green: 0.65, blue: 0.13, alpha: 0.5), renderingMode: .alwaysOriginal)
+            else { return }
+            let scale = min(size / glyph.size.width, size / glyph.size.height)
+            let drawn = CGSize(width: glyph.size.width * scale, height: glyph.size.height * scale)
+            glyph.draw(in: CGRect(x: (size - drawn.width) / 2, y: (size - drawn.height) / 2, width: drawn.width, height: drawn.height))
+        }
+        let overlay = NMFOverlayImage(image: image)
+        cachedFootprint = overlay
+        return overlay
+    }
+
+    private static var cachedFootprint: NMFOverlayImage?
+
+    /// 추천·배경 점의 **이름표 규칙** (2026-09-02).
+    ///
+    /// 이름은 **크게 확대했을 때만** 단다 — 추천은 줌 17, 배경은 18 부터. 앞서 14·16
+    /// 에서 열다섯 이름을 한꺼번에 띄웠더니 글자가 겹쳐 지도가 글자밭이 됐다(사용자
+    /// 지적). 확대해도 겹치는 이름표는 SDK 가 하나만 남긴다(`isHideCollidedCaptions`).
+    /// **고른 점은 줌과 무관하게** 이름을 단다 — 눌렀으면 그게 어딘지는 봐야 한다.
+    static func caption(_ marker: NMFMarker, name: String, picked: Bool, ambient: Bool) {
+        marker.captionText = name
+        marker.captionMinZoom = picked ? 0 : (ambient ? 18 : 17)
+        marker.isHideCollidedCaptions = !picked
+    }
+
+    private struct DotKey: Hashable {
+        let group: RoutePoiGroup
+        let symbol: String
+    }
+
+    private static var cachedDots: [DotKey: NMFOverlayImage] = [:]
 
     /// 지도 위에서는 흰 테두리만으로는 배경과 안 갈린다. **그림자를 깔아 띄운다.**
     private static func body(_ tint: Tint) -> some View {

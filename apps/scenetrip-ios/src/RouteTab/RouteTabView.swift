@@ -14,11 +14,18 @@ import SwiftUI
 ///
 /// **서버가 없다.** 이 탭은 통째로 목 데이터로 돈다 — `RouteMockData.swift` 머리말 참고.
 struct RouteTabView: View {
-    @EnvironmentObject private var store: RouteStore
+    /// 홈이 덮개로 띄울 때 넘긴다 — 있으면 머리줄 왼쪽에 닫기 단추가 생긴다
+    /// (홈 재편: 이 화면은 탭이 아니라 홈의 「내 여행 이어가기」가 연다).
+    var onClose: (() -> Void)?
+
+    /// 「둘러보기」 세그먼트로 열지 — 홈의 「여행자들의 코스」가 켠다.
+    var startInMarket = false
+
+    @EnvironmentObject var store: RouteStore
 
     @State private var fork = false
     @State private var wizard: RouteWizardKind?
-    @State private var editing: RouteCourse?
+    @State var editing: RouteCourse?
 
     /// 지우기 직전에 한 번 묻는다. `nil` 이면 안 묻는 중이다.
     ///
@@ -30,11 +37,16 @@ struct RouteTabView: View {
     @State private var segment: Segment = .mine
 
     /// 마이페이지가 남긴 쪽지(열어 줄 코스)를 읽는다.
-    @ObservedObject private var router = TabRouter.shared
+    @ObservedObject var router = TabRouter.shared
 
     enum Segment: String, CaseIterable, Identifiable {
         case mine = "내 코스"
-        case market = "코스마켓"
+        /// 「코스마켓」이었다(2026-09-02 개명). 마켓은 돈이 오가고 보기 전에 산다는
+        /// 뜻을 풍기는데, 이 화면은 남(유저·운영진)이 짠 코스를 구경하고 마음에 들면
+        /// 내 코스로 담는 곳이다. 홈에서는 절 제목 「여행자들의 코스」로 부른다.
+        /// 코드 식별자(`RouteMarketView`, 서버 `/market/courses`)는 계약에 걸려 있어
+        /// 그대로다 — 개명은 백엔드와 함께 티켓으로.
+        case market = "둘러보기"
         var id: String {
             rawValue
         }
@@ -70,8 +82,14 @@ struct RouteTabView: View {
             // 시스템이 유리 캡슐(흰 판)을 깔아 피노 색을 가린다(2026-08-28 사용자
             // 지적, X 단추 때와 같은 문제).
             .toolbar(.hidden, for: .navigationBar)
+            .onAppear {
+                if startInMarket {
+                    segment = .market
+                }
+            }
             .task {
                 await store.refresh()
+                await ensureDemoCourse()
                 openPending()
             }
             .onChange(of: router.pendingCourseId) { _, _ in openPending() }
@@ -197,6 +215,16 @@ struct RouteTabView: View {
         ZStack {
             Text("코스").font(.headline)
             HStack {
+                if let onClose {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(.body.weight(.semibold))
+                            .padding(8)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("닫기")
+                }
                 Spacer()
                 if segment == .mine {
                     Button {
@@ -221,19 +249,26 @@ struct RouteTabView: View {
         List {
             // 진행 중인 코스를 맨 위에 따로 모은다 — 여행 중에는 그것 말고 볼 것이 없다.
             let running = store.courses.filter(\.isRunning)
+            let planned = store.courses.filter { !$0.isRunning }
             if !running.isEmpty {
-                Section("여행 중") {
+                Section("여행 중 \(running.count)") {
                     ForEach(running) { course in
                         row(course)
                     }
                 }
             }
+            // 헤더 숫자는 **이 절에 나열되는 것만** 센다 — 전체를 세니 「내 코스 3」 아래가
+            // 텅 빈 채였다(2026-09-05 사용자 지적: 셋 다 여행 중이었다).
             Section {
-                ForEach(store.courses.filter { !$0.isRunning }) { course in
+                if planned.isEmpty {
+                    Text(running.isEmpty ? "아직 만든 코스가 없습니다" : "모든 코스가 여행 중이에요")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                ForEach(planned) { course in
                     row(course)
                 }
             } header: {
-                Text("내 코스 \(store.courses.count)")
+                Text("예정 \(planned.count)")
             }
         }
         .listStyle(.insetGrouped)

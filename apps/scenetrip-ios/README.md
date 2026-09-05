@@ -4,7 +4,7 @@
 
 ## 목적
 
-SceneTrip 의 iOS 네이티브 앱. 첫 화면인 **작품검색 탭**(지도 + 바텀시트 + 검색)을
+SceneTrip 의 iOS 네이티브 앱. 탭은 셋 — 작품검색 · **홈**(첫 화면) · 커뮤니티 — 이고 경로여정·마이페이지는 홈이 띄우는 전체 화면 덮개다(계획 `docs/project/plans/mobile-home-tab.md`, main 이식 2026-09-05). **작품검색 탭**(지도 + 바텀시트 + 검색)을
 만든다 — 화면 구조·검색 규칙의 기준은
 [검색 탭 네이티브 구현 계획](../../docs/project/plans/mobile-native-search-tab.md) §3 이다.
 
@@ -61,7 +61,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 화면 | 상태 |
 | --- | --- |
 | 작품검색·코스 목록·편집·마켓·커뮤니티·마이페이지 | **된다** — 실서버(8081) |
-| 길찾기 | **「준비 중」이 정상** — 계약(`POST /navigation/next-leg`)을 부르는데 서버가 아직 없다(MZ2AZ-233). 이 빈 화면이 백엔드가 채울 자리다 |
+| 길찾기 | **편집 화면 안에서 실제 경로가 그려진다** — 계약(`POST /navigation/next-leg`, MZ2AZ-296)을 부른다. 로컬 kind 는 가입벽을 꺼 두어(MZ2AZ-302) 401 이 안 난다. 안 되면 이유가 코드별로 뜬다(`RouteNavFailure`) |
 | 챗봇(여행 가이드)·주변 편의시설 점·정보 카드 | **「준비 중」이 정상** — 백엔드 API(MZ2AZ-283·284·285) 대기 |
 | AI 코스 추천 | 규칙 기반으로만 짠다(LLM 은 navi-proto 전용) |
 | 찜·커뮤니티 글·방문 스탬프 일부 | 기기(UserDefaults) 저장 — 맥마다 따로 논다 |
@@ -112,7 +112,8 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | `RouteSearchSheet.swift` | 편집 화면 안에서 바로 장소를 찾아 담는 시트 — 장바구니를 거치지 않는다 |
 | `RouteGeometry`(`RouteModels.swift` 안) | 동선 최적화 — 최근접 이웃·2-opt·완전탐색(≤8곳) 세 방법 중 가장 짧은 것. 출발·도착 고정은 각각 선택이다 |
 | `RouteMapView.swift` | 코스용 지도 — 번호 핀, 계획 단계는 **직선**만(예상 시간 표시 안 함) |
-| (길찾기 호출) | `NavigationAPI.getNextLeg`(계약) — 서버가 서면(MZ2AZ-233) 그대로 동작. 카카오 직접 호출 판(`KakaoTransit.swift`)은 navi-proto 로 갔다(MZ2AZ-297) |
+| `TripSession.swift` · `TripMode.swift` · `RouteEditorTrip.swift` · `RouteMapTrip.swift` · `PawStamp.swift` · `DemoDrive.swift` · `RouteTabTrip.swift` | **여행 모드**(아래 절) — 편집 화면 안 길찾기·머무름 도착·발바닥 스탬프·「다음으로」. 경로는 `NavigationAPI.getNextLeg`(계약) |
+| `RouteNavFailure.swift` | 길찾기 오류를 계약 응답별로 분류 — 401 가입 · 409 코스 시작 전 · 422 경로 없음 · 503 잠시 뒤 · 연결 실패 |
 | `RouteNavView.swift` · `RouteNavMapView.swift` · `RouteNavModels.swift` · `RoutePoiTone.swift` | 「길찾기」 결과 화면 — 실제 경로(도보=점선, 대중교통=실선) + 가이드 추천 핀 + 챗봇 진입 |
 | `RouteBridge.swift` | 계약 타입(`CourseDetail` 등) ↔ 화면 타입(`RouteCourse` 등) 번역. 화면이 계약 타입을 직접 만지지 않는다 |
 | `RouteMarketView.swift` | 「인기 코스」 — 이름·정렬 기준 미확정. 목록은 여전히 지어낸 것이나 **속 장소는 서버의 진짜 장소**라 담기가 실제로 동작한다 |
@@ -137,6 +138,62 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 - 「인기 코스」의 이름·정렬 기준, 그리고 진짜 코스 공유 API(MZ2AZ-232, 아직 백엔드 티켓
   없음 — 2026-08-24 결정: 당장은 만들지 않는다).
 - 편의시설 조회는 프로토타입 서버를 빌려 쓴다. `/pois` 계약·구현(MZ2AZ-283·284)이 서면 갈아탄다.
+
+## 홈 탭과 편의시설 (2026-09-05, main 이식)
+
+navi-proto 의 홈 재편(`cd8debd`)과 편의시설 점을 옮겼다. 홈은 프론트만이고, 편의시설은
+어젯밤 main 에 들어온 계약 `GET /pois`(MZ2AZ-314)를 쓴다 — 프로토 서버 `:8899` 는 없다.
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `HomeTab/HomeTabView.swift` | 홈 — 인사 · 내 여행 이어가기 · 지금 뜨는 작품 · 오늘의 성지 · 여행자들의 코스 · 커뮤니티 지금 · 내 기록 |
+| `HomeTab/HomeTabModel.swift` | 서버 넷을 나란히 — `listContents`·`listPlaces`·코스 상세(스탬프)·내 여행 |
+| `HomeTab/HomeCards.swift` · `HomeFeed.swift` | 카드들. **오늘의 성지는 「담기」** — 코스 없는 길찾기가 계약에 없어(MZ2AZ-313) 장바구니로 잇는다 |
+| `RootTabs.swift` · `Models/TabRouter.swift` | 탭 셋 + 덮개(`cover`: 경로여정·마이페이지) · 쪽지(`pendingCourseId`·`pendingContentId`·`pendingTripStart`) |
+| `RouteTab/RouteGuide.swift` `pois`·`card` | 편의시설 — `PoisAPI.listPois`(bbox+중심, 거리순 30) · `PoisAPI.getPoiCard`(네이버 카드, 데모 한정) |
+| `RouteTab/RoutePoiTone.swift` `RoutePoiGlyph` | 점의 업종 아이콘(카페·식당·지하철·공항…) · 이름표는 크게 확대했을 때만(`PinoPin.caption`) |
+
+로컬에서 점을 보려면 POI 가 적재돼 있어야 한다 — `just seed-poi`(표본 23행) 또는
+`just seed-poi <걸러 둔 jsonl.gz …>`(전량 50만 행, 저장소 밖).
+
+## 여행 모드 — 편집 화면 안에서 길찾기·스탬프 (2026-09-04, MZ2AZ-307)
+
+계획은 [trip-mode.md](../../docs/project/plans/trip-mode.md) §8·§9. navi-proto 의 2단계를 옮기되
+경로는 **서버 계약**으로 받는다 — 카카오 직접 호출은 main 에 없다.
+
+```
+[코스 시작] / 행의 「길찾기」 / 목록 「이어서 길찾기」           startTrip → TripSession.start(to:number:courseId:)
+  → 이 지도에 현재 위치 → N번 실제 경로 (직선 계획선 위에)       RouteMapView.legs · tripHere  ← POST /navigation/next-leg
+  → 반경 100 m 안에 5분 머무르면 도착                              TripArrival (뒷문 -tripDwellSeconds 10)
+  → 발바닥 스탬프(화면 가운데) · 핀은 발바닥 · 목록은 「다녀옴」      PawStampOverlay · PinoPin.pawPin · visitedAt
+  → 아래 줄 「다음 · M번 ○○로 길찾기」를 사람이 누르면 그때 M번 경로
+```
+
+- **저장된 코스에서만** 열린다 — 계약이 목적지를 코스 항목(`itemId`)으로 받는다. 저장 전 코스는
+  「저장된 코스의 장소에서만 길찾기를 부를 수 있어요」.
+- 코스를 **시작**(`active`)해야 서버가 답한다. 시작 전에는 「코스를 시작한 뒤에…」(409).
+- 실패한 뒤에는 걸어도 다시 묻지 않는다(유료 호출). 503·연결 실패에만 「다시 시도」.
+- 「이어서 길찾기」는 **홈의 「내 여행 이어가기」 카드**에 있다(2026-09-05 홈 탭 이식).
+- 다녀온 곳도 「다시 길찾기」가 된다. 도착하면 다음 갈 곳이 목록 맨 위로 올라온다.
+- 안내 중에는 편의시설 점을 끈다 — 경로선이 주인공이다. 끝나면 다시 켠다.
+- **발자취**: 안내 중 지나온 자리를 25 m 마다 기기에만 남기고(`FootprintStore`), 지도 오른쪽
+  위 발자국 단추로 황금 발자국을 보인다(줌에 맞춰 솎는다). 지우기는 마이페이지.
+- 옛 별도 길찾기 창(`RouteNavView`)은 코스 여행에서 더 안 쓴다. 파일은 남겨 둔다.
+
+### 시뮬레이터에서 보기
+
+시뮬레이터는 진짜 GPS 가 없어 **가상 GPS 가 기본으로 켜진다**(`DemoDrive`, 실기기는 인자가
+있을 때만). 안내가 켜지면 서울시청(마지막 자리)에서 경로선을 따라 걷고(도보 48 m/s ·
+대중교통 두 배), 핀 12 m 앞에서 멈춰 **5초 머무르면** 스탬프가 찍힌다. 코스 화면을 나가면
+시청으로 되돌아간다.
+
+```
+xcrun simctl launch <UDID> com.mz2az.scenetrip                     # 이대로 다 된다
+xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 를 끄고 simctl location 으로
+```
+
+영상용 데모 코스는 `-demoCourse 1 -navStop 1 -demoDrive 3` 으로 — 저장소의
+`resources/demo/demo-course.json` 을 코스로 만들고 1→3번까지 남쪽 250 m 에서 출발한다.
 
 ## 최근 작업 로그
 

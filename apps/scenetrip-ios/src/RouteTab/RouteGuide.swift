@@ -1,5 +1,6 @@
 import CoreLocation
 import Foundation
+import SceneApiClient
 
 /// 여행 가이드 챗봇 — **도구를 부르는 로컬 LLM** (MZ2AZ-201 · MZ2AZ-223).
 ///
@@ -103,20 +104,46 @@ enum RouteGuide {
         throw Failure.notReady
     }
 
-    /// 지도 범위 안의 편의시설. 정식 자리는 MZ2AZ-283(장소 검색 API)이다.
+    /// 지도 범위 안의 편의시설 — **백엔드 계약** `GET /pois` (MZ2AZ-314, 2026-09-05 연결).
+    ///
+    /// 뷰포트(`bbox`)와 화면 중심(`lat`·`lng`)을 보내고 중심에 가까운 순으로 받는다.
+    /// 상한에 걸릴 때 화면 가운데부터 채우는 이유는 계약 설명에 있다 — 앞에서부터
+    /// 자르면 자료에 먼저 적힌 동네가 상한을 다 먹는다. 실패하면 조용히 빈 목록 —
+    /// 주변 점은 장식이라 화면이 막히지 않는다.
     static func pois(
-        south _: Double, west _: Double, north _: Double, east _: Double,
-        centerLat _: Double, centerLng _: Double, limit _: Int = 30
+        south: Double, west: Double, north: Double, east: Double,
+        centerLat: Double, centerLng: Double, limit: Int = 30
     ) async -> [Place] {
-        // 주변 점은 장식이다 — 백엔드 API(MZ2AZ-283)가 없는 동안은 조용히 빈
-        // 목록이다. 화면은 점이 없다고 막히지 않는다.
-        []
+        // bbox 는 GeoJSON 순서 — minLng,minLat,maxLng,maxLat.
+        let bbox = "\(west),\(south),\(east),\(north)"
+        guard let list = try? await PoisAPI.listPois(
+            bbox: bbox, lat: centerLat, lng: centerLng, sort: .distance, limit: limit
+        ) else { return [] }
+        return list.items.map(Place.init(poi:))
     }
 
-    /// 핀을 눌렀을 때 띄울 정보 카드(네이버 상세). 정식 자리는 MZ2AZ-284 계보다.
-    static func card(for _: Place) async -> Card? {
-        // 정보 카드(네이버 상세)도 백엔드 몫이다 — 없는 동안은 「정보 없음」.
-        nil
+    /// 핀을 눌렀을 때 띄울 정보 카드 — 서버가 네이버 장소에서 채운다
+    /// (`GET /pois/{poiId}/card`, ADR 0011, 데모 한정). 처음 부르면 `pending` 으로 올 수
+    /// 있다 — 서버가 뒤에서 채우므로 다시 열면 있다. 우리 편의시설이 아닌 곳(챗봇 결과)은
+    /// id 가 없어 카드도 없다.
+    static func card(for place: Place) async -> Card? {
+        guard let poiId = place.poiId,
+              let card = try? await PoisAPI.getPoiCard(poiId: poiId)
+        else { return nil }
+        return Card(
+            found: card.found ?? false,
+            name: card.name ?? place.name,
+            category: card.category ?? place.category,
+            address: card.address ?? place.address,
+            hours: card.hours,
+            phone: card.phone,
+            reviewCount: card.reviewCount,
+            blogReviews: card.blogReviews,
+            score: card.score,
+            images: card.images ?? [],
+            naverUrl: card.naverUrl,
+            why: card.pending == true ? "아직 채우는 중이에요 — 잠시 뒤 다시 열어 주세요" : card.why
+        )
     }
 
     /// 네이버에서 온 정보 카드.
@@ -201,6 +228,25 @@ enum RouteGuide {
             group = json["group"] as? String
             address = json["addr"] as? String
             distanceMeters = Self.number(json["dist_m"]).map { Int($0) }
+        }
+
+        /// 계약의 편의시설(`PoiSummary`) → 화면 장소. id 는 `poi-<서버 id>` — 챗봇이
+        /// 준 것(id 가 이름)과 섞여도 갈리고, 카드 조회가 서버 id 를 되찾는다.
+        init(poi: PoiSummary) {
+            id = "poi-\(poi.id)"
+            name = poi.name
+            category = poi.category
+            address = poi.address
+            distanceMeters = poi.distanceMeters
+            latitude = poi.latitude
+            longitude = poi.longitude
+            group = poi.categoryGroup.rawValue
+        }
+
+        /// 계약 편의시설의 서버 id. 챗봇이 준 곳은 nil.
+        var poiId: Int64? {
+            guard id.hasPrefix("poi-") else { return nil }
+            return Int64(id.dropFirst(4))
         }
 
         /// 서버가 숫자를 문자열로 줄 때가 있다(원본 자료가 그렇다).

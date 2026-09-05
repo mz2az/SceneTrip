@@ -25,13 +25,38 @@ import Foundation
 /// 한 구간의 이동 수단.
 enum RouteLegMode {
     case walk
+    /// 버스 — 계약 `vehicleType` 이 마을·간선·지선·광역·직행·버스. 지하철과 갈라 그린다
+    /// (2026-09-04 사용자 지적: "지하철인지 버스인지 구분은 못 해?").
+    case bus
+    /// 지하철·전철.
+    case subway
+    /// 그 밖의 탈것(기차·고속버스·해운) — 종류를 모르는 대중교통도 여기.
     case transit
 
     var symbol: String {
         switch self {
         case .walk: "figure.walk"
-        case .transit: "tram.fill"
+        case .bus: "bus.fill"
+        case .subway: "tram.fill"
+        case .transit: "train.side.front.car"
         }
+    }
+
+    var isVehicle: Bool {
+        self != .walk
+    }
+
+    /// 계약의 `RouteLeg.mode`(walk/transit)와 `vehicleType`(제공자 원문, 한국어)에서 갈래를 고른다.
+    static func from(contractMode: String, vehicleType: String?) -> RouteLegMode {
+        guard contractMode != "walk" else { return .walk }
+        let kind = vehicleType ?? ""
+        if ["지하철", "전철", "경전철", "SUBWAY"].contains(where: kind.contains) {
+            return .subway
+        }
+        if ["버스", "마을", "간선", "지선", "광역", "직행", "순환", "BUS"].contains(where: kind.contains) {
+            return .bus
+        }
+        return .transit
     }
 }
 

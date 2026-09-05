@@ -1,5 +1,6 @@
 import CoreLocation
 import Foundation
+import SceneApiClient
 
 /// 지금 어디에 있나 — **한 번만** 물어보는 것.
 ///
@@ -8,8 +9,10 @@ import Foundation
 /// **좌표 자체가 필요하다** — 「현재 위치 → 다음 목적지」를 서버에 물으려면 출발지를
 /// 실어 보내야 하기 때문이다. 그래서 값으로 다루는 쪽을 따로 만든다.
 ///
-/// 계속 추적하지 않고 **한 건 받고 끊는다.** 길찾기는 누르는 순간의 위치만 있으면
-/// 되고, 켜 둔 채로 두면 배터리를 먹는다.
+/// 두 모드다. `start()` 는 **한 건 받고 끊는다** — 길찾기를 누르는 순간의 위치.
+/// `track()` 은 여행 모드(2026-09-02)용으로 **계속 받는다** — 반경 안 머무름으로 도착을
+/// 판정하고 발자취를 남기려면 위치가 이어져야 한다. 25 m 움직일 때마다 한 번이고,
+/// 화면이 닫히면 `stop()` 으로 끊는다(앱 사용 중 권한이라 뒤로 가면 어차피 멈춘다).
 ///
 /// 정확도는 100 m 로 잡는다. 촬영지를 이어 주는 앱이지 내비게이션이 아니라 미터
 /// 단위가 필요 없고, 낮은 정확도가 훨씬 빨리 온다 — 사용자가 「길찾기」를 누르고
@@ -37,8 +40,18 @@ final class RouteLocator: NSObject, ObservableObject, CLLocationManagerDelegate 
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
     }
 
+    /// 계속 받는 중인가. 권한 대답이 늦게 오면 그때 `track` 을 이어 가기 위한 표시.
+    private var tracking = false
+
+    /// 받은 자리를 장소 모양으로. 거리 계산(`RouteGeometry`)이 `PlaceSummary` 를 받아서다.
+    var found: PlaceSummary? {
+        guard case let .found(latitude, longitude) = state else { return nil }
+        return PlaceSummary(id: 0, name: "여기", latitude: latitude, longitude: longitude)
+    }
+
     /// 화면이 뜰 때 부른다. 권한이 없으면 물어보고, 대답은 델리게이트로 온다.
     func start() {
+        tracking = false
         switch manager.authorizationStatus {
         case .notDetermined:
             manager.requestWhenInUseAuthorization()
@@ -47,6 +60,31 @@ final class RouteLocator: NSObject, ObservableObject, CLLocationManagerDelegate 
         default:
             manager.requestLocation()
         }
+    }
+
+    /// 여행 모드 — 위치를 계속 받는다. `stop()` 으로 끊는다.
+    func track() {
+        tracking = true
+        manager.distanceFilter = 25
+        switch manager.authorizationStatus {
+        case .notDetermined:
+            manager.requestWhenInUseAuthorization()
+        case .restricted, .denied:
+            state = .denied
+        default:
+            manager.startUpdatingLocation()
+        }
+    }
+
+    func stop() {
+        tracking = false
+        manager.stopUpdatingLocation()
+    }
+
+    /// 가상 위치(데모 주행)를 흘려 넣는다 — 화면은 진짜 위치와 똑같이 받는다.
+    /// 실행 인자 없이는 불리지 않는다(`DemoDrive.isOn`).
+    func inject(latitude: Double, longitude: Double) {
+        state = .found(latitude: latitude, longitude: longitude)
     }
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -58,7 +96,11 @@ final class RouteLocator: NSObject, ObservableObject, CLLocationManagerDelegate 
             case .restricted, .denied:
                 self.state = .denied
             default:
-                manager.requestLocation()
+                if self.tracking {
+                    manager.startUpdatingLocation()
+                } else {
+                    manager.requestLocation()
+                }
             }
         }
     }

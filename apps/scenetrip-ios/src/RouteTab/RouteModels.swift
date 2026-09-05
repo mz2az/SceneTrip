@@ -121,6 +121,10 @@ struct RouteStop: Identifiable, Hashable {
     /// 지도를 눌러 직접 찍은 핀인가. 숙소처럼 우리 데이터에 없는 곳이다.
     var isPinned = false
 
+    /// 서버에 방문(`visitedAt`)이 찍혔나. 여행 모드가 「다음 미방문 성지」를 고르는 근거다
+    /// (2026-09-02). 저장 전 장소는 false 고, 브리지가 서버 값을 옮겨 준다.
+    var visited = false
+
     static let defaultStayMinutes = 30
     static let stayOptions = [15, 30, 45, 60, 90, 120, 180]
 
@@ -280,6 +284,19 @@ enum RouteGeometry {
             best = exact
         }
         return best.map { stops[$0] }
+    }
+
+    /// **지금 선 자리에서 가장 가까운 곳을 맨 앞으로.** 나머지 순서는 그대로 — 그다음은
+    /// `optimized(pinStart: true)` 가 정한다. 「출발 고정이 꺼진 채 현재 위치를 아는」
+    /// 사람의 동선 최적화 첫 걸음이다(2026-09-04 사용자 결정).
+    static func startingNearest(_ stops: [RouteStop], to here: PlaceSummary) -> [RouteStop] {
+        guard stops.count > 1 else { return stops }
+        let distances = stops.map { kilometers(here, $0.place) }
+        guard let nearest = distances.indices.min(by: { distances[$0] < distances[$1] }) else { return stops }
+        var ordered = stops
+        let first = ordered.remove(at: nearest)
+        ordered.insert(first, at: 0)
+        return ordered
     }
 
     /// 직선거리 행렬(km). 같은 쌍을 여러 번 재지 않으려고 한 번만 만든다.

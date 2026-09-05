@@ -140,10 +140,18 @@ extension RouteLeg {
         if let stops = leg.stopCount {
             pieces.append("\(Int(stops)) 정거장")
         }
+        let mode = RouteLegMode.from(contractMode: leg.mode.rawValue, vehicleType: leg.vehicleType)
+        // 탈것은 **노선이 제목**이다(「간선 150」「지하철 3호선」) — 안내문·정거장·시간은 설명으로.
+        // 도보는 안내문(턴바이턴)이 제목이고 거리·시간이 설명이다.
+        let route = [leg.vehicleType, leg.vehicleName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+        let title = mode.isVehicle && !route.isEmpty ? route : leg.guidance
+        let detail = mode.isVehicle && !route.isEmpty
+            ? ([leg.guidance] + pieces).filter { !$0.isEmpty }.joined(separator: " · ")
+            : pieces.joined(separator: " · ")
         self.init(
-            mode: leg.mode.rawValue == "walk" ? .walk : .transit,
-            title: leg.guidance,
-            detail: pieces.joined(separator: " · "),
+            mode: mode,
+            title: title,
+            detail: detail,
             path: leg.path.coordinates,
             hasStairs: leg.hasStairs
         )

@@ -52,16 +52,13 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
 
     func locationManager(_: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let spot = locations.last else { return }
+        // 여행 안내가 자리를 주고 있으면 한 번 받기는 무시한다 — 두 출처가 파문을 서로
+        // 끌어당기면 점이 튄다(`tripHere`, 2026-09-03).
+        guard tripHere == nil else { return }
         here = NMGLatLng(lat: spot.coordinate.latitude, lng: spot.coordinate.longitude)
         guard showingMe, let mapView = mapForLocate else { return }
 
-        if pulse == nil {
-            let view = RadarPulse(tint: UIColor(Color.accentColor))
-            mapView.addSubview(view)
-            pulse = view
-        }
-        pulse?.restartIfNeeded()
-        positionPulse()
+        showPulse(on: mapView)
 
         // 자리가 화면 밖이면 **범위를 넓혀 담는다.** 토글을 켰는데 아무 일도
         // 없으면 안 되는 것으로 보인다(2026-08-27 사용자 지적 — 추천 핀에만
@@ -89,32 +86,32 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
 
     // MARK: 파문
 
+    /// 파문을 띄운다(없으면 만들고) — 한 번 받기와 여행 안내(`tripHere`)가 같이 쓴다.
+    func showPulse(on mapView: NMFMapView) {
+        mapForLocate = mapView
+        if pulse == nil {
+            let view = RadarPulse(tint: UIColor(Color.accentColor))
+            mapView.addSubview(view)
+            pulse = view
+        }
+        pulse?.restartIfNeeded()
+        positionPulse()
+    }
+
     /// 파문을 내 자리의 화면 좌표에 놓고, 핀과 겹치는지 본다.
     func positionPulse() {
         guard let pulse, let here, let host = mapForLocate else { return }
         let point = host.projection.point(from: here)
         pulse.place(at: point)
 
-        // **핀과 겹치면 점 대신 핀이 뛴다.** 가까운 핀(화면 28pt 안)을 찾아
-        // 키우고 가운데 점을 숨긴다 — 파문은 계속 퍼지므로 그 핀이 고동치는
-        // 것으로 읽힌다(2026-08-27 사용자 요청).
-        let near = markers.min { lhs, rhs in
-            gap(point, host.projection.point(from: lhs.position))
-                < gap(point, host.projection.point(from: rhs.position))
-        }
-        let hit: NMFMarker? = near.flatMap {
-            gap(point, host.projection.point(from: $0.position)) < 28 ? $0 : nil
-        }
-        if hit !== grown {
-            restoreGrown()
-            if let hit {
-                let size = hit.iconImage.image.size
-                hit.width = size.width * 1.3
-                hit.height = size.height * 1.3
-                grown = hit
-            }
-        }
-        pulse.setCoreHidden(hit != nil)
+        // **내 자리는 무엇에도 가려지지 않는다**(2026-09-04 사용자 지적 — 4번 핀과
+        // 이름표 뒤로 점이 숨어 어디 있는지 안 보였다). 앞서는 핀과 겹치면 점을
+        // 숨기고 그 핀을 키웠는데(2026-08-27), 촘촘한 코스에서는 늘 어느 핀과 겹쳐
+        // 점이 영영 안 보이는 쪽이 됐다. 점은 늘 그리고, 뷰를 맨 위로 올린다 —
+        // 헤일로·파문이 뒤에 추가돼도 내 자리가 위다.
+        pulse.setCoreHidden(false)
+        restoreGrown()
+        host.bringSubviewToFront(pulse)
     }
 
     /// 키워 둔 핀을 원래 크기(그림 크기 그대로)로 되돌린다.
@@ -124,14 +121,15 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
         grown = nil
     }
 
-    private func gap(_ lhs: CGPoint, _ rhs: CGPoint) -> CGFloat {
-        hypot(lhs.x - rhs.x, lhs.y - rhs.y)
-    }
-
     // MARK: 헤일로
 
     /// 해태 핀 뒤의 심장박동. 자리·판이 그대로면 아무것도 안 한다.
-    func updateHalo(style: HaloPulse.Style, at spot: NMGLatLng?, on mapView: NMFMapView) {
+    ///
+    /// `lift` 는 좌표에서 얼마나 위에 띄우는가 — 해태 핀은 머리(얼굴)가 30pt 위에 있고,
+    /// 발바닥 핀은 자리 위에 바로 얹히므로 0 이다(2026-09-03 사용자 지적: 발바닥보다
+    /// 위에 떠 있었다).
+    func updateHalo(style: HaloPulse.Style, at spot: NMGLatLng?, lift: CGFloat = 30, on mapView: NMFMapView) {
+        haloLift = lift
         guard let spot else {
             halo?.removeFromSuperview()
             halo = nil
@@ -156,7 +154,7 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
     func positionHalo() {
         guard let halo, let haloAt, let host = mapForLocate else { return }
         var point = host.projection.point(from: haloAt)
-        point.y -= 30
+        point.y -= haloLift
         halo.place(at: point)
     }
 
@@ -169,10 +167,14 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
         }
     }
 
-    nonisolated func mapView(_: NMFMapView, cameraDidChangeByReason _: Int, animated _: Bool) {
+    nonisolated func mapView(_ mapView: NMFMapView, cameraDidChangeByReason _: Int, animated _: Bool) {
         Task { @MainActor in
             self.positionPulse()
             self.positionHalo()
+            // 줌이 바뀌면 발자국을 다시 솎는다 — 화면 간격을 일정하게.
+            if !self.lastFootPoints.isEmpty {
+                self.renderFootprints(self.lastFootPoints, on: mapView)
+            }
         }
     }
 }
