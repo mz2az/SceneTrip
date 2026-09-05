@@ -182,6 +182,7 @@ def _refuse(reason):
 | [design/ai-course-planner.md](design/ai-course-planner.md) | 코스 엔진 설계 상세 — 알고리즘 4 단계, 평가 지표 5 종, 한계 |
 | [design/chatbot-and-planner-survey.md](design/chatbot-and-planner-survey.md) | 조사 전문 — 출처 40여 건, 수치와 인용 |
 | [design/backend-agent-contract.md](design/backend-agent-contract.md) | **통신 구조 초안** — 앱↔백엔드↔에이전트, 에이전트가 받아야 할 정보, `effects` |
+| [design/backend-handoff.md](design/backend-handoff.md) | **백엔드 연결 명세** — 권호님이 보고 코드를 쓸 수 있게 |
 | [design/integration-gaps.md](design/integration-gaps.md) | **붙이기 전에 합의할 것** — 없는 API 목록과 담당자별 요청 |
 | [design/build-draft.md](design/build-draft.md) | `rules_python` 이 켜질 때 붙일 BUILD.bazel 초안 |
 | [../README.md](../README.md) | 모듈 사용법 — 돌리는 법, 파일 지도 |
