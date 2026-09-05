@@ -453,14 +453,13 @@ struct RouteMapView: UIViewRepresentable {
                     position: NMGLatLng(lat: place.latitude, lng: place.longitude)
                 )
                 let isPicked = place.id == pickedGuide?.id
-                marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot(place.poiGroup)
+                marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot(for: place)
                 if isPicked {
                     marker.anchor = CGPoint(x: 0.5, y: 1)
                 } else {
                     marker.anchor = CGPoint(x: 0.5, y: 0.5) // 점은 자리 위에 얹는다
                 }
-                marker.captionText = place.name
-                marker.captionMinZoom = 14
+                PinoPin.caption(marker, name: place.name, picked: isPicked, ambient: false)
                 marker.zIndex = isPicked ? 30 : 15
                 marker.touchHandler = { [weak self] _ in
                     self?.onTapGuide(place)

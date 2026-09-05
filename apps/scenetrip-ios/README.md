@@ -4,7 +4,7 @@
 
 ## 목적
 
-SceneTrip 의 iOS 네이티브 앱. 첫 화면인 **작품검색 탭**(지도 + 바텀시트 + 검색)을
+SceneTrip 의 iOS 네이티브 앱. 탭은 셋 — 작품검색 · **홈**(첫 화면) · 커뮤니티 — 이고 경로여정·마이페이지는 홈이 띄우는 전체 화면 덮개다(계획 `docs/project/plans/mobile-home-tab.md`, main 이식 2026-09-05). **작품검색 탭**(지도 + 바텀시트 + 검색)을
 만든다 — 화면 구조·검색 규칙의 기준은
 [검색 탭 네이티브 구현 계획](../../docs/project/plans/mobile-native-search-tab.md) §3 이다.
 
@@ -138,6 +138,23 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 - 「인기 코스」의 이름·정렬 기준, 그리고 진짜 코스 공유 API(MZ2AZ-232, 아직 백엔드 티켓
   없음 — 2026-08-24 결정: 당장은 만들지 않는다).
 - 편의시설 조회는 프로토타입 서버를 빌려 쓴다. `/pois` 계약·구현(MZ2AZ-283·284)이 서면 갈아탄다.
+
+## 홈 탭과 편의시설 (2026-09-05, main 이식)
+
+navi-proto 의 홈 재편(`cd8debd`)과 편의시설 점을 옮겼다. 홈은 프론트만이고, 편의시설은
+어젯밤 main 에 들어온 계약 `GET /pois`(MZ2AZ-314)를 쓴다 — 프로토 서버 `:8899` 는 없다.
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `HomeTab/HomeTabView.swift` | 홈 — 인사 · 내 여행 이어가기 · 지금 뜨는 작품 · 오늘의 성지 · 여행자들의 코스 · 커뮤니티 지금 · 내 기록 |
+| `HomeTab/HomeTabModel.swift` | 서버 넷을 나란히 — `listContents`·`listPlaces`·코스 상세(스탬프)·내 여행 |
+| `HomeTab/HomeCards.swift` · `HomeFeed.swift` | 카드들. **오늘의 성지는 「담기」** — 코스 없는 길찾기가 계약에 없어(MZ2AZ-313) 장바구니로 잇는다 |
+| `RootTabs.swift` · `Models/TabRouter.swift` | 탭 셋 + 덮개(`cover`: 경로여정·마이페이지) · 쪽지(`pendingCourseId`·`pendingContentId`·`pendingTripStart`) |
+| `RouteTab/RouteGuide.swift` `pois`·`card` | 편의시설 — `PoisAPI.listPois`(bbox+중심, 거리순 30) · `PoisAPI.getPoiCard`(네이버 카드, 데모 한정) |
+| `RouteTab/RoutePoiTone.swift` `RoutePoiGlyph` | 점의 업종 아이콘(카페·식당·지하철·공항…) · 이름표는 크게 확대했을 때만(`PinoPin.caption`) |
+
+로컬에서 점을 보려면 POI 가 적재돼 있어야 한다 — `just seed-poi`(표본 23행) 또는
+`just seed-poi <걸러 둔 jsonl.gz …>`(전량 50만 행, 저장소 밖).
 
 ## 여행 모드 — 편집 화면 안에서 길찾기·스탬프 (2026-09-04, MZ2AZ-307)
 

@@ -10,6 +10,9 @@ import SwiftUI
 /// 드릴다운은 검색 상태와 별개다: 작품을 골라도(`selectedContent`) 검색어와 검색
 /// 결과는 그대로 남아, 뒤로 가면 고르기 전 화면으로 돌아간다.
 struct SearchTabView: View {
+    /// 홈이 남긴 「이 작품 열어 줘」 쪽지를 받는다(`pendingContentId`).
+    @ObservedObject private var router = TabRouter.shared
+
     @StateObject var data = SceneData()
     @StateObject var cart = CartStore()
     @ObservedObject var likes = LikeStore.shared
@@ -200,6 +203,10 @@ struct SearchTabView: View {
             data.search("")
             await cart.refresh()
         }
+        // 홈의 「지금 뜨는 작품」이 남긴 쪽지 — 그 작품의 상세를 연다. 첫 로드
+        // (`data.search("")`)가 아직이면 목록에 없어 못 열지만, 검색 탭은 앱이 뜰 때
+        // 부터 살아 있으므로 홈에서 넘어올 때는 이미 받아 둔 상태다.
+        .onChange(of: router.pendingContentId) { _, wanted in openPendingContent(wanted) }
         // 카메라 fit 은 결과가 실제로 도착한 순간에 건다. 첫 진입 로드는 pendingFit
         // 이 false 라 서울 중심을 유지한다 (MZ2AZ-162, §3-1).
         // 첫 화면에서 장소 탭으로 옮기면 인기 10곳이 **한 화면에 다 들어오게** 맞춘다.
@@ -368,6 +375,12 @@ struct SearchTabView: View {
                         }
                     }
                 }
+                // **탭이 바뀌면 스택을 새로 만든다.** 작품 id 와 장소 id 는 같은 정수
+                // 공간(둘 다 1 부터)이라, 위 두 ForEach 가 같은 id 의 행을 낸다. LazyVStack
+                // 은 id 로 행을 재사용하므로 탭을 오가면 작품 목록에 장소 행(번호 핀)이
+                // 남아 섞였다(iOS 26 시뮬레이터 실측, 2026-09-01 — iOS 18 에서는 드러나지
+                // 않았다). 탭 전환 때 스크롤이 맨 위로 가는 것은 바라던 동작이다.
+                .id(tab)
             }
         }
     }
@@ -514,5 +527,17 @@ struct ChipRow: View {
             .padding(.horizontal, 14)
         }
         .padding(.bottom, 8)
+    }
+}
+
+/// 타입 본문 길이(swiftlint 350줄) 때문에 여기 둔다 — 같은 파일의 확장은 private 에 닿는다.
+private extension SearchTabView {
+    /// 홈이 남긴 「이 작품 열어 줘」 쪽지를 연다. 쪽지는 한 번 읽고 버린다.
+    func openPendingContent(_ wanted: Int64?) {
+        guard let wanted else { return }
+        if let content = data.contents.first(where: { $0.id == wanted }) {
+            open(content)
+        }
+        router.pendingContentId = nil
     }
 }

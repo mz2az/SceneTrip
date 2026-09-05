@@ -26,11 +26,10 @@ extension RouteMapView.Coordinator {
             let isPicked = place.id == picked?.id
             marker.iconImage = isPicked
                 ? PinoPin.marker(.picked)
-                : PinoPin.guideDot(place.poiGroup)
+                : PinoPin.guideDot(for: place)
             marker.anchor = isPicked ? CGPoint(x: 0.5, y: 1) : CGPoint(x: 0.5, y: 0.5)
-            marker.captionText = place.name
-            // 챗봇 결과(14)보다 늦게 이름이 나온다 — 배경은 배경답게 조용해야 한다.
-            marker.captionMinZoom = 16
+            // 챗봇 결과보다 늦게 이름이 나온다 — 배경은 배경답게 조용해야 한다.
+            PinoPin.caption(marker, name: place.name, picked: isPicked, ambient: true)
             marker.zIndex = isPicked ? 30 : 3
             marker.touchHandler = { [weak self] _ in
                 self?.onTapGuide(place)
