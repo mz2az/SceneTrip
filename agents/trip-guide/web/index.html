@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SceneTrip 여행 가이드</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --line: #e3e6ea; --ink: #1c2024;
+    --muted: #6b7684; --me: #2f6df6; --tool: #f0f4ff; --tool-ink: #3457b2;
+    --warn: #b4451f; --warn-bg: #fdf1ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181c; --panel: #1e2126; --line: #2c3038; --ink: #e8eaed;
+      --muted: #9aa4b2; --tool: #1c2740; --tool-ink: #8fb2ff;
+      --warn: #f0a48a; --warn-bg: #2e1d17;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", sans-serif;
+    display: flex; flex-direction: column; height: 100vh;
+  }
+  header {
+    background: var(--panel); border-bottom: 1px solid var(--line);
+    padding: 12px 20px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; }
+  header .meta { font-size: 12.5px; color: var(--muted); }
+  header .meta b { color: var(--ink); font-weight: 600; }
+  main { flex: 1; overflow-y: auto; padding: 22px 20px 8px; }
+  .wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  .msg { display: flex; }
+  .msg.me { justify-content: flex-end; }
+  .bubble {
+    max-width: 82%; padding: 11px 15px; border-radius: 16px;
+    background: var(--panel); border: 1px solid var(--line); white-space: pre-wrap;
+  }
+  .msg.me .bubble { background: var(--me); color: #fff; border-color: transparent; }
+  .bubble strong { font-weight: 650; }
+  .tools { display: flex; flex-wrap: wrap; gap: 6px; margin: -6px 0 0; }
+  .chip {
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--tool); color: var(--tool-ink);
+    border-radius: 7px; padding: 3px 9px;
+  }
+  .chip.refused { background: var(--warn-bg); color: var(--warn); }
+  .sys { font-size: 12.5px; color: var(--muted); text-align: center; }
+  footer { background: var(--panel); border-top: 1px solid var(--line); padding: 12px 20px 16px; }
+  .bar { max-width: 760px; margin: 0 auto; display: flex; gap: 8px; }
+  input[type=text] {
+    flex: 1; padding: 11px 14px; border: 1px solid var(--line); border-radius: 11px;
+    background: var(--bg); color: var(--ink); font: inherit;
+  }
+  input[type=text]:focus { outline: 2px solid var(--me); outline-offset: -1px; }
+  button {
+    padding: 11px 17px; border: 0; border-radius: 11px; background: var(--me);
+    color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .quick { max-width: 760px; margin: 0 auto 9px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .quick button {
+    background: transparent; color: var(--muted); border: 1px solid var(--line);
+    font-size: 12.5px; font-weight: 500; padding: 5px 11px; border-radius: 20px;
+  }
+  .cart { font-size: 12.5px; color: var(--muted); }
+  .cart b { color: var(--ink); }
+</style>
+</head>
+<body>
+<header>
+  <h1>SceneTrip 여행 가이드</h1>
+  <span class="meta" id="meta">불러오는 중…</span>
+  <span class="cart" id="cart"></span>
+</header>
+
+<main><div class="wrap" id="log"></div></main>
+
+<footer>
+  <div class="quick">
+    <button data-say="도깨비 촬영지 중에 꼭 가봐야 할 곳 알려줘">도깨비 촬영지</button>
+    <button data-say="지금 여기 근처에 갈 만한 촬영지 있어?">이 근처 촬영지</button>
+    <button data-say="I love K-dramas. Which filming locations should I visit in Seoul?">영어로 묻기</button>
+    <button data-say="동선 짜줘">동선 짜줘</button>
+    <button data-here="명동">위치를 명동으로</button>
+  </div>
+  <div class="bar">
+    <input type="text" id="input" placeholder="무엇이든 물어보세요 — 예: 눈물의 여왕 촬영지 알려줘" autocomplete="off">
+    <button id="send">보내기</button>
+  </div>
+</footer>
+
+<script>
+const sid = Math.random().toString(36).slice(2);
+const log = document.getElementById('log');
+const input = document.getElementById('input');
+const send = document.getElementById('send');
+
+function bubble(text, who) {
+  const row = document.createElement('div');
+  row.className = 'msg ' + who;
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  // 모델이 **굵게** 를 쓴다. 그것만 해석하고 나머지는 글자 그대로 둔다 —
+  // 마크다운을 통째로 해석하면 모델 출력이 HTML 이 되어 화면에 끼어들 수 있다.
+  b.innerHTML = text
+    .replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  row.appendChild(b);
+  log.appendChild(row);
+  log.parentElement.scrollTop = log.parentElement.scrollHeight;
+}
+
+function chips(runs) {
+  if (!runs || !runs.length) return;
+  const row = document.createElement('div');
+  row.className = 'tools';
+  for (const r of runs) {
+    const c = document.createElement('span');
+    c.className = 'chip' + (r.refused ? ' refused' : '');
+    c.textContent = (r.refused ? '✕ ' : '→ ') + r.name + '(' + r.args + ')';
+    row.appendChild(c);
+  }
+  log.appendChild(row);
+}
+
+function note(text) {
+  const d = document.createElement('div');
+  d.className = 'sys';
+  d.textContent = text;
+  log.appendChild(d);
+  log.parentElement.scrollTop = log.parentElement.scrollHeight;
+}
+
+function paintCart(state) {
+  document.getElementById('cart').innerHTML =
+    (state.here ? '위치 <b>' + state.here + '</b> · ' : '') +
+    (state.cart && state.cart.length ? '담은 곳 <b>' + state.cart.length + '</b>곳' : '담은 곳 없음');
+}
+
+async function post(path, body) {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(Object.assign({sid}, body))
+  });
+  return res.json();
+}
+
+async function ask(text) {
+  bubble(text, 'me');
+  input.value = '';
+  send.disabled = true;
+  const t0 = performance.now();
+  try {
+    const data = await post('/chat', {text});
+    if (data.error) { note('오류 — ' + data.error); return; }
+    chips(data.tools);
+    bubble(data.reply, 'bot');
+    note(((performance.now() - t0) / 1000).toFixed(1) + '초');
+    paintCart(data.state);
+  } catch (e) {
+    note('서버에 닿지 못했습니다 — ' + e.message);
+  } finally {
+    send.disabled = false;
+    input.focus();
+  }
+}
+
+send.onclick = () => { const t = input.value.trim(); if (t) ask(t); };
+input.onkeydown = e => { if (e.key === 'Enter') send.onclick(); };
+
+for (const b of document.querySelectorAll('.quick button')) {
+  b.onclick = async () => {
+    if (b.dataset.say) return ask(b.dataset.say);
+    const data = await post('/here', {text: b.dataset.here});
+    note(data.message);
+    paintCart(data.state);
+  };
+}
+
+fetch('/state?sid=' + sid).then(r => r.json()).then(s => {
+  document.getElementById('meta').innerHTML =
+    '성지 데이터 <b>' + s.source + '</b> · 모델 <b>' + s.model + '</b>';
+  paintCart(s);
+  note('무엇이든 물어보세요. 아래 단추로 빠르게 시험해 볼 수도 있습니다.');
+});
+</script>
+</body>
+</html>
