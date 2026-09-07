@@ -109,7 +109,7 @@ Content-Type: application/json
   "context": {
     "courseId": 7,
     "editing": true,
-    "plan": { "...앱이 들고 있는 편집 사본 전체..." }
+    "plan": { "...앱이 들고 있는 편집 사본 전체 — $defs/guidePlan..." }
   }
 }
 ```
@@ -119,7 +119,7 @@ Content-Type: application/json
 | `sessionId` | ○ | 대화 식별자. 에이전트가 이것으로 세션을 잇는다 |
 | `messages` | ○ | 마지막 `role:"user"` 만 쓴다. 없으면 `{error}` |
 | `latitude`·`longitude` | ✕ | 없으면 「이 근처」 질문이 거절된다 |
-| `context.plan` | ✕ | **DB 에서 읽지 말 것.** §5 참조 |
+| `context.plan` | ✕ | **DB 에서 읽지 말 것.** 앱이 들고 있는 편집 사본을 그대로 통과시킨다 — §5. 모양은 `schemas/effects.json` 의 `$defs/guidePlan` ([plan-shape.md](plan-shape.md)). 에이전트는 이것이 오면 세션 일정을 버리고 이것으로 답하며, **없으면 「짜 둔 일정이 없다」고 거절한다** |
 
 ### 응답 (성공, HTTP 200)
 
@@ -131,7 +131,7 @@ Content-Type: application/json
                "address": "인천…", "latitude": 37.47, "longitude": 126.62}],
   "route":   null,
   "effects": [{"op": "plan.revise", "day": 2, "add": [], "remove": ["한미서점"],
-               "plan": {"...갱신된 일정 전체..."}}],
+               "plan": {"...갱신된 일정 전체 — $defs/guidePlan..."}}],
   "ui":      [{"op": "course.focus", "day": 2, "changed": ["한미서점"]}],
   "tookSeconds": 3.3
 }
@@ -223,7 +223,7 @@ DB 것을 넘기면 챗봇이 **이미 없는 것을 빼려 하거나 옛 일정
 | **코스 (편집 중)** | 📱 **앱** | 저장 전이므로 |
 | 코스 (편집 아님) | 🗄️ DB | 마지막 저장본이 최신 |
 
-→ **앱이 보낸 `context.plan` 을 그대로 통과시킨다.**
+→ **앱이 보낸 `context.plan` 을 그대로 통과시킨다.** 에이전트 쪽 구현은 끝났다 (MZ2AZ-318, `Session.adopt_plan`).
 
 ---
 

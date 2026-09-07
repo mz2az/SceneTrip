@@ -33,6 +33,7 @@ from .planner import (
     Revision,
     make_plan,
     move_stop,
+    plan_to_api,
     plan_to_dict,
     revise_day,
 )
@@ -433,7 +434,7 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
         # 부르는 하나뿐인 요청"). 챗봇이 짰다고 바로 저장하면 사용자가 「취소」를
         # 눌러도 이미 저장돼 있게 된다. 우리는 초안을 건넬 뿐이고, 저장 시점은
         # 사용자가 정한다.
-        session.emit(op="plan.draft", plan=plan_to_dict(plan))
+        session.emit(op="plan.draft", plan=plan_to_api(plan))
         session.show(op="course.open", day=1)
         session.show(op="sheet.collapse")
 
@@ -534,7 +535,7 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
             day=rev.day,
             add=rev.added,
             remove=rev.removed,
-            plan=plan_to_dict(rev.plan),
+            plan=plan_to_api(rev.plan),
         )
         # **바뀐 자리를 짚어 준다.** 무엇이 달라졌는지 눈에 보이지 않으면
         # 사용자는 바뀌었는지도 모른다.
@@ -557,7 +558,7 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
             name=args["name"],
             day=rev.moved_from,
             toDay=rev.day,
-            plan=plan_to_dict(rev.plan),
+            plan=plan_to_api(rev.plan),
         )
         session.show(op="course.focus", day=rev.day, changed=rev.added)
         return _revision_result(rev)

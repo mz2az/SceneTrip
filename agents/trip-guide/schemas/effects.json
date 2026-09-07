@@ -65,7 +65,7 @@
             }
           },
           "plan": {
-            "type": "object",
+            "$ref": "#/$defs/guidePlan",
             "description": "일정 전체. **앱의 편집 사본을 이것으로 교체한다.** 저장(PUT)은 사용자의 「완료」가 부른다."
           }
         }
@@ -115,6 +115,162 @@
               "type": "string"
             },
             "description": "course.focus 에서 방금 바뀐 자리. 앱이 그 줄을 잠깐 강조한다 — 무엇이 바뀌었는지 눈으로 보이지 않으면 사용자는 바뀌었는지도 모른다."
+          }
+        }
+      }
+    },
+    "guidePlan": {
+      "type": "object",
+      "title": "앱이 그리는 일정",
+      "description": "**모델이 읽는 글이 아니라 앱이 그리는 데이터다.** 에이전트는 같은 일정을 두 벌로 내보낸다 — 도구 결과로 모델에게 가는 한글 사전(좌표·점수 없음)과, effects·`POST /plan` 응답에 실려 앱까지 가는 이 모양. 후자만 좌표와 `placeId` 를 들고 있어서 앱이 지도에 핀을 찍고 「완료」에 `PUT /courses/{id}` 로 저장할 수 있다. 모델은 이 모양을 보지 않는다.\n\n앱은 편집한 사본을 다음 요청의 `context.plan` 에 같은 모양으로 돌려보낸다. 편집 중에는 앱이 정본이고, 에이전트는 매 턴 그것으로 갈아 끼운다.",
+      "required": [
+        "days"
+      ],
+      "properties": {
+        "titles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "사용자가 요청한 작품들"
+        },
+        "pace": {
+          "enum": [
+            "relaxed",
+            "normal",
+            "packed"
+          ]
+        },
+        "considered": {
+          "type": "integer",
+          "description": "본 후보 수. 근거를 보여 줄 때 쓴다"
+        },
+        "travelBasis": {
+          "const": "straight_line",
+          "description": "`metersToNext` 가 어떻게 나온 값인지. **직선거리에 우회 계수를 곱한 어림이다.** 구간 소요 시간을 주지 않는 이유도 같다 — 실제 소요 시간은 길찾기 창구만 답할 수 있고, 계약이 코스 편집 응답에 「구간 소요 시간 — 주지 않는다」 고 못 박아 두었다."
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "days": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "day",
+              "stops"
+            ],
+            "properties": {
+              "day": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "endMinute": {
+                "type": "integer",
+                "description": "그날 마치는 시각. **0 시 기준 정수 분이다** — `\"12:17\"` 같은 표시 문자열은 앱이 만든다"
+              },
+              "totalMeters": {
+                "type": "integer"
+              },
+              "stops": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "order",
+                    "name",
+                    "arriveMinute"
+                  ],
+                  "properties": {
+                    "order": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "placeId": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "scene-api 의 정수 id. **없으면 `null` 이고 이름으로 대체하지 않는다** — 이름을 id 로 알고 저장하면 동명 장소에 걸린다. `null` 이면 앱은 저장하지 못한다."
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "address": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "latitude": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "longitude": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "arriveMinute": {
+                      "type": "integer"
+                    },
+                    "dwellMinutes": {
+                      "type": "integer"
+                    },
+                    "titles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "**사용자가 요청한 작품 중** 이 장소가 걸리는 것들. 앱의 「작품별 보기」가 쓴다"
+                    },
+                    "sceneDescription": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "mealAfter": {
+                      "type": "boolean"
+                    },
+                    "metersToNext": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "다음 정지점까지 어림 거리. 마지막은 `null`. `travelBasis` 를 보라"
+                    }
+                  }
+                }
+              },
+              "dropped": {
+                "type": "array",
+                "description": "넣지 못한 곳과 그 이유. 「왜 빠졌는지」를 사용자가 볼 수 있어야 한다",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "placeId": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
