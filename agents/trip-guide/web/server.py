@@ -158,7 +158,13 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         route = urlparse(self.path).path
-        sid = str(body.get("sid") or "")
+        # **계약의 이름은 `sessionId` 다** (`GuideChatRequest`). `sid` 는 브라우저
+        # 시험 페이지가 쓰는 옛 이름이라 함께 받는다.
+        #
+        # 이것을 안 읽으면 모든 요청이 빈 키 하나로 몰려 **대화가 서로 섞인다** —
+        # 남이 보여 준 장소가 내 「거기」로 풀리고, 모델이 남의 일정을 읊는다
+        # (2026-09-09 실기에서 나왔다).
+        sid = str(body.get("sessionId") or body.get("sid") or "")
 
         # /plan 은 모델도 대화 세션도 쓰지 않는다. 세션을 먼저 만들면 키가 없을 때
         # 계산만 하는 이 경로까지 못 쓰게 된다.

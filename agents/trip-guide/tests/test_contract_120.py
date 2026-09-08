@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 import unittest
 
 from src.planner import PlanRequest, make_plan, plan_to_api
@@ -201,3 +202,40 @@ class 세션만료(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class 세션열쇠(unittest.TestCase):
+    """계약의 이름은 `sessionId` 다. 안 읽으면 대화가 서로 섞인다."""
+
+    def desk(self):
+        from web.server import Desk
+
+        return Desk(seoul_incheon_book(), "csv", {})
+
+    def test_sessionId_로_대화가_갈린다(self):
+        import web.server as srv
+
+        seen = []
+
+        class Fake:
+            def __init__(self, *a, **k):
+                pass
+
+        srv.DeepSeekClient = Fake
+        desk = self.desk()
+        a = desk.guide("uuid-a")
+        b = desk.guide("uuid-b")
+        self.assertIsNot(a, b)
+        self.assertEqual(len(desk.guides), 2)
+        seen.append(True)
+
+    def test_요청에서_sessionId_를_읽는다(self):
+        """`sid` 만 읽던 시절에는 모든 요청이 빈 키 하나로 몰렸다."""
+        import re
+
+        source = pathlib.Path("web/server.py").read_text(encoding="utf-8")
+        line = next(
+            l for l in source.splitlines() if l.strip().startswith("sid = str(")
+        )
+        self.assertIn("sessionId", line, line)
+        self.assertTrue(re.search(r'sessionId.*\bor\b.*"sid"', line), line)
