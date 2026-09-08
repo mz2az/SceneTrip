@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
 # POI(편의시설) JSON Lines 를 poi 표에 적재한다.
-# 사용법: seed-poi.sh [파일.jsonl(.gz) ...]
+# 사용법: seed-poi.sh [--prune] [파일.jsonl(.gz) ...]
 # 호출: just seed-poi
 #
-# 인자가 없으면 저장소의 표본(services/scene-api/seed/poi-sample.jsonl, 23 행)을 넣는다.
-# 전량은 저장소에 없다 — TMAP 약관상 공개 배포가 안 되고 190 MB 다. 승길이 준 파일을
-# 경로로 넘긴다. 여러 파일을 주면 이어 붙여 **한 번에** 넣는다 — 파일을 넘나드는 중복을
-# 한 번의 적재 안에서 접기 위해서다.
+# 인자가 없으면 저장소의 표본(services/scene-api/seed/poi-sample.jsonl)을 넣는다.
+# 전량은 저장소에 없다 — 250 MB 다. 공공데이터 판(SceneTrip_POI_20260907/out, 여섯 파일)을
+# 경로로 넘긴다. 여러 파일을 주면 이어 붙여 **한 번에** 넣는다 — 파일을 넘나드는 중복과
+# 관광공사↔상가정보 겹침을 한 번의 적재 안에서 접기 위해서다.
 #
-#   just seed-poi "~/Downloads/압축 poi 2/허용목록만/"poi_{food,stay,sight,transit}.jsonl.gz
+#   just seed-poi ~/Downloads/SceneTrip_POI_20260907/out/poi_*.jsonl
 #
-# **다시 돌려도 안전하다.** seed.sh(성지)와 달리 지우지 않는다 — source_id 로 UPSERT 한다.
-# 있는 행은 갱신하고 없는 행은 더한다. course_item 이 poi 를 참조하게 되면(poi.md §4-2)
-# TRUNCATE 는 사용자 코스를 지우는 일이 되기 때문이다. 좌표가 틀린 판(8/13)을 이미
-# 넣었더라도 새 판을 다시 돌리면 좌표가 갱신된다.
+# **다시 돌려도 안전하다.** seed.sh(성지)와 달리 기본으로는 지우지 않는다 — source_id 로
+# UPSERT 한다. 있는 행은 갱신하고 없는 행은 더한다. course_item 이 poi 를 참조하게 되면
+# (poi.md §4-2) TRUNCATE 는 사용자 코스를 지우는 일이 되기 때문이다.
+#
+# **출처를 통째로 바꿀 때는 --prune.** 이번 입력에 없는 source_id 를 지운다 — TMAP 판
+# (숫자 id)에서 공공데이터 판(MA…·tour-…)으로 갈 때 옛 50만 행을 없애는 데 쓴다. 표본만
+# 넣으면서 켜면 나머지 전부가 지워지므로 표본에는 막아 둔다. poi_naver 카드는 CASCADE.
+#
+#   just seed-poi --prune ~/Downloads/SceneTrip_POI_20260907/out/poi_*.jsonl
 #
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
@@ -25,8 +30,18 @@ POD="postgres-0"
 # poi.sql 의 \copy 가 읽는 경로. psql 이 도는 기계 기준이다 (seed.sh 와 같은 규칙).
 STAGED="/tmp/seed-poi-input.jsonl"
 
-FILES=("$@")
+PRUNE=0
+FILES=()
+for a in "$@"; do
+  case "$a" in
+    --prune) PRUNE=1 ;;
+    *) FILES+=("$a") ;;
+  esac
+done
 [ ${#FILES[@]} -eq 0 ] && FILES=("$SAMPLE")
+if [ "$PRUNE" = 1 ] && [ ${#FILES[@]} -eq 1 ] && [ "${FILES[0]}" = "$SAMPLE" ]; then
+  die "--prune 은 전량 적재에만 씁니다. 표본과 함께 켜면 표본 밖 전부가 지워집니다."
+fi
 for f in "${FILES[@]}"; do
   [ -f "$f" ] || die "파일을 찾을 수 없습니다: $f
        인자 없이 실행하면 저장소의 표본($SAMPLE)을 넣습니다."
@@ -65,7 +80,11 @@ if [ ${#FILES[@]} -eq 1 ] && [ "${FILES[0]}" = "$SAMPLE" ]; then
 else
   log "${#FILES[@]}개 파일, $ROWS 행을 적재합니다"
 fi
-log "있는 행은 갱신하고 없는 행은 더합니다 (source_id 기준). 지우지 않습니다."
+if [ "$PRUNE" = 1 ]; then
+  log "있는 행은 갱신하고 없는 행은 더합니다. --prune: 이번 입력에 없는 행은 지웁니다 (poi_naver 카드도)."
+else
+  log "있는 행은 갱신하고 없는 행은 더합니다 (source_id 기준). 지우지 않습니다."
+fi
 
 if [ -n "$DIRECT" ]; then
   db_connect
@@ -74,7 +93,7 @@ if [ -n "$DIRECT" ]; then
   trap cleanup EXIT
 
   log "변환 실행 — $DB_HOST:$DB_PORT/$DB_NAME"
-  if ! db_psql -q -f "$TRANSFORM"; then
+  if ! db_psql -q -v prune="$PRUNE" -f "$TRANSFORM"; then
     die "적재 실패 — 트랜잭션이 롤백됐습니다. DB 는 적재 직전 상태입니다."
   fi
 else
@@ -89,7 +108,7 @@ else
 
   log "변환 실행"
   if ! kubectl exec -i "$POD" -n "$NAMESPACE" -- \
-    psql -U scenetrip -d scenetrip -v ON_ERROR_STOP=1 -q -f - <"$TRANSFORM"; then
+    psql -U scenetrip -d scenetrip -v ON_ERROR_STOP=1 -v prune="$PRUNE" -q -f - <"$TRANSFORM"; then
     die "적재 실패 — 트랜잭션이 롤백됐습니다. DB 는 적재 직전 상태입니다."
   fi
 fi

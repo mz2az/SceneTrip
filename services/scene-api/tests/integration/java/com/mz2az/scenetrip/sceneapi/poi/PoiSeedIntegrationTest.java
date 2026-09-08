@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * {@code seed/poi.sql} 의 변환 규칙이 지켜졌는지 표에서 확인한다. 표본 23 행에 일부러 넣어 둔 세 가지 — 허용목록 밖 행, 이름·좌표가 같은 중복 쌍,
+ * {@code seed/poi.sql} 의 변환 규칙이 지켜졌는지 표에서 확인한다. 표본 27 행에 일부러 넣어 둔 여섯 가지 — 허용목록 밖 행, 이름·좌표가 같은 중복 쌍,
  * 갈래가 파일이 아니라 biz_middle 로 정해지는 행 — 이 전량에서도 같은 결과여야 한다.
  */
 @DisplayName("POI 적재 — 변환 규칙")
@@ -48,5 +48,25 @@ class PoiSeedIntegrationTest {
 
   private static long count(String sql) {
     return jdbc.sql(sql).query(Long.class).single();
+  }
+
+  @Test
+  @DisplayName("관광공사 음식점이 100 m 안 같은 이름의 상가정보와 겹치면 상가정보만 남는다")
+  void tourRowShadowedByStoreRowIsDropped() {
+    assertThat(count("SELECT count(*) FROM poi WHERE source_id = 'MA0106202201A0999001'"))
+        .isEqualTo(1);
+    assertThat(count("SELECT count(*) FROM poi WHERE source_id = 'tour-9990001'")).isZero();
+  }
+
+  @Test
+  @DisplayName("상가정보에 없는 관광공사 음식점은 들어온다")
+  void tourRowWithoutStoreMatchIsKept() {
+    assertThat(count("SELECT count(*) FROM poi WHERE source_id = 'tour-9990002'")).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("좌표가 한국 밖(위·경도가 바뀐 행)이면 들어오지 않는다")
+  void outOfKoreaCoordinatesAreDropped() {
+    assertThat(count("SELECT count(*) FROM poi WHERE source_id = 'tour-9990003'")).isZero();
   }
 }
