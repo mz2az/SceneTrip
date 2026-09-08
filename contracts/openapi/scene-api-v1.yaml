@@ -3125,6 +3125,13 @@ components:
           description: "`plan.revise` 가 뺀 장소 이름들"
           items:
             type: string
+        plan:
+          nullable: true
+          description: |
+            `plan.*` 이 실어 보내는 **일정 전체.** 앱은 편집 사본을 이것으로 교체한다.
+            저장(`PUT /courses/{id}`)은 사용자의 「완료」가 부른다.
+          allOf:
+            - $ref: "#/components/schemas/GuidePlan"
 
     GuideUiDirective:
       type: object
@@ -3174,6 +3181,145 @@ components:
           description: "`course.focus` 에서 방금 바뀐 장소 이름들"
           items:
             type: string
+
+    GuidePlan:
+      type: object
+      description: |
+        챗봇(`plan_course`)이나 마법사(`POST /guide/plan`)가 짠 **일정 초안.** 앱이 그리는
+        데이터이지 모델이 읽는 글이 아니다 — 에이전트는 같은 일정을 두 벌로 내보내고, 모델에게
+        가는 한글 사전에는 좌표·`placeId` 가 없다. 모델은 이 모양을 보지 않는다.
+        정본: `contracts/schemas/guide/effects.schema.json` (에이전트 `schemas/effects.json`).
+
+        **저장된 코스(`CourseDay`)와 다른 모양이고 일부러 합치지 않았다.** 초안에는 도착 시각과
+        「넣지 못한 곳」이 있고 DB id(`CourseItem.id`)가 없다. 저장된 코스는 도착 시각을 주지
+        않고(`CourseDay` 설명) 항목마다 DB id 가 있어 방문 체크가 붙는다. 견적서와 계약서다.
+
+        **저장하는 법** — 사용자의 「완료」에서 앱이 정지점마다 `placeId` 와 `dwellMinutes` 만
+        꺼내 `CourseItemInput` 으로 `PUT /courses/{id}` 에 보낸다. `placeId` 가 `null` 인
+        정지점은 저장할 수 없고, 이름으로 대체하지 않는다.
+
+        **되돌려보내는 법** — 챗봇으로 고치려면 앱은 편집 중인 사본을 다음 요청의
+        `GuideContext.plan` 에 **같은 모양으로** 싣는다. 편집 중에는 앱이 정본이다.
+
+        시각·길이는 전부 정수다. 분은 0 시 기준(`540` = 09:00), 거리는 m. `"12:17"`·
+        `"약 3.2km"` 같은 표시 문자열은 앱이 만든다.
+      required: [days]
+      properties:
+        titles:
+          type: array
+          description: 사용자가 요청한 작품들
+          items:
+            type: string
+        pace:
+          type: string
+          enum: [relaxed, normal, packed]
+          description: 여유 · 보통 · 빡빡. 하루 예산(분·정지점 수)이 이것으로 정해진다
+        considered:
+          type: integer
+          description: 본 후보 수. 「무엇을 근거로」를 보여 줄 때 쓴다
+        travelBasis:
+          $ref: "#/components/schemas/TravelBasis"
+        notes:
+          type: array
+          description: 사용자에게 알릴 주의 — 「체류 시간은 추정」 같은 것
+          items:
+            type: string
+        days:
+          type: array
+          description: 일차 순서대로. 배열 순서와 `day` 가 같다
+          items:
+            $ref: "#/components/schemas/GuidePlanDay"
+
+    GuidePlanDay:
+      type: object
+      required: [day, stops]
+      properties:
+        day:
+          type: integer
+          minimum: 1
+          description: 1 부터. 날짜가 아니다
+        endMinute:
+          type: integer
+          description: 그날 마치는 시각. **0 시 기준 정수 분** — `"12:17"` 같은 표시는 앱이 만든다
+        totalMeters:
+          type: integer
+          description: 그날 이동 거리 합 (m). `travelBasis` 대로 어림이다
+        stops:
+          type: array
+          description: 갈 순서대로. 배열 순서와 `order` 가 같다
+          items:
+            $ref: "#/components/schemas/GuidePlanStop"
+        dropped:
+          type: array
+          description: |
+            넣지 못한 곳과 그 이유. 「왜 빠졌는지」를 사용자가 볼 수 있어야 한다 — 요청한
+            작품의 촬영지가 말없이 사라지면 사용자는 추천이 틀렸다고 느낀다.
+          items:
+            $ref: "#/components/schemas/GuidePlanDropped"
+
+    GuidePlanStop:
+      type: object
+      required: [order, name, arriveMinute]
+      properties:
+        order:
+          type: integer
+          minimum: 1
+        placeId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            `PlaceSummary.id`. **없으면 `null` 이고 이름으로 대체하지 않는다** — 이름을 id 로
+            알고 저장하면 동명 장소에 걸린다. `null` 이면 앱은 이 정지점을 저장하지 못한다.
+        name:
+          type: string
+        address:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        arriveMinute:
+          type: integer
+          description: 도착 시각. 0 시 기준 정수 분
+        dwellMinutes:
+          type: integer
+          description: 머무는 시간. 장소 종류별 합의값이라 추정이다
+        titles:
+          type: array
+          description: "**사용자가 요청한 작품 중** 이 장소가 걸리는 것들. 앱의 「작품별 보기」가 쓴다"
+          items:
+            type: string
+        sceneDescription:
+          type: string
+          nullable: true
+          description: 그 작품의 어떤 장면이었나
+        mealAfter:
+          type: boolean
+          description: 이 정지점 뒤에 식사 시간이 들어갔는가. 식당은 고르지 않는다 — 맛집 데이터가 없다
+        metersToNext:
+          type: integer
+          nullable: true
+          description: 다음 정지점까지 어림 거리 (m). 마지막은 `null`. 구간 소요 시간은 주지 않는다 — `CourseDay.travelMinutes` 와 같은 원칙
+
+    GuidePlanDropped:
+      type: object
+      required: [name, reason]
+      properties:
+        placeId:
+          type: integer
+          format: int64
+          nullable: true
+        name:
+          type: string
+        reason:
+          type: string
+          description: 사람이 읽는 이유 — 「하루 정지점 상한 3 곳」 「좌표 없음」
 
     GuideToolUse:
       type: object
