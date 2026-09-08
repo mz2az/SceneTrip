@@ -3099,10 +3099,15 @@ components:
         places:
           type: array
           description: |
-            이번 턴에 `poi_nearby` 가 찾아 준 장소. **좌표가 있으므로 지도에 찍을 수 있다.**
-            비면 앞 턴의 목록을 그대로 둔다 — 「어디 기준이야?」 같은 되물음에 목록이 사라지면 안 된다.
+            이번 턴에 찾아 준 장소 — 촬영지(`source: place`)와 편의시설(`source: poi`)이 한 배열에
+            온다. **좌표가 있으므로 지도에 찍을 수 있다.** 비면 앞 턴의 목록을 그대로 둔다 —
+            「어디 기준이야?」 같은 되물음에 목록이 사라지면 안 된다.
+
+            `ui` 의 `placeIds`·`placeId` 는 이 배열의 `id` 를 가리킨다. 촬영지와 편의시설은 **다른
+            표의 id** 라 숫자만으로는 못 가르므로, 앱은 이 배열에서 찾아 `source` 를 보고
+            `GET /places/{id}` 인지 `GET /pois/{id}` 인지 정한다.
           items:
-            $ref: "#/components/schemas/PoiSummary"
+            $ref: "#/components/schemas/GuidePlace"
         route:
           nullable: true
           description: |
@@ -3232,7 +3237,7 @@ components:
         placeIds:
           type: array
           nullable: true
-          description: "`map.focus` · `route.draw` 가 보여 줄 장소들 (`PlaceSummary.id`)"
+          description: "`map.focus` · `route.draw` 가 보여 줄 장소들. 이번 턴 `places[].id` — 출처는 그 배열의 `source` 로"
           items:
             type: integer
             format: int64
@@ -3240,7 +3245,7 @@ components:
           type: integer
           format: int64
           nullable: true
-          description: "`place.card` 가 띄울 장소"
+          description: "`place.card` 가 띄울 장소. 이번 턴 `places[].id` — 출처는 그 배열의 `source` 로"
         day:
           type: integer
           minimum: 1
@@ -3455,6 +3460,28 @@ components:
           type: number
           format: double
 
+    GuidePlace:
+      description: |
+        가이드가 찾아 준 장소 하나. `PoiSummary` 의 모양에 **출처(`source`)** 를 더한 것이다.
+
+        촬영지(`place` 표)와 편의시설(`poi` 표)은 id 가 따로 매겨져 있어 같은 숫자가 다른 곳을
+        가리킬 수 있다. `categoryGroup` 으로도 못 가른다 — 편의시설의 「관광지」도 `sight` 다.
+        그래서 출처를 명시한다. 코스 항목의 `CourseItemSource` 와 같은 발상이다.
+      allOf:
+        - $ref: "#/components/schemas/PoiSummary"
+        - type: object
+          required: [source]
+          properties:
+            source:
+              $ref: "#/components/schemas/GuidePlaceSource"
+
+    GuidePlaceSource:
+      type: string
+      enum: [place, poi]
+      description: |
+        `place` — 촬영지. `id` 는 `PlaceSummary.id`, 상세는 `GET /places/{id}`.
+        `poi` — 편의시설. `id` 는 `PoiSummary.id`, 상세는 `GET /pois/{id}`.
+
     GuideToolUse:
       type: object
       required: [tool, arguments]
@@ -3463,7 +3490,7 @@ components:
           type: string
           description: |
             부른 도구 이름. enum 이 아니라 문자열이다 — 에이전트가 도구를 하나 더할 때 옛 앱이
-            응답 전체를 못 읽지 않게. 앱은 모르는 이름도 그대로 보여 주면 된다. 지금 정의된 열 개:
+            응답 전체를 못 읽지 않게. 앱은 모르는 이름도 그대로 보여 주면 된다. 지금 정의된 아홉 개:
 
             | 도구 | 언제 |
             | --- | --- |
@@ -3472,7 +3499,6 @@ components:
             | `places_near` | 「이 근처」·「2번 주변」 촬영지 |
             | `place_detail` | 「거기 무슨 장면이야?」 |
             | `update_cart` | 「그거 담아 줘」·「빼 줘」 → `cart.*` effect |
-            | `draft_course` | 담아 둔 곳을 걷기 좋은 순서로 (하루) |
             | `plan_course` | 작품과 기간으로 일정 전체 → `plan.draft` effect |
             | `revise_plan` | 짜 둔 일정의 한 일차만 고침 → `plan.revise` effect |
             | `move_stop` | 한 곳을 다른 일차로 → `plan.move` effect |
@@ -3483,7 +3509,7 @@ components:
     GuideToolArguments:
       type: object
       description: |
-        모델이 넣은 인자 — 검증을 통과한 값만. 열 도구의 인자를 한 모양에 모았다(생성기가 자유 객체를
+        모델이 넣은 인자 — 검증을 통과한 값만. 아홉 도구의 인자를 한 모양에 모았다(생성기가 자유 객체를
         못 만들어서다). 도구마다 쓰는 필드만 채워지고 나머지는 없다. 정본은 `contracts/schemas/guide/tools/`.
 
         **이름은 이 계약의 것(camelCase)이다.** 에이전트가 모델과 주고받는 이름(`radius_m`·`to_day`)은
