@@ -1444,6 +1444,11 @@ paths:
         `sessionId` 는 대화 하나를 잇는 열쇠다. 서버는 그 대화에서 **보여 준 장소 목록**을
         기억해 「거기 어떻게 가」의 「거기」를 푼다. 서버 재시작이면 잊는다 — 앱은 새 세션으로
         다시 묻는다.
+
+        **가입한 사용자만 부를 수 있다(`401 SIGN_IN_REQUIRED`).** 턴마다 모델 토큰이 나가는 유료
+        경로라 호출 여부를 서버가 정한다 — 여행 중 길찾기와 같은 이유다. 판정은 에이전트를
+        부르기 **전**이라 미가입 요청은 비용 없이 걸러진다. 마법사(`POST /guide/plan`)는 모델을
+        안 부르니 이 조건이 없다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
         - $ref: "#/components/parameters/DeviceId"
@@ -1464,6 +1469,8 @@ paths:
                 $ref: "#/components/schemas/GuideChatReply"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignInRequired"
         "503":
           description: |
             에이전트가 응답하지 않는다 — 프로세스가 죽었거나, 모델이 꺼져 있거나 한도 초과.
@@ -1651,7 +1658,7 @@ components:
     SignInRequired:
       description: |
         가입해야 할 수 있는 동작. 좋아요 · 마켓에 담기 · 마켓에 올리기 · 마켓에서
-        내리기 · 여행 중 길찾기 다섯이다.
+        내리기 · 여행 중 길찾기 · 여행 가이드 챗봇 여섯이다.
 
         나머지는 계정 없이 다 된다 — 검색하고, 장바구니에 담고, 작품을 찜하고, 코스를
         만들어 시작하는 데까지 계정이 필요 없다. 로그인 벽을 앞에 세우면 사람들이 앱을
