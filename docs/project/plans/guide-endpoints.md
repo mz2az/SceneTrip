@@ -4,7 +4,8 @@
 - **작성일**: 2026-09-08
 - **상태**: 계약 확정(PR #79·#80 병합) — **구현 전.** 이 문서대로 짜고, 어긋나면 문서를 고친다
 - **ADR**: [0013 가이드 챗봇은 파이썬 에이전트가 맡고 scene-api 는 프록시한다](../../architecture/adr/0013-guide-chat-is-served-by-the-python-agent.md)
-- **계약**: `contracts/openapi/scene-api-v1.yaml` 1.2.0 의 `POST /guide/chat`·`POST /guide/plan`, `contracts/schemas/guide/`
+- **계약**: `contracts/openapi/scene-api-v1.yaml` 1.2.0 의 `POST /guide/chat`·`POST /guide/plan`, `contracts/schemas/guide/` (PR #79 #80 #81)
+- **같이 가는 티켓**: [MZ2AZ-320](https://mz2az.atlassian.net/browse/MZ2AZ-320) 에이전트를 계약에 맞춤(태환) · [MZ2AZ-321](https://mz2az.atlassian.net/browse/MZ2AZ-321) 앱을 창구에 붙임(승길)
 - **에이전트 쪽 명세**: [`agents/trip-guide/docs/design/backend-handoff.md`](../../../agents/trip-guide/docs/design/backend-handoff.md) — 에이전트가 무엇을 받고 주는지
 
 ---
@@ -118,7 +119,31 @@ public GuidePlanReply plan(GuidePlanRequest request, Lang lang)   // POST {base-
 
 카카오와 다른 점 하나 — 카카오의 400 은 *우리* 결함이라 500 으로 보냈지만, 에이전트의 400 은 *앱*의
 잘못이라 400 으로 돌려준다. 에이전트가 `/guide/chat` 에서 이미 `{code:"INVALID_PARAMETER"}` 를 주므로
-그대로 통과시키면 된다(`/plan` 도 그 모양으로 맞추는 것이 태환님 목록에 있다).
+그대로 통과시키면 된다(`/plan` 도 그 모양으로 맞추는 것이 MZ2AZ-320 §3 에 있다).
+
+**타임아웃은 세 층이고, 안쪽이 바깥보다 먼저 포기한다.**
+
+```
+에이전트 턴 예산 30초  <  scene-api 벽 40초  <  앱 50초
+```
+
+| 층 | 값 | 성격 | 누가 |
+| --- | --- | --- | --- |
+| 에이전트 → DeepSeek | 호출 하나 15초 · **턴 전체 30초** | 턴 시작 때 마감을 정하고 호출마다 남은 시간을 배분. 재시도 포함. 넘기면 스스로 503 | MZ2AZ-320 §7 |
+| scene-api → 에이전트 | 연결 3초 · 응답 **40초** | **벽.** 안에서 뭘 하는지 모르고 기다리기만 | 이 문서 |
+| 앱 → scene-api | 50초 | 벽. 자동 재시도 없음 | MZ2AZ-321 §6 |
+
+바깥이 먼저 끊으면 안쪽은 모른 채 끝까지 돈다 — 에이전트는 토큰을 쓰고 이력에 답을 남기고, 서버는
+뒤늦게 `cart.add` 를 저장하는데 앱은 실패로 보인다. 안쪽이 먼저 포기하면 각 층이 제대로 된 오류를
+위로 올리고, 바깥 값은 안전망으로만 남는다. 정상 운영에서 scene-api 가 40초를 다 기다리는 일은
+에이전트가 제 예산을 못 지켰을 때뿐이다.
+
+**재시도는 없다.** `/guide/chat` 은 멱등이 아니다 — 토큰을 쓰고, 세션 이력이 쌓이고, `cart.add` 가
+두 번 올 수 있다. 클라이언트에 재시도 코드를 넣지 않고, 이유를 머리말에 적는다. 앱도 자동 재시도를
+하지 않는다.
+
+한 턴 안에서 무슨 일이 일어나는지는 scene-api 가 알 필요가 없다 — 「도깨비로 1박 2일」이면 모델 호출
+2번과 scene-api GET 2번, 도구를 4번 도는 턴이면 모델 호출 5번. 전부 합쳐 40초 안에 오느냐만 본다.
 
 ### 2-3. 설정 — `scenetrip.guide.*`
 
@@ -151,8 +176,14 @@ spring:
 톰캣 스레드에서 사라진다. 자바 21 · Boot 4.1 이라 설정 한 줄이다.
 
 병목은 사라지는 것이 아니라 **DB 커넥션 풀(HikariCP 기본 10)로 옮겨 간다.** 이 경로는 `cart.*` 가 올 때만
-DB 를 잠깐 쓰므로 괜찮지만, 알고 켜는 것이다. 컨테이너 런타임 JDK 가 21 인지 먼저 확인한다 — 17 이면
-설정이 무시되고 경고만 난다.
+DB 를 잠깐 쓰므로 괜찮지만, 알고 켜는 것이다. 컨테이너 런타임은 `Dockerfile` 의 `eclipse-temurin:21-jre`
+라 동작한다.
+
+**진짜 이유는 재진입이다.** `plan_course` 는 에이전트가 작품마다 scene-api 에 GET 을 두 번씩 보낸다 —
+scene-api 가 에이전트를 기다리는 동안 에이전트는 scene-api 를 부른다. 플랫폼 스레드였다면 톰캣 스레드
+200 개가 전부 에이전트를 기다리고 있을 때 에이전트의 GET 을 받아 줄 스레드가 없어 **양쪽이 서로를
+기다린다.** 부하가 걸리면 챗봇이 느려지는 정도가 아니라 `/places` 까지 같이 멈춘다. 가상 스레드는
+기다리는 요청이 캐리어를 놓아 주므로 GET 이 받아진다.
 
 ## 3. `effects` 처리 — 여기가 유일한 로직
 
@@ -190,7 +221,7 @@ for e in effects:
 
 | 시험 | 방식 | 확인하는 것 |
 | --- | --- | --- |
-| `guide/GuideAgentClientTest` | JDK `HttpServer` 가짜 에이전트(`KakaoRoutingClientTest` 와 같다) | 200 → 모델로 읽힌다 · 400 → 400 그대로 · 503 → 503 · 연결 거부 → 503 · 시간 초과 → 503 · 깨진 JSON → 503 · 요청 몸체에 `context.plan` 이 그대로 실린다 |
+| `guide/GuideAgentClientTest` | JDK `HttpServer` 가짜 에이전트(`KakaoRoutingClientTest` 와 같다) | 200 → 모델로 읽힌다 · 400 → 400 그대로 · 503 → 503 · **연결 거부** → 즉시 503 · **연결 지연**(listen 안 함) → 3초에 503 · **응답 지연**(헤더도 안 보냄) → 타임아웃에 503 · **헤더 뒤 멈춤**(200 헤더만 보내고 몸체 안 보냄) → 타임아웃에 503 · 깨진 JSON → 503 · 요청 몸체에 `context.plan` 이 그대로 실린다 |
 | `guide/GuideEffectApplierTest` | `CartStore` Mockito | `cart.add` → `add` 호출 · `placeId` null → 호출 없음 · 없는 장소 → 호출 없음 · 중복 → 예외 없음 · `plan.draft` → `CartStore` 를 전혀 안 건드림 · 모르는 `op` → 무시 · `CartStore` 예외 → 그대로 올라감 |
 | `web/GuideControllerTest` | `@WebMvcTest` + Mockito (`NavigationControllerTest` 와 같다) | 응답 JSON 이 에이전트 것과 같다(`effects`·`ui` 포함) · `X-Device-Id` 없으면 400 · 클라이언트가 503 을 던지면 503 `GUIDE_UNAVAILABLE` · `/guide/plan` 은 `X-Device-Id` 없이 200 · `/guide/plan` 은 `GuideEffectApplier` 를 부르지 않는다 |
 
@@ -212,7 +243,9 @@ just stack-up …                            # scene-api(:8081) + DB
 | 5 | 에이전트를 끄고 `/guide/chat` | **503 `GUIDE_UNAVAILABLE`**, 3 초 안에 |
 | 6 | `grep -r "system prompt\|deepseek\|plan_course" services/scene-api/src` | **0 건.** 있으면 0012 로 되돌아간 것 |
 
-4 번은 태환님이 `/plan` 을 계약에 맞춘 뒤에야 `/guide/plan` 경로로도 된다(지금은 `start` 배열).
+4 번은 MZ2AZ-320 이 끝난 뒤에야 `/guide/plan` 경로로도 된다(지금은 `start` 배열). 「헤더 뒤 멈춤」은
+JDK `HttpClient` 의 요청 타임아웃이 몸체까지 덮는지 문서만으로 확답이 안 되는 자리라 시험이 곧 실측이다 —
+실패하면 몸체 읽기에 별도 상한을 두는 쪽으로 고친다.
 
 ## 5. 순서
 
@@ -236,7 +269,8 @@ _비어 있음 — §4-2 를 돌린 뒤 여기에._
   그전까지 클러스터의 scene-api 는 `/guide/*` 에 503 을 낸다 — 설정된 주소에 아무것도 없으니까.
   그것이 맞는 동작이다.
 - **Bedrock 자격 증명** — MZ2AZ-317. 에이전트 쪽 일이고 scene-api 는 모른다.
-- **에이전트가 계약에 맞출 것 넷** — 티켓 표. `/guide/plan` 의 실제 요청 검증(§4-2 의 1·4)은 그 뒤.
-- **앱** — `RouteGuide.ask` 를 생성 클라이언트로, 마법사가 `/guide/plan` 을 부르게, `context.plan` 을
-  싣게. 승길, 별도.
+- **에이전트가 계약에 맞출 것** — MZ2AZ-320 (8 항목). `/guide/plan` 의 실제 요청 검증(§4-2 의 1·4)은 그 뒤.
+- **앱** — MZ2AZ-321. `RouteGuide.ask` 를 생성 클라이언트로, `context.plan` 을 싣게, `effects`·`ui` 처리,
+  `places[].source`, 타임아웃 50초, 마법사가 `/guide/plan` 을 부르게.
+- **기기당 호출 제한** — 공개 전. 지금은 `X-Device-Id` 만 있으면 무제한으로 토큰을 쓴다.
 - **스트리밍.** 응답이 10 초를 넘기 시작하면 검토. 지금은 3~5 초라 「생각하는 중」 표시로 충분하다.
