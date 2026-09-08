@@ -7,6 +7,19 @@ spring:
   application:
     name: scenetrip-scene-api
 
+  threads:
+    # 가상 스레드. 가이드 챗봇(POST /guide/*)이 **요청당 3~5 초를 기다리는 첫 경로**라 켠다.
+    #
+    # 플랫폼 스레드면 톰캣 스레드 200 개가 전부 에이전트 응답을 기다리는 동안 CPU 는 놀면서도
+    # /places 같은 0.01 초 요청이 줄을 선다. 가상 스레드는 기다리는 동안 캐리어를 놓아 주므로
+    # 그 병목이 사라진다 — 자바 21 · Boot 4.1 이라 이 한 줄이면 된다(ADR 0013, 계획 §2-4).
+    #
+    # 병목이 없어지는 것이 아니라 **DB 커넥션 풀(HikariCP 기본 10)로 옮겨 간다.** 동시 요청이
+    # 수천으로 늘어도 커넥션은 열 개다. 챗봇 경로는 cart.* 가 올 때만 DB 를 잠깐 쓰므로 괜찮지만,
+    # 알고 켜는 것이다. 런타임 JDK 가 21 이 아니면 무시되고 경고만 난다.
+    virtual:
+      enabled: true
+
   jackson:
     # 값이 없는 필드는 응답에서 뺀다.
     #
@@ -106,6 +119,19 @@ scenetrip:
     # 뒤에서 채우는 일꾼 — 한 건 사이 최소 간격(초당 3 건 상한)과, 막혔을 때 쉬는 시간.
     min-interval-ms: 300
     pause-seconds: 60
+
+  # 가이드 챗봇·일정짜기 마법사 — agents/trip-guide 에이전트를 부른다 (ADR 0013, MZ2AZ-319).
+  # 키는 없다. 모델 키는 에이전트가 들고 있고 이 서비스는 모른다.
+  guide:
+    # 에이전트 주소(web/server.py). 로컬은 노트북의 8899. 클러스터 값은 rules_python 이 켜져
+    # 에이전트 컨테이너가 생길 때 ConfigMap 이 SCENETRIP_GUIDE_AGENT_BASE_URL 로 덮어쓴다.
+    # 비어 있어도 기동은 된다 — 부를 때 503 GUIDE_UNAVAILABLE 을 낸다. 챗봇 없이도 나머지 API 는
+    # 돌아야 한다(카카오 키가 없을 때와 같은 판단).
+    agent-base-url: http://localhost:8899
+    # 응답을 기다리는 상한. 실측 3~5 초(DeepSeek)의 여유이고, 에이전트 자체 상한 60 초보다 **짧게** —
+    # 이쪽이 먼저 끊어야 앱에 「잠시 뒤 다시」를 보일 수 있다. 연결은 따로 3 초(코드) — 연결이 안 되면
+    # 에이전트가 없는 것이라 30 초를 기다릴 이유가 없다.
+    timeout-seconds: 30
 
   course:
     walking-speed-kmh: 4.0
