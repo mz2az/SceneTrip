@@ -2952,6 +2952,20 @@ components:
           $ref: "#/components/schemas/GuideStop"
         trip:
           $ref: "#/components/schemas/GuideTrip"
+        plan:
+          nullable: true
+          description: |
+            **편집 중인 일정.** 챗봇이 짜 준 초안(`GuideEffect.plan`)을 앱이 손으로 고쳤을 수
+            있으므로, 챗봇으로 고치려면 지금 사본을 **같은 모양으로** 매 요청에 싣는다.
+
+            **있으면 이것이 정본이다** — 에이전트는 매 턴 이것으로 갈아 끼우고 나서 고친다.
+            **없으면 일정이 없는 것이다** — 「2일차에서 빼 줘」는 「짜 둔 일정이 없다」로 거절된다.
+            사용자가 보고 있는 것과 다른 일정을 말없이 고치느니 거절하는 편이 낫다.
+
+            서버는 DB 에서 코스를 읽어 대신 넣지 않는다. 편집 중에는 서버로 아무것도 나가지
+            않으므로(`PUT /courses/{id}` 설명) DB 것은 낡았을 수 있다.
+          allOf:
+            - $ref: "#/components/schemas/GuidePlan"
 
     GuideStop:
       type: object
@@ -3327,15 +3341,33 @@ components:
       properties:
         tool:
           type: string
-          enum: [poi_nearby, route, add_to_cart]
+          description: |
+            부른 도구 이름. enum 이 아니라 문자열이다 — 에이전트가 도구를 하나 더할 때 옛 앱이
+            응답 전체를 못 읽지 않게. 앱은 모르는 이름도 그대로 보여 주면 된다. 지금 정의된 열 개:
+
+            | 도구 | 언제 |
+            | --- | --- |
+            | `search_places` | 무엇을 찾는지 분명하지 않을 때 — 작품·배우·장소·주소를 한꺼번에 |
+            | `list_title_places` | 작품을 콕 집어 말했을 때 |
+            | `places_near` | 「이 근처」·「2번 주변」 촬영지 |
+            | `place_detail` | 「거기 무슨 장면이야?」 |
+            | `update_cart` | 「그거 담아 줘」·「빼 줘」 → `cart.*` effect |
+            | `draft_course` | 담아 둔 곳을 걷기 좋은 순서로 (하루) |
+            | `plan_course` | 작품과 기간으로 일정 전체 → `plan.draft` effect |
+            | `revise_plan` | 짜 둔 일정의 한 일차만 고침 → `plan.revise` effect |
+            | `move_stop` | 한 곳을 다른 일차로 → `plan.move` effect |
+            | `poi_nearby` | 편의시설 — 음식점·카페·숙박·명소·교통 |
         arguments:
           $ref: "#/components/schemas/GuideToolArguments"
 
     GuideToolArguments:
       type: object
       description: |
-        모델이 넣은 인자 — 검증을 통과한 값만. 세 도구의 인자를 한 모양에 모았다(생성기가 자유 객체를
+        모델이 넣은 인자 — 검증을 통과한 값만. 열 도구의 인자를 한 모양에 모았다(생성기가 자유 객체를
         못 만들어서다). 도구마다 쓰는 필드만 채워지고 나머지는 없다. 정본은 `contracts/schemas/guide/tools/`.
+
+        **이름은 이 계약의 것(camelCase)이다.** 에이전트가 모델과 주고받는 이름(`radius_m`·`to_day`)은
+        에이전트 내부 일이고, 응답에 실을 때 이 이름으로 바꾼다.
       properties:
         radiusMeters:
           type: integer
@@ -3358,4 +3390,70 @@ components:
         name:
           type: string
           nullable: true
-          description: "`route`·`add_to_cart` — 보여 준 장소의 이름"
+          description: "`place_detail`·`update_cart`·`move_stop` — 보여 준 장소의 이름"
+        title:
+          type: string
+          nullable: true
+          description: "`list_title_places` — 작품 제목"
+        limit:
+          type: integer
+          nullable: true
+          description: "`search_places`·`list_title_places`·`places_near`·`poi_nearby` — 최대 개수"
+        sort:
+          type: string
+          nullable: true
+          description: "`places_near` — `distance` 또는 `popular`"
+        action:
+          type: string
+          nullable: true
+          description: "`update_cart` — `add` 또는 `remove`"
+        titles:
+          type: array
+          nullable: true
+          description: "`plan_course` — 작품들"
+          items:
+            type: string
+        days:
+          type: integer
+          nullable: true
+          description: "`plan_course` — 일수 (1~7)"
+        pace:
+          type: string
+          nullable: true
+          description: "`plan_course` — `relaxed`·`normal`·`packed`"
+        start:
+          type: string
+          nullable: true
+          description: "`plan_course` — 출발점. 번호·`현위치`·빈 값"
+        must:
+          type: array
+          nullable: true
+          description: "`plan_course` — 꼭 넣을 장소 이름들"
+          items:
+            type: string
+        avoid:
+          type: array
+          nullable: true
+          description: "`plan_course` — 뺄 장소 이름들"
+          items:
+            type: string
+        day:
+          type: integer
+          nullable: true
+          description: "`revise_plan` — 고칠 일차"
+        add:
+          type: array
+          nullable: true
+          description: "`revise_plan` — 넣을 장소 이름들"
+          items:
+            type: string
+        remove:
+          type: array
+          nullable: true
+          description: "`revise_plan` — 뺄 장소 이름들"
+          items:
+            type: string
+        toDay:
+          type: integer
+          nullable: true
+          description: "`move_stop` — 옮겨 갈 일차"
