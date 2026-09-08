@@ -1,0 +1,303 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mz2az.com/schemas/guide/effects.schema.json",
+  "title": "에이전트가 한 턴에 내보내는 부수효과와 화면 지시",
+  "description": "**정본은 이 파일이다.** 에이전트(agents/trip-guide/schemas/effects.json)와 scene-api 가 같은 것을 본다. OpenAPI 의 GuideEffect·GuideUiDirective·GuidePlan 과 같은 모양.\n\n챗봇은 떠 있는 시트 안에 있고, 지도와 코스 편집기는 그 바깥에 있다. 「2일차에서 빼 줘」 는 말로 답해서 끝날 일이 아니라 **바깥 화면이 바뀌어야** 끝나는 일이다. 그런데 에이전트는 화면도 DB 도 만지지 않는다 — 그래서 「무엇을 바꿔야 하는가」 를 이 두 목록으로 내보내고, 상태 변경은 백엔드가, 화면 변경은 앱이 수행한다.\n\n둘을 나눈 이유: effects 는 되돌릴 수 없는 기록이라 권한·검증·트랜잭션이 필요하고, ui 는 그냥 화면이라 실패해도 데이터가 상하지 않는다. 백엔드는 effects 를 적용한 뒤 ui 를 그대로 통과시킨다.",
+  "type": "object",
+  "properties": {
+    "effects": {
+      "$ref": "#/$defs/effects"
+    },
+    "ui": {
+      "$ref": "#/$defs/ui"
+    }
+  },
+  "$defs": {
+    "effects": {
+      "type": "array",
+      "description": "상태를 바꾸는 지시. 에이전트는 DB 를 직접 만지지 않는다 (CLAUDE.md §5).\n\n**두 갈래로 처리가 다르다.**\n- `cart.*` — **백엔드가 즉시 DB 에 저장한다.** 장바구니는 담을 때마다 저장하는 것이 원래 규칙이다.\n- `plan.*` — **저장하지 않는다.** 앱의 편집 사본을 갈아끼우라는 뜻이다. 코스는 편집 중에 서버로 나가지 않고, `PUT /courses/{id}` 는 사용자가 「완료」를 누를 때만 불린다. 챗봇이 고쳤다고 바로 저장하면 「취소」가 동작하지 않는다.",
+      "items": {
+        "type": "object",
+        "required": [
+          "op"
+        ],
+        "properties": {
+          "op": {
+            "enum": [
+              "cart.add",
+              "cart.remove",
+              "plan.draft",
+              "plan.revise",
+              "plan.move"
+            ]
+          },
+          "placeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "cart.* 의 대상. **scene-api 의 정수 id 다** (contracts/openapi §PlaceSummary.id). id 를 모르면 null 이 오고, 그때 백엔드는 조용히 넘기지 말고 거절해야 한다 — 이름으로 대신 쓰면 동명 장소에 걸린다."
+          },
+          "name": {
+            "type": "string",
+            "description": "사람이 읽을 이름. 백엔드는 이것으로 쓰지 않고 로그·확인용으로만 쓴다."
+          },
+          "day": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "plan.revise · plan.move 의 대상 일차"
+          },
+          "toDay": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "plan.move 가 옮겨 갈 일차"
+          },
+          "add": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remove": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "plan": {
+            "$ref": "#/$defs/guidePlan",
+            "description": "일정 전체. **앱의 편집 사본을 이것으로 교체한다.** 저장(PUT)은 사용자의 「완료」가 부른다."
+          }
+        }
+      }
+    },
+    "ui": {
+      "type": "array",
+      "description": "화면을 바꾸라는 지시. **백엔드는 그대로 통과시키고 앱이 수행한다.**\n\n지시는 **의도 수준**이어야 한다 — 「2일차를 보여 줘」 라고 말하고 「어느 화면을 어떻게 띄울지」 는 앱이 정한다. 좌표나 화면 전환 절차를 여기서 정하면 iOS 와 Android 가 서로 다른 앱이 되고, 앱을 고칠 때마다 에이전트를 같이 고쳐야 한다.",
+      "items": {
+        "type": "object",
+        "required": [
+          "op"
+        ],
+        "properties": {
+          "op": {
+            "enum": [
+              "map.focus",
+              "route.draw",
+              "place.card",
+              "course.open",
+              "course.focus",
+              "sheet.collapse"
+            ]
+          },
+          "placeIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "map.focus · route.draw 가 보여 줄 장소들. 앱이 이 핀들이 다 보이도록 지도를 맞춘다."
+          },
+          "placeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "place.card 가 띄울 장소"
+          },
+          "day": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "course.open · course.focus 가 펼칠 일차"
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "course.focus 에서 방금 바뀐 자리. 앱이 그 줄을 잠깐 강조한다 — 무엇이 바뀌었는지 눈으로 보이지 않으면 사용자는 바뀌었는지도 모른다."
+          }
+        }
+      }
+    },
+    "guidePlan": {
+      "type": "object",
+      "title": "앱이 그리는 일정",
+      "description": "**모델이 읽는 글이 아니라 앱이 그리는 데이터다.** 에이전트는 같은 일정을 두 벌로 내보낸다 — 도구 결과로 모델에게 가는 한글 사전(좌표·점수 없음)과, effects·`POST /plan` 응답에 실려 앱까지 가는 이 모양. 후자만 좌표와 `placeId` 를 들고 있어서 앱이 지도에 핀을 찍고 「완료」에 `PUT /courses/{id}` 로 저장할 수 있다. 모델은 이 모양을 보지 않는다.\n\n앱은 편집한 사본을 다음 요청의 `context.plan` 에 같은 모양으로 돌려보낸다. 편집 중에는 앱이 정본이고, 에이전트는 매 턴 그것으로 갈아 끼운다.",
+      "required": [
+        "days"
+      ],
+      "properties": {
+        "titles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "사용자가 요청한 작품들"
+        },
+        "pace": {
+          "enum": [
+            "relaxed",
+            "normal",
+            "packed"
+          ]
+        },
+        "considered": {
+          "type": "integer",
+          "description": "본 후보 수. 근거를 보여 줄 때 쓴다"
+        },
+        "travelBasis": {
+          "const": "straight-line",
+          "description": "계약의 `TravelBasis` 와 같은 값(하이픈). `metersToNext` 가 어떻게 나온 값인지. **직선거리에 우회 계수를 곱한 어림이다.** 구간 소요 시간을 주지 않는 이유도 같다 — 실제 소요 시간은 길찾기 창구만 답할 수 있고, 계약이 코스 편집 응답에 「구간 소요 시간 — 주지 않는다」 고 못 박아 두었다."
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "days": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "day",
+              "stops"
+            ],
+            "properties": {
+              "day": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "endMinute": {
+                "type": "integer",
+                "description": "그날 마치는 시각. **0 시 기준 정수 분이다** — `\"12:17\"` 같은 표시 문자열은 앱이 만든다"
+              },
+              "totalMeters": {
+                "type": "integer"
+              },
+              "stops": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "order",
+                    "name",
+                    "arriveMinute"
+                  ],
+                  "properties": {
+                    "order": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "placeId": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "scene-api 의 정수 id. **없으면 `null` 이고 이름으로 대체하지 않는다** — 이름을 id 로 알고 저장하면 동명 장소에 걸린다. `null` 이면 앱은 저장하지 못한다."
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "address": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "latitude": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "longitude": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "arriveMinute": {
+                      "type": "integer"
+                    },
+                    "dwellMinutes": {
+                      "type": "integer"
+                    },
+                    "titles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "**사용자가 요청한 작품 중** 이 장소가 걸리는 것들. 앱의 「작품별 보기」가 쓴다"
+                    },
+                    "sceneDescription": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "mealAfter": {
+                      "type": "boolean"
+                    },
+                    "metersToNext": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "다음 정지점까지 어림 거리. 마지막은 `null`. `travelBasis` 를 보라"
+                    }
+                  }
+                }
+              },
+              "dropped": {
+                "type": "array",
+                "description": "넣지 못한 곳과 그 이유. 「왜 빠졌는지」를 사용자가 볼 수 있어야 한다",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "placeId": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "예시": {
+    "설명": "「2일차에서 한미서점 빼 줘」 한 턴의 산출",
+    "effects": [
+      {
+        "op": "plan.revise",
+        "day": 2,
+        "remove": [
+          "한미서점"
+        ]
+      }
+    ],
+    "ui": [
+      {
+        "op": "course.focus",
+        "day": 2,
+        "changed": [
+          "한미서점"
+        ]
+      },
+      {
+        "op": "sheet.collapse"
+      }
+    ]
+  }
+}
