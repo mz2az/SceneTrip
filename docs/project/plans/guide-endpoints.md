@@ -192,22 +192,28 @@ scene-api 가 에이전트를 기다리는 동안 에이전트는 scene-api 를 
 ```
 for e in effects:
   switch e.op:
-    "cart.add"    → placeId null? 건너뛰고 warn
-                    !placeExists? 건너뛰고 warn        (에이전트가 준 id 가 우리 DB 에 없다)
-                    add(user, placeId, null, ko) 가 empty(이미 담김)? 건너뛰고 info
-    "cart.remove" → placeId null? 건너뛰고 warn
-                    remove(user, placeId) 가 false(안 담겨 있음)? 건너뛰고 info
+    "cart.add"    → placeId null?  → 실패 (IllegalStateException → 500)
+                    !placeExists?  → 실패 (500)         (에이전트가 준 id 가 우리 DB 에 없다)
+                    add(user, placeId, null, ko) 가 empty(이미 담김)? 무시, info
+    "cart.remove" → placeId null?  → 실패 (500)
+                    remove(user, placeId) 가 false(안 담겨 있음)? 무시, info
     "plan.*"      → 아무것도 안 함
     그 외          → 아무것도 안 함 (모르는 op. 앱도 무시한다)
 ```
 
-**건너뛰는 것과 실패하는 것을 가른다.**
+**무시와 실패의 기준 — 실행한 뒤의 장바구니 상태가 답변 문장과 맞는가.**
 
-- `placeId` null · 없는 장소 · 이미 담김 · 안 담겨 있음 — **건너뛴다.** 에이전트나 데이터의 문제이고
-  답변(`reply`)은 이미 사용자에게 가야 한다. 계약 `GuideEffect` 가 「그 effect 하나를 건너뛰고 나머지를
-  수행한다」고 못 박았다. 다만 건너뛴 사실을 사용자는 모르므로 로그에는 남긴다.
-- DB 가 죽어 `CartStore` 가 예외를 던짐 — **500 으로 나간다.** 서버 결함이다. 「담았어요」라고 답하고
-  저장이 안 된 채 200 을 주면 사용자는 됐다고 믿는다.
+| 경우 | 실행 뒤 상태 | 「담았어요」와 | 처리 |
+| --- | --- | --- | --- |
+| 이미 담긴 곳을 또 담으라 | 담겨 있음 | 맞음 | 무시, 로그 |
+| 안 담긴 곳을 빼라 | 안 담겨 있음 | 맞음 | 무시, 로그 |
+| `placeId` 없음 | 안 담김 | **안 맞음** | 실패 500 |
+| 그 장소가 DB 에 없음 | 안 담김 | **안 맞음** | 실패 500 |
+| DB 예외 | 안 담김 | 안 맞음 | 실패 500 (잡지 않는다) |
+
+뒤의 셋은 정상 경로에서 안 온다 — 에이전트는 우리 DB 가 준 id 를 되돌려 보낼 뿐이고, 보여 준 적 없는
+곳은 도구가 거절해 `effects` 자체가 비어 온다. 오면 에이전트가 계약을 어겼거나 데이터가 어긋난 것이라
+조용히 넘기면 버그를 못 찾는다. 다시 보내도 같으니 503(잠시 뒤 다시)이 아니라 500(결함)이다.
 
 `sourceContentId` 는 null 로 넣는다. 챗봇은 「어느 작품 때문에 담았는지」를 아직 안 준다 — 필요해지면
 `GuideEffect` 에 필드를 더한다(계약 먼저).
@@ -238,14 +244,14 @@ just stack-up …                            # scene-api(:8081) + DB
 | --- | --- | --- |
 | 1 | `/guide/plan` 「도깨비, 2일」 | 200, `plan.days` 가 2, `effects[0].op == plan.draft`. **DB `course` 표에 행이 안 생긴다** |
 | 2 | `/guide/chat` 「도깨비 촬영지 알려줘」 | 200, `places` 에 좌표, `ui[0].op == map.focus`, `effects` 빈 배열 |
-| 3 | `/guide/chat` 「1번 담아 줘」 | 200, `effects[0].op == cart.add`. **`cart_item` 에 행이 생긴다.** 같은 말을 한 번 더 → 200, 행은 그대로(중복 건너뜀) |
+| 3 | `/guide/chat` 「1번 담아 줘」 | 200, `effects[0].op == cart.add`. **`saved_place` 에 행이 생긴다.** 같은 말을 한 번 더 → 200, 행은 그대로(중복 무시) |
 | 4 | `/guide/chat` 「도깨비로 1박 2일 짜 줘」 → `context.plan` 없이 「2일차에서 X 빼 줘」 | 두 번째가 「짜 둔 일정이 없다」류의 답. 첫 응답의 `plan` 을 `context.plan` 에 실어 다시 → `plan.revise` 가 온다 |
 | 5 | 에이전트를 끄고 `/guide/chat` | **503 `GUIDE_UNAVAILABLE`**, 3 초 안에 |
 | 6 | `grep -r "system prompt\|deepseek\|plan_course" services/scene-api/src` | **0 건.** 있으면 0012 로 되돌아간 것 |
 
 4 번은 MZ2AZ-320 이 끝난 뒤에야 `/guide/plan` 경로로도 된다(지금은 `start` 배열). 「헤더 뒤 멈춤」은
-JDK `HttpClient` 의 요청 타임아웃이 몸체까지 덮는지 문서만으로 확답이 안 되는 자리라 시험이 곧 실측이다 —
-실패하면 몸체 읽기에 별도 상한을 두는 쪽으로 고친다.
+JDK `HttpClient` 의 요청 타임아웃이 몸체까지 덮는지 문서만으로 확답이 안 되던 자리였는데, 시험이
+통과했다 — **덮는다** (2026-09-09 실측, `GuideAgentClientTest.headersThenStallTimesOut`).
 
 ## 5. 순서
 
