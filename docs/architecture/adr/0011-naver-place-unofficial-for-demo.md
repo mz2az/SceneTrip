@@ -5,13 +5,16 @@ status: accepted
 date: 2026-09-05
 supersedes:
 superseded-by:
-amended-by:
+amended-by: 0014
 amends:
 ---
 
 # ADR 0011: 편의시설 카드는 네이버 장소의 비공식 호출로 채운다 — 데모 한정
 
 > 0009·0010 은 길찾기 PR(MZ2AZ-296)에 있다. 번호가 비어 보이면 그쪽이 아직 안 합쳐진 것이다.
+
+> 배경의 「우리 자료(TMAP 수집)」는 [0014](./0014-poi-source-is-public-data.md) 로 공공데이터가
+> 됐다. 결정은 그대로다 — 공공데이터에도 사진·평점이 없고 전화번호도 없다.
 
 ## 배경
 

@@ -2015,7 +2015,10 @@ components:
         address:
           type: string
           nullable: true
-          description: 지번 주소. 시/군/구 + 동까지이고 건물번호는 없다.
+          description: |
+            출처가 준 주소 그대로. 상가정보(음식·숙박)는 지번 주소로 시/군/구 + 동까지이고 건물번호가
+            없다. 관광공사(관광·일부 음식·숙박)는 도로명 주소 전체다. 형식이 섞이므로 파싱하지 말고
+            표시만 한다.
           example: 서울 중구 명동
         latitude:
           type: number
