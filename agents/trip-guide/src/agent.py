@@ -13,6 +13,8 @@
 from __future__ import annotations
 
 import json
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -55,7 +57,10 @@ def detect_language(text: str) -> tuple[str, str]:
 
 class Client(Protocol):
     def chat(
-        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        budget: Callable[[], float] | None = None,
     ) -> dict[str, Any]: ...
 
 
@@ -108,6 +113,15 @@ class TripGuide:
         self.session.clear_outbox()
         _, language = detect_language(user_text)
 
+        # **턴 전체에 마감을 둔다.** 모델 호출 하나에만 상한을 두면, 도구를 네 번
+        # 부르는 턴은 다섯 번 호출하므로 총 시간에 상한이 없어진다. 바깥이 안쪽보다
+        # 오래 기다려야 하는데(에이전트 30 < scene-api 40 < 앱 50), 그 반대가 되면
+        # 앱이 이미 끊은 뒤에도 우리는 계속 모델을 부른다 — 값은 config/model.json.
+        deadline = time.monotonic() + float(self.config.get("turn_budget_seconds", 30))
+
+        def left() -> float:
+            return deadline - time.monotonic()
+
         # 「지금 상태」 를 매 턴 새로 만들어 넣는다. 담은 것을 뺐으면 다음 요청부터
         # 그냥 사라진다 — 화면에서는 지웠는데 모델은 아직 알고 있는 어긋남이
         # 생기지 않는다.
@@ -131,7 +145,9 @@ class TripGuide:
         rounds = int(self.config.get("max_tool_rounds", 4))
 
         for _ in range(rounds + 1):
-            message = self.client.chat(messages, self.tools)
+            if left() <= 0:
+                raise ModelError("턴에 주어진 시간을 다 썼다")
+            message = self.client.chat(messages, self.tools, budget=left)
             calls = message.get("tool_calls") or []
 
             if not calls:
@@ -182,7 +198,7 @@ class TripGuide:
                 "content": "도구를 더 부르지 말고, 지금까지 받은 것만으로 사용자에게 답해라.",
             }
         )
-        final = self.client.chat(messages, None)
+        final = self.client.chat(messages, None, budget=left)
         reply = (final.get("content") or "").strip()
         if not reply:
             raise ModelError(f"도구를 {rounds} 번 부르고도 답을 만들지 못했다")

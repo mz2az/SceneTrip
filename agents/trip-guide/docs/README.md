@@ -132,7 +132,6 @@ def _refuse(reason):
 | `places_near` | 「이 근처」 |
 | `place_detail` | 「거기 무슨 장면이야」 |
 | `update_cart` | 「그거 담아줘」 |
-| `draft_course` | 담은 것을 하루 동선으로 |
 | `plan_course` | 작품+기간 → 일정 |
 | `revise_plan` | 「2일차에서 개뿔 빼줘」 |
 | `move_stop` | 「그건 1일차로 옮겨줘」 |

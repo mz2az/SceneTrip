@@ -8,7 +8,7 @@
     /here 명동         이름으로 위치 잡기 (그 이름의 촬영지를 기준점으로 삼는다)
     /here 37.5665,126.978   좌표로 바로
     /plan 도깨비 1박 2일    한 문장으로 일정 짜기 (이해→계획→설명)
-    /cart              담은 곳 보기
+    /stops             화면의 지점 보기 — 앱이 보내는 context.stops 자리다
     /tools             도구 호출을 화면에 보일지 껐다 켜기
     /reset             대화와 담은 것 비우기
     /quit              끝내기
@@ -221,20 +221,24 @@ def main(argv: list[str] | None = None) -> int:
                     run_plan(session, client, rest.strip(), show_stages=show_tools)
                 else:
                     print("  쓰는 법: /plan 도깨비 촬영지로 1박 2일")
-            elif command == "/cart":
-                if session.cart:
-                    for i, p in enumerate(session.cart, 1):
-                        print(f"  {i}번 — {p.name} ({p.address or '주소 미상'})")
+            elif command == "/stops":
+                # 앱이 매 턴 보내 주는 `context.stops` 를 터미널에서 흉내 낸다.
+                # 담은 목록이 아니다 — 우리는 그것을 들지 않는다 (MZ2AZ-320 §5).
+                if session.stops:
+                    for st in session.stops:
+                        print(f"  {st.number}번 — {st.name}")
                 else:
-                    print("  담은 곳이 없다")
+                    print("  화면의 지점이 없다 (앱이 context.stops 를 보내면 찬다)")
             elif command == "/tools":
                 show_tools = not show_tools
                 print(f"  도구 호출 표시: {'켬' if show_tools else '끔'}")
             elif command == "/reset":
-                session.cart.clear()
+                session.stops.clear()
+                session.picked = None
+                session.plan = None
                 session.shown.clear()
                 guide.history.clear()
-                print("  대화와 담은 것을 비웠다")
+                print("  대화와 화면 상태를 비웠다")
             else:
                 print(f"  모르는 명령이다: {command}")
             continue

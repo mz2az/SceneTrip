@@ -24,7 +24,7 @@
 | `places_near` | `GET /places?bbox=&sort=distance` | ✅ |
 | `place_detail` | `GET /places/{placeId}` | ✅ |
 | `plan_course` | `GET /contents/{id}/places?limit=20` | ✅ |
-| `update_cart` · `draft_course` · `revise_plan` · `move_stop` | **호출 없음** (메모리·계산) | — |
+| `update_cart` · `revise_plan` · `move_stop` | **호출 없음** — 지시(`effects`)만 낸다 | — |
 
 **계약에 없는 경로를 부르는 곳은 없다.** 20 개 중 5 개를 쓰고 15 개를 안 쓴다.
 

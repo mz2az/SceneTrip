@@ -16,10 +16,26 @@ import os
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 _CONFIG = Path(__file__).resolve().parent.parent / "config" / "model.json"
+
+
+def _wait(seconds: float, budget: Callable[[], float] | None) -> bool:
+    """재시도 전에 쉰다. 남은 예산을 넘겨 쉬지는 않는다.
+
+    예산을 안 보고 쉬면, 이미 늦은 턴이 재시도 대기만으로 몇 초를 더 쓴다.
+    """
+    if budget is None:
+        time.sleep(seconds)
+        return True
+    left = budget()
+    if left <= 0:
+        return False
+    time.sleep(min(seconds, left))
+    return budget() > 0
 
 
 class ModelError(RuntimeError):
@@ -51,7 +67,10 @@ class DeepSeekClient:
             )
 
     def chat(
-        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        budget: Callable[[], float] | None = None,
     ) -> dict[str, Any]:
         """한 번 부르고 assistant 메시지 하나를 돌려준다."""
         body: dict[str, Any] = {
@@ -80,11 +99,18 @@ class DeepSeekClient:
 
         # 재시도는 두 번까지, 그것도 일시적인 실패(429·5xx)에만 한다. 인자가
         # 틀려서 나는 400 을 다시 보내 봐야 같은 답이 온다.
+        # **남은 턴 예산이 호출 상한을 이긴다.** 호출마다 15 초를 다 쓰면 도구를
+        # 네 번 부르는 턴이 75 초가 되는데, 그때쯤이면 앱도 백엔드도 이미 끊었다
+        # (agent.py 의 턴 예산).
+        cap = float(self.config.get("timeout_seconds", 15))
         last: Exception | None = None
         for attempt in range(3):
+            left = budget() if budget else None
+            if left is not None and left <= 0:
+                raise ModelError("턴에 주어진 시간을 다 썼다")
             try:
                 with urllib.request.urlopen(
-                    request, timeout=self.config.get("timeout_seconds", 60)
+                    request, timeout=cap if left is None else min(cap, left)
                 ) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                 return data["choices"][0]["message"]
@@ -92,7 +118,8 @@ class DeepSeekClient:
                 detail = exc.read().decode("utf-8", "replace")[:400]
                 if exc.code in (429, 500, 502, 503, 504) and attempt < 2:
                     last = exc
-                    time.sleep(1.5 * (attempt + 1))
+                    if not _wait(1.5 * (attempt + 1), budget):
+                        raise ModelError("턴에 주어진 시간을 다 썼다") from exc
                     continue
                 raise ModelError(
                     f"DeepSeek 이 {exc.code} 를 돌려줬다: {detail}"
@@ -100,7 +127,8 @@ class DeepSeekClient:
             except urllib.error.URLError as exc:
                 if attempt < 2:
                     last = exc
-                    time.sleep(1.5 * (attempt + 1))
+                    if not _wait(1.5 * (attempt + 1), budget):
+                        raise ModelError("턴에 주어진 시간을 다 썼다") from exc
                     continue
                 raise ModelError(f"DeepSeek 에 닿지 못했다: {exc.reason}") from exc
         raise ModelError(f"DeepSeek 호출에 세 번 다 실패했다: {last}")
@@ -120,7 +148,10 @@ class ScriptedClient:
         """부를 때마다 「도구를 줬는가」 를 기록한다. 시험이 그것을 확인한다."""
 
     def chat(
-        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        budget: Callable[[], float] | None = None,
     ) -> dict[str, Any]:
         self.seen.append(messages)
         self.tools_seen.append(tools)

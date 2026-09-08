@@ -10,4 +10,5 @@
 | [backend-handoff.md](backend-handoff.md) | **권호님께 넘기는 연결 명세.** 에이전트가 부르는 API 5 종, 응답 모양, `effects` 처리법 |
 | [integration-gaps.md](integration-gaps.md) | **감사 결과.** 에이전트가 있다고 가정하는데 실제로 없는 API·통신, 그리고 권호님·승길님께 요청할 목록 |
 | [plan-shape.md](plan-shape.md) | **일정의 두 모양.** 모델이 읽는 글과 앱이 그리는 데이터를 왜 갈랐는가, 편집 중 정본은 왜 앱인가 (MZ2AZ-318) |
+| [contract-1.2.0.md](contract-1.2.0.md) | **계약 1.2.0 맞추기.** 화면 번호·장바구니의 정본을 앱으로 넘긴 이유, 경계의 이름, 시간 예산 (MZ2AZ-320) |
 | [build-draft.md](build-draft.md) | `rules_python` 이 켜질 때 붙일 BUILD.bazel 초안. 지금 넣으면 팀 빌드가 깨진다 |

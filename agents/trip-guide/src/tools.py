@@ -344,50 +344,30 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
         return out
 
     if name == "update_cart":
+        # **담은 것을 기억하지 않는다.** 장바구니의 정본은 DB(`cart_item`)이고,
+        # 저장은 백엔드가 `cart.*` effect 를 받아서 한다. 우리가 따로 목록을 들면
+        # 정본이 둘이 되고, 앱에서 담은 것은 우리에게 오지 않으므로 그 목록은
+        # 언제나 화면과 다르다 (MZ2AZ-320 §5).
         p = session.find_shown(args["name"])
         if p is None:
             return _refuse(f"「{args['name']}」 라는 장소를 찾을 수 없어 담을 수 없다")
-        if args["action"] == "add":
-            if p in session.cart:
-                return {
-                    "결과": f"{p.name} 은 이미 담겨 있다",
-                    "담긴 곳": [x.name for x in session.cart],
-                }
-            session.cart.append(p)
-            session.emit(op="cart.add", placeId=_place_id(p), name=p.name)
-            session.show(op="map.focus", placeIds=_ids(session.cart))
-            return {
-                "결과": f"{p.name} 을 담았다",
-                "담긴 곳": [x.name for x in session.cart],
-            }
-        if p not in session.cart:
-            return _refuse(f"{p.name} 은 담겨 있지 않다")
-        session.cart.remove(p)
-        session.emit(op="cart.remove", placeId=_place_id(p), name=p.name)
-        session.show(op="map.focus", placeIds=_ids(session.cart))
-        return {"결과": f"{p.name} 을 뺐다", "담긴 곳": [x.name for x in session.cart]}
 
-    if name == "draft_course":
-        if len(session.cart) < 2:
-            return _refuse("담은 곳이 두 곳보다 적어 동선을 만들 수 없다")
-        route = book.order_by_walk(session.cart)
-        legs: list[dict[str, Any]] = []
-        for i, p in enumerate(route):
-            step: dict[str, Any] = {
-                "순서": i + 1,
-                "이름": p.name,
-                "주소": p.address or "주소 미상",
+        pid = _place_id(p)
+        if args["action"] == "add":
+            session.emit(op="cart.add", placeId=pid, name=p.name)
+            session.show(op="map.focus", placeIds=_ids([p]))
+            return {
+                "결과": f"{p.name} 을 담으라고 요청했다",
+                "할 일": (
+                    "담겼다고 단정해 말하지 마라. 이미 담겨 있었을 수도 있고 저장은 "
+                    "서버가 한다. 담은 목록 전체를 읊지도 마라 — 우리는 그것을 모른다."
+                ),
             }
-            if i > 0:
-                d = book.leg_meters(route[i - 1], p)
-                step["앞 지점에서"] = (
-                    f"약 {d}m" if d is not None else "거리를 잴 수 없다"
-                )
-            legs.append(step)
-        session.show(op="route.draw", placeIds=_ids(route))
+
+        session.emit(op="cart.remove", placeId=pid, name=p.name)
         return {
-            "동선": legs,
-            "주의": "직선 거리다. 실제 도보 거리와 소요 시간은 아직 모른다 — 지어내지 마라",
+            "결과": f"{p.name} 을 빼라고 요청했다",
+            "할 일": "담은 목록 전체를 읊지 마라 — 우리는 그것을 모른다.",
         }
 
     if name == "plan_course":
@@ -478,6 +458,11 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
                 f"{anchor.label} 에서 {args.get('radius_m', 300)}m 안에는 "
                 f"{args['group']} 이(가) 없다"
             )
+
+        # **응답의 `places` 에도 실린다.** 예전에는 여기서 `map.focus` 만 내보내고
+        # 목록에는 안 실어서, 답에는 카페 이름이 나오는데 지도에는 아무 핀도 안
+        # 찍혔다 (MZ2AZ-320 §6).
+        session.remember_pois(rows)
 
         # 화면에는 좌표를, 모델에게는 좌표 없는 것을 준다. 좌표를 보면 모델이
         # 스스로 거리를 재려 들고 하버사인을 틀린다 — 계약 §4 가 같은 규칙을 적어 두었다.

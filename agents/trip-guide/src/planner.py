@@ -1211,7 +1211,7 @@ def plan_to_api(plan: Plan) -> dict[str, Any]:
         "pace": plan.request.pace,
         "days": days,
         "considered": plan.considered,
-        "travelBasis": "straight_line",
+        "travelBasis": "straight-line",
         "notes": list(plan.notes),
     }
 

@@ -215,7 +215,20 @@ def tool_choice(cases: list[dict]) -> Metric:
         expect = case["expect"]
         session = Session(book=eval_book())
         session.here = Anchor("남산", 37.5512, 126.9882)
-        session.cart.extend(SEOUL[:2])
+        # 앱이 보내 주는 화면 상태를 흉내 낸다 — 「2번 주변」 사례가 여기에 걸린다.
+        session.adopt_context(
+            {
+                "stops": [
+                    {
+                        "number": i + 1,
+                        "name": p.name,
+                        "latitude": p.lat,
+                        "longitude": p.lng,
+                    }
+                    for i, p in enumerate(SEOUL[:2])
+                ]
+            }
+        )
         session.shown.extend(SEOUL[:3])
         session.shown.extend(SEOUL)
 
