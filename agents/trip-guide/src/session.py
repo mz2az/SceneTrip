@@ -23,7 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .places import Place, PlaceSource
-from .planner import Plan
+from .planner import Plan, plan_from_api
 
 
 @dataclass
@@ -67,6 +67,22 @@ class Session:
     모델이 일정을 기억에서 되짚어야 하고, 그 되짚기가 곧 환각이 들어오는 자리다.
     고치는 대상은 코드가 들고 있는 이 객체 하나뿐이다.
     """
+
+    def adopt_plan(self, context: dict | None) -> None:
+        """앱이 보낸 편집 사본을 이번 턴의 일정으로 삼는다.
+
+        **편집 중에는 앱이 정본이다.** 사용자가 편집 화면에서 손으로 지운 것은
+        서버로 나가지 않으므로(계약 `PUT /courses/{id}` — 「완료」가 부르는 하나뿐인
+        요청), 세션이 들고 있는 일정은 이미 낡았을 수 있다. 그대로 고치면 방금 지운
+        곳이 되살아난다 (정권호, 2026-09-07 「일정 모양과 편집 사본」 §2).
+
+        **`context.plan` 이 없으면 일정이 없는 것으로 본다.** 세션에 남은 낡은 일정을
+        몰래 쓰지 않는다. 「짜 둔 일정이 없다」 고 거절하는 편이, 사용자가 보고 있는
+        것과 다른 일정을 말없이 고치는 것보다 낫다. 덤으로 이 창구가 상태를 거의 안
+        들게 되어 인스턴스를 여러 개 띄워도 답이 갈리지 않는다.
+        """
+        raw = (context or {}).get("plan")
+        self.plan = plan_from_api(raw, self.book) if raw else None
 
     # ── 보여 준 것 기억하기 ───────────────────────────────────────────────────
 
