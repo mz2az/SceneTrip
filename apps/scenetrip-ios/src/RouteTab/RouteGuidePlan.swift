@@ -59,11 +59,28 @@ enum RouteGuidePlan {
                 out.append("\(day.day)일차에서 뺀 곳 · \(dropped.name) — \(dropped.reason)")
             }
         }
-        out += plan.notes ?? []
-        if plan.travelBasis == .straightLine {
+        // 에이전트의 주의문은 마크다운일 수 있다(`**추정**`, 2026-09-11 실측). 화면은 평문이다.
+        let agentNotes = (plan.notes ?? []).map { $0.replacingOccurrences(of: "**", with: "") }
+        out += agentNotes
+        // 직선 어림은 에이전트가 이미 말했으면 두 번 말하지 않는다.
+        if plan.travelBasis == .straightLine, !agentNotes.contains(where: { $0.contains("직선") }) {
             out.append("거리는 직선 어림이에요 — 실제 길은 더 길 수 있어요")
         }
         return out
+    }
+
+    /// 알림줄의 한 줄 요약 — 「뺀 곳 7 · 주의 3」. 열 줄을 다 펼치면 지도가 밀려 내려간다(2026-09-11 실측).
+    static func notesSummary(_ notes: [String]) -> String {
+        let dropped = notes.filter { $0.contains("뺀 곳 ·") }.count
+        let others = notes.count - dropped
+        var parts: [String] = []
+        if dropped > 0 {
+            parts.append("뺀 곳 \(dropped)")
+        }
+        if others > 0 {
+            parts.append("주의 \(others)")
+        }
+        return parts.joined(separator: " · ")
     }
 
     /// 「09:00」. 계약은 0시 기준 정수 분(`540`)만 주고 표시 문자열은 앱이 만든다.

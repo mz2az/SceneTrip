@@ -109,6 +109,8 @@ struct RouteEditorView: View {
     /// 가까운 곳이 1순위로 올라가며 그 줄이 출발 고정이 된다(`RouteGeometry.startingNearest`).
     /// 손으로 켠 고정은 그대로 존중한다.
     @State var pinStart = false
+    /// 초안 알림줄을 펼쳤나. 기본은 접힘.
+    @State var showDraftNotes = false
     @State var pinEnd = false
 
     let isNew: Bool
@@ -329,20 +331,6 @@ struct RouteEditorView: View {
     }
 
     // MARK: 머리와 발
-
-    /// 초안의 알림줄. 뺀 곳·이유·주의를 한 줄씩 — 저장하면 사라지는 값이라 저장 전에만 보인다.
-    @ViewBuilder private var draftNotes: some View {
-        if !course.draftNotes.isEmpty {
-            VStack(alignment: .leading, spacing: 3) {
-                ForEach(course.draftNotes, id: \.self) { note in
-                    Label(note, systemImage: "info.circle")
-                        .font(.caption2).foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-            .padding(.horizontal, 20).padding(.bottom, 8)
-        }
-    }
 
     private var topBar: some View {
         HStack {
