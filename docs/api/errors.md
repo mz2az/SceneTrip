@@ -118,6 +118,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `code` | 뜻 |
 | --- | --- |
 | `ROUTING_UNAVAILABLE` | 길찾기 제공자(카카오)가 응답하지 않거나 호출 한도를 넘었다. 잠시 뒤 다시 시도한다. 한도 초과는 서버가 따로 세어 둔다 |
+| `GUIDE_UNAVAILABLE` | 여행 가이드 에이전트가 응답하지 않는다 — 프로세스가 죽었거나, 모델이 꺼져 있거나 한도 초과. 잠시 뒤 재시도. **규칙 기반으로 조용히 떨어지지 않는다.** `POST /guide/chat`·`POST /guide/plan` 이 낸다 |
 
 ### 서버 결함 (`500`)
 

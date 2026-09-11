@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.1.2
+  version: 1.2.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -159,6 +159,8 @@ tags:
     description: 코스 공유 — 올리기·담기·내리기
   - name: navigation
     description: 길찾기 — 여행 중에만. 아직 구현되지 않았다
+  - name: guide
+    description: 여행 가이드 챗봇 — 앱은 화면 상태를 보내고, LLM 호출과 도구 실행은 서버가 한다 (ADR 0012)
 
 paths:
   /search/suggestions:
@@ -1420,6 +1422,124 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /guide/chat:
+    post:
+      tags: [guide]
+      operationId: chatWithGuide
+      summary: 여행 가이드 챗봇 — 한 턴 주고받기
+      description: |
+        앱은 **대화 이력·지금 위치·화면 상태**를 보내고, 서버가 LLM 을 부르고 도구
+        (`poi_nearby`·`route`·`add_to_cart`)를 실행해 답을 만든다. 앱은 LLM 을 직접 부르지
+        않고 모델 이름·키를 모른다 — [ADR 0012](../../docs/architecture/adr/0012-guide-chat-is-served-by-the-server.md).
+
+        **화면 상태(`context`)가 곧 모델의 눈이다.** 담은 지점의 번호·이름·다녀옴 표시,
+        여행 단계·가는 곳·남은 직선거리·걸은 거리. 「다 돌았어?」「다음은 어디야?」는 이것만으로
+        도구 없이 답한다. 좌표는 모델에게 주지 않는다(스스로 거리를 재려 들고 틀린다).
+        번호를 좌표로 바꾸는 것은 서버다.
+
+        한 턴에 도구는 최대 3회 왕복한다. 넘으면 그때까지의 결과로 답한다. 실측(gpt-oss-20b,
+        2026-09-05): 도구 없는 답 2~9초, 도구 1회 포함 30초 — `tookSeconds` 로 돌려준다.
+        클라이언트 타임아웃은 120초 이상으로 둔다.
+
+        `sessionId` 는 대화 하나를 잇는 열쇠다. 서버는 그 대화에서 **보여 준 장소 목록**을
+        기억해 「거기 어떻게 가」의 「거기」를 푼다. 서버 재시작이면 잊는다 — 앱은 새 세션으로
+        다시 묻는다.
+
+        **가입한 사용자만 부를 수 있다(`401 SIGN_IN_REQUIRED`).** 턴마다 모델 토큰이 나가는 유료
+        경로라 호출 여부를 서버가 정한다 — 여행 중 길찾기와 같은 이유다. 판정은 에이전트를
+        부르기 **전**이라 미가입 요청은 비용 없이 걸러진다. 마법사(`POST /guide/plan`)는 모델을
+        안 부르니 이 조건이 없다.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - $ref: "#/components/parameters/DeviceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuideChatRequest"
+      responses:
+        "200":
+          description: |
+            답과, 그 답을 만들며 부른 도구·찾은 장소·그린 경로. **`toolsUsed` 는 화면에 보인다** —
+            근거 없이 답한 것을 사용자가 알아볼 수 있어야 한다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuideChatReply"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignInRequired"
+        "503":
+          description: |
+            에이전트가 응답하지 않는다 — 프로세스가 죽었거나, 모델이 꺼져 있거나 한도 초과.
+            `code` 는 `GUIDE_UNAVAILABLE`. **조용히 규칙 기반으로 떨어지지 않는다** — 왜 답이
+            밋밋한지 사용자가 알아야 한다. 잠시 뒤 다시 시도할 수 있다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /guide/plan:
+    post:
+      tags: [guide]
+      operationId: planWithGuide
+      summary: 일정짜기 마법사 — 작품과 기간으로 일정 초안을 받는다
+      description: |
+        마법사는 「도깨비 / 2박 3일 / 여유롭게」를 **이미 구조화된 값**으로 들고 있다. 그것을
+        문장으로 만들어 모델에게 주고 모델이 다시 값으로 되돌리는 것은 3~5초와 토큰을 쓰고
+        아무것도 얻지 못한다 — 이해할 것이 없기 때문이다. 그래서 이 창구는 **모델을 부르지
+        않는다.** 서버는 에이전트의 계산 창구(`POST /plan`)에 그대로 넘기고, 에이전트의 코스
+        엔진(LLM 없는 알고리즘)이 일정을 계산한다. 실측 0.02초. API 키가 없어도 동작한다.
+        [ADR 0013](../../docs/architecture/adr/0013-guide-chat-is-served-by-the-python-agent.md).
+
+        **저장하지 않는다.** 응답은 초안이고 앱의 편집 화면에 그려진다. 저장은 사용자의
+        「완료」가 부르는 `PUT /courses/{id}` 뿐이다. 그래서 `X-Device-Id` 를 요구하지 않는다 —
+        계정을 찾을 일이 없다.
+
+        응답 모양은 챗봇(`POST /guide/chat`)과 같다 — `effects` 에 `plan.draft` 하나, `ui` 에
+        `course.open` 하나. 앱이 초안을 받는 코드를 한 벌만 두기 위해서다. 같은 작품·기간·
+        속도를 챗봇에 말로 하든 여기로 보내든 같은 일정이 나온다.
+
+        `Accept-Language` 는 받는다 — 장소 이름·장면 설명이 언어를 탄다.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuidePlanRequest"
+      responses:
+        "200":
+          description: 일정 초안. `plan` 과 `effects[0].plan` 은 같은 것이다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuidePlanReply"
+        "400":
+          description: |
+            `code` 는 `INVALID_PARAMETER`. 작품을 하나도 못 찾았거나(`titles` 가 데이터에 없다),
+            일수·작품 수가 범위 밖이거나, 좌표 있는 촬영지가 하나도 없어 동선을 만들 수 없을 때.
+            `message` 에 어느 것인지 적힌다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: |
+            에이전트가 응답하지 않는다. `code` 는 `GUIDE_UNAVAILABLE`. 모델과 무관한 창구이지만
+            에이전트 프로세스 자체가 죽어 있으면 이것이 온다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 components:
   parameters:
     AcceptLanguage:
@@ -1538,7 +1658,7 @@ components:
     SignInRequired:
       description: |
         가입해야 할 수 있는 동작. 좋아요 · 마켓에 담기 · 마켓에 올리기 · 마켓에서
-        내리기 · 여행 중 길찾기 다섯이다.
+        내리기 · 여행 중 길찾기 · 여행 가이드 챗봇 여섯이다.
 
         나머지는 계정 없이 다 된다 — 검색하고, 장바구니에 담고, 작품을 찜하고, 코스를
         만들어 시작하는 데까지 계정이 필요 없다. 로그인 벽을 앞에 세우면 사람들이 앱을
@@ -2842,3 +2962,653 @@ components:
             items:
               type: number
               format: double
+
+    GuideChatRequest:
+      type: object
+      required: [sessionId, latitude, longitude, messages]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: 대화 하나의 열쇠. 앱이 만들고 시트를 닫을 때까지 같은 값을 보낸다.
+        latitude:
+          type: number
+          format: double
+          description: 지금 사용자의 위치. 「주변」의 기준이자 길찾기의 출발점.
+        longitude:
+          type: number
+          format: double
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 40
+          description: 대화 이력 전부. 마지막이 이번 질문이다. 서버는 이력을 저장하지 않는다.
+          items:
+            $ref: "#/components/schemas/GuideMessage"
+        context:
+          $ref: "#/components/schemas/GuideContext"
+
+    GuideMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+          maxLength: 4000
+
+    GuideContext:
+      type: object
+      description: |
+        **화면이 지금 보여 주는 것.** 질문마다 다시 만들어 보낸다 — 순서를 바꾸거나 동선
+        최적화를 누르면 번호가 바뀌는데, 모델이 보는 번호와 지도의 번호가 같아야 한다.
+      required: [stops]
+      properties:
+        stops:
+          type: array
+          maxItems: 50
+          description: 지금 일차에 담긴 지점. 지도의 번호 핀과 **같은 번호**.
+          items:
+            $ref: "#/components/schemas/GuideStop"
+        picked:
+          $ref: "#/components/schemas/GuideStop"
+        trip:
+          $ref: "#/components/schemas/GuideTrip"
+        plan:
+          nullable: true
+          description: |
+            **편집 중인 일정.** 챗봇이 짜 준 초안(`GuideEffect.plan`)을 앱이 손으로 고쳤을 수
+            있으므로, 챗봇으로 고치려면 지금 사본을 **같은 모양으로** 매 요청에 싣는다.
+
+            **있으면 이것이 정본이다** — 에이전트는 매 턴 이것으로 갈아 끼우고 나서 고친다.
+            **없으면 일정이 없는 것이다** — 「2일차에서 빼 줘」는 「짜 둔 일정이 없다」로 거절된다.
+            사용자가 보고 있는 것과 다른 일정을 말없이 고치느니 거절하는 편이 낫다.
+
+            서버는 DB 에서 코스를 읽어 대신 넣지 않는다. 편집 중에는 서버로 아무것도 나가지
+            않으므로(`PUT /courses/{id}` 설명) DB 것은 낡았을 수 있다.
+          allOf:
+            - $ref: "#/components/schemas/GuidePlan"
+
+    GuideStop:
+      type: object
+      required: [number, name, latitude, longitude]
+      properties:
+        number:
+          type: integer
+          minimum: 0
+          description: 지도의 번호. `picked` 에서는 0 이어도 된다.
+        name:
+          type: string
+        category:
+          type: string
+          nullable: true
+          description: 명소·식당·카페 같은 종류. 모델에게 「어떤 곳인지」를 주는 힌트다.
+        latitude:
+          type: number
+          format: double
+          description: 서버만 쓴다 — 번호를 좌표로 바꿀 때. 모델에게는 주지 않는다.
+        longitude:
+          type: number
+          format: double
+        visited:
+          type: boolean
+          default: false
+          description: 이번 여행에서 다녀왔는가(발바닥 도장).
+
+    GuideTrip:
+      type: object
+      description: |
+        여행 상태. 없으면 여행 중이 아닌 것이다. 모델이 「방문 여부를 모른다」고 답하지
+        않으려면 이것이 있어야 한다(2026-09-05 실측 — 발자국이 다 찍혔는데 몰랐다).
+      required: [phase, course, day, days, walkedKilometers]
+      properties:
+        phase:
+          type: string
+          enum: [plan, guiding, arrived]
+          description: 계획 보기 · 가는 중 · 도착함
+        course:
+          type: string
+          description: 코스 제목
+        day:
+          type: integer
+          minimum: 1
+          description: 지금 보는 일차(1부터)
+        days:
+          type: integer
+          minimum: 1
+        targetNumber:
+          type: integer
+          nullable: true
+          description: 가는(또는 방금 닿은) 곳의 번호. `plan` 이면 없다.
+        targetMeters:
+          type: integer
+          nullable: true
+          description: 내 자리에서 그 곳까지 **직선** m. 도로 거리가 아니고 모델에게도 그렇게 말한다.
+        walkedKilometers:
+          type: number
+          format: double
+          description: 최근 하루 발자국으로 잰 걸은 거리(km). 소수 첫째 자리.
+
+    GuideChatReply:
+      type: object
+      required: [reply, toolsUsed, places, tookSeconds, effects, ui]
+      properties:
+        reply:
+          type: string
+          description: 사용자에게 보일 답. 사용자가 쓴 언어로 온다. 마크다운일 수 있다.
+        toolsUsed:
+          type: array
+          description: 이번 턴에 실제로 부른 도구. 비면 도구 없이 상태·이력만으로 답한 것이다.
+          items:
+            $ref: "#/components/schemas/GuideToolUse"
+        places:
+          type: array
+          description: |
+            이번 턴에 찾아 준 장소 — 촬영지(`source: place`)와 편의시설(`source: poi`)이 한 배열에
+            온다. **좌표가 있으므로 지도에 찍을 수 있다.** 비면 앞 턴의 목록을 그대로 둔다 —
+            「어디 기준이야?」 같은 되물음에 목록이 사라지면 안 된다.
+
+            `ui` 의 `placeIds`·`placeId` 는 이 배열의 `id` 를 가리킨다. 촬영지와 편의시설은 **다른
+            표의 id** 라 숫자만으로는 못 가르므로, 앱은 이 배열에서 찾아 `source` 를 보고
+            `GET /places/{id}` 인지 `GET /pois/{id}` 인지 정한다.
+          items:
+            $ref: "#/components/schemas/GuidePlace"
+        route:
+          nullable: true
+          description: |
+            `route` 도구가 그린 경로. 목적지가 코스 항목이 아니라 **찾아 준 편의시설**이라
+            `POST /navigation/next-leg` 와 별개의 자리다(그 계약의 「따로 정한다」가 이것이다).
+          allOf:
+            - $ref: "#/components/schemas/NextLeg"
+        tookSeconds:
+          type: number
+          format: double
+          description: 서버가 잰 처리 시간. 화면이 「근거」줄에 같이 보인다.
+        effects:
+          type: array
+          description: |
+            **백엔드가 수행하는 명령.** 에이전트는 DB 를 만지지 않으므로(ADR 0013) 「무엇을
+            저장하라」를 여기 적어 보내고, scene-api 가 `X-Device-Id` 로 찾은 계정에 대신
+            적용한 뒤 그대로 앱에도 넘긴다. 처리 규칙은 `GuideEffect` 에 있다.
+
+            도구가 거절되면 빈 배열이다 — 실패했는데 DB 가 바뀌면 사용자는 됐다고 믿는다.
+          items:
+            $ref: "#/components/schemas/GuideEffect"
+        ui:
+          type: array
+          description: |
+            **앱이 수행하는 명령.** 지도를 맞추고, 코스 화면을 열고, 시트를 내리는 일.
+            백엔드는 열어 보지 않고 통과시킨다 — 화면은 실패해도 데이터가 상하지 않으므로
+            `effects` 와 달리 권한·검증이 필요 없다. 처리 규칙은 `GuideUiDirective` 에 있다.
+
+            도구가 거절되면 빈 배열이다 — 실패했는데 화면이 바뀌면 사용자는 됐다고 믿는다.
+          items:
+            $ref: "#/components/schemas/GuideUiDirective"
+
+    GuideEffect:
+      type: object
+      description: |
+        에이전트가 백엔드에 내리는 **상태 변경 명령 하나.** 정본은
+        `contracts/schemas/guide/effects.schema.json` (에이전트 `schemas/effects.json` 과 같다).
+
+        `op` 는 문자열이다 — enum 으로 못 박으면 에이전트가 명령을 하나 늘릴 때 옛 앱이
+        응답 전체를 못 읽는다. 대신 **백엔드는 아는 `op` 만 수행하고, 앱은 모르는 `op` 를
+        무시한다.** 지금 정의된 값과 처리 규칙:
+
+        | `op` | 함께 오는 값 | 백엔드가 할 일 |
+        | --- | --- | --- |
+        | `cart.add` | `placeId`, `name` | **즉시 저장** — 장바구니는 담을 때마다 저장하는 것이 원래 규칙(`POST /cart/items`) |
+        | `cart.remove` | `placeId`, `name` | **즉시 저장** — `DELETE /cart/items/{placeId}` |
+        | `plan.draft` | `plan` | **저장하지 않는다.** 앱에 그대로 넘긴다 |
+        | `plan.revise` | `day`, `add`, `remove`, `plan` | **저장하지 않는다.** 앱에 그대로 넘긴다 |
+        | `plan.move` | `name`, `day`(출발), `toDay`(도착), `plan` | **저장하지 않는다.** 앱에 그대로 넘긴다 |
+
+        **`plan.*` 을 저장하지 않는 이유** — 코스는 편집 중에 서버로 나가지 않고, 저장은
+        사용자의 「완료」가 부르는 `PUT /courses/{id}` 한 번뿐이다(그 계약의 설명). 챗봇만
+        예외로 두면 「취소」를 눌러도 이미 저장돼 있는 화면이 생긴다.
+
+        **무시와 실패의 기준 — 실행한 뒤의 장바구니 상태가 답변 문장과 맞는가.** 이미 담긴 곳을
+        또 담으라, 안 담긴 곳을 빼라는 **무시**한다(하려던 상태가 이미 돼 있다). `cart.*` 에
+        `placeId` 가 `null` 이거나 그 장소가 DB 에 없으면 **서버 결함(500)** 이다 — 「담았어요」가
+        화면에 뜨는데 실제로는 안 담긴 것이라 조용히 넘기지 않는다. 정상 경로에서는 안 온다:
+        에이전트는 DB 가 준 id 를 되돌려 보낼 뿐이고, 이름으로 대체하지 않는다.
+      required: [op]
+      properties:
+        op:
+          type: string
+          description: "`cart.add` · `cart.remove` · `plan.draft` · `plan.revise` · `plan.move`"
+        placeId:
+          type: integer
+          format: int64
+          nullable: true
+          description: "`cart.*` 의 대상. **`PlaceSummary.id` 와 같은 정수다.** 모르면 `null`"
+        name:
+          type: string
+          nullable: true
+          description: 사람이 읽을 이름. 백엔드는 이것으로 저장하지 않고 로그·확인에만 쓴다
+        day:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: "`plan.revise` 의 대상 일차 · `plan.move` 의 출발 일차"
+        toDay:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: "`plan.move` 가 옮겨 갈 일차"
+        add:
+          type: array
+          nullable: true
+          description: "`plan.revise` 가 넣은 장소 이름들"
+          items:
+            type: string
+        remove:
+          type: array
+          nullable: true
+          description: "`plan.revise` 가 뺀 장소 이름들"
+          items:
+            type: string
+        plan:
+          nullable: true
+          description: |
+            `plan.*` 이 실어 보내는 **일정 전체.** 앱은 편집 사본을 이것으로 교체한다.
+            저장(`PUT /courses/{id}`)은 사용자의 「완료」가 부른다.
+          allOf:
+            - $ref: "#/components/schemas/GuidePlan"
+
+    GuideUiDirective:
+      type: object
+      description: |
+        에이전트가 앱에 내리는 **화면 명령 하나.** 백엔드는 검증하지 않고 통과시킨다.
+        정본은 `contracts/schemas/guide/effects.schema.json`.
+
+        명령은 **의도 수준**이다 — 「2일차를 보여 줘」라고 말하고 어느 화면을 어떻게 띄울지는
+        앱이 정한다. 좌표나 화면 전환 절차를 여기서 정하면 iOS 와 Android 가 서로 다른 앱이
+        되고, 앱을 고칠 때마다 에이전트를 같이 고쳐야 한다.
+
+        **앱은 모르는 `op` 를 무시한다.** 에이전트가 명령을 늘려도 옛 앱이 깨지지 않는다.
+
+        | `op` | 값 | 앱이 하는 일 |
+        | --- | --- | --- |
+        | `map.focus` | `placeIds` | 그 핀들이 다 보이게 지도를 맞춘다 |
+        | `route.draw` | `placeIds` | 그 순서로 선을 그린다 |
+        | `place.card` | `placeId` | 장소 카드를 띄운다 |
+        | `course.open` | `day` | 코스 화면을 그 일차로 연다 |
+        | `course.focus` | `day`, `changed` | 그 일차를 펼치고 `changed` 의 줄을 잠깐 강조한다 — 무엇이 바뀌었는지 눈에 보여야 바뀐 줄 안다 |
+        | `sheet.collapse` | — | 챗봇 시트를 내린다 |
+      required: [op]
+      properties:
+        op:
+          type: string
+          description: "`map.focus` · `route.draw` · `place.card` · `course.open` · `course.focus` · `sheet.collapse`"
+        placeIds:
+          type: array
+          nullable: true
+          description: "`map.focus` · `route.draw` 가 보여 줄 장소들. 이번 턴 `places[].id` — 출처는 그 배열의 `source` 로"
+          items:
+            type: integer
+            format: int64
+        placeId:
+          type: integer
+          format: int64
+          nullable: true
+          description: "`place.card` 가 띄울 장소. 이번 턴 `places[].id` — 출처는 그 배열의 `source` 로"
+        day:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: "`course.open` · `course.focus` 가 펼칠 일차"
+        changed:
+          type: array
+          nullable: true
+          description: "`course.focus` 에서 방금 바뀐 장소 이름들"
+          items:
+            type: string
+
+    GuidePlan:
+      type: object
+      description: |
+        챗봇(`plan_course`)이나 마법사(`POST /guide/plan`)가 짠 **일정 초안.** 앱이 그리는
+        데이터이지 모델이 읽는 글이 아니다 — 에이전트는 같은 일정을 두 벌로 내보내고, 모델에게
+        가는 한글 사전에는 좌표·`placeId` 가 없다. 모델은 이 모양을 보지 않는다.
+        정본: `contracts/schemas/guide/effects.schema.json` (에이전트 `schemas/effects.json`).
+
+        **저장된 코스(`CourseDay`)와 다른 모양이고 일부러 합치지 않았다.** 초안에는 도착 시각과
+        「넣지 못한 곳」이 있고 DB id(`CourseItem.id`)가 없다. 저장된 코스는 도착 시각을 주지
+        않고(`CourseDay` 설명) 항목마다 DB id 가 있어 방문 체크가 붙는다. 견적서와 계약서다.
+
+        **저장하는 법** — 사용자의 「완료」에서 앱이 정지점마다 `placeId` 와 `dwellMinutes` 만
+        꺼내 `CourseItemInput` 으로 `PUT /courses/{id}` 에 보낸다. `placeId` 가 `null` 인
+        정지점은 저장할 수 없고, 이름으로 대체하지 않는다.
+
+        **되돌려보내는 법** — 챗봇으로 고치려면 앱은 편집 중인 사본을 다음 요청의
+        `GuideContext.plan` 에 **같은 모양으로** 싣는다. 편집 중에는 앱이 정본이다.
+
+        시각·길이는 전부 정수다. 분은 0 시 기준(`540` = 09:00), 거리는 m. `"12:17"`·
+        `"약 3.2km"` 같은 표시 문자열은 앱이 만든다.
+      required: [days]
+      properties:
+        titles:
+          type: array
+          description: 사용자가 요청한 작품들
+          items:
+            type: string
+        pace:
+          type: string
+          enum: [relaxed, normal, packed]
+          description: 여유 · 보통 · 빡빡. 하루 예산(분·정지점 수)이 이것으로 정해진다
+        considered:
+          type: integer
+          description: 본 후보 수. 「무엇을 근거로」를 보여 줄 때 쓴다
+        travelBasis:
+          $ref: "#/components/schemas/TravelBasis"
+        notes:
+          type: array
+          description: 사용자에게 알릴 주의 — 「체류 시간은 추정」 같은 것
+          items:
+            type: string
+        days:
+          type: array
+          description: 일차 순서대로. 배열 순서와 `day` 가 같다
+          items:
+            $ref: "#/components/schemas/GuidePlanDay"
+
+    GuidePlanDay:
+      type: object
+      required: [day, stops]
+      properties:
+        day:
+          type: integer
+          minimum: 1
+          description: 1 부터. 날짜가 아니다
+        endMinute:
+          type: integer
+          description: 그날 마치는 시각. **0 시 기준 정수 분** — `"12:17"` 같은 표시는 앱이 만든다
+        totalMeters:
+          type: integer
+          description: 그날 이동 거리 합 (m). `travelBasis` 대로 어림이다
+        stops:
+          type: array
+          description: 갈 순서대로. 배열 순서와 `order` 가 같다
+          items:
+            $ref: "#/components/schemas/GuidePlanStop"
+        dropped:
+          type: array
+          description: |
+            넣지 못한 곳과 그 이유. 「왜 빠졌는지」를 사용자가 볼 수 있어야 한다 — 요청한
+            작품의 촬영지가 말없이 사라지면 사용자는 추천이 틀렸다고 느낀다.
+          items:
+            $ref: "#/components/schemas/GuidePlanDropped"
+
+    GuidePlanStop:
+      type: object
+      required: [order, name, arriveMinute]
+      properties:
+        order:
+          type: integer
+          minimum: 1
+        placeId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            `PlaceSummary.id`. **없으면 `null` 이고 이름으로 대체하지 않는다** — 이름을 id 로
+            알고 저장하면 동명 장소에 걸린다. `null` 이면 앱은 이 정지점을 저장하지 못한다.
+        name:
+          type: string
+        address:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        arriveMinute:
+          type: integer
+          description: 도착 시각. 0 시 기준 정수 분
+        dwellMinutes:
+          type: integer
+          description: 머무는 시간. 장소 종류별 합의값이라 추정이다
+        titles:
+          type: array
+          description: "**사용자가 요청한 작품 중** 이 장소가 걸리는 것들. 앱의 「작품별 보기」가 쓴다"
+          items:
+            type: string
+        sceneDescription:
+          type: string
+          nullable: true
+          description: 그 작품의 어떤 장면이었나
+        mealAfter:
+          type: boolean
+          description: 이 정지점 뒤에 식사 시간이 들어갔는가. 식당은 고르지 않는다 — 맛집 데이터가 없다
+        metersToNext:
+          type: integer
+          nullable: true
+          description: 다음 정지점까지 어림 거리 (m). 마지막은 `null`. 구간 소요 시간은 주지 않는다 — `CourseDay.travelMinutes` 와 같은 원칙
+
+    GuidePlanDropped:
+      type: object
+      required: [name, reason]
+      properties:
+        placeId:
+          type: integer
+          format: int64
+          nullable: true
+        name:
+          type: string
+        reason:
+          type: string
+          description: 사람이 읽는 이유 — 「하루 정지점 상한 3 곳」 「좌표 없음」
+
+    GuidePlanRequest:
+      type: object
+      description: |
+        마법사 화면에서 고른 값 그대로. 챗봇 도구 `plan_course` 의 인자와 같은 항목이다 —
+        챗봇 경로에서는 모델이 사용자의 말에서 이것을 읽어 내고, 여기서는 앱이 직접 보낸다.
+      required: [titles, days]
+      properties:
+        titles:
+          type: array
+          minItems: 1
+          maxItems: 5
+          description: 돌 작품들. **장소가 아니라 작품 기준이다** — 같은 장소가 여러 작품에 나오므로 장소만으로는 작품을 되짚을 수 없다(MZ2AZ-200)
+          items:
+            type: string
+        days:
+          type: integer
+          minimum: 1
+          maximum: 7
+        pace:
+          type: string
+          enum: [relaxed, normal, packed]
+          default: normal
+          description: 여유(하루 6시간·3곳) · 보통(8시간·5곳) · 빡빡(10시간·7곳). 계수는 에이전트 설정
+        latitude:
+          type: number
+          format: double
+          nullable: true
+          description: 출발점. 없으면 촬영지가 가장 몰린 곳을 중심으로 잡는다
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        must:
+          type: array
+          description: 꼭 넣을 장소 이름들. 점수를 올려 잘려 나가지 않게 한다
+          items:
+            type: string
+        avoid:
+          type: array
+          description: 뺄 장소 이름들
+          items:
+            type: string
+
+    GuidePlanReply:
+      type: object
+      required: [plan, effects, ui, tookSeconds]
+      properties:
+        plan:
+          $ref: "#/components/schemas/GuidePlan"
+        effects:
+          type: array
+          description: "항상 `plan.draft` 하나. 서버는 저장하지 않고 통과시킨다 — `GuideEffect` 참조"
+          items:
+            $ref: "#/components/schemas/GuideEffect"
+        ui:
+          type: array
+          description: "항상 `course.open` 하나 (`day: 1`)"
+          items:
+            $ref: "#/components/schemas/GuideUiDirective"
+        tookSeconds:
+          type: number
+          format: double
+
+    GuidePlace:
+      description: |
+        가이드가 찾아 준 장소 하나. `PoiSummary` 의 모양에 **출처(`source`)** 를 더한 것이다.
+
+        촬영지(`place` 표)와 편의시설(`poi` 표)은 id 가 따로 매겨져 있어 같은 숫자가 다른 곳을
+        가리킬 수 있다. `categoryGroup` 으로도 못 가른다 — 편의시설의 「관광지」도 `sight` 다.
+        그래서 출처를 명시한다. 코스 항목의 `CourseItemSource` 와 같은 발상이다.
+      allOf:
+        - $ref: "#/components/schemas/PoiSummary"
+        - type: object
+          required: [source]
+          properties:
+            source:
+              $ref: "#/components/schemas/GuidePlaceSource"
+
+    GuidePlaceSource:
+      type: string
+      enum: [place, poi]
+      description: |
+        `place` — 촬영지. `id` 는 `PlaceSummary.id`, 상세는 `GET /places/{id}`.
+        `poi` — 편의시설. `id` 는 `PoiSummary.id`, 상세는 `GET /pois/{id}`.
+
+    GuideToolUse:
+      type: object
+      required: [tool, arguments]
+      properties:
+        tool:
+          type: string
+          description: |
+            부른 도구 이름. enum 이 아니라 문자열이다 — 에이전트가 도구를 하나 더할 때 옛 앱이
+            응답 전체를 못 읽지 않게. 앱은 모르는 이름도 그대로 보여 주면 된다. 지금 정의된 아홉 개:
+
+            | 도구 | 언제 |
+            | --- | --- |
+            | `search_places` | 무엇을 찾는지 분명하지 않을 때 — 작품·배우·장소·주소를 한꺼번에 |
+            | `list_title_places` | 작품을 콕 집어 말했을 때 |
+            | `places_near` | 「이 근처」·「2번 주변」 촬영지 |
+            | `place_detail` | 「거기 무슨 장면이야?」 |
+            | `update_cart` | 「그거 담아 줘」·「빼 줘」 → `cart.*` effect |
+            | `plan_course` | 작품과 기간으로 일정 전체 → `plan.draft` effect |
+            | `revise_plan` | 짜 둔 일정의 한 일차만 고침 → `plan.revise` effect |
+            | `move_stop` | 한 곳을 다른 일차로 → `plan.move` effect |
+            | `poi_nearby` | 편의시설 — 음식점·카페·숙박·명소·교통 |
+        arguments:
+          $ref: "#/components/schemas/GuideToolArguments"
+
+    GuideToolArguments:
+      type: object
+      description: |
+        모델이 넣은 인자 — 검증을 통과한 값만. 아홉 도구의 인자를 한 모양에 모았다(생성기가 자유 객체를
+        못 만들어서다). 도구마다 쓰는 필드만 채워지고 나머지는 없다. 정본은 `contracts/schemas/guide/tools/`.
+
+        **이름은 이 계약의 것(camelCase)이다.** 에이전트가 모델과 주고받는 이름(`radius_m`·`to_day`)은
+        에이전트 내부 일이고, 응답에 실을 때 이 이름으로 바꾼다.
+      properties:
+        radiusMeters:
+          type: integer
+          nullable: true
+          description: "`poi_nearby` — 반경"
+        group:
+          $ref: "#/components/schemas/PoiCategoryGroup"
+        category:
+          type: string
+          nullable: true
+          description: "`poi_nearby` — 업종"
+        query:
+          type: string
+          nullable: true
+          description: "`poi_nearby` — 이름에 들어갈 말"
+        near:
+          type: string
+          nullable: true
+          description: "`poi_nearby` — 기준. 번호·`선택`·빈 값"
+        name:
+          type: string
+          nullable: true
+          description: "`place_detail`·`update_cart`·`move_stop` — 보여 준 장소의 이름"
+        title:
+          type: string
+          nullable: true
+          description: "`list_title_places` — 작품 제목"
+        limit:
+          type: integer
+          nullable: true
+          description: "`search_places`·`list_title_places`·`places_near`·`poi_nearby` — 최대 개수"
+        sort:
+          type: string
+          nullable: true
+          description: "`places_near` — `distance` 또는 `popular`"
+        action:
+          type: string
+          nullable: true
+          description: "`update_cart` — `add` 또는 `remove`"
+        titles:
+          type: array
+          nullable: true
+          description: "`plan_course` — 작품들"
+          items:
+            type: string
+        days:
+          type: integer
+          nullable: true
+          description: "`plan_course` — 일수 (1~7)"
+        pace:
+          type: string
+          nullable: true
+          description: "`plan_course` — `relaxed`·`normal`·`packed`"
+        start:
+          type: string
+          nullable: true
+          description: "`plan_course` — 출발점. 번호·`현위치`·빈 값"
+        must:
+          type: array
+          nullable: true
+          description: "`plan_course` — 꼭 넣을 장소 이름들"
+          items:
+            type: string
+        avoid:
+          type: array
+          nullable: true
+          description: "`plan_course` — 뺄 장소 이름들"
+          items:
+            type: string
+        day:
+          type: integer
+          nullable: true
+          description: "`revise_plan` — 고칠 일차"
+        add:
+          type: array
+          nullable: true
+          description: "`revise_plan` — 넣을 장소 이름들"
+          items:
+            type: string
+        remove:
+          type: array
+          nullable: true
+          description: "`revise_plan` — 뺄 장소 이름들"
+          items:
+            type: string
+        toDay:
+          type: integer
+          nullable: true
+          description: "`move_stop` — 옮겨 갈 일차"

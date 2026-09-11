@@ -1144,3 +1144,199 @@ def plan_to_dict(plan: Plan) -> dict[str, Any]:
         },
         "주의": plan.notes,
     }
+
+
+# ── 앱이 그리는 모양 ──────────────────────────────────────────────────────────
+#
+# `plan_to_dict` 는 **모델이 읽는 글**이다. 앱이 필요한 것은 **그리는 데이터**다.
+# 같은 일정이지만 용도가 달라 두 벌이어야 한다 (정권호, 2026-09-07 「일정 모양과
+# 편집 사본」 §1). 여행사 직원이 손님에게 읽어 주는 일정표와, 같은 직원이 예약
+# 시스템에 입력하는 데이터의 차이다.
+#
+# 갈라 두는 값어치는 곧바로 드러난다 — 앱은 좌표가 있어야 핀을 찍고, `placeId` 가
+# 있어야 `PUT /courses/{id}` 로 저장하고, 분이 정수여야 순서를 바꿔 다시 잰다.
+# 그리고 **모델은 여전히 좌표를 보지 않는다**: 아래 모양은 응답에만 실리고 도구
+# 결과로는 `plan_to_dict` 가 그대로 나간다.
+
+
+def plan_to_api(plan: Plan) -> dict[str, Any]:
+    """일정을 앱이 그릴 수 있는 사전으로 바꾼다.
+
+    키는 영문 camelCase 다 — 한글 키로는 Swift·Kotlin 클라이언트 생성기가 필드를
+    만들지 못한다. 시각은 0 시 기준 정수 분이다. `"12:17"` 같은 표시 문자열은
+    앱이 만든다.
+
+    **구간 소요 시간(`minutesToNext`)은 넣지 않는다.** 우리가 가진 것은 직선거리에
+    우회 계수를 곱한 어림이고, 계약이 코스 편집 응답에 「구간 소요 시간 — 주지
+    않는다」 고 못 박아 두었다. 실제 소요 시간은 길찾기 창구만 답할 수 있다.
+    거리는 `travelBasis` 로 어림임을 밝혀 두고 넘긴다(기존 계약 필드다).
+    """
+    days: list[dict[str, Any]] = []
+    for d in plan.days:
+        stops: list[dict[str, Any]] = []
+        for leg in d.legs:
+            place = leg.place
+            scene = next((s.description for s in place.scenes if s.description), "")
+            stops.append(
+                {
+                    "order": leg.order,
+                    "placeId": _api_place_id(place),
+                    "name": place.name,
+                    "address": place.address or None,
+                    "latitude": place.lat,
+                    "longitude": place.lng,
+                    "arriveMinute": leg.arrive,
+                    "dwellMinutes": leg.dwell,
+                    "titles": list(leg.titles or place.titles[:3]),
+                    "sceneDescription": scene or None,
+                    "mealAfter": leg.meal_after,
+                    "metersToNext": leg.meters_to_next or None,
+                }
+            )
+        days.append(
+            {
+                "day": d.day,
+                "endMinute": d.end_minute,
+                "totalMeters": d.total_meters,
+                "stops": stops,
+                "dropped": [
+                    {"placeId": _api_place_id(p), "name": p.name, "reason": why}
+                    for p, why in d.dropped
+                ],
+            }
+        )
+
+    return {
+        "titles": list(plan.request.titles),
+        "pace": plan.request.pace,
+        "days": days,
+        "considered": plan.considered,
+        "travelBasis": "straight_line",
+        "notes": list(plan.notes),
+    }
+
+
+def _api_place_id(place: Place) -> int | None:
+    """계약의 `placeId` 는 int64 다. 없으면 `null` — **이름으로 대체하지 않는다.**
+
+    이름을 넣으면 받는 쪽이 그것을 id 로 알고 저장하려 들고, 「개뿔」 처럼 같은
+    이름이 둘인 장소에서 엉뚱한 곳이 저장된다. 없으면 없다고 말하는 편이 낫다:
+    그때 앱은 저장하지 않고 백엔드는 `cart.add` 를 거절한다.
+    """
+    raw = (place.place_id or "").strip()
+    if not raw.isdigit():
+        return None
+    return int(raw)
+
+
+def plan_from_api(payload: dict[str, Any], book: PlaceSource) -> Plan:
+    """`plan_to_api` 가 내보낸 사전을 `Plan` 객체로 되읽는다.
+
+    앱이 편집한 사본을 정본으로 삼기 위한 입구다. 좌표와 `placeId` 가 실려 있어서
+    `revise_day`·`move_stop` 이 거리를 다시 잴 수 있다.
+
+    구간 소요 시간은 **다시 계산한다** — 내보낼 때 뺐고, 어차피 `travel_minutes`
+    가 같은 좌표로 같은 값을 낸다. 왕복이 어긋나지 않는 이유다.
+
+    `book` 은 장면 설명·등급 같은 부가 정보를 되찾는 데만 쓴다. 못 찾아도 일정은
+    성립한다 — 앱이 보낸 좌표만으로 충분하다.
+    """
+    if not isinstance(payload, dict):
+        raise PlanError("일정 모양이 사전이 아니다")
+
+    cfg = load_config()
+    resolved: dict[str, Place | None] = {}
+
+    def restore(raw: dict[str, Any], *, need_coords: bool) -> Place | None:
+        name = str(raw.get("name") or "").strip()
+        if not name:
+            return None
+        lat, lng = raw.get("latitude"), raw.get("longitude")
+        if need_coords and (lat is None or lng is None):
+            return None
+
+        if name not in resolved:
+            # 창구가 답을 못 주거나 느려도 일정은 살아야 한다.
+            try:
+                resolved[name] = book.resolve(name)
+            except Exception:  # noqa: BLE001 — 부가 정보일 뿐이다
+                resolved[name] = None
+        hit = resolved[name]
+
+        pid = raw.get("placeId")
+        return Place(
+            place_id=str(pid) if pid is not None else (hit.place_id if hit else ""),
+            name=name,
+            address=str(raw.get("address") or (hit.address if hit else "")),
+            lat=float(lat) if lat is not None else None,
+            lng=float(lng) if lng is not None else None,
+            kind=hit.kind if hit else "",
+            naver_url=hit.naver_url if hit else "",
+            image_url=hit.image_url if hit else "",
+            tier=hit.tier if hit else "",
+            selected=hit.selected if hit else False,
+            mentions=hit.mentions if hit else 0,
+            scenes=list(hit.scenes) if hit else [],
+        )
+
+    days: list[DayPlan] = []
+    for raw_day in payload.get("days") or []:
+        if not isinstance(raw_day, dict):
+            continue
+        legs: list[Leg] = []
+        for raw_stop in raw_day.get("stops") or []:
+            if not isinstance(raw_stop, dict):
+                continue
+            place = restore(raw_stop, need_coords=True)
+            if place is None:
+                # 좌표 없는 정지점은 거리를 못 재서 동선에 못 넣는다.
+                continue
+            legs.append(
+                Leg(
+                    order=len(legs) + 1,
+                    place=place,
+                    arrive=int(raw_stop.get("arriveMinute") or 0),
+                    dwell=int(
+                        raw_stop.get("dwellMinutes") or dwell_minutes(place, cfg)
+                    ),
+                    travel_to_next=0,
+                    meters_to_next=0,
+                    meal_after=bool(raw_stop.get("mealAfter")),
+                    titles=[str(t) for t in (raw_stop.get("titles") or [])],
+                )
+            )
+
+        for i in range(len(legs) - 1):
+            minutes, meters = travel_minutes(legs[i].place, legs[i + 1].place, cfg)
+            legs[i].travel_to_next = minutes
+            legs[i].meters_to_next = meters
+
+        dropped: list[tuple[Place, str]] = []
+        for raw_drop in raw_day.get("dropped") or []:
+            if not isinstance(raw_drop, dict):
+                continue
+            place = restore(raw_drop, need_coords=False)
+            if place is not None:
+                dropped.append((place, str(raw_drop.get("reason") or "")))
+
+        days.append(
+            DayPlan(
+                day=int(raw_day.get("day") or len(days) + 1), legs=legs, dropped=dropped
+            )
+        )
+
+    if not days:
+        raise PlanError("보내 준 일정에 하루도 들어 있지 않다")
+
+    request = PlanRequest(
+        titles=[str(t) for t in (payload.get("titles") or [])],
+        days=len(days),
+        pace=str(payload.get("pace") or "normal"),
+    )
+    return Plan(
+        request=request,
+        days=days,
+        considered=int(payload.get("considered") or 0),
+        signals={},
+        notes=[str(n) for n in (payload.get("notes") or [])],
+    )

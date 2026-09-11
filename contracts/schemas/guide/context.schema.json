@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mz2az.dev/schemas/guide/context.schema.json",
+  "title": "GuideContext",
+  "description": "여행 가이드 챗봇에게 주는 화면 상태. OpenAPI 의 GuideContext 와 같은 모양이며, 서버가 시스템 프롬프트의 「담은 지점」·「여행 상태」 절로 푼다. 좌표는 서버만 쓴다.",
+  "type": "object",
+  "required": [
+    "stops"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "stops": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "$ref": "#/$defs/stop"
+      }
+    },
+    "picked": {
+      "$ref": "#/$defs/stop"
+    },
+    "trip": {
+      "type": "object",
+      "required": [
+        "phase",
+        "course",
+        "day",
+        "days",
+        "walkedKilometers"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "phase": {
+          "enum": [
+            "plan",
+            "guiding",
+            "arrived"
+          ]
+        },
+        "course": {
+          "type": "string"
+        },
+        "day": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "targetNumber": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "targetMeters": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "직선 m"
+        },
+        "walkedKilometers": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  },
+  "$defs": {
+    "stop": {
+      "type": "object",
+      "required": [
+        "number",
+        "name",
+        "latitude",
+        "longitude"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "name": {
+          "type": "string"
+        },
+        "category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "latitude": {
+          "type": "number"
+        },
+        "longitude": {
+          "type": "number"
+        },
+        "visited": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  }
+}

@@ -27,7 +27,12 @@ sys.path.insert(0, str(_HERE.parent))
 from src.agent import TripGuide
 from src.cli import open_source, set_here
 from src.deepseek import DeepSeekClient, ModelError, load_config
-from src.planner import PlanError, PlanRequest, make_plan, plan_to_dict
+from src.planner import (
+    PlanError,
+    PlanRequest,
+    make_plan,
+    plan_to_api,
+)
 from src.sceneapi import SceneApiError
 from src.session import Anchor, Session
 
@@ -172,7 +177,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._send({"error": str(exc)}, 400)
                 return
 
-            payload = plan_to_dict(plan)
+            # **앱이 그리는 모양**이다. 모델이 읽는 한글 사전(`plan_to_dict`)이
+            # 아니다 — 이 창구의 응답은 모델을 거치지 않고 앱으로 바로 간다.
+            payload = plan_to_api(plan)
             self._send(
                 {
                     "plan": payload,
@@ -207,6 +214,17 @@ class Handler(BaseHTTPRequestHandler):
                 # 좌표가 이상하면 위치 없이 간다 — 「이 근처」 질문만 거절된다.
                 with contextlib.suppress(TypeError, ValueError):
                     guide.session.here = Anchor("현위치", float(lat), float(lng))
+
+            # **묻기 전에 일정부터 갈아 끼운다.** 편집 중에는 앱이 정본이고,
+            # 세션이 들고 있는 것은 낡았을 수 있다 (Session.adopt_plan).
+            try:
+                guide.session.adopt_plan(body.get("context"))
+            except (PlanError, TypeError, ValueError) as exc:
+                self._send(
+                    {"code": "INVALID_PARAMETER", "message": f"context.plan: {exc}"},
+                    400,
+                )
+                return
 
             before = len(guide.session.shown)
             started = time.monotonic()

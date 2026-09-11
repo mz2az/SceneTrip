@@ -325,7 +325,8 @@ curl http://localhost:8081/v1/actuator/health
 | `SPRING_DATASOURCE_USERNAME` | 아니오 | `scenetrip` | DB 사용자 |
 | `SPRING_DATASOURCE_PASSWORD` | **예** | 없음 | DB 비밀번호. 값이 없으면 접속이 거부되어 기동이 실패한다 |
 | `KAKAO_REST_KEY` | 아니오 | 없음 | 여행 중 길찾기(카카오 대중교통·도보). 없으면 기동은 하고 길찾기만 503 이다 |
-| `SCENETRIP_AUTH_REQUIRE_REGISTRATION` | 아니오 | `true` | 가입 판정. `false` 면 마켓·길찾기의 401 이 나지 않는다. **로컬 kind 의 ConfigMap 만 끈다** — 로그인 전 시뮬레이터 검증용이고 기동 로그에 경고가 남는다 |
+| `SCENETRIP_AUTH_REQUIRE_REGISTRATION` | 아니오 | `true` | 가입 판정. `false` 면 마켓·길찾기·챗봇의 401 이 나지 않는다. **로컬 kind 의 ConfigMap 만 끈다** — 로그인 전 시뮬레이터 검증용이고 기동 로그에 경고가 남는다 |
+| `SCENETRIP_GUIDE_AGENT_BASE_URL` | 아니오 | `http://localhost:8899` | 가이드 에이전트(`agents/trip-guide`) 주소. 없으면 기동은 하고 `/guide/*` 만 503 이다. 클러스터 값은 에이전트 컨테이너가 생길 때 정한다 |
 
 비밀번호는 `application.yaml` 에 두지 않는다 — 이미지 안에 박히면 이미지를 가진 사람이
 곧 자격 증명을 가진 것이 된다. 로컬에서는 `postgres` ConfigMap 의 키를
@@ -371,6 +372,49 @@ just navigation-smoke      # 배포된 것이 실제로 답하나 — 카카오�
 
 카카오 호출은 SigNoz 에서 `http.client.requests{uri="/v2/routing/{kind}"}` 로 대중교통·도보가
 갈려 보인다. 쿼터는 각각 하루 1,000건이고 이어붙이기 때문에 도보가 두 배 가까이 나간다.
+
+## 가이드 챗봇 — 에이전트를 부른다
+
+`POST /guide/chat`(챗봇 한 턴)과 `POST /guide/plan`(일정짜기 마법사)은 **이 서비스가 직접 답하지
+않는다.** LLM 호출·도구·프롬프트·코스 계산은 전부 파이썬 에이전트 `agents/trip-guide` 에 있고,
+여기는 앱의 요청을 에이전트에 넘기고 응답을 **옮겨 담지 않고** 돌려준다. 왜 그렇게 나눴는지는
+[ADR 0013](../../docs/architecture/adr/0013-guide-chat-is-served-by-the-python-agent.md), 구조와
+검증 절차는 [계획서](../../docs/project/plans/guide-endpoints.md). 이 서비스의 코드에 프롬프트
+문자열·모델 ID·도구 정의가 생기면 되돌아간 것이다.
+
+```
+앱 ──POST /guide/chat──▶ GuideController ──▶ GuideAgentClient ──POST /guide/chat──▶ 에이전트(:8899)
+                              │◀── 그대로 ◀───────────────────────────────────────────┘
+                              ▼
+                     GuideEffectApplier ── cart.* 만 ──▶ CartStore
+```
+
+| 자리 | 하는 일 |
+| --- | --- |
+| `web/GuideController` | 통제·조립. 챗봇은 **가입자만**(401) — 턴마다 모델 토큰이 나가는 유료 경로라 길찾기와 같은 규칙. 판정은 에이전트 앞이라 미가입 요청은 비용 없이 걸러진다 |
+| `guide/GuideAgentClient` | 에이전트를 부르는 유일한 곳. 전송과 예외 번역만. 에이전트의 400 은 앱의 잘못이라 그대로 400, 나머지 실패는 전부 `503 GUIDE_UNAVAILABLE`. **재시도 없음** — `/guide/chat` 은 멱등이 아니다 |
+| `guide/GuideEffectApplier` | 응답의 `effects` 중 `cart.add`·`cart.remove` 만 DB 에. `plan.*` 은 저장하지 않는다(저장은 「완료」의 `PUT /courses/{id}` 뿐). 기준은 「실행 뒤 장바구니가 답변과 맞는가」 — 이미 담김·안 담김은 무시, `placeId` 없음·없는 장소·DB 예외는 500 |
+
+**에이전트는 신원을 모른다.** `X-Device-Id` 는 요청 객체에 없고 `effects` 를 적용할 때만 쓴다.
+저장할 것은 에이전트가 쪽지(`effects`)로 말하고 이 서비스가 대신 저장한다.
+
+**타임아웃은 벽이다** — `scenetrip.guide.timeout-seconds`(40초). 안에서 모델을 몇 번 부르는지는
+모른다. 원칙은 「안쪽이 바깥보다 먼저 포기한다」: 에이전트 턴 예산 30초 < 이 값 < 앱 50초.
+에이전트가 자기 예산 안에서 스스로 503 을 내는 것이 정상 경로이고 이 값은 안전망이다.
+이 경로가 요청당 수 초를 기다리는 첫 경로라 **가상 스레드를 켰다**(`spring.threads.virtual.enabled`).
+`plan_course` 는 에이전트가 이 서비스를 되부르므로, 플랫폼 스레드였다면 톰캣 스레드가 전부
+에이전트를 기다릴 때 그 GET 을 받을 스레드가 없어 양쪽이 서로를 기다린다.
+
+**에이전트가 없으면 503 이 정상이다.** `rules_python` 이 꺼져 있어 에이전트 컨테이너가 아직
+없다 — 클러스터의 이 서비스는 설정된 주소에 아무것도 없으니 `/guide/*` 에 503 을 낸다.
+규칙 기반으로 조용히 떨어지지 않는다. 로컬에서 실제로 돌려 보려면 에이전트를 노트북에서 띄운다.
+
+```sh
+cd agents/trip-guide && export DEEPSEEK_API_KEY=… && python3 -m web.server --port 8899
+```
+
+에이전트 호출은 SigNoz 에서 `http.client.requests{uri="/guide/chat"}`·`{uri="/plan"}` 으로 갈려
+보인다. 타임아웃 값을 실측으로 정하는 근거가 여기서 나온다.
 
 ## 운영
 
