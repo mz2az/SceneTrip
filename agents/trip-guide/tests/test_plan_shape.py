@@ -85,7 +85,7 @@ class 왕복(unittest.TestCase):
 
     def test_거리가_어림임을_밝힌다(self):
         """직선거리에 우회 계수를 곱한 값이다. 받는 쪽이 그것을 알아야 한다."""
-        self.assertEqual(plan_to_api(self.plan)["travelBasis"], "straight-line")
+        self.assertEqual(plan_to_api(self.plan)["travelBasis"], "straight_line")
 
     def test_키가_전부_영문이다(self):
         """한글 키로는 Swift·Kotlin 클라이언트 생성기가 필드를 만들지 못한다."""
