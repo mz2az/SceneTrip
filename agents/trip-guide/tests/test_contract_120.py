@@ -140,11 +140,25 @@ class 경계의이름(unittest.TestCase):
         plan = make_plan(seoul_incheon_book(), PlanRequest(titles=["도깨비"], days=1))
         self.assertEqual(plan_to_api(plan)["travelBasis"], "straight-line")
 
-    def test_도구_인자를_계약_이름으로_바꿔_싣는다(self):
+    def test_도구_인자를_계약_이름과_값으로_바꿔_싣는다(self):
+        """이름만 바꾸면 모자란다 — `group` 은 계약에서 열거형이다.
+
+        한국어를 그대로 실었더니 백엔드의 Jackson 이 응답 전체를 못 읽고 503 을
+        냈다 (2026-09-11 실측, 백엔드 경유 `/guide/chat`).
+        """
         self.assertEqual(
             _api_args({"radius_m": 300, "to_day": 2, "group": "음식"}),
-            {"radiusMeters": 300, "toDay": 2, "group": "음식"},
+            {"radiusMeters": 300, "toDay": 2, "group": "food"},
         )
+
+    def test_네_갈래를_모두_계약_값으로_바꾼다(self):
+        want = {"음식": "food", "숙박": "stay", "명소": "sight", "교통": "transit"}
+        for ko, en in want.items():
+            self.assertEqual(_api_args({"group": ko})["group"], en)
+
+    def test_모르는_값은_그대로_둔다(self):
+        """도구가 늘어 값이 바뀌어도 응답이 통째로 사라지지는 않게."""
+        self.assertEqual(_api_args({"group": "food"})["group"], "food")
 
     def test_모델에게_주는_이름은_그대로다(self):
         """계약이 정하는 것은 응답에 실리는 이름뿐이다."""

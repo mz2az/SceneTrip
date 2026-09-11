@@ -181,7 +181,7 @@ class 사본이없으면(unittest.TestCase):
         상태의 정본은 이 블록이지 대화 기록이 아니다.
         """
         gone = self.session.plan.days[0].legs[0].place.name
-        self.session.adopt_plan({})
+        self.session.adopt_context({})
 
         block = self.session.context_block()
         itinerary = block[block.index("짜 둔 일정") :]
