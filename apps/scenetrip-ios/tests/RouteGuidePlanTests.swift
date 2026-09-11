@@ -89,6 +89,16 @@ final class RouteGuidePlanTests: XCTestCase {
         XCTAssertEqual(plan.days[0].stops[0].arriveMinute, 0)
     }
 
+    /// 에이전트 주의문의 마크다운은 벗기고, 직선 어림은 두 번 말하지 않는다.
+    func testAgentNotesArePlainAndNotDuplicated() {
+        var plan = samplePlan
+        plan.notes = ["거리와 시간은 직선거리에 우회 계수를 곱한 **추정**이다."]
+        let notes = RouteGuidePlan.notes(from: plan)
+        XCTAssertTrue(notes.contains("거리와 시간은 직선거리에 우회 계수를 곱한 추정이다."))
+        XCTAssertEqual(notes.filter { $0.contains("직선") }.count, 1)
+        XCTAssertEqual(RouteGuidePlan.notesSummary(notes), "뺀 곳 1 · 주의 1")
+    }
+
     func testClockLabelIsMadeByTheApp() {
         XCTAssertEqual(RouteGuidePlan.clock(540), "09:00")
         XCTAssertEqual(RouteGuidePlan.clock(737), "12:17")
