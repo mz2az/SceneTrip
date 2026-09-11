@@ -43,10 +43,24 @@ from src.session import Anchor, Session
 # 이름은 에이전트 내부 일이고, 응답에 실을 때 이 이름으로 바꾼다」).
 _ARG_NAMES = {"radius_m": "radiusMeters", "to_day": "toDay"}
 
+# **이름만 바꾸면 모자란다 — 값도 계약의 것이어야 한다.** `group` 은 계약에서
+# `PoiCategoryGroup` 열거형(food·stay·sight·transit)이라, 모델이 고른 한국어를 그대로
+# 실으면 백엔드의 Jackson 이 응답 전체를 읽지 못하고 503 을 낸다 (2026-09-11 실측:
+# 「가이드 에이전트 응답을 읽지 못했습니다: /guide/chat」). 모델에게 한국어를 주는
+# 것은 그대로 둔다 — 도구 스키마는 에이전트 내부 일이다(tools.py `_POI_GROUPS`).
+_ARG_VALUES = {
+    "group": {"음식": "food", "숙박": "stay", "명소": "sight", "교통": "transit"}
+}
+
 
 def _api_args(args: dict[str, Any]) -> dict[str, Any]:
-    """도구 인자를 계약 이름(camelCase)으로 바꿔 응답에 싣는다."""
-    return {_ARG_NAMES.get(k, k): v for k, v in args.items()}
+    """도구 인자를 계약의 이름과 값으로 바꿔 응답에 싣는다."""
+    out: dict[str, Any] = {}
+    for key, value in args.items():
+        name = _ARG_NAMES.get(key, key)
+        table = _ARG_VALUES.get(key)
+        out[name] = table.get(value, value) if table else value
+    return out
 
 
 def _bad(message: str) -> dict[str, str]:
@@ -149,11 +163,37 @@ class Handler(BaseHTTPRequestHandler):
 
         self._send({"error": "그런 주소가 없다"}, 404)
 
-    def do_POST(self) -> None:
+    def _read_body(self) -> bytes:
+        """몸체를 읽는다 — `Content-Length` 와 `Transfer-Encoding: chunked` 둘 다.
+
+        scene-api(Java HttpClient)는 몸체를 chunked 로 보낸다(정승길, 2026-09-11 실측).
+        `Content-Length` 만 보면 0 바이트를 읽어 「어느 작품으로 돌지 받지 못했다」가
+        되고, 백엔드는 그것을 400 으로 앱에 넘긴다 — **앱 잘못이 아닌데 앱 잘못으로
+        보인다.**
+
+        `curl` 과 파이썬 `urllib` 은 길이를 적어 보내므로 여기 없이도 통한다. 그래서
+        에이전트만 따로 시험하면 끝까지 드러나지 않고, 앱을 붙였을 때 처음 나온다.
+        """
+        if "chunked" in (self.headers.get("Transfer-Encoding") or "").lower():
+            chunks: list[bytes] = []
+            while True:
+                size_line = self.rfile.readline().strip()
+                size = int(size_line.split(b";")[0] or b"0", 16)
+                if size == 0:
+                    # 마지막 빈 줄(트레일러 없음)까지 비운다.
+                    while self.rfile.readline().strip():
+                        pass
+                    break
+                chunks.append(self.rfile.read(size))
+                self.rfile.readline()  # 청크 뒤의 CRLF
+            return b"".join(chunks)
         length = int(self.headers.get("Content-Length") or 0)
+        return self.rfile.read(length)
+
+    def do_POST(self) -> None:
         try:
-            body = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
-        except json.JSONDecodeError:
+            body = json.loads(self._read_body().decode("utf-8") or "{}")
+        except (json.JSONDecodeError, ValueError):
             self._send(_bad("요청을 JSON 으로 읽을 수 없다"), 400)
             return
 
