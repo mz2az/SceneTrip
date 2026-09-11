@@ -154,3 +154,37 @@ extension RouteEditorView {
         ids.compactMap { id in places.first { $0.serverId == id } }
     }
 }
+
+/// 타입 본문 길이(swiftlint 350줄) 때문에 여기 둔다 — 초안 알림줄은 가이드·마법사 결과의 일부다.
+extension RouteEditorView {
+    /// 초안의 알림줄 — 접힌 한 줄(「뺀 곳 7 · 주의 3」)이고 누르면 펼쳐진다. 열 줄을 다 펼쳐 두면
+    /// 지도가 밀려 내려간다(2026-09-11 실측). 저장하면 사라지는 값이라 저장 전에만 보인다.
+    @ViewBuilder var draftNotes: some View {
+        if !course.draftNotes.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { showDraftNotes.toggle() }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle").font(.caption2)
+                        Text(RouteGuidePlan.notesSummary(course.draftNotes)).font(.caption2.weight(.medium))
+                        Image(systemName: showDraftNotes ? "chevron.up" : "chevron.down").font(.system(size: 9))
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(.secondary)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                if showDraftNotes {
+                    ForEach(course.draftNotes, id: \.self) { note in
+                        Text(note)
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .padding(.leading, 18)
+                    }
+                }
+            }
+            .padding(.horizontal, 20).padding(.bottom, 8)
+        }
+    }
+}
