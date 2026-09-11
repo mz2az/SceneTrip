@@ -173,6 +173,21 @@ class 사본이없으면(unittest.TestCase):
         self.session.adopt_plan(None)
         self.assertIsNone(self.session.plan)
 
+    def test_맥락이_일정_없음을_말한다(self):
+        """침묵하면 모델이 앞 대화 기록에서 옛 일정을 되짚어 읊는다.
+
+        2026-09-08 실측 — `context.plan` 을 빼고 「2일차에서 빼 줘」를 물었더니
+        도구는 안 불렀지만 「현재 2일차는 인천 서운고등학교…」 라고 답했다.
+        상태의 정본은 이 블록이지 대화 기록이 아니다.
+        """
+        gone = self.session.plan.days[0].legs[0].place.name
+        self.session.adopt_plan({})
+
+        block = self.session.context_block()
+        itinerary = block[block.index("짜 둔 일정") :]
+        self.assertIn("없다", itinerary)
+        self.assertNotIn(gone, itinerary)
+
 
 class placeId(unittest.TestCase):
     """CSV 창구에는 정수 id 가 없다. 그때 이름으로 대체하지 않는다."""
