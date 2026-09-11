@@ -123,10 +123,14 @@
       }
     },
     {
-      "name": "담은것을-이으면-draft_course",
-      "utterance": "담은 걸로 동선 짜 줘",
-      "expect": "draft_course",
-      "args": {}
+      "name": "화면번호로-지목하면-그-지점이-기준",
+      "_설명": "「2번」은 앱이 보낸 context.stops 의 번호다. 예전에는 에이전트가 따로 들던 목록에서 찾아 화면과 어긋났다 (MZ2AZ-320 §5).",
+      "utterance": "2번 주변에 카페 있어?",
+      "expect": "poi_nearby",
+      "args": {
+        "group": "음식",
+        "near": "2"
+      }
     },
     {
       "name": "작품만-말하면-list_title_places",

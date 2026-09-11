@@ -5,17 +5,24 @@
 방법은 매 턴 코드가 넣어 주는 것뿐이다
 (01_Raw/정승길/(3주차)경로탭 개발/06_떠 있는 챗봇과 맛집 추천 (v6).md §6-1, §7-1).
 
-여기 담기는 것 넷 —
+여기 담기는 것 —
 
     here    지금 어디 있는가. 「이 근처」 의 기준점이다
-    cart    오늘 코스에 담은 곳. 번호가 붙고 그 번호로 지목할 수 있다
+    stops   지금 일차의 지점들. **지도의 번호 핀과 같은 번호**다 (앱이 매 턴 보낸다)
+    picked  사용자가 화면에서 고른 곳 (앱이 매 턴 보낸다)
+    plan    편집 중인 일정 (앱이 매 턴 보낸다)
     shown   이번 대화에서 실제로 보여 준 장소들. 모델이 이름으로 지목할 수 있는 범위다
-    plan    마지막으로 짠 일차별 일정. 대화로 고치는 대상이다
     effects 이번 턴에 백엔드가 저장해야 할 것
     ui      이번 턴에 앱이 화면에서 해야 할 것
 
-`shown` 이 있는 이유는 모델이 이름을 지어내기 때문이다. 4,700 곳 전체에서 이름을
-찾게 하면 지어낸 이름이 엉뚱한 동명 장소에 우연히 걸린다 (v5 문서 §5-1).
+**앞의 넷은 기억하지 않는다.** 앱이 요청마다 `context` 로 보내 주고, 우리는 매 턴
+그것으로 갈아 끼운다(`adopt_context`). 화면이 정본이고 우리 기억은 낡을 수 있기
+때문이다 — 사용자가 편집 화면에서 지운 곳을 되살리거나, 지도의 2 번과 다른 곳을
+「2 번」 이라고 부르는 일이 여기서 생겼다 (MZ2AZ-318 · MZ2AZ-320).
+
+`shown` 만 우리가 들고 있는다. 계약에 이 칸이 없고, 모델이 이름을 지어내기
+때문이다 — 4,700 곳 전체에서 찾게 하면 지어낸 이름이 엉뚱한 동명 장소에 우연히
+걸린다 (v5 문서 §5-1).
 """
 
 from __future__ import annotations
@@ -36,11 +43,62 @@ class Anchor:
 
 
 @dataclass
+class Stop:
+    """화면의 지점 하나. 계약 `GuideStop` 그대로다.
+
+    **번호는 우리가 매기지 않는다.** 앱이 지도에 그린 번호를 그대로 받는다 —
+    순서를 바꾸거나 「동선 최적화」를 누르면 번호가 바뀌는데, 모델이 보는 번호와
+    지도의 번호가 다르면 「2 번 주변」이 엉뚱한 곳을 가리킨다.
+    """
+
+    number: int
+    name: str
+    lat: float | None = None
+    lng: float | None = None
+    category: str = ""
+    visited: bool = False
+
+    def anchor(self) -> Anchor | None:
+        if self.lat is None or self.lng is None:
+            return None
+        return Anchor(self.name, self.lat, self.lng)
+
+
+def _stop(raw: dict) -> Stop | None:
+    if not isinstance(raw, dict) or not str(raw.get("name") or "").strip():
+        return None
+    lat, lng = raw.get("latitude"), raw.get("longitude")
+    return Stop(
+        number=int(raw.get("number") or 0),
+        name=str(raw["name"]).strip(),
+        lat=float(lat) if lat is not None else None,
+        lng=float(lng) if lng is not None else None,
+        category=str(raw.get("category") or ""),
+        visited=bool(raw.get("visited")),
+    )
+
+
+@dataclass
 class Session:
     book: PlaceSource
     here: Anchor | None = None
-    cart: list[Place] = field(default_factory=list)
+    stops: list[Stop] = field(default_factory=list)
+    """지금 일차의 지점들. 매 턴 `context.stops` 로 갈아 끼운다."""
+
+    picked: Stop | None = None
+    """사용자가 화면에서 고른 곳. 모델은 「선택」 으로 지목한다."""
+
     shown: list[Place] = field(default_factory=list)
+    shown_pois: list[dict] = field(default_factory=list)
+    """이번 대화에서 보여 준 **편의시설**. 촬영지와 따로 둔다.
+
+    응답의 `places` 에 실어 지도에 핀을 찍기 위한 것이다 — 예전에는 이것이 없어서
+    「근처 카페」 에 이름은 말하면서 화면에는 아무것도 안 뜨는 일이 있었다.
+
+    **이름 지목(`find_shown`)에는 쓰지 않는다.** 촬영지와 편의시설은 다른 표라
+    id 가 겹칠 수 있고(계약 `GuidePlace`), 카페를 코스 항목으로 담으면 엉뚱한
+    촬영지가 담긴다.
+    """
     effects: list[dict] = field(default_factory=list)
     """이번 턴에 쌓인 **상태 변경 지시**. 백엔드가 DB 에 반영한다.
 
@@ -68,21 +126,26 @@ class Session:
     고치는 대상은 코드가 들고 있는 이 객체 하나뿐이다.
     """
 
-    def adopt_plan(self, context: dict | None) -> None:
-        """앱이 보낸 편집 사본을 이번 턴의 일정으로 삼는다.
+    def adopt_context(self, context: dict | None) -> None:
+        """앱이 보낸 화면 상태를 이번 턴의 정본으로 삼는다 (계약 `GuideContext`).
 
-        **편집 중에는 앱이 정본이다.** 사용자가 편집 화면에서 손으로 지운 것은
-        서버로 나가지 않으므로(계약 `PUT /courses/{id}` — 「완료」가 부르는 하나뿐인
-        요청), 세션이 들고 있는 일정은 이미 낡았을 수 있다. 그대로 고치면 방금 지운
-        곳이 되살아난다 (정권호, 2026-09-07 「일정 모양과 편집 사본」 §2).
+        **화면이 정본이다.** 우리가 들고 있는 것은 낡을 수 있다 — 사용자가 편집
+        화면에서 손으로 지운 것도, 「동선 최적화」로 번호가 바뀐 것도 서버로 나가지
+        않는다(계약 `PUT /courses/{id}` — 「완료」가 부르는 하나뿐인 요청). 그래서
+        매 요청마다 갈아 끼운다.
 
-        **`context.plan` 이 없으면 일정이 없는 것으로 본다.** 세션에 남은 낡은 일정을
-        몰래 쓰지 않는다. 「짜 둔 일정이 없다」 고 거절하는 편이, 사용자가 보고 있는
-        것과 다른 일정을 말없이 고치는 것보다 낫다. 덤으로 이 창구가 상태를 거의 안
-        들게 되어 인스턴스를 여러 개 띄워도 답이 갈리지 않는다.
+        **안 보내면 없는 것으로 본다.** 지난 턴의 것을 몰래 이어 쓰지 않는다.
+        「짜 둔 일정이 없다」 고 거절하는 편이, 사용자가 보고 있는 것과 다른 일정을
+        말없이 고치는 것보다 낫다. 덤으로 이 창구가 상태를 거의 안 들게 되어,
+        인스턴스를 여러 개 띄워도 답이 갈리지 않는다.
         """
-        raw = (context or {}).get("plan")
-        self.plan = plan_from_api(raw, self.book) if raw else None
+        ctx = context or {}
+
+        raw_plan = ctx.get("plan")
+        self.plan = plan_from_api(raw_plan, self.book) if raw_plan else None
+
+        self.stops = [s for s in map(_stop, ctx.get("stops") or []) if s is not None]
+        self.picked = _stop(ctx.get("picked") or {})
 
     # ── 보여 준 것 기억하기 ───────────────────────────────────────────────────
 
@@ -97,6 +160,16 @@ class Session:
                 self.shown.append(p)
         if len(self.shown) > 60:
             self.shown = self.shown[-60:]
+
+    def remember_pois(self, rows: list[dict]) -> None:
+        """보여 준 편의시설을 기억한다. 지도 핀에만 쓴다."""
+        seen = {r.get("id") for r in self.shown_pois}
+        for r in rows:
+            if r.get("id") not in seen:
+                self.shown_pois.append(r)
+                seen.add(r.get("id"))
+        if len(self.shown_pois) > 60:
+            self.shown_pois = self.shown_pois[-60:]
 
     # ── 바깥 세상에 내보낼 지시 ───────────────────────────────────────────────
 
@@ -142,21 +215,36 @@ class Session:
                 return None, "현재 위치가 설정되어 있지 않다"
             return self.here, None
 
-        if key.isdigit():
-            idx = int(key)
-            if not self.cart:
-                return None, "담은 지점이 하나도 없다"
-            if not (1 <= idx <= len(self.cart)):
-                return (
-                    None,
-                    f"「{idx}」 번 지점이 없다 (담은 것은 {len(self.cart)} 곳이다)",
-                )
-            p = self.cart[idx - 1]
-            if not p.has_coords():
-                return None, f"{p.name} 에는 좌표가 없어 주변을 찾을 수 없다"
-            return Anchor(p.name, p.lat, p.lng), None
+        if key in ("선택", "고른 곳", "picked"):
+            if self.picked is None:
+                return None, "화면에서 고른 곳이 없다"
+            anchor = self.picked.anchor()
+            if anchor is None:
+                return None, f"{self.picked.name} 에는 좌표가 없어 주변을 찾을 수 없다"
+            return anchor, None
 
-        pool = self.shown + self.cart
+        if key.isdigit():
+            # **앱이 보낸 번호로 찾는다.** 목록의 몇 번째가 아니다 — 다녀온 곳을
+            # 접어 두면 화면의 3 번이 목록의 두 번째일 수 있다.
+            idx = int(key)
+            if not self.stops:
+                return None, "지금 화면에 번호가 붙은 지점이 없다"
+            hit = next((s for s in self.stops if s.number == idx), None)
+            if hit is None:
+                numbers = ", ".join(str(s.number) for s in self.stops)
+                return None, f"「{idx}」 번 지점이 없다 (화면에 있는 번호: {numbers})"
+            anchor = hit.anchor()
+            if anchor is None:
+                return None, f"{hit.name} 에는 좌표가 없어 주변을 찾을 수 없다"
+            return anchor, None
+
+        # 이름으로 지목. 화면의 지점이 먼저다 — 같은 이름이 둘이면 사용자가
+        # 보고 있는 쪽을 뜻한다.
+        for st in self.stops:
+            if st.name == key and st.anchor() is not None:
+                return st.anchor(), None
+
+        pool = self.shown
         for p in pool:
             if p.name == key:
                 break
@@ -181,7 +269,7 @@ class Session:
         from .places import norm
 
         k = norm(name)
-        for p in self.shown + self.cart:
+        for p in self.shown:
             if norm(p.name) == k:
                 return p
         return self.book.resolve(name)
@@ -200,12 +288,17 @@ class Session:
             f"- 현재 위치: {self.here.label if self.here else '설정되지 않음'}"
         )
 
-        if self.cart:
-            lines.append("- 오늘 코스에 담은 곳 (번호로 지목할 수 있다):")
-            for i, p in enumerate(self.cart, 1):
-                lines.append(f"    {i}번 — {p.name}")
+        if self.stops:
+            lines.append("- 지금 화면의 지점 (이 번호로 지목할 수 있다):")
+            for st in self.stops:
+                mark = " (다녀옴)" if st.visited else ""
+                kind = f" · {st.category}" if st.category else ""
+                lines.append(f"    {st.number}번 — {st.name}{kind}{mark}")
         else:
-            lines.append("- 오늘 코스에 담은 곳: 없음")
+            lines.append("- 지금 화면의 지점: 없음")
+
+        if self.picked is not None:
+            lines.append(f"- 사용자가 고른 곳: {self.picked.name} (「선택」 으로 지목)")
 
         if self.shown:
             names = ", ".join(p.name for p in self.shown[-20:])

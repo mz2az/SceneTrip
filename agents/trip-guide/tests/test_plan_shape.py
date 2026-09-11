@@ -85,7 +85,7 @@ class 왕복(unittest.TestCase):
 
     def test_거리가_어림임을_밝힌다(self):
         """직선거리에 우회 계수를 곱한 값이다. 받는 쪽이 그것을 알아야 한다."""
-        self.assertEqual(plan_to_api(self.plan)["travelBasis"], "straight_line")
+        self.assertEqual(plan_to_api(self.plan)["travelBasis"], "straight-line")
 
     def test_키가_전부_영문이다(self):
         """한글 키로는 Swift·Kotlin 클라이언트 생성기가 필드를 만들지 못한다."""
@@ -128,7 +128,7 @@ class 앱이정본(unittest.TestCase):
         edited["days"][0]["stops"] = edited["days"][0]["stops"][:-2]
         kept = [s["name"] for s in edited["days"][0]["stops"]]
 
-        self.session.adopt_plan({"plan": edited})
+        self.session.adopt_context({"plan": edited})
         run_tool("revise_plan", {"day": 1, "add": [put_back]}, self.session)
 
         names = [leg.place.name for leg in self.session.plan.days[0].legs]
@@ -140,7 +140,7 @@ class 앱이정본(unittest.TestCase):
         gone = self.session.plan.days[0].legs[-1].place.name
         edited = plan_to_api(self.session.plan)
         edited["days"][0]["stops"] = edited["days"][0]["stops"][:1]
-        self.session.adopt_plan({"plan": edited})
+        self.session.adopt_context({"plan": edited})
 
         # 「보여 준 장소」 줄에는 남아 있어도 된다 — 일정 줄만 본다.
         block = self.session.context_block()
@@ -150,7 +150,7 @@ class 앱이정본(unittest.TestCase):
 
     def test_망가진_사본은_조용히_넘어가지_않는다(self):
         with self.assertRaises(PlanError):
-            self.session.adopt_plan({"plan": {"days": []}})
+            self.session.adopt_context({"plan": {"days": []}})
 
 
 class 사본이없으면(unittest.TestCase):
@@ -163,14 +163,14 @@ class 사본이없으면(unittest.TestCase):
 
     def test_세션에_일정이_있어도_거절한다(self):
         """낡은 일정을 몰래 고치느니 「없다」 고 말하는 편이 낫다."""
-        self.session.adopt_plan({})
+        self.session.adopt_context({})
         self.assertIsNone(self.session.plan)
 
         out = run_tool("revise_plan", {"day": 1, "remove": ["개뿔"]}, self.session)
         self.assertIn("짜 둔 일정이 없다", out["결과없음"])
 
     def test_context_자체가_없어도_같다(self):
-        self.session.adopt_plan(None)
+        self.session.adopt_context(None)
         self.assertIsNone(self.session.plan)
 
     def test_맥락이_일정_없음을_말한다(self):

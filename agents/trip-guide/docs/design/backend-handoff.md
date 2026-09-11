@@ -253,7 +253,6 @@ DB 것을 넘기면 챗봇이 **이미 없는 것을 빼려 하거나 옛 일정
 | `places_near` | "이 근처" | `/places?lat&lng&radiusMeters` | — | `map.focus` |
 | `place_detail` | "거기 무슨 장면이야" | `/places/{id}` | — | `place.card` |
 | `update_cart` | "그거 담아줘" | — | `cart.add`/`cart.remove` | `map.focus` |
-| `draft_course` | "담은 걸로 동선" | — | — | `route.draw` |
 | `plan_course` | "도깨비로 2박 3일" | `/contents/{id}/places?limit=20` | `plan.draft` | `course.open`+`sheet.collapse` |
 | `revise_plan` | "2일차에서 빼줘" | — | `plan.revise` | `course.focus` |
 | `move_stop` | "1일차로 옮겨줘" | — | `plan.move` | `course.focus` |
