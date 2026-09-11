@@ -24,7 +24,7 @@ struct RouteEditorView: View {
     /// 장바구니는 **검색 탭에서 이어진다.** 기기 UUID 가 같으므로 새로 만들어도 서버에
     /// 있는 그 장바구니가 온다 — 검색 탭의 `CartStore` 를 끌어오려면 그 파일을 고쳐야
     /// 하는데 검색 탭은 동결이다.
-    @StateObject private var cart = CartStore()
+    @StateObject var cart = CartStore()
 
     /// 상태를 `private` 로 잠그지 않는다. 지도·일차·요약 줄은 같은 타입의 확장이지만
     /// **다른 파일**(`RouteEditorControls.swift`)에 있고, Swift 의 `private` 는 파일
@@ -169,6 +169,8 @@ struct RouteEditorView: View {
                     ? "고른 작품의 촬영지가 아직 없어 인기 장소로 채웠습니다"
                     : "AI 가 짠 일정입니다 · 아직 저장 전")
                     .padding(.horizontal, 16).padding(.bottom, 8)
+                // 초안이 함께 준 알림 — 뺀 곳과 이유, 주의. 「왜 빠졌는지」를 볼 수 있어야 한다.
+                draftNotes
             }
             // **지도가 주인공이다.** 앞서 지도가 210pt 고정이고 목록이 나머지를
             // 다 먹었는데, 코스를 짜는 동안 정작 「어디를 도는가」가 우표만 했다
@@ -235,6 +237,13 @@ struct RouteEditorView: View {
 
             await runCaptureBackdoor()
             await runPendingTripStart()
+        }
+        // 가이드의 답에 실린 명령(`effects`·`ui`)을 화면에 적용한다 — 초안 갈아 끼우기, 일차 열기,
+        // 시트 내리기. 대화는 시트 밖(`RouteGuideSession`)에 있어 어느 화면이 열려 있든 여기서 받는다.
+        .onChange(of: guide.answerTick) { _, _ in
+            if let answer = guide.lastAnswer {
+                applyGuideAnswer(answer)
+            }
         }
         // 화면을 닫으면 안내도 끝난다 — 위치 받기가 뒤에서 계속 돌면 안 된다.
         // 가상 GPS 는 서울시청으로 되돌린다 — 다음 코스도 같은 자리에서 출발(2026-09-04).
@@ -320,6 +329,20 @@ struct RouteEditorView: View {
     }
 
     // MARK: 머리와 발
+
+    /// 초안의 알림줄. 뺀 곳·이유·주의를 한 줄씩 — 저장하면 사라지는 값이라 저장 전에만 보인다.
+    @ViewBuilder private var draftNotes: some View {
+        if !course.draftNotes.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(course.draftNotes, id: \.self) { note in
+                    Label(note, systemImage: "info.circle")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            .padding(.horizontal, 20).padding(.bottom, 8)
+        }
+    }
 
     private var topBar: some View {
         HStack {
@@ -455,7 +478,7 @@ struct RouteEditorView: View {
     /// **이미 담긴 곳은 걸러 낸다.** 앞서 거르지 않아 같은 촬영지가 코스에 여러 번
     /// 들어갔다(2026-08-25 사용자 지적). 시트 쪽에서도 체크로 보여 주지만, 거르는
     /// 것은 여기서 한다 — 시트가 늘어나도 규칙이 한 곳에 남는다.
-    private func add(_ places: [PlaceSummary], pinned: Bool = false) {
+    func add(_ places: [PlaceSummary], pinned: Bool = false) {
         let fresh = RouteDedupe.fresh(
             places, takenIds: takenPlaceIds, takenKeys: takenSpotKeys
         )
@@ -480,31 +503,6 @@ struct RouteEditorView: View {
         else { return "" }
         let titles = (found.contents ?? []).map(\.title)
         return titles.prefix(2).joined(separator: " · ")
-    }
-
-    /// 가이드에게 줄 화면 상태 — **지금 일차의 번호 핀 그대로.**
-    ///
-    /// 순서를 바꾸거나 동선 최적화를 누르면 번호가 달라지는데, 그때마다 다시
-    /// 만들어지므로 모델이 보는 번호와 지도의 번호가 어긋나지 않는다
-    /// (2026-08-27 사용자 지적 — 앞서 아예 안 보내서 「2번이 어디냐」를 몰랐다).
-    var guideContext: RouteGuide.Context {
-        RouteGuide.Context(
-            stops: stops.enumerated().map { index, stop in
-                .init(
-                    number: index + 1,
-                    name: stop.place.name,
-                    kind: stop.place.type,
-                    latitude: stop.place.latitude,
-                    longitude: stop.place.longitude
-                )
-            },
-            picked: focusedStop.map {
-                .init(
-                    number: 0, name: $0.place.name, kind: $0.place.type,
-                    latitude: $0.place.latitude, longitude: $0.place.longitude
-                )
-            }
-        )
     }
 
     /// 가이드에게 줄 「지금 자리」.

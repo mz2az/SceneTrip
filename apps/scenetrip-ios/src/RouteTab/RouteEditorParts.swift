@@ -100,6 +100,20 @@ struct RouteStopRow: View {
                                 .background(Capsule().fill(Color(.systemGray5)))
                                 .foregroundStyle(.secondary)
                         }
+                        // 초안이 id 없이 준 곳 — 저장하면 이 줄만 빠진다. 미리 알려야 「완료」 뒤에
+                        // 사라진 것을 찾지 않는다(MZ2AZ-321).
+                        if stop.placeMissing {
+                            Text("저장 안 됨")
+                                .font(.caption2)
+                                .padding(.horizontal, 5).padding(.vertical, 1)
+                                .background(Capsule().fill(Color.orange.opacity(0.15)))
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                    // 초안의 도착 시각. 「09:00」은 앱이 만든다 — 계약은 정수 분만 준다.
+                    if let minute = stop.arriveMinute {
+                        Text("\(RouteGuidePlan.clock(minute)) 도착 예정")
+                            .font(.caption2).foregroundStyle(.secondary)
                     }
                     Text([stop.place.type, stop.place.address]
                         .compactMap { $0 }.joined(separator: " · "))

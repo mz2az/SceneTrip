@@ -32,10 +32,10 @@ struct OnboardingView: View {
         Lesson(
             pose: .sparkle,
             title: "Set your pace.\nJINDO plans the days.",
-            // 5 와 3 은 지어낸 수가 아니라 `RoutePlanner.perDay` 의 값이다.
-            // 그쪽을 고치면 이 문장도 함께 고쳐야 한다.
-            body: "Packed fits 5 stops a day, Easy fits 3.\nNearby spots get grouped, day by day.",
-            korean: "빡빡하게 하루 5곳 · 널널하게 3곳"
+            // 7 과 3 은 지어낸 수가 아니라 계약 `GuidePlanRequest.pace` 의 값이다(빡빡 7 · 여유 3,
+            // 계수는 에이전트 설정). 그쪽을 고치면 이 문장도 함께 고쳐야 한다(MZ2AZ-321).
+            body: "Packed fits 7 stops a day, Easy fits 3.\nNearby spots get grouped, day by day.",
+            korean: "빡빡하게 하루 7곳 · 널널하게 3곳"
         ),
         Lesson(
             pose: .paw,

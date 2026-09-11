@@ -62,8 +62,9 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | --- | --- |
 | 작품검색·코스 목록·편집·마켓·커뮤니티·마이페이지 | **된다** — 실서버(8081) |
 | 길찾기 | **편집 화면 안에서 실제 경로가 그려진다** — 계약(`POST /navigation/next-leg`, MZ2AZ-296)을 부른다. 로컬 kind 는 가입벽을 꺼 두어(MZ2AZ-302) 401 이 안 난다. 안 되면 이유가 코드별로 뜬다(`RouteNavFailure`) |
-| 챗봇(여행 가이드)·주변 편의시설 점·정보 카드 | **「준비 중」이 정상** — 백엔드 API(MZ2AZ-283·284·285) 대기 |
-| AI 코스 추천 | 규칙 기반으로만 짠다(LLM 은 navi-proto 전용) |
+| 챗봇(여행 가이드) | **계약 `POST /guide/chat` 을 부른다**(MZ2AZ-321). 백엔드가 에이전트(`agents/trip-guide`, :8899)를 부르므로 그것이 떠 있어야 답이 온다 — 꺼져 있으면 「잠시 뒤 다시」가 뜨는 것이 정상이고, 규칙 기반 답이 나오면 잘못된 것이다. 가입자만(401) |
+| 주변 편의시설 점·정보 카드 | 된다 — `GET /pois`·`/pois/{id}/card` |
+| AI 코스 추천(마법사) | **계약 `POST /guide/plan`** — 에이전트의 코스 엔진이 짠다(모델 없음, 키 없어도 됨). 앱 안의 규칙(`RoutePlanner`)은 지웠다 |
 | 찜·커뮤니티 글·방문 스탬프 일부 | 기기(UserDefaults) 저장 — 맥마다 따로 논다 |
 
 ### 함정
@@ -106,8 +107,11 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 파일 | 하는 일 |
 | --- | --- |
 | `RouteTabView.swift` | 첫 화면 — 코스가 없으면 「AI 로 짜기 / 직접 짜기」 갈림길, 있으면 목록 + 스와이프 삭제 + 「코스 추가하기」 |
-| `RouteWizardView.swift` | 질문 흐름 — 기간 → 날짜(선택) → 작품 → 빡빡/널널 → 요약 |
-| `RoutePlanner.swift` | AI 코스 — main 에서는 **규칙 기반만**(인기순+지리 잇기). LLM 후보 선택은 navi-proto 전용(MZ2AZ-297) |
+| `RouteWizardView.swift` | 질문 흐름 — 기간 → 날짜(선택) → 작품 → 빡빡/널널 → 요약. 마지막에 `GuideAPI.planWithGuide` 로 초안을 받는다 |
+| `RouteGuide.swift` · `RouteGuideSession.swift` · `RouteGuideSheet.swift` | 여행 가이드 챗봇 — `GuideAPI.chatWithGuide`. 이력·위치·**화면 상태**(`Context`)를 싣고 답·근거·장소·`effects`·`ui` 를 받는다 |
+| `RouteEditorGuide.swift` | 편집 화면 ↔ 가이드 — 화면 상태를 만들고(`guideContext`) 답의 명령을 적용한다(`applyGuideAnswer`: 초안 갈아 끼우기 · 일차 열기 · 시트 내리기) |
+| `RouteGuidePlan.swift` | 계약의 일정 초안(`GuidePlan`) ↔ 코스. 도착 시각·뺀 곳·`placeId` 없는 줄(저장 안 됨)을 옮긴다 |
+| `RouteGuideFailure.swift` | 가이드 오류를 계약 응답별로 분류 — 401 가입 · 400 · 503 잠시 뒤 · 50초 초과 · 연결 실패. 자동 재시도 없음 |
 | `RouteEditorView.swift` · `RouteEditorControls.swift` · `RouteEditorParts.swift` | 편집 화면 — 일차 ＋/−, 드래그 정렬, 체류 시간, 동선 최적화(출발·도착 고정 선택), 장소 검색·장바구니·핀 찍기 |
 | `RouteSearchSheet.swift` | 편집 화면 안에서 바로 장소를 찾아 담는 시트 — 장바구니를 거치지 않는다 |
 | `RouteGeometry`(`RouteModels.swift` 안) | 동선 최적화 — 최근접 이웃·2-opt·완전탐색(≤8곳) 세 방법 중 가장 짧은 것. 출발·도착 고정은 각각 선택이다 |

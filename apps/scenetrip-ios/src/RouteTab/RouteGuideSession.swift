@@ -36,9 +36,15 @@ final class RouteGuideSession: ObservableObject {
     /// 그중 사용자가 고른 것. 지도에서 **빨갛고 크게** 그려진다.
     @Published var picked: RouteGuide.Place?
 
-    @Published private(set) var failure: String?
+    @Published private(set) var failure: RouteGuideFailure?
 
-    private let sessionId = UUID().uuidString
+    /// 마지막 답 전체 — 편집 화면이 `effects`·`ui` 를 적용한다. `answerTick` 이 바뀔 때 읽는다.
+    /// 같은 답을 두 번 적용하지 않도록 값이 아니라 **횟수**로 알린다.
+    @Published private(set) var lastAnswer: RouteGuide.Answer?
+    @Published private(set) var answerTick = 0
+
+    /// 대화 하나의 열쇠. 계약이 UUID 를 요구한다(`GuideChatRequest.sessionId`).
+    private let sessionId = UUID()
 
     var isEmpty: Bool {
         turns.isEmpty
@@ -75,8 +81,11 @@ final class RouteGuideSession: ObservableObject {
                 role: .assistant,
                 text: answer.reply.isEmpty ? "답을 받지 못했습니다." : answer.reply
             ))
+            lastAnswer = answer
+            answerTick += 1
         } catch {
-            failure = error.localizedDescription
+            // 계약 응답별로 갈라 말한다 — 401 가입 · 503 잠시 뒤 · 50초 초과 · 연결 실패.
+            failure = RouteGuideFailure(error)
         }
     }
 
@@ -88,5 +97,6 @@ final class RouteGuideSession: ObservableObject {
         places = []
         picked = nil
         failure = nil
+        lastAnswer = nil
     }
 }

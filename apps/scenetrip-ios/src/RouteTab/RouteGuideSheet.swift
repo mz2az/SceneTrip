@@ -114,7 +114,7 @@ struct RouteGuideSheet: View {
                         thinking
                     }
                     if let failure = session.failure {
-                        Label(failure, systemImage: "exclamationmark.triangle")
+                        Label(failure.message, systemImage: "exclamationmark.triangle")
                             .font(.footnote)
                             .foregroundStyle(.orange)
                     }

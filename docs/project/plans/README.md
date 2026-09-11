@@ -11,6 +11,7 @@
 | [poi.md](./poi.md) | POI(편의시설) 도입 — 음식·숙박·관광·교통 47만 건 |
 | [navigation-next-leg.md](./navigation-next-leg.md) | 여행 중 길찾기 백엔드 이관 — 카카오를 서버가 부른다 (MZ2AZ-296) |
 | [guide-endpoints.md](./guide-endpoints.md) | 가이드 챗봇 백엔드 창구 — scene-api 가 trip-guide 에이전트를 부른다 (MZ2AZ-319) |
+| [guide-app.md](./guide-app.md) | 앱을 가이드 창구에 붙인다 — 챗봇 시트는 `POST /guide/chat`, 마법사는 `POST /guide/plan` (MZ2AZ-321, iOS) |
 | [mobile-home-tab.md](./mobile-home-tab.md) | 홈 탭 — 4탭을 3탭으로, 홈이 첫 화면. 경로여정·마이페이지는 홈이 띄우는 덮개 (main 이식 2026-09-05) |
 | [trip-mode.md](./trip-mode.md) | 여행 모드 — 코스 시작부터 스탬프까지, 편집 화면 안 길찾기(2단계) · main 이식 (MZ2AZ-299 · MZ2AZ-307) |
 | [poi-card.md](./poi-card.md) | 편의시설 카드 — 사진·영업시간·평점을 네이버 장소에서 (데모 한정, ADR 0011) |
