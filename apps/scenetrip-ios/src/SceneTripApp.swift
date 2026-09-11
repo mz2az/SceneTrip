@@ -19,6 +19,8 @@ struct SceneTripApp: App {
         // 지금은 로컬 클러스터를 전제한다. 배포 환경이 생기면 빌드 시점 주입으로
         // 바꾼다 — 네이버 키와 같은 방식이면 된다.
         SceneApiClientAPI.basePath = "http://localhost:8081/v1"
+        // 앱 언어를 모든 요청의 Accept-Language 로 (MZ2AZ-305). 서버는 없으면 ko 로 폴백한다.
+        AppLocale.install()
     }
 
     /// `Scene` 을 한정한다 — 명세에 같은 이름의 모델(장면)이 있어 생성 클라이언트의

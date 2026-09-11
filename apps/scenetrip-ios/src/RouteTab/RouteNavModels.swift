@@ -99,6 +99,15 @@ struct RouteNavResult {
     let fareWon: Int?
     let legs: [RouteLeg]
 
+    /// `legs[].guidance` 가 무슨 언어인가 — 계약 `guidanceLang`(`ko`·`en`). 서버는 번역하지
+    /// 않으므로 앱 언어와 다를 수 있다(MZ2AZ-305).
+    var guidanceLang = "ko"
+
+    /// 앱 언어와 안내 언어가 다를 때 안내문 옆에 붙는 한 줄. 같으면 nil.
+    var languageNote: String? {
+        AppLocale.guidanceNote(appLang: AppLocale.lang, guidanceLang: guidanceLang)
+    }
+
     /// 구간 좌표를 순서대로 이은 것. 지도가 이것을 그린다.
     var path: [[Double]] {
         legs.flatMap(\.path)
