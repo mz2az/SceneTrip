@@ -1211,7 +1211,7 @@ def plan_to_api(plan: Plan) -> dict[str, Any]:
         "pace": plan.request.pace,
         "days": days,
         "considered": plan.considered,
-        "travelBasis": "straight_line",
+        "travelBasis": "straight-line",  # 계약 TravelBasis 는 하이픈이다 (2026-09-11: 밑줄이라 백엔드가 못 읽었다)
         "notes": list(plan.notes),
     }
 

@@ -142,6 +142,11 @@ extension RouteEditorView {
                 Text(RouteFormat.minutes(result.totalMinutes)).font(.title3.weight(.bold))
                 Text(result.summaryLine).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
+            // 안내 언어가 앱 언어와 다르면 그대로 보여 주고 언어만 표시한다(MZ2AZ-305). 번역은 별도.
+            if let note = result.languageNote {
+                Label(note, systemImage: "character.bubble")
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
             // 구간 — 도보·대중교통 조각을 한 줄로. 화면을 밀면 다 보인다.
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {

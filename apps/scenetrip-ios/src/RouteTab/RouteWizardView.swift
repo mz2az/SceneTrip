@@ -44,6 +44,10 @@ struct RouteWizardView: View {
     /// 닫히고 열리는 사이에 화면이 한 번 비어 사용자가 흐름을 잃는다.
     @State private var draft: RouteCourse?
 
+    /// 초안을 못 받은 이유. 조용히 빈 코스를 내놓지 않는다 — 규칙 기반으로 떨어지지도 않는다
+    /// (MZ2AZ-321 §확인).
+    @State private var planFailure: RouteGuideFailure?
+
     enum Step { case span, dates, works, pace, review }
 
     private var steps: [Step] {
@@ -97,6 +101,18 @@ struct RouteWizardView: View {
             footer
         }
         .background(Color(.systemGroupedBackground))
+        .alert("일정을 짜지 못했습니다", isPresented: Binding(
+            get: { planFailure != nil },
+            set: {
+                if !$0 {
+                    planFailure = nil
+                }
+            }
+        )) {
+            Button("확인") { planFailure = nil }
+        } message: {
+            Text(planFailure?.message ?? "")
+        }
     }
 
     // MARK: 머리와 발
@@ -176,15 +192,18 @@ struct RouteWizardView: View {
             draft = store.emptyCourse(span: span, startDate: startDate)
             return
         }
-        // 모델이 답하는 데 몇 초가 걸린다. 그동안 화면이 멈춘 것처럼 보이면 안 된다.
+        // 서버가 답하는 동안 화면이 멈춘 것처럼 보이면 안 된다. 계산 창구라 보통 1초 안이다.
         planning = true
         Task {
-            let course = await store.aiDraft(
+            let result = await store.guideDraft(
                 span: span, startDate: startDate, workIds: workIds, pace: pace,
                 near: here
             )
             planning = false
-            draft = course
+            switch result {
+            case let .success(course): draft = course
+            case let .failure(failure): planFailure = failure
+            }
         }
     }
 
@@ -297,9 +316,8 @@ struct RouteWizardView: View {
         }
     }
 
-    /// 빡빡하게 / 널널하게. **아직 일정을 바꾸지 않는다** — 로직이 회의에서 정해지지
-    /// 않았다. 그 사실을 화면에도 적어 둔다: 팀이 목업을 보고 "되는 줄 알았다" 고
-    /// 착각하는 것이 정하지 않았다는 사실보다 나쁘다.
+    /// 빡빡하게 / 널널하게. 이제 일정을 바꾼다 — 계약 `GuidePlanRequest.pace` 로 나가고
+    /// 하루 예산(시간·정지점 수)은 에이전트가 정한다: 여유 3곳 · 빡빡 7곳(MZ2AZ-321).
     private var paceStep: some View {
         VStack(spacing: 10) {
             ForEach(RoutePace.allCases) { each in
@@ -322,7 +340,7 @@ struct RouteWizardView: View {
                 .foregroundStyle(isOn ? .white : .primary)
                 .onTapGesture { pace = each }
             }
-            Text("이 답이 일정을 어떻게 바꿀지는 아직 정하지 않았습니다")
+            Text("빡빡하게는 하루 7곳까지, 널널하게는 3곳까지 담습니다")
                 .font(.caption2).foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

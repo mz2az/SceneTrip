@@ -53,6 +53,10 @@ struct RouteCourse: Identifiable, Hashable {
     /// 않게 편집 화면이 알린다. **저장하면 사라지는 값이다** (서버에 없다).
     var filledFromPopular = false
 
+    /// 초안이 함께 준 알림 — 뺀 곳과 이유, 에이전트의 주의, 거리의 근거(MZ2AZ-321). AI 띠 아래
+    /// 한 줄씩 보인다. **저장하면 사라지는 값이다** (서버에 없다).
+    var draftNotes: [String] = []
+
     /// 일차를 하루보다 적게, 15일보다 많게 만들지 않는다. 목업의 ＋/− 잠금과 같은 값.
     static let dayLimit = 1 ... 15
 
@@ -125,11 +129,24 @@ struct RouteStop: Identifiable, Hashable {
     /// (2026-09-02). 저장 전 장소는 false 고, 브리지가 서버 값을 옮겨 준다.
     var visited = false
 
+    /// 초안이 준 도착 시각 — 0시 기준 정수 분(`540` = 09:00). 손으로 담은 곳은 모른다(nil).
+    /// 표시 문자열은 `RouteGuidePlan.clock` 이 만든다(MZ2AZ-321).
+    var arriveMinute: Int?
+
+    /// 초안에 `placeId` 가 없던 줄. **이름으로 대체하지 않는다** — 이름을 id 로 알고 저장하면 동명
+    /// 장소에 걸린다. 화면에는 남되 저장(`RouteBridge.replace`)에서 빠진다.
+    var placeMissing = false
+
     static let defaultStayMinutes = 30
     static let stayOptions = [15, 30, 45, 60, 90, 120, 180]
 
     var stayLabel: String {
         RouteFormat.minutes(stayMinutes)
+    }
+
+    /// 서버에 `placeId` 로 보낼 수 있는 값. 직접 찍은 핀과 id 없는 초안 줄은 없다.
+    var savablePlaceId: Int64? {
+        isPinned || placeMissing || place.id <= 0 ? nil : place.id
     }
 }
 

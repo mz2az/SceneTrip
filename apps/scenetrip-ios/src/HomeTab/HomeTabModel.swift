@@ -59,10 +59,14 @@ final class HomeTabModel: ObservableObject {
         }
 
         if let list = await placesTask.value, !list.items.isEmpty {
+            // **사진 있는 곳에서 고른다.** 카드 윗단이 96pt 그림 자리인데 사진이 없으면
+            // 그라데이션만 남아 빈 띠로 보인다. 사진이 하나도 없을 때만 전체에서 고른다.
+            let withPhoto = list.items.filter { Self.hasPhoto($0) }
+            let pool = withPhoto.isEmpty ? list.items : withPhoto
             // **연중 몇 번째 날인가로 고른다.** 무작위면 화면을 다시 그릴 때마다 성지가
             // 바뀌어 「오늘의」 라는 말이 거짓이 된다. 하루가 지나면 다음 곳.
             let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
-            today = list.items[day % list.items.count]
+            today = pool[day % pool.count]
         }
 
         stamps = await stampsTask.value
@@ -71,6 +75,20 @@ final class HomeTabModel: ObservableObject {
 
     /// 여행 중인 코스를 앞에, 나머지는 목록 순서대로 — 최대 셋. 상세는 나란히 받는다.
     /// 코스가 없으면 빈 배열 — 카드는 「코스 만들기」 로 바뀐다.
+    /// 화면에 실제로 뜨는 사진이 있는가.
+    ///
+    /// 주소가 있다고 그림이 나오는 것은 아니다 — 시드에 호스트 없는 상대 경로가 섞여
+    /// 있어(`place_image` 82행 중 70행) `AsyncImage` 가 조용히 빈 자리를 남긴다.
+    /// 그래서 **절대 http(s) 주소**만 사진으로 친다.
+    /// 값만 보는 순수 함수라 `nonisolated` 다 — 모델이 `@MainActor` 이지만 이것까지
+    /// 주 스레드에 묶을 이유가 없고, 묶으면 시험에서 부르지 못한다.
+    nonisolated static func hasPhoto(_ place: PlaceSummary) -> Bool {
+        guard let raw = place.imageUrl, let url = URL(string: raw), let scheme = url.scheme else {
+            return false
+        }
+        return (scheme == "http" || scheme == "https") && url.host != nil
+    }
+
     private static func trips(from courses: [RouteCourse], deviceId: UUID) async -> [HomeTrip] {
         let ordered = courses.filter(\.isRunning) + courses.filter { !$0.isRunning }
         let picks = Array(ordered.prefix(3))

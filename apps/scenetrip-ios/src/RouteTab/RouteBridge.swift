@@ -80,7 +80,9 @@ enum RouteBridge {
             title: course.title,
             startDate: course.startDate,
             days: course.days.map { day in
-                CourseDayInput(items: day.stops.map(item(from:)))
+                // 초안에 `placeId` 가 없던 줄은 저장할 수 없다 — 이름으로 대체하지 않는다
+                // (계약 `GuidePlanStop.placeId`, MZ2AZ-321). 화면에는 「저장 안 됨」으로 남아 있다.
+                CourseDayInput(items: day.stops.filter { !$0.placeMissing }.map(item(from:)))
             }
         )
     }

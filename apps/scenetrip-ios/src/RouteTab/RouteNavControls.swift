@@ -123,7 +123,8 @@ extension RouteNavResult {
             transfers: Int(contract.transfers),
             walkMeters: contract.walkMeters.map { Int($0) },
             fareWon: contract.fareWon.map { Int($0) },
-            legs: legs
+            legs: legs,
+            guidanceLang: contract.guidanceLang.rawValue
         )
     }
 }

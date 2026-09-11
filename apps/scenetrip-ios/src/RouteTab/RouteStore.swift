@@ -293,58 +293,46 @@ final class RouteStore: ObservableObject {
         )
     }
 
-    /// 「AI 로 짜기」 — 고른 작품의 촬영지로 초안을 만든다.
+    /// 「AI 로 짜기」 — **백엔드 창구가 짠다** (`POST /guide/plan`, MZ2AZ-321).
     ///
-    /// **로컬 모델이 고른다** (`RoutePlanner`). 앞서 여기는 고른 작품의 촬영지를
-    /// 전부 담았는데, 눈물의 여왕은 67곳이라 1박 2일이면 하루 34곳이 됐다 —
-    /// 그렇게 도는 여행자는 없다.
+    /// 앞서 여기는 앱 안의 규칙(`RoutePlanner`)으로 인기순+지리로 골랐다. 이제 일정은 에이전트의
+    /// 코스 엔진 한 곳에서만 나온다 — 챗봇에 「도깨비로 1박 2일」이라고 말하든 이 마법사로 보내든
+    /// 같은 일정이어야 한다(계약 설명). 모델은 안 부르므로 키 없이도 0.02초에 온다.
     ///
-    /// 모델이 없으면 인기순으로 상한만큼 고른다. **어느 쪽이든 하루 상한을 코드가
-    /// 지킨다** — 모델이 규칙을 어겨도 34곳이 나오지 않는다.
+    /// **저장하지 않는다.** 응답은 초안이고 편집 화면에 그려진다. 저장은 「완료」뿐이다.
     ///
-    /// **`pace` 가 이제 일을 한다.** 빡빡 5곳 / 널널 3곳. 회의가 항목만 정하고 로직을
-    /// 열어 뒀는데(회의록 Open Issue 3), 하루 몇 곳인가는 그중 가장 눈에 보이는
-    /// 값이라 여기서 먼저 정한다.
-    func aiDraft(
+    /// 속도는 앱의 둘(빡빡·널널)을 계약의 셋 중 양끝(`packed`·`relaxed`)으로 보낸다. 작품을 하나도
+    /// 안 골랐으면 인기 작품 셋의 제목을 보낸다 — 계약이 `titles` 를 최소 하나 요구한다.
+    func guideDraft(
         span: RouteSpan,
         startDate: Date?,
         workIds: Set<Int64>,
         pace: RoutePace,
         near: (lat: Double, lng: Double)? = nil
-    ) async -> RouteCourse {
-        // 고른 작품의 촬영지만 고른다. **하나도 없으면 인기 장소로 채운다** —
-        // 빈 코스를 내놓으면 사용자는 앱이 고장 난 줄 안다.
-        //
-        // 실제로 0곳이 되는 경우는 드물다. 앞서 「케이팝 데몬 헌터스는 촬영지가
-        // 0곳」이라고 판단한 적이 있는데 **틀렸다** — 촬영지 목록을 60건만 받아 보고
-        // 내린 결론이었고, 그 60건에 도깨비가 몰려 있었을 뿐이다(실제 11곳).
-        let matched = places.filter { place in
-            guard !workIds.isEmpty else { return true }
-            return (place.contents ?? []).contains { workIds.contains($0.contentId) }
+    ) async -> Result<RouteCourse, RouteGuideFailure> {
+        var titles = works.filter { workIds.contains($0.id) }.map(\.title)
+        if titles.isEmpty {
+            titles = sortedWorks.prefix(3).map(\.title)
         }
-        let pool = matched.isEmpty ? places : matched
-        let titles = works.filter { workIds.contains($0.id) }.map(\.title)
-        let planned = await RoutePlanner.plan(
-            places: pool,
+        guard !titles.isEmpty else { return .failure(.badRequest) }
+        let request = GuidePlanRequest(
+            titles: Array(titles.prefix(5)),
             days: span.days,
-            pace: pace,
-            workTitles: titles,
-            near: near
+            pace: pace == .loose ? .relaxed : .packed,
+            latitude: near?.lat,
+            longitude: near?.lng
         )
-        // 고른 뒤에 순서를 잡는다 — 무엇을 갈지는 모델이, 어느 순서로 갈지는
-        // 거리 계산이 정한다.
-        let chain = RouteGeometry.optimized(planned.stops)
-        return RouteCourse(
-            title: title(for: workIds, span: span),
-            startDate: startDate,
-            pace: pace,
-            days: Self.split(chain, into: span.days),
-            madeByAI: true,
-            // 고른 작품에 촬영지가 없어 인기 장소로 대신 채웠나. 편집 화면이
-            // 이 사실을 사용자에게 알린다 — 모르고 저장하면 "내가 고른 작품이
-            // 아닌데" 가 된다.
-            filledFromPopular: matched.isEmpty && !workIds.isEmpty
-        )
+        do {
+            let reply = try await GuideAPI.planWithGuide(guidePlanRequest: request)
+            return .success(RouteGuidePlan.course(
+                from: reply.plan,
+                title: title(for: workIds, span: span),
+                startDate: startDate,
+                pace: pace
+            ))
+        } catch {
+            return .failure(RouteGuideFailure(error))
+        }
     }
 
     /// 코스 이름. 이름을 비워 두면 AI 가 작품 이름으로 지어 준다(목업 설계 메모).
@@ -353,31 +341,6 @@ final class RouteStore: ObservableObject {
         guard let first = titles.first else { return "인기 촬영지 \(span.label)" }
         let name = titles.count == 1 ? first : "\(first) 외 \(titles.count - 1)"
         return "\(name) \(span.label)"
-    }
-
-    /// 가장 북쪽에서 출발해 매번 가장 가까운 곳으로 이어 붙인다.
-    private static func chain(from places: [PlaceSummary]) -> [RouteStop] {
-        guard let start = places.max(by: { $0.latitude < $1.latitude }) else { return [] }
-        let stops = [RouteStop(place: start)]
-            + places.filter { $0.id != start.id }.map { RouteStop(place: $0) }
-        return RouteGeometry.optimized(stops)
-    }
-
-    /// 사슬을 일차 수만큼 고르게 자른다.
-    ///
-    /// 장소가 일차보다 적으면 **빈 일차가 남는다.** 그것을 감추려고 억지로 채우지
-    /// 않는다 — 목 데이터가 14곳뿐이라 5박 6일을 고르면 실제로 빌 수 있고, 빈 일차가
-    /// 보여야 팀이 "장소가 모자랄 때 어떻게 보이는가" 를 판단할 수 있다.
-    private static func split(_ stops: [RouteStop], into days: Int) -> [RouteDay] {
-        guard days > 0 else { return [] }
-        // 고르게 나눈다. 넣을 것을 이미 `RoutePlanner` 가 상한만큼 추렸으므로
-        // 여기서는 자르지 않고 그대로 편다.
-        let perDay = max(1, Int(ceil(Double(stops.count) / Double(days))))
-        return (0 ..< days).map { index in
-            let lower = min(index * perDay, stops.count)
-            let upper = min(lower + perDay, stops.count)
-            return RouteDay(stops: Array(stops[lower ..< upper]))
-        }
     }
 
     // MARK: 장바구니
