@@ -103,33 +103,11 @@ class Handler(BaseHTTPRequestHandler):
 
         self._send({"error": "그런 주소가 없다"}, 404)
 
-    def _read_body(self) -> bytes:
-        """몸체를 읽는다 — `Content-Length` 와 `Transfer-Encoding: chunked` 둘 다.
-
-        scene-api(Java HttpClient)는 몸체를 chunked 로 보낸다(2026-09-11 실측). `Content-Length`
-        만 보면 0 바이트를 읽어 「어느 작품으로 돌지 받지 못했다」가 되고, 백엔드는 그것을 400 으로
-        앱에 넘긴다 — 앱 잘못이 아닌데 앱 잘못으로 보인다.
-        """
-        if "chunked" in (self.headers.get("Transfer-Encoding") or "").lower():
-            chunks: list[bytes] = []
-            while True:
-                size_line = self.rfile.readline().strip()
-                size = int(size_line.split(b";")[0] or b"0", 16)
-                if size == 0:
-                    # 마지막 빈 줄(트레일러 없음)까지 비운다.
-                    while self.rfile.readline().strip():
-                        pass
-                    break
-                chunks.append(self.rfile.read(size))
-                self.rfile.readline()  # 청크 뒤의 CRLF
-            return b"".join(chunks)
-        length = int(self.headers.get("Content-Length") or 0)
-        return self.rfile.read(length)
-
     def do_POST(self) -> None:
+        length = int(self.headers.get("Content-Length") or 0)
         try:
-            body = json.loads(self._read_body().decode("utf-8") or "{}")
-        except (json.JSONDecodeError, ValueError):
+            body = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except json.JSONDecodeError:
             self._send({"error": "요청을 JSON 으로 읽을 수 없다"}, 400)
             return
 
@@ -142,9 +120,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 guide = self.desk.guide(sid)
             except ModelError as exc:
-                # 계약 §오류 — 모델이 없으면 503 GUIDE_UNAVAILABLE. 200 으로 주면 백엔드가 그대로
-                # 앱에 넘겨 빈 답(`{}`)이 되고, 앱은 왜 답이 없는지 모른다(2026-09-11 실측).
-                self._send({"code": "GUIDE_UNAVAILABLE", "message": str(exc)}, 503)
+                self._send({"error": str(exc)})
                 return
 
         if route == "/here":

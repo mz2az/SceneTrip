@@ -50,7 +50,7 @@
 ```json
 {
   "titles": ["도깨비"], "pace": "relaxed", "considered": 28,
-  "travelBasis": "straight-line", "notes": [],
+  "travelBasis": "straight_line", "notes": [],
   "days": [{
     "day": 1, "endMinute": 737, "totalMeters": 11878,
     "stops": [{
@@ -80,7 +80,7 @@
 계약이 코스 편집 응답에 「구간 소요 시간 — **주지 않는다**」 고 이미 못 박아 두었다.
 초안이 자기 계약과 어긋난 자리라 계약 쪽을 따랐다.
 
-거리는 남기되 `travelBasis: "straight-line"` 으로 어림임을 밝힌다 (기존 계약 필드다 — 하이픈, 밑줄이 아니다).
+거리는 남기되 `travelBasis: "straight_line"` 으로 어림임을 밝힌다 (기존 계약 필드다).
 
 **왕복은 어긋나지 않는다.** `plan_from_api` 가 좌표에서 `travel_minutes` 로 다시 재고,
 같은 함수가 같은 좌표로 같은 값을 낸다. 어림값을 선에 실어 「사실인 척」 하지 않으면서

@@ -146,7 +146,7 @@
           "description": "본 후보 수. 근거를 보여 줄 때 쓴다"
         },
         "travelBasis": {
-          "const": "straight-line",
+          "const": "straight_line",
           "description": "`metersToNext` 가 어떻게 나온 값인지. **직선거리에 우회 계수를 곱한 어림이다.** 구간 소요 시간을 주지 않는 이유도 같다 — 실제 소요 시간은 길찾기 창구만 답할 수 있고, 계약이 코스 편집 응답에 「구간 소요 시간 — 주지 않는다」 고 못 박아 두었다."
         },
         "notes": {
