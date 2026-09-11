@@ -126,9 +126,13 @@ public class GuideAgentClient {
               .body(body)
               .retrieve()
               .body(type);
-      if (reply == null) {
-        log.warn("가이드 에이전트 응답이 비어 있습니다: {}", path);
-        throw ApiException.unavailable(CODE_UNAVAILABLE, "가이드 에이전트가 빈 응답을 보냈습니다");
+      if (reply == null || !isContractShaped(reply)) {
+        // 200 인데 몸체가 계약 모양이 아니다. Jackson 은 모르는 필드를 무시하고 없는 필드를 null 로 두므로
+        // {"error": …} 같은 것도 오류 없이 빈 객체가 된다 — 2026-09-10 실측(MZ2AZ-321): 모델 키가
+        // 없을 때 에이전트가 {"error"} 를 200 으로 줬고 그것이 빈 {} 로 앱까지 갔다. 에이전트는
+        // 그 뒤 503 으로 고쳤지만, 같은 종류의 다음 실수를 여기서 막는다 — 앱에는 「잠시 뒤 다시」.
+        log.warn("가이드 에이전트 응답이 계약 모양이 아닙니다: {}", path);
+        throw ApiException.unavailable(CODE_UNAVAILABLE, "가이드 에이전트의 응답을 읽지 못했습니다");
       }
       return reply;
     } catch (HttpClientErrorException e) {
@@ -159,6 +163,21 @@ public class GuideAgentClient {
       log.warn("가이드 에이전트 응답을 읽지 못했습니다: {} — {}", path, e.getMessage());
       throw ApiException.unavailable(CODE_UNAVAILABLE, "가이드 에이전트의 응답을 읽지 못했습니다");
     }
+  }
+
+  /**
+   * 계약이 필수라고 한 필드가 채워져 있는가. {@code GuideChatReply} 는 {@code reply}·{@code effects}·{@code ui},
+   * {@code GuidePlanReply} 는 {@code plan}·{@code effects}·{@code ui}. 생성된 모델은 필수 필드에도 기본값(null 또는 빈
+   * 목록)을 두어 역직렬화가 실패하지 않으므로 여기서 본다.
+   */
+  private static boolean isContractShaped(Object reply) {
+    if (reply instanceof GuideChatReply r) {
+      return r.getReply() != null && r.getEffects() != null && r.getUi() != null;
+    }
+    if (reply instanceof GuidePlanReply r) {
+      return r.getPlan() != null && r.getEffects() != null && r.getUi() != null;
+    }
+    return true;
   }
 
   /** 오류 몸체를 계약 모양으로 읽는다. 못 읽으면 null — 그때는 기본 문구로 간다. */

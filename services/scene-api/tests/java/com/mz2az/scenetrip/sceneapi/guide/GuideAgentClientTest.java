@@ -277,6 +277,16 @@ class GuideAgentClientTest {
   }
 
   @Test
+  @DisplayName("200 인데 몸체가 계약 모양이 아님({\"error\": …}) → 503 — 빈 {} 를 앱에 넘기지 않는다")
+  void contractViolatingBodyIs503() {
+    // 2026-09-10 실측(MZ2AZ-321) — 모델 키가 없을 때 에이전트가 이걸 200 으로 줬다.
+    body = "{\"error\": \"환경변수 DEEPSEEK_API_KEY 가 비어 있다\"}";
+
+    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO), null);
+    assertUnavailable(() -> client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO), null);
+  }
+
+  @Test
   @DisplayName("깨진 JSON → 503 — 에이전트가 계약을 어긴 것")
   void brokenJson() {
     body = "{\"reply\": ";
