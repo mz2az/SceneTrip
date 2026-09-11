@@ -55,7 +55,7 @@ enum RouteGuideFailure: Equatable, Error {
         case .signInRequired:
             "여행 가이드는 가입한 분만 쓸 수 있어요"
         case .badRequest:
-            "질문을 처리하지 못했어요. 다르게 물어봐 주세요"
+            "요청을 처리하지 못했어요. 조건을 바꿔 다시 해 주세요"
         case .unavailable:
             "가이드가 잠시 응답하지 않아요. 잠시 뒤 다시 물어봐 주세요"
         case .timedOut:

@@ -398,6 +398,30 @@ just navigation-smoke      # 배포된 것이 실제로 답하나 — 카카오�
 **에이전트는 신원을 모른다.** `X-Device-Id` 는 요청 객체에 없고 `effects` 를 적용할 때만 쓴다.
 저장할 것은 에이전트가 쪽지(`effects`)로 말하고 이 서비스가 대신 저장한다.
 
+**로컬 kind 에서 에이전트에 닿는 법 (2026-09-11 실측).** 에이전트는 노트북에서 돌고 파드 안의
+`localhost` 는 파드 자신이라, 로컬 ConfigMap 이 `SCENETRIP_GUIDE_AGENT_BASE_URL` 을
+`http://host.docker.internal:8899` 로 덮어쓴다. 에이전트(`web/server.py`)는 `127.0.0.1` 에만 묶이므로
+앞에 `0.0.0.0:8899 → 127.0.0.1:8898` 릴레이를 하나 두고 에이전트를 8898 로 띄운다.
+
+```sh
+cd agents/trip-guide && python3 -m web.server --port 8898 --source scene-api --base-url http://localhost:8081/v1
+python3 -c 'import asyncio
+async def pipe(r,w):
+    try:
+        while d:=await r.read(65536): w.write(d); await w.drain()
+    finally: w.close()
+async def h(cr,cw):
+    sr,sw=await asyncio.open_connection("127.0.0.1",8898); await asyncio.gather(pipe(cr,sw),pipe(sr,cw))
+async def m():
+    s=await asyncio.start_server(h,"0.0.0.0",8899)
+    async with s: await s.serve_forever()
+asyncio.run(m())'
+```
+
+두 가지가 실제로 물렸던 자리다 — Java HttpClient 는 몸체를 `Transfer-Encoding: chunked` 로 보내는데
+에이전트가 `Content-Length` 만 읽어 빈 몸체(→400)가 됐고, `travelBasis` 를 `straight_line` 으로 보내
+계약(`straight-line`)과 어긋나 `GuidePlanReply` 를 못 읽었다(→503). 둘 다 에이전트 쪽에서 고쳤다.
+
 **타임아웃은 벽이다** — `scenetrip.guide.timeout-seconds`(40초). 안에서 모델을 몇 번 부르는지는
 모른다. 원칙은 「안쪽이 바깥보다 먼저 포기한다」: 에이전트 턴 예산 30초 < 이 값 < 앱 50초.
 에이전트가 자기 예산 안에서 스스로 503 을 내는 것이 정상 경로이고 이 값은 안전망이다.
