@@ -54,6 +54,12 @@ public class KakaoRoutingClient {
   public static final String STATUS_START_NODES_NULL = "STARTNODES_NULL";
   public static final String STATUS_END_NODES_NULL = "ENDNODES_NULL";
 
+  /**
+   * 도보 API 가 거리가 너무 멀 때 준다 — 문서에 없고 실측(2026-09-14, 430 km)으로 알았다. 시뮬레이터 위치가 서울이고 코스가 부산일 때 같은 경우다.
+   * 「걸어서 갈 길이 없다」와 같이 다룬다.
+   */
+  public static final String STATUS_TOO_FAR_AWAY = "TOO_FAR_AWAY";
+
   private static final String CODE_UNAVAILABLE = "ROUTING_UNAVAILABLE";
 
   /**

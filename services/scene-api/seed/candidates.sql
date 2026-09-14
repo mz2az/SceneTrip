@@ -3,8 +3,18 @@
 -- tools/scripts/seed.sh 가 CSV 를 파드 안 /tmp/seed-input.csv 로 옮겨 둔 뒤 이 파일을
 -- psql 에 먹인다. `just seed` 가 그 둘을 묶는다.
 --
--- v6.sql(승길 수집 V6, 25컬럼)을 이 형식(30컬럼)으로 다시 쓴 것이다. \copy 의 HEADER 는
+-- v6.sql(승길 수집 V6, 25컬럼)을 이 형식(52컬럼)으로 다시 쓴 것이다. \copy 의 HEADER 는
 -- 첫 줄을 건너뛸 뿐 이름으로 맞추지 않으므로 컬럼이 다르면 변환도 달라야 한다.
+--
+-- 52컬럼은 30컬럼(v3, 2026-08-24)에 다국어 21개와 scene_image_url 을 더한 것이다
+-- (2026-09-12). 더한 것은 전부 형제 컬럼 옆에 있다 — title 옆에 title_description_*,
+-- place_address 옆에 place_address_*. 다국어는 지금 전부 비어 있다.
+--
+-- scene_image_url 은 v3 의 place_image_url 에 있던 값을 옮긴 것이다. 그 사진들은
+-- 장소 사진이 아니라 **그 작품의 그 장면** 스틸이었다(파일명이 행 id 로 시작하고 87행
+-- 87장이 다 다르다 — 같은 장소가 두 작품에 나오면 사진도 둘이다). 장소 사진 자리인
+-- place_image 에 넣으면 작품마다 다른 사진 중 하나만 남고, 나머지는 버려진다. 옮긴 뒤
+-- place_image_url 에는 네이버 플레이스의 장소 사진 URL 을 ';' 로 이어 넣었다(2026-09-12).
 --
 -- ── 이 파일이 마이그레이션이 아닌 이유 ────────────────────────────────────────
 --
@@ -47,20 +57,39 @@ CREATE TEMP TABLE seed_staging (
     title_en            TEXT,
     title_ja            TEXT,
     title_zh_hant       TEXT,
+    title_description         TEXT,
+    title_description_en      TEXT,
+    title_description_ja      TEXT,
+    title_description_zh_hant TEXT,
     title_category      TEXT,
     title_cast          TEXT,
+    title_cast_en       TEXT,
+    title_cast_ja       TEXT,
+    title_cast_zh_hant  TEXT,
     place_name          TEXT,
     place_name_en       TEXT,
     place_name_ja       TEXT,
     place_name_zh_hant  TEXT,
     place_aliases       TEXT,
     place_type          TEXT,
+    place_type_code     TEXT,
     place_address       TEXT,
+    place_address_en    TEXT,
+    place_address_ja    TEXT,
+    place_address_zh_hant TEXT,
     place_latitude      TEXT,
     place_longitude     TEXT,
+    place_description         TEXT,
+    place_description_en      TEXT,
+    place_description_ja      TEXT,
+    place_description_zh_hant TEXT,
     place_image_url     TEXT,
     place_naver_url     TEXT,
-    scene_description   TEXT,
+    scene_description         TEXT,
+    scene_description_en      TEXT,
+    scene_description_ja      TEXT,
+    scene_description_zh_hant TEXT,
+    scene_image_url     TEXT,
     source_url          TEXT,
     last_updated        TEXT,
     famous_rank         TEXT,
@@ -68,6 +97,9 @@ CREATE TEMP TABLE seed_staging (
     audience_acc        TEXT,
     award               TEXT,
     director            TEXT,
+    director_en         TEXT,
+    director_ja         TEXT,
+    director_zh_hant    TEXT,
     poster_url          TEXT,
     notes               TEXT
 ) ON COMMIT DROP;
@@ -127,6 +159,10 @@ SELECT
     NULLIF(btrim(s.title_en), '')      AS title_en,
     NULLIF(btrim(s.title_ja), '')      AS title_ja,
     NULLIF(btrim(s.title_zh_hant), '') AS title_zh_hant,
+    NULLIF(btrim(s.title_description), '')         AS title_description,
+    NULLIF(btrim(s.title_description_en), '')      AS title_description_en,
+    NULLIF(btrim(s.title_description_ja), '')      AS title_description_ja,
+    NULLIF(btrim(s.title_description_zh_hant), '') AS title_description_zh_hant,
     s.title_category,
     NULLIF(s.poster_url, '') AS poster_url,
     -- 인기도는 지금 임의값이다. 사용자 행동(user_event)이 쌓이면 배치가 계산한다.
@@ -136,7 +172,13 @@ SELECT
         ELSE 50
     END AS popularity_score,
     s.title_cast,
-    s.director
+    s.title_cast_en,
+    s.title_cast_ja,
+    s.title_cast_zh_hant,
+    s.director,
+    s.director_en,
+    s.director_ja,
+    s.director_zh_hant
 FROM (
     SELECT DISTINCT ON (title) * FROM seed_rows ORDER BY title, id
 ) s;
@@ -145,19 +187,23 @@ INSERT INTO content (id, category, broadcaster, poster_url, release_year, genres
 SELECT content_id, title_category, NULL, poster_url, NULL, '{}', popularity_score
 FROM t_content;
 
-INSERT INTO content_i18n (content_id, lang, title)
-SELECT content_id, 'ko', title FROM t_content;
+-- 작품 소개(title_description)는 지금 파일에 전부 비어 있다. 채워지면 그대로 들어간다.
+INSERT INTO content_i18n (content_id, lang, title, description)
+SELECT content_id, 'ko', title, title_description FROM t_content;
 
 -- ── 3. 작품 다국어 제목과 별칭 ──────────────────────────────────────────────
 --
 -- 이 형식에는 title_en·title_ja·title_zh_hant 컬럼이 있다. 채워져 있으면 그것이
 -- 정본이다. 지금 파일은 셋 다 비어 있지만 다음 수집분이 채우면 그대로 들어간다.
-INSERT INTO content_i18n (content_id, lang, title)
-SELECT content_id, 'en', title_en FROM t_content WHERE title_en IS NOT NULL
+--
+-- 소개는 제목 행에 얹혀 간다. content_i18n.title 이 NOT NULL 이라 제목 없는 언어에는
+-- 행을 만들 수 없다 — 그 언어의 소개만 채워져 있으면 제목이 올 때까지 기다린다.
+INSERT INTO content_i18n (content_id, lang, title, description)
+SELECT content_id, 'en', title_en, title_description_en FROM t_content WHERE title_en IS NOT NULL
 UNION ALL
-SELECT content_id, 'ja', title_ja FROM t_content WHERE title_ja IS NOT NULL
+SELECT content_id, 'ja', title_ja, title_description_ja FROM t_content WHERE title_ja IS NOT NULL
 UNION ALL
-SELECT content_id, 'zh-Hant', title_zh_hant FROM t_content WHERE title_zh_hant IS NOT NULL;
+SELECT content_id, 'zh-Hant', title_zh_hant, title_description_zh_hant FROM t_content WHERE title_zh_hant IS NOT NULL;
 
 -- title_aliases 는 ';' 로 나뉜 목록인데 영문 제목과 한국어 별칭이 섞여 있다.
 --   도깨비 → 'Guardian: The Lonely and Great God'
@@ -178,8 +224,8 @@ FROM t_content c
 CROSS JOIN unnest(string_to_array(c.title_aliases, ';')) WITH ORDINALITY AS u(alias, ord)
 WHERE btrim(u.alias) <> '';
 
-INSERT INTO content_i18n (content_id, lang, title)
-SELECT DISTINCT ON (a.content_id) a.content_id, 'en', a.alias
+INSERT INTO content_i18n (content_id, lang, title, description)
+SELECT DISTINCT ON (a.content_id) a.content_id, 'en', a.alias, c.title_description_en
 FROM t_alias a
 JOIN t_content c ON c.content_id = a.content_id
 WHERE a.alias ~ '^[A-Za-z]'
@@ -207,15 +253,40 @@ WHERE NOT EXISTS (
 --
 -- 이름만으로 사람을 식별하는 것은 동명이인을 구분하지 못한다. 사람을 식별할 다른
 -- 값(wikidata_qid 등)이 CSV 에 없다.
+--
+-- 다국어 이름(title_cast_en·ja·zh_hant, director_en·ja·zh_hant)은 **같은 자리끼리**
+-- 짝이다 — title_cast 의 세 번째 사람의 영어 이름은 title_cast_en 의 세 번째 항목이다.
+-- 그래서 ';' 로 나눈 뒤 순번(ord)으로 잇는다. 외국어 목록이 짧거나 비어 있으면 그
+-- 자리는 NULL 이고, 한국어 목록보다 길면 남는 것은 버려진다.
 CREATE TEMP TABLE t_cast ON COMMIT DROP AS
-SELECT c.content_id, btrim(u.name) AS name, 'actor' AS role_type, u.ord::INT AS sort_order
+SELECT
+    c.content_id,
+    btrim(u.name) AS name,
+    NULLIF(btrim(en.v), '') AS name_en,
+    NULLIF(btrim(ja.v), '') AS name_ja,
+    NULLIF(btrim(zh.v), '') AS name_zh_hant,
+    'actor' AS role_type,
+    u.ord::INT AS sort_order
 FROM t_content c
 CROSS JOIN unnest(string_to_array(c.title_cast, ';')) WITH ORDINALITY AS u(name, ord)
+LEFT JOIN unnest(string_to_array(c.title_cast_en, ';'))      WITH ORDINALITY AS en(v, ord) ON en.ord = u.ord
+LEFT JOIN unnest(string_to_array(c.title_cast_ja, ';'))      WITH ORDINALITY AS ja(v, ord) ON ja.ord = u.ord
+LEFT JOIN unnest(string_to_array(c.title_cast_zh_hant, ';')) WITH ORDINALITY AS zh(v, ord) ON zh.ord = u.ord
 WHERE btrim(u.name) <> ''
 UNION ALL
-SELECT c.content_id, btrim(u.name), 'director', u.ord::INT
+SELECT
+    c.content_id,
+    btrim(u.name),
+    NULLIF(btrim(en.v), ''),
+    NULLIF(btrim(ja.v), ''),
+    NULLIF(btrim(zh.v), ''),
+    'director',
+    u.ord::INT
 FROM t_content c
 CROSS JOIN unnest(string_to_array(c.director, ';')) WITH ORDINALITY AS u(name, ord)
+LEFT JOIN unnest(string_to_array(c.director_en, ';'))      WITH ORDINALITY AS en(v, ord) ON en.ord = u.ord
+LEFT JOIN unnest(string_to_array(c.director_ja, ';'))      WITH ORDINALITY AS ja(v, ord) ON ja.ord = u.ord
+LEFT JOIN unnest(string_to_array(c.director_zh_hant, ';')) WITH ORDINALITY AS zh(v, ord) ON zh.ord = u.ord
 WHERE btrim(u.name) <> '';
 
 CREATE TEMP TABLE t_person ON COMMIT DROP AS
@@ -229,6 +300,24 @@ INSERT INTO person (id) SELECT person_id FROM t_person;
 INSERT INTO person_i18n (person_id, lang, name)
 SELECT person_id, CASE WHEN name ~ '^[A-Za-z]' THEN 'en' ELSE 'ko' END, name
 FROM t_person;
+
+-- CSV 가 준 다국어 이름이 정본이다. 같은 사람이 여러 작품에 나오면 어느 행의 표기를
+-- 쓸지 정해야 한다 — 작품·순번으로 고정한다. 위에서 라틴 이름을 en 으로 넣은 것과
+-- 겹치면 CSV 쪽이 이긴다(ON CONFLICT ... UPDATE).
+INSERT INTO person_i18n (person_id, lang, name)
+SELECT person_id, lang, name
+FROM (
+    SELECT DISTINCT ON (p.person_id, l.lang)
+        p.person_id, l.lang, l.name
+    FROM t_person p
+    JOIN t_cast r ON r.name = p.name
+    CROSS JOIN LATERAL (
+        VALUES ('en', r.name_en), ('ja', r.name_ja), ('zh-Hant', r.name_zh_hant)
+    ) AS l(lang, name)
+    WHERE l.name IS NOT NULL
+    ORDER BY p.person_id, l.lang, r.content_id, r.sort_order
+) x
+ON CONFLICT (person_id, lang) DO UPDATE SET name = EXCLUDED.name;
 
 -- PK 가 (content_id, person_id, role_type) 라 한 작품에서 연출·주연을 겸해도 두 행이
 -- 남는다. 같은 역할로 두 번 나온 경우만 앞의 것을 남긴다.
@@ -253,10 +342,13 @@ FROM (
     SELECT DISTINCT ON (place_key) * FROM seed_rows ORDER BY place_key, id
 ) s;
 
+-- place.type 은 코드값 자리다(V2 주석). CSV 의 place_type_code 가 채워지면 그것을 쓰고,
+-- 비어 있으면 한국어 라벨(place_type)을 그대로 둔다 — 코드 매핑표가 생기기 전까지의
+-- 과도기다. 지금 파일은 코드가 전부 비어 있어 라벨이 들어간다.
 INSERT INTO place (id, type, geom, naver_place_url)
 SELECT
     place_id,
-    NULLIF(place_type, ''),
+    COALESCE(NULLIF(btrim(place_type_code), ''), NULLIF(place_type, '')),
     -- ST_MakePoint 는 (경도, 위도) 순이다. 뒤집으면 오류 없이 엉뚱한 곳에 찍힌다 —
     -- 위도 37 · 경도 127 을 뒤집으면 대한민국이 아니라 인도양이 된다.
     ST_SetSRID(
@@ -266,31 +358,43 @@ SELECT
     NULLIF(btrim(place_naver_url), '')
 FROM t_place;
 
--- place_i18n.description 은 비운다. CSV 의 scene_description 은 "이 작품의 이 장면"
--- 설명이라 장소 자체의 설명이 아니다 — place_content_i18n 으로 간다.
-INSERT INTO place_i18n (place_id, lang, name, address)
-SELECT place_id, 'ko', place_name, NULLIF(place_address, '')
+-- place_i18n.description 은 장소 자체의 소개(place_description)다. scene_description 은
+-- "이 작품의 이 장면" 설명이라 여기가 아니라 place_content_i18n 으로 간다. 지금 파일은
+-- place_description 이 전부 비어 있다.
+INSERT INTO place_i18n (place_id, lang, name, address, description)
+SELECT place_id, 'ko', place_name, NULLIF(place_address, ''), NULLIF(btrim(place_description), '')
 FROM t_place;
 
 -- 이 형식에는 place_name_en·ja·zh_hant 가 있다. 채워진 것만 넣는다 — 지금 파일은 전부
--- 비어 있지만 다음 수집분이 채우면 영어 사용자가 장소명을 영어로 본다. 주소는 한국어뿐이라
--- 다른 언어 행에도 한국어 주소를 준다 — 없는 것보다 낫다.
-INSERT INTO place_i18n (place_id, lang, name, address)
-SELECT place_id, 'en', btrim(place_name_en), NULLIF(place_address, '')
+-- 비어 있지만 다음 수집분이 채우면 영어 사용자가 장소명을 영어로 본다.
+--
+-- 주소는 그 언어의 것(place_address_en·ja·zh_hant)이 있으면 그것을, 없으면 한국어
+-- 주소를 준다 — 지도에 넣을 수는 있으니 없는 것보다 낫다. 소개는 그 언어의 것만 넣는다.
+INSERT INTO place_i18n (place_id, lang, name, address, description)
+SELECT place_id, 'en', btrim(place_name_en),
+       COALESCE(NULLIF(btrim(place_address_en), ''), NULLIF(place_address, '')),
+       NULLIF(btrim(place_description_en), '')
 FROM t_place WHERE NULLIF(btrim(place_name_en), '') IS NOT NULL
 UNION ALL
-SELECT place_id, 'ja', btrim(place_name_ja), NULLIF(place_address, '')
+SELECT place_id, 'ja', btrim(place_name_ja),
+       COALESCE(NULLIF(btrim(place_address_ja), ''), NULLIF(place_address, '')),
+       NULLIF(btrim(place_description_ja), '')
 FROM t_place WHERE NULLIF(btrim(place_name_ja), '') IS NOT NULL
 UNION ALL
-SELECT place_id, 'zh-Hant', btrim(place_name_zh_hant), NULLIF(place_address, '')
+SELECT place_id, 'zh-Hant', btrim(place_name_zh_hant),
+       COALESCE(NULLIF(btrim(place_address_zh_hant), ''), NULLIF(place_address, '')),
+       NULLIF(btrim(place_description_zh_hant), '')
 FROM t_place WHERE NULLIF(btrim(place_name_zh_hant), '') IS NOT NULL;
 
--- sort_order 를 10 부터 매긴다. 대표 이미지는 첫 번째이고, 나중에 사이에 끼워 넣을
--- 여지를 둔다. 지금은 장소당 한 장뿐이다.
+-- place_image_url 은 ';' 로 나뉜 URL 목록이다(2026-09-12, 네이버 플레이스 상위 사진).
+-- 목록 순서대로 sort_order 를 10, 20, 30… 으로 매긴다. 대표 이미지는 첫 번째이고,
+-- 10 단위로 띄워 나중에 사이에 끼워 넣을 여지를 둔다. 네이버 URL 이 없거나 네이버에
+-- 사진이 없는 22 행은 비어 있어 place_image 가 생기지 않고, 그 장소의 썸네일은 NULL 이다.
 INSERT INTO place_image (place_id, url, sort_order)
-SELECT place_id, place_image_url, 10
-FROM t_place
-WHERE NULLIF(place_image_url, '') IS NOT NULL;
+SELECT p.place_id, btrim(u.url), u.ord * 10
+FROM t_place p
+CROSS JOIN unnest(string_to_array(p.place_image_url, ';')) WITH ORDINALITY AS u(url, ord)
+WHERE NULLIF(btrim(u.url), '') IS NOT NULL;
 
 -- 장소 별칭. v6 에는 이 컬럼이 없어 place_alias 가 비어 있었다 — 이 형식은 30행에
 -- 있다(관덕정·김녕해수욕장…). ';' 로 나뉜다. 라틴 표기는 lang 을 비운다.
@@ -307,13 +411,17 @@ WHERE btrim(u.alias) <> ''
 -- ── 6. 장소 × 작품 ───────────────────────────────────────────────────────────
 --
 -- 여기가 CSV 한 행에 해당한다. 같은 (장소, 작품) 이 두 번 나오면 하나로 접는다.
--- 이 형식에는 scene_image_url 이 없다 — place_content.scene_image_url 은 NULL 이다.
+-- scene_image_url 은 (장소, 작품) 한 쌍에 한 장이라 여기 붙는다(V7).
 CREATE TEMP TABLE t_place_content ON COMMIT DROP AS
 SELECT
     nextval('place_content_id_seq') AS place_content_id,
     p.place_id,
     c.content_id,
     s.scene_description,
+    s.scene_description_en,
+    s.scene_description_ja,
+    s.scene_description_zh_hant,
+    s.scene_image_url,
     s.last_updated
 FROM (
     SELECT DISTINCT ON (place_key, title) * FROM seed_rows
@@ -325,7 +433,7 @@ JOIN t_content c ON c.title = s.title;
 INSERT INTO place_content (id, place_id, content_id, scene_image_url, updated_at)
 SELECT
     place_content_id, place_id, content_id,
-    NULL,
+    NULLIF(btrim(scene_image_url), ''),
     COALESCE(NULLIF(last_updated, '')::TIMESTAMPTZ, now())
 FROM t_place_content;
 
@@ -333,6 +441,18 @@ INSERT INTO place_content_i18n (place_content_id, lang, relation_description)
 SELECT place_content_id, 'ko', scene_description
 FROM t_place_content
 WHERE NULLIF(scene_description, '') IS NOT NULL;
+
+-- 장면 설명의 다국어. 채워진 언어만 넣는다 — 지금 파일은 전부 비어 있다. 없는 언어는
+-- API 가 ko 로 폴백한다.
+INSERT INTO place_content_i18n (place_content_id, lang, relation_description)
+SELECT place_content_id, 'en', btrim(scene_description_en)
+FROM t_place_content WHERE NULLIF(btrim(scene_description_en), '') IS NOT NULL
+UNION ALL
+SELECT place_content_id, 'ja', btrim(scene_description_ja)
+FROM t_place_content WHERE NULLIF(btrim(scene_description_ja), '') IS NOT NULL
+UNION ALL
+SELECT place_content_id, 'zh-Hant', btrim(scene_description_zh_hant)
+FROM t_place_content WHERE NULLIF(btrim(scene_description_zh_hant), '') IS NOT NULL;
 
 -- ── 7. 장소 인기도 ───────────────────────────────────────────────────────────
 --
