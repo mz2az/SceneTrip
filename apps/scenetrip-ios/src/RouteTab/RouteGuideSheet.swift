@@ -363,11 +363,9 @@ extension View {
                     .padding(.bottom, 8)
                     // 접힌 동그라미 **자리 쪽으로** 오므라들며 사라진다 — 창이
                     // 닫히는 게 아니라 동그라미로 접힌다는 몸짓(2026-08-28 사용자
-                    // 요청). 동그라미는 두 화면 다 패널보다 위 오른편에 있다
-                    // (편집=지도 오른쪽 위, 길찾기=지도 오른쪽 아래) — 오른쪽
-                    // 아래로 오므리면 동그라미와 무관한 곳으로 사라져 「눌러서
-                    // 나왔다 들어간다」는 느낌이 죽는다(사용자 확인).
-                    .transition(.scale(scale: 0.05, anchor: .topTrailing)
+                    // 요청). 동그라미는 이제 화면 오른쪽 아래에 있다(2026-09-16,
+                    // `RouteGuideFloatingChip`) — 그쪽으로 오므린다.
+                    .transition(.scale(scale: 0.05, anchor: .bottomTrailing)
                         .combined(with: .opacity))
             }
         }

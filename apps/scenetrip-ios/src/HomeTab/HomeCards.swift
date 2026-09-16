@@ -43,21 +43,36 @@ struct HomeTripPager: View {
     let onOpenCourse: (HomeTrip) -> Void
     let onCreate: () -> Void
 
-    @State private var page = 0
+    /// 지금 보이는 장. 점 표시를 칠하는 데만 쓴다.
+    @State private var pageId: Int?
+
+    private var page: Int {
+        pageId ?? 0
+    }
 
     var body: some View {
         if trips.count > 1 {
             VStack(spacing: 8) {
-                TabView(selection: $page) {
-                    ForEach(Array(trips.enumerated()), id: \.offset) { index, trip in
-                        HomeTripCard(
-                            trip: trip, rank: index + 1, hasCourses: hasCourses, loading: false,
-                            onNavigate: onNavigate, onOpenCourse: onOpenCourse, onCreate: onCreate
-                        )
-                        .tag(index)
+                // **`TabView(.page)` 를 쓰지 않는다**(2026-09-16). 그 방식은 안에서 UIKit
+                // 페이지 컨트롤러를 띄우는데, 같은 세로 스크롤 안에 있으면 가로 손짓을
+                // 통째로 가로채 **아래 「지금 뜨는 작품」 줄의 탭과 스와이프가 죽었다**
+                // (사용자 확인 — 코스가 둘이 된 뒤부터). iOS 17 의 스크롤 정지 방식은
+                // 순수 SwiftUI 라 그 문제가 없다.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 0) {
+                        ForEach(Array(trips.enumerated()), id: \.offset) { index, trip in
+                            HomeTripCard(
+                                trip: trip, rank: index + 1, hasCourses: hasCourses, loading: false,
+                                onNavigate: onNavigate, onOpenCourse: onOpenCourse, onCreate: onCreate
+                            )
+                            .containerRelativeFrame(.horizontal)
+                            .id(index)
+                        }
                     }
+                    .scrollTargetLayout()
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $pageId)
                 .frame(height: 196)
                 HStack(spacing: 6) {
                     ForEach(trips.indices, id: \.self) { index in
@@ -205,7 +220,7 @@ struct HomeWorkShelf: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .top, spacing: 10) {
                         ForEach(works) { work in
-                            Button { onOpen(work) } label: { poster(work) }
+                            Button { onOpen(work) } label: { poster(work).contentShape(.rect) }
                                 .buttonStyle(.plain)
                         }
                     }
@@ -250,6 +265,8 @@ struct HomeTodayCard: View {
     let place: PlaceSummary
     /// 장바구니에 이미 담긴 곳인가. 단추가 「담김」으로 바뀐다.
     var saved = false
+    /// 카드 본체(사진·이름·주소)를 눌렀다 — 그 촬영지의 상세로 간다.
+    var onOpen: () -> Void = {}
     /// 「담기」를 눌렀다 — main 은 길찾기 대신 장바구니로 잇는다(MZ2AZ-313).
     let onSave: () -> Void
 
@@ -257,27 +274,15 @@ struct HomeTodayCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HomeSectionHeader(title: "오늘의 성지", subtitle: "매일 한 장면")
             VStack(alignment: .leading, spacing: 0) {
-                ZStack(alignment: .bottomLeading) {
-                    LinearGradient(
-                        colors: [Color(PinImage.deep).opacity(0.13), Color(PinImage.light).opacity(0.33)],
-                        startPoint: .leading, endPoint: .trailing
-                    )
-                    if let url = place.imageUrl.flatMap(URL.init(string:)) {
-                        AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Color.clear }
-                            .frame(height: 96).frame(maxWidth: .infinity).clipped()
-                    }
-                    if let work = place.contents?.first?.title {
-                        Text(work)
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(TabBar.homePurple)
-                            .padding(.horizontal, 10).padding(.vertical, 4)
-                            .background(Capsule().fill(Color(.systemBackground)))
-                            .padding(.horizontal, 16).padding(.bottom, 12)
-                    }
-                }
-                .frame(height: 96)
+                // 사진 띠는 통째로 단추다 — 「담기」와 겹치지 않는 자리라 여기서 연다.
+                Button(action: onOpen) { hero }.buttonStyle(.plain)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(title).font(.system(size: 15, weight: .bold)).lineLimit(2)
+                    Button(action: onOpen) {
+                        Text(title).font(.system(size: 15, weight: .bold)).lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
                     HStack(spacing: 6) {
                         Image(systemName: "mappin.and.ellipse")
                             .font(.system(size: 12)).foregroundStyle(Color(PinImage.deep))
@@ -298,6 +303,28 @@ struct HomeTodayCard: View {
             .homeCard(radius: 20)
             .padding(.horizontal, 20)
         }
+    }
+
+    private var hero: some View {
+        ZStack(alignment: .bottomLeading) {
+            LinearGradient(
+                colors: [Color(PinImage.deep).opacity(0.13), Color(PinImage.light).opacity(0.33)],
+                startPoint: .leading, endPoint: .trailing
+            )
+            if let url = place.imageUrl.flatMap(URL.init(string:)) {
+                AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Color.clear }
+                    .frame(height: 96).frame(maxWidth: .infinity).clipped()
+            }
+            if let work = place.contents?.first?.title {
+                Text(work)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(TabBar.homePurple)
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(Capsule().fill(Color(.systemBackground)))
+                    .padding(.horizontal, 16).padding(.bottom, 12)
+            }
+        }
+        .frame(height: 96)
     }
 
     /// 「장소명 — 장면 설명」. 장면 설명이 없으면 장소명만.

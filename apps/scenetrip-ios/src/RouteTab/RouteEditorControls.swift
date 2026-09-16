@@ -66,8 +66,9 @@ extension RouteEditorView {
         // 알 수 없다(2026-08-24 사용자 지적). 켜 두면 목록에서 장소를 고를 때마다
         // 「나와 그곳이 같이 보이는 크기」로 맞는다.
         //
-        // 챗봇 단추는 여기 없다. 지도 위에 띄웠더니 오른쪽 위를 가렸다(2026-08-27
-        // 사용자 지적) — 일정 시트의 동작 줄(`actions`)로 내렸다.
+        // 챗봇 단추는 여기 없다. 지도 위에 띄웠더니 오른쪽 위를 가렸고(2026-08-27),
+        // 접힌 동그라미를 이 줄에 두었더니 말풍선 폭에 동그라미 둘이 왼쪽으로 밀렸다
+        // (2026-09-16). 이제 화면 오른쪽 아래 `RouteGuideFloatingChip` 하나뿐이다.
         .overlay(alignment: .topTrailing) {
             if !pinning {
                 VStack(spacing: 10) {
@@ -76,12 +77,6 @@ extension RouteEditorView {
                     // (2026-09-04 사용자 요청). 기록 자체는 안내 중이면 늘 남는다.
                     if course.isRunning {
                         footprintButton
-                    }
-                    // **접힌 가이드.** 대화를 한 번 시작했으면 시트를 닫아도
-                    // 여기 작게 남아, 누르면 이어서 펼쳐진다. 처음 여는 것은
-                    // 아래 동작 줄의 「AI 가이드」다.
-                    if !guide.isEmpty, !showGuide {
-                        RouteGuideChip { showGuide = true }
                     }
                 }
                 .padding(10)
@@ -284,38 +279,11 @@ extension RouteEditorView {
             action(pinning ? "취소" : "핀 찍기", symbol: "mappin.and.ellipse") {
                 pinning.toggle()
             }
-            // AI 가이드. 지도 위에 떠 있던 단추를 내렸다 — 시트 안이라 지도를
-            // 가리지 않고, 자리도 다른 동작들과 같은 줄이라 찾아 헤매지 않는다.
-            guideAction
+            // 「AI 가이드」 단추는 없앴다(2026-09-16) — 화면 오른쪽 아래 해태 동그라미와
+            // 하는 일이 같아 둘이 됐다. 입구는 그 동그라미 하나다.
         }
         .padding(.horizontal, 16).padding(.bottom, 10)
         .background(Color(.systemBackground))
-    }
-
-    /// 다른 동작과 같은 꼴이되 **피노 색 그라데이션**으로 눈에 띈다 — AI 가
-    /// 하는 일임을 색으로 말한다(`RouteChatButton` 과 같은 색).
-    private var guideAction: some View {
-        Button {
-            showGuide = true
-        } label: {
-            VStack(spacing: 3) {
-                Image(systemName: "sparkles").font(.system(size: 15))
-                Text("AI 가이드").font(.caption2).lineLimit(1).minimumScaleFactor(0.8)
-            }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 10).fill(
-                    LinearGradient(
-                        colors: [Color(PinImage.light), Color(PinImage.deep)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            )
-        }
-        .buttonStyle(.plain)
     }
 
     /// 넷이 한 줄에 들어가야 하므로 **아이콘 위, 글자 아래**로 쌓는다. 나란히 두면

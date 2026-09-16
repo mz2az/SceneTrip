@@ -273,6 +273,10 @@ struct RouteEditorView: View {
         } message: {
             Text(store.failure?.message ?? "")
         }
+        // 해태 「내가 도와줄게!」 — 가이드의 유일한 입구. 지도가 아니라 **화면** 오른쪽
+        // 아래에 떠 있고, 꾹 누르면 옮길 수 있다(2026-09-16). 창이 열려 있거나 핀을 찍는
+        // 동안은 숨긴다.
+        .guideFloatingChip(hidden: showGuide || pinning) { showGuide = true }
         // 가이드는 시트가 아니라 **오른쪽 서랍**이다 — 오른쪽에서 미끄러져
         // 나오는 고정 크기 창(2026-08-28 사용자 요청). 지도가 계속 보인다.
         .guidePanel(isOpen: showGuide) {
@@ -495,10 +499,17 @@ struct RouteEditorView: View {
 
     /// 가이드에게 줄 「지금 자리」.
     ///
+    /// 여행 중이면 **지도에 찍힌 내 위치**(`trip.here`)가 곧 지금 자리다 — 가상 GPS(데모
+    /// 주행)도 그리로 오므로, 화면의 파란 점과 「주변」이 어긋나지 않는다. 그 밖에는
+    /// 화면이 뜰 때 한 번 받아 둔 기기 위치를 쓴다.
+    ///
     /// 위치를 못 받았으면 **지금 보고 있는 장소**로 대신한다 — 코스를 짜는 중에는
     /// 「내가 선 자리」보다 「지금 보는 곳 주변」이 궁금한 경우가 많고, 실내에서
     /// 위치를 못 잡아도 물어볼 수 있어야 한다.
     var guideHere: CLLocationCoordinate2D? {
+        if trip.isActive, let here = trip.here {
+            return .init(latitude: here.latitude, longitude: here.longitude)
+        }
         if case let .found(latitude, longitude) = guideLocator.state {
             return .init(latitude: latitude, longitude: longitude)
         }

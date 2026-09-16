@@ -50,6 +50,21 @@ ios-run:
 #   앱 안에서   마이페이지 → 사용법 다시 보기   (가장 쉽다. 데이터가 안 날아간다)
 #   깨끗하게    just ios-reinstall             (설치 직후 상태)
 
+# 시연 영상은 시뮬레이터가 직접 찍는다 — 마우스 커서 없이 폰 화면만 mov 로 남는다.
+# h264 는 윈도우 PowerPoint 에서도 열리고, mask=black 은 둥근 모서리 바깥을 검게 채워
+# 슬라이드에 얹으면 폰 모양이 된다. Ctrl+C 로 멈추면 파일이 닫힌다. 부팅된 기기가
+# 둘이면 `booted` 가 모호하므로 UDID 를 넘긴다 (`xcrun simctl list devices booted`).
+
+# 시뮬레이터 화면을 mov 로 녹화한다 (Ctrl+C 로 끝. 예: `just ios-record ~/Desktop/demo.mov`)
+[group('build')]
+ios-record out="$HOME/Desktop/scenetrip-demo.mov" device="booted":
+    xcrun simctl io {{device}} recordVideo --codec=h264 --mask=black {{out}}
+
+# 시뮬레이터 위치를 고정한다 (기본 서울시청. 먼 곳이면 길찾기가 422 로 떨어진다)
+[group('build')]
+ios-location lat="37.5663" lng="126.9779" device="booted":
+    xcrun simctl location {{device}} set {{lat}},{{lng}}
+
 # 시뮬레이터의 앱을 껐다 켠다 (스플래시부터 다시 본다)
 [group('build')]
 ios-restart:
