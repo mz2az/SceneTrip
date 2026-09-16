@@ -1,3 +1,4 @@
+import SceneApiClient
 import SwiftUI
 
 /// 편집 화면의 **위쪽 절반** — 지도, 일차 탭(＋/−), 요약 줄, 동작 버튼.
@@ -100,6 +101,17 @@ extension RouteEditorView {
                 .padding(.top, trip.phase == .arrived ? tripBannerHeight : 0)
             }
         }
+    }
+
+    /// 동선 최적화가 쓸 **지금 자리.**
+    ///
+    /// 여행 중이면 지도의 파란 점(데모 주행의 가상 GPS 포함)이고, 아니면 화면이 뜰 때 받아 둔
+    /// 기기 위치다. 쓸 만한지(한국 안·같은 지역)는 `RouteGeometry.usableAnchor` 가 가린다.
+    var optimizeAnchor: PlaceSummary? {
+        if trip.isActive, let here = trip.here {
+            return PlaceSummary(id: 0, name: "여기", latitude: here.latitude, longitude: here.longitude)
+        }
+        return guideLocator.found
     }
 
     private var locateButton: some View {
@@ -277,14 +289,19 @@ extension RouteEditorView {
             action("동선 최적화", symbol: "arrow.triangle.swap", highlight: optimizeNudge) {
                 // 현재 위치를 알고 출발이 아직 안 정해졌으면 **가장 가까운 곳이 출발**이다
                 // (2026-09-04 사용자 결정) — 한국에 와서 다시 누르는 사람은 지금 선 자리에서
-                // 도는 동선을 원한다. 그 줄을 출발 고정으로 켜고 나머지를 최적화한다.
+                // 도는 동선을 원한다.
+                //
+                // **출발 고정 토글은 건드리지 않는다**(2026-09-16). 앞서 여기서 `pinStart` 를
+                // 켜 버려서, 한 번 누른 뒤에는 자리를 옮겨 다시 눌러도 옛 1 번이 그대로
+                // 붙박이가 됐다. 고정은 이번 계산에만 준다.
                 var ordered = stops
-                if !pinStart, let here = guideLocator.found {
+                var head = pinStart
+                if !pinStart, let here = RouteGeometry.usableAnchor(optimizeAnchor, for: ordered) {
                     ordered = RouteGeometry.startingNearest(ordered, to: here)
-                    pinStart = true
+                    head = true
                 }
                 course.days[dayIndex].stops = RouteGeometry.optimized(
-                    ordered, pinStart: pinStart, pinEnd: pinEnd
+                    ordered, pinStart: head, pinEnd: pinEnd
                 )
                 fitToken += 1
                 optimizeNudge = false // 권한 일을 했다 — 반짝임은 여기까지

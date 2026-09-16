@@ -303,6 +303,29 @@ enum RouteGeometry {
         return best.map { stops[$0] }
     }
 
+    /// **여기가 한국인가.** 대략적인 사각형 하나로 본다 — 마라도(33.06)에서 강원 북단(38.7),
+    /// 백령도(124.5)에서 독도(131.9)까지.
+    ///
+    /// 동선 최적화가 「지금 자리에서 가까운 곳부터」를 적용할지 정하는 데 쓴다. 비행기를 타기
+    /// 전에 제 나라에서 일정을 짜는 사람에게 그 규칙은 뜻이 없다 — 서울 코스의 1 번이
+    /// 「도쿄에서 가장 가까운 곳」으로 정해지면 안 된다(2026-09-16 사용자 결정).
+    static func isInKorea(_ place: PlaceSummary) -> Bool {
+        (33.0 ... 38.7).contains(place.latitude) && (124.5 ... 131.9).contains(place.longitude)
+    }
+
+    /// 동선 최적화의 기준점으로 **쓸 만한가.** 한국 안이고, 가장 가까운 정지점이
+    /// `within` km 안일 때만이다.
+    ///
+    /// 거리를 보는 이유는 「같은 지역일 때만」이라는 요구 때문이다(2026-09-16 사용자 결정).
+    /// 서울에 앉아 부산 코스를 손보는 중이라면 지금 자리는 순서와 상관이 없다.
+    static func usableAnchor(
+        _ here: PlaceSummary?, for stops: [RouteStop], within limit: Double = 100
+    ) -> PlaceSummary? {
+        guard let here, isInKorea(here), !stops.isEmpty else { return nil }
+        let nearest = stops.map { kilometers(here, $0.place) }.min() ?? .infinity
+        return nearest <= limit ? here : nil
+    }
+
     /// **지금 선 자리에서 가장 가까운 곳을 맨 앞으로.** 나머지 순서는 그대로 — 그다음은
     /// `optimized(pinStart: true)` 가 정한다. 「출발 고정이 꺼진 채 현재 위치를 아는」
     /// 사람의 동선 최적화 첫 걸음이다(2026-09-04 사용자 결정).
