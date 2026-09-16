@@ -5,14 +5,14 @@
 
 | 파일 | 내용 |
 | --- | --- |
-| `candidates.csv` | 성지후보 **87 행** — 10 작품 × 촬영지. 김태환 수집 v3 (2026-08-24) |
+| `candidates.csv` | 성지후보 **87 행** — 10 작품 × 촬영지. 김태환 수집 v3 (2026-08-24) + 다국어 21 컬럼 + `scene_image_url` (2026-09-12) |
 | `candidates.sql` | CSV 를 15 개 테이블로 옮기는 변환. 이 CSV 와 같은 컬럼의 다른 파일에도 쓴다 |
 | `poi-sample.jsonl` | POI(편의시설) 표본 **27 행** — 갈래별 5 행 + 중복 한 쌍 + 버려질 행 하나(TMAP 판, 정승길 수집) + 공공데이터 규칙용 4 행(상가정보·겹치는 관광공사·안 겹치는 관광공사·좌표 뒤바뀜) |
 | `poi.sql` | JSON Lines 를 `poi` 표로 옮기는 변환. `just seed-poi` 가 쓴다 |
 
 ```bash
 just seed                          # 저장소의 성지후보 87 행
-just seed <다른 CSV 경로>          # 같은 30 컬럼 형식이어야 한다
+just seed <다른 CSV 경로>          # 같은 52 컬럼 형식이어야 한다
 just seed-poi                      # 저장소의 POI 표본 27 행
 just seed-poi <파일.jsonl(.gz) ...>  # 전량. 여러 파일은 이어 붙여 한 번에
 ```
@@ -25,23 +25,38 @@ v3 는 10 작품으로 골라졌고 이미지가 우리 S3 에 있고 `last_upda
 볼트(`~/mz2az/01_Raw/김태환/4주차_촬영지수집/`)이고, 다음 수집분이 나오면 파일을 갈아
 끼운다.
 
-## 컬럼 — 30 개
+## 컬럼 — 52 개
 
 `\copy` 는 헤더를 건너뛸 뿐 이름으로 맞추지 않는다. **CSV 헤더 순서가 `candidates.sql`
 의 `seed_staging` 컬럼 순서와 같아야 한다.** 다른 순서의 파일을 넣으면 오류 없이 엉뚱한
-칸에 들어간다.
+칸에 들어간다. 30 컬럼짜리 옛 파일은 컬럼 수가 안 맞아 `\copy` 가 거부한다 — 뒤에 빈
+컬럼을 붙이는 것이 아니라 아래 순서대로 끼워 넣어야 한다.
+
+30 컬럼(v3)에 **다국어 21 개**와 **`scene_image_url`** 을 더한 것이 52 다(2026-09-12).
+더한 컬럼은 전부 형제 옆에 있다. 다국어는 지금 비어 있고, `scene_image_url` 은 v3 의
+`place_image_url` 값을 그대로 옮긴 것이다 — 그 사진들이 장소 사진이 아니라 장면 스틸이라서다.
+옮긴 뒤 비어 있던 `place_image_url` 에는 네이버 플레이스(`place_naver_url`)의 상위 사진
+URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞에 두고, 나머지는 네이버 표시
+순서를 따른다. 네이버 URL 이 없거나 네이버에 사진이 없는 22 행은 여전히 비어 있다.
 
 | 컬럼 | 가는 곳 |
 | --- | --- |
 | `title` `title_category` `famous_rank` `poster_url` | `content` · `content_i18n(ko)` |
 | `title_en` `title_ja` `title_zh_hant` | `content_i18n` — 채워진 것만. 지금은 전부 비어 있다 |
+| `title_description` · `_en` `_ja` `_zh_hant` | `content_i18n.description` — 작품 소개. 제목 행에 얹혀 가므로 그 언어 제목이 없으면 안 들어간다 |
 | `title_aliases` | `content_alias`. `title_en` 이 비면 첫 라틴 항목을 `en` 제목으로 승격 |
 | `title_cast` `director` | `person` · `person_i18n` · `content_cast` |
+| `title_cast_en` `_ja` `_zh_hant` · `director_en` `_ja` `_zh_hant` | `person_i18n` — `;` 로 나눈 **같은 자리끼리** 짝. 한국어 목록보다 짧으면 그 자리는 비고, 길면 남는 것은 버려진다 |
 | `place_name` `place_type` `place_address` `place_latitude` `place_longitude` `place_naver_url` | `place` · `place_i18n(ko)` |
+| `place_type_code` | `place.type` — 있으면 이것이, 없으면 `place_type` 한국어 라벨이 들어간다. 코드 매핑표가 생기기 전 과도기 |
 | `place_name_en` `place_name_ja` `place_name_zh_hant` | `place_i18n` — 채워진 것만. 지금은 전부 비어 있다 |
+| `place_address_en` `_ja` `_zh_hant` | `place_i18n.address` — 없으면 그 언어 행에도 한국어 주소가 들어간다 |
+| `place_description` · `_en` `_ja` `_zh_hant` | `place_i18n.description` — 장소 자체의 소개(장면 설명이 아니다) |
 | `place_aliases` | `place_alias` — 30 행에 있다 |
-| `place_image_url` | `place_image` |
+| `place_image_url` | `place_image` — 장소 사진. `;` 로 나눠 순서대로 `sort_order` 10, 20, 30… 을 매긴다. 65 행이 차 있고 비어 있는 22 행은 장소 썸네일이 NULL 이다 |
 | `scene_description` `last_updated` | `place_content` · `place_content_i18n(ko)` |
+| `scene_description_en` `_ja` `_zh_hant` | `place_content_i18n` — 채워진 언어만. 없으면 API 가 `ko` 로 폴백 |
+| `scene_image_url` | `place_content.scene_image_url` — 장면 스틸. (장소, 작품) 한 쌍에 한 장 |
 | `id` `title_tmdb_url` `source_url` `recent_rank` `audience_acc` `award` `notes` | 안 넣는다 — `candidates.sql` 머리에 이유 |
 
 ## 적재는 지우고 다시 넣는다
@@ -72,13 +87,13 @@ v3 는 10 작품으로 골라졌고 이미지가 우리 S3 에 있고 `last_upda
 
 ## 이 파일이 v6 와 다른 것
 
-| | v6 (승길, 25 컬럼) | 성지후보 v3 (태환, 30 컬럼) |
+| | v6 (승길, 25 컬럼) | 성지후보 v3 (태환, 30 컬럼 → 다국어·장면 스틸 더해 52) |
 | --- | --- | --- |
 | 작품 | 4 (drama 2 · movie 2) | 10 (전부 drama) |
 | 행 | 표본 12 / 전량 164 | 87 |
 | 방송사·연도·장르 | 있음 | 없음 → `broadcaster`·`release_year` NULL, `genres '{}'` |
-| 장면 이미지 | `scene_image_url` | 없음 → `place_content.scene_image_url` NULL |
-| 다국어 제목·장소명 | 없음 (별칭에서 승격) | 컬럼 있음 (아직 비어 있음) |
+| 장면 이미지 | `scene_image_url` | `scene_image_url` — v3 의 `place_image_url` 을 옮긴 것 |
+| 다국어 제목·장소명·주소·소개·인물·장면 설명 | 없음 (별칭에서 승격) | 컬럼 있음 (아직 비어 있음) |
 | 장소 별칭 | 없음 | `place_aliases` 30 행 |
 
 **`movie` 카테고리가 이번 시드에 없다.** 카테고리 필터를 확인하려면 다른 파일이 필요하다.
@@ -88,7 +103,7 @@ v3 는 10 작품으로 골라졌고 이미지가 우리 S3 에 있고 `last_upda
 | 무엇 | 지금 |
 | --- | --- |
 | `place_type` 이 한국어 라벨 35 종 | 코드 매핑표가 아직 없다. 값 그대로 넣는다 |
-| 장소 이름·주소가 한국어뿐 | 컬럼은 있지만 비어 있다. 채워지면 자동으로 들어간다 |
+| 장소 이름·주소·소개, 인물 이름, 장면 설명이 한국어뿐 | 컬럼은 있지만 비어 있다. 채워지면 자동으로 들어간다 |
 | `place_i18n.description` 이 비어 있음 | `scene_description` 은 "이 작품의 이 장면" 설명이라 장소 자체의 설명이 아니다 |
 | `popularity_score` 가 임의값 | `famous_rank` 를 뒤집은 값. `user_event` 가 쌓이면 배치가 계산한다 |
 | 좌표 없는 2 곳 | 위 「건너뛰는 행」 |
