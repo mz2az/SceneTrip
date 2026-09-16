@@ -27,6 +27,22 @@ extension RouteEditorView {
                 guide.picked = $0
                 pickedStop = nil // 카드는 한 장만
             },
+            // 미리보기 핀도 누르면 카드가 뜬다. 챗봇이 찍어 준 곳은 가이드 결과에
+            // 같은 것이 있으므로 그것을 찾아 편의시설 카드(사진·영업시간·담기)를 띄운다.
+            // 검색·장바구니에서 온 미리보기(촬영지)는 성지 카드로.
+            onTapPreview: { summary in
+                if let place = guide.places.first(where: {
+                    RouteDedupe.key($0.asPlaceSummary) == RouteDedupe.key(summary)
+                }) {
+                    guide.picked = place
+                    pickedStop = nil
+                } else if let stop = stops.first(where: {
+                    RouteDedupe.key($0.place) == RouteDedupe.key(summary)
+                }) {
+                    pickedStop = stop
+                    guide.picked = nil
+                }
+            },
             bottomInset: panelHeight,
             // 여행 안내(2026-09-03) — 내 자리·목적지·실제 경로를 이 지도에.
             tripHere: trip.here,
