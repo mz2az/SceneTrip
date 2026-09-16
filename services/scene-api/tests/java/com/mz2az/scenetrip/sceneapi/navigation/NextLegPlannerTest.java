@@ -338,6 +338,27 @@ class NextLegPlannerTest {
     }
 
     @Test
+    @DisplayName("너무 멀면(TOO_FAR_AWAY) 422 ROUTE_NOT_FOUND — 500 이 아니다 (2026-09-14 실측, 430 km)")
+    void tooFarAwayIs422() {
+      when(kakao.transit(any(), any(), anyString())).thenReturn(transit("NO_RESULTS"));
+      when(kakao.walk(any(), any(), anyString())).thenReturn(walk("TOO_FAR_AWAY"));
+
+      assertThatThrownBy(() -> planner.plan(HERE, FAR, Lang.KO))
+          .isInstanceOfSatisfying(
+              ApiException.class,
+              e -> {
+                assertThat(e.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+                assertThat(e.getCode()).isEqualTo("ROUTE_NOT_FOUND");
+              });
+
+      // 대중교통이 먼저 TOO_FAR_AWAY 를 줘도 같다 — 도보로 넘어갔다가 422.
+      when(kakao.transit(any(), any(), anyString())).thenReturn(transit("TOO_FAR_AWAY"));
+      assertThatThrownBy(() -> planner.plan(HERE, FAR, Lang.KO))
+          .isInstanceOfSatisfying(
+              ApiException.class, e -> assertThat(e.getCode()).isEqualTo("ROUTE_NOT_FOUND"));
+    }
+
+    @Test
     @DisplayName("같은 점이면 오류가 아니라 빈 legs — 이미 도착")
     void equalPointsIsArrived() {
       when(kakao.transit(any(), any(), anyString())).thenReturn(transit("EQUAL_POINTS"));

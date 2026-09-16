@@ -107,7 +107,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 
 | `code` | 뜻 |
 | --- | --- |
-| `ROUTE_NOT_FOUND` | 대중교통도 도보도 경로를 못 찾았다. 섬·산속처럼 길 자체가 안 이어지는 곳이다 |
+| `ROUTE_NOT_FOUND` | 대중교통도 도보도 경로를 못 찾았다. 섬·산속처럼 길 자체가 안 이어지는 곳이거나, 걸어가기에는 너무 먼 곳이다(카카오 `TOO_FAR_AWAY` — 시뮬레이터 위치가 코스와 수백 km 떨어졌을 때 흔하다) |
 | `NO_TRANSIT_NEARBY` | 출발지 또는 목적지 근처에 정류장이 없다. 대중교통이 닿지 않는 자리다 — 걷는 길은 따로 물어볼 수 있다 |
 
 출발지와 목적지가 같은 것(`EQUAL_POINTS`)은 오류가 아니다 — `200` 에 `legs: []` 로

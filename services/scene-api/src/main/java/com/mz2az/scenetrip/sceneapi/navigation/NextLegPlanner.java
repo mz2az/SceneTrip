@@ -5,6 +5,7 @@ import static com.mz2az.scenetrip.sceneapi.navigation.kakao.KakaoRoutingClient.S
 import static com.mz2az.scenetrip.sceneapi.navigation.kakao.KakaoRoutingClient.STATUS_NO_RESULTS;
 import static com.mz2az.scenetrip.sceneapi.navigation.kakao.KakaoRoutingClient.STATUS_OK;
 import static com.mz2az.scenetrip.sceneapi.navigation.kakao.KakaoRoutingClient.STATUS_START_NODES_NULL;
+import static com.mz2az.scenetrip.sceneapi.navigation.kakao.KakaoRoutingClient.STATUS_TOO_FAR_AWAY;
 
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.LineString;
@@ -103,8 +104,8 @@ public class NextLegPlanner {
     if (STATUS_EQUAL_POINTS.equals(status)) {
       return arrived(guidanceLang);
     }
-    if (STATUS_NO_RESULTS.equals(status)) {
-      log.info("대중교통 경로 없음 — 도보로 넘어간다 ({} m)", Math.round(straight));
+    if (STATUS_NO_RESULTS.equals(status) || STATUS_TOO_FAR_AWAY.equals(status)) {
+      log.info("대중교통 경로 없음({}) — 도보로 넘어간다 ({} m)", status, Math.round(straight));
       return walkOnly(here, target, CODE_ROUTE_NOT_FOUND, kakaoLang, guidanceLang);
     }
     if (STATUS_START_NODES_NULL.equals(status) || STATUS_END_NODES_NULL.equals(status)) {
@@ -138,6 +139,11 @@ public class NextLegPlanner {
         || STATUS_START_NODES_NULL.equals(status)
         || STATUS_END_NODES_NULL.equals(status)) {
       throw ApiException.unprocessable(codeIfNoRoute, "걸어서 갈 수 있는 길을 찾지 못했습니다");
+    }
+    if (STATUS_TOO_FAR_AWAY.equals(status)) {
+      // 실측(2026-09-14): 현위치와 목적지가 430 km 일 때. 대중교통은 NO_RESULTS, 도보는 이것. 문서에 없는
+      // 값이라 500 그물로 떨어졌었다 — 「걸어서 갈 길이 없다」와 같은 422 다. 앱은 코드로 갈리므로 같은 코드.
+      throw ApiException.unprocessable(codeIfNoRoute, "걸어서 가기에는 너무 멉니다");
     }
     if (!STATUS_OK.equals(status) || res.route() == null) {
       throw new IllegalStateException("카카오 도보 응답 상태를 모른다: " + status);
