@@ -140,7 +140,21 @@ extension RouteMapView.Coordinator {
             mapView.moveCamera(update)
             return
         }
-        let update = NMFCameraUpdate(fit: NMGLatLngBounds(latLngs: points), padding: 56)
+        // **도착했을 때는 살짝만 다가간다**(2026-09-17 사용자 요청 — "아주 살짝만"). 도착하면 경로가
+        // 비고 남는 점은 나와 목적지 둘인데, 둘은 십여 m 거리다. 거기에 범위를 맞추면 SDK 가 끝까지
+        // 확대해 축척 20 m 의 화면이 됐다 — 스탬프가 찍히는 순간 주변이 다 날아간다. 점들이 한
+        // 블록(약 150 m) 안에 몰려 있으면 지금 배율에서 반 단계만 다가가고, 그것도 16.5 까지만.
+        let bounds = NMGLatLngBounds(latLngs: points)
+        let span = max(bounds.northEastLat - bounds.southWestLat, bounds.northEastLng - bounds.southWestLng)
+        if span < 0.0015 {
+            let zoom = mapView.zoomLevel >= 16.5 ? mapView.zoomLevel : min(mapView.zoomLevel + 0.5, 16.5)
+            let update = NMFCameraUpdate(scrollTo: goal, zoomTo: zoom)
+            update.animation = .easeIn
+            update.animationDuration = 0.6
+            mapView.moveCamera(update)
+            return
+        }
+        let update = NMFCameraUpdate(fit: bounds, padding: 56)
         update.animation = .easeIn
         update.animationDuration = 0.4
         mapView.moveCamera(update)
