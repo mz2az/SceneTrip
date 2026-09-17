@@ -49,7 +49,7 @@ extension RouteEditorView {
             },
             bottomInset: panelHeight,
             // 여행 안내(2026-09-03) — 내 자리·목적지·실제 경로를 이 지도에.
-            tripHere: trip.here,
+            tripHere: mapHere,
             navTarget: trip.target,
             navGuiding: trip.phase == .guiding,
             legs: trip.drawnLegs,
@@ -114,6 +114,17 @@ extension RouteEditorView {
     /// **가상 GPS 가 켜져 있으면 그 자리다**(시뮬레이터 기본). 시뮬레이터에는 진짜 위치가 없을 때가
     /// 많아 기기 위치만 보면 기준점이 비고, 그러면 양끝이 자유인 최적화가 되어 **먼 쪽이 1 번**이
     /// 되기도 했다(2026-09-17 사용자 지적). 여행을 시작하면 파란 점이 서는 곳도 그 자리다.
+    /// 지도에 그릴 **내 자리** — 여행 중이 아니어도 보인다(2026-09-17 사용자 지적: 계획·동선
+    /// 최적화 때 현재 위치가 안 보였다). 최적화가 「여기서 가까운 곳이 1번」을 정하는데 그
+    /// 「여기」가 화면에 없으면 왜 그 순서인지 알 수 없다. 그래서 **최적화의 기준점과 같은 자리**를
+    /// 그린다 — 가상 GPS 가 켜져 있으면 그 자리, 아니면 화면이 뜰 때 받은 기기 위치.
+    var mapHere: TripSpot? {
+        if trip.isActive {
+            return trip.here
+        }
+        return optimizeAnchor.map { TripSpot(latitude: $0.latitude, longitude: $0.longitude) }
+    }
+
     var optimizeAnchor: PlaceSummary? {
         if trip.isActive, let here = trip.here {
             return PlaceSummary(id: 0, name: "여기", latitude: here.latitude, longitude: here.longitude)

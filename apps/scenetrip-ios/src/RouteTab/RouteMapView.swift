@@ -325,7 +325,7 @@ struct RouteMapView: UIViewRepresentable {
                 courseFitJustRan = true
                 DispatchQueue.main.async { [weak mapView] in
                     guard let mapView else { return }
-                    self.fit(stops, on: mapView)
+                    self.fit(stops, withMe: true, on: mapView)
                 }
             }
 
@@ -478,6 +478,7 @@ struct RouteMapView: UIViewRepresentable {
             _ stops: [RouteStop],
             previews: [PlaceSummary] = [],
             guidePlaces: [RouteGuide.Place] = [],
+            withMe: Bool = false,
             on mapView: NMFMapView
         ) {
             // **추천이 와 있으면 추천에만 맞춘다.** 코스 전체(수십 km)까지 섞어
@@ -498,7 +499,16 @@ struct RouteMapView: UIViewRepresentable {
             var lats = spots.map(\.latitude)
             var lngs = spots.map(\.longitude)
             // 토글이 켜져 있으면 **나도 화면 안에** 있어야 한다 — 그러자고 켠 것이다.
-            if showingMe, let here {
+            //
+            // 동선 최적화(`withMe`)도 나를 담는다 — 「여기서 가까운 곳이 1번」인데 여기가 안 보이면
+            // 왜 그 순서인지 알 수 없다. 단 **같은 지역일 때만**이다(최적화가 기준점으로 쓰는 조건과
+            // 같다). 도쿄에서 서울 코스를 짜는데 나까지 담으면 동아시아 지도가 된다.
+            let nearMe = here.flatMap { spot in
+                RouteGeometry.usableAnchor(
+                    PlaceSummary(id: 0, name: "여기", latitude: spot.lat, longitude: spot.lng), for: stops
+                )
+            } != nil
+            if let here, showingMe || (withMe && nearMe) {
                 lats.append(here.lat)
                 lngs.append(here.lng)
             }
