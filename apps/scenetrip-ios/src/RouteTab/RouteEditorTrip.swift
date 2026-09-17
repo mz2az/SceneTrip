@@ -234,13 +234,24 @@ extension RouteEditorView {
                     // 저장돼 버려 「시작」이 「저장」을 겸하게 된다.
                     // 지금 보고 있는 일차에서 시작한다 — 서버가 `currentDayNo` 를
                     // 요구하고, 1일차를 지나 보고 있다면 그 일차가 맞다.
-                    Task { await store.setRunning(course, course.isRunning, dayNo: dayIndex + 1) }
-                    // **시작하면 바로 첫 성지로 길찾기.** 여기서 앱이 흐름을 이어받는다
-                    // (계획 trip-mode.md §2·§8) — 경로는 이 지도에, 도착은 머무름으로.
-                    if course.isRunning, let first = nextUnvisited?.stop ?? stops.first {
-                        startTrip(to: first)
-                    } else {
+                    //
+                    // **서버가 「여행 중」을 안 뒤에 길을 묻는다**(2026-09-17). 앞서 상태 요청을
+                    // 던져 놓기만 하고 곧바로 길찾기를 불렀더니, 길찾기가 먼저 닿으면 서버가
+                    // 아직 시작 전 코스로 보고 거절했다 — 「코스를 시작한 뒤에 길찾기를 쓸 수
+                    // 있어요」 경고와 함께 경로선 없이 직선으로 걸었다. 될 때도 있고 안 될 때도
+                    // 있는 경합이라 시연 녹화에서야 잡혔다.
+                    let running = course.isRunning
+                    let dayNo = dayIndex + 1
+                    if !running {
                         trip.end()
+                    }
+                    Task {
+                        await store.setRunning(course, running, dayNo: dayNo)
+                        // **시작하면 바로 첫 성지로 길찾기.** 여기서 앱이 흐름을 이어받는다
+                        // (계획 trip-mode.md §2·§8) — 경로는 이 지도에, 도착은 머무름으로.
+                        if running, course.isRunning, let first = nextUnvisited?.stop ?? stops.first {
+                            startTrip(to: first)
+                        }
                     }
                 }
                 .buttonStyle(.bordered)
