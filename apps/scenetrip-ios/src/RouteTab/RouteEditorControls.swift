@@ -22,6 +22,8 @@ extension RouteEditorView {
             previews: previewPlaces,
             guidePlaces: visibleGuidePlaces,
             pickedGuide: visiblePickedGuide,
+            // 칩으로 거르기 **전** 목록 — 칩을 눌러도 카메라가 안 움직이게.
+            guideCameraKey: guide.places.map(\.id).joined(separator: ",") + "|\(guide.picked?.id ?? "-")",
             ambientPlaces: visibleAmbientPois,
             onViewport: viewportChanged,
             onTapGuide: {

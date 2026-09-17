@@ -67,6 +67,14 @@ struct RouteMapView: UIViewRepresentable {
     /// 그중 고른 것.
     var pickedGuide: RouteGuide.Place?
 
+    /// **카메라용** 가이드 장소 열쇠 — 갈래 칩으로 **거르기 전** 목록의 id.
+    ///
+    /// 카메라를 다시 맞출지는 「보여 줄 것이 바뀌었나」로 정하는데, 그 판단에 칩으로 거른
+    /// 목록(`guidePlaces`)을 썼더니 **음식점 칩을 끄는 것만으로 지도가 코스 전체로 줌아웃**
+    /// 됐다가 켜면 다시 줌인 됐다(2026-09-17 사용자 지적). 칩은 「무엇을 가릴까」이지
+    /// 「어디를 볼까」가 아니다 — 카메라는 이 열쇠만 본다.
+    var guideCameraKey = ""
+
     /// **화면 범위 안의 주변 편의시설.** 챗봇 결과(`guidePlaces`)와 달리 카메라를
     /// 움직이지 않는다 — 배경처럼 깔릴 뿐이다. 네이버 지도가 주변 가게를 늘
     /// 보여 주는 것과 같은 자리다(2026-08-28).
@@ -160,6 +168,7 @@ struct RouteMapView: UIViewRepresentable {
             previews: previews,
             guidePlaces: guidePlaces,
             pickedGuide: pickedGuide,
+            guideCameraKey: guideCameraKey,
             navTarget: navTarget,
             navGuiding: navGuiding,
             legs: legs,
@@ -258,6 +267,7 @@ struct RouteMapView: UIViewRepresentable {
             previews: [PlaceSummary] = [],
             guidePlaces: [RouteGuide.Place] = [],
             pickedGuide: RouteGuide.Place? = nil,
+            guideCameraKey: String = "",
             navTarget: RouteStop? = nil,
             navGuiding: Bool = false,
             legs: [RouteLeg] = [],
@@ -348,7 +358,12 @@ struct RouteMapView: UIViewRepresentable {
                 updateHalo(style: .brand, at: nil, on: mapView)
             }
 
-            let cameraKey = "\(focused?.id.uuidString ?? "-")|\(showingMe)|\(key)"
+            // 카메라 열쇠는 **칩으로 거른 목록을 보지 않는다** — 핀을 다시 그리는 열쇠(`key`)와
+            // 갈라 둔 이유다. 칩을 켜고 꺼도 화면은 그 자리에 있어야 한다.
+            let cameraContent = stops.map { "\($0.id)" }.joined(separator: ",")
+                + "|" + previews.map { String($0.id) }.joined(separator: ",")
+                + "|" + guideCameraKey
+            let cameraKey = "\(focused?.id.uuidString ?? "-")|\(showingMe)|\(cameraContent)"
             if cameraKey != lastCameraKey || fitToken != lastFitToken {
                 lastCameraKey = cameraKey
                 lastFitToken = fitToken
