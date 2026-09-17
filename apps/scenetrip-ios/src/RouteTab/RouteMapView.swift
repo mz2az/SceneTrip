@@ -28,6 +28,12 @@ struct RouteMapView: UIViewRepresentable {
     /// 값이 바뀐 순간에만 카메라를 전체 범위로 맞춘다.
     let fitToken: Int
 
+    /// 값이 바뀌면 **코스 전체**(번호 핀 전부)에 맞춘다 — 고른 줄·챗봇 핀·안내 중이어도.
+    /// 동선 최적화가 쓴다: 순서가 통째로 바뀌었으니 봐야 할 것은 코스 전체다. `fitToken` 은
+    /// 고른 줄이 있으면 그 곳으로 확대해 들어가, 최적화를 누를 때마다 한 곳으로 줌됐다
+    /// (2026-09-17 사용자 지적).
+    var courseFitToken = 0
+
     /// 핀 찍기 모드. 켜져 있을 때만 지도 탭을 바깥으로 넘긴다 — 항상 켜 두면
     /// 지도를 옮기려다 손끝이 미끄러진 것까지 새 장소가 된다.
     let pinning: Bool
@@ -163,6 +169,7 @@ struct RouteMapView: UIViewRepresentable {
             stops: stops,
             pending: pending,
             fitToken: fitToken,
+            courseFitToken: courseFitToken,
             showingMe: showingMe,
             focused: focused,
             previews: previews,
@@ -198,6 +205,8 @@ struct RouteMapView: UIViewRepresentable {
         private var pendingMarker: NMFMarker?
         private var lastKey = ""
         private var lastFitToken = -1
+        private var lastCourseFitToken = 0
+        private var courseFitJustRan = false
 
         let locationManager = CLLocationManager()
         weak var mapForLocate: NMFMapView?
@@ -262,6 +271,7 @@ struct RouteMapView: UIViewRepresentable {
             stops: [RouteStop],
             pending: RoutePin?,
             fitToken: Int = -1,
+            courseFitToken: Int = 0,
             showingMe: Bool = false,
             focused: RouteStop? = nil,
             previews: [PlaceSummary] = [],
@@ -306,6 +316,17 @@ struct RouteMapView: UIViewRepresentable {
                          navTarget: navTarget, on: mapView)
                 drawLine(stops, keepFrom: navGuiding ? navTarget : nil, on: mapView)
                 positionPulse()
+            }
+
+            // 코스 전체를 보라는 신호 — 아래 규칙들(안내 중·고른 곳)보다 먼저다. 같은 차례에
+            // 일반 규칙이 또 움직이지 않게 이번 한 번은 그쪽을 건너뛴다(`courseFitJustRan`).
+            if courseFitToken != lastCourseFitToken {
+                lastCourseFitToken = courseFitToken
+                courseFitJustRan = true
+                DispatchQueue.main.async { [weak mapView] in
+                    guard let mapView else { return }
+                    self.fit(stops, on: mapView)
+                }
             }
 
             // **안내 중에는 카메라가 「나와 목적지와 길」을 본다.** 경로가 오거나 되돌리기
@@ -365,7 +386,12 @@ struct RouteMapView: UIViewRepresentable {
                 + "|" + previews.map { String($0.id) }.joined(separator: ",")
                 + "|" + guideCameraKey
             let cameraKey = "\(focused?.id.uuidString ?? "-")|\(showingMe)|\(cameraContent)"
-            if cameraKey != lastCameraKey || fitToken != lastFitToken {
+            if courseFitJustRan {
+                // 방금 코스 전체에 맞췄다 — 열쇠만 따라잡고 카메라는 그대로 둔다.
+                courseFitJustRan = false
+                lastCameraKey = cameraKey
+                lastFitToken = fitToken
+            } else if cameraKey != lastCameraKey || fitToken != lastFitToken {
                 lastCameraKey = cameraKey
                 lastFitToken = fitToken
                 // **다음 차례로 미룬다.** 지금 맞추면 첫 화면에서 지도가 아직 제 크기를

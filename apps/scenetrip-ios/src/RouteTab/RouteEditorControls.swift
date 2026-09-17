@@ -15,6 +15,7 @@ extension RouteEditorView {
         RouteMapView(
             stops: stops,
             fitToken: fitToken,
+            courseFitToken: courseFitToken,
             pinning: pinning,
             pending: pendingPin,
             showingMe: showingMe,
@@ -109,9 +110,16 @@ extension RouteEditorView {
     ///
     /// 여행 중이면 지도의 파란 점(데모 주행의 가상 GPS 포함)이고, 아니면 화면이 뜰 때 받아 둔
     /// 기기 위치다. 쓸 만한지(한국 안·같은 지역)는 `RouteGeometry.usableAnchor` 가 가린다.
+    ///
+    /// **가상 GPS 가 켜져 있으면 그 자리다**(시뮬레이터 기본). 시뮬레이터에는 진짜 위치가 없을 때가
+    /// 많아 기기 위치만 보면 기준점이 비고, 그러면 양끝이 자유인 최적화가 되어 **먼 쪽이 1 번**이
+    /// 되기도 했다(2026-09-17 사용자 지적). 여행을 시작하면 파란 점이 서는 곳도 그 자리다.
     var optimizeAnchor: PlaceSummary? {
         if trip.isActive, let here = trip.here {
             return PlaceSummary(id: 0, name: "여기", latitude: here.latitude, longitude: here.longitude)
+        }
+        if DemoDrive.isOn, let virtual = DemoDrive.lastPosition {
+            return PlaceSummary(id: 0, name: "여기", latitude: virtual.latitude, longitude: virtual.longitude)
         }
         return guideLocator.found
     }
@@ -307,7 +315,10 @@ extension RouteEditorView {
                 course.days[dayIndex].stops = RouteGeometry.optimized(
                     ordered, pinStart: head, pinEnd: pinEnd
                 )
-                fitToken += 1
+                // **코스 전체가 보이게.** 고른 줄을 놓지 않으면 지도가 그 한 곳으로 확대해
+                // 들어간다 — 순서가 통째로 바뀐 직후에 볼 것은 전체다(2026-09-17 사용자 지적).
+                focusedStop = nil
+                courseFitToken += 1
                 optimizeNudge = false // 권한 일을 했다 — 반짝임은 여기까지
             }
             // 장바구니를 거치지 않고 **여기서 바로** 찾아 담는다.

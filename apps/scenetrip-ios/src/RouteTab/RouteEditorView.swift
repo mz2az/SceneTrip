@@ -68,6 +68,8 @@ struct RouteEditorView: View {
     @State var poiGroupsOn: Set<RoutePoiGroup> = Set(RoutePoiGroup.allCases)
     /// 「AI 장소」 칩 — 챗봇이 찾아 준 곳(해태 핀)을 보일 것인가. 갈래 칩과 따로 논다.
     @State var aiPlacesOn = true
+    /// 올리면 지도가 코스 전체에 맞춘다(`RouteMapView.courseFitToken`) — 동선 최적화가 쓴다.
+    @State var courseFitToken = 0
 
     /// 동선 최적화 단추가 **반짝여야 하는가.** 장소가 새로 담기면 켜진다 — 방금
     /// 담긴 곳은 줄 맨 끝이라 순서가 대개 엉망이 된다. 한 번 최적화하면 꺼진다.
