@@ -255,14 +255,19 @@ final class TripSession: ObservableObject {
     /// 한 걸음(0.4초마다). 경로선을 따라 움직이고 반경 30 m 안에 들면 서서 머무름을 기다린다.
     /// `-demoDrive N` 번 성지를 지나면 멈춘다. 도착 판정·스탬프는 실제 규칙이 한다.
     private func demoStep() {
-        guard DemoDrive.isOn, phase == .guiding, !stamped, let target,
+        // **도착 판정이 나도 핀까지는 계속 걷는다**(2026-09-17). 도착은 「반경 100 m 안에 5초」
+        // 라서 걷는 도중에 난다 — 그 순간 걸음까지 멈추면 파란 점이 핀에 수십 m 못 미쳐 선다.
+        // 기본 속도(48 m/s)에서는 5초면 핀에 닿아 안 보였는데, 볼 만한 속도(12 m/s)로 낮추니
+        // 드러났다(사용자: "거기서 화면이 멈춘 줄 알았어"). 스탬프는 스탬프대로 찍히고, 걸음은
+        // 아래 `stopWithinMeters` 에서 멈춘다.
+        guard DemoDrive.isOn, phase == .guiding || phase == .arrived, let target,
               targetNumber <= DemoDrive.untilStop
         else { return }
         // **경로가 오기 전에는 서 있는다.** 서버가 카카오를 부르는 몇 초 동안 목적지로 직진해
         // 버리면 수백 m 를 엉뚱한 길로 가고, 그 뒤 경로선의 첫 점으로 되돌아오는 것처럼 보인다
         // (2026-09-05 사용자 지적: "경로선도 안 보여, 직진으로만 가"). 경로가 없다는 답(실패)이
         // 오면 그때는 직진한다 — 시뮬레이터에서 걸음이 멈추면 안 되니까.
-        if result == nil, failure == nil {
+        if phase == .guiding, result == nil, failure == nil {
             locator.inject(latitude: demoPosition?.latitude ?? here?.latitude ?? target.place.latitude,
                            longitude: demoPosition?.longitude ?? here?.longitude ?? target.place.longitude)
             return
