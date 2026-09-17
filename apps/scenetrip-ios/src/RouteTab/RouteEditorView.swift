@@ -238,6 +238,8 @@ struct RouteEditorView: View {
         .task {
             // 스탬프가 찍히면 코스 상태·서버에 「다녀옴」 — 목록이 흐려지고 핀이 발바닥이 된다.
             trip.onArrived = { markVisited($0) }
+            // 대화는 코스의 것이다 — 다른 코스를 열었으면 앞 코스의 대화와 AI 장소를 비운다.
+            guide.bind(to: guideKey(for: course))
             await cart.refresh()
             // 가이드가 「주변」을 찾으려면 자리가 있어야 한다. 미리 물어 둔다 —
             // 단추를 누른 뒤에 물으면 그만큼 기다린다.
@@ -450,9 +452,15 @@ struct RouteEditorView: View {
     /// 저장하고 닫는다. **실패하면 닫지 않는다** — 조용히 닫으면 저장된 줄 알고
     /// 나갔다가 목록에 없는 것을 보게 된다.
     func saveAndClose() async {
-        if await store.save(course) != nil {
+        if let saved = await store.save(course) {
+            guide.rekey(to: guideKey(for: saved)) // 방금 저장한 이 코스를 다시 열면 대화가 이어진다
             dismiss()
         }
+    }
+
+    /// 가이드 대화를 묶는 열쇠. 저장 전이면 이 화면이 연 사본의 id 다.
+    func guideKey(for course: RouteCourse) -> String {
+        course.serverId.map { "course-\($0)" } ?? "draft-\(course.id)"
     }
 
     // MARK: 담기

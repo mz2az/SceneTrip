@@ -19,8 +19,11 @@ import Foundation
 /// 서버도 잊는다.
 @MainActor
 final class RouteGuideSession: ObservableObject {
-    /// **앱에 하나뿐인 대화.** 계획 화면에서 묻던 것을 길찾기에서 이어 묻고,
+    /// **앱에 하나뿐인 대화 창구.** 계획 화면에서 묻던 것을 길찾기에서 이어 묻고,
     /// 돌아와도 그대로다(2026-08-28 사용자 요청 — 화면마다 대화가 갈리지 않게).
+    ///
+    /// 다만 **대화는 코스의 것이다**(`bind`, 2026-09-17). 창구가 하나라고 대화까지 하나면 새 코스를
+    /// 열었는데 앞 코스에서 추천받은 「AI 장소」가 지도에 찍힌다.
     static let shared = RouteGuideSession()
 
     @Published private(set) var turns: [RouteGuide.Turn] = []
@@ -44,7 +47,11 @@ final class RouteGuideSession: ObservableObject {
     @Published private(set) var answerTick = 0
 
     /// 대화 하나의 열쇠. 계약이 UUID 를 요구한다(`GuideChatRequest.sessionId`).
-    private let sessionId = UUID()
+    /// 코스가 바뀌면 새로 뽑는다 — 서버가 기억하는 「앞 턴에 보여 준 장소」도 앞 코스의 것이다.
+    private var sessionId = UUID()
+
+    /// 지금 대화가 묶인 코스. `course-<서버 id>` 또는 저장 전이면 `draft-<화면 id>`.
+    private(set) var courseKey: String?
 
     private var linkTask: Task<Void, Never>?
 
@@ -90,6 +97,21 @@ final class RouteGuideSession: ObservableObject {
             // 계약 응답별로 갈라 말한다 — 401 가입 · 503 잠시 뒤 · 50초 초과 · 연결 실패.
             failure = RouteGuideFailure(error)
         }
+    }
+
+    /// 편집 화면이 뜰 때 부른다. **다른 코스면 대화·AI 장소·방 번호를 새로 시작한다.**
+    /// 같은 코스를 다시 열면 그대로 이어진다.
+    func bind(to key: String) {
+        guard key != courseKey else { return }
+        courseKey = key
+        clear()
+        sessionId = UUID()
+    }
+
+    /// 저장 전 코스가 서버 id 를 얻었다 — **같은 코스다.** 열쇠만 바꾸고 대화는 둔다.
+    /// 안 그러면 「코스 만들기」로 저장한 뒤 다시 열 때 다른 코스로 보고 대화를 지운다.
+    func rekey(to key: String) {
+        courseKey = key
     }
 
     /// 어느 줄이 네이버에 연결돼 있는지 **뒤에서** 알아 와 표시한다 — 답을 붙들고 기다리지 않는다
