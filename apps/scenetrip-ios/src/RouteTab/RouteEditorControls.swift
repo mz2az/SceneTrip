@@ -51,7 +51,7 @@ extension RouteEditorView {
             tripHere: trip.here,
             navTarget: trip.target,
             navGuiding: trip.phase == .guiding,
-            legs: trip.result?.legs ?? [],
+            legs: trip.drawnLegs,
             recenterTick: trip.recenterTick,
             previewTo: previewTarget,
             onTapStop: {

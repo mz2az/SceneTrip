@@ -32,13 +32,14 @@ enum DemoDrive {
         untilStop > 0
     }
 
-    /// 초당 몇 m 움직이는가(도보 구간). 기본 48 — 처음 12 의 네 배(2026-09-04 사용자 요청).
+    /// 초당 몇 m 움직이는가(도보 구간). 기본 240 — 48 의 다섯 배(2026-09-17 사용자 요청).
+    /// 처음은 12, 9/4 에 네 배인 48 이었다. 볼 만한 속도가 필요하면 `-demoSpeed 12`.
     static var metersPerSecond: Double {
         let raw = UserDefaults.standard.double(forKey: "demoSpeed")
-        return raw > 0 ? raw : 48
+        return raw > 0 ? raw : 240
     }
 
-    /// 구간 종류별 속도 — 대중교통 구간은 도보의 두 배(= 처음 12 의 여덟 배, 2026-09-04 사용자 요청).
+    /// 구간 종류별 속도 — 대중교통 구간은 도보의 두 배(기본 480 m/s. 도보와 함께 다섯 배가 됐다).
     static func speed(for mode: RouteLegMode) -> Double {
         metersPerSecond * (mode.isVehicle ? 2 : 1)
     }

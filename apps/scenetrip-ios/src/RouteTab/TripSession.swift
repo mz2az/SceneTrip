@@ -49,6 +49,10 @@ final class TripSession: ObservableObject {
     @Published private(set) var result: RouteNavResult?
     /// 안 된 이유. 결과가 오면 nil 로 돌아간다.
     @Published private(set) var failure: RouteNavFailure?
+    /// **도착 판정 뒤 핀에 닿을 때까지 남겨 두는 경로선**(가상 GPS 전용, 2026-09-17 사용자 요청).
+    /// 도착은 반경 100 m 에서 나므로 점은 아직 걷는 중이다 — 그 순간 선이 사라지면 길 없이
+    /// 걷는 것처럼 보인다. 실기기는 그 자리에 5분을 머문 뒤라 남길 것이 없다.
+    @Published private(set) var lingering: RouteNavResult?
     @Published private(set) var asking = false
 
     /// 도착 스탬프 연출이 떠 있는가.
@@ -89,6 +93,11 @@ final class TripSession: ObservableObject {
         target != nil
     }
 
+    /// 지도에 그릴 경로 — 안내 중의 것, 아니면 핀까지 걷는 동안 남겨 둔 것.
+    var drawnLegs: [RouteLeg] {
+        (result ?? lingering)?.legs ?? []
+    }
+
     /// 이 성지로 안내를 시작한다(다시 시작해도 된다 — 도착 뒤 「다음으로」가 이것을 부른다).
     /// `courseId` 는 저장된 코스의 서버 id — 없으면(저장 전) 경로를 못 받고 그 이유를 보인다.
     func start(to stop: RouteStop, number: Int, courseId: Int64?) {
@@ -97,6 +106,7 @@ final class TripSession: ObservableObject {
         self.courseId = courseId
         phase = .guiding
         result = nil
+        lingering = nil
         failure = nil
         stamped = false
         tripArrival = TripArrival()
@@ -113,6 +123,7 @@ final class TripSession: ObservableObject {
         target = nil
         phase = .idle
         result = nil
+        lingering = nil
         failure = nil
         stamped = false
         stopTracking()
@@ -133,7 +144,8 @@ final class TripSession: ObservableObject {
     func arriveNow() {
         guard phase == .guiding, let target else { return }
         phase = .arrived
-        result = nil // 안내가 끝났다 — 경로선을 지운다. 다음은 사람이 고른다.
+        lingering = DemoDrive.isOn ? result : nil // 가상 GPS 는 핀까지 더 걷는다 — 선도 그때까지
+        result = nil // 안내가 끝났다 — 안내 띠는 도착으로 바뀐다. 다음은 사람이 고른다.
         failure = nil
         onArrived?(target)
         withAnimation { stamped = true }
@@ -264,7 +276,7 @@ final class TripSession: ObservableObject {
     private func demoStep() {
         // **도착 판정이 나도 핀까지는 계속 걷는다**(2026-09-17). 도착은 「반경 100 m 안에 5초」
         // 라서 걷는 도중에 난다 — 그 순간 걸음까지 멈추면 파란 점이 핀에 수십 m 못 미쳐 선다.
-        // 기본 속도(48 m/s)에서는 5초면 핀에 닿아 안 보였는데, 볼 만한 속도(12 m/s)로 낮추니
+        // 그때의 기본 속도(48 m/s)에서는 5초면 핀에 닿아 안 보였는데, 볼 만한 속도(12 m/s)로 낮추니
         // 드러났다(사용자: "거기서 화면이 멈춘 줄 알았어"). 스탬프는 스탬프대로 찍히고, 걸음은
         // 아래 `stopWithinMeters` 에서 멈춘다.
         guard DemoDrive.isOn, phase == .guiding || phase == .arrived, let target,
@@ -282,7 +294,7 @@ final class TripSession: ObservableObject {
         let goal: DemoDrive.Point = (target.place.latitude, target.place.longitude)
         var position = demoPosition ?? here.map { ($0.latitude, $0.longitude) } ?? DemoDrive.start(near: target)
         if DemoDrive.meters(position, goal) > DemoDrive.stopWithinMeters {
-            // 지금 지나는 꼭짓점이 어느 구간인지로 속도를 정한다(도보 48 m/s · 대중교통 두 배).
+            // 지금 지나는 꼭짓점이 어느 구간인지로 속도를 정한다(도보 240 m/s · 대중교통 두 배).
             let mode = demoModes.indices.contains(demoPathIndex) ? demoModes[demoPathIndex] : .walk
             position = DemoDrive.step(
                 from: position, along: demoPath, index: &demoPathIndex,
@@ -290,6 +302,8 @@ final class TripSession: ObservableObject {
             )
             demoPosition = position
             DemoDrive.remember(position)
+        } else if lingering != nil {
+            lingering = nil // 핀에 닿았다 — 이제 선을 지운다
         }
         // 서 있을 때도 같은 자리를 다시 넣는다 — 머무름 판정과 파문이 이어진다.
         locator.inject(latitude: position.latitude, longitude: position.longitude)

@@ -275,8 +275,9 @@ struct RouteMapView: UIViewRepresentable {
             on mapView: NMFMapView
         ) {
             renderPending(pending, on: mapView)
-            // 안내 중에만 자른다. 계획을 보는 중이면 길 전체가 보여야 한다.
-            renderLegs(legs, to: navTarget, from: navGuiding ? tripHere : nil, on: mapView)
+            // 지나온 길은 자른다. `legs` 는 안내 중이거나 도착 뒤 핀까지 걷는 동안에만 온다
+            // (`TripSession.drawnLegs`) — 계획을 보는 중에는 비어 있어 자를 것이 없다.
+            renderLegs(legs, to: navTarget, from: tripHere, on: mapView)
 
             if showingMe != self.showingMe {
                 self.showingMe = showingMe
