@@ -60,6 +60,23 @@ ios-run:
 ios-record out="$HOME/Desktop/scenetrip-demo.mov" device="booted":
     xcrun simctl io {{device}} recordVideo --codec=h264 --mask=black {{out}}
 
+# 시뮬레이터에는 진짜 GPS 가 없어서 **가상 GPS 가 경로를 따라 걷는다**(`DemoDrive`). 기본 속도는
+# 도보 48 m/s · 대중교통 96 m/s 라 6 km 구간이 1~2분에 끝난다 — 「길찾기를 눌렀는데 바로
+# 도착」으로 보인다(2026-09-17 사용자 지적). 영상에는 느린 편이 낫다: speed 12 면 사람이
+# 따라 볼 수 있다. 진짜 위치로만 보려면 until=0.
+#
+# 문서(trip-mode.md)와 `DemoDrive.swift` 가 이 레시피를 가리키는데 navi-proto 에만 있고
+# main 으로 안 옮겨져 있었다.
+
+# 가상 GPS 로 코스를 걷는 시연을 띄운다. 예: `just ios-demo 10` · `just ios-demo 10 99 48`
+[group('build')]
+ios-demo course="" until="99" speed="12" dwell="5":
+    xcrun simctl terminate booted com.mz2az.scenetrip 2>/dev/null || true
+    xcrun simctl launch booted com.mz2az.scenetrip -initialTab route \
+        {{ if course == "" { "-demoCourse 1" } else { "-openCourseId " + course } }} \
+        -navStop 1 -demoDrive {{ until }} -demoSpeed {{ speed }} \
+        -tripDwellSeconds {{ dwell }} -footprintOn 1
+
 # 시뮬레이터 위치를 고정한다 (기본 서울시청. 먼 곳이면 길찾기가 422 로 떨어진다)
 [group('build')]
 ios-location lat="37.5663" lng="126.9779" device="booted":
