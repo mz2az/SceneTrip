@@ -476,9 +476,16 @@ struct RouteMapView: UIViewRepresentable {
                 lats.append(here.lat)
                 lngs.append(here.lng)
             }
-            if lats.count == 1 {
+            // 한 점이거나 **한 건물에 몰린 점들**이면 범위 맞추기를 하지 않는다 — 범위가 0 에
+            // 가까우면 SDK 가 끝까지 확대해 1 m 축척의 빈 화면이 된다(2026-09-17, 네이버에
+            // 연결된 곳만 남기자 같은 건물의 카페 둘만 남았다). 약 60 m 아래면 한 점으로 본다.
+            let span = max(lats.max()! - lats.min()!, lngs.max()! - lngs.min()!)
+            if lats.count == 1 || span < 0.0006 {
                 let update = NMFCameraUpdate(
-                    scrollTo: NMGLatLng(lat: lats[0], lng: lngs[0]), zoomTo: 15
+                    scrollTo: NMGLatLng(
+                        lat: (lats.max()! + lats.min()!) / 2, lng: (lngs.max()! + lngs.min()!) / 2
+                    ),
+                    zoomTo: guidePlaces.isEmpty ? 15 : 16
                 )
                 update.animation = .easeIn
                 mapView.moveCamera(update)
