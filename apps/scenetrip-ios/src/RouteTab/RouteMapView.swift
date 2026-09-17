@@ -265,7 +265,8 @@ struct RouteMapView: UIViewRepresentable {
             on mapView: NMFMapView
         ) {
             renderPending(pending, on: mapView)
-            renderLegs(legs, to: navTarget, on: mapView)
+            // 안내 중에만 자른다. 계획을 보는 중이면 길 전체가 보여야 한다.
+            renderLegs(legs, to: navTarget, from: navGuiding ? tripHere : nil, on: mapView)
 
             if showingMe != self.showingMe {
                 self.showingMe = showingMe

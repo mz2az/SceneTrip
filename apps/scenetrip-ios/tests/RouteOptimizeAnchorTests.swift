@@ -48,8 +48,9 @@ final class RouteOptimizeAnchorTests: XCTestCase {
     func testKoreaBox() {
         XCTAssertTrue(RouteGeometry.isInKorea(at(33.2, 126.5))) // 제주
         XCTAssertTrue(RouteGeometry.isInKorea(at(38.6, 128.4))) // 고성
-        XCTAssertFalse(RouteGeometry.isInKorea(at(39.2, 125.7))) // 평양 — 위도 밖
+        XCTAssertFalse(RouteGeometry.isInKorea(at(43.0, 128.0))) // 옌볜 — 위도 밖
         XCTAssertFalse(RouteGeometry.isInKorea(at(37.5, 121.4))) // 옌타이 — 경도 밖
+        XCTAssertFalse(RouteGeometry.isInKorea(at(35.6762, 139.6503))) // 도쿄
     }
 
     /// 기준점이 있으면 **그 자리에서 가장 가까운 곳이 1 번**이 된다. 시연 리허설에서
