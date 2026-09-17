@@ -54,36 +54,45 @@ struct RouteGuideChip: View {
     var onTap: () -> Void = {}
 
     var body: some View {
-        Button(action: onTap) {
-            // 해태 얼굴 + 「내가 도와줄게!」 말풍선(2026-08-28 사용자 요청) —
-            // 마스코트가 말을 거는 모양이라 무엇을 하는 단추인지 설명이 필요 없다.
-            HStack(spacing: 6) {
-                Text("내가 도와줄게!")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color(PinImage.deep))
-                    .padding(.horizontal, 10).padding(.vertical, 6)
-                    .background(Capsule().fill(.white))
-                    .overlay(Capsule().strokeBorder(
-                        Color(PinImage.light).opacity(0.6), lineWidth: 1
-                    ))
-                    .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+        Button(action: onTap) { RouteGuideChipBody() }
+            .buttonStyle(.plain)
+    }
+}
 
-                Image("haetae-face")
-                    .resizable()
-                    .scaledToFit()
-                    .padding(5)
-                    .frame(width: 46, height: 46)
-                    .background(Circle().fill(.white))
-                    .overlay(Circle().strokeBorder(
-                        LinearGradient(
-                            colors: [Color(PinImage.light), Color(PinImage.deep)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ), lineWidth: 2
-                    ))
-                    .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
-            }
+/// 접힌 가이드의 **그림만.** 단추가 아니다.
+///
+/// 화면에 떠 있는 동그라미(`RouteGuideFloatingChip`)는 탭과 「길게 눌러 끌기」를 **자기가**
+/// 다뤄야 하는데, 여기가 `Button` 이면 버튼이 길게 누르기를 먼저 먹어 끌기가 아예 시작되지
+/// 않는다(2026-09-16 사용자 확인). 그래서 그림과 단추를 갈랐다.
+struct RouteGuideChipBody: View {
+    var body: some View {
+        // 해태 얼굴 + 「내가 도와줄게!」 말풍선(2026-08-28 사용자 요청) —
+        // 마스코트가 말을 거는 모양이라 무엇을 하는 단추인지 설명이 필요 없다.
+        HStack(spacing: 6) {
+            Text("내가 도와줄게!")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color(PinImage.deep))
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Capsule().fill(.white))
+                .overlay(Capsule().strokeBorder(
+                    Color(PinImage.light).opacity(0.6), lineWidth: 1
+                ))
+                .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+
+            Image("haetae-face")
+                .resizable()
+                .scaledToFit()
+                .padding(5)
+                .frame(width: 46, height: 46)
+                .background(Circle().fill(.white))
+                .overlay(Circle().strokeBorder(
+                    LinearGradient(
+                        colors: [Color(PinImage.light), Color(PinImage.deep)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ), lineWidth: 2
+                ))
+                .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
         }
-        .buttonStyle(.plain)
     }
 }

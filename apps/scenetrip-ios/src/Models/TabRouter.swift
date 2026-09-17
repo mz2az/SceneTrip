@@ -1,4 +1,5 @@
 import Foundation
+import SceneApiClient
 
 /// 탭 사이를 잇는 **길 안내** (2026-08-28, 2026-09-01 홈 재편).
 ///
@@ -45,8 +46,15 @@ final class TabRouter: ObservableObject {
     /// 계획 trip-mode.md §8). 편집 화면이 읽고 끈다.
     @Published var pendingTripStart = false
 
-    /// 작품검색 탭이 열어 줘야 할 작품의 서버 id — 홈의 「지금 뜨는 작품」이 남긴다.
-    @Published var pendingContentId: Int64?
+    /// 작품검색 탭이 열어 줘야 할 작품 — 홈의 「지금 뜨는 작품」이 남긴다.
+    ///
+    /// id 가 아니라 **요약 자체**를 넘긴다(2026-09-16). id 만 넘겼더니 검색 탭이 자기
+    /// 목록(`data.contents`)에서 찾았는데, 그 탭에서 한 번이라도 검색한 뒤면 목록이
+    /// 걸러져 있어 못 찾고 조용히 끝났다 — 홈에서 눌러도 아무 일이 없었다.
+    @Published var pendingContent: ContentSummary?
+
+    /// 작품검색 탭이 열어 줘야 할 촬영지 — 홈의 「오늘의 성지」가 남긴다.
+    @Published var pendingPlace: PlaceSummary?
 
     private init() {
         let defaults = UserDefaults.standard
@@ -83,8 +91,14 @@ final class TabRouter: ObservableObject {
     }
 
     /// 홈이 부른다 — 작품검색 탭으로 가서 그 작품의 상세를 연다.
-    func openContent(_ contentId: Int64) {
-        pendingContentId = contentId
+    func openContent(_ content: ContentSummary) {
+        pendingContent = content
+        selected = .search
+    }
+
+    /// 홈이 부른다 — 작품검색 탭으로 가서 그 촬영지의 상세를 연다.
+    func openPlace(_ place: PlaceSummary) {
+        pendingPlace = place
         selected = .search
     }
 }

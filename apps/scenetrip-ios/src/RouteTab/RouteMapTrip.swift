@@ -148,8 +148,16 @@ extension RouteMapView.Coordinator {
 
     /// 안내 경로 — **API 가 준 실제 길 좌표를 그대로 그린다.** 구간마다 따로 그어야
     /// 도보(점선)와 대중교통(실선)이 갈린다. 계획선(직선) 위에 굵게 얹는다.
-    func renderLegs(_ legs: [RouteLeg], to target: RouteStop?, on mapView: NMFMapView) {
-        let key = legs.map { "\($0.id)" }.joined(separator: ",") + "|\(target?.id.uuidString ?? "-")"
+    /// `here` 를 주면 **지나온 구간을 지우고** 남은 길만 그린다. 안내 중에만 준다.
+    func renderLegs(
+        _ legs: [RouteLeg], to target: RouteStop?, from here: NMGLatLng? = nil,
+        on mapView: NMFMapView
+    ) {
+        // 걸으면 선이 줄어야 하므로 자리도 열쇠에 넣는다. 소수 넷째 자리 ≈ 11 m —
+        // 그보다 잘게 넣으면 GPS 가 떨 때마다 선을 다시 그린다.
+        let hereKey = here.map { "\(Int($0.lat * 10000)),\(Int($0.lng * 10000))" } ?? "-"
+        let key = legs.map { "\($0.id)" }.joined(separator: ",")
+            + "|\(target?.id.uuidString ?? "-")|\(hereKey)"
         guard key != lastLegsKey else { return }
         lastLegsKey = key
         legPaths.forEach { $0.mapView = nil }
@@ -173,8 +181,12 @@ extension RouteMapView.Coordinator {
             line.mapView = mapView
             legPaths.append(line)
         }
-        for leg in legs where leg.path.count > 1 {
-            let points = leg.path.compactMap { pair -> NMGLatLng? in
+        let remaining = RouteTrail.remaining(
+            paths: legs.map(\.path),
+            from: here.map { (latitude: $0.lat, longitude: $0.lng) }
+        )
+        for (index, leg) in legs.enumerated() where remaining[index].count > 1 {
+            let points = remaining[index].compactMap { pair -> NMGLatLng? in
                 pair.count >= 2 ? NMGLatLng(lat: pair[1], lng: pair[0]) : nil
             }
             guard points.count > 1, let line = NMFPath(points: points) else { continue }

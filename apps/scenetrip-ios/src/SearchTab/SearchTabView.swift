@@ -10,7 +10,7 @@ import SwiftUI
 /// 드릴다운은 검색 상태와 별개다: 작품을 골라도(`selectedContent`) 검색어와 검색
 /// 결과는 그대로 남아, 뒤로 가면 고르기 전 화면으로 돌아간다.
 struct SearchTabView: View {
-    /// 홈이 남긴 「이 작품 열어 줘」 쪽지를 받는다(`pendingContentId`).
+    /// 홈이 남긴 「이 작품/이 촬영지 열어 줘」 쪽지를 받는다(`pendingContent`·`pendingPlace`).
     @ObservedObject private var router = TabRouter.shared
 
     @StateObject var data = SceneData()
@@ -203,10 +203,10 @@ struct SearchTabView: View {
             data.search("")
             await cart.refresh()
         }
-        // 홈의 「지금 뜨는 작품」이 남긴 쪽지 — 그 작품의 상세를 연다. 첫 로드
-        // (`data.search("")`)가 아직이면 목록에 없어 못 열지만, 검색 탭은 앱이 뜰 때
-        // 부터 살아 있으므로 홈에서 넘어올 때는 이미 받아 둔 상태다.
-        .onChange(of: router.pendingContentId) { _, wanted in openPendingContent(wanted) }
+        // 홈의 「지금 뜨는 작품」·「오늘의 성지」가 남긴 쪽지 — 요약을 그대로 받아 상세를
+        // 연다. 자기 목록에서 찾지 않는다(검색한 뒤면 목록이 걸러져 있다).
+        .onChange(of: router.pendingContent) { _, wanted in openPendingContent(wanted) }
+        .onChange(of: router.pendingPlace) { _, wanted in openPendingPlace(wanted) }
         // 카메라 fit 은 결과가 실제로 도착한 순간에 건다. 첫 진입 로드는 pendingFit
         // 이 false 라 서울 중심을 유지한다 (MZ2AZ-162, §3-1).
         // 첫 화면에서 장소 탭으로 옮기면 인기 10곳이 **한 화면에 다 들어오게** 맞춘다.
@@ -533,11 +533,21 @@ struct ChipRow: View {
 /// 타입 본문 길이(swiftlint 350줄) 때문에 여기 둔다 — 같은 파일의 확장은 private 에 닿는다.
 private extension SearchTabView {
     /// 홈이 남긴 「이 작품 열어 줘」 쪽지를 연다. 쪽지는 한 번 읽고 버린다.
-    func openPendingContent(_ wanted: Int64?) {
+    func openPendingContent(_ wanted: ContentSummary?) {
         guard let wanted else { return }
-        if let content = data.contents.first(where: { $0.id == wanted }) {
-            open(content)
-        }
-        router.pendingContentId = nil
+        open(wanted)
+        router.pendingContent = nil
+    }
+
+    /// 홈이 남긴 「이 촬영지 열어 줘」 쪽지를 연다 — 작품 상세를 거치지 않고 바로 장소 상세.
+    func openPendingPlace(_ wanted: PlaceSummary?) {
+        guard let wanted else { return }
+        selectedContent = nil
+        contentPlaces = []
+        selectedPlace = wanted
+        searchFocused = false
+        detent = .medium
+        fitToken += 1
+        router.pendingPlace = nil
     }
 }

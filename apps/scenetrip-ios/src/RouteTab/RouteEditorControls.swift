@@ -1,3 +1,4 @@
+import SceneApiClient
 import SwiftUI
 
 /// 편집 화면의 **위쪽 절반** — 지도, 일차 탭(＋/−), 요약 줄, 동작 버튼.
@@ -26,6 +27,22 @@ extension RouteEditorView {
             onTapGuide: {
                 guide.picked = $0
                 pickedStop = nil // 카드는 한 장만
+            },
+            // 미리보기 핀도 누르면 카드가 뜬다. 챗봇이 찍어 준 곳은 가이드 결과에
+            // 같은 것이 있으므로 그것을 찾아 편의시설 카드(사진·영업시간·담기)를 띄운다.
+            // 검색·장바구니에서 온 미리보기(촬영지)는 성지 카드로.
+            onTapPreview: { summary in
+                if let place = guide.places.first(where: {
+                    RouteDedupe.key($0.asPlaceSummary) == RouteDedupe.key(summary)
+                }) {
+                    guide.picked = place
+                    pickedStop = nil
+                } else if let stop = stops.first(where: {
+                    RouteDedupe.key($0.place) == RouteDedupe.key(summary)
+                }) {
+                    pickedStop = stop
+                    guide.picked = nil
+                }
             },
             bottomInset: panelHeight,
             // 여행 안내(2026-09-03) — 내 자리·목적지·실제 경로를 이 지도에.
@@ -66,8 +83,9 @@ extension RouteEditorView {
         // 알 수 없다(2026-08-24 사용자 지적). 켜 두면 목록에서 장소를 고를 때마다
         // 「나와 그곳이 같이 보이는 크기」로 맞는다.
         //
-        // 챗봇 단추는 여기 없다. 지도 위에 띄웠더니 오른쪽 위를 가렸다(2026-08-27
-        // 사용자 지적) — 일정 시트의 동작 줄(`actions`)로 내렸다.
+        // 챗봇 단추는 여기 없다. 지도 위에 띄웠더니 오른쪽 위를 가렸고(2026-08-27),
+        // 접힌 동그라미를 이 줄에 두었더니 말풍선 폭에 동그라미 둘이 왼쪽으로 밀렸다
+        // (2026-09-16). 이제 화면 오른쪽 아래 `RouteGuideFloatingChip` 하나뿐이다.
         .overlay(alignment: .topTrailing) {
             if !pinning {
                 VStack(spacing: 10) {
@@ -77,18 +95,23 @@ extension RouteEditorView {
                     if course.isRunning {
                         footprintButton
                     }
-                    // **접힌 가이드.** 대화를 한 번 시작했으면 시트를 닫아도
-                    // 여기 작게 남아, 누르면 이어서 펼쳐진다. 처음 여는 것은
-                    // 아래 동작 줄의 「AI 가이드」다.
-                    if !guide.isEmpty, !showGuide {
-                        RouteGuideChip { showGuide = true }
-                    }
                 }
                 .padding(10)
                 // 도착 알림 카드가 떠 있으면 그 밑으로 내려온다.
                 .padding(.top, trip.phase == .arrived ? tripBannerHeight : 0)
             }
         }
+    }
+
+    /// 동선 최적화가 쓸 **지금 자리.**
+    ///
+    /// 여행 중이면 지도의 파란 점(데모 주행의 가상 GPS 포함)이고, 아니면 화면이 뜰 때 받아 둔
+    /// 기기 위치다. 쓸 만한지(한국 안·같은 지역)는 `RouteGeometry.usableAnchor` 가 가린다.
+    var optimizeAnchor: PlaceSummary? {
+        if trip.isActive, let here = trip.here {
+            return PlaceSummary(id: 0, name: "여기", latitude: here.latitude, longitude: here.longitude)
+        }
+        return guideLocator.found
     }
 
     private var locateButton: some View {
@@ -266,14 +289,19 @@ extension RouteEditorView {
             action("동선 최적화", symbol: "arrow.triangle.swap", highlight: optimizeNudge) {
                 // 현재 위치를 알고 출발이 아직 안 정해졌으면 **가장 가까운 곳이 출발**이다
                 // (2026-09-04 사용자 결정) — 한국에 와서 다시 누르는 사람은 지금 선 자리에서
-                // 도는 동선을 원한다. 그 줄을 출발 고정으로 켜고 나머지를 최적화한다.
+                // 도는 동선을 원한다.
+                //
+                // **출발 고정 토글은 건드리지 않는다**(2026-09-16). 앞서 여기서 `pinStart` 를
+                // 켜 버려서, 한 번 누른 뒤에는 자리를 옮겨 다시 눌러도 옛 1 번이 그대로
+                // 붙박이가 됐다. 고정은 이번 계산에만 준다.
                 var ordered = stops
-                if !pinStart, let here = guideLocator.found {
+                var head = pinStart
+                if !pinStart, let here = RouteGeometry.usableAnchor(optimizeAnchor, for: ordered) {
                     ordered = RouteGeometry.startingNearest(ordered, to: here)
-                    pinStart = true
+                    head = true
                 }
                 course.days[dayIndex].stops = RouteGeometry.optimized(
-                    ordered, pinStart: pinStart, pinEnd: pinEnd
+                    ordered, pinStart: head, pinEnd: pinEnd
                 )
                 fitToken += 1
                 optimizeNudge = false // 권한 일을 했다 — 반짝임은 여기까지
@@ -284,38 +312,11 @@ extension RouteEditorView {
             action(pinning ? "취소" : "핀 찍기", symbol: "mappin.and.ellipse") {
                 pinning.toggle()
             }
-            // AI 가이드. 지도 위에 떠 있던 단추를 내렸다 — 시트 안이라 지도를
-            // 가리지 않고, 자리도 다른 동작들과 같은 줄이라 찾아 헤매지 않는다.
-            guideAction
+            // 「AI 가이드」 단추는 없앴다(2026-09-16) — 화면 오른쪽 아래 해태 동그라미와
+            // 하는 일이 같아 둘이 됐다. 입구는 그 동그라미 하나다.
         }
         .padding(.horizontal, 16).padding(.bottom, 10)
         .background(Color(.systemBackground))
-    }
-
-    /// 다른 동작과 같은 꼴이되 **피노 색 그라데이션**으로 눈에 띈다 — AI 가
-    /// 하는 일임을 색으로 말한다(`RouteChatButton` 과 같은 색).
-    private var guideAction: some View {
-        Button {
-            showGuide = true
-        } label: {
-            VStack(spacing: 3) {
-                Image(systemName: "sparkles").font(.system(size: 15))
-                Text("AI 가이드").font(.caption2).lineLimit(1).minimumScaleFactor(0.8)
-            }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 10).fill(
-                    LinearGradient(
-                        colors: [Color(PinImage.light), Color(PinImage.deep)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            )
-        }
-        .buttonStyle(.plain)
     }
 
     /// 넷이 한 줄에 들어가야 하므로 **아이콘 위, 글자 아래**로 쌓는다. 나란히 두면

@@ -78,6 +78,12 @@ struct RouteMapView: UIViewRepresentable {
     /// 가이드 핀을 눌렀다. 정보 카드를 띄우는 쪽이 받는다.
     var onTapGuide: (RouteGuide.Place) -> Void = { _ in }
 
+    /// **미리보기 핀**(빨간 해태)을 눌렀다.
+    ///
+    /// 앞서 이 핀에만 손잡이가 없어서, 챗봇이 「주변 음식점」을 찍어 주면(`map.focus` 는
+    /// 결과를 미리보기로 세운다) 눌러도 아무 일이 없었다(2026-09-16 사용자 지적).
+    var onTapPreview: (PlaceSummary) -> Void = { _ in }
+
     /// 아래에서 일정 시트가 덮고 있는 높이(pt). **카메라가 이 위 영역에만 맞춘다** —
     /// 안 주면 「전체 보기」가 절반은 시트 뒤에 숨는다.
     var bottomInset: CGFloat = 0
@@ -136,6 +142,7 @@ struct RouteMapView: UIViewRepresentable {
     func updateUIView(_ view: NMFNaverMapView, context: Context) {
         context.coordinator.onTapMap = onTapMap
         context.coordinator.onTapGuide = onTapGuide
+        context.coordinator.onTapPreview = onTapPreview
         context.coordinator.onViewport = onViewport
         context.coordinator.onTapStop = onTapStop
         context.coordinator.renderAmbient(ambientPlaces, picked: pickedGuide, on: view.mapView)
@@ -204,6 +211,7 @@ struct RouteMapView: UIViewRepresentable {
         /// 다시 그릴 때마다 지도가 튀면 손으로 옮긴 화면이 계속 되돌아간다.
         private var lastCameraKey = ""
         var onTapGuide: (RouteGuide.Place) -> Void = { _ in }
+        var onTapPreview: (PlaceSummary) -> Void = { _ in }
         var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
         /// 주변 편의시설 마커. 챗봇 결과와 살림을 따로 낸다 — 갱신 주기가 다르다.
         var ambientMarkers: [NMFMarker] = []
@@ -257,7 +265,8 @@ struct RouteMapView: UIViewRepresentable {
             on mapView: NMFMapView
         ) {
             renderPending(pending, on: mapView)
-            renderLegs(legs, to: navTarget, on: mapView)
+            // 안내 중에만 자른다. 계획을 보는 중이면 길 전체가 보여야 한다.
+            renderLegs(legs, to: navTarget, from: navGuiding ? tripHere : nil, on: mapView)
 
             if showingMe != self.showingMe {
                 self.showingMe = showingMe
@@ -405,83 +414,6 @@ struct RouteMapView: UIViewRepresentable {
         ///
         /// 색이 갈리는 것이 요점이다 — 파랑은 이미 내 코스에 있는 곳, 빨강은 아직
         /// 아닌 곳이다. 전부 얼굴로 바꾸면 무엇이 몇 번인지 알 수 없다.
-        private func drawPins(
-            _ stops: [RouteStop],
-            focused: RouteStop?,
-            previews: [PlaceSummary],
-            guidePlaces: [RouteGuide.Place],
-            pickedGuide: RouteGuide.Place?,
-            navTarget: RouteStop? = nil,
-            on mapView: NMFMapView
-        ) {
-            markers.forEach { $0.mapView = nil }
-            markers = stops.enumerated().map { index, stop in
-                let marker = NMFMarker(
-                    position: NMGLatLng(lat: stop.place.latitude, lng: stop.place.longitude)
-                )
-                if stop.visited {
-                    // **다녀온 곳은 번호 핀이 발바닥으로 바뀐다**(2026-09-03 사용자 요청 —
-                    // 「도착한 표시로 그 핀이 발바닥으로」). 자리 위에 얹는다.
-                    marker.iconImage = PinoPin.pawPin()
-                    marker.anchor = CGPoint(x: 0.5, y: 0.5)
-                    marker.zIndex = 8
-                } else if stop.id == focused?.id || stop.id == navTarget?.id {
-                    // 고른 곳과 **지금 안내 중인 목적지**는 해태다.
-                    marker.iconImage = PinoPin.marker(.normal)
-                    // 다른 핀에 가리지 않게 위로 올린다.
-                    marker.zIndex = 10
-                } else {
-                    marker.iconImage = PinImage.numbered(index + 1)
-                }
-                marker.captionText = stop.place.name
-                marker.captionMinZoom = 12
-                // 번호 핀을 누르면 성지 카드(장면 설명·여기로 길찾기)가 뜬다.
-                marker.touchHandler = { [weak self] _ in
-                    self?.onTapStop(stop)
-                    return true
-                }
-                marker.mapView = mapView
-                return marker
-            }
-
-            // 담을까 보는 곳(검색·장바구니에서 체크한 것) — 빨간 고양이.
-            // 코스 핀보다 위에 올려 가리지 않게 한다.
-            markers += previews.map { place in
-                let marker = NMFMarker(
-                    position: NMGLatLng(lat: place.latitude, lng: place.longitude)
-                )
-                marker.iconImage = PinoPin.marker(.picked)
-                marker.captionText = place.name
-                marker.captionMinZoom = 10
-                marker.zIndex = 20
-                marker.mapView = mapView
-                return marker
-            }
-
-            // 가이드가 찾아 준 곳 — **빨간 점, 고른 하나만 빨간 고양이.**
-            // 고양이 열다섯이 몰리면 서로 겹쳐 지도가 고양이밭이 된다.
-            markers += guidePlaces.map { place in
-                let marker = NMFMarker(
-                    position: NMGLatLng(lat: place.latitude, lng: place.longitude)
-                )
-                let isPicked = place.id == pickedGuide?.id
-                marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot(for: place)
-                if isPicked {
-                    marker.anchor = CGPoint(x: 0.5, y: 1)
-                } else {
-                    marker.anchor = CGPoint(x: 0.5, y: 0.5) // 점은 자리 위에 얹는다
-                }
-                PinoPin.caption(marker, name: place.name, picked: isPicked, ambient: false)
-                marker.zIndex = isPicked ? 30 : 15
-                marker.touchHandler = { [weak self] _ in
-                    self?.onTapGuide(place)
-                    return true
-                }
-                marker.mapView = mapView
-                return marker
-            }
-        }
-
         private func renderPending(_ pin: RoutePin?, on mapView: NMFMapView) {
             pendingMarker?.mapView = nil
             pendingMarker = nil

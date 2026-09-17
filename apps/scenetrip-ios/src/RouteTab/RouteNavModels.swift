@@ -1,4 +1,5 @@
 import Foundation
+import SceneApiClient
 
 // 여행 중 길찾기와 주변 편의시설의 자료 모양 (MZ2AZ-225 · MZ2AZ-233).
 //
@@ -61,6 +62,61 @@ enum RouteLegMode {
 }
 
 /// 「현재 위치 → 다음 목적지」 한 번의 안내를 이루는 조각 하나.
+/// **지나온 길은 지우고 남은 길만 그린다** (2026-09-17 사용자 요청).
+///
+/// 프로토타입은 안내 중에 지나온 자리를 발자국으로 남기고 경로선은 **앞쪽만** 그렸다.
+/// main 으로 옮길 때 발자국은 따라왔는데 선을 자르는 쪽이 빠졌다 — 걸어온 길 위에 보라색
+/// 선이 그대로 남아, 어디까지 왔는지가 선으로는 안 보였다.
+///
+/// 계산은 **꼭짓점 기준**이다. 선분에 수선을 내리지 않는다 — 경로 좌표는 수 m 간격이고
+/// GPS 자체가 그보다 거칠어서, 더 정확히 재 봐야 눈에 보이는 차이가 없다.
+enum RouteTrail {
+    /// 지금 자리에서 **앞으로 남은** 경로 좌표. 순서·개수는 `paths` 와 같고, 지나온 구간은
+    /// 빈 배열이 된다(그리는 쪽이 점 2개 미만을 건너뛴다).
+    ///
+    /// - Parameters:
+    ///   - paths: 구간마다의 `(경도, 위도)` 목록.
+    ///   - here: 지금 자리. 없으면 자르지 않는다.
+    ///   - limit: 이만큼 떨어져 있으면 **길을 벗어난 것**으로 보고 자르지 않는다. 잘못 잘라
+    ///     길을 통째로 지우는 것보다, 지나온 선이 남는 편이 낫다.
+    static func remaining(
+        paths: [[[Double]]],
+        from here: (latitude: Double, longitude: Double)?,
+        within limit: Double = 120
+    ) -> [[[Double]]] {
+        guard let here else { return paths }
+
+        var bestLeg = 0
+        var bestPoint = 0
+        var bestMeters = Double.infinity
+        for (legIndex, path) in paths.enumerated() {
+            for (pointIndex, pair) in path.enumerated() where pair.count >= 2 {
+                let meters = RouteGeometry.kilometers(
+                    PlaceSummary(id: 0, name: "", latitude: here.latitude, longitude: here.longitude),
+                    PlaceSummary(id: 0, name: "", latitude: pair[1], longitude: pair[0])
+                ) * 1000
+                if meters < bestMeters {
+                    bestMeters = meters
+                    bestLeg = legIndex
+                    bestPoint = pointIndex
+                }
+            }
+        }
+        guard bestMeters <= limit else { return paths }
+
+        return paths.enumerated().map { index, path in
+            if index < bestLeg {
+                return [] // 이미 다 지나온 구간
+            }
+            if index > bestLeg {
+                return path // 아직 안 온 구간
+            }
+            // 지금 걷고 있는 구간 — 선이 발밑에서 시작하게 지금 자리를 앞에 붙인다.
+            return [[here.longitude, here.latitude]] + path[bestPoint...]
+        }
+    }
+}
+
 struct RouteLeg: Identifiable {
     let id = UUID()
     let mode: RouteLegMode

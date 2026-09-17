@@ -45,7 +45,7 @@ struct HomeTabView: View {
                 HomeWorkShelf(
                     works: model.works,
                     failed: model.failed,
-                    onOpen: { router.openContent($0.id) },
+                    onOpen: { router.openContent($0) },
                     onAll: { router.selected = .search }
                 )
 
@@ -53,7 +53,11 @@ struct HomeTabView: View {
                     // navi-proto 는 여기서 별도 길찾기 창을 열었다. main 의 계약은 목적지를
                     // **코스 항목**으로만 받아 코스 없는 길찾기가 없다(MZ2AZ-313) — 대신
                     // 장바구니에 담아 코스로 이어지게 한다.
-                    HomeTodayCard(place: place, saved: cart.contains(place.id)) {
+                    HomeTodayCard(
+                        place: place, saved: cart.contains(place.id),
+                        // 카드 본체를 누르면 그 촬영지의 상세로(2026-09-16 사용자 요청).
+                        onOpen: { router.openPlace(place) }
+                    ) {
                         Task {
                             if cart.contains(place.id) {
                                 await cart.remove(placeId: place.id)
