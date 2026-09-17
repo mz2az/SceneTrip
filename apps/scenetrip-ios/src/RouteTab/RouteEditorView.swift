@@ -220,7 +220,7 @@ struct RouteEditorView: View {
                 RoutePlaceCard(
                     place: picked,
                     onAdd: {
-                        add([picked.asPlaceSummary], pinned: true)
+                        add([picked.asPlaceSummary], pinned: true, asNext: true)
                         guide.picked = nil // 담았으면 카드는 할 일을 다 했다
                     },
                     added: isAdded(picked),
@@ -290,7 +290,7 @@ struct RouteEditorView: View {
                 session: guide,
                 here: guideHere,
                 context: guideContext,
-                onAdd: { add([$0], pinned: true) },
+                onAdd: { add([$0], pinned: true, asNext: true) },
                 isAdded: isAdded,
                 onRemove: removeGuidePlace,
                 onClose: { showGuide = false }
@@ -476,12 +476,21 @@ struct RouteEditorView: View {
     /// **이미 담긴 곳은 걸러 낸다.** 앞서 거르지 않아 같은 촬영지가 코스에 여러 번
     /// 들어갔다(2026-08-25 사용자 지적). 시트 쪽에서도 체크로 보여 주지만, 거르는
     /// 것은 여기서 한다 — 시트가 늘어나도 규칙이 한 곳에 남는다.
-    func add(_ places: [PlaceSummary], pinned: Bool = false) {
+    ///
+    /// `asNext` — 가이드가 찾아 준 곳을 담을 때. **여행 중이면 바로 다음 차례에 끼운다**
+    /// (`RouteGeometry.nextSlot`). 1번에 도착해 「주변 음식점」을 받아 담았는데 맨 끝(4번)에
+    /// 붙으면, 옆 가게를 가려고 2·3번을 다 돌고 돌아와야 한다(2026-09-17 사용자 지적).
+    func add(_ places: [PlaceSummary], pinned: Bool = false, asNext: Bool = false) {
         let fresh = RouteDedupe.fresh(
             places, takenIds: takenPlaceIds, takenKeys: takenSpotKeys
         )
         guard !fresh.isEmpty else { return }
-        course.days[dayIndex].stops += fresh.map { RouteStop(place: $0, isPinned: pinned) }
+        let slot = asNext && course.isRunning
+            ? RouteGeometry.nextSlot(in: stops, target: trip.target, arrived: trip.phase == .arrived)
+            : stops.count
+        course.days[dayIndex].stops.insert(
+            contentsOf: fresh.map { RouteStop(place: $0, isPinned: pinned) }, at: slot
+        )
         fitToken += 1
         // 둘부터 순서라는 것이 생긴다 — 그때부터 최적화를 권한다.
         if course.days[dayIndex].stops.count >= 2 {

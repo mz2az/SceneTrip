@@ -10,7 +10,24 @@ import SwiftUI
 /// 도착하면 그 핀이 발바닥으로 바뀐다. 상태는 `TripSession` 이 든다.
 extension RouteEditorView {
     /// 이 성지로 안내를 켠다. 번호는 **그 일차 안의 순서**다(지도·목록의 번호와 같다).
+    ///
+    /// **방금 담은 곳은 먼저 저장한다.** 길찾기 계약은 목적지를 저장된 코스 항목으로만 받는다 —
+    /// 챗봇이 찾아 준 가게를 담고 곧바로 「다음 · 2번으로 길찾기」를 누르면 「저장된 코스의
+    /// 장소에서만…」으로 막혔다(2026-09-17). 저장이 실패하면 시작하지 않는다(알림은 저장 쪽이 띄운다).
     func startTrip(to stop: RouteStop) {
+        guard stop.serverItemId == nil, course.serverId != nil, !stop.placeMissing else {
+            beginTrip(to: stop)
+            return
+        }
+        Task {
+            guard let saved = await store.save(course) else { return }
+            let key = RouteDedupe.key(stop.place)
+            course = saved // 항목 id 가 붙어 온다. 다녀옴·여행 상태도 서버 것 그대로다.
+            beginTrip(to: stops.first { RouteDedupe.key($0.place) == key } ?? stop)
+        }
+    }
+
+    private func beginTrip(to stop: RouteStop) {
         let number = (stops.firstIndex { $0.id == stop.id } ?? 0) + 1
         focusedStop = nil
         pickedStop = nil

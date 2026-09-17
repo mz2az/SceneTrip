@@ -326,6 +326,20 @@ enum RouteGeometry {
         return nearest <= limit ? here : nil
     }
 
+    /// 여행 중에 담는 곳이 들어갈 자리 — **바로 다음 차례.**
+    ///
+    /// | 상태 | 자리 |
+    /// | --- | --- |
+    /// | 도착해 있다 | 다녀온 곳들 바로 뒤(= 아직 안 간 첫 곳 앞). 「다음 · N번으로」가 이곳이 된다 |
+    /// | 가는 중이다 | **지금 목적지 바로 뒤.** 앞에 끼우면 안내 중인 번호가 도중에 바뀐다 |
+    /// | 그 밖 | 맨 끝 |
+    static func nextSlot(in stops: [RouteStop], target: RouteStop?, arrived: Bool) -> Int {
+        if !arrived, let target, let index = stops.firstIndex(where: { $0.id == target.id }) {
+            return index + 1
+        }
+        return stops.firstIndex { !$0.visited } ?? stops.count
+    }
+
     /// **지금 선 자리에서 가장 가까운 곳을 맨 앞으로.** 나머지 순서는 그대로 — 그다음은
     /// `optimized(pinStart: true)` 가 정한다. 「출발 고정이 꺼진 채 현재 위치를 아는」
     /// 사람의 동선 최적화 첫 걸음이다(2026-09-04 사용자 결정).
