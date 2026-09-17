@@ -80,6 +80,10 @@ final class TripSession: ObservableObject {
     /// 데모 주행의 가상 위치와 경로선 위 진행 꼭짓점(`DemoDrive`).
     private var demoPosition: DemoDrive.Point?
     private var demoPathIndex = 0
+    /// 받은 경로를 편 것. **도착 판정이 `result` 를 지워도 남는다** — 핀까지의 마지막 수십 m 도
+    /// 받은 길로 걷는다. 이것이 없을 때는 도착하는 순간 직진으로 바뀌었다(2026-09-17 사용자 지적).
+    private var demoPath: [DemoDrive.Point] = []
+    private var demoModes: [RouteLegMode] = []
 
     var isActive: Bool {
         target != nil
@@ -96,7 +100,7 @@ final class TripSession: ObservableObject {
         failure = nil
         stamped = false
         tripArrival = TripArrival()
-        demoPathIndex = 0
+        clearDemoPath()
         recenterTick += 1
         beginTracking()
         if let here {
@@ -118,6 +122,7 @@ final class TripSession: ObservableObject {
     func retry() {
         result = nil
         failure = nil
+        clearDemoPath() // 새 경로는 첫 꼭짓점부터 — 옛 진행 번호로 새 길을 걸으면 가로지른다.
         if let here {
             Task { await load(from: here) }
         }
@@ -232,7 +237,9 @@ final class TripSession: ObservableObject {
                     latitude: spot.latitude, longitude: spot.longitude
                 )
             )
-            result = RouteNavResult(contract: leg, destinationName: target.place.name)
+            let loaded = RouteNavResult(contract: leg, destinationName: target.place.name)
+            result = loaded
+            keepDemoPath(of: loaded)
             failure = nil
             recenterTick += 1 // 경로가 왔다 — 카메라를 경로 전체로
         } catch {
@@ -275,19 +282,10 @@ final class TripSession: ObservableObject {
         let goal: DemoDrive.Point = (target.place.latitude, target.place.longitude)
         var position = demoPosition ?? here.map { ($0.latitude, $0.longitude) } ?? DemoDrive.start(near: target)
         if DemoDrive.meters(position, goal) > DemoDrive.stopWithinMeters {
-            // 경로선을 구간별로 펴고, 지금 지나는 꼭짓점이 어느 구간인지로 속도를 정한다
-            // (도보 48 m/s · 대중교통 두 배).
-            var path: [DemoDrive.Point] = []
-            var modes: [RouteLegMode] = []
-            for leg in result?.legs ?? [] {
-                for pair in leg.path where pair.count >= 2 {
-                    path.append((pair[1], pair[0])) // [경도, 위도] 순으로 온다
-                    modes.append(leg.mode)
-                }
-            }
-            let mode = modes.indices.contains(demoPathIndex) ? modes[demoPathIndex] : .walk
+            // 지금 지나는 꼭짓점이 어느 구간인지로 속도를 정한다(도보 48 m/s · 대중교통 두 배).
+            let mode = demoModes.indices.contains(demoPathIndex) ? demoModes[demoPathIndex] : .walk
             position = DemoDrive.step(
-                from: position, along: path, index: &demoPathIndex,
+                from: position, along: demoPath, index: &demoPathIndex,
                 toward: goal, meters: DemoDrive.speed(for: mode) * DemoDrive.tick
             )
             demoPosition = position
@@ -295,5 +293,22 @@ final class TripSession: ObservableObject {
         }
         // 서 있을 때도 같은 자리를 다시 넣는다 — 머무름 판정과 파문이 이어진다.
         locator.inject(latitude: position.latitude, longitude: position.longitude)
+    }
+
+    /// 경로선을 구간별로 펴서 들고 있는다. 좌표는 `[경도, 위도]` 순으로 온다.
+    private func keepDemoPath(of loaded: RouteNavResult) {
+        clearDemoPath()
+        for leg in loaded.legs {
+            for pair in leg.path where pair.count >= 2 {
+                demoPath.append((pair[1], pair[0]))
+                demoModes.append(leg.mode)
+            }
+        }
+    }
+
+    private func clearDemoPath() {
+        demoPath = []
+        demoModes = []
+        demoPathIndex = 0
     }
 }
