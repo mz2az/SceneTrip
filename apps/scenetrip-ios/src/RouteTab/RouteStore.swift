@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SceneApiClient
 
@@ -36,9 +37,23 @@ final class RouteStore: ObservableObject {
     @Published private(set) var places: [PlaceSummary] = []
     @Published private(set) var works: [ContentSummary] = []
 
-    /// 찜한 작품. **데모용 로컬 상태다** — 작품 찜은 서버에도 검색 탭에도 아직 없다
-    /// (8/11 회의에서 "작품에는 하트" 가 확정됐을 뿐이다).
-    @Published private(set) var favoriteWorkIds: Set<Int64> = RouteMock.favoriteWorkIds
+    /// 찜한 작품. **앱에 하나뿐인 `LikeStore` 를 그대로 본다**(2026-09-17).
+    ///
+    /// 앞서 여기에 목업 값으로 시작하는 임시 목록을 따로 들고 있었다 — 그때는 검색 탭에
+    /// 하트가 없었다. 검색 탭과 마이페이지에 하트가 생긴 뒤에도 그대로여서, **작품검색에서
+    /// 누른 하트가 AI 일정짜기의 작품 목록에 안 보였다**(사용자 지적). 찜은 한 곳에만 둔다.
+    var favoriteWorkIds: Set<Int64> {
+        LikeStore.shared.contentIds
+    }
+
+    /// `LikeStore` 가 바뀌면 이 객체를 보는 화면(마법사의 하트·정렬)도 다시 그려져야 한다.
+    private var likesWatch: AnyCancellable?
+
+    init() {
+        likesWatch = LikeStore.shared.$contentIds.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
+    }
 
     /// 질문 흐름에 뿌리는 작품 목록 — **찜한 것이 먼저, 나머지는 인기도순.**
     ///
@@ -68,11 +83,7 @@ final class RouteStore: ObservableObject {
     }
 
     func toggleFavorite(_ workId: Int64) {
-        if favoriteWorkIds.contains(workId) {
-            favoriteWorkIds.remove(workId)
-        } else {
-            favoriteWorkIds.insert(workId)
-        }
+        LikeStore.shared.toggle(workId)
     }
 
     func clearFailure() {
