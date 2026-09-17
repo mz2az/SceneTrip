@@ -46,6 +46,8 @@ final class RouteGuideSession: ObservableObject {
     /// 대화 하나의 열쇠. 계약이 UUID 를 요구한다(`GuideChatRequest.sessionId`).
     private let sessionId = UUID()
 
+    private var linkTask: Task<Void, Never>?
+
     var isEmpty: Bool {
         turns.isEmpty
     }
@@ -64,29 +66,24 @@ final class RouteGuideSession: ObservableObject {
         defer { asking = false }
 
         do {
-            var answer = try await RouteGuide.ask(
+            let answer = try await RouteGuide.ask(
                 history: turns, here: here, sessionId: sessionId, context: context
             )
-            // **네이버에 연결 안 된 곳은 목록에서 뺀다**(임시, MZ2AZ-327) — `RouteGuideLinked`.
-            // 「근거」줄·지도 핀·화면 명령이 모두 걸러진 목록을 보게 답 자체를 갈아 끼운다.
-            let found = answer.places.count
-            answer.places = await RouteGuideLinked.only(answer.places)
             tools = answer.tools
             // **장소를 새로 찾아 왔을 때만 목록을 갈아 끼운다.** 「어디 기준이야?」
             // 같은 되물음에는 장소가 안 실려 오는데, 그때 목록까지 지우면 방금
             // 받은 추천과 ⊕ 담기 단추가 채팅 한 번에 사라진다(2026-08-27 사용자
             // 지적). 고른 것을 놓는 것도 그때만이다 — 목록이 그대로면 고른 것도
             // 그대로가 맞다.
-            if found > 0 {
+            if !answer.places.isEmpty {
                 places = answer.places
                 picked = nil
+                markLinked(answer.places)
             }
-            var reply = answer.reply.isEmpty ? "답을 받지 못했습니다." : answer.reply
-            if answer.places.count < found {
-                // 답의 글에는 빠진 곳 이름이 남아 있을 수 있다 — 왜 목록이 짧은지 말해 둔다.
-                reply += "\n\n(네이버 정보가 연결된 \(answer.places.count)곳만 목록에 보여 드려요 · 찾은 곳 \(found)곳)"
-            }
-            turns.append(.init(role: .assistant, text: reply))
+            turns.append(.init(
+                role: .assistant,
+                text: answer.reply.isEmpty ? "답을 받지 못했습니다." : answer.reply
+            ))
             lastAnswer = answer
             answerTick += 1
         } catch {
@@ -95,9 +92,21 @@ final class RouteGuideSession: ObservableObject {
         }
     }
 
+    /// 어느 줄이 네이버에 연결돼 있는지 **뒤에서** 알아 와 표시한다 — 답을 붙들고 기다리지 않는다
+    /// (처음 보는 곳 열둘이면 7초쯤 걸린다). 그 사이 새 답이 와서 목록이 바뀌었으면 버린다.
+    private func markLinked(_ asked: [RouteGuide.Place]) {
+        linkTask?.cancel()
+        linkTask = Task { [weak self] in
+            let linked = await RouteGuideLinked.linkedIds(of: asked)
+            guard let self, !Task.isCancelled, places.map(\.id) == asked.map(\.id) else { return }
+            places = RouteGuideLinked.marked(asked, linked: linked)
+        }
+    }
+
     /// 대화를 처음부터 다시. **방 번호는 그대로 둔다** — 서버가 기억하는 장소까지
     /// 지울 이유는 없고, 지우려면 시트를 새로 만들면 된다.
     func clear() {
+        linkTask?.cancel()
         turns = []
         tools = []
         places = []

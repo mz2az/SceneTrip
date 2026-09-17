@@ -43,6 +43,8 @@ enum PinoPin {
         /// **챗봇이 찾아 준 곳(「AI 장소」).** 여럿이 한꺼번에 찍히므로 작다 — 갈래 점(26 pt)의
         /// 두 배쯤으로 보이는 크기다(2026-09-17 사용자 요청: 지도를 너무 가린다).
         case ai
+        /// 그중 **네이버에 연결된 곳** — 누르면 사진·영업시간 카드가 나온다. 크기는 같고 초록 테를 두른다.
+        case aiLinked
     }
 
     /// 고른 핀은 **더 크다.** 색만 바꾸면 핀이 빽빽할 때 어느 것이 골라진 것인지
@@ -53,7 +55,7 @@ enum PinoPin {
         switch tint {
         case .normal: 1
         case .picked: 1.1
-        case .ai: 0.85
+        case .ai, .aiLinked: 0.85
         }
     }
 
@@ -217,6 +219,15 @@ enum PinoPin {
         marker.isHideCollidedCaptions = !picked
     }
 
+    /// 몸 가장자리 글로우 — 고른 것은 빨강, 네이버에 연결된 AI 장소는 네이버 초록, 나머지는 핀 색.
+    private static func glow(_ tint: Tint) -> Color {
+        switch tint {
+        case .picked: Color(red: 0.89, green: 0.16, blue: 0.20)
+        case .aiLinked: Color(red: 0.01, green: 0.78, blue: 0.35)
+        case .normal, .ai: Color(PinImage.deep)
+        }
+    }
+
     private struct DotKey: Hashable {
         let group: RoutePoiGroup
         let symbol: String
@@ -236,12 +247,7 @@ enum PinoPin {
             .resizable()
             .scaledToFit()
             .frame(width: size.width * scale(tint))
-            .shadow(
-                color: (tint == .picked
-                    ? Color(red: 0.89, green: 0.16, blue: 0.20)
-                    : Color(PinImage.deep)).opacity(0.7),
-                radius: 3
-            )
+            .shadow(color: glow(tint).opacity(tint == .aiLinked ? 0.95 : 0.7), radius: 3)
             .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
             .padding(4)
     }

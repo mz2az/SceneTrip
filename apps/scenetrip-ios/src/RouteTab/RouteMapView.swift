@@ -294,7 +294,7 @@ struct RouteMapView: UIViewRepresentable {
             let key = stops.map { "\($0.id)\($0.visited ? "v" : "")" }.joined(separator: ",")
                 + "|\(focused?.id.uuidString ?? "-")"
                 + "|" + previews.map { String($0.id) }.joined(separator: ",")
-                + "|" + guidePlaces.map(\.id).joined(separator: ",")
+                + "|" + guidePlaces.map { "\($0.id)\($0.linked == true ? "n" : "")" }.joined(separator: ",")
                 + "|\(pickedGuide?.id ?? "-")"
                 + "|\(navTarget?.id.uuidString ?? "-")\(navGuiding ? "g" : "")"
             let contentChanged = key != lastKey

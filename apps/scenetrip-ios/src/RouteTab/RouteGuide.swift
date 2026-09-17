@@ -237,8 +237,7 @@ enum RouteGuide {
         /// 모델이 실제로 부른 도구. **화면에 보여 준다** — 근거 없이 답한 것을
         /// 사용자가 알아볼 수 있어야 한다.
         let tools: [String]
-        /// 세션이 네이버에 연결된 곳만 남기고 갈아 끼운다(`RouteGuideLinked`).
-        var places: [Place]
+        let places: [Place]
         let seconds: Double
         /// 백엔드가 이미 수행한(`cart.*`) 또는 앱이 수행할(`plan.*`) 명령. 편집 화면이 적용한다.
         let effects: [GuideEffect]
@@ -307,6 +306,10 @@ enum RouteGuide {
 
         /// 어느 표에서 왔나. 코스 촬영지를 옮긴 것(길찾기 목적지)은 없다.
         let source: Source?
+
+        /// 네이버 장소에 연결돼 있나 — 펼치면 카드가 나오는 줄인가. `nil` 은 아직 모름.
+        /// 답이 온 뒤 세션이 알아 와서 채운다(`RouteGuideLinked`).
+        var linked: Bool?
 
         /// 코스의 촬영지를 가이드 장소 모양으로 바꿀 때 쓴다(성지 카드의
         /// 「여기로 길찾기」 — 갈아탈 목적지는 이 타입이다).
