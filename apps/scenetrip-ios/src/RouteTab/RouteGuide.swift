@@ -237,7 +237,8 @@ enum RouteGuide {
         /// 모델이 실제로 부른 도구. **화면에 보여 준다** — 근거 없이 답한 것을
         /// 사용자가 알아볼 수 있어야 한다.
         let tools: [String]
-        let places: [Place]
+        /// 세션이 네이버에 연결된 곳만 남기고 갈아 끼운다(`RouteGuideLinked`).
+        var places: [Place]
         let seconds: Double
         /// 백엔드가 이미 수행한(`cart.*`) 또는 앱이 수행할(`plan.*`) 명령. 편집 화면이 적용한다.
         let effects: [GuideEffect]

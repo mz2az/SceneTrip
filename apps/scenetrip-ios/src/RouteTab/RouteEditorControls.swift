@@ -178,16 +178,18 @@ extension RouteEditorView {
     /// 「전체」는 마스터 스위치다. 다 켜져 있으면 끄고, 하나라도 꺼져 있으면 다 켠다.
     @ViewBuilder
     var poiFilter: some View {
-        if !poisForChips.isEmpty {
-            RoutePoiChips(places: poisForChips, groupsOn: $poiGroupsOn) { group in
+        if !poisForChips.isEmpty || !aiChip.isEmpty {
+            RoutePoiChips(places: poisForChips, groupsOn: $poiGroupsOn, onGroupOff: { group in
                 // 감춘 갈래의 고른 핀은 놓는다 — 지도에 없는 것을 계속 골라
-                // 두면 카드만 남는다.
-                if guide.picked?.poiGroup == group {
+                // 두면 카드만 남는다. AI 장소는 제 칩(해태)이 따로 놓는다.
+                if let picked = guide.picked, picked.poiGroup == group,
+                   !guide.places.contains(where: { $0.id == picked.id })
+                {
                     guide.picked = nil
                 }
-            }
-            .padding(.top, 8)
-            .background(Color(.systemBackground))
+            }, extras: aiChip)
+                .padding(.top, 8)
+                .background(Color(.systemBackground))
         }
     }
 

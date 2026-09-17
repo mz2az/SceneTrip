@@ -66,6 +66,8 @@ struct RouteEditorView: View {
 
     /// 지도에 보여 줄 편의시설 갈래. 기본은 전부 — 끄는 것은 사용자의 선택이다.
     @State var poiGroupsOn: Set<RoutePoiGroup> = Set(RoutePoiGroup.allCases)
+    /// 「AI 장소」 칩 — 챗봇이 찾아 준 곳(해태 핀)을 보일 것인가. 갈래 칩과 따로 논다.
+    @State var aiPlacesOn = true
 
     /// 동선 최적화 단추가 **반짝여야 하는가.** 장소가 새로 담기면 켜진다 — 방금
     /// 담긴 곳은 줄 맨 끝이라 순서가 대개 엉망이 된다. 한 번 최적화하면 꺼진다.
@@ -124,22 +126,24 @@ struct RouteEditorView: View {
         course.days.indices.contains(dayIndex) ? course.days[dayIndex].stops : []
     }
 
-    /// 갈래 필터를 통과한 가이드 장소. 지도는 이것만 그린다.
+    /// 지도에 그릴 가이드 장소 — **「AI 장소」 칩이 정한다. 갈래 칩과 무관하다**(2026-09-17).
+    /// 갈래 칩으로 걸렀을 때는 안내 중(갈래가 다 꺼짐)에 챗봇이 찾아 준 곳까지 사라졌다.
     ///
     /// **코스에 이미 담긴 곳은 뺀다** — 담는 순간 그 자리는 번호 핀의 것이다.
     /// 안 빼면 같은 좌표에 챗봇 마커가 겹쳐 핀이 두 장으로 보인다(2026-08-28
     /// 사용자 발견).
     var visibleGuidePlaces: [RouteGuide.Place] {
         let taken = takenSpotKeys
-        return guide.places.filter {
-            poiGroupsOn.contains($0.poiGroup)
-                && !taken.contains(RouteDedupe.key($0.asPlaceSummary))
-        }
+        guard aiPlacesOn else { return [] }
+        return guide.places.filter { !taken.contains(RouteDedupe.key($0.asPlaceSummary)) }
     }
 
-    /// 고른 장소도 갈래가 꺼져 있으면 지도에서 감춘다.
+    /// 고른 장소도 제 칩이 꺼져 있으면 지도에서 감춘다 — AI 장소는 해태 칩, 주변 점은 갈래 칩.
     var visiblePickedGuide: RouteGuide.Place? {
-        guide.picked.flatMap { poiGroupsOn.contains($0.poiGroup) ? $0 : nil }
+        guide.picked.flatMap { picked in
+            let isAi = guide.places.contains { $0.id == picked.id }
+            return (isAi ? aiPlacesOn : poiGroupsOn.contains(picked.poiGroup)) ? picked : nil
+        }
     }
 
     /// 이 가이드 장소가 이미 코스(어느 일차든)에 들어 있는가. `RouteDedupe` 와

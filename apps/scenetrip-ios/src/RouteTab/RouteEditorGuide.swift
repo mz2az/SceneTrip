@@ -83,6 +83,13 @@ extension RouteEditorView {
         for directive in answer.ui.compactMap(RouteGuide.Directive.init(contract:)) {
             applyGuideDirective(directive, places: answer.places)
         }
+        // **AI 가 장소를 찾아 왔으면 지도에는 그것만 남긴다**(2026-09-17 사용자 결정) — 음식점·명소
+        // 갈래는 끄고 「AI 장소」만 켠다. 주변 점 서른 개 사이에서는 방금 추천받은 곳을 못 찾는다.
+        // 갈래는 칩으로 다시 켤 수 있다.
+        if !answer.places.isEmpty {
+            poiGroupsOn = []
+            aiPlacesOn = true
+        }
     }
 
     /// `plan.*` 은 편집 사본을 **갈아 끼운다. 저장하지 않는다** — 저장은 「완료」의
@@ -117,15 +124,13 @@ extension RouteEditorView {
     /// 앱이 정한다(계약 `GuideUiDirective`). iOS 와 Android 가 서로 다른 앱이 되지 않게.
     private func applyGuideDirective(_ directive: RouteGuide.Directive, places: [RouteGuide.Place]) {
         switch directive {
-        case let .mapFocus(ids):
+        case .mapFocus, .routeDraw:
             // 그 핀들이 다 보이게. 지도는 가이드 장소가 있으면 그것에만 맞춘다(`RouteMapView.fit`).
+            // **빨간 미리보기 핀을 따로 찍지 않는다**(2026-09-17) — 같은 곳이 이미 「AI 장소」
+            // 해태 핀으로 그려지는데 그 위에 큰 해태를 또 얹어 지도를 덮었다. 임의 장소 사이의
+            // 선은 아직 없다(계획 guide-app.md §3).
             guide.picked = nil
-            previewPlaces = guidePlaces(ids, in: places).map(\.asPlaceSummary)
-            fitToken += 1
-        case let .routeDraw(ids):
-            // 순서대로 핀을 찍는다. 임의 장소 사이의 선은 아직 없다(계획 guide-app.md §3).
-            guide.picked = nil
-            previewPlaces = guidePlaces(ids, in: places).map(\.asPlaceSummary)
+            previewPlaces = []
             fitToken += 1
         case let .placeCard(id):
             guide.picked = places.first { $0.serverId == id }
@@ -147,11 +152,6 @@ extension RouteEditorView {
         guard !course.days.isEmpty else { return }
         dayIndex = min(max(day - 1, 0), course.days.count - 1)
         fitToken += 1
-    }
-
-    /// `ui` 의 `placeIds` 는 이번 턴 `places[].id` 를 가리킨다. 순서는 명령의 순서다.
-    private func guidePlaces(_ ids: [Int64], in places: [RouteGuide.Place]) -> [RouteGuide.Place] {
-        ids.compactMap { id in places.first { $0.serverId == id } }
     }
 }
 
