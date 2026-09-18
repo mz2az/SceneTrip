@@ -12,8 +12,8 @@ import SwiftUI
 /// | 핀 | 무엇 | 누르면 |
 /// | --- | --- | --- |
 /// | 번호·해태·발바닥 | 코스의 정지점 | 성지 카드 |
-/// | 빨간 해태(미리보기) | 담을까 보는 곳 · **챗봇이 찍어 준 곳** | 편의시설 카드(2026-09-16 추가) |
-/// | 갈래 점 | 가이드가 찾아 준 곳 | 편의시설 카드 |
+/// | 빨간 해태(미리보기) | 담을까 보는 곳(검색·장바구니) | 성지 카드 |
+/// | **작은 해태** | 챗봇이 찾아 준 곳 — 「AI 장소」 | 편의시설 카드 |
 /// | 파문 | 내 자리 | — |
 extension RouteMapView.Coordinator {
     func drawPins(
@@ -75,19 +75,16 @@ extension RouteMapView.Coordinator {
             return marker
         }
 
-        // 가이드가 찾아 준 곳 — **빨간 점, 고른 하나만 빨간 고양이.**
-        // 고양이 열다섯이 몰리면 서로 겹쳐 지도가 고양이밭이 된다.
+        // 가이드가 찾아 준 곳 — **작은 해태, 고른 하나만 빨간 해태**(2026-09-17 사용자 결정).
+        // 갈래 점으로 그렸을 때는 주변 편의시설 점과 안 갈려 「AI 가 골라 준 곳」이 어느 것인지
+        // 알 수 없었다. 주변 점(갈래 칩)과 AI 장소(해태 칩)는 이제 다른 모양·다른 칩이다.
         markers += guidePlaces.map { place in
             let marker = NMFMarker(
                 position: NMGLatLng(lat: place.latitude, lng: place.longitude)
             )
             let isPicked = place.id == pickedGuide?.id
-            marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot(for: place)
-            if isPicked {
-                marker.anchor = CGPoint(x: 0.5, y: 1)
-            } else {
-                marker.anchor = CGPoint(x: 0.5, y: 0.5) // 점은 자리 위에 얹는다
-            }
+            marker.iconImage = PinoPin.marker(isPicked ? .picked : (place.linked == true ? .aiLinked : .ai))
+            marker.anchor = CGPoint(x: 0.5, y: 1) // 핀 끝이 그 자리다
             PinoPin.caption(marker, name: place.name, picked: isPicked, ambient: false)
             marker.zIndex = isPicked ? 30 : 15
             marker.touchHandler = { [weak self] _ in

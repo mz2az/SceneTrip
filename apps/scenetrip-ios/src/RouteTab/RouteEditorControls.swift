@@ -15,6 +15,7 @@ extension RouteEditorView {
         RouteMapView(
             stops: stops,
             fitToken: fitToken,
+            courseFitToken: courseFitToken,
             pinning: pinning,
             pending: pendingPin,
             showingMe: showingMe,
@@ -22,6 +23,8 @@ extension RouteEditorView {
             previews: previewPlaces,
             guidePlaces: visibleGuidePlaces,
             pickedGuide: visiblePickedGuide,
+            // 칩으로 거르기 **전** 목록 — 칩을 눌러도 카메라가 안 움직이게.
+            guideCameraKey: guide.places.map(\.id).joined(separator: ",") + "|\(guide.picked?.id ?? "-")",
             ambientPlaces: visibleAmbientPois,
             onViewport: viewportChanged,
             onTapGuide: {
@@ -46,10 +49,10 @@ extension RouteEditorView {
             },
             bottomInset: panelHeight,
             // 여행 안내(2026-09-03) — 내 자리·목적지·실제 경로를 이 지도에.
-            tripHere: trip.here,
+            tripHere: mapHere,
             navTarget: trip.target,
             navGuiding: trip.phase == .guiding,
-            legs: trip.result?.legs ?? [],
+            legs: trip.drawnLegs,
             recenterTick: trip.recenterTick,
             previewTo: previewTarget,
             onTapStop: {
@@ -107,9 +110,27 @@ extension RouteEditorView {
     ///
     /// 여행 중이면 지도의 파란 점(데모 주행의 가상 GPS 포함)이고, 아니면 화면이 뜰 때 받아 둔
     /// 기기 위치다. 쓸 만한지(한국 안·같은 지역)는 `RouteGeometry.usableAnchor` 가 가린다.
+    ///
+    /// **가상 GPS 가 켜져 있으면 그 자리다**(시뮬레이터 기본). 시뮬레이터에는 진짜 위치가 없을 때가
+    /// 많아 기기 위치만 보면 기준점이 비고, 그러면 양끝이 자유인 최적화가 되어 **먼 쪽이 1 번**이
+    /// 되기도 했다(2026-09-17 사용자 지적). 여행을 시작하면 파란 점이 서는 곳도 그 자리다.
+    /// 지도에 그릴 **내 자리** — 여행 중이 아니어도 보인다(2026-09-17 사용자 지적: 계획·동선
+    /// 최적화 때 현재 위치가 안 보였다). 최적화가 「여기서 가까운 곳이 1번」을 정하는데 그
+    /// 「여기」가 화면에 없으면 왜 그 순서인지 알 수 없다. 그래서 **최적화의 기준점과 같은 자리**를
+    /// 그린다 — 가상 GPS 가 켜져 있으면 그 자리, 아니면 화면이 뜰 때 받은 기기 위치.
+    var mapHere: TripSpot? {
+        if trip.isActive {
+            return trip.here
+        }
+        return optimizeAnchor.map { TripSpot(latitude: $0.latitude, longitude: $0.longitude) }
+    }
+
     var optimizeAnchor: PlaceSummary? {
         if trip.isActive, let here = trip.here {
             return PlaceSummary(id: 0, name: "여기", latitude: here.latitude, longitude: here.longitude)
+        }
+        if DemoDrive.isOn, let virtual = DemoDrive.lastPosition {
+            return PlaceSummary(id: 0, name: "여기", latitude: virtual.latitude, longitude: virtual.longitude)
         }
         return guideLocator.found
     }
@@ -176,16 +197,18 @@ extension RouteEditorView {
     /// 「전체」는 마스터 스위치다. 다 켜져 있으면 끄고, 하나라도 꺼져 있으면 다 켠다.
     @ViewBuilder
     var poiFilter: some View {
-        if !poisForChips.isEmpty {
-            RoutePoiChips(places: poisForChips, groupsOn: $poiGroupsOn) { group in
+        if !poisForChips.isEmpty || !aiChip.isEmpty {
+            RoutePoiChips(places: poisForChips, groupsOn: $poiGroupsOn, onGroupOff: { group in
                 // 감춘 갈래의 고른 핀은 놓는다 — 지도에 없는 것을 계속 골라
-                // 두면 카드만 남는다.
-                if guide.picked?.poiGroup == group {
+                // 두면 카드만 남는다. AI 장소는 제 칩(해태)이 따로 놓는다.
+                if let picked = guide.picked, picked.poiGroup == group,
+                   !guide.places.contains(where: { $0.id == picked.id })
+                {
                     guide.picked = nil
                 }
-            }
-            .padding(.top, 8)
-            .background(Color(.systemBackground))
+            }, extras: aiChip)
+                .padding(.top, 8)
+                .background(Color(.systemBackground))
         }
     }
 
@@ -303,7 +326,10 @@ extension RouteEditorView {
                 course.days[dayIndex].stops = RouteGeometry.optimized(
                     ordered, pinStart: head, pinEnd: pinEnd
                 )
-                fitToken += 1
+                // **코스 전체가 보이게.** 고른 줄을 놓지 않으면 지도가 그 한 곳으로 확대해
+                // 들어간다 — 순서가 통째로 바뀐 직후에 볼 것은 전체다(2026-09-17 사용자 지적).
+                focusedStop = nil
+                courseFitToken += 1
                 optimizeNudge = false // 권한 일을 했다 — 반짝임은 여기까지
             }
             // 장바구니를 거치지 않고 **여기서 바로** 찾아 담는다.

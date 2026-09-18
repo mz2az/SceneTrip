@@ -28,6 +28,12 @@ struct RouteMapView: UIViewRepresentable {
     /// 값이 바뀐 순간에만 카메라를 전체 범위로 맞춘다.
     let fitToken: Int
 
+    /// 값이 바뀌면 **코스 전체**(번호 핀 전부)에 맞춘다 — 고른 줄·챗봇 핀·안내 중이어도.
+    /// 동선 최적화가 쓴다: 순서가 통째로 바뀌었으니 봐야 할 것은 코스 전체다. `fitToken` 은
+    /// 고른 줄이 있으면 그 곳으로 확대해 들어가, 최적화를 누를 때마다 한 곳으로 줌됐다
+    /// (2026-09-17 사용자 지적).
+    var courseFitToken = 0
+
     /// 핀 찍기 모드. 켜져 있을 때만 지도 탭을 바깥으로 넘긴다 — 항상 켜 두면
     /// 지도를 옮기려다 손끝이 미끄러진 것까지 새 장소가 된다.
     let pinning: Bool
@@ -66,6 +72,14 @@ struct RouteMapView: UIViewRepresentable {
 
     /// 그중 고른 것.
     var pickedGuide: RouteGuide.Place?
+
+    /// **카메라용** 가이드 장소 열쇠 — 갈래 칩으로 **거르기 전** 목록의 id.
+    ///
+    /// 카메라를 다시 맞출지는 「보여 줄 것이 바뀌었나」로 정하는데, 그 판단에 칩으로 거른
+    /// 목록(`guidePlaces`)을 썼더니 **음식점 칩을 끄는 것만으로 지도가 코스 전체로 줌아웃**
+    /// 됐다가 켜면 다시 줌인 됐다(2026-09-17 사용자 지적). 칩은 「무엇을 가릴까」이지
+    /// 「어디를 볼까」가 아니다 — 카메라는 이 열쇠만 본다.
+    var guideCameraKey = ""
 
     /// **화면 범위 안의 주변 편의시설.** 챗봇 결과(`guidePlaces`)와 달리 카메라를
     /// 움직이지 않는다 — 배경처럼 깔릴 뿐이다. 네이버 지도가 주변 가게를 늘
@@ -155,11 +169,13 @@ struct RouteMapView: UIViewRepresentable {
             stops: stops,
             pending: pending,
             fitToken: fitToken,
+            courseFitToken: courseFitToken,
             showingMe: showingMe,
             focused: focused,
             previews: previews,
             guidePlaces: guidePlaces,
             pickedGuide: pickedGuide,
+            guideCameraKey: guideCameraKey,
             navTarget: navTarget,
             navGuiding: navGuiding,
             legs: legs,
@@ -189,6 +205,8 @@ struct RouteMapView: UIViewRepresentable {
         private var pendingMarker: NMFMarker?
         private var lastKey = ""
         private var lastFitToken = -1
+        private var lastCourseFitToken = 0
+        private var courseFitJustRan = false
 
         let locationManager = CLLocationManager()
         weak var mapForLocate: NMFMapView?
@@ -253,11 +271,13 @@ struct RouteMapView: UIViewRepresentable {
             stops: [RouteStop],
             pending: RoutePin?,
             fitToken: Int = -1,
+            courseFitToken: Int = 0,
             showingMe: Bool = false,
             focused: RouteStop? = nil,
             previews: [PlaceSummary] = [],
             guidePlaces: [RouteGuide.Place] = [],
             pickedGuide: RouteGuide.Place? = nil,
+            guideCameraKey: String = "",
             navTarget: RouteStop? = nil,
             navGuiding: Bool = false,
             legs: [RouteLeg] = [],
@@ -265,8 +285,9 @@ struct RouteMapView: UIViewRepresentable {
             on mapView: NMFMapView
         ) {
             renderPending(pending, on: mapView)
-            // 안내 중에만 자른다. 계획을 보는 중이면 길 전체가 보여야 한다.
-            renderLegs(legs, to: navTarget, from: navGuiding ? tripHere : nil, on: mapView)
+            // 지나온 길은 자른다. `legs` 는 안내 중이거나 도착 뒤 핀까지 걷는 동안에만 온다
+            // (`TripSession.drawnLegs`) — 계획을 보는 중에는 비어 있어 자를 것이 없다.
+            renderLegs(legs, to: navTarget, from: tripHere, on: mapView)
 
             if showingMe != self.showingMe {
                 self.showingMe = showingMe
@@ -283,7 +304,7 @@ struct RouteMapView: UIViewRepresentable {
             let key = stops.map { "\($0.id)\($0.visited ? "v" : "")" }.joined(separator: ",")
                 + "|\(focused?.id.uuidString ?? "-")"
                 + "|" + previews.map { String($0.id) }.joined(separator: ",")
-                + "|" + guidePlaces.map(\.id).joined(separator: ",")
+                + "|" + guidePlaces.map { "\($0.id)\($0.linked == true ? "n" : "")" }.joined(separator: ",")
                 + "|\(pickedGuide?.id ?? "-")"
                 + "|\(navTarget?.id.uuidString ?? "-")\(navGuiding ? "g" : "")"
             let contentChanged = key != lastKey
@@ -295,6 +316,17 @@ struct RouteMapView: UIViewRepresentable {
                          navTarget: navTarget, on: mapView)
                 drawLine(stops, keepFrom: navGuiding ? navTarget : nil, on: mapView)
                 positionPulse()
+            }
+
+            // 코스 전체를 보라는 신호 — 아래 규칙들(안내 중·고른 곳)보다 먼저다. 같은 차례에
+            // 일반 규칙이 또 움직이지 않게 이번 한 번은 그쪽을 건너뛴다(`courseFitJustRan`).
+            if courseFitToken != lastCourseFitToken {
+                lastCourseFitToken = courseFitToken
+                courseFitJustRan = true
+                DispatchQueue.main.async { [weak mapView] in
+                    guard let mapView else { return }
+                    self.fit(stops, withMe: true, on: mapView)
+                }
             }
 
             // **안내 중에는 카메라가 「나와 목적지와 길」을 본다.** 경로가 오거나 되돌리기
@@ -348,8 +380,18 @@ struct RouteMapView: UIViewRepresentable {
                 updateHalo(style: .brand, at: nil, on: mapView)
             }
 
-            let cameraKey = "\(focused?.id.uuidString ?? "-")|\(showingMe)|\(key)"
-            if cameraKey != lastCameraKey || fitToken != lastFitToken {
+            // 카메라 열쇠는 **칩으로 거른 목록을 보지 않는다** — 핀을 다시 그리는 열쇠(`key`)와
+            // 갈라 둔 이유다. 칩을 켜고 꺼도 화면은 그 자리에 있어야 한다.
+            let cameraContent = stops.map { "\($0.id)" }.joined(separator: ",")
+                + "|" + previews.map { String($0.id) }.joined(separator: ",")
+                + "|" + guideCameraKey
+            let cameraKey = "\(focused?.id.uuidString ?? "-")|\(showingMe)|\(cameraContent)"
+            if courseFitJustRan {
+                // 방금 코스 전체에 맞췄다 — 열쇠만 따라잡고 카메라는 그대로 둔다.
+                courseFitJustRan = false
+                lastCameraKey = cameraKey
+                lastFitToken = fitToken
+            } else if cameraKey != lastCameraKey || fitToken != lastFitToken {
                 lastCameraKey = cameraKey
                 lastFitToken = fitToken
                 // **다음 차례로 미룬다.** 지금 맞추면 첫 화면에서 지도가 아직 제 크기를
@@ -436,6 +478,7 @@ struct RouteMapView: UIViewRepresentable {
             _ stops: [RouteStop],
             previews: [PlaceSummary] = [],
             guidePlaces: [RouteGuide.Place] = [],
+            withMe: Bool = false,
             on mapView: NMFMapView
         ) {
             // **추천이 와 있으면 추천에만 맞춘다.** 코스 전체(수십 km)까지 섞어
@@ -456,13 +499,29 @@ struct RouteMapView: UIViewRepresentable {
             var lats = spots.map(\.latitude)
             var lngs = spots.map(\.longitude)
             // 토글이 켜져 있으면 **나도 화면 안에** 있어야 한다 — 그러자고 켠 것이다.
-            if showingMe, let here {
+            //
+            // 동선 최적화(`withMe`)도 나를 담는다 — 「여기서 가까운 곳이 1번」인데 여기가 안 보이면
+            // 왜 그 순서인지 알 수 없다. 단 **같은 지역일 때만**이다(최적화가 기준점으로 쓰는 조건과
+            // 같다). 도쿄에서 서울 코스를 짜는데 나까지 담으면 동아시아 지도가 된다.
+            let nearMe = here.flatMap { spot in
+                RouteGeometry.usableAnchor(
+                    PlaceSummary(id: 0, name: "여기", latitude: spot.lat, longitude: spot.lng), for: stops
+                )
+            } != nil
+            if let here, showingMe || (withMe && nearMe) {
                 lats.append(here.lat)
                 lngs.append(here.lng)
             }
-            if lats.count == 1 {
+            // 한 점이거나 **한 건물에 몰린 점들**이면 범위 맞추기를 하지 않는다 — 범위가 0 에
+            // 가까우면 SDK 가 끝까지 확대해 1 m 축척의 빈 화면이 된다(2026-09-17, 네이버에
+            // 연결된 곳만 남기자 같은 건물의 카페 둘만 남았다). 약 60 m 아래면 한 점으로 본다.
+            let span = max(lats.max()! - lats.min()!, lngs.max()! - lngs.min()!)
+            if lats.count == 1 || span < 0.0006 {
                 let update = NMFCameraUpdate(
-                    scrollTo: NMGLatLng(lat: lats[0], lng: lngs[0]), zoomTo: 15
+                    scrollTo: NMGLatLng(
+                        lat: (lats.max()! + lats.min()!) / 2, lng: (lngs.max()! + lngs.min()!) / 2
+                    ),
+                    zoomTo: guidePlaces.isEmpty ? 15 : 16
                 )
                 update.animation = .easeIn
                 mapView.moveCamera(update)

@@ -60,3 +60,28 @@ final class RouteOptimizeAnchorTests: XCTestCase {
         XCTAssertEqual(ordered.first?.place.name, "서울 덕수궁")
     }
 }
+
+/// 여행 중에 담는 곳은 **바로 다음 차례**에 들어간다 (2026-09-17 사용자 지적 — 맨 끝에 붙었다).
+final class RouteNextSlotTests: XCTestCase {
+    private func stop(_ name: String, visited: Bool = false) -> RouteStop {
+        RouteStop(place: PlaceSummary(id: 0, name: name, latitude: 37.5, longitude: 127), visited: visited)
+    }
+
+    /// 1번에 도착해 있다 → 2번 앞.
+    func testArrivedInsertsBeforeFirstUnvisited() {
+        let stops = [stop("돌담길", visited: true), stop("중앙고"), stop("덕성여대")]
+        XCTAssertEqual(RouteGeometry.nextSlot(in: stops, target: stops[0], arrived: true), 1)
+    }
+
+    /// 2번으로 가는 중 → 2번 뒤. 앞에 끼우면 안내 중인 번호가 도중에 바뀐다.
+    func testGuidingInsertsAfterTarget() {
+        let stops = [stop("돌담길", visited: true), stop("중앙고"), stop("덕성여대")]
+        XCTAssertEqual(RouteGeometry.nextSlot(in: stops, target: stops[1], arrived: false), 2)
+    }
+
+    /// 다 돌았으면 맨 끝.
+    func testAllVisitedAppends() {
+        let stops = [stop("돌담길", visited: true), stop("중앙고", visited: true)]
+        XCTAssertEqual(RouteGeometry.nextSlot(in: stops, target: stops[1], arrived: true), 2)
+    }
+}

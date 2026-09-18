@@ -242,8 +242,21 @@ struct RouteGuideSheet: View {
                     }
                     .frame(width: 16, height: 16)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(place.name)
-                            .font(.caption.weight(isPicked ? .bold : .medium))
+                        HStack(spacing: 4) {
+                            Text(place.name)
+                                .font(.caption.weight(isPicked ? .bold : .medium))
+                                .lineLimit(1)
+                            // **펼치면 카드가 나오는 줄.** 대부분은 아직 네이버에 연결이 안 돼 있다
+                            // (MZ2AZ-327) — 어느 줄을 눌러 볼 만한지 미리 보인다.
+                            if place.linked == true, place.source == .poi {
+                                Text("네이버")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 5).padding(.vertical, 1.5)
+                                    .background(Capsule().fill(Color(red: 0.01, green: 0.78, blue: 0.35)))
+                                    .accessibilityLabel("네이버 정보 있음")
+                            }
+                        }
                         Text([place.category, place.address]
                             .compactMap { $0 }.joined(separator: " · "))
                             .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)

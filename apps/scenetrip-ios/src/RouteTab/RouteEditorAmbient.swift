@@ -15,12 +15,27 @@ extension RouteEditorView {
         }
     }
 
-    /// 갈래 칩이 세는 대상 — 챗봇 결과 + 주변. 겹침은 뺀 뒤 센다.
+    /// 갈래 칩이 세는 대상 — **주변 편의시설만.** 챗봇 결과는 「AI 장소」 칩이 따로 센다.
     var poisForChips: [RouteGuide.Place] {
-        guide.places + {
-            let shown = Set(guide.places.map { RouteDedupe.key($0.asPlaceSummary) })
-            return ambientPois.filter { !shown.contains(RouteDedupe.key($0.asPlaceSummary)) }
-        }()
+        let shown = Set(guide.places.map { RouteDedupe.key($0.asPlaceSummary) })
+        return ambientPois.filter { !shown.contains(RouteDedupe.key($0.asPlaceSummary)) }
+    }
+
+    /// 「AI 장소 N」 칩. 챗봇이 찾아 준 곳이 있을 때만 나온다. 코스에 담은 곳은 번호 핀이 됐으니 안 센다.
+    var aiChip: [RoutePoiChips.Extra] {
+        let taken = takenSpotKeys
+        let count = guide.places.count { !taken.contains(RouteDedupe.key($0.asPlaceSummary)) }
+        guard count > 0 else { return [] }
+        return [RoutePoiChips.Extra(
+            id: "ai", label: "AI 장소 \(count)", tone: .accentColor, isOn: aiPlacesOn,
+            image: "haetae-face"
+        ) {
+            aiPlacesOn.toggle()
+            // 감춘 핀을 계속 골라 두면 카드만 남는다.
+            if !aiPlacesOn, let picked = guide.picked, guide.places.contains(where: { $0.id == picked.id }) {
+                guide.picked = nil
+            }
+        }]
     }
 
     /// 카메라가 멈췄다 — 0.35초 조용하면 그 범위의 주변을 받는다. **너무 넓은

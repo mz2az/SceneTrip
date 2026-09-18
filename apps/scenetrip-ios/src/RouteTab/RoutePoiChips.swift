@@ -22,6 +22,8 @@ struct RoutePoiChips: View {
         let label: String
         let tone: Color
         let isOn: Bool
+        /// 색 점 대신 그릴 그림(에셋 이름) — 「AI 장소」의 해태 얼굴.
+        var image: String?
         let tap: () -> Void
     }
 
@@ -31,7 +33,7 @@ struct RoutePoiChips: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(extras) { extra in
-                    chip(extra.label, tone: extra.tone, isOn: extra.isOn, tap: extra.tap)
+                    chip(extra.label, tone: extra.tone, isOn: extra.isOn, image: extra.image, tap: extra.tap)
                 }
                 let allOn = groupsOn.count == RoutePoiGroup.allCases.count
                 chip("전체", tone: nil, isOn: allOn) {
@@ -64,11 +66,13 @@ struct RoutePoiChips: View {
     }
 
     private func chip(
-        _ label: String, tone: Color?, isOn: Bool, tap: @escaping () -> Void
+        _ label: String, tone: Color?, isOn: Bool, image: String? = nil, tap: @escaping () -> Void
     ) -> some View {
         Button(action: tap) {
             HStack(spacing: 5) {
-                if let tone {
+                if let image {
+                    Image(image).resizable().scaledToFit().frame(width: 16, height: 16)
+                } else if let tone {
                     Circle().fill(tone).frame(width: 7, height: 7)
                 }
                 Text(label).font(.caption.weight(isOn ? .semibold : .regular))

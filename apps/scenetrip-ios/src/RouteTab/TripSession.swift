@@ -49,6 +49,10 @@ final class TripSession: ObservableObject {
     @Published private(set) var result: RouteNavResult?
     /// 안 된 이유. 결과가 오면 nil 로 돌아간다.
     @Published private(set) var failure: RouteNavFailure?
+    /// **도착 판정 뒤 핀에 닿을 때까지 남겨 두는 경로선**(가상 GPS 전용, 2026-09-17 사용자 요청).
+    /// 도착은 반경 100 m 에서 나므로 점은 아직 걷는 중이다 — 그 순간 선이 사라지면 길 없이
+    /// 걷는 것처럼 보인다. 실기기는 그 자리에 5분을 머문 뒤라 남길 것이 없다.
+    @Published private(set) var lingering: RouteNavResult?
     @Published private(set) var asking = false
 
     /// 도착 스탬프 연출이 떠 있는가.
@@ -80,9 +84,18 @@ final class TripSession: ObservableObject {
     /// 데모 주행의 가상 위치와 경로선 위 진행 꼭짓점(`DemoDrive`).
     private var demoPosition: DemoDrive.Point?
     private var demoPathIndex = 0
+    /// 받은 경로를 편 것. **도착 판정이 `result` 를 지워도 남는다** — 핀까지의 마지막 수십 m 도
+    /// 받은 길로 걷는다. 이것이 없을 때는 도착하는 순간 직진으로 바뀌었다(2026-09-17 사용자 지적).
+    private var demoPath: [DemoDrive.Point] = []
+    private var demoModes: [RouteLegMode] = []
 
     var isActive: Bool {
         target != nil
+    }
+
+    /// 지도에 그릴 경로 — 안내 중의 것, 아니면 핀까지 걷는 동안 남겨 둔 것.
+    var drawnLegs: [RouteLeg] {
+        (result ?? lingering)?.legs ?? []
     }
 
     /// 이 성지로 안내를 시작한다(다시 시작해도 된다 — 도착 뒤 「다음으로」가 이것을 부른다).
@@ -93,10 +106,11 @@ final class TripSession: ObservableObject {
         self.courseId = courseId
         phase = .guiding
         result = nil
+        lingering = nil
         failure = nil
         stamped = false
         tripArrival = TripArrival()
-        demoPathIndex = 0
+        clearDemoPath()
         recenterTick += 1
         beginTracking()
         if let here {
@@ -109,6 +123,7 @@ final class TripSession: ObservableObject {
         target = nil
         phase = .idle
         result = nil
+        lingering = nil
         failure = nil
         stamped = false
         stopTracking()
@@ -118,6 +133,7 @@ final class TripSession: ObservableObject {
     func retry() {
         result = nil
         failure = nil
+        clearDemoPath() // 새 경로는 첫 꼭짓점부터 — 옛 진행 번호로 새 길을 걸으면 가로지른다.
         if let here {
             Task { await load(from: here) }
         }
@@ -128,7 +144,8 @@ final class TripSession: ObservableObject {
     func arriveNow() {
         guard phase == .guiding, let target else { return }
         phase = .arrived
-        result = nil // 안내가 끝났다 — 경로선을 지운다. 다음은 사람이 고른다.
+        lingering = DemoDrive.isOn ? result : nil // 가상 GPS 는 핀까지 더 걷는다 — 선도 그때까지
+        result = nil // 안내가 끝났다 — 안내 띠는 도착으로 바뀐다. 다음은 사람이 고른다.
         failure = nil
         onArrived?(target)
         withAnimation { stamped = true }
@@ -232,7 +249,9 @@ final class TripSession: ObservableObject {
                     latitude: spot.latitude, longitude: spot.longitude
                 )
             )
-            result = RouteNavResult(contract: leg, destinationName: target.place.name)
+            let loaded = RouteNavResult(contract: leg, destinationName: target.place.name)
+            result = loaded
+            keepDemoPath(of: loaded)
             failure = nil
             recenterTick += 1 // 경로가 왔다 — 카메라를 경로 전체로
         } catch {
@@ -255,14 +274,19 @@ final class TripSession: ObservableObject {
     /// 한 걸음(0.4초마다). 경로선을 따라 움직이고 반경 30 m 안에 들면 서서 머무름을 기다린다.
     /// `-demoDrive N` 번 성지를 지나면 멈춘다. 도착 판정·스탬프는 실제 규칙이 한다.
     private func demoStep() {
-        guard DemoDrive.isOn, phase == .guiding, !stamped, let target,
+        // **도착 판정이 나도 핀까지는 계속 걷는다**(2026-09-17). 도착은 「반경 100 m 안에 5초」
+        // 라서 걷는 도중에 난다 — 그 순간 걸음까지 멈추면 파란 점이 핀에 수십 m 못 미쳐 선다.
+        // 그때의 기본 속도(48 m/s)에서는 5초면 핀에 닿아 안 보였는데, 볼 만한 속도(12 m/s)로 낮추니
+        // 드러났다(사용자: "거기서 화면이 멈춘 줄 알았어"). 스탬프는 스탬프대로 찍히고, 걸음은
+        // 아래 `stopWithinMeters` 에서 멈춘다.
+        guard DemoDrive.isOn, phase == .guiding || phase == .arrived, let target,
               targetNumber <= DemoDrive.untilStop
         else { return }
         // **경로가 오기 전에는 서 있는다.** 서버가 카카오를 부르는 몇 초 동안 목적지로 직진해
         // 버리면 수백 m 를 엉뚱한 길로 가고, 그 뒤 경로선의 첫 점으로 되돌아오는 것처럼 보인다
         // (2026-09-05 사용자 지적: "경로선도 안 보여, 직진으로만 가"). 경로가 없다는 답(실패)이
         // 오면 그때는 직진한다 — 시뮬레이터에서 걸음이 멈추면 안 되니까.
-        if result == nil, failure == nil {
+        if phase == .guiding, result == nil, failure == nil {
             locator.inject(latitude: demoPosition?.latitude ?? here?.latitude ?? target.place.latitude,
                            longitude: demoPosition?.longitude ?? here?.longitude ?? target.place.longitude)
             return
@@ -270,25 +294,35 @@ final class TripSession: ObservableObject {
         let goal: DemoDrive.Point = (target.place.latitude, target.place.longitude)
         var position = demoPosition ?? here.map { ($0.latitude, $0.longitude) } ?? DemoDrive.start(near: target)
         if DemoDrive.meters(position, goal) > DemoDrive.stopWithinMeters {
-            // 경로선을 구간별로 펴고, 지금 지나는 꼭짓점이 어느 구간인지로 속도를 정한다
-            // (도보 48 m/s · 대중교통 두 배).
-            var path: [DemoDrive.Point] = []
-            var modes: [RouteLegMode] = []
-            for leg in result?.legs ?? [] {
-                for pair in leg.path where pair.count >= 2 {
-                    path.append((pair[1], pair[0])) // [경도, 위도] 순으로 온다
-                    modes.append(leg.mode)
-                }
-            }
-            let mode = modes.indices.contains(demoPathIndex) ? modes[demoPathIndex] : .walk
+            // 지금 지나는 꼭짓점이 어느 구간인지로 속도를 정한다(도보 240 m/s · 대중교통 두 배).
+            let mode = demoModes.indices.contains(demoPathIndex) ? demoModes[demoPathIndex] : .walk
             position = DemoDrive.step(
-                from: position, along: path, index: &demoPathIndex,
+                from: position, along: demoPath, index: &demoPathIndex,
                 toward: goal, meters: DemoDrive.speed(for: mode) * DemoDrive.tick
             )
             demoPosition = position
             DemoDrive.remember(position)
+        } else if lingering != nil {
+            lingering = nil // 핀에 닿았다 — 이제 선을 지운다
         }
         // 서 있을 때도 같은 자리를 다시 넣는다 — 머무름 판정과 파문이 이어진다.
         locator.inject(latitude: position.latitude, longitude: position.longitude)
+    }
+
+    /// 경로선을 구간별로 펴서 들고 있는다. 좌표는 `[경도, 위도]` 순으로 온다.
+    private func keepDemoPath(of loaded: RouteNavResult) {
+        clearDemoPath()
+        for leg in loaded.legs {
+            for pair in leg.path where pair.count >= 2 {
+                demoPath.append((pair[1], pair[0]))
+                demoModes.append(leg.mode)
+            }
+        }
+    }
+
+    private func clearDemoPath() {
+        demoPath = []
+        demoModes = []
+        demoPathIndex = 0
     }
 }

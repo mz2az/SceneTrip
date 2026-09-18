@@ -66,6 +66,10 @@ struct RouteEditorView: View {
 
     /// 지도에 보여 줄 편의시설 갈래. 기본은 전부 — 끄는 것은 사용자의 선택이다.
     @State var poiGroupsOn: Set<RoutePoiGroup> = Set(RoutePoiGroup.allCases)
+    /// 「AI 장소」 칩 — 챗봇이 찾아 준 곳(해태 핀)을 보일 것인가. 갈래 칩과 따로 논다.
+    @State var aiPlacesOn = true
+    /// 올리면 지도가 코스 전체에 맞춘다(`RouteMapView.courseFitToken`) — 동선 최적화가 쓴다.
+    @State var courseFitToken = 0
 
     /// 동선 최적화 단추가 **반짝여야 하는가.** 장소가 새로 담기면 켜진다 — 방금
     /// 담긴 곳은 줄 맨 끝이라 순서가 대개 엉망이 된다. 한 번 최적화하면 꺼진다.
@@ -124,22 +128,24 @@ struct RouteEditorView: View {
         course.days.indices.contains(dayIndex) ? course.days[dayIndex].stops : []
     }
 
-    /// 갈래 필터를 통과한 가이드 장소. 지도는 이것만 그린다.
+    /// 지도에 그릴 가이드 장소 — **「AI 장소」 칩이 정한다. 갈래 칩과 무관하다**(2026-09-17).
+    /// 갈래 칩으로 걸렀을 때는 안내 중(갈래가 다 꺼짐)에 챗봇이 찾아 준 곳까지 사라졌다.
     ///
     /// **코스에 이미 담긴 곳은 뺀다** — 담는 순간 그 자리는 번호 핀의 것이다.
     /// 안 빼면 같은 좌표에 챗봇 마커가 겹쳐 핀이 두 장으로 보인다(2026-08-28
     /// 사용자 발견).
     var visibleGuidePlaces: [RouteGuide.Place] {
         let taken = takenSpotKeys
-        return guide.places.filter {
-            poiGroupsOn.contains($0.poiGroup)
-                && !taken.contains(RouteDedupe.key($0.asPlaceSummary))
-        }
+        guard aiPlacesOn else { return [] }
+        return guide.places.filter { !taken.contains(RouteDedupe.key($0.asPlaceSummary)) }
     }
 
-    /// 고른 장소도 갈래가 꺼져 있으면 지도에서 감춘다.
+    /// 고른 장소도 제 칩이 꺼져 있으면 지도에서 감춘다 — AI 장소는 해태 칩, 주변 점은 갈래 칩.
     var visiblePickedGuide: RouteGuide.Place? {
-        guide.picked.flatMap { poiGroupsOn.contains($0.poiGroup) ? $0 : nil }
+        guide.picked.flatMap { picked in
+            let isAi = guide.places.contains { $0.id == picked.id }
+            return (isAi ? aiPlacesOn : poiGroupsOn.contains(picked.poiGroup)) ? picked : nil
+        }
     }
 
     /// 이 가이드 장소가 이미 코스(어느 일차든)에 들어 있는가. `RouteDedupe` 와
@@ -214,7 +220,7 @@ struct RouteEditorView: View {
                 RoutePlaceCard(
                     place: picked,
                     onAdd: {
-                        add([picked.asPlaceSummary], pinned: true)
+                        add([picked.asPlaceSummary], pinned: true, asNext: true)
                         guide.picked = nil // 담았으면 카드는 할 일을 다 했다
                     },
                     added: isAdded(picked),
@@ -232,6 +238,8 @@ struct RouteEditorView: View {
         .task {
             // 스탬프가 찍히면 코스 상태·서버에 「다녀옴」 — 목록이 흐려지고 핀이 발바닥이 된다.
             trip.onArrived = { markVisited($0) }
+            // 대화는 코스의 것이다 — 다른 코스를 열었으면 앞 코스의 대화와 AI 장소를 비운다.
+            guide.bind(to: guideKey(for: course))
             await cart.refresh()
             // 가이드가 「주변」을 찾으려면 자리가 있어야 한다. 미리 물어 둔다 —
             // 단추를 누른 뒤에 물으면 그만큼 기다린다.
@@ -284,7 +292,7 @@ struct RouteEditorView: View {
                 session: guide,
                 here: guideHere,
                 context: guideContext,
-                onAdd: { add([$0], pinned: true) },
+                onAdd: { add([$0], pinned: true, asNext: true) },
                 isAdded: isAdded,
                 onRemove: removeGuidePlace,
                 onClose: { showGuide = false }
@@ -444,9 +452,15 @@ struct RouteEditorView: View {
     /// 저장하고 닫는다. **실패하면 닫지 않는다** — 조용히 닫으면 저장된 줄 알고
     /// 나갔다가 목록에 없는 것을 보게 된다.
     func saveAndClose() async {
-        if await store.save(course) != nil {
+        if let saved = await store.save(course) {
+            guide.rekey(to: guideKey(for: saved)) // 방금 저장한 이 코스를 다시 열면 대화가 이어진다
             dismiss()
         }
+    }
+
+    /// 가이드 대화를 묶는 열쇠. 저장 전이면 이 화면이 연 사본의 id 다.
+    func guideKey(for course: RouteCourse) -> String {
+        course.serverId.map { "course-\($0)" } ?? "draft-\(course.id)"
     }
 
     // MARK: 담기
@@ -470,12 +484,21 @@ struct RouteEditorView: View {
     /// **이미 담긴 곳은 걸러 낸다.** 앞서 거르지 않아 같은 촬영지가 코스에 여러 번
     /// 들어갔다(2026-08-25 사용자 지적). 시트 쪽에서도 체크로 보여 주지만, 거르는
     /// 것은 여기서 한다 — 시트가 늘어나도 규칙이 한 곳에 남는다.
-    func add(_ places: [PlaceSummary], pinned: Bool = false) {
+    ///
+    /// `asNext` — 가이드가 찾아 준 곳을 담을 때. **여행 중이면 바로 다음 차례에 끼운다**
+    /// (`RouteGeometry.nextSlot`). 1번에 도착해 「주변 음식점」을 받아 담았는데 맨 끝(4번)에
+    /// 붙으면, 옆 가게를 가려고 2·3번을 다 돌고 돌아와야 한다(2026-09-17 사용자 지적).
+    func add(_ places: [PlaceSummary], pinned: Bool = false, asNext: Bool = false) {
         let fresh = RouteDedupe.fresh(
             places, takenIds: takenPlaceIds, takenKeys: takenSpotKeys
         )
         guard !fresh.isEmpty else { return }
-        course.days[dayIndex].stops += fresh.map { RouteStop(place: $0, isPinned: pinned) }
+        let slot = asNext && course.isRunning
+            ? RouteGeometry.nextSlot(in: stops, target: trip.target, arrived: trip.phase == .arrived)
+            : stops.count
+        course.days[dayIndex].stops.insert(
+            contentsOf: fresh.map { RouteStop(place: $0, isPinned: pinned) }, at: slot
+        )
         fitToken += 1
         // 둘부터 순서라는 것이 생긴다 — 그때부터 최적화를 권한다.
         if course.days[dayIndex].stops.count >= 2 {
