@@ -58,6 +58,11 @@ pr-run run_id:
 pr-run-log run_id:
     gh run view "$1" --log-failed
 
+# 완료한 개별 job 로그 확인 (다른 job이 실행 중이어도 조회)
+[group('ci')]
+pr-job-log job_id:
+    gh api --allow-escape-sequences "repos/{owner}/{repo}/actions/jobs/$1/logs"
+
 # CI 가 실행할 Bazel 명령을 실행하지 않고 출력만
 [group('ci')]
 ci-explain:

@@ -443,7 +443,7 @@
     "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "Rb/Z+MRjcLD6FLL81DRNkc43GQlET+b8QIDqqoGXnkw=",
-        "usagesDigest": "NPlQ/G+GCnM0bL9/00hwqOO99jqvxJAcvGJFRypSRSI=",
+        "usagesDigest": "ZjO5qSC/UCG10NMvFTIWrh3lLs7k8dHs7mnl59ayoDk=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
