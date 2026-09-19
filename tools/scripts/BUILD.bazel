@@ -1,0 +1,14 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+# Java 포맷 검사에서 Bazel 진단과 실제 포맷 결과를 구분하는 회귀 시험.
+py_test(
+    name = "unit_test",
+    srcs = ["test_format.py"],
+    data = [
+        "_lib.sh",
+        "format.sh",
+    ],
+    legacy_create_init = 0,
+    main = "test_format.py",
+    tags = ["unit"],
+)

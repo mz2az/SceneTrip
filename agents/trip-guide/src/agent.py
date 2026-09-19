@@ -23,7 +23,7 @@ from .deepseek import ModelError, load_config
 from .session import Session
 from .tools import load_tool_specs, run_tool
 
-_PROMPT = Path(__file__).resolve().parent.parent / "prompts" / "system.txt"
+_PROMPT = Path(__file__).absolute().parent.parent / "prompts" / "system.txt"
 
 
 # ── 어느 말로 답할까 ──────────────────────────────────────────────────────────

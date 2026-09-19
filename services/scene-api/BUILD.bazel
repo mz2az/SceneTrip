@@ -8,14 +8,82 @@
 # 빌드 경로는 ADR 0003 — Bazel 이 실행 가능 jar 를 만들고 Dockerfile 은 그것을 담기만
 # 한다. Gradle·Maven 을 빌드 경로로 쓰지 않으므로 이 저장소에 build.gradle 은 없다.
 #
-# :image / :push 는 아직 없다. 컨테이너는 당분간 Dockerfile 경로를 쓰고
-# (`just image scene-api`), rules_oci 로 옮기는 것은 후속 작업이다 — ADR 0003 참조.
+# DEV·PRD :image / :push 는 rules_oci 로 만든다. 로컬 kind의 기존
+# Dockerfile 경로(`just image scene-api`)는 개발용으로 유지한다.
 
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_spring//springboot:springboot.bzl", "springboot")
 load("//tools/bazel/defs:java_junit5_test.bzl", "java_junit5_test")
 
 package(default_visibility = ["//visibility:public"])
+
+# 배포 전 DB 통합 검증도 서비스가 소유한 마이그레이션 한 벌을 사용한다.
+filegroup(
+    name = "migrations",
+    srcs = glob(["src/main/resources/db/migration/*.sql"]),
+)
+
+# DEV·PRD는 같은 linux/amd64 산출물을 digest로 승격한다. Docker daemon은 필요 없다.
+pkg_tar(
+    name = "runtime_layer",
+    srcs = [
+        ":bin.jar",
+        "@otel_javaagent//file",
+    ],
+    mode = "0444",
+    package_dir = "/app",
+)
+
+oci_image(
+    name = "image",
+    base = "@java21_runtime_linux_amd64",
+    entrypoint = [
+        "/usr/bin/java",
+        "-javaagent:/app/opentelemetry-javaagent.jar",
+        "-jar",
+        "/app/bin.jar",
+    ],
+    tars = [":runtime_layer"],
+    user = "65532:65532",
+    workdir = "/app",
+)
+
+pkg_tar(
+    name = "migration_layer",
+    srcs = [":migrate_deploy.jar"],
+    mode = "0444",
+    package_dir = "/app",
+)
+
+oci_image(
+    name = "migration_image",
+    base = "@java21_runtime_linux_amd64",
+    entrypoint = [
+        "/usr/bin/java",
+        "-cp",
+        "/app/migrate_deploy.jar",
+        "com.mz2az.scenetrip.sceneapi.DbMigrate",
+    ],
+    tars = [":migration_layer"],
+    user = "65532:65532",
+    workdir = "/app",
+)
+
+oci_push(
+    name = "push",
+    image = ":image",
+    repository = "localhost/scenetrip/scene-api",
+    tags = ["manual"],
+)
+
+oci_push(
+    name = "migration_push",
+    image = ":migration_image",
+    repository = "localhost/scenetrip/scene-api-migration",
+    tags = ["manual"],
+)
 
 # deps 와 runtime_deps 를 나눈 이유:
 #

@@ -7,6 +7,7 @@
 | --- | --- |
 | [k8s_install.md](k8s_install.md) | Homebrew, Git, Docker Desktop, **kind**, kubectl, Helm, k9s, AWS CLI, 클러스터 동작 테스트, 문제 해결 |
 | [signoz_install.md](signoz_install.md) | foundryctl 로 SigNoz 설치, UI 접속, 헬스체크, OpenTelemetry 로 앱 연결, 로그 검색 |
+| [AWS 준비·배포](../ops/aws-deployment.md) | DEV·PRD 계정·OIDC·state·runner·도메인 준비와 수동 배포 |
 
 ## 로컬 환경의 모습
 

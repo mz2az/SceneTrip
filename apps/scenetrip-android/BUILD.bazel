@@ -20,12 +20,19 @@
 
 load("@rules_android//rules:rules.bzl", "android_binary")
 load("@rules_kotlin//kotlin:android.bzl", "kt_android_library")
+load("//tools/bazel/defs:mobile_api_config.bzl", "mobile_api_config")
 
 package(default_visibility = ["//visibility:public"])
 
+mobile_api_config(
+    name = "api_configuration",
+    out = "ApiConfiguration.kt",
+    language = "kotlin",
+)
+
 kt_android_library(
     name = "scenetrip-android",
-    srcs = glob(["src/**/*.kt"]),
+    srcs = glob(["src/**/*.kt"]) + [":api_configuration"],
     manifest = "AndroidManifest.xml",
     # Compose 는 컴파일러 플러그인 없이는 **조용히 잘못 돈다** — 이유는
     # //tools/bazel/kotlin:compose_compiler_plugin 의 주석에 있다.

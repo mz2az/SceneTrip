@@ -64,7 +64,7 @@ iOS 와 Android 는 **각각 네이티브로** 만듭니다 — 크로스 플랫
 | **[docs/installs/signoz_install.md](./docs/installs/signoz_install.md)** | foundryctl로 SigNoz 설치, UI 접속, 헬스체크, OpenTelemetry로 앱 연결, 로그 검색 |
 | [docs/installs/](./docs/installs/README.md) | 인덱스와 로컬 환경 구성도 |
 
-같은 내용을 실습과 함께 따라가는 강의자료 — 35슬라이드, 오프라인 단일 파일, 약 3시간:
+SceneTrip의 실제 구성으로 배우는 오프라인 강의자료:
 
 | 자료 | 여는 방법 |
 | --- | --- |
@@ -89,10 +89,33 @@ just cluster-down        # 전부 삭제 (확인 절차 있음)
 `port-forward`가 필요 없습니다 — 클러스터 생성 시점에
 [`platform/kind/cluster.yaml`](./platform/kind/README.md)이 호스트 포트를 매핑하기 때문입니다.
 
-> 이 프로젝트의 Kubernetes는 **kind 하나뿐**입니다. Docker Desktop은 kind 노드를 컨테이너로
+> 로컬 개발의 Kubernetes는 **kind 하나뿐**입니다. Docker Desktop은 kind 노드를 컨테이너로
 > 띄우는 **런타임으로만** 쓰고, 내장 Kubernetes 기능은 켜지 않습니다.
 
 > 한 장비에서 kind 클러스터는 **하나만** 띄우세요. 8080·8081 포트를 노드 컨테이너가 점유합니다.
+
+## DEV·PRD AWS 배포
+
+AWS는 EKS Auto Mode·RDS PostgreSQL/PostGIS·ECR·Secrets Manager를 사용하고,
+GitHub Actions의 보호된 수동 workflow로 배포합니다. 환경별 계정·CIDR·도메인·
+인증서는 외부 입력입니다. 모바일 앱은 EKS 대신 각 앱스토어로 배포합니다.
+외부 API는 `ALB HTTPS 443 → nginx gateway ClusterIP → scene-api`로 연결합니다.
+ALB가 호스트·경로를 라우팅하고 gateway가 헤더·본문·IP별 요청 정책을 적용합니다.
+
+- [DEV·PRD 배포 구성도](docs/architecture/aws-dev-prd.md)
+- [AWS 서비스 정의와 필요한 이유](docs/architecture/aws-services.md)
+- [최초 준비·수동 배포·복구 가이드](docs/ops/aws-deployment.md)
+- [Terraform·GitHub Actions·AWS 교육자료](docs/education/README.md)
+
+```bash
+just aws-check
+just aws-validate dev # 외부 환경 입력과 깨끗한 checkout 필요
+just aws-plan dev
+just aws-apply dev    # 실제 AWS 변경: 환경과 계획 검토 후 확인
+```
+
+PRD 형상도 초기에는 허용 CIDR로 접근을 제한합니다. 설치 UUID 기반 식별은 로그인
+인증이 아니며, 일반 사용자 공개 전 인증·권한·복원 검증을 마쳐야 합니다.
 
 ## 문서
 

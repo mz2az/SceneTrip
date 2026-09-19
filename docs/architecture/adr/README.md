@@ -25,3 +25,6 @@ just adr-list
 - 검증 절을 포함한다 — 이 결정이 옳았는지 어떻게 알 것인가.
 
 `template.md` 가 `just adr-new` 가 렌더링하는 시작점이다.
+
+최근 결정: [0016 — ALB 기반 HTTP 진입점](0016-alb-http-ingress.md),
+[0015 — DEV·PRD 수동 AWS 배포](0015-aws-manual-environments.md).

@@ -16,6 +16,24 @@ build-module module:
 build-release *targets=ALL:
     {{BAZEL}} build --config=release {{targets}}
 
+# 모바일 앱에 DEV·PRD HTTPS API 주소를 넣어 빌드한다 (스토어 배포·서명 제외)
+[group('build')]
+mobile-build-cloud platform endpoint:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case {{quote(platform)}} in ios|android) ;; *) echo '플랫폼은 ios 또는 android입니다' >&2; exit 1 ;; esac
+    test -n {{quote(endpoint)}} || { echo 'HTTPS /v1 API 주소가 필요합니다' >&2; exit 1; }
+    {{BAZEL}} build {{quote('//apps/scenetrip-' + platform + ':bin')}} --define=scenetrip_api_base_url={{quote(endpoint)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+
+# 기존 Android SDK에 MODULE.bazel이 요구하는 플랫폼·빌드 도구를 설치한다
+[group('build')]
+android-sdk-install sdk_root:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    sdk_path={{quote(sdk_root)}}
+    "$sdk_path/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk_path" "platforms;android-36" "build-tools;36.1.0" </dev/null
+    test -f "$sdk_path/platforms/android-36/android.jar" && test -f "$sdk_path/build-tools/36.1.0/source.properties" || { echo 'SDK 설치가 끝나지 않았습니다. 위 라이선스·네트워크 오류를 확인하세요' >&2; exit 1; }
+
 # 바이너리 타깃 실행. 예: `just run //services/scene-api:bin -- --port=8080`
 [group('build')]
 run target *args:

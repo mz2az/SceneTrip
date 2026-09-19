@@ -18,12 +18,37 @@ module(
 
 # --- 코어 ---------------------------------------------------------------------
 
-bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
+bazel_dep(name = "rules_python", version = "2.2.0")
+bazel_dep(name = "rules_oci", version = "2.2.6")
+
+# 에이전트는 표준 라이브러리만 사용한다. 호스트 Python 대신 고정 도구 체인을 쓴다.
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    configure_coverage_tool = True,
+    python_version = "3.13.13",
+)
+
+# 배포 노드는 linux/amd64다. 태그 변경에 영향을 받지 않도록 기반 이미지를 고정한다.
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+oci.pull(
+    name = "java21_runtime",
+    digest = "sha256:0a1f5a75661918de9c0813f287f651c3bf2d6dd752eada5f084eb0c1f14ced9e",
+    image = "gcr.io/distroless/java21-debian13",
+    platforms = ["linux/amd64"],
+)
+oci.pull(
+    name = "python_runtime",
+    digest = "sha256:8ee214843129f43e2ebf5e0ca9f2e4e6d8292143d1b8a6787f169b5898578884",
+    image = "gcr.io/distroless/python3-debian13",
+    platforms = ["linux/amd64"],
+)
+use_repo(oci, "java21_runtime", "java21_runtime_linux_amd64", "python_runtime", "python_runtime_linux_amd64")
 
 # BUILD 파일 포맷·린트 (`just fmt` / `just lint` 가 사용)
-bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
+bazel_dep(name = "buildifier_prebuilt", version = "8.2.1.1", dev_dependency = True)
 
 # --- 계약 코드 생성 --------------------------------------------------------------
 #
@@ -510,18 +535,103 @@ use_repo(swift_deps, "swift_package", "swiftpkg_spm_nmapsmap")
 # Swift — **위 "Swift / iOS" 절에서 이미 활성화됐다.** 첫 iOS 앱(scenetrip-ios)과
 # 함께 풀었고, 팀 전원 정식 Xcode 설치를 확인한 뒤였다.
 #
-# Python — AI 에이전트 (agents/), 공유 라이브러리 (libs/python/):
-#   bazel_dep(name = "rules_python", version = "2.2.0")
-#   pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
-#   pip.parse(hub_name = "pypi", python_version = "3.12",
-#             requirements_lock = "//:requirements.lock")
-#   use_repo(pip, "pypi")
+# Python은 위에서 활성화했다. 외부 패키지가 생길 때 pip 잠금을 추가한다.
 #
 # Protobuf / gRPC (contracts/proto):
 #   bazel_dep(name = "protobuf", version = "27.3")
 #   bazel_dep(name = "rules_proto", version = "6.0.2")
 #
-# 컨테이너 이미지 (services/ 의 :image / :push 타깃 — apps/ 모바일 모듈에는 해당 없음,
-# 대신 :ipa / :aab 설치 산출물을 만든다):
-#   bazel_dep(name = "rules_oci", version = "2.0.1")
-#   bazel_dep(name = "container_structure_test", version = "1.16.0")
+# OCI는 위에서 활성화했다. services/와 agents/ 내부 서버에만 사용한다.
+# apps/ 모바일 모듈은 :ipa / :aab 설치 산출물을 만든다.
+
+# --- AWS 운영 CLI ---------------------------------------------------------------
+# 공식 배포 파일의 SHA-256을 고정한다. 호스트에 설치된 CLI를 사용하지 않는다.
+# Terraform/Helm/kubectl은 macOS arm64와 Linux amd64, AWS CLI는 배포 러너용이다.
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "terraform_linux_amd64",
+    build_file_content = "exports_files([\"terraform\"], visibility = [\"//visibility:public\"])\n",
+    sha256 = "0dbe3fcc268eb670801af6a6456799d1ae26e72e73797f6c6167e18aafd1fd9a",
+    urls = ["https://releases.hashicorp.com/terraform/1.13.5/terraform_1.13.5_linux_amd64.zip"],
+)
+
+http_archive(
+    name = "terraform_darwin_arm64",
+    build_file_content = "exports_files([\"terraform\"], visibility = [\"//visibility:public\"])\n",
+    sha256 = "1bf942231235e7e1a4c38c6d7b820e54f526ac487f87d19f0c4a425c6ddb62cb",
+    urls = ["https://releases.hashicorp.com/terraform/1.13.5/terraform_1.13.5_darwin_arm64.zip"],
+)
+
+http_archive(
+    name = "helm_linux_amd64",
+    build_file_content = "exports_files([\"helm\"], visibility = [\"//visibility:public\"])\n",
+    sha256 = "a7f81ce08007091b86d8bd696eb4d86b8d0f2e1b9f6c714be62f82f96a594496",
+    strip_prefix = "linux-amd64",
+    urls = ["https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz"],
+)
+
+http_archive(
+    name = "helm_darwin_arm64",
+    build_file_content = "exports_files([\"helm\"], visibility = [\"//visibility:public\"])\n",
+    sha256 = "31513e1193da4eb4ae042eb5f98ef9aca7890cfa136f4707c8d4f70e2115bef6",
+    strip_prefix = "darwin-arm64",
+    urls = ["https://get.helm.sh/helm-v3.19.0-darwin-arm64.tar.gz"],
+)
+
+http_file(
+    name = "kubectl_linux_amd64",
+    downloaded_file_path = "kubectl",
+    executable = True,
+    sha256 = "cfda68cba5848bc3b6c6135ae2f20ba2c78de20059f68789c090166d6abc3e2c",
+    urls = ["https://dl.k8s.io/release/v1.34.0/bin/linux/amd64/kubectl"],
+)
+
+http_file(
+    name = "kubectl_darwin_arm64",
+    downloaded_file_path = "kubectl",
+    executable = True,
+    sha256 = "d491f4c47c34856188d38e87a27866bd94a66a57b8db3093a82ae43baf3bb20d",
+    urls = ["https://dl.k8s.io/release/v1.34.0/bin/darwin/arm64/kubectl"],
+)
+
+http_archive(
+    name = "aws_cli_linux_amd64",
+    build_file_content = """
+exports_files(["dist/aws"], visibility = ["//visibility:public"])
+filegroup(name = "runtime", srcs = glob(["dist/**"]), visibility = ["//visibility:public"])
+""",
+    sha256 = "ceacd516336374193eafa91756b75e6752e9e9e19fbc42689e691abf480e2361",
+    strip_prefix = "aws",
+    urls = ["https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.31.4.zip"],
+)
+
+# 오프라인 Terraform 검증용 packed filesystem mirror. 실제 provider ZIP도 잠근다.
+http_file(
+    name = "aws_provider_linux_amd64",
+    downloaded_file_path = "registry.terraform.io/hashicorp/aws/terraform-provider-aws_6.64.0_linux_amd64.zip",
+    sha256 = "17324d4335a7a7ac01cc23eded530775606680ff53b47cb74a3cb95d1121f836",
+    urls = ["https://releases.hashicorp.com/terraform-provider-aws/6.64.0/terraform-provider-aws_6.64.0_linux_amd64.zip"],
+)
+
+http_file(
+    name = "aws_provider_darwin_arm64",
+    downloaded_file_path = "registry.terraform.io/hashicorp/aws/terraform-provider-aws_6.64.0_darwin_arm64.zip",
+    sha256 = "07172315d67bc9781240272759cdfc7bd32b7e72384a56862c2c1da3cca99a81",
+    urls = ["https://releases.hashicorp.com/terraform-provider-aws/6.64.0/terraform-provider-aws_6.64.0_darwin_arm64.zip"],
+)
+
+# 클라우드 없이 bootstrap SQL과 실제 nginx를 검증하는 폐기형 통합 픽스처.
+oci.pull(
+    name = "integration_postgis",
+    digest = "sha256:01a6a70e41e6c4467c8f55f6063555ed72db2d6662cd0d571040d42eadaeb6f6",
+    image = "index.docker.io/postgis/postgis",
+    platforms = ["linux/amd64"],
+)
+oci.pull(
+    name = "integration_nginx",
+    digest = "sha256:c97ff0bf7cbae369953c6da1232ec14ad9f971d66360c5698db0856a4cd657a0",
+    image = "index.docker.io/nginxinc/nginx-unprivileged",
+    platforms = ["linux/amd64"],
+)
+use_repo(oci, "integration_nginx", "integration_nginx_linux_amd64", "integration_postgis", "integration_postgis_linux_amd64")

@@ -1,0 +1,95 @@
+load("@rules_python//python:defs.bzl", "py_test")
+load(":tool.bzl", "cloud_tool", "unsupported_tool")
+
+package(default_visibility = ["//visibility:public"])
+
+config_setting(
+    name = "linux_amd64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+config_setting(
+    name = "darwin_arm64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+cloud_tool(
+    name = "terraform",
+    binary = select({
+        ":linux_amd64": "@terraform_linux_amd64//:terraform",
+        ":darwin_arm64": "@terraform_darwin_arm64//:terraform",
+    }),
+)
+
+cloud_tool(
+    name = "helm",
+    binary = select({
+        ":linux_amd64": "@helm_linux_amd64//:helm",
+        ":darwin_arm64": "@helm_darwin_arm64//:helm",
+    }),
+)
+
+cloud_tool(
+    name = "kubectl",
+    binary = select({
+        ":linux_amd64": "@kubectl_linux_amd64//file",
+        ":darwin_arm64": "@kubectl_darwin_arm64//file",
+    }),
+)
+
+unsupported_tool(name = "aws_unsupported")
+
+alias(
+    name = "aws_provider",
+    actual = select({
+        ":linux_amd64": "@aws_provider_linux_amd64//file",
+        ":darwin_arm64": "@aws_provider_darwin_arm64//file",
+    }),
+)
+
+cloud_tool(
+    name = "aws",
+    binary = select({
+        ":linux_amd64": "@aws_cli_linux_amd64//:dist/aws",
+        "//conditions:default": ":aws_unsupported",
+    }),
+    runtime = select({
+        ":linux_amd64": ["@aws_cli_linux_amd64//:runtime"],
+        "//conditions:default": [],
+    }),
+)
+
+py_test(
+    name = "unit_test",
+    srcs = ["test_tools.py"],
+    data = [
+        ":aws",
+        ":helm",
+        ":kubectl",
+        ":terraform",
+    ],
+    legacy_create_init = 0,
+    main = "test_tools.py",
+    tags = ["unit"],
+)
+
+py_test(
+    name = "terraform_test",
+    srcs = ["test_terraform.py"],
+    args = ["$(rlocationpath :aws_provider)"],
+    data = [
+        ":aws_provider",
+        ":terraform",
+        "//platform/terraform:sources",
+    ],
+    legacy_create_init = 0,
+    main = "test_terraform.py",
+    tags = ["unit"],
+    deps = ["@rules_python//python/runfiles"],
+)

@@ -25,10 +25,11 @@ from .agent import TripGuide
 from .deepseek import DeepSeekClient, ModelError, load_config
 from .places import CsvPlaceBook, PlaceSource
 from .planner import PlanError
+from .production import source_url
 from .sceneapi import SceneApiError, SceneApiPlaceBook
 from .session import Anchor, Session
 
-_SOURCE_CONFIG = Path(__file__).resolve().parent.parent / "config" / "source.json"
+_SOURCE_CONFIG = Path(__file__).absolute().parent.parent / "config" / "source.json"
 
 
 def open_source(args: argparse.Namespace) -> tuple[PlaceSource, str]:
@@ -43,7 +44,9 @@ def open_source(args: argparse.Namespace) -> tuple[PlaceSource, str]:
     if which == "scene-api":
         settings = config.get("scene-api", {})
         book = SceneApiPlaceBook(
-            args.base_url or settings.get("base_url", "http://localhost:8081/v1"),
+            source_url(
+                args.base_url, settings.get("base_url", "http://localhost:8081/v1")
+            ),
             lang=args.lang or settings.get("lang", "ko"),
             timeout=int(settings.get("timeout_seconds", 10)),
         )

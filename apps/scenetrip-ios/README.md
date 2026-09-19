@@ -261,7 +261,7 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
 | --- | --- |
 | 프로토콜 | 해당 없음 (클라이언트 앱) |
 | 산출물 | `:bin` — 시뮬레이터/기기에 설치하는 .app 번들 |
-| 계약 | `contracts/openapi/scene-api-v1.yaml` — swift5 생성 클라이언트로 소비한다 (생성 타깃은 아직 없음, 계획서 §5-5) |
+| 계약 | `contracts/openapi/scene-api-v1.yaml` — `//contracts/openapi:scene_api_swift_lib`로 소비한다 |
 
 ## 의존성
 
@@ -377,11 +377,26 @@ just ios-xcode
 
 ## 설정
 
-| 환경변수 | 필수 | 기본값 | 용도 |
-| --- | --- | --- | --- |
+| 빌드 설정 | 기본값 | 용도 |
+| --- | --- | --- |
+| `scenetrip_api_base_url` | 빈 값 → `http://localhost:8081/v1` | SceneTrip API 주소 |
+| `naver_client_id` | 빈 값 | 네이버 지도 클라이언트 ID (`just ios-run`은 환경변수 `NAVER_MAP_CLIENT_ID` 사용) |
 
-네이버 지도 클라이언트 ID 는 지도 SDK 연동(MZ2AZ-161) 때 빌드 시점 주입으로 붙는다 —
-소스에 박지 않는다. 시크릿은 시크릿 매니저에서 온다.
+DEV·PRD는 운영자가 준비한 HTTPS 주소를 명시해서 빌드한다. 다음 주소는 예시이며
+실제 DNS·인증서·접근 제한이 설정된 해당 환경의 주소로 바꾼다.
+
+```bash
+just mobile-build-cloud ios https://api.example.com/v1
+```
+
+공용 Bazel 규칙이 `ApiConfiguration.swift`를 생성하고 앱 시작 시 생성 API 클라이언트에
+주소를 넣는다. 비밀값은 포함하지 않는다. HTTP 원격 주소·인증정보·query·fragment·
+잘못된 포트·`/v1` 이외 경로는 빌드 단계에서 거절한다. 잘못된 주소로 앱이 시작하거나
+로컬 서버로 조용히 연결되는 폴백은 없다. 일반 `just ios-run`의 로컬 기본값은 유지된다.
+
+Xcode에서 같은 환경을 쓰려면 gitignore 대상인 `.bazelrc.user`에
+`build --define=scenetrip_api_base_url=https://api.example.com/v1`을 설정한다.
+이 명령은 앱 빌드만 수행한다. 실기기 서명·TestFlight·App Store 배포는 별도 절차다.
 
 ## 운영
 

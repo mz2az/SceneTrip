@@ -1,0 +1,6 @@
+apiVersion: v2
+name: scenetrip
+description: SceneTrip 원격 AWS API·에이전트·HTTPS gateway
+version: 0.1.0
+appVersion: "1"
+type: application

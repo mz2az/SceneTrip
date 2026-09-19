@@ -1,0 +1,77 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+py_library(
+    name = "education_lib",
+    srcs = [
+        "build_course.py",
+        "course_content.py",
+        "local_content.py",
+        "source_diagrams.py",
+        "terraform_graph.py",
+    ],
+    data = [
+        "course.css",
+        "navigation.js",
+        "navigation-browser-tests.js",
+    ],
+    imports = ["."],
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_binary(
+    name = "serve",
+    srcs = ["serve.py"],
+    legacy_create_init = 0,
+    main = "serve.py",
+)
+
+py_binary(
+    name = "education",
+    srcs = [
+        "build_course.py",
+        "course_content.py",
+        "local_content.py",
+        "source_diagrams.py",
+    ],
+    data = [
+        "course.css",
+        "navigation.js",
+    ],
+    imports = ["."],
+    legacy_create_init = 0,
+    main = "build_course.py",
+)
+
+py_test(
+    name = "unit_test",
+    srcs = ["test_education.py"],
+    data = [
+        "course.css",
+        "navigation.js",
+    ],
+    imports = ["."],
+    legacy_create_init = 0,
+    main = "test_education.py",
+    tags = ["unit"],
+    deps = [":education_lib"],
+)
+
+py_binary(
+    name = "terraform_graph",
+    srcs = [
+        "source_diagrams.py",
+        "terraform_graph.py",
+    ],
+    args = [
+        "--provider-runfile",
+        "$(rlocationpath //tools/bazel/cloud:aws_provider)",
+    ],
+    data = [
+        "//tools/bazel/cloud:aws_provider",
+        "//tools/bazel/cloud:terraform",
+    ],
+    imports = ["."],
+    legacy_create_init = 0,
+    main = "terraform_graph.py",
+    deps = ["@rules_python//python/runfiles"],
+)

@@ -1,0 +1,93 @@
+name: AWS 수동 부트스트랩
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 대상 GitHub Environment
+        required: true
+        type: choice
+        options: [dev, prd]
+      operation:
+        description: CloudFormation 변경 집합 검토 또는 적용
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply]
+      commit_sha:
+        description: main에 포함된 부트스트랩 소스의 40자리 SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aws-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.verify.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: extractions/setup-just@v2
+      - uses: bazel-contrib/setup-bazel@0.15.0
+      - name: main의 신뢰된 검사기로 후보 SHA 검증
+        id: verify
+        env:
+          REQUESTED_SHA: ${{ inputs.commit_sha }}
+        run: just aws-preflight "$REQUESTED_SHA"
+  bootstrap:
+    needs: preflight
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      AWS_BOOTSTRAP_ROLE_ARN: ${{ vars.AWS_BOOTSTRAP_ROLE_ARN }}
+      GITHUB_OIDC_PROVIDER_ARN: ${{ vars.GITHUB_OIDC_PROVIDER_ARN }}
+      AWS_API_DOMAIN: ${{ vars.AWS_API_DOMAIN }}
+      AWS_COMMIT_SHA: ${{ needs.preflight.outputs.sha }}
+      AWS_PAGER: ''
+      AWS_EC2_METADATA_DISABLED: 'true'
+      TARGET_ENVIRONMENT: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: extractions/setup-just@v2
+      - uses: bazel-contrib/setup-bazel@0.15.0
+      - name: AWS 인증 전 입력 검증
+        run: just aws-validate "$TARGET_ENVIRONMENT"
+      # 최초 OIDC 공급자와 이 부트스트랩 역할은 계정 관리자가 먼저 만든다.
+      - name: 부트스트랩 전용 OIDC 역할
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_BOOTSTRAP_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: bootstrap-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: 변경 집합 검토
+        if: inputs.operation == 'plan'
+        run: just aws-bootstrap-plan "$TARGET_ENVIRONMENT"
+      - name: 변경 집합 생성·적용
+        if: inputs.operation == 'apply'
+        run: just --yes aws-bootstrap-apply "$TARGET_ENVIRONMENT"

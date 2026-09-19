@@ -1,0 +1,99 @@
+name: AWS 수동 배포
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 대상 GitHub Environment
+        required: true
+        type: choice
+        options: [dev, prd]
+      operation:
+        description: 계획 검토·인프라 적용·기존 ALB 검증
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, verify]
+      commit_sha:
+        description: main에 포함된 배포 커밋의 40자리 SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aws-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.verify.outputs.sha }}
+    steps:
+      # 승인되지 않은 커밋의 코드에는 Environment와 OIDC 권한을 주지 않는다.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: extractions/setup-just@v2
+      - uses: bazel-contrib/setup-bazel@0.15.0
+      - name: main의 신뢰된 검사기로 후보 SHA 검증
+        id: verify
+        env:
+          REQUESTED_SHA: ${{ inputs.commit_sha }}
+        run: just aws-preflight "$REQUESTED_SHA"
+  deploy:
+    needs: preflight
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ inputs.environment }}
+    runs-on: [self-hosted, linux, x64, 'scenetrip-${{ inputs.environment }}']
+    timeout-minutes: 90
+    env:
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      AWS_API_DOMAIN: ${{ vars.AWS_API_DOMAIN }}
+      AWS_COMMIT_SHA: ${{ needs.preflight.outputs.sha }}
+      TF_VAR_FILE_JSON: ${{ vars.TF_VAR_FILE_JSON }}
+      AWS_PAGER: ''
+      AWS_EC2_METADATA_DISABLED: 'true'
+      TARGET_ENVIRONMENT: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      # just와 Bazelisk는 고정 egress가 있는 전용 러너의 사전 조건이다.
+      # 클라우드 CLI와 Python은 MODULE.bazel의 체크섬 고정 도구만 실행한다.
+      - name: AWS 인증 전 입력·저장소 검증
+        run: just aws-validate "$TARGET_ENVIRONMENT"
+      - name: Environment 전용 OIDC 역할
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: scenetrip-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Terraform 계획
+        if: inputs.operation == 'plan'
+        run: just aws-plan "$TARGET_ENVIRONMENT"
+      - name: 저장 계획 적용·이미지·DB·Helm·HTTPS 검증
+        id: deploy
+        if: inputs.operation == 'apply'
+        run: just --yes aws-apply "$TARGET_ENVIRONMENT"
+      - name: 기존 ALB·DNS·HTTPS 읽기 전용 검증
+        if: inputs.operation == 'verify'
+        run: just aws-verify "$TARGET_ENVIRONMENT"
+      - name: 임시 DB 자격 증명 정리
+        if: always() && inputs.operation == 'apply' && steps.deploy.outcome != 'skipped'
+        run: just --yes aws-cleanup "$TARGET_ENVIRONMENT"

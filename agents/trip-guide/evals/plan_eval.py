@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).absolute().parent.parent))
 
 from src.agent import TripGuide
 from src.deepseek import ScriptedClient
@@ -47,7 +47,7 @@ from src.session import Anchor, Session
 from src.tools import run_tool
 from tests.fixtures import INCHEON, SEOUL, PoiBook
 
-_CASES = Path(__file__).resolve().parent / "cases.json"
+_CASES = Path(__file__).absolute().parent / "cases.json"
 
 
 def eval_book() -> PoiBook:

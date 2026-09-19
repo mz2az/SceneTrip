@@ -1,0 +1,39 @@
+{
+  "generator": "just education-generate",
+  "ingress": {
+    "controller": "eks.amazonaws.com/alb",
+    "listener": "HTTPS:443",
+    "service_type": "ClusterIP",
+    "target_type": "ip"
+  },
+  "kind": "source-configuration-not-live-aws-not-terraform-plan",
+  "outputs": {
+    "diagrams/dev-overview.svg": "91f9d8ba67a4508dc1b9cf8451b77c689d0dd9a1115e1924a62ddc784f34b5f5",
+    "diagrams/hcl-references.dot": "3321b518e0dea95fea24e238da614667428ab4bc591876db3817ae1eb76449ec",
+    "diagrams/hcl-references.svg": "00d27eacda3392253a27d2cc365d5d2b7ddfacdfe1e1513b7fceacd7e5ab1cbe",
+    "diagrams/prd-overview.svg": "529b537094ffe36b96a055a9cc73872093f6541801d91bf6196b2a5141ed9e21"
+  },
+  "schema_version": 1,
+  "sources": {
+    "agents/trip-guide/config/model.json": "27b336b6f90e4001ccdd9ff847fb27452364488d7c13661324060b4b57f1d75f",
+    "platform/environments/dev/terraform.tfvars.json.example": "8a20a7a165f0052c64d990ef8543ae06b4dcbc9b43068c2c52948012a778db82",
+    "platform/environments/prd/terraform.tfvars.json.example": "070180613ae40d667a63923b032a46dcf26188cf6396b553fa8ac2220bde3030",
+    "platform/helm/scenetrip/templates/config.yaml": "1f098e38ce6b5c290c4f491b01f3a626c231b33cb891d5fa1ea84eadfca10d8c",
+    "platform/helm/scenetrip/templates/ingress.yaml": "c7457cf217b8cabc5b8067c0f78e87d56213f9f8efc0da5f52179260aaecf8b9",
+    "platform/helm/scenetrip/templates/network-policy.yaml": "5ecc51ed2f0144966dc04268dcb1a18e78c3623e2aa08126a8df0d5976110574",
+    "platform/helm/scenetrip/templates/workloads.yaml": "52ccfea13c0676bb4a4a1a2855a51e5a4d68848727d4cb3a3fb876e740dceaf2",
+    "platform/helm/scenetrip/values-dev.yaml": "0c236691c17c18c5ddab9f9d08a4b56315a44a9691e75cf32aecd8827b3ce5fd",
+    "platform/helm/scenetrip/values-prd.yaml": "545ed0147a39cc754f19d7de4b4f5ac7665fc325b880bcd4d9145d32b427ef0d",
+    "platform/helm/scenetrip/values.yaml": "a66b776ae814958c70fbc943f1b4e05ed8a4681379527f33124d3d701a294603",
+    "platform/terraform/aws/database.tf": "4530b1f6cfeb1127c69ee4857169d47582116013e6692012160f69545fedb151",
+    "platform/terraform/aws/eks.tf": "ad7da1cc715b202f990d952c1d5203ad8da14baeef65f69b020f7995389a09ba",
+    "platform/terraform/aws/ingress.tf": "da571580cdc25f25dee5619b7022137f0c28777e8be8ba2abdbf608ebd906413",
+    "platform/terraform/aws/network.tf": "f3dace179d4871381585829f1a9cf575b3aada22c3960c97a6abb3bc35732766",
+    "platform/terraform/aws/outputs.tf": "da7d4bfa74c3850d967879793b14a48f4ee8c73849723f868cdd300cef24f50b",
+    "platform/terraform/aws/registry-secrets.tf": "0d47c0e392eefb24995735f372014f608d50e1c773ddeb97bd0428da1f6b1d47",
+    "platform/terraform/aws/variables.tf": "5c8940ae9329800076bfb65e298a72e51f9e42731443b7b9eda217cc0bb2f4e7",
+    "platform/terraform/aws/versions.tf": "e30d36276d65094c7bc57c17964de20ce244b14a13a49c79538fd4b2f6dd9347",
+    "services/scene-api/src/main/resources/application.yaml": "6329c32d69af7f567b5d48af464c8627c756d7bdc694687c3813b3cf341c645a",
+    "tools/education/source_diagrams.py": "0c1180ee77d56532c2ff42d20bb4bda76c1574bf11bf3042a91a22d2e674262f"
+  }
+}

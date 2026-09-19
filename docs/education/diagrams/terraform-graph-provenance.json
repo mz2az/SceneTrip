@@ -1,0 +1,31 @@
+{
+  "commands": [
+    [
+      "init",
+      "-backend=false",
+      "-input=false",
+      "-lockfile=readonly",
+      "-no-color"
+    ],
+    [
+      "graph"
+    ]
+  ],
+  "dot_sha256": "a9d31ba7863eeacfa10903216ef1990ca7c4ba1cd9ce5e6e1ba4b046cd79da65",
+  "kind": "terraform-engine-configuration-graph-not-plan-not-live-aws",
+  "provider_archive_sha256": "07172315d67bc9781240272759cdfc7bd32b7e72384a56862c2c1da3cca99a81",
+  "source_transform": "backend blocks removed from temporary copy only",
+  "sources": {
+    "platform/terraform/aws/.terraform.lock.hcl": "e886989ab9e8d7b04856fa55a588c9f9a7d9b868245428ee1f0582083cb52313",
+    "platform/terraform/aws/database.tf": "4530b1f6cfeb1127c69ee4857169d47582116013e6692012160f69545fedb151",
+    "platform/terraform/aws/eks.tf": "ad7da1cc715b202f990d952c1d5203ad8da14baeef65f69b020f7995389a09ba",
+    "platform/terraform/aws/ingress.tf": "da571580cdc25f25dee5619b7022137f0c28777e8be8ba2abdbf608ebd906413",
+    "platform/terraform/aws/network.tf": "f3dace179d4871381585829f1a9cf575b3aada22c3960c97a6abb3bc35732766",
+    "platform/terraform/aws/outputs.tf": "da7d4bfa74c3850d967879793b14a48f4ee8c73849723f868cdd300cef24f50b",
+    "platform/terraform/aws/registry-secrets.tf": "0d47c0e392eefb24995735f372014f608d50e1c773ddeb97bd0428da1f6b1d47",
+    "platform/terraform/aws/variables.tf": "5c8940ae9329800076bfb65e298a72e51f9e42731443b7b9eda217cc0bb2f4e7",
+    "platform/terraform/aws/versions.tf": "e30d36276d65094c7bc57c17964de20ce244b14a13a49c79538fd4b2f6dd9347",
+    "tools/education/terraform_graph.py": "dc44146b00e30e3dced64f6606e1562d241fedfaae6b14ad919fce3827f2b15f"
+  },
+  "terraform_version": "1.13.5"
+}

@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark"><title>AWS DEV·PRD 배포</title>
+<style>:root{--bg:#f4f6f2;--ink:#142922;--muted:#4d655c;--accent:#136f57;--line:#bfd0c4;--card:#fff;--code:#e8eee8;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+*{box-sizing:border-box}body{margin:0;font-size:18px;line-height:1.7}a{color:var(--accent);text-underline-offset:.2em}a:hover{text-decoration-thickness:2px}button,select{font:inherit}button{cursor:pointer}button:disabled{cursor:default;opacity:.45}button,select{border:1px solid var(--line);border-radius:6px;padding:.35rem .7rem;background:var(--card);color:var(--ink)}button[aria-pressed=true]{background:var(--accent);color:white}:focus-visible{outline:3px solid #d88918;outline-offset:3px}
+header{max-width:1100px;margin:auto;padding:4rem 3rem 2rem;border-bottom:1px solid var(--line)}h1{font-size:clamp(2.2rem,5vw,4.4rem);line-height:1.15;letter-spacing:-.04em;margin:.4em 0}h2{font-size:clamp(1.8rem,3.4vw,3rem);line-height:1.2;letter-spacing:-.025em;margin:.4em 0 .9em}h3{font-size:1.15em;margin:1.5rem 0 .5rem}p{margin:.8em 0}ul,ol{padding-left:1.3em}li{margin:.5em 0}.eyebrow{font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:750}.lede{color:var(--muted);font-size:1.1em;max-width:65ch}
+.slide{max-width:1100px;margin:auto;padding:3rem;border-bottom:1px solid var(--line)}.summary{font-size:clamp(1.25rem,2.4vw,1.85rem);line-height:1.6;max-width:45ch}.summary li{margin:1rem 0}.source{font-size:.76rem;color:var(--muted);overflow-wrap:anywhere;margin-top:1.6rem}.notes{padding:1rem 1.2rem;background:var(--code);border-left:4px solid var(--accent);font-size:.95rem;margin-top:1.5rem}.notes b{display:block}.course .notes{font-size:.85rem}.course>.toc{max-width:1100px;margin:auto;padding:2rem 3rem}.toc ol{columns:2;column-gap:3rem}.toc li{break-inside:avoid;font-size:1rem}
+pre{padding:1.2rem;background:#172b24;color:#eef5ed;overflow-x:auto;font-size:.92rem;line-height:1.7;border-radius:5px}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.88em}p code,li code,td code{background:var(--code);padding:.1em .3em;border-radius:3px}table{width:100%;border-collapse:collapse;font-size:.95rem;margin:1.5rem 0}th,td{border-bottom:1px solid var(--line);text-align:left;padding:.7rem}th{background:var(--code)}svg{width:100%;height:auto}figure{margin:2rem 0}figcaption{color:var(--muted);font-size:.85rem}
+.controls{display:none}.presentation header{display:none}.presentation .controls{display:flex;position:fixed;bottom:0;left:0;right:0;padding:.7rem 1rem;background:var(--card);border-top:1px solid var(--line);z-index:10;gap:.5rem;align-items:center;flex-wrap:wrap;font-size:.78rem}.controls select{max-width:23rem;flex:1;min-width:10rem}.controls progress{width:6rem;accent-color:var(--accent)}.presentation .slide{min-height:calc(100svh - 72px);padding:4rem 4rem 6rem;border:0;display:flex;flex-direction:column;justify-content:center}.presentation .slide[hidden]{display:none}.presentation .notes{display:none}.presentation.show-notes .notes{display:block}.presentation .slide .source{margin-top:2rem}.presentation.reading-mode .slide{min-height:0;border-bottom:1px solid var(--line)}.presentation.reading-mode .slide:last-child{padding-bottom:8rem}
+dialog{max-width:min(90vw,800px);max-height:80vh;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:var(--card);padding:2rem}dialog::backdrop{background:#061c16aa}dialog ol{columns:2}dialog li{break-inside:avoid;font-size:.95rem}dialog h2{font-size:1.5rem}footer{max-width:1100px;margin:auto;padding:2rem 3rem;font-size:.85rem;color:var(--muted)}.skip{position:absolute;left:-10000px}.skip:focus{left:1rem;top:1rem;background:white;padding:.5rem;z-index:30}
+.presentation .show-notes .notes{display:block}.presentation .reading-mode .slide{min-height:0;border-bottom:1px solid var(--line)}.presentation .reading-mode .slide:last-child{padding-bottom:8rem}
+.flow-figure{margin:.5rem 0}.flow{display:flex;gap:.6rem;align-items:center;margin:.5rem 0;font-size:.9rem}.node{padding:.7rem .9rem;border:1px solid var(--line);border-radius:8px;background:var(--card);flex:1;text-align:center}.arrow{color:var(--accent);font-size:1.3rem}.slide:has(.flow-figure) .summary,.slide:has(table) .summary{font-size:1.3rem}.slide:has(.flow-figure) .summary li,.slide:has(table) .summary li{margin:.4rem 0}
+@media(max-width:650px){body{font-size:16px}header,.slide,.course>.toc{padding:2rem 1.2rem}.presentation .slide{padding:2rem 1.4rem 9rem}.toc ol,dialog ol{columns:1}.controls progress{display:none}.controls select{max-width:100%}table{font-size:.78rem}th,td{padding:.4rem}footer{padding:2rem 1.2rem}}
+@media(prefers-color-scheme:dark){:root{--bg:#102019;--ink:#e5eee7;--muted:#a8bfb2;--accent:#83d3b1;--line:#355044;--card:#182c22;--code:#203a2d}button[aria-pressed=true]{color:#102019}pre{background:#09160f}}
+@media print{.controls,dialog,.skip,header .lede{display:none!important}:root{--bg:white;--ink:black;--muted:#333;--accent:#164b37;--line:#aaa;--card:white;--code:#eee}body{font-size:11pt}.presentation .slide,.presentation .slide[hidden]{display:block!important;min-height:0;padding:1cm;break-after:page}.presentation .notes{display:none!important}.course .slide{break-inside:avoid;padding:1cm}.summary{font-size:20pt}h2{font-size:28pt}a{color:inherit}header,footer{padding:1cm}pre{white-space:pre-wrap;background:#eee;color:black}.source{font-size:9pt}}
+</style></head><body class="deck-body">
+<a class="skip" href="#deck">본문으로 건너뛰기</a>
+<header><div class="eyebrow">SCENETRIP ENGINEERING / 2026-09-20</div><h1>AWS DEV·PRD 배포</h1>
+<p class="lede"><a href="aws-eks-course.html">AWS 상세 강의</a> · <a href="aws-eks-presentation.html">AWS 발표</a> · <a href="k8s-observability-course.html">로컬 상세 실습</a> · <a href="k8s-observability-class.html">로컬 발표</a></p><p class="lede">오프라인 사용 가능. ← → / PageUp·PageDown / Space·Shift+Space / Home·End로 탐색합니다.
+키보드 입력 중인 버튼·링크·폼에는 단축키를 적용하지 않습니다. 읽기 모드와 인쇄는 전체 내용을 보여줍니다.</p></header>
+
+<main id="deck"><section class="slide" id="start">
+<div class="eyebrow">SCENETRIP / 01</div>
+<h2>SceneTrip을 DEV와 PRD에 배포하기</h2>
+<ul class="summary"><li>네이티브 앱 → scene-api → PostgreSQL·trip-guide</li><li>구현 파일에서 배포 형상과 실패 지점을 읽는다</li><li>로컬 검증과 실제 AWS 적용 결과를 구별한다</li></ul>
+
+<aside class="notes"><b>강사 노트</b>첫 화면에서 참석자가 개발자·운영자 중 어느 역할인지 확인한다. 모든 실습 결과는 환경과 커밋 SHA를 함께 기록한다.</aside>
+<p class="source">구현 근거: <a href="../project/plans/aws-dev-prd-port.md">docs/project/plans/aws-dev-prd-port.md</a> · <a href="aws-eks-course.html#start">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="product">
+<div class="eyebrow">SCENETRIP / 02</div>
+<h2>제품 경계와 실행 단위</h2>
+<ul class="summary"><li>iOS·Android 앱은 사용자 기기에서 실행</li><li>scene-api는 Java 21·Spring Boot HTTP 서버</li><li>trip-guide는 Python 에이전트, 데이터 정본은 scene-api</li></ul>
+
+<aside class="notes"><b>강사 노트</b>앱 패키지와 서버 컨테이너를 같은 배포라고 부르지 않는다. 모델이 DB 자격 증명을 갖지 않는 경계를 강조한다.</aside>
+<p class="source">구현 근거: <a href="../architecture/adr/0013-guide-chat-is-served-by-the-python-agent.md">docs/architecture/adr/0013-guide-chat-is-served-by-the-python-agent.md</a> · <a href="aws-eks-course.html#product">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="request">
+<div class="eyebrow">SCENETRIP / 03</div>
+<h2>요청 한 건의 경로</h2>
+<ul class="summary"><li>HTTPS → ALB → nginx gateway → scene-api:8080/v1</li><li>scene-api → trip-guide:8899 → DeepSeek</li><li>에이전트의 장소 조회는 내부 scene-api로 돌아온다</li></ul>
+<div class="flow-figure" role="img" aria-label="처리 순서"><div class="flow"><span class="node">네이티브 앱</span><span class="arrow">→</span><span class="node">ALB · nginx</span><span class="arrow">→</span><span class="node">scene-api :8080</span></div><div class="flow"><span class="node">scene-api</span><span class="arrow">→</span><span class="node">trip-guide :8899</span><span class="arrow">→</span><span class="node">DeepSeek</span></div><div class="flow"><span class="node">trip-guide 조회</span><span class="arrow">→</span><span class="node">내부 scene-api</span><span class="arrow">→</span><span class="node">PostgreSQL</span></div></div>
+<aside class="notes"><b>강사 노트</b>일반 장소 조회는 모델을 호출하지 않는다. 모든 요청이 AI 경로를 통과한다고 그리지 않는다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../services/scene-api/src/main/resources/application.yaml">services/scene-api/src/main/resources/application.yaml</a> · <a href="aws-eks-course.html#request">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="environments">
+<div class="eyebrow">SCENETRIP / 04</div>
+<h2>DEV와 PRD의 비용·장애 허용 범위</h2>
+<ul class="summary"><li>DEV: 2 AZ·NAT 1개·Single-AZ DB</li><li>PRD: 3 AZ·AZ별 NAT·Multi-AZ DB</li><li>계정·state·역할·비밀값을 환경별로 분리</li></ul>
+<table><thead><tr><th>항목</th><th>DEV</th><th>PRD</th></tr></thead><tbody>
+        <tr><td>가용 영역</td><td>2개</td><td>3개</td></tr><tr><td>NAT Gateway</td><td>공유 1개</td><td>AZ마다 1개</td></tr>
+        <tr><td>RDS</td><td>Single-AZ</td><td>Multi-AZ</td></tr><tr><td>백업 보존</td><td>7일</td><td>14일</td></tr>
+        <tr><td>DB 삭제 보호</td><td>꺼짐</td><td>켜짐</td></tr></tbody></table>
+<aside class="notes"><b>강사 노트</b>구성도 아래 출처 해시를 확인한다. PRD의 높은 비용은 어떤 장애 범위를 줄이는지 항목별로 질문한다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/environments/README.md">platform/environments/README.md</a> · <a href="aws-eks-course.html#environments">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="vpc">
+<div class="eyebrow">SCENETRIP / 05</div>
+<h2>VPC와 CIDR: 네트워크의 소유 범위</h2>
+<ul class="summary"><li>VPC는 AWS 안의 논리적 사설 네트워크</li><li>CIDR은 사용할 주소 범위</li><li>환경 분리는 이름보다 주소·계정·권한 경계가 중요</li></ul>
+
+<aside class="notes"><b>강사 노트</b>CIDR 예제의 계정 ID와 주소를 실제 값으로 오인하지 않게 한다. 주소 설계는 나중에 바꾸기 비싼 입력이다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/terraform/aws/network.tf">platform/terraform/aws/network.tf</a> · <a href="aws-eks-course.html#vpc">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="subnets">
+<div class="eyebrow">SCENETRIP / 06</div>
+<h2>서브넷·AZ·라우팅 테이블</h2>
+<ul class="summary"><li>AZ마다 public·application·database subnet을 분리</li><li>public 여부는 이름이 아니라 IGW 경로로 결정</li><li>DB subnet은 인터넷으로 직접 나가지 않는다</li></ul>
+
+<aside class="notes"><b>강사 노트</b>서브넷 이름에서 public을 지우면 보안이 달라지는지 물어본다. 실제 라우팅과 공인 주소가 답이다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/terraform/aws/network.tf">platform/terraform/aws/network.tf</a> · <a href="aws-eks-course.html#subnets">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="egress">
+<div class="eyebrow">SCENETRIP / 07</div>
+<h2>IGW와 NAT: 들어오는 길과 나가는 길</h2>
+<ul class="summary"><li>IGW는 VPC와 인터넷 사이의 게이트웨이</li><li>NAT는 사설 workload의 외부 연결을 중계</li><li>DeepSeek·Kakao·이미지 다운로드에 egress 경로가 필요</li></ul>
+
+<aside class="notes"><b>강사 노트</b>DB 접속은 되는데 모델 호출만 실패하면 egress·DNS·키·제공자 응답을 분리해서 점검한다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/terraform/aws/network.tf">platform/terraform/aws/network.tf</a> · <a href="aws-eks-course.html#egress">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="security-groups">
+<div class="eyebrow">SCENETRIP / 08</div>
+<h2>Security Group: 허용할 연결만 선언</h2>
+<ul class="summary"><li>SG는 네트워크 인터페이스에 적용하는 상태 기반 방화벽</li><li>DB 5432는 필요한 workload 경계에서만 허용</li><li>외부 CIDR 제한은 사용자 인증을 대체하지 않는다</li></ul>
+
+<aside class="notes"><b>강사 노트</b>내 IP가 바뀌어 접속이 안 될 때 0.0.0.0/0으로 풀지 말고 승인된 대역을 갱신하는 과정을 보여준다.</aside>
+<p class="source">구현 근거: <a href="../api/auth.md">docs/api/auth.md</a> · <a href="aws-eks-course.html#security-groups">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="iam">
+<div class="eyebrow">SCENETRIP / 09</div>
+<h2>IAM: 누가 어떤 AWS 작업을 할 수 있는가</h2>
+<ul class="summary"><li>IAM policy는 action·resource·condition으로 권한을 제한</li><li>배포 역할과 런타임 권한을 분리</li><li>신뢰 정책과 권한 정책은 서로 다른 질문에 답한다</li></ul>
+
+<aside class="notes"><b>강사 노트</b>AccessDenied를 해결할 때 AdministratorAccess부터 붙이지 않는다. 거부된 API와 ARN, condition을 읽는다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/terraform/README.md">platform/terraform/README.md</a> · <a href="aws-eks-course.html#iam">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="oidc">
+<div class="eyebrow">SCENETRIP / 10</div>
+<h2>OIDC와 STS: GitHub Actions의 임시 자격 증명</h2>
+<ul class="summary"><li>OIDC 토큰이 저장소·workflow 환경의 신원을 증명</li><li>STS가 짧은 수명의 AWS 자격 증명 발급</li><li>DEV·PRD Environment 신뢰 조건을 각각 제한</li></ul>
+<div class="flow-figure" role="img" aria-label="처리 순서"><div class="flow"><span class="node">GitHub 신원 토큰</span><span class="arrow">→</span><span class="node">STS 임시 자격 증명</span><span class="arrow">→</span><span class="node">환경별 AWS 역할</span></div></div>
+<aside class="notes"><b>강사 노트</b>OIDC 로그인 성공과 Terraform apply 권한 성공을 구별한다. Environment 이름 대소문자도 신뢰 조건의 일부다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../.github/workflows/aws-bootstrap.yml">.github/workflows/aws-bootstrap.yml</a> · <a href="aws-eks-course.html#oidc">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="state">
+<div class="eyebrow">SCENETRIP / 11</div>
+<h2>Terraform state와 S3 잠금</h2>
+<ul class="summary"><li>state는 선언한 자원과 실제 식별자를 연결하는 기록</li><li>S3에 환경별 state·버전 기록 저장</li><li>잠금은 동시 적용으로 state가 덮이는 일을 막는다</li></ul>
+
+<aside class="notes"><b>강사 노트</b>state 파일을 Git에 넣지 않는 이유를 비밀값과 동시 작업 두 측면으로 설명한다. 실패한 작업의 lock은 소유자를 확인한다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/environments/README.md">platform/environments/README.md</a> · <a href="aws-eks-course.html#state">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="eks">
+<div class="eyebrow">SCENETRIP / 12</div>
+<h2>EKS Auto Mode와 EC2의 역할</h2>
+<ul class="summary"><li>EKS는 Kubernetes 제어 평면을 관리</li><li>Auto Mode가 노드·네트워크·로드밸런서 수명 주기를 관리</li><li>EC2는 컨테이너를 실제 실행하는 컴퓨팅 자원</li></ul>
+
+<aside class="notes"><b>강사 노트</b>관리형이라는 표현을 무운영으로 번역하지 않는다. 파드가 Pending이면 자원 요청과 노드 생성 권한을 함께 본다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/terraform/aws/eks.tf">platform/terraform/aws/eks.tf</a> · <a href="aws-eks-course.html#eks">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="kubernetes">
+<div class="eyebrow">SCENETRIP / 13</div>
+<h2>Deployment·Service·Job이 나누는 책임</h2>
+<ul class="summary"><li>Deployment는 원하는 수의 파드를 유지</li><li>Service는 파드 교체에도 유지되는 내부 주소</li><li>Job은 DB 준비처럼 끝나야 하는 작업을 실행</li></ul>
+
+<aside class="notes"><b>강사 노트</b>Ready인데 사용자가 실패하는 경우를 생각해 본다. 잘못된 API base URL이나 외부 제공자 키는 단순 probe만으로 못 잡을 수 있다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/helm/README.md">platform/helm/README.md</a> · <a href="aws-eks-course.html#kubernetes">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="ecr">
+<div class="eyebrow">SCENETRIP / 14</div>
+<h2>ECR와 변경하지 않는 이미지 태그</h2>
+<ul class="summary"><li>ECR은 컨테이너 이미지 저장소</li><li>API·에이전트·migration 산출물을 식별</li><li>같은 커밋의 검증한 이미지를 환경에 배포</li></ul>
+
+<aside class="notes"><b>강사 노트</b>Git SHA는 소스 식별자이고 digest는 이미지 내용 식별자다. 재빌드한 두 이미지가 항상 같다고 가정하지 않는다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../services/scene-api/BUILD.bazel">services/scene-api/BUILD.bazel</a> · <a href="aws-eks-course.html#ecr">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="ingress">
+<div class="eyebrow">SCENETRIP / 15</div>
+<h2>ALB·ACM·Route 53: HTTPS 진입점</h2>
+<ul class="summary"><li>ALB는 HTTP host·path를 읽고 gateway 대상을 선택</li><li>ACM 인증서는 HTTPS 서버 신원을 증명</li><li>Route 53은 사람이 쓰는 도메인을 진입점에 연결</li></ul>
+
+<aside class="notes"><b>강사 노트</b>인증서 오류·DNS 오류·HTTP 404를 같은 배포 실패로 묶지 않는다. curl에서 인증서 검증을 끄는 방식은 가르치지 않는다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/helm/README.md">platform/helm/README.md</a> · <a href="aws-eks-course.html#ingress">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="lb-choice">
+<div class="eyebrow">SCENETRIP / 16</div>
+<h2>왜 SceneTrip은 ALB를 선택하는가</h2>
+<ul class="summary"><li>HTTP API의 host·path 라우팅을 로드밸런서에서 표현</li><li>NLB는 TCP·UDP 연결과 고정 IP 요구의 대안</li><li>ALB 시간 + LCU 요금과 nginx 운영 비용을 함께 비교</li></ul>
+
+<aside class="notes"><b>강사 노트</b>로드밸런서 이름을 외우기보다 우리 요청이 HTTP인지, 고정 IP가 필요한지, 어느 계층의 정책을 옮길지 설명하게 한다.</aside>
+<p class="source">구현 근거: <a href="../project/plans/alb-deployment.md">docs/project/plans/alb-deployment.md</a> · <a href="aws-eks-course.html#lb-choice">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="alb-resources">
+<div class="eyebrow">SCENETRIP / 17</div>
+<h2>Auto Mode가 ALB를 만드는 선언</h2>
+<ul class="summary"><li>IngressClassParams → IngressClass → Ingress</li><li>gateway Service는 ClusterIP, ALB 대상은 gateway Pod IP</li><li>외부 주소는 Service가 아니라 Ingress 상태에서 확인</li></ul>
+
+<aside class="notes"><b>강사 노트</b>Service에 EXTERNAL-IP가 없다는 이유로 실패라고 판단하지 않는다. target-type=ip의 논리 참조와 실제 패킷 경로를 구분한다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/helm/scenetrip/templates/ingress.yaml">platform/helm/scenetrip/templates/ingress.yaml</a> · <a href="aws-eks-course.html#alb-resources">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="alb-nginx">
+<div class="eyebrow">SCENETRIP / 18</div>
+<h2>ALB 뒤에서도 nginx를 유지하는 이유</h2>
+<ul class="summary"><li>nginx는 일반 프록시이며 Ingress Controller가 아님</li><li>경로·파드별 요청/연결 수·본문 1 MiB·헤더 정책 유지</li><li>X-Forwarded-For는 신뢰한 ALB가 붙인 마지막 주소만 사용</li></ul>
+
+<aside class="notes"><b>강사 노트</b>realip 처리를 빼면 모든 요청이 ALB 주소로 기록되어 서로 다른 사용자가 같은 rate limit를 공유할 수 있다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/helm/scenetrip/templates/config.yaml">platform/helm/scenetrip/templates/config.yaml</a> · <a href="aws-eks-course.html#alb-nginx">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="rds">
+<div class="eyebrow">SCENETRIP / 19</div>
+<h2>RDS PostgreSQL: 데이터의 수명은 파드보다 길다</h2>
+<ul class="summary"><li>RDS는 PostgreSQL 운영·백업·복구를 지원</li><li>PRD Multi-AZ는 장애 복구를 위한 구성</li><li>DB 용량·연결 수·복원 시간을 별도로 검증</li></ul>
+
+<aside class="notes"><b>강사 노트</b>백업이 켜져 있다는 것과 정해진 시간 안에 서비스가 복구된다는 것은 다르다. RPO와 RTO를 팀의 숫자로 정하게 한다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/terraform/aws/database.tf">platform/terraform/aws/database.tf</a> · <a href="aws-eks-course.html#rds">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="postgis">
+<div class="eyebrow">SCENETRIP / 20</div>
+<h2>PostGIS·pg_trgm과 한국어 검색 로케일</h2>
+<ul class="summary"><li>PostGIS: 위치·거리·공간 인덱스</li><li>pg_trgm: 오타·부분 문자열 유사도 검색</li><li>UTF8와 C.UTF-8 계열 로케일을 배포 전에 검증</li></ul>
+
+<aside class="notes"><b>강사 노트</b>확장 설치 성공 후 한국어 예제 검색도 확인한다. 기능 테스트가 없는 인프라 정상 판정은 충분하지 않다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../services/scene-api/src/main/resources/db/migration/V1__extensions.sql">services/scene-api/src/main/resources/db/migration/V1__extensions.sql</a> · <a href="aws-eks-course.html#postgis">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="db-roles">
+<div class="eyebrow">SCENETRIP / 21</div>
+<h2>DB 관리자·migration·runtime 권한 분리</h2>
+<ul class="summary"><li>bootstrap: DB·역할·확장 준비</li><li>migration: Flyway 스키마 변경</li><li>runtime: API가 필요한 데이터 접근</li></ul>
+<div class="flow-figure" role="img" aria-label="처리 순서"><div class="flow"><span class="node">bootstrap · 관리자</span><span class="arrow">→</span><span class="node">migration · DDL</span><span class="arrow">→</span><span class="node">runtime · DML</span></div></div>
+<aside class="notes"><b>강사 노트</b>runtime 계정에 확장 설치 권한을 주어 실패를 숨기지 않는다. migration이 실패했으면 새 이미지를 배포하지 않는다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../services/scene-api/src/main/java/com/mz2az/scenetrip/sceneapi/DbMigrate.java">services/scene-api/src/main/java/com/mz2az/scenetrip/sceneapi/DbMigrate.java</a> · <a href="aws-eks-course.html#db-roles">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="secrets">
+<div class="eyebrow">SCENETRIP / 22</div>
+<h2>Secrets Manager와 KMS</h2>
+<ul class="summary"><li>Secrets Manager는 비밀값 저장·버전·회전을 관리</li><li>KMS는 암호화 키의 권한과 사용을 관리</li><li>Terraform에 실제 API 키·DB 비밀번호를 넣지 않는다</li></ul>
+
+<aside class="notes"><b>강사 노트</b>강의 화면에 실제 secret 값을 보여주지 않는다. API 서버는 DeepSeek 키가 필요 없다는 최소 권한 예를 든다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/terraform/README.md">platform/terraform/README.md</a> · <a href="aws-eks-course.html#secrets">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="agent-state">
+<div class="eyebrow">SCENETRIP / 23</div>
+<h2>에이전트는 왜 replica가 1개인가</h2>
+<ul class="summary"><li>대화 이력은 Python 프로세스 메모리</li><li>replica를 늘리면 같은 대화가 서로 다른 파드에 도착</li><li>Recreate 배포와 재시작 시 대화 소실을 명시</li></ul>
+
+<aside class="notes"><b>강사 노트</b>에이전트를 재시작한 뒤 기존 대화가 어떻게 보이는지 DEV에서 확인한다. 강의에서도 중단 시간을 숨기지 않는다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../agents/trip-guide/src/session.py">agents/trip-guide/src/session.py</a> · <a href="aws-eks-course.html#agent-state">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="timeouts">
+<div class="eyebrow">SCENETRIP / 24</div>
+<h2>타임아웃과 재시도: 중복 실행을 막기</h2>
+<ul class="summary"><li>에이전트 턴 30초 &lt; API 40초 &lt; 앱 50초</li><li>내부 작업이 외부 요청보다 먼저 포기</li><li>가이드 chat은 멱등하지 않아 무조건 재시도하지 않는다</li></ul>
+
+<aside class="notes"><b>강사 노트</b>504가 나왔다고 즉시 재전송했을 때 장바구니 변경이 두 번 일어나는 상황을 토론한다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../agents/trip-guide/config/model.json">agents/trip-guide/config/model.json</a> · <a href="aws-eks-course.html#timeouts">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="observability">
+<div class="eyebrow">SCENETRIP / 25</div>
+<h2>CloudWatch와 SigNoz가 보는 것</h2>
+<ul class="summary"><li>CloudWatch는 AWS 자원·제어 평면의 지표와 로그</li><li>SigNoz는 앱 로그·메트릭·트레이스 탐색</li><li>로컬 SigNoz가 AWS에 자동 설치되지는 않는다</li></ul>
+
+<aside class="notes"><b>강사 노트</b>RDS CPU는 정상인데 chat p95만 느리다면 앱 트레이스와 제공자 지연이 필요하다. 로그에 질문 원문이나 키를 남기지 않는다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/kubernetes/README.md">platform/kubernetes/README.md</a> · <a href="aws-eks-course.html#observability">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="build">
+<div class="eyebrow">SCENETRIP / 26</div>
+<h2>Bazel과 just로 같은 산출물 만들기</h2>
+<ul class="summary"><li>just는 사람이 실행하는 명령 창구</li><li>Bazel은 빌드·테스트·이미지 타깃 그래프</li><li>언어별 도구를 따로 실행한 결과를 배포 근거로 삼지 않는다</li></ul>
+
+<aside class="notes"><b>강사 노트</b>검사 실패를 환경 문제와 변경 회귀로 분리해 기록한다. 테스트를 빼고 통과한 것처럼 보이게 하지 않는다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../tools/just/docs.just">tools/just/docs.just</a> · <a href="aws-eks-course.html#build">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="bootstrap">
+<div class="eyebrow">SCENETRIP / 27</div>
+<h2>첫 배포 전에 준비할 입력</h2>
+<ul class="summary"><li>실제 계정·리전·AZ·허용 CIDR 확인</li><li>state backend·OIDC 역할·GitHub Environment 준비</li><li>인증서·DNS·비밀값은 소유자가 발급·설정</li></ul>
+
+<aside class="notes"><b>강사 노트</b>실제 키를 예제 파일에 채워 커밋하지 않는다. 입력이 없는 수강생은 렌더·테스트·구성도 실습까지만 수행한다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../.github/workflows/aws-bootstrap.yml">.github/workflows/aws-bootstrap.yml</a> · <a href="aws-eks-course.html#bootstrap">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="deploy">
+<div class="eyebrow">SCENETRIP / 28</div>
+<h2>수동 배포의 순서와 중단 조건</h2>
+<ul class="summary"><li>입력 검증 → 인프라 plan 검토·apply</li><li>이미지 → DB bootstrap·migration → Helm rollout</li><li>readiness → 제한된 HTTPS smoke → 기록</li></ul>
+<div class="flow-figure" role="img" aria-label="처리 순서"><div class="flow"><span class="node">입력·plan 검토</span><span class="arrow">→</span><span class="node">DB Job 성공</span><span class="arrow">→</span><span class="node">Helm · smoke</span></div></div>
+<aside class="notes"><b>강사 노트</b>워크플로 화면에서 실패한 단계가 무엇을 이미 바꿨을 수 있는지 짚는다. 재실행 전에 부분 적용 상태를 확인한다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../.github/workflows/aws-deploy.yml">.github/workflows/aws-deploy.yml</a> · <a href="aws-eks-course.html#deploy">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="validation">
+<div class="eyebrow">SCENETRIP / 29</div>
+<h2>검증은 네트워크에서 제품 동작까지</h2>
+<ul class="summary"><li>정적 검사: 환경·차트·권한·출처</li><li>실행 검사: probe·DB migration·HTTP 경로</li><li>제품 검사: 검색·한글·가이드·인증 경계</li></ul>
+
+<aside class="notes"><b>강사 노트</b>모든 경로에 200만 기대하면 권한 검사를 우회하게 된다. 등록하지 않은 기기의 보호 기능 요청은 거부되어야 한다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../services/scene-api/src/main/resources/application.yaml">services/scene-api/src/main/resources/application.yaml</a> · <a href="aws-eks-course.html#validation">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="rollback">
+<div class="eyebrow">SCENETRIP / 30</div>
+<h2>애플리케이션 롤백과 DB 복구</h2>
+<ul class="summary"><li>이전 이미지로 복귀해도 DB 스키마는 남는다</li><li>호환되는 migration부터 설계</li><li>백업 복원은 별도 DB·전환·검증 절차</li></ul>
+
+<aside class="notes"><b>강사 노트</b>컬럼을 삭제한 새 버전에서 이전 이미지로 돌아가는 사고를 사례로 든다. 안전한 전진 수정이 더 나을 때도 있다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../services/scene-api/src/main/resources/db/migration/V14__poi_naver.sql">services/scene-api/src/main/resources/db/migration/V14__poi_naver.sql</a> · <a href="aws-eks-course.html#rollback">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="cost">
+<div class="eyebrow">SCENETRIP / 31</div>
+<h2>비용을 만드는 것은 트래픽만이 아니다</h2>
+<ul class="summary"><li>EKS·NAT·DB·ALB에는 유휴 시간 비용도 존재</li><li>로그·이미지·백업은 보존 기간이 비용을 키움</li><li>DEV 절약과 PRD 장애 허용 범위를 함께 결정</li></ul>
+
+<aside class="notes"><b>강사 노트</b>월간 표에 단가 대신 수량·시간·데이터량부터 적게 한다. AWS Pricing Calculator에서 해당 날짜 견적을 별도로 저장한다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../platform/environments/README.md">platform/environments/README.md</a> · <a href="aws-eks-course.html#cost">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="incident">
+<div class="eyebrow">SCENETRIP / 32</div>
+<h2>장애 실습: 증상에서 경계를 좁히기</h2>
+<ul class="summary"><li>이미지 실패: 태그·아키텍처·ECR 권한</li><li>DB 실패: DNS·SG·자격 증명·확장·로케일</li><li>가이드 실패: agent·NAT·키·제공자·턴 예산</li></ul>
+
+<aside class="notes"><b>강사 노트</b>한 조는 장애를 만들고 다른 조는 증상만 보고 진단한다. 정답은 명령 개수가 아니라 근거 있는 원인과 복구 검증이다.</aside>
+<p class="source">구현 근거: <a href="../project/plans/aws-dev-prd-port.md">docs/project/plans/aws-dev-prd-port.md</a> · <a href="aws-eks-course.html#incident">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="diagrams">
+<div class="eyebrow">SCENETRIP / 33</div>
+<h2>구성도와 출처 해시를 읽는 법</h2>
+<ul class="summary"><li>tfvars·HCL·앱 설정에서 구성 요약을 생성</li><li>SHA256으로 어떤 입력의 그림인지 확인</li><li>AWS 실시간 인벤토리·terraform plan 결과와 구별</li></ul>
+
+<aside class="notes"><b>강사 노트</b>입력 NAT 정책을 바꿔 그림과 검사 결과가 함께 달라지는지 시연한다. 그림이 예쁘다는 이유로 실제 배포 상태라고 설명하지 않는다.</aside>
+<p class="source">구현 근거: <a class="source-file" href="../../tools/education/README.md">tools/education/README.md</a> · <a href="aws-eks-course.html#diagrams">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="lab">
+<div class="eyebrow">SCENETRIP / 34</div>
+<h2>실습: 코드에서 배포 근거 만들기</h2>
+<ul class="summary"><li>로컬: API·DB·관측성을 먼저 연결</li><li>정적: DEV·PRD 입력과 구성도 검증</li><li>클라우드: 승인된 계정에서 수동 적용·smoke·기록</li></ul>
+
+<aside class="notes"><b>강사 노트</b>실습 제출물은 스크린샷만이 아니라 입력·검증 결과·남은 제약이다. 로컬 데이터 seed가 필요한 경우 README의 승인된 데이터 경로를 따른다.</aside>
+<p class="source">구현 근거: <a href="../education/k8s-observability-class.html">docs/education/k8s-observability-class.html</a> · <a href="aws-eks-course.html#lab">이 장의 상세 설명·실습</a></p>
+</section>
+<section class="slide" id="sources">
+<div class="eyebrow">SCENETRIP / 35</div>
+<h2>읽을 자료와 학습 확인</h2>
+<ul class="summary"><li>AWS 공식 문서의 정의와 저장소의 선택을 구별</li><li>서비스를 추가하기 전에 해결할 문제를 설명</li><li>배포·복구·비용·보안의 근거를 코드로 찾기</li></ul>
+
+<aside class="notes"><b>강사 노트</b>자료 확인 기준일은 2026-09-20이다. 가격·지원 버전·관리형 정책은 배포 시 공식 문서로 다시 확인한다.</aside>
+<p class="source">구현 근거: <a href="../education/README.md">docs/education/README.md</a> · <a href="aws-eks-course.html#sources">이 장의 상세 설명·실습</a></p>
+</section></main>
+<nav class="controls" aria-label="발표 탐색">
+<button id="previous-slide" type="button" aria-label="이전 슬라이드">← 이전</button>
+<button id="next-slide" type="button" aria-label="다음 슬라이드">다음 →</button>
+<label for="slide-select">이동</label><select id="slide-select"></select><span id="slide-count"></span>
+<progress id="slide-progress" aria-label="진행률"></progress>
+<button id="toggle-overview" aria-controls="overview">목차</button>
+<button id="toggle-notes" aria-pressed="false">강사 노트</button>
+<button id="toggle-reading" aria-pressed="false">읽기</button>
+<button id="toggle-fullscreen" aria-pressed="false">전체 화면</button>
+<button id="print-slides">인쇄</button></nav>
+<dialog id="overview" aria-labelledby="overview-title"><h2 id="overview-title">목차</h2>
+<button id="close-overview">닫기</button><ol id="overview-list"></ol></dialog>
+<footer><a href="aws-eks-course.html">AWS 상세 강의</a> · <a href="aws-eks-presentation.html">AWS 발표</a> · <a href="k8s-observability-course.html">로컬 상세 실습</a> · <a href="k8s-observability-class.html">로컬 발표</a><p>구성도: <a href="diagrams/dev-overview.svg">DEV</a> · <a href="diagrams/prd-overview.svg">PRD</a> ·
+<a href="diagrams/hcl-references.svg">HCL 참조</a> · <a href="diagrams/provenance.json">SHA256 출처</a></p>
+<p>TripPilot PR #645의 교육 구성·탐색 방식을 SceneTrip 구현에 맞춰 이식. 실제 AWS 배포 결과가 아닙니다.</p></footer>
+<script>if (location.protocol === 'http:' || location.protocol === 'https:') {
+  document.querySelectorAll('a.source-file').forEach((link) => {
+    const text = document.createElement('code'); text.textContent = link.textContent; link.replaceWith(text);
+  });
+}</script>
+<script>/* Adapted from ASM-TripPilot/trippilot PR #645, commit 8420d8e09bd48dc2650883a3f2fe43fc96dea231. */
+/* Offline presentation controls. Load with <script defer src="...">. */
+(() => {
+  'use strict';
+
+  function indexFromHash(slides, location) {
+    try {
+      const id = decodeURIComponent(location.hash.slice(1));
+      if (!id) return 0;
+      return slides.findIndex((slide) => slide.id === id);
+    } catch {
+      return -1;
+    }
+  }
+
+  function getControls(document) {
+    const ids = {
+      previous: 'previous-slide', next: 'next-slide', overviewToggle: 'toggle-overview',
+      notes: 'toggle-notes', fullscreen: 'toggle-fullscreen', print: 'print-slides',
+      reading: 'toggle-reading', select: 'slide-select', count: 'slide-count',
+      progress: 'slide-progress', overview: 'overview', list: 'overview-list',
+      close: 'close-overview',
+    };
+    return Object.fromEntries(Object.entries(ids).map(([key, id]) => [key, document.getElementById(id)]));
+  }
+
+  function render({ document, slides, controls }, state) {
+    slides.forEach((slide, index) => {
+      const active = index === state.index;
+      slide.hidden = !state.reading && !active;
+      slide.classList.toggle('is-active', active);
+      if (active) slide.setAttribute('aria-current', 'step');
+      else slide.removeAttribute('aria-current');
+    });
+    controls.previous.disabled = state.index === 0;
+    controls.next.disabled = state.index === slides.length - 1;
+    controls.select.value = slides[state.index].id;
+    controls.count.textContent = `${state.index + 1} / ${slides.length}`;
+    controls.progress.max = slides.length;
+    controls.progress.value = state.index + 1;
+    controls.notes.setAttribute('aria-pressed', String(state.notes));
+    controls.reading.setAttribute('aria-pressed', String(state.reading));
+    document.body.classList.toggle('show-notes', state.notes);
+    document.body.classList.toggle('reading-mode', state.reading);
+  }
+
+  function setupOverview({ document, slides, controls }, navigate) {
+    const close = (restoreFocus = true) => {
+      if (typeof controls.overview.close === 'function') controls.overview.close();
+      else controls.overview.removeAttribute('open');
+      controls.overviewToggle.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) controls.overviewToggle.focus();
+    };
+    controls.select.replaceChildren();
+    controls.list.replaceChildren();
+    slides.forEach((slide, index) => {
+      const heading = slide.querySelector('h1, h2');
+      const label = `${index + 1}. ${heading ? heading.textContent.trim() : slide.id}`;
+      const option = document.createElement('option');
+      option.value = slide.id;
+      option.textContent = label;
+      controls.select.append(option);
+      const item = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = `#${encodeURIComponent(slide.id)}`;
+      link.textContent = label;
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        close(false);
+        navigate(index);
+      });
+      item.append(link);
+      controls.list.append(item);
+    });
+    controls.overviewToggle.setAttribute('aria-expanded', 'false');
+    controls.overviewToggle.addEventListener('click', () => {
+      if (controls.overview.open) return close();
+      if (typeof controls.overview.showModal === 'function') controls.overview.showModal();
+      else controls.overview.setAttribute('open', '');
+      controls.overviewToggle.setAttribute('aria-expanded', 'true');
+      controls.close.focus();
+    });
+    controls.close.addEventListener('click', () => close());
+    controls.overview.addEventListener('close', () => controls.overviewToggle.setAttribute('aria-expanded', 'false'));
+    controls.overview.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); close(); }
+    });
+  }
+
+  function setupNavigation(context, getState, navigate) {
+    const { document, window, slides, controls } = context;
+    controls.previous.addEventListener('click', () => navigate(getState().index - 1));
+    controls.next.addEventListener('click', () => navigate(getState().index + 1));
+    controls.select.addEventListener('change', () => {
+      const index = slides.findIndex((slide) => slide.id === controls.select.value);
+      if (index >= 0) navigate(index);
+    });
+    window.addEventListener('hashchange', () => {
+      const index = indexFromHash(slides, window.location);
+      if (index >= 0) navigate(index, false);
+    });
+    document.addEventListener('keydown', (event) => {
+      const state = getState();
+      if (state.reading || controls.overview.open || event.defaultPrevented ||
+        event.ctrlKey || event.metaKey || event.altKey || (event.shiftKey && event.key !== ' ')) return;
+      const interactive = 'input, select, textarea, button, a, summary, [contenteditable], [role="button"]';
+      if (event.target.closest && event.target.closest(interactive)) return;
+      const destinations = {
+        ArrowLeft: state.index - 1, PageUp: state.index - 1,
+        ArrowRight: state.index + 1, PageDown: state.index + 1,
+        ' ': state.index + (event.shiftKey ? -1 : 1), Home: 0, End: slides.length - 1,
+      };
+      if (!Object.hasOwn(destinations, event.key)) return;
+      event.preventDefault();
+      navigate(destinations[event.key]);
+    });
+  }
+
+  function setupFullscreen({ document, controls }) {
+    const button = controls.fullscreen;
+    button.setAttribute('aria-pressed', 'false');
+    if (typeof document.documentElement.requestFullscreen !== 'function') {
+      button.disabled = true;
+      button.title = '이 브라우저에서는 전체 화면을 지원하지 않습니다.';
+      return;
+    }
+    button.addEventListener('click', async () => {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await document.documentElement.requestFullscreen();
+      } catch {
+        button.title = '브라우저가 전체 화면 전환을 허용하지 않았습니다.';
+      }
+    });
+    document.addEventListener('fullscreenchange', () => {
+      button.setAttribute('aria-pressed', String(Boolean(document.fullscreenElement)));
+    });
+  }
+
+  function initPresentation(document, window) {
+    const slides = Array.from(document.querySelectorAll('#deck .slide'));
+    const controls = getControls(document);
+    if (!slides.length || Object.values(controls).some((control) => !control)) return;
+    const context = { document, window, slides, controls };
+    let state = { index: Math.max(0, indexFromHash(slides, window.location)), notes: false, reading: false };
+    const update = (changes) => {
+      state = { ...state, ...changes };
+      render(context, state);
+    };
+    const navigate = (index, writeHash = true) => {
+      update({ index: Math.max(0, Math.min(slides.length - 1, index)) });
+      const slide = slides[state.index];
+      const hash = `#${encodeURIComponent(slide.id)}`;
+      if (writeHash && window.location.hash !== hash) window.location.hash = hash;
+      if (state.reading) slide.scrollIntoView({ block: 'start' });
+      else slide.querySelector('h1, h2')?.focus({ preventScroll: true });
+    };
+    slides.forEach((slide) => {
+      const heading = slide.querySelector('h1, h2');
+      if (!heading) return;
+      if (!heading.id) heading.id = `${slide.id}-title`;
+      heading.setAttribute('tabindex', '-1');
+      slide.setAttribute('aria-labelledby', heading.id);
+    });
+    controls.count.setAttribute('aria-live', 'polite');
+    controls.count.setAttribute('aria-atomic', 'true');
+    setupOverview(context, navigate);
+    setupNavigation(context, () => state, navigate);
+    setupFullscreen(context);
+    controls.notes.addEventListener('click', () => update({ notes: !state.notes }));
+    controls.reading.addEventListener('click', () => {
+      update({ reading: !state.reading });
+      if (state.reading) slides[state.index].scrollIntoView({ block: 'start' });
+    });
+    controls.print.addEventListener('click', () => window.print());
+    render(context, state);
+    document.documentElement.classList.add('presentation');
+  }
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = { initPresentation };
+  if (typeof document !== 'undefined') initPresentation(document, window);
+})();
+
+</script>
+</body></html>

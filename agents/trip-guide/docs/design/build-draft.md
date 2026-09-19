@@ -1,121 +1,34 @@
-# BUILD.bazel 초안 — `rules_python` 이 켜지면 붙일 것
+# trip-guide Bazel 타깃 적용 기록
 
-> 2026-09-02. **아직 저장소에 넣지 않았다.** 지금 `agents/trip-guide/BUILD.bazel` 을
-> 만들면 `py_library` 를 아는 규칙이 없어 `bazel build //...` 가 **팀 전체에서**
-> 깨진다. 그래서 초안으로만 둔다.
+2026-09-19 DEV·PRD 배포 기반 작업에서 초안을 실제 `BUILD.bazel`로 옮겼다.
+현재 실행·테스트·패키징의 기준은 [모듈 README](../../README.md)와
+[`BUILD.bazel`](../../BUILD.bazel)이다.
 
-## 먼저 필요한 것 — 내 폴더 밖의 변경
+## 활성화한 기반
 
-`MODULE.bazel` 의 아래 블록에서 주석을 푼다. 그 파일에는 *"해당 언어의 첫 모듈이
-들어올 때 주석을 푼다"* 라고 적혀 있고, **`agents/trip-guide` 가 그 첫 모듈이다.**
+- `MODULE.bazel`의 `rules_python` 2.2.0과 CPython 3.13.13 도구 체인.
+- 외부 Python 패키지가 없으므로 pip 확장·빈 requirements 파일은 만들지 않는다.
+- `rules_oci` 2.2.6과 digest가 고정된 Distroless Python 3 Debian 13 이미지.
+- 소스와 런타임 프롬프트·설정·스키마를 명시적으로 나열한다. 파일을 추가할 때
+  `srcs` 또는 `data`를 함께 고친다.
+- 런파일에서 심볼릭 링크를 원본 소스로 따라가지 않도록 데이터 경로를 계산한다.
+  샌드박스에 선언되지 않은 작업 디렉터리 파일을 읽지 않는다.
 
-```python
-bazel_dep(name="rules_python", version="2.2.0")
-pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
-pip.parse(
-    hub_name="pypi", python_version="3.12", requirements_lock="//:requirements.lock"
-)
-use_repo(pip, "pypi")
-```
+## 타깃과 검증
 
-**이것은 의존성 추가라 팀 결정이 먼저다**(CLAUDE.md §9). 그리고 `MODULE.bazel` 은
-`agents/` 밖이라 내 담당 범위가 아니다. 두 가지 모두 승길님·권호님과 합의가 필요하다.
+| 타깃 | 목적 |
+| --- | --- |
+| `:trip-guide` | 공유 Python 라이브러리 |
+| `:bin` | CLI (`just agent-run trip-guide`) |
+| `:web` | 로컬 브라우저 시연 (`127.0.0.1`) |
+| `:server` | EKS 내부 운영 서버 (`0.0.0.0:8899`) |
+| `:unit_test` | 알고리즘·도구·HTTP 입력 경계 회귀 |
+| `:eval_test` | 외부 모델 없는 5종 지표 평가 |
+| `:image` | linux/amd64 비루트 OCI 이미지 |
+| `:push` | 수동 배포 레시피에서 ECR 전송 |
 
-곁들여 확인할 것 —
-
-- `pip.parse` 가 `//:requirements.lock` 을 찾는다. **이 모듈은 외부 패키지를 하나도
-  쓰지 않는다**(표준 라이브러리만). 그래서 빈 잠금 파일이면 충분하다.
-- 켠 뒤 `just deps-update` 로 `MODULE.bazel.lock` 을 갱신하고 그 diff 를 함께 커밋한다.
-
-## 초안
-
-```python
-load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
-
-package(default_visibility=["//visibility:public"])
-
-# 프롬프트·계약·계수는 소스가 아니라 data 다. 코드에 박지 않기로 한 것들이라
-# (CLAUDE.md §6) 런타임에 파일로 읽는다 — 그래서 반드시 data 로 따라와야 한다.
-filegroup(
-    name="resources",
-    srcs=glob(
-        [
-            "prompts/*.txt",
-            "schemas/*.json",
-            "config/*.json",
-        ]
-    ),
-)
-
-py_library(
-    name="lib",
-    srcs=glob(["src/*.py"]),
-    data=[":resources"],
-    imports=["."],
-)
-
-py_binary(
-    name="bin",
-    srcs=["src/cli.py"],
-    main="src/cli.py",
-    deps=[":lib"],
-)
-
-py_binary(
-    name="web",
-    srcs=["web/server.py"],
-    main="web/server.py",
-    data=["web/index.html"],
-    deps=[":lib"],
-)
-
-# 결정적 단위 시험 — 모델도 네트워크도 부르지 않는다.
-py_test(
-    name="unit_test",
-    srcs=glob(["tests/*.py"]),
-    main="tests/run.py",
-    deps=[":lib"],
-)
-
-# 평가는 테스트다 (CLAUDE.md §6). just agent-eval trip-guide 가 이것을 부른다.
-py_test(
-    name="eval_test",
-    srcs=glob(["evals/*.py", "tests/*.py"]),
-    main="evals/eval_test.py",
-    data=["evals/cases.json"],
-    deps=[":lib"],
-)
-```
-
-## 붙일 때 함께 해야 하는 것
-
-1. **`tests/run.py`** — `py_test` 는 `main` 하나를 부른다. `unittest.main()` 대신
-   디스커버리를 도는 진입점이 필요하다.
-
-   ```python
-   import sys, unittest
-
-   loader = unittest.TestLoader()
-   suite = loader.discover("agents/trip-guide/tests", top_level_dir="agents/trip-guide")
-   sys.exit(0 if unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful() else 1)
-   ```
-
-   런파일 경로가 저장소 루트 기준이라 `top_level_dir` 을 명시해야 한다.
-
-2. **`imports = ["."]`** — `src.planner` 같은 절대 임포트가 지금 형태 그대로 돌게 한다.
-
-3. **`just agent-run trip-guide`** 가 그때부터 동작한다. README 의 「알고 두는 미완」
-   절과 `python3 -m …` 임시 경로 안내를 지운다.
-
-4. **`just agent-eval trip-guide`** 도 함께 산다 — 레시피가 `//agents/{name}:eval_test`
-   를 부르는데 이름을 그대로 맞춰 두었다.
-
-5. **`just check` 에 처음으로 파이썬이 들어온다.** ruff·mypy 같은 파이썬 린트를
-   게이트에 넣을지도 그때 함께 정한다(`tools/just/lint.just`).
-
-## 확인
-
-- `just build-module agents/trip-guide` 가 초록인가.
-- `just agent-eval trip-guide` 가 지표 5 종 100% 로 통과하는가.
-- `bazel run //agents/trip-guide:bin -- --ask "도깨비 촬영지 알려줘"` 가 답하는가.
-- 프롬프트 파일을 하나 지우고 빌드하면 **실패하는가** — data 가 제대로 물렸다는 증거다.
+`just test //agents/trip-guide:unit_test`, `just agent-eval trip-guide`,
+`just build //agents/trip-guide:image`를 사용한다. 배포 서버는 로컬 시연 경로를
+노출하지 않고 본문·호출 수·동시 실행·세션 상한을 적용한다. 에이전트의 컨테이너 배포는
+[DEV·PRD ADR](../../../../docs/architecture/adr/0015-aws-manual-environments.md)의
+내부 워크로드 결정에 따른다.

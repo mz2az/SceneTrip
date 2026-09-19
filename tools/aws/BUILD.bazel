@@ -1,0 +1,66 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+exports_files(
+    ["db-bootstrap.sh"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "lib",
+    srcs = [
+        "alb.py",
+        "config.py",
+        "deploy.py",
+    ],
+    data = [
+        "db-bootstrap.sh",
+        "//tools/bazel/cloud:aws",
+        "//tools/bazel/cloud:aws_provider",
+        "//tools/bazel/cloud:helm",
+        "//tools/bazel/cloud:kubectl",
+        "//tools/bazel/cloud:terraform",
+    ],
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_binary(
+    name = "aws",
+    srcs = ["aws.py"],
+    args = [
+        "--provider-runfile",
+        "$(rlocationpath //tools/bazel/cloud:aws_provider)",
+    ],
+    data = ["//tools/bazel/cloud:aws_provider"],
+    main = "aws.py",
+    deps = [":lib"],
+)
+
+py_library(
+    name = "cli_lib",
+    srcs = ["aws.py"],
+    deps = [":lib"],
+)
+
+py_test(
+    name = "unit_test",
+    srcs = [
+        "tests/fixtures.py",
+        "tests/test_alb.py",
+        "tests/test_aws.py",
+        "tests/test_boundaries.py",
+        "tests/test_commands.py",
+        "tests/test_deploy.py",
+        "tests/test_entrypoint.py",
+        "tests/test_workflows.py",
+    ],
+    data = [
+        "//.github/workflows:aws_workflows",
+        "//platform/helm:sources",
+    ],
+    main = "tests/test_aws.py",
+    tags = ["unit"],
+    deps = [
+        ":cli_lib",
+        ":lib",
+    ],
+)

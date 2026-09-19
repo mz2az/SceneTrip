@@ -20,7 +20,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-_CONFIG = Path(__file__).resolve().parent.parent / "config" / "model.json"
+from .production import remaining_timeout
+
+_CONFIG = Path(__file__).absolute().parent.parent / "config" / "model.json"
 
 
 def _wait(seconds: float, budget: Callable[[], float] | None) -> bool:
@@ -103,6 +105,8 @@ class DeepSeekClient:
         # 네 번 부르는 턴이 75 초가 되는데, 그때쯤이면 앱도 백엔드도 이미 끊었다
         # (agent.py 의 턴 예산).
         cap = float(self.config.get("timeout_seconds", 15))
+        caller_budget = budget
+        budget = lambda: remaining_timeout(caller_budget() if caller_budget else cap)
         last: Exception | None = None
         for attempt in range(3):
             left = budget() if budget else None

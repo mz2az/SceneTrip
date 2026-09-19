@@ -38,6 +38,26 @@ ci-release version:
 ci-lint-workflows:
     ./tools/scripts/workflow-lint.sh
 
+# PR의 필수·일반 검사 상태 조회
+[group('ci')]
+pr-checks number:
+    gh pr checks "$1" --json name,state,bucket,link,workflow
+
+# 지정 커밋에 연결된 GitHub Actions 실행 조회
+[group('ci')]
+pr-runs sha:
+    gh run list --commit "$1" --json databaseId,headSha,status,conclusion,name,url --limit 20
+
+# Actions 실행의 job·step 상태 조회
+[group('ci')]
+pr-run run_id:
+    gh run view "$1" --json databaseId,headSha,status,conclusion,jobs,url
+
+# 실패한 Actions 실행 로그 확인
+[group('ci')]
+pr-run-log run_id:
+    gh run view "$1" --log-failed
+
 # CI 가 실행할 Bazel 명령을 실행하지 않고 출력만
 [group('ci')]
 ci-explain:

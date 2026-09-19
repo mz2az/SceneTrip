@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Kubernetes 매니페스트 렌더링과 비교.
-# 호출: just k8s-render / k8s-diff
-# shellcheck source=tools/scripts/_lib.sh
-source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
-
-pending "원격 환경 매니페스트 미정의 — platform/kubernetes/README.md 참조 (로컬은 just deploy)"
+# 원격 매니페스트는 Helm 차트에서 렌더링한다.
+set -euo pipefail
+case "${2:-}" in
+    render) exec just aws-render "${1:?환경 필요}" ;;
+    *) echo '사용법: k8s.sh dev|prd render — 실제 배포는 just aws-apply' >&2; exit 2 ;;
+esac

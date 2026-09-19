@@ -1,0 +1,495 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "SceneTrip 환경별 Terraform state와 GitHub OIDC 배포 역할. 최초 OIDC와 bootstrap 권한은 계정 관리자가 사전에 구성.",
+  "Parameters": {
+    "Environment": {"Type":"String","AllowedValues":["dev","prd"]},
+    "GitHubRepository": {"Type":"String","AllowedPattern":"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"},
+    "GitHubOidcProviderArn": {
+      "Type": "String",
+      "AllowedPattern": "arn:aws:iam::[0-9]{12}:oidc-provider/token.actions.githubusercontent.com",
+      "Description": "Existing account-level GitHub OIDC provider; shared provider is not owned by this stack."
+    }
+  },
+  "Resources": {
+    "TerraformStateBucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "BucketName": {"Fn::Sub":"scenetrip-tfstate-${AWS::AccountId}-${AWS::Region}-${Environment}"},
+        "VersioningConfiguration": {"Status":"Enabled"},
+        "BucketEncryption": {"ServerSideEncryptionConfiguration":[{"ServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]},
+        "PublicAccessBlockConfiguration": {"BlockPublicAcls":true,"IgnorePublicAcls":true,"BlockPublicPolicy":true,"RestrictPublicBuckets":true},
+        "OwnershipControls": {"Rules":[{"ObjectOwnership":"BucketOwnerEnforced"}]},
+        "Tags": [
+          {"Key":"Project","Value":"scenetrip"},
+          {"Key":"Environment","Value":{"Ref":"Environment"}},
+          {"Key":"ManagedBy","Value":"cloudformation"}
+        ]
+      }
+    },
+    "TerraformStateBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {"Ref":"TerraformStateBucket"},
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "RequireTls",
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "s3:*",
+              "Resource": [
+                {"Fn::Sub":"arn:${AWS::Partition}:s3:::${TerraformStateBucket}"},
+                {"Fn::Sub":"arn:${AWS::Partition}:s3:::${TerraformStateBucket}/*"}
+              ],
+              "Condition": {"Bool":{"aws:SecureTransport":"false"}}
+            }
+          ]
+        }
+      }
+    },
+    "ClusterRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": {"Fn::Sub":"scenetrip-${Environment}-eks-cluster"},
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{"Effect":"Allow","Principal":{"Service":"eks.amazonaws.com"},"Action":["sts:AssumeRole","sts:TagSession"]}]
+        },
+        "ManagedPolicyArns": [
+          {"Fn::Sub":"arn:${AWS::Partition}:iam::aws:policy/AmazonEKSClusterPolicy"},
+          {"Fn::Sub":"arn:${AWS::Partition}:iam::aws:policy/AmazonEKSComputePolicy"},
+          {"Fn::Sub":"arn:${AWS::Partition}:iam::aws:policy/AmazonEKSBlockStoragePolicyV2"},
+          {"Fn::Sub":"arn:${AWS::Partition}:iam::aws:policy/AmazonEKSLoadBalancingPolicy"},
+          {"Fn::Sub":"arn:${AWS::Partition}:iam::aws:policy/AmazonEKSNetworkingPolicy"}
+        ],
+        "Tags": [
+          {"Key":"Project","Value":"scenetrip"},
+          {"Key":"Environment","Value":{"Ref":"Environment"}},
+          {"Key":"ManagedBy","Value":"cloudformation"}
+        ]
+      }
+    },
+    "NodeRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": {"Fn::Sub":"scenetrip-${Environment}-eks-node"},
+        "AssumeRolePolicyDocument": {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]},
+        "ManagedPolicyArns": [
+          {"Fn::Sub":"arn:${AWS::Partition}:iam::aws:policy/AmazonEKSWorkerNodeMinimalPolicy"},
+          {"Fn::Sub":"arn:${AWS::Partition}:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly"}
+        ],
+        "Tags": [
+          {"Key":"Project","Value":"scenetrip"},
+          {"Key":"Environment","Value":{"Ref":"Environment"}},
+          {"Key":"ManagedBy","Value":"cloudformation"}
+        ]
+      }
+    },
+    "DeploymentRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": {"Fn::Sub":"scenetrip-${Environment}-deploy"},
+        "Description": "SceneTrip 환경 하나의 인프라와 애플리케이션 배포 권한.",
+        "MaxSessionDuration": 7200,
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {"Federated":{"Ref":"GitHubOidcProviderArn"}},
+              "Action": "sts:AssumeRoleWithWebIdentity",
+              "Condition": {
+                "StringEquals": {
+                  "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+                  "token.actions.githubusercontent.com:sub": {"Fn::Sub":"repo:${GitHubRepository}:environment:${Environment}"}
+                }
+              }
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "EnvironmentDeployment",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "StateList",
+                  "Effect": "Allow",
+                  "Action": ["s3:ListBucket"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:s3:::${TerraformStateBucket}"},
+                  "Condition": {"StringLike":{"s3:prefix":[{"Fn::Sub":"scenetrip/${Environment}/*"}]}}
+                },
+                {
+                  "Sid": "StateReadWrite",
+                  "Effect": "Allow",
+                  "Action": ["s3:GetObject","s3:PutObject"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:s3:::${TerraformStateBucket}/scenetrip/${Environment}/terraform.tfstate"}
+                },
+                {
+                  "Sid": "StateLock",
+                  "Effect": "Allow",
+                  "Action": ["s3:GetObject","s3:PutObject","s3:DeleteObject"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:s3:::${TerraformStateBucket}/scenetrip/${Environment}/terraform.tfstate.tflock"}
+                },
+                {
+                  "Sid": "RegionalDiscovery",
+                  "Effect": "Allow",
+                  "Action": [
+                    "ec2:Describe*",
+                    "rds:Describe*",
+                    "elasticloadbalancing:DescribeLoadBalancers",
+                    "elasticloadbalancing:DescribeTargetGroups",
+                    "elasticloadbalancing:DescribeTargetHealth",
+                    "eks:ListClusters",
+                    "eks:DescribeAddonVersions",
+                    "eks:DescribeClusterVersions",
+                    "ecr:GetAuthorizationToken",
+                    "logs:DescribeLogGroups"
+                  ],
+                  "Resource": "*",
+                  "Condition": {"StringEquals":{"aws:RequestedRegion":{"Ref":"AWS::Region"}}}
+                },
+                {
+                  "Sid": "ReadClusterRoles",
+                  "Effect": "Allow",
+                  "Action": ["iam:GetRole","iam:ListRoleTags","iam:ListAttachedRolePolicies","iam:ListRolePolicies","iam:GetRolePolicy"],
+                  "Resource": [
+                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-cluster"},
+                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-node"}
+                  ]
+                },
+                {
+                  "Sid": "PassClusterRoles",
+                  "Effect": "Allow",
+                  "Action": ["iam:PassRole"],
+                  "Resource": [
+                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-cluster"},
+                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-node"}
+                  ],
+                  "Condition": {"StringEquals":{"iam:PassedToService":["eks.amazonaws.com","ec2.amazonaws.com"]}}
+                },
+                {
+                  "Sid": "CreateServiceLinkedRoles",
+                  "Effect": "Allow",
+                  "Action": ["iam:CreateServiceLinkedRole"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/*"},
+                  "Condition": {"StringEquals":{"iam:AWSServiceName":["eks.amazonaws.com","rds.amazonaws.com","elasticloadbalancing.amazonaws.com"]}}
+                },
+                {
+                  "Sid": "CreateTaggedNetwork",
+                  "Effect": "Allow",
+                  "Action": [
+                    "ec2:CreateVpc",
+                    "ec2:CreateSubnet",
+                    "ec2:CreateInternetGateway",
+                    "ec2:CreateRouteTable",
+                    "ec2:CreateNatGateway",
+                    "ec2:AllocateAddress",
+                    "ec2:CreateSecurityGroup"
+                  ],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:*"},
+                  "Condition": {"StringEquals":{"aws:RequestTag/Project":"scenetrip","aws:RequestTag/Environment":{"Ref":"Environment"}}}
+                },
+                {
+                  "Sid": "TagNetworkOnCreate",
+                  "Effect": "Allow",
+                  "Action": ["ec2:CreateTags"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:*"},
+                  "Condition": {
+                    "StringEquals": {
+                      "ec2:CreateAction": [
+                        "CreateVpc",
+                        "CreateSubnet",
+                        "CreateInternetGateway",
+                        "CreateRouteTable",
+                        "CreateNatGateway",
+                        "AllocateAddress",
+                        "CreateSecurityGroup",
+                        "AuthorizeSecurityGroupIngress",
+                        "AuthorizeSecurityGroupEgress"
+                      ],
+                      "aws:RequestTag/Project": "scenetrip",
+                      "aws:RequestTag/Environment": {"Ref":"Environment"}
+                    }
+                  }
+                },
+                {
+                  "Sid": "ManageEnvironmentNetwork",
+                  "Effect": "Allow",
+                  "Action": [
+                    "ec2:CreateVpc",
+                    "ec2:CreateSubnet",
+                    "ec2:CreateInternetGateway",
+                    "ec2:CreateRouteTable",
+                    "ec2:CreateNatGateway",
+                    "ec2:AllocateAddress",
+                    "ec2:CreateSecurityGroup",
+                    "ec2:DeleteVpc",
+                    "ec2:ModifyVpcAttribute",
+                    "ec2:DeleteSubnet",
+                    "ec2:ModifySubnetAttribute",
+                    "ec2:AttachInternetGateway",
+                    "ec2:DetachInternetGateway",
+                    "ec2:DeleteInternetGateway",
+                    "ec2:DeleteRouteTable",
+                    "ec2:AssociateRouteTable",
+                    "ec2:DisassociateRouteTable",
+                    "ec2:ReplaceRouteTableAssociation",
+                    "ec2:CreateRoute",
+                    "ec2:ReplaceRoute",
+                    "ec2:DeleteRoute",
+                    "ec2:DeleteNatGateway",
+                    "ec2:ReleaseAddress",
+                    "ec2:DeleteSecurityGroup",
+                    "ec2:AuthorizeSecurityGroupIngress",
+                    "ec2:AuthorizeSecurityGroupEgress",
+                    "ec2:RevokeSecurityGroupIngress",
+                    "ec2:RevokeSecurityGroupEgress",
+                    "ec2:ModifySecurityGroupRules",
+                    "ec2:CreateTags",
+                    "ec2:DeleteTags"
+                  ],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:*"},
+                  "Condition": {
+                    "StringEquals": {"aws:ResourceTag/Project":"scenetrip","aws:ResourceTag/Environment":{"Ref":"Environment"}},
+                    "StringEqualsIfExists": {"aws:RequestTag/Project":"scenetrip","aws:RequestTag/Environment":{"Ref":"Environment"}}
+                  }
+                },
+                {
+                  "Sid": "ManageEnvironmentClusterIngress",
+                  "Effect": "Allow",
+                  "Action": ["ec2:AuthorizeSecurityGroupIngress","ec2:RevokeSecurityGroupIngress","ec2:ModifySecurityGroupRules"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*"},
+                  "Condition": {"StringEquals":{"aws:ResourceTag/aws:eks:cluster-name":{"Fn::Sub":"scenetrip-${Environment}"}}}
+                },
+                {
+                  "Sid": "CreateTaggedSecurityRules",
+                  "Effect": "Allow",
+                  "Action": ["ec2:AuthorizeSecurityGroupIngress","ec2:AuthorizeSecurityGroupEgress"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:security-group-rule/*"},
+                  "Condition": {"StringEquals":{"aws:RequestTag/Project":"scenetrip","aws:RequestTag/Environment":{"Ref":"Environment"}}}
+                },
+                {
+                  "Sid": "DescribeIngressCertificate",
+                  "Effect": "Allow",
+                  "Action": ["acm:DescribeCertificate"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:acm:${AWS::Region}:${AWS::AccountId}:certificate/*"}
+                },
+                {
+                  "Sid": "UseDefaultDatabaseOptionGroup",
+                  "Effect": "Allow",
+                  "Action": ["rds:CreateDBInstance","rds:ModifyDBInstance"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:og:default:postgres-17"}
+                },
+                {
+                  "Sid": "ManageEnvironmentEks",
+                  "Effect": "Allow",
+                  "Action": [
+                    "eks:DeleteCluster",
+                    "eks:DescribeCluster",
+                    "eks:UpdateClusterConfig",
+                    "eks:UpdateClusterVersion",
+                    "eks:DescribeUpdate",
+                    "eks:ListUpdates",
+                    "eks:TagResource",
+                    "eks:UntagResource",
+                    "eks:ListTagsForResource",
+                    "eks:DeleteAccessEntry",
+                    "eks:DescribeAccessEntry",
+                    "eks:ListAccessEntries",
+                    "eks:DisassociateAccessPolicy",
+                    "eks:ListAssociatedAccessPolicies",
+                    "eks:CreateAddon",
+                    "eks:DeleteAddon",
+                    "eks:DescribeAddon",
+                    "eks:UpdateAddon",
+                    "eks:ListAddons"
+                  ],
+                  "Resource": [
+                    {"Fn::Sub":"arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/scenetrip-${Environment}"},
+                    {"Fn::Sub":"arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:access-entry/scenetrip-${Environment}/*"},
+                    {"Fn::Sub":"arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:addon/scenetrip-${Environment}/*"}
+                  ]
+                },
+                {
+                  "Sid": "ManageEnvironmentRegistry",
+                  "Effect": "Allow",
+                  "Action": [
+                    "ecr:CreateRepository",
+                    "ecr:DeleteRepository",
+                    "ecr:DescribeRepositories",
+                    "ecr:ListTagsForResource",
+                    "ecr:TagResource",
+                    "ecr:UntagResource",
+                    "ecr:PutImageTagMutability",
+                    "ecr:PutImageScanningConfiguration",
+                    "ecr:GetLifecyclePolicy",
+                    "ecr:PutLifecyclePolicy",
+                    "ecr:DeleteLifecyclePolicy",
+                    "ecr:GetRepositoryPolicy",
+                    "ecr:BatchCheckLayerAvailability",
+                    "ecr:BatchGetImage",
+                    "ecr:GetDownloadUrlForLayer",
+                    "ecr:InitiateLayerUpload",
+                    "ecr:UploadLayerPart",
+                    "ecr:CompleteLayerUpload",
+                    "ecr:PutImage",
+                    "ecr:DescribeImages",
+                    "ecr:ListImages"
+                  ],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/scenetrip-${Environment}/*"}
+                },
+                {
+                  "Sid": "ManageEnvironmentDatabase",
+                  "Effect": "Allow",
+                  "Action": [
+                    "rds:CreateDBInstance",
+                    "rds:ModifyDBInstance",
+                    "rds:DeleteDBInstance",
+                    "rds:CreateDBSubnetGroup",
+                    "rds:ModifyDBSubnetGroup",
+                    "rds:DeleteDBSubnetGroup",
+                    "rds:CreateDBParameterGroup",
+                    "rds:ModifyDBParameterGroup",
+                    "rds:ResetDBParameterGroup",
+                    "rds:DeleteDBParameterGroup",
+                    "rds:CreateDBSnapshot",
+                    "rds:AddTagsToResource",
+                    "rds:RemoveTagsFromResource",
+                    "rds:ListTagsForResource"
+                  ],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:*:scenetrip-${Environment}*"}
+                },
+                {
+                  "Sid": "ManageEnvironmentLogs",
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:DeleteLogGroup",
+                    "logs:PutRetentionPolicy",
+                    "logs:DeleteRetentionPolicy",
+                    "logs:ListTagsForResource",
+                    "logs:TagResource",
+                    "logs:UntagResource",
+                    "logs:ListTagsLogGroup",
+                    "logs:TagLogGroup",
+                    "logs:UntagLogGroup"
+                  ],
+                  "Resource": [
+                    {"Fn::Sub":"arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/eks/scenetrip-${Environment}/*"},
+                    {"Fn::Sub":"arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/rds/instance/scenetrip-${Environment}/*"}
+                  ]
+                },
+                {
+                  "Sid": "ManageApplicationSecrets",
+                  "Effect": "Allow",
+                  "Action": [
+                    "secretsmanager:CreateSecret",
+                    "secretsmanager:DescribeSecret",
+                    "secretsmanager:GetSecretValue",
+                    "secretsmanager:PutSecretValue",
+                    "secretsmanager:UpdateSecret",
+                    "secretsmanager:DeleteSecret",
+                    "secretsmanager:RestoreSecret",
+                    "secretsmanager:TagResource",
+                    "secretsmanager:UntagResource",
+                    "secretsmanager:GetResourcePolicy",
+                    "secretsmanager:ListSecretVersionIds"
+                  ],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/scenetrip/${Environment}/*"}
+                },
+                {
+                  "Sid": "CreateRdsManagedSecret",
+                  "Effect": "Allow",
+                  "Action": ["secretsmanager:CreateSecret","secretsmanager:TagResource"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:rds!db-*"}
+                },
+                {
+                  "Sid": "ReadEnvironmentRdsMasterSecret",
+                  "Effect": "Allow",
+                  "Action": ["secretsmanager:DescribeSecret","secretsmanager:GetSecretValue"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:rds!db-*"},
+                  "Condition": {
+                    "StringEquals": {
+                      "secretsmanager:ResourceTag/aws:rds:primaryDBInstanceArn": {"Fn::Sub":"arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:db:scenetrip-${Environment}"}
+                    }
+                  }
+                },
+                {
+                  "Sid": "DescribeEncryptionKeys",
+                  "Effect": "Allow",
+                  "Action": ["kms:DescribeKey"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*"}
+                },
+                {
+                  "Sid": "SecretsManagerEncryption",
+                  "Effect": "Allow",
+                  "Action": ["kms:Decrypt","kms:GenerateDataKey"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*"},
+                  "Condition": {
+                    "StringEquals": {"kms:ViaService":{"Fn::Sub":"secretsmanager.${AWS::Region}.amazonaws.com"},"kms:CallerAccount":{"Ref":"AWS::AccountId"}}
+                  }
+                },
+                {
+                  "Sid": "CreateFixedRoleAccessEntries",
+                  "Effect": "Allow",
+                  "Action": ["eks:CreateAccessEntry"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/scenetrip-${Environment}"},
+                  "Condition": {
+                    "StringEquals": {
+                      "eks:principalArn": [
+                        {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-deploy"},
+                        {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-cluster"},
+                        {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-node"}
+                      ]
+                    }
+                  }
+                },
+                {
+                  "Sid": "AssociateDeploymentAccessPolicy",
+                  "Effect": "Allow",
+                  "Action": ["eks:AssociateAccessPolicy"],
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:access-entry/scenetrip-${Environment}/role/${AWS::AccountId}/scenetrip-${Environment}-deploy/*"
+                  },
+                  "Condition": {"StringEquals":{"eks:policyArn":{"Fn::Sub":"arn:${AWS::Partition}:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"}}}
+                },
+                {
+                  "Sid": "CreateTaggedCluster",
+                  "Effect": "Allow",
+                  "Action": ["eks:CreateCluster"],
+                  "Resource": "*",
+                  "Condition": {
+                    "StringEquals": {
+                      "aws:RequestTag/Project": "scenetrip",
+                      "aws:RequestTag/Environment": {"Ref":"Environment"},
+                      "aws:RequestedRegion": {"Ref":"AWS::Region"},
+                      "eks:authenticationMode": "API"
+                    },
+                    "Bool": {"eks:bootstrapClusterCreatorAdminPermissions":"false"}
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {"Key":"Project","Value":"scenetrip"},
+          {"Key":"Environment","Value":{"Ref":"Environment"}},
+          {"Key":"ManagedBy","Value":"cloudformation"}
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "DeploymentRoleArn": {"Description":"GitHub Environment AWS_DEPLOY_ROLE_ARN에 설정할 배포 역할.","Value":{"Fn::GetAtt":["DeploymentRole","Arn"]}},
+    "TerraformStateBucket": {"Description":"Terraform S3 backend bucket.","Value":{"Ref":"TerraformStateBucket"}},
+    "TerraformStateKey": {"Value":{"Fn::Sub":"scenetrip/${Environment}/terraform.tfstate"}},
+    "ClusterRoleArn": {"Value":{"Fn::GetAtt":["ClusterRole","Arn"]}},
+    "NodeRoleArn": {"Value":{"Fn::GetAtt":["NodeRole","Arn"]}}
+  }
+}

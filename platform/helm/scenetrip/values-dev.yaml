@@ -1,0 +1,5 @@
+environment: dev
+gateway:
+  replicas: 1
+sceneApi:
+  replicas: 1

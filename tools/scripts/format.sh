@@ -48,11 +48,13 @@ if has_files '*.java'; then
   files=()
   while IFS= read -r f; do files+=("$f"); done < <(find_sources '*.java')
   if [ "$CHECK" -eq 1 ]; then
+    formatter_status=0
     out="$("${BAZEL:-bazel}" run --ui_event_filters=-info,-stdout --noshow_progress \
-      //:google_java_format -- --dry-run --set-exit-if-changed "${files[@]}" 2>&1 || true)"
-    # 도구가 고칠 파일 이름만 뱉는다. 빌드 로그 줄은 걸러낸다.
-    out="$(printf '%s\n' "$out" | grep -vE '^(INFO|WARNING|Target|  bazel-bin|$)' || true)"
+      //:google_java_format -- --dry-run --set-exit-if-changed "${files[@]}")" || formatter_status=$?
+    # stdout은 수정할 파일 목록, stderr는 Bazel·포매터 진단이다. 진단은 그대로
+    # 보여 주되 파일로 해석하지 않는다. 출력 없는 실행 실패도 종료 상태로 잡는다.
     [ -z "$out" ] || die "포맷이 어긋난 Java 파일:\n$out"
+    [ "$formatter_status" -eq 0 ] || die "Java 포맷 검사 실행 실패 (종료 상태: $formatter_status)"
   else
     "${BAZEL:-bazel}" run --ui_event_filters=-info,-stdout --noshow_progress \
       //:google_java_format -- -i "${files[@]}"

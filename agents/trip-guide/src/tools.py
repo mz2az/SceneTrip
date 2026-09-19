@@ -41,7 +41,7 @@ from .sceneapi import SceneApiError
 from .session import Session
 
 # 계약 파일의 위치. 모듈 안이라 이 파일 기준 한 단계 위다.
-_CONTRACT = Path(__file__).resolve().parent.parent / "schemas" / "tools.json"
+_CONTRACT = Path(__file__).absolute().parent.parent / "schemas" / "tools.json"
 
 
 def load_tool_specs(path: Path | None = None) -> list[dict[str, Any]]:

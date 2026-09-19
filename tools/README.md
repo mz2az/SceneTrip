@@ -4,6 +4,9 @@
 | --- | --- |
 | `bazel/defs/` | 재사용하는 Starlark 매크로와 규칙 |
 | `bazel/toolchains/` | 격리된 툴체인 등록 |
+| [`bazel/cloud/`](bazel/cloud/README.md) | 버전·체크섬 고정 AWS 배포 도구와 Terraform 모의 검증 |
+| [`aws/`](aws/README.md) | 수동 AWS 배포·DB 초기화·비밀값 전달·검증 |
+| [`education/`](education/README.md) | SceneTrip 교육자료·구성도 생성과 검증 |
 | `just/` | 루트 `justfile` 이 import 하는 명령 모듈 |
 | `scripts/` | just 레시피가 **호출하는** 셸 스크립트 |
 | `templates/` | `just new-*` 가 렌더링하는 스캐폴딩 템플릿 |

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# 환경별 Terraform 래퍼.
-# 호출: just tf-plan / tf-apply
-# shellcheck source=tools/scripts/_lib.sh
-source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
-
-pending "terraform 미초기화 — platform/terraform/README.md 참조"
+# 이전 호출 경로를 just의 검증·수동 적용 레시피로 연결한다.
+set -euo pipefail
+case "${2:-}" in
+    fmt-check|validate) exec just tf-check "${1:?환경 필요}" ;;
+    plan) exec just tf-plan "${1:?환경 필요}" ;;
+    apply) exec just tf-apply "${1:?환경 필요}" ;;
+    *) echo '사용법: terraform.sh dev|prd fmt-check|validate|plan|apply' >&2; exit 2 ;;
+esac

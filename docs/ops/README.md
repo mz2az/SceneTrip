@@ -2,6 +2,7 @@
 
 | 문서 | 목적 |
 | --- | --- |
+| [aws-deployment.md](aws-deployment.md) | DEV·PRD 최초 준비·수동 배포·검증·DB 복구 |
 | `runbooks/<서비스>.md` | 서비스별 운영과 복구 방법 |
 | `slo.md` | 서비스 수준 목표와 오류 예산 |
 | `oncall.md` | 로테이션, 에스컬레이션, 심각도 정의 |
@@ -21,6 +22,7 @@
 
 ```bash
 just tf-plan <env>            # 읽기 전용
-just deploy <모듈> <env>       # 확인 절차 있음
-just rollback <모듈> <env>     # 확인 절차 있음
+just aws-apply <env>           # AWS 수동 배포 (확인 절차 있음)
+just deploy <모듈> local       # 로컬 kind 배포
+just rollback <모듈> local     # 로컬 kind 롤백
 ```

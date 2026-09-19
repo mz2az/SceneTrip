@@ -18,6 +18,7 @@ import urllib.request
 from typing import Any
 
 from .places import Place, PlaceSource, Scene, norm
+from .production import remaining_timeout
 
 
 class SceneApiError(RuntimeError):
@@ -49,7 +50,9 @@ class SceneApiPlaceBook(PlaceSource):
         url = f"{self.base_url}{path}" + (f"?{query}" if query else "")
         request = urllib.request.Request(url, headers={"Accept-Language": self.lang})
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(
+                request, timeout=remaining_timeout(self.timeout)
+            ) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             if exc.code == 404:

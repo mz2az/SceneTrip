@@ -1,5 +1,73 @@
 # 워크스테이션 세팅, 포맷, 린트, 코드 생성.
 
+# 작업 브랜치와 변경 파일 확인
+[group('dev')]
+repo-status:
+    git status --short --branch
+
+# 저장소 파일 목록 조회 (비밀값 파일은 제외)
+[group('dev')]
+repo-files *paths:
+    rg --files --hidden -g '!.git' -g '!bazel-*' -g '!.env' -g '!*.tfstate*' "$@"
+
+# 지정한 소스·문서 읽기
+[group('dev')]
+repo-read +paths:
+    cat -- "$@"
+
+# 저장소 소스·문서 검색
+[group('dev')]
+repo-search pattern +paths:
+    rg -n -- "$@"
+
+# macOS 검증에 필요한 Swift·Python·셸 검사 도구 설치
+[group('dev')]
+setup-linters:
+    brew install swiftformat swiftlint ruff shellcheck
+
+# 변경 내용의 공백 오류와 diff 확인
+[group('dev')]
+repo-diff:
+    git diff --check
+    git diff --stat
+
+# 원격 저장소·브랜치·최근 커밋 확인
+[group('dev')]
+repo-info:
+    git remote -v
+    git branch -vv
+    git log -8 --oneline
+
+# origin/main의 최신 커밋 가져오기 (작업 파일은 변경하지 않음)
+[group('dev')]
+repo-fetch:
+    git fetch origin main
+
+# Git 이력·차이·객체 읽기 (조회 명령만 허용)
+[group('dev')]
+repo-inspect command +args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$1" in diff|log|show|rev-parse|merge-base|ls-files) git "$@" ;; *) echo '조회 명령만 사용할 수 있습니다' >&2; exit 1 ;; esac
+
+# 검토한 파일을 다음 커밋에 포함
+[group('dev')]
+repo-stage +paths:
+    git add -- "$@"
+
+# 스테이징한 변경의 공백을 확인한 뒤 커밋
+[group('dev')]
+repo-commit message:
+    git diff --cached --check
+    git commit -m "$1"
+
+# 현재 작업 브랜치를 origin에 게시하고 upstream 연결
+[group('dev')]
+[confirm("현재 브랜치를 origin에 게시합니다. 진행할까요?")]
+repo-push:
+    @git branch --show-current
+    git push -u origin HEAD
+
 # 최초 1회 워크스테이션 세팅. 멱등 — 여러 번 실행해도 안전하다.
 [group('dev')]
 setup:
@@ -27,6 +95,16 @@ fmt-check:
 lint:
     {{BAZEL}} run //:buildifier_check
     ./tools/scripts/lint.sh
+
+# 지정한 Python 경로의 자동 수정 가능한 린트 문제 정리
+[group('dev')]
+lint-python-fix +paths:
+    ruff check --fix "$@"
+
+# macOS 유휴 절전을 억제한 동안 같은 전체 검증 실행 (완료하면 자동 해제)
+[group('dev')]
+check-awake:
+    @if [ "$(uname -s)" = "Darwin" ]; then caffeinate -i just check; else just check; fi
 
 # 이 저장소에는 pom.xml·build.gradle 이 없어(Bazel 로만 빌드한다) 자바 확장이 프로젝트를
 # 인식하지 못하고, 정의로 가기(F12·Ctrl+클릭)가 동작하지 않는다. 소스 루트와 jar 목록을
