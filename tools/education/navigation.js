@@ -180,4 +180,3 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = { initPresentation };
   if (typeof document !== 'undefined') initPresentation(document, window);
 })();
-
