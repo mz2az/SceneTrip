@@ -1,0 +1,5 @@
+environment: prd
+gateway:
+  replicas: 2
+sceneApi:
+  replicas: 2

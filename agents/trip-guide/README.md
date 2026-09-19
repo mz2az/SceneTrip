@@ -18,7 +18,7 @@ MZ2AZ-201 의 회의 지적이 이것이었다. *"일반 GPT 쓰는 건 다를 �
 | 아는 것 | 학습 데이터 전부 (출처 불명) | **우리 촬영지 DB 뿐.** 도구가 준 것 밖은 답하지 않는다 |
 | 못 하는 요청 | 그럴듯하게 지어낸다 | **결과를 아예 안 준다.** 이유만 돌려준다(`_refuse`) |
 | 일정 계산 | LLM 이 한다 → 실현 가능률 약 4% | **알고리즘이 한다 → 100%** |
-| 검증 | 없다 | 결정적 시험 99 개 + 지표 5 종 평가 |
+| 검증 | 없다 | 결정적 단위·HTTP 경계 시험 + 지표 5 종 평가 |
 
 ## 구조 — LLM 샌드위치
 
@@ -56,11 +56,11 @@ GPT-4 는 복잡한 일정에서 0.6%)이기 때문이다. LLM 과 알고리즘�
 | `config/source.json` | 어느 창구를 쓸지. 실패해도 다른 창구로 넘어가지 않는다 |
 | `prompts/` | 버전 관리되는 프롬프트 3 개. 코드에 문자열로 박지 않는다 |
 | `schemas/tools.json` | 도구 계약. 모델에게 내밀고, 돌아온 인자를 이것으로 검증한다 |
-| `tests/` | 결정적 단위 시험 99 개. 모델도 네트워크도 안 부른다 |
+| `tests/` | 결정적 단위 시험과 루프백 HTTP 회귀 시험. 외부 모델·네트워크는 안 부른다 |
 | `evals/` | 지표 5 종 평가. 평가는 테스트다(CLAUDE.md §6) |
 | `web/` | 브라우저로 써 보는 시험용 서버(:8765) |
 
-## 도구 10 개
+## 도구 9 개
 
 | 도구 | 언제 |
 | --- | --- |
@@ -88,10 +88,10 @@ just stack-up                          # scene-api(:8081) 와 DB
 ### 대화
 
 ```sh
-python3 -m src.cli                          # 대화창
-python3 -m src.cli --ask "도깨비 촬영지 알려줘"
-python3 -m src.cli --show-tools             # 어떤 도구를 불렀는지 보인다
-python3 -m web.server --port 8765           # 브라우저로
+just agent-run trip-guide                         # 대화창
+just agent-run trip-guide -- --ask "도깨비 촬영지 알려줘"
+just agent-run trip-guide -- --show-tools          # 어떤 도구를 불렀는지 보인다
+just run //agents/trip-guide:web -- --port 8765    # 로컬 브라우저 시연
 ```
 
 슬래시 명령: `/here` `/plan` `/cart` `/tools` `/reset` `/quit`
@@ -99,7 +99,7 @@ python3 -m web.server --port 8765           # 브라우저로
 ### 일정 짜기 — 세 단계를 갈라서
 
 ```sh
-python3 -m src.cli --plan "도깨비랑 이태원 클라쓰로 1박 2일 여유롭게" --show-stages
+just agent-run trip-guide -- --plan "도깨비랑 이태원 클라쓰로 1박 2일 여유롭게" --show-stages
 ```
 
 ```
@@ -120,27 +120,45 @@ python3 -m src.cli --plan "도깨비랑 이태원 클라쓰로 1박 2일 여유�
 ### 시험과 평가
 
 ```sh
-python3 -m unittest discover -s tests -t .   # 단위 시험 46 개
-python3 -m evals.plan_eval                   # 지표 5 종 (네트워크 없이)
-python3 -m evals.plan_eval --source scene-api --json /tmp/eval.json
+just test //agents/trip-guide:unit_test      # 기존 기능·운영 서버 경계 회귀
+just agent-eval trip-guide                  # 지표 5 종 (외부 네트워크 없이)
+just build //agents/trip-guide:image        # 고정 linux/amd64 OCI 이미지
 ```
 
 평가가 재는 것 — 실현 가능률 · 결정성 · 동선 효율 · 작품 커버리지 · 도구 선택 처리.
 어느 하나라도 100% 아래면 `evals/eval_test.py` 가 실패한다.
 
-## 알고 두는 미완 — Bazel 타깃이 없다
+## DEV·PRD 내부 실행
 
-**이 모듈에는 `BUILD.bazel` 이 없다.** `rules_python` 이 `MODULE.bazel` 에서 아직
-주석 처리되어 있기 때문이다(§"Python — AI 에이전트"). `apps/navi_proto` 와 같은
-상태이고, 저장소 규칙(CLAUDE.md §0·§4) 기준 **미완이라는 것을 알고 두는 것**이다.
+`rules_python` 2.2.0과 CPython 3.13.13으로 단위 시험·평가·CLI를 실행한다.
+표준 라이브러리만 사용하므로 pip 의존성은 없다. `:image`는 digest가 고정된
+Distroless Python 3 Debian 13 이미지에 소스·프롬프트·설정을 담는다.
+`:push`는 배포 레시피가 지정한 ECR 저장소와 변경 불가능한 태그로 전송한다.
 
-그래서 지금은 `just agent-run trip-guide` 가 **동작하지 않는다** — 그 레시피는
-`bazel run //agents/trip-guide:bin` 을 부르는데 그 타깃이 없다. 위의 `python3 -m …`
-가 임시 경로다.
+```sh
+just run //agents/trip-guide:server
+```
 
-`rules_python` 을 켜는 것은 **MODULE.bazel 변경**이라 팀 결정이 먼저다
-(CLAUDE.md §9 — 의존성 추가 전에 멈추고 묻는다). 켜지는 순간 붙일 BUILD 파일 초안은
-[`docs/design/build-draft.md`](docs/design/build-draft.md) 에 두었다.
+운영 진입점 `src/internal_server.py`는 `0.0.0.0:8899`에서 `/plan`과
+`/guide/chat`만 받는다. 브라우저 시연의 `/state`·`/reset`·`/api/chat`·HTML은
+제공하지 않는다. **인증 서버가 아니므로** Kubernetes NetworkPolicy로
+scene-api에서 오는 요청만 허용한다. 외부 로드밸런서에서 직접 연결하지 않는다.
+
+| 설정·경계 | 값·의미 |
+| --- | --- |
+| `DEEPSEEK_API_KEY` | 필수. 없으면 시작 실패. Secrets Manager에서 주입 |
+| `SCENE_API_BASE_URL` | `http://scene-api:8080/v1`. CLI의 `--base-url`이 최우선 |
+| `/health/live`, `/health/ready` | 설정·키 검증 후 서버가 요청을 받을 수 있는지 확인. 외부 모델·API 가용성을 보증하지 않음 |
+| 요청 본문 | gateway와 같은 1 MiB. 40개×4,000자 한글 대화 계약을 수용하며 Content-Length·chunked 누적 크기 모두 제한 |
+| 호출·연결 | 프로세스당 120회/분, 동시 작업 1개, 연결 스레드 최대 16개, 소켓 무응답 10초 |
+| 처리 예산 | 30초를 데이터 조회·모델 호출·재시도 전체가 공유. CLI·시연 서버에는 영향 없음 |
+| 대화 | 최대 128개, 대화당 64턴, 마지막 사용 후 30분 만료. 영속 저장 없음 |
+
+상한 초과 시 413·429·503, 잘못된 JSON/필드에는 400을 돌려준다. 64턴을 채운 대화는
+만료될 때까지 503을 반환하며 새 대화를 열면 새 sessionId로 시작한다. 외부 오류에
+내부 URL·키·모델 상세를 노출하지 않는다. 단일 replica와 `Recreate` 배포를 사용하며,
+재배포·프로세스 종료 시 대화가 사라진다. 이 제약에서 HPA·다중 replica를 켜지 않는다.
+운영 기동은 scene-api 헬스를 기다리지 않아 두 서비스 readiness가 서로 기다리지 않는다.
 
 ## 지켜 둘 것
 

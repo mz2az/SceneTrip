@@ -4,6 +4,8 @@
 
 | 문서 | 목적 |
 | --- | --- |
+| [aws-dev-prd.md](aws-dev-prd.md) | SceneTrip의 DEV·PRD AWS 배포 형상과 보안·데이터 경계 |
+| [aws-services.md](aws-services.md) | AWS 서비스의 정의·필요성·비용 요인·대안 |
 | `system-overview.md` | 시스템 전체를 한 장에, 컨텍스트 다이어그램과 함께 |
 | `service-map.md` | 모든 서비스와 각자의 책임·의존성 |
 | `data-model.md` | 소유 경계 — 어떤 서비스가 어떤 데이터를 소유하는가 |

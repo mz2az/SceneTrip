@@ -1,0 +1,25 @@
+# 필수 값은 배포 CLI가 Terraform 출력과 불변 이미지 태그로 채운다.
+environment: dev
+database:
+  host: ""
+gateway:
+  image: nginxinc/nginx-unprivileged:1.28.0-alpine@sha256:c97ff0bf7cbae369953c6da1232ec14ad9f971d66360c5698db0856a4cd657a0
+  host: ""
+  certificateArn: ""
+  allowedCidrs: []
+  albSubnetIds: []
+  trustedProxyCidrs: []
+  securityGroupId: ""
+  replicas: 1
+sceneApi:
+  image: ""
+  replicas: 1
+tripGuide:
+  image: ""
+  # 세션을 메모리에 보관하므로 1개만 허용한다.
+  replicas: 1
+otel:
+  endpoint: ""
+network:
+  # EKS serviceIpv4Cidr의 열 번째 주소를 배포 실행기가 계산한다.
+  dnsCidr: ""

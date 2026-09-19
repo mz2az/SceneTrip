@@ -35,7 +35,7 @@ from typing import Any
 
 from .places import Place, PlaceSource, haversine_m, norm
 
-_CONFIG = Path(__file__).resolve().parent.parent / "config" / "planner.json"
+_CONFIG = Path(__file__).absolute().parent.parent / "config" / "planner.json"
 
 
 def load_config(path: Path | None = None) -> dict[str, Any]:

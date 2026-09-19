@@ -27,7 +27,7 @@ from .planner import Plan, PlanError, PlanRequest, make_plan, plan_to_dict
 from .session import Session
 from .tools import ToolArgError, load_tool_specs, validate_args
 
-_PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
+_PROMPTS = Path(__file__).absolute().parent.parent / "prompts"
 _INTENT = _PROMPTS / "plan_intent.txt"
 _NARRATE = _PROMPTS / "plan_narrate.txt"
 

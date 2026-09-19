@@ -1,0 +1,6 @@
+bucket              = "REPLACE_WITH_BOOTSTRAP_STATE_BUCKET"
+key                 = "scenetrip/prd/terraform.tfstate"
+region              = "ap-northeast-2"
+allowed_account_ids = ["REPLACE_WITH_ENVIRONMENT_ACCOUNT_ID"]
+encrypt             = true
+use_lockfile        = true

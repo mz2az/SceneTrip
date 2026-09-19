@@ -23,9 +23,9 @@ import kotlinx.coroutines.withContext
  * `localhost` 로 닿는 것과 다른 점이다 (iOS 는 `SceneTripApp.swift` 에서
  * `http://localhost:8081/v1`).
  *
- * 실기기에서는 둘 다 안 되므로 나중에 설정으로 뺀다.
+ * DEV·PRD 주소는 just mobile-build-cloud가 넣는다. 잘못된 원격 주소는 빌드가 거절한다.
  */
-const val API_BASE = "http://10.0.2.2:8081/v1"
+const val API_BASE = ApiConfiguration.BASE_URL
 
 /**
  * 화면이 쓰는 데이터 저장소. **서버가 정본이다.**

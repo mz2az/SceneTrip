@@ -1,0 +1,61 @@
+apiVersion: eks.amazonaws.com/v1
+kind: IngressClassParams
+metadata:
+  name: scenetrip-{{ .Values.environment }}-alb
+spec:
+  scheme: internet-facing
+  ipAddressType: ipv4
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: {{ .Release.Namespace }}
+  subnets:
+    ids:
+      {{- toYaml (required "ALB subnet ID가 필요합니다" .Values.gateway.albSubnetIds) | nindent 6 }}
+  certificateARNs:
+    - {{ required "ACM 인증서가 필요합니다" .Values.gateway.certificateArn | quote }}
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: scenetrip-{{ .Values.environment }}-alb
+spec:
+  controller: eks.amazonaws.com/alb
+  parameters:
+    apiGroup: eks.amazonaws.com
+    kind: IngressClassParams
+    name: scenetrip-{{ .Values.environment }}-alb
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.gateway.certificateArn | quote }}
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/security-groups: {{ required "ALB 전용 보안 그룹이 필요합니다" .Values.gateway.securityGroupId | quote }}
+    # custom SG의 실제 443 CIDR 규칙과 backend 8080 규칙은 Terraform이 관리한다.
+    alb.ingress.kubernetes.io/manage-backend-security-group-rules: "false"
+    alb.ingress.kubernetes.io/inbound-cidrs: {{ join "," .Values.gateway.allowedCidrs | quote }}
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=60,routing.http.xff_header_processing.mode=append,routing.http.xff_client_port.enabled=false
+    alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+spec:
+  ingressClassName: scenetrip-{{ .Values.environment }}-alb
+  rules:
+    - host: {{ required "API 도메인이 필요합니다" .Values.gateway.host | quote }}
+      http:
+        paths:
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port:
+                  number: 8080

@@ -34,6 +34,7 @@ load("@rules_apple//apple:ios.bzl", "ios_application", "ios_unit_test")
 load("@rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
 load("@rules_swift//swift:swift.bzl", "swift_library")
 load("@rules_xcodeproj//xcodeproj:defs.bzl", "top_level_target", "xcodeproj")
+load("//tools/bazel/defs:mobile_api_config.bzl", "mobile_api_config")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -61,9 +62,19 @@ EOF""",
     tags = ["ios"],
 )
 
+mobile_api_config(
+    name = "api_configuration",
+    out = "ApiConfiguration.swift",
+    language = "swift",
+    tags = ["ios"],
+)
+
 swift_library(
     name = "scenetrip-ios",
-    srcs = glob(["src/**/*.swift"]) + [":secrets_swift"],
+    srcs = glob(["src/**/*.swift"]) + [
+        ":api_configuration",
+        ":secrets_swift",
+    ],
     # 마스코트 일러스트(진도 캐릭터 시트에서 오려 낸 6장). rules_apple 이
     # xcassets 를 Assets.car 로 구워 번들에 넣는다.
     # 데모 코스(중간발표 영상용) — `-demoCourse 1` 이 읽어 서버에 코스를 만든다.

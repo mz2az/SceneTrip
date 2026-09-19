@@ -49,6 +49,9 @@ test:linux --test_tag_filters=-ios
 # 그렇다. 빈 값이면 지도만 인증 실패 화면이 되고 빌드와 나머지 화면은 멀쩡하다.
 build --define=naver_client_id=
 
+# 빈 값이면 기존 시뮬레이터 주소. DEV·PRD는 just mobile-build-cloud로 HTTPS 주소 주입.
+build --define=scenetrip_api_base_url=
+
 # 길찾기 키(카카오)는 2026-09-02 에 뺐다(MZ2AZ-297) — main 은 백엔드
 # 계약(`POST /navigation/next-leg`)만 부르므로 앱에 길찾기 키가 없다.
 

@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-_HERE = Path(__file__).resolve().parent
+_HERE = Path(__file__).absolute().parent
 sys.path.insert(0, str(_HERE.parent))
 
 from src.agent import TripGuide

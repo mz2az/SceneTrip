@@ -1,0 +1,8 @@
+filegroup(
+    name = "aws_workflows",
+    srcs = [
+        "aws-bootstrap.yml",
+        "aws-deploy.yml",
+    ],
+    visibility = ["//visibility:public"],
+)

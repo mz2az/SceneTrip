@@ -6,6 +6,8 @@
 | `coverage-policy.md` | 커버리지 기준과 예외를 허용하는 방식 |
 | `test-plans/<기능>.md` | 기능별 테스트 계획 |
 | `flaky-tests.md` | 격리된 불안정 테스트, 담당자, 기한 |
+| [aws-port-verification.md](aws-port-verification.md) | AWS 배포·교육자료 이식의 실제 검증 결과와 실환경 검증 범위 |
+| [alb-verification.md](alb-verification.md) | ALB 진입점 전환의 로컬 검증과 실환경 확인 범위 |
 
 ## 상시 규칙
 

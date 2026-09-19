@@ -1,0 +1,87 @@
+load("@rules_oci//oci:defs.bzl", "oci_load")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+oci_load(
+    name = "postgis_load",
+    image = "@integration_postgis_linux_amd64",
+    repo_tags = ["scenetrip-integration/postgis:17-3.5"],
+    tags = ["manual"],
+)
+
+oci_load(
+    name = "nginx_load",
+    image = "@integration_nginx_linux_amd64",
+    repo_tags = ["scenetrip-integration/nginx:1.28.0-alpine"],
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "postgis_tar",
+    srcs = [":postgis_load"],
+    output_group = "tarball",
+)
+
+filegroup(
+    name = "nginx_tar",
+    srcs = [":nginx_load"],
+    output_group = "tarball",
+)
+
+py_library(
+    name = "support",
+    srcs = ["support.py"],
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "database_test",
+    size = "large",
+    srcs = ["test_database.py"],
+    args = ["$(rlocationpath :postgis_tar)"],
+    data = [
+        ":postgis_tar",
+        "//services/scene-api:migrations",
+        "//tools/aws:db-bootstrap.sh",
+    ],
+    legacy_create_init = 0,
+    main = "test_database.py",
+    tags = [
+        "external",
+        "integration",
+        "local",
+        "no-sandbox",
+        "requires-network",
+    ],
+    deps = [":support"],
+)
+
+py_test(
+    name = "gateway_test",
+    size = "large",
+    srcs = ["test_gateway.py"],
+    args = ["$(rlocationpath :nginx_tar)"],
+    data = [
+        ":nginx_tar",
+        "//platform/helm:sources",
+        "//tools/bazel/cloud:helm",
+    ],
+    legacy_create_init = 0,
+    main = "test_gateway.py",
+    tags = [
+        "external",
+        "integration",
+        "local",
+        "no-sandbox",
+        "requires-network",
+    ],
+    deps = [":support"],
+)
+
+test_suite(
+    name = "integration_test",
+    tags = ["integration"],
+    tests = [
+        ":database_test",
+        ":gateway_test",
+    ],
+)

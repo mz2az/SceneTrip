@@ -16,9 +16,8 @@ struct SceneTripApp: App {
         // 서버 주소. 생성 클라이언트의 기본값은 8080 인데 로컬 클러스터에서 그 포트는
         // SigNoz UI 가 쓰고 **앱 API 는 8081** 이다 (`just cluster-up` 안내 참고).
         //
-        // 지금은 로컬 클러스터를 전제한다. 배포 환경이 생기면 빌드 시점 주입으로
-        // 바꾼다 — 네이버 키와 같은 방식이면 된다.
-        SceneApiClientAPI.basePath = "http://localhost:8081/v1"
+        // DEV·PRD 주소는 just mobile-build-cloud가 넣는다. 잘못된 원격 주소는 빌드가 거절한다.
+        SceneApiClientAPI.basePath = ApiConfiguration.baseURL
         // 앱 언어를 모든 요청의 Accept-Language 로 (MZ2AZ-305). 서버는 없으면 ko 로 폴백한다.
         AppLocale.install()
     }

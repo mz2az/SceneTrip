@@ -5,10 +5,13 @@ status: accepted
 date: 2026-08-05
 supersedes:
 superseded-by:
-amended-by:
+amended-by: 0015
 ---
 
 # ADR 0003: Spring Boot 서비스를 Bazel 로 빌드하고 컨테이너에는 산출물만 담는다
+
+> 배포 전제 보정: [ADR 0015](0015-aws-manual-environments.md)에서 AWS용 Bazel OCI
+> 이미지를 구현한다. 기존 로컬 kind 배포 경로와 Java 빌드 결정은 유지한다.
 
 ## 배경
 

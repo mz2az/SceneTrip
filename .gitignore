@@ -56,6 +56,7 @@ coverage/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.playwright-mcp/
 
 # --- terraform -----------------------------------------------------------------
 .terraform/
@@ -63,6 +64,13 @@ coverage/
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+*.tfvars.json
+!*.tfvars.json.example
+*.tfplan
+*.tfplan.json
+*.plan
+.terraform.tfstate.lock.info
+backend.hcl
 crash.log
 
 # --- 에디터 / OS ---------------------------------------------------------------

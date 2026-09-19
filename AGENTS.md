@@ -130,8 +130,8 @@ reading the `BUILD.bazel` first.
 | `:bin` | the executable entry point, when distinct from `:<module-name>` |
 | `:unit_test` | fast, hermetic, no network, no external services |
 | `:integration_test` | needs containers/fixtures; tagged `integration` |
-| `:image` | OCI container image — `services/` only |
-| `:push` | image push (always `tags = ["manual"]`) — `services/` only |
+| `:image` | OCI container image — deployable `services/` and server-based `agents/` (ADR 0015) |
+| `:push` | image push (always `tags = ["manual"]`) — deployable `services/` and server-based `agents/` |
 | `:ipa` | signed iOS install artifact — `apps/<name>-ios/` only, always `tags = ["manual"]` |
 | `:aab` / `:apk` | Android install artifact (App Bundle / APK) — `apps/<name>-android/` only |
 | `:lint` | module-specific lint target |
@@ -288,10 +288,9 @@ A change is done only when **all** of these hold:
   *(The team confirmed on 2026-08-09 that a green CI run is sufficient in practice. The
   earlier wording demanded a review and did not match how the team works — a doc that
   contradicts practice gets ignored wholesale, so it is corrected rather than left.)*
-- A merge to `main` triggers deployment automatically.
-  *(Target policy. The pipeline that performs this auto-deploy is not implemented yet — see
-  `.github/workflows/`. Treat `main` as if it deploys the moment you merge even before the
-  pipeline exists: never merge broken or half-finished work "just for now.")*
+- AWS DEV/PRD deployment is manual through protected `workflow_dispatch` workflows
+  (ADR 0015). Pushes, PRs, and merges do not deploy AWS resources. `main` must remain
+  deployable; automatic promotion requires a subsequent documented decision.
 
 ### 7.2 Branch naming
 

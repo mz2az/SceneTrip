@@ -1,0 +1,142 @@
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+SOURCES = [
+    "src/__init__.py",
+    "src/agent.py",
+    "src/cli.py",
+    "src/deepseek.py",
+    "src/internal_server.py",
+    "src/places.py",
+    "src/plan_flow.py",
+    "src/planner.py",
+    "src/production.py",
+    "src/sceneapi.py",
+    "src/session.py",
+    "src/tools.py",
+    "web/server.py",
+]
+
+RESOURCES = [
+    "config/model.json",
+    "config/planner.json",
+    "config/source.json",
+    "prompts/plan_intent.txt",
+    "prompts/plan_narrate.txt",
+    "prompts/system.txt",
+    "schemas/effects.json",
+    "schemas/tools.json",
+    "web/index.html",
+]
+
+TESTS = [
+    "tests/__init__.py",
+    "tests/fixtures.py",
+    "tests/run.py",
+    "tests/test_chunked_body.py",
+    "tests/test_contract_120.py",
+    "tests/test_plan_shape.py",
+    "tests/test_planner.py",
+    "tests/test_production.py",
+    "tests/test_tools.py",
+]
+
+py_library(
+    name = "trip-guide",
+    srcs = SOURCES,
+    data = RESOURCES,
+    imports = ["."],
+)
+
+py_binary(
+    name = "bin",
+    srcs = ["cli_main.py"],
+    legacy_create_init = 0,
+    main = "cli_main.py",
+    deps = [":trip-guide"],
+)
+
+py_binary(
+    name = "web_demo",
+    srcs = ["web/server.py"],
+    legacy_create_init = 0,
+    main = "web/server.py",
+    deps = [":trip-guide"],
+)
+
+# 실행파일 web과 Python 사전 컴파일의 web/__pycache__ 디렉터리는 공존할 수 없다.
+# 공개 명령은 :web으로 유지하고 실제 실행파일만 다른 이름을 사용한다.
+alias(
+    name = "web",
+    actual = ":web_demo",
+)
+
+py_binary(
+    name = "server",
+    srcs = ["server_main.py"],
+    legacy_create_init = 0,
+    main = "server_main.py",
+    deps = [":trip-guide"],
+)
+
+py_test(
+    name = "unit_test",
+    srcs = TESTS,
+    legacy_create_init = 0,
+    main = "tests/run.py",
+    tags = ["unit"],
+    deps = [":trip-guide"],
+)
+
+py_test(
+    name = "eval_test",
+    srcs = [
+        "evals/__init__.py",
+        "evals/eval_test.py",
+        "evals/plan_eval.py",
+        "tests/__init__.py",
+        "tests/fixtures.py",
+    ],
+    data = ["evals/cases.json"],
+    legacy_create_init = 0,
+    main = "evals/eval_test.py",
+    tags = ["unit"],
+    deps = [":trip-guide"],
+)
+
+# 표준 라이브러리만 사용하므로 소스·데이터를 고정 Python 기반 이미지에 담는다.
+# agents 이미지 허용 근거: DEV·PRD 아키텍처 ADR의 내부 에이전트 워크로드 결정.
+pkg_tar(
+    name = "runtime_layer",
+    srcs = SOURCES + RESOURCES,
+    mode = "0444",
+    package_dir = "/app",
+    strip_prefix = ".",
+)
+
+oci_image(
+    name = "image",
+    base = "@python_runtime_linux_amd64",
+    entrypoint = [
+        "/usr/bin/python3",
+        "-m",
+        "src.internal_server",
+    ],
+    env = {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+    },
+    tars = [":runtime_layer"],
+    user = "65532:65532",
+    workdir = "/app",
+)
+
+oci_push(
+    name = "push",
+    image = ":image",
+    repository = "localhost/scenetrip/trip-guide",
+    tags = ["manual"],
+)

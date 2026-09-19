@@ -5,11 +5,14 @@ status: accepted
 date: 2026-09-07
 supersedes: 0012
 superseded-by:
-amended-by:
+amended-by: 0015
 amends:
 ---
 
 # ADR 0013: 가이드 챗봇은 파이썬 에이전트가 맡고 scene-api 는 프록시한다 — LLM·도구·코스 계산은 agents/trip-guide, 저장은 서버
+
+> 배포 전제 보정: [ADR 0015](0015-aws-manual-environments.md)에서 Python Bazel 타깃과
+> 내부 전용 컨테이너 배포를 추가한다. 이 문서의 책임 경계는 유지한다.
 
 > [0012](./0012-guide-chat-is-served-by-the-server.md) 를 대체한다. 0012 는 「LLM 호출·도구 실행·
 > 프롬프트를 scene-api 안에 둔다」고 정했고, 파이썬 에이전트를 따로 두는 안을 기각했다. 그 기각의

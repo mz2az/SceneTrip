@@ -6,12 +6,12 @@
 | 파일 | 그룹 | 내용 |
 | --- | --- | --- |
 | `bazel.just` | `build` | 빌드, 실행, 질의, 정리 |
-| `dev.just` | `dev` | 세팅, 진단, 포맷, 린트, 생성 |
+| `dev.just` | `dev` | 세팅, 진단, 포맷, 린트, 생성, Git 조회·커밋·브랜치 게시 |
 | `test.just` | `test` | 테스트 레인, 커버리지, 불안정 테스트 추적 |
 | `docs.just` | `docs` | 문서 린트, ADR 생성, 문서 사이트 |
-| `infra.just` | `infra` | 레지스트리 이미지, terraform, 매니페스트 렌더링 |
+| `infra.just` | `infra` | AWS 수동 bootstrap·plan·apply·검증, 이미지·매니페스트 렌더링 |
 | `k8s.just` | `k8s` · `observability` | kind 클러스터, 모듈 배포, SigNoz |
-| `ci.just` | `ci` | 파이프라인 진입점, 릴리스 |
+| `ci.just` | `ci` | 파이프라인 진입점, 릴리스, PR·Actions 상태 조회 |
 | `agent.just` | `agent` | AI 에이전트 실행과 평가 |
 | `scaffold.just` | `scaffold` | 새 서비스·앱·에이전트·라이브러리 생성 |
 

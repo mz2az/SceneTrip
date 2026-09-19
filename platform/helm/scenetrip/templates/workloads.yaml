@@ -1,0 +1,135 @@
+{{- range $name, $config := dict "scene-api" .Values.sceneApi "trip-guide" .Values.tripGuide "gateway" .Values.gateway }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  replicas: {{ $config.replicas }}
+  {{- if eq $name "trip-guide" }}
+  strategy:
+    type: Recreate
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") $ | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      {{- if ge (int $config.replicas) 2 }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: {{ $name }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{ $name }}
+          image: {{ required (printf "%s.image가 필요합니다" $name) $config.image | quote }}
+          imagePullPolicy: IfNotPresent
+          {{- if eq $name "gateway" }}
+          command: ["nginx", "-g", "daemon off;"]
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ ternary 8899 8080 (eq $name "trip-guide") }}
+          {{- if eq $name "scene-api" }}
+          envFrom:
+            - configMapRef: { name: scene-api }
+            - secretRef: { name: scene-api-secrets }
+            - secretRef: { name: database-runtime }
+          {{- else if eq $name "trip-guide" }}
+          env:
+            - name: SCENE_API_BASE_URL
+              value: "http://scene-api:8080/v1"
+          envFrom:
+            - secretRef: { name: trip-guide-secrets }
+          {{- end }}
+          startupProbe:
+            httpGet:
+              path: {{ if eq $name "scene-api" }}/v1/actuator/health/liveness{{ else if eq $name "trip-guide" }}/health/live{{ else }}/healthz{{ end }}
+              port: http
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: {{ if eq $name "scene-api" }}/v1/actuator/health/readiness{{ else if eq $name "trip-guide" }}/health/ready{{ else }}/healthz{{ end }}
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: {{ if eq $name "scene-api" }}/v1/actuator/health/liveness{{ else if eq $name "trip-guide" }}/health/live{{ else }}/healthz{{ end }}
+              port: http
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: {{ ternary "250m" "100m" (eq $name "scene-api") }}
+              memory: {{ ternary "512Mi" "128Mi" (eq $name "scene-api") }}
+            limits:
+              memory: {{ ternary "1Gi" "512Mi" (eq $name "scene-api") }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if eq $name "gateway" }}
+            - name: config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if eq $name "gateway" }}
+        - name: config
+          configMap:
+            name: gateway
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ $name }}
+  ports:
+    - name: http
+      port: {{ if eq $name "trip-guide" }}8899{{ else }}8080{{ end }}
+      targetPort: http
+{{- if ge (int $config.replicas) 2 }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: {{ $name }}
+{{- end }}
+{{- end }}

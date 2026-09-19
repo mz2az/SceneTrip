@@ -31,12 +31,12 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 | 지도 · 첫 진입 카메라(남한 전체) | 됨 |
 | 작품 / 장소 두 탭, 첫 화면 「인기 N」 표기 | 됨 |
 | 카테고리 칩 — 목록과 지도를 **같이** 좁힌다 | 됨 |
-| 장바구니 담기(＋ → ✓), 작품 찜(♡ → ♥) | 화면 안에서만. 서버 없음 |
+| 장바구니 담기(＋ → ✓) | 서버 계약 호출, 설치 UUID로 비회원 계정 식별 |
+| 작품 찜(♡ → ♥) | 기기 저장소 사용 |
 | 핀 번호 — 첫 화면 작품 탭에서만 민 핀 | 됨 |
-| 자동완성 · 드릴다운 · 반경 검색 · 현위치 | 아직 |
-| 시트 높이 끌기 + 지도 여백 연동 | 아직 — iOS 에서 가장 손이 많이 간 부분이라 나중에 |
+| 자동완성 · 작품 드릴다운 · 지도 범위 검색 · 현위치 | 구현됨 |
 
-**서버를 부르지 않는다.** 아래 "계약" 참고.
+`SceneData`가 생성된 계약 클라이언트로 서버 검색·상세·자동완성을 호출한다.
 
 화면 구현은 iOS 에서 확정된 순서(§3-1 화면 구조 → §3-2 검색 범위 → §3-3 자동완성 →
 §3-5 칩 → §3-6 오류 화면)를 그대로 따라간다.
@@ -61,16 +61,8 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 | `@maven_android//:com_naver_maps_map_sdk` | 지도. 버전은 iOS 와 같은 3.23.3 |
 | Jetpack Compose (`@maven_android//:androidx_compose_*`) | 화면. 버전 못은 `MODULE.bazel` 에 있다 |
 
-**아직 계약 클라이언트를 쓰지 않는다.** 생성까지는 되지만 컴파일이 막혀 있다 —
-생성기 7.2.0 의 코틀린 백엔드가 enum 기본값을 한정하지 않고 뱉는다
-(`Lang? = ko`, `Lang.ko` 여야 함). 같은 명세로 spring·swift5 는 멀쩡하다. 근거와
-선택지는 `contracts/openapi/BUILD.bazel` 의 `scene_api_kotlin_lib` 에 적어 두었고,
-그 타깃의 `manual` 태그를 지우는 것이 완료 조건이다.
-
-그때까지 화면은 `searchtab/Model.kt` 의 고정 데이터로 짓는다. 자료형 이름과 필드를
-계약과 같게 맞춰 두었으므로 클라이언트가 들어오면 그 파일만 지우면 된다.
-**앱이 API 클라이언트를 손으로 쓰지 않는다는 규칙**(CLAUDE.md §5)은 그대로다 —
-고정 데이터는 클라이언트가 아니다.
+계약 클라이언트는 Bazel이 생성·컴파일한다. 과거 enum 기본값 생성 오류는 생성기
+7.24.0으로 해결됐으며, 현재 `data/SceneData.kt`가 그 클라이언트를 사용한다.
 
 ## 빌드가 되는 조건
 
@@ -81,11 +73,12 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 - 경로는 `.env` 의 `ANDROID_HOME` 에서 오고 **버전은 `MODULE.bazel` 이 고정한다**
   (api_level 36 · build-tools 36.1.0). 경로를 저장소에 박지 않는 이유는 brew 로 깐
   사람과 Android Studio 로 깐 사람이 다르기 때문이다.
+- 기존 SDK의 command-line tools가 있으면 `just android-sdk-install <SDK 경로>`로
+  고정된 플랫폼·빌드 도구만 설치한다. 라이선스 동의가 없으면 자동 승인하지 않는다.
 - **iOS 와 달리 태그로 걸러 내지 않는다.** Android 는 리눅스에서 지어지므로 기존
   ubuntu `verify` 잡이 그대로 검사한다. `tags = ["ios"]` 같은 것을 붙이면 오히려 검사
   범위에서 빠진다 — 계획서 §5-2.
-- `.kt` 파일이 있으므로 `just check` 가 `ktlint` 를 요구한다 — 없으면 게이트가
-  빨간불이다. `brew install ktlint`.
+- Kotlin 포맷은 Bazel에 고정된 `//:ktlint`로 검사한다. 별도 호스트 설치는 필요 없다.
 
 ## 명령
 
@@ -113,6 +106,19 @@ just android-run                            # 에뮬레이터에 띄운다
 네이버 지도 클라이언트 ID 는 지도 SDK 연동 때 빌드 시점 주입으로 붙는다 — 소스에
 박지 않는다. iOS 는 `.env` → `--define` → 생성 파일 경로를 쓴다(`apps/scenetrip-ios`
 참고). Android 도 같은 방식을 따른다.
+
+API 주소의 기본값은 에뮬레이터에서 호스트를 가리키는 `http://10.0.2.2:8081/v1`이다.
+DEV·PRD는 환경의 실제 HTTPS 주소를 명시한다. 아래 도메인은 예시다.
+
+```bash
+just mobile-build-cloud android https://api.example.com/v1
+```
+
+Bazel이 `scenetrip_api_base_url` 값을 검증해 `ApiConfiguration.kt`를 생성한다.
+HTTP 원격 주소·인증정보·query·fragment·잘못된 포트·`/v1` 이외 경로는 빌드 단계에서
+거절하므로 URL 오류로 앱이 시작 중 종료되지 않는다. 빈 값은 일반 로컬 빌드에서만
+기존 기본값을 사용한다. API 주소는 공개 설정이며 모델 키·DB 자격 증명을 넣지 않는다.
+명령은 APK를 빌드하며 기기 설치·서명·Play Store 배포는 수행하지 않는다.
 
 ## 운영
 

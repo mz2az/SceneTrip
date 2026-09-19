@@ -1,0 +1,109 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dns
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - ipBlock:
+            cidr: {{ required "EKS Auto Mode DNS CIDR이 필요합니다" .Values.network.dnsCidr }}
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway
+spec:
+  podSelector:
+    matchLabels: { app: gateway }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        {{- range .Values.gateway.trustedProxyCidrs }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      ports: [{ protocol: TCP, port: 8080 }]
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: scene-api } } }]
+      ports: [{ protocol: TCP, port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: scene-api
+spec:
+  podSelector:
+    matchLabels: { app: scene-api }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { app: gateway } }
+        - podSelector: { matchLabels: { app: trip-guide } }
+      ports: [{ protocol: TCP, port: 8080 }]
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: trip-guide } } }]
+      ports: [{ protocol: TCP, port: 8899 }]
+    - ports: [{ protocol: TCP, port: 5432 }, { protocol: TCP, port: 443 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trip-guide
+spec:
+  podSelector:
+    matchLabels: { app: trip-guide }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ podSelector: { matchLabels: { app: scene-api } } }]
+      ports: [{ protocol: TCP, port: 8899 }]
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: scene-api } } }]
+      ports: [{ protocol: TCP, port: 8080 }]
+    - ports: [{ protocol: TCP, port: 443 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: database-jobs
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [database-bootstrap, database-migrate]
+  policyTypes: [Egress]
+  egress:
+    - ports: [{ protocol: TCP, port: 5432 }]
+{{- if .Values.otel.endpoint }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: scene-api-otel
+spec:
+  podSelector:
+    matchLabels: { app: scene-api }
+  policyTypes: [Egress]
+  egress:
+    - ports: [{ protocol: TCP, port: 4317 }]
+{{- end }}

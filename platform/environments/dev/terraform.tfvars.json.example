@@ -1,0 +1,21 @@
+{
+  "environment": "dev",
+  "aws_account_id": "REPLACE_WITH_ENVIRONMENT_ACCOUNT_ID",
+  "aws_region": "ap-northeast-2",
+  "availability_zones": [
+    "ap-northeast-2a",
+    "ap-northeast-2c"
+  ],
+  "vpc_cidr": "10.40.0.0/16",
+  "eks_version": "1.35",
+  "database_instance_class": "db.t4g.medium",
+  "database_allocated_storage": 20,
+  "database_max_allocated_storage": 200,
+  "eks_public_access_cidrs": [
+    "REPLACE_WITH_FIXED_RUNNER_EGRESS_CIDR"
+  ],
+  "ingress_allowed_cidrs": [
+    "REPLACE_WITH_APPROVED_CLIENT_CIDR"
+  ],
+  "ingress_certificate_arn": "REPLACE_WITH_ACM_CERTIFICATE_ARN"
+}

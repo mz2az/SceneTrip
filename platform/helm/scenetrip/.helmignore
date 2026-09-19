@@ -1,0 +1,2 @@
+# 문서는 Helm 리소스로 렌더링하지 않는다.
+templates/README.md
