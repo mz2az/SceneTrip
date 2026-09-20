@@ -42,3 +42,24 @@ Auto Mode가 생성하는 접근 항목까지 고려하여 `CreateAccessEntry`�
 고정 deploy·cluster·node 역할 세 개에 한정한다.
 [공식 EKS IAM 작업 표](https://docs.aws.amazon.com/service-authorization/latest/reference/list_eks.html)와
 정적 테스트가 이 예외를 설명·검증한다.
+
+## 삭제
+
+서비스 삭제가 완료된 뒤 **AWS 수동 삭제** workflow에서 `scope: bootstrap`을 선택한다.
+`plan`으로 빈 state·잠금 부재·실제 서비스 리소스 부재와 소유권을 확인하고, `destroy`에는
+`DELETE <env> <12자리계정>` 확인 문자열을 입력한다. 이 스택이 만드는 배포 역할은 삭제
+대상이므로, 실행에는 스택 밖에서 관리하는 `AWS_BOOTSTRAP_ROLE_ARN`을 사용한다.
+
+```bash
+just aws-bootstrap-delete-plan dev false
+just aws-bootstrap-delete dev false
+```
+
+두 번째 인자는 state 영구 삭제 여부다. 기본 `false`는 버킷과 모든 이력을 보존하고,
+`true`는 스택 삭제 완료 후 Retain 버킷의 버전·삭제 마커·미완료 업로드와 버킷을 삭제한다.
+스택이 삭제된 뒤 버킷 정리에서 실패해도 같은 환경·계정 검사를 거쳐 재시도할 수 있다.
+OIDC provider와 외부 bootstrap 역할은 이 명령이 삭제하지 않는다.
+
+보존된 버킷은 새 bootstrap의 동일 이름 생성과 충돌할 수 있다. 이후 재생성에는 별도
+import/재사용 계획이 필요하다. 외부 역할 권한과 서비스 삭제 순서·남는 비용은
+[삭제 런북](../../../docs/ops/aws-teardown.md)을 따른다.

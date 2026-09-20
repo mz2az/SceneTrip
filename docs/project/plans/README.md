@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [aws-teardown.md](aws-teardown.md) | 비용 절감을 위한 서비스·bootstrap 수동 삭제와 잔존 데이터 정책 |
 | [alb-deployment.md](alb-deployment.md) | ALB 진입점·신뢰 경계·배포 검증·교육자료 전환 |
 | [aws-dev-prd-port.md](aws-dev-prd-port.md) | TripPilot 기반 DEV·PRD AWS 배포와 SceneTrip 교육자료 이식 |
 | [scene-api-search-map.md](./scene-api-search-map.md) | 검색·지도 백엔드 API (MZ2AZ-149) |

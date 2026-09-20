@@ -517,8 +517,14 @@ just education-check</pre>
         migration을 실행하고 성공한 경우에만 애플리케이션을 rollout한다.</p>
         <p>DB 실패를 무시하고 다음 단계로 가거나 smoke를 주석 처리해서 배포를 성공 처리하지 않는다.
         이미지 식별자, migration 버전, 실행 URL, 환경과 검증 결과를 배포 기록에 남긴다. DEV 성공은
-        PRD 성공의 증거가 아니며 PRD의 다른 CIDR·권한·DB 크기에서도 검증해야 한다.</p>""",
-        "워크플로 화면에서 실패한 단계가 무엇을 이미 바꿨을 수 있는지 짚는다. 재실행 전에 부분 적용 상태를 확인한다.",
+        PRD 성공의 증거가 아니며 PRD의 다른 CIDR·권한·DB 크기에서도 검증해야 한다.</p>
+        <p>사용을 마친 환경은 별도 <code>aws-destroy.yml</code>의 <b>AWS 수동 삭제</b>로 정리한다.
+        먼저 <code>scope: service</code>의 <code>operation: plan</code>을 검토하고, 실제 삭제는
+        <code>destroy</code>와 <code>DELETE &lt;env&gt; &lt;12자리계정&gt;</code> 확인값으로 실행한다.
+        서비스 삭제가 끝난 뒤에만 <code>scope: bootstrap</code>을 별도 실행한다. Ingress·ALB가
+        사라지는 동안 EKS를 유지해야 하며, 실패했다고 bootstrap을 먼저 지우지 않는다.
+        자세한 입력과 중단 조건은 <a href="../ops/aws-teardown.md">삭제 운영 절차</a>를 따른다.</p>""",
+        "배포·삭제 모두 실패한 단계가 이미 바꾼 상태를 확인한다. 삭제는 service 완료 뒤 bootstrap을 별도 실행하며 PR·머지로 시작되지 않는다.",
         ".github/workflows/aws-deploy.yml",
     ),
     chapter(
@@ -548,14 +554,20 @@ just education-check</pre>
         [
             "이전 이미지로 복귀해도 DB 스키마는 남는다",
             "호환되는 migration부터 설계",
-            "백업 복원은 별도 DB·전환·검증 절차",
+            "삭제 후 재배포도 DB·Secret·이미지 복구를 따로 준비",
         ],
         """<p>Helm이나 Deployment의 이전 버전으로 돌아가도 이미 성공한 Flyway migration은
         되돌아가지 않는다. 새 컬럼 추가 후 구버전도 동작하도록 확장·전환·정리 순서를 나누어야 한다.
         파괴적인 down migration을 자동 배포 rollback에 묶지 않는다.</p>
         <p>DB 손상이 있으면 마지막 정상 시점과 데이터 손실 범위를 정하고 복원한 DB에 검증한 뒤
         연결을 전환한다. 삭제 보호는 실수 방지 장치이며 복원 전략 전체는 아니다. agent 재시작은
-        대화 메모리를 잃을 수 있어 사용자 안내도 필요하다. 복구 소요 시간은 연습 결과로 기록한다.</p>""",
+        대화 메모리를 잃을 수 있어 사용자 안내도 필요하다. 복구 소요 시간은 연습 결과로 기록한다.</p>
+        <p>환경 삭제의 기본 <code>snapshot_policy: retain</code>은 최종 RDS 스냅샷을 남기지만
+        새 RDS가 이를 자동 복원하지는 않는다. <code>discard</code>도 기존 수동 스냅샷까지 지우는
+        선택은 아니다. ECR 이미지와 저장소는 삭제하므로 재발행하고 새 ALB 주소로 DNS를 갱신한다.
+        삭제 예약된 Secret은 즉시 같은 이름으로 만들 수 없다. 유예 안에 복원·state 반영을
+        계획하거나 영구 삭제 완료를 기다린다. bootstrap 삭제 시 기본 <code>purge_state: false</code>로
+        보존한 S3도 재사용·가져오기 계획이 필요하며, <code>true</code>로 지운 과거 state는 복구할 수 없다.</p>""",
         "컬럼을 삭제한 새 버전에서 이전 이미지로 돌아가는 사고를 사례로 든다. 안전한 전진 수정이 더 나을 때도 있다.",
         "services/scene-api/src/main/resources/db/migration/V14__poi_naver.sql",
     ),
@@ -565,15 +577,20 @@ just education-check</pre>
         [
             "EKS·NAT·DB·ALB에는 유휴 시간 비용도 존재",
             "로그·이미지·백업은 보존 기간이 비용을 키움",
-            "DEV 절약과 PRD 장애 허용 범위를 함께 결정",
+            "수동 삭제 후에도 남은 스냅샷·로그·runner 비용 확인",
         ],
         """<p>요청이 없어도 클러스터 제어 평면, NAT, 로드밸런서, DB는 비용이 생길 수 있다.
         DeepSeek 모델 호출은 입력·출력 사용량, 외부 데이터 API는 제공자 정책의 영향을 받는다.
         리전·버전·가격표에 따라 달라지므로 이 문서는 고정 월 요금을 약속하지 않는다.</p>
         <p>견적은 리전과 실행 시간, 노드 자원, DB 클래스·스토리지, NAT 처리량, 로그 보존, 백업과
         이미지 수를 입력해 만든다. DEV를 PRD와 같은 규모로 복제할 필요는 없지만 공유 NAT의 장애
-        영향은 알고 선택해야 한다. 예산 알림·태그·주기적 미사용 자원 점검의 담당자를 정한다.</p>""",
-        "월간 표에 단가 대신 수량·시간·데이터량부터 적게 한다. AWS Pricing Calculator에서 해당 날짜 견적을 별도로 저장한다.",
+        영향은 알고 선택해야 한다. 예산 알림·태그·주기적 미사용 자원 점검의 담당자를 정한다.</p>
+        <p><a href="../ops/aws-teardown.md">수동 삭제</a>로 EKS·RDS·ALB·NAT 등의 상시 비용을
+        줄일 수 있다. 기본값은 최종 DB 스냅샷 보존과 state S3 보존이다. 남은 스냅샷·S3 버전,
+        Terraform 관리 밖 로그·외부 runner·추가 디스크·DNS 비용은 별도로 확인한다.
+        Secret은 기존 DEV 7일·PRD 30일 유예로 삭제 예약하며, 예약된 동안 과금되지 않지만 값에
+        접근할 수 없다. 삭제 workflow 성공이 계정 전체의 비용 0을 뜻하지는 않는다.</p>""",
+        "월간 표에는 수량·시간·데이터량부터 적는다. 삭제 전 보존 정책, 삭제 후 남은 리소스와 담당자를 기록한다.",
         "platform/environments/README.md",
     ),
     chapter(
@@ -625,7 +642,7 @@ just education-check</pre>
         [
             "로컬: API·DB·관측성을 먼저 연결",
             "정적: DEV·PRD 입력과 구성도 검증",
-            "클라우드: 승인된 계정에서 수동 적용·smoke·기록",
+            "클라우드: 수동 적용·smoke·기록, 종료 시 삭제 계획 검토",
         ],
         """<ol><li><code>just doctor</code>와 <code>just --list</code>로 도구와 명령을 확인한다.</li>
         <li><code>just cluster-up</code>, <code>just deploy postgres local</code>, <code>just image scene-api</code>,
@@ -634,7 +651,15 @@ just education-check</pre>
         <li>계정 소유자는 환경 예제·backend·인증서·OIDC·비밀값을 준비하고 수동 workflow의 검증 단계를 진행한다.</li>
         <li>ALB 주소를 확인해 DNS를 연결한 뒤 <code>just aws-verify dev</code>로 재검증한다.</li>
         <li>배포 후 이미지 SHA, migration 상태, 한글 검색, 가이드, 허용 CIDR, 외부 Actuator 차단 결과를 남긴다.</li></ol>
-        <p>계정이나 인증서가 없으면 3단계까지 수행한 결과만 제출한다. 실행하지 않은 단계를 성공으로 쓰지 않는다.</p>""",
+        <p>계정이나 인증서가 없으면 3단계까지 수행한 결과만 제출한다. 실행하지 않은 단계를 성공으로 쓰지 않는다.</p>
+        <p>실습용 AWS 환경을 정리할 때는 <code>just aws-destroy-plan dev retain</code>으로
+        삭제 범위와 보존 정책부터 검토한다. 삭제 실행은 별도 확인을 거친
+        <code>just aws-destroy dev retain</code>이며 서비스 삭제 완료 뒤에만
+        <code>just aws-bootstrap-delete-plan dev false</code>와
+        <code>just aws-bootstrap-delete dev false</code>를 별도로 진행한다.
+        이 명령들은 실제 AWS 자격 증명이 필요하고, 삭제에는 <code>AWS_DELETE_CONFIRMATION</code>도
+        설정해야 한다. 교육 자료 생성·단위 테스트에서 호출하지 않는다. workflow URL·스냅샷 식별자·
+        state 보존 여부와 남은 비용 항목을 결과에 기록한다.</p>""",
         "실습 제출물은 스크린샷만이 아니라 입력·검증 결과·남은 제약이다. 로컬 데이터 seed가 필요한 경우 README의 승인된 데이터 경로를 따른다.",
         "docs/education/k8s-observability-class.html",
     ),

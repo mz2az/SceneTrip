@@ -243,7 +243,7 @@ dialog{max-width:min(90vw,800px);max-height:80vh;border:1px solid var(--line);bo
 <h2>수동 배포의 순서와 중단 조건</h2>
 <ul class="summary"><li>입력 검증 → 인프라 plan 검토·apply</li><li>이미지 → DB bootstrap·migration → Helm rollout</li><li>readiness → 제한된 HTTPS smoke → 기록</li></ul>
 <div class="flow-figure" role="img" aria-label="처리 순서"><div class="flow"><span class="node">입력·plan 검토</span><span class="arrow">→</span><span class="node">DB Job 성공</span><span class="arrow">→</span><span class="node">Helm · smoke</span></div></div>
-<aside class="notes"><b>강사 노트</b>워크플로 화면에서 실패한 단계가 무엇을 이미 바꿨을 수 있는지 짚는다. 재실행 전에 부분 적용 상태를 확인한다.</aside>
+<aside class="notes"><b>강사 노트</b>배포·삭제 모두 실패한 단계가 이미 바꾼 상태를 확인한다. 삭제는 service 완료 뒤 bootstrap을 별도 실행하며 PR·머지로 시작되지 않는다.</aside>
 <p class="source">구현 근거: <a class="source-file" href="../../.github/workflows/aws-deploy.yml">.github/workflows/aws-deploy.yml</a> · <a href="aws-eks-course.html#deploy">이 장의 상세 설명·실습</a></p>
 </section>
 <section class="slide" id="validation">
@@ -257,7 +257,7 @@ dialog{max-width:min(90vw,800px);max-height:80vh;border:1px solid var(--line);bo
 <section class="slide" id="rollback">
 <div class="eyebrow">SCENETRIP / 30</div>
 <h2>애플리케이션 롤백과 DB 복구</h2>
-<ul class="summary"><li>이전 이미지로 복귀해도 DB 스키마는 남는다</li><li>호환되는 migration부터 설계</li><li>백업 복원은 별도 DB·전환·검증 절차</li></ul>
+<ul class="summary"><li>이전 이미지로 복귀해도 DB 스키마는 남는다</li><li>호환되는 migration부터 설계</li><li>삭제 후 재배포도 DB·Secret·이미지 복구를 따로 준비</li></ul>
 
 <aside class="notes"><b>강사 노트</b>컬럼을 삭제한 새 버전에서 이전 이미지로 돌아가는 사고를 사례로 든다. 안전한 전진 수정이 더 나을 때도 있다.</aside>
 <p class="source">구현 근거: <a class="source-file" href="../../services/scene-api/src/main/resources/db/migration/V14__poi_naver.sql">services/scene-api/src/main/resources/db/migration/V14__poi_naver.sql</a> · <a href="aws-eks-course.html#rollback">이 장의 상세 설명·실습</a></p>
@@ -265,9 +265,9 @@ dialog{max-width:min(90vw,800px);max-height:80vh;border:1px solid var(--line);bo
 <section class="slide" id="cost">
 <div class="eyebrow">SCENETRIP / 31</div>
 <h2>비용을 만드는 것은 트래픽만이 아니다</h2>
-<ul class="summary"><li>EKS·NAT·DB·ALB에는 유휴 시간 비용도 존재</li><li>로그·이미지·백업은 보존 기간이 비용을 키움</li><li>DEV 절약과 PRD 장애 허용 범위를 함께 결정</li></ul>
+<ul class="summary"><li>EKS·NAT·DB·ALB에는 유휴 시간 비용도 존재</li><li>로그·이미지·백업은 보존 기간이 비용을 키움</li><li>수동 삭제 후에도 남은 스냅샷·로그·runner 비용 확인</li></ul>
 
-<aside class="notes"><b>강사 노트</b>월간 표에 단가 대신 수량·시간·데이터량부터 적게 한다. AWS Pricing Calculator에서 해당 날짜 견적을 별도로 저장한다.</aside>
+<aside class="notes"><b>강사 노트</b>월간 표에는 수량·시간·데이터량부터 적는다. 삭제 전 보존 정책, 삭제 후 남은 리소스와 담당자를 기록한다.</aside>
 <p class="source">구현 근거: <a class="source-file" href="../../platform/environments/README.md">platform/environments/README.md</a> · <a href="aws-eks-course.html#cost">이 장의 상세 설명·실습</a></p>
 </section>
 <section class="slide" id="incident">
@@ -289,7 +289,7 @@ dialog{max-width:min(90vw,800px);max-height:80vh;border:1px solid var(--line);bo
 <section class="slide" id="lab">
 <div class="eyebrow">SCENETRIP / 34</div>
 <h2>실습: 코드에서 배포 근거 만들기</h2>
-<ul class="summary"><li>로컬: API·DB·관측성을 먼저 연결</li><li>정적: DEV·PRD 입력과 구성도 검증</li><li>클라우드: 승인된 계정에서 수동 적용·smoke·기록</li></ul>
+<ul class="summary"><li>로컬: API·DB·관측성을 먼저 연결</li><li>정적: DEV·PRD 입력과 구성도 검증</li><li>클라우드: 수동 적용·smoke·기록, 종료 시 삭제 계획 검토</li></ul>
 
 <aside class="notes"><b>강사 노트</b>실습 제출물은 스크린샷만이 아니라 입력·검증 결과·남은 제약이다. 로컬 데이터 seed가 필요한 경우 README의 승인된 데이터 경로를 따른다.</aside>
 <p class="source">구현 근거: <a href="../education/k8s-observability-class.html">docs/education/k8s-observability-class.html</a> · <a href="aws-eks-course.html#lab">이 장의 상세 설명·실습</a></p>

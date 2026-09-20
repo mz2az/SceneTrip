@@ -27,6 +27,7 @@ AWS EKS 인증 플러그인이 같은 AWS CLI를 사용하도록 배포 도구�
 ```sh
 just test //tools/bazel/cloud:unit_test
 just test //tools/bazel/cloud:terraform_test
+just test //tools/bazel/cloud:terraform_lifecycle_test
 ```
 
 서비스 배포·Terraform 적용은 환경을 검증하고 확인을 받는 `just` 배포 레시피에서만
@@ -50,3 +51,8 @@ AWS의 서명 검증과는 별개이며, 현재 검증 범위를 서명 검증 �
 filesystem mirror로 설정한다. `direct` 설치 경로를 두지 않으므로 실행 중 registry나
 AWS에서 내려받을 수 없다. S3 backend를 초기화하지 않고 `validate`와 mock provider
 테스트를 실행한다. 원본 lockfile과 state는 변경하지 않는다.
+
+`terraform_lifecycle_test`는 실제 Terraform 계획 JSON의 targeted plan·unknown 값
+처리와 삭제 후 빈 state를 확인한다. PRD 소스에는 실행기가 만든 override를 적용하고
+AWS mock provider로 스냅샷 보존·폐기와 삭제 보호 해제 값을 검사한다.
+실제 AWS API·IAM·네트워크의 삭제 동작을 검증하는 시험은 아니다.
