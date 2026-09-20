@@ -43,6 +43,11 @@ repo-info:
 repo-fetch:
     git fetch origin main
 
+# 최신 origin/main에서 새 작업 브랜치 시작
+[group('dev')]
+repo-start branch:
+    git switch -c "$1" origin/main
+
 # Git 이력·차이·객체 읽기 (조회 명령만 허용)
 [group('dev')]
 repo-inspect command +args:
@@ -100,6 +105,11 @@ lint:
 [group('dev')]
 lint-python-fix +paths:
     ruff check --fix "$@"
+
+# 지정한 Python 소스만 포맷
+[group('dev')]
+fmt-python +paths:
+    ruff format "$@"
 
 # macOS 유휴 절전을 억제한 동안 같은 전체 검증 실행 (완료하면 자동 해제)
 [group('dev')]

@@ -14,6 +14,7 @@ import urllib.request
 from pathlib import Path
 
 from tools.aws.alb import alb_values, verify_nodeclass, wait_for_alb
+from tools.aws.bootstrap_delete import delete_bootstrap
 from tools.aws.config import Runner, Settings, matched, output_values, workspace
 from tools.aws.deploy import (
     delete_transient,
@@ -21,6 +22,8 @@ from tools.aws.deploy import (
     gateway_values,
     validate_environment_outputs,
 )
+from tools.aws.destroy import destroy_service
+from tools.aws.teardown_options import TEARDOWN_COMMANDS, validate_teardown
 
 
 def preflight(run, sha):
@@ -57,7 +60,13 @@ def validate_identity(run, settings, operation="apply"):
         raise ValueError("실제 AWS 계정이 선택한 환경과 다릅니다")
     role_arn = (
         os.environ["AWS_BOOTSTRAP_ROLE_ARN"]
-        if operation in {"bootstrap-plan", "bootstrap-apply"}
+        if operation
+        in {
+            "bootstrap-plan",
+            "bootstrap-apply",
+            "bootstrap-delete-plan",
+            "bootstrap-delete",
+        }
         else settings.role
     )
     role = role_arn.rsplit("/", 1)[-1]
@@ -487,6 +496,45 @@ def render(run, root, environment):
     run(command, stdin=json.dumps(values))
 
 
+def teardown(run, root, settings, args):
+    scope, operation = TEARDOWN_COMMANDS.get(args.operation, (args.scope, args.action))
+    validate_teardown(
+        settings, scope, operation, args.snapshot_policy, args.purge_state
+    )
+    config = variables(settings) if scope == "service" else None
+    if args.operation == "teardown-validate":
+        print(
+            f"삭제 입력 검증 완료: {settings.environment} / {settings.account} / {scope} / {operation}"
+        )
+        return
+    validate_identity(run, settings, args.operation)
+    print(
+        f"삭제 대상 환경: {settings.environment}, 계정: {settings.account}, 리전: {settings.region}"
+    )
+    with tempfile.TemporaryDirectory(prefix="scenetrip-teardown-") as temporary:
+        temp = Path(temporary)
+        configure_tools(temp, args.provider_runfile)
+        if scope == "bootstrap":
+            delete_bootstrap(
+                run,
+                settings,
+                temp,
+                execute=operation == "destroy",
+                purge_state=args.purge_state == "true",
+            )
+        else:
+            directory = initialize_terraform(run, root, settings, temp)
+            destroy_service(
+                run,
+                settings,
+                directory,
+                config,
+                temp,
+                execute=operation == "destroy",
+                snapshot_policy=args.snapshot_policy,
+            )
+
+
 def main():
     parser = argparse.ArgumentParser(description="SceneTrip 수동 AWS 배포")
     parser.add_argument("--provider-runfile", required=True)
@@ -503,9 +551,17 @@ def main():
             "render",
             "cleanup",
             "tf-check",
+            "teardown-validate",
+            *TEARDOWN_COMMANDS,
         ],
     )
     parser.add_argument("environment", help="dev | prd; preflight는 후보 SHA")
+    parser.add_argument("--scope", choices=["service", "bootstrap"], default="service")
+    parser.add_argument("--action", choices=["plan", "destroy"], default="plan")
+    parser.add_argument(
+        "--snapshot-policy", choices=["retain", "discard"], default="retain"
+    )
+    parser.add_argument("--purge-state", choices=["true", "false"], default="false")
     args = parser.parse_args()
     root = workspace()
     run = Runner(root)
@@ -536,6 +592,9 @@ def main():
         return
     settings = Settings.from_environment(args.environment)
     validate_source(run, settings)
+    if args.operation == "teardown-validate" or args.operation in TEARDOWN_COMMANDS:
+        teardown(run, root, settings, args)
+        return
     if args.operation == "validate":
         if os.environ.get("AWS_BOOTSTRAP_ROLE_ARN"):
             matched(
@@ -593,5 +652,5 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (ValueError, KeyError, RuntimeError, OSError) as error:
+    except (ValueError, KeyError, TypeError, RuntimeError, OSError) as error:
         raise SystemExit(f"배포 중단: {error}") from None

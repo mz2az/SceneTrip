@@ -93,3 +93,21 @@ py_test(
     tags = ["unit"],
     deps = ["@rules_python//python/runfiles"],
 )
+
+py_test(
+    name = "terraform_lifecycle_test",
+    srcs = ["test_terraform_lifecycle.py"],
+    args = ["$(rlocationpath :aws_provider)"],
+    data = [
+        ":aws_provider",
+        ":terraform",
+        "//platform/terraform:sources",
+    ],
+    legacy_create_init = 0,
+    main = "test_terraform_lifecycle.py",
+    tags = ["unit"],
+    deps = [
+        "//tools/aws:lib",
+        "@rules_python//python/runfiles",
+    ],
+)

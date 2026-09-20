@@ -3,6 +3,7 @@ filegroup(
     srcs = [
         "aws-bootstrap.yml",
         "aws-deploy.yml",
+        "aws-destroy.yml",
     ],
     visibility = ["//visibility:public"],
 )

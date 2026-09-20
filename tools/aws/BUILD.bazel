@@ -9,8 +9,15 @@ py_library(
     name = "lib",
     srcs = [
         "alb.py",
+        "bootstrap_delete.py",
+        "bootstrap_state.py",
         "config.py",
         "deploy.py",
+        "destroy.py",
+        "destroy_gateway.py",
+        "destroy_identity.py",
+        "destroy_plan.py",
+        "teardown_options.py",
     ],
     data = [
         "db-bootstrap.sh",
@@ -20,6 +27,7 @@ py_library(
         "//tools/bazel/cloud:kubectl",
         "//tools/bazel/cloud:terraform",
     ],
+    visibility = ["//tools/bazel/cloud:__pkg__"],
     deps = ["@rules_python//python/runfiles"],
 )
 
@@ -47,10 +55,16 @@ py_test(
         "tests/fixtures.py",
         "tests/test_alb.py",
         "tests/test_aws.py",
+        "tests/test_bootstrap_delete.py",
+        "tests/test_bootstrap_state.py",
         "tests/test_boundaries.py",
         "tests/test_commands.py",
         "tests/test_deploy.py",
+        "tests/test_destroy.py",
+        "tests/test_destroy_gateway.py",
+        "tests/test_destroy_plan.py",
         "tests/test_entrypoint.py",
+        "tests/test_teardown_entrypoint.py",
         "tests/test_workflows.py",
     ],
     data = [

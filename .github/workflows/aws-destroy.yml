@@ -1,0 +1,164 @@
+name: AWS 수동 삭제
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 삭제할 GitHub Environment
+        required: true
+        type: choice
+        options: [dev, prd]
+      scope:
+        description: service 삭제 완료 후 bootstrap을 별도 실행
+        required: true
+        default: service
+        type: choice
+        options: [service, bootstrap]
+      operation:
+        description: 읽기 전용 계획 검토 또는 실제 삭제
+        required: true
+        default: plan
+        type: choice
+        options: [plan, destroy]
+      commit_sha:
+        description: main에 포함된 삭제 도구의 40자리 SHA
+        required: true
+        type: string
+      snapshot_policy:
+        description: service의 최종 DB 스냅샷 정책 (bootstrap은 retain 유지)
+        required: true
+        default: retain
+        type: choice
+        options: [retain, discard]
+      purge_state:
+        description: bootstrap에서 보존된 state S3 버전·버킷까지 영구 삭제
+        required: true
+        default: false
+        type: boolean
+      confirmation:
+        description: 'destroy 필수 확인값: DELETE <환경> <12자리 AWS 계정>'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# 배포·bootstrap과 같은 환경을 동시에 변경하지 않는다.
+concurrency:
+  group: aws-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.verify.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: extractions/setup-just@v2
+      - uses: bazel-contrib/setup-bazel@0.15.0
+      - name: main의 신뢰된 검사기로 삭제 소스 SHA 검증
+        id: verify
+        env:
+          REQUESTED_SHA: ${{ inputs.commit_sha }}
+        run: just aws-preflight "$REQUESTED_SHA"
+  service:
+    needs: preflight
+    if: github.ref == 'refs/heads/main' && inputs.scope == 'service'
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ inputs.environment }}
+    # 삭제하는 클러스터·VPC 밖의 고정 egress runner가 필요하다.
+    runs-on: [self-hosted, linux, x64, 'scenetrip-${{ inputs.environment }}']
+    timeout-minutes: 120
+    env:
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      AWS_API_DOMAIN: ${{ vars.AWS_API_DOMAIN }}
+      AWS_COMMIT_SHA: ${{ needs.preflight.outputs.sha }}
+      TF_VAR_FILE_JSON: ${{ vars.TF_VAR_FILE_JSON }}
+      AWS_DELETE_CONFIRMATION: ${{ inputs.confirmation }}
+      AWS_PAGER: ''
+      AWS_EC2_METADATA_DISABLED: 'true'
+      TARGET_ENVIRONMENT: ${{ inputs.environment }}
+      DELETE_OPERATION: ${{ inputs.operation }}
+      SNAPSHOT_POLICY: ${{ inputs.snapshot_policy }}
+      PURGE_STATE: ${{ inputs.purge_state }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: AWS 인증 전 삭제 범위·확인값·소스 검증
+        run: just aws-teardown-validate "$TARGET_ENVIRONMENT" service "$DELETE_OPERATION" "$SNAPSHOT_POLICY" "$PURGE_STATE"
+      - name: 환경 전용 배포 OIDC 역할
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-duration-seconds: 7200
+          role-session-name: teardown-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: 서비스 삭제 계획 검토
+        if: inputs.operation == 'plan'
+        run: just aws-destroy-plan "$TARGET_ENVIRONMENT" "$SNAPSHOT_POLICY"
+      - name: Ingress·ALB 정리와 서비스 Terraform 삭제
+        if: inputs.operation == 'destroy'
+        run: just --yes aws-destroy "$TARGET_ENVIRONMENT" "$SNAPSHOT_POLICY"
+  bootstrap:
+    needs: preflight
+    if: github.ref == 'refs/heads/main' && inputs.scope == 'bootstrap'
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      AWS_BOOTSTRAP_ROLE_ARN: ${{ vars.AWS_BOOTSTRAP_ROLE_ARN }}
+      AWS_API_DOMAIN: ${{ vars.AWS_API_DOMAIN }}
+      AWS_COMMIT_SHA: ${{ needs.preflight.outputs.sha }}
+      AWS_DELETE_CONFIRMATION: ${{ inputs.confirmation }}
+      AWS_PAGER: ''
+      AWS_EC2_METADATA_DISABLED: 'true'
+      TARGET_ENVIRONMENT: ${{ inputs.environment }}
+      DELETE_OPERATION: ${{ inputs.operation }}
+      SNAPSHOT_POLICY: ${{ inputs.snapshot_policy }}
+      PURGE_STATE: ${{ inputs.purge_state }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: extractions/setup-just@v2
+      - uses: bazel-contrib/setup-bazel@0.15.0
+      - name: AWS 인증 전 삭제 범위·확인값·소스 검증
+        run: just aws-teardown-validate "$TARGET_ENVIRONMENT" bootstrap "$DELETE_OPERATION" "$SNAPSHOT_POLICY" "$PURGE_STATE"
+      - name: 스택 외부의 bootstrap OIDC 역할
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_BOOTSTRAP_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-duration-seconds: 3600
+          role-session-name: delete-bootstrap-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: 서비스 부재 확인과 bootstrap 삭제 계획
+        if: inputs.operation == 'plan'
+        run: just aws-bootstrap-delete-plan "$TARGET_ENVIRONMENT" "$PURGE_STATE"
+      - name: 서비스 부재 재확인 후 bootstrap 삭제
+        if: inputs.operation == 'destroy'
+        run: just --yes aws-bootstrap-delete "$TARGET_ENVIRONMENT" "$PURGE_STATE"

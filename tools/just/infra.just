@@ -77,7 +77,7 @@ k8s-render env="dev":
 # AWS 인증 없이 배포·Terraform 정책·고정 도구와 양쪽 Helm 렌더링 검사
 [group('infra')]
 aws-check:
-    just test //tools/aws:unit_test //tools/bazel/cloud:unit_test //tools/bazel/cloud:terraform_test //platform/terraform:unit_test
+    just test //tools/aws:unit_test //tools/bazel/cloud:unit_test //tools/bazel/cloud:terraform_test //tools/bazel/cloud:terraform_lifecycle_test //platform/terraform:unit_test
     just aws-render dev > /dev/null
     just aws-render prd > /dev/null
 
@@ -95,3 +95,32 @@ aws-preflight sha:
 [group('infra')]
 aws-verify env:
     {{BAZEL}} run //tools/aws:aws -- verify "$1"
+
+# AWS 인증 전에 삭제 범위·입력·확인값 검사
+[group('infra')]
+aws-teardown-validate env scope operation snapshot_policy="retain" purge_state="false":
+    {{BAZEL}} run //tools/aws:aws -- teardown-validate "$1" --scope "$2" --action "$3" --snapshot-policy "$4" --purge-state "$5"
+
+# 서비스 보호 해제와 Terraform 삭제 계획 검토 (리소스 변경 없음)
+[group('infra')]
+aws-destroy-plan env snapshot_policy="retain":
+    {{BAZEL}} run //tools/aws:aws -- service-destroy-plan "$1" --snapshot-policy "$2"
+
+# Ingress·ALB를 정리한 뒤 EKS·RDS·ECR·VPC 등 서비스 형상 삭제
+[group('infra')]
+[confirm("선택한 AWS 서비스와 ECR 이미지를 삭제합니다. DB 스냅샷 정책과 확인값을 검토했습니까?")]
+aws-destroy env snapshot_policy="retain":
+    @echo ">>> AWS 서비스 삭제 환경: $1 / 최종 DB 스냅샷: $2"
+    {{BAZEL}} run //tools/aws:aws -- service-destroy "$1" --snapshot-policy "$2"
+
+# 서비스 state·실제 자원 부재를 확인하고 bootstrap 삭제 계획 검토
+[group('infra')]
+aws-bootstrap-delete-plan env purge_state="false":
+    {{BAZEL}} run //tools/aws:aws -- bootstrap-delete-plan "$1" --purge-state "$2"
+
+# bootstrap 스택 삭제와 선택적인 state S3 영구 삭제
+[group('infra')]
+[confirm("bootstrap IAM 역할을 삭제합니다. state 삭제 선택 시 모든 이력이 영구 삭제됩니다. 진행할까요?")]
+aws-bootstrap-delete env purge_state="false":
+    @echo ">>> AWS bootstrap 삭제 환경: $1 / state 영구 삭제: $2"
+    {{BAZEL}} run //tools/aws:aws -- bootstrap-delete "$1" --purge-state "$2"

@@ -55,7 +55,7 @@ role ARN·CIDR·인증서·AZ를 운영 값으로 채우되 암호나 외부 API
 runner 라벨은 `self-hosted`, `linux`, `x64`, `scenetrip-dev` 또는 `scenetrip-prd`다.
 bootstrap은 기존 역할을 사용하므로 클러스터 runner에 의존하지 않는다.
 
-두 workflow는 Environment·OIDC 권한이 없는 별도 사전검증 job에서 신뢰된 `main`의
+배포·bootstrap·삭제 workflow는 Environment·OIDC 권한이 없는 별도 사전검증 job에서 신뢰된 `main`의
 명령으로 입력 SHA 형식과 `main` 포함 여부를 검사한다. 통과한 SHA만 후속 권한 job이
 checkout한다. 검증할 소스 자체에 AWS 권한을 먼저 주지 않는다.
 
@@ -261,6 +261,14 @@ gateway Service의 LoadBalancer→ClusterIP 변경으로 NLB가 삭제될 수 �
 
 이전 chart로 롤백해도 같은 NLB 주소가 돌아온다는 보장은 없다. 새 주소의 DNS 전환이
 다시 필요할 수 있다. DB 스키마 호환성을 함께 확인하고 자동 DB 되돌리기는 하지 않는다.
+
+## 10. 사용하지 않는 환경 삭제
+
+GitHub Actions의 **AWS 수동 삭제**로 서비스 형상을 먼저 삭제하고, 완료 후 bootstrap을
+별도로 삭제한다. `plan`이 기본이며 실제 삭제에는 환경·계정을 포함한 확인 문자열이 필요하다.
+RDS 최종 스냅샷과 state S3는 기본 보존한다. 서비스 삭제 runner와 bootstrap 역할은
+삭제 대상 밖에 유지해야 한다. 입력·권한·남는 비용·재배포 조건은
+[삭제 런북](aws-teardown.md)을 따른다.
 
 ## 배포 기록
 
