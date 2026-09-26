@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -35,6 +36,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -43,9 +45,11 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.communitytab.CommunityTabScreen
 import com.mz2az.scenetrip.data.Cover
 import com.mz2az.scenetrip.data.RootTab
+import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.hometab.HomeTabScreen
 import com.mz2az.scenetrip.profiletab.ProfileTabView
+import com.mz2az.scenetrip.routetab.RouteTabView
 import com.mz2az.scenetrip.searchtab.SearchTabScreen
 import com.mz2az.scenetrip.ui.IOS
 
@@ -56,8 +60,7 @@ import com.mz2az.scenetrip.ui.IOS
  * 그대로 옮겼다): 탭 넷(작품검색·경로여정·커뮤니티·마이페이지)이 **셋**(작품검색 ·
  * 가운데 동그란 홈 · 커뮤니티)이 됐고 첫 화면은 홈이다. 경로여정은 홈의 "내 여행
  * 이어가기" 카드가, 마이페이지는 홈 오른쪽 위 프로필 단추가 입구다 — [TabRouter.cover]
- * 로 전체 화면에 띄운다. 두 화면 다 아직 Android 에 없어 [CoverPlaceholder]로 자리만
- * 잡아 둔다.
+ * 로 전체 화면에 띄운다.
  *
  * 탭 선택·덮개는 [TabRouter]가 든다 — 마이페이지가 "경로여정에서 열기"로, 홈이
  * "코스 보기"로 화면을 바꿀 수 있어야 해서다.
@@ -98,9 +101,23 @@ fun RootTabs() {
         }
 
         when (val cover = TabRouter.cover) {
-            null -> Unit
-            Cover.Profile -> ProfileTabView(onClose = { TabRouter.cover = null })
-            is Cover.Route -> CoverPlaceholder(cover, onClose = { TabRouter.cover = null })
+            null -> {
+                Unit
+            }
+
+            Cover.Profile -> {
+                ProfileTabView(onClose = { TabRouter.cover = null })
+            }
+
+            is Cover.Route -> {
+                val context = LocalContext.current
+                val routeStore = remember { RouteStore(context) }
+                RouteTabView(
+                    store = routeStore,
+                    onClose = { TabRouter.cover = null },
+                    startInMarket = cover.market,
+                )
+            }
         }
     }
 }
@@ -125,43 +142,6 @@ private val RootTab.stubLabel: String
             RootTab.HOME -> "홈"
             RootTab.COMMUNITY -> "커뮤니티"
         }
-
-/**
- * 경로여정 덮개 자리표시자. iOS 는 실제 `RouteTabView`를 `onClose`와 함께 띄우는데,
- * RouteTab 이 아직 Android 에 없어 라벨 + 닫기 단추만 그린다. 마이페이지는
- * [ProfileTabView]로 대체됐다.
- */
-@Composable
-private fun CoverPlaceholder(
-    cover: Cover.Route,
-    onClose: () -> Unit,
-) {
-    val label = if (cover.market) "경로여정 · 둘러보기" else "경로여정"
-    Column(
-        modifier = Modifier.fillMaxSize().background(IOS.systemBackground),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .height(56.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onClose) {
-                Icon(Icons.Filled.Close, contentDescription = "닫기", tint = IOS.label)
-            }
-        }
-        Column(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(label, style = IOS.headline, color = IOS.secondaryLabel)
-            Text("아직 준비 중입니다", style = IOS.subheadline, color = IOS.tertiaryLabel)
-        }
-    }
-}
 
 /**
  * 탭바 — 양옆은 얇은 아이콘, 가운데는 위로 솟은 동그란 홈(해태 얼굴).
