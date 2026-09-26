@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.communitytab.CommunityTabScreen
 import com.mz2az.scenetrip.data.Cover
 import com.mz2az.scenetrip.data.RootTab
 import com.mz2az.scenetrip.data.TabRouter
@@ -89,7 +90,7 @@ fun RootTabs() {
                 }
                 // 커뮤니티는 값이 싸서 선택했을 때만 만들고 버린다.
                 if (selected == RootTab.COMMUNITY) {
-                    StubTab(RootTab.COMMUNITY)
+                    CommunityTabScreen()
                 }
             }
             TabBar(selected = selected, onSelect = { TabRouter.selected = it })
