@@ -33,6 +33,9 @@ mobile_api_config(
 kt_android_library(
     name = "scenetrip-android",
     srcs = glob(["src/**/*.kt"]) + [":api_configuration"],
+    # 해태 마스코트 PNG 등 래스터 자산. 원본이 한 해상도뿐이라 밀도 버킷을 나누지
+    # 않고 drawable-nodpi 하나로 둔다 — 업스케일링으로 흐려지는 것을 피한다.
+    resource_files = glob(["src/main/res/**"]),
     manifest = "AndroidManifest.xml",
     # Compose 는 컴파일러 플러그인 없이는 **조용히 잘못 돈다** — 이유는
     # //tools/bazel/kotlin:compose_compiler_plugin 의 주석에 있다.
