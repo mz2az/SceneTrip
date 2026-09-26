@@ -45,6 +45,7 @@ import com.mz2az.scenetrip.data.Cover
 import com.mz2az.scenetrip.data.RootTab
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.hometab.HomeTabScreen
+import com.mz2az.scenetrip.profiletab.ProfileTabView
 import com.mz2az.scenetrip.searchtab.SearchTabScreen
 import com.mz2az.scenetrip.ui.IOS
 
@@ -96,8 +97,10 @@ fun RootTabs() {
             TabBar(selected = selected, onSelect = { TabRouter.selected = it })
         }
 
-        TabRouter.cover?.let { cover ->
-            CoverPlaceholder(cover, onClose = { TabRouter.cover = null })
+        when (val cover = TabRouter.cover) {
+            null -> Unit
+            Cover.Profile -> ProfileTabView(onClose = { TabRouter.cover = null })
+            is Cover.Route -> CoverPlaceholder(cover, onClose = { TabRouter.cover = null })
         }
     }
 }
@@ -124,20 +127,16 @@ private val RootTab.stubLabel: String
         }
 
 /**
- * 경로여정·마이페이지 덮개 자리표시자. iOS 는 실제 `RouteTabView`/`ProfileTabView`를
- * `onClose`와 함께 띄우는데, 두 화면 다 Android 에 아직 없어(RouteTab·ProfileTab 이식은
- * 다음 단계들) 라벨 + 닫기 단추만 그린다.
+ * 경로여정 덮개 자리표시자. iOS 는 실제 `RouteTabView`를 `onClose`와 함께 띄우는데,
+ * RouteTab 이 아직 Android 에 없어 라벨 + 닫기 단추만 그린다. 마이페이지는
+ * [ProfileTabView]로 대체됐다.
  */
 @Composable
 private fun CoverPlaceholder(
-    cover: Cover,
+    cover: Cover.Route,
     onClose: () -> Unit,
 ) {
-    val label =
-        when (cover) {
-            is Cover.Route -> if (cover.market) "경로여정 · 둘러보기" else "경로여정"
-            Cover.Profile -> "마이페이지"
-        }
+    val label = if (cover.market) "경로여정 · 둘러보기" else "경로여정"
     Column(
         modifier = Modifier.fillMaxSize().background(IOS.systemBackground),
     ) {

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -116,7 +117,12 @@ fun OnboardingView(
     ) {
         // 마지막 장에는 두지 않는다 — 거기 버튼이 이미 「Get started」다.
         Row(
-            modifier = Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .height(44.dp)
+                    .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.End,
         ) {
             if (!isLast) {
