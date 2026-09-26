@@ -44,6 +44,9 @@ object IOS {
 
     /** 장면 카드 테두리. iOS `systemGray5`. */
     val systemGray5 = Color(0xFFE5E5EA)
+
+    /** 온보딩 지도 조각의 격자선, 페이지 점의 비활성 색. iOS `systemGray4`. */
+    val systemGray4 = Color(0xFFD1D1D6)
     val systemGray6 = Color(0xFFF2F2F7)
 
     /** 세그먼트 컨트롤의 트랙. systemGray6 보다 살짝 어둡다 — 실측 #EEEEEF. */
