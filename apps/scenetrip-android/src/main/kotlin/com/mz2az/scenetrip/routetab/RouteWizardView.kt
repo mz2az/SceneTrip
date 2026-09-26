@@ -10,11 +10,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,24 +39,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.ui.IOS
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * 코스를 만들기 전에 기간을 묻는 질문 흐름. iOS `RouteTab/RouteWizardView.swift`의
- * **"직접 짜기"(`kind == .manual`) 경로만** 옮긴 것이다 — 회의 확정대로 직접 짜는
- * 사람에게는 기간(및 선택적 출발일)만 묻는다.
- *
- * AI 로 초안을 짜는 5단계(`.aiPlan`: span·dates·works·pace·review, `guideDraft` 호출)는
- * 아직 없다 — RouteGuide(챗봇) 자체가 다음 단계라 여기서 만들지 않는다.
- *
- * 답을 다 받으면 iOS와 동일하게 **바로 저장하지 않고** [RouteEditorView]로 넘긴다.
+ * 코스를 만들기 전에 기간을 묻는 질문 흐름. iOS `RouteTab/RouteWizardView.swift`를
+ * 옮긴 것이다 — **작품·페이스를 고르는 두 단계(`.works`·`.pace`)는 빠졌다**, 그 UI가
+ * 아직 없어 [isAiPlan]일 때는 인기 작품 상위 3개·빡빡 페이스로 자동 채운다
+ * (`RouteStore.guideDraft`). "review" 단계도 없다 — 답을 받으면 iOS와 동일하게
+ * **바로 저장하지 않고** [RouteEditorView]로 넘겨 거기서 고치게 한다.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouteWizardView(
     store: RouteStore,
+    isAiPlan: Boolean = false,
     onClose: (RouteCourse?) -> Unit,
 ) {
     var stepIndex by remember { mutableStateOf(0) }
@@ -61,6 +64,9 @@ fun RouteWizardView(
     var pickedDate by remember { mutableStateOf(LocalDate.now()) }
     var showDatePicker by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf<RouteCourse?>(null) }
+    var planning by remember { mutableStateOf(false) }
+    var planFailed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val currentDraft = draft
     if (currentDraft != null) {
@@ -156,28 +162,61 @@ fun RouteWizardView(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (stepIndex > 0) {
-                TextButton(onClick = { stepIndex -= 1 }) { Text("이전") }
+                TextButton(onClick = { stepIndex -= 1 }, enabled = !planning) { Text("이전") }
             }
-            Text(
-                if (isLast) "코스 만들기" else "다음",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = IOS.systemBackground,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 modifier =
                     Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(12.dp))
                         .background(IOS.accent)
-                        .clickable {
-                            if (isLast) {
-                                draft = store.emptyCourse(span, if (hasDate) pickedDate else null)
-                            } else {
+                        .clickable(enabled = !planning) {
+                            if (!isLast) {
                                 stepIndex += 1
+                                return@clickable
+                            }
+                            val startDate = if (hasDate) pickedDate else null
+                            if (!isAiPlan) {
+                                draft = store.emptyCourse(span, startDate)
+                                return@clickable
+                            }
+                            planning = true
+                            scope.launch {
+                                val result = store.guideDraft(span, startDate, RoutePace.TIGHT)
+                                planning = false
+                                if (result != null) draft = result else planFailed = true
                             }
                         }.padding(vertical = 14.dp),
-            )
+            ) {
+                if (planning) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = IOS.systemBackground)
+                }
+                Text(
+                    if (planning) {
+                        "일정을 짜는 중입니다"
+                    } else if (isLast) {
+                        (if (isAiPlan) "AI 로 일정 짜기" else "코스 만들기")
+                    } else {
+                        "다음"
+                    },
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IOS.systemBackground,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
         }
+    }
+
+    if (planFailed) {
+        AlertDialog(
+            onDismissRequest = { planFailed = false },
+            title = { Text("일정을 짜지 못했습니다") },
+            text = { Text(store.failure?.message ?: "잠시 후 다시 시도해 주세요.") },
+            confirmButton = { TextButton(onClick = { planFailed = false }) { Text("확인") } },
+        )
     }
 
     if (showDatePicker) {

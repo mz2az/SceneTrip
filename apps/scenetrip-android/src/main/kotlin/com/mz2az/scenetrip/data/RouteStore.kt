@@ -7,9 +7,12 @@ import androidx.compose.runtime.setValue
 import com.mz2az.scenetrip.routetab.RouteBridge
 import com.mz2az.scenetrip.routetab.RouteCourse
 import com.mz2az.scenetrip.routetab.RouteDay
+import com.mz2az.scenetrip.routetab.RouteGuidePlan
 import com.mz2az.scenetrip.routetab.RoutePace
 import com.mz2az.scenetrip.routetab.RouteSpan
+import com.mz2az.scenetrip.sceneapi.client.api.ContentsApi
 import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
+import com.mz2az.scenetrip.sceneapi.client.api.GuideApi
 import com.mz2az.scenetrip.sceneapi.client.api.MarketApi
 import com.mz2az.scenetrip.sceneapi.client.model.CourseCreate
 import com.mz2az.scenetrip.sceneapi.client.model.CourseDetail
@@ -18,6 +21,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.CoursePace
 import com.mz2az.scenetrip.sceneapi.client.model.CourseProgress
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
+import com.mz2az.scenetrip.sceneapi.client.model.GuidePlanRequest
 import com.mz2az.scenetrip.sceneapi.client.model.MarketCourseSummary
 import com.mz2az.scenetrip.sceneapi.client.model.MarketSort
 import kotlinx.coroutines.Dispatchers
@@ -53,6 +57,8 @@ class RouteStore(
 
     private val coursesApi = CoursesApi(API_BASE)
     private val marketApi = MarketApi(API_BASE)
+    private val guideApi = GuideApi(API_BASE)
+    private val contentsApi = ContentsApi(API_BASE)
     private val deviceId: UUID = InstallIdentity.of(context)
 
     fun clearFailure() {
@@ -231,6 +237,46 @@ class RouteStore(
         // 실패했으면 되돌린다 — 화면과 서버가 어긋난 채 두면 다음 저장이 엉뚱하게 나간다.
         refresh()
     }
+
+    /**
+     * "AI 로 여정 짜기". 작품을 고르는 단계(iOS 5단계 마법사의 `.works`)는 아직 없어 —
+     * 인기 작품 상위 3개로 채운다(iOS도 아무것도 안 고르면 같은 폴백을 쓴다). 실패하면
+     * `failure`에 남긴다.
+     */
+    suspend fun guideDraft(
+        span: RouteSpan,
+        startDate: LocalDate?,
+        pace: RoutePace,
+    ): RouteCourse? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val titles =
+                    contentsApi
+                        .listContents(limit = 3)
+                        .items
+                        .map { it.title }
+                        .filter { it.isNotBlank() }
+                require(titles.isNotEmpty()) { "인기 작품을 불러오지 못했습니다" }
+                val request =
+                    GuidePlanRequest(
+                        titles = titles,
+                        days = span.days,
+                        pace = if (pace == RoutePace.LOOSE) GuidePlanRequest.Pace.relaxed else GuidePlanRequest.Pace.packed,
+                    )
+                val reply = guideApi.planWithGuide(request)
+                val title = titles.first().let { if (titles.size == 1) it else "$it 외 ${titles.size - 1}" }
+                RouteGuidePlan.course(reply.plan, "$title ${span.label}", startDate, pace)
+            }
+        }.fold(
+            onSuccess = { course ->
+                failure = null
+                course
+            },
+            onFailure = {
+                failure = ApiFailure.of(it)
+                null
+            },
+        )
 
     /** "직접 짜기" — 빈 일차만 있는 코스. */
     fun emptyCourse(

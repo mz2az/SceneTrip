@@ -63,7 +63,7 @@ fun RouteTabView(
     var segment by remember { mutableStateOf(if (startInMarket) Segment.MARKET else Segment.MINE) }
     var fork by remember { mutableStateOf(false) }
     var wizardOpen by remember { mutableStateOf(false) }
-    var aiComingSoon by remember { mutableStateOf(false) }
+    var aiWizardOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<RouteCourse?>(null) }
     var doomed by remember { mutableStateOf<RouteCourse?>(null) }
     var marketLoaded by remember { mutableStateOf(false) }
@@ -145,7 +145,7 @@ fun RouteTabView(
         when (segment) {
             Segment.MINE -> {
                 if (store.courses.isEmpty()) {
-                    EmptyState(onAI = { aiComingSoon = true }, onManual = { wizardOpen = true })
+                    EmptyState(onAI = { aiWizardOpen = true }, onManual = { wizardOpen = true })
                 } else {
                     CourseList(
                         store = store,
@@ -170,7 +170,7 @@ fun RouteTabView(
             onDismiss = { fork = false },
             onAI = {
                 fork = false
-                aiComingSoon = true
+                aiWizardOpen = true
             },
             onManual = {
                 fork = false
@@ -179,12 +179,14 @@ fun RouteTabView(
         )
     }
 
-    if (aiComingSoon) {
-        AlertDialog(
-            onDismissRequest = { aiComingSoon = false },
-            title = { Text("준비 중입니다") },
-            text = { Text("AI 로 여정을 짜는 기능은 아직 만들고 있어요. 지금은 직접 짜기로 만들어 주세요.") },
-            confirmButton = { TextButton(onClick = { aiComingSoon = false }) { Text("확인") } },
+    if (aiWizardOpen) {
+        RouteWizardView(
+            store = store,
+            isAiPlan = true,
+            onClose = { saved ->
+                aiWizardOpen = false
+                if (saved != null) editing = saved
+            },
         )
     }
 
