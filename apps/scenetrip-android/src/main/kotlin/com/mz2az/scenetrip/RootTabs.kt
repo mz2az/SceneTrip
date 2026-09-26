@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.Cover
 import com.mz2az.scenetrip.data.RootTab
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.hometab.HomeTabScreen
 import com.mz2az.scenetrip.searchtab.SearchTabScreen
 import com.mz2az.scenetrip.ui.IOS
 
@@ -78,14 +79,13 @@ fun RootTabs() {
                     SearchTabScreen()
                 }
                 // 홈도 검색처럼 항상 살려 둔다 — 서버를 다시 부르지 않기 위해서다.
-                // 실제 HomeTabScreen 은 아직 없다(다음 단계) — 그때까지 자리표시자.
                 Box(
                     modifier =
                         Modifier
                             .fillMaxSize()
                             .alpha(if (selected == RootTab.HOME) 1f else 0f),
                 ) {
-                    StubTab(RootTab.HOME)
+                    HomeTabScreen()
                 }
                 // 커뮤니티는 값이 싸서 선택했을 때만 만들고 버린다.
                 if (selected == RootTab.COMMUNITY) {
