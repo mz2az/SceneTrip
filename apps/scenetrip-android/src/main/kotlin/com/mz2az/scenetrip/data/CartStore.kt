@@ -27,7 +27,8 @@ class CartStore(
         private set
 
     private val api = CartApi(API_BASE)
-    private val installId: UUID = loadOrCreateInstallId(context)
+    // 저장 키는 옛 "deviceId" 그대로 — InstallIdentity 가 같은 자리를 읽는다(깔린 앱의 값 유지).
+    private val installId: UUID = InstallIdentity.of(context)
 
     fun contains(placeId: Long): Boolean = items.any { it.placeId == placeId }
 
@@ -65,22 +66,5 @@ class CartStore(
 
     fun clearToast() {
         toast = null
-    }
-
-    private companion object {
-        const val PREFS = "scenetrip"
-
-        // 이름이 옛 "deviceId" 인 채로 둔다 — 바꾸면 이미 깔린 앱의 값이 고아가 된다.
-        const val KEY = "deviceId"
-
-        fun loadOrCreateInstallId(context: Context): UUID {
-            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            prefs.getString(KEY, null)?.let { saved ->
-                runCatching { return UUID.fromString(saved) }
-            }
-            val fresh = UUID.randomUUID()
-            prefs.edit().putString(KEY, fresh.toString()).apply()
-            return fresh
-        }
     }
 }

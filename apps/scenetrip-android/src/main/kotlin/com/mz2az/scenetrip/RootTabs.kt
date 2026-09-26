@@ -278,11 +278,8 @@ private fun TabIcon(
             Icon(Icons.Filled.Search, tab.stubLabel, Modifier.size(size), tint)
         }
 
-        RootTab.HOME -> {
-            Unit
-        }
-
         // 가운데 원형 버튼이 대신한다.
+        RootTab.HOME -> {}
 
         // `bubble.left.and.bubble.right` — 말풍선 둘이 겹친다.
         RootTab.COMMUNITY -> {
