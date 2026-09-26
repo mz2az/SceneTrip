@@ -319,46 +319,55 @@ private fun DayCards() {
 private fun LegTrace() {
     Box(modifier = Modifier.size(300.dp)) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val dash = PathEffect.dashPathEffect(floatArrayOf(1.dp.toPx(), 9.dp.toPx()))
+            // iOS 소스의 좌표는 pt(≈dp) 값이다 — Canvas 는 실제 픽셀 단위라 dp.toPx()로
+            // 바꾸지 않으면 밀도가 높은 기기에서 그림 전체가 왼쪽 위 구석으로 쪼그라든다.
+            fun px(v: Float) = v.dp.toPx()
+
+            fun point(
+                x: Float,
+                y: Float,
+            ) = Offset(px(x), px(y))
+
+            val dash = PathEffect.dashPathEffect(floatArrayOf(px(1f), px(9f)))
 
             val walk1 =
                 Path().apply {
-                    moveTo(42f, 246f)
-                    cubicTo(62f, 232f, 70f, 216f, 90f, 208f)
+                    moveTo(px(42f), px(246f))
+                    cubicTo(px(62f), px(232f), px(70f), px(216f), px(90f), px(208f))
                 }
             drawPath(
                 walk1,
                 color = IOS.accent,
-                style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round, pathEffect = dash),
+                style = Stroke(width = px(5f), cap = StrokeCap.Round, pathEffect = dash),
             )
 
             val transit =
                 Path().apply {
-                    moveTo(90f, 208f)
-                    cubicTo(136f, 186f, 162f, 120f, 200f, 92f)
+                    moveTo(px(90f), px(208f))
+                    cubicTo(px(136f), px(186f), px(162f), px(120f), px(200f), px(92f))
                 }
-            drawPath(transit, color = IOS.pinDeep, style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round))
+            drawPath(transit, color = IOS.pinDeep, style = Stroke(width = px(6f), cap = StrokeCap.Round))
 
             val walk2 =
                 Path().apply {
-                    moveTo(200f, 92f)
-                    cubicTo(220f, 78f, 230f, 62f, 244f, 54f)
+                    moveTo(px(200f), px(92f))
+                    cubicTo(px(220f), px(78f), px(230f), px(62f), px(244f), px(54f))
                 }
             drawPath(
                 walk2,
                 color = IOS.accent,
-                style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round, pathEffect = dash),
+                style = Stroke(width = px(5f), cap = StrokeCap.Round, pathEffect = dash),
             )
 
-            drawCircle(IOS.systemBackground, radius = 9.dp.toPx(), center = Offset(42f, 246f))
+            drawCircle(IOS.systemBackground, radius = px(9f), center = point(42f, 246f))
             drawCircle(
                 IOS.accent,
-                radius = 9.dp.toPx(),
-                center = Offset(42f, 246f),
-                style = Stroke(width = 5.dp.toPx()),
+                radius = px(9f),
+                center = point(42f, 246f),
+                style = Stroke(width = px(5f)),
             )
-            drawCircle(IOS.pinDeep, radius = 6.dp.toPx(), center = Offset(90f, 208f))
-            drawCircle(IOS.pinDeep, radius = 6.dp.toPx(), center = Offset(200f, 92f))
+            drawCircle(IOS.pinDeep, radius = px(6f), center = point(90f, 208f))
+            drawCircle(IOS.pinDeep, radius = px(6f), center = point(200f, 92f))
         }
 
         MiniPin(tint = IOS.pinDeep, modifier = Modifier.offset(x = 231.dp, y = 27.dp))
