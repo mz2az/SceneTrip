@@ -44,6 +44,7 @@ import com.mz2az.scenetrip.data.ApiFailure
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.SceneData
+import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.EntityType
@@ -86,7 +87,7 @@ fun SearchTabScreen() {
     val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val data = remember { SceneData(scope) }
     val cart = remember { CartStore(context) }
-    val likes = remember { LikeStore(context) }
+    val likes = remember { LikeStore.getInstance(context) }
 
     var draft by remember { mutableStateOf("") }
 
@@ -155,6 +156,21 @@ fun SearchTabScreen() {
     LaunchedEffect(Unit) {
         data.search("")
         cart.refresh()
+    }
+
+    // 홈의 "지금 뜨는 작품"/"오늘의 성지" 카드가 남긴 쪽지 — 받으면 곧장 지우는
+    // 한 번짜리다. 남겨 두면 이 탭에 다시 올 때마다 같은 상세가 또 열린다.
+    LaunchedEffect(TabRouter.pendingContent) {
+        TabRouter.pendingContent?.let {
+            selectedContent = it
+            TabRouter.pendingContent = null
+        }
+    }
+    LaunchedEffect(TabRouter.pendingPlace) {
+        TabRouter.pendingPlace?.let {
+            selectedPlace = it
+            TabRouter.pendingPlace = null
+        }
     }
 
     // 지도가 남한 밖으로 나갔는지 지켜본다.

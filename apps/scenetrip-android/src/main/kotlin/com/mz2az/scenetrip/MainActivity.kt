@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.mz2az.scenetrip.data.OnboardingFlag
+import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.onboarding.OnboardingView
 import com.mz2az.scenetrip.onboarding.SplashView
 import com.mz2az.scenetrip.ui.IOS
@@ -55,6 +56,15 @@ class MainActivity : ComponentActivity() {
         // 지도를 상태바 아래까지 채우는 것과 같다.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+        // 확인용 뒷문 — iOS `simctl launch … -initialTab profile`과 짝이다.
+        // `adb shell am start -n com.mz2az.scenetrip/.MainActivity -e initialTab route
+        // --el openCourseId 26` 처럼 부른다. 인자가 없으면 기본값(홈)을 그대로 둔다.
+        TabRouter.applyInitialTab(
+            tab = intent.getStringExtra("initialTab"),
+            openCourseId = intent.getLongExtra("openCourseId", -1L).takeIf { it > 0 },
+        )
+
         setContent { SceneTripApp() }
     }
 }
