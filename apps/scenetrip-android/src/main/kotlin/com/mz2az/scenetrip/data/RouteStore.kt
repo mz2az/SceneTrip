@@ -25,6 +25,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlanRequest
 import com.mz2az.scenetrip.sceneapi.client.model.MarketCourseSummary
 import com.mz2az.scenetrip.sceneapi.client.model.MarketSort
+import com.mz2az.scenetrip.sceneapi.client.model.VisitUpdate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -259,6 +260,23 @@ class RouteStore(
         }
         // 실패했으면 되돌린다 — 화면과 서버가 어긋난 채 두면 다음 저장이 엉뚱하게 나간다.
         refresh()
+    }
+
+    /**
+     * 도착 표시를 서버에 남긴다. iOS `RouteEditorTrip.markVisited` — 화면은 이 호출 전에
+     * 이미 자기 사본을 `visited = true`로 바꿔 둔다(`markVisitedLocally`와 같은 뜻).
+     * 실패해도 조용히 넘긴다 — 다음에 코스를 다시 열면 서버 값으로 맞춰진다, 방문
+     * 자체를 막을 이유는 아니다.
+     */
+    suspend fun markVisited(
+        courseId: Long,
+        itemId: Long,
+    ) {
+        runCatching {
+            withContext(Dispatchers.IO) {
+                coursesApi.updateCourseItemVisit(deviceId, courseId, itemId, VisitUpdate(visited = true))
+            }
+        }
     }
 
     /**

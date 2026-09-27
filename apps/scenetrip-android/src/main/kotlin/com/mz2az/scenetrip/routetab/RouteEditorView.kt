@@ -169,6 +169,13 @@ fun RouteEditorView(
                         }
                     },
             )
+        // 서버에도 남긴다 — iOS `RouteEditorTrip.markVisited`. 로컬만 바꾸면 코스를
+        // 다시 열었을 때 방문 표시가 없던 일이 된다.
+        val courseId = course.serverId
+        val itemId = stop.serverItemId
+        if (courseId != null && itemId != null) {
+            scope.launch { store.markVisited(courseId, itemId) }
+        }
     }
 
     LaunchedEffect(Unit) { trip.onArrived = { stop -> markVisited(stop) } }
@@ -214,6 +221,13 @@ fun RouteEditorView(
             poiGroupsOn = emptySet()
             aiPlacesOn = true
         }
+    }
+
+    // 안내 중에는 편의시설 점을 다 끈다(2026-09-04 사용자 요청) — 경로선이 주인공인데
+    // 음식점·명소 점이 그 위를 덮었다. 안내가 끝나면 다시 전부 켠다. 안내 중에 칩으로
+    // 켜는 것은 그대로 된다(iOS `RouteEditorView.onChange(of: trip.isActive)`).
+    LaunchedEffect(trip.isActive) {
+        poiGroupsOn = if (trip.isActive) emptySet() else PoiCategoryGroup.entries.toSet()
     }
 
     LaunchedEffect(map, dayIndex, fitToken, showingMe, myLocation) {
@@ -500,19 +514,37 @@ fun RouteEditorView(
                         },
                     )
                     if (poisForChips.isNotEmpty() || aiPlacesForChip.isNotEmpty()) {
+                        // 감춘 갈래의 고른 핀은 놓는다 — 지도에서 사라진 핀을 카드만 붙잡고
+                        // 있으면 안 된다. AI 장소는 제 칩이 따로 놓는다(iOS
+                        // `RouteEditorControls.poiFilter` onGroupOff).
+                        fun dropPickedIfHidden(group: PoiCategoryGroup) {
+                            val picked = guideSession.picked
+                            if (picked != null && picked.categoryGroup == group && guideSession.places.none { it.id == picked.id }) {
+                                guideSession.dismiss()
+                            }
+                        }
                         RoutePoiChips(
                             counts = poiCounts,
                             groupsOn = poiGroupsOn,
                             onToggleGroup = { group ->
-                                poiGroupsOn = if (poiGroupsOn.contains(group)) poiGroupsOn - group else poiGroupsOn + group
+                                val turningOff = poiGroupsOn.contains(group)
+                                poiGroupsOn = if (turningOff) poiGroupsOn - group else poiGroupsOn + group
+                                if (turningOff) dropPickedIfHidden(group)
                             },
                             onToggleAll = {
-                                poiGroupsOn =
-                                    if (poiGroupsOn.size == PoiCategoryGroup.entries.size) emptySet() else PoiCategoryGroup.entries.toSet()
+                                val allOn = poiGroupsOn.size == PoiCategoryGroup.entries.size
+                                poiGroupsOn = if (allOn) emptySet() else PoiCategoryGroup.entries.toSet()
+                                if (allOn) PoiCategoryGroup.entries.forEach { dropPickedIfHidden(it) }
                             },
                             aiCount = aiPlacesForChip.size,
                             aiOn = aiPlacesOn,
-                            onToggleAi = { aiPlacesOn = !aiPlacesOn },
+                            onToggleAi = {
+                                aiPlacesOn = !aiPlacesOn
+                                val picked = guideSession.picked
+                                if (!aiPlacesOn && picked != null && guideSession.places.any { it.id == picked.id }) {
+                                    guideSession.dismiss()
+                                }
+                            },
                         )
                     }
                     Row(
@@ -566,8 +598,16 @@ fun RouteEditorView(
                                     },
                                 isPinned = if (index == 0) pinStart else pinEnd,
                                 onFocus = {
-                                    focusedStopId = stop.id
-                                    map?.centerOn(stop.place)
+                                    // 한 번 더 누르면 놓는다 — 안 그러면 한 곳을 고른 뒤
+                                    // 경로 전체를 다시 볼 방법이 없다(iOS
+                                    // `RouteEditorView.stopRows` onFocus).
+                                    if (focusedStopId == stop.id) {
+                                        focusedStopId = null
+                                        fitToken += 1
+                                    } else {
+                                        focusedStopId = stop.id
+                                        map?.centerOn(stop.place)
+                                    }
                                 },
                                 onStay = { stayTarget = stop },
                                 onRemove = { updateDay(dayIndex) { d -> d.copy(stops = d.stops.filterNot { it.id == stop.id }) } },
@@ -603,6 +643,18 @@ fun RouteEditorView(
                                     if (index == 0) pinStart = !pinStart else pinEnd = !pinEnd
                                 },
                                 isTarget = trip.target?.id == stop.id,
+                                onNavigate =
+                                    if (course.isRunning) {
+                                        {
+                                            if (trip.isActive) {
+                                                trip.advance(stop, scope)
+                                            } else {
+                                                course.serverId?.let { trip.start(it, stop, scope) }
+                                            }
+                                        }
+                                    } else {
+                                        null
+                                    },
                             )
                         }
                         if (course.serverId != null) {

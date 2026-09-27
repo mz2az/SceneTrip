@@ -76,6 +76,7 @@ fun RouteStopRow(
     onMoveDown: (() -> Unit)?,
     onTogglePin: () -> Unit,
     isTarget: Boolean = false,
+    onNavigate: (() -> Unit)? = null,
 ) {
     Column(
         modifier =
@@ -141,6 +142,23 @@ fun RouteStopRow(
             }
             if (onMoveDown != null) {
                 Text("▼", fontSize = 11.sp, color = IOS.secondaryLabel, modifier = Modifier.clickable(onClick = onMoveDown))
+            }
+            // 여행 중 이 곳으로 길찾기 — 별도 창이 아니라 이 화면의 지도에 경로가 그려진다
+            // (iOS `RouteEditorParts.RouteStopRow`, trip-mode.md §8). 안내 중인 곳은
+            // 「안내 중」 배지(위 줄)가 이미 있어 여기 또 안 둔다.
+            if (!isTarget && onNavigate != null) {
+                Text(
+                    if (stop.visited) "다시 길찾기" else "길찾기",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = IOS.pinDeep,
+                    modifier =
+                        Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(IOS.pinDeep.copy(alpha = 0.12f))
+                            .clickable(onClick = onNavigate)
+                            .padding(horizontal = 9.dp, vertical = 4.dp),
+                )
             }
             if (pinLabel != null) {
                 Text(
