@@ -587,13 +587,10 @@ fun RouteEditorView(
                     if (trip.isActive) {
                         TripBanner(
                             trip = trip,
-                            onEnd = {
-                                scope.launch {
-                                    store.setRunning(course, false)
-                                    course = course.copy(isRunning = false)
-                                    trip.end()
-                                }
-                            },
+                            // 「안내 끝」은 **안내만** 멈춘다 — 여행 중 상태는 「여행 종료」의 몫이다
+                            // (iOS `tripControls`: `trip.end()` 뿐). 앞서 여기서 코스까지 끝내서,
+                            // 안내를 잠깐 멈춘 사람의 코스가 「예정」으로 돌아갔다(2026-09-28 실기).
+                            onEnd = trip::end,
                             onArrivedNow = trip::markArrived,
                             onNext = { next -> trip.advance(next, scope) },
                             onRetry = { trip.retry(scope) },
@@ -1205,7 +1202,7 @@ private fun TripBanner(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()),
                     ) {
-                        result.legs.map { it.toChip() }.forEach { LegChip(it) }
+                        result.chips().forEach { LegChip(it) }
                     }
                 }
 
