@@ -227,6 +227,21 @@ val PoiCategoryGroup.label: String
 fun PoiSummary.asPlaceSummary(): PlaceSummary =
     PlaceSummary(id = 0, name = name, latitude = latitude, longitude = longitude, type = category, address = address)
 
+/** 주변 편의시설 점도 챗봇 결과와 같은 카드로 연다 — iOS `RouteMapAmbient`의 점도
+ * `RouteGuide.Place`인 것과 같은 뜻이다. */
+fun PoiSummary.asGuidePlace(): com.mz2az.scenetrip.sceneapi.client.model.GuidePlace =
+    com.mz2az.scenetrip.sceneapi.client.model.GuidePlace(
+        id = id,
+        name = name,
+        category = category,
+        categoryGroup = categoryGroup,
+        latitude = latitude,
+        longitude = longitude,
+        source = com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource.poi,
+        address = address,
+        distanceMeters = distanceMeters,
+    )
+
 /**
  * 주변 편의시설 **갈래별 켜고 끄기 칩** — iOS `RoutePoiChips`. 「전체」가 마스터
  * 스위치다: 다 켜져 있으면 다 끄고, 하나라도 꺼져 있으면 다 켠다. 챗봇이 찾아 준

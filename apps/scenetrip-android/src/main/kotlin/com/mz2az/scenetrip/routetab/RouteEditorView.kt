@@ -244,8 +244,8 @@ fun RouteEditorView(
     }
 
     // 챗봇의 화면 명령 — 서버 계약 `GuideUiDirective`. 「의도 수준」이라 좌표·절차는
-    // 여기서 정한다(계약 설명). `route.draw`·`place.card`는 아직이다 — 추천 경로선·
-    // 장소 카드가 이 화면에 없다.
+    // 여기서 정한다(계약 설명). `route.draw`는 아직이다 — 추천 경로선을 그릴 오버레이가
+    // 없다.
     LaunchedEffect(guideSession.lastUi) {
         val target = map
         guideSession.lastUi.forEach { directive ->
@@ -264,6 +264,10 @@ fun RouteEditorView(
                     val ids = directive.placeIds.orEmpty().toSet()
                     val places = guideSession.places.filter { ids.contains(it.id) }.map { it.asPlaceSummary() }
                     if (target != null && places.isNotEmpty()) target.fit(places, density, screenHeight, panelHeight, 0.dp)
+                }
+
+                "place.card" -> {
+                    guideSession.places.firstOrNull { it.id == directive.placeId }?.let { guideSession.pick(it) }
                 }
 
                 else -> {
@@ -362,7 +366,9 @@ fun RouteEditorView(
             AmbientPoiPins(
                 map = map,
                 pois = visibleAmbientPois,
-                onTap = { poi -> addStops(listOf(RouteStop(place = poi.asPlaceSummary(), isPinned = true))) },
+                // iOS `RouteMapAmbient`: 점을 눌러도 바로 담기지 않는다 — 카드가 먼저 뜨고
+                // "경로에 추가"는 사람이 카드에서 직접 누른다.
+                onTap = { poi -> guideSession.pick(poi.asGuidePlace()) },
             )
             MapPins(
                 map = map,
@@ -647,6 +653,31 @@ fun RouteEditorView(
         isAdded = { place -> stops.any { RouteDedupe.key(it.place) == RouteDedupe.key(place.asPlaceSummary()) } },
         onClose = { showGuide = false },
     )
+
+    // 핀을 눌렀을 때 뜨는 정보 카드 — iOS `RouteEditorView`의 `.overlay(alignment: .bottom)`
+    // 자리. 가이드 시트가 열려 있으면 시트가 바닥을 덮으므로 여기 안 띄운다.
+    val pickedPlace = guideSession.picked
+    if (pickedPlace != null && !showGuide) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            RoutePlaceCard(
+                place = pickedPlace,
+                added = stops.any { RouteDedupe.key(it.place) == RouteDedupe.key(pickedPlace.asPlaceSummary()) },
+                onAdd = {
+                    addStops(
+                        listOf(RouteStop(place = pickedPlace.asPlaceSummary(), isPinned = pickedPlace.source == GuidePlaceSource.poi)),
+                    )
+                    guideSession.dismiss()
+                },
+                onRemove = {
+                    updateDay(dayIndex) { d ->
+                        d.copy(stops = d.stops.filterNot { RouteDedupe.key(it.place) == RouteDedupe.key(pickedPlace.asPlaceSummary()) })
+                    }
+                },
+                onClose = { guideSession.dismiss() },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 12.dp).padding(bottom = 90.dp),
+            )
+        }
+    }
 
     if (searching) {
         PlaceSearchOverlay(
