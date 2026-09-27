@@ -123,6 +123,7 @@ fun RouteEditorView(
     var viewport by remember { mutableStateOf<MapViewport?>(null) }
     var ambientPois by remember { mutableStateOf<List<PoiSummary>>(emptyList()) }
     var poiGroupsOn by remember { mutableStateOf(PoiCategoryGroup.entries.toSet()) }
+    var aiPlacesOn by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val cart = remember { CartStore(context) }
@@ -194,8 +195,7 @@ fun RouteEditorView(
             .mapNotNull { it.savablePlaceId }
             .toSet()
     // 코스에 이미 담긴 곳은 뺀다 — 같은 가게가 두 겹으로 찍히면 어느 쪽을 누른
-    // 것인지 모른다(iOS `visibleAmbientPois`). 챗봇 결과(guide.places)는 Android
-    // 지도에 아직 안 그리므로 그쪽 겹침은 따로 볼 것이 없다.
+    // 것인지 모른다(iOS `visibleAmbientPois`·`aiChip`).
     val takenPlaceKeys =
         course.days
             .flatMap { it.stops }
@@ -204,6 +204,17 @@ fun RouteEditorView(
     val poisForChips = ambientPois.filterNot { takenPlaceKeys.contains(RouteDedupe.key(it.asPlaceSummary())) }
     val visibleAmbientPois = poisForChips.filter { poiGroupsOn.contains(it.categoryGroup) }
     val poiCounts = poisForChips.groupingBy { it.categoryGroup }.eachCount()
+    val aiPlacesForChip = guideSession.places.filterNot { takenPlaceKeys.contains(RouteDedupe.key(it.asPlaceSummary())) }
+    val visibleAiPlaces = if (aiPlacesOn) aiPlacesForChip else emptyList()
+
+    // 챗봇이 장소를 찾아 오면 지도엔 그것만 남긴다(iOS `applyGuideAnswer`) — 주변 점
+    // 서른 개 사이에서는 방금 추천받은 곳을 못 찾는다. 갈래는 칩으로 다시 켤 수 있다.
+    LaunchedEffect(guideSession.places) {
+        if (guideSession.places.isNotEmpty()) {
+            poiGroupsOn = emptySet()
+            aiPlacesOn = true
+        }
+    }
 
     LaunchedEffect(map, dayIndex, fitToken, showingMe, myLocation) {
         val target = map ?: return@LaunchedEffect
@@ -244,8 +255,10 @@ fun RouteEditorView(
     }
 
     // 챗봇의 화면 명령 — 서버 계약 `GuideUiDirective`. 「의도 수준」이라 좌표·절차는
-    // 여기서 정한다(계약 설명). `route.draw`는 아직이다 — 추천 경로선을 그릴 오버레이가
-    // 없다.
+    // 여기서 정한다(계약 설명). iOS 자신도 `route.draw`를 `map.focus`와 같이 다룬다
+    // (`RouteEditorGuide.applyGuideDirective`) — 임의 장소 사이의 추천 경로선은 iOS
+    // 에도 아직 없다(계획 `guide-app.md` §3). 「AI 장소」핀이 다 보이게 맞추는 것으로
+    // 충분하다.
     LaunchedEffect(guideSession.lastUi) {
         val target = map
         guideSession.lastUi.forEach { directive ->
@@ -260,7 +273,8 @@ fun RouteEditorView(
                     }
                 }
 
-                "map.focus" -> {
+                "map.focus", "route.draw" -> {
+                    guideSession.dismiss()
                     val ids = directive.placeIds.orEmpty().toSet()
                     val places = guideSession.places.filter { ids.contains(it.id) }.map { it.asPlaceSummary() }
                     if (target != null && places.isNotEmpty()) target.fit(places, density, screenHeight, panelHeight, 0.dp)
@@ -369,6 +383,11 @@ fun RouteEditorView(
                 // iOS `RouteMapAmbient`: 점을 눌러도 바로 담기지 않는다 — 카드가 먼저 뜨고
                 // "경로에 추가"는 사람이 카드에서 직접 누른다.
                 onTap = { poi -> guideSession.pick(poi.asGuidePlace()) },
+            )
+            AiPlacePins(
+                map = map,
+                places = visibleAiPlaces,
+                onTap = { place -> guideSession.pick(place) },
             )
             MapPins(
                 map = map,
@@ -480,7 +499,7 @@ fun RouteEditorView(
                             }
                         },
                     )
-                    if (poisForChips.isNotEmpty()) {
+                    if (poisForChips.isNotEmpty() || aiPlacesForChip.isNotEmpty()) {
                         RoutePoiChips(
                             counts = poiCounts,
                             groupsOn = poiGroupsOn,
@@ -491,6 +510,9 @@ fun RouteEditorView(
                                 poiGroupsOn =
                                     if (poiGroupsOn.size == PoiCategoryGroup.entries.size) emptySet() else PoiCategoryGroup.entries.toSet()
                             },
+                            aiCount = aiPlacesForChip.size,
+                            aiOn = aiPlacesOn,
+                            onToggleAi = { aiPlacesOn = !aiPlacesOn },
                         )
                     }
                     Row(

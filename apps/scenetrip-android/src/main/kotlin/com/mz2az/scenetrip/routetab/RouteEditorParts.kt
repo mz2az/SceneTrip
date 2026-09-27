@@ -47,6 +47,7 @@ import com.mz2az.scenetrip.data.FootprintPoint
 import com.mz2az.scenetrip.data.RoutePoiGroup
 import com.mz2az.scenetrip.data.RoutePoiTone
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
+import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PoiCategoryGroup
 import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
@@ -244,8 +245,8 @@ fun PoiSummary.asGuidePlace(): com.mz2az.scenetrip.sceneapi.client.model.GuidePl
 
 /**
  * 주변 편의시설 **갈래별 켜고 끄기 칩** — iOS `RoutePoiChips`. 「전체」가 마스터
- * 스위치다: 다 켜져 있으면 다 끄고, 하나라도 꺼져 있으면 다 켠다. 챗봇이 찾아 준
- * 「AI 장소」칩은 없다 — 그 결과를 지도에 따로 얹는 레이어가 Android 엔 아직 없다.
+ * 스위치다: 다 켜져 있으면 다 끄고, 하나라도 꺼져 있으면 다 켠다. 「AI 장소」칩은
+ * 챗봇이 찾아 준 곳이 있을 때만 맨 앞에 나온다 — iOS `RoutePoiChips.Extra`.
  */
 @Composable
 fun RoutePoiChips(
@@ -253,6 +254,9 @@ fun RoutePoiChips(
     groupsOn: Set<PoiCategoryGroup>,
     onToggleGroup: (PoiCategoryGroup) -> Unit,
     onToggleAll: () -> Unit,
+    aiCount: Int = 0,
+    aiOn: Boolean = false,
+    onToggleAi: () -> Unit = {},
 ) {
     val allOn = groupsOn.size == PoiCategoryGroup.entries.size
     Row(
@@ -265,6 +269,9 @@ fun RoutePoiChips(
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
     ) {
+        if (aiCount > 0) {
+            PoiChip(label = "AI 장소 $aiCount", tone = IOS.accent, isOn = aiOn, onClick = onToggleAi)
+        }
         PoiChip(label = "전체", tone = null, isOn = allOn, onClick = onToggleAll)
         PoiCategoryGroup.entries.forEach { group ->
             val count = counts[group] ?: 0
@@ -343,6 +350,76 @@ fun AmbientPoiPins(
                 }
             }
         onDispose { markers.forEach { it.map = null } }
+    }
+}
+
+/**
+ * 챗봇이 찾아 준 「AI 장소」 점 — iOS `PinoPin.marker(.ai)`(작은 해태). 여기서는
+ * 해태 얼굴 대신 강조색 점만 쓴다(글리프는 UI 폴리싱 단계) — 주변 편의시설 점보다
+ * 커서(24dp) 눈에 먼저 띈다. 고른 곳은 [RoutePlaceCard]가 따로 보여 주므로 여기선
+ * 고른 표시를 하지 않는다.
+ */
+@Composable
+fun AiPlacePins(
+    map: NaverMap?,
+    places: List<GuidePlace>,
+    onTap: (GuidePlace) -> Unit,
+) {
+    if (map == null) return
+    val context = LocalContext.current
+    DisposableEffect(map, places) {
+        val metrics = context.resources.displayMetrics
+        val markers =
+            places.map { place ->
+                Marker().apply {
+                    position =
+                        com.naver.maps.geometry
+                            .LatLng(place.latitude, place.longitude)
+                    icon = AiPlaceDotImage.of(metrics)
+                    captionText = place.name
+                    captionMinZoom = 14.0
+                    setOnClickListener {
+                        onTap(place)
+                        true
+                    }
+                    this.map = map
+                    zIndex = 1 // 편의시설 점 위, 코스 번호 핀 아래.
+                }
+            }
+        onDispose { markers.forEach { it.map = null } }
+    }
+}
+
+private object AiPlaceDotImage {
+    private var cached: com.naver.maps.map.overlay.OverlayImage? = null
+
+    fun of(metrics: android.util.DisplayMetrics): com.naver.maps.map.overlay.OverlayImage {
+        cached?.let { return it }
+        val size = 24f
+        val s = metrics.density
+        val bitmap =
+            android.graphics.Bitmap.createBitmap((size * s).toInt(), (size * s).toInt(), android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.scale(s, s)
+        val paint =
+            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = IOS.accent.toArgb()
+                setShadowLayer(2f, 0f, 0f, android.graphics.Color.argb(90, 0, 0, 0))
+            }
+        val center = size / 2
+        canvas.drawCircle(center, center, center - 2, paint)
+        val border =
+            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.WHITE
+                style = android.graphics.Paint.Style.STROKE
+                strokeWidth = 2f
+            }
+        canvas.drawCircle(center, center, center - 2, border)
+        val overlay =
+            com.naver.maps.map.overlay.OverlayImage
+                .fromBitmap(bitmap)
+        cached = overlay
+        return overlay
     }
 }
 
