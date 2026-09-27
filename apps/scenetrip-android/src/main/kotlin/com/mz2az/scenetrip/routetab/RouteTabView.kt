@@ -50,9 +50,8 @@ import kotlinx.coroutines.launch
 /**
  * 경로여정(코스) 탭 — 첫 화면. iOS `RouteTab/RouteTabView.swift`를 옮긴 것이다.
  *
- * 코스가 없으면 "AI 로 짜기 / 직접 짜기" 갈림길이, 있으면 목록이 뜬다. **AI 로 짜기는
- * 아직 없다** — RouteGuide(챗봇) 자체가 다음 단계라 눌러도 "준비 중"만 안내한다.
- * "직접 짜기"는 [RouteWizardView]로 이어진다.
+ * 코스가 없으면 "AI 로 짜기 / 직접 짜기" 갈림길이, 있으면 목록이 뜬다. 둘 다
+ * [RouteWizardView]로 이어진다 — AI 쪽은 `isAiPlan = true`로 열어 `/guide/plan`을 부른다.
  */
 @Composable
 fun RouteTabView(
@@ -268,12 +267,9 @@ private fun EmptyState(
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(22.dp))
-        Text(
-            "AI 로 여정 짜기",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = androidx.compose.ui.graphics.Color.White,
-            textAlign = TextAlign.Center,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -281,7 +277,15 @@ private fun EmptyState(
                     .background(IOS.accent)
                     .clickable(onClick = onAI)
                     .padding(vertical = 14.dp),
-        )
+        ) {
+            Icon(Icons.Filled.Star, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(15.dp))
+            Text(
+                "AI 로 여정 짜기",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = androidx.compose.ui.graphics.Color.White,
+            )
+        }
         Spacer(Modifier.height(10.dp))
         Text(
             "직접 짜기",
@@ -293,7 +297,7 @@ private fun EmptyState(
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(IOS.systemBackground)
+                    .background(IOS.accent.copy(alpha = 0.12f))
                     .clickable(onClick = onManual)
                     .padding(vertical = 14.dp),
         )

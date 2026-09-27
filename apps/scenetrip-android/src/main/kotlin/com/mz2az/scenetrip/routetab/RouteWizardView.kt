@@ -16,11 +16,14 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -92,6 +95,22 @@ fun RouteWizardView(
                 modifier = Modifier.fillMaxWidth(),
                 color = IOS.accent,
             )
+            if (isAiPlan) {
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(IOS.accent.copy(alpha = 0.10f))
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                ) {
+                    Icon(Icons.Filled.Star, contentDescription = null, tint = IOS.accent, modifier = Modifier.size(13.dp))
+                    Text("AI 가 일정을 짜 드립니다", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = IOS.accent)
+                }
+            }
         }
 
         Column(modifier = Modifier.weight(1f).padding(20.dp)) {
