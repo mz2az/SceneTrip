@@ -15,13 +15,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Favorite
@@ -57,7 +57,9 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.searchtab.rememberLocate
+import com.mz2az.scenetrip.ui.BoltIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.LeafIcon
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -169,12 +171,20 @@ fun RouteWizardView(
             }
         }
 
+        // **전체를 스크롤로 감쌀 수는 없다.** iOS `questions`는 `ScrollView` 하나가
+        // 제목·내용을 통째로 감싸지만, 0단계(기간)는 `LazyVerticalGrid`를 쓰는데
+        // Compose는 lazy 레이아웃을 `verticalScroll` 안에 두면 무한 높이 제약으로
+        // 바로 죽는다("Vertically scrollable component was measured with an
+        // infinity maximum height constraints" — 2026-09-28 실기에서 실제로 크래시로
+        // 확인됨). 그래서 여기 바깥은 그대로 두고, 작품 목록(2단계)만 제 스크롤을
+        // 갖는다 — "고르지 않으면…" 안내를 그 스크롤 맨 아래 항목으로 넣어 목록과
+        // 무관하게 화면 바닥에 못 박히던 문제를 고친다.
         Column(modifier = Modifier.weight(1f).padding(20.dp)) {
             Text(
                 when (stepIndex) {
                     0 -> "얼마나 다녀오나요?"
                     1 -> "언제 떠나나요?"
-                    2 -> "어떤 작품을 좋아하세요?"
+                    2 -> "어떤 작품을 좋아하나요?"
                     3 -> "어떻게 다닐까요?"
                     else -> "이렇게 짜 드립니다"
                 },
@@ -252,20 +262,20 @@ fun RouteWizardView(
                     }
                 }
             } else if (stepIndex == 2) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    LazyColumn(modifier = Modifier.weight(1f)) {
-                        items(store.sortedWorks, key = { it.id }) { work ->
-                            WorkRow(
-                                work = work,
-                                isFavorite = store.isFavoriteWork(work.id),
-                                isSelected = selectedWorkIds.contains(work.id),
-                                onToggleFavorite = { store.toggleFavoriteWork(work.id) },
-                                onToggleSelected = {
-                                    selectedWorkIds =
-                                        if (selectedWorkIds.contains(work.id)) selectedWorkIds - work.id else selectedWorkIds + work.id
-                                },
-                            )
-                        }
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    store.sortedWorks.forEach { work ->
+                        WorkRow(
+                            work = work,
+                            isFavorite = store.isFavoriteWork(work.id),
+                            isSelected = selectedWorkIds.contains(work.id),
+                            onToggleFavorite = { store.toggleFavoriteWork(work.id) },
+                            onToggleSelected = {
+                                selectedWorkIds =
+                                    if (selectedWorkIds.contains(work.id)) selectedWorkIds - work.id else selectedWorkIds + work.id
+                            },
+                        )
+                        // iOS `workStep`의 `Divider()` — 줄마다 아래에 가는 금이 있다.
+                        Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(IOS.systemGray5))
                     }
                     Text(
                         "고르지 않으면 인기 작품의 촬영지에서 뽑습니다",
@@ -289,13 +299,16 @@ fun RouteWizardView(
                                     .clickable { pace = each }
                                     .padding(14.dp),
                         ) {
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isOn) IOS.systemBackground else IOS.accent),
-                            )
+                            // iOS `bolt.fill`(빡빡하게) · `leaf.fill`(널널하게) — 둘 다
+                            // material-icons-core(49개뿐)에 없어 점으로 때웠었다(실기
+                            // 비교로 발견). 커뮤니티 탭 말풍선과 같은 방식으로 직접
+                            // 그린다([BoltIcon]·[LeafIcon]).
+                            val paceTint = if (isOn) IOS.systemBackground else IOS.accent
+                            if (each == RoutePace.TIGHT) {
+                                BoltIcon(tint = paceTint, modifier = Modifier.size(20.dp))
+                            } else {
+                                LeafIcon(tint = paceTint, modifier = Modifier.size(20.dp))
+                            }
                             Column {
                                 Text(
                                     each.label,
@@ -447,8 +460,8 @@ private fun WorkRow(
     ) {
         Icon(
             if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            contentDescription = "찜",
-            tint = if (isFavorite) IOS.systemRed else IOS.secondaryLabel,
+            contentDescription = "좋아요",
+            tint = if (isFavorite) IOS.systemPink else IOS.secondaryLabel,
             modifier = Modifier.size(18.dp).clickable(onClick = onToggleFavorite),
         )
         Column(modifier = Modifier.weight(1f)) {

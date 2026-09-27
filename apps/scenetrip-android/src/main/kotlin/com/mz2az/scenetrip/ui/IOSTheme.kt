@@ -36,6 +36,9 @@ object IOS {
     val accent = Color(0xFF0088FF)
     val systemRed = Color(0xFFFF383C)
 
+    /** 찜한 작품의 하트. iOS `Color.pink` — 빨강(`systemRed`)과 다른 톤이다. */
+    val systemPink = Color(0xFFFF2D55)
+
     /** "저장 안 됨" 배지. iOS `Color.orange`. */
     val systemOrange = Color(0xFFFF9500)
 
