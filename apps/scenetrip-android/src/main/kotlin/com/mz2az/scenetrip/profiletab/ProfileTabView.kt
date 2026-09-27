@@ -21,6 +21,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -38,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -173,18 +180,24 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                             title = "내 코스",
                             value = courseCount?.let { "${it}개" } ?: "…",
                             onClick = { showingCourses = true },
+                            // iOS는 `point.topleft.down.to.point.bottomright.curvepath`
+                            // (경로 곡선) 심벌이다 — SF Symbols 전용이라 짝이 되는
+                            // Material 아이콘이 없다. 핀(장소)이 가장 가깝다.
+                            icon = Icons.Filled.Place,
                         )
                         ProfileRow(
                             tint = IOS.systemRed,
                             title = "찜한 작품",
                             value = "${likes.contentIds.size}개",
                             onClick = { showingLikes = true },
+                            icon = Icons.Filled.Favorite,
                         )
                         ProfileRow(
                             tint = SYSTEM_ORANGE,
                             title = "장바구니",
                             value = "${cartItems.size}곳",
                             onClick = { showingCart = true },
+                            icon = Icons.Filled.ShoppingCart,
                         )
                     }
                 }
@@ -238,6 +251,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                             title = "내가 쓴 글",
                             value = "${posts.posts.size}개",
                             onClick = { showingPosts = true },
+                            icon = Icons.Filled.Create,
                         )
                     }
                 }
@@ -315,9 +329,9 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 item {
                     ProfileSection("준비 중") {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            ProfileRow(SYSTEM_GRAY, "로그인 · 계정", "준비 중", null, dimmed = true)
+                            ProfileRow(SYSTEM_GRAY, "로그인 · 계정", "준비 중", null, dimmed = true, icon = Icons.Filled.Person)
                             ProfileRow(SYSTEM_GRAY, "언어 (English · 日本語)", "준비 중", null, dimmed = true)
-                            ProfileRow(SYSTEM_GRAY, "알림", "준비 중", null, dimmed = true)
+                            ProfileRow(SYSTEM_GRAY, "알림", "준비 중", null, dimmed = true, icon = Icons.Filled.Notifications)
                         }
                     }
                 }
@@ -417,6 +431,8 @@ private fun ProfileRow(
     value: String,
     onClick: (() -> Unit)?,
     dimmed: Boolean = false,
+    // iOS `row(symbol:...)`의 SF Symbol과 짝. 없으면(스탬프 줄 등) 예전처럼 점.
+    icon: ImageVector? = null,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -428,7 +444,11 @@ private fun ProfileRow(
                 .padding(vertical = 6.dp),
     ) {
         Box(modifier = Modifier.width(26.dp), contentAlignment = Alignment.Center) {
-            Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(tint))
+            if (icon != null) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(17.dp))
+            } else {
+                Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(tint))
+            }
         }
         Text(title, fontSize = 14.sp, color = if (dimmed) IOS.tertiaryLabel else IOS.label, modifier = Modifier.weight(1f))
         Text(value, fontSize = 14.sp, color = IOS.secondaryLabel)
