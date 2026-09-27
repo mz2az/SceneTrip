@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.sceneapi.client.model.MarketCourseSummary
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.TrayIcon
 import kotlinx.coroutines.launch
 
 /**
@@ -63,16 +65,22 @@ fun RouteMarketView(
                 CircularProgressIndicator(modifier = Modifier.padding(top = 40.dp))
             }
         } else {
+            // iOS `ContentUnavailableView` — 트레이 심벌 + 굵은 제목 + 가운데 정렬
+            // 설명, 화면 가운데(회색 글자 두 줄만 있던 것과 다르다 — 실기 비교로
+            // 발견). 커뮤니티 탭 빈 상태와 같은 조합이다.
             Column(
                 modifier = Modifier.fillMaxSize().padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text("아직 올라온 코스가 없습니다", style = IOS.headline, color = IOS.secondaryLabel)
+                TrayIcon(tint = IOS.tertiaryLabel, modifier = Modifier.size(44.dp).padding(bottom = 12.dp))
+                Text("아직 올라온 코스가 없습니다", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = IOS.label)
                 Text(
-                    "코스를 만들고 \"마켓에 올리기\"를 누르면 여기 보입니다",
-                    style = IOS.footnote,
+                    "코스를 만들고 「마켓에 올리기」를 누르면 여기 보입니다",
+                    fontSize = 13.sp,
                     color = IOS.tertiaryLabel,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp).widthIn(max = 280.dp),
                 )
             }
         }

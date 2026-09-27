@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
@@ -165,6 +168,12 @@ fun RoutePlaceCard(
                             .padding(horizontal = 8.dp, vertical = 5.dp),
                 ) {
                     Text("네이버 더보기", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF049A47))
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = Color(0xFF049A47),
+                        modifier = Modifier.size(9.dp).rotate(-45f),
+                    )
                 }
             }
             Icon(
@@ -228,12 +237,9 @@ private fun PlaceCardFound(
         cardRow("별점", card.score?.let { "%.2f".format(it) })
     }
 
-    Text(
-        if (added) "경로에 있음 · 누르면 빼기" else "경로에 추가",
-        fontSize = 14.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = if (added) IOS.secondaryLabel else Color.White,
-        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
         modifier =
             Modifier
                 .fillMaxWidth()
@@ -241,9 +247,21 @@ private fun PlaceCardFound(
                 .height(44.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(if (added) IOS.systemGray5 else IOS.accent)
-                .clickable(onClick = if (added) onRemove else onAdd)
-                .padding(vertical = 12.dp),
-    )
+                .clickable(onClick = if (added) onRemove else onAdd),
+    ) {
+        Icon(
+            if (added) Icons.Filled.CheckCircle else Icons.Filled.Add,
+            contentDescription = null,
+            tint = if (added) IOS.secondaryLabel else Color.White,
+            modifier = Modifier.size(14.dp),
+        )
+        Text(
+            if (added) "경로에 있음 · 누르면 빼기" else "경로에 추가",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (added) IOS.secondaryLabel else Color.White,
+        )
+    }
     Spacer(Modifier.height(14.dp))
 }
 

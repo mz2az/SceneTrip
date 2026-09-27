@@ -204,6 +204,22 @@ fun RouteEditorView(
         }
     }
 
+    // 정지점 줄의 "어느 작품에 나온 곳인가" — iOS `RouteEditorView.workTitles(for:)`.
+    // 계약의 `CourseItem`엔 작품이 없어(`placeId`·`name`·`address`만 온다)
+    // `RouteStore.places`(촬영지 전체)로 되짚는다. 직접 찍은 핀(id가 음수)은
+    // 되짚을 것이 없다.
+    fun workTitles(stop: RouteStop): String {
+        val placeId = stop.place.id
+        if (placeId <= 0) return ""
+        val found = store.places.firstOrNull { it.id == placeId } ?: return ""
+        return found.contents
+            .orEmpty()
+            .map { it.title }
+            .take(2)
+            .joinToString(" · ")
+    }
+    LaunchedEffect(Unit) { store.loadPlaces() }
+
     LaunchedEffect(Unit) { trip.onArrived = { stop -> markVisited(stop) } }
 
     // 홈 「이어서 길찾기」 — 코스가 열리면 첫 미방문 성지로 안내를 켠다. 표시는 한 번
@@ -692,13 +708,22 @@ fun RouteEditorView(
                                 stop = stop,
                                 nextKilometers = stops.getOrNull(index + 1)?.let { RouteGeometry.kilometers(stop.place, it.place) },
                                 isFocused = focusedStopId == stop.id,
+                                // 첫 줄에 "출발 고정", 마지막 줄에 "도착 고정". 한 곳뿐이면
+                                // 고정할 것이 없다 — 그 하나가 출발이자 도착이라 뜻이 없다
+                                // (iOS 실기 비교로 발견 — Android는 이 가드가 없어서 정지점이
+                                // 하나뿐인 날에도 "출발 고정"이 붙어 있었다).
                                 pinLabel =
-                                    when (index) {
-                                        0 -> "출발"
-                                        stops.lastIndex -> "도착"
-                                        else -> null
+                                    if (stops.size <= 1) {
+                                        null
+                                    } else {
+                                        when (index) {
+                                            0 -> "출발"
+                                            stops.lastIndex -> "도착"
+                                            else -> null
+                                        }
                                     },
                                 isPinned = if (index == 0) pinStart else pinEnd,
+                                works = workTitles(stop),
                                 onFocus = {
                                     // 한 번 더 누르면 놓는다 — 안 그러면 한 곳을 고른 뒤
                                     // 경로 전체를 다시 볼 방법이 없다(iOS
@@ -758,6 +783,19 @@ fun RouteEditorView(
                                         null
                                     },
                             )
+                        }
+                        if (stops.isEmpty()) {
+                            item {
+                                // iOS `RouteEditorView.stopRows` — "직접 짜기"로 빈 코스를
+                                // 열었을 때 아무 안내도 없었다(실기 비교로 발견).
+                                Text(
+                                    "아직 담은 장소가 없습니다\n장바구니에서 담거나 지도에 핀을 찍어 보세요",
+                                    fontSize = 12.sp,
+                                    color = IOS.secondaryLabel,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                )
+                            }
                         }
                         if (course.serverId != null) {
                             item {

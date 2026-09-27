@@ -53,6 +53,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PoiCategoryGroup
 import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
+import com.mz2az.scenetrip.searchtab.FilmIcon
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.ScopeIcon
 import com.mz2az.scenetrip.ui.IOS
@@ -79,6 +80,10 @@ fun RouteStopRow(
     onTogglePin: () -> Unit,
     isTarget: Boolean = false,
     onNavigate: (() -> Unit)? = null,
+    // 이 장소가 나온 작품. iOS `RouteStopRow.works` — 계약의 `CourseItem`엔 작품이
+    // 없어(`placeId`·`name`·`address`만 온다) 바깥(`RouteStore.places`)에서
+    // 되짚어 넣어 준다.
+    works: String = "",
 ) {
     Column(
         modifier =
@@ -119,6 +124,15 @@ fun RouteStopRow(
                 val subtitle = listOfNotNull(stop.place.type, stop.place.address).joinToString(" · ")
                 if (subtitle.isNotEmpty()) {
                     Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel, maxLines = 1)
+                }
+                // **어느 작품에 나온 곳인가.** 이 앱에 오는 이유가 그것이라 유형·주소보다
+                // 중요한 줄이다 — "북촌한옥마을"만 봐서는 왜 이 코스에 들어왔는지 알 수
+                // 없다(iOS 2026-08-25 사용자 요청). Android엔 이 줄 자체가 없었다.
+                if (works.isNotEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        FilmIcon(tint = IOS.pinDeep, modifier = Modifier.size(9.dp))
+                        Text(works, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = IOS.pinDeep, maxLines = 1)
+                    }
                 }
             }
             Text(

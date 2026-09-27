@@ -357,7 +357,7 @@ fun DetailHeader(
  * 필름으로 읽히도록 구멍은 채워서 그린다.
  */
 @Composable
-private fun FilmIcon(
+fun FilmIcon(
     tint: Color,
     modifier: Modifier = Modifier,
 ) {
