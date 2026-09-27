@@ -14,6 +14,7 @@ import com.mz2az.scenetrip.sceneapi.client.api.ContentsApi
 import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
 import com.mz2az.scenetrip.sceneapi.client.api.GuideApi
 import com.mz2az.scenetrip.sceneapi.client.api.MarketApi
+import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseCreate
 import com.mz2az.scenetrip.sceneapi.client.model.CourseDetail
@@ -25,6 +26,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlanRequest
 import com.mz2az.scenetrip.sceneapi.client.model.MarketCourseSummary
 import com.mz2az.scenetrip.sceneapi.client.model.MarketSort
+import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.VisitUpdate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -61,10 +63,22 @@ class RouteStore(
     var works by mutableStateOf<List<ContentSummary>>(emptyList())
         private set
 
+    /**
+     * 편집 화면 안 검색·장바구니 빈 상태가 쓰는 촬영지 전체 — [loadPlaces]가 채운다.
+     * iOS `RouteStore.places`와 같다: **넉넉히 받는다** — 60건만 받으면 도깨비
+     * 촬영지에 몰려 다른 작품은 없는 것처럼 보인다(iOS 실측: 눈물의 여왕 67곳인데
+     * 60건 안엔 3곳뿐). 촬영지 전체가 155건이라 한 번에 받아도 된다. 글자를 칠 때마다
+     * 서버에 묻지 않고 이 목록을 메모리에서 거른다 — 편집 화면 검색이 타이핑마다
+     * 호출을 늘리면 안 된다는 게 iOS `RouteSearchSheet`의 결정이다.
+     */
+    var places by mutableStateOf<List<PlaceSummary>>(emptyList())
+        private set
+
     private val coursesApi = CoursesApi(API_BASE)
     private val marketApi = MarketApi(API_BASE)
     private val guideApi = GuideApi(API_BASE)
     private val contentsApi = ContentsApi(API_BASE)
+    private val placesApi = PlacesApi(API_BASE)
     private val likeStore = LikeStore.getInstance(context)
     private val deviceId: UUID = InstallIdentity.of(context)
 
@@ -72,6 +86,13 @@ class RouteStore(
     suspend fun loadWorks() {
         runCatching { withContext(Dispatchers.IO) { contentsApi.listContents(limit = 30) } }
             .onSuccess { works = it.items }
+    }
+
+    /** [places]를 채운다. 이미 있으면 다시 부르지 않는다 — 검색·장바구니를 열 때마다 부른다. */
+    suspend fun loadPlaces() {
+        if (places.isNotEmpty()) return
+        runCatching { withContext(Dispatchers.IO) { placesApi.listPlaces(limit = 200) } }
+            .onSuccess { places = it.items ?: emptyList() }
     }
 
     /** 질문 흐름에 뿌릴 순서 — **찜한 것이 먼저, 나머지는 인기도순.** iOS `RouteStore.sortedWorks`. */
@@ -289,6 +310,12 @@ class RouteStore(
         span: RouteSpan,
         startDate: LocalDate?,
         pace: RoutePace,
+        // **출발점.** 없으면 서버가 촬영지가 가장 몰린 곳을 중심으로 잡는데, 그러면
+        // 실제 출발지에서 먼 순서로 나올 수도 있다 — iOS `RouteWizardView.here`처럼
+        // 마법사가 열리자마자 위치를 물어 여기로 넘긴다(2026-09-28 실기 비교로
+        // 발견: 안 넘겼을 때 1일차 정지점 순서가 iOS와 거꾸로 나왔다).
+        latitude: Double? = null,
+        longitude: Double? = null,
     ): RouteCourse? =
         withContext(Dispatchers.IO) {
             runCatching {
@@ -300,6 +327,8 @@ class RouteStore(
                         titles = requestTitles.take(5),
                         days = span.days,
                         pace = if (pace == RoutePace.LOOSE) GuidePlanRequest.Pace.relaxed else GuidePlanRequest.Pace.packed,
+                        latitude = latitude,
+                        longitude = longitude,
                     )
                 val reply = guideApi.planWithGuide(request)
                 RouteGuidePlan.course(reply.plan, courseTitle(chosenTitles, span), startDate, pace)

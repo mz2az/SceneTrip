@@ -26,6 +26,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +47,7 @@ import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.FootprintPoint
 import com.mz2az.scenetrip.data.RoutePoiGroup
 import com.mz2az.scenetrip.data.RoutePoiTone
+import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
@@ -571,23 +573,29 @@ private object FootprintDotImage {
 
 /**
  * 장바구니에서 담기. 검색 탭의 장바구니(같은 기기 id)를 그대로 이어받는다.
- * iOS는 비었을 때 서버 인기 장소로 채우지만, 그 목록을 캐시하는 자리가 Android
- * `RouteStore`엔 아직 없어 — 여기서는 빈 상태 문구만 보여준다.
+ * 비었으면 [store]의 인기 장소(iOS `RouteStore.cartSample` — `places.prefix(6)`)로
+ * 대신 채운다 — 빈 화면보다 무엇이든 있는 편이 다음 행동을 부른다는 게 iOS 결정.
+ * **목 장소를 쓰면 안 된다** — 실제 서버 장소라야 코스에 담아도 외래키 위반이
+ * 안 난다.
  */
 @Composable
 fun RouteCartSheet(
     cart: CartStore,
+    store: RouteStore,
     taken: Set<Long>,
     onPreview: (List<PlaceSummary>) -> Unit,
     onPick: (List<PlaceSummary>) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var picked by remember { mutableStateOf(setOf<Long>()) }
-    val places = cart.items.mapNotNull { it.toPlaceSummary() }
+    val cartPlaces = cart.items.mapNotNull { it.toPlaceSummary() }
+    val isSample = cartPlaces.isEmpty()
+    LaunchedEffect(isSample) { if (isSample) store.loadPlaces() }
+    val places = if (isSample) store.places.take(6) else cartPlaces
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground).statusBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("취소", fontSize = 15.sp, color = IOS.accent, modifier = Modifier.clickable(onClick = onDismiss))
+            Text("닫기", fontSize = 15.sp, color = IOS.accent, modifier = Modifier.clickable(onClick = onDismiss))
             Spacer(Modifier.weight(1f))
             Text("장바구니에서 담기", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
             Spacer(Modifier.weight(1f))
@@ -603,12 +611,12 @@ fun RouteCartSheet(
                     },
             )
         }
-        if (places.isEmpty()) {
+        if (isSample) {
             Text(
-                "장바구니가 비어 있습니다",
-                fontSize = 13.sp,
+                "장바구니가 비어 인기 장소를 보여 줍니다",
+                fontSize = 12.sp,
                 color = IOS.secondaryLabel,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             )
         }
         LazyColumn(modifier = Modifier.weight(1f)) {

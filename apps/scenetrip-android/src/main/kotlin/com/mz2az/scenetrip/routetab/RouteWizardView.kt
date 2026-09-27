@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.routetab
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,10 +34,12 @@ import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,16 +49,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
+import com.mz2az.scenetrip.searchtab.rememberLocate
 import com.mz2az.scenetrip.ui.IOS
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
+import java.util.Locale
 
 /**
  * 코스를 만들기 전에 기간(과 [isAiPlan]이면 작품)을 묻는 질문 흐름. iOS
@@ -73,7 +81,24 @@ fun RouteWizardView(
 ) {
     var stepIndex by remember { mutableStateOf(0) }
     var span by remember { mutableStateOf(RouteSpan.ONE_NIGHT) }
-    val dateState = rememberDatePickerState()
+    // **지난 날짜는 못 고른다.** iOS는 오늘 이전을 회색으로 막아 두는데, Android
+    // 기본 `DatePickerState`는 제약이 없어 지난 날짜도 그대로 골라졌다(실기
+    // 비교로 발견, 2026-09-28 — 9/28에 9/15를 고를 수 있었다).
+    val todayUtcMillis =
+        remember {
+            LocalDate
+                .now()
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli()
+        }
+    val dateState =
+        rememberDatePickerState(
+            selectableDates =
+                object : SelectableDates {
+                    override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis >= todayUtcMillis
+                },
+        )
     val hasDate = dateState.selectedDateMillis != null
     val pickedDate =
         dateState.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() } ?: LocalDate.now()
@@ -84,7 +109,23 @@ fun RouteWizardView(
     var planFailed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(isAiPlan) { if (isAiPlan) store.loadWorks() }
+    // **질문을 시작할 때 미리 물어 둔다**(iOS `RouteWizardView.locator` 주석 그대로) —
+    // 마지막 화면에서 물으면 위치가 오기를 기다리느라 코스 만들기가 그만큼
+    // 늦어진다. 못 받아도 코스는 만들어진다(`near: nil` → 서버가 촬영지가 가장
+    // 몰린 곳을 중심으로 잡는다) — 그래서 실패는 조용히 넘긴다.
+    var here by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    val requestLocation =
+        rememberLocate(
+            onLocated = { found -> here = found.latitude to found.longitude },
+            onFailure = {},
+        )
+
+    LaunchedEffect(isAiPlan) {
+        if (isAiPlan) {
+            store.loadWorks()
+            requestLocation()
+        }
+    }
 
     val currentDraft = draft
     if (currentDraft != null) {
@@ -168,18 +209,34 @@ fun RouteWizardView(
                 }
             } else if (stepIndex == 1) {
                 Column {
-                    DatePicker(
-                        state = dateState,
-                        title = null,
-                        headline = null,
-                        showModeToggle = false,
-                        colors = DatePickerDefaults.colors(containerColor = IOS.systemBackground),
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(IOS.systemBackground),
-                    )
+                    // **한국어로 강제한다.** `DatePicker`는 앱 문구와 달리 기기
+                    // 언어를 그대로 따른다 — 기기가 영어면 "September 2026"·
+                    // "S M T W T F S" 로 뜨고 오늘 표시도 iOS(파랑)와 다른 색이
+                    // 된다(실기 비교로 발견). 이 위젯 하나만 로케일을 덮는다.
+                    val context = LocalContext.current
+                    val koreanContext =
+                        remember(context) {
+                            val config = Configuration(context.resources.configuration)
+                            config.setLocale(Locale.KOREAN)
+                            context.createConfigurationContext(config)
+                        }
+                    CompositionLocalProvider(
+                        LocalContext provides koreanContext,
+                        LocalConfiguration provides koreanContext.resources.configuration,
+                    ) {
+                        DatePicker(
+                            state = dateState,
+                            title = null,
+                            headline = null,
+                            showModeToggle = false,
+                            colors = DatePickerDefaults.colors(containerColor = IOS.systemBackground),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(IOS.systemBackground),
+                        )
+                    }
                     Spacer(Modifier.height(10.dp))
                     if (hasDate) {
                         val back = pickedDate.plusDays(span.nights.toLong())
@@ -305,7 +362,15 @@ fun RouteWizardView(
                             }
                             planning = true
                             scope.launch {
-                                val result = store.guideDraft(selectedWorkIds, span, startDate, pace)
+                                val result =
+                                    store.guideDraft(
+                                        selectedWorkIds,
+                                        span,
+                                        startDate,
+                                        pace,
+                                        latitude = here?.first,
+                                        longitude = here?.second,
+                                    )
                                 planning = false
                                 if (result != null) draft = result else planFailed = true
                             }

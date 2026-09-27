@@ -14,11 +14,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -50,7 +55,6 @@ import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.FootprintStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
-import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
 import com.mz2az.scenetrip.sceneapi.client.api.PoisApi
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource
@@ -61,6 +65,7 @@ import com.mz2az.scenetrip.searchtab.BottomSheet
 import com.mz2az.scenetrip.searchtab.Detent
 import com.mz2az.scenetrip.searchtab.MapPins
 import com.mz2az.scenetrip.searchtab.NaverMapCanvas
+import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.centerOn
 import com.mz2az.scenetrip.searchtab.fit
 import com.mz2az.scenetrip.searchtab.rememberLocate
@@ -182,6 +187,15 @@ fun RouteEditorView(
         }
     }
 
+    fun saveAndClose() {
+        saving = true
+        scope.launch {
+            val saved = store.save(course)
+            saving = false
+            onClose(saved ?: course)
+        }
+    }
+
     LaunchedEffect(Unit) { trip.onArrived = { stop -> markVisited(stop) } }
 
     // 홈 「이어서 길찾기」 — 코스가 열리면 첫 미방문 성지로 안내를 켠다. 표시는 한 번
@@ -255,6 +269,19 @@ fun RouteEditorView(
         val here = myLocation.takeIf { showingMe }
         val toFit = stops.map { it.place } + listOfNotNull(here)
         if (toFit.isNotEmpty()) target.fit(toFit, density, screenHeight, panelHeight, 0.dp)
+    }
+
+    // **파란 점 자체는 카메라 맞추기와 별개다.** 위에서는 화면 범위만 맞췄지,
+    // 지도에 점을 찍은 적이 없었다 — 「내 위치」를 켜고 위치 권한까지 줘도 점이
+    // 안 보였다(실기 비교로 발견, 2026-09-28). 검색 탭은 `locationSource`를
+    // 달아 SDK가 스스로 그리게 하는데, 여기 `myLocation`은 서버 호출용
+    // `PlaceSummary`라 그 방식을 못 쓴다 — `locationOverlay`에 직접 좌표를
+    // 찍는다(TripOverlay가 안내 중에 하는 것과 같은 방법).
+    LaunchedEffect(map, showingMe, myLocation) {
+        val target = map ?: return@LaunchedEffect
+        val here = myLocation.takeIf { showingMe }
+        target.locationOverlay.isVisible = here != null
+        here?.let { target.locationOverlay.position = LatLng(it.latitude, it.longitude) }
     }
 
     // 카메라가 멈추면 그 범위의 주변 편의시설을 받는다. iOS `RouteEditorAmbient.viewportChanged`
@@ -361,15 +388,7 @@ fun RouteEditorView(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = IOS.accent,
-                    modifier =
-                        Modifier.clickable {
-                            saving = true
-                            scope.launch {
-                                val saved = store.save(course)
-                                saving = false
-                                onClose(saved ?: course)
-                            }
-                        },
+                    modifier = Modifier.clickable { saveAndClose() },
                 )
             }
         }
@@ -715,36 +734,6 @@ fun RouteEditorView(
                         }
                         if (course.serverId != null) {
                             item {
-                                val running = course.isRunning
-                                Text(
-                                    if (running) "여행 종료" else "코스 시작",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (running) IOS.systemRed else IOS.accent,
-                                    textAlign = TextAlign.Center,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(IOS.systemGray6)
-                                            .clickable {
-                                                val turningOn = !running
-                                                scope.launch {
-                                                    store.setRunning(course, turningOn, dayNo = 1)
-                                                    course = course.copy(isRunning = turningOn)
-                                                    val serverId = course.serverId
-                                                    if (turningOn && serverId != null) {
-                                                        val firstUnvisited = course.days.flatMap { it.stops }.firstOrNull { !it.visited }
-                                                        if (firstUnvisited != null) trip.start(serverId, firstUnvisited, scope)
-                                                    } else {
-                                                        trip.end()
-                                                    }
-                                                }
-                                            }.padding(vertical = 12.dp),
-                                )
-                            }
-                            item {
                                 Text(
                                     "코스 삭제",
                                     fontSize = 14.sp,
@@ -762,6 +751,69 @@ fun RouteEditorView(
                         } else {
                             item { Spacer(Modifier.height(24.dp)) }
                         }
+                    }
+                    // **스크롤과 무관하게 늘 보여야 한다.** iOS `RouteEditorTrip.bottomBar`
+                    // (`planControls`)와 짝 — 정지점이 많은 일차에서는 스크롤해야만
+                    // 나오던 "코스 시작"·저장 버튼이었다(실기 비교로 발견,
+                    // 2026-09-28). 목록 맨 아래 항목이 아니라 목록 옆의 고정 줄로
+                    // 옮긴다.
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .background(IOS.systemBackground)
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        if (course.serverId != null) {
+                            val running = course.isRunning
+                            Text(
+                                if (running) "여행 종료" else "코스 시작",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (running) IOS.systemRed else IOS.accent,
+                                textAlign = TextAlign.Center,
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(IOS.systemGray6)
+                                        .clickable {
+                                            val turningOn = !running
+                                            scope.launch {
+                                                store.setRunning(course, turningOn, dayNo = 1)
+                                                course = course.copy(isRunning = turningOn)
+                                                val serverId = course.serverId
+                                                if (turningOn && serverId != null) {
+                                                    val firstUnvisited = course.days.flatMap { it.stops }.firstOrNull { !it.visited }
+                                                    if (firstUnvisited != null) trip.start(serverId, firstUnvisited, scope)
+                                                } else {
+                                                    trip.end()
+                                                }
+                                            }
+                                        }.padding(vertical = 12.dp),
+                            )
+                        }
+                        Text(
+                            if (saving) {
+                                "…"
+                            } else if (course.serverId == null) {
+                                "코스 만들기"
+                            } else {
+                                "저장하고 닫기"
+                            },
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(IOS.accent)
+                                    .clickable(enabled = !saving) { saveAndClose() }
+                                    .padding(vertical = 12.dp),
+                        )
                     }
                 }
             }
@@ -811,15 +863,17 @@ fun RouteEditorView(
 
     if (searching) {
         PlaceSearchOverlay(
+            store = store,
             taken = takenIds,
             onDismiss = { searching = false },
-            onPick = { place -> addStops(listOf(RouteStop(place = place))) },
+            onAdd = { places -> addStops(places.map { RouteStop(place = it) }) },
         )
     }
 
     if (showCart) {
         RouteCartSheet(
             cart = cart,
+            store = store,
             taken = takenIds,
             onPreview = {},
             onPick = { places -> addStops(places.map { RouteStop(place = it) }) },
@@ -1134,66 +1188,134 @@ private fun DayTabs(
     }
 }
 
-/** 장소 검색. iOS `RouteSearchSheet`의 최소 이식 — 이미 담긴 곳은 흐리게 표시한다. */
+/**
+ * 장소 검색. iOS `RouteSearchSheet`를 옮긴 것이다 — 이름·주소·**작품 이름**으로
+ * [RouteStore.places](서버가 이미 다 들고 있는 155건)를 메모리에서 거른다. 글자를
+ * 칠 때마다 서버를 부르지 않는다. 여럿 고르고 한 번에 담는다(번호 배지로 순서를
+ * 보여 준다), 이미 담긴 곳은 흐리게 + 체크.
+ */
 @Composable
 private fun PlaceSearchOverlay(
+    store: RouteStore,
     taken: Set<Long>,
     onDismiss: () -> Unit,
-    onPick: (PlaceSummary) -> Unit,
+    onAdd: (List<PlaceSummary>) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<PlaceSummary>>(emptyList()) }
-    var loading by remember { mutableStateOf(false) }
+    var picked by remember { mutableStateOf<List<Long>>(emptyList()) }
+    LaunchedEffect(Unit) { store.loadPlaces() }
 
-    LaunchedEffect(query) {
-        if (query.isBlank()) {
-            results = emptyList()
-            return@LaunchedEffect
+    val trimmed = query.trim()
+    val results =
+        if (trimmed.isEmpty()) {
+            store.places.take(40)
+        } else {
+            store.places.filter { place ->
+                place.name.contains(trimmed, ignoreCase = true) ||
+                    place.address.orEmpty().contains(trimmed, ignoreCase = true) ||
+                    place.contents.orEmpty().any { it.title.contains(trimmed, ignoreCase = true) }
+            }
         }
-        loading = true
-        val api = PlacesApi(API_BASE)
-        results =
-            withContext(Dispatchers.IO) {
-                runCatching { api.listPlaces(q = query, limit = 30) }.getOrNull()
-            }?.items ?: emptyList()
-        loading = false
-    }
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground).statusBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = { Text("촬영지 이름으로 검색") },
-                singleLine = true,
-                modifier = Modifier.weight(1f),
-            )
             Text(
-                "취소",
+                "닫기",
                 fontSize = 15.sp,
                 color = IOS.accent,
-                modifier = Modifier.clickable(onClick = onDismiss).padding(start = 10.dp),
+                modifier = Modifier.clickable(onClick = onDismiss),
+            )
+            Spacer(Modifier.weight(1f))
+            Text("장소 검색", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Spacer(Modifier.weight(1f))
+            Text(
+                "추가 ${picked.size}",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (picked.isEmpty()) IOS.tertiaryLabel else IOS.accent,
+                modifier =
+                    Modifier.clickable(enabled = picked.isNotEmpty()) {
+                        val byId = store.places.associateBy { it.id }
+                        onAdd(picked.mapNotNull { byId[it] })
+                        onDismiss()
+                    },
             )
         }
-        if (loading) {
-            CircularProgressIndicator(modifier = Modifier.padding(20.dp))
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            placeholder = { Text("장소나 작품 이름") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        )
+        Spacer(Modifier.height(8.dp))
+        if (results.isEmpty()) {
+            Text(
+                "\"$query\" 검색 결과가 없습니다",
+                fontSize = 13.sp,
+                color = IOS.secondaryLabel,
+                modifier = Modifier.fillMaxWidth().padding(32.dp),
+                textAlign = TextAlign.Center,
+            )
         }
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             itemsIndexed(results, key = { _, place -> place.id }) { _, place ->
                 val isTaken = taken.contains(place.id)
+                val pickedOrder = picked.indexOf(place.id).takeIf { it >= 0 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .clickable(enabled = !isTaken) { onPick(place) }
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                            .clickable(enabled = !isTaken) {
+                                picked = if (pickedOrder != null) picked - place.id else picked + place.id
+                            }.padding(horizontal = 16.dp, vertical = 8.dp)
+                            .alpha(if (isTaken) 0.5f else 1f),
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    RemoteImage(url = place.imageUrl?.toString(), modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)))
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(place.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = IOS.label)
-                        place.address?.let { Text(it, fontSize = 12.sp, color = IOS.secondaryLabel, maxLines = 1) }
+                        place.contents.orEmpty().firstOrNull()?.title?.let {
+                            Text(it, fontSize = 11.sp, color = IOS.accent)
+                        }
+                        place.address?.let { Text(it, fontSize = 11.sp, color = IOS.tertiaryLabel, maxLines = 1) }
                     }
-                    if (isTaken) Text("담김", fontSize = 12.sp, color = IOS.tertiaryLabel)
+                    when {
+                        isTaken -> {
+                            Icon(
+                                Icons.Filled.CheckCircle,
+                                contentDescription = "이미 담김",
+                                tint = IOS.accent.copy(alpha = 0.45f),
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+
+                        pickedOrder != null -> {
+                            Text(
+                                "${pickedOrder + 1}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White,
+                                textAlign = TextAlign.Center,
+                                modifier =
+                                    Modifier
+                                        .size(22.dp)
+                                        .clip(CircleShape)
+                                        .background(IOS.accent)
+                                        .wrapContentHeight(),
+                            )
+                        }
+
+                        else -> {
+                            Icon(
+                                Icons.Filled.Add,
+                                contentDescription = "담기",
+                                tint = IOS.tertiaryLabel,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
