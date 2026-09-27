@@ -49,6 +49,7 @@ import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.FootprintStore
 import com.mz2az.scenetrip.data.RouteStore
+import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
 import com.mz2az.scenetrip.sceneapi.client.api.PoisApi
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
@@ -117,13 +118,16 @@ fun RouteEditorView(
     var pinStart by remember { mutableStateOf(false) }
     var pinEnd by remember { mutableStateOf(false) }
     var myLocation by remember { mutableStateOf<PlaceSummary?>(null) }
-    var showingMe by remember { mutableStateOf(false) }
+    // 켜짐이 기본이다(2026-08-28 iOS 결정) — 코스를 보는 사람은 대개 자기 위치와
+    // 견주고 싶어서 본다. 끄는 것은 선택으로 남는다.
+    var showingMe by remember { mutableStateOf(true) }
     var fitToken by remember { mutableStateOf(0) }
     var showGuide by remember { mutableStateOf(false) }
     var viewport by remember { mutableStateOf<MapViewport?>(null) }
     var ambientPois by remember { mutableStateOf<List<PoiSummary>>(emptyList()) }
     var poiGroupsOn by remember { mutableStateOf(PoiCategoryGroup.entries.toSet()) }
     var aiPlacesOn by remember { mutableStateOf(true) }
+    var showDraftNotes by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val cart = remember { CartStore(context) }
@@ -179,6 +183,20 @@ fun RouteEditorView(
     }
 
     LaunchedEffect(Unit) { trip.onArrived = { stop -> markVisited(stop) } }
+
+    // 홈 「이어서 길찾기」 — 코스가 열리면 첫 미방문 성지로 안내를 켠다. 표시는 한 번
+    // 읽고 끈다(iOS `RouteEditorView.runPendingTripStart`).
+    LaunchedEffect(course) {
+        if (!TabRouter.pendingTripStart) return@LaunchedEffect
+        val allStops = course.days.flatMap { it.stops }
+        if (allStops.isEmpty()) return@LaunchedEffect
+        TabRouter.pendingTripStart = false
+        val next = allStops.firstOrNull { !it.visited } ?: allStops.first()
+        val serverId = course.serverId ?: return@LaunchedEffect
+        store.setRunning(course, true, dayNo = 1)
+        course = course.copy(isRunning = true)
+        trip.start(serverId, next, scope)
+    }
 
     fun addStops(
         newStops: List<RouteStop>,
@@ -372,6 +390,31 @@ fun RouteEditorView(
             }
         }
 
+        // 초안의 알림줄 — 접힌 한 줄("뺀 곳 7 · 주의 3")이고 누르면 펼쳐진다. 저장하면
+        // 사라지는 값이라 저장 전에만 보인다(iOS `RouteEditorGuide.draftNotes`).
+        if (course.draftNotes.isNotEmpty()) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth().clickable { showDraftNotes = !showDraftNotes },
+                ) {
+                    Text(
+                        RouteGuidePlan.notesSummary(course.draftNotes),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = IOS.secondaryLabel,
+                    )
+                    Text(if (showDraftNotes) "▲" else "▼", fontSize = 8.sp, color = IOS.secondaryLabel)
+                }
+                if (showDraftNotes) {
+                    course.draftNotes.forEach { note ->
+                        Text(note, fontSize = 11.sp, color = IOS.secondaryLabel, modifier = Modifier.padding(start = 18.dp, top = 2.dp))
+                    }
+                }
+            }
+        }
+
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             NaverMapCanvas(
                 modifier = Modifier.fillMaxSize(),
@@ -480,6 +523,7 @@ fun RouteEditorView(
                             },
                             onArrivedNow = trip::markArrived,
                             onNext = { next -> trip.advance(next, scope) },
+                            onRetry = { trip.retry(scope) },
                             unvisitedAfter = { current ->
                                 val flat = course.days.flatMap { it.stops }
                                 val index = flat.indexOfFirst { it.id == current.id }
@@ -817,6 +861,17 @@ fun RouteEditorView(
             confirmButton = { TextButton(onClick = { blockedDayRemoval = false }) { Text("확인") } },
         )
     }
+
+    // 저장이 실패하면 이유를 말한다 — 안 그러면 단추가 안 먹는 것처럼 보여 같은
+    // 단추를 계속 누르게 된다(iOS `RouteEditorView`의 "저장하지 못했습니다" alert).
+    store.failure?.let { failure ->
+        AlertDialog(
+            onDismissRequest = { store.clearFailure() },
+            title = { Text("저장하지 못했습니다") },
+            text = { Text(failure.message) },
+            confirmButton = { TextButton(onClick = { store.clearFailure() }) { Text("확인") } },
+        )
+    }
 }
 
 /** 직접 찍은 핀의 임시 장소. 저장 전에는 음수 id로 촬영지·초안과 겹치지 않는다. */
@@ -895,6 +950,7 @@ private fun TripBanner(
     onEnd: () -> Unit,
     onArrivedNow: () -> Unit,
     onNext: (RouteStop) -> Unit,
+    onRetry: () -> Unit,
     unvisitedAfter: (RouteStop) -> RouteStop?,
 ) {
     val target = trip.target ?: return
@@ -904,11 +960,39 @@ private fun TripBanner(
             Text(target.place.name, fontSize = 12.sp, color = IOS.secondaryLabel)
         } else {
             Text("${target.place.name}로 가는 중", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-            trip.leg?.let { leg ->
-                val walk = leg.walkMeters?.let { " · 도보 ${it}m" } ?: ""
-                Text("${leg.totalMinutes}분 · 환승 ${leg.transfers}회$walk", fontSize = 11.sp, color = IOS.secondaryLabel)
+            // iOS `RouteEditorTrip.tripDetail` 순서 그대로: 받은 경로 → 실패(재시도) →
+            // 구하는 중 → 자리를 못 찾음.
+            when {
+                trip.leg != null -> {
+                    val leg = trip.leg!!
+                    val walk = leg.walkMeters?.let { " · 도보 ${it}m" } ?: ""
+                    Text("${leg.totalMinutes}분 · 환승 ${leg.transfers}회$walk", fontSize = 11.sp, color = IOS.secondaryLabel)
+                }
+
+                trip.failure != null -> {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(trip.failure!!, fontSize = 11.sp, color = IOS.systemOrange)
+                        Text(
+                            "다시 시도",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = IOS.accent,
+                            modifier = Modifier.clickable(onClick = onRetry),
+                        )
+                    }
+                }
+
+                trip.asking -> {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        CircularProgressIndicator(modifier = Modifier.size(11.dp), strokeWidth = 1.5.dp)
+                        Text("길을 찾는 중입니다", fontSize = 11.sp, color = IOS.secondaryLabel)
+                    }
+                }
+
+                trip.here == null -> {
+                    Text("현재 위치를 찾는 중입니다", fontSize = 11.sp, color = IOS.secondaryLabel)
+                }
             }
-            trip.failure?.let { Text(it, fontSize = 11.sp, color = IOS.systemOrange) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
             Text(

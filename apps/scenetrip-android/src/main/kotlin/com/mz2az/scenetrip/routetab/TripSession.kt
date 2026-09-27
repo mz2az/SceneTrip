@@ -50,6 +50,8 @@ class TripSession(
         private set
     var failure by mutableStateOf<String?>(null)
         private set
+    var asking by mutableStateOf(false)
+        private set
 
     val isActive: Boolean get() = target != null
 
@@ -111,10 +113,16 @@ class TripSession(
         stopLocationUpdates()
     }
 
+    /** 실패했을 때 "다시 시도" — iOS `RouteEditorTrip.tripDetail`의 재시도 단추. */
+    fun retry(scope: CoroutineScope) {
+        scope.launch { fetchLeg() }
+    }
+
     suspend fun fetchLeg() {
         val t = target ?: return
         val (lat, lng) = here ?: return
         val itemId = t.serverItemId ?: return
+        asking = true
         runCatching {
             withContext(Dispatchers.IO) {
                 navigationApi.getNextLeg(deviceId, NextLegRequest(courseId = courseId, itemId = itemId, latitude = lat, longitude = lng))
@@ -125,6 +133,7 @@ class TripSession(
         }.onFailure {
             failure = ApiFailure.of(it).message
         }
+        asking = false
     }
 
     private fun startLocationUpdates(scope: CoroutineScope) {
