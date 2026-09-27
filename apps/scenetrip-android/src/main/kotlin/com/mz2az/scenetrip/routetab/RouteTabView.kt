@@ -278,7 +278,12 @@ private fun EmptyState(
                     .clickable(onClick = onAI)
                     .padding(vertical = 14.dp),
         ) {
-            Icon(Icons.Filled.Star, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(15.dp))
+            Icon(
+                Icons.Filled.Star,
+                contentDescription = null,
+                tint = androidx.compose.ui.graphics.Color.White,
+                modifier = Modifier.size(15.dp),
+            )
             Text(
                 "AI 로 여정 짜기",
                 fontSize = 16.sp,

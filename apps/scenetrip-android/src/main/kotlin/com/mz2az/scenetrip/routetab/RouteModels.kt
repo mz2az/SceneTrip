@@ -104,6 +104,13 @@ data class RouteStop(
     }
 }
 
+/** 지도를 눌러 찍은 자리. iOS `RouteMapView.RoutePin`. */
+data class RoutePin(
+    val id: UUID = UUID.randomUUID(),
+    val latitude: Double,
+    val longitude: Double,
+)
+
 /** 기간. 당일치기부터 5박 6일까지 여섯 개다. */
 enum class RouteSpan(
     val nights: Int,

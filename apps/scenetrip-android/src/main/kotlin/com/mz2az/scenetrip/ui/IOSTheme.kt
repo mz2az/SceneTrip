@@ -36,6 +36,9 @@ object IOS {
     val accent = Color(0xFF0088FF)
     val systemRed = Color(0xFFFF383C)
 
+    /** "저장 안 됨" 배지. iOS `Color.orange`. */
+    val systemOrange = Color(0xFFFF9500)
+
     val systemBackground = Color(0xFFFFFFFF)
     val systemGray3 = Color(0xFFC7C7CC)
 

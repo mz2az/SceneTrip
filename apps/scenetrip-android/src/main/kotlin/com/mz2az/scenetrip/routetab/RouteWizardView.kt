@@ -74,7 +74,7 @@ fun RouteWizardView(
 
     val currentDraft = draft
     if (currentDraft != null) {
-        RouteEditorView(store = store, initial = currentDraft, onClose = onClose)
+        RouteEditorView(store = store, initial = currentDraft, isNew = true, onClose = onClose)
         return
     }
 
