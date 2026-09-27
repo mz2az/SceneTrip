@@ -276,9 +276,13 @@ fun RouteEditorView(
     // 안 보였다(실기 비교로 발견, 2026-09-28). 검색 탭은 `locationSource`를
     // 달아 SDK가 스스로 그리게 하는데, 여기 `myLocation`은 서버 호출용
     // `PlaceSummary`라 그 방식을 못 쓴다 — `locationOverlay`에 직접 좌표를
-    // 찍는다(TripOverlay가 안내 중에 하는 것과 같은 방법).
-    LaunchedEffect(map, showingMe, myLocation) {
+    // 찍는다(TripOverlay가 안내 중에 하는 것과 같은 방법). `trip.isActive`도
+    // 키로 둔다 — 안내가 끝나면 TripOverlay가 점을 자기 마지막 상태로 두고
+    // 손을 떼므로, 이 효과가 다시 돌아 「내 위치」 토글이 원하는 상태로
+    // 되돌려야 한다.
+    LaunchedEffect(map, showingMe, myLocation, trip.isActive) {
         val target = map ?: return@LaunchedEffect
+        if (trip.isActive) return@LaunchedEffect
         val here = myLocation.takeIf { showingMe }
         target.locationOverlay.isVisible = here != null
         here?.let { target.locationOverlay.position = LatLng(it.latitude, it.longitude) }
@@ -479,7 +483,7 @@ fun RouteEditorView(
                 numbered = true,
                 onTap = { place -> focusedStopId = stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(place) }?.id },
             )
-            TripOverlay(map = map, here = trip.here, leg = trip.leg)
+            TripOverlay(map = map, active = trip.isActive, here = trip.here, leg = trip.leg)
             FootprintTrail(
                 map = map,
                 points =
@@ -1020,13 +1024,23 @@ private fun PlanOverlay(
 @Composable
 private fun TripOverlay(
     map: NaverMap?,
+    active: Boolean,
     here: Pair<Double, Double>?,
     leg: com.mz2az.scenetrip.sceneapi.client.model.NextLeg?,
 ) {
     if (map == null) return
-    androidx.compose.runtime.LaunchedEffect(here) {
-        map.locationOverlay.isVisible = here != null
-        here?.let { (lat, lng) -> map.locationOverlay.position = LatLng(lat, lng) }
+    // **안내 중이 아니면 이 효과는 `locationOverlay`를 아예 건드리지 않는다.**
+    // 안내 전에도 이 컴포저블은 늘 조립돼 있어서(`trip.here`가 항상 null),
+    // `here != null` 만 보고 isVisible을 껐다 켰다 하면 「내 위치」 토글이
+    // 이미 켜 둔 파란 점을 그 뒤에 도는 이 효과가 곧바로 꺼 버렸다 — 편집
+    // 화면을 열자마자는 점이 안 보이고, 토글을 한 번 더 눌러야 나오던
+    // 원인이었다(2026-09-28 실기 검증으로 확인). 안내 중에만 이 효과가
+    // 살아 있는 위치로 점을 옮긴다.
+    if (active) {
+        androidx.compose.runtime.LaunchedEffect(here) {
+            map.locationOverlay.isVisible = here != null
+            here?.let { (lat, lng) -> map.locationOverlay.position = LatLng(lat, lng) }
+        }
     }
     androidx.compose.runtime.DisposableEffect(map, leg) {
         val points = leg?.legs.orEmpty().flatMap { routeLeg -> routeLeg.path.coordinates.map { LatLng(it[1], it[0]) } }
