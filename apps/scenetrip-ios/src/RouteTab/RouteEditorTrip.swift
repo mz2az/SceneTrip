@@ -167,7 +167,7 @@ extension RouteEditorView {
             // 구간 — 도보·대중교통 조각을 한 줄로. 화면을 밀면 다 보인다.
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    ForEach(result.legs) { leg in
+                    ForEach(result.chips) { leg in
                         HStack(spacing: 4) {
                             Image(systemName: leg.mode.symbol).font(.system(size: 10, weight: .bold))
                             // 탈것은 노선까지 — 「간선 150 · 서울신문사 → 혜화역2번출구 · 10정거장 · 19분」.

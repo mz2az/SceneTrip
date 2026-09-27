@@ -47,8 +47,13 @@ enum RouteLegMode {
         self != .walk
     }
 
-    /// 계약의 `RouteLeg.mode`(walk/transit)와 `vehicleType`(제공자 원문, 한국어)에서 갈래를 고른다.
-    static func from(contractMode: String, vehicleType: String?) -> RouteLegMode {
+    /// 계약의 `RouteLeg.mode`(walk/transit)와 `vehicleType`·`vehicleName`(제공자 원문, 한국어)에서
+    /// 갈래를 고른다.
+    ///
+    /// **종류 칸만으로는 지하철을 못 가린다.** 카카오는 1호선을 `vehicleType: "일반"`,
+    /// `vehicleName: "1호선"` 으로 보낸다(2026-09-28 실측, 서울역 → DDP) — 그래서 버스
+    /// 종류가 아니면 노선 이름의 「호선」·「…선」·「철도」로 한 번 더 본다.
+    static func from(contractMode: String, vehicleType: String?, vehicleName: String?) -> RouteLegMode {
         guard contractMode != "walk" else { return .walk }
         let kind = vehicleType ?? ""
         if ["지하철", "전철", "경전철", "SUBWAY"].contains(where: kind.contains) {
@@ -56,6 +61,10 @@ enum RouteLegMode {
         }
         if ["버스", "마을", "간선", "지선", "광역", "직행", "순환", "BUS"].contains(where: kind.contains) {
             return .bus
+        }
+        let name = vehicleName ?? ""
+        if name.contains("호선") || name.hasSuffix("선") || name.contains("철도") {
+            return .subway
         }
         return .transit
     }
@@ -136,6 +145,25 @@ struct RouteLeg: Identifiable {
     /// 캐리어를 끄는 외국인에게 계단은 경로를 바꿀 정보라, 이것 하나 때문에 도보
     /// 보조로 T맵을 놓지 못한다.
     var hasStairs = false
+
+    /// 칩에 적은 거리·시간의 원재료. 이어진 도보를 합칠 때 다시 센다(`RouteNavResult.chips`).
+    var meters: Int?
+    var seconds: Int?
+
+    /// 「3분 · 239 m · 5 정거장」. 모르는 것은 빼고 적는다.
+    static func pieces(seconds: Int?, meters: Int?, stops: Int?) -> [String] {
+        var out: [String] = []
+        if let seconds {
+            out.append("\(max(1, seconds / 60))분")
+        }
+        if let meters {
+            out.append("\(meters) m")
+        }
+        if let stops {
+            out.append("\(stops) 정거장")
+        }
+        return out
+    }
 }
 
 /// 한 번의 길찾기 결과.
@@ -167,6 +195,43 @@ struct RouteNavResult {
     /// 구간 좌표를 순서대로 이은 것. 지도가 이것을 그린다.
     var path: [[Double]] {
         legs.flatMap(\.path)
+    }
+
+    /// 안내 띠의 칩 — **이어진 도보는 하나로 합친다.** 카카오는 내린 뒤 걷는 길을 턴마다
+    /// 끊어 주어, 7~145 m 조각 10개가 칩 10개로 늘어섰다(2026-09-28 실측). `legs` 는
+    /// 그대로 둔다 — 지도 선과 데모 주행이 구간별로 쓴다.
+    ///
+    /// 합계는 **조각을 전부 알 때만** 낸다. 하나라도 모르면 그 칸은 비운다 — 아는 것만 더하면
+    /// 실제보다 짧은 길이 된다.
+    var chips: [RouteLeg] {
+        var out: [RouteLeg] = []
+        var run: [RouteLeg] = []
+        func flush() {
+            guard let first = run.first else { return }
+            if run.count == 1 {
+                out.append(first)
+            } else {
+                let meters = run.allSatisfy { $0.meters != nil } ? run.compactMap(\.meters).reduce(0, +) : nil
+                let seconds = run.allSatisfy { $0.seconds != nil } ? run.compactMap(\.seconds).reduce(0, +) : nil
+                let detail = RouteLeg.pieces(seconds: seconds, meters: meters, stops: nil).joined(separator: " · ")
+                out.append(RouteLeg(
+                    mode: .walk, title: first.title, detail: detail,
+                    path: run.flatMap(\.path), hasStairs: run.contains(where: \.hasStairs),
+                    meters: meters, seconds: seconds
+                ))
+            }
+            run = []
+        }
+        for leg in legs {
+            if leg.mode == .walk {
+                run.append(leg)
+            } else {
+                flush()
+                out.append(leg)
+            }
+        }
+        flush()
+        return out
     }
 
     var summaryLine: String {
