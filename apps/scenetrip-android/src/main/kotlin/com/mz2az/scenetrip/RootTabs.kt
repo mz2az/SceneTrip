@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.mz2az.scenetrip.communitytab.CommunityTabScreen
 import com.mz2az.scenetrip.data.Cover
 import com.mz2az.scenetrip.data.RootTab
@@ -76,10 +77,22 @@ fun RootTabs() {
                 // 검색 탭은 항상 살려 둔다 — 다른 탭에 갔다 와도 지도와 검색 결과가
                 // 그대로여야 한다. iOS 가 `opacity` + `allowsHitTesting` 으로 하는 것과
                 // 같다. 여기서 조건부로 그리면 지도 SDK 가 매번 다시 뜬다.
+                //
+                // **`alpha` 만으로는 안 된다.** Compose 에는 SwiftUI의
+                // `allowsHitTesting(false)` 짝이 없다 — 투명해도 터치는 그대로
+                // 받는다. 검색·홈 둘 다 같은 자리에 늘 떠 있으니, 항상 나중에 그려지는
+                // (= 항상 위에 있는) 홈이 안 보일 때도 검색 탭의 탭을 가로챈다 — 실측:
+                // 검색 탭에서 작품을 눌렀는데 홈의 "지금 뜨는 작품" 첫 카드가 열렸다
+                // (2026-09-28). `zIndex`로 **지금 보이는 쪽만 위로** 올려 맞바꾼다 —
+                // 소스 순서(그래서 조립 순서·상태)는 그대로 두고 그리기·히트테스트
+                // 순서만 선택된 탭 쪽으로 넘긴다. (처음에 눌러 삼키는 `pointerInput`
+                // 으로 막아 봤는데, 그건 위에 있는 쪽이 안 보여도 여전히 위에 있어서
+                // 터치 자체를 통째로 먹어 버렸다 — 둘 다 안 먹힐 뻔했다.)
                 Box(
                     modifier =
                         Modifier
                             .fillMaxSize()
+                            .zIndex(if (selected == RootTab.SEARCH) 1f else 0f)
                             .alpha(if (selected == RootTab.SEARCH) 1f else 0f),
                 ) {
                     SearchTabScreen()
@@ -89,6 +102,7 @@ fun RootTabs() {
                     modifier =
                         Modifier
                             .fillMaxSize()
+                            .zIndex(if (selected == RootTab.HOME) 1f else 0f)
                             .alpha(if (selected == RootTab.HOME) 1f else 0f),
                 ) {
                     HomeTabScreen()
