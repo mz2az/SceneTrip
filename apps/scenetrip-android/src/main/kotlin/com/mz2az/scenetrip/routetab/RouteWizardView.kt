@@ -353,7 +353,22 @@ fun RouteWizardView(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (stepIndex > 0) {
-                TextButton(onClick = { stepIndex -= 1 }, enabled = !planning) { Text("이전") }
+                // iOS `.buttonStyle(.bordered)`(회색 알약 + 강조색 글자) ·
+                // `.borderedProminent`(파랑 알약 + 흰 글자) 둘 다 `.controlSize(.large)`
+                // 에서는 완전히 둥근 알약이다 — 각진 모서리(12dp)였던 것을 알약
+                // (`CircleShape`, 세로 지름이 반지름이라 늘 완전히 둥글다)으로.
+                Text(
+                    "이전",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = IOS.accent,
+                    modifier =
+                        Modifier
+                            .clip(CircleShape)
+                            .background(IOS.systemGray6)
+                            .clickable(enabled = !planning) { stepIndex -= 1 }
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                )
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -361,7 +376,7 @@ fun RouteWizardView(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(CircleShape)
                         .background(IOS.accent)
                         .clickable(enabled = !planning) {
                             if (!isLast) {

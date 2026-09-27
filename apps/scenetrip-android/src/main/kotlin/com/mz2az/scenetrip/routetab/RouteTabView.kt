@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -95,18 +96,22 @@ fun RouteTabView(
                 }
                 Spacer(Modifier.weight(1f))
                 if (segment == Segment.MINE) {
+                    // iOS `PinoNudge` — 늘 반짝이는 핀 그러데이션(파랑→보라) 배경에
+                    // 흰 글자다. 이 탭의 첫 행동이라 이렇게 눈에 띄게 해 둔다. 은은한
+                    // 깜빡임(0.55↔0.95 투명도)까지는 옮기지 않았다 — 정적인 그러데이션
+                    // 만으로도 이전의 옅은 파란 배경보다 훨씬 도드라진다.
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         modifier =
                             Modifier
                                 .clip(RoundedCornerShape(15.dp))
-                                .background(IOS.accent.copy(alpha = 0.12f))
+                                .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)))
                                 .clickable { fork = true }
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                     ) {
-                        Icon(Icons.Filled.Add, contentDescription = null, tint = IOS.accent, modifier = Modifier.size(13.dp))
-                        Text("코스 추가", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = IOS.accent)
+                        Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                        Text("코스 추가", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                     }
                 }
             }
@@ -273,7 +278,8 @@ private fun EmptyState(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    // iOS `.controlSize(.large)`는 완전히 둥근 알약이다.
+                    .clip(CircleShape)
                     .background(IOS.accent)
                     .clickable(onClick = onAI)
                     .padding(vertical = 14.dp),
@@ -292,17 +298,19 @@ private fun EmptyState(
             )
         }
         Spacer(Modifier.height(10.dp))
+        // iOS `.buttonStyle(.bordered)`의 기본 칠은 회색 바탕 + 강조색 글자다 —
+        // 옅은 파란 바탕에 검정 글자였던 것을 그 조합으로 맞춘다.
         Text(
             "직접 짜기",
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
-            color = IOS.label,
+            color = IOS.accent,
             textAlign = TextAlign.Center,
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(IOS.accent.copy(alpha = 0.12f))
+                    .clip(CircleShape)
+                    .background(IOS.systemGray6)
                     .clickable(onClick = onManual)
                     .padding(vertical = 14.dp),
         )
