@@ -57,9 +57,12 @@ fun LeafIcon(
                 moveTo(w * 0.5f, h * 0.15f)
                 lineTo(w * 0.5f, h * 0.92f)
             }
+        // **흰색 반투명이면 선택 상태(잎이 흰색)에서 사라진다** — 검정 반투명은
+        // 잎이 흰색이든 파란색(accent)이든 둘 다에서 은은하게 보인다(실기 검증으로
+        // 발견, 2026-09-28).
         drawPath(
             vein,
-            color = Color.White.copy(alpha = 0.55f),
+            color = Color.Black.copy(alpha = 0.22f),
             style =
                 androidx.compose.ui.graphics.drawscope
                     .Stroke(width = w * 0.06f),
