@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -58,11 +59,13 @@ fun RouteStopRow(
     onMoveUp: (() -> Unit)?,
     onMoveDown: (() -> Unit)?,
     onTogglePin: () -> Unit,
+    isTarget: Boolean = false,
 ) {
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .alpha(if (stop.visited) 0.45f else 1f)
                 .background(if (isFocused) IOS.accent.copy(alpha = 0.07f) else IOS.systemBackground)
                 .padding(horizontal = 16.dp, vertical = 6.dp),
     ) {
@@ -81,6 +84,9 @@ fun RouteStopRow(
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(stop.place.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                    if (isTarget) {
+                        Badge(text = "안내 중", background = IOS.accent, foreground = Color.White)
+                    }
                     if (stop.isPinned) {
                         Badge(text = "내가 찍은 곳", background = IOS.systemGray5, foreground = IOS.secondaryLabel)
                     }

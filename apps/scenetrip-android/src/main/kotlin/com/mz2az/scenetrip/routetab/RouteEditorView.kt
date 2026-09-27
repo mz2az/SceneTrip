@@ -106,10 +106,12 @@ fun RouteEditorView(
     val context = LocalContext.current
     val cart = remember { CartStore(context) }
     val guideSession = remember { RouteGuideSession(context) }
+    val trip = remember { TripSession(context) }
     val density = LocalDensity.current
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
     LaunchedEffect(Unit) { cart.refresh() }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { trip.end() } }
     val requestLocation =
         rememberLocate(
             onLocated = { found ->
@@ -130,6 +132,22 @@ fun RouteEditorView(
             course = course.copy(days = days)
         }
     }
+
+    fun markVisited(stop: RouteStop) {
+        course =
+            course.copy(
+                days =
+                    course.days.map { day ->
+                        if (day.stops.any { it.id == stop.id }) {
+                            day.copy(stops = day.stops.map { if (it.id == stop.id) it.copy(visited = true) else it })
+                        } else {
+                            day
+                        }
+                    },
+            )
+    }
+
+    LaunchedEffect(Unit) { trip.onArrived = { stop -> markVisited(stop) } }
 
     fun addStops(
         newStops: List<RouteStop>,
@@ -239,6 +257,7 @@ fun RouteEditorView(
                 numbered = true,
                 onTap = { place -> focusedStopId = stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(place) }?.id },
             )
+            TripOverlay(map = map, here = trip.here, leg = trip.leg)
             if (pinning) {
                 Text(
                     "지도를 눌러 장소를 찍으세요",
@@ -261,6 +280,25 @@ fun RouteEditorView(
                 onHeightChange = { panelHeight = it },
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
+                    if (trip.isActive) {
+                        TripBanner(
+                            trip = trip,
+                            onEnd = {
+                                scope.launch {
+                                    store.setRunning(course, false)
+                                    course = course.copy(isRunning = false)
+                                    trip.end()
+                                }
+                            },
+                            onArrivedNow = trip::markArrived,
+                            onNext = { next -> trip.advance(next, scope) },
+                            unvisitedAfter = { current ->
+                                val flat = course.days.flatMap { it.stops }
+                                val index = flat.indexOfFirst { it.id == current.id }
+                                if (index < 0) null else flat.drop(index + 1).firstOrNull { !it.visited }
+                            },
+                        )
+                    }
                     DayTabs(
                         dayCount = course.days.size,
                         dayIndex = dayIndex,
@@ -374,6 +412,7 @@ fun RouteEditorView(
                                 onTogglePin = {
                                     if (index == 0) pinStart = !pinStart else pinEnd = !pinEnd
                                 },
+                                isTarget = trip.target?.id == stop.id,
                             )
                         }
                         if (course.serverId != null) {
@@ -392,9 +431,17 @@ fun RouteEditorView(
                                             .clip(RoundedCornerShape(10.dp))
                                             .background(IOS.systemGray6)
                                             .clickable {
+                                                val turningOn = !running
                                                 scope.launch {
-                                                    store.setRunning(course, !running, dayNo = 1)
-                                                    course = course.copy(isRunning = !running)
+                                                    store.setRunning(course, turningOn, dayNo = 1)
+                                                    course = course.copy(isRunning = turningOn)
+                                                    val serverId = course.serverId
+                                                    if (turningOn && serverId != null) {
+                                                        val firstUnvisited = course.days.flatMap { it.stops }.firstOrNull { !it.visited }
+                                                        if (firstUnvisited != null) trip.start(serverId, firstUnvisited, scope)
+                                                    } else {
+                                                        trip.end()
+                                                    }
                                                 }
                                             }.padding(vertical = 12.dp),
                                 )
@@ -540,6 +587,108 @@ private fun EditorAction(
                 .clickable(onClick = onClick)
                 .padding(vertical = 10.dp),
     )
+}
+
+/** 안내 중인 경로선과 내 위치. iOS `RouteMapView`의 경로·내 위치 부분만 옮겼다. */
+@Composable
+private fun TripOverlay(
+    map: NaverMap?,
+    here: Pair<Double, Double>?,
+    leg: com.mz2az.scenetrip.sceneapi.client.model.NextLeg?,
+) {
+    if (map == null) return
+    androidx.compose.runtime.LaunchedEffect(here) {
+        map.locationOverlay.isVisible = here != null
+        here?.let { (lat, lng) -> map.locationOverlay.position = LatLng(lat, lng) }
+    }
+    androidx.compose.runtime.DisposableEffect(map, leg) {
+        val points = leg?.legs.orEmpty().flatMap { routeLeg -> routeLeg.path.coordinates.map { LatLng(it[1], it[0]) } }
+        val overlay =
+            if (points.size >= 2) {
+                com.naver.maps.map.overlay.PathOverlay().apply {
+                    coords = points
+                    color = android.graphics.Color.parseColor("#7A68ED")
+                    width = 12
+                    this.map = map
+                }
+            } else {
+                null
+            }
+        onDispose { overlay?.map = null }
+    }
+}
+
+/**
+ * 안내 배너 — iOS는 지도 위 카드(도착)와 시트 안 줄(진행)로 나누는데, 여기서는 시트
+ * 맨 위 한 자리로 합쳤다. "여기 도착함"은 GPS 판정을 기다리지 않는 수동 확인이다.
+ */
+@Composable
+private fun TripBanner(
+    trip: TripSession,
+    onEnd: () -> Unit,
+    onArrivedNow: () -> Unit,
+    onNext: (RouteStop) -> Unit,
+    unvisitedAfter: (RouteStop) -> RouteStop?,
+) {
+    val target = trip.target ?: return
+    Column(modifier = Modifier.fillMaxWidth().background(IOS.pinDeep.copy(alpha = 0.08f)).padding(12.dp)) {
+        if (trip.phase == TripSession.Phase.ARRIVED) {
+            Text("성지 도착!", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
+            Text(target.place.name, fontSize = 12.sp, color = IOS.secondaryLabel)
+        } else {
+            Text("${target.place.name}로 가는 중", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            trip.leg?.let { leg ->
+                val walk = leg.walkMeters?.let { " · 도보 ${it}m" } ?: ""
+                Text("${leg.totalMinutes}분 · 환승 ${leg.transfers}회$walk", fontSize = 11.sp, color = IOS.secondaryLabel)
+            }
+            trip.failure?.let { Text(it, fontSize = 11.sp, color = IOS.systemOrange) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            Text(
+                "안내 끝",
+                fontSize = 12.sp,
+                color = IOS.secondaryLabel,
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(IOS.systemGray6)
+                        .clickable(onClick = onEnd)
+                        .padding(vertical = 6.dp, horizontal = 10.dp),
+            )
+            if (trip.phase == TripSession.Phase.GUIDING) {
+                Text(
+                    "여기 도착함",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IOS.systemBackground,
+                    textAlign = TextAlign.Center,
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(IOS.accent)
+                            .clickable(onClick = onArrivedNow)
+                            .padding(vertical = 6.dp),
+                )
+            } else {
+                val next = unvisitedAfter(target)
+                Text(
+                    if (next != null) "다음 · ${next.place.name}로 길찾기" else "코스 완료",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IOS.systemBackground,
+                    textAlign = TextAlign.Center,
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(IOS.accent)
+                            .clickable(enabled = next != null) { next?.let(onNext) }
+                            .padding(vertical = 6.dp),
+                )
+            }
+        }
+    }
 }
 
 @Composable
