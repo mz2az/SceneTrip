@@ -434,6 +434,14 @@ fun RouteEditorView(
                         )
                 },
             )
+            PlanOverlay(
+                map = map,
+                stops = stops,
+                // 안내 중인 목표에서 나가는 선은 남긴다 — 다녀온 곳에서 끊되, 지금
+                // 가는 길은 계획선으로도 보여야 한다(iOS `RouteMapTrip.drawLine`
+                // 의 `keepFrom`).
+                keepFromId = if (trip.phase == TripSession.Phase.GUIDING) trip.target?.id else null,
+            )
             AmbientPoiPins(
                 map = map,
                 pois = visibleAmbientPois,
@@ -509,6 +517,10 @@ fun RouteEditorView(
                 onDetentChange = { detent = it },
                 topInset = 8.dp,
                 onHeightChange = { panelHeight = it },
+                // 지도 40 : 일정 60 — 액션 줄·"코스 시작" 단추까지 처음부터 보여야
+                // 한다(iOS `RouteEditorView`의 `mediumFraction: 0.60`, 2026-08-28
+                // 사용자 요청: "일정 쪽에 단추가 늘며 좁아졌다").
+                mediumFraction = 0.60f,
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     if (trip.isActive) {
@@ -909,6 +921,45 @@ private fun EditorAction(
                 .clickable(onClick = onClick)
                 .padding(vertical = 10.dp),
     )
+}
+
+/**
+ * 계획선 — 정지점을 번호 순서대로 잇는 **직선**. iOS `RouteMapTrip.drawLine`. 여행
+ * 전 계획에서는 길찾기 API를 안 부르니 실제 도로 궤적을 모른다 — 곡선으로 그리면
+ * 거짓말이 된다. 다녀온 곳에서 끊긴다(여러 토막일 수 있다) — 단 지금 안내 중인
+ * 목표(`keepFromId`)로 나가는 선은 남긴다.
+ */
+@Composable
+private fun PlanOverlay(
+    map: NaverMap?,
+    stops: List<RouteStop>,
+    keepFromId: java.util.UUID?,
+) {
+    if (map == null || stops.size < 2) return
+    androidx.compose.runtime.DisposableEffect(map, stops, keepFromId) {
+        val segments = mutableListOf<List<LatLng>>()
+        var current = mutableListOf<LatLng>()
+        stops.forEachIndexed { index, stop ->
+            current.add(LatLng(stop.place.latitude, stop.place.longitude))
+            if (stop.visited && stop.id != keepFromId) {
+                if (current.size >= 2) segments.add(current)
+                current = mutableListOf(LatLng(stop.place.latitude, stop.place.longitude))
+            }
+            if (index == stops.lastIndex && current.size >= 2) segments.add(current)
+        }
+        val overlays =
+            segments.map { points ->
+                com.naver.maps.map.overlay.PathOverlay().apply {
+                    coords = points
+                    color = android.graphics.Color.parseColor("#7A68ED")
+                    outlineColor = android.graphics.Color.WHITE
+                    width = 4
+                    outlineWidth = 1
+                    this.map = map
+                }
+            }
+        onDispose { overlays.forEach { it.map = null } }
+    }
 }
 
 /** 안내 중인 경로선과 내 위치. iOS `RouteMapView`의 경로·내 위치 부분만 옮겼다. */
