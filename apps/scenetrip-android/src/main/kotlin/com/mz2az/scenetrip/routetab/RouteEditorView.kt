@@ -24,6 +24,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -409,6 +417,7 @@ fun RouteEditorView(
                         .background(IOS.accent.copy(alpha = 0.10f))
                         .padding(horizontal = 12.dp, vertical = 9.dp),
             ) {
+                Icon(Icons.Filled.Star, contentDescription = null, tint = IOS.accent, modifier = Modifier.size(13.dp))
                 Text("AI 가 짠 일정입니다 · 아직 저장 전", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = IOS.accent)
             }
         }
@@ -422,13 +431,19 @@ fun RouteEditorView(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxWidth().clickable { showDraftNotes = !showDraftNotes },
                 ) {
+                    Icon(Icons.Filled.Info, contentDescription = null, tint = IOS.secondaryLabel, modifier = Modifier.size(12.dp))
                     Text(
                         RouteGuidePlan.notesSummary(course.draftNotes),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = IOS.secondaryLabel,
                     )
-                    Text(if (showDraftNotes) "▲" else "▼", fontSize = 8.sp, color = IOS.secondaryLabel)
+                    Icon(
+                        if (showDraftNotes) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = IOS.secondaryLabel,
+                        modifier = Modifier.size(14.dp),
+                    )
                 }
                 if (showDraftNotes) {
                     course.draftNotes.forEach { note ->
@@ -644,7 +659,7 @@ fun RouteEditorView(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(horizontal = 16.dp, vertical = 8.dp),
                     ) {
-                        EditorAction(label = "동선 최적화", modifier = Modifier.weight(1f)) {
+                        EditorAction(label = "동선 최적화", icon = Icons.Filled.Refresh, modifier = Modifier.weight(1f)) {
                             var ordered = stops
                             var head = pinStart
                             if (!pinStart) {
@@ -658,9 +673,17 @@ fun RouteEditorView(
                             focusedStopId = null
                             fitToken += 1
                         }
-                        EditorAction(label = "검색", modifier = Modifier.weight(1f)) { searching = true }
-                        EditorAction(label = "장바구니", modifier = Modifier.weight(1f)) { showCart = true }
-                        EditorAction(label = if (pinning) "취소" else "핀 찍기", modifier = Modifier.weight(1f)) { pinning = !pinning }
+                        EditorAction(label = "검색", icon = Icons.Filled.Search, modifier = Modifier.weight(1f)) { searching = true }
+                        EditorAction(
+                            label = "장바구니",
+                            icon = Icons.Filled.ShoppingCart,
+                            modifier = Modifier.weight(1f),
+                        ) { showCart = true }
+                        EditorAction(
+                            label = if (pinning) "취소" else "핀 찍기",
+                            icon = if (pinning) Icons.Filled.Close else Icons.Filled.Place,
+                            modifier = Modifier.weight(1f),
+                        ) { pinning = !pinning }
                     }
                     LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         itemsIndexed(stops, key = { _, stop -> stop.id }) { index, stop ->
@@ -964,21 +987,33 @@ private fun GuidePlace.asPlaceSummary(): PlaceSummary =
 private fun EditorAction(
     label: String,
     modifier: Modifier = Modifier,
+    // iOS `action(_:symbol:)` — 아이콘이 위, 글자가 아래다(넷이 한 줄에 들어가야
+    // 해서 나란히 두면 "동선 최적화" 하나가 폭 절반을 먹는다).
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     onClick: () -> Unit,
 ) {
-    Text(
-        label,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Medium,
-        color = IOS.label,
-        textAlign = TextAlign.Center,
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
         modifier =
             modifier
                 .clip(RoundedCornerShape(10.dp))
                 .background(IOS.systemGray6)
                 .clickable(onClick = onClick)
-                .padding(vertical = 10.dp),
-    )
+                .padding(vertical = 8.dp),
+    ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = IOS.label, modifier = Modifier.size(15.dp))
+        }
+        Text(
+            label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = IOS.label,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+        )
+    }
 }
 
 /**
