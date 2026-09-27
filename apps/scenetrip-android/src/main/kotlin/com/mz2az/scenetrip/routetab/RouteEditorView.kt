@@ -72,9 +72,9 @@ import kotlinx.coroutines.withContext
  * 보고서야 지도가 주인공인 화면이라는 것을 알았다.** 검색 탭의 지도·바텀시트를 그대로
  * 재사용한다.
  *
- * 여행 중(길찾기·발자취·트립배너)·챗봇(RouteGuide)·주변 편의시설 칩·데모 주행은 아직
- * 없다 — 그 화면들 자체가 다음 단계다. 코스를 지도로 보며 순서를 바꾸고, 동선을
- * 최적화하고, 검색·장바구니·핀 찍기로 담고, 저장·삭제·여행 시작/종료하는 핵심은 된다.
+ * 발자취(황금 점선)·주변 편의시설 칩·데모 주행은 아직 없다. 코스를 지도로 보며 순서를
+ * 바꾸고, 동선을 최적화하고, 검색·장바구니·핀 찍기로 담고, 저장·삭제·여행 시작/종료·
+ * 실시간 안내(길찾기·도착 판정)·챗봇(RouteGuide)은 된다.
  */
 @Composable
 fun RouteEditorView(
@@ -100,6 +100,7 @@ fun RouteEditorView(
     var pinStart by remember { mutableStateOf(false) }
     var pinEnd by remember { mutableStateOf(false) }
     var myLocation by remember { mutableStateOf<PlaceSummary?>(null) }
+    var showingMe by remember { mutableStateOf(false) }
     var fitToken by remember { mutableStateOf(0) }
     var showGuide by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -171,9 +172,13 @@ fun RouteEditorView(
             .mapNotNull { it.savablePlaceId }
             .toSet()
 
-    LaunchedEffect(map, dayIndex, fitToken) {
+    LaunchedEffect(map, dayIndex, fitToken, showingMe, myLocation) {
         val target = map ?: return@LaunchedEffect
-        if (stops.isNotEmpty()) target.fit(stops.map { it.place }, density, screenHeight, panelHeight, 0.dp)
+        // 「내 위치」 켜져 있으면 나와 촬영지가 같이 보이게 — 그래야 동선 최적화가
+        // 왜 그 순서인지("여기서 가까운 곳이 1번") 알 수 있다(RouteEditorControls.swift).
+        val here = myLocation.takeIf { showingMe }
+        val toFit = stops.map { it.place } + listOfNotNull(here)
+        if (toFit.isNotEmpty()) target.fit(toFit, density, screenHeight, panelHeight, 0.dp)
     }
 
     LaunchedEffect(map, pinning) {
@@ -258,6 +263,21 @@ fun RouteEditorView(
                 onTap = { place -> focusedStopId = stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(place) }?.id },
             )
             TripOverlay(map = map, here = trip.here, leg = trip.leg)
+            if (!pinning) {
+                RouteLocateButton(
+                    on = showingMe,
+                    onClick = {
+                        if (trip.isActive) {
+                            trip.here?.let { (lat, lng) ->
+                                map?.centerOn(PlaceSummary(id = 0, name = "여기", latitude = lat, longitude = lng))
+                            }
+                        } else {
+                            showingMe = !showingMe
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(10.dp),
+                )
+            }
             if (pinning) {
                 Text(
                     "지도를 눌러 장소를 찍으세요",

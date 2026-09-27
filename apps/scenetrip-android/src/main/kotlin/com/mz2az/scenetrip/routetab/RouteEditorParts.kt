@@ -1,6 +1,7 @@
 package com.mz2az.scenetrip.routetab
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +41,7 @@ import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.searchtab.RemoteImage
+import com.mz2az.scenetrip.searchtab.ScopeIcon
 import com.mz2az.scenetrip.ui.IOS
 
 /**
@@ -161,6 +164,33 @@ private fun Badge(
         color = foreground,
         modifier = Modifier.clip(RoundedCornerShape(50)).background(background).padding(horizontal = 5.dp, vertical = 1.dp),
     )
+}
+
+/**
+ * 「내 위치」 토글. 검색 탭의 현위치 버튼(`ScopeIcon`)과 같은 과녁 십자 모양을 쓰되,
+ * 여기서는 **토글**이다 — iOS `RouteEditorControls.locateButton`. 켜면 지도가
+ * 촬영지와 내 자리가 같이 보이는 크기로 맞는다; 켜짐은 배경색으로만 구별한다
+ * (모양을 바꾸면 "위치 기능이 꺼졌다"로 오해할 수 있다).
+ */
+@Composable
+fun RouteLocateButton(
+    on: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .size(44.dp)
+                .shadow(4.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.18f))
+                .clip(CircleShape)
+                .background(if (on) IOS.accent else IOS.systemBackground)
+                .border(1.dp, if (on) Color.Transparent else IOS.systemGray4, CircleShape)
+                .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        ScopeIcon(tint = if (on) Color.White else IOS.accent, modifier = Modifier.size(20.dp))
+    }
 }
 
 /**
