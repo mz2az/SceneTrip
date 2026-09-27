@@ -46,6 +46,9 @@ fun NaverMapCanvas(
     sheetHeight: Dp = 0.dp,
     searchBarInset: Dp,
     onMapReady: (NaverMap) -> Unit = {},
+    // 카메라가 멈췄다 — 부를지 말지, 얼마나 자주 부를지는 **바깥이 정한다.** 지도는
+    // 위치만 안다. iOS `RouteMapView.Coordinator.mapViewCameraIdle` 과 같은 자리.
+    onCameraIdle: ((bounds: LatLngBounds, center: LatLng, zoom: Double) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -131,6 +134,18 @@ fun NaverMapCanvas(
             applyInset(target, density, screenHeight, sheetHeight, searchBarInset)
         }
         onDispose {}
+    }
+
+    DisposableEffect(map, onCameraIdle) {
+        val target = map
+        val callback = onCameraIdle
+        if (target == null || callback == null) return@DisposableEffect onDispose {}
+        val listener =
+            NaverMap.OnCameraIdleListener {
+                callback(target.contentBounds, target.cameraPosition.target, target.cameraPosition.zoom)
+            }
+        target.addOnCameraIdleListener(listener)
+        onDispose { target.removeOnCameraIdleListener(listener) }
     }
 
     AndroidView(

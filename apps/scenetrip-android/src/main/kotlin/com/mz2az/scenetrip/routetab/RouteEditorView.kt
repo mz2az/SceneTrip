@@ -49,9 +49,12 @@ import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
+import com.mz2az.scenetrip.sceneapi.client.api.PoisApi
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
+import com.mz2az.scenetrip.sceneapi.client.model.PoiCategoryGroup
+import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
 import com.mz2az.scenetrip.searchtab.BottomSheet
 import com.mz2az.scenetrip.searchtab.Detent
 import com.mz2az.scenetrip.searchtab.MapPins
@@ -61,10 +64,13 @@ import com.mz2az.scenetrip.searchtab.fit
 import com.mz2az.scenetrip.searchtab.rememberLocate
 import com.mz2az.scenetrip.ui.IOS
 import com.naver.maps.geometry.LatLng
+import com.naver.maps.geometry.LatLngBounds
 import com.naver.maps.map.NaverMap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 /**
  * 코스 편집. iOS `RouteTab/RouteEditorView.swift`(+Controls/+Parts, 지도 중심 화면)를
@@ -72,10 +78,20 @@ import kotlinx.coroutines.withContext
  * 보고서야 지도가 주인공인 화면이라는 것을 알았다.** 검색 탭의 지도·바텀시트를 그대로
  * 재사용한다.
  *
- * 발자취(황금 점선)·주변 편의시설 칩·데모 주행은 아직 없다. 코스를 지도로 보며 순서를
- * 바꾸고, 동선을 최적화하고, 검색·장바구니·핀 찍기로 담고, 저장·삭제·여행 시작/종료·
- * 실시간 안내(길찾기·도착 판정)·챗봇(RouteGuide)은 된다.
+ * 발자취(황금 점선)·데모 주행은 아직 없다. 코스를 지도로 보며 순서를 바꾸고, 동선을
+ * 최적화하고, 검색·장바구니·핀 찍기로 담고, 저장·삭제·여행 시작/종료·실시간 안내
+ * (길찾기·도착 판정)·챗봇(RouteGuide)·주변 편의시설 칩은 된다.
  */
+private data class MapViewport(
+    val south: Double,
+    val west: Double,
+    val north: Double,
+    val east: Double,
+    val lat: Double,
+    val lng: Double,
+    val zoom: Double,
+)
+
 @Composable
 fun RouteEditorView(
     store: RouteStore,
@@ -103,11 +119,15 @@ fun RouteEditorView(
     var showingMe by remember { mutableStateOf(false) }
     var fitToken by remember { mutableStateOf(0) }
     var showGuide by remember { mutableStateOf(false) }
+    var viewport by remember { mutableStateOf<MapViewport?>(null) }
+    var ambientPois by remember { mutableStateOf<List<PoiSummary>>(emptyList()) }
+    var poiGroupsOn by remember { mutableStateOf(PoiCategoryGroup.entries.toSet()) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val cart = remember { CartStore(context) }
     val guideSession = remember { RouteGuideSession(context) }
     val trip = remember { TripSession(context) }
+    val poisApi = remember { PoisApi(API_BASE) }
     val density = LocalDensity.current
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
@@ -171,6 +191,17 @@ fun RouteEditorView(
             .flatMap { it.stops }
             .mapNotNull { it.savablePlaceId }
             .toSet()
+    // 코스에 이미 담긴 곳은 뺀다 — 같은 가게가 두 겹으로 찍히면 어느 쪽을 누른
+    // 것인지 모른다(iOS `visibleAmbientPois`). 챗봇 결과(guide.places)는 Android
+    // 지도에 아직 안 그리므로 그쪽 겹침은 따로 볼 것이 없다.
+    val takenPlaceKeys =
+        course.days
+            .flatMap { it.stops }
+            .map { RouteDedupe.key(it.place) }
+            .toSet()
+    val poisForChips = ambientPois.filterNot { takenPlaceKeys.contains(RouteDedupe.key(it.asPlaceSummary())) }
+    val visibleAmbientPois = poisForChips.filter { poiGroupsOn.contains(it.categoryGroup) }
+    val poiCounts = poisForChips.groupingBy { it.categoryGroup }.eachCount()
 
     LaunchedEffect(map, dayIndex, fitToken, showingMe, myLocation) {
         val target = map ?: return@LaunchedEffect
@@ -179,6 +210,26 @@ fun RouteEditorView(
         val here = myLocation.takeIf { showingMe }
         val toFit = stops.map { it.place } + listOfNotNull(here)
         if (toFit.isNotEmpty()) target.fit(toFit, density, screenHeight, panelHeight, 0.dp)
+    }
+
+    // 카메라가 멈추면 그 범위의 주변 편의시설을 받는다. iOS `RouteEditorAmbient.viewportChanged`
+    // — 너무 넓은 화면(줌 13 미만)에서는 안 부른다(점이 먼지처럼 흩어질 뿐이고 서버도 헛돈다),
+    // `LaunchedEffect`가 새 뷰포트마다 이전 요청을 스스로 취소하고 350ms 조용해지길 기다린다.
+    LaunchedEffect(viewport) {
+        val v = viewport
+        if (v == null || v.zoom < 13.0) {
+            ambientPois = emptyList()
+            return@LaunchedEffect
+        }
+        delay(350)
+        val bbox = "%.6f,%.6f,%.6f,%.6f".format(Locale.US, v.west, v.south, v.east, v.north)
+        val found =
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    poisApi.listPois(bbox = bbox, lat = v.lat, lng = v.lng, sort = PoisApi.SortListPois.distance, limit = 30)
+                }
+            }.getOrNull()
+        ambientPois = found?.items.orEmpty()
     }
 
     LaunchedEffect(map, pinning) {
@@ -255,6 +306,23 @@ fun RouteEditorView(
                 sheetHeight = panelHeight,
                 searchBarInset = 0.dp,
                 onMapReady = { map = it },
+                onCameraIdle = { bounds, center, zoom ->
+                    viewport =
+                        MapViewport(
+                            south = bounds.southLatitude,
+                            west = bounds.westLongitude,
+                            north = bounds.northLatitude,
+                            east = bounds.eastLongitude,
+                            lat = center.latitude,
+                            lng = center.longitude,
+                            zoom = zoom,
+                        )
+                },
+            )
+            AmbientPoiPins(
+                map = map,
+                pois = visibleAmbientPois,
+                onTap = { poi -> addStops(listOf(RouteStop(place = poi.asPlaceSummary(), isPinned = true))) },
             )
             MapPins(
                 map = map,
@@ -345,6 +413,19 @@ fun RouteEditorView(
                             }
                         },
                     )
+                    if (poisForChips.isNotEmpty()) {
+                        RoutePoiChips(
+                            counts = poiCounts,
+                            groupsOn = poiGroupsOn,
+                            onToggleGroup = { group ->
+                                poiGroupsOn = if (poiGroupsOn.contains(group)) poiGroupsOn - group else poiGroupsOn + group
+                            },
+                            onToggleAll = {
+                                poiGroupsOn =
+                                    if (poiGroupsOn.size == PoiCategoryGroup.entries.size) emptySet() else PoiCategoryGroup.entries.toSet()
+                            },
+                        )
+                    }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(horizontal = 16.dp, vertical = 10.dp),
