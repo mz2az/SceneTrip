@@ -14,6 +14,7 @@ import com.mz2az.scenetrip.sceneapi.client.api.ContentsApi
 import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
 import com.mz2az.scenetrip.sceneapi.client.api.GuideApi
 import com.mz2az.scenetrip.sceneapi.client.api.MarketApi
+import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseCreate
 import com.mz2az.scenetrip.sceneapi.client.model.CourseDetail
 import com.mz2az.scenetrip.sceneapi.client.model.CourseOrigin
@@ -55,11 +56,33 @@ class RouteStore(
     var loading by mutableStateOf(false)
         private set
 
+    /** 질문 흐름이 쓰는 작품 목록 — [loadWorks]가 채운다. */
+    var works by mutableStateOf<List<ContentSummary>>(emptyList())
+        private set
+
     private val coursesApi = CoursesApi(API_BASE)
     private val marketApi = MarketApi(API_BASE)
     private val guideApi = GuideApi(API_BASE)
     private val contentsApi = ContentsApi(API_BASE)
+    private val likeStore = LikeStore.getInstance(context)
     private val deviceId: UUID = InstallIdentity.of(context)
+
+    /** [works]를 채운다. 마법사가 작품 선택 단계에 들어갈 때 부른다. */
+    suspend fun loadWorks() {
+        runCatching { withContext(Dispatchers.IO) { contentsApi.listContents(limit = 30) } }
+            .onSuccess { works = it.items }
+    }
+
+    /** 질문 흐름에 뿌릴 순서 — **찜한 것이 먼저, 나머지는 인기도순.** iOS `RouteStore.sortedWorks`. */
+    val sortedWorks: List<ContentSummary>
+        get() {
+            val favorites = likeStore.contentIds
+            return works.filter { favorites.contains(it.id) } + works.filter { !favorites.contains(it.id) }
+        }
+
+    fun isFavoriteWork(contentId: Long): Boolean = likeStore.contains(contentId)
+
+    fun toggleFavoriteWork(contentId: Long) = likeStore.toggle(contentId)
 
     fun clearFailure() {
         failure = null
@@ -239,33 +262,29 @@ class RouteStore(
     }
 
     /**
-     * "AI 로 여정 짜기". 작품을 고르는 단계(iOS 5단계 마법사의 `.works`)는 아직 없어 —
-     * 인기 작품 상위 3개로 채운다(iOS도 아무것도 안 고르면 같은 폴백을 쓴다). 실패하면
-     * `failure`에 남긴다.
+     * "AI 로 여정 짜기". 고른 작품이 없으면 인기 작품 상위 3개로 채운다(iOS와 같은
+     * 폴백) — 다만 **이름은 실제로 고른 작품에서만 짓는다**, 아무것도 안 골랐으면
+     * "인기 촬영지"로 남는다. iOS `RouteStore.guideDraft`/`title(for:span:)`.
      */
     suspend fun guideDraft(
+        workIds: Set<Long>,
         span: RouteSpan,
         startDate: LocalDate?,
         pace: RoutePace,
     ): RouteCourse? =
         withContext(Dispatchers.IO) {
             runCatching {
-                val titles =
-                    contentsApi
-                        .listContents(limit = 3)
-                        .items
-                        .map { it.title }
-                        .filter { it.isNotBlank() }
-                require(titles.isNotEmpty()) { "인기 작품을 불러오지 못했습니다" }
+                val chosenTitles = works.filter { workIds.contains(it.id) }.map { it.title }
+                val requestTitles = chosenTitles.ifEmpty { sortedWorks.take(3).map { it.title } }
+                require(requestTitles.isNotEmpty()) { "인기 작품을 불러오지 못했습니다" }
                 val request =
                     GuidePlanRequest(
-                        titles = titles,
+                        titles = requestTitles.take(5),
                         days = span.days,
                         pace = if (pace == RoutePace.LOOSE) GuidePlanRequest.Pace.relaxed else GuidePlanRequest.Pace.packed,
                     )
                 val reply = guideApi.planWithGuide(request)
-                val title = titles.first().let { if (titles.size == 1) it else "$it 외 ${titles.size - 1}" }
-                RouteGuidePlan.course(reply.plan, "$title ${span.label}", startDate, pace)
+                RouteGuidePlan.course(reply.plan, courseTitle(chosenTitles, span), startDate, pace)
             }
         }.fold(
             onSuccess = { course ->
@@ -277,6 +296,16 @@ class RouteStore(
                 null
             },
         )
+
+    /** 이름 없이 고르면 "인기 촬영지 1박 2일", 고르면 "도깨비 외 2 1박 2일". */
+    private fun courseTitle(
+        chosenTitles: List<String>,
+        span: RouteSpan,
+    ): String {
+        val first = chosenTitles.firstOrNull() ?: return "인기 촬영지 ${span.label}"
+        val name = if (chosenTitles.size == 1) first else "$first 외 ${chosenTitles.size - 1}"
+        return "$name ${span.label}"
+    }
 
     /** "직접 짜기" — 빈 일차만 있는 코스. */
     fun emptyCourse(

@@ -1,8 +1,10 @@
 package com.mz2az.scenetrip.routetab
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,11 +14,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.RouteStore
+import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.ui.IOS
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -48,11 +58,11 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * 코스를 만들기 전에 기간을 묻는 질문 흐름. iOS `RouteTab/RouteWizardView.swift`를
- * 옮긴 것이다 — **작품·페이스를 고르는 두 단계(`.works`·`.pace`)는 빠졌다**, 그 UI가
- * 아직 없어 [isAiPlan]일 때는 인기 작품 상위 3개·빡빡 페이스로 자동 채운다
- * (`RouteStore.guideDraft`). "review" 단계도 없다 — 답을 받으면 iOS와 동일하게
- * **바로 저장하지 않고** [RouteEditorView]로 넘겨 거기서 고치게 한다.
+ * 코스를 만들기 전에 기간(과 [isAiPlan]이면 작품)을 묻는 질문 흐름. iOS
+ * `RouteTab/RouteWizardView.swift`를 옮긴 것이다 — **페이스를 고르는 단계(`.pace`)와
+ * "review" 단계는 아직 없다**, 페이스는 항상 빡빡하게로 짠다(`RoutePace.TIGHT`).
+ * 답을 받으면 iOS와 동일하게 **바로 저장하지 않고** [RouteEditorView]로 넘겨 거기서
+ * 고치게 한다.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,10 +77,13 @@ fun RouteWizardView(
     val hasDate = dateState.selectedDateMillis != null
     val pickedDate =
         dateState.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() } ?: LocalDate.now()
+    var selectedWorkIds by remember { mutableStateOf(setOf<Long>()) }
     var draft by remember { mutableStateOf<RouteCourse?>(null) }
     var planning by remember { mutableStateOf(false) }
     var planFailed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(isAiPlan) { if (isAiPlan) store.loadWorks() }
 
     val currentDraft = draft
     if (currentDraft != null) {
@@ -78,7 +91,7 @@ fun RouteWizardView(
         return
     }
 
-    val steps = 2
+    val steps = if (isAiPlan) 3 else 2
     val isLast = stepIndex == steps - 1
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).statusBarsPadding()) {
@@ -116,7 +129,11 @@ fun RouteWizardView(
 
         Column(modifier = Modifier.weight(1f).padding(20.dp)) {
             Text(
-                if (stepIndex == 0) "얼마나 다녀오나요?" else "언제 떠나나요?",
+                when (stepIndex) {
+                    0 -> "얼마나 다녀오나요?"
+                    1 -> "언제 떠나나요?"
+                    else -> "어떤 작품을 좋아하세요?"
+                },
                 fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = IOS.label,
@@ -146,7 +163,7 @@ fun RouteWizardView(
                         )
                     }
                 }
-            } else {
+            } else if (stepIndex == 1) {
                 Column {
                     DatePicker(
                         state = dateState,
@@ -173,6 +190,29 @@ fun RouteWizardView(
                     } else {
                         Text("날짜는 나중에 정해도 됩니다", fontSize = 12.sp, color = IOS.secondaryLabel)
                     }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(store.sortedWorks, key = { it.id }) { work ->
+                            WorkRow(
+                                work = work,
+                                isFavorite = store.isFavoriteWork(work.id),
+                                isSelected = selectedWorkIds.contains(work.id),
+                                onToggleFavorite = { store.toggleFavoriteWork(work.id) },
+                                onToggleSelected = {
+                                    selectedWorkIds =
+                                        if (selectedWorkIds.contains(work.id)) selectedWorkIds - work.id else selectedWorkIds + work.id
+                                },
+                            )
+                        }
+                    }
+                    Text(
+                        "고르지 않으면 인기 작품의 촬영지에서 뽑습니다",
+                        fontSize = 11.sp,
+                        color = IOS.secondaryLabel,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
                 }
             }
         }
@@ -204,7 +244,7 @@ fun RouteWizardView(
                             }
                             planning = true
                             scope.launch {
-                                val result = store.guideDraft(span, startDate, RoutePace.TIGHT)
+                                val result = store.guideDraft(selectedWorkIds, span, startDate, RoutePace.TIGHT)
                                 planning = false
                                 if (result != null) draft = result else planFailed = true
                             }
@@ -237,5 +277,51 @@ fun RouteWizardView(
             text = { Text(store.failure?.message ?: "잠시 후 다시 시도해 주세요.") },
             confirmButton = { TextButton(onClick = { planFailed = false }) { Text("확인") } },
         )
+    }
+}
+
+/** 작품 한 줄 — 하트는 찜, 체크는 이번 코스에 쓸지. iOS `RouteWizardView.workRow`. */
+@Composable
+private fun WorkRow(
+    work: ContentSummary,
+    isFavorite: Boolean,
+    isSelected: Boolean,
+    onToggleFavorite: () -> Unit,
+    onToggleSelected: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggleSelected).padding(vertical = 10.dp),
+    ) {
+        Icon(
+            if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+            contentDescription = "찜",
+            tint = if (isFavorite) IOS.systemRed else IOS.secondaryLabel,
+            modifier = Modifier.size(18.dp).clickable(onClick = onToggleFavorite),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(work.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            val subtitle = listOfNotNull(work.broadcaster, work.releaseYear?.toString()).joinToString(" · ")
+            if (subtitle.isNotEmpty()) {
+                Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel)
+            }
+        }
+        if (isSelected) {
+            Icon(
+                Icons.Filled.CheckCircle,
+                contentDescription = "선택됨",
+                tint = IOS.accent,
+                modifier = Modifier.size(20.dp),
+            )
+        } else {
+            Box(
+                modifier =
+                    Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .border(width = 1.5.dp, color = IOS.systemGray3, shape = CircleShape),
+            )
+        }
     }
 }
