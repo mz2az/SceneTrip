@@ -49,6 +49,8 @@ import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
+import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
+import com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.searchtab.BottomSheet
 import com.mz2az.scenetrip.searchtab.Detent
@@ -99,9 +101,11 @@ fun RouteEditorView(
     var pinEnd by remember { mutableStateOf(false) }
     var myLocation by remember { mutableStateOf<PlaceSummary?>(null) }
     var fitToken by remember { mutableStateOf(0) }
+    var showGuide by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val cart = remember { CartStore(context) }
+    val guideSession = remember { RouteGuideSession(context) }
     val density = LocalDensity.current
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
@@ -416,8 +420,24 @@ fun RouteEditorView(
                     }
                 }
             }
+            RouteGuideFloatingChip(
+                hidden = pinning || showGuide,
+                onTap = { showGuide = true },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = panelHeight + 12.dp),
+            )
         }
     }
+
+    RouteGuidePanel(
+        isOpen = showGuide,
+        session = guideSession,
+        here = myLocation?.let { it.latitude to it.longitude },
+        onAdd = { place ->
+            addStops(listOf(RouteStop(place = place.asPlaceSummary(), isPinned = place.source == GuidePlaceSource.poi)))
+        },
+        isAdded = { place -> stops.any { RouteDedupe.key(it.place) == RouteDedupe.key(place.asPlaceSummary()) } },
+        onClose = { showGuide = false },
+    )
 
     if (searching) {
         PlaceSearchOverlay(
@@ -493,6 +513,13 @@ private fun pinnedPlace(
     lng: Double,
 ): PlaceSummary =
     PlaceSummary(id = -System.currentTimeMillis(), name = name, type = category, address = null, latitude = lat, longitude = lng)
+
+/**
+ * 가이드가 찾아 준 장소 → 담을 수 있는 장소. **편의시설(`poi`)은 저장 가능한 촬영지
+ * id 가 아니므로 직접 찍은 핀으로 담는다** — iOS `RouteGuide.Place`의 같은 주석.
+ */
+private fun GuidePlace.asPlaceSummary(): PlaceSummary =
+    PlaceSummary(id = id, name = name, type = category, address = address, latitude = latitude, longitude = longitude)
 
 @Composable
 private fun EditorAction(
