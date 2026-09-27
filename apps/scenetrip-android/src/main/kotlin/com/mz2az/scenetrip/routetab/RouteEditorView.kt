@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CartStore
+import com.mz2az.scenetrip.data.FootprintStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
 import com.mz2az.scenetrip.sceneapi.client.api.PoisApi
@@ -127,6 +128,7 @@ fun RouteEditorView(
     val cart = remember { CartStore(context) }
     val guideSession = remember { RouteGuideSession(context) }
     val trip = remember { TripSession(context) }
+    val footprints = remember { FootprintStore.getInstance(context) }
     val poisApi = remember { PoisApi(API_BASE) }
     val density = LocalDensity.current
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
@@ -331,20 +333,41 @@ fun RouteEditorView(
                 onTap = { place -> focusedStopId = stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(place) }?.id },
             )
             TripOverlay(map = map, here = trip.here, leg = trip.leg)
-            if (!pinning) {
-                RouteLocateButton(
-                    on = showingMe,
-                    onClick = {
-                        if (trip.isActive) {
-                            trip.here?.let { (lat, lng) ->
-                                map?.centerOn(PlaceSummary(id = 0, name = "여기", latitude = lat, longitude = lng))
-                            }
-                        } else {
-                            showingMe = !showingMe
-                        }
+            FootprintTrail(
+                map = map,
+                points =
+                    if (footprints.enabled) {
+                        footprints.points.filter { it.at > System.currentTimeMillis() - 86_400_000L }
+                    } else {
+                        emptyList()
                     },
+            )
+            if (!pinning) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.align(Alignment.TopEnd).padding(10.dp),
-                )
+                ) {
+                    RouteLocateButton(
+                        on = showingMe,
+                        onClick = {
+                            if (trip.isActive) {
+                                trip.here?.let { (lat, lng) ->
+                                    map?.centerOn(PlaceSummary(id = 0, name = "여기", latitude = lat, longitude = lng))
+                                }
+                            } else {
+                                showingMe = !showingMe
+                            }
+                        },
+                    )
+                    // 발자취 보기 토글은 여행 중에만 — 그 밖에는 볼 것이 없다
+                    // (iOS `RouteEditorControls.map`: `if course.isRunning`).
+                    if (course.isRunning) {
+                        RouteFootprintButton(
+                            on = footprints.enabled,
+                            onClick = { footprints.updateEnabled(!footprints.enabled) },
+                        )
+                    }
+                }
             }
             if (pinning) {
                 Text(

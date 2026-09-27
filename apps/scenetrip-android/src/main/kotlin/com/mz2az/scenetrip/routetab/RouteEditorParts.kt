@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.CartStore
+import com.mz2az.scenetrip.data.FootprintPoint
 import com.mz2az.scenetrip.data.RoutePoiGroup
 import com.mz2az.scenetrip.data.RoutePoiTone
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
@@ -363,6 +364,97 @@ private object AmbientDotImage {
             com.naver.maps.map.overlay.OverlayImage
                 .fromBitmap(bitmap)
         cache[group] = overlay
+        return overlay
+    }
+}
+
+/**
+ * 발자취 **보기** 토글. iOS `RouteEditorControls.footprintButton` — 여행 중에만 나온다
+ * (현위치 버튼 아래). 색은 발자국 아이콘과 같은 황금색(iOS `PinoPin.footprint()`).
+ */
+@Composable
+fun RouteFootprintButton(
+    on: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val gold = Color(0xFFD9A621)
+    Box(
+        modifier =
+            modifier
+                .size(44.dp)
+                .shadow(4.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.18f))
+                .clip(CircleShape)
+                .background(if (on) gold else IOS.systemBackground)
+                .border(1.dp, if (on) Color.Transparent else IOS.systemGray4, CircleShape)
+                .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("👣", fontSize = 16.sp)
+    }
+}
+
+/**
+ * 발자취 점 — iOS `renderFootprints`(황금 반투명 점, 35m 안은 솎는다). 방향에 따라
+ * 회전한 신발 자국 아이콘까지는 넣지 않았다 — 색·간격만 옮겼다, 회전 계산은 다음 단계.
+ */
+@Composable
+fun FootprintTrail(
+    map: NaverMap?,
+    points: List<FootprintPoint>,
+) {
+    if (map == null || points.isEmpty()) return
+    val context = LocalContext.current
+    DisposableEffect(map, points) {
+        val minMeters = 35.0
+        val thinned = mutableListOf<FootprintPoint>()
+        for (point in points) {
+            val last = thinned.lastOrNull()
+            if (last != null) {
+                val meters =
+                    com.mz2az.scenetrip.data
+                        .haversineKm(last.latitude, last.longitude, point.latitude, point.longitude) * 1000
+                if (meters < minMeters) continue
+            }
+            thinned.add(point)
+        }
+        val markers =
+            thinned.map { point ->
+                Marker().apply {
+                    position =
+                        com.naver.maps.geometry
+                            .LatLng(point.latitude, point.longitude)
+                    icon = FootprintDotImage.of(context.resources.displayMetrics)
+                    zIndex = -2
+                    isHideCollidedMarkers = false
+                    this.map = map
+                }
+            }
+        onDispose { markers.forEach { it.map = null } }
+    }
+}
+
+private object FootprintDotImage {
+    private var cached: com.naver.maps.map.overlay.OverlayImage? = null
+
+    // PinImage 와 같은 이유로 dp 로 굽는다 — 밀도를 안 곱하면 고밀도 화면에서
+    // 점이 몇 픽셀짜리 먼지가 된다(실측).
+    fun of(metrics: android.util.DisplayMetrics): com.naver.maps.map.overlay.OverlayImage {
+        cached?.let { return it }
+        val sizeDp = 10f
+        val s = metrics.density
+        val size = (sizeDp * s).toInt()
+        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bmp)
+        val paint =
+            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.argb(178, 217, 166, 33)
+            }
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f - s, paint)
+        val overlay =
+            com.naver.maps.map.overlay.OverlayImage
+                .fromBitmap(bmp)
+        cached = overlay
         return overlay
     }
 }
