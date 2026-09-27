@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.API_BASE
@@ -48,6 +50,7 @@ import com.mz2az.scenetrip.data.InstallIdentity
 import com.mz2az.scenetrip.sceneapi.client.api.MarketApi
 import com.mz2az.scenetrip.sceneapi.client.model.MarketCourseSummary
 import com.mz2az.scenetrip.sceneapi.client.model.MarketSort
+import com.mz2az.scenetrip.ui.BubblesIcon
 import com.mz2az.scenetrip.ui.IOS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -90,16 +93,32 @@ fun CommunityTabScreen() {
             Box(Modifier.fillMaxWidth().height(0.5.dp).background(IOS.separator))
 
             if (minePosts.isEmpty() && !(showsMarket && marketCourses.isNotEmpty())) {
+                // iOS `ContentUnavailableView` 상당 — 심벌 + 굵은 제목 + 설명, 가운데
+                // 정렬에 너비를 좁혀 둔다(2026-09-28 실측: 안 좁히면 설명이 화면 폭
+                // 그대로라 iOS처럼 두 줄로 안 꺾인다). 심벌은 탭바 커뮤니티 아이콘과
+                // 같은 그림([BubblesIcon]) — iOS도 `bubble.left.and.bubble.right`로
+                // 같다.
                 Column(
                     modifier = Modifier.fillMaxSize().padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Text("아직 글이 없습니다", style = IOS.headline, color = IOS.secondaryLabel)
+                    BubblesIcon(
+                        tint = IOS.tertiaryLabel,
+                        modifier = Modifier.size(52.dp).padding(bottom = 12.dp),
+                    )
+                    Text(
+                        "아직 글이 없습니다",
+                        style = IOS.headline,
+                        fontWeight = FontWeight.Bold,
+                        color = IOS.label,
+                    )
                     Text(
                         "첫 글을 남겨 보세요. 다른 여행자의 글은 서버가 열리면 보입니다.",
                         style = IOS.footnote,
                         color = IOS.tertiaryLabel,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 4.dp).widthIn(max = 280.dp),
                     )
                 }
             } else {

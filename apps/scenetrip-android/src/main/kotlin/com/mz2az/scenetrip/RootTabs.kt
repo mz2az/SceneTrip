@@ -1,6 +1,5 @@
 package com.mz2az.scenetrip
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,10 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -53,6 +50,7 @@ import com.mz2az.scenetrip.hometab.HomeTabScreen
 import com.mz2az.scenetrip.profiletab.ProfileTabView
 import com.mz2az.scenetrip.routetab.RouteTabView
 import com.mz2az.scenetrip.searchtab.SearchTabScreen
+import com.mz2az.scenetrip.ui.BubblesIcon
 import com.mz2az.scenetrip.ui.IOS
 
 /**
@@ -286,39 +284,10 @@ private fun TabIcon(
         // 가운데 원형 버튼이 대신한다.
         RootTab.HOME -> {}
 
-        // `bubble.left.and.bubble.right` — 말풍선 둘이 겹친다.
+        // `bubble.left.and.bubble.right` — 말풍선 둘이 겹친다. 커뮤니티 탭의 빈
+        // 상태와 같은 그림이다([com.mz2az.scenetrip.ui.BubblesIcon]).
         RootTab.COMMUNITY -> {
-            Canvas(Modifier.size(size)) {
-                val w = this.size.width
-                val h = this.size.height
-                val stroke = w * 0.09f
-                val radius =
-                    androidx.compose.ui.geometry
-                        .CornerRadius(w * 0.16f)
-
-                fun bubble(
-                    x: Float,
-                    y: Float,
-                    bw: Float,
-                    bh: Float,
-                    tailAt: Float,
-                ) {
-                    drawRoundRect(
-                        color = tint,
-                        topLeft = Offset(x, y),
-                        size =
-                            androidx.compose.ui.geometry
-                                .Size(bw, bh),
-                        cornerRadius = radius,
-                        style = Stroke(width = stroke),
-                    )
-                    val tx = x + bw * tailAt
-                    drawLine(tint, Offset(tx, y + bh), Offset(tx, y + bh + h * 0.12f), strokeWidth = stroke)
-                }
-
-                bubble(0f, h * 0.06f, w * 0.60f, h * 0.42f, tailAt = 0.24f)
-                bubble(w * 0.40f, h * 0.34f, w * 0.60f, h * 0.42f, tailAt = 0.76f)
-            }
+            BubblesIcon(tint = tint, modifier = Modifier.size(size))
         }
     }
 }
