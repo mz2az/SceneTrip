@@ -21,7 +21,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -63,9 +63,10 @@ fun RouteWizardView(
 ) {
     var stepIndex by remember { mutableStateOf(0) }
     var span by remember { mutableStateOf(RouteSpan.ONE_NIGHT) }
-    var hasDate by remember { mutableStateOf(false) }
-    var pickedDate by remember { mutableStateOf(LocalDate.now()) }
-    var showDatePicker by remember { mutableStateOf(false) }
+    val dateState = rememberDatePickerState()
+    val hasDate = dateState.selectedDateMillis != null
+    val pickedDate =
+        dateState.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() } ?: LocalDate.now()
     var draft by remember { mutableStateOf<RouteCourse?>(null) }
     var planning by remember { mutableStateOf(false) }
     var planFailed by remember { mutableStateOf(false) }
@@ -147,17 +148,17 @@ fun RouteWizardView(
                 }
             } else {
                 Column {
-                    Text(
-                        if (hasDate) "떠나는 날 ${RouteFormat.day(pickedDate)}" else "떠나는 날을 정해 주세요",
-                        fontSize = 14.sp,
-                        color = IOS.label,
+                    DatePicker(
+                        state = dateState,
+                        title = null,
+                        headline = null,
+                        showModeToggle = false,
+                        colors = DatePickerDefaults.colors(containerColor = IOS.systemBackground),
                         modifier =
                             Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(IOS.systemBackground)
-                                .clickable { showDatePicker = true }
-                                .padding(16.dp),
+                                .background(IOS.systemBackground),
                     )
                     Spacer(Modifier.height(10.dp))
                     if (hasDate) {
@@ -167,7 +168,7 @@ fun RouteWizardView(
                             "날짜 지우기",
                             fontSize = 12.sp,
                             color = IOS.accent,
-                            modifier = Modifier.clickable { hasDate = false }.padding(top = 6.dp),
+                            modifier = Modifier.clickable { dateState.selectedDateMillis = null }.padding(top = 6.dp),
                         )
                     } else {
                         Text("날짜는 나중에 정해도 됩니다", fontSize = 12.sp, color = IOS.secondaryLabel)
@@ -236,25 +237,5 @@ fun RouteWizardView(
             text = { Text(store.failure?.message ?: "잠시 후 다시 시도해 주세요.") },
             confirmButton = { TextButton(onClick = { planFailed = false }) { Text("확인") } },
         )
-    }
-
-    if (showDatePicker) {
-        val state =
-            rememberDatePickerState(initialSelectedDateMillis = pickedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    state.selectedDateMillis?.let { millis ->
-                        pickedDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
-                        hasDate = true
-                    }
-                    showDatePicker = false
-                }) { Text("확인") }
-            },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("취소") } },
-        ) {
-            DatePicker(state = state)
-        }
     }
 }
