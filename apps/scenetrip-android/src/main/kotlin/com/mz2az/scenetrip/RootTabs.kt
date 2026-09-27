@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -206,38 +207,48 @@ private fun HomeTab(
     modifier: Modifier,
     onClick: () -> Unit,
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-        modifier =
-            modifier
-                .fillMaxSize()
-                .clickable(onClick = onClick)
-                .offset(y = (-18).dp),
+    // **`wrapContentSize(unbounded = true)` 가 핵심이다.** 원 62dp + 간격 3dp + 글자가
+    // 바 높이 56dp보다 크다. Compose 의 `Column` 은 자식마다 남은 높이를 예산처럼
+    // 나눠 주므로(iOS `VStack` 은 그렇지 않다) — 원이 예산 56dp를 다 써버리면 다음
+    // 자식인 "홈" 글자는 남은 높이 0dp로 측정돼 완전히 사라진다(2026-09-28 실측 —
+    // `unbounded` 없이는 `Text` 가 화면은커녕 접근성 트리에도 안 잡혔다).
+    // `unbounded = true` 는 이 Column 을 부모의 56dp 제약과 무관하게 제 내용 크기
+    // (~80dp)대로 측정하게 하고, 부모 Box 의 `contentAlignment = Center` 가 그 모양
+    // 그대로를 56dp 칸 가운데에 앉힌다 — iOS 가 `.offset` 을 먼저 먹이고 그 결과를
+    // 무한 프레임이 가운데로 앉히는 것과 같은 효과다.
+    Box(
+        modifier = modifier.fillMaxSize().clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(62.dp)
-                    .shadow(7.dp, CircleShape, ambientColor = IOS.pinDeep, spotColor = IOS.pinDeep)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)))
-                    .border(4.dp, IOS.systemGray6, CircleShape),
-            contentAlignment = Alignment.Center,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+            modifier = Modifier.wrapContentSize(unbounded = true).offset(y = (-18).dp),
         ) {
-            Image(
-                painter = painterResource(R.drawable.haetae_face),
-                contentDescription = "홈",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.size(width = 40.dp, height = 34.dp),
+            Box(
+                modifier =
+                    Modifier
+                        .size(62.dp)
+                        .shadow(7.dp, CircleShape, ambientColor = IOS.pinDeep, spotColor = IOS.pinDeep)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)))
+                        .border(4.dp, IOS.systemGray6, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.haetae_face),
+                    contentDescription = "홈",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(width = 40.dp, height = 34.dp),
+                )
+            }
+            Text(
+                "홈",
+                fontSize = 11.sp,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                color = if (active) HOME_PURPLE else IOS.secondaryLabel,
             )
         }
-        Text(
-            "홈",
-            fontSize = 11.sp,
-            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-            color = if (active) HOME_PURPLE else IOS.secondaryLabel,
-        )
     }
 }
 
