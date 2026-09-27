@@ -56,6 +56,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
 import com.mz2az.scenetrip.searchtab.FilmIcon
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.ScopeIcon
+import com.mz2az.scenetrip.ui.FlagIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
@@ -177,18 +178,20 @@ fun RouteStopRow(
                 )
             }
             if (pinLabel != null) {
-                Text(
-                    "$pinLabel 고정",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (isPinned) Color.White else IOS.secondaryLabel,
+                val pinTint = if (isPinned) Color.White else IOS.secondaryLabel
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
                     modifier =
                         Modifier
                             .clip(RoundedCornerShape(50))
                             .background(if (isPinned) IOS.accent else IOS.systemGray6)
                             .clickable(onClick = onTogglePin)
                             .padding(horizontal = 9.dp, vertical = 4.dp),
-                )
+                ) {
+                    FlagIcon(tint = pinTint, modifier = Modifier.size(9.dp))
+                    Text("$pinLabel 고정", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = pinTint)
+                }
             }
             nextKilometers?.let {
                 Text("↓ ${RouteFormat.kilometers(it)}", fontSize = 11.sp, color = IOS.tertiaryLabel)
