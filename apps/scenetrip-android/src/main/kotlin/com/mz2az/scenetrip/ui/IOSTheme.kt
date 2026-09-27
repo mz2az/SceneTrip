@@ -42,6 +42,9 @@ object IOS {
     /** "저장 안 됨" 배지. iOS `Color.orange`. */
     val systemOrange = Color(0xFFFF9500)
 
+    /** 버스 구간 칩. iOS `Color(.systemGreen)` — 애플 공개값이다(아직 화면에서 재지 않았다). */
+    val systemGreen = Color(0xFF34C759)
+
     val systemBackground = Color(0xFFFFFFFF)
     val systemGray3 = Color(0xFFC7C7CC)
 

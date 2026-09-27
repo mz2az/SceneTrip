@@ -2,6 +2,7 @@ package com.mz2az.scenetrip.routetab
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -77,7 +79,12 @@ import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.centerOn
 import com.mz2az.scenetrip.searchtab.fit
 import com.mz2az.scenetrip.searchtab.rememberLocate
+import com.mz2az.scenetrip.ui.BusIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.StairsIcon
+import com.mz2az.scenetrip.ui.SubwayIcon
+import com.mz2az.scenetrip.ui.TransitIcon
+import com.mz2az.scenetrip.ui.WalkIcon
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.geometry.LatLngBounds
 import com.naver.maps.map.NaverMap
@@ -1132,6 +1139,32 @@ private fun TripOverlay(
     }
 }
 
+/** 구간 칩 하나 — 도보는 회색, 지하철은 파랑, 버스·그 밖의 탈것은 초록(iOS와 같은 세 갈래). */
+@Composable
+private fun LegChip(chip: RouteLegChip) {
+    val background =
+        when (chip.mode) {
+            RouteLegMode.WALK -> IOS.systemGray5
+            RouteLegMode.SUBWAY -> IOS.accent.copy(alpha = 0.16f)
+            else -> IOS.systemGreen.copy(alpha = 0.18f)
+        }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.clip(CircleShape).background(background).padding(horizontal = 8.dp, vertical = 4.dp),
+    ) {
+        val icon = Modifier.size(11.dp)
+        when (chip.mode) {
+            RouteLegMode.WALK -> WalkIcon(IOS.label, icon)
+            RouteLegMode.BUS -> BusIcon(IOS.label, icon)
+            RouteLegMode.SUBWAY -> SubwayIcon(IOS.label, icon)
+            RouteLegMode.TRANSIT -> TransitIcon(IOS.label, icon)
+        }
+        Text(chip.text, fontSize = 11.sp, color = IOS.label, maxLines = 1)
+        if (chip.hasStairs) StairsIcon(IOS.systemRed, Modifier.size(10.dp))
+    }
+}
+
 /**
  * 안내 배너 — iOS는 지도 위 카드(도착)와 시트 안 줄(진행)로 나누는데, 여기서는 시트
  * 맨 위 한 자리로 합쳤다. "여기 도착함"은 GPS 판정을 기다리지 않는 수동 확인이다.
@@ -1156,9 +1189,24 @@ private fun TripBanner(
             // 구하는 중 → 자리를 못 찾음.
             when {
                 trip.leg != null -> {
-                    val leg = trip.leg!!
-                    val walk = leg.walkMeters?.let { " · 도보 ${it}m" } ?: ""
-                    Text("${leg.totalMinutes}분 · 환승 ${leg.transfers}회$walk", fontSize = 11.sp, color = IOS.secondaryLabel)
+                    val result = trip.leg!!
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(RouteFormat.minutes(result.totalMinutes), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+                        Text(
+                            result.summaryLine(),
+                            fontSize = 12.sp,
+                            color = IOS.secondaryLabel,
+                            maxLines = 1,
+                            modifier = Modifier.padding(bottom = 3.dp),
+                        )
+                    }
+                    // 구간 — 도보·대중교통 조각을 한 줄로. 밀면 다 보인다(iOS `tripDetail`).
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()),
+                    ) {
+                        result.legs.map { it.toChip() }.forEach { LegChip(it) }
+                    }
                 }
 
                 trip.failure != null -> {
