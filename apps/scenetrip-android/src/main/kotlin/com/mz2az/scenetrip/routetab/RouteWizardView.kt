@@ -78,6 +78,7 @@ fun RouteWizardView(
     val pickedDate =
         dateState.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() } ?: LocalDate.now()
     var selectedWorkIds by remember { mutableStateOf(setOf<Long>()) }
+    var pace by remember { mutableStateOf(RoutePace.TIGHT) }
     var draft by remember { mutableStateOf<RouteCourse?>(null) }
     var planning by remember { mutableStateOf(false) }
     var planFailed by remember { mutableStateOf(false) }
@@ -91,7 +92,7 @@ fun RouteWizardView(
         return
     }
 
-    val steps = if (isAiPlan) 3 else 2
+    val steps = if (isAiPlan) 5 else 2
     val isLast = stepIndex == steps - 1
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).statusBarsPadding()) {
@@ -132,7 +133,9 @@ fun RouteWizardView(
                 when (stepIndex) {
                     0 -> "얼마나 다녀오나요?"
                     1 -> "언제 떠나나요?"
-                    else -> "어떤 작품을 좋아하세요?"
+                    2 -> "어떤 작품을 좋아하세요?"
+                    3 -> "어떻게 다닐까요?"
+                    else -> "이렇게 짜 드립니다"
                 },
                 fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -191,7 +194,7 @@ fun RouteWizardView(
                         Text("날짜는 나중에 정해도 됩니다", fontSize = 12.sp, color = IOS.secondaryLabel)
                     }
                 }
-            } else {
+            } else if (stepIndex == 2) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     LazyColumn(modifier = Modifier.weight(1f)) {
                         items(store.sortedWorks, key = { it.id }) { work ->
@@ -213,6 +216,64 @@ fun RouteWizardView(
                         color = IOS.secondaryLabel,
                         modifier = Modifier.padding(top = 8.dp),
                     )
+                }
+            } else if (stepIndex == 3) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    RoutePace.entries.forEach { each ->
+                        val isOn = pace == each
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isOn) IOS.accent else IOS.systemBackground)
+                                    .clickable { pace = each }
+                                    .padding(14.dp),
+                        ) {
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isOn) IOS.systemBackground else IOS.accent),
+                            )
+                            Column {
+                                Text(
+                                    each.label,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isOn) IOS.systemBackground else IOS.label,
+                                )
+                                Text(
+                                    each.caption,
+                                    fontSize = 12.sp,
+                                    color = if (isOn) IOS.systemBackground.copy(alpha = 0.9f) else IOS.secondaryLabel,
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        "빡빡하게는 하루 7곳까지, 널널하게는 3곳까지 담습니다",
+                        fontSize = 11.sp,
+                        color = IOS.tertiaryLabel,
+                    )
+                }
+            } else {
+                val pickedTitles = store.works.filter { selectedWorkIds.contains(it.id) }.map { it.title }
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(IOS.systemBackground)
+                            .padding(horizontal = 14.dp),
+                ) {
+                    ReviewRow("기간", span.label)
+                    ReviewRow("떠나는 날", if (hasDate) RouteFormat.day(pickedDate) else "정하지 않음")
+                    ReviewRow("작품", if (pickedTitles.isEmpty()) "인기 작품" else pickedTitles.joinToString(", "))
+                    ReviewRow("스타일", pace.label, showDivider = false)
                 }
             }
         }
@@ -244,7 +305,7 @@ fun RouteWizardView(
                             }
                             planning = true
                             scope.launch {
-                                val result = store.guideDraft(selectedWorkIds, span, startDate, RoutePace.TIGHT)
+                                val result = store.guideDraft(selectedWorkIds, span, startDate, pace)
                                 planning = false
                                 if (result != null) draft = result else planFailed = true
                             }
@@ -277,6 +338,31 @@ fun RouteWizardView(
             text = { Text(store.failure?.message ?: "잠시 후 다시 시도해 주세요.") },
             confirmButton = { TextButton(onClick = { planFailed = false }) { Text("확인") } },
         )
+    }
+}
+
+/** 검토 화면의 한 줄. iOS `RouteWizardView.summary(_:_:)`. */
+@Composable
+private fun ReviewRow(
+    label: String,
+    value: String,
+    showDivider: Boolean = true,
+) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+            Text(label, fontSize = 14.sp, color = IOS.secondaryLabel)
+            Spacer(Modifier.weight(1f))
+            Text(
+                value,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = IOS.label,
+                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            )
+        }
+        if (showDivider) {
+            Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(IOS.systemGray5))
+        }
     }
 }
 
