@@ -243,6 +243,44 @@ fun RouteEditorView(
         }
     }
 
+    // 챗봇의 화면 명령 — 서버 계약 `GuideUiDirective`. 「의도 수준」이라 좌표·절차는
+    // 여기서 정한다(계약 설명). `route.draw`·`place.card`는 아직이다 — 추천 경로선·
+    // 장소 카드가 이 화면에 없다.
+    LaunchedEffect(guideSession.lastUi) {
+        val target = map
+        guideSession.lastUi.forEach { directive ->
+            when (directive.op) {
+                "sheet.collapse" -> {
+                    showGuide = false
+                }
+
+                "course.open", "course.focus" -> {
+                    directive.day?.let { day ->
+                        dayIndex = (day - 1).coerceIn(0, (course.days.size - 1).coerceAtLeast(0))
+                    }
+                }
+
+                "map.focus" -> {
+                    val ids = directive.placeIds.orEmpty().toSet()
+                    val places = guideSession.places.filter { ids.contains(it.id) }.map { it.asPlaceSummary() }
+                    if (target != null && places.isNotEmpty()) target.fit(places, density, screenHeight, panelHeight, 0.dp)
+                }
+
+                else -> {
+                    Unit
+                }
+            }
+        }
+    }
+
+    // 챗봇의 상태 명령 — 서버가 이미 적용했다(`GuideEffect` 계약, `cart.*`는 즉시 저장).
+    // 화면은 반영된 결과를 다시 읽어 오기만 하면 된다.
+    LaunchedEffect(guideSession.lastEffects) {
+        if (guideSession.lastEffects.any { it.op == "cart.add" || it.op == "cart.remove" }) {
+            cart.refresh()
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).statusBarsPadding()) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

@@ -9,8 +9,10 @@ import com.mz2az.scenetrip.data.ApiFailure
 import com.mz2az.scenetrip.data.InstallIdentity
 import com.mz2az.scenetrip.sceneapi.client.api.GuideApi
 import com.mz2az.scenetrip.sceneapi.client.model.GuideChatRequest
+import com.mz2az.scenetrip.sceneapi.client.model.GuideEffect
 import com.mz2az.scenetrip.sceneapi.client.model.GuideMessage
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
+import com.mz2az.scenetrip.sceneapi.client.model.GuideUiDirective
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -34,10 +36,10 @@ data class GuideTurn(
  * 화면을 나가면 함께 버린다 — 코스 편집 화면 안에서만 쓰는 기능이라 화면보다 오래
  * 살려 둘 이유가 아직 없다.
  *
- * **효과(`effects`)·화면 명령(`ui`)은 적용하지 않는다** — 지도 포커스·경로 그리기·
- * 코스 자동 전환 같은 것들은 iOS의 `RouteEditorView` 상태와 깊이 얽혀 있고, 여기
- * 편집기는 아직 그 상태(주변 편의시설 지도 표시, AI 장소 지도 레이어)를 들고 있지
- * 않다. 답은 사람이 읽고, 찾아 준 장소는 "담기"로 사람이 직접 넣는다.
+ * **`effects`·`ui`는 여기서 만들지 않는다** — 서버가 보낸 것을 [lastUi]·[lastEffects]로
+ * 그대로 들고 있을 뿐이고, 실제로 지도를 맞추고 일차를 넘기고 장바구니를 새로고침하는
+ * 일은 [RouteEditorView]가 한다(화면 상태를 아는 쪽이 화면을 바꿔야 한다). `route.draw`·
+ * `place.card`는 아직 처리하지 않는다 — 추천 경로선·장소 카드 컴포넌트 자체가 없다.
  */
 class RouteGuideSession(
     context: Context,
@@ -49,6 +51,13 @@ class RouteGuideSession(
     var asking by mutableStateOf(false)
         private set
     var failure by mutableStateOf<String?>(null)
+        private set
+
+    /** 마지막 답의 화면·상태 명령 — 매 턴 새 리스트로 갈아 끼운다(빈 배열이어도).
+     * 화면은 이 값이 바뀔 때만 `LaunchedEffect`로 한 번 적용한다. */
+    var lastUi by mutableStateOf<List<GuideUiDirective>>(emptyList())
+        private set
+    var lastEffects by mutableStateOf<List<GuideEffect>>(emptyList())
         private set
 
     val isEmpty: Boolean get() = turns.isEmpty()
@@ -86,6 +95,8 @@ class RouteGuideSession(
         }.onSuccess { reply ->
             turns = turns + GuideTurn(role = GuideTurn.Role.ASSISTANT, text = reply.reply, tools = reply.toolsUsed.map { it.tool })
             if (reply.places.isNotEmpty()) places = reply.places
+            lastUi = reply.ui
+            lastEffects = reply.effects
             failure = null
         }.onFailure {
             failure = ApiFailure.of(it).message
