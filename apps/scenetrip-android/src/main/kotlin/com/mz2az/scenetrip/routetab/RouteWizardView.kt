@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -59,7 +58,9 @@ import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSAlert
 import com.mz2az.scenetrip.ui.IOSRole
+import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.LeafIcon
+import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -77,7 +78,7 @@ import java.util.Locale
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RouteWizardView(
+private fun RouteWizardViewBody(
     store: RouteStore,
     isAiPlan: Boolean = false,
     onClose: (RouteCourse?) -> Unit,
@@ -132,14 +133,14 @@ fun RouteWizardView(
 
     val currentDraft = draft
     if (currentDraft != null) {
-        RouteEditorView(store = store, initial = currentDraft, isNew = true, onClose = onClose)
+        RouteEditorView(store = store, initial = currentDraft, isNew = true, onClose = onClose, inSheet = true)
         return
     }
 
     val steps = if (isAiPlan) 5 else 2
     val isLast = stepIndex == steps - 1
 
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).statusBarsPadding()) {
+    Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6)) {
         Column(
             modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(horizontal = 20.dp, vertical = 14.dp),
         ) {
@@ -517,5 +518,17 @@ private fun WorkRow(
                         .border(width = 1.5.dp, color = IOS.systemGray3, shape = CircleShape),
             )
         }
+    }
+}
+
+/** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
+@Composable
+fun RouteWizardView(
+    store: RouteStore,
+    isAiPlan: Boolean = false,
+    onClose: (RouteCourse?) -> Unit,
+) {
+    IOSSheet(detents = listOf(SheetDetent.LARGE), onDismiss = { onClose(null) }) {
+        RouteWizardViewBody(store = store, isAiPlan = isAiPlan, onClose = onClose)
     }
 }

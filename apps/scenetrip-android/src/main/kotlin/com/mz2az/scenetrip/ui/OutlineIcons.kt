@@ -175,3 +175,36 @@ fun PersonOutlineIcon(
         drawPath(body, tint, style = s)
     }
 }
+
+/** `hand.draw` — 검지를 편 손과 그 끝에서 이어지는 구불구불한 선(직접 그린다). */
+@Composable
+fun HandDrawIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = stroke(w)
+        val hand =
+            Path().apply {
+                // 검지(왼쪽 위로) → 손등 → 손목
+                moveTo(w * 0.42f, w * 0.12f)
+                cubicTo(w * 0.36f, w * 0.06f, w * 0.28f, w * 0.1f, w * 0.3f, w * 0.18f)
+                lineTo(w * 0.42f, w * 0.52f)
+                cubicTo(w * 0.36f, w * 0.5f, w * 0.26f, w * 0.52f, w * 0.3f, w * 0.62f)
+                cubicTo(w * 0.38f, w * 0.78f, w * 0.52f, w * 0.9f, w * 0.72f, w * 0.88f)
+                cubicTo(w * 0.9f, w * 0.86f, w * 0.94f, w * 0.7f, w * 0.88f, w * 0.52f)
+                lineTo(w * 0.8f, w * 0.34f)
+                cubicTo(w * 0.76f, w * 0.26f, w * 0.66f, w * 0.28f, w * 0.64f, w * 0.34f)
+                cubicTo(w * 0.6f, w * 0.28f, w * 0.52f, w * 0.3f, w * 0.52f, w * 0.36f)
+                close()
+            }
+        drawPath(hand, tint, style = s)
+        val squiggle =
+            Path().apply {
+                moveTo(w * 0.04f, w * 0.34f)
+                cubicTo(w * 0.1f, w * 0.2f, w * 0.18f, w * 0.44f, w * 0.24f, w * 0.3f)
+            }
+        drawPath(squiggle, tint, style = s)
+    }
+}

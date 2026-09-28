@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Place
@@ -53,6 +52,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.MarketCourseSummary
 import com.mz2az.scenetrip.sceneapi.client.model.MarketSort
 import com.mz2az.scenetrip.ui.BubblesIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.SquarePencilIcon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -102,7 +102,7 @@ fun CommunityTabScreen() {
                 // **위쪽에 놓는다** — iOS 는 목록(`List`) 첫 칸 안에 그려서 칩 줄 바로 아래에 온다.
                 // 제목 22 굵게, 설명 15 secondary(2026-09-28 화면 대조 #16).
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp).padding(top = 36.dp),
+                    modifier = Modifier.fillMaxSize().padding(top = 36.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     // iOS 글리프는 가로:세로 약 1.25 — 정사각 칸이면 세로로 눌린다.
@@ -122,6 +122,12 @@ fun CommunityTabScreen() {
                         color = IOS.secondaryLabel,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 4.dp).widthIn(max = 280.dp),
+                    )
+                    // iOS 는 빈 상태가 목록(`List`) 첫 칸이라 그 아래 줄 구분선이 하나 보인다(실측: 왼쪽 60).
+                    androidx.compose.material3.HorizontalDivider(
+                        thickness = 1.dp,
+                        color = Color(0xFFE8E8E8),
+                        modifier = Modifier.padding(top = 44.dp).padding(start = 60.dp, end = 16.dp),
                     )
                 }
             } else {
@@ -174,7 +180,7 @@ private fun CommunityHeader(onCompose: () -> Unit) {
                     .clickable(onClick = onCompose),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Create, contentDescription = "글쓰기", tint = Color.White, modifier = Modifier.size(15.dp))
+            SquarePencilIcon(Color.White, Modifier.size(16.dp)) // iOS `square.and.pencil`
         }
     }
 }

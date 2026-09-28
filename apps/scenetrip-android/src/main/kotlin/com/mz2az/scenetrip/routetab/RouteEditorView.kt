@@ -85,14 +85,17 @@ import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSAlert
 import com.mz2az.scenetrip.ui.IOSRole
+import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.MagnifierIcon
 import com.mz2az.scenetrip.ui.MapPinEllipseIcon
+import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.StairsIcon
 import com.mz2az.scenetrip.ui.SubwayIcon
 import com.mz2az.scenetrip.ui.SwapArrowsIcon
 import com.mz2az.scenetrip.ui.TransitIcon
 import com.mz2az.scenetrip.ui.WalkIcon
+import com.mz2az.scenetrip.ui.sheetListBottom
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.geometry.LatLngBounds
 import com.naver.maps.map.NaverMap
@@ -128,6 +131,8 @@ fun RouteEditorView(
     initial: RouteCourse,
     isNew: Boolean = false,
     onClose: (RouteCourse?) -> Unit,
+    // 마법사 시트 안에서 열릴 때 — 시트가 이미 상태바 아래에 있으니 상태바 여백을 또 두지 않는다.
+    inSheet: Boolean = false,
 ) {
     var course by remember { mutableStateOf(initial) }
     var dayIndex by remember { mutableStateOf(0) }
@@ -402,7 +407,7 @@ fun RouteEditorView(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).statusBarsPadding()) {
+    Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).then(if (inSheet) Modifier else Modifier.statusBarsPadding())) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier =
@@ -1397,7 +1402,7 @@ private fun DayTabs(
  * 보여 준다), 이미 담긴 곳은 흐리게 + 체크.
  */
 @Composable
-private fun PlaceSearchOverlay(
+private fun PlaceSearchOverlayBody(
     store: RouteStore,
     taken: Set<Long>,
     onDismiss: () -> Unit,
@@ -1419,7 +1424,7 @@ private fun PlaceSearchOverlay(
             }
         }
 
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground).statusBarsPadding()) {
+    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(12.dp)) {
             Text(
                 "닫기",
@@ -1460,7 +1465,7 @@ private fun PlaceSearchOverlay(
                 textAlign = TextAlign.Center,
             )
         }
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
             itemsIndexed(results, key = { _, place -> place.id }) { _, place ->
                 val isTaken = taken.contains(place.id)
                 val pickedOrder = picked.indexOf(place.id).takeIf { it >= 0 }
@@ -1521,5 +1526,18 @@ private fun PlaceSearchOverlay(
                 }
             }
         }
+    }
+}
+
+/** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
+@Composable
+private fun PlaceSearchOverlay(
+    store: RouteStore,
+    taken: Set<Long>,
+    onDismiss: () -> Unit,
+    onAdd: (List<PlaceSummary>) -> Unit,
+) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onDismiss) {
+        PlaceSearchOverlayBody(store = store, taken = taken, onDismiss = onDismiss, onAdd = onAdd)
     }
 }

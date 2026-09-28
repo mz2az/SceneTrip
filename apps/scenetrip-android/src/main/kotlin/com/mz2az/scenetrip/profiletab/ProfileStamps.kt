@@ -3,6 +3,7 @@ package com.mz2az.scenetrip.profiletab
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.VisitStamp
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSSheet
+import com.mz2az.scenetrip.ui.SheetDetent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -41,7 +44,7 @@ import java.util.Locale
  * 가고 싶어진다.
  */
 @Composable
-fun StampsSheet(
+private fun StampsSheetBody(
     stamps: List<VisitStamp>,
     onClose: () -> Unit,
 ) {
@@ -92,9 +95,10 @@ fun StampBadge(
     size: Dp = 64.dp,
 ) {
     val angle = (stamp.id % 7).toFloat() - 3f
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(1.dp),
+    // **겹쳐 그린다(Box).** Column 이면 테 그림(Canvas)이 칸을 다 먹어 체크·이름이 그 아래로 밀려
+    // 잘렸다 — 도장 안이 텅 빈 원으로 보였다(2026-09-28 실기).
+    Box(
+        contentAlignment = Alignment.Center,
         modifier =
             Modifier
                 .size(size)
@@ -137,3 +141,14 @@ fun StampBadge(
 }
 
 private fun formatDate(millis: Long): String = SimpleDateFormat("M월 d일", Locale.KOREA).format(Date(millis))
+
+/** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
+@Composable
+fun StampsSheet(
+    stamps: List<VisitStamp>,
+    onClose: () -> Unit,
+) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
+        StampsSheetBody(stamps = stamps, onClose = onClose)
+    }
+}

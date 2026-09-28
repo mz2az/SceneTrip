@@ -40,7 +40,7 @@ fun BoltIcon(
 }
 
 /**
- * SF Symbols `leaf.fill` — "널널하게" 페이스. 잎맥 하나를 곁들인 물방울 모양.
+ * SF Symbols `leaf.fill` — "널널하게" 페이스.
  */
 @Composable
 fun LeafIcon(
@@ -52,23 +52,24 @@ fun LeafIcon(
     // 드러내야 선택 상태(흰 잎·파란 바탕)에서도 맞으므로 `BlendMode.Clear` 로 뚫는다.
     Canvas(modifier.graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)) {
         val w = size.width
-        // iOS 잎은 더 납작하다(18×15) — 세로를 88% 로 눌러 칸 가운데에 둔다.
-        val h = size.height * 0.88f
-        translate(top = size.height * 0.06f) {
+        // iOS 잎은 더 납작하다(18×15.3) — 세로를 94% 로 눌러 칸 가운데에 둔다(88% 는 14.1 로 과했다).
+        val h = size.height * 0.94f
+        translate(top = size.height * 0.03f) {
             val leaf =
                 Path().apply {
-                    moveTo(w * 0.07f, h * 0.12f)
-                    cubicTo(w * 0.32f, h * 0.08f, w * 0.76f, h * 0.06f, w * 0.9f, h * 0.36f)
-                    cubicTo(w * 0.98f, h * 0.56f, w * 0.84f, h * 0.73f, w * 0.55f, h * 0.73f)
-                    cubicTo(w * 0.24f, h * 0.73f, w * 0.05f, h * 0.5f, w * 0.07f, h * 0.12f)
+                    // 윗변이 **볼록하게 부푼다** — 평평한 윗변은 잎이 아니라 조각처럼 보였다(7차 대조).
+                    moveTo(w * 0.04f, h * 0.08f)
+                    cubicTo(w * 0.3f, h * -0.04f, w * 0.72f, h * 0.0f, w * 0.9f, h * 0.3f)
+                    cubicTo(w * 1.0f, h * 0.52f, w * 0.88f, h * 0.76f, w * 0.56f, h * 0.76f)
+                    cubicTo(w * 0.24f, h * 0.76f, w * 0.04f, h * 0.54f, w * 0.04f, h * 0.08f)
                     close()
                 }
             drawPath(leaf, color = tint)
             // 잎맥은 밑동까지 이어지고, 줄기는 **잎맥을 뚫은 뒤에** 그려 끊기지 않게 붙인다(iOS 확대 실측).
             val vein =
                 Path().apply {
-                    moveTo(w * 0.3f, h * 0.36f)
-                    cubicTo(w * 0.5f, h * 0.3f, w * 0.56f, h * 0.54f, w * 0.8f, h * 0.64f)
+                    moveTo(w * 0.26f, h * 0.3f)
+                    cubicTo(w * 0.5f, h * 0.2f, w * 0.48f, h * 0.6f, w * 0.8f, h * 0.66f)
                 }
             drawPath(vein, Color.Black, style = Stroke(width = w * 0.1f, cap = StrokeCap.Round), blendMode = BlendMode.Clear)
             val stem =

@@ -12,9 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +25,11 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.onboarding.PinoMascot
 import com.mz2az.scenetrip.onboarding.PinoPose
 import com.mz2az.scenetrip.ui.IOS
-import com.mz2az.scenetrip.ui.SparklesIcon
+import com.mz2az.scenetrip.ui.IOSSheet
+import com.mz2az.scenetrip.ui.PhotosIcon
+import com.mz2az.scenetrip.ui.RouteCurveIcon
+import com.mz2az.scenetrip.ui.SheetDetent
+import com.mz2az.scenetrip.ui.XMarkIcon
 
 /**
  * AI 여행 릴스 — 예고편. iOS `ProfileTab/ReelsTeaserView.swift`를 옮긴 것이다.
@@ -35,13 +38,12 @@ import com.mz2az.scenetrip.ui.SparklesIcon
  * 받겠다는 마음만 받아 둔다.
  */
 @Composable
-fun ReelsTeaserView(onClose: () -> Unit) {
+private fun ReelsTeaserViewBody(onClose: () -> Unit) {
     Column(
         modifier =
             Modifier
                 .fillMaxSize()
                 .background(IOS.systemBackground)
-                .statusBarsPadding()
                 .padding(horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -49,21 +51,24 @@ fun ReelsTeaserView(onClose: () -> Unit) {
         Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
             Spacer(Modifier.weight(1f))
             Box(modifier = Modifier.size(32.dp).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Close, contentDescription = "닫기", tint = IOS.secondaryLabel, modifier = Modifier.size(12.dp))
+                XMarkIcon(IOS.secondaryLabel, Modifier.size(11.dp))
             }
         }
 
         PinoMascot(pose = PinoPose.SPARKLE, width = 110.dp)
 
-        Text("AI 여행 릴스", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+        Text("AI 여행 릴스", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = IOS.label)
 
         Column(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.padding(horizontal = 8.dp),
         ) {
-            TeaserRow("다녀온 코스의 동선과 장소를 AI 가 읽고")
-            TeaserRow("여행 사진을 골라 장면 순서로 엮어서")
-            TeaserRow("인스타그램에 올릴 15초 릴스를 만들어 드릴 예정이에요")
+            TeaserRow("다녀온 코스의 동선과 장소를 AI 가 읽고") { RouteCurveIcon(IOS.pinDeep, it) }
+            TeaserRow("여행 사진을 골라 장면 순서로 엮어서") { PhotosIcon(IOS.pinDeep, it) }
+            TeaserRow("인스타그램에 올릴 15초 릴스를 만들어 드릴 예정이에요") {
+                com.mz2az.scenetrip.searchtab
+                    .FilmIcon(IOS.pinDeep, it)
+            }
         }
 
         Spacer(Modifier.weight(1f))
@@ -78,9 +83,25 @@ fun ReelsTeaserView(onClose: () -> Unit) {
 }
 
 @Composable
-private fun TeaserRow(text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        SparklesIcon(IOS.pinDeep, Modifier.size(14.dp))
+private fun TeaserRow(
+    text: String,
+    icon: @Composable (Modifier) -> Unit,
+) {
+    // iOS `teaserRow(symbol:text:)`: 아이콘 칸 24(글리프 14), 글자 15, 줄은 왼쪽으로 붙는다.
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) { icon(Modifier.size(16.dp)) }
         Text(text, fontSize = 15.sp, color = IOS.label)
+    }
+}
+
+/** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
+@Composable
+fun ReelsTeaserView(onClose: () -> Unit) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM), onDismiss = onClose) {
+        ReelsTeaserViewBody(onClose = onClose)
     }
 }

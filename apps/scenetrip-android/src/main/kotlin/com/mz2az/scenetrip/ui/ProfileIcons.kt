@@ -18,12 +18,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.dp
 
@@ -47,9 +50,10 @@ fun RouteCurveIcon(
         drawCircle(tint, radius = w * 0.11f, center = Offset(w * 0.82f, w * 0.84f), style = s)
         val p =
             Path().apply {
-                moveTo(w * 0.24f, w * 0.26f)
-                cubicTo(w * 0.5f, w * 0.7f, w * 0.1f, w * 0.72f, w * 0.44f, w * 0.78f)
-                cubicTo(w * 0.58f, w * 0.8f, w * 0.66f, w * 0.8f, w * 0.71f, w * 0.83f)
+                // 대각선 S — 왼쪽 위 점에서 오른쪽으로 부풀었다가 왼쪽으로 돌아 오른쪽 아래 점으로.
+                moveTo(w * 0.26f, w * 0.22f)
+                cubicTo(w * 0.72f, w * 0.26f, w * 0.72f, w * 0.48f, w * 0.5f, w * 0.52f)
+                cubicTo(w * 0.28f, w * 0.56f, w * 0.28f, w * 0.78f, w * 0.72f, w * 0.8f)
             }
         drawPath(p, tint, style = s)
     }
@@ -249,5 +253,45 @@ fun IOSToggle(
                     .clip(CircleShape)
                     .background(Color.White),
         )
+    }
+}
+
+/**
+ * `photo.on.rectangle.angled` — 뒤 액자는 **반시계로** 기울고(윗변이 오른쪽으로 올라감) 앞 사진에 가려진다.
+ * 앞 사진 안에 두 봉우리 산(채움)과 해. Compose `rotate` 는 양수가 시계 방향이다(9차 대조에서 반대로 그렸다).
+ */
+@Composable
+fun PhotosIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = line(w)
+        val front = Rect(Offset(w * 0.22f, w * 0.36f), Size(w * 0.72f, w * 0.54f))
+        clipRect(front.left - s.width, front.top - s.width, front.right + s.width, front.bottom + s.width, clipOp = ClipOp.Difference) {
+            rotate(-14f, pivot = Offset(w * 0.46f, w * 0.44f)) {
+                drawRoundRect(
+                    tint,
+                    topLeft = Offset(w * 0.08f, w * 0.14f),
+                    size = Size(w * 0.7f, w * 0.52f),
+                    cornerRadius =
+                        CornerRadius(w * 0.08f),
+                    style = s,
+                )
+            }
+        }
+        drawRoundRect(tint, topLeft = front.topLeft, size = front.size, cornerRadius = CornerRadius(w * 0.08f), style = s)
+        val hills =
+            Path().apply {
+                moveTo(w * 0.28f, w * 0.84f)
+                lineTo(w * 0.46f, w * 0.6f)
+                lineTo(w * 0.6f, w * 0.74f)
+                lineTo(w * 0.7f, w * 0.64f)
+                lineTo(w * 0.88f, w * 0.84f)
+                close()
+            }
+        drawPath(hills, tint)
+        drawCircle(tint, radius = w * 0.065f, center = Offset(w * 0.74f, w * 0.48f))
     }
 }

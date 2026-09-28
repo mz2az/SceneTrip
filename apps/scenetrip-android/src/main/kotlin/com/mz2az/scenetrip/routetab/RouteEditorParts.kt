@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -58,6 +57,9 @@ import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.ScopeIcon
 import com.mz2az.scenetrip.ui.FlagIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSSheet
+import com.mz2az.scenetrip.ui.SheetDetent
+import com.mz2az.scenetrip.ui.sheetListBottom
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 
@@ -596,7 +598,7 @@ private object FootprintDotImage {
  * 안 난다.
  */
 @Composable
-fun RouteCartSheet(
+private fun RouteCartSheetBody(
     cart: CartStore,
     store: RouteStore,
     taken: Set<Long>,
@@ -610,7 +612,7 @@ fun RouteCartSheet(
     LaunchedEffect(isSample) { if (isSample) store.loadPlaces() }
     val places = if (isSample) store.places.take(6) else cartPlaces
 
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground).statusBarsPadding()) {
+    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text("닫기", fontSize = 15.sp, color = IOS.accent, modifier = Modifier.clickable(onClick = onDismiss))
             Spacer(Modifier.weight(1f))
@@ -636,7 +638,7 @@ fun RouteCartSheet(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             )
         }
-        LazyColumn(modifier = Modifier.weight(1f)) {
+        LazyColumn(modifier = Modifier.weight(1f), contentPadding = sheetListBottom()) {
             items(places, key = { it.id }) { place ->
                 val isTaken = taken.contains(place.id)
                 val isPicked = picked.contains(place.id)
@@ -681,7 +683,7 @@ private fun CartItem.toPlaceSummary(): PlaceSummary? {
 
 /** 지도를 눌러 찍은 자리에 이름과 갈래만 붙인다. */
 @Composable
-fun RoutePinSheet(
+private fun RoutePinSheetBody(
     pin: RoutePin,
     onDone: (name: String, category: String) -> Unit,
     onDismiss: () -> Unit,
@@ -689,7 +691,7 @@ fun RoutePinSheet(
     var name by remember { mutableStateOf("") }
     var category by remember { mutableStateOf(PIN_CATEGORIES[0]) }
 
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground).statusBarsPadding()) {
+    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text("취소", fontSize = 15.sp, color = IOS.accent, modifier = Modifier.clickable(onClick = onDismiss))
             Spacer(Modifier.weight(1f))
@@ -742,12 +744,12 @@ private val PIN_CATEGORIES = listOf("숙소", "음식점·카페", "명소·자�
 
 /** 체류 시간 고르기. */
 @Composable
-fun RouteStaySheet(
+private fun RouteStaySheetBody(
     stop: RouteStop,
     onPick: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground).statusBarsPadding()) {
+    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text("취소", fontSize = 15.sp, color = IOS.accent, modifier = Modifier.clickable(onClick = onDismiss))
             Spacer(Modifier.weight(1f))
@@ -775,5 +777,44 @@ fun RouteStaySheet(
                 }
             }
         }
+    }
+}
+
+/** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
+@Composable
+fun RouteCartSheet(
+    cart: CartStore,
+    store: RouteStore,
+    taken: Set<Long>,
+    onPreview: (List<PlaceSummary>) -> Unit,
+    onPick: (List<PlaceSummary>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onDismiss) {
+        RouteCartSheetBody(cart = cart, store = store, taken = taken, onPreview = onPreview, onPick = onPick, onDismiss = onDismiss)
+    }
+}
+
+/** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
+@Composable
+fun RoutePinSheet(
+    pin: RoutePin,
+    onDone: (name: String, category: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM), onDismiss = onDismiss) {
+        RoutePinSheetBody(pin = pin, onDone = onDone, onDismiss = onDismiss)
+    }
+}
+
+/** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
+@Composable
+fun RouteStaySheet(
+    stop: RouteStop,
+    onPick: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM), onDismiss = onDismiss) {
+        RouteStaySheetBody(stop = stop, onPick = onPick, onDismiss = onDismiss)
     }
 }

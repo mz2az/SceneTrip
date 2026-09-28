@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -42,10 +43,13 @@ import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.ui.ChevronRightIcon
+import com.mz2az.scenetrip.ui.HandDrawIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSConfirmPopover
 import com.mz2az.scenetrip.ui.IOSRole
+import com.mz2az.scenetrip.ui.IOSSheet
+import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.XMarkIcon
 import kotlinx.coroutines.launch
@@ -400,56 +404,34 @@ private fun ForkSheet(
     onAI: () -> Unit,
     onManual: () -> Unit,
 ) {
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(
-                    androidx.compose.ui.graphics.Color.Black
-                        .copy(alpha = 0.35f),
-                ).clickable(onClick = onDismiss),
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
-                    .background(IOS.systemGray6)
-                    .clickable(enabled = false) {}
-                    .padding(bottom = 24.dp, top = 8.dp),
-        ) {
+    // iOS `forkSheet`: `.presentationDetents([.height(420)])` 시트 — 손잡이(40×5)는 내용이 직접 그린다.
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM), fixedHeight = 420.dp, onDismiss = onDismiss) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Box(
                 modifier =
                     Modifier
-                        .align(
-                            Alignment.CenterHorizontally,
-                        ).size(width = 40.dp, height = 5.dp)
+                        .padding(top = 8.dp)
+                        .size(width = 40.dp, height = 5.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(IOS.tertiaryLabel),
+                        .background(IOS.systemGray3),
             )
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "코스를 어떻게 만들까요?",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = IOS.label,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
-            Spacer(Modifier.height(14.dp))
+            Text("코스를 어떻게 만들까요?", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
             Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ForkCard(title = "AI 로 짜기", caption = "기간·작품만 고르면 동선까지 짜 드립니다", onClick = onAI)
-                ForkCard(title = "직접 짜기", caption = "장바구니에서 하나씩 담습니다", onClick = onManual)
+                ForkCard(title = "AI 로 짜기", caption = "기간·작품만 고르면 동선까지 짜 드립니다", onClick = onAI) { SparklesIcon(IOS.accent, it) }
+                ForkCard(title = "직접 짜기", caption = "장바구니에서 하나씩 담습니다", onClick = onManual) { HandDrawIcon(IOS.accent, it) }
             }
         }
     }
 }
 
+// iOS `RouteForkCards.card`: 흰 카드(모서리 14, 옅은 그림자 6%), 44 원 안의 아이콘(title2), 17 semibold 제목 +
+// 12 설명(간격 4), 오른쪽 `chevron.right`. 「직접 짜기」 아이콘은 `hand.draw`(반짝이가 아니다).
 @Composable
 private fun ForkCard(
     title: String,
     caption: String,
     onClick: () -> Unit,
+    icon: @Composable (Modifier) -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -457,7 +439,16 @@ private fun ForkCard(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                .shadow(
+                    4.dp,
+                    RoundedCornerShape(14.dp),
+                    ambientColor =
+                        androidx.compose.ui.graphics.Color.Black
+                            .copy(alpha = 0.06f),
+                    spotColor =
+                        androidx.compose.ui.graphics.Color.Black
+                            .copy(alpha = 0.06f),
+                ).clip(RoundedCornerShape(14.dp))
                 .background(IOS.systemBackground)
                 .clickable(onClick = onClick)
                 .padding(16.dp),
@@ -466,11 +457,12 @@ private fun ForkCard(
             modifier = Modifier.size(44.dp).clip(CircleShape).background(IOS.accent.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center,
         ) {
-            SparklesIcon(IOS.accent, Modifier.size(20.dp))
+            icon(Modifier.size(22.dp))
         }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-            Text(caption, fontSize = 11.sp, color = IOS.secondaryLabel)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Text(caption, fontSize = 12.sp, color = IOS.secondaryLabel)
         }
+        ChevronRightIcon(IOS.tertiaryLabel, Modifier.size(12.dp))
     }
 }

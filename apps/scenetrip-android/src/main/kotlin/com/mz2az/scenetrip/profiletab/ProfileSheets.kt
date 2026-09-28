@@ -10,9 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,8 +21,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -52,7 +54,14 @@ import com.mz2az.scenetrip.sceneapi.client.model.CourseDetail
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
 import com.mz2az.scenetrip.searchtab.RemoteImage
+import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSSheet
+import com.mz2az.scenetrip.ui.RouteCurveIcon
+import com.mz2az.scenetrip.ui.SheetDetent
+import com.mz2az.scenetrip.ui.SquarePencilIcon
+import com.mz2az.scenetrip.ui.XMarkIcon
+import com.mz2az.scenetrip.ui.sheetListBottom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -69,9 +78,9 @@ fun ProfileSheetHeader(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
                 .padding(horizontal = 12.dp)
-                .padding(top = 14.dp, bottom = 6.dp),
+                // 시트 손잡이 바로 아래 — iOS 는 제목 중심이 카드 윗변에서 약 23.
+                .padding(top = 2.dp, bottom = 6.dp),
     ) {
         Text(title, style = IOS.headline, color = IOS.label, modifier = Modifier.align(Alignment.Center))
         Box(
@@ -82,23 +91,34 @@ fun ProfileSheetHeader(
                     .clickable(onClick = onClose),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Close, contentDescription = "닫기", tint = IOS.secondaryLabel, modifier = Modifier.size(12.dp))
+            // iOS `xmark` 12pt semibold — 보이는 글리프 약 9.7.
+            XMarkIcon(IOS.secondaryLabel, Modifier.size(11.dp))
         }
     }
 }
 
+// iOS `ContentUnavailableView`: 아이콘(약 50, 회색) + 22 굵은 검정 제목 + 15 회색 설명, **카드 정중앙**.
+// 머리줄 아래 영역 가운데에 두면 14 아래로 처져 보여서 머리줄 절반만큼 올린다(2026-09-28 실측).
 @Composable
 private fun EmptyState(
     title: String,
     description: String,
+    icon: @Composable (Modifier) -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
+        modifier = Modifier.fillMaxSize().offset(y = (-22).dp).padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(title, style = IOS.headline, color = IOS.secondaryLabel)
-        Text(description, style = IOS.footnote, color = IOS.tertiaryLabel, textAlign = TextAlign.Center)
+        icon(Modifier.size(50.dp).padding(bottom = 10.dp))
+        Text(title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label, textAlign = TextAlign.Center)
+        Text(
+            description,
+            fontSize = 15.sp,
+            color = IOS.secondaryLabel,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 
@@ -107,7 +127,7 @@ private fun EmptyState(
  * 행을 누르면 바로 아래 상세(일차별 장소)가 펼쳐진다 — 아코디언.
  */
 @Composable
-fun MyCoursesSheet(
+private fun MyCoursesSheetBody(
     courses: List<CourseSummary>,
     onClose: () -> Unit,
 ) {
@@ -118,9 +138,9 @@ fun MyCoursesSheet(
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         ProfileSheetHeader("내 코스", onClose)
         if (courses.isEmpty()) {
-            EmptyState("아직 코스가 없습니다", "경로여정 탭에서 첫 코스를 만들어 보세요")
+            EmptyState("아직 코스가 없습니다", "경로여정 탭에서 첫 코스를 만들어 보세요") { RouteCurveIcon(IOS.secondaryLabel, it) }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
                 items(courses, key = { it.id }) { course ->
                     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                         Row(
@@ -242,7 +262,7 @@ fun MyCoursesSheet(
 
 /** 찜한 작품 팝업. */
 @Composable
-fun LikedWorksSheet(
+private fun LikedWorksSheetBody(
     works: List<ContentSummary>,
     loading: Boolean,
     failure: String?,
@@ -253,7 +273,10 @@ fun LikedWorksSheet(
         ProfileSheetHeader("찜한 작품", onClose)
         when {
             failure != null -> {
-                EmptyState("작품 목록을 받지 못했습니다", failure)
+                EmptyState(
+                    "작품 목록을 받지 못했습니다",
+                    failure,
+                ) { Icon(Icons.Outlined.Warning, contentDescription = null, tint = IOS.secondaryLabel, modifier = it) }
             }
 
             loading && works.isEmpty() -> {
@@ -268,11 +291,13 @@ fun LikedWorksSheet(
             }
 
             works.isEmpty() -> {
-                EmptyState("찜한 작품이 없습니다", "작품검색 탭에서 하트를 눌러 보세요")
+                EmptyState("찜한 작품이 없습니다", "작품검색 탭에서 하트를 눌러 보세요") {
+                    Icon(Icons.Filled.FavoriteBorder, contentDescription = null, tint = IOS.secondaryLabel, modifier = it)
+                }
             }
 
             else -> {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
                     items(works, key = { it.id }) { work ->
                         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                             Row(
@@ -338,16 +363,16 @@ fun LikedWorksSheet(
 
 /** 장바구니 팝업 — 검색 탭에서 담아 둔 촬영지. 보는 자리다. */
 @Composable
-fun ProfileCartSheet(
+private fun ProfileCartSheetBody(
     items: List<CartItem>,
     onClose: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         ProfileSheetHeader("장바구니", onClose)
         if (items.isEmpty()) {
-            EmptyState("장바구니가 비었습니다", "작품검색 탭에서 촬영지를 담아 보세요")
+            EmptyState("장바구니가 비었습니다", "작품검색 탭에서 촬영지를 담아 보세요") { BagIcon(IOS.secondaryLabel, it) }
         } else {
-            LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = sheetListBottom()) {
                 items(items, key = { it.placeId }) { item ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -379,7 +404,7 @@ fun ProfileCartSheet(
  * 같은 전문 화면이 열린다.
  */
 @Composable
-fun MyPostsSheet(
+private fun MyPostsSheetBody(
     posts: List<CommunityPost>,
     onRemove: (CommunityPost) -> Unit,
     onClose: () -> Unit,
@@ -389,9 +414,9 @@ fun MyPostsSheet(
         Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
             ProfileSheetHeader("내가 쓴 글", onClose)
             if (posts.isEmpty()) {
-                EmptyState("아직 쓴 글이 없습니다", "커뮤니티 탭에서 첫 글을 남겨 보세요")
+                EmptyState("아직 쓴 글이 없습니다", "커뮤니티 탭에서 첫 글을 남겨 보세요") { SquarePencilIcon(IOS.secondaryLabel, it) }
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
                     items(posts, key = { it.id }) { post ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -435,3 +460,50 @@ fun MyPostsSheet(
 private fun formatSimpleDate(isoDate: String): String = isoDate.take(10)
 
 private fun formatDateTimeShort(millis: Long): String = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.KOREA).format(Date(millis))
+
+/** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
+@Composable
+fun MyCoursesSheet(
+    courses: List<CourseSummary>,
+    onClose: () -> Unit,
+) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
+        MyCoursesSheetBody(courses = courses, onClose = onClose)
+    }
+}
+
+/** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
+@Composable
+fun LikedWorksSheet(
+    works: List<ContentSummary>,
+    loading: Boolean,
+    failure: String?,
+    onClose: () -> Unit,
+) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
+        LikedWorksSheetBody(works = works, loading = loading, failure = failure, onClose = onClose)
+    }
+}
+
+/** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
+@Composable
+fun ProfileCartSheet(
+    items: List<CartItem>,
+    onClose: () -> Unit,
+) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
+        ProfileCartSheetBody(items = items, onClose = onClose)
+    }
+}
+
+/** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
+@Composable
+fun MyPostsSheet(
+    posts: List<CommunityPost>,
+    onRemove: (CommunityPost) -> Unit,
+    onClose: () -> Unit,
+) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
+        MyPostsSheetBody(posts = posts, onRemove = onRemove, onClose = onClose)
+    }
+}
