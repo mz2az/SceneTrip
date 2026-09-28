@@ -155,7 +155,8 @@ fun OnboardingView(
                     // 버튼이 iOS 보다 바닥에 붙었다(2026-09-28 대조: 아래 여백 40 대 74).
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp)
-                    .padding(bottom = 40.dp)
+                    // Android 제스처 여백(24)은 iOS 안전 영역(34)보다 10 작다 — 그만큼 더해 iOS 74 에 맞춘다.
+                    .padding(bottom = 50.dp)
                     .height(50.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(IOS.accent)

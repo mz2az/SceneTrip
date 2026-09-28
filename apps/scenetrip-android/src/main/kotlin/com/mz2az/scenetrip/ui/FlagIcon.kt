@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.Path
 fun FlagIcon(
     tint: Color,
     modifier: Modifier = Modifier,
+    // iOS: 고정 안 함 = `flag`(외곽선), 고정 = `flag.fill`.
+    filled: Boolean = true,
 ) {
     Canvas(modifier) {
         val w = size.width
@@ -33,6 +35,16 @@ fun FlagIcon(
                 lineTo(w * 0.20f, h * 0.48f)
                 close()
             }
-        drawPath(flag, color = tint)
+        if (filled) {
+            drawPath(flag, color = tint)
+        } else {
+            drawPath(
+                flag,
+                color = tint,
+                style =
+                    androidx.compose.ui.graphics.drawscope
+                        .Stroke(width = w * 0.1f, join = androidx.compose.ui.graphics.StrokeJoin.Round),
+            )
+        }
     }
 }

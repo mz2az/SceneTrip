@@ -62,14 +62,14 @@ fun IOSGraphicalDatePicker(
             Spacer(Modifier.width(28.dp))
             ChevronRightIcon(IOS.accent, Modifier.size(20.dp).clickable { month = month.plusMonths(1) })
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(25.dp))
         Row {
             listOf("일", "월", "화", "수", "목", "금", "토").forEach {
                 Text(
                     it,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = IOS.tertiaryLabel,
+                    color = WEEKDAY_GRAY,
                     modifier = Modifier.weight(1f),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
@@ -91,14 +91,21 @@ fun IOSGraphicalDatePicker(
                             val enabled = !date.isBefore(minDate)
                             val isSelected = date == selected
                             val isToday = date == today
+                            // iOS: 오늘을 고르면 **진한** 파란 원·흰 글자, 다른 날을 고르면 **옅은** 파란 원·파란 굵은 글자.
+                            val filled = isSelected && isToday
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier =
                                     Modifier
                                         .size(44.dp)
                                         .clip(CircleShape)
-                                        .background(if (isSelected) IOS.accent else Color.Transparent)
-                                        .clickable(enabled = enabled) { onSelect(date) },
+                                        .background(
+                                            when {
+                                                filled -> IOS.accent
+                                                isSelected -> IOS.accent.copy(alpha = 0.14f)
+                                                else -> Color.Transparent
+                                            },
+                                        ).clickable(enabled = enabled) { onSelect(date) },
                             ) {
                                 Text(
                                     "$dayNumber",
@@ -106,8 +113,9 @@ fun IOSGraphicalDatePicker(
                                     fontWeight = if (isSelected || isToday) FontWeight.SemiBold else FontWeight.Normal,
                                     color =
                                         when {
-                                            isSelected -> Color.White
-                                            !enabled -> IOS.systemGray3
+                                            filled -> Color.White
+                                            isSelected -> IOS.accent
+                                            !enabled -> PAST_GRAY
                                             isToday -> IOS.accent
                                             else -> IOS.label
                                         },
@@ -120,3 +128,9 @@ fun IOSGraphicalDatePicker(
         }
     }
 }
+
+/** 요일 글자 — iOS 보조 회색(138,138,142). */
+private val WEEKDAY_GRAY = Color(0xFF8A8A8E)
+
+/** 지난 날짜 — iOS 는 systemGray3 보다 옅다(221). */
+private val PAST_GRAY = Color(0xFFDDDDDF)

@@ -3,6 +3,7 @@ package com.mz2az.scenetrip.routetab
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,11 +41,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.FootprintPoint
 import com.mz2az.scenetrip.data.RoutePoiGroup
@@ -56,23 +63,35 @@ import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
 import com.mz2az.scenetrip.searchtab.FilmIcon
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.ScopeIcon
+import com.mz2az.scenetrip.ui.ArrowDownIcon
 import com.mz2az.scenetrip.ui.CheckmarkIcon
 import com.mz2az.scenetrip.ui.CircleSignIcon
 import com.mz2az.scenetrip.ui.FlagIcon
+import com.mz2az.scenetrip.ui.GripLinesIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSListDivider
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.IOSSheetMaterial
 import com.mz2az.scenetrip.ui.IOSSheetToolbar
+import com.mz2az.scenetrip.ui.LocationArrowIcon
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.sheetListBottom
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
+import kotlin.math.roundToInt
 
 /**
  * 코스 편집 화면의 부품들. iOS `RouteTab/RouteEditorParts.swift`를 옮긴 것이다 —
  * 여행 중(길찾기·고정 배지)·챗봇 관련 부분은 뺐다, 그 화면 자체가 아직 없다.
+ *
+ * 정류지 줄은 iOS `RouteStopRow` 를 그대로 옮긴다(2026-09-29 밤, 화면 대조 #13):
+ * - 번호 22(그러데이션) · 이름 15 semibold · 부가 줄 11 · 작품 줄 · 머무는 시간 캡슐 · 오른쪽 `line.3.horizontal` 손잡이.
+ * - 아랫줄(왼쪽 34 들여) — 30 높이 캡슐들: 안내 중(`location.fill`, 보라 채움) 또는 길찾기(`location`, 옅은 보라),
+ *   출발/도착 고정, 그리고 `arrow.down` 다음 곳까지 거리.
+ * - **빼기는 밀어서**(왼쪽으로 밀면 빨간 삭제, 끝까지 밀면 빠진다 — iOS `.onDelete`), **순서는 손잡이를 끌어서**
+ *   (iOS `.onMove`). 앞서 Android 는 ▲▼ 글자와 빨간 「빼기」 글자가 늘 보였다.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun RouteStopRow(
     number: Int,
@@ -94,120 +113,183 @@ fun RouteStopRow(
     // 되짚어 넣어 준다.
     works: String = "",
 ) {
-    Column(
+    var rowHeight by remember { mutableStateOf(0) }
+    var dragY by remember { mutableStateOf(0f) }
+    // 순서가 바뀌면 콜백이 새로 온다 — 그것을 제스처의 키로 두면 끄는 도중 제스처가 다시 시작되며
+    // `onDragEnd` 가 불리지 않아 남은 dragY 로 행이 떠 있었다(15차: 37dp 겹침). 키는 고정하고 최신 콜백만 읽는다.
+    val moveUp by rememberUpdatedState(onMoveUp)
+    val moveDown by rememberUpdatedState(onMoveDown)
+    val swipe =
+        androidx.compose.material3.rememberSwipeToDismissBoxState(
+            confirmValueChange = { value ->
+                if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) onRemove()
+                false
+            },
+        )
+    androidx.compose.material3.SwipeToDismissBox(
+        state = swipe,
+        enableDismissFromStartToEnd = false,
         modifier =
             Modifier
-                .fillMaxWidth()
-                .alpha(if (stop.visited) 0.45f else 1f)
-                .background(if (isFocused) IOS.accent.copy(alpha = 0.07f) else IOS.systemBackground)
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable(onClick = onFocus)) {
+                .zIndex(if (dragY != 0f) 1f else 0f)
+                .offset {
+                    androidx.compose.ui.unit
+                        .IntOffset(0, dragY.roundToInt())
+                }.onSizeChanged { rowHeight = it.height },
+        backgroundContent = {
             Box(
-                modifier =
-                    Modifier
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(Brush.verticalGradient(listOf(IOS.pinLight, IOS.pinDeep))),
-                contentAlignment = Alignment.Center,
+                contentAlignment = Alignment.CenterEnd,
+                modifier = Modifier.fillMaxSize().background(IOS.systemRed).padding(horizontal = 20.dp),
             ) {
-                Text("$number", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("삭제", fontSize = 17.sp, color = Color.White)
             }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(stop.place.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-                    if (isTarget) {
-                        Badge(text = "안내 중", background = IOS.accent, foreground = Color.White)
-                    }
-                    if (stop.isPinned) {
-                        Badge(text = "내가 찍은 곳", background = IOS.systemGray5, foreground = IOS.secondaryLabel)
-                    }
-                    if (stop.placeMissing) {
-                        Badge(text = "저장 안 됨", background = IOS.systemOrange.copy(alpha = 0.15f), foreground = IOS.systemOrange)
-                    }
-                }
-                stop.arriveMinute?.let {
-                    Text("${RouteGuidePlan.clock(it)} 도착 예정", fontSize = 11.sp, color = IOS.secondaryLabel)
-                }
-                val subtitle = listOfNotNull(stop.place.type, stop.place.address).joinToString(" · ")
-                if (subtitle.isNotEmpty()) {
-                    Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel, maxLines = 1)
-                }
-                // **어느 작품에 나온 곳인가.** 이 앱에 오는 이유가 그것이라 유형·주소보다
-                // 중요한 줄이다 — "북촌한옥마을"만 봐서는 왜 이 코스에 들어왔는지 알 수
-                // 없다(iOS 2026-08-25 사용자 요청). Android엔 이 줄 자체가 없었다.
-                if (works.isNotEmpty()) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        FilmIcon(tint = IOS.pinDeep, modifier = Modifier.size(9.dp))
-                        Text(works, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = IOS.pinDeep, maxLines = 1)
-                    }
-                }
-            }
-            Text(
-                stop.stayLabel,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = IOS.label,
-                modifier =
-                    Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(IOS.accent.copy(alpha = 0.12f))
-                        .clickable(onClick = onStay)
-                        .padding(horizontal = 9.dp, vertical = 5.dp),
-            )
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.padding(start = 34.dp, top = 4.dp),
+        },
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(if (isFocused) IOS.accent.copy(alpha = 0.07f).compositeOver(IOS.systemBackground) else IOS.systemBackground)
+                    // iOS `List` 행 여백(약 11) + `.padding(.vertical, 4)` — 8 이면 행이 15 낮았다.
+                    .padding(horizontal = 16.dp, vertical = 15.dp),
         ) {
-            if (onMoveUp != null) {
-                Text("▲", fontSize = 11.sp, color = IOS.secondaryLabel, modifier = Modifier.clickable(onClick = onMoveUp))
-            }
-            if (onMoveDown != null) {
-                Text("▼", fontSize = 11.sp, color = IOS.secondaryLabel, modifier = Modifier.clickable(onClick = onMoveDown))
-            }
-            // 여행 중 이 곳으로 길찾기 — 별도 창이 아니라 이 화면의 지도에 경로가 그려진다
-            // (iOS `RouteEditorParts.RouteStopRow`, trip-mode.md §8). 안내 중인 곳은
-            // 「안내 중」 배지(위 줄)가 이미 있어 여기 또 안 둔다.
-            if (!isTarget && onNavigate != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth().alpha(if (stop.visited) 0.45f else 1f).clickable(onClick = onFocus),
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(Brush.verticalGradient(listOf(IOS.pinLight, IOS.pinDeep))),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("$number", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(stop.place.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, maxLines = 1)
+                        if (stop.isPinned) {
+                            Badge(text = "내가 찍은 곳", background = IOS.systemGray5, foreground = IOS.secondaryLabel)
+                        }
+                        if (stop.placeMissing) {
+                            Badge(text = "저장 안 됨", background = IOS.systemOrange.copy(alpha = 0.15f), foreground = IOS.systemOrange)
+                        }
+                    }
+                    stop.arriveMinute?.let {
+                        Text("${RouteGuidePlan.clock(it)} 도착 예정", fontSize = 11.sp, color = IOS.secondaryLabel)
+                    }
+                    val subtitle = listOfNotNull(stop.place.type, stop.place.address).joinToString(" · ")
+                    if (subtitle.isNotEmpty()) {
+                        Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel, maxLines = 1)
+                    }
+                    // **어느 작품에 나온 곳인가.** 이 앱에 오는 이유가 그것이라 유형·주소보다 중요한 줄이다.
+                    if (works.isNotEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            FilmIcon(tint = IOS.pinDeep, modifier = Modifier.size(9.dp))
+                            Text(works, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = IOS.pinDeep, maxLines = 1)
+                        }
+                    }
+                }
                 Text(
-                    if (stop.visited) "다시 길찾기" else "길찾기",
-                    fontSize = 11.sp,
+                    stop.stayLabel,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = IOS.pinDeep,
+                    color = IOS.label,
                     modifier =
                         Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(IOS.pinDeep.copy(alpha = 0.12f))
-                            .clickable(onClick = onNavigate)
-                            .padding(horizontal = 9.dp, vertical = 4.dp),
+                            .background(IOS.accent.copy(alpha = 0.12f))
+                            .clickable(onClick = onStay)
+                            .padding(horizontal = 9.dp, vertical = 5.dp),
+                )
+                // 손잡이 — 끄는 만큼 행이 따라오고, 반 줄을 넘으면 이웃과 자리를 바꾼다.
+                GripLinesIcon(
+                    IOS.tertiaryLabel,
+                    Modifier
+                        .size(12.dp)
+                        .pointerInput(Unit) {
+                            detectVerticalDragGestures(
+                                onDragEnd = { dragY = 0f },
+                                onDragCancel = { dragY = 0f },
+                            ) { change, amount ->
+                                change.consume()
+                                dragY += amount
+                                val half = rowHeight / 2f
+                                val down = moveDown
+                                val up = moveUp
+                                if (dragY > half && down != null) {
+                                    down()
+                                    dragY -= rowHeight
+                                } else if (dragY < -half && up != null) {
+                                    up()
+                                    dragY += rowHeight
+                                }
+                            }
+                        },
                 )
             }
-            if (pinLabel != null) {
-                val pinTint = if (isPinned) Color.White else IOS.secondaryLabel
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp),
-                    modifier =
-                        Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(if (isPinned) IOS.accent else IOS.systemGray6)
-                            .clickable(onClick = onTogglePin)
-                            .padding(horizontal = 9.dp, vertical = 4.dp),
-                ) {
-                    FlagIcon(tint = pinTint, modifier = Modifier.size(9.dp))
-                    Text("$pinLabel 고정", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = pinTint)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(start = 34.dp, top = 8.dp),
+            ) {
+                if (isTarget) {
+                    StopCapsule(background = IOS.pinDeep) {
+                        LocationArrowIcon(Color.White, filled = true, modifier = Modifier.size(11.dp))
+                        Text("안내 중", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1)
+                    }
+                } else if (onNavigate != null) {
+                    // 여행 중 이 곳으로 길찾기 — 별도 창이 아니라 이 화면의 지도에 경로가 그려진다.
+                    StopCapsule(background = IOS.pinDeep.copy(alpha = 0.12f), onClick = onNavigate) {
+                        LocationArrowIcon(IOS.pinDeep, filled = false, modifier = Modifier.size(11.dp))
+                        Text(
+                            if (stop.visited) "다시 길찾기" else "길찾기",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = IOS.pinDeep,
+                            maxLines = 1,
+                        )
+                    }
+                }
+                if (pinLabel != null) {
+                    val pinTint = if (isPinned) Color.White else IOS.secondaryLabel
+                    StopCapsule(background = if (isPinned) IOS.accent else IOS.systemGray6, onClick = onTogglePin) {
+                        FlagIcon(tint = pinTint, filled = isPinned, modifier = Modifier.size(10.dp))
+                        Text("$pinLabel 고정", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = pinTint, maxLines = 1)
+                    }
+                }
+                nextKilometers?.let {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ArrowDownIcon(IOS.tertiaryLabel, Modifier.size(14.dp))
+                        Text(RouteFormat.kilometers(it), fontSize = 12.sp, color = IOS.tertiaryLabel, maxLines = 1)
+                    }
                 }
             }
-            nextKilometers?.let {
-                Text("↓ ${RouteFormat.kilometers(it)}", fontSize = 11.sp, color = IOS.tertiaryLabel)
-            }
-            Spacer(Modifier.weight(1f))
-            Text("빼기", fontSize = 11.sp, color = IOS.systemRed, modifier = Modifier.clickable(onClick = onRemove))
         }
     }
+}
+
+/** 행 아랫줄의 30 높이 캡슐. */
+@Composable
+private fun StopCapsule(
+    background: Color,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier =
+            Modifier
+                .height(30.dp)
+                .clip(RoundedCornerShape(50))
+                .background(background)
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(horizontal = 9.dp),
+    ) { content() }
 }
 
 @Composable

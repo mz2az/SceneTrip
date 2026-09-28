@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -55,6 +56,7 @@ import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.LeafIcon
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
+import com.mz2az.scenetrip.ui.UTurnLeftIcon
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -225,7 +227,11 @@ private fun RouteWizardViewBody(
                     Spacer(Modifier.height(10.dp))
                     if (hasDate) {
                         val back = pickedDate.plusDays(span.nights.toLong())
-                        Text("돌아오는 날 ${RouteFormat.day(back)} · 자동", fontSize = 12.sp, color = IOS.secondaryLabel)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            // iOS `Label(..., systemImage: "arrow.uturn.left")`.
+                            UTurnLeftIcon(IOS.secondaryLabel, Modifier.size(14.dp))
+                            Text("돌아오는 날 ${RouteFormat.day(back)} · 자동", fontSize = 12.sp, color = IOS.secondaryLabel)
+                        }
                         Text(
                             "날짜 지우기",
                             fontSize = 12.sp,
@@ -329,7 +335,15 @@ private fun RouteWizardViewBody(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(16.dp),
+            // iOS 는 이 줄 아래를 안전 영역(홈 인디케이터)만큼 더 띄운다 — 제스처 막대에 붙어 있었다.
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(IOS.systemBackground)
+                    .navigationBarsPadding()
+                    .padding(16.dp)
+                    // Android 제스처 여백(24)은 iOS 안전 영역(34)보다 10 작다.
+                    .padding(bottom = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

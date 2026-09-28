@@ -226,3 +226,87 @@ fun CheckmarkIcon(
         drawPath(p, tint, style = Stroke(width = w * 0.14f, cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
+
+/** `arrow.uturn.left` — 위에서 **왼쪽을 가리키고**, 오른쪽에서 둥글게 돌아 아래 줄로 되돌아오는 U자(iOS 확대 실측). */
+@Composable
+fun UTurnLeftIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = stroke(w)
+        val p =
+            Path().apply {
+                moveTo(w * 0.12f, w * 0.3f)
+                lineTo(w * 0.62f, w * 0.3f)
+                cubicTo(w * 0.94f, w * 0.3f, w * 0.94f, w * 0.84f, w * 0.62f, w * 0.84f)
+                lineTo(w * 0.34f, w * 0.84f)
+            }
+        drawPath(p, tint, style = s)
+        val head =
+            Path().apply {
+                moveTo(w * 0.32f, w * 0.1f)
+                lineTo(w * 0.12f, w * 0.3f)
+                lineTo(w * 0.32f, w * 0.5f)
+            }
+        drawPath(head, tint, style = s)
+    }
+}
+
+/** `location` / `location.fill` — 오른쪽 위를 가리키는 내비 화살표. */
+@Composable
+fun LocationArrowIcon(
+    tint: Color,
+    filled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val p =
+            Path().apply {
+                moveTo(w * 0.9f, w * 0.1f)
+                lineTo(w * 0.1f, w * 0.46f)
+                lineTo(w * 0.5f, w * 0.52f)
+                lineTo(w * 0.56f, w * 0.9f)
+                close()
+            }
+        if (filled) drawPath(p, tint) else drawPath(p, tint, style = stroke(w))
+    }
+}
+
+/** `arrow.down` */
+@Composable
+fun ArrowDownIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = stroke(w)
+        drawLine(tint, Offset(w * 0.5f, w * 0.1f), Offset(w * 0.5f, w * 0.88f), strokeWidth = s.width, cap = StrokeCap.Round)
+        val head =
+            Path().apply {
+                moveTo(w * 0.2f, w * 0.6f)
+                lineTo(w * 0.5f, w * 0.9f)
+                lineTo(w * 0.8f, w * 0.6f)
+            }
+        drawPath(head, tint, style = s)
+    }
+}
+
+/** `line.3.horizontal` — 끌기 손잡이. */
+@Composable
+fun GripLinesIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val sw = w * 0.1f
+        // iOS 글리프는 11.7×5.7 — 선 사이가 좁다.
+        listOf(0.26f, 0.5f, 0.74f).map { 0.5f + (it - 0.5f) * 0.9f }.forEach { y ->
+            drawLine(tint, Offset(w * 0.1f, w * y), Offset(w * 0.9f, w * y), strokeWidth = sw, cap = StrokeCap.Round)
+        }
+    }
+}

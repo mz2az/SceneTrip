@@ -860,6 +860,8 @@ fun RouteEditorView(
                                         null
                                     },
                             )
+                            // iOS `List` 줄 구분선 — 번호 뒤 글자 시작(16 + 22 + 12)부터.
+                            if (index < stops.lastIndex) IOSListDivider(start = 50.dp)
                         }
                         if (stops.isEmpty()) {
                             item {
@@ -1451,7 +1453,7 @@ private fun PlaceSearchOverlayBody(
                 modifier = Modifier.fillMaxWidth().padding(top = 60.dp, start = 32.dp, end = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                MagnifierIcon(IOS.secondaryLabel, Modifier.padding(bottom = 10.dp).size(44.dp))
+                MagnifierIcon(IOS.secondaryLabel, Modifier.padding(bottom = 10.dp).size(51.dp))
                 Text(
                     "‘$trimmed’에 대한 결과 없음",
                     fontSize = 22.sp,
