@@ -203,6 +203,8 @@ fun RouteEditorView(
     }
 
     fun saveAndClose() {
+        // 제목을 비운 채 저장하면 목록에 이름 없는 코스가 생긴다 — iOS `saveAndClose`와 같이 기본 이름으로.
+        course = course.copy(title = course.title.trim().ifEmpty { "내 코스" })
         saving = true
         scope.launch {
             val saved = store.save(course)
