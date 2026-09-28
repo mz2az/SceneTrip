@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,7 +44,7 @@ fun CommunityPostView(
     post: CommunityPost,
     onDismiss: () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground).statusBarsPadding()) {
+    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         Box(
             modifier =
                 Modifier
@@ -148,6 +147,10 @@ fun CommunityPostView(
 
 private fun Modifier.postCard(): Modifier =
     this
-        .shadow(4.dp, RoundedCornerShape(14.dp), ambientColor = Color.Black.copy(alpha = 0.05f))
-        .clip(RoundedCornerShape(14.dp))
+        .shadow(
+            4.dp,
+            RoundedCornerShape(14.dp),
+            ambientColor = Color.Black.copy(alpha = 0.05f),
+            spotColor = Color.Black.copy(alpha = 0.05f),
+        ).clip(RoundedCornerShape(14.dp))
         .background(IOS.systemBackground)

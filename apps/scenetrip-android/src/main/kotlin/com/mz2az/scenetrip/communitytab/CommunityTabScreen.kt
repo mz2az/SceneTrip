@@ -52,6 +52,8 @@ import com.mz2az.scenetrip.sceneapi.client.model.MarketCourseSummary
 import com.mz2az.scenetrip.sceneapi.client.model.MarketSort
 import com.mz2az.scenetrip.ui.BubblesIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSSheet
+import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SquarePencilIcon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -142,8 +144,11 @@ fun CommunityTabScreen() {
             }
         }
 
+        // iOS `.sheet(item:)` + `.presentationDetents([.large])` — 탭 위 페이지가 아니라 시트.
         reading?.let { post ->
-            CommunityPostView(post = post, onDismiss = { reading = null })
+            IOSSheet(detents = listOf(SheetDetent.LARGE), onDismiss = { reading = null }) {
+                CommunityPostView(post = post, onDismiss = { reading = null })
+            }
         }
 
         if (composing) {

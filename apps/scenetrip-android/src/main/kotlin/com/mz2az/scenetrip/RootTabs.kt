@@ -28,7 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -197,15 +198,12 @@ private fun SideTab(
     val tint = if (active) IOS.accent else IOS.secondaryLabel
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        // iOS `VStack(spacing: 3)` 을 칸 가운데에 — 위아래 반씩 나눠 아이콘을 아래로 붙이면 묶음이 4.8 위로 떴다.
+        verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
         modifier = modifier.fillMaxSize().clickable(onClick = onClick),
     ) {
-        Box(Modifier.weight(1f), contentAlignment = Alignment.BottomCenter) {
-            TabIcon(tab, tint, 22.dp)
-        }
-        Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
-            Text(tab.stubLabel, fontSize = 11.sp, color = tint, textAlign = TextAlign.Center)
-        }
+        TabIcon(tab, tint, 22.dp)
+        Text(tab.stubLabel, fontSize = 11.sp, color = tint, textAlign = TextAlign.Center)
     }
 }
 
@@ -240,8 +238,22 @@ private fun HomeTab(
                 modifier =
                     Modifier
                         .size(62.dp)
-                        .shadow(7.dp, CircleShape, ambientColor = IOS.pinDeep, spotColor = IOS.pinDeep)
-                        .clip(CircleShape)
+                        // iOS `.shadow(pinDeep 42%, r7, y6)` — 아래로 퍼지는 보라 글로우. Android elevation 그림자는
+                        // 옅은 회색에 가까워 직접 그린다(2차 대조).
+                        .drawBehind {
+                            val glow = size.minDimension / 2 + 9.dp.toPx()
+                            val c = center + Offset(0f, 6.dp.toPx())
+                            drawCircle(
+                                Brush.radialGradient(
+                                    0.6f to IOS.pinDeep.copy(alpha = 0.42f),
+                                    1f to Color.Transparent,
+                                    center = c,
+                                    radius = glow,
+                                ),
+                                radius = glow,
+                                center = c,
+                            )
+                        }.clip(CircleShape)
                         .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)))
                         .border(4.dp, IOS.systemGray6, CircleShape),
                 contentAlignment = Alignment.Center,

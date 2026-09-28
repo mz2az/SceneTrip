@@ -55,8 +55,12 @@ internal val HOME_PURPLE = Color(0xFF5B49D6)
 /** 흰 카드 바탕 — 목업의 `radius 18 · shadow 0 2 8 rgba(0,0,0,.07)`. */
 internal fun Modifier.homeCard(radius: Dp = 18.dp): Modifier =
     this
-        .shadow(4.dp, RoundedCornerShape(radius), ambientColor = Color.Black.copy(alpha = 0.07f))
-        .clip(RoundedCornerShape(radius))
+        .shadow(
+            4.dp,
+            RoundedCornerShape(radius),
+            ambientColor = Color.Black.copy(alpha = 0.07f),
+            spotColor = Color.Black.copy(alpha = 0.07f),
+        ).clip(RoundedCornerShape(radius))
         .background(IOS.systemBackground)
 
 /** "N박 (N+1)일" — 당일치기면 그 말 그대로. iOS `RouteSpan(days:).label`. */
@@ -122,8 +126,12 @@ fun HomeHeader(onProfile: () -> Unit) {
             modifier =
                 Modifier
                     .size(36.dp)
-                    .shadow(1.5.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.08f))
-                    .clip(CircleShape)
+                    .shadow(
+                        1.5.dp,
+                        CircleShape,
+                        ambientColor = Color.Black.copy(alpha = 0.08f),
+                        spotColor = Color.Black.copy(alpha = 0.08f),
+                    ).clip(CircleShape)
                     .background(IOS.systemBackground)
                     .clickable(onClick = onProfile),
             contentAlignment = Alignment.Center,
@@ -216,8 +224,12 @@ fun HomeTripCard(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .shadow(8.dp, RoundedCornerShape(22.dp), ambientColor = IOS.pinDeep.copy(alpha = 0.28f))
-                .clip(RoundedCornerShape(22.dp))
+                .shadow(
+                    8.dp,
+                    RoundedCornerShape(22.dp),
+                    ambientColor = IOS.pinDeep.copy(alpha = 0.28f),
+                    spotColor = IOS.pinDeep.copy(alpha = 0.28f),
+                ).clip(RoundedCornerShape(22.dp))
                 .background(Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep)))
                 .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {

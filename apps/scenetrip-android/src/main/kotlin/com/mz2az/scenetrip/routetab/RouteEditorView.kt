@@ -586,6 +586,7 @@ fun RouteEditorView(
                 numbered = true,
                 onTap = { place -> focusedStopId = stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(place) }?.id },
             )
+            PendingPinMarker(map = map, pin = pendingPin)
             TripOverlay(map = map, active = trip.isActive, here = trip.here, leg = trip.leg)
             FootprintTrail(
                 map = map,
@@ -730,15 +731,18 @@ fun RouteEditorView(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(horizontal = 16.dp, vertical = 10.dp),
                     ) {
-                        Text("${stops.size}곳", fontSize = 12.sp, color = IOS.secondaryLabel)
-                        Text(" · ", fontSize = 12.sp, color = IOS.secondaryLabel)
-                        Text(
-                            "직선 ${RouteFormat.kilometers(RouteGeometry.totalKilometers(stops))}",
-                            fontSize = 12.sp,
-                            color = IOS.secondaryLabel,
-                        )
+                        // iOS `.footnote`(13) + HStack(spacing: 6).
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("${stops.size}곳", fontSize = 13.sp, color = IOS.secondaryLabel)
+                            Text("·", fontSize = 13.sp, color = IOS.secondaryLabel)
+                            Text(
+                                "직선 ${RouteFormat.kilometers(RouteGeometry.totalKilometers(stops))}",
+                                fontSize = 13.sp,
+                                color = IOS.secondaryLabel,
+                            )
+                        }
                         Spacer(Modifier.weight(1f))
-                        Text("이동 시간은 여행 중에", fontSize = 12.sp, color = IOS.tertiaryLabel)
+                        Text("이동 시간은 여행 중에", fontSize = 13.sp, color = IOS.tertiaryLabel)
                     }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),

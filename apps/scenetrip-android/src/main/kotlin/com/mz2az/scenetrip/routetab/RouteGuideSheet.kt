@@ -193,11 +193,13 @@ fun RouteGuidePanel(
                     Modifier
                         .padding(end = 6.dp, bottom = 8.dp)
                         .size(width = 316.dp, height = 470.dp)
+                        // iOS 검정 22%·r14·y6. Android 그림자 색의 알파는 플랫폼 그림자 농도(스팟 약 19%)에
+                        // **곱해져** 22% 를 주면 거의 안 보였다(2차 대조) — 최대(검정 그대로)로 둔다.
                         .shadow(
-                            14.dp,
+                            16.dp,
                             RoundedCornerShape(20.dp),
-                            ambientColor = Color.Black.copy(alpha = 0.22f),
-                            spotColor = Color.Black.copy(alpha = 0.22f),
+                            ambientColor = Color.Black,
+                            spotColor = Color.Black,
                         ).clip(RoundedCornerShape(20.dp))
                         .background(IOSSheetMaterial)
                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},

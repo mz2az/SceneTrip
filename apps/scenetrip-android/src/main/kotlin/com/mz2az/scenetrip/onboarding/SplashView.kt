@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -120,7 +121,7 @@ fun SplashView(onDone: () -> Unit) {
                             Modifier
                                 .size(190.dp)
                                 .graphicsLayer { translationY = 4.dp.toPx() }
-                                .blur(26.dp)
+                                .blur(26.dp, BlurredEdgeTreatment.Unbounded)
                                 .background(Color.White.copy(alpha = 0.28f), CircleShape),
                     )
 
@@ -158,7 +159,8 @@ fun SplashView(onDone: () -> Unit) {
                         TextStyle(
                             color = Color.White,
                             fontSize = 44.sp,
-                            fontWeight = FontWeight.Bold,
+                            // 라틴 워드마크라 iOS `.heavy` 가 그대로 두껍다 — 「한글 heavy ≈ Bold」 규칙은 여기 해당 없다.
+                            fontWeight = FontWeight.Black,
                             letterSpacing = (-1.2).sp,
                         ),
                 )

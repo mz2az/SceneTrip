@@ -476,9 +476,8 @@ private fun WorkRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(work.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
             val subtitle = listOfNotNull(work.broadcaster, work.releaseYear?.toString()).joinToString(" · ")
-            if (subtitle.isNotEmpty()) {
-                Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel)
-            }
+            // iOS 는 부제가 비어도 caption2 줄을 그려 행 높이가 늘 같다(2차 대조: 54.3 대 40.4).
+            Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel)
         }
         if (isSelected) {
             Icon(

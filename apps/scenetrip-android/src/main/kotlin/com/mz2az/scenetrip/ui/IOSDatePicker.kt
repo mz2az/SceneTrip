@@ -82,10 +82,10 @@ fun IOSGraphicalDatePicker(
         val cells = lead + month.lengthOfMonth()
         val rows = (cells + 6) / 7
         for (r in 0 until rows) {
-            Row(modifier = Modifier.fillMaxWidth().height(50.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().height(56.dp)) {
                 for (c in 0 until 7) {
                     val dayNumber = r * 7 + c - lead + 1
-                    Box(modifier = Modifier.weight(1f).height(50.dp), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.weight(1f).height(56.dp), contentAlignment = Alignment.Center) {
                         if (dayNumber in 1..month.lengthOfMonth()) {
                             val date = month.atDay(dayNumber)
                             val enabled = !date.isBefore(minDate)

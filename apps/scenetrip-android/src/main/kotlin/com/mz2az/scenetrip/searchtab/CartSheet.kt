@@ -32,8 +32,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
+import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSEmptyState
 
 /**
  * 장바구니 — 담은 장소를 보여 주고 뺄 수 있게 한다.
@@ -123,21 +125,9 @@ private fun CartContent(
                         .padding(horizontal = IOS.gutter, vertical = 4.dp),
             )
         }
-        Box(Modifier.fillMaxWidth().height(0.5.dp).background(IOS.separator))
-
+        // iOS inline 머리줄은 아래 선이 없다(2차 대조) — 빈 상태도 ContentUnavailableView(가방).
         if (items.isEmpty()) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                Text("담은 장소가 없습니다", style = IOS.headline, color = IOS.secondaryLabel)
-                Text(
-                    "장소를 저장하면 여기에 모입니다",
-                    style = IOS.subheadline,
-                    color = IOS.tertiaryLabel,
-                )
-            }
+            IOSEmptyState("담은 장소가 없습니다", "장소를 저장하면 여기에 모입니다") { BagIcon(IOS.secondaryLabel, it) }
         } else {
             LazyColumn(modifier = Modifier.weight(1f)) {
                 itemsIndexed(items, key = { _, item -> item.placeId }) { index, item ->

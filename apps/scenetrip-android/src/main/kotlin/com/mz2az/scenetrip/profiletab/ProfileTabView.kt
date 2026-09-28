@@ -166,7 +166,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 }
             }
 
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            // iOS insetGrouped List 는 첫 섹션 위에 약 38 을 비운다(2차 대조: 제목→해태 75.5 대 38).
+            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 38.dp)) {
                 item { ProfileHeader() }
 
                 item {

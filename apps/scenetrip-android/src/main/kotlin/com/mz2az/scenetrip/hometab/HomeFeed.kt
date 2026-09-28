@@ -22,8 +22,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -215,7 +218,19 @@ private fun StampsCard(
                 }
                 if (stamps.size > 3) {
                     Box(
-                        modifier = Modifier.size(34.dp).clip(CircleShape),
+                        // iOS: systemGray3 1.5 점선 원(dash 3).
+                        modifier =
+                            Modifier.size(34.dp).drawBehind {
+                                drawCircle(
+                                    IOS.systemGray3,
+                                    radius = size.minDimension / 2 - 0.75.dp.toPx(),
+                                    style =
+                                        Stroke(
+                                            width = 1.5.dp.toPx(),
+                                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 3.dp.toPx())),
+                                        ),
+                                )
+                            },
                         contentAlignment = Alignment.Center,
                     ) {
                         Text("+${stamps.size - 3}", fontSize = 12.sp, color = IOS.secondaryLabel)

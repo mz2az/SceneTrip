@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -56,6 +55,8 @@ import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSEmptyState
+import com.mz2az.scenetrip.ui.IOSListDivider
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.RouteCurveIcon
 import com.mz2az.scenetrip.ui.SheetDetent
@@ -97,31 +98,6 @@ fun ProfileSheetHeader(
     }
 }
 
-// iOS `ContentUnavailableView`: 아이콘(약 50, 회색) + 22 굵은 검정 제목 + 15 회색 설명, **카드 정중앙**.
-// 머리줄 아래 영역 가운데에 두면 14 아래로 처져 보여서 머리줄 절반만큼 올린다(2026-09-28 실측).
-@Composable
-private fun EmptyState(
-    title: String,
-    description: String,
-    icon: @Composable (Modifier) -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().offset(y = (-22).dp).padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        icon(Modifier.size(50.dp).padding(bottom = 10.dp))
-        Text(title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label, textAlign = TextAlign.Center)
-        Text(
-            description,
-            fontSize = 15.sp,
-            color = IOS.secondaryLabel,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-    }
-}
-
 /**
  * 내 코스 팝업. iOS `ProfileTab/ProfileSheets.swift`의 `MyCoursesSheet`를 옮긴 것이다.
  * 행을 누르면 바로 아래 상세(일차별 장소)가 펼쳐진다 — 아코디언.
@@ -138,7 +114,7 @@ private fun MyCoursesSheetBody(
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         ProfileSheetHeader("내 코스", onClose)
         if (courses.isEmpty()) {
-            EmptyState("아직 코스가 없습니다", "경로여정 탭에서 첫 코스를 만들어 보세요") { RouteCurveIcon(IOS.secondaryLabel, it) }
+            IOSEmptyState("아직 코스가 없습니다", "경로여정 탭에서 첫 코스를 만들어 보세요") { RouteCurveIcon(IOS.secondaryLabel, it) }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
                 items(courses, key = { it.id }) { course ->
@@ -273,7 +249,7 @@ private fun LikedWorksSheetBody(
         ProfileSheetHeader("찜한 작품", onClose)
         when {
             failure != null -> {
-                EmptyState(
+                IOSEmptyState(
                     "작품 목록을 받지 못했습니다",
                     failure,
                 ) { Icon(Icons.Outlined.Warning, contentDescription = null, tint = IOS.secondaryLabel, modifier = it) }
@@ -291,7 +267,7 @@ private fun LikedWorksSheetBody(
             }
 
             works.isEmpty() -> {
-                EmptyState("찜한 작품이 없습니다", "작품검색 탭에서 하트를 눌러 보세요") {
+                IOSEmptyState("찜한 작품이 없습니다", "작품검색 탭에서 하트를 눌러 보세요") {
                     Icon(Icons.Filled.FavoriteBorder, contentDescription = null, tint = IOS.secondaryLabel, modifier = it)
                 }
             }
@@ -316,7 +292,8 @@ private fun LikedWorksSheetBody(
                                     Text(work.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = IOS.label)
                                     val meta =
                                         listOfNotNull(work.broadcaster, work.releaseYear?.toString()).joinToString(" · ")
-                                    if (meta.isNotEmpty()) Text(meta, fontSize = 12.sp, color = IOS.secondaryLabel)
+                                    // iOS 는 비어도 부제 줄을 그려 행 높이가 같다(2차 대조).
+                                    Text(meta, fontSize = 12.sp, color = IOS.secondaryLabel)
                                 }
                                 Icon(
                                     Icons.Filled.Favorite,
@@ -354,6 +331,8 @@ private fun LikedWorksSheetBody(
                                 }
                             }
                         }
+                        // iOS `List` 행 구분선 — 포스터 뒤 글자 시작(16+34+10)에서.
+                        IOSListDivider(start = 60.dp)
                     }
                 }
             }
@@ -370,7 +349,7 @@ private fun ProfileCartSheetBody(
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         ProfileSheetHeader("장바구니", onClose)
         if (items.isEmpty()) {
-            EmptyState("장바구니가 비었습니다", "작품검색 탭에서 촬영지를 담아 보세요") { BagIcon(IOS.secondaryLabel, it) }
+            IOSEmptyState("장바구니가 비었습니다", "작품검색 탭에서 촬영지를 담아 보세요") { BagIcon(IOS.secondaryLabel, it) }
         } else {
             LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = sheetListBottom()) {
                 items(items, key = { it.placeId }) { item ->
@@ -414,7 +393,7 @@ private fun MyPostsSheetBody(
         Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
             ProfileSheetHeader("내가 쓴 글", onClose)
             if (posts.isEmpty()) {
-                EmptyState("아직 쓴 글이 없습니다", "커뮤니티 탭에서 첫 글을 남겨 보세요") { SquarePencilIcon(IOS.secondaryLabel, it) }
+                IOSEmptyState("아직 쓴 글이 없습니다", "커뮤니티 탭에서 첫 글을 남겨 보세요") { SquarePencilIcon(IOS.secondaryLabel, it) }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
                     items(posts, key = { it.id }) { post ->

@@ -315,8 +315,12 @@ private fun DayCards() {
                     Modifier
                         .width(132.dp)
                         .alpha(day.fade)
-                        .shadow(4.dp, RoundedCornerShape(12.dp))
-                        .clip(RoundedCornerShape(12.dp))
+                        .shadow(
+                            4.dp,
+                            RoundedCornerShape(12.dp),
+                            ambientColor = Color.Black.copy(alpha = 0.10f),
+                            spotColor = Color.Black.copy(alpha = 0.10f),
+                        ).clip(RoundedCornerShape(12.dp))
                         .background(IOS.systemBackground)
                         .padding(horizontal = 11.dp, vertical = 9.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -455,8 +459,12 @@ private fun RadiusChips() {
                 modifier =
                     Modifier
                         .offset(x = chip.place.x.dp, y = chip.place.y.dp)
-                        .shadow(3.dp, RoundedCornerShape(50))
-                        .clip(RoundedCornerShape(50))
+                        .shadow(
+                            4.dp,
+                            RoundedCornerShape(50),
+                            ambientColor = Color.Black.copy(alpha = 0.10f),
+                            spotColor = Color.Black.copy(alpha = 0.10f),
+                        ).clip(RoundedCornerShape(50))
                         .background(IOS.systemBackground)
                         .padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
             ) {

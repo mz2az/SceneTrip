@@ -76,7 +76,10 @@ fun MapPinEllipseIcon(
     }
 }
 
-/** `arrow.triangle.swap` — 위로 가는 화살표와 아래로 가는 화살표가 엇갈린 모양. */
+/**
+ * `arrow.triangle.swap` — 한 줄이 ∩∪ 로 굽이치고 양 끝이 화살표(왼쪽 끝은 아래, 오른쪽 끝은 위).
+ * 곧은 ⇅ 두 개로 그렸더니 모양이 한눈에 달랐다(2차 대조).
+ */
 @Composable
 fun SwapArrowsIcon(
     tint: Color,
@@ -85,24 +88,33 @@ fun SwapArrowsIcon(
     Canvas(modifier) {
         val w = size.minDimension
         val s = stroke(w)
-        // 왼쪽: 아래에서 위로
-        drawLine(tint, Offset(w * 0.3f, w * 0.88f), Offset(w * 0.3f, w * 0.14f), strokeWidth = s.width, cap = StrokeCap.Round)
-        val up =
+        val r = w * 0.15f
+        val wave =
             Path().apply {
-                moveTo(w * 0.1f, w * 0.34f)
-                lineTo(w * 0.3f, w * 0.12f)
-                lineTo(w * 0.5f, w * 0.34f)
+                moveTo(w * 0.2f, w * 0.86f)
+                lineTo(w * 0.2f, w * 0.34f)
+                // ∩ — 왼쪽 기둥 꼭대기에서 가운데 기둥으로
+                cubicTo(w * 0.2f, w * 0.34f - r * 1.33f, w * 0.5f, w * 0.34f - r * 1.33f, w * 0.5f, w * 0.34f)
+                lineTo(w * 0.5f, w * 0.66f)
+                // ∪ — 가운데 기둥 바닥에서 오른쪽 기둥으로
+                cubicTo(w * 0.5f, w * 0.66f + r * 1.33f, w * 0.8f, w * 0.66f + r * 1.33f, w * 0.8f, w * 0.66f)
+                lineTo(w * 0.8f, w * 0.14f)
             }
-        drawPath(up, tint, style = s)
-        // 오른쪽: 위에서 아래로
-        drawLine(tint, Offset(w * 0.7f, w * 0.12f), Offset(w * 0.7f, w * 0.86f), strokeWidth = s.width, cap = StrokeCap.Round)
+        drawPath(wave, tint, style = s)
         val down =
             Path().apply {
-                moveTo(w * 0.5f, w * 0.66f)
-                lineTo(w * 0.7f, w * 0.88f)
-                lineTo(w * 0.9f, w * 0.66f)
+                moveTo(w * 0.06f, w * 0.7f)
+                lineTo(w * 0.2f, w * 0.88f)
+                lineTo(w * 0.34f, w * 0.7f)
             }
         drawPath(down, tint, style = s)
+        val up =
+            Path().apply {
+                moveTo(w * 0.66f, w * 0.3f)
+                lineTo(w * 0.8f, w * 0.12f)
+                lineTo(w * 0.94f, w * 0.3f)
+            }
+        drawPath(up, tint, style = s)
     }
 }
 
@@ -132,9 +144,10 @@ fun SparklesIcon(
                 }
             drawPath(p, tint)
         }
-        star(w * 0.42f, w * 0.56f, w * 0.38f)
-        star(w * 0.8f, w * 0.2f, w * 0.17f)
-        star(w * 0.82f, w * 0.78f, w * 0.12f)
+        // 13dp 칩에서 작은 별이 1.5dp 로 사라져 「별 둘」로 보였다(2차 대조) — 작은 별 둘을 키운다.
+        star(w * 0.38f, w * 0.58f, w * 0.36f)
+        star(w * 0.78f, w * 0.2f, w * 0.2f)
+        star(w * 0.82f, w * 0.8f, w * 0.16f)
     }
 }
 
@@ -371,5 +384,117 @@ fun SendArrowCircleIcon(
             arrow,
             style = s,
         )
+    }
+}
+
+/** `camera` — 둥근 몸통, 위 가운데 턱, 가운데 렌즈. */
+@Composable
+fun CameraIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = stroke(w)
+        val body =
+            Path().apply {
+                moveTo(w * 0.1f, w * 0.36f)
+                lineTo(w * 0.1f, w * 0.78f)
+                quadraticTo(w * 0.1f, w * 0.86f, w * 0.18f, w * 0.86f)
+                lineTo(w * 0.82f, w * 0.86f)
+                quadraticTo(w * 0.9f, w * 0.86f, w * 0.9f, w * 0.78f)
+                lineTo(w * 0.9f, w * 0.36f)
+                quadraticTo(w * 0.9f, w * 0.28f, w * 0.82f, w * 0.28f)
+                lineTo(w * 0.68f, w * 0.28f)
+                lineTo(w * 0.6f, w * 0.16f)
+                lineTo(w * 0.4f, w * 0.16f)
+                lineTo(w * 0.32f, w * 0.28f)
+                lineTo(w * 0.18f, w * 0.28f)
+                quadraticTo(w * 0.1f, w * 0.28f, w * 0.1f, w * 0.36f)
+                close()
+            }
+        drawPath(body, tint, style = s)
+        drawCircle(tint, radius = w * 0.15f, center = Offset(w * 0.5f, w * 0.56f), style = s)
+    }
+}
+
+/** `chevron.up.chevron.down` — iOS 메뉴 `Picker` 값 옆의 위아래 꺾쇠. */
+@Composable
+fun ChevronUpDownIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val st = Stroke(width = w * 0.12f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val up =
+            Path().apply {
+                moveTo(w * 0.28f, w * 0.38f)
+                lineTo(w * 0.5f, w * 0.16f)
+                lineTo(w * 0.72f, w * 0.38f)
+            }
+        val down =
+            Path().apply {
+                moveTo(w * 0.28f, w * 0.62f)
+                lineTo(w * 0.5f, w * 0.84f)
+                lineTo(w * 0.72f, w * 0.62f)
+            }
+        drawPath(up, tint, style = st)
+        drawPath(down, tint, style = st)
+    }
+}
+
+/** `arrow.clockwise`(↻) — 오른쪽 위가 트인 원호, 12시 끝에 오른쪽을 향한 화살촉. */
+@Composable
+fun ArrowClockwiseIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val st = Stroke(width = w * 0.13f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val inset = w * 0.14f
+        // 2시(-30°)에서 시계 방향으로 300° 돌아 12시에서 끝난다 — 화살촉이 그 끝에 붙는다.
+        drawArc(
+            tint,
+            startAngle = -30f,
+            sweepAngle = 300f,
+            useCenter = false,
+            topLeft = Offset(inset, inset + w * 0.04f),
+            size = Size(w - inset * 2, w - inset * 2),
+            style = st,
+        )
+        val head =
+            Path().apply {
+                moveTo(w * 0.5f, w * 0.02f)
+                lineTo(w * 0.72f, w * 0.18f)
+                lineTo(w * 0.5f, w * 0.34f)
+                close()
+            }
+        drawPath(head, tint)
+    }
+}
+
+/** `cart` — 왼쪽 위 손잡이에서 내려오는 바구니(아래가 좁은 사다리꼴)와 바퀴 둘. */
+@Composable
+fun CartIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = stroke(w)
+        val basket =
+            Path().apply {
+                moveTo(w * 0.04f, w * 0.14f)
+                lineTo(w * 0.18f, w * 0.14f)
+                lineTo(w * 0.3f, w * 0.64f)
+                lineTo(w * 0.8f, w * 0.64f)
+                lineTo(w * 0.92f, w * 0.28f)
+                lineTo(w * 0.22f, w * 0.28f)
+            }
+        drawPath(basket, tint, style = s)
+        drawCircle(tint, radius = w * 0.07f, center = Offset(w * 0.35f, w * 0.83f))
+        drawCircle(tint, radius = w * 0.07f, center = Offset(w * 0.76f, w * 0.83f))
     }
 }

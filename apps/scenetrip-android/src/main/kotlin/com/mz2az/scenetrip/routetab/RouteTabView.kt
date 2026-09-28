@@ -1,5 +1,11 @@
 package com.mz2az.scenetrip.routetab
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -99,17 +105,21 @@ fun RouteTabView(
                 }
                 Spacer(Modifier.weight(1f))
                 if (segment == Segment.MINE) {
-                    // iOS `PinoNudge` — 늘 반짝이는 핀 그러데이션(파랑→보라) 배경에
-                    // 흰 글자다. 이 탭의 첫 행동이라 이렇게 눈에 띄게 해 둔다. 은은한
-                    // 깜빡임(0.55↔0.95 투명도)까지는 옮기지 않았다 — 정적인 그러데이션
-                    // 만으로도 이전의 옅은 파란 배경보다 훨씬 도드라진다.
+                    // iOS `PinoNudge` — 핀 그러데이션(파랑→보라) 위 흰 글자, 그러데이션이 0.55↔0.95 로
+                    // 0.7초마다 숨 쉰다. 정적으로 두었더니 iOS 보다 진하고 멈춰 보였다(2차 대조).
+                    val glow by rememberInfiniteTransition(label = "nudge").animateFloat(
+                        initialValue = 0.55f,
+                        targetValue = 0.95f,
+                        animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+                        label = "nudge-glow",
+                    )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         modifier =
                             Modifier
                                 .clip(RoundedCornerShape(15.dp))
-                                .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)))
+                                .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)), alpha = glow)
                                 .clickable { fork = true }
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                     ) {

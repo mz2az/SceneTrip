@@ -69,6 +69,7 @@ import com.mz2az.scenetrip.ui.CircleSignIcon
 import com.mz2az.scenetrip.ui.FlagIcon
 import com.mz2az.scenetrip.ui.GripLinesIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSFormSection
 import com.mz2az.scenetrip.ui.IOSListDivider
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.IOSSheetMaterial
@@ -322,7 +323,7 @@ fun RouteLocateButton(
         modifier =
             modifier
                 .size(44.dp)
-                .shadow(4.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.18f))
+                .shadow(4.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.18f), spotColor = Color.Black.copy(alpha = 0.18f))
                 .clip(CircleShape)
                 .background(if (on) IOS.accent else IOS.systemBackground)
                 .border(1.dp, if (on) Color.Transparent else IOS.systemGray4, CircleShape)
@@ -602,7 +603,7 @@ fun RouteFootprintButton(
         modifier =
             modifier
                 .size(44.dp)
-                .shadow(4.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.18f))
+                .shadow(4.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.18f), spotColor = Color.Black.copy(alpha = 0.18f))
                 .clip(CircleShape)
                 .background(if (on) gold else IOS.systemBackground)
                 .border(1.dp, if (on) Color.Transparent else IOS.systemGray4, CircleShape)
@@ -792,7 +793,7 @@ private fun RoutePinSheetBody(
         )
         LazyColumn(contentPadding = sheetListBottom()) {
             item {
-                FormSection("이름") {
+                IOSFormSection("이름") {
                     Box(Modifier.fillMaxWidth().height(50.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
                         if (name.isEmpty()) Text("예: 오늘 묵을 숙소", fontSize = 17.sp, color = IOS.tertiaryLabel)
                         androidx.compose.foundation.text.BasicTextField(
@@ -809,7 +810,7 @@ private fun RoutePinSheetBody(
                 }
             }
             item {
-                FormSection("갈래") {
+                IOSFormSection("갈래") {
                     PIN_CATEGORIES.forEachIndexed { index, each ->
                         if (index > 0) IOSListDivider(start = 16.dp)
                         Row(
@@ -828,7 +829,7 @@ private fun RoutePinSheetBody(
                 }
             }
             item {
-                FormSection(null) {
+                IOSFormSection(null) {
                     Text(
                         "위도 %.5f · 경도 %.5f".format(pin.latitude, pin.longitude),
                         fontSize = 12.sp,
@@ -838,30 +839,6 @@ private fun RoutePinSheetBody(
                     )
                 }
             }
-        }
-    }
-}
-
-/** iOS `Form` 의 한 `Section` — 회색 머리글(13) + 모서리 둥근 흰 카드. */
-@Composable
-private fun FormSection(
-    title: String?,
-    content: @Composable () -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 18.dp)) {
-        if (title != null) {
-            // iOS 26 의 `Form` 머리글은 본문과 거의 같은 크기(약 17)의 굵은 회색이다(12차 실측: 13 은 작았다).
-            Text(
-                title,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = IOS.secondaryLabel,
-                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
-            )
-        }
-        // 흰(재질) 바탕 위 **회색 카드** — Android 는 회색 바탕 위 흰 카드로 톤이 반대였다.
-        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(IOS.systemGray6)) {
-            content()
         }
     }
 }
@@ -937,5 +914,34 @@ fun RouteStaySheet(
 ) {
     IOSSheet(detents = listOf(SheetDetent.MEDIUM), onDismiss = onDismiss) {
         RouteStaySheetBody(stop = stop, onPick = onPick, onDismiss = onDismiss)
+    }
+}
+
+/**
+ * 지도를 눌러 「이 자리에 추가」 시트가 떠 있는 동안 그 자리에 꽂는 **임시 해태 핀** — iOS
+ * `renderPending`(`PinoPin.marker()`: 앞발을 얹은 해태, 폭 40). 없으면 어디를 눌렀는지 시트 뒤에서 안 보인다(2차 대조).
+ */
+@Composable
+fun PendingPinMarker(
+    map: NaverMap?,
+    pin: RoutePin?,
+) {
+    if (map == null || pin == null) return
+    val density = LocalContext.current.resources.displayMetrics.density
+    DisposableEffect(map, pin) {
+        val marker =
+            Marker().apply {
+                position =
+                    com.naver.maps.geometry
+                        .LatLng(pin.latitude, pin.longitude)
+                icon =
+                    com.naver.maps.map.overlay.OverlayImage
+                        .fromResource(com.mz2az.scenetrip.R.drawable.haetae_pinhold)
+                width = (40 * density).toInt()
+                height = (40 * density * 397f / 355f).toInt()
+                zIndex = 3
+                this.map = map
+            }
+        onDispose { marker.map = null }
     }
 }
