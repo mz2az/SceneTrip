@@ -1,6 +1,7 @@
 package com.mz2az.scenetrip.communitytab
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -98,25 +99,27 @@ fun CommunityTabScreen() {
                 // 그대로라 iOS처럼 두 줄로 안 꺾인다). 심벌은 탭바 커뮤니티 아이콘과
                 // 같은 그림([BubblesIcon]) — iOS도 `bubble.left.and.bubble.right`로
                 // 같다.
+                // **위쪽에 놓는다** — iOS 는 목록(`List`) 첫 칸 안에 그려서 칩 줄 바로 아래에 온다.
+                // 제목 22 굵게, 설명 15 secondary(2026-09-28 화면 대조 #16).
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(32.dp),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp).padding(top = 36.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
                 ) {
+                    // iOS 글리프는 가로:세로 약 1.25 — 정사각 칸이면 세로로 눌린다.
                     BubblesIcon(
-                        tint = IOS.tertiaryLabel,
-                        modifier = Modifier.size(52.dp).padding(bottom = 12.dp),
+                        tint = IOS.secondaryLabel,
+                        modifier = Modifier.padding(bottom = 14.dp).size(width = 66.dp, height = 52.dp),
                     )
                     Text(
                         "아직 글이 없습니다",
-                        style = IOS.headline,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                         color = IOS.label,
                     )
                     Text(
                         "첫 글을 남겨 보세요. 다른 여행자의 글은 서버가 열리면 보입니다.",
-                        style = IOS.footnote,
-                        color = IOS.tertiaryLabel,
+                        fontSize = 15.sp,
+                        color = IOS.secondaryLabel,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 4.dp).widthIn(max = 280.dp),
                     )
@@ -211,6 +214,7 @@ private fun BoardChip(
             Modifier
                 .clip(RoundedCornerShape(50))
                 .background(if (active) IOS.accent.copy(alpha = 0.14f) else IOS.systemGray6)
+                .border(1.dp, if (active) IOS.accent.copy(alpha = 0.5f) else Color.Transparent, RoundedCornerShape(50))
                 .clickable(onClick = onClick)
                 .padding(horizontal = 11.dp, vertical = 6.dp),
     )

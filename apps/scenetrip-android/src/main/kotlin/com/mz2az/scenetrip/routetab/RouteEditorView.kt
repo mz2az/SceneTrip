@@ -6,11 +6,14 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -25,21 +28,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,11 +47,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -79,10 +78,19 @@ import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.centerOn
 import com.mz2az.scenetrip.searchtab.fit
 import com.mz2az.scenetrip.searchtab.rememberLocate
+import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.BusIcon
+import com.mz2az.scenetrip.ui.CircleSignIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSAction
+import com.mz2az.scenetrip.ui.IOSAlert
+import com.mz2az.scenetrip.ui.IOSRole
+import com.mz2az.scenetrip.ui.MagnifierIcon
+import com.mz2az.scenetrip.ui.MapPinEllipseIcon
+import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.StairsIcon
 import com.mz2az.scenetrip.ui.SubwayIcon
+import com.mz2az.scenetrip.ui.SwapArrowsIcon
 import com.mz2az.scenetrip.ui.TransitIcon
 import com.mz2az.scenetrip.ui.WalkIcon
 import com.naver.maps.geometry.LatLng
@@ -133,7 +141,6 @@ fun RouteEditorView(
     var showCart by remember { mutableStateOf(false) }
     var stayTarget by remember { mutableStateOf<RouteStop?>(null) }
     var saving by remember { mutableStateOf(false) }
-    var confirmingDelete by remember { mutableStateOf(false) }
     var blockedDayRemoval by remember { mutableStateOf(false) }
     var pinStart by remember { mutableStateOf(false) }
     var pinEnd by remember { mutableStateOf(false) }
@@ -403,26 +410,75 @@ fun RouteEditorView(
                     .fillMaxWidth()
                     .height(52.dp)
                     .background(IOS.systemBackground)
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 16.dp),
         ) {
-            Box(modifier = Modifier.size(32.dp).clickable { onClose(null) }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Close, contentDescription = "닫기", tint = IOS.label, modifier = Modifier.size(16.dp))
-            }
-            OutlinedTextField(
-                value = course.title,
-                onValueChange = { course = course.copy(title = it) },
-                modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                textStyle =
-                    androidx.compose.ui.text
-                        .TextStyle(fontSize = 16.sp),
-                singleLine = true,
+            // iOS `RouteEditorView.topBar`: 「취소」 | 가운데 제목(눌러서 고침) + 연필 | 「만들기/저장」.
+            // 제목칸은 테두리 없이 글자 폭을 따르고 200 에서 멈춘다 — iOS 와 같은 이유(320bc94).
+            Text(
+                "취소",
+                fontSize = 17.sp,
+                color = IOS.accent,
+                modifier = Modifier.clickable { onClose(null) },
             )
+            Spacer(Modifier.weight(1f))
+            // 폭은 **글자를 재서 준다**(40~200dp). `IntrinsicSize` 로 맞추게 두었더니 입력칸이 제
+            // 내용 폭을 못 대서 「내 코스」가 「내」까지만 보였다(2026-09-28 실기). 입력 중이
+            // 아니면 넘치는 제목은 iOS 처럼 「…」로 줄인다.
+            val titleMeasurer = rememberTextMeasurer()
+            val titleDensity = LocalDensity.current
+            val titleFocus = LocalFocusManager.current
+            var titleFocused by remember { mutableStateOf(false) }
+            val titleWidth =
+                with(titleDensity) {
+                    titleMeasurer
+                        .measure(course.title.ifEmpty { "코스 이름" }, IOS.headline, maxLines = 1, softWrap = false)
+                        .size.width
+                        .toDp()
+                }.plus(4.dp).coerceIn(40.dp, 200.dp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                androidx.compose.foundation.text.BasicTextField(
+                    value = course.title,
+                    onValueChange = { course = course.copy(title = it) },
+                    singleLine = true,
+                    textStyle = IOS.headline.copy(color = IOS.label, textAlign = TextAlign.Center),
+                    cursorBrush =
+                        androidx.compose.ui.graphics
+                            .SolidColor(IOS.accent),
+                    keyboardOptions =
+                        androidx.compose.foundation.text
+                            .KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                    keyboardActions =
+                        androidx.compose.foundation.text
+                            .KeyboardActions(onDone = { titleFocus.clearFocus() }),
+                    modifier = Modifier.width(titleWidth).onFocusChanged { titleFocused = it.isFocused },
+                    decorationBox = { inner ->
+                        val ellipsize = !titleFocused && course.title.isNotEmpty()
+                        Box(contentAlignment = Alignment.Center) {
+                            if (course.title.isEmpty()) {
+                                Text("코스 이름", style = IOS.headline, color = IOS.tertiaryLabel, maxLines = 1)
+                            }
+                            Box(modifier = Modifier.alpha(if (ellipsize) 0f else 1f)) { inner() }
+                            if (ellipsize) {
+                                Text(
+                                    course.title,
+                                    style = IOS.headline,
+                                    color = IOS.label,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    },
+                )
+                Icon(Icons.Filled.Edit, contentDescription = null, tint = IOS.secondaryLabel, modifier = Modifier.size(12.dp))
+            }
+            Spacer(Modifier.weight(1f))
             if (saving) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
             } else {
                 Text(
                     if (course.serverId == null) "만들기" else "저장",
-                    fontSize = 16.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = IOS.accent,
                     modifier = Modifier.clickable { saveAndClose() },
@@ -442,8 +498,8 @@ fun RouteEditorView(
                         .background(IOS.accent.copy(alpha = 0.10f))
                         .padding(horizontal = 12.dp, vertical = 9.dp),
             ) {
-                Icon(Icons.Filled.Star, contentDescription = null, tint = IOS.accent, modifier = Modifier.size(13.dp))
-                Text("AI 가 짠 일정입니다 · 아직 저장 전", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = IOS.accent)
+                SparklesIcon(IOS.accent, Modifier.size(13.dp))
+                Text("AI 가 짠 일정입니다 · 아직 저장 전", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = IOS.accent)
             }
         }
 
@@ -679,9 +735,14 @@ fun RouteEditorView(
                     }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    IOS.systemBackground,
+                                ).padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
                     ) {
-                        EditorAction(label = "동선 최적화", icon = Icons.Filled.Refresh, modifier = Modifier.weight(1f)) {
+                        EditorAction(label = "동선 최적화", icon = { SwapArrowsIcon(IOS.label, it) }, modifier = Modifier.weight(1f)) {
                             var ordered = stops
                             var head = pinStart
                             if (!pinStart) {
@@ -695,15 +756,18 @@ fun RouteEditorView(
                             focusedStopId = null
                             fitToken += 1
                         }
-                        EditorAction(label = "검색", icon = Icons.Filled.Search, modifier = Modifier.weight(1f)) { searching = true }
+                        EditorAction(label = "검색", icon = { MagnifierIcon(IOS.label, it) }, modifier = Modifier.weight(1f)) {
+                            searching =
+                                true
+                        }
                         EditorAction(
                             label = "장바구니",
-                            icon = Icons.Filled.ShoppingCart,
+                            icon = { BagIcon(IOS.label, it) },
                             modifier = Modifier.weight(1f),
                         ) { showCart = true }
                         EditorAction(
                             label = if (pinning) "취소" else "핀 찍기",
-                            icon = if (pinning) Icons.Filled.Close else Icons.Filled.Place,
+                            icon = { MapPinEllipseIcon(IOS.label, it) },
                             modifier = Modifier.weight(1f),
                         ) { pinning = !pinning }
                     }
@@ -803,87 +867,71 @@ fun RouteEditorView(
                                 )
                             }
                         }
-                        if (course.serverId != null) {
-                            item {
-                                Text(
-                                    "코스 삭제",
-                                    fontSize = 14.sp,
-                                    color = IOS.systemRed,
-                                    textAlign = TextAlign.Center,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp)
-                                            .padding(top = 4.dp, bottom = 24.dp)
-                                            .clickable { confirmingDelete = true }
-                                            .padding(vertical = 12.dp),
-                                )
-                            }
-                        } else {
-                            item { Spacer(Modifier.height(24.dp)) }
-                        }
+                        // 「코스 삭제」는 여기 없다 — iOS 는 코스 목록에서 밀어서만 지운다(2026-09-28 대조).
+                        item { Spacer(Modifier.height(24.dp)) }
                     }
                     // **스크롤과 무관하게 늘 보여야 한다.** iOS `RouteEditorTrip.bottomBar`
                     // (`planControls`)와 짝 — 정지점이 많은 일차에서는 스크롤해야만
                     // 나오던 "코스 시작"·저장 버튼이었다(실기 비교로 발견,
                     // 2026-09-28). 목록 맨 아래 항목이 아니라 목록 옆의 고정 줄로
                     // 옮긴다.
+                    // iOS `RouteEditorTrip.planControls`: **캡슐 `.bordered`(회색 채움·accent 글자)** 와
+                    // `.borderedProminent`(accent 채움·흰 글자), 글자 15 보통 굵기. 「여행 종료/코스 시작」은
+                    // 글자 폭만, 저장이 나머지를 채운다. 여행 중이면 「N번으로 길찾기」가 맨 앞에 온다.
+                    // 「코스 시작」은 **지금 보는 일차**로 시작한다(`dayNo = dayIndex + 1`, 그 일차의 첫
+                    // 미방문 곳) — 앞서 Android 는 늘 1일차·전체 첫 미방문이었다(2026-09-28 대조).
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier =
                             Modifier
                                 .fillMaxWidth()
                                 .background(IOS.systemBackground)
+                                // 제스처 막대와 겹쳤다 — iOS 는 안전 영역만큼 띄운다.
+                                .navigationBarsPadding()
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                     ) {
-                        if (course.serverId != null) {
+                        val serverId = course.serverId
+                        if (serverId != null) {
                             val running = course.isRunning
-                            Text(
+                            val nextIndex = stops.indexOfFirst { !it.visited }
+                            if (running && nextIndex >= 0 && !trip.isActive) {
+                                EditorCapsuleButton(
+                                    "${nextIndex + 1}번으로 길찾기",
+                                    prominent = true,
+                                    onClick = { trip.start(serverId, stops[nextIndex], scope) },
+                                )
+                            }
+                            EditorCapsuleButton(
                                 if (running) "여행 종료" else "코스 시작",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (running) IOS.systemRed else IOS.accent,
-                                textAlign = TextAlign.Center,
-                                modifier =
-                                    Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(IOS.systemGray6)
-                                        .clickable {
-                                            val turningOn = !running
-                                            scope.launch {
-                                                store.setRunning(course, turningOn, dayNo = 1)
-                                                course = course.copy(isRunning = turningOn)
-                                                val serverId = course.serverId
-                                                if (turningOn && serverId != null) {
-                                                    val firstUnvisited = course.days.flatMap { it.stops }.firstOrNull { !it.visited }
-                                                    if (firstUnvisited != null) trip.start(serverId, firstUnvisited, scope)
-                                                } else {
-                                                    trip.end()
-                                                }
-                                            }
-                                        }.padding(vertical = 12.dp),
+                                prominent = false,
+                                onClick = {
+                                    val turningOn = !running
+                                    val dayNo = dayIndex + 1
+                                    if (!turningOn) trip.end()
+                                    scope.launch {
+                                        store.setRunning(course, turningOn, dayNo = dayNo)
+                                        course = course.copy(isRunning = turningOn)
+                                        if (turningOn) {
+                                            val first = stops.firstOrNull { !it.visited } ?: stops.firstOrNull()
+                                            if (first != null) trip.start(serverId, first, scope)
+                                        }
+                                    }
+                                },
                             )
                         }
-                        Text(
+                        EditorCapsuleButton(
                             if (saving) {
                                 "…"
-                            } else if (course.serverId == null) {
+                            } else if (serverId == null) {
                                 "코스 만들기"
                             } else {
                                 "저장하고 닫기"
                             },
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White,
-                            textAlign = TextAlign.Center,
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(IOS.accent)
-                                    .clickable(enabled = !saving) { saveAndClose() }
-                                    .padding(vertical = 12.dp),
+                            prominent = true,
+                            enabled = !saving,
+                            onClick = { saveAndClose() },
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
@@ -972,41 +1020,23 @@ fun RouteEditorView(
         )
     }
 
-    if (confirmingDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmingDelete = false },
-            title = { Text("\"${course.title}\"을 지울까요?") },
-            text = { Text("되돌릴 수 없습니다.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmingDelete = false
-                    scope.launch {
-                        store.delete(course)
-                        onClose(null)
-                    }
-                }) { Text("삭제", color = IOS.systemRed) }
-            },
-            dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text("취소") } },
-        )
-    }
-
     if (blockedDayRemoval) {
-        AlertDialog(
-            onDismissRequest = { blockedDayRemoval = false },
-            title = { Text("일차를 뺄 수 없습니다") },
-            text = { Text("마지막 일차에 담긴 장소를 먼저 빼 주세요.") },
-            confirmButton = { TextButton(onClick = { blockedDayRemoval = false }) { Text("확인") } },
+        IOSAlert(
+            title = "일차를 뺄 수 없습니다",
+            message = "마지막 일차에 담긴 장소를 먼저 빼 주세요.",
+            actions = listOf(IOSAction("확인", IOSRole.CANCEL) {}),
+            onDismiss = { blockedDayRemoval = false },
         )
     }
 
     // 저장이 실패하면 이유를 말한다 — 안 그러면 단추가 안 먹는 것처럼 보여 같은
     // 단추를 계속 누르게 된다(iOS `RouteEditorView`의 "저장하지 못했습니다" alert).
     store.failure?.let { failure ->
-        AlertDialog(
-            onDismissRequest = { store.clearFailure() },
-            title = { Text("저장하지 못했습니다") },
-            text = { Text(failure.message) },
-            confirmButton = { TextButton(onClick = { store.clearFailure() }) { Text("확인") } },
+        IOSAlert(
+            title = "저장하지 못했습니다",
+            message = failure.message,
+            actions = listOf(IOSAction("확인") {}),
+            onDismiss = { store.clearFailure() },
         )
     }
 }
@@ -1033,7 +1063,8 @@ private fun EditorAction(
     modifier: Modifier = Modifier,
     // iOS `action(_:symbol:)` — 아이콘이 위, 글자가 아래다(넷이 한 줄에 들어가야
     // 해서 나란히 두면 "동선 최적화" 하나가 폭 절반을 먹는다).
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    // SF Symbols 외곽선 아이콘(`ui/OutlineIcons.kt`) — 크기 Modifier 를 받아 그린다.
+    icon: (@Composable (Modifier) -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Column(
@@ -1044,15 +1075,12 @@ private fun EditorAction(
                 .clip(RoundedCornerShape(10.dp))
                 .background(IOS.systemGray6)
                 .clickable(onClick = onClick)
-                .padding(vertical = 8.dp),
+                .padding(vertical = 7.dp),
     ) {
-        if (icon != null) {
-            Icon(icon, contentDescription = null, tint = IOS.label, modifier = Modifier.size(15.dp))
-        }
+        icon?.invoke(Modifier.size(17.dp))
         Text(
             label,
             fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
             color = IOS.label,
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -1136,6 +1164,30 @@ private fun TripOverlay(
             }
         onDispose { overlay?.map = null }
     }
+}
+
+/** iOS 의 캡슐 버튼(`.bordered` / `.borderedProminent`, `.controlSize(.regular)`, 글자 15). */
+@Composable
+private fun EditorCapsuleButton(
+    label: String,
+    prominent: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Text(
+        label,
+        fontSize = 15.sp,
+        color = if (prominent) Color.White else IOS.accent,
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        modifier =
+            modifier
+                .clip(CircleShape)
+                .background(if (prominent) IOS.accent else IOS.tertiaryFill)
+                .clickable(enabled = enabled, onClick = onClick)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+    )
 }
 
 /** 구간 칩 하나 — 도보는 회색, 지하철은 파랑, 버스·그 밖의 탈것은 초록(iOS와 같은 세 갈래). */
@@ -1281,6 +1333,8 @@ private fun TripBanner(
     }
 }
 
+// iOS `RouteEditorControls.dayTabs`: 밑줄 탭(글자 15, 켜지면 semibold·accent, 밑줄은 **글자 폭**) +
+// `minus.circle`·`plus.circle`(한도에 닿으면 흐리게). 앞서는 13sp·밑줄 24dp 고정·글자 「−」「+」였다.
 @Composable
 private fun DayTabs(
     dayCount: Int,
@@ -1289,36 +1343,50 @@ private fun DayTabs(
     onAddDay: () -> Unit,
     onRemoveDay: () -> Unit,
 ) {
+    val canRemove = dayCount > RouteCourse.DAY_LIMIT.first
+    val canAdd = dayCount < RouteCourse.DAY_LIMIT.last
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(start = 16.dp, end = 16.dp, top = 10.dp),
     ) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.weight(1f)) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp),
+            modifier = Modifier.weight(1f),
+        ) {
             itemsIndexed((0 until dayCount).toList()) { _, index ->
                 val active = index == dayIndex
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.clickable { onSelect(index) },
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.width(IntrinsicSize.Max).clickable { onSelect(index) },
                 ) {
                     Text(
                         "${index + 1}일차",
-                        fontSize = 13.sp,
+                        fontSize = 15.sp,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (active) IOS.accent else IOS.secondaryLabel,
                     )
                     Box(
                         modifier =
                             Modifier
-                                .padding(top = 4.dp)
-                                .width(24.dp)
+                                .fillMaxWidth()
                                 .height(2.dp)
                                 .background(if (active) IOS.accent else Color.Transparent),
                     )
                 }
             }
         }
-        Text("−", fontSize = 18.sp, color = IOS.secondaryLabel, modifier = Modifier.clickable(onClick = onRemoveDay).padding(6.dp))
-        Text("+", fontSize = 18.sp, color = IOS.accent, modifier = Modifier.clickable(onClick = onAddDay).padding(6.dp))
+        CircleSignIcon(
+            plus = false,
+            tint = if (canRemove) IOS.accent else IOS.tertiaryLabel,
+            modifier = Modifier.size(18.dp).clickable(enabled = canRemove, onClick = onRemoveDay),
+        )
+        CircleSignIcon(
+            plus = true,
+            tint = if (canAdd) IOS.accent else IOS.tertiaryLabel,
+            modifier = Modifier.size(18.dp).clickable(enabled = canAdd, onClick = onAddDay),
+        )
     }
 }
 
@@ -1429,7 +1497,7 @@ private fun PlaceSearchOverlay(
                             Text(
                                 "${pickedOrder + 1}",
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
+                                fontWeight = FontWeight.Bold,
                                 color = Color.White,
                                 textAlign = TextAlign.Center,
                                 modifier =

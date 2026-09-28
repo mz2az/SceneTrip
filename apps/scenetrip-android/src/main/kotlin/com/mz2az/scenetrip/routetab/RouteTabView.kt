@@ -19,13 +19,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,7 +41,13 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
+import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSAction
+import com.mz2az.scenetrip.ui.IOSConfirmPopover
+import com.mz2az.scenetrip.ui.IOSRole
+import com.mz2az.scenetrip.ui.SparklesIcon
+import com.mz2az.scenetrip.ui.XMarkIcon
 import kotlinx.coroutines.launch
 
 /**
@@ -87,12 +89,9 @@ fun RouteTabView(
             Text("코스", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.align(Alignment.Center))
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 if (onClose != null) {
-                    Icon(
-                        Icons.Filled.Close,
-                        contentDescription = "닫기",
-                        tint = IOS.label,
-                        modifier = Modifier.size(16.dp).clickable(onClick = onClose),
-                    )
+                    // iOS `xmark`(.body.semibold) 글리프 약 13.7pt — Material Close 16dp 는 9dp 로 작았고, 둥근 선 끝까지
+                    // 치면 캔버스 15 가 맞다(18 은 16.4 로 컸다). 중심도 iOS 처럼 조금 안쪽.
+                    XMarkIcon(IOS.label, Modifier.padding(start = 8.dp).size(15.dp).clickable(onClick = onClose))
                 }
                 Spacer(Modifier.weight(1f))
                 if (segment == Segment.MINE) {
@@ -117,34 +116,13 @@ fun RouteTabView(
             }
         }
 
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp)
-                    .padding(bottom = 8.dp)
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(IOS.systemGray5),
-        ) {
-            Segment.entries.forEach { each ->
-                val isOn = each == segment
-                Text(
-                    each.label,
-                    fontSize = 13.sp,
-                    fontWeight = if (isOn) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (isOn) IOS.label else IOS.secondaryLabel,
-                    textAlign = TextAlign.Center,
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .padding(3.dp)
-                            .clip(RoundedCornerShape(7.dp))
-                            .background(if (isOn) IOS.systemBackground else androidx.compose.ui.graphics.Color.Transparent)
-                            .clickable { segment = each }
-                            .padding(vertical = 7.dp),
-                )
-            }
-        }
+        com.mz2az.scenetrip.searchtab.SegmentedControl(
+            options = Segment.entries,
+            selected = segment,
+            label = { it.label },
+            onSelect = { segment = it },
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
 
         when (segment) {
             Segment.MINE -> {
@@ -159,6 +137,13 @@ fun RouteTabView(
                             }
                         },
                         onDelete = { course -> doomed = RouteBridge.course(course) },
+                        confirmingId = doomed?.serverId,
+                        onConfirmDelete = {
+                            val course = doomed
+                            doomed = null
+                            if (course != null) scope.launch { store.delete(course) }
+                        },
+                        onCancelDelete = { doomed = null },
                     )
                 }
             }
@@ -212,22 +197,6 @@ fun RouteTabView(
             onClose = { editing = null },
         )
     }
-
-    val toDelete = doomed
-    if (toDelete != null) {
-        AlertDialog(
-            onDismissRequest = { doomed = null },
-            title = { Text("\"${toDelete.title}\"을 지울까요?") },
-            text = { Text("되돌릴 수 없습니다.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    doomed = null
-                    scope.launch { store.delete(toDelete) }
-                }) { Text("삭제", color = IOS.systemRed) }
-            },
-            dismissButton = { TextButton(onClick = { doomed = null }) { Text("취소") } },
-        )
-    }
 }
 
 private enum class Segment(
@@ -255,19 +224,14 @@ private fun EmptyState(
                     .background(Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep))),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                Icons.Filled.Star,
-                contentDescription = null,
-                tint = androidx.compose.ui.graphics.Color.White,
-                modifier = Modifier.size(26.dp),
-            )
+            SparklesIcon(androidx.compose.ui.graphics.Color.White, Modifier.size(28.dp))
         }
         Spacer(Modifier.height(14.dp))
         Text("아직 만든 코스가 없습니다", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
         Spacer(Modifier.height(4.dp))
         Text(
             "보고 싶은 작품과 기간만 고르면,\n촬영지를 이어서 일차별 일정으로 짜 드립니다",
-            fontSize = 14.sp,
+            fontSize = 15.sp,
             color = IOS.secondaryLabel,
             textAlign = TextAlign.Center,
         )
@@ -284,15 +248,10 @@ private fun EmptyState(
                     .clickable(onClick = onAI)
                     .padding(vertical = 14.dp),
         ) {
-            Icon(
-                Icons.Filled.Star,
-                contentDescription = null,
-                tint = androidx.compose.ui.graphics.Color.White,
-                modifier = Modifier.size(15.dp),
-            )
+            SparklesIcon(androidx.compose.ui.graphics.Color.White, Modifier.size(16.dp))
             Text(
                 "AI 로 여정 짜기",
-                fontSize = 16.sp,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = androidx.compose.ui.graphics.Color.White,
             )
@@ -302,7 +261,7 @@ private fun EmptyState(
         // 옅은 파란 바탕에 검정 글자였던 것을 그 조합으로 맞춘다.
         Text(
             "직접 짜기",
-            fontSize = 16.sp,
+            fontSize = 17.sp,
             fontWeight = FontWeight.Medium,
             color = IOS.accent,
             textAlign = TextAlign.Center,
@@ -310,7 +269,7 @@ private fun EmptyState(
                 Modifier
                     .fillMaxWidth()
                     .clip(CircleShape)
-                    .background(IOS.systemGray6)
+                    .background(IOS.tertiaryFill)
                     .clickable(onClick = onManual)
                     .padding(vertical = 14.dp),
         )
@@ -322,13 +281,30 @@ private fun CourseList(
     store: RouteStore,
     onOpen: (com.mz2az.scenetrip.sceneapi.client.model.CourseSummary) -> Unit,
     onDelete: (com.mz2az.scenetrip.sceneapi.client.model.CourseSummary) -> Unit,
+    confirmingId: Long?,
+    onConfirmDelete: () -> Unit,
+    onCancelDelete: () -> Unit,
 ) {
+    // 확인 팝오버는 **밀었던 그 줄 아래에** 붙는다(iOS 26 `.confirmationDialog` 는 팝오버다).
+    val row: @Composable (com.mz2az.scenetrip.sceneapi.client.model.CourseSummary) -> Unit = { course ->
+        CourseRow(course, onOpen, onDelete)
+        if (confirmingId == course.id) {
+            IOSConfirmPopover(
+                title = "「${course.title}」을 지울까요?",
+                message = "되돌릴 수 없습니다.",
+                actions = listOf(IOSAction("삭제", IOSRole.DESTRUCTIVE, onConfirmDelete)),
+                anchorX = 0.dp,
+                onDismiss = onCancelDelete,
+                below = true,
+            )
+        }
+    }
     val running = store.courses.filter { it.status == CourseStatus.active }
     val planned = store.courses.filter { it.status != CourseStatus.active }
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
         if (running.isNotEmpty()) {
             item { SectionHeader("여행 중 ${running.size}") }
-            items(running, key = { it.id }) { course -> CourseRow(course, onOpen, onDelete) }
+            items(running, key = { it.id }) { course -> Box { row(course) } }
         }
         item { SectionHeader("예정 ${planned.size}") }
         if (planned.isEmpty()) {
@@ -341,7 +317,7 @@ private fun CourseList(
                 )
             }
         }
-        items(planned, key = { it.id }) { course -> CourseRow(course, onOpen, onDelete) }
+        items(planned, key = { it.id }) { course -> Box { row(course) } }
         item { Spacer(Modifier.height(24.dp)) }
     }
 }
@@ -357,6 +333,10 @@ private fun SectionHeader(text: String) {
     )
 }
 
+// iOS `RouteTabView.rowButton` + `.swipeActions`: 제목 15 semibold(AI 코스면 앞에 `sparkles`),
+// 오른쪽 `chevron.right`, 날짜 12. **삭제는 밀어서** — 휴지통을 늘 보이던 것을 iOS 처럼 숨긴다.
+// 끝까지 밀면 확인 팝오버(`doomed`)를 띄우고 행은 제자리로 돌아온다.
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun CourseRow(
     course: com.mz2az.scenetrip.sceneapi.client.model.CourseSummary,
@@ -364,33 +344,53 @@ private fun CourseRow(
     onDelete: (com.mz2az.scenetrip.sceneapi.client.model.CourseSummary) -> Unit,
 ) {
     val route = RouteBridge.course(course)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(IOS.systemBackground)
-                .clickable { onOpen(course) }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (route.madeByAI) {
-                    Icon(Icons.Filled.Star, contentDescription = null, tint = IOS.accent, modifier = Modifier.size(11.dp))
-                }
-                Text(course.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-            }
-            Spacer(Modifier.height(2.dp))
-            Text(route.dateLabel ?: route.spanLabel, fontSize = 11.sp, color = IOS.secondaryLabel)
-        }
-        Icon(
-            Icons.Filled.Delete,
-            contentDescription = "삭제",
-            tint = IOS.tertiaryLabel,
-            modifier = Modifier.size(16.dp).clickable { onDelete(course) }.padding(4.dp),
+    val swipe =
+        androidx.compose.material3.rememberSwipeToDismissBoxState(
+            confirmValueChange = { value ->
+                if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) onDelete(course)
+                false
+            },
         )
+    androidx.compose.material3.SwipeToDismissBox(
+        state = swipe,
+        enableDismissFromStartToEnd = false,
+        modifier = Modifier.padding(vertical = 4.dp).clip(RoundedCornerShape(10.dp)),
+        backgroundContent = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                modifier = Modifier.fillMaxSize().background(IOS.systemRed).padding(horizontal = 18.dp),
+            ) {
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = null,
+                    tint = androidx.compose.ui.graphics.Color.White,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text("삭제", fontSize = 15.sp, color = androidx.compose.ui.graphics.Color.White)
+            }
+        },
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(IOS.systemBackground)
+                    .clickable { onOpen(course) }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (route.madeByAI) {
+                        SparklesIcon(IOS.accent, Modifier.size(12.dp))
+                    }
+                    Text(course.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, maxLines = 1)
+                }
+                Text(route.dateLabel ?: route.spanLabel, fontSize = 12.sp, color = IOS.secondaryLabel)
+            }
+            ChevronRightIcon(IOS.tertiaryLabel, Modifier.size(12.dp))
+        }
     }
 }
 
@@ -466,7 +466,7 @@ private fun ForkCard(
             modifier = Modifier.size(44.dp).clip(CircleShape).background(IOS.accent.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Star, contentDescription = null, tint = IOS.accent, modifier = Modifier.size(20.dp))
+            SparklesIcon(IOS.accent, Modifier.size(20.dp))
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)

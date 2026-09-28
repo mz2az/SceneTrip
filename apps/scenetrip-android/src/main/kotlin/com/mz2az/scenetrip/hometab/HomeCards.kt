@@ -24,9 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,7 +44,10 @@ import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.searchtab.RemoteImage
+import com.mz2az.scenetrip.ui.CircleSignIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.MapPinEllipseIcon
+import com.mz2az.scenetrip.ui.PersonOutlineIcon
 
 /** 목업의 홈 글자색. `RootTabs.kt`의 것과 같은 값이다. */
 internal val HOME_PURPLE = Color(0xFF5B49D6)
@@ -78,7 +78,7 @@ internal fun HomeSectionHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(title, fontSize = 17.sp, fontWeight = FontWeight.Black, color = IOS.label)
+        Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = IOS.label)
         if (subtitle != null) {
             Text(subtitle, fontSize = 12.sp, color = IOS.secondaryLabel)
         }
@@ -128,7 +128,7 @@ fun HomeHeader(onProfile: () -> Unit) {
                     .clickable(onClick = onProfile),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Person, contentDescription = "마이페이지", tint = IOS.label, modifier = Modifier.size(17.dp))
+            PersonOutlineIcon(IOS.label, Modifier.size(17.dp))
         }
     }
 }
@@ -256,7 +256,7 @@ private fun HomeTripCardFilled(
                 modifier = Modifier.size(22.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.28f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("$rank", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color.White)
+                Text("$rank", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
         Text(
@@ -279,7 +279,7 @@ private fun HomeTripCardFilled(
     Text(
         trip.course.title,
         fontSize = 18.sp,
-        fontWeight = FontWeight.Black,
+        fontWeight = FontWeight.Bold,
         color = Color.White,
         maxLines = 1,
     )
@@ -351,7 +351,7 @@ private fun HomeTripCardEmpty(
                 .background(Color.White.copy(alpha = 0.22f))
                 .padding(horizontal = 9.dp, vertical = 3.dp),
     )
-    Text("여행을 시작해 볼까요?", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White)
+    Text("여행을 시작해 볼까요?", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
     Text(
         "보고 싶은 작품과 기간만 고르면 촬영지를 이어서 일정으로 짜 드립니다",
         fontSize = 13.sp,
@@ -502,7 +502,7 @@ fun HomeTodayCard(
                     modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(Icons.Filled.Place, contentDescription = null, tint = IOS.pinDeep, modifier = Modifier.size(12.dp))
+                    MapPinEllipseIcon(IOS.pinDeep, Modifier.size(13.dp))
                     Text(
                         place.address ?: "주소 없음",
                         fontSize = 12.sp,
@@ -512,15 +512,14 @@ fun HomeTodayCard(
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(9.dp),
                         modifier = Modifier.clickable(onClick = onSave),
                     ) {
-                        Icon(
-                            if (saved) Icons.Filled.CheckCircle else Icons.Outlined.AddCircle,
-                            contentDescription = null,
-                            tint = if (saved) IOS.pinDeep else IOS.accent,
-                            modifier = Modifier.size(15.dp),
-                        )
+                        if (saved) {
+                            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = IOS.pinDeep, modifier = Modifier.size(15.dp))
+                        } else {
+                            CircleSignIcon(plus = true, tint = IOS.accent, modifier = Modifier.size(13.dp))
+                        }
                         Text(
                             if (saved) "담김" else "담기",
                             fontSize = 13.sp,

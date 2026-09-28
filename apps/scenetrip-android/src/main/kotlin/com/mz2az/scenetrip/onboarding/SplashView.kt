@@ -158,7 +158,7 @@ fun SplashView(onDone: () -> Unit) {
                         TextStyle(
                             color = Color.White,
                             fontSize = 44.sp,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.Bold,
                             letterSpacing = (-1.2).sp,
                         ),
                 )

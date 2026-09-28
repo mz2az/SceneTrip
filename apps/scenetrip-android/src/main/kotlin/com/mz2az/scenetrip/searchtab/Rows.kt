@@ -86,11 +86,11 @@ fun WorkRow(
 
         // **작품에는 하트, 장소에는 플러스** (8/11 회의 확정). 장소의 `+` 와 같은
         // 자리에 두어 사용자가 규칙을 한 번만 배우게 한다. iOS `Rows.swift` 의
-        // `WorkRow` 와 같은 아이콘·같은 색이다.
+        // `WorkRow` 와 같은 아이콘·같은 색이다 — 찜한 하트는 빨강(`Color.red`).
         Icon(
             imageVector = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
             contentDescription = if (liked) "찜 빼기" else "찜하기",
-            tint = if (liked) IOS.accent else IOS.secondaryLabel,
+            tint = if (liked) IOS.systemRed else IOS.secondaryLabel,
             modifier =
                 Modifier
                     .clip(CircleShape)

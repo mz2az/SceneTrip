@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,17 +27,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -59,7 +56,11 @@ import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.searchtab.rememberLocate
 import com.mz2az.scenetrip.ui.BoltIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSAction
+import com.mz2az.scenetrip.ui.IOSAlert
+import com.mz2az.scenetrip.ui.IOSRole
 import com.mz2az.scenetrip.ui.LeafIcon
+import com.mz2az.scenetrip.ui.SparklesIcon
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -143,16 +144,30 @@ fun RouteWizardView(
             modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(horizontal = 20.dp, vertical = 14.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("취소", fontSize = 15.sp, color = IOS.accent, modifier = Modifier.clickable { onClose(null) })
+                Text("취소", fontSize = 17.sp, color = IOS.accent, modifier = Modifier.clickable { onClose(null) })
                 Spacer(Modifier.weight(1f))
-                Text("${stepIndex + 1} / $steps", fontSize = 12.sp, color = IOS.secondaryLabel)
+                Text("${stepIndex + 1} / $steps", fontSize = 13.sp, color = IOS.secondaryLabel)
             }
-            Spacer(Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { (stepIndex + 1) / steps.toFloat() },
-                modifier = Modifier.fillMaxWidth(),
-                color = IOS.accent,
-            )
+            Spacer(Modifier.height(10.dp))
+            // iOS `ProgressView(value:total:)` — 회색 캡슐 트랙 위 accent 캡슐. Material3 막대는
+            // 트랙과 채움 사이 틈·끝 점이 있어 생김새가 달랐다(2026-09-28 대조 #15).
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(IOS.systemGray5),
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth((stepIndex + 1) / steps.toFloat())
+                            .fillMaxHeight()
+                            .clip(CircleShape)
+                            .background(IOS.accent),
+                )
+            }
             if (isAiPlan) {
                 Spacer(Modifier.height(10.dp))
                 Row(
@@ -165,8 +180,8 @@ fun RouteWizardView(
                             .background(IOS.accent.copy(alpha = 0.10f))
                             .padding(horizontal = 12.dp, vertical = 9.dp),
                 ) {
-                    Icon(Icons.Filled.Star, contentDescription = null, tint = IOS.accent, modifier = Modifier.size(13.dp))
-                    Text("AI 가 일정을 짜 드립니다", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = IOS.accent)
+                    SparklesIcon(IOS.accent, Modifier.size(13.dp))
+                    Text("AI 가 일정을 짜 드립니다", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = IOS.accent)
                 }
             }
         }
@@ -351,23 +366,24 @@ fun RouteWizardView(
         Row(
             modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             if (stepIndex > 0) {
                 // iOS `.buttonStyle(.bordered)`(회색 알약 + 강조색 글자) ·
                 // `.borderedProminent`(파랑 알약 + 흰 글자) 둘 다 `.controlSize(.large)`
                 // 에서는 완전히 둥근 알약이다 — 각진 모서리(12dp)였던 것을 알약
                 // (`CircleShape`, 세로 지름이 반지름이라 늘 완전히 둥글다)으로.
+                // `.bordered` 는 `.controlSize(.large)` 가 아니라 보통 크기다 — 「다음」보다 낮다.
                 Text(
                     "이전",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontSize = 17.sp,
                     color = IOS.accent,
                     modifier =
                         Modifier
                             .clip(CircleShape)
-                            .background(IOS.systemGray6)
+                            .background(IOS.tertiaryFill)
                             .clickable(enabled = !planning) { stepIndex -= 1 }
-                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                            .padding(horizontal = 14.dp, vertical = 7.dp),
                 )
             }
             Row(
@@ -415,8 +431,7 @@ fun RouteWizardView(
                     } else {
                         "다음"
                     },
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 17.sp,
                     color = IOS.systemBackground,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
@@ -425,11 +440,11 @@ fun RouteWizardView(
     }
 
     if (planFailed) {
-        AlertDialog(
-            onDismissRequest = { planFailed = false },
-            title = { Text("일정을 짜지 못했습니다") },
-            text = { Text(store.failure?.message ?: "잠시 후 다시 시도해 주세요.") },
-            confirmButton = { TextButton(onClick = { planFailed = false }) { Text("확인") } },
+        IOSAlert(
+            title = "일정을 짜지 못했습니다",
+            message = store.failure?.message ?: "잠시 후 다시 시도해 주세요.",
+            actions = listOf(IOSAction("확인") {}),
+            onDismiss = { planFailed = false },
         )
     }
 }

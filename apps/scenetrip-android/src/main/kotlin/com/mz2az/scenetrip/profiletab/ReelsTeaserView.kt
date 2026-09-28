@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.onboarding.PinoMascot
 import com.mz2az.scenetrip.onboarding.PinoPose
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.SparklesIcon
 
 /**
  * AI 여행 릴스 — 예고편. iOS `ProfileTab/ReelsTeaserView.swift`를 옮긴 것이다.
@@ -80,7 +80,7 @@ fun ReelsTeaserView(onClose: () -> Unit) {
 @Composable
 private fun TeaserRow(text: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Icon(Icons.Filled.Star, contentDescription = null, tint = IOS.pinDeep, modifier = Modifier.size(14.dp))
+        SparklesIcon(IOS.pinDeep, Modifier.size(14.dp))
         Text(text, fontSize = 15.sp, color = IOS.label)
     }
 }

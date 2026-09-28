@@ -17,11 +17,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +36,9 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.sceneapi.client.model.MarketCourseSummary
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSAction
+import com.mz2az.scenetrip.ui.IOSAlert
+import com.mz2az.scenetrip.ui.IOSRole
 import com.mz2az.scenetrip.ui.TrayIcon
 import kotlinx.coroutines.launch
 
@@ -68,17 +69,18 @@ fun RouteMarketView(
             // iOS `ContentUnavailableView` — 트레이 심벌 + 굵은 제목 + 가운데 정렬
             // 설명, 화면 가운데(회색 글자 두 줄만 있던 것과 다르다 — 실기 비교로
             // 발견). 커뮤니티 탭 빈 상태와 같은 조합이다.
+            // 위쪽에 놓는다 — 커뮤니티 빈 상태와 같이 iOS `ContentUnavailableView` 가 목록 첫 칸에 온다.
+            // 세그먼트 아래 약 77(실측) — 커뮤니티보다 목록 머리 여백만큼 더 내려온다.
             Column(
-                modifier = Modifier.fillMaxSize().padding(32.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp).padding(top = 66.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
             ) {
-                TrayIcon(tint = IOS.tertiaryLabel, modifier = Modifier.size(44.dp).padding(bottom = 12.dp))
-                Text("아직 올라온 코스가 없습니다", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+                TrayIcon(tint = IOS.secondaryLabel, modifier = Modifier.size(60.dp).padding(bottom = 14.dp))
+                Text("아직 올라온 코스가 없습니다", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label)
                 Text(
                     "코스를 만들고 「마켓에 올리기」를 누르면 여기 보입니다",
-                    fontSize = 13.sp,
-                    color = IOS.tertiaryLabel,
+                    fontSize = 15.sp,
+                    color = IOS.secondaryLabel,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.padding(top = 4.dp).widthIn(max = 280.dp),
                 )
@@ -106,19 +108,16 @@ fun RouteMarketView(
 
     if (store.failure != null) {
         val unauthorized = store.failure?.statusCode == 401
-        AlertDialog(
-            onDismissRequest = { store.clearFailure() },
-            title = { Text(if (unauthorized) "가입이 필요합니다" else "하지 못했습니다") },
-            text = {
-                Text(
-                    if (unauthorized) {
-                        "코스를 담고 좋아요를 누르려면 가입해야 합니다."
-                    } else {
-                        store.failure?.message ?: "잠시 후 다시 시도해 주세요."
-                    },
-                )
-            },
-            confirmButton = { TextButton(onClick = { store.clearFailure() }) { Text("확인") } },
+        IOSAlert(
+            title = if (unauthorized) "가입이 필요합니다" else "하지 못했습니다",
+            message =
+                if (unauthorized) {
+                    "코스를 담고 좋아요를 누르려면 가입해야 합니다."
+                } else {
+                    store.failure?.message ?: "잠시 후 다시 시도해 주세요."
+                },
+            actions = listOf(IOSAction("확인", IOSRole.CANCEL) {}),
+            onDismiss = { store.clearFailure() },
         )
     }
 }

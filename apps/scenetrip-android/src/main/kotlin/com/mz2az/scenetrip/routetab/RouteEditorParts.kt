@@ -103,7 +103,7 @@ fun RouteStopRow(
                         .background(Brush.verticalGradient(listOf(IOS.pinLight, IOS.pinDeep))),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("$number", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White)
+                Text("$number", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {

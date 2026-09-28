@@ -20,7 +20,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
@@ -82,12 +81,9 @@ fun SearchBar(
                     // 오히려 49.5 로 커졌다.
                 }.padding(horizontal = IOS.gutter, vertical = 11.dp),
     ) {
-        Icon(
-            Icons.Filled.Search,
-            contentDescription = null,
-            tint = IOS.secondaryLabel,
-            modifier = Modifier.size(20.dp),
-        )
+        // SF `magnifyingglass`(body) 글리프 약 18pt — Material Search 20dp 는 글리프가 14dp 뿐이었다.
+        com.mz2az.scenetrip.ui
+            .MagnifierIcon(IOS.secondaryLabel, Modifier.size(19.dp))
         Spacer(Modifier.width(8.dp))
 
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {

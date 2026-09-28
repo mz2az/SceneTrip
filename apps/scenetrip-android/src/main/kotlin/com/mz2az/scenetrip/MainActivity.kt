@@ -24,6 +24,7 @@ import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.onboarding.OnboardingView
 import com.mz2az.scenetrip.onboarding.SplashView
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.iosTypography
 
 /**
  * 앱의 유일한 액티비티. iOS 의 `SceneTripApp.swift` 에 해당한다.
@@ -80,7 +81,7 @@ fun SceneTripApp() {
     // **MaterialTheme 의 기본 색을 쓰지 않는다.** 기본값은 보라 계열이라 iOS 의
     // systemBlue 와 갈린다. 색은 전부 `ui/IOSTheme.kt` 에서 명시로 가져온다 —
     // 테마는 글꼴 기본값 정도로만 남긴다.
-    MaterialTheme {
+    MaterialTheme(typography = iosTypography()) {
         Surface(modifier = Modifier.fillMaxSize(), color = IOS.systemBackground) {
             AppRoot()
         }

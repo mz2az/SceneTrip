@@ -1,10 +1,15 @@
 package com.mz2az.scenetrip.ui
 
+import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.intl.LocaleList
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 
 /**
@@ -25,6 +30,7 @@ import androidx.compose.ui.unit.sp
  * **한쪽을 고치면 다른 쪽도 고친다.** 이 파일의 값이 iOS 소스와 갈리는 순간 두 앱은
  * 다른 제품이 된다.
  */
+
 object IOS {
     // --- 색 ---------------------------------------------------------------
     //
@@ -58,6 +64,9 @@ object IOS {
     val systemGray4 = Color(0xFFD1D1D6)
     val systemGray6 = Color(0xFFF2F2F7)
 
+    /** `.bordered` 버튼의 회색 채움. iOS `tertiarySystemFill` — (118,118,128) 12%. */
+    val tertiaryFill = Color(0x1F767680)
+
     /** 세그먼트 컨트롤의 트랙. systemGray6 보다 살짝 어둡다 — 실측 #EEEEEF. */
     val segmentTrack = Color(0xFFEEEEEF)
 
@@ -89,14 +98,19 @@ object IOS {
     //
     // iOS 텍스트 스타일의 기본 크기(Large)다. SwiftUI 의 `.headline` 등이
     // 이 값으로 그려진다.
-    val headline = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-    val footnote = TextStyle(fontSize = 13.sp)
-    val subheadline = TextStyle(fontSize = 15.sp)
-    val subheadlineSemibold = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-    val body = TextStyle(fontSize = 17.sp)
-    val caption = TextStyle(fontSize = 12.sp)
-    val caption2 = TextStyle(fontSize = 11.sp)
-    val caption2Heavy = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Black)
+    // 전부 [textBase] 위에 얹는다 — `Text(style = …)` 는 테마 기본값을 **대신하므로** 여기에도
+    // 줄 높이·줄바꿈 규칙이 들어 있어야 한다.
+    val headline = textBase.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+    val footnote = textBase.copy(fontSize = 13.sp)
+    val subheadline = textBase.copy(fontSize = 15.sp)
+    val subheadlineSemibold = textBase.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    val body = textBase.copy(fontSize = 17.sp)
+    val caption = textBase.copy(fontSize = 12.sp)
+    val caption2 = textBase.copy(fontSize = 11.sp)
+
+    /** iOS `.heavy`. **한글은 Bold(700)로 옮긴다** — iOS 는 한글을 heavy·bold 거의 같은 굵기로
+     * 그리는데 Android 는 800·900 이 눈에 띄게 굵다(2026-09-28 실측, 획 두께 2.0pt 대 2.67dp). */
+    val caption2Heavy = textBase.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold)
 
     // --- 간격 -------------------------------------------------------------
     //
@@ -144,6 +158,57 @@ object IOS {
     /** 시트 스냅 비율. `BottomSheet.swift` 가 "두 앱이 같은 숫자" 라고 못 박은 값. */
     const val DETENT_COLLAPSED = 0.14f
     const val DETENT_MEDIUM = 0.48f
+}
+
+/**
+ * iOS 글자의 공통 바탕 — **줄 높이 1.2em·자간 0·단어 단위 줄바꿈.**
+ *
+ * - 줄 높이 **1.3em**: iOS 한글은 한 줄 칸이 약 1.2배(13→16), 줄과 줄 사이가 약 1.33배(13→17.3)다.
+ *   Android 한글 글꼴(Noto Sans CJK)은 제 값이 약 1.44배라 줄마다 높았다. 그 사이 1.3 으로 둔다.
+ *   **`Trim.Both` 여야 한 줄짜리에도 먹는다** — `Trim.None` 이면 첫 줄은 글꼴 제 높이를 그대로
+ *   두고 둘째 줄부터만 줄어, 한 줄 글은 하나도 안 바뀌고 여러 줄 글만 빽빽해졌다(2026-09-28 실측).
+ * - 줄바꿈: 한글을 **어절 단위**로 꺾는다(`WordBreak.Phrase`). 기본값은 글자 단위라
+ *   「케이팝 데몬 헌 / 터스」처럼 단어 중간에서 끊겼다(iOS 는 「케이팝 / 데몬 헌터스」).
+ *   **로케일을 한국어로 박아야 먹는다** — Phrase 는 글자의 언어를 보고 동작하는데, 이 앱을 쓰는
+ *   외국인의 기기 언어(en 등)를 따르면 한글에 적용되지 않았다. 앱 글자는 한국어다.
+ */
+val textBase =
+    TextStyle(
+        letterSpacing = 0.sp,
+        lineHeight = 1.3.em,
+        lineHeightStyle = LineHeightStyle(alignment = LineHeightStyle.Alignment.Center, trim = LineHeightStyle.Trim.Both),
+        lineBreak = LineBreak.Paragraph.copy(wordBreak = LineBreak.WordBreak.Phrase),
+        localeList = LocaleList("ko"),
+    )
+
+/**
+ * 앱 전체 글자 기본값 — **줄 높이는 글꼴 자체값, 자간 0.** SwiftUI 의 기본이 이렇다.
+ *
+ * Material3 의 기본 타이포(`bodyLarge`: 줄 높이 24sp, 자간 0.5sp)를 그대로 두면 모든 `Text`
+ * 가 이것을 물려받아, 13sp 한 줄이 24dp 높이가 되고 글자가 벌어진다. 행·칩·탭 라벨이
+ * 전부 부풀고 줄바꿈 자리까지 iOS 와 갈렸다(2026-09-28 화면 대조, 차이 24건 중 1위). 값은 [textBase].
+ */
+fun iosTypography(): Typography {
+    val base = Typography()
+
+    fun TextStyle.ios() = merge(textBase)
+    return Typography(
+        displayLarge = base.displayLarge.ios(),
+        displayMedium = base.displayMedium.ios(),
+        displaySmall = base.displaySmall.ios(),
+        headlineLarge = base.headlineLarge.ios(),
+        headlineMedium = base.headlineMedium.ios(),
+        headlineSmall = base.headlineSmall.ios(),
+        titleLarge = base.titleLarge.ios(),
+        titleMedium = base.titleMedium.ios(),
+        titleSmall = base.titleSmall.ios(),
+        bodyLarge = base.bodyLarge.ios(),
+        bodyMedium = base.bodyMedium.ios(),
+        bodySmall = base.bodySmall.ios(),
+        labelLarge = base.labelLarge.ios(),
+        labelMedium = base.labelMedium.ios(),
+        labelSmall = base.labelSmall.ios(),
+    )
 }
 
 /** iOS `Divider()` 와 같은 선. 목록에서는 왼쪽을 14pt 띄운다. */

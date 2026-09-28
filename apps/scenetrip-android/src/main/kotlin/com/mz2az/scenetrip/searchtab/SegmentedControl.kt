@@ -4,11 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.ui.IOS
 
 /**
@@ -34,13 +36,17 @@ fun <T> SegmentedControl(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // iOS 26 의 `.segmented`: **트랙도 선택도 캡슐**, 높이 31, 글자는 켜짐·꺼짐 모두 13 medium 검정.
+    // 트랙은 **반투명**(`tertiarySystemFill`) — 흰 바탕에선 238, 회색 바탕에선 227 로 보인다. 불투명
+    // 회색으로 두었더니 회색 화면(경로여정) 위에서 트랙이 사라졌다(2026-09-28 화면 대조 #9·#10).
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .padding(horizontal = IOS.gutter)
-                .clip(RoundedCornerShape(9.dp))
-                .background(IOS.segmentTrack)
+                .height(31.dp)
+                .clip(CircleShape)
+                .background(IOS.tertiaryFill)
                 .padding(2.dp),
     ) {
         options.forEach { option ->
@@ -50,29 +56,28 @@ fun <T> SegmentedControl(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(7.dp))
+                        .fillMaxHeight()
+                        .clip(CircleShape)
                         .then(
                             if (isOn) {
                                 Modifier
                                     .shadow(
                                         2.dp,
-                                        RoundedCornerShape(7.dp),
+                                        CircleShape,
                                         ambientColor = IOS.label,
                                         spotColor = IOS.label,
                                     ).background(IOS.systemBackground)
                             } else {
                                 Modifier
                             },
-                        ).clickable { onSelect(option) }
-                        .padding(vertical = 5.dp),
+                        ).clickable { onSelect(option) },
             ) {
                 Text(
                     text = label(option),
-                    style =
-                        IOS.footnote.copy(
-                            fontWeight = if (isOn) FontWeight.SemiBold else FontWeight.Normal,
-                        ),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
                     color = IOS.label,
+                    maxLines = 1,
                 )
             }
         }

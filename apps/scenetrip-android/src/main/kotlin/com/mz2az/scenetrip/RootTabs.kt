@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -52,6 +50,7 @@ import com.mz2az.scenetrip.routetab.RouteTabView
 import com.mz2az.scenetrip.searchtab.SearchTabScreen
 import com.mz2az.scenetrip.ui.BubblesIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.MagnifierIcon
 
 /**
  * 앱의 최상위 — 하단 탭 셋과, 탭에서 내려온 두 화면의 덮개를 든다.
@@ -202,7 +201,7 @@ private fun SideTab(
         modifier = modifier.fillMaxSize().clickable(onClick = onClick),
     ) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.BottomCenter) {
-            TabIcon(tab, tint, 20.dp)
+            TabIcon(tab, tint, 22.dp)
         }
         Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
             Text(tab.stubLabel, fontSize = 11.sp, color = tint, textAlign = TextAlign.Center)
@@ -278,7 +277,8 @@ private fun TabIcon(
 ) {
     when (tab) {
         RootTab.SEARCH -> {
-            Icon(Icons.Filled.Search, tab.stubLabel, Modifier.size(size), tint)
+            // SF `magnifyingglass` 20pt 는 글리프가 약 22pt — Material 것은 24 격자 안에 작게 그려져 30% 작았다.
+            MagnifierIcon(tint, Modifier.size(size))
         }
 
         // 가운데 원형 버튼이 대신한다.
@@ -287,7 +287,7 @@ private fun TabIcon(
         // `bubble.left.and.bubble.right` — 말풍선 둘이 겹친다. 커뮤니티 탭의 빈
         // 상태와 같은 그림이다([com.mz2az.scenetrip.ui.BubblesIcon]).
         RootTab.COMMUNITY -> {
-            BubblesIcon(tint = tint, modifier = Modifier.size(size))
+            BubblesIcon(tint = tint, modifier = Modifier.size(width = size + 6.dp, height = size))
         }
     }
 }

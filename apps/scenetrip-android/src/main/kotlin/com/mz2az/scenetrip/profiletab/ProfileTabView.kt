@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,19 +21,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,8 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,7 +58,21 @@ import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
+import com.mz2az.scenetrip.ui.BagFillIcon
+import com.mz2az.scenetrip.ui.ChevronRightIcon
+import com.mz2az.scenetrip.ui.GlobeIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSAction
+import com.mz2az.scenetrip.ui.IOSCloseButton
+import com.mz2az.scenetrip.ui.IOSConfirmPopover
+import com.mz2az.scenetrip.ui.IOSRole
+import com.mz2az.scenetrip.ui.IOSToggle
+import com.mz2az.scenetrip.ui.PersonBadgePlusIcon
+import com.mz2az.scenetrip.ui.QuestionCircleIcon
+import com.mz2az.scenetrip.ui.RouteCurveIcon
+import com.mz2az.scenetrip.ui.ShoeprintsIcon
+import com.mz2az.scenetrip.ui.SparklesIcon
+import com.mz2az.scenetrip.ui.SquarePencilIcon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -75,7 +82,6 @@ import kotlinx.coroutines.withContext
 private val SYSTEM_ORANGE = Color(0xFFFF9500)
 private val SYSTEM_GREEN = Color(0xFF34C759)
 private val SYSTEM_INDIGO = Color(0xFF5856D6)
-private val SYSTEM_GRAY = Color(0xFF8E8E93)
 private val SYSTEM_BLUE = IOS.accent
 
 /**
@@ -153,20 +159,10 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6)) {
-            Box(modifier = Modifier.fillMaxWidth().statusBarsPadding().height(44.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().statusBarsPadding().height(56.dp)) {
                 Text("마이페이지", style = IOS.headline, color = IOS.label, modifier = Modifier.align(Alignment.Center))
                 if (onClose != null) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .align(Alignment.CenterStart)
-                                .padding(start = 12.dp)
-                                .size(32.dp)
-                                .clickable(onClick = onClose),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Filled.Close, contentDescription = "닫기", tint = IOS.label, modifier = Modifier.size(16.dp))
-                    }
+                    IOSCloseButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp))
                 }
             }
 
@@ -176,28 +172,27 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 item {
                     ProfileSection("내 여행") {
                         ProfileRow(
-                            tint = IOS.pinDeep,
                             title = "내 코스",
                             value = courseCount?.let { "${it}개" } ?: "…",
                             onClick = { showingCourses = true },
-                            // iOS는 `point.topleft.down.to.point.bottomright.curvepath`
-                            // (경로 곡선) 심벌이다 — SF Symbols 전용이라 짝이 되는
-                            // Material 아이콘이 없다. 핀(장소)이 가장 가깝다.
-                            icon = Icons.Filled.Place,
+                            chevron = true,
+                            icon = { RouteCurveIcon(IOS.pinDeep, it) },
                         )
+                        ProfileDivider()
                         ProfileRow(
-                            tint = IOS.systemRed,
                             title = "찜한 작품",
                             value = "${likes.contentIds.size}개",
                             onClick = { showingLikes = true },
-                            icon = Icons.Filled.Favorite,
+                            chevron = true,
+                            icon = { Icon(Icons.Filled.Favorite, contentDescription = null, tint = IOS.systemRed, modifier = it) },
                         )
+                        ProfileDivider()
                         ProfileRow(
-                            tint = SYSTEM_ORANGE,
                             title = "장바구니",
                             value = "${cartItems.size}곳",
                             onClick = { showingCart = true },
-                            icon = Icons.Filled.ShoppingCart,
+                            chevron = true,
+                            icon = { BagFillIcon(SYSTEM_ORANGE, it) },
                         )
                     }
                 }
@@ -205,20 +200,28 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 item {
                     ProfileSection("방문 스탬프") {
                         if (stamps.isEmpty()) {
+                            // iOS: 회색 점선 원 44 + caption 안내문.
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
                             ) {
-                                Box(
-                                    modifier =
-                                        Modifier
-                                            .size(44.dp)
-                                            .clip(CircleShape)
-                                            .background(IOS.systemBackground),
-                                )
+                                androidx.compose.foundation.Canvas(Modifier.size(44.dp)) {
+                                    val stroke = 2.dp.toPx()
+                                    drawCircle(
+                                        IOS.systemGray4,
+                                        radius = size.minDimension / 2 - stroke / 2,
+                                        style =
+                                            androidx.compose.ui.graphics.drawscope.Stroke(
+                                                width = stroke,
+                                                pathEffect =
+                                                    androidx.compose.ui.graphics.PathEffect
+                                                        .dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx())),
+                                            ),
+                                    )
+                                }
                                 Text(
-                                    "여행 중 성지 100m 안에 들어가면 도장이 찍혀요",
+                                    "여행 중 성지 100 m 안에 들어가면 도장이 찍혀요",
                                     fontSize = 12.sp,
                                     color = IOS.secondaryLabel,
                                 )
@@ -226,14 +229,15 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                         } else {
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier.fillMaxWidth().clickable { showingStamps = true }.padding(vertical = 6.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                modifier = Modifier.fillMaxWidth().clickable { showingStamps = true }.padding(vertical = 12.dp),
                             ) {
                                 items(stamps.take(12), key = { it.id }) { stamp -> StampBadge(stamp, size = 62.dp) }
                                 if (stamps.size > 12) {
                                     item {
                                         Text(
                                             "+${stamps.size - 12}",
-                                            fontSize = 13.sp,
+                                            fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = IOS.secondaryLabel,
                                         )
@@ -247,11 +251,11 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 item {
                     ProfileSection("커뮤니티") {
                         ProfileRow(
-                            tint = SYSTEM_INDIGO,
                             title = "내가 쓴 글",
                             value = "${posts.posts.size}개",
                             onClick = { showingPosts = true },
-                            icon = Icons.Filled.Create,
+                            chevron = true,
+                            icon = { SquarePencilIcon(SYSTEM_INDIGO, it) },
                         )
                     }
                 }
@@ -261,7 +265,11 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth().clickable { showingReels = true }.padding(vertical = 6.dp),
+                            modifier =
+                                Modifier.fillMaxWidth().clickable { showingReels = true }.padding(
+                                    horizontal = 16.dp,
+                                    vertical = 11.dp,
+                                ),
                         ) {
                             Box(
                                 modifier =
@@ -271,10 +279,10 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                                         .background(Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep))),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(Icons.Filled.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                SparklesIcon(Color.White, Modifier.size(14.dp))
                             }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("내 여행으로 릴스 만들기", fontSize = 14.sp, color = IOS.label)
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                Text("내 여행으로 릴스 만들기", fontSize = 15.sp, color = IOS.label)
                                 Text(
                                     "다녀온 코스와 사진을 AI 가 15초 영상으로",
                                     fontSize = 11.sp,
@@ -288,51 +296,85 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 
                 item {
                     ProfileSection("발자취") {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            ProfileRow(
-                                tint = IOS.pinDeep,
-                                title = "기록한 거리",
-                                value = "%.1f km · %d점".format(footprints.kilometers, footprints.points.size),
-                                onClick = null,
-                            )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text("지도에 발자취 보기", fontSize = 14.sp, color = IOS.label, modifier = Modifier.weight(1f))
-                                Switch(checked = footprints.enabled, onCheckedChange = { footprints.updateEnabled(it) })
+                        ProfileRow(
+                            title = "기록한 거리",
+                            value = "%.1f km · %d점".format(footprints.kilometers, footprints.points.size),
+                            onClick = null,
+                            icon = { ShoeprintsIcon(IOS.pinDeep, it) },
+                        )
+                        ProfileDivider()
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
+                        ) {
+                            Text("지도에 발자취 보기", fontSize = 15.sp, color = IOS.label, modifier = Modifier.weight(1f))
+                            IOSToggle(checked = footprints.enabled, onCheckedChange = { footprints.updateEnabled(it) })
+                        }
+                        ProfileDivider(afterIcon = false)
+                        Box(
+                            contentAlignment = Alignment.CenterStart,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp)
+                                    .clickable(enabled = footprints.points.isNotEmpty()) { clearingFootprints = true }
+                                    .padding(horizontal = 16.dp),
+                        ) {
+                            // iOS 26 은 확인을 이 글자 **옆에 붙는 팝오버**로 띄운다(아래 시트·어두운 막 없음).
+                            var labelWidth by remember { mutableStateOf(0.dp) }
+                            val density = LocalDensity.current
+                            Box {
+                                Text(
+                                    "발자취 지우기",
+                                    fontSize = 15.sp,
+                                    color = if (footprints.points.isEmpty()) IOS.tertiaryLabel else IOS.systemRed,
+                                    modifier = Modifier.onSizeChanged { labelWidth = with(density) { it.width.toDp() } },
+                                )
+                                if (clearingFootprints) {
+                                    IOSConfirmPopover(
+                                        title = "발자취를 모두 지울까요? 복구할 수 없어요.",
+                                        actions = listOf(IOSAction("지우기", IOSRole.DESTRUCTIVE) { footprints.clear() }),
+                                        anchorX = labelWidth,
+                                        onDismiss = { clearingFootprints = false },
+                                    )
+                                }
                             }
-                            Text(
-                                "발자취 지우기",
-                                fontSize = 14.sp,
-                                color = if (footprints.points.isEmpty()) IOS.tertiaryLabel else IOS.systemRed,
-                                modifier =
-                                    Modifier.clickable(enabled = footprints.points.isNotEmpty()) {
-                                        clearingFootprints = true
-                                    },
-                            )
                         }
                     }
                 }
 
                 item {
                     ProfileSection("도움") {
+                        // iOS 는 이 줄에 chevron 이 없다(`row(..., chevron: false)`).
                         ProfileRow(
-                            tint = SYSTEM_BLUE,
                             title = "사용법 다시 보기",
                             value = "",
                             onClick = { replaying = true },
+                            icon = { QuestionCircleIcon(SYSTEM_BLUE, it) },
                         )
                     }
                 }
 
                 item {
                     ProfileSection("준비 중") {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            ProfileRow(SYSTEM_GRAY, "로그인 · 계정", "준비 중", null, dimmed = true, icon = Icons.Filled.Person)
-                            ProfileRow(SYSTEM_GRAY, "언어 (English · 日本語)", "준비 중", null, dimmed = true)
-                            ProfileRow(SYSTEM_GRAY, "알림", "준비 중", null, dimmed = true, icon = Icons.Filled.Notifications)
-                        }
+                        ProfileRow("로그인 · 계정", "준비 중", null, dimmed = true, icon = { PersonBadgePlusIcon(IOS.tertiaryLabel, it) })
+                        ProfileDivider()
+                        ProfileRow("언어 (English · 日本語)", "준비 중", null, dimmed = true, icon = { GlobeIcon(IOS.tertiaryLabel, it) })
+                        ProfileDivider()
+                        ProfileRow(
+                            "알림",
+                            "준비 중",
+                            null,
+                            dimmed = true,
+                            icon = {
+                                Icon(
+                                    Icons.Outlined.Notifications,
+                                    contentDescription = null,
+                                    tint = IOS.tertiaryLabel,
+                                    modifier = it,
+                                )
+                            },
+                        )
                     }
                 }
 
@@ -360,23 +402,6 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
             val flag = remember { OnboardingFlag(context) }
             OnboardingView(onboardingFlag = flag, onDone = { replaying = false })
         }
-
-        if (clearingFootprints) {
-            AlertDialog(
-                onDismissRequest = { clearingFootprints = false },
-                title = { Text("발자취를 모두 지울까요?") },
-                text = { Text("복구할 수 없어요.") },
-                confirmButton = {
-                    TextButton(onClick = {
-                        footprints.clear()
-                        clearingFootprints = false
-                    }) { Text("지우기", color = IOS.systemRed) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { clearingFootprints = false }) { Text("취소") }
-                },
-            )
-        }
     }
 }
 
@@ -398,20 +423,27 @@ private fun ProfileHeader() {
     }
 }
 
+// iOS `List(.insetGrouped)`(iOS 26): 섹션 머리 15 semibold 회색(카드 안쪽 16 에 맞춤), 카드 모서리 26,
+// 좌우 여백 16. 줄은 카드에 바로 붙고 줄 사이에 구분선이 있다(2026-09-28 대조 #4).
 @Composable
 private fun ProfileSection(
     title: String,
     content: @Composable () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 18.dp)) {
-        Text(title, fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.padding(bottom = 6.dp, start = 4.dp))
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 26.dp)) {
+        Text(
+            title,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = IOS.secondaryLabel,
+            modifier = Modifier.padding(start = 16.dp, bottom = 10.dp),
+        )
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(IOS.systemBackground)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(IOS.systemBackground),
         ) {
             content()
         }
@@ -419,20 +451,27 @@ private fun ProfileSection(
 }
 
 /**
- * 목록 줄. iOS 는 SF Symbol 을 쓰지만 그와 1:1로 맞는 Material 코어 아이콘이 갈래마다
- * 있는 게 아니라(Material 은 core/extended 로 나뉘고, 아이콘 하나 때문에 수천 개짜리
- * extended 를 넣을 것은 아니다 — `RootTabs.kt`의 같은 판단), 갈래를 가리키는 **색
- * 점**으로 대신한다.
+ * 줄 사이 선. 아이콘 줄 아래는 아이콘 칸 뒤(16 + 26 + 12 = 54)부터, 아이콘 없는 줄(토글·지우기) 아래는
+ * 16 부터 오른쪽 16 앞까지. iOS 26 목록 선은 머리카락이 아니라 **1pt 의 연한 회색(232)** 이다(실측).
  */
 @Composable
+private fun ProfileDivider(afterIcon: Boolean = true) {
+    androidx.compose.material3.HorizontalDivider(
+        thickness = 1.dp,
+        color = Color(0xFFE8E8E8),
+        modifier = Modifier.padding(start = if (afterIcon) 54.dp else 16.dp, end = 16.dp),
+    )
+}
+
+/** 목록 줄 — iOS `row(symbol:tint:title:value:chevron:)`. 높이 52, 아이콘 칸 26, 글자 15. */
+@Composable
 private fun ProfileRow(
-    tint: Color,
     title: String,
     value: String,
     onClick: (() -> Unit)?,
     dimmed: Boolean = false,
-    // iOS `row(symbol:...)`의 SF Symbol과 짝. 없으면(스탬프 줄 등) 예전처럼 점.
-    icon: ImageVector? = null,
+    chevron: Boolean = false,
+    icon: @Composable (Modifier) -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -440,20 +479,17 @@ private fun ProfileRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .height(52.dp)
                 .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-                .padding(vertical = 6.dp),
+                .padding(horizontal = 16.dp),
     ) {
         Box(modifier = Modifier.width(26.dp), contentAlignment = Alignment.Center) {
-            if (icon != null) {
-                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(17.dp))
-            } else {
-                Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(tint))
-            }
+            icon(Modifier.size(18.dp))
         }
-        Text(title, fontSize = 14.sp, color = if (dimmed) IOS.tertiaryLabel else IOS.label, modifier = Modifier.weight(1f))
-        Text(value, fontSize = 14.sp, color = IOS.secondaryLabel)
-        if (onClick != null) {
-            Text("›", fontSize = 14.sp, color = IOS.tertiaryLabel)
+        Text(title, fontSize = 15.sp, color = if (dimmed) IOS.tertiaryLabel else IOS.label, modifier = Modifier.weight(1f), maxLines = 1)
+        Text(value, fontSize = 15.sp, color = IOS.secondaryLabel, maxLines = 1)
+        if (chevron) {
+            ChevronRightIcon(IOS.tertiaryLabel, Modifier.size(11.dp))
         }
     }
 }

@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +37,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -68,19 +71,29 @@ fun RouteGuideFloatingChip(
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             color = IOS.pinDeep,
+            // iOS `RouteGuideChipBody`: 흰 캡슐 + pinLight 60% 1pt 테두리 + 옅은 그림자(검정 12%, r3, y1).
             modifier =
                 Modifier
-                    .clip(RoundedCornerShape(50))
+                    .shadow(
+                        3.dp,
+                        RoundedCornerShape(50),
+                        ambientColor = Color.Black.copy(alpha = 0.12f),
+                        spotColor = Color.Black.copy(alpha = 0.12f),
+                    ).clip(RoundedCornerShape(50))
                     .background(IOS.systemBackground)
+                    .border(1.dp, IOS.pinLight.copy(alpha = 0.6f), RoundedCornerShape(50))
                     .padding(horizontal = 10.dp, vertical = 6.dp),
         )
+        // 흰 원 + 핀 그러데이션 2pt 테두리 + 그림자(검정 20%, r4, y2), 안쪽 여백 5.
         Box(
             modifier =
                 Modifier
                     .size(46.dp)
+                    .shadow(4.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.2f), spotColor = Color.Black.copy(alpha = 0.2f))
                     .clip(CircleShape)
                     .background(IOS.systemBackground)
-                    .padding(3.dp),
+                    .border(2.dp, Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep)), CircleShape)
+                    .padding(5.dp),
             contentAlignment = Alignment.Center,
         ) {
             androidx.compose.foundation.Image(

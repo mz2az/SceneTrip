@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.OnboardingFlag
 import com.mz2az.scenetrip.data.RoutePoiGroup
@@ -216,6 +217,8 @@ private fun LessonPage(
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.5).sp,
+            // 큰 글자는 iOS 줄 간격이 약 1.16em 이다 — 앱 기본 1.3em 을 그대로 두면 두 줄 제목이 벌어졌다.
+            lineHeight = 1.16.em,
             textAlign = TextAlign.Center,
             color = IOS.label,
         )
@@ -313,7 +316,7 @@ private fun DayCards() {
                         .padding(horizontal = 11.dp, vertical = 9.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                Text(day.title, fontSize = 11.sp, fontWeight = FontWeight.Black, color = IOS.pinDeep)
+                Text(day.title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
                 day.places.forEach { place -> Text(place, fontSize = 12.sp, color = IOS.label) }
             }
         }

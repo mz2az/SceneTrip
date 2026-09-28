@@ -242,7 +242,7 @@ private fun LikesCard(
     ) {
         Text("찜한 작품", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.label)
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("$likeCount", fontSize = 22.sp, fontWeight = FontWeight.Black, color = IOS.systemRed)
+            Text("$likeCount", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.systemRed)
             Text("편", fontSize = 12.sp, color = IOS.secondaryLabel)
         }
     }
