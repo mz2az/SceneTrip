@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 
 /**
- * SF Symbols `flag`(출발 고정) — 정지점 줄의 출발/도착 고정 배지. 깃대 + 세모 깃발.
+ * SF Symbols `flag`(출발 고정) — 정지점 줄의 출발/도착 고정 배지. 깃대 + 네모 물결 깃발.
  * `flag.checkered`(도착)까지는 이 크기(9~10dp)에서 체크무늬가 안 읽혀 같은 모양을
  * 쓴다 — "출발"/"도착" 글자가 이미 구분해 준다.
  */
@@ -28,11 +28,14 @@ fun FlagIcon(
             Offset(w * 0.14f, h * 0.95f),
             strokeWidth = w * 0.14f,
         )
+        // SF `flag`: 깃대 오른쪽의 **네모난 물결 깃발**(윗변·아랫변이 살짝 굽는다). 세모로 그렸더니 iOS 와
+        // 모양이 달랐다(16차 대조).
         val flag =
             Path().apply {
                 moveTo(w * 0.20f, h * 0.08f)
-                lineTo(w * 0.92f, h * 0.28f)
-                lineTo(w * 0.20f, h * 0.48f)
+                cubicTo(w * 0.42f, h * 0.0f, w * 0.62f, h * 0.18f, w * 0.90f, h * 0.08f)
+                lineTo(w * 0.90f, h * 0.56f)
+                cubicTo(w * 0.62f, h * 0.66f, w * 0.42f, h * 0.48f, w * 0.20f, h * 0.56f)
                 close()
             }
         if (filled) {

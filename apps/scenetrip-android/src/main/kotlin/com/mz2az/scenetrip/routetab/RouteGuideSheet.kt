@@ -6,6 +6,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -37,17 +39,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.R
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.ui.IOS
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * 화면 오른쪽 아래에 늘 떠 있는 해태 "내가 도와줄게!" — 가이드 챗봇의 입구.
@@ -61,10 +70,42 @@ fun RouteGuideFloatingChip(
     modifier: Modifier = Modifier,
 ) {
     if (hidden) return
+    // **길게 눌러 끌어 옮긴다**(iOS `RouteGuideFloatingChip.moveGesture`) — 옮긴 자리는 기억한다
+    // (iOS `@AppStorage("scenetrip.guideChip.dx/dy")` 와 같은 열쇠). 오른쪽 아래가 원점이라 늘 0 이하다.
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("scenetrip", android.content.Context.MODE_PRIVATE) }
+    var dx by remember { mutableStateOf(prefs.getFloat("scenetrip.guideChip.dx", 0f)) }
+    var dy by remember { mutableStateOf(prefs.getFloat("scenetrip.guideChip.dy", 0f)) }
+    var lifted by remember { mutableStateOf(false) }
+    val screen = LocalConfiguration.current
+    val density = LocalDensity.current
+    val minX = with(density) { -(screen.screenWidthDp.dp - 12.dp - 180.dp).toPx() }
+    val minY = with(density) { -(screen.screenHeightDp.dp - 76.dp - 60.dp).toPx() }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = modifier.clickable(onClick = onTap),
+        modifier =
+            modifier
+                .offset { IntOffset(dx.roundToInt(), dy.roundToInt()) }
+                .scale(if (lifted) 1.08f else 1f)
+                .pointerInput(Unit) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { lifted = true },
+                        onDragEnd = {
+                            lifted = false
+                            prefs
+                                .edit()
+                                .putFloat("scenetrip.guideChip.dx", dx)
+                                .putFloat("scenetrip.guideChip.dy", dy)
+                                .apply()
+                        },
+                        onDragCancel = { lifted = false },
+                    ) { change, amount ->
+                        change.consume()
+                        dx = (dx + amount.x).coerceIn(minX, 0f)
+                        dy = (dy + amount.y).coerceIn(minY, 0f)
+                    }
+                }.clickable(onClick = onTap),
     ) {
         Text(
             "내가 도와줄게!",
