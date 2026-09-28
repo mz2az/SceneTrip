@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -150,6 +151,9 @@ fun OnboardingView(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    // iOS 는 안전 영역(홈 인디케이터) **위로** 40 띄운다 — 제스처 막대를 빼지 않았더니
+                    // 버튼이 iOS 보다 바닥에 붙었다(2026-09-28 대조: 아래 여백 40 대 74).
+                    .navigationBarsPadding()
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 40.dp)
                     .height(50.dp)

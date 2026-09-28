@@ -208,3 +208,21 @@ fun HandDrawIcon(
         drawPath(squiggle, tint, style = s)
     }
 }
+
+/** `checkmark` — 굵은 체크. */
+@Composable
+fun CheckmarkIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val p =
+            Path().apply {
+                moveTo(w * 0.1f, w * 0.52f)
+                lineTo(w * 0.38f, w * 0.8f)
+                lineTo(w * 0.92f, w * 0.18f)
+            }
+        drawPath(p, tint, style = Stroke(width = w * 0.14f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+}

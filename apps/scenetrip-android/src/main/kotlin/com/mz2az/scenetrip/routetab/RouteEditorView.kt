@@ -26,7 +26,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
@@ -34,7 +33,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -84,8 +82,12 @@ import com.mz2az.scenetrip.ui.CircleSignIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSAlert
+import com.mz2az.scenetrip.ui.IOSListDivider
 import com.mz2az.scenetrip.ui.IOSRole
+import com.mz2az.scenetrip.ui.IOSSearchField
 import com.mz2az.scenetrip.ui.IOSSheet
+import com.mz2az.scenetrip.ui.IOSSheetMaterial
+import com.mz2az.scenetrip.ui.IOSSheetToolbar
 import com.mz2az.scenetrip.ui.MagnifierIcon
 import com.mz2az.scenetrip.ui.MapPinEllipseIcon
 import com.mz2az.scenetrip.ui.SheetDetent
@@ -1424,46 +1426,47 @@ private fun PlaceSearchOverlayBody(
             }
         }
 
+    // iOS `RouteSearchSheet`: 툴바(닫기 · 장소 검색 · 추가 N), `.searchable` 알약 검색창, 구분선 있는 목록,
+    // 바탕은 `.regularMaterial`. 결과가 없으면 `ContentUnavailableView.search`.
+    // 머리(툴바·검색창)만 재질 회색이고 목록은 흰 바탕이다(iOS 실측).
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-            Text(
-                "닫기",
-                fontSize = 15.sp,
-                color = IOS.accent,
-                modifier = Modifier.clickable(onClick = onDismiss),
+        Column(modifier = Modifier.background(IOSSheetMaterial)) {
+            IOSSheetToolbar(
+                title = "장소 검색",
+                leading = "닫기",
+                onLeading = onDismiss,
+                trailing = "추가 ${picked.size}",
+                trailingEnabled = picked.isNotEmpty(),
+                onTrailing = {
+                    val byId = store.places.associateBy { it.id }
+                    onAdd(picked.mapNotNull { byId[it] })
+                    onDismiss()
+                },
             )
-            Spacer(Modifier.weight(1f))
-            Text("장소 검색", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-            Spacer(Modifier.weight(1f))
-            Text(
-                "추가 ${picked.size}",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (picked.isEmpty()) IOS.tertiaryLabel else IOS.accent,
-                modifier =
-                    Modifier.clickable(enabled = picked.isNotEmpty()) {
-                        val byId = store.places.associateBy { it.id }
-                        onAdd(picked.mapNotNull { byId[it] })
-                        onDismiss()
-                    },
-            )
+            IOSSearchField(query, { query = it }, "장소나 작품 이름", Modifier.padding(horizontal = 16.dp))
+            Spacer(Modifier.height(10.dp))
         }
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            placeholder = { Text("장소나 작품 이름") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-        )
-        Spacer(Modifier.height(8.dp))
         if (results.isEmpty()) {
-            Text(
-                "\"$query\" 검색 결과가 없습니다",
-                fontSize = 13.sp,
-                color = IOS.secondaryLabel,
-                modifier = Modifier.fillMaxWidth().padding(32.dp),
-                textAlign = TextAlign.Center,
-            )
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 60.dp, start = 32.dp, end = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                MagnifierIcon(IOS.secondaryLabel, Modifier.padding(bottom = 10.dp).size(44.dp))
+                Text(
+                    "‘$trimmed’에 대한 결과 없음",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IOS.label,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    "철자를 확인하거나 새로운 검색을 시도하십시오.",
+                    fontSize = 15.sp,
+                    color = IOS.secondaryLabel,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
         }
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
             itemsIndexed(results, key = { _, place -> place.id }) { _, place ->
@@ -1477,14 +1480,14 @@ private fun PlaceSearchOverlayBody(
                             .fillMaxWidth()
                             .clickable(enabled = !isTaken) {
                                 picked = if (pickedOrder != null) picked - place.id else picked + place.id
-                            }.padding(horizontal = 16.dp, vertical = 8.dp)
+                            }.padding(horizontal = 16.dp, vertical = 10.dp)
                             .alpha(if (isTaken) 0.5f else 1f),
                 ) {
                     RemoteImage(url = place.imageUrl?.toString(), modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)))
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(place.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = IOS.label)
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(place.name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IOS.label)
                         place.contents.orEmpty().firstOrNull()?.title?.let {
-                            Text(it, fontSize = 11.sp, color = IOS.accent)
+                            Text(it, fontSize = 12.sp, color = IOS.accent)
                         }
                         place.address?.let { Text(it, fontSize = 11.sp, color = IOS.tertiaryLabel, maxLines = 1) }
                     }
@@ -1515,15 +1518,11 @@ private fun PlaceSearchOverlayBody(
                         }
 
                         else -> {
-                            Icon(
-                                Icons.Filled.Add,
-                                contentDescription = "담기",
-                                tint = IOS.tertiaryLabel,
-                                modifier = Modifier.size(22.dp),
-                            )
+                            CircleSignIcon(plus = true, tint = IOS.tertiaryLabel, modifier = Modifier.size(19.dp))
                         }
                     }
                 }
+                IOSListDivider(start = 72.dp)
             }
         }
     }

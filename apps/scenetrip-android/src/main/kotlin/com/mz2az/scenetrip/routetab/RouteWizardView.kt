@@ -1,6 +1,5 @@
 package com.mz2az.scenetrip.routetab
 
-import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,14 +27,10 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,8 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,17 +50,13 @@ import com.mz2az.scenetrip.ui.BoltIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSAlert
-import com.mz2az.scenetrip.ui.IOSRole
+import com.mz2az.scenetrip.ui.IOSGraphicalDatePicker
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.LeafIcon
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
 import kotlinx.coroutines.launch
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
-import java.time.ZoneOffset
-import java.util.Locale
 
 /**
  * 코스를 만들기 전에 기간(과 [isAiPlan]이면 작품)을 묻는 질문 흐름. iOS
@@ -85,27 +74,10 @@ private fun RouteWizardViewBody(
 ) {
     var stepIndex by remember { mutableStateOf(0) }
     var span by remember { mutableStateOf(RouteSpan.ONE_NIGHT) }
-    // **지난 날짜는 못 고른다.** iOS는 오늘 이전을 회색으로 막아 두는데, Android
-    // 기본 `DatePickerState`는 제약이 없어 지난 날짜도 그대로 골라졌다(실기
-    // 비교로 발견, 2026-09-28 — 9/28에 9/15를 고를 수 있었다).
-    val todayUtcMillis =
-        remember {
-            LocalDate
-                .now()
-                .atStartOfDay(ZoneOffset.UTC)
-                .toInstant()
-                .toEpochMilli()
-        }
-    val dateState =
-        rememberDatePickerState(
-            selectableDates =
-                object : SelectableDates {
-                    override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis >= todayUtcMillis
-                },
-        )
-    val hasDate = dateState.selectedDateMillis != null
-    val pickedDate =
-        dateState.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() } ?: LocalDate.now()
+    // iOS 처럼 **오늘이 골라진 채로** 시작하고, 날짜를 한 번 눌러야 「정했다」가 된다(`hasDate`).
+    // 지난 날짜는 달력이 막는다(`minDate`).
+    var pickedDate by remember { mutableStateOf(LocalDate.now()) }
+    var hasDate by remember { mutableStateOf(false) }
     var selectedWorkIds by remember { mutableStateOf(setOf<Long>()) }
     var pace by remember { mutableStateOf(RoutePace.TIGHT) }
     var draft by remember { mutableStateOf<RouteCourse?>(null) }
@@ -235,34 +207,21 @@ private fun RouteWizardViewBody(
                 }
             } else if (stepIndex == 1) {
                 Column {
-                    // **한국어로 강제한다.** `DatePicker`는 앱 문구와 달리 기기
-                    // 언어를 그대로 따른다 — 기기가 영어면 "September 2026"·
-                    // "S M T W T F S" 로 뜨고 오늘 표시도 iOS(파랑)와 다른 색이
-                    // 된다(실기 비교로 발견). 이 위젯 하나만 로케일을 덮는다.
-                    val context = LocalContext.current
-                    val koreanContext =
-                        remember(context) {
-                            val config = Configuration(context.resources.configuration)
-                            config.setLocale(Locale.KOREAN)
-                            context.createConfigurationContext(config)
-                        }
-                    CompositionLocalProvider(
-                        LocalContext provides koreanContext,
-                        LocalConfiguration provides koreanContext.resources.configuration,
-                    ) {
-                        DatePicker(
-                            state = dateState,
-                            title = null,
-                            headline = null,
-                            showModeToggle = false,
-                            colors = DatePickerDefaults.colors(containerColor = IOS.systemBackground),
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(IOS.systemBackground),
-                        )
-                    }
+                    // iOS `.datePickerStyle(.graphical)` 을 옮긴 달력 — Material `DatePicker` 는 머리·요일·선택
+                    // 모양이 다 달랐고 기기 언어를 따라 영어로도 떴다.
+                    IOSGraphicalDatePicker(
+                        selected = pickedDate,
+                        onSelect = {
+                            pickedDate = it
+                            hasDate = true
+                        },
+                        minDate = LocalDate.now(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(IOS.systemBackground),
+                    )
                     Spacer(Modifier.height(10.dp))
                     if (hasDate) {
                         val back = pickedDate.plusDays(span.nights.toLong())
@@ -271,7 +230,12 @@ private fun RouteWizardViewBody(
                             "날짜 지우기",
                             fontSize = 12.sp,
                             color = IOS.accent,
-                            modifier = Modifier.clickable { dateState.selectedDateMillis = null }.padding(top = 6.dp),
+                            modifier =
+                                Modifier
+                                    .clickable {
+                                        hasDate = false
+                                        pickedDate = LocalDate.now()
+                                    }.padding(top = 6.dp),
                         )
                     } else {
                         Text("날짜는 나중에 정해도 됩니다", fontSize = 12.sp, color = IOS.secondaryLabel)

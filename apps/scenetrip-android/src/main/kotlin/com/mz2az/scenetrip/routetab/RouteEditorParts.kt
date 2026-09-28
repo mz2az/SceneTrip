@@ -20,8 +20,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -55,9 +56,14 @@ import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
 import com.mz2az.scenetrip.searchtab.FilmIcon
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.ScopeIcon
+import com.mz2az.scenetrip.ui.CheckmarkIcon
+import com.mz2az.scenetrip.ui.CircleSignIcon
 import com.mz2az.scenetrip.ui.FlagIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSListDivider
 import com.mz2az.scenetrip.ui.IOSSheet
+import com.mz2az.scenetrip.ui.IOSSheetMaterial
+import com.mz2az.scenetrip.ui.IOSSheetToolbar
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.sheetListBottom
 import com.naver.maps.map.NaverMap
@@ -612,22 +618,19 @@ private fun RouteCartSheetBody(
     LaunchedEffect(isSample) { if (isSample) store.loadPlaces() }
     val places = if (isSample) store.places.take(6) else cartPlaces
 
+    // iOS `RouteCartSheet`: 툴바(닫기 · 장바구니에서 담기 · 담기 N), 구분선 있는 목록, `.regularMaterial` 바탕.
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("닫기", fontSize = 15.sp, color = IOS.accent, modifier = Modifier.clickable(onClick = onDismiss))
-            Spacer(Modifier.weight(1f))
-            Text("장바구니에서 담기", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-            Spacer(Modifier.weight(1f))
-            Text(
-                "담기 ${picked.size}",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (picked.isEmpty()) IOS.tertiaryLabel else IOS.accent,
-                modifier =
-                    Modifier.clickable(enabled = picked.isNotEmpty()) {
-                        onPick(places.filter { picked.contains(it.id) })
-                        onDismiss()
-                    },
+        Box(modifier = Modifier.background(IOSSheetMaterial)) {
+            IOSSheetToolbar(
+                title = "장바구니에서 담기",
+                leading = "닫기",
+                onLeading = onDismiss,
+                trailing = "담기 ${picked.size}",
+                trailingEnabled = picked.isNotEmpty(),
+                onTrailing = {
+                    onPick(places.filter { picked.contains(it.id) })
+                    onDismiss()
+                },
             )
         }
         if (isSample) {
@@ -637,6 +640,7 @@ private fun RouteCartSheetBody(
                 color = IOS.secondaryLabel,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             )
+            IOSListDivider(start = 16.dp)
         }
         LazyColumn(modifier = Modifier.weight(1f), contentPadding = sheetListBottom()) {
             items(places, key = { it.id }) { place ->
@@ -651,25 +655,26 @@ private fun RouteCartSheetBody(
                             .clickable(enabled = !isTaken) {
                                 picked = if (isPicked) picked - place.id else picked + place.id
                                 onPreview(places.filter { picked.contains(it.id) || it.id == place.id })
-                            }.padding(horizontal = 16.dp, vertical = 10.dp),
+                            }.padding(horizontal = 16.dp, vertical = 13.dp),
                 ) {
                     RemoteImage(url = place.imageUrl?.toString(), modifier = Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(place.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-                        Text(place.address ?: place.type ?: "", fontSize = 11.sp, color = IOS.secondaryLabel, maxLines = 1)
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(place.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                        Text(place.address ?: place.type ?: "", fontSize = 12.sp, color = IOS.secondaryLabel, maxLines = 1)
                     }
-                    Text(
-                        if (isTaken) {
-                            "담김"
-                        } else if (isPicked) {
-                            "선택"
-                        } else {
-                            "+"
-                        },
-                        fontSize = 13.sp,
-                        color = if (isTaken || isPicked) IOS.accent else IOS.secondaryLabel,
-                    )
+                    // iOS: 담긴 곳은 옅은 체크, 고른 곳은 파란 체크, 아니면 회색 `plus.circle`.
+                    if (isTaken || isPicked) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            contentDescription = if (isTaken) "담김" else "선택",
+                            tint = if (isTaken) IOS.accent.copy(alpha = 0.45f) else IOS.accent,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    } else {
+                        CircleSignIcon(plus = true, tint = IOS.secondaryLabel, modifier = Modifier.size(17.dp))
+                    }
                 }
+                IOSListDivider(start = 72.dp)
             }
         }
     }
@@ -691,58 +696,97 @@ private fun RoutePinSheetBody(
     var name by remember { mutableStateOf("") }
     var category by remember { mutableStateOf(PIN_CATEGORIES[0]) }
 
+    // iOS `RoutePinSheet`: `Form` — 회색 바탕 위 묶음 카드(이름 / 갈래 / 좌표), 갈래는 체크 표시로 고른다.
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("취소", fontSize = 15.sp, color = IOS.accent, modifier = Modifier.clickable(onClick = onDismiss))
-            Spacer(Modifier.weight(1f))
-            Text("이 자리에 추가", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-            Spacer(Modifier.weight(1f))
-            Text(
-                "추가",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = IOS.accent,
-                modifier =
-                    Modifier.clickable {
-                        onDone(name.ifBlank { "이름 없는 장소" }, category)
-                        onDismiss()
-                    },
-            )
-        }
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            Text("이름", fontSize = 12.sp, color = IOS.secondaryLabel)
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                placeholder = { Text("예: 오늘 묵을 숙소") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 16.dp),
-            )
-            Text("갈래", fontSize = 12.sp, color = IOS.secondaryLabel)
-            Column {
-                PIN_CATEGORIES.forEach { each ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().clickable { category = each },
-                    ) {
-                        RadioButton(selected = category == each, onClick = { category = each })
-                        Text(each, fontSize = 14.sp, color = IOS.label)
+        IOSSheetToolbar(
+            title = "이 자리에 추가",
+            leading = "취소",
+            onLeading = onDismiss,
+            trailing = "추가",
+            onTrailing = {
+                onDone(name.ifBlank { "이름 없는 장소" }, category)
+                onDismiss()
+            },
+        )
+        LazyColumn(contentPadding = sheetListBottom()) {
+            item {
+                FormSection("이름") {
+                    Box(Modifier.fillMaxWidth().height(50.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
+                        if (name.isEmpty()) Text("예: 오늘 묵을 숙소", fontSize = 17.sp, color = IOS.tertiaryLabel)
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = name,
+                            onValueChange = { name = it },
+                            singleLine = true,
+                            textStyle = IOS.body.copy(color = IOS.label),
+                            cursorBrush =
+                                androidx.compose.ui.graphics
+                                    .SolidColor(IOS.accent),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
             }
-            Spacer(Modifier.height(12.dp))
+            item {
+                FormSection("갈래") {
+                    PIN_CATEGORIES.forEachIndexed { index, each ->
+                        if (index > 0) IOSListDivider(start = 16.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                                    .clickable { category = each }
+                                    .padding(horizontal = 16.dp),
+                        ) {
+                            Text(each, fontSize = 17.sp, color = IOS.label, modifier = Modifier.weight(1f))
+                            if (category == each) CheckmarkIcon(IOS.accent, Modifier.size(15.dp))
+                        }
+                    }
+                }
+            }
+            item {
+                FormSection(null) {
+                    Text(
+                        "위도 %.5f · 경도 %.5f".format(pin.latitude, pin.longitude),
+                        fontSize = 12.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = IOS.secondaryLabel,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** iOS `Form` 의 한 `Section` — 회색 머리글(13) + 모서리 둥근 흰 카드. */
+@Composable
+private fun FormSection(
+    title: String?,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 18.dp)) {
+        if (title != null) {
+            // iOS 26 의 `Form` 머리글은 본문과 거의 같은 크기(약 17)의 굵은 회색이다(12차 실측: 13 은 작았다).
             Text(
-                "위도 %.5f · 경도 %.5f".format(pin.latitude, pin.longitude),
-                fontSize = 11.sp,
+                title,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
                 color = IOS.secondaryLabel,
+                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
             )
+        }
+        // 흰(재질) 바탕 위 **회색 카드** — Android 는 회색 바탕 위 흰 카드로 톤이 반대였다.
+        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(IOS.systemGray6)) {
+            content()
         }
     }
 }
 
 private val PIN_CATEGORIES = listOf("숙소", "음식점·카페", "명소·자연", "거리·다리", "건물·시설")
 
-/** 체류 시간 고르기. */
+/** 체류 시간 고르기 — iOS `RouteStaySheet`: 제목만 있는 목록(취소 단추 없음), 고른 값에 체크. */
 @Composable
 private fun RouteStaySheetBody(
     stop: RouteStop,
@@ -750,14 +794,10 @@ private fun RouteStaySheetBody(
     onDismiss: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("취소", fontSize = 15.sp, color = IOS.accent, modifier = Modifier.clickable(onClick = onDismiss))
-            Spacer(Modifier.weight(1f))
-            Text("얼마나 머무를까요?", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-            Spacer(Modifier.weight(1f))
-            Spacer(Modifier.width(32.dp))
+        Box(Modifier.fillMaxWidth().height(50.dp), contentAlignment = Alignment.Center) {
+            Text("얼마나 머무를까요?", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
         }
-        LazyColumn {
+        LazyColumn(contentPadding = sheetListBottom()) {
             items(RouteStop.STAY_OPTIONS) { minutes ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -767,14 +807,13 @@ private fun RouteStaySheetBody(
                             .clickable {
                                 onPick(minutes)
                                 onDismiss()
-                            }.padding(horizontal = 16.dp, vertical = 14.dp),
+                            }.padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    Text(RouteFormat.minutes(minutes), fontSize = 15.sp, color = IOS.label)
+                    Text(RouteFormat.minutes(minutes), fontSize = 17.sp, color = IOS.label)
                     Spacer(Modifier.weight(1f))
-                    if (minutes == stop.stayMinutes) {
-                        Text("✓", fontSize = 15.sp, color = IOS.accent)
-                    }
+                    if (minutes == stop.stayMinutes) CheckmarkIcon(IOS.accent, Modifier.size(15.dp))
                 }
+                IOSListDivider(start = 16.dp)
             }
         }
     }
