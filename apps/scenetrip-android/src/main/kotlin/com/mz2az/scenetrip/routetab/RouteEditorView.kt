@@ -964,6 +964,11 @@ fun RouteEditorView(
         },
         isAdded = { place -> stops.any { RouteDedupe.key(it.place) == RouteDedupe.key(place.asPlaceSummary()) } },
         onClose = { showGuide = false },
+        onRemove = { place ->
+            updateDay(dayIndex) { d ->
+                d.copy(stops = d.stops.filterNot { RouteDedupe.key(it.place) == RouteDedupe.key(place.asPlaceSummary()) })
+            }
+        },
     )
 
     // 핀을 눌렀을 때 뜨는 정보 카드 — iOS `RouteEditorView`의 `.overlay(alignment: .bottom)`

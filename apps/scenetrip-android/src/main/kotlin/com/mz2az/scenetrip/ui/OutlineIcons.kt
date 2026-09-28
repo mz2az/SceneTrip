@@ -310,3 +310,66 @@ fun GripLinesIcon(
         }
     }
 }
+
+/**
+ * `arrow.down.right.and.arrow.up.left` — 창 줄이기: **왼쪽 위에서 아래오른쪽으로, 오른쪽 아래에서 위왼쪽으로**
+ * 두 화살이 가운데로 모인다(↘ ↖). 반대 대각선으로 그렸더니 iOS 와 달랐다(18차 대조).
+ */
+@Composable
+fun CollapseArrowsIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = Stroke(width = w * 0.12f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        // 왼쪽 위 → 가운데(↘), 화살촉은 가운데 쪽
+        // 가운데에 틈(약 0.2w)을 둔다 — 화살촉이 맞닿으면 X 로 보였다(19차).
+        drawLine(tint, Offset(w * 0.12f, w * 0.12f), Offset(w * 0.4f, w * 0.4f), strokeWidth = s.width, cap = StrokeCap.Round)
+        drawPath(
+            Path().apply {
+                moveTo(w * 0.4f, w * 0.18f)
+                lineTo(w * 0.4f, w * 0.4f)
+                lineTo(w * 0.18f, w * 0.4f)
+            },
+            tint,
+            style = s,
+        )
+        // 오른쪽 아래 → 가운데(↖)
+        drawLine(tint, Offset(w * 0.88f, w * 0.88f), Offset(w * 0.6f, w * 0.6f), strokeWidth = s.width, cap = StrokeCap.Round)
+        drawPath(
+            Path().apply {
+                moveTo(w * 0.6f, w * 0.82f)
+                lineTo(w * 0.6f, w * 0.6f)
+                lineTo(w * 0.82f, w * 0.6f)
+            },
+            tint,
+            style = s,
+        )
+    }
+}
+
+/** `arrow.up.circle.fill` — 채운 원 안의 흰 위쪽 화살표(보내기). */
+@Composable
+fun SendArrowCircleIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+    // SF `.fill` 기호의 화살은 **뚫려 있어** 바탕이 비친다 — 흰색이 아니라 바탕색을 준다.
+    arrow: Color = Color.White,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        drawCircle(tint, radius = w / 2)
+        val s = Stroke(width = w * 0.1f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawLine(arrow, Offset(w * 0.5f, w * 0.74f), Offset(w * 0.5f, w * 0.28f), strokeWidth = s.width, cap = StrokeCap.Round)
+        drawPath(
+            Path().apply {
+                moveTo(w * 0.3f, w * 0.46f)
+                lineTo(w * 0.5f, w * 0.26f)
+                lineTo(w * 0.7f, w * 0.46f)
+            },
+            arrow,
+            style = s,
+        )
+    }
+}
