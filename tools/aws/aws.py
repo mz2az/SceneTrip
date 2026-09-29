@@ -335,6 +335,30 @@ def verify_existing(run, root, settings, temp):
     verify_https(settings, hostname)
 
 
+def print_failed_stack_events(run, name):
+    try:
+        events = json.loads(
+            run(
+                [
+                    "aws",
+                    "cloudformation",
+                    "describe-stack-events",
+                    "--stack-name",
+                    name,
+                    "--query",
+                    "StackEvents[?contains(ResourceStatus, 'FAILED')].[LogicalResourceId, ResourceStatus, ResourceStatusReason]",
+                    "--output",
+                    "json",
+                ],
+                quiet=True,
+            )
+        )
+    except (RuntimeError, ValueError):
+        return
+    for logical, status, reason in events:
+        print(f"CloudFormation 실패: {logical} {status}: {reason}")
+
+
 def bootstrap(run, root, settings, operation):
     repository = matched(
         r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",
@@ -358,13 +382,16 @@ def bootstrap(run, root, settings, operation):
     stacks = json.loads(
         run(["aws", "cloudformation", "list-stacks", "--output", "json"], quiet=True)
     )["StackSummaries"]
+    statuses = {stack["StackStatus"] for stack in stacks if stack["StackName"] == name}
+    # 최초 생성이 롤백된 스택은 CloudFormation 이 갱신을 거부한다. 리소스가 없는 껍데기이므로
+    # 운영자가 이벤트를 확인하고 삭제한 뒤 다시 실행한다. 배포기가 대신 지우지 않는다.
+    if "ROLLBACK_COMPLETE" in statuses:
+        raise ValueError(
+            f"{name} 스택이 ROLLBACK_COMPLETE 상태입니다. 실패 이벤트를 확인하고 스택을 삭제한 뒤 다시 실행하세요"
+        )
     # plan 은 change set 만 만들고 실행하지 않으므로 최초 plan 뒤 스택은 REVIEW_IN_PROGRESS 로 남는다.
     # 이 상태는 리소스가 없는 자리표시자라 CloudFormation 은 UPDATE 를 거부하고 CREATE 만 받는다.
-    exists = any(
-        stack["StackName"] == name
-        and stack["StackStatus"] not in {"DELETE_COMPLETE", "REVIEW_IN_PROGRESS"}
-        for stack in stacks
-    )
+    exists = bool(statuses - {"DELETE_COMPLETE", "REVIEW_IN_PROGRESS"})
     change = f"manual-{settings.tag}"
     run(
         [
@@ -452,17 +479,23 @@ def bootstrap(run, root, settings, operation):
             ],
             quiet=True,
         )
-        run(
-            [
-                "aws",
-                "cloudformation",
-                "wait",
-                "stack-update-complete" if exists else "stack-create-complete",
-                "--stack-name",
-                name,
-            ],
-            quiet=True,
-        )
+        try:
+            run(
+                [
+                    "aws",
+                    "cloudformation",
+                    "wait",
+                    "stack-update-complete" if exists else "stack-create-complete",
+                    "--stack-name",
+                    name,
+                ],
+                quiet=True,
+            )
+        except RuntimeError:
+            # 리소스별 실패 사유는 IAM·S3 의 검증 메시지라 비밀값을 담지 않는다.
+            # 이것이 없으면 실패 원인을 콘솔에서 따로 찾아야 한다.
+            print_failed_stack_events(run, name)
+            raise
         run(
             [
                 "aws",

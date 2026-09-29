@@ -16,6 +16,17 @@ class InfrastructureBoundaryTest(unittest.TestCase):
         self.role = role
         self.statements = role["Policies"][0]["PolicyDocument"]["Statement"]
 
+    def test_iam_role_descriptions_are_latin_only(self):
+        # IAM 은 역할 Description 에 [ -~¡-ÿ] 만 허용한다.
+        # 한글 설명은 CloudFormation 실제 apply 에서만 CREATE_FAILED 로 드러난다.
+        allowed = re.compile(r"[\u0009\u000A\u000D -~¡-ÿ]*")
+        for logical, resource in self.template["Resources"].items():
+            if resource["Type"] != "AWS::IAM::Role":
+                continue
+            description = resource["Properties"].get("Description", "")
+            with self.subTest(role=logical):
+                self.assertTrue(allowed.fullmatch(description), description)
+
     def test_oidc_subject_is_exact_environment(self):
         trust = self.role["AssumeRolePolicyDocument"]["Statement"][0]
         condition = trust["Condition"]["StringEquals"]
