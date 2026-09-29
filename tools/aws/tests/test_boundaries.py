@@ -308,7 +308,7 @@ class BoundaryTest(unittest.TestCase):
         ):
             commands = []
 
-            def execute(command, **unused):
+            def execute(command, *, commands=commands, status=status, **unused):
                 commands.append(command)
                 if "list-stacks" in command:
                     return json.dumps(
