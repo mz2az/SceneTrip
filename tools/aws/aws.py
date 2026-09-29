@@ -356,8 +356,11 @@ def bootstrap(run, root, settings, operation):
     stacks = json.loads(
         run(["aws", "cloudformation", "list-stacks", "--output", "json"], quiet=True)
     )["StackSummaries"]
+    # plan 은 change set 만 만들고 실행하지 않으므로 최초 plan 뒤 스택은 REVIEW_IN_PROGRESS 로 남는다.
+    # 이 상태는 리소스가 없는 자리표시자라 CloudFormation 은 UPDATE 를 거부하고 CREATE 만 받는다.
     exists = any(
-        stack["StackName"] == name and stack["StackStatus"] != "DELETE_COMPLETE"
+        stack["StackName"] == name
+        and stack["StackStatus"] not in {"DELETE_COMPLETE", "REVIEW_IN_PROGRESS"}
         for stack in stacks
     )
     change = f"manual-{settings.tag}"

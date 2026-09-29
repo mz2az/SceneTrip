@@ -288,6 +288,51 @@ class BoundaryTest(unittest.TestCase):
                     any("stack-create-complete" in command for command in commands)
                 )
 
+    def test_bootstrap_change_set_type_and_immutable_subject(self):
+        from pathlib import Path
+        from unittest.mock import patch
+
+        from tools.aws.aws import bootstrap
+
+        env = {
+            "GITHUB_REPOSITORY": "example/scenetrip",
+            "GITHUB_REPOSITORY_OWNER_ID": "1001",
+            "GITHUB_REPOSITORY_ID": "2002",
+            "GITHUB_OIDC_PROVIDER_ARN": "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com",
+        }
+        # plan 만 한 뒤의 REVIEW_IN_PROGRESS 는 리소스가 없는 자리표시자라 CREATE 여야 한다.
+        for status, expected in (
+            ("REVIEW_IN_PROGRESS", "CREATE"),
+            ("DELETE_COMPLETE", "CREATE"),
+            ("CREATE_COMPLETE", "UPDATE"),
+        ):
+            commands = []
+
+            def execute(command, **unused):
+                commands.append(command)
+                if "list-stacks" in command:
+                    return json.dumps(
+                        {
+                            "StackSummaries": [
+                                {
+                                    "StackName": "scenetrip-dev-bootstrap",
+                                    "StackStatus": status,
+                                }
+                            ]
+                        }
+                    )
+                return ""
+
+            run = Mock(side_effect=execute)
+            with patch.dict("os.environ", env):
+                bootstrap(run, Path("."), valid_settings(), "bootstrap-plan")
+            create = next(c for c in commands if "create-change-set" in c)
+            self.assertEqual(create[create.index("--change-set-type") + 1], expected)
+            self.assertIn(
+                "ParameterKey=GitHubOidcSubjectPrefix,ParameterValue=repo:example@1001/scenetrip@2002",
+                create,
+            )
+
     def test_bootstrap_no_changes_is_not_failure(self):
         from pathlib import Path
         from unittest.mock import patch
