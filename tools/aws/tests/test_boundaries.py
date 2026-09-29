@@ -333,6 +333,48 @@ class BoundaryTest(unittest.TestCase):
                 create,
             )
 
+    def test_bootstrap_refuses_rolled_back_stack_and_reports_failed_events(self):
+        from pathlib import Path
+        from unittest.mock import patch
+
+        from tools.aws.aws import bootstrap, print_failed_stack_events
+
+        env = {
+            "GITHUB_REPOSITORY": "example/scenetrip",
+            "GITHUB_REPOSITORY_OWNER_ID": "1001",
+            "GITHUB_REPOSITORY_ID": "2002",
+            "GITHUB_OIDC_PROVIDER_ARN": "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com",
+        }
+        run = Mock(
+            return_value=json.dumps(
+                {
+                    "StackSummaries": [
+                        {
+                            "StackName": "scenetrip-dev-bootstrap",
+                            "StackStatus": "ROLLBACK_COMPLETE",
+                        }
+                    ]
+                }
+            )
+        )
+        with (
+            patch.dict("os.environ", env),
+            self.assertRaisesRegex(ValueError, "ROLLBACK_COMPLETE"),
+        ):
+            bootstrap(run, Path("."), valid_settings(), "bootstrap-apply")
+        self.assertFalse(
+            any("create-change-set" in call.args[0] for call in run.call_args_list)
+        )
+
+        events = json.dumps(
+            [["DeploymentRole", "CREATE_FAILED", "Value at 'description' failed"]]
+        )
+        with patch("builtins.print") as printed:
+            print_failed_stack_events(Mock(return_value=events), "stack")
+            print_failed_stack_events(Mock(side_effect=RuntimeError("denied")), "stack")
+        self.assertEqual(printed.call_count, 1)
+        self.assertIn("DeploymentRole CREATE_FAILED", printed.call_args.args[0])
+
     def test_bootstrap_no_changes_is_not_failure(self):
         from pathlib import Path
         from unittest.mock import patch

@@ -97,7 +97,7 @@
       "Type": "AWS::IAM::Role",
       "Properties": {
         "RoleName": {"Fn::Sub":"scenetrip-${Environment}-deploy"},
-        "Description": "SceneTrip 환경 하나의 인프라와 애플리케이션 배포 권한.",
+        "Description": "SceneTrip deploy role for one environment: infrastructure and application deployment. IAM rejects non-Latin text here.",
         "MaxSessionDuration": 7200,
         "AssumeRolePolicyDocument": {
           "Version": "2012-10-17",
