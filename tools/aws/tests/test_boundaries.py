@@ -241,6 +241,55 @@ class BoundaryTest(unittest.TestCase):
             Runner(Path("."))(["aws", "secretsmanager", "get-secret-value"], quiet=True)
         self.assertNotIn("credential", str(caught.exception))
 
+    def test_cli_input_json_stdin_becomes_private_file_and_is_removed(self):
+        import os
+        import stat
+        from pathlib import Path
+        from unittest.mock import patch
+
+        from tools.aws.config import Runner
+
+        seen = {}
+
+        def fake_run(command, **kwargs):
+            path = command[command.index("--cli-input-json") + 1]
+            self.assertTrue(path.startswith("file://"))
+            self.assertNotEqual(path, "file:///dev/stdin")
+            local = Path(path[len("file://") :])
+            seen["path"] = local
+            seen["body"] = local.read_text(encoding="utf-8")
+            seen["mode"] = stat.S_IMODE(os.stat(local).st_mode)
+            seen["stdin"] = kwargs.get("input")
+            return Mock(returncode=0, stdout="", stderr="")
+
+        with patch("tools.aws.config.subprocess.run", side_effect=fake_run):
+            Runner(Path("."))(
+                [
+                    "aws",
+                    "secretsmanager",
+                    "put-secret-value",
+                    "--cli-input-json",
+                    "file:///dev/stdin",
+                ],
+                stdin='{"SecretString":"credential"}',
+                quiet=True,
+            )
+        # 비밀값은 argv 가 아닌 0600 파일로만 전달되고 실행 직후 삭제된다.
+        self.assertEqual(seen["body"], '{"SecretString":"credential"}')
+        self.assertEqual(seen["mode"], 0o600)
+        self.assertIsNone(seen["stdin"])
+        self.assertFalse(seen["path"].exists())
+
+        # 다른 명령의 표준입력(kubectl apply -f -, helm --values -)은 그대로 stdin 으로 간다.
+        with patch(
+            "tools.aws.config.subprocess.run",
+            return_value=Mock(returncode=0, stdout="", stderr=""),
+        ) as plain:
+            Runner(Path("."))(
+                ["kubectl", "apply", "-f", "-"], stdin="kind: Secret", quiet=True
+            )
+        self.assertEqual(plain.call_args.kwargs["input"], "kind: Secret")
+
     def test_render_is_offline_and_supplies_required_boundaries(self):
         from pathlib import Path
 
