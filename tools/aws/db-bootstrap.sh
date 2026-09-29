@@ -1,5 +1,8 @@
 #!/usr/bin/env sh
 # 비밀번호는 환경에서 psql 내부 변수로만 읽는다. 인자·파일·로그에 쓰지 않는다.
+# 이 파일은 Kubernetes Job 의 command 문자열로 실행된다. Kubernetes 는 command 안의
+# 겹달러(두 개 연속)를 달러 하나로, 달러-괄호를 환경변수로 치환하므로 달러 인용에는
+# 이름을 붙인다(도 인용). 주석에도 그 두 패턴을 쓰지 않는다.
 set -eu
 export PGSSLMODE=require
 export PGDATABASE=postgres
@@ -16,11 +19,11 @@ GRANT app_migrate TO CURRENT_USER WITH SET TRUE;
 SELECT 'CREATE DATABASE scenetrip OWNER app_migrate ENCODING ''UTF8'' LC_COLLATE ''C'' LC_CTYPE ''C.UTF-8'' TEMPLATE template0'
 WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'scenetrip') \gexec
 \connect scenetrip
-DO $$ BEGIN
+DO $do$ BEGIN
   IF (SELECT datcollate <> 'C' OR datctype <> 'C.UTF-8' FROM pg_database WHERE datname = current_database()) THEN
     RAISE EXCEPTION 'scenetrip locale mismatch: restore into C/C.UTF-8 database';
   END IF;
-END $$;
+END $do$;
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 SET ROLE app_migrate;

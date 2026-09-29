@@ -73,6 +73,16 @@ class DeployTest(unittest.TestCase):
         self.assertEqual(job["spec"]["backoffLimit"], 0)
         self.assertNotIn("stringData", json.dumps(job))
 
+    def test_bootstrap_script_survives_kubernetes_command_expansion(self):
+        # Kubernetes 는 container command 문자열의 $$ 를 $ 로, $(NAME) 을 환경변수로 바꾼다.
+        # DO $$ ... $$ 는 DB 에 DO $ ... $ 로 도착해 첫 실제 bootstrap Job 을 중단시켰다.
+        job = bootstrap_job("db.example.com")
+        script = job["spec"]["template"]["spec"]["containers"][0]["command"][2]
+        self.assertNotIn("$$", script)
+        self.assertNotIn("$(", script)
+        self.assertIn("DO $do$", script)
+        self.assertIn("END $do$;", script)
+
     def test_gateway_rejects_open_ingress_and_mismatched_cert(self):
         good = {
             "ingress_allowed_cidrs": ["203.0.113.1/32"],
