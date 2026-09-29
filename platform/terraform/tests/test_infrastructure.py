@@ -27,6 +27,24 @@ class InfrastructureBoundaryTest(unittest.TestCase):
             with self.subTest(role=logical):
                 self.assertTrue(allowed.fullmatch(description), description)
 
+    def test_security_group_descriptions_use_ec2_charset(self):
+        # EC2 는 SG·SG 규칙 description 에 a-zA-Z0-9. _-:/()#,@[]+=&;{}!$* 만 허용한다.
+        # 아포스트로피 하나가 첫 실제 apply 를 중단시켰고 plan·validate 는 이를 잡지 못한다.
+        allowed = re.compile(r"[a-zA-Z0-9. _\-:/()#,@\[\]+=&;{}!$*]{1,255}")
+        block = re.compile(
+            r'resource\s+"(aws_security_group|aws_vpc_security_group_\w+_rule)"\s+"(\w+)"\s*\{(.*?)\n\}',
+            re.DOTALL,
+        )
+        found = 0
+        for path in sorted((ROOT / "platform/terraform/aws").glob("*.tf")):
+            for kind, name, body in block.findall(path.read_text()):
+                match = re.search(r'description\s*=\s*"([^"]*)"', body)
+                self.assertIsNotNone(match, f"{kind}.{name} description 누락")
+                found += 1
+                with self.subTest(resource=f"{kind}.{name}"):
+                    self.assertTrue(allowed.fullmatch(match.group(1)), match.group(1))
+        self.assertGreaterEqual(found, 6)
+
     def test_oidc_subject_is_exact_environment(self):
         trust = self.role["AssumeRolePolicyDocument"]["Statement"][0]
         condition = trust["Condition"]["StringEquals"]
