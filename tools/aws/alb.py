@@ -115,15 +115,15 @@ def healthy_targets(run, arn):
     if not groups:
         return False
     for group in groups:
-        if (group["TargetType"], group["Protocol"], group["Port"]) != (
-            "ip",
-            "HTTP",
-            8080,
-        ):
+        # IP target 그룹은 컨트롤러가 그룹 Port 를 자리표시자 1 로 두고 실제 포트는 타깃마다
+        # 등록한다. 그룹 Port 가 아니라 등록된 각 타깃의 Port 로 gateway 8080 을 확인한다.
+        if (group["TargetType"], group["Protocol"]) != ("ip", "HTTP"):
             raise ValueError("ALB backend는 gateway IP target HTTP:8080이어야 합니다")
         targets = aws_read(
             run, "describe-target-health", "--target-group-arn", group["TargetGroupArn"]
         )["TargetHealthDescriptions"]
+        if any(target.get("Target", {}).get("Port") != 8080 for target in targets):
+            raise ValueError("ALB backend는 gateway IP target HTTP:8080이어야 합니다")
         if not targets or any(
             target["TargetHealth"]["State"] != "healthy" for target in targets
         ):

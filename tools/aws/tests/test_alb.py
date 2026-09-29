@@ -99,14 +99,13 @@ class AlbBoundaryTest(unittest.TestCase):
         )
         for changes in (
             {"TargetType": "instance"},
-            {"Port": 8899},
             {"Protocol": "HTTPS"},
         ):
             group = {
                 "TargetGroupArn": "fixture",
                 "TargetType": "ip",
                 "Protocol": "HTTP",
-                "Port": 8080,
+                "Port": 1,
                 **changes,
             }
             with (
@@ -116,6 +115,35 @@ class AlbBoundaryTest(unittest.TestCase):
                 healthy_targets(
                     Mock(return_value=json.dumps({"TargetGroups": [group]})), "fixture"
                 )
+        # 컨트롤러는 IP target 그룹의 Port 를 1 로 두므로 실제 타깃 포트가 8080 이 아닐 때만 거부한다.
+        wrong_port = Mock(
+            side_effect=[
+                json.dumps(
+                    {
+                        "TargetGroups": [
+                            {
+                                "TargetGroupArn": "fixture",
+                                "TargetType": "ip",
+                                "Protocol": "HTTP",
+                                "Port": 1,
+                            }
+                        ]
+                    }
+                ),
+                json.dumps(
+                    {
+                        "TargetHealthDescriptions": [
+                            {
+                                "Target": {"Id": "10.40.26.213", "Port": 8899},
+                                "TargetHealth": {"State": "healthy"},
+                            }
+                        ]
+                    }
+                ),
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, "HTTP:8080"):
+            healthy_targets(wrong_port, "fixture")
         run = Mock(
             side_effect=[
                 json.dumps(
@@ -125,7 +153,7 @@ class AlbBoundaryTest(unittest.TestCase):
                                 "TargetGroupArn": "fixture",
                                 "TargetType": "ip",
                                 "Protocol": "HTTP",
-                                "Port": 8080,
+                                "Port": 1,
                             }
                         ]
                     }
@@ -218,7 +246,7 @@ class AlbBoundaryTest(unittest.TestCase):
             "TargetGroupArn": "group-fixture",
             "TargetType": "ip",
             "Protocol": "HTTP",
-            "Port": 8080,
+            "Port": 1,
         }
         run = Mock(
             side_effect=[
@@ -231,7 +259,10 @@ class AlbBoundaryTest(unittest.TestCase):
                 json.dumps(
                     {
                         "TargetHealthDescriptions": [
-                            {"TargetHealth": {"State": "initial"}}
+                            {
+                                "Target": {"Id": "10.40.26.213", "Port": 8080},
+                                "TargetHealth": {"State": "initial"},
+                            }
                         ]
                     }
                 ),
@@ -243,7 +274,10 @@ class AlbBoundaryTest(unittest.TestCase):
                 json.dumps(
                     {
                         "TargetHealthDescriptions": [
-                            {"TargetHealth": {"State": "healthy"}}
+                            {
+                                "Target": {"Id": "10.40.26.213", "Port": 8080},
+                                "TargetHealth": {"State": "healthy"},
+                            }
                         ]
                     }
                 ),
