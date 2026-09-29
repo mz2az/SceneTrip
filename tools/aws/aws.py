@@ -346,12 +346,23 @@ def bootstrap(run, root, settings, operation):
         os.environ["GITHUB_OIDC_PROVIDER_ARN"],
         "OIDC 공급자",
     )
+    # GitHub 는 OIDC subject 를 불변 형식 repo:<owner>@<owner_id>/<repo>@<repo_id> 로 발급한다.
+    # 숫자 ID 는 Actions 기본 환경변수에서 읽어 저장소 이름 변경이 신뢰를 물려받지 못하게 한다.
+    owner, repo_name = repository.split("/", 1)
+    owner_id = matched(
+        r"[0-9]+", os.environ["GITHUB_REPOSITORY_OWNER_ID"], "GitHub 소유자 ID"
+    )
+    repo_id = matched(r"[0-9]+", os.environ["GITHUB_REPOSITORY_ID"], "GitHub 저장소 ID")
+    subject_prefix = f"repo:{owner}@{owner_id}/{repo_name}@{repo_id}"
     name = f"scenetrip-{settings.environment}-bootstrap"
     stacks = json.loads(
         run(["aws", "cloudformation", "list-stacks", "--output", "json"], quiet=True)
     )["StackSummaries"]
+    # plan 은 change set 만 만들고 실행하지 않으므로 최초 plan 뒤 스택은 REVIEW_IN_PROGRESS 로 남는다.
+    # 이 상태는 리소스가 없는 자리표시자라 CloudFormation 은 UPDATE 를 거부하고 CREATE 만 받는다.
     exists = any(
-        stack["StackName"] == name and stack["StackStatus"] != "DELETE_COMPLETE"
+        stack["StackName"] == name
+        and stack["StackStatus"] not in {"DELETE_COMPLETE", "REVIEW_IN_PROGRESS"}
         for stack in stacks
     )
     change = f"manual-{settings.tag}"
@@ -373,6 +384,7 @@ def bootstrap(run, root, settings, operation):
             "--parameters",
             f"ParameterKey=Environment,ParameterValue={settings.environment}",
             f"ParameterKey=GitHubRepository,ParameterValue={repository}",
+            f"ParameterKey=GitHubOidcSubjectPrefix,ParameterValue={subject_prefix}",
             f"ParameterKey=GitHubOidcProviderArn,ParameterValue={provider}",
         ],
         quiet=True,

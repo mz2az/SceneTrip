@@ -4,6 +4,11 @@
   "Parameters": {
     "Environment": {"Type":"String","AllowedValues":["dev","prd"]},
     "GitHubRepository": {"Type":"String","AllowedPattern":"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"},
+    "GitHubOidcSubjectPrefix": {
+      "Type": "String",
+      "AllowedPattern": "repo:[A-Za-z0-9_.-]+@[0-9]+/[A-Za-z0-9_.-]+@[0-9]+",
+      "Description": "GitHub immutable OIDC subject prefix: repo:<owner>@<owner_id>/<repo>@<repo_id>. Pinned to numeric IDs so a rename cannot inherit trust."
+    },
     "GitHubOidcProviderArn": {
       "Type": "String",
       "AllowedPattern": "arn:aws:iam::[0-9]{12}:oidc-provider/token.actions.githubusercontent.com",
@@ -104,7 +109,7 @@
               "Condition": {
                 "StringEquals": {
                   "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-                  "token.actions.githubusercontent.com:sub": {"Fn::Sub":"repo:${GitHubRepository}:environment:${Environment}"}
+                  "token.actions.githubusercontent.com:sub": {"Fn::Sub":"${GitHubOidcSubjectPrefix}:environment:${Environment}"}
                 }
               }
             }

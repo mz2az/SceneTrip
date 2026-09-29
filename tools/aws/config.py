@@ -102,8 +102,12 @@ class Runner:
             command = [location, *command[1:]]
         from python.runfiles import runfiles
 
-        cloud_aws = runfiles.Create().Rlocation("_main/tools/bazel/cloud/aws")
-        process_env = {**os.environ, **(env or {})}
+        resolver = runfiles.Create()
+        cloud_aws = resolver.Rlocation("_main/tools/bazel/cloud/aws")
+        # 고정 CLI 래퍼는 RUNFILES_DIR 로 실제 바이너리를 찾는다. 이 값을 넘기지 않으면
+        # 래퍼는 자기 옆의 .runfiles 를 찾는데, 그 디렉터리는 해당 타깃을 단독으로 빌드했을
+        # 때만 생기므로 bazel run //tools/aws:aws 안에서는 첫 aws 호출부터 실패한다.
+        process_env = {**os.environ, **resolver.EnvVars(), **(env or {})}
         if cloud_aws:
             process_env = {
                 **process_env,
