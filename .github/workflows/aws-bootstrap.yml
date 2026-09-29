@@ -61,7 +61,8 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
       AWS_BOOTSTRAP_ROLE_ARN: ${{ vars.AWS_BOOTSTRAP_ROLE_ARN }}
-      GITHUB_OIDC_PROVIDER_ARN: ${{ vars.GITHUB_OIDC_PROVIDER_ARN }}
+      # GitHub 은 GITHUB_ 로 시작하는 변수 이름을 금지하므로 저장 이름만 AWS_ 접두사를 쓴다.
+      GITHUB_OIDC_PROVIDER_ARN: ${{ vars.AWS_GITHUB_OIDC_PROVIDER_ARN }}
       AWS_API_DOMAIN: ${{ vars.AWS_API_DOMAIN }}
       AWS_COMMIT_SHA: ${{ needs.preflight.outputs.sha }}
       AWS_PAGER: ''

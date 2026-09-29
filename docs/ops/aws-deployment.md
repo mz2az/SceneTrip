@@ -46,7 +46,7 @@ PRD에는 검토자를 설정한다. 환경 OIDC subject는 브랜치 문자열�
 | `AWS_API_DOMAIN` | HTTPS로 제공할 API 도메인 |
 | `TF_VAR_FILE_JSON` | 해당 환경의 **비밀값 없는** Terraform 입력 JSON |
 | `AWS_BOOTSTRAP_ROLE_ARN` | 최초 CloudFormation 변경용 기존 역할 |
-| `GITHUB_OIDC_PROVIDER_ARN` | 사전에 등록한 GitHub OIDC provider |
+| `AWS_GITHUB_OIDC_PROVIDER_ARN` | 사전에 등록한 GitHub OIDC provider. GitHub 이 `GITHUB_` 접두사 변수를 금지하므로 이 이름으로 저장하고 workflow 가 `GITHUB_OIDC_PROVIDER_ARN` 환경변수로 넘긴다 |
 
 입력 JSON은 `platform/environments/<env>/terraform.tfvars.json.example`을 따른다.
 role ARN·CIDR·인증서·AZ를 운영 값으로 채우되 암호나 외부 API 키를 넣지 않는다.
