@@ -262,6 +262,8 @@ class BoundaryTest(unittest.TestCase):
 
         env = {
             "GITHUB_REPOSITORY": "example/scenetrip",
+                "GITHUB_REPOSITORY_OWNER_ID": "1001",
+                "GITHUB_REPOSITORY_ID": "2002",
             "GITHUB_OIDC_PROVIDER_ARN": "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com",
         }
         for operation in ("bootstrap-plan", "bootstrap-apply"):
@@ -315,6 +317,8 @@ class BoundaryTest(unittest.TestCase):
             "os.environ",
             {
                 "GITHUB_REPOSITORY": "example/scenetrip",
+                "GITHUB_REPOSITORY_OWNER_ID": "1001",
+                "GITHUB_REPOSITORY_ID": "2002",
                 "GITHUB_OIDC_PROVIDER_ARN": "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com",
             },
         ):

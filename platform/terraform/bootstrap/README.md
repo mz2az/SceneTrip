@@ -7,6 +7,7 @@
 | --- | --- |
 | `Environment` | `dev` 또는 `prd` |
 | `GitHubRepository` | 실제 SceneTrip 저장소의 `owner/repo`. 임의 기본값 없음 |
+| `GitHubOidcSubjectPrefix` | GitHub 불변 OIDC subject 접두사 `repo:<owner>@<owner_id>/<repo>@<repo_id>`. 배포기가 Actions 기본 환경변수 `GITHUB_REPOSITORY_OWNER_ID`·`GITHUB_REPOSITORY_ID` 로 만든다 |
 | `GitHubOidcProviderArn` | 같은 계정에 관리자가 먼저 구성한 GitHub OIDC provider |
 
 출력 `DeploymentRoleArn`을 GitHub Environment의 AWS 배포 역할로 사용한다.
@@ -19,7 +20,10 @@ state 버킷 이름은 `scenetrip-tfstate-<account>-<region>-<env>`,
 삭제하지 못하며 `.tflock` 파일만 생성·삭제한다.
 
 OIDC 신뢰는 정확한 저장소·Environment subject와 `sts.amazonaws.com` audience에
-한정한다. Environment subject만으로 브랜치가 제한되지는 않으므로 GitHub
+한정한다. GitHub는 subject를 불변 형식 `repo:<owner>@<owner_id>/<repo>@<repo_id>:environment:<env>`
+로 발급하므로 이름이 아니라 숫자 ID에 고정한다. 저장소를 옮기거나 이름을 바꾸면 신뢰가
+끊기는 것이 의도이며, 그때는 bootstrap을 다시 적용한다.
+Environment subject만으로 브랜치가 제한되지는 않으므로 GitHub
 Environment에서 허용 브랜치·승인자를 관리한다. 최초 bootstrap 자격증명을
 일상 배포에 사용하지 않는다.
 

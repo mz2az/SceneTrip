@@ -24,7 +24,7 @@ class InfrastructureBoundaryTest(unittest.TestCase):
         )
         self.assertEqual(
             condition["token.actions.githubusercontent.com:sub"],
-            {"Fn::Sub": "repo:${GitHubRepository}:environment:${Environment}"},
+            {"Fn::Sub": "${GitHubOidcSubjectPrefix}:environment:${Environment}"},
         )
         self.assertNotIn("StringLike", trust["Condition"])
 
