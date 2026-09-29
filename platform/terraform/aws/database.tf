@@ -1,6 +1,6 @@
 resource "aws_security_group" "postgres" {
   name        = "${local.name}-postgres"
-  description = "PostgreSQL access only from this environment's EKS nodes"
+  description = "PostgreSQL access only from EKS nodes of this environment"
   vpc_id      = aws_vpc.this.id
 }
 
