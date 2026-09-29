@@ -4,8 +4,11 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+
+STDIN_INPUT = "file:///dev/stdin"
 
 SECRET_KEYS = {
     "scene_api": {"KAKAO_REST_KEY"},
@@ -115,15 +118,34 @@ class Runner:
                 + os.pathsep
                 + process_env.get("PATH", ""),
             }
-        process = subprocess.run(
-            command,
-            input=stdin,
-            text=True,
-            capture_output=True,
-            cwd=cwd or self.root,
-            env=process_env,
-            check=False,
-        )
+        # AWS CLI v2 는 --cli-input-json 에 /dev/stdin 을 주면 "Invalid JSON" 으로 거부한다.
+        # 비밀값을 argv 에 노출하지 않는 원칙은 유지하되, 호출자 몫의 표준입력을 0600 임시
+        # 파일로 옮겨 넘기고 프로세스가 끝나는 즉시 지운다.
+        private_input = None
+        if stdin is not None and STDIN_INPUT in command:
+            descriptor, private_input = tempfile.mkstemp(
+                prefix="cli-input-", suffix=".json"
+            )
+            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                stream.write(stdin)
+            command = [
+                f"file://{private_input}" if argument == STDIN_INPUT else argument
+                for argument in command
+            ]
+            stdin = None
+        try:
+            process = subprocess.run(
+                command,
+                input=stdin,
+                text=True,
+                capture_output=True,
+                cwd=cwd or self.root,
+                env=process_env,
+                check=False,
+            )
+        finally:
+            if private_input:
+                os.unlink(private_input)
         if process.returncode:
             # AWS 응답·Terraform plan·Job 로그에는 민감한 정보가 포함될 수 있다.
             raise RuntimeError(
