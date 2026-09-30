@@ -18,6 +18,8 @@ plan·apply·verify·cleanup과 서비스 삭제는 배포 역할 세션만 허�
   Helm 배포. 런타임은 관리자 자격 증명을 받지 않는다.
 - `alb.py`: subnet·신뢰 CIDR 검증, NodeClass의 실제 보안 그룹 검사, Ingress 주소와
   AWS application ALB의 VPC·subnet·보안 그룹·healthy IP target 확인.
+- `lifecycle.py`: 올리기·내리기. runner EC2 전원, 삭제 예약 Secret 복원, 배포·삭제 workflow
+  호출과 대기, 새 ALB로 Cloudflare CNAME 갱신(DNS only). `dev-lifecycle.yml`이 실행한다.
 - `db-bootstrap.sh`: PostgreSQL 역할과 `C`/`C.UTF-8` DB·확장·권한 준비.
 - `tests/`: 잘못된 입력·계정 혼선·소스 격리·비밀값 전달·실패 정리·CLI 순서 회귀 검사.
 - `integration/`: 폐기 가능한 로컬 PostgreSQL·nginx 컨테이너로 DB 권한과 gateway 동작 검사.

@@ -49,7 +49,7 @@ bootstrap 삭제는 최대 1시간이다.
 | --- | --- |
 | 스택 조회·소유권 확인·삭제 대기 | `cloudformation:ListStacks`, `DescribeStacks`, `GetTemplate`, `ListStackResources` |
 | 스택 삭제 | `cloudformation:DeleteStack` — `scenetrip-<env>-bootstrap` 스택 |
-| 스택의 IAM 역할 정리 | `iam:GetRole`, `ListRolePolicies`, `GetRolePolicy`, `DeleteRolePolicy`, `ListAttachedRolePolicies`, `DetachRolePolicy`, `DeleteRole` — `scenetrip-<env>-deploy`, `scenetrip-<env>-eks-cluster`, `scenetrip-<env>-eks-node` |
+| 스택의 IAM 역할 정리 | `iam:GetRole`, `ListRolePolicies`, `GetRolePolicy`, `DeleteRolePolicy`, `ListAttachedRolePolicies`, `DetachRolePolicy`, `DeleteRole` — `scenetrip-<env>-deploy`, `scenetrip-<env>-eks-cluster`, `scenetrip-<env>-eks-node`, `scenetrip-<env>-lifecycle` |
 | 버킷 소유권·리전·버전·state 검사 | `s3:ListAllMyBuckets`, `GetBucketLocation`, `GetBucketTagging`, `ListBucketVersions`, `ListBucketMultipartUploads`, `GetObjectVersion` |
 | 스택의 버킷 정책 정리 | `s3:GetBucketPolicy`, `DeleteBucketPolicy` — 해당 state 버킷 |
 | `purge_state: true`일 때 추가 삭제 | `s3:DeleteObjectVersion`, `AbortMultipartUpload`, `DeleteBucket` — 해당 state 버킷과 객체 |

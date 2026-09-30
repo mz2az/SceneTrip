@@ -25,6 +25,10 @@ def expected_resources(settings, bucket):
             "AWS::IAM::Role",
             f"scenetrip-{settings.environment}-deploy",
         ),
+        "LifecycleRole": (
+            "AWS::IAM::Role",
+            f"scenetrip-{settings.environment}-lifecycle",
+        ),
     }
 
 
@@ -81,6 +85,7 @@ def validate_stack_metadata(settings, stack, name, bucket, key, identifier):
         "DeploymentRoleArn": "deploy",
         "ClusterRoleArn": "eks-cluster",
         "NodeRoleArn": "eks-node",
+        "LifecycleRoleArn": "lifecycle",
     }
     expected = {
         **expected,

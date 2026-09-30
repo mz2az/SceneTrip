@@ -45,6 +45,59 @@ class InfrastructureBoundaryTest(unittest.TestCase):
                     self.assertTrue(allowed.fullmatch(match.group(1)), match.group(1))
         self.assertGreaterEqual(found, 6)
 
+    def test_lifecycle_role_is_narrow_and_environment_bound(self):
+        role = self.template["Resources"]["LifecycleRole"]["Properties"]
+        self.assertEqual(
+            role["RoleName"], {"Fn::Sub": "scenetrip-${Environment}-lifecycle"}
+        )
+        self.assertLessEqual(role["MaxSessionDuration"], 14400)
+        trust = role["AssumeRolePolicyDocument"]["Statement"]
+        self.assertEqual(len(trust), 1)
+        self.assertEqual(
+            trust[0]["Condition"],
+            self.role["AssumeRolePolicyDocument"]["Statement"][0]["Condition"],
+        )
+        self.assertNotIn("StringLike", trust[0]["Condition"])
+        statements = {
+            statement["Sid"]: statement
+            for statement in role["Policies"][0]["PolicyDocument"]["Statement"]
+        }
+        actions = {
+            action
+            for statement in statements.values()
+            for action in statement["Action"]
+        }
+        self.assertEqual(
+            actions,
+            {
+                "ec2:StartInstances",
+                "ec2:StopInstances",
+                "ec2:DescribeInstances",
+                "ec2:DescribeSecurityGroups",
+                "elasticloadbalancing:DescribeLoadBalancers",
+                "secretsmanager:ListSecrets",
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:RestoreSecret",
+            },
+        )
+        # 인스턴스 전원은 배포 runner 태그 세 개가 모두 맞을 때만 다룬다.
+        power = statements["RunnerPower"]["Condition"]["StringEquals"]
+        self.assertEqual(power["aws:ResourceTag/project"], "scenetrip")
+        self.assertEqual(power["aws:ResourceTag/environment"], {"Ref": "Environment"})
+        self.assertEqual(power["aws:ResourceTag/role"], "github-runner")
+        # Secret 값은 읽지 못하고 해당 환경 경로의 복원만 한다.
+        self.assertNotIn("secretsmanager:GetSecretValue", actions)
+        self.assertTrue(
+            statements["SecretRestore"]["Resource"]["Fn::Sub"].endswith(
+                ":secret:/scenetrip/${Environment}/*"
+            )
+        )
+        outputs = self.template["Outputs"]
+        self.assertEqual(
+            outputs["LifecycleRoleArn"]["Value"],
+            {"Fn::GetAtt": ["LifecycleRole", "Arn"]},
+        )
+
     def test_oidc_subject_is_exact_environment(self):
         trust = self.role["AssumeRolePolicyDocument"]["Statement"][0]
         condition = trust["Condition"]["StringEquals"]

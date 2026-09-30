@@ -488,6 +488,82 @@
           {"Key":"ManagedBy","Value":"cloudformation"}
         ]
       }
+    },
+    "LifecycleRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": {"Fn::Sub":"scenetrip-${Environment}-lifecycle"},
+        "Description": "SceneTrip environment up/down workflow: start and stop the tagged deploy runner, restore environment secrets, read ALB state.",
+        "MaxSessionDuration": 14400,
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {"Federated":{"Ref":"GitHubOidcProviderArn"}},
+              "Action": "sts:AssumeRoleWithWebIdentity",
+              "Condition": {
+                "StringEquals": {
+                  "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+                  "token.actions.githubusercontent.com:sub": {"Fn::Sub":"${GitHubOidcSubjectPrefix}:environment:${Environment}"}
+                }
+              }
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "EnvironmentLifecycle",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "RunnerPower",
+                  "Effect": "Allow",
+                  "Action": ["ec2:StartInstances", "ec2:StopInstances"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/*"},
+                  "Condition": {
+                    "StringEquals": {
+                      "aws:ResourceTag/project": "scenetrip",
+                      "aws:ResourceTag/environment": {"Ref":"Environment"},
+                      "aws:ResourceTag/role": "github-runner"
+                    }
+                  }
+                },
+                {
+                  "Sid": "RegionalRead",
+                  "Effect": "Allow",
+                  "Action": [
+                    "ec2:DescribeInstances",
+                    "ec2:DescribeSecurityGroups",
+                    "elasticloadbalancing:DescribeLoadBalancers"
+                  ],
+                  "Resource": "*",
+                  "Condition": {"StringEquals": {"aws:RequestedRegion": {"Ref":"AWS::Region"}}}
+                },
+                {
+                  "Sid": "SecretNames",
+                  "Effect": "Allow",
+                  "Action": ["secretsmanager:ListSecrets"],
+                  "Resource": "*",
+                  "Condition": {"StringEquals": {"aws:RequestedRegion": {"Ref":"AWS::Region"}}}
+                },
+                {
+                  "Sid": "SecretRestore",
+                  "Effect": "Allow",
+                  "Action": ["secretsmanager:DescribeSecret", "secretsmanager:RestoreSecret"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/scenetrip/${Environment}/*"}
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {"Key":"Project","Value":"scenetrip"},
+          {"Key":"Environment","Value":{"Ref":"Environment"}},
+          {"Key":"ManagedBy","Value":"cloudformation"}
+        ]
+      }
     }
   },
   "Outputs": {
@@ -495,6 +571,7 @@
     "TerraformStateBucket": {"Description":"Terraform S3 backend bucket.","Value":{"Ref":"TerraformStateBucket"}},
     "TerraformStateKey": {"Value":{"Fn::Sub":"scenetrip/${Environment}/terraform.tfstate"}},
     "ClusterRoleArn": {"Value":{"Fn::GetAtt":["ClusterRole","Arn"]}},
-    "NodeRoleArn": {"Value":{"Fn::GetAtt":["NodeRole","Arn"]}}
+    "NodeRoleArn": {"Value":{"Fn::GetAtt":["NodeRole","Arn"]}},
+    "LifecycleRoleArn": {"Description":"GitHub Environment AWS_LIFECYCLE_ROLE_ARN에 설정할 올리기·내리기 역할.","Value":{"Fn::GetAtt":["LifecycleRole","Arn"]}}
   }
 }

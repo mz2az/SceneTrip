@@ -96,6 +96,11 @@ aws-preflight sha:
 aws-verify env:
     {{BAZEL}} run //tools/aws:aws -- verify "$1"
 
+# 환경 올리기(runner·Secret 복원·배포·DNS)·내리기. GitHub Actions dev-lifecycle workflow가 실행한다.
+[group('infra')]
+aws-lifecycle env action snapshot_policy="retain":
+    {{BAZEL}} run //tools/aws:lifecycle -- "$1" "$2" --snapshot-policy "$3"
+
 # AWS 인증 전에 삭제 범위·입력·확인값 검사
 [group('infra')]
 aws-teardown-validate env scope operation snapshot_policy="retain" purge_state="false":
