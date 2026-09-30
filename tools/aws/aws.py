@@ -146,6 +146,74 @@ def initialize_terraform(run, root, settings, temp):
     return directory
 
 
+APP_SECRETS = ("scene_api", "trip_guide", "database")
+
+
+def adopt_retained_secrets(run, settings, directory, var_file):
+    """서비스 삭제 뒤 남은 환경 Secret 을 state 로 되돌린다.
+
+    Secret 은 삭제 시 복구 유예로 예약만 되고 이름이 계정에 남는다. state 가 빈 채로
+    다시 배포하면 CreateSecret 이 같은 이름에 막힌다. 삭제 예약이면 복원하고, 이 환경이
+    Terraform 으로 만든 것임을 태그로 확인한 뒤에만 import 한다.
+    """
+    managed = set(
+        run(["terraform", "state", "list"], quiet=True, cwd=directory).split()
+    )
+    for key in APP_SECRETS:
+        address = f'aws_secretsmanager_secret.app["{key}"]'
+        if address in managed:
+            continue
+        name = f"/scenetrip/{settings.environment}/{key.replace('_', '-')}"
+        try:
+            secret = json.loads(
+                run(
+                    [
+                        "aws",
+                        "secretsmanager",
+                        "describe-secret",
+                        "--secret-id",
+                        name,
+                        "--output",
+                        "json",
+                    ],
+                    quiet=True,
+                )
+            )
+        except RuntimeError:
+            continue
+        tags = {item.get("Key"): item.get("Value") for item in secret.get("Tags", [])}
+        if tags != {
+            **tags,
+            "Project": "scenetrip",
+            "Environment": settings.environment,
+            "ManagedBy": "terraform",
+        }:
+            raise ValueError(f"{name} 은 이 환경 Terraform 이 만든 Secret 이 아닙니다")
+        arn = matched(
+            rf"arn:aws:secretsmanager:{settings.region}:{settings.account}:secret:{re.escape(name)}-[A-Za-z0-9]{{6}}",
+            secret.get("ARN"),
+            "Secret ARN",
+        )
+        if secret.get("DeletedDate"):
+            run(
+                ["aws", "secretsmanager", "restore-secret", "--secret-id", arn],
+                quiet=True,
+            )
+        run(
+            [
+                "terraform",
+                "import",
+                "-input=false",
+                "-no-color",
+                f"-var-file={var_file}",
+                address,
+                arn,
+            ],
+            cwd=directory,
+        )
+        print(f"남아 있던 Secret 을 state 로 가져옴: {name}")
+
+
 def terraform(run, root, settings, temp, operation):
     config = variables(settings)
     path = temp / "terraform.tfvars.json"
@@ -153,6 +221,8 @@ def terraform(run, root, settings, temp, operation):
     path.chmod(0o600)
     directory = initialize_terraform(run, root, settings, temp)
     run(["terraform", "validate", "-no-color"], cwd=directory)
+    if operation != "plan":
+        adopt_retained_secrets(run, settings, directory, path)
     plan = temp / "plan.tfplan"
     run(
         [

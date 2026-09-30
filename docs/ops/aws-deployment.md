@@ -281,6 +281,7 @@ bootstrap과 DNS 준비가 끝난 환경은 GitHub Actions의 **AWS 환경 올�
 `environment=<env>`·`role=github-runner`로 찾는다. 배포·삭제 run이 아직 진행 중이면 runner를
 끄지 않는다. 진행 중에 끄면 state 잠금이 남는다.
 
+유예 기간 안의 Secret은 `aws-apply`가 복원하고 Terraform state로 가져온다.
 Secret이 복구 유예(DEV 7일)를 넘겨 완전히 삭제됐다면 Terraform이 빈 Secret을 새로 만들고
 배포가 외부 키 단계에서 멈춘다. 운영자가 Kakao·DeepSeek 키를 넣고 `up`을 다시 실행한다.
 내릴 때마다 RDS는 새로 만들어지므로 데이터가 비워진다.

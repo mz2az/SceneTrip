@@ -23,9 +23,19 @@ class CliTest(unittest.TestCase):
             "ingress_certificate_arn": "arn:aws:acm:ap-northeast-2:123456789012:certificate/"
             + "a" * 36,
         }
-        run = Mock(
-            side_effect=["", "", "", "", json.dumps({"environment": {"value": "dev"}})]
+        managed = "\n".join(
+            f'aws_secretsmanager_secret.app["{key}"]'
+            for key in ("scene_api", "trip_guide", "database")
         )
+
+        def execute(command, **unused):
+            if command[:3] == ["terraform", "state", "list"]:
+                return managed
+            if command[:2] == ["terraform", "output"]:
+                return json.dumps({"environment": {"value": "dev"}})
+            return ""
+
+        run = Mock(side_effect=execute)
         with (
             tempfile.TemporaryDirectory() as temp,
             patch.dict("os.environ", {"TF_VAR_FILE_JSON": json.dumps(config)}),
@@ -35,8 +45,14 @@ class CliTest(unittest.TestCase):
                 terraform(run, Path("."), valid_settings(), Path(temp), "apply"),
                 {"environment": "dev"},
             )
-        plan = run.call_args_list[2].args[0]
-        apply = run.call_args_list[3].args[0]
+        commands = [call.args[0] for call in run.call_args_list]
+        plan = next(
+            command for command in commands if command[:2] == ["terraform", "plan"]
+        )
+        apply = next(
+            command for command in commands if command[:2] == ["terraform", "apply"]
+        )
+        self.assertFalse(any("import" in command for command in commands))
         self.assertEqual(
             next(value[5:] for value in plan if value.startswith("-out=")), apply[-1]
         )
@@ -59,6 +75,86 @@ class CliTest(unittest.TestCase):
                 terraform(run, Path("."), valid_settings(), Path(temp), "plan")
             )
         self.assertFalse(any("apply" in call.args[0] for call in run.call_args_list))
+        # plan 은 읽기 전용이므로 state 를 바꾸는 import·restore 를 하지 않는다.
+        self.assertFalse(
+            any(
+                "import" in call.args[0] or "restore-secret" in call.args[0]
+                for call in run.call_args_list
+            )
+        )
+
+    def test_retained_secrets_are_restored_and_imported_only_when_owned(self):
+        from pathlib import Path
+
+        from tools.aws.aws import adopt_retained_secrets
+
+        settings = valid_settings()
+        arn = "arn:aws:secretsmanager:{}:{}:secret:/scenetrip/dev/{}-AbC123"
+        owned = [
+            {"Key": "Project", "Value": "scenetrip"},
+            {"Key": "Environment", "Value": "dev"},
+            {"Key": "ManagedBy", "Value": "terraform"},
+        ]
+
+        def fake(state, secrets):
+            def execute(command, **unused):
+                if command[:3] == ["terraform", "state", "list"]:
+                    return state
+                if command[1:3] == ["secretsmanager", "describe-secret"]:
+                    name = command[4].rsplit("/", 1)[1]
+                    if name not in secrets:
+                        raise RuntimeError("not found")
+                    return json.dumps(
+                        {
+                            "ARN": arn.format(settings.region, settings.account, name),
+                            **secrets[name],
+                        }
+                    )
+                return ""
+
+            return Mock(side_effect=execute)
+
+        run = fake(
+            'aws_secretsmanager_secret.app["database"]',
+            {
+                "scene-api": {"Tags": owned, "DeletedDate": "2026-09-29"},
+                "trip-guide": {"Tags": owned},
+                "database": {"Tags": owned},
+            },
+        )
+        adopt_retained_secrets(run, settings, Path("."), Path("vars.json"))
+        commands = [call.args[0] for call in run.call_args_list]
+        restores = [command for command in commands if "restore-secret" in command]
+        imports = [
+            command for command in commands if command[:2] == ["terraform", "import"]
+        ]
+        self.assertEqual(len(restores), 1)
+        self.assertTrue(restores[0][-1].endswith("/scenetrip/dev/scene-api-AbC123"))
+        self.assertEqual(
+            [command[-2] for command in imports],
+            [
+                'aws_secretsmanager_secret.app["scene_api"]',
+                'aws_secretsmanager_secret.app["trip_guide"]',
+            ],
+        )
+        self.assertIn("-var-file=vars.json", imports[0])
+        # 복원은 import 보다 먼저다.
+        self.assertLess(commands.index(restores[0]), commands.index(imports[0]))
+
+        missing = fake("", {})
+        adopt_retained_secrets(missing, settings, Path("."), Path("vars.json"))
+        self.assertFalse(
+            any("import" in call.args[0] for call in missing.call_args_list)
+        )
+
+        foreign = fake(
+            "", {"scene-api": {"Tags": [{"Key": "Project", "Value": "other"}]}}
+        )
+        with self.assertRaisesRegex(ValueError, "Terraform 이 만든"):
+            adopt_retained_secrets(foreign, settings, Path("."), Path("vars.json"))
+        self.assertFalse(
+            any("import" in call.args[0] for call in foreign.call_args_list)
+        )
 
     def test_acm_hostname_and_status(self):
         from tools.aws.aws import verify_certificate
