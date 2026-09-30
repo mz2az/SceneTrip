@@ -12,6 +12,7 @@ from tools.aws.tests.test_destroy import DestroyServiceTest
 from tools.aws.tests.test_destroy_gateway import DestroyGatewayTest
 from tools.aws.tests.test_destroy_plan import DestroyPlanTest
 from tools.aws.tests.test_entrypoint import EntryPointTest
+from tools.aws.tests.test_lifecycle import CloudflareTest, LifecycleTest
 from tools.aws.tests.test_teardown_entrypoint import TeardownEntryPointTest
 from tools.aws.tests.test_workflows import WorkflowSecurityTest
 
@@ -22,11 +23,13 @@ __all__ = [
     "BootstrapStateTest",
     "BoundaryTest",
     "CliTest",
+    "CloudflareTest",
     "DeployTest",
     "DestroyGatewayTest",
     "DestroyPlanTest",
     "DestroyServiceTest",
     "EntryPointTest",
+    "LifecycleTest",
     "OrchestrationTest",
     "SettingsTest",
     "TeardownEntryPointTest",

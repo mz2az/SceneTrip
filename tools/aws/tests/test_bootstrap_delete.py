@@ -39,6 +39,7 @@ class BootstrapRunner:
             ("ClusterRole", "AWS::IAM::Role", "scenetrip-dev-eks-cluster"),
             ("NodeRole", "AWS::IAM::Role", "scenetrip-dev-eks-node"),
             ("DeploymentRole", "AWS::IAM::Role", "scenetrip-dev-deploy"),
+            ("LifecycleRole", "AWS::IAM::Role", "scenetrip-dev-lifecycle"),
         ]
         outputs = {
             "TerraformStateBucket": self.bucket,
@@ -46,6 +47,7 @@ class BootstrapRunner:
             "DeploymentRoleArn": "arn:aws:iam::123456789012:role/scenetrip-dev-deploy",
             "ClusterRoleArn": "arn:aws:iam::123456789012:role/scenetrip-dev-eks-cluster",
             "NodeRoleArn": "arn:aws:iam::123456789012:role/scenetrip-dev-eks-node",
+            "LifecycleRoleArn": "arn:aws:iam::123456789012:role/scenetrip-dev-lifecycle",
         }
         responses = {
             ("cloudformation", "list-stacks"): {

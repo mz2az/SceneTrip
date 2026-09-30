@@ -12,7 +12,9 @@
 
 출력 `DeploymentRoleArn`을 GitHub Environment의 AWS 배포 역할로 사용한다.
 `TerraformStateBucket`, `TerraformStateKey`는 backend 입력이고
-`ClusterRoleArn`, `NodeRoleArn`은 고정 서비스 역할이다.
+`ClusterRoleArn`, `NodeRoleArn`은 고정 서비스 역할이다. `LifecycleRoleArn`은 올리기·내리기
+workflow 전용 역할로 GitHub Environment `AWS_LIFECYCLE_ROLE_ARN`에 넣는다. 태그가 맞는 runner
+EC2의 시작·정지, 해당 환경 Secret 복원, ALB 조회만 할 수 있고 Secret 값은 읽지 못한다.
 
 state 버킷 이름은 `scenetrip-tfstate-<account>-<region>-<env>`,
 키는 `scenetrip/<env>/terraform.tfstate`이다. S3 암호화·버전 보존·public

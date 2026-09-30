@@ -4,6 +4,7 @@ filegroup(
         "aws-bootstrap.yml",
         "aws-deploy.yml",
         "aws-destroy.yml",
+        "dev-lifecycle.yml",
     ],
     visibility = ["//visibility:public"],
 )

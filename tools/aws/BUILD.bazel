@@ -43,6 +43,13 @@ py_binary(
     deps = [":lib"],
 )
 
+py_binary(
+    name = "lifecycle",
+    srcs = ["lifecycle.py"],
+    main = "lifecycle.py",
+    deps = [":lib"],
+)
+
 py_library(
     name = "cli_lib",
     srcs = ["aws.py"],
@@ -64,6 +71,7 @@ py_test(
         "tests/test_destroy_gateway.py",
         "tests/test_destroy_plan.py",
         "tests/test_entrypoint.py",
+        "tests/test_lifecycle.py",
         "tests/test_teardown_entrypoint.py",
         "tests/test_workflows.py",
     ],
@@ -76,5 +84,12 @@ py_test(
     deps = [
         ":cli_lib",
         ":lib",
+        ":lifecycle_lib",
     ],
+)
+
+py_library(
+    name = "lifecycle_lib",
+    srcs = ["lifecycle.py"],
+    deps = [":lib"],
 )

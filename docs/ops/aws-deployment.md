@@ -46,6 +46,7 @@ PRD에는 검토자를 설정한다. 환경 OIDC subject는 브랜치 문자열�
 | `AWS_API_DOMAIN` | HTTPS로 제공할 API 도메인 |
 | `TF_VAR_FILE_JSON` | 해당 환경의 **비밀값 없는** Terraform 입력 JSON |
 | `AWS_BOOTSTRAP_ROLE_ARN` | 최초 CloudFormation 변경용 기존 역할 |
+| `AWS_LIFECYCLE_ROLE_ARN` | bootstrap 출력 `LifecycleRoleArn`. 올리기·내리기 workflow 전용 역할 |
 | `AWS_GITHUB_OIDC_PROVIDER_ARN` | 사전에 등록한 GitHub OIDC provider. GitHub 이 `GITHUB_` 접두사 변수를 금지하므로 이 이름으로 저장하고 workflow 가 `GITHUB_OIDC_PROVIDER_ARN` 환경변수로 넘긴다 |
 
 입력 JSON은 `platform/environments/<env>/terraform.tfvars.json.example`을 따른다.
@@ -152,8 +153,10 @@ DB는 `scenetrip`이며 UTF8·한글 인식 locale·PostGIS·pg_trgm을 확인�
 
 ## 7. DNS와 검증 완료 조건
 
-ALB 주소가 준비되면 운영 DNS에서 API 도메인을 연결한다. Route 53을 사용해도
-되고 기존 DNS 운영 체계를 사용해도 된다. DNS와 ACM 연결이 끝나기 전까지
+ALB 주소가 준비되면 운영 DNS에서 API 도메인을 연결한다. `scenetrip.io`의 DNS는
+Cloudflare가 담당하며([ADR 0017](../architecture/adr/0017-dev-lifecycle-and-cloudflare-dns.md))
+API 레코드와 ACM 검증 레코드는 **DNS only**여야 한다. 프록시를 켜면 ALB가 보는 접속자가
+Cloudflare가 되어 허용 CIDR 검사에서 차단된다. 올리기 workflow는 이 CNAME을 자동으로 바꾼다. DNS와 ACM 연결이 끝나기 전까지
 IP 주소로 앱을 배포하거나 TLS 검증을 끄지 않는다.
 
 최초 배포는 ALB가 생성되어야 DNS 연결 대상을 알 수 있다. 배포기가 출력한 새 ALB
@@ -262,7 +265,27 @@ gateway Service의 LoadBalancer→ClusterIP 변경으로 NLB가 삭제될 수 �
 이전 chart로 롤백해도 같은 NLB 주소가 돌아온다는 보장은 없다. 새 주소의 DNS 전환이
 다시 필요할 수 있다. DB 스키마 호환성을 함께 확인하고 자동 DB 되돌리기는 하지 않는다.
 
-## 10. 사용하지 않는 환경 삭제
+## 10. 버튼 하나로 올리고 내리기
+
+bootstrap과 DNS 준비가 끝난 환경은 GitHub Actions의 **AWS 환경 올리기·내리기**
+(`dev-lifecycle.yml`)로 다시 올리고 내린다. 기존 배포·삭제 workflow를 호출하므로 위 절의
+검증과 보호가 그대로 적용된다.
+
+| action | 하는 일 |
+| --- | --- |
+| `up` | runner EC2 켜기 → 삭제 예약된 `/scenetrip/<env>/` Secret 복원 → 배포 `apply` 호출 → ALB가 생기면 Cloudflare `api-<env>` CNAME 갱신(DNS only) → 배포 성공 확인 → runner 끄기 |
+| `down` | runner EC2 켜기 → 삭제 `plan` → `destroy`(실패 시 같은 입력으로 1회 재시도) → runner 끄기 |
+
+필요한 Environment 설정은 변수 `AWS_LIFECYCLE_ROLE_ARN`과 secret `CLOUDFLARE_API_TOKEN`
+(`scenetrip.io` 존의 DNS 편집 권한만)이다. runner EC2는 태그 `project=scenetrip`·
+`environment=<env>`·`role=github-runner`로 찾는다. 배포·삭제 run이 아직 진행 중이면 runner를
+끄지 않는다. 진행 중에 끄면 state 잠금이 남는다.
+
+Secret이 복구 유예(DEV 7일)를 넘겨 완전히 삭제됐다면 Terraform이 빈 Secret을 새로 만들고
+배포가 외부 키 단계에서 멈춘다. 운영자가 Kakao·DeepSeek 키를 넣고 `up`을 다시 실행한다.
+내릴 때마다 RDS는 새로 만들어지므로 데이터가 비워진다.
+
+## 11. 사용하지 않는 환경 삭제
 
 GitHub Actions의 **AWS 수동 삭제**로 서비스 형상을 먼저 삭제하고, 완료 후 bootstrap을
 별도로 삭제한다. `plan`이 기본이며 실제 삭제에는 환경·계정을 포함한 확인 문자열이 필요하다.

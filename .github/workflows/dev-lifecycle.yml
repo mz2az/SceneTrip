@@ -1,0 +1,75 @@
+name: AWS 환경 올리기·내리기
+
+# 기존 배포·삭제 workflow를 순서대로 호출하고 runner EC2·Secret·DNS를 함께 다룬다.
+# 사람이 실행할 때만 동작한다. 예약 실행은 ADR 0017의 남은 결정이다.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 대상 GitHub Environment
+        required: true
+        type: choice
+        options: [dev]
+      action:
+        description: up은 runner·Secret 복원·배포·DNS 갱신, down은 서비스 삭제
+        required: true
+        type: choice
+        options: [up, down]
+      snapshot_policy:
+        description: down의 최종 DB 스냅샷 정책
+        required: true
+        default: retain
+        type: choice
+        options: [retain, discard]
+
+permissions:
+  contents: read
+
+# 호출한 배포·삭제 run은 aws-<env> 그룹을 쓴다. 같은 그룹을 쓰면 서로 기다려 멈춘다.
+concurrency:
+  group: lifecycle-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  lifecycle:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+      actions: write
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_API_DOMAIN: ${{ vars.AWS_API_DOMAIN }}
+      AWS_COMMIT_SHA: ${{ github.sha }}
+      AWS_PAGER: ''
+      AWS_EC2_METADATA_DISABLED: 'true'
+      TARGET_ENVIRONMENT: ${{ inputs.environment }}
+      LIFECYCLE_ACTION: ${{ inputs.action }}
+      SNAPSHOT_POLICY: ${{ inputs.snapshot_policy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: extractions/setup-just@v2
+      - uses: bazel-contrib/setup-bazel@0.15.0
+      - name: 올리기·내리기 전용 OIDC 역할
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_LIFECYCLE_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 14400
+          role-session-name: lifecycle-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: 올리기·내리기
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: just aws-lifecycle "$TARGET_ENVIRONMENT" "$LIFECYCLE_ACTION" "$SNAPSHOT_POLICY"
+      - name: runner 끄기 (진행 중인 배포·삭제가 없을 때만)
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: just aws-lifecycle "$TARGET_ENVIRONMENT" stop-runner

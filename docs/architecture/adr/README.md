@@ -26,5 +26,6 @@ just adr-list
 
 `template.md` 가 `just adr-new` 가 렌더링하는 시작점이다.
 
-최근 결정: [0016 — ALB 기반 HTTP 진입점](0016-alb-http-ingress.md),
+최근 결정: [0017 — 환경 올리기·내리기 workflow와 Cloudflare DNS](0017-dev-lifecycle-and-cloudflare-dns.md),
+[0016 — ALB 기반 HTTP 진입점](0016-alb-http-ingress.md),
 [0015 — DEV·PRD 수동 AWS 배포](0015-aws-manual-environments.md).

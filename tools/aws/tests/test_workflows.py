@@ -81,3 +81,31 @@ class WorkflowSecurityTest(unittest.TestCase):
                 )
                 self.assertNotIn("inputs.commit_sha", privileged)
                 self.assertNotIn("secrets.", preflight)
+
+    def test_lifecycle_is_manual_main_only_and_does_not_deadlock(self):
+        root = Path(os.environ["TEST_SRCDIR"]) / os.environ["TEST_WORKSPACE"]
+        source = (root / ".github/workflows/dev-lifecycle.yml").read_text()
+        header, job = source.split("jobs:\n", 1)
+        self.assertIn("workflow_dispatch:", header)
+        for trigger in ("  push:", "  pull_request:", "  schedule:"):
+            self.assertNotIn(trigger, header)
+        self.assertNotIn("id-token: write", header)
+        # 호출한 배포·삭제가 aws-<env> 그룹을 쓰므로 같은 그룹이면 서로를 기다린다.
+        self.assertIn("group: lifecycle-${{ inputs.environment }}", header)
+        self.assertNotIn("group: aws-", header)
+        self.assertIn("if: github.ref == 'refs/heads/main'", job)
+        self.assertIn("environment: ${{ inputs.environment }}", job)
+        self.assertIn("role-to-assume: ${{ vars.AWS_LIFECYCLE_ROLE_ARN }}", job)
+        self.assertNotIn("AWS_DEPLOY_ROLE_ARN", job)
+        self.assertNotIn("AWS_BOOTSTRAP_ROLE_ARN", job)
+        self.assertNotIn("inputs.commit_sha", job)
+        self.assertEqual(job.count("secrets."), 1)
+        self.assertIn("secrets.CLOUDFLARE_API_TOKEN", job)
+        self.assertIn("persist-credentials: false", job)
+        run_step, stop_step = job.split("runner 끄기", 1)
+        self.assertIn(
+            'just aws-lifecycle "$TARGET_ENVIRONMENT" "$LIFECYCLE_ACTION"', run_step
+        )
+        self.assertIn("if: always()", stop_step)
+        self.assertIn("stop-runner", stop_step)
+        self.assertNotIn("CLOUDFLARE_API_TOKEN", stop_step)
