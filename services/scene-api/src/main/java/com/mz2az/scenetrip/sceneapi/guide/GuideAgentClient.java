@@ -96,7 +96,7 @@ public class GuideAgentClient {
             .build();
   }
 
-  /** 챗봇 한 턴. 요청은 앱이 보낸 것 그대로 — {@code X-Device-Id} 는 여기 없다. 에이전트는 신원을 모른다. */
+  /** 챗봇 한 턴. 요청은 앱이 보낸 것 그대로 — {@code X-Install-Id} 는 여기 없다. 에이전트는 신원을 모른다. */
   public GuideChatReply chat(GuideChatRequest request, Lang lang) {
     return post(PATH_CHAT, request, lang, GuideChatReply.class);
   }

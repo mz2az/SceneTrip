@@ -40,7 +40,7 @@ final class HomeTabModel: ObservableObject {
     /// 작품 목록조차 못 받았나 — 화면이 「불러오지 못했습니다」 를 띄우는 기준.
     @Published private(set) var failed = false
 
-    private let deviceId = InstallIdentity.current
+    private let installId = InstallIdentity.current
 
     func load(courses: [RouteCourse]) async {
         loading = true
@@ -48,8 +48,8 @@ final class HomeTabModel: ObservableObject {
 
         let worksTask = Task { try? await ContentsAPI.listContents(limit: 20) }
         let placesTask = Task { try? await PlacesAPI.listPlaces(limit: 60) }
-        let stampsTask = Task { await VisitStamp.collect(deviceId: deviceId) }
-        let tripsTask = Task { await Self.trips(from: courses, deviceId: deviceId) }
+        let stampsTask = Task { await VisitStamp.collect(installId: installId) }
+        let tripsTask = Task { await Self.trips(from: courses, installId: installId) }
 
         if let list = await worksTask.value {
             works = list.items.sorted { $0.placeCount > $1.placeCount }
@@ -89,12 +89,12 @@ final class HomeTabModel: ObservableObject {
         return (scheme == "http" || scheme == "https") && url.host != nil
     }
 
-    private static func trips(from courses: [RouteCourse], deviceId: UUID) async -> [HomeTrip] {
+    private static func trips(from courses: [RouteCourse], installId: UUID) async -> [HomeTrip] {
         let ordered = courses.filter(\.isRunning) + courses.filter { !$0.isRunning }
         let picks = Array(ordered.prefix(3))
         return await withTaskGroup(of: (Int, HomeTrip?).self) { group in
             for (index, course) in picks.enumerated() {
-                group.addTask { await (index, trip(of: course, deviceId: deviceId)) }
+                group.addTask { await (index, trip(of: course, installId: installId)) }
             }
             var slots = [HomeTrip?](repeating: nil, count: picks.count)
             for await (index, trip) in group {
@@ -104,10 +104,10 @@ final class HomeTabModel: ObservableObject {
         }
     }
 
-    private static func trip(of pick: RouteCourse, deviceId: UUID) async -> HomeTrip? {
+    private static func trip(of pick: RouteCourse, installId: UUID) async -> HomeTrip? {
         guard let serverId = pick.serverId else { return nil }
 
-        guard let detail = try? await CoursesAPI.getCourse(xDeviceId: deviceId, courseId: serverId) else {
+        guard let detail = try? await CoursesAPI.getCourse(xInstallId: installId, courseId: serverId) else {
             // 상세를 못 받아도 카드는 뜬다 — 제목과 곳수는 목록에 있다.
             return HomeTrip(
                 course: pick, visited: 0, total: pick.placeCount,

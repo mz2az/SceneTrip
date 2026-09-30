@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 장바구니 — 담기까지만.
  *
- * <p><b>헤더로 오는 {@code X-Device-Id} 는 설치 UUID 이고, 저장의 주체는 계정({@code app_user.id})이다.</b> 그 사이를
+ * <p><b>헤더로 오는 {@code X-Install-Id} 는 설치 UUID 이고, 저장의 주체는 계정({@code app_user.id})이다.</b> 그 사이를
  * {@link UserStore#resolve} 가 잇는다. 계약은 그대로라 앱은 이 변화를 모른다 — 바뀐 것은 서버 안쪽뿐이다.
  *
  * <p>둘을 나눈 이유는 설치 UUID 가 사람이 아니라 설치본을 가리키기 때문이다. 로그인이 붙으면 {@code user_device} 가 가리키는 곳만 바꿔 달면 되고 이
@@ -35,15 +35,15 @@ class CartController implements CartApi {
   }
 
   @Override
-  public ResponseEntity<Cart> getCart(UUID xDeviceId, Lang acceptLanguage) {
-    CartStore.Contents contents = store.list(users.resolve(xDeviceId), acceptLanguage);
+  public ResponseEntity<Cart> getCart(UUID xInstallId, Lang acceptLanguage) {
+    CartStore.Contents contents = store.list(users.resolve(xInstallId), acceptLanguage);
     Cart body = new Cart(contents.items(), contents.items().size());
     return Responses.ok(body, Responses.used(acceptLanguage, contents.anyInRequestedLang()));
   }
 
   @Override
   public ResponseEntity<CartItem> addCartItem(
-      UUID xDeviceId, CartItemCreate cartItemCreate, Lang acceptLanguage) {
+      UUID xInstallId, CartItemCreate cartItemCreate, Lang acceptLanguage) {
 
     long placeId = cartItemCreate.getPlaceId();
 
@@ -56,7 +56,7 @@ class CartController implements CartApi {
     CartItem item =
         store
             .add(
-                users.resolve(xDeviceId),
+                users.resolve(xInstallId),
                 placeId,
                 cartItemCreate.getSourceContentId(),
                 acceptLanguage)
@@ -69,10 +69,10 @@ class CartController implements CartApi {
   }
 
   @Override
-  public ResponseEntity<Void> removeCartItem(UUID xDeviceId, Long placeId) {
+  public ResponseEntity<Void> removeCartItem(UUID xInstallId, Long placeId) {
     // 담겨 있지 않은 것을 빼려 하면 404 다. 조용히 204 로 돌려주면 "저장됨" 토글이
     // 어긋나 있는 상태를 클라이언트가 알아차리지 못한다.
-    if (!store.remove(users.resolve(xDeviceId), placeId)) {
+    if (!store.remove(users.resolve(xInstallId), placeId)) {
       throw ApiException.notFound("CART_ITEM_NOT_FOUND", "장소 " + placeId + " 은(는) 장바구니에 없습니다");
     }
     return ResponseEntity.noContent().build();

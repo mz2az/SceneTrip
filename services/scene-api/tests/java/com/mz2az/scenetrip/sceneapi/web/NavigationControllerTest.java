@@ -39,7 +39,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @Import(LanguageConfiguration.class)
 class NavigationControllerTest {
 
-  private static final String DEVICE = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
+  private static final String INSTALL_ID = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
   private static final UUID USER = UUID.fromString("9d1e4b52-6c07-4a8f-b3d1-2e6f80c4a915");
   private static final long COURSE = 7;
   private static final long ITEM = 3;
@@ -52,7 +52,7 @@ class NavigationControllerTest {
 
   @BeforeEach
   void happyPathByDefault() {
-    when(users.resolve(UUID.fromString(DEVICE))).thenReturn(USER);
+    when(users.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
     when(users.isRegistered(USER)).thenReturn(true);
     when(courses.exists(USER, COURSE)).thenReturn(true);
     when(courses.isActive(USER, COURSE)).thenReturn(true);
@@ -67,7 +67,7 @@ class NavigationControllerTest {
 
   private static MockHttpServletRequestBuilder request(String acceptLanguage) {
     return post("/navigation/next-leg")
-        .header("X-Device-Id", DEVICE)
+        .header("X-Install-Id", INSTALL_ID)
         .header("Accept-Language", acceptLanguage)
         .contentType(MediaType.APPLICATION_JSON)
         .content(
@@ -170,7 +170,7 @@ class NavigationControllerTest {
   void defaultLanguageIsKo() throws Exception {
     mvc.perform(
             post("/navigation/next-leg")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"courseId\":7,\"itemId\":3,\"latitude\":37.0,\"longitude\":127.0}"))
         .andExpect(status().isOk());

@@ -59,7 +59,7 @@ extension RouteEditorView {
         guard let courseId = course.serverId, let itemId = stop.serverItemId else { return }
         Task {
             try? await CoursesAPI.updateCourseItemVisit(
-                xDeviceId: InstallIdentity.current,
+                xInstallId: InstallIdentity.current,
                 courseId: courseId, itemId: itemId,
                 visitUpdate: VisitUpdate(visited: true)
             )

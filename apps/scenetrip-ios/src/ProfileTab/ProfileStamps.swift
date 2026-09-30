@@ -16,12 +16,12 @@ extension VisitStamp {
     ///
     /// 코스 수만큼 요청이 나가지만 **나란히** 보낸다. 마이페이지와 홈이 같이 쓴다 —
     /// 두 벌로 적어 두면 한쪽만 고쳐지는 날이 온다.
-    static func collect(courses: [CourseSummary], deviceId: UUID) async -> [VisitStamp] {
+    static func collect(courses: [CourseSummary], installId: UUID) async -> [VisitStamp] {
         await withTaskGroup(of: [VisitStamp].self) { group in
             for course in courses {
                 group.addTask {
                     guard let detail = try? await CoursesAPI.getCourse(
-                        xDeviceId: deviceId, courseId: course.id
+                        xInstallId: installId, courseId: course.id
                     ) else { return [] }
                     return detail.days.flatMap(\.items).compactMap { item in
                         item.visitedAt.map {
@@ -43,9 +43,9 @@ extension VisitStamp {
     }
 
     /// 코스 목록부터 받아서 모은다 — 목록을 아직 안 든 화면(홈)용.
-    static func collect(deviceId: UUID) async -> [VisitStamp] {
-        guard let list = try? await CoursesAPI.listCourses(xDeviceId: deviceId) else { return [] }
-        return await collect(courses: list.items, deviceId: deviceId)
+    static func collect(installId: UUID) async -> [VisitStamp] {
+        guard let list = try? await CoursesAPI.listCourses(xInstallId: installId) else { return [] }
+        return await collect(courses: list.items, installId: installId)
     }
 }
 

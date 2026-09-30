@@ -34,7 +34,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * 코스 — 만들고, 읽고, 통째로 바꾸고, 지운다.
  *
- * <p>주체는 {@code app_user.id} 다. {@code X-Device-Id} 를 계정으로 바꾸는 일은 {@link
+ * <p>주체는 {@code app_user.id} 다. {@code X-Install-Id} 를 계정으로 바꾸는 일은 {@link
  * com.mz2az.scenetrip.sceneapi.user.UserStore} 가 하고 여기는 이미 바뀐 값을 받는다.
  *
  * <p><b>일차는 표가 아니라 {@code course_item.day_no} 컬럼이다.</b> 며칠짜리인지는 {@code course.day_count} 가 들고, 항목이

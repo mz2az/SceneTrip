@@ -22,14 +22,14 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>하는 일은 통제와 조립뿐이다. 챗봇은 <b>가입한 사용자만</b> 부를 수 있다 — 턴마다 모델 토큰이 나가는 유료 경로라 호출 여부를 서버가 정한다({@code
  * NavigationController} 와 같은 이유). 판정은 에이전트를 부르기 <b>전</b>이라 미가입 요청은 비용 없이 걸러진다.
  *
- * <p>에이전트는 신원을 모른다. {@code X-Device-Id} 로 찾은 계정은 응답의 {@code effects}(장바구니 쪽지)를 DB 에 적용할 때만 쓰고, 요청
+ * <p>에이전트는 신원을 모른다. {@code X-Install-Id} 로 찾은 계정은 응답의 {@code effects}(장바구니 쪽지)를 DB 에 적용할 때만 쓰고, 요청
  * 객체에는 애초에 없다 — 헤더를 인터페이스가 따로 떼어 주기 때문에 구조로 지켜진다.
  *
  * <p>{@code try/catch} 가 없는 이유는 {@code NavigationController} 와 같다 — 클라이언트가 던진 {@code
  * ApiException}(400·503)과 처리기가 던진 {@code IllegalStateException}(500)은 {@code ApiExceptionHandler} 가
  * 받는다.
  *
- * <p>마법사({@link #planWithGuide})는 모델을 안 부르는 창구라 가입 조건도 {@code X-Device-Id} 도 없고, 저장도 없다 — 응답은 초안이고
+ * <p>마법사({@link #planWithGuide})는 모델을 안 부르는 창구라 가입 조건도 {@code X-Install-Id} 도 없고, 저장도 없다 — 응답은 초안이고
  * 저장은 사용자의 「완료」가 부르는 {@code PUT /courses/{id}} 뿐이다.
  */
 @RestController
@@ -47,9 +47,9 @@ class GuideController implements GuideApi {
 
   @Override
   public ResponseEntity<GuideChatReply> chatWithGuide(
-      UUID xDeviceId, GuideChatRequest request, Lang acceptLanguage) {
+      UUID xInstallId, GuideChatRequest request, Lang acceptLanguage) {
 
-    UUID user = users.resolve(xDeviceId);
+    UUID user = users.resolve(xInstallId);
     if (!users.isRegistered(user)) {
       throw ApiException.signInRequired("SIGN_IN_REQUIRED", "이 동작은 가입한 사용자만 할 수 있습니다");
     }

@@ -40,7 +40,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @Import(LanguageConfiguration.class)
 class GuideControllerTest {
 
-  private static final String DEVICE = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
+  private static final String INSTALL_ID = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
   private static final UUID USER = UUID.fromString("9d1e4b52-6c07-4a8f-b3d1-2e6f80c4a915");
 
   @Autowired private MockMvc mvc;
@@ -68,7 +68,7 @@ class GuideControllerTest {
 
   @BeforeEach
   void happyPathByDefault() {
-    when(users.resolve(UUID.fromString(DEVICE))).thenReturn(USER);
+    when(users.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
     when(users.isRegistered(USER)).thenReturn(true);
     when(agent.chat(any(), any())).thenReturn(chatReply());
     GuidePlanReply planReply =
@@ -78,7 +78,7 @@ class GuideControllerTest {
 
   private static MockHttpServletRequestBuilder chat(String acceptLanguage) {
     return post("/guide/chat")
-        .header("X-Device-Id", DEVICE)
+        .header("X-Install-Id", INSTALL_ID)
         .header("Accept-Language", acceptLanguage)
         .contentType(MediaType.APPLICATION_JSON)
         .content(CHAT_BODY);
@@ -114,8 +114,8 @@ class GuideControllerTest {
   }
 
   @Test
-  @DisplayName("X-Device-Id 없으면 400 — 에이전트를 부르지 않는다")
-  void missingDeviceIdIs400() throws Exception {
+  @DisplayName("X-Install-Id 없으면 400 — 에이전트를 부르지 않는다")
+  void missingInstallIdIs400() throws Exception {
     mvc.perform(post("/guide/chat").contentType(MediaType.APPLICATION_JSON).content(CHAT_BODY))
         .andExpect(status().isBadRequest());
 
@@ -127,7 +127,7 @@ class GuideControllerTest {
   void invalidBodyIs400() throws Exception {
     mvc.perform(
             post("/guide/chat")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     "{\"sessionId\":\"0d4f7b1e-5c4a-4a1e-9b0e-6f1f6d2b8c11\",\"latitude\":37.0,\"longitude\":127.0}"))
@@ -173,7 +173,7 @@ class GuideControllerTest {
   }
 
   @Test
-  @DisplayName("마법사 — X-Device-Id 없이 200, 가입 판정도 처리기도 안 거친다")
+  @DisplayName("마법사 — X-Install-Id 없이 200, 가입 판정도 처리기도 안 거친다")
   void planNeedsNoIdentity() throws Exception {
     mvc.perform(
             post("/guide/plan")

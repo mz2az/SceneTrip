@@ -35,9 +35,9 @@ class FavoriteController implements FavoritesApi {
 
   @Override
   public ResponseEntity<ContentList> listFavoriteContents(
-      UUID xDeviceId, Lang acceptLanguage, Integer limit, Integer offset) {
+      UUID xInstallId, Lang acceptLanguage, Integer limit, Integer offset) {
 
-    FavoriteStore.Page page = store.list(users.resolve(xDeviceId), acceptLanguage, limit, offset);
+    FavoriteStore.Page page = store.list(users.resolve(xInstallId), acceptLanguage, limit, offset);
 
     ContentList body = new ContentList(page.items(), page.total(), limit, offset);
     return Responses.ok(body, Responses.used(acceptLanguage, page.anyInRequestedLang()));
@@ -45,7 +45,7 @@ class FavoriteController implements FavoritesApi {
 
   @Override
   public ResponseEntity<Void> addFavoriteContent(
-      UUID xDeviceId, FavoriteContentCreate favoriteContentCreate) {
+      UUID xInstallId, FavoriteContentCreate favoriteContentCreate) {
 
     long contentId = favoriteContentCreate.getContentId();
 
@@ -55,7 +55,7 @@ class FavoriteController implements FavoritesApi {
       throw ApiException.notFound("CONTENT_NOT_FOUND", "작품 " + contentId + " 이(가) 없습니다");
     }
 
-    store.add(users.resolve(xDeviceId), contentId);
+    store.add(users.resolve(xInstallId), contentId);
     return ResponseEntity.noContent().build();
   }
 
@@ -66,8 +66,8 @@ class FavoriteController implements FavoritesApi {
    * 같다 — 하트를 비워 두는 것. 담기와 달리 존재 확인을 하지 않는 이유가 이것이다.
    */
   @Override
-  public ResponseEntity<Void> removeFavoriteContent(UUID xDeviceId, Long contentId) {
-    store.remove(users.resolve(xDeviceId), contentId);
+  public ResponseEntity<Void> removeFavoriteContent(UUID xInstallId, Long contentId) {
+    store.remove(users.resolve(xInstallId), contentId);
     return ResponseEntity.noContent().build();
   }
 }

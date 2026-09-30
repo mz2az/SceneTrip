@@ -14,7 +14,7 @@ struct MyCoursesSheet: View {
     @State private var expanded: Int64?
     @State private var details: [Int64: CourseDetail] = [:]
 
-    private let deviceId = InstallIdentity.current
+    private let installId = InstallIdentity.current
 
     var body: some View {
         VStack(spacing: 0) {
@@ -48,7 +48,7 @@ struct MyCoursesSheet: View {
             if details[course.id] == nil {
                 Task {
                     details[course.id] = try? await CoursesAPI.getCourse(
-                        xDeviceId: deviceId, courseId: course.id
+                        xInstallId: installId, courseId: course.id
                     )
                 }
             }

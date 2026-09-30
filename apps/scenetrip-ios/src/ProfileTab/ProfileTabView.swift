@@ -38,7 +38,7 @@ struct ProfileTabView: View {
     @State private var showingCourses = false
     @State private var showingLikes = false
 
-    private let deviceId = InstallIdentity.current
+    private let installId = InstallIdentity.current
 
     /// 커뮤니티에 쓴 글 — 기기 저장소를 마이페이지가 같이 본다.
     @ObservedObject private var posts = CommunityStore.shared
@@ -212,7 +212,7 @@ struct ProfileTabView: View {
                 }
 
                 Section {
-                    Text("설치 식별자 \(deviceId.uuidString.prefix(8))…")
+                    Text("설치 식별자 \(installId.uuidString.prefix(8))…")
                         .font(.caption2).foregroundStyle(.tertiary)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .listRowBackground(Color.clear)
@@ -317,8 +317,8 @@ struct ProfileTabView: View {
                 return .failure(error)
             }
         }
-        let cartTask = Task { try? await CartAPI.getCart(xDeviceId: deviceId) }
-        let coursesTask = Task { try? await CoursesAPI.listCourses(xDeviceId: deviceId) }
+        let cartTask = Task { try? await CartAPI.getCart(xInstallId: installId) }
+        let coursesTask = Task { try? await CoursesAPI.listCourses(xInstallId: installId) }
 
         switch await worksTask.value {
         case let .success(works):
@@ -339,6 +339,6 @@ struct ProfileTabView: View {
 
         // 방문 스탬프 — 코스마다 상세를 받아 visitedAt 이 찍힌 것만 모은다.
         // 홈의 「내 기록」도 같은 것을 부른다(`VisitStamp.collect`).
-        stamps = await VisitStamp.collect(courses: courses, deviceId: deviceId)
+        stamps = await VisitStamp.collect(courses: courses, installId: installId)
     }
 }

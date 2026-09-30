@@ -188,7 +188,7 @@ class EducationTest(unittest.TestCase):
         for word in (
             "SceneTrip",
             "DeepSeek",
-            "X-Device-Id",
+            "X-Install-Id",
             "C.UTF-8",
             "PostGIS",
             "OIDC",

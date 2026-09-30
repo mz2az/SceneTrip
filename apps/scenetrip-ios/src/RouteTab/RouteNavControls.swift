@@ -56,7 +56,7 @@ extension RouteNavView {
         defer { asking = false }
         do {
             let leg = try await NavigationAPI.getNextLeg(
-                xDeviceId: InstallIdentity.current,
+                xInstallId: InstallIdentity.current,
                 nextLegRequest: NextLegRequest(
                     courseId: courseId, itemId: itemId,
                     latitude: latitude, longitude: longitude
@@ -89,7 +89,7 @@ extension RouteNavView {
         guard let courseId, let itemId = stop.serverItemId else { return }
         Task {
             try? await CoursesAPI.updateCourseItemVisit(
-                xDeviceId: InstallIdentity.current,
+                xInstallId: InstallIdentity.current,
                 courseId: courseId, itemId: itemId,
                 visitUpdate: VisitUpdate(visited: true)
             )

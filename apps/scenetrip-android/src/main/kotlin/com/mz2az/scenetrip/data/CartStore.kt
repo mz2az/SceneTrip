@@ -14,7 +14,7 @@ import java.util.UUID
 /**
  * 장바구니. iOS `Models/CartStore.swift` 를 옮긴 것이다.
  *
- * **로그인이 없으므로 기기 식별자로 구분한다.** 계약이 `X-Device-Id` 헤더를 요구하고,
+ * **로그인이 없으므로 설치 식별자로 구분한다.** 계약이 `X-Install-Id` 헤더를 요구하고,
  * 그 값은 처음 한 번 만들어 기기에 저장한다 — 앱을 다시 켜도 담아 둔 것이 남아야
  * 한다. iOS 는 UserDefaults, 여기서는 SharedPreferences 다.
  */
@@ -27,12 +27,12 @@ class CartStore(
         private set
 
     private val api = CartApi(API_BASE)
-    private val deviceId: UUID = loadOrCreateDeviceId(context)
+    private val installId: UUID = loadOrCreateInstallId(context)
 
     fun contains(placeId: Long): Boolean = items.any { it.placeId == placeId }
 
     suspend fun refresh() {
-        runCatching { withContext(Dispatchers.IO) { api.getCart(deviceId) } }
+        runCatching { withContext(Dispatchers.IO) { api.getCart(installId) } }
             .onSuccess { items = it.items ?: emptyList() }
     }
 
@@ -48,7 +48,7 @@ class CartStore(
     ) {
         runCatching {
             withContext(Dispatchers.IO) {
-                api.addCartItem(deviceId, CartItemCreate(placeId = placeId, sourceContentId = sourceContentId))
+                api.addCartItem(installId, CartItemCreate(placeId = placeId, sourceContentId = sourceContentId))
             }
         }.onSuccess {
             refresh()
@@ -59,7 +59,7 @@ class CartStore(
     }
 
     suspend fun remove(placeId: Long) {
-        runCatching { withContext(Dispatchers.IO) { api.removeCartItem(deviceId, placeId) } }
+        runCatching { withContext(Dispatchers.IO) { api.removeCartItem(installId, placeId) } }
         refresh()
     }
 
@@ -69,9 +69,11 @@ class CartStore(
 
     private companion object {
         const val PREFS = "scenetrip"
+
+        // 이름이 옛 "deviceId" 인 채로 둔다 — 바꾸면 이미 깔린 앱의 값이 고아가 된다.
         const val KEY = "deviceId"
 
-        fun loadOrCreateDeviceId(context: Context): UUID {
+        fun loadOrCreateInstallId(context: Context): UUID {
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             prefs.getString(KEY, null)?.let { saved ->
                 runCatching { return UUID.fromString(saved) }

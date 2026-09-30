@@ -33,8 +33,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import(LanguageConfiguration.class)
 class CartControllerTest {
 
-  /** {@code X-Device-Id} 로 오는 값 — 앱이 만든 설치 UUID 다. */
-  private static final String DEVICE = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
+  /** {@code X-Install-Id} 로 오는 값 — 앱이 만든 설치 UUID 다. */
+  private static final String INSTALL_ID = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
 
   /** 그것을 {@link UserStore} 가 바꿔 주는 계정 id. 저장의 주체는 이쪽이다. */
   private static final UUID USER = UUID.fromString("9d1e4b52-6c07-4a8f-b3d1-2e6f80c4a915");
@@ -47,7 +47,7 @@ class CartControllerTest {
 
   @BeforeEach
   void resolveAccount() {
-    when(users.resolve(UUID.fromString(DEVICE))).thenReturn(USER);
+    when(users.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
   }
 
   private static CartItem item(long placeId, String name) {
@@ -55,21 +55,21 @@ class CartControllerTest {
   }
 
   @Test
-  @DisplayName("X-Device-Id 가 없으면 400")
-  void missingDeviceIdIsRejected() throws Exception {
+  @DisplayName("X-Install-Id 가 없으면 400")
+  void missingInstallIdIsRejected() throws Exception {
     // 장바구니의 주체를 알 수 없다. 로그인이 없어 이 헤더가 유일한 식별자다.
     mvc.perform(get("/cart"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("MISSING_DEVICE_ID"));
+        .andExpect(jsonPath("$.code").value("MISSING_INSTALL_ID"));
   }
 
   @Test
-  @DisplayName("X-Device-Id 가 UUID 가 아니어도 같은 코드")
-  void malformedDeviceIdGetsSameCode() throws Exception {
+  @DisplayName("X-Install-Id 가 UUID 가 아니어도 같은 코드")
+  void malformedInstallIdGetsSameCode() throws Exception {
     // 클라이언트가 둘을 나눠 처리할 일이 없다 — 어느 쪽이든 기기를 식별하지 못한다.
-    mvc.perform(get("/cart").header("X-Device-Id", "abc"))
+    mvc.perform(get("/cart").header("X-Install-Id", "abc"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("MISSING_DEVICE_ID"));
+        .andExpect(jsonPath("$.code").value("MISSING_INSTALL_ID"));
   }
 
   @Test
@@ -79,7 +79,7 @@ class CartControllerTest {
     when(store.list(eq(USER), any()))
         .thenReturn(new CartStore.Contents(List.of(item(2L, "북촌한옥마을"), item(8L, "서강대교")), true));
 
-    mvc.perform(get("/cart").header("X-Device-Id", DEVICE))
+    mvc.perform(get("/cart").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalCount").value(2))
         .andExpect(jsonPath("$.items[0].name").value("북촌한옥마을"))
@@ -94,9 +94,9 @@ class CartControllerTest {
     // saved_place 의 외래키가 실제 DB 에서 터진다.
     when(store.list(eq(USER), any())).thenReturn(new CartStore.Contents(List.of(), false));
 
-    mvc.perform(get("/cart").header("X-Device-Id", DEVICE)).andExpect(status().isOk());
+    mvc.perform(get("/cart").header("X-Install-Id", INSTALL_ID)).andExpect(status().isOk());
 
-    verify(users).resolve(UUID.fromString(DEVICE));
+    verify(users).resolve(UUID.fromString(INSTALL_ID));
     verify(store).list(eq(USER), any());
   }
 
@@ -108,7 +108,7 @@ class CartControllerTest {
 
     mvc.perform(
             post("/cart/items")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"placeId\":2,\"sourceContentId\":2}"))
         .andExpect(status().isCreated())
@@ -123,7 +123,7 @@ class CartControllerTest {
 
     mvc.perform(
             post("/cart/items")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"placeId\":8}"))
         .andExpect(status().isCreated());
@@ -139,7 +139,7 @@ class CartControllerTest {
 
     mvc.perform(
             post("/cart/items")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"placeId\":2}"))
         .andExpect(status().isConflict())
@@ -155,7 +155,7 @@ class CartControllerTest {
 
     mvc.perform(
             post("/cart/items")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"placeId\":999}"))
         .andExpect(status().isNotFound())
@@ -168,11 +168,11 @@ class CartControllerTest {
     when(store.remove(any(), eq(2L))).thenReturn(true);
     when(store.remove(any(), eq(99L))).thenReturn(false);
 
-    mvc.perform(delete("/cart/items/2").header("X-Device-Id", DEVICE))
+    mvc.perform(delete("/cart/items/2").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isNoContent());
 
     // 조용히 204 로 돌려주면 "저장됨" 토글이 어긋난 상태를 클라이언트가 모른다.
-    mvc.perform(delete("/cart/items/99").header("X-Device-Id", DEVICE))
+    mvc.perform(delete("/cart/items/99").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("CART_ITEM_NOT_FOUND"));
   }
@@ -183,7 +183,7 @@ class CartControllerTest {
     // 500 으로 나가면 클라이언트가 재시도해도 된다고 오해한다. 보낸 것을 고쳐야 한다.
     mvc.perform(
             post("/cart/items")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"placeId\":"))
         .andExpect(status().isBadRequest())

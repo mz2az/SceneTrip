@@ -26,7 +26,7 @@ final class RouteStore: ObservableObject {
     /// 목록을 처음 받아오는 중인가.
     @Published private(set) var loading = false
 
-    private let deviceId = InstallIdentity.current
+    private let installId = InstallIdentity.current
 
     /// 질문 흐름과 AI 초안이 쓰는 **서버의 진짜 장소·작품.**
     ///
@@ -97,7 +97,7 @@ final class RouteStore: ObservableObject {
         loading = courses.isEmpty
         defer { loading = false }
         do {
-            let list = try await CoursesAPI.listCourses(xDeviceId: deviceId)
+            let list = try await CoursesAPI.listCourses(xInstallId: installId)
             courses = list.items.map(RouteBridge.course(from:))
             failure = nil
         } catch {
@@ -130,7 +130,7 @@ final class RouteStore: ObservableObject {
     func refreshMarket(sort: MarketSort = .saves) async {
         do {
             marketCourses = try await MarketAPI.listMarketCourses(
-                xDeviceId: deviceId, sort: sort, limit: 30
+                xInstallId: installId, sort: sort, limit: 30
             ).items
             marketLoaded = true
         } catch {
@@ -148,7 +148,7 @@ final class RouteStore: ObservableObject {
     func saveFromMarket(_ course: MarketCourseSummary) async -> Bool {
         do {
             _ = try await MarketAPI.saveMarketCourse(
-                xDeviceId: deviceId, marketCourseId: course.id
+                xInstallId: installId, marketCourseId: course.id
             )
             failure = nil
             await refresh()
@@ -164,11 +164,11 @@ final class RouteStore: ObservableObject {
         do {
             if course.liked {
                 try await MarketAPI.unlikeMarketCourse(
-                    xDeviceId: deviceId, marketCourseId: course.id
+                    xInstallId: installId, marketCourseId: course.id
                 )
             } else {
                 try await MarketAPI.likeMarketCourse(
-                    xDeviceId: deviceId, marketCourseId: course.id
+                    xInstallId: installId, marketCourseId: course.id
                 )
             }
             failure = nil
@@ -183,7 +183,7 @@ final class RouteStore: ObservableObject {
     func detail(_ course: RouteCourse) async -> RouteCourse? {
         guard let serverId = course.serverId else { return course }
         do {
-            let detail = try await CoursesAPI.getCourse(xDeviceId: deviceId, courseId: serverId)
+            let detail = try await CoursesAPI.getCourse(xInstallId: installId, courseId: serverId)
             failure = nil
             return RouteBridge.course(from: detail)
         } catch {
@@ -203,7 +203,7 @@ final class RouteStore: ObservableObject {
             let saved: CourseDetail
             if let serverId = course.serverId {
                 saved = try await CoursesAPI.replaceCourse(
-                    xDeviceId: deviceId,
+                    xInstallId: installId,
                     courseId: serverId,
                     courseReplace: RouteBridge.replace(from: course)
                 )
@@ -211,7 +211,7 @@ final class RouteStore: ObservableObject {
                 // 만들기와 내용 채우기가 두 번에 나뉜다 — 계약이 만들 때는 기간과
                 // 출처만 받고, 장소는 편집 완료로 넣게 돼 있다.
                 let created = try await CoursesAPI.createCourse(
-                    xDeviceId: deviceId,
+                    xInstallId: installId,
                     courseCreate: CourseCreate(
                         dayCount: course.days.count,
                         title: course.title,
@@ -221,7 +221,7 @@ final class RouteStore: ObservableObject {
                 )
                 do {
                     saved = try await CoursesAPI.replaceCourse(
-                        xDeviceId: deviceId,
+                        xInstallId: installId,
                         courseId: created.id,
                         courseReplace: RouteBridge.replace(from: course)
                     )
@@ -234,7 +234,7 @@ final class RouteStore: ObservableObject {
                     //
                     // 되돌리기가 실패해도 원래 오류를 알린다 — 사용자에게 중요한 것은
                     // 「저장이 안 됐다」이지 「치우다 실패했다」가 아니다.
-                    try? await CoursesAPI.deleteCourse(xDeviceId: deviceId, courseId: created.id)
+                    try? await CoursesAPI.deleteCourse(xInstallId: installId, courseId: created.id)
                     throw error
                 }
             }
@@ -254,7 +254,7 @@ final class RouteStore: ObservableObject {
             return
         }
         do {
-            try await CoursesAPI.deleteCourse(xDeviceId: deviceId, courseId: serverId)
+            try await CoursesAPI.deleteCourse(xInstallId: installId, courseId: serverId)
             failure = nil
         } catch {
             failure = ApiFailure(error)
@@ -275,7 +275,7 @@ final class RouteStore: ObservableObject {
         guard let serverId = course.serverId else { return }
         do {
             _ = try await CoursesAPI.updateCourseProgress(
-                xDeviceId: deviceId,
+                xInstallId: installId,
                 courseId: serverId,
                 courseProgress: CourseProgress(
                     status: running ? .active : .upcoming,

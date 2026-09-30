@@ -188,7 +188,7 @@ just db-psql "SELECT show_trgm('도깨비');"
 ### 주체는 계정이다 — 설치 UUID 가 아니다
 
 ```
-X-Device-Id 헤더 (설치 UUID) → user_device.install_uuid → app_user.id → 저장
+X-Install-Id 헤더 (설치 UUID) → user_device.install_uuid → app_user.id → 저장
 ```
 
 앱이 보내는 값은 그대로다. 변환은 `UserStore.resolve()` 안에 갇혀 있어 **계약에도 앱에도
@@ -395,7 +395,7 @@ just navigation-smoke      # 배포된 것이 실제로 답하나 — 카카오�
 | `guide/GuideAgentClient` | 에이전트를 부르는 유일한 곳. 전송과 예외 번역만. 에이전트의 400 은 앱의 잘못이라 그대로 400, 나머지 실패는 전부 `503 GUIDE_UNAVAILABLE`. **재시도 없음** — `/guide/chat` 은 멱등이 아니다 |
 | `guide/GuideEffectApplier` | 응답의 `effects` 중 `cart.add`·`cart.remove` 만 DB 에. `plan.*` 은 저장하지 않는다(저장은 「완료」의 `PUT /courses/{id}` 뿐). 기준은 「실행 뒤 장바구니가 답변과 맞는가」 — 이미 담김·안 담김은 무시, `placeId` 없음·없는 장소·DB 예외는 500 |
 
-**에이전트는 신원을 모른다.** `X-Device-Id` 는 요청 객체에 없고 `effects` 를 적용할 때만 쓴다.
+**에이전트는 신원을 모른다.** `X-Install-Id` 는 요청 객체에 없고 `effects` 를 적용할 때만 쓴다.
 저장할 것은 에이전트가 쪽지(`effects`)로 말하고 이 서비스가 대신 저장한다.
 
 **타임아웃은 벽이다** — `scenetrip.guide.timeout-seconds`(40초). 안에서 모델을 몇 번 부르는지는

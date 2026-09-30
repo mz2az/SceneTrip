@@ -108,7 +108,7 @@ Helm의 `IngressClassParams`는 public subnet을 고정하고, `IngressClass`는
 별도 계정을 쓰면 IAM의 실수까지 계정 경계가 막아 준다. 같은 계정을 쓰더라도 VPC,
 역할, 리소스 이름, state key, Secrets Manager 경로는 분리해야 한다.
 
-**PRD라는 이름은 운영 준비 완료를 뜻하지 않는다.** 현재 API는 `X-Device-Id`로
+**PRD라는 이름은 운영 준비 완료를 뜻하지 않는다.** 현재 API는 `X-Install-Id`로
 설치본을 식별한다. 가입 여부 검사와 인증은 다른 문제다. 공개 서비스에는 로그인·
 권한 검증과 사용자별 할당량이 필요하다. 지금은 네트워크 허용목록과 gateway 요청
 제한을 두고 제한된 사용자로 검증한다. Naver 비공식 카드 조회는

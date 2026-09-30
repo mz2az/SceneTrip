@@ -243,7 +243,7 @@ final class TripSession: ObservableObject {
         defer { asking = false }
         do {
             let leg = try await NavigationAPI.getNextLeg(
-                xDeviceId: InstallIdentity.current,
+                xInstallId: InstallIdentity.current,
                 nextLegRequest: NextLegRequest(
                     courseId: courseId, itemId: itemId,
                     latitude: spot.latitude, longitude: spot.longitude

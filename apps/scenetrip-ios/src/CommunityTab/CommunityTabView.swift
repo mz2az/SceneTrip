@@ -24,7 +24,7 @@ struct CommunityTabView: View {
     @State private var reading: CommunityPost?
     @State private var marketCourses: [MarketCourseSummary] = []
 
-    private let deviceId = InstallIdentity.current
+    private let installId = InstallIdentity.current
 
     var body: some View {
         NavigationStack {
@@ -39,7 +39,7 @@ struct CommunityTabView: View {
             .toolbar(.hidden, for: .navigationBar)
             .task {
                 if let list = try? await MarketAPI.listMarketCourses(
-                    xDeviceId: deviceId, sort: .likes, limit: 30
+                    xInstallId: installId, sort: .likes, limit: 30
                 ) {
                     marketCourses = list.items
                 }

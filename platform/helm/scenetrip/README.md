@@ -3,7 +3,7 @@
 외부 HTTPS는 ACM 인증서가 연결된 ALB 443 → nginx gateway 8080 → scene-api 8080으로
 들어온다. `/v1`을 유지하며 계약에 있는 API 경로 계열만 전달한다. Actuator·internal과
 agent 8899는 외부에 공개하지 않는다. CIDR을 반드시 지정하며 전체 인터넷 CIDR은 거절한다.
-`X-Device-Id`는 인증 수단이 아니므로 허용 CIDR은 초기 제한 운영의 필수 경계다.
+`X-Install-Id`는 인증 수단이 아니므로 허용 CIDR은 초기 제한 운영의 필수 경계다.
 
 EKS Auto Mode의 `IngressClassParams`·`IngressClass` 이름은 환경별
 `scenetrip-dev-alb`·`scenetrip-prd-alb`이며 `gateway` Ingress가 API 도메인의 `/v1` Prefix를

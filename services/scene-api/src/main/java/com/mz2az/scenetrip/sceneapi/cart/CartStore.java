@@ -16,7 +16,7 @@ import org.springframework.stereotype.Repository;
 /**
  * 장소 장바구니.
  *
- * <p>표 이름은 {@code saved_place} 이고 주체는 {@code app_user.id} 다. {@code X-Device-Id} 헤더로 오는 설치 UUID 를
+ * <p>표 이름은 {@code saved_place} 이고 주체는 {@code app_user.id} 다. {@code X-Install-Id} 헤더로 오는 설치 UUID 를
  * 계정으로 바꾸는 일은 {@link com.mz2az.scenetrip.sceneapi.user.UserStore} 가 하고, 여기는 이미 바뀐 값을 받는다.
  *
  * <p>이 표는 원래 {@code cart_item} 이었다. 8/11 회의가 「작품엔 찜, 장소엔 장바구니」로 가르면서 「장소 찜」이 없어졌고, 남은 하나의 이름이

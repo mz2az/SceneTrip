@@ -50,7 +50,7 @@ public class GuideEffectApplier {
   /**
    * 순서대로 전부 적용한다. 하나가 무시돼도 다음 것은 처리한다.
    *
-   * @param user {@code X-Device-Id} 로 찾은 계정. 에이전트는 이 값을 모르고, 여기서 처음 붙는다.
+   * @param user {@code X-Install-Id} 로 찾은 계정. 에이전트는 이 값을 모르고, 여기서 처음 붙는다.
    * @param effects 에이전트의 {@code effects}. 비어 있을 수 있다(도구가 거절됐거나 조회만 한 턴).
    * @throws IllegalStateException {@code cart.*} 에 {@code placeId} 가 없거나 그 장소가 DB 에 없을 때 — 500 으로
    *     나간다
