@@ -168,9 +168,12 @@ RDS가 CloudWatch로 보낸 로그도 별도 보관 기간이 없으면 계속 �
 이 workflow 성공은 계정 전체의 비용이 0이라는 뜻이 아니다.
 
 Secret은 기존 DEV 7일·PRD 30일 복구 유예로 삭제 예약한다. **삭제 예약된 Secret은 과금되지
-않지만 값에 접근할 수 없다.** 같은 이름으로 즉시 재생성할 수 없으므로 다시 쓸 때는
-유예 기간 안에 복원한 뒤 Terraform state로 가져오는 별도 복구 계획을 수립하거나,
-실제 영구 삭제가 끝날 때까지 기다린다. 자동 강제 삭제로 유예를 없애지 않는다.
+않지만 값에 접근할 수 없다.** 같은 이름으로 즉시 재생성할 수 없다. 유예 기간 안에 다시
+배포하면 `aws-apply`가 Terraform 계획 전에 이 환경의 Secret을 찾아 삭제 예약을 풀고
+state로 가져온다. `Project=scenetrip`·`Environment=<env>`·`ManagedBy=terraform` 태그가 맞는
+Secret만 가져오며, 저장된 Kakao·DeepSeek 키는 그대로 쓴다. 유예가 지나 영구 삭제됐다면
+Terraform이 빈 Secret을 새로 만들고 운영자가 값을 다시 넣는다. 자동 강제 삭제로 유예를
+없애지 않는다.
 [Secret 삭제·요금](https://docs.aws.amazon.com/secretsmanager/latest/userguide/manage_delete-secret.html),
 [Secret 복원](https://docs.aws.amazon.com/secretsmanager/latest/userguide/manage_restore-secret.html)
 
