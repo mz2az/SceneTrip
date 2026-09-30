@@ -39,7 +39,7 @@ class MarketController implements MarketApi {
 
   @Override
   public ResponseEntity<MarketCourseList> listMarketCourses(
-      UUID xDeviceId,
+      UUID xInstallId,
       Lang acceptLanguage,
       String q,
       MarketSort sort,
@@ -51,16 +51,16 @@ class MarketController implements MarketApi {
 
     MarketStore.Page page =
         store.withContents(
-            store.list(users.resolve(xDeviceId), query, sort, limit, offset), acceptLanguage);
+            store.list(users.resolve(xInstallId), query, sort, limit, offset), acceptLanguage);
 
     return ResponseEntity.ok(new MarketCourseList(page.items(), page.total(), limit, offset));
   }
 
   @Override
   public ResponseEntity<MarketCourseDetail> createMarketCourse(
-      UUID xDeviceId, MarketCourseCreate marketCourseCreate, Lang acceptLanguage) {
+      UUID xInstallId, MarketCourseCreate marketCourseCreate, Lang acceptLanguage) {
 
-    UUID user = requireRegistered(xDeviceId);
+    UUID user = requireRegistered(xInstallId);
     long courseId = marketCourseCreate.getCourseId();
 
     if (!courses.exists(user, courseId)) {
@@ -81,9 +81,9 @@ class MarketController implements MarketApi {
 
   @Override
   public ResponseEntity<MarketCourseDetail> getMarketCourse(
-      UUID xDeviceId, Long marketCourseId, Lang acceptLanguage) {
+      UUID xInstallId, Long marketCourseId, Lang acceptLanguage) {
 
-    return ResponseEntity.ok(read(users.resolve(xDeviceId), marketCourseId, acceptLanguage));
+    return ResponseEntity.ok(read(users.resolve(xInstallId), marketCourseId, acceptLanguage));
   }
 
   /**
@@ -93,8 +93,8 @@ class MarketController implements MarketApi {
    * 이유가 없어서다. 내 코스가 {@code COURSE_NOT_FOUND} 로 존재를 숨기는 것과 갈리는 지점이다.
    */
   @Override
-  public ResponseEntity<Void> deleteMarketCourse(UUID xDeviceId, Long marketCourseId) {
-    UUID user = requireRegistered(xDeviceId);
+  public ResponseEntity<Void> deleteMarketCourse(UUID xInstallId, Long marketCourseId) {
+    UUID user = requireRegistered(xInstallId);
 
     if (!store.isLive(marketCourseId)) {
       throw notFound(marketCourseId);
@@ -109,9 +109,9 @@ class MarketController implements MarketApi {
 
   @Override
   public ResponseEntity<CourseDetail> saveMarketCourse(
-      UUID xDeviceId, Long marketCourseId, Lang acceptLanguage) {
+      UUID xInstallId, Long marketCourseId, Lang acceptLanguage) {
 
-    UUID user = requireRegistered(xDeviceId);
+    UUID user = requireRegistered(xInstallId);
     requireLive(marketCourseId);
 
     long courseId = store.save(user, marketCourseId);
@@ -123,19 +123,19 @@ class MarketController implements MarketApi {
   }
 
   @Override
-  public ResponseEntity<Void> likeMarketCourse(UUID xDeviceId, Long marketCourseId) {
-    return toggleLike(xDeviceId, marketCourseId, true);
+  public ResponseEntity<Void> likeMarketCourse(UUID xInstallId, Long marketCourseId) {
+    return toggleLike(xInstallId, marketCourseId, true);
   }
 
   @Override
-  public ResponseEntity<Void> unlikeMarketCourse(UUID xDeviceId, Long marketCourseId) {
-    return toggleLike(xDeviceId, marketCourseId, false);
+  public ResponseEntity<Void> unlikeMarketCourse(UUID xInstallId, Long marketCourseId) {
+    return toggleLike(xInstallId, marketCourseId, false);
   }
 
   // ───────────── 안쪽 ─────────────
 
-  private ResponseEntity<Void> toggleLike(UUID xDeviceId, long postId, boolean liked) {
-    UUID user = requireRegistered(xDeviceId);
+  private ResponseEntity<Void> toggleLike(UUID xInstallId, long postId, boolean liked) {
+    UUID user = requireRegistered(xInstallId);
     requireLive(postId);
 
     store.like(user, postId, liked);
@@ -147,8 +147,8 @@ class MarketController implements MarketApi {
    *
    * <p><b>지금은 아무도 통과하지 못한다</b> — 가입시키는 경로가 아직 없다. 계약이 약속한 그대로이고, 프론트는 이 동작들의 화면을 아직 만들지 않는다.
    */
-  private UUID requireRegistered(UUID xDeviceId) {
-    UUID user = users.resolve(xDeviceId);
+  private UUID requireRegistered(UUID xInstallId) {
+    UUID user = users.resolve(xInstallId);
     if (!users.isRegistered(user)) {
       throw ApiException.signInRequired("SIGN_IN_REQUIRED", "이 동작은 가입한 사용자만 할 수 있습니다");
     }

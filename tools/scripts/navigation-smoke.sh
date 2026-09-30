@@ -36,7 +36,7 @@ API="${API_URL:-http://localhost:8081}/v1"
 LAT="${SMOKE_LAT:-37.5826}"
 LNG="${SMOKE_LNG:-126.9831}"
 
-DEV="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+INSTALL_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 CID=""
 FAILS=0
 
@@ -55,7 +55,7 @@ trap cleanup EXIT
 
 api() { # $1=method $2=path $3=body(optional) $4=lang(optional) → 본문, 마지막 줄에 HTTP 코드
   curl -s -X "$1" "$API$2" \
-    -H "Content-Type: application/json" -H "X-Device-Id: $DEV" \
+    -H "Content-Type: application/json" -H "X-Install-Id: $INSTALL_ID" \
     -H "Accept-Language: ${4:-ko}" \
     ${3:+-d "$3"} -w '\n%{http_code}'
 }
@@ -79,7 +79,7 @@ curl -sf "$API/actuator/health" >/dev/null ||
 # ── 1. 목적지 둘 고르기 — 반경 3 km 에서 가까운 것(도보)과 먼 것(대중교통) ─────────
 log "출발점 ($LAT, $LNG) 반경 3 km 의 장소를 고릅니다"
 PICK="$(curl -s "$API/places?lat=$LAT&lng=$LNG&radiusMeters=3000&sort=distance&limit=30" \
-  -H "X-Device-Id: $DEV" | python3 -c '
+  -H "X-Install-Id: $INSTALL_ID" | python3 -c '
 import sys, json, math
 lat0, lng0 = float(sys.argv[1]), float(sys.argv[2])
 def dist(p):

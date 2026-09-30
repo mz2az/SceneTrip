@@ -17,7 +17,7 @@ struct CommunityComposeView: View {
     @State private var courseTitle: String?
     @State private var myCourses: [CourseSummary] = []
 
-    private let deviceId = InstallIdentity.current
+    private let installId = InstallIdentity.current
 
     var body: some View {
         NavigationStack {
@@ -76,7 +76,7 @@ struct CommunityComposeView: View {
                 }
             }
             .task {
-                if let list = try? await CoursesAPI.listCourses(xDeviceId: deviceId) {
+                if let list = try? await CoursesAPI.listCourses(xInstallId: installId) {
                     myCourses = list.items
                 }
             }

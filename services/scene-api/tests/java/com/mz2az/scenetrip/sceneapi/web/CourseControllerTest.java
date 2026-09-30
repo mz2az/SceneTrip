@@ -40,7 +40,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import(LanguageConfiguration.class)
 class CourseControllerTest {
 
-  private static final String DEVICE = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
+  private static final String INSTALL_ID = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
   private static final UUID USER = UUID.fromString("9d1e4b52-6c07-4a8f-b3d1-2e6f80c4a915");
 
   @Autowired private MockMvc mvc;
@@ -51,7 +51,7 @@ class CourseControllerTest {
 
   @BeforeEach
   void resolveAccount() {
-    when(users.resolve(UUID.fromString(DEVICE))).thenReturn(USER);
+    when(users.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
   }
 
   private static CourseDetail course(long id, CourseStatus status) {
@@ -72,11 +72,11 @@ class CourseControllerTest {
   }
 
   @Test
-  @DisplayName("X-Device-Id 가 없으면 400")
-  void missingDeviceIdIsRejected() throws Exception {
+  @DisplayName("X-Install-Id 가 없으면 400")
+  void missingInstallIdIsRejected() throws Exception {
     mvc.perform(get("/courses"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("MISSING_DEVICE_ID"));
+        .andExpect(jsonPath("$.code").value("MISSING_INSTALL_ID"));
   }
 
   @Test
@@ -84,9 +84,9 @@ class CourseControllerTest {
   void resolvesInstallUuidToAccount() throws Exception {
     when(store.list(USER)).thenReturn(List.of());
 
-    mvc.perform(get("/courses").header("X-Device-Id", DEVICE)).andExpect(status().isOk());
+    mvc.perform(get("/courses").header("X-Install-Id", INSTALL_ID)).andExpect(status().isOk());
 
-    verify(users).resolve(UUID.fromString(DEVICE));
+    verify(users).resolve(UUID.fromString(INSTALL_ID));
     verify(store).list(USER);
   }
 
@@ -99,7 +99,7 @@ class CourseControllerTest {
 
     mvc.perform(
             post("/courses")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"dayCount\":3,\"origin\":\"self\"}"))
         .andExpect(status().isCreated())
@@ -112,7 +112,7 @@ class CourseControllerTest {
   void rejectsTooLongCourse() throws Exception {
     mvc.perform(
             post("/courses")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"dayCount\":16,\"origin\":\"self\"}"))
         .andExpect(status().isBadRequest())
@@ -124,7 +124,7 @@ class CourseControllerTest {
   void missingCourseIsNotFound() throws Exception {
     when(store.find(eq(USER), eq(99L), any())).thenReturn(Optional.empty());
 
-    mvc.perform(get("/courses/99").header("X-Device-Id", DEVICE))
+    mvc.perform(get("/courses/99").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("COURSE_NOT_FOUND"));
   }
@@ -137,7 +137,7 @@ class CourseControllerTest {
     // 둘 다 없다
     mvc.perform(
             put("/courses/7")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(replaceBody("[{\"items\":[{\"dwellMinutes\":60}]}]")))
         .andExpect(status().isBadRequest())
@@ -146,7 +146,7 @@ class CourseControllerTest {
     // 둘 다 있다
     mvc.perform(
             put("/courses/7")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     replaceBody(
@@ -167,7 +167,7 @@ class CourseControllerTest {
 
     mvc.perform(
             put("/courses/7")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(replaceBody("[{\"items\":[]},{\"items\":[]}]")))
         .andExpect(status().isConflict())
@@ -186,7 +186,7 @@ class CourseControllerTest {
 
     mvc.perform(
             put("/courses/7")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(replaceBody("[{\"items\":[]}]")))
         .andExpect(status().isOk());
@@ -205,7 +205,7 @@ class CourseControllerTest {
 
     mvc.perform(
             put("/courses/7")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(replaceBody("[{\"items\":[{\"dwellMinutes\":60,\"placeId\":1}]}]")))
         .andExpect(status().isBadRequest())
@@ -219,7 +219,7 @@ class CourseControllerTest {
 
     mvc.perform(
             put("/courses/7/progress")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"status\":\"active\"}"))
         .andExpect(status().isBadRequest())
@@ -237,7 +237,7 @@ class CourseControllerTest {
 
     mvc.perform(
             put("/courses/7/progress")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"status\":\"active\",\"currentDayNo\":1}"))
         .andExpect(status().isOk())
@@ -252,7 +252,7 @@ class CourseControllerTest {
 
     mvc.perform(
             put("/courses/7/items/3/visit")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"visited\":true}"))
         .andExpect(status().isConflict())
@@ -272,14 +272,14 @@ class CourseControllerTest {
 
     mvc.perform(
             put("/courses/7/items/3/visit")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"visited\":true}"))
         .andExpect(status().isNoContent());
 
     mvc.perform(
             put("/courses/7/items/99/visit")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"visited\":true}"))
         .andExpect(status().isNotFound())
@@ -296,7 +296,7 @@ class CourseControllerTest {
 
     mvc.perform(
             put("/courses/7")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(replaceBody("[{\"items\":[{\"placeId\":1}]}]")))
         .andExpect(status().isOk());
@@ -310,10 +310,10 @@ class CourseControllerTest {
     when(store.delete(USER, 7L)).thenReturn(true);
     when(store.delete(USER, 99L)).thenReturn(false);
 
-    mvc.perform(delete("/courses/7").header("X-Device-Id", DEVICE))
+    mvc.perform(delete("/courses/7").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isNoContent());
 
-    mvc.perform(delete("/courses/99").header("X-Device-Id", DEVICE))
+    mvc.perform(delete("/courses/99").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("COURSE_NOT_FOUND"));
   }

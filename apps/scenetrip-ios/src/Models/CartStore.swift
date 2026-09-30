@@ -15,10 +15,10 @@ final class CartStore: ObservableObject {
     @Published private(set) var items: [CartItem] = []
     @Published private(set) var toast: String?
 
-    private let deviceId: UUID
+    private let installId: UUID
 
     init() {
-        deviceId = InstallIdentity.current
+        installId = InstallIdentity.current
     }
 
     func contains(_ placeId: Int64) -> Bool {
@@ -26,7 +26,7 @@ final class CartStore: ObservableObject {
     }
 
     func refresh() async {
-        guard let cart = try? await CartAPI.getCart(xDeviceId: deviceId) else { return }
+        guard let cart = try? await CartAPI.getCart(xInstallId: installId) else { return }
         items = cart.items
         placeIds = Set(cart.items.map(\.placeId))
     }
@@ -35,7 +35,7 @@ final class CartStore: ObservableObject {
     func add(placeId: Int64, sourceContentId: Int64? = nil) async {
         do {
             _ = try await CartAPI.addCartItem(
-                xDeviceId: deviceId,
+                xInstallId: installId,
                 cartItemCreate: CartItemCreate(
                     placeId: placeId, sourceContentId: sourceContentId
                 )
@@ -52,7 +52,7 @@ final class CartStore: ObservableObject {
     }
 
     func remove(placeId: Int64) async {
-        try? await CartAPI.removeCartItem(xDeviceId: deviceId, placeId: placeId)
+        try? await CartAPI.removeCartItem(xInstallId: installId, placeId: placeId)
         placeIds.remove(placeId)
         // 담을 때 알려 줬으니 뺄 때도 알려 준다. 목록 행에서 빼면 아이콘만 바뀌어
         // 눌렸는지 확신이 안 선다.

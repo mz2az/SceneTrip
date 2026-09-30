@@ -34,7 +34,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import(LanguageConfiguration.class)
 class FavoriteControllerTest {
 
-  private static final String DEVICE = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
+  private static final String INSTALL_ID = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
   private static final UUID USER = UUID.fromString("9d1e4b52-6c07-4a8f-b3d1-2e6f80c4a915");
 
   @Autowired private MockMvc mvc;
@@ -45,15 +45,15 @@ class FavoriteControllerTest {
 
   @BeforeEach
   void resolveAccount() {
-    when(users.resolve(UUID.fromString(DEVICE))).thenReturn(USER);
+    when(users.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
   }
 
   @Test
-  @DisplayName("X-Device-Id 가 없으면 400")
-  void missingDeviceIdIsRejected() throws Exception {
+  @DisplayName("X-Install-Id 가 없으면 400")
+  void missingInstallIdIsRejected() throws Exception {
     mvc.perform(get("/favorites/contents"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("MISSING_DEVICE_ID"));
+        .andExpect(jsonPath("$.code").value("MISSING_INSTALL_ID"));
   }
 
   @Test
@@ -64,7 +64,7 @@ class FavoriteControllerTest {
     when(store.list(eq(USER), any(), eq(20), eq(0)))
         .thenReturn(new FavoriteStore.Page(List.of(item), 1, true));
 
-    mvc.perform(get("/favorites/contents").header("X-Device-Id", DEVICE))
+    mvc.perform(get("/favorites/contents").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isOk())
         .andExpect(header().string("Content-Language", "ko"))
         .andExpect(jsonPath("$.total").value(1))
@@ -80,7 +80,7 @@ class FavoriteControllerTest {
     for (int attempt = 0; attempt < 2; attempt++) {
       mvc.perform(
               post("/favorites/contents")
-                  .header("X-Device-Id", DEVICE)
+                  .header("X-Install-Id", INSTALL_ID)
                   .contentType(MediaType.APPLICATION_JSON)
                   .content("{\"contentId\":2}"))
           .andExpect(status().isNoContent());
@@ -97,7 +97,7 @@ class FavoriteControllerTest {
 
     mvc.perform(
             post("/favorites/contents")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"contentId\":999}"))
         .andExpect(status().isNotFound())
@@ -109,7 +109,7 @@ class FavoriteControllerTest {
   @Test
   @DisplayName("찜하지 않은 것을 해제해도 204")
   void removeIsIdempotent() throws Exception {
-    mvc.perform(delete("/favorites/contents/2").header("X-Device-Id", DEVICE))
+    mvc.perform(delete("/favorites/contents/2").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isNoContent());
 
     verify(store).remove(USER, 2L);
@@ -122,12 +122,12 @@ class FavoriteControllerTest {
 
     mvc.perform(
             post("/favorites/contents")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"contentId\":2}"))
         .andExpect(status().isNoContent());
 
-    verify(users).resolve(UUID.fromString(DEVICE));
+    verify(users).resolve(UUID.fromString(INSTALL_ID));
     verify(store).add(USER, 2L);
   }
 }

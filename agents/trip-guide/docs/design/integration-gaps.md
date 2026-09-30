@@ -45,13 +45,13 @@
 **쓰기 API 는 전부 있다. 없는 것은 「챗봇 창구」다** — 앱의 말을 받아 에이전트에
 넘기고 `effects` 를 적용해 줄 자리(`POST /v1/chat` 같은 것).
 
-### 2-1-1. `X-Device-Id` 를 에이전트는 모른다 — **그래서 `effects` 가 옳다**
+### 2-1-1. `X-Install-Id` 를 에이전트는 모른다 — **그래서 `effects` 가 옳다**
 
-쓰기 API 14 개가 전부 `X-Device-Id` 헤더를 요구한다(계약 §parameters). 백엔드는 그것으로
+쓰기 API 14 개가 전부 `X-Install-Id` 헤더를 요구한다(계약 §parameters). 백엔드는 그것으로
 계정을 찾는다(`users.resolve`).
 
 ```
-📱 프론트    X-Device-Id 를 가지고 있다
+📱 프론트    X-Install-Id 를 가지고 있다
 ⚙️ 백엔드    그것으로 계정을 찾는다
 🤖 에이전트  모른다. **알 필요도 없다**
 ```

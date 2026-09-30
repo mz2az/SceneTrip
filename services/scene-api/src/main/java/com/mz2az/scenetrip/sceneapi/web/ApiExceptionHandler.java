@@ -71,17 +71,17 @@ class ApiExceptionHandler {
     HttpMessageNotReadableException.class
   })
   ResponseEntity<ApiError> handleValidation(Exception e) {
-    // UUID 가 아닌 X-Device-Id 는 헤더가 없는 것과 같은 뜻이다 — 장바구니의 주체를
+    // UUID 가 아닌 X-Install-Id 는 헤더가 없는 것과 같은 뜻이다 — 장바구니의 주체를
     // 알 수 없다. 클라이언트가 둘을 나눠 처리할 일이 없으므로 코드도 하나로 준다.
     //
     // 이름을 두 가지로 보는 이유: Spring 이 알려 주는 이름이 자리에 따라 헤더 이름
-    // (X-Device-Id)이기도 하고 메서드 파라미터 이름(xDeviceId)이기도 하다. 하나만
+    // (X-Install-Id)이기도 하고 메서드 파라미터 이름(xInstallId)이기도 하다. 하나만
     // 보면 형식 오류가 INVALID_PARAMETER 로 새어 나간다(실측).
     if (e instanceof MethodArgumentTypeMismatchException mismatch
-        && ("xDeviceId".equalsIgnoreCase(mismatch.getName())
-            || "X-Device-Id".equalsIgnoreCase(mismatch.getName()))) {
+        && ("xInstallId".equalsIgnoreCase(mismatch.getName())
+            || "X-Install-Id".equalsIgnoreCase(mismatch.getName()))) {
       return ResponseEntity.badRequest()
-          .body(new ApiError("MISSING_DEVICE_ID", "X-Device-Id 헤더가 UUID 형식이 아닙니다"));
+          .body(new ApiError("MISSING_INSTALL_ID", "X-Install-Id 헤더가 UUID 형식이 아닙니다"));
     }
     return ResponseEntity.badRequest().body(new ApiError(INVALID_PARAMETER, e.getMessage()));
   }
@@ -104,11 +104,13 @@ class ApiExceptionHandler {
         .body(new ApiError("ENDPOINT_NOT_FOUND", "그런 경로가 없습니다: " + e.getResourcePath()));
   }
 
-  /** 장바구니 엔드포인트의 X-Device-Id 처럼 필수 헤더가 빠진 경우. */
+  /** 장바구니 엔드포인트의 X-Install-Id 처럼 필수 헤더가 빠진 경우. */
   @ExceptionHandler(MissingRequestHeaderException.class)
   ResponseEntity<ApiError> handleMissingHeader(MissingRequestHeaderException e) {
     String code =
-        "X-Device-Id".equalsIgnoreCase(e.getHeaderName()) ? "MISSING_DEVICE_ID" : INVALID_PARAMETER;
+        "X-Install-Id".equalsIgnoreCase(e.getHeaderName())
+            ? "MISSING_INSTALL_ID"
+            : INVALID_PARAMETER;
     return ResponseEntity.badRequest().body(new ApiError(code, e.getMessage()));
   }
 

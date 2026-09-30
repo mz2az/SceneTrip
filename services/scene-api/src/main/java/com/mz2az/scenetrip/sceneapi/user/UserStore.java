@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 /**
  * 설치 UUID 를 계정으로 바꾼다.
  *
- * <p>앱은 {@code X-Device-Id} 헤더로 <b>설치 UUID</b> 를 보낸다. 저장은 전부 {@code app_user.id} 를 주체로 하므로 그 사이를
+ * <p>앱은 {@code X-Install-Id} 헤더로 <b>설치 UUID</b> 를 보낸다. 저장은 전부 {@code app_user.id} 를 주체로 하므로 그 사이를
  * 여기서 잇는다. 계약은 그대로 두고 변환을 서버 안에 가둔 것이라 <b>앱은 이 변화를 모른다.</b>
  *
  * <p>둘을 같은 값으로 두지 않은 이유 — 설치 UUID 는 사람이 아니라 그 설치본을 가리킨다. 앱을 지웠다 깔면 새로 생기는데 그것이 주체이면 그 사람의 장바구니와 코스가
@@ -96,7 +96,7 @@ public class UserStore {
   /**
    * 이 설치본의 계정 id. 처음 보는 설치본이면 비회원 계정을 만들어 준다.
    *
-   * @param installUuid {@code X-Device-Id} 헤더로 온 값
+   * @param installUuid {@code X-Install-Id} 헤더로 온 값
    */
   public UUID resolve(UUID installUuid) {
     return find(installUuid).orElseGet(() -> create(installUuid));

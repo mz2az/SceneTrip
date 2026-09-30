@@ -43,7 +43,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import(LanguageConfiguration.class)
 class MarketControllerTest {
 
-  private static final String DEVICE = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
+  private static final String INSTALL_ID = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
   private static final UUID USER = UUID.fromString("9d1e4b52-6c07-4a8f-b3d1-2e6f80c4a915");
 
   @Autowired private MockMvc mvc;
@@ -56,7 +56,7 @@ class MarketControllerTest {
 
   @BeforeEach
   void resolveAccount() {
-    when(users.resolve(UUID.fromString(DEVICE))).thenReturn(USER);
+    when(users.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
   }
 
   private void signedIn() {
@@ -85,7 +85,7 @@ class MarketControllerTest {
     when(store.list(eq(USER), eq(null), any(), eq(20), eq(0))).thenReturn(page);
     when(store.withContents(any(), any())).thenReturn(page);
 
-    mvc.perform(get("/market/courses").header("X-Device-Id", DEVICE))
+    mvc.perform(get("/market/courses").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.total").value(1))
         .andExpect(jsonPath("$.items[0].saveCount").value(7));
@@ -100,7 +100,7 @@ class MarketControllerTest {
     when(store.list(eq(USER), eq(null), any(), eq(20), eq(0))).thenReturn(page);
     when(store.withContents(any(), any())).thenReturn(page);
 
-    mvc.perform(get("/market/courses").param("q", "   ").header("X-Device-Id", DEVICE))
+    mvc.perform(get("/market/courses").param("q", "   ").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isOk());
 
     verify(store).list(eq(USER), eq(null), any(), eq(20), eq(0));
@@ -113,19 +113,19 @@ class MarketControllerTest {
 
     mvc.perform(
             post("/market/courses")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"courseId\":7,\"description\":\"설명\"}"))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.code").value("SIGN_IN_REQUIRED"));
 
-    mvc.perform(post("/market/courses/3/saves").header("X-Device-Id", DEVICE))
+    mvc.perform(post("/market/courses/3/saves").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isUnauthorized());
-    mvc.perform(post("/market/courses/3/likes").header("X-Device-Id", DEVICE))
+    mvc.perform(post("/market/courses/3/likes").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isUnauthorized());
-    mvc.perform(delete("/market/courses/3/likes").header("X-Device-Id", DEVICE))
+    mvc.perform(delete("/market/courses/3/likes").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isUnauthorized());
-    mvc.perform(delete("/market/courses/3").header("X-Device-Id", DEVICE))
+    mvc.perform(delete("/market/courses/3").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isUnauthorized());
 
     // 벽 뒤로는 한 줄도 넘어가지 않는다.
@@ -143,7 +143,7 @@ class MarketControllerTest {
 
     mvc.perform(
             post("/market/courses")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"courseId\":7,\"description\":\"설명\"}"))
         .andExpect(status().isNotFound())
@@ -159,7 +159,7 @@ class MarketControllerTest {
 
     mvc.perform(
             post("/market/courses")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"courseId\":7,\"description\":\"설명\"}"))
         .andExpect(status().isConflict())
@@ -173,7 +173,7 @@ class MarketControllerTest {
 
     mvc.perform(
             post("/market/courses")
-                .header("X-Device-Id", DEVICE)
+                .header("X-Install-Id", INSTALL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"courseId\":7,\"description\":\"" + "가".repeat(201) + "\"}"))
         .andExpect(status().isBadRequest())
@@ -187,7 +187,7 @@ class MarketControllerTest {
     when(store.isLive(3L)).thenReturn(true);
     when(store.isAuthor(USER, 3L)).thenReturn(false);
 
-    mvc.perform(delete("/market/courses/3").header("X-Device-Id", DEVICE))
+    mvc.perform(delete("/market/courses/3").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code").value("NOT_MARKET_COURSE_AUTHOR"));
 
@@ -200,11 +200,11 @@ class MarketControllerTest {
     signedIn();
     when(store.isLive(3L)).thenReturn(false);
 
-    mvc.perform(post("/market/courses/3/saves").header("X-Device-Id", DEVICE))
+    mvc.perform(post("/market/courses/3/saves").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("MARKET_COURSE_NOT_FOUND"));
 
-    mvc.perform(post("/market/courses/3/likes").header("X-Device-Id", DEVICE))
+    mvc.perform(post("/market/courses/3/likes").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isNotFound());
   }
 
@@ -213,7 +213,7 @@ class MarketControllerTest {
   void missingPostIsNotFound() throws Exception {
     when(store.find(eq(USER), eq(99L), any())).thenReturn(Optional.empty());
 
-    mvc.perform(get("/market/courses/99").header("X-Device-Id", DEVICE))
+    mvc.perform(get("/market/courses/99").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("MARKET_COURSE_NOT_FOUND"));
   }
@@ -225,7 +225,7 @@ class MarketControllerTest {
     when(store.list(eq(USER), eq(null), eq(MarketSort.LIKES), eq(20), eq(0))).thenReturn(page);
     when(store.withContents(any(), any())).thenReturn(page);
 
-    mvc.perform(get("/market/courses").param("sort", "likes").header("X-Device-Id", DEVICE))
+    mvc.perform(get("/market/courses").param("sort", "likes").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isOk());
 
     verify(store).list(eq(USER), eq(null), eq(MarketSort.LIKES), eq(20), eq(0));

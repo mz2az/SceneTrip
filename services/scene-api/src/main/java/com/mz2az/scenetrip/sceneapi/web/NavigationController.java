@@ -43,9 +43,9 @@ class NavigationController implements NavigationApi {
 
   @Override
   public ResponseEntity<NextLeg> getNextLeg(
-      UUID xDeviceId, NextLegRequest request, Lang acceptLanguage) {
+      UUID xInstallId, NextLegRequest request, Lang acceptLanguage) {
 
-    UUID user = users.resolve(xDeviceId);
+    UUID user = users.resolve(xInstallId);
     long courseId = request.getCourseId();
 
     if (!users.isRegistered(user)) {

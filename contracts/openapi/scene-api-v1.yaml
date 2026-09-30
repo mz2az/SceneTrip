@@ -76,15 +76,15 @@ info:
     ## 인증
 
     v1 에는 로그인이 없다. 그렇다고 저장의 주체가 설치본인 것은 아니다 —
-    **주체는 계정이고, `X-Device-Id` 는 그 계정을 찾는 열쇠일 뿐이다.**
+    **주체는 계정이고, `X-Install-Id` 는 그 계정을 찾는 열쇠일 뿐이다.**
 
     앱은 최초 실행 때 만들어 보관하는 **설치 UUID** 를 이 헤더로 보낸다. 서버는
     처음 보는 값이면 비회원 계정을 하나 만들어 짝지어 두고, 그 뒤로는 같은 계정을
     찾아 준다. 장바구니·코스·찜·마켓이 전부 그 계정을 주체로 저장된다.
 
-    **앱이 할 일은 지금과 같다.** 보내는 헤더도 값도 바뀌지 않는다 — 설치 UUID 를
-    계정으로 바꾸는 일은 서버 안에서만 일어난다. 이 문단 때문에 프론트가 고칠
-    것은 없다.
+    이 헤더는 원래 `X-Device-Id` 였다. 값이 가리키는 것이 기기가 아니라 설치본이라
+    (앱을 지웠다 깔면 새 값이 된다) 배포 전에 이름을 바로잡았다(MZ2AZ-328). 값의
+    형식과 뜻은 그대로다.
 
     이렇게 한 몫은 로그인이 붙을 때 드러난다. 계정 행이 이미 있으므로 가입은 그
     행에 표시를 남기는 일이 되고, 담아 둔 장소와 만들어 둔 코스는 한 줄도 옮기지
@@ -721,7 +721,7 @@ paths:
       description: 담은 순서(오래된 것부터)로 돌려준다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
       responses:
         "200":
           description: 장바구니 내용. 비어 있으면 빈 배열이다.
@@ -750,7 +750,7 @@ paths:
         "이미 저장된 장소입니다" 토스트를 띄운다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
       requestBody:
         required: true
         content:
@@ -784,7 +784,7 @@ paths:
       summary: 장바구니에서 빼기
       description: 목업 상세 화면의 "저장됨" 토글을 되돌리는 동작.
       parameters:
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - name: placeId
           in: path
           required: true
@@ -810,7 +810,7 @@ paths:
         홈 화면의 정렬 그대로라 프론트는 받은 순서를 그리면 된다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
       responses:
         "200":
           description: 코스 목록. 하나도 없으면 빈 배열이다.
@@ -840,7 +840,7 @@ paths:
         `POST /market/courses/{marketCourseId}/saves` 다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
       requestBody:
         required: true
         content:
@@ -872,7 +872,7 @@ paths:
         편집하다가, 완료를 누를 때 `PUT` 으로 되돌려 보낸다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - $ref: "#/components/parameters/CourseId"
       responses:
         "200":
@@ -932,7 +932,7 @@ paths:
         `PUT /courses/{courseId}/progress` 를 쓴다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - $ref: "#/components/parameters/CourseId"
       requestBody:
         required: true
@@ -972,7 +972,7 @@ paths:
         **마켓에 올려 둔 사본은 남는다.** 사본이라 원본과 수명이 다르다 — 내리려면
         `DELETE /market/courses/{marketCourseId}` 를 따로 부른다.
       parameters:
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - $ref: "#/components/parameters/CourseId"
       responses:
         "204":
@@ -999,7 +999,7 @@ paths:
         보내지 않는다 — 예정 코스에 "지금 몇 일차" 는 뜻이 없다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - $ref: "#/components/parameters/CourseId"
       requestBody:
         required: true
@@ -1033,7 +1033,7 @@ paths:
         토글이라 이미 체크된 것을 다시 체크해도 오류가 아니다. 체크한 시각은 서버가
         찍는다.
       parameters:
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - $ref: "#/components/parameters/CourseId"
         - $ref: "#/components/parameters/ItemId"
       requestBody:
@@ -1070,7 +1070,7 @@ paths:
         우선순위 입력으로 읽는다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
       responses:
@@ -1098,7 +1098,7 @@ paths:
 
         비회원도 찜할 수 있다.
       parameters:
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
       requestBody:
         required: true
         content:
@@ -1125,7 +1125,7 @@ paths:
       summary: 찜 해제
       description: 찜하지 않은 작품을 해제해도 `204` 다. 이유는 찜하기와 같다.
       parameters:
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - $ref: "#/components/parameters/ContentId"
       responses:
         "204":
@@ -1148,7 +1148,7 @@ paths:
         사용자가 마켓에 오는 동기가 "이 작품 성지순례 코스를 찾고 싶다" 이기 때문이다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - name: q
           in: query
           description: 작품 이름. 생략하면 전체 목록이다.
@@ -1202,7 +1202,7 @@ paths:
         내릴 수 없어서다 — 신고가 들어와도 본인이 처리하지 못한다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
       requestBody:
         required: true
         content:
@@ -1240,7 +1240,7 @@ paths:
         **올린 시점의 모습이다.** 원본 코스의 현재 모습이 아니다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - $ref: "#/components/parameters/MarketCourseId"
       responses:
         "200":
@@ -1268,7 +1268,7 @@ paths:
 
         **이미 담아 간 사람의 코스는 그대로 남는다** — 담기가 복사이기 때문이다.
       parameters:
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - $ref: "#/components/parameters/MarketCourseId"
       responses:
         "204":
@@ -1303,7 +1303,7 @@ paths:
         담으면 그때마다 새 코스가 생긴다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - $ref: "#/components/parameters/MarketCourseId"
       responses:
         "201":
@@ -1328,7 +1328,7 @@ paths:
       summary: 좋아요
       description: 이미 누른 상태로 다시 보내도 `204` 다. 하트는 토글이라 그렇다.
       parameters:
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - $ref: "#/components/parameters/MarketCourseId"
       responses:
         "204":
@@ -1348,7 +1348,7 @@ paths:
       summary: 좋아요 취소
       description: 누르지 않은 상태로 보내도 `204` 다.
       parameters:
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
         - $ref: "#/components/parameters/MarketCourseId"
       responses:
         "204":
@@ -1376,7 +1376,7 @@ paths:
         움직이지 않기 때문이다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
       requestBody:
         required: true
         content:
@@ -1451,7 +1451,7 @@ paths:
         안 부르니 이 조건이 없다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - $ref: "#/components/parameters/DeviceId"
+        - $ref: "#/components/parameters/InstallId"
       requestBody:
         required: true
         content:
@@ -1497,7 +1497,7 @@ paths:
         [ADR 0013](../../docs/architecture/adr/0013-guide-chat-is-served-by-the-python-agent.md).
 
         **저장하지 않는다.** 응답은 초안이고 앱의 편집 화면에 그려진다. 저장은 사용자의
-        「완료」가 부르는 `PUT /courses/{id}` 뿐이다. 그래서 `X-Device-Id` 를 요구하지 않는다 —
+        「완료」가 부르는 `PUT /courses/{id}` 뿐이다. 그래서 `X-Install-Id` 를 요구하지 않는다 —
         계정을 찾을 일이 없다.
 
         응답 모양은 챗봇(`POST /guide/chat`)과 같다 — `effects` 에 `plan.draft` 하나, `ui` 에
@@ -1550,17 +1550,16 @@ components:
       schema:
         $ref: "#/components/schemas/Lang"
 
-    DeviceId:
-      name: X-Device-Id
+    InstallId:
+      name: X-Install-Id
       in: header
       required: true
       description: |
-        앱이 최초 실행 시 만들어 보관하는 **설치 UUID**. 헤더 이름은 「기기」라고
-        하지만 가리키는 것은 기기가 아니라 그 설치본이다 — 앱을 지웠다 깔면 새
-        값이 된다.
+        앱이 최초 실행 시 만들어 보관하는 **설치 UUID**. 기기가 아니라 그 설치본을
+        가리킨다 — 앱을 지웠다 깔면 새 값이 된다.
 
         저장의 주체는 이 값이 아니라 이 값으로 찾아낸 계정이다. 서버가 처음 보는
-        값이면 비회원 계정을 만들어 짝지어 둔다. 앱이 보낼 값은 지금과 같다.
+        값이면 비회원 계정을 만들어 짝지어 둔다.
       schema:
         type: string
         format: uuid
@@ -3133,7 +3132,7 @@ components:
           type: array
           description: |
             **백엔드가 수행하는 명령.** 에이전트는 DB 를 만지지 않으므로(ADR 0013) 「무엇을
-            저장하라」를 여기 적어 보내고, scene-api 가 `X-Device-Id` 로 찾은 계정에 대신
+            저장하라」를 여기 적어 보내고, scene-api 가 `X-Install-Id` 로 찾은 계정에 대신
             적용한 뒤 그대로 앱에도 넘긴다. 처리 규칙은 `GuideEffect` 에 있다.
 
             도구가 거절되면 빈 배열이다 — 실패했는데 DB 가 바뀌면 사용자는 됐다고 믿는다.

@@ -18,7 +18,7 @@ import org.springframework.stereotype.Repository;
  * <p><b>장소 장바구니와 별개 표다.</b> 8/11 회의가 작품엔 찜, 장소엔 장바구니로 갈랐다. 합치면 대상 종류를 나타내는 칸이 생겨 FK 를 못 걸고, 장바구니에만
  * 있는 {@code source_content_id} 때문에 컬럼 구성도 다르다.
  *
- * <p>주체는 {@code app_user.id} 다. {@code X-Device-Id} 를 계정으로 바꾸는 일은 {@link
+ * <p>주체는 {@code app_user.id} 다. {@code X-Install-Id} 를 계정으로 바꾸는 일은 {@link
  * com.mz2az.scenetrip.sceneapi.user.UserStore} 가 한다.
  *
  * <p><b>담기와 빼기가 멱등이다.</b> 하트는 토글이라 같은 상태를 두 번 요청하는 일이 흔하고, 그때마다 오류를 내면 프론트가 사용자에게 보여 줄 것이 없다.

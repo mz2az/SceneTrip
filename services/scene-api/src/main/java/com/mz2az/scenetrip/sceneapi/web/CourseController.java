@@ -41,32 +41,32 @@ class CourseController implements CoursesApi {
   }
 
   @Override
-  public ResponseEntity<CourseList> listCourses(UUID xDeviceId, Lang acceptLanguage) {
-    List<CourseSummary> items = store.list(users.resolve(xDeviceId));
+  public ResponseEntity<CourseList> listCourses(UUID xInstallId, Lang acceptLanguage) {
+    List<CourseSummary> items = store.list(users.resolve(xInstallId));
     return ResponseEntity.ok(new CourseList(items, items.size()));
   }
 
   @Override
   public ResponseEntity<CourseDetail> createCourse(
-      UUID xDeviceId, CourseCreate courseCreate, Lang acceptLanguage) {
+      UUID xInstallId, CourseCreate courseCreate, Lang acceptLanguage) {
 
-    UUID user = users.resolve(xDeviceId);
+    UUID user = users.resolve(xInstallId);
     long courseId = store.create(user, courseCreate);
     return ResponseEntity.status(HttpStatus.CREATED).body(read(user, courseId, acceptLanguage));
   }
 
   @Override
   public ResponseEntity<CourseDetail> getCourse(
-      UUID xDeviceId, Long courseId, Lang acceptLanguage) {
+      UUID xInstallId, Long courseId, Lang acceptLanguage) {
 
-    return ResponseEntity.ok(read(users.resolve(xDeviceId), courseId, acceptLanguage));
+    return ResponseEntity.ok(read(users.resolve(xInstallId), courseId, acceptLanguage));
   }
 
   @Override
   public ResponseEntity<CourseDetail> replaceCourse(
-      UUID xDeviceId, Long courseId, CourseReplace courseReplace, Lang acceptLanguage) {
+      UUID xInstallId, Long courseId, CourseReplace courseReplace, Lang acceptLanguage) {
 
-    UUID user = users.resolve(xDeviceId);
+    UUID user = users.resolve(xInstallId);
     requireCourse(user, courseId);
     validate(courseReplace);
     requireLongEnoughForTrip(user, courseId, courseReplace.getDays().size());
@@ -83,8 +83,8 @@ class CourseController implements CoursesApi {
   }
 
   @Override
-  public ResponseEntity<Void> deleteCourse(UUID xDeviceId, Long courseId) {
-    if (!store.delete(users.resolve(xDeviceId), courseId)) {
+  public ResponseEntity<Void> deleteCourse(UUID xInstallId, Long courseId) {
+    if (!store.delete(users.resolve(xInstallId), courseId)) {
       throw notFound(courseId);
     }
     return ResponseEntity.noContent().build();
@@ -92,9 +92,9 @@ class CourseController implements CoursesApi {
 
   @Override
   public ResponseEntity<CourseDetail> updateCourseProgress(
-      UUID xDeviceId, Long courseId, CourseProgress courseProgress, Lang acceptLanguage) {
+      UUID xInstallId, Long courseId, CourseProgress courseProgress, Lang acceptLanguage) {
 
-    UUID user = users.resolve(xDeviceId);
+    UUID user = users.resolve(xInstallId);
     requireCourse(user, courseId);
 
     if (courseProgress.getStatus() == CourseStatus.ACTIVE
@@ -108,9 +108,9 @@ class CourseController implements CoursesApi {
 
   @Override
   public ResponseEntity<Void> updateCourseItemVisit(
-      UUID xDeviceId, Long courseId, Long itemId, VisitUpdate visitUpdate) {
+      UUID xInstallId, Long courseId, Long itemId, VisitUpdate visitUpdate) {
 
-    UUID user = users.resolve(xDeviceId);
+    UUID user = users.resolve(xInstallId);
     requireCourse(user, courseId);
 
     // 예정 코스에서는 방문 체크가 뜻이 없다. 400 이 아니라 409 인 이유는 요청 자체는

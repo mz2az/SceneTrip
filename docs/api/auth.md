@@ -12,11 +12,11 @@
 
 여기가 가장 자주 오해받는 자리다.
 
-**저장의 주체는 `X-Device-Id` 가 아니라 그 값으로 찾아낸 계정(`app_user.id`)이다.**
+**저장의 주체는 `X-Install-Id` 가 아니라 그 값으로 찾아낸 계정(`app_user.id`)이다.**
 헤더는 자물쇠를 여는 열쇠이지, 서랍 자체가 아니다.
 
 ```
-X-Device-Id (설치 UUID)  →  user_device.install_uuid  →  app_user.id  →  저장
+X-Install-Id (설치 UUID)  →  user_device.install_uuid  →  app_user.id  →  저장
 ```
 
 서버는 처음 보는 설치 UUID 를 받으면 **비회원 계정을 하나 만들어** 짝지어 두고, 그
@@ -25,10 +25,9 @@ X-Device-Id (설치 UUID)  →  user_device.install_uuid  →  app_user.id  → 
 `app_user` · `user_device` 표는 `V8` 로 이미 들어와 있고, 장바구니(`saved_place`)·
 코스·찜·마켓이 전부 계정을 주체로 저장된다.
 
-### 앱이 고칠 것은 없다
+### 앱이 하는 일은 설치 UUID 를 보내는 것뿐이다
 
-**보내는 헤더도 값도 바뀌지 않았다.** 앱은 지금처럼 설치 UUID 를 보내면 되고, 그것을
-계정으로 바꾸는 일은 서버 안에서만 일어난다.
+설치 UUID 를 계정으로 바꾸는 일은 서버 안에서만 일어난다. 앱은 계정 id 를 모른다.
 
 ### 왜 둘을 같은 값으로 두지 않았나
 
@@ -40,26 +39,27 @@ X-Device-Id (설치 UUID)  →  user_device.install_uuid  →  app_user.id  → 
 
 ## 헤더를 요구하는 곳
 
-장바구니 · 코스 · 찜 · 마켓이 **전부** `X-Device-Id` 를 필수로 받는다. 조회만 하는
+장바구니 · 코스 · 찜 · 마켓이 **전부** `X-Install-Id` 를 필수로 받는다. 조회만 하는
 검색·지도 API 는 받지 않는다 — 누가 부르든 결과가 같기 때문이다.
 
 ```
 POST /v1/cart/items
-X-Device-Id: 9f2c8a10-4b3e-4d21-9c7f-1a2b3c4d5e6f
+X-Install-Id: 9f2c8a10-4b3e-4d21-9c7f-1a2b3c4d5e6f
 Content-Type: application/json
 
 { "placeId": 7, "sourceContentId": 42 }
 ```
 
-없거나 UUID 형식이 아니면 `400 MISSING_DEVICE_ID` 다.
+없거나 UUID 형식이 아니면 `400 MISSING_INSTALL_ID` 다.
 
-## X-Device-Id 는 무엇인가
+## X-Install-Id 는 무엇인가
 
 **앱이 최초 실행 때 한 번 만들어 보관하는 UUID** 다. 서버가 발급하지 않는다.
 
-헤더 이름은 「기기」라고 하지만 가리키는 것은 기기가 아니라 **그 설치본**이다. 이름을
-바꾸지 않은 이유는 이미 프론트에 나가 있어서고, 표 이름(`user_device.install_uuid`)
-쪽이 실제 뜻을 담고 있다.
+가리키는 것은 기기가 아니라 **그 설치본**이다. 같은 폰이라도 앱을 지웠다 깔면 새 값이
+된다. 헤더는 원래 `X-Device-Id` 였는데, 그 이름 때문에 "폰을 바꿨는데 왜 데이터가
+없죠" 를 버그로 오해하게 되어 배포 전에 표 이름(`user_device.install_uuid`)에 맞춰
+바꿨다(MZ2AZ-328).
 
 | 항목 | 값 |
 | --- | --- |
@@ -77,7 +77,7 @@ UUID 는 **추측할 수 없어야 한다.** 순번이나 기기 식별자(IDFV�
 
 ## 무엇을 보장하지 않는가
 
-**이것은 인증이 아니다.** 남의 `X-Device-Id` 를 알면 그 계정의 장바구니와 코스를 읽고
+**이것은 인증이 아니다.** 남의 `X-Install-Id` 를 알면 그 계정의 장바구니와 코스를 읽고
 고칠 수 있다. 막을 방법이 없다 — 헤더 값 하나가 전부이기 때문이다.
 
 그래서 **민감한 것을 담지 않는다.** 지금 담기는 것은 공개 장소의 ID 와 사용자가 붙인
@@ -119,7 +119,7 @@ UUID 는 **추측할 수 없어야 한다.** 순번이나 기기 식별자(IDFV�
 예전 설계처럼 "로그인 시점에 장바구니를 계정으로 옮기는" 승계 작업이 **필요 없다.**
 이미 계정에 붙어 있기 때문이다.
 
-계약이 바뀌는 지점은 그때다 — `Authorization` 헤더가 추가되고, `X-Device-Id` 는
+계약이 바뀌는 지점은 그때다 — `Authorization` 헤더가 추가되고, `X-Install-Id` 는
 로그인 전에만 쓰이게 된다.
 
 ## 그 밖에
