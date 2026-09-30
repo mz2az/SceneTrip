@@ -70,9 +70,21 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `INCOMPLETE_ORIGIN` | `lat` 과 `lng` 중 하나만 보냈다. 둘은 짝이다 |
 | `MISSING_AREA_FILTER` | `GET /pois` 에 영역 조건(`bbox` 또는 `lat`·`lng`+`radiusMeters`)이 하나도 없다. 편의시설 50 만 건을 전국 대상으로 돌려줄 정렬 기준이 없다 — 촬영지(`/places`)는 인기도가 있어 허용하고, POI 는 없어 거부한다 |
 | `MISSING_INSTALL_ID` | `X-Install-Id` 헤더가 없거나 UUID 형식이 아니다. 장바구니·코스·찜·마켓이 전부 이 헤더를 요구한다 |
-| `SIGN_IN_REQUIRED` | (`401`) 가입해야 할 수 있는 동작이다. 마켓 좋아요·담기·올리기·내리기, 그리고 여행 중 길찾기 |
+| `SIGN_IN_REQUIRED` | (`401`) 가입해야 할 수 있는 동작이다. 마켓 좋아요·담기·올리기·내리기, 여행 중 길찾기, 가이드 챗봇. 로그인 화면으로 안내한다 |
 | `NOT_MARKET_COURSE_AUTHOR` | (`403`) 남이 올린 코스는 내릴 수 없다. **마켓의 코스는 이미 누구에게나 보이므로 404 로 숨기지 않는다** — 내 코스가 `COURSE_NOT_FOUND` 로 존재를 숨기는 것과 갈리는 지점이다 |
 | `UNKNOWN_COURSE_ITEM` | 편집 완료(`PUT /courses/{courseId}`)가 그 코스에 없는 항목 `id` 를 가리켰다. 이미 지워졌거나 남의 코스 것이다 — **새로 담는 장소라면 `id` 를 아예 비워야 한다** |
+
+### 인증 (`401`)
+
+로그인(ADR 0018) 관련. 앱이 할 일까지 적는다 — `401` 은 코드마다 대응이 다르다.
+
+| `code` | 뜻 | 앱이 할 일 |
+| --- | --- | --- |
+| `ACCESS_TOKEN_EXPIRED` | 액세스 토큰이 만료됐다 | `POST /auth/refresh` 후 **원래 요청을 다시 보낸다**. 갱신은 동시에 하나만 |
+| `ACCESS_TOKEN_INVALID` | 액세스 토큰의 서명이 틀렸거나 깨졌거나, 그 계정이 탈퇴했다 | 토큰을 지우고 로그인 화면 |
+| `SESSION_REQUIRED` | 가입한 계정인데 토큰 없이 `X-Install-Id` 만 왔다. 가입 계정은 설치 UUID 만으로 열리지 않는다 | 토큰을 지우고 로그인 화면 |
+| `REFRESH_TOKEN_INVALID` | 리프레시 토큰이 만료·폐기됐거나 **이미 쓴 것**이다. 마지막 경우 그 계정의 리프레시 토큰이 전부 폐기된다 | 토큰을 지우고 로그인 화면 |
+| `SOCIAL_TOKEN_INVALID` | 구글·애플 토큰 검증 실패 — 서명·발급자·대상·만료·`nonce` 중 하나 | 로그인 실패 안내 후 다시 시도 |
 
 ### 대상 없음 (`404`)
 
@@ -118,6 +130,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `code` | 뜻 |
 | --- | --- |
 | `ROUTING_UNAVAILABLE` | 길찾기 제공자(카카오)가 응답하지 않거나 호출 한도를 넘었다. 잠시 뒤 다시 시도한다. 한도 초과는 서버가 따로 세어 둔다 |
+| `AUTH_PROVIDER_UNAVAILABLE` | 구글·애플 서버(공개키, 애플 코드 교환)에 닿지 못했다. `POST /auth/google`·`POST /auth/apple` 이 낸다. 잠시 뒤 재시도 |
 | `GUIDE_UNAVAILABLE` | 여행 가이드 에이전트가 응답하지 않는다 — 프로세스가 죽었거나, 모델이 꺼져 있거나 한도 초과. 잠시 뒤 재시도. **규칙 기반으로 조용히 떨어지지 않는다.** `POST /guide/chat`·`POST /guide/plan` 이 낸다 |
 
 ### 서버 결함 (`500`)
