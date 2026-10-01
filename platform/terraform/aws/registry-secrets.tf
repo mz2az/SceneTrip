@@ -19,9 +19,12 @@ resource "aws_ecr_repository" "app" {
     encryption_type = "AES256"
   }
 }
+# 키는 고정 목록(local.repositories)에서 받는다. 리소스 맵(aws_ecr_repository.app)을 그대로 돌리면
+# state 가 비어 있을 때(내린 뒤 다시 올릴 때) 키가 「apply 뒤에야 안다」 가 되어, 배포기가 남은
+# Secret 을 terraform import 하는 단계가 Invalid for_each argument 로 멈춘다(2026-10-01 DEV up).
 resource "aws_ecr_lifecycle_policy" "app" {
-  for_each   = aws_ecr_repository.app
-  repository = each.value.name
+  for_each   = local.repositories
+  repository = aws_ecr_repository.app[each.key].name
   policy = jsonencode({
     rules = [{
       rulePriority = 1
