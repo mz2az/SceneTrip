@@ -315,7 +315,7 @@ dialog{max-width:min(90vw,800px);max-height:80vh;border:1px solid var(--line);bo
         사용하면 SQL 취약점 하나가 스키마·다른 사용자 권한까지 건드릴 수 있다. 초기 준비 작업과
         스키마 변경 작업, 평상시 데이터 접근을 서로 다른 사용자로 분리한다.</p>
         <p>배포는 bootstrap 검증, migration 성공, 애플리케이션 rollout의 순서로 진행한다.
-        애플리케이션에서는 자동 Flyway 기동을 끄고 배포 전 Job이 전담한다. 기존 V1–V14 SQL을
+        애플리케이션에서는 자동 Flyway 기동을 끄고 배포 전 Job이 전담한다. 이미 적용된 migration SQL을
         몰래 수정하면 checksum과 환경 간 이력이 어긋난다. 변경은 새 migration으로 추가한다.</p>
 
 <aside class="notes"><b>강사 노트</b>runtime 계정에 확장 설치 권한을 주어 실패를 숨기지 않는다. migration이 실패했으면 새 이미지를 배포하지 않는다.</aside>

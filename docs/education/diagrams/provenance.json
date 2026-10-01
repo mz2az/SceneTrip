@@ -33,7 +33,7 @@
     "platform/terraform/aws/registry-secrets.tf": "0d47c0e392eefb24995735f372014f608d50e1c773ddeb97bd0428da1f6b1d47",
     "platform/terraform/aws/variables.tf": "5c8940ae9329800076bfb65e298a72e51f9e42731443b7b9eda217cc0bb2f4e7",
     "platform/terraform/aws/versions.tf": "e30d36276d65094c7bc57c17964de20ce244b14a13a49c79538fd4b2f6dd9347",
-    "services/scene-api/src/main/resources/application.yaml": "6329c32d69af7f567b5d48af464c8627c756d7bdc694687c3813b3cf341c645a",
+    "services/scene-api/src/main/resources/application.yaml": "2ab1025266f2f15f0fb3de0a4f9ef038796fe99f362d9d98c3ec3665624650db",
     "tools/education/source_diagrams.py": "0c1180ee77d56532c2ff42d20bb4bda76c1574bf11bf3042a91a22d2e674262f"
   }
 }

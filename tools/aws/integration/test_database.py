@@ -1,4 +1,4 @@
-"""PostgreSQL17에서 RDS 역할 경계와 V1~V14 migration 권한을 검증한다."""
+"""PostgreSQL17에서 RDS 역할 경계와 전체 migration 권한을 검증한다."""
 
 import secrets
 import sys
@@ -133,10 +133,12 @@ class DatabaseTests(DockerTest):
             ),
             key=lambda path: int(path.name.split("__")[0][1:]),
         )
-        self.assertEqual(
-            [int(path.name.split("__")[0][1:]) for path in migrations],
-            list(range(1, 15)),
-        )
+        # 번호가 1 부터 빈 칸 없이 이어지는지 본다. 마지막 번호를 박아 두면 마이그레이션이 늘
+        # 때마다 이 줄을 고쳐야 하고(V15 로그인에서 CI 가 그렇게 깨졌다), 정작 지켜야 할 것은
+        # 「빈 번호·겹친 번호가 없다」 이다 — 비운 번호에 뒤늦게 낮은 번호가 들어오면 Flyway 가
+        # 이미 적용된 DB 에서 거부한다.
+        numbers = [int(path.name.split("__")[0][1:]) for path in migrations]
+        self.assertEqual(numbers, list(range(1, len(numbers) + 1)))
         for migration in migrations:
             result = self.sql(
                 "BEGIN;\n" + migration.read_text() + "\nCOMMIT;",
@@ -157,6 +159,21 @@ DELETE FROM place WHERE type='test';
 """
         self.assertIn(
             "1", self.sql(dml, "app_runtime", "scenetrip").stdout.splitlines()
+        )
+        # 로그인 표(V15)도 런타임이 쓸 수 있어야 한다. 마이그레이션 역할이 만든 표에 기본 권한
+        # (ALTER DEFAULT PRIVILEGES)이 걸리는지 — 걸리지 않으면 원격에서만 로그인이 permission
+        # denied 로 깨진다.
+        login = """
+INSERT INTO app_user(id, registered_at) VALUES ('00000000-0000-0000-0000-0000000000a1', now());
+INSERT INTO user_identity(provider, subject, user_id) VALUES ('google', 'it', '00000000-0000-0000-0000-0000000000a1');
+INSERT INTO refresh_token(id, token_hash, user_id, family_id, expires_at)
+  VALUES (gen_random_uuid(), '\\x00', '00000000-0000-0000-0000-0000000000a1', gen_random_uuid(), now());
+UPDATE refresh_token SET used_at = now() WHERE user_id = '00000000-0000-0000-0000-0000000000a1';
+SELECT count(*) FROM refresh_token WHERE used_at IS NOT NULL;
+DELETE FROM app_user WHERE id = '00000000-0000-0000-0000-0000000000a1';
+"""
+        self.assertIn(
+            "1", self.sql(login, "app_runtime", "scenetrip").stdout.splitlines()
         )
         for source in (
             "CREATE TABLE forbidden(id integer);",
