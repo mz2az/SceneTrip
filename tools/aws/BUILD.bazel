@@ -73,6 +73,7 @@ py_test(
         "tests/test_destroy_plan.py",
         "tests/test_entrypoint.py",
         "tests/test_lifecycle.py",
+        "tests/test_public_ingress.py",
         "tests/test_teardown_entrypoint.py",
         "tests/test_workflows.py",
     ],

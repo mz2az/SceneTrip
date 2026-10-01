@@ -2,8 +2,12 @@
 
 외부 HTTPS는 ACM 인증서가 연결된 ALB 443 → nginx gateway 8080 → scene-api 8080으로
 들어온다. `/v1`을 유지하며 계약에 있는 API 경로 계열만 전달한다. Actuator·internal과
-agent 8899는 외부에 공개하지 않는다. CIDR을 반드시 지정하며 전체 인터넷 CIDR은 거절한다.
-`X-Install-Id`는 인증 수단이 아니므로 허용 CIDR은 초기 제한 운영의 필수 경계다.
+agent 8899는 외부에 공개하지 않는다. `allowedCidrs` 에 전체 인터넷 CIDR 은 거절한다.
+
+**DEV 는 인터넷 전체에 열려 있다** — `gateway.public: true` 면 client IP 검증을 끄고 ALB 가 `0.0.0.0/0` 의 443 을
+받는다. 배포기가 Terraform 출력(`ingress_public`)으로 넣고, dev 가 아니면 렌더가 실패한다. PRD 는 허용 CIDR 만
+받는다 — 사용자별 요청 제한·유료 API 한도(MZ2AZ-334) 전에는 열지 않는다. 결정과 감수한 위험은
+[ADR 0019](../../../docs/architecture/adr/0019-dev-api-is-public.md). 공개여도 「ALB 를 거쳐 왔는가」 검사는 그대로다.
 
 EKS Auto Mode의 `IngressClassParams`·`IngressClass` 이름은 환경별
 `scenetrip-dev-alb`·`scenetrip-prd-alb`이며 `gateway` Ingress가 API 도메인의 `/v1` Prefix를
@@ -12,7 +16,7 @@ HTTP IP target 8080으로 연결한다. Service는 모두 ClusterIP다. ALB heal
 
 ALB는 X-Forwarded-For에 실제 클라이언트 주소를 추가한다. nginx는 Terraform의 ALB
 public subnet CIDR만 신뢰하고 `real_ip_recursive off`로 마지막 주소를 사용한다.
-연결한 peer가 ALB subnet에 있고 실제 클라이언트가 허용 CIDR에 있을 때만 API를 전달한다.
+연결한 peer가 ALB subnet에 있고 실제 클라이언트가 허용 CIDR에 있을 때만(DEV 는 모든 client) API를 전달한다.
 위조된 앞쪽 헤더와 직접 gateway 연결은 이 경계를 통과하지 못한다. 속도 제한은
 클라이언트 IP당 gateway Pod별 10r/s이며 전역 합산 제한은 아니다.
 

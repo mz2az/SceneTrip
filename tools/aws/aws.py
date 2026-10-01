@@ -590,6 +590,8 @@ def render(run, root, environment):
             "host": "api.example.com",
             "certificateArn": "arn:aws:acm:ap-northeast-2:123456789012:certificate/00000000-0000-0000-0000-000000000000",
             "allowedCidrs": ["192.0.2.1/32"],
+            # 실제 배포와 같은 규칙 — dev 만 공개(ADR 0019, Terraform local.ingress_public).
+            "public": environment == "dev",
             "albSubnetIds": ["subnet-aaaaaaaaaaaaaaaaa", "subnet-bbbbbbbbbbbbbbbbb"],
             "trustedProxyCidrs": ["10.40.0.0/24", "10.40.1.0/24"],
             "securityGroupId": "sg-aaaaaaaaaaaaaaaaa",

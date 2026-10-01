@@ -38,6 +38,10 @@ output "ingress_certificate_arn" {
 output "ingress_allowed_cidrs" {
   value = var.ingress_allowed_cidrs
 }
+# 배포기가 gateway 의 client 검증을 끌지 정한다. DEV 만 true (ADR 0019).
+output "ingress_public" {
+  value = local.ingress_public
+}
 output "vpc_id" {
   value = aws_vpc.this.id
 }

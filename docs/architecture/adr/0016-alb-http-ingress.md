@@ -4,6 +4,7 @@ title: DEV·PRD 외부 HTTP 진입점에 ALB를 사용한다
 status: accepted
 date: 2026-09-20
 amends: [0015]
+amended-by: 0019
 ---
 
 # ADR 0016: ALB 기반 HTTP 진입점
