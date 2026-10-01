@@ -268,6 +268,10 @@ paths:
         서버는 이메일로 사람을 구분하지 않는다.
 
         가입·합치기 규칙은 `/auth/google` 과 같다.
+
+        **이 환경에 애플 로그인 설정(개인 키·토큰 암호화 키)이 없으면 `501` 이다.** 로그인은 되는데
+        탈퇴 때 애플 연결을 끊을 수 없는 상태를 만들지 않으려고 창구를 닫는다. 앱은 `501` 이면 애플
+        버튼을 숨긴다. `authorizationCode` 가 만료됐거나 이미 썼으면 `401 SOCIAL_TOKEN_INVALID` 다.
       security: []
       parameters:
         - $ref: "#/components/parameters/InstallId"

@@ -1,6 +1,7 @@
 package com.mz2az.scenetrip.sceneapi.web;
 
 import com.mz2az.scenetrip.sceneapi.api.AuthApi;
+import com.mz2az.scenetrip.sceneapi.api.model.AppleSignIn;
 import com.mz2az.scenetrip.sceneapi.api.model.AuthProvider;
 import com.mz2az.scenetrip.sceneapi.api.model.AuthSession;
 import com.mz2az.scenetrip.sceneapi.api.model.GoogleSignIn;
@@ -8,6 +9,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.LinkedIdentity;
 import com.mz2az.scenetrip.sceneapi.api.model.Me;
 import com.mz2az.scenetrip.sceneapi.api.model.RefreshTokenBody;
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
+import com.mz2az.scenetrip.sceneapi.auth.AppleLogin;
 import com.mz2az.scenetrip.sceneapi.auth.GoogleIdTokenVerifier;
 import com.mz2az.scenetrip.sceneapi.auth.IssuedToken;
 import com.mz2az.scenetrip.sceneapi.auth.RefreshTokenStore;
@@ -18,14 +20,15 @@ import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 로그인 창구 (ADR 0018, 계획 {@code docs/project/plans/social-login.md}).
  *
- * <p>구현된 것: 구글 로그인(가입 겸)·갱신·로그아웃·내 계정·탈퇴. 애플 로그인은 아직 생성된 기본 메서드가 {@code 501} 을 낸다 — 애플 개발자 설정이 준비된
- * 뒤다.
+ * <p>구글·애플 로그인(가입 겸)·갱신·로그아웃·내 계정·탈퇴. 애플 로그인은 애플 개인 키와 토큰 암호화 키가 있는 환경에서만 열린다 — 없으면 {@code 501}(앱은
+ * 애플 버튼을 숨긴다).
  */
 @RestController
 class AuthController implements AuthApi {
@@ -38,6 +41,7 @@ class AuthController implements AuthApi {
   private final CurrentAccount accounts;
   private final GoogleIdTokenVerifier google;
   private final SignInService signIn;
+  private final AppleLogin apple;
 
   AuthController(
       AccessTokens tokens,
@@ -45,13 +49,15 @@ class AuthController implements AuthApi {
       UserStore users,
       CurrentAccount accounts,
       GoogleIdTokenVerifier google,
-      SignInService signIn) {
+      SignInService signIn,
+      AppleLogin apple) {
     this.tokens = tokens;
     this.refreshTokens = refreshTokens;
     this.users = users;
     this.accounts = accounts;
     this.google = google;
     this.signIn = signIn;
+    this.apple = apple;
   }
 
   /**
@@ -73,7 +79,43 @@ class AuthController implements AuthApi {
     } catch (SocialTokenException e) {
       throw socialFailure(e);
     }
-    SignInService.SignedIn result = signIn.signIn(identity, xInstallId);
+    return completeSignIn(identity, xInstallId);
+  }
+
+  /**
+   * 애플로 로그인 — 처음이면 가입.
+   *
+   * <p>애플 개인 키·토큰 암호화 키가 없는 환경이면 {@code 501} 이다. 로그인은 되는데 탈퇴 때 애플 연결을 못 끊는 상태(App Store 요건 위반)를 만들지
+   * 않으려고 창구 자체를 닫는다. 앱은 501 이면 애플 버튼을 숨긴다.
+   *
+   * <p>순서는 구글과 같다 — 바깥 서버(애플 공개키, 애플 토큰 창구)를 먼저 부르고 그다음에 DB 트랜잭션을 연다.
+   */
+  @Override
+  public ResponseEntity<AuthSession> signInWithApple(UUID xInstallId, AppleSignIn body) {
+    if (!apple.enabled()) {
+      return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+    }
+    if (!tokens.enabled()) {
+      throw new IllegalStateException("JWT 서명 키가 없어 로그인할 수 없습니다");
+    }
+    SocialIdentity identity;
+    try {
+      identity =
+          apple.verify(
+              body.getIdentityToken(),
+              body.getAuthorizationCode(),
+              body.getNonce(),
+              body.getGivenName(),
+              body.getFamilyName());
+    } catch (SocialTokenException e) {
+      throw socialFailure(e);
+    }
+    return completeSignIn(identity, xInstallId);
+  }
+
+  /** 검증된 신분으로 가입·로그인·합치기를 하고 토큰 묶음을 만든다 — 구글·애플 공통. */
+  private ResponseEntity<AuthSession> completeSignIn(SocialIdentity identity, UUID installId) {
+    SignInService.SignedIn result = signIn.signIn(identity, installId);
     UserStore.Profile profile =
         users
             .profile(result.userId())
@@ -155,11 +197,19 @@ class AuthController implements AuthApi {
   /**
    * 탈퇴.
    *
-   * <p>애플로 가입한 계정이면 애플 쪽 연결도 끊어야 한다(App Store 요건) — 애플 로그인이 들어올 때 여기에 더한다. 지금은 애플 신분이 생길 길이 없다.
+   * <p>애플로 가입한 계정이면 애플 쪽 연결도 끊는다(App Store 요건). 애플이 응답하지 않아도 우리 쪽 삭제는 진행한다(계약).
    */
   @Override
   public ResponseEntity<Void> deleteMe() {
     UUID userId = accounts.requireSignedIn();
+    // 애플 연결 끊기는 계정 행을 지우기 전에 — 토큰 암호문이 그 행에 매달려 있다. 실패해도 진행한다.
+    // revokeFor 는 던지지 않기로 했지만 탈퇴를 그 약속 하나에 걸지 않는다 — 사용자가 탈퇴를 요청했는데
+    // 애플 쪽 사정으로 500 이 나면 안 된다(계약).
+    try {
+      apple.revokeFor(userId);
+    } catch (RuntimeException e) {
+      log.warn("애플 연결 끊기 중 예외 — 탈퇴는 진행합니다", e);
+    }
     users.delete(userId);
     log.info("탈퇴: {}", userId);
     return ResponseEntity.noContent().build();

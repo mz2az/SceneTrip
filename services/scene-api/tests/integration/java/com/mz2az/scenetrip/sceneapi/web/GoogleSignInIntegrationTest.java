@@ -8,9 +8,12 @@ import com.mz2az.scenetrip.sceneapi.api.model.AuthSession;
 import com.mz2az.scenetrip.sceneapi.api.model.GoogleSignIn;
 import com.mz2az.scenetrip.sceneapi.api.model.RefreshTokenBody;
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
+import com.mz2az.scenetrip.sceneapi.auth.AppleClient;
+import com.mz2az.scenetrip.sceneapi.auth.AppleLogin;
 import com.mz2az.scenetrip.sceneapi.auth.GoogleIdTokenVerifier;
 import com.mz2az.scenetrip.sceneapi.auth.RefreshTokenStore;
 import com.mz2az.scenetrip.sceneapi.auth.SignInService;
+import com.mz2az.scenetrip.sceneapi.auth.TokenCipher;
 import com.mz2az.scenetrip.sceneapi.user.AccountLinkStore;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import com.nimbusds.jose.JOSEException;
@@ -257,7 +260,8 @@ class GoogleSignInIntegrationTest {
   private AuthController controllerWith(JWKSource<SecurityContext> keySource) {
     GoogleIdTokenVerifier verifier =
         new GoogleIdTokenVerifier(keySource, List.of(WEB_CLIENT), clock);
-    return new AuthController(accessTokens, refreshTokens, users, accounts, verifier, signIn);
+    return new AuthController(
+        accessTokens, refreshTokens, users, accounts, verifier, signIn, disabledApple());
   }
 
   private AuthSession signInOk(UUID install, String idToken, String nonce) {
@@ -357,5 +361,14 @@ class GoogleSignInIntegrationTest {
     byte[] b = new byte[length];
     Arrays.fill(b, value);
     return b;
+  }
+
+  /** 애플이 꺼진 AppleLogin. 이 시험의 대상이 아니다 — 탈퇴가 revokeFor 를 부르므로 null 대신 꺼진 것을 준다. */
+  private static AppleLogin disabledApple() {
+    return new AppleLogin(
+        null,
+        new AppleClient(null, "com.example", "TEAM", "KEY", null, java.time.Clock.systemUTC()),
+        new TokenCipher((byte[]) null),
+        new AccountLinkStore(IntegrationDatabase.jdbcClient()));
   }
 }
