@@ -1,5 +1,7 @@
 package com.mz2az.scenetrip.sceneapi.user;
 
+import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -30,6 +32,9 @@ public class UserStore {
    *
    * <p>{@code last_seen_at} 은 방치된 비회원 계정을 정리할 때 쓸 값인데 소급 수집이 안 되므로 처음부터 받아 둔다. 조회 따로 갱신 따로 하면 왕복이
    * 둘이 되므로 CTE 로 묶었다 — 기기 쪽을 갱신하면서 그 계정을 함께 갱신하고 id 를 돌려준다.
+   *
+   * <p>가입 여부도 같이 돌려준다. 가입 계정은 설치 UUID 만으로 열리지 않으므로(SESSION_REQUIRED) 요청마다 그것을 물어야 하는데, 따로 물으면 왕복이
+   * 하나 더 생긴다.
    */
   private static final String TOUCH_SQL =
       """
@@ -41,7 +46,22 @@ public class UserStore {
       UPDATE app_user SET last_seen_at = now()
       FROM touched_device
       WHERE app_user.id = touched_device.user_id
-      RETURNING app_user.id
+      RETURNING app_user.id, app_user.registered_at IS NOT NULL AS registered
+      """;
+
+  /**
+   * 토큰으로 온 계정의 방문 기록 — 그 계정이 아직 살아 있는지도 함께 본다.
+   *
+   * <p>토큰은 서명만 맞으면 만료까지 유효하다. 그 사이 탈퇴했거나(행이 없다) 다른 계정으로 합쳐졌으면({@code merged_into}) 행이 갱신되지 않아 빈 결과가
+   * 된다 — 호출하는 쪽이 그것을 「믿을 수 없는 토큰」 으로 다룬다. 토큰은 가입 계정에만 발급하므로 가입 표시가 없는 행도 같은 취급이다.
+   */
+  private static final String TOUCH_SIGNED_IN_SQL =
+      """
+      UPDATE app_user SET last_seen_at = now()
+      WHERE id = CAST(:userId AS UUID)
+        AND merged_into IS NULL
+        AND registered_at IS NOT NULL
+      RETURNING id
       """;
 
   /**
@@ -60,6 +80,28 @@ public class UserStore {
       INSERT INTO user_device (install_uuid, user_id, last_seen_at)
       SELECT CAST(:installUuid AS UUID), id, now() FROM new_user
       RETURNING user_id
+      """;
+
+  /**
+   * 로그아웃한 설치본을 새 비회원 계정으로 — {@link #detachInstall}.
+   *
+   * <p>CTE 의 INSERT 가 조건부다. 그 설치본이 아직 그 계정을 가리킬 때만 새 계정이 생기고, 생긴 계정으로 짝을 바꾼다.
+   */
+  private static final String DETACH_SQL =
+      """
+      WITH new_user AS (
+          INSERT INTO app_user (id, last_seen_at)
+          SELECT CAST(:newUserId AS UUID), now()
+          WHERE EXISTS (
+              SELECT 1 FROM user_device
+              WHERE install_uuid = CAST(:installUuid AS UUID)
+                AND user_id = CAST(:userId AS UUID)
+          )
+          RETURNING id
+      )
+      UPDATE user_device SET user_id = new_user.id, last_seen_at = now()
+      FROM new_user
+      WHERE user_device.install_uuid = CAST(:installUuid AS UUID)
       """;
 
   private static final Logger log = LoggerFactory.getLogger(UserStore.class);
@@ -99,7 +141,35 @@ public class UserStore {
    * @param installUuid {@code X-Install-Id} 헤더로 온 값
    */
   public UUID resolve(UUID installUuid) {
-    return find(installUuid).orElseGet(() -> create(installUuid));
+    return lookup(installUuid).id();
+  }
+
+  /**
+   * 이 설치본의 계정과 그 계정이 가입했는지. 처음 보는 설치본이면 비회원 계정을 만들어 준다.
+   *
+   * <p>{@link #resolve} 와 같은 일을 하고 가입 여부를 더 돌려준다 — 쿼리는 한 번이다. 요청마다 계정을 정하는 쪽({@code
+   * web.CurrentAccount})이 쓴다.
+   *
+   * <p>가입 여부는 {@link #isRegistered} 와 달리 <b>설정({@link #requireRegistration})을 따르지 않는다.</b> 그 설정은
+   * 마켓·길찾기의 벽을 로컬에서 치우는 우회이고, 이 값은 「설치 UUID 만으로 열어도 되는 계정인가」 라는 보안 판정이다. 우회가 보안 판정까지 끄면 안 된다.
+   *
+   * @param installUuid {@code X-Install-Id} 헤더로 온 값
+   */
+  public Account lookup(UUID installUuid) {
+    return find(installUuid).orElseGet(() -> new Account(create(installUuid), false));
+  }
+
+  /**
+   * 토큰으로 온 계정의 방문을 남기고, 그 계정이 살아 있는가.
+   *
+   * @return 가입한 채로 살아 있으면 {@code true}. 탈퇴했거나 합쳐져 사라졌으면 {@code false}
+   */
+  public boolean touchSignedIn(UUID userId) {
+    return jdbc.sql(TOUCH_SIGNED_IN_SQL)
+        .param("userId", userId.toString())
+        .query(UUID.class)
+        .optional()
+        .isPresent();
   }
 
   /**
@@ -128,10 +198,10 @@ public class UserStore {
             .orElse(false));
   }
 
-  private Optional<UUID> find(UUID installUuid) {
+  private Optional<Account> find(UUID installUuid) {
     return jdbc.sql(TOUCH_SQL)
         .param("installUuid", installUuid.toString())
-        .query(UUID.class)
+        .query((rs, n) -> new Account(rs.getObject("id", UUID.class), rs.getBoolean("registered")))
         .optional();
   }
 
@@ -150,7 +220,120 @@ public class UserStore {
       // 같은 설치본의 첫 요청이 동시에 둘 들어왔다. 위 문장이 통째로 되돌아갔으므로
       // 먼저 끝난 쪽이 만든 계정을 그대로 쓴다.
       return find(installUuid)
+          .map(Account::id)
           .orElseThrow(() -> new IllegalStateException("설치 UUID 등록이 경합 뒤에도 실패했습니다", race));
     }
   }
+
+  /**
+   * 로그아웃한 설치본을 새 비회원 계정에 짝지어 준다 — 그 설치본이 아직 그 계정을 가리킬 때만.
+   *
+   * <p>로그아웃한 폰이 가입 계정을 계속 가리키면 설치 UUID 만으로 그 계정에 닿으려 하게 되고, 그것은 {@code SESSION_REQUIRED} 로 막히는 길이다.
+   * 새 비회원으로 시작하는 것이 맞다(계약 {@code /auth/sign-out}).
+   *
+   * <p><b>「그 계정을 가리킬 때만」 이 조건이다.</b> 설치 UUID 는 비밀이 아니므로, 남의 설치 UUID 와 아무 토큰으로 로그아웃을 불러 그 설치본을 떼어 낼
+   * 수 있으면 안 된다. 호출하는 쪽은 리프레시 토큰으로 확인한 계정을 넘긴다.
+   *
+   * <p>계정 만들기와 짝 바꾸기가 <b>한 문장</b>이다. 조건이 맞지 않으면 계정 행도 생기지 않는다 — {@link #CREATE_SQL} 과 같은 이유다.
+   *
+   * @return 떼어 냈으면 {@code true}. 이미 다른 계정을 가리키고 있었으면 {@code false}
+   */
+  public boolean detachInstall(UUID installUuid, UUID userId) {
+    return jdbc.sql(DETACH_SQL)
+            .param("newUserId", UUID.randomUUID().toString())
+            .param("installUuid", installUuid.toString())
+            .param("userId", userId.toString())
+            .update()
+        > 0;
+  }
+
+  /**
+   * 내 계정 — {@code GET /me} 와 토큰 묶음의 {@code user}.
+   *
+   * <p>이름과 이메일은 연결된 소셜 신분에서 가져온다. 지금은 신분이 하나지만 여럿이 될 자리라, 먼저 연결한 것부터 보아 처음으로 값이 있는 것을 쓴다.
+   *
+   * @return 살아 있는 가입 계정이면 그 모습. 없거나 비회원이거나 합쳐졌으면 비어 있다
+   */
+  public Optional<Profile> profile(UUID userId) {
+    Optional<OffsetDateTime> registeredAt =
+        jdbc.sql(
+                "SELECT registered_at FROM app_user"
+                    + " WHERE id = CAST(:id AS UUID) AND merged_into IS NULL"
+                    + " AND registered_at IS NOT NULL")
+            .param("id", userId.toString())
+            .query((rs, n) -> rs.getObject("registered_at", OffsetDateTime.class))
+            .optional();
+    if (registeredAt.isEmpty()) {
+      return Optional.empty();
+    }
+    List<Identity> identities =
+        jdbc.sql(
+                "SELECT provider, email, display_name FROM user_identity"
+                    + " WHERE user_id = CAST(:id AS UUID) ORDER BY created_at, provider")
+            .param("id", userId.toString())
+            .query(
+                (rs, n) ->
+                    new Identity(
+                        rs.getString("provider"),
+                        rs.getString("email"),
+                        rs.getString("display_name")))
+            .list();
+    return Optional.of(new Profile(userId, registeredAt.get(), identities));
+  }
+
+  /**
+   * 탈퇴 — 계정 행을 지운다.
+   *
+   * <p>그 계정의 모든 것이 {@code ON DELETE CASCADE} 로 함께 사라진다: 설치본 연결·장바구니·코스(아이템·핀)·찜·마켓에 올린 코스와 좋아요·소셜
+   * 신분·리프레시 토큰. 이 계정으로 합쳐진 빈 비회원 행들은 {@code merged_into} 가 이 행을 가리키는데 그 FK 에는 CASCADE 가 없으므로, 먼저
+   * 끊는다 — 그 행들은 이미 비어 있으니 함께 지운다.
+   *
+   * @return 지웠으면 {@code true}. 이미 없었으면 {@code false}
+   */
+  public boolean delete(UUID userId) {
+    jdbc.sql("DELETE FROM app_user WHERE merged_into = CAST(:id AS UUID)")
+        .param("id", userId.toString())
+        .update();
+    return jdbc.sql("DELETE FROM app_user WHERE id = CAST(:id AS UUID)")
+            .param("id", userId.toString())
+            .update()
+        > 0;
+  }
+
+  /**
+   * 가입 계정의 모습.
+   *
+   * @param identities 먼저 연결한 것부터
+   */
+  public record Profile(UUID id, OffsetDateTime registeredAt, List<Identity> identities) {
+
+    /** 화면에 보일 이름 — 먼저 연결한 신분부터 보아 처음으로 값이 있는 것. 없을 수 있다. */
+    public String displayName() {
+      return identities.stream()
+          .map(Identity::displayName)
+          .filter(n -> n != null && !n.isBlank())
+          .findFirst()
+          .orElse(null);
+    }
+
+    /** 참고용 이메일 — 이름과 같은 규칙. 없을 수 있다. */
+    public String email() {
+      return identities.stream()
+          .map(Identity::email)
+          .filter(e -> e != null && !e.isBlank())
+          .findFirst()
+          .orElse(null);
+    }
+  }
+
+  /** 계정에 붙은 소셜 신분 하나. {@code provider} 는 {@code google} · {@code apple}. */
+  public record Identity(String provider, String email, String displayName) {}
+
+  /**
+   * 설치본이 가리키는 계정.
+   *
+   * @param id 계정 id
+   * @param registered 가입했는가 — {@code registered_at} 이 채워졌는가
+   */
+  public record Account(UUID id, boolean registered) {}
 }

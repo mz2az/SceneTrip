@@ -42,12 +42,27 @@ kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 ||
 # --dry-run=client -o yaml | apply : "있으면 갱신, 없으면 생성". create 만 쓰면 두 번째
 # 실행에서 AlreadyExists 로 죽는다. 키를 바꾸고 다시 돌리는 것이 이 스크립트의 용도다.
 log "Secret $SECRET_NAME 적용 (네임스페이스 $NAMESPACE)"
+# JWT 서명 키는 없어도 된다 — 서버가 로그인만 끄고 뜬다(application.yaml). 있을 때만 싣는다.
+# 빈 값을 실으면 「키가 있는데 비었다」 가 되어 위의 원칙과 어긋난다.
+#
+# 아래의 ${A[@]+"${A[@]}"} 는 빈 배열을 펼치는 안전한 꼴이다. macOS 기본 bash 3.2 는 set -u
+# 아래에서 빈 배열을 "${A[@]}" 로 펼치면 unbound variable 로 죽는다(실측).
+JWT_ARGS=()
+if [ -n "${SCENETRIP_AUTH_JWT_SECRET:-}" ]; then
+  JWT_ARGS=(--from-literal=SCENETRIP_AUTH_JWT_SECRET="$SCENETRIP_AUTH_JWT_SECRET")
+fi
+
 kubectl create secret generic "$SECRET_NAME" \
   --from-literal=KAKAO_REST_KEY="$KAKAO_REST_KEY" \
+  ${JWT_ARGS[@]+"${JWT_ARGS[@]}"} \
   --dry-run=client -o yaml |
   kubectl apply -n "$NAMESPACE" -f - >/dev/null
 
-log "적용됨 — KAKAO_REST_KEY 있음"
+if [ ${#JWT_ARGS[@]} -gt 0 ]; then
+  log "적용됨 — KAKAO_REST_KEY 있음, SCENETRIP_AUTH_JWT_SECRET 있음"
+else
+  log "적용됨 — KAKAO_REST_KEY 있음, SCENETRIP_AUTH_JWT_SECRET 없음(로그인 꺼짐)"
+fi
 
 # 환경변수는 컨테이너가 뜰 때 한 번 읽힌다. 이미 떠 있는 파드는 새 값을 모른다.
 if kubectl get deployment/scene-api -n "$NAMESPACE" >/dev/null 2>&1; then

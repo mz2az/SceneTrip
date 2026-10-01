@@ -34,18 +34,21 @@ class NavigationController implements NavigationApi {
   private final NextLegPlanner planner;
   private final CourseStore courses;
   private final UserStore users;
+  private final CurrentAccount accounts;
 
-  NavigationController(NextLegPlanner planner, CourseStore courses, UserStore users) {
+  NavigationController(
+      NextLegPlanner planner, CourseStore courses, UserStore users, CurrentAccount accounts) {
     this.planner = planner;
     this.courses = courses;
     this.users = users;
+    this.accounts = accounts;
   }
 
   @Override
   public ResponseEntity<NextLeg> getNextLeg(
       UUID xInstallId, NextLegRequest request, Lang acceptLanguage) {
 
-    UUID user = users.resolve(xInstallId);
+    UUID user = accounts.resolve(xInstallId);
     long courseId = request.getCourseId();
 
     if (!users.isRegistered(user)) {

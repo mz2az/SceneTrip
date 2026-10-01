@@ -325,6 +325,7 @@ curl http://localhost:8081/v1/actuator/health
 | `SPRING_DATASOURCE_USERNAME` | 아니오 | `scenetrip` | DB 사용자 |
 | `SPRING_DATASOURCE_PASSWORD` | **예** | 없음 | DB 비밀번호. 값이 없으면 접속이 거부되어 기동이 실패한다 |
 | `KAKAO_REST_KEY` | 아니오 | 없음 | 여행 중 길찾기(카카오 대중교통·도보). 없으면 기동은 하고 길찾기만 503 이다 |
+| `SCENETRIP_AUTH_JWT_SECRET` | 아니오 | 없음 | 로그인 액세스 토큰(JWT, HS256) 서명 키 — base64, 32 바이트 이상(`openssl rand -base64 48`). **없으면 기동은 하고 로그인만 꺼진다**(구글 로그인 500, 갱신 401, 토큰은 전부 `ACCESS_TOKEN_INVALID`). 있는데 짧거나 base64 가 아니면 기동을 멈춘다. 환경마다 다른 값이어야 하고, **한 번 정하면 바꾸지 않는다** — 바꾸면 옛 키의 토큰이 `ACCESS_TOKEN_INVALID` 가 되어 앱이 토큰을 지우므로 로그인한 사람이 전부 로그아웃된다 |
 | `SCENETRIP_AUTH_REQUIRE_REGISTRATION` | 아니오 | `true` | 가입 판정. `false` 면 마켓·길찾기·챗봇의 401 이 나지 않는다. **로컬 kind 의 ConfigMap 만 끈다** — 로그인 전 시뮬레이터 검증용이고 기동 로그에 경고가 남는다 |
 | `SCENETRIP_GUIDE_AGENT_BASE_URL` | 아니오 | `http://localhost:8899` | 가이드 에이전트(`agents/trip-guide`) 주소. 없으면 기동은 하고 `/guide/*` 만 503 이다. 클러스터 값은 에이전트 컨테이너가 생길 때 정한다 |
 
@@ -358,6 +359,26 @@ just restart scene-api         # 이미 떠 있으면 — 환경변수는 뜰 �
 | `timeout-seconds` | `3` | 실측 0.3 초의 10 배 |
 | `min-interval-ms` | `300` | 뒤에서 채우는 일꾼의 한 건 사이 간격(초당 3 건) |
 | `pause-seconds` | `60` | 막혔을 때(403·429) 쉬는 시간. 연속 세 번이면 재시작 전까지 내린다 |
+
+## 로그인 — 구글, JWT
+
+구글 로그인(가입 겸)·갱신·로그아웃·`/me`·탈퇴. 애플은 아직 `501`. 결정은
+[ADR 0018](../../docs/architecture/adr/0018-social-login-with-jwt.md), 설계·동시성·알려진 틈은
+[계획서](../../docs/project/plans/social-login.md).
+
+| 패키지·클래스 | 하는 일 |
+| --- | --- |
+| `auth/AccessTokens` | 우리 액세스 토큰(JWT) 발급·검증. 키가 없으면 닫힌 쪽으로 실패 |
+| `auth/RefreshTokenStore` | 일회용 리프레시 토큰. 해시만 저장, 재사용이면 그 계정의 토큰 전부 폐기 |
+| `auth/GoogleIdTokenVerifier` | 구글 ID 토큰 검증 — 구글 공개키(JWKS, 캐시), `aud`·nonce |
+| `auth/SignInService` · `user/AccountLinkStore` | 로그인 한 번 = 한 트랜잭션: 가입·로그인·비회원 합치기(MZ2AZ-256) |
+| `web/CurrentAccount` | 요청의 계정 — 토큰이 이긴다, 가입 계정은 설치 UUID 만으로 안 열린다(`SESSION_REQUIRED`) |
+
+구글 클라이언트 ID(웹·iOS)는 공개 값이라 `application.yaml` 에 있다. 서명 키만 비밀이다 — 위 설정 표.
+
+로컬에서 로그인을 켜려면 `.env` 에 `SCENETRIP_AUTH_JWT_SECRET` 를 넣고 `just secrets-apply` 뒤
+`just deploy scene-api local` 이다. **`just update` 로는 안 된다** — 이미지만 바꾸고 매니페스트
+(이 키를 환경변수로 잇는 `deployment.yaml`)를 다시 적용하지 않는다.
 
 ## 길찾기 — 이 서비스의 첫 외부 HTTP
 

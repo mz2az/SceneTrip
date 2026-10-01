@@ -30,11 +30,14 @@ class MarketController implements MarketApi {
   private final MarketStore store;
   private final CourseStore courses;
   private final UserStore users;
+  private final CurrentAccount accounts;
 
-  MarketController(MarketStore store, CourseStore courses, UserStore users) {
+  MarketController(
+      MarketStore store, CourseStore courses, UserStore users, CurrentAccount accounts) {
     this.store = store;
     this.courses = courses;
     this.users = users;
+    this.accounts = accounts;
   }
 
   @Override
@@ -51,7 +54,7 @@ class MarketController implements MarketApi {
 
     MarketStore.Page page =
         store.withContents(
-            store.list(users.resolve(xInstallId), query, sort, limit, offset), acceptLanguage);
+            store.list(accounts.resolve(xInstallId), query, sort, limit, offset), acceptLanguage);
 
     return ResponseEntity.ok(new MarketCourseList(page.items(), page.total(), limit, offset));
   }
@@ -83,7 +86,7 @@ class MarketController implements MarketApi {
   public ResponseEntity<MarketCourseDetail> getMarketCourse(
       UUID xInstallId, Long marketCourseId, Lang acceptLanguage) {
 
-    return ResponseEntity.ok(read(users.resolve(xInstallId), marketCourseId, acceptLanguage));
+    return ResponseEntity.ok(read(accounts.resolve(xInstallId), marketCourseId, acceptLanguage));
   }
 
   /**
@@ -148,7 +151,7 @@ class MarketController implements MarketApi {
    * <p><b>지금은 아무도 통과하지 못한다</b> — 가입시키는 경로가 아직 없다. 계약이 약속한 그대로이고, 프론트는 이 동작들의 화면을 아직 만들지 않는다.
    */
   private UUID requireRegistered(UUID xInstallId) {
-    UUID user = users.resolve(xInstallId);
+    UUID user = accounts.resolve(xInstallId);
     if (!users.isRegistered(user)) {
       throw ApiException.signInRequired("SIGN_IN_REQUIRED", "이 동작은 가입한 사용자만 할 수 있습니다");
     }

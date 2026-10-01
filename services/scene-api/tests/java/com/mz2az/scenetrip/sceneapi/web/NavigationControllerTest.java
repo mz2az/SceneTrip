@@ -50,9 +50,11 @@ class NavigationControllerTest {
   @MockitoBean private CourseStore courses;
   @MockitoBean private UserStore users;
 
+  @MockitoBean private CurrentAccount accounts;
+
   @BeforeEach
   void happyPathByDefault() {
-    when(users.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
+    when(accounts.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
     when(users.isRegistered(USER)).thenReturn(true);
     when(courses.exists(USER, COURSE)).thenReturn(true);
     when(courses.isActive(USER, COURSE)).thenReturn(true);

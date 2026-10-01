@@ -16,7 +16,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.mz2az.scenetrip.sceneapi.api.model.ContentCategory;
 import com.mz2az.scenetrip.sceneapi.api.model.ContentSummary;
 import com.mz2az.scenetrip.sceneapi.favorite.FavoriteStore;
-import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,11 +40,11 @@ class FavoriteControllerTest {
 
   @MockitoBean private FavoriteStore store;
 
-  @MockitoBean private UserStore users;
+  @MockitoBean private CurrentAccount accounts;
 
   @BeforeEach
   void resolveAccount() {
-    when(users.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
+    when(accounts.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
   }
 
   @Test
@@ -127,7 +126,7 @@ class FavoriteControllerTest {
                 .content("{\"contentId\":2}"))
         .andExpect(status().isNoContent());
 
-    verify(users).resolve(UUID.fromString(INSTALL_ID));
+    verify(accounts).resolve(UUID.fromString(INSTALL_ID));
     verify(store).add(USER, 2L);
   }
 }

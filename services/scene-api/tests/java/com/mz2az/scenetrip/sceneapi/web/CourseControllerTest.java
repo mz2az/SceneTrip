@@ -20,7 +20,6 @@ import com.mz2az.scenetrip.sceneapi.api.model.CourseReplace;
 import com.mz2az.scenetrip.sceneapi.api.model.CourseStatus;
 import com.mz2az.scenetrip.sceneapi.api.model.TravelBasis;
 import com.mz2az.scenetrip.sceneapi.course.CourseStore;
-import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -47,11 +46,11 @@ class CourseControllerTest {
 
   @MockitoBean private CourseStore store;
 
-  @MockitoBean private UserStore users;
+  @MockitoBean private CurrentAccount accounts;
 
   @BeforeEach
   void resolveAccount() {
-    when(users.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
+    when(accounts.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
   }
 
   private static CourseDetail course(long id, CourseStatus status) {
@@ -86,7 +85,7 @@ class CourseControllerTest {
 
     mvc.perform(get("/courses").header("X-Install-Id", INSTALL_ID)).andExpect(status().isOk());
 
-    verify(users).resolve(UUID.fromString(INSTALL_ID));
+    verify(accounts).resolve(UUID.fromString(INSTALL_ID));
     verify(store).list(USER);
   }
 

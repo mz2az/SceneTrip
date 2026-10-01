@@ -53,6 +53,16 @@ public class ApiException extends RuntimeException {
   }
 
   /**
+   * 토큰 문제 — 만료·위조, 또는 가입 계정에 토큰 없이 왔다.
+   *
+   * <p>{@link #signInRequired} 와 상태 코드(401)는 같고 뜻이 다르다. 그쪽은 「가입하면 할 수 있다」 이고, 이쪽은 「가진 토큰을 고쳐 와라」 다.
+   * 앱은 {@code code} 로 가른다 — 목록은 계약의 {@code Unauthorized} 응답과 {@code docs/api/errors.md}.
+   */
+  public static ApiException unauthorized(String code, String message) {
+    return new ApiException(HttpStatus.UNAUTHORIZED, code, message);
+  }
+
+  /**
    * 남의 것을 고치거나 지우려 했다.
    *
    * <p>{@code 404} 와 갈리는 자리에 주의한다. 존재 자체를 숨겨야 하면 404 이고(내 코스), 이미 누구에게나 보이는 것이면 403 이다(마켓에 올라온 코스).
