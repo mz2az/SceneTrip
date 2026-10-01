@@ -1,5 +1,7 @@
 """AWS 배포 경계 검증과 비밀값을 출력하지 않는 프로세스 실행."""
 
+import base64
+import binascii
 import json
 import os
 import re
@@ -14,7 +16,14 @@ SECRET_KEYS = {
     "scene_api": {"KAKAO_REST_KEY"},
     "trip_guide": {"DEEPSEEK_API_KEY"},
     "database": {"username", "password", "migration_username", "migration_password"},
+    # 로그인 액세스 토큰(JWT) 서명 키. 사람이 넣지 않는다 — 배포가 환경당 한 번 만든다
+    # (deploy.auth_secret). 카카오 키(scene_api)와 칸을 나눈 이유는 deploy.auth_secret.
+    "auth": {"SCENETRIP_AUTH_JWT_SECRET"},
 }
+
+# scene-api 의 AccessTokens 가 받는 최소 길이(HS256). 짧으면 서버가 기동을 멈추므로
+# 배포 단계에서 먼저 막는다.
+MIN_JWT_SECRET_BYTES = 32
 
 
 def matched(pattern, value, label):
@@ -87,6 +96,16 @@ def validate_secret(kind, value):
         or value["migration_username"] != "app_migrate"
     ):
         raise ValueError("DB 런타임·마이그레이션 역할 이름이 잘못되었습니다")
+    if kind == "auth":
+        try:
+            key = base64.b64decode(value["SCENETRIP_AUTH_JWT_SECRET"], validate=True)
+        except (binascii.Error, ValueError):
+            # 값을 메시지에 싣지 않는다.
+            raise ValueError("auth 서명 키가 base64 가 아닙니다") from None
+        if len(key) < MIN_JWT_SECRET_BYTES:
+            raise ValueError(
+                f"auth 서명 키가 {MIN_JWT_SECRET_BYTES} 바이트보다 짧습니다"
+            )
     return dict(value)
 
 

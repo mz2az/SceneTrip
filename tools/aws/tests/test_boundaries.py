@@ -514,6 +514,7 @@ class BoundaryTest(unittest.TestCase):
                 "database": "database-arn",
                 "scene_api": "scene-arn",
                 "trip_guide": "guide-arn",
+                "auth": "auth-arn",
             },
             "ecr_repository_urls": {
                 "scene_api": "scene-image",
@@ -553,6 +554,10 @@ class BoundaryTest(unittest.TestCase):
                 return_value="fixture.ap-northeast-2.elb.amazonaws.com",
             ),
             patch("tools.aws.deploy.database_credentials", return_value=credentials),
+            patch(
+                "tools.aws.deploy.auth_secret",
+                return_value={"SCENETRIP_AUTH_JWT_SECRET": "fixture-signing-key"},
+            ),
             patch(
                 "tools.aws.deploy.secret_value",
                 side_effect=[

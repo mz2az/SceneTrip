@@ -25,7 +25,7 @@ class CliTest(unittest.TestCase):
         }
         managed = "\n".join(
             f'aws_secretsmanager_secret.app["{key}"]'
-            for key in ("scene_api", "trip_guide", "database")
+            for key in ("scene_api", "trip_guide", "database", "auth")
         )
 
         def execute(command, **unused):

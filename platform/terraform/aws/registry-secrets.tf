@@ -4,6 +4,7 @@ locals {
     scene_api  = "SceneTrip 외부 API 인증정보"
     trip_guide = "Trip Guide 모델 API 인증정보"
     database   = "런타임·마이그레이션 PostgreSQL 역할 인증정보"
+    auth       = "로그인 액세스 토큰(JWT) 서명 키. 배포가 처음 한 번 만들고 이후 다시 쓴다 — 사람이 넣지 않는다"
   }
 }
 resource "aws_ecr_repository" "app" {
