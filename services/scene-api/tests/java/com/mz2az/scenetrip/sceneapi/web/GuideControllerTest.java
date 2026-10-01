@@ -49,6 +49,8 @@ class GuideControllerTest {
   @MockitoBean private GuideEffectApplier effects;
   @MockitoBean private UserStore users;
 
+  @MockitoBean private CurrentAccount accounts;
+
   private static final String CHAT_BODY =
       """
       {"sessionId":"0d4f7b1e-5c4a-4a1e-9b0e-6f1f6d2b8c11","latitude":37.5665,"longitude":126.978,
@@ -68,7 +70,7 @@ class GuideControllerTest {
 
   @BeforeEach
   void happyPathByDefault() {
-    when(users.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
+    when(accounts.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
     when(users.isRegistered(USER)).thenReturn(true);
     when(agent.chat(any(), any())).thenReturn(chatReply());
     GuidePlanReply planReply =

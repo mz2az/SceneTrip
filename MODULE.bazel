@@ -199,6 +199,14 @@ maven.install(
         # 버전은 에이전트 2.30.0 이 담고 있는 것과 맞췄다 (에이전트 2.X ↔ API 1.(X+26)).
         # API 가 에이전트보다 새로우면 에이전트가 이어 주지 못한다.
         "io.opentelemetry:opentelemetry-api:1.56.0",
+        # JOSE(JWT·JWS·JWK). 로그인에 쓴다 — 구글·애플 ID 토큰을 그들의 공개키(JWKS)로
+        # 검증하고, 우리 액세스 토큰(JWT)을 서명·검증한다 (ADR 0018).
+        #
+        # **Spring Security 를 넣지 않고 이것 하나만 넣는다.** 필요한 것은 「토큰이 있으면
+        # 계정을 정한다」 하나인데, Security 는 31 창구 전부에 필터 체인을 걸고 CSRF·세션 같은
+        # 기본값을 꺼야 할 것이 많다. 이 jar 는 필수 의존성이 없다 — POM 의 BouncyCastle·Tink 는
+        # 전부 optional 이라 딸려 오지 않는다(10.3 POM 확인). 우리가 쓰는 HS256·RS256·ES256 은 JDK 로 된다.
+        "com.nimbusds:nimbus-jose-jwt:10.3",
         "org.flywaydb:flyway-core:12.4.0",
         "org.flywaydb:flyway-database-postgresql:12.4.0",
         "org.postgresql:postgresql:42.7.11",

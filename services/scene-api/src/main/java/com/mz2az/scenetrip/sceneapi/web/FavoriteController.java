@@ -5,7 +5,6 @@ import com.mz2az.scenetrip.sceneapi.api.model.ContentList;
 import com.mz2az.scenetrip.sceneapi.api.model.FavoriteContentCreate;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.favorite.FavoriteStore;
-import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,18 +25,19 @@ import org.springframework.web.bind.annotation.RestController;
 class FavoriteController implements FavoritesApi {
 
   private final FavoriteStore store;
-  private final UserStore users;
+  private final CurrentAccount accounts;
 
-  FavoriteController(FavoriteStore store, UserStore users) {
+  FavoriteController(FavoriteStore store, CurrentAccount accounts) {
     this.store = store;
-    this.users = users;
+    this.accounts = accounts;
   }
 
   @Override
   public ResponseEntity<ContentList> listFavoriteContents(
       UUID xInstallId, Lang acceptLanguage, Integer limit, Integer offset) {
 
-    FavoriteStore.Page page = store.list(users.resolve(xInstallId), acceptLanguage, limit, offset);
+    FavoriteStore.Page page =
+        store.list(accounts.resolve(xInstallId), acceptLanguage, limit, offset);
 
     ContentList body = new ContentList(page.items(), page.total(), limit, offset);
     return Responses.ok(body, Responses.used(acceptLanguage, page.anyInRequestedLang()));
@@ -55,7 +55,7 @@ class FavoriteController implements FavoritesApi {
       throw ApiException.notFound("CONTENT_NOT_FOUND", "작품 " + contentId + " 이(가) 없습니다");
     }
 
-    store.add(users.resolve(xInstallId), contentId);
+    store.add(accounts.resolve(xInstallId), contentId);
     return ResponseEntity.noContent().build();
   }
 
@@ -67,7 +67,7 @@ class FavoriteController implements FavoritesApi {
    */
   @Override
   public ResponseEntity<Void> removeFavoriteContent(UUID xInstallId, Long contentId) {
-    store.remove(users.resolve(xInstallId), contentId);
+    store.remove(accounts.resolve(xInstallId), contentId);
     return ResponseEntity.noContent().build();
   }
 }

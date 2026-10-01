@@ -38,18 +38,24 @@ class GuideController implements GuideApi {
   private final GuideAgentClient agent;
   private final GuideEffectApplier effects;
   private final UserStore users;
+  private final CurrentAccount accounts;
 
-  GuideController(GuideAgentClient agent, GuideEffectApplier effects, UserStore users) {
+  GuideController(
+      GuideAgentClient agent,
+      GuideEffectApplier effects,
+      UserStore users,
+      CurrentAccount accounts) {
     this.agent = agent;
     this.effects = effects;
     this.users = users;
+    this.accounts = accounts;
   }
 
   @Override
   public ResponseEntity<GuideChatReply> chatWithGuide(
       UUID xInstallId, GuideChatRequest request, Lang acceptLanguage) {
 
-    UUID user = users.resolve(xInstallId);
+    UUID user = accounts.resolve(xInstallId);
     if (!users.isRegistered(user)) {
       throw ApiException.signInRequired("SIGN_IN_REQUIRED", "이 동작은 가입한 사용자만 할 수 있습니다");
     }

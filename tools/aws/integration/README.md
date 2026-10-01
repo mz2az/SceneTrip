@@ -14,8 +14,8 @@ Bazel이 `MODULE.bazel`의 digest로 고정한 PostGIS·nginx 이미지를 tar�
 | --- | --- |
 | PostgreSQL 17 역할 경계 | `NOSUPERUSER CREATEDB CREATEROLE` 관리자에서 실제 bootstrap SQL의 역할·DB 생성 구간 실행. `SET ROLE` 권한이 빠지면 실패 |
 | DB 초기화 | C/C.UTF-8 locale, PostGIS·pg_trgm, 실제 `db-bootstrap.sh` 실행과 반복 실행 |
-| 마이그레이션 | 저장소 V1–V14 원문을 `app_migrate`로 각 트랜잭션에서 실행 |
-| 런타임 권한 | `app_runtime`의 공간 데이터 INSERT·SELECT·UPDATE·DELETE와 sequence 사용. schema 생성과 Flyway 이력 접근은 거절 |
+| 마이그레이션 | 저장소의 마이그레이션 원문 전부를 `app_migrate`로 각 트랜잭션에서 실행. 번호가 V1 부터 빈 칸·겹침 없이 이어지는지 확인(마지막 번호는 박지 않는다) |
+| 런타임 권한 | `app_runtime`의 공간 데이터 INSERT·SELECT·UPDATE·DELETE와 sequence 사용, 로그인 표(`user_identity`·`refresh_token`) 쓰기 — 마이그레이션 역할이 만든 표에 기본 권한이 걸리는지. schema 생성과 Flyway 이력 접근은 거절 |
 | Gateway | 실제 Helm 출력에서 nginx 설정 추출, 고정 nginx 이미지에서 ALB 모의 relay→gateway→backend HTTP 요청 |
 | 컨테이너 제한 | nginx UID/GID 10001, 읽기 전용 root filesystem, capability 제거, 쓰기 가능한 `/tmp`만 허용 |
 | 외부 경계 | relay가 실제 TCP client IP를 XFF 마지막에 추가. 위조된 이전 XFF·X-Real-IP 제거, 승인되지 않은 client·gateway 직접 접근 403, Host·내부 경로 우회 차단 |

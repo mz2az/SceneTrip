@@ -54,9 +54,11 @@ class MarketControllerTest {
 
   @MockitoBean private UserStore users;
 
+  @MockitoBean private CurrentAccount accounts;
+
   @BeforeEach
   void resolveAccount() {
-    when(users.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
+    when(accounts.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
   }
 
   private void signedIn() {

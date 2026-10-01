@@ -12,7 +12,6 @@ import com.mz2az.scenetrip.sceneapi.api.model.CourseSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.VisitUpdate;
 import com.mz2az.scenetrip.sceneapi.course.CourseStore;
-import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -27,22 +26,22 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p><b>여행 중 동작만 즉시다.</b> 코스를 시작하거나 일차를 넘기는 것은 편집이 아니라서, 그때 코스 전체를 보내라고 할 수 없다.
  *
- * <p>주체는 헤더의 설치 UUID 가 아니라 그것이 가리키는 계정이다 — {@link UserStore#resolve} 가 잇는다.
+ * <p>주체는 헤더의 설치 UUID 가 아니라 그것이 가리키는 계정이다 — {@link CurrentAccount#resolve} 가 잇는다 — 로그인했으면 토큰의 계정이다.
  */
 @RestController
 class CourseController implements CoursesApi {
 
   private final CourseStore store;
-  private final UserStore users;
+  private final CurrentAccount accounts;
 
-  CourseController(CourseStore store, UserStore users) {
+  CourseController(CourseStore store, CurrentAccount accounts) {
     this.store = store;
-    this.users = users;
+    this.accounts = accounts;
   }
 
   @Override
   public ResponseEntity<CourseList> listCourses(UUID xInstallId, Lang acceptLanguage) {
-    List<CourseSummary> items = store.list(users.resolve(xInstallId));
+    List<CourseSummary> items = store.list(accounts.resolve(xInstallId));
     return ResponseEntity.ok(new CourseList(items, items.size()));
   }
 
@@ -50,7 +49,7 @@ class CourseController implements CoursesApi {
   public ResponseEntity<CourseDetail> createCourse(
       UUID xInstallId, CourseCreate courseCreate, Lang acceptLanguage) {
 
-    UUID user = users.resolve(xInstallId);
+    UUID user = accounts.resolve(xInstallId);
     long courseId = store.create(user, courseCreate);
     return ResponseEntity.status(HttpStatus.CREATED).body(read(user, courseId, acceptLanguage));
   }
@@ -59,14 +58,14 @@ class CourseController implements CoursesApi {
   public ResponseEntity<CourseDetail> getCourse(
       UUID xInstallId, Long courseId, Lang acceptLanguage) {
 
-    return ResponseEntity.ok(read(users.resolve(xInstallId), courseId, acceptLanguage));
+    return ResponseEntity.ok(read(accounts.resolve(xInstallId), courseId, acceptLanguage));
   }
 
   @Override
   public ResponseEntity<CourseDetail> replaceCourse(
       UUID xInstallId, Long courseId, CourseReplace courseReplace, Lang acceptLanguage) {
 
-    UUID user = users.resolve(xInstallId);
+    UUID user = accounts.resolve(xInstallId);
     requireCourse(user, courseId);
     validate(courseReplace);
     requireLongEnoughForTrip(user, courseId, courseReplace.getDays().size());
@@ -84,7 +83,7 @@ class CourseController implements CoursesApi {
 
   @Override
   public ResponseEntity<Void> deleteCourse(UUID xInstallId, Long courseId) {
-    if (!store.delete(users.resolve(xInstallId), courseId)) {
+    if (!store.delete(accounts.resolve(xInstallId), courseId)) {
       throw notFound(courseId);
     }
     return ResponseEntity.noContent().build();
@@ -94,7 +93,7 @@ class CourseController implements CoursesApi {
   public ResponseEntity<CourseDetail> updateCourseProgress(
       UUID xInstallId, Long courseId, CourseProgress courseProgress, Lang acceptLanguage) {
 
-    UUID user = users.resolve(xInstallId);
+    UUID user = accounts.resolve(xInstallId);
     requireCourse(user, courseId);
 
     if (courseProgress.getStatus() == CourseStatus.ACTIVE
@@ -110,7 +109,7 @@ class CourseController implements CoursesApi {
   public ResponseEntity<Void> updateCourseItemVisit(
       UUID xInstallId, Long courseId, Long itemId, VisitUpdate visitUpdate) {
 
-    UUID user = users.resolve(xInstallId);
+    UUID user = accounts.resolve(xInstallId);
     requireCourse(user, courseId);
 
     // 예정 코스에서는 방문 체크가 뜻이 없다. 400 이 아니라 409 인 이유는 요청 자체는

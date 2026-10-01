@@ -124,6 +124,8 @@ java_library(
         # 에 박아 둔다 — "이 응답은 우리 통제 밖" 이라는 표시다. 아티팩트는 이미
         # 전이 의존으로 잠겨 있어 MODULE.bazel 은 그대로다.
         "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        # JWT 서명·검증과 구글·애플 공개키 검증 (ADR 0018, MODULE.bazel 의 이유).
+        "@maven//:com_nimbusds_nimbus_jose_jwt",
         # ObservationRegistry 타입. 카카오 클라이언트가 나가는 호출을 Spring 관측에 걸어
         # 대중교통·도보를 uri 태그로 가른다. 런타임엔 액추에이터가 끌고 오지만 컴파일에
         # 그 타입을 쓰려면 여기 있어야 한다. 잠금 파일에 이미 있어 MODULE.bazel 은 그대로다.
@@ -134,6 +136,8 @@ java_library(
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:jakarta_annotation_jakarta_annotation_api",
         "@maven//:jakarta_validation_jakarta_validation_api",
+        # CurrentAccount 가 요청의 Authorization 헤더를 읽는다(HttpServletRequest).
+        "@maven//:jakarta_servlet_jakarta_servlet_api",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_springframework_boot_spring_boot",
         "@maven//:org_springframework_boot_spring_boot_autoconfigure",
@@ -220,9 +224,17 @@ java_junit5_test(
     deps = [
         ":scene-api",
         "//contracts/openapi:scene_api_spring_lib",
+        # AuthFlowIntegrationTest 가 CurrentAccount 에 넣을 요청(MockHttpServletRequest)을 만들고
+        # 컨트롤러의 ResponseEntity 를 읽는다 — 스프링 컨텍스트 없이 실제 Store 로 흐름을 태운다.
+        "@maven//:jakarta_servlet_jakarta_servlet_api",
+        # GoogleSignInIntegrationTest 가 이 자리에서 만든 RSA 키로 구글처럼 생긴 ID 토큰을 서명하고,
+        # 검증기에 그 공개키 한 장짜리 키 묶음을 준다 — 실제 구글을 부르지 않는다.
+        "@maven//:com_nimbusds_nimbus_jose_jwt",
         "@maven//:org_assertj_assertj_core",
         "@maven//:org_springframework_spring_jdbc",
+        "@maven//:org_springframework_spring_test",
         "@maven//:org_springframework_spring_tx",
+        "@maven//:org_springframework_spring_web",
     ],
 )
 
@@ -241,6 +253,8 @@ java_junit5_test(
     deps = [
         ":scene-api",
         "//contracts/openapi:scene_api_spring_lib",
+        # AccessTokensTest 가 위조 토큰(다른 키·다른 알고리즘·alg=none)을 직접 서명해 만든다.
+        "@maven//:com_nimbusds_nimbus_jose_jwt",
         "@maven//:io_opentelemetry_opentelemetry_api",
         # Span.makeCurrent() 가 여기 있다. api 가 전이로 끌어오지만 직접 쓰므로 명시한다.
         "@maven//:io_opentelemetry_opentelemetry_context",

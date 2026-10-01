@@ -13,7 +13,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.mz2az.scenetrip.sceneapi.api.model.CartItem;
 import com.mz2az.scenetrip.sceneapi.cart.CartStore;
-import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -36,18 +35,18 @@ class CartControllerTest {
   /** {@code X-Install-Id} 로 오는 값 — 앱이 만든 설치 UUID 다. */
   private static final String INSTALL_ID = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
 
-  /** 그것을 {@link UserStore} 가 바꿔 주는 계정 id. 저장의 주체는 이쪽이다. */
+  /** 그것을 {@link CurrentAccount} 가 바꿔 주는 계정 id. 저장의 주체는 이쪽이다. */
   private static final UUID USER = UUID.fromString("9d1e4b52-6c07-4a8f-b3d1-2e6f80c4a915");
 
   @Autowired private MockMvc mvc;
 
   @MockitoBean private CartStore store;
 
-  @MockitoBean private UserStore users;
+  @MockitoBean private CurrentAccount accounts;
 
   @BeforeEach
   void resolveAccount() {
-    when(users.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
+    when(accounts.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
   }
 
   private static CartItem item(long placeId, String name) {
@@ -96,7 +95,7 @@ class CartControllerTest {
 
     mvc.perform(get("/cart").header("X-Install-Id", INSTALL_ID)).andExpect(status().isOk());
 
-    verify(users).resolve(UUID.fromString(INSTALL_ID));
+    verify(accounts).resolve(UUID.fromString(INSTALL_ID));
     verify(store).list(eq(USER), any());
   }
 

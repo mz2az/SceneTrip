@@ -17,7 +17,7 @@ SceneTrip은 작품의 촬영지를 검색하고 여행 코스를 만들고 여�
 | `apps/scenetrip-android` | Compose·Naver Map, Android 화면 | HTTPS `/v1`, Play Store 별도 배포 |
 | `services/scene-api` | Spring Boot 4.1·Java 21, API·데이터 저장·가이드 effects 적용 | PostgreSQL, 내부 agent, Kakao·Naver |
 | `agents/trip-guide` | Python 코스 계산·LLM 도구 선택·대화 | scene-api의 조회 API, DeepSeek |
-| PostgreSQL 17 | 작품·장소·코스·비회원 식별·POI | PostGIS, pg_trgm, Flyway V1–V14 |
+| PostgreSQL 17 | 작품·장소·코스·계정(비회원·로그인)·POI | PostGIS, pg_trgm, Flyway 마이그레이션 전부(`services/scene-api/src/main/resources/db/migration`) |
 
 에이전트는 DB나 사용자 설치 식별자를 직접 갖지 않는다. 장소 조회는 scene-api를
 통하고, `cart.*` 변경은 scene-api가 사용자 맥락에서 적용한다.

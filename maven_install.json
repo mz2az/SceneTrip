@@ -7,6 +7,7 @@
     "com.google.googlejavaformat:google-java-format": -1066280999,
     "com.google.guava:guava": 1943808618,
     "com.google.j2objc:j2objc-annotations": 2003271689,
+    "com.nimbusds:nimbus-jose-jwt": -1808783368,
     "com.pinterest.ktlint:ktlint-cli": 423561227,
     "com.puppycrawl.tools:checkstyle": 680098671,
     "io.opentelemetry:opentelemetry-api": -2021454397,
@@ -50,6 +51,7 @@
     "com.google.guava:listenablefuture": 1079558157,
     "com.google.j2objc:j2objc-annotations": -1008747351,
     "com.jayway.jsonpath:json-path": -843320851,
+    "com.nimbusds:nimbus-jose-jwt": 942213159,
     "com.pinterest.ktlint:ktlint-cli": 1577015922,
     "com.pinterest.ktlint:ktlint-cli-reporter-baseline": -1932489283,
     "com.pinterest.ktlint:ktlint-cli-reporter-checkstyle": 484745398,
@@ -344,6 +346,12 @@
         "jar": "890daa95dd3892d34d9fabc27cd5153656e6f369358625c88f4dc7b79cbd6c5a"
       },
       "version": "2.10.0"
+    },
+    "com.nimbusds:nimbus-jose-jwt": {
+      "shasums": {
+        "jar": "a8894a9176bbb2735b927abb48838d284d64ebfd34a8f0cac277518ece5f3015"
+      },
+      "version": "10.3"
     },
     "com.pinterest.ktlint:ktlint-cli": {
       "shasums": {
@@ -2123,6 +2131,39 @@
       "com.jayway.jsonpath.spi.cache",
       "com.jayway.jsonpath.spi.json",
       "com.jayway.jsonpath.spi.mapper"
+    ],
+    "com.nimbusds:nimbus-jose-jwt": [
+      "com.nimbusds.jose",
+      "com.nimbusds.jose.crypto",
+      "com.nimbusds.jose.crypto.bc",
+      "com.nimbusds.jose.crypto.factories",
+      "com.nimbusds.jose.crypto.impl",
+      "com.nimbusds.jose.crypto.opts",
+      "com.nimbusds.jose.crypto.utils",
+      "com.nimbusds.jose.jca",
+      "com.nimbusds.jose.jwk",
+      "com.nimbusds.jose.jwk.gen",
+      "com.nimbusds.jose.jwk.source",
+      "com.nimbusds.jose.mint",
+      "com.nimbusds.jose.proc",
+      "com.nimbusds.jose.produce",
+      "com.nimbusds.jose.shaded.gson",
+      "com.nimbusds.jose.shaded.gson.annotations",
+      "com.nimbusds.jose.shaded.gson.internal",
+      "com.nimbusds.jose.shaded.gson.internal.bind",
+      "com.nimbusds.jose.shaded.gson.internal.bind.util",
+      "com.nimbusds.jose.shaded.gson.internal.reflect",
+      "com.nimbusds.jose.shaded.gson.internal.sql",
+      "com.nimbusds.jose.shaded.gson.reflect",
+      "com.nimbusds.jose.shaded.gson.stream",
+      "com.nimbusds.jose.shaded.jcip",
+      "com.nimbusds.jose.util",
+      "com.nimbusds.jose.util.cache",
+      "com.nimbusds.jose.util.events",
+      "com.nimbusds.jose.util.health",
+      "com.nimbusds.jwt",
+      "com.nimbusds.jwt.proc",
+      "com.nimbusds.jwt.util"
     ],
     "com.pinterest.ktlint:ktlint-cli": [
       "com.pinterest.ktlint",
@@ -5120,6 +5161,7 @@
       "com.google.guava:listenablefuture",
       "com.google.j2objc:j2objc-annotations",
       "com.jayway.jsonpath:json-path",
+      "com.nimbusds:nimbus-jose-jwt",
       "com.pinterest.ktlint:ktlint-cli",
       "com.pinterest.ktlint:ktlint-cli-reporter-baseline",
       "com.pinterest.ktlint:ktlint-cli-reporter-checkstyle",

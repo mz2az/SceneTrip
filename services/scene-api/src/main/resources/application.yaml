@@ -108,6 +108,30 @@ scenetrip:
     # SCENETRIP_AUTH_REQUIRE_REGISTRATION=false 로 끈다. 꺼진 파드는 기동 로그에 경고를
     # 남긴다(UserStore). 로그인이 붙으면 설정째 지운다.
     require-registration: true
+    # 우리 액세스 토큰(JWT, HS256)의 서명 키 — base64, 32 바이트 이상 (ADR 0018).
+    #
+    # **값은 여기 두지 않는다.** SCENETRIP_AUTH_JWT_SECRET 환경변수로 들어온다 — 로컬은
+    # .env 에서 `just secrets-apply` 가 만든 Secret, 원격은 시크릿 매니저. 비어 있으면 서버는
+    # 뜨되 로그인이 꺼진다(발급 불가, 토큰은 전부 ACCESS_TOKEN_INVALID). 길찾기 키가 없을 때
+    # 길찾기만 멈추는 것과 같다. 있는데 짧거나 base64 가 아니면 기동을 멈춘다.
+    jwt-secret: ${SCENETRIP_AUTH_JWT_SECRET:}
+    # 수명. 앱은 응답의 *ExpiresIn 을 따르므로 계약을 고치지 않고 바꿀 수 있다.
+    # 액세스가 짧은 만큼 로그아웃·탈퇴 뒤에 서명상 살아 있는 시간이 짧다.
+    access-token-ttl: 30m
+    # 리프레시는 쓸 때마다 새로 받으므로 「마지막으로 앱을 연 뒤 60 일」 이 로그인 유지 기간이다.
+    refresh-token-ttl: 60d
+    # 구글 로그인. 비밀값이 없다 — 클라이언트 ID 는 앱 바이너리에도 들어가는 공개 값이다.
+    google:
+      # 구글 ID 토큰의 서명 공개키. 받아서 캐시하고, 처음 보는 키 id 가 오면 다시 받는다.
+      jwks-uri: https://www.googleapis.com/oauth2/v3/certs
+      # 받아 줄 aud. 이것을 안 보면 남의 앱용 구글 토큰으로도 로그인된다(계획 §9).
+      #   웹  — Android 가 serverClientId 로 넘겨 Android 토큰의 aud 가 이것이 된다
+      #   iOS — iOS 토큰의 aud
+      # Android 클라이언트 ID 는 넣지 않는다 — 패키지·서명 지문 등록용일 뿐 aud 로 오지 않는다.
+      # 클라이언트는 서버 환경이 아니라 앱에 묶이므로 로컬·DEV·PRD 가 같은 목록이다.
+      client-ids: >-
+        700188854872-3dl36cm33ndb2m1e8j04svnrnjpjleep.apps.googleusercontent.com,
+        700188854872-7v9hphkb4phavae7stepil7q6vp7lbig.apps.googleusercontent.com
   # 편의시설 카드 — 네이버 장소(비공식, ADR 0011). 키는 없다.
   naver:
     # 스위치. 데모 중 막히거나 형식이 바뀌면 false 로 — 카드가 「꺼져 있음」이 되고 화면은 산다.

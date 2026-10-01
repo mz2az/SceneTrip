@@ -110,6 +110,14 @@ spec:
                   name: scene-api-secrets
                   key: KAKAO_REST_KEY
                   optional: true
+            # JWT 서명 키. 카카오 키와 같은 이유로 optional — 없으면 서버는 뜨고 로그인만
+            # 꺼진다(application.yaml 의 scenetrip.auth.jwt-secret).
+            - name: SCENETRIP_AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: scene-api-secrets
+                  key: SCENETRIP_AUTH_JWT_SECRET
+                  optional: true
           resources:
             requests:
               cpu: 100m

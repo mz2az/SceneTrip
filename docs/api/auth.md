@@ -5,9 +5,10 @@
 비밀번호는 받지 않는다. 구글·애플 소셜 로그인만 있고, 우리 쪽 인증은 짧은 JWT 액세스
 토큰과 일회용 리프레시 토큰이다 — [ADR 0018](../architecture/adr/0018-social-login-with-jwt.md).
 
-> **계약이 서버보다 앞서 있다.** 로그인 창구(`/auth/*`, `/me`)는 계약 1.3.0 에 들어갔고
-> 앱은 그것으로 작업을 시작할 수 있다. 서버 구현은 [MZ2AZ-331](https://mz2az.atlassian.net/browse/MZ2AZ-331)
-> 이고, 그 전까지 서버는 이 창구들에 `501` 을 돌려준다. 설계와 앱이 할 일은
+> **서버 구현 상태** — 구글 로그인(가입 겸)·갱신·로그아웃·`/me`·탈퇴가 돈다
+> ([MZ2AZ-331](https://mz2az.atlassian.net/browse/MZ2AZ-331) · [MZ2AZ-256](https://mz2az.atlassian.net/browse/MZ2AZ-256)).
+> **애플 로그인(`/auth/apple`)은 아직 `501`** 이다 — 애플 개발자 설정이 준비된 뒤다. 서명 키
+> (`SCENETRIP_AUTH_JWT_SECRET`)가 없는 환경은 서버가 로그인을 끈 채 뜬다. 설계와 앱이 할 일은
 > [social-login.md](../project/plans/social-login.md) 에 있다.
 
 로그인하지 않아도 대부분이 된다. 막혀 있는 것은 마켓 쓰기·여행 중 길찾기·가이드 챗봇뿐이다
@@ -110,8 +111,8 @@ UUID 는 **추측할 수 없어야 한다.** 순번이나 기기 식별자(IDFV�
 판정은 `app_user.registered_at` 한 칸이 전부다. 비회원과 가입 사용자가 같은 표를
 쓰고, 가입해도 행이 새로 생기지 않는다.
 
-가입은 `/auth/google` · `/auth/apple` 이 `registered_at` 을 채우는 것이다. 서버 구현
-([MZ2AZ-331](https://mz2az.atlassian.net/browse/MZ2AZ-331)) 전까지는 아무도 이 벽을 넘지 못한다.
+가입은 `/auth/google` · `/auth/apple` 이 `registered_at` 을 채우는 것이다. 로그인한 앱은
+토큰을 붙여 이 벽을 넘는다.
 
 ## 로그인하면
 
