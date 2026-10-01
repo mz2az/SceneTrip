@@ -1,6 +1,10 @@
 package com.mz2az.scenetrip.sceneapi.web;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -25,15 +29,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * 서명 키가 없어 로그인이 꺼진 서버의 {@code POST /auth/google}.
+ * 애플 로그인은 켜져 있지만 JWT 서명 키가 없는 서버의 {@code POST /auth/apple}.
  *
- * <p>가입시켜 놓고 액세스 토큰을 못 주면 「가입은 됐는데 로그인이 안 된다」 가 된다. 그래서 검증도 로그인 서비스도 부르기 전에 멈춰야 하고, 서버 설정 문제라 계약의
- * {@code 500} 이다. 컨텍스트가 {@link GoogleSignInControllerTest} 와 달라 클래스를 나눴다.
+ * <p>가입시켜 놓고 액세스 토큰을 못 주면 안 된다 — 계약의 {@code 500} 이고 아무도 가입시키지 않는다. 컨텍스트가 {@link
+ * AppleSignInControllerTest} 와 달라 클래스를 나눴다.
  */
 @WebMvcTest(AuthController.class)
-@Import({LanguageConfiguration.class, CurrentAccount.class, GoogleSignInWithoutKeyTest.NoKey.class})
-@DisplayName("AuthController — 서명 키가 없을 때의 구글 로그인")
-class GoogleSignInWithoutKeyTest {
+@Import({LanguageConfiguration.class, CurrentAccount.class, AppleSignInWithoutKeyTest.NoKey.class})
+@DisplayName("AuthController — 서명 키가 없을 때의 애플 로그인")
+class AppleSignInWithoutKeyTest {
 
   @TestConfiguration
   static class NoKey {
@@ -53,20 +57,26 @@ class GoogleSignInWithoutKeyTest {
 
   @MockitoBean private SignInService signIn;
 
-  // 애플 로그인 — 이 시험의 대상이 아니다. 목의 enabled() 는 false 라 /auth/apple 은 501, 탈퇴의 애플 끊기는 하지 않는다.
   @MockitoBean private AppleLogin apple;
 
   @Test
-  @DisplayName("키가 없으면 500 INTERNAL_ERROR — 검증기도 로그인 서비스도 부르지 않는다(아무도 가입시키지 않는다)")
-  void signInStopsBeforeAnything() throws Exception {
+  @DisplayName("애플이 켜져 있어도 서명 키가 없으면 500 INTERNAL_ERROR — 아무도 가입시키지 않는다")
+  void signInStopsBeforeRegistering() throws Exception {
+    when(apple.enabled()).thenReturn(true);
+
     mvc.perform(
-            post("/auth/google")
+            post("/auth/apple")
                 .header("X-Install-Id", "0e1d2c3b-4a59-4687-9a8b-7c6d5e4f3a21")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"idToken\":\"h.p.s\",\"nonce\":\"a1b2c3d4e5f6a7b8c9d0\"}"))
+                .content(
+                    "{\"identityToken\":\"h.p.s\",\"authorizationCode\":\"c.code\","
+                        + "\"nonce\":\"a1b2c3d4e5f6a7b8c9d0\",\"givenName\":\"철수\","
+                        + "\"familyName\":\"김\"}"))
         .andExpect(status().isInternalServerError())
         .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"));
 
-    verifyNoInteractions(google, signIn, refreshTokens);
+    verifyNoInteractions(signIn, refreshTokens);
+    // 코드는 5 분짜리 일회용이다 — 가입시키지 못할 거면 교환해 써 버리지도 않는다.
+    verify(apple, never()).verify(any(), any(), any(), any(), any());
   }
 }

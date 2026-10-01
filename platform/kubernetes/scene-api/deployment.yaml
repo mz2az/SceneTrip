@@ -118,6 +118,19 @@ spec:
                   name: scene-api-secrets
                   key: SCENETRIP_AUTH_JWT_SECRET
                   optional: true
+            # 애플 로그인 — 토큰 암호화 키와 애플 개인 키. 둘 다 optional: 없으면 애플 로그인만 꺼진다.
+            - name: SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: scene-api-secrets
+                  key: SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY
+                  optional: true
+            - name: SCENETRIP_AUTH_APPLE_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: scene-api-secrets
+                  key: SCENETRIP_AUTH_APPLE_PRIVATE_KEY
+                  optional: true
           resources:
             requests:
               cpu: 100m

@@ -9,6 +9,8 @@ from unittest.mock import Mock, patch
 from tools.aws.tests.fixtures import valid_settings
 
 AUTH_KEY = "SCENETRIP_AUTH_JWT_SECRET"
+# MZ2AZ-337 에서 auth 칸에 더해진 애플 토큰 암호화 키(AES-256, 32 바이트).
+CIPHER_KEY = "SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY"
 AUTH_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/auth-FxAuth"
 SCENE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/scene-api-FxScene"
 GUIDE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/trip-guide-FxGuide"
@@ -24,6 +26,10 @@ OWNED_TAGS_ALL = {
     "Environment": "dev",
     "ManagedBy": "terraform",
 }
+
+
+def cipher_key(fill=b"C"):
+    return base64.b64encode(fill * 32).decode()
 
 
 def signing_key(size=48, fill=b"F"):
@@ -87,7 +93,8 @@ class AuthSecretTest(unittest.TestCase):
         run = Mock(side_effect=store)
         secret = auth_secret(run, AUTH_ARN)
 
-        self.assertEqual(set(secret), {AUTH_KEY})
+        self.assertEqual(set(secret), {AUTH_KEY, CIPHER_KEY})
+        self.assertEqual(len(base64.b64decode(secret[CIPHER_KEY], validate=True)), 32)
         validate_secret("auth", secret)
         self.assertEqual(len(base64.b64decode(secret[AUTH_KEY], validate=True)), 48)
         puts = store.puts()
@@ -109,7 +116,7 @@ class AuthSecretTest(unittest.TestCase):
     def test_existing_key_is_reused_without_writing(self):
         from tools.aws.deploy import auth_secret
 
-        stored = {AUTH_KEY: signing_key(fill=b"S")}
+        stored = {CIPHER_KEY: cipher_key(), AUTH_KEY: signing_key(fill=b"S")}
         store = FakeSecretStore({AUTH_ARN: json.dumps(stored)})
         self.assertEqual(auth_secret(Mock(side_effect=store), AUTH_ARN), stored)
         self.assertEqual(store.puts(), [])
@@ -132,17 +139,21 @@ class AuthSecretTest(unittest.TestCase):
         for label, stored, hidden in (
             (
                 "not base64",
-                {AUTH_KEY: "FIXTURE*not*base64*value!!"},
+                {CIPHER_KEY: cipher_key(), AUTH_KEY: "FIXTURE*not*base64*value!!"},
                 "FIXTURE*not*base64*value!!",
             ),
-            ("short", {AUTH_KEY: short}, short),
-            ("extra key", {AUTH_KEY: valid, "EXTRA_FIXTURE": "x"}, valid),
+            ("short", {CIPHER_KEY: cipher_key(), AUTH_KEY: short}, short),
+            (
+                "extra key",
+                {CIPHER_KEY: cipher_key(), AUTH_KEY: valid, "EXTRA_FIXTURE": "x"},
+                valid,
+            ),
             (
                 "missing key",
                 {"OTHER_FIXTURE": "fixture-other-value"},
                 "fixture-other-value",
             ),
-            ("empty", {AUTH_KEY: ""}, None),
+            ("empty", {CIPHER_KEY: cipher_key(), AUTH_KEY: ""}, None),
         ):
             store = FakeSecretStore({AUTH_ARN: json.dumps(stored)})
             run = Mock(side_effect=store)
@@ -158,10 +169,12 @@ class ValidateAuthSecretTest(unittest.TestCase):
     def test_accepts_minimum_and_generated_lengths(self):
         from tools.aws.config import SECRET_KEYS, validate_secret
 
-        self.assertEqual(SECRET_KEYS["auth"], {AUTH_KEY})
+        self.assertEqual(SECRET_KEYS["auth"], {AUTH_KEY, CIPHER_KEY})
         for size in (32, 48):
             with self.subTest(size=size):
-                validate_secret("auth", {AUTH_KEY: signing_key(size=size)})
+                validate_secret(
+                    "auth", {CIPHER_KEY: cipher_key(), AUTH_KEY: signing_key(size=size)}
+                )
 
     def test_rejects_malformed_keys_without_echoing_them(self):
         from tools.aws.config import validate_secret
@@ -170,17 +183,21 @@ class ValidateAuthSecretTest(unittest.TestCase):
         for label, value, hidden in (
             (
                 "not base64",
-                {AUTH_KEY: "FIXTURE*not*base64*value!!"},
+                {CIPHER_KEY: cipher_key(), AUTH_KEY: "FIXTURE*not*base64*value!!"},
                 "FIXTURE*not*base64*value!!",
             ),
-            ("31 bytes", {AUTH_KEY: short}, short),
+            ("31 bytes", {CIPHER_KEY: cipher_key(), AUTH_KEY: short}, short),
             (
                 "extra key",
-                {AUTH_KEY: signing_key(), "EXTRA_FIXTURE": "x"},
+                {
+                    CIPHER_KEY: cipher_key(),
+                    AUTH_KEY: signing_key(),
+                    "EXTRA_FIXTURE": "x",
+                },
                 signing_key(),
             ),
             ("missing key", {}, None),
-            ("empty", {AUTH_KEY: ""}, None),
+            ("empty", {CIPHER_KEY: cipher_key(), AUTH_KEY: ""}, None),
         ):
             with self.subTest(label), self.assertRaises(ValueError) as caught:
                 validate_secret("auth", value)
@@ -309,7 +326,9 @@ class DeploySecretWiringTest(unittest.TestCase):
 
     def test_scene_api_secret_carries_kakao_and_stored_signing_key(self):
         key = signing_key(fill=b"K")
-        store = FakeSecretStore(self.stored({AUTH_KEY: key}), cluster_commands)
+        store = FakeSecretStore(
+            self.stored({CIPHER_KEY: cipher_key(), AUTH_KEY: key}), cluster_commands
+        )
         run = self.deploy(store)
         secrets = self.kubernetes_secrets(run)
         self.assertEqual(
@@ -354,7 +373,8 @@ class DeploySecretWiringTest(unittest.TestCase):
             "trip_guide": GUIDE_ARN,
         }
         store = FakeSecretStore(
-            self.stored({AUTH_KEY: signing_key()}), cluster_commands
+            self.stored({CIPHER_KEY: cipher_key(), AUTH_KEY: signing_key()}),
+            cluster_commands,
         )
         # 명세는 「크게 실패」 만 정한다. 현재 구현은 KeyError('auth') 를 낸다.
         with self.assertRaises((KeyError, ValueError)):

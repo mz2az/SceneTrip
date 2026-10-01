@@ -108,13 +108,18 @@ public class SignInService {
           identity.provider(),
           identity.subject(),
           identity.email(),
-          identity.displayName());
+          identity.displayName(),
+          appleToken(identity));
       return new SignedIn(here.id(), true, false, refreshTokens.issue(here.id(), installUuid));
     }
 
     UUID to = owner.get();
     links.refreshIdentity(
-        identity.provider(), identity.subject(), identity.email(), identity.displayName());
+        identity.provider(),
+        identity.subject(),
+        identity.email(),
+        identity.displayName(),
+        appleToken(identity));
     if (to.equals(here.id())) {
       return new SignedIn(to, false, false, refreshTokens.issue(to, installUuid));
     }
@@ -143,4 +148,13 @@ public class SignInService {
    */
   public record SignedIn(
       UUID userId, boolean isNewUser, boolean merged, IssuedToken refreshToken) {}
+
+  /**
+   * 저장할 애플 refresh token 암호문 — 애플 신분일 때만.
+   *
+   * <p>구글 신분에 암호문이 붙어 올 길은 없지만(구글 검증기는 만들지 않는다), 칸 이름이 애플 것이라 애플이 아닌 신분이 그 칸을 채우지 못하게 여기서 막는다.
+   */
+  private static byte[] appleToken(SocialIdentity identity) {
+    return "apple".equals(identity.provider()) ? identity.appleRefreshTokenEnc() : null;
+  }
 }

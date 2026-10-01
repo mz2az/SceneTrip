@@ -11,9 +11,12 @@ import com.mz2az.scenetrip.sceneapi.api.model.LinkedIdentity;
 import com.mz2az.scenetrip.sceneapi.api.model.Me;
 import com.mz2az.scenetrip.sceneapi.api.model.RefreshTokenBody;
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
+import com.mz2az.scenetrip.sceneapi.auth.AppleClient;
+import com.mz2az.scenetrip.sceneapi.auth.AppleLogin;
 import com.mz2az.scenetrip.sceneapi.auth.IssuedToken;
 import com.mz2az.scenetrip.sceneapi.auth.RefreshTokenStore;
 import com.mz2az.scenetrip.sceneapi.auth.SignInService;
+import com.mz2az.scenetrip.sceneapi.auth.TokenCipher;
 import com.mz2az.scenetrip.sceneapi.user.AccountLinkStore;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.time.Clock;
@@ -74,7 +77,8 @@ class AuthFlowIntegrationTest {
   private final SignInService signIn =
       new SignInService(users, new AccountLinkStore(jdbc), refreshTokens, transactions);
   private final AuthController controller =
-      new AuthController(accessTokens, refreshTokens, users, accounts, null, signIn);
+      new AuthController(
+          accessTokens, refreshTokens, users, accounts, null, signIn, disabledApple());
 
   private final List<UUID> createdUsers = new ArrayList<>();
 
@@ -190,7 +194,8 @@ class AuthFlowIntegrationTest {
             users,
             new CurrentAccount(request, keyless, users),
             null,
-            signIn);
+            signIn,
+            disabledApple());
 
     assertThatThrownBy(
             () -> keylessController.refreshSession(new RefreshTokenBody(login.refresh().value())))
@@ -681,5 +686,14 @@ class AuthFlowIntegrationTest {
     public Instant instant() {
       return now;
     }
+  }
+
+  /** 애플이 꺼진 AppleLogin. 이 시험의 대상이 아니다 — 탈퇴가 revokeFor 를 부르므로 null 대신 꺼진 것을 준다. */
+  private static AppleLogin disabledApple() {
+    return new AppleLogin(
+        null,
+        new AppleClient(null, "com.example", "TEAM", "KEY", null, java.time.Clock.systemUTC()),
+        new TokenCipher((byte[]) null),
+        new AccountLinkStore(IntegrationDatabase.jdbcClient()));
   }
 }

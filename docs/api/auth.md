@@ -5,11 +5,11 @@
 비밀번호는 받지 않는다. 구글·애플 소셜 로그인만 있고, 우리 쪽 인증은 짧은 JWT 액세스
 토큰과 일회용 리프레시 토큰이다 — [ADR 0018](../architecture/adr/0018-social-login-with-jwt.md).
 
-> **서버 구현 상태** — 구글 로그인(가입 겸)·갱신·로그아웃·`/me`·탈퇴가 돈다
-> ([MZ2AZ-331](https://mz2az.atlassian.net/browse/MZ2AZ-331) · [MZ2AZ-256](https://mz2az.atlassian.net/browse/MZ2AZ-256)).
-> **애플 로그인(`/auth/apple`)은 아직 `501`** 이다 — 애플 개발자 설정이 준비된 뒤다. 서명 키
-> (`SCENETRIP_AUTH_JWT_SECRET`)가 없는 환경은 서버가 로그인을 끈 채 뜬다. 설계와 앱이 할 일은
-> [social-login.md](../project/plans/social-login.md) 에 있다.
+> **서버 구현 상태** — 구글·애플 로그인(가입 겸)·갱신·로그아웃·`/me`·탈퇴가 돈다
+> ([MZ2AZ-331](https://mz2az.atlassian.net/browse/MZ2AZ-331) · [MZ2AZ-256](https://mz2az.atlassian.net/browse/MZ2AZ-256) ·
+> [MZ2AZ-337](https://mz2az.atlassian.net/browse/MZ2AZ-337)). 서명 키(`SCENETRIP_AUTH_JWT_SECRET`)가 없는 환경은 로그인을
+> 끈 채 뜨고, 애플 개인 키·토큰 암호화 키가 없는 환경은 **애플 로그인만** 닫는다(`/auth/apple` `501` — 앱은 애플 버튼을
+> 숨긴다). 설계와 앱이 할 일은 [social-login.md](../project/plans/social-login.md) 에 있다.
 
 로그인하지 않아도 대부분이 된다. 막혀 있는 것은 마켓 쓰기·여행 중 길찾기·가이드 챗봇뿐이다
 ([아래](#가입해야-넘는-벽)).

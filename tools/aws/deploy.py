@@ -48,6 +48,9 @@ def generated_once(run, arn, kind, make):
     **환경이 처음 생길 때 한 번만 만든다.** 이후 배포는 저장된 값을 다시 쓴다 — 배포마다
     바뀌면 DB 접속이 끊기거나(비밀번호) 로그인한 사람이 전부 로그아웃된다(서명 키).
     값은 stdin 으로만 넘기고 명령 줄에 싣지 않는다.
+
+    칸에 키가 새로 늘면(make() 가 더 많은 키를 내면) **있던 값은 건드리지 않고 없는 키만**
+    만들어 채운다. 예: 서명 키만 있던 auth 칸에 애플 토큰 암호화 키가 더해질 때.
     """
     versions = json.loads(
         run(
@@ -64,8 +67,30 @@ def generated_once(run, arn, kind, make):
         )
     )
     if versions.get("Versions"):
-        return secret_value(run, arn, kind)
-    value = validate_secret(kind, make())
+        stored = json.loads(
+            json.loads(
+                run(
+                    [
+                        "aws",
+                        "secretsmanager",
+                        "get-secret-value",
+                        "--secret-id",
+                        arn,
+                        "--output",
+                        "json",
+                    ],
+                    quiet=True,
+                )
+            )["SecretString"]
+        )
+        fresh = make()
+        if not isinstance(stored, dict) or set(fresh) <= set(stored):
+            return validate_secret(kind, stored)
+        # 이 칸에 키가 새로 늘었다(예: auth 에 암호화 키). **있던 값은 그대로 두고 없는 키만**
+        # 새로 만들어 채운다 — 있던 서명 키를 바꾸면 전원이 로그아웃된다.
+        value = validate_secret(kind, {**fresh, **stored})
+    else:
+        value = validate_secret(kind, make())
     body = {"SecretId": arn, "SecretString": json.dumps(value)}
     run(
         [
@@ -111,7 +136,11 @@ def auth_secret(run, arn):
         lambda: {
             "SCENETRIP_AUTH_JWT_SECRET": base64.b64encode(
                 secrets.token_bytes(48)
-            ).decode()
+            ).decode(),
+            # 애플 refresh token 암호화 키(AES-256). 서명 키와 따로 — scene-api TokenCipher 참고.
+            "SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY": base64.b64encode(
+                secrets.token_bytes(32)
+            ).decode(),
         },
     )
 

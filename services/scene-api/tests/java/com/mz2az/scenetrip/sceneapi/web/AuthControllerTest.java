@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
+import com.mz2az.scenetrip.sceneapi.auth.AppleLogin;
 import com.mz2az.scenetrip.sceneapi.auth.GoogleIdTokenVerifier;
 import com.mz2az.scenetrip.sceneapi.auth.IssuedToken;
 import com.mz2az.scenetrip.sceneapi.auth.RefreshTokenStore;
@@ -97,6 +98,9 @@ class AuthControllerTest {
   @MockitoBean private GoogleIdTokenVerifier google;
 
   @MockitoBean private SignInService signIn;
+
+  // 애플 로그인 — 이 시험의 대상이 아니다. 목의 enabled() 는 false 라 /auth/apple 은 501, 탈퇴의 애플 끊기는 하지 않는다.
+  @MockitoBean private AppleLogin apple;
 
   @BeforeEach
   void setUp() {

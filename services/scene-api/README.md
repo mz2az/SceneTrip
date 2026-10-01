@@ -326,6 +326,8 @@ curl http://localhost:8081/v1/actuator/health
 | `SPRING_DATASOURCE_PASSWORD` | **예** | 없음 | DB 비밀번호. 값이 없으면 접속이 거부되어 기동이 실패한다 |
 | `KAKAO_REST_KEY` | 아니오 | 없음 | 여행 중 길찾기(카카오 대중교통·도보). 없으면 기동은 하고 길찾기만 503 이다 |
 | `SCENETRIP_AUTH_JWT_SECRET` | 아니오 | 없음 | 로그인 액세스 토큰(JWT, HS256) 서명 키 — base64, 32 바이트 이상. 로컬은 `.env`(`openssl rand -base64 48`), DEV·PRD 는 배포가 환경당 한 번 만들어 Secrets Manager `auth` 칸에 둔다(`tools/aws`). **없으면 기동은 하고 로그인만 꺼진다**(구글 로그인 500, 갱신 401, 토큰은 전부 `ACCESS_TOKEN_INVALID`). 있는데 짧거나 base64 가 아니면 기동을 멈춘다. 환경마다 다른 값이어야 하고, **한 번 정하면 바꾸지 않는다** — 바꾸면 옛 키의 토큰이 `ACCESS_TOKEN_INVALID` 가 되어 앱이 토큰을 지우므로 로그인한 사람이 전부 로그아웃된다 |
+| `SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY` | 아니오 | 없음 | 애플 refresh token 암호화 키(AES-256, base64 32 바이트). JWT 키와 따로. 로컬 `.env`(`openssl rand -base64 32`), DEV·PRD 는 배포가 `auth` 칸에 함께 만든다. 없으면 애플 로그인만 꺼진다 |
+| `SCENETRIP_AUTH_APPLE_PRIVATE_KEY` | 아니오 | 없음 | 애플 .p8 파일 전체의 base64 한 줄. 사람이 애플에서 받아 온다(다시 내려받을 수 없다). 로컬 `.env`, DEV·PRD 는 Secrets Manager `scene_api` 칸의 **선택 항목** — ⚠ **PRD 출시 전 필수로 옮긴다**(`tools/aws/config.py` 의 `OPTIONAL_SECRET_KEYS`). 없으면 `/auth/apple` 이 `501` |
 | `SCENETRIP_AUTH_REQUIRE_REGISTRATION` | 아니오 | `true` | 가입 판정. `false` 면 마켓·길찾기·챗봇의 401 이 나지 않는다. **로컬 kind 의 ConfigMap 만 끈다** — 로그인 전 시뮬레이터 검증용이고 기동 로그에 경고가 남는다 |
 | `SCENETRIP_GUIDE_AGENT_BASE_URL` | 아니오 | `http://localhost:8899` | 가이드 에이전트(`agents/trip-guide`) 주소. 없으면 기동은 하고 `/guide/*` 만 503 이다. 클러스터 값은 에이전트 컨테이너가 생길 때 정한다 |
 
@@ -360,9 +362,9 @@ just restart scene-api         # 이미 떠 있으면 — 환경변수는 뜰 �
 | `min-interval-ms` | `300` | 뒤에서 채우는 일꾼의 한 건 사이 간격(초당 3 건) |
 | `pause-seconds` | `60` | 막혔을 때(403·429) 쉬는 시간. 연속 세 번이면 재시작 전까지 내린다 |
 
-## 로그인 — 구글, JWT
+## 로그인 — 구글·애플, JWT
 
-구글 로그인(가입 겸)·갱신·로그아웃·`/me`·탈퇴. 애플은 아직 `501`. 결정은
+구글·애플 로그인(가입 겸)·갱신·로그아웃·`/me`·탈퇴. 결정은
 [ADR 0018](../../docs/architecture/adr/0018-social-login-with-jwt.md), 설계·동시성·알려진 틈은
 [계획서](../../docs/project/plans/social-login.md).
 
@@ -371,14 +373,23 @@ just restart scene-api         # 이미 떠 있으면 — 환경변수는 뜰 �
 | `auth/AccessTokens` | 우리 액세스 토큰(JWT) 발급·검증. 키가 없으면 닫힌 쪽으로 실패 |
 | `auth/RefreshTokenStore` | 일회용 리프레시 토큰. 해시만 저장, 재사용이면 그 계정의 토큰 전부 폐기 |
 | `auth/GoogleIdTokenVerifier` | 구글 ID 토큰 검증 — 구글 공개키(JWKS, 캐시), `aud`·nonce |
+| `auth/AppleIdTokenVerifier` · `AppleClient` · `AppleLogin` | 애플 identityToken 검증(nonce 는 해시 비교), 인가 코드 교환·탈퇴 때 연결 끊기(.p8 로 서명한 client secret) |
+| `auth/TokenCipher` | 애플 refresh token 을 AES-256-GCM 으로 잠가 DB 에 둔다. 키는 JWT 서명 키와 따로 |
 | `auth/SignInService` · `user/AccountLinkStore` | 로그인 한 번 = 한 트랜잭션: 가입·로그인·비회원 합치기(MZ2AZ-256) |
 | `web/CurrentAccount` | 요청의 계정 — 토큰이 이긴다, 가입 계정은 설치 UUID 만으로 안 열린다(`SESSION_REQUIRED`) |
 
 구글 클라이언트 ID(웹·iOS)는 공개 값이라 `application.yaml` 에 있다. 서명 키만 비밀이다 — 위 설정 표.
 
-로컬에서 로그인을 켜려면 `.env` 에 `SCENETRIP_AUTH_JWT_SECRET` 를 넣고 `just secrets-apply` 뒤
-`just deploy scene-api local` 이다. **`just update` 로는 안 된다** — 이미지만 바꾸고 매니페스트
-(이 키를 환경변수로 잇는 `deployment.yaml`)를 다시 적용하지 않는다.
+로컬에서 로그인을 켜려면 `.env` 에 키를 넣고(`.env.example` 참고) `just secrets-apply` 뒤 **둘 다** 한다.
+
+- `just deploy scene-api local` — 매니페스트(키를 환경변수로 잇는 `deployment.yaml`)를 적용한다. 이미지는 바꾸지 않는다
+- `just update scene-api` — 새 코드로 이미지를 지어 다시 띄운다. 매니페스트는 다시 적용하지 않는다
+
+한쪽만 하면 「키는 있는데 옛 코드」 나 「새 코드인데 키가 없음」 이 된다(실제로 둘 다 겪었다).
+
+애플 로그인은 `SCENETRIP_AUTH_APPLE_PRIVATE_KEY`(.p8 의 base64)와 `SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY` 가 **둘 다**
+있어야 열린다 — 하나라도 없으면 `/auth/apple` 이 `501` 이다. 로그인은 되는데 탈퇴 때 애플 연결을 못 끊는 상태
+(App Store 요건 위반)를 만들지 않으려는 것이다. Team ID·Key ID·번들 ID 는 공개 값이라 `application.yaml` 에 있다.
 
 ## 길찾기 — 이 서비스의 첫 외부 HTTP
 

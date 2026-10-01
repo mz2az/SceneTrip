@@ -3,6 +3,12 @@
 import unittest
 
 from tools.aws.tests.test_alb import AlbBoundaryTest, AlbChartTest
+from tools.aws.tests.test_apple_secret import (
+    DeployAppleWiringTest,
+    LegacyAuthSlotTest,
+    SceneApiAppleKeyTest,
+    ValidateEncryptionKeyTest,
+)
 from tools.aws.tests.test_auth_secret import (
     AuthSecretTest,
     DatabaseCredentialsGeneratedOnceTest,
@@ -38,6 +44,7 @@ __all__ = [
     "CliTest",
     "CloudflareTest",
     "DatabaseCredentialsGeneratedOnceTest",
+    "DeployAppleWiringTest",
     "DeploySecretWiringTest",
     "DeployTest",
     "DestroyGatewayTest",
@@ -45,14 +52,17 @@ __all__ = [
     "DestroyPlanTest",
     "DestroyServiceTest",
     "EntryPointTest",
+    "LegacyAuthSlotTest",
     "LifecycleTest",
     "OrchestrationTest",
     "PublicChartTest",
     "PublicGatewayValuesTest",
     "RetainedAuthSecretTest",
+    "SceneApiAppleKeyTest",
     "SettingsTest",
     "TeardownEntryPointTest",
     "ValidateAuthSecretTest",
+    "ValidateEncryptionKeyTest",
     "WorkflowSecurityTest",
 ]
 

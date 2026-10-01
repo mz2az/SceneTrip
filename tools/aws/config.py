@@ -16,10 +16,25 @@ SECRET_KEYS = {
     "scene_api": {"KAKAO_REST_KEY"},
     "trip_guide": {"DEEPSEEK_API_KEY"},
     "database": {"username", "password", "migration_username", "migration_password"},
-    # 로그인 액세스 토큰(JWT) 서명 키. 사람이 넣지 않는다 — 배포가 환경당 한 번 만든다
-    # (deploy.auth_secret). 카카오 키(scene_api)와 칸을 나눈 이유는 deploy.auth_secret.
-    "auth": {"SCENETRIP_AUTH_JWT_SECRET"},
+    # 로그인 액세스 토큰(JWT) 서명 키와 외부 토큰(애플 refresh token) 암호화 키. 사람이 넣지
+    # 않는다 — 배포가 환경당 한 번 만든다(deploy.auth_secret). 카카오 키(scene_api)와 칸을 나눈
+    # 이유는 deploy.auth_secret. 두 키를 따로 두는 이유는 scene-api 의 TokenCipher.
+    "auth": {"SCENETRIP_AUTH_JWT_SECRET", "SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY"},
 }
+
+# 있어도 되고 없어도 되는 키. 없으면 배포는 성공하고 그 기능만 꺼진 채 뜬다.
+OPTIONAL_SECRET_KEYS = {
+    # 애플 로그인 개인 키(.p8 PEM 의 base64). 사람이 애플에서 받아 와 넣는다(MZ2AZ-337).
+    #
+    # ⚠ PRD 출시(App Store 심사) 전에 **필수 항목으로 옮긴다** — 위 SECRET_KEYS["scene_api"] 로.
+    # iOS 에서 구글 로그인을 내면 애플 로그인도 반드시 제공해야 한다(App Store 4.8). 선택 항목이면
+    # 키를 빠뜨린 PRD 가 「애플 로그인만 꺼진 채」 조용히 뜨고, 그 상태로 심사에 나가면 거절된다.
+    # 지금 선택인 것은 DEV·PRD 에 아직 넣지 않은 환경의 배포를 막지 않으려는 것뿐이다.
+    "scene_api": {"SCENETRIP_AUTH_APPLE_PRIVATE_KEY"},
+}
+
+# 외부 토큰 암호화 키 길이(AES-256). scene-api 의 TokenCipher 와 같다.
+TOKEN_ENCRYPTION_KEY_BYTES = 32
 
 # scene-api 의 AccessTokens 가 받는 최소 길이(HS256). 짧으면 서버가 기동을 멈추므로
 # 배포 단계에서 먼저 막는다.
@@ -84,7 +99,9 @@ class Settings:
 
 
 def validate_secret(kind, value):
-    if not isinstance(value, dict) or set(value) != SECRET_KEYS[kind]:
+    required = SECRET_KEYS[kind]
+    allowed = required | OPTIONAL_SECRET_KEYS.get(kind, set())
+    if not isinstance(value, dict) or not required <= set(value) <= allowed:
         raise ValueError(f"{kind} 비밀값 키가 허용 목록과 다릅니다")
     if any(
         not isinstance(item, str) or not item.strip() or "\x00" in item
@@ -106,6 +123,25 @@ def validate_secret(kind, value):
             raise ValueError(
                 f"auth 서명 키가 {MIN_JWT_SECRET_BYTES} 바이트보다 짧습니다"
             )
+        try:
+            cipher = base64.b64decode(
+                value["SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY"], validate=True
+            )
+        except (binascii.Error, ValueError):
+            raise ValueError("auth 암호화 키가 base64 가 아닙니다") from None
+        if len(cipher) != TOKEN_ENCRYPTION_KEY_BYTES:
+            raise ValueError(
+                f"auth 암호화 키는 {TOKEN_ENCRYPTION_KEY_BYTES} 바이트여야 합니다"
+            )
+    if kind == "scene_api" and "SCENETRIP_AUTH_APPLE_PRIVATE_KEY" in value:
+        try:
+            pem = base64.b64decode(
+                value["SCENETRIP_AUTH_APPLE_PRIVATE_KEY"], validate=True
+            ).decode("utf-8")
+        except (binascii.Error, ValueError, UnicodeDecodeError):
+            raise ValueError("애플 개인 키가 .p8(PEM)의 base64 가 아닙니다") from None
+        if "-----BEGIN PRIVATE KEY-----" not in pem:
+            raise ValueError("애플 개인 키가 .p8(PEM)의 base64 가 아닙니다")
     return dict(value)
 
 

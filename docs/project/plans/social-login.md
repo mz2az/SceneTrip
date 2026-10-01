@@ -2,7 +2,7 @@
 
 - **티켓**: 스토리 [MZ2AZ-329](https://mz2az.atlassian.net/browse/MZ2AZ-329) — 하위 [MZ2AZ-330](https://mz2az.atlassian.net/browse/MZ2AZ-330) 계약 · [MZ2AZ-331](https://mz2az.atlassian.net/browse/MZ2AZ-331) 서버. 병합은 [MZ2AZ-256](https://mz2az.atlassian.net/browse/MZ2AZ-256). 에픽 [MZ2AZ-185](https://mz2az.atlassian.net/browse/MZ2AZ-185) "계정"
 - **작성일**: 2026-09-30
-- **상태**: 계약(MZ2AZ-330, #111) 머지. 서버 — 구글 로그인·갱신·로그아웃·`/me`·탈퇴·합치기 구현(MZ2AZ-331 · 256). 남은 것: 애플 로그인, DEV·PRD 서명 키 경로(`tools/aws`)
+- **상태**: 계약(MZ2AZ-330, #111) 머지. 서버 — 구글 로그인·갱신·로그아웃·`/me`·탈퇴·합치기(MZ2AZ-331 · 256), DEV·PRD 서명 키(MZ2AZ-332), DEV 공개(MZ2AZ-333), **애플 로그인(MZ2AZ-337)**. 앱은 MZ2AZ-335 · 336
 - **선행**: [MZ2AZ-328](https://mz2az.atlassian.net/browse/MZ2AZ-328) `X-Device-Id` → `X-Install-Id` (#110, 머지됨)
 - **ADR**: [0018 로그인은 구글·애플 소셜 로그인과 JWT 로 한다](../../architecture/adr/0018-social-login-with-jwt.md)
 - **계약**: `contracts/openapi/scene-api-v1.yaml` 1.3.0 — `auth` 태그, `security`, `bearerAuth`
@@ -101,8 +101,15 @@ COMMENT ON COLUMN user_device.install_uuid IS
 
 `app_user` 는 그대로다. `registered_at` · `merged_into` 가 이미 있다(V8).
 
-애플 refresh token 칸(탈퇴 때 revoke 용)은 **애플 로그인과 함께** 더한다 — 암호화 방식을 정하지 않은 채
-칸만 만들지 않는다.
+애플 refresh token 칸은 V16(`user_identity.apple_refresh_token_enc`)이다 — 탈퇴 때 원문을 애플에 보내야 하므로
+해시가 아니라 **AES-256-GCM 암호문**이다(`auth/TokenCipher`). 키(`SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY`)는 JWT 서명 키와
+**따로** 둔다 — 하나가 새도 다른 하나는 안전하다(2026-10-01 결정). 애플로 로그인할 때마다 새 토큰으로 덮어쓴다.
+
+애플 개인 키(.p8)는 **로그인 검증에는 필요 없고**(애플 공개키로 검증한다), 코드 교환과 탈퇴 때 연결 끊기에서
+「SceneTrip 팀이 보냈다」 를 증명하는 client secret(ES256 JWT)을 서명하는 데 쓴다. 그래서 개인 키나 암호화 키가
+없는 환경은 애플 로그인 창구를 닫는다(`501`) — 로그인은 되는데 탈퇴 때 연결을 못 끊는 상태를 만들지 않는다.
+DEV·PRD 에서 .p8 은 Secrets Manager `scene_api` 칸의 **선택 항목**이고, ⚠ PRD 출시 전 필수로 옮긴다
+(`tools/aws/config.py` 의 `OPTIONAL_SECRET_KEYS` 주석).
 
 ## 5. 로그인 한 번에 일어나는 일
 

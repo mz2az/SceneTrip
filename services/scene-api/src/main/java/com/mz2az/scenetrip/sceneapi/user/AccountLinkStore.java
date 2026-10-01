@@ -120,16 +120,32 @@ public class AccountLinkStore {
    */
   public void register(
       UUID userId, String provider, String subject, String email, String displayName) {
+    register(userId, provider, subject, email, displayName, null);
+  }
+
+  /**
+   * {@link #register(UUID, String, String, String, String)} 에 애플 refresh token 암호문을 함께 둔다.
+   *
+   * @param appleRefreshTokenEnc 애플만. 구글은 {@code null}
+   */
+  public void register(
+      UUID userId,
+      String provider,
+      String subject,
+      String email,
+      String displayName,
+      byte[] appleRefreshTokenEnc) {
     jdbc.sql(
             """
-            INSERT INTO user_identity (provider, subject, user_id, email, display_name)
-            VALUES (:provider, :subject, CAST(:userId AS UUID), :email, :displayName)
+            INSERT INTO user_identity (provider, subject, user_id, email, display_name, apple_refresh_token_enc)
+            VALUES (:provider, :subject, CAST(:userId AS UUID), :email, :displayName, :appleToken)
             """)
         .param("provider", provider)
         .param("subject", subject)
         .param("userId", userId.toString())
         .param("email", email)
         .param("displayName", displayName)
+        .param("appleToken", appleRefreshTokenEnc)
         .update();
     jdbc.sql(
             "UPDATE app_user SET registered_at = now()"
@@ -144,17 +160,48 @@ public class AccountLinkStore {
    * <p>애플은 이름을 첫 로그인에만 준다. 두 번째부터 빈 값으로 덮어쓰면 다시는 받을 수 없다. 구글은 매번 주므로 바뀐 이름이 따라온다.
    */
   public void refreshIdentity(String provider, String subject, String email, String displayName) {
+    refreshIdentity(provider, subject, email, displayName, null);
+  }
+
+  /**
+   * {@link #refreshIdentity(String, String, String, String)} 에 애플 refresh token 을 새것으로 — 로그인할 때마다
+   * 애플이 새로 주므로 덮어쓴다. 비어 오면(구글) 그대로 둔다.
+   */
+  public void refreshIdentity(
+      String provider,
+      String subject,
+      String email,
+      String displayName,
+      byte[] appleRefreshTokenEnc) {
     jdbc.sql(
             """
             UPDATE user_identity
-            SET email = COALESCE(:email, email), display_name = COALESCE(:displayName, display_name)
+            SET email = COALESCE(:email, email),
+                display_name = COALESCE(:displayName, display_name),
+                apple_refresh_token_enc = COALESCE(:appleToken, apple_refresh_token_enc)
             WHERE provider = :provider AND subject = :subject
             """)
         .param("provider", provider)
         .param("subject", subject)
         .param("email", email)
         .param("displayName", displayName)
+        .param("appleToken", appleRefreshTokenEnc)
         .update();
+  }
+
+  /**
+   * 이 계정의 애플 refresh token 암호문 — 탈퇴 때 연결을 끊는 데 쓴다.
+   *
+   * @return 애플 신분이 없거나 토큰을 받아 두지 못했으면 비어 있다
+   */
+  public Optional<byte[]> appleRefreshTokenEnc(UUID userId) {
+    return jdbc.sql(
+            "SELECT apple_refresh_token_enc FROM user_identity"
+                + " WHERE user_id = CAST(:userId AS UUID) AND provider = 'apple'"
+                + " AND apple_refresh_token_enc IS NOT NULL")
+        .param("userId", userId.toString())
+        .query((rs, n) -> rs.getBytes("apple_refresh_token_enc"))
+        .optional();
   }
 
   /**
