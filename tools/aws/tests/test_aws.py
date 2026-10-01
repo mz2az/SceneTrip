@@ -3,6 +3,14 @@
 import unittest
 
 from tools.aws.tests.test_alb import AlbBoundaryTest, AlbChartTest
+from tools.aws.tests.test_auth_secret import (
+    AuthSecretTest,
+    DatabaseCredentialsGeneratedOnceTest,
+    DeploySecretWiringTest,
+    DestroyIdentityAuthTest,
+    RetainedAuthSecretTest,
+    ValidateAuthSecretTest,
+)
 from tools.aws.tests.test_bootstrap_delete import BootstrapDeleteTest
 from tools.aws.tests.test_bootstrap_state import BootstrapStateTest
 from tools.aws.tests.test_boundaries import BoundaryTest
@@ -19,20 +27,26 @@ from tools.aws.tests.test_workflows import WorkflowSecurityTest
 __all__ = [
     "AlbBoundaryTest",
     "AlbChartTest",
+    "AuthSecretTest",
     "BootstrapDeleteTest",
     "BootstrapStateTest",
     "BoundaryTest",
     "CliTest",
     "CloudflareTest",
+    "DatabaseCredentialsGeneratedOnceTest",
+    "DeploySecretWiringTest",
     "DeployTest",
     "DestroyGatewayTest",
+    "DestroyIdentityAuthTest",
     "DestroyPlanTest",
     "DestroyServiceTest",
     "EntryPointTest",
     "LifecycleTest",
     "OrchestrationTest",
+    "RetainedAuthSecretTest",
     "SettingsTest",
     "TeardownEntryPointTest",
+    "ValidateAuthSecretTest",
     "WorkflowSecurityTest",
 ]
 

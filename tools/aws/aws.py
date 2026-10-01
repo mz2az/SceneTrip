@@ -146,7 +146,7 @@ def initialize_terraform(run, root, settings, temp):
     return directory
 
 
-APP_SECRETS = ("scene_api", "trip_guide", "database")
+APP_SECRETS = ("scene_api", "trip_guide", "database", "auth")
 
 
 def adopt_retained_secrets(run, settings, directory, var_file):

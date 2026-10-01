@@ -1,5 +1,6 @@
 """비밀값 동기화, DB 준비, Helm 배포. 민감 자료는 stdin으로만 전달한다."""
 
+import base64
 import ipaddress
 import json
 import secrets
@@ -40,7 +41,14 @@ def secret_value(run, arn, kind):
     return validate_secret(kind, json.loads(json.loads(raw)["SecretString"]))
 
 
-def database_credentials(run, arn):
+def generated_once(run, arn, kind, make):
+    """비밀이 비어 있으면 make() 로 만들어 저장하고, 있으면 저장된 것을 그대로 쓴다.
+
+    배포가 사람 대신 만드는 비밀(DB 역할 비밀번호, 로그인 서명 키)의 공통 규칙이다.
+    **환경이 처음 생길 때 한 번만 만든다.** 이후 배포는 저장된 값을 다시 쓴다 — 배포마다
+    바뀌면 DB 접속이 끊기거나(비밀번호) 로그인한 사람이 전부 로그아웃된다(서명 키).
+    값은 stdin 으로만 넘기고 명령 줄에 싣지 않는다.
+    """
     versions = json.loads(
         run(
             [
@@ -56,13 +64,8 @@ def database_credentials(run, arn):
         )
     )
     if versions.get("Versions"):
-        return secret_value(run, arn, "database")
-    value = {
-        "username": "app_runtime",
-        "password": secrets.token_urlsafe(36),
-        "migration_username": "app_migrate",
-        "migration_password": secrets.token_urlsafe(36),
-    }
+        return secret_value(run, arn, kind)
+    value = validate_secret(kind, make())
     body = {"SecretId": arn, "SecretString": json.dumps(value)}
     run(
         [
@@ -76,6 +79,41 @@ def database_credentials(run, arn):
         quiet=True,
     )
     return value
+
+
+def database_credentials(run, arn):
+    return generated_once(
+        run,
+        arn,
+        "database",
+        lambda: {
+            "username": "app_runtime",
+            "password": secrets.token_urlsafe(36),
+            "migration_username": "app_migrate",
+            "migration_password": secrets.token_urlsafe(36),
+        },
+    )
+
+
+def auth_secret(run, arn):
+    """로그인 액세스 토큰(JWT) 서명 키 — 환경당 한 번 만들어 계속 쓴다 (MZ2AZ-332, ADR 0018).
+
+    48 바이트 난수의 base64. 사람은 이 값을 보지 않는다.
+
+    카카오 키가 든 scene_api 칸에 넣지 않고 auth 칸을 따로 쓴다. 사람이 카카오 키를 바꾸며
+    JSON 을 통째로 다시 넣으면 서명 키가 빠지고, 다음 배포가 「없다」 로 보고 새로 만들어
+    로그인한 사람이 전부 로그아웃된다. 사람이 만지는 칸과 배포가 만지는 칸을 나눠 그 길을 막는다.
+    """
+    return generated_once(
+        run,
+        arn,
+        "auth",
+        lambda: {
+            "SCENETRIP_AUTH_JWT_SECRET": base64.b64encode(
+                secrets.token_bytes(48)
+            ).decode()
+        },
+    )
 
 
 def gateway_values(settings, outputs):
@@ -346,13 +384,21 @@ def deploy(run, root, settings, outputs):
     }
     run(["kubectl", "apply", "-f", "-"], stdin=json.dumps(cni), quiet=True)
     credentials = database_credentials(run, outputs["app_secret_arns"]["database"])
-    for kind, name in (
-        ("scene_api", "scene-api-secrets"),
-        ("trip_guide", "trip-guide-secrets"),
-    ):
-        sync_secret(
-            run, name, secret_value(run, outputs["app_secret_arns"][kind], kind)
-        )
+    # scene-api 는 사람이 넣은 카카오 키와 배포가 만든 서명 키를 한 Secret 으로 받는다 —
+    # Helm 차트가 scene-api-secrets 를 통째로 환경변수로 넣는다(envFrom).
+    sync_secret(
+        run,
+        "scene-api-secrets",
+        {
+            **secret_value(run, outputs["app_secret_arns"]["scene_api"], "scene_api"),
+            **auth_secret(run, outputs["app_secret_arns"]["auth"]),
+        },
+    )
+    sync_secret(
+        run,
+        "trip-guide-secrets",
+        secret_value(run, outputs["app_secret_arns"]["trip_guide"], "trip_guide"),
+    )
     sync_secret(
         run,
         "database-runtime",

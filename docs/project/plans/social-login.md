@@ -279,7 +279,7 @@ Android 는 담당이 따로 있다. 계약만 봐서는 알 수 없는 것을 �
 | 구글 OAuth 클라이언트 — Android (패키지 + 서명 키 SHA-1) | Google Cloud Console | 아니다 | 서버는 쓰지 않는다 — 등록만 |
 | 애플 Team ID · Key ID · 번들 ID | Apple Developer | 아니다 | 서버 설정 |
 | 애플 `.p8` 키 | Apple Developer (한 번만 내려받는다) | **비밀** | Secrets Manager |
-| JWT 서명 키 | 서버가 쓸 난수·키쌍 | **비밀** | Secrets Manager |
+| JWT 서명 키 | 배포가 환경당 한 번 만든다(DEV·PRD) · 로컬은 `.env` | **비밀** | Secrets Manager `auth` 칸 → `scene-api-secrets` (MZ2AZ-332) |
 | 애플 refresh token 암호화 키 | 난수 | **비밀** | Secrets Manager |
 | 개인정보처리방침 URL | — | 아니다 | 구글 동의 화면, App Store |
 
@@ -349,7 +349,8 @@ Android 클라이언트 하나에 SHA-1 하나다. 지문이 늘면 **같은 패
   재사용 감지·로그아웃·탈퇴)은 가입 상태를 DB 에 직접 만든 뒤 실제 요청으로 확인했다. 진짜 구글 계정으로
   처음부터 끝까지는 앱 버튼 뒤다.
 - 애플(4 의 절반)은 애플 개발자 설정 뒤다. DEV·PRD 에 서명 키를 넣는 경로(`tools/aws` 의 `SECRET_KEYS`)도
-  아직이다 — 그 전까지 원격 서버는 로그인을 끈 채 뜬다.
+  아직이다 — 그 전까지 원격 서버는 로그인을 끈 채 뜬다. → MZ2AZ-332 에서 `auth` 칸을 따로 두고 배포가
+  환경당 한 번 만들게 했다(`tools/aws/deploy.py` 의 `auth_secret`).
 
 ## 11. 열린 질문
 

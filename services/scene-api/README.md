@@ -325,7 +325,7 @@ curl http://localhost:8081/v1/actuator/health
 | `SPRING_DATASOURCE_USERNAME` | 아니오 | `scenetrip` | DB 사용자 |
 | `SPRING_DATASOURCE_PASSWORD` | **예** | 없음 | DB 비밀번호. 값이 없으면 접속이 거부되어 기동이 실패한다 |
 | `KAKAO_REST_KEY` | 아니오 | 없음 | 여행 중 길찾기(카카오 대중교통·도보). 없으면 기동은 하고 길찾기만 503 이다 |
-| `SCENETRIP_AUTH_JWT_SECRET` | 아니오 | 없음 | 로그인 액세스 토큰(JWT, HS256) 서명 키 — base64, 32 바이트 이상(`openssl rand -base64 48`). **없으면 기동은 하고 로그인만 꺼진다**(구글 로그인 500, 갱신 401, 토큰은 전부 `ACCESS_TOKEN_INVALID`). 있는데 짧거나 base64 가 아니면 기동을 멈춘다. 환경마다 다른 값이어야 하고, **한 번 정하면 바꾸지 않는다** — 바꾸면 옛 키의 토큰이 `ACCESS_TOKEN_INVALID` 가 되어 앱이 토큰을 지우므로 로그인한 사람이 전부 로그아웃된다 |
+| `SCENETRIP_AUTH_JWT_SECRET` | 아니오 | 없음 | 로그인 액세스 토큰(JWT, HS256) 서명 키 — base64, 32 바이트 이상. 로컬은 `.env`(`openssl rand -base64 48`), DEV·PRD 는 배포가 환경당 한 번 만들어 Secrets Manager `auth` 칸에 둔다(`tools/aws`). **없으면 기동은 하고 로그인만 꺼진다**(구글 로그인 500, 갱신 401, 토큰은 전부 `ACCESS_TOKEN_INVALID`). 있는데 짧거나 base64 가 아니면 기동을 멈춘다. 환경마다 다른 값이어야 하고, **한 번 정하면 바꾸지 않는다** — 바꾸면 옛 키의 토큰이 `ACCESS_TOKEN_INVALID` 가 되어 앱이 토큰을 지우므로 로그인한 사람이 전부 로그아웃된다 |
 | `SCENETRIP_AUTH_REQUIRE_REGISTRATION` | 아니오 | `true` | 가입 판정. `false` 면 마켓·길찾기·챗봇의 401 이 나지 않는다. **로컬 kind 의 ConfigMap 만 끈다** — 로그인 전 시뮬레이터 검증용이고 기동 로그에 경고가 남는다 |
 | `SCENETRIP_GUIDE_AGENT_BASE_URL` | 아니오 | `http://localhost:8899` | 가이드 에이전트(`agents/trip-guide`) 주소. 없으면 기동은 하고 `/guide/*` 만 503 이다. 클러스터 값은 에이전트 컨테이너가 생길 때 정한다 |
 

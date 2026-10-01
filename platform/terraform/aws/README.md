@@ -29,7 +29,9 @@ ALB다. ALB는 public subnet에서 TLS를 종료하고 private gateway Pod IP의
 `ingress_certificate_arn`, `ingress_allowed_cidrs`를 출력한다.
 
 - `ecr_repository_urls`: `scene_api`, `trip_guide`, `migration`.
-- `app_secret_arns`: `scene_api`, `trip_guide`, `database`.
+- `app_secret_arns`: `scene_api`, `trip_guide`, `database`, `auth`. Terraform 은 빈 칸만 만든다.
+  `scene_api`(카카오 키)·`trip_guide`(모델 키)는 사람이 넣고, `database`(DB 역할 비밀번호)·`auth`
+  (로그인 JWT 서명 키)는 **배포가 환경당 한 번 만들고 이후 다시 쓴다** — 사람이 넣지 않는다.
 - `vpc_id`, `private_subnet_ids`, `topology`: 운영·구성도 검토용.
 - `public_subnet_ids`: IngressClassParams가 선택하는 ALB 서브넷.
 - `public_subnet_cidrs`: ALB private source IP 범위. nginx proxy 신뢰와 gateway NetworkPolicy에 동일 적용.

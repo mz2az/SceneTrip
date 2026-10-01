@@ -15,7 +15,10 @@ plan·apply·verify·cleanup과 서비스 삭제는 배포 역할 세션만 허�
   SHA+실행 ID 이미지 푸시, HTTPS 검증.
 - `config.py`: 입력 형식·비밀값 키 허용 목록과 프로세스 실행 경계.
 - `deploy.py`: Secrets Manager → Kubernetes stdin 동기화, DB 준비·마이그레이션,
-  Helm 배포. 런타임은 관리자 자격 증명을 받지 않는다.
+  Helm 배포. 런타임은 관리자 자격 증명을 받지 않는다. DB 역할 비밀번호와 로그인 JWT 서명 키
+  (`auth`)는 비어 있으면 한 번 만들어 저장하고 이후 다시 쓴다(`generated_once`) — 배포마다
+  만들면 DB 접속이 끊기거나 로그인한 사람이 전부 로그아웃된다. 서명 키는 카카오 키와 함께
+  `scene-api-secrets` 로 들어간다.
 - `alb.py`: subnet·신뢰 CIDR 검증, NodeClass의 실제 보안 그룹 검사, Ingress 주소와
   AWS application ALB의 VPC·subnet·보안 그룹·healthy IP target 확인.
 - `lifecycle.py`: 올리기·내리기. runner EC2 전원, 삭제 예약 Secret 복원, 배포·삭제 workflow

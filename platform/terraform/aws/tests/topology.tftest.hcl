@@ -55,7 +55,7 @@ run "dev_private_and_cost_boundary" {
     error_message = "세 가지 OCI 저장소는 태그 불변·강제 삭제 금지여야 합니다."
   }
   assert {
-    condition     = length(aws_secretsmanager_secret.app) == 3 && length(aws_ecr_repository.app) == 3
+    condition     = length(aws_secretsmanager_secret.app) == 4 && length(aws_ecr_repository.app) == 3
     error_message = "Scene API·Trip Guide·DB 비밀값, 앱·에이전트·migration 이미지가 필요합니다."
   }
 }

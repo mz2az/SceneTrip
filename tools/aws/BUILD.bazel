@@ -61,6 +61,7 @@ py_test(
     srcs = [
         "tests/fixtures.py",
         "tests/test_alb.py",
+        "tests/test_auth_secret.py",
         "tests/test_aws.py",
         "tests/test_bootstrap_delete.py",
         "tests/test_bootstrap_state.py",
