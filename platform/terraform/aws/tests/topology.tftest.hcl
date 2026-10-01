@@ -83,16 +83,46 @@ run "prd_high_availability_and_retention" {
 
 # 모든 리소스는 위 mock_provider를 사용하며 AWS API에 접근하지 않습니다.
 # apply는 생성된 SG ID를 비교하기 위해 mock state만 구체화합니다.
-run "alb_frontend_and_backend_security_boundary" {
+# DEV 는 HTTPS 를 인터넷 전체에 연다(ADR 0019). 열어도 443 하나뿐이어야 한다.
+run "dev_alb_is_public_on_443_only" {
   command = apply
+  assert {
+    condition = length(aws_vpc_security_group_ingress_rule.alb_https) == 1 && alltrue([
+      for rule in aws_vpc_security_group_ingress_rule.alb_https :
+      rule.security_group_id == aws_security_group.alb.id && rule.ip_protocol == "tcp" &&
+      rule.from_port == 443 && rule.to_port == 443 && rule.cidr_ipv4 == "0.0.0.0/0"
+    ])
+    error_message = "DEV ALB 는 인터넷 전체의 TCP443 하나만 열어야 합니다."
+  }
+  assert {
+    condition     = output.ingress_public == true
+    error_message = "DEV 는 배포기에 공개(ingress_public)를 알려야 합니다."
+  }
+}
+
+# PRD 는 허용 CIDR 만 — 사용자별 요청 제한·유료 API 한도(MZ2AZ-334) 전에는 열지 않는다.
+run "prd_alb_allows_only_approved_cidrs" {
+  command = apply
+  variables {
+    environment        = "prd"
+    availability_zones = ["ap-northeast-2a", "ap-northeast-2b", "ap-northeast-2c"]
+  }
   assert {
     condition = length(aws_vpc_security_group_ingress_rule.alb_https) == length(var.ingress_allowed_cidrs) && alltrue([
       for rule in aws_vpc_security_group_ingress_rule.alb_https :
       rule.security_group_id == aws_security_group.alb.id && rule.ip_protocol == "tcp" &&
       rule.from_port == 443 && rule.to_port == 443 && contains(var.ingress_allowed_cidrs, rule.cidr_ipv4)
     ])
-    error_message = "ALB HTTPS는 승인된 client CIDR의 TCP443만 허용해야 합니다."
+    error_message = "PRD ALB HTTPS는 승인된 client CIDR의 TCP443만 허용해야 합니다."
   }
+  assert {
+    condition     = output.ingress_public == false
+    error_message = "PRD 는 공개되면 안 됩니다."
+  }
+}
+
+run "alb_frontend_and_backend_security_boundary" {
+  command = apply
   assert {
     condition = (
       aws_vpc_security_group_egress_rule.alb_to_gateway.security_group_id == aws_security_group.alb.id &&
@@ -154,4 +184,91 @@ run "reject_cross_account_certificate" {
     ingress_certificate_arn = "arn:aws:acm:ap-northeast-2:444455556666:certificate/00000000-0000-0000-0000-000000000000"
   }
   expect_failures = [var.ingress_certificate_arn]
+}
+
+# --- ADR 0019 명세 검사 (MZ2AZ-333) ---------------------------------------------
+# DEV 공개 판단은 환경에서 나온다. 허용 CIDR 목록이 여러 개여도 DEV 규칙은 0.0.0.0/0 하나다.
+run "spec_dev_public_ignores_allowed_cidr_list" {
+  command = plan
+  variables {
+    ingress_allowed_cidrs = ["198.51.100.0/24", "203.0.113.0/24"]
+  }
+  assert {
+    condition = length(aws_vpc_security_group_ingress_rule.alb_https) == 1 && alltrue([
+      for rule in aws_vpc_security_group_ingress_rule.alb_https :
+      rule.cidr_ipv4 == "0.0.0.0/0" && rule.ip_protocol == "tcp" && rule.from_port == 443 && rule.to_port == 443
+    ])
+    error_message = "DEV 는 허용 목록과 무관하게 TCP443 0.0.0.0/0 규칙 하나만 가져야 합니다."
+  }
+  assert {
+    condition     = output.ingress_public == true
+    error_message = "DEV 의 ingress_public 출력은 true 여야 합니다."
+  }
+}
+
+# PRD 의 443 규칙 CIDR 집합은 ingress_allowed_cidrs 와 정확히 같고 0.0.0.0/0 은 없다.
+run "spec_prd_rules_equal_allowed_cidrs" {
+  command = plan
+  variables {
+    environment           = "prd"
+    availability_zones    = ["ap-northeast-2a", "ap-northeast-2b", "ap-northeast-2c"]
+    ingress_allowed_cidrs = ["198.51.100.0/24", "203.0.113.0/24"]
+  }
+  assert {
+    condition = length(aws_vpc_security_group_ingress_rule.alb_https) == 2 && toset([
+      for rule in aws_vpc_security_group_ingress_rule.alb_https : rule.cidr_ipv4
+    ]) == toset(["198.51.100.0/24", "203.0.113.0/24"])
+    error_message = "PRD 443 규칙 CIDR 은 ingress_allowed_cidrs 와 같아야 합니다."
+  }
+  assert {
+    condition = alltrue([
+      for rule in aws_vpc_security_group_ingress_rule.alb_https :
+      rule.cidr_ipv4 != "0.0.0.0/0" && rule.ip_protocol == "tcp" && rule.from_port == 443 && rule.to_port == 443
+    ])
+    error_message = "PRD 는 TCP443 만, 그리고 인터넷 전체 CIDR 없이 열어야 합니다."
+  }
+  assert {
+    condition     = output.ingress_public == false
+    error_message = "PRD 의 ingress_public 출력은 false 여야 합니다."
+  }
+}
+
+# EKS 관리 API 의 /0 거부는 DEV 공개와 무관하게 그대로다(명시적으로 dev).
+run "spec_dev_still_rejects_world_eks_api" {
+  command = plan
+  variables {
+    environment             = "dev"
+    eks_public_access_cidrs = ["192.0.2.1/32", "0.0.0.0/0"]
+  }
+  expect_failures = [var.eks_public_access_cidrs]
+}
+
+run "spec_prd_still_rejects_world_eks_api" {
+  command = plan
+  variables {
+    environment             = "prd"
+    availability_zones      = ["ap-northeast-2a", "ap-northeast-2b", "ap-northeast-2c"]
+    eks_public_access_cidrs = ["0.0.0.0/0"]
+  }
+  expect_failures = [var.eks_public_access_cidrs]
+}
+
+# 공개는 환경으로만 정한다 — 입력 목록으로 /0 을 넣는 길은 두 환경 모두 막혀 있다.
+run "spec_dev_rejects_world_in_allowed_cidrs_list" {
+  command = plan
+  variables {
+    environment           = "dev"
+    ingress_allowed_cidrs = ["198.51.100.0/24", "0.0.0.0/0"]
+  }
+  expect_failures = [var.ingress_allowed_cidrs]
+}
+
+run "spec_prd_rejects_world_in_allowed_cidrs" {
+  command = plan
+  variables {
+    environment           = "prd"
+    availability_zones    = ["ap-northeast-2a", "ap-northeast-2b", "ap-northeast-2c"]
+    ingress_allowed_cidrs = ["0.0.0.0/0"]
+  }
+  expect_failures = [var.ingress_allowed_cidrs]
 }

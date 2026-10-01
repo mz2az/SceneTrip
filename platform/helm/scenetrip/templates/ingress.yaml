@@ -39,7 +39,7 @@ metadata:
     alb.ingress.kubernetes.io/security-groups: {{ required "ALB 전용 보안 그룹이 필요합니다" .Values.gateway.securityGroupId | quote }}
     # custom SG의 실제 443 CIDR 규칙과 backend 8080 규칙은 Terraform이 관리한다.
     alb.ingress.kubernetes.io/manage-backend-security-group-rules: "false"
-    alb.ingress.kubernetes.io/inbound-cidrs: {{ join "," .Values.gateway.allowedCidrs | quote }}
+    alb.ingress.kubernetes.io/inbound-cidrs: {{ ternary "0.0.0.0/0" (join "," .Values.gateway.allowedCidrs) .Values.gateway.public | quote }}
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
     alb.ingress.kubernetes.io/healthcheck-port: traffic-port
     alb.ingress.kubernetes.io/healthcheck-path: /healthz

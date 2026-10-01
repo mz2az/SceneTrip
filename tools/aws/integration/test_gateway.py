@@ -27,6 +27,9 @@ http {
 
 
 class GatewayTests(DockerTest):
+    # gateway.public 값. 기존(비공개) 동작은 명시적으로 false 로 렌더한다.
+    PUBLIC = False
+
     def setUp(self):
         super().setUp()
         self.load_image(IMAGE_TAR)
@@ -128,6 +131,9 @@ class GatewayTests(DockerTest):
         ]
         for name, value in values.items():
             arguments.extend(("--set-string", name + "=" + value))
+        arguments.extend(
+            ("--set", "gateway.public=" + ("true" if self.PUBLIC else "false"))
+        )
         rendered = subprocess.run(
             arguments,
             env={**os.environ, "RUNFILES_DIR": os.environ["TEST_SRCDIR"]},
@@ -257,22 +263,141 @@ class GatewayTests(DockerTest):
         logs = self.command("logs", self.gateway)
         self.assertNotIn(marker, logs.stdout + logs.stderr)
 
-    def assert_rate_limit_uses_actual_client(self):
+    def assert_rate_limit_uses_actual_client(self, client=None, path="/v1/places"):
         # Docker exec 자체의 지연을 제외하고 동일 client에서 실제 HTTP burst를 보낸다.
         # 위조 XFF를 바꿔도 실제 IP bucket을 우회할 수 없어야 한다.
         burst = """i=1
 while [ "$i" -le 80 ]; do
   wget -S -O /dev/null -T 3 --header 'Host: api.example.test' \
-    --header "X-Forwarded-For: 198.51.100.$i" http://alb-relay:8080/v1/places 2>&1
+    --header "X-Forwarded-For: 198.51.100.$i" http://alb-relay:8080PATH 2>&1
   i=$((i + 1))
 done
-"""
-        result = self.command("exec", self.client, "sh", "-c", burst)
+""".replace("PATH", path)
+        result = self.command("exec", client or self.client, "sh", "-c", burst)
         statuses = re.findall(r"^\s+HTTP/\d\.\d (\d{3})", result.stdout, re.MULTILINE)
         self.assertEqual(len(statuses), 80)
         self.assertTrue(set(statuses).issubset({"200", "429"}), set(statuses))
         self.assertIn("429", statuses, "동일 실제 client의 burst가 제한되지 않았습니다")
         self.assertEqual(self.request("/v1/places", client=self.other_client)[0], 200)
+
+    # --- ADR 0019 / MZ2AZ-333: 로그인 경로 허용 목록 -----------------------------
+    LOGIN_PATHS = ("/v1/auth/refresh", "/v1/auth/google", "/v1/me")
+    STILL_HIDDEN = (
+        "/v1/actuator/health",
+        "/v1/internal/ping",
+        "/actuator/health",
+        "/v1/unknown",
+    )
+
+    def assert_reaches_backend(self, path, client=None):
+        status, body, _ = self.request(path, client=client)
+        self.assertEqual(status, 200, path)
+        upstream = json.loads(body)
+        self.assertEqual(upstream["host"], "api.example.test", path)
+        return upstream
+
+    def test_login_paths_reach_backend_for_allowed_client(self):
+        for path in self.LOGIN_PATHS:
+            with self.subTest(path=path):
+                upstream = self.assert_reaches_backend(path)
+                self.assertEqual(upstream["real"], self.client_ip)
+        # 비공개 모드: 허용 목록 밖 client 는 로그인 경로도 403 이다.
+        for path in self.LOGIN_PATHS + ("/v1/places",):
+            with self.subTest(path=path, client="unapproved"):
+                self.assertEqual(self.request(path, client=self.unapproved)[0], 403)
+        for path in self.STILL_HIDDEN:
+            with self.subTest(path=path):
+                self.assertEqual(self.request(path)[0], 404)
+
+    def test_login_paths_are_rate_limited(self):
+        self.assert_rate_limit_uses_actual_client(path="/v1/auth/refresh")
+
+
+class PublicGatewayTests(GatewayTests):
+    """gateway.public=true — 어떤 client IP 든 받지만 ALB(신뢰 relay) 경유만."""
+
+    PUBLIC = True
+
+    def test_alb_append_trusted_hop_and_gateway_controls(self):
+        marker = secrets.token_hex(16)
+        # 허용 client 의 전달 형태는 공개여도 같다.
+        self.assert_forwarding(marker)
+        unapproved_ip = self.container_ip(self.unapproved)
+
+        # 허용 목록 밖 client 가 relay 를 거치면 200 이고 백엔드는 실제 IP 를 본다.
+        status, body, _ = self.request(
+            "/v1/places",
+            client=self.unapproved,
+            headers={"X-Forwarded-For": "198.51.100.7", "X-Real-IP": "198.51.100.9"},
+        )
+        self.assertEqual(status, 200)
+        upstream = json.loads(body)
+        self.assertEqual(upstream["xff"], unapproved_ip)
+        self.assertEqual(upstream["real"], unapproved_ip)
+
+        # 직접 연결(신뢰 relay 가 아닌 peer)은 공개여도 거부된다 — 위조 헤더로도.
+        spoofed = {
+            "X-Forwarded-For": self.client_ip,
+            "X-Real-IP": self.client_ip,
+        }
+        for client in (self.client, self.unapproved):
+            with self.subTest(direct=client):
+                self.assertEqual(
+                    self.request("/v1/places", client=client, direct=True)[0], 403
+                )
+                self.assertEqual(
+                    self.request(
+                        "/v1/places", client=client, direct=True, headers=spoofed
+                    )[0],
+                    403,
+                )
+        for path in self.LOGIN_PATHS:
+            with self.subTest(path=path, direct=True):
+                self.assertEqual(
+                    self.request(path, client=self.unapproved, direct=True)[0], 403
+                )
+
+        for path in (
+            "/actuator/health",
+            "/internal/ping",
+            "/v1/actuator/health",
+            "/v1/internal/ping",
+            "/v1/unknown",
+            "/v1/%61ctuator/health",
+            "/v1/places/../actuator/health",
+            "/v1/places%2f..%2factuator/health",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.request(path, client=self.unapproved)[0], 404)
+        self.assertEqual(
+            self.request(
+                "/v1/places", host="untrusted.example.test", client=self.unapproved
+            )[0],
+            404,
+        )
+        # 공개에서도 IP 당 제한은 실제 client 기준이다(위조 XFF 로 우회 불가).
+        self.assert_rate_limit_uses_actual_client(client=self.unapproved)
+        logs = self.command("logs", self.gateway)
+        self.assertNotIn(marker, logs.stdout + logs.stderr)
+
+    def test_login_paths_reach_backend_for_allowed_client(self):
+        unapproved_ip = self.container_ip(self.unapproved)
+        for client, ip in (
+            (self.client, self.client_ip),
+            (self.unapproved, unapproved_ip),
+        ):
+            for path in self.LOGIN_PATHS:
+                with self.subTest(path=path, client=ip):
+                    upstream = self.assert_reaches_backend(path, client=client)
+                    self.assertEqual(upstream["real"], ip)
+        for path in self.STILL_HIDDEN:
+            with self.subTest(path=path):
+                self.assertEqual(self.request(path, client=self.unapproved)[0], 404)
+
+    def test_login_paths_are_rate_limited(self):
+        self.assert_rate_limit_uses_actual_client(
+            client=self.unapproved, path="/v1/auth/refresh"
+        )
 
 
 if __name__ == "__main__":

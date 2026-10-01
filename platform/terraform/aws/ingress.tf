@@ -7,11 +7,12 @@ resource "aws_security_group" "alb" {
   tags        = { Name = "${local.name}-alb" }
 }
 
+# DEV 는 인터넷 전체(0.0.0.0/0), PRD 는 허용 CIDR 만 (local.ingress_public, ADR 0019).
 resource "aws_vpc_security_group_ingress_rule" "alb_https" {
-  for_each = toset(var.ingress_allowed_cidrs)
+  for_each = toset(local.ingress_public ? ["0.0.0.0/0"] : var.ingress_allowed_cidrs)
 
   security_group_id = aws_security_group.alb.id
-  description       = "Approved HTTPS client range"
+  description       = "HTTPS clients - all in dev, approved range in prd"
   cidr_ipv4         = each.value
   ip_protocol       = "tcp"
   from_port         = 443

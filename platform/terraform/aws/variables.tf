@@ -62,7 +62,7 @@ variable "eks_public_access_cidrs" {
   }
 }
 variable "ingress_allowed_cidrs" {
-  description = "설치 UUID만 사용하는 현 앱의 승인 사용자 CIDR. ALB SG의 HTTPS443과 nginx client 검증에 적용."
+  description = "PRD 의 승인 사용자 CIDR. ALB SG의 HTTPS443과 nginx client 검증에 적용. DEV 는 전체 공개라 쓰지 않는다(ADR 0019) — 값은 여전히 검증한다."
   type        = list(string)
   validation {
     condition = length(var.ingress_allowed_cidrs) > 0 && alltrue([

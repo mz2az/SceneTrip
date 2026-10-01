@@ -3,8 +3,9 @@
 {{- if not .Values.gateway.allowedCidrs }}{{ fail "gateway.allowedCidrs가 필요합니다" }}{{ end }}
 {{- if not .Values.gateway.trustedProxyCidrs }}{{ fail "ALB proxy subnet CIDR이 필요합니다" }}{{ end }}
 {{- range .Values.gateway.allowedCidrs }}
-{{- if or (eq . "0.0.0.0/0") (eq . "::/0") }}{{ fail "전체 인터넷 공개는 허용하지 않습니다" }}{{ end }}
+{{- if or (eq . "0.0.0.0/0") (eq . "::/0") }}{{ fail "전체 인터넷 공개는 allowedCidrs 가 아니라 gateway.public 으로 한다" }}{{ end }}
 {{- end }}
+{{- if and .Values.gateway.public (ne .Values.environment "dev") }}{{ fail "전체 인터넷 공개는 dev 에서만 허용합니다 (ADR 0019)" }}{{ end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -52,8 +53,10 @@ data:
         {{ . }} 1;
         {{- end }}
       }
+      # dev 는 공개(gateway.public) — 모든 client 를 받는다. ALB 를 거쳐 왔는지
+      # ($trusted_alb_peer)는 공개여도 그대로 본다.
       geo $remote_addr $allowed_client {
-        default 0;
+        default {{ ternary 1 0 .Values.gateway.public }};
         {{- range .Values.gateway.allowedCidrs }}
         {{ . }} 1;
         {{- end }}
@@ -78,7 +81,7 @@ data:
         add_header X-Content-Type-Options nosniff always;
         location = /healthz { access_log off; return 200 'ok'; }
         location ~* ^/v1/(actuator|internal)(/|$) { return 404; }
-        location ~ ^/v1/(search|contents|places|pois|cart|courses|favorites|market|navigation|guide)(/|$) {
+        location ~ ^/v1/(search|contents|places|pois|cart|courses|favorites|market|navigation|guide|auth|me)(/|$) {
           if ($api_allowed = 0) { return 403; }
           limit_req zone=api burst=20 nodelay;
           limit_req_status 429;

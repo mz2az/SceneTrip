@@ -138,7 +138,7 @@ Actuator·agent의 디버그 창구는 외부로 전달하지 않는다. EKS 제
 배포 runner는 EKS 관리와 외부 HTTPS 검증을 모두 수행하므로 두 허용 목록에 자신의
 고정 egress가 필요하다.
 
-ALB 전용 보안 그룹의 443은 사용자 허용 CIDR에서만 받는다. ALB에서 workload 보안
+ALB 전용 보안 그룹의 443은 PRD 에서 사용자 허용 CIDR에서만 받고, DEV 에서는 인터넷 전체에서 받는다([ADR 0019](adr/0019-dev-api-is-public.md)). ALB에서 workload 보안
 그룹의 8080으로 가는 경로를 별도로 허용하고, gateway NetworkPolicy는 같은 ALB public
 subnet CIDR만 받는다. 배포 전 Auto Mode NodeClass가 실제로 사용하는 보안 그룹을
 Terraform 출력과 대조하여 노드 설정이 바뀌었는데 기존 보안 규칙을 쓰는 일을 막는다.

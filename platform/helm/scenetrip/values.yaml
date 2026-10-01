@@ -7,6 +7,9 @@ gateway:
   host: ""
   certificateArn: ""
   allowedCidrs: []
+  # true 면 client IP 검증을 끄고 인터넷 전체를 받는다. dev 에서만 허용(ADR 0019) —
+  # 배포기가 Terraform 출력(ingress_public)으로 넣는다.
+  public: false
   albSubnetIds: []
   trustedProxyCidrs: []
   securityGroupId: ""

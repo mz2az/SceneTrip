@@ -1,6 +1,10 @@
 locals {
   name       = "scenetrip-${var.environment}"
   production = var.environment == "prd"
+  # DEV 는 HTTPS 를 인터넷 전체에 연다 — 팀원·실기기(LTE) 테스트 (ADR 0019, MZ2AZ-333).
+  # PRD 는 허용 CIDR 만. 로그인으로 가입 계정·유료 API 는 보호되지만, 사용자별 요청 제한과
+  # 유료 API 한도(MZ2AZ-334)가 생기기 전까지 PRD 는 열지 않는다.
+  ingress_public = var.environment == "dev"
   azs        = var.availability_zones
   az_count   = length(var.availability_zones)
   nat_count  = local.production ? local.az_count : 1

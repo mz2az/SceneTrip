@@ -26,6 +26,6 @@ just adr-list
 
 `template.md` 가 `just adr-new` 가 렌더링하는 시작점이다.
 
-최근 결정: [0018 — 로그인은 구글·애플 소셜 로그인과 JWT](0018-social-login-with-jwt.md),
-[0017 — 환경 올리기·내리기 workflow와 Cloudflare DNS](0017-dev-lifecycle-and-cloudflare-dns.md),
-[0016 — ALB 기반 HTTP 진입점](0016-alb-http-ingress.md).
+최근 결정: [0019 — DEV API 를 인터넷 전체에 연다](0019-dev-api-is-public.md),
+[0018 — 로그인은 구글·애플 소셜 로그인과 JWT](0018-social-login-with-jwt.md),
+[0017 — 환경 올리기·내리기 workflow와 Cloudflare DNS](0017-dev-lifecycle-and-cloudflare-dns.md).
