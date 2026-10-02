@@ -27,6 +27,7 @@ class CartStore(
         private set
 
     private val api = CartApi(API_BASE)
+
     // 저장 키는 옛 "deviceId" 그대로 — InstallIdentity 가 같은 자리를 읽는다(깔린 앱의 값 유지).
     private val installId: UUID = InstallIdentity.of(context)
 
