@@ -73,8 +73,13 @@ class DeepSeekClient:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         budget: Callable[[], float] | None = None,
+        json_mode: bool = False,
     ) -> dict[str, Any]:
-        """한 번 부르고 assistant 메시지 하나를 돌려준다."""
+        """한 번 부르고 assistant 메시지 하나를 돌려준다.
+
+        `json_mode` 는 응답을 JSON 객체 하나로 받는다(OpenAI 규격 `response_format`).
+        AI 일정 생성이 쓴다 — 말로 감싼 JSON 을 걷어 내는 일을 줄인다.
+        """
         body: dict[str, Any] = {
             "model": self.config["model"],
             "messages": messages,
@@ -86,6 +91,8 @@ class DeepSeekClient:
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
 
         payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
         url = self.config["base_url"].rstrip("/") + "/chat/completions"
@@ -156,6 +163,7 @@ class ScriptedClient:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         budget: Callable[[], float] | None = None,
+        json_mode: bool = False,
     ) -> dict[str, Any]:
         self.seen.append(messages)
         self.tools_seen.append(tools)

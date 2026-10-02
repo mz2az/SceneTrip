@@ -90,7 +90,10 @@ class SceneApiPlaceBook(PlaceSource):
                     cast="",
                     description=described,
                     rank_in_title=9999,
-                    popularity=0.0,
+                    # 작품 안 성지 인기도. scene-api 가 `contents[].popularity` 로 줄 때만
+                    # 채워진다 — 아직 주지 않으면 0 이고, 그때 AI 일정 생성은
+                    # config/place_scores.json 으로 돌아간다(src/llm_planner.py).
+                    popularity=float(ref.get("popularity") or 0.0),
                 )
             )
         if not scenes and described:

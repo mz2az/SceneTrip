@@ -28,6 +28,8 @@ sys.path.insert(0, str(_HERE.parent))
 from src.agent import TripGuide
 from src.cli import open_source, set_here
 from src.deepseek import DeepSeekClient, ModelError, load_config
+from src.llm_planner import LlmPlanError, make_llm_plan
+from src.llm_planner import load_config as load_llm_planner_config
 from src.planner import (
     PlanError,
     PlanRequest,
@@ -228,17 +230,19 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if route == "/plan":
-            # **모델을 거치지 않는 창구** (앱의 AI 일정짜기 마법사용).
+            # 앱의 AI 일정짜기 마법사용 창구.
             #
             # 마법사는 「도깨비 / 2박 3일 / 빡빡하게」 를 이미 구조화된 값으로 들고
-            # 있다. 그것을 문장으로 만들어 모델에게 주고 모델이 다시 값으로 되돌리는
-            # 것은 3~5초와 토큰을 쓰고 아무것도 얻지 못한다 — 이해할 것이 없기 때문이다.
+            # 있다. 그래서 문장을 해석하는 단계는 없다.
             #
-            # 그래서 여기서는 ① 이해 단계를 통째로 건너뛰고 ② 계획만 돈다. 설명(③)도
-            # 하지 않는다 — 마법사는 초안을 편집 화면에 그려서 보여 주지, 문장으로
-            # 읽어 주지 않는다(RouteWizardView.swift).
+            # **모델이 성지를 고른다(src/llm_planner.py).** 작품의 성지·위경도·인기도·
+            # 지역을 주고 날짜별 일정을 받는다. 결정적 엔진은 장소별 인기도를 몰라
+            # 대표 성지를 버렸다(2026-10-02 실측, 24 사례 중 작품 1위 포함 13 건).
             #
-            # **API 키가 없어도 동작한다.** 모델을 안 부르기 때문이다.
+            # **모델이 답을 못 주면 엔진으로 돌아간다.** 키가 없거나, 모델이 늦거나,
+            # 응답이 깨졌거나, 없는 성지를 넣었을 때다. 사용자는 항상 초안을 받는다.
+            # `config/llm_planner.json` 의 `enabled` 를 끄면 모델을 아예 안 부른다.
+            # 출발 위치·설명(③)은 하지 않는다 — 마법사는 초안을 편집 화면에 그린다.
             started = time.monotonic()
             titles = body.get("titles") or []
             if isinstance(titles, str):
@@ -266,11 +270,29 @@ class Handler(BaseHTTPRequestHandler):
                 must=[str(x) for x in (body.get("must") or [])],
                 avoid=[str(x) for x in (body.get("avoid") or [])],
             )
-            try:
-                plan = make_plan(self.desk.book, req)
-            except (PlanError, SceneApiError) as exc:
-                self._send(_bad(str(exc)), 400)
-                return
+            plan = None
+            if load_llm_planner_config().get("enabled"):
+                try:
+                    plan = make_llm_plan(self.desk.book, req, DeepSeekClient())
+                except SceneApiError as exc:
+                    self._send(_bad(str(exc)), 400)
+                    return
+                except Exception as exc:  # noqa: BLE001 — 모델 경로는 선택이다
+                    # **어떤 이유로든** 엔진으로 돌아간다. 모델 경로는 더 나은 초안을
+                    # 주려는 것이지, 그것이 깨졌다고 마법사가 503 을 받을 이유는 없다.
+                    # 이유는 남긴다 — 조용히 넘어가면 모델이 계속 실패해도 아무도 모른다.
+                    kind = (
+                        "모델"
+                        if isinstance(exc, (LlmPlanError, ModelError))
+                        else "예상 밖"
+                    )
+                    print(f"[plan] {kind} 일정 실패 → 엔진: {exc!r}", file=sys.stderr)
+            if plan is None:
+                try:
+                    plan = make_plan(self.desk.book, req)
+                except (PlanError, SceneApiError) as exc:
+                    self._send(_bad(str(exc)), 400)
+                    return
 
             # **앱이 그리는 모양**이다. 모델이 읽는 한글 사전(`plan_to_dict`)이
             # 아니다 — 이 창구의 응답은 모델을 거치지 않고 앱으로 바로 간다.

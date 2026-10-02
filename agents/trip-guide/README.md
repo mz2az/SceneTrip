@@ -44,6 +44,7 @@ GPT-4 는 복잡한 일정에서 0.6%)이기 때문이다. LLM 과 알고리즘�
 | 자리 | 하는 일 |
 | --- | --- |
 | `src/planner.py` | **코스 추천 엔진.** 후보 점수 → 날짜 클러스터링 → 2-opt 순서 → 시간표. 고치기(`revise_day`·`move_stop`)도 여기. LLM 없음 |
+| `src/llm_planner.py` | **AI 일정 생성.** 앱 마법사(`POST /plan`)가 먼저 부른다. 성지별 위치·위경도·인기도를 모델에게 주고(규칙 문장은 없다) 날짜별 일정을 받는다. 실패하면 엔진으로 돌아간다 — [설계](docs/design/llm-course-planner.md) |
 | `src/plan_flow.py` | 세 단계를 한 번에 도는 경로(`--plan`). 발표·디버깅용으로 단계를 갈라 보여 준다 |
 | `src/agent.py` | 말 → 도구 → 말 루프. 대화 이력에 도구 결과를 쌓지 않는다 |
 | `src/tools.py` | 도구 7 개의 실행과 인자 검증. 계약은 `schemas/tools.json` 한 벌뿐 |
@@ -53,8 +54,10 @@ GPT-4 는 복잡한 일정에서 0.6%)이기 때문이다. LLM 과 알고리즘�
 | `src/deepseek.py` | 모델 클라이언트. 표준 라이브러리만. 키는 환경변수에서만 |
 | `config/model.json` | 모델 ID·파라미터 (설정이지 로직이 아니다) |
 | `config/planner.json` | 코스 엔진 계수 — 점수 가중치·속도·체류시간·이동속도 |
+| `config/llm_planner.json` | AI 일정 생성 설정 — 켜고 끄기·후보 수·컨셉 문구 |
+| `config/place_scores.json` | 성지별 인기도. 수집 CSV `notes` 에서 `scripts/extract_place_scores.py` 가 뽑는다. scene-api 가 이 값을 주면 지운다 |
 | `config/source.json` | 어느 창구를 쓸지. 실패해도 다른 창구로 넘어가지 않는다 |
-| `prompts/` | 버전 관리되는 프롬프트 3 개. 코드에 문자열로 박지 않는다 |
+| `prompts/` | 버전 관리되는 프롬프트 4 개. 코드에 문자열로 박지 않는다 |
 | `schemas/tools.json` | 도구 계약. 모델에게 내밀고, 돌아온 인자를 이것으로 검증한다 |
 | `tests/` | 결정적 단위 시험과 루프백 HTTP 회귀 시험. 외부 모델·네트워크는 안 부른다 |
 | `evals/` | 지표 5 종 평가. 평가는 테스트다(CLAUDE.md §6) |
@@ -123,6 +126,19 @@ just agent-run trip-guide -- --plan "도깨비랑 이태원 클라쓰로 1박 2�
 just test //agents/trip-guide:unit_test      # 기존 기능·운영 서버 경계 회귀
 just agent-eval trip-guide                  # 지표 5 종 (외부 네트워크 없이)
 just build //agents/trip-guide:image        # 고정 linux/amd64 OCI 이미지
+```
+
+AI 일정 생성(`POST /plan` 의 모델 경로)은 실제 모델로만 잴 수 있어 게이트 밖에 있다.
+비용이 든다 — `DEEPSEEK_API_KEY` 가 필요하다:
+
+```sh
+just run //agents/trip-guide:llm_plan_live -- "$PWD/services/scene-api/seed/candidates.csv"
+```
+
+성지 인기도 표를 수집 CSV 에서 다시 뽑을 때:
+
+```sh
+just run //agents/trip-guide:extract_place_scores -- <수집 CSV> "$PWD/agents/trip-guide/config/place_scores.json"
 ```
 
 평가가 재는 것 — 실현 가능률 · 결정성 · 동선 효율 · 작품 커버리지 · 도구 선택 처리.
