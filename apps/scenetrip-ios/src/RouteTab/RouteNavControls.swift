@@ -131,30 +131,39 @@ extension RouteNavResult {
 
 extension RouteLeg {
     init(contract leg: SceneApiClient.RouteLeg) {
-        var pieces: [String] = []
-        if let seconds = leg.seconds {
-            pieces.append("\(max(1, Int(seconds) / 60))분")
-        }
-        if let meters = leg.meters {
-            pieces.append("\(Int(meters)) m")
-        }
-        if let stops = leg.stopCount {
-            pieces.append("\(Int(stops)) 정거장")
-        }
-        let mode = RouteLegMode.from(contractMode: leg.mode.rawValue, vehicleType: leg.vehicleType)
-        // 탈것은 **노선이 제목**이다(「간선 150」「지하철 3호선」) — 안내문·정거장·시간은 설명으로.
+        let pieces = RouteLeg.pieces(seconds: leg.seconds, meters: leg.meters, stops: leg.stopCount)
+        let mode = RouteLegMode.from(
+            contractMode: leg.mode.rawValue, vehicleType: leg.vehicleType, vehicleName: leg.vehicleName
+        )
+        // 탈것은 **노선이 제목**이다(「간선 150」「1호선」) — 안내문·정거장·시간은 설명으로.
         // 도보는 안내문(턴바이턴)이 제목이고 거리·시간이 설명이다.
-        let route = [leg.vehicleType, leg.vehicleName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+        // 지하철은 이름만 — 카카오의 종류 칸이 「일반」이라 「일반 1호선」이 된다.
+        let route = mode == .subway && !(leg.vehicleName ?? "").isEmpty
+            ? leg.vehicleName ?? ""
+            : [leg.vehicleType, leg.vehicleName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
         let title = mode.isVehicle && !route.isEmpty ? route : leg.guidance
         let detail = mode.isVehicle && !route.isEmpty
-            ? ([leg.guidance] + pieces).filter { !$0.isEmpty }.joined(separator: " · ")
+            ? ([Self.withoutRoute(leg.guidance, route: route)] + pieces).filter { !$0.isEmpty }.joined(separator: " · ")
             : pieces.joined(separator: " · ")
         self.init(
             mode: mode,
             title: title,
             detail: detail,
             path: leg.path.coordinates,
-            hasStairs: leg.hasStairs
+            hasStairs: leg.hasStairs,
+            meters: leg.meters,
+            seconds: leg.seconds
         )
+    }
+
+    /// 안내문 앞에 붙은 노선을 뗀다 — 「1호선 (서울역 > 동대문)」→「서울역 > 동대문」,
+    /// 「마을 종로02외 1대 (…)」→「외 1대 (…)」. 노선이 앞에 없으면(영어 안내 등) 그대로다.
+    private static func withoutRoute(_ guidance: String, route: String) -> String {
+        guard guidance.hasPrefix(route) else { return guidance }
+        var rest = guidance.dropFirst(route.count).trimmingCharacters(in: .whitespaces)
+        if rest.hasPrefix("("), rest.hasSuffix(")"), rest.filter({ $0 == "(" }).count == 1 {
+            rest = String(rest.dropFirst().dropLast())
+        }
+        return rest
     }
 }

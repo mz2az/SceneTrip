@@ -70,6 +70,7 @@ struct RouteEditorView: View {
     @State var aiPlacesOn = true
     /// 올리면 지도가 코스 전체에 맞춘다(`RouteMapView.courseFitToken`) — 동선 최적화가 쓴다.
     @State var courseFitToken = 0
+    @State var titleWidth: CGFloat = 0
 
     /// 동선 최적화 단추가 **반짝여야 하는가.** 장소가 새로 담기면 켜진다 — 방금
     /// 담긴 곳은 줄 맨 끝이라 순서가 대개 엉망이 된다. 한 번 최적화하면 꺼진다.
@@ -342,23 +343,6 @@ struct RouteEditorView: View {
         }
     }
 
-    // MARK: 머리와 발
-
-    private var topBar: some View {
-        HStack {
-            Button("취소") { dismiss() }
-            Spacer()
-            Text(course.title).font(.headline).lineLimit(1)
-            Spacer()
-            Button(isNew ? "만들기" : "저장") {
-                Task { await saveAndClose() }
-            }
-            .font(.body.weight(.semibold))
-        }
-        .padding(.horizontal, 16).padding(.vertical, 12)
-        .background(Color(.systemBackground))
-    }
-
     // MARK: 목록
 
     private var stopList: some View {
@@ -452,6 +436,11 @@ struct RouteEditorView: View {
     /// 저장하고 닫는다. **실패하면 닫지 않는다** — 조용히 닫으면 저장된 줄 알고
     /// 나갔다가 목록에 없는 것을 보게 된다.
     func saveAndClose() async {
+        // 제목을 비운 채 저장하면 목록에 이름 없는 코스가 생긴다 — 「직접 짜기」의 기본 이름으로 둔다.
+        course.title = course.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if course.title.isEmpty {
+            course.title = "내 코스"
+        }
         if let saved = await store.save(course) {
             guide.rekey(to: guideKey(for: saved)) // 방금 저장한 이 코스를 다시 열면 대화가 이어진다
             dismiss()
@@ -591,5 +580,60 @@ extension RouteEditorView {
             try? await Task.sleep(for: .milliseconds(100))
         }
         return stops.count >= count
+    }
+}
+
+// MARK: 머리줄
+
+/// 본문 길이 한도(`type_body_length`) 때문에 확장으로 뺐다 — 같은 파일이라 `private` 상태를 그대로 본다.
+extension RouteEditorView {
+    var topBar: some View {
+        HStack {
+            Button("취소") { dismiss() }
+            Spacer()
+            // 제목은 눌러서 바로 고친다 — 마법사·AI 가 붙인 「OO 1박 2일」을 그대로 두게 하지
+            // 않는다(2026-09-28 사용자: Android 는 되는데 iOS 는 제목 수정이 안 된다).
+            HStack(spacing: 4) {
+                // 칸 폭은 **글자 길이를 재서 정확히 준다(200pt 에서 멈춤).** 글자만큼 늘게(`fixedSize`)
+                // 두면 긴 제목이 취소·만들기를 덮어 「취소」 터치까지 가로챘고, `maxWidth` 로 두면
+                // 자리가 남을 때 200pt 까지 벌어져 연필이 글자에서 멀리 떨어졌다(2026-09-28 실기 세 번).
+                TextField("코스 이름", text: $course.title)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(1)
+                    .submitLabel(.done)
+                    .frame(width: min(titleWidth + 4, 200)) // +4 는 커서 자리
+                    .background {
+                        Text(course.title.isEmpty ? "코스 이름" : course.title)
+                            .font(.headline)
+                            .fixedSize()
+                            .hidden()
+                            .background(GeometryReader { geo in
+                                Color.clear.preference(key: EditorTitleWidthKey.self, value: geo.size.width)
+                            })
+                    }
+                    .onPreferenceChange(EditorTitleWidthKey.self) { titleWidth = $0 }
+                Image(systemName: "pencil")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: 220)
+            Spacer()
+            Button(isNew ? "만들기" : "저장") {
+                Task { await saveAndClose() }
+            }
+            .font(.body.weight(.semibold))
+        }
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .background(Color(.systemBackground))
+    }
+}
+
+/// 머리줄 제목 글자의 폭을 위로 알린다 — 입력칸이 이 폭을 따른다(`topBar`).
+struct EditorTitleWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }

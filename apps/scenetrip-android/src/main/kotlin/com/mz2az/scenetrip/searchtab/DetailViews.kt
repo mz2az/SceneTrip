@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -185,98 +184,104 @@ fun PlaceDetailView(
         DetailHeader(title = summary.name, subtitle = summary.address.orEmpty(), onBack = onBack)
         LazyColumn {
             item {
-                RemoteImage(
-                    url = (detail?.imageUrl ?: summary.imageUrl)?.toString(),
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(180.dp)
-                            .padding(horizontal = IOS.gutter)
-                            .clip(RoundedCornerShape(10.dp)),
-                )
-                summary.type?.takeIf { it.isNotEmpty() }?.let {
-                    Text(
-                        text = it,
-                        style = IOS.caption,
-                        color = IOS.secondaryLabel,
-                        modifier =
-                            Modifier
-                                .padding(horizontal = IOS.gutter, vertical = 12.dp)
-                                .clip(CircleShape)
-                                .background(IOS.systemGray6)
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
-                }
-                // 담긴 상태에서 다시 누르면 뺀다 — 목록 행과 같은 규칙이다.
-                //
-                // 두 버튼이 한 줄이다. 담기는 계약이 적어 둔 세 경로 중 하나이고,
-                // 네이버 지도는 외부 앱/브라우저로 넘긴다 — 길찾기와 영업정보는
-                // 우리가 만들 것이 아니다.
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(horizontal = IOS.gutter),
+                // iOS: `VStack(spacing: 18)` + `.padding(14)` — 헤더→사진 14(+헤더 아래), 사진→갈래→버튼 18 씩.
+                // 여백 없이 붙어 있어 전체가 빽빽했다(2차 대조: 28 대 9, 19.5 대 15, 20 대 13.5).
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                    modifier = Modifier.padding(top = 14.dp),
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
+                    RemoteImage(
+                        url = (detail?.imageUrl ?: summary.imageUrl)?.toString(),
                         modifier =
                             Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(IOS.capsuleButton))
-                                .background(IOS.accent)
-                                .clickable(onClick = onToggleSave)
-                                // iOS 버튼 높이는 30.3pt 다. 6 차가 36.3 이라 해서
-                                // 키웠다가 7 차에 40.4 로 커졌다 — 6 차 값이 틀렸다.
-                                .padding(vertical = 6.dp),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            // iOS 는 `Label(_, systemImage:)` 라 **아이콘이 함께**
-                            // 붙는다 — 담기 전에는 가방, 담긴 뒤에는 체크다.
-                            if (saved) {
-                                Icon(
-                                    Icons.Filled.Check,
-                                    contentDescription = null,
-                                    tint = IOS.systemBackground,
-                                    modifier = Modifier.size(17.dp),
-                                )
-                            } else {
-                                // iOS 는 `bag.badge.plus` — **가방에 ＋ 배지**다.
-                                // 쇼핑카트로 대신하면 모양이 한눈에 다르다.
-                                BagPlusIcon(IOS.systemBackground, Modifier.size(17.dp))
-                            }
-                            Text(
-                                text = if (saved) "담김 · 누르면 빼기" else "장바구니에 담기",
-                                style = IOS.subheadlineSemibold,
-                                color = IOS.systemBackground,
-                            )
-                        }
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .padding(horizontal = IOS.gutter)
+                                .clip(RoundedCornerShape(10.dp)),
+                    )
+                    summary.type?.takeIf { it.isNotEmpty() }?.let {
+                        Text(
+                            text = it,
+                            style = IOS.caption,
+                            color = IOS.secondaryLabel,
+                            modifier =
+                                Modifier
+                                    .padding(horizontal = IOS.gutter)
+                                    .clip(CircleShape)
+                                    .background(IOS.systemGray6)
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
                     }
-                    val naver = detail?.naverPlaceUrl?.toString()
-                    if (naver != null) {
+                    // 담긴 상태에서 다시 누르면 뺀다 — 목록 행과 같은 규칙이다.
+                    //
+                    // 두 버튼이 한 줄이다. 담기는 계약이 적어 둔 세 경로 중 하나이고,
+                    // 네이버 지도는 외부 앱/브라우저로 넘긴다 — 길찾기와 영업정보는
+                    // 우리가 만들 것이 아니다.
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(horizontal = IOS.gutter),
+                    ) {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier =
                                 Modifier
+                                    .weight(1f)
                                     .clip(RoundedCornerShape(IOS.capsuleButton))
-                                    .background(IOS.systemGray6)
-                                    .clickable { openUrl(context, naver) }
-                                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                                    .background(IOS.accent)
+                                    .clickable(onClick = onToggleSave)
+                                    // iOS `.borderedProminent` 높이 35(2차 대조 실측 — 32.5 는 작았다).
+                                    .padding(vertical = 7.dp),
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                // iOS 는 `Label` 이라 **아이콘이 글자 앞**에 온다.
-                                // `arrow.up.right.square` — 네모 안의 대각선
-                                // 화살표이고, 밖으로 나간다는 표시다.
-                                ExternalLinkIcon(IOS.accent, Modifier.size(15.dp))
+                                // iOS 는 `Label(_, systemImage:)` 라 **아이콘이 함께**
+                                // 붙는다 — 담기 전에는 가방, 담긴 뒤에는 체크다.
+                                if (saved) {
+                                    Icon(
+                                        Icons.Filled.Check,
+                                        contentDescription = null,
+                                        tint = IOS.systemBackground,
+                                        modifier = Modifier.size(17.dp),
+                                    )
+                                } else {
+                                    // iOS 는 `bag.badge.plus` — **가방에 ＋ 배지**다.
+                                    // 쇼핑카트로 대신하면 모양이 한눈에 다르다.
+                                    BagPlusIcon(IOS.systemBackground, Modifier.size(17.dp))
+                                }
                                 Text(
-                                    text = "네이버 지도",
+                                    text = if (saved) "담김 · 누르면 빼기" else "장바구니에 담기",
                                     style = IOS.subheadlineSemibold,
-                                    color = IOS.accent,
+                                    color = IOS.systemBackground,
                                 )
+                            }
+                        }
+                        val naver = detail?.naverPlaceUrl?.toString()
+                        if (naver != null) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier =
+                                    Modifier
+                                        .clip(RoundedCornerShape(IOS.capsuleButton))
+                                        .background(IOS.systemGray6)
+                                        .clickable { openUrl(context, naver) }
+                                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    // iOS 는 `Label` 이라 **아이콘이 글자 앞**에 온다.
+                                    // `arrow.up.right.square` — 네모 안의 대각선
+                                    // 화살표이고, 밖으로 나간다는 표시다.
+                                    ExternalLinkIcon(IOS.accent, Modifier.size(15.dp))
+                                    Text(
+                                        text = "네이버 지도",
+                                        style = IOS.subheadlineSemibold,
+                                        color = IOS.accent,
+                                    )
+                                }
                             }
                         }
                     }
@@ -289,7 +294,7 @@ fun PlaceDetailView(
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(horizontal = IOS.gutter, vertical = 16.dp),
+                        modifier = Modifier.padding(horizontal = IOS.gutter).padding(top = 18.dp, bottom = 12.dp),
                     ) {
                         Text("이 장소의 장면", style = IOS.headline, color = IOS.label)
                         Text(

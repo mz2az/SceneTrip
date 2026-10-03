@@ -17,12 +17,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.ShoppingCart
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,10 +31,15 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.mz2az.scenetrip.ui.ArrowClockwiseIcon
+import com.mz2az.scenetrip.ui.CartIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.XMarkIcon
 
 /**
  * 지도 위에 얹히는 것들 — 검색바와 지도 조작 버튼.
@@ -82,12 +81,9 @@ fun SearchBar(
                     // 오히려 49.5 로 커졌다.
                 }.padding(horizontal = IOS.gutter, vertical = 11.dp),
     ) {
-        Icon(
-            Icons.Filled.Search,
-            contentDescription = null,
-            tint = IOS.secondaryLabel,
-            modifier = Modifier.size(20.dp),
-        )
+        // SF `magnifyingglass`(body) 글리프 약 18pt — Material Search 20dp 는 글리프가 14dp 뿐이었다.
+        com.mz2az.scenetrip.ui
+            .MagnifierIcon(IOS.secondaryLabel, Modifier.size(19.dp))
         Spacer(Modifier.width(8.dp))
 
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
@@ -124,25 +120,24 @@ fun SearchBar(
         }
 
         // iOS 의 `Divider().frame(height: 22)`.
+        // 머리카락 선(1px) — 1dp 는 3px 로 굵었다(2차 대조).
         Spacer(
             Modifier
-                .width(1.dp)
+                .width(0.4.dp)
                 .height(22.dp)
                 .background(IOS.separator),
         )
         Spacer(Modifier.width(12.dp))
 
         Box {
-            Icon(
-                Icons.Outlined.ShoppingCart,
-                contentDescription = "장바구니",
-                // iOS 는 이 자리를 강조색으로 그린다 — 실기 스크린샷으로 확인했다.
-                tint = IOS.accent,
-                modifier =
-                    Modifier
-                        .clip(CircleShape)
-                        .clickable(onClick = onOpenCart)
-                        .size(22.dp),
+            // iOS 는 이 자리를 강조색으로 그린다 — 실기 스크린샷으로 확인했다. 글리프는 SF `cart`(2차 대조).
+            CartIcon(
+                IOS.accent,
+                Modifier
+                    .clip(CircleShape)
+                    .semantics { contentDescription = "장바구니" }
+                    .clickable(onClick = onOpenCart)
+                    .size(22.dp),
             )
             if (cartCount > 0) {
                 Text(
@@ -224,12 +219,12 @@ fun NearbyButton(
                 .clickable(onClick = onToggle)
                 .padding(horizontal = IOS.gutter, vertical = 9.dp),
     ) {
-        Icon(
-            imageVector = if (on) Icons.Filled.Close else Icons.Filled.Refresh,
-            contentDescription = null,
-            tint = if (on) IOS.systemBackground else IOS.label,
-            modifier = Modifier.size(15.dp),
-        )
+        // iOS `xmark` / `arrow.clockwise`(footnote semibold, 잉크 약 11×14) — Material Refresh 는 작고 모양도 달랐다.
+        if (on) {
+            XMarkIcon(IOS.systemBackground, Modifier.size(12.dp))
+        } else {
+            ArrowClockwiseIcon(IOS.label, Modifier.size(14.dp))
+        }
         Text(
             text = if (on) "이 지도에서 ${count}곳 · 해제" else "현 지도 내 성지 검색",
             style = IOS.subheadline.copy(fontWeight = FontWeight.Medium),

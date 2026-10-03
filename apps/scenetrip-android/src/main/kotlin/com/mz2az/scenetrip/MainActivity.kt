@@ -4,12 +4,27 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.mz2az.scenetrip.data.OnboardingFlag
+import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.onboarding.OnboardingView
+import com.mz2az.scenetrip.onboarding.SplashView
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.iosTypography
 
 /**
  * 앱의 유일한 액티비티. iOS 의 `SceneTripApp.swift` 에 해당한다.
@@ -42,6 +57,15 @@ class MainActivity : ComponentActivity() {
         // 지도를 상태바 아래까지 채우는 것과 같다.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+        // 확인용 뒷문 — iOS `simctl launch … -initialTab profile`과 짝이다.
+        // `adb shell am start -n com.mz2az.scenetrip/.MainActivity -e initialTab route
+        // --el openCourseId 26` 처럼 부른다. 인자가 없으면 기본값(홈)을 그대로 둔다.
+        TabRouter.applyInitialTab(
+            tab = intent.getStringExtra("initialTab"),
+            openCourseId = intent.getLongExtra("openCourseId", -1L).takeIf { it > 0 },
+        )
+
         setContent { SceneTripApp() }
     }
 }
@@ -57,9 +81,57 @@ fun SceneTripApp() {
     // **MaterialTheme 의 기본 색을 쓰지 않는다.** 기본값은 보라 계열이라 iOS 의
     // systemBlue 와 갈린다. 색은 전부 `ui/IOSTheme.kt` 에서 명시로 가져온다 —
     // 테마는 글꼴 기본값 정도로만 남긴다.
-    MaterialTheme {
+    MaterialTheme(typography = iosTypography()) {
         Surface(modifier = Modifier.fillMaxSize(), color = IOS.systemBackground) {
-            RootTabs()
+            AppRoot()
+        }
+    }
+}
+
+/** 앱을 열었을 때의 순서. iOS `Onboarding/AppRoot.swift`를 옮긴 것이다. */
+private enum class AppStage { SPLASH, LESSONS, APP }
+
+/**
+ * 진짜 앱은 처음부터 아래에 깔려 있다.
+ *
+ * 스플래시를 **덮개로** 얹는다. `RootTabs`를 나중에 만들면 스플래시가 로딩에
+ * 더해지지만, 밑에 깔아 두면 그동안 지도 인증과 인기 촬영지 호출이 끝난다 —
+ * 덮개가 걷힐 때 이미 그려져 있는 화면이 나오는 것과, 그때부터 회색 지도가
+ * 뜨는 것은 체감이 다르다.
+ */
+@Composable
+private fun AppRoot() {
+    val context = LocalContext.current
+    val onboardingFlag = remember { OnboardingFlag(context) }
+    var stage by remember { mutableStateOf(AppStage.SPLASH) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        RootTabs()
+
+        // 들어올 때는 애니메이션이 없어야 한다 — 그냥 페이드로 두면 앱을 연 첫
+        // 0.32초 동안 스플래시가 서서히 나타나면서 밑에 깔린 흰 화면이 비친다
+        // (iOS 실측). 스플래시·온보딩 모두 나갈 때만 페이드한다.
+        AnimatedVisibility(
+            visible = stage == AppStage.SPLASH,
+            enter = EnterTransition.None,
+            exit = fadeOut(tween(320)),
+        ) {
+            SplashView(
+                onDone = {
+                    stage = if (onboardingFlag.hasSeen) AppStage.APP else AppStage.LESSONS
+                },
+            )
+        }
+
+        AnimatedVisibility(
+            visible = stage == AppStage.LESSONS,
+            enter = EnterTransition.None,
+            exit = fadeOut(tween(320)),
+        ) {
+            OnboardingView(
+                onboardingFlag = onboardingFlag,
+                onDone = { stage = AppStage.APP },
+            )
         }
     }
 }

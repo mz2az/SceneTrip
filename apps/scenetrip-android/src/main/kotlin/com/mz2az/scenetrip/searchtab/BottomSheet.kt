@@ -58,6 +58,10 @@ enum class Detent(
  *
  * @param topInset 검색바가 차지하는 높이. 최대 단계는 이 아래까지만 올라온다.
  * @param onHeightChange 지금 덮고 있는 실제 높이. 지도가 로고·축척을 이 위에 올린다.
+ * @param mediumFraction 중간 단의 비율. 기본은 화면들이 공유하는 48%([IOS.DETENT_MEDIUM]) —
+ * 검색 탭이 실측한 값이다. 화면마다 다른 값을 줄 수 있어야 한다(iOS
+ * `BottomSheet(mediumFraction:)`) — 예를 들어 코스 편집 화면은 액션 줄·"코스 시작"
+ * 단추까지 처음부터 보여야 해서 60%를 쓴다(iOS `RouteEditorView`, 2026-08-28 결정).
  */
 @Composable
 fun BottomSheet(
@@ -65,6 +69,7 @@ fun BottomSheet(
     onDetentChange: (Detent) -> Unit,
     topInset: Dp,
     onHeightChange: (Dp) -> Unit = {},
+    mediumFraction: Float = IOS.DETENT_MEDIUM,
     content: @Composable () -> Unit,
 ) {
     // **`fillMaxSize` 여야 한다.** 너비만 채우면 `maxHeight` 가 내용 높이로 잡혀
@@ -78,7 +83,12 @@ fun BottomSheet(
         val maxSheet = total - topInset
         val density = LocalDensity.current
 
-        fun heightFor(target: Detent): Dp = if (target == Detent.EXPANDED) maxSheet else total * target.ratio
+        fun heightFor(target: Detent): Dp =
+            when (target) {
+                Detent.EXPANDED -> maxSheet
+                Detent.MEDIUM -> total * mediumFraction
+                else -> total * target.ratio
+            }
 
         // 끄는 동안의 손가락 이동량(px). 손을 떼면 0 으로 돌아가고 detent 가 바뀐다.
         var drag by remember { mutableFloatStateOf(0f) }
