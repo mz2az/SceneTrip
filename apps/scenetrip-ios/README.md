@@ -67,6 +67,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 주변 편의시설 점·정보 카드 | 된다 — `GET /pois`·`/pois/{id}/card` |
 | AI 코스 추천(마법사) | **계약 `POST /guide/plan`** — 에이전트의 코스 엔진이 짠다(모델 없음, 키 없어도 됨). 앱 안의 규칙(`RoutePlanner`)은 지웠다 |
 | 찜 | 서버(`/favorites/contents`)가 정본, 기기에는 사본 (MZ2AZ-335) |
+| 로그인 | 구글 로그인·토큰 키체인 저장·401 자동 갱신·로그아웃·탈퇴 (MZ2AZ-336). 애플 로그인은 자리만 |
 | 커뮤니티 글·방문 스탬프 일부 | 기기(UserDefaults) 저장 — 맥마다 따로 논다 |
 
 ### 함정
@@ -219,6 +220,10 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
   ("직선을 긋고 있었다").
 - `RoutePlanner.swift` 를 만들어 로컬 LLM 이 AI 코스를 짜게 했다. 개수 버그(하루 상한을
   못 지킴)를 프롬프트와 최소 통과선(70%) 두 군데를 고쳐 잡았다.
+- 로그인 코드는 `src/Auth/` 에 있다 (MZ2AZ-336). 구글 로그인은 SDK 없이 시스템 로그인 창(`ASWebAuthenticationSession`)
+  + PKCE 로 ID 토큰을 받는다(`GoogleOAuth.swift`). 토큰 싣기와 401 처리(만료 → 갱신 한 번 → 재시도)는
+  `AuthRequestBuilder.swift` 가 생성 클라이언트에 끼워 넣는다 — 화면 코드는 API 를 그냥 부른다.
+  로컬에서 로그인하려면 `.env` 에 `SCENETRIP_AUTH_JWT_SECRET` 이 있어야 한다(`.env.example`).
 - 설치 식별자는 **키체인**에 둔다(`Keychain.swift`, MZ2AZ-335) — 옛 자리(`UserDefaults` `scenetrip.deviceId`)의 값은
   첫 실행에 옮긴다. 키체인은 앱을 지워도 남으므로 설치 뒤 첫 실행에는 남은 값을 버린다(지웠다 깔면 새 설치본).
 - `InstallIdentity.swift` 를 `CartStore` 밖으로 뗐다 — 코스 API 도 같은 설치 식별자가

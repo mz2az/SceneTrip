@@ -139,7 +139,7 @@ struct PinoMascot: View {
     }
 }
 
-#Preview("진도 · 포즈") {
+#Preview("해태 · 포즈") {
     VStack(spacing: 24) {
         HStack(spacing: 20) {
             PinoMascot(pose: .plain, tone: .onDeep, width: 120)
