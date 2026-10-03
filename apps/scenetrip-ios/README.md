@@ -66,7 +66,8 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 챗봇(여행 가이드) | **계약 `POST /guide/chat` 을 부른다**(MZ2AZ-321). 백엔드가 에이전트(`agents/trip-guide`, :8899)를 부르므로 그것이 떠 있어야 답이 온다 — 꺼져 있으면 「잠시 뒤 다시」가 뜨는 것이 정상이고, 규칙 기반 답이 나오면 잘못된 것이다. 가입자만(401) |
 | 주변 편의시설 점·정보 카드 | 된다 — `GET /pois`·`/pois/{id}/card` |
 | AI 코스 추천(마법사) | **계약 `POST /guide/plan`** — 에이전트의 코스 엔진이 짠다(모델 없음, 키 없어도 됨). 앱 안의 규칙(`RoutePlanner`)은 지웠다 |
-| 찜·커뮤니티 글·방문 스탬프 일부 | 기기(UserDefaults) 저장 — 맥마다 따로 논다 |
+| 찜 | 서버(`/favorites/contents`)가 정본, 기기에는 사본 (MZ2AZ-335) |
+| 커뮤니티 글·방문 스탬프 일부 | 기기(UserDefaults) 저장 — 맥마다 따로 논다 |
 
 ### 함정
 
@@ -218,6 +219,8 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
   ("직선을 긋고 있었다").
 - `RoutePlanner.swift` 를 만들어 로컬 LLM 이 AI 코스를 짜게 했다. 개수 버그(하루 상한을
   못 지킴)를 프롬프트와 최소 통과선(70%) 두 군데를 고쳐 잡았다.
+- 설치 식별자는 **키체인**에 둔다(`Keychain.swift`, MZ2AZ-335) — 옛 자리(`UserDefaults` `scenetrip.deviceId`)의 값은
+  첫 실행에 옮긴다. 키체인은 앱을 지워도 남으므로 설치 뒤 첫 실행에는 남은 값을 버린다(지웠다 깔면 새 설치본).
 - `InstallIdentity.swift` 를 `CartStore` 밖으로 뗐다 — 코스 API 도 같은 설치 식별자가
   필요해서다 (MZ2AZ-261).
 

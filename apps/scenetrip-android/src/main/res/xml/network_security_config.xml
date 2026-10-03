@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  평문 HTTP 는 **에뮬레이터가 노트북의 로컬 서버를 부를 때만** 허용한다 (MZ2AZ-335).
+
+  `10.0.2.2` 는 에뮬레이터에서 호스트(노트북)를 가리키는 주소이고, 개발 중 서버는
+  `http://10.0.2.2:8081` 이다. 전에는 매니페스트의 usesCleartextTraffic="true" 가 모든
+  주소에 평문을 허용했다 — 로그인이 토큰을 싣기 시작하므로 좁힌다. DEV·PRD 는 HTTPS 다.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>
