@@ -154,13 +154,13 @@ struct RouteLeg: Identifiable {
     static func pieces(seconds: Int?, meters: Int?, stops: Int?) -> [String] {
         var out: [String] = []
         if let seconds {
-            out.append("\(max(1, seconds / 60))분")
+            out.append(String(format: tr("%d분"), max(1, seconds / 60)))
         }
         if let meters {
             out.append("\(meters) m")
         }
         if let stops {
-            out.append("\(stops) 정거장")
+            out.append(String(format: tr("%d 정거장"), stops))
         }
         return out
     }
@@ -235,11 +235,11 @@ struct RouteNavResult {
     }
 
     var summaryLine: String {
-        var parts = ["환승 \(transfers)회"]
+        var parts = [String(format: tr("환승 %d회"), transfers)]
         // 모르는 것은 모른다고 적는다. 빼 버리면 「도보 0」과 구별되지 않는다.
-        parts.append(walkMeters.map { "도보 \($0) m" } ?? "도보 정보 없음")
+        parts.append(walkMeters.map { String(format: tr("도보 %d m"), $0) } ?? tr("도보 정보 없음"))
         if let fareWon, fareWon > 0 {
-            parts.append("\(fareWon.formatted(.number.grouping(.automatic)))원")
+            parts.append(String(format: tr("%@원"), fareWon.formatted(.number.grouping(.automatic))))
         }
         return parts.joined(separator: " · ")
     }
@@ -261,10 +261,10 @@ enum RoutePoiGroup: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .food: "음식점"
-        case .sight: "명소"
-        case .stay: "숙소"
-        case .transit: "교통"
+        case .food: tr("음식점")
+        case .sight: tr("명소")
+        case .stay: tr("숙소")
+        case .transit: tr("교통")
         }
     }
 }

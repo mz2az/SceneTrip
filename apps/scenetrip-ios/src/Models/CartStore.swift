@@ -41,12 +41,12 @@ final class CartStore: ObservableObject {
                 )
             )
             placeIds.insert(placeId)
-            toast = "장바구니에 담았습니다"
+            toast = tr("장바구니에 담았습니다")
         } catch let ErrorResponse.error(code, _, _, _) where code == 409 {
             placeIds.insert(placeId)
-            toast = "이미 저장된 장소입니다"
+            toast = tr("이미 저장된 장소입니다")
         } catch {
-            toast = "담지 못했습니다. 잠시 후 다시 시도해 주세요"
+            toast = tr("담지 못했습니다. 잠시 후 다시 시도해 주세요")
         }
         await refresh()
     }
@@ -56,7 +56,7 @@ final class CartStore: ObservableObject {
         placeIds.remove(placeId)
         // 담을 때 알려 줬으니 뺄 때도 알려 준다. 목록 행에서 빼면 아이콘만 바뀌어
         // 눌렸는지 확신이 안 선다.
-        toast = "장바구니에서 뺐습니다"
+        toast = tr("장바구니에서 뺐습니다")
         await refresh()
     }
 

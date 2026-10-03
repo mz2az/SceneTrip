@@ -142,14 +142,14 @@ struct RoutePlaceCard: View {
         }
 
         VStack(spacing: 0) {
-            row("분류", card.category)
-            row("영업", card.hours)
-            row("주소", card.address ?? place.address)
-            row("전화", card.phone)
-            row("방문자 리뷰", card.reviewCount.map { "\($0)건" })
-            row("블로그 리뷰", card.blogReviews.map { "\($0)건" })
+            row(tr("분류"), card.category)
+            row(tr("영업"), card.hours)
+            row(tr("주소"), card.address ?? place.address)
+            row(tr("전화"), card.phone)
+            row(tr("방문자 리뷰"), card.reviewCount.map { String(format: tr("%d건"), $0) })
+            row(tr("블로그 리뷰"), card.blogReviews.map { String(format: tr("%d건"), $0) })
             // 별점은 있을 때만. 없는 것을 0.0 으로 적으면 「최악」으로 읽힌다.
-            row("별점", card.score.map { String(format: "%.2f", $0) })
+            row(tr("별점"), card.score.map { String(format: "%.2f", $0) })
         }
 
         if let onAdd {
@@ -157,7 +157,7 @@ struct RoutePlaceCard: View {
                 HStack(spacing: 6) {
                     Image(systemName: added ? "checkmark.circle.fill" : "plus.circle.fill")
                         .font(.caption)
-                    Text(added ? "경로에 있음 · 누르면 빼기" : "경로에 추가")
+                    Text(added ? tr("경로에 있음 · 누르면 빼기") : tr("경로에 추가"))
                         .font(.subheadline.weight(.semibold))
                 }
                 .frame(maxWidth: .infinity)
@@ -202,7 +202,7 @@ struct RoutePlaceCard: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("네이버에서 찾지 못했습니다")
                 .font(.subheadline.weight(.medium))
-            Text(card?.why ?? "우리 자료(TMAP)에는 있지만 네이버에 없는 가게일 수 있습니다.")
+            Text(card?.why ?? tr("우리 자료(TMAP)에는 있지만 네이버에 없는 가게일 수 있습니다."))
                 .font(.caption).foregroundStyle(.secondary)
             if let category = place.category {
                 Text(category).font(.caption2).foregroundStyle(.tertiary)

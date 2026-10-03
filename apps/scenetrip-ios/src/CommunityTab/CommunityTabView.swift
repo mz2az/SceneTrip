@@ -93,9 +93,9 @@ struct CommunityTabView: View {
     private var boardChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                boardChip(nil, label: "전체")
+                boardChip(nil, label: tr("전체"))
                 ForEach(CommunityPost.Board.allCases) { item in
-                    boardChip(item, label: item.rawValue)
+                    boardChip(item, label: tr(item.rawValue))
                 }
             }
             .padding(.horizontal, 16).padding(.vertical, 8)
@@ -179,7 +179,7 @@ struct CommunityTabView: View {
     private func myPostBody(_ post: CommunityPost) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
-                badge(post.board.rawValue, tint: .accentColor)
+                badge(tr(post.board.rawValue), tint: .accentColor)
                 Text(post.title).font(.subheadline.weight(.semibold)).lineLimit(1)
             }
             if !post.body.isEmpty {
@@ -204,10 +204,10 @@ struct CommunityTabView: View {
     private func marketRow(_ course: MarketCourseSummary) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
-                badge("코스 추천", tint: Color(PinImage.deep))
+                badge(tr("코스 추천"), tint: Color(PinImage.deep))
                 Text(course.title).font(.subheadline.weight(.semibold)).lineLimit(1)
             }
-            Text("\(course.dayCount)일 · \(course.placeCount)곳"
+            Text(String(format: tr("%d일 · %d곳"), course.dayCount, course.placeCount)
                 + ((course.contents?.isEmpty == false)
                     ? " · " + course.contents!.map(\.title).prefix(2).joined(separator: " · ")
                     : ""))

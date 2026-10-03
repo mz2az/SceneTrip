@@ -51,7 +51,7 @@ struct WorkRow: View {
                         .foregroundStyle(liked ? Color.red : .secondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(liked ? "찜 빼기" : "찜하기")
+                .accessibilityLabel(liked ? tr("찜 빼기") : tr("찜하기"))
             }
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
@@ -126,7 +126,7 @@ struct PlaceRow: View {
                         .foregroundStyle(saved ? Color.accentColor : .secondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(saved ? "장바구니에서 빼기" : "장바구니에 담기")
+                .accessibilityLabel(saved ? tr("장바구니에서 빼기") : tr("장바구니에 담기"))
             }
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }

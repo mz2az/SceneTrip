@@ -60,19 +60,19 @@ enum RouteGuideFailure: Equatable, Error {
     var message: String {
         switch self {
         case .signInRequired:
-            "여행 가이드는 가입한 분만 쓸 수 있어요"
+            tr("여행 가이드는 가입한 분만 쓸 수 있어요")
         case .sessionExpired:
-            "로그인이 풀렸어요. 다시 로그인해 주세요"
+            tr("로그인이 풀렸어요. 다시 로그인해 주세요")
         case .badRequest:
-            "요청을 처리하지 못했어요. 조건을 바꿔 다시 해 주세요"
+            tr("요청을 처리하지 못했어요. 조건을 바꿔 다시 해 주세요")
         case .unavailable:
-            "가이드가 잠시 응답하지 않아요. 잠시 뒤 다시 물어봐 주세요"
+            tr("가이드가 잠시 응답하지 않아요. 잠시 뒤 다시 물어봐 주세요")
         case .timedOut:
-            "답이 너무 오래 걸려 기다리기를 멈췄어요. 잠시 뒤 다시 물어봐 주세요"
+            tr("답이 너무 오래 걸려 기다리기를 멈췄어요. 잠시 뒤 다시 물어봐 주세요")
         case .unreachable:
-            "서버에 연결하지 못했어요 — 백엔드(:8081)가 켜져 있나요?"
+            tr("서버에 연결하지 못했어요 — 백엔드(:8081)가 켜져 있나요?")
         case let .other(status):
-            "가이드 요청을 처리하지 못했어요 (\(status))"
+            String(format: tr("가이드 요청을 처리하지 못했어요 (%d)"), status)
         }
     }
 }

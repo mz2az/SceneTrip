@@ -18,7 +18,7 @@ struct MyCoursesSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ProfileSheetHeader(title: "내 코스") { dismiss() }
+            ProfileSheetHeader(title: tr("내 코스")) { dismiss() }
             if courses.isEmpty {
                 ContentUnavailableView(
                     "아직 코스가 없습니다",
@@ -57,7 +57,7 @@ struct MyCoursesSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(course.title).font(.subheadline.weight(.medium))
                     Text(
-                        "\(course.dayCount)일"
+                        String(format: tr("%d일"), course.dayCount)
                             + (course.startDate.map {
                                 " · " + $0.formatted(date: .abbreviated, time: .omitted)
                             } ?? "")
@@ -138,7 +138,7 @@ struct LikedWorksSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ProfileSheetHeader(title: "찜한 작품") { dismiss() }
+            ProfileSheetHeader(title: tr("찜한 작품")) { dismiss() }
             if let failure {
                 ContentUnavailableView(
                     "작품 목록을 받지 못했습니다",

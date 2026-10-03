@@ -80,9 +80,9 @@ struct RouteNavView: View {
     private var locationNotice: String? {
         switch locator.state {
         case .found: nil
-        case .asking: "현재 위치를 찾는 중입니다"
-        case .denied: "위치 권한이 없어 현재 위치를 표시할 수 없습니다"
-        case .failed: "현재 위치를 찾지 못했습니다"
+        case .asking: tr("현재 위치를 찾는 중입니다")
+        case .denied: tr("위치 권한이 없어 현재 위치를 표시할 수 없습니다")
+        case .failed: tr("현재 위치를 찾지 못했습니다")
         }
     }
 

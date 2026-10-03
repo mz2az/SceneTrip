@@ -60,7 +60,7 @@ struct RouteTabView: View {
                 // 하나였는데, 목업은 「내 코스」와 대등한 자리로 두었다 — 마켓은
                 // 곁다리가 아니라 이 탭의 절반이다.
                 Picker("", selection: $segment) {
-                    ForEach(Segment.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(Segment.allCases) { Text(tr($0.rawValue)).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 14)
@@ -95,7 +95,7 @@ struct RouteTabView: View {
             .onChange(of: router.pendingCourseId) { _, _ in openPending() }
             .signInSheet()
             .confirmationDialog(
-                doomed.map { "「\($0.title)」을 지울까요?" } ?? "",
+                doomed.map { String(format: tr("「%@」을 지울까요?"), $0.title) } ?? "",
                 isPresented: Binding(get: { doomed != nil }, set: {
                     if !$0 {
                         doomed = nil
@@ -214,7 +214,7 @@ struct RouteTabView: View {
     /// 첫 행동이라 피노 색으로 늘 반짝인다.
     private var header: some View {
         ZStack {
-            Text("코스").font(.headline)
+            Text(tr("코스", at: "화면 제목")).font(.headline)
             HStack {
                 if let onClose {
                     Button(action: onClose) {
@@ -262,7 +262,7 @@ struct RouteTabView: View {
             // 텅 빈 채였다(2026-09-05 사용자 지적: 셋 다 여행 중이었다).
             Section {
                 if planned.isEmpty {
-                    Text(running.isEmpty ? "아직 만든 코스가 없습니다" : "모든 코스가 여행 중이에요")
+                    Text(running.isEmpty ? tr("아직 만든 코스가 없습니다") : tr("모든 코스가 여행 중이에요"))
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 ForEach(planned) { course in
@@ -343,14 +343,14 @@ struct RouteForkCards: View {
     var body: some View {
         VStack(spacing: 12) {
             card(
-                title: "AI 로 짜기",
-                caption: "기간·작품만 고르면 동선까지 짜 드립니다",
+                title: tr("AI 로 짜기"),
+                caption: tr("기간·작품만 고르면 동선까지 짜 드립니다"),
                 symbol: "sparkles",
                 action: onAI
             )
             card(
-                title: "직접 짜기",
-                caption: "장바구니에서 하나씩 담습니다",
+                title: tr("직접 짜기"),
+                caption: tr("장바구니에서 하나씩 담습니다"),
                 symbol: "hand.draw",
                 action: onManual
             )

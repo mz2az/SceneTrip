@@ -2,15 +2,11 @@ import SwiftUI
 
 /// 첫 실행에 한 번 보여 주는 사용법 넉 장.
 ///
-/// ## 영어가 본문이다
+/// ## 고른 언어로 한 벌만 나온다
 ///
-/// 이 앱은 **외국인이 쓰는 앱**이다(계획서 §1). 그런데 지금 UI 는 전부 한국어라
-/// 온보딩까지 한국어로 두면 처음 여는 사람이 첫 화면에서 막힌다. 여기서는 영어를
-/// 본문으로 하고 한국어는 흐린 보조줄로 남긴다 — 팀이 검수할 때 읽을 자리다.
-///
-/// **본체 UI 의 영문화는 여기서 하지 않는다.** 넷째 장을 넘긴 순간 말이 바뀌는 것은
-/// 알고 있고, 그것은 별도의 일감이다. 온보딩만 먼저 영어인 편이 둘 다 한국어인
-/// 것보다는 낫다.
+/// 이 앱은 **외국인이 쓰는 앱**이다(계획서 §1). 사용법보다 먼저 언어를 묻고
+/// (`LanguagePickView`), 여기서는 그 언어로만 적는다 (MZ2AZ-343). 원문은 한국어이고
+/// 그릴 때 `tr()` 로 번역한다 — 영어 문장은 번역 표(`Localizable.strings`)에 있다.
 ///
 /// ## 넉 장인 이유
 ///
@@ -25,29 +21,25 @@ struct OnboardingView: View {
     private static let lessons: [Lesson] = [
         Lesson(
             pose: .magnifier,
-            title: "Where the scene\nwas filmed",
-            body: "Search by drama, movie, or the scene itself.\nReal locations, straight onto the map.",
-            korean: "드라마 이름으로도, 장면 설명으로도 찾는다"
+            title: "그 장면,\n어디서 찍었을까",
+            body: "드라마·영화 제목으로도, 장면 설명으로도 찾아요.\n실제 촬영지가 바로 지도에 뜹니다."
         ),
         Lesson(
             pose: .sparkle,
-            title: "Set your pace.\nHAETAE plans the days.",
+            title: "속도만 정하세요.\n일정은 해태가 짭니다.",
             // 7 과 3 은 지어낸 수가 아니라 계약 `GuidePlanRequest.pace` 의 값이다(빡빡 7 · 여유 3,
             // 계수는 에이전트 설정). 그쪽을 고치면 이 문장도 함께 고쳐야 한다(MZ2AZ-321).
-            body: "Packed fits 7 stops a day, Easy fits 3.\nNearby spots get grouped, day by day.",
-            korean: "빡빡하게 하루 7곳 · 널널하게 3곳"
+            body: "빡빡하게는 하루 7곳, 널널하게는 3곳.\n가까운 곳끼리 묶어 일차별로 나눠 줘요."
         ),
         Lesson(
             pose: .paw,
-            title: "Tap Directions\nwhen you feel like going",
-            body: "From wherever you are standing — subway,\nbus, and every turn of the walk.",
-            korean: "지금 서 있는 자리에서 지하철·버스·골목까지"
+            title: "가고 싶어지면\n길찾기를 누르세요",
+            body: "지금 서 있는 자리에서 지하철·버스,\n걷는 골목 하나까지 안내해요."
         ),
         Lesson(
             pose: .speech,
-            title: "Eat on the way.\nAsk when you are stuck.",
-            body: "Restaurants, sights, transit and stays\naround you. HAETAE handles the Korean.",
-            korean: "반경 안의 음식점·명소·교통·숙소, 그리고 챗봇"
+            title: "가는 길에 먹고,\n막히면 물어보세요",
+            body: "주변의 음식점·명소·교통·숙소를 보여 줘요.\n한국어는 해태가 맡습니다."
         ),
     ]
 
@@ -57,10 +49,10 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 마지막 장에는 두지 않는다 — 거기 버튼이 이미 「Get started」다.
+            // 마지막 장에는 두지 않는다 — 거기 버튼이 이미 「시작하기」다.
             HStack {
                 Spacer()
-                Button("Skip") { finish() }
+                Button("건너뛰기") { finish() }
                     .font(.system(size: 17))
                     .foregroundStyle(.secondary)
                     .opacity(isLast ? 0 : 1)
@@ -88,7 +80,7 @@ struct OnboardingView: View {
                     withAnimation(.easeInOut(duration: 0.28)) { page += 1 }
                 }
             } label: {
-                Text(isLast ? "Get started" : "Next")
+                Text(isLast ? tr("시작하기") : tr("다음"))
                     .font(.system(size: 17, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
@@ -108,11 +100,11 @@ struct OnboardingView: View {
     }
 }
 
+/// `title`·`body` 는 한국어 원문이다 — 그릴 때 `tr()` 로 번역한다.
 private struct Lesson {
     let pose: Pino.Pose
     let title: String
     let body: String
-    let korean: String
 }
 
 // MARK: - 한 장
@@ -134,25 +126,17 @@ private struct LessonPage: View {
 
             Spacer(minLength: 0)
 
-            Text(lesson.title)
+            Text(tr(lesson.title))
                 .font(.system(size: 28, weight: .bold))
                 .kerning(-0.5)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text(lesson.body)
+            Text(tr(lesson.body))
                 .font(.system(size: 16)).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center).lineSpacing(3)
                 .padding(.top, 12)
                 .fixedSize(horizontal: false, vertical: true)
-
-            // 한국어는 팀 검수용 보조줄이다. 영어보다 확실히 흐려야 「본문이 둘」로
-            // 보이지 않는다.
-            Text(lesson.korean)
-                .font(.system(size: 13))
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-                .padding(.top, 14)
 
             Spacer(minLength: 0)
         }
@@ -232,27 +216,28 @@ private struct MapFragment: View {
 /// ② 일차 카드 세 장.
 private struct DayCards: View {
     private struct Day {
-        let title: String
+        let number: Int
+        /// 한국어 원문 — 그릴 때 `tr()` 로 번역한다.
         let places: [String]
         /// 셋째 장은 흐리게 — 「더 있다」를 잘린 카드 없이 말한다.
         let fade: Double
     }
 
     private static let days: [Day] = [
-        Day(title: "1일차", places: ["덕수궁 돌담길", "정동길 · 서울시청"], fade: 1),
-        Day(title: "2일차", places: ["북촌한옥마을", "삼청동길 · 경복궁"], fade: 1),
-        Day(title: "3일차", places: ["주문진 방파제"], fade: 0.55),
+        Day(number: 1, places: ["덕수궁 돌담길", "정동길 · 서울시청"], fade: 1),
+        Day(number: 2, places: ["북촌한옥마을", "삼청동길 · 경복궁"], fade: 1),
+        Day(number: 3, places: ["주문진 방파제"], fade: 0.55),
     ]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(Self.days, id: \.title) { day in
+            ForEach(Self.days, id: \.number) { day in
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(day.title)
+                    Text(String(format: tr("%d일차"), day.number))
                         .font(.system(size: 11, weight: .heavy))
                         .foregroundStyle(Color(PinImage.deep))
                     ForEach(day.places, id: \.self) { place in
-                        Text(place).font(.system(size: 12))
+                        Text(tr(place)).font(.system(size: 12))
                     }
                 }
                 .padding(.horizontal, 11)
@@ -313,7 +298,7 @@ private struct LegTrace: View {
     }
 
     private func caption(_ text: String, at point: CGPoint) -> some View {
-        Text(text)
+        Text(tr(text))
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.secondary)
             .position(point)
@@ -325,20 +310,21 @@ private struct LegTrace: View {
 private struct RadiusChips: View {
     private struct Chip {
         let group: RoutePoiGroup
+        /// 한국어 원문 — 그릴 때 `tr()` 로 번역한다.
         let label: String
         let place: CGSize
     }
 
     /// 자리는 눈대중이 아니라 **피노를 피해** 잡은 값이다. 처음 배치에서는 말풍선이
-    /// Sights 를 덮고, Food 가 왼쪽 귀를 자르고, Stays 가 꼬리에 얹혔다(실측).
+    /// 명소를 덮고, 음식점이 왼쪽 귀를 자르고, 숙소가 꼬리에 얹혔다(실측).
     ///
     /// 피노가 차지하는 자리(폭 186 기준, 가운데 기준):
     /// 귀 위쪽 y −121, 몸통 x −80…81, 꼬리 x 28…81 · y −9…47, 말풍선 x 62…139 · y −115…−65.
     private static let chips: [Chip] = [
-        Chip(group: .food, label: "Food", place: .init(width: -116, height: -100)),
-        Chip(group: .sight, label: "Sights", place: .init(width: 122, height: 4)),
-        Chip(group: .transit, label: "Transit", place: .init(width: -112, height: 66)),
-        Chip(group: .stay, label: "Stays", place: .init(width: 104, height: 92)),
+        Chip(group: .food, label: "음식점", place: .init(width: -116, height: -100)),
+        Chip(group: .sight, label: "명소", place: .init(width: 122, height: 4)),
+        Chip(group: .transit, label: "교통", place: .init(width: -112, height: 66)),
+        Chip(group: .stay, label: "숙소", place: .init(width: 104, height: 92)),
     ]
 
     var body: some View {
@@ -354,7 +340,7 @@ private struct RadiusChips: View {
             ForEach(Self.chips, id: \.label) { chip in
                 HStack(spacing: 6) {
                     Circle().fill(RoutePoiTone.of(chip.group)).frame(width: 9, height: 9)
-                    Text(chip.label).font(.system(size: 13, weight: .semibold))
+                    Text(tr(chip.label)).font(.system(size: 13, weight: .semibold))
                 }
                 .padding(.leading, 8)
                 .padding(.trailing, 12)

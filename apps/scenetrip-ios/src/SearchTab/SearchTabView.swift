@@ -168,12 +168,12 @@ struct SearchTabView: View {
                         HStack(spacing: 8) {
                             Spacer()
                             if outsideKorea {
-                                mapControl("한국으로", symbol: "map") { koreaToken += 1 }
+                                mapControl(tr("한국으로"), symbol: "map") { koreaToken += 1 }
                             }
                             // 과녁 십자(dot.scope) — 네이버·카카오 지도의 현위치
                             // 버튼과 같은 모양이다. location.circle 은 원 안에
                             // 화살표라 "방향" 으로 읽힌다.
-                            mapControl("내 위치", symbol: "dot.scope") {
+                            mapControl(tr("내 위치"), symbol: "dot.scope") {
                                 locateToken += 1
                             }
                         }
@@ -331,7 +331,7 @@ struct SearchTabView: View {
             // "장소 10" 이라고만 두면 전국에 10곳뿐인 것으로 읽힌다.
             Picker("", selection: $tab) {
                 ForEach(Tab.allCases, id: \.self) { each in
-                    Text("\(isInitial ? "인기 " : "")\(each.rawValue) \(count(each))").tag(each)
+                    Text(tabLabel(each)).tag(each)
                 }
             }
             .pickerStyle(.segmented)
@@ -514,7 +514,7 @@ struct ChipRow: View {
             HStack(spacing: 8) {
                 ForEach(CategoryChip.names, id: \.self) { name in
                     let isOn = selected == name
-                    Text(name)
+                    Text(tr(name))
                         .font(.subheadline)
                         .padding(.horizontal, 13).padding(.vertical, 7)
                         .background(
@@ -532,6 +532,18 @@ struct ChipRow: View {
 
 /// 타입 본문 길이(swiftlint 350줄) 때문에 여기 둔다 — 같은 파일의 확장은 private 에 닿는다.
 private extension SearchTabView {
+    /// 목록 탭의 글자 — 「인기 작품 12」·「장소 8」. `Tab` 의 rawValue 는 식별용이라 그대로 두고
+    /// 그리는 문구만 여기서 지금 언어로 만든다(MZ2AZ-343).
+    func tabLabel(_ each: Tab) -> String {
+        let format = switch (each, isInitial) {
+        case (.work, true): tr("인기 작품 %d")
+        case (.work, false): tr("작품 %d")
+        case (.place, true): tr("인기 장소 %d")
+        case (.place, false): tr("장소 %d")
+        }
+        return String(format: format, count(each))
+    }
+
     /// 홈이 남긴 「이 작품 열어 줘」 쪽지를 연다. 쪽지는 한 번 읽고 버린다.
     func openPendingContent(_ wanted: ContentSummary?) {
         guard let wanted else { return }

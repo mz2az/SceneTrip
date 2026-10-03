@@ -125,7 +125,7 @@ struct RouteMarketView: View {
                         if busy == course.id {
                             ProgressView().controlSize(.small)
                         } else {
-                            Text(isSaved(course) ? "담았습니다" : "내 코스로 담기")
+                            Text(isSaved(course) ? tr("담았습니다") : tr("내 코스로 담기"))
                                 .font(.caption.weight(.semibold))
                         }
                     }
@@ -173,12 +173,12 @@ struct SaveFailureAlert: ViewModifier {
 
     /// 가입이 필요한 것과 그냥 실패한 것을 갈라 말한다.
     private var title: String {
-        store.failure?.statusCode == 401 ? "가입이 필요합니다" : "하지 못했습니다"
+        store.failure?.statusCode == 401 ? tr("가입이 필요합니다") : tr("하지 못했습니다")
     }
 
     private var message: String {
         store.failure?.statusCode == 401
-            ? "코스를 담고 좋아요를 누르려면 가입해야 합니다."
-            : (store.failure?.message ?? "잠시 후 다시 시도해 주세요.")
+            ? tr("코스를 담고 좋아요를 누르려면 가입해야 합니다.")
+            : (store.failure?.message ?? tr("잠시 후 다시 시도해 주세요."))
     }
 }

@@ -120,8 +120,12 @@ extension SearchTabView {
             HStack(spacing: 6) {
                 Image(systemName: nearby ? "xmark" : "arrow.clockwise")
                     .font(.footnote.weight(.semibold))
-                Text(nearby ? "이 지도에서 \(data.places.count)곳 · 해제" : "현 지도 내 성지 검색")
-                    .font(.subheadline.weight(.medium))
+                Text(
+                    nearby
+                        ? String(format: tr("이 지도에서 %d곳 · 해제"), data.places.count)
+                        : tr("현 지도 내 성지 검색")
+                )
+                .font(.subheadline.weight(.medium))
             }
             .foregroundStyle(nearby ? Color(.systemBackground) : Color.primary)
             .padding(.horizontal, 14)

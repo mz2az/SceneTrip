@@ -186,7 +186,7 @@ extension RouteEditorView {
                 .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(footprints.enabled ? "발자취 숨기기" : "발자취 보기")
+        .accessibilityLabel(footprints.enabled ? tr("발자취 숨기기") : tr("발자취 보기"))
     }
 
     // MARK: 편의시설 필터
@@ -309,7 +309,7 @@ extension RouteEditorView {
         HStack(spacing: 8) {
             // 동선 최적화는 **지금 보고 있는 일차 안에서만** 순서를 바꾼다.
             // 일차를 넘나들며 옮기면 사용자가 나눠 둔 하루가 무너진다.
-            action("동선 최적화", symbol: "arrow.triangle.swap", highlight: optimizeNudge) {
+            action(tr("동선 최적화"), symbol: "arrow.triangle.swap", highlight: optimizeNudge) {
                 // 현재 위치를 알고 출발이 아직 안 정해졌으면 **가장 가까운 곳이 출발**이다
                 // (2026-09-04 사용자 결정) — 한국에 와서 다시 누르는 사람은 지금 선 자리에서
                 // 도는 동선을 원한다.
@@ -333,9 +333,9 @@ extension RouteEditorView {
                 optimizeNudge = false // 권한 일을 했다 — 반짝임은 여기까지
             }
             // 장바구니를 거치지 않고 **여기서 바로** 찾아 담는다.
-            action("검색", symbol: "magnifyingglass") { showSearch = true }
-            action("장바구니", symbol: "bag") { showCart = true }
-            action(pinning ? "취소" : "핀 찍기", symbol: "mappin.and.ellipse") {
+            action(tr("검색"), symbol: "magnifyingglass") { showSearch = true }
+            action(tr("장바구니"), symbol: "bag") { showCart = true }
+            action(pinning ? tr("취소") : tr("핀 찍기"), symbol: "mappin.and.ellipse") {
                 pinning.toggle()
             }
             // 「AI 가이드」 단추는 없앴다(2026-09-16) — 화면 오른쪽 아래 해태 동그라미와

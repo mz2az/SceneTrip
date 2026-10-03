@@ -133,9 +133,9 @@ struct ApiFailure: Equatable {
     /// `ErrorView` 안에만 있어서 다른 화면이 재사용할 수 없었다.
     var message: String {
         switch statusCode {
-        case nil: "서버에 연결하지 못했습니다."
-        case 500: "잠시 문제가 생겼습니다."
-        default: "요청을 처리하지 못했습니다."
+        case nil: tr("서버에 연결하지 못했습니다.")
+        case 500: tr("잠시 문제가 생겼습니다.")
+        default: tr("요청을 처리하지 못했습니다.")
         }
     }
 

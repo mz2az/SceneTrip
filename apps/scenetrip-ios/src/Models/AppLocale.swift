@@ -12,12 +12,12 @@ import SceneApiClient
 /// 그것을 말한다. 앱 언어와 다르면 **그대로 보여 주고 언어 표시만 둔다**(번역은 별도 티켓).
 /// 영어판은 고유명사가 로마자라 표지판과 맞는다.
 enum AppLocale {
-    /// 지금 앱의 언어. 시뮬레이터·기기 설정의 선호 언어 첫 줄을 계약의 셋(`ko`·`en`·`ja`)으로 접는다.
+    /// 지금 앱의 언어 — 사람이 고른 것, 없으면 기기 언어(`AppLanguage`, MZ2AZ-343).
     static var lang: Lang {
-        Lang.from(preferred: Locale.preferredLanguages)
+        AppLanguage.current
     }
 
-    /// 앱이 뜰 때 한 번. 이후 모든 요청에 `Accept-Language` 가 실린다.
+    /// 앱이 뜰 때, 그리고 언어를 바꿀 때. 이후 모든 요청에 `Accept-Language` 가 실린다.
     static func install() {
         SceneApiClientAPI.customHeaders["Accept-Language"] = lang.rawValue
     }
@@ -26,8 +26,8 @@ enum AppLocale {
     static func guidanceNote(appLang: Lang, guidanceLang: String) -> String? {
         guard guidanceLang != appLang.rawValue else { return nil }
         return guidanceLang == "en"
-            ? "안내는 English 로 와요 — 지명이 로마자라 표지판과 같아요"
-            : "안내는 한국어로 와요"
+            ? tr("안내는 English 로 와요 — 지명이 로마자라 표지판과 같아요")
+            : tr("안내는 한국어로 와요")
     }
 }
 

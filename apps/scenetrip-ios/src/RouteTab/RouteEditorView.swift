@@ -175,8 +175,8 @@ struct RouteEditorView: View {
                 // 토스트는 몇 초 뒤 사라져 그 사이에 화면을 안 본 사람은 놓친다.
                 // 저장 전이라는 사실은 저장할 때까지 화면에 남아 있어야 한다.
                 RouteAIBanner(text: course.filledFromPopular
-                    ? "고른 작품의 촬영지가 아직 없어 인기 장소로 채웠습니다"
-                    : "AI 가 짠 일정입니다 · 아직 저장 전")
+                    ? tr("고른 작품의 촬영지가 아직 없어 인기 장소로 채웠습니다")
+                    : tr("AI 가 짠 일정입니다 · 아직 저장 전"))
                     .padding(.horizontal, 16).padding(.bottom, 8)
                 // 초안이 함께 준 알림 — 뺀 곳과 이유, 주의. 「왜 빠졌는지」를 볼 수 있어야 한다.
                 draftNotes
@@ -439,7 +439,7 @@ struct RouteEditorView: View {
         // 제목을 비운 채 저장하면 목록에 이름 없는 코스가 생긴다 — 「직접 짜기」의 기본 이름으로 둔다.
         course.title = course.title.trimmingCharacters(in: .whitespacesAndNewlines)
         if course.title.isEmpty {
-            course.title = "내 코스"
+            course.title = tr("내 코스")
         }
         if let saved = await store.save(course) {
             guide.rekey(to: guideKey(for: saved)) // 방금 저장한 이 코스를 다시 열면 대화가 이어진다
@@ -604,7 +604,7 @@ extension RouteEditorView {
                     .submitLabel(.done)
                     .frame(width: min(titleWidth + 4, 200)) // +4 는 커서 자리
                     .background {
-                        Text(course.title.isEmpty ? "코스 이름" : course.title)
+                        Text(course.title.isEmpty ? tr("코스 이름") : course.title)
                             .font(.headline)
                             .fixedSize()
                             .hidden()
@@ -620,7 +620,7 @@ extension RouteEditorView {
             }
             .frame(maxWidth: 220)
             Spacer()
-            Button(isNew ? "만들기" : "저장") {
+            Button(isNew ? tr("만들기") : tr("저장")) {
                 Task { await saveAndClose() }
             }
             .font(.body.weight(.semibold))

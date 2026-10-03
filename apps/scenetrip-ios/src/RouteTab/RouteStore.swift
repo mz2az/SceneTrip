@@ -298,7 +298,7 @@ final class RouteStore: ObservableObject {
     /// 「직접 짜기」 — 빈 일차만 있는 코스.
     func emptyCourse(span: RouteSpan, startDate: Date?) -> RouteCourse {
         RouteCourse(
-            title: "내 코스",
+            title: tr("내 코스"),
             startDate: startDate,
             days: (0 ..< span.days).map { _ in RouteDay() }
         )
@@ -349,8 +349,8 @@ final class RouteStore: ObservableObject {
     /// 코스 이름. 이름을 비워 두면 AI 가 작품 이름으로 지어 준다(목업 설계 메모).
     private func title(for workIds: Set<Int64>, span: RouteSpan) -> String {
         let titles = works.filter { workIds.contains($0.id) }.map(\.title)
-        guard let first = titles.first else { return "인기 촬영지 \(span.label)" }
-        let name = titles.count == 1 ? first : "\(first) 외 \(titles.count - 1)"
+        guard let first = titles.first else { return String(format: tr("인기 촬영지 %@"), span.label) }
+        let name = titles.count == 1 ? first : String(format: tr("%@ 외 %d"), first, titles.count - 1)
         return "\(name) \(span.label)"
     }
 

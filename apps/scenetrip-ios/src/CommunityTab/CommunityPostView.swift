@@ -19,7 +19,7 @@ struct CommunityPostView: View {
                     startPoint: .topLeading, endPoint: .bottomTrailing
                 )
                 HStack {
-                    Text(post.board.rawValue)
+                    Text(tr(post.board.rawValue))
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(.white)
                     Spacer()
@@ -88,7 +88,7 @@ struct CommunityPostView: View {
                     }
 
                     // 본문
-                    Text(post.body.isEmpty ? "본문이 없습니다" : post.body)
+                    Text(post.body.isEmpty ? tr("본문이 없습니다") : post.body)
                         .font(.body)
                         .lineSpacing(5)
                         .foregroundStyle(post.body.isEmpty ? .secondary : .primary)

@@ -36,7 +36,7 @@ struct RoutePoiChips: View {
                     chip(extra.label, tone: extra.tone, isOn: extra.isOn, image: extra.image, tap: extra.tap)
                 }
                 let allOn = groupsOn.count == RoutePoiGroup.allCases.count
-                chip("전체", tone: nil, isOn: allOn) {
+                chip(tr("전체"), tone: nil, isOn: allOn) {
                     if allOn {
                         groupsOn = []
                         RoutePoiGroup.allCases.forEach(onGroupOff)

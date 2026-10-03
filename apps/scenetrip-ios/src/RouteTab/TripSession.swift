@@ -264,9 +264,9 @@ final class TripSession: ObservableObject {
         _ = dwellTick // 5초마다 다시 계산되게 묶어 둔다.
         if let dwelt = tripArrival.dwelt() {
             let left = max(0, Int(((TripMode.dwell - dwelt) / 60).rounded(.up)))
-            return left == 0 ? "도착 확인 중" : "머무르면 도착 · \(left)분"
+            return left == 0 ? tr("도착 확인 중") : String(format: tr("머무르면 도착 · %d분"), left)
         }
-        return "반경 \(Int(TripMode.arriveRadiusMeters)) m 에 머무르면 스탬프"
+        return String(format: tr("반경 %d m 에 머무르면 스탬프"), Int(TripMode.arriveRadiusMeters))
     }
 
     // MARK: 데모 주행

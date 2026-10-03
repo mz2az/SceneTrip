@@ -144,10 +144,10 @@ struct RouteGuideSheet: View {
 
             ForEach(Self.examples, id: \.self) { example in
                 Button {
-                    draft = example
+                    draft = tr(example)
                     send()
                 } label: {
-                    Text(example)
+                    Text(tr(example))
                         .font(.caption)
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(Capsule().fill(Color(.systemGray6)))

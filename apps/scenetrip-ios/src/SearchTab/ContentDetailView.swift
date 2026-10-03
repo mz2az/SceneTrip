@@ -38,7 +38,7 @@ struct ContentDetailView: View {
 
     private var castLine: String {
         let names = (detail?.cast ?? []).map(\.name)
-        return names.isEmpty ? "" : "출연: " + names.prefix(4).joined(separator: ", ")
+        return names.isEmpty ? "" : tr("출연: ") + names.prefix(4).joined(separator: ", ")
     }
 
     var body: some View {

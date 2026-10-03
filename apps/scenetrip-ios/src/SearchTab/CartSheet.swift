@@ -32,7 +32,11 @@ struct CartSheet: View {
                     .listStyle(.plain)
                 }
             }
-            .navigationTitle(cart.items.isEmpty ? "장바구니" : "장바구니 \(cart.items.count)곳")
+            .navigationTitle(
+                cart.items.isEmpty
+                    ? tr("장바구니")
+                    : String(format: tr("장바구니 %d곳"), cart.items.count)
+            )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

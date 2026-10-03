@@ -76,27 +76,27 @@ enum RouteNavFailure: Equatable {
     var message: String {
         switch self {
         case .signInRequired:
-            "길찾기는 가입한 분만 쓸 수 있어요"
+            tr("길찾기는 가입한 분만 쓸 수 있어요")
         case .sessionExpired:
-            "로그인이 풀렸어요. 다시 로그인해 주세요"
+            tr("로그인이 풀렸어요. 다시 로그인해 주세요")
         case .notFound:
-            "저장된 코스의 장소에서만 길찾기를 부를 수 있어요"
+            tr("저장된 코스의 장소에서만 길찾기를 부를 수 있어요")
         case .courseNotActive:
-            "코스를 시작한 뒤에 길찾기를 쓸 수 있어요"
+            tr("코스를 시작한 뒤에 길찾기를 쓸 수 있어요")
         case let .noRoute(code) where code == "NO_TRANSIT_NEARBY":
-            "근처에 정류장이 없어 대중교통 경로를 찾지 못했어요"
+            tr("근처에 정류장이 없어 대중교통 경로를 찾지 못했어요")
         case .noRoute:
-            "여기서는 경로를 찾지 못했어요"
+            tr("여기서는 경로를 찾지 못했어요")
         case .providerDown:
-            "길찾기 서비스가 잠시 응답하지 않아요. 잠시 뒤 다시 시도해 주세요"
+            tr("길찾기 서비스가 잠시 응답하지 않아요. 잠시 뒤 다시 시도해 주세요")
         case .unreachable:
-            "서버에 연결하지 못했어요 — 백엔드(:8081)가 켜져 있나요?"
+            tr("서버에 연결하지 못했어요 — 백엔드(:8081)가 켜져 있나요?")
         case let .other(status):
-            "길찾기를 처리하지 못했어요 (\(status))"
+            String(format: tr("길찾기를 처리하지 못했어요 (%d)"), status)
         case .detourUnsupported:
-            "코스 밖 장소로의 길찾기는 아직 지원하지 않아요"
+            tr("코스 밖 장소로의 길찾기는 아직 지원하지 않아요")
         case .unsavedCourse:
-            "저장된 코스의 장소에서만 길찾기를 부를 수 있어요"
+            tr("저장된 코스의 장소에서만 길찾기를 부를 수 있어요")
         }
     }
 
