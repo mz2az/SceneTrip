@@ -10,6 +10,12 @@ import SwiftUI
 extension SearchTabView {
     // MARK: 검색바
 
+    /// 검색바 + 계정이 바뀌면 장바구니를 다시 읽는다 (MZ2AZ-336). 로그인·로그아웃으로 이
+    /// 설치본이 가리키는 계정이 달라지면 담긴 것도 달라진다.
+    var accountAwareSearchBar: some View {
+        searchBar.onAccountChange { await cart.refresh() }
+    }
+
     /// 검색어와 장바구니가 **한 캡슐**이다 — 프로토타입의 검색바와 같다. 따로 떠
     /// 있던 원형 버튼은 폐기했다.
     var searchBar: some View {

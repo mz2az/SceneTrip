@@ -20,6 +20,8 @@ struct SceneTripApp: App {
         SceneApiClientAPI.basePath = ApiConfiguration.baseURL
         // 앱 언어를 모든 요청의 Accept-Language 로 (MZ2AZ-305). 서버는 없으면 ko 로 폴백한다.
         AppLocale.install()
+        // 로그인 — 요청에 토큰을 싣고 401(만료·폐기)을 처리한다 (MZ2AZ-336).
+        AuthStore.shared.start()
     }
 
     /// `Scene` 을 한정한다 — 명세에 같은 이름의 모델(장면)이 있어 생성 클라이언트의

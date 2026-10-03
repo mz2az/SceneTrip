@@ -58,7 +58,7 @@ enum InstallIdentity {
     static let current: UUID = resolve(
         secure: KeychainItem(account: "installId"),
         legacy: LegacyInstallIdStore(),
-        freshInstall: InstallMarker.consumeFreshInstall(legacyKey: LegacyInstallIdStore.key)
+        freshInstall: InstallMarker.freshInstall
     )
 
     /// 읽는 순서: 키체인 → 옛 자리(옮기고 지운다) → 새로 만든다.

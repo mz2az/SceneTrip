@@ -68,6 +68,10 @@ struct KeychainItem: InstallIdStore {
 enum InstallMarker {
     private static let key = "scenetrip.installMarker"
 
+    /// 이번 실행이 설치 뒤 첫 실행인가. **프로세스에서 한 번만 정한다** — 설치 식별자와
+    /// 로그인 토큰(MZ2AZ-336)이 같은 답을 봐야 한다.
+    static let freshInstall = consumeFreshInstall(legacyKey: LegacyInstallIdStore.key)
+
     /// 한 번만 `true` 다. 옛 버전에서 올라온 앱(옛 자리에 값이 있다)은 첫 실행이 아니다.
     static func consumeFreshInstall(
         defaults: UserDefaults = .standard, legacyKey: String

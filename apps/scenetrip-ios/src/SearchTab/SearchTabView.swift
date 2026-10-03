@@ -159,7 +159,7 @@ struct SearchTabView: View {
 
             // 자동완성은 검색창 **바로 아래에 붙어** 내려오는 드롭다운이다.
             VStack(spacing: 2) {
-                searchBar
+                accountAwareSearchBar
                 if !searchFocused {
                     // 「현 지도 내 성지 검색」은 가운데, 조작 버튼은 오른쪽 —
                     // 위 검색창의 장바구니와 같은 세로선에 놓아 지도를 덜 가린다.

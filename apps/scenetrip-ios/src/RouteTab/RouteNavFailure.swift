@@ -15,6 +15,8 @@ import SceneApiClient
 enum RouteNavFailure: Equatable {
     /// 가입해야 부를 수 있다 (401). 로컬 kind 는 벽을 치워 두어(MZ2AZ-302) 안 난다.
     case signInRequired
+    /// 로그인은 했는데 세션이 깨졌다 (401, `SIGN_IN_REQUIRED` 가 아닌 코드). 다시 로그인한다 (MZ2AZ-336).
+    case sessionExpired
     /// 코스나 항목이 서버에 없다 (404). 저장 전 코스, 지운 항목.
     case notFound
     /// 코스를 시작하지 않았다 (409). 「시작」을 누르면 통한다.
@@ -49,7 +51,12 @@ enum RouteNavFailure: Equatable {
         }
         let code = Self.apiCode(from: data)
         switch status {
-        case 401: self = .signInRequired
+        // 401 이 전부 「가입하세요」는 아니다 — 토큰 만료·폐기도 401 로 온다. `code` 로 가른다.
+        case 401:
+            switch AuthRules.action(status: status, code: AuthRules.apiCode(from: data)) {
+            case .refreshAndRetry, .signOut: self = .sessionExpired
+            case .promptSignIn, .none: self = .signInRequired
+            }
         case 404: self = .notFound
         case 409: self = .courseNotActive
         case 422: self = .noRoute(code: code ?? "ROUTE_NOT_FOUND")
@@ -70,6 +77,8 @@ enum RouteNavFailure: Equatable {
         switch self {
         case .signInRequired:
             "길찾기는 가입한 분만 쓸 수 있어요"
+        case .sessionExpired:
+            "로그인이 풀렸어요. 다시 로그인해 주세요"
         case .notFound:
             "저장된 코스의 장소에서만 길찾기를 부를 수 있어요"
         case .courseNotActive:
