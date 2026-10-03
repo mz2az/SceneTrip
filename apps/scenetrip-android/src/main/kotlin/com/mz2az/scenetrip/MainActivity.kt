@@ -19,6 +19,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.mz2az.scenetrip.auth.AuthStore
+import com.mz2az.scenetrip.auth.SignInSheetHost
 import com.mz2az.scenetrip.data.OnboardingFlag
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.onboarding.OnboardingView
@@ -58,6 +60,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        // 로그인 — 401(만료·폐기) 처리를 끼우고 저장된 세션을 되살린다 (MZ2AZ-336).
+        // **생성 클라이언트를 처음 쓰기 전이어야 한다**(화면이 그려지기 전).
+        AuthStore.start(this)
+
         // 확인용 뒷문 — iOS `simctl launch … -initialTab profile`과 짝이다.
         // `adb shell am start -n com.mz2az.scenetrip/.MainActivity -e initialTab route
         // --el openCourseId 26` 처럼 부른다. 인자가 없으면 기본값(홈)을 그대로 둔다.
@@ -84,6 +90,8 @@ fun SceneTripApp() {
     MaterialTheme(typography = iosTypography()) {
         Surface(modifier = Modifier.fillMaxSize(), color = IOS.systemBackground) {
             AppRoot()
+            // 로그인 시트 — 어느 화면·덮개 위에서든 올라온다.
+            SignInSheetHost()
         }
     }
 }

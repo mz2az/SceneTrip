@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.FootprintStore
@@ -63,14 +64,15 @@ import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.GlobeIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
+import com.mz2az.scenetrip.ui.IOSAlert
 import com.mz2az.scenetrip.ui.IOSCloseButton
 import com.mz2az.scenetrip.ui.IOSConfirmPopover
 import com.mz2az.scenetrip.ui.IOSRole
 import com.mz2az.scenetrip.ui.IOSToggle
-import com.mz2az.scenetrip.ui.PersonBadgePlusIcon
 import com.mz2az.scenetrip.ui.QuestionCircleIcon
 import com.mz2az.scenetrip.ui.RouteCurveIcon
 import com.mz2az.scenetrip.ui.ShoeprintsIcon
+import com.mz2az.scenetrip.ui.SignOutIcon
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.SquarePencilIcon
 import kotlinx.coroutines.Dispatchers
@@ -155,7 +157,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
             stamps = runCatching { collectVisitStamps(courses, deviceId) }.getOrDefault(emptyList())
         }
 
-    LaunchedEffect(Unit) { load() }
+    // 계정이 바뀌면(로그인·로그아웃·탈퇴) 다시 읽는다 — iOS `.onAccountChange`.
+    LaunchedEffect(AuthStore.epoch) { load() }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6)) {
@@ -356,10 +359,12 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                     }
                 }
 
+                if (AuthStore.signedIn) {
+                    item { AccountSection(onDeleted = { onClose?.invoke() }) }
+                }
+
                 item {
                     ProfileSection("준비 중") {
-                        ProfileRow("로그인 · 계정", "준비 중", null, dimmed = true, icon = { PersonBadgePlusIcon(IOS.tertiaryLabel, it) })
-                        ProfileDivider()
                         ProfileRow("언어 (English · 日本語)", "준비 중", null, dimmed = true, icon = { GlobeIcon(IOS.tertiaryLabel, it) })
                         ProfileDivider()
                         ProfileRow(
@@ -415,11 +420,87 @@ private fun ProfileHeader() {
         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
     ) {
         PinoMascot(width = 96.dp)
-        Text("비회원으로 여행 중", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-        Text(
-            "로그인이 생기면 코스와 찜을 계정으로 옮겨 드릴게요",
-            fontSize = 12.sp,
-            color = IOS.secondaryLabel,
+        // iOS `header` — 비회원이면 로그인 단추, 로그인했으면 이름과 메일 (MZ2AZ-336).
+        if (AuthStore.signedIn) {
+            Text(AuthStore.me?.displayName ?: "여행자", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            AuthStore.me?.email?.let { Text(it, fontSize = 12.sp, color = IOS.secondaryLabel) }
+        } else {
+            Text("비회원으로 여행 중", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Text("로그인하면 코스와 찜이 계정에 저장돼요", fontSize = 12.sp, color = IOS.secondaryLabel)
+            Text(
+                "로그인",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+                modifier =
+                    Modifier
+                        .padding(top = 4.dp)
+                        .clip(CircleShape)
+                        .background(IOS.accent)
+                        .clickable { AuthStore.promptSignIn() }
+                        .padding(horizontal = 22.dp, vertical = 8.dp),
+            )
+        }
+    }
+}
+
+/** 계정 — 로그아웃과 탈퇴. iOS `accountSection`. 탈퇴는 스토어 요건이라 앱 안에 있어야 한다. */
+@Composable
+private fun AccountSection(onDeleted: () -> Unit) {
+    var confirmingSignOut by remember { mutableStateOf(false) }
+    var confirmingDelete by remember { mutableStateOf(false) }
+    var deleteFailed by remember { mutableStateOf(false) }
+    ProfileSection("계정") {
+        Box {
+            ProfileRow(
+                title = "로그아웃",
+                value = "",
+                onClick = { if (!AuthStore.busy) confirmingSignOut = true },
+                icon = { SignOutIcon(IOS.secondaryLabel, it) },
+            )
+            if (confirmingSignOut) {
+                IOSConfirmPopover(
+                    title = "로그아웃할까요? 이 기기는 비회원으로 돌아가요.",
+                    actions = listOf(IOSAction("로그아웃", IOSRole.DESTRUCTIVE) { AuthStore.signOut() }),
+                    anchorX = 0.dp,
+                    onDismiss = { confirmingSignOut = false },
+                    below = true,
+                )
+            }
+        }
+        ProfileDivider()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .clickable(enabled = !AuthStore.busy) { confirmingDelete = true }
+                    .padding(horizontal = 16.dp),
+        ) {
+            Text("회원 탈퇴", fontSize = 15.sp, color = IOS.systemRed)
+        }
+    }
+    if (confirmingDelete) {
+        IOSAlert(
+            title = "정말 탈퇴할까요?",
+            message = "장바구니·코스·찜이 모두 지워지고 되돌릴 수 없어요.",
+            actions =
+                listOf(
+                    IOSAction("취소", IOSRole.CANCEL) {},
+                    IOSAction("탈퇴", IOSRole.DESTRUCTIVE) {
+                        AuthStore.deleteAccount { deleted -> if (deleted) onDeleted() else deleteFailed = true }
+                    },
+                ),
+            onDismiss = { confirmingDelete = false },
+        )
+    }
+    if (deleteFailed) {
+        IOSAlert(
+            title = "탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요",
+            message = null,
+            actions = listOf(IOSAction("확인", IOSRole.CANCEL) {}),
+            onDismiss = { deleteFailed = false },
         )
     }
 }

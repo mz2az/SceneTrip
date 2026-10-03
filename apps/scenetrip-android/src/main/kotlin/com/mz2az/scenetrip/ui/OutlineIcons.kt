@@ -498,3 +498,37 @@ fun CartIcon(
         drawCircle(tint, radius = w * 0.07f, center = Offset(w * 0.76f, w * 0.83f))
     }
 }
+
+/** `rectangle.portrait.and.arrow.right` — 세로 네모(오른쪽이 열림)에서 오른쪽으로 나가는 화살표. 로그아웃. */
+@Composable
+fun SignOutIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = stroke(w)
+        val door =
+            Path().apply {
+                moveTo(w * 0.56f, w * 0.3f)
+                lineTo(w * 0.56f, w * 0.2f)
+                quadraticTo(w * 0.56f, w * 0.12f, w * 0.48f, w * 0.12f)
+                lineTo(w * 0.2f, w * 0.12f)
+                quadraticTo(w * 0.12f, w * 0.12f, w * 0.12f, w * 0.2f)
+                lineTo(w * 0.12f, w * 0.8f)
+                quadraticTo(w * 0.12f, w * 0.88f, w * 0.2f, w * 0.88f)
+                lineTo(w * 0.48f, w * 0.88f)
+                quadraticTo(w * 0.56f, w * 0.88f, w * 0.56f, w * 0.8f)
+                lineTo(w * 0.56f, w * 0.7f)
+            }
+        drawPath(door, tint, style = s)
+        drawLine(tint, Offset(w * 0.36f, w * 0.5f), Offset(w * 0.9f, w * 0.5f), strokeWidth = s.width, cap = StrokeCap.Round)
+        val head =
+            Path().apply {
+                moveTo(w * 0.74f, w * 0.34f)
+                lineTo(w * 0.9f, w * 0.5f)
+                lineTo(w * 0.74f, w * 0.66f)
+            }
+        drawPath(head, tint, style = s)
+    }
+}

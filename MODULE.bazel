@@ -472,6 +472,14 @@ maven_android.install(
         "com.squareup.moshi:moshi-kotlin:1.15.2",
         "com.squareup.okhttp3:okhttp:4.12.0",
 
+        # 구글 로그인 (MZ2AZ-336). Credential Manager 가 계정 고르는 창을 띄우고,
+        # googleid 가 `GetGoogleIdOption`(nonce 지원)과 ID 토큰 꺼내기를 준다.
+        # play-services-auth 다리는 Android 13 이하에서 Credential Manager 가 구글 계정에
+        # 닿는 길이다 — 빼면 그 기기들에서 「쓸 수 있는 자격 증명 없음」으로 끝난다.
+        "androidx.credentials:credentials:1.3.0",
+        "androidx.credentials:credentials-play-services-auth:1.3.0",
+        "com.google.android.libraries.identity.googleid:googleid:1.1.1",
+
         # Compose 컴파일러 플러그인. **버전이 Kotlin 컴파일러와 같아야 한다.**
         # rules_kotlin 2.4.0 이 Kotlin 2.4.0 을 들고 오므로 2.4.0 이다
         # (rules_kotlin 의 versions.bzl · KOTLIN_CURRENT_COMPILER_RELEASE).

@@ -37,6 +37,8 @@
     "androidx.compose.ui:ui-util-android": -1281697466,
     "androidx.core:core": -196207747,
     "androidx.core:core-ktx": 438051419,
+    "androidx.credentials:credentials": 2053001673,
+    "androidx.credentials:credentials-play-services-auth": -2114526816,
     "androidx.emoji2:emoji2": 428570715,
     "androidx.emoji2:emoji2-views-helper": 296590887,
     "androidx.fragment:fragment": 1756637869,
@@ -55,6 +57,7 @@
     "androidx.lifecycle:lifecycle-viewmodel-savedstate": -970340652,
     "androidx.savedstate:savedstate": -1545293289,
     "androidx.savedstate:savedstate-ktx": 877332601,
+    "com.google.android.libraries.identity.googleid:googleid": 1866459595,
     "com.naver.maps:map-sdk": 2108457782,
     "com.squareup.moshi:moshi": 623265116,
     "com.squareup.moshi:moshi-adapters": 1157845343,
@@ -114,6 +117,8 @@
     "androidx.concurrent:concurrent-futures": -1024764213,
     "androidx.core:core-ktx:aar": 377252894,
     "androidx.core:core:aar": 808544548,
+    "androidx.credentials:credentials-play-services-auth:aar": 127217272,
+    "androidx.credentials:credentials:aar": -1772215281,
     "androidx.cursoradapter:cursoradapter:aar": -716017513,
     "androidx.customview:customview-poolingcontainer:aar": -1489132950,
     "androidx.customview:customview:aar": 1894713115,
@@ -157,15 +162,23 @@
     "androidx.versionedparcelable:versionedparcelable:aar": -1337510471,
     "androidx.viewpager:viewpager:aar": 1545193391,
     "com.getkeepsafe.relinker:relinker:aar": -572368767,
+    "com.google.android.gms:play-services-auth-api-phone:aar": -2103651671,
+    "com.google.android.gms:play-services-auth-base:aar": 975022452,
+    "com.google.android.gms:play-services-auth:aar": 895343947,
+    "com.google.android.gms:play-services-base:aar": -354730194,
+    "com.google.android.gms:play-services-basement:aar": 2024396784,
+    "com.google.android.gms:play-services-fido:aar": -1263260613,
+    "com.google.android.gms:play-services-tasks:aar": 739381800,
+    "com.google.android.libraries.identity.googleid:googleid:aar": -471910223,
     "com.google.code.gson:gson": -1194933807,
     "com.google.guava:listenablefuture": -786583461,
     "com.naver.maps:geometry:aar": -175193565,
-    "com.naver.maps:map-sdk:aar": 647100402,
-    "com.squareup.moshi:moshi": -1844559103,
-    "com.squareup.moshi:moshi-adapters": -1030652222,
-    "com.squareup.moshi:moshi-kotlin": 1464995039,
-    "com.squareup.okhttp3:okhttp": 686092647,
-    "com.squareup.okhttp3:okhttp-brotli": -657577679,
+    "com.naver.maps:map-sdk:aar": 1337935019,
+    "com.squareup.moshi:moshi": -86372624,
+    "com.squareup.moshi:moshi-adapters": -735919189,
+    "com.squareup.moshi:moshi-kotlin": 1047387784,
+    "com.squareup.okhttp3:okhttp": -1850688170,
+    "com.squareup.okhttp3:okhttp-brotli": -1054223743,
     "com.squareup.okio:okio": 1960422583,
     "com.squareup.okio:okio-jvm": -476273759,
     "org.brotli:dec": 2053297664,
@@ -173,8 +186,8 @@
     "org.jetbrains.kotlin:kotlin-reflect": -11580707,
     "org.jetbrains.kotlin:kotlin-stdlib": 256606137,
     "org.jetbrains.kotlin:kotlin-stdlib-common": 1404126489,
-    "org.jetbrains.kotlin:kotlin-stdlib-jdk7": 636088289,
-    "org.jetbrains.kotlin:kotlin-stdlib-jdk8": -348150132,
+    "org.jetbrains.kotlin:kotlin-stdlib-jdk7": 1731885557,
+    "org.jetbrains.kotlin:kotlin-stdlib-jdk8": 1713979990,
     "org.jetbrains.kotlinx:atomicfu": 91515608,
     "org.jetbrains.kotlinx:atomicfu-jvm": 1433454031,
     "org.jetbrains.kotlinx:kotlinx-coroutines-android": -2139405087,
@@ -465,6 +478,18 @@
       },
       "version": "1.13.1"
     },
+    "androidx.credentials:credentials-play-services-auth:aar": {
+      "shasums": {
+        "jar": "7ded50690900ed0bfe1f71ffd403cb0a53eabd74510f8fcc4474f8749742e3e7"
+      },
+      "version": "1.3.0"
+    },
+    "androidx.credentials:credentials:aar": {
+      "shasums": {
+        "jar": "b33c1a3e2d41fc3a163dd161d3334d2510d9b2086ed923c60a6f79ee22b78984"
+      },
+      "version": "1.3.0"
+    },
     "androidx.cursoradapter:cursoradapter:aar": {
       "shasums": {
         "jar": "a81c8fe78815fa47df5b749deb52727ad11f9397da58b16017f4eb2c11e28564"
@@ -723,6 +748,54 @@
       },
       "version": "1.4.4"
     },
+    "com.google.android.gms:play-services-auth-api-phone:aar": {
+      "shasums": {
+        "jar": "bfdf380e7400a9d950cba4dedc152b1bce614a87353009e851087428927cc240"
+      },
+      "version": "18.0.2"
+    },
+    "com.google.android.gms:play-services-auth-base:aar": {
+      "shasums": {
+        "jar": "d8bff2c98d239633fb550229e527779425bfb51ff04b96ac0f12d3acba0b1f42"
+      },
+      "version": "18.0.10"
+    },
+    "com.google.android.gms:play-services-auth:aar": {
+      "shasums": {
+        "jar": "d73155e83e97875e93634ca9fd27d0159e2218f3347c53aeaaf0faa2efaa280f"
+      },
+      "version": "21.1.1"
+    },
+    "com.google.android.gms:play-services-base:aar": {
+      "shasums": {
+        "jar": "94066a46047e3d593eb652383e7767e0630385ecd75133e68c21124aa96b8dc2"
+      },
+      "version": "18.3.0"
+    },
+    "com.google.android.gms:play-services-basement:aar": {
+      "shasums": {
+        "jar": "6c11ae3eb2dd7f17373f919c4c557a70e4cf891bc0c9b66926a0a6445d654352"
+      },
+      "version": "18.3.0"
+    },
+    "com.google.android.gms:play-services-fido:aar": {
+      "shasums": {
+        "jar": "e5c10dad0192a37768a412650567e2e3457c7092b00dd8c11ec97bc36f8fa860"
+      },
+      "version": "21.0.0"
+    },
+    "com.google.android.gms:play-services-tasks:aar": {
+      "shasums": {
+        "jar": "d60575eae39350e6234858bc9d7d775375707ae82a684e6caf7f3e41a12e25a2"
+      },
+      "version": "18.1.0"
+    },
+    "com.google.android.libraries.identity.googleid:googleid:aar": {
+      "shasums": {
+        "jar": "0299fc0e5218b5c76623ef8cbebb9fbd164d03ed4b487b418de9a34f2be98db9"
+      },
+      "version": "1.1.1"
+    },
     "com.google.code.gson:gson": {
       "shasums": {
         "jar": "c8fb4839054d280b3033f800d1f5a97de2f028eb8ba2eb458ad287e536f3f25f"
@@ -821,9 +894,9 @@
     },
     "org.jetbrains.kotlin:kotlin-stdlib-jdk7": {
       "shasums": {
-        "jar": "33d148db0e11debd0d90677d28242bced907f9c77730000fd597867089039d86"
+        "jar": "b7979a7aac94055f0d9f1fd3b47ce5ffe1cb6032a842ba9fbe7186f085289178"
       },
-      "version": "1.8.21"
+      "version": "1.9.0"
     },
     "org.jetbrains.kotlin:kotlin-stdlib-jdk8": {
       "shasums": {
@@ -1217,6 +1290,18 @@
       "androidx.versionedparcelable:versionedparcelable:aar",
       "org.jetbrains.kotlin:kotlin-stdlib"
     ],
+    "androidx.credentials:credentials-play-services-auth:aar": [
+      "androidx.credentials:credentials:aar",
+      "com.google.android.gms:play-services-auth:aar",
+      "com.google.android.gms:play-services-fido:aar",
+      "com.google.android.libraries.identity.googleid:googleid:aar",
+      "org.jetbrains.kotlin:kotlin-stdlib"
+    ],
+    "androidx.credentials:credentials:aar": [
+      "androidx.annotation:annotation",
+      "org.jetbrains.kotlin:kotlin-stdlib",
+      "org.jetbrains.kotlinx:kotlinx-coroutines-core"
+    ],
     "androidx.cursoradapter:cursoradapter:aar": [
       "androidx.annotation:annotation"
     ],
@@ -1458,6 +1543,51 @@
       "androidx.annotation:annotation",
       "androidx.core:core:aar",
       "androidx.customview:customview:aar"
+    ],
+    "com.google.android.gms:play-services-auth-api-phone:aar": [
+      "com.google.android.gms:play-services-base:aar",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-tasks:aar"
+    ],
+    "com.google.android.gms:play-services-auth-base:aar": [
+      "androidx.collection:collection",
+      "com.google.android.gms:play-services-base:aar",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-tasks:aar"
+    ],
+    "com.google.android.gms:play-services-auth:aar": [
+      "androidx.fragment:fragment:aar",
+      "com.google.android.gms:play-services-auth-api-phone:aar",
+      "com.google.android.gms:play-services-auth-base:aar",
+      "com.google.android.gms:play-services-base:aar",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-fido:aar",
+      "com.google.android.gms:play-services-tasks:aar"
+    ],
+    "com.google.android.gms:play-services-base:aar": [
+      "androidx.collection:collection",
+      "androidx.fragment:fragment:aar",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-tasks:aar"
+    ],
+    "com.google.android.gms:play-services-basement:aar": [
+      "androidx.collection:collection",
+      "androidx.fragment:fragment:aar"
+    ],
+    "com.google.android.gms:play-services-fido:aar": [
+      "com.google.android.gms:play-services-base:aar",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-tasks:aar",
+      "org.jetbrains.kotlin:kotlin-stdlib-jdk7",
+      "org.jetbrains.kotlinx:kotlinx-coroutines-core"
+    ],
+    "com.google.android.gms:play-services-tasks:aar": [
+      "com.google.android.gms:play-services-basement:aar"
+    ],
+    "com.google.android.libraries.identity.googleid:googleid:aar": [
+      "androidx.credentials:credentials:aar",
+      "org.jetbrains.kotlin:kotlin-stdlib",
+      "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     ],
     "com.naver.maps:geometry:aar": [
       "androidx.annotation:annotation"
@@ -1803,6 +1933,8 @@
       "androidx.concurrent:concurrent-futures",
       "androidx.core:core-ktx:aar",
       "androidx.core:core:aar",
+      "androidx.credentials:credentials-play-services-auth:aar",
+      "androidx.credentials:credentials:aar",
       "androidx.cursoradapter:cursoradapter:aar",
       "androidx.customview:customview-poolingcontainer:aar",
       "androidx.customview:customview:aar",
@@ -1846,6 +1978,14 @@
       "androidx.versionedparcelable:versionedparcelable:aar",
       "androidx.viewpager:viewpager:aar",
       "com.getkeepsafe.relinker:relinker:aar",
+      "com.google.android.gms:play-services-auth-api-phone:aar",
+      "com.google.android.gms:play-services-auth-base:aar",
+      "com.google.android.gms:play-services-auth:aar",
+      "com.google.android.gms:play-services-base:aar",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-fido:aar",
+      "com.google.android.gms:play-services-tasks:aar",
+      "com.google.android.libraries.identity.googleid:googleid:aar",
       "com.google.code.gson:gson",
       "com.google.guava:listenablefuture",
       "com.naver.maps:geometry:aar",
@@ -1919,6 +2059,8 @@
       "androidx.concurrent:concurrent-futures",
       "androidx.core:core-ktx:aar",
       "androidx.core:core:aar",
+      "androidx.credentials:credentials-play-services-auth:aar",
+      "androidx.credentials:credentials:aar",
       "androidx.cursoradapter:cursoradapter:aar",
       "androidx.customview:customview-poolingcontainer:aar",
       "androidx.customview:customview:aar",
@@ -1962,6 +2104,14 @@
       "androidx.versionedparcelable:versionedparcelable:aar",
       "androidx.viewpager:viewpager:aar",
       "com.getkeepsafe.relinker:relinker:aar",
+      "com.google.android.gms:play-services-auth-api-phone:aar",
+      "com.google.android.gms:play-services-auth-base:aar",
+      "com.google.android.gms:play-services-auth:aar",
+      "com.google.android.gms:play-services-base:aar",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-fido:aar",
+      "com.google.android.gms:play-services-tasks:aar",
+      "com.google.android.libraries.identity.googleid:googleid:aar",
       "com.google.code.gson:gson",
       "com.google.guava:listenablefuture",
       "com.naver.maps:geometry:aar",
@@ -2035,6 +2185,8 @@
       "androidx.concurrent:concurrent-futures",
       "androidx.core:core-ktx:aar",
       "androidx.core:core:aar",
+      "androidx.credentials:credentials-play-services-auth:aar",
+      "androidx.credentials:credentials:aar",
       "androidx.cursoradapter:cursoradapter:aar",
       "androidx.customview:customview-poolingcontainer:aar",
       "androidx.customview:customview:aar",
@@ -2078,6 +2230,14 @@
       "androidx.versionedparcelable:versionedparcelable:aar",
       "androidx.viewpager:viewpager:aar",
       "com.getkeepsafe.relinker:relinker:aar",
+      "com.google.android.gms:play-services-auth-api-phone:aar",
+      "com.google.android.gms:play-services-auth-base:aar",
+      "com.google.android.gms:play-services-auth:aar",
+      "com.google.android.gms:play-services-base:aar",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-fido:aar",
+      "com.google.android.gms:play-services-tasks:aar",
+      "com.google.android.libraries.identity.googleid:googleid:aar",
       "com.google.code.gson:gson",
       "com.google.guava:listenablefuture",
       "com.naver.maps:geometry:aar",

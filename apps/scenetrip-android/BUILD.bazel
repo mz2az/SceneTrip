@@ -52,6 +52,11 @@ kt_android_library(
         # Compose. 껍데기(`ui`)가 아니라 **`-android` 짝**을 deps 에 적는다 —
         # 실제 클래스가 그쪽에 있고, 껍데기만 넣으면 컴파일은 되는데 링크에서
         # 클래스를 못 찾는다. 버전 못은 MODULE.bazel 에 있다.
+        # 구글 로그인 (MZ2AZ-336) — Credential Manager 와 구글 ID 토큰 꺼내기.
+        "@maven_android//:androidx_credentials_credentials",
+        "@maven_android//:androidx_credentials_credentials_play_services_auth",
+        "@maven_android//:com_google_android_libraries_identity_googleid_googleid",
+        "@maven_android//:com_squareup_okhttp3_okhttp",
         "@maven_android//:androidx_activity_activity_compose",
         "@maven_android//:androidx_compose_foundation_foundation_android",
         "@maven_android//:androidx_compose_foundation_foundation_layout_android",

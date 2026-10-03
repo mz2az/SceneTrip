@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.LikeStore
@@ -59,7 +60,8 @@ fun HomeTabScreen() {
         model.load(routes.courses)
     }
 
-    LaunchedEffect(Unit) { reload() }
+    // 계정이 바뀌면 다시 읽는다 — iOS `.onAccountChange`.
+    LaunchedEffect(AuthStore.epoch) { reload() }
 
     // 덮개(경로여정·마이페이지)를 닫고 돌아오면 코스·스탬프가 달라졌을 수 있다.
     var previousCover by remember { mutableStateOf(TabRouter.cover) }
