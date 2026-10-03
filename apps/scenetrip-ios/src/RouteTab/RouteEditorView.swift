@@ -439,7 +439,7 @@ struct RouteEditorView: View {
         // 제목을 비운 채 저장하면 목록에 이름 없는 코스가 생긴다 — 「직접 짜기」의 기본 이름으로 둔다.
         course.title = course.title.trimmingCharacters(in: .whitespacesAndNewlines)
         if course.title.isEmpty {
-            course.title = tr("내 코스")
+            course.title = tr("내 코스", at: "코스 제목")
         }
         if let saved = await store.save(course) {
             guide.rekey(to: guideKey(for: saved)) // 방금 저장한 이 코스를 다시 열면 대화가 이어진다

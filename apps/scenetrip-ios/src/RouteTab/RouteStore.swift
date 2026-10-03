@@ -298,7 +298,7 @@ final class RouteStore: ObservableObject {
     /// 「직접 짜기」 — 빈 일차만 있는 코스.
     func emptyCourse(span: RouteSpan, startDate: Date?) -> RouteCourse {
         RouteCourse(
-            title: tr("내 코스"),
+            title: tr("내 코스", at: "코스 제목"),
             startDate: startDate,
             days: (0 ..< span.days).map { _ in RouteDay() }
         )

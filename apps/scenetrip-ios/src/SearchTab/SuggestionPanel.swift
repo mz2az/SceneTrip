@@ -39,7 +39,8 @@ struct SuggestionPanel: View {
                 // 글자만 두면 **고른 것이 장소인지 작품인지 알 수 없어** 늘 작품 탭이
                 // 열렸다(실측: 북촌한옥마을을 눌러도 작품 탭). 갈래를 함께 적는다.
                 ForEach(Self.recommended, id: \.term) { item in
-                    Button { onCommit(item.term, item.type) } label: {
+                    // 보이는 글자로 검색한다 — 영어일 때 「Guardian」을 눌렀는데 검색창에 한국어가 들어가면 안 된다.
+                    Button { onCommit(tr(item.term), item.type) } label: {
                         row(icon: symbol(item.type), text: tr(item.term), detail: "")
                     }
                     .buttonStyle(.plain)

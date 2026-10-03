@@ -56,7 +56,8 @@ struct ReelsTeaserView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(Color(PinImage.deep))
                 .frame(width: 24)
-            Text(text).font(.subheadline)
+            // 영어는 길어 두 줄이 된다 — 한 줄로 잘리지 않게 세로로 늘어나게 둔다.
+            Text(text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
     }

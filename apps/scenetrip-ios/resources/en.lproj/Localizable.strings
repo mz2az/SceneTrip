@@ -24,7 +24,7 @@
 "%d일 · %d곳" = "%d days · %d places";
 "%d일차" = "Day %d";
 "%d일차에서 뺀 곳 · %@ — %@" = "Day %d: Removed · %@ — %@";
-"%lld개 작품이 이곳에서 촬영" = "%lld titles";
+"%lld개 작품이 이곳에서 촬영" = "Titles filmed here: %lld";
 "%lld곳" = "%lld places";
 "%lld번으로 길찾기" = "Directions to #%lld";
 "%lld일 · %lld곳" = "%lld days · %lld places";
@@ -55,14 +55,13 @@
 "검색" = "Search";
 "경로에 있음 · 누르면 빼기" = "In your route · Tap to remove";
 "경로에 추가" = "Add to route";
-"경로여정 탭에서 첫 코스를 만들어 보세요" = "Make your first course in the Trips tab";
-"경로여정에서 열기" = "Open in Trips";
+"경로여정 탭에서 첫 코스를 만들어 보세요" = "Create your first course from Home";
+"경로여정에서 열기" = "Open in Courses";
 "계단 있음" = "Stairs";
 "계정" = "Account";
 "고르지 않으면 인기 작품의 촬영지에서 뽑습니다" = "Skip this and we'll pick from popular titles' filming locations";
 "고른 작품의 촬영지가 아직 없어 인기 장소로 채웠습니다" = "No filming locations yet for your titles, so we filled in popular places";
 "곧" = "Soon";
-"공유" = "Gong Yoo";
 "교통" = "Transit";
 "구글에 잠시 닿지 않아요. 잠시 뒤 다시 해 주세요" = "Can't reach Google right now. Try again in a moment.";
 "그 장면,\n어디서 찍었을까" = "Where the scene\nwas filmed";
@@ -101,8 +100,8 @@
 "네이버에서 찾는 중입니다" = "Searching Naver…";
 "네이버에서 찾지 못했습니다" = "Not found on Naver";
 "다녀온 곳" = "Visited";
-"다녀온 코스와 사진을 AI 가 15초 영상으로" = "AI turns your course and photos into a 15-second video";
-"다녀온 코스의 동선과 장소를 AI 가 읽고" = "AI reads the route and places of your finished course,";
+"다녀온 코스와 사진을 AI 가 15초 영상으로" = "AI turns your trip into a 15s video";
+"다녀온 코스의 동선과 장소를 AI 가 읽고" = "AI reads your finished course,";
 "다시 길찾기" = "Directions again";
 "다시 시도" = "Try again";
 "다음" = "Next";
@@ -113,7 +112,7 @@
 "담기 %d|저장 수" = "%d saves";
 "담기 %lld" = "Add %lld";
 "담기 많은 순" = "Most saved";
-"담기는 경로여정 탭에서" = "Save it in Trips";
+"담기는 경로여정 탭에서" = "Add places from Courses";
 "담김" = "Saved";
 "담김 · 누르면 빼기" = "Saved · Tap to remove";
 "담아 둔 장바구니·코스·찜이 계정에 저장돼요.\n다른 기기에서도 그대로 이어집니다." = "Your saved places, courses and likes are kept in your account.\nPick up where you left off on any device.";
@@ -126,7 +125,7 @@
 "댓글" = "Comments";
 "더 보기" = "More";
 "덕수궁 돌담길" = "Deoksugung Stonewall Path";
-"도깨비" = "Goblin";
+"도깨비" = "Guardian";
 "도보 %d m" = "Walk %d m";
 "도보 4분" = "Walk 4 min";
 "도보 6분" = "Walk 6 min";
@@ -172,7 +171,7 @@
 "보고 싶은 작품과 기간만 고르면 촬영지를 이어서 일정으로 짜 드립니다" = "Pick the titles and dates you want, and we'll link the filming locations into an itinerary.";
 "보고 싶은 작품과 기간만 고르면,\n촬영지를 이어서 일차별 일정으로 짜 드립니다" = "Pick your titles and trip length,\nand we'll plan the filming locations day by day";
 "본문이 없습니다" = "No content";
-"북촌한옥마을" = "Bukchon Hanok Village";
+"북촌한옥마을" = "Bukchon";
 "분류" = "Category";
 "붙인 코스" = "Attached course";
 "붙일 코스가 없습니다" = "No courses to attach";
@@ -194,9 +193,9 @@
 "설정 열기" = "Open Settings";
 "설정에서 위치 접근을 허용하면 현재 위치를 보여 드립니다." = "Allow location access in Settings to see where you are.";
 "설치 식별자 %@…" = "Install ID %@…";
-"속도만 정하세요.\n일정은 해태가 짭니다." = "Set your pace.\nHAETAE plans the days.";
+"속도만 정하세요.\n일정은 해태가 짭니다." = "Set your pace.\nHaetae plans the days.";
 "숙소" = "Stays";
-"스타일" = "Style";
+"스타일" = "Pace";
 "스탬프 %lld/%lld" = "Stamps %1$lld/%2$lld";
 "시작하기" = "Get started";
 "실내이거나 신호가 약할 수 있습니다. 잠시 후 다시 눌러 주세요." = "You may be indoors or the signal is weak. Try again in a moment.";
@@ -226,7 +225,7 @@
 "여유 있게 돌아봅니다" = "Take it easy";
 "여행 가이드" = "Guide";
 "여행 가이드는 가입한 분만 쓸 수 있어요" = "Sign up to use the Guide";
-"여행 사진을 골라 장면 순서로 엮어서" = "picks your trip photos and lines them up scene by scene,";
+"여행 사진을 골라 장면 순서로 엮어서" = "picks your photos in scene order,";
 "여행 이야기를 들려주세요" = "Tell us about your trip";
 "여행 종료" = "End trip";
 "여행 중" = "On trip";
@@ -273,7 +272,7 @@
 "인기 장소 %d" = "Top places %d";
 "인기 촬영지 %@" = "Popular filming locations %@";
 "인기 코스" = "Popular courses";
-"인스타그램에 올릴 15초 릴스를 만들어 드릴 예정이에요" = "and makes a 15-second reel ready for Instagram";
+"인스타그램에 올릴 15초 릴스를 만들어 드릴 예정이에요" = "and makes a 15-second reel for Instagram";
 "인증샷" = "Photos";
 "일정을 받아오는 중입니다" = "Loading itinerary…";
 "일정을 짜는 중입니다" = "Planning your trip…";
@@ -327,7 +326,7 @@
 "주문진 방파제" = "Jumunjin Breakwater";
 "주변 음식점 알려줘" = "Find restaurants nearby";
 "주변에 무엇을 찾으세요?" = "What are you looking for nearby?";
-"주변의 음식점·명소·교통·숙소를 보여 줘요.\n한국어는 해태가 맡습니다." = "Restaurants, sights, transit and stays\naround you. HAETAE handles the Korean.";
+"주변의 음식점·명소·교통·숙소를 보여 줘요.\n한국어는 해태가 맡습니다." = "Restaurants, sights, transit and stays\naround you. Haetae handles the Korean.";
 "주소" = "Address";
 "주소 없음" = "No address";
 "주의 %d" = "Notes %d";
@@ -352,7 +351,7 @@
 "첫 여행" = "First trip";
 "촬영지" = "Filming locations";
 "촬영지 %lld" = "%lld locations";
-"촬영지 %lld곳" = "%lld locations";
+"촬영지 %lld곳" = "Locations: %lld";
 "촬영지가 많은 순" = "Most filming locations";
 "촬영지는 작품검색 탭에서 지도로 볼 수 있어요" = "See the filming locations on the map in the Search tab";
 "촬영지를 불러오지 못했습니다" = "Couldn't load filming locations";
@@ -375,7 +374,7 @@
 "코스 추천" = "Courses";
 "코스|화면 제목" = "Courses";
 "코스를 담고 좋아요를 누르려면 가입해야 합니다." = "Sign up to save and like courses.";
-"코스를 만들고 「마켓에 올리기」를 누르면 여기 보입니다" = "Create a course and tap “Share to market” to see it here";
+"코스를 만들고 「마켓에 올리기」를 누르면 여기 보입니다" = "Courses shared by travelers will appear here";
 "코스를 시작한 뒤에 길찾기를 쓸 수 있어요" = "Start the course to use directions";
 "코스를 어떻게 만들까요?" = "How do you want to make a course?";
 "탈퇴" = "Delete account";
@@ -396,3 +395,4 @@
 "확인" = "OK";
 "환승 %d회" = "%d transfers";
 "회원 탈퇴" = "Delete account";
+"내 코스|코스 제목" = "My course";
