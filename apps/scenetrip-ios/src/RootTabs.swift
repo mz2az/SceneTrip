@@ -74,8 +74,8 @@ struct RootTabs: View {
         .signInSheet(active: router.cover == nil)
         .fullScreenCover(item: $router.cover) { cover in
             switch cover {
-            case let .route(market):
-                RouteTabView(onClose: { router.cover = nil }, startInMarket: market)
+            case .route:
+                RouteTabView(onClose: { router.cover = nil })
                     .environmentObject(routes)
             case .profile:
                 ProfileTabView(onClose: { router.cover = nil })

@@ -18,9 +18,6 @@ struct RouteTabView: View {
     /// (홈 재편: 이 화면은 탭이 아니라 홈의 「내 여행 이어가기」가 연다).
     var onClose: (() -> Void)?
 
-    /// 「둘러보기」 세그먼트로 열지 — 홈의 「여행자들의 코스」가 켠다.
-    var startInMarket = false
-
     @EnvironmentObject var store: RouteStore
 
     @State private var fork = false
@@ -33,48 +30,18 @@ struct RouteTabView: View {
     /// 일정이 손가락 한 번에 사라지면 안 된다.
     @State private var doomed: RouteCourse?
 
-    /// 「내 코스 / 코스마켓」. 목업의 `S.homeSeg` 와 같은 자리다.
-    @State private var segment: Segment = .mine
-
-    /// 마이페이지가 남긴 쪽지(열어 줄 코스)를 읽는다.
     @ObservedObject var router = TabRouter.shared
-
-    enum Segment: String, CaseIterable, Identifiable {
-        case mine = "내 코스"
-        /// 「코스마켓」이었다(2026-09-02 개명). 마켓은 돈이 오가고 보기 전에 산다는
-        /// 뜻을 풍기는데, 이 화면은 남(유저·운영진)이 짠 코스를 구경하고 마음에 들면
-        /// 내 코스로 담는 곳이다. 홈에서는 절 제목 「여행자들의 코스」로 부른다.
-        /// 코드 식별자(`RouteMarketView`, 서버 `/market/courses`)는 계약에 걸려 있어
-        /// 그대로다 — 개명은 백엔드와 함께 티켓으로.
-        case market = "둘러보기"
-        var id: String {
-            rawValue
-        }
-    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
-                // **세그먼트가 마켓으로 가는 길이다.** 전에는 오른쪽 위 아이콘 버튼
-                // 하나였는데, 목업은 「내 코스」와 대등한 자리로 두었다 — 마켓은
-                // 곁다리가 아니라 이 탭의 절반이다.
-                Picker("", selection: $segment) {
-                    ForEach(Segment.allCases) { Text(tr($0.rawValue)).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 8)
-
-                switch segment {
-                case .mine:
-                    if store.courses.isEmpty {
-                        emptyState
-                    } else {
-                        courseList
-                    }
-                case .market:
-                    RouteMarketView(embedded: true)
+                // 「둘러보기」(코스마켓) 세그먼트가 있었다 — 쓰지 않는 기능이라 걷어냈다
+                // (2026-10-03 팀 회의, MZ2AZ-350). 이 화면은 내 코스 하나다.
+                if store.courses.isEmpty {
+                    emptyState
+                } else {
+                    courseList
                 }
             }
             .background(Color(.systemGroupedBackground))
@@ -82,11 +49,6 @@ struct RouteTabView: View {
             // 시스템이 유리 캡슐(흰 판)을 깔아 피노 색을 가린다(2026-08-28 사용자
             // 지적, X 단추 때와 같은 문제).
             .toolbar(.hidden, for: .navigationBar)
-            .onAppear {
-                if startInMarket {
-                    segment = .market
-                }
-            }
             .task {
                 await store.refresh()
                 await ensureDemoCourse()
@@ -227,18 +189,16 @@ struct RouteTabView: View {
                     .accessibilityLabel("닫기")
                 }
                 Spacer()
-                if segment == .mine {
-                    Button {
-                        fork = true
-                    } label: {
-                        Label("코스 추가", systemImage: "plus")
-                            .labelStyle(.titleAndIcon)
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 10).padding(.vertical, 6)
-                    }
-                    .buttonStyle(.plain)
-                    .modifier(PinoNudge(on: true, cornerRadius: 15))
+                Button {
+                    fork = true
+                } label: {
+                    Label("코스 추가", systemImage: "plus")
+                        .labelStyle(.titleAndIcon)
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10).padding(.vertical, 6)
                 }
+                .buttonStyle(.plain)
+                .modifier(PinoNudge(on: true, cornerRadius: 15))
             }
         }
         .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 8)

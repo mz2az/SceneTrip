@@ -68,11 +68,6 @@ struct HomeTabView: View {
                     }
                 }
 
-                HomeMarketPreview(
-                    courses: Array(routes.marketCourses.prefix(2)),
-                    onOpen: { router.openRoute(market: true) }
-                )
-
                 HomeCommunityNow(
                     posts: Array(posts.posts.prefix(2)),
                     onOpen: { router.selected = .community }
@@ -101,7 +96,6 @@ struct HomeTabView: View {
 
     private func reload() async {
         await routes.refresh()
-        await routes.refreshMarket()
         await cart.refresh()
         await model.load(courses: routes.courses)
     }

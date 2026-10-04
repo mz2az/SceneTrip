@@ -16,13 +16,13 @@ final class TabRouter: ObservableObject {
 
     /// 홈이 띄우는 전체 화면. 탭바에 없는 화면은 여기로 연다.
     enum Cover: Identifiable, Equatable {
-        /// 경로여정. `market` 이면 「둘러보기」(옛 코스마켓) 세그먼트로 연다.
-        case route(market: Bool)
+        /// 경로여정.
+        case route
         case profile
 
         var id: String {
             switch self {
-            case let .route(market): market ? "route-market" : "route"
+            case .route: "route"
             case .profile: "profile"
             }
         }
@@ -65,7 +65,7 @@ final class TabRouter: ObservableObject {
             selected = .community
         case "route":
             selected = .home
-            cover = .route(market: false)
+            cover = .route
         case "profile":
             selected = .home
             cover = .profile
@@ -79,11 +79,11 @@ final class TabRouter: ObservableObject {
     /// 마이페이지·홈이 부른다 — 경로여정을 열고 그 코스의 편집으로 들어간다.
     func openCourse(_ serverId: Int64) {
         pendingCourseId = serverId
-        cover = .route(market: false)
+        cover = .route
     }
 
-    func openRoute(market: Bool = false) {
-        cover = .route(market: market)
+    func openRoute() {
+        cover = .route
     }
 
     func openProfile() {

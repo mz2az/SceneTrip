@@ -64,20 +64,6 @@ final class RouteStore: ObservableObject {
             + works.filter { !favoriteWorkIds.contains($0.id) }
     }
 
-    /// 남이 올린 코스 — **이제 서버에서 온다** (`GET /market/courses`, 2026-08-27).
-    ///
-    /// 8/24 까지는 지어낸 목록이었다. 코스를 공유하는 API 가 없어서 화면을 보여 주려고
-    /// 서버 장소로 코스를 지어 냈는데, 백엔드가 마켓 API 를 올리면서 그럴 이유가
-    /// 사라졌다. 지어내던 코드(`buildPopular`)는 걷어냈다.
-    ///
-    /// 좋아요·담긴 수도 서버 값이다 — 앞서 `RouteMock.popularStats` 로 박아 둔
-    /// 값이었다.
-    @Published private(set) var marketCourses: [MarketCourseSummary] = []
-
-    /// 마켓을 한 번이라도 불러 봤는가. 안 불러 본 것과 「비어 있다」를 갈라야
-    /// 화면이 「아직 없습니다」를 언제 띄울지 안다.
-    @Published private(set) var marketLoaded = false
-
     func isFavorite(_ workId: Int64) -> Bool {
         favoriteWorkIds.contains(workId)
     }
@@ -116,63 +102,6 @@ final class RouteStore: ObservableObject {
             if works.isEmpty {
                 works = try await ContentsAPI.listContents(limit: 30).items
             }
-        } catch {
-            failure = ApiFailure(error)
-        }
-
-        if !marketLoaded {
-            await refreshMarket()
-        }
-    }
-
-    /// 마켓 목록을 받아온다. **코스 목록과 따로 실패한다** — 마켓이 안 떠도 내 코스는
-    /// 보여야 한다.
-    func refreshMarket(sort: MarketSort = .saves) async {
-        do {
-            marketCourses = try await MarketAPI.listMarketCourses(
-                xInstallId: installId, sort: sort, limit: 30
-            ).items
-            marketLoaded = true
-        } catch {
-            failure = ApiFailure(error)
-        }
-    }
-
-    /// 마켓 코스를 내 코스로 담는다 (`POST /market/courses/{id}/saves`).
-    ///
-    /// **서버가 사본을 만들어 준다** — 앞서 앱이 장소를 하나씩 넣어 코스를 새로
-    /// 만들었는데, 이제 한 번 부르면 끝이고 담긴 수도 서버가 센다.
-    ///
-    /// 가입 사용자만 할 수 있다(계약 `SignInRequired`). 비회원이면 `401` 이 오고
-    /// 화면이 그 사실을 알린다.
-    func saveFromMarket(_ course: MarketCourseSummary) async -> Bool {
-        do {
-            _ = try await MarketAPI.saveMarketCourse(
-                xInstallId: installId, marketCourseId: course.id
-            )
-            failure = nil
-            await refresh()
-            return true
-        } catch {
-            failure = ApiFailure(error)
-            return false
-        }
-    }
-
-    /// 좋아요를 켜고 끈다. 가입 사용자만 할 수 있다.
-    func toggleMarketLike(_ course: MarketCourseSummary) async {
-        do {
-            if course.liked {
-                try await MarketAPI.unlikeMarketCourse(
-                    xInstallId: installId, marketCourseId: course.id
-                )
-            } else {
-                try await MarketAPI.likeMarketCourse(
-                    xInstallId: installId, marketCourseId: course.id
-                )
-            }
-            failure = nil
-            await refreshMarket()
         } catch {
             failure = ApiFailure(error)
         }

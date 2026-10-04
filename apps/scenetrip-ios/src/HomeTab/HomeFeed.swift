@@ -1,51 +1,6 @@
 import SceneApiClient
 import SwiftUI
 
-/// **여행자들의 코스** — 마켓에서 담기 많은 순으로 둘. 카드·링크 모두 경로여정의 마켓으로.
-struct HomeMarketPreview: View {
-    let courses: [MarketCourseSummary]
-    let onOpen: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HomeSectionHeader(
-                title: tr("여행자들의 코스"), subtitle: tr("담기 많은 순"), action: tr("둘러보기"), onAction: onOpen
-            )
-            if courses.isEmpty {
-                Text("아직 올라온 코스가 없습니다").font(.footnote).foregroundStyle(.secondary)
-                    .padding(.horizontal, 20)
-            } else {
-                HStack(spacing: 10) {
-                    ForEach(courses, id: \.id) { course in
-                        Button(action: onOpen) { card(course) }.buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 20)
-            }
-        }
-    }
-
-    private func card(_ course: MarketCourseSummary) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(course.contents?.first?.title ?? tr("코스"))
-                .font(.system(size: 12, weight: .bold)).foregroundStyle(TabBar.homePurple).lineLimit(1)
-            Text("\(course.title)\n\(RouteSpan(days: course.dayCount).label)")
-                .font(.system(size: 15, weight: .bold)).lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: 10) {
-                Text("\(course.placeCount)곳")
-                Text(String(format: tr("담기 %d", at: "저장 수"), course.saveCount))
-                Text("♥ \(course.likeCount)").foregroundStyle(.red)
-            }
-            .font(.system(size: 12)).foregroundStyle(.secondary)
-            .padding(.top, 2)
-        }
-        .padding(.horizontal, 16).padding(.vertical, 14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .homeCard()
-    }
-}
-
 /// **커뮤니티 지금** — 최근 글 둘. 게시판 배지 · 제목 · 하트 자리.
 struct HomeCommunityNow: View {
     let posts: [CommunityPost]

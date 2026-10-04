@@ -22,9 +22,6 @@ struct CommunityTabView: View {
 
     /// 읽고 있는 글. 목록 행은 두 줄로 잘리므로, 누르면 전문이 큰 팝업으로 뜬다.
     @State private var reading: CommunityPost?
-    @State private var marketCourses: [MarketCourseSummary] = []
-
-    private let installId = InstallIdentity.current
 
     var body: some View {
         NavigationStack {
@@ -37,13 +34,6 @@ struct CommunityTabView: View {
             // 내비게이션 바를 접는다 — 바의 단추에는 시스템이 유리 판을 깔아
             // 테마 색이 묻힌다(코스 추가와 같은 문제).
             .toolbar(.hidden, for: .navigationBar)
-            .task {
-                if let list = try? await MarketAPI.listMarketCourses(
-                    xInstallId: installId, sort: .likes, limit: 30
-                ) {
-                    marketCourses = list.items
-                }
-            }
             .sheet(item: $reading) { post in
                 CommunityPostView(post: post)
                     .presentationDetents([.large])
@@ -130,13 +120,9 @@ struct CommunityTabView: View {
         board == nil ? store.posts : store.posts.filter { $0.board == board }
     }
 
-    private var showsMarket: Bool {
-        board == nil || board == .course
-    }
-
     private var postList: some View {
         List {
-            if minePosts.isEmpty, !(showsMarket && !marketCourses.isEmpty) {
+            if minePosts.isEmpty {
                 ContentUnavailableView {
                     Label("아직 글이 없습니다", systemImage: "bubble.left.and.bubble.right")
                 } description: {
@@ -147,13 +133,6 @@ struct CommunityTabView: View {
 
             ForEach(minePosts) { post in
                 myPostRow(post)
-            }
-
-            // 마켓의 코스가 「코스 추천」 게시물이다 — 지금 있는 유일한 남의 글.
-            if showsMarket {
-                ForEach(marketCourses, id: \.id) { course in
-                    marketRow(course)
-                }
             }
         }
         .listStyle(.plain)
@@ -196,31 +175,6 @@ struct CommunityTabView: View {
                         .lineLimit(1)
                 }
                 Spacer()
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private func marketRow(_ course: MarketCourseSummary) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 6) {
-                badge(tr("코스 추천"), tint: Color(PinImage.deep))
-                Text(course.title).font(.subheadline.weight(.semibold)).lineLimit(1)
-            }
-            Text(String(format: tr("%d일 · %d곳"), course.dayCount, course.placeCount)
-                + ((course.contents?.isEmpty == false)
-                    ? " · " + course.contents!.map(\.title).prefix(2).joined(separator: " · ")
-                    : ""))
-                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            HStack(spacing: 10) {
-                Text("여행자").font(.caption2).foregroundStyle(.tertiary)
-                Label("\(course.likeCount)", systemImage: "heart")
-                    .font(.caption2).foregroundStyle(.tertiary)
-                Label("\(course.saveCount)", systemImage: "square.and.arrow.down")
-                    .font(.caption2).foregroundStyle(.tertiary)
-                Spacer()
-                Text("담기는 경로여정 탭에서")
-                    .font(.caption2).foregroundStyle(.tertiary)
             }
         }
         .padding(.vertical, 4)
