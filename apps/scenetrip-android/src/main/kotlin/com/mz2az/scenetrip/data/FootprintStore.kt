@@ -60,18 +60,35 @@ class FootprintStore private constructor(
     var points by mutableStateOf<List<FootprintPoint>>(emptyList())
         private set
 
+    /** 마이페이지의 「지도에 발자취 보기」 설정 — 꺼 두면 지도에 단추도 발자국도 없다. */
     var enabled by mutableStateOf(false)
+
+    /**
+     * 여행 지도의 발자취 단추가 켜져 있는가. 단추는 [enabled]일 때만 있다. 기본은 켜짐 —
+     * 설정을 켠 사람은 보려고 켠 것이다. iOS `FootprintStore.trailVisible`.
+     */
+    var trailVisible by mutableStateOf(true)
+
+    /** 지금 지도에 발자국을 그리는가. iOS `FootprintStore.drawsTrail`. */
+    val drawsTrail: Boolean
+        get() = enabled && trailVisible
 
     private val prefs = context.getSharedPreferences("scenetrip", Context.MODE_PRIVATE)
 
     init {
         enabled = prefs.getBoolean(ENABLED_KEY, false)
+        trailVisible = prefs.getBoolean(TRAIL_KEY, true)
         points = load()
     }
 
     fun updateEnabled(value: Boolean) {
         enabled = value
         prefs.edit().putBoolean(ENABLED_KEY, value).apply()
+    }
+
+    fun updateTrailVisible(value: Boolean) {
+        trailVisible = value
+        prefs.edit().putBoolean(TRAIL_KEY, value).apply()
     }
 
     fun record(
@@ -127,6 +144,7 @@ class FootprintStore private constructor(
     companion object {
         private const val MIN_STEP_METERS = 25.0
         private const val ENABLED_KEY = "footprint.enabled"
+        private const val TRAIL_KEY = "footprint.trailVisible"
         private const val POINTS_KEY = "footprint.points"
 
         @Volatile
