@@ -68,6 +68,10 @@ struct RootTabs: View {
             TabBar(selected: $router.selected)
         }
         .ignoresSafeArea(.keyboard)
+        // 계정이 바뀌면 코스가 다른 사람 것이다 — 홈과 경로여정이 같이 보는 목록을 다시 읽는다.
+        .onAccountChange { await routes.refresh() }
+        // 덮개(경로여정·마이페이지)가 떠 있으면 그쪽이 로그인 화면을 올린다.
+        .signInSheet(active: router.cover == nil)
         .fullScreenCover(item: $router.cover) { cover in
             switch cover {
             case let .route(market):

@@ -31,7 +31,7 @@ struct OnboardingView: View {
         ),
         Lesson(
             pose: .sparkle,
-            title: "Set your pace.\nJINDO plans the days.",
+            title: "Set your pace.\nHAETAE plans the days.",
             // 7 과 3 은 지어낸 수가 아니라 계약 `GuidePlanRequest.pace` 의 값이다(빡빡 7 · 여유 3,
             // 계수는 에이전트 설정). 그쪽을 고치면 이 문장도 함께 고쳐야 한다(MZ2AZ-321).
             body: "Packed fits 7 stops a day, Easy fits 3.\nNearby spots get grouped, day by day.",
@@ -46,7 +46,7 @@ struct OnboardingView: View {
         Lesson(
             pose: .speech,
             title: "Eat on the way.\nAsk when you are stuck.",
-            body: "Restaurants, sights, transit and stays\naround you. JINDO handles the Korean.",
+            body: "Restaurants, sights, transit and stays\naround you. HAETAE handles the Korean.",
             korean: "반경 안의 음식점·명소·교통·숙소, 그리고 챗봇"
         ),
     ]

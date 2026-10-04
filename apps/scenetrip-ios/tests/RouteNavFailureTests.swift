@@ -13,6 +13,9 @@ final class RouteNavFailureTests: XCTestCase {
 
     func testStatusCodesMapToContractCases() {
         XCTAssertEqual(RouteNavFailure(response(401, code: "SIGN_IN_REQUIRED")), .signInRequired)
+        // 401 이 전부 「가입하세요」는 아니다 — 세션이 깨진 것은 다시 로그인이다 (MZ2AZ-336).
+        XCTAssertEqual(RouteNavFailure(response(401, code: "ACCESS_TOKEN_INVALID")), .sessionExpired)
+        XCTAssertEqual(RouteNavFailure(response(401, code: "ACCESS_TOKEN_EXPIRED")), .sessionExpired)
         XCTAssertEqual(RouteNavFailure(response(404, code: "COURSE_NOT_FOUND")), .notFound)
         XCTAssertEqual(RouteNavFailure(response(409, code: "COURSE_NOT_ACTIVE")), .courseNotActive)
         XCTAssertEqual(RouteNavFailure(response(503)), .providerDown)

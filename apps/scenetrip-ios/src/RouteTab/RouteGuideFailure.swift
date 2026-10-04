@@ -13,6 +13,8 @@ import SceneApiClient
 enum RouteGuideFailure: Equatable, Error {
     /// 가입해야 부를 수 있다 (401). 로컬 kind 는 벽을 치워 두어(MZ2AZ-302) 안 난다.
     case signInRequired
+    /// 로그인은 했는데 세션이 깨졌다 (401, `SIGN_IN_REQUIRED` 가 아닌 코드). 다시 로그인한다 (MZ2AZ-336).
+    case sessionExpired
     /// 요청이 계약을 어겼다 (400). `message` 는 서버 사정이라 화면에 그대로 띄우지 않는다.
     case badRequest
     /// 에이전트가 응답하지 않는다 (503 `GUIDE_UNAVAILABLE`) — 프로세스가 죽었거나 모델이 꺼져 있거나
@@ -32,7 +34,7 @@ enum RouteGuideFailure: Equatable, Error {
             self = .timedOut
             return
         }
-        guard case let ErrorResponse.error(status, _, _, _) = error else {
+        guard case let ErrorResponse.error(status, data, _, _) = error else {
             self = .unreachable
             return
         }
@@ -43,7 +45,12 @@ enum RouteGuideFailure: Equatable, Error {
         }
         switch status {
         case 400: self = .badRequest
-        case 401: self = .signInRequired
+        // 401 이 전부 「가입하세요」는 아니다 — 토큰 만료·폐기도 401 로 온다. `code` 로 가른다.
+        case 401:
+            switch AuthRules.action(status: status, code: AuthRules.apiCode(from: data)) {
+            case .refreshAndRetry, .signOut: self = .sessionExpired
+            case .promptSignIn, .none: self = .signInRequired
+            }
         case 503: self = .unavailable
         default: self = .other(status: status)
         }
@@ -54,6 +61,8 @@ enum RouteGuideFailure: Equatable, Error {
         switch self {
         case .signInRequired:
             "여행 가이드는 가입한 분만 쓸 수 있어요"
+        case .sessionExpired:
+            "로그인이 풀렸어요. 다시 로그인해 주세요"
         case .badRequest:
             "요청을 처리하지 못했어요. 조건을 바꿔 다시 해 주세요"
         case .unavailable:

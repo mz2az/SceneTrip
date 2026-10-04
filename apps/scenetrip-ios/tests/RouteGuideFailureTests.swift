@@ -12,6 +12,7 @@ final class RouteGuideFailureTests: XCTestCase {
 
     func testStatusCodesMapToContractCases() {
         XCTAssertEqual(RouteGuideFailure(response(401, code: "SIGN_IN_REQUIRED")), .signInRequired)
+        XCTAssertEqual(RouteGuideFailure(response(401, code: "ACCESS_TOKEN_INVALID")), .sessionExpired)
         XCTAssertEqual(RouteGuideFailure(response(400, code: "INVALID_PARAMETER")), .badRequest)
         XCTAssertEqual(RouteGuideFailure(response(503, code: "GUIDE_UNAVAILABLE")), .unavailable)
         XCTAssertEqual(RouteGuideFailure(response(500)), .other(status: 500))

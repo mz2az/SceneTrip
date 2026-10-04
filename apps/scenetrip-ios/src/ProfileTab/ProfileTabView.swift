@@ -16,6 +16,10 @@ struct ProfileTabView: View {
     var onClose: (() -> Void)?
 
     @ObservedObject private var likes = LikeStore.shared
+    @ObservedObject private var auth = AuthStore.shared
+    @State private var confirmingSignOut = false
+    @State private var confirmingDelete = false
+    @State private var deleteFailed = false
 
     @State private var courses: [CourseSummary] = []
     @State private var courseCount: Int?
@@ -198,12 +202,11 @@ struct ProfileTabView: View {
                     .buttonStyle(.plain)
                 }
 
+                accountSection
+
                 Section("준비 중") {
                     // 자리를 미리 보여 준다 — 없는 척하다 갑자기 생기는 것보다
                     // 「여기 온다」가 보이는 쪽이 낫다.
-                    row(symbol: "person.crop.circle.badge.plus", tint: .gray,
-                        title: "로그인 · 계정", value: "준비 중")
-                        .foregroundStyle(.tertiary)
                     row(symbol: "globe", tint: .gray,
                         title: "언어 (English · 日本語)", value: "준비 중")
                         .foregroundStyle(.tertiary)
@@ -240,6 +243,8 @@ struct ProfileTabView: View {
                 }
             }
             .refreshable { await load() }
+            .onAccountChange { await load() }
+            .signInSheet()
             .fullScreenCover(isPresented: $replaying) {
                 OnboardingView { replaying = false }
             }
@@ -272,17 +277,80 @@ struct ProfileTabView: View {
         }
     }
 
-    /// 피노와 비회원 안내. 로그인이 서면 이 자리가 계정 카드가 된다.
+    /// 피노와 계정 카드 — 비회원이면 로그인 단추, 로그인했으면 이름과 메일 (MZ2AZ-336).
     private var header: some View {
         VStack(spacing: 8) {
             PinoMascot(width: 96)
-            Text("비회원으로 여행 중")
-                .font(.headline)
-            Text("로그인이 생기면 코스와 찜을 계정으로 옮겨 드릴게요")
-                .font(.caption).foregroundStyle(.secondary)
+            if auth.signedIn {
+                Text(auth.me?.displayName ?? "여행자")
+                    .font(.headline)
+                if let email = auth.me?.email {
+                    Text(email).font(.caption).foregroundStyle(.secondary)
+                }
+            } else {
+                Text("비회원으로 여행 중")
+                    .font(.headline)
+                Text("로그인하면 코스와 찜이 계정에 저장돼요")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button {
+                    auth.promptSignIn()
+                } label: {
+                    Text("로그인")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 22).padding(.vertical, 8)
+                        .background(Capsule().fill(Color.accentColor))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
+    }
+
+    /// 계정 — 로그아웃과 탈퇴. 탈퇴는 App Store 요건이라 앱 안에 있어야 한다.
+    @ViewBuilder private var accountSection: some View {
+        if auth.signedIn {
+            Section("계정") {
+                Button {
+                    confirmingSignOut = true
+                } label: {
+                    row(symbol: "rectangle.portrait.and.arrow.right", tint: .gray,
+                        title: "로그아웃", value: "")
+                }
+                .buttonStyle(.plain)
+                .confirmationDialog(
+                    "로그아웃할까요? 이 기기는 비회원으로 돌아가요.",
+                    isPresented: $confirmingSignOut, titleVisibility: .visible
+                ) {
+                    Button("로그아웃", role: .destructive) { Task { await auth.signOut() } }
+                }
+                Button(role: .destructive) {
+                    confirmingDelete = true
+                } label: {
+                    Text("회원 탈퇴").font(.subheadline)
+                }
+                .alert("정말 탈퇴할까요?", isPresented: $confirmingDelete) {
+                    Button("탈퇴", role: .destructive) {
+                        Task {
+                            if await auth.deleteAccount() {
+                                onClose?()
+                            } else {
+                                deleteFailed = true
+                            }
+                        }
+                    }
+                    Button("취소", role: .cancel) {}
+                } message: {
+                    Text("장바구니·코스·찜이 모두 지워지고 되돌릴 수 없어요.")
+                }
+                .alert("탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요", isPresented: $deleteFailed) {
+                    Button("확인", role: .cancel) {}
+                }
+            }
+            .disabled(auth.busy)
+        }
     }
 
     private func row(

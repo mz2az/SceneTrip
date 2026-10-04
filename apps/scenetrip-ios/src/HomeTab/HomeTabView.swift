@@ -90,6 +90,7 @@ struct HomeTabView: View {
         .background(Color(.systemGroupedBackground))
         .task { await reload() }
         .refreshable { await reload() }
+        .onAccountChange { await reload() }
         // 덮개(경로여정·마이페이지)를 닫고 돌아오면 코스·스탬프가 달라졌을 수 있다.
         .onChange(of: router.cover) { old, new in
             if old != nil, new == nil {
