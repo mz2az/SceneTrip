@@ -405,7 +405,7 @@ extension ProfileTabView {
                     }
                     Button("취소", role: .cancel) {}
                 } message: {
-                    Text("장바구니·코스·찜이 모두 지워지고 되돌릴 수 없어요.")
+                    Text("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.")
                 }
                 .alert("탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요", isPresented: $deleteFailed) {
                     Button("확인", role: .cancel) {}

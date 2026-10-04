@@ -295,7 +295,7 @@
 "장면 정보가 아직 없습니다" = "No scene info yet";
 "장바구니" = "Saved";
 "장바구니 %d곳" = "Saved · %d places";
-"장바구니·코스·찜이 모두 지워지고 되돌릴 수 없어요." = "Your saved places, courses and likes will be erased. This can't be undone.";
+"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.";
 "장바구니가 비어 인기 장소를 보여 줍니다" = "Saved is empty, so here are popular places";
 "장바구니가 비었습니다" = "Nothing saved yet";
 "장바구니에 담기" = "Save";
