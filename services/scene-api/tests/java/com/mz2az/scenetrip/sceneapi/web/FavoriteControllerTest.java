@@ -63,7 +63,10 @@ class FavoriteControllerTest {
     when(store.list(eq(USER), any(), eq(20), eq(0)))
         .thenReturn(new FavoriteStore.Page(List.of(item), 1, true));
 
-    mvc.perform(get("/favorites/contents").header("X-Install-Id", INSTALL_ID))
+    mvc.perform(
+            get("/favorites/contents")
+                .header("X-Install-Id", INSTALL_ID)
+                .header("Accept-Language", "ko"))
         .andExpect(status().isOk())
         .andExpect(header().string("Content-Language", "ko"))
         .andExpect(jsonPath("$.total").value(1))

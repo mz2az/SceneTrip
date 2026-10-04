@@ -20,8 +20,12 @@ info:
     ## 언어
 
     사람이 읽는 모든 문자열(작품 제목, 장소명, 주소, 장면 설명)은
-    `Accept-Language` 헤더를 따른다. 해당 언어의 번역이 없으면 `ko` 로 폴백하고,
-    실제로 무엇을 골랐는지 `Content-Language` 응답 헤더로 알린다.
+    `Accept-Language` 헤더를 따른다. 헤더가 없거나, 지원하지 않는 값이거나, 그 언어의
+    번역이 없으면 **`en`, 그다음 `ko`** 로 폴백하고, 실제로 무엇을 골랐는지
+    `Content-Language` 응답 헤더로 알린다. 앱은 헤더를 비우지 말고 **앱이 보여 주는 UI
+    언어**를 언제나 보낸다 — 생략하면 영어가 온다.
+
+    **예외: 편의시설(`/pois…`)은 언제나 `ko` 다.** 원본 자료가 한국어뿐이다.
 
     ## 검색 범위
 
@@ -851,6 +855,8 @@ paths:
         핀을 눌렀을 때 바로 보여 줄 수 있는 것 — 우리 자료에 있는 이름·종류·주소·전화.
         사진·영업시간·평점은 여기 없다. 그것은 바깥 출처에서 오는 것이라 별도
         엔드포인트가 맡는다(예정).
+
+        `Accept-Language` 를 받지만 **지금은 언제나 `ko` 로 응답한다.** 자료가 한국어뿐이다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
         - name: poiId
@@ -1839,7 +1845,10 @@ components:
       name: Accept-Language
       in: header
       required: false
-      description: 응답 언어. 생략하거나 해당 번역이 없으면 `ko` 로 폴백한다.
+      description: |
+        응답 언어. 앱이 보여 주는 UI 언어를 언제나 보낸다(폰 언어가 아니라 앱 언어).
+        생략하거나, 지원하지 않는 값이거나, 그 언어의 번역이 없으면 `en`, 그다음 `ko` 로
+        폴백한다. 편의시설(`/pois…`)은 예외로 언제나 `ko`.
       schema:
         $ref: "#/components/schemas/Lang"
 
@@ -2029,7 +2038,7 @@ components:
     Lang:
       type: string
       enum: [ko, en, ja, zh-Hant]
-      default: ko
+      default: en
       description: 지원 언어. `zh-Hant` 는 번체(대만·홍콩)로 간체와 구분한다.
 
     ContentCategory:
