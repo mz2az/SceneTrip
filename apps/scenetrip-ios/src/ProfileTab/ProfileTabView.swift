@@ -319,7 +319,8 @@ struct ProfileTabView: View {
             allWorks = works
             likesFailure = nil
         case let .failure(error):
-            likesFailure = String(describing: error).prefix(300) + ""
+            // 오류 원문을 그대로 보이지 않는다 — 서버 문장은 한국어이고 내부 정보가 섞인다 (MZ2AZ-345).
+            likesFailure = tr("찜한 작품을 불러오지 못했어요. 잠시 뒤 다시 해 주세요")
         }
         likesLoading = false
 
