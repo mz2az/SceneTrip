@@ -56,6 +56,8 @@ struct AppRoot: View {
         .animation(.easeInOut(duration: 0.32), value: stage)
         // SwiftUI 의 글자는 이 로케일로 번역 표를 찾는다. 덮개·시트도 물려받는다.
         .environment(\.locale, language.locale)
+        // 구글 로그인이 끝나면 구글이 이 앱으로 되돌려 보낸다 (MZ2AZ-336).
+        .onOpenURL { _ = GoogleOAuth.handle($0) }
     }
 
     private var afterLanguage: Stage {

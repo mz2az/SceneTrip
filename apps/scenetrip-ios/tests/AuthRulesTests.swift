@@ -1,4 +1,3 @@
-import CryptoKit
 @testable import SceneTrip
 import XCTest
 
@@ -94,34 +93,5 @@ final class AuthRulesTests: XCTestCase {
         let second = GoogleOAuth.randomToken()
         XCTAssertGreaterThanOrEqual(first.count, 43) // 32 바이트 base64url
         XCTAssertNotEqual(first, second)
-    }
-
-    /// RFC 7636 부록 B 의 예시.
-    func testPkceChallengeMatchesRfcExample() {
-        XCTAssertEqual(
-            GoogleOAuth.challenge(for: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"),
-            "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
-        )
-    }
-
-    func testAuthorizationUrlCarriesNonceAndChallenge() throws {
-        let url = GoogleOAuth.authorizationURL(nonce: "N0NCE", state: "ST", challenge: "CH")
-        let items = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
-        let query = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") })
-        XCTAssertEqual(query["client_id"], GoogleOAuth.clientId)
-        XCTAssertEqual(query["nonce"], "N0NCE")
-        XCTAssertEqual(query["state"], "ST")
-        XCTAssertEqual(query["code_challenge"], "CH")
-        XCTAssertEqual(query["code_challenge_method"], "S256")
-        XCTAssertEqual(query["response_type"], "code")
-        XCTAssertEqual(query["redirect_uri"], GoogleOAuth.redirectURI)
-    }
-
-    func testCallbackYieldsCodeOnlyWhenStateMatches() throws {
-        let good = try XCTUnwrap(URL(string: "\(GoogleOAuth.redirectURI)?state=ST&code=abc"))
-        XCTAssertEqual(GoogleOAuth.code(from: good, expectedState: "ST"), "abc")
-        XCTAssertNil(GoogleOAuth.code(from: good, expectedState: "OTHER"))
-        let denied = try XCTUnwrap(URL(string: "\(GoogleOAuth.redirectURI)?state=ST&error=access_denied"))
-        XCTAssertNil(GoogleOAuth.code(from: denied, expectedState: "ST"))
     }
 }

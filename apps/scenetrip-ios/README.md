@@ -226,8 +226,8 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
   영어를 적는다. `Text("…")` 처럼 글자를 바로 적는 자리는 그대로 번역되고, 문자열을 변수로 넘기거나 조립하면 `tr("…")` 로
   감싼다(`Models/AppLanguage.swift`). 숫자는 `String(format: tr("%d곳"), n)`. 같은 한국어가 자리마다 다른 영어여야 하면
   `tr("코스", at: "화면 제목")` + 열쇠 `코스|화면 제목`. 번역을 빠뜨리면 그 글자만 한국어로 남는다.
-- 로그인 코드는 `src/Auth/` 에 있다 (MZ2AZ-336). 구글 로그인은 SDK 없이 시스템 로그인 창(`ASWebAuthenticationSession`)
-  + PKCE 로 ID 토큰을 받는다(`GoogleOAuth.swift`). 토큰 싣기와 401 처리(만료 → 갱신 한 번 → 재시도)는
+- 로그인 코드는 `src/Auth/` 에 있다 (MZ2AZ-336). 구글 로그인은 GoogleSignIn SDK 로
+  ID 토큰을 받는다(`GoogleOAuth.swift`, 의존성 선언은 `//:Package.swift`). 토큰 싣기와 401 처리(만료 → 갱신 한 번 → 재시도)는
   `AuthRequestBuilder.swift` 가 생성 클라이언트에 끼워 넣는다 — 화면 코드는 API 를 그냥 부른다.
   로컬에서 로그인하려면 `.env` 에 `SCENETRIP_AUTH_JWT_SECRET` 이 있어야 한다(`.env.example`).
 - 설치 식별자는 **키체인**에 둔다(`Keychain.swift`, MZ2AZ-335) — 옛 자리(`UserDefaults` `scenetrip.deviceId`)의 값은

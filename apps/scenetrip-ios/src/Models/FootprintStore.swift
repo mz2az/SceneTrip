@@ -41,21 +41,33 @@ final class FootprintStore: ObservableObject {
         didSet { UserDefaults.standard.set(recording, forKey: Self.recordingKey) }
     }
 
-    /// **보기** 토글 — 지도에 발자국을 그릴 것인가. 기록 여부와는 따로다.
-    /// 앞서 기록·보기가 한 스위치였는데, 꺼 두면 나중에 켜도 볼 게 없었다(2026-09-04 사용자
-    /// 요청: 토글은 「보이기/숨기기」). 기기에 남는다(UserDefaults).
+    /// **지도에 발자취 보기** — 마이페이지의 설정. 켜야 여행 지도에 발자취 단추가 나온다.
+    /// 꺼 두면 단추도 발자국도 없다(2026-10-05 사용자: 끄면 아예 안 보여야 헷갈리지 않는다).
     @Published var enabled: Bool {
         didSet { UserDefaults.standard.set(enabled, forKey: Self.enabledKey) }
+    }
+
+    /// 여행 지도의 발자취 단추가 켜져 있는가 — 발자국을 지금 그릴 것인가. 단추는 위 설정이
+    /// 켜져 있을 때만 있다. 기본은 켜짐(설정을 켠 사람은 보려고 켠 것이다).
+    @Published var trailVisible: Bool {
+        didSet { UserDefaults.standard.set(trailVisible, forKey: Self.trailKey) }
+    }
+
+    /// 지금 지도에 발자국을 그리는가.
+    var drawsTrail: Bool {
+        enabled && trailVisible
     }
 
     static let minStepMeters = 25.0
     private static let enabledKey = "footprint.enabled"
     private static let recordingKey = "footprint.recording"
+    private static let trailKey = "footprint.trailVisible"
 
     private init() {
         // 확인용 뒷문 `-footprintOn 1` — 데모 주행 영상에서 토글을 누를 손이 없다.
         enabled = UserDefaults.standard.bool(forKey: Self.enabledKey)
             || UserDefaults.standard.bool(forKey: "footprintOn")
+        trailVisible = UserDefaults.standard.object(forKey: Self.trailKey) as? Bool ?? true
         // 같은 뒷문이 기록 동의도 켠다 — 영상에서 동의 창을 누를 손도 없다.
         recording = UserDefaults.standard.bool(forKey: Self.recordingKey)
             || UserDefaults.standard.bool(forKey: "footprintOn")

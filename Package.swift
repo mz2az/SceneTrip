@@ -17,5 +17,8 @@ let package = Package(
         // 네이버 지도 iOS SDK. 프로토타입(flutter_naver_map)이 쓰던 것과 같은
         // 엔진이며, 네이버가 SPM 으로 공식 배포한다(binaryTarget 래퍼).
         .package(url: "https://github.com/navermaps/SPM-NMapsMap.git", from: "3.23.3"),
+        // 구글 로그인 (MZ2AZ-336). 백엔드 티켓이 정한 길이다 — 로그인 창·인가 코드 교환·nonce 를
+        // 구글이 관리하는 코드에 맡긴다. AppAuth·GTMAppAuth·GTMSessionFetcher·AppCheck 가 함께 온다.
+        .package(url: "https://github.com/google/GoogleSignIn-iOS.git", from: "9.0.0"),
     ]
 )

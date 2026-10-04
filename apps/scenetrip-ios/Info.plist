@@ -15,6 +15,19 @@
 		<string>ko</string>
 		<string>en</string>
 	</array>
+	<!-- 구글 로그인 (MZ2AZ-336). GIDClientID 는 iOS 클라이언트 ID, URL scheme 은 그것을 뒤집은 것 —
+	     로그인 뒤 구글이 이 scheme 으로 앱을 다시 연다. 둘 다 비밀이 아니다. -->
+	<key>GIDClientID</key>
+	<string>700188854872-7v9hphkb4phavae7stepil7q6vp7lbig.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.700188854872-7v9hphkb4phavae7stepil7q6vp7lbig</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleName</key>
 	<string>SceneTrip</string>
 	<key>CFBundlePackageType</key>
