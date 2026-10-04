@@ -68,6 +68,8 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | AI 코스 추천(마법사) | **계약 `POST /guide/plan`** — 에이전트의 코스 엔진이 짠다(모델 없음, 키 없어도 됨). 앱 안의 규칙(`RoutePlanner`)은 지웠다 |
 | 찜 | 서버(`/favorites/contents`)가 정본, 기기에는 사본 (MZ2AZ-335) |
 | 로그인 | 구글 로그인·토큰 키체인 저장·401 자동 갱신·로그아웃·탈퇴 (MZ2AZ-336). 애플 로그인은 자리만 |
+| 언어 | 한국어·English 를 앱 안에서 고른다(첫 실행, 마이페이지 → 도움 → 언어). 화면 문구와 `Accept-Language` 가 함께 바뀐다 (MZ2AZ-343) |
+| 발자취 | **개인정보로 다룬다** — 기기에만 저장, 기본 꺼짐·동의 후 기록, 로그아웃·탈퇴 때 삭제 (MZ2AZ-348) |
 | 커뮤니티 글·방문 스탬프 일부 | 기기(UserDefaults) 저장 — 맥마다 따로 논다 |
 
 ### 함정
@@ -220,6 +222,10 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
   ("직선을 긋고 있었다").
 - `RoutePlanner.swift` 를 만들어 로컬 LLM 이 AI 코스를 짜게 했다. 개수 버그(하루 상한을
   못 지킴)를 프롬프트와 최소 통과선(70%) 두 군데를 고쳐 잡았다.
+- **화면 문구를 새로 넣을 때** (MZ2AZ-343): 한국어로 쓰고 `resources/en.lproj/Localizable.strings` 에 같은 한국어를 열쇠로
+  영어를 적는다. `Text("…")` 처럼 글자를 바로 적는 자리는 그대로 번역되고, 문자열을 변수로 넘기거나 조립하면 `tr("…")` 로
+  감싼다(`Models/AppLanguage.swift`). 숫자는 `String(format: tr("%d곳"), n)`. 같은 한국어가 자리마다 다른 영어여야 하면
+  `tr("코스", at: "화면 제목")` + 열쇠 `코스|화면 제목`. 번역을 빠뜨리면 그 글자만 한국어로 남는다.
 - 로그인 코드는 `src/Auth/` 에 있다 (MZ2AZ-336). 구글 로그인은 SDK 없이 시스템 로그인 창(`ASWebAuthenticationSession`)
   + PKCE 로 ID 토큰을 받는다(`GoogleOAuth.swift`). 토큰 싣기와 401 처리(만료 → 갱신 한 번 → 재시도)는
   `AuthRequestBuilder.swift` 가 생성 클라이언트에 끼워 넣는다 — 화면 코드는 API 를 그냥 부른다.
