@@ -39,22 +39,27 @@ struct SignInView: View {
             Button {
                 Task { await auth.signInWithGoogle() }
             } label: {
+                // 구글 브랜드 지침의 밝은 단추 — 흰 바탕, #747775 테두리, #1F1F1F 글자, **공식 「G」 로고**.
+                // 글자 「G」로 그려 두었더니 지침에 안 맞았다(동의 화면을 정식으로 올릴 때 심사 대상).
+                // 로고는 색·비율을 바꾸지 않는다. 문구도 구글이 허용한 것(「Google 계정으로 계속하기」) 중 하나다.
                 HStack(spacing: 10) {
                     if auth.busy {
                         ProgressView()
                     } else {
-                        Text("G")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color(red: 0.26, green: 0.52, blue: 0.96))
+                        Image("google-g")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                            .accessibilityHidden(true)
                     }
-                    Text("Google 로 계속하기")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.primary)
+                    Text("Google 계정으로 계속하기")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Color(red: 0.12, green: 0.12, blue: 0.12))
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
-                .background(Capsule().fill(Color(.systemBackground)))
-                .overlay(Capsule().strokeBorder(Color(.systemGray3), lineWidth: 1))
+                .background(Capsule().fill(Color.white))
+                .overlay(Capsule().strokeBorder(Color(red: 0.455, green: 0.467, blue: 0.459), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .disabled(auth.busy)
