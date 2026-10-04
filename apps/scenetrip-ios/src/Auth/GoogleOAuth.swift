@@ -1,25 +1,18 @@
-import AuthenticationServices
-import CryptoKit
 import Foundation
+import GoogleSignIn
 import UIKit
 
-/// 구글 로그인 — 시스템 로그인 창(`ASWebAuthenticationSession`)으로 ID 토큰을 받는다 (MZ2AZ-336).
+/// 구글 로그인 — **GoogleSignIn SDK** 로 ID 토큰을 받는다 (MZ2AZ-336).
 ///
-/// ## 왜 GoogleSignIn SDK 가 아닌가
+/// 백엔드 티켓이 정한 길이다. 로그인 창, 인가 코드 교환, nonce 대조를 구글이 관리하는 코드에 맡긴다.
+/// (처음에는 SDK 없이 시스템 로그인 창 + PKCE 로 직접 구현했었다 — 서버가 받는 토큰은 같았지만
+/// 보안 절차를 우리가 유지해야 했고 티켓과 달랐다. 2026-10-05 SDK 로 바꿨다.)
 ///
-/// SDK 가 하는 일은 「시스템 로그인 창을 띄워 인가 코드를 받고(PKCE), 토큰 창구에서 ID 토큰으로
-/// 바꾼다」이다. 그 일은 시스템 프레임워크만으로 된다. SDK 를 들이면 AppAuth·GTMAppAuth·
-/// GTMSessionFetcher·AppCheck 등 Objective-C 패키지 대여섯이 Bazel 그래프에 딸려 온다 —
-/// 얻는 것은 구글 로고 단추 하나다. 서버가 받는 것(ID 토큰, `aud` = iOS 클라이언트 ID,
-/// `nonce`)은 같다.
-///
-/// 창을 띄울 때 `callbackURLScheme` 을 직접 넘기므로 Info.plist 에 URL scheme 을 등록하지 않아도 된다.
+/// 필요한 것 둘이 Info.plist 에 있다: `GIDClientID`(iOS 클라이언트 ID)와 로그인 뒤 돌아올
+/// URL scheme(클라이언트 ID 를 뒤집은 것). 돌아온 주소는 `AppRoot` 의 `.onOpenURL` 이 [handle] 로 넘긴다.
 enum GoogleOAuth {
     /// iOS 클라이언트 ID — 비밀이 아니다(`docs/project/plans/social-login.md` §9). 서버의 `aud` 허용 목록에 있다.
     static let clientId = "700188854872-7v9hphkb4phavae7stepil7q6vp7lbig.apps.googleusercontent.com"
-    /// 클라이언트 ID 를 뒤집은 것 — 구글이 iOS 클라이언트에 허용하는 되돌아올 주소다.
-    static let scheme = "com.googleusercontent.apps.700188854872-7v9hphkb4phavae7stepil7q6vp7lbig"
-    static let redirectURI = "\(scheme):/oauth2redirect"
 
     struct Result {
         let idToken: String
@@ -33,112 +26,57 @@ enum GoogleOAuth {
         case failed
     }
 
-    /// 32 바이트 난수의 base64url. nonce·state·PKCE verifier 에 쓴다 — 시도마다 새로 만든다.
+    /// 32 바이트 난수의 base64url. 로그인 시도마다 새로 만든다 — 남의 ID 토큰을 다시 보내는 것을 막는다.
     static func randomToken() -> String {
         var bytes = [UInt8](repeating: 0, count: 32)
         _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-        return base64url(Data(bytes))
-    }
-
-    /// PKCE `S256` — verifier 의 SHA-256 을 base64url 로.
-    static func challenge(for verifier: String) -> String {
-        base64url(Data(SHA256.hash(data: Data(verifier.utf8))))
-    }
-
-    static func authorizationURL(nonce: String, state: String, challenge: String) -> URL {
-        var parts = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth")!
-        parts.queryItems = [
-            URLQueryItem(name: "client_id", value: clientId),
-            URLQueryItem(name: "redirect_uri", value: redirectURI),
-            URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(name: "scope", value: "openid email profile"),
-            URLQueryItem(name: "nonce", value: nonce),
-            URLQueryItem(name: "state", value: state),
-            URLQueryItem(name: "code_challenge", value: challenge),
-            URLQueryItem(name: "code_challenge_method", value: "S256"),
-        ]
-        return parts.url!
-    }
-
-    /// 되돌아온 주소에서 인가 코드를 꺼낸다. `state` 가 내가 보낸 것과 다르면 남이 끼어든 것이다.
-    static func code(from callback: URL, expectedState: String) -> String? {
-        let items = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        guard items.first(where: { $0.name == "state" })?.value == expectedState else { return nil }
-        return items.first(where: { $0.name == "code" })?.value
-    }
-
-    /// 로그인 창을 띄우고 ID 토큰을 받아 온다.
-    @MainActor
-    static func signIn() async throws -> Result {
-        let nonce = randomToken()
-        let state = randomToken()
-        let verifier = randomToken()
-        let callback = try await authorize(
-            url: authorizationURL(nonce: nonce, state: state, challenge: challenge(for: verifier))
-        )
-        guard let code = code(from: callback, expectedState: state) else { throw Failure.failed }
-        return try await Result(idToken: exchange(code: code, verifier: verifier), nonce: nonce)
-    }
-
-    @MainActor
-    private static func authorize(url: URL) async throws -> URL {
-        let anchor = PresentationAnchor()
-        return try await withCheckedThrowingContinuation { continuation in
-            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: scheme) { callback, error in
-                _ = anchor // 창이 닫힐 때까지 붙들어 둔다 — 세션은 이것을 약하게만 든다.
-                if let callback {
-                    continuation.resume(returning: callback)
-                } else if (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin {
-                    continuation.resume(throwing: Failure.cancelled)
-                } else {
-                    continuation.resume(throwing: Failure.failed)
-                }
-            }
-            session.presentationContextProvider = anchor
-            // 사파리의 구글 로그인 상태를 같이 쓴다 — 이미 로그인돼 있으면 계정만 고르면 된다.
-            session.prefersEphemeralWebBrowserSession = false
-            if !session.start() {
-                continuation.resume(throwing: Failure.failed)
-            }
-        }
-    }
-
-    /// 인가 코드를 ID 토큰으로 바꾼다. iOS 클라이언트는 비밀값이 없다 — PKCE verifier 가 그 몫을 한다.
-    private static func exchange(code: String, verifier: String) async throws -> String {
-        struct Tokens: Decodable {
-            let idToken: String
-            enum CodingKeys: String, CodingKey { case idToken = "id_token" }
-        }
-        var form = URLComponents()
-        form.queryItems = [
-            URLQueryItem(name: "grant_type", value: "authorization_code"),
-            URLQueryItem(name: "code", value: code),
-            URLQueryItem(name: "client_id", value: clientId),
-            URLQueryItem(name: "redirect_uri", value: redirectURI),
-            URLQueryItem(name: "code_verifier", value: verifier),
-        ]
-        var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.httpBody = Data((form.percentEncodedQuery ?? "").utf8)
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200,
-              let tokens = try? JSONDecoder().decode(Tokens.self, from: data)
-        else { throw Failure.failed }
-        return tokens.idToken
-    }
-
-    private static func base64url(_ data: Data) -> String {
-        data.base64EncodedString()
+        return Data(bytes).base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
     }
 
-    private final class PresentationAnchor: NSObject, ASWebAuthenticationPresentationContextProviding {
-        func presentationAnchor(for _: ASWebAuthenticationSession) -> ASPresentationAnchor {
-            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            return scenes.flatMap(\.windows).first { $0.isKeyWindow } ?? ASPresentationAnchor()
+    /// 로그인 창을 띄우고 ID 토큰을 받아 온다.
+    @MainActor
+    static func signIn() async throws -> Result {
+        guard let presenter = topViewController() else { throw Failure.failed }
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
+        let nonce = randomToken()
+        do {
+            let signed = try await GIDSignIn.sharedInstance.signIn(
+                withPresenting: presenter, hint: nil, additionalScopes: nil, nonce: nonce
+            )
+            guard let token = signed.user.idToken?.tokenString else { throw Failure.failed }
+            return Result(idToken: token, nonce: nonce)
+        } catch let error as GIDSignInError where error.code == .canceled {
+            throw Failure.cancelled
+        } catch let failure as Failure {
+            throw failure
+        } catch {
+            throw Failure.failed
         }
+    }
+
+    /// 우리 서버에서 로그아웃·탈퇴할 때 SDK 가 기억하는 구글 사용자도 지운다 — 다음 로그인에 계정을 다시 고른다.
+    @MainActor
+    static func forget() {
+        GIDSignIn.sharedInstance.signOut()
+    }
+
+    /// 로그인 뒤 구글이 앱으로 되돌려 보낸 주소. 구글 것이면 `true`.
+    @MainActor
+    static func handle(_ url: URL) -> Bool {
+        GIDSignIn.sharedInstance.handle(url)
+    }
+
+    /// 지금 맨 위에 떠 있는 화면 — 로그인 시트 위에 구글 창을 올려야 한다.
+    @MainActor
+    private static func topViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        var top = scenes.flatMap(\.windows).first { $0.isKeyWindow }?.rootViewController
+        while let presented = top?.presentedViewController {
+            top = presented
+        }
+        return top
     }
 }

@@ -768,7 +768,7 @@
         "bzlTransitiveDigest": "ylnAw755th8T+6Buou/hnD61W4Q1RtalydQd5hC2dG0=",
         "usagesDigest": "nOCKDjleYGLhib4I/XKOXMWBI1Lwq8DCu0OlSHcyUCY=",
         "recordedFileInputs": {
-          "@@//Package.resolved": "a25b013e978e424fc908241e00e29adde994c37752ce34106633df2ca2c39bbf"
+          "@@//Package.resolved": "9a6377d36ea14bf85603b61f1d1611d387802c27905b129a937825db36456294"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -787,6 +787,214 @@
               "commit": "14e1cfa1e270458fc58b0cd8827c87b3cee905ab",
               "remote": "https://github.com/navermaps/SPM-NMapsMap.git",
               "version": "3.23.3",
+              "env": {},
+              "env_inherit": [],
+              "cached_json_directory": "",
+              "init_submodules": false,
+              "recursive_init_submodules": true,
+              "patch_args": [
+                "-p0"
+              ],
+              "patch_cmds": [],
+              "patch_cmds_win": [],
+              "patch_tool": "",
+              "patches": [],
+              "publicly_expose_all_targets": false,
+              "replace_scm_with_registry": false,
+              "target_deps": {},
+              "module_aliases": {},
+              "dep_module_aliases": ""
+            }
+          },
+          "swiftpkg_googlesignin_ios": {
+            "repoRuleId": "@@rules_swift_package_manager+//swiftpkg/internal:swift_package.bzl%swift_package",
+            "attributes": {
+              "bazel_package_name": "swiftpkg_googlesignin_ios",
+              "commit": "08d8dcecafb575f98879ffdbb8302c1b9ad65d19",
+              "remote": "https://github.com/google/GoogleSignIn-iOS.git",
+              "version": "9.2.0",
+              "env": {},
+              "env_inherit": [],
+              "cached_json_directory": "",
+              "init_submodules": false,
+              "recursive_init_submodules": true,
+              "patch_args": [
+                "-p0"
+              ],
+              "patch_cmds": [],
+              "patch_cmds_win": [],
+              "patch_tool": "",
+              "patches": [],
+              "publicly_expose_all_targets": false,
+              "replace_scm_with_registry": false,
+              "target_deps": {},
+              "module_aliases": {},
+              "dep_module_aliases": ""
+            }
+          },
+          "swiftpkg_app_check": {
+            "repoRuleId": "@@rules_swift_package_manager+//swiftpkg/internal:swift_package.bzl%swift_package",
+            "attributes": {
+              "bazel_package_name": "swiftpkg_app_check",
+              "commit": "97f7d74dd0e8f3d0fe5fc75cc8957aa73bdc948a",
+              "remote": "https://github.com/google/app-check.git",
+              "version": "11.3.2",
+              "env": {},
+              "env_inherit": [],
+              "cached_json_directory": "",
+              "init_submodules": false,
+              "recursive_init_submodules": true,
+              "patch_args": [
+                "-p0"
+              ],
+              "patch_cmds": [],
+              "patch_cmds_win": [],
+              "patch_tool": "",
+              "patches": [],
+              "publicly_expose_all_targets": false,
+              "replace_scm_with_registry": false,
+              "target_deps": {},
+              "module_aliases": {},
+              "dep_module_aliases": ""
+            }
+          },
+          "swiftpkg_appauth_ios": {
+            "repoRuleId": "@@rules_swift_package_manager+//swiftpkg/internal:swift_package.bzl%swift_package",
+            "attributes": {
+              "bazel_package_name": "swiftpkg_appauth_ios",
+              "commit": "a7caeda164dc5108bf4649472b28a5af65dc6f33",
+              "remote": "https://github.com/openid/AppAuth-iOS.git",
+              "version": "2.1.0",
+              "env": {},
+              "env_inherit": [],
+              "cached_json_directory": "",
+              "init_submodules": false,
+              "recursive_init_submodules": true,
+              "patch_args": [
+                "-p0"
+              ],
+              "patch_cmds": [],
+              "patch_cmds_win": [],
+              "patch_tool": "",
+              "patches": [],
+              "publicly_expose_all_targets": false,
+              "replace_scm_with_registry": false,
+              "target_deps": {},
+              "module_aliases": {},
+              "dep_module_aliases": ""
+            }
+          },
+          "swiftpkg_googleutilities": {
+            "repoRuleId": "@@rules_swift_package_manager+//swiftpkg/internal:swift_package.bzl%swift_package",
+            "attributes": {
+              "bazel_package_name": "swiftpkg_googleutilities",
+              "commit": "cc31f5ed464b111f877ce8554cbef4455d410d91",
+              "remote": "https://github.com/google/GoogleUtilities.git",
+              "version": "8.1.4",
+              "env": {},
+              "env_inherit": [],
+              "cached_json_directory": "",
+              "init_submodules": false,
+              "recursive_init_submodules": true,
+              "patch_args": [
+                "-p0"
+              ],
+              "patch_cmds": [],
+              "patch_cmds_win": [],
+              "patch_tool": "",
+              "patches": [],
+              "publicly_expose_all_targets": false,
+              "replace_scm_with_registry": false,
+              "target_deps": {},
+              "module_aliases": {},
+              "dep_module_aliases": ""
+            }
+          },
+          "swiftpkg_gtm_session_fetcher": {
+            "repoRuleId": "@@rules_swift_package_manager+//swiftpkg/internal:swift_package.bzl%swift_package",
+            "attributes": {
+              "bazel_package_name": "swiftpkg_gtm_session_fetcher",
+              "commit": "a2ab612cb980066ee56d90d60d8462992c07f24b",
+              "remote": "https://github.com/google/gtm-session-fetcher.git",
+              "version": "3.5.0",
+              "env": {},
+              "env_inherit": [],
+              "cached_json_directory": "",
+              "init_submodules": false,
+              "recursive_init_submodules": true,
+              "patch_args": [
+                "-p0"
+              ],
+              "patch_cmds": [],
+              "patch_cmds_win": [],
+              "patch_tool": "",
+              "patches": [],
+              "publicly_expose_all_targets": false,
+              "replace_scm_with_registry": false,
+              "target_deps": {},
+              "module_aliases": {},
+              "dep_module_aliases": ""
+            }
+          },
+          "swiftpkg_gtmappauth": {
+            "repoRuleId": "@@rules_swift_package_manager+//swiftpkg/internal:swift_package.bzl%swift_package",
+            "attributes": {
+              "bazel_package_name": "swiftpkg_gtmappauth",
+              "commit": "56e0ccf09a6dd29dc7e68bdf729598240ca8aa16",
+              "remote": "https://github.com/google/GTMAppAuth.git",
+              "version": "5.0.0",
+              "env": {},
+              "env_inherit": [],
+              "cached_json_directory": "",
+              "init_submodules": false,
+              "recursive_init_submodules": true,
+              "patch_args": [
+                "-p0"
+              ],
+              "patch_cmds": [],
+              "patch_cmds_win": [],
+              "patch_tool": "",
+              "patches": [],
+              "publicly_expose_all_targets": false,
+              "replace_scm_with_registry": false,
+              "target_deps": {},
+              "module_aliases": {},
+              "dep_module_aliases": ""
+            }
+          },
+          "swiftpkg_interop_ios_for_google_sdks": {
+            "repoRuleId": "@@rules_swift_package_manager+//swiftpkg/internal:swift_package.bzl%swift_package",
+            "attributes": {
+              "bazel_package_name": "swiftpkg_interop_ios_for_google_sdks",
+              "commit": "040d087ac2267d2ddd4cca36c757d1c6a05fdbfe",
+              "remote": "https://github.com/google/interop-ios-for-google-sdks.git",
+              "version": "101.0.0",
+              "env": {},
+              "env_inherit": [],
+              "cached_json_directory": "",
+              "init_submodules": false,
+              "recursive_init_submodules": true,
+              "patch_args": [
+                "-p0"
+              ],
+              "patch_cmds": [],
+              "patch_cmds_win": [],
+              "patch_tool": "",
+              "patches": [],
+              "publicly_expose_all_targets": false,
+              "replace_scm_with_registry": false,
+              "target_deps": {},
+              "module_aliases": {},
+              "dep_module_aliases": ""
+            }
+          },
+          "swiftpkg_promises": {
+            "repoRuleId": "@@rules_swift_package_manager+//swiftpkg/internal:swift_package.bzl%swift_package",
+            "attributes": {
+              "bazel_package_name": "swiftpkg_promises",
+              "commit": "f4a19a3c313dc2616c70bb49d29a799fb16be837",
+              "remote": "https://github.com/google/promises.git",
+              "version": "2.4.1",
               "env": {},
               "env_inherit": [],
               "cached_json_directory": "",
@@ -836,6 +1044,7 @@
         "moduleExtensionMetadata": {
           "explicitRootModuleDirectDeps": [
             "swiftpkg_spm_nmapsmap",
+            "swiftpkg_googlesignin_ios",
             "swift_package"
           ],
           "explicitRootModuleDirectDevDeps": [],

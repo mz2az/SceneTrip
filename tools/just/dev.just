@@ -166,6 +166,19 @@ deps-update:
         REPIN=1 {{BAZEL}} run @maven_android//:pin; \
     fi
 
+# Package.swift 를 고친 뒤 부른다. Package.resolved 를 다시 써서 Swift 의존성의 버전을 못 박는다 —
+# rules_swift_package_manager 가 그 파일을 읽어 Bazel 저장소를 만든다. diff 를 같은 커밋에 넣는다.
+# `swift package` 는 **해석만** 한다. 빌드는 여전히 Bazel 이 한다.
+
+# Swift(SPM) 의존성 버전 재고정 — Package.swift 를 고친 뒤
+[group('dev')]
+swift-deps-update:
+    swift package resolve
+    # 해석이 받아 둔 소스(.build)는 지운다 — 필요한 것은 Package.resolved 뿐이고, 남겨 두면 그 안의
+    # BUILD 파일을 포매터·Bazel 이 우리 것으로 읽는다(실측: `just check` 의 fmt-check 가 깨졌다).
+    rm -rf .build
+    {{BAZEL}} mod tidy
+
 # 해석된 외부 의존성 그래프 출력
 [group('dev')]
 deps-graph:
