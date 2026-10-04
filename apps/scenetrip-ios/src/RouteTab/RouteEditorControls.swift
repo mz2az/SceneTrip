@@ -61,7 +61,8 @@ extension RouteEditorView {
             },
             // 최근 하루치만 — 지난 여행(데모 주행 여러 번)의 발자국까지 다 그리면 뭉친다.
             footprints: footprints.points.filter { $0.at > Date().addingTimeInterval(-86400) },
-            footprintsOn: footprints.enabled
+            // 기록을 꺼 두었으면 그리지도 않는다 — 설정에서 끈 기능이 지도에 남아 있으면 헷갈린다 (MZ2AZ-348).
+            footprintsOn: footprints.recording && footprints.enabled
         ) { pin in
             // 한 번 찍으면 모드를 끈다. 켜 둔 채로 두면 시트를 닫는 손짓이 다음 핀이 된다.
             pinning = false
@@ -94,8 +95,9 @@ extension RouteEditorView {
                 VStack(spacing: 10) {
                     locateButton
                     // 발자취 보기 토글 — 여행 중에만. 켜면 지나온 자리에 황금 발자국이 남는다
-                    // (2026-09-04 사용자 요청). 기록 자체는 안내 중이면 늘 남는다.
-                    if course.isRunning {
+                    // (2026-09-04 사용자 요청). **마이페이지에서 기록을 꺼 두었으면 단추도 없다** —
+                    // 눌러도 아무 일이 없는 단추가 남아 있으면 헷갈린다(2026-10-05 사용자, MZ2AZ-348).
+                    if course.isRunning, footprints.recording {
                         footprintButton
                     }
                 }
