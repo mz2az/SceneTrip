@@ -56,7 +56,7 @@
 | 프로토콜 | OpenAPI (REST) | `contracts/openapi/README.md` — iOS·Android 클라이언트가 이 파일로부터 생성된다. proto 는 서버 간 통신용이라 여기 해당 없음 |
 | 서비스 이름 | `scene-api` | `justfile` 예시와 SigNoz 기본 서비스명(`scenetrip-scene-api`)이 이미 이 이름을 쓴다 |
 | 장면 모델 | `place_content` 그대로 (장소 ↔ 작품 N:M, 쌍 하나에 장면 설명 하나) | 스키마 v1 을 건드리지 않는다. [MZ2AZ-116 §5.3 논점1](https://mz2az.atlassian.net/browse/MZ2AZ-116) 의 (A) |
-| 응답 언어 | `Accept-Language` 헤더, 없거나 데이터가 없으면 `ko` 로 폴백 | HTTP 표준. 모든 엔드포인트에 일관되게 걸린다 |
+| 응답 언어 | `Accept-Language` 헤더, 없거나 데이터가 없으면 `ko` 로 폴백 | HTTP 표준. 모든 엔드포인트에 일관되게 걸린다 **2026-10-04 바뀜: `en`, 그다음 `ko` — [i18n-en-fallback.md](./i18n-en-fallback.md)** |
 | 장바구니 주체 | `X-Device-Id` 헤더의 기기 UUID | 사용자 테이블이 없다. 로그인이 생기면 이 UUID 를 실제 `user_id` 에 이어 붙인다 |
 | 카테고리 | **장소 / 작품 둘로만** 나눈다 | 수집 데이터의 `place_type` 이 37종 자유 문자열이고 아직 정제 전이다. 목업의 칩 6개로 묶는 매핑은 정제 후에 정한다 |
 | 필드 선택 | 데이터가 실제로 있는 것만 명세에 넣는다 | 명세가 거짓말을 하지 않게 한다. 없는 필드는 §6 에 목록으로 남긴다 |

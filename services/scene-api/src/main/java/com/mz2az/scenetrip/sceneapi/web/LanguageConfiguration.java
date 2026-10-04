@@ -29,8 +29,9 @@ class LanguageConfiguration {
    * <p>명세는 이 헤더를 {@code Lang} 으로 정의하지만, HTTP 표준 헤더라 실제로는 {@code en-US,en;q=0.9,ko;q=0.8} 같은 값이 온다.
    * 브라우저나 OS 가 자동으로 채우는 자리이기 때문이다. 그것을 그대로 거부하면 앱이 아닌 클라이언트는 전부 400 을 받는다.
    *
-   * <p>그래서 첫 번째 태그만 보고, 지역 표기를 떼어 내고({@code en-US} → {@code en}), 모르는 값은 {@code ko} 로 떨어뜨린다. 명세가
-   * "생략하거나 해당 번역이 없으면 ko 로 폴백한다" 고 한 것과 같은 규칙이다.
+   * <p>그래서 첫 번째 태그만 보고, 지역 표기를 떼어 내고({@code en-US} → {@code en}), 모르는 값은 {@code en} 으로 떨어뜨린다. 명세가
+   * "생략하거나, 지원하지 않는 값이거나, 그 언어의 번역이 없으면 en, 그다음 ko 로 폴백한다" 고 한 것과 같은 규칙이다. 헤더가 아예 없을 때는 이 변환기를 거치지
+   * 않고 명세의 기본값({@code en})이 들어온다.
    *
    * <p>{@code zh-Hant} 는 지역이 아니라 문자 체계 표기라 잘라 내면 안 된다 — 간체({@code zh-Hans})와 구분되지 않는다. 그래서 전체 값을 먼저
    * 맞춰 본 뒤에 자른다.
@@ -39,7 +40,7 @@ class LanguageConfiguration {
   Converter<String, Lang> langConverter() {
     return source -> {
       if (source == null || source.isBlank()) {
-        return Lang.KO;
+        return Lang.EN;
       }
       String first = source.split(",")[0].split(";")[0].trim();
       for (Lang lang : Lang.values()) {
@@ -53,7 +54,7 @@ class LanguageConfiguration {
           return lang;
         }
       }
-      return Lang.KO;
+      return Lang.EN;
     };
   }
 

@@ -8,7 +8,9 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -39,14 +41,14 @@ public class FavoriteStore {
       """
       WITH display AS (
           SELECT DISTINCT ON (ci.content_id)
-              ci.content_id, ci.title, ci.lang = :lang AS in_requested_lang
+              ci.content_id, ci.title, ci.lang AS shown_lang
           FROM content_i18n ci
-          WHERE ci.lang IN (:lang, 'ko')
-          ORDER BY ci.content_id, (ci.lang = :lang) DESC
+          WHERE ci.lang IN (:lang, 'en', 'ko')
+          ORDER BY ci.content_id, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC
       )
       SELECT
           c.id, c.category, c.broadcaster, c.poster_url, c.release_year, c.genres,
-          d.title, d.in_requested_lang,
+          d.title, d.shown_lang,
           (SELECT count(*) FROM place_content pc WHERE pc.content_id = c.id) AS place_count,
           count(*) OVER () AS total_count
       FROM saved_content s
@@ -64,8 +66,8 @@ public class FavoriteStore {
     this.jdbc = jdbc;
   }
 
-  /** 목록과 전체 개수, 그리고 요청한 언어로 채워졌는지. */
-  public record Page(List<ContentSummary> items, int total, boolean anyInRequestedLang) {}
+  /** 목록과 전체 개수, 그리고 항목들이 실제로 나온 언어들. */
+  public record Page(List<ContentSummary> items, int total, Set<Lang> shownLangs) {}
 
   public Page list(UUID userId, Lang lang, int limit, int offset) {
     List<Row> rows =
@@ -80,7 +82,7 @@ public class FavoriteStore {
     return new Page(
         rows.stream().map(Row::summary).toList(),
         rows.isEmpty() ? 0 : rows.get(0).total(),
-        rows.stream().anyMatch(Row::inRequestedLang));
+        rows.stream().map(Row::shownLang).collect(Collectors.toUnmodifiableSet()));
   }
 
   /**
@@ -131,7 +133,7 @@ public class FavoriteStore {
             .broadcaster(rs.getString("broadcaster"))
             .releaseYear(integerOrNull(rs, "release_year"))
             .genres(stringArray(rs.getArray("genres")));
-    return new Row(summary, rs.getInt("total_count"), rs.getBoolean("in_requested_lang"));
+    return new Row(summary, rs.getInt("total_count"), Lang.fromValue(rs.getString("shown_lang")));
   }
 
   /** 수집한 URL 이 URI 로 파싱되지 않으면 그 필드만 비운다. 목록 전체가 500 이 되면 안 된다. */
@@ -159,5 +161,5 @@ public class FavoriteStore {
     return List.of((String[]) array.getArray());
   }
 
-  private record Row(ContentSummary summary, int total, boolean inRequestedLang) {}
+  private record Row(ContentSummary summary, int total, Lang shownLang) {}
 }

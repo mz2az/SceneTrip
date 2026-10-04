@@ -189,6 +189,19 @@ class GuideAgentClientTest {
   }
 
   @Test
+  @DisplayName("언어가 없으면 에이전트에 en 으로 보낸다 — 서버의 폴백 사슬 첫 칸")
+  void missingLangFallsBackToEnglish() {
+    // 응답 언어 폴백은 요청 언어 → en → ko 다. 에이전트만 ko 로 보내면 앱 화면은 영어인데
+    // 챗봇 답만 한국어인 상태가 된다.
+    client().chat(chatRequest(), null);
+    assertThat(lastAcceptLanguage).isEqualTo("en");
+
+    body = PLAN_JSON;
+    client().plan(new GuidePlanRequest(List.of("도깨비"), 2), null);
+    assertThat(lastAcceptLanguage).isEqualTo("en");
+  }
+
+  @Test
   @DisplayName("마법사 응답은 /plan 으로 가고 GuidePlanReply 로 읽힌다")
   void parsesPlanReply() {
     body = PLAN_JSON;

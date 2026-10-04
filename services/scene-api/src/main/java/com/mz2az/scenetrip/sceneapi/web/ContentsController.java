@@ -45,7 +45,7 @@ class ContentsController implements ContentsApi {
         contentStore.list(query, personId, category, acceptLanguage, limit, offset);
 
     ContentList body = new ContentList(page.items(), page.total(), limit, offset);
-    return Responses.ok(body, Responses.used(acceptLanguage, page.anyInRequestedLang()));
+    return Responses.ok(body, Responses.used(acceptLanguage, page.shownLangs()));
   }
 
   /**
@@ -61,7 +61,7 @@ class ContentsController implements ContentsApi {
             .orElseThrow(
                 () -> ApiException.notFound("CONTENT_NOT_FOUND", "작품 " + contentId + " 이(가) 없습니다"));
 
-    return Responses.ok(detail.content(), Responses.used(acceptLanguage, detail.inRequestedLang()));
+    return Responses.ok(detail.content(), detail.shownLang());
   }
 
   /**
@@ -98,6 +98,6 @@ class ContentsController implements ContentsApi {
                 offset));
 
     PlaceList body = new PlaceList(page.items(), page.total(), limit, offset);
-    return Responses.ok(body, Responses.used(acceptLanguage, page.anyInRequestedLang()));
+    return Responses.ok(body, Responses.used(acceptLanguage, page.shownLangs()));
   }
 }

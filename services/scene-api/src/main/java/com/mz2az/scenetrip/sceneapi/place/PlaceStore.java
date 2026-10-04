@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -60,8 +62,8 @@ public class PlaceStore {
     }
   }
 
-  /** 목록과 함께 전체 개수·언어 폴백 여부를 돌려준다. */
-  public record Page(List<PlaceSummary> items, int total, boolean anyInRequestedLang) {}
+  /** 목록과 함께 전체 개수·항목들이 실제로 나온 언어들을 돌려준다. */
+  public record Page(List<PlaceSummary> items, int total, Set<Lang> shownLangs) {}
 
   /**
    * 정렬 구문만 코드에서 갈아 끼운다.
@@ -161,10 +163,10 @@ public class PlaceStore {
       ),
       display AS (
           SELECT DISTINCT ON (pi.place_id)
-              pi.place_id, pi.name, pi.address, pi.lang = :lang AS in_requested_lang
+              pi.place_id, pi.name, pi.address, pi.lang AS shown_lang
           FROM place_i18n pi
-          WHERE pi.lang IN (:lang, 'ko')
-          ORDER BY pi.place_id, (pi.lang = :lang) DESC
+          WHERE pi.lang IN (:lang, 'en', 'ko')
+          ORDER BY pi.place_id, (pi.lang = :lang) DESC, (pi.lang = 'en') DESC
       ),
       origin AS (
           -- 기준점이 없으면 NULL 이고, 그러면 거리 계산과 반경 조건이 통째로 빠진다.
@@ -181,7 +183,7 @@ public class PlaceStore {
           d.name,
           p.type,
           d.address,
-          d.in_requested_lang,
+          d.shown_lang,
           -- geography 를 geometry 로 캐스팅해야 좌표를 꺼낼 수 있다. ST_X 가 경도, ST_Y 가 위도다.
           ST_Y(p.geom::geometry) AS latitude,
           ST_X(p.geom::geometry) AS longitude,
@@ -233,15 +235,15 @@ public class PlaceStore {
       WITH display AS (
           SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title
           FROM content_i18n ci
-          WHERE ci.lang IN (:lang, 'ko')
-          ORDER BY ci.content_id, (ci.lang = :lang) DESC
+          WHERE ci.lang IN (:lang, 'en', 'ko')
+          ORDER BY ci.content_id, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC
       ),
       scene AS (
           SELECT DISTINCT ON (pci.place_content_id)
               pci.place_content_id, pci.relation_description
           FROM place_content_i18n pci
-          WHERE pci.lang IN (:lang, 'ko')
-          ORDER BY pci.place_content_id, (pci.lang = :lang) DESC
+          WHERE pci.lang IN (:lang, 'en', 'ko')
+          ORDER BY pci.place_content_id, (pci.lang = :lang) DESC, (pci.lang = 'en') DESC
       )
       SELECT pc.place_id, c.id AS content_id, d.title, c.poster_url, s.relation_description
       FROM place_content pc
@@ -265,10 +267,10 @@ public class PlaceStore {
       WITH display AS (
           SELECT DISTINCT ON (pi.place_id)
               pi.place_id, pi.name, pi.address, pi.description,
-              pi.lang = :lang AS in_requested_lang
+              pi.lang AS shown_lang
           FROM place_i18n pi
-          WHERE pi.place_id = :id AND pi.lang IN (:lang, 'ko')
-          ORDER BY pi.place_id, (pi.lang = :lang) DESC
+          WHERE pi.place_id = :id AND pi.lang IN (:lang, 'en', 'ko')
+          ORDER BY pi.place_id, (pi.lang = :lang) DESC, (pi.lang = 'en') DESC
       ),
       origin AS (
           SELECT CASE
@@ -281,7 +283,7 @@ public class PlaceStore {
       )
       SELECT
           p.id, d.name, p.type, d.address, d.description, p.naver_place_url,
-          d.in_requested_lang,
+          d.shown_lang,
           ST_Y(p.geom::geometry) AS latitude,
           ST_X(p.geom::geometry) AS longitude,
           CASE WHEN o.point IS NULL THEN NULL
@@ -307,15 +309,15 @@ public class PlaceStore {
       WITH display AS (
           SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title
           FROM content_i18n ci
-          WHERE ci.lang IN (:lang, 'ko')
-          ORDER BY ci.content_id, (ci.lang = :lang) DESC
+          WHERE ci.lang IN (:lang, 'en', 'ko')
+          ORDER BY ci.content_id, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC
       ),
       scene AS (
           SELECT DISTINCT ON (pci.place_content_id)
               pci.place_content_id, pci.relation_description
           FROM place_content_i18n pci
-          WHERE pci.lang IN (:lang, 'ko')
-          ORDER BY pci.place_content_id, (pci.lang = :lang) DESC
+          WHERE pci.lang IN (:lang, 'en', 'ko')
+          ORDER BY pci.place_content_id, (pci.lang = :lang) DESC, (pci.lang = 'en') DESC
       )
       SELECT c.id AS content_id, d.title, c.poster_url, pc.scene_image_url,
              s.relation_description
@@ -327,8 +329,8 @@ public class PlaceStore {
       ORDER BY c.popularity_score DESC, c.id DESC
       """;
 
-  /** 상세와 언어 폴백 여부. 없으면 {@link Optional#empty()}. */
-  public record Detail(PlaceDetail place, boolean inRequestedLang) {}
+  /** 상세와 그것이 실제로 나온 언어. 없으면 {@link Optional#empty()}. */
+  public record Detail(PlaceDetail place, Lang shownLang) {}
 
   private final JdbcClient jdbc;
 
@@ -371,7 +373,7 @@ public class PlaceStore {
                         .sceneImageUrl(uri(rs.getString("scene_image_url"))))
             .list());
 
-    return Optional.of(new Detail(detail, row.inRequestedLang()));
+    return Optional.of(new Detail(detail, row.shownLang()));
   }
 
   private static DetailRow mapDetail(ResultSet rs, int rowNum) throws SQLException {
@@ -386,10 +388,10 @@ public class PlaceStore {
             .description(rs.getString("description"))
             .naverPlaceUrl(uri(rs.getString("naver_place_url")))
             .distanceMeters(integerOrNull(rs, "distance_meters"));
-    return new DetailRow(detail, rs.getBoolean("in_requested_lang"));
+    return new DetailRow(detail, Lang.fromValue(rs.getString("shown_lang")));
   }
 
-  private record DetailRow(PlaceDetail place, boolean inRequestedLang) {}
+  private record DetailRow(PlaceDetail place, Lang shownLang) {}
 
   public Page list(Criteria criteria) {
     // formatted() 를 쓰지 않는다. 이 SQL 에는 LIKE '%' 의 퍼센트 기호가 있어
@@ -417,7 +419,7 @@ public class PlaceStore {
             .list();
 
     if (rows.isEmpty()) {
-      return new Page(List.of(), 0, false);
+      return new Page(List.of(), 0, Set.of());
     }
 
     attachContents(rows, criteria.lang(), criteria.contentId());
@@ -425,7 +427,7 @@ public class PlaceStore {
     return new Page(
         rows.stream().map(Row::summary).toList(),
         rows.get(0).total(),
-        rows.stream().anyMatch(Row::inRequestedLang));
+        rows.stream().map(Row::shownLang).collect(Collectors.toUnmodifiableSet()));
   }
 
   /**
@@ -480,7 +482,7 @@ public class PlaceStore {
             .address(rs.getString("address"))
             .imageUrl(uri(rs.getString("image_url")))
             .distanceMeters(integerOrNull(rs, "distance_meters"));
-    return new Row(summary, rs.getInt("total_count"), rs.getBoolean("in_requested_lang"));
+    return new Row(summary, rs.getInt("total_count"), Lang.fromValue(rs.getString("shown_lang")));
   }
 
   /** 수집한 URL 이 URI 로 파싱되지 않으면 그 필드만 비운다. 목록 전체를 500 으로 만들지 않는다. */
@@ -501,5 +503,5 @@ public class PlaceStore {
     return rs.wasNull() ? null : value;
   }
 
-  private record Row(PlaceSummary summary, int total, boolean inRequestedLang) {}
+  private record Row(PlaceSummary summary, int total, Lang shownLang) {}
 }

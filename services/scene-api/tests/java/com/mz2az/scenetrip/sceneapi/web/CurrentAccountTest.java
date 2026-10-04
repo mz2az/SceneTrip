@@ -24,6 +24,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
@@ -86,7 +87,7 @@ class CurrentAccountTest {
   @BeforeEach
   void setUp() {
     CLOCK.set(T0);
-    when(store.list(any(), any())).thenReturn(new CartStore.Contents(List.of(), false));
+    when(store.list(any(), any())).thenReturn(new CartStore.Contents(List.of(), Set.of()));
   }
 
   private String validToken() {

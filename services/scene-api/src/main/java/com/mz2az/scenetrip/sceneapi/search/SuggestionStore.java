@@ -4,6 +4,8 @@ import com.mz2az.scenetrip.sceneapi.api.model.EntityType;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.Suggestion;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -57,7 +59,7 @@ public class SuggestionStore {
    *
    * <p>언어 조건에 {@code lang IS NULL} 이 들어가는 이유: 라틴 문자 별칭은 언어를 판별할 수 없어 {@code NULL} 로 적재된다. 빠뜨리면
    * {@code Goblin} 이 검색되지 않는다. {@code 'ko'} 도 함께 보는 이유는 장소명이 한국어뿐이기 때문이다 — 영어 사용자에게 한국어 장소명이라도 보여
-   * 주는 편이 빈 목록보다 낫다.
+   * 주는 편이 빈 목록보다 낫다. {@code 'en'} 도 보는 것은 표시 폴백(요청 언어 → en → ko)과 같은 이유다 — 일본어 사용자가 영어 표기로 찾을 수 있다.
    */
   // 통합 테스트가 EXPLAIN 으로 이 질의의 계획을 확인한다. 인덱스를 놓쳐도 결과는 같고 느려지기만
   // 하므로, 결과 단언으로는 잡히지 않는 회귀다.
@@ -73,10 +75,10 @@ public class SuggestionStore {
           FROM search_term st
           WHERE search_normalize(:q) <> ''
             AND st.term_norm LIKE search_normalize(:q) || '%'
-            AND (st.lang = :lang OR st.lang IS NULL OR st.lang = 'ko')
+            AND (st.lang = :lang OR st.lang IS NULL OR st.lang IN ('en', 'ko'))
           ORDER BY st.entity_type,
                    st.entity_id,
-                   (st.lang = :lang) DESC NULLS LAST,
+                   (st.lang = :lang) DESC NULLS LAST, (st.lang = 'en') DESC NULLS LAST,
                    st.weight DESC
       ),
       fuzzy_hits AS (
@@ -92,10 +94,10 @@ public class SuggestionStore {
             AND st.term_norm LIKE '%' || search_normalize(:q) || '%'
             -- 앞글자로 걸리는 것은 위 갈래가 이미 가져갔다.
             AND st.term_norm NOT LIKE search_normalize(:q) || '%'
-            AND (st.lang = :lang OR st.lang IS NULL OR st.lang = 'ko')
+            AND (st.lang = :lang OR st.lang IS NULL OR st.lang IN ('en', 'ko'))
           ORDER BY st.entity_type,
                    st.entity_id,
-                   (st.lang = :lang) DESC NULLS LAST,
+                   (st.lang = :lang) DESC NULLS LAST, (st.lang = 'en') DESC NULLS LAST,
                    st.weight DESC
       ),
       -- 두 갈래는 서로를 모르므로 같은 엔티티가 다른 표기로 양쪽에 걸릴 수 있다. 정식 명칭은
@@ -113,51 +115,51 @@ public class SuggestionStore {
                    u.is_prefix DESC,
                    u.weight DESC
       ),
-      -- 아래 셋은 "요청한 언어가 있으면 그것, 없으면 ko" 로 표시용 한 줄씩을 고른다.
+      -- 아래 셋은 "요청한 언어가 있으면 그것, 없으면 en, 그다음 ko" 로 표시용 한 줄씩을 고른다.
       -- 걸린 id 로 미리 좁혀 두어야 전체 테이블을 훑지 않는다.
       place_display AS (
           SELECT DISTINCT ON (pi.place_id)
               pi.place_id,
               pi.name,
-              pi.lang = :lang AS in_requested_lang,
+              pi.lang AS shown_lang,
               -- 장소의 보조 문구는 주소의 시·구다. '서울 마포구 독막로2길 9' -> '서울 마포구'
               NULLIF(btrim(split_part(pi.address, ' ', 1) || ' ' || split_part(pi.address, ' ', 2)), '')
                   AS subtitle
           FROM place_i18n pi
-          WHERE pi.lang IN (:lang, 'ko')
+          WHERE pi.lang IN (:lang, 'en', 'ko')
             AND pi.place_id IN (SELECT entity_id FROM matched WHERE entity_type = 'place')
-          ORDER BY pi.place_id, (pi.lang = :lang) DESC
+          ORDER BY pi.place_id, (pi.lang = :lang) DESC, (pi.lang = 'en') DESC
       ),
       content_display AS (
           SELECT DISTINCT ON (ci.content_id)
               ci.content_id,
               ci.title AS name,
-              ci.lang = :lang AS in_requested_lang,
+              ci.lang AS shown_lang,
               -- 작품의 보조 문구는 '방송사 · 연도'. 둘 다 없으면 NULL 이다.
               NULLIF(concat_ws(' · ', c.broadcaster, c.release_year::TEXT), '') AS subtitle
           FROM content_i18n ci
           JOIN content c ON c.id = ci.content_id
-          WHERE ci.lang IN (:lang, 'ko')
+          WHERE ci.lang IN (:lang, 'en', 'ko')
             AND ci.content_id IN (SELECT entity_id FROM matched WHERE entity_type = 'content')
-          ORDER BY ci.content_id, (ci.lang = :lang) DESC
+          ORDER BY ci.content_id, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC
       ),
       person_display AS (
           SELECT DISTINCT ON (pi.person_id)
               pi.person_id,
               pi.name,
-              pi.lang = :lang AS in_requested_lang,
+              pi.lang AS shown_lang,
               -- 인물의 보조 문구는 대표 작품 — 가장 인기 있는 참여작이다.
               (SELECT ci.title
                  FROM content_cast cc
                  JOIN content c ON c.id = cc.content_id
-                 JOIN content_i18n ci ON ci.content_id = c.id AND ci.lang IN (:lang, 'ko')
+                 JOIN content_i18n ci ON ci.content_id = c.id AND ci.lang IN (:lang, 'en', 'ko')
                 WHERE cc.person_id = pi.person_id
-                ORDER BY c.popularity_score DESC, (ci.lang = :lang) DESC
+                ORDER BY c.popularity_score DESC, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC
                 LIMIT 1) AS subtitle
           FROM person_i18n pi
-          WHERE pi.lang IN (:lang, 'ko')
+          WHERE pi.lang IN (:lang, 'en', 'ko')
             AND pi.person_id IN (SELECT entity_id FROM matched WHERE entity_type = 'person')
-          ORDER BY pi.person_id, (pi.lang = :lang) DESC
+          ORDER BY pi.person_id, (pi.lang = :lang) DESC, (pi.lang = 'en') DESC
       )
       SELECT
           m.entity_type,
@@ -165,8 +167,7 @@ public class SuggestionStore {
           m.term_display,
           COALESCE(pd.name, cd.name, sd.name) AS display_name,
           COALESCE(pd.subtitle, cd.subtitle, sd.subtitle) AS subtitle,
-          COALESCE(pd.in_requested_lang, cd.in_requested_lang, sd.in_requested_lang, FALSE)
-              AS in_requested_lang
+          COALESCE(pd.shown_lang, cd.shown_lang, sd.shown_lang) AS shown_lang
       FROM matched m
       LEFT JOIN place_display   pd ON m.entity_type = 'place'   AND pd.place_id   = m.entity_id
       LEFT JOIN content_display cd ON m.entity_type = 'content' AND cd.content_id = m.entity_id
@@ -184,8 +185,8 @@ public class SuggestionStore {
     this.jdbc = jdbc;
   }
 
-  /** 제안과, 그중 하나라도 요청한 언어로 나왔는지를 함께 돌려준다. */
-  public record Result(List<Suggestion> items, boolean anyInRequestedLang) {}
+  /** 제안과, 그것들이 실제로 나온 언어들을 함께 돌려준다. */
+  public record Result(List<Suggestion> items, Set<Lang> shownLangs) {}
 
   public Result suggest(String q, Lang lang, int limit) {
     List<Row> rows =
@@ -201,7 +202,7 @@ public class SuggestionStore {
                         rs.getString("display_name"),
                         rs.getString("term_display"),
                         rs.getString("subtitle"),
-                        rs.getBoolean("in_requested_lang")))
+                        Lang.fromValue(rs.getString("shown_lang"))))
             .list();
 
     List<Suggestion> items =
@@ -215,7 +216,8 @@ public class SuggestionStore {
                         .subtitle(r.subtitle()))
             .toList();
 
-    return new Result(items, rows.stream().anyMatch(Row::inRequestedLang));
+    return new Result(
+        items, rows.stream().map(Row::shownLang).collect(Collectors.toUnmodifiableSet()));
   }
 
   private record Row(
@@ -224,5 +226,5 @@ public class SuggestionStore {
       String name,
       String matchedTerm,
       String subtitle,
-      boolean inRequestedLang) {}
+      Lang shownLang) {}
 }

@@ -121,7 +121,7 @@ public class GuideAgentClient {
           restClient
               .post()
               .uri(path)
-              .header("Accept-Language", lang == null ? Lang.KO.getValue() : lang.getValue())
+              .header("Accept-Language", lang == null ? Lang.EN.getValue() : lang.getValue())
               .contentType(MediaType.APPLICATION_JSON)
               .body(body)
               .retrieve()

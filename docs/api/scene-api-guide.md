@@ -22,15 +22,17 @@
 | 저장 주체 | `X-Install-Id` 헤더(설치 UUID)로 찾아낸 계정 — [auth.md](./auth.md) |
 | 오류 | 공통 `ApiError` 형식 — [errors.md](./errors.md) |
 
-**언어는 헤더로 보낸다.** 서버가 실제로 고른 언어는 `Content-Language` 응답 헤더에
-담긴다 — 요청한 언어의 번역이 없으면 `ko` 로 폴백하므로, 요청과 응답이 다를 수 있다.
+**언어는 헤더로 보낸다. 비우지 않는다** — 앱이 보여 주는 UI 언어를 언제나 넣는다.
+헤더가 없거나, 지원하지 않는 값이거나, 그 언어의 번역이 없으면 **`en`, 그다음 `ko`** 로
+폴백한다. 서버가 실제로 고른 언어는 `Content-Language` 응답 헤더에 담기므로, 요청과
+응답이 다를 수 있다. 편의시설(`/pois…`)은 예외로 언제나 `ko` 다.
 
 ```
-GET /v1/places/7
+GET /v1/contents/7
 Accept-Language: ja
 
 200 OK
-Content-Language: ko        ← 일본어 번역이 없어 한국어로 내려감
+Content-Language: en        ← 일본어 번역이 없어 영어로 내려감 (영어도 없으면 ko)
 ```
 
 ### 목록은 전부 같은 모양이다

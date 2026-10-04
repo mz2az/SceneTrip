@@ -8,7 +8,9 @@ import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -36,22 +38,22 @@ public class CartStore {
       """
       WITH place_display AS (
           SELECT DISTINCT ON (pi.place_id) pi.place_id, pi.name, pi.address,
-                 pi.lang = :lang AS in_requested_lang
+                 pi.lang AS shown_lang
           FROM place_i18n pi
-          WHERE pi.lang IN (:lang, 'ko')
-          ORDER BY pi.place_id, (pi.lang = :lang) DESC
+          WHERE pi.lang IN (:lang, 'en', 'ko')
+          ORDER BY pi.place_id, (pi.lang = :lang) DESC, (pi.lang = 'en') DESC
       ),
       content_display AS (
           SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title
           FROM content_i18n ci
-          WHERE ci.lang IN (:lang, 'ko')
-          ORDER BY ci.content_id, (ci.lang = :lang) DESC
+          WHERE ci.lang IN (:lang, 'en', 'ko')
+          ORDER BY ci.content_id, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC
       )
       SELECT
           ci_.place_id,
           pd.name,
           pd.address,
-          pd.in_requested_lang,
+          pd.shown_lang,
           ST_Y(p.geom::geometry) AS latitude,
           ST_X(p.geom::geometry) AS longitude,
           (SELECT pim.url FROM place_image pim
@@ -74,8 +76,8 @@ public class CartStore {
     this.jdbc = jdbc;
   }
 
-  /** 장바구니 내용과 언어 폴백 여부. */
-  public record Contents(List<CartItem> items, boolean anyInRequestedLang) {}
+  /** 장바구니 내용과 항목들이 실제로 나온 언어들. */
+  public record Contents(List<CartItem> items, Set<Lang> shownLangs) {}
 
   public Contents list(UUID userId, Lang lang) {
     List<Row> rows =
@@ -86,7 +88,8 @@ public class CartStore {
             .list();
 
     return new Contents(
-        rows.stream().map(Row::item).toList(), rows.stream().anyMatch(Row::inRequestedLang));
+        rows.stream().map(Row::item).toList(),
+        rows.stream().map(Row::shownLang).collect(Collectors.toUnmodifiableSet()));
   }
 
   /**
@@ -153,7 +156,7 @@ public class CartStore {
             .imageUrl(uri(rs.getString("image_url")))
             .sourceContentId(longOrNull(rs))
             .sourceContentTitle(rs.getString("source_content_title"));
-    return new Row(item, rs.getBoolean("in_requested_lang"));
+    return new Row(item, Lang.fromValue(rs.getString("shown_lang")));
   }
 
   private static URI uri(String value) {
@@ -173,5 +176,5 @@ public class CartStore {
     return rs.wasNull() ? null : value;
   }
 
-  private record Row(CartItem item, boolean inRequestedLang) {}
+  private record Row(CartItem item, Lang shownLang) {}
 }

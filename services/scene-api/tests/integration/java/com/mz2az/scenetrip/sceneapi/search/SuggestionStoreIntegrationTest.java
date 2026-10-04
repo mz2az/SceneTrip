@@ -3,7 +3,9 @@ package com.mz2az.scenetrip.sceneapi.search;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mz2az.scenetrip.sceneapi.IntegrationDatabase;
+import com.mz2az.scenetrip.sceneapi.api.model.EntityType;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -82,6 +84,72 @@ class SuggestionStoreIntegrationTest {
     SuggestionStore.Result result = store.suggest(mid, Lang.KO, 10);
 
     assertThat(result.items()).as("'%s' — 앞글자로는 어떤 표기에도 걸리지 않는 말이다", mid).isNotEmpty();
+  }
+
+  /**
+   * 영어 표기로만 걸리는 작품이 ja 요청에서도 걸리는가 — 폴백 사슬의 en 칸.
+   *
+   * <p>예전 질의는 요청한 언어·{@code NULL}·{@code ko} 표기만 보았다. 그래서 일본어 화면에서 「Goblin」 을 치면 영어 제목이 있는데도 0
+   * 건이었다. 고른 입력은 같은 작품의 ja·ko·{@code NULL} 표기 어디에도 들어 있지 않은 영어 표기라, en 표기를 보지 않으면 이 작품은 절대 걸리지 않는다.
+   *
+   * <p>표시 이름도 사슬을 따라야 한다 — ja 제목이 없으니 en 제목이고, {@code shownLangs} 에 en 이 있어야 헤더가 en 이 된다.
+   */
+  @Test
+  @DisplayName("영어로만 있는 표기가 ja 요청에서도 걸리고, 이름은 en 으로 나온다")
+  void englishOnlyTermIsFoundForJapanese() {
+    EnglishOnly term = anyEnglishOnlyContentTerm();
+
+    SuggestionStore.Result result = store.suggest(term.termNorm(), Lang.JA, 50);
+
+    assertThat(result.items())
+        .as("'%s' — 작품 %d 의 영어 표기다", term.termNorm(), term.contentId())
+        .anySatisfy(
+            s -> {
+              assertThat(s.getType()).isEqualTo(EntityType.CONTENT);
+              assertThat(s.getId()).isEqualTo(term.contentId());
+              assertThat(s.getName()).isEqualTo(term.englishTitle());
+            });
+    assertThat(result.shownLangs()).contains(Lang.EN);
+  }
+
+  private record EnglishOnly(String termNorm, long contentId, String englishTitle) {}
+
+  /**
+   * 영어 제목이 있고 일본어 제목은 없는 작품의 영어 표기 — 그 작품의 ja·ko·{@code NULL} 표기에는 들어 있지 않은 것으로 고른다.
+   *
+   * <p>낱말을 코드에 박지 않는 이유는 {@link IntegrationDatabase} 의 헬퍼들과 같다.
+   */
+  private static EnglishOnly anyEnglishOnlyContentTerm() {
+    List<EnglishOnly> rows =
+        jdbc.sql(
+                """
+                SELECT st.term_norm, st.entity_id, ci.title
+                FROM search_term st
+                JOIN content_i18n ci ON ci.content_id = st.entity_id AND ci.lang = 'en'
+                WHERE st.entity_type = 'content'
+                  AND st.lang = 'en'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM content_i18n j
+                      WHERE j.content_id = st.entity_id AND j.lang = 'ja')
+                  AND NOT EXISTS (
+                      SELECT 1 FROM search_term s2
+                      WHERE s2.entity_type = st.entity_type
+                        AND s2.entity_id = st.entity_id
+                        AND (s2.lang IN ('ja', 'ko') OR s2.lang IS NULL)
+                        AND s2.term_norm LIKE '%' || st.term_norm || '%')
+                ORDER BY st.entity_id, st.term_norm
+                LIMIT 1
+                """)
+            .query(
+                (rs, n) ->
+                    new EnglishOnly(
+                        rs.getString("term_norm"), rs.getLong("entity_id"), rs.getString("title")))
+            .list();
+    if (rows.isEmpty()) {
+      throw new IllegalStateException(
+          "영어로만 있는 작품 표기가 없습니다 — en 제목이 적재됐는지 확인하고 `just seed` 뒤 `just db-refresh-search`");
+    }
+    return rows.get(0);
   }
 
   /**

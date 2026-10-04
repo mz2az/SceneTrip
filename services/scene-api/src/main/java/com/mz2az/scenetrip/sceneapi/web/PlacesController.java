@@ -56,7 +56,7 @@ class PlacesController implements PlacesApi {
                 offset));
 
     PlaceList body = new PlaceList(page.items(), page.total(), limit, offset);
-    return Responses.ok(body, Responses.used(acceptLanguage, page.anyInRequestedLang()));
+    return Responses.ok(body, Responses.used(acceptLanguage, page.shownLangs()));
   }
 
   /**
@@ -77,6 +77,6 @@ class PlacesController implements PlacesApi {
             .orElseThrow(
                 () -> ApiException.notFound("PLACE_NOT_FOUND", "장소 " + placeId + " 이(가) 없습니다"));
 
-    return Responses.ok(detail.place(), Responses.used(acceptLanguage, detail.inRequestedLang()));
+    return Responses.ok(detail.place(), detail.shownLang());
   }
 }

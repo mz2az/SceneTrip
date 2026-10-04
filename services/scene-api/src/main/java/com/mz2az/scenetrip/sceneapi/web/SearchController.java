@@ -29,7 +29,6 @@ class SearchController implements SearchApi {
     // 오류가 아니다.
     SuggestionStore.Result result = store.suggest(q.strip(), acceptLanguage, limit);
     return Responses.ok(
-        new SuggestionList(result.items()),
-        Responses.used(acceptLanguage, result.anyInRequestedLang()));
+        new SuggestionList(result.items()), Responses.used(acceptLanguage, result.shownLangs()));
   }
 }

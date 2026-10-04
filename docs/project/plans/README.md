@@ -20,6 +20,7 @@
 | [trip-mode.md](./trip-mode.md) | 여행 모드 — 코스 시작부터 스탬프까지, 편집 화면 안 길찾기(2단계) · main 이식 (MZ2AZ-299 · MZ2AZ-307) |
 | [poi-card.md](./poi-card.md) | 편의시설 카드 — 사진·영업시간·평점을 네이버 장소에서 (데모 한정, ADR 0011) |
 | [social-login.md](./social-login.md) | 구글·애플 소셜 로그인과 JWT — 계약·요청 계정 규칙·합치기·앱이 할 일 (MZ2AZ-329, ADR 0018) |
+| [i18n-en-fallback.md](./i18n-en-fallback.md) | 응답 언어 폴백 — 요청 언어 → en → ko, 편의시설 제외 (MZ2AZ-344) |
 
 ## 언제 여기에 쓰는가
 

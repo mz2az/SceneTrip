@@ -4,21 +4,25 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.mz2az.scenetrip.sceneapi.api.model.ContentCategory;
 import com.mz2az.scenetrip.sceneapi.api.model.ContentDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.ContentSummary;
+import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.PersonRef;
 import com.mz2az.scenetrip.sceneapi.api.model.RoleType;
 import com.mz2az.scenetrip.sceneapi.content.ContentStore;
 import com.mz2az.scenetrip.sceneapi.place.PlaceStore;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,7 +45,7 @@ class ContentsControllerTest {
 
   private void givenContents(int total, ContentSummary... items) {
     when(store.list(any(), any(), any(), any(), anyInt(), anyInt()))
-        .thenReturn(new ContentStore.Page(List.of(items), total, true));
+        .thenReturn(new ContentStore.Page(List.of(items), total, Set.of(Lang.EN)));
   }
 
   @Test
@@ -110,7 +114,7 @@ class ContentsControllerTest {
             .aliases(List.of("Guardian: The Lonely and Great God", "Goblin"))
             .cast(List.of(new PersonRef(5L, "공유", RoleType.ACTOR)));
     when(store.findDetail(eq(2L), any()))
-        .thenReturn(Optional.of(new ContentStore.Detail(detail, true)));
+        .thenReturn(Optional.of(new ContentStore.Detail(detail, Lang.EN)));
 
     mvc.perform(get("/contents/2"))
         .andExpect(status().isOk())
@@ -118,6 +122,51 @@ class ContentsControllerTest {
         .andExpect(jsonPath("$.aliases[1]").value("Goblin"))
         .andExpect(jsonPath("$.cast[0].name").value("공유"))
         .andExpect(jsonPath("$.cast[0].roleType").value("actor"));
+  }
+
+  @Test
+  @DisplayName("모르는 Accept-Language 와 헤더 없음은 둘 다 en 으로 Store 에 간다")
+  void unknownOrMissingLanguageBecomesEnglish() throws Exception {
+    givenContents(0);
+
+    // 폴백 사슬의 첫 칸. fr 은 변환기가, 헤더 없음은 명세의 기본값이 en 으로 만든다 — 둘 중
+    // 하나라도 ko 로 가면 영어권이 아닌 외국인에게 한국어 화면이 나간다.
+    mvc.perform(get("/contents").header("Accept-Language", "fr")).andExpect(status().isOk());
+    mvc.perform(get("/contents").header("Accept-Language", "fr-FR")).andExpect(status().isOk());
+    mvc.perform(get("/contents")).andExpect(status().isOk());
+
+    verify(store, times(3)).list(any(), any(), any(), eq(Lang.EN), anyInt(), anyInt());
+  }
+
+  @Test
+  @DisplayName("ja 를 요청했는데 en·ko 로만 나왔으면 목록의 Content-Language 는 en")
+  void listHeaderFallsBackToEnglish() throws Exception {
+    when(store.list(any(), any(), any(), any(), anyInt(), anyInt()))
+        .thenReturn(
+            new ContentStore.Page(
+                List.of(new ContentSummary(2L, ContentCategory.DRAMA, "Goblin", 58)),
+                1,
+                Set.of(Lang.EN, Lang.KO)));
+
+    mvc.perform(get("/contents").header("Accept-Language", "ja"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Language", "en"));
+  }
+
+  @Test
+  @DisplayName("상세의 Content-Language 는 Store 가 실제로 고른 언어다")
+  void detailHeaderIsShownLang() throws Exception {
+    // ja 번역이 없어 en 행이 골라진 경우. 요청한 언어(ja)도, 예전 폴백(ko)도 아니어야 한다.
+    when(store.findDetail(eq(2L), eq(Lang.JA)))
+        .thenReturn(
+            Optional.of(
+                new ContentStore.Detail(
+                    new ContentDetail(2L, ContentCategory.DRAMA, "Goblin", 58), Lang.EN)));
+
+    mvc.perform(get("/contents/2").header("Accept-Language", "ja"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Language", "en"))
+        .andExpect(jsonPath("$.title").value("Goblin"));
   }
 
   @Test

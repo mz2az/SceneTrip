@@ -1,6 +1,7 @@
 package com.mz2az.scenetrip.sceneapi;
 
 import java.util.List;
+import java.util.function.Supplier;
 import javax.sql.DataSource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -44,6 +45,21 @@ public final class IntegrationDatabase {
    */
   public static TransactionTemplate transactions() {
     return new TransactionTemplate(new DataSourceTransactionManager(dataSource()));
+  }
+
+  /**
+   * 트랜잭션 하나 안에서 돌리고 <b>끝나면 되돌린다.</b> 적재 데이터 옆에 픽스처 행을 잠깐 끼워 넣고 볼 때 쓴다.
+   *
+   * <p>지우는 정리 코드를 따로 두지 않는 이유: 단언이 실패해 중간에 빠져나가도 행이 남지 않는다. Store 도 같은 DataSource 를 쓰므로 그 질의가 이
+   * 트랜잭션 안에서 픽스처를 본다({@link #dataSource()} 의 이유와 같다).
+   */
+  public static <T> T rolledBack(Supplier<T> work) {
+    return transactions()
+        .execute(
+            status -> {
+              status.setRollbackOnly();
+              return work.get();
+            });
   }
 
   /**
@@ -188,9 +204,12 @@ public final class IntegrationDatabase {
    *
    * <p>세 글자인 이유: {@code pg_trgm} 이 세 글자짜리 조각으로 색인하므로 그보다 짧은 검색어는 부분 일치를 아예 시도하지 않는다.
    *
-   * <p>언어를 거르는 이유: 자동완성은 요청한 언어와 {@code NULL}, 그리고 {@code ko} 만 본다. 여기서 {@code lang = 'en'} 인 표기를
-   * 뽑으면 질의가 그 행을 걸러 내 제안이 0 건이 되는데, 그것은 부분 일치 갈래가 죽어서가 아니라 <b>입력을 잘못 골라서</b>다. 실제로 겪었다 — 적재분이 바뀌자
-   * 'Kim Seong-yoon' 에서 뽑힌 'ims' 가 후보로 올라와 테스트가 깨졌다.
+   * <p>언어를 거르는 이유: 자동완성은 요청한 언어와 {@code NULL}, 그리고 폴백 사슬의 {@code en}·{@code ko} 만 본다. 후보는 어느 요청
+   * 언어로든 보이는 {@code ko}·{@code NULL} 에서만 뽑는다. 예전에 {@code en} 이 보이지 않던 시절 'Kim Seong-yoon' 에서 뽑힌
+   * 'ims' 가 후보로 올라와 테스트가 깨졌다 — 부분 일치 갈래가 죽어서가 아니라 <b>입력을 잘못 골라서</b>였다.
+   *
+   * <p>반대로 「앞글자로 걸리지 않는다」 는 검사는 {@code en} 까지 봐야 한다. 이제 {@code en} 표기도 앞글자 갈래에 들어가므로, 그것을 빼면 앞글자
+   * 갈래가 대신 걸어 주는 입력이 후보로 올라올 수 있다.
    */
   public static String anyMidOnlyTerm(JdbcClient jdbc) {
     return single(
@@ -205,7 +224,7 @@ public final class IntegrationDatabase {
         ) c
         WHERE NOT EXISTS (
             SELECT 1 FROM search_term s2
-            WHERE (s2.lang = 'ko' OR s2.lang IS NULL)
+            WHERE (s2.lang IN ('ko', 'en') OR s2.lang IS NULL)
               AND s2.term_norm LIKE c.sub || '%')
         ORDER BY c.sub
         LIMIT 1

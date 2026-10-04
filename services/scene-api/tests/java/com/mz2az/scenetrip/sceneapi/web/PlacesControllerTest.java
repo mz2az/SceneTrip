@@ -6,9 +6,11 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.Scene;
@@ -16,6 +18,7 @@ import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.place.PlaceStore;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -40,7 +43,8 @@ class PlacesControllerTest {
   @MockitoBean private PlaceStore store;
 
   private void givenPlaces(PlaceSummary... items) {
-    when(store.list(any())).thenReturn(new PlaceStore.Page(List.of(items), items.length, true));
+    when(store.list(any()))
+        .thenReturn(new PlaceStore.Page(List.of(items), items.length, Set.of(Lang.EN)));
   }
 
   @Test
@@ -138,7 +142,7 @@ class PlacesControllerTest {
                     new Scene(2L, "도깨비").sceneDescription("시간이 멈춘 장면…"),
                     new Scene(4L, "케이팝 데몬 헌터스")));
     when(store.findDetail(eq(2L), any(), any(), any()))
-        .thenReturn(Optional.of(new PlaceStore.Detail(detail, true)));
+        .thenReturn(Optional.of(new PlaceStore.Detail(detail, Lang.EN)));
 
     // 한 장소가 여러 작품에 나오는 것이 정상이다 — 목업의 "이 장소의 장면" 가로 스크롤.
     mvc.perform(get("/places/2"))
@@ -146,6 +150,20 @@ class PlacesControllerTest {
         .andExpect(jsonPath("$.name").value("북촌한옥마을"))
         .andExpect(jsonPath("$.scenes[0].contentTitle").value("도깨비"))
         .andExpect(jsonPath("$.scenes[1].contentId").value(4));
+  }
+
+  @Test
+  @DisplayName("상세의 Content-Language 는 Store 가 실제로 고른 언어다")
+  void detailHeaderIsShownLang() throws Exception {
+    // 수집 데이터에 영어 장소명이 없어 ko 행이 골라진 경우. 요청한 언어(ja)를 달면 거짓말이다.
+    when(store.findDetail(eq(2L), eq(Lang.JA), any(), any()))
+        .thenReturn(
+            Optional.of(
+                new PlaceStore.Detail(new PlaceDetail(2L, "북촌한옥마을", 37.5818, 126.9848), Lang.KO)));
+
+    mvc.perform(get("/places/2").header("Accept-Language", "ja"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Language", "ko"));
   }
 
   @Test

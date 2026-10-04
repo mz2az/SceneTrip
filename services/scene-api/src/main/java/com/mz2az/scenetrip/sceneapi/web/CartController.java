@@ -37,7 +37,7 @@ class CartController implements CartApi {
   public ResponseEntity<Cart> getCart(UUID xInstallId, Lang acceptLanguage) {
     CartStore.Contents contents = store.list(accounts.resolve(xInstallId), acceptLanguage);
     Cart body = new Cart(contents.items(), contents.items().size());
-    return Responses.ok(body, Responses.used(acceptLanguage, contents.anyInRequestedLang()));
+    return Responses.ok(body, Responses.used(acceptLanguage, contents.shownLangs()));
   }
 
   @Override
