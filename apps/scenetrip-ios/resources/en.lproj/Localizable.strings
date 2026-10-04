@@ -396,3 +396,8 @@
 "환승 %d회" = "%d transfers";
 "회원 탈퇴" = "Delete account";
 "내 코스|코스 제목" = "My course";
+"발자취 기록하기" = "Record footprints";
+"발자취를 기록할까요?" = "Record your footprints?";
+"기록하기" = "Record";
+"여행 모드에서 지나간 길을 이 기기에만 저장해요. 서버로 보내지 않고, 로그아웃하거나 탈퇴하면 지워집니다." = "The path you walk in trip mode is saved on this device only. It is never sent to our servers, and it is erased when you sign out or delete your account.";
+"이 기기에만 저장돼요. 서버로 보내지 않아요." = "Saved on this device only. Never sent to our servers.";

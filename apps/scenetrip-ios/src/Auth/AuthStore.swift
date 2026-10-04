@@ -110,6 +110,8 @@ final class AuthStore: ObservableObject {
     }
 
     private func forget() {
+        // 발자취는 기기에만 있지만 그 사람의 것이다 — 계정이 떠나면 함께 지운다 (MZ2AZ-348).
+        FootprintStore.shared.forgetOwner()
         AuthTokens.clear()
         me = nil
         signedIn = false

@@ -48,6 +48,7 @@ struct ProfileTabView: View {
     @ObservedObject private var posts = CommunityStore.shared
     @ObservedObject private var footprints = FootprintStore.shared
     @State private var clearingFootprints = false
+    @State private var askingFootprintConsent = false
     @State private var showingPosts = false
 
     /// 앱 언어 (MZ2AZ-343). 바꾸면 루트가 화면을 통째로 다시 만들어 이 덮개도 닫힌다.
@@ -175,29 +176,7 @@ struct ProfileTabView: View {
                     .buttonStyle(.plain)
                 }
 
-                // 발자취 — 기기에만 있는 기록이라 지우기도 여기서만 한다.
-                Section("발자취") {
-                    row(symbol: "shoeprints.fill", tint: Color(PinImage.deep), title: tr("기록한 거리"),
-                        value: String(
-                            format: tr("%.1f km · %d점"), footprints.kilometers, footprints.points.count
-                        ),
-                        chevron: false)
-                    Toggle(isOn: $footprints.enabled) {
-                        Text("지도에 발자취 보기").font(.subheadline)
-                    }
-                    Button(role: .destructive) {
-                        clearingFootprints = true
-                    } label: {
-                        Text("발자취 지우기").font(.subheadline)
-                    }
-                    .disabled(footprints.points.isEmpty)
-                    .confirmationDialog(
-                        "발자취를 모두 지울까요? 복구할 수 없어요.",
-                        isPresented: $clearingFootprints, titleVisibility: .visible
-                    ) {
-                        Button("지우기", role: .destructive) { footprints.clear() }
-                    }
-                }
+                footprintSection
 
                 Section("도움") {
                     Button {
@@ -433,6 +412,55 @@ extension ProfileTabView {
                 }
             }
             .disabled(auth.busy)
+        }
+    }
+
+    /// 발자취 — 이동 경로는 개인정보다 (MZ2AZ-348). 기본은 꺼짐이고, 켤 때 무엇이 어디에
+    /// 저장되는지 알리고 동의를 받는다. 기기에만 있는 기록이라 지우기도 여기서만 한다.
+    var footprintSection: some View {
+        Section {
+            Toggle(isOn: Binding(
+                get: { footprints.recording },
+                set: { on in
+                    if on {
+                        askingFootprintConsent = true
+                    } else {
+                        footprints.recording = false
+                    }
+                }
+            )) {
+                Text("발자취 기록하기").font(.subheadline)
+            }
+            .alert("발자취를 기록할까요?", isPresented: $askingFootprintConsent) {
+                Button("기록하기") { footprints.recording = true }
+                Button("취소", role: .cancel) {}
+            } message: {
+                Text("여행 모드에서 지나간 길을 이 기기에만 저장해요. 서버로 보내지 않고, 로그아웃하거나 탈퇴하면 지워집니다.")
+            }
+            row(symbol: "shoeprints.fill", tint: Color(PinImage.deep), title: tr("기록한 거리"),
+                value: String(
+                    format: tr("%.1f km · %d점"), footprints.kilometers, footprints.points.count
+                ),
+                chevron: false)
+            Toggle(isOn: $footprints.enabled) {
+                Text("지도에 발자취 보기").font(.subheadline)
+            }
+            Button(role: .destructive) {
+                clearingFootprints = true
+            } label: {
+                Text("발자취 지우기").font(.subheadline)
+            }
+            .disabled(footprints.points.isEmpty)
+            .confirmationDialog(
+                "발자취를 모두 지울까요? 복구할 수 없어요.",
+                isPresented: $clearingFootprints, titleVisibility: .visible
+            ) {
+                Button("지우기", role: .destructive) { footprints.clear() }
+            }
+        } header: {
+            Text("발자취")
+        } footer: {
+            Text("이 기기에만 저장돼요. 서버로 보내지 않아요.")
         }
     }
 }
