@@ -15,8 +15,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.mz2az.scenetrip.sceneapi.api.model.ContentCategory;
 import com.mz2az.scenetrip.sceneapi.api.model.ContentSummary;
+import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.favorite.FavoriteStore;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -61,7 +63,7 @@ class FavoriteControllerTest {
     ContentSummary item =
         new ContentSummary(2L, ContentCategory.DRAMA, "도깨비", 12).broadcaster("tvN");
     when(store.list(eq(USER), any(), eq(20), eq(0)))
-        .thenReturn(new FavoriteStore.Page(List.of(item), 1, true));
+        .thenReturn(new FavoriteStore.Page(List.of(item), 1, Set.of(Lang.KO)));
 
     mvc.perform(
             get("/favorites/contents")

@@ -18,6 +18,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -90,7 +91,7 @@ class CurrentAccountWithoutKeyTest {
   void guestStillWorks() throws Exception {
     // 키가 없으면 로그인만 꺼지고 비회원 기능은 그대로 돈다(AccessTokens 의 「키가 없으면」).
     when(users.lookup(INSTALL_ID)).thenReturn(new Account(INSTALL_USER, false));
-    when(store.list(any(), any())).thenReturn(new CartStore.Contents(List.of(), false));
+    when(store.list(any(), any())).thenReturn(new CartStore.Contents(List.of(), Set.of()));
 
     mvc.perform(get("/cart").header("X-Install-Id", INSTALL_ID.toString()))
         .andExpect(status().isOk());

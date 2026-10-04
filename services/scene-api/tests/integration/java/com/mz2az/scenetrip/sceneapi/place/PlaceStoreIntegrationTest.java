@@ -7,6 +7,9 @@ import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.Scene;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -197,6 +200,112 @@ class PlaceStoreIntegrationTest {
     List<Long> second = ids(store.list(criteria(null, null, null, null, null, 3, 3)));
 
     assertThat(first).doesNotContainAnyElementsOf(second);
+  }
+
+  /**
+   * 응답 언어의 폴백 사슬 — 요청한 언어, 그다음 en, 그다음 ko.
+   *
+   * <p>적재된 장소에는 지금 ko 행뿐이라(수집 데이터에 영어 장소명이 없다) en 칸을 실제 데이터로는 확인할 수 없다. 그래서 픽스처 장소 둘을 끼워 넣고 트랜잭션째
+   * 되돌린다. 두 장소는 설명에 같은 표식을 달아 {@code q} 로 그 둘만 고른다.
+   */
+  @Test
+  @DisplayName("목록 — ja 요청에 en 이 있으면 en, ko 만 있으면 ko")
+  void listFallsBackThroughEnglishThenKorean() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          Fixture f = Fixture.insert();
+
+          PlaceStore.Page ja = store.list(byMarker(f.marker, Lang.JA));
+          assertThat(names(ja))
+              .containsEntry(f.withEnglish, "Fallback Fixture Place")
+              .containsEntry(f.koreanOnly, "폴백 픽스처 장소 한국어만")
+              .hasSize(2);
+          assertThat(ja.shownLangs()).containsExactlyInAnyOrder(Lang.EN, Lang.KO);
+
+          PlaceStore.Page ko = store.list(byMarker(f.marker, Lang.KO));
+          assertThat(names(ko))
+              .containsEntry(f.withEnglish, "폴백 픽스처 장소 영어도")
+              .containsEntry(f.koreanOnly, "폴백 픽스처 장소 한국어만");
+          assertThat(ko.shownLangs()).containsExactly(Lang.KO);
+
+          PlaceStore.Page en = store.list(byMarker(f.marker, Lang.EN));
+          assertThat(names(en))
+              .containsEntry(f.withEnglish, "Fallback Fixture Place")
+              .containsEntry(f.koreanOnly, "폴백 픽스처 장소 한국어만");
+          assertThat(en.shownLangs()).containsExactlyInAnyOrder(Lang.EN, Lang.KO);
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("상세 — shownLang 이 실제로 고른 행의 언어다")
+  void detailReportsShownLang() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          Fixture f = Fixture.insert();
+
+          PlaceStore.Detail english =
+              store.findDetail(f.withEnglish, Lang.JA, null, null).orElseThrow();
+          assertThat(english.place().getName()).isEqualTo("Fallback Fixture Place");
+          assertThat(english.shownLang()).isEqualTo(Lang.EN);
+
+          PlaceStore.Detail korean =
+              store.findDetail(f.koreanOnly, Lang.JA, null, null).orElseThrow();
+          assertThat(korean.place().getName()).isEqualTo("폴백 픽스처 장소 한국어만");
+          assertThat(korean.shownLang()).isEqualTo(Lang.KO);
+
+          PlaceStore.Detail asKorean =
+              store.findDetail(f.withEnglish, Lang.KO, null, null).orElseThrow();
+          assertThat(asKorean.place().getName()).isEqualTo("폴백 픽스처 장소 영어도");
+          assertThat(asKorean.shownLang()).isEqualTo(Lang.KO);
+          return null;
+        });
+  }
+
+  /** 폴백 시험용 장소 둘 — ko+en, ko 만. 표식은 매번 새로 만들어 적재 데이터와 겹치지 않게 한다. */
+  private record Fixture(String marker, long withEnglish, long koreanOnly) {
+
+    static Fixture insert() {
+      String marker = "zzfallback" + UUID.randomUUID().toString().replace("-", "");
+      long withEnglish = place();
+      i18n(withEnglish, "ko", "폴백 픽스처 장소 영어도", marker);
+      i18n(withEnglish, "en", "Fallback Fixture Place", marker);
+
+      long koreanOnly = place();
+      i18n(koreanOnly, "ko", "폴백 픽스처 장소 한국어만", marker);
+
+      return new Fixture(marker, withEnglish, koreanOnly);
+    }
+
+    private static long place() {
+      return jdbc.sql(
+              "INSERT INTO place (geom)"
+                  + " VALUES (ST_SetSRID(ST_MakePoint(126.978, 37.5665), 4326)::geography)"
+                  + " RETURNING id")
+          .query(Long.class)
+          .single();
+    }
+
+    private static void i18n(long placeId, String lang, String name, String description) {
+      jdbc.sql(
+              "INSERT INTO place_i18n (place_id, lang, name, description)"
+                  + " VALUES (:id, :lang, :name, :description)")
+          .param("id", placeId)
+          .param("lang", lang)
+          .param("name", name)
+          .param("description", description)
+          .update();
+    }
+  }
+
+  private static PlaceStore.Criteria byMarker(String marker, Lang lang) {
+    return new PlaceStore.Criteria(
+        marker, null, null, null, null, null, PlaceStore.Sort.POPULARITY, lang, 10, 0);
+  }
+
+  private static Map<Long, String> names(PlaceStore.Page page) {
+    return page.items().stream()
+        .collect(Collectors.toMap(PlaceSummary::getId, PlaceSummary::getName));
   }
 
   private static int distance(PlaceSummary p) {

@@ -40,7 +40,7 @@ class FavoriteController implements FavoritesApi {
         store.list(accounts.resolve(xInstallId), acceptLanguage, limit, offset);
 
     ContentList body = new ContentList(page.items(), page.total(), limit, offset);
-    return Responses.ok(body, Responses.used(acceptLanguage, page.anyInRequestedLang()));
+    return Responses.ok(body, Responses.used(acceptLanguage, page.shownLangs()));
   }
 
   @Override

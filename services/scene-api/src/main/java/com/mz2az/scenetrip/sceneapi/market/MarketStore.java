@@ -123,14 +123,14 @@ public class MarketStore {
       WITH place_display AS (
           SELECT DISTINCT ON (pi.place_id) pi.place_id, pi.name, pi.address
           FROM place_i18n pi
-          WHERE pi.lang IN (:lang, 'ko')
-          ORDER BY pi.place_id, (pi.lang = :lang) DESC
+          WHERE pi.lang IN (:lang, 'en', 'ko')
+          ORDER BY pi.place_id, (pi.lang = :lang) DESC, (pi.lang = 'en') DESC
       ),
       content_display AS (
           SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title
           FROM content_i18n ci
-          WHERE ci.lang IN (:lang, 'ko')
-          ORDER BY ci.content_id, (ci.lang = :lang) DESC
+          WHERE ci.lang IN (:lang, 'en', 'ko')
+          ORDER BY ci.content_id, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC
       ),
       item AS (
           SELECT
@@ -452,9 +452,9 @@ public class MarketStore {
             SELECT DISTINCT ON (c.id) c.id, ci.title, c.poster_url
             FROM market_course_content mcc
             JOIN content c ON c.id = mcc.content_id
-            JOIN content_i18n ci ON ci.content_id = c.id AND ci.lang IN (:lang, 'ko')
+            JOIN content_i18n ci ON ci.content_id = c.id AND ci.lang IN (:lang, 'en', 'ko')
             WHERE mcc.market_course_id = :postId
-            ORDER BY c.id, (ci.lang = :lang) DESC
+            ORDER BY c.id, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC
             """)
         .param("postId", postId)
         .param("lang", lang.getValue())

@@ -12,10 +12,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.mz2az.scenetrip.sceneapi.api.model.CartItem;
+import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.cart.CartStore;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -76,7 +78,8 @@ class CartControllerTest {
   void listsInInsertionOrder() throws Exception {
     // 인기도순이 아니다. 사용자가 걸어갈 순서를 스스로 만든 목록이라 담은 순서가 뜻이다.
     when(store.list(eq(USER), any()))
-        .thenReturn(new CartStore.Contents(List.of(item(2L, "북촌한옥마을"), item(8L, "서강대교")), true));
+        .thenReturn(
+            new CartStore.Contents(List.of(item(2L, "북촌한옥마을"), item(8L, "서강대교")), Set.of(Lang.EN)));
 
     mvc.perform(get("/cart").header("X-Install-Id", INSTALL_ID))
         .andExpect(status().isOk())
@@ -91,7 +94,7 @@ class CartControllerTest {
     // 계약은 설치 UUID 를 받지만 저장의 주체는 app_user.id 다. 그 변환이 여기서
     // 일어난다 — 앱은 이 사실을 모른다. Store 에 설치 UUID 가 그대로 흘러가면
     // saved_place 의 외래키가 실제 DB 에서 터진다.
-    when(store.list(eq(USER), any())).thenReturn(new CartStore.Contents(List.of(), false));
+    when(store.list(eq(USER), any())).thenReturn(new CartStore.Contents(List.of(), Set.of()));
 
     mvc.perform(get("/cart").header("X-Install-Id", INSTALL_ID)).andExpect(status().isOk());
 

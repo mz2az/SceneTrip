@@ -12,6 +12,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -126,14 +128,14 @@ public class ContentStore {
       ),
       display AS (
           SELECT DISTINCT ON (ci.content_id)
-              ci.content_id, ci.title, ci.lang = :lang AS in_requested_lang
+              ci.content_id, ci.title, ci.lang AS shown_lang
           FROM content_i18n ci
-          WHERE ci.lang IN (:lang, 'ko')
-          ORDER BY ci.content_id, (ci.lang = :lang) DESC
+          WHERE ci.lang IN (:lang, 'en', 'ko')
+          ORDER BY ci.content_id, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC
       )
       SELECT
           c.id, c.category, c.poster_url, c.broadcaster, c.release_year, c.genres,
-          d.title, d.in_requested_lang,
+          d.title, d.shown_lang,
           (SELECT count(*) FROM place_content pc WHERE pc.content_id = c.id) AS place_count,
           count(*) OVER () AS total_count
       FROM content c
@@ -155,8 +157,8 @@ public class ContentStore {
     this.jdbc = jdbc;
   }
 
-  /** 목록과 함께, 조건에 맞는 전체 개수와 언어 폴백 여부를 돌려준다. */
-  public record Page(List<ContentSummary> items, int total, boolean anyInRequestedLang) {}
+  /** 목록과 함께, 조건에 맞는 전체 개수와 항목들이 실제로 나온 언어들을 돌려준다. */
+  public record Page(List<ContentSummary> items, int total, Set<Lang> shownLangs) {}
 
   public Page list(
       String q, Long personId, ContentCategory category, Lang lang, int limit, int offset) {
@@ -174,7 +176,7 @@ public class ContentStore {
     return new Page(
         rows.stream().map(Row::summary).toList(),
         rows.isEmpty() ? 0 : rows.get(0).total(),
-        rows.stream().anyMatch(Row::inRequestedLang));
+        rows.stream().map(Row::shownLang).collect(Collectors.toUnmodifiableSet()));
   }
 
   /**
@@ -187,15 +189,14 @@ public class ContentStore {
       """
       WITH display AS (
           SELECT DISTINCT ON (ci.content_id)
-              ci.content_id, ci.title, ci.description, ci.lang,
-              ci.lang = :lang AS in_requested_lang
+              ci.content_id, ci.title, ci.description, ci.lang
           FROM content_i18n ci
-          WHERE ci.content_id = :id AND ci.lang IN (:lang, 'ko')
-          ORDER BY ci.content_id, (ci.lang = :lang) DESC
+          WHERE ci.content_id = :id AND ci.lang IN (:lang, 'en', 'ko')
+          ORDER BY ci.content_id, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC
       )
       SELECT
           c.id, c.category, c.poster_url, c.broadcaster, c.release_year, c.genres,
-          d.title, d.description, d.lang AS display_lang, d.in_requested_lang,
+          d.title, d.description, d.lang AS display_lang,
           (SELECT count(*) FROM place_content pc WHERE pc.content_id = c.id) AS place_count
       FROM content c
       JOIN display d ON d.content_id = c.id
@@ -228,9 +229,9 @@ public class ContentStore {
       WITH display AS (
           SELECT DISTINCT ON (pi.person_id) pi.person_id, pi.name
           FROM person_i18n pi
-          WHERE pi.lang IN (:lang, 'ko')
+          WHERE pi.lang IN (:lang, 'en', 'ko')
             AND pi.person_id IN (SELECT person_id FROM content_cast WHERE content_id = :id)
-          ORDER BY pi.person_id, (pi.lang = :lang) DESC
+          ORDER BY pi.person_id, (pi.lang = :lang) DESC, (pi.lang = 'en') DESC
       )
       SELECT cc.person_id, d.name, cc.role_type
       FROM content_cast cc
@@ -239,8 +240,8 @@ public class ContentStore {
       ORDER BY (cc.role_type = 'actor') DESC, cc.sort_order NULLS LAST, cc.person_id
       """;
 
-  /** 상세와 언어 폴백 여부. 없으면 {@link Optional#empty()}. */
-  public record Detail(ContentDetail content, boolean inRequestedLang) {}
+  /** 상세와 그것이 실제로 나온 언어. 없으면 {@link Optional#empty()}. */
+  public record Detail(ContentDetail content, Lang shownLang) {}
 
   public Optional<Detail> findDetail(long contentId, Lang lang) {
     List<DetailRow> rows =
@@ -276,7 +277,7 @@ public class ContentStore {
                         RoleType.fromValue(rs.getString("role_type"))))
             .list());
 
-    return Optional.of(new Detail(detail, row.inRequestedLang()));
+    return Optional.of(new Detail(detail, Lang.fromValue(row.displayLang())));
   }
 
   private static DetailRow mapDetail(ResultSet rs, int rowNum) throws SQLException {
@@ -291,10 +292,10 @@ public class ContentStore {
             .releaseYear(integerOrNull(rs, "release_year"))
             .genres(stringArray(rs.getArray("genres")))
             .description(rs.getString("description"));
-    return new DetailRow(detail, rs.getString("display_lang"), rs.getBoolean("in_requested_lang"));
+    return new DetailRow(detail, rs.getString("display_lang"));
   }
 
-  private record DetailRow(ContentDetail content, String displayLang, boolean inRequestedLang) {}
+  private record DetailRow(ContentDetail content, String displayLang) {}
 
   /**
    * 그 작품이 있는가.
@@ -321,7 +322,7 @@ public class ContentStore {
             .broadcaster(rs.getString("broadcaster"))
             .releaseYear(integerOrNull(rs, "release_year"))
             .genres(stringArray(rs.getArray("genres")));
-    return new Row(summary, rs.getInt("total_count"), rs.getBoolean("in_requested_lang"));
+    return new Row(summary, rs.getInt("total_count"), Lang.fromValue(rs.getString("shown_lang")));
   }
 
   /**
@@ -353,5 +354,5 @@ public class ContentStore {
     return List.of((String[]) array.getArray());
   }
 
-  private record Row(ContentSummary summary, int total, boolean inRequestedLang) {}
+  private record Row(ContentSummary summary, int total, Lang shownLang) {}
 }

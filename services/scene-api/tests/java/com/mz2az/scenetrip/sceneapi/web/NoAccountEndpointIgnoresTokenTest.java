@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -64,7 +65,7 @@ class NoAccountEndpointIgnoresTokenTest {
   @DisplayName("깨진 토큰·만료된 토큰·다른 스킴을 달아도 검색은 200")
   void searchIgnoresAuthorization() throws Exception {
     when(store.suggest(any(), any(), anyInt()))
-        .thenReturn(new SuggestionStore.Result(List.of(), false));
+        .thenReturn(new SuggestionStore.Result(List.of(), Set.of()));
     byte[] key = new byte[32];
     Arrays.fill(key, (byte) 7);
     // 같은 키로 서명했지만 오래전에 만료된 토큰. 키가 맞아야 「만료」 판정까지 간다.

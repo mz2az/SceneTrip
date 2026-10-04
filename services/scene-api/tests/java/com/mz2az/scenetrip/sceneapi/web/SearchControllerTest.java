@@ -20,6 +20,7 @@ import io.opentelemetry.api.trace.TraceFlags;
 import io.opentelemetry.api.trace.TraceState;
 import io.opentelemetry.context.Scope;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,8 +47,13 @@ class SearchControllerTest {
   @MockitoBean private SuggestionStore store;
 
   private void givenSuggestions(Suggestion... items) {
+    givenSuggestions(Set.of(), items);
+  }
+
+  /** {@code shown} 은 Store 가 고른 행들의 실제 언어다. 헤더는 이것과 요청한 언어로 정해진다. */
+  private void givenSuggestions(Set<Lang> shown, Suggestion... items) {
     when(store.suggest(any(), any(), anyInt()))
-        .thenReturn(new SuggestionStore.Result(List.of(items), true));
+        .thenReturn(new SuggestionStore.Result(List.of(items), shown));
   }
 
   @Test
@@ -78,6 +84,7 @@ class SearchControllerTest {
   @DisplayName("제안 목록과 Content-Language 를 돌려준다")
   void returnsSuggestions() throws Exception {
     givenSuggestions(
+        Set.of(Lang.KO),
         new Suggestion(EntityType.CONTENT, 2L, "도깨비").matchedTerm("Goblin").subtitle("tvN · 2016"));
 
     mvc.perform(get("/search/suggestions").param("q", "gob").header("Accept-Language", "ko"))
@@ -93,13 +100,13 @@ class SearchControllerTest {
   @DisplayName("걸린 것이 없으면 오류가 아니라 빈 배열이다")
   void emptyResultIsNotAnError() throws Exception {
     when(store.suggest(any(), any(), anyInt()))
-        .thenReturn(new SuggestionStore.Result(List.of(), false));
+        .thenReturn(new SuggestionStore.Result(List.of(), Set.of()));
 
     mvc.perform(get("/search/suggestions").param("q", "없는말"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items").isEmpty())
-        // 요청한 언어로 나온 것이 하나도 없으면 ko 로 폴백했다고 알린다.
-        .andExpect(header().string("Content-Language", "ko"));
+        // 빈 목록은 폴백한 항목이 없으므로 요청한 언어다. 헤더가 없으면 명세의 기본값 en 이다.
+        .andExpect(header().string("Content-Language", "en"));
   }
 
   @Test
