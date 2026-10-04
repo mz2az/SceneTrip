@@ -61,8 +61,7 @@ extension RouteEditorView {
             },
             // 최근 하루치만 — 지난 여행(데모 주행 여러 번)의 발자국까지 다 그리면 뭉친다.
             footprints: footprints.points.filter { $0.at > Date().addingTimeInterval(-86400) },
-            // 기록을 꺼 두었으면 그리지도 않는다 — 설정에서 끈 기능이 지도에 남아 있으면 헷갈린다 (MZ2AZ-348).
-            footprintsOn: footprints.recording && footprints.enabled
+            footprintsOn: footprints.drawsTrail
         ) { pin in
             // 한 번 찍으면 모드를 끈다. 켜 둔 채로 두면 시트를 닫는 손짓이 다음 핀이 된다.
             pinning = false
@@ -94,10 +93,9 @@ extension RouteEditorView {
             if !pinning {
                 VStack(spacing: 10) {
                     locateButton
-                    // 발자취 보기 토글 — 여행 중에만. 켜면 지나온 자리에 황금 발자국이 남는다
-                    // (2026-09-04 사용자 요청). **마이페이지에서 기록을 꺼 두었으면 단추도 없다** —
-                    // 눌러도 아무 일이 없는 단추가 남아 있으면 헷갈린다(2026-10-05 사용자, MZ2AZ-348).
-                    if course.isRunning, footprints.recording {
+                    // 발자취 단추 — 여행 중이고 **마이페이지의 「지도에 발자취 보기」가 켜져 있을 때만** 있다.
+                    // 설정을 끄면 단추째 사라진다(2026-10-05 사용자, MZ2AZ-348). 단추는 발자국을 켜고 끈다.
+                    if course.isRunning, footprints.enabled {
                         footprintButton
                     }
                 }
@@ -173,22 +171,22 @@ extension RouteEditorView {
 
     private var footprintButton: some View {
         Button {
-            footprints.enabled.toggle()
+            footprints.trailVisible.toggle()
         } label: {
             Image(systemName: "shoeprints.fill")
                 .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(footprints.enabled ? .white : Color(red: 0.72, green: 0.54, blue: 0.08))
+                .foregroundStyle(footprints.trailVisible ? .white : Color(red: 0.72, green: 0.54, blue: 0.08))
                 .frame(width: 44, height: 44)
                 .background(Circle().fill(
-                    footprints.enabled ? Color(red: 0.85, green: 0.65, blue: 0.13) : Color(.systemBackground)
+                    footprints.trailVisible ? Color(red: 0.85, green: 0.65, blue: 0.13) : Color(.systemBackground)
                 ))
                 .overlay(Circle().strokeBorder(
-                    footprints.enabled ? .clear : Color(.systemGray4), lineWidth: 1
+                    footprints.trailVisible ? .clear : Color(.systemGray4), lineWidth: 1
                 ))
                 .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(footprints.enabled ? tr("발자취 숨기기") : tr("발자취 보기"))
+        .accessibilityLabel(footprints.trailVisible ? tr("발자취 숨기기") : tr("발자취 보기"))
     }
 
     // MARK: 편의시설 필터

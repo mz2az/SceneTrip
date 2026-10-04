@@ -446,8 +446,6 @@ extension ProfileTabView {
             Toggle(isOn: $footprints.enabled) {
                 Text("지도에 발자취 보기").font(.subheadline)
             }
-            // 기록을 꺼 두면 지도에 그릴 것도 없다 — 같이 흐려 둔다.
-            .disabled(!footprints.recording)
             Button(role: .destructive) {
                 clearingFootprints = true
             } label: {
