@@ -168,8 +168,8 @@ class NavigationControllerTest {
   }
 
   @Test
-  @DisplayName("Accept-Language 가 없으면 ko 로 간다")
-  void defaultLanguageIsKo() throws Exception {
+  @DisplayName("Accept-Language 가 없으면 en 으로 간다 — 계약의 Lang 기본값")
+  void defaultLanguageIsEn() throws Exception {
     mvc.perform(
             post("/navigation/next-leg")
                 .header("X-Install-Id", INSTALL_ID)
@@ -177,6 +177,6 @@ class NavigationControllerTest {
                 .content("{\"courseId\":7,\"itemId\":3,\"latitude\":37.0,\"longitude\":127.0}"))
         .andExpect(status().isOk());
 
-    verify(planner).plan(any(), any(), eq(Lang.KO));
+    verify(planner).plan(any(), any(), eq(Lang.EN));
   }
 }
