@@ -31,13 +31,13 @@ struct HomeCommunityNow: View {
 
     private func row(_ post: CommunityPost) -> some View {
         HStack(spacing: 10) {
-            Text(tr(post.board.rawValue))
+            Text("후기")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(badgeTone(post.board))
+                .foregroundStyle(TabBar.homePurple)
                 .padding(.horizontal, 8).padding(.vertical, 3)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(badgeTone(post.board).opacity(0.12))
+                        .fill(TabBar.homePurple.opacity(0.12))
                 )
                 .fixedSize()
             Text(post.title).font(.system(size: 14)).lineLimit(2)
@@ -46,15 +46,6 @@ struct HomeCommunityNow: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 13)
         .contentShape(.rect)
-    }
-
-    private func badgeTone(_ board: CommunityPost.Board) -> Color {
-        switch board {
-        case .photo: TabBar.homePurple
-        case .review: Color(red: 0.18, green: 0.49, blue: 0.27)
-        case .course: Color.accentColor
-        case .chat: Color.secondary
-        }
     }
 }
 

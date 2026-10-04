@@ -184,30 +184,20 @@ struct MyPostsSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             ProfileSheetHeader(title: tr("내가 쓴 글")) { dismiss() }
-            if store.posts.isEmpty {
+            if store.mine.isEmpty {
                 ContentUnavailableView(
                     "아직 쓴 글이 없습니다",
                     systemImage: "square.and.pencil",
                     description: Text("커뮤니티 탭에서 첫 글을 남겨 보세요")
                 )
             } else {
-                List(store.posts) { post in
+                List(store.mine) { post in
                     Button {
                         reading = post
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 6) {
-                                Text(tr(post.board.rawValue))
-                                    .font(.caption2.weight(.semibold))
-                                    .padding(.horizontal, 6).padding(.vertical, 2)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 5)
-                                            .fill(Color.accentColor.opacity(0.13))
-                                    )
-                                    .foregroundStyle(Color.accentColor)
-                                Text(post.title)
-                                    .font(.subheadline.weight(.medium)).lineLimit(1)
-                            }
+                            Text(post.title)
+                                .font(.subheadline.weight(.medium)).lineLimit(1)
                             Text(post.createdAt.formatted(date: .abbreviated, time: .shortened))
                                 .font(.caption2).foregroundStyle(.tertiary)
                         }

@@ -122,13 +122,12 @@ fun RootTabs() {
                 ProfileTabView(onClose = { TabRouter.cover = null })
             }
 
-            is Cover.Route -> {
+            Cover.Route -> {
                 val context = LocalContext.current
                 val routeStore = remember { RouteStore(context) }
                 RouteTabView(
                     store = routeStore,
                     onClose = { TabRouter.cover = null },
-                    startInMarket = cover.market,
                 )
             }
         }

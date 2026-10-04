@@ -54,7 +54,6 @@ fun HomeTabScreen() {
 
     suspend fun reload() {
         routes.refresh()
-        routes.refreshMarket()
         cart.refresh()
         model.load(routes.courses)
     }
@@ -133,13 +132,6 @@ fun HomeTabScreen() {
                         },
                     )
                 }
-            }
-
-            item {
-                HomeMarketPreview(
-                    courses = routes.marketCourses.take(2),
-                    onOpen = { TabRouter.openRoute(market = true) },
-                )
             }
 
             item {

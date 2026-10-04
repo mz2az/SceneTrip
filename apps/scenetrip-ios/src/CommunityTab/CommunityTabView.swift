@@ -1,23 +1,16 @@
-import SceneApiClient
 import SwiftUI
 
-/// 커뮤니티 — **게시판 임시판** (2026-08-28, 2차).
+/// 커뮤니티 — **여행후기** (2026-10-05 재편, MZ2AZ-351).
 ///
-/// 1차는 마켓 피드만 보여 줬는데 방향이 잡혔다 — *"디씨인사이드같은? 혹은 카페
-/// 같은"* **말머리가 있는 게시판**이다. 글의 갈래(코스 추천·장소 후기·인증샷·자유)를
-/// 칩으로 고르고, 글을 쓰고, 내 코스를 첨부한다.
+/// 말머리 넷(코스 추천·장소 후기·인증샷·자유)이던 게시판을 **여행후기 하나**로 줄였다
+/// (2026-10-03 팀 회의). 후기는 사진과 다녀온 코스를 붙여 쓰고, 읽는 사람은 그 코스를
+/// 보고 내 코스로 담는다.
 ///
-/// ## 지어낸 글은 없다
-///
-/// 게시판 서버가 아직 없어서 남의 글을 만들어 낼 방법이 없다 — 만들어 내면 안 된다.
-/// 그래서 이 판의 글은 둘뿐이다: **내가 쓴 글**(기기 저장, `CommunityStore`)과
-/// **마켓에 올라온 코스**(실서버 — 이것이 지금 있는 유일한 「남의 게시물」이다).
-/// 사진 첨부·댓글은 서버와 함께 온다 — 글쓰기 화면이 그렇게 말한다.
+/// 게시판 서버가 아직 없어 글은 **기기에만** 있다 — 남의 글을 받아 올 길이 없다.
+/// 지어낸 글을 앱에 박지 않는다(시험용 글은 기기에 직접 넣어 본다).
 struct CommunityTabView: View {
     @ObservedObject private var store = CommunityStore.shared
 
-    /// nil = 전체.
-    @State private var board: CommunityPost.Board?
     @State private var composing = false
 
     /// 읽고 있는 글. 목록 행은 두 줄로 잘리므로, 누르면 전문이 큰 팝업으로 뜬다.
@@ -27,7 +20,6 @@ struct CommunityTabView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
-                boardChips
                 Divider()
                 postList
             }
@@ -39,11 +31,7 @@ struct CommunityTabView: View {
                     .presentationDetents([.large])
             }
             .sheet(isPresented: $composing) {
-                CommunityComposeView { newBoard, title, body, courseTitle in
-                    store.add(
-                        board: newBoard, title: title, body: body, courseTitle: courseTitle
-                    )
-                }
+                CommunityComposeView()
             }
         }
     }
@@ -78,60 +66,20 @@ struct CommunityTabView: View {
         .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 8)
     }
 
-    // MARK: 말머리
-
-    private var boardChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                boardChip(nil, label: tr("전체"))
-                ForEach(CommunityPost.Board.allCases) { item in
-                    boardChip(item, label: tr(item.rawValue))
-                }
-            }
-            .padding(.horizontal, 16).padding(.vertical, 8)
-        }
-        .background(Color(.systemBackground))
-    }
-
-    private func boardChip(_ value: CommunityPost.Board?, label: String) -> some View {
-        let isOn = board == value
-        return Button {
-            board = value
-        } label: {
-            Text(label)
-                .font(.caption.weight(isOn ? .semibold : .regular))
-                .padding(.horizontal, 11).padding(.vertical, 6)
-                .background(
-                    Capsule().fill(isOn ? Color.accentColor.opacity(0.14) : Color(.systemGray6))
-                )
-                .overlay(
-                    Capsule().strokeBorder(
-                        isOn ? Color.accentColor.opacity(0.5) : .clear, lineWidth: 1
-                    )
-                )
-                .foregroundStyle(isOn ? Color.primary : Color.secondary)
-        }
-        .buttonStyle(.plain)
-    }
-
     // MARK: 글 목록
-
-    private var minePosts: [CommunityPost] {
-        board == nil ? store.posts : store.posts.filter { $0.board == board }
-    }
 
     private var postList: some View {
         List {
-            if minePosts.isEmpty {
+            if store.posts.isEmpty {
                 ContentUnavailableView {
-                    Label("아직 글이 없습니다", systemImage: "bubble.left.and.bubble.right")
+                    Label("아직 후기가 없습니다", systemImage: "bubble.left.and.bubble.right")
                 } description: {
-                    Text("첫 글을 남겨 보세요. 다른 여행자의 글은 서버가 열리면 보입니다.")
+                    Text("다녀온 코스와 사진으로 첫 후기를 남겨 보세요")
                 }
                 .listRowBackground(Color.clear)
             }
 
-            ForEach(minePosts) { post in
+            ForEach(store.posts) { post in
                 myPostRow(post)
             }
         }
@@ -155,36 +103,35 @@ struct CommunityTabView: View {
         }
     }
 
+    /// 후기 한 줄 — 왼쪽에 제목·본문·글쓴이, 오른쪽에 대표 사진.
     private func myPostBody(_ post: CommunityPost) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 6) {
-                badge(tr(post.board.rawValue), tint: .accentColor)
-                Text(post.title).font(.subheadline.weight(.semibold)).lineLimit(1)
-            }
-            if !post.body.isEmpty {
-                Text(post.body)
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(2)
-            }
-            HStack(spacing: 8) {
-                Text("나").font(.caption2).foregroundStyle(.tertiary)
-                Text(post.createdAt.formatted(.relative(presentation: .named)))
-                    .font(.caption2).foregroundStyle(.tertiary)
-                if let courseTitle = post.courseTitle {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(post.title).font(.subheadline.weight(.semibold)).lineLimit(2)
+                if !post.body.isEmpty {
+                    Text(post.body)
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
+                HStack(spacing: 8) {
+                    Text(post.author ?? tr("나")).font(.caption2).foregroundStyle(.tertiary)
+                    Text(post.createdAt.formatted(.relative(presentation: .named)))
+                        .font(.caption2).foregroundStyle(.tertiary)
+                }
+                if let courseTitle = post.course?.title ?? post.courseTitle {
                     Label(courseTitle, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                        .font(.caption2).foregroundStyle(Color(PinImage.deep))
+                        .font(.caption2.weight(.medium)).foregroundStyle(Color(PinImage.deep))
                         .lineLimit(1)
                 }
-                Spacer()
+            }
+            Spacer(minLength: 0)
+            if let name = post.photos?.first, let photo = CommunityStore.photo(name) {
+                Image(uiImage: photo)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 76, height: 76)
+                    .clipShape(.rect(cornerRadius: 12))
             }
         }
-        .padding(.vertical, 4)
-    }
-
-    private func badge(_ text: String, tint: Color) -> some View {
-        Text(text)
-            .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(RoundedRectangle(cornerRadius: 5).fill(tint.opacity(0.13)))
-            .foregroundStyle(tint)
+        .padding(.vertical, 6)
     }
 }

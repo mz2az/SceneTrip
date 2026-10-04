@@ -16,10 +16,8 @@ enum class RootTab { SEARCH, HOME, COMMUNITY }
  * [Profile]에서 [Route]로 바뀌고 Compose 가 덮개를 갈아 끼운다. 둘을 겹치지 않는다.
  */
 sealed class Cover {
-    /** 경로여정. `market`이면 "둘러보기"(옛 코스마켓) 세그먼트로 연다. */
-    data class Route(
-        val market: Boolean = false,
-    ) : Cover()
+    /** 경로여정. */
+    data object Route : Cover()
 
     data object Profile : Cover()
 }
@@ -59,11 +57,11 @@ object TabRouter {
 
     fun openCourse(serverId: Long) {
         pendingCourseId = serverId
-        cover = Cover.Route(market = false)
+        cover = Cover.Route
     }
 
-    fun openRoute(market: Boolean = false) {
-        cover = Cover.Route(market)
+    fun openRoute() {
+        cover = Cover.Route
     }
 
     fun openProfile() {
@@ -102,7 +100,7 @@ object TabRouter {
 
             "route" -> {
                 selected = RootTab.HOME
-                cover = Cover.Route(market = false)
+                cover = Cover.Route
             }
 
             "profile" -> {

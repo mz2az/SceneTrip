@@ -1,122 +1,208 @@
 import SwiftUI
 
-/// 글 전문 (2026-08-28, 2차).
+/// 여행후기 읽기 (MZ2AZ-351) — 블로그 글처럼 **사진이 먼저, 그 아래 글, 끝에 다녀온 코스.**
 ///
-/// 1차는 흰 바탕에 글자만 흘려 놓아 「읽는 화면」으로 안 보였다(사용자 지적 —
-/// *"너무 흰 멀건~ 밋밋한 창"*). 게시판의 글은 **종이 위의 게시물**처럼 보여야
-/// 한다: 말머리 색 띠, 글쓴이 줄, 본문 카드, 첨부 카드가 각자 제 칸을 가진다.
+/// 붙은 코스는 이름만이 아니라 **일차별 장소까지** 보인다. 「내 코스로 담기」를 누르면 같은
+/// 코스가 내 것으로 하나 생긴다 — 후기를 읽고 「나도 이대로 가야지」가 한 번에 되어야 한다.
 struct CommunityPostView: View {
     let post: CommunityPost
 
     @Environment(\.dismiss) private var dismiss
 
+    @State private var saving = false
+    /// 담은 코스의 서버 id. 담고 나면 단추가 「코스 보기」로 바뀐다.
+    @State private var savedCourseId: Int64?
+    @State private var saveFailed = false
+
     var body: some View {
-        VStack(spacing: 0) {
-            // 말머리가 곧 창의 얼굴이다 — 피노 그라데이션 띠 위에 흰 글자.
-            ZStack {
-                LinearGradient(
-                    colors: [Color(PinImage.light), Color(PinImage.deep)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                )
-                HStack {
-                    Text(tr(post.board.rawValue))
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.white)
-                    Spacer()
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.9))
-                            .frame(width: 32, height: 32)
-                            .contentShape(.rect)
-                    }
-                    .buttonStyle(.plain)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                if let photos = post.photos, !photos.isEmpty {
+                    PostPhotoPager(names: photos)
                 }
-                .padding(.horizontal, 16)
-            }
-            .frame(height: 52)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    // 제목 + 글쓴이 줄
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(post.title)
-                            .font(.title3.weight(.bold))
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(post.title)
+                        .font(.title2.weight(.bold))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    authorRow
+
+                    if !post.body.isEmpty {
+                        Text(post.body)
+                            .font(.body)
+                            .lineSpacing(6)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        HStack(spacing: 8) {
-                            // 아바타 — 로그인이 없으니 「나」 한 글자다.
-                            Text("나")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(.white)
-                                .frame(width: 28, height: 28)
-                                .background(Circle().fill(Color(PinImage.deep)))
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("나 · 비회원")
-                                    .font(.caption.weight(.medium))
-                                Text(post.createdAt.formatted(
-                                    date: .abbreviated, time: .shortened
-                                ))
-                                .font(.caption2).foregroundStyle(.tertiary)
-                            }
-                            Spacer()
-                        }
                     }
-                    .padding(16)
-                    .background(card)
 
-                    // 첨부한 코스
-                    if let courseTitle = post.courseTitle {
+                    if let course = post.course {
+                        courseCard(course)
+                    } else if let courseTitle = post.courseTitle {
+                        // 옛 글 — 코스 이름만 붙어 있다.
                         HStack(spacing: 10) {
-                            Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
-                                .font(.system(size: 15))
-                                .foregroundStyle(.white)
-                                .frame(width: 30, height: 30)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 7)
-                                        .fill(Color(PinImage.deep))
-                                )
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("붙인 코스").font(.caption2).foregroundStyle(.tertiary)
-                                Text(courseTitle).font(.subheadline.weight(.semibold))
-                            }
+                            PostCourseBadge(size: 30)
+                            Text(courseTitle).font(.subheadline.weight(.semibold))
                             Spacer()
                         }
                         .padding(12)
-                        .background(card)
+                        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.systemGray6)))
                     }
-
-                    // 본문
-                    Text(post.body.isEmpty ? tr("본문이 없습니다") : post.body)
-                        .font(.body)
-                        .lineSpacing(5)
-                        .foregroundStyle(post.body.isEmpty ? .secondary : .primary)
-                        .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
-                        .padding(16)
-                        .background(card)
-
-                    // 반응 줄 — 서버가 열리면 여기가 살아난다. 자리를 보여 준다.
-                    HStack(spacing: 18) {
-                        Label("좋아요", systemImage: "hand.thumbsup")
-                        Label("댓글", systemImage: "bubble.left")
-                        Spacer()
-                        Text("서버가 열리면 함께 열려요")
-                            .font(.caption2)
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 4)
                 }
-                .padding(14)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
             }
-            .background(Color(.systemGroupedBackground))
+        }
+        .overlay(alignment: .topTrailing) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Circle().fill(.black.opacity(0.45)))
+            }
+            .buttonStyle(.plain)
+            .padding(14)
+            .accessibilityLabel("닫기")
+        }
+        .alert("코스를 담지 못했어요. 잠시 뒤 다시 해 주세요", isPresented: $saveFailed) {
+            Button("확인", role: .cancel) {}
         }
     }
 
-    private var card: some View {
-        RoundedRectangle(cornerRadius: 14)
-            .fill(Color(.systemBackground))
-            .shadow(color: .black.opacity(0.05), radius: 4, y: 1)
+    private var authorRow: some View {
+        HStack(spacing: 10) {
+            Text(String((post.author ?? tr("나")).prefix(1)))
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(Color(PinImage.deep)))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(post.author ?? tr("나")).font(.subheadline.weight(.medium))
+                Text(post.createdAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption2).foregroundStyle(.tertiary)
+            }
+            Spacer()
+        }
+    }
+
+    // MARK: 붙은 코스
+
+    private func courseCard(_ course: PostCourse) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                PostCourseBadge()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("이 후기의 코스").font(.caption2).foregroundStyle(.secondary)
+                    Text(course.title).font(.headline).lineLimit(2)
+                    Text(String(format: tr("%d일 · %d곳"), course.days.count, course.placeCount))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            ForEach(Array(course.days.enumerated()), id: \.offset) { dayIndex, stops in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(String(format: tr("%d일차"), dayIndex + 1))
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Color(PinImage.deep))
+                    ForEach(Array(stops.enumerated()), id: \.offset) { index, stop in
+                        HStack(alignment: .top, spacing: 10) {
+                            Text("\(index + 1)")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 20, height: 20)
+                                .background(Circle().fill(Color(PinImage.light)))
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(stop.name).font(.subheadline)
+                                if let address = stop.address, !address.isEmpty {
+                                    Text(address).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                                }
+                            }
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
+            }
+
+            saveButton(course)
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color(.systemGray6)))
+    }
+
+    @ViewBuilder private func saveButton(_ course: PostCourse) -> some View {
+        if let savedCourseId {
+            Button {
+                dismiss()
+                TabRouter.shared.openCourse(savedCourseId)
+            } label: {
+                Label("담았어요 · 코스 보기", systemImage: "checkmark")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 46)
+                    .foregroundStyle(Color.accentColor)
+                    .background(Capsule().strokeBorder(Color.accentColor, lineWidth: 1.5))
+            }
+            .buttonStyle(.plain)
+        } else {
+            Button {
+                Task { await save(course) }
+            } label: {
+                HStack(spacing: 8) {
+                    if saving {
+                        ProgressView().tint(.white)
+                    } else {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                    Text("내 코스로 담기")
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 46)
+                .background(Capsule().fill(Color.accentColor))
+            }
+            .buttonStyle(.plain)
+            .disabled(saving)
+        }
+    }
+
+    /// 사본을 내 코스로 저장한다. 저장소를 새로 하나 만들어 쓴다 — 저장만 하고 버린다.
+    /// 코스 화면은 열릴 때 서버에서 다시 읽으므로 담은 코스가 거기에 보인다.
+    private func save(_ course: PostCourse) async {
+        saving = true
+        defer { saving = false }
+        if let saved = await RouteStore().save(course.asNewCourse()), let id = saved.serverId {
+            savedCourseId = id
+        } else {
+            saveFailed = true
+        }
+    }
+}
+
+/// 사진 넘겨 보기 — 화면 폭을 꽉 채우고 옆으로 넘긴다.
+struct PostPhotoPager: View {
+    let names: [String]
+
+    var body: some View {
+        TabView {
+            ForEach(names, id: \.self) { name in
+                if let photo = CommunityStore.photo(name) {
+                    Image(uiImage: photo)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
+                } else {
+                    Color(.systemGray5)
+                        .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
+                }
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: names.count > 1 ? .always : .never))
+        .frame(height: 300)
+        .background(Color(.systemGray5))
     }
 }

@@ -138,7 +138,7 @@ struct ProfileTabView: View {
                         showingPosts = true
                     } label: {
                         row(symbol: "square.and.pencil", tint: .indigo, title: tr("내가 쓴 글"),
-                            value: String(format: tr("%d개"), posts.posts.count), chevron: true)
+                            value: String(format: tr("%d개"), posts.mine.count), chevron: true)
                     }
                     .buttonStyle(.plain)
                 }

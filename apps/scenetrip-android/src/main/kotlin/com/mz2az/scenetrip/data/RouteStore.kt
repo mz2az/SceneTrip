@@ -13,7 +13,6 @@ import com.mz2az.scenetrip.routetab.RouteSpan
 import com.mz2az.scenetrip.sceneapi.client.api.ContentsApi
 import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
 import com.mz2az.scenetrip.sceneapi.client.api.GuideApi
-import com.mz2az.scenetrip.sceneapi.client.api.MarketApi
 import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseCreate
@@ -24,8 +23,6 @@ import com.mz2az.scenetrip.sceneapi.client.model.CourseProgress
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlanRequest
-import com.mz2az.scenetrip.sceneapi.client.model.MarketCourseSummary
-import com.mz2az.scenetrip.sceneapi.client.model.MarketSort
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.VisitUpdate
 import kotlinx.coroutines.Dispatchers
@@ -48,8 +45,6 @@ class RouteStore(
     context: Context,
 ) {
     var courses by mutableStateOf<List<CourseSummary>>(emptyList())
-        private set
-    var marketCourses by mutableStateOf<List<MarketCourseSummary>>(emptyList())
         private set
 
     /** 마지막 호출이 실패했나. 화면이 "불러오지 못했습니다"를 띄우는 데 쓴다. */
@@ -75,7 +70,6 @@ class RouteStore(
         private set
 
     private val coursesApi = CoursesApi(API_BASE)
-    private val marketApi = MarketApi(API_BASE)
     private val guideApi = GuideApi(API_BASE)
     private val contentsApi = ContentsApi(API_BASE)
     private val placesApi = PlacesApi(API_BASE)
@@ -124,15 +118,6 @@ class RouteStore(
         loading = false
     }
 
-    /** 마켓 목록을 받아온다. **코스 목록과 따로 실패한다** — 마켓이 안 떠도 내 코스는 보여야 한다. */
-    suspend fun refreshMarket(sort: MarketSort = MarketSort.saves) {
-        runCatching {
-            withContext(Dispatchers.IO) { marketApi.listMarketCourses(deviceId, sort = sort, limit = 30) }
-        }.onSuccess {
-            marketCourses = it.items ?: emptyList()
-        }
-    }
-
     /** 코스 상세(일차·방문 체크) — 홈의 "내 여행 이어가기" 카드가 진행률을 계산하는 데 쓴다. */
     suspend fun detail(courseId: Long): CourseDetail? =
         withContext(Dispatchers.IO) {
@@ -158,36 +143,6 @@ class RouteStore(
                 null
             },
         )
-    }
-
-    /** 마켓 코스를 내 코스로 담는다. 서버가 사본을 만들어 준다 — 가입 사용자만 할 수 있다. */
-    suspend fun saveFromMarket(course: MarketCourseSummary): Boolean =
-        withContext(Dispatchers.IO) {
-            runCatching { marketApi.saveMarketCourse(deviceId, course.id) }
-        }.fold(
-            onSuccess = {
-                failure = null
-                refresh()
-                true
-            },
-            onFailure = {
-                failure = ApiFailure.of(it)
-                false
-            },
-        )
-
-    /** 좋아요를 켜고 끈다. 가입 사용자만 할 수 있다. */
-    suspend fun toggleMarketLike(course: MarketCourseSummary) {
-        runCatching {
-            withContext(Dispatchers.IO) {
-                if (course.liked) marketApi.unlikeMarketCourse(deviceId, course.id) else marketApi.likeMarketCourse(deviceId, course.id)
-            }
-        }.onSuccess {
-            failure = null
-            refreshMarket()
-        }.onFailure {
-            failure = ApiFailure.of(it)
-        }
     }
 
     /**
