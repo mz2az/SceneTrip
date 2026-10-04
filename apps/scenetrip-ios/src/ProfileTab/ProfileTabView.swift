@@ -8,7 +8,7 @@ import SwiftUI
 /// 로그인이 서면 머리만 계정으로 갈아 끼우고 아래 목록은 그대로 간다.
 ///
 /// 지어낸 숫자는 없다 — 찜(`LikeStore`)도 코스 수도 서버에서 온다.
-/// 아직 못 하는 것(로그인·알림·언어)은 흐리게 두고 「준비 중」이라고 적는다 —
+/// 아직 못 하는 것(알림)은 흐리게 두고 「준비 중」이라고 적는다 —
 /// 눌리는데 아무 일도 없는 것이 제일 나쁘다.
 struct ProfileTabView: View {
     /// 홈이 덮개로 띄울 때 넘긴다 — 있으면 왼쪽 위에 닫기 단추가 생긴다
@@ -48,7 +48,12 @@ struct ProfileTabView: View {
     @ObservedObject private var posts = CommunityStore.shared
     @ObservedObject private var footprints = FootprintStore.shared
     @State private var clearingFootprints = false
+    @State private var askingFootprintConsent = false
     @State private var showingPosts = false
+
+    /// 앱 언어 (MZ2AZ-343). 바꾸면 루트가 화면을 통째로 다시 만들어 이 덮개도 닫힌다.
+    @ObservedObject private var language = AppLanguage.shared
+    @State private var choosingLanguage = false
 
     /// 뒷문은 프로세스당 한 번. 화면 상태가 아니라 **프로세스 상태**라 static 이다.
     private static var likesBackdoorUsed = false
@@ -69,22 +74,23 @@ struct ProfileTabView: View {
                         showingCourses = true
                     } label: {
                         row(symbol: "point.topleft.down.to.point.bottomright.curvepath",
-                            tint: Color(PinImage.deep), title: "내 코스",
-                            value: courseCount.map { "\($0)개" } ?? "…", chevron: true)
+                            tint: Color(PinImage.deep), title: tr("내 코스"),
+                            value: courseCount.map { String(format: tr("%d개"), $0) } ?? "…",
+                            chevron: true)
                     }
                     .buttonStyle(.plain)
                     Button {
                         showingLikes = true
                     } label: {
-                        row(symbol: "heart.fill", tint: .red, title: "찜한 작품",
-                            value: "\(likes.contentIds.count)개", chevron: true)
+                        row(symbol: "heart.fill", tint: .red, title: tr("찜한 작품"),
+                            value: String(format: tr("%d개"), likes.contentIds.count), chevron: true)
                     }
                     .buttonStyle(.plain)
                     Button {
                         showingCart = true
                     } label: {
-                        row(symbol: "bag.fill", tint: .orange, title: "장바구니",
-                            value: "\(cartItems.count)곳", chevron: true)
+                        row(symbol: "bag.fill", tint: .orange, title: tr("장바구니"),
+                            value: String(format: tr("%d곳"), cartItems.count), chevron: true)
                     }
                     .buttonStyle(.plain)
                 }
@@ -131,8 +137,8 @@ struct ProfileTabView: View {
                     Button {
                         showingPosts = true
                     } label: {
-                        row(symbol: "square.and.pencil", tint: .indigo, title: "내가 쓴 글",
-                            value: "\(posts.posts.count)개", chevron: true)
+                        row(symbol: "square.and.pencil", tint: .indigo, title: tr("내가 쓴 글"),
+                            value: String(format: tr("%d개"), posts.posts.count), chevron: true)
                     }
                     .buttonStyle(.plain)
                 }
@@ -170,34 +176,33 @@ struct ProfileTabView: View {
                     .buttonStyle(.plain)
                 }
 
-                // 발자취 — 기기에만 있는 기록이라 지우기도 여기서만 한다.
-                Section("발자취") {
-                    row(symbol: "shoeprints.fill", tint: Color(PinImage.deep), title: "기록한 거리",
-                        value: String(format: "%.1f km · %d점", footprints.kilometers, footprints.points.count),
-                        chevron: false)
-                    Toggle(isOn: $footprints.enabled) {
-                        Text("지도에 발자취 보기").font(.subheadline)
-                    }
-                    Button(role: .destructive) {
-                        clearingFootprints = true
-                    } label: {
-                        Text("발자취 지우기").font(.subheadline)
-                    }
-                    .disabled(footprints.points.isEmpty)
-                    .confirmationDialog(
-                        "발자취를 모두 지울까요? 복구할 수 없어요.",
-                        isPresented: $clearingFootprints, titleVisibility: .visible
-                    ) {
-                        Button("지우기", role: .destructive) { footprints.clear() }
-                    }
-                }
+                footprintSection
 
                 Section("도움") {
+                    Button {
+                        choosingLanguage = true
+                    } label: {
+                        row(symbol: "globe", tint: .blue, title: tr("언어"),
+                            value: AppLanguage.name(of: language.lang), chevron: true)
+                    }
+                    .buttonStyle(.plain)
+                    .confirmationDialog(
+                        tr("언어"), isPresented: $choosingLanguage, titleVisibility: .visible
+                    ) {
+                        // 언어 이름은 그 언어로 적는다 — 번역하지 않는다.
+                        ForEach(AppLanguage.choices, id: \.self) { lang in
+                            Button {
+                                AppLanguage.shared.choose(lang)
+                            } label: {
+                                Text(verbatim: AppLanguage.name(of: lang))
+                            }
+                        }
+                    }
                     Button {
                         replaying = true
                     } label: {
                         row(symbol: "questionmark.circle", tint: .blue,
-                            title: "사용법 다시 보기", value: "")
+                            title: tr("사용법 다시 보기"), value: "")
                     }
                     .buttonStyle(.plain)
                 }
@@ -207,15 +212,12 @@ struct ProfileTabView: View {
                 Section("준비 중") {
                     // 자리를 미리 보여 준다 — 없는 척하다 갑자기 생기는 것보다
                     // 「여기 온다」가 보이는 쪽이 낫다.
-                    row(symbol: "globe", tint: .gray,
-                        title: "언어 (English · 日本語)", value: "준비 중")
-                        .foregroundStyle(.tertiary)
-                    row(symbol: "bell", tint: .gray, title: "알림", value: "준비 중")
+                    row(symbol: "bell", tint: .gray, title: tr("알림"), value: tr("준비 중"))
                         .foregroundStyle(.tertiary)
                 }
 
                 Section {
-                    Text("설치 식별자 \(installId.uuidString.prefix(8))…")
+                    Text(String(format: tr("설치 식별자 %@…"), String(installId.uuidString.prefix(8))))
                         .font(.caption2).foregroundStyle(.tertiary)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .listRowBackground(Color.clear)
@@ -277,82 +279,6 @@ struct ProfileTabView: View {
         }
     }
 
-    /// 피노와 계정 카드 — 비회원이면 로그인 단추, 로그인했으면 이름과 메일 (MZ2AZ-336).
-    private var header: some View {
-        VStack(spacing: 8) {
-            PinoMascot(width: 96)
-            if auth.signedIn {
-                Text(auth.me?.displayName ?? "여행자")
-                    .font(.headline)
-                if let email = auth.me?.email {
-                    Text(email).font(.caption).foregroundStyle(.secondary)
-                }
-            } else {
-                Text("비회원으로 여행 중")
-                    .font(.headline)
-                Text("로그인하면 코스와 찜이 계정에 저장돼요")
-                    .font(.caption).foregroundStyle(.secondary)
-                Button {
-                    auth.promptSignIn()
-                } label: {
-                    Text("로그인")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 22).padding(.vertical, 8)
-                        .background(Capsule().fill(Color.accentColor))
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 4)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-    }
-
-    /// 계정 — 로그아웃과 탈퇴. 탈퇴는 App Store 요건이라 앱 안에 있어야 한다.
-    @ViewBuilder private var accountSection: some View {
-        if auth.signedIn {
-            Section("계정") {
-                Button {
-                    confirmingSignOut = true
-                } label: {
-                    row(symbol: "rectangle.portrait.and.arrow.right", tint: .gray,
-                        title: "로그아웃", value: "")
-                }
-                .buttonStyle(.plain)
-                .confirmationDialog(
-                    "로그아웃할까요? 이 기기는 비회원으로 돌아가요.",
-                    isPresented: $confirmingSignOut, titleVisibility: .visible
-                ) {
-                    Button("로그아웃", role: .destructive) { Task { await auth.signOut() } }
-                }
-                Button(role: .destructive) {
-                    confirmingDelete = true
-                } label: {
-                    Text("회원 탈퇴").font(.subheadline)
-                }
-                .alert("정말 탈퇴할까요?", isPresented: $confirmingDelete) {
-                    Button("탈퇴", role: .destructive) {
-                        Task {
-                            if await auth.deleteAccount() {
-                                onClose?()
-                            } else {
-                                deleteFailed = true
-                            }
-                        }
-                    }
-                    Button("취소", role: .cancel) {}
-                } message: {
-                    Text("장바구니·코스·찜이 모두 지워지고 되돌릴 수 없어요.")
-                }
-                .alert("탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요", isPresented: $deleteFailed) {
-                    Button("확인", role: .cancel) {}
-                }
-            }
-            .disabled(auth.busy)
-        }
-    }
-
     private func row(
         symbol: String, tint: Color, title: String, value: String, chevron: Bool = false
     ) -> some View {
@@ -393,7 +319,8 @@ struct ProfileTabView: View {
             allWorks = works
             likesFailure = nil
         case let .failure(error):
-            likesFailure = String(describing: error).prefix(300) + ""
+            // 오류 원문을 그대로 보이지 않는다 — 서버 문장은 한국어이고 내부 정보가 섞인다 (MZ2AZ-345).
+            likesFailure = tr("찜한 작품을 불러오지 못했어요. 잠시 뒤 다시 해 주세요")
         }
         likesLoading = false
 
@@ -408,5 +335,135 @@ struct ProfileTabView: View {
         // 방문 스탬프 — 코스마다 상세를 받아 visitedAt 이 찍힌 것만 모은다.
         // 홈의 「내 기록」도 같은 것을 부른다(`VisitStamp.collect`).
         stamps = await VisitStamp.collect(courses: courses, installId: installId)
+    }
+}
+
+/// 계정 카드와 계정 절 — 본문이 길어져 떼어 냈다(같은 파일이라 상태를 그대로 본다).
+extension ProfileTabView {
+    /// 피노와 계정 카드 — 비회원이면 로그인 단추, 로그인했으면 이름과 메일 (MZ2AZ-336).
+    var header: some View {
+        VStack(spacing: 8) {
+            PinoMascot(width: 96)
+            if auth.signedIn {
+                Text(auth.me?.displayName ?? tr("여행자"))
+                    .font(.headline)
+                if let email = auth.me?.email {
+                    Text(email).font(.caption).foregroundStyle(.secondary)
+                }
+            } else {
+                Text("비회원으로 여행 중")
+                    .font(.headline)
+                Text("로그인하면 코스와 찜이 계정에 저장돼요")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button {
+                    auth.promptSignIn()
+                } label: {
+                    Text("로그인")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 22).padding(.vertical, 8)
+                        .background(Capsule().fill(Color.accentColor))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+    }
+
+    /// 계정 — 로그아웃과 탈퇴. 탈퇴는 App Store 요건이라 앱 안에 있어야 한다.
+    @ViewBuilder var accountSection: some View {
+        if auth.signedIn {
+            Section("계정") {
+                Button {
+                    confirmingSignOut = true
+                } label: {
+                    row(symbol: "rectangle.portrait.and.arrow.right", tint: .gray,
+                        title: tr("로그아웃"), value: "")
+                }
+                .buttonStyle(.plain)
+                .confirmationDialog(
+                    "로그아웃할까요? 이 기기는 비회원으로 돌아가요.",
+                    isPresented: $confirmingSignOut, titleVisibility: .visible
+                ) {
+                    Button("로그아웃", role: .destructive) { Task { await auth.signOut() } }
+                }
+                Button(role: .destructive) {
+                    confirmingDelete = true
+                } label: {
+                    Text("회원 탈퇴").font(.subheadline)
+                }
+                .alert("정말 탈퇴할까요?", isPresented: $confirmingDelete) {
+                    Button("탈퇴", role: .destructive) {
+                        Task {
+                            if await auth.deleteAccount() {
+                                onClose?()
+                            } else {
+                                deleteFailed = true
+                            }
+                        }
+                    }
+                    Button("취소", role: .cancel) {}
+                } message: {
+                    Text("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.")
+                }
+                .alert("탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요", isPresented: $deleteFailed) {
+                    Button("확인", role: .cancel) {}
+                }
+            }
+            .disabled(auth.busy)
+        }
+    }
+
+    /// 발자취 — 이동 경로는 개인정보다 (MZ2AZ-348). 기본은 꺼짐이고, 켤 때 무엇이 어디에
+    /// 저장되는지 알리고 동의를 받는다. 기기에만 있는 기록이라 지우기도 여기서만 한다.
+    var footprintSection: some View {
+        Section {
+            Toggle(isOn: Binding(
+                get: { footprints.recording },
+                set: { on in
+                    if on {
+                        askingFootprintConsent = true
+                    } else {
+                        footprints.recording = false
+                    }
+                }
+            )) {
+                Text("발자취 기록하기").font(.subheadline)
+            }
+            .alert("발자취를 기록할까요?", isPresented: $askingFootprintConsent) {
+                Button("기록하기") { footprints.recording = true }
+                Button("취소", role: .cancel) {}
+            } message: {
+                Text("여행 모드에서 지나간 길을 이 기기에만 저장해요. 서버로 보내지 않고, 로그아웃하거나 탈퇴하면 지워집니다.")
+            }
+            row(symbol: "shoeprints.fill", tint: Color(PinImage.deep), title: tr("기록한 거리"),
+                value: String(
+                    format: tr("%.1f km · %d점"), footprints.kilometers, footprints.points.count
+                ),
+                chevron: false)
+            Toggle(isOn: $footprints.enabled) {
+                Text("지도에 발자취 보기").font(.subheadline)
+            }
+            // 기록을 꺼 두면 지도에 그릴 것도 없다 — 같이 흐려 둔다.
+            .disabled(!footprints.recording)
+            Button(role: .destructive) {
+                clearingFootprints = true
+            } label: {
+                Text("발자취 지우기").font(.subheadline)
+            }
+            .disabled(footprints.points.isEmpty)
+            .confirmationDialog(
+                "발자취를 모두 지울까요? 복구할 수 없어요.",
+                isPresented: $clearingFootprints, titleVisibility: .visible
+            ) {
+                Button("지우기", role: .destructive) { footprints.clear() }
+            }
+        } header: {
+            Text("발자취")
+        } footer: {
+            Text("이 기기에만 저장돼요. 서버로 보내지 않아요.")
+        }
     }
 }

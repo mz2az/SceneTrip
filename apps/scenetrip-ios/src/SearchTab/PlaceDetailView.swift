@@ -78,7 +78,7 @@ struct PlaceDetailView: View {
                 }
             } label: {
                 Label(
-                    saved ? "담김 · 누르면 빼기" : "장바구니에 담기",
+                    saved ? tr("담김 · 누르면 빼기") : tr("장바구니에 담기"),
                     systemImage: saved ? "checkmark" : "bag.badge.plus"
                 )
                 .frame(maxWidth: .infinity)
@@ -137,7 +137,7 @@ struct SceneCard: View {
                 Text(scene.contentTitle)
                     .font(.caption.weight(.bold))
                     .foregroundStyle(Color.accentColor)
-                Text(scene.sceneDescription ?? "장면 설명이 아직 없습니다")
+                Text(scene.sceneDescription ?? tr("장면 설명이 아직 없습니다"))
                     .font(.subheadline)
                     .foregroundStyle(scene.sceneDescription == nil ? .secondary : .primary)
                     .lineLimit(2)

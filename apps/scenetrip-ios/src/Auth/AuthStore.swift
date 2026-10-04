@@ -67,10 +67,10 @@ final class AuthStore: ObservableObject {
             // 사람이 창을 닫았다. 알릴 것이 없다.
         } catch let ErrorResponse.error(status, data, _, _) where status > 0 {
             message = AuthRules.apiCode(from: data) == "AUTH_PROVIDER_UNAVAILABLE"
-                ? "구글에 잠시 닿지 않아요. 잠시 뒤 다시 해 주세요"
-                : "로그인하지 못했어요. 다시 해 주세요"
+                ? tr("구글에 잠시 닿지 않아요. 잠시 뒤 다시 해 주세요")
+                : tr("로그인하지 못했어요. 다시 해 주세요")
         } catch {
-            message = "연결이 원활하지 않아요. 잠시 뒤 다시 해 주세요"
+            message = tr("연결이 원활하지 않아요. 잠시 뒤 다시 해 주세요")
         }
     }
 
@@ -105,11 +105,13 @@ final class AuthStore: ObservableObject {
     func sessionLost() {
         guard signedIn else { return }
         forget()
-        message = "로그인이 풀렸어요. 다시 로그인해 주세요"
+        message = tr("로그인이 풀렸어요. 다시 로그인해 주세요")
         showingSignIn = true
     }
 
     private func forget() {
+        // 발자취는 기기에만 있지만 그 사람의 것이다 — 계정이 떠나면 함께 지운다 (MZ2AZ-348).
+        FootprintStore.shared.forgetOwner()
         AuthTokens.clear()
         me = nil
         signedIn = false

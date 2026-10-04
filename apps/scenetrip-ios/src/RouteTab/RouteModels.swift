@@ -173,7 +173,7 @@ enum RouteSpan: Int, CaseIterable, Identifiable {
     }
 
     var label: String {
-        nights == 0 ? "당일치기" : "\(nights)박 \(days)일"
+        nights == 0 ? tr("당일치기") : String(format: tr("%d박 %d일"), nights, days)
     }
 
     /// 일차 ＋/− 로 6일을 넘긴 코스도 있으므로 목록에 없는 값이 들어올 수 있다.
@@ -198,8 +198,8 @@ enum RoutePace: String, CaseIterable, Identifiable {
 
     var caption: String {
         switch self {
-        case .tight: "하루를 알차게 채웁니다"
-        case .loose: "여유 있게 돌아봅니다"
+        case .tight: tr("하루를 알차게 채웁니다")
+        case .loose: tr("여유 있게 돌아봅니다")
         }
     }
 
@@ -550,8 +550,8 @@ enum RouteFormat {
     /// 「8월 22일 (금)」. 요일까지 적는 이유는 회의에 있다 — 주말에 문을 닫는 촬영지가 있다.
     static func day(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ko_KR")
-        formatter.dateFormat = "M월 d일 (E)"
+        formatter.locale = Locale(identifier: AppLanguage.current == .ko ? "ko_KR" : AppLanguage.current.rawValue)
+        formatter.dateFormat = tr("M월 d일 (E)")
         return formatter.string(from: date)
     }
 
@@ -560,9 +560,9 @@ enum RouteFormat {
         let hours = total / 60
         let rest = total % 60
         switch (hours, rest) {
-        case (0, _): return "\(rest)분"
-        case (_, 0): return "\(hours)시간"
-        default: return "\(hours)시간 \(rest)분"
+        case (0, _): return String(format: tr("%d분"), rest)
+        case (_, 0): return String(format: tr("%d시간"), hours)
+        default: return String(format: tr("%d시간 %d분"), hours, rest)
         }
     }
 

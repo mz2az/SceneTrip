@@ -35,7 +35,7 @@ struct RouteStopCard: View {
                             Text(scene.contentTitle)
                                 .font(.caption.weight(.bold))
                                 .foregroundStyle(Color.accentColor)
-                            Text(scene.sceneDescription ?? "장면 설명이 아직 없습니다")
+                            Text(scene.sceneDescription ?? tr("장면 설명이 아직 없습니다"))
                                 .font(.caption)
                                 .foregroundStyle(
                                     scene.sceneDescription == nil ? .secondary : .primary
@@ -46,7 +46,7 @@ struct RouteStopCard: View {
                 }
                 .padding(.horizontal, 14).padding(.bottom, 12)
             } else {
-                Text(stop.place.id > 0 ? "장면 정보가 아직 없습니다" : "직접 찍은 곳입니다")
+                Text(stop.place.id > 0 ? tr("장면 정보가 아직 없습니다") : tr("직접 찍은 곳입니다"))
                     .font(.caption).foregroundStyle(.secondary)
                     .padding(.horizontal, 14).padding(.bottom, 12)
             }

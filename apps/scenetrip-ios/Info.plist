@@ -6,6 +6,15 @@
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<!-- 화면 문구를 한국어·영어로 낸다 (MZ2AZ-343). 원문(열쇠)이 한국어라 개발 지역은 ko 다.
+	     선언이 없으면 시스템이 주는 문구(「결과 없음」 등)도 영어로만 나온다. -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>ko</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ko</string>
+		<string>en</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>SceneTrip</string>
 	<key>CFBundlePackageType</key>

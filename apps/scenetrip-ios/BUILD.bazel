@@ -81,6 +81,8 @@ swift_library(
     data = glob([
         "resources/Images.xcassets/**",
         "resources/demo/*.json",
+        # 화면 문구 번역 표 (MZ2AZ-343). 열쇠는 한국어 원문이다.
+        "resources/*.lproj/*.strings",
     ]),
     module_name = "SceneTrip",
     # "manual" 은 와일드카드(`//...`)에서만 뺀다 — :bin 을 통해서는 그대로 지어지므로

@@ -19,6 +19,7 @@ struct SceneTripApp: App {
         // DEV·PRD 주소는 just mobile-build-cloud가 넣는다. 잘못된 원격 주소는 빌드가 거절한다.
         SceneApiClientAPI.basePath = ApiConfiguration.baseURL
         // 앱 언어를 모든 요청의 Accept-Language 로 (MZ2AZ-305). 서버는 없으면 ko 로 폴백한다.
+        _ = AppLanguage.shared // 고른 언어를 먼저 읽는다 — 아래 헤더가 그것을 쓴다.
         AppLocale.install()
         // 로그인 — 요청에 토큰을 싣고 401(만료·폐기)을 처리한다 (MZ2AZ-336).
         AuthStore.shared.start()

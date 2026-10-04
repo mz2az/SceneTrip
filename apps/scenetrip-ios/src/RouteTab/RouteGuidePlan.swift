@@ -22,7 +22,7 @@ enum RouteGuidePlan {
         let days = plan.days.sorted { $0.day < $1.day }.map { day in
             RouteDay(stops: day.stops.sorted { $0.order < $1.order }.compactMap { stop in
                 guard let latitude = stop.latitude, let longitude = stop.longitude else {
-                    skipped.append("\(stop.name) — 좌표 없음")
+                    skipped.append(String(format: tr("%@ — 좌표 없음"), stop.name))
                     return nil
                 }
                 return RouteStop(
@@ -46,7 +46,7 @@ enum RouteGuidePlan {
             pace: pace,
             days: days.isEmpty ? [RouteDay()] : days,
             madeByAI: true,
-            draftNotes: notes(from: plan) + skipped.map { "뺀 곳 · \($0)" }
+            draftNotes: notes(from: plan) + skipped.map { String(format: tr("뺀 곳 · %@"), $0) }
         )
     }
 
@@ -56,7 +56,9 @@ enum RouteGuidePlan {
         var out: [String] = []
         for day in plan.days {
             for dropped in day.dropped ?? [] {
-                out.append("\(day.day)일차에서 뺀 곳 · \(dropped.name) — \(dropped.reason)")
+                out.append(String(
+                    format: tr("%d일차에서 뺀 곳 · %@ — %@"), day.day, dropped.name, dropped.reason
+                ))
             }
         }
         // 에이전트의 주의문은 마크다운일 수 있다(`**추정**`, 2026-09-11 실측). 화면은 평문이다.
@@ -64,21 +66,21 @@ enum RouteGuidePlan {
         out += agentNotes
         // 직선 어림은 에이전트가 이미 말했으면 두 번 말하지 않는다.
         if plan.travelBasis == .straightLine, !agentNotes.contains(where: { $0.contains("직선") }) {
-            out.append("거리는 직선 어림이에요 — 실제 길은 더 길 수 있어요")
+            out.append(tr("거리는 직선 어림이에요 — 실제 길은 더 길 수 있어요"))
         }
         return out
     }
 
     /// 알림줄의 한 줄 요약 — 「뺀 곳 7 · 주의 3」. 열 줄을 다 펼치면 지도가 밀려 내려간다(2026-09-11 실측).
     static func notesSummary(_ notes: [String]) -> String {
-        let dropped = notes.filter { $0.contains("뺀 곳 ·") }.count
+        let dropped = notes.filter { $0.contains(tr("뺀 곳 ·")) }.count
         let others = notes.count - dropped
         var parts: [String] = []
         if dropped > 0 {
-            parts.append("뺀 곳 \(dropped)")
+            parts.append(String(format: tr("뺀 곳 %d"), dropped))
         }
         if others > 0 {
-            parts.append("주의 \(others)")
+            parts.append(String(format: tr("주의 %d"), others))
         }
         return parts.joined(separator: " · ")
     }

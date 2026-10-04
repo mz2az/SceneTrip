@@ -130,7 +130,7 @@ struct RouteWizardView: View {
             // AI 가 일한다는 사실을 질문 화면 내내 띄워 둔다 (회의에서 가장 강하게
             // 요구된 항목). 「직접 짜기」에는 띄우지 않는다 — 짜는 주체가 사용자다.
             if kind == .aiPlan {
-                RouteAIBanner(text: "AI 가 일정을 짜 드립니다")
+                RouteAIBanner(text: tr("AI 가 일정을 짜 드립니다"))
             }
         }
         .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 10)
@@ -152,7 +152,7 @@ struct RouteWizardView: View {
                     if planning {
                         ProgressView().tint(.white)
                     }
-                    Text(planning ? "일정을 짜는 중입니다" : (isLast ? finishLabel : "다음"))
+                    Text(planning ? tr("일정을 짜는 중입니다") : (isLast ? finishLabel : tr("다음")))
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -169,17 +169,17 @@ struct RouteWizardView: View {
     }
 
     private var finishLabel: String {
-        kind == .aiPlan ? "AI 로 일정 짜기" : "코스 만들기"
+        kind == .aiPlan ? tr("AI 로 일정 짜기") : tr("코스 만들기")
     }
 
     private var title: String {
         switch step {
-        case .span: "얼마나 다녀오나요?"
-        case .dates: "언제 떠나나요?"
+        case .span: tr("얼마나 다녀오나요?")
+        case .dates: tr("언제 떠나나요?")
         // 회의에서 문구까지 정했다 (1부 54:01).
-        case .works: "어떤 작품을 좋아하나요?"
-        case .pace: "어떻게 다닐까요?"
-        case .review: "이렇게 짜 드립니다"
+        case .works: tr("어떤 작품을 좋아하나요?")
+        case .pace: tr("어떻게 다닐까요?")
+        case .review: tr("이렇게 짜 드립니다")
         }
     }
 
@@ -326,7 +326,7 @@ struct RouteWizardView: View {
                     Image(systemName: each.symbol)
                         .foregroundStyle(isOn ? .white : Color.accentColor)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(each.rawValue).font(.subheadline.weight(.semibold))
+                        Text(tr(each.rawValue)).font(.subheadline.weight(.semibold))
                         Text(each.caption).font(.caption)
                             .foregroundStyle(isOn ? .white.opacity(0.9) : .secondary)
                     }
@@ -348,13 +348,13 @@ struct RouteWizardView: View {
 
     private var reviewStep: some View {
         VStack(alignment: .leading, spacing: 0) {
-            summary("기간", span.label)
+            summary(tr("기간"), span.label)
             Divider()
-            summary("떠나는 날", hasDate ? RouteFormat.day(pickedDate) : "정하지 않음")
+            summary(tr("떠나는 날"), hasDate ? RouteFormat.day(pickedDate) : tr("정하지 않음"))
             Divider()
-            summary("작품", pickedWorkTitles)
+            summary(tr("작품"), pickedWorkTitles)
             Divider()
-            summary("스타일", pace.rawValue)
+            summary(tr("스타일"), tr(pace.rawValue))
         }
         .padding(.horizontal, 14)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemBackground)))
@@ -362,7 +362,7 @@ struct RouteWizardView: View {
 
     private var pickedWorkTitles: String {
         let titles = store.works.filter { workIds.contains($0.id) }.map(\.title)
-        return titles.isEmpty ? "인기 작품" : titles.joined(separator: ", ")
+        return titles.isEmpty ? tr("인기 작품") : titles.joined(separator: ", ")
     }
 
     private func summary(_ label: String, _ value: String) -> some View {

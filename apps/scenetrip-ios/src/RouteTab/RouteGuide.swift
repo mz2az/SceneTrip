@@ -197,7 +197,7 @@ enum RouteGuide {
             score: card.score,
             images: card.images ?? [],
             naverUrl: card.naverUrl,
-            why: card.pending == true ? "아직 채우는 중이에요 — 잠시 뒤 다시 열어 주세요" : card.why
+            why: card.pending == true ? tr("아직 채우는 중이에요 — 잠시 뒤 다시 열어 주세요") : card.why
         )
     }
 

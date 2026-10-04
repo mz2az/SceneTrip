@@ -8,7 +8,9 @@ struct HomeMarketPreview: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HomeSectionHeader(title: "여행자들의 코스", subtitle: "담기 많은 순", action: "둘러보기", onAction: onOpen)
+            HomeSectionHeader(
+                title: tr("여행자들의 코스"), subtitle: tr("담기 많은 순"), action: tr("둘러보기"), onAction: onOpen
+            )
             if courses.isEmpty {
                 Text("아직 올라온 코스가 없습니다").font(.footnote).foregroundStyle(.secondary)
                     .padding(.horizontal, 20)
@@ -25,14 +27,14 @@ struct HomeMarketPreview: View {
 
     private func card(_ course: MarketCourseSummary) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(course.contents?.first?.title ?? "코스")
+            Text(course.contents?.first?.title ?? tr("코스"))
                 .font(.system(size: 12, weight: .bold)).foregroundStyle(TabBar.homePurple).lineLimit(1)
             Text("\(course.title)\n\(RouteSpan(days: course.dayCount).label)")
                 .font(.system(size: 15, weight: .bold)).lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 10) {
                 Text("\(course.placeCount)곳")
-                Text("담기 \(course.saveCount)")
+                Text(String(format: tr("담기 %d", at: "저장 수"), course.saveCount))
                 Text("♥ \(course.likeCount)").foregroundStyle(.red)
             }
             .font(.system(size: 12)).foregroundStyle(.secondary)
@@ -51,7 +53,9 @@ struct HomeCommunityNow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HomeSectionHeader(title: "커뮤니티 지금", subtitle: "방금 올라온 글", action: "더 보기", onAction: onOpen)
+            HomeSectionHeader(
+                title: tr("커뮤니티 지금"), subtitle: tr("방금 올라온 글"), action: tr("더 보기"), onAction: onOpen
+            )
             if posts.isEmpty {
                 Text("첫 글을 남겨 보세요").font(.footnote).foregroundStyle(.secondary)
                     .padding(.horizontal, 20)
@@ -72,7 +76,7 @@ struct HomeCommunityNow: View {
 
     private func row(_ post: CommunityPost) -> some View {
         HStack(spacing: 10) {
-            Text(post.board.rawValue)
+            Text(tr(post.board.rawValue))
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(badgeTone(post.board))
                 .padding(.horizontal, 8).padding(.vertical, 3)
@@ -107,7 +111,7 @@ struct HomeMyRecord: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HomeSectionHeader(title: "내 기록", subtitle: "프로필에서 전부 보기")
+            HomeSectionHeader(title: tr("내 기록"), subtitle: tr("프로필에서 전부 보기"))
             HStack(spacing: 10) {
                 Button(action: onOpen) { stampsCard }.buttonStyle(.plain)
                 Button(action: onOpen) { likesCard }.buttonStyle(.plain)

@@ -25,7 +25,7 @@ struct CommunityComposeView: View {
                 Section("말머리") {
                     Picker("말머리", selection: $board) {
                         ForEach(CommunityPost.Board.allCases) { item in
-                            Text(item.rawValue).tag(item)
+                            Text(tr(item.rawValue)).tag(item)
                         }
                     }
                     .pickerStyle(.segmented)

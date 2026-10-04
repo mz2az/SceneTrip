@@ -16,25 +16,34 @@ import SwiftUI
 struct AppRoot: View {
     private enum Stage {
         case splash
+        /// 언어를 고른 적이 없으면 사용법보다 먼저 묻는다 (MZ2AZ-343).
+        case language
         case lessons
         case app
     }
 
     @State private var stage: Stage = .splash
+    @ObservedObject private var language = AppLanguage.shared
 
     var body: some View {
         ZStack {
+            // 언어가 바뀌면 화면을 통째로 다시 만든다 — 서버 내용도 그 언어로 다시 받아야 한다.
             RootTabs()
+                .id(language.lang)
 
             switch stage {
             case .splash:
                 SplashView {
-                    stage = OnboardingFlag.hasSeen ? .app : .lessons
+                    stage = language.hasChosen ? afterLanguage : .language
                 }
                 // **들어올 때는 애니메이션이 없어야 한다.** 그냥 `.opacity` 로 두면
                 // 앱을 연 첫 0.32초 동안 스플래시가 서서히 나타나면서 밑에 깔린
                 // 흰 화면이 비친다(실측). 스플래시는 처음부터 꽉 차 있어야 한다.
                 .transition(.asymmetric(insertion: .identity, removal: .opacity))
+
+            case .language:
+                LanguagePickView { stage = afterLanguage }
+                    .transition(.asymmetric(insertion: .identity, removal: .opacity))
 
             case .lessons:
                 OnboardingView { stage = .app }
@@ -45,6 +54,12 @@ struct AppRoot: View {
             }
         }
         .animation(.easeInOut(duration: 0.32), value: stage)
+        // SwiftUI 의 글자는 이 로케일로 번역 표를 찾는다. 덮개·시트도 물려받는다.
+        .environment(\.locale, language.locale)
+    }
+
+    private var afterLanguage: Stage {
+        OnboardingFlag.hasSeen ? .app : .lessons
     }
 }
 

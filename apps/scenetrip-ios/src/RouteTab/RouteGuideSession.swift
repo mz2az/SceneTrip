@@ -89,7 +89,7 @@ final class RouteGuideSession: ObservableObject {
             }
             turns.append(.init(
                 role: .assistant,
-                text: answer.reply.isEmpty ? "답을 받지 못했습니다." : answer.reply
+                text: answer.reply.isEmpty ? tr("답을 받지 못했습니다.") : answer.reply
             ))
             lastAnswer = answer
             answerTick += 1

@@ -56,7 +56,7 @@ struct RouteStopRow: View {
         case end
 
         var label: String {
-            self == .start ? "출발" : "도착"
+            self == .start ? tr("출발") : tr("도착")
         }
 
         var symbol: String {
@@ -200,7 +200,7 @@ struct RouteStopRow: View {
                         .foregroundStyle(.white)
                 } else if let onNavigate {
                     Button(action: onNavigate) {
-                        Label(stop.visited ? "다시 길찾기" : "길찾기", systemImage: "location")
+                        Label(stop.visited ? tr("다시 길찾기") : tr("길찾기"), systemImage: "location")
                             .font(.caption2.weight(.medium))
                             .lineLimit(1).layoutPriority(1)
                             .padding(.horizontal, 9)
@@ -374,14 +374,14 @@ struct RoutePinSheet: View {
                 Section("갈래") {
                     Picker("갈래", selection: $category) {
                         ForEach(Self.categories, id: \.self) { each in
-                            Text(each).tag(each)
+                            Text(tr(each)).tag(each)
                         }
                     }
                     .pickerStyle(.inline)
                     .labelsHidden()
                 }
                 Section {
-                    Text(String(format: "위도 %.5f · 경도 %.5f", pin.latitude, pin.longitude))
+                    Text(String(format: tr("위도 %.5f · 경도 %.5f"), pin.latitude, pin.longitude))
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                 }
@@ -394,7 +394,7 @@ struct RoutePinSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("추가") {
-                        onDone(name.isEmpty ? "이름 없는 장소" : name, category)
+                        onDone(name.isEmpty ? tr("이름 없는 장소") : name, category)
                         dismiss()
                     }
                 }

@@ -33,11 +33,11 @@ struct ReelsTeaserView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 teaserRow(symbol: "point.topleft.down.to.point.bottomright.curvepath",
-                          text: "다녀온 코스의 동선과 장소를 AI 가 읽고")
+                          text: tr("다녀온 코스의 동선과 장소를 AI 가 읽고"))
                 teaserRow(symbol: "photo.on.rectangle.angled",
-                          text: "여행 사진을 골라 장면 순서로 엮어서")
+                          text: tr("여행 사진을 골라 장면 순서로 엮어서"))
                 teaserRow(symbol: "film",
-                          text: "인스타그램에 올릴 15초 릴스를 만들어 드릴 예정이에요")
+                          text: tr("인스타그램에 올릴 15초 릴스를 만들어 드릴 예정이에요"))
             }
             .padding(.horizontal, 8)
 
@@ -56,7 +56,8 @@ struct ReelsTeaserView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(Color(PinImage.deep))
                 .frame(width: 24)
-            Text(text).font(.subheadline)
+            // 영어는 길어 두 줄이 된다 — 한 줄로 잘리지 않게 세로로 늘어나게 둔다.
+            Text(text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
     }

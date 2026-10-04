@@ -35,12 +35,13 @@ struct SuggestionPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if draft.isEmpty {
-                sectionLabel("추천 검색어")
+                sectionLabel(tr("추천 검색어"))
                 // 글자만 두면 **고른 것이 장소인지 작품인지 알 수 없어** 늘 작품 탭이
                 // 열렸다(실측: 북촌한옥마을을 눌러도 작품 탭). 갈래를 함께 적는다.
                 ForEach(Self.recommended, id: \.term) { item in
-                    Button { onCommit(item.term, item.type) } label: {
-                        row(icon: symbol(item.type), text: item.term, detail: "")
+                    // 보이는 글자로 검색한다 — 영어일 때 「Guardian」을 눌렀는데 검색창에 한국어가 들어가면 안 된다.
+                    Button { onCommit(tr(item.term), item.type) } label: {
+                        row(icon: symbol(item.type), text: tr(item.term), detail: "")
                     }
                     .buttonStyle(.plain)
                 }
@@ -55,7 +56,7 @@ struct SuggestionPanel: View {
                 // 붙든다. 나머지 장소는 연관 검색어 칩으로도 닿을 수 있다.
                 let placeItems = suggestions.filter { $0.type == .place }.prefix(3)
                 if !placeItems.isEmpty {
-                    sectionLabel("장소")
+                    sectionLabel(tr("장소"))
                     ForEach(Array(placeItems), id: \.self) { item in
                         Button { onSelectPlace(item) } label: {
                             row(
@@ -70,7 +71,7 @@ struct SuggestionPanel: View {
                 }
 
                 if !suggestions.isEmpty {
-                    sectionLabel("연관 검색어")
+                    sectionLabel(tr("연관 검색어"))
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(suggestions, id: \.self) { item in

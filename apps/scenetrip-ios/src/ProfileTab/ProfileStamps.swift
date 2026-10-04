@@ -60,7 +60,7 @@ struct StampsSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ProfileSheetHeader(title: "방문 스탬프") { dismiss() }
+            ProfileSheetHeader(title: tr("방문 스탬프")) { dismiss() }
             if stamps.isEmpty {
                 ContentUnavailableView(
                     "아직 스탬프가 없습니다",
@@ -140,7 +140,7 @@ struct ProfileCartSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ProfileSheetHeader(title: "장바구니") { dismiss() }
+            ProfileSheetHeader(title: tr("장바구니")) { dismiss() }
             if items.isEmpty {
                 ContentUnavailableView(
                     "장바구니가 비었습니다",
@@ -183,7 +183,7 @@ struct MyPostsSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ProfileSheetHeader(title: "내가 쓴 글") { dismiss() }
+            ProfileSheetHeader(title: tr("내가 쓴 글")) { dismiss() }
             if store.posts.isEmpty {
                 ContentUnavailableView(
                     "아직 쓴 글이 없습니다",
@@ -197,7 +197,7 @@ struct MyPostsSheet: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
-                                Text(post.board.rawValue)
+                                Text(tr(post.board.rawValue))
                                     .font(.caption2.weight(.semibold))
                                     .padding(.horizontal, 6).padding(.vertical, 2)
                                     .background(

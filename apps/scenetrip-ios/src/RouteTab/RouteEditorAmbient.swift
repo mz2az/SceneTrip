@@ -27,7 +27,7 @@ extension RouteEditorView {
         let count = guide.places.count { !taken.contains(RouteDedupe.key($0.asPlaceSummary)) }
         guard count > 0 else { return [] }
         return [RoutePoiChips.Extra(
-            id: "ai", label: "AI 장소 \(count)", tone: .accentColor, isOn: aiPlacesOn,
+            id: "ai", label: String(format: tr("AI 장소 %d"), count), tone: .accentColor, isOn: aiPlacesOn,
             image: "haetae-face"
         ) {
             aiPlacesOn.toggle()

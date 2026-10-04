@@ -18,9 +18,9 @@ struct RootTabs: View {
 
         var label: String {
             switch self {
-            case .search: "작품검색"
-            case .home: "홈"
-            case .community: "커뮤니티"
+            case .search: tr("작품검색")
+            case .home: tr("홈")
+            case .community: tr("커뮤니티")
             }
         }
 

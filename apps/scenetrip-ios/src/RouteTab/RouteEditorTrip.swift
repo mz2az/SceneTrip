@@ -141,18 +141,18 @@ struct TripBannerHeightKey: PreferenceKey {
 
 extension RouteEditorView {
     private func tripTitle(_ target: RouteStop) -> String {
-        let number = stops.firstIndex { $0.id == target.id }.map { "\($0 + 1)번 " } ?? ""
+        let number = stops.firstIndex { $0.id == target.id }.map { String(format: tr("%d번 "), $0 + 1) } ?? ""
         return trip.phase == .arrived
-            ? "\(number)\(target.place.name) 도착"
-            : "\(number)\(target.place.name)로 가는 중"
+            ? String(format: tr("%@%@ 도착"), number, target.place.name)
+            : String(format: tr("%@%@로 가는 중"), number, target.place.name)
     }
 
     @ViewBuilder
     private var tripDetail: some View {
         if trip.phase == .arrived {
             // **다음으로 넘기지 않는다.** 둘러볼 시간은 사람의 것이다.
-            Text(nextUnvisited.map { "둘러본 뒤 아래 「다음 · \($0.number)번으로」를 누르세요" }
-                ?? "오늘 일정을 모두 돌았어요")
+            Text(nextUnvisited.map { String(format: tr("둘러본 뒤 아래 「다음 · %d번으로」를 누르세요"), $0.number) }
+                ?? tr("오늘 일정을 모두 돌았어요"))
                 .font(.caption).foregroundStyle(.secondary)
         } else if let result = trip.result {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -245,7 +245,7 @@ extension RouteEditorView {
                     }
                     .buttonStyle(.borderedProminent)
                 }
-                Button(course.isRunning ? "여행 종료" : "코스 시작") {
+                Button(course.isRunning ? tr("여행 종료") : tr("코스 시작")) {
                     course.isRunning.toggle()
                     // 상태만 바꾼다 — 코스 내용을 함께 덮어쓰면 편집 중이던 것이
                     // 저장돼 버려 「시작」이 「저장」을 겸하게 된다.
@@ -276,7 +276,7 @@ extension RouteEditorView {
             Button {
                 Task { await saveAndClose() }
             } label: {
-                Text(isNew ? "코스 만들기" : "저장하고 닫기")
+                Text(isNew ? tr("코스 만들기") : tr("저장하고 닫기"))
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -328,7 +328,8 @@ extension RouteEditorView {
             ZStack {
                 Color.black.opacity(0.25).ignoresSafeArea()
                 PawStampOverlay(
-                    title: stops.firstIndex { $0.id == target.id }.map { "\($0 + 1)번 성지 도착!" } ?? "도착!",
+                    title: stops.firstIndex { $0.id == target.id }
+                        .map { String(format: tr("%d번 성지 도착!"), $0 + 1) } ?? tr("도착!"),
                     subtitle: target.place.name,
                     onDone: { withAnimation { trip.stampDone() } }
                 )

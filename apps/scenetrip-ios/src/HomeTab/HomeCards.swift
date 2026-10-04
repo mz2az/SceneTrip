@@ -137,7 +137,7 @@ struct HomeTripCard: View {
                     .frame(width: 22, height: 22)
                     .background(Circle().fill(.white.opacity(0.28)))
             }
-            Text(trip.course.isRunning ? "여행 중" : "예정")
+            Text(trip.course.isRunning ? tr("여행 중") : tr("예정"))
                 .font(.system(size: 12, weight: .bold))
                 .padding(.horizontal, 9).padding(.vertical, 3)
                 .background(Capsule().fill(.white.opacity(0.22)))
@@ -179,7 +179,7 @@ struct HomeTripCard: View {
 
     private var empty: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(hasCourses ? "코스" : "첫 여행")
+            Text(hasCourses ? tr("코스") : tr("첫 여행"))
                 .font(.system(size: 12, weight: .bold))
                 .padding(.horizontal, 9).padding(.vertical, 3)
                 .background(Capsule().fill(.white.opacity(0.22)))
@@ -212,7 +212,9 @@ struct HomeWorkShelf: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HomeSectionHeader(title: "지금 뜨는 작품", subtitle: "촬영지가 많은 순", action: "전체 보기", onAction: onAll)
+            HomeSectionHeader(
+                title: tr("지금 뜨는 작품"), subtitle: tr("촬영지가 많은 순"), action: tr("전체 보기"), onAction: onAll
+            )
             if failed {
                 Text("작품을 불러오지 못했습니다 — 백엔드(:8081)가 켜져 있나요?")
                     .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 20)
@@ -272,7 +274,7 @@ struct HomeTodayCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HomeSectionHeader(title: "오늘의 성지", subtitle: "매일 한 장면")
+            HomeSectionHeader(title: tr("오늘의 성지"), subtitle: tr("매일 한 장면"))
             VStack(alignment: .leading, spacing: 0) {
                 // 사진 띠는 통째로 단추다 — 「담기」와 겹치지 않는 자리라 여기서 연다.
                 Button(action: onOpen) { hero }.buttonStyle(.plain)
@@ -286,12 +288,15 @@ struct HomeTodayCard: View {
                     HStack(spacing: 6) {
                         Image(systemName: "mappin.and.ellipse")
                             .font(.system(size: 12)).foregroundStyle(Color(PinImage.deep))
-                        Text(place.address ?? "주소 없음")
+                        Text(place.address ?? tr("주소 없음"))
                             .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
                         Spacer(minLength: 0)
                         Button(action: onSave) {
-                            Label(saved ? "담김" : "담기", systemImage: saved ? "checkmark.circle.fill" : "plus.circle")
-                                .font(.system(size: 13, weight: .bold))
+                            Label(
+                                saved ? tr("담김") : tr("담기"),
+                                systemImage: saved ? "checkmark.circle.fill" : "plus.circle"
+                            )
+                            .font(.system(size: 13, weight: .bold))
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(saved ? Color(PinImage.deep) : Color.accentColor)
