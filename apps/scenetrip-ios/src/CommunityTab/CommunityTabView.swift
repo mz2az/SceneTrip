@@ -95,10 +95,13 @@ struct CommunityTabView: View {
         }
         .buttonStyle(.plain)
         .swipeActions {
-            Button(role: .destructive) {
-                store.remove(post)
-            } label: {
-                Label("지우기", systemImage: "trash")
+            // 지우기는 **내 글만** — 남의 글을 밀어서 지울 수 있으면 안 된다.
+            if post.isMine {
+                Button(role: .destructive) {
+                    store.remove(post)
+                } label: {
+                    Label("지우기", systemImage: "trash")
+                }
             }
         }
     }
@@ -114,7 +117,7 @@ struct CommunityTabView: View {
                 }
                 HStack(spacing: 8) {
                     Text(post.author ?? tr("나")).font(.caption2).foregroundStyle(.tertiary)
-                    Text(post.createdAt.formatted(.relative(presentation: .named)))
+                    Text(post.createdAt.formatted(.relative(presentation: .named).locale(AppLanguage.currentLocale)))
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
                 if let courseTitle = post.course?.title ?? post.courseTitle {

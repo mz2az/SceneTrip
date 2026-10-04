@@ -198,8 +198,10 @@ struct MyPostsSheet: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(post.title)
                                 .font(.subheadline.weight(.medium)).lineLimit(1)
-                            Text(post.createdAt.formatted(date: .abbreviated, time: .shortened))
-                                .font(.caption2).foregroundStyle(.tertiary)
+                            Text(post.createdAt.formatted(
+                                .dateTime.year().month().day().hour().minute().locale(AppLanguage.currentLocale)
+                            ))
+                            .font(.caption2).foregroundStyle(.tertiary)
                         }
                         .padding(.vertical, 2)
                         .contentShape(.rect)

@@ -13,6 +13,14 @@ struct CommunityPostView: View {
     /// 담은 코스의 서버 id. 담고 나면 단추가 「코스 보기」로 바뀐다.
     @State private var savedCourseId: Int64?
     @State private var saveFailed = false
+    /// 긴 코스는 일차마다 몇 곳만 보이고 접어 둔다 — 26곳짜리를 다 펼치면 담기 단추가 화면 밖으로 밀린다.
+    @State private var expanded = false
+
+    private static let previewStops = 4
+
+    private func shown(_ stops: [PostCourse.Stop]) -> [PostCourse.Stop] {
+        expanded ? stops : Array(stops.prefix(Self.previewStops))
+    }
 
     var body: some View {
         ScrollView {
@@ -60,7 +68,9 @@ struct CommunityPostView: View {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 32, height: 32)
-                    .background(Circle().fill(.black.opacity(0.45)))
+                    // 밝은 사진·흰 본문 위에서도 보이게 진하게 깐다.
+                    .background(Circle().fill(.black.opacity(0.62)))
+                    .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .padding(14)
@@ -80,8 +90,10 @@ struct CommunityPostView: View {
                 .background(Circle().fill(Color(PinImage.deep)))
             VStack(alignment: .leading, spacing: 1) {
                 Text(post.author ?? tr("나")).font(.subheadline.weight(.medium))
-                Text(post.createdAt.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption2).foregroundStyle(.tertiary)
+                Text(post.createdAt.formatted(
+                    .dateTime.year().month().day().hour().minute().locale(AppLanguage.currentLocale)
+                ))
+                .font(.caption2).foregroundStyle(.tertiary)
             }
             Spacer()
         }
@@ -107,7 +119,7 @@ struct CommunityPostView: View {
                     Text(String(format: tr("%d일차"), dayIndex + 1))
                         .font(.caption.weight(.bold))
                         .foregroundStyle(Color(PinImage.deep))
-                    ForEach(Array(stops.enumerated()), id: \.offset) { index, stop in
+                    ForEach(Array(shown(stops).enumerated()), id: \.offset) { index, stop in
                         HStack(alignment: .top, spacing: 10) {
                             Text("\(index + 1)")
                                 .font(.caption2.weight(.bold))
@@ -117,16 +129,28 @@ struct CommunityPostView: View {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(stop.name).font(.subheadline)
                                 if let address = stop.address, !address.isEmpty {
-                                    Text(address).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                                    Text(address).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                                 }
                             }
                             Spacer(minLength: 0)
                         }
                     }
+                    if !expanded, stops.count > Self.previewStops {
+                        Text(String(format: tr("외 %d곳"), stops.count - Self.previewStops))
+                            .font(.caption).foregroundStyle(.secondary)
+                            .padding(.leading, 30)
+                    }
                 }
             }
+            if !expanded, course.days.contains(where: { $0.count > Self.previewStops }) {
+                Button(tr("장소 모두 보기")) { expanded = true }
+                    .font(.caption.weight(.semibold))
+            }
 
-            saveButton(course)
+            // 내 글이면 담기가 없다 — 이미 내 코스다. 눌리면 같은 코스가 하나 더 생길 뿐이다.
+            if !post.isMine {
+                saveButton(course)
+            }
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 18).fill(Color(.systemGray6)))
@@ -142,8 +166,8 @@ struct CommunityPostView: View {
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
-                    .foregroundStyle(Color.accentColor)
-                    .background(Capsule().strokeBorder(Color.accentColor, lineWidth: 1.5))
+                    .foregroundStyle(Color(PinImage.deep))
+                    .background(Capsule().strokeBorder(Color(PinImage.deep), lineWidth: 1.5))
             }
             .buttonStyle(.plain)
         } else {
@@ -162,7 +186,7 @@ struct CommunityPostView: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 46)
-                .background(Capsule().fill(Color.accentColor))
+                .background(Capsule().fill(Color(PinImage.deep)))
             }
             .buttonStyle(.plain)
             .disabled(saving)

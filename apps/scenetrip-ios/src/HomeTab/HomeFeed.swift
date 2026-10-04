@@ -31,18 +31,16 @@ struct HomeCommunityNow: View {
 
     private func row(_ post: CommunityPost) -> some View {
         HStack(spacing: 10) {
-            Text("후기")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(TabBar.homePurple)
-                .padding(.horizontal, 8).padding(.vertical, 3)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(TabBar.homePurple.opacity(0.12))
-                )
-                .fixedSize()
             Text(post.title).font(.system(size: 14)).lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "heart").font(.system(size: 12)).foregroundStyle(.tertiary)
+            // 말머리가 하나뿐이라 딱지는 없다. 대표 사진이 있으면 그것이 줄의 얼굴이다.
+            if let name = post.photos?.first, let photo = CommunityStore.photo(name) {
+                Image(uiImage: photo)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 44, height: 44)
+                    .clipShape(.rect(cornerRadius: 9))
+            }
         }
         .padding(.horizontal, 16).padding(.vertical, 13)
         .contentShape(.rect)

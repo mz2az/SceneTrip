@@ -170,7 +170,8 @@ struct CommunityComposeView: View {
                     self.course = nil
                 } label: {
                     Image(systemName: "xmark").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 44, height: 44)
+                        .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("코스 떼기")
