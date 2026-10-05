@@ -131,14 +131,18 @@ sealed class AppEvent {
         override val parameters = mapOf("day_count" to dayCount, "title_count" to titleCount)
     }
 
-    /** **코스를 만들어 저장했다.** `origin` 은 `ai`·`self`·`review`(후기에서 담음). */
+    /**
+     * **코스를 만들어 저장했다.** `origin` 은 `ai`·`self`·`review`(후기에서 담음) — 보낼 때
+     * 이름은 `course_origin`이다. Firebase 가 모든 이벤트에 제 `origin`(app·auto)을 붙여
+     * 겹치므로(iOS 실기 확인, MZ2AZ-353) 그냥 `origin`이라고 적지 않는다.
+     */
     data class CreateCourse(
         val origin: String,
         val dayCount: Int,
         val placeCount: Int,
     ) : AppEvent() {
         override val name = "create_course"
-        override val parameters = mapOf("origin" to origin, "day_count" to dayCount, "place_count" to placeCount)
+        override val parameters = mapOf("course_origin" to origin, "day_count" to dayCount, "place_count" to placeCount)
     }
 
     // 여행 (방한 후 사용 — 리텐션)
