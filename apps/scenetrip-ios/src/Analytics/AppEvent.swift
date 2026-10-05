@@ -42,7 +42,7 @@ enum AppEvent: Equatable {
 
     /// AI 일정 초안을 받았다(아직 저장 전).
     case generatePlan(dayCount: Int, titleCount: Int)
-    /// **코스를 만들어 저장했다.** `origin` 은 `ai`·`self`·`review`(후기에서 담음).
+    /// **코스를 만들어 저장했다.** `origin` 은 `ai`·`self`·`review`(후기에서 담음) — 보낼 때 이름은 `course_origin`.
     case createCourse(origin: String, dayCount: Int, placeCount: Int)
 
     // MARK: 여행 (방한 후 사용 — 리텐션)
@@ -98,7 +98,9 @@ enum AppEvent: Equatable {
         case let .likeTitle(contentId, liked): ["content_id": contentId, "liked": liked ? 1 : 0]
         case let .generatePlan(dayCount, titleCount): ["day_count": dayCount, "title_count": titleCount]
         case let .createCourse(origin, dayCount, placeCount):
-            ["origin": origin, "day_count": dayCount, "place_count": placeCount]
+            // `origin` 이라고 적지 않는다 — Firebase 가 모든 이벤트에 붙이는 제 `origin`(app·auto)과
+            // 이름이 겹쳐 보고서에서 헷갈린다(2026-10-05 실기).
+            ["course_origin": origin, "day_count": dayCount, "place_count": placeCount]
         case let .postReview(photoCount, hasCourse): ["photo_count": photoCount, "has_course": hasCourse ? 1 : 0]
         case .tutorialBegin, .tutorialComplete, .logout, .deleteAccount, .getDirections, .askGuide: [:]
         }
