@@ -62,6 +62,7 @@ import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.FootprintStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.api.PoisApi
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource
@@ -218,7 +219,7 @@ fun RouteEditorView(
 
     fun saveAndClose() {
         // 제목을 비운 채 저장하면 목록에 이름 없는 코스가 생긴다 — iOS `saveAndClose`와 같이 기본 이름으로.
-        course = course.copy(title = course.title.trim().ifEmpty { "내 코스" })
+        course = course.copy(title = course.title.trim().ifEmpty { tr("내 코스", "코스 제목") })
         saving = true
         scope.launch {
             val saved = store.save(course)
@@ -422,7 +423,7 @@ fun RouteEditorView(
             // iOS `RouteEditorView.topBar`: 「취소」 | 가운데 제목(눌러서 고침) + 연필 | 「만들기/저장」.
             // 제목칸은 테두리 없이 글자 폭을 따르고 200 에서 멈춘다 — iOS 와 같은 이유(320bc94).
             Text(
-                "취소",
+                tr("취소"),
                 fontSize = 17.sp,
                 color = IOS.accent,
                 modifier = Modifier.clickable { onClose(null) },
@@ -438,7 +439,7 @@ fun RouteEditorView(
             val titleWidth =
                 with(titleDensity) {
                     titleMeasurer
-                        .measure(course.title.ifEmpty { "코스 이름" }, IOS.headline, maxLines = 1, softWrap = false)
+                        .measure(course.title.ifEmpty { tr("코스 이름") }, IOS.headline, maxLines = 1, softWrap = false)
                         .size.width
                         .toDp()
                 }.plus(4.dp).coerceIn(40.dp, 200.dp)
@@ -462,7 +463,7 @@ fun RouteEditorView(
                         val ellipsize = !titleFocused && course.title.isNotEmpty()
                         Box(contentAlignment = Alignment.Center) {
                             if (course.title.isEmpty()) {
-                                Text("코스 이름", style = IOS.headline, color = IOS.tertiaryLabel, maxLines = 1)
+                                Text(tr("코스 이름"), style = IOS.headline, color = IOS.tertiaryLabel, maxLines = 1)
                             }
                             Box(modifier = Modifier.alpha(if (ellipsize) 0f else 1f)) { inner() }
                             if (ellipsize) {
@@ -484,7 +485,7 @@ fun RouteEditorView(
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
             } else {
                 Text(
-                    if (course.serverId == null) "만들기" else "저장",
+                    if (course.serverId == null) tr("만들기") else tr("저장"),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = IOS.accent,
@@ -506,7 +507,7 @@ fun RouteEditorView(
                         .padding(horizontal = 12.dp, vertical = 9.dp),
             ) {
                 SparklesIcon(IOS.accent, Modifier.size(13.dp))
-                Text("AI 가 짠 일정입니다 · 아직 저장 전", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = IOS.accent)
+                Text(tr("AI 가 짠 일정입니다 · 아직 저장 전"), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = IOS.accent)
             }
         }
 
@@ -627,7 +628,7 @@ fun RouteEditorView(
             }
             if (pinning) {
                 Text(
-                    "지도를 눌러 장소를 찍으세요",
+                    tr("지도를 눌러 장소를 찍으세요"),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = IOS.label,
@@ -734,16 +735,16 @@ fun RouteEditorView(
                     ) {
                         // iOS `.footnote`(13) + HStack(spacing: 6).
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("${stops.size}곳", fontSize = 13.sp, color = IOS.secondaryLabel)
+                            Text(tr("%d곳").format(stops.size), fontSize = 13.sp, color = IOS.secondaryLabel)
                             Text("·", fontSize = 13.sp, color = IOS.secondaryLabel)
                             Text(
-                                "직선 ${RouteFormat.kilometers(RouteGeometry.totalKilometers(stops))}",
+                                tr("직선 %s").format(RouteFormat.kilometers(RouteGeometry.totalKilometers(stops))),
                                 fontSize = 13.sp,
                                 color = IOS.secondaryLabel,
                             )
                         }
                         Spacer(Modifier.weight(1f))
-                        Text("이동 시간은 여행 중에", fontSize = 13.sp, color = IOS.tertiaryLabel)
+                        Text(tr("이동 시간은 여행 중에"), fontSize = 13.sp, color = IOS.tertiaryLabel)
                     }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -754,7 +755,7 @@ fun RouteEditorView(
                                     IOS.systemBackground,
                                 ).padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
                     ) {
-                        EditorAction(label = "동선 최적화", icon = { SwapArrowsIcon(IOS.label, it) }, modifier = Modifier.weight(1f)) {
+                        EditorAction(label = tr("동선 최적화"), icon = { SwapArrowsIcon(IOS.label, it) }, modifier = Modifier.weight(1f)) {
                             var ordered = stops
                             var head = pinStart
                             if (!pinStart) {
@@ -768,17 +769,17 @@ fun RouteEditorView(
                             focusedStopId = null
                             fitToken += 1
                         }
-                        EditorAction(label = "검색", icon = { MagnifierIcon(IOS.label, it) }, modifier = Modifier.weight(1f)) {
+                        EditorAction(label = tr("검색"), icon = { MagnifierIcon(IOS.label, it) }, modifier = Modifier.weight(1f)) {
                             searching =
                                 true
                         }
                         EditorAction(
-                            label = "장바구니",
+                            label = tr("장바구니"),
                             icon = { BagIcon(IOS.label, it) },
                             modifier = Modifier.weight(1f),
                         ) { showCart = true }
                         EditorAction(
-                            label = if (pinning) "취소" else "핀 찍기",
+                            label = if (pinning) tr("취소") else tr("핀 찍기"),
                             icon = { MapPinEllipseIcon(IOS.label, it) },
                             modifier = Modifier.weight(1f),
                         ) { pinning = !pinning }
@@ -799,8 +800,8 @@ fun RouteEditorView(
                                         null
                                     } else {
                                         when (index) {
-                                            0 -> "출발"
-                                            stops.lastIndex -> "도착"
+                                            0 -> tr("출발")
+                                            stops.lastIndex -> tr("도착")
                                             else -> null
                                         }
                                     },
@@ -873,7 +874,7 @@ fun RouteEditorView(
                                 // iOS `RouteEditorView.stopRows` — "직접 짜기"로 빈 코스를
                                 // 열었을 때 아무 안내도 없었다(실기 비교로 발견).
                                 Text(
-                                    "아직 담은 장소가 없습니다\n장바구니에서 담거나 지도에 핀을 찍어 보세요",
+                                    tr("아직 담은 장소가 없습니다\n장바구니에서 담거나 지도에 핀을 찍어 보세요"),
                                     fontSize = 12.sp,
                                     color = IOS.secondaryLabel,
                                     textAlign = TextAlign.Center,
@@ -911,13 +912,13 @@ fun RouteEditorView(
                             val nextIndex = stops.indexOfFirst { !it.visited }
                             if (running && nextIndex >= 0 && !trip.isActive) {
                                 EditorCapsuleButton(
-                                    "${nextIndex + 1}번으로 길찾기",
+                                    tr("%d번으로 길찾기").format(nextIndex + 1),
                                     prominent = true,
                                     onClick = { trip.start(serverId, stops[nextIndex], scope) },
                                 )
                             }
                             EditorCapsuleButton(
-                                if (running) "여행 종료" else "코스 시작",
+                                if (running) tr("여행 종료") else tr("코스 시작"),
                                 prominent = false,
                                 onClick = {
                                     val turningOn = !running
@@ -938,9 +939,9 @@ fun RouteEditorView(
                             if (saving) {
                                 "…"
                             } else if (serverId == null) {
-                                "코스 만들기"
+                                tr("코스 만들기")
                             } else {
-                                "저장하고 닫기"
+                                tr("저장하고 닫기")
                             },
                             prominent = true,
                             enabled = !saving,
@@ -1043,9 +1044,12 @@ fun RouteEditorView(
 
     if (blockedDayRemoval) {
         IOSAlert(
-            title = "일차를 뺄 수 없습니다",
-            message = "마지막 일차에 담긴 장소를 먼저 빼 주세요.",
-            actions = listOf(IOSAction("확인", IOSRole.CANCEL) {}),
+            title = tr("일차를 뺄 수 없습니다"),
+            // TODO: iOS 는 막힌 일차의 실제 번호를 보여준다("%d일차에 담은 장소를 먼저 빼
+            // 주세요") — Android 는 그 번호를 들고 있지 않아 "마지막 일차"로 뭉뚱그렸다.
+            // 번역표에도 없다(이 문구 자체가 iOS와 다르다). 언어 작업과 별개의 패리티 차.
+            message = tr("마지막 일차에 담긴 장소를 먼저 빼 주세요."),
+            actions = listOf(IOSAction(tr("확인"), IOSRole.CANCEL) {}),
             onDismiss = { blockedDayRemoval = false },
         )
     }
@@ -1054,9 +1058,9 @@ fun RouteEditorView(
     // 단추를 계속 누르게 된다(iOS `RouteEditorView`의 "저장하지 못했습니다" alert).
     store.failure?.let { failure ->
         IOSAlert(
-            title = "저장하지 못했습니다",
+            title = tr("저장하지 못했습니다"),
             message = failure.message,
-            actions = listOf(IOSAction("확인") {}),
+            actions = listOf(IOSAction(tr("확인")) {}),
             onDismiss = { store.clearFailure() },
         )
     }
@@ -1253,10 +1257,12 @@ private fun TripBanner(
     val target = trip.target ?: return
     Column(modifier = Modifier.fillMaxWidth().background(IOS.pinDeep.copy(alpha = 0.08f)).padding(12.dp)) {
         if (trip.phase == TripSession.Phase.ARRIVED) {
-            Text("성지 도착!", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
+            // TODO: iOS 문구는 "%d번 성지 도착!"(정지점 번호 포함) — Android 는 번호 없이
+            // 뭉뚱그렸다. 언어 작업과 별개의 패리티 차, 번역표에도 이 짧은 형태는 없다.
+            Text(tr("성지 도착!"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
             Text(target.place.name, fontSize = 12.sp, color = IOS.secondaryLabel)
         } else {
-            Text("${target.place.name}로 가는 중", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Text(tr("%s로 가는 중").format(target.place.name), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
             // iOS `RouteEditorTrip.tripDetail` 순서 그대로: 받은 경로 → 실패(재시도) →
             // 구하는 중 → 자리를 못 찾음.
             when {
@@ -1285,7 +1291,7 @@ private fun TripBanner(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(trip.failure!!, fontSize = 11.sp, color = IOS.systemOrange)
                         Text(
-                            "다시 시도",
+                            tr("다시 시도"),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = IOS.accent,
@@ -1297,18 +1303,18 @@ private fun TripBanner(
                 trip.asking -> {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         CircularProgressIndicator(modifier = Modifier.size(11.dp), strokeWidth = 1.5.dp)
-                        Text("길을 찾는 중입니다", fontSize = 11.sp, color = IOS.secondaryLabel)
+                        Text(tr("길을 찾는 중입니다"), fontSize = 11.sp, color = IOS.secondaryLabel)
                     }
                 }
 
                 trip.here == null -> {
-                    Text("현재 위치를 찾는 중입니다", fontSize = 11.sp, color = IOS.secondaryLabel)
+                    Text(tr("현재 위치를 찾는 중입니다"), fontSize = 11.sp, color = IOS.secondaryLabel)
                 }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
             Text(
-                "안내 끝",
+                tr("안내 끝"),
                 fontSize = 12.sp,
                 color = IOS.secondaryLabel,
                 modifier =
@@ -1320,7 +1326,7 @@ private fun TripBanner(
             )
             if (trip.phase == TripSession.Phase.GUIDING) {
                 Text(
-                    "여기 도착함",
+                    tr("여기 도착함"),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = IOS.systemBackground,
@@ -1336,7 +1342,9 @@ private fun TripBanner(
             } else {
                 val next = unvisitedAfter(target)
                 Text(
-                    if (next != null) "다음 · ${next.place.name}로 길찾기" else "코스 완료",
+                    // TODO: iOS 는 "다음 · N번 장소명로 길찾기"로 정지점 번호가 있다 —
+                    // 위 ARRIVED 경우와 같은 패리티 차(언어 작업과 별개).
+                    if (next != null) tr("다음 · %s로 길찾기").format(next.place.name) else tr("코스 완료"),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = IOS.systemBackground,
@@ -1383,7 +1391,7 @@ private fun DayTabs(
                     modifier = Modifier.width(IntrinsicSize.Max).clickable { onSelect(index) },
                 ) {
                     Text(
-                        "${index + 1}일차",
+                        tr("%d일차").format(index + 1),
                         fontSize = 15.sp,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (active) IOS.accent else IOS.secondaryLabel,
@@ -1446,10 +1454,10 @@ private fun PlaceSearchOverlayBody(
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         Column(modifier = Modifier.background(IOSSheetMaterial)) {
             IOSSheetToolbar(
-                title = "장소 검색",
-                leading = "닫기",
+                title = tr("장소 검색"),
+                leading = tr("닫기"),
                 onLeading = onDismiss,
-                trailing = "추가 ${picked.size}",
+                trailing = tr("추가 %d").format(picked.size),
                 trailingEnabled = picked.isNotEmpty(),
                 onTrailing = {
                     val byId = store.places.associateBy { it.id }
@@ -1457,7 +1465,7 @@ private fun PlaceSearchOverlayBody(
                     onDismiss()
                 },
             )
-            IOSSearchField(query, { query = it }, "장소나 작품 이름", Modifier.padding(horizontal = 16.dp))
+            IOSSearchField(query, { query = it }, tr("장소나 작품 이름"), Modifier.padding(horizontal = 16.dp))
             Spacer(Modifier.height(10.dp))
         }
         if (results.isEmpty()) {
@@ -1467,14 +1475,16 @@ private fun PlaceSearchOverlayBody(
             ) {
                 MagnifierIcon(IOS.secondaryLabel, Modifier.padding(bottom = 10.dp).size(51.dp))
                 Text(
-                    "‘$trimmed’에 대한 결과 없음",
+                    // iOS 는 이 자리가 시스템 `ContentUnavailableView.search`라 OS 가
+                    // 알아서 번역한다 — Android 는 직접 그려서 번역표에 대응이 없다.
+                    tr("‘%s’에 대한 결과 없음").format(trimmed),
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = IOS.label,
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    "철자를 확인하거나 새로운 검색을 시도하십시오.",
+                    tr("철자를 확인하거나 새로운 검색을 시도하십시오."),
                     fontSize = 15.sp,
                     color = IOS.secondaryLabel,
                     textAlign = TextAlign.Center,
@@ -1509,7 +1519,7 @@ private fun PlaceSearchOverlayBody(
                         isTaken -> {
                             Icon(
                                 Icons.Filled.CheckCircle,
-                                contentDescription = "이미 담김",
+                                contentDescription = tr("이미 담김"),
                                 tint = IOS.accent.copy(alpha = 0.45f),
                                 modifier = Modifier.size(22.dp),
                             )

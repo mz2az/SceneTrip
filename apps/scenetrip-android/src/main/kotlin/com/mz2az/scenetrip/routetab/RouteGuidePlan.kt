@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.routetab
 
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlan
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.TravelBasis
@@ -30,7 +31,7 @@ object RouteGuidePlan {
                             val latitude = stop.latitude
                             val longitude = stop.longitude
                             if (latitude == null || longitude == null) {
-                                skipped.add("${stop.name} — 좌표 없음")
+                                skipped.add(tr("%s — 좌표 없음").format(stop.name))
                                 return@mapNotNull null
                             }
                             RouteStop(
@@ -56,7 +57,7 @@ object RouteGuidePlan {
             pace = pace,
             days = days.ifEmpty { listOf(RouteDay()) },
             madeByAI = true,
-            draftNotes = notes(plan) + skipped.map { "뺀 곳 · $it" },
+            draftNotes = notes(plan) + skipped.map { tr("뺀 곳 · %s").format(it) },
         )
     }
 
@@ -65,24 +66,24 @@ object RouteGuidePlan {
         val out = mutableListOf<String>()
         for (day in plan.days) {
             for (dropped in day.dropped.orEmpty()) {
-                out.add("${day.day}일차에서 뺀 곳 · ${dropped.name} — ${dropped.reason}")
+                out.add(tr("%d일차에서 뺀 곳 · %s — %s").format(day.day, dropped.name, dropped.reason))
             }
         }
         val agentNotes = plan.notes.orEmpty().map { it.replace("**", "") }
         out.addAll(agentNotes)
         if (plan.travelBasis == TravelBasis.straightMinusLine && agentNotes.none { it.contains("직선") }) {
-            out.add("거리는 직선 어림이에요 — 실제 길은 더 길 수 있어요")
+            out.add(tr("거리는 직선 어림이에요 — 실제 길은 더 길 수 있어요"))
         }
         return out
     }
 
     /** 알림줄의 한 줄 요약 — "뺀 곳 7 · 주의 3". */
     fun notesSummary(notes: List<String>): String {
-        val dropped = notes.count { it.contains("뺀 곳 ·") }
+        val dropped = notes.count { it.contains(tr("뺀 곳 ·")) }
         val others = notes.size - dropped
         val parts = mutableListOf<String>()
-        if (dropped > 0) parts.add("뺀 곳 $dropped")
-        if (others > 0) parts.add("주의 $others")
+        if (dropped > 0) parts.add(tr("뺀 곳 %d").format(dropped))
+        if (others > 0) parts.add(tr("주의 %d").format(others))
         return parts.joinToString(" · ")
     }
 

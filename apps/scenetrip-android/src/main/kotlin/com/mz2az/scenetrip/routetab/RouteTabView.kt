@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.HandDrawIcon
@@ -91,7 +92,13 @@ fun RouteTabView(
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).statusBarsPadding()) {
         Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
-            Text("코스", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.align(Alignment.Center))
+            Text(
+                tr("코스", "화면 제목"),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IOS.label,
+                modifier = Modifier.align(Alignment.Center),
+            )
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 if (onClose != null) {
                     // iOS `xmark`(.body.semibold) 글리프 약 13.7pt — Material Close 16dp 는 9dp 로 작았고, 둥근 선 끝까지
@@ -118,7 +125,7 @@ fun RouteTabView(
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
-                    Text("코스 추가", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                    Text(tr("코스 추가"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 }
             }
         }
@@ -213,10 +220,10 @@ private fun EmptyState(
             SparklesIcon(androidx.compose.ui.graphics.Color.White, Modifier.size(28.dp))
         }
         Spacer(Modifier.height(14.dp))
-        Text("아직 만든 코스가 없습니다", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+        Text(tr("아직 만든 코스가 없습니다"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
         Spacer(Modifier.height(4.dp))
         Text(
-            "보고 싶은 작품과 기간만 고르면,\n촬영지를 이어서 일차별 일정으로 짜 드립니다",
+            tr("보고 싶은 작품과 기간만 고르면,\n촬영지를 이어서 일차별 일정으로 짜 드립니다"),
             fontSize = 15.sp,
             color = IOS.secondaryLabel,
             textAlign = TextAlign.Center,
@@ -236,7 +243,7 @@ private fun EmptyState(
         ) {
             SparklesIcon(androidx.compose.ui.graphics.Color.White, Modifier.size(16.dp))
             Text(
-                "AI 로 여정 짜기",
+                tr("AI 로 여정 짜기"),
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = androidx.compose.ui.graphics.Color.White,
@@ -246,7 +253,7 @@ private fun EmptyState(
         // iOS `.buttonStyle(.bordered)`의 기본 칠은 회색 바탕 + 강조색 글자다 —
         // 옅은 파란 바탕에 검정 글자였던 것을 그 조합으로 맞춘다.
         Text(
-            "직접 짜기",
+            tr("직접 짜기"),
             fontSize = 17.sp,
             fontWeight = FontWeight.Medium,
             color = IOS.accent,
@@ -276,9 +283,9 @@ private fun CourseList(
         CourseRow(course, onOpen, onDelete)
         if (confirmingId == course.id) {
             IOSConfirmPopover(
-                title = "「${course.title}」을 지울까요?",
-                message = "되돌릴 수 없습니다.",
-                actions = listOf(IOSAction("삭제", IOSRole.DESTRUCTIVE, onConfirmDelete)),
+                title = tr("「%s」을 지울까요?").format(course.title),
+                message = tr("되돌릴 수 없습니다."),
+                actions = listOf(IOSAction(tr("삭제"), IOSRole.DESTRUCTIVE, onConfirmDelete)),
                 anchorX = 0.dp,
                 onDismiss = onCancelDelete,
                 below = true,
@@ -289,14 +296,14 @@ private fun CourseList(
     val planned = store.courses.filter { it.status != CourseStatus.active }
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
         if (running.isNotEmpty()) {
-            item { SectionHeader("여행 중 ${running.size}") }
+            item { SectionHeader(tr("여행 중 %d").format(running.size)) }
             items(running, key = { it.id }) { course -> Box { row(course) } }
         }
-        item { SectionHeader("예정 ${planned.size}") }
+        item { SectionHeader(tr("예정 %d").format(planned.size)) }
         if (planned.isEmpty()) {
             item {
                 Text(
-                    if (running.isEmpty()) "아직 만든 코스가 없습니다" else "모든 코스가 여행 중이에요",
+                    if (running.isEmpty()) tr("아직 만든 코스가 없습니다") else tr("모든 코스가 여행 중이에요"),
                     fontSize = 12.sp,
                     color = IOS.secondaryLabel,
                     modifier = Modifier.padding(vertical = 8.dp),
@@ -353,7 +360,7 @@ private fun CourseRow(
                     tint = androidx.compose.ui.graphics.Color.White,
                     modifier = Modifier.size(16.dp),
                 )
-                Text("삭제", fontSize = 15.sp, color = androidx.compose.ui.graphics.Color.White)
+                Text(tr("삭제"), fontSize = 15.sp, color = androidx.compose.ui.graphics.Color.White)
             }
         },
     ) {
@@ -397,10 +404,10 @@ private fun ForkSheet(
                         .clip(RoundedCornerShape(50))
                         .background(IOS.systemGray3),
             )
-            Text("코스를 어떻게 만들까요?", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Text(tr("코스를 어떻게 만들까요?"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
             Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ForkCard(title = "AI 로 짜기", caption = "기간·작품만 고르면 동선까지 짜 드립니다", onClick = onAI) { SparklesIcon(IOS.accent, it) }
-                ForkCard(title = "직접 짜기", caption = "장바구니에서 하나씩 담습니다", onClick = onManual) { HandDrawIcon(IOS.accent, it) }
+                ForkCard(title = tr("AI 로 짜기"), caption = tr("기간·작품만 고르면 동선까지 짜 드립니다"), onClick = onAI) { SparklesIcon(IOS.accent, it) }
+                ForkCard(title = tr("직접 짜기"), caption = tr("장바구니에서 하나씩 담습니다"), onClick = onManual) { HandDrawIcon(IOS.accent, it) }
             }
         }
     }

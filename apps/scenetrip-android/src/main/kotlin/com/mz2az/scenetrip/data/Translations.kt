@@ -5,6 +5,17 @@
 // that also gets passed through String.format.
 package com.mz2az.scenetrip.data
 
+/**
+ * Android 에만 있는 문구 — iOS 쪽이 시스템이 대신 번역해 주는 자리(예:
+ * `ContentUnavailableView.search`)라 iOS 소스에 대응하는 한국어 원문 자체가 없다.
+ * 재생성 스크립트가 덮어쓰지 않도록 따로 둔다.
+ */
+private val TRANSLATIONS_EN_EXTRA: Map<String, String> =
+    mapOf(
+        "‘%s’에 대한 결과 없음" to "No results for “%s”",
+        "철자를 확인하거나 새로운 검색을 시도하십시오." to "Check the spelling or try a new search.",
+    )
+
 /** 한국어 원문(Kotlin 형식 지정자로) -> English. 자리 구분은 "원문|자리". */
 internal val TRANSLATIONS_EN: Map<String, String> =
     mapOf(
@@ -421,4 +432,4 @@ internal val TRANSLATIONS_EN: Map<String, String> =
         "다녀온 코스와 사진으로 첫 후기를 남겨 보세요" to "Share your first review with your course and photos",
         "외 %d곳" to "+%d more",
         "장소 모두 보기" to "Show all places",
-    )
+    ) + TRANSLATIONS_EN_EXTRA
