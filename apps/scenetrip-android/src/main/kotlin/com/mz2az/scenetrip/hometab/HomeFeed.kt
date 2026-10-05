@@ -86,7 +86,7 @@ private fun CommunityPostRow(
     ) {
         val tone = communityBadgeTone(post.board)
         Text(
-            post.board.label,
+            tr(post.board.label),
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = tone,
