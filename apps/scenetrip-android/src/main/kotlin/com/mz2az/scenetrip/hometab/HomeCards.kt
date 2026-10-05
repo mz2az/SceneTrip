@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.R
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
@@ -66,7 +67,7 @@ internal fun Modifier.homeCard(radius: Dp = 18.dp): Modifier =
 /** "N박 (N+1)일" — 당일치기면 그 말 그대로. iOS `RouteSpan(days:).label`. */
 internal fun courseSpanLabel(dayCount: Int): String {
     val nights = (dayCount - 1).coerceAtLeast(0)
-    return if (nights == 0) "당일치기" else "${nights}박 ${nights + 1}일"
+    return if (nights == 0) tr("당일치기") else tr("%d박 %d일").format(nights, nights + 1)
 }
 
 /** 절 머리줄 — 제목 · 흐린 부제 · 오른쪽 파란 링크. 홈의 절이 전부 이 모양이다. */
@@ -118,8 +119,8 @@ fun HomeHeader(onProfile: () -> Unit) {
             modifier = Modifier.size(width = 44.dp, height = 38.dp),
         )
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text("해태가 기다렸어요", fontSize = 13.sp, color = IOS.secondaryLabel)
-            Text("오늘은 어느 장면으로 갈까요?", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+            Text(tr("해태가 기다렸어요"), fontSize = 13.sp, color = IOS.secondaryLabel)
+            Text(tr("오늘은 어느 장면으로 갈까요?"), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = IOS.label)
         }
         Spacer(Modifier.weight(1f))
         Box(
@@ -240,7 +241,7 @@ fun HomeTripCard(
 
             loading -> {
                 Text(
-                    "내 여행을 불러오는 중…",
+                    tr("내 여행을 불러오는 중…"),
                     fontSize = 14.sp,
                     color = Color.White.copy(alpha = 0.9f),
                     modifier = Modifier.fillMaxWidth().height(72.dp),
@@ -272,7 +273,7 @@ private fun HomeTripCardFilled(
             }
         }
         Text(
-            if (running) "여행 중" else "예정",
+            if (running) tr("여행 중") else tr("예정"),
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
@@ -283,7 +284,7 @@ private fun HomeTripCardFilled(
                     .padding(horizontal = 9.dp, vertical = 3.dp),
         )
         Text(
-            "${courseSpanLabel(trip.course.dayCount)} · ${trip.course.placeCount}곳",
+            "${courseSpanLabel(trip.course.dayCount)} · ${tr("%d곳").format(trip.course.placeCount)}",
             fontSize = 12.sp,
             color = Color.White.copy(alpha = 0.85f),
         )
@@ -314,12 +315,17 @@ private fun HomeTripCardFilled(
                         .background(Color.White),
             )
         }
-        Text("스탬프 ${trip.visited}/${trip.total}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+        Text(
+            tr("스탬프 %d/%d").format(trip.visited, trip.total),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+        )
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val canNavigate = trip.nextStop != null
         Text(
-            "이어서 길찾기",
+            tr("이어서 길찾기"),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             color = HOME_PURPLE.copy(alpha = if (canNavigate) 1f else 0.6f),
@@ -333,7 +339,7 @@ private fun HomeTripCardFilled(
                     .padding(vertical = 10.dp),
         )
         Text(
-            "코스 보기",
+            tr("코스 보기"),
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color.White,
@@ -353,7 +359,7 @@ private fun HomeTripCardEmpty(
     onCreate: () -> Unit,
 ) {
     Text(
-        if (hasCourses) "코스" else "첫 여행",
+        if (hasCourses) tr("코스") else tr("첫 여행"),
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
         color = Color.White,
@@ -363,14 +369,14 @@ private fun HomeTripCardEmpty(
                 .background(Color.White.copy(alpha = 0.22f))
                 .padding(horizontal = 9.dp, vertical = 3.dp),
     )
-    Text("여행을 시작해 볼까요?", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+    Text(tr("여행을 시작해 볼까요?"), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
     Text(
-        "보고 싶은 작품과 기간만 고르면 촬영지를 이어서 일정으로 짜 드립니다",
+        tr("보고 싶은 작품과 기간만 고르면 촬영지를 이어서 일정으로 짜 드립니다"),
         fontSize = 13.sp,
         color = Color.White.copy(alpha = 0.9f),
     )
     Text(
-        "코스 만들기",
+        tr("코스 만들기"),
         fontSize = 14.sp,
         fontWeight = FontWeight.Bold,
         color = HOME_PURPLE,
@@ -394,10 +400,10 @@ fun HomeWorkShelf(
     onAll: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        HomeSectionHeader("지금 뜨는 작품", subtitle = "촬영지가 많은 순", action = "전체 보기", onAction = onAll)
+        HomeSectionHeader(tr("지금 뜨는 작품"), subtitle = tr("촬영지가 많은 순"), action = tr("전체 보기"), onAction = onAll)
         if (failed) {
             Text(
-                "작품을 불러오지 못했습니다 — 백엔드(:8081)가 켜져 있나요?",
+                tr("작품을 불러오지 못했습니다 — 백엔드(:8081)가 켜져 있나요?"),
                 style = IOS.footnote,
                 color = IOS.secondaryLabel,
                 modifier = Modifier.padding(horizontal = 20.dp),
@@ -447,7 +453,7 @@ private fun WorkPoster(
                 modifier = Modifier.align(Alignment.BottomStart).padding(10.dp),
             )
         }
-        Text("촬영지 ${work.placeCount}곳", fontSize = 11.sp, color = IOS.secondaryLabel)
+        Text(tr("촬영지 %d곳").format(work.placeCount), fontSize = 11.sp, color = IOS.secondaryLabel)
     }
 }
 
@@ -460,7 +466,7 @@ fun HomeTodayCard(
     onSave: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        HomeSectionHeader("오늘의 성지", subtitle = "매일 한 장면")
+        HomeSectionHeader(tr("오늘의 성지"), subtitle = tr("매일 한 장면"))
         Column(
             modifier =
                 Modifier
@@ -516,7 +522,7 @@ fun HomeTodayCard(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     MapPinEllipseIcon(IOS.pinDeep, Modifier.size(13.dp))
                     Text(
-                        place.address ?: "주소 없음",
+                        place.address ?: tr("주소 없음"),
                         fontSize = 12.sp,
                         color = IOS.secondaryLabel,
                         maxLines = 1,
@@ -533,7 +539,7 @@ fun HomeTodayCard(
                             CircleSignIcon(plus = true, tint = IOS.accent, modifier = Modifier.size(13.dp))
                         }
                         Text(
-                            if (saved) "담김" else "담기",
+                            if (saved) tr("담김") else tr("담기"),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (saved) IOS.pinDeep else IOS.accent,

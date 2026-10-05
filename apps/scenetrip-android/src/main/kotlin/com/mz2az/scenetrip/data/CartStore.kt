@@ -59,7 +59,7 @@ class CartStore(
             refresh()
         }.onFailure {
             // 계약이 409 에 "이미 저장된 장소입니다" 를 띄우라고 적어 뒀다.
-            toast = "이미 담긴 장소입니다"
+            toast = tr("이미 저장된 장소입니다")
         }
     }
 

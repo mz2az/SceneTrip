@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.VisitStamp
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.SheetDetent
@@ -49,16 +50,16 @@ private fun StampsSheetBody(
     onClose: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
-        ProfileSheetHeader("방문 스탬프", onClose)
+        ProfileSheetHeader(tr("방문 스탬프"), onClose)
         if (stamps.isEmpty()) {
             Column(
                 modifier = Modifier.fillMaxSize().padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text("아직 스탬프가 없습니다", style = IOS.headline, color = IOS.secondaryLabel)
+                Text(tr("아직 스탬프가 없습니다"), style = IOS.headline, color = IOS.secondaryLabel)
                 Text(
-                    "여행 중 성지 100m 안에 들어가면 저절로 찍혀요",
+                    tr("여행 중 성지 100 m 안에 들어가면 저절로 찍혀요"),
                     style = IOS.footnote,
                     color = IOS.tertiaryLabel,
                     textAlign = TextAlign.Center,

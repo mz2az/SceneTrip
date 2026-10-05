@@ -48,6 +48,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.analytics.AppEvent
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceDetail
@@ -86,7 +87,7 @@ fun ContentDetailView(
     // "출연: 이름, 이름, …" — 넷까지만. iOS 와 같은 문구·같은 개수다.
     val castLine =
         detail?.cast.orEmpty().map { it.name }.let {
-            if (it.isEmpty()) "" else "출연: " + it.take(4).joinToString(", ")
+            if (it.isEmpty()) "" else tr("출연: ") + it.take(4).joinToString(", ")
         }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -126,15 +127,15 @@ fun ContentDetailView(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(horizontal = IOS.gutter, vertical = 14.dp),
                 ) {
-                    Text("촬영지", style = IOS.headline, color = IOS.label)
-                    Text("${summary.placeCount}곳", style = IOS.caption, color = IOS.secondaryLabel)
+                    Text(tr("촬영지"), style = IOS.headline, color = IOS.label)
+                    Text(tr("%d곳").format(summary.placeCount), style = IOS.caption, color = IOS.secondaryLabel)
                 }
             }
 
             if (loading || places.isEmpty()) {
                 item {
                     Text(
-                        text = if (loading) "" else "촬영지를 불러오지 못했습니다",
+                        text = if (loading) "" else tr("촬영지를 불러오지 못했습니다"),
                         style = IOS.caption,
                         color = IOS.secondaryLabel,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp),
@@ -259,7 +260,7 @@ fun PlaceDetailView(
                                     BagPlusIcon(IOS.systemBackground, Modifier.size(17.dp))
                                 }
                                 Text(
-                                    text = if (saved) "담김 · 누르면 빼기" else "장바구니에 담기",
+                                    text = if (saved) tr("담김 · 누르면 빼기") else tr("장바구니에 담기"),
                                     style = IOS.subheadlineSemibold,
                                     color = IOS.systemBackground,
                                 )
@@ -285,7 +286,7 @@ fun PlaceDetailView(
                                     // 화살표이고, 밖으로 나간다는 표시다.
                                     ExternalLinkIcon(IOS.accent, Modifier.size(15.dp))
                                     Text(
-                                        text = "네이버 지도",
+                                        text = tr("네이버 지도"),
                                         style = IOS.subheadlineSemibold,
                                         color = IOS.accent,
                                     )
@@ -304,9 +305,9 @@ fun PlaceDetailView(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(horizontal = IOS.gutter).padding(top = 18.dp, bottom = 12.dp),
                     ) {
-                        Text("이 장소의 장면", style = IOS.headline, color = IOS.label)
+                        Text(tr("이 장소의 장면"), style = IOS.headline, color = IOS.label)
                         Text(
-                            text = "${scenes.size}개 작품이 이곳에서 촬영",
+                            text = tr("%d개 작품이 이곳에서 촬영").format(scenes.size),
                             style = IOS.caption,
                             color = IOS.secondaryLabel,
                         )
@@ -377,7 +378,7 @@ private fun SceneCard(
                 color = IOS.accent,
             )
             Text(
-                text = scene.sceneDescription ?: "장면 설명이 아직 없습니다",
+                text = scene.sceneDescription ?: tr("장면 설명이 아직 없습니다"),
                 style = IOS.subheadline,
                 color = if (scene.sceneDescription == null) IOS.secondaryLabel else IOS.label,
                 maxLines = 2,
@@ -471,7 +472,7 @@ fun ScenePopup(
                         ) {
                             Icon(
                                 Icons.Filled.Close,
-                                contentDescription = "닫기",
+                                contentDescription = tr("닫기"),
                                 tint = IOS.systemBackground,
                                 modifier = Modifier.size(14.dp),
                             )

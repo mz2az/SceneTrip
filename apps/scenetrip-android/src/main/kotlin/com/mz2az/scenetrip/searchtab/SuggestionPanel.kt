@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
 import com.mz2az.scenetrip.sceneapi.client.model.EntityType
 import com.mz2az.scenetrip.sceneapi.client.model.Suggestion
@@ -86,7 +87,7 @@ fun SuggestionPanel(
                 .background(IOS.systemBackground),
     ) {
         if (draft.isEmpty()) {
-            SectionLabel("추천 검색어")
+            SectionLabel(tr("추천 검색어"))
             // 글자만 두면 **고른 것이 장소인지 작품인지 알 수 없어** 늘 작품 탭이
             // 열렸다(iOS 실측: 북촌한옥마을을 눌러도 작품 탭). 갈래를 함께 넘긴다.
             RECOMMENDED.forEach { (term, type) ->
@@ -109,7 +110,7 @@ fun SuggestionPanel(
         // 총높이를 여기서 붙든다. 나머지 장소는 연관 검색어 칩으로도 닿는다.
         val placeItems = suggestions.filter { it.type == EntityType.place }.take(3)
         if (placeItems.isNotEmpty()) {
-            SectionLabel("장소")
+            SectionLabel(tr("장소"))
             placeItems.forEach { item ->
                 SuggestRow(
                     type = EntityType.place,
@@ -122,7 +123,7 @@ fun SuggestionPanel(
         }
 
         if (suggestions.isNotEmpty()) {
-            SectionLabel("연관 검색어")
+            SectionLabel(tr("연관 검색어"))
             LazyRow(
                 contentPadding = PaddingValues(horizontal = IOS.gutter),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -324,7 +325,7 @@ fun DetailHeader(
     ) {
         Icon(
             Icons.Filled.KeyboardArrowLeft,
-            contentDescription = "뒤로",
+            contentDescription = tr("뒤로"),
             // iOS 는 이 화살표를 검정으로 그린다(실측). 강조색이 아니다.
             tint = IOS.label,
             modifier = Modifier.clip(CircleShape).clickable(onClick = onBack).size(28.dp),

@@ -14,14 +14,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.AppLocale
 import com.mz2az.scenetrip.data.OnboardingFlag
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.onboarding.LanguagePickView
 import com.mz2az.scenetrip.onboarding.OnboardingView
 import com.mz2az.scenetrip.onboarding.SplashView
 import com.mz2az.scenetrip.ui.IOS
@@ -59,6 +63,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        // 앱이 쓰는 API 클라이언트가 **처음 만들어지기 전에** 언어를 읽고
+        // Accept-Language 인터셉터를 달아야 한다(MZ2AZ-343) — 늦으면 끼울 자리가
+        // 굳어 버린다(`ApiClient.defaultClient`는 `by lazy`).
+        val language = AppLanguage.getInstance(this)
+        AppLocale.install()
+
         // 확인용 뒷문 — iOS `simctl launch … -initialTab profile`과 짝이다.
         // `adb shell am start -n com.mz2az.scenetrip/.MainActivity -e initialTab route
         // --el openCourseId 26` 처럼 부른다. 인자가 없으면 기본값(홈)을 그대로 둔다.
@@ -68,9 +78,9 @@ class MainActivity : ComponentActivity() {
         )
 
         // 앱 분석 — 설정 파일(res/raw/google_services.json)이 있고 SDK 의존성이 붙어 있을
-        // 때만 켜진다 (MZ2AZ-353). iOS 는 여기서 AppLanguage.current·AuthStore.signedIn 을
-        // 읽어 넘기지만, 그 둘이 아직 main 에 없어(MZ2AZ-343·MZ2AZ-336 병합 대기) 고정값을 쓴다.
-        AppAnalytics.start(context = this, language = "ko", member = false)
+        // 때만 켜진다 (MZ2AZ-353). `member`는 AuthStore 가 main 에 없어(MZ2AZ-336 병합
+        // 대기) 아직 고정값이다.
+        AppAnalytics.start(context = this, language = language.lang.value, member = false)
 
         setContent { SceneTripApp() }
     }
@@ -95,7 +105,7 @@ fun SceneTripApp() {
 }
 
 /** 앱을 열었을 때의 순서. iOS `Onboarding/AppRoot.swift`를 옮긴 것이다. */
-private enum class AppStage { SPLASH, LESSONS, APP }
+private enum class AppStage { SPLASH, LANGUAGE, LESSONS, APP }
 
 /**
  * 진짜 앱은 처음부터 아래에 깔려 있다.
@@ -109,10 +119,17 @@ private enum class AppStage { SPLASH, LESSONS, APP }
 private fun AppRoot() {
     val context = LocalContext.current
     val onboardingFlag = remember { OnboardingFlag(context) }
+    val language = remember(context) { AppLanguage.getInstance(context) }
     var stage by remember { mutableStateOf(AppStage.SPLASH) }
 
+    val afterLanguage = if (onboardingFlag.hasSeen) AppStage.APP else AppStage.LESSONS
+
     Box(modifier = Modifier.fillMaxSize()) {
-        RootTabs()
+        // 언어가 바뀌면 화면을 통째로 다시 만든다 — 서버 내용도 그 언어로 다시
+        // 받아야 한다(iOS `RootTabs().id(language.lang)`).
+        key(language.lang) {
+            RootTabs()
+        }
 
         // 들어올 때는 애니메이션이 없어야 한다 — 그냥 페이드로 두면 앱을 연 첫
         // 0.32초 동안 스플래시가 서서히 나타나면서 밑에 깔린 흰 화면이 비친다
@@ -124,9 +141,18 @@ private fun AppRoot() {
         ) {
             SplashView(
                 onDone = {
-                    stage = if (onboardingFlag.hasSeen) AppStage.APP else AppStage.LESSONS
+                    // 언어를 고른 적이 없으면 사용법보다 먼저 묻는다 (MZ2AZ-343).
+                    stage = if (language.hasChosen) afterLanguage else AppStage.LANGUAGE
                 },
             )
+        }
+
+        AnimatedVisibility(
+            visible = stage == AppStage.LANGUAGE,
+            enter = EnterTransition.None,
+            exit = fadeOut(tween(320)),
+        ) {
+            LanguagePickView(onDone = { stage = afterLanguage })
         }
 
         AnimatedVisibility(

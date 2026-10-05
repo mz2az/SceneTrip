@@ -33,7 +33,7 @@ flowchart LR
 | 이벤트 | 언제 | 매개변수 | 구현(iOS) | 구현(Android) |
 | --- | --- | --- | --- | --- |
 | `first_open` ★ | 설치 뒤 첫 실행 | (SDK 가 자동으로) | — | — |
-| `select_language` | 언어를 골랐다(첫 실행·마이페이지) | `language` | `AppLanguage.choose` | 미연결 — `AppLanguage`가 main 에 없다(MZ2AZ-343 병합 대기) |
+| `select_language` | 언어를 골랐다(첫 실행·마이페이지) | `language` | `AppLanguage.choose` | `AppLanguage.choose` |
 | `tutorial_begin` ★ | 사용법 첫 장이 보였다 | — | `OnboardingView` | `OnboardingView` |
 | `tutorial_complete` ★ | 사용법을 끝냈다(건너뛰기 포함) | — | `OnboardingView.finish` | `OnboardingView.finish` |
 | `sign_up` ★ | 이 구글 계정으로 처음 로그인(가입) | `method` = `google` | `AuthStore.signInWithGoogle` | 미연결 — `AuthStore`가 main 에 없다(MZ2AZ-336 병합 대기) |
@@ -52,7 +52,7 @@ flowchart LR
 | `get_directions` | 길찾기를 불렀다 | — | `TripSession` | `TripSession.fetchLeg` |
 | `visit_stamp` | 성지에 도착해 도장이 찍혔다 | `place_id` | `TripSession.arriveNow` | `TripSession.markArrived` / `checkArrival`(둘 다 도착 판정이라 각각 기록) |
 | `ask_guide` | 가이드 챗봇에 물었다 | — | `RouteGuide` | `RouteGuideSession.ask` |
-| `post_review` | 여행후기를 올렸다 | `photo_count`, `has_course`(1·0) | `CommunityStore.add` | `CommunityStore.add`(지금 Android 글쓰기에 사진이 없어 `photo_count`는 늘 0) |
+| `post_review` | 여행후기를 올렸다 | `photo_count`, `has_course`(1·0) | `CommunityStore.add` | `CommunityStore.add` |
 
 - **자동 화면 기록은 끈다.** Firebase 는 화면이 바뀔 때 `screen_view` 를 제 손으로도 보낸다 — 알림창·시트가 뜰 때마다 이름 없는 것이 섞인다. 우리는 이름을 붙여 직접 보내므로 끈다(iOS `Info.plist` 의 `FirebaseAutomaticScreenReportingEnabled = false`, Android 는 매니페스트의 `google_analytics_automatic_screen_reporting_enabled = false`)
 - **매개변수 이름에 `origin` 을 쓰지 않는다.** Firebase 가 모든 이벤트에 제 `origin`(app·auto)을 붙여 겹친다 — 그래서 `course_origin` 이다
@@ -100,7 +100,7 @@ DebugView 수신과 기기 로그(「Logging event」, 업로드 204)로 확인�
 
 ## 7. 남은 것
 
-- `select_language`·`sign_up`·`login`·`logout`·`delete_account`는 Android 쪽 `AppLanguage`·`AuthStore`가 아직 main 에 없어(각각 MZ2AZ-343·MZ2AZ-336 병합 대기) 연결하지 못했다. 병합되면 이어서 연결한다
+- `sign_up`·`login`·`logout`·`delete_account`는 Android 쪽 `AuthStore`가 아직 main 에 없어(MZ2AZ-336 병합 대기) 연결하지 못했다. `select_language`는 MZ2AZ-343 이 main 에 들어오며 연결했다
 - UTM — 스토어 등록과 랜딩 링크가 정해진 뒤(설치 출처는 Android 는 Play Install Referrer, iOS 는 App Store 캠페인 링크)
 - GA4 에서 `create_course` 를 주요 이벤트(전환)로 표시, 퍼널·코호트 보고서 만들기(대시보드)
 - 광고 집행을 정하면: 광고 식별자·동의 창, 구글 광고 연결

@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.DisableDialogDim
@@ -108,12 +109,12 @@ private fun CartContent(
             modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
         ) {
             Text(
-                text = if (items.isEmpty()) "장바구니" else "장바구니 ${items.size}곳",
+                text = if (items.isEmpty()) tr("장바구니") else tr("장바구니 %d곳").format(items.size),
                 style = IOS.headline,
                 color = IOS.label,
             )
             Text(
-                text = "닫기",
+                text = tr("닫기"),
                 style = IOS.body,
                 // iOS 는 이 글자를 검정으로 그린다(실측). 강조색이 아니다.
                 color = IOS.label,
@@ -127,7 +128,7 @@ private fun CartContent(
         }
         // iOS inline 머리줄은 아래 선이 없다(2차 대조) — 빈 상태도 ContentUnavailableView(가방).
         if (items.isEmpty()) {
-            IOSEmptyState("담은 장소가 없습니다", "장소를 저장하면 여기에 모입니다") { BagIcon(IOS.secondaryLabel, it) }
+            IOSEmptyState(tr("담은 장소가 없습니다"), tr("장소를 저장하면 여기에 모입니다")) { BagIcon(IOS.secondaryLabel, it) }
         } else {
             LazyColumn(modifier = Modifier.weight(1f)) {
                 itemsIndexed(items, key = { _, item -> item.placeId }) { index, item ->
@@ -195,7 +196,7 @@ private fun CartRow(
 
         Icon(
             Icons.Filled.Delete,
-            contentDescription = "빼기",
+            contentDescription = tr("빼기"),
             tint = IOS.secondaryLabel,
             modifier = Modifier.clip(CircleShape).clickable(onClick = onRemove).size(22.dp),
         )

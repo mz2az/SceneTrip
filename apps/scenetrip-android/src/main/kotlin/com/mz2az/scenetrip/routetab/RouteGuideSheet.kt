@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.R
 import com.mz2az.scenetrip.data.RoutePoiTone
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.CircleSignIcon
@@ -125,7 +126,7 @@ fun RouteGuideFloatingChip(
                 }.clickable(onClick = onTap),
     ) {
         Text(
-            "내가 도와줄게!",
+            tr("내가 도와줄게!"),
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             color = IOS.pinDeep,
@@ -156,7 +157,7 @@ fun RouteGuideFloatingChip(
         ) {
             androidx.compose.foundation.Image(
                 painter = painterResource(R.drawable.haetae_face),
-                contentDescription = "여행 가이드",
+                contentDescription = tr("여행 가이드"),
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -206,7 +207,7 @@ fun RouteGuidePanel(
             ) {
                 Box(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 6.dp)) {
                     Text(
-                        "여행 가이드",
+                        tr("여행 가이드"),
                         fontSize = 17.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = IOS.label,
@@ -227,14 +228,14 @@ fun RouteGuidePanel(
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Text(
-                            "현재 위치를 알 수 없습니다",
+                            tr("현재 위치를 알 수 없습니다"),
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             color = IOS.label,
                             textAlign = TextAlign.Center,
                         )
                         Text(
-                            "위치 권한을 켜면 주변 장소를 찾아 드립니다",
+                            tr("위치 권한을 켜면 주변 장소를 찾아 드립니다"),
                             fontSize = 15.sp,
                             color = IOS.secondaryLabel,
                             textAlign = TextAlign.Center,
@@ -258,7 +259,7 @@ fun RouteGuidePanel(
 }
 
 /** iOS `examples` — 되는 질문 하나만 둔다(안 되는 예시는 첫인상에서 신뢰를 깎는다). */
-private val GUIDE_EXAMPLES = listOf("주변 음식점 알려줘")
+private val GUIDE_EXAMPLES get() = listOf(tr("주변 음식점 알려줘"))
 
 @Composable
 private fun GuideConversation(
@@ -285,8 +286,8 @@ private fun GuideConversation(
         if (session.isEmpty) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("무엇을 도와드릴까요?", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-                    Text("지금 있는 자리를 기준으로 주변을 찾아 드립니다.", fontSize = 12.sp, color = IOS.secondaryLabel)
+                    Text(tr("무엇을 도와드릴까요?"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                    Text(tr("지금 있는 자리를 기준으로 주변을 찾아 드립니다."), fontSize = 12.sp, color = IOS.secondaryLabel)
                     GUIDE_EXAMPLES.forEach { example ->
                         Text(
                             example,
@@ -353,7 +354,7 @@ private fun GuideConversation(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
                     // 몇 초 걸리는지 미리 말한다. 안 그러면 멈춘 줄 안다(실측 9~57초).
-                    Text("찾는 중입니다… 10초쯤 걸립니다", fontSize = 12.sp, color = IOS.secondaryLabel)
+                    Text(tr("찾는 중입니다… 10초쯤 걸립니다"), fontSize = 12.sp, color = IOS.secondaryLabel)
                 }
             }
         }
@@ -407,7 +408,7 @@ private fun GuidePlaceRow(
         if (added) {
             Icon(
                 Icons.Filled.CheckCircle,
-                contentDescription = "담김 · 누르면 빼기",
+                contentDescription = tr("담김 · 누르면 빼기"),
                 tint = IOS.secondaryLabel,
                 modifier = Modifier.size(17.dp).clickable(onClick = onRemove),
             )
@@ -452,7 +453,7 @@ private fun GuideComposer(
                     .background(IOS.systemGray6)
                     .padding(horizontal = 12.dp, vertical = 9.dp),
         ) {
-            if (draft.isEmpty()) Text("주변에 무엇을 찾으세요?", fontSize = 17.sp, color = IOS.tertiaryLabel, maxLines = 1)
+            if (draft.isEmpty()) Text(tr("주변에 무엇을 찾으세요?"), fontSize = 17.sp, color = IOS.tertiaryLabel, maxLines = 1)
             BasicTextField(
                 value = draft,
                 onValueChange = { draft = it },
