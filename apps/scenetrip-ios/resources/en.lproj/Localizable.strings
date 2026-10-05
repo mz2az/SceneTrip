@@ -21,13 +21,11 @@
 "%d시간" = "%d hr";
 "%d시간 %d분" = "%d hr %d min";
 "%d일" = "%d-day";
-"%d일 · %d곳" = "%d days · %d places";
 "%d일차" = "Day %d";
 "%d일차에서 뺀 곳 · %@ — %@" = "Day %d: Removed · %@ — %@";
 "%lld개 작품이 이곳에서 촬영" = "Titles filmed here: %lld";
 "%lld곳" = "%lld places";
 "%lld번으로 길찾기" = "Directions to #%lld";
-"%lld일 · %lld곳" = "%lld days · %lld places";
 "%lld일차" = "Day %lld";
 "%lld일차에 담은 장소를 먼저 빼 주세요" = "Remove the places in Day %lld first";
 "2호선 · 6개 역" = "Line 2 · 6 stops";
@@ -46,7 +44,6 @@
 "가는 길에 먹고,\n막히면 물어보세요" = "Eat on the way.\nAsk when you are stuck.";
 "가이드 요청을 처리하지 못했어요 (%d)" = "Couldn't process the Guide request (%d)";
 "가이드가 잠시 응답하지 않아요. 잠시 뒤 다시 물어봐 주세요" = "The Guide isn't responding right now. Ask again in a moment";
-"가입이 필요합니다" = "Sign-up required";
 "갈래" = "Category";
 "거리·다리" = "Streets & bridges";
 "거리는 직선 어림이에요 — 실제 길은 더 길 수 있어요" = "Distances are straight-line estimates — actual routes may be longer";
@@ -88,7 +85,6 @@
 "내 위치" = "My location";
 "내 코스" = "My courses";
 "내 코스 붙이기" = "Attach my course";
-"내 코스로 담기" = "Save to My courses";
 "내가 도와줄게!" = "I can help!";
 "내가 쓴 글" = "My posts";
 "내가 찍은 곳" = "My pin";
@@ -111,8 +107,6 @@
 "담기" = "Save";
 "담기 %d|저장 수" = "%d saves";
 "담기 %lld" = "Add %lld";
-"담기 많은 순" = "Most saved";
-"담기는 경로여정 탭에서" = "Add places from Courses";
 "담김" = "Saved";
 "담김 · 누르면 빼기" = "Saved · Tap to remove";
 "담아 둔 장바구니·코스·찜이 계정에 저장돼요.\n다른 기기에서도 그대로 이어집니다." = "Your saved places, courses and likes are kept in your account.\nPick up where you left off on any device.";
@@ -204,7 +198,6 @@
 "아직 만든 코스가 없습니다" = "No courses yet";
 "아직 스탬프가 없습니다" = "No stamps yet";
 "아직 쓴 글이 없습니다" = "No posts yet";
-"아직 올라온 코스가 없습니다" = "No courses shared yet";
 "아직 채우는 중이에요 — 잠시 뒤 다시 열어 주세요" = "Still loading details — open again in a moment";
 "아직 코스가 없습니다" = "No courses yet";
 "안 붙임" = "None";
@@ -262,7 +255,6 @@
 "이렇게 짜 드립니다" = "Here's the plan";
 "이름" = "Name";
 "이름 없는 장소" = "Unnamed place";
-"이름과 정렬 기준이 아직 정해지지 않은 화면입니다" = "This screen's name and sort order aren't final yet";
 "이미 목적지에 있어요" = "You're already there";
 "이미 저장된 장소입니다" = "Already saved";
 "이어서 길찾기" = "Continue directions";
@@ -271,7 +263,6 @@
 "인기 작품 %d" = "Top titles %d";
 "인기 장소 %d" = "Top places %d";
 "인기 촬영지 %@" = "Popular filming locations %@";
-"인기 코스" = "Popular courses";
 "인스타그램에 올릴 15초 릴스를 만들어 드릴 예정이에요" = "and makes a 15-second reel for Instagram";
 "인증샷" = "Photos";
 "일정을 받아오는 중입니다" = "Loading itinerary…";
@@ -289,7 +280,6 @@
 "작품검색 탭에서 하트를 눌러 보세요" = "Tap the heart on a title in the Search tab";
 "작품을 불러오지 못했습니다 — 백엔드(:8081)가 켜져 있나요?" = "Couldn't load titles — is the backend (:8081) running?";
 "잠시 문제가 생겼습니다." = "Something went wrong.";
-"잠시 후 다시 시도해 주세요." = "Please try again shortly.";
 "장면 설명을 찾는 중입니다" = "Loading scene details…";
 "장면 설명이 아직 없습니다" = "No scene description yet";
 "장면 정보가 아직 없습니다" = "No scene info yet";
@@ -373,8 +363,6 @@
 "코스 추가" = "Add course";
 "코스 추천" = "Courses";
 "코스|화면 제목" = "Courses";
-"코스를 담고 좋아요를 누르려면 가입해야 합니다." = "Sign up to save and like courses.";
-"코스를 만들고 「마켓에 올리기」를 누르면 여기 보입니다" = "Courses shared by travelers will appear here";
 "코스를 시작한 뒤에 길찾기를 쓸 수 있어요" = "Start the course to use directions";
 "코스를 어떻게 만들까요?" = "How do you want to make a course?";
 "탈퇴" = "Delete account";
