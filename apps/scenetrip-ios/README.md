@@ -64,7 +64,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 길찾기 | **편집 화면 안에서 실제 경로가 그려진다** — 계약(`POST /navigation/next-leg`, MZ2AZ-296)을 부른다. 로컬 kind 는 가입벽을 꺼 두어(MZ2AZ-302) 401 이 안 난다. 안 되면 이유가 코드별로 뜬다(`RouteNavFailure`) |
 | 언어 | 앱 언어(ko·en·ja)를 모든 요청의 `Accept-Language` 로 보낸다(`AppLocale`, MZ2AZ-305). 길찾기 안내가 앱 언어와 다르면(일본어 사용자는 영어를 받는다) 그대로 보여 주고 언어 표시만 둔다 |
 | 챗봇(여행 가이드) | **계약 `POST /guide/chat` 을 부른다**(MZ2AZ-321). 백엔드가 에이전트(`agents/trip-guide`, :8899)를 부르므로 그것이 떠 있어야 답이 온다 — 꺼져 있으면 「잠시 뒤 다시」가 뜨는 것이 정상이고, 규칙 기반 답이 나오면 잘못된 것이다. 가입자만(401) |
-| 주변 편의시설 점·정보 카드 | 된다 — `GET /pois`·`/pois/{id}/card` |
+| 주변 편의시설 점·정보 카드 | 된다 — `GET /pois`·`/pois/{id}`(우리 자료). 네이버 카드는 걷어냈다 — 「네이버 지도에서 보기」 링크로 넘긴다 (MZ2AZ-354) |
 | AI 코스 추천(마법사) | **계약 `POST /guide/plan`** — 에이전트의 코스 엔진이 짠다(모델 없음, 키 없어도 됨). 앱 안의 규칙(`RoutePlanner`)은 지웠다 |
 | 찜 | 서버(`/favorites/contents`)가 정본, 기기에는 사본 (MZ2AZ-335) |
 | 로그인 | 구글 로그인·토큰 키체인 저장·401 자동 갱신·로그아웃·탈퇴 (MZ2AZ-336). 애플 로그인은 자리만 |
@@ -160,7 +160,7 @@ navi-proto 의 홈 재편(`cd8debd`)과 편의시설 점을 옮겼다. 홈은 �
 | `HomeTab/HomeTabModel.swift` | 서버 넷을 나란히 — `listContents`·`listPlaces`·코스 상세(스탬프)·내 여행 |
 | `HomeTab/HomeCards.swift` · `HomeFeed.swift` | 카드들. **오늘의 성지는 「담기」** — 코스 없는 길찾기가 계약에 없어(MZ2AZ-313) 장바구니로 잇는다 |
 | `RootTabs.swift` · `Models/TabRouter.swift` | 탭 셋 + 덮개(`cover`: 경로여정·마이페이지) · 쪽지(`pendingCourseId`·`pendingContentId`·`pendingTripStart`) |
-| `RouteTab/RouteGuide.swift` `pois`·`card` | 편의시설 — `PoisAPI.listPois`(bbox+중심, 거리순 30) · `PoisAPI.getPoiCard`(네이버 카드, 데모 한정) |
+| `RouteTab/RouteGuide.swift` `pois`·`card` | 편의시설 — `PoisAPI.listPois`(bbox+중심, 거리순 30) · `PoisAPI.getPoi`(분류·주소·전화). 카드 엔드포인트(`getPoiCard`·`listPoiCards`)는 부르지 않는다 |
 | `RouteTab/RoutePoiTone.swift` `RoutePoiGlyph` | 점의 업종 아이콘(카페·식당·지하철·공항…) · 이름표는 크게 확대했을 때만(`PinoPin.caption`) |
 
 로컬에서 점을 보려면 POI 가 적재돼 있어야 한다 — `just seed-poi`(표본 23행) 또는

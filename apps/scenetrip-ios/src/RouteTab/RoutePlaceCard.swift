@@ -2,19 +2,14 @@ import SwiftUI
 
 /// 핀을 눌렀을 때 뜨는 **정보 카드** (2026-08-27).
 ///
-/// 프로토타입 v6 가 지도 왼쪽 아래에 띄우던 카드를 옮긴 것이다. 사진·영업시간·
-/// 리뷰·별점을 보여 주고, 더 보려면 네이버 앱으로 넘긴다.
+/// 프로토타입 v6 가 지도 왼쪽 아래에 띄우던 카드를 옮긴 것이다. 분류·주소·전화를 보여 주고,
+/// 더 보려면 네이버 지도로 넘긴다.
 ///
-/// ## 왜 앱 안에서 다 보여 주지 않나
+/// ## 우리 자료만 보여 준다 (2026-10-05, MZ2AZ-354)
 ///
-/// 네이버 지도가 가진 것(메뉴판·예약·최신 리뷰 전문)을 우리가 옮겨 담을 수 없고,
-/// 옮겨 담아도 낡는다. **판단에 필요한 만큼만** 보여 주고 나머지는 원본으로 보낸다 —
-/// 별점 4.95 에 리뷰 115건이면 들어갈지 말지는 정해진다.
-///
-/// ## 못 찾는 것도 답이다
-///
-/// 우리 POI 자료는 TMAP 것이라 네이버에 없는 가게가 있다. 그때 빈 카드를 띄우지
-/// 않고 **왜 없는지**를 적는다 — 네이버에 없다고 나쁜 가게가 아니다.
+/// 사진·영업시간·리뷰 수·별점은 서버가 네이버 지도의 비공식 주소를 불러 가져온 것이었다
+/// (ADR 0011 — 데모 한정). 밖에 내보내는 빌드에는 쓸 수 없어 걷어냈다. 메뉴·예약·리뷰는
+/// 「네이버 지도에서 보기」가 **그쪽 화면으로 넘긴다** — 옮겨 담지 않는다.
 struct RoutePlaceCard: View {
     let place: RouteGuide.Place
 
@@ -46,11 +41,11 @@ struct RoutePlaceCard: View {
             if loading {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("네이버에서 찾는 중입니다")
+                    Text("불러오는 중입니다")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 .padding(14)
-            } else if let card, card.found {
+            } else if let card {
                 found(card)
             } else {
                 missing
@@ -90,13 +85,13 @@ struct RoutePlaceCard: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(place.name).font(.headline)
+                Text(place.name).font(.headline).fixedSize(horizontal: false, vertical: true)
                 if let meters = place.distanceMeters {
                     Text("\(meters) m").font(.caption).foregroundStyle(.secondary)
                 }
             }
             Spacer()
-            // **더 보려면 네이버로** — 메뉴·예약·리뷰 전문은 그쪽에 있다.
+            // **더 보려면 네이버로** — 사진·메뉴·예약·리뷰는 그쪽에 있다. 이름으로 검색한 화면을 연다.
             // 맨 아래 큰 단추였는데 이름 옆 아이콘으로 줄였다 — 그 줄이 통째로
             // 빠져야 정보가 한 화면에 다 보인다(2026-08-27 사용자 지적).
             if let link = card?.naverUrl, let url = URL(string: link) {
@@ -104,7 +99,7 @@ struct RoutePlaceCard: View {
                 // 지적) — 원래 아래에 있던 단추를 글자째 줄인 미니 캡슐이다.
                 Link(destination: url) {
                     HStack(spacing: 3) {
-                        Text("네이버 더보기").font(.caption2.weight(.semibold))
+                        Text("네이버 지도에서 보기").font(.caption2.weight(.semibold))
                         Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .semibold))
                     }
                     .padding(.horizontal, 8).padding(.vertical, 5)
@@ -113,6 +108,9 @@ struct RoutePlaceCard: View {
                     )
                     .foregroundStyle(Color(red: 0.02, green: 0.60, blue: 0.28))
                 }
+                // 좁은 카드(가이드 시트 안)에서 글자가 「View on…」으로 잘렸다 — 링크는 제 폭을 지키고
+                // 이름이 줄을 바꾼다.
+                .fixedSize()
             }
             Button(action: onClose) {
                 Image(systemName: "xmark")
@@ -143,13 +141,8 @@ struct RoutePlaceCard: View {
 
         VStack(spacing: 0) {
             row(tr("분류"), card.category)
-            row(tr("영업"), card.hours)
-            row(tr("주소"), card.address ?? place.address)
+            row(tr("주소"), card.address)
             row(tr("전화"), card.phone)
-            row(tr("방문자 리뷰"), card.reviewCount.map { String(format: tr("%d건"), $0) })
-            row(tr("블로그 리뷰"), card.blogReviews.map { String(format: tr("%d건"), $0) })
-            // 별점은 있을 때만. 없는 것을 0.0 으로 적으면 「최악」으로 읽힌다.
-            row(tr("별점"), card.score.map { String(format: "%.2f", $0) })
         }
 
         if let onAdd {
@@ -198,12 +191,11 @@ struct RoutePlaceCard: View {
         Color.clear.frame(height: 14)
     }
 
+    /// 촬영지 상세를 못 받았을 때뿐이다 — 편의시설은 목록이 준 것만으로도 카드가 선다.
     private var missing: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("네이버에서 찾지 못했습니다")
+            Text("정보를 불러오지 못했습니다")
                 .font(.subheadline.weight(.medium))
-            Text(card?.why ?? tr("우리 자료(TMAP)에는 있지만 네이버에 없는 가게일 수 있습니다."))
-                .font(.caption).foregroundStyle(.secondary)
             if let category = place.category {
                 Text(category).font(.caption2).foregroundStyle(.tertiary)
             }
