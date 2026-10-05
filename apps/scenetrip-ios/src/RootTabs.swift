@@ -103,6 +103,29 @@ extension RootTabs {
     }
 }
 
+/// 검색 탭 아이콘 — **지도 옆에 돋보기** (MZ2AZ-359).
+///
+/// 돋보기 하나로는 「지도에서 촬영지를 찾는 탭」인지 드러나지 않는다(2026-10-03 팀 회의).
+/// SF Symbols 에 둘이 합쳐진 기호가 없어 겹쳐 그린다. 돋보기 둘레는 탭바 바탕색으로 한 겹
+/// 파내 지도 선과 엉기지 않게 한다. 색은 바깥의 `foregroundStyle`(선택·비선택)을 그대로 받는다.
+private struct MapSearchIcon: View {
+    var body: some View {
+        Image(systemName: "map")
+            .font(.system(size: 19))
+            .padding(.trailing, 5).padding(.bottom, 2)
+            .overlay(alignment: .bottomTrailing) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 11, weight: .bold))
+                    .padding(2)
+                    .background(Circle().fill(Color(.systemBackground)))
+                    .offset(x: 2, y: 3)
+            }
+            // 다른 탭 아이콘(20pt 기호)과 같은 높이를 차지해 글자 줄이 어긋나지 않게 한다.
+            .frame(height: 24)
+            .accessibilityHidden(true)
+    }
+}
+
 /// 탭바 — 양옆은 얇은 아이콘, 가운데는 **위로 솟은 동그란 홈**(해태 얼굴).
 ///
 /// 목업(`Main.dc.html`)의 배치를 그대로 옮겼다: 62 pt 원에 핀 그러데이션, 바탕색
@@ -131,7 +154,7 @@ struct TabBar: View {
             selected = tab
         } label: {
             VStack(spacing: 3) {
-                Image(systemName: tab.symbol).font(.system(size: 20))
+                icon(tab)
                 Text(tab.label).font(.system(size: 11))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -139,6 +162,16 @@ struct TabBar: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+    }
+
+    /// 검색 탭만 손수 겹쳐 그린다 — 나머지는 SF Symbols 하나다.
+    @ViewBuilder
+    private func icon(_ tab: RootTabs.Tab) -> some View {
+        if tab == .search {
+            MapSearchIcon()
+        } else {
+            Image(systemName: tab.symbol).font(.system(size: 20))
+        }
     }
 
     private var home: some View {
