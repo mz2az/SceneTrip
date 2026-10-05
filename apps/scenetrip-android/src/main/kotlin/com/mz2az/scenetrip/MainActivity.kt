@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.auth.SignInSheetHost
 import com.mz2az.scenetrip.data.AppLanguage
@@ -67,7 +68,7 @@ class MainActivity : ComponentActivity() {
         // 앱이 쓰는 API 클라이언트가 **처음 만들어지기 전에** 언어를 읽고
         // Accept-Language 인터셉터를 달아야 한다(MZ2AZ-343) — 늦으면 끼울 자리가
         // 굳어 버린다(`ApiClient.defaultClient`는 `by lazy`).
-        AppLanguage.getInstance(this)
+        val language = AppLanguage.getInstance(this)
         AppLocale.install()
         // 로그인 — 401(만료·폐기) 처리를 끼우고 저장된 세션을 되살린다 (MZ2AZ-336).
         // 마찬가지로 **생성 클라이언트를 처음 쓰기 전이어야 한다**(화면이 그려지기 전).
@@ -80,6 +81,10 @@ class MainActivity : ComponentActivity() {
             tab = intent.getStringExtra("initialTab"),
             openCourseId = intent.getLongExtra("openCourseId", -1L).takeIf { it > 0 },
         )
+
+        // 앱 분석 — 설정 파일(res/raw/google_services.json)이 있고 SDK 의존성이 붙어 있을
+        // 때만 켜진다 (MZ2AZ-353).
+        AppAnalytics.start(context = this, language = language.lang.value, member = AuthStore.signedIn)
 
         setContent { SceneTripApp() }
     }

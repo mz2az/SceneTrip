@@ -293,7 +293,7 @@ fun SearchTabScreen() {
         searching = false
         keyboard?.hide()
         detent = Detent.MEDIUM
-        data.search(term)
+        data.search(term, kind = kind?.name)
         pendingFit = true
     }
 

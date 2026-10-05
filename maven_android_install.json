@@ -58,6 +58,7 @@
     "androidx.savedstate:savedstate": -1545293289,
     "androidx.savedstate:savedstate-ktx": 877332601,
     "com.google.android.libraries.identity.googleid:googleid": 1866459595,
+    "com.google.firebase:firebase-analytics": -1243742858,
     "com.naver.maps:map-sdk": 2108457782,
     "com.squareup.moshi:moshi": 623265116,
     "com.squareup.moshi:moshi-adapters": 1157845343,
@@ -70,110 +71,136 @@
     "repositories": 225288892
   },
   "__RESOLVED_ARTIFACTS_HASH": {
-    "androidx.activity:activity-compose:aar": -930687885,
-    "androidx.activity:activity-ktx:aar": -343701162,
-    "androidx.activity:activity:aar": -942664192,
+    "androidx.activity:activity-compose:aar": 1719201496,
+    "androidx.activity:activity-ktx:aar": 1493083625,
+    "androidx.activity:activity:aar": -72868227,
     "androidx.annotation:annotation": 1837837706,
     "androidx.annotation:annotation-experimental:aar": 1369036985,
     "androidx.annotation:annotation-jvm": -1347869060,
-    "androidx.appcompat:appcompat-resources:aar": -1812621252,
-    "androidx.appcompat:appcompat:aar": -2119526716,
+    "androidx.appcompat:appcompat-resources:aar": -63467755,
+    "androidx.appcompat:appcompat:aar": 1215096693,
     "androidx.arch.core:core-common": 816283947,
     "androidx.arch.core:core-runtime:aar": -828284293,
-    "androidx.autofill:autofill:aar": -1500248143,
+    "androidx.autofill:autofill:aar": -844223523,
     "androidx.collection:collection": -492539096,
     "androidx.collection:collection-jvm": -1160971642,
     "androidx.collection:collection-ktx": -98446465,
-    "androidx.compose.animation:animation-android:aar": 72103850,
-    "androidx.compose.animation:animation-core-android:aar": 1242453470,
-    "androidx.compose.animation:animation-core:aar": -728364289,
-    "androidx.compose.animation:animation:aar": -1300101706,
-    "androidx.compose.foundation:foundation-android:aar": 1189362121,
-    "androidx.compose.foundation:foundation-layout-android:aar": -1218449602,
-    "androidx.compose.foundation:foundation-layout:aar": 523314801,
-    "androidx.compose.foundation:foundation:aar": 714479009,
-    "androidx.compose.material3:material3-android:aar": -675408103,
-    "androidx.compose.material3:material3:aar": -1952413268,
-    "androidx.compose.material:material-icons-core-android:aar": -12556375,
-    "androidx.compose.material:material-icons-core:aar": 1473086868,
-    "androidx.compose.material:material-ripple-android:aar": -2031276448,
-    "androidx.compose.material:material-ripple:aar": 541907124,
+    "androidx.compose.animation:animation-android:aar": 1500532819,
+    "androidx.compose.animation:animation-core-android:aar": -1671356332,
+    "androidx.compose.animation:animation-core:aar": -646375761,
+    "androidx.compose.animation:animation:aar": 93672583,
+    "androidx.compose.foundation:foundation-android:aar": -1738580126,
+    "androidx.compose.foundation:foundation-layout-android:aar": -2044172215,
+    "androidx.compose.foundation:foundation-layout:aar": -977961776,
+    "androidx.compose.foundation:foundation:aar": -140139842,
+    "androidx.compose.material3:material3-android:aar": 618317397,
+    "androidx.compose.material3:material3:aar": -1655928974,
+    "androidx.compose.material:material-icons-core-android:aar": 1254517250,
+    "androidx.compose.material:material-icons-core:aar": 523511323,
+    "androidx.compose.material:material-ripple-android:aar": -1399743624,
+    "androidx.compose.material:material-ripple:aar": 1735916109,
     "androidx.compose.runtime:runtime-android:aar": 339901556,
     "androidx.compose.runtime:runtime-saveable-android:aar": -759865208,
     "androidx.compose.runtime:runtime-saveable:aar": -1278253437,
     "androidx.compose.runtime:runtime:aar": -1448703648,
-    "androidx.compose.ui:ui-android:aar": 316305298,
+    "androidx.compose.ui:ui-android:aar": 1724074328,
     "androidx.compose.ui:ui-geometry-android:aar": 1681786427,
     "androidx.compose.ui:ui-geometry:aar": 1325215184,
-    "androidx.compose.ui:ui-graphics-android:aar": 1937316439,
-    "androidx.compose.ui:ui-graphics:aar": 2139526998,
-    "androidx.compose.ui:ui-text-android:aar": -2066225098,
-    "androidx.compose.ui:ui-text:aar": 133903260,
+    "androidx.compose.ui:ui-graphics-android:aar": 1766267086,
+    "androidx.compose.ui:ui-graphics:aar": -2131083389,
+    "androidx.compose.ui:ui-text-android:aar": 478880446,
+    "androidx.compose.ui:ui-text:aar": 2143123447,
     "androidx.compose.ui:ui-unit-android:aar": -1734767785,
     "androidx.compose.ui:ui-unit:aar": -672875996,
     "androidx.compose.ui:ui-util-android:aar": 242595253,
     "androidx.compose.ui:ui-util:aar": 516548933,
-    "androidx.compose.ui:ui:aar": -108694727,
-    "androidx.concurrent:concurrent-futures": -1024764213,
-    "androidx.core:core-ktx:aar": 377252894,
-    "androidx.core:core:aar": 808544548,
-    "androidx.credentials:credentials-play-services-auth:aar": 127217272,
+    "androidx.compose.ui:ui:aar": 131444143,
+    "androidx.concurrent:concurrent-futures": 1514531022,
+    "androidx.core:core-ktx:aar": 1841749606,
+    "androidx.core:core:aar": 1960591335,
+    "androidx.credentials:credentials-play-services-auth:aar": -1229945847,
     "androidx.credentials:credentials:aar": -1772215281,
     "androidx.cursoradapter:cursoradapter:aar": -716017513,
-    "androidx.customview:customview-poolingcontainer:aar": -1489132950,
-    "androidx.customview:customview:aar": 1894713115,
-    "androidx.drawerlayout:drawerlayout:aar": 918152841,
-    "androidx.emoji2:emoji2-views-helper:aar": 194159938,
-    "androidx.emoji2:emoji2:aar": -881423195,
-    "androidx.fragment:fragment-ktx:aar": 777651586,
-    "androidx.fragment:fragment:aar": 224525377,
-    "androidx.graphics:graphics-path:aar": 1912292765,
+    "androidx.customview:customview-poolingcontainer:aar": 63689261,
+    "androidx.customview:customview:aar": 1320360371,
+    "androidx.documentfile:documentfile:aar": 1288122033,
+    "androidx.drawerlayout:drawerlayout:aar": -2022063427,
+    "androidx.emoji2:emoji2-views-helper:aar": -222701325,
+    "androidx.emoji2:emoji2:aar": -1999044121,
+    "androidx.fragment:fragment-ktx:aar": 198414167,
+    "androidx.fragment:fragment:aar": -1757077663,
+    "androidx.graphics:graphics-path:aar": -2111621945,
     "androidx.interpolator:interpolator:aar": 1227090535,
+    "androidx.legacy:legacy-support-core-utils:aar": -926999179,
     "androidx.lifecycle:lifecycle-common": -282702240,
     "androidx.lifecycle:lifecycle-common-java8": -726115889,
     "androidx.lifecycle:lifecycle-common-jvm": 1103983888,
     "androidx.lifecycle:lifecycle-livedata-core-ktx:aar": 709455692,
     "androidx.lifecycle:lifecycle-livedata-core:aar": -191338326,
     "androidx.lifecycle:lifecycle-livedata:aar": 1987703436,
-    "androidx.lifecycle:lifecycle-process:aar": 653039179,
-    "androidx.lifecycle:lifecycle-runtime-android:aar": 375663753,
-    "androidx.lifecycle:lifecycle-runtime-compose-android:aar": 1689160830,
-    "androidx.lifecycle:lifecycle-runtime-compose:aar": 1735039124,
-    "androidx.lifecycle:lifecycle-runtime-ktx-android:aar": -47894553,
-    "androidx.lifecycle:lifecycle-runtime-ktx:aar": 1125805294,
-    "androidx.lifecycle:lifecycle-runtime:aar": -1314886451,
+    "androidx.lifecycle:lifecycle-process:aar": 685664079,
+    "androidx.lifecycle:lifecycle-runtime-android:aar": 2036643275,
+    "androidx.lifecycle:lifecycle-runtime-compose-android:aar": -1941441425,
+    "androidx.lifecycle:lifecycle-runtime-compose:aar": 17204436,
+    "androidx.lifecycle:lifecycle-runtime-ktx-android:aar": -85017245,
+    "androidx.lifecycle:lifecycle-runtime-ktx:aar": 1423818537,
+    "androidx.lifecycle:lifecycle-runtime:aar": -1900716010,
     "androidx.lifecycle:lifecycle-viewmodel-android:aar": 403597719,
-    "androidx.lifecycle:lifecycle-viewmodel-compose-android:aar": -1148181455,
-    "androidx.lifecycle:lifecycle-viewmodel-compose:aar": -408068233,
+    "androidx.lifecycle:lifecycle-viewmodel-compose-android:aar": 1193926349,
+    "androidx.lifecycle:lifecycle-viewmodel-compose:aar": 2088510413,
     "androidx.lifecycle:lifecycle-viewmodel-ktx:aar": 1318618620,
-    "androidx.lifecycle:lifecycle-viewmodel-savedstate:aar": 1524108151,
+    "androidx.lifecycle:lifecycle-viewmodel-savedstate:aar": 936114784,
     "androidx.lifecycle:lifecycle-viewmodel:aar": 1466477401,
-    "androidx.loader:loader:aar": -1802993124,
-    "androidx.profileinstaller:profileinstaller:aar": 835109025,
-    "androidx.recyclerview:recyclerview:aar": -813784859,
+    "androidx.loader:loader:aar": 168248018,
+    "androidx.localbroadcastmanager:localbroadcastmanager:aar": 1611953053,
+    "androidx.print:print:aar": -2118426395,
+    "androidx.privacysandbox.ads:ads-adservices-java:aar": 733405943,
+    "androidx.privacysandbox.ads:ads-adservices:aar": 1426681071,
+    "androidx.profileinstaller:profileinstaller:aar": -408447351,
+    "androidx.recyclerview:recyclerview:aar": -1870559635,
     "androidx.resourceinspection:resourceinspection-annotation": -1599569678,
     "androidx.savedstate:savedstate-ktx:aar": -44994082,
     "androidx.savedstate:savedstate:aar": 1598798790,
     "androidx.startup:startup-runtime:aar": -1299073560,
-    "androidx.swiperefreshlayout:swiperefreshlayout:aar": -1027124024,
+    "androidx.swiperefreshlayout:swiperefreshlayout:aar": 793046412,
     "androidx.tracing:tracing:aar": -1865929701,
-    "androidx.vectordrawable:vectordrawable-animated:aar": 1609140158,
-    "androidx.vectordrawable:vectordrawable:aar": 1725900374,
+    "androidx.vectordrawable:vectordrawable-animated:aar": 1208076754,
+    "androidx.vectordrawable:vectordrawable:aar": 382132696,
     "androidx.versionedparcelable:versionedparcelable:aar": -1337510471,
-    "androidx.viewpager:viewpager:aar": 1545193391,
+    "androidx.viewpager:viewpager:aar": 236324439,
     "com.getkeepsafe.relinker:relinker:aar": -572368767,
-    "com.google.android.gms:play-services-auth-api-phone:aar": -2103651671,
-    "com.google.android.gms:play-services-auth-base:aar": 975022452,
-    "com.google.android.gms:play-services-auth:aar": 895343947,
-    "com.google.android.gms:play-services-base:aar": -354730194,
-    "com.google.android.gms:play-services-basement:aar": 2024396784,
-    "com.google.android.gms:play-services-fido:aar": -1263260613,
-    "com.google.android.gms:play-services-tasks:aar": 739381800,
+    "com.google.android.gms:play-services-ads-identifier:aar": 1623736158,
+    "com.google.android.gms:play-services-auth-api-phone:aar": 1172392530,
+    "com.google.android.gms:play-services-auth-base:aar": 1825893927,
+    "com.google.android.gms:play-services-auth:aar": -1642089589,
+    "com.google.android.gms:play-services-base:aar": 546969709,
+    "com.google.android.gms:play-services-basement:aar": -4640199,
+    "com.google.android.gms:play-services-fido:aar": 1379948242,
+    "com.google.android.gms:play-services-measurement-api:aar": -1636263988,
+    "com.google.android.gms:play-services-measurement-base:aar": -1711150969,
+    "com.google.android.gms:play-services-measurement-impl:aar": 841855845,
+    "com.google.android.gms:play-services-measurement-sdk-api:aar": -1860243877,
+    "com.google.android.gms:play-services-measurement-sdk:aar": 56050710,
+    "com.google.android.gms:play-services-measurement:aar": -1871852560,
+    "com.google.android.gms:play-services-stats:aar": 1754969395,
+    "com.google.android.gms:play-services-tasks:aar": -1464702730,
     "com.google.android.libraries.identity.googleid:googleid:aar": -471910223,
+    "com.google.code.findbugs:jsr305": 1054763175,
     "com.google.code.gson:gson": -1194933807,
-    "com.google.guava:listenablefuture": -786583461,
+    "com.google.errorprone:error_prone_annotations": 856123108,
+    "com.google.firebase:firebase-analytics:aar": -1977031089,
+    "com.google.firebase:firebase-annotations": 882607159,
+    "com.google.firebase:firebase-common:aar": 570845075,
+    "com.google.firebase:firebase-components:aar": 846817405,
+    "com.google.firebase:firebase-installations-interop:aar": 290745786,
+    "com.google.firebase:firebase-installations:aar": -1424262079,
+    "com.google.firebase:firebase-measurement-connector:aar": -974101005,
+    "com.google.guava:failureaccess": 1994162639,
+    "com.google.guava:guava": 1841362635,
+    "com.google.guava:listenablefuture": -1108625787,
+    "com.google.j2objc:j2objc-annotations": 310908963,
     "com.naver.maps:geometry:aar": -175193565,
-    "com.naver.maps:map-sdk:aar": 1337935019,
+    "com.naver.maps:map-sdk:aar": 365265380,
     "com.squareup.moshi:moshi": -86372624,
     "com.squareup.moshi:moshi-adapters": -735919189,
     "com.squareup.moshi:moshi-kotlin": 1047387784,
@@ -181,7 +208,9 @@
     "com.squareup.okhttp3:okhttp-brotli": -1054223743,
     "com.squareup.okio:okio": 1960422583,
     "com.squareup.okio:okio-jvm": -476273759,
+    "javax.inject:javax.inject": 167672675,
     "org.brotli:dec": 2053297664,
+    "org.checkerframework:checker-qual": 990140959,
     "org.jetbrains.kotlin:kotlin-compose-compiler-plugin-embeddable": 925151027,
     "org.jetbrains.kotlin:kotlin-reflect": -11580707,
     "org.jetbrains.kotlin:kotlin-stdlib": 256606137,
@@ -193,6 +222,7 @@
     "org.jetbrains.kotlinx:kotlinx-coroutines-android": -2139405087,
     "org.jetbrains.kotlinx:kotlinx-coroutines-core": -206608172,
     "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm": -886966928,
+    "org.jetbrains.kotlinx:kotlinx-coroutines-play-services": -583098107,
     "org.jetbrains:annotations": 2042566210
   },
   "artifacts": {
@@ -508,6 +538,12 @@
       },
       "version": "1.0.0"
     },
+    "androidx.documentfile:documentfile:aar": {
+      "shasums": {
+        "jar": "865a061ef2fad16522f8433536b8d47208c46ff7c7745197dfa1eeb481869487"
+      },
+      "version": "1.0.0"
+    },
     "androidx.drawerlayout:drawerlayout:aar": {
       "shasums": {
         "jar": "9402442cdc5a43cf62fb14f8cf98c63342d4d9d9b805c8033c6cf7e802749ac1"
@@ -547,6 +583,12 @@
     "androidx.interpolator:interpolator:aar": {
       "shasums": {
         "jar": "33193135a64fe21fa2c35eec6688f1a76e512606c0fc83dc1b689e37add7732a"
+      },
+      "version": "1.0.0"
+    },
+    "androidx.legacy:legacy-support-core-utils:aar": {
+      "shasums": {
+        "jar": "a7edcf01d5b52b3034073027bc4775b78a4764bb6202bb91d61c829add8dd1c7"
       },
       "version": "1.0.0"
     },
@@ -670,6 +712,30 @@
       },
       "version": "1.0.0"
     },
+    "androidx.localbroadcastmanager:localbroadcastmanager:aar": {
+      "shasums": {
+        "jar": "e71c328ceef5c4a7d76f2d86df1b65d65fe2acf868b1a4efd84a3f34336186d8"
+      },
+      "version": "1.0.0"
+    },
+    "androidx.print:print:aar": {
+      "shasums": {
+        "jar": "1d5c7f3135a1bba661fc373fd72e11eb0a4adbb3396787826dd8e4190d5d9edd"
+      },
+      "version": "1.0.0"
+    },
+    "androidx.privacysandbox.ads:ads-adservices-java:aar": {
+      "shasums": {
+        "jar": "b2885db5ddad9b457f94d21041da53267da89adfe438242ba07dd11c8fa63e74"
+      },
+      "version": "1.1.0-beta11"
+    },
+    "androidx.privacysandbox.ads:ads-adservices:aar": {
+      "shasums": {
+        "jar": "540a6e2dc78e370615f77f872c0f3b700a1aca1d78a4a9af7d2808050848c663"
+      },
+      "version": "1.1.0-beta11"
+    },
     "androidx.profileinstaller:profileinstaller:aar": {
       "shasums": {
         "jar": "d0e402ec31f24028a1dc7eb6a0a3f9d9635c1459392cd734396343b73d673948"
@@ -748,6 +814,12 @@
       },
       "version": "1.4.4"
     },
+    "com.google.android.gms:play-services-ads-identifier:aar": {
+      "shasums": {
+        "jar": "730c9b67e4f85dbb3849f4f3e42a5047cee1f59c2326469d01d96d0fbd21181a"
+      },
+      "version": "18.0.0"
+    },
     "com.google.android.gms:play-services-auth-api-phone:aar": {
       "shasums": {
         "jar": "bfdf380e7400a9d950cba4dedc152b1bce614a87353009e851087428927cc240"
@@ -768,15 +840,15 @@
     },
     "com.google.android.gms:play-services-base:aar": {
       "shasums": {
-        "jar": "94066a46047e3d593eb652383e7767e0630385ecd75133e68c21124aa96b8dc2"
+        "jar": "59a5c0c2da12311d75d965ce1f419498536b1a167fb28ff7dfc2dfd9cefa4157"
       },
-      "version": "18.3.0"
+      "version": "18.5.0"
     },
     "com.google.android.gms:play-services-basement:aar": {
       "shasums": {
-        "jar": "6c11ae3eb2dd7f17373f919c4c557a70e4cf891bc0c9b66926a0a6445d654352"
+        "jar": "c6ed7236b1b3ce0296b508a5c0a09108fd52d83559d35cad2639505cd04ab255"
       },
-      "version": "18.3.0"
+      "version": "18.9.0"
     },
     "com.google.android.gms:play-services-fido:aar": {
       "shasums": {
@@ -784,11 +856,53 @@
       },
       "version": "21.0.0"
     },
+    "com.google.android.gms:play-services-measurement-api:aar": {
+      "shasums": {
+        "jar": "5570bf328e4b93e829e5947c0bbc8fc65e01e8650f6dac622f62828524d2ec5d"
+      },
+      "version": "23.2.0"
+    },
+    "com.google.android.gms:play-services-measurement-base:aar": {
+      "shasums": {
+        "jar": "9adcc00e29095d913f7b254b91cde15060959132e71217800ac09d308589266c"
+      },
+      "version": "23.2.0"
+    },
+    "com.google.android.gms:play-services-measurement-impl:aar": {
+      "shasums": {
+        "jar": "216f85c9cefc8d8725854f328cea56c4de3509c8231048a8ad38a70e8f506396"
+      },
+      "version": "23.2.0"
+    },
+    "com.google.android.gms:play-services-measurement-sdk-api:aar": {
+      "shasums": {
+        "jar": "5523ad54f178f55c30124cca77c5c42b142e48170759d23775f738a352f48cd8"
+      },
+      "version": "23.2.0"
+    },
+    "com.google.android.gms:play-services-measurement-sdk:aar": {
+      "shasums": {
+        "jar": "509e99ccc7afb3710042956dc959c3ef8a886f7a523cd2e6c58bab0f4651bd4f"
+      },
+      "version": "23.2.0"
+    },
+    "com.google.android.gms:play-services-measurement:aar": {
+      "shasums": {
+        "jar": "a1d21aeb685f3b2711008a2b5e55cfe0c4f40f666f51e2667ecd77fe8bf9d1d6"
+      },
+      "version": "23.2.0"
+    },
+    "com.google.android.gms:play-services-stats:aar": {
+      "shasums": {
+        "jar": "dd4314a53f49a378ec146103d36232b96c75454d29526336ccbdf132941764d3"
+      },
+      "version": "17.0.2"
+    },
     "com.google.android.gms:play-services-tasks:aar": {
       "shasums": {
-        "jar": "d60575eae39350e6234858bc9d7d775375707ae82a684e6caf7f3e41a12e25a2"
+        "jar": "7f2aaa8f502068eaf54356ca92aec04271d6e7c416c52c45c0d23440fcbd1654"
       },
-      "version": "18.1.0"
+      "version": "18.2.0"
     },
     "com.google.android.libraries.identity.googleid:googleid:aar": {
       "shasums": {
@@ -796,17 +910,89 @@
       },
       "version": "1.1.1"
     },
+    "com.google.code.findbugs:jsr305": {
+      "shasums": {
+        "jar": "766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7"
+      },
+      "version": "3.0.2"
+    },
     "com.google.code.gson:gson": {
       "shasums": {
         "jar": "c8fb4839054d280b3033f800d1f5a97de2f028eb8ba2eb458ad287e536f3f25f"
       },
       "version": "2.8.6"
     },
+    "com.google.errorprone:error_prone_annotations": {
+      "shasums": {
+        "jar": "53cdfc0beb2d766fe03b78f0b11d020554cd419879d20380c38fa1dcf2ba1b50"
+      },
+      "version": "2.26.0"
+    },
+    "com.google.firebase:firebase-analytics:aar": {
+      "shasums": {
+        "jar": "b8575123e5ab8f14d586a414b006faaadb0abe246a6694a3e4eed34b9995ed0a"
+      },
+      "version": "23.2.0"
+    },
+    "com.google.firebase:firebase-annotations": {
+      "shasums": {
+        "jar": "46f6d5dfdd2ccf3c40de897a14bd9779314c3319f44bfd31e7e0a20d935a5e3e"
+      },
+      "version": "16.2.0"
+    },
+    "com.google.firebase:firebase-common:aar": {
+      "shasums": {
+        "jar": "379287d7171371512493681b398e78c341b333cf974ee81a18b1d56e7c2e385d"
+      },
+      "version": "21.0.0"
+    },
+    "com.google.firebase:firebase-components:aar": {
+      "shasums": {
+        "jar": "c7c48a3a80f44a499ebd6473bcfc7dd5a45ef523fabe2414a62515ff3c640972"
+      },
+      "version": "18.0.0"
+    },
+    "com.google.firebase:firebase-installations-interop:aar": {
+      "shasums": {
+        "jar": "42c1a74e99893a977a5395d152caa547401665e1bc4eb332e9b43aa1696e478b"
+      },
+      "version": "17.0.1"
+    },
+    "com.google.firebase:firebase-installations:aar": {
+      "shasums": {
+        "jar": "2d823e5353fcdcbfee814cba35bf3783ab04238144bbcdbb149e718d56c3bbcd"
+      },
+      "version": "17.0.1"
+    },
+    "com.google.firebase:firebase-measurement-connector:aar": {
+      "shasums": {
+        "jar": "dba74d6bf94647ee397bf7afb2ab07f6fe8d13157e56785fa540a2a13ed82c99"
+      },
+      "version": "19.0.0"
+    },
+    "com.google.guava:failureaccess": {
+      "shasums": {
+        "jar": "a171ee4c734dd2da837e4b16be9df4661afab72a41adaf31eb84dfdaf936ca26"
+      },
+      "version": "1.0.1"
+    },
+    "com.google.guava:guava": {
+      "shasums": {
+        "jar": "32ac2ed709d96d278b5d2e3e5cea178fa4939939c525fb647532f013308db309"
+      },
+      "version": "31.1-android"
+    },
     "com.google.guava:listenablefuture": {
       "shasums": {
-        "jar": "e4ad7607e5c0477c6f890ef26a49cb8d1bb4dffb650bab4502afee64644e3069"
+        "jar": "b372a037d4230aa57fbeffdef30fd6123f9c0c2db85d0aced00c91b974f33f99"
       },
-      "version": "1.0"
+      "version": "9999.0-empty-to-avoid-conflict-with-guava"
+    },
+    "com.google.j2objc:j2objc-annotations": {
+      "shasums": {
+        "jar": "21af30c92267bd6122c0e0b4d20cccb6641a37eaf956c6540ec471d584e64a7b"
+      },
+      "version": "1.3"
     },
     "com.naver.maps:geometry:aar": {
       "shasums": {
@@ -862,11 +1048,23 @@
       },
       "version": "3.7.0"
     },
+    "javax.inject:javax.inject": {
+      "shasums": {
+        "jar": "91c77044a50c481636c32d916fd89c9118a72195390452c81065080f957de7ff"
+      },
+      "version": "1"
+    },
     "org.brotli:dec": {
       "shasums": {
         "jar": "615c0c3efef990d77831104475fba6a1f7971388691d4bad1471ad84101f6d52"
       },
       "version": "0.1.2"
+    },
+    "org.checkerframework:checker-qual": {
+      "shasums": {
+        "jar": "ff10785ac2a357ec5de9c293cb982a2cbb605c0309ea4cc1cb9b9bc6dbe7f3cb"
+      },
+      "version": "3.12.0"
     },
     "org.jetbrains.kotlin:kotlin-compose-compiler-plugin-embeddable": {
       "shasums": {
@@ -933,6 +1131,12 @@
         "jar": "5ca175b38df331fd64155b35cd8cae1251fa9ee369709b36d42e0a288ccce3fd"
       },
       "version": "1.10.2"
+    },
+    "org.jetbrains.kotlinx:kotlinx-coroutines-play-services": {
+      "shasums": {
+        "jar": "4ee3784c3465caab86adcc4f93956d56ea662aac82e5c2c83ca3c1f0415fe397"
+      },
+      "version": "1.6.4"
     },
     "org.jetbrains:annotations": {
       "shasums": {
@@ -1313,6 +1517,9 @@
       "androidx.annotation:annotation",
       "androidx.core:core:aar"
     ],
+    "androidx.documentfile:documentfile:aar": [
+      "androidx.annotation:annotation"
+    ],
     "androidx.drawerlayout:drawerlayout:aar": [
       "androidx.annotation:annotation",
       "androidx.core:core:aar",
@@ -1362,6 +1569,14 @@
     ],
     "androidx.interpolator:interpolator:aar": [
       "androidx.annotation:annotation"
+    ],
+    "androidx.legacy:legacy-support-core-utils:aar": [
+      "androidx.annotation:annotation",
+      "androidx.core:core:aar",
+      "androidx.documentfile:documentfile:aar",
+      "androidx.loader:loader:aar",
+      "androidx.localbroadcastmanager:localbroadcastmanager:aar",
+      "androidx.print:print:aar"
     ],
     "androidx.lifecycle:lifecycle-common": [
       "androidx.annotation:annotation",
@@ -1487,6 +1702,27 @@
       "androidx.lifecycle:lifecycle-livedata:aar",
       "androidx.lifecycle:lifecycle-viewmodel:aar"
     ],
+    "androidx.localbroadcastmanager:localbroadcastmanager:aar": [
+      "androidx.annotation:annotation"
+    ],
+    "androidx.print:print:aar": [
+      "androidx.annotation:annotation"
+    ],
+    "androidx.privacysandbox.ads:ads-adservices-java:aar": [
+      "androidx.annotation:annotation",
+      "androidx.concurrent:concurrent-futures",
+      "androidx.core:core-ktx:aar",
+      "androidx.privacysandbox.ads:ads-adservices:aar",
+      "com.google.guava:listenablefuture",
+      "org.jetbrains.kotlin:kotlin-stdlib",
+      "org.jetbrains.kotlinx:kotlinx-coroutines-core"
+    ],
+    "androidx.privacysandbox.ads:ads-adservices:aar": [
+      "androidx.annotation:annotation",
+      "androidx.core:core-ktx:aar",
+      "org.jetbrains.kotlin:kotlin-stdlib",
+      "org.jetbrains.kotlinx:kotlinx-coroutines-core"
+    ],
     "androidx.profileinstaller:profileinstaller:aar": [
       "androidx.annotation:annotation",
       "androidx.concurrent:concurrent-futures",
@@ -1544,6 +1780,9 @@
       "androidx.core:core:aar",
       "androidx.customview:customview:aar"
     ],
+    "com.google.android.gms:play-services-ads-identifier:aar": [
+      "com.google.android.gms:play-services-basement:aar"
+    ],
     "com.google.android.gms:play-services-auth-api-phone:aar": [
       "com.google.android.gms:play-services-base:aar",
       "com.google.android.gms:play-services-basement:aar",
@@ -1572,6 +1811,7 @@
     ],
     "com.google.android.gms:play-services-basement:aar": [
       "androidx.collection:collection",
+      "androidx.core:core:aar",
       "androidx.fragment:fragment:aar"
     ],
     "com.google.android.gms:play-services-fido:aar": [
@@ -1581,6 +1821,60 @@
       "org.jetbrains.kotlin:kotlin-stdlib-jdk7",
       "org.jetbrains.kotlinx:kotlinx-coroutines-core"
     ],
+    "com.google.android.gms:play-services-measurement-api:aar": [
+      "com.google.android.gms:play-services-ads-identifier:aar",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-measurement-base:aar",
+      "com.google.android.gms:play-services-measurement-sdk-api:aar",
+      "com.google.android.gms:play-services-tasks:aar",
+      "com.google.firebase:firebase-common:aar",
+      "com.google.firebase:firebase-components:aar",
+      "com.google.firebase:firebase-installations-interop:aar",
+      "com.google.firebase:firebase-installations:aar",
+      "com.google.firebase:firebase-measurement-connector:aar",
+      "com.google.guava:guava",
+      "org.jetbrains.kotlin:kotlin-stdlib"
+    ],
+    "com.google.android.gms:play-services-measurement-base:aar": [
+      "com.google.android.gms:play-services-basement:aar"
+    ],
+    "com.google.android.gms:play-services-measurement-impl:aar": [
+      "androidx.collection:collection",
+      "androidx.core:core:aar",
+      "androidx.privacysandbox.ads:ads-adservices-java:aar",
+      "androidx.privacysandbox.ads:ads-adservices:aar",
+      "com.google.android.gms:play-services-ads-identifier:aar",
+      "com.google.android.gms:play-services-base:aar",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-measurement-base:aar",
+      "com.google.android.gms:play-services-stats:aar",
+      "com.google.android.gms:play-services-tasks:aar",
+      "com.google.guava:guava"
+    ],
+    "com.google.android.gms:play-services-measurement-sdk-api:aar": [
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-measurement-base:aar"
+    ],
+    "com.google.android.gms:play-services-measurement-sdk:aar": [
+      "androidx.collection:collection",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-measurement-base:aar",
+      "com.google.android.gms:play-services-measurement-impl:aar"
+    ],
+    "com.google.android.gms:play-services-measurement:aar": [
+      "androidx.collection:collection",
+      "androidx.legacy:legacy-support-core-utils:aar",
+      "com.google.android.gms:play-services-ads-identifier:aar",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-measurement-base:aar",
+      "com.google.android.gms:play-services-measurement-impl:aar",
+      "com.google.android.gms:play-services-measurement-sdk-api:aar",
+      "com.google.android.gms:play-services-stats:aar"
+    ],
+    "com.google.android.gms:play-services-stats:aar": [
+      "androidx.legacy:legacy-support-core-utils:aar",
+      "com.google.android.gms:play-services-basement:aar"
+    ],
     "com.google.android.gms:play-services-tasks:aar": [
       "com.google.android.gms:play-services-basement:aar"
     ],
@@ -1588,6 +1882,51 @@
       "androidx.credentials:credentials:aar",
       "org.jetbrains.kotlin:kotlin-stdlib",
       "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    ],
+    "com.google.firebase:firebase-analytics:aar": [
+      "com.google.android.gms:play-services-measurement-api:aar",
+      "com.google.android.gms:play-services-measurement-sdk:aar",
+      "com.google.android.gms:play-services-measurement:aar"
+    ],
+    "com.google.firebase:firebase-annotations": [
+      "javax.inject:javax.inject"
+    ],
+    "com.google.firebase:firebase-common:aar": [
+      "androidx.annotation:annotation",
+      "androidx.concurrent:concurrent-futures",
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.android.gms:play-services-tasks:aar",
+      "com.google.firebase:firebase-annotations",
+      "com.google.firebase:firebase-components:aar",
+      "org.jetbrains.kotlin:kotlin-stdlib",
+      "org.jetbrains.kotlinx:kotlinx-coroutines-play-services"
+    ],
+    "com.google.firebase:firebase-components:aar": [
+      "androidx.annotation:annotation",
+      "com.google.errorprone:error_prone_annotations",
+      "com.google.firebase:firebase-annotations"
+    ],
+    "com.google.firebase:firebase-installations-interop:aar": [
+      "com.google.android.gms:play-services-tasks:aar",
+      "com.google.firebase:firebase-annotations"
+    ],
+    "com.google.firebase:firebase-installations:aar": [
+      "com.google.android.gms:play-services-tasks:aar",
+      "com.google.firebase:firebase-common:aar",
+      "com.google.firebase:firebase-components:aar",
+      "com.google.firebase:firebase-installations-interop:aar"
+    ],
+    "com.google.firebase:firebase-measurement-connector:aar": [
+      "com.google.android.gms:play-services-basement:aar",
+      "com.google.firebase:firebase-annotations"
+    ],
+    "com.google.guava:guava": [
+      "com.google.code.findbugs:jsr305",
+      "com.google.errorprone:error_prone_annotations",
+      "com.google.guava:failureaccess",
+      "com.google.guava:listenablefuture",
+      "com.google.j2objc:j2objc-annotations",
+      "org.checkerframework:checker-qual"
     ],
     "com.naver.maps:geometry:aar": [
       "androidx.annotation:annotation"
@@ -1660,6 +1999,11 @@
     "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm": [
       "org.jetbrains.kotlin:kotlin-stdlib",
       "org.jetbrains:annotations"
+    ],
+    "org.jetbrains.kotlinx:kotlinx-coroutines-play-services": [
+      "com.google.android.gms:play-services-tasks:aar",
+      "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
+      "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm"
     ]
   },
   "packages": {
@@ -1683,6 +2027,11 @@
     "androidx.resourceinspection:resourceinspection-annotation": [
       "androidx.resourceinspection.annotation"
     ],
+    "com.google.code.findbugs:jsr305": [
+      "javax.annotation",
+      "javax.annotation.concurrent",
+      "javax.annotation.meta"
+    ],
     "com.google.code.gson:gson": [
       "com.google.gson",
       "com.google.gson.annotations",
@@ -1693,8 +2042,39 @@
       "com.google.gson.reflect",
       "com.google.gson.stream"
     ],
-    "com.google.guava:listenablefuture": [
-      "com.google.common.util.concurrent"
+    "com.google.errorprone:error_prone_annotations": [
+      "com.google.errorprone.annotations",
+      "com.google.errorprone.annotations.concurrent"
+    ],
+    "com.google.firebase:firebase-annotations": [
+      "com.google.firebase.annotations",
+      "com.google.firebase.annotations.concurrent"
+    ],
+    "com.google.guava:failureaccess": [
+      "com.google.common.util.concurrent.internal"
+    ],
+    "com.google.guava:guava": [
+      "com.google.common.annotations",
+      "com.google.common.base",
+      "com.google.common.base.internal",
+      "com.google.common.cache",
+      "com.google.common.collect",
+      "com.google.common.escape",
+      "com.google.common.eventbus",
+      "com.google.common.graph",
+      "com.google.common.hash",
+      "com.google.common.html",
+      "com.google.common.io",
+      "com.google.common.math",
+      "com.google.common.net",
+      "com.google.common.primitives",
+      "com.google.common.reflect",
+      "com.google.common.util.concurrent",
+      "com.google.common.xml",
+      "com.google.thirdparty.publicsuffix"
+    ],
+    "com.google.j2objc:j2objc-annotations": [
+      "com.google.j2objc.annotations"
     ],
     "com.squareup.moshi:moshi": [
       "com.squareup.moshi",
@@ -1734,8 +2114,42 @@
       "okio",
       "okio.internal"
     ],
+    "javax.inject:javax.inject": [
+      "javax.inject"
+    ],
     "org.brotli:dec": [
       "org.brotli.dec"
+    ],
+    "org.checkerframework:checker-qual": [
+      "org.checkerframework.checker.builder.qual",
+      "org.checkerframework.checker.calledmethods.qual",
+      "org.checkerframework.checker.compilermsgs.qual",
+      "org.checkerframework.checker.fenum.qual",
+      "org.checkerframework.checker.formatter.qual",
+      "org.checkerframework.checker.guieffect.qual",
+      "org.checkerframework.checker.i18n.qual",
+      "org.checkerframework.checker.i18nformatter.qual",
+      "org.checkerframework.checker.index.qual",
+      "org.checkerframework.checker.initialization.qual",
+      "org.checkerframework.checker.interning.qual",
+      "org.checkerframework.checker.lock.qual",
+      "org.checkerframework.checker.nullness.qual",
+      "org.checkerframework.checker.optional.qual",
+      "org.checkerframework.checker.propkey.qual",
+      "org.checkerframework.checker.regex.qual",
+      "org.checkerframework.checker.signature.qual",
+      "org.checkerframework.checker.signedness.qual",
+      "org.checkerframework.checker.tainting.qual",
+      "org.checkerframework.checker.units.qual",
+      "org.checkerframework.common.aliasing.qual",
+      "org.checkerframework.common.initializedfields.qual",
+      "org.checkerframework.common.reflection.qual",
+      "org.checkerframework.common.returnsreceiver.qual",
+      "org.checkerframework.common.subtyping.qual",
+      "org.checkerframework.common.util.report.qual",
+      "org.checkerframework.common.value.qual",
+      "org.checkerframework.dataflow.qual",
+      "org.checkerframework.framework.qual"
     ],
     "org.jetbrains.kotlin:kotlin-compose-compiler-plugin-embeddable": [
       "androidx.compose.compiler.plugins.kotlin",
@@ -1879,6 +2293,9 @@
       "kotlinx.coroutines.sync",
       "kotlinx.coroutines.time"
     ],
+    "org.jetbrains.kotlinx:kotlinx-coroutines-play-services": [
+      "kotlinx.coroutines.tasks"
+    ],
     "org.jetbrains:annotations": [
       "org.intellij.lang.annotations",
       "org.jetbrains.annotations"
@@ -1938,6 +2355,7 @@
       "androidx.cursoradapter:cursoradapter:aar",
       "androidx.customview:customview-poolingcontainer:aar",
       "androidx.customview:customview:aar",
+      "androidx.documentfile:documentfile:aar",
       "androidx.drawerlayout:drawerlayout:aar",
       "androidx.emoji2:emoji2-views-helper:aar",
       "androidx.emoji2:emoji2:aar",
@@ -1945,6 +2363,7 @@
       "androidx.fragment:fragment:aar",
       "androidx.graphics:graphics-path:aar",
       "androidx.interpolator:interpolator:aar",
+      "androidx.legacy:legacy-support-core-utils:aar",
       "androidx.lifecycle:lifecycle-common",
       "androidx.lifecycle:lifecycle-common-java8",
       "androidx.lifecycle:lifecycle-common-jvm",
@@ -1965,6 +2384,10 @@
       "androidx.lifecycle:lifecycle-viewmodel-savedstate:aar",
       "androidx.lifecycle:lifecycle-viewmodel:aar",
       "androidx.loader:loader:aar",
+      "androidx.localbroadcastmanager:localbroadcastmanager:aar",
+      "androidx.print:print:aar",
+      "androidx.privacysandbox.ads:ads-adservices-java:aar",
+      "androidx.privacysandbox.ads:ads-adservices:aar",
       "androidx.profileinstaller:profileinstaller:aar",
       "androidx.recyclerview:recyclerview:aar",
       "androidx.resourceinspection:resourceinspection-annotation",
@@ -1978,16 +2401,36 @@
       "androidx.versionedparcelable:versionedparcelable:aar",
       "androidx.viewpager:viewpager:aar",
       "com.getkeepsafe.relinker:relinker:aar",
+      "com.google.android.gms:play-services-ads-identifier:aar",
       "com.google.android.gms:play-services-auth-api-phone:aar",
       "com.google.android.gms:play-services-auth-base:aar",
       "com.google.android.gms:play-services-auth:aar",
       "com.google.android.gms:play-services-base:aar",
       "com.google.android.gms:play-services-basement:aar",
       "com.google.android.gms:play-services-fido:aar",
+      "com.google.android.gms:play-services-measurement-api:aar",
+      "com.google.android.gms:play-services-measurement-base:aar",
+      "com.google.android.gms:play-services-measurement-impl:aar",
+      "com.google.android.gms:play-services-measurement-sdk-api:aar",
+      "com.google.android.gms:play-services-measurement-sdk:aar",
+      "com.google.android.gms:play-services-measurement:aar",
+      "com.google.android.gms:play-services-stats:aar",
       "com.google.android.gms:play-services-tasks:aar",
       "com.google.android.libraries.identity.googleid:googleid:aar",
+      "com.google.code.findbugs:jsr305",
       "com.google.code.gson:gson",
+      "com.google.errorprone:error_prone_annotations",
+      "com.google.firebase:firebase-analytics:aar",
+      "com.google.firebase:firebase-annotations",
+      "com.google.firebase:firebase-common:aar",
+      "com.google.firebase:firebase-components:aar",
+      "com.google.firebase:firebase-installations-interop:aar",
+      "com.google.firebase:firebase-installations:aar",
+      "com.google.firebase:firebase-measurement-connector:aar",
+      "com.google.guava:failureaccess",
+      "com.google.guava:guava",
       "com.google.guava:listenablefuture",
+      "com.google.j2objc:j2objc-annotations",
       "com.naver.maps:geometry:aar",
       "com.naver.maps:map-sdk:aar",
       "com.squareup.moshi:moshi",
@@ -1997,7 +2440,9 @@
       "com.squareup.okhttp3:okhttp-brotli",
       "com.squareup.okio:okio",
       "com.squareup.okio:okio-jvm",
+      "javax.inject:javax.inject",
       "org.brotli:dec",
+      "org.checkerframework:checker-qual",
       "org.jetbrains.kotlin:kotlin-compose-compiler-plugin-embeddable",
       "org.jetbrains.kotlin:kotlin-reflect",
       "org.jetbrains.kotlin:kotlin-stdlib",
@@ -2009,6 +2454,7 @@
       "org.jetbrains.kotlinx:kotlinx-coroutines-android",
       "org.jetbrains.kotlinx:kotlinx-coroutines-core",
       "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
+      "org.jetbrains.kotlinx:kotlinx-coroutines-play-services",
       "org.jetbrains:annotations"
     ],
     "https://maven.google.com/": [
@@ -2064,6 +2510,7 @@
       "androidx.cursoradapter:cursoradapter:aar",
       "androidx.customview:customview-poolingcontainer:aar",
       "androidx.customview:customview:aar",
+      "androidx.documentfile:documentfile:aar",
       "androidx.drawerlayout:drawerlayout:aar",
       "androidx.emoji2:emoji2-views-helper:aar",
       "androidx.emoji2:emoji2:aar",
@@ -2071,6 +2518,7 @@
       "androidx.fragment:fragment:aar",
       "androidx.graphics:graphics-path:aar",
       "androidx.interpolator:interpolator:aar",
+      "androidx.legacy:legacy-support-core-utils:aar",
       "androidx.lifecycle:lifecycle-common",
       "androidx.lifecycle:lifecycle-common-java8",
       "androidx.lifecycle:lifecycle-common-jvm",
@@ -2091,6 +2539,10 @@
       "androidx.lifecycle:lifecycle-viewmodel-savedstate:aar",
       "androidx.lifecycle:lifecycle-viewmodel:aar",
       "androidx.loader:loader:aar",
+      "androidx.localbroadcastmanager:localbroadcastmanager:aar",
+      "androidx.print:print:aar",
+      "androidx.privacysandbox.ads:ads-adservices-java:aar",
+      "androidx.privacysandbox.ads:ads-adservices:aar",
       "androidx.profileinstaller:profileinstaller:aar",
       "androidx.recyclerview:recyclerview:aar",
       "androidx.resourceinspection:resourceinspection-annotation",
@@ -2104,16 +2556,36 @@
       "androidx.versionedparcelable:versionedparcelable:aar",
       "androidx.viewpager:viewpager:aar",
       "com.getkeepsafe.relinker:relinker:aar",
+      "com.google.android.gms:play-services-ads-identifier:aar",
       "com.google.android.gms:play-services-auth-api-phone:aar",
       "com.google.android.gms:play-services-auth-base:aar",
       "com.google.android.gms:play-services-auth:aar",
       "com.google.android.gms:play-services-base:aar",
       "com.google.android.gms:play-services-basement:aar",
       "com.google.android.gms:play-services-fido:aar",
+      "com.google.android.gms:play-services-measurement-api:aar",
+      "com.google.android.gms:play-services-measurement-base:aar",
+      "com.google.android.gms:play-services-measurement-impl:aar",
+      "com.google.android.gms:play-services-measurement-sdk-api:aar",
+      "com.google.android.gms:play-services-measurement-sdk:aar",
+      "com.google.android.gms:play-services-measurement:aar",
+      "com.google.android.gms:play-services-stats:aar",
       "com.google.android.gms:play-services-tasks:aar",
       "com.google.android.libraries.identity.googleid:googleid:aar",
+      "com.google.code.findbugs:jsr305",
       "com.google.code.gson:gson",
+      "com.google.errorprone:error_prone_annotations",
+      "com.google.firebase:firebase-analytics:aar",
+      "com.google.firebase:firebase-annotations",
+      "com.google.firebase:firebase-common:aar",
+      "com.google.firebase:firebase-components:aar",
+      "com.google.firebase:firebase-installations-interop:aar",
+      "com.google.firebase:firebase-installations:aar",
+      "com.google.firebase:firebase-measurement-connector:aar",
+      "com.google.guava:failureaccess",
+      "com.google.guava:guava",
       "com.google.guava:listenablefuture",
+      "com.google.j2objc:j2objc-annotations",
       "com.naver.maps:geometry:aar",
       "com.naver.maps:map-sdk:aar",
       "com.squareup.moshi:moshi",
@@ -2123,7 +2595,9 @@
       "com.squareup.okhttp3:okhttp-brotli",
       "com.squareup.okio:okio",
       "com.squareup.okio:okio-jvm",
+      "javax.inject:javax.inject",
       "org.brotli:dec",
+      "org.checkerframework:checker-qual",
       "org.jetbrains.kotlin:kotlin-compose-compiler-plugin-embeddable",
       "org.jetbrains.kotlin:kotlin-reflect",
       "org.jetbrains.kotlin:kotlin-stdlib",
@@ -2135,6 +2609,7 @@
       "org.jetbrains.kotlinx:kotlinx-coroutines-android",
       "org.jetbrains.kotlinx:kotlinx-coroutines-core",
       "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
+      "org.jetbrains.kotlinx:kotlinx-coroutines-play-services",
       "org.jetbrains:annotations"
     ],
     "https://repository.map.naver.com/archive/maven/": [
@@ -2190,6 +2665,7 @@
       "androidx.cursoradapter:cursoradapter:aar",
       "androidx.customview:customview-poolingcontainer:aar",
       "androidx.customview:customview:aar",
+      "androidx.documentfile:documentfile:aar",
       "androidx.drawerlayout:drawerlayout:aar",
       "androidx.emoji2:emoji2-views-helper:aar",
       "androidx.emoji2:emoji2:aar",
@@ -2197,6 +2673,7 @@
       "androidx.fragment:fragment:aar",
       "androidx.graphics:graphics-path:aar",
       "androidx.interpolator:interpolator:aar",
+      "androidx.legacy:legacy-support-core-utils:aar",
       "androidx.lifecycle:lifecycle-common",
       "androidx.lifecycle:lifecycle-common-java8",
       "androidx.lifecycle:lifecycle-common-jvm",
@@ -2217,6 +2694,10 @@
       "androidx.lifecycle:lifecycle-viewmodel-savedstate:aar",
       "androidx.lifecycle:lifecycle-viewmodel:aar",
       "androidx.loader:loader:aar",
+      "androidx.localbroadcastmanager:localbroadcastmanager:aar",
+      "androidx.print:print:aar",
+      "androidx.privacysandbox.ads:ads-adservices-java:aar",
+      "androidx.privacysandbox.ads:ads-adservices:aar",
       "androidx.profileinstaller:profileinstaller:aar",
       "androidx.recyclerview:recyclerview:aar",
       "androidx.resourceinspection:resourceinspection-annotation",
@@ -2230,16 +2711,36 @@
       "androidx.versionedparcelable:versionedparcelable:aar",
       "androidx.viewpager:viewpager:aar",
       "com.getkeepsafe.relinker:relinker:aar",
+      "com.google.android.gms:play-services-ads-identifier:aar",
       "com.google.android.gms:play-services-auth-api-phone:aar",
       "com.google.android.gms:play-services-auth-base:aar",
       "com.google.android.gms:play-services-auth:aar",
       "com.google.android.gms:play-services-base:aar",
       "com.google.android.gms:play-services-basement:aar",
       "com.google.android.gms:play-services-fido:aar",
+      "com.google.android.gms:play-services-measurement-api:aar",
+      "com.google.android.gms:play-services-measurement-base:aar",
+      "com.google.android.gms:play-services-measurement-impl:aar",
+      "com.google.android.gms:play-services-measurement-sdk-api:aar",
+      "com.google.android.gms:play-services-measurement-sdk:aar",
+      "com.google.android.gms:play-services-measurement:aar",
+      "com.google.android.gms:play-services-stats:aar",
       "com.google.android.gms:play-services-tasks:aar",
       "com.google.android.libraries.identity.googleid:googleid:aar",
+      "com.google.code.findbugs:jsr305",
       "com.google.code.gson:gson",
+      "com.google.errorprone:error_prone_annotations",
+      "com.google.firebase:firebase-analytics:aar",
+      "com.google.firebase:firebase-annotations",
+      "com.google.firebase:firebase-common:aar",
+      "com.google.firebase:firebase-components:aar",
+      "com.google.firebase:firebase-installations-interop:aar",
+      "com.google.firebase:firebase-installations:aar",
+      "com.google.firebase:firebase-measurement-connector:aar",
+      "com.google.guava:failureaccess",
+      "com.google.guava:guava",
       "com.google.guava:listenablefuture",
+      "com.google.j2objc:j2objc-annotations",
       "com.naver.maps:geometry:aar",
       "com.naver.maps:map-sdk:aar",
       "com.squareup.moshi:moshi",
@@ -2249,7 +2750,9 @@
       "com.squareup.okhttp3:okhttp-brotli",
       "com.squareup.okio:okio",
       "com.squareup.okio:okio-jvm",
+      "javax.inject:javax.inject",
       "org.brotli:dec",
+      "org.checkerframework:checker-qual",
       "org.jetbrains.kotlin:kotlin-compose-compiler-plugin-embeddable",
       "org.jetbrains.kotlin:kotlin-reflect",
       "org.jetbrains.kotlin:kotlin-stdlib",
@@ -2261,6 +2764,7 @@
       "org.jetbrains.kotlinx:kotlinx-coroutines-android",
       "org.jetbrains.kotlinx:kotlinx-coroutines-core",
       "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
+      "org.jetbrains.kotlinx:kotlinx-coroutines-play-services",
       "org.jetbrains:annotations"
     ]
   },

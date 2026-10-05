@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import java.util.Locale
 
@@ -48,6 +50,8 @@ class AppLanguage private constructor(
         current = new
         lang = new
         AppLocale.install()
+        AppAnalytics.setLanguage(new.value)
+        AppAnalytics.log(AppEvent.SelectLanguage(new.value))
     }
 
     /** 기기 언어를 내놓는 언어로 접는다 — 한국어면 한국어, 그 밖은 영어. */

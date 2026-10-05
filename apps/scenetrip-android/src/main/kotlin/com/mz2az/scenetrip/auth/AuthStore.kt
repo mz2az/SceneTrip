@@ -7,6 +7,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.InstallIdentity
 import com.mz2az.scenetrip.data.LikeStore
@@ -96,6 +98,8 @@ object AuthStore {
                 me = session.user
                 signedIn = true
                 showingSignIn = false
+                AppAnalytics.setMember(true)
+                AppAnalytics.log(if (session.isNewUser) AppEvent.SignUp("google") else AppEvent.Login("google"))
                 // `merged` 가 아니어도 다시 읽는다 — 값이 싸고, 화면이 든 것이 서버와 같다는 보장이 된다.
                 accountChanged()
             } catch (_: GetCredentialCancellationException) {
@@ -121,6 +125,7 @@ object AuthStore {
         scope.launch {
             AuthTokens.refreshToken?.let { token -> io { api.signOut(installId, RefreshTokenBody(token)) } }
             forget()
+            AppAnalytics.log(AppEvent.Logout)
             busy = false
         }
     }
@@ -131,7 +136,10 @@ object AuthStore {
         busy = true
         scope.launch {
             val deleted = io { api.deleteMe() }.isSuccess
-            if (deleted) forget()
+            if (deleted) {
+                forget()
+                AppAnalytics.log(AppEvent.DeleteAccount)
+            }
             busy = false
             onDone(deleted)
         }
@@ -151,6 +159,7 @@ object AuthStore {
         AuthTokens.clear()
         me = null
         signedIn = false
+        AppAnalytics.setMember(false)
         accountChanged()
     }
 

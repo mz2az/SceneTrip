@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.routetab.RouteBridge
 import com.mz2az.scenetrip.routetab.RouteCourse
 import com.mz2az.scenetrip.routetab.RouteDay
@@ -150,7 +152,10 @@ class RouteStore(
      * 서버 id가 없으면 만들고(POST), 있으면 통째로 덮어쓴다(PUT) — **덮어쓰기는
      * 보낸 것이 전부다**, 빠진 아이템은 지운 것이 된다.
      */
-    suspend fun save(course: RouteCourse): RouteCourse? =
+    suspend fun save(
+        course: RouteCourse,
+        origin: String? = null,
+    ): RouteCourse? =
         withContext(Dispatchers.IO) {
             runCatching {
                 val serverId = course.serverId
@@ -169,14 +174,24 @@ class RouteStore(
                                 pace = if (course.pace == RoutePace.LOOSE) CoursePace.loose else CoursePace.tight,
                             ),
                         )
-                    try {
-                        coursesApi.replaceCourse(deviceId, created.id, RouteBridge.replace(course))
-                    } catch (error: Exception) {
-                        // 채우기가 실패하면 만든 코스를 되돌린다 — 안 그러면 장소 없는
-                        // 껍데기가 목록에 남는다.
-                        runCatching { coursesApi.deleteCourse(deviceId, created.id) }
-                        throw error
-                    }
+                    val replaced =
+                        try {
+                            coursesApi.replaceCourse(deviceId, created.id, RouteBridge.replace(course))
+                        } catch (error: Exception) {
+                            // 채우기가 실패하면 만든 코스를 되돌린다 — 안 그러면 장소 없는
+                            // 껍데기가 목록에 남는다.
+                            runCatching { coursesApi.deleteCourse(deviceId, created.id) }
+                            throw error
+                        }
+                    // 핵심 지표 — 코스가 **새로** 만들어졌다. 고쳐 저장한 것은 세지 않는다 (MZ2AZ-353).
+                    AppAnalytics.log(
+                        AppEvent.CreateCourse(
+                            origin = origin ?: if (course.madeByAI) "ai" else "self",
+                            dayCount = course.days.size,
+                            placeCount = course.placeCount,
+                        ),
+                    )
+                    replaced
                 }
             }
         }.fold(
@@ -286,6 +301,7 @@ class RouteStore(
                         longitude = longitude,
                     )
                 val reply = guideApi.planWithGuide(request)
+                AppAnalytics.log(AppEvent.GeneratePlan(span.days, request.titles.size))
                 RouteGuidePlan.course(reply.plan, courseTitle(chosenTitles, span), startDate, pace)
             }
         }.fold(

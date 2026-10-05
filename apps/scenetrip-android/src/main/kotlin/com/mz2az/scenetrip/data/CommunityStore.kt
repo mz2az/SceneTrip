@@ -6,6 +6,8 @@ import android.graphics.BitmapFactory
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.routetab.RouteCourse
 import com.mz2az.scenetrip.routetab.RouteDay
 import com.mz2az.scenetrip.routetab.RouteStop
@@ -175,6 +177,7 @@ class CommunityStore private constructor(
                 ),
             ) + posts
         persist()
+        AppAnalytics.log(AppEvent.PostReview(photoCount = names.size, hasCourse = course != null))
     }
 
     fun remove(post: CommunityPost) {
