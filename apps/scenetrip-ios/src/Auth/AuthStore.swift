@@ -60,6 +60,8 @@ final class AuthStore: ObservableObject {
             AuthTokens.store(session)
             me = session.user
             signedIn = true
+            AppAnalytics.setMember(true)
+            AppAnalytics.log(session.isNewUser ? .signUp(method: "google") : .login(method: "google"))
             showingSignIn = false
             // `merged` 가 아니어도 다시 읽는다 — 값이 싸고, 화면이 든 것이 서버와 같다는 보장이 된다.
             accountChanged()
@@ -79,6 +81,7 @@ final class AuthStore: ObservableObject {
         guard !busy else { return }
         busy = true
         defer { busy = false }
+        AppAnalytics.log(.logout)
         if let token = AuthTokens.refreshToken {
             try? await AuthAPI.signOut(
                 xInstallId: installId, refreshTokenBody: RefreshTokenBody(refreshToken: token)
@@ -94,6 +97,7 @@ final class AuthStore: ObservableObject {
         defer { busy = false }
         do {
             try await AuthAPI.deleteMe()
+            AppAnalytics.log(.deleteAccount)
             forget()
             return true
         } catch {
@@ -116,6 +120,7 @@ final class AuthStore: ObservableObject {
         GoogleOAuth.forget()
         me = nil
         signedIn = false
+        AppAnalytics.setMember(false)
         accountChanged()
     }
 

@@ -20,5 +20,8 @@ let package = Package(
         // 구글 로그인 (MZ2AZ-336). 백엔드 티켓이 정한 길이다 — 로그인 창·인가 코드 교환·nonce 를
         // 구글이 관리하는 코드에 맡긴다. AppAuth·GTMAppAuth·GTMSessionFetcher·AppCheck 가 함께 온다.
         .package(url: "https://github.com/google/GoogleSignIn-iOS.git", from: "9.0.0"),
+        // 앱 분석 (MZ2AZ-353). Firebase Analytics = GA4 의 앱 쪽 수집기다. **광고 식별자(IDFA)를 쓰지 않는
+        // 제품**(`FirebaseAnalyticsCore` — 옛 이름 WithoutAdIdSupport)을 쓴다 — 광고를 집행할 때 다시 정한다.
+        .package(url: "https://github.com/firebase/firebase-ios-sdk.git", from: "12.0.0"),
     ]
 )

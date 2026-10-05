@@ -419,7 +419,7 @@ struct SearchTabView: View {
         contentPlaces = []
         searchFocused = false
         detent = .medium
-        data.search(term)
+        data.search(term, kind: kind?.rawValue)
         pendingFit = true
     }
 

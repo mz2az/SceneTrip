@@ -198,7 +198,7 @@ struct CommunityPostView: View {
     private func save(_ course: PostCourse) async {
         saving = true
         defer { saving = false }
-        if let saved = await RouteStore().save(course.asNewCourse()), let id = saved.serverId {
+        if let saved = await RouteStore().save(course.asNewCourse(), origin: "review"), let id = saved.serverId {
             savedCourseId = id
         } else {
             saveFailed = true

@@ -21,6 +21,7 @@
 | [poi-card.md](./poi-card.md) | 편의시설 카드 — 사진·영업시간·평점을 네이버 장소에서 (데모 한정, ADR 0011) |
 | [social-login.md](./social-login.md) | 구글·애플 소셜 로그인과 JWT — 계약·요청 계정 규칙·합치기·앱이 할 일 (MZ2AZ-329, ADR 0018) |
 | [i18n-en-fallback.md](./i18n-en-fallback.md) | 응답 언어 폴백 — 요청 언어 → en → ko, 편의시설 제외 (MZ2AZ-344) |
+| [analytics-events.md](./analytics-events.md) | 앱 분석 이벤트 — Firebase·GA4, 퍼널(설치→가입→조회→담기·찜→첫 코스 생성→여행 시작), 보내지 않는 것 (MZ2AZ-353) |
 
 ## 언제 여기에 쓰는가
 

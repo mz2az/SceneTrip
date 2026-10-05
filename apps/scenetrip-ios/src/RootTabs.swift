@@ -35,7 +35,7 @@ struct RootTabs: View {
 
     /// 탭 선택과 덮개를 `TabRouter` 가 든다 — 마이페이지가 「경로여정에서 열기」로,
     /// 홈이 「코스 보기」로 화면을 바꿀 수 있어야 해서다.
-    @ObservedObject private var router = TabRouter.shared
+    @ObservedObject var router = TabRouter.shared
 
     /// 경로여정의 상태는 **여기서 든다.**
     ///
@@ -68,6 +68,9 @@ struct RootTabs: View {
             TabBar(selected: $router.selected)
         }
         .ignoresSafeArea(.keyboard)
+        // 어느 화면을 보는가 — 탭과 덮개 단위로 적는다 (MZ2AZ-353).
+        .onAppear { AppAnalytics.log(.screenView(screenName)) }
+        .onChange(of: screenName) { _, name in AppAnalytics.log(.screenView(name)) }
         // 계정이 바뀌면 코스가 다른 사람 것이다 — 홈과 경로여정이 같이 보는 목록을 다시 읽는다.
         .onAccountChange { await routes.refresh() }
         // 덮개(경로여정·마이페이지)가 떠 있으면 그쪽이 로그인 화면을 올린다.
@@ -80,6 +83,22 @@ struct RootTabs: View {
             case .profile:
                 ProfileTabView(onClose: { router.cover = nil })
             }
+        }
+    }
+}
+
+extension RootTabs {
+    /// 지금 보이는 화면의 이름. 덮개가 떠 있으면 덮개가 이긴다.
+    var screenName: String {
+        switch router.cover {
+        case .route: return "courses"
+        case .profile: return "profile"
+        case nil: break
+        }
+        switch router.selected {
+        case .search: return "search"
+        case .home: return "home"
+        case .community: return "community"
         }
     }
 }

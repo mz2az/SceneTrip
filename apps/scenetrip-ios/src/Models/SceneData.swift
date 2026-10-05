@@ -23,7 +23,12 @@ final class SceneData: ObservableObject {
     private var lastQuery = ""
 
     /// 검색어 하나로 두 탭을 채운다. 빈 문자열이면 전체를 받는다.
-    func search(_ query: String) {
+    /// `kind` 는 분석용 — 추천·자동완성에서 고른 갈래. 직접 쳤으면 없다.
+    func search(_ query: String, kind: String? = nil) {
+        if !query.isEmpty {
+            // 검색어 원문은 보내지 않는다 — 길이와 갈래만 (MZ2AZ-353).
+            AppAnalytics.log(.search(termLength: query.count, kind: kind ?? "typed"))
+        }
         lastQuery = query
         inFlight?.cancel()
         phase = .loading

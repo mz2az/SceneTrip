@@ -83,7 +83,12 @@ swift_library(
         "resources/demo/*.json",
         # 화면 문구 번역 표 (MZ2AZ-343). 열쇠는 한국어 원문이다.
         "resources/*.lproj/*.strings",
-    ]),
+    ]) + glob(
+        # Firebase 설정 파일 (MZ2AZ-353). Firebase 콘솔에서 받아 이 자리에 둔다. **없어도 빌드된다** —
+        # 없으면 앱이 분석을 켜지 않는다(`AppAnalytics.start`).
+        ["resources/GoogleService-Info*.plist"],
+        allow_empty = True,
+    ),
     module_name = "SceneTrip",
     # "manual" 은 와일드카드(`//...`)에서만 뺀다 — :bin 을 통해서는 그대로 지어지므로
     # 검사 범위가 줄지 않는다.
@@ -101,6 +106,9 @@ swift_library(
     deps = [
         "//contracts/openapi:scene_api_swift_lib",
         # 구글 로그인 SDK (MZ2AZ-336). 선언은 //:Package.swift.
+        # 앱 분석 (MZ2AZ-353) — Firebase Analytics(GA4). 광고 식별자를 쓰지 않는 제품이다.
+        "@swiftpkg_firebase_ios_sdk//:FirebaseAnalyticsCore",
+        "@swiftpkg_firebase_ios_sdk//:FirebaseCore",
         "@swiftpkg_googlesignin_ios//:GoogleSignIn",
         "@swiftpkg_spm_nmapsmap//:NMapsMap",
     ],

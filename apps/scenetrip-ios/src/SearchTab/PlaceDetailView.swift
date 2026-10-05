@@ -52,6 +52,7 @@ struct PlaceDetailView: View {
             }
         }
         .task(id: summary.id) {
+            AppAnalytics.log(.viewPlace(placeId: summary.id))
             detail = try? await load(summary.id)
         }
         .sheet(item: $scene) { picked in

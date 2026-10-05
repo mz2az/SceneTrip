@@ -127,6 +127,7 @@ enum RouteGuide {
             context: context?.contract
         )
         let installId = InstallIdentity.current
+        AppAnalytics.log(.askGuide)
         let reply = try await RouteGuideTimeout.run(seconds: timeoutSeconds) {
             try await GuideAPI.chatWithGuide(xInstallId: installId, guideChatRequest: request)
         }

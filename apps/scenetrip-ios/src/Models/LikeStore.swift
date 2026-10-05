@@ -85,6 +85,7 @@ final class LikeStore: ObservableObject {
     func toggle(_ contentId: Int64) {
         let liked = !contentIds.contains(contentId)
         apply(contentId, liked: liked)
+        AppAnalytics.log(.likeTitle(contentId: contentId, liked: liked))
         Task {
             do {
                 if liked {
