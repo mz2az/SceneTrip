@@ -41,6 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -54,6 +55,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -101,6 +103,8 @@ import com.mz2az.scenetrip.ui.WalkIcon
 import com.mz2az.scenetrip.ui.sheetListBottom
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.geometry.LatLngBounds
+import com.naver.maps.map.CameraAnimation
+import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.NaverMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -312,6 +316,11 @@ fun RouteEditorView(
 
     LaunchedEffect(map, dayIndex, fitToken, showingMe, myLocation) {
         val target = map ?: return@LaunchedEffect
+        // `map`이 막 생겼을 때는 `NaverMapCanvas`의 `AndroidView`가 아직 배치되기 전이다
+        // — 그 상태로 `fitBounds`를 부르면 크기 0 인 화면 기준으로 계산돼 한 단계 축소된
+        // 값이 나온다(실기 확인, searchtab `NaverMap.kt`의 최초 진입 카메라와 같은 함정).
+        // 한 프레임 기다리면 풀린다.
+        withFrameNanos {}
         // 「내 위치」 켜져 있으면 나와 촬영지가 같이 보이게 — 그래야 동선 최적화가
         // 왜 그 순서인지("여기서 가까운 곳이 1번") 알 수 있다(RouteEditorControls.swift).
         val here = myLocation.takeIf { showingMe }
@@ -588,7 +597,7 @@ fun RouteEditorView(
                 onTap = { place -> focusedStopId = stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(place) }?.id },
             )
             PendingPinMarker(map = map, pin = pendingPin)
-            TripOverlay(map = map, active = trip.isActive, here = trip.here, leg = trip.leg)
+            TripOverlay(map = map, active = trip.isActive, here = trip.here, leg = trip.leg, target = trip.target, density = density)
             FootprintTrail(
                 map = map,
                 points =
@@ -1159,6 +1168,8 @@ private fun TripOverlay(
     active: Boolean,
     here: Pair<Double, Double>?,
     leg: com.mz2az.scenetrip.sceneapi.client.model.NextLeg?,
+    target: RouteStop?,
+    density: Density,
 ) {
     if (map == null) return
     // **안내 중이 아니면 이 효과는 `locationOverlay`를 아예 건드리지 않는다.**
@@ -1172,6 +1183,18 @@ private fun TripOverlay(
         androidx.compose.runtime.LaunchedEffect(here) {
             map.locationOverlay.isVisible = here != null
             here?.let { (lat, lng) -> map.locationOverlay.position = LatLng(lat, lng) }
+        }
+    }
+    // **안내 중에는 카메라가 「나와 목적지와 길」을 본다.** iOS `RouteMapTrip.fitTrip`을
+    // 옮긴 것이다 — 경로(`leg`)가 새로 오거나 목적지가 바뀔 때만 움직인다. `here`를
+    // 열쇠에 넣지 않는 것이 핵심이다 — 걸을 때마다 따라가면 손으로 옮긴 화면이 계속
+    // 되돌아간다(iOS 주석과 같은 이유). 실기에서 "생성 눌러도 줌이 그대로"로 보인
+    // 원인 중 하나였다 — 카메라를 옮기는 효과 자체가 없었다.
+    if (active && target != null) {
+        val legSignature = leg?.legs.orEmpty().joinToString(",") { "${it.mode}${it.path.coordinates.size}" }
+        val tripKey = "${target.id}|$legSignature"
+        androidx.compose.runtime.LaunchedEffect(tripKey) {
+            map.fitTrip(target, leg?.legs.orEmpty(), here, density)
         }
     }
     androidx.compose.runtime.DisposableEffect(map, leg) {
@@ -1189,6 +1212,44 @@ private fun TripOverlay(
             }
         onDispose { overlay?.map = null }
     }
+}
+
+/**
+ * 안내 중 — 내 자리·목적지·경로선이 다 들어오게. 자리를 모르면 목적지만.
+ * iOS `RouteMapTrip.fitTrip`을 그대로 옮긴 것이다.
+ */
+private fun NaverMap.fitTrip(
+    target: RouteStop,
+    legs: List<com.mz2az.scenetrip.sceneapi.client.model.RouteLeg>,
+    here: Pair<Double, Double>?,
+    density: Density,
+) {
+    val goal = LatLng(target.place.latitude, target.place.longitude)
+    val points = mutableListOf<LatLng>()
+    legs.forEach { routeLeg ->
+        routeLeg.path.coordinates.forEach { coord ->
+            if (coord.size >= 2) points.add(LatLng(coord[1], coord[0])) // [경도, 위도]
+        }
+    }
+    points.add(goal)
+    here?.let { (lat, lng) -> points.add(LatLng(lat, lng)) }
+
+    if (points.size <= 1) {
+        moveCamera(CameraUpdate.scrollAndZoomTo(goal, 15.0).animate(CameraAnimation.Easing))
+        return
+    }
+
+    val bounds = LatLngBounds.Builder().apply { points.forEach { include(it) } }.build()
+    val span = maxOf(bounds.northLatitude - bounds.southLatitude, bounds.eastLongitude - bounds.westLongitude)
+    // **도착했을 때는 살짝만 다가간다**(iOS 주석과 같은 함정) — 나와 목적지가 십여 m
+    // 거리면 범위 그대로 맞춰서 SDK 가 축척 20 m 까지 확대해 버린다.
+    if (span < 0.0015) {
+        val zoom = if (cameraPosition.zoom >= 16.5) cameraPosition.zoom else minOf(cameraPosition.zoom + 0.5, 16.5)
+        moveCamera(CameraUpdate.scrollAndZoomTo(goal, zoom).animate(CameraAnimation.Easing, 600L))
+        return
+    }
+    val padding = with(density) { 56.dp.roundToPx() }
+    moveCamera(CameraUpdate.fitBounds(bounds, padding).animate(CameraAnimation.Easing, 400L))
 }
 
 /** iOS 의 캡슐 버튼(`.bordered` / `.borderedProminent`, `.controlSize(.regular)`, 글자 15). */
