@@ -82,45 +82,72 @@ struct RoutePlaceCard: View {
         }
     }
 
+    /// 이름 · 「네이버 지도에서 보기」 · 닫기.
+    ///
+    /// **한 줄에 다 들어가면 한 줄, 아니면 링크가 이름 아래로 내려간다.** 가이드 시트 안에서
+    /// 펼친 카드는 좁다 — 링크를 줄이면 「View on…」으로 잘리고, 링크 폭을 지키면 이름이
+    /// 두 글자씩 세 줄로 쪼개졌다(2026-10-05 실기). 넓은 카드에서는 전처럼 이름 옆에 선다
+    /// (그 줄이 통째로 빠져야 정보가 한 화면에 다 보인다 — 2026-08-27 사용자 지적).
     private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(place.name).font(.headline).fixedSize(horizontal: false, vertical: true)
-                if let meters = place.distanceMeters {
-                    Text("\(meters) m").font(.caption).foregroundStyle(.secondary)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top) {
+                title(wraps: false)
+                Spacer(minLength: 8)
+                naverLink
+                closeButton
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .top) {
+                    title(wraps: true)
+                    Spacer(minLength: 8)
+                    closeButton
                 }
+                naverLink
             }
-            Spacer()
-            // **더 보려면 네이버로** — 사진·메뉴·예약·리뷰는 그쪽에 있다. 이름으로 검색한 화면을 연다.
-            // 맨 아래 큰 단추였는데 이름 옆 아이콘으로 줄였다 — 그 줄이 통째로
-            // 빠져야 정보가 한 화면에 다 보인다(2026-08-27 사용자 지적).
-            if let link = card?.naverUrl, let url = URL(string: link) {
-                // 아이콘만 두면 「더 보기」인지 아무도 모른다(2026-08-27 사용자
-                // 지적) — 원래 아래에 있던 단추를 글자째 줄인 미니 캡슐이다.
-                Link(destination: url) {
-                    HStack(spacing: 3) {
-                        Text("네이버 지도에서 보기").font(.caption2.weight(.semibold))
-                        Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .semibold))
-                    }
-                    .padding(.horizontal, 8).padding(.vertical, 5)
-                    .background(
-                        Capsule().fill(Color(red: 0.02, green: 0.78, blue: 0.35).opacity(0.12))
-                    )
-                    .foregroundStyle(Color(red: 0.02, green: 0.60, blue: 0.28))
-                }
-                // 좁은 카드(가이드 시트 안)에서 글자가 「View on…」으로 잘렸다 — 링크는 제 폭을 지키고
-                // 이름이 줄을 바꾼다.
-                .fixedSize()
-            }
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 30, height: 30)
-            }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 8)
+    }
+
+    /// `wraps` 가 아니면 한 줄 폭을 그대로 요구한다 — `ViewThatFits` 가 그것으로 들어가는지 잰다.
+    private func title(wraps: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(place.name).font(.headline)
+                .lineLimit(wraps ? nil : 1)
+                .fixedSize(horizontal: !wraps, vertical: true)
+            if let meters = place.distanceMeters {
+                Text("\(meters) m").font(.caption).foregroundStyle(.secondary).fixedSize()
+            }
+        }
+    }
+
+    /// **더 보려면 네이버로** — 사진·메뉴·예약·리뷰는 그쪽에 있다. 이름으로 검색한 화면을 연다.
+    /// 아이콘만 두면 「더 보기」인지 아무도 모른다(2026-08-27 사용자 지적) — 글자째 둔 미니 캡슐이다.
+    @ViewBuilder
+    private var naverLink: some View {
+        if let link = card?.naverUrl, let url = URL(string: link) {
+            Link(destination: url) {
+                HStack(spacing: 3) {
+                    Text("네이버 지도에서 보기").font(.caption2.weight(.semibold))
+                    Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .semibold))
+                }
+                .padding(.horizontal, 8).padding(.vertical, 5)
+                .background(
+                    Capsule().fill(Color(red: 0.02, green: 0.78, blue: 0.35).opacity(0.12))
+                )
+                .foregroundStyle(Color(red: 0.02, green: 0.60, blue: 0.28))
+            }
+            .fixedSize()
+        }
+    }
+
+    private var closeButton: some View {
+        Button(action: onClose) {
+            Image(systemName: "xmark")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 30, height: 30)
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
