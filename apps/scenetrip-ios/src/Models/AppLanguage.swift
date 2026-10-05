@@ -68,6 +68,12 @@ final class AppLanguage: ObservableObject {
     /// 쓰는 곳은 메인 스레드의 [choose] 하나다.
     nonisolated(unsafe) static var current: Lang = .ko
 
+    /// 날짜·시각을 **앱 언어로** 적을 때 쓴다 — `Date.formatted` 는 기기 로케일을 따라, 영어 화면에
+    /// 「어제」「오전 4:06」이 섞였다(MZ2AZ-351 검증). `.locale(AppLanguage.currentLocale)` 로 넘긴다.
+    nonisolated static var currentLocale: Locale {
+        Locale(identifier: current.rawValue)
+    }
+
     /// 그 언어의 문자열 표. 한 번 찾아 두고 다시 쓴다.
     nonisolated static func bundle(for lang: Lang) -> Bundle {
         guard let path = Bundle.main.path(forResource: lang.rawValue, ofType: "lproj"),

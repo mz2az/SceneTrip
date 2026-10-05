@@ -33,70 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.CommunityBoard
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.VisitStamp
-import com.mz2az.scenetrip.sceneapi.client.model.MarketCourseSummary
 import com.mz2az.scenetrip.ui.IOS
-
-/** 여행자들의 코스 — 마켓에서 담기 많은 순으로 둘. 카드·링크 모두 경로여정의 마켓으로. */
-@Composable
-fun HomeMarketPreview(
-    courses: List<MarketCourseSummary>,
-    onOpen: () -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        HomeSectionHeader("여행자들의 코스", subtitle = "담기 많은 순", action = "둘러보기", onAction = onOpen)
-        if (courses.isEmpty()) {
-            Text(
-                "아직 올라온 코스가 없습니다",
-                style = IOS.footnote,
-                color = IOS.secondaryLabel,
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
-        } else {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            ) {
-                courses.forEach { course -> MarketCourseCard(course, onClick = onOpen, modifier = Modifier.weight(1f)) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MarketCourseCard(
-    course: MarketCourseSummary,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        modifier =
-            modifier
-                .homeCard()
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-    ) {
-        Text(
-            course.contents?.firstOrNull()?.title ?: "코스",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = HOME_PURPLE,
-            maxLines = 1,
-        )
-        Text(
-            "${course.title}\n${courseSpanLabel(course.dayCount)}",
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 2,
-            color = IOS.label,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("${course.placeCount}곳", fontSize = 12.sp, color = IOS.secondaryLabel)
-            Text("담기 ${course.saveCount}", fontSize = 12.sp, color = IOS.secondaryLabel)
-            Text("♥ ${course.likeCount}", fontSize = 12.sp, color = IOS.systemRed)
-        }
-    }
-}
 
 /** 커뮤니티 지금 — 최근 글 둘. 게시판 배지 · 제목 · 하트 자리. */
 @Composable

@@ -591,7 +591,7 @@ fun RouteEditorView(
             FootprintTrail(
                 map = map,
                 points =
-                    if (footprints.enabled) {
+                    if (footprints.drawsTrail) {
                         footprints.points.filter { it.at > System.currentTimeMillis() - 86_400_000L }
                     } else {
                         emptyList()
@@ -614,12 +614,13 @@ fun RouteEditorView(
                             }
                         },
                     )
-                    // 발자취 보기 토글은 여행 중에만 — 그 밖에는 볼 것이 없다
-                    // (iOS `RouteEditorControls.map`: `if course.isRunning`).
-                    if (course.isRunning) {
+                    // 발자취 단추 — 여행 중이고 **마이페이지의 「지도에 발자취 보기」가
+                    // 켜져 있을 때만** 있다. 설정을 끄면 단추째 사라진다(MZ2AZ-348).
+                    // 단추 자체는 발자국을 지금 그릴지(trailVisible)를 켜고 끈다.
+                    if (course.isRunning && footprints.enabled) {
                         RouteFootprintButton(
-                            on = footprints.enabled,
-                            onClick = { footprints.updateEnabled(!footprints.enabled) },
+                            on = footprints.trailVisible,
+                            onClick = { footprints.updateTrailVisible(!footprints.trailVisible) },
                         )
                     }
                 }

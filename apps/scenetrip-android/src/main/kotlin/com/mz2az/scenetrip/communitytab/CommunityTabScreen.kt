@@ -21,13 +21,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,21 +40,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CommunityBoard
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.CommunityStore
-import com.mz2az.scenetrip.data.InstallIdentity
-import com.mz2az.scenetrip.sceneapi.client.api.MarketApi
-import com.mz2az.scenetrip.sceneapi.client.model.MarketCourseSummary
-import com.mz2az.scenetrip.sceneapi.client.model.MarketSort
 import com.mz2az.scenetrip.ui.BubblesIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SquarePencilIcon
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -65,8 +56,9 @@ import java.util.concurrent.TimeUnit
 /**
  * 커뮤니티 — 게시판 임시판. iOS `CommunityTab/CommunityTabView.swift`를 옮긴 것이다.
  *
- * **지어낸 글은 없다.** 게시판 서버가 아직 없어서 이 판의 글은 둘뿐이다 — 내가 쓴
- * 글(기기 저장, [CommunityStore])과 마켓에 올라온 코스(실서버, 유일한 "남의 글").
+ * **지어낸 글은 없다.** 게시판 서버가 아직 없어서 이 판의 글은 내가 쓴 글뿐이다
+ * (기기 저장, [CommunityStore]). 코스마켓 코스를 「코스 추천」 글로 끼워 보여주던
+ * 것은 쓰지 않는 기능이라 걷어냈다(2026-10-03 팀 회의, MZ2AZ-350).
  */
 @Composable
 fun CommunityTabScreen() {
@@ -75,19 +67,8 @@ fun CommunityTabScreen() {
     var board by remember { mutableStateOf<CommunityBoard?>(null) }
     var composing by remember { mutableStateOf(false) }
     var reading by remember { mutableStateOf<CommunityPost?>(null) }
-    var marketCourses by remember { mutableStateOf<List<MarketCourseSummary>>(emptyList()) }
-
-    LaunchedEffect(Unit) {
-        val deviceId = InstallIdentity.of(context)
-        val api = MarketApi(API_BASE)
-        marketCourses =
-            withContext(Dispatchers.IO) {
-                runCatching { api.listMarketCourses(deviceId, sort = MarketSort.likes, limit = 30) }.getOrNull()
-            }?.items ?: emptyList()
-    }
 
     val minePosts = store.posts.filter { board == null || it.board == board }
-    val showsMarket = board == null || board == CommunityBoard.COURSE
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
@@ -95,7 +76,7 @@ fun CommunityTabScreen() {
             CommunityBoardChips(selected = board, onSelect = { board = it })
             Box(Modifier.fillMaxWidth().height(0.5.dp).background(IOS.separator))
 
-            if (minePosts.isEmpty() && !(showsMarket && marketCourses.isNotEmpty())) {
+            if (minePosts.isEmpty()) {
                 // iOS `ContentUnavailableView` 상당 — 심벌 + 굵은 제목 + 설명, 가운데
                 // 정렬에 너비를 좁혀 둔다(2026-09-28 실측: 안 좁히면 설명이 화면 폭
                 // 그대로라 iOS처럼 두 줄로 안 꺾인다). 심벌은 탭바 커뮤니티 아이콘과
@@ -136,9 +117,6 @@ fun CommunityTabScreen() {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(minePosts, key = { it.id }) { post ->
                         MyPostRow(post, onClick = { reading = post }, onDelete = { store.remove(post) })
-                    }
-                    if (showsMarket) {
-                        items(marketCourses, key = { it.id }) { course -> MarketRow(course) }
                     }
                 }
             }
@@ -300,35 +278,6 @@ private fun MyPostRow(
         }
         IconButton(onClick = onDelete) {
             Icon(Icons.Filled.Delete, contentDescription = "지우기", tint = IOS.tertiaryLabel, modifier = Modifier.size(18.dp))
-        }
-    }
-}
-
-@Composable
-private fun MarketRow(course: MarketCourseSummary) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(5.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Badge("코스 추천", IOS.pinDeep)
-            Text(course.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, color = IOS.label)
-        }
-        val works =
-            course.contents
-                .orEmpty()
-                .take(2)
-                .joinToString(" · ") { it.title }
-        val summary = "${course.dayCount}일 · ${course.placeCount}곳" + if (works.isNotEmpty()) " · $works" else ""
-        Text(summary, fontSize = 12.sp, color = IOS.secondaryLabel, maxLines = 1)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("여행자", fontSize = 11.sp, color = IOS.tertiaryLabel)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                Icon(Icons.Filled.Favorite, contentDescription = null, tint = IOS.tertiaryLabel, modifier = Modifier.size(10.dp))
-                Text("${course.likeCount}", fontSize = 11.sp, color = IOS.tertiaryLabel)
-            }
-            Spacer(Modifier.weight(1f))
-            Text("담기는 경로여정 탭에서", fontSize = 11.sp, color = IOS.tertiaryLabel)
         }
     }
 }

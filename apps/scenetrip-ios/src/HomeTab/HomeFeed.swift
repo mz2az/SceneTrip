@@ -31,30 +31,19 @@ struct HomeCommunityNow: View {
 
     private func row(_ post: CommunityPost) -> some View {
         HStack(spacing: 10) {
-            Text(tr(post.board.rawValue))
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(badgeTone(post.board))
-                .padding(.horizontal, 8).padding(.vertical, 3)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(badgeTone(post.board).opacity(0.12))
-                )
-                .fixedSize()
             Text(post.title).font(.system(size: 14)).lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "heart").font(.system(size: 12)).foregroundStyle(.tertiary)
+            // 말머리가 하나뿐이라 딱지는 없다. 대표 사진이 있으면 그것이 줄의 얼굴이다.
+            if let name = post.photos?.first, let photo = CommunityStore.photo(name) {
+                Image(uiImage: photo)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 44, height: 44)
+                    .clipShape(.rect(cornerRadius: 9))
+            }
         }
         .padding(.horizontal, 16).padding(.vertical, 13)
         .contentShape(.rect)
-    }
-
-    private func badgeTone(_ board: CommunityPost.Board) -> Color {
-        switch board {
-        case .photo: TabBar.homePurple
-        case .review: Color(red: 0.18, green: 0.49, blue: 0.27)
-        case .course: Color.accentColor
-        case .chat: Color.secondary
-        }
     }
 }
 

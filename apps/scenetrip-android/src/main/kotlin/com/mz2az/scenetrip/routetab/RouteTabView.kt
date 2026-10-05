@@ -70,21 +70,16 @@ import kotlinx.coroutines.launch
 fun RouteTabView(
     store: RouteStore,
     onClose: (() -> Unit)? = null,
-    startInMarket: Boolean = false,
 ) {
-    var segment by remember { mutableStateOf(if (startInMarket) Segment.MARKET else Segment.MINE) }
     var fork by remember { mutableStateOf(false) }
     var wizardOpen by remember { mutableStateOf(false) }
     var aiWizardOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<RouteCourse?>(null) }
     var doomed by remember { mutableStateOf<RouteCourse?>(null) }
-    var marketLoaded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         store.refresh()
-        store.refreshMarket()
-        marketLoaded = true
     }
 
     LaunchedEffect(TabRouter.pendingCourseId) {
@@ -104,67 +99,51 @@ fun RouteTabView(
                     XMarkIcon(IOS.label, Modifier.padding(start = 8.dp).size(15.dp).clickable(onClick = onClose))
                 }
                 Spacer(Modifier.weight(1f))
-                if (segment == Segment.MINE) {
-                    // iOS `PinoNudge` — 핀 그러데이션(파랑→보라) 위 흰 글자, 그러데이션이 0.55↔0.95 로
-                    // 0.7초마다 숨 쉰다. 정적으로 두었더니 iOS 보다 진하고 멈춰 보였다(2차 대조).
-                    val glow by rememberInfiniteTransition(label = "nudge").animateFloat(
-                        initialValue = 0.55f,
-                        targetValue = 0.95f,
-                        animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-                        label = "nudge-glow",
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier =
-                            Modifier
-                                .clip(RoundedCornerShape(15.dp))
-                                .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)), alpha = glow)
-                                .clickable { fork = true }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                    ) {
-                        Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
-                        Text("코스 추가", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                    }
+                // iOS `PinoNudge` — 핀 그러데이션(파랑→보라) 위 흰 글자, 그러데이션이 0.55↔0.95 로
+                // 0.7초마다 숨 쉰다. 정적으로 두었더니 iOS 보다 진하고 멈춰 보였다(2차 대조).
+                val glow by rememberInfiniteTransition(label = "nudge").animateFloat(
+                    initialValue = 0.55f,
+                    targetValue = 0.95f,
+                    animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+                    label = "nudge-glow",
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier =
+                        Modifier
+                            .clip(RoundedCornerShape(15.dp))
+                            .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)), alpha = glow)
+                            .clickable { fork = true }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                    Text("코스 추가", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 }
             }
         }
 
-        com.mz2az.scenetrip.searchtab.SegmentedControl(
-            options = Segment.entries,
-            selected = segment,
-            label = { it.label },
-            onSelect = { segment = it },
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-
-        when (segment) {
-            Segment.MINE -> {
-                if (store.courses.isEmpty()) {
-                    EmptyState(onAI = { aiWizardOpen = true }, onManual = { wizardOpen = true })
-                } else {
-                    CourseList(
-                        store = store,
-                        onOpen = { course ->
-                            scope.launch {
-                                editing = store.detail(course.id)?.let { RouteBridge.course(it) } ?: RouteBridge.course(course)
-                            }
-                        },
-                        onDelete = { course -> doomed = RouteBridge.course(course) },
-                        confirmingId = doomed?.serverId,
-                        onConfirmDelete = {
-                            val course = doomed
-                            doomed = null
-                            if (course != null) scope.launch { store.delete(course) }
-                        },
-                        onCancelDelete = { doomed = null },
-                    )
-                }
-            }
-
-            Segment.MARKET -> {
-                RouteMarketView(store = store, marketLoaded = marketLoaded)
-            }
+        // 「둘러보기」(코스마켓) 세그먼트가 있었다 — 쓰지 않는 기능이라 걷어냈다
+        // (2026-10-03 팀 회의, MZ2AZ-350). 이 화면은 내 코스 하나다.
+        if (store.courses.isEmpty()) {
+            EmptyState(onAI = { aiWizardOpen = true }, onManual = { wizardOpen = true })
+        } else {
+            CourseList(
+                store = store,
+                onOpen = { course ->
+                    scope.launch {
+                        editing = store.detail(course.id)?.let { RouteBridge.course(it) } ?: RouteBridge.course(course)
+                    }
+                },
+                onDelete = { course -> doomed = RouteBridge.course(course) },
+                confirmingId = doomed?.serverId,
+                onConfirmDelete = {
+                    val course = doomed
+                    doomed = null
+                    if (course != null) scope.launch { store.delete(course) }
+                },
+                onCancelDelete = { doomed = null },
+            )
         }
     }
 
@@ -211,13 +190,6 @@ fun RouteTabView(
             onClose = { editing = null },
         )
     }
-}
-
-private enum class Segment(
-    val label: String,
-) {
-    MINE("내 코스"),
-    MARKET("둘러보기"),
 }
 
 @Composable
