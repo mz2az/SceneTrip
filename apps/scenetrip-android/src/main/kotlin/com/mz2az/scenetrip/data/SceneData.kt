@@ -3,6 +3,8 @@ package com.mz2az.scenetrip.data
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.sceneapi.client.api.ContentsApi
 import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
 import com.mz2az.scenetrip.sceneapi.client.api.SearchApi
@@ -62,9 +64,19 @@ class SceneData(
     /** 마지막으로 부른 것. 「다시 시도」가 같은 요청을 되풀이하는 데 쓴다. */
     private var lastCall: (() -> Unit)? = null
 
-    /** 검색어 하나로 두 탭을 채운다. 빈 문자열이면 전체를 받는다. */
-    fun search(query: String) {
-        lastCall = { search(query) }
+    /**
+     * 검색어 하나로 두 탭을 채운다. 빈 문자열이면 전체를 받는다.
+     * [kind] 는 분석용 — 추천·자동완성에서 고른 갈래. 직접 쳤으면 없다.
+     */
+    fun search(
+        query: String,
+        kind: String? = null,
+    ) {
+        if (query.isNotEmpty()) {
+            // 검색어 원문은 보내지 않는다 — 길이와 갈래만 (MZ2AZ-353).
+            AppAnalytics.log(AppEvent.Search(query.length, kind ?: "typed"))
+        }
+        lastCall = { search(query, kind) }
         inFlight?.cancel()
         phase = Phase.LOADING
         val keyword = query.trim().ifEmpty { null }

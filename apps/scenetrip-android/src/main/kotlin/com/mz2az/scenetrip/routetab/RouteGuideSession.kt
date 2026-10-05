@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.ApiFailure
 import com.mz2az.scenetrip.data.InstallIdentity
@@ -87,6 +89,7 @@ class RouteGuideSession(
     ) {
         turns = turns + GuideTurn(role = GuideTurn.Role.USER, text = text)
         asking = true
+        AppAnalytics.log(AppEvent.AskGuide)
         runCatching {
             withContext(Dispatchers.IO) {
                 guideApi.chatWithGuide(

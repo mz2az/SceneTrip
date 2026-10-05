@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +41,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.communitytab.CommunityTabScreen
 import com.mz2az.scenetrip.data.Cover
 import com.mz2az.scenetrip.data.RootTab
@@ -69,6 +72,29 @@ import com.mz2az.scenetrip.ui.MagnifierIcon
 @Composable
 fun RootTabs() {
     val selected = TabRouter.selected
+    val cover = TabRouter.cover
+
+    // 어느 화면을 보는가 — 탭과 덮개 단위로 적는다 (MZ2AZ-353). 덮개가 이긴다 —
+    // iOS `RootTabs.screenName`과 같은 우선순위다.
+    val screenName =
+        when (cover) {
+            Cover.Route -> {
+                "courses"
+            }
+
+            Cover.Profile -> {
+                "profile"
+            }
+
+            null -> {
+                when (selected) {
+                    RootTab.SEARCH -> "search"
+                    RootTab.HOME -> "home"
+                    RootTab.COMMUNITY -> "community"
+                }
+            }
+        }
+    LaunchedEffect(screenName) { AppAnalytics.log(AppEvent.ScreenView(screenName)) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
@@ -114,7 +140,7 @@ fun RootTabs() {
             TabBar(selected = selected, onSelect = { TabRouter.selected = it })
         }
 
-        when (val cover = TabRouter.cover) {
+        when (cover) {
             null -> {
                 Unit
             }

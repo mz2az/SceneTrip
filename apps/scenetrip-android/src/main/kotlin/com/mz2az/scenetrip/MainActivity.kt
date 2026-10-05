@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.AppLocale
 import com.mz2az.scenetrip.data.OnboardingFlag
@@ -65,7 +66,7 @@ class MainActivity : ComponentActivity() {
         // 앱이 쓰는 API 클라이언트가 **처음 만들어지기 전에** 언어를 읽고
         // Accept-Language 인터셉터를 달아야 한다(MZ2AZ-343) — 늦으면 끼울 자리가
         // 굳어 버린다(`ApiClient.defaultClient`는 `by lazy`).
-        AppLanguage.getInstance(this)
+        val language = AppLanguage.getInstance(this)
         AppLocale.install()
 
         // 확인용 뒷문 — iOS `simctl launch … -initialTab profile`과 짝이다.
@@ -75,6 +76,11 @@ class MainActivity : ComponentActivity() {
             tab = intent.getStringExtra("initialTab"),
             openCourseId = intent.getLongExtra("openCourseId", -1L).takeIf { it > 0 },
         )
+
+        // 앱 분석 — 설정 파일(res/raw/google_services.json)이 있고 SDK 의존성이 붙어 있을
+        // 때만 켜진다 (MZ2AZ-353). `member`는 AuthStore 가 main 에 없어(MZ2AZ-336 병합
+        // 대기) 아직 고정값이다.
+        AppAnalytics.start(context = this, language = language.lang.value, member = false)
 
         setContent { SceneTripApp() }
     }

@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.sceneapi.client.api.FavoritesApi
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientException
 import com.mz2az.scenetrip.sceneapi.client.model.FavoriteContentCreate
@@ -94,6 +96,7 @@ class LikeStore private constructor(
     fun toggle(contentId: Long) {
         val liked = contentId !in contentIds
         apply(contentId, liked)
+        AppAnalytics.log(AppEvent.LikeTitle(contentId, liked))
         scope.launch {
             val result =
                 runCatching {

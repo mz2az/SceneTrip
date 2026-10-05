@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.sceneapi.client.api.CartApi
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.sceneapi.client.model.CartItemCreate
@@ -53,6 +55,7 @@ class CartStore(
                 api.addCartItem(installId, CartItemCreate(placeId = placeId, sourceContentId = sourceContentId))
             }
         }.onSuccess {
+            AppAnalytics.log(AppEvent.SavePlace(placeId))
             refresh()
         }.onFailure {
             // 계약이 409 에 "이미 저장된 장소입니다" 를 띄우라고 적어 뒀다.

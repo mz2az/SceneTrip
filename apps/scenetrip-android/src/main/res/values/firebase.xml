@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Firebase 설정 값 (MZ2AZ-353). `google-services` Gradle 플러그인이 보통 자동으로
+  만들어 주는 리소스를 손으로 적었다 — Bazel 에는 그 플러그인이 없다.
+
+  값은 res/raw/google_services.json 에서 그대로 옮겼다. 그 파일이 바뀌면(프로젝트를
+  옮기거나 키를 다시 받으면) 이 파일도 같이 고친다.
+
+  **Firebase Analytics(play-services-measurement)는 FirebaseOptions 를 거치지 않고
+  `google_app_id` 를 이 리소스에서 직접 읽는다** — 코드로 FirebaseApp.initializeApp 을
+  불러도 이 리소스가 없으면 "Missing google_app_id. Firebase Analytics disabled." 로
+  멈춘다(실기 확인, 2026-10-05). 그래서 AppAnalytics.start 는 코드로 FirebaseOptions 를
+  짓는 대신 `FirebaseOptions.fromResource(context)` — 이 리소스를 읽는 SDK 내장 함수 —
+  를 쓴다. 리소스가 없으면(=이 파일이 안 들어간 빌드) `null` 이 와서 분석을 켜지 않는다.
+-->
+<resources>
+    <string name="google_app_id" translatable="false">1:156440497405:android:aa9087b3724e914bb34294</string>
+    <string name="google_api_key" translatable="false">AIzaSyC-DWSNJEb3LyIXKts-UPYA8x8hGyvo8e0</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyC-DWSNJEb3LyIXKts-UPYA8x8hGyvo8e0</string>
+    <string name="google_storage_bucket" translatable="false">scenetrip-5bf07.firebasestorage.app</string>
+    <string name="project_id" translatable="false">scenetrip-5bf07</string>
+    <string name="gcm_defaultSenderId" translatable="false">156440497405</string>
+</resources>

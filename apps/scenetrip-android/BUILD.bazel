@@ -45,6 +45,10 @@ kt_android_library(
         # androidx.appcompat · okhttp 등 전이 의존성이 함께 딸려 온다.
         "@maven_android//:com_naver_maps_map_sdk",
 
+        # 앱 분석(MZ2AZ-353). `AppAnalytics`가 설정 파일 유무로 켤지 말지 정한다 —
+        # 자세한 이유는 그 파일의 주석에 있다.
+        "@maven_android//:com_google_firebase_firebase_analytics",
+
         # 계약에서 생성한 API 클라이언트. **앱은 클라이언트를 손으로 쓰지 않는다**
         # (CLAUDE.md §5). iOS 가 같은 계약에서 생성한 것을 쓰는 것과 짝이다.
         "//contracts/openapi:scene_api_kotlin_lib",

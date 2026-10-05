@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -45,6 +46,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.data.OnboardingFlag
 import com.mz2az.scenetrip.data.RoutePoiGroup
 import com.mz2az.scenetrip.data.RoutePoiTone
@@ -108,8 +111,11 @@ fun OnboardingView(
 
     fun finish() {
         onboardingFlag.markSeen()
+        AppAnalytics.log(AppEvent.TutorialComplete)
         onDone()
     }
+
+    LaunchedEffect(Unit) { AppAnalytics.log(AppEvent.TutorialBegin) }
 
     Column(
         modifier =
