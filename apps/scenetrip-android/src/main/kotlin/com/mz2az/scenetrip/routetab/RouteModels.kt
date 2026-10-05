@@ -1,7 +1,10 @@
 package com.mz2az.scenetrip.routetab
 
+import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.KoreaBounds
 import com.mz2az.scenetrip.data.haversineKm
+import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -124,7 +127,7 @@ enum class RouteSpan(
     ;
 
     val days: Int get() = nights + 1
-    val label: String get() = if (nights == 0) "당일치기" else "${nights}박 ${days}일"
+    val label: String get() = if (nights == 0) tr("당일치기") else tr("%d박 %d일").format(nights, days)
 
     companion object {
         /** 일차 +/- 로 6일을 넘긴 코스도 있으므로 목록에 없는 값이 들어올 수 있다. */
@@ -136,12 +139,26 @@ enum class RouteSpan(
  * "빡빡하게 / 널널하게". UI만 있고 로직은 없다 — 이 답이 일정을 어떻게 바꾸는지는
  * 아직 정하지 않았다. 값만 들고 다니고 초안 생성에는 쓰지 않는다.
  */
-enum class RoutePace(
-    val label: String,
-    val caption: String,
-) {
-    TIGHT("빡빡하게", "하루를 알차게 채웁니다"),
-    LOOSE("널널하게", "여유 있게 돌아봅니다"),
+enum class RoutePace {
+    TIGHT,
+    LOOSE,
+    ;
+
+    // 값은 상수가 아니라 계산 프로퍼티다 — enum 값은 한 번만 만들어지므로, 생성자
+    // 인자로 저장했다면 언어를 나중에 바꿔도 처음 읽힌 언어로 굳어 버린다.
+    val label: String
+        get() =
+            when (this) {
+                TIGHT -> tr("빡빡하게")
+                LOOSE -> tr("널널하게")
+            }
+
+    val caption: String
+        get() =
+            when (this) {
+                TIGHT -> tr("하루를 알차게 채웁니다")
+                LOOSE -> tr("여유 있게 돌아봅니다")
+            }
 }
 
 /**
@@ -410,19 +427,25 @@ object RouteDedupe {
 }
 
 object RouteFormat {
-    private val dayFormatter = DateTimeFormatter.ofPattern("M월 d일 (E)", Locale.KOREAN)
-
-    /** "8월 22일 (금)". 요일까지 적는 이유 — 주말에 문을 닫는 촬영지가 있다. */
-    fun day(date: LocalDate): String = date.format(dayFormatter)
+    /**
+     * "8월 22일 (금)". 요일까지 적는 이유 — 주말에 문을 닫는 촬영지가 있다.
+     *
+     * 패턴·로케일을 매번 새로 만든다 — 저장해 두면 언어를 나중에 바꿔도 처음 읽힌
+     * 언어로 굳어 버린다.
+     */
+    fun day(date: LocalDate): String {
+        val locale = if (AppLanguage.current == Lang.ko) Locale.KOREAN else Locale.ENGLISH
+        return date.format(DateTimeFormatter.ofPattern(tr("M월 d일 (E)"), locale))
+    }
 
     /** "30분"·"1시간 30분". */
     fun minutes(total: Int): String {
         val hours = total / 60
         val rest = total % 60
         return when {
-            hours == 0 -> "${rest}분"
-            rest == 0 -> "${hours}시간"
-            else -> "${hours}시간 ${rest}분"
+            hours == 0 -> tr("%d분").format(rest)
+            rest == 0 -> tr("%d시간").format(hours)
+            else -> tr("%d시간 %d분").format(hours, rest)
         }
     }
 

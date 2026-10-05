@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.API_BASE
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
 import com.mz2az.scenetrip.sceneapi.client.api.PoisApi
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
@@ -157,11 +158,11 @@ fun RoutePlaceCard(
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(14.dp)) {
                 CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
                 Spacer(Modifier.width(8.dp))
-                Text("불러오는 중입니다", fontSize = 12.sp, color = IOS.secondaryLabel)
+                Text(tr("불러오는 중입니다"), fontSize = 12.sp, color = IOS.secondaryLabel)
             }
         } else if (missing) {
             Column(modifier = Modifier.padding(14.dp)) {
-                Text("정보를 불러오지 못했습니다", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IOS.label)
+                Text(tr("정보를 불러오지 못했습니다"), fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IOS.label)
                 place.category?.let {
                     Text(it, fontSize = 11.sp, color = IOS.tertiaryLabel)
                 }
@@ -292,7 +293,7 @@ private fun PlaceCardNaverLink(url: String) {
                 .clickable { runCatching { uriHandler.openUri(url) } }
                 .padding(horizontal = 8.dp, vertical = 5.dp),
     ) {
-        Text("네이버 지도에서 보기", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF049A47))
+        Text(tr("네이버 지도에서 보기"), fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF049A47))
         Icon(
             Icons.AutoMirrored.Filled.ArrowForward,
             contentDescription = null,
@@ -308,7 +309,7 @@ private fun PlaceCardCloseButton(onClose: () -> Unit) {
         modifier = Modifier.size(30.dp).clickable(onClick = onClose),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Filled.Close, contentDescription = "닫기", tint = IOS.secondaryLabel, modifier = Modifier.size(16.dp))
+        Icon(Icons.Filled.Close, contentDescription = tr("닫기"), tint = IOS.secondaryLabel, modifier = Modifier.size(16.dp))
     }
 }
 
@@ -332,9 +333,9 @@ private fun PlaceCardFound(
     }
 
     Column {
-        cardRow("분류", card.category)
-        cardRow("주소", card.address)
-        cardRow("전화", card.phone)
+        cardRow(tr("분류"), card.category)
+        cardRow(tr("주소"), card.address)
+        cardRow(tr("전화"), card.phone)
     }
 
     Row(
@@ -356,7 +357,7 @@ private fun PlaceCardFound(
             modifier = Modifier.size(14.dp),
         )
         Text(
-            if (added) "경로에 있음 · 누르면 빼기" else "경로에 추가",
+            if (added) tr("경로에 있음 · 누르면 빼기") else tr("경로에 추가"),
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = if (added) IOS.secondaryLabel else Color.White,

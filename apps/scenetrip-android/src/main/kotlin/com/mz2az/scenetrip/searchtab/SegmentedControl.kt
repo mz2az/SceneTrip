@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
 
 /**
@@ -110,7 +111,8 @@ fun ChipRow(
             val name = CategoryChip.names[index]
             val isOn = selected == name
             Text(
-                text = name,
+                // name 은 iOS 와 같은 Korean 열쇠(분류 거르기에도 쓴다) — 보이는 글자만 tr() 로.
+                text = tr(name),
                 style = IOS.subheadline,
                 color = if (isOn) IOS.systemBackground else IOS.label,
                 modifier =

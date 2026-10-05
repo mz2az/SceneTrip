@@ -26,8 +26,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.sceneapi.client.model.Lang
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.TextStyle
+import java.util.Locale
 
 /**
  * iOS `DatePicker(...).datePickerStyle(.graphical)` — 머리 「2026년 9월 ›」(17 semibold) + 오른쪽 ‹ ›(accent,
@@ -46,9 +51,18 @@ fun IOSGraphicalDatePicker(
     var month by remember { mutableStateOf(YearMonth.from(selected)) }
     val today = LocalDate.now()
     val canGoBack = month > YearMonth.from(minDate)
+    // SwiftUI 의 `DatePicker` 는 머리·요일을 기기 로케일로 알아서 그려 준다 — 손수
+    // 그리는 Android 는 **앱 언어**로 맞춰 줘야 한다(기기 로케일이 아니다).
+    val locale = if (AppLanguage.current == Lang.ko) Locale.KOREAN else Locale.ENGLISH
     Column(modifier = modifier.padding(horizontal = 16.dp).padding(top = 18.dp, bottom = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("${month.year}년 ${month.monthValue}월", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            val header =
+                if (locale == Locale.KOREAN) {
+                    "${month.year}년 ${month.monthValue}월"
+                } else {
+                    "${month.month.getDisplayName(TextStyle.FULL, locale)} ${month.year}"
+                }
+            Text(header, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
             Spacer(Modifier.width(6.dp))
             ChevronRightIcon(IOS.accent, Modifier.size(13.dp))
             Spacer(Modifier.weight(1f))
@@ -64,7 +78,18 @@ fun IOSGraphicalDatePicker(
         }
         Spacer(Modifier.height(25.dp))
         Row {
-            listOf("일", "월", "화", "수", "목", "금", "토").forEach {
+            // 일요일부터 — DayOfWeek 는 월=1..일=7 이라 일요일을 맨 뒤로 돌린다.
+            val weekdays =
+                listOf(
+                    DayOfWeek.SUNDAY,
+                    DayOfWeek.MONDAY,
+                    DayOfWeek.TUESDAY,
+                    DayOfWeek.WEDNESDAY,
+                    DayOfWeek.THURSDAY,
+                    DayOfWeek.FRIDAY,
+                    DayOfWeek.SATURDAY,
+                ).map { it.getDisplayName(TextStyle.NARROW, locale) }
+            weekdays.forEach {
                 Text(
                     it,
                     fontSize = 13.sp,
