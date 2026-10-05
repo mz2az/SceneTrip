@@ -27,6 +27,12 @@
 \else
 \set prune 0
 \endif
+-- 분기 갱신(--update). update_sql 은 seed-poi.sh 가 넘긴다 — 파드에서는 표준 입력으로 들어와 상대
+-- 경로가 풀리지 않아서 파일 경로를 따로 받는다.
+\if :{?update}
+\else
+\set update 0
+\endif
 
 BEGIN;
 
@@ -88,6 +94,31 @@ FROM t_in i LEFT JOIN t_group g USING (biz_middle)
 WHERE g.biz_middle IS NULL
 GROUP BY 1 ORDER BY 2 DESC, 1;
 
+-- ── 3-1. 제외 분류 ───────────────────────────────────────────────────────────
+--
+-- 큰 갈래(biz_middle)가 허용목록 안이어도 여행 앱에 보일 일이 없는 세부 분류는 넣지 않는다
+-- (docs/project/plans/poi-i18n-image.md §7, 2026-10-05). 상가정보 원본은 대분류 「음식」·「숙박」 을
+-- 거르지 않고 다 싣기 때문에 술집 안의 유흥주점, 숙박 안의 고시원이 같이 온다.
+--
+--   일반 유흥 주점 · 무도 유흥 주점   접객·무도 유흥업소 — 「Bar」 로 옮기면 일반 술집으로 읽힌다
+--   구내식당                        회사·기관 직원 식당 — 외부인이 대개 못 들어간다
+--   기숙사/고시원                    장기 거주 시설 — 여행 숙소가 아니다
+--
+-- 걸러내는 열쇠는 category(상권 소분류)다. 표준산업분류로 거르지 않는다 — 역전할머니맥주 918 곳은
+-- 소분류가 전부 「생맥주 전문」 인데 그중 7 곳의 사업자 신고 업종이 「일반 유흥 주점업」 이다.
+-- 같은 프랜차이즈가 신고만 다르게 한 것이라 소분류가 맞다.
+--
+-- 적재마다 이 파일이 돌므로 분기 갱신 때도 같은 규칙이 걸린다. 이미 들어 있는 행은 §5-1 이 지운다.
+CREATE TEMP TABLE t_excluded_category (category TEXT PRIMARY KEY) ON COMMIT DROP;
+INSERT INTO t_excluded_category VALUES
+    ('일반 유흥 주점'), ('무도 유흥 주점'), ('구내식당'), ('기숙사/고시원');
+
+\echo ''
+\echo '제외 분류라 버린 행:'
+SELECT i.category, count(*) AS rows
+FROM t_in i JOIN t_group g USING (biz_middle) JOIN t_excluded_category USING (category)
+GROUP BY 1 ORDER BY 2 DESC, 1;
+
 \echo ''
 \echo 'id·이름·좌표 중 하나가 없거나 형식이 틀려 버린 행:'
 SELECT count(*) AS rows
@@ -113,7 +144,8 @@ SELECT i.source_id, i.name, i.lat, i.lng, i.category, g.category_group,
        round(i.lng::numeric, 5) AS lng5
 FROM t_in i JOIN t_group g USING (biz_middle)
 WHERE i.source_id IS NOT NULL AND i.name IS NOT NULL AND i.lat IS NOT NULL AND i.lng IS NOT NULL
-  AND i.lat BETWEEN 33 AND 39 AND i.lng BETWEEN 124 AND 132;
+  AND i.lat BETWEEN 33 AND 39 AND i.lng BETWEEN 124 AND 132
+  AND NOT EXISTS (SELECT 1 FROM t_excluded_category x WHERE x.category = i.category);
 
 -- ── 4. 중복을 접는다 (poi.md §5-2) ───────────────────────────────────────────
 --
@@ -199,6 +231,18 @@ CREATE TEMP TABLE t_load ON COMMIT DROP AS
 SELECT f.* FROM t_final f
 WHERE NOT EXISTS (SELECT 1 FROM t_shadowed x WHERE x.source_id = f.source_id);
 
+-- ── 4-2. 분기 갱신 — update=1 일 때만 ──────────────────────────────────────────
+--
+-- UPSERT 바로 앞이어야 한다. 이어진 행은 여기서 source_id 가 새 번호로 바뀌므로 아래 UPSERT 가 그 행을
+-- 「있는 행」 으로 갱신한다(poi.id 유지). 이어지지 않은 행은 폐업 표시된다. 규칙은 poi_update.sql —
+-- 통합 시험과 서버 적재가 같은 파일을 쓰도록 psql 메타 명령 없는 순수 SQL 로 떼어 두었다.
+\if :update
+\i :update_sql
+\echo ''
+\echo '분기 갱신 — 사라진 번호를 같은 가게로 잇거나 폐업 표시:'
+SELECT * FROM t_update_summary;
+\endif
+
 -- ── 5. UPSERT ────────────────────────────────────────────────────────────────
 --
 -- 바뀐 것이 없으면 건드리지 않는다(WHERE ... IS DISTINCT FROM) — updated_at 이 헛되이
@@ -215,12 +259,15 @@ WITH up AS (
         category = EXCLUDED.category, category_group = EXCLUDED.category_group,
         address = EXCLUDED.address, road = EXCLUDED.road, tel = EXCLUDED.tel,
         region = EXCLUDED.region, city = EXCLUDED.city,
+        -- 입력에 다시 나왔다 — 폐업 표시가 있었으면 지운다(다시 문을 연 가게, 또는 잘못 판정된 가게).
+        closed_at = NULL,
         updated_at = now()
     WHERE (poi.name, ST_AsBinary(poi.geom), poi.category, poi.category_group,
            poi.address, poi.road, poi.tel, poi.region, poi.city)
           IS DISTINCT FROM
           (EXCLUDED.name, ST_AsBinary(EXCLUDED.geom), EXCLUDED.category, EXCLUDED.category_group,
            EXCLUDED.address, EXCLUDED.road, EXCLUDED.tel, EXCLUDED.region, EXCLUDED.city)
+       OR poi.closed_at IS NOT NULL
     RETURNING (xmax = 0) AS inserted
 )
 INSERT INTO t_result SELECT inserted FROM up;
@@ -232,6 +279,20 @@ SELECT
     (SELECT count(*) FROM t_result WHERE inserted)          AS inserted,
     (SELECT count(*) FROM t_result WHERE NOT inserted)      AS updated,
     (SELECT count(*) FROM t_load) - (SELECT count(*) FROM t_result) AS unchanged;
+
+-- ── 5-1. 이미 들어 있는 제외 분류를 지운다 — prune 과 상관없이 ─────────────────
+--
+-- §3-1 은 이번 입력만 거른다. 그 전에 들어온 행은 기본(prune=0) 적재에서 「입력에 없는 행」 이라
+-- 건드려지지 않으므로 여기서 직접 지운다. 번역·사진·네이버 카드는 CASCADE 로 함께 사라진다.
+\echo ''
+\echo '이미 들어 있던 제외 분류를 지운 행:'
+WITH gone AS (
+    DELETE FROM poi p
+    USING t_excluded_category x
+    WHERE p.category = x.category
+    RETURNING p.category
+)
+SELECT category, count(*) AS rows FROM gone GROUP BY 1 ORDER BY 2 DESC, 1;
 
 -- ── 6. 이번 입력에 없는 행을 지운다 — prune=1 일 때만 ─────────────────────────
 --

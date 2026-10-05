@@ -212,6 +212,8 @@ java_junit5_test(
     name = "integration_test",
     size = "medium",
     srcs = glob(["tests/integration/java/**/*.java"]),
+    # PoiUpdateIntegrationTest 가 적재가 psql 로 돌리는 바로 그 파일을 JDBC 로 돌린다.
+    data = ["seed/poi_update.sql"],
     tags = [
         "external",
         "integration",

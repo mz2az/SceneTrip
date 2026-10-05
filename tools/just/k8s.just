@@ -214,8 +214,10 @@ seed *csv:
 #   just seed-poi "~/Downloads/압축 poi 2/허용목록만/"poi_{food,stay,sight,transit}.jsonl.gz
 #
 # 지우지 않는다 — source_id 로 UPSERT 라 다시 돌려도 안전하고, 좌표가 바뀐 판은 갱신된다.
+# 분기 갱신은 --update(같은 가게 잇기·폐업 표시), 출처를 통째로 바꿀 때만 --prune. 둘은 함께 쓰지 않는다.
+#   just seed-poi --update ~/Downloads/SceneTrip_POI_<새 판>/out/poi_*.jsonl
 #
-# POI(편의시설) 적재 — 인자 없으면 저장소 표본 23 행, 있으면 그 .jsonl(.gz) 파일들
+# POI(편의시설) 적재 — 인자 없으면 저장소 표본 31 행, 분기 갱신은 --update
 [group('db')]
 [positional-arguments]
 seed-poi *files:
@@ -227,6 +229,12 @@ seed-poi *files:
 [group('db')]
 poi-filter src dst:
     ./tools/scripts/poi-filter.sh "{{ src }}" "{{ dst }}"
+
+# 편의시설 네이버 카드(poi_naver)를 CSV 로 뜬다 — source_id 를 붙여, 저장소 밖에, 덮지 않고
+# 예: `just poi-naver-backup ~/SceneTrip-backup/poi_naver-20261004.csv`
+[group('db')]
+poi-naver-backup dst:
+    ./tools/scripts/poi-naver-backup.sh "{{ dst }}"
 
 # 적재 후 검색 색인 갱신. CONCURRENTLY 라 갱신 중에도 검색이 계속 응답한다.
 [group('db')]
