@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.CommunityBoard
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.VisitStamp
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
 
 /** 커뮤니티 지금 — 최근 글 둘. 게시판 배지 · 제목 · 하트 자리. */
@@ -42,10 +43,10 @@ fun HomeCommunityNow(
     onOpen: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        HomeSectionHeader("커뮤니티 지금", subtitle = "방금 올라온 글", action = "더 보기", onAction = onOpen)
+        HomeSectionHeader(tr("커뮤니티 지금"), subtitle = tr("방금 올라온 글"), action = tr("더 보기"), onAction = onOpen)
         if (posts.isEmpty()) {
             Text(
-                "첫 글을 남겨 보세요",
+                tr("첫 글을 남겨 보세요"),
                 style = IOS.footnote,
                 color = IOS.secondaryLabel,
                 modifier = Modifier.padding(horizontal = 20.dp),
@@ -116,7 +117,7 @@ fun HomeMyRecord(
     onOpen: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        HomeSectionHeader("내 기록", subtitle = "프로필에서 전부 보기")
+        HomeSectionHeader(tr("내 기록"), subtitle = tr("프로필에서 전부 보기"))
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -137,9 +138,9 @@ private fun StampsCard(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier.homeCard().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Text("방문 스탬프", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+        Text(tr("방문 스탬프"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.label)
         if (stamps.isEmpty()) {
-            Text("여행 중 성지에 닿으면 도장이 찍힙니다", fontSize = 12.sp, color = IOS.secondaryLabel)
+            Text(tr("여행 중 성지에 닿으면 도장이 찍힙니다"), fontSize = 12.sp, color = IOS.secondaryLabel)
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 stamps.take(3).forEachIndexed { index, _ ->
@@ -192,10 +193,10 @@ private fun LikesCard(
                 .clickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Text("찜한 작품", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+        Text(tr("찜한 작품"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.label)
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("$likeCount", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.systemRed)
-            Text("편", fontSize = 12.sp, color = IOS.secondaryLabel)
+            Text(tr("편"), fontSize = 12.sp, color = IOS.secondaryLabel)
         }
     }
 }

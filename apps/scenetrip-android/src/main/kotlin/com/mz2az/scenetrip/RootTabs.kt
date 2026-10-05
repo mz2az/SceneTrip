@@ -45,6 +45,7 @@ import com.mz2az.scenetrip.data.Cover
 import com.mz2az.scenetrip.data.RootTab
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.hometab.HomeTabScreen
 import com.mz2az.scenetrip.profiletab.ProfileTabView
 import com.mz2az.scenetrip.routetab.RouteTabView
@@ -143,16 +144,16 @@ private fun StubTab(tab: RootTab) {
         modifier = Modifier.fillMaxSize().background(IOS.systemBackground),
     ) {
         Text(tab.stubLabel, style = IOS.headline, color = IOS.secondaryLabel)
-        Text("아직 준비 중입니다", style = IOS.subheadline, color = IOS.tertiaryLabel)
+        Text(tr("아직 준비 중입니다"), style = IOS.subheadline, color = IOS.tertiaryLabel)
     }
 }
 
 private val RootTab.stubLabel: String
     get() =
         when (this) {
-            RootTab.SEARCH -> "작품검색"
-            RootTab.HOME -> "홈"
-            RootTab.COMMUNITY -> "커뮤니티"
+            RootTab.SEARCH -> tr("작품검색")
+            RootTab.HOME -> tr("홈")
+            RootTab.COMMUNITY -> tr("커뮤니티")
         }
 
 /**
@@ -259,13 +260,13 @@ private fun HomeTab(
             ) {
                 Image(
                     painter = painterResource(R.drawable.haetae_face),
-                    contentDescription = "홈",
+                    contentDescription = tr("홈"),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.size(width = 40.dp, height = 34.dp),
                 )
             }
             Text(
-                "홈",
+                tr("홈"),
                 fontSize = 11.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                 color = if (active) HOME_PURPLE else IOS.secondaryLabel,

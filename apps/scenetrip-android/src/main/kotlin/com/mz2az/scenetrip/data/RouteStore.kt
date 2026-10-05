@@ -304,8 +304,8 @@ class RouteStore(
         chosenTitles: List<String>,
         span: RouteSpan,
     ): String {
-        val first = chosenTitles.firstOrNull() ?: return "인기 촬영지 ${span.label}"
-        val name = if (chosenTitles.size == 1) first else "$first 외 ${chosenTitles.size - 1}"
+        val first = chosenTitles.firstOrNull() ?: return tr("인기 촬영지 %s").format(span.label)
+        val name = if (chosenTitles.size == 1) first else tr("%s 외 %d").format(first, chosenTitles.size - 1)
         return "$name ${span.label}"
     }
 
@@ -315,7 +315,7 @@ class RouteStore(
         startDate: LocalDate?,
     ): RouteCourse =
         RouteCourse(
-            title = "내 코스",
+            title = tr("내 코스", "코스 제목"),
             startDate = startDate,
             days = List(span.days) { RouteDay() },
         )
