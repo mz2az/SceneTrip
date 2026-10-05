@@ -14,6 +14,8 @@ private val TRANSLATIONS_EN_EXTRA: Map<String, String> =
     mapOf(
         "‘%s’에 대한 결과 없음" to "No results for “%s”",
         "철자를 확인하거나 새로운 검색을 시도하십시오." to "Check the spelling or try a new search.",
+        "뒤로" to "Back",
+        "빼기" to "Remove",
     )
 
 /** 한국어 원문(Kotlin 형식 지정자로) -> English. 자리 구분은 "원문|자리". */
