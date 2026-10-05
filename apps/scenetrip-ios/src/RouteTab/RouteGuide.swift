@@ -161,63 +161,47 @@ enum RouteGuide {
     }
 
     /// 핀을 눌렀을 때 띄울 정보 카드. **출처가 상세 API 를 정한다**(계약 `GuidePlaceSource`) —
-    /// 편의시설은 `GET /pois/{id}/card`(네이버 장소, ADR 0011), 촬영지는 `GET /places/{id}`.
+    /// 편의시설은 `GET /pois/{id}`, 촬영지는 `GET /places/{id}`. 둘 다 **우리 자료**다.
     /// 촬영지와 편의시설은 다른 표라 숫자 id 만으로는 못 가른다.
     ///
-    /// 편의시설 카드는 처음 부르면 `pending` 으로 올 수 있다 — 서버가 뒤에서 채우므로 다시 열면 있다.
+    /// 편의시설 카드는 네이버 장소의 사진·평점·영업시간을 보여 주던 것이다(`GET /pois/{id}/card`,
+    /// ADR 0011 — 비공식 호출, 데모 한정). 밖에 내보내는 빌드에는 쓸 수 없어 걷어냈다
+    /// (2026-10-05, MZ2AZ-354). 더 볼 것은 `NaverMapLink` 로 **넘긴다** — 가져오지 않는다.
     static func card(for place: Place) async -> Card? {
         if let placeId = place.placeId {
             guard let detail = try? await PlacesAPI.getPlace(placeId: placeId) else { return nil }
             return Card(
-                found: true,
-                name: detail.name,
                 category: detail.type ?? place.category,
                 address: detail.address ?? place.address,
-                hours: nil,
                 phone: nil,
-                reviewCount: nil,
-                blogReviews: nil,
-                score: nil,
                 images: detail.imageUrls ?? [detail.imageUrl].compactMap { $0 },
-                naverUrl: detail.naverPlaceUrl,
-                why: nil
+                naverUrl: detail.naverPlaceUrl // 촬영지는 전과 같다 — 우리가 가진 링크가 있을 때만.
             )
         }
-        guard let poiId = place.poiId,
-              let card = try? await PoisAPI.getPoiCard(poiId: poiId)
-        else { return nil }
+        // 상세를 못 받아도 카드는 뜬다 — 이름·분류·주소는 목록이 이미 줬다. 전화만 빠진다.
+        let detail: PoiDetail? = if let poiId = place.poiId {
+            try? await PoisAPI.getPoi(poiId: poiId)
+        } else {
+            nil
+        }
         return Card(
-            found: card.found ?? false,
-            name: card.name ?? place.name,
-            category: card.category ?? place.category,
-            address: card.address ?? place.address,
-            hours: card.hours,
-            phone: card.phone,
-            reviewCount: card.reviewCount,
-            blogReviews: card.blogReviews,
-            score: card.score,
-            images: card.images ?? [],
-            naverUrl: card.naverUrl,
-            why: card.pending == true ? tr("아직 채우는 중이에요 — 잠시 뒤 다시 열어 주세요") : card.why
+            category: detail?.category ?? place.category,
+            address: detail?.address ?? place.address,
+            phone: detail?.tel,
+            images: [],
+            naverUrl: NaverMapLink.search(detail?.name ?? place.name, near: detail?.city)
         )
     }
 
-    /// 정보 카드 — 편의시설은 네이버에서, 촬영지는 우리 상세에서 온다.
+    /// 정보 카드 — 편의시설도 촬영지도 우리 자료에서 온다.
     struct Card {
-        let found: Bool
-        let name: String
         let category: String?
         let address: String?
-        let hours: String?
         let phone: String?
-        let reviewCount: Int?
-        let blogReviews: Int?
-        let score: Double?
+        /// 촬영지의 우리 사진. 편의시설은 사진이 없다.
         let images: [String]
-        /// 「네이버에서 열기」가 갈 곳.
+        /// 「네이버 지도에서 보기」가 갈 곳.
         let naverUrl: String?
-        /// 못 찾았을 때 왜인지.
-        let why: String?
     }
 
     // MARK: 주고받는 것
@@ -307,10 +291,6 @@ enum RouteGuide {
 
         /// 어느 표에서 왔나. 코스 촬영지를 옮긴 것(길찾기 목적지)은 없다.
         let source: Source?
-
-        /// 네이버 장소에 연결돼 있나 — 펼치면 카드가 나오는 줄인가. `nil` 은 아직 모름.
-        /// 답이 온 뒤 세션이 알아 와서 채운다(`RouteGuideLinked`).
-        var linked: Bool?
 
         /// 코스의 촬영지를 가이드 장소 모양으로 바꿀 때 쓴다(성지 카드의
         /// 「여기로 길찾기」 — 갈아탈 목적지는 이 타입이다).

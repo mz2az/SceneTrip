@@ -12,7 +12,6 @@
 "%@원" = "₩%@";
 "%d 정거장" = "%d stops";
 "%d개" = "%d";
-"%d건" = "%d";
 "%d곳" = "%d places";
 "%d박 %d일" = "%2$dD %1$dN";
 "%d번 " = "#%d ";
@@ -89,12 +88,10 @@
 "내가 쓴 글" = "My posts";
 "내가 찍은 곳" = "My pin";
 "널널하게" = "Easy";
-"네이버" = "NAVER";
-"네이버 더보기" = "More on Naver";
-"네이버 정보 있음" = "NAVER info available";
 "네이버 지도" = "Naver Map";
-"네이버에서 찾는 중입니다" = "Searching Naver…";
-"네이버에서 찾지 못했습니다" = "Not found on Naver";
+"네이버 지도에서 보기" = "View on Naver Map";
+"정보를 불러오지 못했습니다" = "Couldn't load details";
+"불러오는 중입니다" = "Loading…";
 "다녀온 곳" = "Visited";
 "다녀온 코스와 사진을 AI 가 15초 영상으로" = "AI turns your trip into a 15s video";
 "다녀온 코스의 동선과 장소를 AI 가 읽고" = "AI reads your finished course,";
@@ -160,8 +157,6 @@
 "방금 올라온 글" = "Latest posts";
 "방문 스탬프" = "Visit stamps";
 "방문 스탬프를 찍었어요!" = "Visit stamp collected!";
-"방문자 리뷰" = "Visitor reviews";
-"별점" = "Rating";
 "보고 싶은 작품과 기간만 고르면 촬영지를 이어서 일정으로 짜 드립니다" = "Pick the titles and dates you want, and we'll link the filming locations into an itinerary.";
 "보고 싶은 작품과 기간만 고르면,\n촬영지를 이어서 일차별 일정으로 짜 드립니다" = "Pick your titles and trip length,\nand we'll plan the filming locations day by day";
 "본문이 없습니다" = "No content";
@@ -169,7 +164,6 @@
 "분류" = "Category";
 "붙인 코스" = "Attached course";
 "붙일 코스가 없습니다" = "No courses to attach";
-"블로그 리뷰" = "Blog reviews";
 "비회원으로 여행 중" = "Traveling as a guest";
 "빡빡하게" = "Packed";
 "빡빡하게는 하루 7곳, 널널하게는 3곳.\n가까운 곳끼리 묶어 일차별로 나눠 줘요." = "Packed fits 7 stops a day, Easy fits 3.\nNearby spots get grouped, day by day.";
@@ -198,7 +192,6 @@
 "아직 만든 코스가 없습니다" = "No courses yet";
 "아직 스탬프가 없습니다" = "No stamps yet";
 "아직 쓴 글이 없습니다" = "No posts yet";
-"아직 채우는 중이에요 — 잠시 뒤 다시 열어 주세요" = "Still loading details — open again in a moment";
 "아직 코스가 없습니다" = "No courses yet";
 "안 붙임" = "None";
 "안내 끝" = "End guidance";
@@ -231,7 +224,6 @@
 "여행자들의 코스" = "Travelers' courses";
 "연결이 원활하지 않아요. 잠시 뒤 다시 해 주세요" = "Connection is unstable. Try again in a moment.";
 "연관 검색어" = "Related searches";
-"영업" = "Hours";
 "예: 오늘 묵을 숙소" = "e.g. Tonight's hotel";
 "예정" = "Upcoming";
 "예정 %lld" = "Upcoming %lld";
@@ -241,7 +233,6 @@
 "올리기" = "Post";
 "요청을 처리하지 못했습니다." = "Couldn't process the request.";
 "요청을 처리하지 못했어요. 조건을 바꿔 다시 해 주세요" = "Couldn't process that. Try changing your request";
-"우리 자료(TMAP)에는 있지만 네이버에 없는 가게일 수 있습니다." = "This place may be in our data (TMAP) but not listed on Naver.";
 "위도 %.5f · 경도 %.5f" = "Lat %.5f · Lng %.5f";
 "위치 권한을 켜면 주변 장소를 찾아 드립니다" = "Turn on location access to find places nearby";
 "위치 권한이 없어 현재 위치를 표시할 수 없습니다" = "Location access is off, so your position can't be shown";

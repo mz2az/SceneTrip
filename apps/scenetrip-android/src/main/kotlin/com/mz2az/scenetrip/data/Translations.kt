@@ -121,6 +121,10 @@ internal val TRANSLATIONS_EN: Map<String, String> =
         "다음" to "Next",
         "다음 · %d번 %s로 길찾기" to "Next · Directions to #%d %s",
         "닫기" to "Close",
+        // MZ2AZ-354 가 main 에 들어오며 iOS en.lproj 에 생긴 세 줄 — 다음 재생성 전까지 손으로 옮겨 적었다.
+        "네이버 지도에서 보기" to "View on Naver Map",
+        "불러오는 중입니다" to "Loading…",
+        "정보를 불러오지 못했습니다" to "Couldn't load details",
         "담고 빼는 것은 작품검색 탭의 장바구니에서" to "Save and remove places from Saved in the Search tab",
         "담기" to "Save",
         "담기 %d|저장 수" to "%d saves",

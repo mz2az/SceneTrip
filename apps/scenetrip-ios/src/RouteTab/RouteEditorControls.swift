@@ -32,7 +32,7 @@ extension RouteEditorView {
                 pickedStop = nil // 카드는 한 장만
             },
             // 미리보기 핀도 누르면 카드가 뜬다. 챗봇이 찍어 준 곳은 가이드 결과에
-            // 같은 것이 있으므로 그것을 찾아 편의시설 카드(사진·영업시간·담기)를 띄운다.
+            // 같은 것이 있으므로 그것을 찾아 편의시설 카드(분류·주소·담기)를 띄운다.
             // 검색·장바구니에서 온 미리보기(촬영지)는 성지 카드로.
             onTapPreview: { summary in
                 if let place = guide.places.first(where: {
