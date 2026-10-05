@@ -312,6 +312,67 @@ SELECT category_group, count(*) AS rows FROM gone GROUP BY 1 ORDER BY 1;
 \echo '지우지 않았다 (prune=0). 출처를 바꿨다면 --prune 으로 다시 돌릴 것.'
 \endif
 
+-- ── 7. 분류 사전 — 영어 ─────────────────────────────────────────────────────────
+--
+-- 적재마다 같이 채운다. 표기를 고치면 다음 적재에 반영되고, 서버 적재도 이 파일 하나로 사전까지 선다.
+-- 초안·검토: docs/project/plans/poi-i18n-image.md §9. 제외 분류 넷(§3-1)은 들어오지 않으므로 사전에도 없다.
+-- 같은 영어를 두 분류가 나눠 쓰는 것은 일부러다 — 원본의 「음식점」 과 「음식점기타」 는 화면에서 구분할
+-- 까닭이 없다.
+INSERT INTO poi_category_i18n (ko, lang, name) VALUES
+    -- 음식
+    ('한식', 'en', 'Korean'),
+    ('카페', 'en', 'Cafe'),
+    ('요리 주점', 'en', 'Gastropub'),
+    ('분식', 'en', 'Korean Snacks'),
+    ('치킨', 'en', 'Fried Chicken'),
+    ('중식', 'en', 'Chinese'),
+    ('제과점', 'en', 'Bakery'),
+    ('일식', 'en', 'Japanese'),
+    ('양식', 'en', 'Western'),
+    ('피자', 'en', 'Pizza'),
+    ('생맥주 전문', 'en', 'Beer Pub'),
+    ('떡/한과', 'en', 'Rice Cakes & Sweets'),
+    ('음식점기타', 'en', 'Restaurant'),
+    ('음식점', 'en', 'Restaurant'),
+    ('세계요리', 'en', 'International'),
+    ('패스트푸드', 'en', 'Fast Food'),
+    ('다이어트/샐러드', 'en', 'Sandwiches & Salads'),   -- 원본 소분류는 「토스트/샌드위치/샐러드」
+    ('부페', 'en', 'Buffet'),
+    ('아이스크림전문점', 'en', 'Ice Cream & Bingsu'),  -- 원본 소분류는 「아이스크림/빙수」
+    ('패밀리레스토랑', 'en', 'Family Restaurant'),
+    -- 숙박
+    ('펜션', 'en', 'Pension'),
+    ('모텔', 'en', 'Motel'),
+    ('캠핑장', 'en', 'Campsite'),
+    ('호텔', 'en', 'Hotel & Resort'),                   -- 원본 소분류는 「호텔/리조트」
+    ('숙박', 'en', 'Accommodation'),
+    ('숙박기타', 'en', 'Accommodation'),
+    -- 관광
+    ('관광지', 'en', 'Attraction'),
+    ('쇼핑', 'en', 'Shopping'),
+    ('레포츠', 'en', 'Leisure Sports'),
+    ('문화시설', 'en', 'Culture'),
+    ('여행코스', 'en', 'Travel Route'),
+    ('축제공연행사', 'en', 'Festival & Event'),
+    -- 교통
+    ('지하철역', 'en', 'Subway Station'),
+    ('터미널정류소', 'en', 'Bus Stop'),
+    ('버스터미널', 'en', 'Bus Terminal'),
+    ('기차역', 'en', 'Train Station'),
+    ('환승센터', 'en', 'Transit Center'),
+    ('공항', 'en', 'Airport')
+ON CONFLICT (ko, lang) DO UPDATE SET name = EXCLUDED.name
+WHERE poi_category_i18n.name IS DISTINCT FROM EXCLUDED.name;
+
+-- 새 판에 새 분류가 오면 여기 보인다 — 영어 화면에서 한국어로 폴백되고 있다는 뜻이다. 위 목록에 한 줄 더한다.
+\echo ''
+\echo '영어 분류가 없는 분류 (영업 중 POI 기준, 비어 있어야 정상):'
+SELECT p.category, count(*) AS rows
+FROM poi p
+LEFT JOIN poi_category_i18n t ON t.ko = p.category AND t.lang = 'en'
+WHERE t.ko IS NULL AND p.closed_at IS NULL
+GROUP BY 1 ORDER BY 2 DESC, 1;
+
 COMMIT;
 
 -- 통계를 새로 잰다. 수십만 행이 한 번에 들어오면 플래너의 추정치가 낡아 첫 질의들이

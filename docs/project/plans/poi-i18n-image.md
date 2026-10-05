@@ -1,7 +1,7 @@
 # 편의시설 다국어·사진 — 우리 앱 자체 POI 로
 
 - **작성일**: 2026-10-04
-- **상태**: 1·2단계 완료(2026-10-04). 2026-10-05 실측으로 주소·지역 결정이 바뀌었다(§6). 3a·3c·3e 완료, 제외 분류(§7) — 다음은 분류 영어(3b)와 영문 주소 적재(3d)
+- **상태**: 1·2단계 완료(2026-10-04). 2026-10-05 실측으로 주소·지역 결정이 바뀌었다(§6). 3a·3b·3c·3e 완료, 제외 분류(§7) — 다음은 영문 주소 적재(3d)
 - **앞선 문서**: [poi.md](./poi.md) (스키마·적재) · [poi-card.md](./poi-card.md) (네이버 카드, 데모 한정)
   · [i18n-en-fallback.md](./i18n-en-fallback.md) (응답 언어 폴백)
 
@@ -243,7 +243,7 @@ API 응답에서 확인한 공식 표기는 번지 뒤에 쉼표가 없다 — `
 | # | 할 일 | 계약 |
 | --- | --- | --- |
 | 3a | ✅ V17 정리 — `poi_term_i18n` → `poi_category_i18n(ko, lang, name)`. 커밋 전이라 V17 을 고쳐 쓰고 로컬 DB 는 V17 을 내렸다 다시 올렸다 | 없음 |
-| 3b | 분류 `en` — 초안을 사람이 검수. 제외 분류 넷(§7)을 빼면 38 개 | 없음 |
+| 3b | ✅ 분류 `en` 38 개 — `poi.sql` §7 이 적재마다 채운다(§9) | 없음 |
 | 3c | ✅ 관광공사·교통 영문 주소 실측 — 문장 → 도로명·건물번호 → 영문 DB, 남는 것은 API (§6-3) | 없음 |
 | 3d | 영문 주소 적재 — `poi_i18n.address`. 레시피·스크립트 설계, 영문 DB 위치는 인자로 | 없음 |
 | 3e | ✅ 분기 갱신 `just seed-poi --update` — 규칙·실측·구현은 §8 | 없음 |
@@ -344,3 +344,22 @@ POI 는 갱신이 건드리지 않는다 — 상가정보 파일만 넣어도 �
 - 로컬 전량(910,394 행)에 같은 판을 `--update` 로 다시 넣으면 사라진 번호·새 번호·이음·폐업이 모두 0 이다.
 - 아직 안 한 것: 2025-12 판을 적재한 DB 에 2026-06 판을 `--update` 로 넣는 실데이터 검증. 12월판을 적재
   파일 형식으로 바꾸는 변환 스크립트가 저장소 밖(`~/Downloads/SceneTrip_POI_20260907/tools/`)에 있다.
+
+---
+
+## 9. 덧붙임 (2026-10-05) — 분류 영어 38 개
+
+제외 분류 넷(§7)을 빼고 남은 38 개. 사전은 `poi.sql` §7 이 적재마다 함께 채운다 — 표기를 고치면 다음 적재에
+반영되고, 서버 적재(3f)도 같은 파일로 사전까지 선다. 적재 끝에 「영어 분류가 없는 분류」 를 찍는다 — 새 판에
+새 분류가 오면 거기 보이고, 그동안은 영어 화면에서 한국어로 폴백된다.
+
+| 갈래 | 분류 → 영어 |
+| --- | --- |
+| 음식 | 한식 Korean · 카페 Cafe · 요리 주점 Gastropub · 분식 Korean Snacks · 치킨 Fried Chicken · 중식 Chinese · 제과점 Bakery · 일식 Japanese · 양식 Western · 피자 Pizza · 생맥주 전문 Beer Pub · 떡/한과 Rice Cakes & Sweets · 음식점기타·음식점 Restaurant · 세계요리 International · 패스트푸드 Fast Food · 다이어트/샐러드 Sandwiches & Salads · 부페 Buffet · 아이스크림전문점 Ice Cream & Bingsu · 패밀리레스토랑 Family Restaurant |
+| 숙박 | 펜션 Pension · 모텔 Motel · 캠핑장 Campsite · 호텔 Hotel & Resort · 숙박·숙박기타 Accommodation |
+| 관광 | 관광지 Attraction · 쇼핑 Shopping · 레포츠 Leisure Sports · 문화시설 Culture · 여행코스 Travel Route · 축제공연행사 Festival & Event |
+| 교통 | 지하철역 Subway Station · 터미널정류소 Bus Stop · 버스터미널 Bus Terminal · 기차역 Train Station · 환승센터 Transit Center · 공항 Airport |
+
+이름이 원본 소분류와 다른 셋은 원본 쪽을 따랐다 — `다이어트/샐러드`(원본 「토스트/샌드위치/샐러드」),
+`아이스크림전문점`(「아이스크림/빙수」), `호텔`(「호텔/리조트」). 이 분류 이름은 변환 스크립트가 붙인 것이다.
+검토 거리: `펜션` 은 외국인에게 「Guesthouse」 가 익숙할 수 있다.

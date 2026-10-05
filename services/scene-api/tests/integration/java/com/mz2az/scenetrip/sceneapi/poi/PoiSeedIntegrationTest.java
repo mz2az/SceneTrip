@@ -81,6 +81,26 @@ class PoiSeedIntegrationTest {
   }
 
   @Test
+  @DisplayName("공공데이터 출처 POI 의 분류는 전부 영어 사전에 있다 — 적재가 사전도 채운다")
+  void publicDataCategoriesHaveEnglish() {
+    // TMAP 판 표본(숫자 id)의 옛 분류(일본선술집·문화유적지)는 공공데이터 판에 없어 사전에도 없다 — 출처로 거른다.
+    assertThat(
+            count(
+                """
+                SELECT count(DISTINCT p.category) FROM poi p
+                LEFT JOIN poi_category_i18n t ON t.ko = p.category AND t.lang = 'en'
+                WHERE p.source_id ~ '^(MA|tour-|busstop-|metro-|train-|air-|hub-)'
+                  AND p.closed_at IS NULL AND t.ko IS NULL
+                """))
+        .isZero();
+    assertThat(
+            jdbc.sql("SELECT name FROM poi_category_i18n WHERE ko = '카페' AND lang = 'en'")
+                .query(String.class)
+                .single())
+        .isEqualTo("Cafe");
+  }
+
+  @Test
   @DisplayName("좌표가 한국 밖(위·경도가 바뀐 행)이면 들어오지 않는다")
   void outOfKoreaCoordinatesAreDropped() {
     assertThat(count("SELECT count(*) FROM poi WHERE source_id = 'tour-9990003'")).isZero();
