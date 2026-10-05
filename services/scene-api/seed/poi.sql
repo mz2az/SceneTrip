@@ -65,10 +65,14 @@ SELECT
              NULLIF(btrim(d ->> 'biz_lower'), ''),
              NULLIF(btrim(d ->> 'biz_middle'), ''))           AS category,
     NULLIF(btrim(d ->> 'addr'), '')                           AS address,
-    -- 공식 영문 주소 — `just poi-addr-en` 이 덧붙인 칸(§5-2). 칸 자체가 없는 입력(원본 그대로)은
-    -- 영문 주소를 건드리지 않는다. 칸이 있는데 null 이면 「못 찾았다」 라 비운다.
+    -- 영어 화면용 칸 — `just poi-en` 이 덧붙인다(§5-2). 칸 자체가 없는 입력(원본 그대로)은 그 값을
+    -- 건드리지 않는다. 칸이 있는데 null 이면 「없다」 라 비운다.
     NULLIF(btrim(d ->> 'addr_en'), '')                        AS addr_en,
     d ? 'addr_en'                                             AS has_addr_en,
+    NULLIF(btrim(d ->> 'name_en'), '')                        AS name_en,
+    d ? 'name_en'                                             AS has_name_en,
+    NULLIF(btrim(d ->> 'name_roman'), '')                     AS name_roman,
+    d ? 'name_roman'                                          AS has_name_roman,
     NULLIF(btrim(d ->> 'road'), '')                           AS road,
     NULLIF(btrim(d ->> 'tel'), '')                            AS tel,
     NULLIF(btrim(d ->> 'region'), '')                         AS region,
@@ -141,6 +145,7 @@ WHERE i.lat IS NOT NULL AND i.lng IS NOT NULL
 CREATE TEMP TABLE t_ok ON COMMIT DROP AS
 SELECT i.source_id, i.name, i.lat, i.lng, i.category, g.category_group,
        i.address, i.road, i.tel, i.region, i.city, i.origin, i.addr_en, i.has_addr_en,
+       i.name_en, i.has_name_en, i.name_roman, i.has_name_roman,
        -- 자루 카테고리(~기타·전문음식점)가 아닌 것. 중복을 접을 때 남길 쪽을 고르는 첫 기준.
        (i.category NOT LIKE '%기타' AND i.category <> '전문음식점') AS concrete,
        -- 소수 5자리 ≈ 1 m. 좌표를 이 정밀도로 비교한다.
@@ -298,36 +303,51 @@ WITH gone AS (
 )
 SELECT category, count(*) AS rows FROM gone GROUP BY 1 ORDER BY 2 DESC, 1;
 
--- ── 5-2. 공식 영문 주소 → poi_i18n(en).address ────────────────────────────────
+-- ── 5-2. 영어 화면용 칸 — 영문 주소, 영어 이름, 로마자 읽기 ─────────────────────
 --
 -- 영문 주소는 번역하지 않는다 — 행정안전부 영문도로명주소DB·영문주소 API 의 공식 표기다(계획 §6-3·§11).
--- 이름 칸은 건드리지 않는다(가게 이름의 공식 영어는 없다, §10). 주소도 이름도 없는 영어 행은 남기지 않는다.
--- 입력에 addr_en 칸이 없으면(변환 전 원본) 이 절은 아무것도 바꾸지 않는다.
-CREATE TEMP TABLE t_addr_en ON COMMIT DROP AS
-SELECT p.id, l.addr_en
+-- 영어 이름은 확실할 때만(브랜드 사전·보수적 규칙 번역, §12) 있고 대부분 비어 있다. 로마자 읽기는 번역이 아니라
+-- 읽는 법이라 poi 에 둔다. 주소도 이름도 없는 영어 행은 남기지 않는다. 칸이 없는 입력은 그 값을 바꾸지 않는다.
+CREATE TEMP TABLE t_en ON COMMIT DROP AS
+SELECT p.id, l.addr_en, l.has_addr_en, l.name_en, l.has_name_en, l.name_roman, l.has_name_roman
 FROM t_load l
 JOIN poi p ON p.source_id = l.source_id
-WHERE l.has_addr_en;
+WHERE l.has_addr_en OR l.has_name_en OR l.has_name_roman;
 
+UPDATE poi p
+SET name_roman = e.name_roman
+FROM t_en e
+WHERE p.id = e.id AND e.has_name_roman AND p.name_roman IS DISTINCT FROM e.name_roman;
+
+-- 영문 주소와 영어 이름은 따로 넣고 따로 비운다 — 한쪽 칸만 있는 입력도 다른 칸을 건드리지 않게.
 INSERT INTO poi_i18n (poi_id, lang, address)
-SELECT id, 'en', addr_en FROM t_addr_en WHERE addr_en IS NOT NULL
+SELECT id, 'en', addr_en FROM t_en WHERE has_addr_en AND addr_en IS NOT NULL
 ON CONFLICT (poi_id, lang) DO UPDATE SET address = EXCLUDED.address
 WHERE poi_i18n.address IS DISTINCT FROM EXCLUDED.address;
 
-UPDATE poi_i18n t
-SET address = NULL
-FROM t_addr_en a
-WHERE t.poi_id = a.id AND t.lang = 'en' AND a.addr_en IS NULL AND t.address IS NOT NULL;
+INSERT INTO poi_i18n (poi_id, lang, name)
+SELECT id, 'en', name_en FROM t_en WHERE has_name_en AND name_en IS NOT NULL
+ON CONFLICT (poi_id, lang) DO UPDATE SET name = EXCLUDED.name
+WHERE poi_i18n.name IS DISTINCT FROM EXCLUDED.name;
+
+UPDATE poi_i18n t SET address = NULL
+FROM t_en e
+WHERE t.poi_id = e.id AND t.lang = 'en' AND e.has_addr_en AND e.addr_en IS NULL AND t.address IS NOT NULL;
+
+UPDATE poi_i18n t SET name = NULL
+FROM t_en e
+WHERE t.poi_id = e.id AND t.lang = 'en' AND e.has_name_en AND e.name_en IS NULL AND t.name IS NOT NULL;
 
 DELETE FROM poi_i18n WHERE lang = 'en' AND name IS NULL AND address IS NULL AND road IS NULL;
 
 \echo ''
-\echo '영문 주소 (이번 입력):'
+\echo '영어 화면용 칸 (이번 입력):'
 SELECT
-    count(*)                                   AS rows_with_column,
-    count(*) FILTER (WHERE addr_en IS NOT NULL) AS with_english,
-    count(*) FILTER (WHERE addr_en IS NULL)     AS without
-FROM t_addr_en;
+    count(*) FILTER (WHERE has_addr_en)                         AS rows_with_addr_column,
+    count(*) FILTER (WHERE addr_en IS NOT NULL)                 AS with_english_address,
+    count(*) FILTER (WHERE name_en IS NOT NULL)                 AS with_english_name,
+    count(*) FILTER (WHERE name_roman IS NOT NULL)              AS with_roman_reading
+FROM t_en;
 
 -- ── 6. 이번 입력에 없는 행을 지운다 — prune=1 일 때만 ─────────────────────────
 --

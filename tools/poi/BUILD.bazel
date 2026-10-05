@@ -6,14 +6,16 @@ py_library(
     srcs = [
         "addresses.py",
         "juso_api.py",
+        "names.py",
     ],
+    data = glob(["data/*.tsv"]),
 )
 
-# `just poi-addr-en` — POI 적재 파일에 행정안전부 공식 영문 주소를 덧붙인다.
+# `just poi-en` — POI 적재 파일에 공식 영문 주소·영어 이름(확실할 때만)·로마자 읽기를 덧붙인다.
 py_binary(
-    name = "addr_en",
-    srcs = ["addr_en.py"],
-    main = "addr_en.py",
+    name = "en",
+    srcs = ["en.py"],
+    main = "en.py",
     deps = [":lib"],
 )
 
@@ -22,6 +24,10 @@ py_test(
     srcs = [
         "tests/test_addresses.py",
         "tests/test_juso_api.py",
+        "tests/test_names_final.py",
+        "tests/test_names_regression.py",
+        "tests/test_names_regression2.py",
+        "tests/test_names_spec.py",
         "tests/test_poi.py",
         "tests/test_spec.py",
     ],

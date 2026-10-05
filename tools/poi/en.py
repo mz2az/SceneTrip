@@ -1,9 +1,10 @@
-"""POI 적재 파일에 공식 영문 주소(addr_en)를 덧붙인다.
+"""POI 적재 파일에 영어 화면용 칸 — 공식 영문 주소, 확실할 때만의 영어 이름, 로마자 읽기 — 을 덧붙인다.
 
-    just poi-addr-en <POI 폴더> <영문도로명주소DB zip> <상가정보 zip> <결과 폴더>
+    just poi-en <POI 폴더> <영문도로명주소DB zip> <상가정보 zip> <결과 폴더>
 
 POI 폴더의 poi_*.jsonl(.gz) 을 읽어 줄마다 `addr_en`(영문 주소 또는 null)과 `addr_en_source`
-(`juso_db` · `juso_api` · null)를 더해 결과 폴더에 같은 이름으로 쓴다. 적재는 그 결과를 `just seed-poi` 로 넣는다.
+(`juso_db` · `juso_api` · null), 이름의 `name_en` · `name_en_source`(`brand` · `hansik` · `generic` · null) ·
+`name_roman` 을 더해 결과 폴더에 같은 이름으로 쓴다(이름 규칙은 names.py, 계획 §12). 적재는 그 결과를 `just seed-poi` 로 넣는다.
 
 찾는 순서 (계획 docs/project/plans/poi-i18n-image.md §6-3·§11)
   1. 상가정보(MA…) — 원본의 도로명코드 + 건물번호, 없으면 건물관리번호로 영문 DB 를 찾는다.
@@ -29,9 +30,11 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from tools.poi import addresses as A
+from tools.poi import names as N
 from tools.poi.juso_api import JusoApi, accept
 
 ROAD_RADIUS_KM = 3
+DATA_DIR = Path(__file__).resolve().parent / "data"
 DONG_RADIUS_KM = 5
 
 
@@ -236,7 +239,9 @@ def main(argv: list[str] | None = None) -> int:
         print("API 를 부르지 않습니다 — JUSO_ENG_API_KEY 가 없거나 --no-api")
 
     # ── 5. 줄마다 덧붙여 쓴다 ─────────────────────────────────────────────────────
+    dicts = N.Dictionaries.load(DATA_DIR)
     stat: dict[str, Counter] = defaultdict(Counter)
+    name_stat: Counter = Counter()
     for f in files:
         out = out_dir / f.name.removesuffix(".gz")
         with _open_text(f) as fh, out.open("w", encoding="utf-8") as w:
@@ -244,6 +249,13 @@ def main(argv: list[str] | None = None) -> int:
                 d = json.loads(line)
                 e, src = found.get(d["id"], (None, None))
                 d["addr_en"], d["addr_en_source"] = e, src
+                # 분류는 적재(poi.sql)와 같은 규칙으로 — COALESCE(kind, biz_lower, biz_middle).
+                category = d.get("kind") or d.get("biz_lower") or d.get("biz_middle")
+                d["name_en"], d["name_en_source"] = N.english_name(
+                    d.get("name") or "", category, dicts
+                )
+                d["name_roman"] = N.romanize(d.get("name") or "")
+                name_stat[d["name_en_source"] or "없음"] += 1
                 stat[_source(d["id"])][src or "없음"] += 1
                 w.write(json.dumps(d, ensure_ascii=False) + "\n")
 
@@ -257,6 +269,11 @@ def main(argv: list[str] | None = None) -> int:
         )
     if api:
         print(f"API 호출 {api.calls:,} 번 (나머지는 캐시)")
+    n = sum(name_stat.values())
+    print(
+        "영어 이름: "
+        + " · ".join(f"{k} {v:,} ({v / n:.1%})" for k, v in name_stat.most_common())
+    )
     return 0
 
 

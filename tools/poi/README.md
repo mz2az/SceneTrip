@@ -5,13 +5,15 @@
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `addr_en.py` | `just poi-addr-en` — 줄마다 행정안전부 공식 영문 주소 `addr_en` 과 출처 `addr_en_source` 를 덧붙인다 |
+| `en.py` | `just poi-en` — 줄마다 공식 영문 주소(`addr_en`·`addr_en_source`), 확실할 때만의 영어 이름(`name_en`·`name_en_source`), 로마자 읽기(`name_roman`)를 덧붙인다 |
+| `names.py` | 로마자 표기법(소리 바뀜 포함)과 영어 이름 규칙 — 브랜드 사전 → 한식 800 → 흔한 낱말, 확실하지 않으면 없음(계획 §12) |
+| `data/` | 이름 사전 셋 — 출처는 `data/README.md` |
 | `addresses.py` | 한국어 주소 문장 쪼개기, 영문도로명주소DB 한 줄 → 공식 영문 주소 조립(순수 함수) |
 | `juso_api.py` | 영문주소 검색 API — 받는 규칙과 캐시 |
 | `tests/` | 단위 시험(`just test //tools/poi:unit_test`) — 진짜 API·파일은 쓰지 않는다 |
 
 ```bash
-just poi-addr-en ~/Downloads/SceneTrip_POI_20260907/out \
+just poi-en ~/Downloads/SceneTrip_POI_20260907/out \
                  ~/Downloads/202608_영문주소DB_전체분.zip \
                  ~/Downloads/'소상공인시장진흥공단_상가(상권)정보_20260630.zip' \
                  ~/Downloads/SceneTrip_POI_20260907/out-en      # 괄호가 든 경로는 따옴표로

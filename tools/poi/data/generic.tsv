@@ -1,0 +1,25 @@
+# 흔한 낱말 → 영어. 가게 이름 끝이 이 낱말이고 가게 분류(category)가 allowed 에 들 때만 번역한다(계획 §12-1).
+# allowed 는 poi.category 값을 쉼표로. 「주점」 은 넣지 않는다 — 붙여 쓴 지점명(아산인주점)과 헷갈린다.
+word	en	allowed
+식당	Restaurant	한식,분식,음식점,음식점기타,중식,일식,양식,세계요리,부페,패밀리레스토랑
+음식점	Restaurant	한식,분식,음식점,음식점기타,중식,일식,양식,세계요리,부페,패밀리레스토랑
+반점	Chinese Restaurant	중식
+카페	Cafe	카페
+커피	Coffee	카페
+베이커리	Bakery	제과점,카페
+제과	Bakery	제과점
+치킨	Chicken	치킨
+피자	Pizza	피자
+버거	Burger	패스트푸드
+분식	Snack Bar	분식
+호프	Pub	생맥주 전문,요리 주점
+포차	Pub	요리 주점,생맥주 전문
+횟집	Raw Fish Restaurant	한식,일식
+마라탕	Malatang	중식
+모텔	Motel	모텔
+호텔	Hotel	호텔
+펜션	Pension	펜션
+게스트하우스	Guesthouse	숙박,숙박기타,펜션
+민박	Guesthouse	숙박,숙박기타,펜션
+캠핑장	Campsite	캠핑장
+글램핑	Glamping	캠핑장

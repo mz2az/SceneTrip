@@ -10,6 +10,28 @@ from tools.poi.tests.test_addresses import (
     StoreKeys,
 )
 from tools.poi.tests.test_juso_api import Accept, Cache
+from tools.poi.tests.test_names_final import (
+    FinalAddedSpellings,
+    FinalEmptyEnglishIsNotBrand,
+    FinalNonBranchWords,
+    FinalNumberedBranch,
+    FinalSharedStore,
+)
+from tools.poi.tests.test_names_regression import (
+    RegressionBrandBareJeom,
+    RegressionSeparatorSpacing,
+)
+from tools.poi.tests.test_names_regression2 import (
+    Regression2BrandRest,
+    Regression2IntendedBehaviour,
+)
+from tools.poi.tests.test_names_spec import (
+    SpecBrandBoundary,
+    SpecEnglishName,
+    SpecNoDishTranslation,
+    SpecRomanizeExamples,
+    SpecRomanizeStandard,
+)
 from tools.poi.tests.test_spec import (
     SpecAccept,
     SpecCutToBuildingNumber,
@@ -24,15 +46,29 @@ __all__ = [
     "Accept",
     "Cache",
     "CutToBuildingNumber",
+    "FinalAddedSpellings",
+    "FinalEmptyEnglishIsNotBrand",
+    "FinalNonBranchWords",
+    "FinalNumberedBranch",
+    "FinalSharedStore",
     "FormatEnglish",
     "JibunRefs",
+    "Regression2BrandRest",
+    "Regression2IntendedBehaviour",
+    "RegressionBrandBareJeom",
+    "RegressionSeparatorSpacing",
     "RoadRefs",
     "SpecAccept",
+    "SpecBrandBoundary",
     "SpecCutToBuildingNumber",
+    "SpecEnglishName",
     "SpecFormatEnglish",
     "SpecJibunRefs",
     "SpecJusoApiCache",
+    "SpecNoDishTranslation",
     "SpecRoadRefs",
+    "SpecRomanizeExamples",
+    "SpecRomanizeStandard",
     "SpecStoreKeys",
     "StoreKeys",
 ]
