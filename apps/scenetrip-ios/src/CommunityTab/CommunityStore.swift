@@ -131,6 +131,7 @@ final class CommunityStore: ObservableObject {
 
     func add(title: String, body: String, photos: [UIImage], course: PostCourse?) {
         let names = photos.compactMap(Self.store(photo:))
+        AppAnalytics.log(.postReview(photoCount: names.count, hasCourse: course != nil))
         posts.insert(
             CommunityPost(
                 id: UUID(), board: .review, title: title, body: body, createdAt: Date(),

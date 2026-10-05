@@ -62,6 +62,7 @@ struct ContentDetailView: View {
             }
         }
         .task(id: summary.id) {
+            AppAnalytics.log(.viewTitle(contentId: summary.id))
             detail = try? await ContentsAPI.getContent(contentId: summary.id)
         }
     }

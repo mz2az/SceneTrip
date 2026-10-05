@@ -23,6 +23,8 @@ struct SceneTripApp: App {
         AppLocale.install()
         // 로그인 — 요청에 토큰을 싣고 401(만료·폐기)을 처리한다 (MZ2AZ-336).
         AuthStore.shared.start()
+        // 앱 분석 — 설정 파일(GoogleService-Info.plist)이 번들에 있을 때만 켜진다 (MZ2AZ-353).
+        AppAnalytics.start(language: AppLanguage.current.rawValue, member: AuthStore.shared.signedIn)
     }
 
     /// `Scene` 을 한정한다 — 명세에 같은 이름의 모델(장면)이 있어 생성 클라이언트의

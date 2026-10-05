@@ -92,9 +92,11 @@ struct OnboardingView: View {
             .padding(.bottom, 40)
         }
         .background(Color(.systemBackground))
+        .onAppear { AppAnalytics.log(.tutorialBegin) }
     }
 
     private func finish() {
+        AppAnalytics.log(.tutorialComplete)
         OnboardingFlag.markSeen()
         onDone()
     }

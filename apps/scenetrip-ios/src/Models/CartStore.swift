@@ -42,6 +42,7 @@ final class CartStore: ObservableObject {
             )
             placeIds.insert(placeId)
             toast = tr("장바구니에 담았습니다")
+            AppAnalytics.log(.savePlace(placeId: placeId))
         } catch let ErrorResponse.error(code, _, _, _) where code == 409 {
             placeIds.insert(placeId)
             toast = tr("이미 저장된 장소입니다")

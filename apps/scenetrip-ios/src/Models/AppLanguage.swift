@@ -41,6 +41,8 @@ final class AppLanguage: ObservableObject {
         Self.current = new
         lang = new
         AppLocale.install()
+        AppAnalytics.setLanguage(new.rawValue)
+        AppAnalytics.log(.selectLanguage(new.rawValue))
     }
 
     var locale: Locale {

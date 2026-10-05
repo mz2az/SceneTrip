@@ -126,8 +126,9 @@ final class RouteStore: ObservableObject {
     ///
     /// 서버 id 가 없으면 만들고(`POST`), 있으면 통째로 덮어쓴다(`PUT`).
     /// **덮어쓰기는 보낸 것이 전부다** — 빠진 아이템은 지운 것이 된다.
+    /// `origin` 은 분석용 출처(`review` 등) — 안 주면 AI 초안인지로 정한다.
     @discardableResult
-    func save(_ course: RouteCourse) async -> RouteCourse? {
+    func save(_ course: RouteCourse, origin: String? = nil) async -> RouteCourse? {
         do {
             let saved: CourseDetail
             if let serverId = course.serverId {
@@ -166,6 +167,11 @@ final class RouteStore: ObservableObject {
                     try? await CoursesAPI.deleteCourse(xInstallId: installId, courseId: created.id)
                     throw error
                 }
+                // 핵심 지표 — 코스가 **새로** 만들어졌다. 고쳐 저장한 것은 세지 않는다 (MZ2AZ-353).
+                AppAnalytics.log(.createCourse(
+                    origin: origin ?? (course.madeByAI ? "ai" : "self"),
+                    dayCount: course.days.count, placeCount: course.placeCount
+                ))
             }
             failure = nil
             let result = RouteBridge.course(from: saved)
@@ -264,6 +270,7 @@ final class RouteStore: ObservableObject {
         )
         do {
             let reply = try await GuideAPI.planWithGuide(guidePlanRequest: request)
+            AppAnalytics.log(.generatePlan(dayCount: span.days, titleCount: request.titles.count))
             return .success(RouteGuidePlan.course(
                 from: reply.plan,
                 title: title(for: workIds, span: span),

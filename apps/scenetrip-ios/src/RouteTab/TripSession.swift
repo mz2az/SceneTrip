@@ -101,6 +101,7 @@ final class TripSession: ObservableObject {
     /// 이 성지로 안내를 시작한다(다시 시작해도 된다 — 도착 뒤 「다음으로」가 이것을 부른다).
     /// `courseId` 는 저장된 코스의 서버 id — 없으면(저장 전) 경로를 못 받고 그 이유를 보인다.
     func start(to stop: RouteStop, number: Int, courseId: Int64?) {
+        AppAnalytics.log(.startTrip(placeId: stop.place.id))
         target = stop
         targetNumber = number
         self.courseId = courseId
@@ -148,6 +149,7 @@ final class TripSession: ObservableObject {
         result = nil // 안내가 끝났다 — 안내 띠는 도착으로 바뀐다. 다음은 사람이 고른다.
         failure = nil
         onArrived?(target)
+        AppAnalytics.log(.visitStamp(placeId: target.place.id))
         withAnimation { stamped = true }
     }
 
@@ -241,6 +243,7 @@ final class TripSession: ObservableObject {
         }
         asking = true
         defer { asking = false }
+        AppAnalytics.log(.getDirections)
         do {
             let leg = try await NavigationAPI.getNextLeg(
                 xInstallId: InstallIdentity.current,
