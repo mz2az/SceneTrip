@@ -472,6 +472,13 @@ maven_android.install(
         "com.squareup.moshi:moshi-kotlin:1.15.2",
         "com.squareup.okhttp3:okhttp:4.12.0",
 
+        # 앱 분석(MZ2AZ-353). google-services Gradle 플러그인이 Bazel 에 없어
+        # `AppAnalytics.start`가 `res/raw/google_services.json`을 직접 읽어
+        # `FirebaseOptions`를 짓는다 — BoM 대신 버전을 바로 박는다(이 파일의 다른
+        # Maven 좌표도 전부 그렇게 한다). KTX 모듈은 2025-07 부터 안 나와 일반
+        # 아티팩트를 쓴다.
+        "com.google.firebase:firebase-analytics:23.2.0",
+
         # Compose 컴파일러 플러그인. **버전이 Kotlin 컴파일러와 같아야 한다.**
         # rules_kotlin 2.4.0 이 Kotlin 2.4.0 을 들고 오므로 2.4.0 이다
         # (rules_kotlin 의 versions.bzl · KOTLIN_CURRENT_COMPILER_RELEASE).

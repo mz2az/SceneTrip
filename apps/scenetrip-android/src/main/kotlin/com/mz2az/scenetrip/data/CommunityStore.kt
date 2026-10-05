@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -67,6 +69,8 @@ class CommunityStore private constructor(
     ) {
         posts = listOf(CommunityPost(board = board, title = title, body = body, courseTitle = courseTitle)) + posts
         persist()
+        // 사진은 아직 없다 — 사진이 붙는 커뮤니티 다시 쓰기가 병합되면 실제 수로 바뀐다.
+        AppAnalytics.log(AppEvent.PostReview(photoCount = 0, hasCourse = courseTitle != null))
     }
 
     fun remove(post: CommunityPost) {

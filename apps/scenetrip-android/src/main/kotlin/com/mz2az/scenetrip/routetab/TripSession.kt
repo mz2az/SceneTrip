@@ -9,6 +9,8 @@ import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.ApiFailure
 import com.mz2az.scenetrip.data.FootprintStore
@@ -73,6 +75,7 @@ class TripSession(
         target: RouteStop,
         scope: CoroutineScope,
     ) {
+        AppAnalytics.log(AppEvent.StartTrip(target.place.id))
         this.courseId = courseId
         this.target = target
         phase = Phase.GUIDING
@@ -104,6 +107,7 @@ class TripSession(
         val t = target ?: return
         phase = Phase.ARRIVED
         onArrived?.invoke(t)
+        AppAnalytics.log(AppEvent.VisitStamp(t.place.id))
     }
 
     fun end() {
@@ -123,6 +127,7 @@ class TripSession(
         val (lat, lng) = here ?: return
         val itemId = t.serverItemId ?: return
         asking = true
+        AppAnalytics.log(AppEvent.GetDirections)
         runCatching {
             withContext(Dispatchers.IO) {
                 navigationApi.getNextLeg(deviceId, NextLegRequest(courseId = courseId, itemId = itemId, latitude = lat, longitude = lng))
@@ -184,6 +189,7 @@ class TripSession(
         if (meters <= arrivalMeters) {
             phase = Phase.ARRIVED
             onArrived?.invoke(t)
+            AppAnalytics.log(AppEvent.VisitStamp(t.place.id))
         }
     }
 }

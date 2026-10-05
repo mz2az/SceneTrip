@@ -46,6 +46,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceDetail
@@ -76,7 +78,10 @@ fun ContentDetailView(
     onSave: (PlaceSummary) -> Unit,
 ) {
     var detail by remember(summary.id) { mutableStateOf<ContentDetail?>(null) }
-    LaunchedEffect(summary.id) { detail = detailOf(summary.id) }
+    LaunchedEffect(summary.id) {
+        AppAnalytics.log(AppEvent.ViewTitle(summary.id))
+        detail = detailOf(summary.id)
+    }
 
     // "출연: 이름, 이름, …" — 넷까지만. iOS 와 같은 문구·같은 개수다.
     val castLine =
@@ -178,7 +183,10 @@ fun PlaceDetailView(
 ) {
     var detail by remember(summary.id) { mutableStateOf<PlaceDetail?>(null) }
     val context = LocalContext.current
-    LaunchedEffect(summary.id) { detail = detailOf(summary.id) }
+    LaunchedEffect(summary.id) {
+        AppAnalytics.log(AppEvent.ViewPlace(summary.id))
+        detail = detailOf(summary.id)
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         DetailHeader(title = summary.name, subtitle = summary.address.orEmpty(), onBack = onBack)

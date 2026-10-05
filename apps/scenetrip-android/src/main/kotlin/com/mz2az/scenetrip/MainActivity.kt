@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.data.OnboardingFlag
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.onboarding.OnboardingView
@@ -65,6 +66,11 @@ class MainActivity : ComponentActivity() {
             tab = intent.getStringExtra("initialTab"),
             openCourseId = intent.getLongExtra("openCourseId", -1L).takeIf { it > 0 },
         )
+
+        // 앱 분석 — 설정 파일(res/raw/google_services.json)이 있고 SDK 의존성이 붙어 있을
+        // 때만 켜진다 (MZ2AZ-353). iOS 는 여기서 AppLanguage.current·AuthStore.signedIn 을
+        // 읽어 넘기지만, 그 둘이 아직 main 에 없어(MZ2AZ-343·MZ2AZ-336 병합 대기) 고정값을 쓴다.
+        AppAnalytics.start(context = this, language = "ko", member = false)
 
         setContent { SceneTripApp() }
     }
