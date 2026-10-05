@@ -21,6 +21,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.auth.AuthStore
+import com.mz2az.scenetrip.auth.SignInSheetHost
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.AppLocale
 import com.mz2az.scenetrip.data.OnboardingFlag
@@ -68,6 +70,9 @@ class MainActivity : ComponentActivity() {
         // 굳어 버린다(`ApiClient.defaultClient`는 `by lazy`).
         val language = AppLanguage.getInstance(this)
         AppLocale.install()
+        // 로그인 — 401(만료·폐기) 처리를 끼우고 저장된 세션을 되살린다 (MZ2AZ-336).
+        // 마찬가지로 **생성 클라이언트를 처음 쓰기 전이어야 한다**(화면이 그려지기 전).
+        AuthStore.start(this)
 
         // 확인용 뒷문 — iOS `simctl launch … -initialTab profile`과 짝이다.
         // `adb shell am start -n com.mz2az.scenetrip/.MainActivity -e initialTab route
@@ -78,9 +83,8 @@ class MainActivity : ComponentActivity() {
         )
 
         // 앱 분석 — 설정 파일(res/raw/google_services.json)이 있고 SDK 의존성이 붙어 있을
-        // 때만 켜진다 (MZ2AZ-353). `member`는 AuthStore 가 main 에 없어(MZ2AZ-336 병합
-        // 대기) 아직 고정값이다.
-        AppAnalytics.start(context = this, language = language.lang.value, member = false)
+        // 때만 켜진다 (MZ2AZ-353).
+        AppAnalytics.start(context = this, language = language.lang.value, member = AuthStore.signedIn)
 
         setContent { SceneTripApp() }
     }
@@ -100,6 +104,8 @@ fun SceneTripApp() {
     MaterialTheme(typography = iosTypography()) {
         Surface(modifier = Modifier.fillMaxSize(), color = IOS.systemBackground) {
             AppRoot()
+            // 로그인 시트 — 어느 화면·덮개 위에서든 올라온다.
+            SignInSheetHost()
         }
     }
 }

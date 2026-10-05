@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.ApiFailure
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.LikeStore
@@ -152,10 +153,9 @@ fun SearchTabScreen() {
     // 지도가 남한 밖으로 나갔나 — 「한국으로」 버튼을 그때만 띄운다.
     var outsideKorea by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        data.search("")
-        cart.refresh()
-    }
+    LaunchedEffect(Unit) { data.search("") }
+    // 계정이 바뀌면 장바구니가 다른 사람 것이다 — iOS `.onAccountChange`.
+    LaunchedEffect(AuthStore.epoch) { cart.refresh() }
 
     // 홈의 "지금 뜨는 작품"/"오늘의 성지" 카드가 남긴 쪽지 — 받으면 곧장 지우는
     // 한 번짜리다. 남겨 두면 이 탭에 다시 올 때마다 같은 상세가 또 열린다.
