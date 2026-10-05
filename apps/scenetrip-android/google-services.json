@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "156440497405",
+    "project_id": "scenetrip-5bf07",
+    "storage_bucket": "scenetrip-5bf07.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:156440497405:android:aa9087b3724e914bb34294",
+        "android_client_info": {
+          "package_name": "com.mz2az.scenetrip"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-DWSNJEb3LyIXKts-UPYA8x8hGyvo8e0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
