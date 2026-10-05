@@ -1,0 +1,802 @@
+# 한식진흥원 「한식메뉴 외국어표기 길라잡이 800선」(2023-06-01) 에서 뽑은 칸 — 출처·이용 조건은 data/README.md
+no	category	ko	roman	en
+001	상차림 [Sangcharim]	간장게장정식	Ganjanggejangjeongsik	Soy Sauce Marinated Crab Served with Rice and Side Dishes
+002	상차림 [Sangcharim]	백반	Baekban	Combination Meals
+003	상차림 [Sangcharim]	보리밥정식	Boribapjeongsik	Barley Rice Served with Side Dishes
+004	상차림 [Sangcharim]	산채 정식	Sanchaejeongsik	Wild Vegetable Dish Combo
+005	상차림 [Sangcharim]	쌈밥 정식	Ssambapjeongsik	Leaf Wraps and Rice Combo
+006	상차림 [Sangcharim]	한정식	Hanjeongsik	Korean Table d'hote
+007	밥 [Bap]	곤드레나물밥	Gondeurenamulbap	Thistle Rice
+008	밥 [Bap]	굴국밥	Gulgukbap	Oyster and Rice Soup
+009	밥 [Bap]	굴밥	Gulbap	Oyster Rice
+010	밥 [Bap]	김밥	Gimbap	Gimbap
+011	밥 [Bap]	김치김밥	Kimchigimbap	Kimchi Gimbap
+012	밥 [Bap]	김치볶음밥	Kimchibokkeumbap	Kimchi Fried Rice
+013	밥 [Bap]	깍두기볶음밥	Kkakdugibokkeumbap	Diced Radish Kimchi Fried Rice
+014	밥 [Bap]	꼬마김밥	Kkomagimbap	Mini Gimbap
+015	밥 [Bap]	꼬막비빔밥	Kkomakbibimbap	Cockle Bibimbap
+016	밥 [Bap]	낙지덮밥	Nakjideopbap	Stir-fried Octopus with Rice
+017	밥 [Bap]	누룽지	Nurungji	Scorched Rice
+018	밥 [Bap]	달걀볶음밥	Dalgyalbokkeumbap	Egg Fried Rice
+019	밥 [Bap]	대나무통밥	Daenamutongbap	Steamed Rice in Bamboo Tube
+020	밥 [Bap]	돌솥비빔밥	Dolsotbibimbap	Hot Stone Pot Bibimbap
+021	밥 [Bap]	돼지국밥	Dwaejigukbap	Pork and Rice Soup
+022	밥 [Bap]	따로국밥	Ttarogukbap	Rice and Soup
+023	밥 [Bap]	매운고추김밥	Maeungochugimbap	Spicy Green Chili Pepper Gimbap
+024	밥 [Bap]	멍게비빔밥	Meonggebibimbap	Sea Pineapple Bibimbap
+025	밥 [Bap]	메밀감자비빔밥	Memilgamjabibimbap	Buckwheat and Potato Bibimbap
+026	밥 [Bap]	멸치김밥	Myeolchigimbap	Anchovy Gimbap
+027	밥 [Bap]	묵밥	Mukbap	Chilled Acorn Jelly and Rice Soup
+028	밥 [Bap]	밥	Bap	Steamed Rice
+029	밥 [Bap]	보리밥	Boribap	Steamed Barley Rice
+030	밥 [Bap]	불고기덮밥	Bulgogideopbap	Bulgogi with Rice
+031	밥 [Bap]	비빔밥	Bibimbap	Bibimbap
+032	밥 [Bap]	산채비빔밥	Sanchaebibimbap	Wild Vegetable Bibimbap
+033	밥 [Bap]	삼선비빔밥	Samseonbibimbap	Three-delicacy Bibimbap
+034	밥 [Bap]	새싹비빔밥	Saessakbibimbap	Sprout Bibimbap
+035	밥 [Bap]	새우볶음밥	Saeubokkeumbap	Shrimp Fried Rice
+036	밥 [Bap]	샐러드김밥	Salad Gimbap	Salad Gimbap
+037	밥 [Bap]	소고기국밥	Sogogigukbap	Beef and Rice Soup
+038	밥 [Bap]	소고기김밥	Sogogigimbap	Beef Gimbap
+039	밥 [Bap]	소머리국밥	Someorigukbap	Beef Head Meat and Rice Soup
+040	밥 [Bap]	송어덮밥	Songeodeopbap	Stir-fried Trout with Rice
+041	밥 [Bap]	순대국밥	Sundaegukbap	Blood Sausage and Rice Soup
+042	밥 [Bap]	쌈밥	Ssambap	Leaf Wraps and Rice
+043	밥 [Bap]	알밥	Albap	Fish Roe Rice
+044	밥 [Bap]	양푼비빔밥	Yangpunbibimbap	Large Brass Bowl Bibimbap
+045	밥 [Bap]	연잎밥	Yeonnipbap	Lotus Leaf Rice
+046	밥 [Bap]	열무비빔밥	Yeolmubibimbap	Young Summer Radish Bibimbap
+047	밥 [Bap]	영양돌솥밥	Yeongyangdolsotbap	Nutritious Hot Stone Pot Rice
+048	밥 [Bap]	오곡밥	Ogokbap	Steamed Five-grain Rice
+049	밥 [Bap]	오분자기돌솥밥	Obunjagidolsotbap	Small Abalone Hot Stone Pot Rice
+050	밥 [Bap]	오징어덮밥	Ojingeodeopbap	Spicy Stir-fried Squid with Rice
+051	밥 [Bap]	우거지사골국밥	Ugeojisagolgukbap	Korean Cabbage and Rice Soup
+052	밥 [Bap]	우렁된장비빔밥	UreongdoenjangBibimbap	Freshwater Snail Soybean PasteBibimbap
+053	밥 [Bap]	우렁쌈밥	Ureongssambap	Freshwater Snail Leaf Wraps and Rice
+054	밥 [Bap]	육회돌솥비빔밥	Yukhoedolsotbibimbap	Beef Tartare Hot Stone Pot Bibimbap
+055	밥 [Bap]	육회비빔밥	Yukhoebibimbap	Beef Tartare Bibimbap
+056	밥 [Bap]	잡곡밥	Japgokbap	Steamed Multi-grain Rice
+057	밥 [Bap]	잡채덮밥	Japchaedeopbap	Stir-fried Glass Noodles and Vegetables with Rice
+058	밥 [Bap]	장국밥	Janggukbap	Beef and Rice Soup
+059	밥 [Bap]	장어덮밥	Jangeodeopbap	Stir-fried Eel with Rice
+060	밥 [Bap]	전복돌솥밥	Jeonbokdolsotbap	Abalone Hot Stone Pot Rice
+061	밥 [Bap]	전주비빔밥	Jeonjubibimbap	Jeonju Bibimbap
+062	밥 [Bap]	제육덮밥	Jeyukdeopbap	Spicy Stir-fried Pork with Rice
+063	밥 [Bap]	제육비빔밥	Jeyukbibimbap	Spicy Pork Bibimbap
+064	밥 [Bap]	제육쌈밥	Jeyukssambap	Spicy Stir-fried Pork, Leaf Wraps and Rice
+065	밥 [Bap]	주먹밥	Jumeokbap	Riceballs
+066	밥 [Bap]	진주비빔밥	Jinjubibimbap	Jinju Bibimbap
+067	밥 [Bap]	참치김밥	Chamchigimbap	Tuna Gimbap
+068	밥 [Bap]	참치주먹밥	Chamchijumeokbap	Tuna Rice Balls
+069	밥 [Bap]	채소볶음밥	Chaesobokkeumbap	Vegetable Fried Rice
+070	밥 [Bap]	충무김밥	Chungmugimbap	Chungmu Gimbap
+071	밥 [Bap]	치즈김밥	Cheese Gimbap	Cheese Gimbap
+072	밥 [Bap]	콩나물국밥	Kongnamulgukbap	Bean Sprout and Rice Soup
+073	밥 [Bap]	콩나물밥	Kongnamulbap	Bean Sprout Rice
+074	밥 [Bap]	한우국밥	Hanugukbap	Korean Beef and Rice Soup
+075	밥 [Bap]	헛제삿밥	Heotjesatbap	Bibimbap with Soy Sauce
+076	밥 [Bap]	황태구이덮밥	Hwangtaeguideopbap	Grilled Dried Pollack with Rice
+077	밥 [Bap]	회덮밥	Hoedeopbap	Raw Fish Bibimbap
+078	죽 [Juk]	게살죽	Gesaljuk	Crab Porridge
+079	죽 [Juk]	녹두죽	Nokdujuk	Mung Bean Porridge
+080	죽 [Juk]	누룽지죽	Nurungjijuk	ScorchedRice Porridge
+081	죽 [Juk]	단팥죽	Danpatjuk	Sweet Red Bean Porridge
+082	죽 [Juk]	바지락죽	Bajirakjuk	Clam Porridge
+083	죽 [Juk]	백합죽	Baekhapjuk	Hard Clam Porridge
+084	죽 [Juk]	버섯옥수수죽	Beoseotoksusujuk	Mushroom and Corn Porridge
+085	죽 [Juk]	버섯죽	Beoseotjuk	Mushroom Porridge
+086	죽 [Juk]	보말죽	Bomaljuk	Top Shell Rice Porridge
+087	죽 [Juk]	삼계죽	Samgyejuk	Ginseng and Chicken Porridge
+088	죽 [Juk]	소고기미역죽	Sogogimiyeokjuk	Beef and Brown Seaweed Rice Porridge
+089	죽 [Juk]	소고기버섯죽	Sogogibeoseotjuk	Beef and Mushroom Porridge
+090	죽 [Juk]	어죽	Eojuk	Fish Porridge
+091	죽 [Juk]	잣죽	Jatjuk	Pine Nut Porridge
+092	죽 [Juk]	전복내장죽	Jeonboknaejangjuk	Abalone Intestine Porridge
+093	죽 [Juk]	전복죽	Jeonbokjuk	Abalone Porridge
+094	죽 [Juk]	참치죽	Chamchijuk	Tuna Porriddge
+095	죽 [Juk]	채소죽	Chaesojuk	Vegetable Porridge
+096	죽 [Juk]	팥죽	Patjuk	Red Bean Porridge
+097	죽 [Juk]	해물죽	Haemuljuk	Seafood Porridge
+098	죽 [Juk]	호박죽	Hobakjuk	Pumpkin Porridge
+099	죽 [Juk]	흑임자죽	Heugimjajuk	Black Sesame Porridge
+100	면 [Myeon]	감자수제비	Gamjasujebi	Hand-pulled Potato Dough Soup
+101	면 [Myeon]	감자옹심이	Gamjaongsimi	Potato Ball Soup
+102	면 [Myeon]	검정콩국수	Geomjeongkongguksu	Noodles in Cold Black Soybean Soup
+103	면 [Myeon]	고기국수	Gogiguksu	Pork Noodles
+104	면 [Myeon]	골뱅이소면	Golbaengisomyeon	Spicy Sea Snail Salad with Noodles
+105	면 [Myeon]	곰국시	Gomguksi	Beef Noodles
+106	면 [Myeon]	김치말이국수	Kimchimariguksu	Kimchi Noodles
+107	면 [Myeon]	냉메밀국수	Naengmemilguksu	Cold Buckwheat Noodles
+108	면 [Myeon]	느른국	Neureunguk	Buckwheat Noodle Soup
+109	면 [Myeon]	닭칼국수	Dakkalguksu	Noodle Soup with Chicken
+110	면 [Myeon]	동치미물냉면	Dongchimimullaengmyeon	Cold Buckwheat Noodles with Radish Water Kimchi
+111	면 [Myeon]	들깨수제비	Deulkkaesujebi	Hand-pulled Dough in Perilla Seed Soup
+112	면 [Myeon]	들깨칼국수	Deulkkaekalguksu	Noodle Soup with Perilla Seeds
+113	면 [Myeon]	떡국	Tteokguk	Sliced Rice Cake Soup
+114	면 [Myeon]	막국수	Makguksu	Buckwheat Noodles
+115	면 [Myeon]	매생이굴칼국수	Maesaengigulkalguksu	Noodle Soup with Seaweed Fulvescens and Oyster
+116	면 [Myeon]	매생이떡국	Maesaengitteokguk	Seaweed Fulvescens Rice Cake Soup
+117	면 [Myeon]	물냉면	Mulnaengmyeon	Cold Buckwheat Noodles
+118	면 [Myeon]	밀면	Milmyeon	Wheat Noodles
+119	면 [Myeon]	바지락칼국수	Bajirakkalguksu	Noodle Soup with Clams
+120	면 [Myeon]	버섯칼국수	Beoseotkalguksu	Mushroom Noodle Soup
+121	면 [Myeon]	비빔국수	Bibimguksu	Spicy Noodles
+122	면 [Myeon]	비빔냉면	Bibimnaengmyeon	Spicy Buckwheat Noodles
+123	면 [Myeon]	수제비	Sujebi	Hand-pulled Dough Soup
+124	면 [Myeon]	안동국시	Andongguksi	Andong Noodle
+125	면 [Myeon]	어탕국수	Eotangguksu	Noodle in Fish Stew
+126	면 [Myeon]	얼큰수제비	Eolkeunsujebi	Spicy Hand-pulled Dough Soup
+127	면 [Myeon]	얼큰칼국수	Eolkeunkalguksu	Spicy Noodle Soup
+128	면 [Myeon]	열무국수	Yeolmuguksu	Young Summer Radish KimchiNoodles
+129	면 [Myeon]	열무냉면	Yeolmunaengmyeon	Buckwheat Noodles with YoungSummer Radish Kimchi
+130	면 [Myeon]	열무비빔국수	Yeolmubibimguksu	Spicy Noodles with Young Summer Radish Kimchi
+131	면 [Myeon]	온면	Onmyeon	Warm Noodles
+132	면 [Myeon]	올챙이국수	Olchaengiguksu	Tadpole Noodles
+133	면 [Myeon]	잔치국수	Janchiguksu	Banquet Noodles
+134	면 [Myeon]	장칼국수	Jangkalguksu	Gochujang and Doenjang Noodle Soup
+135	면 [Myeon]	쟁반국수	Jaengbanguksu	Jumbo-sized Buckwheat Noodles
+136	면 [Myeon]	쟁반막국수	Jaengbanmakguksu	Jumbo-sized Buckwheat Noodles
+137	면 [Myeon]	진주냉면	Jinjunaengmyeon	Jinju Cold Buckwheat Noodles
+138	면 [Myeon]	쫄면	Jjolmyeon	Spicy Chewy Noodles
+139	면 [Myeon]	초계국수	Chogyeguksu	Cold Chicken Noodles
+140	면 [Myeon]	칡냉면	Chingnaengmyeon	Cold Arrow Root Noodles
+141	면 [Myeon]	칼국수	Kalguksu	Noodle Soup
+142	면 [Myeon]	코다리냉면	Kodarinaengmyeon	Cold Buckwheat Noodles with Half-dried Pollak
+143	면 [Myeon]	콧등치기국수	Kotdeungchigiguksu	Buckwheat Noodles with Potato Balls
+144	면 [Myeon]	콩국수	Kongguksu	Noodles in Cold Soybean Soup
+145	면 [Myeon]	팥칼국수	Patkalguksu	Red Bean Paste Noodle Soup
+146	면 [Myeon]	평양냉면	Pyeongyangnaengmyeon	Pyeongyang Cold Buckwheat Noodles
+147	면 [Myeon]	함흥냉면	Hamheungnaengmyeon	Hamheung Cold Buckwheat Noodles
+148	면 [Myeon]	항아리수제비	Hangarisujebi	Hand-pulled Dough Soup in Pot
+149	면 [Myeon]	해물수제비	Haemulsujebi	Hand-pulled Dough Soup with Seafood
+150	면 [Myeon]	해물칼국수	Haemulkalguksu	Noodle Soup with Seafood
+151	면 [Myeon]	황태비빔막국수	HwangtaeBibimmakguksu	Spicy Buckwheat Noodles with DriedPollack
+152	면 [Myeon]	황태칼국수	Hwangtaekalguksu	Noodle Soup with Dried Pollack
+153	면 [Myeon]	회냉면	Hoenaengmyeon	Cold Buckwheat Noodles with Raw Fish
+154	국 [Guk]	곰칫국	Gomchitguk	Moray Eel Soup
+155	국 [Guk]	근댓국	Geundaetguk	Leaf Beet Soup
+156	국 [Guk]	김치콩나물국	Kimchikongnamulguk	Kimchi and Bean Sprout Soup
+157	국 [Guk]	김칫국	Kimchitguk	Kimchi Soup
+158	국 [Guk]	냉이된장국	Naengidoenjangguk	Shepherd's Purse Soybean Paste Soup
+159	국 [Guk]	달걀국	Dalgyalguk	Egg Soup
+160	국 [Guk]	닭개장	Dakgaejang	Spicy Chicken Soup
+161	국 [Guk]	도다리쑥국	Dodarissukguk	Flounder and Mugwort Soup
+162	국 [Guk]	도토리묵사발	Dotorimuksabal	Chilled Acorn Jelly Soup
+163	국 [Guk]	된장국	Doenjangguk	Soybean Paste Soup
+164	국 [Guk]	두부새우젓국	Dubusaeujeotguk	Bean Curd and Salted Shrimp Soup
+165	국 [Guk]	매생이굴국	Maesaengigulguk	Seaweed Fulvescens and Oyster Soup
+166	국 [Guk]	매생잇국	Maesaengitguk	Seaweed Fulvescens Soup
+167	국 [Guk]	무된장국	Mudoenjangguk	Radish Soybean Paste Soup
+168	국 [Guk]	미역국	Miyeokguk	Seaweed Soup
+169	국 [Guk]	미역냉국	Miyeongnaengguk	Chilled Seaweed Soup
+170	국 [Guk]	바지락술국	Bajiraksulguk	Baby Clam Soup Accompaniment to Alcoholic Drinks
+171	국 [Guk]	바지락조갯국	Bajirakjogaetguk	Clam Soup
+172	국 [Guk]	배추된장국	Baechudoenjangguk	Cabbage Soybean Paste Soup
+173	국 [Guk]	버섯육개장	Beoseotyukgaejang	Spicy Mushroom and Beef Soup
+174	국 [Guk]	복국	Bokguk	Puffer Soup
+175	국 [Guk]	북엇국	Bugeotguk	Dried Pollack Soup
+176	국 [Guk]	사골우거지해장국	Sagolugeojihaejangguk	Korean Cabbage Hangover Soup
+177	국 [Guk]	선짓국	Seonjitguk	Beef Blood Soup
+178	국 [Guk]	섭국	Seopguk	Mussel Soup
+179	국 [Guk]	소고기뭇국	Sogogimutguk	Beef and Radish Soup
+180	국 [Guk]	소고기미역국	Sogogimiyeokguk	Beef and Seaweed Soup
+181	국 [Guk]	소고기육개장	Sogogiyukgaejang	Spicy Beef Soup
+182	국 [Guk]	순댓국	Sundaetguk	Blood Sausage Soup
+183	국 [Guk]	시금치된장국	Sigeumchidoenjangguk	Spinach Soybean Paste Soup
+184	국 [Guk]	시래기된장국	Siraegidoenjangguk	Dried Radish Leaf Soybean Paste Soup
+185	국 [Guk]	쑥된장국	Ssukdoenjangguk	Mugwort Soybean Paste Soup
+186	국 [Guk]	아욱국	Aukguk	Curled Mallow Soup
+187	국 [Guk]	어묵국	Eomukguk	Fishcake Soup
+188	국 [Guk]	오이냉국	Oinaengguk	Chilled Cucumber Soup
+189	국 [Guk]	오징엇국	Ojingeotguk	Squid Soup
+190	국 [Guk]	올갱잇국	Olgaengitguk	Melanian Snail Soup
+191	국 [Guk]	우거지된장국	Ugeojidoenjangguk	Korean Cabbage Soybean Paste Soup
+192	국 [Guk]	우거지해장국	Ugeojihaejangguk	Korean Cabbage Hangover Soup
+193	국 [Guk]	우렁된장국	Ureongdoenjangguk	Freshwater Snail Soybean Paste Soup
+194	국 [Guk]	육개장	Yukgaejang	Spicy Beef Soup
+195	국 [Guk]	재첩국	Jaecheopguk	Freshwater Marsh Clam Soup
+196	국 [Guk]	초당순두부	Chodangsundubu	Chodang Soft Bean Curd
+197	국 [Guk]	콩나물국	Kongnamulguk	Bean Sprout Soup
+198	국 [Guk]	콩나물해장국	Kongnamulhaejangguk	Bean Sprout Hangover Soup
+199	국 [Guk]	토란국	Toranguk	Taro Soup
+200	국 [Guk]	해장국	Haejangguk	Hangover Soup
+201	국 [Guk]	홍합미역국	Honghammiyeokguk	Mussel and Seaweed Soup
+202	국 [Guk]	황태해장국	Hwangtaehaejangguk	Dried Pollack Hangover Soup
+203	탕 [Tang]	갈낙탕	Gallaktang	Short Rib and Octopus Soup
+204	탕 [Tang]	갈비탕	Galbitang	Short Rib Soup
+205	탕 [Tang]	감자탕	Gamjatang	Pork Back-bone Stew
+206	탕 [Tang]	곰탕	Gomtang	Beef Bone Soup
+207	탕 [Tang]	광어매운탕	Gwangeomaeuntang	Spicy Flatfish Stew
+208	탕 [Tang]	굴탕	Gultang	Oyster Soup
+209	탕 [Tang]	꼬리곰탕	Kkorigomtang	Oxtail Soup
+210	탕 [Tang]	꽃게탕	Kkotgetang	Spicy Blue Crab Stew
+211	탕 [Tang]	내장탕	Naejangtang	Offal Soup
+212	탕 [Tang]	닭곰탕	Dakgomtang	Chicken Soup
+213	탕 [Tang]	대구맑은탕	Daegumalgeuntang	Codfish Soup
+214	탕 [Tang]	대구매운탕	Daegumaeuntang	Spicy Codfish Stew
+215	탕 [Tang]	대합탕	Daehaptang	Hard Clam Soup
+216	탕 [Tang]	도가니탕	Doganitang	Ox Knee Soup
+217	탕 [Tang]	도미맑은탕	Domimalgeuntang	Sea Bream Soup
+218	탕 [Tang]	도미매운탕	Domimaeuntang	Spicy Sea Bream Stew
+219	탕 [Tang]	동태탕	Dongtaetang	Pollack Soup
+220	탕 [Tang]	뚜거리탕	Ttugeoritang	Spicy Floating Goby Stew
+221	탕 [Tang]	뚝배기불고기	Ttukbaegibulgogi	Hot Pot Bulgogi
+222	탕 [Tang]	롤삼계탕	Roll Samgyetang	Rolled Ginseng Chicken Soup
+223	탕 [Tang]	매운탕	Maeuntang	Spicy Fish Stew
+224	탕 [Tang]	메기매운탕	Megimaeuntang	Spicy Catfish Stew
+225	탕 [Tang]	민어탕	Mineotang	Croaker Stew
+226	탕 [Tang]	버섯들깨탕	Beoseotdeulkkaetang	Mushroom and Perilla Seed Stew
+227	탕 [Tang]	복맑은탕	Bokmalgeuntang	Puffer Fish Soup
+228	탕 [Tang]	복매운탕	Bokmaeuntang	Spicy Puffer Fish Stew
+229	탕 [Tang]	사골우거지갈비탕	Sagolugeojigalbitang	Korean Cabbage and Short Rib Soup
+230	탕 [Tang]	삼계탕	Samgyetang	Ginseng Chicken Soup
+231	탕 [Tang]	생태탕	Saengtaetang	Pollack Soup
+232	탕 [Tang]	설렁탕	Seolleongtang	Ox Bone Soup
+233	탕 [Tang]	쏘가리매운탕	Ssogarimaeuntang	Spicy Mandarin Fish Stew
+234	탕 [Tang]	아귀탕	Agwitang	Monkfish Soup
+235	탕 [Tang]	알탕	Altang	Spicy Fish Roe Soup
+236	탕 [Tang]	양곰탕	Yanggomtang	Beef Tripe Soup
+237	탕 [Tang]	어묵꼬치	Eomukkkochi	Skewered Fishcake Soup
+238	탕 [Tang]	연포탕	Yeonpotang	Bean Curd Soup
+239	탕 [Tang]	영양한우갈비탕	YeongyanghanuGalbitang	Nutritious Korean Beef Rib Soup
+240	탕 [Tang]	왕갈비탕	Wanggalbitang	Beef Rib Soup
+241	탕 [Tang]	용봉탕	Yongbongtang	Carp, Softshell Turtle, and Chicken Soup
+242	탕 [Tang]	우거지갈비탕	Ugeojigalbitang	Korean Cabbage and Short Rib Soup
+243	탕 [Tang]	우럭매운탕	Ureokmaeuntang	Spicy Rockfish Stew
+244	탕 [Tang]	우족탕	Ujoktang	Ox Feet Soup
+245	탕 [Tang]	장어탕	Jangeotang	Eel Soup
+246	탕 [Tang]	전복삼계탕	Jeonboksamgyetang	Abalone and Ginseng Chicken Soup
+247	탕 [Tang]	조개탕	Jogaetang	Clam Soup
+248	탕 [Tang]	조기매운탕	Jogimaeuntang	Spicy Yellow Croaker Stew
+249	탕 [Tang]	참게매운탕	Chamgemaeuntang	Spicy Hairy Crab Stew
+250	탕 [Tang]	초계탕	Chogyetang	Cold Chicken Soup
+251	탕 [Tang]	추어탕	Chueotang	Loach Soup
+252	탕 [Tang]	콩비지탕	Kongbijitang	Pureed Soybean Soup
+253	탕 [Tang]	콩탕	Kongtang	Soybean Soup
+254	탕 [Tang]	통추어탕	Tongchueotang	Whole Loach Soup
+255	탕 [Tang]	해물탕	Haemultang	Spicy Seafood Stew
+256	탕 [Tang]	홍어탕	Hongeotang	Skate Soup
+257	탕 [Tang]	홍합탕	Honghaptang	Mussel Soup
+258	찌개 [Jjigae]	갈치찌개	Galchijjigae	Cutlassfish Stew
+259	찌개 [Jjigae]	강된장	Gangdoenjang	Seasoned Soybean Paste
+260	찌개 [Jjigae]	고추장찌개	Gochujangjjigae	Red Chilli Paste Stew
+261	찌개 [Jjigae]	김치찌개	Kimchijjigae	Kimchi Stew
+262	찌개 [Jjigae]	꽁치김치찌개	Kkongchikimchijjigae	Saury and Kimchi Stew
+263	찌개 [Jjigae]	도루묵찌개	Dorumukjjigae	Spicy Sailfin Sandfish Stew
+264	찌개 [Jjigae]	동태찌개	Dongtaejjigae	Pollack Stew
+265	찌개 [Jjigae]	돼지갈비찌개	Dwaejigalbijjigae	Pork Short Rib Stew
+266	찌개 [Jjigae]	돼지고기김치찌개	Dwaejigogikimchijjigae	Pork and Kimchi Stew
+267	찌개 [Jjigae]	된장찌개	Doenjangjjigae	Soybean Paste Stew
+268	찌개 [Jjigae]	부대찌개	Budaejjigae	Sausage Stew
+269	찌개 [Jjigae]	생태찌개	Saengtaejjigae	Pollack Stew
+270	찌개 [Jjigae]	순두부찌개	Sundubujjigae	Soft Bean Curd Stew
+271	찌개 [Jjigae]	시래기된장지짐	Siraegidoenjangjijim	Braised Dried Radish Leaf Soybean Paste
+272	찌개 [Jjigae]	애호박찌개	Aehobakjjigae	Zucchini Stew
+273	찌개 [Jjigae]	양푼김치찌개	Yangpunkimchijjigae	Kimchi Stew in Large Brass Bowl
+274	찌개 [Jjigae]	오분자기뚝배기	Obunjagittukbaegi	Sea Snail Hot Pot
+275	찌개 [Jjigae]	전복뚝배기	Jeonbokttukbaegi	Abalone Hot Pot
+276	찌개 [Jjigae]	차돌된장찌개	Chadoldoenjangjjigae	Beef Brisket Soybean Paste Stew
+277	찌개 [Jjigae]	참치김치찌개	Chamchikimchijjigae	Tuna and Kimchi Stew
+278	찌개 [Jjigae]	청국장찌개	Cheonggukjangjjigae	Rich Soybean Paste Stew
+279	찌개 [Jjigae]	콩비지찌개	Kongbijijjigae	Pureed Soybean Stew
+280	찌개 [Jjigae]	해물된장찌개	Haemuldoenjangjjigae	Seafood Soybean Paste Stew
+281	찌개 [Jjigae]	해물뚝배기	Haemulttukbaegi	Seafood Hot Pot
+282	찌개 [Jjigae]	해물순두부찌개	Haemulsundubujjigae	Seafood and Soft Bean Curd Stew
+283	찜 [Jjim]	갈비찜	Galbijjim	Braised Short Ribs
+284	찜 [Jjim]	계란찜	Gyeranjjim	Steamed Eggs
+285	찜 [Jjim]	굴보쌈	Gulbossam	Kimchi Wraps with Pork and Oyster
+286	찜 [Jjim]	꼬리찜	Kkorijjim	Braised Oxtail
+287	찜 [Jjim]	꽃게찜	Kkotgejjim	Steamed Blue Crab
+288	찜 [Jjim]	낙지찜	Nakjijjim	Braised Octopus
+289	찜 [Jjim]	누룽지닭백숙	Nurungjidakbaeksuk	Whole Chicken Soup with Scorched Rice
+290	찜 [Jjim]	닭백숙	Dakbaeksuk	Whole Chicken Soup
+291	찜 [Jjim]	대게찜	Daegejjim	Steamed Snow Crab
+292	찜 [Jjim]	대구뽈찜	Daeguppoljjim	Braised Codfish Head
+293	찜 [Jjim]	대하찜	Daehajjim	Steamed Prawn
+294	찜 [Jjim]	더덕보쌈	Deodeokbossam	Kimchi Wraps with Pork and Deodeok
+295	찜 [Jjim]	도가니수육	Doganisuyuk	Boiled Ox Knee
+296	찜 [Jjim]	도미찜	Domijjim	Steamed Sea Bream
+297	찜 [Jjim]	동태찜	Dongtaejjim	Braised Pollack
+298	찜 [Jjim]	돼지등뼈찜	Dwaejideungppyeojjim	Brasied Pork Back-bone
+299	찜 [Jjim]	등갈비묵은지찜	Deunggalbimugeunjijjim	Braised Pork Rib with Aged Kimchi
+300	찜 [Jjim]	뚝배기계란찜	Ttukbaegigyeranjjim	Steamed Egg Hot Pot
+301	찜 [Jjim]	매운갈비찜	Maeungalbijjim	Spicy Braised Short Ribs
+302	찜 [Jjim]	매운닭찜	Maeundakjjim	Spicy Braised Chicken
+303	찜 [Jjim]	머릿고기	Meoritgogi	Pork Head Meat
+304	찜 [Jjim]	명태찜	Myeongtaejjim	Braised Pollack
+305	찜 [Jjim]	묵은지두부찜	Mugeunjidubujjim	Braised Aged Kimchi and Bean Curd
+306	찜 [Jjim]	묵은지찜	Mugeunjijjim	Braised Pork with Aged Kimchi
+307	찜 [Jjim]	민어찜	Mineojjim	Steamed Croaker
+308	찜 [Jjim]	병어찜	Byeongeojjim	Steamed Pomfret
+309	찜 [Jjim]	보쌈	Bossam	Kimchi Wraps with Pork
+310	찜 [Jjim]	북어찜	Bugeojjim	Steamed Dried Pollack
+311	찜 [Jjim]	소갈비찜	Sogalbijjim	Braised Beef Short Ribs
+312	찜 [Jjim]	소꼬리찜	Sokkorijjim	Braised Oxtail
+313	찜 [Jjim]	소머리수육	Someorisuyuk	Boiled Beef Head Meat
+314	찜 [Jjim]	수육	Suyuk	Boiled Beef Slices / Boiled Pork Slices
+315	찜 [Jjim]	순대	Sundae	Blood Sausage
+316	찜 [Jjim]	아귀찜	Agwijjim	Braised Spicy Monkfish
+317	찜 [Jjim]	아바이순대	Abaisundae	Abai Blood Sausage
+318	찜 [Jjim]	안동찜닭	Andongjjimdak	Andong Braised Chicken
+319	찜 [Jjim]	오리백숙	Oribaeksuk	Whole Duck Soup
+320	찜 [Jjim]	오이선	Oiseon	Stuffed Cucumber
+321	찜 [Jjim]	오징어순대	Ojingeosundae	Stuffed Squid
+322	찜 [Jjim]	전복갈비찜	Jeonbokgalbijjim	Braised Short Ribs and Abalone
+323	찜 [Jjim]	조기찜	Jogijjim	Steamed Yellow Croaker
+324	찜 [Jjim]	족발	Jokbal	Braised Pigs' Feet
+325	찜 [Jjim]	찜닭	Jjimdak	Braised Chicken
+326	찜 [Jjim]	참꼬막찜	Chamkkomakjjim	Steamed Cockles
+327	찜 [Jjim]	코다리찜	Kodarijjim	Braised Half-dried Pollack
+328	찜 [Jjim]	편육	Pyeonyuk	Cold Pork Slices
+329	찜 [Jjim]	한방오리백숙	Hanbangoribaeksuk	Whole Duck Soup with Medicinal Herbs
+330	찜 [Jjim]	한방오리찜	Hanbangorijjm	Steamed Whole Duck with Medical Herbs
+331	찜 [Jjim]	해물찜	Haemuljjim	Spicy Braised Seafood
+332	찜 [Jjim]	홍어삼합	Hongeosamhap	Skate, Pork, and Kimchi Combo
+333	찜 [Jjim]	홍어찜	Hongeojjim	Steamed Skate
+334	찜 [Jjim]	황기닭백숙	Hwanggidakbaeksuk	Whole Chicken Soup with Milk Vetch Roots
+335	찜 [Jjim]	황기족발	Hwanggijokbal	Braised Pigs' Feet with Milk Vetch Root
+336	찜 [Jjim]	황태찜	Hwangtaejjim	Braised Dried Pollack
+337	찜 [Jjim]	훈제오리보쌈	Hunjeoribossam	Kimchi Wraps with Pork and Smoked Duck
+338	볶음 [Bokkeum]	가지볶음	Gajibokkeum	Stir-fried Eggplant
+339	볶음 [Bokkeum]	감자볶음	Gamjabokkeum	Stir-fried Potatoes
+340	볶음 [Bokkeum]	고구마맛탕	Gogumamattang	Deep-fried and Sugar Glazed Sweet Potatoes
+341	볶음 [Bokkeum]	곰장어볶음	Gomjangeobokkeum	Stir-fried Sea Eel
+342	볶음 [Bokkeum]	곱창볶음	Gopchangbokkeum	(소곱창) Stir-fried Beef Small Intestine(돼지곱창) Stir-fried Pork Small Intestine
+343	볶음 [Bokkeum]	국물떡볶이	Gungmultteokbokki	Stir-fried Rice Cake
+344	볶음 [Bokkeum]	궁중떡볶이	Gungjungtteokbokki	Royal Stir-fried Rice Cake
+345	볶음 [Bokkeum]	김치볶음	Kimchibokkeum	Stir-fried Kimchi
+346	볶음 [Bokkeum]	깻잎나물볶음	Kkaennipnamulbokkeum	Stir-fried Perilla Leaves
+347	볶음 [Bokkeum]	꽈리고추멸치볶음	Kkwarigochumyeolchibokkeum	Stir-fried Shishito Peppers and Dried Anchovies
+348	볶음 [Bokkeum]	낙지볶음	Nakjibokkeum	Stir-fried Octopus
+349	볶음 [Bokkeum]	낙지철판볶음	Nakjicheolpanbokkeum	Stir-fried Octopus on Hot Iron Plate
+350	볶음 [Bokkeum]	느타리버섯볶음	Neutaribeoseotbokkeum	Stir-fried Oyster Mushrooms
+351	볶음 [Bokkeum]	닭갈비	Dakgalbi	Spicy Stir-fried Chicken
+352	볶음 [Bokkeum]	닭강정	Dakgangjeong	Deep-fried and Braised Chicken
+353	볶음 [Bokkeum]	닭똥집볶음	Dakttongjipbokkeum	Stir-fried Chicken Gizzard
+354	볶음 [Bokkeum]	닭볶음탕	Dakbokkeumtang	Spicy Braised Chicken
+355	볶음 [Bokkeum]	도치두루치기	Dochiduruchigi	Stir-fried Pacific Spiny Lumpsucker
+356	볶음 [Bokkeum]	돼지고기두루치기	Dwaejigogiduruchigi	Stir-fried Pork
+357	볶음 [Bokkeum]	돼지고기볶음	Dwaejigogibokkeum	Stir-fried Pork
+358	볶음 [Bokkeum]	돼지고기주물럭	DoejigogiJumulleok	Spicy Stir-fried Pork
+359	볶음 [Bokkeum]	돼지껍데기볶음	Dwaejikkeopdegibokkeum	Stir-fried Pork Rind
+360	볶음 [Bokkeum]	두부김치	Dubukimchi	Bean Curd with Stir-fried Kimchi
+361	볶음 [Bokkeum]	떡볶이	Tteokbokki	Stir-fried Rice Cake
+362	볶음 [Bokkeum]	라볶이	Rabokki	Stir-fried Instant Noodle
+363	볶음 [Bokkeum]	마늘종볶음	Maneuljongbokkeum	Stir-fried Garlic Scape
+364	볶음 [Bokkeum]	마른새우볶음	Mareunsaeubokkeum	Stir-fried Dried Shrimp
+365	볶음 [Bokkeum]	매운닭발볶음	Maeundakbalbokkeum	Spicy Stir-fried Chicken's Feet
+366	볶음 [Bokkeum]	머위나물볶음	Meowinamulbokkeum	Stir-fried Butterbur
+367	볶음 [Bokkeum]	물오징어불고기	Murojingeobulgogi	Squid Bulgogi
+368	볶음 [Bokkeum]	미역줄기볶음	Miyeokjulgibokkeum	Stir-fried Seaweed Stems
+369	볶음 [Bokkeum]	소시지야채볶음	Sosijiyachaebokkeum	Stir-fried Sausage with Vegetables
+370	볶음 [Bokkeum]	순대볶음	Sundaebokkeum	Stir-fried Blood Sausage
+371	볶음 [Bokkeum]	애호박볶음	Aehobakbokkeum	Stir-fried Zucchini
+372	볶음 [Bokkeum]	양념치킨	Yangnyeom Chicken	Seasoned Fried Chicken
+373	볶음 [Bokkeum]	어묵볶음	Eomukbokkeum	Stir-fried Fishcake
+374	볶음 [Bokkeum]	오리주물럭	Orijumulleok	Spicy Stir-fried Duck
+375	볶음 [Bokkeum]	오삼불고기	Osambulgogi	Squid and Pork Belly Bulgogi
+376	볶음 [Bokkeum]	오징어두루치기	Ojingeoduruchigi	Stir-fried Squid
+377	볶음 [Bokkeum]	오징어볶음	Ojingeobokkeum	Stir-fried Squid
+378	볶음 [Bokkeum]	오징어채볶음	Ojingeochaebokkeum	Stir-fried Dried Squid Strips
+379	볶음 [Bokkeum]	우삼겹숙주볶음	Usamgyeopsukjubokkeum	Stir-fried Beef Plate with Mung Bean Sprouts
+380	볶음 [Bokkeum]	잔멸치볶음	Janmyeolchibokkeum	Stir-fried Small Dried Anchovies
+381	볶음 [Bokkeum]	제육볶음	Jeyukbokkeum	Stir-fried Pork
+382	볶음 [Bokkeum]	주꾸미볶음	Jukkumibokkeum	Stir-fried Webfoot Octopus
+383	볶음 [Bokkeum]	죽순볶음	Juksunbokkeum	Stir-fried Bamboo Shoots
+384	볶음 [Bokkeum]	쥐치채볶음	Jwichichaebokkeum	Stir-fried Dried Filefish Strips
+385	볶음 [Bokkeum]	즉석떡볶이	Jeukseoktteokbokki	Stir-fried Rice Cake
+386	볶음 [Bokkeum]	철판순대볶음	Cheolpansundaebokkeum	Stir-fried Blood Sausage on Hot Iron Plate
+387	볶음 [Bokkeum]	표고버섯볶음	Pyogobeoseotbokkeum	Stir-fried Golden Oak Mushrooms
+388	볶음 [Bokkeum]	해물떡볶이	Haemultteokbokki	Stir-fried Rice Cake and Seafood
+389	조림 [Jorim]	가자미조림	Gajamijorim	Braised Plaice
+390	조림 [Jorim]	갈치조림	Galchijorim	Braised Cutlassfish
+391	조림 [Jorim]	감자조림	Gamjajorim	Braised Potatoes
+392	조림 [Jorim]	고등어조림	Godeungeojorim	Braised Mackerel
+393	조림 [Jorim]	도미조림	Domijorim	Braised Sea Bream
+394	조림 [Jorim]	돼지고기 메추리알장조림	Dwaejigogimechurialjangjorim	Braised Pork and Quail Eggs in Soy Sauce
+395	조림 [Jorim]	두부조림	Dubujorim	Braised Bean Curd
+396	조림 [Jorim]	땅콩조림	Ttangkongjorim	Braised Peanuts
+397	조림 [Jorim]	메추리알장조림	Mechurialjangjorim	Braised Quail Eggs in Soy Sauce
+398	조림 [Jorim]	명태조림	Myeongtaejorim	Braised Pollack
+399	조림 [Jorim]	묵은지고등어조림	Mugeunjigodeungeojorim	Braised Mackerel with Aged Kimchi
+400	조림 [Jorim]	병어조림	Byeongeojorim	Braised Pomfret
+401	조림 [Jorim]	북어조림	Bugeojorim	Braised Dried Pollack
+402	조림 [Jorim]	붕어조림	Bungeojorim	Braised Carp
+403	조림 [Jorim]	생멸치조림	Saengmyeolchijorim	Braised Anchovies
+404	조림 [Jorim]	소고기 메추리알장조림	Sogogimechurialjangjorim	Braised Beef and Quail Eggs in Soy Sauce
+405	조림 [Jorim]	연근조림	Yeongeunjorim	Braised Lotus Roots
+406	조림 [Jorim]	오징어조림	Ojingeojorim	Braised Squid
+407	조림 [Jorim]	우럭조림	Ureokjorim	Braised Rockfish
+408	조림 [Jorim]	우엉조림	Ueongjorim	Braised Burdock Roots
+409	조림 [Jorim]	은대구조림	Eundaegujorim	Braised Black Cod
+410	조림 [Jorim]	장조림	Jangjorim	Braised Beef in Soy Sauce
+411	조림 [Jorim]	조기조림	Jogijorim	Braised Yellow Croaker
+412	조림 [Jorim]	코다리조림	Kodarijorim	Braised Half-dried Pollack
+413	조림 [Jorim]	콩조림	Kongjorim	Braised Beans
+414	조림 [Jorim]	풋고추조림	Putgochujorim	Braised Green Chili Pepper
+415	숙채 [Sukchae]	가지나물	Gajinamul	Eggplant Salad
+416	숙채 [Sukchae]	간편잡채	Ganpyeonjapchae	Stir-fried Glass Noodles and Vegetables
+417	숙채 [Sukchae]	고구마순나물	Gogumasunnamul	Sweet Potato Stalk Salad
+418	숙채 [Sukchae]	고사리나물	Gosarinamul	Bracken Salad
+419	숙채 [Sukchae]	고춧잎나물	Gochunnipnamul	Chili Pepper Leaf Salad
+420	숙채 [Sukchae]	곤드레나물	Gondeurenamul	Thistle Salad
+421	숙채 [Sukchae]	구절판	Gujeolpan	Platter of Nine Delicacies
+422	숙채 [Sukchae]	깻잎순무침	Kkaennipsunmuchim	Perilla Leaf Salad
+423	숙채 [Sukchae]	나물	Namul	Salad
+424	숙채 [Sukchae]	냉이나물	Naenginamul	Shepherd's Purse Salad
+425	숙채 [Sukchae]	대하냉채	Daehanaengchae	Chilled Prawn Salad
+426	숙채 [Sukchae]	도라지나물	Dorajinamul	Bellflower Root Salad
+427	숙채 [Sukchae]	무나물	Munamul	Radish Salad
+428	숙채 [Sukchae]	미나리나물	Minarinamul	Water Parsley Salad
+429	숙채 [Sukchae]	미역초무침	Miyeokchomuchim	Sweet and Sour Seaweed Salad
+430	숙채 [Sukchae]	비름나물	Bireumnamul	Pigweed Salad
+431	숙채 [Sukchae]	숙주나물	Sukjunamul	Mung Bean Sprout Salad
+432	숙채 [Sukchae]	시금치나물	Sigeumchinamul	Spinach Salad
+433	숙채 [Sukchae]	시래기나물	Siraeginamul	Dried Radish Leaf Salad
+434	숙채 [Sukchae]	쑥갓나물무침	Ssukgannamulmuchim	Crown Daisy Salad
+435	숙채 [Sukchae]	열무된장무침	Yeolmudoenjangmuchim	Young Radish Soybean Paste Salad
+436	숙채 [Sukchae]	우엉잡채	Ueongjapchae	Stir-fried Glass Noodles and Vegetables with Burdock Root
+437	숙채 [Sukchae]	잡채	Japchae	Stir-fried Glass Noodles and Vegetables
+438	숙채 [Sukchae]	죽순채	Juksunchae	Seasoned Bamboo Shoots
+439	숙채 [Sukchae]	참나물	Chamnamul	Short-fruit Pimpinella Salad
+440	숙채 [Sukchae]	취나물	Chwinamul	Aster Leaf Salad
+441	숙채 [Sukchae]	콩나물무침	Kongnamulmuchim	Bean Sprout Salad
+442	숙채 [Sukchae]	탕평채	Tangpyeongchae	Mung Bean Jelly Salad
+443	생채 [Saengchae]	골뱅이무침	Golbaengimuchim	Spicy Sea Snails Salad
+444	생채 [Saengchae]	굴무침	Gulmuchim	Oyster Salad
+445	생채 [Saengchae]	김무침	Gimmuchim	Laver Salad
+446	생채 [Saengchae]	꼬막무침	Kkomangmuchim	Cockle Salad
+447	생채 [Saengchae]	냉채족발	Naengchaejokbal	Chilled Pig’s Feet Salad
+448	생채 [Saengchae]	노각무침	Nogangmuchim	Yellow Cucumber Salad
+449	생채 [Saengchae]	달래무침	Dallaemuchim	Wild Chive Salad
+450	생채 [Saengchae]	대구포무침	Daegupomuchim	Dried Codfish Fillet Salad
+451	생채 [Saengchae]	더덕생채	Deodeoksaengchae	Deodeok Fresh Salad
+452	생채 [Saengchae]	도라지생채	Dorajisaengchae	Bellflower Root Fresh Salad
+453	생채 [Saengchae]	도토리묵	Dotorimuk	Acorn Jelly Salad
+454	생채 [Saengchae]	도토리묵무침	Dotorimungmuchim	Acorn Jelly Salad
+455	생채 [Saengchae]	돌미나리무침	Dolminarimuchim	Wild Parsley Salad
+456	생채 [Saengchae]	두릅초회	Dureupchohoe	Parboiled Fatsia Shoot
+457	생채 [Saengchae]	마늘종무침	Maneuljongmuchim	Spicy Garlic Stem Salad
+458	생채 [Saengchae]	메밀무침	Memilmuchim	Buckwheat Leaf Salad
+459	생채 [Saengchae]	메밀묵무침	Memilmungmuchim	Buckwheat Jelly Salad
+460	생채 [Saengchae]	무말랭이무침	Mumallaengimuchim	Dried Radish Salad
+461	생채 [Saengchae]	무말이강회	Mumariganghoe	Vegetables and Meat Wrapped in Radish Slices
+462	생채 [Saengchae]	무생채	Musaengchae	Julienne Radish Fresh Salad
+463	생채 [Saengchae]	부추무침	Buchumuchim	Chive Salad
+464	생채 [Saengchae]	북어채무침	Bugeochaemuchim	Dried Pollack Strip Salad
+465	생채 [Saengchae]	상추겉절이	Sangchugeotjeori	Fresh Lettuce Kimchi
+466	생채 [Saengchae]	영양부추겉절이	Yeongyangbuchugeotjeori	Fresh Chive Kimchi
+467	생채 [Saengchae]	오이냉채	Oinaengchae	Chilled Cucumber Salad
+468	생채 [Saengchae]	오이무침	Oimuchim	Cucumber Salad
+469	생채 [Saengchae]	오이미역초무침	Oimiyeokchomuchim	Sweet and Sour Seaweed Cucumber Salad
+470	생채 [Saengchae]	오이지무침	Oijimuchim	Pickled Cucumber Salad
+471	생채 [Saengchae]	오징어강회	Ojingeoganghoe	Squid Wrapped with Chives (or Water Parsley)
+472	생채 [Saengchae]	오징어무침	Ojingeomuchim	Squid Salad
+473	생채 [Saengchae]	오징어초무침	Ojingeochomuchim	Sweet and Sour Squid Salad
+474	생채 [Saengchae]	올챙이묵	Olchaengimuk	Corn Starch Noodles
+475	생채 [Saengchae]	우렁초무침	Ureongchomuchim	Freshwater Snail Salad with Vinegar Dressing
+476	생채 [Saengchae]	청포묵무침	Cheongpomungmuchim	Mung Bean Jelly Salad
+477	생채 [Saengchae]	파강회	Paganghoe	Meat Wrapped with Chives
+478	생채 [Saengchae]	파래무침	Paraemuchim	Green Laver Salad
+479	생채 [Saengchae]	파무침	Pamuchim	Green Onion Salad
+480	생채 [Saengchae]	해파리냉채	Haeparinaengchae	Chilled Jellyfish Salad
+481	전골 [Jeongol]	갈낙전골	Gallakjeongol	Short Rib and Octopus Hot Pot
+482	전골 [Jeongol]	곱창전골	Gopchangjeongol	Beef Tripe Hot Pot
+483	전골 [Jeongol]	국수전골	Guksujeongol	Noodle Hot Pot
+484	전골 [Jeongol]	김치전골	Kimchijeongol	Kimchi Hot Pot
+485	전골 [Jeongol]	낙지곱창새우전골	Nakjigopchangsaeujeongol	Octopus, Shrimp, and Beef Tripe Hot Pot
+486	전골 [Jeongol]	낙지전골	Nakjijeongol	Octopus Hot Pot
+487	전골 [Jeongol]	닭한마리	Dakhanmari	Whole Chicken Stew
+488	전골 [Jeongol]	두부전골	Dubujeongol	Bean Curd Hot Pot
+489	전골 [Jeongol]	만두전골	Mandujeongol	Dumpling Hot Pot
+490	전골 [Jeongol]	버섯전골	Beoseotjeongol	Mushroom Hot Pot
+491	전골 [Jeongol]	불낙전골	Bullakjeongol	Bulgogi and Octopus Hot Pot
+492	전골 [Jeongol]	소고기국수전골	Sogogiguksujeongol	Beef and Noodle Hot Pot
+493	전골 [Jeongol]	소고기버섯전골	Sogogibeoseotjeongol	Beef and Mushroom Hot Pot
+494	전골 [Jeongol]	소고기전골	Sogogijeongol	Beef Hot Pot
+495	전골 [Jeongol]	순두부전골	Sundubujeongol	Soft Bean Curd Hot Pot
+496	전골 [Jeongol]	신선로	Sinseollo	Royal Hot Pot
+497	전골 [Jeongol]	해물낙지전골	Haemullakjijeongol	Seafood and Octopus Hot Pot
+498	적·산적 [Jeok And Sanjeok]	송이산적	Songisanjeok	Pine Mushroom Skewers
+499	적·산적 [Jeok And Sanjeok]	화양적	Hwayangjeok	Beef and Vegetable Skewers
+500	구이 [Gui]	가리비구이	Garibigui	Grilled Scallops
+501	구이 [Gui]	가자미구이	Gajamigui	Grilled Plaice
+502	구이 [Gui]	갈치구이	Galchigui	Grilled Cutlassfish
+503	구이 [Gui]	고등어구이	Godeungeogui	Grilled Mackerel
+504	구이 [Gui]	고추장불고기	Gochujangbulgogi	Red Chili Paste Bulgogi
+505	구이 [Gui]	고추장삼겹살	Gochujangsamgyeopsal	Red Chili Paste Pork Belly
+506	구이 [Gui]	곰장어구이	Gomjangeogui	Grilled Sea Eel
+507	구이 [Gui]	곱창구이	Gopchanggui	Grilled Beef TripeGrilled Pork Tripe
+508	구이 [Gui]	광양불고기	Gwangyangbulgogi	Gwangyang Bulgogi
+509	구이 [Gui]	굴비구이	Gulbigui	Grilled Dried Yellow Croaker
+510	구이 [Gui]	김	Gim	Laver
+511	구이 [Gui]	꼬치구이	Kkochigui	Grilled Skewers
+512	구이 [Gui]	꽁치구이	Kkongchigui	Grilled Saury
+513	구이 [Gui]	낙지호롱	Nakjihorong	Grilled Whole Octopus
+514	구이 [Gui]	너비아니	Neobiani	Marinated Grilled Beef Slices
+515	구이 [Gui]	닭꼬치구이	Dakkkochigui	Chicken Skewers
+516	구이 [Gui]	대창구이	Daechanggui	Grilled Beef Large Intestine
+517	구이 [Gui]	대패삼겹살	Daepaesamgyeopsal	Grilled Thin-sliced Pork Belly
+518	구이 [Gui]	대하구이	Daehagui	Grilled Prawn
+519	구이 [Gui]	대합구이	Daehapgui	Grilled Hard Clams
+520	구이 [Gui]	더덕구이	Deodeokgui	Grilled Deodeok
+521	구이 [Gui]	도루묵구이	Dorumukgui	Grilled Sailfin Sandfish
+522	구이 [Gui]	도리뱅뱅	Doribaengbaeng	Spicy Braised Freshwater Sprats
+523	구이 [Gui]	도미구이	Domigui	Grilled Sea Bream
+524	구이 [Gui]	돼지갈비구이	Dwaejigalbigui	Grilled Spareribs
+525	구이 [Gui]	돼지막창구이	Dwaejimakchanggui	Grilled Pork Intestine
+526	구이 [Gui]	등갈비구이	Deunggalbigui	Grilled Back Ribs
+527	구이 [Gui]	등심구이	Deungsimgui	Grilled Sirloin
+528	구이 [Gui]	떡갈비	Tteokgalbi	Grilled Short Rib Patties
+529	구이 [Gui]	막창구이	Makchanggui	Grilled Beef Reed Tripe
+530	구이 [Gui]	매운족발	Maeunjokbal	Spicy Braised Pigs' Feet
+531	구이 [Gui]	모던불고기	Modern Bulgogi	Modern Bulgogi
+532	구이 [Gui]	목살구이	Moksalgui	Grilled Pork Neck
+533	구이 [Gui]	바싹불고기	Bassakbulgogi	Thin-sliced Bulgogi
+534	구이 [Gui]	병어구이	Byeongeogui	Grilled Pomfret
+535	구이 [Gui]	보리굴비	Borigulbi	Barley-aged Dried Yellow Croaker
+536	구이 [Gui]	복불고기	Bokbulgogi	Puffer Fish Bulgogi
+537	구이 [Gui]	북어구이	Bugeogui	Grilled Dried Pollack
+538	구이 [Gui]	불고기	Bulgogi	Bulgogi
+539	구이 [Gui]	삼겹살	Samgyeopsal	Grilled Pork Belly
+540	구이 [Gui]	삼치구이	Samchigui	Grilled Spotted Mackerel
+541	구이 [Gui]	새우구이	Saeugui	Grilled Shrimp
+542	구이 [Gui]	생선구이	Saengseongui	Grilled Fish
+543	구이 [Gui]	생선양념구이	Saengseonyangnyeomgui	Seasoned Grilled Fish
+544	구이 [Gui]	석쇠돼지불고기	Seoksoedwaejibulgogi	Grilled Pork Bulgogi
+545	구이 [Gui]	소갈비구이	Sogalbigui	Grilled Beef Ribs
+546	구이 [Gui]	소고기구이	Sogogigui	Grilled Beef
+547	구이 [Gui]	소고기편채	Sogogipyeonchae	Sliced Beef with Vegetables
+548	구이 [Gui]	소곱창구이	Sogopchanggui	Grilled Beef Small Intestine
+549	구이 [Gui]	소시지떡꼬치	Sosijitteokkkochi	Sausage and Rice Cake Skewers
+550	구이 [Gui]	솥뚜껑삼겹살	Sotttukkeongsamgyeopsal	Caldron Lid-grilled Pork Belly
+551	구이 [Gui]	숯불닭갈비	Sutbuldakgalbi	Spicy Charcoal-grilled Chicken
+552	구이 [Gui]	숯불삼겹살	Sutbulsamgyeopsal	Charcoal-grilled Pork Belly
+553	구이 [Gui]	양곱창구이	Yanggopchanggui	Grilled Beef Tripe
+554	구이 [Gui]	양념갈비	Yangnyeomgalbi	Marinated Grilled Beef RibsMarinated Grilled Pork Ribs
+555	구이 [Gui]	양념장어구이	Yangnyeomjangeogui	Grilled Seasoned Eel
+556	구이 [Gui]	언양불고기	Eonyangbulgogi	Eonyang Bulgogi
+557	구이 [Gui]	오리구이	Origui	Grilled Duck
+558	구이 [Gui]	오리로스	Oriroseu	Grilled Duck
+559	구이 [Gui]	오리불고기	Oribulgogi	Duck Bulgogi
+560	구이 [Gui]	오징어구이	Ojingeogui	Grilled Squid
+561	구이 [Gui]	오징어불고기	Ojingeobulgogi	Squid Bulgogi
+562	구이 [Gui]	옥돔구이	Okdomgui	Grilled Red Tilefish
+563	구이 [Gui]	은어구이	Euneogui	Grilled Sweetfish
+564	구이 [Gui]	임연수구이	Imyeonsugui	Grilled Greenling Fish
+565	구이 [Gui]	장어구이	Jangeogui	Grilled Eel
+566	구이 [Gui]	장작구이통닭	Jangjakguitongdak	Wood-grilled Chicken
+567	구이 [Gui]	전복구이	Jeonbokgui	Grilled Abalone
+568	구이 [Gui]	전어구이	Jeoneogui	Grilled Gizzard Shad
+569	구이 [Gui]	조개구이	Jogaegui	Grilled Clams
+570	구이 [Gui]	조기구이	Jogigui	Pan-fried Yellow Corvina
+571	구이 [Gui]	주꾸미삼겹살불고기	Jukkumisamgyeopsalbulgogi	Webfoot Octopus and Pork Belly Bulgogi
+572	구이 [Gui]	차돌박이구이	Chadolbagigui	Grilled Beef Brisket
+573	구이 [Gui]	코다리구이	Kodarigui	Grilled Half-dried Pollack
+574	구이 [Gui]	황태구이	Hwangtaegui	Grilled Dried Pollack
+575	구이 [Gui]	훈제삼겹살	Hunjesamgyeopsal	Smoked Pork Belly
+576	구이 [Gui]	훈제오리	Hunjeori	Smoked Duck
+577	구이 [Gui]	LA갈비	La Galbi	Marinated Grilled Ribs
+578	장 [Jang]	간장	Ganjang	Soy Sauce
+579	장 [Jang]	감식초	Gamsikcho	Persimmon Vinegar
+580	장 [Jang]	고추장	Gochujang	Red Chili Paste
+581	장 [Jang]	깻묵장	Kkaenmukjang	Sauce Made from Sesame Dregs and Boiled and Fermented Soybeans
+582	장 [Jang]	담북장	Dambukjang	Quick-fermented Soybean Paste
+583	장 [Jang]	된장	Doenjang	Soybean Paste
+584	장 [Jang]	막장	Makjang	Fermented Soybean Paste with Red Chili Powder
+585	장 [Jang]	볶음고추장	Bokkeumgochujang	Stir-fried Red Chili Paste
+586	장 [Jang]	쌈장	Ssamjang	Red Chili and Soybean Paste
+587	장 [Jang]	양념간장	Yangnyeomganjang	Spicy Soy Sauce
+588	장 [Jang]	어간장	Eoganjang	Fish Soy Sauce
+589	장 [Jang]	집장	Jipjang	Seasoned Soybean Paste
+590	장 [Jang]	초간장	Choganjang	Vinegar Soy Sauce
+591	장 [Jang]	초고추장	Chogochujang	Sweet and Sour Red Chili Paste
+592	장아찌 [Jangajji]	가죽장아찌	Gajukjangajji	Pickled Red Toon Shoot
+593	장아찌 [Jangajji]	간장게장	Ganjanggejang	Soy Sauce Marinated Crab
+594	장아찌 [Jangajji]	고추장아찌	Gochujangajji	Pickled Chili Peppers
+595	장아찌 [Jangajji]	김장아찌	Gimjangajji	Pickled Laver
+596	장아찌 [Jangajji]	깻잎지	Kkaennipji	Pickled Perilla Leaf
+597	장아찌 [Jangajji]	노각장아찌	Nogakjangajji	Pickled Yellow Cucumber
+598	장아찌 [Jangajji]	더덕장아찌	Deodeokjangajji	Pickled Deodeok
+599	장아찌 [Jangajji]	두릅장아찌	Dureupjangajji	Pickled Fastia Shoot
+600	장아찌 [Jangajji]	마늘장아찌	Maneuljangajji	Pickled Garlic
+601	장아찌 [Jangajji]	마늘종장아찌	Maneuljongjangajji	Pickled Garlic Stem
+602	장아찌 [Jangajji]	매실장아찌	Maesiljangajji	Pickled Green Plum
+603	장아찌 [Jangajji]	명이나물장아찌	Myeonginamuljangajji	Pickled Victory Onion
+604	장아찌 [Jangajji]	무말랭이장아찌	Mumallaengijangajji	Pickled Dried Radish
+605	장아찌 [Jangajji]	무장아찌	Mujangajji	Pickled Radish
+606	장아찌 [Jangajji]	버섯장아찌	Beoseotjangajji	Pickled Mushrooms
+607	장아찌 [Jangajji]	새우장	Saeujang	Soy Sauce Marinated Shrimp
+608	장아찌 [Jangajji]	양념게장	Yangnyeomgejang	Spicy Marinated Crab
+609	장아찌 [Jangajji]	양파장아찌	Yangpajangajji	Pickled Onion
+610	장아찌 [Jangajji]	오이지	Oiji	Pickled Cucumber
+611	장아찌 [Jangajji]	장아찌	Jangajji	Pickled Vegetables
+612	장아찌 [Jangajji]	죽순장아찌	Juksunjangajji	Pickled Bamboo Shoot
+613	장아찌 [Jangajji]	참외장아찌	Chamoejangajji	Pickled Oriental Melons
+614	장아찌 [Jangajji]	콩잎장아찌	Kongnipjangajji	Pickled Bean Leaf
+615	전 [Jeon]	가자미전	Gajamijeon	Pan-fried Battered Plaice
+616	전 [Jeon]	감자전	Gamjajeon	Potato Pancake
+617	전 [Jeon]	계란말이	Gyeranmari	Rolled Omelet
+618	전 [Jeon]	고구마튀김	Gogumatwigim	Deep-fried Sweet Potatoes
+619	전 [Jeon]	고추부각	Gochubugak	Chili Pepper Chips
+620	전 [Jeon]	고추전	Gochujeon	Pan-fried Battered Chili Pepper
+621	전 [Jeon]	굴전	Guljeon	Pan-fried Battered Oyster
+622	전 [Jeon]	김말이튀김	Gimmaritwigim	Deep-fried Laver Roll
+623	전 [Jeon]	김부각	Gimbugak	Laver Chips
+624	전 [Jeon]	김치빈대떡	Kimchibindaetteok	Kimchi and Mung Bean Pancake
+625	전 [Jeon]	김치전	Kimchijeon	Kimchi Pancake
+626	전 [Jeon]	깻잎전	Kkaennipjeon	Pan-fried Battered Perilla Leaves
+627	전 [Jeon]	꼬막전	Kkomakjeon	Pan-fried Battered Cockles
+628	전 [Jeon]	녹두전	Nokdujeon	Mung Bean Pancake
+629	전 [Jeon]	다시마부각	Dasimabugak	Kelp Chips
+630	전 [Jeon]	단군신화전	Dangunsinhwajeon	Pan-fried Battered Kimchi Roll with Garlic and Beef
+631	전 [Jeon]	단호박튀김	Danhobaktwigim	Deep-fried Pumpkin
+632	전 [Jeon]	달래전	Dallaejeon	Wild Rocambole Pancake
+633	전 [Jeon]	동그랑땡	Donggeurangttaeng	Meat Fritters
+634	전 [Jeon]	동태전	Dongtaejeon	Pan-fried Battered Pollack Fillet
+635	전 [Jeon]	두부전	Dubujeon	Pan-fried Battered Bean Curd
+636	전 [Jeon]	떡튀김	Tteoktwigim	Deep-fried Rice Cake
+637	전 [Jeon]	만두튀김	Mandutwigim	Deep-fried Dumplings
+638	전 [Jeon]	메밀장떡	Memiljangtteok	Buckwheat Pancake
+639	전 [Jeon]	메밀전병	Memiljeonbyeong	Buckwheat Crepe
+640	전 [Jeon]	모둠전	Modumjeon	Assorted Savory Pancakes
+641	전 [Jeon]	미꾸라지튀김	Mikkurajitwigim	Deep-fried Loach
+642	전 [Jeon]	미나리전	Minarijeon	Water Parsley Pancake
+643	전 [Jeon]	배추전	Baechujeon	Cabbage Pancake
+644	전 [Jeon]	버섯전	Beoseotjeon	Pan-fried Battered Mushrooms
+645	전 [Jeon]	복튀김	Boktwigim	Deep-fried Puffer Fish
+646	전 [Jeon]	봄나물전	Bomnamuljeon	Spring Vegetable Pancake
+647	전 [Jeon]	부각	Bugak	Vegetable and Seaweed Chips
+648	전 [Jeon]	부추전	Buchujeon	Chive Pancake
+649	전 [Jeon]	빈대떡	Bindaetteok	Mung Bean Pancake
+650	전 [Jeon]	빙떡	Bingtteok	Buckwheat Crepe Stuffed with Radish
+651	전 [Jeon]	빙어튀김	Bingeotwigim	Deep-fried Smelt
+652	전 [Jeon]	산천어튀김	Sancheoneotwigim	Deep-fried Masu Salmon
+653	전 [Jeon]	삼색전	Samsaekjeon	Tricolor Skewers
+654	전 [Jeon]	새우튀김	Saeutwigim	Deep-fried Shrimp
+655	전 [Jeon]	생선전	Saengseonjeon	Pan-fried Battered Fish-fillets
+656	전 [Jeon]	수수부꾸미	Susubukkumi	Pan-fried Millet Rice Cake
+657	전 [Jeon]	애호박전	Aehobakjeon	Pan-fried Battered Zuccinni
+658	전 [Jeon]	야채튀김	Yachaetwigim	Deep-fried Vegetables
+659	전 [Jeon]	연근전	Yeongeunjeon	Pan-fried Battered Lotus Roots
+660	전 [Jeon]	오징어튀김	Ojingeotwigim	Deep-fried Squid
+661	전 [Jeon]	육전	Yukjeon	Pan-fried Battered Beef
+662	전 [Jeon]	장떡	Jangtteok	Chili Pepper Paste and Vegetable Pancake
+663	전 [Jeon]	추어튀김	Chueotwigim	Deep-fried Loach
+664	전 [Jeon]	파래전	Paraejeon	Green Laver Pancake
+665	전 [Jeon]	파전	Pajeon	Green Onion Pancake
+666	전 [Jeon]	해물부추전	Haemulbuchujeon	Seafood and Chive Pancake
+667	전 [Jeon]	해물파전	Haemulpajeon	Seafood and Green Onion Pancake
+668	전 [Jeon]	호박전	Hobakjeon	Pan-fried Battered Zucchini
+669	젓갈 [Jeotgal]	가자미식해	Gajamijsikhae	Salted and Fermented Flounder
+670	젓갈 [Jeotgal]	갈치젓	Galchijeot	Salted Cutlassfish
+671	젓갈 [Jeotgal]	꼴뚜기젓	Kkolttugijeot	Salted Beka Squid
+672	젓갈 [Jeotgal]	낙지젓	Nakjijeot	Salted Octopus
+673	젓갈 [Jeotgal]	멸치젓	Myeolchijeot	Salted Anchovies
+674	젓갈 [Jeotgal]	명란젓	Myeongnanjeot	Salted Pollack Roe
+675	젓갈 [Jeotgal]	명태식해	Myeongtaesikhae	Salted and Fermented Pollack
+676	젓갈 [Jeotgal]	새우젓	Saeujeot	Salted Shrimp
+677	젓갈 [Jeotgal]	어리굴젓	Eoriguljeot	Spicy Salted Oysters
+678	젓갈 [Jeotgal]	연어장	Yeoneojang	Soy Sauce-marinated Salmon
+679	젓갈 [Jeotgal]	오징어젓	Ojingeojeot	Salted Squid
+680	젓갈 [Jeotgal]	전복장	Jeonbokjang	Soy Sauce-marinated Abalone
+681	젓갈 [Jeotgal]	젓갈	Jeotgal	Salted Seafood
+682	젓갈 [Jeotgal]	조개젓	Jogaejeot	Salted Clam Meat
+683	젓갈 [Jeotgal]	황석어젓	Hwangseogeojeot	Salted Small Yellow Croaker
+684	회 [Hoe]	강어회	Gangeohoe	Sliced Raw Leather Carp
+685	회 [Hoe]	과메기	Gwamegi	Half-dried Saury
+686	회 [Hoe]	광어회	Gwangeohoe	Sliced Raw Flatfish
+687	회 [Hoe]	두부삼합	Dubusamhap	Bean Curd, Pork, and Aged KimchiCombo
+688	회 [Hoe]	멸치회	Myeolchihoe	Sliced Raw Anchovy
+689	회 [Hoe]	모둠회	Modumhoe	Assorted Sliced Raw Fish
+690	회 [Hoe]	문어삼합	Muneosamhap	Octopus, Skate, and Pork Combo
+691	회 [Hoe]	문어숙회	Muneosukhoe	Parboiled Octopus
+692	회 [Hoe]	물회	Mulhoe	Cold Raw Fish Soup
+693	회 [Hoe]	민어회	Mineohoe	Sliced Raw Croaker
+694	회 [Hoe]	산낙지	Sannakji	Live Octopus
+695	회 [Hoe]	생선회	Saengseonhoe	Sliced Raw Fish
+696	회 [Hoe]	송어회	Songeohoe	Sliced Raw Trout
+697	회 [Hoe]	오징어물회	Ojingeomulhoe	Cold Raw Squid Soup
+698	회 [Hoe]	오징어숙회	Ojingeosukhoe	Parboiled Squid
+699	회 [Hoe]	육회	Yukhoe	Beef Tartare
+700	회 [Hoe]	자리물회	Jarimulhoe	Cold Raw Pearl-spot Chromis Soup
+701	회 [Hoe]	전복물회	Jeonbokmulhoe	Cold Abalone Soup
+702	회 [Hoe]	전어무침	Jeoneomuchim	Gizzard Shad Salad
+703	회 [Hoe]	전어회	Jeoneohoe	Sliced Raw Gizzard Shad
+704	회 [Hoe]	한치물회	Hanchimulhoe	Cold Raw Swordtip Squid Soup
+705	회 [Hoe]	한치회무침	Hanchihoemuchim	Sliced Raw Swordtip Squid Salad
+706	회 [Hoe]	홍어회무침	Hongeohoemuchim	Sliced Raw Skate Salad
+707	회 [Hoe]	회무침	Hoemuchim	Spicy Raw Fish Salad
+708	김치 [Kimchi]	갓김치	Gatkimchi	Leaf Mustard Kimchi
+709	김치 [Kimchi]	겉절이	Geotjeori	Fresh Kimchi
+710	김치 [Kimchi]	고들빼기김치	Godeulppaegikimchi	Bitter Lettuce Kimchi
+711	김치 [Kimchi]	깍두기	Kkakdugi	Diced Radish Kimchi
+712	김치 [Kimchi]	깻잎김치	Kkaennipkimchi	Perilla Leaf Kimchi
+713	김치 [Kimchi]	나박김치	Nabakkimchi	Water Kimchi
+714	김치 [Kimchi]	돌나물물김치	Dolnamulmulkimchi	Stringy Stonecrop Water Kimchi
+715	김치 [Kimchi]	돌미나리물김치	Dolminarimulkimchi	Wild Parsley Water Kimchi
+716	김치 [Kimchi]	동치미	Dongchimi	Radish Water Kimchi
+717	김치 [Kimchi]	배추겉절이	Baechugeotjeori	Fresh Cabbage Kimchi
+718	김치 [Kimchi]	배추김치	Baechukimchi	Kimchi(Baechukimchi)
+719	김치 [Kimchi]	백김치	Baekkimchi	White Kimchi
+720	김치 [Kimchi]	보쌈김치	Bossamkimchi	Wrapped Kimchi
+721	김치 [Kimchi]	봄동겉절이	Bomdonggeotjeori	Fresh Winter Cabbage Kimchi
+722	김치 [Kimchi]	부추김치	Buchukimchi	Chive Kimchi
+723	김치 [Kimchi]	섞박지	Seokbakji	Radish and Cabbage Kimchi
+724	김치 [Kimchi]	열무김치	Yeolmukimchi	Young Summer Radish Kimchi
+725	김치 [Kimchi]	열무얼갈이김치	Yeolmueolgarikimchi	Young Summer Radish and Winter Cabbage Kimchi
+726	김치 [Kimchi]	오이소박이	Oisobagi	Cucumber Kimchi
+727	김치 [Kimchi]	총각김치	Chonggakkimchi	Whole Radish Kimchi
+728	김치 [Kimchi]	파김치	Pakimchi	Green Onion Kimchi
+729	김치 [Kimchi]	포기김치	Pogikimchi	Kimchi(Pogikimchi)
+730	만두 [Mandu]	갈비만두	Galbimandu	Pork Rib Dumpling
+731	만두 [Mandu]	고기만두	Gogimandu	Meat Dumpling
+732	만두 [Mandu]	군만두	Gunmandu	Pan-fried Dumpling
+733	만두 [Mandu]	김치만두	Kimchimandu	Kimchi Dumpling
+734	만두 [Mandu]	꿩만둣국	Kkwongmandutguk	Pheasant Dumpling Soup
+735	만두 [Mandu]	떡만둣국	Tteongmandutguk	Sliced Rice Cake and DumplingSoup
+736	만두 [Mandu]	만두	Mandu	Dumplings
+737	만두 [Mandu]	만둣국	Mandutguk	Dumpling Soup
+738	만두 [Mandu]	물만두	Mulmandu	Boiled Dumpling
+739	만두 [Mandu]	송어만두	Songeomandu	Trout Dumpling
+740	만두 [Mandu]	왕만두	Wangmandu	Jumbo Sized Dumpling
+741	만두 [Mandu]	채만두	Chaemandu	Buckwheat Dumpling
+742	떡 [Tteok]	가래떡	Garaetteok	Rice Cake Stick
+743	떡 [Tteok]	감자떡	Gamjatteok	Potato Cake
+744	떡 [Tteok]	경단	Gyeongdan	Sweet Rice Balls
+745	떡 [Tteok]	깨경단	Kkaegyeongdan	Sesame Sweet Rice Balls
+746	떡 [Tteok]	꿀떡	Kkultteok	Honey-filled Rice Cake
+747	떡 [Tteok]	녹두시루떡	Nokdusirutteok	Mung Bean Steamed Rice Cake
+748	떡 [Tteok]	무지개떡	Mujigaetteok	Rainbow Rice Cake
+749	떡 [Tteok]	백설기	Baekseolgi	Snow White Rice Cake
+750	떡 [Tteok]	송편	Songpyeon	Half-moon Rice Cake
+751	떡 [Tteok]	수수팥떡	Susupattteok	Red-bean-coated Millet Rice Cake
+752	떡 [Tteok]	시루떡	Sirutteok	Steamed Rice Cake
+753	떡 [Tteok]	쑥떡	Ssuktteok	Mugwort Rice Cake
+754	떡 [Tteok]	씨앗호떡	Ssiathotteok	Korean Pancake with Seed and Brown Sugar Filling
+755	떡 [Tteok]	약식	Yaksik	Sweet Rice with Nuts and Jujubes
+756	떡 [Tteok]	인절미	Injeolmi	Bean-powder-coated Rice Cake
+757	떡 [Tteok]	절편	Jeolpyeon	Patterned Rice Cake
+758	떡 [Tteok]	조랭이떡	Joraengitteok	Snowman-shaped Rice Cake
+759	떡 [Tteok]	증편	Jeungpyeon	Raised Rice Cake
+760	떡 [Tteok]	찹쌀떡	Chapssaltteok	Sweet Rice Cake with Red Bean Filling
+761	떡 [Tteok]	호떡	Hotteok	Syrup-filled Pancake
+762	떡 [Tteok]	화전	Hwajeon	Pan-fried Flower Rice Cake
+763	한과 [Hangwa]	감말랭이	Gammallaengi	Dried Persimmon
+764	한과 [Hangwa]	강정	Gangjeong	Sweet Rice Puffs
+765	한과 [Hangwa]	곶감	Gotgam	Dried Whole Persimmon
+766	한과 [Hangwa]	다식	Dasik	Tea Confectionery
+767	한과 [Hangwa]	도라지정과	Dorajijeonggwa	Briased Bellflower Root in Sweet Sauce
+768	한과 [Hangwa]	매작과	Maejakgwa	Fried Twist
+769	한과 [Hangwa]	붕어빵	Bungeoppang	Fish-shaped Bread
+770	한과 [Hangwa]	뻥튀기	Ppeongtwigi	Puffed Grain
+771	한과 [Hangwa]	산자	Sanja	Fried Rice Squares
+772	한과 [Hangwa]	송화다식	Songhwadasik	Pine Flower Powder Tea Confectionery
+773	한과 [Hangwa]	수삼정과	Susamjeonggwa	Briased Ginseng in Sweet Sauce
+774	한과 [Hangwa]	약과	Yakgwa	Honey Cookie
+775	한과 [Hangwa]	양갱	Yanggaeng	Sweet Red Bean Jelly
+776	한과 [Hangwa]	율란	Yulan	Chestnut Balls
+777	한과 [Hangwa]	찹쌀꽈배기	Chapssalkkwabaegi	Twisted Sweet Rice Doughnut
+778	한과 [Hangwa]	호두과자	Hodugwaja	Walnut Cake
+779	한과 [Hangwa]	호박엿	Hobagyeot	Pumpkin Taffy
+780	한과 [Hangwa]	흑임자다식	Heugimjadasik	Black Sesame Tea Confectionery
+781	음청류 [Eumcheongryu]	구기자차	Gugijacha	Wolfberry Tea
+782	음청류 [Eumcheongryu]	꽃차	Kkotcha	Flower Tea
+783	음청류 [Eumcheongryu]	녹차	Nokcha	Green Tea
+784	음청류 [Eumcheongryu]	단호박식혜	Danhobaksikhye	Pumpkin Sweet Rice Punch
+785	음청류 [Eumcheongryu]	대추차	Daechucha	Jujube Tea
+786	음청류 [Eumcheongryu]	막걸리	Makgeolli	Unrefined Rice Wine
+787	음청류 [Eumcheongryu]	매실차	Maesilcha	Green Plum Tea
+788	음청류 [Eumcheongryu]	모과차	Mogwacha	Quince Tea
+789	음청류 [Eumcheongryu]	미숫가루	Misutgaru	Roasted Grain Powder
+790	음청류 [Eumcheongryu]	생강차	Saenggangcha	Ginger Tea
+791	음청류 [Eumcheongryu]	수정과	Sujeonggwa	Cinnamon Punch
+792	음청류 [Eumcheongryu]	식혜	Sikhye	Sweet Rice Punch
+793	음청류 [Eumcheongryu]	쌍화차	Ssanghwacha	Medicinal Herb Tea
+794	음청류 [Eumcheongryu]	오미자화채	Omijahwachae	Omija Punch
+795	음청류 [Eumcheongryu]	유자차	Yujacha	Citrus Tea
+796	음청류 [Eumcheongryu]	유자화채	Yujahwachae	Citrus Punch
+797	음청류 [Eumcheongryu]	인삼차	Insamcha	Ginseng Tea
+798	음청류 [Eumcheongryu]	칡차	Chikcha	Arrowroot Tea
+799	음청류 [Eumcheongryu]	팥빙수	Patbingsu	Shaved Ice with Red Bean Topping
+800	음청류 [Eumcheongryu]	홍삼차	Hongsamcha	Red Ginseng Tea

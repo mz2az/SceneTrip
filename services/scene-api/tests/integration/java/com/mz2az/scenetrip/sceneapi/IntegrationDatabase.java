@@ -3,6 +3,7 @@ package com.mz2az.scenetrip.sceneapi;
 import java.util.List;
 import java.util.function.Supplier;
 import javax.sql.DataSource;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -63,6 +64,15 @@ public final class IntegrationDatabase {
   }
 
   /**
+   * 여러 문장이 든 SQL 을 한 번에 실행한다. {@link JdbcClient} 는 준비된 문장(PreparedStatement)이라 문장을 하나만 받는다 — 적재 SQL
+   * 파일({@code seed/poi_update.sql})처럼 여러 문장을 통째로 돌릴 때 쓴다. 같은 DataSource 라 {@link #rolledBack} 안에서
+   * 부르면 그 트랜잭션에 들어간다.
+   */
+  public static void execute(String sql) {
+    new JdbcTemplate(dataSource()).execute(sql);
+  }
+
+  /**
    * DataSource 는 하나만 만들어 돌려쓴다.
    *
    * <p>스프링은 트랜잭션에 묶인 접속을 <b>DataSource 객체를 열쇠로</b> 스레드에 매달아 둔다. {@code jdbcClient()} 와 {@code
@@ -115,7 +125,7 @@ public final class IntegrationDatabase {
     long rows = jdbc.sql("SELECT count(*) FROM poi").query(Long.class).single();
     if (rows == 0) {
       throw new IllegalStateException(
-          "poi 가 비어 있습니다. `just seed-poi` 를 먼저 실행하세요 — 인자 없이 치면 저장소의 표본 23 행이 들어갑니다.");
+          "poi 가 비어 있습니다. `just seed-poi` 를 먼저 실행하세요 — 인자 없이 치면 저장소의 표본 31 행이 들어갑니다.");
     }
   }
 

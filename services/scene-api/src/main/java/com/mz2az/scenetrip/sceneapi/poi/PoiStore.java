@@ -85,6 +85,8 @@ public class PoiStore {
              OR o.point IS NULL
              OR ST_DWithin(p.geom, o.point, CAST(:radiusMeters AS INTEGER)))
         AND (CAST(:categoryGroup AS TEXT) IS NULL OR p.category_group = CAST(:categoryGroup AS TEXT))
+        -- 폐업 표시된 POI 는 어디에도 내보내지 않는다(V18). 위의 위치·갈래 인덱스가 먼저 좁히고 여기서 거른다.
+        AND p.closed_at IS NULL
       """;
 
   /** 기준점. 없으면 NULL 이고, 그러면 거리 계산과 반경 조건이 통째로 빠진다. */
@@ -144,7 +146,7 @@ public class PoiStore {
                    ELSE round(ST_Distance(p.geom, o.point))::INT END AS distance_meters
           FROM poi p
           CROSS JOIN origin o
-          WHERE p.id = :id
+          WHERE p.id = :id AND p.closed_at IS NULL
           """;
 
   private final JdbcClient jdbc;
@@ -177,19 +179,19 @@ public class PoiStore {
     return new Page(items, total);
   }
 
-  /** 주어진 id 중 실제로 있는 것. 여럿 카드 조회가 「없는 id」를 그 자리에 표시하려고 쓴다. */
+  /** 주어진 id 중 실제로 있는 것 — 폐업 표시된 것은 없는 것으로 친다. 여럿 카드 조회가 「없는 id」를 그 자리에 표시하려고 쓴다. */
   public Set<Long> existingIds(Collection<Long> ids) {
     if (ids.isEmpty()) {
       return Set.of();
     }
     return new HashSet<>(
-        jdbc.sql("SELECT id FROM poi WHERE id IN (:ids)")
+        jdbc.sql("SELECT id FROM poi WHERE id IN (:ids) AND closed_at IS NULL")
             .param("ids", ids)
             .query(Long.class)
             .list());
   }
 
-  /** 상세 하나. 없으면 비어 있다 — 404 는 컨트롤러의 몫이다. */
+  /** 상세 하나. 없거나 폐업 표시됐으면 비어 있다 — 404 는 컨트롤러의 몫이다. */
   public Optional<PoiDetail> findDetail(long id, Double lat, Double lng) {
     boolean hasOrigin = lat != null && lng != null;
     return jdbc.sql(DETAIL_SQL)
