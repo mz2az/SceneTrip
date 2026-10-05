@@ -53,8 +53,6 @@ final class RouteGuideSession: ObservableObject {
     /// 지금 대화가 묶인 코스. `course-<서버 id>` 또는 저장 전이면 `draft-<화면 id>`.
     private(set) var courseKey: String?
 
-    private var linkTask: Task<Void, Never>?
-
     var isEmpty: Bool {
         turns.isEmpty
     }
@@ -85,7 +83,6 @@ final class RouteGuideSession: ObservableObject {
             if !answer.places.isEmpty {
                 places = answer.places
                 picked = nil
-                markLinked(answer.places)
             }
             turns.append(.init(
                 role: .assistant,
@@ -114,21 +111,9 @@ final class RouteGuideSession: ObservableObject {
         courseKey = key
     }
 
-    /// 어느 줄이 네이버에 연결돼 있는지 **뒤에서** 알아 와 표시한다 — 답을 붙들고 기다리지 않는다
-    /// (처음 보는 곳 열둘이면 7초쯤 걸린다). 그 사이 새 답이 와서 목록이 바뀌었으면 버린다.
-    private func markLinked(_ asked: [RouteGuide.Place]) {
-        linkTask?.cancel()
-        linkTask = Task { [weak self] in
-            let linked = await RouteGuideLinked.linkedIds(of: asked)
-            guard let self, !Task.isCancelled, places.map(\.id) == asked.map(\.id) else { return }
-            places = RouteGuideLinked.marked(asked, linked: linked)
-        }
-    }
-
     /// 대화를 처음부터 다시. **방 번호는 그대로 둔다** — 서버가 기억하는 장소까지
     /// 지울 이유는 없고, 지우려면 시트를 새로 만들면 된다.
     func clear() {
-        linkTask?.cancel()
         turns = []
         tools = []
         places = []
