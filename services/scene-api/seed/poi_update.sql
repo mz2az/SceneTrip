@@ -24,7 +24,7 @@ FROM t_load;
 -- 비교용 이름: 소문자, 공백·괄호·기호를 지운 것. 「스타벅스 (구리갈매역)」 과 「스타벅스구리갈매역」 이 같아진다.
 -- 사라진 행: 영업 중인데 이번 입력에 번호가 없는 것.
 CREATE TEMP TABLE t_update_gone ON COMMIT DROP AS
-SELECT p.id, p.geom, p.category,
+SELECT p.id, p.geom, p.category, s.source,
        regexp_replace(lower(p.name), '[[:space:]()\[\]·.,&_/-]', '', 'g') AS name_key
 FROM poi p
 JOIN t_update_source s ON s.source = substring(p.source_id FROM '^[A-Za-z]+')
@@ -35,7 +35,7 @@ CREATE INDEX ON t_update_gone USING gist (geom);
 -- 새 번호: 이번 입력에 있는데 표에 없는 것. 폐업 표시된 채 표에 있는 번호는 새 번호가 아니다 —
 -- UPSERT 가 그 행을 갱신하며 폐업 표시를 지운다(다시 문을 연 가게).
 CREATE TEMP TABLE t_update_new ON COMMIT DROP AS
-SELECT l.source_id, l.category,
+SELECT l.source_id, l.category, substring(l.source_id FROM '^[A-Za-z]+') AS source,
        ST_SetSRID(ST_MakePoint(l.lng, l.lat), 4326)::geography AS geom,
        regexp_replace(lower(l.name), '[[:space:]()\[\]·.,&_/-]', '', 'g') AS name_key
 FROM t_load l
@@ -62,7 +62,9 @@ SELECT g.id, n.source_id, ST_Distance(g.geom, n.geom) AS dist,
            ELSE 0
        END AS rule
 FROM t_update_gone g
-JOIN t_update_new n ON ST_DWithin(g.geom, n.geom, 30)
+-- 잇는 상대도 같은 출처에서만 고른다. 같은 가게가 상가정보와 관광공사에 둘 다 있는 경우가 있어(계획 §6-1,
+-- 658 쌍) 출처를 넘나들면 사라진 관광지가 옆 상가정보의 번호를 가로챈다.
+JOIN t_update_new n ON n.source = g.source AND ST_DWithin(g.geom, n.geom, 30)
 WHERE g.name_key <> '' AND n.name_key <> '';
 DELETE FROM t_update_pair WHERE rule = 0;
 

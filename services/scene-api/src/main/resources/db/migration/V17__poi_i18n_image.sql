@@ -28,7 +28,9 @@
 CREATE TABLE poi_i18n (
     poi_id       BIGINT NOT NULL REFERENCES poi (id) ON DELETE CASCADE,
     lang         lang_code NOT NULL,
-    name         TEXT NOT NULL,
+    -- 비워 둘 수 있다. 가게 이름의 공식 영어는 없어서 당분간 영어 행은 주소만 있다(계획 §10·§11).
+    -- 칸마다 따로 폴백한다 — COALESCE(t.name, p.name), COALESCE(t.address, p.address).
+    name         TEXT,
     address      TEXT,
     road         TEXT,
     trans_status trans_status,
@@ -37,7 +39,7 @@ CREATE TABLE poi_i18n (
     CONSTRAINT poi_i18n_not_ko_check CHECK (lang <> 'ko')
 );
 
-COMMENT ON TABLE poi_i18n IS '편의시설 번역. 한국어 원본은 poi 에만 있다 — 없으면 poi.name 으로 폴백';
+COMMENT ON TABLE poi_i18n IS '편의시설 번역. 한국어 원본은 poi 에만 있다 — 칸마다 비어 있으면 poi 의 같은 칸으로 폴백';
 COMMENT ON COLUMN poi_i18n.address IS 'poi.address(시/군/구 + 동)의 번역';
 COMMENT ON COLUMN poi_i18n.road IS 'poi.road(도로명)의 번역';
 

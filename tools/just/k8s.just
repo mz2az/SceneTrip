@@ -230,6 +230,12 @@ seed-poi *files:
 poi-filter src dst:
     ./tools/scripts/poi-filter.sh "{{ src }}" "{{ dst }}"
 
+# POI 적재 파일에 행정안전부 공식 영문 주소를 덧붙인다 — 결과 폴더를 just seed-poi 로 넣는다 (tools/poi/README.md)
+# 남는 주소는 JUSO_ENG_API_KEY 가 있을 때만 API 로 채운다. 입력·결과는 저장소 밖.
+[group('db')]
+poi-addr-en poi_dir eng_zip store_zip out_dir:
+    {{BAZEL}} run //tools/poi:addr_en -- "{{ poi_dir }}" "{{ eng_zip }}" "{{ store_zip }}" "{{ out_dir }}"
+
 # 편의시설 네이버 카드(poi_naver)를 CSV 로 뜬다 — source_id 를 붙여, 저장소 밖에, 덮지 않고
 # 예: `just poi-naver-backup ~/SceneTrip-backup/poi_naver-20261004.csv`
 [group('db')]

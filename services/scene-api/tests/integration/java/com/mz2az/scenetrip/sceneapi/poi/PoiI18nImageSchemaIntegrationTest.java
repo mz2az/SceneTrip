@@ -56,6 +56,34 @@ class PoiI18nImageSchemaIntegrationTest {
   }
 
   @Test
+  @DisplayName("이름 없이 주소만 있는 영어 행 — 칸마다 따로 폴백한다(이름은 한국어, 주소는 영어)")
+  void fallsBackPerColumn() {
+    List<String> row =
+        IntegrationDatabase.rolledBack(
+            () -> {
+              long id = fixturePoi("v17-test-addr", "동구짬뽕");
+              jdbc.sql(
+                      "INSERT INTO poi_i18n (poi_id, lang, address) VALUES (:id, 'en', '24-34"
+                          + " Donggureung-ro 148beon-gil, Guri-si, Gyeonggi-do')")
+                  .param("id", id)
+                  .update();
+              return jdbc.sql(
+                      """
+                      SELECT COALESCE(t.name, p.name), COALESCE(t.address, p.address)
+                      FROM poi p
+                      LEFT JOIN poi_i18n t ON t.poi_id = p.id AND t.lang = 'en'
+                      WHERE p.id = :id
+                      """)
+                  .param("id", id)
+                  .query((rs, n) -> List.of(rs.getString(1), rs.getString(2)))
+                  .single();
+            });
+
+    assertThat(row)
+        .containsExactly("동구짬뽕", "24-34 Donggureung-ro 148beon-gil, Guri-si, Gyeonggi-do");
+  }
+
+  @Test
   @DisplayName("poi_i18n 에 ko 는 못 들어간다 — 한국어 원본은 poi 에만 있다")
   void rejectsKoreanTranslationRow() {
     assertThatThrownBy(

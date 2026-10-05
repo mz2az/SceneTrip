@@ -1,6 +1,7 @@
 package com.mz2az.scenetrip.sceneapi.poi;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.mz2az.scenetrip.sceneapi.IntegrationDatabase;
 import org.junit.jupiter.api.BeforeAll;
@@ -98,6 +99,33 @@ class PoiSeedIntegrationTest {
                 .query(String.class)
                 .single())
         .isEqualTo("Cafe");
+  }
+
+  @Test
+  @DisplayName("입력의 addr_en 이 poi_i18n(en).address 로 들어간다 — 이름 칸은 비어 있다")
+  void englishAddressIsLoaded() {
+    long sample = count("SELECT count(*) FROM poi WHERE source_id = 'MA0106202201A0999001'");
+    assumeTrue(sample == 1, "표본이 적재된 DB 에서만 — 전량 DB 에는 이 표본 행이 없다");
+    var row =
+        jdbc.sql(
+                """
+                SELECT t.name, t.address FROM poi_i18n t JOIN poi p ON p.id = t.poi_id
+                WHERE p.source_id = 'MA0106202201A0999001' AND t.lang = 'en'
+                """)
+            .query((rs, n) -> new String[] {rs.getString(1), rs.getString(2)})
+            .single();
+    assertThat(row[0]).isNull();
+    assertThat(row[1]).isEqualTo("1 Myeongdong-gil, Jung-gu, Seoul");
+  }
+
+  @Test
+  @DisplayName("이름도 주소도 없는 영어 행은 남지 않는다")
+  void noEmptyEnglishRows() {
+    assertThat(
+            count(
+                "SELECT count(*) FROM poi_i18n WHERE lang = 'en'"
+                    + " AND name IS NULL AND address IS NULL AND road IS NULL"))
+        .isZero();
   }
 
   @Test

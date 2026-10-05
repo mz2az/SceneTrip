@@ -1,0 +1,31 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# 편의시설(POI) 적재 파일 준비 도구. 계획: docs/project/plans/poi-i18n-image.md §11.
+py_library(
+    name = "lib",
+    srcs = [
+        "addresses.py",
+        "juso_api.py",
+    ],
+)
+
+# `just poi-addr-en` — POI 적재 파일에 행정안전부 공식 영문 주소를 덧붙인다.
+py_binary(
+    name = "addr_en",
+    srcs = ["addr_en.py"],
+    main = "addr_en.py",
+    deps = [":lib"],
+)
+
+py_test(
+    name = "unit_test",
+    srcs = [
+        "tests/test_addresses.py",
+        "tests/test_juso_api.py",
+        "tests/test_poi.py",
+        "tests/test_spec.py",
+    ],
+    main = "tests/test_poi.py",
+    tags = ["unit"],
+    deps = [":lib"],
+)

@@ -65,6 +65,10 @@ SELECT
              NULLIF(btrim(d ->> 'biz_lower'), ''),
              NULLIF(btrim(d ->> 'biz_middle'), ''))           AS category,
     NULLIF(btrim(d ->> 'addr'), '')                           AS address,
+    -- 공식 영문 주소 — `just poi-addr-en` 이 덧붙인 칸(§5-2). 칸 자체가 없는 입력(원본 그대로)은
+    -- 영문 주소를 건드리지 않는다. 칸이 있는데 null 이면 「못 찾았다」 라 비운다.
+    NULLIF(btrim(d ->> 'addr_en'), '')                        AS addr_en,
+    d ? 'addr_en'                                             AS has_addr_en,
     NULLIF(btrim(d ->> 'road'), '')                           AS road,
     NULLIF(btrim(d ->> 'tel'), '')                            AS tel,
     NULLIF(btrim(d ->> 'region'), '')                         AS region,
@@ -136,7 +140,7 @@ WHERE i.lat IS NOT NULL AND i.lng IS NOT NULL
 
 CREATE TEMP TABLE t_ok ON COMMIT DROP AS
 SELECT i.source_id, i.name, i.lat, i.lng, i.category, g.category_group,
-       i.address, i.road, i.tel, i.region, i.city, i.origin,
+       i.address, i.road, i.tel, i.region, i.city, i.origin, i.addr_en, i.has_addr_en,
        -- 자루 카테고리(~기타·전문음식점)가 아닌 것. 중복을 접을 때 남길 쪽을 고르는 첫 기준.
        (i.category NOT LIKE '%기타' AND i.category <> '전문음식점') AS concrete,
        -- 소수 5자리 ≈ 1 m. 좌표를 이 정밀도로 비교한다.
@@ -293,6 +297,37 @@ WITH gone AS (
     RETURNING p.category
 )
 SELECT category, count(*) AS rows FROM gone GROUP BY 1 ORDER BY 2 DESC, 1;
+
+-- ── 5-2. 공식 영문 주소 → poi_i18n(en).address ────────────────────────────────
+--
+-- 영문 주소는 번역하지 않는다 — 행정안전부 영문도로명주소DB·영문주소 API 의 공식 표기다(계획 §6-3·§11).
+-- 이름 칸은 건드리지 않는다(가게 이름의 공식 영어는 없다, §10). 주소도 이름도 없는 영어 행은 남기지 않는다.
+-- 입력에 addr_en 칸이 없으면(변환 전 원본) 이 절은 아무것도 바꾸지 않는다.
+CREATE TEMP TABLE t_addr_en ON COMMIT DROP AS
+SELECT p.id, l.addr_en
+FROM t_load l
+JOIN poi p ON p.source_id = l.source_id
+WHERE l.has_addr_en;
+
+INSERT INTO poi_i18n (poi_id, lang, address)
+SELECT id, 'en', addr_en FROM t_addr_en WHERE addr_en IS NOT NULL
+ON CONFLICT (poi_id, lang) DO UPDATE SET address = EXCLUDED.address
+WHERE poi_i18n.address IS DISTINCT FROM EXCLUDED.address;
+
+UPDATE poi_i18n t
+SET address = NULL
+FROM t_addr_en a
+WHERE t.poi_id = a.id AND t.lang = 'en' AND a.addr_en IS NULL AND t.address IS NOT NULL;
+
+DELETE FROM poi_i18n WHERE lang = 'en' AND name IS NULL AND address IS NULL AND road IS NULL;
+
+\echo ''
+\echo '영문 주소 (이번 입력):'
+SELECT
+    count(*)                                   AS rows_with_column,
+    count(*) FILTER (WHERE addr_en IS NOT NULL) AS with_english,
+    count(*) FILTER (WHERE addr_en IS NULL)     AS without
+FROM t_addr_en;
 
 -- ── 6. 이번 입력에 없는 행을 지운다 — prune=1 일 때만 ─────────────────────────
 --
