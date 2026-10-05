@@ -135,7 +135,7 @@ private struct MapSearchIcon: View {
 struct TabBar: View {
     @Binding var selected: RootTabs.Tab
 
-    /// 목업의 홈 글자색(`#5B49D6`) — 핀 보라보다 한 톤 짙어 흰 바탕에서 읽힌다.
+    /// 목업의 홈 글자색(`#5B49D6`) — 핀 보라보다 한 톤 짙어 흰 바탕에서 읽힌다. 고른 탭은 셋 다 이 색이다.
     static let homePurple = Color(red: 0.36, green: 0.29, blue: 0.84)
 
     var body: some View {
@@ -158,7 +158,8 @@ struct TabBar: View {
                 Text(tab.label).font(.system(size: 11))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .foregroundStyle(selected == tab ? Color.accentColor : .secondary)
+            // 고른 탭은 홈과 같은 보라다 — `accentColor` 는 시스템 파랑이라 가운데 홈과 따로 놀았다.
+            .foregroundStyle(selected == tab ? Self.homePurple : .secondary)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
