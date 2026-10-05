@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.onboarding.PinoMascot
 import com.mz2az.scenetrip.onboarding.PinoPose
 import com.mz2az.scenetrip.ui.IOS
@@ -57,15 +58,15 @@ private fun ReelsTeaserViewBody(onClose: () -> Unit) {
 
         PinoMascot(pose = PinoPose.SPARKLE, width = 110.dp)
 
-        Text("AI 여행 릴스", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+        Text(tr("AI 여행 릴스"), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = IOS.label)
 
         Column(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.padding(horizontal = 8.dp),
         ) {
-            TeaserRow("다녀온 코스의 동선과 장소를 AI 가 읽고") { RouteCurveIcon(IOS.pinDeep, it) }
-            TeaserRow("여행 사진을 골라 장면 순서로 엮어서") { PhotosIcon(IOS.pinDeep, it) }
-            TeaserRow("인스타그램에 올릴 15초 릴스를 만들어 드릴 예정이에요") {
+            TeaserRow(tr("다녀온 코스의 동선과 장소를 AI 가 읽고")) { RouteCurveIcon(IOS.pinDeep, it) }
+            TeaserRow(tr("여행 사진을 골라 장면 순서로 엮어서")) { PhotosIcon(IOS.pinDeep, it) }
+            TeaserRow(tr("인스타그램에 올릴 15초 릴스를 만들어 드릴 예정이에요")) {
                 com.mz2az.scenetrip.searchtab
                     .FilmIcon(IOS.pinDeep, it)
             }
@@ -74,7 +75,7 @@ private fun ReelsTeaserViewBody(onClose: () -> Unit) {
         Spacer(Modifier.weight(1f))
 
         Text(
-            "준비 중입니다 — 열리면 마이페이지에서 가장 먼저 보여요",
+            tr("준비 중입니다 — 열리면 마이페이지에서 가장 먼저 보여요"),
             fontSize = 12.sp,
             color = IOS.secondaryLabel,
             modifier = Modifier.padding(bottom = 16.dp),

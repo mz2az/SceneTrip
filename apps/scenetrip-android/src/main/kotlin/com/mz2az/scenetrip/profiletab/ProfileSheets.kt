@@ -46,6 +46,7 @@ import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.InstallIdentity
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
@@ -112,9 +113,9 @@ private fun MyCoursesSheetBody(
     val details = remember { mutableStateOf(mapOf<Long, CourseDetail>()) }
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
-        ProfileSheetHeader("내 코스", onClose)
+        ProfileSheetHeader(tr("내 코스"), onClose)
         if (courses.isEmpty()) {
-            IOSEmptyState("아직 코스가 없습니다", "경로여정 탭에서 첫 코스를 만들어 보세요") { RouteCurveIcon(IOS.secondaryLabel, it) }
+            IOSEmptyState(tr("아직 코스가 없습니다"), tr("경로여정 탭에서 첫 코스를 만들어 보세요")) { RouteCurveIcon(IOS.secondaryLabel, it) }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
                 items(courses, key = { it.id }) { course ->
@@ -132,11 +133,11 @@ private fun MyCoursesSheetBody(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(course.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = IOS.label)
                                 val startDate = course.startDate?.let { " · ${formatSimpleDate(it.toString())}" } ?: ""
-                                Text("${course.dayCount}일$startDate", fontSize = 12.sp, color = IOS.secondaryLabel)
+                                Text(tr("%d일").format(course.dayCount) + startDate, fontSize = 12.sp, color = IOS.secondaryLabel)
                             }
                             if (course.status == CourseStatus.active) {
                                 Text(
-                                    "여행 중",
+                                    tr("여행 중"),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color(0xFF34C759),
@@ -184,7 +185,7 @@ private fun MyCoursesSheetBody(
                                     detail.days.forEach { day ->
                                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text(
-                                                "${day.dayNumber}일차",
+                                                tr("%d일차").format(day.dayNumber),
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = IOS.pinDeep,
@@ -211,7 +212,7 @@ private fun MyCoursesSheetBody(
                                                 }.padding(vertical = 8.dp),
                                     ) {
                                         Text(
-                                            "경로여정에서 열기 ↗",
+                                            tr("경로여정에서 열기") + " ↗",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = IOS.accent,
@@ -225,7 +226,7 @@ private fun MyCoursesSheetBody(
                                     modifier = Modifier.padding(top = 6.dp),
                                 ) {
                                     CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                                    Text("일정을 받아오는 중입니다", fontSize = 11.sp, color = IOS.secondaryLabel)
+                                    Text(tr("일정을 받아오는 중입니다"), fontSize = 11.sp, color = IOS.secondaryLabel)
                                 }
                             }
                         }
@@ -246,11 +247,11 @@ private fun LikedWorksSheetBody(
 ) {
     var expanded by remember { mutableStateOf<Long?>(null) }
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
-        ProfileSheetHeader("찜한 작품", onClose)
+        ProfileSheetHeader(tr("찜한 작품"), onClose)
         when {
             failure != null -> {
                 IOSEmptyState(
-                    "작품 목록을 받지 못했습니다",
+                    tr("작품 목록을 받지 못했습니다"),
                     failure,
                 ) { Icon(Icons.Outlined.Warning, contentDescription = null, tint = IOS.secondaryLabel, modifier = it) }
             }
@@ -262,12 +263,12 @@ private fun LikedWorksSheetBody(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     CircularProgressIndicator()
-                    Text("작품 목록을 받아오는 중입니다", fontSize = 12.sp, color = IOS.secondaryLabel)
+                    Text(tr("작품 목록을 받아오는 중입니다"), fontSize = 12.sp, color = IOS.secondaryLabel)
                 }
             }
 
             works.isEmpty() -> {
-                IOSEmptyState("찜한 작품이 없습니다", "작품검색 탭에서 하트를 눌러 보세요") {
+                IOSEmptyState(tr("찜한 작품이 없습니다"), tr("작품검색 탭에서 하트를 눌러 보세요")) {
                     Icon(Icons.Filled.FavoriteBorder, contentDescription = null, tint = IOS.secondaryLabel, modifier = it)
                 }
             }
@@ -322,9 +323,9 @@ private fun LikedWorksSheetBody(
                                     work.genres?.takeIf { it.isNotEmpty() }?.let {
                                         Text(it.joinToString(" · "), fontSize = 11.sp, color = IOS.accent)
                                     }
-                                    Text("촬영지 ${work.placeCount}곳", fontSize = 11.sp, color = IOS.secondaryLabel)
+                                    Text(tr("촬영지 %d곳").format(work.placeCount), fontSize = 11.sp, color = IOS.secondaryLabel)
                                     Text(
-                                        "촬영지는 작품검색 탭에서 지도로 볼 수 있어요",
+                                        tr("촬영지는 작품검색 탭에서 지도로 볼 수 있어요"),
                                         fontSize = 11.sp,
                                         color = IOS.tertiaryLabel,
                                     )
@@ -347,9 +348,9 @@ private fun ProfileCartSheetBody(
     onClose: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
-        ProfileSheetHeader("장바구니", onClose)
+        ProfileSheetHeader(tr("장바구니"), onClose)
         if (items.isEmpty()) {
-            IOSEmptyState("장바구니가 비었습니다", "작품검색 탭에서 촬영지를 담아 보세요") { BagIcon(IOS.secondaryLabel, it) }
+            IOSEmptyState(tr("장바구니가 비었습니다"), tr("작품검색 탭에서 촬영지를 담아 보세요")) { BagIcon(IOS.secondaryLabel, it) }
         } else {
             LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = sheetListBottom()) {
                 items(items, key = { it.placeId }) { item ->
@@ -368,7 +369,7 @@ private fun ProfileCartSheetBody(
                 }
             }
             Text(
-                "담고 빼는 것은 작품검색 탭의 장바구니에서",
+                tr("담고 빼는 것은 작품검색 탭의 장바구니에서"),
                 fontSize = 11.sp,
                 color = IOS.tertiaryLabel,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -391,9 +392,10 @@ private fun MyPostsSheetBody(
     var reading by remember { mutableStateOf<CommunityPost?>(null) }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
-            ProfileSheetHeader("내가 쓴 글", onClose)
+            ProfileSheetHeader(tr("내가 쓴 글"), onClose)
+            // 글이 isMine 으로 걸러져 들어오므로 여기서 또 거르지 않는다 — 호출부가 store.mine 을 넘긴다.
             if (posts.isEmpty()) {
-                IOSEmptyState("아직 쓴 글이 없습니다", "커뮤니티 탭에서 첫 글을 남겨 보세요") { SquarePencilIcon(IOS.secondaryLabel, it) }
+                IOSEmptyState(tr("아직 쓴 글이 없습니다"), tr("커뮤니티 탭에서 첫 글을 남겨 보세요")) { SquarePencilIcon(IOS.secondaryLabel, it) }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
                     items(posts, key = { it.id }) { post ->
@@ -402,25 +404,12 @@ private fun MyPostsSheetBody(
                             modifier = Modifier.fillMaxWidth().clickable { reading = post }.padding(horizontal = 16.dp, vertical = 8.dp),
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text(
-                                        post.board.label,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = IOS.accent,
-                                        modifier =
-                                            Modifier
-                                                .clip(RoundedCornerShape(5.dp))
-                                                .background(IOS.accent.copy(alpha = 0.13f))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                                    )
-                                    Text(post.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, color = IOS.label)
-                                }
+                                Text(post.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, color = IOS.label)
                                 Text(formatDateTimeShort(post.createdAt), fontSize = 10.sp, color = IOS.tertiaryLabel)
                             }
                             Icon(
                                 Icons.Filled.Close,
-                                contentDescription = "지우기",
+                                contentDescription = tr("지우기"),
                                 tint = IOS.tertiaryLabel,
                                 modifier = Modifier.size(16.dp).clickable { onRemove(post) },
                             )

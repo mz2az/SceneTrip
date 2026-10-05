@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.ui.IOS
@@ -73,7 +74,7 @@ fun WorkRow(
             Text(content.meta, style = IOS.caption, color = IOS.secondaryLabel)
             // "촬영지 N" 은 회색 캡슐 안에 들어간다 — iOS 와 같은 모양이다.
             Text(
-                text = "촬영지 ${content.placeCount}",
+                text = tr("촬영지 %d").format(content.placeCount),
                 style = IOS.caption2,
                 color = IOS.secondaryLabel,
                 modifier =
@@ -89,7 +90,7 @@ fun WorkRow(
         // `WorkRow` 와 같은 아이콘·같은 색이다 — 찜한 하트는 빨강(`Color.red`).
         Icon(
             imageVector = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            contentDescription = if (liked) "찜 빼기" else "찜하기",
+            contentDescription = if (liked) tr("찜 빼기") else tr("찜하기"),
             tint = if (liked) IOS.systemRed else IOS.secondaryLabel,
             modifier =
                 Modifier
@@ -181,7 +182,7 @@ fun PlaceRow(
             if (saved) {
                 Icon(
                     Icons.Filled.CheckCircle,
-                    contentDescription = "장바구니에서 빼기",
+                    contentDescription = tr("장바구니에서 빼기"),
                     tint = IOS.accent,
                     // **27.5 여야 원이 20 으로 보인다.** Material 아이콘은 24 짜리
                     // 그림 안에 여백을 두고 그려서, 20 을 주면 원이 17 로 나온다

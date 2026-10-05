@@ -46,6 +46,7 @@ import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.SceneData
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.EntityType
@@ -58,11 +59,9 @@ import com.naver.maps.map.NaverMap
 import kotlinx.coroutines.launch
 
 /** 목록의 두 탭. iOS `SearchTabView.Tab` 과 같다. */
-enum class ListTab(
-    val label: String,
-) {
-    WORK("작품"),
-    PLACE("장소"),
+enum class ListTab {
+    WORK,
+    PLACE,
 }
 
 /**
@@ -509,20 +508,20 @@ fun SearchTabScreen() {
                     )
                     if (outsideKorea) {
                         MapControl(
-                            label = "한국으로",
+                            label = tr("한국으로"),
                             onClick = { map?.showWholeKorea(density) },
                             modifier = Modifier.align(Alignment.CenterEnd).padding(end = 68.dp),
                         ) { tint, size ->
                             Icon(
                                 Icons.Filled.Place,
-                                contentDescription = "한국으로",
+                                contentDescription = tr("한국으로"),
                                 tint = tint,
                                 modifier = Modifier.size(size),
                             )
                         }
                     }
                     MapControl(
-                        label = "내 위치",
+                        label = tr("내 위치"),
                         onClick = locate,
                         modifier = Modifier.align(Alignment.CenterEnd).padding(end = 20.dp),
                         // iOS 는 이 아이콘만 강조색이다(실측). 나머지 지도 조작
@@ -604,13 +603,13 @@ private fun ErrorView(
             modifier = Modifier.size(34.dp),
         )
         Text(
-            text = failure?.message ?: "요청을 처리하지 못했습니다.",
+            text = failure?.message ?: tr("요청을 처리하지 못했습니다."),
             style = IOS.subheadline,
             color = IOS.label,
         )
         if (failure == null || failure.isRetryable) {
             Text(
-                text = "다시 시도",
+                text = tr("다시 시도"),
                 style = IOS.subheadlineSemibold,
                 color = IOS.systemBackground,
                 modifier =
@@ -656,7 +655,14 @@ private fun ListContent(
             selected = tab,
             label = { entry ->
                 val count = if (entry == ListTab.WORK) contents.size else places.size
-                (if (isInitial) "인기 " else "") + "${entry.label} $count"
+                // 「인기 작품 12」·「장소 8」 — 지금 언어로 그린다(iOS `tabLabel`, MZ2AZ-343).
+                val format =
+                    if (entry == ListTab.WORK) {
+                        if (isInitial) tr("인기 작품 %d") else tr("작품 %d")
+                    } else {
+                        if (isInitial) tr("인기 장소 %d") else tr("장소 %d")
+                    }
+                format.format(count)
             },
             onSelect = onTabChange,
         )

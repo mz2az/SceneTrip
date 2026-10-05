@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.API_BASE
+import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.FootprintStore
 import com.mz2az.scenetrip.data.InstallIdentity
@@ -51,6 +52,7 @@ import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.OnboardingFlag
 import com.mz2az.scenetrip.data.VisitStamp
 import com.mz2az.scenetrip.data.collectVisitStamps
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.onboarding.OnboardingView
 import com.mz2az.scenetrip.onboarding.PinoMascot
 import com.mz2az.scenetrip.sceneapi.client.api.CartApi
@@ -100,6 +102,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
     val likes = remember { LikeStore.getInstance(context) }
     val posts = remember { CommunityStore.getInstance(context) }
     val footprints = remember { FootprintStore.getInstance(context) }
+    val language = remember { AppLanguage.getInstance(context) }
     val deviceId = remember { InstallIdentity.of(context) }
 
     var courses by remember { mutableStateOf<List<CourseSummary>>(emptyList()) }
@@ -118,6 +121,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
     var showingLikes by remember { mutableStateOf(false) }
     var showingPosts by remember { mutableStateOf(false) }
     var clearingFootprints by remember { mutableStateOf(false) }
+    var choosingLanguage by remember { mutableStateOf(false) }
 
     val likedWorks = allWorks.filter { likes.contentIds.contains(it.id) }
 
@@ -143,7 +147,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                     allWorks = it.items ?: emptyList()
                     likesFailure = null
                 },
-                onFailure = { likesFailure = it.message?.take(300) ?: "알 수 없는 오류" },
+                onFailure = { likesFailure = it.message?.take(300) ?: tr("알 수 없는 오류") },
             )
             likesLoading = false
 
@@ -163,7 +167,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6)) {
             Box(modifier = Modifier.fillMaxWidth().statusBarsPadding().height(56.dp)) {
-                Text("마이페이지", style = IOS.headline, color = IOS.label, modifier = Modifier.align(Alignment.Center))
+                Text(tr("마이페이지"), style = IOS.headline, color = IOS.label, modifier = Modifier.align(Alignment.Center))
                 if (onClose != null) {
                     IOSCloseButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp))
                 }
@@ -174,26 +178,26 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 item { ProfileHeader() }
 
                 item {
-                    ProfileSection("내 여행") {
+                    ProfileSection(tr("내 여행")) {
                         ProfileRow(
-                            title = "내 코스",
-                            value = courseCount?.let { "${it}개" } ?: "…",
+                            title = tr("내 코스"),
+                            value = courseCount?.let { tr("%d개").format(it) } ?: "…",
                             onClick = { showingCourses = true },
                             chevron = true,
                             icon = { RouteCurveIcon(IOS.pinDeep, it) },
                         )
                         ProfileDivider()
                         ProfileRow(
-                            title = "찜한 작품",
-                            value = "${likes.contentIds.size}개",
+                            title = tr("찜한 작품"),
+                            value = tr("%d개").format(likes.contentIds.size),
                             onClick = { showingLikes = true },
                             chevron = true,
                             icon = { Icon(Icons.Filled.Favorite, contentDescription = null, tint = IOS.systemRed, modifier = it) },
                         )
                         ProfileDivider()
                         ProfileRow(
-                            title = "장바구니",
-                            value = "${cartItems.size}곳",
+                            title = tr("장바구니"),
+                            value = tr("%d곳").format(cartItems.size),
                             onClick = { showingCart = true },
                             chevron = true,
                             icon = { BagFillIcon(SYSTEM_ORANGE, it) },
@@ -202,7 +206,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 }
 
                 item {
-                    ProfileSection("방문 스탬프") {
+                    ProfileSection(tr("방문 스탬프")) {
                         if (stamps.isEmpty()) {
                             // iOS: 회색 점선 원 44 + caption 안내문.
                             Row(
@@ -225,7 +229,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                                     )
                                 }
                                 Text(
-                                    "여행 중 성지 100 m 안에 들어가면 도장이 찍혀요",
+                                    tr("여행 중 성지 100 m 안에 들어가면 도장이 찍혀요"),
                                     fontSize = 12.sp,
                                     color = IOS.secondaryLabel,
                                 )
@@ -240,7 +244,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                                 if (stamps.size > 12) {
                                     item {
                                         Text(
-                                            "+${stamps.size - 12}",
+                                            "+${stamps.size - 12}", // 숫자뿐이라 언어가 바뀌어도 같다.
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = IOS.secondaryLabel,
@@ -253,10 +257,10 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 }
 
                 item {
-                    ProfileSection("커뮤니티") {
+                    ProfileSection(tr("커뮤니티")) {
                         ProfileRow(
-                            title = "내가 쓴 글",
-                            value = "${posts.posts.size}개",
+                            title = tr("내가 쓴 글"),
+                            value = tr("%d개").format(posts.mine.size),
                             onClick = { showingPosts = true },
                             chevron = true,
                             icon = { SquarePencilIcon(SYSTEM_INDIGO, it) },
@@ -265,7 +269,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 }
 
                 item {
-                    ProfileSection("AI 여행 릴스") {
+                    ProfileSection(tr("AI 여행 릴스")) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -286,23 +290,23 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                                 SparklesIcon(Color.White, Modifier.size(14.dp))
                             }
                             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                Text("내 여행으로 릴스 만들기", fontSize = 15.sp, color = IOS.label)
+                                Text(tr("내 여행으로 릴스 만들기"), fontSize = 15.sp, color = IOS.label)
                                 Text(
-                                    "다녀온 코스와 사진을 AI 가 15초 영상으로",
+                                    tr("다녀온 코스와 사진을 AI 가 15초 영상으로"),
                                     fontSize = 11.sp,
                                     color = IOS.secondaryLabel,
                                 )
                             }
-                            Text("곧", fontSize = 12.sp, color = IOS.tertiaryLabel)
+                            Text(tr("곧"), fontSize = 12.sp, color = IOS.tertiaryLabel)
                         }
                     }
                 }
 
                 item {
-                    ProfileSection("발자취") {
+                    ProfileSection(tr("발자취")) {
                         ProfileRow(
-                            title = "기록한 거리",
-                            value = "%.1f km · %d점".format(footprints.kilometers, footprints.points.size),
+                            title = tr("기록한 거리"),
+                            value = tr("%.1f km · %d점").format(footprints.kilometers, footprints.points.size),
                             onClick = null,
                             icon = { ShoeprintsIcon(IOS.pinDeep, it) },
                         )
@@ -311,7 +315,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
                         ) {
-                            Text("지도에 발자취 보기", fontSize = 15.sp, color = IOS.label, modifier = Modifier.weight(1f))
+                            Text(tr("지도에 발자취 보기"), fontSize = 15.sp, color = IOS.label, modifier = Modifier.weight(1f))
                             IOSToggle(checked = footprints.enabled, onCheckedChange = { footprints.updateEnabled(it) })
                         }
                         ProfileDivider(afterIcon = false)
@@ -329,15 +333,15 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                             val density = LocalDensity.current
                             Box {
                                 Text(
-                                    "발자취 지우기",
+                                    tr("발자취 지우기"),
                                     fontSize = 15.sp,
                                     color = if (footprints.points.isEmpty()) IOS.tertiaryLabel else IOS.systemRed,
                                     modifier = Modifier.onSizeChanged { labelWidth = with(density) { it.width.toDp() } },
                                 )
                                 if (clearingFootprints) {
                                     IOSConfirmPopover(
-                                        title = "발자취를 모두 지울까요? 복구할 수 없어요.",
-                                        actions = listOf(IOSAction("지우기", IOSRole.DESTRUCTIVE) { footprints.clear() }),
+                                        title = tr("발자취를 모두 지울까요? 복구할 수 없어요."),
+                                        actions = listOf(IOSAction(tr("지우기"), IOSRole.DESTRUCTIVE) { footprints.clear() }),
                                         anchorX = labelWidth,
                                         onDismiss = { clearingFootprints = false },
                                     )
@@ -348,10 +352,33 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 }
 
                 item {
-                    ProfileSection("도움") {
+                    ProfileSection(tr("도움")) {
+                        Box {
+                            ProfileRow(
+                                title = tr("언어"),
+                                value = AppLanguage.name(of = language.lang),
+                                onClick = { choosingLanguage = true },
+                                chevron = true,
+                                icon = { GlobeIcon(SYSTEM_BLUE, it) },
+                            )
+                            if (choosingLanguage) {
+                                IOSConfirmPopover(
+                                    title = tr("언어"),
+                                    // 언어 이름은 그 언어로 적는다 — 번역하지 않는다.
+                                    actions =
+                                        language.choices.map { lang ->
+                                            IOSAction(AppLanguage.name(of = lang)) { language.choose(lang) }
+                                        },
+                                    anchorX = 0.dp,
+                                    onDismiss = { choosingLanguage = false },
+                                    below = true,
+                                )
+                            }
+                        }
+                        ProfileDivider()
                         // iOS 는 이 줄에 chevron 이 없다(`row(..., chevron: false)`).
                         ProfileRow(
-                            title = "사용법 다시 보기",
+                            title = tr("사용법 다시 보기"),
                             value = "",
                             onClick = { replaying = true },
                             icon = { QuestionCircleIcon(SYSTEM_BLUE, it) },
@@ -364,12 +391,10 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 }
 
                 item {
-                    ProfileSection("준비 중") {
-                        ProfileRow("언어 (English · 日本語)", "준비 중", null, dimmed = true, icon = { GlobeIcon(IOS.tertiaryLabel, it) })
-                        ProfileDivider()
+                    ProfileSection(tr("준비 중")) {
                         ProfileRow(
-                            "알림",
-                            "준비 중",
+                            tr("알림"),
+                            tr("준비 중"),
                             null,
                             dimmed = true,
                             icon = {
@@ -386,7 +411,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 
                 item {
                     Text(
-                        "설치 식별자 ${deviceId.toString().take(8)}…",
+                        tr("설치 식별자 %s…").format(deviceId.toString().take(8)),
                         fontSize = 10.sp,
                         color = IOS.tertiaryLabel,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
@@ -401,7 +426,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
         if (showingCart) ProfileCartSheet(cartItems, onClose = { showingCart = false })
         if (showingStamps) StampsSheet(stamps, onClose = { showingStamps = false })
         if (showingPosts) {
-            MyPostsSheet(posts.posts, onRemove = { posts.remove(it) }, onClose = { showingPosts = false })
+            MyPostsSheet(posts.mine, onRemove = { posts.remove(it) }, onClose = { showingPosts = false })
         }
         if (showingReels) ReelsTeaserView(onClose = { showingReels = false })
         if (replaying) {
@@ -422,13 +447,13 @@ private fun ProfileHeader() {
         PinoMascot(width = 96.dp)
         // iOS `header` — 비회원이면 로그인 단추, 로그인했으면 이름과 메일 (MZ2AZ-336).
         if (AuthStore.signedIn) {
-            Text(AuthStore.me?.displayName ?: "여행자", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Text(AuthStore.me?.displayName ?: tr("여행자"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
             AuthStore.me?.email?.let { Text(it, fontSize = 12.sp, color = IOS.secondaryLabel) }
         } else {
-            Text("비회원으로 여행 중", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-            Text("로그인하면 코스와 찜이 계정에 저장돼요", fontSize = 12.sp, color = IOS.secondaryLabel)
+            Text(tr("비회원으로 여행 중"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Text(tr("로그인하면 코스와 찜이 계정에 저장돼요"), fontSize = 12.sp, color = IOS.secondaryLabel)
             Text(
-                "로그인",
+                tr("로그인"),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
@@ -450,18 +475,18 @@ private fun AccountSection(onDeleted: () -> Unit) {
     var confirmingSignOut by remember { mutableStateOf(false) }
     var confirmingDelete by remember { mutableStateOf(false) }
     var deleteFailed by remember { mutableStateOf(false) }
-    ProfileSection("계정") {
+    ProfileSection(tr("계정")) {
         Box {
             ProfileRow(
-                title = "로그아웃",
+                title = tr("로그아웃"),
                 value = "",
                 onClick = { if (!AuthStore.busy) confirmingSignOut = true },
                 icon = { SignOutIcon(IOS.secondaryLabel, it) },
             )
             if (confirmingSignOut) {
                 IOSConfirmPopover(
-                    title = "로그아웃할까요? 이 기기는 비회원으로 돌아가요.",
-                    actions = listOf(IOSAction("로그아웃", IOSRole.DESTRUCTIVE) { AuthStore.signOut() }),
+                    title = tr("로그아웃할까요? 이 기기는 비회원으로 돌아가요."),
+                    actions = listOf(IOSAction(tr("로그아웃"), IOSRole.DESTRUCTIVE) { AuthStore.signOut() }),
                     anchorX = 0.dp,
                     onDismiss = { confirmingSignOut = false },
                     below = true,
@@ -478,17 +503,18 @@ private fun AccountSection(onDeleted: () -> Unit) {
                     .clickable(enabled = !AuthStore.busy) { confirmingDelete = true }
                     .padding(horizontal = 16.dp),
         ) {
-            Text("회원 탈퇴", fontSize = 15.sp, color = IOS.systemRed)
+            Text(tr("회원 탈퇴"), fontSize = 15.sp, color = IOS.systemRed)
         }
     }
     if (confirmingDelete) {
         IOSAlert(
-            title = "정말 탈퇴할까요?",
-            message = "장바구니·코스·찜이 모두 지워지고 되돌릴 수 없어요.",
+            title = tr("정말 탈퇴할까요?"),
+            // iOS 가 발자취까지 적는 문구로 고쳤다(2026-10-05) — 그대로 옮긴다.
+            message = tr("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요."),
             actions =
                 listOf(
-                    IOSAction("취소", IOSRole.CANCEL) {},
-                    IOSAction("탈퇴", IOSRole.DESTRUCTIVE) {
+                    IOSAction(tr("취소"), IOSRole.CANCEL) {},
+                    IOSAction(tr("탈퇴"), IOSRole.DESTRUCTIVE) {
                         AuthStore.deleteAccount { deleted -> if (deleted) onDeleted() else deleteFailed = true }
                     },
                 ),
@@ -497,9 +523,9 @@ private fun AccountSection(onDeleted: () -> Unit) {
     }
     if (deleteFailed) {
         IOSAlert(
-            title = "탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요",
+            title = tr("탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요"),
             message = null,
-            actions = listOf(IOSAction("확인", IOSRole.CANCEL) {}),
+            actions = listOf(IOSAction(tr("확인"), IOSRole.CANCEL) {}),
             onDismiss = { deleteFailed = false },
         )
     }

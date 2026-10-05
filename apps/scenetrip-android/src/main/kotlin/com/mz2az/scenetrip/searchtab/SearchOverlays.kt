@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.ArrowClockwiseIcon
 import com.mz2az.scenetrip.ui.CartIcon
 import com.mz2az.scenetrip.ui.IOS
@@ -88,7 +89,7 @@ fun SearchBar(
 
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (draft.isEmpty()) {
-                Text("작품·배우·장소로 검색", style = IOS.body, color = IOS.tertiaryLabel)
+                Text(tr("작품·배우·장소로 검색"), style = IOS.body, color = IOS.tertiaryLabel)
             }
             // Material 의 TextField 는 자기 배경·밑줄·라벨을 들고 온다. 캡슐 안에
             // 글자만 놓으려면 BasicTextField 여야 한다.
@@ -135,7 +136,7 @@ fun SearchBar(
                 IOS.accent,
                 Modifier
                     .clip(CircleShape)
-                    .semantics { contentDescription = "장바구니" }
+                    .semantics { contentDescription = tr("장바구니") }
                     .clickable(onClick = onOpenCart)
                     .size(22.dp),
             )
@@ -226,7 +227,7 @@ fun NearbyButton(
             ArrowClockwiseIcon(IOS.label, Modifier.size(14.dp))
         }
         Text(
-            text = if (on) "이 지도에서 ${count}곳 · 해제" else "현 지도 내 성지 검색",
+            text = if (on) tr("이 지도에서 %d곳 · 해제").format(count) else tr("현 지도 내 성지 검색"),
             style = IOS.subheadline.copy(fontWeight = FontWeight.Medium),
             color = if (on) IOS.systemBackground else IOS.label,
         )

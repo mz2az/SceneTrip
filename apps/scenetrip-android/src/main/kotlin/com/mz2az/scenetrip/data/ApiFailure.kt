@@ -33,9 +33,9 @@ data class ApiFailure(
     /** 화면에 띄우는 문구. iOS `ErrorView` 와 **같은 세 갈래**다. */
     val message: String get() =
         when (statusCode) {
-            null -> "서버에 연결하지 못했습니다."
-            500 -> "잠시 문제가 생겼습니다."
-            else -> "요청을 처리하지 못했습니다."
+            null -> tr("서버에 연결하지 못했습니다.")
+            500 -> tr("잠시 문제가 생겼습니다.")
+            else -> tr("요청을 처리하지 못했습니다.")
         }
 
     companion object {

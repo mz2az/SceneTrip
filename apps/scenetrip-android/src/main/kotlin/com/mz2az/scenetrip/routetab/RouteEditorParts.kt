@@ -55,6 +55,7 @@ import com.mz2az.scenetrip.data.FootprintPoint
 import com.mz2az.scenetrip.data.RoutePoiGroup
 import com.mz2az.scenetrip.data.RoutePoiTone
 import com.mz2az.scenetrip.data.RouteStore
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
@@ -142,7 +143,7 @@ fun RouteStopRow(
                 contentAlignment = Alignment.CenterEnd,
                 modifier = Modifier.fillMaxSize().background(IOS.systemRed).padding(horizontal = 20.dp),
             ) {
-                Text("삭제", fontSize = 17.sp, color = Color.White)
+                Text(tr("삭제"), fontSize = 17.sp, color = Color.White)
             }
         },
     ) {
@@ -173,14 +174,14 @@ fun RouteStopRow(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text(stop.place.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, maxLines = 1)
                         if (stop.isPinned) {
-                            Badge(text = "내가 찍은 곳", background = IOS.systemGray5, foreground = IOS.secondaryLabel)
+                            Badge(text = tr("내가 찍은 곳"), background = IOS.systemGray5, foreground = IOS.secondaryLabel)
                         }
                         if (stop.placeMissing) {
-                            Badge(text = "저장 안 됨", background = IOS.systemOrange.copy(alpha = 0.15f), foreground = IOS.systemOrange)
+                            Badge(text = tr("저장 안 됨"), background = IOS.systemOrange.copy(alpha = 0.15f), foreground = IOS.systemOrange)
                         }
                     }
                     stop.arriveMinute?.let {
-                        Text("${RouteGuidePlan.clock(it)} 도착 예정", fontSize = 11.sp, color = IOS.secondaryLabel)
+                        Text(tr("%s 도착 예정").format(RouteGuidePlan.clock(it)), fontSize = 11.sp, color = IOS.secondaryLabel)
                     }
                     val subtitle = listOfNotNull(stop.place.type, stop.place.address).joinToString(" · ")
                     if (subtitle.isNotEmpty()) {
@@ -240,14 +241,14 @@ fun RouteStopRow(
                 if (isTarget) {
                     StopCapsule(background = IOS.pinDeep) {
                         LocationArrowIcon(Color.White, filled = true, modifier = Modifier.size(11.dp))
-                        Text("안내 중", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1)
+                        Text(tr("안내 중"), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1)
                     }
                 } else if (onNavigate != null) {
                     // 여행 중 이 곳으로 길찾기 — 별도 창이 아니라 이 화면의 지도에 경로가 그려진다.
                     StopCapsule(background = IOS.pinDeep.copy(alpha = 0.12f), onClick = onNavigate) {
                         LocationArrowIcon(IOS.pinDeep, filled = false, modifier = Modifier.size(11.dp))
                         Text(
-                            if (stop.visited) "다시 길찾기" else "길찾기",
+                            if (stop.visited) tr("다시 길찾기") else tr("길찾기"),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = IOS.pinDeep,
@@ -259,7 +260,7 @@ fun RouteStopRow(
                     val pinTint = if (isPinned) Color.White else IOS.secondaryLabel
                     StopCapsule(background = if (isPinned) IOS.accent else IOS.systemGray6, onClick = onTogglePin) {
                         FlagIcon(tint = pinTint, filled = isPinned, modifier = Modifier.size(10.dp))
-                        Text("$pinLabel 고정", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = pinTint, maxLines = 1)
+                        Text(tr("%s 고정").format(pinLabel), fontSize = 11.sp, fontWeight = FontWeight.Medium, color = pinTint, maxLines = 1)
                     }
                 }
                 nextKilometers?.let {
@@ -347,10 +348,10 @@ fun PoiCategoryGroup.toRoutePoiGroup(): RoutePoiGroup =
 val PoiCategoryGroup.label: String
     get() =
         when (this) {
-            PoiCategoryGroup.food -> "음식점"
-            PoiCategoryGroup.stay -> "숙소"
-            PoiCategoryGroup.sight -> "명소"
-            PoiCategoryGroup.transit -> "교통"
+            PoiCategoryGroup.food -> tr("음식점")
+            PoiCategoryGroup.stay -> tr("숙소")
+            PoiCategoryGroup.sight -> tr("명소")
+            PoiCategoryGroup.transit -> tr("교통")
         }
 
 fun PoiSummary.asPlaceSummary(): PlaceSummary =
@@ -398,9 +399,9 @@ fun RoutePoiChips(
                 .padding(horizontal = 16.dp),
     ) {
         if (aiCount > 0) {
-            PoiChip(label = "AI 장소 $aiCount", tone = IOS.accent, isOn = aiOn, onClick = onToggleAi)
+            PoiChip(label = tr("AI 장소 %d").format(aiCount), tone = IOS.accent, isOn = aiOn, onClick = onToggleAi)
         }
-        PoiChip(label = "전체", tone = null, isOn = allOn, onClick = onToggleAll)
+        PoiChip(label = tr("전체"), tone = null, isOn = allOn, onClick = onToggleAll)
         PoiCategoryGroup.entries.forEach { group ->
             val count = counts[group] ?: 0
             if (count > 0) {
@@ -705,10 +706,10 @@ private fun RouteCartSheetBody(
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         Box(modifier = Modifier.background(IOSSheetMaterial)) {
             IOSSheetToolbar(
-                title = "장바구니에서 담기",
-                leading = "닫기",
+                title = tr("장바구니에서 담기"),
+                leading = tr("닫기"),
                 onLeading = onDismiss,
-                trailing = "담기 ${picked.size}",
+                trailing = tr("담기 %d").format(picked.size),
                 trailingEnabled = picked.isNotEmpty(),
                 onTrailing = {
                     onPick(places.filter { picked.contains(it.id) })
@@ -718,7 +719,7 @@ private fun RouteCartSheetBody(
         }
         if (isSample) {
             Text(
-                "장바구니가 비어 인기 장소를 보여 줍니다",
+                tr("장바구니가 비어 인기 장소를 보여 줍니다"),
                 fontSize = 12.sp,
                 color = IOS.secondaryLabel,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -749,7 +750,7 @@ private fun RouteCartSheetBody(
                     if (isTaken || isPicked) {
                         Icon(
                             Icons.Filled.CheckCircle,
-                            contentDescription = if (isTaken) "담김" else "선택",
+                            contentDescription = if (isTaken) tr("담김") else tr("선택"),
                             tint = if (isTaken) IOS.accent.copy(alpha = 0.45f) else IOS.accent,
                             modifier = Modifier.size(20.dp),
                         )
@@ -782,20 +783,20 @@ private fun RoutePinSheetBody(
     // iOS `RoutePinSheet`: `Form` — 회색 바탕 위 묶음 카드(이름 / 갈래 / 좌표), 갈래는 체크 표시로 고른다.
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         IOSSheetToolbar(
-            title = "이 자리에 추가",
-            leading = "취소",
+            title = tr("이 자리에 추가"),
+            leading = tr("취소"),
             onLeading = onDismiss,
-            trailing = "추가",
+            trailing = tr("추가"),
             onTrailing = {
-                onDone(name.ifBlank { "이름 없는 장소" }, category)
+                onDone(name.ifBlank { tr("이름 없는 장소") }, category)
                 onDismiss()
             },
         )
         LazyColumn(contentPadding = sheetListBottom()) {
             item {
-                IOSFormSection("이름") {
+                IOSFormSection(tr("이름")) {
                     Box(Modifier.fillMaxWidth().height(50.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
-                        if (name.isEmpty()) Text("예: 오늘 묵을 숙소", fontSize = 17.sp, color = IOS.tertiaryLabel)
+                        if (name.isEmpty()) Text(tr("예: 오늘 묵을 숙소"), fontSize = 17.sp, color = IOS.tertiaryLabel)
                         androidx.compose.foundation.text.BasicTextField(
                             value = name,
                             onValueChange = { name = it },
@@ -810,7 +811,7 @@ private fun RoutePinSheetBody(
                 }
             }
             item {
-                IOSFormSection("갈래") {
+                IOSFormSection(tr("갈래")) {
                     PIN_CATEGORIES.forEachIndexed { index, each ->
                         if (index > 0) IOSListDivider(start = 16.dp)
                         Row(
@@ -822,7 +823,9 @@ private fun RoutePinSheetBody(
                                     .clickable { category = each }
                                     .padding(horizontal = 16.dp),
                         ) {
-                            Text(each, fontSize = 17.sp, color = IOS.label, modifier = Modifier.weight(1f))
+                            // category 는 iOS 와 같은 Korean 열쇠(RouteBridge 의 갈래 매칭과
+                            // 같다) — 보이는 글자만 tr() 로 바꾼다.
+                            Text(tr(each), fontSize = 17.sp, color = IOS.label, modifier = Modifier.weight(1f))
                             if (category == each) CheckmarkIcon(IOS.accent, Modifier.size(15.dp))
                         }
                     }
@@ -831,7 +834,7 @@ private fun RoutePinSheetBody(
             item {
                 IOSFormSection(null) {
                     Text(
-                        "위도 %.5f · 경도 %.5f".format(pin.latitude, pin.longitude),
+                        tr("위도 %.5f · 경도 %.5f").format(pin.latitude, pin.longitude),
                         fontSize = 12.sp,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         color = IOS.secondaryLabel,
@@ -854,7 +857,7 @@ private fun RouteStaySheetBody(
 ) {
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         Box(Modifier.fillMaxWidth().height(50.dp), contentAlignment = Alignment.Center) {
-            Text("얼마나 머무를까요?", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Text(tr("얼마나 머무를까요?"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
         }
         LazyColumn(contentPadding = sheetListBottom()) {
             items(RouteStop.STAY_OPTIONS) { minutes ->

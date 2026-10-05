@@ -1,6 +1,6 @@
 # 앱 분석 이벤트 (MZ2AZ-353)
 
-- **상태**: iOS 에 SDK 와 이벤트 기록이 들어갔다. Firebase 프로젝트·설정 파일은 아직 없다(없으면 아무것도 보내지 않는다). Android 는 이 표를 따라 뒤이어 넣는다
+- **상태**: iOS 는 SDK·이벤트 기록·설정 파일까지 들어가 **분석이 켜져 있다**(2026-10-05). Android 는 설정 파일만 있고 이 표를 따라 뒤이어 넣는다
 - **담당**: 정승길(앱) · Firebase 프로젝트는 정권호·정승길
 - **근거**: 2026-10-01 윤지환 멘토님 마케팅 멘토링(볼트 `00_멘토링 및 회의역사/71_(10.01) 윤지환 멘토님 마케팅`), 2026-10-03 팀 회의
 
@@ -47,12 +47,15 @@ flowchart LR
 | `like_title` | 작품 하트를 눌렀다 | `content_id`, `liked`(1·0) | `LikeStore.toggle` |
 | `save_place` | 장소를 담았다(서버가 받았을 때) | `place_id` | `CartStore.add` |
 | `generate_plan` | AI 일정 초안을 받았다(저장 전) | `day_count`, `title_count` | `RouteStore` |
-| **`create_course`** | **코스를 새로 만들어 저장했다**(고쳐 저장은 세지 않는다) | `origin`(`ai`·`self`·`review`), `day_count`, `place_count` | `RouteStore.save` |
+| **`create_course`** | **코스를 새로 만들어 저장했다**(고쳐 저장은 세지 않는다) | `course_origin`(`ai`·`self`·`review`), `day_count`, `place_count` | `RouteStore.save` |
 | `start_trip` | 한 장소로 안내를 시작했다 | `place_id` | `TripSession.start` |
 | `get_directions` | 길찾기를 불렀다 | — | `TripSession` |
 | `visit_stamp` | 성지에 도착해 도장이 찍혔다 | `place_id` | `TripSession.arriveNow` |
 | `ask_guide` | 가이드 챗봇에 물었다 | — | `RouteGuide` |
 | `post_review` | 여행후기를 올렸다 | `photo_count`, `has_course`(1·0) | `CommunityStore.add` |
+
+- **자동 화면 기록은 끈다.** Firebase 는 화면이 바뀔 때 `screen_view` 를 제 손으로도 보낸다 — 알림창·시트가 뜰 때마다 이름 없는 것이 섞인다. 우리는 이름을 붙여 직접 보내므로 끈다(iOS `Info.plist` 의 `FirebaseAutomaticScreenReportingEnabled = false`, Android 는 매니페스트의 `google_analytics_automatic_screen_reporting_enabled = false`)
+- **매개변수 이름에 `origin` 을 쓰지 않는다.** Firebase 가 모든 이벤트에 제 `origin`(app·auto)을 붙여 겹친다 — 그래서 `course_origin` 이다
 
 ### 사용자 속성
 
@@ -70,22 +73,30 @@ flowchart LR
 
 ## 5. 설정 파일
 
-Firebase 는 앱 번들 안의 설정 파일로 켜진다.
+Firebase 는 앱 번들 안의 설정 파일로 켜진다. Firebase 프로젝트는 `scenetrip-5bf07`(2026-10-05, 정승길 생성).
 
-| 플랫폼 | 파일 | 두는 곳 |
-| --- | --- | --- |
-| iOS | `GoogleService-Info.plist` | `apps/scenetrip-ios/resources/` |
-| Android | `google-services.json` | (Android 를 붙일 때 정한다) |
+| 플랫폼 | 파일 | 두는 곳 | 상태 |
+| --- | --- | --- | --- |
+| iOS | `GoogleService-Info.plist` | `apps/scenetrip-ios/resources/` | 번들에 실린다 — 분석이 켜져 있다 |
+| Android | `google-services.json` | `apps/scenetrip-android/` | 파일만 있다. 빌드가 아직 읽지 않는다(Android 에 분석을 붙일 때 연결) |
 
-- Firebase 콘솔에서 프로젝트를 만들고 앱(번들 ID·패키지 `com.mz2az.scenetrip`)을 등록하면 내려받는다. 구글 로그인에 쓰는 구글 클라우드 프로젝트(`700188854872`)에 Firebase 를 켜는 것이 자연스럽다
-- **파일이 없어도 빌드되고 돈다** — 없으면 `AppAnalytics.start` 가 Firebase 를 켜지 않고 이벤트를 버린다. CI 와 설정 파일이 없는 팀원의 빌드가 그대로 된다
-- 파일을 저장소에 넣을지는 미정이다. 비밀번호 같은 비밀은 아니지만(앱에 그대로 실려 배포된다) API 키가 들어 있어 구글은 키에 앱 제한을 걸라고 권한다. 넣지 않으면 각자 받아 두어야 하고 CI 빌드는 분석이 꺼진다
+- **두 파일은 저장소에 있다**(2026-10-05 정승길 결정). CI 와 팀원 빌드, 베타 빌드에 분석이 똑같이 들어가게 하려는 것이다
+- 파일 안의 API 키는 **비밀이 아니다** — 앱에 그대로 실려 배포되는 식별자다. 다만 구글 클라우드 콘솔에서 이 키에 앱 제한(iOS 번들 ID · Android 패키지와 서명)을 걸어 두어야 남이 가져다 쓰지 못한다 — **아직 걸지 않았다**
+- 파일이 없어도 빌드되고 돈다 — 없으면 `AppAnalytics.start` 가 Firebase 를 켜지 않고 이벤트를 버린다
+- 구글 로그인은 이 프로젝트와 무관하다(다른 구글 클라우드 프로젝트의 클라이언트 ID 를 `Info.plist` 에서 읽는다)
+- 프로젝트를 바꾸려면 콘솔에서 새 파일을 받아 같은 자리에 덮어쓴다
 
 ## 6. 확인하는 법
 
-1. 설정 파일을 넣고 `just ios-run`
+1. `just ios-run`
 2. 시뮬레이터 실행 인자에 `-FIRDebugEnabled` 를 주면 Firebase 콘솔 **DebugView** 에 이벤트가 몇 초 안에 찍힌다
 3. 퍼널 순서대로 눌러 본다: 검색 → 작품·장소 열기 → 하트·담기 → 코스 만들기 → 코스 시작
+
+### 실기 확인 (2026-10-05, iOS)
+
+DebugView 수신과 기기 로그(「Logging event」, 업로드 204)로 확인한 것: `first_open` · `screen_view` · `search` · `view_title` · `like_title` · `view_place` · `save_place` · `ask_guide` · `create_course` · `post_review`, 사용자 속성 둘. **아직 실제 전송을 못 본 것**: `start_trip` · `get_directions` · `visit_stamp`(길찾기가 유료 외부 API 를 불러 누르지 않았다) · `generate_plan` · `sign_up`/`login`/`logout`/`delete_account` · `select_language` · `tutorial_*`.
+
+기기 로그로 보려면 `log show` 가 아니라 `log stream --level debug`(디버그 줄은 저장되지 않는다), 프로세스 이름은 `bin`.
 
 ## 7. 남은 것
 

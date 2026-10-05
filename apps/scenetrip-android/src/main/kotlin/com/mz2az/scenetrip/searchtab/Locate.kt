@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
 import androidx.compose.material3.Text as M3Text
@@ -267,13 +268,13 @@ fun LocateFailureDialog(
     val context = LocalContext.current
     val title =
         when (outcome) {
-            LocateOutcome.DENIED -> "위치 권한이 필요합니다"
-            LocateOutcome.FAILED -> "현재 위치를 찾지 못했습니다"
+            LocateOutcome.DENIED -> tr("위치 권한이 필요합니다")
+            LocateOutcome.FAILED -> tr("현재 위치를 찾지 못했습니다")
         }
     val message =
         when (outcome) {
-            LocateOutcome.DENIED -> "설정에서 위치 접근을 허용하면 현재 위치를 보여 드립니다."
-            LocateOutcome.FAILED -> "실내이거나 신호가 약할 수 있습니다. 잠시 후 다시 눌러 주세요."
+            LocateOutcome.DENIED -> tr("설정에서 위치 접근을 허용하면 현재 위치를 보여 드립니다.")
+            LocateOutcome.FAILED -> tr("실내이거나 신호가 약할 수 있습니다. 잠시 후 다시 눌러 주세요.")
         }
 
     ComposeDialog(
@@ -320,9 +321,9 @@ fun LocateFailureDialog(
                     LocateOutcome.DENIED -> {
                         Row(Modifier.height(IOS.alertButton)) {
                             // iOS 는 `.cancel` 이 **굵게** 온다. 왼쪽이 취소다.
-                            AlertButton("닫기", bold = true, modifier = Modifier.weight(1f), onClick = onDismiss)
+                            AlertButton(tr("닫기"), bold = true, modifier = Modifier.weight(1f), onClick = onDismiss)
                             Box(Modifier.width(IOS.hairline).fillMaxSize().background(IOS.separator))
-                            AlertButton("설정 열기", modifier = Modifier.weight(1f)) {
+                            AlertButton(tr("설정 열기"), modifier = Modifier.weight(1f)) {
                                 context.openAppSettings()
                                 onDismiss()
                             }
@@ -331,7 +332,7 @@ fun LocateFailureDialog(
 
                     LocateOutcome.FAILED -> {
                         Box(Modifier.height(IOS.alertButton)) {
-                            AlertButton("확인", bold = true, modifier = Modifier.fillMaxSize(), onClick = onDismiss)
+                            AlertButton(tr("확인"), bold = true, modifier = Modifier.fillMaxSize(), onClick = onDismiss)
                         }
                     }
                 }

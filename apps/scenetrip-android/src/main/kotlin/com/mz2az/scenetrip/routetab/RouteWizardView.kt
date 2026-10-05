@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.RouteStore
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.searchtab.rememberLocate
 import com.mz2az.scenetrip.ui.BoltIcon
@@ -119,7 +120,7 @@ private fun RouteWizardViewBody(
             modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(horizontal = 20.dp, vertical = 14.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("취소", fontSize = 17.sp, color = IOS.accent, modifier = Modifier.clickable { onClose(null) })
+                Text(tr("취소"), fontSize = 17.sp, color = IOS.accent, modifier = Modifier.clickable { onClose(null) })
                 Spacer(Modifier.weight(1f))
                 Text("${stepIndex + 1} / $steps", fontSize = 13.sp, color = IOS.secondaryLabel)
             }
@@ -156,7 +157,7 @@ private fun RouteWizardViewBody(
                             .padding(horizontal = 12.dp, vertical = 9.dp),
                 ) {
                     SparklesIcon(IOS.accent, Modifier.size(13.dp))
-                    Text("AI 가 일정을 짜 드립니다", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = IOS.accent)
+                    Text(tr("AI 가 일정을 짜 드립니다"), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = IOS.accent)
                 }
             }
         }
@@ -172,11 +173,11 @@ private fun RouteWizardViewBody(
         Column(modifier = Modifier.weight(1f).padding(20.dp)) {
             Text(
                 when (stepIndex) {
-                    0 -> "얼마나 다녀오나요?"
-                    1 -> "언제 떠나나요?"
-                    2 -> "어떤 작품을 좋아하나요?"
-                    3 -> "어떻게 다닐까요?"
-                    else -> "이렇게 짜 드립니다"
+                    0 -> tr("얼마나 다녀오나요?")
+                    1 -> tr("언제 떠나나요?")
+                    2 -> tr("어떤 작품을 좋아하나요?")
+                    3 -> tr("어떻게 다닐까요?")
+                    else -> tr("이렇게 짜 드립니다")
                 },
                 fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -230,10 +231,10 @@ private fun RouteWizardViewBody(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                             // iOS `Label(..., systemImage: "arrow.uturn.left")`.
                             UTurnLeftIcon(IOS.secondaryLabel, Modifier.size(14.dp))
-                            Text("돌아오는 날 ${RouteFormat.day(back)} · 자동", fontSize = 12.sp, color = IOS.secondaryLabel)
+                            Text(tr("돌아오는 날 %s · 자동").format(RouteFormat.day(back)), fontSize = 12.sp, color = IOS.secondaryLabel)
                         }
                         Text(
-                            "날짜 지우기",
+                            tr("날짜 지우기"),
                             fontSize = 12.sp,
                             color = IOS.accent,
                             modifier =
@@ -244,7 +245,7 @@ private fun RouteWizardViewBody(
                                     }.padding(top = 6.dp),
                         )
                     } else {
-                        Text("날짜는 나중에 정해도 됩니다", fontSize = 12.sp, color = IOS.secondaryLabel)
+                        Text(tr("날짜는 나중에 정해도 됩니다"), fontSize = 12.sp, color = IOS.secondaryLabel)
                     }
                 }
             } else if (stepIndex == 2) {
@@ -264,7 +265,7 @@ private fun RouteWizardViewBody(
                         Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(IOS.systemGray5))
                     }
                     Text(
-                        "고르지 않으면 인기 작품의 촬영지에서 뽑습니다",
+                        tr("고르지 않으면 인기 작품의 촬영지에서 뽑습니다"),
                         fontSize = 11.sp,
                         color = IOS.secondaryLabel,
                         modifier = Modifier.padding(top = 8.dp),
@@ -311,7 +312,7 @@ private fun RouteWizardViewBody(
                         }
                     }
                     Text(
-                        "빡빡하게는 하루 7곳까지, 널널하게는 3곳까지 담습니다",
+                        tr("빡빡하게는 하루 7곳까지, 널널하게는 3곳까지 담습니다"),
                         fontSize = 11.sp,
                         color = IOS.tertiaryLabel,
                     )
@@ -326,10 +327,10 @@ private fun RouteWizardViewBody(
                             .background(IOS.systemBackground)
                             .padding(horizontal = 14.dp),
                 ) {
-                    ReviewRow("기간", span.label)
-                    ReviewRow("떠나는 날", if (hasDate) RouteFormat.day(pickedDate) else "정하지 않음")
-                    ReviewRow("작품", if (pickedTitles.isEmpty()) "인기 작품" else pickedTitles.joinToString(", "))
-                    ReviewRow("스타일", pace.label, showDivider = false)
+                    ReviewRow(tr("기간"), span.label)
+                    ReviewRow(tr("떠나는 날"), if (hasDate) RouteFormat.day(pickedDate) else tr("정하지 않음"))
+                    ReviewRow(tr("작품"), if (pickedTitles.isEmpty()) tr("인기 작품") else pickedTitles.joinToString(", "))
+                    ReviewRow(tr("스타일"), pace.label, showDivider = false)
                 }
             }
         }
@@ -354,7 +355,7 @@ private fun RouteWizardViewBody(
                 // (`CircleShape`, 세로 지름이 반지름이라 늘 완전히 둥글다)으로.
                 // `.bordered` 는 `.controlSize(.large)` 가 아니라 보통 크기다 — 「다음」보다 낮다.
                 Text(
-                    "이전",
+                    tr("이전"),
                     fontSize = 17.sp,
                     color = IOS.accent,
                     modifier =
@@ -404,11 +405,11 @@ private fun RouteWizardViewBody(
                 }
                 Text(
                     if (planning) {
-                        "일정을 짜는 중입니다"
+                        tr("일정을 짜는 중입니다")
                     } else if (isLast) {
-                        (if (isAiPlan) "AI 로 일정 짜기" else "코스 만들기")
+                        (if (isAiPlan) tr("AI 로 일정 짜기") else tr("코스 만들기"))
                     } else {
-                        "다음"
+                        tr("다음")
                     },
                     fontSize = 17.sp,
                     color = IOS.systemBackground,
@@ -420,9 +421,9 @@ private fun RouteWizardViewBody(
 
     if (planFailed) {
         IOSAlert(
-            title = "일정을 짜지 못했습니다",
-            message = store.failure?.message ?: "잠시 후 다시 시도해 주세요.",
-            actions = listOf(IOSAction("확인") {}),
+            title = tr("일정을 짜지 못했습니다"),
+            message = store.failure?.message ?: tr("잠시 후 다시 시도해 주세요."),
+            actions = listOf(IOSAction(tr("확인")) {}),
             onDismiss = { planFailed = false },
         )
     }
@@ -469,7 +470,7 @@ private fun WorkRow(
     ) {
         Icon(
             if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            contentDescription = "좋아요",
+            contentDescription = tr("좋아요"),
             tint = if (isFavorite) IOS.systemPink else IOS.secondaryLabel,
             modifier = Modifier.size(18.dp).clickable(onClick = onToggleFavorite),
         )
@@ -482,7 +483,7 @@ private fun WorkRow(
         if (isSelected) {
             Icon(
                 Icons.Filled.CheckCircle,
-                contentDescription = "선택됨",
+                contentDescription = tr("선택됨"),
                 tint = IOS.accent,
                 modifier = Modifier.size(20.dp),
             )

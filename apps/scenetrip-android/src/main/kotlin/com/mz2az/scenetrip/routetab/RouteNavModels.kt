@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.routetab
 
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.NextLeg
 import com.mz2az.scenetrip.sceneapi.client.model.RouteLeg
 
@@ -75,9 +76,9 @@ private fun pieces(
     stops: Int?,
 ): List<String> =
     listOfNotNull(
-        seconds?.let { "${maxOf(1, it / 60)}분" },
+        seconds?.let { tr("%d분").format(maxOf(1, it / 60)) },
         meters?.let { "$it m" },
-        stops?.let { "$it 정거장" },
+        stops?.let { tr("%d 정거장").format(it) },
     )
 
 /**
@@ -169,8 +170,8 @@ fun NextLeg.chips(): List<RouteLegChip> {
  * 경로」처럼 보인다(iOS `RouteNavResult.summaryLine` 주석).
  */
 fun NextLeg.summaryLine(): String {
-    val parts = mutableListOf("환승 ${transfers}회")
-    parts += walkMeters?.let { "도보 $it m" } ?: "도보 정보 없음"
-    fareWon?.takeIf { it > 0 }?.let { parts += "%,d원".format(it) }
+    val parts = mutableListOf(tr("환승 %d회").format(transfers))
+    parts += walkMeters?.let { tr("도보 %d m").format(it) } ?: tr("도보 정보 없음")
+    fareWon?.takeIf { it > 0 }?.let { parts += tr("%s원").format("%,d".format(it)) }
     return parts.joinToString(" · ")
 }
