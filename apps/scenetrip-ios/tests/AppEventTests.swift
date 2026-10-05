@@ -37,7 +37,8 @@ final class AppEventTests: XCTestCase {
 
     func testCreateCourseCarriesOriginAndSize() {
         let params = AppEvent.createCourse(origin: "review", dayCount: 1, placeCount: 5).parameters
-        XCTAssertEqual(params["origin"], "review")
+        XCTAssertEqual(params["course_origin"], "review")
+        XCTAssertNil(params["origin"], "Firebase 가 쓰는 이름과 겹치면 안 된다")
         XCTAssertEqual(params["day_count"], 1)
         XCTAssertEqual(params["place_count"], 5)
     }

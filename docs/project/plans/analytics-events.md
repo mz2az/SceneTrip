@@ -47,12 +47,15 @@ flowchart LR
 | `like_title` | 작품 하트를 눌렀다 | `content_id`, `liked`(1·0) | `LikeStore.toggle` | `LikeStore.toggle` |
 | `save_place` | 장소를 담았다(서버가 받았을 때) | `place_id` | `CartStore.add` | `CartStore.add` |
 | `generate_plan` | AI 일정 초안을 받았다(저장 전) | `day_count`, `title_count` | `RouteStore` | `RouteStore.guideDraft` |
-| **`create_course`** | **코스를 새로 만들어 저장했다**(고쳐 저장은 세지 않는다) | `origin`(`ai`·`self`·`review`), `day_count`, `place_count` | `RouteStore.save` | `RouteStore.save` |
+| **`create_course`** | **코스를 새로 만들어 저장했다**(고쳐 저장은 세지 않는다) | `course_origin`(`ai`·`self`·`review`), `day_count`, `place_count` | `RouteStore.save` | `RouteStore.save` |
 | `start_trip` | 한 장소로 안내를 시작했다 | `place_id` | `TripSession.start` | `TripSession.start` |
 | `get_directions` | 길찾기를 불렀다 | — | `TripSession` | `TripSession.fetchLeg` |
 | `visit_stamp` | 성지에 도착해 도장이 찍혔다 | `place_id` | `TripSession.arriveNow` | `TripSession.markArrived` / `checkArrival`(둘 다 도착 판정이라 각각 기록) |
 | `ask_guide` | 가이드 챗봇에 물었다 | — | `RouteGuide` | `RouteGuideSession.ask` |
 | `post_review` | 여행후기를 올렸다 | `photo_count`, `has_course`(1·0) | `CommunityStore.add` | `CommunityStore.add`(지금 Android 글쓰기에 사진이 없어 `photo_count`는 늘 0) |
+
+- **자동 화면 기록은 끈다.** Firebase 는 화면이 바뀔 때 `screen_view` 를 제 손으로도 보낸다 — 알림창·시트가 뜰 때마다 이름 없는 것이 섞인다. 우리는 이름을 붙여 직접 보내므로 끈다(iOS `Info.plist` 의 `FirebaseAutomaticScreenReportingEnabled = false`, Android 는 매니페스트의 `google_analytics_automatic_screen_reporting_enabled = false`)
+- **매개변수 이름에 `origin` 을 쓰지 않는다.** Firebase 가 모든 이벤트에 제 `origin`(app·auto)을 붙여 겹친다 — 그래서 `course_origin` 이다
 
 ### 사용자 속성
 
@@ -89,6 +92,12 @@ Firebase 는 앱 번들 안의 설정 파일로 켜진다. Firebase 프로젝트
 2. 시뮬레이터 실행 인자에 `-FIRDebugEnabled` 를 주면 Firebase 콘솔 **DebugView** 에 이벤트가 몇 초 안에 찍힌다
 3. 퍼널 순서대로 눌러 본다: 검색 → 작품·장소 열기 → 하트·담기 → 코스 만들기 → 코스 시작
 
+### 실기 확인 (2026-10-05, iOS)
+
+DebugView 수신과 기기 로그(「Logging event」, 업로드 204)로 확인한 것: `first_open` · `screen_view` · `search` · `view_title` · `like_title` · `view_place` · `save_place` · `ask_guide` · `create_course` · `post_review`, 사용자 속성 둘. **아직 실제 전송을 못 본 것**: `start_trip` · `get_directions` · `visit_stamp`(길찾기가 유료 외부 API 를 불러 누르지 않았다) · `generate_plan` · `sign_up`/`login`/`logout`/`delete_account` · `select_language` · `tutorial_*`.
+
+기기 로그로 보려면 `log show` 가 아니라 `log stream --level debug`(디버그 줄은 저장되지 않는다), 프로세스 이름은 `bin`.
+
 ## 7. 남은 것
 
 - `select_language`·`sign_up`·`login`·`logout`·`delete_account`는 Android 쪽 `AppLanguage`·`AuthStore`가 아직 main 에 없어(각각 MZ2AZ-343·MZ2AZ-336 병합 대기) 연결하지 못했다. 병합되면 이어서 연결한다
@@ -116,3 +125,6 @@ Firebase 는 앱 번들 안의 설정 파일로 켜진다. Firebase 프로젝트
   확인). 그래서 `AppAnalytics.start`는 **직접 초기화하지 않고** `FirebaseApp.getApps(context)`가
   비어 있지 않은지만 확인해 `sink`를 고른다
 - 값은 모두 `google-services.json`과 같다 — 비밀이 아니다(§5)
+- iOS 가 실기로 찾은 두 규칙(자동 화면 기록 끄기·`course_origin`)을 뒤따라 넣었다 —
+  자동 화면 기록은 `AndroidManifest.xml`의 `google_analytics_automatic_screen_reporting_enabled`
+  메타데이터로, 이름 변경은 `AppEvent.CreateCourse`와 `RouteStore.save`에
