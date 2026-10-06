@@ -632,3 +632,33 @@ Puffer Fish`, `콩나물 → 나물 → Salad`, `닭목살구이 → Grilled Por
 
 성지(`/places`)는 처음부터 `name` 이 요청 언어라 모양이 다르다. 편의시설은 한국어 `name` 에 기대는 앱이 이미 나가 있어
 호환을 지킨다.
+
+---
+
+## 14. 다른 사람·배포 환경이 같은 POI 를 넣기 — 적재 파일 한 판 (2026-10-06)
+
+전량 POI 를 넣으려면 지금은 저장소 밖 원본(변환 결과 1.6 GB · 영문도로명주소DB zip · 상가정보 zip)과 API 키가 필요하다.
+영어까지 붙인 적재 파일 한 벌을 공유해, 받는 사람은 명령 하나로 같은 데이터를 넣게 한다.
+
+```
+만드는 사람(판마다 한 번)                         받는 사람
+  just poi-en …           → out-en/              just seed-poi-release 2026-06            (처음)
+  just poi-pack out-en poi-2026-06 2026-06       just seed-poi-release 2026-09 --update   (분기 갱신)
+  just poi-publish poi-2026-06 2026-06
+```
+
+- **`poi-pack`** — 줄마다 원본 전 칸 `src` 를 빼고 gzip(적재는 `src` 를 읽지 않아 결과가 같다). 1.6 GB → 71 MB. `manifest.json`
+  에 판·행 수·파일마다 sha256. gzip 머리에 시각을 넣지 않아 같은 입력이면 같은 바이트다.
+- **`poi-publish`** — GitHub Release `poi-data-<판>`. **저장소가 공개라 Release 도 공개다.** 든 것은 공공데이터뿐이다 —
+  상가정보·영문도로명주소DB 는 이용허락 제한 없음, 관광공사 TourAPI 는 출처 표시(Release 설명에 출처를 적는다). 네이버
+  카드는 없다. 같은 판은 덮지 않는다.
+- **`seed-poi-release`** — `curl` 로 받아(공개라 로그인이 필요 없다) sha256 을 확인하고 `seed-poi` 로 넣는다. sha256 은 받다가
+  손상된 것을 잡는다(manifest 도 같은 곳에서 오므로 바꿔치기는 막지 않는다). 목록이 깨졌거나 비면 멈추고, 파일 이름은
+  `poi_*.jsonl.gz` 꼴만 받으며, 옵션은 `--update` 만 넘긴다. 받은 파일은
+  `~/.cache/scenetrip/poi/<판>` 에 두고 다시 받지 않는다. 받을 곳은 `SCENETRIP_POI_RELEASE_BASE` 로 바꿀 수 있다.
+- **배포 환경(3f)** — 정본은 같은 AWS 계정의 S3 가 맞다: 배포 Job 이 읽기 전용 IAM 역할로 받고(비밀값 없음), 같은 리전이라
+  빠르고 외부에 기대지 않는다. bootstrap 에 내려도 남는 데이터 버킷을 두고 `poi-publish` 가 S3 에도 올리게 한다. 받는 쪽은
+  `SCENETRIP_POI_RELEASE_BASE` 를 S3 주소로 바꾸면 같은 스크립트다. 그때 설계한다.
+
+검증(2026-10-06): 묶은 폴더를 `file://` 로 가리켜 `seed-poi-release 2026-06` 을 끝까지 돌렸다 — 6 파일 sha256 확인, 적재
+결과 `unchanged 910394`(이미 넣은 것과 같은 데이터), 영문 주소 901,957 · 영어 이름 158,628 · 로마자 읽기 909,843 그대로.
