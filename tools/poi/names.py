@@ -7,6 +7,8 @@
 import csv
 import re
 import unicodedata
+from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -185,11 +187,20 @@ class Dictionaries:
                 lines = [ln for ln in fh if not ln.startswith("#")]
             return list(csv.DictReader(lines, delimiter="\t"))
 
-        brands = {
-            _key(r["ko"]): r["en"].strip()
-            for r in rows("brands.tsv")
-            if r["ko"].strip()
-        }
+        brands = {}
+        for r in rows("brands.tsv"):
+            ko, en = _key(r["ko"] or ""), (r["en"] or "").strip()
+            if not ko:
+                continue
+            # 영어가 있는 줄은 근거(공식 사이트 주소)가 있어야 한다 — 확인하지 않은 이름이 들어오지 못하게.
+            # 영어가 빈 줄(「브랜드 아님」)은 근거가 필요 없다.
+            if en and not (r.get("source") or "").strip().startswith(
+                ("https://", "http://")
+            ):
+                raise ValueError(
+                    f"brands.tsv: {r['ko']} 의 근거(source)가 없습니다 — 공식 사이트 주소(http·https)를 적으세요"
+                )
+            brands[ko] = en
         generic = {
             r["word"].strip(): (
                 r["en"].strip(),
@@ -329,3 +340,30 @@ def english_name(
     else:
         out = f"{head_r} {en}"
     return (f"{out} {branch}" if branch else out), "generic"
+
+
+# ── 브랜드 후보 — 분기 갱신 때 사전에 없는 큰 체인을 알린다 ────────────────────────────────
+#
+# 띄어 쓴 이름의 첫 낱말(`새로운치킨 강남점` → 새로운치킨)을 센다. 붙여 쓴 이름(`새로운치킨강남점`)은 어디까지가
+# 상호인지 알 수 없어 세지 않는다. 힌트일 뿐이다 — 흔한 낱말(`행복`)도 섞여 나오고, 사전에 자동으로 넣지 않는다.
+BRAND_CANDIDATE_MIN = 100
+
+
+def brand_candidates(
+    rows: Iterable[tuple[str, str | None]],
+    d: Dictionaries,
+    min_count: int = BRAND_CANDIDATE_MIN,
+) -> list[tuple[str, int]]:
+    """(이름, name_en_source) 들에서 사전에 없는 첫 낱말 중 min_count 곳 이상인 것 — 많은 순."""
+    counts: Counter[str] = Counter()
+    for name, source in rows:
+        if source == "brand":
+            continue
+        tokens = unicodedata.normalize("NFKC", name or "").split()
+        if len(tokens) < 2:
+            continue
+        first = tokens[0]
+        if len(first) < 2 or first.endswith("점") or _key(first) in d.brands:
+            continue
+        counts[first] += 1
+    return [(k, n) for k, n in counts.most_common() if n >= min_count]

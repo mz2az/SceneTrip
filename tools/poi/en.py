@@ -242,6 +242,9 @@ def main(argv: list[str] | None = None) -> int:
     dicts = N.Dictionaries.load(DATA_DIR)
     stat: dict[str, Counter] = defaultdict(Counter)
     name_stat: Counter = Counter()
+    named: list[
+        tuple[str, str | None]
+    ] = []  # 브랜드 후보를 세려고 (이름, 영어 이름 출처)
     for f in files:
         out = out_dir / f.name.removesuffix(".gz")
         with _open_text(f) as fh, out.open("w", encoding="utf-8") as w:
@@ -256,6 +259,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 d["name_roman"] = N.romanize(d.get("name") or "")
                 name_stat[d["name_en_source"] or "없음"] += 1
+                named.append((d.get("name") or "", d["name_en_source"]))
                 stat[_source(d["id"])][src or "없음"] += 1
                 w.write(json.dumps(d, ensure_ascii=False) + "\n")
 
@@ -274,6 +278,14 @@ def main(argv: list[str] | None = None) -> int:
         "영어 이름: "
         + " · ".join(f"{k} {v:,} ({v / n:.1%})" for k, v in name_stat.most_common())
     )
+    # 사전에 없는 큰 체인 — 확인해 brands.tsv 에 근거와 함께 더한다(tools/poi/README.md 「분기 갱신」).
+    candidates = N.brand_candidates(named, dicts)
+    print(
+        f"\n브랜드 사전에 없는데 띄어 쓴 첫 낱말이 {N.BRAND_CANDIDATE_MIN}곳 이상인 이름 "
+        f"{len(candidates)}개 (힌트 — 흔한 낱말도 섞인다):"
+    )
+    for word, count in candidates:
+        print(f"  {word:<16} {count:>6,} 곳")
     return 0
 
 
