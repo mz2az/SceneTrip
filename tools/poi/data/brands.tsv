@@ -1,88 +1,88 @@
-# 체인 브랜드 → 공식 영어 이름. 초안(2026-10-05) — 사람이 검수한다. 로마자로는 원래 영어가 돌아오지 않는 이름을
-# 막는 것이 목적이다(스타벅스 → Seutabeokseu). 확실하지 않은 브랜드는 넣지 않는다 — 넣지 않으면 영어 이름 없이
-# 한국어 + 로마자 읽기로 보인다. 같은 브랜드의 다른 표기(파리바게트·베스킨라빈스)도 한 줄씩.
-# 영어 칸이 비어 있으면 「브랜드 아님」 이다 — 브랜드와 머리가 같은 다른 상호(샐러디아 ≠ 샐러디)를 막는다.
-ko	en
-스타벅스	Starbucks
-처갓집양념치킨	Cheogajip Chicken
-교촌치킨	Kyochon Chicken
-맘스터치	Mom's Touch
-굽네치킨	Goobne Chicken
-파리바게뜨	Paris Baguette
-파리바게트	Paris Baguette
-롯데리아	Lotteria
-비에이치씨	BHC
-비에이치씨치킨	BHC Chicken
-비비큐	BBQ
-피자스쿨	Pizza School
-도미노피자	Domino's Pizza
-네네치킨	Nene Chicken
-메가엠지씨커피	Mega MGC Coffee
-자담치킨	Jadam Chicken
-설빙	Sulbing
-컴포즈커피	Compose Coffee
-투썸플레이스	A Twosome Place
-뚜레쥬르	Tous les Jours
-이삭토스트	Isaac Toast
-더벤티	The Venti
-배스킨라빈스	Baskin Robbins
-베스킨라빈스	Baskin Robbins
-페리카나	Pelicana
-써브웨이	Subway
-푸라닭	Puradak Chicken
-멕시카나	Mexicana
-멕시카나치킨	Mexicana Chicken
-프랭크버거	Frank Burger
-피자알볼로	Pizza Alvolo
-빽다방	Paik's Coffee
-공차	Gong cha
-본죽	Bonjuk
-본죽&비빔밥	Bonjuk & Bibimbap
-이디야커피	Ediya Coffee
-이디야	Ediya Coffee
-파파존스	Papa John's
-노모어피자	No More Pizza
-샐러디	Saladdy
-피자마루	Pizza Maru
-한솥도시락	Hansot Dosirak
-매머드익스프레스	Mammoth Express
-60계치킨	60 Gye Chicken
-더리터	The Liter
-텐퍼센트커피	Ten Percent Coffee
-본도시락	Bon Dosirak
-할리스커피	Hollys Coffee
-할리스	Hollys Coffee
-던킨	Dunkin'
-던킨도너츠	Dunkin' Donuts
-맥도날드	McDonald's
-버거킹	Burger King
-케이에프씨	KFC
-노브랜드버거	No Brand Burger
-폴바셋	Paul Bassett
-커피빈	The Coffee Bean & Tea Leaf
-엔제리너스	Angel-in-us Coffee
-탐앤탐스	Tom N Toms
-페리카나치킨	Pelicana Chicken
-비비큐치킨	BBQ Chicken
-배스킨라빈스31	Baskin Robbins
-베스킨라빈스31	Baskin Robbins
-본죽앤비빔밥	Bonjuk & Bibimbap
-본죽엔비빔밥	Bonjuk & Bibimbap
-케이에프씨KFC	KFC
-파파존스피자	Papa John's
-엔제리너스커피	Angel-in-us Coffee
-던킨도넛	Dunkin' Donuts
-본죽비빔밥	Bonjuk & Bibimbap
-샐러디아	
-본죽&비빔밥카페	Bonjuk & Bibimbap Cafe
-뚜레쥬르카페	Tous les Jours Cafe
-맘스터치피자앤치킨	Mom's Touch Pizza & Chicken
-푸라닭치킨	Puradak Chicken
-파리바게뜨카페	Paris Baguette Cafe
-던킨도넛츠	Dunkin' Donuts
-더벤티커피	The Venti
-빽다방베이커리	Paik's Bakery
-페리카나양념통닭	Pelicana Chicken
-더리터커피	The Liter
-탐앤탐스커피	Tom N Toms
-설빙카페	Sulbing
+# 체인 브랜드 → 공식 영어 이름. 줄마다 source(확인한 공식 페이지 주소(http·https))가 있어야 한다 — 없으면 just poi-en 이
+# 멈춘다. 2026-10-06 에 각 브랜드 공식 사이트에서 확인했다(계획 §12-8). 표기는 브랜드가 쓰는 철자를 따르고, 로고처럼
+# 대문자로만 쓰는 이름은 보통 대소문자로 적는다(MEGA MGC COFFEE → Mega MGC Coffee). 공식 영어 표기를 못 찾은 브랜드는
+# 넣지 않는다(자담치킨·매머드익스프레스·60계치킨·본도시락) — 그 가게는 한국어 이름 + 로마자 읽기로 보인다.
+# 같은 브랜드의 다른 표기·간판 이름(파리바게트·뚜레쥬르카페)도 한 줄씩. 새 체인은 just poi-en 이 끝에 찍는 후보에서
+# 고른다(tools/poi/README.md 「분기 갱신」).
+# 영어 칸이 비어 있으면 「브랜드 아님」 이다 — 브랜드와 머리가 같은 다른 상호(샐러디아 ≠ 샐러디)나 공식 영어가 없는
+# 같은 회사 갈래(빽다방베이커리)가 브랜드 영어로 읽히지 않게 막는다.
+ko	en	source
+스타벅스	Starbucks	https://www.starbucks.co.kr/index.do
+처갓집양념치킨	Cheogajip	https://www.cheogajip.co.kr/en
+교촌치킨	Kyochon Chicken	https://www.kyochonus.com/
+맘스터치	Mom's Touch	https://momstouch.mn/en
+맘스터치피자앤치킨	Mom's Touch	https://momstouch.mn/en
+굽네치킨	Goobne	https://www.goobne.co.kr/
+파리바게뜨	Paris Baguette	https://parisbaguette.com/
+파리바게트	Paris Baguette	https://parisbaguette.com/
+파리바게뜨카페	Paris Baguette	https://www.paris.co.kr/about/
+롯데리아	Lotteria	https://www.lottegrs.com/m/eng/business/brand.jsp
+비에이치씨	bhc	https://bhcchicken.global/
+비에이치씨치킨	bhc Chicken	https://bhcchicken.global/
+비비큐	BBQ	https://www.bbq.co.kr/
+비비큐치킨	BBQ Chicken	https://www.bbq.co.kr/
+피자스쿨	Pizza School	http://pizzaschool.net/
+도미노피자	Domino's	https://web.dominos.co.kr/main
+네네치킨	NeNe Chicken	https://nenechicken.com.au/
+메가엠지씨커피	Mega MGC Coffee	https://www.mega-mgccoffee.com/about/brand/
+설빙	Sulbing	https://www.sulbing.us/about
+설빙카페	Sulbing	https://www.sulbing.us/about
+컴포즈커피	Compose Coffee	https://composecoffee.com/index1
+투썸플레이스	A Twosome Place	https://www.twosome.co.kr/main.do
+뚜레쥬르	Tous les Jours	https://tljus.com/
+뚜레쥬르카페	Tous les Jours	https://www.tlj.co.kr/
+이삭토스트	Isaac Toast	https://www.isaac-toast.co.kr/brand/isaac.php
+더벤티	theVenti	https://www.theventi.co.kr/new2022/fran/main/global_en.html
+더벤티커피	theVenti	https://www.theventi.co.kr/new2022/fran/main/global_en.html
+배스킨라빈스	Baskin Robbins	https://www.baskinrobbins.co.kr/
+베스킨라빈스	Baskin Robbins	https://www.baskinrobbins.co.kr/
+배스킨라빈스31	Baskin Robbins	https://www.baskinrobbins.co.kr/
+베스킨라빈스31	Baskin Robbins	https://www.baskinrobbins.co.kr/
+페리카나	Pelicana	https://www.pelicanausa.com/
+페리카나치킨	Pelicana Chicken	https://www.pelicanausa.com/
+페리카나양념통닭	Pelicana Chicken	https://www.pelicanausa.com/
+써브웨이	Subway	https://www.subway.com/en-us/aboutus
+푸라닭	Puradak Chicken	https://www.puradakglobal.com/
+푸라닭치킨	Puradak Chicken	https://www.puradakglobal.com/
+멕시카나	Mexicana	https://mexicana.co.kr/main/index.asp
+멕시카나치킨	Mexicana Chicken	https://mexicana.co.kr/main/index.asp
+프랭크버거	Frank Burger	https://www.frankburger.co.kr/index_brand.html
+피자알볼로	Pizza Alvolo	http://pizzaalvolofc.com/story/alvolo-story
+빽다방	Paik's Coffee	https://paikdabang.com/about/paiks_intro/
+공차	Gong cha	https://www.gong-cha.com/
+본죽	Bonjuk	https://bonworld.co.kr/
+본죽&비빔밥	Bonjuk & Bibimbap	https://bonworld.co.kr/
+본죽앤비빔밥	Bonjuk & Bibimbap	https://bonworld.co.kr/
+본죽엔비빔밥	Bonjuk & Bibimbap	https://bonworld.co.kr/
+본죽비빔밥	Bonjuk & Bibimbap	https://bonworld.co.kr/
+본죽&비빔밥카페	Bonjuk & Bibimbap	https://www.bonif.co.kr/brand/intro?brdCd=BF102
+이디야커피	Ediya Coffee	https://www.ediya.com/eng/
+이디야	Ediya Coffee	https://www.ediya.com/eng/
+파파존스	Papa John's	https://www.papajohns.com/
+파파존스피자	Papa John's	https://www.papajohns.com/
+노모어피자	No More Pizza	https://nomorepizza.co.kr/
+샐러디	Salady	https://www.salady.com/
+피자마루	Pizza Maru	https://www.pizzamaru.co.kr/
+한솥도시락	Hansot	https://www.hsd.co.kr/brand/story
+더리터	The Liter	https://the-liter.com/home
+더리터커피	The Liter	https://the-liter.com/home
+텐퍼센트커피	Ten Percent Coffee	https://tenpercentcoffee.com/eng/
+할리스커피	Hollys	https://www.hollys.co.kr/hollysIs/hollys/aboutHollys.do
+할리스	Hollys	https://www.hollys.co.kr/hollysIs/hollys/aboutHollys.do
+던킨	Dunkin'	https://www.dunkindonuts.co.kr/
+던킨도너츠	Dunkin'	https://www.dunkindonuts.co.kr/
+던킨도넛	Dunkin'	https://www.dunkindonuts.co.kr/
+던킨도넛츠	Dunkin'	https://www.dunkindonuts.co.kr/
+맥도날드	McDonald's	https://www.mcdonalds.co.kr/kor/
+버거킹	Burger King	https://www.burgerking.co.kr/
+케이에프씨	KFC	https://www.kfckorea.com/
+케이에프씨KFC	KFC	https://www.kfckorea.com/
+노브랜드버거	No Brand Burger	https://www.shinsegaefood.com/nobrandburger/index.sf
+폴바셋	Paul Bassett	https://www.baristapaulbassett.co.kr/
+커피빈	The Coffee Bean & Tea Leaf	https://www.coffeebeankorea.com/
+엔제리너스	Angelinus	https://www.lottegrs.com/m/kor/business/angelinus.jsp
+엔제리너스커피	Angelinus	https://www.lottegrs.com/m/kor/business/angelinus.jsp
+탐앤탐스	Tom N Toms	https://drinktomntoms.com/our-story/
+탐앤탐스커피	Tom N Toms	https://drinktomntoms.com/our-story/
+샐러디아		
+빽다방베이커리		

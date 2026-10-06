@@ -27,7 +27,7 @@ class Regression2BrandRest(_Base):
 
     def test_documented_examples(self):
         self.assertEqual(
-            self.en("처갓집양념치킨;명가치킨", "치킨"), ("Cheogajip Chicken", "brand")
+            self.en("처갓집양념치킨;명가치킨", "치킨"), ("Cheogajip", "brand")
         )
         self.assertEqual(self.en("비비큐치킨()", "치킨"), ("BBQ Chicken", "brand"))
 

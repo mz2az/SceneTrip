@@ -22,7 +22,9 @@ def _brand_rows():
         if not header_seen:
             header_seen = True
             continue
-        ko, en = line.split("\t")
+        # 칸: ko, en, source(근거 주소)
+        cells = line.split("\t")
+        ko, en = cells[0], cells[1]
         if not en:
             # §12-7: 영어 칸이 빈 줄은 「브랜드 아님」 이다(샐러디아) — 브랜드 시험의 대상이 아니다
             continue

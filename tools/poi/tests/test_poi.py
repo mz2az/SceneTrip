@@ -10,6 +10,11 @@ from tools.poi.tests.test_addresses import (
     StoreKeys,
 )
 from tools.poi.tests.test_juso_api import Accept, Cache
+from tools.poi.tests.test_names_brands import (
+    BrandCandidates,
+    BrandSourceRequired,
+    BrandSourceShipped,
+)
 from tools.poi.tests.test_names_final import (
     FinalAddedSpellings,
     FinalEmptyEnglishIsNotBrand,
@@ -45,6 +50,9 @@ from tools.poi.tests.test_spec import (
 
 __all__ = [
     "Accept",
+    "BrandCandidates",
+    "BrandSourceRequired",
+    "BrandSourceShipped",
     "Cache",
     "CutToBuildingNumber",
     "FinalAddedSpellings",

@@ -32,6 +32,7 @@ py_test(
     srcs = [
         "tests/test_addresses.py",
         "tests/test_juso_api.py",
+        "tests/test_names_brands.py",
         "tests/test_names_final.py",
         "tests/test_names_regression.py",
         "tests/test_names_regression2.py",

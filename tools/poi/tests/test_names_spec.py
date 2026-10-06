@@ -472,7 +472,7 @@ class SpecBrandBoundary(unittest.TestCase):
 
     def test_separator_ends_the_shop_name(self):
         self.assertEqual(
-            self.en("처갓집양념치킨;명가치킨", "치킨"), ("Cheogajip Chicken", "brand")
+            self.en("처갓집양념치킨;명가치킨", "치킨"), ("Cheogajip", "brand")
         )
         self.assertEqual(
             self.en("비비큐치킨(산척점)", "치킨"), ("BBQ Chicken", "brand")
@@ -494,7 +494,7 @@ class SpecBrandBoundary(unittest.TestCase):
         # 띄어쓰기는 경계다 — 뒤 낱말이 무엇이든 브랜드
         name, source = self.en("샐러디 강남", "양식")
         self.assertEqual(source, "brand")
-        self.assertTrue(name.startswith("Saladdy"), name)
+        self.assertTrue(name.startswith("Salady"), name)
 
     def test_brand_appearing_later_in_name_is_not_brand(self):
         # 브랜드는 이름 머리에서만 본다

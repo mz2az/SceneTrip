@@ -23,8 +23,8 @@ _NOT_BRANCH = {
 # §12-7 에서 더한 브랜드 표기 넷
 _ADDED = {
     "파파존스피자": "Papa John's",
-    "엔제리너스커피": "Angel-in-us Coffee",
-    "던킨도넛": "Dunkin' Donuts",
+    "엔제리너스커피": "Angelinus",
+    "던킨도넛": "Dunkin'",
     "본죽비빔밥": "Bonjuk & Bibimbap",
 }
 
@@ -39,7 +39,9 @@ def _brand_rows():
         if not header_seen:
             header_seen = True
             continue
-        ko, en = line.split("\t")
+        # 칸: ko, en, source(근거 주소) — 영어 칸이 빈 줄은 source 도 비어 있다
+        cells = line.split("\t")
+        ko, en = cells[0], cells[1]
         rows.append((ko, en))
     return rows
 
@@ -134,7 +136,7 @@ class FinalEmptyEnglishIsNotBrand(_Base):
         self.assertIn(("샐러디아", ""), _brand_rows())
 
     def test_documented_example(self):
-        # `샐러디아 사천점 → Saladdy A …` (34)
+        # `샐러디아 사천점 → Saladdy A …` (34) — 사전의 샐러디 영어는 이제 Salady
         for name in (
             "샐러디아 사천점",
             "샐러디아사천점",
@@ -146,7 +148,7 @@ class FinalEmptyEnglishIsNotBrand(_Base):
             with self.subTest(name=name):
                 english, source = self.en(name, "양식")
                 self.assertNotEqual(source, "brand")
-                self.assertNotIn("Saladdy", english or "")
+                self.assertNotIn("Salady", english or "")
 
     def test_every_empty_row_is_never_brand(self):
         rows = _brand_rows()
@@ -164,12 +166,12 @@ class FinalEmptyEnglishIsNotBrand(_Base):
     def test_near_miss_real_brand_still_brand(self):
         # 근접 사례: 더 짧은 진짜 브랜드(샐러디)는 그대로 걸린다
         self.assertEqual(
-            self.en("샐러디 사천점", "양식"), ("Saladdy Sacheon Branch", "brand")
+            self.en("샐러디 사천점", "양식"), ("Salady Sacheon Branch", "brand")
         )
         self.assertEqual(
-            self.en("샐러디사천점", "양식"), ("Saladdy Sacheon Branch", "brand")
+            self.en("샐러디사천점", "양식"), ("Salady Sacheon Branch", "brand")
         )
-        self.assertEqual(self.en("샐러디", "양식"), ("Saladdy", "brand"))
+        self.assertEqual(self.en("샐러디", "양식"), ("Salady", "brand"))
 
     def test_romanization_still_present(self):
         self.assertTrue(N.romanize("샐러디아 사천점").startswith("Saelleodia"))
@@ -254,12 +256,12 @@ class FinalNumberedBranch(_Base):
 
 
 class FinalSharedStore(_Base):
-    """「공유 매장(`네네치킨&봉구스밥버거 → Nene Chicken`)은 두 번째 브랜드를 버린다」"""
+    """「공유 매장(`네네치킨&봉구스밥버거 → NeNe Chicken`)은 두 번째 브랜드를 버린다」"""
 
     def test_documented_example(self):
         english, source = self.en("네네치킨&봉구스밥버거", "치킨")
         self.assertEqual(source, "brand")
-        self.assertEqual(english, "Nene Chicken")
+        self.assertEqual(english, "NeNe Chicken")
 
 
 if __name__ == "__main__":
