@@ -32,7 +32,10 @@ class PoiCardFillerTest {
   private PoiCardFiller filler;
 
   private static PoiDetail poi(long id) {
-    return new PoiDetail(id, "가게 " + id, "한식", PoiCategoryGroup.FOOD, 37.5, 127.0);
+    return new PoiDetail(
+            id, "가게 " + id, "한식", PoiCategoryGroup.FOOD, 37.5, 127.0, java.util.List.of())
+        .localName("가게 " + id)
+        .categoryLabel("한식");
   }
 
   @BeforeEach
