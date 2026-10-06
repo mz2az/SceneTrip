@@ -21,10 +21,12 @@ import org.springframework.stereotype.Repository;
 /**
  * 편의시설(POI) 조회. 명세의 {@code GET /pois} · {@code GET /pois/{poiId}} 를 받친다.
  *
- * <p>{@link com.mz2az.scenetrip.sceneapi.place.PlaceStore} 와 같은 모양이되 언어 폴백이 다르다 — <b>칸마다 따로</b>다(명세
- * 「언어」, 계획 poi-i18n-image.md §13). 한국어 원본은 {@code poi} 에 있고 번역({@code poi_i18n})은 대부분 비어 있다 — 영어
- * 이름은 확실할 때만 있고 영어 주소는 약 99 % 다. 그래서 이름·주소·분류 이름이 각각 요청 언어 → en → 한국어 원본으로 떨어지고, 원래 한국어는 {@code
- * localName}·{@code localAddress} 로 늘 함께 나간다. {@code Content-Language} 로 알리는 것은 분류 이름의 언어다.
+ * <p>{@link com.mz2az.scenetrip.sceneapi.place.PlaceStore} 와 같은 모양이되 언어를 다루는 법이 다르다(명세 「언어」, 계획
+ * poi-i18n-image.md §13-4). {@code name}·{@code address}·{@code category} 는 <b>언제나 한국어 원본</b>이다 —
+ * 이미 나가 있는 앱이 한국어 {@code name} 으로 네이버를 찾고 코스에 저장한다. 요청 언어의 값은 새 칸({@code displayName}·{@code
+ * displayAddress}·{@code categoryLabel})으로만 나가고, 각각 요청 언어 → en 으로 찾되 없으면 null(분류 이름은 한국어)이다.
+ * 번역({@code poi_i18n})은 대부분 비어 있다 — 영어 이름은 확실할 때만 있고 영어 주소는 약 99 % 다. {@code Content-Language} 로
+ * 알리는 것은 분류 이름의 언어다.
  *
  * <p>{@code place} 와 다른 점 둘은 규모에서 온다 — 성지는 155 개, POI 는 50 만 개다.
  *
@@ -130,22 +132,23 @@ public class PoiStore {
       """;
 
   /**
-   * 칸마다 따로 폴백한다 — 요청 언어 → en → 한국어 원본({@code poi}). 한국어를 요청하면 번역을 보지 않는다(번역 표에 {@code ko} 행이 없고,
-   * 있어도 원본이 정본이다). {@code label_lang} 은 분류 이름이 실제로 나온 언어다.
+   * 요청 언어의 값 — 요청 언어 → en, 없으면 NULL(분류 이름은 한국어 원본). 한국어를 요청하면 번역을 보지 않는다(번역 표에 {@code ko} 행이 없고,
+   * 있어도 원본이 정본이다). {@code label_lang} 은 분류 이름이 실제로 나온 언어다. {@code name}·{@code address} 는 언제나 원본.
    */
   private static final String LOCALIZED_SELECT =
       """
-              CASE WHEN :lang = 'ko' THEN p.name
-                   ELSE COALESCE(tr.name, te.name, p.name) END AS name,
-              CASE WHEN :lang = 'ko' THEN p.address
-                   ELSE COALESCE(tr.address, te.address, p.address) END AS address,
+              p.name, p.address,
+              CASE WHEN :lang = 'ko' THEN NULL
+                   ELSE COALESCE(tr.name, te.name) END AS display_name,
+              CASE WHEN :lang = 'ko' THEN NULL
+                   ELSE COALESCE(tr.address, te.address) END AS display_address,
               CASE WHEN :lang = 'ko' THEN p.category
                    ELSE COALESCE(cr.name, ce.name, p.category) END AS category_label,
               CASE WHEN :lang = 'ko' THEN 'ko'
                    WHEN cr.name IS NOT NULL THEN :lang
                    WHEN ce.name IS NOT NULL THEN 'en'
                    ELSE 'ko' END AS label_lang,
-              p.name AS local_name, p.address AS local_address, p.name_roman,
+              p.name_roman,
       """;
 
   /** 번역 두 갈래(요청 언어·en)를 붙인다. 둘 다 (poi_id, lang)·(ko, lang) 기본 키로 한 행씩이다. */
@@ -336,11 +339,11 @@ public class PoiStore {
                 PoiCategoryGroup.fromValue(rs.getString("category_group")),
                 rs.getDouble("latitude"),
                 rs.getDouble("longitude"))
-            .localName(rs.getString("local_name"))
+            .displayName(rs.getString("display_name"))
             .categoryLabel(rs.getString("category_label"))
             .nameRoman(rs.getString("name_roman"))
             .address(rs.getString("address"))
-            .localAddress(rs.getString("local_address"))
+            .displayAddress(rs.getString("display_address"))
             .distanceMeters(integerOrNull(rs, "distance_meters"));
     return new Row(summary, Lang.fromValue(rs.getString("label_lang")));
   }
@@ -355,11 +358,11 @@ public class PoiStore {
                 rs.getDouble("latitude"),
                 rs.getDouble("longitude"),
                 List.of())
-            .localName(rs.getString("local_name"))
+            .displayName(rs.getString("display_name"))
             .categoryLabel(rs.getString("category_label"))
             .nameRoman(rs.getString("name_roman"))
             .address(rs.getString("address"))
-            .localAddress(rs.getString("local_address"))
+            .displayAddress(rs.getString("display_address"))
             .distanceMeters(integerOrNull(rs, "distance_meters"))
             .road(rs.getString("road"))
             .tel(rs.getString("tel"))

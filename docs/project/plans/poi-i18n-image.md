@@ -602,3 +602,33 @@ Puffer Fish`, `콩나물 → 나물 → Salad`, `닭목살구이 → Grilled Por
 
 빈 목록의 `Content-Language` 는 요청 언어다(다른 목록 엔드포인트와 같은 `Responses.used` 규칙) — 분류 이름이 하나도 없어
 고른 언어가 없다.
+
+### 13-4. 바꾼 결정 — 기존 칸은 그대로 한국어, 영어는 새 칸으로만 (2026-10-06)
+
+§13-2 는 `name`·`address` 를 요청 언어로 바꾸고 한국어를 `localName`·`localAddress` 로 따로 주었다. 앱 사용처를 조사하니
+**지금 나가 있는 iOS 가 깨진다** — iOS 는 앱 언어를 `Accept-Language` 로 보내고, `name` 을 화면 말고도 쓴다:
+
+| iOS 가 `name` 을 쓰는 곳 | 영어가 오면 |
+| --- | --- |
+| 「네이버 지도에서 보기」 — 이름으로 네이버 검색(`RouteGuide.swift`·`NaverMapLink.swift`) | 영어로 검색해 못 찾거나 엉뚱한 곳 |
+| 코스에 담을 때 서버에 저장하는 이름(`RouteBridge.swift` → `CustomPinInput.name`) | 영어 이름이 코스에 영구 저장 — 한국어 화면에서도 영어 |
+| 「이미 담았나」 판정 — 이름 + 좌표(`RouteDedupe.key`) | 언어를 바꾸면 같은 가게를 못 알아봐 두 번 담김 |
+
+사용자 손의 옛 앱은 업데이트로 고칠 수 없다. 그래서 **기존 칸의 뜻을 바꾸지 않는다**:
+
+| 칸 | 값 |
+| --- | --- |
+| `name` · `address` · `category` | **예전 그대로 한국어 원본** — 언어와 상관없다 |
+| `displayName` (새) | 요청 언어 이름 — 확실한 영어가 있을 때만(§12). 없거나 한국어 요청이면 null |
+| `displayAddress` (새) | 요청 언어 주소 — 공식 영문 주소. 없거나 한국어 요청이면 null |
+| `categoryLabel` (새) | 요청 언어 분류 이름. 한국어 요청이면 `category` 와 같다 |
+| `nameRoman` (새) · `images` (새, 상세) | 그대로 |
+
+`localName`·`localAddress` 는 없앤다 — `name`·`address` 가 곧 한국어다. 새 칸은 모두 필수가 아니다(§13 끝의 `GuidePlace` 사정).
+폴백은 새 칸 안에서 요청 언어 → `en` 이고, 둘 다 없으면 null 이다(앱이 한국어 칸으로 떨어진다).
+
+앱이 할 일은 표시뿐이다 — 제목은 `displayName ?? name`, 아래에 `displayName` 이 있으면 `name`, 없으면 `nameRoman`, 그리고
+`categoryLabel`. 주소는 `displayAddress ?? address`, 택시용은 `address`. 네이버 링크·코스 저장·중복 판정은 지금처럼 `name` 을 쓴다.
+
+성지(`/places`)는 처음부터 `name` 이 요청 언어라 모양이 다르다. 편의시설은 한국어 `name` 에 기대는 앱이 이미 나가 있어
+호환을 지킨다.

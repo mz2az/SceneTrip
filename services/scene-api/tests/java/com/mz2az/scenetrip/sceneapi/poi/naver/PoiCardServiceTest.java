@@ -43,7 +43,6 @@ class PoiCardServiceTest {
   private static PoiDetail poi() {
     return new PoiDetail(
             ID, "정아각 본점[중식]", "중식", PoiCategoryGroup.FOOD, LAT, LNG, java.util.List.of())
-        .localName("정아각 본점[중식]")
         .categoryLabel("중식")
         .region("경기")
         .city("시흥시");
