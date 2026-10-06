@@ -7,6 +7,7 @@ py_library(
         "addresses.py",
         "juso_api.py",
         "names.py",
+        "pack.py",
     ],
     data = glob(["data/*.tsv"]),
 )
@@ -19,6 +20,13 @@ py_binary(
     deps = [":lib"],
 )
 
+# `just poi-pack` — 한 판을 공유용으로 묶는다(src 를 빼고 gzip, manifest.json).
+py_binary(
+    name = "pack",
+    srcs = ["pack.py"],
+    main = "pack.py",
+)
+
 py_test(
     name = "unit_test",
     srcs = [
@@ -28,6 +36,7 @@ py_test(
         "tests/test_names_regression.py",
         "tests/test_names_regression2.py",
         "tests/test_names_spec.py",
+        "tests/test_pack.py",
         "tests/test_poi.py",
         "tests/test_spec.py",
     ],

@@ -1,13 +1,17 @@
 package com.mz2az.scenetrip.sceneapi.poi;
 
+import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCategoryGroup;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiDetail;
+import com.mz2az.scenetrip.sceneapi.api.model.PoiImage;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiSummary;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
+import java.net.URI;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -17,8 +21,12 @@ import org.springframework.stereotype.Repository;
 /**
  * 편의시설(POI) 조회. 명세의 {@code GET /pois} · {@code GET /pois/{poiId}} 를 받친다.
  *
- * <p>{@link com.mz2az.scenetrip.sceneapi.place.PlaceStore} 와 같은 모양이되 훨씬 단순하다 — 표가 하나다. 다국어 표({@code
- * poi_i18n})가 없어 언어 폴백이 없고, 작품·이미지가 없어 두 번째 질의가 없다. 자료가 한국어뿐이라 요청 언어와 무관하게 같은 이름을 돌려준다(명세 §pois).
+ * <p>{@link com.mz2az.scenetrip.sceneapi.place.PlaceStore} 와 같은 모양이되 언어를 다루는 법이 다르다(명세 「언어」, 계획
+ * poi-i18n-image.md §13-4). {@code name}·{@code address}·{@code category} 는 <b>언제나 한국어 원본</b>이다 —
+ * 이미 나가 있는 앱이 한국어 {@code name} 으로 네이버를 찾고 코스에 저장한다. 요청 언어의 값은 새 칸({@code displayName}·{@code
+ * displayAddress}·{@code categoryLabel})으로만 나가고, 각각 요청 언어 → en 으로 찾되 없으면 null(분류 이름은 한국어)이다.
+ * 번역({@code poi_i18n})은 대부분 비어 있다 — 영어 이름은 확실할 때만 있고 영어 주소는 약 99 % 다. {@code Content-Language} 로
+ * 알리는 것은 분류 이름의 언어다.
  *
  * <p>{@code place} 와 다른 점 둘은 규모에서 온다 — 성지는 155 개, POI 는 50 만 개다.
  *
@@ -51,15 +59,35 @@ public class PoiStore {
       PoiCategoryGroup categoryGroup,
       Sort sort,
       int limit,
-      int offset) {
+      int offset,
+      Lang lang) {
+
+    /** 언어를 말하지 않으면 한국어 — 카드·가이드처럼 이름을 화면에 바로 쓰지 않는 쪽. */
+    public Criteria(
+        Bbox bbox,
+        Double lat,
+        Double lng,
+        Integer radiusMeters,
+        PoiCategoryGroup categoryGroup,
+        Sort sort,
+        int limit,
+        int offset) {
+      this(bbox, lat, lng, radiusMeters, categoryGroup, sort, limit, offset, Lang.KO);
+    }
 
     boolean hasOrigin() {
       return lat != null && lng != null;
     }
   }
 
-  /** 한 페이지치 항목과 조건에 맞는 전체 개수. 명세의 {@code PoiList.total} 이 후자다. */
-  public record Page(List<PoiSummary> items, int total) {}
+  /**
+   * 한 페이지치 항목과 조건에 맞는 전체 개수(명세의 {@code PoiList.total}), 그리고 항목들의 분류 이름이 실제로 나온 언어들 — {@code
+   * Content-Language} 를 정하는 데 쓴다({@code Responses.used}).
+   */
+  public record Page(List<PoiSummary> items, int total, Set<Lang> shownLangs) {}
+
+  /** 상세와 그 분류 이름이 실제로 나온 언어. */
+  public record Detail(PoiDetail poi, Lang shownLang) {}
 
   /**
    * 조건 부분. 목록과 개수 질의가 <b>같은 WHERE</b> 를 써야 {@code total} 이 목록과 같은 것을 센다. 그래서 문자열 하나로 두고 둘이 나눠 쓴다.
@@ -103,11 +131,43 @@ public class PoiStore {
       )
       """;
 
+  /**
+   * 요청 언어의 값 — 요청 언어 → en, 없으면 NULL(분류 이름은 한국어 원본). 한국어를 요청하면 번역을 보지 않는다(번역 표에 {@code ko} 행이 없고,
+   * 있어도 원본이 정본이다). {@code label_lang} 은 분류 이름이 실제로 나온 언어다. {@code name}·{@code address} 는 언제나 원본.
+   */
+  private static final String LOCALIZED_SELECT =
+      """
+              p.name, p.address,
+              CASE WHEN :lang = 'ko' THEN NULL
+                   ELSE COALESCE(tr.name, te.name) END AS display_name,
+              CASE WHEN :lang = 'ko' THEN NULL
+                   ELSE COALESCE(tr.address, te.address) END AS display_address,
+              CASE WHEN :lang = 'ko' THEN p.category
+                   ELSE COALESCE(cr.name, ce.name, p.category) END AS category_label,
+              CASE WHEN :lang = 'ko' THEN 'ko'
+                   WHEN cr.name IS NOT NULL THEN :lang
+                   WHEN ce.name IS NOT NULL THEN 'en'
+                   ELSE 'ko' END AS label_lang,
+              p.name_roman,
+      """;
+
+  /** 번역 두 갈래(요청 언어·en)를 붙인다. 둘 다 (poi_id, lang)·(ko, lang) 기본 키로 한 행씩이다. */
+  private static final String LOCALIZED_JOIN =
+      """
+          LEFT JOIN poi_i18n tr ON tr.poi_id = p.id AND tr.lang = :lang
+          LEFT JOIN poi_i18n te ON te.poi_id = p.id AND te.lang = 'en'
+          LEFT JOIN poi_category_i18n cr ON cr.ko = p.category AND cr.lang = :lang
+          LEFT JOIN poi_category_i18n ce ON ce.ko = p.category AND ce.lang = 'en'
+      """;
+
   private static final String LIST_SQL =
       ORIGIN_SQL
           + """
           SELECT
-              p.id, p.name, p.category, p.category_group, p.address,
+              p.id, p.category, p.category_group,
+          """
+          + LOCALIZED_SELECT
+          + """
               -- geography 에서 좌표를 꺼내려면 geometry 로 캐스팅한다. ST_X 가 경도, ST_Y 가 위도다.
               ST_Y(p.geom::geometry) AS latitude,
               ST_X(p.geom::geometry) AS longitude,
@@ -116,6 +176,7 @@ public class PoiStore {
           FROM poi p
           CROSS JOIN origin o
           """
+          + LOCALIZED_JOIN
           + WHERE_SQL
           + """
           ORDER BY __ORDER_BY__
@@ -139,15 +200,27 @@ public class PoiStore {
       ORIGIN_SQL
           + """
           SELECT
-              p.id, p.name, p.category, p.category_group, p.address, p.road, p.tel, p.region, p.city,
+              p.id, p.category, p.category_group, p.road, p.tel, p.region, p.city,
+          """
+          + LOCALIZED_SELECT
+          + """
               ST_Y(p.geom::geometry) AS latitude,
               ST_X(p.geom::geometry) AS longitude,
               CASE WHEN o.point IS NULL THEN NULL
                    ELSE round(ST_Distance(p.geom, o.point))::INT END AS distance_meters
           FROM poi p
           CROSS JOIN origin o
+          """
+          + LOCALIZED_JOIN
+          + """
           WHERE p.id = :id AND p.closed_at IS NULL
           """;
+
+  /** 우리가 모은 사진 — 정렬 순서대로, 첫 장이 대표(V17 의 poi_image_poi_idx 가 받는다). */
+  private static final String IMAGES_SQL =
+      """
+      SELECT url, credit FROM poi_image WHERE poi_id = :id ORDER BY sort_order, id
+      """;
 
   private final JdbcClient jdbc;
 
@@ -163,12 +236,15 @@ public class PoiStore {
             "__ORDER_BY__",
             criteria.sort() == Sort.DISTANCE ? ORDER_BY_DISTANCE : ORDER_BY_ALPHABETICAL);
 
-    List<PoiSummary> items =
+    List<Row> rows =
         bind(jdbc.sql(sql), criteria)
             .param("limit", criteria.limit())
             .param("offset", criteria.offset())
-            .query(PoiStore::mapSummary)
+            .query(PoiStore::mapRow)
             .list();
+    List<PoiSummary> items = rows.stream().map(Row::summary).toList();
+    Set<Lang> shown = new LinkedHashSet<>();
+    rows.forEach(r -> shown.add(r.labelLang()));
 
     // 첫 페이지가 상한보다 적으면 그것이 곧 전체다 — 개수 질의를 아낀다.
     int total =
@@ -176,7 +252,7 @@ public class PoiStore {
             ? items.size()
             : bind(jdbc.sql(COUNT_SQL), criteria).query(Integer.class).single();
 
-    return new Page(items, total);
+    return new Page(items, total, shown);
   }
 
   /** 주어진 id 중 실제로 있는 것 — 폐업 표시된 것은 없는 것으로 친다. 여럿 카드 조회가 「없는 id」를 그 자리에 표시하려고 쓴다. */
@@ -191,15 +267,34 @@ public class PoiStore {
             .list());
   }
 
-  /** 상세 하나. 없거나 폐업 표시됐으면 비어 있다 — 404 는 컨트롤러의 몫이다. */
+  /** 상세 하나(한국어). 카드처럼 이름을 화면에 바로 쓰지 않는 쪽이 쓴다. */
   public Optional<PoiDetail> findDetail(long id, Double lat, Double lng) {
+    return findDetail(id, Lang.KO, lat, lng).map(Detail::poi);
+  }
+
+  /** 상세 하나와 사진. 없거나 폐업 표시됐으면 비어 있다 — 404 는 컨트롤러의 몫이다. */
+  public Optional<Detail> findDetail(long id, Lang lang, Double lat, Double lng) {
     boolean hasOrigin = lat != null && lng != null;
-    return jdbc.sql(DETAIL_SQL)
-        .param("id", id)
-        .param("lat", hasOrigin ? lat : null)
-        .param("lng", hasOrigin ? lng : null)
-        .query(PoiStore::mapDetail)
-        .optional();
+    Optional<Detail> found =
+        jdbc.sql(DETAIL_SQL)
+            .param("id", id)
+            .param("lang", lang.getValue())
+            .param("lat", hasOrigin ? lat : null)
+            .param("lng", hasOrigin ? lng : null)
+            .query(PoiStore::mapDetail)
+            .optional();
+    found.ifPresent(
+        d ->
+            d.poi()
+                .images(
+                    jdbc.sql(IMAGES_SQL)
+                        .param("id", id)
+                        .query(
+                            (rs, n) ->
+                                new PoiImage(URI.create(rs.getString("url")))
+                                    .credit(rs.getString("credit")))
+                        .list()));
+    return found;
   }
 
   /**
@@ -222,7 +317,8 @@ public class PoiStore {
   }
 
   private static JdbcClient.StatementSpec bind(JdbcClient.StatementSpec spec, Criteria c) {
-    return spec.param("lat", c.hasOrigin() ? c.lat() : null)
+    return spec.param("lang", c.lang().getValue())
+        .param("lat", c.hasOrigin() ? c.lat() : null)
         .param("lng", c.hasOrigin() ? c.lng() : null)
         .param("radiusMeters", c.radiusMeters())
         .param("categoryGroup", c.categoryGroup() == null ? null : c.categoryGroup().getValue())
@@ -232,32 +328,47 @@ public class PoiStore {
         .param("maxLat", c.bbox() == null ? null : c.bbox().maxLat());
   }
 
-  private static PoiSummary mapSummary(ResultSet rs, int rowNum) throws SQLException {
-    return new PoiSummary(
-            rs.getLong("id"),
-            rs.getString("name"),
-            rs.getString("category"),
-            PoiCategoryGroup.fromValue(rs.getString("category_group")),
-            rs.getDouble("latitude"),
-            rs.getDouble("longitude"))
-        .address(rs.getString("address"))
-        .distanceMeters(integerOrNull(rs, "distance_meters"));
+  private record Row(PoiSummary summary, Lang labelLang) {}
+
+  private static Row mapRow(ResultSet rs, int rowNum) throws SQLException {
+    PoiSummary summary =
+        new PoiSummary(
+                rs.getLong("id"),
+                rs.getString("name"),
+                rs.getString("category"),
+                PoiCategoryGroup.fromValue(rs.getString("category_group")),
+                rs.getDouble("latitude"),
+                rs.getDouble("longitude"))
+            .displayName(rs.getString("display_name"))
+            .categoryLabel(rs.getString("category_label"))
+            .nameRoman(rs.getString("name_roman"))
+            .address(rs.getString("address"))
+            .displayAddress(rs.getString("display_address"))
+            .distanceMeters(integerOrNull(rs, "distance_meters"));
+    return new Row(summary, Lang.fromValue(rs.getString("label_lang")));
   }
 
-  private static PoiDetail mapDetail(ResultSet rs, int rowNum) throws SQLException {
-    return new PoiDetail(
-            rs.getLong("id"),
-            rs.getString("name"),
-            rs.getString("category"),
-            PoiCategoryGroup.fromValue(rs.getString("category_group")),
-            rs.getDouble("latitude"),
-            rs.getDouble("longitude"))
-        .address(rs.getString("address"))
-        .distanceMeters(integerOrNull(rs, "distance_meters"))
-        .road(rs.getString("road"))
-        .tel(rs.getString("tel"))
-        .region(rs.getString("region"))
-        .city(rs.getString("city"));
+  private static Detail mapDetail(ResultSet rs, int rowNum) throws SQLException {
+    PoiDetail detail =
+        new PoiDetail(
+                rs.getLong("id"),
+                rs.getString("name"),
+                rs.getString("category"),
+                PoiCategoryGroup.fromValue(rs.getString("category_group")),
+                rs.getDouble("latitude"),
+                rs.getDouble("longitude"),
+                List.of())
+            .displayName(rs.getString("display_name"))
+            .categoryLabel(rs.getString("category_label"))
+            .nameRoman(rs.getString("name_roman"))
+            .address(rs.getString("address"))
+            .displayAddress(rs.getString("display_address"))
+            .distanceMeters(integerOrNull(rs, "distance_meters"))
+            .road(rs.getString("road"))
+            .tel(rs.getString("tel"))
+            .region(rs.getString("region"))
+            .city(rs.getString("city"));
+    return new Detail(detail, Lang.fromValue(rs.getString("label_lang")));
   }
 
   /** {@code getInt} 는 NULL 을 0 으로 돌려준다. 0 m 와 "기준점 없음" 은 다르다. */

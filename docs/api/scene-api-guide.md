@@ -25,7 +25,11 @@
 **언어는 헤더로 보낸다. 비우지 않는다** — 앱이 보여 주는 UI 언어를 언제나 넣는다.
 헤더가 없거나, 지원하지 않는 값이거나, 그 언어의 번역이 없으면 **`en`, 그다음 `ko`** 로
 폴백한다. 서버가 실제로 고른 언어는 `Content-Language` 응답 헤더에 담기므로, 요청과
-응답이 다를 수 있다. 편의시설(`/pois…`)은 예외로 언제나 `ko` 다.
+응답이 다를 수 있다. **예외: 편의시설(`/pois…`)의 `name`·`address`·`category` 는 언제나 한국어 원본이다**
+— 이미 나가 있는 앱이 한국어 `name` 으로 네이버를 찾고 코스에 저장한다. 요청 언어의 값은 새 칸으로만 온다:
+`displayName`(확실한 영어 이름이 있을 때만, 없으면 null)·`displayAddress`(공식 영문 주소)·`categoryLabel`
+(분류 이름)·`nameRoman`(로마자 읽기). 화면 제목은 `displayName ?? name`, 그 아래에 `displayName` 이 있으면
+`name`, 없으면 `nameRoman`, 그리고 `categoryLabel`. 주소는 `displayAddress ?? address`.
 
 ```
 GET /v1/contents/7

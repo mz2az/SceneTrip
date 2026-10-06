@@ -58,22 +58,25 @@ class PoisController implements PoisApi {
     PoiStore.Page page =
         store.list(
             new PoiStore.Criteria(
-                area, lat, lng, radiusMeters, categoryGroup, order, limit, offset));
+                area, lat, lng, radiusMeters, categoryGroup, order, limit, offset, acceptLanguage));
 
-    return Responses.ok(new PoiList(page.items(), page.total(), limit, offset), Lang.KO);
+    // 칸마다 따로 폴백한다(명세 「언어」). Content-Language 는 분류 이름의 언어 — PoiStore 클래스 주석.
+    return Responses.ok(
+        new PoiList(page.items(), page.total(), limit, offset),
+        Responses.used(acceptLanguage, page.shownLangs()));
   }
 
   @Override
   public ResponseEntity<PoiDetail> getPoi(Long poiId, Lang acceptLanguage, Double lat, Double lng) {
     PlaceQueryRules.requireCompleteOrigin(lat, lng);
 
-    PoiDetail detail =
+    PoiStore.Detail detail =
         store
-            .findDetail(poiId, lat, lng)
+            .findDetail(poiId, acceptLanguage, lat, lng)
             .orElseThrow(
                 () -> ApiException.notFound("POI_NOT_FOUND", "편의시설 " + poiId + " 이(가) 없습니다"));
 
-    return Responses.ok(detail, Lang.KO);
+    return Responses.ok(detail.poi(), detail.shownLang());
   }
 
   /** 카드 단건. 표에 없으면 지금 출처에 묻는다. 못 찾아도 200 — 404 는 POI 자체가 없을 때뿐. */

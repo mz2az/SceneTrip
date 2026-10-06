@@ -32,6 +32,7 @@ from tools.poi.tests.test_names_spec import (
     SpecRomanizeExamples,
     SpecRomanizeStandard,
 )
+from tools.poi.tests.test_pack import PackFile, PackMain, PackSlim
 from tools.poi.tests.test_spec import (
     SpecAccept,
     SpecCutToBuildingNumber,
@@ -53,6 +54,9 @@ __all__ = [
     "FinalSharedStore",
     "FormatEnglish",
     "JibunRefs",
+    "PackFile",
+    "PackMain",
+    "PackSlim",
     "Regression2BrandRest",
     "Regression2IntendedBehaviour",
     "RegressionBrandBareJeom",

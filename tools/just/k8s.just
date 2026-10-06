@@ -236,6 +236,25 @@ poi-filter src dst:
 poi-en poi_dir eng_zip store_zip out_dir:
     {{BAZEL}} run //tools/poi:en -- "{{ poi_dir }}" "{{ eng_zip }}" "{{ store_zip }}" "{{ out_dir }}"
 
+# POI 한 판을 공유용으로 묶는다 — src 를 빼고 gzip, manifest.json(행 수·sha256) (tools/poi/README.md)
+# 예: `just poi-pack ~/Downloads/SceneTrip_POI_20260907/out-en ~/Downloads/poi-2026-06 2026-06`
+[group('db')]
+poi-pack poi_dir out_dir edition:
+    {{BAZEL}} run //tools/poi:pack -- "{{ poi_dir }}" "{{ out_dir }}" "{{ edition }}"
+
+# 묶은 판을 GitHub Release `poi-data-<판>` 으로 올린다 — 공개 Release 다. 같은 판은 덮지 않는다
+[group('db')]
+[confirm("POI 적재 파일을 공개 GitHub Release 로 올립니다. 진행할까요?")]
+poi-publish dir edition:
+    ./tools/scripts/poi-publish.sh "{{ dir }}" "{{ edition }}"
+
+# Release 의 POI 한 판을 받아 sha256 을 확인하고 적재한다 — 원본 zip·API 키가 필요 없다. 분기 갱신은 --update
+# 예: `just seed-poi-release 2026-06` · `just seed-poi-release 2026-09 --update`
+[group('db')]
+[positional-arguments]
+seed-poi-release edition *flags:
+    ./tools/scripts/seed-poi-release.sh "$@"
+
 # 편의시설 네이버 카드(poi_naver)를 CSV 로 뜬다 — source_id 를 붙여, 저장소 밖에, 덮지 않고
 # 예: `just poi-naver-backup ~/SceneTrip-backup/poi_naver-20261004.csv`
 [group('db')]

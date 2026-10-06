@@ -25,7 +25,11 @@ info:
     `Content-Language` 응답 헤더로 알린다. 앱은 헤더를 비우지 말고 **앱이 보여 주는 UI
     언어**를 언제나 보낸다 — 생략하면 영어가 온다.
 
-    **예외: 편의시설(`/pois…`)은 언제나 `ko` 다.** 원본 자료가 한국어뿐이다.
+    **예외: 편의시설(`/pois…`)의 `name`·`address`·`category` 는 언제나 한국어 원본이다.** 요청 언어의
+    값은 새 칸으로만 온다 — `displayName`(확실한 영어 이름이 있을 때만)·`displayAddress`(공식 영문
+    주소)·`categoryLabel`(분류 이름), 각각 요청 언어 → `en`, 없으면 null(분류 이름은 한국어). 기존 칸의
+    뜻을 바꾸지 않는 것은 이미 나가 있는 앱이 한국어 `name` 으로 네이버를 찾고 코스에 저장하기 때문이다.
+    `Content-Language` 는 `categoryLabel` 의 언어다.
 
     ## 검색 범위
 
@@ -784,8 +788,9 @@ paths:
         근거로 쓴다. 겹치는 핀을 솎는 규칙(격자당 하나)은 아직 없다 — 필요해지면 선택
         파라미터로 더한다.
 
-        `Accept-Language` 를 받지만 **지금은 언제나 `ko` 로 응답한다.** 자료가 한국어뿐이다.
-        다국어 표기가 생기면 계약은 그대로 두고 서버가 채운다.
+        `name`·`address`·`category` 는 언제나 한국어다. `Accept-Language` 의 값은 새 칸으로만 온다(맨 위
+        「언어」) — `displayName` 은 확실할 때만(체인 브랜드·`식당`·`카페` 같은 흔한 낱말) 있고, 없으면
+        `nameRoman` 이 읽는 법을 준다. `displayAddress` 는 행정안전부 공식 영문 주소다(약 99 %).
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
         - name: bbox
@@ -852,11 +857,10 @@ paths:
       operationId: getPoi
       summary: 편의시설 상세
       description: |
-        핀을 눌렀을 때 바로 보여 줄 수 있는 것 — 우리 자료에 있는 이름·종류·주소·전화.
-        사진·영업시간·평점은 여기 없다. 그것은 바깥 출처에서 오는 것이라 별도
-        엔드포인트가 맡는다(예정).
+        핀을 눌렀을 때 바로 보여 줄 수 있는 것 — 우리 자료에 있는 이름·종류·주소·전화와 우리가 모은
+        사진(`images`, 지금은 빈 배열). 영업시간·평점은 없다.
 
-        `Accept-Language` 를 받지만 **지금은 언제나 `ko` 로 응답한다.** 자료가 한국어뿐이다.
+        언어는 `GET /pois` 와 같다 — 기존 칸은 한국어, 요청 언어는 `displayName`·`displayAddress`·`categoryLabel`.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
         - name: poiId
@@ -1848,7 +1852,7 @@ components:
       description: |
         응답 언어. 앱이 보여 주는 UI 언어를 언제나 보낸다(폰 언어가 아니라 앱 언어).
         생략하거나, 지원하지 않는 값이거나, 그 언어의 번역이 없으면 `en`, 그다음 `ko` 로
-        폴백한다. 편의시설(`/pois…`)은 예외로 언제나 `ko`.
+        폴백한다. 편의시설(`/pois…`)은 기존 칸이 한국어이고 요청 언어는 새 칸으로만 온다(맨 위 「언어」).
       schema:
         $ref: "#/components/schemas/Lang"
 
@@ -2484,24 +2488,55 @@ components:
           format: int64
         name:
           type: string
-          example: 명동교자 본점
+          description: |
+            한국어 이름 — 언어와 상관없이 언제나 원본이다. 네이버 지도 검색·코스 저장·중복 판정에 쓴다.
+            화면 제목은 `displayName ?? name`.
+          example: 스타벅스 구리갈매역점
+        displayName:
+          type: string
+          nullable: true
+          description: |
+            요청 언어의 이름 — **확실할 때만** 있다: 체인 브랜드 사전(`스타벅스 → Starbucks`)과 `식당`·`카페`
+            같은 흔한 낱말(`행복식당 → Haengbok Restaurant`). 요청 언어 → `en` 순으로 찾고, 없거나 한국어를
+            요청하면 null 이다 — 그때는 제목을 `name` 으로 두고 `nameRoman` 을 아래에 보인다.
+          example: Starbucks Gurigalmaeyeok Branch
+        nameRoman:
+          type: string
+          nullable: true
+          description: |
+            한국어 이름의 로마자 읽기(국어의 로마자 표기법). 번역이 아니라 읽는 법이다 — 외래어
+            이름은 원래 영어로 돌아오지 않는다(`스타벅스 → Seutabeokseu`). 이름이 없으면 null.
+          example: Seutabeokseu Gurigalmaeyeokjeom
         category:
           type: string
           description: |
-            수집된 세부 종류를 가공 없이 그대로 돌려준다(한식·카페기타·펜션·지하철역 …
-            93 종). 필터 값으로 쓰기에 적합하지 않다 — 칩으로 묶는 규칙은 목업 뒤에 정한다.
-            `categoryGroup` 이 거르는 용도다.
-          example: 한식
+            세부 종류의 한국어 원본(한식·카페·펜션·지하철역 … 38 종). **언어와 상관없이 언제나 한국어다**
+            — 앱이 이 값으로 아이콘을 고른다. 화면에 보일 이름은 `categoryLabel`. 거르는 용도는
+            `categoryGroup`.
+          example: 카페
+        categoryLabel:
+          type: string
+          description: |
+            요청 언어의 분류 이름(요청 언어 → `en`). 한국어를 요청했거나 사전에 없으면 `category` 와 같은
+            한국어. `GET /pois`·`GET /pois/{poiId}` 응답에는 늘 있다 — 필수로 두지 않는 것은 이 모양을
+            물려받는 `GuidePlace`(가이드가 찾아 준 장소)에는 없을 수 있어서다.
+          example: Cafe
         categoryGroup:
           $ref: "#/components/schemas/PoiCategoryGroup"
         address:
           type: string
           nullable: true
           description: |
-            출처가 준 주소 그대로. 상가정보(음식·숙박)는 지번 주소로 시/군/구 + 동까지이고 건물번호가
-            없다. 관광공사(관광·일부 음식·숙박)는 도로명 주소 전체다. 형식이 섞이므로 파싱하지 말고
-            표시만 한다.
-          example: 서울 중구 명동
+            한국어 주소 — 언제나 출처가 준 그대로다(상가정보는 시/군/구 + 동, 관광공사는 도로명 전체). 형식이
+            섞이므로 파싱하지 말고 표시만 한다. 택시 기사에게 보여 줄 주소다.
+          example: 경기 구리시 갈매동
+        displayAddress:
+          type: string
+          nullable: true
+          description: |
+            요청 언어의 주소 — 영어는 행정안전부 공식 영문 주소다(약 99 %). 요청 언어 → `en` 순으로 찾고,
+            없거나 한국어를 요청하면 null 이다. 화면에는 `displayAddress ?? address`.
+          example: 7 Gyeongchun-ro 1440beon-gil, Guri-si, Gyeonggi-do
         latitude:
           type: number
           format: double
@@ -2536,6 +2571,27 @@ components:
               type: string
               nullable: true
               example: 중구
+            images:
+              type: array
+              description: |
+                우리가 모은 사진, 정렬 순서대로(첫 장이 대표). 아직 모으기 전이라 지금은 빈 배열이다.
+                `credit` 이 있으면 사진 곁에 보여야 한다(출처의 라이선스 표기).
+              items:
+                $ref: "#/components/schemas/PoiImage"
+          required: [images]
+
+    PoiImage:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+        credit:
+          type: string
+          nullable: true
+          description: 저작자·라이선스 표기. 있으면 사진 곁에 보인다.
+          example: 한국관광공사
 
     PoiCard:
       type: object

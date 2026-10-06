@@ -12,16 +12,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCard;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCardBatch;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCategoryGroup;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiDetail;
+import com.mz2az.scenetrip.sceneapi.api.model.PoiImage;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiSummary;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStore;
 import com.mz2az.scenetrip.sceneapi.poi.naver.PoiCardService;
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -45,11 +49,23 @@ class PoisControllerTest {
 
   private static PoiSummary poi(long id, String name) {
     return new PoiSummary(id, name, "한식", PoiCategoryGroup.FOOD, 37.498, 127.027)
+        .categoryLabel("한식")
         .distanceMeters(12);
   }
 
+  /** 스토어가 분류 이름을 한국어로 보였다고 답한다 — 언어가 요점이 아닌 시험용. */
   private void givenPois(int total, PoiSummary... items) {
-    when(store.list(any())).thenReturn(new PoiStore.Page(List.of(items), total));
+    givenPois(Set.of(Lang.KO), total, items);
+  }
+
+  private void givenPois(Set<Lang> shown, int total, PoiSummary... items) {
+    when(store.list(any())).thenReturn(new PoiStore.Page(List.of(items), total, shown));
+  }
+
+  private Lang requestedLang() {
+    ArgumentCaptor<PoiStore.Criteria> captor = ArgumentCaptor.forClass(PoiStore.Criteria.class);
+    verify(store).list(captor.capture());
+    return captor.getValue().lang();
   }
 
   @Test
@@ -194,9 +210,113 @@ class PoisControllerTest {
   }
 
   @Test
-  @DisplayName("Accept-Language: en 을 보내도 Content-Language 는 ko — 자료가 한국어뿐이다")
-  void alwaysAnswersInKorean() throws Exception {
-    givenPois(0);
+  @DisplayName(
+      "Accept-Language: en — name·address·category 는 한국어 그대로, 영어는"
+          + " displayName·displayAddress·categoryLabel 로")
+  void englishRequestReachesStore() throws Exception {
+    PoiSummary starbucks =
+        new PoiSummary(1L, "스타벅스 구리갈매역점", "카페", PoiCategoryGroup.FOOD, 37.63, 127.11)
+            .displayName("Starbucks Gurigalmaeyeok Branch")
+            .categoryLabel("Cafe")
+            .nameRoman("Seutabeokseu Gurigalmaeyeokjeom")
+            .address("경기 구리시 갈매동")
+            .displayAddress("7 Gyeongchun-ro 1440beon-gil, Guri-si, Gyeonggi-do");
+    givenPois(Set.of(Lang.EN), 1, starbucks);
+
+    mvc.perform(
+            get("/pois")
+                .param("bbox", "127.017,37.489,127.037,37.507")
+                .header("Accept-Language", "en"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Language", "en"))
+        .andExpect(jsonPath("$.items[0].name").value("스타벅스 구리갈매역점"))
+        .andExpect(jsonPath("$.items[0].displayName").value("Starbucks Gurigalmaeyeok Branch"))
+        .andExpect(jsonPath("$.items[0].nameRoman").value("Seutabeokseu Gurigalmaeyeokjeom"))
+        .andExpect(jsonPath("$.items[0].category").value("카페"))
+        .andExpect(jsonPath("$.items[0].categoryLabel").value("Cafe"))
+        .andExpect(jsonPath("$.items[0].address").value("경기 구리시 갈매동"))
+        .andExpect(
+            jsonPath("$.items[0].displayAddress")
+                .value("7 Gyeongchun-ro 1440beon-gil, Guri-si, Gyeonggi-do"))
+        .andExpect(jsonPath("$.items[0].localName").doesNotExist())
+        .andExpect(jsonPath("$.items[0].localAddress").doesNotExist());
+
+    assertThat(requestedLang()).isEqualTo(Lang.EN);
+  }
+
+  @Test
+  @DisplayName("en 요청인데 확실한 영어 이름·영문 주소가 없으면 display 칸은 비고, categoryLabel 은 있다")
+  void englishRequestWithoutTranslations() throws Exception {
+    PoiSummary local =
+        new PoiSummary(2L, "행복분식", "분식", PoiCategoryGroup.FOOD, 37.5, 127.0)
+            .categoryLabel("Snack bar")
+            .nameRoman("Haengbokbunsik")
+            .address("서울 강남구 역삼동");
+    givenPois(Set.of(Lang.EN), 1, local);
+
+    mvc.perform(
+            get("/pois")
+                .param("bbox", "127.017,37.489,127.037,37.507")
+                .header("Accept-Language", "en"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].name").value("행복분식"))
+        .andExpect(jsonPath("$.items[0].displayName").doesNotExist())
+        .andExpect(jsonPath("$.items[0].nameRoman").value("Haengbokbunsik"))
+        .andExpect(jsonPath("$.items[0].address").value("서울 강남구 역삼동"))
+        .andExpect(jsonPath("$.items[0].displayAddress").doesNotExist())
+        .andExpect(jsonPath("$.items[0].categoryLabel").value("Snack bar"));
+  }
+
+  @Test
+  @DisplayName("Accept-Language 가 없으면 en 을 요청한다 — 명세의 기본값")
+  void missingHeaderRequestsEnglish() throws Exception {
+    givenPois(Set.of(Lang.EN), 0);
+
+    mvc.perform(get("/pois").param("bbox", "127.017,37.489,127.037,37.507"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Language", "en"));
+
+    assertThat(requestedLang()).isEqualTo(Lang.EN);
+  }
+
+  @Test
+  @DisplayName("ko 요청 — 스토어에 ko 가 가고 Content-Language: ko, display 칸은 없고 categoryLabel 은 한국어")
+  void koreanRequest() throws Exception {
+    givenPois(Set.of(Lang.KO), 1, poi(1, "서초강산스토리"));
+
+    mvc.perform(
+            get("/pois")
+                .param("bbox", "127.017,37.489,127.037,37.507")
+                .header("Accept-Language", "ko"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Language", "ko"))
+        .andExpect(jsonPath("$.items[0].name").value("서초강산스토리"))
+        .andExpect(jsonPath("$.items[0].displayName").doesNotExist())
+        .andExpect(jsonPath("$.items[0].displayAddress").doesNotExist())
+        .andExpect(jsonPath("$.items[0].categoryLabel").value("한식"));
+
+    assertThat(requestedLang()).isEqualTo(Lang.KO);
+  }
+
+  @Test
+  @DisplayName("ja 요청 — 스토어에 ja 가 가고, 분류 이름이 영어로만 나왔으면 Content-Language: en")
+  void japaneseFallsBackToEnglish() throws Exception {
+    givenPois(Set.of(Lang.EN), 1, poi(1, "서초강산스토리"));
+
+    mvc.perform(
+            get("/pois")
+                .param("bbox", "127.017,37.489,127.037,37.507")
+                .header("Accept-Language", "ja"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Language", "en"));
+
+    assertThat(requestedLang()).isEqualTo(Lang.JA);
+  }
+
+  @Test
+  @DisplayName("en 요청인데 분류 이름이 전부 한국어로 나왔으면 Content-Language: ko")
+  void englishRequestAllKoreanLabels() throws Exception {
+    givenPois(Set.of(Lang.KO), 1, poi(1, "서초강산스토리"));
 
     mvc.perform(
             get("/pois")
@@ -207,18 +327,114 @@ class PoisControllerTest {
   }
 
   @Test
+  @DisplayName("en 요청에 영어·한국어 분류 이름이 섞이면 Content-Language: en")
+  void englishRequestMixedLabels() throws Exception {
+    givenPois(Set.of(Lang.EN, Lang.KO), 2, poi(1, "가"), poi(2, "나"));
+
+    mvc.perform(
+            get("/pois")
+                .param("bbox", "127.017,37.489,127.037,37.507")
+                .header("Accept-Language", "en"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Language", "en"));
+  }
+
+  @Test
   @DisplayName("상세 — 200, 기준점이 스토어로 전달된다")
   void detailFound() throws Exception {
     PoiDetail detail =
-        new PoiDetail(7L, "모슬포호텔", "호텔", PoiCategoryGroup.STAY, 33.2177, 126.2506)
+        new PoiDetail(7L, "모슬포호텔", "호텔", PoiCategoryGroup.STAY, 33.2177, 126.2506, List.of())
+            .categoryLabel("호텔")
             .tel("064-794-3355");
-    when(store.findDetail(eq(7L), anyDouble(), anyDouble())).thenReturn(Optional.of(detail));
+    when(store.findDetail(eq(7L), eq(Lang.KO), anyDouble(), anyDouble()))
+        .thenReturn(Optional.of(new PoiStore.Detail(detail, Lang.KO)));
 
-    mvc.perform(get("/pois/7").param("lat", "33.2").param("lng", "126.25"))
+    mvc.perform(
+            get("/pois/7")
+                .param("lat", "33.2")
+                .param("lng", "126.25")
+                .header("Accept-Language", "ko"))
         .andExpect(status().isOk())
         .andExpect(header().string("Content-Language", "ko"))
         .andExpect(jsonPath("$.name").value("모슬포호텔"))
-        .andExpect(jsonPath("$.tel").value("064-794-3355"));
+        .andExpect(jsonPath("$.displayName").doesNotExist())
+        .andExpect(jsonPath("$.categoryLabel").value("호텔"))
+        .andExpect(jsonPath("$.tel").value("064-794-3355"))
+        .andExpect(jsonPath("$.images").isArray())
+        .andExpect(jsonPath("$.images.length()").value(0));
+
+    verify(store).findDetail(eq(7L), eq(Lang.KO), eq(33.2), eq(126.25));
+  }
+
+  @Test
+  @DisplayName("상세 영어 — 요청 언어가 스토어로 가고, 사진이 순서대로 credit 과 함께 실린다")
+  void detailInEnglishWithImages() throws Exception {
+    PoiDetail detail =
+        new PoiDetail(
+                7L,
+                "모슬포호텔",
+                "호텔",
+                PoiCategoryGroup.STAY,
+                33.2177,
+                126.2506,
+                List.of(
+                    new PoiImage(URI.create("https://img.example/a.jpg")).credit("한국관광공사"),
+                    new PoiImage(URI.create("https://img.example/b.jpg"))))
+            .displayName("Mosulpo Hotel")
+            .categoryLabel("Hotel")
+            .nameRoman("Moseulpohotel")
+            .address("제주 서귀포시 대정읍")
+            .displayAddress("Daejeong-eup, Seogwipo-si, Jeju-do");
+    when(store.findDetail(eq(7L), eq(Lang.EN), any(), any()))
+        .thenReturn(Optional.of(new PoiStore.Detail(detail, Lang.EN)));
+
+    mvc.perform(get("/pois/7").header("Accept-Language", "en"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Language", "en"))
+        .andExpect(jsonPath("$.name").value("모슬포호텔"))
+        .andExpect(jsonPath("$.displayName").value("Mosulpo Hotel"))
+        .andExpect(jsonPath("$.nameRoman").value("Moseulpohotel"))
+        .andExpect(jsonPath("$.category").value("호텔"))
+        .andExpect(jsonPath("$.categoryLabel").value("Hotel"))
+        .andExpect(jsonPath("$.address").value("제주 서귀포시 대정읍"))
+        .andExpect(jsonPath("$.displayAddress").value("Daejeong-eup, Seogwipo-si, Jeju-do"))
+        .andExpect(jsonPath("$.localName").doesNotExist())
+        .andExpect(jsonPath("$.localAddress").doesNotExist())
+        .andExpect(jsonPath("$.images.length()").value(2))
+        .andExpect(jsonPath("$.images[0].url").value("https://img.example/a.jpg"))
+        .andExpect(jsonPath("$.images[0].credit").value("한국관광공사"))
+        .andExpect(jsonPath("$.images[1].url").value("https://img.example/b.jpg"));
+  }
+
+  @Test
+  @DisplayName("상세 ja — 스토어에 ja 가 가고, 분류 이름이 영어로 나왔으면 Content-Language: en")
+  void detailJapaneseFallsBackToEnglish() throws Exception {
+    PoiDetail detail =
+        new PoiDetail(7L, "모슬포호텔", "호텔", PoiCategoryGroup.STAY, 33.2177, 126.2506, List.of())
+            .displayName("Mosulpo Hotel")
+            .categoryLabel("Hotel");
+    when(store.findDetail(eq(7L), eq(Lang.JA), any(), any()))
+        .thenReturn(Optional.of(new PoiStore.Detail(detail, Lang.EN)));
+
+    mvc.perform(get("/pois/7").header("Accept-Language", "ja"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Language", "en"))
+        .andExpect(jsonPath("$.name").value("모슬포호텔"))
+        .andExpect(jsonPath("$.displayName").value("Mosulpo Hotel"));
+  }
+
+  @Test
+  @DisplayName("상세 en 인데 분류가 사전에 없어 한국어로 나왔으면 Content-Language: ko")
+  void detailEnglishWithKoreanLabel() throws Exception {
+    PoiDetail detail =
+        new PoiDetail(7L, "모슬포호텔", "호텔", PoiCategoryGroup.STAY, 33.2177, 126.2506, List.of())
+            .categoryLabel("호텔");
+    when(store.findDetail(eq(7L), eq(Lang.EN), any(), any()))
+        .thenReturn(Optional.of(new PoiStore.Detail(detail, Lang.KO)));
+
+    mvc.perform(get("/pois/7").header("Accept-Language", "en"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Language", "ko"));
   }
 
   @Test
@@ -282,9 +498,9 @@ class PoisControllerTest {
   @Test
   @DisplayName("없는 id 는 404 POI_NOT_FOUND")
   void detailMissing() throws Exception {
-    when(store.findDetail(anyLong(), any(), any())).thenReturn(Optional.empty());
+    when(store.findDetail(anyLong(), any(Lang.class), any(), any())).thenReturn(Optional.empty());
 
-    mvc.perform(get("/pois/999"))
+    mvc.perform(get("/pois/999").header("Accept-Language", "en"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("POI_NOT_FOUND"));
   }
