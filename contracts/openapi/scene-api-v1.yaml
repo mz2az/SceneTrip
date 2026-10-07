@@ -914,7 +914,8 @@ paths:
         있던 사진은 `Review.photos[].key` 를 그대로 보낸다. 내가 올리지 않은 키, 만료된 업로드는
         `400 REVIEW_PHOTO_INVALID`.
 
-        숨긴 촬영지·폐업한 편의시설도 상세가 열리므로 리뷰를 쓸 수 있다.
+        숨긴 촬영지도 상세가 열리므로 리뷰를 쓸 수 있다. 폐업한 편의시설은 상세가 없어(404) 리뷰 창구도 404 다 —
+        폐업 전에 쓴 리뷰는 지우지 않고 둔다.
       security:
         - bearerAuth: []
       parameters:
@@ -1187,7 +1188,8 @@ paths:
         있던 사진은 `Review.photos[].key` 를 그대로 보낸다. 내가 올리지 않은 키, 만료된 업로드는
         `400 REVIEW_PHOTO_INVALID`.
 
-        숨긴 촬영지·폐업한 편의시설도 상세가 열리므로 리뷰를 쓸 수 있다.
+        숨긴 촬영지도 상세가 열리므로 리뷰를 쓸 수 있다. 폐업한 편의시설은 상세가 없어(404) 리뷰 창구도 404 다 —
+        폐업 전에 쓴 리뷰는 지우지 않고 둔다.
       security:
         - bearerAuth: []
       parameters:
@@ -2632,9 +2634,9 @@ components:
       properties:
         nickname:
           type: string
-          minLength: 2
-          maxLength: 16
-          description: 한글·영문·숫자·`_`. 앞뒤 공백은 서버가 뗀다
+          description: |
+            앞뒤 공백을 뗀 뒤 2~16 자, 한글·영문·숫자·`_`. 길이 제약을 여기 두지 않는 것은 길이를 어겨도 글자를
+            어겨도 같은 `NICKNAME_INVALID` 로 답하기 위해서다(공백을 떼기 전 길이로 판정하지 않게)
           example: 제주러버
 
     RatingSummary:

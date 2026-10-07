@@ -10,6 +10,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.PoiList;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStore;
 import com.mz2az.scenetrip.sceneapi.poi.naver.PoiCardService;
+import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,10 +28,12 @@ class PoisController implements PoisApi {
 
   private final PoiStore store;
   private final PoiCardService cards;
+  private final ReviewViews reviews;
 
-  PoisController(PoiStore store, PoiCardService cards) {
+  PoisController(PoiStore store, PoiCardService cards, ReviewViews reviews) {
     this.store = store;
     this.cards = cards;
+    this.reviews = reviews;
   }
 
   @Override
@@ -76,6 +79,13 @@ class PoisController implements PoisApi {
             .orElseThrow(
                 () -> ApiException.notFound("POI_NOT_FOUND", "편의시설 " + poiId + " 이(가) 없습니다"));
 
+    ReviewViews.Gallery gallery =
+        reviews.gallery(ReviewStore.Target.POI, poiId, ReviewViews.DETAIL_PHOTOS, 0);
+    detail
+        .poi()
+        .rating(reviews.summary(ReviewStore.Target.POI, poiId))
+        .photos(gallery.items())
+        .photoCount(gallery.total());
     return Responses.ok(detail.poi(), detail.shownLang());
   }
 

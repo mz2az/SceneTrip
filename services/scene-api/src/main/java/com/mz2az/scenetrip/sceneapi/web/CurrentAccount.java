@@ -85,6 +85,41 @@ public class CurrentAccount {
     return signedIn(authorization);
   }
 
+  /**
+   * 가입 사용자만 하는 동작(리뷰 쓰기·사진 올리기)의 계정 id — 토큰이 없으면 {@code SIGN_IN_REQUIRED}.
+   *
+   * <p>{@link #requireSignedIn} 과 다른 점은 토큰이 없을 때다. 그쪽({@code /me})은 「앱이 로그인 상태를 잘못 안다」 라 토큰을 지우게
+   * 하고, 이쪽은 비회원이 가입이 필요한 버튼을 누른 것이라 로그인 화면으로 안내한다(계약 {@code SignInRequired}). 토큰이 있으면 같다.
+   *
+   * @throws ApiException 401 — {@code SIGN_IN_REQUIRED} · {@code ACCESS_TOKEN_EXPIRED} · {@code
+   *     ACCESS_TOKEN_INVALID}
+   */
+  public UUID requireMember() {
+    String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+    if (authorization == null) {
+      throw ApiException.signInRequired("SIGN_IN_REQUIRED", "이 동작은 가입한 사용자만 할 수 있습니다");
+    }
+    return signedIn(authorization);
+  }
+
+  /**
+   * 누구나 읽는 창구에서 「내 것인가」 를 가리려고 — 토큰이 없거나 <b>믿을 수 없거나 만료됐으면</b> {@code null}.
+   *
+   * <p>그 창구들은 계약에 401 이 없다. 만료된 토큰 하나로 리뷰 목록이 통째로 실패하면 안 된다 — 그 경우 「내 리뷰」 표시만 빠지고, 앱은 다음 쓰기 요청에서
+   * 갱신한다.
+   */
+  public UUID signedInOrNull() {
+    String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+    if (authorization == null) {
+      return null;
+    }
+    try {
+      return signedIn(authorization);
+    } catch (ApiException e) {
+      return null;
+    }
+  }
+
   private UUID signedIn(String authorization) {
     // 「Bearer 」 는 대소문자를 가리지 않는다(RFC 6750 이 RFC 7235 의 인증 방식 이름 규칙을 따른다).
     if (authorization.length() <= BEARER.length()

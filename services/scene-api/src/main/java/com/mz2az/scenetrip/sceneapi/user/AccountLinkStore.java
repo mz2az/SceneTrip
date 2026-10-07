@@ -147,8 +147,11 @@ public class AccountLinkStore {
         .param("displayName", displayName)
         .param("appleToken", appleRefreshTokenEnc)
         .update();
+    // 가입하는 순간 자동 닉네임을 붙인다(V21) — 리뷰 작성자로 보일 이름이 언제나 있게. 사용자가 정하면
+    // nickname_confirmed 가 켜진다(PUT /me/nickname). 이미 있으면(다시 가입할 일은 없지만) 두지 않는다.
     jdbc.sql(
-            "UPDATE app_user SET registered_at = now()"
+            "UPDATE app_user SET registered_at = now(),"
+                + " nickname = COALESCE(nickname, '여행자' || nextval('app_user_nickname_seq'))"
                 + " WHERE id = CAST(:id AS UUID) AND registered_at IS NULL")
         .param("id", userId.toString())
         .update();
