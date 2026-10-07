@@ -4,6 +4,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.ContentCategory;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.MarketSort;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCategoryGroup;
+import com.mz2az.scenetrip.sceneapi.api.model.ReviewSort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -88,5 +89,11 @@ class LanguageConfiguration {
   @Bean
   Converter<String, PoiCategoryGroup> poiCategoryGroupConverter() {
     return PoiCategoryGroup::fromValue;
+  }
+
+  /** 리뷰 정렬({@code GET …/reviews?sort=}). 같은 이유로 관대하게 받지 않는다. */
+  @Bean
+  Converter<String, ReviewSort> reviewSortConverter() {
+    return ReviewSort::fromValue;
   }
 }

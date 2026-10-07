@@ -7,6 +7,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.AuthSession;
 import com.mz2az.scenetrip.sceneapi.api.model.GoogleSignIn;
 import com.mz2az.scenetrip.sceneapi.api.model.LinkedIdentity;
 import com.mz2az.scenetrip.sceneapi.api.model.Me;
+import com.mz2az.scenetrip.sceneapi.api.model.NicknameInput;
 import com.mz2az.scenetrip.sceneapi.api.model.RefreshTokenBody;
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.auth.AppleLogin;
@@ -18,6 +19,7 @@ import com.mz2az.scenetrip.sceneapi.auth.SocialIdentity;
 import com.mz2az.scenetrip.sceneapi.auth.SocialTokenException;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -195,6 +197,35 @@ class AuthController implements AuthApi {
   }
 
   /**
+   * 닉네임 정하기 — 2~16 자, 한글·영문·숫자·{@code _}, 영문 대소문자 무시 유일(계약).
+   *
+   * <p>「여행자 + 숫자」 꼴은 자동 닉네임의 자리라 사람이 고를 수 없다 — 고르게 두면 나중에 가입하는 사람에게 같은 번호가 붙는 순간 유일 색인에 걸려 가입이
+   * 실패한다.
+   */
+  @Override
+  public ResponseEntity<Me> setMyNickname(NicknameInput body) {
+    UUID userId = accounts.requireSignedIn();
+    String nickname = body.getNickname() == null ? "" : body.getNickname().strip();
+    if (!NICKNAME.matcher(nickname).matches()) {
+      throw ApiException.badRequest("NICKNAME_INVALID", "닉네임은 2~16 자, 한글·영문·숫자·_ 만 쓸 수 있습니다");
+    }
+    if (AUTO_NICKNAME.matcher(nickname).matches()) {
+      throw ApiException.badRequest("NICKNAME_INVALID", "「여행자 + 숫자」 꼴은 자동 닉네임 자리라 고를 수 없습니다");
+    }
+    switch (users.setNickname(userId, nickname)) {
+      case TAKEN -> throw ApiException.conflict("NICKNAME_TAKEN", "다른 사람이 쓰는 닉네임입니다");
+      case GONE -> throw CurrentAccount.invalid("토큰을 확인한 직후 계정이 사라졌습니다 — 동시에 탈퇴");
+      case SET -> {}
+    }
+    return getMe();
+  }
+
+  /** 한글 음절·영문·숫자·밑줄, 2~16 자. 자모만(ㅋㅋ)은 받지 않는다 — 이름으로 읽히지 않는다. */
+  private static final Pattern NICKNAME = Pattern.compile("^[가-힣A-Za-z0-9_]{2,16}$");
+
+  private static final Pattern AUTO_NICKNAME = Pattern.compile("^여행자[0-9]+$");
+
+  /**
    * 탈퇴.
    *
    * <p>애플로 가입한 계정이면 애플 쪽 연결도 끊는다(App Store 요건). 애플이 응답하지 않아도 우리 쪽 삭제는 진행한다(계약).
@@ -237,7 +268,10 @@ class AuthController implements AuthApi {
                 .map(i -> new LinkedIdentity(AuthProvider.fromValue(i.provider())).email(i.email()))
                 .toList(),
             profile.registeredAt());
-    return me.displayName(profile.displayName()).email(profile.email());
+    return me.displayName(profile.displayName())
+        .email(profile.email())
+        .nickname(profile.nickname())
+        .nicknameConfirmed(profile.nicknameConfirmed());
   }
 
   /** 구글·애플 토큰 실패를 응답으로. 이유는 로그에만 — {@link CurrentAccount#invalid} 와 같은 판단이다. */

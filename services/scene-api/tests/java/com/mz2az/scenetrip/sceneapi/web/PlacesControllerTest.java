@@ -2,6 +2,8 @@ package com.mz2az.scenetrip.sceneapi.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -11,14 +13,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import com.mz2az.scenetrip.sceneapi.api.model.Photo;
+import com.mz2az.scenetrip.sceneapi.api.model.PhotoSource;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceSummary;
+import com.mz2az.scenetrip.sceneapi.api.model.RatingSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.Scene;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.place.PlaceStore;
+import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -41,6 +49,17 @@ class PlacesControllerTest {
   @Autowired private MockMvc mvc;
 
   @MockitoBean private PlaceStore store;
+
+  // 상세의 별점·사진첩(계약 1.4.0). 리뷰 표의 SQL 은 통합 레인이 본다 — 여기서는 「리뷰 없음」 이 기본이다.
+  @MockitoBean private ReviewViews reviews;
+
+  @BeforeEach
+  void noReviews() {
+    when(reviews.summary(any(), anyLong()))
+        .thenReturn(new RatingSummary(0, List.of(0, 0, 0, 0, 0)));
+    when(reviews.gallery(any(), anyLong(), anyInt(), anyInt()))
+        .thenReturn(new ReviewViews.Gallery(List.of(), 0));
+  }
 
   private void givenPlaces(PlaceSummary... items) {
     when(store.list(any()))
@@ -150,6 +169,37 @@ class PlacesControllerTest {
         .andExpect(jsonPath("$.name").value("북촌한옥마을"))
         .andExpect(jsonPath("$.scenes[0].contentTitle").value("도깨비"))
         .andExpect(jsonPath("$.scenes[1].contentId").value(4));
+  }
+
+  @Test
+  @DisplayName("장소 상세는 별점 요약·사진첩 앞 20 장·사진 수를 싣는다 — 사진첩은 이 장소의 0 번째부터")
+  void detailCarriesRatingAndGallery() throws Exception {
+    when(store.findDetail(eq(2L), any(), any(), any()))
+        .thenReturn(
+            Optional.of(
+                new PlaceStore.Detail(new PlaceDetail(2L, "북촌한옥마을", 37.5818, 126.9848), Lang.EN)));
+    when(reviews.summary(ReviewStore.Target.PLACE, 2L))
+        .thenReturn(new RatingSummary(3, List.of(0, 0, 1, 0, 2)).average(4.3));
+    when(reviews.gallery(ReviewStore.Target.PLACE, 2L, 20, 0))
+        .thenReturn(
+            new ReviewViews.Gallery(
+                List.of(
+                    new Photo(URI.create("https://img.example/official.jpg"), PhotoSource.OFFICIAL),
+                    new Photo(URI.create("https://signed.example/r.jpg"), PhotoSource.REVIEW)
+                        .reviewId(9L)),
+                41));
+
+    mvc.perform(get("/places/2"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.rating.average").value(4.3))
+        .andExpect(jsonPath("$.rating.count").value(3))
+        .andExpect(jsonPath("$.rating.distribution[2]").value(1))
+        .andExpect(jsonPath("$.rating.distribution[4]").value(2))
+        .andExpect(jsonPath("$.photos.length()").value(2))
+        .andExpect(jsonPath("$.photos[0].source").value("official"))
+        .andExpect(jsonPath("$.photos[1].source").value("review"))
+        .andExpect(jsonPath("$.photos[1].reviewId").value(9))
+        .andExpect(jsonPath("$.photoCount").value(41));
   }
 
   @Test

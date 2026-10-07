@@ -6,6 +6,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.PlaceDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceList;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.place.PlaceStore;
+import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -19,9 +20,11 @@ import org.springframework.web.bind.annotation.RestController;
 class PlacesController implements PlacesApi {
 
   private final PlaceStore store;
+  private final ReviewViews reviews;
 
-  PlacesController(PlaceStore store) {
+  PlacesController(PlaceStore store, ReviewViews reviews) {
     this.store = store;
+    this.reviews = reviews;
   }
 
   @Override
@@ -77,6 +80,14 @@ class PlacesController implements PlacesApi {
             .orElseThrow(
                 () -> ApiException.notFound("PLACE_NOT_FOUND", "장소 " + placeId + " 이(가) 없습니다"));
 
+    // 별점과 사진첩은 우리 리뷰에서(계약 1.4.0) — 숨긴 촬영지도 상세가 열리므로 똑같이 싣는다.
+    ReviewViews.Gallery gallery =
+        reviews.gallery(ReviewStore.Target.PLACE, placeId, ReviewViews.DETAIL_PHOTOS, 0);
+    detail
+        .place()
+        .rating(reviews.summary(ReviewStore.Target.PLACE, placeId))
+        .photos(gallery.items())
+        .photoCount(gallery.total());
     return Responses.ok(detail.place(), detail.shownLang());
   }
 }

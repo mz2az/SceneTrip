@@ -3,6 +3,7 @@ package com.mz2az.scenetrip.sceneapi.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -13,19 +14,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import com.mz2az.scenetrip.sceneapi.api.model.Photo;
+import com.mz2az.scenetrip.sceneapi.api.model.PhotoSource;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCard;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCardBatch;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCategoryGroup;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiImage;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiSummary;
+import com.mz2az.scenetrip.sceneapi.api.model.RatingSummary;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStore;
 import com.mz2az.scenetrip.sceneapi.poi.naver.PoiCardService;
+import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -46,6 +52,17 @@ class PoisControllerTest {
   @Autowired private MockMvc mvc;
   @MockitoBean private PoiStore store;
   @MockitoBean private PoiCardService cards;
+
+  // 상세의 별점·사진첩(계약 1.4.0). 리뷰 표의 SQL 은 통합 레인이 본다 — 여기서는 「리뷰 없음」 이 기본이다.
+  @MockitoBean private ReviewViews reviews;
+
+  @BeforeEach
+  void noReviews() {
+    when(reviews.summary(any(), anyLong()))
+        .thenReturn(new RatingSummary(0, List.of(0, 0, 0, 0, 0)));
+    when(reviews.gallery(any(), anyLong(), anyInt(), anyInt()))
+        .thenReturn(new ReviewViews.Gallery(List.of(), 0));
+  }
 
   private static PoiSummary poi(long id, String name) {
     return new PoiSummary(id, name, "한식", PoiCategoryGroup.FOOD, 37.498, 127.027)
@@ -364,6 +381,32 @@ class PoisControllerTest {
         .andExpect(jsonPath("$.images.length()").value(0));
 
     verify(store).findDetail(eq(7L), eq(Lang.KO), eq(33.2), eq(126.25));
+  }
+
+  @Test
+  @DisplayName("상세는 별점 요약·사진첩 앞 20 장·사진 수를 싣는다 — 리뷰가 없으면 average 는 null")
+  void detailCarriesRatingAndGallery() throws Exception {
+    PoiDetail detail =
+        new PoiDetail(7L, "모슬포호텔", "호텔", PoiCategoryGroup.STAY, 33.2177, 126.2506, List.of());
+    when(store.findDetail(eq(7L), any(), any(), any()))
+        .thenReturn(Optional.of(new PoiStore.Detail(detail, Lang.KO)));
+    when(reviews.gallery(ReviewStore.Target.POI, 7L, 20, 0))
+        .thenReturn(
+            new ReviewViews.Gallery(
+                List.of(
+                    new Photo(URI.create("https://img.example/p.jpg"), PhotoSource.OFFICIAL)
+                        .credit("한국관광공사")),
+                1));
+
+    mvc.perform(get("/pois/7"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.rating.count").value(0))
+        .andExpect(jsonPath("$.rating.average").doesNotExist())
+        .andExpect(jsonPath("$.rating.distribution.length()").value(5))
+        .andExpect(jsonPath("$.photos.length()").value(1))
+        .andExpect(jsonPath("$.photos[0].source").value("official"))
+        .andExpect(jsonPath("$.photos[0].credit").value("한국관광공사"))
+        .andExpect(jsonPath("$.photoCount").value(1));
   }
 
   @Test

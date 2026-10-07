@@ -2,6 +2,7 @@ package com.mz2az.scenetrip.sceneapi.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -9,6 +10,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -23,6 +25,7 @@ import com.mz2az.scenetrip.sceneapi.auth.RefreshTokenStore.Rotated;
 import com.mz2az.scenetrip.sceneapi.auth.SignInService;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import com.mz2az.scenetrip.sceneapi.user.UserStore.Identity;
+import com.mz2az.scenetrip.sceneapi.user.UserStore.NicknameResult;
 import com.mz2az.scenetrip.sceneapi.user.UserStore.Profile;
 import java.time.Clock;
 import java.time.Duration;
@@ -413,6 +416,128 @@ class AuthControllerTest {
     verify(users, never()).delete(any());
   }
 
+  // ───────────── 닉네임 (계약 1.4.0 PUT /me/nickname, Me.nickname·nicknameConfirmed) ─────────────
+
+  @Test
+  @DisplayName("GET /me 는 nickname 과 nicknameConfirmed 를 싣는다 — 가입 직후 자동 닉네임이면 false")
+  void getMeCarriesNickname() throws Exception {
+    when(users.touchSignedIn(USER)).thenReturn(true);
+    when(users.profile(USER)).thenReturn(Optional.of(profileWithNickname("여행자10001", false)));
+
+    getMe(bearer())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.nickname").value("여행자10001"))
+        .andExpect(jsonPath("$.nicknameConfirmed").value(false));
+  }
+
+  @Test
+  @DisplayName("닉네임 정하기 — 200 바뀐 Me(nicknameConfirmed=true), 앞뒤 공백을 뗀 값으로 저장한다")
+  void setNicknameReturnsUpdatedMe() throws Exception {
+    when(users.touchSignedIn(USER)).thenReturn(true);
+    when(users.setNickname(USER, "제주러버")).thenReturn(NicknameResult.SET);
+    when(users.profile(USER)).thenReturn(Optional.of(profileWithNickname("제주러버", true)));
+
+    setNickname(bearer(), "  제주러버  ")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(USER.toString()))
+        .andExpect(jsonPath("$.nickname").value("제주러버"))
+        .andExpect(jsonPath("$.nicknameConfirmed").value(true));
+
+    verify(users).setNickname(USER, "제주러버");
+  }
+
+  @Test
+  @DisplayName("닉네임 정하기 — 한글·영문·숫자·_ 의 2~16 자는 받는다(경계 포함)")
+  void setNicknameAcceptsValidForms() throws Exception {
+    when(users.touchSignedIn(USER)).thenReturn(true);
+    when(users.setNickname(any(), anyString())).thenReturn(NicknameResult.SET);
+    when(users.profile(USER)).thenReturn(Optional.of(profileWithNickname("x", true)));
+
+    for (String ok :
+        List.of(
+            "가나", "ab", "Jeju_Lover_2026", "가".repeat(16), "a".repeat(16), "여행자", "여행자_1", "_1")) {
+      setNickname(bearer(), ok).andExpect(status().isOk());
+      verify(users).setNickname(USER, ok);
+    }
+  }
+
+  @Test
+  @DisplayName("닉네임 정하기 — 규칙을 어기면 400 NICKNAME_INVALID 이고 저장하지 않는다(길이·글자·자모·공백)")
+  void setNicknameRejectsInvalidForms() throws Exception {
+    when(users.touchSignedIn(USER)).thenReturn(true);
+
+    for (String bad :
+        List.of(
+            "",
+            "   ",
+            "a",
+            "  가  ",
+            "가".repeat(17),
+            "a".repeat(17),
+            "ㅋㅋ",
+            "제주 러버",
+            "jeju!",
+            "jeju-lover",
+            "제주😀",
+            "なまえ")) {
+      setNickname(bearer(), bad)
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("NICKNAME_INVALID"));
+    }
+    verify(users, never()).setNickname(any(), any());
+  }
+
+  @Test
+  @DisplayName("닉네임 정하기 — 「여행자 + 숫자」 꼴은 자동 닉네임 자리라 400 NICKNAME_INVALID")
+  void setNicknameRejectsAutoPattern() throws Exception {
+    when(users.touchSignedIn(USER)).thenReturn(true);
+
+    for (String reserved : List.of("여행자12345", "여행자1", " 여행자10000 ")) {
+      setNickname(bearer(), reserved)
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("NICKNAME_INVALID"));
+    }
+    verify(users, never()).setNickname(any(), any());
+  }
+
+  @Test
+  @DisplayName("닉네임 정하기 — 다른 사람이 쓰면 409 NICKNAME_TAKEN")
+  void setNicknameTakenIsConflict() throws Exception {
+    when(users.touchSignedIn(USER)).thenReturn(true);
+    when(users.setNickname(USER, "JejuLover")).thenReturn(NicknameResult.TAKEN);
+
+    setNickname(bearer(), "JejuLover")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("NICKNAME_TAKEN"));
+  }
+
+  @Test
+  @DisplayName("닉네임 정하기 — 토큰이 없으면 401 ACCESS_TOKEN_INVALID 이고 저장하지 않는다")
+  void setNicknameWithoutTokenIsUnauthorized() throws Exception {
+    mvc.perform(
+            put("/me/nickname")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nickname\":\"제주러버\"}"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("ACCESS_TOKEN_INVALID"));
+
+    verify(users, never()).setNickname(any(), any());
+  }
+
+  @Test
+  @DisplayName("닉네임 정하기 — 만료된 토큰이면 401 ACCESS_TOKEN_EXPIRED")
+  void setNicknameWithExpiredToken() throws Exception {
+    when(users.touchSignedIn(USER)).thenReturn(true);
+    String token = bearer();
+    CLOCK.advance(ACCESS_TTL.plusSeconds(1));
+
+    setNickname(token, "제주러버")
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("ACCESS_TOKEN_EXPIRED"));
+
+    verify(users, never()).setNickname(any(), any());
+  }
+
   // ───────────── 아직 없는 창구 ─────────────
 
   @Test
@@ -450,6 +575,23 @@ class AuthControllerTest {
         get("/me")
             .header("X-Install-Id", INSTALL_ID.toString())
             .header("Authorization", authorization));
+  }
+
+  private ResultActions setNickname(String authorization, String nickname) throws Exception {
+    return mvc.perform(
+        put("/me/nickname")
+            .header("Authorization", authorization)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"nickname\":\"" + nickname + "\"}"));
+  }
+
+  private static Profile profileWithNickname(String nickname, boolean confirmed) {
+    return new Profile(
+        USER,
+        REGISTERED_AT,
+        List.of(new Identity("google", "me@example.com", "김여행")),
+        nickname,
+        confirmed);
   }
 
   private String bearer() {

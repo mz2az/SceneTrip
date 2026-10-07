@@ -255,15 +255,21 @@ public class UserStore {
    * @return 살아 있는 가입 계정이면 그 모습. 없거나 비회원이거나 합쳐졌으면 비어 있다
    */
   public Optional<Profile> profile(UUID userId) {
-    Optional<OffsetDateTime> registeredAt =
+    record Head(OffsetDateTime registeredAt, String nickname, boolean nicknameConfirmed) {}
+    Optional<Head> head =
         jdbc.sql(
-                "SELECT registered_at FROM app_user"
+                "SELECT registered_at, nickname, nickname_confirmed FROM app_user"
                     + " WHERE id = CAST(:id AS UUID) AND merged_into IS NULL"
                     + " AND registered_at IS NOT NULL")
             .param("id", userId.toString())
-            .query((rs, n) -> rs.getObject("registered_at", OffsetDateTime.class))
+            .query(
+                (rs, n) ->
+                    new Head(
+                        rs.getObject("registered_at", OffsetDateTime.class),
+                        rs.getString("nickname"),
+                        rs.getBoolean("nickname_confirmed")))
             .optional();
-    if (registeredAt.isEmpty()) {
+    if (head.isEmpty()) {
       return Optional.empty();
     }
     List<Identity> identities =
@@ -278,15 +284,51 @@ public class UserStore {
                         rs.getString("email"),
                         rs.getString("display_name")))
             .list();
-    return Optional.of(new Profile(userId, registeredAt.get(), identities));
+    return Optional.of(
+        new Profile(
+            userId,
+            head.get().registeredAt(),
+            identities,
+            head.get().nickname(),
+            head.get().nicknameConfirmed()));
+  }
+
+  /** 닉네임 정하기의 결과. */
+  public enum NicknameResult {
+    SET,
+    TAKEN,
+    GONE
+  }
+
+  /**
+   * 닉네임을 정한다 — {@code nickname_confirmed} 도 켠다.
+   *
+   * <p>겹침은 V21 의 {@code lower(nickname)} 유일 색인이 판정한다. 먼저 SELECT 로 묻고 쓰면 그 사이에 같은 이름을 고른 사람과 경합한다 —
+   * 색인이 둘 중 하나를 막는다. 그 실패를 {@code TAKEN} 으로 돌려준다. 자기 닉네임을 대소문자만 바꿔 다시 정하는 것은 자기 행이라 겹침이 아니다.
+   */
+  public NicknameResult setNickname(UUID userId, String nickname) {
+    try {
+      int n =
+          jdbc.sql(
+                  "UPDATE app_user SET nickname = :nickname, nickname_confirmed = true"
+                      + " WHERE id = CAST(:id AS UUID) AND registered_at IS NOT NULL"
+                      + " AND merged_into IS NULL")
+              .param("nickname", nickname)
+              .param("id", userId.toString())
+              .update();
+      return n > 0 ? NicknameResult.SET : NicknameResult.GONE;
+    } catch (DuplicateKeyException e) {
+      return NicknameResult.TAKEN;
+    }
   }
 
   /**
    * 탈퇴 — 계정 행을 지운다.
    *
-   * <p>그 계정의 모든 것이 {@code ON DELETE CASCADE} 로 함께 사라진다: 설치본 연결·장바구니·코스(아이템·핀)·찜·마켓에 올린 코스와 좋아요·소셜
-   * 신분·리프레시 토큰. 이 계정으로 합쳐진 빈 비회원 행들은 {@code merged_into} 가 이 행을 가리키는데 그 FK 에는 CASCADE 가 없으므로, 먼저
-   * 끊는다 — 그 행들은 이미 비어 있으니 함께 지운다.
+   * <p>작성한 리뷰는 남는다 — {@code review.user_id} 가 {@code ON DELETE SET NULL} 이라 작성자만 끊긴다(V21, 계약). 그 밖의
+   * 모든 것은 {@code ON DELETE CASCADE} 로 함께 사라진다: 설치본 연결·장바구니·코스(아이템·핀)·찜·마켓에 올린 코스와 좋아요·소셜 신분·리프레시
+   * 토큰. 이 계정으로 합쳐진 빈 비회원 행들은 {@code merged_into} 가 이 행을 가리키는데 그 FK 에는 CASCADE 가 없으므로, 먼저 끊는다 — 그
+   * 행들은 이미 비어 있으니 함께 지운다.
    *
    * @return 지웠으면 {@code true}. 이미 없었으면 {@code false}
    */
@@ -305,7 +347,17 @@ public class UserStore {
    *
    * @param identities 먼저 연결한 것부터
    */
-  public record Profile(UUID id, OffsetDateTime registeredAt, List<Identity> identities) {
+  public record Profile(
+      UUID id,
+      OffsetDateTime registeredAt,
+      List<Identity> identities,
+      String nickname,
+      boolean nicknameConfirmed) {
+
+    /** 닉네임 없이 — 닉네임이 생기기 전의 모습(V21 이전)을 다루는 곳과 시험이 쓴다. */
+    public Profile(UUID id, OffsetDateTime registeredAt, List<Identity> identities) {
+      this(id, registeredAt, identities, null, false);
+    }
 
     /** 화면에 보일 이름 — 먼저 연결한 신분부터 보아 처음으로 값이 있는 것. 없을 수 있다. */
     public String displayName() {
