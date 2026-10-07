@@ -10,7 +10,7 @@ final class AppEventTests: XCTestCase {
         .signUp(method: "google"), .login(method: "google"), .logout, .deleteAccount,
         .setNickname(skipped: true),
         .screenView("home"), .search(termLength: 6, kind: "content"),
-        .viewTitle(contentId: 1), .viewPlace(placeId: 38),
+        .viewTitle(contentId: 1), .viewPlace(placeId: 38), .viewReviews(targetType: "place"),
         .likeTitle(contentId: 1, liked: true), .savePlace(placeId: 38),
         .generatePlan(dayCount: 2, titleCount: 3),
         .createCourse(origin: "ai", dayCount: 2, placeCount: 7),

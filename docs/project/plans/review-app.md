@@ -1,9 +1,9 @@
 # 리뷰·별점·사진첩·닉네임 — 앱 화면 (MZ2AZ-363)
 
-- **상태**: PR A(닉네임)가 들어갔다(2026-10-07) — 화면·규칙·단위 시험까지. 저장은 서버(362)가 없어 실기로 못 봤다. B~E 는 구현 전
+- **상태**: PR A(닉네임, #149)와 B(별점 줄·리뷰 보기)가 들어갔다(2026-10-07). 서버(362, #148)가 같은 날 main 에 들어와 B 는 로컬 서버의 실제 응답으로 확인했다. C~E 는 구현 전
 - **담당**: 정승길 — iOS 먼저, Android 는 따라간다
-- **서버·계약**: [review.md](./review.md)(MZ2AZ-362, 정권호). 계약 scene-api **1.4.0**(PR #145)은 main 에 있다.
-  **서버 구현은 아직 없다** — 새 칸은 전부 옵셔널이라 없어도 앱은 돈다
+- **서버·계약**: [review.md](./review.md)(MZ2AZ-362, 정권호). 계약 scene-api **1.4.0**(PR #145)과 서버 구현(PR #148)이 main 에 있다.
+  로컬에서 보려면 `just update scene-api` 로 서버를 새로 올린다. 사진 올리기는 dev 버킷 키가 있어야 한다
 - **근거**: 2026-10-03 팀 회의 안건 「장소 상세에 리뷰·평점」, 네이버 별점을 걷어낸 뒤의 빈자리(MZ2AZ-354)
 
 ## 1. 무엇을 만드나
@@ -52,11 +52,11 @@ flowchart LR
 
 ## 3. 코드 구조 (iOS)
 
-새 폴더 `apps/scenetrip-ios/src/Reviews/`. 화면은 대상이 촬영지인지 편의시설인지 모른다 — `ReviewTarget` 이 가른다.
+새 폴더 `apps/scenetrip-ios/src/Reviews/`. 화면은 대상이 촬영지인지 편의시설인지 모른다 — `ReviewSubject` 가 가른다.
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `ReviewTarget.swift` | `.place(id)` · `.poi(id)`. 생성된 클라이언트의 두 벌(`…/places/…`·`…/pois/…`)을 한 모양으로 감싼다 — 목록·내 리뷰·쓰기·지우기·사진첩 |
+| `ReviewSubject.swift` | `.place(id)` · `.poi(id)`(계약의 `ReviewTarget` 과 이름이 겹쳐 Subject). 생성된 클라이언트의 두 벌(`…/places/…`·`…/pois/…`)을 한 모양으로 감싼다 — 목록·내 리뷰·쓰기·지우기·사진첩 |
 | `NicknameRules.swift` | 닉네임 검사(2~16자, 한글·영문·숫자·`_`)와 「한 번만 묻기」 |
 | `ReviewRules.swift` | 순수 규칙: 별점 글자(`★4.6 · 리뷰 128`), 고칠 때 남길 `photoKeys`, 「수정됨」, 작성자 이름(null → 「탈퇴한 사용자」) |
 | `RatingLine.swift` | 별점 줄 — §2 의 세 상태 |
@@ -99,14 +99,21 @@ flowchart LR
 | D | 사진첩 — 촬영지 상세의 `photos`, 방문자 사진 | 우리 사진만 있을 때(지금 데이터) | 리뷰 사진, 만료 주소 |
 | E | 내 리뷰, 탈퇴 안내 문구 | 문구 | 목록 |
 
-**서버가 없는 동안 「된다」 고 말하지 않는다.** 각 PR 은 화면과 규칙만 넣고, 「서버가 있어야 하는 것」 은 362 가 로컬에
-뜬 뒤 한꺼번에 실기로 본다. 그때까지 지라 363 은 진행 중이다.
+**실제 서버로 못 본 것을 「된다」 고 말하지 않는다.** 서버(362)는 2026-10-07 에 main 에 들어왔다 — 그 전에 넣은 PR A 의
+「서버가 있어야 하는 것」 은 따로 실기로 본다(아래 §6). 리뷰 자료가 없는 로컬 DB 에는 시험용 리뷰를 SQL 로 넣어 본다.
 
 ## 6. 시험
 
 - 단위 시험: `NicknameRulesTests`(닉네임 규칙의 경계 — 1자·2자·16자·17자, 한글 글자 수, 공백, 이모지, `_`, 풀어쓴 한글, 한 번만 묻기), `ReviewRulesTests`(별점 글자(null·0건·소수),
   `photoKeys` 조립(남기기·지우기·순서 바꾸기·10장 상한), 작성자 null, 「수정됨」)
-- `ReviewTarget` 이 두 벌의 창구를 같은 뜻으로 부르는지 — 가짜 클라이언트로
+- `ReviewSubject` 의 두 벌 창구는 실기로 본다(촬영지·편의시설 각각)
+- 로컬 DB 에 시험용 리뷰 넣기(로컬에서만 — 리뷰 쓰기 화면이 생기기 전의 임시 방법):
+  ```
+  just db-psql "INSERT INTO review (place_id, user_id, rating, body, created_at, updated_at)
+    SELECT 56, NULL, 1 + (g % 5), '시험 리뷰 ' || g, now() - (g || ' days')::interval, now() - (g || ' days')::interval
+    FROM generate_series(1, 24) g;"
+  ```
+  `user_id` 가 NULL 이면 「탈퇴한 사용자」 로 보인다. 지울 때는 `DELETE FROM review WHERE body LIKE '시험 리뷰%';`
 - 실기: Opus 서브에이전트. 서버 쓰기(리뷰 저장·닉네임 변경)는 그 기능이 시험 대상일 때만, 끝나면 지운다
 
 - 확인용 뒷문: `simctl launch … -previewNickname` — 로그인 응답 없이 닉네임 화면을 띄운다(`-initialTab` 과 같은 종류, 실행 인자로만 켜진다). 서버가 없는 동안 화면을 보는 유일한 길이다. 이 길로 띄운 화면에서 건너뛴 것은 기록하지 않는다

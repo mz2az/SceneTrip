@@ -45,6 +45,7 @@ flowchart LR
 | `search` ★ | 검색어를 확정했다 | `term_length`, `kind`(`content`·`person`·`place`·`typed`) — **검색어 원문은 보내지 않는다** | `SearchTabView.commit` | `SceneData.search` + `SearchTabScreen.commit` |
 | `view_title` | 작품 상세를 열었다 | `content_id` | `ContentDetailView` | `ContentDetailView` |
 | `view_place` | 장소 상세를 열었다 | `place_id` | `PlaceDetailView` | `PlaceDetailView` |
+| `view_reviews` | 리뷰 시트를 열었다(MZ2AZ-363) | `target_type`(`place`·`poi`) | `ReviewsSheet` | 아직 |
 | `like_title` | 작품 하트를 눌렀다 | `content_id`, `liked`(1·0) | `LikeStore.toggle` | `LikeStore.toggle` |
 | `save_place` | 장소를 담았다(서버가 받았을 때) | `place_id` | `CartStore.add` | `CartStore.add` |
 | `generate_plan` | AI 일정 초안을 받았다(저장 전) | `day_count`, `title_count` | `RouteStore` | `RouteStore.guideDraft` |

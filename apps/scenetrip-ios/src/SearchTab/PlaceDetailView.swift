@@ -18,6 +18,8 @@ struct PlaceDetailView: View {
     @Environment(\.openURL) private var openURL
     @State private var detail: PlaceDetail?
     @State private var scene: SceneItem?
+    /// 리뷰 시트 (MZ2AZ-363).
+    @State private var reviewing: ReviewSubject?
 
     private var scenes: [SceneItem] {
         detail?.scenes ?? []
@@ -41,6 +43,9 @@ struct PlaceDetailView: View {
                             .foregroundStyle(.secondary)
                     }
 
+                    // 별점 한 줄 — 서버가 별점을 실어 줄 때만 보인다(MZ2AZ-363).
+                    RatingLine(rating: detail?.rating) { reviewing = .place(summary.id) }
+
                     actions
 
                     if !scenes.isEmpty {
@@ -59,6 +64,7 @@ struct PlaceDetailView: View {
             ScenePopup(scene: picked, placeName: summary.name)
                 .presentationDetents([.medium])
         }
+        .reviewsSheet($reviewing, title: summary.name)
     }
 
     /// 베타의 장소 상세와 같은 두 버튼이다 — 담기와 네이버 지도.
