@@ -5,14 +5,14 @@
 
 | 파일 | 내용 |
 | --- | --- |
-| `candidates.csv` | 성지후보 **98 행** — 11 작품 × 촬영지 (케이팝 데몬 헌터스 11 행은 2026-09-16 추가, movie). 김태환 수집 v3 (2026-08-24) + 다국어 21 컬럼 + `scene_image_url` (2026-09-12) |
+| `candidates.csv` | 성지후보 **98 행** — 11 작품 × 촬영지 (케이팝 데몬 헌터스 11 행은 2026-09-16 추가, movie). 김태환 수집 v3 (2026-08-24) + 다국어 21 컬럼 + `scene_image_url` (2026-09-12) + 키 두 칸 (2026-10-07) |
 | `candidates.sql` | CSV 를 15 개 테이블로 옮기는 변환. 이 CSV 와 같은 컬럼의 다른 파일에도 쓴다 |
 | `poi-sample.jsonl` | POI(편의시설) 표본 **31 행** — 갈래별 5 행 + 중복 한 쌍 + 버려질 행 하나(TMAP 판, 정승길 수집) + 공공데이터 규칙용 4 행(상가정보·겹치는 관광공사·안 겹치는 관광공사·좌표 뒤바뀜) + 제외 분류 4 행 |
 | `poi.sql` | JSON Lines 를 `poi` 표로 옮기는 변환. `just seed-poi` 가 쓴다 |
 
 ```bash
-just seed                          # 저장소의 성지후보 87 행
-just seed <다른 CSV 경로>          # 같은 52 컬럼 형식이어야 한다
+just seed                          # 저장소의 성지후보 98 행
+just seed <다른 CSV 경로>          # 같은 51 컬럼 형식이어야 한다(키 두 칸 포함)
 just seed-poi                      # 저장소의 POI 표본 31 행
 just seed-poi <파일.jsonl(.gz) ...>  # 전량. 여러 파일은 이어 붙여 한 번에
 ```
@@ -21,11 +21,29 @@ just seed-poi <파일.jsonl(.gz) ...>  # 전량. 여러 파일은 이어 붙여 
 
 v6 시절에는 표본 12 행만 두고 전량은 볼트에 있었다 — 데이터가 정제 전이었다. 성지후보
 v3 는 10 작품으로 골라졌고 이미지가 우리 S3 에 있고 `last_updated` 가 찍힌, 앱에 그대로
-보여 줄 수 있는 데이터라 저장소에 전량을 둔다. 87 행·165 KB 다. 정본은 여전히
+보여 줄 수 있는 데이터라 저장소에 전량을 둔다. 98 행이다. 정본은 여전히
 볼트(`~/mz2az/01_Raw/김태환/4주차_촬영지수집/`)이고, 다음 수집분이 나오면 파일을 갈아
 끼운다.
 
-## 컬럼 — 52 개
+## 키 — `content_key` · `place_key` (2026-10-07)
+
+**`just seed` 는 지우지 않는다.** 작품·촬영지를 이 두 키로 알아보고 있으면 갱신, 없으면 추가, CSV 에서
+빠지면 숨긴다(`hidden_at`). 그래서 촬영지·작품을 가리키는 장바구니·코스·찜·마켓이 적재 때마다 지워지지
+않는다 — 예전에는 `TRUNCATE ... CASCADE` 로 통째로 갈아서 같이 지워졌다. 계획:
+[place-key-seed.md](../../../docs/project/plans/place-key-seed.md).
+
+수집 담당자가 지킬 규칙:
+
+1. 같은 작품·같은 촬영지는 어느 줄에서나 같은 키를 쓴다(한 촬영지가 두 작품에 나오면 두 줄 모두 같은 `place_key`).
+2. 한 번 정한 키는 바꾸지 않는다 — 이름·주소·좌표가 바뀌어도.
+3. 지운 키는 다시 쓰지 않는다. 새 것은 마지막 번호 다음.
+4. 모양은 자유다(`C0001` · `P0001`). 키가 빈 줄이 있거나, 한 `content_key` 에 제목이 둘이면 적재가 멈춘다.
+
+숨긴 작품·촬영지는 목록·지도·검색 제안에서 빠지고, 상세와 사용자가 저장해 둔 것에는 남는다. 다시 CSV 에
+나오면 숨김이 풀린다. 지금 98 행의 키는 옛 묶음 규칙(작품은 제목, 촬영지는 네이버 URL · 없으면 이름+주소)대로
+붙였다 — 작품 11 개(`C0001`~`C0011`), 촬영지 95 곳(`P0001`~`P0095`).
+
+## 컬럼 — 51 개
 
 `\copy` 는 헤더를 건너뛸 뿐 이름으로 맞추지 않는다. **CSV 헤더 순서가 `candidates.sql`
 의 `seed_staging` 컬럼 순서와 같아야 한다.** 다른 순서의 파일을 넣으면 오류 없이 엉뚱한
@@ -39,9 +57,23 @@ v3 는 10 작품으로 골라졌고 이미지가 우리 S3 에 있고 `last_upda
 URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞에 두고, 나머지는 네이버 표시
 순서를 따른다. 네이버 URL 이 없거나 네이버에 사진이 없는 22 행은 여전히 비어 있다.
 
+**`title_producer_url`** 을 더했다(2026-09-23). `title_tmdb_url` 옆에 있다. 포스터를 누르면
+이동할 **작품 제작사**의 페이지다. 법률 멘토와 상의해 정한 규칙이 두 가지다. 포스터를 누르면
+원저작권자인 제작사로 가야 한다. 포스터 이미지는 그 작품을 제공하는 플랫폼(tvN·넷플릭스)이
+올린 사진을 우리가 저장하지 않고 그 주소 그대로 쓴다. 그래서 `poster_url` 도 TMDB 이미지에서
+플랫폼 이미지 주소로 바꿨다. 제작사에 사이트가 없는 작품(화앤담픽쳐스·본팩토리·문화창고)은
+함께 크레디트된 모회사·공동제작사(스튜디오드래곤·CJ ENM)의 작품 페이지를 넣었다.
+
+같은 날 `recent_rank` · `audience_acc` · `award` · `famous_rank` 네 컬럼을 뺐다. 채울 규칙을 두지 않기로
+했기 때문이다. 그래서 53 이 아니라 49 다. 거기에 키 두 칸(`content_key` 는 `title` 앞, `place_key` 는
+`place_name` 앞)을 더해 51 이다(2026-10-07). `famous_rank` 는 인기 점수(`popularity_score`)의 재료였으므로,
+뺀 뒤로는 모든 작품이 중간값 50 에서 시작한다.
+
 | 컬럼 | 가는 곳 |
 | --- | --- |
-| `title` `title_category` `famous_rank` `poster_url` | `content` · `content_i18n(ko)` |
+| `content_key` | `content.content_key` — 같은 작품을 알아보는 키(위 「키」) |
+| `place_key` | `place.place_key` — 같은 촬영지를 알아보는 키 |
+| `title` `title_category` `poster_url` | `content` · `content_i18n(ko)` |
 | `title_en` `title_ja` `title_zh_hant` | `content_i18n` — 채워진 것만. 지금은 전부 비어 있다 |
 | `title_description` · `_en` `_ja` `_zh_hant` | `content_i18n.description` — 작품 소개. 제목 행에 얹혀 가므로 그 언어 제목이 없으면 안 들어간다 |
 | `title_aliases` | `content_alias`. `title_en` 이 비면 첫 라틴 항목을 `en` 제목으로 승격 |
@@ -57,14 +89,17 @@ URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞�
 | `scene_description` `last_updated` | `place_content` · `place_content_i18n(ko)` |
 | `scene_description_en` `_ja` `_zh_hant` | `place_content_i18n` — 채워진 언어만. 없으면 API 가 `ko` 로 폴백 |
 | `scene_image_url` | `place_content.scene_image_url` — 장면 스틸. (장소, 작품) 한 쌍에 한 장 |
-| `id` `title_tmdb_url` `source_url` `recent_rank` `audience_acc` `award` `notes` | 안 넣는다 — `candidates.sql` 머리에 이유 |
+| `id` `title_tmdb_url` `title_producer_url` `source_url` `notes` | 안 넣는다 — `candidates.sql` 머리에 이유 |
 
-## 적재는 지우고 다시 넣는다
+## 무엇을 갱신하고 무엇을 다시 넣나
 
-`candidates.sql` 의 첫 동작이 `TRUNCATE` 다. `content` 와 `person` 에는 자연키가 없어 —
-같은 작품을 두 번 넣어도 DB 는 그것이 같은 작품인지 알 방법이 없다 — `ON CONFLICT` 로는
-멱등을 만들 수 없다. 로컬 개발 DB 라서 성립하는 방식이고, `seed.sh` 가 kind 컨텍스트가
-아니면 실행을 거부한다.
+사용자 데이터가 가리키는 `content` · `place` 만 키로 UPSERT 해 id 를 지킨다. 나머지는 적재가
+소유하므로 이 CSV 에 있는 작품·촬영지의 것만 지우고 다시 넣는다 — `content_i18n` · `content_alias` ·
+`place_i18n` · `place_alias` · `place_image` · `place_content`(+ `_i18n`). 인물(`person` · `person_i18n` ·
+`content_cast`)은 키가 없고 사용자 데이터가 가리키지 않아 통째로 다시 넣는다.
+
+키가 생기기 전(V20 이전)의 DB 에 처음 돌리면, 키가 빈 기존 작품·촬영지를 옛 묶음 규칙으로 찾아 키를
+붙인 뒤 갱신한다 — 장바구니·코스가 그대로 이어진다. 한 번 붙으면 다시 하지 않는다.
 
 ## 건너뛰는 행
 
@@ -105,7 +140,7 @@ URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞�
 | `place_type` 이 한국어 라벨 35 종 | 코드 매핑표가 아직 없다. 값 그대로 넣는다 |
 | 장소 이름·주소·소개, 인물 이름, 장면 설명이 한국어뿐 | 컬럼은 있지만 비어 있다. 채워지면 자동으로 들어간다 |
 | `place_i18n.description` 이 비어 있음 | `scene_description` 은 "이 작품의 이 장면" 설명이라 장소 자체의 설명이 아니다 |
-| `popularity_score` 가 임의값 | `famous_rank` 를 뒤집은 값. `user_event` 가 쌓이면 배치가 계산한다 |
+| `popularity_score` 가 임의값 | 모든 작품이 50. `user_event` 가 쌓이면 배치가 계산한다 |
 | 좌표 없는 2 곳 | 위 「건너뛰는 행」 |
 
 ## POI(편의시설) — `poi-sample.jsonl` · `poi.sql`
@@ -140,7 +175,7 @@ just seed-poi --update ~/Downloads/SceneTrip_POI_<새 판>/out/poi_*.jsonl
 거르고, 이미 들어 있는 행은 `--prune` 없이도 적재 때 지운다. 근거는
 [poi-i18n-image.md](../../../docs/project/plans/poi-i18n-image.md) §7.
 
-**지우지 않는다 — 기본은.** 성지 시드와 달리 `TRUNCATE` 가 없다. 출처가 준 `source_id` 가
+**지우지 않는다 — 기본은.** 성지 시드처럼 `TRUNCATE` 가 없다. 출처가 준 `source_id` 가
 자연키라 `ON CONFLICT` 로 UPSERT 한다 — 있는 행은 갱신, 없는 행은 추가, 바뀐 것이
 없으면 건드리지 않는다. 몇 번을 돌려도 안전하다. **출처를 통째로 바꿀 때만 `--prune`** —
 이번 입력에 없는 `source_id` 를 지운다(TMAP → 공공데이터 때 썼다). 표본과 함께는 막는다.

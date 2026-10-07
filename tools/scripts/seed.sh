@@ -4,7 +4,8 @@
 # 호출: just seed
 #
 # 인자가 없으면 저장소의 성지후보 전량(services/scene-api/seed/candidates.csv)을 넣는다.
-# 다른 CSV(다음 수집분 등)는 경로를 넘긴다 — 컬럼이 candidates.sql 의 staging 과 같아야 한다:
+# 다른 CSV(다음 수집분 등)는 경로를 넘긴다 — 컬럼이 candidates.sql 의 staging 과 같아야 하고(51 칸),
+# 줄마다 content_key·place_key 가 있어야 한다:
 #
 #   just seed ~/Downloads/성지후보_10작품_v4.csv
 #
@@ -44,8 +45,8 @@ if [ -n "${SCENETRIP_DB_HOST:-}" ]; then
        맥이라면:  brew install libpq && brew link --force libpq
        또는 SCENETRIP_DB_HOST 를 지우고 kind 파드 경로로 실행하세요."
 else
-  # 파드 경로는 적재된 데이터를 지우고 다시 넣는다 (candidates.sql 의 TRUNCATE).
-  # 로컬 kind 밖에서는 절대 돌면 안 된다.
+  # 파드 경로는 로컬 kind 의 DB 에만 쓴다. 적재는 키로 갱신·추가하고 CSV 에서 빠진 작품·촬영지는
+  # 숨길 뿐 지우지 않는다(candidates.sql, docs/project/plans/place-key-seed.md).
   require_kind_context
   kubectl get "pod/$POD" -n "$NAMESPACE" >/dev/null 2>&1 || die "$POD 파드가 없습니다.
        DB 를 먼저 세우세요:  just deploy postgres local"
@@ -57,7 +58,7 @@ if [ "$CSV" = "$SAMPLE" ]; then
 else
   log "$CSV ($ROWS 행) 을 적재합니다"
 fi
-warn "적재된 기존 데이터는 지워지고 다시 채워집니다"
+log "작품·촬영지는 content_key·place_key 로 갱신·추가하고, CSV 에서 빠진 것은 숨깁니다(지우지 않음)"
 
 # 규칙은 하나다 — **psql 이 도는 기계의 /tmp/seed-input.csv 에 CSV 를 놓는다.**
 #

@@ -117,6 +117,7 @@ public class PlaceStore {
           FROM search_term st
           CROSS JOIN params p
           JOIN place_content pc ON pc.content_id = st.entity_id
+          JOIN content hc ON hc.id = pc.content_id AND hc.hidden_at IS NULL  -- 숨긴 작품으로는 걸지 않는다(V20)
           WHERE p.norm <> '' AND st.entity_type = 'content'
             AND st.term_norm LIKE '%' || p.norm || '%'
 
@@ -127,6 +128,7 @@ public class PlaceStore {
           FROM content_i18n ci
           CROSS JOIN params p
           JOIN place_content pc ON pc.content_id = ci.content_id
+          JOIN content hc ON hc.id = pc.content_id AND hc.hidden_at IS NULL  -- 숨긴 작품으로는 걸지 않는다(V20)
           WHERE p.norm <> '' AND ci.description ILIKE '%' || CAST(:q AS TEXT) || '%'
 
           UNION
@@ -140,6 +142,7 @@ public class PlaceStore {
           CROSS JOIN params p
           JOIN content_cast cc ON cc.person_id = st.entity_id
           JOIN place_content pc ON pc.content_id = cc.content_id
+          JOIN content hc ON hc.id = pc.content_id AND hc.hidden_at IS NULL  -- 숨긴 작품으로는 걸지 않는다(V20)
           WHERE p.norm <> '' AND st.entity_type = 'person'
             AND st.term_norm LIKE '%' || p.norm || '%'
 
@@ -157,6 +160,7 @@ public class PlaceStore {
           SELECT pc.place_id
           FROM place_content_i18n pci
           JOIN place_content pc ON pc.id = pci.place_content_id
+          JOIN content hc ON hc.id = pc.content_id AND hc.hidden_at IS NULL  -- 숨긴 작품으로는 걸지 않는다(V20)
           CROSS JOIN params p
           WHERE p.norm <> ''
             AND pci.relation_description ILIKE '%' || CAST(:q AS TEXT) || '%'
@@ -196,7 +200,9 @@ public class PlaceStore {
       FROM place p
       JOIN display d ON d.place_id = p.id
       CROSS JOIN origin o
-      WHERE (CAST(:q AS TEXT) IS NULL OR p.id IN (SELECT place_id FROM matched))
+      -- 숨긴 촬영지(적재 CSV 에서 빠진 것)는 목록·지도에서 뺀다. 상세는 계속 나온다(V20).
+      WHERE p.hidden_at IS NULL
+        AND (CAST(:q AS TEXT) IS NULL OR p.id IN (SELECT place_id FROM matched))
         AND (CAST(:contentId AS BIGINT) IS NULL
              OR EXISTS (SELECT 1 FROM place_content pc
                          WHERE pc.place_id = p.id
@@ -251,6 +257,7 @@ public class PlaceStore {
       JOIN display d ON d.content_id = c.id
       LEFT JOIN scene s ON s.place_content_id = pc.id
       WHERE pc.place_id IN (:placeIds)
+        AND c.hidden_at IS NULL
       ORDER BY pc.place_id, c.popularity_score DESC, c.id DESC
       """;
 
@@ -326,6 +333,7 @@ public class PlaceStore {
       JOIN display d ON d.content_id = c.id
       LEFT JOIN scene s ON s.place_content_id = pc.id
       WHERE pc.place_id = :id
+        AND c.hidden_at IS NULL
       ORDER BY c.popularity_score DESC, c.id DESC
       """;
 
