@@ -184,17 +184,35 @@ enum RouteGuide {
         } else {
             nil
         }
-        return Card(
+        // 분류·주소는 앱 언어로(MZ2AZ-360). 상세가 왔으면 그 값이 먼저, 아니면 목록이 준 것.
+        let label = PoiLabel.make(
+            name: detail?.name ?? place.name,
+            displayName: detail?.displayName ?? place.displayName,
+            nameRoman: detail?.nameRoman ?? place.nameRoman,
             category: detail?.category ?? place.category,
+            categoryLabel: detail?.categoryLabel ?? place.categoryLabel,
             address: detail?.address ?? place.address,
+            displayAddress: detail?.displayAddress ?? place.displayAddress,
+            korean: AppLanguage.current == .ko
+        )
+        return Card(
+            title: label.title,
+            reading: label.reading,
+            category: label.category,
+            address: label.address,
             phone: detail?.tel,
             images: [],
+            // 네이버는 한국어 이름으로 찾는다 — 영어 이름으로는 가게가 안 나온다.
             naverUrl: NaverMapLink.search(detail?.name ?? place.name, near: detail?.city)
         )
     }
 
     /// 정보 카드 — 편의시설도 촬영지도 우리 자료에서 온다.
     struct Card {
+        /// 편의시설의 제목과 읽는 법 — **상세가 준 값으로 다시 정한 것**이다. 가이드가 찾아 준 곳은 목록에
+        /// 영어 이름·읽는 법이 안 실려 올 수 있어, 카드를 열 때 받은 상세로 채운다. 촬영지는 nil(목록 이름 그대로).
+        var title: String?
+        var reading: String?
         let category: String?
         let address: String?
         let phone: String?
@@ -292,6 +310,23 @@ enum RouteGuide {
         /// 어느 표에서 왔나. 코스 촬영지를 옮긴 것(길찾기 목적지)은 없다.
         let source: Source?
 
+        /// 앱 언어로 적은 이름·분류·주소와 읽는 법(MZ2AZ-360). `name`·`category`·`address` 는 언제나
+        /// 한국어 원본이라 — 네이버 검색·코스 저장·중복 판정에 쓴다 — 화면은 `label` 을 본다.
+        var displayName: String?
+        var nameRoman: String?
+        var categoryLabel: String?
+        var displayAddress: String?
+
+        /// 화면에 적을 글자. 앱 언어가 바뀌면 다음에 그릴 때 따라 바뀐다(서버 값은 요청 때의 언어다).
+        var label: PoiLabel {
+            PoiLabel.make(
+                name: name, displayName: displayName, nameRoman: nameRoman,
+                category: category, categoryLabel: categoryLabel,
+                address: address, displayAddress: displayAddress,
+                korean: AppLanguage.current == .ko
+            )
+        }
+
         /// 코스의 촬영지를 가이드 장소 모양으로 바꿀 때 쓴다(성지 카드의
         /// 「여기로 길찾기」 — 갈아탈 목적지는 이 타입이다).
         init(
@@ -320,6 +355,10 @@ enum RouteGuide {
             longitude = poi.longitude
             group = poi.categoryGroup.rawValue
             source = .poi
+            displayName = poi.displayName
+            nameRoman = poi.nameRoman
+            categoryLabel = poi.categoryLabel
+            displayAddress = poi.displayAddress
         }
 
         /// 가이드가 찾아 준 장소(`GuidePlace`) → 화면 장소. 출처를 id 에 새긴다.
@@ -333,6 +372,11 @@ enum RouteGuide {
             latitude = place.latitude
             longitude = place.longitude
             group = place.categoryGroup.rawValue
+            // 가이드가 찾아 준 곳에는 새 칸이 없을 수 있다(계약) — 없으면 한국어 원본이 보인다.
+            displayName = place.displayName
+            nameRoman = place.nameRoman
+            categoryLabel = place.categoryLabel
+            displayAddress = place.displayAddress
         }
 
         /// 편의시설의 서버 id. 촬영지·옮긴 것은 nil.

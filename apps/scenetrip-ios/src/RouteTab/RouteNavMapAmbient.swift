@@ -24,7 +24,7 @@ extension RouteNavMapView.Coordinator {
                 ? PinoPin.marker(.picked)
                 : PinoPin.guideDot(for: place)
             marker.anchor = isPicked ? CGPoint(x: 0.5, y: 1) : CGPoint(x: 0.5, y: 0.5)
-            PinoPin.caption(marker, name: place.name, picked: isPicked, ambient: true)
+            PinoPin.caption(marker, name: place.label.caption, picked: isPicked, ambient: true)
             marker.zIndex = isPicked ? 30 : 3
             marker.touchHandler = { [weak self] _ in
                 self?.onTapPlace(place)
