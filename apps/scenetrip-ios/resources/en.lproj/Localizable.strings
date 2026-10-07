@@ -431,6 +431,7 @@
 "더 불러오지 못했어요 · 다시 시도" = "Couldn't load more · Try again";
 "탈퇴한 사용자" = "Deleted user";
 "내 리뷰" = "My review";
+"내 리뷰|목록" = "My reviews";
 "수정됨" = "Edited";
 
 /* 리뷰 쓰기 (MZ2AZ-363) */
@@ -452,3 +453,9 @@
 "리뷰 글" = "Review text";
 "글이 너무 길어요" = "Too long";
 "저장 중" = "Saving";
+
+/* 내 리뷰 · 탈퇴 안내 (MZ2AZ-363) */
+"아직 쓴 리뷰가 없어요" = "You haven't written a review yet";
+"다녀온 촬영지와 가게에 별점을 남겨 보세요" = "Rate the filming spots and places you've visited";
+"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰는 익명으로 남습니다. 지우려면 탈퇴 전에 지우세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews you wrote stay, without your name. Delete them first if you want them gone.";
+"편의시설" = "Place nearby";

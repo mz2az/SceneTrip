@@ -21,6 +21,8 @@ struct ProfileTabView: View {
     @State private var confirmingDelete = false
     /// 닉네임 바꾸기 시트 (MZ2AZ-363).
     @State private var editingNickname = false
+    /// 내 리뷰 시트 (MZ2AZ-363).
+    @State private var showingMyReviews = false
     @State private var deleteFailed = false
 
     @State private var courses: [CourseSummary] = []
@@ -143,6 +145,7 @@ struct ProfileTabView: View {
                             value: String(format: tr("%d개"), posts.mine.count), chevron: true)
                     }
                     .buttonStyle(.plain)
+                    myReviewsRow
                 }
 
                 Section("AI 여행 릴스") {
@@ -289,6 +292,10 @@ struct ProfileTabView: View {
                 MyPostsSheet()
                     .presentationDetents([.medium, .large])
             }
+            .sheet(isPresented: $showingMyReviews) {
+                MyReviewsView()
+                    .presentationDetents([.large])
+            }
         }
     }
 
@@ -402,6 +409,18 @@ extension ProfileTabView {
         .padding(.vertical, 12)
     }
 
+    /// 내 리뷰 — 가입한 사람에게만 보인다(리뷰는 가입해야 쓴다, MZ2AZ-363).
+    @ViewBuilder var myReviewsRow: some View {
+        if auth.signedIn {
+            Button {
+                showingMyReviews = true
+            } label: {
+                row(symbol: "star.bubble", tint: .orange, title: tr("내 리뷰", at: "목록"), value: "", chevron: true)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
     /// 계정 — 로그아웃과 탈퇴. 탈퇴는 App Store 요건이라 앱 안에 있어야 한다.
     @ViewBuilder var accountSection: some View {
         if auth.signedIn {
@@ -436,7 +455,8 @@ extension ProfileTabView {
                     }
                     Button("취소", role: .cancel) {}
                 } message: {
-                    Text("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.")
+                    // 리뷰만 예외다 — 다른 사람을 위한 장소 정보라 작성자 표시 없이 남는다(서버 결정, MZ2AZ-362).
+                    Text("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰는 익명으로 남습니다. 지우려면 탈퇴 전에 지우세요.")
                 }
                 .alert("탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요", isPresented: $deleteFailed) {
                     Button("확인", role: .cancel) {}

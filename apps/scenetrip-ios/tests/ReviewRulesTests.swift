@@ -121,6 +121,16 @@ final class ReviewRulesTests: XCTestCase {
         XCTAssertFalse(ReviewRules.changed(from: starsOnly, rating: 3, body: "  \n"))
     }
 
+    /// 내 리뷰 목록의 대상이 리뷰 시트의 대상으로 바르게 옮겨진다 — 촬영지 7 과 편의시설 7 은 다르다.
+    func testMyReviewTargetMapsToTheRightSubject() {
+        XCTAssertEqual(
+            MyReviewRules.subject(of: ReviewTarget(type: .place, id: 7, name: "경복궁")), .place(7)
+        )
+        XCTAssertEqual(
+            MyReviewRules.subject(of: ReviewTarget(type: .poi, id: 7, name: "투썸")), .poi(7)
+        )
+    }
+
     func testHasMore() {
         XCTAssertTrue(ReviewRules.hasMore(loaded: 20, total: 23))
         XCTAssertFalse(ReviewRules.hasMore(loaded: 23, total: 23))
