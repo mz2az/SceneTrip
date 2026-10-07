@@ -131,26 +131,6 @@ spec:
                   name: scene-api-secrets
                   key: SCENETRIP_AUTH_APPLE_PRIVATE_KEY
                   optional: true
-            # 사용자 사진 버킷과 그 버킷 전용 키(dev 버킷) — 셋 다 optional: 없으면 사진 올리기만 503.
-            # DEV·PRD(EKS)는 키 없이 Pod Identity 를 쓴다. 키는 로컬에만 있다.
-            - name: SCENETRIP_MEDIA_BUCKET
-              valueFrom:
-                secretKeyRef:
-                  name: scene-api-secrets
-                  key: SCENETRIP_MEDIA_BUCKET
-                  optional: true
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: scene-api-secrets
-                  key: AWS_ACCESS_KEY_ID
-                  optional: true
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: scene-api-secrets
-                  key: AWS_SECRET_ACCESS_KEY
-                  optional: true
           resources:
             requests:
               cpu: 100m

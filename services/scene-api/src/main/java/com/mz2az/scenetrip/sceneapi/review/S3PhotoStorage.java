@@ -4,6 +4,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -14,8 +15,8 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
  * S3 의 사용자 사진 버킷({@code scenetrip-user-media-<계정>-<리전>-<환경>}, bootstrap 이 만든다 — 계획 {@code
  * review.md} §13).
  *
- * <p>자격 증명은 SDK 의 기본 사슬이 찾는다: EKS 에서는 Pod Identity 가 준 역할, 로컬에서는 {@code .env} 의 이 버킷 전용 키. 코드에 키가
- * 없다.
+ * <p>자격 증명은 설정이 고른다({@link PhotoStorageConfiguration}): DEV·PRD 는 SDK 기본 사슬(EKS Pod Identity), 로컬은
+ * kind 안 MinIO 의 고정값. 코드에 키가 없다.
  */
 final class S3PhotoStorage implements PhotoStorage {
 
@@ -23,12 +24,20 @@ final class S3PhotoStorage implements PhotoStorage {
   static final Duration VIEW_TTL = Duration.ofHours(1);
 
   private final S3Client s3;
-  private final S3Presigner presigner;
+  private final Supplier<S3Presigner> presigners;
   private final String bucket;
 
   S3PhotoStorage(S3Client s3, S3Presigner presigner, String bucket) {
+    this(s3, () -> presigner, bucket);
+  }
+
+  /**
+   * 서명기를 요청마다 고른다 — 로컬 MinIO 처럼 앱이 저장소를 부르는 주소가 요청마다 다를 때(시뮬레이터 localhost, 에뮬레이터 10.0.2.2). 서명에 주소가
+   * 들어가 앱이 바꿀 수 없어서다({@link PhotoStorageConfiguration}).
+   */
+  S3PhotoStorage(S3Client s3, Supplier<S3Presigner> presigners, String bucket) {
     this.s3 = s3;
-    this.presigner = presigner;
+    this.presigners = presigners;
     this.bucket = bucket;
   }
 
@@ -40,7 +49,8 @@ final class S3PhotoStorage implements PhotoStorage {
   @Override
   public URI viewUrl(String storageKey) {
     try {
-      return presigner
+      return presigners
+          .get()
           .presignGetObject(
               r ->
                   r.signatureDuration(VIEW_TTL)
@@ -56,15 +66,17 @@ final class S3PhotoStorage implements PhotoStorage {
   public PresignedUpload presignUpload(
       String storageKey, String contentType, long bytes, Duration expiresIn) {
     PresignedPutObjectRequest p =
-        presigner.presignPutObject(
-            r ->
-                r.signatureDuration(expiresIn)
-                    .putObjectRequest(
-                        o ->
-                            o.bucket(bucket)
-                                .key(storageKey)
-                                .contentType(contentType)
-                                .contentLength(bytes)));
+        presigners
+            .get()
+            .presignPutObject(
+                r ->
+                    r.signatureDuration(expiresIn)
+                        .putObjectRequest(
+                            o ->
+                                o.bucket(bucket)
+                                    .key(storageKey)
+                                    .contentType(contentType)
+                                    .contentLength(bytes)));
     // 서명에 들어간 헤더 중 앱이 붙여야 하는 것. host 는 주소에 이미 있다. 헤더 이름은 정해진 순서로.
     Map<String, String> headers = new TreeMap<>();
     p.signedHeaders()

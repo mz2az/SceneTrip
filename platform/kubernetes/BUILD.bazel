@@ -1,0 +1,15 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+# 로컬 kind 매니페스트끼리의 약속을 클러스터 없이 확인한다 — 리뷰 사진 저장소(MinIO)와 scene-api 가 같은 키·버킷·포트를
+# 쓰는지(docs/project/plans/review.md §14). 어긋나면 kubectl apply 는 성공하고 사진 올리기만 조용히 실패한다.
+py_test(
+    name = "unit_test",
+    srcs = ["tests/test_local_manifests.py"],
+    data = glob(["**/*.yaml"]) + [
+        "//platform/kind:cluster.yaml",
+        "//tools/scripts:stack-up.sh",
+    ],
+    legacy_create_init = 0,
+    main = "tests/test_local_manifests.py",
+    tags = ["unit"],
+)

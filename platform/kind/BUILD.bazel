@@ -1,0 +1,5 @@
+# //platform/kubernetes:unit_test 가 kind 의 포트 잇기(호스트 9000 → MinIO NodePort)를 확인한다(review.md §14).
+exports_files(
+    ["cluster.yaml"],
+    visibility = ["//platform/kubernetes:__pkg__"],
+)

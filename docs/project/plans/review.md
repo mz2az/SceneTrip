@@ -240,3 +240,32 @@ kind 의 리뷰 사진까지 깨진다**(로컬 DB 는 남으므로). 그래서 
 계약 1.4.0 을 고쳤다(앱이 아직 붙기 전): `UploadCreate.contentType` 을 enum 이 아닌 문자열로, `bytes` 의 최댓값을
 설명으로 — 형식·크기 위반도 `UPLOAD_TYPE_UNSUPPORTED`·`UPLOAD_TOO_LARGE` 로 답하려고(제약을 계약에 두면 생성 코드가
 먼저 `INVALID_PARAMETER` 로 막는다). 저장소가 없는 서버는 `503 UPLOAD_UNAVAILABLE`.
+
+## 14. 덧붙임 (2026-10-07) — 로컬은 MinIO
+
+§13 은 로컬 kind 도 dev 버킷을 쓰고, 이 버킷 전용 IAM 사용자 키를 팀원에게 나눠 주기로 했다. **이 AWS 계정은 조직
+정책(SCP `p-31hler8p`)이 IAM 사용자 생성을 막는다** — 관리자 사용자로도, 9 월에 사용자를 만들었던 SSO 로그인으로도
+`iam:CreateUser` 가 explicit deny 다(2026-10-07 실측. 9 월의 세 사용자는 그 전에 만들어졌다). 샌드박스(Innovation
+Sandbox) 계정이라 정책이 바뀐 것으로 보이며 우리 쪽에서는 볼 수 없다.
+
+그래서 **로컬은 클러스터 안의 MinIO(S3 와 같은 API 를 내는 저장소)를 쓴다.** 팀원은 따로 설치하지 않는다 — postgres 처럼
+`just stack-up` 이 띄우고 버킷도 만든다. DEV·PRD 는 바뀌지 않는다(진짜 S3 + Pod Identity, IAM 사용자가 필요 없다).
+
+| | 로컬 | DEV · PRD |
+| --- | --- | --- |
+| 저장소 | MinIO (`platform/kubernetes/minio`, 이미지 `chainguard/minio`) | S3 `scenetrip-user-media-…-<env>` |
+| 서버가 부르는 주소 | `http://minio:9000` (클러스터 안 이름) | S3 기본 |
+| 앱에 주는 서명된 주소 | `http://<앱이 서버를 부른 호스트>:9000` | S3 주소 |
+| 자격 증명 | MinIO 로컬 고정값(ConfigMap) | Pod Identity |
+
+**앱용 주소가 따로인 이유.** 서명된 주소에는 호스트가 서명돼 들어가 앱이 고칠 수 없다. 서버에게 MinIO 는 `minio:9000`
+이지만 그 이름은 클러스터 밖(시뮬레이터·폰)에서 보이지 않는다. kind 가 호스트 9000 을 MinIO 의 NodePort 30090 에 잇고
+(`platform/kind/cluster.yaml` — 클러스터를 만들 때만 정할 수 있어 기존 클러스터는 한 번 새로 만든다), 서버는 앱이 자신을
+부른 호스트에 9000 을 붙여 서명한다 — iOS 시뮬레이터 `localhost`, 안드로이드 에뮬레이터 `10.0.2.2`, 같은 와이파이의 폰은
+맥의 IP. 설정: `scenetrip.media.endpoint` · `public-port` · `access-key` · `secret-key`(로컬 ConfigMap 만).
+
+**MinIO 공식 이미지를 못 쓴다.** `minio/minio`·`quay.io/minio/minio` 를 더 받을 수 없어(2026-10-07) Chainguard 가 같은
+소스로 빌드한 멀티아키텍처 이미지를 다이제스트로 고정했다.
+
+IAM 사용자를 다시 만들 수 있게 되면 로컬도 dev 버킷을 쓸 수 있다 — 서버 코드는 그대로이고 로컬 ConfigMap 의 endpoint ·
+public-port 를 비우고 키를 바꾸면 된다. 그때 키를 나눠 줄지는 그때 정한다.

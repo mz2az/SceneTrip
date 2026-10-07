@@ -32,6 +32,8 @@ SCRIPTS="tools/scripts"
 # scene-api 보다 먼저다. deploy.sh 가 StatefulSet 롤아웃까지 기다리므로, 여기를
 # 지나면 postgres 는 실제로 떠 있다.
 "$SCRIPTS/deploy.sh" postgres local
+# 리뷰 사진 저장소(S3 대역). DEV·PRD 는 진짜 S3 라 로컬만 띄운다(platform/kubernetes/minio).
+"$SCRIPTS/deploy.sh" minio local
 
 # 3. 스키마 -------------------------------------------------------------------
 # 앱도 기동할 때 Flyway 를 돌리지만 여기서 먼저 올린다. 데이터를 넣으려면 그릇이
