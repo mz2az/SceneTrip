@@ -1,0 +1,97 @@
+# MinIO — 로컬 kind 의 S3 대역(리뷰 사진). DEV·PRD 는 진짜 S3 라 이 모듈이 없다.
+#
+# **StatefulSet 인 이유:** postgres 와 같다 — 올린 사진이 파드 재시작에 살아남아야 한다.
+#
+# **chainguard/minio 인 이유:** MinIO 가 공식 컨테이너 이미지(minio/minio, quay.io/minio/minio) 배포를 그만둬 받을 수
+# 없다(2026-10-07 실측). Chainguard 가 같은 소스를 빌드해 멀티아키텍처(arm64·amd64)로 내고 관리 도구 mc 도 들어 있다.
+# 무료판은 latest 태그뿐이라 다이제스트로 못 박는다 — 바꿀 때는 그 다이제스트를 갈아 끼운다.
+#
+# **버킷은 postStart 가 만든다.** MinIO 는 버킷을 스스로 만들지 않는다. 서버가 뜨기를 기다려 mc 로 한 번 만들고, 이미
+# 있으면 그냥 둔다 — 몇 번 재시작해도 같다.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/part-of: scenetrip
+    app.kubernetes.io/managed-by: scenetrip
+spec:
+  serviceName: minio
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: minio
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: minio
+        app.kubernetes.io/part-of: scenetrip
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532 # 이미지의 nonroot 사용자
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: minio
+          image: chainguard/minio@sha256:e7ca559d9f7c0b5f24f5f669bb92f40f3ca88d56273b808bf3a7c116c17d2ffa
+          imagePullPolicy: IfNotPresent
+          args: ["server", "/data", "--address", ":9000"]
+          ports:
+            - name: s3
+              containerPort: 9000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: minio
+          env:
+            # mc 가 설정을 쓸 자리. 읽기 전용 홈에 쓰려다 실패하지 않게 임시 디렉터리로.
+            - name: MC_CONFIG_DIR
+              value: /tmp/mc
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - |
+                    for i in $(seq 1 60); do
+                      mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null 2>&1 && break
+                      sleep 1
+                    done
+                    mc mb --ignore-existing "local/$MEDIA_BUCKET"
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: s3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: s3
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

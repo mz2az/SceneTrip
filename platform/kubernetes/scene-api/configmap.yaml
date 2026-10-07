@@ -26,6 +26,20 @@ data:
   # 기본 비율(25%)이 낮아 512Mi 한도에서 힙이 128Mi 밖에 안 잡힌다.
   JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=40"
 
+  # 리뷰 사진 저장소 — 로컬은 클러스터 안 MinIO(platform/kubernetes/minio). DEV·PRD 는 진짜 S3 라 이 넷이 없다(Helm).
+  #   ENDPOINT     서버가 MinIO 와 직접 대화할 주소(사진 옮기기·지우기) — 클러스터 안의 이름
+  #   PUBLIC_PORT  앱에 줄 서명된 주소의 포트. 호스트는 앱이 이 서버를 부른 주소를 따른다 — iOS 시뮬레이터
+  #                localhost, 안드로이드 에뮬레이터 10.0.2.2, 같은 와이파이의 폰은 맥의 IP. kind 가 호스트 9000 을
+  #                MinIO 에 잇는다(platform/kind/cluster.yaml). 서명에 주소가 들어가 앱이 바꿀 수 없어서다
+  #   ACCESS/SECRET  MinIO ConfigMap 과 같은 로컬 고정값. 진짜 비밀이 아니다
+  #   REGION       MinIO 의 기본 리전. 서명에 들어가므로 맞아야 한다
+  SCENETRIP_MEDIA_BUCKET: "scenetrip-user-media"
+  SCENETRIP_MEDIA_ENDPOINT: "http://minio:9000"
+  SCENETRIP_MEDIA_PUBLIC_PORT: "9000"
+  SCENETRIP_MEDIA_ACCESS_KEY: "scenetrip"
+  SCENETRIP_MEDIA_SECRET_KEY: "scenetrip-local-minio"
+  SCENETRIP_MEDIA_REGION: "us-east-1"
+
   # ── OpenTelemetry ──────────────────────────────────────────────────────────
   #
   # 에이전트 자체는 이미지가 들고 있다 (services/scene-api/Dockerfile). 여기 있는

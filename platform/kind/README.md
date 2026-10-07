@@ -11,6 +11,7 @@
 | 호스트 | NodePort | 용도 |
 | --- | --- | --- |
 | `localhost:8080` | 30080 | SigNoz UI |
+| `localhost:9000` | 30090 | MinIO S3 API — 로컬 리뷰 사진. 앱이 서명된 주소로 여기에 올린다 |
 | `localhost:8081` | 30081 | 애플리케이션 API |
 
 `extraPortMappings` 는 **클러스터를 만드는 시점에만** 정할 수 있다. 포트를 추가하려면

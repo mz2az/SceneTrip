@@ -12,3 +12,9 @@ py_test(
     main = "test_format.py",
     tags = ["unit"],
 )
+
+# //platform/kubernetes:unit_test 가 로컬 스택이 MinIO 를 띄우는지 확인한다(review.md §14).
+exports_files(
+    ["stack-up.sh"],
+    visibility = ["//platform/kubernetes:__pkg__"],
+)

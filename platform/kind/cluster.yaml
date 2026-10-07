@@ -8,6 +8,7 @@
 # ----------|----------|-------------------------------
 #   8080    |  30080   | SigNoz UI
 #   8081    |  30081   | application API (first service)
+#   9000    |  30090   | MinIO S3 API — local review photos (apps PUT/GET presigned URLs here)
 #
 # NOTE: these host ports are shared with any other kind cluster on this machine.
 # Running two projects' clusters at once will collide — stop one first.
@@ -22,4 +23,7 @@ nodes:
         protocol: TCP
       - containerPort: 30081
         hostPort: 8081
+        protocol: TCP
+      - containerPort: 30090
+        hostPort: 9000
         protocol: TCP

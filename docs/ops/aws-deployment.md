@@ -305,7 +305,7 @@ kind 의 리뷰 사진도 그대로다. 계획: [review.md](../project/plans/rev
 | 버킷(비공개·TLS 강제·`uploads/tmp/` 하루 뒤 삭제) · `scenetrip-<env>-media` 역할(Pod Identity) | bootstrap 템플릿 | bootstrap apply |
 | scene-api 파드 ↔ 역할 연결(`aws_eks_pod_identity_association`) · 버킷 이름 출력 | `platform/terraform/aws/eks.tf` | 배포(올리기) |
 | 파드의 서비스 계정 `scene-api` · `SCENETRIP_MEDIA_BUCKET` | Helm | 배포 |
-| 로컬 kind 용 dev 버킷 전용 키 | IAM 사용자 `scenetrip-dev-local-media` | **계정 관리자, 한 번** |
+| (로컬 kind) | 클러스터 안 MinIO — AWS 를 쓰지 않는다 | `just stack-up` |
 
 **처음 한 번 — 계정 관리자가 한다.**
 
@@ -318,17 +318,8 @@ kind 의 리뷰 사진도 그대로다. 계획: [review.md](../project/plans/rev
    ```
 2. GitHub Actions 의 bootstrap workflow 로 그 환경을 apply 한다 — 버킷·`-media` 역할이 생기고 배포 역할에 Pod
    Identity 권한이 붙는다.
-3. 로컬용 IAM 사용자(dev 만). 이 버킷의 두 접두사만 다룬다:
-
-   ```bash
-   aws --profile default iam create-user --user-name scenetrip-dev-local-media
-   aws --profile default iam put-user-policy --user-name scenetrip-dev-local-media \
-     --policy-name UserMediaObjects --policy-document file://<위 -media 역할과 같은 정책 JSON>
-   aws --profile default iam create-access-key --user-name scenetrip-dev-local-media
-   ```
-
-   받은 두 값과 버킷 이름을 팀원 `.env` 의 `SCENETRIP_MEDIA_*` 에 넣고 `just secrets-apply` → `just restart scene-api`.
-   키는 저장소·채팅에 남기지 않는다.
+3. ~~로컬용 IAM 사용자~~ — **만들 수 없다.** 조직 정책(SCP)이 `iam:CreateUser` 를 막는다(2026-10-07). 로컬은 MinIO 를
+   쓴다([review.md](../project/plans/review.md) §14).
 
 그 뒤 dev 를 올리면 파드가 키 없이 역할을 받는다. 버킷이 없거나 설정이 비면 서버는 뜨고 `POST /uploads` 만
 `503 UPLOAD_UNAVAILABLE` 이다.

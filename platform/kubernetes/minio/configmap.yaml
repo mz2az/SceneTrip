@@ -1,0 +1,20 @@
+# MinIO 접속 정보 — 로컬 kind 전용 고정값.
+#
+# 진짜 비밀이 아니다. 이 MinIO 는 내 맥 안에서만 돌고(호스트 9000 → NodePort 30090), 담기는 것은 로컬에서 시험으로 올린
+# 리뷰 사진뿐이다. postgres ConfigMap 의 비밀번호와 같은 자리다. scene-api ConfigMap 이 같은 값을 들고 있다.
+#
+# 로컬만 MinIO 인 이유: 이 AWS 계정은 조직 정책(SCP)이 IAM 사용자 생성을 막아, 팀원에게 dev 버킷 키를 나눠 줄 수 없다
+# (2026-10-07). DEV·PRD 는 진짜 S3 + Pod Identity 다. docs/project/plans/review.md §14.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/part-of: scenetrip
+    app.kubernetes.io/managed-by: scenetrip
+data:
+  MINIO_ROOT_USER: scenetrip
+  MINIO_ROOT_PASSWORD: scenetrip-local-minio
+  # 버킷 하나. 이름은 scene-api ConfigMap 의 SCENETRIP_MEDIA_BUCKET 과 같아야 한다.
+  MEDIA_BUCKET: scenetrip-user-media
