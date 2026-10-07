@@ -35,10 +35,20 @@ struct RoutePlaceCard: View {
     /// `card` 가 어느 장소의 것인가. 카드가 열린 채 다른 점을 누르면 `.task` 가 비우기 전 한 프레임은
     /// 앞 가게의 카드가 남아 있다 — 머리줄이 앞 가게 이름을 적지 않게 가른다.
     @State private var cardFor: String?
+    /// 리뷰 시트 (MZ2AZ-363).
+    @State private var reviewing: ReviewSubject?
 
     /// 지금 장소의 카드. 앞 장소의 것이면 없는 것으로 친다.
     private var fresh: RouteGuide.Card? {
         cardFor == place.id ? card : nil
+    }
+
+    /// 리뷰가 붙는 대상 — 편의시설이면 편의시설, 촬영지면 촬영지. 코스에서 옮긴 것(둘 다 아님)은 없다.
+    private var subject: ReviewSubject? {
+        if let poiId = place.poiId {
+            return .poi(poiId)
+        }
+        return place.placeId.map { .place($0) }
     }
 
     @State private var loading = true
@@ -46,6 +56,12 @@ struct RoutePlaceCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+
+            // 별점 한 줄 — 서버가 별점을 실어 줄 때만 보인다(MZ2AZ-363).
+            if let subject {
+                RatingLine(rating: fresh?.rating) { reviewing = subject }
+                    .padding(.horizontal, 14).padding(.bottom, 8)
+            }
 
             if loading {
                 HStack(spacing: 8) {
@@ -84,6 +100,7 @@ struct RoutePlaceCard: View {
         // **핀을 갈아탈 때마다 다시 받는다.** `.task {}` 로만 두면 SwiftUI 가 뷰를
         // 재사용할 때 한 번만 돌아서, 다른 고양이를 눌러도 앞 가게 정보가 그대로
         // 남는다(2026-08-27 사용자 지적 — 빨간 고양이는 바뀌는데 카드가 안 바뀜).
+        .reviewsSheet($reviewing, title: fresh?.title ?? place.label.title)
         .task(id: place.id) {
             loading = true
             card = nil

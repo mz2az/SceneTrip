@@ -34,6 +34,8 @@ enum AppEvent: Equatable {
     case search(termLength: Int, kind: String)
     case viewTitle(contentId: Int64)
     case viewPlace(placeId: Int64)
+    /// 리뷰 시트를 열었다(MZ2AZ-363). `target_type` 은 `place`·`poi`.
+    case viewReviews(targetType: String)
 
     // MARK: 담기·찜 (의미 있는 첫 행동)
 
@@ -76,6 +78,7 @@ enum AppEvent: Equatable {
         case .search: "search"
         case .viewTitle: "view_title"
         case .viewPlace: "view_place"
+        case .viewReviews: "view_reviews"
         case .likeTitle: "like_title"
         case .savePlace: "save_place"
         case .generatePlan: "generate_plan"
@@ -97,6 +100,7 @@ enum AppEvent: Equatable {
         case let .setNickname(skipped): ["skipped": skipped ? 1 : 0]
         case let .search(termLength, kind): ["term_length": termLength, "kind": kind]
         case let .viewTitle(contentId): ["content_id": contentId]
+        case let .viewReviews(targetType): ["target_type": targetType]
         case let .viewPlace(placeId), let .savePlace(placeId), let .startTrip(placeId), let .visitStamp(placeId):
             ["place_id": placeId]
         case let .likeTitle(contentId, liked): ["content_id": contentId, "liked": liked ? 1 : 0]

@@ -413,3 +413,21 @@
 "쓸 수 없는 닉네임이에요. 2~16자, 한글·영문·숫자·밑줄(_)만 쓸 수 있어요" = "That nickname can't be used. 2–16 characters: Korean, English letters, numbers, underscores (_)";
 "이미 쓰는 닉네임입니다" = "That nickname is already taken";
 "저장하지 못했어요. 잠시 뒤 다시 해 주세요" = "Couldn't save. Please try again shortly";
+
+/* 리뷰 보기 (MZ2AZ-363) */
+"아직 리뷰가 없어요" = "No reviews yet";
+"리뷰 %d" = "%d reviews";
+"리뷰 %d|하나" = "%d review";
+"리뷰 보기" = "View reviews";
+"리뷰" = "Reviews";
+"정렬" = "Sort";
+"최신순" = "Newest";
+"별점 높은 순" = "Highest rated";
+"별점 낮은 순" = "Lowest rated";
+"다녀온 분의 이야기가 여기에 모여요" = "Stories from people who've been here show up here";
+"리뷰를 불러오지 못했어요" = "Couldn't load reviews";
+"별점 %@점" = "%@ out of 5 stars";
+"더 불러오지 못했어요 · 다시 시도" = "Couldn't load more · Try again";
+"탈퇴한 사용자" = "Deleted user";
+"내 리뷰" = "My review";
+"수정됨" = "Edited";

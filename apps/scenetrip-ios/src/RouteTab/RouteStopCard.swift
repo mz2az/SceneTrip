@@ -13,11 +13,19 @@ struct RouteStopCard: View {
     let onClose: () -> Void
 
     @State private var detail: PlaceDetail?
+    /// 리뷰 시트 (MZ2AZ-363).
+    @State private var reviewing: ReviewSubject?
     @State private var loading = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+
+            // 별점 한 줄 — 직접 찍은 핀(id 음수)에는 리뷰가 없다.
+            if stop.place.id > 0 {
+                RatingLine(rating: detail?.rating) { reviewing = .place(stop.place.id) }
+                    .padding(.horizontal, 14).padding(.bottom, 8)
+            }
 
             if loading {
                 HStack(spacing: 8) {
@@ -86,6 +94,7 @@ struct RouteStopCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(Color(PinImage.light).opacity(0.5), lineWidth: 1)
         )
+        .reviewsSheet($reviewing, title: stop.place.name)
         .task(id: stop.id) {
             loading = true
             detail = nil

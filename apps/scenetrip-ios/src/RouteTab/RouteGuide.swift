@@ -175,7 +175,8 @@ enum RouteGuide {
                 address: detail.address ?? place.address,
                 phone: nil,
                 images: detail.imageUrls ?? [detail.imageUrl].compactMap { $0 },
-                naverUrl: detail.naverPlaceUrl // 촬영지는 전과 같다 — 우리가 가진 링크가 있을 때만.
+                naverUrl: detail.naverPlaceUrl, // 촬영지는 전과 같다 — 우리가 가진 링크가 있을 때만.
+                rating: detail.rating
             )
         }
         // 상세를 못 받아도 카드는 뜬다 — 이름·분류·주소는 목록이 이미 줬다. 전화만 빠진다.
@@ -203,7 +204,8 @@ enum RouteGuide {
             phone: detail?.tel,
             images: [],
             // 네이버는 한국어 이름으로 찾는다 — 영어 이름으로는 가게가 안 나온다.
-            naverUrl: NaverMapLink.search(detail?.name ?? place.name, near: detail?.city)
+            naverUrl: NaverMapLink.search(detail?.name ?? place.name, near: detail?.city),
+            rating: detail?.rating
         )
     }
 
@@ -220,6 +222,8 @@ enum RouteGuide {
         let images: [String]
         /// 「네이버 지도에서 보기」가 갈 곳.
         let naverUrl: String?
+        /// 별점 요약(MZ2AZ-363). 서버가 실어 줄 때만 있다.
+        var rating: RatingSummary?
     }
 
     // MARK: 주고받는 것

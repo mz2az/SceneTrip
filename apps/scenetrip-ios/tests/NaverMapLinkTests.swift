@@ -34,12 +34,13 @@ final class NaverMapLinkTests: XCTestCase {
         XCTAssertNil(NaverMapLink.search("  \n"))
     }
 
-    /// 카드는 네이버 카드 엔드포인트를 모른다 — 리뷰·별점·영업시간 칸이 아예 없다.
+    /// 카드는 네이버 카드 엔드포인트를 모른다 — 네이버의 리뷰 수·별점·영업시간 칸이 없다.
+    /// (`rating` 은 우리 리뷰의 별점이다 — MZ2AZ-363.)
     func testCardHasNoScrapedFields() {
         let card = RouteGuide.Card(
             category: "카페", address: "서울 중구", phone: nil, images: [], naverUrl: nil
         )
         let fields = Mirror(reflecting: card).children.compactMap(\.label)
-        XCTAssertEqual(Set(fields), ["title", "reading", "category", "address", "phone", "images", "naverUrl"])
+        XCTAssertEqual(Set(fields), ["title", "reading", "category", "address", "phone", "images", "naverUrl", "rating"])
     }
 }
