@@ -32,6 +32,15 @@ struct RoutePlaceCard: View {
     let onClose: () -> Void
 
     @State private var card: RouteGuide.Card?
+    /// `card` 가 어느 장소의 것인가. 카드가 열린 채 다른 점을 누르면 `.task` 가 비우기 전 한 프레임은
+    /// 앞 가게의 카드가 남아 있다 — 머리줄이 앞 가게 이름을 적지 않게 가른다.
+    @State private var cardFor: String?
+
+    /// 지금 장소의 카드. 앞 장소의 것이면 없는 것으로 친다.
+    private var fresh: RouteGuide.Card? {
+        cardFor == place.id ? card : nil
+    }
+
     @State private var loading = true
 
     var body: some View {
@@ -111,9 +120,16 @@ struct RoutePlaceCard: View {
     /// `wraps` 가 아니면 한 줄 폭을 그대로 요구한다 — `ViewThatFits` 가 그것으로 들어가는지 잰다.
     private func title(wraps: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(place.name).font(.headline)
+            Text(fresh?.title ?? place.label.title).font(.headline)
                 .lineLimit(wraps ? nil : 1)
                 .fixedSize(horizontal: !wraps, vertical: true)
+            // 영어 이름이 없는 가게는 한글 이름 아래 읽는 법을 적는다(MZ2AZ-360). 상세가 왔으면 그 값이
+            // 먼저다 — 가이드가 찾아 준 곳은 목록에 읽는 법이 없고 상세에만 있다.
+            if let reading = fresh?.title == nil ? place.label.reading : fresh?.reading {
+                Text(reading).font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(wraps ? nil : 1)
+                    .fixedSize(horizontal: !wraps, vertical: true)
+            }
             if let meters = place.distanceMeters {
                 Text("\(meters) m").font(.caption).foregroundStyle(.secondary).fixedSize()
             }
@@ -124,7 +140,7 @@ struct RoutePlaceCard: View {
     /// 아이콘만 두면 「더 보기」인지 아무도 모른다(2026-08-27 사용자 지적) — 글자째 둔 미니 캡슐이다.
     @ViewBuilder
     private var naverLink: some View {
-        if let link = card?.naverUrl, let url = URL(string: link) {
+        if let link = fresh?.naverUrl, let url = URL(string: link) {
             Link(destination: url) {
                 HStack(spacing: 3) {
                     Text("네이버 지도에서 보기").font(.caption2.weight(.semibold))
@@ -223,7 +239,7 @@ struct RoutePlaceCard: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("정보를 불러오지 못했습니다")
                 .font(.subheadline.weight(.medium))
-            if let category = place.category {
+            if let category = place.label.category {
                 Text(category).font(.caption2).foregroundStyle(.tertiary)
             }
         }
@@ -237,7 +253,10 @@ struct RoutePlaceCard: View {
                 Text(label)
                     .font(.caption).foregroundStyle(.secondary)
                     .frame(width: 76, alignment: .leading)
+                // 영문 주소는 길다 — 좁은 카드(가이드 시트 안)에서 「42-8 Naksan-gil, Jo…」로 잘렸다. 줄을 바꾼다.
                 Text(value).font(.caption)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 14).padding(.vertical, 7)
@@ -246,7 +265,9 @@ struct RoutePlaceCard: View {
     }
 
     private func load() async {
+        let asked = place.id
         card = await RouteGuide.card(for: place)
+        cardFor = asked
         loading = false
     }
 }

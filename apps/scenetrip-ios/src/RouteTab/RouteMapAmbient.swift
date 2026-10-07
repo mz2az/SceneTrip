@@ -14,7 +14,8 @@ extension RouteMapView.Coordinator {
         picked: RouteGuide.Place?,
         on mapView: NMFMapView
     ) {
-        let key = places.map(\.id).joined(separator: ",") + "|\(picked?.id ?? "-")"
+        // 언어도 열쇠다 — 같은 목록이라도 앱 언어가 바뀌면 이름표를 다시 적는다(MZ2AZ-360).
+        let key = places.map(\.id).joined(separator: ",") + "|\(picked?.id ?? "-")|\(AppLanguage.current.rawValue)"
         guard key != lastAmbientKey else { return }
         lastAmbientKey = key
 
@@ -29,7 +30,7 @@ extension RouteMapView.Coordinator {
                 : PinoPin.guideDot(for: place)
             marker.anchor = isPicked ? CGPoint(x: 0.5, y: 1) : CGPoint(x: 0.5, y: 0.5)
             // 챗봇 결과보다 늦게 이름이 나온다 — 배경은 배경답게 조용해야 한다.
-            PinoPin.caption(marker, name: place.name, picked: isPicked, ambient: true)
+            PinoPin.caption(marker, name: place.label.caption, picked: isPicked, ambient: true)
             marker.zIndex = isPicked ? 30 : 3
             marker.touchHandler = { [weak self] _ in
                 self?.onTapGuide(place)

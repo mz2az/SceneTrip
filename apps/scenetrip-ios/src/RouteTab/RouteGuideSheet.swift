@@ -242,12 +242,16 @@ struct RouteGuideSheet: View {
                     }
                     .frame(width: 16, height: 16)
                     VStack(alignment: .leading, spacing: 1) {
-                        HStack(spacing: 4) {
-                            Text(place.name)
-                                .font(.caption.weight(isPicked ? .bold : .medium))
-                                .lineLimit(1)
+                        let label = place.label
+                        Text(label.title)
+                            .font(.caption.weight(isPicked ? .bold : .medium))
+                            .lineLimit(1)
+                        // 영어 이름이 없는 가게 — 한글 간판 아래 읽는 법(MZ2AZ-360).
+                        if let reading = label.reading {
+                            Text(reading)
+                                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                         }
-                        Text([place.category, place.address]
+                        Text([label.category, label.address]
                             .compactMap { $0 }.joined(separator: " · "))
                             .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
                     }
