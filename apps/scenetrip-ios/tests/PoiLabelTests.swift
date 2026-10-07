@@ -17,12 +17,18 @@ final class PoiLabelTests: XCTestCase {
         )
     }
 
-    /// 영어 이름이 있으면 그것이 제목이고, 읽는 법은 덧붙이지 않는다.
-    func testEnglishNameIsTheTitle() {
+    /// 영어 이름이 있으면 그것이 제목이고, 그 아래는 **한국어 이름**이다 — 간판과 맞춰 본다(티켓).
+    func testEnglishNameIsTheTitleAndKoreanGoesBeneath() {
         let shown = label(name: "스타벅스 명동점", displayName: "Starbucks Myeongdong Branch", nameRoman: "Seutabeokseu")
         XCTAssertEqual(shown.title, "Starbucks Myeongdong Branch")
-        XCTAssertNil(shown.reading)
+        XCTAssertEqual(shown.reading, "스타벅스 명동점")
+        // 지도 이름표는 한 줄뿐이라 영어 이름만.
         XCTAssertEqual(shown.caption, "Starbucks Myeongdong Branch")
+    }
+
+    /// 영어 이름이 원래 이름과 같은 글자면 아래에 또 적지 않는다.
+    func testSameEnglishAndOriginalNameIsNotRepeated() {
+        XCTAssertNil(label(name: "GS25", displayName: "gs25", nameRoman: "GS25").reading)
     }
 
     /// 영어 이름이 없으면 **한글 이름을 지우지 않는다** — 간판이 한글이다. 아래에 읽는 법.
@@ -39,20 +45,29 @@ final class PoiLabelTests: XCTestCase {
     /// 한국어 화면은 전과 같다 — 서버가 영어 칸을 비워 보내고, 읽는 법은 와도 쓰지 않는다.
     func testKoreanScreenIsUnchanged() {
         let shown = label(displayName: nil, categoryLabel: "한식", displayAddress: nil, korean: true)
-        XCTAssertEqual(shown, PoiLabel(title: "명동해물탕", reading: nil, category: "한식", address: "서울 중구 명동2가"))
+        XCTAssertEqual(
+            shown,
+            PoiLabel(title: "명동해물탕", reading: nil, roman: nil, category: "한식", address: "서울 중구 명동2가")
+        )
         XCTAssertEqual(shown.caption, "명동해물탕")
     }
 
     /// 영어로 받아 둔 목록이 남은 채 한국어로 바꿔도 영어가 섞여 나오지 않는다.
     func testKoreanScreenIgnoresStaleEnglishFields() {
         let shown = label(name: "스타벅스 명동점", displayName: "Starbucks Myeongdong Branch", korean: true)
-        XCTAssertEqual(shown, PoiLabel(title: "스타벅스 명동점", reading: nil, category: "한식", address: "서울 중구 명동2가"))
+        XCTAssertEqual(
+            shown,
+            PoiLabel(title: "스타벅스 명동점", reading: nil, roman: nil, category: "한식", address: "서울 중구 명동2가")
+        )
     }
 
     /// 새 칸이 없으면(옛 서버·가이드가 찾아 준 곳) 한국어 원본이 그대로 보인다.
     func testMissingFieldsFallBackToTheOriginal() {
         let shown = label(nameRoman: nil, categoryLabel: nil, displayAddress: "  ")
-        XCTAssertEqual(shown, PoiLabel(title: "명동해물탕", reading: nil, category: "한식", address: "서울 중구 명동2가"))
+        XCTAssertEqual(
+            shown,
+            PoiLabel(title: "명동해물탕", reading: nil, roman: nil, category: "한식", address: "서울 중구 명동2가")
+        )
     }
 
     /// 영어 이름 칸이 빈 글자로 와도 없는 것으로 친다 — 한글 이름과 읽는 법이 나온다.
