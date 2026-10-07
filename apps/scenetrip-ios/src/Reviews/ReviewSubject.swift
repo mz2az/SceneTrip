@@ -40,4 +40,36 @@ enum ReviewSubject: Hashable, Identifiable {
             )
         }
     }
+
+    /// 내가 이 대상에 쓴 리뷰. 없으면 nil(`404 REVIEW_NOT_FOUND`) — 빈 쓰기 화면을 연다.
+    func myReview() async throws -> Review? {
+        do {
+            switch self {
+            case let .place(id): return try await ReviewsAPI.getMyPlaceReview(placeId: id)
+            case let .poi(id): return try await ReviewsAPI.getMyPoiReview(poiId: id)
+            }
+        } catch let ErrorResponse.error(status, data, _, _)
+            where status == 404 && AuthRules.apiCode(from: data) == "REVIEW_NOT_FOUND"
+        {
+            // 404 가 전부 「리뷰 없음」 은 아니다 — 장소가 없어진 것(`PLACE_NOT_FOUND`·`POI_NOT_FOUND`)은 실패다.
+            return nil
+        }
+    }
+
+    /// 쓰기·고치기 — 한 대상에 한 개라, 있으면 고친다. **보낸 것이 전부다**: 남길 사진은 그 키를 그대로 보낸다.
+    func save(rating: Int, body: String?, photoKeys: [String]) async throws -> Review {
+        let input = ReviewInput(rating: rating, body: body, photoKeys: photoKeys)
+        switch self {
+        case let .place(id): return try await ReviewsAPI.putMyPlaceReview(placeId: id, reviewInput: input)
+        case let .poi(id): return try await ReviewsAPI.putMyPoiReview(poiId: id, reviewInput: input)
+        }
+    }
+
+    /// 지우기. 되돌릴 수 없다 — 부르는 쪽이 확인 창을 띄운 뒤에 부른다.
+    func deleteMine() async throws {
+        switch self {
+        case let .place(id): try await ReviewsAPI.deleteMyPlaceReview(placeId: id)
+        case let .poi(id): try await ReviewsAPI.deleteMyPoiReview(poiId: id)
+        }
+    }
 }

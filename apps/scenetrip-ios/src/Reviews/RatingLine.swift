@@ -51,9 +51,12 @@ struct RatingLine: View {
 
 extension View {
     /// 리뷰 시트를 올릴 자리. `subject` 가 차면 뜬다.
-    func reviewsSheet(_ subject: Binding<ReviewSubject?>, title: String) -> some View {
+    /// `onChanged` — 리뷰를 쓰거나 지웠다. 별점 줄이 든 상세를 다시 읽는다.
+    func reviewsSheet(
+        _ subject: Binding<ReviewSubject?>, title: String, onChanged: @escaping () -> Void = {}
+    ) -> some View {
         sheet(item: subject) { target in
-            ReviewsSheet(subject: target, title: title)
+            ReviewsSheet(subject: target, title: title, onChanged: onChanged)
                 .presentationDetents([.large])
         }
     }

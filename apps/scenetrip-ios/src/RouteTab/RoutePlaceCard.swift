@@ -100,7 +100,9 @@ struct RoutePlaceCard: View {
         // **핀을 갈아탈 때마다 다시 받는다.** `.task {}` 로만 두면 SwiftUI 가 뷰를
         // 재사용할 때 한 번만 돌아서, 다른 고양이를 눌러도 앞 가게 정보가 그대로
         // 남는다(2026-08-27 사용자 지적 — 빨간 고양이는 바뀌는데 카드가 안 바뀜).
-        .reviewsSheet($reviewing, title: fresh?.title ?? place.label.title)
+        .reviewsSheet($reviewing, title: fresh?.title ?? place.label.title) {
+            Task { await load() }
+        }
         .task(id: place.id) {
             loading = true
             card = nil

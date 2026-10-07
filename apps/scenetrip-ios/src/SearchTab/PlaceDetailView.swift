@@ -64,7 +64,10 @@ struct PlaceDetailView: View {
             ScenePopup(scene: picked, placeName: summary.name)
                 .presentationDetents([.medium])
         }
-        .reviewsSheet($reviewing, title: summary.name)
+        .reviewsSheet($reviewing, title: summary.name) {
+            // 리뷰가 바뀌었다 — 별점 줄이 든 상세를 다시 읽는다.
+            Task { detail = await (try? load(summary.id)) ?? detail }
+        }
     }
 
     /// 베타의 장소 상세와 같은 두 버튼이다 — 담기와 네이버 지도.

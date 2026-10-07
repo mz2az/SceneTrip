@@ -79,6 +79,48 @@ final class ReviewRulesTests: XCTestCase {
         XCTAssertTrue(ReviewRules.spoken(some).contains("23"))
     }
 
+    /// 글은 앞뒤 공백을 떼고, 비면 nil 이다(별점만 남긴 리뷰).
+    func testBodyIsTrimmedAndEmptyBecomesNil() {
+        XCTAssertEqual(ReviewRules.normalizedBody("  좋았어요\n"), "좋았어요")
+        XCTAssertNil(ReviewRules.normalizedBody("   \n "))
+    }
+
+    /// 별점은 필수, 글은 2,000자까지.
+    func testCanSaveNeedsARatingAndRespectsTheBodyLimit() {
+        XCTAssertFalse(ReviewRules.canSave(rating: 0, body: "좋았어요"))
+        XCTAssertTrue(ReviewRules.canSave(rating: 3, body: ""))
+        XCTAssertTrue(ReviewRules.canSave(rating: 5, body: String(repeating: "가", count: 2000)))
+        XCTAssertFalse(ReviewRules.canSave(rating: 5, body: String(repeating: "가", count: 2001)))
+        XCTAssertFalse(ReviewRules.canSave(rating: 6, body: ""))
+    }
+
+    /// 길이는 서버처럼 UTF-16 단위로 센다 — 이모지 한 개는 2 다.
+    func testBodyLengthCountsUtf16Units() {
+        XCTAssertEqual(ReviewRules.bodyLength(" 가나다 "), 3)
+        XCTAssertEqual(ReviewRules.bodyLength("😀"), 2)
+        XCTAssertTrue(ReviewRules.canSave(rating: 5, body: String(repeating: "😀", count: 1000)))
+        XCTAssertFalse(ReviewRules.canSave(rating: 5, body: String(repeating: "😀", count: 1001)))
+    }
+
+    /// 이미 쓴 리뷰와 같으면 고칠 것이 없다. 새 리뷰는 언제나 「바뀜」.
+    func testChangedComparesRatingAndTrimmedBody() {
+        let now = Date()
+        let mine = Review(
+            id: 1, rating: 4, body: "좋았어요", photos: [], author: nil,
+            createdAt: now, updatedAt: now, isMine: true
+        )
+        XCTAssertTrue(ReviewRules.changed(from: nil, rating: 4, body: "좋았어요"))
+        XCTAssertFalse(ReviewRules.changed(from: mine, rating: 4, body: " 좋았어요 "))
+        XCTAssertTrue(ReviewRules.changed(from: mine, rating: 5, body: "좋았어요"))
+        XCTAssertTrue(ReviewRules.changed(from: mine, rating: 4, body: ""))
+        // 글 없이 쓴 리뷰에 공백만 넣은 것은 바뀐 것이 아니다.
+        let starsOnly = Review(
+            id: 2, rating: 3, body: nil, photos: [], author: nil,
+            createdAt: now, updatedAt: now, isMine: true
+        )
+        XCTAssertFalse(ReviewRules.changed(from: starsOnly, rating: 3, body: "  \n"))
+    }
+
     func testHasMore() {
         XCTAssertTrue(ReviewRules.hasMore(loaded: 20, total: 23))
         XCTAssertFalse(ReviewRules.hasMore(loaded: 23, total: 23))

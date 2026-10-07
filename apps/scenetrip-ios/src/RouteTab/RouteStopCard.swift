@@ -94,7 +94,9 @@ struct RouteStopCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(Color(PinImage.light).opacity(0.5), lineWidth: 1)
         )
-        .reviewsSheet($reviewing, title: stop.place.name)
+        .reviewsSheet($reviewing, title: stop.place.name) {
+            Task { detail = await (try? PlacesAPI.getPlace(placeId: stop.place.id)) ?? detail }
+        }
         .task(id: stop.id) {
             loading = true
             detail = nil

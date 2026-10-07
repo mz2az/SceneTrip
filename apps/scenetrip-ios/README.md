@@ -69,6 +69,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 찜 | 서버(`/favorites/contents`)가 정본, 기기에는 사본 (MZ2AZ-335) |
 | 로그인 | 구글 로그인·토큰 키체인 저장·401 자동 갱신·로그아웃·탈퇴 (MZ2AZ-336). 애플 로그인은 자리만 |
 | 리뷰 보기 | 촬영지 상세·성지 카드·편의시설 카드의 별점 줄(「★4.6 · 리뷰 128」) → 리뷰 시트(요약·점수 막대·정렬·목록) — `Reviews/`. 서버가 별점을 안 실어 주면(옛 서버) 줄이 없다 (MZ2AZ-363) |
+| 리뷰 쓰기 | 리뷰 시트의 「리뷰 쓰기」 → 별점(필수)·글(선택, 2,000자). 한 곳에 한 개 — 있으면 고친다. 지우기는 고치는 화면 안에. 가입한 사람만(비회원은 로그인 화면을 거친다). **사진 올리기는 아직 없다** — 서버의 올리기 창구가 붙은 뒤 (MZ2AZ-363) |
 | 닉네임 | 로그인 직후 한 번 묻고(건너뛸 수 있다) 마이페이지에서 바꾼다 — `Reviews/NicknameView`, `PUT /me/nickname`. **서버 구현(MZ2AZ-362) 전이라 저장은 실기로 확인하지 못했다.** 화면만 보려면 `-previewNickname` 실행 인자 (MZ2AZ-363) |
 | 분석 | Firebase Analytics(GA4)로 퍼널 이벤트를 기록한다. `resources/GoogleService-Info.plist`(저장소에 있다, Firebase 프로젝트 `scenetrip-5bf07`)가 있을 때만 켜진다 — 표는 `docs/project/plans/analytics-events.md` (MZ2AZ-353) |
 | 언어 | 한국어·English 를 앱 안에서 고른다(첫 실행, 마이페이지 → 도움 → 언어). 화면 문구와 `Accept-Language` 가 함께 바뀐다 (MZ2AZ-343) |
