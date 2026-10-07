@@ -38,7 +38,7 @@ final class NicknameRulesTests: XCTestCase {
     }
 
     func testAllowedCharacters() {
-        XCTAssertNil(NicknameRules.problem(in: "여행자12345"))
+        XCTAssertNil(NicknameRules.problem(in: "제주러버12345"))
         XCTAssertNil(NicknameRules.problem(in: "Seoul_Fan_07"))
         XCTAssertNil(NicknameRules.problem(in: "ㅋㅋ")) // 낱자는 서버에 맡긴다
         XCTAssertNil(NicknameRules.problem(in: "__"))
@@ -50,6 +50,18 @@ final class NicknameRulesTests: XCTestCase {
         for name in ["제주 러버", "hello!", "a-b", "여행자😀", "旅行者", "たびびと", "name@x", "!"] {
             XCTAssertEqual(NicknameRules.problem(in: name), .badCharacters, name)
         }
+    }
+
+    /// 「여행자 + 숫자」 는 서버가 자동으로 붙이는 꼴이라 고를 수 없다(서버가 `NICKNAME_INVALID` 로 거절한다).
+    func testAutomaticPatternIsReserved() {
+        XCTAssertEqual(NicknameRules.problem(in: "여행자10001"), .reserved)
+        XCTAssertEqual(NicknameRules.problem(in: " 여행자7 "), .reserved)
+        XCTAssertTrue(NicknameRules.isAutomatic("여행자48213"))
+        // 숫자가 없거나 다른 글자가 섞이면 보통 이름이다.
+        XCTAssertNil(NicknameRules.problem(in: "여행자"))
+        XCTAssertNil(NicknameRules.problem(in: "여행자_01"))
+        XCTAssertNil(NicknameRules.problem(in: "여행자10001번"))
+        XCTAssertNil(NicknameRules.problem(in: "제주여행자1"))
     }
 
     /// 로그인 응답의 `nicknameConfirmed` 가 false 일 때만, 그 계정에 한 번만 묻는다.

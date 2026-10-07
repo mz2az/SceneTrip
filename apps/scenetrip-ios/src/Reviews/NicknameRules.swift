@@ -13,6 +13,8 @@ enum NicknameRules {
         case tooShort
         case tooLong
         case badCharacters
+        /// 「여행자 + 숫자」 꼴 — 서버가 자동으로 붙이는 닉네임의 자리라 사람이 고를 수 없다.
+        case reserved
     }
 
     /// 서버에 보낼 모양 — 앞뒤 공백을 뗀다.
@@ -34,7 +36,17 @@ enum NicknameRules {
         if name.count > maxLength {
             return .tooLong
         }
-        return nil
+        return isAutomatic(name) ? .reserved : nil
+    }
+
+    /// 서버가 가입 때 붙여 주는 꼴(`여행자12345`)인가. **이 꼴은 사람이 고를 수 없다** — 고르게 두면
+    /// 나중에 가입하는 사람에게 같은 번호가 붙는 순간 가입이 실패한다(서버 `AuthController`).
+    /// 서버는 이것도 `NICKNAME_INVALID` 로 답해서, 여기서 먼저 갈라 알맞은 안내를 한다.
+    static func isAutomatic(_ raw: String) -> Bool {
+        let name = normalized(raw)
+        guard name.hasPrefix("여행자") else { return false }
+        let digits = name.dropFirst(3)
+        return !digits.isEmpty && digits.unicodeScalars.allSatisfy { (0x30 ... 0x39).contains($0.value) }
     }
 
     /// 한글(완성형·낱자)·영문·숫자·밑줄.
@@ -54,6 +66,7 @@ enum NicknameRules {
         case .tooShort: tr("2자 이상으로 정해 주세요")
         case .tooLong: tr("16자 이하로 정해 주세요")
         case .badCharacters: tr("한글·영문·숫자·밑줄(_)만 쓸 수 있어요")
+        case .reserved: tr("「여행자 + 숫자」 는 자동으로 붙는 이름이라 고를 수 없어요")
         case nil: tr("2~16자, 한글·영문·숫자·밑줄(_)")
         }
     }

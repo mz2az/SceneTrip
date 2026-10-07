@@ -26,9 +26,15 @@ struct NicknameView: View {
         NicknameRules.problem(in: text)
     }
 
-    /// 지금 닉네임과 같으면 저장할 것이 없다(마이페이지). 처음 물을 때는 그대로 눌러도 「정했다」 가 된다.
+    /// 입력란이 지금 닉네임 그대로인가.
     private var unchanged: Bool {
-        mode == .edit && NicknameRules.normalized(text) == auth.me?.nickname
+        NicknameRules.normalized(text) == auth.me?.nickname
+    }
+
+    /// 지금 닉네임 그대로면 규칙을 따지지 않는다 — 자동 닉네임(`여행자12345`)이 미리 채워져 있는데
+    /// 그것을 「고를 수 없는 이름」 이라고 빨갛게 적으면 안 된다.
+    private var shownProblem: NicknameRules.Problem? {
+        unchanged ? nil : problem
     }
 
     var body: some View {
@@ -55,9 +61,9 @@ struct NicknameView: View {
                 .onChange(of: text) { _, _ in serverMessage = nil }
 
             // 서버 판정이 있으면 그것이 먼저다. 없으면 규칙 — 어긴 데가 있을 때만 빨갛게.
-            Text(serverMessage ?? NicknameRules.hint(for: text.isEmpty ? nil : problem))
+            Text(serverMessage ?? NicknameRules.hint(for: text.isEmpty ? nil : shownProblem))
                 .font(.footnote)
-                .foregroundStyle(serverMessage != nil || (!text.isEmpty && problem != nil) ? Color.red : .secondary)
+                .foregroundStyle(serverMessage != nil || (!text.isEmpty && shownProblem != nil) ? Color.red : .secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 8)
 
@@ -99,12 +105,24 @@ struct NicknameView: View {
         }
     }
 
+    /// 마이페이지에서는 바뀐 것이 있어야 저장한다. 처음 물을 때는 미리 채워진 자동 닉네임 그대로도 누를 수 있다
+    /// — 그것은 「이 이름으로 간다」 는 뜻이라 건너뛰기와 같다(서버는 자동 닉네임을 다시 정하는 것을 받지 않는다).
     private var canSave: Bool {
-        !saving && problem == nil && !unchanged
+        guard !saving else { return false }
+        if unchanged {
+            return mode == .welcome && !text.isEmpty
+        }
+        return problem == nil
     }
 
     private func save() {
         guard canSave else { return }
+        if unchanged {
+            // 자동 닉네임 그대로 시작한다 — 서버에 보낼 것이 없다.
+            auth.skipNickname()
+            onDone()
+            return
+        }
         saving = true
         focused = false
         Task {
