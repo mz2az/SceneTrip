@@ -8,6 +8,7 @@ final class AppEventTests: XCTestCase {
     private let all: [AppEvent] = [
         .selectLanguage("en"), .tutorialBegin, .tutorialComplete,
         .signUp(method: "google"), .login(method: "google"), .logout, .deleteAccount,
+        .setNickname(skipped: true),
         .screenView("home"), .search(termLength: 6, kind: "content"),
         .viewTitle(contentId: 1), .viewPlace(placeId: 38),
         .likeTitle(contentId: 1, liked: true), .savePlace(placeId: 38),

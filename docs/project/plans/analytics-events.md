@@ -40,6 +40,7 @@ flowchart LR
 | `login` ★ | 다시 로그인 | `method` | 〃 | 〃 |
 | `logout` | 로그아웃 | — | `AuthStore.signOut` | 〃 |
 | `delete_account` | 탈퇴 | — | `AuthStore.deleteAccount` | 〃 |
+| `set_nickname` | 닉네임을 정했다·건너뛰었다(MZ2AZ-363) | `skipped`(1·0) — **닉네임 자체는 보내지 않는다** | `AuthStore.setNickname`·`skipNickname` | 아직 |
 | `screen_view` ★ | 탭·덮개가 바뀌었다 | `screen_name` = `search`·`home`·`community`·`courses`·`profile` | `RootTabs` | `RootTabs` |
 | `search` ★ | 검색어를 확정했다 | `term_length`, `kind`(`content`·`person`·`place`·`typed`) — **검색어 원문은 보내지 않는다** | `SearchTabView.commit` | `SceneData.search` + `SearchTabScreen.commit` |
 | `view_title` | 작품 상세를 열었다 | `content_id` | `ContentDetailView` | `ContentDetailView` |

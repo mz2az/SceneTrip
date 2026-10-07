@@ -399,3 +399,17 @@
 "다녀온 코스와 사진으로 첫 후기를 남겨 보세요" = "Share your first review with your course and photos";
 "외 %d곳" = "+%d more";
 "장소 모두 보기" = "Show all places";
+
+/* 닉네임 (MZ2AZ-363) */
+"닉네임을 정해 주세요" = "Choose a nickname";
+"닉네임 바꾸기" = "Change nickname";
+"리뷰와 후기에 이 이름으로 보여요. 로그인 계정의 이름은 다른 사람에게 보이지 않습니다." = "Your reviews and posts show this name. The name on your sign-in account is never shown to others.";
+"닉네임" = "Nickname";
+"이 닉네임으로 시작" = "Use this nickname";
+"2자 이상으로 정해 주세요" = "Use at least 2 characters";
+"16자 이하로 정해 주세요" = "Use 16 characters or fewer";
+"한글·영문·숫자·밑줄(_)만 쓸 수 있어요" = "Only Korean, English letters, numbers and underscores (_)";
+"2~16자, 한글·영문·숫자·밑줄(_)" = "2–16 characters: Korean, English letters, numbers, underscores (_)";
+"쓸 수 없는 닉네임이에요. 2~16자, 한글·영문·숫자·밑줄(_)만 쓸 수 있어요" = "That nickname can't be used. 2–16 characters: Korean, English letters, numbers, underscores (_)";
+"이미 쓰는 닉네임입니다" = "That nickname is already taken";
+"저장하지 못했어요. 잠시 뒤 다시 해 주세요" = "Couldn't save. Please try again shortly";
