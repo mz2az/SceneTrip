@@ -126,6 +126,7 @@ public class SuggestionStore {
               NULLIF(btrim(split_part(pi.address, ' ', 1) || ' ' || split_part(pi.address, ' ', 2)), '')
                   AS subtitle
           FROM place_i18n pi
+          JOIN place p ON p.id = pi.place_id AND p.hidden_at IS NULL  -- 숨긴 촬영지는 제안하지 않는다(V20)
           WHERE pi.lang IN (:lang, 'en', 'ko')
             AND pi.place_id IN (SELECT entity_id FROM matched WHERE entity_type = 'place')
           ORDER BY pi.place_id, (pi.lang = :lang) DESC, (pi.lang = 'en') DESC
@@ -138,7 +139,7 @@ public class SuggestionStore {
               -- 작품의 보조 문구는 '방송사 · 연도'. 둘 다 없으면 NULL 이다.
               NULLIF(concat_ws(' · ', c.broadcaster, c.release_year::TEXT), '') AS subtitle
           FROM content_i18n ci
-          JOIN content c ON c.id = ci.content_id
+          JOIN content c ON c.id = ci.content_id AND c.hidden_at IS NULL  -- 숨긴 작품은 제안하지 않는다(V20)
           WHERE ci.lang IN (:lang, 'en', 'ko')
             AND ci.content_id IN (SELECT entity_id FROM matched WHERE entity_type = 'content')
           ORDER BY ci.content_id, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC

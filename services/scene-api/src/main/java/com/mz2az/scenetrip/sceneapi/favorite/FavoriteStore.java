@@ -49,7 +49,9 @@ public class FavoriteStore {
       SELECT
           c.id, c.category, c.broadcaster, c.poster_url, c.release_year, c.genres,
           d.title, d.shown_lang,
-          (SELECT count(*) FROM place_content pc WHERE pc.content_id = c.id) AS place_count,
+          (SELECT count(*) FROM place_content pc
+             JOIN place pl ON pl.id = pc.place_id AND pl.hidden_at IS NULL
+            WHERE pc.content_id = c.id) AS place_count,
           count(*) OVER () AS total_count
       FROM saved_content s
       JOIN content c ON c.id = s.content_id

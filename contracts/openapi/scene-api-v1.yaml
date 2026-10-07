@@ -552,6 +552,9 @@ paths:
       description: |
         목업의 **작품 상세** 화면. 줄거리·출연진·별칭까지 포함한다.
         촬영지 목록은 별도 조회다 — `GET /contents/{contentId}/places`.
+
+        수집 데이터에서 빠져 **숨긴 작품도 상세는 그대로 돌려준다** — 사용자가 저장해 둔
+        코스·찜에서 들어올 수 있어서다. 목록·검색 제안에는 나오지 않는다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
         - $ref: "#/components/parameters/ContentId"
@@ -729,6 +732,9 @@ paths:
 
         "이어서 걷기 좋은 곳" 은 별도 필드가 아니다. 이 장소의 좌표로
         `GET /places?lat=&lng=&radiusMeters=1000&limit=3` 을 부르면 된다.
+
+        수집 데이터에서 빠져 **숨긴 촬영지도 상세는 그대로 돌려준다** — 사용자가 저장해 둔
+        장바구니·코스·찜에서 들어올 수 있어서다. 목록·지도·검색 제안에는 나오지 않는다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
         - name: placeId

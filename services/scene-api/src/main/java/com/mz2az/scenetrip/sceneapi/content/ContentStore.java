@@ -92,6 +92,7 @@ public class ContentStore {
           FROM search_term st
           CROSS JOIN params p
           JOIN place_content pc ON pc.place_id = st.entity_id
+          JOIN place hp ON hp.id = pc.place_id AND hp.hidden_at IS NULL  -- 숨긴 촬영지로는 걸지 않는다(V20)
           WHERE p.norm <> '' AND st.entity_type = 'place'
             AND st.term_norm LIKE '%' || p.norm || '%'
 
@@ -105,6 +106,7 @@ public class ContentStore {
           FROM place_i18n pi
           CROSS JOIN params p
           JOIN place_content pc ON pc.place_id = pi.place_id
+          JOIN place hp ON hp.id = pc.place_id AND hp.hidden_at IS NULL  -- 숨긴 촬영지로는 걸지 않는다(V20)
           WHERE p.norm <> '' AND pi.description ILIKE '%' || CAST(:q AS TEXT) || '%'
 
           UNION
@@ -122,6 +124,7 @@ public class ContentStore {
           SELECT pc.content_id
           FROM place_content_i18n pci
           JOIN place_content pc ON pc.id = pci.place_content_id
+          JOIN place hp ON hp.id = pc.place_id AND hp.hidden_at IS NULL  -- 숨긴 촬영지로는 걸지 않는다(V20)
           CROSS JOIN params p
           WHERE p.norm <> ''
             AND pci.relation_description ILIKE '%' || CAST(:q AS TEXT) || '%'
@@ -136,11 +139,15 @@ public class ContentStore {
       SELECT
           c.id, c.category, c.poster_url, c.broadcaster, c.release_year, c.genres,
           d.title, d.shown_lang,
-          (SELECT count(*) FROM place_content pc WHERE pc.content_id = c.id) AS place_count,
+          (SELECT count(*) FROM place_content pc
+             JOIN place pl ON pl.id = pc.place_id AND pl.hidden_at IS NULL
+            WHERE pc.content_id = c.id) AS place_count,
           count(*) OVER () AS total_count
       FROM content c
       JOIN display d ON d.content_id = c.id
-      WHERE (CAST(:q AS TEXT) IS NULL OR c.id IN (SELECT content_id FROM matched))
+      -- 숨긴 작품(적재 CSV 에서 빠진 것)은 목록에서 뺀다. 상세는 계속 나온다(V20).
+      WHERE c.hidden_at IS NULL
+        AND (CAST(:q AS TEXT) IS NULL OR c.id IN (SELECT content_id FROM matched))
         AND (CAST(:personId AS BIGINT) IS NULL
              OR EXISTS (SELECT 1 FROM content_cast cc
                          WHERE cc.content_id = c.id AND cc.person_id = CAST(:personId AS BIGINT)))
@@ -197,7 +204,9 @@ public class ContentStore {
       SELECT
           c.id, c.category, c.poster_url, c.broadcaster, c.release_year, c.genres,
           d.title, d.description, d.lang AS display_lang,
-          (SELECT count(*) FROM place_content pc WHERE pc.content_id = c.id) AS place_count
+          (SELECT count(*) FROM place_content pc
+             JOIN place pl ON pl.id = pc.place_id AND pl.hidden_at IS NULL
+            WHERE pc.content_id = c.id) AS place_count
       FROM content c
       JOIN display d ON d.content_id = c.id
       WHERE c.id = :id

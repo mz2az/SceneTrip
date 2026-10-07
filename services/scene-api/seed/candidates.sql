@@ -3,12 +3,15 @@
 -- tools/scripts/seed.sh 가 CSV 를 파드 안 /tmp/seed-input.csv 로 옮겨 둔 뒤 이 파일을
 -- psql 에 먹인다. `just seed` 가 그 둘을 묶는다.
 --
--- v6.sql(승길 수집 V6, 25컬럼)을 이 형식(52컬럼)으로 다시 쓴 것이다. \copy 의 HEADER 는
+-- v6.sql(승길 수집 V6, 25컬럼)을 이 형식(51컬럼)으로 다시 쓴 것이다. \copy 의 HEADER 는
 -- 첫 줄을 건너뛸 뿐 이름으로 맞추지 않으므로 컬럼이 다르면 변환도 달라야 한다.
 --
--- 52컬럼은 30컬럼(v3, 2026-08-24)에 다국어 21개와 scene_image_url 을 더한 것이다
--- (2026-09-12). 더한 것은 전부 형제 컬럼 옆에 있다 — title 옆에 title_description_*,
--- place_address 옆에 place_address_*. 다국어는 지금 전부 비어 있다.
+-- 49컬럼은 30컬럼(v3, 2026-08-24)에 다국어 21개와 scene_image_url 을 더하고
+-- (2026-09-12), title_producer_url 을 더한 뒤, recent_rank · audience_acc · award ·
+-- famous_rank 를 뺀 것이다(2026-09-23). 51컬럼은 거기에 content_key(title 앞)·place_key
+-- (place_name 앞)를 더한 것이다(2026-10-07). 더한 것은 전부 형제 컬럼 옆에 있다 —
+-- title 옆에 title_description_*, place_address 옆에 place_address_*. 다국어는 지금
+-- 전부 비어 있다.
 --
 -- scene_image_url 은 v3 의 place_image_url 에 있던 값을 옮긴 것이다. 그 사진들은
 -- 장소 사진이 아니라 **그 작품의 그 장면** 스틸이었다(파일명이 행 id 로 시작하고 87행
@@ -23,24 +26,22 @@
 -- 지우는 마이그레이션" 을 또 붙여야 한다. 다음 수집분이 나와도 명령 한 번으로 갈아
 -- 끼우려고 분리했다 (docs/project/plans/scene-api-database.md §3).
 --
--- ── 다시 돌릴 수 있게 만드는 방법: 지우고 다시 넣는다 ────────────────────────
+-- ── 다시 돌릴 수 있게 만드는 방법: 키로 갱신한다 (2026-10-07) ────────────────
 --
--- content 와 person 에는 자연키가 없다. 같은 작품을 두 번 넣어도 DB 는 그것이 같은
--- 작품인지 알 방법이 없어 ON CONFLICT 로는 멱등을 만들 수 없다. 그래서 **시드
--- 데이터를 통째로 갈아 끼운다.** TRUNCATE 가 이 파일의 첫 동작이다.
+-- 작품·촬영지는 CSV 의 content_key·place_key 로 알아본다 — 있으면 갱신, 없으면 추가,
+-- CSV 에서 빠지면 지우지 않고 hidden_at 을 채운다. id 가 바뀌지 않으므로 그것을 가리키는
+-- 사용자 데이터(장바구니·코스·찜·마켓)가 적재 때마다 지워지지 않는다. 예전에는 키가 없어
+-- TRUNCATE ... CASCADE 로 통째로 갈았고, 사용자 데이터도 같이 지워졌다.
 --
--- 이것은 로컬 개발 DB 라서 성립하는 방식이다. seed.sh 가 kind 컨텍스트가 아니면
--- 실행을 거부한다.
+-- 사용자 데이터가 가리키지 않는 딸린 표(i18n·별칭·사진·장소×작품·인물)는 이 CSV 에 있는
+-- 작품·촬영지의 것만 지우고 다시 넣는다 — 그편이 단순하고 CSV 와 어긋날 일이 없다. 숨긴
+-- 작품·촬영지의 딸린 행은 상세 화면을 위해 그대로 둔다.
+--
+-- 계획: docs/project/plans/place-key-seed.md.
 
 \set ON_ERROR_STOP on
 
 BEGIN;
-
--- ── 0. 기존 시드 데이터 제거 ─────────────────────────────────────────────────
---
--- CASCADE 가 i18n·별칭·이미지·연결 테이블까지 따라간다. RESTART IDENTITY 로
--- 시퀀스를 되돌려, 몇 번을 돌려도 같은 id 가 나오게 한다.
-TRUNCATE place, content, person RESTART IDENTITY CASCADE;
 
 -- ── 1. 스테이징 ──────────────────────────────────────────────────────────────
 --
@@ -51,8 +52,10 @@ TRUNCATE place, content, person RESTART IDENTITY CASCADE;
 -- 컬럼 순서가 CSV 헤더와 정확히 같아야 한다 — \copy 는 자리로 맞춘다.
 CREATE TEMP TABLE seed_staging (
     id                  TEXT,
+    content_key         TEXT,
     title               TEXT,
     title_tmdb_url      TEXT,
+    title_producer_url  TEXT,
     title_aliases       TEXT,
     title_en            TEXT,
     title_ja            TEXT,
@@ -66,6 +69,7 @@ CREATE TEMP TABLE seed_staging (
     title_cast_en       TEXT,
     title_cast_ja       TEXT,
     title_cast_zh_hant  TEXT,
+    place_key           TEXT,
     place_name          TEXT,
     place_name_en       TEXT,
     place_name_ja       TEXT,
@@ -92,10 +96,6 @@ CREATE TEMP TABLE seed_staging (
     scene_image_url     TEXT,
     source_url          TEXT,
     last_updated        TEXT,
-    famous_rank         TEXT,
-    recent_rank         TEXT,
-    audience_acc        TEXT,
-    award               TEXT,
     director            TEXT,
     director_en         TEXT,
     director_ja         TEXT,
@@ -112,10 +112,9 @@ CREATE TEMP TABLE seed_staging (
 
 -- 넣지 않는 컬럼과 이유:
 --   title_tmdb_url    전량 비어 있다. 채워지면 content 에 외부 id 컬럼을 두고 받는다
+--   title_producer_url 작품 제작사의 페이지. 포스터를 누르면 이리로 간다. content 에 받을
+--                     컬럼이 아직 없다 — 마이그레이션과 API 가 생기면 넣는다
 --   source_url        앱이 읽지 않는다. 값은 수집 CSV 에 보존된다
---   recent_rank       전량 비어 있다
---   audience_acc      전량 비어 있다
---   award             전량 비어 있다
 --   notes             수집 판정 메모(「성지점수 20.7 …」). 사용자에게 보일 것이 아니다
 
 -- ── 1-1. 걸러 낸 행 ─────────────────────────────────────────────────────────
@@ -123,15 +122,16 @@ CREATE TEMP TABLE seed_staging (
 -- 좌표가 없는 행은 place.geom NOT NULL 을 만족할 수 없다. 그 한 행 때문에 적재 전체가
 -- 롤백되면 나머지 86행이 볼모가 된다 — 건너뛰고 몇 행인지 찍는다. 좌표가 채워진
 -- 파일로 다시 `just seed` 하면 그때 들어온다.
+--
+-- 키는 앞뒤 공백을 떼어 쓴다. 손으로 고친 CSV 에 붙은 공백 하나로 다른 작품·촬영지가 되면 안 된다.
+-- 키가 빈 행은 아래 검사가 적재 전체를 멈춘다 — 어느 작품·촬영지인지 모르는 행을 넣을 수 없다.
 CREATE TEMP TABLE seed_rows ON COMMIT DROP AS
-SELECT
-    s.*,
-    -- 장소 중복 키. naver_place_url 이 1차 키(MZ2AZ-111)인데 9행이 비어 있다. 빈 채로
-    -- DISTINCT ON 을 걸면 그 9곳이 한 곳으로 뭉개진다 — 없으면 이름+주소로 대신한다.
-    COALESCE(NULLIF(btrim(s.place_naver_url), ''), s.place_name || '|' || s.place_address) AS place_key
+SELECT s.*
 FROM seed_staging s
 WHERE NULLIF(btrim(s.place_latitude), '') IS NOT NULL
   AND NULLIF(btrim(s.place_longitude), '') IS NOT NULL;
+
+UPDATE seed_rows SET content_key = btrim(content_key), place_key = btrim(place_key);
 
 \echo ''
 \echo '좌표가 없어 건너뛴 행 (place.geom 이 NOT NULL 이라 넣을 수 없다):'
@@ -140,20 +140,43 @@ FROM seed_staging
 WHERE NULLIF(btrim(place_latitude), '') IS NULL OR NULLIF(btrim(place_longitude), '') IS NULL
 ORDER BY id;
 
+-- 키 검사. 하나라도 걸리면 적재 전체를 되돌린다 — 반쯤 들어간 상태를 남기지 않는다.
+--   키가 빈 행               어느 작품·촬영지인지 알 수 없다
+--   한 작품 키에 제목이 둘   같은 키를 다른 작품에 잘못 붙였을 가능성이 크다
+DO $$
+DECLARE bad TEXT;
+BEGIN
+    SELECT string_agg(id, ', ' ORDER BY id) INTO bad
+    FROM seed_staging
+    WHERE NULLIF(btrim(content_key), '') IS NULL OR NULLIF(btrim(place_key), '') IS NULL;
+    IF bad IS NOT NULL THEN
+        RAISE EXCEPTION 'content_key 나 place_key 가 빈 행이 있습니다 — id: %', bad;
+    END IF;
+
+    -- 좌표가 없어 건너뛴 행까지 본다(seed_staging) — 그 행이 다음 수집분에 좌표를 달고 들어올 때 터지지 않게.
+    SELECT string_agg(k || ' (' || titles || ')', ', ') INTO bad
+    FROM (
+        SELECT btrim(content_key) AS k, string_agg(DISTINCT title, ' / ') AS titles
+        FROM seed_staging GROUP BY btrim(content_key) HAVING count(DISTINCT title) > 1
+    ) x;
+    IF bad IS NOT NULL THEN
+        RAISE EXCEPTION '한 content_key 에 제목이 여럿입니다 — %', bad;
+    END IF;
+END $$;
+
 -- ── 2. 작품 ──────────────────────────────────────────────────────────────────
 --
--- CSV 는 "장소 한 곳 × 작품 하나" 가 한 행이라 같은 작품이 여러 번 나온다. 제목으로
+-- CSV 는 "장소 한 곳 × 작품 하나" 가 한 행이라 같은 작품이 여러 번 나온다. content_key 로
 -- 하나만 남긴다. ORDER BY 에 id 를 넣어 어느 행이 남는지 고정한다.
 --
--- id 를 nextval 로 미리 뽑는 이유: content 에는 title 컬럼이 없어(다국어라
--- content_i18n 에 있다) INSERT ... RETURNING 으로는 "이 id 가 어느 작품인지" 를 되
--- 가져올 수 없다. 먼저 번호를 매겨 두면 아래 모든 삽입이 이 표를 조인해 쓴다.
+-- content_id 는 UPSERT 뒤에 키로 찾아 채운다 — 있던 작품은 있던 id, 새 작품은 새 id.
 --
 -- 이 형식에는 방송사·방영 연도·장르 컬럼이 없다. broadcaster·release_year 는 NULL,
 -- genres 는 NOT NULL 이라 빈 배열이다.
 CREATE TEMP TABLE t_content ON COMMIT DROP AS
 SELECT
-    nextval('content_id_seq') AS content_id,
+    NULL::BIGINT AS content_id,
+    s.content_key,
     s.title,
     s.title_aliases,
     NULLIF(btrim(s.title_en), '')      AS title_en,
@@ -166,11 +189,8 @@ SELECT
     s.title_category,
     NULLIF(s.poster_url, '') AS poster_url,
     -- 인기도는 지금 임의값이다. 사용자 행동(user_event)이 쌓이면 배치가 계산한다.
-    -- famous_rank 는 순위라 작을수록 유명하다 — 점수로 뒤집는다. 비어 있으면 중간값.
-    CASE
-        WHEN NULLIF(s.famous_rank, '') IS NOT NULL THEN GREATEST(100 - s.famous_rank::INT, 0)
-        ELSE 50
-    END AS popularity_score,
+    -- famous_rank 컬럼을 뺐으므로(2026-09-23) 모든 작품이 중간값 50 에서 시작한다.
+    50 AS popularity_score,
     s.title_cast,
     s.title_cast_en,
     s.title_cast_ja,
@@ -180,12 +200,47 @@ SELECT
     s.director_ja,
     s.director_zh_hant
 FROM (
-    SELECT DISTINCT ON (title) * FROM seed_rows ORDER BY title, id
+    SELECT DISTINCT ON (content_key) * FROM seed_rows ORDER BY content_key, id
 ) s;
 
-INSERT INTO content (id, category, broadcaster, poster_url, release_year, genres, popularity_score)
-SELECT content_id, title_category, NULL, poster_url, NULL, '{}', popularity_score
-FROM t_content;
+-- 처음 한 번의 다리(계획 §2-3). V20 직후의 작품에는 키가 없다 — 한국어 제목이 같은 작품에
+-- 키를 붙여, 그 작품을 가리키는 코스·마켓이 새로 생긴 작품으로 끊기지 않게 한다. 키가 이미
+-- 찬 작품은 건드리지 않으므로 몇 번 돌려도 같다.
+UPDATE content c
+SET content_key = m.content_key
+FROM (
+    SELECT DISTINCT ON (t.content_key) t.content_key, ci.content_id
+    FROM t_content t
+    JOIN content_i18n ci ON ci.lang = 'ko' AND ci.title = t.title
+    JOIN content x ON x.id = ci.content_id AND x.content_key IS NULL
+    WHERE NOT EXISTS (SELECT 1 FROM content k WHERE k.content_key = t.content_key)
+    ORDER BY t.content_key, ci.content_id
+) m
+WHERE c.id = m.content_id;
+
+-- 있으면 갱신, 없으면 추가. CSV 에 없는 방송사·연도·장르는 덮지 않는다(이 형식에 칸이 없다).
+-- 다시 CSV 에 나온 작품은 숨김을 푼다.
+INSERT INTO content (content_key, category, broadcaster, poster_url, release_year, genres, popularity_score)
+SELECT content_key, title_category, NULL, poster_url, NULL, '{}', popularity_score
+FROM t_content
+ON CONFLICT (content_key) DO UPDATE SET
+    category         = EXCLUDED.category,
+    poster_url       = EXCLUDED.poster_url,
+    popularity_score = EXCLUDED.popularity_score,
+    hidden_at        = NULL;
+
+UPDATE t_content t SET content_id = c.id FROM content c WHERE c.content_key = t.content_key;
+
+-- CSV 에서 빠진 작품은 지우지 않고 숨긴다(계획 §2-2). 키가 없는 작품(다리에서 짝을 못 찾은
+-- 옛 행)도 이 CSV 에 없는 것이다.
+UPDATE content
+SET hidden_at = now()
+WHERE hidden_at IS NULL
+  AND (content_key IS NULL OR content_key NOT IN (SELECT content_key FROM t_content));
+
+-- 딸린 표는 이 CSV 의 작품 것만 지우고 아래에서 다시 넣는다.
+DELETE FROM content_i18n  WHERE content_id IN (SELECT content_id FROM t_content);
+DELETE FROM content_alias WHERE content_id IN (SELECT content_id FROM t_content);
 
 -- 작품 소개(title_description)는 지금 파일에 전부 비어 있다. 채워지면 그대로 들어간다.
 INSERT INTO content_i18n (content_id, lang, title, description)
@@ -289,6 +344,10 @@ LEFT JOIN unnest(string_to_array(c.director_ja, ';'))      WITH ORDINALITY AS ja
 LEFT JOIN unnest(string_to_array(c.director_zh_hant, ';')) WITH ORDINALITY AS zh(v, ord) ON zh.ord = u.ord
 WHERE btrim(u.name) <> '';
 
+-- 인물은 통째로 다시 넣는다. 사용자 데이터가 가리키지 않고(content_cast·person_i18n 만),
+-- 이름 말고는 사람을 알아볼 키가 없다. 숨긴 작품의 출연진은 이때 빠진다.
+TRUNCATE person RESTART IDENTITY CASCADE;
+
 CREATE TEMP TABLE t_person ON COMMIT DROP AS
 SELECT nextval('person_id_seq') AS person_id, name
 FROM (SELECT DISTINCT name FROM t_cast) d;
@@ -330,24 +389,49 @@ ORDER BY r.content_id, p.person_id, r.role_type, r.sort_order;
 
 -- ── 5. 장소 ──────────────────────────────────────────────────────────────────
 --
--- place_key(§1-1)로 중복을 접는다. 같은 장소가 여러 작품에 나오면 CSV 에 여러 행으로
+-- place_key 로 중복을 접는다. 같은 장소가 여러 작품에 나오면 CSV 에 여러 행으로
 -- 있는데, 장소로는 하나여야 한다 — 그것이 place_content 가 흡수하는 N:M 이다. 이
 -- 파일에서는 청라호수공원·중앙고가 두 작품에 나온다.
 --
 -- 같은 장소인데 행마다 place_type 이 다를 수 있다. ORDER BY 로 어느 행이 이기는지
 -- 고정해 둔다.
 CREATE TEMP TABLE t_place ON COMMIT DROP AS
-SELECT nextval('place_id_seq') AS place_id, s.*
+SELECT NULL::BIGINT AS place_id, s.*
 FROM (
     SELECT DISTINCT ON (place_key) * FROM seed_rows ORDER BY place_key, id
 ) s;
 
+-- 처음 한 번의 다리(계획 §2-3). V20 직후의 촬영지에는 키가 없다 — 옛 묶음 규칙(네이버 URL,
+-- 없으면 한국어 이름+주소)으로 같은 촬영지를 찾아 키를 붙인다. 그래야 장바구니·코스·찜이
+-- 가리키는 촬영지가 그대로 이어진다.
+UPDATE place pl
+SET place_key = m.place_key
+FROM (
+    SELECT DISTINCT ON (t.place_key) t.place_key, p.id
+    FROM t_place t
+    JOIN place p ON p.place_key IS NULL
+    WHERE NOT EXISTS (SELECT 1 FROM place k WHERE k.place_key = t.place_key)
+      AND (
+          (NULLIF(btrim(t.place_naver_url), '') IS NOT NULL
+           AND p.naver_place_url = btrim(t.place_naver_url))
+          OR (NULLIF(btrim(t.place_naver_url), '') IS NULL
+              AND p.naver_place_url IS NULL
+              AND EXISTS (SELECT 1 FROM place_i18n pi
+                          WHERE pi.place_id = p.id AND pi.lang = 'ko'
+                            AND pi.name = t.place_name
+                            AND pi.address IS NOT DISTINCT FROM NULLIF(t.place_address, '')))
+      )
+    ORDER BY t.place_key, p.id
+) m
+WHERE pl.id = m.id;
+
 -- place.type 은 코드값 자리다(V2 주석). CSV 의 place_type_code 가 채워지면 그것을 쓰고,
 -- 비어 있으면 한국어 라벨(place_type)을 그대로 둔다 — 코드 매핑표가 생기기 전까지의
 -- 과도기다. 지금 파일은 코드가 전부 비어 있어 라벨이 들어간다.
-INSERT INTO place (id, type, geom, naver_place_url)
+-- 있으면 갱신, 없으면 추가. 다시 CSV 에 나온 촬영지는 숨김을 푼다.
+INSERT INTO place (place_key, type, geom, naver_place_url)
 SELECT
-    place_id,
+    place_key,
     COALESCE(NULLIF(btrim(place_type_code), ''), NULLIF(place_type, '')),
     -- ST_MakePoint 는 (경도, 위도) 순이다. 뒤집으면 오류 없이 엉뚱한 곳에 찍힌다 —
     -- 위도 37 · 경도 127 을 뒤집으면 대한민국이 아니라 인도양이 된다.
@@ -356,7 +440,28 @@ SELECT
         4326
     )::geography,
     NULLIF(btrim(place_naver_url), '')
-FROM t_place;
+FROM t_place
+ON CONFLICT (place_key) DO UPDATE SET
+    type            = EXCLUDED.type,
+    geom            = EXCLUDED.geom,
+    naver_place_url = EXCLUDED.naver_place_url,
+    hidden_at       = NULL,
+    updated_at      = now();
+
+UPDATE t_place t SET place_id = p.id FROM place p WHERE p.place_key = t.place_key;
+
+-- CSV 에서 빠진 촬영지는 지우지 않고 숨긴다(계획 §2-2).
+UPDATE place
+SET hidden_at = now()
+WHERE hidden_at IS NULL
+  AND (place_key IS NULL OR place_key NOT IN (SELECT place_key FROM t_place));
+
+-- 딸린 표는 이 CSV 의 촬영지 것만 지우고 아래에서 다시 넣는다. 장소×작품도 여기서 지운다
+-- (place_content_i18n 은 CASCADE) — §6 이 다시 넣는다.
+DELETE FROM place_i18n    WHERE place_id IN (SELECT place_id FROM t_place);
+DELETE FROM place_alias   WHERE place_id IN (SELECT place_id FROM t_place);
+DELETE FROM place_image   WHERE place_id IN (SELECT place_id FROM t_place);
+DELETE FROM place_content WHERE place_id IN (SELECT place_id FROM t_place);
 
 -- place_i18n.description 은 장소 자체의 소개(place_description)다. scene_description 은
 -- "이 작품의 이 장면" 설명이라 여기가 아니라 place_content_i18n 으로 간다. 지금 파일은
@@ -424,11 +529,11 @@ SELECT
     s.scene_image_url,
     s.last_updated
 FROM (
-    SELECT DISTINCT ON (place_key, title) * FROM seed_rows
-    ORDER BY place_key, title, id
+    SELECT DISTINCT ON (place_key, content_key) * FROM seed_rows
+    ORDER BY place_key, content_key, id
 ) s
-JOIN t_place   p ON p.place_key = s.place_key
-JOIN t_content c ON c.title = s.title;
+JOIN t_place   p ON p.place_key   = s.place_key
+JOIN t_content c ON c.content_key = s.content_key;
 
 INSERT INTO place_content (id, place_id, content_id, scene_image_url, updated_at)
 SELECT
@@ -492,3 +597,8 @@ UNION ALL SELECT 'place_image',        count(*) FROM place_image
 UNION ALL SELECT 'place_content',      count(*) FROM place_content
 UNION ALL SELECT 'place_content_i18n', count(*) FROM place_content_i18n
 UNION ALL SELECT 'search_term',        count(*) FROM search_term;
+
+\echo ''
+\echo '숨긴 것 (CSV 에서 빠져 hidden_at 이 찬 것 — 지우지 않았다):'
+SELECT 'content' AS 테이블, count(*) FILTER (WHERE hidden_at IS NOT NULL) AS 숨김, count(*) AS 전체 FROM content
+UNION ALL SELECT 'place', count(*) FILTER (WHERE hidden_at IS NOT NULL), count(*) FROM place;
