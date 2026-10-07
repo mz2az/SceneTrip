@@ -7,6 +7,8 @@ import SwiftUI
 /// 저장하지 않고 받은 자리에서만 쓴다.
 struct ReviewRow: View {
     let review: Review
+    /// 내 리뷰일 때만 준다 — 「고치기」 가 뜬다(지우기는 고치는 화면 안에 있다).
+    var onEdit: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -25,7 +27,16 @@ struct ReviewRow: View {
                 Spacer(minLength: 8)
                 Text(dateText).font(.caption2).foregroundStyle(.tertiary)
             }
-            StarRow(rating: review.rating, size: 11)
+            HStack {
+                StarRow(rating: review.rating, size: 11)
+                Spacer()
+                if let onEdit {
+                    Button(tr("고치기"), action: onEdit)
+                        .font(.caption.weight(.semibold))
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
             if let body = review.body, !body.isEmpty {
                 Text(body)
                     .font(.subheadline)

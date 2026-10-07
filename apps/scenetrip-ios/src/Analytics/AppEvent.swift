@@ -36,6 +36,9 @@ enum AppEvent: Equatable {
     case viewPlace(placeId: Int64)
     /// 리뷰 시트를 열었다(MZ2AZ-363). `target_type` 은 `place`·`poi`.
     case viewReviews(targetType: String)
+    /// 리뷰를 썼다·고쳤다(MZ2AZ-363). **글과 닉네임은 보내지 않는다.**
+    case writeReview(targetType: String, rating: Int, photoCount: Int, hasBody: Bool, edited: Bool)
+    case deleteReview(targetType: String)
 
     // MARK: 담기·찜 (의미 있는 첫 행동)
 
@@ -79,6 +82,8 @@ enum AppEvent: Equatable {
         case .viewTitle: "view_title"
         case .viewPlace: "view_place"
         case .viewReviews: "view_reviews"
+        case .writeReview: "write_review"
+        case .deleteReview: "delete_review"
         case .likeTitle: "like_title"
         case .savePlace: "save_place"
         case .generatePlan: "generate_plan"
@@ -100,7 +105,12 @@ enum AppEvent: Equatable {
         case let .setNickname(skipped): ["skipped": skipped ? 1 : 0]
         case let .search(termLength, kind): ["term_length": termLength, "kind": kind]
         case let .viewTitle(contentId): ["content_id": contentId]
-        case let .viewReviews(targetType): ["target_type": targetType]
+        case let .viewReviews(targetType), let .deleteReview(targetType): ["target_type": targetType]
+        case let .writeReview(targetType, rating, photoCount, hasBody, edited):
+            [
+                "target_type": targetType, "rating": rating, "photo_count": photoCount,
+                "has_body": hasBody ? 1 : 0, "edited": edited ? 1 : 0,
+            ]
         case let .viewPlace(placeId), let .savePlace(placeId), let .startTrip(placeId), let .visitStamp(placeId):
             ["place_id": placeId]
         case let .likeTitle(contentId, liked): ["content_id": contentId, "liked": liked ? 1 : 0]

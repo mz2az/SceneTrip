@@ -3,14 +3,23 @@ import SwiftUI
 
 /// 리뷰 시트 (MZ2AZ-363) — 요약(평균·수·점수 막대), 정렬, 목록. 촬영지와 편의시설이 같은 화면을 쓴다.
 ///
-/// 읽기는 비회원도 한다. 쓰기·고치기·지우기는 다음 PR 에서 이 시트에 붙는다.
+/// 읽기는 비회원도 한다. 쓰기·고치기·지우기는 가입한 사람만 — 아래 단추가 `ReviewComposeView` 를 연다.
 /// 리뷰 글은 번역하지 않는다 — 쓴 언어 그대로 섞여 온다(서버 결정).
 struct ReviewsSheet: View {
     let subject: ReviewSubject
     /// 대상의 이름 — 머리줄에 적는다.
     let title: String
+    /// 리뷰가 바뀌었다(쓰기·고치기·지우기) — 부른 화면이 별점 줄을 다시 읽는다.
+    var onChanged: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var auth = AuthStore.shared
+    /// 쓰기 화면.
+    @State private var composing = false
+    /// 비회원이 쓰기를 눌러 로그인 화면으로 갔다 — 로그인하면 쓰기로 잇는다.
+    @State private var composeAfterSignIn = false
+    /// 로그인 뒤 닉네임 화면이 먼저 떴다 — 그것이 닫히면 쓰기로 잇는다.
+    @State private var composeAfterNickname = false
     @State private var sort: ReviewSort = .recent
     @State private var reviews: [Review] = []
     @State private var summary: RatingSummary?
@@ -40,6 +49,51 @@ struct ReviewsSheet: View {
                 failure
             case .loaded:
                 list
+                Divider()
+                writeBar
+            }
+        }
+        // 이 시트가 맨 위 화면이다 — 로그인·닉네임 화면은 여기서 올린다.
+        .signInSheet()
+        .nicknameSheet()
+        .sheet(isPresented: $composing) {
+            ReviewComposeView(subject: subject, title: title) {
+                onChanged()
+                Task { await reload() }
+            }
+        }
+        .onChange(of: auth.signedIn) { _, signedIn in
+            // 로그인 화면이 내려간 뒤에 쓰기 화면을 올린다 — 내려가는 중에는 안 뜬다.
+            guard signedIn, composeAfterSignIn else { return }
+            composeAfterSignIn = false
+            Task {
+                // 처음 가입한 사람에게는 닉네임 화면이 먼저 뜬다(로그인 600ms 뒤) — 그것을 기다린 다음 본다.
+                try? await Task.sleep(for: .milliseconds(1000))
+                guard auth.signedIn else { return }
+                if auth.askingNickname {
+                    composeAfterNickname = true
+                } else {
+                    composing = true
+                }
+            }
+        }
+        .onChange(of: auth.askingNickname) { _, asking in
+            // 닉네임을 정했거나 건너뛰었다 — 리뷰를 쓰러 가입한 사람이 다시 누르지 않게 쓰기로 잇는다.
+            guard !asking, composeAfterNickname else { return }
+            composeAfterNickname = false
+            Task {
+                try? await Task.sleep(for: .milliseconds(600))
+                if auth.signedIn {
+                    composing = true
+                }
+            }
+        }
+        // 로그인하면 「내 리뷰」 표시가 달라진다 — 목록을 다시 읽는다.
+        .onAccountChange { await reload() }
+        .onChange(of: auth.showingSignIn) { _, showing in
+            // 로그인하지 않고 닫았으면 잇지 않는다.
+            if !showing, !auth.signedIn {
+                composeAfterSignIn = false
             }
         }
         .task(id: sort) { await reload() }
@@ -87,7 +141,7 @@ struct ReviewsSheet: View {
                 } else {
                     sortPicker
                     ForEach(reviews, id: \.id) { review in
-                        ReviewRow(review: review)
+                        ReviewRow(review: review, onEdit: review.isMine ? { composing = true } : nil)
                             .padding(.horizontal, 16).padding(.vertical, 14)
                         Divider().padding(.leading, 16)
                     }
@@ -123,6 +177,37 @@ struct ReviewsSheet: View {
             .padding(.vertical, 18)
             // 열쇠가 바뀌면 앞 작업은 취소되고 새로 돈다 — 플래그로 막지 않는다.
             .task(id: "\(generation)-\(reviews.count)") { await loadMore() }
+        }
+    }
+
+    /// 아래에 붙은 쓰기 단추. 내 리뷰가 목록에 보이면 「내 리뷰 고치기」.
+    private var writeBar: some View {
+        Button {
+            write()
+        } label: {
+            Label(hasMine ? tr("내 리뷰 고치기") : tr("리뷰 쓰기"), systemImage: "square.and.pencil")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(Capsule().fill(Color.accentColor))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16).padding(.vertical, 10)
+    }
+
+    /// 받은 쪽에 내 리뷰가 있는가. 아직 안 받은 뒤쪽에 있을 수도 있다 — 그때도 쓰기 화면이 내 리뷰를 불러와 고치기로 연다.
+    private var hasMine: Bool {
+        reviews.contains(where: \.isMine)
+    }
+
+    /// 가입한 사람만 쓴다 — 비회원이면 로그인 화면을 먼저 올리고, 로그인하면 쓰기로 잇는다.
+    private func write() {
+        if auth.signedIn {
+            composing = true
+        } else {
+            composeAfterSignIn = true
+            auth.promptSignIn()
         }
     }
 

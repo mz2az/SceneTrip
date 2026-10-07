@@ -432,3 +432,23 @@
 "탈퇴한 사용자" = "Deleted user";
 "내 리뷰" = "My review";
 "수정됨" = "Edited";
+
+/* 리뷰 쓰기 (MZ2AZ-363) */
+"리뷰 쓰기" = "Write a review";
+"리뷰 고치기" = "Edit review";
+"내 리뷰 고치기" = "Edit my review";
+"고치기" = "Edit";
+"리뷰를 지울까요?" = "Delete this review?";
+"지우면 되돌릴 수 없어요." = "This can't be undone.";
+"리뷰 지우기" = "Delete review";
+"별을 눌러 점수를 주세요" = "Tap a star to rate";
+"%d점" = "%d out of 5";
+"어땠는지 들려주세요 (선택)" = "How was it? (optional)";
+"로그인한 뒤에 쓸 수 있어요" = "Sign in to write a review";
+"사진을 다시 올려 주세요" = "Please upload the photos again";
+"쓰던 리뷰를 버릴까요?" = "Discard this review?";
+"버리기" = "Discard";
+"계속 쓰기" = "Keep writing";
+"리뷰 글" = "Review text";
+"글이 너무 길어요" = "Too long";
+"저장 중" = "Saving";

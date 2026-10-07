@@ -87,6 +87,32 @@ enum ReviewRules {
         return String(format: tr("별점 %@점"), average(rating.average)) + ", " + countText(rating.count)
     }
 
+    /// 글의 상한(계약 `ReviewInput.body`).
+    static let bodyLimit = 2000
+
+    /// 서버에 보낼 글 — 앞뒤 공백을 뗀다. 빈 글은 nil(별점만 남긴 리뷰).
+    static func normalizedBody(_ raw: String) -> String? {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
+    }
+
+    /// 저장할 수 있는가 — 별점은 필수(1~5), 글은 선택이되 상한을 넘지 않는다.
+    static func canSave(rating: Int, body: String) -> Bool {
+        (1 ... 5).contains(rating) && bodyLength(body) <= bodyLimit
+    }
+
+    /// 글의 길이 — **서버가 세는 법**(UTF-16 단위)으로 센다. 글자 덩이로 세면 이모지 1,001개가
+    /// 「1001/2000」 으로 보이는데 서버는 2,002 로 보고 거절한다.
+    static func bodyLength(_ raw: String) -> Int {
+        normalizedBody(raw)?.utf16.count ?? 0
+    }
+
+    /// 고칠 것이 있는가 — 이미 쓴 리뷰와 별점·글이 같으면 다시 보낼 이유가 없다.
+    static func changed(from existing: Review?, rating: Int, body: String) -> Bool {
+        guard let existing else { return true }
+        return existing.rating != rating || existing.body != normalizedBody(body)
+    }
+
     /// 다음 쪽이 있는가.
     static func hasMore(loaded: Int, total: Int) -> Bool {
         loaded < total
