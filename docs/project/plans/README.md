@@ -23,6 +23,7 @@
 | [i18n-en-fallback.md](./i18n-en-fallback.md) | 응답 언어 폴백 — 요청 언어 → en → ko, 편의시설 제외 (MZ2AZ-344) |
 | [analytics-events.md](./analytics-events.md) | 앱 분석 이벤트 — Firebase·GA4, 퍼널(설치→가입→조회→담기·찜→첫 코스 생성→여행 시작), 보내지 않는 것 (MZ2AZ-353) |
 | [poi-i18n-image.md](./poi-i18n-image.md) | 편의시설 다국어·사진 — 번역은 옆 표, 분류 사전, 영문 주소는 행안부 영문도로명주소DB, 분기 갱신과 번호 변경 |
+| [place-key-seed.md](./place-key-seed.md) | 촬영지 적재를 고유 키로 — 지우지 않고 갱신·추가, CSV 에서 빠지면 숨김 (MZ2AZ-361) |
 | [review.md](./review.md) | 리뷰와 별점 — 촬영지·편의시설 상세, 한 테이블, 단순 평균·보정 평균, 사진첩에 리뷰 사진, 탈퇴해도 남김 (MZ2AZ-362) |
 
 ## 언제 여기에 쓰는가
