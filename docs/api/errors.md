@@ -70,7 +70,11 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `INCOMPLETE_ORIGIN` | `lat` 과 `lng` 중 하나만 보냈다. 둘은 짝이다 |
 | `MISSING_AREA_FILTER` | `GET /pois` 에 영역 조건(`bbox` 또는 `lat`·`lng`+`radiusMeters`)이 하나도 없다. 편의시설 50 만 건을 전국 대상으로 돌려줄 정렬 기준이 없다 — 촬영지(`/places`)는 인기도가 있어 허용하고, POI 는 없어 거부한다 |
 | `MISSING_INSTALL_ID` | `X-Install-Id` 헤더가 없거나 UUID 형식이 아니다. 장바구니·코스·찜·마켓이 전부 이 헤더를 요구한다 |
-| `SIGN_IN_REQUIRED` | (`401`) 가입해야 할 수 있는 동작이다. 마켓 좋아요·담기·올리기·내리기, 여행 중 길찾기, 가이드 챗봇. 로그인 화면으로 안내한다 |
+| `SIGN_IN_REQUIRED` | (`401`) 가입해야 할 수 있는 동작이다. 마켓 좋아요·담기·올리기·내리기, 여행 중 길찾기, 가이드 챗봇, 리뷰 쓰기·고치기·지우기, 사진 올리기. 로그인 화면으로 안내한다 |
+| `NICKNAME_INVALID` | 닉네임이 규칙에 맞지 않는다 — 앞뒤 공백을 뗀 뒤 2~16 자, 한글·영문·숫자·`_` 만 |
+| `REVIEW_PHOTO_INVALID` | 리뷰의 `photoKeys` 에 내가 올리지 않았거나 만료된 업로드, 또는 없는 사진이 있다. 사진을 다시 올린다 |
+| `UPLOAD_TOO_LARGE` | 올리려는 사진이 10 MB 를 넘는다. 줄여서 다시 |
+| `UPLOAD_TYPE_UNSUPPORTED` | JPEG·PNG·HEIC·WebP 가 아니다 |
 | `NOT_MARKET_COURSE_AUTHOR` | (`403`) 남이 올린 코스는 내릴 수 없다. **마켓의 코스는 이미 누구에게나 보이므로 404 로 숨기지 않는다** — 내 코스가 `COURSE_NOT_FOUND` 로 존재를 숨기는 것과 갈리는 지점이다 |
 | `UNKNOWN_COURSE_ITEM` | 편집 완료(`PUT /courses/{courseId}`)가 그 코스에 없는 항목 `id` 를 가리켰다. 이미 지워졌거나 남의 코스 것이다 — **새로 담는 장소라면 `id` 를 아예 비워야 한다** |
 
@@ -93,6 +97,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `CONTENT_NOT_FOUND` | 그 `contentId` 의 작품이 없다 |
 | `PLACE_NOT_FOUND` | 그 `placeId` 의 장소가 없다 |
 | `POI_NOT_FOUND` | 그 `poiId` 의 편의시설이 없다 |
+| `REVIEW_NOT_FOUND` | 그곳에 내가 쓴 리뷰가 없다(`GET …/reviews/me`). 빈 쓰기 화면을 연다 |
 | `CART_ITEM_NOT_FOUND` | 장바구니에 그 장소가 담겨 있지 않다 |
 | `COURSE_NOT_FOUND` | 그 `courseId` 의 코스가 없다. **남의 코스도 여기에 해당한다** — 있다는 사실 자체를 알려 주지 않는다 |
 | `COURSE_ITEM_NOT_FOUND` | 그 코스에 그 항목이 없다. 방문 체크가 이미 지워진 장소를 가리켰다 |
@@ -108,6 +113,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `code` | 뜻 |
 | --- | --- |
 | `DUPLICATE_CART_ITEM` | 이미 담긴 장소를 또 담으려 했다 |
+| `NICKNAME_TAKEN` | 다른 사람이 쓰는 닉네임이다(영문 대소문자는 같은 것으로 본다) |
 | `COURSE_SHORTER_THAN_PROGRESS` | 여행 중인 코스를 지금 걷고 있는 일차보다 짧게 줄이려 했다. 3일차를 걷는 중이면 2일 코스로 만들 수 없다 |
 | `COURSE_ALREADY_PUBLISHED` | 그 코스는 이미 마켓에 올라가 있다. 한 코스에서 살아 있는 사본은 하나뿐이라 내린 뒤에 다시 올린다 |
 | `COURSE_NOT_ACTIVE` | 예정 코스에 방문 체크를 하려 했다. 요청은 멀쩡하고 코스 상태가 안 맞는 것이라 400 이 아니다 — **「시작」을 누르면 통한다** |

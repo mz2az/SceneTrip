@@ -1,6 +1,6 @@
 # 리뷰와 별점 — 촬영지·편의시설 상세
 
-상태: 계획 (2026-10-07, MZ2AZ-362). 선행: [place-key-seed.md](./place-key-seed.md)(MZ2AZ-361, PR #142) — 촬영지 적재가 더는
+상태: 계약 확정 (2026-10-07, MZ2AZ-362, scene-api 1.4.0 — §12). 선행: [place-key-seed.md](./place-key-seed.md)(MZ2AZ-361, PR #142) — 촬영지 적재가 더는
 `TRUNCATE ... CASCADE` 로 지우지 않아야 리뷰가 적재 때 사라지지 않는다. 함께 쓰는 것: 사진 업로드(MZ2AZ-352
 커뮤니티 여행후기와 같은 창구).
 
@@ -186,3 +186,33 @@ photoCount: 57     # 전체 수 — 「사진 전체 보기 (57)」
 4. 업로드 창구 + 저장소(§10-1)    — MZ2AZ-352 와 함께
 5. 앱 티켓(iOS 먼저)              — 상세의 별점·리뷰 목록·쓰기, 사진첩의 「방문자 사진」, 탈퇴 안내 문구
 ```
+
+## 12. 덧붙임 (2026-10-07) — 정한 것과 계약 1.4.0
+
+§10 의 셋을 정했다.
+
+1. **저장소 — 사용자 사진 전용 버킷을 새로 만든다:** `scenetrip-user-media-dev` · `scenetrip-user-media-prod`.
+   성지 사진 버킷(`scene-media-prod`)은 쓰지 않는다 — 운영 버킷에 개발 시험 사진이 섞이고, 우리가 고른 사진과
+   누가 올릴지 모르는 사진에 같은 삭제·공개 규칙을 걸 수 없어서다. 둘 다 비공개이고, 키 앞부분으로 규칙을 건다:
+   `uploads/tmp/` 는 하루 뒤 지운다, `reviews/` 는 남긴다(커뮤니티는 `community/`). 키 끝은 UUID 다. 버킷은
+   Terraform 에 적어 만든다. **로컬(kind)도 MinIO 를 띄우지 않고 dev 버킷을 쓴다** — 팀원은 dev 버킷 전용 키를 둔다.
+   보여 줄 때는 서버가 **한 시간짜리 서명된 주소**를 준다(앱은 저장하지 않는다).
+2. **작성자 이름 — 닉네임:** `app_user.nickname` 을 더한다. 가입할 때 서버가 `여행자12345` 꼴로 자동으로
+   붙이고(`nickname_confirmed = false`), **앱은 로그인 직후 `nicknameConfirmed` 가 `false` 면 닉네임 정하기
+   화면을 띄운다**(건너뛸 수 있다). `PUT /me/nickname` — 2~16 자, 한글·영문·숫자·`_`, 대소문자 무시 유일.
+   소셜 이름(`displayName`)은 실명일 수 있어 남에게 보이지 않는다. 커뮤니티(MZ2AZ-352)도 이 닉네임을 쓴다.
+3. **리뷰 언어 — 섞는다**, 최신순. 번역하지 않는다.
+
+**계약(scene-api 1.4.0)** — 다 더하기만 했다. 이미 나가 있는 앱은 그대로 돈다.
+
+| 무엇 | 계약 |
+| --- | --- |
+| 닉네임 | `Me.nickname` · `Me.nicknameConfirmed`, `PUT /me/nickname`(`NICKNAME_INVALID` 400 · `NICKNAME_TAKEN` 409) |
+| 리뷰 | `GET /{places,pois}/{id}/reviews`(목록 + `summary`) · `GET·PUT·DELETE …/reviews/me` · `GET /me/reviews` |
+| 상세 | `PlaceDetail` · `PoiDetail` 에 `rating`(단순 평균·수·분포) · `photos`(앞 20) · `photoCount` |
+| 사진첩 | `GET /{places,pois}/{id}/photos` — 우리 사진 먼저, 리뷰 사진 최신순 |
+| 올리기 | `POST /uploads` → `key` · `uploadUrl`(10 분) · `requiredHeaders`, 리뷰는 `photoKeys` 로 붙인다 |
+| 탈퇴 | `DELETE /me` 설명: 리뷰는 작성자 표시 없이 남는다 |
+
+§7 초안과 다른 점: 리뷰 사진은 주소가 아니라 **키**(`photoKeys`)로 붙인다 — 보여 줄 주소가 한 시간마다 바뀌어
+고칠 때 남길 사진을 주소로는 가리킬 수 없어서다.
