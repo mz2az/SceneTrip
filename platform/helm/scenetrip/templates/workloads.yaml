@@ -22,6 +22,11 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/config.yaml") $ | sha256sum }}
     spec:
       automountServiceAccountToken: false
+      {{- if eq $name "scene-api" }}
+      # 사용자 사진 버킷 권한을 EKS Pod Identity 로 받는다 — Terraform 이 이 이름으로 역할을 잇는다
+      # (platform/terraform/aws/eks.tf 의 scene_api_media). 쿠버네티스 API 토큰은 여전히 마운트하지 않는다.
+      serviceAccountName: scene-api
+      {{- end }}
       nodeSelector:
         kubernetes.io/arch: amd64
       {{- if ge (int $config.replicas) 2 }}
@@ -133,3 +138,10 @@ spec:
       app: {{ $name }}
 {{- end }}
 {{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: scene-api
+  namespace: {{ .Release.Namespace }}
+automountServiceAccountToken: false

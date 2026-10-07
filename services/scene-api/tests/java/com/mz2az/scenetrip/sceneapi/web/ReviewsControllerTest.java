@@ -22,6 +22,7 @@ import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.review.PhotoStorage;
 import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
 import com.mz2az.scenetrip.sceneapi.review.ReviewStore.Target;
+import com.mz2az.scenetrip.sceneapi.review.UploadStore;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.net.URI;
 import java.time.Clock;
@@ -53,8 +54,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  *
  * <p>{@link CurrentAccount} · {@link AccessTokens} · {@link ReviewViews} 는 진짜다. 401 의 코드({@code
  * SIGN_IN_REQUIRED} 와 {@code ACCESS_TOKEN_INVALID})가 실제 헤더 처리에서 갈리고, 줄 → 계약 모양 옮김도 실제로 탄다. DB 를 아는
- * {@link ReviewStore} · {@link UserStore} 와 사진 저장소만 가짜이고, 그 SQL 은 통합 레인({@code
- * ReviewStoreIntegrationTest})이 본다.
+ * {@link ReviewStore} · {@link UserStore} · {@link UploadStore} 와 사진 저장소만 가짜이고, 그 SQL 은 통합
+ * 레인({@code ReviewStoreIntegrationTest})이 본다.
  */
 @WebMvcTest(ReviewsController.class)
 @Import({
@@ -85,6 +86,7 @@ class ReviewsControllerTest {
 
   @MockitoBean private ReviewStore store;
   @MockitoBean private PhotoStorage storage;
+  @MockitoBean private UploadStore uploads;
   @MockitoBean private UserStore users;
 
   @BeforeEach
@@ -97,7 +99,7 @@ class ReviewsControllerTest {
         .thenReturn(new ReviewStore.Page<>(List.of(), 0));
     when(storage.viewUrl(anyString()))
         .thenAnswer(inv -> URI.create("https://signed.example/" + inv.getArgument(0)));
-    when(storage.unattachedUploads(any(), anyCollection())).thenReturn(Set.of());
+    when(uploads.unattached(any(), anyCollection())).thenReturn(Set.of());
   }
 
   // ───────────── GET …/reviews ─────────────
@@ -462,21 +464,40 @@ class ReviewsControllerTest {
   }
 
   @Test
-  @DisplayName("쓰기 — 저장소가 이 사용자의 올린 키로 판정한 것을 Store 에 넘긴다")
-  void putPassesUploadedKeysFromStorage() throws Exception {
-    List<String> keys = List.of("uploads/tmp/a.jpg", "uploads/tmp/b.jpg");
-    when(storage.unattachedUploads(eq(USER), anyCollection()))
-        .thenReturn(Set.of("uploads/tmp/a.jpg"));
+  @DisplayName(
+      "쓰기 — 이 사용자가 받은 새 키(uploads/tmp/)는 reviews/ 로 옮겨 그 키로 저장하고, 이미 붙은 키는 그대로 — 보낸 순서대로."
+          + " 저장 뒤 올리기 기록을 지운다")
+  void putMovesFreshUploadsAndConsumesThem() throws Exception {
+    when(uploads.unattached(eq(USER), anyCollection()))
+        .thenReturn(Set.of("uploads/tmp/a.jpg", "uploads/tmp/c.png"));
     when(store.put(any(), anyLong(), any(), anyInt(), any(), anyList(), anyCollection()))
-        .thenReturn(row(30L, 5, null, "나", true, List.of()));
+        .thenReturn(
+            row(
+                30L,
+                5,
+                null,
+                "나",
+                true,
+                List.of("reviews/a.jpg", "reviews/b.jpg", "reviews/c.png")));
 
     mvc.perform(
             putJson(
                 "/places/2/reviews/me",
-                "{\"rating\":5,\"photoKeys\":[\"uploads/tmp/a.jpg\",\"uploads/tmp/b.jpg\"]}",
+                "{\"rating\":5,\"photoKeys\":[\"uploads/tmp/a.jpg\",\"reviews/b.jpg\",\"uploads/tmp/c.png\"]}",
                 bearer()))
-        .andExpect(status().isOk());
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.photos.length()").value(3))
+        .andExpect(jsonPath("$.photos[0].key").value("reviews/a.jpg"))
+        .andExpect(jsonPath("$.photos[0].url").value("https://signed.example/reviews/a.jpg"))
+        .andExpect(jsonPath("$.photos[1].key").value("reviews/b.jpg"))
+        .andExpect(jsonPath("$.photos[2].key").value("reviews/c.png"));
 
+    verify(uploads)
+        .unattached(
+            eq(USER), eq(List.of("uploads/tmp/a.jpg", "reviews/b.jpg", "uploads/tmp/c.png")));
+    verify(storage).move("uploads/tmp/a.jpg", "reviews/a.jpg");
+    verify(storage).move("uploads/tmp/c.png", "reviews/c.png");
+    verify(storage, never()).move(eq("reviews/b.jpg"), anyString());
     verify(store)
         .put(
             eq(Target.PLACE),
@@ -484,8 +505,155 @@ class ReviewsControllerTest {
             eq(USER),
             eq(5),
             isNull(),
-            eq(keys),
-            eq(Set.of("uploads/tmp/a.jpg")));
+            eq(List.of("reviews/a.jpg", "reviews/b.jpg", "reviews/c.png")),
+            eq(Set.of("reviews/a.jpg", "reviews/c.png")));
+    verify(uploads).consume(Set.of("uploads/tmp/a.jpg", "uploads/tmp/c.png"));
+  }
+
+  @Test
+  @DisplayName("쓰기 — 이 사용자가 받지 않은 키(남의 것·만료·모르는 것)는 옮기지 않고 그대로 Store 에 넘겨 Store 가 가린다")
+  void putPassesUnknownKeysThroughUnmoved() throws Exception {
+    when(store.put(any(), anyLong(), any(), anyInt(), any(), anyList(), anyCollection()))
+        .thenThrow(ReviewStore.PhotoKeyRejectedException.class);
+
+    mvc.perform(
+            putJson(
+                "/pois/3/reviews/me",
+                "{\"rating\":5,\"photoKeys\":[\"uploads/tmp/someone-else.jpg\"]}",
+                bearer()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("REVIEW_PHOTO_INVALID"));
+
+    verify(storage, never()).move(anyString(), anyString());
+    verify(store)
+        .put(
+            eq(Target.POI),
+            eq(3L),
+            eq(USER),
+            eq(5),
+            isNull(),
+            eq(List.of("uploads/tmp/someone-else.jpg")),
+            eq(Set.of()));
+    verify(uploads, never()).consume(anyCollection());
+  }
+
+  @Test
+  @DisplayName("쓰기 — 받은 키인데 저장소에 파일이 없으면 400 REVIEW_PHOTO_INVALID, 저장하지 않고 기록도 지우지 않는다")
+  void putWithMissingUploadedFileIsPhotoInvalid() throws Exception {
+    when(uploads.unattached(eq(USER), anyCollection())).thenReturn(Set.of("uploads/tmp/a.jpg"));
+    org.mockito.Mockito.doThrow(new PhotoStorage.MissingPhotoException("uploads/tmp/a.jpg"))
+        .when(storage)
+        .move("uploads/tmp/a.jpg", "reviews/a.jpg");
+
+    mvc.perform(
+            putJson(
+                "/places/2/reviews/me",
+                "{\"rating\":5,\"photoKeys\":[\"uploads/tmp/a.jpg\"]}",
+                bearer()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("REVIEW_PHOTO_INVALID"));
+
+    verifyNeverPut();
+    verify(storage, org.mockito.Mockito.times(1)).move(anyString(), anyString());
+    verify(uploads, never()).consume(anyCollection());
+  }
+
+  @Test
+  @DisplayName("쓰기 — Store 가 거절하면 옮긴 사진을 원래 임시 키로 되돌리고, 올리기 기록을 지우지 않는다")
+  void putRejectedByStoreMovesBackAndDoesNotConsume() throws Exception {
+    when(uploads.unattached(eq(USER), anyCollection()))
+        .thenReturn(Set.of("uploads/tmp/a.jpg", "uploads/tmp/c.png"));
+    when(store.put(any(), anyLong(), any(), anyInt(), any(), anyList(), anyCollection()))
+        .thenThrow(ReviewStore.PhotoKeyRejectedException.class);
+
+    mvc.perform(
+            putJson(
+                "/places/2/reviews/me",
+                "{\"rating\":5,\"photoKeys\":[\"uploads/tmp/a.jpg\",\"reviews/x.jpg\",\"uploads/tmp/c.png\"]}",
+                bearer()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("REVIEW_PHOTO_INVALID"));
+
+    org.mockito.InOrder order = org.mockito.Mockito.inOrder(storage, store);
+    order.verify(storage).move("uploads/tmp/a.jpg", "reviews/a.jpg");
+    order.verify(storage).move("uploads/tmp/c.png", "reviews/c.png");
+    order.verify(store).put(any(), anyLong(), any(), anyInt(), any(), anyList(), anyCollection());
+    verify(storage).move("reviews/a.jpg", "uploads/tmp/a.jpg");
+    verify(storage).move("reviews/c.png", "uploads/tmp/c.png");
+    verify(storage, never()).move(eq("reviews/x.jpg"), anyString());
+    verify(storage, org.mockito.Mockito.times(4)).move(anyString(), anyString());
+    verify(uploads, never()).consume(anyCollection());
+  }
+
+  @Test
+  @DisplayName("쓰기 — 뒤 사진이 저장소에 없으면 앞에서 옮긴 사진을 되돌리고 400, 저장하지 않는다")
+  void putWithLaterMissingFileMovesBackEarlierOnes() throws Exception {
+    when(uploads.unattached(eq(USER), anyCollection()))
+        .thenReturn(Set.of("uploads/tmp/a.jpg", "uploads/tmp/b.jpg"));
+    org.mockito.Mockito.doThrow(new PhotoStorage.MissingPhotoException("uploads/tmp/b.jpg"))
+        .when(storage)
+        .move("uploads/tmp/b.jpg", "reviews/b.jpg");
+
+    mvc.perform(
+            putJson(
+                "/pois/3/reviews/me",
+                "{\"rating\":5,\"photoKeys\":[\"uploads/tmp/a.jpg\",\"uploads/tmp/b.jpg\"]}",
+                bearer()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("REVIEW_PHOTO_INVALID"));
+
+    org.mockito.InOrder order = org.mockito.Mockito.inOrder(storage);
+    order.verify(storage).move("uploads/tmp/a.jpg", "reviews/a.jpg");
+    order.verify(storage).move("uploads/tmp/b.jpg", "reviews/b.jpg");
+    order.verify(storage).move("reviews/a.jpg", "uploads/tmp/a.jpg");
+    verify(storage, never()).move("reviews/b.jpg", "uploads/tmp/b.jpg");
+    verifyNeverPut();
+    verify(uploads, never()).consume(anyCollection());
+  }
+
+  @Test
+  @DisplayName("쓰기 — 되돌리기가 실패해도 무시하고 400 REVIEW_PHOTO_INVALID, 나머지도 되돌린다")
+  void putMoveBackFailureIsIgnored() throws Exception {
+    when(uploads.unattached(eq(USER), anyCollection()))
+        .thenReturn(Set.of("uploads/tmp/a.jpg", "uploads/tmp/b.jpg"));
+    when(store.put(any(), anyLong(), any(), anyInt(), any(), anyList(), anyCollection()))
+        .thenThrow(ReviewStore.PhotoKeyRejectedException.class);
+    org.mockito.Mockito.doThrow(new RuntimeException("storage down"))
+        .when(storage)
+        .move("reviews/a.jpg", "uploads/tmp/a.jpg");
+
+    mvc.perform(
+            putJson(
+                "/places/2/reviews/me",
+                "{\"rating\":5,\"photoKeys\":[\"uploads/tmp/a.jpg\",\"uploads/tmp/b.jpg\"]}",
+                bearer()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("REVIEW_PHOTO_INVALID"));
+
+    verify(storage).move("reviews/a.jpg", "uploads/tmp/a.jpg");
+    verify(storage).move("reviews/b.jpg", "uploads/tmp/b.jpg");
+    verify(uploads, never()).consume(anyCollection());
+  }
+
+  @Test
+  @DisplayName("쓰기 — 같은 키가 두 번이면 아무것도 옮기기 전에 400 REVIEW_PHOTO_INVALID")
+  void putDuplicateKeysRejectedBeforeAnyMove() throws Exception {
+    when(uploads.unattached(eq(USER), anyCollection())).thenReturn(Set.of("uploads/tmp/a.jpg"));
+
+    for (String keys :
+        List.of(
+            "[\"uploads/tmp/a.jpg\",\"uploads/tmp/a.jpg\"]",
+            "[\"reviews/x.jpg\",\"uploads/tmp/a.jpg\",\"reviews/x.jpg\"]")) {
+      mvc.perform(
+              putJson(
+                  "/places/2/reviews/me", "{\"rating\":5,\"photoKeys\":" + keys + "}", bearer()))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("REVIEW_PHOTO_INVALID"));
+    }
+
+    verify(storage, never()).move(anyString(), anyString());
+    verifyNeverPut();
+    verify(uploads, never()).consume(anyCollection());
   }
 
   @Test

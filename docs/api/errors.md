@@ -73,7 +73,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `SIGN_IN_REQUIRED` | (`401`) 가입해야 할 수 있는 동작이다. 마켓 좋아요·담기·올리기·내리기, 여행 중 길찾기, 가이드 챗봇, 리뷰 쓰기·고치기·지우기, 사진 올리기. 로그인 화면으로 안내한다 |
 | `NICKNAME_INVALID` | 닉네임이 규칙에 맞지 않는다 — 앞뒤 공백을 뗀 뒤 2~16 자, 한글·영문·숫자·`_` 만 |
 | `REVIEW_PHOTO_INVALID` | 리뷰의 `photoKeys` 에 내가 올리지 않았거나 만료된 업로드, 또는 없는 사진이 있다. 사진을 다시 올린다 |
-| `UPLOAD_TOO_LARGE` | 올리려는 사진이 10 MB 를 넘는다. 줄여서 다시 |
+| `UPLOAD_TOO_LARGE` | 올리려는 사진이 10 MB 를 넘거나 크기가 1 바이트 미만이다. 줄여서 다시 |
 | `UPLOAD_TYPE_UNSUPPORTED` | JPEG·PNG·HEIC·WebP 가 아니다 |
 | `NOT_MARKET_COURSE_AUTHOR` | (`403`) 남이 올린 코스는 내릴 수 없다. **마켓의 코스는 이미 누구에게나 보이므로 404 로 숨기지 않는다** — 내 코스가 `COURSE_NOT_FOUND` 로 존재를 숨기는 것과 갈리는 지점이다 |
 | `UNKNOWN_COURSE_ITEM` | 편집 완료(`PUT /courses/{courseId}`)가 그 코스에 없는 항목 `id` 를 가리켰다. 이미 지워졌거나 남의 코스 것이다 — **새로 담는 장소라면 `id` 를 아예 비워야 한다** |
@@ -138,6 +138,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `ROUTING_UNAVAILABLE` | 길찾기 제공자(카카오)가 응답하지 않거나 호출 한도를 넘었다. 잠시 뒤 다시 시도한다. 한도 초과는 서버가 따로 세어 둔다 |
 | `AUTH_PROVIDER_UNAVAILABLE` | 구글·애플 서버(공개키, 애플 코드 교환)에 닿지 못했다. `POST /auth/google`·`POST /auth/apple` 이 낸다. 잠시 뒤 재시도 |
 | `GUIDE_UNAVAILABLE` | 여행 가이드 에이전트가 응답하지 않는다 — 프로세스가 죽었거나, 모델이 꺼져 있거나 한도 초과. 잠시 뒤 재시도. **규칙 기반으로 조용히 떨어지지 않는다.** `POST /guide/chat`·`POST /guide/plan` 이 낸다 |
+| `UPLOAD_UNAVAILABLE` | 이 서버에 사진 저장소가 설정되지 않았다(`POST /uploads`). 사진 없이 리뷰를 쓰게 한다 |
 
 ### 서버 결함 (`500`)
 

@@ -17,6 +17,9 @@ import com.mz2az.scenetrip.sceneapi.api.model.ReviewInput;
 import com.mz2az.scenetrip.sceneapi.api.model.ReviewList;
 import com.mz2az.scenetrip.sceneapi.api.model.ReviewSort;
 import com.mz2az.scenetrip.sceneapi.api.model.ReviewTargetType;
+import com.mz2az.scenetrip.sceneapi.api.model.UploadCreate;
+import com.mz2az.scenetrip.sceneapi.api.model.UploadPurpose;
+import com.mz2az.scenetrip.sceneapi.api.model.UploadTicket;
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.auth.AppleClient;
 import com.mz2az.scenetrip.sceneapi.auth.AppleLogin;
@@ -27,19 +30,20 @@ import com.mz2az.scenetrip.sceneapi.place.PlaceStores;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStores;
 import com.mz2az.scenetrip.sceneapi.review.PhotoStorage;
 import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
+import com.mz2az.scenetrip.sceneapi.review.UploadStore;
 import com.mz2az.scenetrip.sceneapi.user.AccountLinkStore;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -55,7 +59,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 본다.
  *
  * <p>{@code AuthFlowIntegrationTest} 와 같이 스프링 없이 컨트롤러를 손으로 조립하고, 요청은 {@link MockHttpServletRequest}
- * 의 헤더만 바꿔 쓴다. 거절은 {@link ApiException} 의 상태·코드로 본다. 사진 저장소는 가짜다 — 「이 사용자가 올린 키」 를 시험이 정한다.
+ * 의 헤더만 바꿔 쓴다. 거절은 {@link ApiException} 의 상태·코드로 본다. 사진 저장소(S3)만 가짜다 — 「저장소에 파일이 있는가」 를 시험이 정한다.
+ * 올리기 기록({@code photo_upload}, V22)은 진짜 {@link UploadStore} 로 {@code POST /uploads} 를 거쳐 쌓인다.
  *
  * <p>시험마다 제 촬영지·편의시설·계정을 만들고 끝나면 지운다.
  */
@@ -76,7 +81,11 @@ class ReviewFlowIntegrationTest {
   private final FakeStorage storage = new FakeStorage();
   private final ReviewStore store = new ReviewStore(jdbc, transactions);
   private final ReviewViews views = new ReviewViews(store, storage);
-  private final ReviewsController reviews = new ReviewsController(store, views, storage, accounts);
+  private final UploadStore uploadStore = new UploadStore(jdbc);
+  private final ReviewsController reviews =
+      new ReviewsController(store, views, storage, uploadStore, accounts);
+  private final UploadsController uploadsApi =
+      new UploadsController(storage, uploadStore, accounts);
   private final PlacesController places = new PlacesController(PlaceStores.create(jdbc), views);
   private final PoisController pois = new PoisController(PoiStores.create(jdbc), null, views);
   private final RefreshTokenStore refreshTokens =
@@ -189,8 +198,7 @@ class ReviewFlowIntegrationTest {
   }
 
   @Test
-  @DisplayName(
-      "올리지 않은 사진 키면 400 REVIEW_PHOTO_INVALID 이고 기존 리뷰는 그대로다(사진 올리기 창구가 없어 빈 photoKeys 만 통한다)")
+  @DisplayName("올리지 않은 사진 키면 400 REVIEW_PHOTO_INVALID 이고 기존 리뷰는 그대로다")
   void unknownPhotoKeyRejectedAndNothingChanges() {
     long poi = poi("시험 식당");
     UUID me = member();
@@ -223,6 +231,295 @@ class ReviewFlowIntegrationTest {
         HttpStatus.BAD_REQUEST,
         "REVIEW_PHOTO_INVALID");
     assertThat(reviewCount(place)).isZero();
+  }
+
+  // ───────────── 사진 올리기 → 붙이기 ─────────────
+
+  @Test
+  @DisplayName("POST /uploads — 201, uploads/tmp/<uuid>.<확장자> 키를 주고 photo_upload 에 이 사용자의 키로 적는다")
+  void uploadTicketIsRecorded() {
+    UUID me = member();
+    as(me);
+
+    UploadTicket t = ticket("image/heic");
+
+    assertThat(t.getKey()).matches("^uploads/tmp/[0-9a-f-]{36}\\.heic$");
+    assertThat(t.getUploadUrl().toString()).endsWith(t.getKey());
+    assertThat(t.getRequiredHeaders()).containsEntry("Content-Type", "image/heic");
+    assertThat(t.getExpiresAt().toInstant())
+        .isBetween(
+            Instant.now().plus(Duration.ofMinutes(9)), Instant.now().plus(Duration.ofMinutes(11)));
+    var row =
+        jdbc.sql(
+                "SELECT user_id::text AS u, purpose, content_type, bytes FROM photo_upload WHERE"
+                    + " storage_key = :k")
+            .param("k", t.getKey())
+            .query()
+            .singleRow();
+    assertThat(row.get("u")).isEqualTo(me.toString());
+    assertThat(row.get("purpose")).isEqualTo("review");
+    assertThat(row.get("content_type")).isEqualTo("image/heic");
+    assertThat(((Number) row.get("bytes")).longValue()).isEqualTo(123_456L);
+  }
+
+  @Test
+  @DisplayName(
+      "POST /uploads — 토큰이 없으면 401 SIGN_IN_REQUIRED, 저장소가 없는 서버면 503 UPLOAD_UNAVAILABLE. 둘 다 기록이 남지"
+          + " 않는다")
+  void uploadRejections() {
+    withoutToken();
+    expect(
+        () -> uploadsApi.createUpload(new UploadCreate(UploadPurpose.REVIEW, "image/jpeg", 10L)),
+        HttpStatus.UNAUTHORIZED,
+        "SIGN_IN_REQUIRED");
+
+    UUID me = member();
+    as(me);
+    storage.available = false;
+    expect(
+        () -> uploadsApi.createUpload(new UploadCreate(UploadPurpose.REVIEW, "image/jpeg", 10L)),
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "UPLOAD_UNAVAILABLE");
+    assertThat(uploadsOf(me)).isZero();
+  }
+
+  @Test
+  @DisplayName("받은 키로 쓰면 파일이 reviews/ 로 옮겨지고 리뷰는 그 키를 갖는다. 올리기 기록은 지워져 같은 키를 다시 쓸 수 없다")
+  void attachMovesAndConsumes() {
+    long place = place("시험 촬영지");
+    long other = place("다른 촬영지");
+    UUID me = member();
+    as(me);
+    String tmp = uploadPhoto("image/png");
+
+    Review review =
+        reviews.putMyPlaceReview(place, input(5, null).photoKeys(List.of(tmp))).getBody();
+
+    String moved = reviewsKey(tmp);
+    assertThat(moved).endsWith(".png");
+    assertThat(review.getPhotos()).extracting(p -> p.getKey()).containsExactly(moved);
+    assertThat(review.getPhotos().get(0).getUrl()).isEqualTo(FakeStorage.url(moved));
+    assertThat(storage.files).contains(moved).doesNotContain(tmp);
+    assertThat(storedKeys(review.getId())).containsExactly(moved);
+    assertThat(uploadRecords(tmp)).isZero();
+    assertThat(reviews.getMyPlaceReview(place).getBody().getPhotos())
+        .extracting(p -> p.getKey())
+        .containsExactly(moved);
+
+    // 같은 받은 키를 다른 리뷰에 다시 — 기록이 없으므로 거절, 그 리뷰는 생기지 않는다
+    storage.put(tmp); // 파일이 다시 있어도(누가 같은 주소로 또 올렸어도) 기록이 없으면 안 된다
+    expect(
+        () -> reviews.putMyPlaceReview(other, input(4, null).photoKeys(List.of(tmp))),
+        HttpStatus.BAD_REQUEST,
+        "REVIEW_PHOTO_INVALID");
+    assertThat(reviewCount(other)).isZero();
+  }
+
+  @Test
+  @DisplayName("고치기 — 이미 붙은 reviews/ 키는 그대로 받고, 새로 받은 키와 섞어 보낸 순서대로 저장한다. 빼면 빠진다")
+  void editKeepsAttachedPhotosInOrder() {
+    long poi = poi("시험 식당");
+    UUID me = member();
+    as(me);
+    String a = uploadPhoto("image/jpeg");
+    String b = uploadPhoto("image/webp");
+    Review first = reviews.putMyPoiReview(poi, input(4, "처음").photoKeys(List.of(a, b))).getBody();
+    String ra = reviewsKey(a);
+    String rb = reviewsKey(b);
+    assertThat(first.getPhotos()).extracting(p -> p.getKey()).containsExactly(ra, rb);
+
+    String c = uploadPhoto("image/png");
+    Review edited =
+        reviews.putMyPoiReview(poi, input(5, "고침").photoKeys(List.of(rb, c, ra))).getBody();
+
+    String rc = reviewsKey(c);
+    assertThat(edited.getId()).isEqualTo(first.getId());
+    assertThat(edited.getPhotos()).extracting(p -> p.getKey()).containsExactly(rb, rc, ra);
+    assertThat(storedKeys(edited.getId())).containsExactly(rb, rc, ra);
+    // 이미 붙은 키는 옮기지 않는다 — 옮긴 것은 a·b·c 세 번뿐
+    assertThat(storage.moves).extracting(m -> m[1]).containsExactly(ra, rb, rc);
+
+    Review trimmed = reviews.putMyPoiReview(poi, input(5, "고침").photoKeys(List.of(rc))).getBody();
+    assertThat(trimmed.getPhotos()).extracting(p -> p.getKey()).containsExactly(rc);
+  }
+
+  @Test
+  @DisplayName("다른 사람이 받은 키는 400 REVIEW_PHOTO_INVALID — 내 리뷰는 그대로, 그 사람의 기록과 파일도 그대로")
+  void someoneElsesUploadIsRejected() {
+    long place = place("시험 촬영지");
+    UUID owner = member();
+    as(owner);
+    String theirs = uploadPhoto("image/jpeg");
+
+    UUID me = member();
+    as(me);
+    Review before = reviews.putMyPlaceReview(place, input(3, "처음")).getBody();
+    expect(
+        () -> reviews.putMyPlaceReview(place, input(5, "바꿈").photoKeys(List.of(theirs))),
+        HttpStatus.BAD_REQUEST,
+        "REVIEW_PHOTO_INVALID");
+
+    assertUnchanged(reviews.getMyPlaceReview(place).getBody(), before);
+    assertThat(uploadRecords(theirs)).isEqualTo(1);
+    assertThat(storage.files).contains(theirs);
+    assertThat(storage.moves).isEmpty();
+  }
+
+  @Test
+  @DisplayName("하루 넘은 받은 키는 400 REVIEW_PHOTO_INVALID — 버킷에서도 지워졌을 수 있다")
+  void expiredUploadIsRejected() {
+    long place = place("시험 촬영지");
+    UUID me = member();
+    as(me);
+    String tmp = uploadPhoto("image/jpeg");
+    jdbc.sql(
+            "UPDATE photo_upload SET created_at = now() - INTERVAL '1 day 1 minute' WHERE"
+                + " storage_key = :k")
+        .param("k", tmp)
+        .update();
+
+    expect(
+        () -> reviews.putMyPlaceReview(place, input(5, null).photoKeys(List.of(tmp))),
+        HttpStatus.BAD_REQUEST,
+        "REVIEW_PHOTO_INVALID");
+    assertThat(reviewCount(place)).isZero();
+    assertThat(storage.moves).isEmpty();
+  }
+
+  @Test
+  @DisplayName(
+      "받기만 하고 올리지 않은 키(버킷에 파일 없음)는 400 REVIEW_PHOTO_INVALID — 리뷰는 그대로, 기록은 남아 다시 올리면 쓸 수 있다")
+  void receivedButNotUploadedIsRejected() {
+    long poi = poi("시험 식당");
+    UUID me = member();
+    as(me);
+    Review before = reviews.putMyPoiReview(poi, input(2, "처음")).getBody();
+    String tmp = ticket("image/jpeg").getKey(); // PUT 하지 않았다
+
+    expect(
+        () -> reviews.putMyPoiReview(poi, input(5, "바꿈").photoKeys(List.of(tmp))),
+        HttpStatus.BAD_REQUEST,
+        "REVIEW_PHOTO_INVALID");
+    assertUnchanged(reviews.getMyPoiReview(poi).getBody(), before);
+    assertThat(uploadRecords(tmp)).isEqualTo(1);
+
+    storage.put(tmp);
+    Review after = reviews.putMyPoiReview(poi, input(5, "바꿈").photoKeys(List.of(tmp))).getBody();
+    assertThat(after.getPhotos()).extracting(p -> p.getKey()).containsExactly(reviewsKey(tmp));
+  }
+
+  @Test
+  @DisplayName("같은 키를 두 번 보내면 400 REVIEW_PHOTO_INVALID — 받은 키든 이미 붙은 키든, 리뷰는 그대로")
+  void duplicateKeysAreRejected() {
+    long place = place("시험 촬영지");
+    UUID me = member();
+    as(me);
+    String a = uploadPhoto("image/jpeg");
+    Review before = reviews.putMyPlaceReview(place, input(4, "처음").photoKeys(List.of(a))).getBody();
+    String ra = reviewsKey(a);
+
+    expect(
+        () -> reviews.putMyPlaceReview(place, input(1, "바꿈").photoKeys(List.of(ra, ra))),
+        HttpStatus.BAD_REQUEST,
+        "REVIEW_PHOTO_INVALID");
+    assertUnchanged(reviews.getMyPlaceReview(place).getBody(), before);
+
+    String b = uploadPhoto("image/png");
+    int movesBefore = storage.moves.size();
+    expect(
+        () -> reviews.putMyPlaceReview(place, input(1, "바꿈").photoKeys(List.of(ra, b, b))),
+        HttpStatus.BAD_REQUEST,
+        "REVIEW_PHOTO_INVALID");
+    assertUnchanged(reviews.getMyPlaceReview(place).getBody(), before);
+    assertThat(storedKeys(before.getId())).containsExactly(ra);
+    // 옮기기 전에 막았다 — b 는 그대로 임시 자리에 있고 기록도 남아, 한 번만 보내면 붙는다
+    assertThat(storage.moves).hasSize(movesBefore);
+    assertThat(storage.files).contains(b).doesNotContain(reviewsKey(b));
+    assertThat(uploadRecords(b)).isEqualTo(1);
+    assertThat(
+            reviews
+                .putMyPlaceReview(place, input(1, "바꿈").photoKeys(List.of(ra, b)))
+                .getBody()
+                .getPhotos())
+        .extracting(p -> p.getKey())
+        .containsExactly(ra, reviewsKey(b));
+  }
+
+  @Test
+  @DisplayName("뒤 사진이 버킷에 없어 실패하면 앞에서 옮긴 사진은 원래 임시 키로 돌아오고 기록도 남는다 — 그 파일을 올린 뒤 같은 키로 다시 보내면 붙는다")
+  void laterMissingFileMovesEarlierBackAndRetryWorks() {
+    long poi = poi("시험 식당");
+    UUID me = member();
+    as(me);
+    Review before = reviews.putMyPoiReview(poi, input(3, "처음")).getBody();
+    String a = uploadPhoto("image/jpeg");
+    String b = ticket("image/png").getKey(); // 아직 올리지 않았다
+
+    expect(
+        () -> reviews.putMyPoiReview(poi, input(5, "바꿈").photoKeys(List.of(a, b))),
+        HttpStatus.BAD_REQUEST,
+        "REVIEW_PHOTO_INVALID");
+
+    assertUnchanged(reviews.getMyPoiReview(poi).getBody(), before);
+    assertThat(storage.files).contains(a).doesNotContain(reviewsKey(a), reviewsKey(b));
+    assertThat(uploadRecords(a)).isEqualTo(1);
+    assertThat(uploadRecords(b)).isEqualTo(1);
+
+    storage.put(b);
+    Review after = reviews.putMyPoiReview(poi, input(5, "바꿈").photoKeys(List.of(a, b))).getBody();
+    assertThat(after.getPhotos())
+        .extracting(p -> p.getKey())
+        .containsExactly(reviewsKey(a), reviewsKey(b));
+    assertThat(storage.files).contains(reviewsKey(a), reviewsKey(b)).doesNotContain(a, b);
+    assertThat(uploadRecords(a)).isZero();
+    assertThat(uploadRecords(b)).isZero();
+  }
+
+  @Test
+  @DisplayName("Store 가 다른 키를 거절해 실패하면 옮긴 사진은 원래 임시 키로 돌아오고 기록도 남는다 — 같은 받은 키로 다시 보내면 붙는다")
+  void storeRejectionMovesBackAndRetryWorks() {
+    long place = place("시험 촬영지");
+    UUID me = member();
+    as(me);
+    String a = uploadPhoto("image/webp");
+    String c = uploadPhoto("image/jpeg");
+    String unknown = "reviews/" + UUID.randomUUID() + ".jpg";
+
+    expect(
+        () -> reviews.putMyPlaceReview(place, input(5, null).photoKeys(List.of(a, unknown, c))),
+        HttpStatus.BAD_REQUEST,
+        "REVIEW_PHOTO_INVALID");
+
+    assertThat(reviewCount(place)).isZero();
+    assertThat(storage.files).contains(a, c).doesNotContain(reviewsKey(a), reviewsKey(c));
+    assertThat(uploadRecords(a)).isEqualTo(1);
+    assertThat(uploadRecords(c)).isEqualTo(1);
+
+    Review review =
+        reviews.putMyPlaceReview(place, input(5, null).photoKeys(List.of(a, c))).getBody();
+    assertThat(review.getPhotos())
+        .extracting(p -> p.getKey())
+        .containsExactly(reviewsKey(a), reviewsKey(c));
+    assertThat(storedKeys(review.getId())).containsExactly(reviewsKey(a), reviewsKey(c));
+    assertThat(uploadRecords(a)).isZero();
+  }
+
+  @Test
+  @DisplayName("다른 사람 리뷰에 붙은 reviews/ 키는 400 REVIEW_PHOTO_INVALID — 이미 붙은 키는 그 리뷰의 것만 받는다")
+  void someoneElsesAttachedKeyIsRejected() {
+    long place = place("시험 촬영지");
+    UUID owner = member();
+    as(owner);
+    String tmp = uploadPhoto("image/jpeg");
+    reviews.putMyPlaceReview(place, input(5, null).photoKeys(List.of(tmp)));
+    String attached = reviewsKey(tmp);
+
+    as(member());
+    expect(
+        () -> reviews.putMyPlaceReview(place, input(5, null).photoKeys(List.of(attached))),
+        HttpStatus.BAD_REQUEST,
+        "REVIEW_PHOTO_INVALID");
+    assertThat(reviewCount(place)).isEqualTo(1);
   }
 
   // ───────────── 대상 ─────────────
@@ -331,11 +628,11 @@ class ReviewFlowIntegrationTest {
     placeImage(place, "https://img.example/a.jpg", 0);
     placeImage(place, "https://img.example/b.jpg", 1);
     UUID me = member();
-    String key = "reviews/" + UUID.randomUUID();
-    storage.upload(me, key);
     as(me);
+    String tmp = uploadPhoto("image/jpeg");
+    String key = "reviews/" + tmp.substring("uploads/tmp/".length());
     Review review =
-        reviews.putMyPlaceReview(place, input(5, "사진도").photoKeys(List.of(key))).getBody();
+        reviews.putMyPlaceReview(place, input(5, "사진도").photoKeys(List.of(tmp))).getBody();
     assertThat(review.getPhotos()).hasSize(1);
     assertThat(review.getPhotos().get(0).getKey()).isEqualTo(key);
     assertThat(review.getPhotos().get(0).getUrl()).isEqualTo(FakeStorage.url(key));
@@ -498,16 +795,27 @@ class ReviewFlowIntegrationTest {
 
   // ───────────── 도우미 ─────────────
 
-  /** 「이 사용자가 올린 키」 를 시험이 정하는 저장소. 서명 주소는 키로 만든 가짜다. */
+  /**
+   * 가짜 S3 — 서명 주소는 키로 만든 가짜이고, 「버킷에 있는 파일」 은 {@link #put} 이 정한다. {@link #move} 는 실제처럼 없으면 {@link
+   * MissingPhotoException}, 있으면 옮긴다(원본은 사라진다).
+   */
   private static final class FakeStorage implements PhotoStorage {
-    private final java.util.Map<UUID, Set<String>> uploads = new java.util.HashMap<>();
+    final Set<String> files = new HashSet<>();
+    final List<String[]> moves = new ArrayList<>();
+    boolean available = true;
 
-    void upload(UUID user, String key) {
-      uploads.computeIfAbsent(user, u -> new HashSet<>()).add(key);
+    /** 앱이 받은 주소로 PUT 한 것처럼 — 버킷에 파일이 생긴다. */
+    void put(String key) {
+      files.add(key);
     }
 
     static URI url(String key) {
       return URI.create("https://signed.example/" + key);
+    }
+
+    @Override
+    public boolean available() {
+      return available;
     }
 
     @Override
@@ -516,10 +824,47 @@ class ReviewFlowIntegrationTest {
     }
 
     @Override
-    public Set<String> unattachedUploads(UUID user, Collection<String> keys) {
-      Set<String> mine = uploads.getOrDefault(user, Set.of());
-      return keys.stream().filter(mine::contains).collect(Collectors.toSet());
+    public PresignedUpload presignUpload(
+        String storageKey, String contentType, long bytes, Duration expiresIn) {
+      return new PresignedUpload(
+          URI.create("https://bucket.example/" + storageKey),
+          Map.of("Content-Type", contentType),
+          Instant.now().plus(expiresIn));
     }
+
+    @Override
+    public void move(String fromKey, String toKey) {
+      if (!files.remove(fromKey)) {
+        throw new MissingPhotoException(fromKey);
+      }
+      files.add(toKey);
+      moves.add(new String[] {fromKey, toKey});
+    }
+  }
+
+  /** 지금 사용자로 올릴 주소를 받고, 그 주소로 올린 것처럼 버킷에 파일을 둔다. 받은 키(uploads/tmp/…). */
+  private String uploadPhoto(String contentType) {
+    String key = ticket(contentType).getKey();
+    storage.put(key);
+    return key;
+  }
+
+  private UploadTicket ticket(String contentType) {
+    var response =
+        uploadsApi.createUpload(new UploadCreate(UploadPurpose.REVIEW, contentType, 123_456L));
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    return response.getBody();
+  }
+
+  private static long uploadRecords(String key) {
+    return jdbc.sql("SELECT count(*) FROM photo_upload WHERE storage_key = :k")
+        .param("k", key)
+        .query(Long.class)
+        .single();
+  }
+
+  private static String reviewsKey(String tmp) {
+    return "reviews/" + tmp.substring("uploads/tmp/".length());
   }
 
   private UUID member() {
@@ -608,6 +953,29 @@ class ReviewFlowIntegrationTest {
             .single();
     createdPois.add(id);
     return id;
+  }
+
+  private static void assertUnchanged(Review now, Review before) {
+    assertThat(now.getRating()).isEqualTo(before.getRating());
+    assertThat(now.getBody()).isEqualTo(before.getBody());
+    assertThat(now.getUpdatedAt().isEqual(before.getUpdatedAt())).isTrue();
+    assertThat(now.getPhotos())
+        .extracting(p -> p.getKey())
+        .containsExactlyElementsOf(before.getPhotos().stream().map(p -> p.getKey()).toList());
+  }
+
+  private static List<String> storedKeys(long reviewId) {
+    return jdbc.sql("SELECT storage_key FROM review_image WHERE review_id = :r ORDER BY sort_order")
+        .param("r", reviewId)
+        .query(String.class)
+        .list();
+  }
+
+  private static long uploadsOf(UUID user) {
+    return jdbc.sql("SELECT count(*) FROM photo_upload WHERE user_id = CAST(:u AS UUID)")
+        .param("u", user.toString())
+        .query(Long.class)
+        .single();
   }
 
   private static long reviewCount(long placeId) {

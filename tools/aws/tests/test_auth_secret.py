@@ -239,6 +239,7 @@ def deploy_outputs(settings, arns=None):
         "cluster_name": settings.cluster,
         "namespace": "scenetrip",
         "database_host": "db.example",
+        "user_media_bucket": "scenetrip-user-media-123456789012-ap-northeast-2-dev",
         "app_secret_arns": arns
         or {
             "database": DATABASE_ARN,

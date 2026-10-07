@@ -1,19 +1,19 @@
 package com.mz2az.scenetrip.sceneapi.review;
 
 import java.net.URI;
-import java.util.Collection;
-import java.util.Set;
-import java.util.UUID;
-import org.springframework.stereotype.Component;
+import java.time.Duration;
 
 /**
- * 저장소가 아직 없을 때의 자리 — 올린 사진이 없으므로 새 키는 하나도 받지 않는다.
+ * 저장소가 설정되지 않은 환경의 자리 — 올리기 창구는 {@link #available()} 을 보고 503 을 낸다.
  *
- * <p>S3 저장소가 붙으면 이 클래스를 지우고 그 구현으로 바꾼다. 사진이 있는 리뷰가 생길 길이 없어 {@link #viewUrl} 은 불릴 일이 없다. 불렸다면 저장소
- * 없이 사진이 들어간 것이라 크게 실패한다.
+ * <p>올린 사진이 없으므로 사진이 있는 리뷰가 생길 길이 없어 나머지는 불릴 일이 없다. 불렸다면 저장소 없이 사진이 들어간 것이라 크게 실패한다.
  */
-@Component
-class NoPhotoStorage implements PhotoStorage {
+final class NoPhotoStorage implements PhotoStorage {
+
+  @Override
+  public boolean available() {
+    return false;
+  }
 
   @Override
   public URI viewUrl(String storageKey) {
@@ -21,7 +21,13 @@ class NoPhotoStorage implements PhotoStorage {
   }
 
   @Override
-  public Set<String> unattachedUploads(UUID user, Collection<String> keys) {
-    return Set.of();
+  public PresignedUpload presignUpload(
+      String storageKey, String contentType, long bytes, Duration expiresIn) {
+    throw new IllegalStateException("사진 저장소가 설정되지 않았습니다");
+  }
+
+  @Override
+  public void move(String fromKey, String toKey) {
+    throw new IllegalStateException("사진 저장소가 설정되지 않았습니다");
   }
 }

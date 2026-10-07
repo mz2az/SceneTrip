@@ -27,7 +27,12 @@
     "org.springframework.boot:spring-boot-starter-validation": 2089040224,
     "org.springframework.boot:spring-boot-starter-web": 1844596909,
     "org.springframework.boot:spring-boot-webmvc-test": 1870457770,
-    "repositories": -1949687017
+    "repositories": -1949687017,
+    "software.amazon.awssdk:apache-client": 505595950,
+    "software.amazon.awssdk:apache5-client": -385240021,
+    "software.amazon.awssdk:netty-nio-client": -232414039,
+    "software.amazon.awssdk:s3": 1933070387,
+    "software.amazon.awssdk:url-connection-client": -374525171
   },
   "__RESOLVED_ARTIFACTS_HASH": {
     "ch.qos.logback:logback-classic": -1621986300,
@@ -67,7 +72,7 @@
     "com.pinterest.ktlint:ktlint-rule-engine": 1165108679,
     "com.pinterest.ktlint:ktlint-rule-engine-core": -2089248574,
     "com.pinterest.ktlint:ktlint-ruleset-standard": -2025127071,
-    "com.puppycrawl.tools:checkstyle": 1082261917,
+    "com.puppycrawl.tools:checkstyle": 2082237641,
     "com.vaadin.external.google:android-json": -815169796,
     "com.zaxxer:HikariCP": -1650230914,
     "commons-beanutils:commons-beanutils": 852036681,
@@ -100,14 +105,14 @@
     "org.antlr:antlr4-runtime": 460090011,
     "org.apache.commons:commons-lang3": -889837011,
     "org.apache.commons:commons-text": -1636534692,
-    "org.apache.httpcomponents:httpclient": 1902644691,
+    "org.apache.httpcomponents:httpclient": 885029920,
     "org.apache.httpcomponents:httpcore": 922448651,
     "org.apache.logging.log4j:log4j-api": -535303980,
     "org.apache.logging.log4j:log4j-to-slf4j": 211091329,
-    "org.apache.maven.doxia:doxia-core": 1523249265,
-    "org.apache.maven.doxia:doxia-logging-api": 1448116252,
-    "org.apache.maven.doxia:doxia-module-xdoc": 1254169599,
-    "org.apache.maven.doxia:doxia-sink-api": -1516873446,
+    "org.apache.maven.doxia:doxia-core": -712752872,
+    "org.apache.maven.doxia:doxia-logging-api": 370228106,
+    "org.apache.maven.doxia:doxia-module-xdoc": -697766505,
+    "org.apache.maven.doxia:doxia-sink-api": -1527028335,
     "org.apache.tomcat.embed:tomcat-embed-core": 310227507,
     "org.apache.tomcat.embed:tomcat-embed-el": 1305005618,
     "org.apache.tomcat.embed:tomcat-embed-websocket": -1413301720,
@@ -117,7 +122,7 @@
     "org.awaitility:awaitility": 146142818,
     "org.codehaus.plexus:plexus-classworlds": 830297444,
     "org.codehaus.plexus:plexus-component-annotations": -599131582,
-    "org.codehaus.plexus:plexus-container-default": -836965060,
+    "org.codehaus.plexus:plexus-container-default": 1876588805,
     "org.codehaus.plexus:plexus-utils": -2106813517,
     "org.commonmark:commonmark": 1195553091,
     "org.commonmark:commonmark-ext-gfm-tables": -558121472,
@@ -158,6 +163,7 @@
     "org.opentest4j:opentest4j": -1711174392,
     "org.ow2.asm:asm": -1101379267,
     "org.postgresql:postgresql": -457385259,
+    "org.reactivestreams:reactive-streams": 1281941191,
     "org.reflections:reflections": -61158837,
     "org.skyscreamer:jsonassert": -852848867,
     "org.slf4j:jul-to-slf4j": 1118476727,
@@ -212,6 +218,36 @@
     "org.xmlresolver:xmlresolver:jar:data": 792867476,
     "org.xmlunit:xmlunit-core": -1543079851,
     "org.yaml:snakeyaml": 1068613154,
+    "software.amazon.awssdk:annotations": -314747079,
+    "software.amazon.awssdk:arns": -1218784926,
+    "software.amazon.awssdk:auth": -1034030264,
+    "software.amazon.awssdk:aws-core": -379408532,
+    "software.amazon.awssdk:aws-query-protocol": 842296995,
+    "software.amazon.awssdk:aws-xml-protocol": 899246898,
+    "software.amazon.awssdk:checksums": -1559243907,
+    "software.amazon.awssdk:checksums-spi": -485451114,
+    "software.amazon.awssdk:crt-core": -1863544507,
+    "software.amazon.awssdk:endpoints-spi": -1950824058,
+    "software.amazon.awssdk:http-auth": 843194190,
+    "software.amazon.awssdk:http-auth-aws": -1085786806,
+    "software.amazon.awssdk:http-auth-aws-eventstream": 1998973439,
+    "software.amazon.awssdk:http-auth-spi": 3165511,
+    "software.amazon.awssdk:http-client-spi": 1108184687,
+    "software.amazon.awssdk:identity-spi": -1273078328,
+    "software.amazon.awssdk:json-utils": -1130981737,
+    "software.amazon.awssdk:metrics-spi": -1507451861,
+    "software.amazon.awssdk:profiles": -550085805,
+    "software.amazon.awssdk:protocol-core": 994947885,
+    "software.amazon.awssdk:regions": 422083847,
+    "software.amazon.awssdk:retries": 1860839296,
+    "software.amazon.awssdk:retries-spi": 381451356,
+    "software.amazon.awssdk:s3": -685649197,
+    "software.amazon.awssdk:sdk-core": 123089440,
+    "software.amazon.awssdk:third-party-jackson-core": 1117435948,
+    "software.amazon.awssdk:url-connection-client": -1529408649,
+    "software.amazon.awssdk:utils": 749077203,
+    "software.amazon.awssdk:utils-lite": -1140520089,
+    "software.amazon.eventstream:eventstream": 666815114,
     "tools.jackson.core:jackson-core": 704806230,
     "tools.jackson.core:jackson-databind": -1784115690
   },
@@ -989,6 +1025,12 @@
       },
       "version": "42.7.11"
     },
+    "org.reactivestreams:reactive-streams": {
+      "shasums": {
+        "jar": "f75ca597789b3dac58f61857b9ac2e1034a68fa672db35055a8fb4509e325f28"
+      },
+      "version": "1.0.4"
+    },
     "org.reflections:reflections": {
       "shasums": {
         "jar": "938a2d08fe54050d7610b944d8ddc3a09355710d9e6be0aac838dbc04e9a2825"
@@ -1308,6 +1350,186 @@
       },
       "version": "2.6"
     },
+    "software.amazon.awssdk:annotations": {
+      "shasums": {
+        "jar": "73f8418bf2ea184b8318cbc2c9ca298ff1a4b50a63d545b99c7a0fa03d5da54c"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:arns": {
+      "shasums": {
+        "jar": "c9e6169af944968459aa366661e1e3ac6c80674f7726bd0261499c580c513295"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:auth": {
+      "shasums": {
+        "jar": "02fedd7c260ea77c048560bb0c3748810a689d3975696af0ae623006808176d9"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:aws-core": {
+      "shasums": {
+        "jar": "e188f91fe4842d514ec0982f2fa7093ec634ad4246b802a4c9a4a2d166a0e9c7"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:aws-query-protocol": {
+      "shasums": {
+        "jar": "989862cfdfa7f81b3fd132c5d032d9c6ccbc646558174d349cfd1b5e73a7b229"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:aws-xml-protocol": {
+      "shasums": {
+        "jar": "19539b52f595e87f5bcd05eeedcc3d83761de4643249e7573ec975c49693b971"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:checksums": {
+      "shasums": {
+        "jar": "92ea47ae62ca27e02adc4b5cb8c3a4766e1caff7008a1c496aeef66fb166066c"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:checksums-spi": {
+      "shasums": {
+        "jar": "feef27f3a37879cf1d7a9640ac0da46c69b43b673d8aeb77263dca04339c5ed3"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:crt-core": {
+      "shasums": {
+        "jar": "f768b20e5426772b34f4e043931b911e3c06b186441fab340c8af49aefbe5617"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:endpoints-spi": {
+      "shasums": {
+        "jar": "e388a270f18ee676321789374737f315e960c80b6b44e3a3cf839481d0b50608"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:http-auth": {
+      "shasums": {
+        "jar": "174da7474688dcce6db23d2d92261dc59598b4e26e19193ec9c9dc66457c859a"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:http-auth-aws": {
+      "shasums": {
+        "jar": "11c882ceb638a0a378d4bddf1d89aa8323aff46221429b367cc64337ae6ee35c"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:http-auth-aws-eventstream": {
+      "shasums": {
+        "jar": "a3fce04be0a5e45803fb0d4ce56e5bf0f7b8e3eb52b12b334901a45b16ff4b92"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:http-auth-spi": {
+      "shasums": {
+        "jar": "e0606804fcd403105ab07236880f4424d4d869cb942720d9e701e7e57eb8cab1"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:http-client-spi": {
+      "shasums": {
+        "jar": "789d1284bc2faf247763981ad01a4278f326946cd06b592e24ca21f765e04b1a"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:identity-spi": {
+      "shasums": {
+        "jar": "6154ca1685805ebb4817a171539cced74bc4c372763f76adca51b1b02be26cfc"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:json-utils": {
+      "shasums": {
+        "jar": "d229897b52c911aa1f358576ae5321297860f23e28e5d69f16f341c3137d8806"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:metrics-spi": {
+      "shasums": {
+        "jar": "97ddc3a82258467b0744b24a194cf84f110ce80e52c29092bfb1a8758b464c75"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:profiles": {
+      "shasums": {
+        "jar": "5f49309e26058169ce08cd7ae53bb31da01b8c2e9c3b2420fb43b14f56b79767"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:protocol-core": {
+      "shasums": {
+        "jar": "70ada492dbbe58d6f96d432840e8bba643683ff504a8b92e59c9c3915efa4989"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:regions": {
+      "shasums": {
+        "jar": "791803bc9de4f3fdec8be280a45e3e9e85b9ce654a162399ede24981983a7b98"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:retries": {
+      "shasums": {
+        "jar": "38b71812ab45121ba86588f5878a1efe94daf47e65ddcde4e3a58aba620f5abf"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:retries-spi": {
+      "shasums": {
+        "jar": "66de02ca440e95ac64e9d17226a2751bd8202672c04dbafa984e469a0d9e80e4"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:s3": {
+      "shasums": {
+        "jar": "7a704bc66126ab62cba832c09e76bb68f3d988bf428fd00a595c119696bd797b"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:sdk-core": {
+      "shasums": {
+        "jar": "c11f29a8564714ff29ff67e25ead68e4ae527d3747c566d9eb9d2f98ef5518ad"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:third-party-jackson-core": {
+      "shasums": {
+        "jar": "1854fbeb262096332ccc7b856b83b21d0da857b96d2b9cc915a4f9af695f2482"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:url-connection-client": {
+      "shasums": {
+        "jar": "48159c88a5da9fd76c6b7d0895db4ff62408e06e68b86fb005c4fbd946eaf5d3"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:utils": {
+      "shasums": {
+        "jar": "5c8dacaee2380ff784df0ff34510b44ccb8506b7ae13a47ed282cc3118fc3406"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.awssdk:utils-lite": {
+      "shasums": {
+        "jar": "0de8368467e46493ff6136e0bbea20965dcda53a70ea58ed7be5f164c7e3c9d4"
+      },
+      "version": "2.55.12"
+    },
+    "software.amazon.eventstream:eventstream": {
+      "shasums": {
+        "jar": "0c37d8e696117f02c302191b8110b0d0eb20fa412fce34c3a269ec73c16ce822"
+      },
+      "version": "1.0.1"
+    },
     "tools.jackson.core:jackson-core": {
       "shasums": {
         "jar": "3bda1cd6eff0a8d47bdfcaeae7c2bd5311d6c8ed494ef5f3e51029bb44aa9bdf"
@@ -1544,7 +1766,6 @@
       "org.apache.commons:commons-lang3"
     ],
     "org.apache.httpcomponents:httpclient": [
-      "commons-codec:commons-codec",
       "commons-logging:commons-logging",
       "org.apache.httpcomponents:httpcore"
     ],
@@ -1586,8 +1807,7 @@
     ],
     "org.codehaus.plexus:plexus-container-default": [
       "org.apache.xbean:xbean-reflect",
-      "org.codehaus.plexus:plexus-classworlds",
-      "org.codehaus.plexus:plexus-utils"
+      "org.codehaus.plexus:plexus-classworlds"
     ],
     "org.commonmark:commonmark-ext-gfm-tables": [
       "org.commonmark:commonmark"
@@ -1926,6 +2146,204 @@
     ],
     "org.xmlunit:xmlunit-core": [
       "jakarta.xml.bind:jakarta.xml.bind-api"
+    ],
+    "software.amazon.awssdk:arns": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:auth": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:checksums-spi",
+      "software.amazon.awssdk:http-auth",
+      "software.amazon.awssdk:http-auth-aws",
+      "software.amazon.awssdk:http-auth-aws-eventstream",
+      "software.amazon.awssdk:http-auth-spi",
+      "software.amazon.awssdk:http-client-spi",
+      "software.amazon.awssdk:identity-spi",
+      "software.amazon.awssdk:json-utils",
+      "software.amazon.awssdk:profiles",
+      "software.amazon.awssdk:regions",
+      "software.amazon.awssdk:sdk-core",
+      "software.amazon.awssdk:utils",
+      "software.amazon.eventstream:eventstream"
+    ],
+    "software.amazon.awssdk:aws-core": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:auth",
+      "software.amazon.awssdk:endpoints-spi",
+      "software.amazon.awssdk:http-auth",
+      "software.amazon.awssdk:http-auth-spi",
+      "software.amazon.awssdk:http-client-spi",
+      "software.amazon.awssdk:identity-spi",
+      "software.amazon.awssdk:metrics-spi",
+      "software.amazon.awssdk:profiles",
+      "software.amazon.awssdk:regions",
+      "software.amazon.awssdk:retries",
+      "software.amazon.awssdk:retries-spi",
+      "software.amazon.awssdk:sdk-core",
+      "software.amazon.awssdk:utils",
+      "software.amazon.awssdk:utils-lite",
+      "software.amazon.eventstream:eventstream"
+    ],
+    "software.amazon.awssdk:aws-query-protocol": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:aws-core",
+      "software.amazon.awssdk:http-client-spi",
+      "software.amazon.awssdk:protocol-core",
+      "software.amazon.awssdk:sdk-core",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:aws-xml-protocol": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:aws-core",
+      "software.amazon.awssdk:aws-query-protocol",
+      "software.amazon.awssdk:http-client-spi",
+      "software.amazon.awssdk:protocol-core",
+      "software.amazon.awssdk:sdk-core",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:checksums": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:checksums-spi",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:checksums-spi": [
+      "software.amazon.awssdk:annotations"
+    ],
+    "software.amazon.awssdk:crt-core": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:endpoints-spi": [
+      "software.amazon.awssdk:annotations"
+    ],
+    "software.amazon.awssdk:http-auth": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:http-auth-spi",
+      "software.amazon.awssdk:http-client-spi",
+      "software.amazon.awssdk:identity-spi",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:http-auth-aws": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:checksums",
+      "software.amazon.awssdk:checksums-spi",
+      "software.amazon.awssdk:http-auth-spi",
+      "software.amazon.awssdk:http-client-spi",
+      "software.amazon.awssdk:identity-spi",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:http-auth-aws-eventstream": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.eventstream:eventstream"
+    ],
+    "software.amazon.awssdk:http-auth-spi": [
+      "org.reactivestreams:reactive-streams",
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:checksums-spi",
+      "software.amazon.awssdk:http-client-spi",
+      "software.amazon.awssdk:identity-spi",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:http-client-spi": [
+      "org.reactivestreams:reactive-streams",
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:metrics-spi",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:identity-spi": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:json-utils": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:third-party-jackson-core",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:metrics-spi": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:profiles": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:protocol-core": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:http-client-spi",
+      "software.amazon.awssdk:sdk-core",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:regions": [
+      "org.slf4j:slf4j-api",
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:json-utils",
+      "software.amazon.awssdk:profiles",
+      "software.amazon.awssdk:sdk-core",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:retries": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:retries-spi",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:retries-spi": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:s3": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:arns",
+      "software.amazon.awssdk:auth",
+      "software.amazon.awssdk:aws-core",
+      "software.amazon.awssdk:aws-xml-protocol",
+      "software.amazon.awssdk:checksums",
+      "software.amazon.awssdk:checksums-spi",
+      "software.amazon.awssdk:crt-core",
+      "software.amazon.awssdk:endpoints-spi",
+      "software.amazon.awssdk:http-auth",
+      "software.amazon.awssdk:http-auth-aws",
+      "software.amazon.awssdk:http-auth-spi",
+      "software.amazon.awssdk:http-client-spi",
+      "software.amazon.awssdk:identity-spi",
+      "software.amazon.awssdk:json-utils",
+      "software.amazon.awssdk:metrics-spi",
+      "software.amazon.awssdk:profiles",
+      "software.amazon.awssdk:protocol-core",
+      "software.amazon.awssdk:regions",
+      "software.amazon.awssdk:retries-spi",
+      "software.amazon.awssdk:sdk-core",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:sdk-core": [
+      "org.reactivestreams:reactive-streams",
+      "org.slf4j:slf4j-api",
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:checksums",
+      "software.amazon.awssdk:checksums-spi",
+      "software.amazon.awssdk:endpoints-spi",
+      "software.amazon.awssdk:http-auth-aws",
+      "software.amazon.awssdk:http-auth-spi",
+      "software.amazon.awssdk:http-client-spi",
+      "software.amazon.awssdk:identity-spi",
+      "software.amazon.awssdk:metrics-spi",
+      "software.amazon.awssdk:profiles",
+      "software.amazon.awssdk:retries",
+      "software.amazon.awssdk:retries-spi",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:url-connection-client": [
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:http-client-spi",
+      "software.amazon.awssdk:utils"
+    ],
+    "software.amazon.awssdk:utils": [
+      "org.reactivestreams:reactive-streams",
+      "org.slf4j:slf4j-api",
+      "software.amazon.awssdk:annotations"
+    ],
+    "software.amazon.awssdk:utils-lite": [
+      "software.amazon.awssdk:annotations"
     ],
     "tools.jackson.core:jackson-databind": [
       "com.fasterxml.jackson.core:jackson-annotations",
@@ -4376,6 +4794,9 @@
       "org.postgresql.xa",
       "org.postgresql.xml"
     ],
+    "org.reactivestreams:reactive-streams": [
+      "org.reactivestreams"
+    ],
     "org.reflections:reflections": [
       "org.reflections",
       "org.reflections.scanners",
@@ -5083,6 +5504,299 @@
       "org.yaml.snakeyaml.tokens",
       "org.yaml.snakeyaml.util"
     ],
+    "software.amazon.awssdk:annotations": [
+      "software.amazon.awssdk.annotations"
+    ],
+    "software.amazon.awssdk:arns": [
+      "software.amazon.awssdk.arns"
+    ],
+    "software.amazon.awssdk:auth": [
+      "software.amazon.awssdk.auth.credentials",
+      "software.amazon.awssdk.auth.credentials.internal",
+      "software.amazon.awssdk.auth.signer",
+      "software.amazon.awssdk.auth.signer.internal",
+      "software.amazon.awssdk.auth.signer.internal.chunkedencoding",
+      "software.amazon.awssdk.auth.signer.internal.util",
+      "software.amazon.awssdk.auth.signer.params",
+      "software.amazon.awssdk.auth.token.credentials",
+      "software.amazon.awssdk.auth.token.credentials.aws",
+      "software.amazon.awssdk.auth.token.internal",
+      "software.amazon.awssdk.auth.token.signer",
+      "software.amazon.awssdk.auth.token.signer.aws"
+    ],
+    "software.amazon.awssdk:aws-core": [
+      "software.amazon.awssdk.awscore",
+      "software.amazon.awssdk.awscore.auth",
+      "software.amazon.awssdk.awscore.client.builder",
+      "software.amazon.awssdk.awscore.client.config",
+      "software.amazon.awssdk.awscore.client.handler",
+      "software.amazon.awssdk.awscore.defaultsmode",
+      "software.amazon.awssdk.awscore.endpoint",
+      "software.amazon.awssdk.awscore.endpoints",
+      "software.amazon.awssdk.awscore.endpoints.authscheme",
+      "software.amazon.awssdk.awscore.eventstream",
+      "software.amazon.awssdk.awscore.exception",
+      "software.amazon.awssdk.awscore.interceptor",
+      "software.amazon.awssdk.awscore.internal",
+      "software.amazon.awssdk.awscore.internal.auth",
+      "software.amazon.awssdk.awscore.internal.authcontext",
+      "software.amazon.awssdk.awscore.internal.client.config",
+      "software.amazon.awssdk.awscore.internal.defaultsmode",
+      "software.amazon.awssdk.awscore.internal.identity",
+      "software.amazon.awssdk.awscore.internal.interceptor",
+      "software.amazon.awssdk.awscore.internal.token",
+      "software.amazon.awssdk.awscore.internal.useragent",
+      "software.amazon.awssdk.awscore.presigner",
+      "software.amazon.awssdk.awscore.retry",
+      "software.amazon.awssdk.awscore.retry.conditions",
+      "software.amazon.awssdk.awscore.util"
+    ],
+    "software.amazon.awssdk:aws-query-protocol": [
+      "software.amazon.awssdk.protocols.query",
+      "software.amazon.awssdk.protocols.query.internal.marshall",
+      "software.amazon.awssdk.protocols.query.internal.unmarshall",
+      "software.amazon.awssdk.protocols.query.unmarshall"
+    ],
+    "software.amazon.awssdk:aws-xml-protocol": [
+      "software.amazon.awssdk.protocols.xml",
+      "software.amazon.awssdk.protocols.xml.internal.marshall",
+      "software.amazon.awssdk.protocols.xml.internal.unmarshall"
+    ],
+    "software.amazon.awssdk:checksums": [
+      "software.amazon.awssdk.checksums",
+      "software.amazon.awssdk.checksums.internal"
+    ],
+    "software.amazon.awssdk:checksums-spi": [
+      "software.amazon.awssdk.checksums.spi"
+    ],
+    "software.amazon.awssdk:crt-core": [
+      "software.amazon.awssdk.crtcore"
+    ],
+    "software.amazon.awssdk:endpoints-spi": [
+      "software.amazon.awssdk.endpoints"
+    ],
+    "software.amazon.awssdk:http-auth": [
+      "software.amazon.awssdk.http.auth.internal.scheme",
+      "software.amazon.awssdk.http.auth.internal.signer",
+      "software.amazon.awssdk.http.auth.scheme",
+      "software.amazon.awssdk.http.auth.signer"
+    ],
+    "software.amazon.awssdk:http-auth-aws": [
+      "software.amazon.awssdk.http.auth.aws.crt.internal.io",
+      "software.amazon.awssdk.http.auth.aws.crt.internal.signer",
+      "software.amazon.awssdk.http.auth.aws.crt.internal.util",
+      "software.amazon.awssdk.http.auth.aws.eventstream.internal.io",
+      "software.amazon.awssdk.http.auth.aws.eventstream.internal.signer",
+      "software.amazon.awssdk.http.auth.aws.internal.scheme",
+      "software.amazon.awssdk.http.auth.aws.internal.signer",
+      "software.amazon.awssdk.http.auth.aws.internal.signer.checksums",
+      "software.amazon.awssdk.http.auth.aws.internal.signer.chunkedencoding",
+      "software.amazon.awssdk.http.auth.aws.internal.signer.io",
+      "software.amazon.awssdk.http.auth.aws.internal.signer.util",
+      "software.amazon.awssdk.http.auth.aws.scheme",
+      "software.amazon.awssdk.http.auth.aws.signer"
+    ],
+    "software.amazon.awssdk:http-auth-aws-eventstream": [
+      "software.amazon.awssdk.http.auth.aws.eventstream"
+    ],
+    "software.amazon.awssdk:http-auth-spi": [
+      "software.amazon.awssdk.http.auth.spi.internal.scheme",
+      "software.amazon.awssdk.http.auth.spi.internal.signer",
+      "software.amazon.awssdk.http.auth.spi.scheme",
+      "software.amazon.awssdk.http.auth.spi.signer"
+    ],
+    "software.amazon.awssdk:http-client-spi": [
+      "software.amazon.awssdk.http",
+      "software.amazon.awssdk.http.async",
+      "software.amazon.awssdk.internal.http"
+    ],
+    "software.amazon.awssdk:identity-spi": [
+      "software.amazon.awssdk.identity.spi",
+      "software.amazon.awssdk.identity.spi.internal"
+    ],
+    "software.amazon.awssdk:json-utils": [
+      "software.amazon.awssdk.protocols.jsoncore",
+      "software.amazon.awssdk.protocols.jsoncore.internal"
+    ],
+    "software.amazon.awssdk:metrics-spi": [
+      "software.amazon.awssdk.metrics",
+      "software.amazon.awssdk.metrics.internal"
+    ],
+    "software.amazon.awssdk:profiles": [
+      "software.amazon.awssdk.profiles",
+      "software.amazon.awssdk.profiles.internal"
+    ],
+    "software.amazon.awssdk:protocol-core": [
+      "software.amazon.awssdk.protocols.core"
+    ],
+    "software.amazon.awssdk:regions": [
+      "software.amazon.awssdk.regions",
+      "software.amazon.awssdk.regions.internal",
+      "software.amazon.awssdk.regions.internal.util",
+      "software.amazon.awssdk.regions.partitionmetadata",
+      "software.amazon.awssdk.regions.providers",
+      "software.amazon.awssdk.regions.regionmetadata",
+      "software.amazon.awssdk.regions.servicemetadata",
+      "software.amazon.awssdk.regions.util"
+    ],
+    "software.amazon.awssdk:retries": [
+      "software.amazon.awssdk.retries",
+      "software.amazon.awssdk.retries.internal",
+      "software.amazon.awssdk.retries.internal.circuitbreaker",
+      "software.amazon.awssdk.retries.internal.ratelimiter"
+    ],
+    "software.amazon.awssdk:retries-spi": [
+      "software.amazon.awssdk.retries.api",
+      "software.amazon.awssdk.retries.api.internal",
+      "software.amazon.awssdk.retries.api.internal.backoff"
+    ],
+    "software.amazon.awssdk:s3": [
+      "software.amazon.awssdk.services.s3",
+      "software.amazon.awssdk.services.s3.auth.scheme",
+      "software.amazon.awssdk.services.s3.auth.scheme.internal",
+      "software.amazon.awssdk.services.s3.crt",
+      "software.amazon.awssdk.services.s3.endpoints",
+      "software.amazon.awssdk.services.s3.endpoints.authscheme",
+      "software.amazon.awssdk.services.s3.endpoints.internal",
+      "software.amazon.awssdk.services.s3.internal",
+      "software.amazon.awssdk.services.s3.internal.checksums",
+      "software.amazon.awssdk.services.s3.internal.client",
+      "software.amazon.awssdk.services.s3.internal.crossregion",
+      "software.amazon.awssdk.services.s3.internal.crossregion.endpointprovider",
+      "software.amazon.awssdk.services.s3.internal.crossregion.utils",
+      "software.amazon.awssdk.services.s3.internal.crt",
+      "software.amazon.awssdk.services.s3.internal.endpoints",
+      "software.amazon.awssdk.services.s3.internal.handlers",
+      "software.amazon.awssdk.services.s3.internal.multipart",
+      "software.amazon.awssdk.services.s3.internal.plugins",
+      "software.amazon.awssdk.services.s3.internal.presignedurl",
+      "software.amazon.awssdk.services.s3.internal.presignedurl.model",
+      "software.amazon.awssdk.services.s3.internal.resource",
+      "software.amazon.awssdk.services.s3.internal.s3express",
+      "software.amazon.awssdk.services.s3.internal.settingproviders",
+      "software.amazon.awssdk.services.s3.internal.signing",
+      "software.amazon.awssdk.services.s3.internal.warmup",
+      "software.amazon.awssdk.services.s3.jmespath.internal",
+      "software.amazon.awssdk.services.s3.model",
+      "software.amazon.awssdk.services.s3.model.selectobjectcontenteventstream",
+      "software.amazon.awssdk.services.s3.multipart",
+      "software.amazon.awssdk.services.s3.paginators",
+      "software.amazon.awssdk.services.s3.presignedurl",
+      "software.amazon.awssdk.services.s3.presignedurl.model",
+      "software.amazon.awssdk.services.s3.presigner",
+      "software.amazon.awssdk.services.s3.presigner.model",
+      "software.amazon.awssdk.services.s3.s3express",
+      "software.amazon.awssdk.services.s3.transform",
+      "software.amazon.awssdk.services.s3.waiters",
+      "software.amazon.awssdk.services.s3.waiters.internal"
+    ],
+    "software.amazon.awssdk:sdk-core": [
+      "software.amazon.awssdk.core",
+      "software.amazon.awssdk.core.adapter",
+      "software.amazon.awssdk.core.async",
+      "software.amazon.awssdk.core.async.listener",
+      "software.amazon.awssdk.core.checksums",
+      "software.amazon.awssdk.core.client.builder",
+      "software.amazon.awssdk.core.client.config",
+      "software.amazon.awssdk.core.client.handler",
+      "software.amazon.awssdk.core.document",
+      "software.amazon.awssdk.core.document.internal",
+      "software.amazon.awssdk.core.endpoint",
+      "software.amazon.awssdk.core.endpointdiscovery",
+      "software.amazon.awssdk.core.endpointdiscovery.providers",
+      "software.amazon.awssdk.core.exception",
+      "software.amazon.awssdk.core.http",
+      "software.amazon.awssdk.core.http.auth",
+      "software.amazon.awssdk.core.identity",
+      "software.amazon.awssdk.core.interceptor",
+      "software.amazon.awssdk.core.interceptor.trait",
+      "software.amazon.awssdk.core.internal",
+      "software.amazon.awssdk.core.internal.async",
+      "software.amazon.awssdk.core.internal.capacity",
+      "software.amazon.awssdk.core.internal.checksums",
+      "software.amazon.awssdk.core.internal.chunked",
+      "software.amazon.awssdk.core.internal.compression",
+      "software.amazon.awssdk.core.internal.handler",
+      "software.amazon.awssdk.core.internal.http",
+      "software.amazon.awssdk.core.internal.http.async",
+      "software.amazon.awssdk.core.internal.http.loader",
+      "software.amazon.awssdk.core.internal.http.pipeline",
+      "software.amazon.awssdk.core.internal.http.pipeline.stages",
+      "software.amazon.awssdk.core.internal.http.pipeline.stages.utils",
+      "software.amazon.awssdk.core.internal.http.timers",
+      "software.amazon.awssdk.core.internal.interceptor",
+      "software.amazon.awssdk.core.internal.interceptor.trait",
+      "software.amazon.awssdk.core.internal.io",
+      "software.amazon.awssdk.core.internal.metrics",
+      "software.amazon.awssdk.core.internal.pagination.async",
+      "software.amazon.awssdk.core.internal.retry",
+      "software.amazon.awssdk.core.internal.signer",
+      "software.amazon.awssdk.core.internal.sync",
+      "software.amazon.awssdk.core.internal.transform",
+      "software.amazon.awssdk.core.internal.useragent",
+      "software.amazon.awssdk.core.internal.util",
+      "software.amazon.awssdk.core.internal.waiters",
+      "software.amazon.awssdk.core.internal.warmup",
+      "software.amazon.awssdk.core.io",
+      "software.amazon.awssdk.core.metrics",
+      "software.amazon.awssdk.core.pagination.async",
+      "software.amazon.awssdk.core.pagination.sync",
+      "software.amazon.awssdk.core.protocol",
+      "software.amazon.awssdk.core.retry",
+      "software.amazon.awssdk.core.retry.backoff",
+      "software.amazon.awssdk.core.retry.conditions",
+      "software.amazon.awssdk.core.runtime",
+      "software.amazon.awssdk.core.runtime.transform",
+      "software.amazon.awssdk.core.signer",
+      "software.amazon.awssdk.core.spi.identity",
+      "software.amazon.awssdk.core.sync",
+      "software.amazon.awssdk.core.traits",
+      "software.amazon.awssdk.core.useragent",
+      "software.amazon.awssdk.core.util",
+      "software.amazon.awssdk.core.waiters",
+      "software.amazon.awssdk.core.warmup",
+      "software.amazon.awssdk.core.warmup.http"
+    ],
+    "software.amazon.awssdk:third-party-jackson-core": [
+      "software.amazon.awssdk.thirdparty.jackson.core",
+      "software.amazon.awssdk.thirdparty.jackson.core.async",
+      "software.amazon.awssdk.thirdparty.jackson.core.base",
+      "software.amazon.awssdk.thirdparty.jackson.core.exc",
+      "software.amazon.awssdk.thirdparty.jackson.core.filter",
+      "software.amazon.awssdk.thirdparty.jackson.core.format",
+      "software.amazon.awssdk.thirdparty.jackson.core.internal.shaded.fdp.v2_21_7",
+      "software.amazon.awssdk.thirdparty.jackson.core.io",
+      "software.amazon.awssdk.thirdparty.jackson.core.io.schubfach",
+      "software.amazon.awssdk.thirdparty.jackson.core.json",
+      "software.amazon.awssdk.thirdparty.jackson.core.json.async",
+      "software.amazon.awssdk.thirdparty.jackson.core.sym",
+      "software.amazon.awssdk.thirdparty.jackson.core.type",
+      "software.amazon.awssdk.thirdparty.jackson.core.util"
+    ],
+    "software.amazon.awssdk:url-connection-client": [
+      "software.amazon.awssdk.http.urlconnection"
+    ],
+    "software.amazon.awssdk:utils": [
+      "software.amazon.awssdk.utils",
+      "software.amazon.awssdk.utils.async",
+      "software.amazon.awssdk.utils.builder",
+      "software.amazon.awssdk.utils.cache",
+      "software.amazon.awssdk.utils.cache.bounded",
+      "software.amazon.awssdk.utils.cache.lru",
+      "software.amazon.awssdk.utils.http",
+      "software.amazon.awssdk.utils.internal",
+      "software.amazon.awssdk.utils.internal.async",
+      "software.amazon.awssdk.utils.internal.proxy",
+      "software.amazon.awssdk.utils.io",
+      "software.amazon.awssdk.utils.uri",
+      "software.amazon.awssdk.utils.uri.internal"
+    ],
+    "software.amazon.awssdk:utils-lite": [
+      "software.amazon.awssdk.utilslite"
+    ],
+    "software.amazon.eventstream:eventstream": [
+      "software.amazon.eventstream"
+    ],
     "tools.jackson.core:jackson-core": [
       "tools.jackson.core",
       "tools.jackson.core.async",
@@ -5268,6 +5982,7 @@
       "org.opentest4j:opentest4j",
       "org.ow2.asm:asm",
       "org.postgresql:postgresql",
+      "org.reactivestreams:reactive-streams",
       "org.reflections:reflections",
       "org.skyscreamer:jsonassert",
       "org.slf4j:jul-to-slf4j",
@@ -5322,6 +6037,36 @@
       "org.xmlresolver:xmlresolver:jar:data",
       "org.xmlunit:xmlunit-core",
       "org.yaml:snakeyaml",
+      "software.amazon.awssdk:annotations",
+      "software.amazon.awssdk:arns",
+      "software.amazon.awssdk:auth",
+      "software.amazon.awssdk:aws-core",
+      "software.amazon.awssdk:aws-query-protocol",
+      "software.amazon.awssdk:aws-xml-protocol",
+      "software.amazon.awssdk:checksums",
+      "software.amazon.awssdk:checksums-spi",
+      "software.amazon.awssdk:crt-core",
+      "software.amazon.awssdk:endpoints-spi",
+      "software.amazon.awssdk:http-auth",
+      "software.amazon.awssdk:http-auth-aws",
+      "software.amazon.awssdk:http-auth-aws-eventstream",
+      "software.amazon.awssdk:http-auth-spi",
+      "software.amazon.awssdk:http-client-spi",
+      "software.amazon.awssdk:identity-spi",
+      "software.amazon.awssdk:json-utils",
+      "software.amazon.awssdk:metrics-spi",
+      "software.amazon.awssdk:profiles",
+      "software.amazon.awssdk:protocol-core",
+      "software.amazon.awssdk:regions",
+      "software.amazon.awssdk:retries",
+      "software.amazon.awssdk:retries-spi",
+      "software.amazon.awssdk:s3",
+      "software.amazon.awssdk:sdk-core",
+      "software.amazon.awssdk:third-party-jackson-core",
+      "software.amazon.awssdk:url-connection-client",
+      "software.amazon.awssdk:utils",
+      "software.amazon.awssdk:utils-lite",
+      "software.amazon.eventstream:eventstream",
       "tools.jackson.core:jackson-core",
       "tools.jackson.core:jackson-databind"
     ]
@@ -5597,6 +6342,21 @@
       ],
       "reactor.blockhound.integration.BlockHoundIntegration": [
         "org.springframework.web.server.adapter.WebHttpHandlerBuilder$SpringWebBlockHoundIntegration"
+      ]
+    },
+    "software.amazon.awssdk:s3": {
+      "software.amazon.awssdk.core.warmup.SdkWarmUpProvider": [
+        "software.amazon.awssdk.services.s3.internal.warmup.S3WarmUpProvider"
+      ]
+    },
+    "software.amazon.awssdk:third-party-jackson-core": {
+      "software.amazon.awssdk.thirdparty.jackson.core.JsonFactory": [
+        "software.amazon.awssdk.thirdparty.jackson.core.JsonFactory"
+      ]
+    },
+    "software.amazon.awssdk:url-connection-client": {
+      "software.amazon.awssdk.http.SdkHttpService": [
+        "software.amazon.awssdk.http.urlconnection.UrlConnectionSdkHttpService"
       ]
     },
     "tools.jackson.core:jackson-core": {

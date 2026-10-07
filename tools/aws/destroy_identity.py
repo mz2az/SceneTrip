@@ -78,6 +78,16 @@ def validate_tagless(address, value, resources, settings):
             or value.get("principal_arn") != settings.role
         ):
             raise ValueError("EKS 접근 정책의 클러스터·역할이 삭제 환경과 다릅니다")
+    elif address == "aws_eks_pod_identity_association.scene_api_media":
+        # scene-api 파드 ↔ 사진 버킷 역할(review.md §13). 역할과 버킷은 bootstrap 소유라 여기서는 연결만 지운다.
+        if (
+            value.get("cluster_name") != settings.cluster
+            or value.get("namespace") != "scenetrip"
+            or value.get("service_account") != "scene-api"
+        ):
+            raise ValueError(
+                "Pod Identity 연결의 클러스터·서비스 계정이 삭제 환경과 다릅니다"
+            )
     else:
         raise ValueError(
             "현재 SceneTrip 소스에 없는 managed 리소스를 삭제하지 않습니다"

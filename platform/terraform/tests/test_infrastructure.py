@@ -251,6 +251,249 @@ class InfrastructureBoundaryTest(unittest.TestCase):
             len(json.dumps(resolve(policy), separators=(",", ":"))), 10240
         )
 
+    # --- 사용자 사진 버킷(docs/project/plans/review.md §13, docs/ops/aws-deployment.md §12) ---
+
+    def _media_bucket(self):
+        return self.template["Resources"]["UserMediaBucket"]
+
+    def _media_role(self):
+        return self.template["Resources"]["MediaRole"]["Properties"]
+
+    def _sid(self, sid):
+        return next(s for s in self.statements if s["Sid"] == sid)
+
+    def test_user_media_bucket_is_retained_private_and_expires_tmp(self):
+        bucket = self._media_bucket()
+        self.assertEqual(bucket["Type"], "AWS::S3::Bucket")
+        # dev 를 내려도(Terraform 을 지워도) 사진은 남는다 — bootstrap 의 Retain
+        self.assertEqual(bucket["DeletionPolicy"], "Retain")
+        self.assertEqual(bucket["UpdateReplacePolicy"], "Retain")
+        props = bucket["Properties"]
+        self.assertEqual(
+            props["BucketName"],
+            {
+                "Fn::Sub": "scenetrip-user-media-${AWS::AccountId}-${AWS::Region}-${Environment}"
+            },
+        )
+        sse = props["BucketEncryption"]["ServerSideEncryptionConfiguration"]
+        self.assertTrue(sse)
+        self.assertIn(
+            sse[0]["ServerSideEncryptionByDefault"]["SSEAlgorithm"],
+            {"AES256", "aws:kms"},
+        )
+        block = props["PublicAccessBlockConfiguration"]
+        self.assertEqual(
+            set(block),
+            {
+                "BlockPublicAcls",
+                "IgnorePublicAcls",
+                "BlockPublicPolicy",
+                "RestrictPublicBuckets",
+            },
+        )
+        self.assertTrue(all(v is True for v in block.values()))
+        self.assertEqual(
+            props["OwnershipControls"]["Rules"],
+            [{"ObjectOwnership": "BucketOwnerEnforced"}],
+        )
+        rules = props["LifecycleConfiguration"]["Rules"]
+        expiring = [r for r in rules if "ExpirationInDays" in r]
+        # 하루 뒤 지우는 것은 uploads/tmp/ 뿐이다 — reviews/ 를 지우는 규칙이 있으면 붙인 사진이 사라진다
+        self.assertEqual(len(expiring), 1)
+        self.assertEqual(expiring[0]["Status"], "Enabled")
+        self.assertEqual(expiring[0]["ExpirationInDays"], 1)
+        prefix = expiring[0].get("Prefix", expiring[0].get("Filter", {}).get("Prefix"))
+        self.assertEqual(prefix, "uploads/tmp/")
+        self.assertNotIn("VersioningConfiguration", props)
+
+    def test_user_media_bucket_policy_denies_plain_http(self):
+        policies = [
+            r
+            for r in self.template["Resources"].values()
+            if r["Type"] == "AWS::S3::BucketPolicy"
+            and r["Properties"]["Bucket"] == {"Ref": "UserMediaBucket"}
+        ]
+        self.assertEqual(len(policies), 1)
+        statements = policies[0]["Properties"]["PolicyDocument"]["Statement"]
+        tls = [
+            s
+            for s in statements
+            if s["Effect"] == "Deny"
+            and s.get("Condition", {}).get("Bool", {}).get("aws:SecureTransport")
+            == "false"
+        ]
+        self.assertEqual(len(tls), 1)
+        self.assertEqual(tls[0]["Principal"], "*")
+        self.assertEqual(tls[0]["Action"], "s3:*")
+        resources = {r["Fn::Sub"] for r in tls[0]["Resource"]}
+        self.assertEqual(
+            resources,
+            {
+                "arn:${AWS::Partition}:s3:::${UserMediaBucket}",
+                "arn:${AWS::Partition}:s3:::${UserMediaBucket}/*",
+            },
+        )
+        # 버킷 정책이 무언가를 허용하면(공개 등) 안 된다 — 거부만 둔다
+        self.assertTrue(all(s["Effect"] == "Deny" for s in statements))
+
+    def test_media_role_trusts_only_environment_pod_identity(self):
+        role = self._media_role()
+        self.assertEqual(
+            role["RoleName"], {"Fn::Sub": "scenetrip-${Environment}-media"}
+        )
+        trust = role["AssumeRolePolicyDocument"]["Statement"]
+        self.assertEqual(len(trust), 1)
+        statement = trust[0]
+        self.assertEqual(statement["Effect"], "Allow")
+        self.assertEqual(statement["Principal"], {"Service": "pods.eks.amazonaws.com"})
+        self.assertEqual(
+            sorted(statement["Action"]), ["sts:AssumeRole", "sts:TagSession"]
+        )
+        condition = statement["Condition"]
+        self.assertEqual(
+            condition["StringEquals"], {"aws:SourceAccount": {"Ref": "AWS::AccountId"}}
+        )
+        self.assertEqual(
+            condition["ArnEquals"],
+            {
+                "aws:SourceArn": {
+                    "Fn::Sub": "arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/scenetrip-${Environment}"
+                }
+            },
+        )
+        self.assertNotIn("StringLike", condition)
+        self.assertNotIn("ArnLike", condition)
+
+    def test_media_role_reaches_only_two_prefixes_of_the_media_bucket(self):
+        role = self._media_role()
+        self.assertNotIn("ManagedPolicyArns", role)
+        self.assertNotIn("PermissionsBoundary", role)
+        statements = [
+            s
+            for policy in role["Policies"]
+            for s in policy["PolicyDocument"]["Statement"]
+        ]
+        self.assertTrue(all(s["Effect"] == "Allow" for s in statements))
+        by_action = {}
+        for s in statements:
+            actions = s["Action"] if isinstance(s["Action"], list) else [s["Action"]]
+            resources = (
+                s["Resource"] if isinstance(s["Resource"], list) else [s["Resource"]]
+            )
+            for action in actions:
+                by_action.setdefault(action, set()).update(
+                    r["Fn::Sub"] for r in resources
+                )
+        objects = {
+            "arn:${AWS::Partition}:s3:::${UserMediaBucket}/uploads/tmp/*",
+            "arn:${AWS::Partition}:s3:::${UserMediaBucket}/reviews/*",
+        }
+        self.assertEqual(
+            by_action,
+            {
+                "s3:GetObject": objects,
+                "s3:PutObject": objects,
+                "s3:DeleteObject": objects,
+                "s3:ListBucket": {"arn:${AWS::Partition}:s3:::${UserMediaBucket}"},
+            },
+        )
+
+    def test_media_outputs(self):
+        outputs = self.template["Outputs"]
+        self.assertEqual(
+            outputs["UserMediaBucket"]["Value"], {"Ref": "UserMediaBucket"}
+        )
+        self.assertEqual(
+            outputs["MediaRoleArn"]["Value"], {"Fn::GetAtt": ["MediaRole", "Arn"]}
+        )
+
+    def test_deployer_manages_pod_identity_only_in_environment_cluster(self):
+        actions = {
+            "eks:CreatePodIdentityAssociation",
+            "eks:DescribePodIdentityAssociation",
+            "eks:UpdatePodIdentityAssociation",
+            "eks:DeletePodIdentityAssociation",
+        }
+        holders = [
+            s
+            for s in self.statements
+            if actions.intersection(
+                s["Action"] if isinstance(s["Action"], list) else [s["Action"]]
+            )
+        ]
+        self.assertEqual(len(holders), 1)
+        statement = holders[0]
+        self.assertTrue(actions.issubset(statement["Action"]))
+        resources = {r["Fn::Sub"] for r in statement["Resource"]}
+        prefix = "arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:"
+        self.assertIn(prefix + "cluster/scenetrip-${Environment}", resources)
+        self.assertIn(
+            prefix + "podidentityassociation/scenetrip-${Environment}/*", resources
+        )
+        for resource in resources:
+            with self.subTest(resource=resource):
+                self.assertTrue(resource.startswith(prefix), resource)
+                self.assertIn("scenetrip-${Environment}", resource)
+                self.assertNotEqual(resource.split(":")[-1], "*")
+
+    def test_deployer_passes_and_reads_only_environment_roles(self):
+        media = "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-media"
+        allowed = {
+            "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-cluster",
+            "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-node",
+            media,
+        }
+        passing = [s for s in self.statements if "iam:PassRole" in s["Action"]]
+        self.assertEqual(len(passing), 1)
+        passed = {r["Fn::Sub"] for r in passing[0]["Resource"]}
+        self.assertEqual(passed, allowed)
+        services = passing[0]["Condition"]["StringEquals"]["iam:PassedToService"]
+        self.assertIn("pods.eks.amazonaws.com", services)
+        # Terraform 의 data "aws_iam_role" "media" 가 역할을 읽는다
+        reading = [s for s in self.statements if "iam:GetRole" in s["Action"]]
+        self.assertEqual(len(reading), 1)
+        self.assertEqual({r["Fn::Sub"] for r in reading[0]["Resource"]}, allowed)
+        # 배포 역할은 사진 버킷 자체에 손대지 않는다(파드의 역할만 쓴다)
+        for statement in self.statements:
+            resources = statement["Resource"]
+            resources = resources if isinstance(resources, list) else [resources]
+            for r in resources:
+                text = (
+                    r["Fn::Sub"] if isinstance(r, dict) and "Fn::Sub" in r else str(r)
+                )
+                self.assertNotIn("user-media", text)
+                self.assertNotIn("UserMediaBucket", text)
+
+    def test_terraform_associates_scene_api_service_account_with_media_role(self):
+        source = (ROOT / "platform/terraform/aws/eks.tf").read_text()
+        data = re.search(
+            r'data\s+"aws_iam_role"\s+"media"\s*\{(.*?)\n\}', source, re.DOTALL
+        )
+        self.assertIsNotNone(data)
+        self.assertRegex(data.group(1), r'name\s*=\s*"\$\{local\.name\}-media"')
+        block = re.search(
+            r'resource\s+"aws_eks_pod_identity_association"\s+"(\w+)"\s*\{(.*?)\n\}',
+            source,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(block)
+        body = block.group(2)
+        self.assertRegex(body, r'namespace\s*=\s*"scenetrip"')
+        self.assertRegex(body, r'service_account\s*=\s*"scene-api"')
+        self.assertRegex(body, r"role_arn\s*=\s*data\.aws_iam_role\.media\.arn")
+        self.assertRegex(body, r"cluster_name\s*=\s*aws_eks_cluster\.this\.name")
+        locals_source = "\n".join(
+            p.read_text() for p in (ROOT / "platform/terraform/aws").glob("*.tf")
+        )
+        self.assertRegex(
+            locals_source, r'name\s*=\s*"scenetrip-\$\{var\.environment\}"'
+        )
+        outputs = (ROOT / "platform/terraform/aws/outputs.tf").read_text()
+        self.assertRegex(
+            outputs,
+            r'output\s+"user_media_bucket"\s*\{\s*value\s*=\s*"scenetrip-user-media-\$\{var\.aws_account_id\}-\$\{var\.aws_region\}-\$\{var\.environment\}"',
+        )
+
     def test_examples_have_distinct_topology_and_no_real_account(self):
         examples = [
             json.loads(

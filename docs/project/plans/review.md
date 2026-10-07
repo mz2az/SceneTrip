@@ -216,3 +216,27 @@ photoCount: 57     # 전체 수 — 「사진 전체 보기 (57)」
 
 §7 초안과 다른 점: 리뷰 사진은 주소가 아니라 **키**(`photoKeys`)로 붙인다 — 보여 줄 주소가 한 시간마다 바뀌어
 고칠 때 남길 사진을 주소로는 가리킬 수 없어서다.
+
+## 13. 덧붙임 (2026-10-08) — 사진 올리기와 버킷의 자리
+
+**버킷은 bootstrap 에 둔다(항상 떠 있다).** dev 는 비용 때문에 내릴 때 `platform/terraform/aws` 를 통째로 지운다
+(RDS 도 지우고 최종 스냅샷만 남긴다). 버킷을 거기 두면 내릴 때마다 사진이 사라지고, **그 dev 버킷을 쓰는 로컬
+kind 의 리뷰 사진까지 깨진다**(로컬 DB 는 남으므로). 그래서 state 버킷처럼 bootstrap(`DeletionPolicy: Retain`)에
+둔다. 비용은 사진 몇 GB 에 월 수백 원 — 아끼려는 EKS·NAT·RDS 와 단위가 다르다. dev·prd 는 버킷이 따로다.
+기존 성지 사진 버킷 `scene-media-prod` 는 손대지 않는다(코드로 관리하는 일은 MZ2AZ-364).
+
+| 자리 | 무엇 |
+| --- | --- |
+| bootstrap | `UserMediaBucket`(비공개·TLS·`uploads/tmp/` 하루 뒤 삭제) · `MediaRole`(`scenetrip-<env>-media`, Pod Identity 신뢰, 두 접두사만) · 배포 역할에 Pod Identity 연결·역할 전달 권한 |
+| Terraform | `aws_eks_pod_identity_association` — 서비스 계정 `scene-api` ↔ `-media` 역할. 버킷 이름 출력 |
+| Helm | 서비스 계정 `scene-api`, ConfigMap `SCENETRIP_MEDIA_BUCKET` |
+| 로컬 | `.env` 의 `SCENETRIP_MEDIA_*`(dev 버킷 전용 IAM 사용자) → `just secrets-apply` |
+| 서버 | `POST /uploads` → `uploads/tmp/<uuid>.<확장자>` 10 분 서명 PUT(형식·크기 서명). 리뷰에 붙일 때 `reviews/` 로 옮긴다(수명 규칙을 피한다). 기록은 `photo_upload`(V22) |
+
+배포 역할의 인라인 정책은 IAM 한도(10,240 자)에 거의 찼다(9,703 → 10,057). bootstrap 역할은 관리형 정책·IAM
+사용자를 만들 수 없어, 권한은 기존 문장에 자원·동작을 더하는 식으로 넣었다. 로컬용 IAM 사용자와 bootstrap 역할의
+버킷 권한은 계정 관리자가 한 번 만든다(`docs/ops/aws-deployment.md` §12).
+
+계약 1.4.0 을 고쳤다(앱이 아직 붙기 전): `UploadCreate.contentType` 을 enum 이 아닌 문자열로, `bytes` 의 최댓값을
+설명으로 — 형식·크기 위반도 `UPLOAD_TYPE_UNSUPPORTED`·`UPLOAD_TOO_LARGE` 로 답하려고(제약을 계약에 두면 생성 코드가
+먼저 `INVALID_PARAMETER` 로 막는다). 저장소가 없는 서버는 `503 UPLOAD_UNAVAILABLE`.

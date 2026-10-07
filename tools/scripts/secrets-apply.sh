@@ -58,6 +58,18 @@ for name in SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY SCENETRIP_AUTH_APPLE_PRIVATE_KEY
   fi
 done
 
+# 사용자 사진 버킷 — 셋이 다 있을 때만 싣는다. 하나라도 비면 사진 올리기만 꺼진다(503).
+# .env 에서는 셸의 AWS_ACCESS_KEY_ID 와 섞이지 않게 SCENETRIP_MEDIA_* 로 두고, 파드에서는 SDK 의 기본
+# 사슬이 읽는 AWS_ACCESS_KEY_ID · AWS_SECRET_ACCESS_KEY 로 넣는다.
+if [ -n "${SCENETRIP_MEDIA_BUCKET:-}" ] && [ -n "${SCENETRIP_MEDIA_ACCESS_KEY_ID:-}" ] &&
+  [ -n "${SCENETRIP_MEDIA_SECRET_ACCESS_KEY:-}" ]; then
+  JWT_ARGS+=(
+    --from-literal="SCENETRIP_MEDIA_BUCKET=$SCENETRIP_MEDIA_BUCKET"
+    --from-literal="AWS_ACCESS_KEY_ID=$SCENETRIP_MEDIA_ACCESS_KEY_ID"
+    --from-literal="AWS_SECRET_ACCESS_KEY=$SCENETRIP_MEDIA_SECRET_ACCESS_KEY"
+  )
+fi
+
 kubectl create secret generic "$SECRET_NAME" \
   --from-literal=KAKAO_REST_KEY="$KAKAO_REST_KEY" \
   ${JWT_ARGS[@]+"${JWT_ARGS[@]}"} \
@@ -66,7 +78,7 @@ kubectl create secret generic "$SECRET_NAME" \
 
 # 값은 찍지 않는다. 있는지만 말한다.
 present() { if [ -n "${!1:-}" ]; then echo "$1 있음"; else echo "$1 없음"; fi; }
-log "적용됨 — KAKAO_REST_KEY 있음, $(present SCENETRIP_AUTH_JWT_SECRET), $(present SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY), $(present SCENETRIP_AUTH_APPLE_PRIVATE_KEY)"
+log "적용됨 — KAKAO_REST_KEY 있음, $(present SCENETRIP_AUTH_JWT_SECRET), $(present SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY), $(present SCENETRIP_AUTH_APPLE_PRIVATE_KEY), $(present SCENETRIP_MEDIA_BUCKET)"
 
 # 환경변수는 컨테이너가 뜰 때 한 번 읽힌다. 이미 떠 있는 파드는 새 값을 모른다.
 if kubectl get deployment/scene-api -n "$NAMESPACE" >/dev/null 2>&1; then
