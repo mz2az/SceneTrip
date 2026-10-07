@@ -75,6 +75,7 @@ struct RootTabs: View {
         .onAccountChange { await routes.refresh() }
         // 덮개(경로여정·마이페이지)가 떠 있으면 그쪽이 로그인 화면을 올린다.
         .signInSheet(active: router.cover == nil)
+        .nicknameSheet(active: router.cover == nil)
         .fullScreenCover(item: $router.cover) { cover in
             switch cover {
             case .route:

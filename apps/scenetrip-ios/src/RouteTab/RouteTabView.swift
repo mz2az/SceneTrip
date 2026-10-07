@@ -56,6 +56,7 @@ struct RouteTabView: View {
             }
             .onChange(of: router.pendingCourseId) { _, _ in openPending() }
             .signInSheet()
+            .nicknameSheet()
             .confirmationDialog(
                 doomed.map { String(format: tr("「%@」을 지울까요?"), $0.title) } ?? "",
                 isPresented: Binding(get: { doomed != nil }, set: {

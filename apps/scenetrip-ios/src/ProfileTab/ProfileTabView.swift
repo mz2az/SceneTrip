@@ -19,6 +19,8 @@ struct ProfileTabView: View {
     @ObservedObject private var auth = AuthStore.shared
     @State private var confirmingSignOut = false
     @State private var confirmingDelete = false
+    /// 닉네임 바꾸기 시트 (MZ2AZ-363).
+    @State private var editingNickname = false
     @State private var deleteFailed = false
 
     @State private var courses: [CourseSummary] = []
@@ -247,6 +249,17 @@ struct ProfileTabView: View {
             .refreshable { await load() }
             .onAccountChange { await load() }
             .signInSheet()
+            .nicknameSheet()
+            .sheet(isPresented: $editingNickname) {
+                NicknameView(mode: .edit) { editingNickname = false }
+                    .presentationDetents([.medium])
+            }
+            // 세션이 풀리면 바꾸기 시트를 내린다 — 그 밑에서는 로그인 화면이 못 뜬다.
+            .onChange(of: auth.signedIn) { _, signedIn in
+                if !signedIn {
+                    editingNickname = false
+                }
+            }
             .fullScreenCover(isPresented: $replaying) {
                 OnboardingView { replaying = false }
             }
@@ -340,13 +353,30 @@ struct ProfileTabView: View {
 
 /// 계정 카드와 계정 절 — 본문이 길어져 떼어 냈다(같은 파일이라 상태를 그대로 본다).
 extension ProfileTabView {
-    /// 피노와 계정 카드 — 비회원이면 로그인 단추, 로그인했으면 이름과 메일 (MZ2AZ-336).
+    /// 피노와 계정 카드 — 비회원이면 로그인 단추, 로그인했으면 닉네임(누르면 바꾸기)과 메일 (MZ2AZ-336·363).
     var header: some View {
         VStack(spacing: 8) {
             PinoMascot(width: 96)
             if auth.signedIn {
-                Text(auth.me?.displayName ?? tr("여행자"))
-                    .font(.headline)
+                // 닉네임이 남에게 보이는 이름이다(MZ2AZ-363). 옛 서버는 닉네임이 없어 전처럼 계정 이름을 보인다.
+                if let nickname = auth.me?.nickname {
+                    Button {
+                        editingNickname = true
+                    } label: {
+                        HStack(spacing: 5) {
+                            Text(nickname).font(.headline).foregroundStyle(.primary)
+                            Image(systemName: "pencil")
+                                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        }
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(tr("닉네임 바꾸기"))
+                    .accessibilityValue(nickname)
+                } else {
+                    Text(auth.me?.displayName ?? tr("여행자"))
+                        .font(.headline)
+                }
                 if let email = auth.me?.email {
                     Text(email).font(.caption).foregroundStyle(.secondary)
                 }

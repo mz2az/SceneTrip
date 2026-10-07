@@ -68,6 +68,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | AI 코스 추천(마법사) | **계약 `POST /guide/plan`** — 에이전트의 코스 엔진이 짠다(모델 없음, 키 없어도 됨). 앱 안의 규칙(`RoutePlanner`)은 지웠다 |
 | 찜 | 서버(`/favorites/contents`)가 정본, 기기에는 사본 (MZ2AZ-335) |
 | 로그인 | 구글 로그인·토큰 키체인 저장·401 자동 갱신·로그아웃·탈퇴 (MZ2AZ-336). 애플 로그인은 자리만 |
+| 닉네임 | 로그인 직후 한 번 묻고(건너뛸 수 있다) 마이페이지에서 바꾼다 — `Reviews/NicknameView`, `PUT /me/nickname`. **서버 구현(MZ2AZ-362) 전이라 저장은 실기로 확인하지 못했다.** 화면만 보려면 `-previewNickname` 실행 인자 (MZ2AZ-363) |
 | 분석 | Firebase Analytics(GA4)로 퍼널 이벤트를 기록한다. `resources/GoogleService-Info.plist`(저장소에 있다, Firebase 프로젝트 `scenetrip-5bf07`)가 있을 때만 켜진다 — 표는 `docs/project/plans/analytics-events.md` (MZ2AZ-353) |
 | 언어 | 한국어·English 를 앱 안에서 고른다(첫 실행, 마이페이지 → 도움 → 언어). 화면 문구와 `Accept-Language` 가 함께 바뀐다 (MZ2AZ-343) |
 | 발자취 | **개인정보로 다룬다** — 기기에만 저장, 기본 꺼짐·동의 후 기록, 로그아웃·탈퇴 때 삭제 (MZ2AZ-348) |

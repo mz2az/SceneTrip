@@ -23,6 +23,8 @@ enum AppEvent: Equatable {
     case login(method: String)
     case logout
     case deleteAccount
+    /// 닉네임을 정했다·건너뛰었다(MZ2AZ-363). **닉네임 자체는 보내지 않는다.**
+    case setNickname(skipped: Bool)
 
     // MARK: 정보 조회
 
@@ -69,6 +71,7 @@ enum AppEvent: Equatable {
         case .login: "login"
         case .logout: "logout"
         case .deleteAccount: "delete_account"
+        case .setNickname: "set_nickname"
         case .screenView: "screen_view"
         case .search: "search"
         case .viewTitle: "view_title"
@@ -91,6 +94,7 @@ enum AppEvent: Equatable {
         case let .selectLanguage(language): ["language": language]
         case let .signUp(method), let .login(method): ["method": method]
         case let .screenView(screen): ["screen_name": screen]
+        case let .setNickname(skipped): ["skipped": skipped ? 1 : 0]
         case let .search(termLength, kind): ["term_length": termLength, "kind": kind]
         case let .viewTitle(contentId): ["content_id": contentId]
         case let .viewPlace(placeId), let .savePlace(placeId), let .startTrip(placeId), let .visitStamp(placeId):
