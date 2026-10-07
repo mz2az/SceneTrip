@@ -55,6 +55,101 @@
         }
       }
     },
+    "UserMediaBucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "BucketName": {"Fn::Sub":"scenetrip-user-media-${AWS::AccountId}-${AWS::Region}-${Environment}"},
+        "BucketEncryption": {"ServerSideEncryptionConfiguration":[{"ServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]},
+        "PublicAccessBlockConfiguration": {"BlockPublicAcls":true,"IgnorePublicAcls":true,"BlockPublicPolicy":true,"RestrictPublicBuckets":true},
+        "OwnershipControls": {"Rules":[{"ObjectOwnership":"BucketOwnerEnforced"}]},
+        "LifecycleConfiguration": {
+          "Rules": [
+            {"Id":"ExpireUnattachedUploads","Status":"Enabled","Prefix":"uploads/tmp/","ExpirationInDays":1},
+            {"Id":"AbortIncompleteUploads","Status":"Enabled","Prefix":"","AbortIncompleteMultipartUpload":{"DaysAfterInitiation":1}}
+          ]
+        },
+        "Tags": [
+          {"Key":"Project","Value":"scenetrip"},
+          {"Key":"Environment","Value":{"Ref":"Environment"}},
+          {"Key":"ManagedBy","Value":"cloudformation"}
+        ]
+      }
+    },
+    "UserMediaBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {"Ref":"UserMediaBucket"},
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "RequireTls",
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "s3:*",
+              "Resource": [
+                {"Fn::Sub":"arn:${AWS::Partition}:s3:::${UserMediaBucket}"},
+                {"Fn::Sub":"arn:${AWS::Partition}:s3:::${UserMediaBucket}/*"}
+              ],
+              "Condition": {"Bool":{"aws:SecureTransport":"false"}}
+            }
+          ]
+        }
+      }
+    },
+    "MediaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": {"Fn::Sub":"scenetrip-${Environment}-media"},
+        "Description": "scene-api pod access to the user media bucket via EKS Pod Identity: presigned upload/view and move from uploads/tmp to reviews.",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {"Service":"pods.eks.amazonaws.com"},
+              "Action": ["sts:AssumeRole","sts:TagSession"],
+              "Condition": {
+                "StringEquals": {"aws:SourceAccount":{"Ref":"AWS::AccountId"}},
+                "ArnEquals": {"aws:SourceArn":{"Fn::Sub":"arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/scenetrip-${Environment}"}}
+              }
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "UserMediaObjects",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "ReadWriteMediaObjects",
+                  "Effect": "Allow",
+                  "Action": ["s3:GetObject","s3:PutObject","s3:DeleteObject"],
+                  "Resource": [
+                    {"Fn::Sub":"arn:${AWS::Partition}:s3:::${UserMediaBucket}/uploads/tmp/*"},
+                    {"Fn::Sub":"arn:${AWS::Partition}:s3:::${UserMediaBucket}/reviews/*"}
+                  ]
+                },
+                {
+                  "Sid": "ListForNotFound",
+                  "Effect": "Allow",
+                  "Action": ["s3:ListBucket"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:s3:::${UserMediaBucket}"}
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {"Key":"Project","Value":"scenetrip"},
+          {"Key":"Environment","Value":{"Ref":"Environment"}},
+          {"Key":"ManagedBy","Value":"cloudformation"}
+        ]
+      }
+    },
     "ClusterRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -164,7 +259,8 @@
                   "Action": ["iam:GetRole","iam:ListRoleTags","iam:ListAttachedRolePolicies","iam:ListRolePolicies","iam:GetRolePolicy"],
                   "Resource": [
                     {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-cluster"},
-                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-node"}
+                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-node"},
+                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-media"}
                   ]
                 },
                 {
@@ -173,9 +269,10 @@
                   "Action": ["iam:PassRole"],
                   "Resource": [
                     {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-cluster"},
-                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-node"}
+                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-node"},
+                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-media"}
                   ],
-                  "Condition": {"StringEquals":{"iam:PassedToService":["eks.amazonaws.com","ec2.amazonaws.com"]}}
+                  "Condition": {"StringEquals":{"iam:PassedToService":["eks.amazonaws.com","ec2.amazonaws.com","pods.eks.amazonaws.com"]}}
                 },
                 {
                   "Sid": "CreateServiceLinkedRoles",
@@ -312,12 +409,17 @@
                     "eks:DeleteAddon",
                     "eks:DescribeAddon",
                     "eks:UpdateAddon",
-                    "eks:ListAddons"
+                    "eks:ListAddons",
+                    "eks:CreatePodIdentityAssociation",
+                    "eks:DescribePodIdentityAssociation",
+                    "eks:UpdatePodIdentityAssociation",
+                    "eks:DeletePodIdentityAssociation"
                   ],
                   "Resource": [
                     {"Fn::Sub":"arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/scenetrip-${Environment}"},
                     {"Fn::Sub":"arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:access-entry/scenetrip-${Environment}/*"},
-                    {"Fn::Sub":"arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:addon/scenetrip-${Environment}/*"}
+                    {"Fn::Sub":"arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:addon/scenetrip-${Environment}/*"},
+                    {"Fn::Sub":"arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:podidentityassociation/scenetrip-${Environment}/*"}
                   ]
                 },
                 {
@@ -572,6 +674,8 @@
     "TerraformStateKey": {"Value":{"Fn::Sub":"scenetrip/${Environment}/terraform.tfstate"}},
     "ClusterRoleArn": {"Value":{"Fn::GetAtt":["ClusterRole","Arn"]}},
     "NodeRoleArn": {"Value":{"Fn::GetAtt":["NodeRole","Arn"]}},
-    "LifecycleRoleArn": {"Description":"GitHub Environment AWS_LIFECYCLE_ROLE_ARN에 설정할 올리기·내리기 역할.","Value":{"Fn::GetAtt":["LifecycleRole","Arn"]}}
+    "LifecycleRoleArn": {"Description":"GitHub Environment AWS_LIFECYCLE_ROLE_ARN에 설정할 올리기·내리기 역할.","Value":{"Fn::GetAtt":["LifecycleRole","Arn"]}},
+    "UserMediaBucket": {"Description":"사용자 사진(리뷰) 버킷. 내려도 남는다(Retain).","Value":{"Ref":"UserMediaBucket"}},
+    "MediaRoleArn": {"Description":"scene-api 파드가 Pod Identity 로 쓰는 사진 버킷 역할.","Value":{"Fn::GetAtt":["MediaRole","Arn"]}}
   }
 }

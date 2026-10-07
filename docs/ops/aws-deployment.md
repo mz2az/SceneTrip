@@ -294,6 +294,45 @@ RDS 최종 스냅샷과 state S3는 기본 보존한다. 서비스 삭제 runner
 삭제 대상 밖에 유지해야 한다. 입력·권한·남는 비용·재배포 조건은
 [삭제 런북](aws-teardown.md)을 따른다.
 
+## 12. 사용자 사진 버킷 (리뷰 사진)
+
+리뷰 사진은 `scenetrip-user-media-<계정>-<리전>-<환경>` 버킷에 산다. **bootstrap 이 만들고(`UserMediaBucket`,
+`DeletionPolicy: Retain`) 서비스 내리기로는 지워지지 않는다** — dev 를 내렸다 올려도, 그 dev 버킷을 쓰는 로컬
+kind 의 리뷰 사진도 그대로다. 계획: [review.md](../project/plans/review.md) §13.
+
+| 무엇 | 어디 | 누가 |
+| --- | --- | --- |
+| 버킷(비공개·TLS 강제·`uploads/tmp/` 하루 뒤 삭제) · `scenetrip-<env>-media` 역할(Pod Identity) | bootstrap 템플릿 | bootstrap apply |
+| scene-api 파드 ↔ 역할 연결(`aws_eks_pod_identity_association`) · 버킷 이름 출력 | `platform/terraform/aws/eks.tf` | 배포(올리기) |
+| 파드의 서비스 계정 `scene-api` · `SCENETRIP_MEDIA_BUCKET` | Helm | 배포 |
+| 로컬 kind 용 dev 버킷 전용 키 | IAM 사용자 `scenetrip-dev-local-media` | **계정 관리자, 한 번** |
+
+**처음 한 번 — 계정 관리자가 한다.**
+
+1. bootstrap 역할(`scenetrip-bootstrap`, 저장소 밖에서 관리)의 인라인 정책 `scenetrip-bootstrap-scope` 에 버킷 권한을
+   더한다. 지금은 state 버킷(`scenetrip-tfstate-*`)만 다룰 수 있어 새 버킷을 만들지 못한다.
+
+   ```json
+   {"Sid":"UserMediaBucket","Effect":"Allow","Action":"s3:*",
+    "Resource":["arn:aws:s3:::scenetrip-user-media-*","arn:aws:s3:::scenetrip-user-media-*/*"]}
+   ```
+2. GitHub Actions 의 bootstrap workflow 로 그 환경을 apply 한다 — 버킷·`-media` 역할이 생기고 배포 역할에 Pod
+   Identity 권한이 붙는다.
+3. 로컬용 IAM 사용자(dev 만). 이 버킷의 두 접두사만 다룬다:
+
+   ```bash
+   aws --profile default iam create-user --user-name scenetrip-dev-local-media
+   aws --profile default iam put-user-policy --user-name scenetrip-dev-local-media \
+     --policy-name UserMediaObjects --policy-document file://<위 -media 역할과 같은 정책 JSON>
+   aws --profile default iam create-access-key --user-name scenetrip-dev-local-media
+   ```
+
+   받은 두 값과 버킷 이름을 팀원 `.env` 의 `SCENETRIP_MEDIA_*` 에 넣고 `just secrets-apply` → `just restart scene-api`.
+   키는 저장소·채팅에 남기지 않는다.
+
+그 뒤 dev 를 올리면 파드가 키 없이 역할을 받는다. 버킷이 없거나 설정이 비면 서버는 뜨고 `POST /uploads` 만
+`503 UPLOAD_UNAVAILABLE` 이다.
+
 ## 배포 기록
 
 환경·계정·commit·이미지 digest·workflow URL·Terraform 변경 요약·Flyway 버전·

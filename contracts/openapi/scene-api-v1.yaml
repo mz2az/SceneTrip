@@ -2211,7 +2211,8 @@ paths:
         사진은 서버를 거치지 않고 저장소에 바로 올린다. 이 창구는 **10 분짜리 서명된 올릴 주소**를 준다.
 
         1. 이것을 불러 `uploadUrl` · `requiredHeaders` · `key` 를 받는다.
-        2. `uploadUrl` 로 **PUT**, 본문은 사진 파일 그대로, 헤더는 `requiredHeaders` 를 빠짐없이.
+        2. `uploadUrl` 로 **PUT**, 본문은 사진 파일 그대로, 헤더는 `requiredHeaders` 를 빠짐없이
+           (`Content-Length` 는 HTTP 라이브러리가 본문 크기로 넣는다 — 요청의 `bytes` 와 같아야 한다).
         3. 리뷰를 저장할 때 `key` 를 `photoKeys` 에 넣는다.
 
         **가입한 사용자만**(`401 SIGN_IN_REQUIRED`). 한 장 10 MB 이하, JPEG·PNG·HEIC·WebP. 앱이 올리기
@@ -2242,6 +2243,14 @@ paths:
           $ref: "#/components/responses/SignInRequired"
         "500":
           $ref: "#/components/responses/InternalError"
+        "503":
+          description: |
+            `UPLOAD_UNAVAILABLE` — 이 서버에 사진 저장소가 설정되지 않았다(사진 저장소 없이 띄운 로컬 등). 사진 없이 리뷰를
+            쓰게 하거나 「지금은 사진을 올릴 수 없습니다」.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 
 components:
   securitySchemes:
@@ -2855,13 +2864,16 @@ components:
           $ref: "#/components/schemas/UploadPurpose"
         contentType:
           type: string
-          enum: [image/jpeg, image/png, image/heic, image/webp]
+          description: |
+            `image/jpeg` · `image/png` · `image/heic` · `image/webp` 중 하나. 그 밖이면 `400 UPLOAD_TYPE_UNSUPPORTED`
+            (enum 으로 두지 않는 것은 형식 오류도 그 코드로 답하기 위해서다)
+          example: image/jpeg
         bytes:
           type: integer
           format: int64
-          minimum: 1
-          maximum: 10485760
-          description: 올릴 파일의 크기. 10 MB 이하
+          description: |
+            올릴 파일의 **정확한** 크기(바이트). 1 이상 10 MB(10,485,760) 이하 — 넘으면 `400 UPLOAD_TOO_LARGE`. 서명에
+            들어가므로 실제로 PUT 하는 파일과 크기가 다르면 저장소가 거절한다
 
     UploadTicket:
       type: object

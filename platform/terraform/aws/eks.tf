@@ -78,3 +78,17 @@ resource "aws_eks_access_policy_association" "deployment" {
     type = "cluster"
   }
 }
+
+# scene-api 파드가 사용자 사진 버킷(리뷰 사진)을 쓰는 역할 — bootstrap 이 만든다(내려도 남는다).
+# 파드에 키를 두지 않고 Pod Identity 로 그 역할을 받는다. 연결은 클러스터와 함께 생기고 사라진다.
+# 계획: docs/project/plans/review.md §13.
+data "aws_iam_role" "media" {
+  name = "${local.name}-media"
+}
+
+resource "aws_eks_pod_identity_association" "scene_api_media" {
+  cluster_name    = aws_eks_cluster.this.name
+  namespace       = "scenetrip"
+  service_account = "scene-api"
+  role_arn        = data.aws_iam_role.media.arn
+}

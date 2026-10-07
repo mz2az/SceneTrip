@@ -453,7 +453,11 @@ def deploy(run, root, settings, outputs):
         **values,
         "environment": settings.environment,
         "database": {"host": outputs["database_host"]},
-        "sceneApi": {"image": image("scene_api")},
+        # 사용자 사진 버킷 — bootstrap 이 만들고 Terraform 은 이름만 출력한다(docs/project/plans/review.md §13).
+        "sceneApi": {
+            "image": image("scene_api"),
+            "mediaBucket": outputs["user_media_bucket"],
+        },
         "tripGuide": {"image": image("trip_guide")},
     }
     run(

@@ -19,6 +19,8 @@ data:
   SCENETRIP_GUIDE_AGENT_BASE_URL: "http://trip-guide:8899"
   JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=40"
   OTEL_SERVICE_NAME: "scenetrip-scene-api"
+  # 사용자 사진 버킷(bootstrap 이 만든다). 비면 사진 올리기만 503 — 배포기가 Terraform 출력으로 넣는다.
+  SCENETRIP_MEDIA_BUCKET: {{ .Values.sceneApi.mediaBucket | quote }}
   OTEL_SDK_DISABLED: {{ ternary "false" "true" (ne .Values.otel.endpoint "") | quote }}
   OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.otel.endpoint | quote }}
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"

@@ -99,6 +99,13 @@ management:
 # 우회 계수는 직선거리가 실제 도로보다 짧다는 것을 메우는 값이다. 데이터가 쌓이면
 # 코드를 고치지 않고 여기서 조정한다.
 scenetrip:
+  # 사용자 사진 저장소(리뷰 사진) — S3 버킷 scenetrip-user-media-<계정>-<리전>-<환경>, bootstrap 이 만든다
+  # (docs/project/plans/review.md §13). 비어 있으면 서버는 뜨고 사진 올리기만 503 이다(PhotoStorageConfiguration).
+  # DEV·PRD 는 배포가 Helm ConfigMap 으로, 로컬은 .env → `just secrets-apply` 로 넣는다. 자격 증명은 여기 없다 —
+  # EKS 는 Pod Identity, 로컬은 이 버킷 전용 IAM 키(AWS_ACCESS_KEY_ID 등 환경변수)를 SDK 기본 사슬이 찾는다.
+  media:
+    bucket: ${SCENETRIP_MEDIA_BUCKET:}
+    region: ${SCENETRIP_MEDIA_REGION:ap-northeast-2}
   auth:
     # 가입 판정. **기본은 켬**이고 이 값은 어느 환경에서도 여기서 바꾸지 않는다.
     #

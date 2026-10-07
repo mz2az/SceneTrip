@@ -14,7 +14,13 @@ import com.mz2az.scenetrip.sceneapi.api.model.ReviewTargetType;
 import com.mz2az.scenetrip.sceneapi.review.PhotoStorage;
 import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
 import com.mz2az.scenetrip.sceneapi.review.ReviewStore.Target;
+import com.mz2az.scenetrip.sceneapi.review.UploadStore;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,13 +39,19 @@ class ReviewsController implements ReviewsApi {
   private final ReviewStore store;
   private final ReviewViews views;
   private final PhotoStorage storage;
+  private final UploadStore uploads;
   private final CurrentAccount accounts;
 
   ReviewsController(
-      ReviewStore store, ReviewViews views, PhotoStorage storage, CurrentAccount accounts) {
+      ReviewStore store,
+      ReviewViews views,
+      PhotoStorage storage,
+      UploadStore uploads,
+      CurrentAccount accounts) {
     this.store = store;
     this.views = views;
     this.storage = storage;
+    this.uploads = uploads;
     this.accounts = accounts;
   }
 
@@ -103,14 +115,56 @@ class ReviewsController implements ReviewsApi {
     // 앞뒤 공백만인 글은 없는 것으로(계약). 길이·별점 범위·사진 수는 계약의 제약이 이미 막았다.
     String text = in.getBody() == null || in.getBody().isBlank() ? null : in.getBody().strip();
     List<String> keys = in.getPhotoKeys() == null ? List.of() : in.getPhotoKeys();
+
+    // 막 올린 사진(uploads/tmp/)은 붙이기 전에 reviews/ 로 옮긴다 — 임시 자리는 버킷 수명 규칙이 하루 뒤
+    // 지운다. 옮기기는 DB 트랜잭션 밖이다(저장소 호출을 트랜잭션 안에서 기다리지 않는다). 저장하지 못하면
+    // 옮긴 것을 되돌린다(moveBack).
+    if (new HashSet<>(keys).size() != keys.size()) {
+      // 옮기기 전에 막는다 — 같은 임시 키가 둘이면 첫째만 옮겨지고 둘째에서 실패해 옮긴 것이 버려진다.
+      throw ApiException.badRequest("REVIEW_PHOTO_INVALID", "같은 사진이 두 번 있습니다");
+    }
+    Set<String> fresh = uploads.unattached(user, keys);
+    List<String> finalKeys = new ArrayList<>(keys.size());
+    Map<String, String> moved = new LinkedHashMap<>(); // 옮긴 자리 → 원래 임시 키
+    for (String key : keys) {
+      if (!fresh.contains(key)) {
+        finalKeys.add(key); // 이미 이 리뷰에 붙어 있던 키이거나 잘못된 키 — 저장소가 가린다(아래)
+        continue;
+      }
+      String to = "reviews/" + key.substring(key.lastIndexOf('/') + 1);
+      try {
+        storage.move(key, to);
+      } catch (PhotoStorage.MissingPhotoException e) {
+        moveBack(moved);
+        throw ApiException.badRequest("REVIEW_PHOTO_INVALID", "받은 주소로 올린 사진이 없습니다");
+      }
+      finalKeys.add(to);
+      moved.put(to, key);
+    }
     try {
       ReviewStore.Row saved =
-          store.put(
-              target, id, user, in.getRating(), text, keys, storage.unattachedUploads(user, keys));
+          store.put(target, id, user, in.getRating(), text, finalKeys, moved.keySet());
+      uploads.consume(fresh);
       return views.review(saved);
     } catch (ReviewStore.PhotoKeyRejectedException e) {
+      moveBack(moved);
       throw ApiException.badRequest("REVIEW_PHOTO_INVALID", e.getMessage());
     }
+  }
+
+  /**
+   * 저장하지 못했으면 옮긴 사진을 임시 자리로 되돌린다 — 앱이 같은 키로 다시 보낼 수 있게(업로드 기록도 남아 있다). {@code reviews/} 는 수명 규칙이 없어
+   * 그대로 두면 아무도 가리키지 않는 파일이 영영 남는다. 되돌리기도 실패하면 그 하나는 남는다 — 드물어 감수한다.
+   */
+  private void moveBack(Map<String, String> moved) {
+    moved.forEach(
+        (to, from) -> {
+          try {
+            storage.move(to, from);
+          } catch (RuntimeException ignored) {
+            // 위 주석
+          }
+        });
   }
 
   @Override

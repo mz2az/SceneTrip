@@ -134,6 +134,41 @@ class DestroyPlanTest(unittest.TestCase):
             with self.subTest(address=address), self.assertRaises(ValueError):
                 validate_owned_state({**resources, address: {}}, valid_settings())
 
+    def test_media_pod_identity_association_is_deleted_only_for_environment_scene_api(
+        self,
+    ):
+        # docs/project/plans/review.md §13 — 연결만 Terraform 소유, 역할·버킷은 bootstrap 소유.
+        from tools.aws.destroy_identity import validate_owned_state
+
+        settings = valid_settings()
+        address = "aws_eks_pod_identity_association.scene_api_media"
+        matching = {
+            "cluster_name": settings.cluster,
+            "namespace": "scenetrip",
+            "service_account": "scene-api",
+            "role_arn": "arn:aws:iam::123456789012:role/scenetrip-dev-media",
+        }
+        validate_owned_state({address: matching}, settings)
+        for field, value in (
+            ("cluster_name", "scenetrip-prd"),
+            ("cluster_name", "other-cluster"),
+            ("namespace", "default"),
+            ("namespace", "kube-system"),
+            ("service_account", "trip-guide"),
+            ("service_account", "default"),
+        ):
+            with self.subTest(field=field, value=value), self.assertRaises(ValueError):
+                validate_owned_state({address: {**matching, field: value}}, settings)
+        for missing in ("cluster_name", "namespace", "service_account"):
+            changed = {k: v for k, v in matching.items() if k != missing}
+            with self.subTest(missing=missing), self.assertRaises(ValueError):
+                validate_owned_state({address: changed}, settings)
+        # 다른 이름의 연결은 소스에 없으므로 지우지 않는다
+        with self.assertRaises(ValueError):
+            validate_owned_state(
+                {"aws_eks_pod_identity_association.other": matching}, settings
+            )
+
     def test_saved_plan_uses_locking_private_file_and_json_without_logging_secrets(
         self,
     ):

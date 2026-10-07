@@ -74,3 +74,8 @@ output "topology" {
     deletion_protection   = local.production
   }
 }
+# 사용자 사진 버킷 — bootstrap 이 만든 것으로 이름 규칙만 따른다(Terraform 은 만들지 않는다).
+# 배포기가 Helm 값 sceneApi.mediaBucket 으로 넘긴다.
+output "user_media_bucket" {
+  value = "scenetrip-user-media-${var.aws_account_id}-${var.aws_region}-${var.environment}"
+}

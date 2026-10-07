@@ -16,6 +16,8 @@ gateway:
   replicas: 1
 sceneApi:
   image: ""
+  # 사용자 사진 버킷 이름 — 배포기가 Terraform 출력(user_media_bucket)으로 채운다.
+  mediaBucket: ""
   replicas: 1
 tripGuide:
   image: ""

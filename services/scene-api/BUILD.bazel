@@ -133,6 +133,12 @@ java_library(
         # DbMigrate 가 Flyway 를 직접 부른다 — 앱 없이 스키마만 올리는 명령이다.
         # 앱 기동 시의 자동 구성은 그대로이고, 이것은 그 밖의 경로다 (ADR 0005).
         "@maven//:org_flywaydb_flyway_core",
+        # 사용자 사진 저장소(S3) — 서명된 올릴·볼 주소와 옮기기(review/S3PhotoStorage, MODULE.bazel 의 이유).
+        # s3 · regions · sdk-core · url-connection-client 는 코드가 직접 부르는 타입이 든 묶음이다.
+        "@maven//:software_amazon_awssdk_regions",
+        "@maven//:software_amazon_awssdk_s3",
+        "@maven//:software_amazon_awssdk_sdk_core",
+        "@maven//:software_amazon_awssdk_url_connection_client",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:jakarta_annotation_jakarta_annotation_api",
         "@maven//:jakarta_validation_jakarta_validation_api",
@@ -277,5 +283,11 @@ java_junit5_test(
         "@maven//:org_springframework_spring_jdbc",
         "@maven//:org_springframework_spring_test",
         "@maven//:org_springframework_spring_web",
+        # S3PhotoStorageTest 가 가짜 고정 자격 증명으로 서명을 만들고(망 없음) 목 S3Client 로 옮기기를 본다.
+        "@maven//:software_amazon_awssdk_auth",
+        "@maven//:software_amazon_awssdk_aws_core",
+        "@maven//:software_amazon_awssdk_regions",
+        "@maven//:software_amazon_awssdk_s3",
+        "@maven//:software_amazon_awssdk_sdk_core",
     ],
 )

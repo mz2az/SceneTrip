@@ -173,6 +173,14 @@ maven.install(
         "org.springframework.boot:spring-boot-starter-jdbc:4.1.0",
         "org.springframework.boot:spring-boot-starter-flyway:4.1.0",
 
+        # 사용자 사진 저장소(S3) — 리뷰 사진을 올릴·볼 서명된 주소(presigned URL)를 만들고, 붙인
+        # 사진을 임시 자리에서 옮긴다(docs/project/plans/review.md §13). 서명(SigV4)을 손으로 짜지
+        # 않으려고 SDK 를 쓴다. HTTP 클라이언트는 JDK 의 HttpURLConnection 을 쓰는
+        # url-connection-client 하나만 — 기본값인 Apache·Netty 를 끌어오지 않는다. 자격 증명은
+        # 기본 사슬이 찾는다: EKS 는 Pod Identity, 로컬은 환경변수.
+        "software.amazon.awssdk:s3:2.55.12",
+        "software.amazon.awssdk:url-connection-client:2.55.12",
+
         # 명세에서 생성한 Spring 인터페이스를 컴파일하는 데 필요한 것들.
         # 컨트롤러가 그 인터페이스를 구현하므로 계약 위반이 컴파일 오류가 된다
         # (contracts/openapi/BUILD.bazel).
@@ -242,6 +250,14 @@ maven.install(
         # 것은 JUnit5(Jupiter)이므로 그것을 실행할 콘솔 런처가 따로 필요하다.
         # tools/bazel/defs/java_junit5_test.bzl 이 이 의존성을 쓴다.
         "org.junit.platform:junit-platform-console:6.0.3",
+    ],
+    # S3 SDK 가 기본으로 끌어오는 HTTP 클라이언트 둘(Netty·Apache)을 뺀다. 우리는 JDK 의
+    # url-connection-client 하나로 충분하고(서명된 주소 만들기와 복사 정도), Netty 묶음만
+    # 열 개가 넘는다. 코드는 클라이언트를 명시해 고른다(S3PhotoStorage).
+    excluded_artifacts = [
+        "software.amazon.awssdk:netty-nio-client",
+        "software.amazon.awssdk:apache5-client",
+        "software.amazon.awssdk:apache-client",
     ],
     known_contributing_modules = ["protobuf"],
     lock_file = "//:maven_install.json",

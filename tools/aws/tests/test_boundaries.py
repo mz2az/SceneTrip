@@ -510,6 +510,7 @@ class BoundaryTest(unittest.TestCase):
             "cluster_name": settings.cluster,
             "namespace": "scenetrip",
             "database_host": "db.example",
+            "user_media_bucket": "scenetrip-user-media-123456789012-ap-northeast-2-dev",
             "app_secret_arns": {
                 "database": "database-arn",
                 "scene_api": "scene-arn",
@@ -594,5 +595,9 @@ class BoundaryTest(unittest.TestCase):
         self.assertEqual(
             json.loads(helm_call.kwargs["stdin"])["network"]["dnsCidr"],
             "172.20.0.10/32",
+        )
+        self.assertEqual(
+            json.loads(helm_call.kwargs["stdin"])["sceneApi"]["mediaBucket"],
+            "scenetrip-user-media-123456789012-ap-northeast-2-dev",
         )
         self.assertEqual(events, ["migration"])

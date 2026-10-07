@@ -272,3 +272,49 @@ run "spec_prd_rejects_world_in_allowed_cidrs" {
   }
   expect_failures = [var.ingress_allowed_cidrs]
 }
+
+# --- 사용자 사진 버킷(docs/project/plans/review.md §13) ------------------------------
+# 버킷과 -media 역할은 bootstrap 이 만든다. Terraform 은 scene-api 서비스 계정을 그 역할에 잇고 이름만 출력한다.
+run "scene_api_media_pod_identity" {
+  command = plan
+  override_data {
+    target = data.aws_iam_role.media
+    values = {
+      arn = "arn:aws:iam::111122223333:role/scenetrip-dev-media"
+    }
+  }
+  assert {
+    condition     = data.aws_iam_role.media.name == "scenetrip-dev-media"
+    error_message = "Pod Identity 는 그 환경의 -media 역할(scenetrip-<env>-media)을 찾아야 합니다."
+  }
+  assert {
+    condition = (
+      aws_eks_pod_identity_association.scene_api_media.cluster_name == aws_eks_cluster.this.name &&
+      aws_eks_pod_identity_association.scene_api_media.namespace == "scenetrip" &&
+      aws_eks_pod_identity_association.scene_api_media.service_account == "scene-api" &&
+      aws_eks_pod_identity_association.scene_api_media.role_arn == "arn:aws:iam::111122223333:role/scenetrip-dev-media"
+    )
+    error_message = "scenetrip 네임스페이스의 scene-api 서비스 계정만 -media 역할에 이어야 합니다."
+  }
+  assert {
+    condition     = output.user_media_bucket == "scenetrip-user-media-111122223333-ap-northeast-2-dev"
+    error_message = "user_media_bucket 은 bootstrap 의 이름 규칙(scenetrip-user-media-<계정>-<리전>-<환경>)과 같아야 합니다."
+  }
+}
+
+run "prd_media_names_follow_environment" {
+  command = plan
+  variables {
+    environment        = "prd"
+    availability_zones = ["ap-northeast-2a", "ap-northeast-2b", "ap-northeast-2c"]
+    vpc_cidr           = "10.50.0.0/16"
+  }
+  assert {
+    condition     = data.aws_iam_role.media.name == "scenetrip-prd-media"
+    error_message = "PRD 는 PRD 의 -media 역할을 써야 합니다."
+  }
+  assert {
+    condition     = output.user_media_bucket == "scenetrip-user-media-111122223333-ap-northeast-2-prd"
+    error_message = "PRD 버킷 이름은 환경 접미사 prd 를 가져야 합니다."
+  }
+}
