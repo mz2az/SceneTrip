@@ -154,7 +154,7 @@ iOS 의 규칙(`RouteTab/PoiLabel.swift`, 계약 그대로):
 | 자리 | 한국어 화면 | 그 밖(영어) |
 | --- | --- | --- |
 | 제목 | `name` | `displayName ?? name` |
-| 제목 아래 | — | 영어 이름이 없을 때 `nameRoman`(읽는 법). 이름이 원래 로마자라 같은 글자면 생략 |
+| 제목 아래 | — | 영어 이름이 있으면 한국어 `name`(간판과 맞춰 본다), 없으면 `nameRoman`(읽는 법). 같은 글자면 생략 |
 | 분류 | `category` | `categoryLabel ?? category` |
 | 주소 | `address` | `displayAddress ?? address` |
 | 지도 이름표(한 줄) | `name` | 영어 이름, 없으면 읽는 법 |
