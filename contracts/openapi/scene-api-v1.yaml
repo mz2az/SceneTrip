@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.4.0
+  version: 1.5.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -160,6 +160,20 @@ info:
     표현하려면 *필드가 없음*(안 고침)과 *값이 null*(지움)을 구분해야 하는데, 그 구분은
     생성기 설정과 의존성을 하나 더 부른다. PUT 은 구분 자체를 없앤다 — **보낸 것이
     전부이고 빠진 것은 지운 것이다.**
+
+    ## 요청 한도
+
+    **어느 창구든 `429` 를 낼 수 있다.** 계정(비회원은 설치 UUID 로 찾은 계정)마다 분당 요청 수에 상한이 있다 —
+    `code: RATE_LIMITED`, `Retry-After` 초 뒤에 다시 보낸다. 보통 사용자는 걸리지 않는 값이다(폭주·버그 방지).
+
+    비용이 드는 둘은 따로 센다 — 가이드 챗봇(`POST /guide/chat`, 1 시간·하루)과 여행 중 길찾기
+    (`POST /navigation/next-leg`, 1 분·하루). 넘으면 `GUIDE_LIMIT_REACHED` · `NAVIGATION_LIMIT_REACHED`. 하루는 한국
+    시간 자정에 다시 찬다. **앱이 할 일:** 챗봇은 「잠시 뒤 다시」 와 일정짜기 마법사(`POST /guide/plan`, 비용 없음)로
+    안내하고, 길찾기는 카카오맵·네이버지도 앱으로 넘긴다 — 여행이 멈추지 않게.
+
+    응답 헤더 `RateLimit-Limit` · `RateLimit-Remaining` · `RateLimit-Reset`(초) 는 그 요청에 걸린 한도 중 가장 빠듯한
+    것이다. 「오늘 3 번 남았어요」 를 보이는 데 쓴다. 숫자는 요금제별 설정이라 바뀔 수 있다 — 앱은 숫자를 박지 않고 헤더를
+    읽는다. 설계: docs/project/plans/rate-limit.md.
 
     ## 정렬과 상위 N
 
@@ -2088,6 +2102,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -2118,9 +2134,15 @@ paths:
         경로라 호출 여부를 서버가 정한다 — 여행 중 길찾기와 같은 이유다. 판정은 에이전트를
         부르기 **전**이라 미가입 요청은 비용 없이 걸러진다. 마법사(`POST /guide/plan`)는 모델을
         안 부르니 이 조건이 없다.
+
+        **재시도는 `Idempotency-Key` 로만.** 한 턴은 멱등이 아니다 — 토큰이 나가고, 대화 이력이 쌓이고, 장바구니에
+        담는다. 앱은 「전송」 을 누를 때마다 새 키를 만들어 보내고, 응답을 못 받았을 때(끊김·시간 초과·`503`·`409`)는
+        **같은 키로** 다시 보낸다. 서버는 같은 키의 턴을 한 번만 처리하고 이후에는 저장한 답을 그대로 준다 — 모델을 다시
+        부르지 않고 한도도 한 번만 깎인다. 키 없이 보내면 예전처럼 매번 새로 처리한다(재시도하지 말 것).
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
         - $ref: "#/components/parameters/InstallId"
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
         content:
@@ -2140,6 +2162,23 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/SignInRequired"
+        "409":
+          description: |
+            `IDEMPOTENCY_IN_PROGRESS` — 같은 `Idempotency-Key` 의 턴이 아직 처리 중이다(두 번 누른 것). 무시하고 첫
+            응답을 기다리거나, 잠시 뒤 같은 키로 다시 보낸다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: |
+            `IDEMPOTENCY_KEY_REUSED` — 같은 키로 **다른** 내용을 보냈다. 앱 버그다 — 새 메시지에는 새 키를 쓴다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "503":
           description: |
             에이전트가 응답하지 않는다 — 프로세스가 죽었거나, 모델이 꺼져 있거나 한도 초과.
@@ -2206,6 +2245,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -2299,6 +2340,18 @@ components:
         type: string
         format: uuid
 
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        사용자 행동 하나(「전송」 한 번)의 이름표. 재시도는 같은 키, 다음 행동은 새 키. UUID 를 권한다. 서버는 24 시간
+        기억한다. IETF 초안 draft-ietf-httpapi-idempotency-key-header 를 따른다.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 255
+
     PlaceId:
       name: placeId
       in: path
@@ -2387,6 +2440,22 @@ components:
         maximum: 180
 
   headers:
+    RetryAfter:
+      description: 몇 초 뒤에 다시 보내도 되는가. 하루 한도면 다음 자정(한국 시간)까지
+      schema:
+        type: integer
+    RateLimitLimit:
+      description: 이 요청에 걸린 한도 중 가장 빠듯한 것의 크기
+      schema:
+        type: integer
+    RateLimitRemaining:
+      description: 그 한도의 남은 횟수
+      schema:
+        type: integer
+    RateLimitReset:
+      description: 그 한도가 다시 차기까지 남은 초
+      schema:
+        type: integer
     ContentLanguage:
       description: 서버가 실제로 고른 언어. 요청한 언어와 다를 수 있다(폴백).
       schema:
@@ -2468,6 +2537,28 @@ components:
       description: |
         `AUTH_PROVIDER_UNAVAILABLE` — 구글·애플 서버(공개키, 애플 코드 교환)에 닿지
         못했다. 사용자 잘못이 아니므로 **잠시 뒤 재시도**하게 한다.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    TooManyRequests:
+      description: |
+        한도를 넘었다. `code` 로 가른다.
+
+        | `code` | 뜻 | 앱이 할 일 |
+        | --- | --- | --- |
+        | `RATE_LIMITED` | 분당 요청이 너무 많다 | `Retry-After` 초 뒤 다시(같은 멱등 키) |
+        | `GUIDE_LIMIT_REACHED` | 가이드 챗봇 1 시간·하루 한도 | 「잠시 뒤 다시」, 일정짜기 마법사로 안내 |
+        | `NAVIGATION_LIMIT_REACHED` | 길찾기 1 분·하루 한도 | 카카오맵·네이버지도 앱으로 넘긴다 |
+      headers:
+        Retry-After:
+          $ref: "#/components/headers/RetryAfter"
+        RateLimit-Limit:
+          $ref: "#/components/headers/RateLimitLimit"
+        RateLimit-Remaining:
+          $ref: "#/components/headers/RateLimitRemaining"
+        RateLimit-Reset:
+          $ref: "#/components/headers/RateLimitReset"
       content:
         application/json:
           schema:
