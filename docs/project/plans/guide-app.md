@@ -28,9 +28,14 @@ main 의 챗봇은 「준비 중」이었고(MZ2AZ-297) 마법사는 앱 안의 
 | `trip` | `TripSession` 단계 + `FootprintStore` 최근 하루 거리 | 「다 돌았어?」를 도구 없이 답한다. 여행 중이 아니면 `nil` |
 | `plan` | 편집 중인 `RouteCourse` 를 `GuidePlan` 모양으로(`RouteGuidePlan.plan(from:)`) | 편집 중엔 앱이 정본이다 — 없으면 「2일차에서 빼 줘」가 거절된다 |
 
-**타임아웃 50초, 자동 재시도 없음.** 서버 벽이 40초라 앱이 그보다 길어야 한다 — 앱이 먼저 끊으면
-서버가 뒤늦게 `cart.add` 를 저장하는데 앱은 실패로 본다. `/guide/chat` 은 멱등이 아니라 재시도하면
-이력이 두 번 쌓인다. 50초는 `RouteGuideTimeout.run` 이 요청 태스크를 취소하는 것으로 지킨다
+**요청 하나의 벽은 50초다.** 서버 벽이 40초라 앱이 그보다 길어야 한다 — 앱이 먼저 끊으면
+서버가 뒤늦게 `cart.add` 를 저장하는데 앱은 실패로 본다. `/guide/chat` 은 멱등이 아니라 **키 없이**
+재시도하면 이력이 두 번 쌓인다.
+
+**재시도는 멱등 키로만 한다**(MZ2AZ-366, [app-retry.md](./app-retry.md) §4·§10). 「전송」 마다 새
+`Idempotency-Key` 를 싣고, 서버가 키를 아는 것이 확인된 때만 공통 재시도 계층이 같은 요청을 한 번 다시
+보낸다(턴 전체 110초). 그 뒤에도 실패면 창의 「다시 시도」 가 같은 키로 보낸다. 서버가 키를 아는지
+모르면 전과 같다 — 50초에 `RouteGuideTimeout.run` 이 요청 태스크를 취소하고 다시 보내지 않는다
 (생성 클라이언트의 `execute()` 가 `withTaskCancellationHandler` 로 취소를 전달한다).
 
 ## 3. 챗봇 — 응답을 나눠 처리한다
@@ -56,7 +61,8 @@ GuideChatReply
 `RouteMapView` 에 「가이드 선」을 더한다.
 
 오류는 `RouteGuideFailure` 가 계약 응답별로 가른다 — 401 가입 · 400 요청 문제(`message` 는 화면에
-안 띄운다, `docs/api/errors.md`) · 503 `GUIDE_UNAVAILABLE` 「잠시 뒤 다시」 · 50초 초과 · 연결 실패.
+안 띄운다, `docs/api/errors.md`) · 503 `GUIDE_UNAVAILABLE` 「잠시 뒤 다시」 · 시간 초과 · 오프라인 ·
+연결 실패 · 분당 한도(429 `RATE_LIMITED`) · 422 키 재사용.
 
 ## 4. 마법사 — `GuidePlan` 을 편집 화면에 그린다
 
@@ -79,7 +85,8 @@ GuideChatReply
 
 | 시험 | 못 박는 것 |
 | --- | --- |
-| `RouteGuideFailureTests` | 401·400·503·연결 실패·50초 초과의 갈래와 문구. 어느 갈래에도 「준비 중」이 없다 |
+| `RouteGuideFailureTests` | 401·400·503·연결 실패·오프라인·시간 초과·409·422·429 의 갈래와 문구, 갈래별 「다시 시도」. 어느 갈래에도 「준비 중」·「백엔드」 가 없다 |
+| `RouteGuideTurnTests` · `GuideChatRetryRulesTests` · `GuideChatRetrySessionTests` | 멱등 키 — 같은 키·같은 요청으로만 다시 나간다, 자동 한 번, 409 되묻기, 스위치(MZ2AZ-366) |
 | `RouteGuidePlanTests` | `GuidePlan` → `RouteCourse` → `GuidePlan` 왕복에서 `placeId`·순서·체류가 보존된다. `placeId == null` 은 저장에서 빠진다. `540` → 「09:00」 |
 | `RouteGuideDirectiveTests` | 아는 `op` 여섯은 갈래로, 모르는 `op` 는 `nil` — 응답 전체를 버리지 않는다 |
 

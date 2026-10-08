@@ -19,6 +19,10 @@ import Foundation
 /// | `down` | 보내지 않고 「연결 거부」 — 서버에 닿지 않은 것이 확실한 실패 |
 /// | `offline` | 보내지 않고 「인터넷 연결 없음」 |
 /// | `lost` | **보내고** 응답을 버린다 — 닿았는지 모르는 실패(시간 초과) |
+/// | `cut:2` | **보내고 2초 뒤에 끊는다** — 서버는 아직 처리 중인데 앱은 연결을 잃은 것. 같은 멱등 키로 다시 보내면 `409 처리 중` 을 받는다(챗봇). 그 전에 답이 와도 버린다 |
+///
+/// `status:409` 는 `IDEMPOTENCY_IN_PROGRESS`, `status:422` 는 `IDEMPOTENCY_KEY_REUSED` 를 본문에 싣는다 —
+/// 챗봇의 되묻기와 「키 재사용」 갈래를 서버(와 모델) 없이 본다.
 ///
 /// 앞에 `메서드@` 를 붙이면 그 메서드의 요청에만 넣는다 — `DELETE@reviews/me:lost` 는 지우기의 응답만 잃게
 /// 한다(같은 경로의 조회가 횟수를 먼저 쓰지 않게).
@@ -31,6 +35,8 @@ enum NetFault {
         case down
         case offline
         case lost
+        /// 보낸 뒤 이 초에 끊는다.
+        case cut(TimeInterval)
     }
 
     struct Rule: Equatable {
@@ -59,6 +65,10 @@ enum NetFault {
             case "down": injection = .down
             case "offline": injection = .offline
             case "lost": injection = .lost
+            case "cut":
+                guard let seconds = parts.first.flatMap(TimeInterval.init), seconds >= 0 else { return nil }
+                parts.removeFirst()
+                injection = .cut(seconds)
             default: return nil
             }
             let remaining: Int? = switch parts.first {
@@ -86,7 +96,13 @@ enum NetFault {
     /// 지어낸 응답. 본문은 우리 오류 모양(`ApiError`)이라 화면이 진짜와 같게 읽는다.
     static func response(status: Int, url: URL?) -> (Data, URLResponse?) {
         let limited = status == 429
-        let body = #"{"code":"\#(limited ? "RATE_LIMITED" : "NET_FAULT")","message":"netFault"}"#
+        let code = switch status {
+        case 429: "RATE_LIMITED"
+        case 409: RetryRules.inProgressCode
+        case 422: RetryRules.keyReusedCode
+        default: "NET_FAULT"
+        }
+        let body = #"{"code":"\#(code)","message":"netFault"}"#
         var headers = ["Content-Type": "application/json"]
         if limited {
             headers["Retry-After"] = "3"
