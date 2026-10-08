@@ -69,7 +69,9 @@ enum PhotoShrink {
             kCGImageSourceThumbnailMaxPixelSize: max(1, Int(target.rounded())),
             kCGImageSourceShouldCacheImmediately: true,
         ] as CFDictionary
-        guard let small = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else { return nil }
+        // 여러 장이 든 파일(HEIC 연사·라이브 포토의 묶음)은 **대표 그림**을 푼다 — 0번이 대표가 아닐 수 있다.
+        let primary = CGImageSourceGetPrimaryImageIndex(source)
+        guard let small = CGImageSourceCreateThumbnailAtIndex(source, primary, options) else { return nil }
         return redraw(UIImage(cgImage: small), longest: longest)
     }
 
@@ -89,7 +91,8 @@ enum PhotoShrink {
     }
 
     private static func pixelSize(of source: CGImageSource) -> CGSize? {
-        guard let found = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+        let primary = CGImageSourceGetPrimaryImageIndex(source)
+        guard let found = CGImageSourceCopyPropertiesAtIndex(source, primary, nil) as? [CFString: Any],
               let width = (found[kCGImagePropertyPixelWidth] as? NSNumber)?.doubleValue,
               let height = (found[kCGImagePropertyPixelHeight] as? NSNumber)?.doubleValue,
               width >= 1, height >= 1

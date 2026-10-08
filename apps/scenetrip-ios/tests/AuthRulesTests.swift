@@ -94,4 +94,33 @@ final class AuthRulesTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(first.count, 43) // 32 바이트 base64url
         XCTAssertNotEqual(first, second)
     }
+
+    /// 누구나 읽는 창구는 만료된 토큰에 401 을 주지 않는다 — 부르기 전에 살핀다(MZ2AZ-363).
+    func testAccessTokenIsStaleWhenExpiredOrAboutTo() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertFalse(AuthRules.stale(expiresAt: now.addingTimeInterval(1800), now: now))
+        XCTAssertFalse(AuthRules.stale(expiresAt: now.addingTimeInterval(61), now: now))
+        XCTAssertTrue(AuthRules.stale(expiresAt: now.addingTimeInterval(60), now: now), "곧 죽는다 — 가는 길에 죽는다")
+        XCTAssertTrue(AuthRules.stale(expiresAt: now.addingTimeInterval(-1), now: now))
+        // 죽는 때를 적기 전에 로그인한 설치본 — 모르면 갱신한다.
+        XCTAssertTrue(AuthRules.stale(expiresAt: nil, now: now))
+    }
+
+    /// 서명된 사진 주소가 실려 오는 창구의 응답은 디스크에 남기지 않는다(MZ2AZ-363). 나머지는 기본 세션 그대로.
+    func testSignedUrlEndpointsAreRecognised() {
+        let base = "http://localhost:8081/v1"
+        for path in [
+            "/places/82", "/pois/1234", "/places/82/photos?offset=20&limit=20", "/pois/7/photos",
+            "/places/82/reviews?sort=recent&limit=20&offset=0", "/pois/7/reviews", "/places/82/reviews/me",
+            "/pois/7/reviews/me", "/me/reviews?limit=20",
+        ] {
+            XCTAssertTrue(AuthRules.carriesSignedUrls(url: base + path), path)
+        }
+        for path in [
+            "/places?q=cafe", "/places/map?bbox=1,2,3,4", "/pois?bbox=1,2,3,4", "/contents/3", "/me", "/me/nickname",
+            "/cart", "/cart/items", "/courses/12", "/uploads", "/auth/refresh", "/places/82/scenes",
+        ] {
+            XCTAssertFalse(AuthRules.carriesSignedUrls(url: base + path), path)
+        }
+    }
 }

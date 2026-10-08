@@ -71,6 +71,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 리뷰 보기 | 촬영지 상세·성지 카드·편의시설 카드의 별점 줄(「★4.6 · 리뷰 128」) → 리뷰 시트(요약·점수 막대·정렬·목록) — `Reviews/`. 서버가 별점을 안 실어 주면(옛 서버) 줄이 없다 (MZ2AZ-363) |
 | 리뷰 쓰기 | 리뷰 시트의 「리뷰 쓰기」 → 별점(필수)·글(선택, 2,000자)·**사진(10장까지)**. 한 곳에 한 개 — 있으면 고친다. 지우기는 고치는 화면 안에. 가입한 사람만(비회원은 로그인 화면을 거친다) (MZ2AZ-363) |
 | 리뷰 사진 | 고르는 즉시 줄여서 올린다 — 긴 변 2,048px·JPEG 로 **다시 그려 촬영 위치 등 EXIF 를 뗀다**(`Models/PhotoShrink`) → `POST /uploads` → 저장소로 바로 PUT(`Reviews/PhotoUploader`) → 저장할 때 `photoKeys`. 칸마다 올리는 중·실패(다시 시도)·빼기, 올리는 중이거나 못 올린 사진이 있으면 저장하지 못한다. 목록과 「내 리뷰」 의 사진은 누르면 크게 넘겨 본다. 로컬 저장소는 클러스터 안 MinIO(`localhost:9000`) (MZ2AZ-363) |
+| 사진첩 | 촬영지 상세의 **대표 사진 자리를 옆으로 넘긴다** — 우리 사진 뒤로 방문자(리뷰) 사진, 서버 순서 그대로. 오른쪽 아래 「3 / 19」 를 누르면 전체 격자, 사진을 누르면 크게 넘겨 보기(닫으면 본 사진에 머문다). 방문자 사진에는 「방문자 사진」 표시와 「리뷰 보기」(그 리뷰로). 한 장뿐이면 전과 같은 모습. 리뷰 시트 위쪽에는 방문자 사진 모아 보기(한 줄 + 「모두 보기」 격자), 지도의 정보 카드에는 작은 사진 줄. 상세의 `photos`(앞 20장) → 끝이 가까우면 `GET …/photos?offset=` — `Reviews/PhotoGallery*`·`PhotoPager`·`PhotoLoader` (MZ2AZ-363) |
 | 내 리뷰 | 마이페이지 「내 리뷰」 — 내가 쓴 리뷰 전부(촬영지·편의시설 섞어 최신순), 누르면 그 대상의 리뷰 시트. 탈퇴 확인 창에 「리뷰는 익명으로 남는다」 안내 (MZ2AZ-363) |
 | 닉네임 | 로그인 직후 한 번 묻고(건너뛸 수 있다) 마이페이지에서 바꾼다 — `Reviews/NicknameView`, `PUT /me/nickname`. **서버 구현(MZ2AZ-362) 전이라 저장은 실기로 확인하지 못했다.** 화면만 보려면 `-previewNickname` 실행 인자 (MZ2AZ-363) |
 | 분석 | Firebase Analytics(GA4)로 퍼널 이벤트를 기록한다. `resources/GoogleService-Info.plist`(저장소에 있다, Firebase 프로젝트 `scenetrip-5bf07`)가 있을 때만 켜진다 — 표는 `docs/project/plans/analytics-events.md` (MZ2AZ-353) |
@@ -232,6 +233,14 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
   영어를 적는다. `Text("…")` 처럼 글자를 바로 적는 자리는 그대로 번역되고, 문자열을 변수로 넘기거나 조립하면 `tr("…")` 로
   감싼다(`Models/AppLanguage.swift`). 숫자는 `String(format: tr("%d곳"), n)`. 같은 한국어가 자리마다 다른 영어여야 하면
   `tr("코스", at: "화면 제목")` + 열쇠 `코스|화면 제목`. 번역을 빠뜨리면 그 글자만 한국어로 남는다.
+- **사진첩의 사진은 주소가 아니라 이름(`GalleryPhoto.key`)으로 가린다** (MZ2AZ-363): 리뷰 사진의 주소는 서명돼 있어 받을 때마다
+  다르고 한 시간 뒤 죽는다. 그래서 사진첩은 `RemoteImage`(`AsyncImage`, 주소가 열쇠)를 쓰지 않고 `Reviews/PhotoLoader` 로 받는다 —
+  이름으로 메모리에만 기억하고(서명된 주소는 디스크에 남기지 않는다 — 그 주소가 실린 API 응답도 캐시 없는 세션으로 받는다, `AuthRules.carriesSignedUrls`), 그릴 크기까지만 푼다(썸네일 주소가 없어 원본이 온다).
+  넘겨 보기(`PhotoPager`)는 보이는 쪽과 양옆만 받는다. 규칙(이름·쪽 붙이기·겹침 거르기·쪽 표시)은 `PhotoGalleryRules` 에 있고
+  `PhotoGalleryRulesTests` 가 지킨다.
+- **누구나 읽는 창구에 「내 것」 표시가 실릴 때는 부르기 전에 토큰을 살핀다** (MZ2AZ-363): 리뷰 목록은 만료된 토큰에 401 을 주지 않고
+  비회원처럼 답한다 — 갱신할 계기가 없어 「내 리뷰」 가 빠진 목록이 그려졌다. `AuthRefresher.refreshIfStale()` 가 받을 때 적어 둔
+  만료 시각을 보고 먼저 갱신한다(`ReviewSubject.reviews`).
 - **사진을 고르고 줄이는 코드는 한 벌이다** (MZ2AZ-363): `Models/PhotoPickParts.swift`(「사진 추가」 칸·「빼기」 단추·고른 것 읽기)와
   `Models/PhotoShrink.swift`(다시 그려 줄이기)를 여행후기 쓰기와 리뷰 쓰기가 같이 쓴다. 남에게 보이는 사진은 원본 파일을 그대로
   올리지 않는다 — 다시 그려야 위치(GPS) EXIF 가 빠진다(`PhotoShrinkTests` 가 지킨다). 고른 파일은 통째로 풀지 않고 ImageIO 로 긴 변까지만 푼다

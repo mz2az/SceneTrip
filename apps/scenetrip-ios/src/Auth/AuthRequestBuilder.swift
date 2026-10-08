@@ -74,7 +74,25 @@ private enum AuthIntercept {
     }
 }
 
+/// 응답을 디스크에 남기지 않는 세션 (MZ2AZ-363) — 서명된 사진 주소가 실려 오는 창구만 이것으로 나간다
+/// (`AuthRules.carriesSignedUrls`). 나머지는 생성 클라이언트의 기본 세션 그대로다.
+///
+/// 캐시를 끈다고 느려지지 않는다: 서버가 `Cache-Control`·`ETag`·`Last-Modified` 를 주지 않아, 기본 세션도 이 응답들을
+/// 저장만 하고 다시 쓰지는 못했다(2026-10-08 응답 머리말 확인).
+private enum UncachedSession {
+    static let shared: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.urlCache = nil
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: config)
+    }()
+}
+
 private final class AuthPlainBuilder<T>: URLSessionRequestBuilder<T> {
+    override func createURLSession() -> URLSessionProtocol {
+        AuthRules.carriesSignedUrls(url: URLString) ? UncachedSession.shared : super.createURLSession()
+    }
+
     @discardableResult
     override func execute(
         _ queue: DispatchQueue = SceneApiClientAPI.apiResponseQueue,
@@ -95,6 +113,10 @@ private final class AuthPlainBuilder<T>: URLSessionRequestBuilder<T> {
 }
 
 private final class AuthDecodableBuilder<T: Decodable>: URLSessionDecodableRequestBuilder<T> {
+    override func createURLSession() -> URLSessionProtocol {
+        AuthRules.carriesSignedUrls(url: URLString) ? UncachedSession.shared : super.createURLSession()
+    }
+
     @discardableResult
     override func execute(
         _ queue: DispatchQueue = SceneApiClientAPI.apiResponseQueue,

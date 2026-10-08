@@ -28,16 +28,28 @@ enum ReviewSubject: Hashable, Identifiable {
     static let pageSize = 20
 
     /// 리뷰 목록 한 쪽과 요약. 비회원도 읽는다.
+    ///
+    /// 「내 리뷰」 표시(`isMine`)는 **살아 있는 토큰**을 보냈을 때만 온다 — 이 창구는 만료된 토큰을 401 로
+    /// 돌려보내지 않고 비회원처럼 답한다(누구나 읽는 창구라 실패시키지 않는다). 그래서 부르기 전에 토큰을 살핀다.
     func reviews(sort: ReviewSort, offset: Int) async throws -> ReviewList {
+        await AuthRefresher.refreshIfStale()
         switch self {
         case let .place(id):
-            try await ReviewsAPI.listPlaceReviews(
+            return try await ReviewsAPI.listPlaceReviews(
                 placeId: id, sort: sort, limit: Self.pageSize, offset: offset
             )
         case let .poi(id):
-            try await ReviewsAPI.listPoiReviews(
+            return try await ReviewsAPI.listPoiReviews(
                 poiId: id, sort: sort, limit: Self.pageSize, offset: offset
             )
+        }
+    }
+
+    /// 사진첩 한 쪽 — 우리 사진 먼저, 그 뒤 리뷰 사진(상세의 `photos` 와 같은 순서). 비회원도 읽는다.
+    func photos(offset: Int, limit: Int = PhotoGalleryRules.pageSize) async throws -> PhotoList {
+        switch self {
+        case let .place(id): try await ReviewsAPI.listPlacePhotos(placeId: id, limit: limit, offset: offset)
+        case let .poi(id): try await ReviewsAPI.listPoiPhotos(poiId: id, limit: limit, offset: offset)
         }
     }
 

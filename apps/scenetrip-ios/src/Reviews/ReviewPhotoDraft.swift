@@ -34,8 +34,13 @@ final class ReviewPhotoDraft: ObservableObject {
     @Published private(set) var pumping = false
     /// 열 때 리뷰에 붙어 있던 키 — 바뀌었는지 볼 기준.
     private var existing: [String] = []
-    private var task: Task<Void, Never>?
+    /// 올리는 줄. 그만두게 한 직후에 다시 시켜도 멈춰 서지 않는다(`RestartableLoop`).
+    private let loop = RestartableLoop()
     private var batch = 0
+
+    init() {
+        loop.onRunning = { [weak self] running in self?.pumping = running }
+    }
 
     var states: [ReviewPhotoState] {
         slots.map(\.state)
@@ -117,7 +122,7 @@ final class ReviewPhotoDraft: ObservableObject {
 
     /// 쓰기 화면이 사라졌다(저장·버리기·닫기) — 올리던 것을 그만둔다. 이미 올라간 키는 그대로다(서버에 있다).
     func cancel() {
-        task?.cancel()
+        loop.cancel()
     }
 
     /// 그만뒀던 줄을 잇는다 — 줄을 멈추게 한 실패가 없을 때만.
@@ -135,31 +140,31 @@ final class ReviewPhotoDraft: ObservableObject {
         return batch
     }
 
-    /// 기다리는 칸을 앞에서부터 하나씩 올린다.
+    /// 올리는 줄을 돌린다. 이미 돌고 있으면 그 줄이 새 칸까지 올린다 — 그만두는 중이었으면 끝난 뒤 다시 돈다.
     private func pump() {
-        guard !pumping else { return }
-        pumping = true
-        task = Task {
-            defer { pumping = false }
-            while !Task.isCancelled, let id = slots.first(where: { $0.state == .waiting })?.id {
-                update(id) { $0.state = .uploading }
-                let result = await upload(id)
-                if Task.isCancelled {
-                    // 그만두는 중이다 — 실패로 적지 않는다. 화면이 아직 살아 있으면 다음 고르기·다시 시도가 잇는다.
-                    update(id) { $0.state = .waiting }
+        loop.start { [weak self] in await self?.drain() }
+    }
+
+    /// 기다리는 칸을 앞에서부터 하나씩 올린다.
+    private func drain() async {
+        while !Task.isCancelled, let id = slots.first(where: { $0.state == .waiting })?.id {
+            update(id) { $0.state = .uploading }
+            let result = await upload(id)
+            if Task.isCancelled {
+                // 그만두는 중이다 — 실패로 적지 않는다. 화면이 아직 살아 있으면 다음 고르기·다시 시도가 잇는다.
+                update(id) { $0.state = .waiting }
+                return
+            }
+            // 올리는 사이 뺐으면 칸이 없다 — 결과를 버린다(그 실패로 줄을 멈추지도 않는다).
+            guard let result, slots.contains(where: { $0.id == id }) else { continue }
+            switch result {
+            case let .success(key):
+                update(id) { $0.state = .uploaded(key: key) }
+            case let .failure(failure):
+                update(id) { $0.state = .failed(failure) }
+                if PhotoUploadRules.stopsQueue(failure) {
+                    // 다음 사진도 같은 이유로 실패한다 — 연달아 실패시키지 않고 멈춘다.
                     return
-                }
-                // 올리는 사이 뺐으면 칸이 없다 — 결과를 버린다(그 실패로 줄을 멈추지도 않는다).
-                guard let result, slots.contains(where: { $0.id == id }) else { continue }
-                switch result {
-                case let .success(key):
-                    update(id) { $0.state = .uploaded(key: key) }
-                case let .failure(failure):
-                    update(id) { $0.state = .failed(failure) }
-                    if PhotoUploadRules.stopsQueue(failure) {
-                        // 다음 사진도 같은 이유로 실패한다 — 연달아 실패시키지 않고 멈춘다.
-                        return
-                    }
                 }
             }
         }
