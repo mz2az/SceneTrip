@@ -448,6 +448,8 @@
 "쓰던 리뷰를 버릴까요?" = "Discard this review?";
 "버리기" = "Discard";
 "계속 쓰기" = "Keep writing";
+"바꾼 내용을 버릴까요?" = "Discard your changes?";
+"계속 편집" = "Keep editing";
 "리뷰 글" = "Review text";
 "글이 너무 길어요" = "Too long";
 "저장 중" = "Saving";

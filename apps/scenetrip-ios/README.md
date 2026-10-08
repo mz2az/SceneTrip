@@ -124,7 +124,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | `RouteEditorGuide.swift` | 편집 화면 ↔ 가이드 — 화면 상태를 만들고(`guideContext`) 답의 명령을 적용한다(`applyGuideAnswer`: 초안 갈아 끼우기 · 일차 열기 · 시트 내리기) |
 | `RouteGuidePlan.swift` | 계약의 일정 초안(`GuidePlan`) ↔ 코스. 도착 시각·뺀 곳·`placeId` 없는 줄(저장 안 됨)을 옮긴다 |
 | `RouteGuideFailure.swift` | 가이드 오류를 계약 응답별로 분류 — 401 가입 · 400 · 503 잠시 뒤 · 50초 초과 · 연결 실패. 자동 재시도 없음 |
-| `RouteEditorView.swift` · `RouteEditorControls.swift` · `RouteEditorParts.swift` | 편집 화면 — 일차 ＋/−, 드래그 정렬, 체류 시간(일차 머리줄의 합 → 「머무는 시간」 시트), 동선 최적화(출발·도착 고정 선택), 장소 검색·장바구니·핀 찍기 |
+| `RouteEditorView.swift` · `RouteEditorControls.swift` · `RouteEditorParts.swift` | 편집 화면 — 일차 ＋/−, 드래그 정렬, 체류 시간(일차 머리줄의 합 → 「머무는 시간」 시트), 동선 최적화(출발·도착 고정 선택), 장소 검색·장바구니·핀 찍기. 「취소」는 저장하면 달라질 것이 있을 때만 버릴지 묻는다(`RouteBridge.changed`, MZ2AZ-369) |
 | `RouteSearchSheet.swift` | 편집 화면 안에서 바로 장소를 찾아 담는 시트 — 장바구니를 거치지 않는다 |
 | `RouteGeometry`(`RouteModels.swift` 안) | 동선 최적화 — 최근접 이웃·2-opt·완전탐색(≤8곳) 세 방법 중 가장 짧은 것. 출발·도착 고정은 각각 선택이다 |
 | `RouteMapView.swift` | 코스용 지도 — 번호 핀, 계획 단계는 **직선**만(예상 시간 표시 안 함) |
