@@ -256,7 +256,7 @@ struct RouteGuideSheet: View {
                             .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
                     }
                     Spacer()
-                    if let meters = place.distanceMeters {
+                    if let meters = place.shownMeters {
                         Text("\(meters) m")
                             .font(.caption2).foregroundStyle(.tertiary)
                     }

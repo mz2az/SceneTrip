@@ -53,6 +53,22 @@ struct RoutePlaceCard: View {
         return place.placeId.map { .place($0) }
     }
 
+    /// 제목 — 상세가 왔으면 그 값이 먼저다. 가이드가 찾아 준 곳은 목록에 영어 이름이 없고 상세에만 있다.
+    private var shownTitle: String {
+        fresh?.title ?? place.label.title
+    }
+
+    /// 영어 이름이 없는 가게는 한글 이름 아래 읽는 법을 적는다(MZ2AZ-360). 제목과 같은 쪽의 값을 쓴다.
+    private var shownReading: String? {
+        fresh?.title == nil ? place.label.reading : fresh?.reading
+    }
+
+    /// 리뷰 시트·사진첩의 머리줄 — **카드에 적힌 그대로** 한 줄로(MZ2AZ-367). 제목만 넘겼더니 영어 화면에서
+    /// 카드는 「트로 / Teuro」 인데 리뷰 화면은 「트로」 뿐이었다.
+    private var reviewTitle: String {
+        PoiLabel.heading(title: shownTitle, reading: shownReading)
+    }
+
     @State private var loading = true
 
     var body: some View {
@@ -102,7 +118,7 @@ struct RoutePlaceCard: View {
         // **핀을 갈아탈 때마다 다시 받는다.** `.task {}` 로만 두면 SwiftUI 가 뷰를
         // 재사용할 때 한 번만 돌아서, 다른 고양이를 눌러도 앞 가게 정보가 그대로
         // 남는다(2026-08-27 사용자 지적 — 빨간 고양이는 바뀌는데 카드가 안 바뀜).
-        .reviewsSheet($reviewing, title: fresh?.title ?? place.label.title) {
+        .reviewsSheet($reviewing, title: reviewTitle) {
             Task { await load() }
         }
         .task(id: place.id) {
@@ -141,17 +157,16 @@ struct RoutePlaceCard: View {
     /// `wraps` 가 아니면 한 줄 폭을 그대로 요구한다 — `ViewThatFits` 가 그것으로 들어가는지 잰다.
     private func title(wraps: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(fresh?.title ?? place.label.title).font(.headline)
+            Text(shownTitle).font(.headline)
                 .lineLimit(wraps ? nil : 1)
                 .fixedSize(horizontal: !wraps, vertical: true)
-            // 영어 이름이 없는 가게는 한글 이름 아래 읽는 법을 적는다(MZ2AZ-360). 상세가 왔으면 그 값이
-            // 먼저다 — 가이드가 찾아 준 곳은 목록에 읽는 법이 없고 상세에만 있다.
-            if let reading = fresh?.title == nil ? place.label.reading : fresh?.reading {
+            if let reading = shownReading {
                 Text(reading).font(.caption).foregroundStyle(.secondary)
                     .lineLimit(wraps ? nil : 1)
                     .fixedSize(horizontal: !wraps, vertical: true)
             }
-            if let meters = place.distanceMeters {
+            // 기준이 지도 중심일 뿐인 거리는 적지 않는다(`shownMeters`, MZ2AZ-367).
+            if let meters = place.shownMeters {
                 Text("\(meters) m").font(.caption).foregroundStyle(.secondary).fixedSize()
             }
         }
@@ -191,7 +206,7 @@ struct RoutePlaceCard: View {
     private func found(_ card: RouteGuide.Card) -> some View {
         if !card.photos.photos.isEmpty {
             // 누르면 크게 넘겨 본다 — 방문자 사진에서는 그 리뷰로 갈 수 있다(MZ2AZ-363).
-            CardPhotoStrip(gallery: gallery, title: card.title ?? place.label.title) {
+            CardPhotoStrip(gallery: gallery, title: reviewTitle) {
                 Task { await load() }
             }
             .id(place.id)

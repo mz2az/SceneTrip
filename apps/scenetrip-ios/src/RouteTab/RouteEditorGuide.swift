@@ -72,6 +72,13 @@ extension RouteEditorView {
         )
     }
 
+    /// 해태 동그라미가 비켜야 할 카드의 윗변 — 정보 카드나 성지 카드가 화면 바닥에 떠 있을 때만.
+    /// 잰 높이는 카드가 닫혀도 남으므로 **떠 있는지는 상태로** 본다(`body` 의 카드 자리와 같은 조건).
+    var guideCardTop: CGFloat? {
+        guard !showGuide, guide.picked != nil || pickedStop != nil, cardHeight > 0 else { return nil }
+        return cardHeight
+    }
+
     // MARK: 답에서 받은 명령
 
     /// 답에 실린 `effects` 와 `ui` 를 화면에 적용한다. 모르는 명령은 무시한다 — 에이전트가

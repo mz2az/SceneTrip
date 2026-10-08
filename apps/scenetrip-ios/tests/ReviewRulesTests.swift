@@ -131,6 +131,26 @@ final class ReviewRulesTests: XCTestCase {
         )
     }
 
+    /// 내 리뷰의 편의시설 이름 — 서버는 한국어 원본만 준다. 영어 화면의 편의시설만 앱이 따로 묻는다 (MZ2AZ-367).
+    func testMyReviewNameUsesTheLookedUpNameOnlyForPoisOffKorean() {
+        let poi = ReviewTarget(type: .poi, id: 7, name: "트로")
+        let place = ReviewTarget(type: .place, id: 7, name: "경복궁")
+        XCTAssertTrue(MyReviewRules.needsLookup(poi, korean: false))
+        XCTAssertFalse(MyReviewRules.needsLookup(poi, korean: true))
+        XCTAssertFalse(MyReviewRules.needsLookup(place, korean: false))
+
+        let looked = PoiLabel(title: "트로", reading: "Teuro", roman: "Teuro", category: nil, address: nil)
+        // 카드와 같은 두 줄 — 제목과 그 아래 줄.
+        let shown = MyReviewRules.name(of: poi, lookedUp: looked, korean: false)
+        XCTAssertEqual(shown.title, "트로")
+        XCTAssertEqual(shown.reading, "Teuro")
+        // 아직 못 받았으면 원본, 한국어 화면이면 받아 둔 것이 있어도 원본.
+        XCTAssertEqual(MyReviewRules.name(of: poi, lookedUp: nil, korean: false).title, "트로")
+        XCTAssertNil(MyReviewRules.name(of: poi, lookedUp: nil, korean: false).reading)
+        XCTAssertNil(MyReviewRules.name(of: poi, lookedUp: looked, korean: true).reading)
+        XCTAssertEqual(MyReviewRules.name(of: place, lookedUp: looked, korean: false).title, "경복궁")
+    }
+
     func testHasMore() {
         XCTAssertTrue(ReviewRules.hasMore(loaded: 20, total: 23))
         XCTAssertFalse(ReviewRules.hasMore(loaded: 23, total: 23))

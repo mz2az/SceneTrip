@@ -101,12 +101,22 @@ struct ReviewComposeView: View {
     }
 
     private var header: some View {
-        ZStack {
+        // 편의시설은 「영어 이름 · 한국어 이름」 이라 길다 — 한 줄이면 간판과 맞춰 볼 한국어 쪽이 잘렸다.
+        // 카드처럼 제목 / 작은 아랫줄로 나눈다. 이름이 한 줄이면 전과 같은 높이·같은 자리다.
+        let name = PoiLabel.lines(of: title)
+        return ZStack(alignment: .top) {
             VStack(spacing: 1) {
                 Text(existing == nil ? tr("리뷰 쓰기") : tr("리뷰 고치기")).font(.headline)
-                Text(title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(name.title).font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(2).multilineTextAlignment(.center)
+                if let reading = name.reading {
+                    Text(reading).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
             }
-            .padding(.horizontal, 76)
+            .accessibilityElement(children: .combine)
+            .padding(.horizontal, 76).padding(.vertical, 6)
+            .frame(minHeight: 52)
+            // 단추는 머리줄이 길어져도 첫 52pt 의 가운데 — 늘 같은 자리다.
             HStack {
                 Button(tr("취소")) {
                     if dirty {
@@ -129,8 +139,8 @@ struct ReviewComposeView: View {
                 .disabled(!canSave)
             }
             .padding(.horizontal, 16)
+            .frame(height: 52)
         }
-        .frame(height: 52)
     }
 
     private var form: some View {

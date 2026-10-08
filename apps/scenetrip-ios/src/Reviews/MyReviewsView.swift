@@ -13,6 +13,9 @@ struct MyReviewsView: View {
     @State private var moreFailed = false
     @State private var generation = 0
     @State private var opening: MyReview?
+    /// 편의시설의 앱 언어 이름 (MZ2AZ-367). 서버(`target.name`)는 편의시설을 한국어 원본으로만 준다 —
+    /// 영어 화면에서는 줄이 보일 때 상세를 한 번 물어 카드와 같은 이름으로 바꾼다. 못 받으면 원본 그대로.
+    @State private var poiNames: [Int64: PoiLabel] = [:]
 
     private enum Phase {
         case loading
@@ -53,7 +56,7 @@ struct MyReviewsView: View {
             }
         }
         .sheet(item: $opening) { review in
-            ReviewsSheet(subject: MyReviewRules.subject(of: review.target), title: review.target.name) {
+            ReviewsSheet(subject: MyReviewRules.subject(of: review.target), title: heading(of: review.target)) {
                 // 거기서 고치거나 지웠다 — 내 목록도 다시 읽는다.
                 Task { await reload() }
             }
@@ -107,6 +110,7 @@ struct MyReviewsView: View {
                             .contentShape(.rect)
                     }
                     .buttonStyle(.plain)
+                    .task(id: review.target.id) { await lookUpName(of: review.target) }
                     // 사진은 줄의 단추 밖에 둔다 — 줄을 누르면 그 대상의 리뷰로, 사진을 누르면 크게 보기로 간다.
                     if !review.photos.isEmpty {
                         ReviewPhotoThumbs(photos: review.photos, size: 64)
@@ -123,12 +127,19 @@ struct MyReviewsView: View {
 
     private func row(_ review: MyReview) -> some View {
         VStack(alignment: .leading, spacing: 6) {
+            let name = name(of: review.target)
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: MyReviewRules.symbol(of: review.target))
                     .font(.caption).foregroundStyle(.secondary)
                     .accessibilityLabel(MyReviewRules.kindName(of: review.target))
-                Text(review.target.name)
-                    .font(.subheadline.weight(.semibold)).lineLimit(1)
+                // 카드와 같은 모양 — 제목, 그 아래 작은 줄. 한 줄로 이으면 뒤쪽(한국어 이름)이 잘렸다.
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(name.title)
+                        .font(.subheadline.weight(.semibold)).lineLimit(1)
+                    if let reading = name.reading {
+                        Text(reading).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
@@ -143,6 +154,28 @@ struct MyReviewsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
+    }
+
+    private func name(of target: ReviewTarget) -> (title: String, reading: String?) {
+        MyReviewRules.name(of: target, lookedUp: poiNames[target.id], korean: AppLanguage.current == .ko)
+    }
+
+    /// 리뷰 시트 머리줄 — 카드에서 열 때와 같은 한 줄.
+    private func heading(of target: ReviewTarget) -> String {
+        let name = name(of: target)
+        return PoiLabel.heading(title: name.title, reading: name.reading)
+    }
+
+    /// 한 곳에 리뷰는 한 개라 줄마다 한 번이고, 화면에 나온 줄만 묻는다.
+    private func lookUpName(of target: ReviewTarget) async {
+        guard MyReviewRules.needsLookup(target, korean: AppLanguage.current == .ko), poiNames[target.id] == nil,
+              let detail = try? await PoisAPI.getPoi(poiId: target.id)
+        else { return }
+        poiNames[target.id] = PoiLabel.make(
+            name: detail.name, displayName: detail.displayName, nameRoman: detail.nameRoman,
+            category: detail.category, categoryLabel: detail.categoryLabel,
+            address: detail.address, displayAddress: detail.displayAddress, korean: false
+        )
     }
 
     private func dateText(_ review: MyReview) -> String {
@@ -218,6 +251,20 @@ enum MyReviewRules {
         case .place: .place(target.id)
         case .poi: .poi(target.id)
         }
+    }
+
+    /// 편의시설의 앱 언어 이름을 앱이 따로 물어야 하는가 — 한국어 화면과 촬영지는 서버가 준 이름이 곧 답이다.
+    static func needsLookup(_ target: ReviewTarget, korean: Bool) -> Bool {
+        target.type == .poi && !korean
+    }
+
+    /// 줄과 리뷰 시트 머리줄에 적을 이름. 물어 온 이름은 편의시설의 영어 화면에서만 쓴다 —
+    /// 영어로 받아 둔 채 한국어로 바꾸면 원본으로 돌아간다.
+    static func name(
+        of target: ReviewTarget, lookedUp: PoiLabel?, korean: Bool
+    ) -> (title: String, reading: String?) {
+        guard needsLookup(target, korean: korean), let lookedUp else { return (target.name, nil) }
+        return (lookedUp.title, lookedUp.reading)
     }
 
     /// 아이콘만으로는 낭독에서 종류가 안 드러난다 — 이름으로 읽힌다.

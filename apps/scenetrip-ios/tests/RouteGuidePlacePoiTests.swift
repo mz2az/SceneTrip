@@ -21,6 +21,21 @@ final class RouteGuidePlacePoiTests: XCTestCase {
         XCTAssertEqual(place.distanceMeters, 120)
     }
 
+    /// 지도 범위 조회의 거리는 화면 중심에서 잰 값이다 — 카드에 적지 않는다 (MZ2AZ-367).
+    func testDistanceFromTheMapCenterIsNotShown() {
+        let place = RouteGuide.Place(poi: poi(7, "트로", "베이커리", .food))
+        XCTAssertEqual(place.distanceBasis, .mapCenter)
+        XCTAssertNil(place.shownMeters)
+    }
+
+    /// 가이드가 찾아 준 곳의 거리는 답이 밝힌 기준에서 잰 것이라 보인다. 기준을 모르면 숨긴다.
+    func testDistanceIsShownOnlyWithAMeaningfulBasis() {
+        XCTAssertEqual(RouteGuide.Place.shownMeters(88, basis: .guideAnchor), 88)
+        XCTAssertNil(RouteGuide.Place.shownMeters(88, basis: .mapCenter))
+        XCTAssertNil(RouteGuide.Place.shownMeters(88, basis: nil))
+        XCTAssertNil(RouteGuide.Place.shownMeters(nil, basis: .guideAnchor))
+    }
+
     func testGlyphFollowsCategoryWithinGroup() {
         XCTAssertEqual(RouteGuide.Place(poi: poi(1, "a", "카페", .food)).poiSymbol, "cup.and.saucer.fill")
         XCTAssertEqual(RouteGuide.Place(poi: poi(2, "b", "한식", .food)).poiSymbol, "fork.knife")

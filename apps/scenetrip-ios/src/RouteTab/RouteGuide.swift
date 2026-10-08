@@ -322,6 +322,27 @@ enum RouteGuide {
         var categoryLabel: String?
         var displayAddress: String?
 
+        /// `distanceMeters` 를 **어디서부터** 쟀나 (MZ2AZ-367).
+        enum DistanceBasis: Equatable {
+            /// 지도 범위 조회 — 화면 **중심**에서. 가운데부터 채우려고 보낸 좌표라 사람에게는 뜻이 없다.
+            case mapCenter
+            /// 가이드가 찾아 준 곳 — 답이 밝힌 기준(「현위치」·「1번」)에서.
+            case guideAnchor
+        }
+
+        /// 코스 촬영지를 옮긴 것은 거리도 기준도 없다.
+        var distanceBasis: DistanceBasis?
+
+        /// 화면에 적을 거리. **기준이 지도 중심이면 적지 않는다** — 계획 화면의 카드에 「88 m」 가 떴는데
+        /// 내 위치에서도 코스 장소에서도 아닌 값이었다(2026-10-08 실기). 가이드의 것은 답과 함께 읽히므로 둔다.
+        var shownMeters: Int? {
+            Self.shownMeters(distanceMeters, basis: distanceBasis)
+        }
+
+        static func shownMeters(_ meters: Int?, basis: DistanceBasis?) -> Int? {
+            basis == .guideAnchor ? meters : nil
+        }
+
         /// 화면에 적을 글자. 앱 언어가 바뀌면 다음에 그릴 때 따라 바뀐다(서버 값은 요청 때의 언어다).
         var label: PoiLabel {
             PoiLabel.make(
@@ -356,6 +377,7 @@ enum RouteGuide {
             category = poi.category
             address = poi.address
             distanceMeters = poi.distanceMeters
+            distanceBasis = .mapCenter
             latitude = poi.latitude
             longitude = poi.longitude
             group = poi.categoryGroup.rawValue
@@ -374,6 +396,7 @@ enum RouteGuide {
             category = place.category
             address = place.address
             distanceMeters = place.distanceMeters
+            distanceBasis = .guideAnchor
             latitude = place.latitude
             longitude = place.longitude
             group = place.categoryGroup.rawValue

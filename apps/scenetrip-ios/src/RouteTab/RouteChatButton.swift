@@ -65,19 +65,25 @@ struct RouteGuideChip: View {
 /// 다뤄야 하는데, 여기가 `Button` 이면 버튼이 길게 누르기를 먼저 먹어 끌기가 아예 시작되지
 /// 않는다(2026-09-16 사용자 확인). 그래서 그림과 단추를 갈랐다.
 struct RouteGuideChipBody: View {
+    /// 말풍선을 함께 그리나. 정보 카드가 떠 있는 동안은 접어 얼굴만 남긴다(MZ2AZ-367).
+    var bubble = true
+
     var body: some View {
         // 해태 얼굴 + 「내가 도와줄게!」 말풍선(2026-08-28 사용자 요청) —
         // 마스코트가 말을 거는 모양이라 무엇을 하는 단추인지 설명이 필요 없다.
         HStack(spacing: 6) {
-            Text("내가 도와줄게!")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color(PinImage.deep))
-                .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(Capsule().fill(.white))
-                .overlay(Capsule().strokeBorder(
-                    Color(PinImage.light).opacity(0.6), lineWidth: 1
-                ))
-                .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+            if bubble {
+                Text("내가 도와줄게!")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(PinImage.deep))
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(Capsule().fill(.white))
+                    .overlay(Capsule().strokeBorder(
+                        Color(PinImage.light).opacity(0.6), lineWidth: 1
+                    ))
+                    .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+                    .transition(.opacity)
+            }
 
             Image("haetae-face")
                 .resizable()
