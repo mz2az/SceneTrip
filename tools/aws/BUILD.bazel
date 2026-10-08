@@ -73,6 +73,7 @@ py_test(
         "tests/test_destroy_gateway.py",
         "tests/test_destroy_plan.py",
         "tests/test_entrypoint.py",
+        "tests/test_gateway_routes.py",
         "tests/test_lifecycle.py",
         "tests/test_media.py",
         "tests/test_public_ingress.py",
@@ -81,6 +82,7 @@ py_test(
     ],
     data = [
         "//.github/workflows:aws_workflows",
+        "//contracts/openapi:scene-api-v1.yaml",
         "//platform/helm:sources",
     ],
     main = "tests/test_aws.py",

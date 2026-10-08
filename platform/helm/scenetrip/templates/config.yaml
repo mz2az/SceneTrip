@@ -83,7 +83,7 @@ data:
         add_header X-Content-Type-Options nosniff always;
         location = /healthz { access_log off; return 200 'ok'; }
         location ~* ^/v1/(actuator|internal)(/|$) { return 404; }
-        location ~ ^/v1/(search|contents|places|pois|cart|courses|favorites|market|navigation|guide|auth|me)(/|$) {
+        location ~ ^/v1/(search|contents|places|pois|cart|courses|favorites|market|navigation|guide|auth|me|uploads)(/|$) {
           if ($api_allowed = 0) { return 403; }
           limit_req zone=api burst=20 nodelay;
           limit_req_status 429;

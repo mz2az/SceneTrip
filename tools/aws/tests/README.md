@@ -9,6 +9,8 @@
 `test_workflows.py`는 권한 없는 preflight와 검증된 SHA만 사용하는 배포 잡의 경계를 확인한다.
 `test_alb.py`는 ALB·subnet·보안 그룹·IP target의 실제 출력 경계와 DEV/PRD Helm 렌더링을
 검사한다. HTTPS 일시 오류 재시도와 읽기 전용 verify 경로도 별도 회귀 검사로 보호한다.
+`test_gateway_routes.py`는 공개 API 계약(`contracts/openapi/scene-api-v1.yaml`)의 모든 첫 경로 조각이
+렌더된 게이트웨이 nginx 설정에서 scene-api 로 전달되고, `actuator`·`internal` 은 계속 404 인지 확인한다.
 
 삭제 경로는 `test_teardown_entrypoint.py`가 인증 전 확인값·역할·실행 분기를 검사한다.
 `test_destroy*.py`는 저장 계획의 허용 변경, 환경 소유권, Ingress·ALB 정리 순서,
