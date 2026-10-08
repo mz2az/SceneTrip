@@ -48,6 +48,9 @@ struct RouteGuideSheet: View {
 
     @State private var draft = ""
 
+    /// 이 창의 이름표 — 대화 객체가 「떠 있는 창」 을 세는 데 쓴다(`RouteGuideSession.setAttended`).
+    @State private var panelId = UUID()
+
     /// **되는 것만 보여 준다.** 앞서 한식집·카페·편의점 세 줄을 두었는데 셋 다
     /// 제대로 동작하지 않았다(2026-08-27 사용자 확인) — 안 되는 예시는 첫인상에서
     /// 신뢰를 깎는다. poi_nearby 가 확실히 답하는 질문 하나만 남긴다.
@@ -70,6 +73,10 @@ struct RouteGuideSheet: View {
                 composer
             }
         }
+        // 창이 떠 있는 동안만 다시 보내기·되묻기를 기다린다 — 닫거나 화면을 떠나면 끊는다(MZ2AZ-366).
+        // 편집 화면과 길찾기 화면이 같은 창을 쓰므로 창 자신이 알린다.
+        .onAppear { session.setAttended(true, by: panelId) }
+        .onDisappear { session.setAttended(false, by: panelId) }
     }
 
     /// 손수 그린 머리줄. 내비게이션 바를 쓰지 않는 이유는 닫기 단추다 — 바에
@@ -114,15 +121,18 @@ struct RouteGuideSheet: View {
                         thinking
                     }
                     if let failure = session.failure {
-                        Label(failure.message, systemImage: "exclamationmark.triangle")
-                            .font(.footnote)
-                            .foregroundStyle(.orange)
+                        failed(failure)
                     }
                     Color.clear.frame(height: 1).id("bottom")
                 }
                 .padding(16)
             }
             .onChange(of: session.turns.count) { _, _ in
+                withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+            }
+            // 실패 줄과 「다시 시도」 도 맨 아래에 붙는다 — 대화가 길면 안 보인다.
+            .onChange(of: session.failure) { _, failure in
+                guard failure != nil else { return }
                 withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
             }
             // 펼친 줄이 보이게 그 자리로 내려간다 — 맨 아래로 보내면 목록 끝까지
@@ -294,9 +304,44 @@ struct RouteGuideSheet: View {
     private var thinking: some View {
         HStack(spacing: 8) {
             ProgressView().controlSize(.small)
-            // 몇 초 걸리는지 미리 말한다. 안 그러면 멈춘 줄 안다(실측 9~57초).
-            Text("찾는 중입니다… 10초쯤 걸립니다")
-                .font(.caption).foregroundStyle(.secondary)
+            if session.pending?.stage == .reconnecting {
+                // 첫 요청이 실패해 같은 키로 다시 보내는 중 — 멈춘 것이 아니라는 것을 말한다.
+                Text("다시 연결하는 중이에요")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else if session.pending?.stage == .waitingForLimit {
+                // 분당 한도가 풀리기를 기다린다(길면 1 분) — 연결 탓이 아니다.
+                Text("요청이 많아 잠시 기다리는 중이에요")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                // 몇 초 걸리는지 미리 말한다. 안 그러면 멈춘 줄 안다(실측 9~57초).
+                // 서버가 「처리 중」 이라 다시 묻는 동안에도 이 말이다 — 답은 만들어지고 있다.
+                Text("찾는 중입니다… 10초쯤 걸립니다")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// 실패 한 줄과, 다시 해 볼 만하면 「다시 시도」.
+    ///
+    /// **단추는 같은 질문을 같은 멱등 키로 다시 보낸다**(`RouteGuideSession.retry`) — 서버가 이미 답을 만들어
+    /// 두었으면 그 답이 오고, 모델을 다시 부르지 않는다. 서버가 키를 모르면 단추가 없다(전과 같다).
+    private func failed(_ failure: RouteGuideFailure) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(failure.message, systemImage: "exclamationmark.triangle")
+                .font(.footnote)
+                .foregroundStyle(.orange)
+            if session.canRetry {
+                Button {
+                    Task { await session.retry() }
+                } label: {
+                    Label("다시 시도", systemImage: "arrow.clockwise")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 12).padding(.vertical, 7)
+                        .background(Capsule().fill(Color.accentColor.opacity(0.14)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("guide-retry")
+            }
         }
     }
 

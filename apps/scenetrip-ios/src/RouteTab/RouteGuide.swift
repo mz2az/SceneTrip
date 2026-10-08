@@ -32,8 +32,9 @@ import SceneApiClient
 /// (`RouteEditorView.applyGuideAnswer`). 모르는 명령은 무시한다 — 에이전트가 명령을 늘려도
 /// 옛 앱이 깨지지 않게(계약 `GuideEffect`·`GuideUiDirective`).
 enum RouteGuide {
-    /// 앱이 기다리는 시간의 벽. 서버 벽(40초)보다 길다 — 앱이 먼저 끊으면 서버가 뒤늦게
-    /// `cart.add` 를 저장하는데 앱은 실패로 보인다(MZ2AZ-321 §6). 자동 재시도는 없다.
+    /// 앱이 기다리는 시간의 벽 — **서버가 멱등 키를 모를 때.** 서버 벽(40초)보다 길다 — 앱이 먼저 끊으면
+    /// 서버가 뒤늦게 `cart.add` 를 저장하는데 앱은 실패로 보인다(MZ2AZ-321 §6). 이때는 자동 재시도가 없다.
+    /// 서버가 키를 알면 벽과 재시도는 `RetryRules.Tuning` 의 챗봇 값을 따른다(`send`).
     static let timeoutSeconds = 50.0
 
     /// 화면 상태. 모델이 「1번 주변 맛집」·「다 돌았어?」·「2일차에서 빼 줘」를 알아듣게 하는 재료다.
@@ -104,19 +105,23 @@ enum RouteGuide {
         }
     }
 
-    /// 한 번 주고받는다.
+    /// 이번 턴의 요청을 **한 번** 만든다.
+    ///
+    /// 다시 보낼 때(자동·「다시 시도」) 이것을 새로 만들지 않는다 — 서버는 같은 멱등 키에 **본문 전체**가 같은지
+    /// 보는데(지문), 본문에는 위치와 화면 상태(남은 거리·걸은 거리)가 들어 있어 다시 읽으면 달라진다. 달라지면
+    /// `422 IDEMPOTENCY_KEY_REUSED` 다(MZ2AZ-366, 계획 `app-retry.md` §4).
     ///
     /// - Parameters:
     ///   - history: 지금까지의 대화. 마지막이 이번 질문이다. 서버는 이력을 저장하지 않는다.
     ///   - here: 지금 위치. **없으면 부를 수 없다** — 「주변」이 어디인지 모른다.
     ///   - sessionId: 대화를 잇는 열쇠. 앞 턴에서 보여 준 장소를 서버가 기억한다.
-    static func ask(
+    static func request(
         history: [Turn],
         here: CLLocationCoordinate2D,
         sessionId: UUID,
         context: Context? = nil
-    ) async throws -> Answer {
-        let request = GuideChatRequest(
+    ) -> GuideChatRequest {
+        GuideChatRequest(
             sessionId: sessionId,
             latitude: here.latitude,
             longitude: here.longitude,
@@ -126,10 +131,27 @@ enum RouteGuide {
             },
             context: context?.contract
         )
-        let installId = InstallIdentity.current
-        AppAnalytics.log(.askGuide)
-        let reply = try await RouteGuideTimeout.run(seconds: timeoutSeconds) {
-            try await GuideAPI.chatWithGuide(xInstallId: installId, guideChatRequest: request)
+    }
+
+    /// 생성 클라이언트의 요청. **「전송」 과 「다시 시도」 가 같은 것을 만든다** — 시험이 이것을 두 번 불러 실제로
+    /// 나가는 `URLRequest` 의 헤더와 본문 값이 같은지 본다(`GuideChatRequestBuildTests`).
+    static func chatBuilder(_ request: GuideChatRequest, key: UUID) -> RequestBuilder<GuideChatReply> {
+        GuideAPI.chatWithGuideWithRequestBuilder(
+            xInstallId: InstallIdentity.current, guideChatRequest: request, idempotencyKey: key.uuidString
+        )
+    }
+
+    /// 만들어 둔 요청을 보낸다. 「전송」 도 「다시 시도」 도 이리로 온다.
+    ///
+    /// - Parameters:
+    ///   - key: 이 턴의 멱등 키. 같은 턴을 다시 보낼 때는 **같은 값**.
+    ///   - keyed: 서버가 멱등 키를 아는가. 알면 공통 계층(`RetryingSession`)이 요청마다 50초 벽을 걸고 한 번
+    ///     다시 보내므로, 여기서는 턴 전체의 벽만 건다. 모르면 전처럼 50초에 끊고 다시 보내지 않는다.
+    static func send(_ request: GuideChatRequest, key: UUID, keyed: Bool) async throws -> Answer {
+        let tuning = RetryRules.Tuning.self
+        let wall = keyed ? tuning.chatBudget + tuning.chatWallMargin : timeoutSeconds
+        let reply = try await RouteGuideTimeout.run(seconds: wall) {
+            try await chatBuilder(request, key: key).execute().body
         }
         return Answer(
             reply: reply.reply,

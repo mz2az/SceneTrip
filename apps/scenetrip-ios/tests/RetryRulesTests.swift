@@ -81,7 +81,7 @@ final class RetryRulesTests: XCTestCase {
         XCTAssertEqual(delays(policy, method: "DELETE", http(503)), [])
     }
 
-    /// 챗봇은 멱등 키가 들어오기 전이고, 길찾기·마법사는 돈이 들 수 있고, 갱신은 토큰이 일회용이다.
+    /// 챗봇은 멱등 키가 없으면(또는 서버가 키를 모르면), 길찾기·마법사는 돈이 들 수 있고, 갱신은 토큰이 일회용이다.
     func testPaidAndOneShotEndpointsAreNeverRetried() {
         for path in ["/v1/guide/chat", "/v1/guide/plan", "/v1/navigation/next-leg", "/v1/auth/refresh",
                      "/v1/auth/sign-out"]
@@ -104,8 +104,13 @@ final class RetryRulesTests: XCTestCase {
         XCTAssertEqual(read.budget, 25)
         XCTAssertEqual(put.attemptTimeout, 30)
         XCTAssertEqual(post.attemptTimeout, 30)
-        // 챗봇의 50초 벽(`RouteGuideTimeout`)보다 길어야 그 벽이 먼저 말한다.
+        // 키 없는 챗봇 — 50초 벽(`RouteGuideTimeout`)보다 길어야 그 벽이 먼저 말한다.
         XCTAssertGreaterThan(chat.attemptTimeout, RouteGuide.timeoutSeconds)
+        // 키를 실은 챗봇은 요청마다 50초, 턴 전체 110초 — 화면의 벽은 그보다 조금 길다.
+        let keyed = Rules.policy(method: "POST", path: "/v1/guide/chat", keyed: true)
+        XCTAssertEqual(keyed.attemptTimeout, RouteGuide.timeoutSeconds)
+        XCTAssertEqual(keyed.budget, 110)
+        XCTAssertGreaterThan(Rules.Tuning.chatWallMargin, 0)
         XCTAssertEqual(Rules.policy(method: "POST", path: "/v1/guide/plan").attemptTimeout, 60)
     }
 

@@ -121,9 +121,10 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | `RouteTabView.swift` | 첫 화면 — 코스가 없으면 「AI 로 짜기 / 직접 짜기」 갈림길, 있으면 목록 + 스와이프 삭제 + 「코스 추가하기」 |
 | `RouteWizardView.swift` | 질문 흐름 — 기간 → 날짜(선택) → 작품 → 빡빡/널널 → 요약. 마지막에 `GuideAPI.planWithGuide` 로 초안을 받는다 |
 | `RouteGuide.swift` · `RouteGuideSession.swift` · `RouteGuideSheet.swift` | 여행 가이드 챗봇 — `GuideAPI.chatWithGuide`. 이력·위치·**화면 상태**(`Context`)를 싣고 답·근거·장소·`effects`·`ui` 를 받는다 |
+| `RouteGuideTurn.swift` | 보내는 중이거나 다시 보낼 수 있는 턴(`PendingTurn`, MZ2AZ-366) — 「전송」 마다 새 멱등 키, 처음 만든 요청을 그대로 든다. 자동 재시도와 「다시 시도」 는 같은 키·같은 요청. 전이는 순수 함수(표: `docs/project/plans/app-retry.md` §10) |
 | `RouteEditorGuide.swift` | 편집 화면 ↔ 가이드 — 화면 상태를 만들고(`guideContext`) 답의 명령을 적용한다(`applyGuideAnswer`: 초안 갈아 끼우기 · 일차 열기 · 시트 내리기) |
 | `RouteGuidePlan.swift` | 계약의 일정 초안(`GuidePlan`) ↔ 코스. 도착 시각·뺀 곳·`placeId` 없는 줄(저장 안 됨)을 옮긴다 |
-| `RouteGuideFailure.swift` | 가이드 오류를 계약 응답별로 분류 — 401 가입 · 400 · 503 잠시 뒤 · 50초 초과 · 연결 실패. 자동 재시도 없음(공통 재시도 계층도 챗봇·마법사는 다시 보내지 않는다 — MZ2AZ-366) |
+| `RouteGuideFailure.swift` | 가이드 오류를 계약 응답별로 분류 — 401 가입 · 400 · 502·503·504 잠시 뒤 · 시간 초과 · 오프라인 · 연결 실패 · 분당 한도 · 422 키 재사용. 갈래마다 「다시 시도」 가 같은 키로·새 키로·없음 중 무엇인지(`retry`)를 안다. 마법사도 이 분류를 쓴다(재시도는 없다) |
 | `RouteEditorView.swift` · `RouteEditorControls.swift` · `RouteEditorParts.swift` | 편집 화면 — 일차 ＋/−, 드래그 정렬, 체류 시간(일차 머리줄의 합 → 「머무는 시간」 시트), 동선 최적화(출발·도착 고정 선택), 장소 검색·장바구니·핀 찍기. 「취소」는 저장하면 달라질 것이 있을 때만 버릴지 묻는다(`RouteBridge.changed`, MZ2AZ-369) |
 | `RouteSearchSheet.swift` | 편집 화면 안에서 바로 장소를 찾아 담는 시트 — 장바구니를 거치지 않는다 |
 | `RouteGeometry`(`RouteModels.swift` 안) | 동선 최적화 — 최근접 이웃·2-opt·완전탐색(≤8곳) 세 방법 중 가장 짧은 것. 출발·도착 고정은 각각 선택이다 |
@@ -253,9 +254,14 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
 - **실패한 요청은 공통 계층이 다시 보낸다** (MZ2AZ-366, 계획 `docs/project/plans/app-retry.md`). 빌더가 내주는 세션이
   `Models/RetryingSession.swift` 이고 규칙은 `Models/RetryRules.swift` 다(숫자는 `RetryRules.Tuning` 한 곳) — 조회는 끊김·502·503·504 에
   세 번(1·2·4초), PUT·DELETE 는 두 번, POST 는 서버에 닿지 않은 것이 확실할 때만, 분당 한도(429 `RATE_LIMITED`)는
-  `Retry-After` 뒤 한 번. **챗봇·길찾기·마법사·토큰 갱신은 다시 보내지 않는다.** 화면을 떠나면 쉬는 중에도 멈춘다. 응답의
+  `Retry-After` 뒤 한 번. **길찾기·마법사·토큰 갱신은 다시 보내지 않는다.** 화면을 떠나면 쉬는 중에도 멈춘다. 응답의
   `RateLimit-*` 는 `Models/RateLimitLedger.swift` 가 적어 둔다(아직 화면에 보이지 않는다). 실패를 넣어 보는 뒷문은
   `simctl launch … -netFault "v1/places:status:503:2"`(`Models/NetFault.swift` — 개발 빌드의 시뮬레이터에서만 동작).
+- **챗봇은 멱등 키를 실어 보낸다** (`Idempotency-Key`, MZ2AZ-366). 서버가 키를 아는 것이 확인된 때만(이번 실행에서 응답의
+  `RateLimit-*` 를 봤다) 끊김·502·503·504·500 에 자동으로 한 번 다시 보내고(요청마다 50초, 턴 전체 110초), `409 처리 중` 은
+  3초마다 같은 키로 다시 묻되 그 키를 처음 보낸 때부터 55초까지만(서버가 처리 중인 키를 1 분 뒤 새로 처리한다), 그래도 실패면 창에 「다시 시도」 가 뜬다 — 같은 키·처음 만든 요청 그대로라 모델을
+  두 번 부르지 않는다. 확인되지 않았으면 전처럼 한 번만 보내고 단추도 없다. 가이드 창을 닫으면 기다리던 다시 보내기·되묻기를
+  끊는다(처음 보낸 요청은 끊지 않는다). 뒷문 `-netFault "guide/chat:cut:2"` 는 보낸 뒤 2초에 끊는다.
 - 설치 식별자는 **키체인**에 둔다(`Keychain.swift`, MZ2AZ-335) — 옛 자리(`UserDefaults` `scenetrip.deviceId`)의 값은
   첫 실행에 옮긴다. 키체인은 앱을 지워도 남으므로 설치 뒤 첫 실행에는 남은 값을 버린다(지웠다 깔면 새 설치본).
 - `InstallIdentity.swift` 를 `CartStore` 밖으로 뗐다 — 코스 API 도 같은 설치 식별자가
