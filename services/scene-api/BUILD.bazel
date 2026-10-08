@@ -239,6 +239,10 @@ java_junit5_test(
         # GoogleSignInIntegrationTest 가 이 자리에서 만든 RSA 키로 구글처럼 생긴 ID 토큰을 서명하고,
         # 검증기에 그 공개키 한 장짜리 키 묶음을 준다 — 실제 구글을 부르지 않는다.
         "@maven//:com_nimbusds_nimbus_jose_jwt",
+        # GuideChatQuotaFlowIntegrationTest 가 가짜 에이전트(로컬 HTTP 서버)로 GuideAgentClient 를 만들고(NOOP 관측),
+        # 요청·응답 JSON 을 JsonMapper 로 읽고 쓴다 — 실제 에이전트·모델은 부르지 않는다.
+        "@maven//:io_micrometer_micrometer_observation",
+        "@maven//:tools_jackson_core_jackson_databind",
         "@maven//:org_assertj_assertj_core",
         "@maven//:org_springframework_spring_jdbc",
         "@maven//:org_springframework_spring_test",
@@ -284,6 +288,10 @@ java_junit5_test(
         "@maven//:org_springframework_spring_jdbc",
         "@maven//:org_springframework_spring_test",
         "@maven//:org_springframework_spring_web",
+        # RequestRateLimitFilterTest 가 필터를 서블릿 컨테이너 없이 직접 부른다(doFilter 의 서블릿 타입).
+        "@maven//:jakarta_servlet_jakarta_servlet_api",
+        # GuideControllerTest 가 멱등 키에 저장할·되돌려 줄 응답 JSON 을 JsonMapper 로 만든다.
+        "@maven//:tools_jackson_core_jackson_databind",
         # S3PhotoStorageTest 가 가짜 고정 자격 증명으로 서명을 만들고(망 없음) 목 S3Client 로 옮기기를 본다.
         "@maven//:software_amazon_awssdk_auth",
         "@maven//:software_amazon_awssdk_aws_core",

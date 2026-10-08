@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.mz2az.scenetrip.sceneapi.api.PoisApi;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCategoryGroup;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiDetail;
+import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStore;
 import com.mz2az.scenetrip.sceneapi.poi.naver.CardFiller;
 import com.mz2az.scenetrip.sceneapi.poi.naver.NaverPlaceClient;
@@ -64,6 +65,9 @@ import org.springframework.test.web.servlet.MockMvc;
 })
 @DisplayName("카드 창구 — 꺼진 채 deprecated, 그래도 응답한다 (ADR 0020)")
 class PoiCardEndpointsDisabledTest {
+
+  /** 분당 상한 필터(RequestRateLimitFilter)가 Bearer 토큰을 읽는다 — 이 시험은 토큰을 보내지 않는다. */
+  @MockitoBean private AccessTokens rateLimitTokens;
 
   private static HttpServer server;
   private static final AtomicInteger hits = new AtomicInteger();

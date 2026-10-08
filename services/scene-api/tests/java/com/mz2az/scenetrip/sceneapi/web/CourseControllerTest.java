@@ -19,6 +19,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.CourseOrigin;
 import com.mz2az.scenetrip.sceneapi.api.model.CourseReplace;
 import com.mz2az.scenetrip.sceneapi.api.model.CourseStatus;
 import com.mz2az.scenetrip.sceneapi.api.model.TravelBasis;
+import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.course.CourseStore;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -38,6 +39,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(CourseController.class)
 @Import(LanguageConfiguration.class)
 class CourseControllerTest {
+
+  /** 분당 상한 필터(RequestRateLimitFilter)가 Bearer 토큰을 읽는다 — 이 시험은 토큰을 보내지 않는다. */
+  @MockitoBean private AccessTokens rateLimitTokens;
 
   private static final String INSTALL_ID = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
   private static final UUID USER = UUID.fromString("9d1e4b52-6c07-4a8f-b3d1-2e6f80c4a915");

@@ -19,6 +19,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.PlaceDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.RatingSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.Scene;
+import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.place.PlaceStore;
 import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
@@ -45,6 +46,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(PlacesController.class)
 @Import(LanguageConfiguration.class)
 class PlacesControllerTest {
+
+  /** 분당 상한 필터(RequestRateLimitFilter)가 Bearer 토큰을 읽는다 — 이 시험은 토큰을 보내지 않는다. */
+  @MockitoBean private AccessTokens rateLimitTokens;
 
   @Autowired private MockMvc mvc;
 

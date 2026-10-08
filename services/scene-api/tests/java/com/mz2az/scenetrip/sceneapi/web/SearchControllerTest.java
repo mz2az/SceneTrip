@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.mz2az.scenetrip.sceneapi.api.model.EntityType;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.Suggestion;
+import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.search.SuggestionStore;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
@@ -41,6 +42,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(SearchController.class)
 @Import(LanguageConfiguration.class)
 class SearchControllerTest {
+
+  /** 분당 상한 필터(RequestRateLimitFilter)가 Bearer 토큰을 읽는다 — 이 시험은 토큰을 보내지 않는다. */
+  @MockitoBean private AccessTokens rateLimitTokens;
 
   @Autowired private MockMvc mvc;
 

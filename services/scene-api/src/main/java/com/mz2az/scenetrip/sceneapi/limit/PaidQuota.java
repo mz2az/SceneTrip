@@ -43,8 +43,18 @@ public class PaidQuota {
   /** 한 번 쓴 기록 — 되돌릴 때 같은 창을 가리킨다. */
   public record Grant(Feature feature, String subject, List<Window> windows, Headers headers) {}
 
-  /** 창 하나 — 시작 시각과 크기, 한도. */
-  public record Window(OffsetDateTime start, Duration length, int limit) {}
+  /**
+   * 창 하나 — 종류와 시작 시각, 크기, 한도.
+   *
+   * <p>{@code kind}({@code minute} · {@code hour} · {@code day})가 표의 열쇠에 들어간다. 시작 시각만으로는 한국 자정에 짧은
+   * 창과 하루 창이 같은 순간에 시작해 한 줄을 함께 쓴다 — 00 시대에는 한 번 쓸 때 2 가 늘어 한도가 절반이 됐다(시험이 잡았다).
+   */
+  public record Window(String kind, OffsetDateTime start, Duration length, int limit) {
+
+    String column(Feature feature) {
+      return feature.column + ":" + kind;
+    }
+  }
 
   /** 응답 헤더 RateLimit-*(가장 빠듯한 창). */
   public record Headers(int limit, int remaining, long resetSeconds) {}
@@ -84,13 +94,14 @@ public class PaidQuota {
     List<Window> windows = windows(feature, now);
     int[] counts = new int[windows.size()];
     for (int i = 0; i < windows.size(); i++) {
-      counts[i] = usage.increment(subject, feature.column, windows.get(i).start());
+      Window w = windows.get(i);
+      counts[i] = usage.increment(subject, w.column(feature), w.start());
     }
     for (int i = 0; i < windows.size(); i++) {
       Window w = windows.get(i);
       if (counts[i] > w.limit()) {
         for (Window undo : windows) {
-          usage.decrement(subject, feature.column, undo.start());
+          usage.decrement(subject, undo.column(feature), undo.start());
         }
         long retry = secondsUntilEnd(w, now);
         throw new LimitExceeded(feature.code, new Headers(w.limit(), 0, retry), retry);
@@ -111,7 +122,7 @@ public class PaidQuota {
   /** 제공자가 실패해 사용자가 아무것도 받지 못했다 — 쓴 것을 되돌린다. */
   public void refund(Grant grant) {
     for (Window w : grant.windows()) {
-      usage.decrement(grant.subject(), grant.feature().column, w.start());
+      usage.decrement(grant.subject(), w.column(grant.feature()), w.start());
     }
   }
 
@@ -121,13 +132,17 @@ public class PaidQuota {
     return switch (feature) {
       case GUIDE_CHAT ->
           List.of(
-              new Window(utc.truncatedTo(ChronoUnit.HOURS), Duration.ofHours(1), chatPerHour),
-              new Window(dayStart, Duration.ofDays(1), chatPerDay));
+              new Window(
+                  "hour", utc.truncatedTo(ChronoUnit.HOURS), Duration.ofHours(1), chatPerHour),
+              new Window("day", dayStart, Duration.ofDays(1), chatPerDay));
       case NAVIGATION ->
           List.of(
               new Window(
-                  utc.truncatedTo(ChronoUnit.MINUTES), Duration.ofMinutes(1), navigationPerMinute),
-              new Window(dayStart, Duration.ofDays(1), navigationPerDay));
+                  "minute",
+                  utc.truncatedTo(ChronoUnit.MINUTES),
+                  Duration.ofMinutes(1),
+                  navigationPerMinute),
+              new Window("day", dayStart, Duration.ofDays(1), navigationPerDay));
     };
   }
 
