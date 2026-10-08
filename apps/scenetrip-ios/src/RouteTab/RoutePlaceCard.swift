@@ -37,6 +37,8 @@ struct RoutePlaceCard: View {
     @State private var cardFor: String?
     /// 리뷰 시트 (MZ2AZ-363).
     @State private var reviewing: ReviewSubject?
+    /// 카드의 사진 줄이 넘겨 보는 사진첩 (MZ2AZ-363).
+    @StateObject private var gallery = PhotoGallery()
 
     /// 지금 장소의 카드. 앞 장소의 것이면 없는 것으로 친다.
     private var fresh: RouteGuide.Card? {
@@ -187,17 +189,12 @@ struct RoutePlaceCard: View {
 
     @ViewBuilder
     private func found(_ card: RouteGuide.Card) -> some View {
-        if !card.images.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(card.images.prefix(5), id: \.self) { url in
-                        RemoteImage(url: url, symbol: "photo")
-                            .frame(width: 92, height: 70)
-                            .clipShape(.rect(cornerRadius: 8))
-                    }
-                }
-                .padding(.horizontal, 14)
+        if !card.photos.photos.isEmpty {
+            // 누르면 크게 넘겨 본다 — 방문자 사진에서는 그 리뷰로 갈 수 있다(MZ2AZ-363).
+            CardPhotoStrip(gallery: gallery, title: card.title ?? place.label.title) {
+                Task { await load() }
             }
+            .id(place.id)
             .padding(.bottom, 10)
         }
 
@@ -285,7 +282,9 @@ struct RoutePlaceCard: View {
 
     private func load() async {
         let asked = place.id
-        card = await RouteGuide.card(for: place)
+        let loaded = await RouteGuide.card(for: place)
+        card = loaded
+        gallery.show(loaded?.photos ?? PhotoGalleryRules.Book(), subject: subject)
         cardFor = asked
         loading = false
     }

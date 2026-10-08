@@ -120,6 +120,25 @@ final class PhotoShrinkTests: XCTestCase {
         XCTAssertGreaterThan(abs(top.red - bottom.red), 0.5)
     }
 
+    /// 여러 장이 든 파일은 **대표 그림**을 푼다(`CGImageSourceGetPrimaryImageIndex`). 여기서 만들 수 있는 묶음(TIFF)은
+    /// 대표가 0번이다 — 대표가 0번이 아닌 파일(HEIC 묶음)은 시뮬레이터의 ImageIO 로 만들지 못해 시험에 없다.
+    func testImageFromFileDecodesThePrimaryImageOfAMultiImageFile() throws {
+        let data = NSMutableData()
+        let destination = try XCTUnwrap(
+            CGImageDestinationCreateWithData(data, UTType.tiff.identifier as CFString, 2, nil)
+        )
+        try CGImageDestinationAddImage(destination, XCTUnwrap(Self.solid(width: 300, height: 200).cgImage), nil)
+        try CGImageDestinationAddImage(destination, XCTUnwrap(Self.solid(width: 100, height: 100).cgImage), nil)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        let source = try XCTUnwrap(CGImageSourceCreateWithData(data, nil))
+        XCTAssertEqual(CGImageSourceGetCount(source), 2)
+
+        let made = try XCTUnwrap(PhotoShrink.image(from: data as Data, longest: 2048))
+        XCTAssertEqual(Self.pixels(made), CGSize(width: 300, height: 200))
+        let preview = try XCTUnwrap(PhotoShrink.preview(from: data as Data, side: 100))
+        XCTAssertEqual(Self.pixels(preview), CGSize(width: 150, height: 100))
+    }
+
     /// 파일에서 바로 만든 JPEG 에도 위치·기기 정보가 없다.
     func testJpegFromFileCarriesNoLocation() throws {
         let original = try Self.jpegWithLocation()

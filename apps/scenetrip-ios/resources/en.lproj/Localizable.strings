@@ -470,6 +470,18 @@
 "지금은 사진을 올릴 수 없어요. 사진을 빼면 저장할 수 있어요" = "Photos can't be uploaded right now. Remove them to save your review.";
 "사진을 올리지 못했어요. 다시 시도해 주세요" = "Couldn't upload this photo. Please try again.";
 
+/* 사진첩 (MZ2AZ-363) */
+"사진 %d / %d" = "Photo %d of %d";
+"방문자 사진" = "Visitor photo";
+"방문자 사진|모음" = "Visitor photos";
+"방문자 사진 %d" = "Visitor photos (%d)";
+"방문자 사진 %d|하나" = "Visitor photo (%d)";
+"사진 전체 보기 (%d)" = "View all photos (%d)";
+"사진 %d|전체" = "%d photos";
+"사진 %d|전체 하나" = "%d photo";
+"모두 보기" = "See all";
+"리뷰 보기|사진" = "View review";
+
 /* 내 리뷰 · 탈퇴 안내 (MZ2AZ-363) */
 "아직 쓴 리뷰가 없어요" = "You haven't written a review yet";
 "다녀온 촬영지와 가게에 별점을 남겨 보세요" = "Rate the filming spots and places you've visited";

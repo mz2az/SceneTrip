@@ -9,8 +9,25 @@ struct ReviewsSheet: View {
     let subject: ReviewSubject
     /// 대상의 이름 — 머리줄에 적는다.
     let title: String
-    /// 리뷰가 바뀌었다(쓰기·고치기·지우기) — 부른 화면이 별점 줄을 다시 읽는다.
+    /// 이 리뷰부터 보인다 — 사진첩의 방문자 사진에서 「리뷰 보기」 로 왔다(티켓 §4).
+    var focusReviewId: Int64?
+    /// 리뷰가 바뀌었다(쓰기·고치기·지우기) — 부른 화면이 별점 줄과 사진을 다시 읽는다.
     var onChanged: () -> Void = {}
+
+    /// 이 대상의 사진첩 — 위쪽의 방문자 사진 모아 보기가 쓴다.
+    @StateObject private var gallery: PhotoGallery
+    /// 목록을 이 리뷰까지 내린다.
+    @State private var jump: Int64?
+    /// 방금 찾아간 리뷰 — 잠깐 바탕을 칠해 어느 줄인지 보인다.
+    @State private var lit: Int64?
+
+    init(subject: ReviewSubject, title: String, focusReviewId: Int64? = nil, onChanged: @escaping () -> Void = {}) {
+        self.subject = subject
+        self.title = title
+        self.focusReviewId = focusReviewId
+        self.onChanged = onChanged
+        _gallery = StateObject(wrappedValue: PhotoGallery(subject: subject))
+    }
 
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var auth = AuthStore.shared
@@ -38,7 +55,7 @@ struct ReviewsSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            SheetHeader(title: tr("리뷰"), subtitle: title) { dismiss() }
             Divider()
             switch phase {
             case .loading:
@@ -59,7 +76,11 @@ struct ReviewsSheet: View {
         .sheet(isPresented: $composing) {
             ReviewComposeView(subject: subject, title: title) {
                 onChanged()
-                Task { await reload() }
+                Task {
+                    await reload()
+                    // 리뷰의 사진이 바뀌었을 수 있다.
+                    await reloadPhotos()
+                }
             }
         }
         .onChange(of: auth.signedIn) { _, signedIn in
@@ -97,58 +118,56 @@ struct ReviewsSheet: View {
             }
         }
         .task(id: sort) { await reload() }
+        .task { await reloadPhotos() }
+        .task {
+            // 사진첩에서 왔으면 그 리뷰부터 — 첫 쪽이 온 뒤에 찾는다.
+            if let focusReviewId {
+                await show(review: focusReviewId)
+            }
+        }
         // 정렬을 바꾸면 새 첫 쪽이 올 때까지 다음 쪽을 받지 않는다 — 옛 목록 끝에 새 정렬의 둘째 쪽이 붙지 않게.
         .onChange(of: sort) { _, _ in total = reviews.count }
         .onAppear { AppAnalytics.log(.viewReviews(targetType: subject.kind)) }
     }
 
-    private var header: some View {
-        ZStack {
-            VStack(spacing: 1) {
-                Text("리뷰").font(.headline)
-                Text(title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
-            .padding(.horizontal, 56)
-            HStack {
-                Spacer()
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 44, height: 44)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tr("닫기"))
-            }
-        }
-        .padding(.horizontal, 6).padding(.top, 6).padding(.bottom, 4)
-    }
-
     private var list: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                // 리뷰가 없으면 요약(큰 「-」 와 빈 막대 다섯)을 그리지 않는다 — 아래 빈 상태가 같은 말을 한다.
-                if let summary, summary.count > 0 {
-                    ReviewSummaryView(summary: summary)
-                        .padding(.horizontal, 16).padding(.vertical, 16)
-                    Divider()
-                }
-                if reviews.isEmpty {
-                    empty
-                } else {
-                    sortPicker
-                    ForEach(reviews, id: \.id) { review in
-                        ReviewRow(review: review, onEdit: review.isMine ? { composing = true } : nil)
-                            .padding(.horizontal, 16).padding(.vertical, 14)
-                        Divider().padding(.leading, 16)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    // 리뷰가 없으면 요약(큰 「-」 와 빈 막대 다섯)을 그리지 않는다 — 아래 빈 상태가 같은 말을 한다.
+                    if let summary, summary.count > 0 {
+                        ReviewSummaryView(summary: summary)
+                            .padding(.horizontal, 16).padding(.vertical, 16)
+                        Divider()
                     }
-                    if ReviewRules.hasMore(loaded: reviews.count, total: total) {
-                        moreFooter
+                    // 방문자 사진 모아 보기 — 한 장도 없으면 이 절은 없다.
+                    if !gallery.book.reviewPhotos.isEmpty {
+                        VisitorPhotoStrip(gallery: gallery, title: title) { reviewId in
+                            Task { await show(review: reviewId, after: .milliseconds(450)) }
+                        }
+                        Divider()
+                    }
+                    if reviews.isEmpty {
+                        empty
+                    } else {
+                        sortPicker
+                        ForEach(reviews, id: \.id) { review in
+                            ReviewRow(review: review, onEdit: review.isMine ? { composing = true } : nil)
+                                .padding(.horizontal, 16).padding(.vertical, 14)
+                                .background(Color.accentColor.opacity(lit == review.id ? 0.1 : 0))
+                                .id(review.id)
+                            Divider().padding(.leading, 16)
+                        }
+                        if ReviewRules.hasMore(loaded: reviews.count, total: total) {
+                            moreFooter
+                        }
                     }
                 }
+            }
+            .onChange(of: jump) { _, target in
+                guard let target else { return }
+                withAnimation { proxy.scrollTo(target, anchor: .top) }
+                jump = nil
             }
         }
     }
@@ -245,9 +264,12 @@ struct ReviewsSheet: View {
             Spacer()
         }
     }
+}
 
+/// 받아 오기 — 첫 쪽, 다음 쪽, 방문자 사진, 한 리뷰를 찾아가기.
+private extension ReviewsSheet {
     /// 첫 쪽부터 다시. 정렬이 바뀌어도 이것이 돈다.
-    private func reload() async {
+    func reload() async {
         do {
             let page = try await subject.reviews(sort: sort, offset: 0)
             guard !Task.isCancelled else { return }
@@ -263,7 +285,38 @@ struct ReviewsSheet: View {
         }
     }
 
-    private func loadMore() async {
+    /// 방문자 사진. 목록과 따로 받는다 — 못 받아도 리뷰는 보이고, 정렬을 바꿀 때는 다시 받지 않는다.
+    func reloadPhotos() async {
+        await gallery.reload()
+        await gallery.seekReviews()
+    }
+
+    /// 목록을 그 리뷰까지 내리고 잠깐 칠한다. 아직 안 받은 뒤쪽에 있으면 다섯 쪽까지 더 받아 찾는다 —
+    /// 그래도 없으면(내려진 리뷰, 아주 뒤쪽) 목록은 그대로 둔다.
+    /// `after` — 크게 보기가 내려가는 동안 기다린다(내려가는 중에는 스크롤이 먹지 않는다).
+    func show(review id: Int64, after delay: Duration = .zero) async {
+        try? await Task.sleep(for: delay)
+        // 첫 쪽이 올 때까지 — 길어야 5초.
+        for _ in 0 ..< 50 where phase == .loading {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        var tries = 0
+        while tries < 5, !has(id), ReviewRules.hasMore(loaded: reviews.count, total: total) {
+            await loadMore()
+            tries += 1
+        }
+        guard has(id) else { return }
+        jump = id
+        withAnimation { lit = id }
+        try? await Task.sleep(for: .seconds(2))
+        withAnimation { lit = nil }
+    }
+
+    func has(_ id: Int64) -> Bool {
+        reviews.contains { $0.id == id }
+    }
+
+    func loadMore() async {
         let asked = (sort: sort, generation: generation, offset: reviews.count)
         do {
             let page = try await subject.reviews(sort: asked.sort, offset: asked.offset)
@@ -279,77 +332,5 @@ struct ReviewsSheet: View {
             guard !Task.isCancelled, asked.generation == generation else { return }
             moreFailed = true
         }
-    }
-}
-
-/// 요약 — 왼쪽에 평균과 리뷰 수, 오른쪽에 5~1점 막대.
-struct ReviewSummaryView: View {
-    let summary: RatingSummary
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 20) {
-            VStack(spacing: 4) {
-                Text(ReviewRules.average(summary.average))
-                    .font(.system(size: 38, weight: .bold, design: .rounded))
-                StarRow(value: summary.average ?? 0, size: 12)
-                Text(ReviewRules.countText(summary.count))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            .frame(minWidth: 84)
-            VStack(spacing: 5) {
-                ForEach(ReviewRules.bars(summary.distribution), id: \.score) { bar in
-                    HStack(spacing: 8) {
-                        Text(verbatim: "\(bar.score)")
-                            .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
-                            .frame(width: 10)
-                        GeometryReader { proxy in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(Color(.systemGray5))
-                                Capsule()
-                                    .fill(Color(red: 1.0, green: 0.72, blue: 0.0))
-                                    .frame(width: proxy.size.width * bar.share)
-                            }
-                        }
-                        .frame(height: 6)
-                        Text(verbatim: "\(bar.count)")
-                            .font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
-                            .frame(width: 26, alignment: .trailing)
-                    }
-                }
-            }
-        }
-        // 막대의 숫자 열 개를 그대로 읽히면 뜻이 없다 — 한 문장으로 읽힌다.
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(ReviewRules.spoken(summary))
-    }
-}
-
-/// 별 다섯. 리뷰 한 건은 정수(1~5), 평균은 반 개까지 그린다 — 4.6 을 다섯 개로 채우면 5.0 으로 읽힌다.
-struct StarRow: View {
-    let value: Double
-    var size: CGFloat = 12
-
-    init(rating: Int, size: CGFloat = 12) {
-        value = Double(rating)
-        self.size = size
-    }
-
-    init(value: Double, size: CGFloat = 12) {
-        self.value = value
-        self.size = size
-    }
-
-    var body: some View {
-        HStack(spacing: 1.5) {
-            ForEach(Array(ReviewRules.stars(for: value).enumerated()), id: \.offset) { _, star in
-                Image(systemName: star.symbol)
-                    .font(.system(size: size))
-                    .foregroundStyle(
-                        star == .empty ? Color(.systemGray3) : Color(red: 1.0, green: 0.72, blue: 0.0)
-                    )
-            }
-        }
-        .accessibilityElement()
-        .accessibilityLabel(String(format: tr("별점 %@점"), ReviewRules.starValue(value)))
     }
 }
