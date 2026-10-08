@@ -195,17 +195,12 @@ final class CommunityStore: ObservableObject {
         UIImage(contentsOfFile: photoURL(name).path)
     }
 
-    /// 긴 변 1600 으로 줄여 JPEG 로 둔다 — 폰 사진 원본은 장당 수 MB 다.
+    /// 기기에 두는 사진의 긴 변.
+    static let photoLongest: CGFloat = 1600
+
+    /// 긴 변 1600 으로 줄여 JPEG 로 둔다 — 폰 사진 원본은 장당 수 MB 다. 줄이기는 리뷰 사진과 같은 코드다.
     private static func store(photo: UIImage) -> String? {
-        let longest = max(photo.size.width, photo.size.height)
-        let scale = min(1, 1600 / max(longest, 1))
-        let size = CGSize(width: photo.size.width * scale, height: photo.size.height * scale)
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            photo.draw(in: CGRect(origin: .zero, size: size))
-        }
-        guard let data = resized.jpegData(compressionQuality: 0.82) else { return nil }
+        guard let data = PhotoShrink.jpeg(photo, longest: photoLongest) else { return nil }
         let name = UUID().uuidString + ".jpg"
         do {
             try data.write(to: photoURL(name), options: .atomic)
