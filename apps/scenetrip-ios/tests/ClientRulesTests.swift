@@ -47,10 +47,14 @@ final class ClientRulesTests: XCTestCase {
 
     // MARK: §3-6 오류 화면이 읽는 값
 
-    /// 계약이 "재시도해도 된다 — 클라이언트가 고칠 것은 없다" 고 적은 것은 `500` 뿐이다.
+    /// 「다시 시도」 는 다시 누르면 달라질 수 있는 것에만 — 서버 사정(500·502·503·504)과 분당 한도(429).
     /// `400`·`409` 에 재시도를 걸면 같은 요청을 그대로 다시 보내 같은 오류를 받는다.
     func testOnlyServerErrorsAreRetryable() {
         XCTAssertTrue(ApiFailure(statusCode: 500, traceId: "abc").isRetryable)
+        // 전에는 503·429 에 단추가 없었다 — 「요청을 처리하지 못했습니다」 만 뜨고 다시 해 볼 길이 없었다 (MZ2AZ-366).
+        for status in [429, 502, 503, 504] {
+            XCTAssertTrue(ApiFailure(statusCode: status, traceId: nil).isRetryable, "\(status)")
+        }
         XCTAssertFalse(ApiFailure(statusCode: 400, traceId: nil).isRetryable)
         XCTAssertFalse(ApiFailure(statusCode: 404, traceId: nil).isRetryable)
         XCTAssertFalse(ApiFailure(statusCode: 409, traceId: nil).isRetryable)
@@ -62,6 +66,25 @@ final class ClientRulesTests: XCTestCase {
         XCTAssertNil(ApiFailure(ErrorResponse.error(-1, nil, nil, URLError(.cannotConnectToHost))).statusCode)
         XCTAssertNil(ApiFailure(ErrorResponse.error(-2, nil, nil, URLError(.badServerResponse))).statusCode)
         XCTAssertTrue(ApiFailure(ErrorResponse.error(-1, nil, nil, URLError(.timedOut))).isRetryable)
+    }
+
+    /// 기기가 오프라인이면 서버가 아니라 인터넷 연결을 말한다 (MZ2AZ-366). 다시 시도는 여전히 된다.
+    func testOfflineIsToldApartFromAnUnreachableServer() {
+        let offline = ApiFailure(ErrorResponse.error(-1, nil, nil, URLError(.notConnectedToInternet)))
+        XCTAssertTrue(offline.isOffline)
+        XCTAssertTrue(offline.isRetryable)
+        XCTAssertNotEqual(offline.message, ApiFailure(statusCode: nil, traceId: nil).message)
+        XCTAssertFalse(ApiFailure(ErrorResponse.error(-1, nil, nil, URLError(.cannotConnectToHost))).isOffline)
+        XCTAssertFalse(ApiFailure(ErrorResponse.error(503, nil, nil, URLError(.notConnectedToInternet))).isOffline)
+    }
+
+    /// 한도와 잠시 장애는 저마다의 말이 있다 — 「요청을 처리하지 못했습니다」 로 뭉뚱그리지 않는다.
+    func testRateLimitAndOutageHaveTheirOwnWords() {
+        let generic = ApiFailure(statusCode: 400, traceId: nil).message
+        XCTAssertNotEqual(ApiFailure(statusCode: 429, traceId: nil).message, generic)
+        XCTAssertEqual(
+            ApiFailure(statusCode: 503, traceId: nil).message, ApiFailure(statusCode: 500, traceId: nil).message
+        )
     }
 
     /// 서버에 닿지도 못한 경우(코드 없음)도 재시도 대상이다 — 앱이 고칠 것이 없다는

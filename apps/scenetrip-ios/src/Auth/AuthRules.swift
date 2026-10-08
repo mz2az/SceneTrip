@@ -22,6 +22,13 @@ enum AuthRules {
         }
     }
 
+    /// 401(만료)을 받은 요청이 **낡은 토큰으로 나갔던 것**인가 — 실었던 토큰과 지금 저장된 토큰이 다르면 그 사이에
+    /// 누가 갱신했다. 그러면 또 갱신하지 않고 새 토큰으로 다시 보낸다(MZ2AZ-366).
+    static func alreadyRefreshed(sent: String?, current: String?) -> Bool {
+        guard let sent, let current else { return false }
+        return sent != current
+    }
+
     /// 오류 본문의 `code`. 본문이 없거나 우리 모양이 아니면 `nil`.
     static func apiCode(from data: Data?) -> String? {
         struct Body: Decodable { let code: String }

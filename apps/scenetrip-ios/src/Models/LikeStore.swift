@@ -100,6 +100,10 @@ final class LikeStore: ObservableObject {
                 }
             } catch {
                 apply(contentId, liked: !liked)
+                // 실패가 「서버는 처리했는데 응답만 잃은 것」 일 수 있다 — 그러면 되돌린 화면이 서버와 어긋난다
+                // (찜을 풀었는데 하트가 다시 켜진다). 서버 값을 한 번 받아 맞춘다. 그 조회도 실패하면 되돌린
+                // 채로 둔다(`refresh` 는 못 받으면 아무것도 바꾸지 않는다). (MZ2AZ-366)
+                await refresh()
             }
         }
     }

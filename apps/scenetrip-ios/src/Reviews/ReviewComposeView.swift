@@ -223,28 +223,42 @@ struct ReviewComposeView: View {
         message = nil
         Task {
             defer { working = false }
+            let wasNew = existing == nil
+            let body = ReviewRules.normalizedBody(text)
+            // 화면에 남아 있는 사진이 전부다 — 붙어 있던 것은 그 키로, 새로 올린 것은 새 키로, 보이는 순서대로.
+            let keys = photos.keys
             do {
-                let wasNew = existing == nil
-                // 화면에 남아 있는 사진이 전부다 — 붙어 있던 것은 그 키로, 새로 올린 것은 새 키로, 보이는 순서대로.
-                let saved = try await subject.save(
-                    rating: rating, body: ReviewRules.normalizedBody(text), photoKeys: photos.keys
-                )
-                AppAnalytics.log(.writeReview(
-                    targetType: subject.kind, rating: saved.rating,
-                    photoCount: saved.photos.count, hasBody: saved.body != nil, edited: !wasNew
-                ))
-                onChanged()
-                dismiss()
+                let saved = try await subject.save(rating: rating, body: body, photoKeys: keys)
+                finishSaved(saved, wasNew: wasNew)
             } catch {
-                // 서버가 사진 키를 거절했다 — 이번에 올린 사진을 「다시 시도」 로 돌려놓는다.
-                if case let ErrorResponse.error(_, data, _, _) = error,
-                   AuthRules.apiCode(from: data) == "REVIEW_PHOTO_INVALID"
-                {
-                    photos.rejectUploaded()
+                guard case let ErrorResponse.error(_, data, _, _) = error,
+                      AuthRules.apiCode(from: data) == "REVIEW_PHOTO_INVALID"
+                else {
+                    message = failureText(error)
+                    return
                 }
+                // 서버가 사진 키를 거절했다. **먼저 이미 저장된 것이 아닌지 본다** — 앞선 요청이 응답만 잃고
+                // 저장됐으면, 다시 보낸 이 요청은 사진이 이미 옮겨져 거절된다(`ReviewRules.landed`).
+                if let mine = try? await subject.myReview(),
+                   ReviewRules.landed(mine, rating: rating, body: body, photoKeys: keys)
+                {
+                    finishSaved(mine, wasNew: wasNew)
+                    return
+                }
+                // 정말 거절이다 — 이번에 올린 사진을 「다시 시도」 로 돌려놓는다.
+                photos.rejectUploaded()
                 message = failureText(error)
             }
         }
+    }
+
+    private func finishSaved(_ saved: Review, wasNew: Bool) {
+        AppAnalytics.log(.writeReview(
+            targetType: subject.kind, rating: saved.rating,
+            photoCount: saved.photos.count, hasBody: saved.body != nil, edited: !wasNew
+        ))
+        onChanged()
+        dismiss()
     }
 
     private func remove() {
