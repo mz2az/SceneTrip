@@ -11,12 +11,13 @@ import SwiftUI
 /// 여기서 할 수 있는 일은 회의에서 하나씩 확정된 것들이다.
 /// - 일차를 ＋/− 로 더하고 뺀다 (뒤쪽부터, 장소가 있으면 멈추고 알린다)
 /// - 목록을 끌어 방문 순서를 바꾼다
-/// - 체류 시간을 고른다 (기본 30분)
+/// - 체류 시간을 고른다 (기본 30분) — 일차 머리줄의 「머무는 시간」에서, 합과 함께
 /// - **동선 최적화** — 직선거리 기준으로 순서를 다시 잡는다. 길찾기 API 를 부르지 않는다.
 /// - 장바구니에서 담기 / 지도에 직접 핀 찍기
 ///
-/// **거리(km)는 보여 주고 예상 소요 시간은 보여 주지 않는다** (8/11 회의 2부 확정).
-/// 직선거리에서 시간을 지어내면 사용자는 그것을 실제 이동 시간으로 읽는다.
+/// **거리(km)는 보여 주고 예상 이동 시간은 보여 주지 않는다** (8/11 회의 2부 확정).
+/// 직선거리에서 시간을 지어내면 사용자는 그것을 실제 이동 시간으로 읽는다. 그날 **머무는
+/// 시간의 합**은 보여 준다 — 사용자가 정한 값을 더한 것이라 지어낸 것이 없다(MZ2AZ-368).
 struct RouteEditorView: View {
     @EnvironmentObject var store: RouteStore
     @Environment(\.dismiss) private var dismiss
@@ -79,7 +80,10 @@ struct RouteEditorView: View {
     /// 화면 범위 안의 주변 편의시설. 카메라가 멈출 때마다 다시 받는다.
     @State var ambientPois: [RouteGuide.Place] = []
     @State var ambientTask: Task<Void, Never>?
-    @State var stayTarget: RouteStop?
+    /// 「머무는 시간」 시트가 열려 있나 — 일차 머리줄의 합을 누르면 열린다.
+    @State var showStay = false
+    /// 그 합 단추의 틀(화면 좌표). 해태 동그라미가 카드를 비켜 설 때 이 단추는 덮지 않는다.
+    @State var stayFrame: CGRect?
 
     /// 여행 안내 — **이 화면 안에서 돈다**(2026-09-03, 계획 trip-mode.md §8). 별도
     /// 길찾기 창은 코스 여행에서 더 안 쓴다. 목적지·경로·머무름·스탬프는 이것이 든다.
@@ -233,7 +237,7 @@ struct RouteEditorView: View {
                         onClose: { guide.picked = nil }
                     )
                     .padding(.horizontal, 12)
-                    .padding(.bottom, 90) // 「저장하고 닫기」 줄 위
+                    .padding(.bottom, 90) // 아래 단추 줄 위
                 } else {
                     stopCardOverlay
                 }
@@ -291,7 +295,9 @@ struct RouteEditorView: View {
         // 해태 「내가 도와줄게!」 — 가이드의 유일한 입구. 지도가 아니라 **화면** 오른쪽
         // 아래에 떠 있고, 꾹 누르면 옮길 수 있다(2026-09-16). 창이 열려 있거나 핀을 찍는
         // 동안은 숨긴다. 카드가 떠 있으면 말풍선을 접고 카드 위로 비킨다(MZ2AZ-367).
-        .guideFloatingChip(hidden: showGuide || pinning, cardTop: guideCardTop) { showGuide = true }
+        .guideFloatingChip(hidden: showGuide || pinning, cardTop: guideCardTop, keepClear: stayFrame) {
+            showGuide = true
+        }
         // 가이드는 시트가 아니라 **오른쪽 서랍**이다 — 오른쪽에서 미끄러져
         // 나오는 고정 크기 창(2026-08-28 사용자 요청). 지도가 계속 보인다.
         .guidePanel(isOpen: showGuide) {
@@ -330,8 +336,8 @@ struct RouteEditorView: View {
                 )], pinned: true)
             }
         }
-        .sheet(item: $stayTarget) { stop in
-            RouteStaySheet(stop: stop) { minutes in
+        .sheet(isPresented: $showStay) {
+            RouteDayStaySheet(stops: stops) { stop, minutes in
                 setStay(stop, minutes: minutes)
             }
         }
@@ -394,7 +400,6 @@ struct RouteEditorView: View {
                     // 여행 중이면 어느 곳이든 「길찾기」 — 다녀온 곳도 다시 갈 수 있다(2026-09-04
                     // 사용자 지적: 코스를 또 만들 필요는 없다). 이 지도에 경로가 그려진다.
                     onNavigate: course.isRunning ? { startTrip(to: stop) } : nil,
-                    onStay: { stayTarget = stop },
                     onFocus: {
                         // **한 번 더 누르면 놓는다.** 놓을 방법이 없으면 한 곳을
                         // 고른 뒤 경로 전체를 다시 볼 수가 없다(2026-08-25 사용자 지적).

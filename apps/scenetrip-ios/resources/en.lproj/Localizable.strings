@@ -204,7 +204,6 @@
 "언어" = "Language";
 "언제 떠나나요?" = "When do you leave?";
 "얼마나 다녀오나요?" = "How long is your trip?";
-"얼마나 머무를까요?" = "How long will you stay?";
 "여기 도착함" = "I've arrived";
 "여기로 길찾기" = "Directions to here";
 "여기서는 경로를 찾지 못했어요" = "No route found from here";
@@ -294,7 +293,6 @@
 "저장" = "Save";
 "저장 안 됨" = "Won't be saved";
 "저장된 코스의 장소에서만 길찾기를 부를 수 있어요" = "Directions are only available for places in a saved course";
-"저장하고 닫기" = "Save and close";
 "저장하지 못했습니다" = "Couldn't save";
 "전체" = "All";
 "전체 보기" = "See all";
@@ -487,3 +485,11 @@
 "다녀온 촬영지와 가게에 별점을 남겨 보세요" = "Rate the filming spots and places you've visited";
 "장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰는 익명으로 남습니다. 지우려면 탈퇴 전에 지우세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews you wrote stay, without your name. Delete them first if you want them gone.";
 "편의시설" = "Place nearby";
+
+/* 머무는 시간 — 일차 머리줄의 합과 시트 (MZ2AZ-368) */
+"머무는 시간" = "Stay time";
+"머무는 시간 %@" = "Stay %@";
+"합계 %@" = "Total %@";
+"이동 시간은 들어 있지 않아요. 여행 중에 구간마다 보여 드려요." = "Travel time isn't included. You'll see it leg by leg on your trip.";
+"장소별 머무는 시간을 고칩니다" = "Change how long you stay at each place";
+"%lld번 %@ 머무는 시간" = "Stay time at #%1$lld %2$@";
