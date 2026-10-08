@@ -166,8 +166,9 @@ scenetrip:
         700188854872-7v9hphkb4phavae7stepil7q6vp7lbig.apps.googleusercontent.com
   # 편의시설 카드 — 네이버 장소(비공식, ADR 0011). 키는 없다.
   naver:
-    # 스위치. 데모 중 막히거나 형식이 바뀌면 false 로 — 카드가 「꺼져 있음」이 되고 화면은 산다.
-    enabled: true
+    # 스위치. **꺼져 있다(ADR 0020, MZ2AZ-355, 베타 전).** 카드는 우리 공공데이터·리뷰로 그리고 네이버 지도로는 링크로만
+    # 넘긴다. 카드 창구(deprecated)는 꺼진 채 늘 「못 찾음」 이다. 코드와 함께 다음에 지운다 — 켜지 않는다.
+    enabled: false
     search-url: https://bff-gateway.place.naver.com/graphql
     detail-url: https://map.naver.com/p/api/place/summary/{id}
     # 실측 0.3 초의 10 배. 이보다 오래 걸리면 이번은 실패로 두고 다음에 다시 묻는다.

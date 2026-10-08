@@ -1262,8 +1262,12 @@ paths:
     get:
       tags: [pois]
       operationId: getPoiCard
+      deprecated: true
       summary: 편의시설 카드 — 사진·영업시간·평점 (바깥 출처)
       description: |
+        **더 쓰지 않는다(ADR 0020, 2026-10-08).** 네이버 비공식 호출을 내렸다 — 언제나 「못 찾음」 이다. 상세는
+        `GET /pois/{poiId}`(별점·사진은 `rating`·`photos`), 더 볼 것은 네이버 지도 링크로 넘긴다. 다음 메이저에서 뺀다.
+
         핀을 눌렀을 때 뜨는 카드. 우리 자료에 없는 것 — 사진·영업시간·별점·리뷰 수 — 을
         바깥 출처(네이버 장소)에서 가져온다. 서버가 그 출처에 한 번 물어 결과를 표에 두고,
         두 번째부터는 표에서 준다.
@@ -1299,8 +1303,11 @@ paths:
     get:
       tags: [pois]
       operationId: listPoiCards
+      deprecated: true
       summary: 편의시설 카드 여럿 — 있는 것은 주고, 없는 것은 뒤에서 채운다
       description: |
+        **더 쓰지 않는다(ADR 0020).** 언제나 「못 찾음」 또는 pending 이다. 다음 메이저에서 뺀다.
+
         목록 화면용. 보이는 행들의 `poiId` 를 한 번에 보내면 **표에 있는 것만** 카드로 주고,
         없는 것은 `pending: true` 로 표시한 뒤 서버가 뒤에서 채운다. **이 경로는 바깥 출처를
         부르지 않는다** — 응답은 언제나 몇 ms 다.

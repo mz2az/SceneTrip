@@ -26,6 +26,7 @@ just adr-list
 
 `template.md` 가 `just adr-new` 가 렌더링하는 시작점이다.
 
-최근 결정: [0019 — DEV API 를 인터넷 전체에 연다](0019-dev-api-is-public.md),
+최근 결정: [0020 — 편의시설 카드는 공공데이터와 네이버 지도 링크로, 비공식 호출을 내린다](0020-poi-card-public-data-and-naver-link.md),
+[0019 — DEV API 를 인터넷 전체에 연다](0019-dev-api-is-public.md),
 [0018 — 로그인은 구글·애플 소셜 로그인과 JWT](0018-social-login-with-jwt.md),
 [0017 — 환경 올리기·내리기 workflow와 Cloudflare DNS](0017-dev-lifecycle-and-cloudflare-dns.md).

@@ -1,15 +1,18 @@
 ---
 number: 0011
 title: 편의시설 카드는 네이버 장소의 비공식 호출로 채운다 — 데모 한정
-status: accepted
+status: superseded
 date: 2026-09-05
 supersedes:
-superseded-by:
+superseded-by: 0020
 amended-by: 0014
 amends:
 ---
 
 # ADR 0011: 편의시설 카드는 네이버 장소의 비공식 호출로 채운다 — 데모 한정
+
+> **대체됨 (2026-10-08):** [0020](./0020-poi-card-public-data-and-naver-link.md) — 베타 전에 비공식 호출을 내리고 우리
+> 공공데이터·리뷰와 네이버 지도 링크로 간다.
 
 > 0009·0010 은 길찾기 PR(MZ2AZ-296)에 있다. 번호가 비어 보이면 그쪽이 아직 안 합쳐진 것이다.
 
