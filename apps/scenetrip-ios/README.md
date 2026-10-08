@@ -69,7 +69,8 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 찜 | 서버(`/favorites/contents`)가 정본, 기기에는 사본 (MZ2AZ-335) |
 | 로그인 | 구글 로그인·토큰 키체인 저장·401 자동 갱신·로그아웃·탈퇴 (MZ2AZ-336). 애플 로그인은 자리만 |
 | 리뷰 보기 | 촬영지 상세·성지 카드·편의시설 카드의 별점 줄(「★4.6 · 리뷰 128」) → 리뷰 시트(요약·점수 막대·정렬·목록) — `Reviews/`. 서버가 별점을 안 실어 주면(옛 서버) 줄이 없다 (MZ2AZ-363) |
-| 리뷰 쓰기 | 리뷰 시트의 「리뷰 쓰기」 → 별점(필수)·글(선택, 2,000자). 한 곳에 한 개 — 있으면 고친다. 지우기는 고치는 화면 안에. 가입한 사람만(비회원은 로그인 화면을 거친다). **사진 올리기는 아직 없다** — 서버의 올리기 창구가 붙은 뒤 (MZ2AZ-363) |
+| 리뷰 쓰기 | 리뷰 시트의 「리뷰 쓰기」 → 별점(필수)·글(선택, 2,000자)·**사진(10장까지)**. 한 곳에 한 개 — 있으면 고친다. 지우기는 고치는 화면 안에. 가입한 사람만(비회원은 로그인 화면을 거친다) (MZ2AZ-363) |
+| 리뷰 사진 | 고르는 즉시 줄여서 올린다 — 긴 변 2,048px·JPEG 로 **다시 그려 촬영 위치 등 EXIF 를 뗀다**(`Models/PhotoShrink`) → `POST /uploads` → 저장소로 바로 PUT(`Reviews/PhotoUploader`) → 저장할 때 `photoKeys`. 칸마다 올리는 중·실패(다시 시도)·빼기, 올리는 중이거나 못 올린 사진이 있으면 저장하지 못한다. 목록과 「내 리뷰」 의 사진은 누르면 크게 넘겨 본다. 로컬 저장소는 클러스터 안 MinIO(`localhost:9000`) (MZ2AZ-363) |
 | 내 리뷰 | 마이페이지 「내 리뷰」 — 내가 쓴 리뷰 전부(촬영지·편의시설 섞어 최신순), 누르면 그 대상의 리뷰 시트. 탈퇴 확인 창에 「리뷰는 익명으로 남는다」 안내 (MZ2AZ-363) |
 | 닉네임 | 로그인 직후 한 번 묻고(건너뛸 수 있다) 마이페이지에서 바꾼다 — `Reviews/NicknameView`, `PUT /me/nickname`. **서버 구현(MZ2AZ-362) 전이라 저장은 실기로 확인하지 못했다.** 화면만 보려면 `-previewNickname` 실행 인자 (MZ2AZ-363) |
 | 분석 | Firebase Analytics(GA4)로 퍼널 이벤트를 기록한다. `resources/GoogleService-Info.plist`(저장소에 있다, Firebase 프로젝트 `scenetrip-5bf07`)가 있을 때만 켜진다 — 표는 `docs/project/plans/analytics-events.md` (MZ2AZ-353) |
@@ -231,6 +232,11 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
   영어를 적는다. `Text("…")` 처럼 글자를 바로 적는 자리는 그대로 번역되고, 문자열을 변수로 넘기거나 조립하면 `tr("…")` 로
   감싼다(`Models/AppLanguage.swift`). 숫자는 `String(format: tr("%d곳"), n)`. 같은 한국어가 자리마다 다른 영어여야 하면
   `tr("코스", at: "화면 제목")` + 열쇠 `코스|화면 제목`. 번역을 빠뜨리면 그 글자만 한국어로 남는다.
+- **사진을 고르고 줄이는 코드는 한 벌이다** (MZ2AZ-363): `Models/PhotoPickParts.swift`(「사진 추가」 칸·「빼기」 단추·고른 것 읽기)와
+  `Models/PhotoShrink.swift`(다시 그려 줄이기)를 여행후기 쓰기와 리뷰 쓰기가 같이 쓴다. 남에게 보이는 사진은 원본 파일을 그대로
+  올리지 않는다 — 다시 그려야 위치(GPS) EXIF 가 빠진다(`PhotoShrinkTests` 가 지킨다). 고른 파일은 통째로 풀지 않고 ImageIO 로 긴 변까지만 푼다
+  (`PhotoShrink.image(from:longest:)`) — 미리보기도 같은 길이라 투명 PNG 가 올라갈 파일처럼 흰 바탕으로 보인다. 고르는 창은 시스템 `PhotosPicker` 라
+  사진 보관함 권한(`NSPhotoLibraryUsageDescription`)이 필요 없다.
 - 로그인 코드는 `src/Auth/` 에 있다 (MZ2AZ-336). 구글 로그인은 GoogleSignIn SDK 로
   ID 토큰을 받는다(`GoogleOAuth.swift`, 의존성 선언은 `//:Package.swift`). 토큰 싣기와 401 처리(만료 → 갱신 한 번 → 재시도)는
   `AuthRequestBuilder.swift` 가 생성 클라이언트에 끼워 넣는다 — 화면 코드는 API 를 그냥 부른다.

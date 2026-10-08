@@ -102,10 +102,16 @@ struct MyReviewsView: View {
                         opening = review
                     } label: {
                         row(review)
-                            .padding(.horizontal, 16).padding(.vertical, 14)
+                            .padding(.horizontal, 16).padding(.top, 14)
+                            .padding(.bottom, review.photos.isEmpty ? 14 : 8)
                             .contentShape(.rect)
                     }
                     .buttonStyle(.plain)
+                    // 사진은 줄의 단추 밖에 둔다 — 줄을 누르면 그 대상의 리뷰로, 사진을 누르면 크게 보기로 간다.
+                    if !review.photos.isEmpty {
+                        ReviewPhotoThumbs(photos: review.photos, size: 64)
+                            .padding(.horizontal, 16).padding(.bottom, 14)
+                    }
                     Divider().padding(.leading, 16)
                 }
                 if ReviewRules.hasMore(loaded: reviews.count, total: total) {

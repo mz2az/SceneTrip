@@ -6,8 +6,9 @@ import SwiftUI
 /// 한 대상에 한 개라, 열 때 내 리뷰를 물어(`GET …/reviews/me`) 있으면 그것을 고치는 화면이 된다.
 /// **가입한 사람만** 쓴다 — 이 화면은 로그인한 뒤에만 뜬다(`ReviewsSheet` 가 가른다).
 ///
-/// 사진 올리기는 아직 없다 — 서버의 올리기 창구(`POST /uploads`)와 저장소가 붙은 뒤에 넣는다.
-/// 이미 사진이 붙은 리뷰를 고칠 때는 그 사진을 그대로 남긴다(계약: 보낸 `photoKeys` 가 전부다).
+/// 사진은 10장까지 — 고르는 즉시 줄여서 올리고(`ReviewPhotoDraft`), 저장할 때 그 키를 화면 순서대로 보낸다.
+/// 고칠 때는 붙어 있던 사진이 보이고 뺄 수 있다(계약: 보낸 `photoKeys` 가 전부다).
+/// 올리는 중이거나 못 올린 사진이 있으면 저장하지 못한다 — 사진이 말없이 빠진 리뷰를 만들지 않는다.
 struct ReviewComposeView: View {
     let subject: ReviewSubject
     let title: String
@@ -19,6 +20,7 @@ struct ReviewComposeView: View {
     @State private var existing: Review?
     @State private var rating = 0
     @State private var text = ""
+    @StateObject private var photos = ReviewPhotoDraft()
     @State private var working = false
     @State private var message: String?
     @State private var confirmingDelete = false
@@ -32,17 +34,17 @@ struct ReviewComposeView: View {
         case failed
     }
 
-    /// 고친 것이 있는가 — 새 리뷰는 별이나 글을 건드렸을 때.
+    /// 고친 것이 있는가 — 새 리뷰는 별이나 글이나 사진을 건드렸을 때.
     private var dirty: Bool {
         guard phase == .ready else { return false }
         if existing == nil {
-            return rating != 0 || ReviewRules.normalizedBody(text) != nil
+            return rating != 0 || ReviewRules.normalizedBody(text) != nil || photos.changed
         }
-        return ReviewRules.changed(from: existing, rating: rating, body: text)
+        return ReviewRules.changed(from: existing, rating: rating, body: text) || photos.changed
     }
 
     private var canSave: Bool {
-        !working && dirty && ReviewRules.canSave(rating: rating, body: text)
+        !working && dirty && ReviewRules.canSave(rating: rating, body: text) && photos.canSave
     }
 
     var body: some View {
@@ -77,6 +79,10 @@ struct ReviewComposeView: View {
             }
         }
         .task { await load() }
+        // 화면이 사라지면(저장·버리기·닫기) 올리던 사진을 그만둔다. 이미 올라간 것은 서버에 있어 영향이 없다.
+        .onDisappear { photos.cancel() }
+        // 가려졌다 돌아온 것이면(사라진 것이 아니면) 멈춘 사진을 잇는다.
+        .onAppear { photos.resume() }
         // 쓰던 것이 있으면 쓸어내려 닫히지 않는다 — 「취소」 가 버릴지 묻는다.
         .interactiveDismissDisabled(working || dirty)
         // 세션이 풀리면 로그인 화면이 이 화면 위로 올라와야 한다 — 밑의 시트는 이미 이 화면을 올리고 있다.
@@ -170,6 +176,8 @@ struct ReviewComposeView: View {
                     }
                 }
 
+                ReviewPhotoStrip(draft: photos, locked: working)
+
                 if existing != nil {
                     Button(role: .destructive) {
                         confirmingDelete = true
@@ -191,6 +199,7 @@ struct ReviewComposeView: View {
             existing = try await subject.myReview()
             rating = existing?.rating ?? 0
             text = existing?.body ?? ""
+            photos.start(with: existing?.photos ?? [])
             phase = .ready
         } catch {
             phase = .failed
@@ -206,10 +215,9 @@ struct ReviewComposeView: View {
             defer { working = false }
             do {
                 let wasNew = existing == nil
-                // 이미 붙어 있던 사진은 그대로 남긴다 — 빼고 보내면 지워진다.
+                // 화면에 남아 있는 사진이 전부다 — 붙어 있던 것은 그 키로, 새로 올린 것은 새 키로, 보이는 순서대로.
                 let saved = try await subject.save(
-                    rating: rating, body: ReviewRules.normalizedBody(text),
-                    photoKeys: existing?.photos.map(\.key) ?? []
+                    rating: rating, body: ReviewRules.normalizedBody(text), photoKeys: photos.keys
                 )
                 AppAnalytics.log(.writeReview(
                     targetType: subject.kind, rating: saved.rating,
@@ -218,6 +226,12 @@ struct ReviewComposeView: View {
                 onChanged()
                 dismiss()
             } catch {
+                // 서버가 사진 키를 거절했다 — 이번에 올린 사진을 「다시 시도」 로 돌려놓는다.
+                if case let ErrorResponse.error(_, data, _, _) = error,
+                   AuthRules.apiCode(from: data) == "REVIEW_PHOTO_INVALID"
+                {
+                    photos.rejectUploaded()
+                }
                 message = failureText(error)
             }
         }
@@ -251,6 +265,7 @@ struct ReviewComposeView: View {
             switch code {
             case "SIGN_IN_REQUIRED": return tr("로그인한 뒤에 쓸 수 있어요")
             case "REVIEW_PHOTO_INVALID": return tr("사진을 다시 올려 주세요")
+            case "RATE_LIMITED": return tr("요청이 많아요. 잠시 뒤 다시 시도해 주세요")
             default: break
             }
         }

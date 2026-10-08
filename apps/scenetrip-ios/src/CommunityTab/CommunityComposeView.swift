@@ -87,25 +87,17 @@ struct CommunityComposeView: View {
     private var photoStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
-                PhotosPicker(
-                    selection: $picked, maxSelectionCount: Self.photoLimit, matching: .images
-                ) {
-                    VStack(spacing: 6) {
-                        Image(systemName: "photo.badge.plus").font(.system(size: 22))
-                        Text("\(photos.count)/\(Self.photoLimit)").font(.caption2)
-                    }
-                    .foregroundStyle(.secondary)
-                    .frame(width: 92, height: 92)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(Color(.systemGray6)))
-                }
-                .accessibilityLabel("사진 추가")
+                PhotoAddTile(
+                    selection: $picked, count: photos.count, limit: Self.photoLimit,
+                    maxSelection: Self.photoLimit
+                )
 
                 ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
                     Image(uiImage: photo)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 92, height: 92)
-                        .clipShape(.rect(cornerRadius: 14))
+                        .frame(width: PhotoPick.tile, height: PhotoPick.tile)
+                        .clipShape(.rect(cornerRadius: PhotoPick.corner))
                         .overlay(alignment: .bottomLeading) {
                             if index == 0 {
                                 Text("대표")
@@ -117,17 +109,7 @@ struct CommunityComposeView: View {
                             }
                         }
                         .overlay(alignment: .topTrailing) {
-                            Button {
-                                remove(at: index)
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 20))
-                                    .symbolRenderingMode(.palette)
-                                    .foregroundStyle(.white, .black.opacity(0.55))
-                                    .padding(4)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("사진 빼기")
+                            PhotoRemoveBadge { remove(at: index) }
                         }
                 }
             }
@@ -138,7 +120,8 @@ struct CommunityComposeView: View {
     private func load(_ items: [PhotosPickerItem]) async {
         var loaded: [UIImage] = []
         for item in items {
-            if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) {
+            // 저장할 크기로만 푼다 — 원본 여덟 장을 통째로 쥐지 않는다.
+            if let image = await PhotoPick.image(from: item, longest: CommunityStore.photoLongest) {
                 loaded.append(image)
             }
         }
