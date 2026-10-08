@@ -79,7 +79,7 @@ AWS도 HTTP/HTTPS에는 [ALB 사용을 권장](https://docs.aws.amazon.com/eks/l
 ALB는 TLS와 HTTP 라우팅을, nginx는 SceneTrip의 세부 경로 허용 목록·본문 1 MiB 제한·
 IP별 요청/연결 제한·내부 헤더 제거를 맡는다. ALB만 추가한다고 이 정책들이 자동 제공되지는
 않는다. AWS WAF는 현재 배포 범위에 포함하지 않았다.
-요청 제한 10r/s·burst 20과 동시 연결 20은 **gateway Pod별**로 적용된다. PRD의 gateway
+요청 제한 30r/s·burst 60과 동시 연결 60은(2026-10-08 완화 — IP 는 폭주만 막는 바깥 울타리, 실제 한도는 계정 기준으로 scene-api 가 센다, MZ2AZ-334) **gateway Pod별**로 적용된다. PRD의 gateway
 replica 둘이 카운터를 공유하지 않으므로 서비스 전체에 대한 전역 사용자 할당량은 아니다.
 
 Helm의 `IngressClassParams`는 public subnet을 고정하고, `IngressClass`는

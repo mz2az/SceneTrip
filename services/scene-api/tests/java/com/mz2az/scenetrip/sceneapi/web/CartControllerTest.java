@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.mz2az.scenetrip.sceneapi.api.model.CartItem;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.cart.CartStore;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -33,6 +34,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(CartController.class)
 @Import(LanguageConfiguration.class)
 class CartControllerTest {
+
+  /** 분당 상한 필터(RequestRateLimitFilter)가 Bearer 토큰을 읽는다 — 이 시험은 토큰을 보내지 않는다. */
+  @MockitoBean private AccessTokens rateLimitTokens;
 
   /** {@code X-Install-Id} 로 오는 값 — 앱이 만든 설치 UUID 다. */
   private static final String INSTALL_ID = "3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";

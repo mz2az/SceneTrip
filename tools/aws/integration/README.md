@@ -19,7 +19,7 @@ Bazel이 `MODULE.bazel`의 digest로 고정한 PostGIS·nginx 이미지를 tar�
 | Gateway | 실제 Helm 출력에서 nginx 설정 추출, 고정 nginx 이미지에서 ALB 모의 relay→gateway→backend HTTP 요청 |
 | 컨테이너 제한 | nginx UID/GID 10001, 읽기 전용 root filesystem, capability 제거, 쓰기 가능한 `/tmp`만 허용 |
 | 외부 경계 | relay가 실제 TCP client IP를 XFF 마지막에 추가. 위조된 이전 XFF·X-Real-IP 제거, 승인되지 않은 client·gateway 직접 접근 403, Host·내부 경로 우회 차단 |
-| 요청 제한 | 위조 XFF를 매번 바꿔도 동일 실제 client의 80회 burst는 429. 다른 승인 client IP의 요청은 정상 처리 |
+| 요청 제한 | 위조 XFF를 매번 바꿔도 동일 실제 client의 300회 순차 burst는 429(30r/s·burst 60 을 넘긴다). 다른 승인 client IP의 요청은 정상 처리 |
 
 proxy 시험은 허용 client 2개와 비허용 client, ALB 동작을 모사한 nginx relay를 각각 다른
 컨테이너 IP로 실행한다. gateway는 relay IP만 신뢰하며 모든 컨테이너 포트는 외부에

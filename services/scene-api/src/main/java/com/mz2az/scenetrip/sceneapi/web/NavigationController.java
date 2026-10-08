@@ -5,6 +5,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.NextLeg;
 import com.mz2az.scenetrip.sceneapi.api.model.NextLegRequest;
 import com.mz2az.scenetrip.sceneapi.course.CourseStore;
+import com.mz2az.scenetrip.sceneapi.limit.PaidQuota;
 import com.mz2az.scenetrip.sceneapi.navigation.Coordinate;
 import com.mz2az.scenetrip.sceneapi.navigation.NextLegPlanner;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
@@ -34,14 +35,20 @@ class NavigationController implements NavigationApi {
   private final NextLegPlanner planner;
   private final CourseStore courses;
   private final UserStore users;
+  private final PaidQuota quota;
   private final CurrentAccount accounts;
 
   NavigationController(
-      NextLegPlanner planner, CourseStore courses, UserStore users, CurrentAccount accounts) {
+      NextLegPlanner planner,
+      CourseStore courses,
+      UserStore users,
+      CurrentAccount accounts,
+      PaidQuota quota) {
     this.planner = planner;
     this.courses = courses;
     this.users = users;
     this.accounts = accounts;
+    this.quota = quota;
   }
 
   @Override
@@ -71,11 +78,30 @@ class NavigationController implements NavigationApi {
                         "코스 " + courseId + " 에 항목 " + itemId + " 이(가) 없습니다"));
 
     // 코스가 내준 좌표를 길찾기 타입으로. 두 패키지가 서로 모르고 여기서만 만난다.
-    NextLeg leg =
-        planner.plan(
-            new Coordinate(request.getLatitude(), request.getLongitude()),
-            new Coordinate(target.latitude(), target.longitude()),
-            acceptLanguage);
-    return ResponseEntity.ok(leg);
+    // 한도는 카카오를 부르기 직전에 센다(rate-limit.md §3). 카카오가 답하지 못하면(503) 되돌린다 —
+    // 경로가 없음(422)은 카카오가 답한 것이라 센다.
+    PaidQuota.Grant grant;
+    try {
+      grant = quota.consume(user, PaidQuota.Feature.NAVIGATION);
+    } catch (PaidQuota.LimitExceeded e) {
+      throw QuotaResponses.tooMany(e);
+    }
+    NextLeg leg;
+    try {
+      leg =
+          planner.plan(
+              new Coordinate(request.getLatitude(), request.getLongitude()),
+              new Coordinate(target.latitude(), target.longitude()),
+              acceptLanguage);
+    } catch (ApiException e) {
+      if (e.getStatus().is5xxServerError()) {
+        quota.refund(grant);
+      }
+      throw e;
+    } catch (RuntimeException e) {
+      quota.refund(grant);
+      throw e;
+    }
+    return QuotaResponses.ok(grant).body(leg);
   }
 }

@@ -67,7 +67,9 @@ data:
         default 0;
         "1:1" 1;
       }
-      limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+      # IP 당 상한은 폭주만 막는 바깥 울타리다 — LTE 는 통신사 CGNAT 로 많은 사용자가 IP 하나를 함께 쓴다. 실제 한도는
+      # 계정 기준으로 scene-api 가 센다(MZ2AZ-334, docs/project/plans/rate-limit.md).
+      limit_req_zone $binary_remote_addr zone=api:10m rate=30r/s;
       limit_conn_zone $binary_remote_addr zone=connections:10m;
       server {
         listen 8080 default_server;
@@ -85,9 +87,9 @@ data:
         location ~* ^/v1/(actuator|internal)(/|$) { return 404; }
         location ~ ^/v1/(search|contents|places|pois|cart|courses|favorites|market|navigation|guide|auth|me|uploads)(/|$) {
           if ($api_allowed = 0) { return 403; }
-          limit_req zone=api burst=20 nodelay;
+          limit_req zone=api burst=60 nodelay;
           limit_req_status 429;
-          limit_conn connections 20;
+          limit_conn connections 60;
           proxy_pass http://scene-api:8080;
           proxy_http_version 1.1;
           proxy_set_header Host $host;

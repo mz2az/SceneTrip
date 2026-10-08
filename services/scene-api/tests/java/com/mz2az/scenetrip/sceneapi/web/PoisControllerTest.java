@@ -23,6 +23,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.PoiDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiImage;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.RatingSummary;
+import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStore;
 import com.mz2az.scenetrip.sceneapi.poi.naver.PoiCardService;
@@ -48,6 +49,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(PoisController.class)
 @Import(LanguageConfiguration.class)
 class PoisControllerTest {
+
+  /** 분당 상한 필터(RequestRateLimitFilter)가 Bearer 토큰을 읽는다 — 이 시험은 토큰을 보내지 않는다. */
+  @MockitoBean private AccessTokens rateLimitTokens;
 
   @Autowired private MockMvc mvc;
   @MockitoBean private PoiStore store;

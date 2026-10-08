@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.sceneapi.web;
 
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 
 /**
@@ -16,11 +17,27 @@ public class ApiException extends RuntimeException {
 
   private final HttpStatus status;
   private final String code;
+  private final Map<String, String> headers;
 
   private ApiException(HttpStatus status, String code, String message) {
+    this(status, code, message, Map.of());
+  }
+
+  private ApiException(
+      HttpStatus status, String code, String message, Map<String, String> headers) {
     super(message);
     this.status = status;
     this.code = code;
+    this.headers = Map.copyOf(headers);
+  }
+
+  /**
+   * 한도를 넘었다(429, 계약 「요청 한도」). {@code headers} 는 {@code Retry-After} · {@code RateLimit-*} — 앱이 언제
+   * 다시 보낼지, 얼마나 남았는지 읽는다.
+   */
+  public static ApiException tooManyRequests(
+      String code, String message, Map<String, String> headers) {
+    return new ApiException(HttpStatus.TOO_MANY_REQUESTS, code, message, headers);
   }
 
   /** 요청이 규칙에 맞지 않는다. 클라이언트가 고치기 전에는 재시도해도 같은 결과다. */
@@ -96,5 +113,10 @@ public class ApiException extends RuntimeException {
 
   public String getCode() {
     return code;
+  }
+
+  /** 응답에 함께 실을 헤더. 대개 비어 있다. */
+  public Map<String, String> getHeaders() {
+    return headers;
   }
 }

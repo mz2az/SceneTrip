@@ -25,6 +25,9 @@ http {
   scgi_temp_path /tmp/scgi;
 """
 
+# IP 상한(30r/s, burst 60)을 기계 속도와 무관하게 넘기는 순차 요청 수.
+BURST_REQUESTS = 300
+
 
 class GatewayTests(DockerTest):
     # gateway.public 값. 기존(비공개) 동작은 명시적으로 false 로 렌더한다.
@@ -266,16 +269,18 @@ class GatewayTests(DockerTest):
     def assert_rate_limit_uses_actual_client(self, client=None, path="/v1/places"):
         # Docker exec 자체의 지연을 제외하고 동일 client에서 실제 HTTP burst를 보낸다.
         # 위조 XFF를 바꿔도 실제 IP bucket을 우회할 수 없어야 한다.
+        # 상한이 30r/s·burst 60 이라(MZ2AZ-334) 순차 요청 N 개가 막히려면 N > 61 + 30×(걸린 초) 여야 한다.
+        # 80 개는 1 초 안팎이면 통과해 버려 결과가 기계 속도에 달렸다 — 300 개면 요청당 25ms 까지 429 가 난다.
         burst = """i=1
-while [ "$i" -le 80 ]; do
+while [ "$i" -le BURST ]; do
   wget -S -O /dev/null -T 3 --header 'Host: api.example.test' \
     --header "X-Forwarded-For: 198.51.100.$i" http://alb-relay:8080PATH 2>&1
   i=$((i + 1))
 done
-""".replace("PATH", path)
+""".replace("PATH", path).replace("BURST", str(BURST_REQUESTS))
         result = self.command("exec", client or self.client, "sh", "-c", burst)
         statuses = re.findall(r"^\s+HTTP/\d\.\d (\d{3})", result.stdout, re.MULTILINE)
-        self.assertEqual(len(statuses), 80)
+        self.assertEqual(len(statuses), BURST_REQUESTS)
         self.assertTrue(set(statuses).issubset({"200", "429"}), set(statuses))
         self.assertIn("429", statuses, "동일 실제 client의 burst가 제한되지 않았습니다")
         self.assertEqual(self.request("/v1/places", client=self.other_client)[0], 200)
