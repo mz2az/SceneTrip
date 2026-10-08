@@ -18,7 +18,7 @@ ALB는 X-Forwarded-For에 실제 클라이언트 주소를 추가한다. nginx�
 public subnet CIDR만 신뢰하고 `real_ip_recursive off`로 마지막 주소를 사용한다.
 연결한 peer가 ALB subnet에 있고 실제 클라이언트가 허용 CIDR에 있을 때만(DEV 는 모든 client) API를 전달한다.
 위조된 앞쪽 헤더와 직접 gateway 연결은 이 경계를 통과하지 못한다. 속도 제한은
-클라이언트 IP당 gateway Pod별 10r/s이며 전역 합산 제한은 아니다.
+클라이언트 IP당 gateway Pod별 30r/s(burst 60, 동시 60)이며 전역 합산 제한은 아니다.
 
 전용 ALB 보안 그룹의 443 허용 CIDR과 클러스터 보안 그룹의 ALB SG → 8080 규칙은
 Terraform이 관리한다. custom SG 사용 시 `inbound-cidrs` annotation은 보안 규칙을

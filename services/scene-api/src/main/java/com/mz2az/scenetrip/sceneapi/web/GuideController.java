@@ -8,10 +8,17 @@ import com.mz2az.scenetrip.sceneapi.api.model.GuidePlanRequest;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.guide.GuideAgentClient;
 import com.mz2az.scenetrip.sceneapi.guide.GuideEffectApplier;
+import com.mz2az.scenetrip.sceneapi.guide.IdempotencyStore;
+import com.mz2az.scenetrip.sceneapi.limit.PaidQuota;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 여행 가이드 — 챗봇 한 턴과 일정짜기 마법사.
@@ -39,33 +46,100 @@ class GuideController implements GuideApi {
   private final GuideEffectApplier effects;
   private final UserStore users;
   private final CurrentAccount accounts;
+  private final PaidQuota quota;
+  private final IdempotencyStore idempotency;
+  private final JsonMapper json;
 
   GuideController(
       GuideAgentClient agent,
       GuideEffectApplier effects,
       UserStore users,
-      CurrentAccount accounts) {
+      CurrentAccount accounts,
+      PaidQuota quota,
+      IdempotencyStore idempotency,
+      JsonMapper json) {
     this.agent = agent;
     this.effects = effects;
     this.users = users;
     this.accounts = accounts;
+    this.quota = quota;
+    this.idempotency = idempotency;
+    this.json = json;
   }
 
   @Override
   public ResponseEntity<GuideChatReply> chatWithGuide(
       UUID xInstallId, GuideChatRequest request, Lang acceptLanguage, String idempotencyKey) {
-    // idempotencyKey(계약 1.5.0)는 아직 받기만 한다 — 저장·재생과 한도는 MZ2AZ-334 서버 구현에서
-    // (docs/project/plans/rate-limit.md §5). 그때까지는 키가 있어도 예전처럼 매번 처리한다.
 
     UUID user = accounts.resolve(xInstallId);
     if (!users.isRegistered(user)) {
       throw ApiException.signInRequired("SIGN_IN_REQUIRED", "이 동작은 가입한 사용자만 할 수 있습니다");
     }
 
-    GuideChatReply reply = agent.chat(request, acceptLanguage);
-    // cart.* 만 DB 에. plan.* 과 ui 는 손대지 않고 앱으로 간다.
-    effects.apply(user, reply.getEffects());
-    return ResponseEntity.ok(reply);
+    // 멱등 키(계약 1.5.0, rate-limit.md §5). 같은 키는 한 번만 처리하고 그 뒤에는 저장한 답을 준다 —
+    // 모델을 다시 부르지 않고 한도도 깎지 않는다. 키가 없으면 예전처럼 매번 처리한다.
+    String key = idempotencyKey == null || idempotencyKey.isBlank() ? null : idempotencyKey;
+    if (key != null) {
+      switch (idempotency.begin(user, key, requestHash(request, acceptLanguage))) {
+        case IdempotencyStore.Begin.Replay r -> {
+          return ResponseEntity.ok().body(json.readValue(r.responseJson(), GuideChatReply.class));
+        }
+        case IdempotencyStore.Begin.InProgress i ->
+            throw ApiException.conflict(
+                "IDEMPOTENCY_IN_PROGRESS", "같은 Idempotency-Key 의 턴이 아직 처리 중입니다");
+        case IdempotencyStore.Begin.Mismatch m ->
+            throw ApiException.unprocessable(
+                "IDEMPOTENCY_KEY_REUSED", "같은 Idempotency-Key 로 다른 내용을 보냈습니다");
+        case IdempotencyStore.Begin.Started s -> {}
+      }
+    }
+
+    // 한도는 모델을 부르기 직전에 센다. 에이전트가 답하지 못하면 되돌린다 — 사용자 몫이 아니다.
+    PaidQuota.Grant grant;
+    try {
+      grant = quota.consume(user, PaidQuota.Feature.GUIDE_CHAT);
+    } catch (PaidQuota.LimitExceeded e) {
+      if (key != null) {
+        idempotency.abandon(user, key);
+      }
+      throw QuotaResponses.tooMany(e);
+    }
+    GuideChatReply reply;
+    try {
+      reply = agent.chat(request, acceptLanguage);
+    } catch (RuntimeException e) {
+      quota.refund(grant);
+      if (key != null) {
+        idempotency.abandon(user, key);
+      }
+      throw e;
+    }
+    try {
+      // cart.* 만 DB 에. plan.* 과 ui 는 손대지 않고 앱으로 간다.
+      effects.apply(user, reply.getEffects());
+    } catch (RuntimeException e) {
+      // 모델은 이미 답했다(토큰이 나갔다) — 한도는 되돌리지 않는다. 키만 지워 재시도가 다시 처리되게.
+      if (key != null) {
+        idempotency.abandon(user, key);
+      }
+      throw e;
+    }
+    if (key != null) {
+      idempotency.complete(user, key, json.writeValueAsString(reply));
+    }
+    return QuotaResponses.ok(grant).body(reply);
+  }
+
+  /** 같은 키에 같은 내용인가를 가리는 지문 — 본문과 언어. */
+  private String requestHash(GuideChatRequest request, Lang lang) {
+    try {
+      MessageDigest sha = MessageDigest.getInstance("SHA-256");
+      sha.update(json.writeValueAsBytes(request));
+      sha.update((lang == null ? "" : lang.getValue()).getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(sha.digest());
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   @Override

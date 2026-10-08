@@ -99,6 +99,20 @@ management:
 # 우회 계수는 직선거리가 실제 도로보다 짧다는 것을 메우는 값이다. 데이터가 쌓이면
 # 코드를 고치지 않고 여기서 조정한다.
 scenetrip:
+  # 요청 한도(MZ2AZ-334, 계약 「요청 한도」, docs/project/plans/rate-limit.md). 폭주·버그·악용을 막는 값이다 — 보통
+  # 사용자는 걸리지 않는다. 숫자는 요금제별이고 지금은 free 하나. 유료화하면 요금제를 더하고 계정의 요금제로 고른다.
+  # 챗봇·길찾기는 DB 로 정확히(돈이 든다), 일반 분당 상한은 서버(파드)마다 메모리로 센다. 하루는 한국 시간 자정.
+  limits:
+    plans:
+      free:
+        guide-chat:
+          per-hour: 15
+          per-day: 100
+        navigation:
+          per-minute: 10
+          per-day: 300
+        requests-per-minute: 120
+    guest-requests-per-minute: 60
   # 사용자 사진 저장소(리뷰 사진) — S3 버킷 scenetrip-user-media-<계정>-<리전>-<환경>, bootstrap 이 만든다
   # (docs/project/plans/review.md §13). 비어 있으면 서버는 뜨고 사진 올리기만 503 이다(PhotoStorageConfiguration).
   # DEV·PRD 는 배포가 Helm ConfigMap 으로 버킷 이름만 넣고 자격 증명은 EKS Pod Identity(SDK 기본 사슬). 로컬은 kind

@@ -46,7 +46,9 @@ class ApiExceptionHandler {
     if (e.getStatus().is5xxServerError()) {
       body.traceId(currentTraceId());
     }
-    return ResponseEntity.status(e.getStatus()).body(body);
+    ResponseEntity.BodyBuilder response = ResponseEntity.status(e.getStatus());
+    e.getHeaders().forEach((name, value) -> response.header(name, value));
+    return response.body(body);
   }
 
   /**
