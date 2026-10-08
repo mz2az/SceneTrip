@@ -53,7 +53,9 @@ class GuideController implements GuideApi {
 
   @Override
   public ResponseEntity<GuideChatReply> chatWithGuide(
-      UUID xInstallId, GuideChatRequest request, Lang acceptLanguage) {
+      UUID xInstallId, GuideChatRequest request, Lang acceptLanguage, String idempotencyKey) {
+    // idempotencyKey(계약 1.5.0)는 아직 받기만 한다 — 저장·재생과 한도는 MZ2AZ-334 서버 구현에서
+    // (docs/project/plans/rate-limit.md §5). 그때까지는 키가 있어도 예전처럼 매번 처리한다.
 
     UUID user = accounts.resolve(xInstallId);
     if (!users.isRegistered(user)) {

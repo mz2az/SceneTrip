@@ -38,6 +38,7 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 | `403` | 남의 것을 고치거나 지우려 함 | 그 동작 버튼을 애초에 보이지 않게 한다 |
 | `409` | 이미 있는 것을 또 만들려 함 | 충돌 안내를 띄운다 (예: "이미 저장된 장소입니다") |
 | `422` | 요청은 맞는데 처리할 수 없는 상태 — 길찾기에서 경로가 없음 | 「경로 없음」 안내. **재시도해도 같다** |
+| `429` | 한도를 넘었다 — 분당 요청, 또는 챗봇·길찾기의 시간·하루 한도 | `code` 로 가른다(아래). 분당이면 `Retry-After` 초 뒤, 하루 한도면 기다리지 않고 안내 |
 | `500` | 서버 결함 | 재시도 가능. `traceId` 를 남긴다 |
 | `503` | 외부 제공자(길찾기)가 응답하지 않거나 호출 한도 초과 | **잠시 뒤 재시도.** `traceId` 를 남긴다 |
 
@@ -113,6 +114,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `code` | 뜻 |
 | --- | --- |
 | `DUPLICATE_CART_ITEM` | 이미 담긴 장소를 또 담으려 했다 |
+| `IDEMPOTENCY_IN_PROGRESS` | 같은 `Idempotency-Key` 의 가이드 턴이 아직 처리 중이다(두 번 누름). 첫 응답을 기다리거나 잠시 뒤 같은 키로 |
 | `NICKNAME_TAKEN` | 다른 사람이 쓰는 닉네임이다(영문 대소문자는 같은 것으로 본다) |
 | `COURSE_SHORTER_THAN_PROGRESS` | 여행 중인 코스를 지금 걷고 있는 일차보다 짧게 줄이려 했다. 3일차를 걷는 중이면 2일 코스로 만들 수 없다 |
 | `COURSE_ALREADY_PUBLISHED` | 그 코스는 이미 마켓에 올라가 있다. 한 코스에서 살아 있는 사본은 하나뿐이라 내린 뒤에 다시 올린다 |
@@ -120,16 +122,28 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 
 ### 처리 불가 (`422`)
 
-길찾기(`POST /navigation/next-leg`)에서만 난다. 요청도 코스도 멀쩡한데 **경로가
+길찾기(`POST /navigation/next-leg`)의 경로 없음과 가이드 챗봇의 멱등 키 재사용이다. 길찾기는 요청도 코스도 멀쩡한데 **경로가
 없다.** 사용자 잘못이 아니고 다시 불러도 같은 답이라 `400` 도 `500` 도 아니다.
 
 | `code` | 뜻 |
 | --- | --- |
+| `IDEMPOTENCY_KEY_REUSED` | 같은 `Idempotency-Key` 로 다른 내용의 가이드 턴을 보냈다. 앱 버그 — 새 메시지에는 새 키 |
 | `ROUTE_NOT_FOUND` | 대중교통도 도보도 경로를 못 찾았다. 섬·산속처럼 길 자체가 안 이어지는 곳이거나, 걸어가기에는 너무 먼 곳이다(카카오 `TOO_FAR_AWAY` — 시뮬레이터 위치가 코스와 수백 km 떨어졌을 때 흔하다) |
 | `NO_TRANSIT_NEARBY` | 출발지 또는 목적지 근처에 정류장이 없다. 대중교통이 닿지 않는 자리다 — 걷는 길은 따로 물어볼 수 있다 |
 
 출발지와 목적지가 같은 것(`EQUAL_POINTS`)은 오류가 아니다 — `200` 에 `legs: []` 로
 온다. 이미 도착한 것이다.
+
+### 한도 초과 (`429`)
+
+| `code` | 뜻 | 앱이 할 일 |
+| --- | --- | --- |
+| `RATE_LIMITED` | 계정(비회원은 설치 UUID)의 분당 요청 상한을 넘었다 | `Retry-After` 초 뒤 다시 |
+| `GUIDE_LIMIT_REACHED` | 가이드 챗봇의 1 시간 또는 하루 한도를 넘었다 | 「잠시 뒤 다시」, 일정짜기 마법사(`/guide/plan`)로 안내 |
+| `NAVIGATION_LIMIT_REACHED` | 여행 중 길찾기의 1 분 또는 하루 한도를 넘었다 | 카카오맵·네이버지도 앱으로 넘긴다 |
+
+응답 헤더 `Retry-After` · `RateLimit-Limit` · `RateLimit-Remaining` · `RateLimit-Reset`. 숫자는 요금제별 설정이다
+([rate-limit.md](../project/plans/rate-limit.md)).
 
 ### 일시 장애 (`503`)
 
