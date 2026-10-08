@@ -75,7 +75,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 내 리뷰 | 마이페이지 「내 리뷰」 — 내가 쓴 리뷰 전부(촬영지·편의시설 섞어 최신순), 누르면 그 대상의 리뷰 시트. 탈퇴 확인 창에 「리뷰는 익명으로 남는다」 안내 (MZ2AZ-363) |
 | 닉네임 | 로그인 직후 한 번 묻고(건너뛸 수 있다) 마이페이지에서 바꾼다 — `Reviews/NicknameView`, `PUT /me/nickname`. **서버 구현(MZ2AZ-362) 전이라 저장은 실기로 확인하지 못했다.** 화면만 보려면 `-previewNickname` 실행 인자 (MZ2AZ-363) |
 | 분석 | Firebase Analytics(GA4)로 퍼널 이벤트를 기록한다. `resources/GoogleService-Info.plist`(저장소에 있다, Firebase 프로젝트 `scenetrip-5bf07`)가 있을 때만 켜진다 — 표는 `docs/project/plans/analytics-events.md` (MZ2AZ-353) |
-| 언어 | 한국어·English 를 앱 안에서 고른다(첫 실행, 마이페이지 → 도움 → 언어). 화면 문구와 `Accept-Language` 가 함께 바뀐다 (MZ2AZ-343) |
+| 언어 | 한국어·English 를 앱 안에서 고른다(첫 실행, 마이페이지 → 도움 → 언어). 화면 문구와 `Accept-Language` 가 함께 바뀐다 (MZ2AZ-343). 시스템이 주는 글자(시트 바깥 「팝업 닫기」 낭독, 사진 고르기, 권한 창)는 고른 언어를 `AppleLanguages` 에 적어 **다음 실행부터** 따른다 — 번역 표로는 못 바꾼다. 네이버 지도의 바탕 라벨도 같이 바뀐다(영어면 영어+한국어 병기) (MZ2AZ-367) |
 | 발자취 | **개인정보로 다룬다** — 기기에만 저장, 기본 꺼짐·동의 후 기록, 로그아웃·탈퇴 때 삭제 (MZ2AZ-348) |
 | 커뮤니티 글·방문 스탬프 일부 | 기기(UserDefaults) 저장 — 맥마다 따로 논다. 내 글의 글쓴이 이름은 **지금 로그인한 계정의 닉네임**이고(글에 저장하지 않고 그릴 때 본다), 로그아웃하면 「나」다 — `CommunityPost.authorName` (MZ2AZ-351) |
 

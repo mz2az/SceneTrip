@@ -77,6 +77,27 @@ final class PoiLabelTests: XCTestCase {
         XCTAssertEqual(shown.reading, "Myeongdonghaemultang")
     }
 
+    /// 한 줄로 적는 자리(리뷰 시트 머리줄)는 카드와 같은 순서로 잇는다 (MZ2AZ-367).
+    func testHeadingJoinsTitleAndTheLineBeneath() {
+        XCTAssertEqual(label(name: "트로", nameRoman: "Teuro").heading, "트로 · Teuro")
+        XCTAssertEqual(
+            label(name: "전주식당", displayName: "Jeonju Restaurant").heading, "Jeonju Restaurant · 전주식당"
+        )
+        // 한국어 화면과 아랫줄이 없는 이름은 제목만.
+        XCTAssertEqual(label(name: "트로", nameRoman: "Teuro", korean: true).heading, "트로")
+        XCTAssertEqual(label(name: "GS25", nameRoman: "GS25").heading, "GS25")
+    }
+
+    /// 좁은 자리는 한 줄로 이은 것을 다시 제목 / 아랫줄로 나눈다 — 「 · 」 자리에서만 끊는다.
+    func testHeadingSplitsBackIntoTwoLines() {
+        let long = PoiLabel.lines(of: "Starbucks Suwon Jowon DT · 스타벅스 수원조원DT")
+        XCTAssertEqual(long.title, "Starbucks Suwon Jowon DT")
+        XCTAssertEqual(long.reading, "스타벅스 수원조원DT")
+        // 촬영지·한국어 화면처럼 한 줄뿐이면 그대로.
+        XCTAssertEqual(PoiLabel.lines(of: "경기 광주 참조은병원").title, "경기 광주 참조은병원")
+        XCTAssertNil(PoiLabel.lines(of: "경기 광주 참조은병원").reading)
+    }
+
     func testKoreanScreenWithoutCategory() {
         XCTAssertNil(label(category: nil, korean: true).category)
     }

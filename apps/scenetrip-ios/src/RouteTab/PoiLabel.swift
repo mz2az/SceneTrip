@@ -30,6 +30,25 @@ struct PoiLabel: Equatable {
         roman ?? title
     }
 
+    /// **한 줄로 적을 때** — 리뷰 시트·리뷰 쓰기의 머리줄처럼 두 줄을 못 쓰는 자리(MZ2AZ-367).
+    /// 카드와 같은 순서로 잇는다: 「트로 · Teuro」, 「Jeonju Restaurant · 전주식당」. 아랫줄이 없으면 제목만.
+    var heading: String {
+        Self.heading(title: title, reading: reading)
+    }
+
+    static func heading(title: String, reading: String?) -> String {
+        reading.map { "\(title)\(separator)\($0)" } ?? title
+    }
+
+    private static let separator = " · "
+
+    /// 한 줄로 이은 것을 **다시 두 줄로** — 리뷰 쓰기 머리줄처럼 좁은 자리는 카드와 같이 제목 / 작은 아랫줄로
+    /// 적는다. 그냥 줄을 바꾸게 두면 한국어 이름 가운데서 끊겼다(「스타벅스 / 수원조원DT」).
+    static func lines(of heading: String) -> (title: String, reading: String?) {
+        guard let cut = heading.range(of: separator) else { return (heading, nil) }
+        return (String(heading[..<cut.lowerBound]), String(heading[cut.upperBound...]))
+    }
+
     static func make(
         name: String, displayName: String?, nameRoman: String?,
         category: String?, categoryLabel: String?,

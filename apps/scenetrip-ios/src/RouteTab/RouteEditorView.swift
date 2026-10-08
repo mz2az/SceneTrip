@@ -96,6 +96,9 @@ struct RouteEditorView: View {
     /// 발자취 — 지도에 황금 발자국으로 그린다. 보기 토글은 지도 오른쪽 위.
     @ObservedObject var footprints = FootprintStore.shared
 
+    /// 화면 바닥에 뜬 카드의 윗변 높이(바닥 여백 포함). 해태 동그라미가 그 위로 비킨다(`guideCardTop`).
+    @State var cardHeight: CGFloat = 0
+
     /// 지도 위 도착 알림 카드의 높이. 오른쪽 위 단추들이 그만큼 내려온다.
     @State var tripBannerHeight: CGFloat = 0
 
@@ -217,22 +220,25 @@ struct RouteEditorView: View {
         // 시트가 열려 있을 때는 여기 안 띄운다 — 시트가 바닥을 덮고 있어서 가려진다.
         // 그때는 시트 안에 뜬다(`RouteGuideSheet`).
         .overlay(alignment: .bottom) {
-            if let picked = guide.picked, !showGuide {
-                RoutePlaceCard(
-                    place: picked,
-                    onAdd: {
-                        add([picked.asPlaceSummary], pinned: true, asNext: true)
-                        guide.picked = nil // 담았으면 카드는 할 일을 다 했다
-                    },
-                    added: isAdded(picked),
-                    onRemove: { removeGuidePlace(picked) },
-                    onClose: { guide.picked = nil }
-                )
-                .padding(.horizontal, 12)
-                .padding(.bottom, 90) // 「저장하고 닫기」 줄 위
-            } else {
-                stopCardOverlay
+            Group {
+                if let picked = guide.picked, !showGuide {
+                    RoutePlaceCard(
+                        place: picked,
+                        onAdd: {
+                            add([picked.asPlaceSummary], pinned: true, asNext: true)
+                            guide.picked = nil // 담았으면 카드는 할 일을 다 했다
+                        },
+                        added: isAdded(picked),
+                        onRemove: { removeGuidePlace(picked) },
+                        onClose: { guide.picked = nil }
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 90) // 「저장하고 닫기」 줄 위
+                } else {
+                    stopCardOverlay
+                }
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardHeight = $0 }
         }
         // 도착 스탬프 — 화면 가운데 발바닥이 쾅.
         .overlay { stampOverlay }
@@ -284,8 +290,8 @@ struct RouteEditorView: View {
         }
         // 해태 「내가 도와줄게!」 — 가이드의 유일한 입구. 지도가 아니라 **화면** 오른쪽
         // 아래에 떠 있고, 꾹 누르면 옮길 수 있다(2026-09-16). 창이 열려 있거나 핀을 찍는
-        // 동안은 숨긴다.
-        .guideFloatingChip(hidden: showGuide || pinning) { showGuide = true }
+        // 동안은 숨긴다. 카드가 떠 있으면 말풍선을 접고 카드 위로 비킨다(MZ2AZ-367).
+        .guideFloatingChip(hidden: showGuide || pinning, cardTop: guideCardTop) { showGuide = true }
         // 가이드는 시트가 아니라 **오른쪽 서랍**이다 — 오른쪽에서 미끄러져
         // 나오는 고정 크기 창(2026-08-28 사용자 요청). 지도가 계속 보인다.
         .guidePanel(isOpen: showGuide) {

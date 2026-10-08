@@ -33,10 +33,32 @@ final class AppLanguage: ObservableObject {
         hasChosen = saved != nil
         lang = saved ?? Self.deviceDefault()
         Self.current = lang
+        // 실행할 때마다 다시 적는다 — 이 기능 전에 고른 사람도 그다음 실행부터 맞는다.
+        // 고른 적이 없으면 적지 않는다(기기 언어 그대로).
+        if let saved {
+            Self.syncSystemLanguage(saved)
+        }
+    }
+
+    /// **시스템이 주는 글자**도 고른 언어를 따르게 한다 (MZ2AZ-367).
+    ///
+    /// 시트 손잡이·시트 바깥(「팝업 닫기」)의 낭독 문구, 사진 고르기, 권한 창은 우리 번역 표
+    /// (`Localizable.strings`)가 아니라 **프로세스의 언어**로 나온다 — 기기가 한국어면 앱에서 English 를
+    /// 골라도 한국어로 읽었다(2026-10-08 실기). 그 언어는 실행할 때 `AppleLanguages` 에서 한 번 정해지므로
+    /// 여기 적어 두면 **다음 실행부터** 맞는다(설정 앱의 「앱별 언어」 와 같은 자리다).
+    ///
+    /// **지도 바탕의 라벨도 따라 바뀐다** — 네이버 지도가 프로세스의 언어를 따라, 영어면 지명이
+    /// 영어+한국어로 함께 적힌다(실기 확인).
+    ///
+    /// 내놓는 언어(`choices`)일 때만 적는다 — 번역 표가 없는 언어를 적으면 시스템 글자만 그 언어가 된다.
+    private static func syncSystemLanguage(_ lang: Lang) {
+        guard choices.contains(lang) else { return }
+        UserDefaults.standard.set([lang.rawValue], forKey: "AppleLanguages")
     }
 
     func choose(_ new: Lang) {
         UserDefaults.standard.set(new.rawValue, forKey: Self.key)
+        Self.syncSystemLanguage(new)
         hasChosen = true
         Self.current = new
         lang = new
