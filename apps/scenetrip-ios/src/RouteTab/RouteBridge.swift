@@ -103,6 +103,43 @@ enum RouteBridge {
         )
     }
 
+    // MARK: 바뀐 것
+
+    /// 저장할 때의 코스 이름. 앞뒤 공백을 떼고, 비었으면 「직접 짜기」의 기본 이름으로 둔다 —
+    /// 비운 채 저장하면 목록에 이름 없는 코스가 생긴다.
+    static func savedTitle(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? tr("내 코스", at: "코스 제목") : trimmed
+    }
+
+    /// 지금 「저장」을 누르면 **서버에 갈 모양** — `replace` 에 이름 다듬기까지 얹은 것.
+    ///
+    /// 편집 화면이 열릴 때 이것을 떠 두고 「취소」 때 다시 떠서 견준다(MZ2AZ-369). 화면 타입
+    /// (`RouteCourse`)끼리 견주지 않는 이유가 있다 — 거기에는 서버에 안 가는 것(다녀옴 표시,
+    /// 여행 중 여부, SwiftUI 용 `UUID`, 저장 안 되는 초안 줄)이 섞여 있어, 스탬프 하나 찍힌
+    /// 것이나 「코스 시작」까지 「바꾼 내용」으로 잡힌다. 나가는 몸통으로 보면 저장했을 때
+    /// 달라지는 것만 남는다.
+    static func outgoing(from course: RouteCourse) -> CourseReplace {
+        var body = replace(from: course)
+        body.title = savedTitle(course.title)
+        return body
+    }
+
+    /// 화면을 연 뒤 **저장하면 달라질 것**이 생겼는가. 바꿨다가 되돌렸으면 없는 것이다.
+    static func changed(from opened: CourseReplace, to course: RouteCourse) -> Bool {
+        outgoing(from: course) != opened
+    }
+
+    /// 아직 만들지 않은 코스가 **빈 틀**인가 — 저장될 장소가 한 곳도 없고 이름도 기본 이름 그대로.
+    ///
+    /// 새 코스는 「열 때의 모습」이 아니라 이것으로 본다(MZ2AZ-369). 열 때와 견주면 AI 초안을
+    /// 손대지 않고 「취소」할 때 묻지 않는데, 그때 사라지는 것은 마법사 다섯 단계의 답과 초안
+    /// 전부다. 반대로 일차 수·떠나는 날만 정한 빈 틀은 잃어도 되는 선택이라 세지 않는다.
+    static func isBlank(_ course: RouteCourse) -> Bool {
+        let body = outgoing(from: course)
+        return body.days.allSatisfy(\.items.isEmpty) && body.title == savedTitle("")
+    }
+
     /// 직접 찍은 핀의 분류. 계약은 닫힌 다섯 갈래이고 화면은 한국어 이름을 쓴다.
     private static func pinCategory(from text: String?) -> PinCategory {
         switch text {

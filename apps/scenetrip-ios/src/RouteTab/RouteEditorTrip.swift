@@ -23,6 +23,8 @@ extension RouteEditorView {
             guard let saved = await store.save(course) else { return }
             let key = RouteDedupe.key(stop.place)
             course = saved // 항목 id 가 붙어 온다. 다녀옴·여행 상태도 서버 것 그대로다.
+            // 여기까지는 서버에 있다 — 「취소」가 이미 저장된 것을 버릴지 묻지 않게 기준을 옮긴다.
+            opened = RouteBridge.outgoing(from: saved)
             beginTrip(to: stops.first { RouteDedupe.key($0.place) == key } ?? stop)
         }
     }

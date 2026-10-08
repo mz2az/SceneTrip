@@ -127,8 +127,17 @@ struct RouteEditorView: View {
 
     let isNew: Bool
 
+    /// 화면을 열 때의 모습 — **저장하면 서버에 갈 모양**으로 들고 있다(`RouteBridge.outgoing`).
+    /// 저장된 코스의 「취소」가 이것과 지금을 견줘 버릴 것이 있는지 본다(MZ2AZ-369. 새 코스는
+    /// 견줄 서버 값이 없어 `RouteBridge.isBlank` 로 본다 — `dirty`). 화면 안에서 서버에
+    /// 저장이 일어나면(`startTrip`) 그때의 모습으로 다시 뜬다.
+    @State var opened: CourseReplace
+    /// 바꾼 것을 버릴지 묻는 창.
+    @State var confirmingDiscard = false
+
     init(course: RouteCourse, isNew: Bool) {
         _course = State(initialValue: course)
+        _opened = State(initialValue: RouteBridge.outgoing(from: course))
         self.isNew = isNew
     }
 
@@ -448,10 +457,7 @@ struct RouteEditorView: View {
     /// 나갔다가 목록에 없는 것을 보게 된다.
     func saveAndClose() async {
         // 제목을 비운 채 저장하면 목록에 이름 없는 코스가 생긴다 — 「직접 짜기」의 기본 이름으로 둔다.
-        course.title = course.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        if course.title.isEmpty {
-            course.title = tr("내 코스", at: "코스 제목")
-        }
+        course.title = RouteBridge.savedTitle(course.title)
         if let saved = await store.save(course) {
             guide.rekey(to: guideKey(for: saved)) // 방금 저장한 이 코스를 다시 열면 대화가 이어진다
             dismiss()
@@ -598,9 +604,27 @@ extension RouteEditorView {
 
 /// 본문 길이 한도(`type_body_length`) 때문에 확장으로 뺐다 — 같은 파일이라 `private` 상태를 그대로 본다.
 extension RouteEditorView {
+    /// 저장하면 서버 값이 달라지는가 — 「취소」가 묻는 기준(MZ2AZ-369). 지도 위치·시트 높이·
+    /// 보고 있는 일차 같은 보기 상태는 `course` 밖에 있어 여기 안 잡힌다. 출발·도착 고정
+    /// (`pinStart`·`pinEnd`)도 그렇다 — 동선 최적화에만 쓰이고 저장되지 않는다.
+    ///
+    /// **새 코스는 빈 틀이 아니면 묻는다** — 서버에 아직 아무것도 없으니 견줄 것은 「빈 코스」다.
+    /// AI 초안은 손대지 않았어도 묻고, 「직접 짜기」로 열어 아무것도 안 담았으면 바로 닫힌다.
+    var dirty: Bool {
+        isNew ? !RouteBridge.isBlank(course) : RouteBridge.changed(from: opened, to: course)
+    }
+
     var topBar: some View {
         HStack {
-            Button("취소") { dismiss() }
+            // 바꾼 것이 있으면 버릴지 묻는다 — 저장이 머리줄의 작은 「저장」 하나가 된 뒤로는
+            // 그 옆의 「취소」를 잘못 눌러 편집한 것을 잃기 쉽다(MZ2AZ-368 → 369).
+            Button("취소") {
+                if dirty {
+                    confirmingDiscard = true
+                } else {
+                    dismiss()
+                }
+            }
             Spacer()
             // 제목은 눌러서 바로 고친다 — 마법사·AI 가 붙인 「OO 1박 2일」을 그대로 두게 하지
             // 않는다(2026-09-28 사용자: Android 는 되는데 iOS 는 제목 수정이 안 된다).
@@ -638,6 +662,15 @@ extension RouteEditorView {
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(Color(.systemBackground))
+        // 새 코스는 시트로 뜬다(`RouteWizardView`) — 바꾼 것이 있으면 쓸어내려 닫히지 않는다.
+        // 「취소」가 묻는다. 저장된 코스는 덮개(fullScreenCover)라 쓸어내릴 수 없다.
+        .interactiveDismissDisabled(dirty)
+        // 리뷰 쓰기와 같은 모양(`ReviewComposeView`) — 경고창으로 묻는다. iOS 26 의 선택 팝업은
+        // 취소 단추를 숨겨 「버리기」 하나만 보였다.
+        .alert(tr("바꾼 내용을 버릴까요?"), isPresented: $confirmingDiscard) {
+            Button(tr("버리기"), role: .destructive) { dismiss() }
+            Button(tr("계속 편집"), role: .cancel) {}
+        }
     }
 }
 
