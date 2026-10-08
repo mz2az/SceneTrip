@@ -230,63 +230,95 @@ extension RouteEditorView {
         .background(Color(.systemBackground))
     }
 
+    /// 계획 중의 아래 줄 — **주된 동작이 줄을 채우고, 보조(「여행 종료」)는 늘 왼쪽에 작게**(안내 중의
+    /// `tripControls` 와 같은 자리). 새 코스면 「코스 만들기」, 저장된 코스면 시작 전엔 「코스
+    /// 시작」, 여행 중엔 「N번으로 길찾기」(+「여행 종료」)다.
+    ///
+    /// **저장된 코스에는 저장 단추가 없다**(2026-10-08 사용자 결정, MZ2AZ-368). 앞서 여기 있던
+    /// 「저장하고 닫기」는 머리줄 「저장」과 같은 일을 했는데 이름이 달라 다른 기능처럼
+    /// 읽혔다. 저장은 머리줄 하나다. 새 코스의 「코스 만들기」는 남긴다 — 그때는 이 줄에 다른
+    /// 단추가 없고, 처음 만드는 사람이 머리줄의 작은 「만들기」를 놓치기 쉽다.
     var planControls: some View {
         HStack(spacing: 10) {
-            // 「코스 시작」은 저장된 코스에만 있다 — 아직 만들지도 않은 일정을 여행
-            // 중으로 만들 수는 없다.
-            if !isNew {
+            if isNew {
+                // 「코스 시작」은 저장된 코스에만 있다 — 아직 만들지도 않은 일정을 여행
+                // 중으로 만들 수는 없다.
+                Button {
+                    Task { await saveAndClose() }
+                } label: {
+                    Text("코스 만들기").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+            } else if !course.isRunning {
+                // 시작 전에는 이것이 이 줄의 하나뿐인 동작이다 — 누르면 앱이 흐름을 이어받는다
+                // (계획 trip-mode.md §2·§8).
+                Button {
+                    toggleRunning()
+                } label: {
+                    Text("코스 시작").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+            } else if let next = nextUnvisited {
+                Button("여행 종료") { toggleRunning() }
+                    .buttonStyle(.bordered)
                 // 여행 중이면 **다음 성지로 길찾기가 주된 동작**이다 — 경로는 이 화면의
-                // 지도에 그려진다(2026-09-03, 계획 trip-mode.md §8). 다 돌았으면 없다.
-                if course.isRunning, let next = nextUnvisited {
-                    Button {
-                        startTrip(to: next.stop)
-                    } label: {
-                        Text("\(next.number)번으로 길찾기").lineLimit(1)
-                    }
-                    .buttonStyle(.borderedProminent)
+                // 지도에 그려진다(2026-09-03, 계획 trip-mode.md §8).
+                Button {
+                    startTrip(to: next.stop)
+                } label: {
+                    Text("\(next.number)번으로 길찾기").lineLimit(1).frame(maxWidth: .infinity)
                 }
-                Button(course.isRunning ? tr("여행 종료") : tr("코스 시작")) {
-                    course.isRunning.toggle()
-                    // 상태만 바꾼다 — 코스 내용을 함께 덮어쓰면 편집 중이던 것이
-                    // 저장돼 버려 「시작」이 「저장」을 겸하게 된다.
-                    // 지금 보고 있는 일차에서 시작한다 — 서버가 `currentDayNo` 를
-                    // 요구하고, 1일차를 지나 보고 있다면 그 일차가 맞다.
-                    //
-                    // **서버가 「여행 중」을 안 뒤에 길을 묻는다**(2026-09-17). 앞서 상태 요청을
-                    // 던져 놓기만 하고 곧바로 길찾기를 불렀더니, 길찾기가 먼저 닿으면 서버가
-                    // 아직 시작 전 코스로 보고 거절했다 — 「코스를 시작한 뒤에 길찾기를 쓸 수
-                    // 있어요」 경고와 함께 경로선 없이 직선으로 걸었다. 될 때도 있고 안 될 때도
-                    // 있는 경합이라 시연 녹화에서야 잡혔다.
-                    let running = course.isRunning
-                    let dayNo = dayIndex + 1
-                    if !running {
-                        trip.end()
-                    }
-                    Task {
-                        await store.setRunning(course, running, dayNo: dayNo)
-                        // **시작하면 바로 첫 성지로 길찾기.** 여기서 앱이 흐름을 이어받는다
-                        // (계획 trip-mode.md §2·§8) — 경로는 이 지도에, 도착은 머무름으로.
-                        if running, course.isRunning, let first = nextUnvisited?.stop ?? stops.first {
-                            startTrip(to: first)
-                        }
-                    }
+                .buttonStyle(.borderedProminent)
+            } else {
+                // 다 돌았거나 빈 일차를 보고 있으면 갈 곳이 없다. **「여행 종료」는 그래도 작은
+                // 보조 단추다** — 누르면 묻지 않고 바로 상태가 바뀌는데, 줄 전체가 그 단추면
+                // 잘못 누르기 쉽다(MZ2AZ-368 검증). 남는 자리에는 다 돌았을 때만 그 말을 적는다.
+                Button("여행 종료") { toggleRunning() }
+                    .buttonStyle(.bordered)
+                if stops.isEmpty {
+                    Spacer()
+                } else {
+                    Label("오늘 일정을 모두 돌았어요", systemImage: "checkmark.seal.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color(PinImage.deep))
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
             }
-            Button {
-                Task { await saveAndClose() }
-            } label: {
-                Text(isNew ? tr("코스 만들기") : tr("저장하고 닫기"))
-                    .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// 「코스 시작 / 여행 종료」.
+    private func toggleRunning() {
+        course.isRunning.toggle()
+        // 상태만 바꾼다 — 코스 내용을 함께 덮어쓰면 편집 중이던 것이
+        // 저장돼 버려 「시작」이 「저장」을 겸하게 된다.
+        // 지금 보고 있는 일차에서 시작한다 — 서버가 `currentDayNo` 를
+        // 요구하고, 1일차를 지나 보고 있다면 그 일차가 맞다.
+        //
+        // **서버가 「여행 중」을 안 뒤에 길을 묻는다**(2026-09-17). 앞서 상태 요청을
+        // 던져 놓기만 하고 곧바로 길찾기를 불렀더니, 길찾기가 먼저 닿으면 서버가
+        // 아직 시작 전 코스로 보고 거절했다 — 「코스를 시작한 뒤에 길찾기를 쓸 수
+        // 있어요」 경고와 함께 경로선 없이 직선으로 걸었다. 될 때도 있고 안 될 때도
+        // 있는 경합이라 시연 녹화에서야 잡혔다.
+        let running = course.isRunning
+        let dayNo = dayIndex + 1
+        if !running {
+            trip.end()
+        }
+        Task {
+            await store.setRunning(course, running, dayNo: dayNo)
+            // **시작하면 바로 첫 성지로 길찾기.** 여기서 앱이 흐름을 이어받는다
+            // (계획 trip-mode.md §2·§8) — 경로는 이 지도에, 도착은 머무름으로.
+            if running, course.isRunning, let first = nextUnvisited?.stop ?? stops.first {
+                startTrip(to: first)
             }
-            .buttonStyle(.borderedProminent)
         }
     }
 
     // MARK: 아래 단추 줄 (안내 중)
 
     /// 안내 중의 아래 줄 — 가는 중이면 「여기 도착함」(탈출구), 도착했으면 「다음 · N번으로」.
-    /// 「저장하고 닫기」는 이때 없다 — 저장은 위 「저장」이 한다.
+    /// 저장 단추는 이 줄에 없다 — 저장은 언제나 머리줄의 「저장」이 한다.
     var tripControls: some View {
         HStack(spacing: 10) {
             Button("안내 끝") { trip.end() }

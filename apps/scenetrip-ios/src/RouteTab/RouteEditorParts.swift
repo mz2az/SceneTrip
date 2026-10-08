@@ -64,8 +64,6 @@ struct RouteStopRow: View {
         }
     }
 
-    let onStay: () -> Void
-
     /// 행을 눌렀다. 지도를 이 장소로 옮긴다.
     var onFocus: () -> Void = {}
 
@@ -135,13 +133,9 @@ struct RouteStopRow: View {
                 }
                 Spacer()
 
-                Button(action: onStay) {
-                    Text(stop.stayLabel)
-                        .font(.caption.weight(.medium))
-                        .padding(.horizontal, 9).padding(.vertical, 5)
-                        .background(Capsule().fill(Color.accentColor.opacity(0.12)))
-                }
-                .buttonStyle(.plain)
+                // 머무는 시간 칩은 이 줄에 없다(2026-10-08 사용자 결정, MZ2AZ-368) — 줄마다 30분
+                // 단위로 정해 두는 사람은 드물다. 값은 그대로 있고, 일차 머리줄의 「머무는 시간」이
+                // 합을 보여 주며 거기서 고친다(`RouteDayStaySheet`).
 
                 // 끌 수 있다는 것을 알리는 그림. 편집 모드를 켜지 않으므로 iOS 가
                 // 손잡이를 그려 주지 않는다 — 없으면 길게 눌러 끌 수 있다는 것을
@@ -406,34 +400,74 @@ struct RoutePinSheet: View {
 
 // MARK: - 체류 시간
 
-/// 체류 시간 고르기. 기본 30분은 8/11 회의에서 확정된 값이다.
-struct RouteStaySheet: View {
-    let stop: RouteStop
-    let onPick: (Int) -> Void
+/// 그날의 머무는 시간 — 장소마다 고치고 합을 본다. 기본 30분은 8/11 회의에서 확정된 값이다.
+///
+/// 앞서는 목록 줄마다 칩이 있고 칩이 한 곳짜리 시트(`RouteStaySheet`)를 열었다. 칩을 빼면서
+/// (MZ2AZ-368) 고치는 길을 **여기 한 곳**으로 모았다 — 일차 머리줄의 「머무는 시간」이 연다.
+struct RouteDayStaySheet: View {
+    /// 지금 보고 있는 일차의 장소. 고치면 부모가 새 값으로 다시 그려 합이 바로 바뀐다.
+    let stops: [RouteStop]
+    let onPick: (RouteStop, Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
-            List(RouteStop.stayOptions, id: \.self) { minutes in
-                Button {
-                    onPick(minutes)
-                    dismiss()
-                } label: {
-                    HStack {
-                        Text(RouteFormat.minutes(minutes))
-                        Spacer()
+            List {
+                Section {
+                    ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
+                        row(stop, number: index + 1)
+                    }
+                } header: {
+                    Text("합계 \(RouteFormat.minutes(RouteStop.stayTotal(stops)))")
+                } footer: {
+                    // 합에 이동이 왜 없는지 적어 둔다 — 그냥 빠져 있으면 하루 전체 길이로 읽힌다.
+                    Text("이동 시간은 들어 있지 않아요. 여행 중에 구간마다 보여 드려요.")
+                }
+            }
+            .navigationTitle("머무는 시간")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("닫기") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func row(_ stop: RouteStop, number: Int) -> some View {
+        HStack(spacing: 10) {
+            Text("\(number)")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 18)
+                .accessibilityHidden(true)
+            Text(stop.place.name).lineLimit(1)
+            Spacer()
+            Menu {
+                ForEach(RouteStop.stayChoices(current: stop.stayMinutes), id: \.self) { minutes in
+                    Button {
+                        onPick(stop, minutes)
+                    } label: {
                         if minutes == stop.stayMinutes {
-                            Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
+                            Label(RouteFormat.minutes(minutes), systemImage: "checkmark")
+                        } else {
+                            Text(RouteFormat.minutes(minutes))
                         }
                     }
                 }
-                .buttonStyle(.plain)
+            } label: {
+                HStack(spacing: 4) {
+                    Text(stop.stayLabel)
+                    Image(systemName: "chevron.up.chevron.down").font(.caption2)
+                }
+                .font(.subheadline.weight(.medium))
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Capsule().fill(Color.accentColor.opacity(0.12)))
             }
-            .listStyle(.plain)
-            .navigationTitle("얼마나 머무를까요?")
-            .navigationBarTitleDisplayMode(.inline)
+            .accessibilityLabel(Text("\(number)번 \(stop.place.name) 머무는 시간"))
+            .accessibilityValue(stop.stayLabel)
         }
-        .presentationDetents([.medium])
     }
 }

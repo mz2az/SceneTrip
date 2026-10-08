@@ -144,6 +144,23 @@ struct RouteStop: Identifiable, Hashable {
         RouteFormat.minutes(stayMinutes)
     }
 
+    /// 그날 **머무는 시간의 합**(분). 일차 머리줄이 이것만 보여 준다(MZ2AZ-368).
+    ///
+    /// 이동 시간은 더하지 않는다. 서버의 `CourseDay.travelMinutes` 는 직선거리 × 1.3 을
+    /// **시속 4 km 걸음**으로 나눈 값이라(`TravelEstimator`, `travelBasis: straight-line`),
+    /// 광주 → 수원 25.5 km 가 8시간 18분이 된다 — 그것을 얹어 「약 9시간 18분」이라고
+    /// 쓰면 지어낸 숫자다. 앱이 가진 값만으로 세므로 편집 중에도 낡지 않는다.
+    static func stayTotal(_ stops: [RouteStop]) -> Int {
+        stops.reduce(0) { $0 + $1.stayMinutes }
+    }
+
+    /// 한 곳의 머무는 시간으로 고를 수 있는 값. **지금 값이 목록에 없으면 끼워 넣는다** —
+    /// AI 초안은 40분·75분도 준다. 빼 두면 지금 값에 표시가 안 붙고, 다른 값을 눌렀다가
+    /// 되돌릴 길도 없다.
+    static func stayChoices(current: Int) -> [Int] {
+        stayOptions.contains(current) ? stayOptions : (stayOptions + [current]).sorted()
+    }
+
     /// 서버에 `placeId` 로 보낼 수 있는 값. 직접 찍은 핀과 id 없는 초안 줄은 없다.
     var savablePlaceId: Int64? {
         isPinned || placeMissing || place.id <= 0 ? nil : place.id
