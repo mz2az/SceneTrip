@@ -113,6 +113,27 @@ enum ReviewRules {
         return existing.rating != rating || existing.body != normalizedBody(body)
     }
 
+    /// 저장이 「사진을 다시 올려 주세요」(`REVIEW_PHOTO_INVALID`)로 끝났는데 **사실은 저장돼 있는가** (MZ2AZ-366).
+    ///
+    /// 사진 붙은 리뷰의 PUT 은 두 번 보내면 안 된다 — 첫 요청이 임시 사진을 제자리로 옮기므로, 응답만 잃고
+    /// 다시 보낸(또는 사람이 다시 누른) 두 번째는 「그런 사진 없다」 로 거절된다. 그때 서버의 내 리뷰를 다시
+    /// 읽어 방금 보낸 것과 같으면 저장된 것이다 — 별점과 글이 같고 **사진이 같은 순서로 같다.**
+    ///
+    /// 사진은 장수가 아니라 **파일 이름**으로 견준다. 서버는 `uploads/tmp/<이름>` 을 `reviews/<이름>` 으로
+    /// 옮기므로 키의 마지막 조각이 그대로 남는다. 장수만 보면, 고치기에서 사진을 같은 장수로 바꿔 끼웠다가
+    /// 진짜로 거절됐을 때(임시 사진 만료) 옛 리뷰를 「저장됨」 으로 읽어 새 사진이 말없이 사라진다.
+    static func landed(_ saved: Review?, rating: Int, body: String?, photoKeys: [String]) -> Bool {
+        guard let saved else { return false }
+        return saved.rating == rating
+            && normalizedBody(saved.body ?? "") == body
+            && saved.photos.map { photoName($0.key) } == photoKeys.map(photoName)
+    }
+
+    /// 사진 키의 파일 이름 — 마지막 경로 조각.
+    static func photoName(_ key: String) -> String {
+        key.split(separator: "/").last.map(String.init) ?? key
+    }
+
     /// 다음 쪽이 있는가.
     static func hasMore(loaded: Int, total: Int) -> Bool {
         loaded < total

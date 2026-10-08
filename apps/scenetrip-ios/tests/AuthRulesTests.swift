@@ -20,6 +20,15 @@ final class AuthRulesTests: XCTestCase {
         XCTAssertEqual(AuthRules.action(status: 401, code: "SIGN_IN_REQUIRED"), .promptSignIn)
     }
 
+    /// 낡은 토큰으로 나갔다 401 을 받은 요청 — 그 사이 누가 갱신했으면 또 갱신하지 않는다 (MZ2AZ-366).
+    /// 재시도 계층이 쉬었다 다시 보내는 사이에 일어난다. 또 갱신하면 갱신이 두 번 나간다.
+    func testStaleTokenRequestDoesNotRefreshAgain() {
+        XCTAssertTrue(AuthRules.alreadyRefreshed(sent: "old", current: "new"))
+        XCTAssertFalse(AuthRules.alreadyRefreshed(sent: "same", current: "same"), "지금 토큰이 만료됐다 — 갱신한다")
+        XCTAssertFalse(AuthRules.alreadyRefreshed(sent: nil, current: "new"), "토큰 없이 나간 요청은 보통 흐름")
+        XCTAssertFalse(AuthRules.alreadyRefreshed(sent: "old", current: nil), "세션이 없다")
+    }
+
     func testOtherResponsesAreLeftAlone() {
         XCTAssertEqual(AuthRules.action(status: 401, code: nil), .none)
         XCTAssertEqual(AuthRules.action(status: 403, code: "ACCESS_TOKEN_EXPIRED"), .none)

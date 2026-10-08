@@ -123,12 +123,18 @@ final class SceneData: ObservableObject {
 struct ApiFailure: Equatable {
     let statusCode: Int?
     let traceId: String?
+    /// 기기가 오프라인이라 실패했다 — 서버 탓이 아니라 「인터넷 연결」 을 말해야 한다 (MZ2AZ-366).
+    var isOffline = false
 
-    /// 재시도가 의미 있는 경우. 계약이 "재시도해도 된다 — 클라이언트가 고칠 것은
-    /// 없다" 고 적은 것은 `500` 뿐이다. 서버에 닿지도 못한 경우(statusCode 없음)도
-    /// 같이 본다 — 그쪽은 앱이 고칠 것이 없다는 점에서 성격이 같다.
+    /// 「다시 시도」 가 의미 있는 경우 — **다시 누르면 달라질 수 있는 것.** 서버에 닿지 못했거나(statusCode
+    /// 없음), 서버 사정(500·502·503·504)이거나, 분당 한도(429)다. 400·404 처럼 요청이 틀린 것은 눌러도 같다.
+    ///
+    /// 여기까지 올라온 실패는 공통 계층(`RetryingSession`)이 이미 몇 번 다시 보내 본 것이다 — 그래도 안 된
+    /// 것이라 사람에게 단추를 준다. 전에는 500 과 연결 실패에만 줘서 503·429 에는 「요청을 처리하지
+    /// 못했습니다」 만 뜨고 다시 해 볼 길이 없었다.
     var isRetryable: Bool {
-        statusCode == nil || statusCode == 500
+        guard let statusCode else { return true }
+        return [429, 500, 502, 503, 504].contains(statusCode)
     }
 
     /// 사용자에게 보일 한 줄.
@@ -138,22 +144,26 @@ struct ApiFailure: Equatable {
     /// `ErrorView` 안에만 있어서 다른 화면이 재사용할 수 없었다.
     var message: String {
         switch statusCode {
+        case nil where isOffline: tr("인터넷 연결을 확인해 주세요.")
         case nil: tr("서버에 연결하지 못했습니다.")
-        case 500: tr("잠시 문제가 생겼습니다.")
+        case 500, 502, 503, 504: tr("잠시 문제가 생겼습니다.")
+        case 429: tr("요청이 많아요. 잠시 뒤 다시 시도해 주세요.")
         default: tr("요청을 처리하지 못했습니다.")
         }
     }
 
-    init(statusCode: Int?, traceId: String?) {
+    init(statusCode: Int?, traceId: String?, isOffline: Bool = false) {
         self.statusCode = statusCode
         self.traceId = traceId
+        self.isOffline = isOffline
     }
 
     init(_ error: Error) {
-        guard case let ErrorResponse.error(code, data, _, _) = error else {
+        guard case let ErrorResponse.error(code, data, _, underlying) = error else {
             self.init(statusCode: nil, traceId: nil)
             return
         }
+        let offline = (underlying as? URLError).map { RetryRules.isOffline($0.code) } ?? false
         // **생성 클라이언트는 음수를 HTTP 코드가 아닌 신호로 쓴다.** 연결 자체가
         // 실패하면 -1, 응답이 HTTP 가 아니면 -2 다
         // (URLSessionImplementations.swift:164,169). 그것을 상태 코드로 그대로 넘기면
@@ -162,7 +172,8 @@ struct ApiFailure: Equatable {
         let reachedServer = code > 0
         self.init(
             statusCode: reachedServer ? code : nil,
-            traceId: reachedServer ? Self.traceId(from: data) : nil
+            traceId: reachedServer ? Self.traceId(from: data) : nil,
+            isOffline: !reachedServer && offline
         )
     }
 

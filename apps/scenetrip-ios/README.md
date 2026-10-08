@@ -123,7 +123,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | `RouteGuide.swift` · `RouteGuideSession.swift` · `RouteGuideSheet.swift` | 여행 가이드 챗봇 — `GuideAPI.chatWithGuide`. 이력·위치·**화면 상태**(`Context`)를 싣고 답·근거·장소·`effects`·`ui` 를 받는다 |
 | `RouteEditorGuide.swift` | 편집 화면 ↔ 가이드 — 화면 상태를 만들고(`guideContext`) 답의 명령을 적용한다(`applyGuideAnswer`: 초안 갈아 끼우기 · 일차 열기 · 시트 내리기) |
 | `RouteGuidePlan.swift` | 계약의 일정 초안(`GuidePlan`) ↔ 코스. 도착 시각·뺀 곳·`placeId` 없는 줄(저장 안 됨)을 옮긴다 |
-| `RouteGuideFailure.swift` | 가이드 오류를 계약 응답별로 분류 — 401 가입 · 400 · 503 잠시 뒤 · 50초 초과 · 연결 실패. 자동 재시도 없음 |
+| `RouteGuideFailure.swift` | 가이드 오류를 계약 응답별로 분류 — 401 가입 · 400 · 503 잠시 뒤 · 50초 초과 · 연결 실패. 자동 재시도 없음(공통 재시도 계층도 챗봇·마법사는 다시 보내지 않는다 — MZ2AZ-366) |
 | `RouteEditorView.swift` · `RouteEditorControls.swift` · `RouteEditorParts.swift` | 편집 화면 — 일차 ＋/−, 드래그 정렬, 체류 시간(일차 머리줄의 합 → 「머무는 시간」 시트), 동선 최적화(출발·도착 고정 선택), 장소 검색·장바구니·핀 찍기. 「취소」는 저장하면 달라질 것이 있을 때만 버릴지 묻는다(`RouteBridge.changed`, MZ2AZ-369) |
 | `RouteSearchSheet.swift` | 편집 화면 안에서 바로 장소를 찾아 담는 시트 — 장바구니를 거치지 않는다 |
 | `RouteGeometry`(`RouteModels.swift` 안) | 동선 최적화 — 최근접 이웃·2-opt·완전탐색(≤8곳) 세 방법 중 가장 짧은 것. 출발·도착 고정은 각각 선택이다 |
@@ -250,6 +250,12 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
   ID 토큰을 받는다(`GoogleOAuth.swift`, 의존성 선언은 `//:Package.swift`). 토큰 싣기와 401 처리(만료 → 갱신 한 번 → 재시도)는
   `AuthRequestBuilder.swift` 가 생성 클라이언트에 끼워 넣는다 — 화면 코드는 API 를 그냥 부른다.
   로컬에서 로그인하려면 `.env` 에 `SCENETRIP_AUTH_JWT_SECRET` 이 있어야 한다(`.env.example`).
+- **실패한 요청은 공통 계층이 다시 보낸다** (MZ2AZ-366, 계획 `docs/project/plans/app-retry.md`). 빌더가 내주는 세션이
+  `Models/RetryingSession.swift` 이고 규칙은 `Models/RetryRules.swift` 다(숫자는 `RetryRules.Tuning` 한 곳) — 조회는 끊김·502·503·504 에
+  세 번(1·2·4초), PUT·DELETE 는 두 번, POST 는 서버에 닿지 않은 것이 확실할 때만, 분당 한도(429 `RATE_LIMITED`)는
+  `Retry-After` 뒤 한 번. **챗봇·길찾기·마법사·토큰 갱신은 다시 보내지 않는다.** 화면을 떠나면 쉬는 중에도 멈춘다. 응답의
+  `RateLimit-*` 는 `Models/RateLimitLedger.swift` 가 적어 둔다(아직 화면에 보이지 않는다). 실패를 넣어 보는 뒷문은
+  `simctl launch … -netFault "v1/places:status:503:2"`(`Models/NetFault.swift` — 개발 빌드의 시뮬레이터에서만 동작).
 - 설치 식별자는 **키체인**에 둔다(`Keychain.swift`, MZ2AZ-335) — 옛 자리(`UserDefaults` `scenetrip.deviceId`)의 값은
   첫 실행에 옮긴다. 키체인은 앱을 지워도 남으므로 설치 뒤 첫 실행에는 남은 값을 버린다(지웠다 깔면 새 설치본).
 - `InstallIdentity.swift` 를 `CartStore` 밖으로 뗐다 — 코스 API 도 같은 설치 식별자가

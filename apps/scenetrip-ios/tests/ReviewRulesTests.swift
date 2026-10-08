@@ -121,6 +121,43 @@ final class ReviewRulesTests: XCTestCase {
         XCTAssertFalse(ReviewRules.changed(from: starsOnly, rating: 3, body: "  \n"))
     }
 
+    /// 저장이 「사진을 다시 올려 주세요」 로 끝났는데 사실은 저장돼 있는가 (MZ2AZ-366) — 응답만 잃고 다시 보낸
+    /// PUT 은 사진이 이미 옮겨져 거절된다. 서버의 내 리뷰가 방금 보낸 것과 같으면 저장된 것이다.
+    /// 사진은 **파일 이름을 순서대로** 견준다 — 서버가 `uploads/tmp/<이름>` 을 `reviews/<이름>` 으로 옮긴다.
+    func testLandedComparesRatingBodyAndPhotoNamesInOrder() {
+        let now = Date()
+        func review(rating: Int = 4, body: String? = "좋았어요", photos: [String]) -> Review {
+            Review(
+                id: 1, rating: rating, body: body,
+                photos: photos.map { ReviewPhoto(key: $0, url: "http://x/\($0)?sig=1") },
+                author: nil, createdAt: now, updatedAt: now, isMine: true
+            )
+        }
+        let sent = ["reviews/7/old.jpg", "uploads/tmp/u1/new.jpg"]
+        // 옮겨진 키와 이름이 같다 — 저장됐다.
+        let moved = review(photos: ["reviews/7/old.jpg", "reviews/7/new.jpg"])
+        XCTAssertTrue(ReviewRules.landed(moved, rating: 4, body: "좋았어요", photoKeys: sent))
+        // **같은 장수로 바꿔 끼웠는데 서버에는 옛 사진** — 저장되지 않았다. 장수만 보면 속는다.
+        let stale = review(photos: ["reviews/7/old.jpg", "reviews/7/older.jpg"])
+        XCTAssertFalse(ReviewRules.landed(stale, rating: 4, body: "좋았어요", photoKeys: sent))
+        // 순서가 다르다.
+        let swapped = review(photos: ["reviews/7/new.jpg", "reviews/7/old.jpg"])
+        XCTAssertFalse(ReviewRules.landed(swapped, rating: 4, body: "좋았어요", photoKeys: sent))
+        // 장수가 다르다.
+        XCTAssertFalse(ReviewRules.landed(review(photos: ["reviews/7/old.jpg"]), rating: 4, body: "좋았어요", photoKeys: sent))
+        // 별점·글.
+        XCTAssertFalse(ReviewRules.landed(moved, rating: 5, body: "좋았어요", photoKeys: sent))
+        XCTAssertFalse(ReviewRules.landed(moved, rating: 4, body: "별로였어요", photoKeys: sent))
+        XCTAssertFalse(ReviewRules.landed(moved, rating: 4, body: nil, photoKeys: sent))
+        XCTAssertFalse(ReviewRules.landed(nil, rating: 4, body: "좋았어요", photoKeys: sent), "리뷰가 없다 — 저장 안 됨")
+        // 사진 없는 리뷰 — 서버가 글을 nil 로 주든 빈 글로 주든 같다.
+        XCTAssertTrue(ReviewRules.landed(review(rating: 3, body: nil, photos: []), rating: 3, body: nil, photoKeys: []))
+        XCTAssertTrue(ReviewRules.landed(review(rating: 3, body: "", photos: []), rating: 3, body: nil, photoKeys: []))
+        XCTAssertFalse(ReviewRules.landed(review(rating: 3, body: nil, photos: []), rating: 3, body: nil, photoKeys: sent))
+        XCTAssertEqual(ReviewRules.photoName("uploads/tmp/u1/new.jpg"), "new.jpg")
+        XCTAssertEqual(ReviewRules.photoName("bare.jpg"), "bare.jpg")
+    }
+
     /// 내 리뷰 목록의 대상이 리뷰 시트의 대상으로 바르게 옮겨진다 — 촬영지 7 과 편의시설 7 은 다르다.
     func testMyReviewTargetMapsToTheRightSubject() {
         XCTAssertEqual(
