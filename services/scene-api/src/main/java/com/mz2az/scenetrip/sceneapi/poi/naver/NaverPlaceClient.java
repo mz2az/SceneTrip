@@ -119,7 +119,7 @@ public class NaverPlaceClient {
   private final RestClient http;
 
   NaverPlaceClient(
-      @Value("${scenetrip.naver.enabled:true}") boolean enabled,
+      @Value("${scenetrip.naver.enabled:false}") boolean enabled,
       @Value("${scenetrip.naver.search-url}") String searchUrl,
       @Value("${scenetrip.naver.detail-url}") String detailUrl,
       @Value("${scenetrip.naver.timeout-seconds:3}") int timeoutSeconds) {
