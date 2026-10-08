@@ -26,6 +26,7 @@ from tools.aws.tests.test_destroy import DestroyServiceTest
 from tools.aws.tests.test_destroy_gateway import DestroyGatewayTest
 from tools.aws.tests.test_destroy_plan import DestroyPlanTest
 from tools.aws.tests.test_entrypoint import EntryPointTest
+from tools.aws.tests.test_gateway_routes import GatewayContractRoutesTest
 from tools.aws.tests.test_lifecycle import CloudflareTest, LifecycleTest
 from tools.aws.tests.test_media import MediaChartTest, MediaDeployValuesTest
 from tools.aws.tests.test_public_ingress import (
@@ -53,6 +54,7 @@ __all__ = [
     "DestroyPlanTest",
     "DestroyServiceTest",
     "EntryPointTest",
+    "GatewayContractRoutesTest",
     "LegacyAuthSlotTest",
     "LifecycleTest",
     "MediaChartTest",
