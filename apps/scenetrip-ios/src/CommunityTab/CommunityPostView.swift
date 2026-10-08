@@ -8,6 +8,8 @@ struct CommunityPostView: View {
     let post: CommunityPost
 
     @Environment(\.dismiss) private var dismiss
+    /// 내 글의 글쓴이 이름이 닉네임이다 — 글을 연 채로 계정이 바뀌어도 따라가야 한다.
+    @ObservedObject private var auth = AuthStore.shared
 
     @State private var saving = false
     /// 담은 코스의 서버 id. 담고 나면 단추가 「코스 보기」로 바뀐다.
@@ -83,13 +85,13 @@ struct CommunityPostView: View {
 
     private var authorRow: some View {
         HStack(spacing: 10) {
-            Text(String((post.author ?? tr("나")).prefix(1)))
+            Text(post.authorInitial(myNickname: auth.me?.nickname))
                 .font(.caption.weight(.bold))
                 .foregroundStyle(.white)
                 .frame(width: 32, height: 32)
                 .background(Circle().fill(Color(PinImage.deep)))
             VStack(alignment: .leading, spacing: 1) {
-                Text(post.author ?? tr("나")).font(.subheadline.weight(.medium))
+                Text(post.authorName(myNickname: auth.me?.nickname)).font(.subheadline.weight(.medium))
                 Text(post.createdAt.formatted(
                     .dateTime.year().month().day().hour().minute().locale(AppLanguage.currentLocale)
                 ))

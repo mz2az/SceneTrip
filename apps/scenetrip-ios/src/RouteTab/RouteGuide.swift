@@ -174,7 +174,7 @@ enum RouteGuide {
                 category: detail.type ?? place.category,
                 address: detail.address ?? place.address,
                 phone: nil,
-                images: detail.imageUrls ?? [detail.imageUrl].compactMap { $0 },
+                photos: PhotoGalleryRules.book(for: detail),
                 naverUrl: detail.naverPlaceUrl, // 촬영지는 전과 같다 — 우리가 가진 링크가 있을 때만.
                 rating: detail.rating
             )
@@ -202,7 +202,8 @@ enum RouteGuide {
             category: label.category,
             address: label.address,
             phone: detail?.tel,
-            images: [],
+            // 편의시설의 우리 사진은 아직 모으기 전이다 — 지금 오는 것은 방문자 사진뿐이다.
+            photos: detail.map(PhotoGalleryRules.book(for:)) ?? PhotoGalleryRules.Book(),
             // 네이버는 한국어 이름으로 찾는다 — 영어 이름으로는 가게가 안 나온다.
             naverUrl: NaverMapLink.search(detail?.name ?? place.name, near: detail?.city),
             rating: detail?.rating
@@ -218,8 +219,8 @@ enum RouteGuide {
         let category: String?
         let address: String?
         let phone: String?
-        /// 촬영지의 우리 사진. 편의시설은 사진이 없다.
-        let images: [String]
+        /// 사진첩의 앞쪽(MZ2AZ-363) — 우리 사진 먼저, 그 뒤 방문자 사진. 상세의 `photos`, 옛 서버면 옛 칸.
+        let photos: PhotoGalleryRules.Book
         /// 「네이버 지도에서 보기」가 갈 곳.
         let naverUrl: String?
         /// 별점 요약(MZ2AZ-363). 서버가 실어 줄 때만 있다.

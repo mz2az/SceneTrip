@@ -12,7 +12,7 @@ final class AppEventTests: XCTestCase {
         .screenView("home"), .search(termLength: 6, kind: "content"),
         .viewTitle(contentId: 1), .viewPlace(placeId: 38), .viewReviews(targetType: "place"),
         .writeReview(targetType: "poi", rating: 5, photoCount: 0, hasBody: true, edited: false),
-        .deleteReview(targetType: "place"),
+        .deleteReview(targetType: "place"), .viewPhotos(targetType: "place", entry: "detail"),
         .likeTitle(contentId: 1, liked: true), .savePlace(placeId: 38),
         .generatePlan(dayCount: 2, titleCount: 3),
         .createCourse(origin: "ai", dayCount: 2, placeCount: 7),

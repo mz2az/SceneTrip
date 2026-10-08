@@ -106,6 +106,27 @@ struct CommunityPost: Identifiable, Codable {
     }
 }
 
+extension CommunityPost {
+    /// 화면에 보일 글쓴이 이름 — **이름이 나오는 자리는 모두 이것을 쓴다.**
+    ///
+    /// 남의 글은 저장된 이름 그대로다. 내 글은 **지금 로그인한 계정의 닉네임**이고, 로그인하지
+    /// 않았거나 닉네임을 아직 못 읽었으면 「나」다. 닉네임을 글에 저장하지 않고 그릴 때마다
+    /// 받는 이유: 기기의 글은 계정이 아니라 **기기에 묶여** 있다(`isMine`). 저장해 두면 닉네임을
+    /// 바꿔도 옛 이름이 남고, 로그아웃한 뒤에도 그 계정 이름이 붙어 있게 된다.
+    func authorName(myNickname: String?) -> String {
+        if let author {
+            return author
+        }
+        let nickname = myNickname?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return nickname.isEmpty ? tr("나") : nickname
+    }
+
+    /// 글쓴이 동그라미에 넣는 한 글자 — 보이는 이름의 첫 글자다.
+    func authorInitial(myNickname: String?) -> String {
+        String(authorName(myNickname: myNickname).prefix(1))
+    }
+}
+
 @MainActor
 final class CommunityStore: ObservableObject {
     /// **앱에 하나뿐이다** — 커뮤니티에서 쓴 글이 마이페이지의 「내가 쓴 글」에
@@ -174,17 +195,12 @@ final class CommunityStore: ObservableObject {
         UIImage(contentsOfFile: photoURL(name).path)
     }
 
-    /// 긴 변 1600 으로 줄여 JPEG 로 둔다 — 폰 사진 원본은 장당 수 MB 다.
+    /// 기기에 두는 사진의 긴 변.
+    static let photoLongest: CGFloat = 1600
+
+    /// 긴 변 1600 으로 줄여 JPEG 로 둔다 — 폰 사진 원본은 장당 수 MB 다. 줄이기는 리뷰 사진과 같은 코드다.
     private static func store(photo: UIImage) -> String? {
-        let longest = max(photo.size.width, photo.size.height)
-        let scale = min(1, 1600 / max(longest, 1))
-        let size = CGSize(width: photo.size.width * scale, height: photo.size.height * scale)
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            photo.draw(in: CGRect(origin: .zero, size: size))
-        }
-        guard let data = resized.jpegData(compressionQuality: 0.82) else { return nil }
+        guard let data = PhotoShrink.jpeg(photo, longest: photoLongest) else { return nil }
         let name = UUID().uuidString + ".jpg"
         do {
             try data.write(to: photoURL(name), options: .atomic)

@@ -10,6 +10,8 @@ import SwiftUI
 /// 지어낸 글을 앱에 박지 않는다(시험용 글은 기기에 직접 넣어 본다).
 struct CommunityTabView: View {
     @ObservedObject private var store = CommunityStore.shared
+    /// 내 글의 글쓴이 이름이 닉네임이다 — 닉네임을 바꾸거나 로그인·로그아웃하면 목록이 다시 그려져야 한다.
+    @ObservedObject private var auth = AuthStore.shared
 
     @State private var composing = false
 
@@ -116,7 +118,7 @@ struct CommunityTabView: View {
                         .font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
                 HStack(spacing: 8) {
-                    Text(post.author ?? tr("나")).font(.caption2).foregroundStyle(.tertiary)
+                    Text(post.authorName(myNickname: auth.me?.nickname)).font(.caption2).foregroundStyle(.tertiary)
                     Text(post.createdAt.formatted(.relative(presentation: .named).locale(AppLanguage.currentLocale)))
                         .font(.caption2).foregroundStyle(.tertiary)
                 }

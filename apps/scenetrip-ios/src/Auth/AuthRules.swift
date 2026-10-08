@@ -29,6 +29,23 @@ enum AuthRules {
         return (try? JSONDecoder().decode(Body.self, from: data))?.code
     }
 
+    /// 액세스 토큰을 미리 갱신할 때인가 — 죽었거나 `margin` 안에 죽는다. **죽는 때를 모르면 갱신한다**
+    /// (이 값을 적기 전에 로그인한 설치본) — 한 번 갱신하면 그 뒤로는 안다.
+    static func stale(expiresAt: Date?, now: Date, margin: TimeInterval = 60) -> Bool {
+        guard let expiresAt else { return true }
+        return expiresAt.timeIntervalSince(now) <= margin
+    }
+
+    /// 응답에 **서명된 사진 주소**가 실려 오는 창구인가 (MZ2AZ-363) — 촬영지·편의시설 상세(`photos`), 사진첩(`…/photos`),
+    /// 리뷰 목록·내 리뷰(`…/reviews`, `…/reviews/me`, `/me/reviews`). 그런 응답은 디스크 캐시에 남기지 않는다:
+    /// 한 시간짜리라도 남의 사진을 여는 주소가 앱 컨테이너에 파일로 쌓인다.
+    static func carriesSignedUrls(url: String) -> Bool {
+        let path = URLComponents(string: url)?.path ?? url
+        return path.range(
+            of: #"/(places|pois)/\d+(/photos|/reviews(/me)?)?/?$|/me/reviews/?$"#, options: .regularExpression
+        ) != nil
+    }
+
     /// 로그인·갱신·로그아웃 창구 자신의 401 은 가로채지 않는다 — 갱신이 갱신을 부르면 끝나지 않는다.
     static func intercepts(url: String) -> Bool {
         !url.contains("/auth/")

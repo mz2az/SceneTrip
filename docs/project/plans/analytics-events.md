@@ -48,6 +48,7 @@ flowchart LR
 | `view_reviews` | 리뷰 시트를 열었다(MZ2AZ-363) | `target_type`(`place`·`poi`) | `ReviewsSheet` | 아직 |
 | `write_review` | 리뷰를 썼다·고쳤다(MZ2AZ-363) | `target_type`, `rating`, `photo_count`, `has_body`(1·0), `edited`(1·0) — **글과 닉네임은 보내지 않는다** | `ReviewComposeView` | 아직 |
 | `delete_review` | 리뷰를 지웠다 | `target_type` | `ReviewComposeView` | 아직 |
+| `view_photos` | 사진첩을 크게 열었다(MZ2AZ-363) | `target_type`(`place`·`poi`), `entry`(`detail` 대표 사진 자리 · `reviews` 리뷰 시트 · `card` 지도 카드) — **사진 주소는 보내지 않는다** | `GalleryViewer` | 아직 |
 | `like_title` | 작품 하트를 눌렀다 | `content_id`, `liked`(1·0) | `LikeStore.toggle` | `LikeStore.toggle` |
 | `save_place` | 장소를 담았다(서버가 받았을 때) | `place_id` | `CartStore.add` | `CartStore.add` |
 | `generate_plan` | AI 일정 초안을 받았다(저장 전) | `day_count`, `title_count` | `RouteStore` | `RouteStore.guideDraft` |

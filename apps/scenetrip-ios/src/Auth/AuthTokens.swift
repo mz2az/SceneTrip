@@ -14,6 +14,9 @@ enum AuthTokens {
     private static var loaded = false
     private static var access: String?
     private static var refresh: String?
+    /// 액세스 토큰이 죽는 때. 비밀이 아니라 `UserDefaults` 에 둔다 — 앱을 다시 켜도 안다.
+    private static var expiry: Date?
+    private static let expiryKey = "scenetrip.auth.accessExpiresAt"
 
     static var accessToken: String? {
         locked { access }
@@ -27,11 +30,19 @@ enum AuthTokens {
         refreshToken != nil
     }
 
+    /// 액세스 토큰이 죽는 때 — 받을 때 서버가 일러 준 수명(`accessTokenExpiresIn`)으로 셈한 것이다.
+    /// 토큰 안을 읽지 않는다. 이 값을 적기 전에 로그인한 설치본은 모른다(nil).
+    static var accessExpiresAt: Date? {
+        locked { expiry }
+    }
+
     /// 로그인·갱신이 돌려준 묶음. **두 토큰을 모두 바꾼다** — 리프레시 토큰은 일회용이다.
     static func store(_ session: AuthSession) {
         locked {
             access = session.accessToken
             refresh = session.refreshToken
+            expiry = Date().addingTimeInterval(TimeInterval(session.accessTokenExpiresIn))
+            UserDefaults.standard.set(expiry, forKey: expiryKey)
             accessItem.write(session.accessToken)
             refreshItem.write(session.refreshToken)
         }
@@ -41,6 +52,8 @@ enum AuthTokens {
         locked {
             access = nil
             refresh = nil
+            expiry = nil
+            UserDefaults.standard.removeObject(forKey: expiryKey)
             accessItem.remove()
             refreshItem.remove()
         }
@@ -53,6 +66,7 @@ enum AuthTokens {
             loaded = true
             access = accessItem.read()
             refresh = refreshItem.read()
+            expiry = UserDefaults.standard.object(forKey: expiryKey) as? Date
         }
         return body()
     }
@@ -81,6 +95,21 @@ enum AuthRefresher {
             }
         }
         return done ?? false
+    }
+
+    /// 액세스 토큰이 죽었거나 곧 죽으면 **부르기 전에** 갱신한다. 로그인하지 않았으면 아무것도 하지 않는다.
+    ///
+    /// 보통은 401(`ACCESS_TOKEN_EXPIRED`)을 받고 갱신하면 된다 — 그런데 **누구나 읽는 창구**(리뷰 목록)는
+    /// 만료된 토큰에 401 을 주지 않고 비회원으로 답한다(서버 `CurrentAccount.signedInOrNull`). 그러면 갱신할
+    /// 계기가 없어 「내 리뷰」 표시가 빠진 목록이 그대로 그려진다(2026-10-08 실기 — 앱을 켠 직후, 그리고
+    /// 30분 넘게 열어 둔 뒤의 첫 리뷰 시트). 그런 창구는 부르기 전에 이것을 거친다.
+    ///
+    /// 갱신에 실패해도 던지지 않는다 — 목록은 비회원으로라도 보여야 한다.
+    static func refreshIfStale() async {
+        guard AuthTokens.hasSession,
+              AuthRules.stale(expiresAt: AuthTokens.accessExpiresAt, now: Date())
+        else { return }
+        _ = await refresh()
     }
 }
 

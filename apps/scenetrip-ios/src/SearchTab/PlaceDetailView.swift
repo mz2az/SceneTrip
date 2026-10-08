@@ -20,6 +20,8 @@ struct PlaceDetailView: View {
     @State private var scene: SceneItem?
     /// 리뷰 시트 (MZ2AZ-363).
     @State private var reviewing: ReviewSubject?
+    /// 대표 사진 자리에서 넘겨 보는 사진첩 — 우리 사진 뒤로 방문자 사진 (MZ2AZ-363).
+    @StateObject private var gallery = PhotoGallery()
 
     private var scenes: [SceneItem] {
         detail?.scenes ?? []
@@ -30,7 +32,9 @@ struct PlaceDetailView: View {
             DetailHeader(title: summary.name, subtitle: summary.address ?? "", onBack: onBack)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    RemoteImage(url: detail?.imageUrl ?? summary.imageUrl, symbol: "photo")
+                    PhotoHero(gallery: gallery, title: summary.name) { Task { await refresh() } }
+                        // 다른 촬영지로 바뀌면 보던 쪽을 잇지 않는다.
+                        .id(summary.id)
                         .frame(height: 180)
                         .frame(maxWidth: .infinity)
                         .clipShape(.rect(cornerRadius: 10))
@@ -58,16 +62,29 @@ struct PlaceDetailView: View {
         }
         .task(id: summary.id) {
             AppAnalytics.log(.viewPlace(placeId: summary.id))
-            detail = try? await load(summary.id)
+            // 상세가 오기 전에는 목록이 준 대표 사진 한 장으로 그린다(전과 같다).
+            gallery.show(
+                PhotoGalleryRules.book(photos: nil, count: nil, legacy: [summary.imageUrl].compactMap { $0 }),
+                subject: .place(summary.id)
+            )
+            await refresh()
         }
         .sheet(item: $scene) { picked in
             ScenePopup(scene: picked, placeName: summary.name)
                 .presentationDetents([.medium])
         }
         .reviewsSheet($reviewing, title: summary.name) {
-            // 리뷰가 바뀌었다 — 별점 줄이 든 상세를 다시 읽는다.
-            Task { detail = await (try? load(summary.id)) ?? detail }
+            // 리뷰가 바뀌었다 — 별점 줄과 사진이 든 상세를 다시 읽는다.
+            Task { await refresh() }
         }
+    }
+
+    /// 상세를 (다시) 읽고 사진첩을 그것으로 갈아 끼운다. 못 읽으면 가진 것을 그대로 둔다.
+    private func refresh() async {
+        let asked = summary.id
+        guard let fresh = try? await load(asked), asked == summary.id else { return }
+        detail = fresh
+        gallery.show(PhotoGalleryRules.book(for: fresh), subject: .place(asked))
     }
 
     /// 베타의 장소 상세와 같은 두 버튼이다 — 담기와 네이버 지도.
