@@ -35,9 +35,7 @@ struct PlaceDetailView: View {
                     PhotoHero(gallery: gallery, title: summary.name) { Task { await refresh() } }
                         // 다른 촬영지로 바뀌면 보던 쪽을 잇지 않는다.
                         .id(summary.id)
-                        .frame(height: 180)
                         .frame(maxWidth: .infinity)
-                        .clipShape(.rect(cornerRadius: 10))
 
                     // 코드(`set`)를 그대로 적지 않는다 — 표에 없는 유형이면 배지가 없다(MZ2AZ-372).
                     if let type = PlaceType.label(summary.type) {

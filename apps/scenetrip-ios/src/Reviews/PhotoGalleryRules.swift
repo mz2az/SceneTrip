@@ -23,6 +23,28 @@ struct GalleryPhoto: Equatable, Identifiable {
 
 /// 사진첩의 순수 규칙 (MZ2AZ-363 §4). 화면 없이 시험한다.
 enum PhotoGalleryRules {
+    /// 관광공사 공개 원본 호스트만 받는다. 쿼리·계정 정보가 있는 주소는 일반 경로에 둔다.
+    static func tourImage(_ url: String) -> Bool {
+        guard let parts = URLComponents(string: url) else { return false }
+        return parts.scheme?.lowercased() == "https" && parts.host?.lowercased() == "tong.visitkorea.or.kr"
+            && parts.port == nil && parts.user == nil && parts.password == nil
+            && parts.query == nil && parts.fragment == nil
+    }
+
+    /// 전체 그림을 보전해야 하는 공식 사진인가.
+    static func preservesFrame(_ photo: GalleryPhoto) -> Bool {
+        guard !signed(photo) else { return false }
+        return tourImage(photo.url) || photo.credit?.contains("공공누리 제3유형") == true
+    }
+
+    /// 사진 줄 아래에 적을 원문 출처 목록.
+    static func credits(_ photos: [GalleryPhoto]) -> [String] {
+        var seen = Set<String>()
+        return photos.compactMap(\.credit).filter {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && seen.insert($0).inserted
+        }
+    }
+
     /// 한 번에 받는 장수 — 상세가 실어 주는 앞 20장과 같다.
     static let pageSize = 20
     /// 끝에서 이만큼 남으면 다음 쪽을 받는다 — 끝에 닿아 기다리지 않게.

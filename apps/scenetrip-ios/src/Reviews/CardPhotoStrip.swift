@@ -19,15 +19,18 @@ struct CardPhotoStrip: View {
 
     var body: some View {
         if !photos.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 6) {
-                    ForEach(Array(photos.enumerated()), id: \.element.key) { number, photo in
-                        thumb(number, photo)
+            VStack(alignment: .leading, spacing: 4) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 6) {
+                        ForEach(Array(photos.enumerated()), id: \.element.key) { number, photo in
+                            thumb(number, photo)
+                        }
                     }
+                    .padding(.horizontal, 14)
                 }
-                .padding(.horizontal, 14)
+                .frame(height: 70)
+                PhotoCredit(credits: PhotoGalleryRules.credits(photos)).padding(.horizontal, 14)
             }
-            .frame(height: 70)
             .renewsPhotos(from: gallery)
             .fullScreenCover(isPresented: $viewing) {
                 GalleryViewer(
@@ -43,7 +46,8 @@ struct CardPhotoStrip: View {
             index = number
             viewing = true
         } label: {
-            GalleryImage(photo: photo, size: .tile)
+            GalleryImage(photo: photo, size: .tile, fits: PhotoGalleryRules.preservesFrame(photo))
+                .background(Color(.systemGray6))
                 .frame(width: 92, height: 70)
                 .overlay(alignment: .bottomLeading) {
                     if photo.isReview {
@@ -59,5 +63,19 @@ struct CardPhotoStrip: View {
         )
         .accessibilityHint(tr("크게 보기"))
         .onAppear { gallery.near(number) }
+    }
+}
+
+/// API가 준 출처를 사진 바깥에 원문 그대로 적는다. 작은 카드에서도 끝을 자르지 않는다.
+struct PhotoCredit: View {
+    let credits: [String]
+
+    var body: some View {
+        if !credits.isEmpty {
+            Text(verbatim: credits.joined(separator: "\n"))
+                .font(.caption2).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }

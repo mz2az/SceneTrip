@@ -13,8 +13,8 @@ import SwiftUI
 /// 카드의 제목·설명을 가렸다). 빈 색이 제안된 크기를 받고 그 위에서 채운 뒤 자르면
 /// 프레임이 어디서 정해지든 결과가 같다.
 ///
-/// 캐시는 `URLSession` 기본 것에 맡긴다. 목록이 길어져 스크롤이 버벅이면 그때
-/// 다시 본다 — 지금 데이터로는 장소 155 개이고 화면에 한 번에 예닐곱 줄이다.
+/// 관광공사 공개 원본만 기존 사진첩 로더로 360px까지 푼다(MZ2AZ-385).
+/// 다른 사진·포스터의 요청과 캐시 정책은 그대로 둔다.
 struct RemoteImage: View {
     let url: String?
     let symbol: String
@@ -26,7 +26,10 @@ struct RemoteImage: View {
     }
 
     @ViewBuilder private var content: some View {
-        if let url, let parsed = URL(string: url) {
+        if let url, PhotoGalleryRules.tourImage(url), let photo = PhotoGalleryRules.photos(urls: [url]).first {
+            GalleryImage(photo: photo, size: .tile, fits: true)
+                .background(Color(.systemGray5))
+        } else if let url, let parsed = URL(string: url) {
             AsyncImage(url: parsed) { phase in
                 switch phase {
                 case let .success(image):

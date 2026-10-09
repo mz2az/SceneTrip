@@ -106,6 +106,8 @@ struct GalleryImage: View {
     var size: PhotoLoader.Size = .page
     /// 잘리지 않게 안에 맞춘다(크게 보기). 아니면 칸을 채우고 넘치는 곳을 자른다.
     var fits = false
+    /// 크게 보기의 검은 바탕. 대표·카드의 밝은 바탕에는 중립색 진행·실패 표시를 쓴다.
+    var dark = false
     var active = true
 
     @State private var image: UIImage?
@@ -146,7 +148,7 @@ struct GalleryImage: View {
         } else if failed {
             failure
         } else if fits {
-            ProgressView().tint(.white)
+            ProgressView().tint(dark ? .white : .secondary)
         } else {
             Color(.systemGray5).overlay(ProgressView().scaleEffect(0.6))
         }
@@ -168,7 +170,7 @@ struct GalleryImage: View {
     /// 못 받았다 — 누르면 다시 받는다. 이 칸이 단추 안에 있어도(누르면 크게 보기) 여기를 누른 것은 다시 받기다.
     private var failure: some View {
         Group {
-            if fits {
+            if fits, size == .page {
                 // 주소가 만료됐거나(한 시간) 끊겼다.
                 VStack(spacing: 10) {
                     Image(systemName: "photo").font(.system(size: 30))
@@ -177,9 +179,9 @@ struct GalleryImage: View {
                         .font(.footnote.weight(.semibold))
                         .padding(.horizontal, 14)
                         .frame(height: 44)
-                        .background(Capsule().fill(.white.opacity(0.2)))
+                        .background(Capsule().fill(dark ? Color.white.opacity(0.2) : Color(.systemGray5)))
                 }
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(dark ? Color.white.opacity(0.8) : Color.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 Color(.systemGray5).overlay(

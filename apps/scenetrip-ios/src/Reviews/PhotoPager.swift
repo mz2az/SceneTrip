@@ -72,7 +72,7 @@ struct PhotoViewer: View {
             Color.black.ignoresSafeArea()
             PhotoPager(count: photos.count, index: $index) { number in
                 GalleryImage(
-                    photo: photos[number], fits: true,
+                    photo: photos[number], fits: true, dark: true,
                     active: PhotoGalleryRules.loads(page: number, current: index)
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
