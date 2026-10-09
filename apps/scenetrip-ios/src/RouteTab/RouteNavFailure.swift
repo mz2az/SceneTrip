@@ -27,6 +27,13 @@ enum RouteNavFailure: Equatable {
     case providerDown
     /// 서버에 닿지 못했다. 백엔드가 꺼져 있거나 네트워크가 없다.
     case unreachable
+    /// 길찾기 한도(429 `NAVIGATION_LIMIT_REACHED`) — 1 분 창이든 하루 창이든 이 하나다 (MZ2AZ-366 D).
+    /// `retryAfter` 는 풀릴 때까지의 초(서버의 `Retry-After`), 없으면 모른다. **자동으로 다시 부르지 않는다** —
+    /// 화면이 지도 앱으로 넘기는 단추를 보인다(`NavLimit` · `ExternalDirections`).
+    case limitReached(retryAfter: Int?)
+    /// 분당 요청 한도(429 `RATE_LIMITED`, 또는 `code` 없는 게이트웨이의 429). 길찾기는 유료라 공통 계층이
+    /// 다시 보내지 않는다 — 사람이 「다시 시도」 를 누른다.
+    case rateLimited
     /// 그 밖의 응답. 코드를 그대로 보여 준다.
     case other(status: Int)
 
@@ -40,7 +47,7 @@ enum RouteNavFailure: Equatable {
 
     /// 오류를 계약 응답으로 분류한다.
     init(_ error: Error) {
-        guard case let ErrorResponse.error(status, data, _, _) = error else {
+        guard case let ErrorResponse.error(status, data, response, _) = error else {
             self = .unreachable
             return
         }
@@ -52,16 +59,32 @@ enum RouteNavFailure: Equatable {
         let code = Self.apiCode(from: data)
         switch status {
         // 401 이 전부 「가입하세요」는 아니다 — 토큰 만료·폐기도 401 로 온다. `code` 로 가른다.
-        case 401:
-            switch AuthRules.action(status: status, code: AuthRules.apiCode(from: data)) {
-            case .refreshAndRetry, .signOut: self = .sessionExpired
-            case .promptSignIn, .none: self = .signInRequired
-            }
+        case 401: self = Self.unauthorized(code: AuthRules.apiCode(from: data))
         case 404: self = .notFound
         case 409: self = .courseNotActive
         case 422: self = .noRoute(code: code ?? "ROUTE_NOT_FOUND")
+        case 429: self = Self.tooMany(code: code, response: response)
         case 503: self = .providerDown
         default: self = .other(status: status)
+        }
+    }
+
+    private static func unauthorized(code: String?) -> RouteNavFailure {
+        switch AuthRules.action(status: 401, code: code) {
+        case .refreshAndRetry, .signOut: .sessionExpired
+        case .promptSignIn, .none: .signInRequired
+        }
+    }
+
+    /// 429 는 `code` 로 갈린다 — 길찾기 한도, 분당 한도(`code` 없는 게이트웨이의 것 포함), 그 밖.
+    private static func tooMany(code: String?, response: URLResponse?) -> RouteNavFailure {
+        switch code {
+        case NavLimit.code:
+            .limitReached(retryAfter: (response as? HTTPURLResponse).flatMap(RateLimitLedger.retryAfter(in:)))
+        case nil, "RATE_LIMITED":
+            .rateLimited
+        default:
+            .other(status: 429)
         }
     }
 
@@ -91,6 +114,10 @@ enum RouteNavFailure: Equatable {
             tr("길찾기 서비스가 잠시 응답하지 않아요. 잠시 뒤 다시 시도해 주세요")
         case .unreachable:
             tr("서버에 연결하지 못했어요 — 백엔드(:8081)가 켜져 있나요?")
+        case let .limitReached(retryAfter):
+            NavLimit.message(NavLimit.window(seconds: retryAfter))
+        case .rateLimited:
+            tr("요청이 많아요. 잠시 뒤 다시 시도해 주세요")
         case let .other(status):
             String(format: tr("길찾기를 처리하지 못했어요 (%d)"), status)
         case .detourUnsupported:
@@ -103,10 +130,21 @@ enum RouteNavFailure: Equatable {
     /// 「다시 시도」 단추를 보일 것인가. 다시 불러도 같은 답이 오는 것(경로 없음·
     /// 가입 필요·코스 밖)에는 단추를 두지 않는다 — 눌러도 달라지지 않는 단추는
     /// 사용자를 두 번 실망시킨다.
+    ///
+    /// 한도(`limitReached`)는 여기서 거짓이다 — 풀린 뒤에만 다시 부를 수 있고, 그것은 한도 안내가 따로 정한다
+    /// (`NavLimitStore.state`).
     var canRetry: Bool {
         switch self {
-        case .providerDown, .unreachable, .other: true
+        case .providerDown, .unreachable, .rateLimited, .other: true
         default: false
         }
+    }
+
+    /// 길찾기 한도인가 — 안내 띠는 이것을 실패 한 줄이 아니라 한도 안내(지도 앱으로 넘기기)로 그린다.
+    var isLimit: Bool {
+        if case .limitReached = self {
+            return true
+        }
+        return false
     }
 }

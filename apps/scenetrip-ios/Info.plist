@@ -28,6 +28,13 @@
 			</array>
 		</dict>
 	</array>
+	<!-- 길찾기 한도에 걸리면 그 구간을 지도 앱으로 넘긴다 (MZ2AZ-366 D). 깔려 있는지 `canOpenURL` 로 물으려면
+	     스킴을 여기 적어야 한다 — 카카오맵 `kakaomap`, 네이버 지도 `nmap`(두 회사의 URL Scheme 문서). -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaomap</string>
+		<string>nmap</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>SceneTrip</string>
 	<key>CFBundlePackageType</key>

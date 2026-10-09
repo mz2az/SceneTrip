@@ -65,6 +65,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 언어 | 앱 언어(ko·en·ja)를 모든 요청의 `Accept-Language` 로 보낸다(`AppLocale`, MZ2AZ-305). 길찾기 안내가 앱 언어와 다르면(일본어 사용자는 영어를 받는다) 그대로 보여 주고 언어 표시만 둔다 |
 | 챗봇(여행 가이드) | **계약 `POST /guide/chat` 을 부른다**(MZ2AZ-321). 백엔드가 에이전트(`agents/trip-guide`, :8899)를 부르므로 그것이 떠 있어야 답이 온다 — 꺼져 있으면 「잠시 뒤 다시」가 뜨는 것이 정상이고, 규칙 기반 답이 나오면 잘못된 것이다. 가입자만(401) |
 | 챗봇 한도·남은 양 | 한도에 걸리면(429 `GUIDE_LIMIT_REACHED`) 자동으로 다시 보내지 않고 대화 안에 안내 — 한 시간 안에 풀리면 「N분 뒤」, 아니면 「내일」. 풀릴 때까지 「보내기」 만 잠그고, 풀리면 「다시 시도」(같은 멱등 키). 입력창 위에는 남은 양이 적을 때만(한도의 20% 이하) 한 줄 — 수는 응답 헤더 `RateLimit-*` 에서만 온다. 「AI 로 짜기」 안내는 `GuideLimit.Tuning.plannerHint` 하나로 끈다. 서버 없이 보려면 `-netFault 'guide/chat:status:429;code=GUIDE_LIMIT_REACHED;retry=20'` — 계획 `docs/project/plans/app-retry.md` §11 (MZ2AZ-366) |
+| 길찾기 한도 — 지도 앱으로 넘기기 | 한도에 걸리면(429 `NAVIGATION_LIMIT_REACHED`) 자동으로 다시 부르지 않고 안내 띠에 「카카오맵에서 길찾기」(앱이 없으면 웹) · 「네이버 지도에서 길찾기」(앱이 있을 때만). 여행 안내는 켜진 채다. `Retry-After` 60초 이하면 「1분 안에 다시」, 넘으면 「오늘은 다 썼어요」. 풀릴 때까지는 서버에 묻지 않고, 풀리면 「다시 시도」. 서버 없이 보려면 `-demoDrive 0 -netFault 'navigation/next-leg:status:429;code=NAVIGATION_LIMIT_REACHED;retry=30000:all'` — 계획 `docs/project/plans/app-retry.md` §12 (MZ2AZ-366) |
 | 주변 편의시설 점·정보 카드 | 된다 — `GET /pois`·`/pois/{id}`(우리 자료). 앱 언어가 영어면 영어 이름·공식 영문 주소·분류, 영어 이름이 없으면 한글 이름 + 로마자 읽기(`PoiLabel`, MZ2AZ-360). 네이버 카드는 걷어냈다 — 「네이버 지도에서 보기」 링크로 넘긴다 (MZ2AZ-354). 갈 곳은 상세의 `naverPlaceUrl`(그 가게의 네이버 장소 화면)이고, 서버가 장소 번호를 못 찾은 곳은 버튼이 없다 — 이름 검색으로 넘기지 않는다(`NaverMapLink`, MZ2AZ-374) |
 | AI 코스 추천(마법사) | **계약 `POST /guide/plan`** — 에이전트의 코스 엔진이 짠다(모델 없음, 키 없어도 됨). 앱 안의 규칙(`RoutePlanner`)은 지웠다 |
 | 찜 | 서버(`/favorites/contents`)가 정본, 기기에는 사본 (MZ2AZ-335) |
@@ -131,7 +132,8 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | `RouteGeometry`(`RouteModels.swift` 안) | 동선 최적화 — 최근접 이웃·2-opt·완전탐색(≤8곳) 세 방법 중 가장 짧은 것. 출발·도착 고정은 각각 선택이다 |
 | `RouteMapView.swift` | 코스용 지도 — 번호 핀, 계획 단계는 **직선**만(예상 시간 표시 안 함) |
 | `TripSession.swift` · `TripMode.swift` · `RouteEditorTrip.swift` · `RouteMapTrip.swift` · `PawStamp.swift` · `DemoDrive.swift` · `RouteTabTrip.swift` | **여행 모드**(아래 절) — 편집 화면 안 길찾기·머무름 도착·발바닥 스탬프·「다음으로」. 경로는 `NavigationAPI.getNextLeg`(계약) |
-| `RouteNavFailure.swift` | 길찾기 오류를 계약 응답별로 분류 — 401 가입 · 409 코스 시작 전 · 422 경로 없음 · 503 잠시 뒤 · 연결 실패 |
+| `RouteNavFailure.swift` | 길찾기 오류를 계약 응답별로 분류 — 401 가입 · 409 코스 시작 전 · 422 경로 없음 · 429 길찾기 한도·분당 한도 · 503 잠시 뒤 · 연결 실패 |
+| `RouteNavLimit.swift` · `ExternalDirections.swift` · `RouteEditorTripLimit.swift` | 길찾기 한도(MZ2AZ-366) — 규칙(`NavLimit`: 60초 경계)과 계정의 상태(`NavLimitStore`), 카카오맵·네이버 지도로 넘길 주소(순수 함수, 공식 URL Scheme 문서의 꼴만), 안내 띠의 안내와 단추 |
 | `RouteNavView.swift` · `RouteNavMapView.swift` · `RouteNavModels.swift` · `RoutePoiTone.swift` | 「길찾기」 결과 화면 — 실제 경로(도보=점선, 대중교통=실선) + 가이드 추천 핀 + 챗봇 진입 |
 | `RouteBridge.swift` | 계약 타입(`CourseDetail` 등) ↔ 화면 타입(`RouteCourse` 등) 번역. 화면이 계약 타입을 직접 만지지 않는다 |
 | `RouteMarketView.swift` | 「인기 코스」 — 이름·정렬 기준 미확정. 목록은 여전히 지어낸 것이나 **속 장소는 서버의 진짜 장소**라 담기가 실제로 동작한다 |

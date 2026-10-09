@@ -79,6 +79,9 @@ final class TripSession: ObservableObject {
     let locator = RouteLocator()
     private var tripArrival = TripArrival()
     private var subscription: AnyCancellable?
+    /// 길찾기 한도(429 `NAVIGATION_LIMIT_REACHED`)의 상태 — 계정의 것이라 화면 밖에 있다 (MZ2AZ-366 D).
+    let limits: NavLimitStore
+    private var limitSubscription: AnyCancellable?
     private var tasks: [Task<Void, Never>] = []
 
     /// 데모 주행의 가상 위치와 경로선 위 진행 꼭짓점(`DemoDrive`).
@@ -88,6 +91,24 @@ final class TripSession: ObservableObject {
     /// 받은 길로 걷는다. 이것이 없을 때는 도착하는 순간 직진으로 바뀌었다(2026-09-17 사용자 지적).
     private var demoPath: [DemoDrive.Point] = []
     private var demoModes: [RouteLegMode] = []
+
+    /// 서버에 다음 구간을 묻는 자리 — 시험이 가짜로 바꿔 끼운다.
+    typealias LegRequest = (NextLegRequest) async throws -> NextLeg
+    private let requestLeg: LegRequest
+
+    init(
+        limits: NavLimitStore? = nil,
+        requestLeg: @escaping LegRequest = {
+            try await NavigationAPI.getNextLeg(xInstallId: InstallIdentity.current, nextLegRequest: $0)
+        }
+    ) {
+        self.limits = limits ?? .shared // 기본값 자리에서는 메인 액터의 것을 못 부른다
+        self.requestLeg = requestLeg
+        // 한도가 풀리면(또는 계정이 바뀌어 잊으면) 안내 띠가 다시 그려져야 한다.
+        limitSubscription = self.limits.objectWillChange.sink { [weak self] in
+            self?.objectWillChange.send()
+        }
+    }
 
     var isActive: Bool {
         target != nil
@@ -235,30 +256,46 @@ final class TripSession: ObservableObject {
 
     /// 경로를 **백엔드 계약**으로 받는다. `RouteNavControls.load` 와 같은 호출이다.
     private func load(from spot: TripSpot) async {
-        guard let target, result == nil, !asking else { return }
+        // 실패가 서 있으면 묻지 않는다 — 위치가 연달아 와 이 함수가 두 번 예약됐을 때, 앞의 것이 실패로 끝난 직후
+        // 뒤의 것이 유료 요청을 또 내지 않게. 다시 묻는 길(`start`·`retry`)은 실패를 먼저 비운다.
+        guard let target, result == nil, failure == nil, !asking else { return }
         // 계약은 목적지를 **저장된 코스의 항목**으로만 받는다. 저장 전 코스에는 서버 id 가 없다.
         guard let courseId, let itemId = target.serverItemId else {
             failure = .unsavedCourse
             return
         }
+        // **한도에 걸려 있는 동안은 서버에 묻지 않는다**(MZ2AZ-366 D) — 뻔히 429 인 유료 창구를 두드리지 않고
+        // 바로 지도 앱으로 넘기는 단추를 보인다. 코스 시작·「N번으로 길찾기」·「다음」·핀 카드·「다시 시도」·
+        // 걸음마다의 첫 요청이 전부 이 함수를 지나므로 여기 한 곳이면 된다.
+        if limits.stopsAsking {
+            failure = .limitReached(retryAfter: limits.secondsLeft)
+            return
+        }
         asking = true
         defer { asking = false }
         AppAnalytics.log(.getDirections)
+        let epoch = limits.epoch
         do {
-            let leg = try await NavigationAPI.getNextLeg(
-                xInstallId: InstallIdentity.current,
-                nextLegRequest: NextLegRequest(
-                    courseId: courseId, itemId: itemId,
-                    latitude: spot.latitude, longitude: spot.longitude
-                )
-            )
+            let leg = try await requestLeg(NextLegRequest(
+                courseId: courseId, itemId: itemId,
+                latitude: spot.latitude, longitude: spot.longitude
+            ))
+            // 기다리는 사이에 계정이 바뀌었다 — 앞 계정의 경로도 한도도 지금 계정의 것이 아니다.
+            guard epoch == limits.epoch else { return }
             let loaded = RouteNavResult(contract: leg, destinationName: target.place.name)
             result = loaded
             keepDemoPath(of: loaded)
             failure = nil
+            limits.succeeded()
             recenterTick += 1 // 경로가 왔다 — 카메라를 경로 전체로
         } catch {
-            failure = RouteNavFailure(error)
+            guard epoch == limits.epoch else { return }
+            let reason = RouteNavFailure(error)
+            failure = reason
+            // 자동으로 다시 부르지 않는다. 풀리는 때를 적어 두고, 그때까지는 위의 문이 요청을 막는다.
+            if case let .limitReached(retryAfter) = reason {
+                limits.reach(retryAfter: retryAfter)
+            }
         }
     }
 
