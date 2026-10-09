@@ -1,4 +1,4 @@
--- 촬영지와 같은 곳인 편의시설을 연결하고, 편의시설 쪽에 쌓인 리뷰를 촬영지로 옮긴다.
+-- 촬영지와 같은 곳인 편의시설을 연결하고, 편의시설 쪽에 쌓인 리뷰와 그 편의시설을 담은 코스 항목을 촬영지로 옮긴다.
 --
 -- 계획: docs/project/plans/place-poi-link.md §2~§5 (MZ2AZ-371). 표: V25 place_poi_link.
 -- 실행: `just place-poi-link [--dry-run]` — 촬영지 적재(`just seed`)와 편의시설 갱신(`just seed-poi --update`) 뒤에.
@@ -152,6 +152,21 @@ WITH m AS (
 )
 SELECT id FROM m;
 
+-- ── 코스 항목도 촬영지로 (MZ2AZ-377, course-poi-item.md §4) ─────────────────
+--
+-- 연결된 편의시설을 가리키는 코스 항목은 촬영지 항목이 된다 — 리뷰를 옮기는 것과 같은 규칙. 방문 기록·순서·체류는 그대로다.
+
+CREATE TEMP TABLE moved_course_items ON COMMIT DROP AS
+WITH m AS (
+    UPDATE course_item ci
+    SET place_id = l.place_id, poi_id = NULL
+    FROM place_poi_link l
+    JOIN place pl ON pl.id = l.place_id AND pl.hidden_at IS NULL
+    WHERE ci.poi_id = l.poi_id
+    RETURNING ci.id
+)
+SELECT id FROM m;
+
 -- ── 알림 (트랜잭션 안 — 임시 표가 COMMIT 에 사라진다) ─────────────────────
 
 \echo
@@ -196,6 +211,10 @@ ORDER BY c.meters;
 \echo
 \echo '── 옮긴 리뷰 ──'
 SELECT count(*) AS moved_reviews FROM moved;
+
+\echo
+\echo '── 촬영지로 바꾼 코스 항목 ──'
+SELECT count(*) AS moved_course_items FROM moved_course_items;
 
 -- 미리 보기(`just place-poi-link --dry-run`)면 계산·출력만 하고 되돌린다.
 \if :{?dry_run}

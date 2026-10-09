@@ -307,6 +307,128 @@ class CourseControllerTest {
     verify(store).replace(eq(7L), any(CourseReplace.class));
   }
 
+  // ───────────── 편의시설 항목 (1.8.0, MZ2AZ-377) ─────────────
+
+  private static final String PIN =
+      "{\"name\":\"호텔\",\"category\":\"lodging\",\"latitude\":37.5,\"longitude\":127.0}";
+
+  @Test
+  @DisplayName("poiId 하나만 보내면 통과해 Store 까지 간다")
+  void acceptsPoiIdAlone() throws Exception {
+    when(store.exists(USER, 7L)).thenReturn(true);
+    when(store.currentDayNo(USER, 7L)).thenReturn(Optional.empty());
+    when(store.find(eq(USER), eq(7L), any()))
+        .thenReturn(Optional.of(course(7L, CourseStatus.UPCOMING)));
+
+    mvc.perform(
+            put("/courses/7")
+                .header("X-Install-Id", INSTALL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(replaceBody("[{\"items\":[{\"poiId\":277819}]}]")))
+        .andExpect(status().isOk());
+
+    org.mockito.ArgumentCaptor<CourseReplace> sent =
+        org.mockito.ArgumentCaptor.forClass(CourseReplace.class);
+    verify(store).replace(eq(7L), sent.capture());
+    org.assertj.core.api.Assertions.assertThat(
+            sent.getValue().getDays().get(0).getItems().get(0).getPoiId())
+        .isEqualTo(277819L);
+  }
+
+  @Test
+  @DisplayName("placeId · poiId · customPin 중 둘 이상이면 400 INVALID_PARAMETER — Store 까지 가지 않는다")
+  void rejectsPoiIdWithAnotherTarget() throws Exception {
+    when(store.exists(USER, 7L)).thenReturn(true);
+    when(store.currentDayNo(USER, 7L)).thenReturn(Optional.empty());
+
+    for (String item :
+        List.of(
+            "{\"placeId\":1,\"poiId\":2}",
+            "{\"poiId\":2,\"customPin\":" + PIN + "}",
+            "{\"placeId\":1,\"poiId\":2,\"customPin\":" + PIN + "}")) {
+      mvc.perform(
+              put("/courses/7")
+                  .header("X-Install-Id", INSTALL_ID)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(replaceBody("[{\"items\":[" + item + "]}]")))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+    }
+
+    verify(store, never()).replace(anyLong(), any());
+  }
+
+  @Test
+  @DisplayName("둘째 일차의 항목이 셋 다 비어 있어도 400 INVALID_PARAMETER")
+  void rejectsEmptyTargetInLaterDay() throws Exception {
+    when(store.exists(USER, 7L)).thenReturn(true);
+    when(store.currentDayNo(USER, 7L)).thenReturn(Optional.empty());
+
+    mvc.perform(
+            put("/courses/7")
+                .header("X-Install-Id", INSTALL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    replaceBody(
+                        "[{\"items\":[{\"poiId\":2}]},{\"items\":[{\"dwellMinutes\":30}]}]")))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+
+    verify(store, never()).replace(anyLong(), any());
+  }
+
+  @Test
+  @DisplayName("없거나 폐업한 편의시설이면 400 POI_NOT_FOUND — docs/api/errors.md")
+  void unknownPoiIsBadRequest() throws Exception {
+    when(store.exists(USER, 7L)).thenReturn(true);
+    when(store.currentDayNo(USER, 7L)).thenReturn(Optional.empty());
+    org.mockito.Mockito.doThrow(new CourseStore.UnknownPoiException(277819L))
+        .when(store)
+        .replace(eq(7L), any());
+
+    mvc.perform(
+            put("/courses/7")
+                .header("X-Install-Id", INSTALL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(replaceBody("[{\"items\":[{\"poiId\":277819}]}]")))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("POI_NOT_FOUND"));
+  }
+
+  @Test
+  @DisplayName("상세의 편의시설 항목은 source poi · poiId 로 나간다")
+  void detailSerializesPoiItem() throws Exception {
+    var poiItem =
+        new com.mz2az.scenetrip.sceneapi.api.model.CourseItem(
+                11L,
+                com.mz2az.scenetrip.sceneapi.api.model.CourseItemSource.POI,
+                "카페 하나",
+                37.5,
+                127.0,
+                60)
+            .poiId(277819L)
+            .address("서울 중구 명동")
+            .category("카페");
+    CourseDetail detail =
+        new CourseDetail(
+            7L,
+            "제주 3일",
+            1,
+            CourseStatus.UPCOMING,
+            CourseOrigin.SELF,
+            1,
+            OffsetDateTime.parse("2026-08-13T06:00:00Z"),
+            OffsetDateTime.parse("2026-08-13T06:00:00Z"),
+            List.of(new CourseDay(1, List.of(poiItem), 60, 0, 60, TravelBasis.STRAIGHT_LINE)));
+    when(store.find(eq(USER), eq(7L), any())).thenReturn(Optional.of(detail));
+
+    mvc.perform(get("/courses/7").header("X-Install-Id", INSTALL_ID))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.days[0].items[0].source").value("poi"))
+        .andExpect(jsonPath("$.days[0].items[0].poiId").value(277819))
+        .andExpect(jsonPath("$.days[0].items[0].category").value("카페"));
+  }
+
   @Test
   @DisplayName("지우면 204, 없으면 404")
   void deleteReturnsNoContentOrNotFound() throws Exception {

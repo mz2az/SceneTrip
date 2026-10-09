@@ -77,7 +77,8 @@ class PlacePoiLinkJobIntegrationTest {
   private static void runJob(Verdict... verdicts) {
     IntegrationDatabase.execute(
         "DROP TABLE IF EXISTS pg_temp.verdict, pg_temp.candidate, pg_temp.wanted, pg_temp.was,"
-            + " pg_temp.clash, pg_temp.moved; DROP FUNCTION IF EXISTS pg_temp.road_key(TEXT);");
+            + " pg_temp.clash, pg_temp.moved, pg_temp.moved_course_items;"
+            + " DROP FUNCTION IF EXISTS pg_temp.road_key(TEXT);");
     IntegrationDatabase.execute(beforeCopy);
     for (Verdict v : verdicts) {
       jdbc.sql("INSERT INTO verdict VALUES (:k, :s, :v, '시험')")
@@ -456,6 +457,83 @@ class PlacePoiLinkJobIntegrationTest {
           long r = review("poi_id", q, user(), 4, "1 day");
           runJob();
           assertThat(whereIs(r)).isEqualTo("poi " + q);
+          return null;
+        });
+  }
+
+  // ── 코스 항목 옮기기 (MZ2AZ-377, course-poi-item.md §4) ──────────────────────
+
+  /** 코스 하나(일차 1)를 사용자와 함께 만든다. */
+  private static long course() {
+    return jdbc.sql(
+            "INSERT INTO course (user_id, title, day_count, origin) VALUES (CAST(:u AS UUID),"
+                + " '시험', 1, 'self') RETURNING id")
+        .param("u", user().toString())
+        .query(Long.class)
+        .single();
+  }
+
+  private static long poiItem(long courseId, long poiId, int sortOrder, boolean visited) {
+    return jdbc.sql(
+            "INSERT INTO course_item (course_id, day_no, poi_id, sort_order, dwell_min, visited_at)"
+                + " VALUES (:c, 1, :q, :s, 75, CASE WHEN :v THEN now() END) RETURNING id")
+        .param("c", courseId)
+        .param("q", poiId)
+        .param("s", sortOrder)
+        .param("v", visited)
+        .query(Long.class)
+        .single();
+  }
+
+  /** 코스 항목 하나의 지금 자리: "place <id> <sort> <dwell> <visited?>" · "poi <id> ..." · 지워졌으면 null. */
+  private static String itemState(long itemId) {
+    return jdbc.sql(
+            "SELECT CASE WHEN place_id IS NOT NULL THEN 'place ' || place_id"
+                + " WHEN poi_id IS NOT NULL THEN 'poi ' || poi_id ELSE 'pin' END"
+                + " || ' ' || sort_order || ' ' || dwell_min || ' ' || (visited_at IS NOT NULL)"
+                + " FROM course_item WHERE id = :id")
+        .param("id", itemId)
+        .query(String.class)
+        .optional()
+        .orElse(null);
+  }
+
+  @Test
+  @DisplayName("연결된 편의시설을 담은 코스 항목은 촬영지 항목이 된다 — 순서·체류·방문 기록은 그대로, 다시 돌려도 같다")
+  void courseItemsOfLinkedPoiBecomePlaceItems() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          long p = place("ci", "수원 카페 몽테드", "경기 수원시 팔달구 행궁로 12", 0);
+          long q = poi("ci", "몽테드", "경기 수원시 팔달구 행궁로 12", 3);
+          long c = course();
+          long visited = poiItem(c, q, 1, true);
+          long notVisited = poiItem(c, q, 2, false);
+
+          runJob();
+          assertThat(linkOf(q)).isEqualTo(p + " address");
+          assertThat(itemState(visited)).isEqualTo("place " + p + " 1 75 true");
+          assertThat(itemState(notVisited)).isEqualTo("place " + p + " 2 75 false");
+
+          runJob();
+          assertThat(itemState(visited)).isEqualTo("place " + p + " 1 75 true");
+          assertThat(count("SELECT count(*) FROM course_item WHERE poi_id = " + q)).isZero();
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("연결되지 않은 편의시설(C)의 코스 항목은 편의시설 항목으로 남는다")
+  void courseItemsOfUnlinkedPoiStay() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          place("cu", "링크시험 명동", "서울 중구 명동길 14", 0);
+          long q = poi("cu", "명동", "서울 중구 명동8길 3", 1);
+          long c = course();
+          long item = poiItem(c, q, 1, false);
+
+          runJob();
+          assertThat(linkOf(q)).isNull();
+          assertThat(itemState(item)).isEqualTo("poi " + q + " 1 75 false");
           return null;
         });
   }
