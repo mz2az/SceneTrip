@@ -2,6 +2,9 @@
 
 just 레시피가 호출하는 스크립트. 기여자가 직접 실행하지 않는다.
 
+- `just ios-run [앱 실행 인자...]`: Bazel IPA를 부팅한 iOS 기기에 덮어 설치하고
+  다시 실행한다. 로그인·앱 데이터는 유지한다.
+  [실행·진단 안내](../../docs/ops/ios-simulator-run.md)를 따른다.
 - `just db-psql-file <파일>`: 큰 SQL을 로컬 kind DB에 표준입력으로 보낸다.
   직접 접속 환경변수는 거부하고 SQL 오류는 실패로 돌려준다.
   [실행·복구 안내](../../docs/ops/local-sql-file.md)를 먼저 읽는다.

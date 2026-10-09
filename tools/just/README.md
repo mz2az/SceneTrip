@@ -15,6 +15,9 @@
 | `agent.just` | `agent` | AI 에이전트 실행과 평가 |
 | `scaffold.just` | `scaffold` | 새 서비스·앱·에이전트·라이브러리 생성 |
 
+`just ios-run [앱 실행 인자...]`는 부팅한 시뮬레이터의 앱을 데이터 삭제 없이
+교체하고 실행한다. 기기 선택·오류 진단은 [운영 안내](../../docs/ops/ios-simulator-run.md)에 있다.
+
 ## 레시피 추가하기
 
 1. 영역에 맞는 파일에 넣는다.

@@ -96,7 +96,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 
 | 증상 | 처방 |
 | --- | --- |
-| 코드를 받았는데 화면이 옛것이다 | `xcrun simctl uninstall booted com.mz2az.scenetrip` 후 다시 `just ios-run` — 같은 번들 id 덮어쓰기가 간헐적으로 반영되지 않는다(실측) |
+| 코드를 받았는데 화면이 옛것이다 | `just ios-run`으로 다시 덮어 설치한다. 기기가 여럿이면 `SCENETRIP_IOS_DEVICE=<UDID> just ios-run`으로 고른다. 설치·실행 오류는 [시뮬레이터 실행 안내](../../docs/ops/ios-simulator-run.md)를 따른다. 이 명령은 로그인·코스 데이터를 유지한다(MZ2AZ-386) |
 | 길찾기가 「현재 위치를 찾는 중」에서 멈춘다 | 시뮬레이터에 가짜 위치가 없다. `xcrun simctl location booted set 37.5663,126.9779` (서울시청) |
 | 백엔드는 떠 있는데 8081 이 connection refused | 시뮬레이터가 `localhost` 를 `::1`(IPv6) 로 먼저 푸는데 포트가 IPv4 전용일 때 난다 — IPv6→IPv4 프록시를 하나 띄우면 된다(실측) |
 | 지도가 회색이다 / `Authorize Error` | `.env` 의 네이버 키가 비었거나, `just ios-run` 이 아닌 방법으로 지었다 |

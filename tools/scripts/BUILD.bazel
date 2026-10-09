@@ -1,5 +1,18 @@
 load("@rules_python//python:defs.bzl", "py_test")
 
+# 앱 데이터를 지우지 않는 iOS 설치와 실행 인자·오류 전달 검증.
+py_test(
+    name = "ios_run_unit_test",
+    srcs = ["test_ios_run.py"],
+    data = [
+        "_lib.sh",
+        "ios-run.sh",
+    ],
+    legacy_create_init = 0,
+    main = "test_ios_run.py",
+    tags = ["unit"],
+)
+
 # 큰 SQL 파일의 표준입력 전달과 로컬 DB 경계 검증.
 py_test(
     name = "db_psql_file_unit_test",

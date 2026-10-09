@@ -43,14 +43,16 @@ run target *args:
 # (dotenv-load 가 루트 justfile 에 켜져 있다). ID 가 없으면 빈 값으로 지어지고
 # 지도만 인증 실패 화면이 된다 — .bazelrc 의 같은 이름 절 참고.
 #
-# 러너가 앱 로그를 붙잡고 있으므로 프롬프트가 바로 돌아오지 않는다. Ctrl+C 로
-# 빠져나와도 시뮬레이터의 앱은 별도 프로세스라 그대로 살아 있다.
+# 이미 부팅한 기기에 덮어 설치하며 앱 데이터를 유지한다. 기기가 여럿이면
+# SCENETRIP_IOS_DEVICE로 UDID를 고른다. 앱 실행 인자는 공백을 유지해 전달한다.
+# 실행 뒤 명령은 돌아오고 앱은 별도 프로세스로 남는다.
 
 # iOS 앱을 시뮬레이터에 띄운다 (실기기는 just ios-xcode)
 [group('build')]
-ios-run:
-    {{BAZEL}} run //apps/scenetrip-ios:bin \
+ios-run *args:
+    {{BAZEL}} build //apps/scenetrip-ios:bin \
         --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+    bash ./tools/scripts/ios-run.sh "$@"
 
 # 껐다 켜는 것과 사용법을 다시 보는 것은 **다른 일**이다.
 #
@@ -124,8 +126,8 @@ ios-reinstall:
     xcrun simctl install booted "$work/Payload/bin.app"
     xcrun simctl launch booted com.mz2az.scenetrip
 
-# `bazel run` 한 줄로 끝나는 ios-run 과 달리 스크립트를 거친다 — `android_binary` 는
-# APK 만 내놓을 뿐 설치·실행을 하지 않는다. 그 몫(AVD 생성·부팅 대기·설치·실행)을
+# `android_binary` 는 APK 만 내놓을 뿐 설치·실행을 하지 않는다.
+# 그 몫(AVD 생성·부팅 대기·설치·실행)을
 # tools/scripts/android-run.sh 가 대신하며, 이유는 그 파일 머리말에 적혀 있다.
 
 # Android 앱을 에뮬레이터에 띄운다 (없으면 AVD 생성·부팅까지)
