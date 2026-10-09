@@ -89,6 +89,21 @@ repo-stage +paths:
 repo-stage-patch patch:
     git apply --cached -- {{quote(patch)}}
 
+# 로컬 작업을 자동 보관한 뒤 최신 main 병합 (충돌 시 해결 후 repo-merge-continue)
+[group('dev')]
+repo-merge-main:
+    git merge --no-ff --autostash origin/main -m 'chore: 최신 main을 Android 기능 반영 브랜치에 병합한다 (MZ2AZ-148)'
+
+# 해결하고 스테이징한 충돌의 병합 완료와 자동 보관 작업 복원
+[group('dev')]
+repo-merge-continue:
+    GIT_EDITOR=true git merge --continue
+
+# 작업 파일을 유지한 채 지정 파일의 스테이징만 해제
+[group('dev')]
+repo-unstage +paths:
+    git reset HEAD -- "$@"
+
 # 스테이징한 변경의 공백을 확인한 뒤 커밋
 [group('dev')]
 repo-commit message:
