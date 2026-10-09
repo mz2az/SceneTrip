@@ -51,10 +51,28 @@ enum RouteBridge {
         )
     }
 
-    private static func stop(from item: CourseItem) -> RouteStop {
-        RouteStop(
+    /// 항목의 갈래 — 서버의 `source` 를 화면의 `RouteStop.Kind` 로 (MZ2AZ-380).
+    ///
+    /// `source: poi` 인데 `poiId` 가 없는 항목은 계약상 없다. 와도 줄은 그린다 — 이름·좌표만 가진 개인 핀으로.
+    static func kind(of item: CourseItem) -> RouteStop.Kind {
+        switch item.source {
+        case .place: .place
+        case .poi: item.poiId.map(RouteStop.Kind.poi) ?? .pin
+        case .custompin: .pin
+        }
+    }
+
+    static func stop(from item: CourseItem) -> RouteStop {
+        let kind = kind(of: item)
+        // 촬영지가 아니면 촬영지 id 가 없다 — 편의시설의 id 는 `kind` 가 든다(`RouteStop.placeId`·`poiId`).
+        let placeId: Int64 = switch kind {
+        case .place: item.placeId ?? -item.id
+        case .poi: RouteStop.noPlaceId
+        case .pin: -item.id
+        }
+        return RouteStop(
             place: PlaceSummary(
-                id: item.placeId ?? -item.id, // 직접 찍은 핀은 촬영지 id 가 없다.
+                id: placeId,
                 name: item.name,
                 type: item.category,
                 address: item.address,
@@ -64,7 +82,7 @@ enum RouteBridge {
             ),
             serverItemId: item.id,
             stayMinutes: item.dwellMinutes,
-            isPinned: item.source == .custompin,
+            kind: kind,
             visited: item.visitedAt != nil
         )
     }
@@ -87,16 +105,46 @@ enum RouteBridge {
         )
     }
 
-    private static func item(from stop: RouteStop) -> CourseItemInput {
-        CourseItemInput(
-            id: stop.serverItemId,
-            placeId: stop.isPinned ? nil : stop.place.id,
-            customPin: stop.isPinned ? CustomPinInput(
+    /// 줄이 서버에서 가리키는 것 — **셋 중 정확히 하나**(계약 `CourseItemInput`, 1.8.0).
+    ///
+    /// 둘 이상이거나 하나도 없으면 서버가 400 으로 코스 저장 전체를 물린다. 그래서 갈래를 값으로 만들어
+    /// 「둘 다 실린 몸통」 을 만들 길을 없앤다(`item` 이 이것만 본다).
+    enum ItemTarget: Equatable {
+        case place(Int64)
+        case poi(Int64)
+        case pin(CustomPinInput)
+    }
+
+    static func target(of stop: RouteStop) -> ItemTarget {
+        switch stop.kind {
+        case .place:
+            .place(stop.place.id)
+        case let .poi(poiId):
+            .poi(poiId)
+        case .pin:
+            .pin(CustomPinInput(
                 name: stop.place.name,
                 category: pinCategory(from: stop.place.type),
                 latitude: stop.place.latitude,
                 longitude: stop.place.longitude
-            ) : nil,
+            ))
+        }
+    }
+
+    static func item(from stop: RouteStop) -> CourseItemInput {
+        var placeId: Int64?
+        var poiId: Int64?
+        var customPin: CustomPinInput?
+        switch target(of: stop) {
+        case let .place(id): placeId = id
+        case let .poi(id): poiId = id
+        case let .pin(pin): customPin = pin
+        }
+        return CourseItemInput(
+            id: stop.serverItemId,
+            placeId: placeId,
+            poiId: poiId,
+            customPin: customPin,
             // **옮기기만 할 때도 현재 값을 실어야 한다.** 비우면 서버가 장소 유형별
             // 기본값으로 덮어써서 사용자가 정한 체류 시간이 사라진다.
             dwellMinutes: stop.stayMinutes

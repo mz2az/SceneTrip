@@ -12,9 +12,8 @@ extension RouteNavView {
     /// 좌표에 번호 핀과 겹쳐 두 장으로 보인다(편집 지도와 같은 규칙).
     /// 촬영지와 같은 곳인 편의시설은 그 촬영지 핀이 있으면 뺀다(MZ2AZ-378).
     var navGuidePlaces: [RouteGuide.Place] {
-        let taken = Set(dayStops.map { RouteDedupe.key($0.place) })
-        return guide.places
-            .filter { !taken.contains(RouteDedupe.key($0.asPlaceSummary)) }
+        guide.places
+            .filter { place in !dayStops.contains { place.isSameSpot(as: $0) } }
             .withoutDotsUnderPins(PlacePoiLink.drawnPlaceIds(
                 stops: dayStops.map(\.place), guidePlaceIds: guide.places.compactMap(\.placeId)
             ))

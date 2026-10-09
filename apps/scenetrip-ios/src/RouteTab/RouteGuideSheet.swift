@@ -403,12 +403,10 @@ struct RouteGuideSheet: View {
 }
 
 extension RouteGuide.Place {
-    /// **개인 핀** 모양으로 바꾼다 — 코스에 담을 때와, 같은 곳인지 견줄 열쇠(`RouteDedupe.key`)에 쓴다.
-    /// 촬영지와 같은 곳인 편의시설은 핀이 아니라 촬영지로 담긴다 — 담을 때는 `courseEntry` 를 쓴다(MZ2AZ-378).
+    /// **이름 + 좌표만 가진 장소** 모양으로 바꾼다 — 같은 곳인지 견줄 열쇠(`RouteDedupe.key`)에 쓴다.
     ///
-    /// **촬영지가 아니라 편의시설이다.** 우리 `place` 표에 없으므로 서버에 `placeId`
-    /// 로 보낼 수 없다 — 지도에 직접 찍은 핀과 같은 길로 들어간다(음수 id).
-    /// `/pois` 계약이 서면(MZ2AZ-284) `poiId` 로 제대로 보낼 수 있다.
+    /// 코스에 담을 때는 이것이 아니라 `courseEntry` 를 쓴다 — 촬영지는 `placeId`, 편의시설은 `poiId` 로
+    /// 담긴다(MZ2AZ-378 · 380). 이 모양(음수 id)으로 담기는 것은 출처가 없는 장소(코스에서 옮긴 것)뿐이다.
     var asPlaceSummary: PlaceSummary {
         RouteMock.pinnedPlace(
             name: name,

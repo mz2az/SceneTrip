@@ -1,6 +1,25 @@
 import SceneApiClient
 import SwiftUI
 
+/// 코스의 번호 핀을 눌렀을 때 뜨는 카드 — **줄의 갈래가 고른다** (MZ2AZ-380).
+///
+/// 편의시설 줄은 편의시설 카드(`RoutePlaceCard` — 분류·주소·전화·네이버 버튼·리뷰, `GET /pois/{poiId}`)이고,
+/// 촬영지와 개인 핀은 성지 카드(`RouteStopCard`)다. 편의시설에는 장면 설명이 없고 성지 카드에는 가게의
+/// 전화·네이버 링크가 없다 — 한 카드로 둘을 다 그리지 않는다. 이미 코스에 있는 곳이라 담기 단추는 없다.
+struct RouteCourseStopCard: View {
+    let stop: RouteStop
+    var onReroute: (() -> Void)?
+    let onClose: () -> Void
+
+    var body: some View {
+        if let place = RouteGuide.Place(poiStop: stop) {
+            RoutePlaceCard(place: place, onReroute: onReroute, onClose: onClose)
+        } else {
+            RouteStopCard(stop: stop, onReroute: onReroute, onClose: onClose)
+        }
+    }
+}
+
 /// 길찾기 지도에서 **성지(코스 번호 핀)를 눌렀을 때** 뜨는 카드 (2026-08-28).
 ///
 /// 편의시설 카드(`RoutePlaceCard`)와 하는 일이 다르다 — 저쪽은 가게의 분류·주소·전화를
@@ -21,9 +40,9 @@ struct RouteStopCard: View {
         VStack(alignment: .leading, spacing: 0) {
             header
 
-            // 별점 한 줄 — 직접 찍은 핀(id 음수)에는 리뷰가 없다.
-            if stop.place.id > 0 {
-                RatingLine(rating: detail?.rating) { reviewing = .place(stop.place.id) }
+            // 별점 한 줄 — 직접 찍은 핀에는 리뷰가 없다.
+            if let placeId = stop.placeId {
+                RatingLine(rating: detail?.rating) { reviewing = .place(placeId) }
                     .padding(.horizontal, 14).padding(.bottom, 8)
             }
 
@@ -54,7 +73,7 @@ struct RouteStopCard: View {
                 }
                 .padding(.horizontal, 14).padding(.bottom, 12)
             } else {
-                Text(stop.place.id > 0 ? tr("장면 정보가 아직 없습니다") : tr("직접 찍은 곳입니다"))
+                Text(stop.placeId != nil ? tr("장면 정보가 아직 없습니다") : tr("직접 찍은 곳입니다"))
                     .font(.caption).foregroundStyle(.secondary)
                     .padding(.horizontal, 14).padding(.bottom, 12)
             }
@@ -95,14 +114,17 @@ struct RouteStopCard: View {
                 .strokeBorder(Color(PinImage.light).opacity(0.5), lineWidth: 1)
         )
         .reviewsSheet($reviewing, title: stop.place.name) {
-            Task { detail = await (try? PlacesAPI.getPlace(placeId: stop.place.id)) ?? detail }
+            Task {
+                guard let placeId = stop.placeId else { return }
+                detail = await (try? PlacesAPI.getPlace(placeId: placeId)) ?? detail
+            }
         }
         .task(id: stop.id) {
             loading = true
             detail = nil
-            // 직접 찍은 핀(id 음수)은 우리 표에 없다 — 물어볼 곳이 없다.
-            if stop.place.id > 0 {
-                detail = try? await PlacesAPI.getPlace(placeId: stop.place.id)
+            // 직접 찍은 핀은 우리 표에 없다 — 물어볼 곳이 없다.
+            if let placeId = stop.placeId {
+                detail = try? await PlacesAPI.getPlace(placeId: placeId)
             }
             loading = false
         }
@@ -112,7 +134,7 @@ struct RouteStopCard: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(stop.place.name).font(.headline)
-                Text([PlaceType.stopLabel(stop.place.type, pinned: stop.isPinned), stop.place.address]
+                Text([PlaceType.stopLabel(stop.place.type, kind: stop.kind), stop.place.address]
                     .compactMap { $0 }.joined(separator: " · "))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }

@@ -102,7 +102,7 @@ final class PlacePoiLinkTests: XCTestCase {
     /// 연결된 편의시설은 **촬영지로** 담긴다 — id 가 촬영지 id 이고 핀이 아니다.
     func testLinkedPoiIsAddedAsThePlace() {
         let entry = RouteGuide.Place(poi: poi()).courseEntry
-        XCTAssertFalse(entry.pinned)
+        XCTAssertEqual(entry.kind, .place)
         XCTAssertEqual(entry.place.id, 45)
         XCTAssertEqual(entry.place.name, "몽테드")
     }
@@ -111,18 +111,18 @@ final class PlacePoiLinkTests: XCTestCase {
     func testLinkedEntryIsSavedWithPlaceId() {
         let entry = RouteGuide.Place(poi: poi()).courseEntry
         var course = RouteCourse(title: "수원", startDate: Date(), pace: .tight, days: [RouteDay()])
-        course.days[0].stops = [RouteStop(place: entry.place, isPinned: entry.pinned)]
+        course.days[0].stops = [entry.stop]
         let item = RouteBridge.replace(from: course).days[0].items[0]
         XCTAssertEqual(item.placeId, 45)
         XCTAssertNil(item.customPin)
         XCTAssertNil(item.poiId)
     }
 
-    /// 연결이 없으면 전처럼 개인 핀이다(음수 id).
-    func testUnlinkedPoiIsStillAddedAsAPin() {
+    /// 연결이 없으면 **편의시설로** 담긴다 — 개인 핀이 아니다(MZ2AZ-380). 편의시설 id 는 갈래가 든다.
+    func testUnlinkedPoiIsAddedAsThePoi() {
         let entry = RouteGuide.Place(poi: poi(placeId: nil)).courseEntry
-        XCTAssertTrue(entry.pinned)
-        XCTAssertLessThan(entry.place.id, 0)
+        XCTAssertEqual(entry.kind, .poi(277_819))
+        XCTAssertNil(entry.stop.placeId, "편의시설 id 를 촬영지 id 로 읽으면 안 된다")
         XCTAssertEqual(entry.place.name, "몽테드")
     }
 
@@ -130,23 +130,23 @@ final class PlacePoiLinkTests: XCTestCase {
     func testAddingTheSamePlaceTwiceIsCaughtByTheIdCheck() {
         let entry = RouteGuide.Place(poi: poi()).courseEntry
         let taken = stop(45, "수원 카페 몽테드")
-        let fresh = RouteDedupe.fresh([entry.place], takenIds: [45], takenKeys: [RouteDedupe.key(taken)])
+        let fresh = RouteDedupe.fresh([entry.stop], among: [RouteStop(place: taken)])
         XCTAssertTrue(fresh.isEmpty, "이름·좌표가 달라도 촬영지 id 로 걸려야 한다")
-        XCTAssertEqual(RouteDedupe.fresh([entry.place], takenIds: [], takenKeys: []).count, 1)
+        XCTAssertEqual(RouteDedupe.fresh([entry.stop], among: []).count, 1)
     }
 
     /// 「경로에 있음」 — 그 촬영지가 담겨 있으면 담긴 것이다. 이름·좌표가 달라도.
     func testLinkedPoiCountsAsAddedWhenItsPlaceIsInTheCourse() {
         let place = RouteGuide.Place(poi: poi())
-        XCTAssertTrue(place.isSameSpot(as: stop(45, "수원 카페 몽테드")))
-        XCTAssertFalse(place.isSameSpot(as: stop(51, "행리단길", 37.2853, 127.01298)))
+        XCTAssertTrue(place.isSameSpot(as: RouteStop(place: stop(45, "수원 카페 몽테드"))))
+        XCTAssertFalse(place.isSameSpot(as: RouteStop(place: stop(51, "행리단길", 37.2853, 127.01298))))
     }
 
     /// 연결이 없는 편의시설은 전처럼 이름 + 좌표로 본다 — 숫자가 같은 촬영지 id 와 헷갈리지 않는다.
     func testUnlinkedPoiIsMatchedByNameAndSpotOnly() {
         let place = RouteGuide.Place(poi: poi(45, "몽테드", placeId: nil))
-        XCTAssertTrue(place.isSameSpot(as: stop(-9, "몽테드", 37.28476789, 127.01361679)))
-        XCTAssertFalse(place.isSameSpot(as: stop(45, "수원 카페 몽테드")))
+        XCTAssertTrue(place.isSameSpot(as: RouteStop(place: stop(-9, "몽테드", 37.28476789, 127.01361679), kind: .pin)))
+        XCTAssertFalse(place.isSameSpot(as: RouteStop(place: stop(45, "수원 카페 몽테드"))))
     }
 
     /// 촬영지 상세가 오면 담아 둔 줄을 촬영지의 이름·유형·주소·좌표로 바꾼다. 다른 곳의 상세면 그대로.
@@ -190,7 +190,7 @@ final class PlacePoiLinkTests: XCTestCase {
         let place = RouteGuide.Place(poi: poi())
         XCTAssertNotNil(RouteGuide.card(place: nil, listed: place))
         XCTAssertEqual(place.courseEntry.place.id, 45)
-        XCTAssertFalse(place.courseEntry.pinned)
+        XCTAssertEqual(place.courseEntry.kind, .place)
     }
 
     /// 촬영지 자신의 카드는 전과 같다 — 상세를 못 받으면 카드가 없다.
@@ -212,7 +212,7 @@ final class PlacePoiLinkTests: XCTestCase {
     /// 편의시설 이름·좌표로 담긴 촬영지 줄은 서버가 촬영지 이름·좌표로 돌려준다 — **촬영지 id 로 찾는다.**
     func testPlaceRowIsFoundByPlaceIdAfterSaving() {
         let entry = RouteGuide.Place(poi: poi()).courseEntry
-        let added = RouteStop(place: entry.place, isPinned: entry.pinned)
+        let added = entry.stop
         let saved = [
             RouteStop(place: stop(49, "화홍마트", 37.28726, 127.01651), serverItemId: 1),
             RouteStop(place: stop(45, "수원 카페 몽테드"), serverItemId: 2),
@@ -222,10 +222,10 @@ final class PlacePoiLinkTests: XCTestCase {
 
     /// 개인 핀은 전처럼 이름 + 좌표로 찾는다 — id 는 저장마다 바뀐다. 숫자가 같은 촬영지 줄과 헷갈리지 않는다.
     func testPinRowIsFoundByNameAndSpot() {
-        let pin = RouteStop(place: stop(-45, "숙소", 37.5, 127.0), isPinned: true)
+        let pin = RouteStop(place: stop(-45, "숙소", 37.5, 127.0), kind: .pin)
         let saved = [
             RouteStop(place: stop(45, "수원 카페 몽테드"), serverItemId: 2),
-            RouteStop(place: stop(-9, "숙소", 37.5, 127.0), serverItemId: 3, isPinned: true),
+            RouteStop(place: stop(-9, "숙소", 37.5, 127.0), serverItemId: 3, kind: .pin),
         ]
         XCTAssertEqual(PlacePoiLink.row(of: pin, in: saved)?.serverItemId, 3)
     }

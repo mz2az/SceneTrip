@@ -146,7 +146,7 @@ final class RouteEditChangeTests: XCTestCase {
         let opened = savedCourse()
         var course = opened
         var pin = stop("숙소", id: -5)
-        pin.isPinned = true
+        pin.kind = .pin
         course.days[0].stops.append(pin)
         XCTAssertTrue(changed(course, since: opened))
     }

@@ -81,7 +81,7 @@ final class RouteGuidePlanTests: XCTestCase {
     func testHandPickedStopsStillSerialize() {
         let pinned = RouteStop(
             place: RouteMock.pinnedPlace(name: "우리 숙소", category: "숙소", lat: 37.5, lng: 127.0),
-            isPinned: true
+            kind: .pin
         )
         let course = RouteCourse(title: "t", days: [RouteDay(stops: [pinned])])
         let plan = RouteGuidePlan.plan(from: course)

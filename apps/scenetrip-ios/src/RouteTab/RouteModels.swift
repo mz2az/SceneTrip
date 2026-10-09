@@ -122,8 +122,9 @@ struct RouteStop: Identifiable, Hashable {
     /// 체류 시간. 기본 30분은 8/11 회의에서 확정된 값이다(*"30분만 하고 시작 시간은 뺐다"*).
     var stayMinutes: Int = RouteStop.defaultStayMinutes
 
-    /// 지도를 눌러 직접 찍은 핀인가. 숙소처럼 우리 데이터에 없는 곳이다.
-    var isPinned = false
+    /// 촬영지인가, 편의시설인가, 지도를 눌러 직접 찍은 핀인가(`RouteStopKind.swift`, MZ2AZ-380).
+    /// 저장할 때 무엇으로 보낼지를 이것이 정한다 — `place.id` 의 부호로 짐작하지 않는다.
+    var kind: Kind = .place
 
     /// 서버에 방문(`visitedAt`)이 찍혔나. 여행 모드가 「다음 미방문 성지」를 고르는 근거다
     /// (2026-09-02). 저장 전 장소는 false 고, 브리지가 서버 값을 옮겨 준다.
@@ -163,7 +164,7 @@ struct RouteStop: Identifiable, Hashable {
 
     /// 서버에 `placeId` 로 보낼 수 있는 값. 직접 찍은 핀과 id 없는 초안 줄은 없다.
     var savablePlaceId: Int64? {
-        isPinned || placeMissing || place.id <= 0 ? nil : place.id
+        placeMissing ? nil : placeId
     }
 }
 
@@ -536,26 +537,46 @@ enum RouteDedupe {
         String(format: "%@|%.5f|%.5f", place.name, place.latitude, place.longitude)
     }
 
-    /// 이미 담긴 것과 겹치지 않는 것만 남긴다.
+    /// 이미 담긴 곳 — 촬영지 id, 편의시설 id, 이름 + 좌표 열쇠.
+    struct Taken {
+        var placeIds: Set<Int64> = []
+        var poiIds: Set<Int64> = []
+        var keys: Set<String> = []
+    }
+
+    /// 코스(`existing`)에 담을 줄 가운데 **이미 있는 곳이 아닌 것만** (MZ2AZ-380).
+    static func fresh(_ candidates: [RouteStop], among existing: [RouteStop]) -> [RouteStop] {
+        fresh(candidates, taken: Taken(
+            placeIds: Set(existing.compactMap(\.placeId)),
+            poiIds: Set(existing.compactMap(\.poiId)),
+            keys: Set(existing.map { key($0.place) })
+        ))
+    }
+
+    /// 셋 중 하나라도 걸리면 같은 곳이다.
+    /// - 같은 촬영지 id — 촬영지끼리(연결된 편의시설은 촬영지로 담기므로 여기 걸린다, MZ2AZ-378).
+    /// - 같은 편의시설 id — 편의시설끼리. 촬영지 id 와는 다른 표의 번호라 서로 견주지 않는다.
+    /// - 같은 이름 + 좌표 — 갈래가 달라도. 전에 **개인 핀으로 담긴 같은 가게**가 이것으로 걸린다.
     ///
     /// **이번에 담는 것끼리도 본다** — 한 번에 같은 곳을 두 개 고르면 그것도 하나여야 한다.
-    static func fresh(
-        _ places: [PlaceSummary],
-        takenIds: Set<Int64>,
-        takenKeys: Set<String>
-    ) -> [PlaceSummary] {
-        var keys = takenKeys
-        var out: [PlaceSummary] = []
-        for place in places {
-            if place.id > 0, takenIds.contains(place.id) {
+    static func fresh(_ candidates: [RouteStop], taken: Taken) -> [RouteStop] {
+        var taken = taken
+        var out: [RouteStop] = []
+        for stop in candidates {
+            let key = key(stop.place)
+            let samePlace = stop.placeId.map(taken.placeIds.contains) ?? false
+            let samePoi = stop.poiId.map(taken.poiIds.contains) ?? false
+            if samePlace || samePoi || taken.keys.contains(key) {
                 continue
             }
-            let key = key(place)
-            if keys.contains(key) {
-                continue
+            taken.keys.insert(key)
+            if let placeId = stop.placeId {
+                taken.placeIds.insert(placeId)
             }
-            keys.insert(key)
-            out.append(place)
+            if let poiId = stop.poiId {
+                taken.poiIds.insert(poiId)
+            }
+            out.append(stop)
         }
         return out
     }

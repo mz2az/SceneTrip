@@ -110,7 +110,7 @@ struct RouteNavView: View {
             } else if let tapped = pickedStop, !showGuide {
                 // 성지 카드 — 장면 설명 + 여기로 길찾기. 이미 코스에 있는 곳이라
                 // 담기는 없다. 지금 가는 곳 자신이면 길찾기 단추는 뺀다.
-                RouteStopCard(
+                RouteCourseStopCard(
                     stop: tapped,
                     onReroute: tapped.id == stop.id && detour == nil ? nil : {
                         reroute(to: RouteGuide.Place(

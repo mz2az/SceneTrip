@@ -94,7 +94,7 @@ final class RouteStore: ObservableObject {
     /// 작품은 상세의 **`scenes`** 에 있다 — 상세의 `contents` 는 서버가 비워 준다(`PlaceWorks`).
     func loadWorkTitles(for stops: [RouteStop]) async {
         let wanted = PlaceWorks.toAsk(
-            stops.map(\.place.id),
+            stops.compactMap(\.placeId), // 편의시설·개인 핀은 촬영지가 아니다 — 물을 작품이 없다.
             listed: Set(places.map(\.id)),
             answered: Set(placeWorks.keys),
             asking: placeWorksAsking

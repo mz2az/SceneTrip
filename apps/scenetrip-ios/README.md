@@ -68,6 +68,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 길찾기 한도 — 지도 앱으로 넘기기 | 한도에 걸리면(429 `NAVIGATION_LIMIT_REACHED`) 자동으로 다시 부르지 않고 안내 띠에 「카카오맵에서 길찾기」(앱이 없으면 웹) · 「네이버 지도에서 길찾기」(앱이 있을 때만). 여행 안내는 켜진 채다. `Retry-After` 60초 이하면 「1분 안에 다시」, 넘으면 「오늘은 다 썼어요」. 풀릴 때까지는 서버에 묻지 않고, 풀리면 「다시 시도」. 서버 없이 보려면 `-demoDrive 0 -netFault 'navigation/next-leg:status:429;code=NAVIGATION_LIMIT_REACHED;retry=30000:all'` — 계획 `docs/project/plans/app-retry.md` §12 (MZ2AZ-366) |
 | 주변 편의시설 점·정보 카드 | 된다 — `GET /pois`·`/pois/{id}`(우리 자료). 앱 언어가 영어면 영어 이름·공식 영문 주소·분류, 영어 이름이 없으면 한글 이름 + 로마자 읽기(`PoiLabel`, MZ2AZ-360). 네이버 카드는 걷어냈다 — 「네이버 지도에서 보기」 링크로 넘긴다 (MZ2AZ-354). 갈 곳은 상세의 `naverPlaceUrl`(그 가게의 네이버 장소 화면)이고, 서버가 장소 번호를 못 찾은 곳은 버튼이 없다 — 이름 검색으로 넘기지 않는다(`NaverMapLink`, MZ2AZ-374) |
 | 촬영지와 같은 곳인 편의시설 | 서버가 편의시설에 `placeId` 를 실어 주면 그곳은 촬영지가 대표한다 — 누르면 촬영지 상세(같은 카드), 그 촬영지 핀이 지도에 그려져 있으면 점을 숨기고, 코스에는 촬영지로 담는다. 규칙은 `RouteTab/PlacePoiLink.swift`, 계획 `place-poi-link.md` §7-1 (MZ2AZ-378) |
+| 코스의 편의시설 | 코스 줄은 세 갈래다 — 촬영지 · 편의시설 · 개인 핀(`RouteStop.kind`). 편의시설은 `poiId` 로 저장하고(개인 핀이 아니다), 불러온 `source: poi` 줄은 분류를 적고 번호 핀을 누르면 편의시설 카드가 뜬다. 챗봇이 찾아 준 촬영지는 `placeId` 로 담는다. 규칙은 `RouteTab/RouteStopKind.swift`·`RouteBridge.swift`·`PlacePoiLink.swift`, 계획 `course-poi-item.md` §6-1 (MZ2AZ-380) |
 | AI 코스 추천(마법사) | **계약 `POST /guide/plan`** — 에이전트의 코스 엔진이 짠다(모델 없음, 키 없어도 됨). 앱 안의 규칙(`RoutePlanner`)은 지웠다 |
 | 찜 | 서버(`/favorites/contents`)가 정본, 기기에는 사본 (MZ2AZ-335) |
 | 로그인 | 구글 로그인·토큰 키체인 저장·401 자동 갱신·로그아웃·탈퇴 (MZ2AZ-336). 애플 로그인은 자리만 |

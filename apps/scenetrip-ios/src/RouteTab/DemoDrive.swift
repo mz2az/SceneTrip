@@ -185,7 +185,7 @@ enum DemoCourse {
                             address: stop.address, latitude: stop.latitude, longitude: stop.longitude
                         ),
                         stayMinutes: stop.stayMinutes,
-                        isPinned: stop.placeId == nil
+                        kind: stop.placeId == nil ? .pin : .place
                     )
                 })
             }

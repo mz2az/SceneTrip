@@ -174,11 +174,11 @@ struct RouteEditorView: View {
     }
 
     /// 이 가이드 장소가 이미 코스(어느 일차든)에 들어 있는가. `RouteDedupe` 와
-    /// 같은 열쇠(이름+좌표)로 본다 — 담을 때 걸러지는 기준 그대로다. 촬영지와 같은 곳인
-    /// 편의시설은 **그 촬영지가 담겨 있으면** 담긴 것이다(`PlacePoiLink.holds`, MZ2AZ-378).
+    /// 같은 기준으로 본다 — 촬영지 id · 편의시설 id · 이름+좌표(`PlacePoiLink.holds`). 촬영지와 같은 곳인
+    /// 편의시설은 **그 촬영지가 담겨 있으면** 담긴 것이다(MZ2AZ-378).
     func isAdded(_ place: RouteGuide.Place) -> Bool {
         course.days.contains { day in
-            day.stops.contains { place.isSameSpot(as: $0.place) }
+            day.stops.contains { place.isSameSpot(as: $0) }
         }
     }
 
@@ -186,7 +186,7 @@ struct RouteEditorView: View {
     /// 열쇠로 지우므로, 담은 것과 다른 것이 지워질 일은 없다.
     func removeGuidePlace(_ place: RouteGuide.Place) {
         for index in course.days.indices {
-            course.days[index].stops.removeAll { place.isSameSpot(as: $0.place) }
+            course.days[index].stops.removeAll { place.isSameSpot(as: $0) }
         }
         fitToken += 1
     }
@@ -486,10 +486,15 @@ struct RouteEditorView: View {
     /// 지금 일차가 아니라 **모든 일차**를 본다 — 3일차에 담아 둔 곳을 1일차에 또
     /// 담으면 같은 여행에서 한 곳을 두 번 가게 된다.
     ///
-    /// 직접 찍은 핀(id 가 음수)은 세지 않는다. 같은 자리를 두 번 찍었더라도 사용자가
+    /// 직접 찍은 핀과 편의시설은 세지 않는다(`RouteStop.placeId`). 같은 자리를 두 번 찍었더라도 사용자가
     /// 뜻이 있어 찍은 것이고, 우리가 「같은 곳」이라고 판단할 근거도 없다.
     var takenPlaceIds: Set<Int64> {
-        Set(course.days.flatMap(\.stops).map(\.place.id).filter { $0 > 0 })
+        Set(course.stops.compactMap(\.placeId))
+    }
+
+    /// 코스 전체에 **편의시설로** 담긴 곳의 id(MZ2AZ-380). 그 주변 점은 지도에 그리지 않는다.
+    var takenPoiIds: Set<Int64> {
+        Set(course.stops.compactMap(\.poiId))
     }
 
     /// 이미 담긴 곳의 열쇠. 갈래는 `RouteDedupe` 가 정한다.
@@ -504,17 +509,20 @@ struct RouteEditorView: View {
     /// `asNext` — 가이드가 찾아 준 곳을 담을 때. **여행 중이면 바로 다음 차례에 끼운다**
     /// (`RouteGeometry.nextSlot`). 1번에 도착해 「주변 음식점」을 받아 담았는데 맨 끝(4번)에
     /// 붙으면, 옆 가게를 가려고 2·3번을 다 돌고 돌아와야 한다(2026-09-17 사용자 지적).
+    ///
+    /// 검색·장바구니는 촬영지를, 「핀 찍기」 는 개인 핀을 준다. 편의시설은 줄째로 온다(`addStops`).
     func add(_ places: [PlaceSummary], pinned: Bool = false, asNext: Bool = false) {
-        let fresh = RouteDedupe.fresh(
-            places, takenIds: takenPlaceIds, takenKeys: takenSpotKeys
-        )
+        addStops(places.map { RouteStop(place: $0, kind: pinned ? .pin : .place) }, asNext: asNext)
+    }
+
+    /// 갈래가 정해진 줄을 담는다 — 같은 촬영지·같은 편의시설·같은 이름+좌표는 거른다(`RouteDedupe.fresh`).
+    func addStops(_ candidates: [RouteStop], asNext: Bool = false) {
+        let fresh = RouteDedupe.fresh(candidates, among: course.stops)
         guard !fresh.isEmpty else { return }
         let slot = asNext && course.isRunning
             ? RouteGeometry.nextSlot(in: stops, target: trip.target, arrived: trip.phase == .arrived)
             : stops.count
-        course.days[dayIndex].stops.insert(
-            contentsOf: fresh.map { RouteStop(place: $0, isPinned: pinned) }, at: slot
-        )
+        course.days[dayIndex].stops.insert(contentsOf: fresh, at: slot)
         fitToken += 1
         // 둘부터 순서라는 것이 생긴다 — 그때부터 최적화를 권한다.
         if course.days[dayIndex].stops.count >= 2 {
@@ -528,11 +536,11 @@ struct RouteEditorView: View {
     /// 둘까지만 적는다 — 셋을 넘기면 줄이 넘쳐 주소가 밀린다. 「외 2편」처럼 세는
     /// 것도 생각했지만 남은 것이 무엇인지 모르면 세어 봐야 쓸모가 없다.
     private func workTitles(for stop: RouteStop) -> String {
-        // 직접 찍은 핀은 촬영지가 아니라 되짚을 것이 없다(id 가 음수다).
-        guard stop.place.id > 0 else { return "" }
+        // 직접 찍은 핀과 편의시설은 촬영지가 아니라 되짚을 것이 없다.
+        guard let placeId = stop.placeId else { return "" }
         // 방금 검색·장바구니에서 담은 곳은 작품을 이미 들고 있다.
         let carried = (stop.place.contents ?? []).map(\.title)
-        let titles = carried.isEmpty ? store.workTitles(ofPlace: stop.place.id) : carried
+        let titles = carried.isEmpty ? store.workTitles(ofPlace: placeId) : carried
         return titles.prefix(2).joined(separator: " · ")
     }
 
