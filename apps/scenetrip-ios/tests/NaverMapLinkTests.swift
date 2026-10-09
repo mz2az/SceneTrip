@@ -86,6 +86,63 @@ final class NaverMapLinkTests: XCTestCase {
 
     // MARK: 카드 배선
 
+    /// 촬영지도 서버 링크를 같은 규칙으로 검사한다 — 정상 주소는 그대로 둔다(MZ2AZ-383).
+    func testFilmingPlaceCardKeepsValidNaverLinks() throws {
+        for link in ["https://map.naver.com/p/entry/place/11679241", "https://naver.me/abcd"] {
+            let card = try XCTUnwrap(RouteGuide.card(place: filmingDetail(link), listed: filmingPlace))
+            XCTAssertEqual(card.naverUrl, link)
+        }
+    }
+
+    /// 외부·위장 호스트, 다른 스킴, 인증정보·포트가 든 주소에 버튼을 만들지 않는다.
+    func testFilmingPlaceCardRejectsUnsafeLinks() throws {
+        for link in [
+            "http://map.naver.com/p/entry/place/1", "javascript:alert(1)",
+            "https://example.com/place/1", "https://map.naver.com.example.com/place/1",
+            "https://evil.io%2F.naver.com/x", "https://user@map.naver.com/place/1",
+            "https://map.naver.com:8443/place/1",
+        ] {
+            let card = try XCTUnwrap(RouteGuide.card(place: filmingDetail(link), listed: filmingPlace))
+            XCTAssertNil(card.naverUrl, link)
+            XCTAssertEqual(card.address, "서울 중구")
+            XCTAssertTrue(card.detailed)
+        }
+    }
+
+    /// 빈 값과 앞뒤 공백도 편의시설과 똑같이 처리한다.
+    func testFilmingPlaceCardHandlesMissingAndPaddedLinks() throws {
+        for link in [nil, "", "  \n"] as [String?] {
+            let card = try XCTUnwrap(RouteGuide.card(place: filmingDetail(link), listed: filmingPlace))
+            XCTAssertNil(card.naverUrl)
+        }
+        let card = try XCTUnwrap(RouteGuide.card(
+            place: filmingDetail("  https://naver.me/abcd\n"), listed: filmingPlace
+        ))
+        XCTAssertEqual(card.naverUrl, "https://naver.me/abcd")
+    }
+
+    /// 촬영지에 연결된 편의시설도 촬영지 상세를 쓰므로 같은 검사를 거친다(MZ2AZ-378).
+    func testLinkedPoiCardValidatesTheFilmingPlaceLink() throws {
+        var linked = listed
+        linked.linkedPlaceId = 49
+        let refused = try XCTUnwrap(RouteGuide.card(place: filmingDetail("https://example.com"), listed: linked))
+        XCTAssertNil(refused.naverUrl)
+        XCTAssertEqual(refused.title, "촬영지")
+        let allowed = try XCTUnwrap(RouteGuide.card(place: filmingDetail("https://naver.me/abcd"), listed: linked))
+        XCTAssertEqual(allowed.naverUrl, "https://naver.me/abcd")
+    }
+
+    private let filmingPlace = RouteGuide.Place(
+        id: "place-49", name: "촬영지", category: "cafe", latitude: 37.5, longitude: 127.0
+    )
+
+    private func filmingDetail(_ link: String?) -> PlaceDetail {
+        PlaceDetail(
+            id: 49, name: "촬영지", type: "cafe", address: "서울 중구",
+            latitude: 37.5, longitude: 127.0, naverPlaceUrl: link
+        )
+    }
+
     private let listed = RouteGuide.Place(
         id: "poi-7", name: "명동교자 본점", category: "한식", latitude: 37.5, longitude: 127.0
     )

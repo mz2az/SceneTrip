@@ -9,6 +9,7 @@
 | [aws-port-verification.md](aws-port-verification.md) | AWS 배포·교육자료 이식의 실제 검증 결과와 실환경 검증 범위 |
 | [alb-verification.md](alb-verification.md) | ALB 진입점 전환의 로컬 검증과 실환경 확인 범위 |
 | [aws-teardown-verification.md](aws-teardown-verification.md) | 서비스·bootstrap 삭제의 계획·재시도·데이터 보존 검증 |
+| [place-naver-link-verification.md](place-naver-link-verification.md) | 촬영지 네이버 링크 검사와 로컬 리뷰 사진 업로드 확인 (MZ2AZ-383) |
 
 ## 상시 규칙
 

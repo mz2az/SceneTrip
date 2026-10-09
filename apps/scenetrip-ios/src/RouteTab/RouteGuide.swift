@@ -227,7 +227,7 @@ enum RouteGuide {
             address: detail.address ?? place.address,
             phone: nil,
             photos: PhotoGalleryRules.book(for: detail),
-            naverUrl: detail.naverPlaceUrl, // 촬영지는 전과 같다 — 우리가 가진 링크가 있을 때만.
+            naverUrl: NaverMapLink.place(detail.naverPlaceUrl)?.absoluteString,
             rating: detail.rating
         )
     }
