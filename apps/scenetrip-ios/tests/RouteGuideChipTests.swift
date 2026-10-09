@@ -3,6 +3,43 @@ import XCTest
 
 /// 해태 동그라미가 화면 바닥의 카드를 비키는 규칙 (MZ2AZ-367).
 final class RouteGuideChipTests: XCTestCase {
+    /// 카드가 안내 배너를 덮으면 입구도 가려진다 — 기존 카드 위 회피를 쓰는 입구로 돌아간다.
+    func testAnOpenCardKeepsTheGuideEntryAboveTheCardEvenWhileGuiding() {
+        XCTAssertEqual(RouteGuideEntry.placement(
+            guiding: true, hasTarget: true, hasCard: true, panelOpen: false, pinning: false
+        ), .floating)
+        XCTAssertEqual(RouteGuideEntry.placement(
+            guiding: true, hasTarget: true, hasCard: true, panelOpen: true, pinning: false
+        ), .hidden)
+    }
+
+    /// 큰 글자·시트 높이와 무관하게 안내 글을 덮지 않는 입구를 쓴다.
+    func testGuidingUsesTheBannerEntryInsteadOfAFloatingBubble() {
+        XCTAssertEqual(RouteGuideEntry.placement(
+            guiding: true, hasTarget: true, panelOpen: false, pinning: false
+        ), .tripHeader)
+    }
+
+    /// 안내가 끝나거나 목적지가 없으면 배너가 없다 — 떠 있는 입구가 남아야 한다.
+    func testTheFloatingEntryReturnsWhenThereIsNoGuidanceBanner() {
+        for (guiding, target) in [(false, false), (false, true), (true, false)] {
+            XCTAssertEqual(RouteGuideEntry.placement(
+                guiding: guiding, hasTarget: target, panelOpen: false, pinning: false
+            ), .floating)
+        }
+    }
+
+    /// 서랍이 열렸거나 핀을 찍는 동안은 두 입구 모두 숨긴다.
+    func testOpenDrawerAndPinningHideEitherEntry() {
+        for guiding in [false, true] {
+            for (panel, pinning) in [(true, false), (false, true), (true, true)] {
+                XCTAssertEqual(RouteGuideEntry.placement(
+                    guiding: guiding, hasTarget: true, panelOpen: panel, pinning: pinning
+                ), .hidden)
+            }
+        }
+    }
+
     private func offsetY(stored: CGFloat, cardTop: CGFloat?) -> CGFloat {
         RouteGuideFloatingChip.offsetY(stored: stored, cardTop: cardTop, bottom: 76, gap: 8)
     }

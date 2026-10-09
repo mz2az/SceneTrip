@@ -118,6 +118,14 @@ extension RouteEditorView {
                 .foregroundStyle(Color(PinImage.deep))
             Text(tripTitle(target)).font(.subheadline.weight(.bold)).lineLimit(1)
             Spacer()
+            if guideEntry == .tripHeader {
+                Button { showGuide = true } label: {
+                    RouteGuideChipBody(bubble: false)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tr("내가 도와줄게!"))
+                .accessibilityIdentifier("trip-guide-entry")
+            }
             Button {
                 trip.end()
             } label: {

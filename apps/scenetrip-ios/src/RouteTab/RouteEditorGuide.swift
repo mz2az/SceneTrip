@@ -79,6 +79,15 @@ extension RouteEditorView {
         return cardHeight
     }
 
+    /// 안내 중에는 배너의 얼굴 단추가 입구다 — 큰 글자의 안내·넘기기 단추를 덮지 않는다.
+    var guideEntry: RouteGuideEntry {
+        RouteGuideEntry.placement(
+            guiding: trip.phase == .guiding, hasTarget: trip.target != nil,
+            hasCard: guide.picked != nil || pickedStop != nil,
+            panelOpen: showGuide, pinning: pinning
+        )
+    }
+
     // MARK: 답에서 받은 명령
 
     /// 답에 실린 `effects` 와 `ui` 를 화면에 적용한다. 모르는 명령은 무시한다 — 에이전트가

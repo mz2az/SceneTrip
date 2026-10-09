@@ -1,6 +1,23 @@
 import SwiftUI
 
-/// 화면 오른쪽 아래에 늘 떠 있는 **해태 「내가 도와줄게!」** — 가이드 챗봇의 유일한 입구.
+/// 가이드 입구는 언제나 한 곳에 둔다. 안내 배너 안 배치는 MZ2AZ-387에서 검증한다.
+enum RouteGuideEntry: Equatable {
+    case floating, tripHeader, hidden
+
+    static func placement(
+        guiding: Bool, hasTarget: Bool, hasCard: Bool = false, panelOpen: Bool, pinning: Bool
+    ) -> Self {
+        if panelOpen || pinning {
+            return .hidden
+        }
+        if hasCard {
+            return .floating
+        }
+        return guiding && hasTarget ? .tripHeader : .floating
+    }
+}
+
+/// 화면 오른쪽 아래의 **해태 「내가 도와줄게!」** — 안내 헤더 입구와 상태에 따라 교대한다.
 ///
 /// 지도 안 오른쪽 위에 두었을 때는 말풍선 폭 때문에 「내 위치」·「발자취」 동그라미가
 /// 왼쪽으로 밀렸고, 동작 줄의 「AI 가이드」 단추와 하는 일이 같아 둘이 됐다

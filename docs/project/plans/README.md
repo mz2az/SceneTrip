@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [ios-followup-accessibility.md](ios-followup-accessibility.md) | iOS 큰 글자 길찾기 안내·해태 배치와 사진 업로드 실패 경계 (MZ2AZ-387) |
 | [dev-lifecycle.md](dev-lifecycle.md) | 버튼 하나로 DEV 올리기·내리기 — runner·Secret·배포·Cloudflare DNS |
 | [aws-teardown.md](aws-teardown.md) | 비용 절감을 위한 서비스·bootstrap 수동 삭제와 잔존 데이터 정책 |
 | [alb-deployment.md](alb-deployment.md) | ALB 진입점·신뢰 경계·배포 검증·교육자료 전환 |
