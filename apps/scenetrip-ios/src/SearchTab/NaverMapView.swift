@@ -253,7 +253,9 @@ struct NaverMapView: UIViewRepresentable {
                 markers = pins.enumerated().map { index, place in
                     let marker = NMFMarker(position: spread[index])
                     marker.iconImage = PinImage.numbered(numbered ? index + 1 : nil)
-                    marker.captionText = place.name
+                    // 긴 영어 이름이 옆 핀을 덮지 않게 앞머리만, 정해진 폭 안에서(MZ2AZ-372).
+                    marker.captionText = PinCaption.text(place.name)
+                    marker.captionRequestedWidth = PinCaption.width
                     marker.captionMinZoom = 13
                     marker.touchHandler = { [weak self] _ in
                         self?.onTapPin(place)

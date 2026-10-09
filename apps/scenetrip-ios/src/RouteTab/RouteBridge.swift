@@ -141,8 +141,11 @@ enum RouteBridge {
     }
 
     /// 직접 찍은 핀의 분류. 계약은 닫힌 다섯 갈래이고 화면은 한국어 이름을 쓴다.
-    private static func pinCategory(from text: String?) -> PinCategory {
-        switch text {
+    ///
+    /// **서버에서 다시 읽은 핀은 계약의 값(`food`)으로 온다** — 그것도 받는다. 한국어 이름만 받던 때는
+    /// 저장해 둔 코스를 열어 다시 저장하면 핀의 분류가 전부 `building` 으로 바뀌었다(MZ2AZ-372 에서 발견).
+    static func pinCategory(from text: String?) -> PinCategory {
+        switch PlaceType.pinKind(text) {
         case "숙소": .lodging
         case "음식점·카페": .food
         case "명소·자연": .attraction

@@ -112,8 +112,8 @@ struct RouteStopCard: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(stop.place.name).font(.headline)
-                Text([stop.place.type, stop.place.address].compactMap { $0 }
-                    .joined(separator: " · "))
+                Text([PlaceType.stopLabel(stop.place.type, pinned: stop.isPinned), stop.place.address]
+                    .compactMap { $0 }.joined(separator: " · "))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()

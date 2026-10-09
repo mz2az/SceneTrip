@@ -206,7 +206,8 @@ struct RouteNavMapView: UIViewRepresentable {
                     lat: dayStop.place.latitude, lng: dayStop.place.longitude
                 ))
                 marker.iconImage = PinImage.numbered(index + 1)
-                marker.captionText = dayStop.place.name
+                marker.captionText = PinCaption.text(dayStop.place.name)
+                marker.captionRequestedWidth = PinCaption.width
                 marker.captionMinZoom = 12
                 marker.zIndex = 10
                 // 성지를 누르면 장면 설명 카드가 뜬다(2026-08-28 사용자 요청).

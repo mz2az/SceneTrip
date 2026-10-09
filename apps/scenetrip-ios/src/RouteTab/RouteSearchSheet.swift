@@ -18,11 +18,14 @@ import SwiftUI
 /// 장소 이름과 **작품 이름** 둘 다다. 「도깨비」로 찾으면 그 드라마가 찍힌 곳이 다
 /// 나온다 — 여행자가 기억하는 것은 장소 이름이 아니라 작품인 경우가 많다.
 ///
-/// ## 서버를 다시 부르지 않는다
+/// ## 서버가 찾는다 (MZ2AZ-372)
 ///
-/// `RouteStore` 가 이미 촬영지 전체(155건)를 들고 있다. 글자를 칠 때마다 서버에
-/// 물으면 호출이 타이핑 수만큼 늘어나는데, 155건은 메모리에서 거르는 편이 빠르고
-/// 정확하다. 촬영지가 수천 건이 되면 그때 서버 검색으로 바꾼다.
+/// 처음에는 `RouteStore` 가 받아 둔 촬영지(155건) 안에서 글자를 걸렀다 — 그때는 그것이 전부였다.
+/// 486곳이 되면서 받아 둔 것이 인기 상위 200곳뿐이 됐고, 그 밖의 곳은 이름을 정확히 쳐도 안 나왔다.
+/// 이제 `RoutePlaceSearch` 가 서버에 묻는다(입력이 멎은 뒤 한 번, 앞 요청은 취소).
+///
+/// 서버 검색은 **이름·별칭·설명·작품·출연진**을 본다(계약 `GET /places` 의 `q`). 주소는 보지 않는다 —
+/// 전에는 주소로도 걸렸다.
 struct RouteSearchSheet: View {
     /// **이미 코스에 담긴 촬영지.** 체크로 보여 주고 다시 못 고르게 한다 — 같은 곳을
     /// 두 번 담으면 한 여행에서 한 곳을 두 번 가게 된다(2026-08-25 사용자 지적).
@@ -34,34 +37,28 @@ struct RouteSearchSheet: View {
     /// 고른 장소를 지금 보고 있는 일차에 넣는다.
     let onAdd: ([PlaceSummary]) -> Void
 
-    @EnvironmentObject private var store: RouteStore
     @Environment(\.dismiss) private var dismiss
 
+    @StateObject private var search = RoutePlaceSearch()
     @State private var query = ""
     @State private var picked: [Int64] = []
-
-    /// 이름·주소·작품으로 거른다. 빈 검색어면 인기순 그대로 보여 준다 — 빈 화면보다
-    /// 무엇이든 있는 편이 다음 행동을 부른다.
-    private var results: [PlaceSummary] {
-        let text = query.trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty else { return Array(store.places.prefix(40)) }
-        return store.places.filter { place in
-            place.name.localizedCaseInsensitiveContains(text)
-                || (place.address ?? "").localizedCaseInsensitiveContains(text)
-                || (place.contents ?? []).contains {
-                    $0.title.localizedCaseInsensitiveContains(text)
-                }
-        }
-    }
 
     var body: some View {
         NavigationStack {
             Group {
-                if results.isEmpty {
+                switch search.phase {
+                case let .failed(failure):
+                    ErrorView(failure: failure) { search.search(query) }
+                case .loading where search.results.isEmpty:
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .loaded where search.results.isEmpty:
                     ContentUnavailableView.search(text: query)
-                } else {
-                    List(results, id: \.id) { place in
-                        row(place)
+                default:
+                    List {
+                        ForEach(search.results, id: \.id) { place in
+                            row(place)
+                        }
+                        more
                     }
                     .listStyle(.plain)
                 }
@@ -71,6 +68,9 @@ struct RouteSearchSheet: View {
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "장소나 작품 이름"
             )
+            // 글자마다 부르지 않는다 — 입력이 멎으면 한 번(`RoutePlaceSearch.debounce`). 처음 열 때는 인기순.
+            .task { search.search(query) }
+            .onChange(of: query) { _, text in search.search(text) }
             .navigationTitle("장소 검색")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -89,6 +89,18 @@ struct RouteSearchSheet: View {
         // 것인지 알 수 없다(2026-08-25 사용자 요청).
         .presentationDetents([.medium, .large])
         .presentationBackground(.regularMaterial)
+    }
+
+    /// 목록 끝 — 더 있으면 이어 받고, 못 받았으면 다시 누르게 한다.
+    @ViewBuilder private var more: some View {
+        if search.moreFailed {
+            ListMoreRetry { search.loadMore() }
+                .listRowSeparator(.hidden)
+        } else if search.paging.hasMore {
+            ListMoreSpinner()
+                .listRowSeparator(.hidden)
+                .task(id: search.paging.offset) { search.loadMore() }
+        }
     }
 
     private func row(_ place: PlaceSummary) -> some View {
@@ -150,10 +162,9 @@ struct RouteSearchSheet: View {
         onPreview(resolve(picked))
     }
 
-    /// id 를 장소로 되짚는다. 고른 순서를 지킨다.
+    /// id 를 장소로 되짚는다. 고른 순서를 지킨다. 검색어를 바꿔 목록에서 사라진 곳도 고른 채로 남는다.
     private func resolve(_ ids: [Int64]) -> [PlaceSummary] {
-        let byId = Dictionary(uniqueKeysWithValues: store.places.map { ($0.id, $0) })
-        return ids.compactMap { byId[$0] }
+        ids.compactMap { search.place($0) }
     }
 
     /// **고른 순서대로** 넣는다. `results` 순서로 넣으면 사용자가 3·1·2 로 골라도

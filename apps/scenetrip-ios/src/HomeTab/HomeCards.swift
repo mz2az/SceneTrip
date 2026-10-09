@@ -38,7 +38,8 @@ struct HomeHeader: View {
 struct HomeTripPager: View {
     let trips: [HomeTrip]
     let hasCourses: Bool
-    let loading: Bool
+    /// 코스가 없을 때 무엇을 보일지 — 받는 중 · 못 받음 · 코스 만들기(`HomeTabModel.tripCard`).
+    let card: HomeTabModel.TripCard
     let onNavigate: (HomeTrip) -> Void
     let onOpenCourse: (HomeTrip) -> Void
     let onCreate: () -> Void
@@ -62,7 +63,7 @@ struct HomeTripPager: View {
                     LazyHStack(spacing: 0) {
                         ForEach(Array(trips.enumerated()), id: \.offset) { index, trip in
                             HomeTripCard(
-                                trip: trip, rank: index + 1, hasCourses: hasCourses, loading: false,
+                                trip: trip, rank: index + 1, hasCourses: hasCourses, card: .filled,
                                 onNavigate: onNavigate, onOpenCourse: onOpenCourse, onCreate: onCreate
                             )
                             .containerRelativeFrame(.horizontal)
@@ -84,7 +85,7 @@ struct HomeTripPager: View {
             }
         } else {
             HomeTripCard(
-                trip: trips.first, rank: nil, hasCourses: hasCourses, loading: loading,
+                trip: trips.first, rank: nil, hasCourses: hasCourses, card: card,
                 onNavigate: onNavigate, onOpenCourse: onOpenCourse, onCreate: onCreate
             )
         }
@@ -93,14 +94,14 @@ struct HomeTripPager: View {
 
 /// **내 여행 이어가기** — 홈 맨 위 고정 카드. 경로여정 탭이 없어진 자리를 이 카드가 맡는다.
 ///
-/// 세 모습: 코스가 없으면 「코스 만들기」, 있으면 제목·기간·스탬프 진행과 단추 둘,
-/// 아직 받는 중이면 자리만 지킨다.
+/// 네 모습: 코스가 있으면 제목·기간·스탬프 진행과 단추 둘, 아직 받는 중이면 자리만 지키고,
+/// 못 받았으면 그렇게 적고, **코스가 정말 없을 때만** 「코스 만들기」 다.
 struct HomeTripCard: View {
     let trip: HomeTrip?
     /// 페이저 안에서 몇 번째인가(1부터). 하나뿐이면 nil — 순위 배지를 안 단다.
     var rank: Int?
     let hasCourses: Bool
-    let loading: Bool
+    let card: HomeTabModel.TripCard
     let onNavigate: (HomeTrip) -> Void
     let onOpenCourse: (HomeTrip) -> Void
     let onCreate: () -> Void
@@ -114,11 +115,17 @@ struct HomeTripCard: View {
         VStack(alignment: .leading, spacing: 10) {
             if let trip {
                 filled(trip)
-            } else if loading {
-                Text("내 여행을 불러오는 중…").font(.system(size: 14)).opacity(0.9)
-                    .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
             } else {
-                empty
+                switch card {
+                case .loading, .filled:
+                    Text("내 여행을 불러오는 중…").font(.system(size: 14)).opacity(0.9)
+                        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+                case .unavailable:
+                    Text("내 여행을 불러오지 못했어요").font(.system(size: 14)).opacity(0.9)
+                        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+                case .create:
+                    empty
+                }
             }
         }
         .foregroundStyle(.white)
@@ -141,8 +148,11 @@ struct HomeTripCard: View {
                 .font(.system(size: 12, weight: .bold))
                 .padding(.horizontal, 9).padding(.vertical, 3)
                 .background(Capsule().fill(.white.opacity(0.22)))
-            Text("\(trip.course.spanLabel) · \(trip.course.placeCount)곳")
-                .font(.system(size: 12)).opacity(0.85)
+            Text(String(
+                format: trip.course.placeCount == 1 ? tr("%@ · %lld곳", at: "하나") : tr("%@ · %lld곳"),
+                trip.course.spanLabel, trip.course.placeCount
+            ))
+            .font(.system(size: 12)).opacity(0.85)
         }
         Text(trip.course.title).font(.system(size: 18, weight: .heavy)).lineLimit(1)
         HStack(spacing: 10) {

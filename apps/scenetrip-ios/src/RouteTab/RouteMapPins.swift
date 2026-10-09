@@ -44,7 +44,8 @@ extension RouteMapView.Coordinator {
             } else {
                 marker.iconImage = PinImage.numbered(index + 1)
             }
-            marker.captionText = stop.place.name
+            marker.captionText = PinCaption.text(stop.place.name)
+            marker.captionRequestedWidth = PinCaption.width
             marker.captionMinZoom = 12
             // 번호 핀을 누르면 성지 카드(장면 설명·여기로 길찾기)가 뜬다.
             marker.touchHandler = { [weak self] _ in
@@ -62,7 +63,8 @@ extension RouteMapView.Coordinator {
                 position: NMGLatLng(lat: place.latitude, lng: place.longitude)
             )
             marker.iconImage = PinoPin.marker(.picked)
-            marker.captionText = place.name
+            marker.captionText = PinCaption.text(place.name)
+            marker.captionRequestedWidth = PinCaption.width
             marker.captionMinZoom = 10
             marker.zIndex = 20
             // 눌러야 한다. 챗봇이 찍어 준 곳도 이 핀으로 그려지므로, 손잡이가 없으면

@@ -30,7 +30,7 @@ struct WorkRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(content.title).font(.headline).foregroundStyle(.primary)
                 Text(meta).font(.caption).foregroundStyle(.secondary)
-                Text("촬영지 \(content.placeCount)")
+                Text(trCount("촬영지 %lld", content.placeCount))
                     .font(.caption2)
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(Capsule().fill(Color(.systemGray6)))
@@ -80,8 +80,11 @@ struct PlaceRow: View {
     var body: some View {
         HStack(spacing: 12) {
             if let number {
+                // 목록이 이어 받아지면서 세 자리 번호가 흔해졌다 — 「4…」 로 잘리지 않게 글자를 줄인다(MZ2AZ-372).
                 Text("\(number)")
                     .font(.caption2.weight(.heavy))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .foregroundStyle(.white)
                     .frame(width: 22, height: 22)
                     .background(
@@ -105,7 +108,8 @@ struct PlaceRow: View {
                 if let address = place.address {
                     Text(address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
-                Text([works, place.type ?? ""].filter { !$0.isEmpty }.joined(separator: " · "))
+                // 유형은 코드로 온다(`public_office`) — 표시말로 적고, 표에 없으면 적지 않는다(MZ2AZ-372).
+                Text([works, PlaceType.label(place.type) ?? ""].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
             }
             Spacer()

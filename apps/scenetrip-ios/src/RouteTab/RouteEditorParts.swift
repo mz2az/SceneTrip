@@ -113,7 +113,8 @@ struct RouteStopRow: View {
                         Text("\(RouteGuidePlan.clock(minute)) 도착 예정")
                             .font(.caption2).foregroundStyle(.secondary)
                     }
-                    Text([stop.place.type, stop.place.address]
+                    // 유형은 코드로 온다 — 표시말로 바꿔 적고, 표에 없으면 주소만(MZ2AZ-372).
+                    Text([PlaceType.stopLabel(stop.place.type, pinned: stop.isPinned), stop.place.address]
                         .compactMap { $0 }.joined(separator: " · "))
                         .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
 
@@ -312,7 +313,7 @@ struct RouteCartSheet: View {
                 .clipShape(.rect(cornerRadius: 6))
             VStack(alignment: .leading, spacing: 2) {
                 Text(place.name).font(.subheadline.weight(.semibold))
-                Text(place.address ?? place.type ?? "")
+                Text(place.address ?? PlaceType.label(place.type) ?? "")
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
@@ -357,7 +358,7 @@ struct RoutePinSheet: View {
 
     /// 검색 탭의 카테고리 묶음을 그대로 쓰고 숙소만 앞에 더한다 — 같은 앱에서 갈래
     /// 이름이 화면마다 다르면 나중에 서버로 보낼 때 맞출 수 없다.
-    static let categories = ["숙소"] + CategoryChip.groups.map(\.name)
+    static let categories = PlaceType.pinKinds
 
     var body: some View {
         NavigationStack {
