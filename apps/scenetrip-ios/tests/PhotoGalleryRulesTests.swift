@@ -1,9 +1,73 @@
 import SceneApiClient
 @testable import SceneTrip
+import UIKit
 import XCTest
 
 /// 사진첩의 규칙 (MZ2AZ-363 §4) — 사진의 이름, 쪽 붙이기·겹침 거르기, 다음 쪽을 받을 때, 쪽 표시.
 final class PhotoGalleryRulesTests: XCTestCase {
+    func testTourApiHostIsExactAndPublicHttpsOnly() {
+        XCTAssertTrue(PhotoGalleryRules.tourImage("https://tong.visitkorea.or.kr/cms/a.jpg"))
+        for url in [
+            "https://tong.visitkorea.or.kr.evil.example/a.jpg", "https://eviltong.visitkorea.or.kr/a.jpg",
+            "https://example.com/tong.visitkorea.or.kr/a.jpg", "http://tong.visitkorea.or.kr/a.jpg",
+            "https://name@tong.visitkorea.or.kr/a.jpg", "https://tong.visitkorea.or.kr:8443/a.jpg",
+            "https://tong.visitkorea.or.kr/a.jpg?X-Amz-Signature=abc",
+        ] {
+            XCTAssertFalse(PhotoGalleryRules.tourImage(url), url)
+        }
+    }
+
+    func testTourOfficialPhotosKeepTheWholeFrameEvenWithoutCredit() {
+        let url = "https://tong.visitkorea.or.kr/cms/a.jpg"
+        for credit in [nil, "사진: 한국관광공사 · 공공누리 제1유형", "사진: 한국관광공사 · 공공누리 제3유형"] {
+            let photo = PhotoGalleryRules.photo(Photo(url: url, source: .official, credit: credit))
+            XCTAssertTrue(PhotoGalleryRules.preservesFrame(photo))
+            XCTAssertFalse(PhotoGalleryRules.signed(photo))
+        }
+        XCTAssertTrue(PhotoGalleryRules.preservesFrame(PhotoGalleryRules.photo(
+            Photo(url: "https://img.example/a.jpg", source: .official, credit: "공공누리 제3유형")
+        )))
+    }
+
+    func testVisitorAndOrdinaryPhotosKeepExistingFillAndSignedPolicy() {
+        let visitor = PhotoGalleryRules.photo(review("p1"))
+        let attached = PhotoGalleryRules.photo(ReviewPhoto(key: "reviews/a.jpg", url: visitor.url))
+        let poster = PhotoGalleryRules.photo(official("poster"))
+        for photo in [visitor, attached, poster] {
+            XCTAssertFalse(PhotoGalleryRules.preservesFrame(photo))
+        }
+        XCTAssertTrue(PhotoGalleryRules.signed(visitor))
+        XCTAssertTrue(PhotoGalleryRules.signed(attached))
+        XCTAssertFalse(PhotoGalleryRules.signed(poster))
+    }
+
+    func testCaptionKeepsCreditVerbatimAndDropsOnlyBlankAndDuplicateValues() {
+        let credit = "사진: 한국관광공사 · 공공누리 제3유형"
+        let photos = [credit, credit, "", "  ", "다른 출처"].map {
+            PhotoGalleryRules.photo(Photo(url: "https://img.example/\($0).jpg", source: .official, credit: $0))
+        }
+        XCTAssertEqual(PhotoGalleryRules.credits(photos), [credit, "다른 출처"])
+        XCTAssertTrue(PhotoGalleryRules.credits([PhotoGalleryRules.photo(review("p1"))]).isEmpty)
+    }
+
+    func testExistingLoaderBoundsLargeTourPhotoDisplayPixels() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let source = UIGraphicsImageRenderer(size: CGSize(width: 5141, height: 3427), format: format).image { context in
+            UIColor.orange.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 5141, height: 3427))
+        }
+        let data = try XCTUnwrap(source.jpegData(compressionQuality: 0.8))
+        for size in [PhotoLoader.Size.tile, .page] {
+            let image = try XCTUnwrap(PhotoLoader.decode(data, longest: size.rawValue))
+            let width = image.size.width * image.scale
+            let height = image.size.height * image.scale
+            XCTAssertEqual(width, CGFloat(size.rawValue))
+            XCTAssertEqual(width / height, 5141.0 / 3427.0, accuracy: 0.01)
+        }
+    }
+
     private func official(_ name: String) -> Photo {
         Photo(url: "https://img.example/\(name).jpg", source: .official)
     }

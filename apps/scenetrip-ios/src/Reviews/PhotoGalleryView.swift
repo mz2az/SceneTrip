@@ -34,18 +34,25 @@ struct PhotoHero: View {
     }
 
     var body: some View {
-        content
-            .renewsPhotos(from: gallery)
-            .onChange(of: index) { _, now in gallery.near(now) }
-            .onChange(of: photos.count) { _, count in
-                index = PhotoGalleryRules.clamped(index, count: count)
+        VStack(spacing: 4) {
+            content
+                .frame(height: 180)
+                .clipShape(.rect(cornerRadius: 10))
+            if photos.indices.contains(index) {
+                PhotoCredit(credits: PhotoGalleryRules.credits([photos[index]]))
             }
-            .fullScreenCover(isPresented: $viewing) {
-                GalleryViewer(gallery: gallery, index: $index, reviews: link, entry: "detail")
-            }
-            .sheet(isPresented: $browsing) {
-                PhotoGridView(gallery: gallery, title: title, reviews: link, entry: "detail")
-            }
+        }
+        .renewsPhotos(from: gallery)
+        .onChange(of: index) { _, now in gallery.near(now) }
+        .onChange(of: photos.count) { _, count in
+            index = PhotoGalleryRules.clamped(index, count: count)
+        }
+        .fullScreenCover(isPresented: $viewing) {
+            GalleryViewer(gallery: gallery, index: $index, reviews: link, entry: "detail")
+        }
+        .sheet(isPresented: $browsing) {
+            PhotoGridView(gallery: gallery, title: title, reviews: link, entry: "detail")
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -75,8 +82,12 @@ struct PhotoHero: View {
             index = number
             viewing = true
         } label: {
-            GalleryImage(photo: photos[number], active: PhotoGalleryRules.loads(page: number, current: index))
-                .contentShape(.rect)
+            GalleryImage(
+                photo: photos[number], fits: PhotoGalleryRules.preservesFrame(photos[number]),
+                active: PhotoGalleryRules.loads(page: number, current: index)
+            )
+            .background(Color(.systemGray6))
+            .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
@@ -194,9 +205,12 @@ struct PhotoGridView: View {
             SheetHeader(title: heading, subtitle: title) { dismiss() }
             Divider()
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 2) {
-                    ForEach(Array(photos.enumerated()), id: \.element.key) { number, photo in
-                        tile(number, photo)
+                VStack(spacing: 8) {
+                    PhotoCredit(credits: PhotoGalleryRules.credits(photos)).padding(.horizontal, 14)
+                    LazyVGrid(columns: columns, spacing: 2) {
+                        ForEach(Array(photos.enumerated()), id: \.element.key) { number, photo in
+                            tile(number, photo)
+                        }
                     }
                 }
             }
@@ -228,7 +242,8 @@ struct PhotoGridView: View {
             index = number
             viewing = true
         } label: {
-            GalleryImage(photo: photo, size: .tile)
+            GalleryImage(photo: photo, size: .tile, fits: PhotoGalleryRules.preservesFrame(photo))
+                .background(Color(.systemGray6))
                 .aspectRatio(1, contentMode: .fit)
                 .overlay(alignment: .bottomLeading) {
                     // 전체 격자에서만 가린다 — 방문자 사진만 모은 격자는 전부 방문자 사진이다.
