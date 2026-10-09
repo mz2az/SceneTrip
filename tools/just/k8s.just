@@ -260,6 +260,12 @@ poi-en poi_dir eng_zip store_zip out_dir:
 poi-pack poi_dir out_dir edition:
     {{BAZEL}} run //tools/poi:pack -- "{{ poi_dir }}" "{{ out_dir }}" "{{ edition }}"
 
+# 관광공사 TourAPI 상세를 받는다 — 서울·경기 먼저, 키는 환경변수 이름으로(TOURAPI_KEY_VARS 로 바꾼다) (tools/poi/README.md)
+# 예: `just poi-tourapi ~/SceneTrip-data/SceneTrip_POI` · `just poi-tourapi ~/SceneTrip-data/SceneTrip_POI Kor`
+[group('db')]
+poi-tourapi data_dir *langs:
+    {{BAZEL}} run //tools/poi:tourapi -- "{{ data_dir }}" --keys "${TOURAPI_KEY_VARS:-DATA_GO_KR_KEY,DATA_GO_KEY_GIL,DATA_GO_KEY_TAE}" {{ langs }}
+
 # 묶은 판을 GitHub Release `poi-data-<판>` 으로 올린다 — 공개 Release 다. 같은 판은 덮지 않는다
 [group('db')]
 [confirm("POI 적재 파일을 공개 GitHub Release 로 올립니다. 진행할까요?")]
