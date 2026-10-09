@@ -82,11 +82,14 @@ class PoisController implements PoisApi {
             .orElseThrow(
                 () -> ApiException.notFound("POI_NOT_FOUND", "편의시설 " + poiId + " 이(가) 없습니다"));
 
-    ReviewViews.Gallery gallery =
-        reviews.gallery(ReviewStore.Target.POI, poiId, ReviewViews.DETAIL_PHOTOS, 0);
+    // 촬영지와 같은 곳이면 별점·사진첩은 그 촬영지의 것이다(MZ2AZ-371) — 리뷰 창구와 같은 규칙.
+    Long placeId = detail.poi().getPlaceId();
+    ReviewStore.Target target = placeId == null ? ReviewStore.Target.POI : ReviewStore.Target.PLACE;
+    long targetId = placeId == null ? poiId : placeId;
+    ReviewViews.Gallery gallery = reviews.gallery(target, targetId, ReviewViews.DETAIL_PHOTOS, 0);
     detail
         .poi()
-        .rating(reviews.summary(ReviewStore.Target.POI, poiId))
+        .rating(reviews.summary(target, targetId))
         .photos(gallery.items())
         .photoCount(gallery.total())
         // 처음 여는 곳이면 지금 네이버에 장소 번호를 묻는다(ADR 0021). 모르면 비어 있고 앱은 이름 검색으로 넘긴다.
