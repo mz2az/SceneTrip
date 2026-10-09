@@ -172,8 +172,12 @@ struct RoutePlaceCard: View {
         }
     }
 
-    /// **더 보려면 네이버로** — 사진·메뉴·예약·리뷰는 그쪽에 있다. 이름으로 검색한 화면을 연다.
+    /// **더 보려면 네이버로** — 사진·메뉴·예약·리뷰는 그쪽에 있다. 그 가게의 네이버 장소 화면을 연다.
     /// 아이콘만 두면 「더 보기」인지 아무도 모른다(2026-08-27 사용자 지적) — 글자째 둔 미니 캡슐이다.
+    ///
+    /// **갈 곳이 없으면 버튼도 없다**(MZ2AZ-374) — 편의시설은 서버가 장소 번호를 찾은 곳에만 주소를 준다.
+    /// 상세를 받는 동안에도 없다가 오면 선다. 넓은 카드에서는 이름 옆(닫기 단추 높이 안)이라 줄이 밀리지 않고,
+    /// 좁은 카드에서는 이름 아래 한 줄이 생긴다 — 그때는 아래 표도 함께 들어오므로 따로 튀지 않는다.
     @ViewBuilder
     private var naverLink: some View {
         if let link = fresh?.naverUrl, let url = URL(string: link) {
@@ -298,6 +302,12 @@ struct RoutePlaceCard: View {
     private func load() async {
         let asked = place.id
         let loaded = await RouteGuide.card(for: place)
+        // 떠 있는 카드를 다시 읽다 실패했으면 가진 것을 둔다 — 네이버 버튼·전화·사진·별점이 사라지지 않게.
+        // 핀을 갈아탔을 때는 `.task` 가 먼저 비우므로 `fresh` 가 없다.
+        if RouteGuide.Card.keeps(fresh, over: loaded) {
+            loading = false
+            return
+        }
         card = loaded
         gallery.show(loaded?.photos ?? PhotoGalleryRules.Book(), subject: subject)
         cardFor = asked

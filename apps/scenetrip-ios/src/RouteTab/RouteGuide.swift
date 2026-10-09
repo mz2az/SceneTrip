@@ -188,7 +188,8 @@ enum RouteGuide {
     ///
     /// 편의시설 카드는 네이버 장소의 사진·평점·영업시간을 보여 주던 것이다(`GET /pois/{id}/card`,
     /// ADR 0011 — 비공식 호출, 데모 한정). 밖에 내보내는 빌드에는 쓸 수 없어 걷어냈다
-    /// (2026-10-05, MZ2AZ-354). 더 볼 것은 `NaverMapLink` 로 **넘긴다** — 가져오지 않는다.
+    /// (2026-10-05, MZ2AZ-354). 더 볼 것은 네이버 지도로 **넘긴다** — 가져오지 않는다. 갈 곳은 상세의
+    /// `naverPlaceUrl`(그 가게의 장소 화면)이고, 없으면 버튼이 없다(`NaverMapLink`, MZ2AZ-374).
     static func card(for place: Place) async -> Card? {
         if let placeId = place.placeId {
             guard let detail = try? await PlacesAPI.getPlace(placeId: placeId) else { return nil }
@@ -207,6 +208,11 @@ enum RouteGuide {
         } else {
             nil
         }
+        return card(poi: detail, listed: place)
+    }
+
+    /// 편의시설 카드 — **받은 상세(없을 수도 있다)와 목록이 준 것**으로 짓는다. 네트워크를 모르는 순수 함수다.
+    static func card(poi detail: PoiDetail?, listed place: Place) -> Card {
         // 분류·주소는 앱 언어로(MZ2AZ-360). 상세가 왔으면 그 값이 먼저, 아니면 목록이 준 것.
         let label = PoiLabel.make(
             name: detail?.name ?? place.name,
@@ -226,9 +232,11 @@ enum RouteGuide {
             phone: detail?.tel,
             // 편의시설의 우리 사진은 아직 모으기 전이다 — 지금 오는 것은 방문자 사진뿐이다.
             photos: detail.map(PhotoGalleryRules.book(for:)) ?? PhotoGalleryRules.Book(),
-            // 네이버는 한국어 이름으로 찾는다 — 영어 이름으로는 가게가 안 나온다.
-            naverUrl: NaverMapLink.search(detail?.name ?? place.name, near: detail?.city),
-            rating: detail?.rating
+            // 서버가 찾아 둔 그 가게의 네이버 장소 화면만 연다. 없으면(상세를 못 받았을 때도) 버튼이 없다 —
+            // 이름 검색으로 넘기지 않는다(MZ2AZ-374).
+            naverUrl: NaverMapLink.place(detail?.naverPlaceUrl)?.absoluteString,
+            rating: detail?.rating,
+            detailed: detail != nil
         )
     }
 
@@ -243,10 +251,22 @@ enum RouteGuide {
         let phone: String?
         /// 사진첩의 앞쪽(MZ2AZ-363) — 우리 사진 먼저, 그 뒤 방문자 사진. 상세의 `photos`, 옛 서버면 옛 칸.
         let photos: PhotoGalleryRules.Book
-        /// 「네이버 지도에서 보기」가 갈 곳.
+        /// 「네이버 지도에서 보기」가 갈 곳. **없으면 버튼이 없다** — 편의시설은 서버가 장소 번호를 못 찾은 곳,
+        /// 촬영지는 우리 자료에 링크가 없는 곳.
         let naverUrl: String?
         /// 별점 요약(MZ2AZ-363). 서버가 실어 줄 때만 있다.
         var rating: RatingSummary?
+        /// 상세를 받아 지은 카드인가. 편의시설은 상세를 못 받아도 목록이 준 것으로 서는데, 그 카드에는
+        /// 전화·사진·별점·네이버 주소가 없다.
+        var detailed = true
+
+        /// 카드가 떠 있는 채 **다시 읽었을 때** 앞의 것을 그대로 둘 것인가(MZ2AZ-374).
+        ///
+        /// 리뷰 시트·사진첩을 닫으면 상세를 다시 받는다. 그 요청이 실패하면 새 카드는 없거나(촬영지) 목록만으로
+        /// 지은 것(편의시설)이라, 바꿔 끼우면 떠 있던 네이버 버튼·전화·사진·별점이 사라진다 — 가진 것을 둔다.
+        static func keeps(_ shown: Card?, over reloaded: Card?) -> Bool {
+            shown != nil && reloaded?.detailed != true
+        }
     }
 
     // MARK: 주고받는 것
@@ -338,7 +358,7 @@ enum RouteGuide {
         let source: Source?
 
         /// 앱 언어로 적은 이름·분류·주소와 읽는 법(MZ2AZ-360). `name`·`category`·`address` 는 언제나
-        /// 한국어 원본이라 — 네이버 검색·코스 저장·중복 판정에 쓴다 — 화면은 `label` 을 본다.
+        /// 한국어 원본이라 — 코스 저장·중복 판정에 쓴다 — 화면은 `label` 을 본다.
         var displayName: String?
         var nameRoman: String?
         var categoryLabel: String?
