@@ -113,7 +113,7 @@ struct PlaceDetailView: View {
             }
             .buttonStyle(.borderedProminent)
 
-            if let link = detail?.naverPlaceUrl, let url = URL(string: link) {
+            if let url = NaverMapLink.place(detail?.naverPlaceUrl) {
                 Button { openURL(url) } label: {
                     Label("네이버 지도", systemImage: "arrow.up.right.square")
                 }
