@@ -8,6 +8,7 @@ py_library(
         "juso_api.py",
         "names.py",
         "pack.py",
+        "tour_images.py",
         "tourapi.py",
     ],
     data = glob(["data/*.tsv"]),
@@ -35,6 +36,13 @@ py_binary(
     main = "tourapi.py",
 )
 
+# `just poi-tour-images` — 관광공사 대표 이미지 → poi_image 적재 파일.
+py_binary(
+    name = "tour_images",
+    srcs = ["tour_images.py"],
+    main = "tour_images.py",
+)
+
 py_test(
     name = "unit_test",
     srcs = [
@@ -48,6 +56,7 @@ py_test(
         "tests/test_pack.py",
         "tests/test_poi.py",
         "tests/test_spec.py",
+        "tests/test_tour_images.py",
         "tests/test_tourapi.py",
     ],
     main = "tests/test_poi.py",

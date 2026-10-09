@@ -241,6 +241,18 @@ place-poi-link *flags:
 seed-poi *files:
     ./tools/scripts/seed-poi.sh "$@"
 
+# 편의시설 사진(관광공사 대표 이미지)을 poi_image 에 맞춘다 — 입력에 든 POI 의 tour_api 사진만 (poi-source.md §6-1)
+# 예: `just seed-poi-images ~/SceneTrip-data/SceneTrip_POI/out/tour_images.jsonl`
+[group('db')]
+seed-poi-images file:
+    ./tools/scripts/seed-poi-images.sh "{{ file }}"
+
+# 관광공사 국문 목록에서 대표 이미지를 뽑아 사진 적재 파일을 만든다(https · 공공누리 표기) — 결과는 just seed-poi-images 로
+# 예: `just poi-tour-images ~/SceneTrip-data/SceneTrip_POI/raw/tourapi/Kor/list.jsonl ~/SceneTrip-data/SceneTrip_POI/out/tour_images.jsonl`
+[group('db')]
+poi-tour-images list_jsonl out:
+    {{BAZEL}} run //tools/poi:tour_images -- "{{ list_jsonl }}" "{{ out }}"
+
 #   just poi-filter "~/Downloads/압축 poi 2/poi_food.jsonl.gz" "~/Downloads/압축 poi 2/허용목록만/poi_food.jsonl.gz"
 #
 # POI 원본에서 허용목록 갈래만 남긴 파일을 만든다. 원본은 손대지 않는다
