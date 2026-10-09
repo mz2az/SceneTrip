@@ -69,8 +69,18 @@ class NaverPlaceClientTest {
     server.stop(0);
   }
 
+  /** 카드 스위치({@code scenetrip.naver.enabled})만 본다 — 링크 스위치는 끈 채. */
   private static NaverPlaceClient client(boolean enabled) {
-    return new NaverPlaceClient(enabled, base + "/graphql", base + "/summary/{id}", 1);
+    return client(enabled, false);
+  }
+
+  /**
+   * @param enabled 카드 스위치 {@code scenetrip.naver.enabled}
+   * @param linkLookup 링크 스위치 {@code scenetrip.naver.link-lookup.enabled}
+   */
+  private static NaverPlaceClient client(boolean enabled, boolean linkLookup) {
+    return new NaverPlaceClient(
+        enabled, linkLookup, base + "/graphql", base + "/summary/{id}", 1000);
   }
 
   private static void respond(int code, String json) {
@@ -227,6 +237,52 @@ class NaverPlaceClientTest {
     assertThat(out.ok()).isFalse();
     assertThat(out.why()).contains("꺼져");
     assertThat(lastPath.get()).isNull();
+  }
+
+  @Test
+  @DisplayName("둘 다 꺼져 있으면 상세도 요청이 나가지 않는다")
+  void disabledDetailDoesNotCall() {
+    lastPath.set(null);
+    respond(200, "{}");
+
+    Outcome<Detail> out = client(false, false).detail("1001");
+
+    assertThat(out.ok()).isFalse();
+    assertThat(out.blocked()).isFalse();
+    assertThat(lastPath.get()).isNull();
+  }
+
+  @Test
+  @DisplayName("링크 스위치만 켜면 검색은 나간다 (ADR 0021)")
+  void linkLookupAloneSearches() {
+    lastPath.set(null);
+    respond(
+        200,
+        """
+        {"data":{"placeList":{"businesses":{"total":1,"items":[
+          {"id":"1001","name":"가게 하나","coordinate":{"latitude":37.5,"longitude":127.0}}
+        ]}}}}
+        """);
+
+    Outcome<List<Candidate>> out = client(false, true).search("가게");
+
+    assertThat(out.ok()).isTrue();
+    assertThat(out.value()).extracting(Candidate::id).containsExactly("1001");
+    assertThat(lastPath.get()).isEqualTo("/graphql");
+  }
+
+  @Test
+  @DisplayName("링크 스위치만 켜면 상세(사진·평점·영업시간)는 나가지 않는다 (ADR 0021)")
+  void linkLookupAloneNeverCallsDetail() {
+    lastPath.set(null);
+    respond(200, "{\"data\":{\"placeDetail\":{\"name\":\"가게 하나\"}}}");
+
+    Outcome<Detail> out = client(false, true).detail("1001");
+
+    assertThat(out.ok()).isFalse();
+    assertThat(out.value()).isNull();
+    assertThat(out.blocked()).isFalse();
+    assertThat(lastPath.get()).as("가짜 서버가 받은 경로").isNull();
   }
 
   @Test

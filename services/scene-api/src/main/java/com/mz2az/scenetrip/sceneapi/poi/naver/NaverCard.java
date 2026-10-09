@@ -44,6 +44,27 @@ public record NaverCard(
     List<String> images,
     String url) {
 
+  /** 찾았지만 장소 번호만 둔 결과(ADR 0021). 사진·평점·영업시간 등 상세는 비어 있다. */
+  public static NaverCard linkOnly(long poiId, String naverId, String ruleVersion, String url) {
+    return new NaverCard(
+        poiId,
+        true,
+        null,
+        ruleVersion,
+        null,
+        naverId,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        List.of(),
+        url);
+  }
+
   /** 못 찾은 결과. 상세는 전부 비어 있다. */
   public static NaverCard notFound(long poiId, String why, String ruleVersion) {
     return new NaverCard(

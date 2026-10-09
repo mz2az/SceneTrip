@@ -28,7 +28,9 @@ import tools.jackson.databind.JsonNode;
  *
  * <ul>
  *   <li><b>절대 던지지 않는다.</b> 카드가 뜨는 화면이 바깥 사정으로 죽으면 안 된다. 실패는 {@link Outcome#failed} 로 답한다.
- *   <li><b>스위치가 있다.</b> {@code scenetrip.naver.enabled=false} 면 부르지도 않는다. 데모 중 막히면 내린다.
+ *   <li><b>스위치가 둘이다.</b> 검색은 {@code scenetrip.naver.link-lookup.enabled} 나 {@code
+ *       scenetrip.naver.enabled} 가 켜져 있을 때만, 상세(사진·영업시간·평점)는 {@code scenetrip.naver.enabled} 가 켜져
+ *       있을 때만 부른다. 지금은 링크용 검색만 켜 둔다 — ADR 0021.
  *   <li><b>막힌 것을 구분한다.</b> 403·429 는 {@code blocked} — 뒤에서 채우는 일꾼이 쉬어야 할 신호다. 타임아웃·5xx 는 이번만 실패.
  * </ul>
  *
@@ -114,19 +116,22 @@ public class NaverPlaceClient {
   private static final Pattern DIGITS = Pattern.compile("[\\d,]+");
 
   private final boolean enabled;
+  private final boolean searchEnabled;
   private final String searchUrl;
   private final String detailUrl;
   private final RestClient http;
 
   NaverPlaceClient(
       @Value("${scenetrip.naver.enabled:false}") boolean enabled,
+      @Value("${scenetrip.naver.link-lookup.enabled:false}") boolean linkLookupEnabled,
       @Value("${scenetrip.naver.search-url}") String searchUrl,
       @Value("${scenetrip.naver.detail-url}") String detailUrl,
-      @Value("${scenetrip.naver.timeout-seconds:3}") int timeoutSeconds) {
+      @Value("${scenetrip.naver.timeout-ms:700}") int timeoutMillis) {
     this.enabled = enabled;
+    this.searchEnabled = enabled || linkLookupEnabled;
     this.searchUrl = searchUrl;
     this.detailUrl = detailUrl;
-    Duration timeout = Duration.ofSeconds(timeoutSeconds);
+    Duration timeout = Duration.ofMillis(timeoutMillis);
     JdkClientHttpRequestFactory factory =
         new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(timeout).build());
     factory.setReadTimeout(timeout);
@@ -135,8 +140,8 @@ public class NaverPlaceClient {
 
   /** 이름(+주소)으로 후보 최대 5 개. 0 건은 실패가 아니라 빈 목록이다. */
   public Outcome<List<Candidate>> search(String query) {
-    if (!enabled) {
-      return Outcome.failed("네이버 조회가 꺼져 있다 (scenetrip.naver.enabled=false)", false);
+    if (!searchEnabled) {
+      return Outcome.failed("네이버 검색이 꺼져 있다 (scenetrip.naver.link-lookup.enabled=false)", false);
     }
     Map<String, Object> body =
         Map.of(

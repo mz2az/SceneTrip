@@ -1105,7 +1105,7 @@ paths:
         사진(`images`, 지금은 빈 배열). 영업시간은 없다. 별점은 우리 리뷰의 것(`rating`)이다.
 
         `naverPlaceUrl` 은 그 가게의 네이버 장소 화면이다. 처음 여는 곳이면 서버가 그때 찾아 보느라 응답이
-        조금(최대 1.5 초) 늦을 수 있다. 못 찾았거나 찾지 못하는 사정이면 비어 있다 — 앱은 이름 검색 링크로 넘긴다.
+        조금(최대 1.5 초) 늦을 수 있다. 비어 있으면 앱은 네이버 지도 버튼을 보이지 않는다.
 
         언어는 `GET /pois` 와 같다 — 기존 칸은 한국어, 요청 언어는 `displayName`·`displayAddress`·`categoryLabel`.
       parameters:
@@ -3426,8 +3426,8 @@ components:
               description: |
                 그 가게의 네이버 장소 화면(`https://map.naver.com/p/entry/place/{번호}`). 촬영지 상세의 같은 이름 칸과
                 같은 꼴이다. 네이버에서 가져오는 것은 이 주소뿐이다 — 사진·평점·영업시간은 없다(ADR 0021).
-                **없을 수 있다** — 네이버에 없거나, 찾는 데 실패했거나, 찾기가 꺼져 있다. 그때 앱은
-                `https://map.naver.com/p/search/<name> <city>` 로 넘긴다.
+                **없을 수 있다** — 네이버에 없거나, 찾는 데 실패했거나(다음에 열 때 다시 찾는다), 찾기가 꺼져 있다.
+                없으면 앱은 네이버 지도 버튼을 **보이지 않는다** — 이름 검색 화면으로 넘기지 않는다.
               example: https://map.naver.com/p/entry/place/11679241
           required: [images]
 

@@ -26,6 +26,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.RatingSummary;
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStore;
+import com.mz2az.scenetrip.sceneapi.poi.naver.NaverLinks;
 import com.mz2az.scenetrip.sceneapi.poi.naver.PoiCardService;
 import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
 import java.net.URI;
@@ -56,6 +57,9 @@ class PoisControllerTest {
   @Autowired private MockMvc mvc;
   @MockitoBean private PoiStore store;
   @MockitoBean private PoiCardService cards;
+
+  // 상세의 naverPlaceUrl(계약 1.6.0, ADR 0021). 네이버 검색과 저장은 NaverLinksTest 가 본다 — 여기서는 「모름」 이 기본이다.
+  @MockitoBean private NaverLinks naverLinks;
 
   // 상세의 별점·사진첩(계약 1.4.0). 리뷰 표의 SQL 은 통합 레인이 본다 — 여기서는 「리뷰 없음」 이 기본이다.
   @MockitoBean private ReviewViews reviews;
@@ -550,5 +554,36 @@ class PoisControllerTest {
     mvc.perform(get("/pois/999").header("Accept-Language", "en"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("POI_NOT_FOUND"));
+  }
+
+  @Test
+  @DisplayName("상세 — 네이버 장소 화면을 알면 naverPlaceUrl 로 싣는다 (ADR 0021)")
+  void detailCarriesNaverPlaceUrl() throws Exception {
+    PoiDetail detail =
+        new PoiDetail(7L, "모슬포호텔", "호텔", PoiCategoryGroup.STAY, 33.2177, 126.2506, List.of());
+    when(store.findDetail(eq(7L), any(), any(), any()))
+        .thenReturn(Optional.of(new PoiStore.Detail(detail, Lang.KO)));
+    when(naverLinks.placeUrl(any()))
+        .thenReturn(Optional.of(URI.create("https://map.naver.com/p/entry/place/11679241")));
+
+    mvc.perform(get("/pois/7"))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath("$.naverPlaceUrl").value("https://map.naver.com/p/entry/place/11679241"));
+  }
+
+  @Test
+  @DisplayName("상세 — 네이버 장소 화면을 모르면 naverPlaceUrl 은 비고 상세는 그대로 200")
+  void detailWithoutNaverPlaceUrl() throws Exception {
+    PoiDetail detail =
+        new PoiDetail(7L, "모슬포호텔", "호텔", PoiCategoryGroup.STAY, 33.2177, 126.2506, List.of());
+    when(store.findDetail(eq(7L), any(), any(), any()))
+        .thenReturn(Optional.of(new PoiStore.Detail(detail, Lang.KO)));
+    when(naverLinks.placeUrl(any())).thenReturn(Optional.empty());
+
+    mvc.perform(get("/pois/7"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("모슬포호텔"))
+        .andExpect(jsonPath("$.naverPlaceUrl").doesNotExist());
   }
 }

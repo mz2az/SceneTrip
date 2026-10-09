@@ -1,10 +1,10 @@
 ---
 number: 0020
 title: 편의시설 카드는 우리 공공데이터와 네이버 지도 링크로 — 비공식 호출을 내린다
-status: accepted
+status: superseded
 date: 2026-10-08
 supersedes: 0011
-superseded-by:
+superseded-by: 0021
 amended-by:
 ---
 

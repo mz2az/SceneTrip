@@ -178,15 +178,20 @@ scenetrip:
       client-ids: >-
         700188854872-3dl36cm33ndb2m1e8j04svnrnjpjleep.apps.googleusercontent.com,
         700188854872-7v9hphkb4phavae7stepil7q6vp7lbig.apps.googleusercontent.com
-  # 편의시설 카드 — 네이버 장소(비공식, ADR 0011). 키는 없다.
+  # 네이버 장소(비공식 — 네이버 지도 웹의 내부 주소, ADR 0011·0020·0021). 키는 없다.
   naver:
-    # 스위치. **꺼져 있다(ADR 0020, MZ2AZ-355, 베타 전).** 카드는 우리 공공데이터·리뷰로 그리고 네이버 지도로는 링크로만
-    # 넘긴다. 카드 창구(deprecated)는 꺼진 채 늘 「못 찾음」 이다. 코드와 함께 다음에 지운다 — 켜지 않는다.
+    # 카드(사진·평점·영업시간) 스위치. **꺼져 있다(ADR 0020, MZ2AZ-355, 베타 전).** 카드 창구(deprecated)는 꺼진 채
+    # 늘 「못 찾음」 이다. 코드와 함께 다음에 지운다 — 켜지 않는다.
     enabled: false
+    # 링크 스위치(ADR 0021, MZ2AZ-373). 편의시설 상세의 naverPlaceUrl — 검색만 불러 장소 번호를 찾는다. 상세는 부르지
+    # 않는다. 막히거나 문제가 되면 이것만 끈다 — 앱은 이름 검색 링크로 돌아간다.
+    link-lookup:
+      enabled: true
     search-url: https://bff-gateway.place.naver.com/graphql
     detail-url: https://map.naver.com/p/api/place/summary/{id}
-    # 실측 0.3 초의 10 배. 이보다 오래 걸리면 이번은 실패로 두고 다음에 다시 묻는다.
-    timeout-seconds: 3
+    # 한 번 부를 때. 실측 0.3 초의 두 배 남짓 — 상세 응답이 이것을 기다린다(재검색까지 최대 두 번, 계약 「최대 1.5 초」).
+    # 넘으면 이번은 비워 보내고 다음에 다시 묻는다.
+    timeout-ms: 700
     # 뒤에서 채우는 일꾼 — 한 건 사이 최소 간격(초당 3 건 상한)과, 막혔을 때 쉬는 시간.
     min-interval-ms: 300
     pause-seconds: 60
