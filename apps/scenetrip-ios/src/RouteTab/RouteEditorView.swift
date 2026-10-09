@@ -310,10 +310,10 @@ struct RouteEditorView: View {
         } message: {
             Text(store.failure?.message ?? "")
         }
-        // 해태 「내가 도와줄게!」 — 가이드의 유일한 입구. 지도가 아니라 **화면** 오른쪽
+        // 해태 「내가 도와줄게!」 — 안내 헤더 입구와 교대한다. 지도가 아니라 **화면** 오른쪽
         // 아래에 떠 있고, 꾹 누르면 옮길 수 있다(2026-09-16). 창이 열려 있거나 핀을 찍는
         // 동안은 숨긴다. 카드가 떠 있으면 말풍선을 접고 카드 위로 비킨다(MZ2AZ-367).
-        .guideFloatingChip(hidden: showGuide || pinning, cardTop: guideCardTop, keepClear: stayFrame) {
+        .guideFloatingChip(hidden: guideEntry != .floating, cardTop: guideCardTop, keepClear: stayFrame) {
             showGuide = true
         }
         // 가이드는 시트가 아니라 **오른쪽 서랍**이다 — 오른쪽에서 미끄러져
