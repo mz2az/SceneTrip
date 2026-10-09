@@ -379,7 +379,7 @@ extension RouteEditorView {
     @ViewBuilder
     var stopCardOverlay: some View {
         if let tapped = pickedStop, !showGuide, guide.picked == nil {
-            RouteStopCard(
+            RouteCourseStopCard(
                 stop: tapped,
                 onReroute: course.isRunning && trip.target?.id != tapped.id
                     ? { startTrip(to: tapped) } : nil,

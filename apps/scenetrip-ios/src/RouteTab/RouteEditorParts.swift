@@ -114,7 +114,7 @@ struct RouteStopRow: View {
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                     // 유형은 코드로 온다 — 표시말로 바꿔 적고, 표에 없으면 주소만(MZ2AZ-372).
-                    Text([PlaceType.stopLabel(stop.place.type, pinned: stop.isPinned), stop.place.address]
+                    Text([PlaceType.stopLabel(stop.place.type, kind: stop.kind), stop.place.address]
                         .compactMap { $0 }.joined(separator: " · "))
                         .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
 

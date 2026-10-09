@@ -168,8 +168,21 @@ enum PlaceType {
         pinned ? pinKind(raw).map(translate) : label(raw, korean: korean)
     }
 
-    static func stopLabel(_ raw: String?, pinned: Bool) -> String? {
-        stopLabel(raw, pinned: pinned, korean: AppLanguage.current == .ko, translate: { tr($0) })
+    /// 갈래까지 아는 줄(MZ2AZ-380). **편의시설은 분류를 늘 적는다** — 촬영지 유형 표에 있으면 그 표시말
+    /// (「카페」 → Café), 없으면 서버가 준 분류 그대로(「한식」). 편의시설 분류는 촬영지 유형과 값의 범위가
+    /// 달라(계약 `CourseItem.category`) 표에 없는 것이 보통이고, 그렇다고 비우면 무슨 가게인지 알 수 없다.
+    static func stopLabel(
+        _ raw: String?, kind: RouteStop.Kind, korean: Bool, translate: (String) -> String
+    ) -> String? {
+        guard case .poi = kind else {
+            return stopLabel(raw, pinned: kind == .pin, korean: korean, translate: translate)
+        }
+        let text = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return label(raw, korean: korean) ?? (text.isEmpty ? nil : text)
+    }
+
+    static func stopLabel(_ raw: String?, kind: RouteStop.Kind) -> String? {
+        stopLabel(raw, kind: kind, korean: AppLanguage.current == .ko, translate: { tr($0) })
     }
 }
 

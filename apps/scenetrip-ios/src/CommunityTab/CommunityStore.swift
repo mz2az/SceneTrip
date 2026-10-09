@@ -9,7 +9,7 @@ import UIKit
 /// 읽는 사람은 이것을 보고, 「내 코스로 담기」로 자기 코스를 하나 만든다.
 struct PostCourse: Codable, Hashable {
     struct Stop: Codable, Hashable {
-        /// 촬영지 id. 지도에 직접 찍은 핀이면 없다.
+        /// 촬영지 id. 편의시설·지도에 직접 찍은 핀이면 없다.
         var placeId: Int64?
         var name: String
         var address: String?
@@ -17,6 +17,9 @@ struct PostCourse: Codable, Hashable {
         var latitude: Double
         var longitude: Double
         var imageUrl: String?
+        /// 편의시설 id(MZ2AZ-380). 편의시설로 담긴 곳에만 있다 — **이 칸이 생기기 전에 쓴 글에는 없고**,
+        /// 그 글의 편의시설은 그때 저장되던 대로 개인 핀이다(`placeId` 도 없다).
+        var poiId: Int64?
     }
 
     var title: String
@@ -36,10 +39,10 @@ struct PostCourse: Codable, Hashable {
         days = course.days.map { day in
             day.stops.map { stop in
                 Stop(
-                    placeId: stop.isPinned ? nil : stop.place.id,
+                    placeId: stop.placeId,
                     name: stop.place.name, address: stop.place.address, type: stop.place.type,
                     latitude: stop.place.latitude, longitude: stop.place.longitude,
-                    imageUrl: stop.place.imageUrl
+                    imageUrl: stop.place.imageUrl, poiId: stop.poiId
                 )
             }
         }
@@ -51,13 +54,20 @@ struct PostCourse: Codable, Hashable {
             title: title,
             days: days.map { stops in
                 RouteDay(stops: stops.enumerated().map { index, stop in
-                    RouteStop(
+                    // 촬영지 id 가 있으면 촬영지, 편의시설 id 가 있으면 편의시설, 둘 다 없으면 개인 핀.
+                    let kind: RouteStop.Kind = stop.placeId != nil ? .place : stop.poiId.map(RouteStop.Kind.poi) ?? .pin
+                    let placeId: Int64 = switch kind {
+                    case .place: stop.placeId ?? RouteStop.noPlaceId
+                    case .poi: RouteStop.noPlaceId
+                    case .pin: -Int64(index + 1)
+                    }
+                    return RouteStop(
                         place: PlaceSummary(
-                            id: stop.placeId ?? -Int64(index + 1), name: stop.name, type: stop.type,
+                            id: placeId, name: stop.name, type: stop.type,
                             address: stop.address, latitude: stop.latitude, longitude: stop.longitude,
                             imageUrl: stop.imageUrl
                         ),
-                        isPinned: stop.placeId == nil
+                        kind: kind
                     )
                 })
             }

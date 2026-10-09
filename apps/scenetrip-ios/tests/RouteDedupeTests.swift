@@ -14,6 +14,16 @@ final class RouteDedupeTests: XCTestCase {
         PlaceSummary(id: id, name: name, latitude: lat, longitude: lng)
     }
 
+    /// 장소를 코스 줄로 — id 가 양수면 촬영지, 아니면 개인 핀. 앱이 담을 때 타는 규칙(`fresh(_:taken:)`)을 그대로 부른다.
+    private func fresh(
+        _ places: [PlaceSummary], takenIds: Set<Int64>, takenKeys: Set<String>
+    ) -> [RouteStop] {
+        RouteDedupe.fresh(
+            places.map { RouteStop(place: $0, kind: $0.id > 0 ? .place : .pin) },
+            taken: RouteDedupe.Taken(placeIds: takenIds, keys: takenKeys)
+        )
+    }
+
     // MARK: 핀·가이드가 준 곳 (id 가 매번 다르다)
 
     /// **같은 이름·같은 자리는 id 가 달라도 한 번만.** 이 검사가 이 기능의 이유다.
@@ -21,7 +31,7 @@ final class RouteDedupeTests: XCTestCase {
         let first = place(-111, "달큰커피", 37.5665, 126.9780)
         let second = place(-222, "달큰커피", 37.5665, 126.9780)
 
-        let fresh = RouteDedupe.fresh([first, second], takenIds: [], takenKeys: [])
+        let fresh = fresh([first, second], takenIds: [], takenKeys: [])
         XCTAssertEqual(fresh.count, 1, "같은 가게가 두 번 담겼다")
     }
 
@@ -30,7 +40,7 @@ final class RouteDedupeTests: XCTestCase {
         let taken = place(-111, "달큰커피", 37.5665, 126.9780)
         let again = place(-999, "달큰커피", 37.5665, 126.9780)
 
-        let fresh = RouteDedupe.fresh(
+        let fresh = fresh(
             [again], takenIds: [], takenKeys: [RouteDedupe.key(taken)]
         )
         XCTAssertTrue(fresh.isEmpty, "이미 있는 곳이 또 담겼다")
@@ -41,7 +51,7 @@ final class RouteDedupeTests: XCTestCase {
         let one = place(-1, "달큰커피", 37.566_500_1, 126.978_000_2)
         let two = place(-2, "달큰커피", 37.566_500_4, 126.978_000_9)
 
-        XCTAssertEqual(RouteDedupe.fresh([one, two], takenIds: [], takenKeys: []).count, 1)
+        XCTAssertEqual(fresh([one, two], takenIds: [], takenKeys: []).count, 1)
     }
 
     // MARK: 갈라야 하는 것
@@ -52,7 +62,7 @@ final class RouteDedupeTests: XCTestCase {
         let cityhall = place(-2, "스타벅스", 37.5663, 126.9779)
 
         XCTAssertEqual(
-            RouteDedupe.fresh([gwanghwamun, cityhall], takenIds: [], takenKeys: []).count, 2,
+            fresh([gwanghwamun, cityhall], takenIds: [], takenKeys: []).count, 2,
             "다른 지점이 하나로 합쳐졌다"
         )
     }
@@ -63,7 +73,7 @@ final class RouteDedupeTests: XCTestCase {
     func testFilmingSpotIsFilteredById() {
         let bukchon = place(42, "북촌한옥마을", 37.5826, 126.9830)
         XCTAssertTrue(
-            RouteDedupe.fresh([bukchon], takenIds: [42], takenKeys: []).isEmpty,
+            fresh([bukchon], takenIds: [42], takenKeys: []).isEmpty,
             "이미 담긴 촬영지가 또 담겼다"
         )
     }
@@ -74,7 +84,7 @@ final class RouteDedupeTests: XCTestCase {
         let two = place(-5, "달큰커피", 37.5665, 126.9780)
 
         XCTAssertEqual(
-            RouteDedupe.fresh([one, two], takenIds: [99], takenKeys: []).count, 2
+            fresh([one, two], takenIds: [99], takenKeys: []).count, 2
         )
     }
 }

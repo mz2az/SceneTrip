@@ -79,6 +79,48 @@
 - iOS 는 지금 챗봇이 보여 준 **촬영지까지** 핀으로 담는다(`RouteGuideSheet.swift`, `pinned: true`) — 촬영지는 `placeId` 로 담아야
   한다. Android 는 `source == poi` 만 핀으로 담는다.
 
+### 6-1. iOS 구현 (MZ2AZ-380, 2026-10-09)
+
+**정지점이 세 갈래를 값으로 든다** — `RouteStop.kind`(`.place` · `.poi(편의시설 id)` · `.pin`,
+`apps/scenetrip-ios/src/RouteTab/RouteStopKind.swift`). 전에는 「핀인가」(`isPinned`) 하나와 `place.id` 의 부호로 갈랐다.
+편의시설 id 는 `kind` 가 들고, 촬영지가 아닌 줄의 `place.id` 는 촬영지 id 가 아니다(편의시설은 `0`) — 촬영지 id 를 읽는 자리는
+`RouteStop.placeId` 를 본다. 편의시설 id 와 촬영지 id 는 다른 표의 번호라 한 칸에 섞지 않는다.
+
+| 장면 | 규칙 | 자리 |
+| --- | --- | --- |
+| 저장 | 줄마다 `placeId` · `poiId` · `customPin` 중 **정확히 하나**(`RouteBridge.target(of:)` → `item`) | `RouteBridge` |
+| 불러오기 | `source: poi` → `.poi(poiId)`. 이름·분류·주소·사진은 서버가 준 지금의 편의시설 자료 | `RouteBridge.stop(from:)` |
+| 담기 | 주변 점·가이드 결과: 촬영지(`source: place`)는 `placeId` 로, 같은 곳으로 연결된 편의시설은 그 촬영지로(378), 그 밖의 편의시설은 `poiId` 로. 지도에 직접 찍은 점만 개인 핀 | `PlacePoiLink.entry` |
+| 중복 | 같은 촬영지 id · 같은 편의시설 id · 같은 이름+좌표(전에 개인 핀으로 담긴 같은 가게) 중 하나라도 걸리면 담지 않는다 | `RouteDedupe.fresh(_:among:)` |
+| 줄 | 분류를 적는다 — 촬영지 유형 표에 있으면 그 표시말, 없으면 서버가 준 분류 그대로(「한식」) | `PlaceType.stopLabel(_:kind:)` |
+| 번호 핀을 누를 때 | 편의시설 카드(`RoutePlaceCard` — `GET /pois/{poiId}`, 네이버 버튼·전화·리뷰). 촬영지·개인 핀은 전과 같은 성지 카드 | `RouteCourseStopCard` |
+| 지도 | 코스에 담긴 편의시설의 주변 점은 그리지 않는다 — 이름+좌표에 더해 편의시설 id 로도 | `visibleAmbientPois` |
+| 커뮤니티 후기의 코스 사본 | `PostCourse.Stop.poiId`(선택 칸 — 옛 사본은 그대로 읽힌다). 「내 코스로 담기」 가 편의시설로 되살린다 | `CommunityStore` |
+
+- **줄을 누르는 것은 전과 같다** — 지도가 그곳으로 옮겨 가고(촬영지 줄도 그렇다), 카드는 그 핀을 눌러야 뜬다.
+- **이미 개인 핀으로 저장된 편의시설은 그대로 개인 핀이다.** 같은 가게를 다시 담으려 하면 이름+좌표가 같아 담기지 않고
+  카드는 「경로에 있음」 을 보인다. 편의시설 항목으로 바꾸는 것은 §5 의 명령이다.
+- **여행 모드**는 손댈 것이 없었다 — 방문 체크와 길찾기 목적지는 코스 항목 id(`serverItemId`)로 가고, 좌표는 서버가 편의시설
+  표에서 읽는다(§4).
+- **마켓 올리기 화면은 iOS 에 없다**(코스 마켓은 아직 앱에 안 붙었다) — §2 의 「편의시설이 빠진다」 를 알릴 자리가 없다.
+- **모르는 `source` 값**: 생성 클라이언트의 `CourseItemSource` 는 `String` 원시값 enum 이라 모르는 값이면 디코딩이 던지고
+  코스 상세 전체를 못 읽는다(시험 `CoursePoiItemTests.testUnknownSourceStillFailsToDecode` 가 지금 동작을 박아 둔다).
+  생성기 옵션은 이번에 바꾸지 않았다(§3).
+- **남긴 것**
+  - **영어 화면의 편의시설 줄은 이름·주소·분류가 한국어 원본이다**(MZ2AZ-381) — `CourseItem` 에 `displayName`·
+    `categoryLabel`·`displayAddress` 가 없다(촬영지 줄은 서버가 영어로 준다). 분류만은 촬영지 유형 표에 있는 것이면
+    영어로 선다(「음식점」 → Restaurant). 카드는 상세(`GET /pois/{poiId}`)가 주는 영어 칸으로 선다.
+  - **가이드가 일정을 고쳐 돌려주면**(`plan.revise` 등) 편의시설 줄과 개인 핀 줄은 「저장 안 됨」 이 된다(MZ2AZ-382) —
+    `GuidePlanStop` 에 `poiId` 가 없다. 개인 핀은 전부터 그랬다.
+  - **분석 이벤트의 `placeId`** — `startTrip`(`TripSession.swift:125`)과 `visitStamp`(`TripSession.swift:173`)는
+    `stop.place.id` 를 싣는다. 편의시설 줄에서는 `0` 으로 나간다(개인 핀은 전부터 음수다). 이벤트 정의를 바꾸는 일이라
+    고치지 않았다.
+  - **주변 점 숨김은 코스 전체 기준이다** — 어느 일차에 담겼든 그 편의시설의 점은 안 그린다. MZ2AZ-378 의 「지금
+    그려진 핀만」(연결된 편의시설 ↔ 촬영지 핀)과 범위가 다르다. 연결 안 된 곳을 이름+좌표로 코스 전체에서 빼는 것은
+    main 부터의 동작이고, 편의시설 id 는 그 범위를 따랐다.
+  - **새 후기 사본을 옛 앱이 읽으면 편의시설이 개인 핀이 된다** — 옛 앱은 `PostCourse.Stop.poiId` 를 모르고 `placeId`
+    가 없는 줄을 개인 핀으로 읽는다. 사본은 기기 안에만 있어 같은 기기에서 앱을 낮춰 깔 때만 생긴다.
+
 ## 7. 순서
 
 1. 계약 PR(1.8.0) → 머지, 앱 티켓 MZ2AZ-380.

@@ -9,6 +9,9 @@ extension RouteEditorView {
     ///
     /// **촬영지와 같은 곳인 편의시설은 그 촬영지 핀이 지도에 있으면 뺀다**(MZ2AZ-378). 핀이 없으면
     /// (코스에 안 담았거나 다른 일차에 담은 곳) 점은 남고, 누르면 촬영지 상세가 열린다.
+    ///
+    /// **코스에 편의시설로 담긴 곳**은 편의시설 id 로도 뺀다(MZ2AZ-380) — 이름+좌표가 같아 이미 빠지지만,
+    /// 그것은 편의시설 자료의 글자·좌표가 양쪽에서 똑같이 올 때의 이야기다.
     var visibleAmbientPois: [RouteGuide.Place] {
         let shown = Set(guide.places.map { RouteDedupe.key($0.asPlaceSummary) })
         let taken = takenSpotKeys
@@ -17,7 +20,7 @@ extension RouteEditorView {
             return poiGroupsOn.contains(place.poiGroup)
                 && !shown.contains(key) && !taken.contains(key)
         }
-        .withoutDotsUnderPins(drawnPlaceIds)
+        .withoutDotsUnderPins(drawnPlaceIds, takenPoiIds: takenPoiIds)
     }
 
     /// 지도에 지금 핀으로 그려진 촬영지 — 보고 있는 일차의 번호 핀, 검색·장바구니의 미리보기 핀,
@@ -29,19 +32,19 @@ extension RouteEditorView {
         )
     }
 
-    /// 가이드가 찾아 준 곳·주변 편의시설을 코스에 담는다 — **촬영지와 같은 곳이면 촬영지로**, 그 밖은
-    /// 전처럼 개인 핀으로(`RouteGuide.Place.courseEntry`, MZ2AZ-378). 지도 카드의 「경로에 추가」 와
-    /// 가이드 창의 ⊕ 가 같은 길로 온다.
+    /// 가이드가 찾아 준 곳·주변 편의시설을 코스에 담는다 — **촬영지는 촬영지로, 촬영지와 같은 곳인 편의시설도
+    /// 촬영지로, 그 밖의 편의시설은 편의시설로**(`RouteGuide.Place.courseEntry`, MZ2AZ-378 · 380). 지도 카드의
+    /// 「경로에 추가」 와 가이드 창의 ⊕ 가 같은 길로 온다.
     func addGuidePlace(_ place: RouteGuide.Place) {
         let entry = place.courseEntry
-        add([entry.place], pinned: entry.pinned, asNext: true)
-        guard !entry.pinned else { return }
-        // 편의시설 이름(「몽테드」)으로 담긴 줄을 촬영지의 것(「수원 카페 몽테드」)으로 바꾼다. 못 받아도
-        // 저장은 `placeId` 로 가므로 틀리지 않고, 다시 열면 서버가 촬영지 이름을 준다.
+        addStops([entry.stop], asNext: true)
+        guard entry.kind == .place else { return }
+        // 편의시설 이름(「몽테드」)이나 챗봇이 적은 이름으로 담긴 줄을 촬영지의 것(「수원 카페 몽테드」)으로
+        // 바꾼다. 못 받아도 저장은 `placeId` 로 가므로 틀리지 않고, 다시 열면 서버가 촬영지 이름을 준다.
         Task {
             guard let detail = try? await PlacesAPI.getPlace(placeId: entry.place.id) else { return }
             for day in course.days.indices {
-                for index in course.days[day].stops.indices where !course.days[day].stops[index].isPinned {
+                for index in course.days[day].stops.indices where course.days[day].stops[index].kind == .place {
                     course.days[day].stops[index].place = PlacePoiLink.adopting(
                         detail, over: course.days[day].stops[index].place
                     )
