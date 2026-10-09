@@ -301,7 +301,11 @@ struct RouteMapView: UIViewRepresentable {
             // 장소와 순서가 그대로면 다시 그리지 않는다. 체류 시간만 바꿔도 지도가
             // 깜빡이면 편집 중에 눈이 아프다.
             // 고른 장소·담을까 보는 곳이 바뀌어도 다시 그린다 — 고양이 색이 달라진다.
-            let key = stops.map { "\($0.id)\($0.visited ? "v" : "")" }.joined(separator: ",")
+            // 같은 줄이라도 **자리·이름이 바뀌면** 다시 그린다 — 편의시설로 담은 줄이 촬영지 상세를 받아
+            // 촬영지 좌표·이름으로 바뀐다(`PlacePoiLink.adopting`, MZ2AZ-378). 줄 id 는 그대로다.
+            let key = stops.map {
+                "\($0.id)\($0.visited ? "v" : "")@\($0.place.latitude),\($0.place.longitude)#\($0.place.name)"
+            }.joined(separator: ",")
                 + "|\(focused?.id.uuidString ?? "-")"
                 + "|" + previews.map { String($0.id) }.joined(separator: ",")
                 + "|" + guidePlaces.map(\.id).joined(separator: ",")

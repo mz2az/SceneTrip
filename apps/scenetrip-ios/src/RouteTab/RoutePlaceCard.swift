@@ -46,11 +46,13 @@ struct RoutePlaceCard: View {
     }
 
     /// 리뷰가 붙는 대상 — 편의시설이면 편의시설, 촬영지면 촬영지. 코스에서 옮긴 것(둘 다 아님)은 없다.
+    /// **촬영지와 같은 곳인 편의시설은 촬영지다**(MZ2AZ-378) — 리뷰가 촬영지 한 벌이다.
     private var subject: ReviewSubject? {
-        if let poiId = place.poiId {
-            return .poi(poiId)
+        switch place.target {
+        case let .place(id): .place(id)
+        case let .poi(id): .poi(id)
+        case nil: nil
         }
-        return place.placeId.map { .place($0) }
     }
 
     /// 제목 — 상세가 왔으면 그 값이 먼저다. 가이드가 찾아 준 곳은 목록에 영어 이름이 없고 상세에만 있다.

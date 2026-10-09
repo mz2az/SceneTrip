@@ -10,9 +10,14 @@ import SwiftUI
 extension RouteNavView {
     /// 지도에 그릴 챗봇 결과 — **코스(그 일차)에 이미 담긴 곳은 뺀다.** 같은
     /// 좌표에 번호 핀과 겹쳐 두 장으로 보인다(편집 지도와 같은 규칙).
+    /// 촬영지와 같은 곳인 편의시설은 그 촬영지 핀이 있으면 뺀다(MZ2AZ-378).
     var navGuidePlaces: [RouteGuide.Place] {
         let taken = Set(dayStops.map { RouteDedupe.key($0.place) })
-        return guide.places.filter { !taken.contains(RouteDedupe.key($0.asPlaceSummary)) }
+        return guide.places
+            .filter { !taken.contains(RouteDedupe.key($0.asPlaceSummary)) }
+            .withoutDotsUnderPins(PlacePoiLink.drawnPlaceIds(
+                stops: dayStops.map(\.place), guidePlaceIds: guide.places.compactMap(\.placeId)
+            ))
     }
 
     /// 지금 안내하는 목적지 — 갈아탔으면 그 가게, 아니면 원래 촬영지.
