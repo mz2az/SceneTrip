@@ -25,6 +25,7 @@ public class DwellDefaults {
 
   private int fallback = 60;
   private Map<String, Integer> byPlaceType = new HashMap<>();
+  private Map<String, Integer> byPoiGroup = new HashMap<>();
 
   /**
    * 표를 YAML 맵이 아니라 <b>문자열 하나</b>로 받는다.
@@ -41,6 +42,20 @@ public class DwellDefaults {
    * @param spec {@code 유형=분} 을 쉼표로 이은 것. 예: {@code 카페=40,다리=15}
    */
   public void setByPlaceType(String spec) {
+    this.byPlaceType = parse(spec);
+  }
+
+  /**
+   * 편의시설 갈래별 표(MZ2AZ-377). 형식은 {@link #setByPlaceType(String)} 과 같다 — 예: {@code
+   * food=60,transit=15}.
+   *
+   * @param spec 갈래({@code PoiCategoryGroup} 값)={@code 분} 을 쉼표로 이은 것
+   */
+  public void setByPoiGroup(String spec) {
+    this.byPoiGroup = parse(spec);
+  }
+
+  private static Map<String, Integer> parse(String spec) {
     Map<String, Integer> parsed = new HashMap<>();
     for (String entry : spec.split(",")) {
       String trimmed = entry.trim();
@@ -59,7 +74,7 @@ public class DwellDefaults {
       }
       parsed.put(type, minutes);
     }
-    this.byPlaceType = parsed;
+    return parsed;
   }
 
   /**
@@ -72,6 +87,18 @@ public class DwellDefaults {
       return fallback;
     }
     return byPlaceType.getOrDefault(placeType, fallback);
+  }
+
+  /**
+   * 이 편의시설 갈래에 붙일 기본 체류시간. 편의시설의 세부 분류(「카페」·「한식」)는 수천 가지라 갈래 넷으로 고른다.
+   *
+   * @param poiGroup {@code food}·{@code sight}·{@code stay}·{@code transit}. 모르면 기본값
+   */
+  public int forPoiGroup(String poiGroup) {
+    if (poiGroup == null) {
+      return fallback;
+    }
+    return byPoiGroup.getOrDefault(poiGroup, fallback);
   }
 
   public void setFallback(int fallback) {

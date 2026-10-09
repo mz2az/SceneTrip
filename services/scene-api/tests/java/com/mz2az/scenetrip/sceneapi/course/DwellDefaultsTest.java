@@ -110,4 +110,54 @@ class DwellDefaultsTest {
     assertThat(defaults.forPlaceType("카페")).isEqualTo(40);
     assertThat(defaults.forPlaceType("사찰")).isEqualTo(60);
   }
+
+  @Test
+  @DisplayName("편의시설 갈래별 표를 읽는다 — 모르는 갈래와 갈래 없음은 폴백 (MZ2AZ-377)")
+  void poiGroups() {
+    DwellDefaults defaults = new DwellDefaults();
+    defaults.setFallback(60);
+    defaults.setByPoiGroup("food=60, sight=60, stay=30, transit=15");
+
+    assertThat(defaults.forPoiGroup("stay")).isEqualTo(30);
+    assertThat(defaults.forPoiGroup("transit")).isEqualTo(15);
+    assertThat(defaults.forPoiGroup("food")).isEqualTo(60);
+    assertThat(defaults.forPoiGroup("unknown")).isEqualTo(60);
+    assertThat(defaults.forPoiGroup(null)).isEqualTo(60);
+    // 촬영지 유형 표와 섞이지 않는다.
+    assertThat(defaults.forPlaceType("transit")).isEqualTo(60);
+  }
+
+  @Test
+  @DisplayName("편의시설 갈래 표도 형식이 어긋나거나 범위를 벗어나면 죽는다")
+  void rejectsMalformedPoiGroupSpec() {
+    DwellDefaults defaults = new DwellDefaults();
+
+    assertThatThrownBy(() -> defaults.setByPoiGroup("stay30"))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> defaults.setByPoiGroup("stay=5"))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  @DisplayName(
+      "배포되는 application.yaml 의 by-poi-group 이 바인딩된다 — food 60 · sight 60 · stay 30 · transit 15")
+  void bindsPoiGroupsFromTheRealApplicationYaml() throws Exception {
+    var sources =
+        new org.springframework.boot.env.YamlPropertySourceLoader()
+            .load(
+                "application",
+                new org.springframework.core.io.ClassPathResource("application.yaml"));
+    var environment = new org.springframework.core.env.StandardEnvironment();
+    sources.forEach(source -> environment.getPropertySources().addFirst(source));
+
+    DwellDefaults bound =
+        Binder.get(environment)
+            .bind("scenetrip.course.dwell", DwellDefaults.class)
+            .orElseThrow(() -> new AssertionError("application.yaml 에서 바인딩되지 않았다"));
+
+    assertThat(bound.forPoiGroup("food")).isEqualTo(60);
+    assertThat(bound.forPoiGroup("sight")).isEqualTo(60);
+    assertThat(bound.forPoiGroup("stay")).isEqualTo(30);
+    assertThat(bound.forPoiGroup("transit")).isEqualTo(15);
+  }
 }

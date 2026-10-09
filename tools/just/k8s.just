@@ -206,7 +206,15 @@ db-schema:
 seed *csv:
     ./tools/scripts/seed.sh "{{ csv }}"
 
-# 촬영지와 같은 곳인 편의시설을 연결하고 편의시설 쪽 리뷰를 촬영지로 옮긴다(MZ2AZ-371). 몇 번을 돌려도 같다.
+# 개인 핀으로 저장된 편의시설을 편의시설 항목으로 바꾼다(MZ2AZ-377). 몇 번을 돌려도 같다.
+#
+# **앱(MZ2AZ-380)이 배포된 뒤에** 돌린다 — 낡은 앱은 바뀐 항목이 든 코스를 못 연다. `--dry-run` 은 세어 보고 되돌린다.
+[group('db')]
+[positional-arguments]
+course-pin-to-poi *flags:
+    ./tools/scripts/course-pin-to-poi.sh "$@"
+
+# 촬영지와 같은 곳인 편의시설을 연결하고 편의시설 쪽 리뷰·코스 항목을 촬영지로 옮긴다(MZ2AZ-371·377). 몇 번을 돌려도 같다.
 #
 # `just seed` 와 `just seed-poi --update` 뒤에 돌린다. 판정이 필요한 후보는 끝에 나온다 —
 # services/scene-api/seed/place_poi_links.tsv 에 same/not 으로 적고 다시 돌린다.

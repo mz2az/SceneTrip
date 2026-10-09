@@ -76,6 +76,8 @@ class CourseController implements CoursesApi {
       // 남의 코스 항목 id 를 넣었거나 이미 지워진 것을 가리켰다. 서버 결함이 아니라
       // 클라이언트가 잘못 보낸 것이므로 400 이다.
       throw ApiException.badRequest("UNKNOWN_COURSE_ITEM", e.getMessage());
+    } catch (CourseStore.UnknownPoiException e) {
+      throw ApiException.badRequest("POI_NOT_FOUND", e.getMessage());
     }
 
     return ResponseEntity.ok(read(user, courseId, acceptLanguage));
@@ -156,7 +158,7 @@ class CourseController implements CoursesApi {
   }
 
   /**
-   * 장소를 가리키는 방법은 둘 중 하나여야 한다.
+   * 장소를 가리키는 방법은 셋(촬영지·편의시설·직접 찍은 핀, 1.8.0) 중 하나여야 한다.
    *
    * <p>OpenAPI 로는 "정확히 하나" 를 표현할 방법이 마땅치 않아 여기서 본다. 그냥 넣으면 {@code course_item_target_check} 가 걸려
    * 500 이 나가는데, 그것은 클라이언트가 고칠 요청이다.
@@ -166,10 +168,17 @@ class CourseController implements CoursesApi {
       List<CourseItemInput> items = req.getDays().get(dayIndex).getItems();
       for (int i = 0; i < items.size(); i++) {
         CourseItemInput item = items.get(i);
-        if ((item.getPlaceId() == null) == (item.getCustomPin() == null)) {
+        int given =
+            (item.getPlaceId() == null ? 0 : 1)
+                + (item.getPoiId() == null ? 0 : 1)
+                + (item.getCustomPin() == null ? 0 : 1);
+        if (given != 1) {
           throw ApiException.badRequest(
               "INVALID_PARAMETER",
-              (dayIndex + 1) + "일차 " + (i + 1) + "번째 장소는 placeId 와 customPin 중" + " 정확히 하나여야 합니다");
+              (dayIndex + 1)
+                  + "일차 "
+                  + (i + 1)
+                  + "번째 장소는 placeId · poiId · customPin 중 정확히 하나여야 합니다");
         }
       }
     }

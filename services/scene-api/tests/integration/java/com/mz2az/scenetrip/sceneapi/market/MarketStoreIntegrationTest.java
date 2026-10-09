@@ -275,6 +275,50 @@ class MarketStoreIntegrationTest {
     assertThat(post.getPlaceCount()).isEqualTo(1);
   }
 
+  @Test
+  @DisplayName("편의시설 항목은 올릴 때 빠진다 — 직접 찍은 핀처럼 (1.8.0, course-poi-item.md §2)")
+  void poiItemsAreNotPublished() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          long poiId =
+              jdbc.sql(
+                      """
+                      INSERT INTO poi (source_id, name, geom, category, category_group, address)
+                      VALUES (:s, '시험 마켓 카페',
+                              ST_SetSRID(ST_MakePoint(129.6, 34.9), 4326)::geography,
+                              '카페', 'food', '부산')
+                      RETURNING id
+                      """)
+                  .param("s", "it-market-poi-" + UUID.randomUUID())
+                  .query(Long.class)
+                  .single();
+          long courseId = courses.create(author, new CourseCreate(2, CourseOrigin.SELF));
+          courses.replace(
+              courseId,
+              replace(
+                  day(
+                      item(placeA, 60),
+                      new CourseItemInput().poiId(poiId).dwellMinutes(60),
+                      new CourseItemInput()
+                          .dwellMinutes(60)
+                          .customPin(
+                              new CustomPinInput("호텔 O", PinCategory.LODGING, 37.55, 126.97))),
+                  day(new CourseItemInput().poiId(poiId).dwellMinutes(30))));
+
+          long postId = store.publish(author, courseId, "설명").orElseThrow();
+
+          MarketCourseDetail post = store.find(reader, postId, Lang.KO).orElseThrow();
+          assertThat(post.getPlaceCount()).isEqualTo(1);
+          assertThat(post.getDays().get(0).getItems())
+              .extracting(i -> i.getPlaceId())
+              .containsExactly(placeA);
+          // 편의시설만 있던 일차는 비지만 기간은 그대로다.
+          assertThat(post.getDays()).hasSize(2);
+          assertThat(post.getDays().get(1).getItems()).isEmpty();
+          return null;
+        });
+  }
+
   // ───────────── 거들기 ─────────────
 
   private long courseWith(CourseItemInput... items) {

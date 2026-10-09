@@ -108,24 +108,30 @@ public class CourseStore {
       item AS (
           SELECT
               i.id, i.day_no, i.sort_order, i.dwell_min, i.visited_at,
-              i.place_id, i.custom_pin_id, i.source_content_id,
-              COALESCE(pd.name, cp.name)    AS name,
-              pd.address                    AS address,
-              COALESCE(p.type, cp.category) AS category,
-              COALESCE(p.geom, cp.geom)     AS geom,
-              cd.title                      AS source_content_title,
-              (SELECT pim.url FROM place_image pim
-                WHERE pim.place_id = p.id
-                ORDER BY pim.sort_order, pim.id LIMIT 1) AS image_url
+              i.place_id, i.poi_id, i.custom_pin_id, i.source_content_id,
+              -- 편의시설은 사본이 아니라 지금의 자료다(V26). 이름은 언제나 한국어 원본(계약 PoiSummary.name).
+              COALESCE(pd.name, q.name, cp.name)        AS name,
+              COALESCE(pd.address, q.address)           AS address,
+              COALESCE(p.type, q.category, cp.category) AS category,
+              COALESCE(p.geom, q.geom, cp.geom)         AS geom,
+              cd.title                                  AS source_content_title,
+              COALESCE(
+                  (SELECT pim.url FROM place_image pim
+                    WHERE pim.place_id = p.id
+                    ORDER BY pim.sort_order, pim.id LIMIT 1),
+                  (SELECT qim.url FROM poi_image qim
+                    WHERE qim.poi_id = q.id
+                    ORDER BY qim.sort_order, qim.id LIMIT 1)) AS image_url
           FROM course_item i
           LEFT JOIN place p ON p.id = i.place_id
           LEFT JOIN place_display pd ON pd.place_id = p.id
+          LEFT JOIN poi q ON q.id = i.poi_id
           LEFT JOIN custom_pin cp ON cp.id = i.custom_pin_id
           LEFT JOIN content_display cd ON cd.content_id = i.source_content_id
           WHERE i.course_id = :courseId
       )
       SELECT
-          id, day_no, dwell_min, visited_at, place_id, custom_pin_id,
+          id, day_no, dwell_min, visited_at, place_id, poi_id, custom_pin_id,
           source_content_id, source_content_title, name, address, category, image_url,
           ST_Y(geom::geometry) AS latitude,
           ST_X(geom::geometry) AS longitude,
@@ -338,9 +344,10 @@ public class CourseStore {
             """
             SELECT ST_Y(g::geometry) AS latitude, ST_X(g::geometry) AS longitude
             FROM (
-                SELECT COALESCE(p.geom, cp.geom) AS g
+                SELECT COALESCE(p.geom, q.geom, cp.geom) AS g
                 FROM course_item i
                 LEFT JOIN place p       ON p.id  = i.place_id
+                LEFT JOIN poi q         ON q.id  = i.poi_id
                 LEFT JOIN custom_pin cp ON cp.id = i.custom_pin_id
                 WHERE i.id = :itemId AND i.course_id = :courseId
             ) t
@@ -389,41 +396,107 @@ public class CourseStore {
    * 채워 넣을 체류시간.
    *
    * <p>클라이언트가 비워 보내면 장소 유형에 맞는 기본값을 서버가 고른다 — 그 표가 iOS·Android·서버 세 곳에 흩어지지 않게 하려는 것이다({@link
-   * DwellDefaults}). 직접 찍은 핀은 유형이 사용자가 고른 다섯 갈래라 수집 유형과 값 범위가 달라, 표를 태우지 않고 기본값으로 간다.
+   * DwellDefaults}). 직접 찍은 핀은 유형이 사용자가 고른 다섯 갈래라 수집 유형과 값 범위가 달라, 표를 태우지 않고 기본값으로 간다. 편의시설은 갈래 넷으로
+   * 고른다(MZ2AZ-377).
    */
-  private int dwellMinutes(CourseItemInput in) {
+  private int dwellMinutes(CourseItemInput in, Long placeId, Long poiId) {
     if (in.getDwellMinutes() != null) {
       return in.getDwellMinutes();
     }
-    if (in.getPlaceId() == null) {
-      return dwellDefaults.forPlaceType(null);
+    if (placeId != null) {
+      String placeType =
+          jdbc.sql("SELECT type FROM place WHERE id = :placeId")
+              .param("placeId", placeId)
+              .query(String.class)
+              .optional()
+              .orElse(null);
+      return dwellDefaults.forPlaceType(placeType);
     }
-    String placeType =
-        jdbc.sql("SELECT type FROM place WHERE id = :placeId")
-            .param("placeId", in.getPlaceId())
-            .query(String.class)
-            .optional()
-            .orElse(null);
-    return dwellDefaults.forPlaceType(placeType);
+    if (poiId != null) {
+      String group =
+          jdbc.sql("SELECT category_group FROM poi WHERE id = :poiId")
+              .param("poiId", poiId)
+              .query(String.class)
+              .optional()
+              .orElse(null);
+      return dwellDefaults.forPoiGroup(group);
+    }
+    return dwellDefaults.forPlaceType(null);
   }
 
+  /**
+   * 옮기는 항목의 체류시간. 비워 왔으면 <b>저장된 대상</b>으로 기본값을 고른다 — 옮기기는 대상을 바꾸지 않으므로(보낸 {@code placeId}·{@code
+   * poiId} 는 쓰이지 않는다), 보낸 값으로 고르면 같은 곳으로 연결돼 촬영지로 저장된 항목이 편의시설 갈래의 값을 받는다.
+   */
+  private int movedDwellMinutes(long courseId, CourseItemInput in) {
+    if (in.getDwellMinutes() != null) {
+      return in.getDwellMinutes();
+    }
+    Target stored =
+        jdbc.sql(
+                "SELECT place_id, poi_id FROM course_item WHERE id = :itemId AND course_id ="
+                    + " :courseId")
+            .param("itemId", in.getId())
+            .param("courseId", courseId)
+            .query((rs, i) -> new Target(longOrNull(rs, "place_id"), longOrNull(rs, "poi_id")))
+            .optional()
+            .orElse(new Target(null, null));
+    return dwellMinutes(in, stored.placeId(), stored.poiId());
+  }
+
+  /**
+   * 새로 담을 대상. 편의시설이 촬영지와 같은 곳으로 연결돼 있으면 <b>촬영지로 바꾼다</b> — 「어디서든 촬영지가 대표」(MZ2AZ-371, 계약 1.8.0 {@code
+   * CourseItemInput}). 앱이 놓쳐도 여기서 막는다. 숨긴 촬영지의 연결은 쓰지 않는다({@code PoiStore} 의 {@code placeId} 와 같은
+   * 규칙).
+   *
+   * @throws UnknownPoiException 편의시설이 없거나 폐업했다
+   */
+  private Target target(CourseItemInput in) {
+    if (in.getPoiId() == null) {
+      return new Target(in.getPlaceId(), null);
+    }
+    return jdbc.sql(
+            """
+            SELECT q.id AS poi_id, lp.id AS place_id
+            FROM poi q
+            LEFT JOIN place_poi_link l ON l.poi_id = q.id
+            LEFT JOIN place lp ON lp.id = l.place_id AND lp.hidden_at IS NULL
+            WHERE q.id = :poiId AND q.closed_at IS NULL
+            """)
+        .param("poiId", in.getPoiId())
+        .query(
+            (rs, i) -> {
+              Long place = longOrNull(rs, "place_id");
+              return place != null
+                  ? new Target(place, null)
+                  : new Target(null, rs.getLong("poi_id"));
+            })
+        .optional()
+        .orElseThrow(() -> new UnknownPoiException(in.getPoiId()));
+  }
+
+  /** 항목이 가리키는 것 — 촬영지나 편의시설 중 하나, 또는 둘 다 없음(개인 핀). */
+  private record Target(Long placeId, Long poiId) {}
+
   private long insertItem(long courseId, int dayNo, int sortOrder, CourseItemInput in) {
+    Target target = target(in);
     Long pinId = in.getCustomPin() == null ? null : insertPin(courseId, in.getCustomPin());
     return jdbc.sql(
             """
             INSERT INTO course_item
-                (course_id, day_no, place_id, custom_pin_id, sort_order,
+                (course_id, day_no, place_id, poi_id, custom_pin_id, sort_order,
                  dwell_min, source_content_id)
-            VALUES (:courseId, :dayNo, CAST(:placeId AS BIGINT), CAST(:pinId AS BIGINT),
-                    :sortOrder, :dwellMin, CAST(:sourceContentId AS BIGINT))
+            VALUES (:courseId, :dayNo, CAST(:placeId AS BIGINT), CAST(:poiId AS BIGINT),
+                    CAST(:pinId AS BIGINT), :sortOrder, :dwellMin, CAST(:sourceContentId AS BIGINT))
             RETURNING id
             """)
         .param("courseId", courseId)
         .param("dayNo", dayNo)
-        .param("placeId", in.getPlaceId())
+        .param("placeId", target.placeId())
+        .param("poiId", target.poiId())
         .param("pinId", pinId)
         .param("sortOrder", sortOrder)
-        .param("dwellMin", dwellMinutes(in))
+        .param("dwellMin", dwellMinutes(in, target.placeId(), target.poiId()))
         .param("sourceContentId", in.getSourceContentId())
         .query(Long.class)
         .single();
@@ -465,7 +538,7 @@ public class CourseStore {
                 """)
             .param("dayNo", dayNo)
             .param("sortOrder", sortOrder)
-            .param("dwellMin", dwellMinutes(in))
+            .param("dwellMin", movedDwellMinutes(courseId, in))
             .param("sourceContentId", in.getSourceContentId())
             .param("itemId", in.getId())
             .param("courseId", courseId)
@@ -509,6 +582,14 @@ public class CourseStore {
   }
 
   /** 요청이 남의 항목 id 를 가리켰다. 400 으로 바꾸는 것은 컨트롤러 몫이다. */
+  /** 담으려는 편의시설이 없거나 폐업했다. 클라이언트가 고칠 요청이다(400). */
+  public static class UnknownPoiException extends RuntimeException {
+    /** 단위 테스트가 이 상황을 흉내 낼 수 있어야 해서 public 이다. */
+    public UnknownPoiException(long poiId) {
+      super("편의시설 " + poiId + " 이(가) 없거나 폐업했습니다");
+    }
+  }
+
   public static class UnknownItemException extends RuntimeException {
     private final long itemId;
 
@@ -606,14 +687,20 @@ public class CourseStore {
 
   private static CourseItem mapItem(ResultSet rs) throws SQLException {
     Long placeId = longOrNull(rs, "place_id");
+    Long poiId = longOrNull(rs, "poi_id");
+    CourseItemSource source =
+        placeId != null
+            ? CourseItemSource.PLACE
+            : poiId != null ? CourseItemSource.POI : CourseItemSource.CUSTOM_PIN;
     return new CourseItem(
             rs.getLong("id"),
-            placeId == null ? CourseItemSource.CUSTOM_PIN : CourseItemSource.PLACE,
+            source,
             rs.getString("name"),
             rs.getDouble("latitude"),
             rs.getDouble("longitude"),
             rs.getInt("dwell_min"))
         .placeId(placeId)
+        .poiId(poiId)
         .customPinId(longOrNull(rs, "custom_pin_id"))
         .address(rs.getString("address"))
         .category(rs.getString("category"))

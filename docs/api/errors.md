@@ -78,6 +78,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `UPLOAD_TYPE_UNSUPPORTED` | JPEG·PNG·HEIC·WebP 가 아니다 |
 | `NOT_MARKET_COURSE_AUTHOR` | (`403`) 남이 올린 코스는 내릴 수 없다. **마켓의 코스는 이미 누구에게나 보이므로 404 로 숨기지 않는다** — 내 코스가 `COURSE_NOT_FOUND` 로 존재를 숨기는 것과 갈리는 지점이다 |
 | `UNKNOWN_COURSE_ITEM` | 편집 완료(`PUT /courses/{courseId}`)가 그 코스에 없는 항목 `id` 를 가리켰다. 이미 지워졌거나 남의 코스 것이다 — **새로 담는 장소라면 `id` 를 아예 비워야 한다** |
+| `POI_NOT_FOUND` (400) | 편집 완료가 새로 담는 편의시설(`poiId`)이 없거나 폐업했다(1.8.0). 대상 없음의 `404` 와 같은 이름이지만 여기서는 요청이 틀린 것이라 `400` 이다 — 그 항목을 빼고 다시 저장한다 |
 
 ### 인증 (`401`)
 
