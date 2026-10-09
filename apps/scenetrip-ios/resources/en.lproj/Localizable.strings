@@ -540,3 +540,15 @@
 "보내기" = "Send";
 "한도가 풀리면 다시 보낼 수 있어요" = "You can send again once the limit resets";
 "지금은 가이드에게 물어볼 수 없어요. 잠시 뒤 다시 시도해 주세요" = "The guide can't take questions right now. Please try again shortly";
+
+/* 길찾기 한도 — 지도 앱으로 넘기기 (MZ2AZ-366 D) */
+"길찾기를 잠시 많이 썼어요. 1분 안에 다시 찾을 수 있어요. 지도 앱에서 이어서 볼 수도 있어요" = "You've used directions a lot. You can search again within a minute, or continue in a map app";
+"오늘은 앱 안 길찾기를 다 썼어요. 지도 앱에서 이어서 볼 수 있어요" = "You've used up today's in-app directions. Continue in a map app";
+"지금은 앱 안에서 길을 찾을 수 없어요. 지도 앱에서 이어서 볼 수 있어요" = "Directions aren't available in the app right now. Continue in a map app";
+"이제 앱 안에서 다시 길을 찾을 수 있어요" = "You can get directions in the app again";
+"카카오맵에서 길찾기" = "Directions in KakaoMap";
+"네이버 지도에서 길찾기" = "Directions in Naver Map";
+"도착하면 돌아와서 「여기 도착함」 을 눌러 주세요" = "When you arrive, come back and tap “I've arrived”";
+"지도 앱이 열려요" = "Opens the map app";
+"브라우저에서 지도가 열려요" = "Opens the map in your browser";
+"현재 위치|출발" = "Current location";

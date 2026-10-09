@@ -210,6 +210,9 @@ final class AuthStore: ObservableObject {
         // 챗봇 한도와 남은 양은 계정마다 따로다 — 앞 계정의 잠금을 다음 계정에 남기지 않는다(MZ2AZ-366).
         RateLimitLedger.shared.forget(.guide)
         RouteGuideSession.shared.forgetLimit()
+        // 길찾기 한도도 계정의 것이다 (MZ2AZ-366 D).
+        RateLimitLedger.shared.forget(.navigation)
+        NavLimitStore.shared.forget()
         Task { await LikeStore.shared.refresh() }
     }
 

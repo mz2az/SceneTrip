@@ -191,6 +191,9 @@ extension RouteEditorView {
                 }
             }
             Text(trip.dwellHint).font(.caption2).foregroundStyle(.tertiary)
+        } else if let failure = trip.failure, failure.isLimit {
+            // 길찾기 한도 — 실패 한 줄이 아니라 지도 앱으로 넘기는 안내다(MZ2AZ-366 D).
+            tripLimitNotice
         } else if let failure = trip.failure {
             // 계약 응답별 문구(`RouteNavFailure`). 다시 불러 달라질 수 있는 것에만 단추.
             HStack(alignment: .firstTextBaseline, spacing: 8) {
