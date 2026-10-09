@@ -586,4 +586,63 @@ class PoisControllerTest {
         .andExpect(jsonPath("$.name").value("모슬포호텔"))
         .andExpect(jsonPath("$.naverPlaceUrl").doesNotExist());
   }
+
+  // ───────────── 촬영지와 같은 곳 (계약 1.7.0 PoiSummary.placeId, MZ2AZ-371) ─────────────
+
+  @Test
+  @DisplayName("목록 — 같은 곳인 촬영지가 있으면 placeId 를 싣고, 없으면 칸이 없다. 연결된 편의시설도 목록에서 빠지지 않는다")
+  void listCarriesPlaceIdOnlyWhenLinked() throws Exception {
+    givenPois(2, poi(1, "카페 몽테드").placeId(45L), poi(2, "동네김밥"));
+
+    mvc.perform(get("/pois").param("bbox", "127.017,37.489,127.037,37.507"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(2))
+        .andExpect(jsonPath("$.items[0].placeId").value(45))
+        .andExpect(jsonPath("$.items[1].placeId").doesNotExist())
+        .andExpect(jsonPath("$.total").value(2));
+  }
+
+  @Test
+  @DisplayName("상세 — 같은 곳인 편의시설이면 placeId 를 싣고, 별점·사진첩·사진 수는 그 촬영지의 것이다")
+  void linkedDetailUsesPlaceRatingAndGallery() throws Exception {
+    PoiDetail detail =
+        new PoiDetail(7L, "카페 몽테드", "카페", PoiCategoryGroup.FOOD, 37.28, 127.01, List.of());
+    detail.placeId(45L);
+    when(store.findDetail(eq(7L), any(), any(), any()))
+        .thenReturn(Optional.of(new PoiStore.Detail(detail, Lang.KO)));
+    when(reviews.summary(ReviewStore.Target.PLACE, 45L))
+        .thenReturn(new RatingSummary(3, List.of(0, 0, 1, 1, 1)).average(4.0));
+    when(reviews.gallery(ReviewStore.Target.PLACE, 45L, 20, 0))
+        .thenReturn(
+            new ReviewViews.Gallery(
+                List.of(
+                    new Photo(URI.create("https://img.example/place.jpg"), PhotoSource.OFFICIAL)),
+                9));
+
+    mvc.perform(get("/pois/7"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(7))
+        .andExpect(jsonPath("$.placeId").value(45))
+        .andExpect(jsonPath("$.rating.count").value(3))
+        .andExpect(jsonPath("$.rating.average").value(4.0))
+        .andExpect(jsonPath("$.photos.length()").value(1))
+        .andExpect(jsonPath("$.photos[0].url").value("https://img.example/place.jpg"))
+        .andExpect(jsonPath("$.photoCount").value(9));
+  }
+
+  @Test
+  @DisplayName("상세 — 연결되지 않은 편의시설은 placeId 칸이 없고 별점·사진첩은 편의시설 자신의 것이다")
+  void unlinkedDetailUsesOwnRating() throws Exception {
+    PoiDetail detail =
+        new PoiDetail(7L, "동네김밥", "분식", PoiCategoryGroup.FOOD, 37.28, 127.01, List.of());
+    when(store.findDetail(eq(7L), any(), any(), any()))
+        .thenReturn(Optional.of(new PoiStore.Detail(detail, Lang.KO)));
+    when(reviews.summary(ReviewStore.Target.POI, 7L))
+        .thenReturn(new RatingSummary(1, List.of(0, 0, 0, 0, 1)).average(5.0));
+
+    mvc.perform(get("/pois/7"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.placeId").doesNotExist())
+        .andExpect(jsonPath("$.rating.count").value(1));
+  }
 }

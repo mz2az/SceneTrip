@@ -30,6 +30,9 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>읽기는 누구나, 쓰기는 가입 사용자만({@code SIGN_IN_REQUIRED}). 촬영지와 편의시설은 같은 모양의 창구가 두 벌이고, 여기서 {@link
  * Target} 으로 하나가 된다.
+ *
+ * <p><b>촬영지와 같은 곳인 편의시설은 촬영지의 리뷰를 쓴다</b>(MZ2AZ-371, {@code place-poi-link.md} §5) — {@link
+ * #resolve} 가 대상을 그 촬영지로 바꿔 끼운다. 읽기·쓰기·지우기·사진첩이 모두 같은 길을 탄다.
  */
 @RestController
 class ReviewsController implements ReviewsApi {
@@ -69,8 +72,11 @@ class ReviewsController implements ReviewsApi {
     return ResponseEntity.ok(list(Target.POI, poiId, sort, limit, offset));
   }
 
-  private ReviewList list(Target target, long id, ReviewSort sort, Integer limit, Integer offset) {
-    requireTarget(target, id);
+  private ReviewList list(
+      Target asked, long askedId, ReviewSort sort, Integer limit, Integer offset) {
+    Ref at = resolve(asked, askedId);
+    Target target = at.target();
+    long id = at.id();
     UUID viewer = accounts.signedInOrNull();
     ReviewStore.Page<ReviewStore.Row> page =
         store.list(target, id, sort(sort), limit(limit), offset(offset), viewer);
@@ -90,11 +96,11 @@ class ReviewsController implements ReviewsApi {
     return ResponseEntity.ok(mine(Target.POI, poiId));
   }
 
-  private Review mine(Target target, long id) {
+  private Review mine(Target asked, long askedId) {
     UUID user = accounts.requireMember();
-    requireTarget(target, id);
+    Ref at = resolve(asked, askedId);
     return store
-        .mine(target, id, user)
+        .mine(at.target(), at.id(), user)
         .map(views::review)
         .orElseThrow(() -> ApiException.notFound("REVIEW_NOT_FOUND", "이곳에 쓴 리뷰가 없습니다"));
   }
@@ -109,9 +115,9 @@ class ReviewsController implements ReviewsApi {
     return ResponseEntity.ok(put(Target.POI, poiId, body));
   }
 
-  private Review put(Target target, long id, ReviewInput in) {
+  private Review put(Target asked, long askedId, ReviewInput in) {
     UUID user = accounts.requireMember();
-    requireTarget(target, id);
+    Ref at = resolve(asked, askedId);
     // 앞뒤 공백만인 글은 없는 것으로(계약). 길이·별점 범위·사진 수는 계약의 제약이 이미 막았다.
     String text = in.getBody() == null || in.getBody().isBlank() ? null : in.getBody().strip();
     List<String> keys = in.getPhotoKeys() == null ? List.of() : in.getPhotoKeys();
@@ -143,7 +149,7 @@ class ReviewsController implements ReviewsApi {
     }
     try {
       ReviewStore.Row saved =
-          store.put(target, id, user, in.getRating(), text, finalKeys, moved.keySet());
+          store.put(at.target(), at.id(), user, in.getRating(), text, finalKeys, moved.keySet());
       uploads.consume(fresh);
       return views.review(saved);
     } catch (ReviewStore.PhotoKeyRejectedException e) {
@@ -178,10 +184,10 @@ class ReviewsController implements ReviewsApi {
   }
 
   /** 쓴 적이 없어도 204(계약). 대상이 없으면 404. */
-  private ResponseEntity<Void> delete(Target target, long id) {
+  private ResponseEntity<Void> delete(Target asked, long askedId) {
     UUID user = accounts.requireMember();
-    requireTarget(target, id);
-    store.delete(target, id, user);
+    Ref at = resolve(asked, askedId);
+    store.delete(at.target(), at.id(), user);
     return ResponseEntity.noContent().build();
   }
 
@@ -225,13 +231,31 @@ class ReviewsController implements ReviewsApi {
     return ResponseEntity.ok(photos(Target.POI, poiId, limit, offset));
   }
 
-  private PhotoList photos(Target target, long id, Integer limit, Integer offset) {
-    requireTarget(target, id);
-    ReviewViews.Gallery g = views.gallery(target, id, limit(limit), offset(offset));
+  private PhotoList photos(Target asked, long askedId, Integer limit, Integer offset) {
+    Ref at = resolve(asked, askedId);
+    ReviewViews.Gallery g = views.gallery(at.target(), at.id(), limit(limit), offset(offset));
     return new PhotoList(g.items(), g.total());
   }
 
   // ── 공통 ──────────────────────────────────────────────────────────────────
+
+  /** 리뷰가 실제로 쌓이는 곳. */
+  private record Ref(Target target, long id) {}
+
+  /**
+   * 물은 대상이 없으면 404(물은 쪽의 코드로). 촬영지와 같은 곳인 편의시설이면 그 촬영지로 바꿔 끼운다 — 계약 1.7.0 「{@code placeId} 가 있으면 그
+   * 촬영지의 리뷰로 처리한다」.
+   */
+  private Ref resolve(Target target, long id) {
+    requireTarget(target, id);
+    if (target == Target.POI) {
+      return store
+          .linkedPlace(id)
+          .map(place -> new Ref(Target.PLACE, place))
+          .orElse(new Ref(target, id));
+    }
+    return new Ref(target, id);
+  }
 
   private void requireTarget(Target target, long id) {
     if (!store.exists(target, id)) {

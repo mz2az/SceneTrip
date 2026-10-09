@@ -113,6 +113,22 @@ public class ReviewStore {
     return Boolean.TRUE.equals(jdbc.sql(sql).param("id", id).query(Boolean.class).single());
   }
 
+  /**
+   * 이 편의시설과 같은 곳인 촬영지(V25, MZ2AZ-371). 있으면 그 편의시설의 리뷰는 그 촬영지의 리뷰다 — 계약 1.7.0 「{@code placeId} 가 있으면
+   * 그 촬영지의 리뷰로 처리한다」. 숨긴 촬영지의 연결은 쓰지 않는다({@code PoiStore} 의 {@code placeId} 와 같은 규칙).
+   */
+  public Optional<Long> linkedPlace(long poiId) {
+    return jdbc.sql(
+            """
+            SELECT l.place_id FROM place_poi_link l
+            JOIN place p ON p.id = l.place_id AND p.hidden_at IS NULL
+            WHERE l.poi_id = :poiId
+            """)
+        .param("poiId", poiId)
+        .query(Long.class)
+        .optional();
+  }
+
   /** 단순 평균(소수 한 자리)과 수, 분포. */
   public Summary summary(Target target, long id) {
     return jdbc.sql(

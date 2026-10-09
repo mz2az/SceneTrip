@@ -149,6 +149,7 @@ public class PoiStore {
                    WHEN ce.name IS NOT NULL THEN 'en'
                    ELSE 'ko' END AS label_lang,
               p.name_roman,
+              lk.place_id AS linked_place_id,
       """;
 
   /** 번역 두 갈래(요청 언어·en)를 붙인다. 둘 다 (poi_id, lang)·(ko, lang) 기본 키로 한 행씩이다. */
@@ -158,6 +159,10 @@ public class PoiStore {
           LEFT JOIN poi_i18n te ON te.poi_id = p.id AND te.lang = 'en'
           LEFT JOIN poi_category_i18n cr ON cr.ko = p.category AND cr.lang = :lang
           LEFT JOIN poi_category_i18n ce ON ce.ko = p.category AND ce.lang = 'en'
+          -- 같은 곳인 촬영지(V25, MZ2AZ-371). 숨긴 촬영지의 연결은 쓰지 않는다 — 지도에 없으니 편의시설이 스스로 보여야 한다.
+          LEFT JOIN (SELECT l.poi_id, l.place_id
+                     FROM place_poi_link l
+                     JOIN place lp ON lp.id = l.place_id AND lp.hidden_at IS NULL) lk ON lk.poi_id = p.id
       """;
 
   private static final String LIST_SQL =
@@ -344,7 +349,8 @@ public class PoiStore {
             .nameRoman(rs.getString("name_roman"))
             .address(rs.getString("address"))
             .displayAddress(rs.getString("display_address"))
-            .distanceMeters(integerOrNull(rs, "distance_meters"));
+            .distanceMeters(integerOrNull(rs, "distance_meters"))
+            .placeId(longOrNull(rs, "linked_place_id"));
     return new Row(summary, Lang.fromValue(rs.getString("label_lang")));
   }
 
@@ -367,8 +373,15 @@ public class PoiStore {
             .road(rs.getString("road"))
             .tel(rs.getString("tel"))
             .region(rs.getString("region"))
-            .city(rs.getString("city"));
+            .city(rs.getString("city"))
+            .placeId(longOrNull(rs, "linked_place_id"));
     return new Detail(detail, Lang.fromValue(rs.getString("label_lang")));
+  }
+
+  /** {@code getLong} 도 NULL 을 0 으로 돌려준다. */
+  private static Long longOrNull(ResultSet rs, String column) throws SQLException {
+    long value = rs.getLong(column);
+    return rs.wasNull() ? null : value;
   }
 
   /** {@code getInt} 는 NULL 을 0 으로 돌려준다. 0 m 와 "기준점 없음" 은 다르다. */
