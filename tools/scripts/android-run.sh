@@ -3,9 +3,8 @@
 #
 # ## iOS 와 왜 모양이 다른가
 #
-# iOS 는 `just ios-run` 한 줄이 `bazel run //apps/scenetrip-ios:bin` 으로 끝난다 —
-# rules_apple 의 `ios_application` 이 시뮬레이터를 띄우고 설치까지 하는 실행 스크립트를
-# 함께 내놓기 때문이다.
+# iOS 는 `just ios-run`이 이미 부팅한 기기에 설치한다(ios-run.sh).
+# rules_apple 실행기는 Xcode의 Simulator.app 경로에 의존하므로 이 경로를 쓰지 않는다.
 #
 # **`android_binary` 에는 그것이 없다.** 산출물은 APK 파일 하나뿐이고, 그것을 어디에
 # 어떻게 넣을지는 규칙의 관심사가 아니다. 그래서 그 몫 — 에뮬레이터 준비 · 부팅 대기 ·
