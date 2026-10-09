@@ -12,21 +12,15 @@
 -- 같아 읽는 칸은 안 바뀐다. `src` 에 원본 전 칸이 붙어 오지만 읽지 않는다.
 -- 상가정보에는 전화가 없다 — tel 이 음식·숙박 전부 빈 값이다(2026-09-09 실측).
 --
--- ── candidates.sql 과 다른 점: 지우지 않고 UPSERT 한다. 지우려면 -v prune=1 ───────
+-- ── candidates.sql 과 다른 점: 지우지 않고 UPSERT 한다. POI 는 어떤 경우에도 지우지 않는다 ─────
 --
 -- POI 에는 자연키가 있다 — 출처가 준 source_id. 그래서 ON CONFLICT 로 멱등이 된다.
--- 있는 행은 갱신하고 없는 행은 더한다. 기본으로 TRUNCATE 를 하지 않는 이유는 course_item
--- 이 poi 를 참조하게 되면(poi.md §4-2) 그것이 사용자 코스를 지우는 일이 되기 때문이다.
---
--- 출처를 통째로 바꿀 때(TMAP → 공공데이터)는 옛 행이 남으면 안 된다. 그때만 `-v prune=1`
--- 로 「이번 입력에 없는 source_id 를 지운다」. 표본 23 행으로는 절대 켜지 말 것 — 나머지
--- 전부가 지워진다. poi_naver 는 ON DELETE CASCADE 라 그 카드도 같이 사라진다.
+-- 있는 행은 갱신하고 없는 행은 더한다. 지우지 않는 이유: review · course_item · place_poi_link ·
+-- poi_i18n · poi_image 가 poi 를 ON DELETE CASCADE 로 참조해, POI 하나를 지우면 사용자 리뷰와 코스
+-- 항목까지 사라진다. 보이지 않아야 할 POI 는 closed_at 으로 숨긴다(ADR 0022). 예전에 출처를 통째로
+-- 바꿀 때(TMAP → 공공데이터) 쓰던 `-v prune=1`(입력에 없는 행 지우기)은 없앴다.
 
 \set ON_ERROR_STOP on
-\if :{?prune}
-\else
-\set prune 0
-\endif
 -- 분기 갱신(--update). update_sql 은 seed-poi.sh 가 넘긴다 — 파드에서는 표준 입력으로 들어와 상대
 -- 경로가 풀리지 않아서 파일 경로를 따로 받는다.
 \if :{?update}
@@ -289,19 +283,21 @@ SELECT
     (SELECT count(*) FROM t_result WHERE NOT inserted)      AS updated,
     (SELECT count(*) FROM t_load) - (SELECT count(*) FROM t_result) AS unchanged;
 
--- ── 5-1. 이미 들어 있는 제외 분류를 지운다 — prune 과 상관없이 ─────────────────
+-- ── 5-1. 이미 들어 있는 제외 분류를 숨긴다 ───────────────────────────────────────
 --
--- §3-1 은 이번 입력만 거른다. 그 전에 들어온 행은 기본(prune=0) 적재에서 「입력에 없는 행」 이라
--- 건드려지지 않으므로 여기서 직접 지운다. 번역·사진·네이버 카드는 CASCADE 로 함께 사라진다.
+-- §3-1 은 이번 입력만 거른다. 그 전에 들어온 행(예: 새 판에서 분류가 제외 분류로 바뀐 가게)은 「입력에
+-- 없는 행」 이라 건드려지지 않으므로 여기서 숨긴다. 지우지 않는다 — 그 POI 의 리뷰·코스 항목이 CASCADE 로
+-- 사라진다(ADR 0022). 숨긴 행은 입력에 다시 들어오지 않으므로(§3-1) UPSERT 가 다시 열지 않는다.
 \echo ''
-\echo '이미 들어 있던 제외 분류를 지운 행:'
-WITH gone AS (
-    DELETE FROM poi p
-    USING t_excluded_category x
-    WHERE p.category = x.category
+\echo '이미 들어 있던 제외 분류를 숨긴 행 (closed_at):'
+WITH hidden AS (
+    UPDATE poi p
+    SET closed_at = now(), updated_at = now()
+    FROM t_excluded_category x
+    WHERE p.category = x.category AND p.closed_at IS NULL
     RETURNING p.category
 )
-SELECT category, count(*) AS rows FROM gone GROUP BY 1 ORDER BY 2 DESC, 1;
+SELECT category, count(*) AS rows FROM hidden GROUP BY 1 ORDER BY 2 DESC, 1;
 
 -- ── 5-2. 영어 화면용 칸 — 영문 주소, 영어 이름, 로마자 읽기 ─────────────────────
 --
@@ -348,24 +344,6 @@ SELECT
     count(*) FILTER (WHERE name_en IS NOT NULL)                 AS with_english_name,
     count(*) FILTER (WHERE name_roman IS NOT NULL)              AS with_roman_reading
 FROM t_en;
-
--- ── 6. 이번 입력에 없는 행을 지운다 — prune=1 일 때만 ─────────────────────────
---
--- 출처를 통째로 바꿀 때 쓴다. 지워진 poi 의 네이버 카드(poi_naver)는 CASCADE 로 같이
--- 사라진다 — 새 행의 카드는 누를 때 다시 채워진다(PoiCardService).
-\if :prune
-\echo ''
-\echo '이번 입력에 없어 지운 행 (갈래 별):'
-WITH gone AS (
-    DELETE FROM poi p
-    WHERE NOT EXISTS (SELECT 1 FROM t_load l WHERE l.source_id = p.source_id)
-    RETURNING p.category_group
-)
-SELECT category_group, count(*) AS rows FROM gone GROUP BY 1 ORDER BY 1;
-\else
-\echo ''
-\echo '지우지 않았다 (prune=0). 출처를 바꿨다면 --prune 으로 다시 돌릴 것.'
-\endif
 
 -- ── 7. 분류 사전 — 영어 ─────────────────────────────────────────────────────────
 --

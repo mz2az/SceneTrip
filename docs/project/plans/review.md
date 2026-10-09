@@ -60,6 +60,7 @@ erDiagram
 - **대상은 정확히 하나** — `CHECK ((place_id IS NULL) <> (poi_id IS NULL))`. 둘 다 차거나 둘 다 빈 줄은 DB 가 거부한다.
 - **한 사람 한 개** — `UNIQUE (user_id, place_id)` · `UNIQUE (user_id, poi_id)`. 탈퇴로 `user_id` 가 빈 줄끼리는 겹쳐도 된다(NULL).
 - `place_id` · `poi_id` 의 FK 는 `ON DELETE CASCADE` 로 두지만, 둘 다 지워지지 않는다 — 촬영지는 숨기고 POI 는 폐업 표시만 한다. 지워지는 것은 `--prune`(출처를 통째로 바꿀 때)뿐이다.
+  (2026-10-09 덧붙임: `--prune` 은 없앴다 — POI 는 어떤 경우에도 지우지 않고 `closed_at` 으로 숨긴다. [ADR 0022](../../architecture/adr/0022-poi-multiple-source-ids-and-never-delete.md))
 - 색인: `(place_id, created_at DESC) WHERE removed_at IS NULL`, `(poi_id, created_at DESC) WHERE removed_at IS NULL`, `(user_id)`.
 
 ### 3-2. `review_image`

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # POI(편의시설) JSON Lines 를 poi 표에 적재한다.
-# 사용법: seed-poi.sh [--prune] [파일.jsonl(.gz) ...]
+# 사용법: seed-poi.sh [--update] [파일.jsonl(.gz) ...]
 # 호출: just seed-poi
 #
 # 인자가 없으면 저장소의 표본(services/scene-api/seed/poi-sample.jsonl)을 넣는다.
@@ -10,20 +10,17 @@
 #
 #   just seed-poi ~/Downloads/SceneTrip_POI_20260907/out/poi_*.jsonl
 #
-# **다시 돌려도 안전하다.** seed.sh(성지)와 달리 기본으로는 지우지 않는다 — source_id 로
-# UPSERT 한다. 있는 행은 갱신하고 없는 행은 더한다. course_item 이 poi 를 참조하게 되면
-# (poi.md §4-2) TRUNCATE 는 사용자 코스를 지우는 일이 되기 때문이다.
+# **다시 돌려도 안전하다.** seed.sh(성지)와 달리 지우지 않는다 — source_id 로 UPSERT 한다.
+# 있는 행은 갱신하고 없는 행은 더한다. **POI 는 어떤 경우에도 지우지 않는다**(ADR 0022) — 리뷰·코스
+# 항목·번역·사진이 poi 를 ON DELETE CASCADE 로 참조해 함께 사라진다. 보이지 않아야 할 POI 는 closed_at.
 #
-# **출처를 통째로 바꿀 때는 --prune.** 이번 입력에 없는 source_id 를 지운다 — TMAP 판
-# (숫자 id)에서 공공데이터 판(MA…·tour-…)으로 갈 때 옛 50만 행을 없애는 데 쓴다. 표본만
-# 넣으면서 켜면 나머지 전부가 지워지므로 표본에는 막아 둔다. poi_naver 카드는 CASCADE.
-#
-#   just seed-poi --prune ~/Downloads/SceneTrip_POI_20260907/out/poi_*.jsonl
+# 예전의 --prune(이번 입력에 없는 POI 를 지움)은 TMAP → 공공데이터 출처 교체(2026-09-09)에 한 번 쓰고
+# 없앴다. 주면 멈춘다.
 #
 # **분기 갱신은 --update.** 입력에 없는 가게를 지우지 않는다. 좌표·이름으로 새 번호와 같은 가게면
 # 번호만 갈아 잇고(poi.id 와 붙은 번역·사진이 남는다), 이어지지 않으면 폐업 표시(closed_at)만 한다.
 # 같은 출처끼리만 본다 — 상가정보 파일만 넣어도 관광지는 그대로다. 규칙은 seed/poi_update.sql,
-# 근거는 docs/project/plans/poi-i18n-image.md §8. --prune 과 함께 쓰지 않고, 표본에는 막아 둔다.
+# 근거는 docs/project/plans/poi-i18n-image.md §8. 표본에는 막아 둔다.
 #
 #   just seed-poi --update ~/Downloads/SceneTrip_POI_<새 판>/out/poi_*.jsonl
 #
@@ -40,23 +37,19 @@ STAGED="/tmp/seed-poi-input.jsonl"
 # --update 일 때 poi.sql 이 \i 로 읽는 갱신 SQL 의 파드 쪽 경로.
 STAGED_UPDATE="/tmp/seed-poi-update.sql"
 
-PRUNE=0
 UPDATE=0
 FILES=()
 for a in "$@"; do
   case "$a" in
-    --prune) PRUNE=1 ;;
+    --prune)
+      die "--prune 은 없앴습니다 — POI 를 지우면 그 POI 의 리뷰·코스 항목·번역·사진이 함께 지워집니다(ADR 0022).
+       분기 갱신은 --update(사라진 가게는 폐업 표시만), 그냥 넣기는 인자 없이 파일만."
+      ;;
     --update) UPDATE=1 ;;
     *) FILES+=("$a") ;;
   esac
 done
 [ ${#FILES[@]} -eq 0 ] && FILES=("$SAMPLE")
-if [ "$PRUNE" = 1 ] && [ "$UPDATE" = 1 ]; then
-  die "--prune 과 --update 는 함께 쓰지 않습니다. 분기 갱신은 --update, 출처를 통째로 바꿀 때만 --prune."
-fi
-if [ "$PRUNE" = 1 ] && [ ${#FILES[@]} -eq 1 ] && [ "${FILES[0]}" = "$SAMPLE" ]; then
-  die "--prune 은 전량 적재에만 씁니다. 표본과 함께 켜면 표본 밖 전부가 지워집니다."
-fi
 if [ "$UPDATE" = 1 ] && [ ${#FILES[@]} -eq 1 ] && [ "${FILES[0]}" = "$SAMPLE" ]; then
   die "--update 는 새 판 전량에만 씁니다. 표본과 함께 켜면 표본에 없는 가게가 전부 폐업으로 표시됩니다."
 fi
@@ -99,9 +92,7 @@ if [ ${#FILES[@]} -eq 1 ] && [ "${FILES[0]}" = "$SAMPLE" ]; then
 else
   log "${#FILES[@]}개 파일, $ROWS 행을 적재합니다"
 fi
-if [ "$PRUNE" = 1 ]; then
-  log "있는 행은 갱신하고 없는 행은 더합니다. --prune: 이번 입력에 없는 행은 지웁니다 (poi_naver 카드도)."
-elif [ "$UPDATE" = 1 ]; then
+if [ "$UPDATE" = 1 ]; then
   log "--update: 사라진 가게는 같은 가게로 보이는 새 번호에 잇고, 이어지지 않으면 폐업 표시만 합니다 (지우지 않음)."
 else
   log "있는 행은 갱신하고 없는 행은 더합니다 (source_id 기준). 지우지 않습니다."
@@ -114,7 +105,7 @@ if [ -n "$DIRECT" ]; then
   trap cleanup EXIT
 
   log "변환 실행 — $DB_HOST:$DB_PORT/$DB_NAME"
-  if ! db_psql -q -v prune="$PRUNE" -v update="$UPDATE" -v update_sql="$UPDATE_SQL" -f "$TRANSFORM"; then
+  if ! db_psql -q -v update="$UPDATE" -v update_sql="$UPDATE_SQL" -f "$TRANSFORM"; then
     die "적재 실패 — 트랜잭션이 롤백됐습니다. DB 는 적재 직전 상태입니다."
   fi
 else
@@ -131,7 +122,7 @@ else
 
   log "변환 실행"
   if ! kubectl exec -i "$POD" -n "$NAMESPACE" -- \
-    psql -U scenetrip -d scenetrip -v ON_ERROR_STOP=1 -v prune="$PRUNE" -v update="$UPDATE" \
+    psql -U scenetrip -d scenetrip -v ON_ERROR_STOP=1 -v update="$UPDATE" \
       -v update_sql="$STAGED_UPDATE" -q -f - <"$TRANSFORM"; then
     die "적재 실패 — 트랜잭션이 롤백됐습니다. DB 는 적재 직전 상태입니다."
   fi

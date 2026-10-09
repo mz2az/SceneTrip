@@ -18,6 +18,7 @@
   읽을 수 없다(poi.md §4-2).
 - **편의시설을 지우면(`seed-poi --prune`, 출처를 통째로 바꿀 때만) 그 항목도 지워진다**(`ON DELETE CASCADE`) — 촬영지·리뷰와
   같은 규칙. 분기 갱신(`--update`)은 지우지 않고 폐업 표시(`closed_at`)만 하므로 코스 항목은 남는다.
+  (2026-10-09 덧붙임: `--prune` 은 없앴다 — POI 는 어떤 경우에도 지우지 않고 `closed_at` 으로 숨긴다. [ADR 0022](../../architecture/adr/0022-poi-multiple-source-ids-and-never-delete.md))
 - **폐업한 편의시설 항목**은 코스에 남고 이름·좌표도 그대로 보인다(상세는 404). 사용자가 직접 뺀다.
 
 ## 2. 마켓 사본 — 이번에는 편의시설을 빼고 올린다

@@ -97,6 +97,7 @@ INDEX (poi_id, sort_order)
 
 `--prune` 적재에서 지워지는 POI 의 번역·사진은 CASCADE 로 함께 지워진다 — 가게가 없어졌으므로 맞다.
 **(2026-10-05: 「지워지면 가게가 없어진 것」 이라는 전제가 틀렸다 → §6-4)**
+(2026-10-09 덧붙임: `--prune` 은 없앴다 — POI 는 어떤 경우에도 지우지 않고 `closed_at` 으로 숨긴다. [ADR 0022](../../architecture/adr/0022-poi-multiple-source-ids-and-never-delete.md))
 
 ## 5. 단계
 

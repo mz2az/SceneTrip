@@ -390,6 +390,7 @@ TMAP 을 쓰지 않는다(2026-09-05 팀 결정, [ADR 0014](../../architecture/a
 **규칙 3 — `--prune`.** 출처를 통째로 바꾸면 UPSERT 만으로는 옛 행이 남는다(id 가 안 겹친다).
 `just seed-poi --prune …` 이 이번 입력에 없는 `source_id` 를 지운다. 표본과 함께는 막아 둔다.
 `poi_naver` 는 CASCADE 라 카드가 같이 사라지고 누를 때 다시 채워진다.
+(2026-10-09 덧붙임: `--prune` 은 없앴다 — POI 는 어떤 경우에도 지우지 않고 `closed_at` 으로 숨긴다. [ADR 0022](../../architecture/adr/0022-poi-multiple-source-ids-and-never-delete.md))
 
 **상가정보의 성격.** 가게 목록이 아니라 인허가 기록이다. 같은 가게가 시점을 달리해(업소번호에
 날짜가 있다) 또는 업종을 둘로 두 줄이 된다 — 음식 9,476 그룹, 그중 4,017 은 업소번호만 다르고
