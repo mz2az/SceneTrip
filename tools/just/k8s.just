@@ -151,6 +151,12 @@ health:
 db-psql *sql:
     ./tools/scripts/db-psql.sh "{{ sql }}"
 
+# 큰 SQL 파일을 로컬 kind DB로 보낸다. SQL 오류에서 중단 (docs/ops/local-sql-file.md).
+[group('db')]
+[positional-arguments]
+db-psql-file file:
+    ./tools/scripts/db-psql-file.sh "$@"
+
 # 터미널을 붙잡고 있는다. Ctrl+C 로 중지.
 #
 # `just db-psql` 은 파드 안에서 돌아 포워딩이 필요 없다. 이 레시피가 필요한 자리는

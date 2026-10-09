@@ -4,6 +4,7 @@
 | --- | --- |
 | [aws-deployment.md](aws-deployment.md) | DEV·PRD 최초 준비·수동 배포·버튼 하나로 올리기·내리기·검증·DB 복구 |
 | [aws-teardown.md](aws-teardown.md) | 비용 절감을 위한 서비스·bootstrap 수동 삭제, 데이터 보존과 재배포 |
+| [local-sql-file.md](local-sql-file.md) | 큰 SQL 파일을 로컬 kind DB로 스트리밍하고 오류에서 중단 |
 | `runbooks/<서비스>.md` | 서비스별 운영과 복구 방법 |
 | `slo.md` | 서비스 수준 목표와 오류 예산 |
 | `oncall.md` | 로테이션, 에스컬레이션, 심각도 정의 |
