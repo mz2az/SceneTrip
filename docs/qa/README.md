@@ -2,6 +2,7 @@
 
 | 문서 | 목적 |
 | --- | --- |
+| [ios-followup-verification.md](ios-followup-verification.md) | 큰 글자 길찾기·해태 배치와 사진 업로드 오류 경계 (MZ2AZ-387) |
 | `test-strategy.md` | 각 계층에서 무엇을 왜 테스트하는가 |
 | `coverage-policy.md` | 커버리지 기준과 예외를 허용하는 방식 |
 | `test-plans/<기능>.md` | 기능별 테스트 계획 |

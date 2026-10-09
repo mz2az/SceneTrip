@@ -54,6 +54,7 @@ extension RouteEditorView {
             HStack(spacing: 8) { handoffRow(offers) }
             VStack(alignment: .leading, spacing: 0) { handoffRow(offers) }
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func handoffRow(_ offers: [ExternalDirections.Offer]) -> some View {
