@@ -220,10 +220,11 @@ java_junit5_test(
     size = "medium",
     srcs = glob(["tests/integration/java/**/*.java"]),
     # PoiUpdateIntegrationTest 가 적재가 psql 로 돌리는 바로 그 파일을 JDBC 로 돌린다.
-    # place_poi_link.sql 도 같다 — 같은 곳 연결(MZ2AZ-371)을 실제 DB 에 돌려 본다.
+    # place_poi_link.sql 도 같다 — 같은 곳 연결(MZ2AZ-371)을 실제 DB 에 돌려 본다. poi_image.sql 은 관광공사 사진 맞추기.
     data = [
         "seed/course_pin_to_poi.sql",
         "seed/place_poi_link.sql",
+        "seed/poi_image.sql",
         "seed/poi_update.sql",
     ],
     tags = [

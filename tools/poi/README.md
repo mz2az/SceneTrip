@@ -10,7 +10,8 @@
 | `data/` | 이름 사전 셋 — 출처는 `data/README.md` |
 | `addresses.py` | 한국어 주소 문장 쪼개기, 영문도로명주소DB 한 줄 → 공식 영문 주소 조립(순수 함수) |
 | `juso_api.py` | 영문주소 검색 API — 받는 규칙과 캐시 |
-| `pack.py` | `just poi-pack` — 한 판을 공유용으로 묶는다(`src` 를 빼고 gzip, `manifest.json` 에 행 수·sha256) |
+| `pack.py` | `just poi-pack` — 한 판을 공유용으로 묶는다(`src` 를 빼고 gzip, `manifest.json` 에 행 수·sha256). 같은 폴더의 사진 적재 파일 `tour_images.jsonl` 도 함께 |
+| `tour_images.py` | `just poi-tour-images` — 관광공사 목록의 대표 이미지 → 사진 적재 파일(https · 공공누리 표기). 넣기는 `just seed-poi-images` (아래 「관광공사 사진」) |
 | `tourapi.py` | `just poi-tourapi` — 관광공사 TourAPI 상세 4종을 키 여러 개로 나눠 받는다(아래 「관광공사 상세 받기」) |
 | `tests/` | 단위 시험(`just test //tools/poi:unit_test`) — 진짜 API·파일은 쓰지 않는다 |
 
@@ -38,11 +39,13 @@ just seed-poi-release 2026-09 --update      # 분기 갱신
 
 # 만드는 사람 — 판마다 한 번
 just poi-en …                                # 위의 영문 붙이기 → out-en/
+just poi-tour-images ~/SceneTrip-data/SceneTrip_POI/raw/tourapi/Kor/list.jsonl ~/Downloads/SceneTrip_POI_20260907/out-en/tour_images.jsonl
 just poi-pack ~/Downloads/SceneTrip_POI_20260907/out-en ~/Downloads/poi-2026-06 2026-06
 just poi-publish ~/Downloads/poi-2026-06 2026-06
 ```
 
-받기는 `curl` 이라 로그인이 필요 없고, sha256 이 manifest 와 다르면 넣지 않는다. 받은 파일은 `~/.cache/scenetrip/poi/<판>`.
+받는 쪽은 판에 사진 파일(`manifest.json` 의 `images`)이 있으면 POI 적재 뒤 `just seed-poi-images` 로 넣는다. 사진이 없는
+옛 판은 POI 만 넣는다. 받기는 `curl` 이라 로그인이 필요 없고, sha256 이 manifest 와 다르면 넣지 않는다. 받은 파일은 `~/.cache/scenetrip/poi/<판>`.
 올리기 전에 시험하려면 `SCENETRIP_POI_RELEASE_BASE=file:///…/poi-2026-06 just seed-poi-release 2026-06`.
 
 ## 분기 갱신 — 순서
@@ -85,3 +88,21 @@ TOURAPI_KEY_VARS=KEY_A,KEY_B,KEY_C just poi-tourapi …  # 키 변수 이름을 
   `detailCommon2` 에서 막혔다(서비스 전체 1,000 회였다면 250 곳에서 막힌다). 키 셋이면 언어마다 하루 약 3,000 곳.
 - 매일 돌리려면 자료 폴더를 `~/Downloads`·`~/Documents`·`~/Desktop` 밖에 둔다 — macOS 의 launchd 는 그 폴더에
   들어가지 못한다.
+
+## 관광공사 사진 — `just poi-tour-images` · `just seed-poi-images`
+
+관광공사 목록(`raw/tourapi/Kor/list.jsonl`)의 대표 이미지를 편의시설 사진(`poi_image`, `source = 'tour_api'`)으로 넣는다.
+계획은 [poi-source.md](../../docs/project/plans/poi-source.md) §6-1.
+
+```bash
+just poi-tour-images ~/SceneTrip-data/SceneTrip_POI/raw/tourapi/Kor/list.jsonl ~/SceneTrip-data/SceneTrip_POI/out/tour_images.jsonl
+just seed-poi-images ~/SceneTrip-data/SceneTrip_POI/out/tour_images.jsonl
+```
+
+- 결과 한 줄: `{"source_id": "tour-<contentid>", "images": [{"url", "credit"}]}`. 대표 이미지가 있는 곳만. 배열 순서가 정렬 순서다.
+- 주소는 https 로 바꾼다(iOS 는 https 만 받는다). `credit` 은 `한국관광공사 · 공공누리 제1유형(출처표시)` ·
+  `… 제3유형(출처표시·변경금지)` — 영어 화면에도 같은 한국어 문구다. 앱은 `credit` 을 사진 곁에 보인다.
+- 결과 이름은 `poi_` 로 시작하면 안 된다 — POI 파일(`poi_*.jsonl`)로 잘못 읽힌다. 도구가 막는다.
+- 넣기는 **입력에 든 POI 의 `tour_api` 사진만** 파일과 같게 한다(없어진 주소는 지우고, 있는 것은 넣거나 문구를 고친다). 다른 출처
+  사진과 입력에 없는 POI 는 그대로다. 몇 번을 돌려도 같다. POI 를 못 찾은 줄은 세어서 보여 준다 — 2026-10-09 로컬 전량에서
+  41,992 곳 중 33,919 곳이 붙고 8,073 곳은 상가정보 POI 에 합쳐져 관광공사 번호가 없었다(`poi_source` 뒤에 붙는다).

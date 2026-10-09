@@ -67,5 +67,34 @@ while IFS=$'\t' read -r name digest; do
 done <<<"$LIST"
 [ "${#FILES[@]}" -gt 0 ] || die "받은 파일이 없습니다"
 
+# 사진(manifest 의 images, poi-source.md §6-1) — 있으면 POI 적재 뒤 넣는다. 없는 옛 판은 POI 만.
+IMAGES_ENTRY="$(python3 - "$CACHE/manifest.json" <<'PY'
+import json, re, sys
+img = json.load(open(sys.argv[1])).get("images")
+if img:
+    if img.get("name") != "tour_images.jsonl.gz" or not re.fullmatch(r"[0-9a-f]{64}", img.get("sha256", "")):
+        sys.exit(f"manifest 의 사진 항목이 이상합니다: {img}")
+    print(img["name"] + "\t" + img["sha256"])
+PY
+)" || die "manifest 의 사진 항목을 읽지 못했습니다 — $CACHE/manifest.json"
+IMAGES_FILE=""
+if [ -n "$IMAGES_ENTRY" ]; then
+  IFS=$'\t' read -r name digest <<<"$IMAGES_ENTRY"
+  IMAGES_FILE="$CACHE/$name"
+  if ! { [ -f "$IMAGES_FILE" ] && [ "$(sha256 "$IMAGES_FILE")" = "$digest" ]; }; then
+    log "$name 받기"
+    curl -fsSL "$BASE/$name" -o "$IMAGES_FILE.partial" || die "$name 을 받지 못했습니다"
+    mv "$IMAGES_FILE.partial" "$IMAGES_FILE"
+    [ "$(sha256 "$IMAGES_FILE")" = "$digest" ] || die "$name 의 sha256 이 manifest 와 다릅니다 — 넣지 않습니다"
+  else
+    log "$name — 캐시에 있음"
+  fi
+fi
+
 log "확인 끝 — ${#FILES[@]}개 파일을 적재합니다"
-exec ./tools/scripts/seed-poi.sh "$@" "${FILES[@]}"
+./tools/scripts/seed-poi.sh "$@" "${FILES[@]}"
+if [ -n "$IMAGES_FILE" ]; then
+  ./tools/scripts/seed-poi-images.sh "$IMAGES_FILE"
+else
+  log "이 판에는 사진 파일이 없습니다 — POI 만 넣었습니다"
+fi

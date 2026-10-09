@@ -6,6 +6,9 @@ POI 폴더(보통 `just poi-en` 의 결과)의 poi_*.jsonl(.gz) 을 줄마다 �
 적재(seed/poi.sql)는 `src` 를 읽지 않아 결과가 같고, 크기가 1.6 GB 에서 약 70 MB 로 준다. 함께 `manifest.json` 을
 쓴다 — 판·만든 시각·파일마다 행 수·바이트·sha256. 받는 쪽(`just seed-poi-release`)이 이것으로 파일을 확인한다.
 
+같은 폴더에 사진 적재 파일 `tour_images.jsonl(.gz)`(`just poi-tour-images` 의 결과)이 있으면 함께 싣는다 — 받는 쪽이
+POI 적재 뒤 `just seed-poi-images` 로 넣는다(poi-source.md §6-1). manifest 의 POI 행 수(`rows`)에는 세지 않는다.
+
 계획: docs/project/plans/poi-i18n-image.md §14.
 """
 
@@ -20,6 +23,7 @@ import sys
 from pathlib import Path
 
 MANIFEST = "manifest.json"
+IMAGES = "tour_images"  # 사진 적재 파일 이름. poi_ 로 시작하지 않아야 POI 파일로 읽히지 않는다
 EDITION = re.compile(r"^\d{4}-\d{2}$")  # 상가정보 기준 연-월. 예 2026-06
 
 
@@ -81,6 +85,15 @@ def main(argv: list[str] | None = None) -> int:
     if not files:
         print(f"오류: {poi_dir} 에 poi_*.jsonl 이 없습니다", file=sys.stderr)
         return 1
+    images = sorted(
+        [*poi_dir.glob(IMAGES + ".jsonl"), *poi_dir.glob(IMAGES + ".jsonl.gz")]
+    )
+    if len(images) > 1:
+        print(
+            f"오류: {IMAGES}.jsonl 과 .gz 가 둘 다 있습니다 — 하나만 두세요",
+            file=sys.stderr,
+        )
+        return 1
     if out_dir == poi_dir:
         print("오류: 결과 폴더는 입력 폴더와 달라야 합니다", file=sys.stderr)
         return 1
@@ -99,10 +112,19 @@ def main(argv: list[str] | None = None) -> int:
         "rows": sum(e["rows"] for e in entries),
         "files": entries,
     }
+    # 사진은 files 와 따로 둔다 — files 는 POI 파일만이라는 약속을 옛 받는 쪽도 믿고 있다.
+    if images:
+        entry = pack_file(images[0], out_dir / (IMAGES + ".jsonl.gz"))
+        manifest["images"] = entry
+        print(
+            f"  {entry['name']:<28} {entry['rows']:>9,} 곳  {entry['bytes'] / 1e6:6.1f} MB  (사진)"
+        )
     (out_dir / MANIFEST).write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    total = sum(e["bytes"] for e in entries)
+    total = sum(e["bytes"] for e in entries) + (
+        manifest["images"]["bytes"] if images else 0
+    )
     print(
         f"판 {args.edition}: {manifest['rows']:,} 행, {total / 1e6:.1f} MB → {out_dir}"
     )

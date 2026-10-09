@@ -207,5 +207,72 @@ class PackMain(unittest.TestCase):
         )
 
 
+TOUR_IMG_A = {
+    "source_id": "tour-1",
+    "images": [{"url": "https://x/1.jpg", "credit": "한국관광공사"}],
+}
+TOUR_IMG_B = {
+    "source_id": "tour-2",
+    "images": [{"url": "https://x/2.jpg", "credit": "한국관광공사"}],
+}
+
+
+class PackImages(unittest.TestCase):
+    """tour_images.jsonl(.gz) 는 따로 묶어 manifest 의 "images" 에 적는다 — "files"·"rows" 에는 넣지 않는다."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.poi = self.tmp / "out-en"
+        self.poi.mkdir()
+        (self.poi / "poi_store.jsonl").write_text(jsonl(ROW_A, ROW_C), encoding="utf-8")
+        self.out = self.tmp / "poi-2026-06"
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def manifest(self):
+        return json.loads((self.out / "manifest.json").read_text(encoding="utf-8"))
+
+    def check_images(self, manifest):
+        self.assertIn("images", manifest)
+        info = manifest["images"]
+        path = self.out / "tour_images.jsonl.gz"
+        self.assertTrue(path.is_file())
+        self.assertEqual(info["name"], "tour_images.jsonl.gz")
+        self.assertEqual(info["rows"], 2)
+        self.assertEqual(info["bytes"], path.stat().st_size)
+        self.assertEqual(info["sha256"], sha256_of(path))
+        self.assertEqual(read_gz_rows(path), [TOUR_IMG_A, TOUR_IMG_B])
+        self.assertEqual([f["name"] for f in manifest["files"]], ["poi_store.jsonl.gz"])
+        self.assertEqual(manifest["rows"], 2)
+
+    def test_plain_images(self):
+        (self.poi / "tour_images.jsonl").write_text(
+            jsonl(TOUR_IMG_A, TOUR_IMG_B), encoding="utf-8"
+        )
+        self.assertEqual(run_main([str(self.poi), str(self.out), "2026-06"]), 0)
+        self.check_images(self.manifest())
+
+    def test_gz_images(self):
+        with gzip.open(self.poi / "tour_images.jsonl.gz", "wt", encoding="utf-8") as f:
+            f.write(jsonl(TOUR_IMG_A, TOUR_IMG_B))
+        self.assertEqual(run_main([str(self.poi), str(self.out), "2026-06"]), 0)
+        self.check_images(self.manifest())
+
+    def test_both_forms_rejected(self):
+        (self.poi / "tour_images.jsonl").write_text(jsonl(TOUR_IMG_A), encoding="utf-8")
+        with gzip.open(self.poi / "tour_images.jsonl.gz", "wt", encoding="utf-8") as f:
+            f.write(jsonl(TOUR_IMG_A))
+        self.assertEqual(run_main([str(self.poi), str(self.out), "2026-06"]), 1)
+
+    def test_no_images_no_key(self):
+        self.assertEqual(run_main([str(self.poi), str(self.out), "2026-06"]), 0)
+        manifest = self.manifest()
+        self.assertNotIn("images", manifest)
+        self.assertFalse((self.out / "tour_images.jsonl.gz").exists())
+        self.assertEqual(manifest["rows"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()

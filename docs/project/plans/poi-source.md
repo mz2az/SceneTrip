@@ -115,7 +115,10 @@ CREATE INDEX ON poi_source (poi_id);
 
 - 대표 이미지(`firstimage`)와 상세 사진(`detailImage2`)을 `poi_image` 로 — `source = 'tour_api'`, `credit` 에 출처와 저작권 유형
   (`cpyrhtDivCd` Type1 · Type3), 원 contentid.
-- 응답 사진 항목에 출처 표기 값 — **계약 먼저**(`Photo` 에 credit·license 류).
+- 응답 사진 항목에 출처 표기 값 — ~~계약 먼저~~ → **계약은 이미 있다**(2026-10-09 확인). `Photo`·`PoiImage` 에 `credit`
+  (nullable, 「있으면 사진 곁에 보인다」)이 있고, 서버(`ReviewStore.photos`)가 `poi_image.credit` 을 그대로 싣고, iOS
+  `PhotoPager` 가 사진 곁에 보인다. Android 는 아직 보이지 않는다(iOS 를 따라간다). 저작권 유형은 따로 칸을 두지 않고 `credit`
+  문구에 넣는다.
 - 사진 주소 — **관광공사 주소를 https 로 바꿔 그대로 싣는다**(2026-10-09 결정). 대표 이미지 41,992 중 18,060 이 `http://`
   인데, 표본 16 장을 `https://` 로 바꿔 모두 열렸다(iOS 는 https 만 받는다).
 - **우리 S3 로 옮기는 것은 나중**. 관광공사 서버가 느리거나 사진이 사라지는 일이 실제로 생기면, 또는 상세 사진 수집이 끝나 한꺼번에
@@ -130,6 +133,26 @@ CREATE INDEX ON poi_source (poi_id);
   썸네일, 상세는 원본. 우리가 직접 줄이는 것은 Type1(7,906 장, 변경 허용)만 문제없고, Type3(34,086 장)은 크기 조정이 「변경」 인지
   확인하지 못했다.
 - 분기 갱신 때 사진은 POI 에 붙어 있으므로 1 번(번호로 찾기)으로 따라간다.
+
+### 6-1. 대표 이미지 적재 (단계 5, 2026-10-09)
+
+```
+[1] just poi-tour-images <관광공사 국문 list.jsonl> <결과 tour_images.jsonl>      (tools/poi — 저장소 밖 파일)
+      줄마다 {source_id: "tour-<contentid>", images: [{url, credit}]} — 대표 이미지가 있는 곳만
+[2] just seed-poi-images <tour_images.jsonl>                                         (seed/poi_image.sql)
+      poi.source_id 로 POI 를 찾아 poi_image(source = 'tour_api') 를 그 파일과 같게 맞춘다
+```
+
+- 주소는 `http://` → `https://`. `credit` 은 한국어 하나로 — 영어 화면에도 같은 문구(2026-10-09 결정, 공공누리 표기는 한국어로 충분):
+  Type1 `한국관광공사 · 공공누리 제1유형(출처표시)`, Type3 `한국관광공사 · 공공누리 제3유형(출처표시·변경금지)`, 없으면 `한국관광공사`.
+- **[2] 는 입력에 든 POI 만 건드린다.** 그 POI 의 `tour_api` 사진을 파일과 같게 — 파일에 없는 `tour_api` 사진은 지우고(관광공사가
+  사진을 바꾼 경우), 있는 것은 넣거나 문구를 갱신한다. 다른 출처(`own` 등) 사진과 입력에 없는 POI 는 그대로. 몇 번을 돌려도 같다.
+  사진 행을 지우는 것은 POI 를 지우지 않는다는 결정(ADR 0022)과 다르다 — `poi_image` 를 참조하는 표는 없다.
+- POI 를 못 찾은 줄(상가정보에 합쳐진 관광공사 줄 등)은 세어서 보여 주고 넘어간다 — `poi_source` 뒤에 붙는다.
+- 썸네일(`firstimage2`)은 아직 싣지 않는다 — 계약에 썸네일 칸이 없다. 필요해지면 계약에 더한다.
+- 원 contentid 는 따로 두지 않는다 — `poi.source_id`(뒤에는 `poi_source`)가 들고 있다.
+- **배포 환경**: [1] 의 결과를 POI 배포 판(`poi-data-<판>`)에 `tour_images.jsonl.gz` 로 함께 싣고, `just seed-poi-release` 가 POI
+  적재 뒤 [2] 를 부른다. 이름을 `poi_` 로 시작하지 않게 한 것은 POI 파일만 고르는 `poi_*.jsonl` 에 섞이지 않게다.
 
 영문 상세는 관광공사 영문 번호가 국문과 달라 **짝을 다시 지은 뒤** 붙인다 — 영문 이름 끝 괄호의 한국어 이름이 우리 이름과
 같은 것만(지금 좌표로 이은 12,711 짝 중 6,738 이 다른 가게였다 — 백화점·아울렛 안).
@@ -148,8 +171,8 @@ CREATE INDEX ON poi_source (poi_id);
 | 2 | ✅ `--prune` 막기 — 주면 멈춘다. 적재 §5-1 의 제외 분류도 지우지 않고 `closed_at` 으로 숨긴다(지우는 길이 하나 더 있었다) | 없음 |
 | 3 | V27 `poi_source` + 재구성 결과로 첫 채움 + 통합 시험 | 없음 |
 | 4 | 적재·갱신을 §5 순서로. 같은 건물 판정과 배포 판 칸(§7) | 없음 |
-| 5 | 관광공사 대표 이미지 → `poi_image` | 없음 |
-| 6 | 응답 사진에 출처 표기 | **먼저 `contracts/`** |
+| 5 | 관광공사 대표 이미지 → `poi_image` (§6-1) — 배포 판에도 | 없음 |
+| 6 | 응답 사진에 출처 표기 — **계약·서버·iOS 는 이미 된다**(`credit`). Android 표시만 남는다 | 없음 |
 | 7 | 상세(개요·영업시간) 표와 응답 | **먼저 `contracts/`** |
 | 8 | 영문 짝 다시 짓기 → 영문 상세 | 6·7 과 같이 |
 

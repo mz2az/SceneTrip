@@ -37,7 +37,7 @@ from tools.poi.tests.test_names_spec import (
     SpecRomanizeExamples,
     SpecRomanizeStandard,
 )
-from tools.poi.tests.test_pack import PackFile, PackMain, PackSlim
+from tools.poi.tests.test_pack import PackFile, PackImages, PackMain, PackSlim
 from tools.poi.tests.test_spec import (
     SpecAccept,
     SpecCutToBuildingNumber,
@@ -46,6 +46,12 @@ from tools.poi.tests.test_spec import (
     SpecJusoApiCache,
     SpecRoadRefs,
     SpecStoreKeys,
+)
+from tools.poi.tests.test_tour_images import (
+    TourImagesCredit,
+    TourImagesHttps,
+    TourImagesMain,
+    TourImagesRow,
 )
 from tools.poi.tests.test_tourapi import (
     TourConstants,
@@ -72,6 +78,7 @@ __all__ = [
     "FormatEnglish",
     "JibunRefs",
     "PackFile",
+    "PackImages",
     "PackMain",
     "PackSlim",
     "Regression2BrandRest",
@@ -94,6 +101,10 @@ __all__ = [
     "StoreKeys",
     "TourConstants",
     "TourFetchOne",
+    "TourImagesCredit",
+    "TourImagesHttps",
+    "TourImagesMain",
+    "TourImagesRow",
     "TourItemsOf",
     "TourKeyRing",
     "TourMain",

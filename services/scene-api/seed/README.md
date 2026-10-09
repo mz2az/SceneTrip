@@ -174,6 +174,12 @@ URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞�
 넣어도 관광지는 그대로다. 규칙은 `poi_update.sql`, 근거는
 [poi-i18n-image.md](../../../docs/project/plans/poi-i18n-image.md) §8.
 
+**사진은 따로 넣는다 — `poi_image.sql`**(2026-10-09). 관광공사 대표 이미지를 `just seed-poi-images <tour_images.jsonl>` 로
+`poi_image`(`source = 'tour_api'`)에 맞춘다. `poi_image_load.sql` 이 파일을 읽어 `t_poi_image_in` 을 만들고 순수 SQL 인
+`poi_image.sql` 을 부른다 — 통합 시험이 같은 파일을 JDBC 로 돌린다. 입력에 든 POI 의 `tour_api` 사진만 파일과 같게 하고, 다른 출처
+사진과 입력에 없는 POI 는 건드리지 않는다. 파일 만들기는 `just poi-tour-images`(tools/poi/README.md), 근거는
+[poi-source.md](../../../docs/project/plans/poi-source.md) §6-1.
+
 ```bash
 just seed-poi --update ~/Downloads/SceneTrip_POI_<새 판>/out/poi_*.jsonl
 ```
