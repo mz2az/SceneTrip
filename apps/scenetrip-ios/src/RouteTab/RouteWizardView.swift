@@ -361,7 +361,7 @@ struct RouteWizardView: View {
     }
 
     private var pickedWorkTitles: String {
-        let titles = store.works.filter { workIds.contains($0.id) }.map(\.title)
+        let titles = store.sortedWorks.filter { workIds.contains($0.id) }.map(\.title)
         return titles.isEmpty ? tr("인기 작품") : titles.joined(separator: ", ")
     }
 

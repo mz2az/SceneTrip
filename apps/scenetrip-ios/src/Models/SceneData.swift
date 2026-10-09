@@ -15,12 +15,45 @@ final class SceneData: ObservableObject {
         case failed(ApiFailure)
     }
 
+    /// 한 번에 받는 양 (MZ2AZ-372). 작품은 줄이 크고 128편에서 계속 늘어 화면 몇 장 분량씩 받는다.
+    /// 촬영지는 지도 핀으로도 쓰여 계약의 상한(200)만큼 받는다 — 그보다 많으면 `total` 로 알린다.
+    enum PageSize {
+        static let contents = 50
+        static let places = 200
+    }
+
     @Published private(set) var phase: Phase = .loading
     @Published private(set) var contents: [ContentSummary] = []
     @Published private(set) var places: [PlaceSummary] = []
 
+    /// 어디까지 받았고 전부 몇 건인가. 화면의 개수는 여기의 `total` 이다 — 받은 줄 수가 아니다.
+    @Published private(set) var contentPaging = Paging()
+    @Published private(set) var placePaging = Paging()
+    @Published private(set) var loadingMoreContents = false
+    @Published private(set) var loadingMorePlaces = false
+    /// 이어 받기가 실패했다 — 목록 끝에 「다시 시도」 를 둔다. 저절로 다시 부르지 않는다.
+    @Published private(set) var moreContentsFailed = false
+    @Published private(set) var morePlacesFailed = false
+
     private var inFlight: Task<Void, Never>?
     private var lastQuery = ""
+
+    /// 지금 목록이 **무엇을 물은 결과인가** — 이어 받을 때 같은 조건에 `offset` 만 바꿔 보낸다.
+    private var contentKeyword: String?
+    private var placeScope = PlaceScope.keyword(nil)
+
+    private enum PlaceScope {
+        case keyword(String?)
+        case viewport(String)
+    }
+
+    /// 검색이 새로 걸릴 때마다 오른다. 이어 받던 응답이 그 뒤에 오면 버린다 — 옛 검색의 줄이 새 목록에 붙는다.
+    private var contentRun = 0
+    private var placeRun = 0
+
+    /// 첫 쪽이 새로 깔릴 때마다 오른다(검색·지도 범위). 화면이 이것으로 목록을 맨 위로 되돌린다 —
+    /// 앞 검색에서 내려가 있던 자리에 새 결과의 가운데가 보이면 안 된다.
+    @Published private(set) var listSerial = 0
 
     /// 검색어 하나로 두 탭을 채운다. 빈 문자열이면 전체를 받는다.
     /// `kind` 는 분석용 — 추천·자동완성에서 고른 갈래. 직접 쳤으면 없다.
@@ -32,18 +65,25 @@ final class SceneData: ObservableObject {
         lastQuery = query
         inFlight?.cancel()
         phase = .loading
+        let term = query.trimmingCharacters(in: .whitespaces)
+        let keyword: String? = term.isEmpty ? nil : term
+        resetContentPaging()
+        resetPlacePaging()
         inFlight = Task { [weak self] in
-            let term = query.trimmingCharacters(in: .whitespaces)
-            let keyword: String? = term.isEmpty ? nil : term
             do {
                 // 두 탭은 서로를 기다릴 이유가 없다.
-                async let works = ContentsAPI.listContents(q: keyword, limit: 100)
-                async let spots = PlacesAPI.listPlaces(q: keyword, limit: 200)
+                async let works = ContentsAPI.listContents(q: keyword, limit: PageSize.contents)
+                async let spots = PlacesAPI.listPlaces(q: keyword, limit: PageSize.places)
                 let (contentList, placeList) = try await (works, spots)
-                guard !Task.isCancelled else { return }
-                self?.contents = contentList.items
-                self?.places = placeList.items
-                self?.phase = .loaded
+                guard !Task.isCancelled, let self else { return }
+                contentKeyword = keyword
+                placeScope = .keyword(keyword)
+                contents = contentList.items
+                contentPaging = Paging().advanced(received: contentList.items.count, total: contentList.total)
+                places = placeList.items
+                placePaging = Paging().advanced(received: placeList.items.count, total: placeList.total)
+                listSerial += 1
+                phase = .loaded
             } catch is CancellationError {
                 return
             } catch {
@@ -67,15 +107,16 @@ final class SceneData: ObservableObject {
         lastQuery = ""
         inFlight?.cancel()
         phase = .loading
+        resetPlacePaging()
         inFlight = Task { [weak self] in
             do {
-                let spots = try await PlacesAPI.listPlaces(
-                    bbox: bbox,
-                    limit: 200
-                )
-                guard !Task.isCancelled else { return }
-                self?.places = spots.items
-                self?.phase = .loaded
+                let spots = try await PlacesAPI.listPlaces(bbox: bbox, limit: PageSize.places)
+                guard !Task.isCancelled, let self else { return }
+                placeScope = .viewport(bbox)
+                places = spots.items
+                placePaging = Paging().advanced(received: spots.items.count, total: spots.total)
+                listSerial += 1
+                phase = .loaded
             } catch is CancellationError {
                 return
             } catch {
@@ -83,6 +124,96 @@ final class SceneData: ObservableObject {
                 self?.phase = .failed(ApiFailure(error))
             }
         }
+    }
+
+    // MARK: 이어 받기 (MZ2AZ-372)
+
+    /// 작품 목록의 다음 쪽. 목록 끝이 보일 때 화면이 부른다 — 받는 중이거나 다 받았으면 아무 일도 없다.
+    func loadMoreContents() {
+        guard phase == .loaded, !loadingMoreContents, contentPaging.hasMore else { return }
+        loadingMoreContents = true
+        moreContentsFailed = false
+        let run = contentRun
+        let keyword = contentKeyword
+        let offset = contentPaging.offset
+        Task { [weak self] in
+            let fetch = await PageFetch.attempt {
+                try await ContentsAPI.listContents(q: keyword, limit: PageSize.contents, offset: offset)
+            }
+            guard let self, run == contentRun else { return }
+            loadingMoreContents = false
+            switch fetch {
+            case let .page(page):
+                contents = Paging.merged(contents, with: page.items, by: \.id)
+                contentPaging = contentPaging.advanced(received: page.items.count, total: page.total)
+            case .failed:
+                moreContentsFailed = true
+            case .cancelled:
+                break
+            }
+        }
+    }
+
+    /// 촬영지 목록의 다음 쪽 — 검색어든 지도 범위든 **처음 물은 조건 그대로** 이어 받는다.
+    /// 목록과 지도가 같은 배열을 쓰므로 받은 만큼 핀도 는다.
+    func loadMorePlaces() {
+        Task { await loadNextPlaces() }
+    }
+
+    /// 다음 쪽을 받고 **끝날 때까지 기다린다.** 한 쪽을 붙였으면 참 — 더 받을 것이 없거나, 못 받았거나,
+    /// 그 사이 새 검색이 걸렸으면 거짓이다. 분류 칩이 켜졌을 때 화면이 이것을 이어 불러 끝까지 받는다.
+    ///
+    /// 다른 곳에서 이미 받는 중이면(목록 끝줄이 부른 것) 그것이 끝나기를 기다렸다가 이어 간다 —
+    /// 같은 쪽을 두 번 받지 않는다.
+    @discardableResult
+    func loadNextPlaces() async -> Bool {
+        while loadingMorePlaces {
+            try? await Task.sleep(for: .milliseconds(80))
+            if Task.isCancelled {
+                return false
+            }
+        }
+        guard phase == .loaded, placePaging.hasMore else { return false }
+        loadingMorePlaces = true
+        morePlacesFailed = false
+        let run = placeRun
+        let offset = placePaging.offset
+        let scope = placeScope
+        let fetch = await PageFetch.attempt {
+            switch scope {
+            case let .keyword(keyword):
+                try await PlacesAPI.listPlaces(q: keyword, limit: PageSize.places, offset: offset)
+            case let .viewport(bbox):
+                try await PlacesAPI.listPlaces(bbox: bbox, limit: PageSize.places, offset: offset)
+            }
+        }
+        // 받는 사이 새 검색이 걸렸으면 버린다 — 옛 검색의 줄이 새 목록에 붙는다.
+        guard run == placeRun else { return false }
+        loadingMorePlaces = false
+        switch fetch {
+        case let .page(page):
+            places = Paging.merged(places, with: page.items, by: \.id)
+            placePaging = placePaging.advanced(received: page.items.count, total: page.total)
+            return !page.items.isEmpty
+        case .failed:
+            morePlacesFailed = true
+            return false
+        case .cancelled:
+            // 칩을 끄거나 화면을 떠나 그만둔 것이다 — 실패로 적지 않는다(`PageFetch`).
+            return false
+        }
+    }
+
+    private func resetContentPaging() {
+        contentRun += 1
+        loadingMoreContents = false
+        moreContentsFailed = false
+    }
+
+    private func resetPlacePaging() {
+        placeRun += 1
+        loadingMorePlaces = false
+        morePlacesFailed = false
     }
 
     /// §3-6 의 재시도. 마지막 검색어를 그대로 다시 보낸다.
@@ -184,39 +315,5 @@ struct ApiFailure: Equatable {
               let body = try? JSONDecoder().decode(ApiError.self, from: data)
         else { return nil }
         return body.traceId
-    }
-}
-
-// MARK: - 카테고리 칩
-
-/// `place.type` 을 칩 단위로 접는 임시 매핑.
-///
-/// **서버가 묶어 주면 걷어낸다.** 계약이 `PlaceSummary.type` 을 "수집된 장소 유형을
-/// 가공 없이" 자유 문자열로 내려주고 있어(현재 37 종) 클라이언트가 임시로 든다.
-/// 이 표가 iOS·Android 에 두 벌로 복제되는 것이 계획서 §4 가 지적한 문제이며,
-/// 권호와 상의할 항목으로 §6 남은것 #1 에 올라 있다.
-enum CategoryChip {
-    static let all = "전체"
-
-    static let groups: [(name: String, types: Set<String>)] = [
-        ("음식점·카페", ["음식점", "카페", "바", "편의점", "마트", "시장"]),
-        ("명소·자연", [
-            "명소", "자연", "공원", "해변", "항구", "전망대", "사찰", "성당", "고궁",
-            "한옥", "한옥마을", "마을", "테마파크", "체험시설", "캠핑장",
-        ]),
-        ("거리·다리", ["거리", "다리", "역/교통", "공항"]),
-        ("건물·시설", [
-            "건물", "호텔", "병원", "학교", "박물관/미술관", "서점", "상점", "백화점",
-            "쇼핑몰", "경기장", "스포츠시설", "예식장", "장례식장", "세트장", "관공서",
-        ]),
-    ]
-
-    static var names: [String] {
-        [all] + groups.map(\.name)
-    }
-
-    static func of(_ placeType: String?) -> String {
-        guard let placeType else { return "건물·시설" }
-        return groups.first { $0.types.contains(placeType) }?.name ?? "건물·시설"
     }
 }

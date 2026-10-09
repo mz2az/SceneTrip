@@ -285,7 +285,7 @@ extension RouteEditorView {
     /// 8/11 회의 2부 확정.
     var summary: some View {
         HStack(spacing: 6) {
-            Text("\(stops.count)곳")
+            Text(trCount("%lld곳", stops.count))
             Text("·")
             Text("직선 \(RouteFormat.kilometers(RouteGeometry.totalKilometers(stops)))")
             Spacer()

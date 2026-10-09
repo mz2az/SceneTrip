@@ -37,7 +37,7 @@ struct SearchTabView: View {
     /// 정하므로 suggest 응답의 첫 작품을 `GET /contents/{id}` 로 채운 것이다.
     @State private var topWork: ContentDetail?
     @State private var fitToken = 0
-    @State private var focusToken = 0
+    @State var focusToken = 0
 
     /// 검색을 확정했고 결과 도착을 기다리는 중 — 도착하면 그때 카메라를 맞춘다.
     ///
@@ -82,17 +82,22 @@ struct SearchTabView: View {
     /// **목록과 지도가 이것을 같이 쓴다** (§3-5 확정). 프로토타입은 칩이 목록만
     /// 좁히고 지도 핀은 검색 결과 전체를 유지했으나, 실제 숫자를 보고 뒤집었다 —
     /// 목록에 없는 핀이 남으면 그 핀을 눌렀을 때 목록에 없는 장소가 열린다.
-    private var visiblePlaces: [PlaceSummary] {
+    var visiblePlaces: [PlaceSummary] {
         let filtered = chip == CategoryChip.all
             ? data.places
             : data.places.filter { CategoryChip.of($0.type) == chip }
         // 첫 화면은 **인기 상위 10곳만** 본다. 155곳을 한꺼번에 보여 주면 목록도
         // 지도도 읽을 수 없다 — 무엇부터 봐야 할지가 사라진다.
-        return isInitial ? Array(filtered.prefix(10)) : filtered
+        return isInitial ? Array(filtered.prefix(Self.initialPlaceCount)) : filtered
     }
 
+    static let initialPlaceCount = 10
+
+    /// 칩을 켠 채 이어 받다 실패했을 때 「다시 시도」 가 올리는 값(`SearchTabList.fillForChip`).
+    @State var chipFillRetry = 0
+
     /// 아무것도 좁히지 않은 첫 화면인가 — 검색어도, 반경도, 고른 작품도 없는 상태.
-    private var isInitial: Bool {
+    var isInitial: Bool {
         committed.isEmpty && !nearby && selectedContent == nil
     }
 
@@ -246,6 +251,8 @@ struct SearchTabView: View {
                     focusToken += 1
                     return
                 }
+                // 받아 둔 첫 쪽에 없을 수 있다(흔한 이름이면 결과가 한 쪽을 넘는다) — 그 곳을 직접 받는다.
+                focusSuggestedPlace(id)
             }
             fitToken += 1
         }
@@ -309,86 +316,6 @@ struct SearchTabView: View {
         }
     }
 
-    private var listContent: some View {
-        VStack(spacing: 0) {
-            // 검색을 하고 들어온 목록이면 나가는 길을 준다.
-            //
-            // 화면은 초기목록 → 검색결과 → 작품상세 → 장소상세 로 쌓인다. 상세 둘은
-            // `<` 로 한 단계씩 나오는데 **검색결과에만 그것이 없어서**, 작품 상세에서
-            // `<` 를 눌러 여기까지 온 사용자가 더 나갈 자리를 못 찾았다. 검색바의
-            // ⊗ 로 지울 수는 있지만 방금 누른 것과 다른 자리라 이어지지 않는다.
-            //
-            // 그래서 **상세와 같은 헤더를 같은 자리에** 쓴다. 브라우저 뒤로가기처럼
-            // 한 번에 한 단계씩만 나온다 — 여기서 한 단계는 "검색 전" 이다.
-            if !committed.isEmpty {
-                DetailHeader(title: committed, subtitle: "") {
-                    draft = ""
-                    commit("")
-                }
-            }
-
-            // 첫 화면의 숫자는 **전체가 아니라 인기순으로 추린 것** 이다. 그냥
-            // "장소 10" 이라고만 두면 전국에 10곳뿐인 것으로 읽힌다.
-            Picker("", selection: $tab) {
-                ForEach(Tab.allCases, id: \.self) { each in
-                    Text(tabLabel(each)).tag(each)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 14)
-            .padding(.bottom, 8)
-
-            if tab == .place {
-                ChipRow(selected: $chip)
-            }
-
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    if tab == .work {
-                        ForEach(data.contents, id: \.id) { content in
-                            Button { open(content) } label: {
-                                WorkRow(
-                                    content: content,
-                                    onLike: { likes.toggle(content.id) },
-                                    liked: likes.contains(content.id)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            Divider().padding(.leading, 14)
-                        }
-                    } else {
-                        // 번호는 지도 핀과 같은 배열의 같은 순서다 — "3번 행 = 3번 핀".
-                        ForEach(Array(visiblePlaces.enumerated()), id: \.element.id) { index, place in
-                            Button {
-                                selectedPlace = place
-                                focusToken += 1
-                            } label: {
-                                PlaceRow(
-                                    place: place,
-                                    number: index + 1,
-                                    onAdd: { save(place) },
-                                    saved: cart.contains(place.id)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            Divider().padding(.leading, 14)
-                        }
-                    }
-                }
-                // **탭이 바뀌면 스택을 새로 만든다.** 작품 id 와 장소 id 는 같은 정수
-                // 공간(둘 다 1 부터)이라, 위 두 ForEach 가 같은 id 의 행을 낸다. LazyVStack
-                // 은 id 로 행을 재사용하므로 탭을 오가면 작품 목록에 장소 행(번호 핀)이
-                // 남아 섞였다(iOS 26 시뮬레이터 실측, 2026-09-01 — iOS 18 에서는 드러나지
-                // 않았다). 탭 전환 때 스크롤이 맨 위로 가는 것은 바라던 동작이다.
-                .id(tab)
-            }
-        }
-    }
-
-    private func count(_ tab: Tab) -> Int {
-        tab == .work ? data.contents.count : visiblePlaces.count
-    }
-
     // MARK: 동작
 
     /// 검색 확정 — 추천어 선택이나 엔터. 이때만 서버를 부른다 (§3-5). 글자마다
@@ -425,7 +352,7 @@ struct SearchTabView: View {
 
     /// 작품을 고르면 작품 상세로 들어간다. 검색어·검색 결과·탭은 **건드리지 않는다**
     /// — 뒤로 가면 고르기 전 화면 그대로다.
-    private func open(_ content: ContentSummary) {
+    func open(_ content: ContentSummary) {
         selectedContent = content
         contentPlaces = []
         contentLoading = true
@@ -444,7 +371,7 @@ struct SearchTabView: View {
 
     /// 담기 — 계약이 적어 둔 세 경로 중 목록 행의 `+`. 담는 순간 그 핀이 가운데
     /// 오게 지도를 **이동만** 한다. 확대는 장소를 열 때만 한다.
-    private func save(_ place: PlaceSummary) {
+    func save(_ place: PlaceSummary) {
         // 이미 담긴 장소면 **뺀다.** 목록 행의 버튼은 담기 전용이 아니라 토글이다.
         if cart.contains(place.id) {
             Task { await cart.remove(placeId: place.id) }
@@ -532,16 +459,21 @@ struct ChipRow: View {
 
 /// 타입 본문 길이(swiftlint 350줄) 때문에 여기 둔다 — 같은 파일의 확장은 private 에 닿는다.
 private extension SearchTabView {
-    /// 목록 탭의 글자 — 「인기 작품 12」·「장소 8」. `Tab` 의 rawValue 는 식별용이라 그대로 두고
-    /// 그리는 문구만 여기서 지금 언어로 만든다(MZ2AZ-343).
-    func tabLabel(_ each: Tab) -> String {
-        let format = switch (each, isInitial) {
-        case (.work, true): tr("인기 작품 %d")
-        case (.work, false): tr("작품 %d")
-        case (.place, true): tr("인기 장소 %d")
-        case (.place, false): tr("장소 %d")
+    /// 자동완성에서 고른 장소가 받아 둔 목록에 없을 때 — 그 곳의 상세를 받아 연다(MZ2AZ-372).
+    /// 못 받으면 결과 전체에 맞춘 화면 그대로 둔다.
+    func focusSuggestedPlace(_ id: Int64) {
+        Task {
+            guard let found = try? await data.detail(ofPlace: id),
+                  selectedPlace == nil, selectedContent == nil
+            else { return }
+            selectedPlace = PlaceSummary(
+                id: found.id, name: found.name, type: found.type, address: found.address,
+                latitude: found.latitude, longitude: found.longitude, imageUrl: found.imageUrl,
+                // 상세의 작품은 `scenes` 에 있다 — `contents` 는 서버가 비워 준다(`PlaceWorks`).
+                contents: PlaceWorks.refs(of: found)
+            )
+            focusToken += 1
         }
-        return String(format: format, count(each))
     }
 
     /// 홈이 남긴 「이 작품 열어 줘」 쪽지를 연다. 쪽지는 한 번 읽고 버린다.

@@ -230,6 +230,14 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
   ("직선을 긋고 있었다").
 - `RoutePlanner.swift` 를 만들어 로컬 LLM 이 AI 코스를 짜게 했다. 개수 버그(하루 상한을
   못 지킴)를 프롬프트와 최소 통과선(70%) 두 군데를 고쳐 잡았다.
+- **목록은 이어 받고, 수는 서버의 `total` 로 적는다** (MZ2AZ-372, 계획 `docs/project/plans/catalog-scale.md`): 「앞쪽 N건이
+  전부」 라고 가정하지 않는다. 작품 목록은 50편씩(`SceneData.loadMoreContents`), 촬영지는 200곳씩(`loadMorePlaces`) 목록 끝이
+  보일 때 받고, 규칙은 `Models/Paging`(순수 값)에 있다. 받아 둔 것이 전부가 아니면 「486곳 중 200곳」 이라고 적는다.
+  **받아 둔 목록에서 id 로 찾지 않는다** — 찜한 작품은 찜 목록(`LikeStore.works`)에서, 코스 줄의 작품은 그 곳의 상세에서
+  (`RouteStore.loadWorkTitles`), 코스 편집의 장소 검색은 서버에서(`RoutePlaceSearch`, 입력이 멎고 0.35초 뒤 한 번).
+- **촬영지 유형은 코드로 온다** (MZ2AZ-372): `cafe`·`store_daily` 같은 값을 화면에 그대로 찍지 않는다. 표시말(한국어·영어)과
+  분류 칩 묶음은 `Models/PlaceType` 한곳에 있고, 옛 한국어 라벨(「병원」)도 같은 표로 접는다. **표에 없는 값은 적지 않고**
+  (`PlaceType.label` 이 nil) 칩에서는 「기타」 다. 새 코드가 생기면 그 표에 한 줄을 더한다(`PlaceTypeTests`).
 - **화면 문구를 새로 넣을 때** (MZ2AZ-343): 한국어로 쓰고 `resources/en.lproj/Localizable.strings` 에 같은 한국어를 열쇠로
   영어를 적는다. `Text("…")` 처럼 글자를 바로 적는 자리는 그대로 번역되고, 문자열을 변수로 넘기거나 조립하면 `tr("…")` 로
   감싼다(`Models/AppLanguage.swift`). 숫자는 `String(format: tr("%d곳"), n)`. 같은 한국어가 자리마다 다른 영어여야 하면

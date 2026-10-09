@@ -27,14 +27,17 @@ struct ProfileTabView: View {
 
     @State private var courses: [CourseSummary] = []
     @State private var courseCount: Int?
-    /// 서버의 작품 전체. 찜 목록은 여기서 **그때그때 걸러 낸다** — 상태로 박아
-    /// 두면 하트를 새로 눌러도 다시 받기 전까지 목록이 낡는다(2026-08-28 버그).
-    @State private var allWorks: [ContentSummary] = []
     @State private var likesLoading = true
     @State private var likesFailure: String?
 
+    /// 찜한 작품 — **찜 목록 API 가 준 요약 그대로**(`LikeStore.works`, MZ2AZ-372).
+    ///
+    /// 전에는 작품 앞 100편을 받아 거기서 찜한 id 를 찾았다. 작품이 128편이 되자 찜한 셋이 그 100편
+    /// 밖이라 「찜한 작품 3」 인데 열면 비어 있었다. 「전부 받아 거기서 찾기」 는 전부가 한 번에 올 때만 맞다.
+    ///
+    /// 지금 켜진 하트(`contentIds`)로 한 번 거른다 — 하트를 끄면 다시 받기 전에도 줄이 바로 빠진다.
     private var likedWorks: [ContentSummary] {
-        allWorks.filter { likes.contentIds.contains($0.id) }
+        likes.likedWorks
     }
 
     @State private var cartItems: [CartItem] = []
@@ -94,7 +97,7 @@ struct ProfileTabView: View {
                         showingCart = true
                     } label: {
                         row(symbol: "bag.fill", tint: .orange, title: tr("장바구니"),
-                            value: String(format: tr("%d곳"), cartItems.count), chevron: true)
+                            value: trCount("%d곳", cartItems.count), chevron: true)
                     }
                     .buttonStyle(.plain)
                 }
@@ -324,24 +327,15 @@ struct ProfileTabView: View {
         // 개수는 기기 값이라 바로 3인데 목록만 비어 있던 이유).
         likesLoading = true
 
-        let worksTask = Task { () -> Result<[ContentSummary], Error> in
-            do {
-                return try await .success(ContentsAPI.listContents(limit: 100).items)
-            } catch {
-                return .failure(error)
-            }
-        }
+        let likesTask = Task { await likes.refresh() }
         let cartTask = Task { try? await CartAPI.getCart(xInstallId: installId) }
         let coursesTask = Task { try? await CoursesAPI.listCourses(xInstallId: installId) }
 
-        switch await worksTask.value {
-        case let .success(works):
-            allWorks = works
-            likesFailure = nil
-        case let .failure(error):
-            // 오류 원문을 그대로 보이지 않는다 — 서버 문장은 한국어이고 내부 정보가 섞인다 (MZ2AZ-345).
-            likesFailure = tr("찜한 작품을 불러오지 못했어요. 잠시 뒤 다시 해 주세요")
-        }
+        // 못 받았어도 앞서 받아 둔 목록이 있으면 그것을 보인다 — 찜은 있는데 목록이 빌 때만 「못 받음」 이다.
+        // 오류 원문을 그대로 보이지 않는다 — 서버 문장은 한국어이고 내부 정보가 섞인다 (MZ2AZ-345).
+        let reached = await likesTask.value
+        likesFailure = reached || !likes.works.isEmpty || likes.contentIds.isEmpty
+            ? nil : tr("찜한 작품을 불러오지 못했어요. 잠시 뒤 다시 해 주세요")
         likesLoading = false
 
         if let cart = await cartTask.value {

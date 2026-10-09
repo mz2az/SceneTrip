@@ -255,6 +255,8 @@ struct RouteEditorView: View {
         }
         // 도착 스탬프 — 화면 가운데 발바닥이 쾅.
         .overlay { stampOverlay }
+        // 작품 줄 — 받아 둔 촬영지 목록(인기 200곳)에 없는 곳은 여기서 물어 채운다(MZ2AZ-372).
+        .task(id: stops.map(\.place.id)) { await store.loadWorkTitles(for: stops) }
         .task {
             // 스탬프가 찍히면 코스 상태·서버에 「다녀옴」 — 목록이 흐려지고 핀이 발바닥이 된다.
             trip.onArrived = { markVisited($0) }
@@ -512,17 +514,17 @@ struct RouteEditorView: View {
         }
     }
 
-    /// 이 장소가 나온 작품. **서버가 코스 아이템에 안 실어 주므로** 촬영지 목록
-    /// (`RouteStore.places`)에서 `placeId` 로 되짚는다.
+    /// 이 장소가 나온 작품. **서버가 코스 아이템에 안 실어 주므로** `RouteStore` 가 따로 알아 온다
+    /// (`workTitles(ofPlace:)` — 받아 둔 목록에 없으면 그 곳의 상세를 묻는다, MZ2AZ-372).
     ///
     /// 둘까지만 적는다 — 셋을 넘기면 줄이 넘쳐 주소가 밀린다. 「외 2편」처럼 세는
     /// 것도 생각했지만 남은 것이 무엇인지 모르면 세어 봐야 쓸모가 없다.
     private func workTitles(for stop: RouteStop) -> String {
         // 직접 찍은 핀은 촬영지가 아니라 되짚을 것이 없다(id 가 음수다).
-        guard stop.place.id > 0,
-              let found = store.places.first(where: { $0.id == stop.place.id })
-        else { return "" }
-        let titles = (found.contents ?? []).map(\.title)
+        guard stop.place.id > 0 else { return "" }
+        // 방금 검색·장바구니에서 담은 곳은 작품을 이미 들고 있다.
+        let carried = (stop.place.contents ?? []).map(\.title)
+        let titles = carried.isEmpty ? store.workTitles(ofPlace: stop.place.id) : carried
         return titles.prefix(2).joined(separator: " · ")
     }
 

@@ -50,7 +50,7 @@ struct ContentDetailView: View {
 
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text("촬영지").font(.headline)
-                        Text("\(summary.placeCount)곳")
+                        Text(trCount("%lld곳", summary.placeCount))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 14)

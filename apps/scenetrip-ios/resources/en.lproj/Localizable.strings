@@ -501,3 +501,26 @@
 "이동 시간은 들어 있지 않아요. 여행 중에 구간마다 보여 드려요." = "Travel time isn't included. You'll see it leg by leg on your trip.";
 "장소별 머무는 시간을 고칩니다" = "Change how long you stay at each place";
 "%lld번 %@ 머무는 시간" = "Stay time at #%1$lld %2$@";
+
+/* 목록 규모 — 유형 칩·이어 받기·총수 (MZ2AZ-372) */
+"기타" = "Other";
+"검색된 작품이 없어요" = "No titles found";
+"검색된 장소가 없어요" = "No places found";
+"이 분류의 촬영지가 없어요" = "No filming spots in this category";
+"다른 분류를 누르거나 「전체」 로 돌아가 보세요" = "Try another category, or go back to All";
+"이 지도 안에는 촬영지가 없어요" = "No filming spots on this part of the map";
+"지도를 옮기거나 축소한 뒤 다시 검색해 보세요" = "Move the map or zoom out, then search again";
+"%2$d곳 중 %1$d곳을 보고 있어요" = "Showing %1$d of %2$d places";
+"지도를 확대하면 더 보여요" = "Zoom in to see more";
+"목록을 내리면 이어서 보여요" = "Scroll down to load more";
+"이 화면 다시 검색" = "Search this area again";
+"이 지도에서 %2$d곳 중 %1$d곳 · 해제" = "%1$d of %2$d spots here · Clear";
+"%d곳|하나" = "%d place";
+"%lld곳|하나" = "%lld place";
+"촬영지 %lld|하나" = "%lld location";
+"장바구니 %d곳|하나" = "Saved · %d place";
+"%@ · %lld곳|하나" = "%1$@ · %2$lld place";
+"이 분류를 %2$d곳 중 %1$d곳에서 찾았어요" = "Checked %1$d of %2$d places for this category";
+"나머지를 확인하는 중이에요" = "Checking the rest…";
+"나머지를 확인하지 못했어요" = "Couldn't check the rest";
+"내 여행을 불러오지 못했어요" = "Couldn't load your trip";

@@ -21,28 +21,19 @@ final class ClientRulesTests: XCTestCase {
         XCTAssertEqual(CategoryChip.of("호텔"), "건물·시설")
     }
 
-    /// 서버가 `place.type` 을 **자유 문자열 37 종**으로 내려주므로 표에 없는 값이
-    /// 언제든 온다 (계획서 §4). 버리지 않고 건물·시설로 떨어뜨린다 — 버리면 그 장소가
-    /// 어느 칩에서도 안 보인다.
+    /// 표에 없는 값이 언제든 온다(수집 원본의 분류가 그대로 남은 행). 버리지 않고 「기타」 로 묶는다 —
+    /// 버리면 그 장소가 어느 칩에서도 안 보인다. 전에는 「건물·시설」 로 떨어뜨렸는데, 「보증보험」·「피아노」 가
+    /// 건물은 아니다(MZ2AZ-372).
     func testUnknownTypeFallsBackInsteadOfDisappearing() {
-        XCTAssertEqual(CategoryChip.of("처음보는유형"), "건물·시설")
-        XCTAssertEqual(CategoryChip.of(nil), "건물·시설")
+        XCTAssertEqual(CategoryChip.of("처음보는유형"), "기타")
+        XCTAssertEqual(CategoryChip.of(nil), "기타")
     }
 
-    /// 칩 목록의 첫 항목은 "전체" 이고, 나머지는 매핑표 순서를 따른다.
+    /// 칩 목록의 첫 항목은 "전체" 이고, 나머지는 묶음 순서를 따른다 — 끝이 「기타」 다.
     func testChipNamesStartWithAll() {
         XCTAssertEqual(CategoryChip.names.first, CategoryChip.all)
-        XCTAssertEqual(CategoryChip.names.count, CategoryChip.groups.count + 1)
-    }
-
-    /// 한 유형이 두 칩에 동시에 들어가면 어느 칩에 걸릴지가 표 순서에 좌우된다.
-    func testChipGroupsDoNotOverlap() {
-        var seen = Set<String>()
-        for group in CategoryChip.groups {
-            for type in group.types {
-                XCTAssertTrue(seen.insert(type).inserted, "\(type) 이 두 칩에 있다")
-            }
-        }
+        XCTAssertEqual(CategoryChip.names.count, PlaceType.Group.allCases.count + 1)
+        XCTAssertEqual(CategoryChip.names.last, "기타")
     }
 
     // MARK: §3-6 오류 화면이 읽는 값

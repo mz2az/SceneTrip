@@ -27,7 +27,11 @@ struct HomeTabView: View {
                 HomeTripPager(
                     trips: model.trips,
                     hasCourses: !routes.courses.isEmpty,
-                    loading: model.loading && model.trips.isEmpty,
+                    // 코스가 있는지 모르는 동안은 「코스 만들기」 가 아니라 받는 중이다(`HomeTabModel.tripCard`).
+                    card: HomeTabModel.tripCard(
+                        hasTrip: !model.trips.isEmpty, courseList: routes.courseList,
+                        hasCourses: !routes.courses.isEmpty, tripsLoading: model.loading
+                    ),
                     // 코스 여행의 길찾기는 **그 코스의 편집 화면 안**에서 돈다(2026-09-03,
                     // 계획 trip-mode.md §8) — 별도 창을 띄우지 않고 코스를 열며 안내를 켠다.
                     onNavigate: { trip in
@@ -94,10 +98,22 @@ struct HomeTabView: View {
         }
     }
 
+    /// **서로 기다리지 않는다** (MZ2AZ-372). 전에는 `routes.refresh()`(코스 → 촬영지 200 → 작품 30, 차례로)와
+    /// 장바구니를 다 기다린 뒤에야 홈의 조회를 시작해서, 작품 조회 하나가 느리면 홈 전체가 그만큼 비어 있었다.
+    ///
+    /// 코스 카드는 코스 목록만 있으면 된다 — 목록이 오는 대로 그린다. 촬영지·작품(초안의 재료)은 홈이
+    /// 쓰지 않으므로 옆에서 받는다.
     private func reload() async {
-        await routes.refresh()
-        await cart.refresh()
-        await model.load(courses: routes.courses)
+        async let tripsJob: Void = reloadTrips()
+        async let restJob: Void = model.loadRest()
+        async let cartJob: Void = cart.refresh()
+        async let materialsJob: Void = routes.refreshMaterials()
+        _ = await (tripsJob, restJob, cartJob, materialsJob)
+    }
+
+    private func reloadTrips() async {
+        await routes.refreshCourses()
+        await model.loadTrips(courses: routes.courses)
     }
 }
 

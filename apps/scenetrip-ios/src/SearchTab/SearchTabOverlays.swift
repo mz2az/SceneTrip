@@ -101,31 +101,14 @@ extension SearchTabView {
                 chip = CategoryChip.all
                 data.search("")
             } else {
-                guard let box = camera.boundingBox else { return }
-                nearby = true
-                draft = ""
-                committed = ""
-                selectedPlace = nil
-                selectedContent = nil
-                contentPlaces = []
-                tab = .place
-                chip = CategoryChip.all
-                detent = .medium
-                // **카메라를 건드리지 않는다.** 이 기능은 "지금 보고 있는 이 화면
-                // 안" 을 묻는 것이라, 결과가 왔다고 지도를 옮기거나 확대하면
-                // 사용자가 물어본 그 화면이 사라진다. 그래서 fit 을 걸지 않는다.
-                data.searchInViewport(bbox: box)
+                searchViewport()
             }
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: nearby ? "xmark" : "arrow.clockwise")
                     .font(.footnote.weight(.semibold))
-                Text(
-                    nearby
-                        ? String(format: tr("이 지도에서 %d곳 · 해제"), data.places.count)
-                        : tr("현 지도 내 성지 검색")
-                )
-                .font(.subheadline.weight(.medium))
+                Text(nearby ? nearbyCountLabel : tr("현 지도 내 성지 검색"))
+                    .font(.subheadline.weight(.medium))
             }
             .foregroundStyle(nearby ? Color(.systemBackground) : Color.primary)
             .padding(.horizontal, 14)
@@ -136,5 +119,34 @@ extension SearchTabView {
                     .shadow(radius: 3, y: 1)
             )
         }
+    }
+
+    /// 지금 보이는 지도 범위로 촬영지를 (다시) 찾는다. 켜져 있을 때 또 부르면 **옮긴·확대한 화면으로** 다시 찾는다
+    /// — 받는 양에 상한(200)이 있어 넓은 화면에서는 일부만 오고, 좁히면 그 안의 것이 다 들어온다(MZ2AZ-372).
+    func searchViewport() {
+        guard let box = camera.boundingBox else { return }
+        nearby = true
+        draft = ""
+        committed = ""
+        selectedPlace = nil
+        selectedContent = nil
+        contentPlaces = []
+        tab = .place
+        chip = CategoryChip.all
+        detent = .medium
+        // **카메라를 건드리지 않는다.** 이 기능은 "지금 보고 있는 이 화면
+        // 안" 을 묻는 것이라, 결과가 왔다고 지도를 옮기거나 확대하면
+        // 사용자가 물어본 그 화면이 사라진다. 그래서 fit 을 걸지 않는다.
+        data.searchInViewport(bbox: box)
+    }
+
+    /// 켜진 단추의 글자. 받은 것이 전부면 「이 지도에서 12곳」, 상한에 걸려 일부면 「486곳 중 200곳」 —
+    /// 받은 줄 수만 적으면 이 화면에 그것뿐인 것으로 읽힌다(MZ2AZ-372).
+    private var nearbyCountLabel: String {
+        let loaded = data.places.count
+        let total = data.placePaging.shownTotal(loaded: loaded)
+        return loaded < total
+            ? String(format: tr("이 지도에서 %2$d곳 중 %1$d곳 · 해제"), loaded, total)
+            : String(format: tr("이 지도에서 %d곳 · 해제"), total)
     }
 }

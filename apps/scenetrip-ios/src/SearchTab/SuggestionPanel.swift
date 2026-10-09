@@ -140,13 +140,11 @@ struct SuggestionPanel: View {
         .joined(separator: " · ")
     }
 
-    /// 별칭으로 걸렸으면 그 표기를, 아니면 첫 별칭(영어 제목)을 배지로 보여 준다.
+    /// 별칭으로 걸렸으면 그 표기를, 아니면 로마자로 적힌 첫 별칭(영어 제목)을 배지로 보여 준다.
+    /// 첫 별칭을 그대로 쓰지 않는다 — 일본어·중국어 제목이 첫째인 작품이 있다(`AliasBadge`, MZ2AZ-372).
     private func alias(of work: ContentDetail) -> String? {
         let matched = suggestions.first { $0.type == .content && $0.id == work.id }
-        if let term = matched?.matchedTerm, term != work.title {
-            return term
-        }
-        return work.aliases?.first
+        return AliasBadge.pick(title: work.title, aliases: work.aliases ?? [], matched: matched?.matchedTerm)
     }
 
     /// `matchedTerm` 은 실제로 걸린 표기다 — 별칭으로 걸렸을 때만 이름과 다르므로

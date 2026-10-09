@@ -50,7 +50,8 @@ final class RouteStore: ObservableObject {
     private var likesWatch: AnyCancellable?
 
     init() {
-        likesWatch = LikeStore.shared.$contentIds.sink { [weak self] _ in
+        // 하트(`contentIds`)와 찜한 작품의 요약(`works`) 어느 쪽이 바뀌어도 다시 그린다.
+        likesWatch = LikeStore.shared.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }
     }
@@ -59,9 +60,53 @@ final class RouteStore: ObservableObject {
     ///
     /// 8/11 회의 확정. 이미 관심을 밝힌 작품을 인기 순위에 묻어 두면 사용자가 자기가
     /// 찜한 작품을 목록에서 다시 찾아야 한다.
+    ///
+    /// **찜한 작품은 찜 목록에서 가져온다**(`LikeStore.works`, MZ2AZ-372). 전에는 인기 상위 30편
+    /// (`works`) 안에서 찜한 것을 앞으로 옮기기만 해서, 그 30편 밖의 작품을 찜하면 여기에 아예 없었다.
     var sortedWorks: [ContentSummary] {
-        works.filter { favoriteWorkIds.contains($0.id) }
-            + works.filter { !favoriteWorkIds.contains($0.id) }
+        let liked = LikeStore.shared.likedWorks
+        let likedIds = Set(liked.map(\.id))
+        return liked + works.filter { !likedIds.contains($0.id) }
+    }
+
+    // MARK: 촬영지가 나온 작품
+
+    /// 촬영지 → 그곳이 나온 작품 제목. 코스 줄의 「어느 작품에 나온 곳인가」 에 쓴다.
+    ///
+    /// 계약의 코스 아이템에는 작품이 없어 따로 알아내야 한다. 전에는 받아 둔 촬영지 목록(`places`)에서
+    /// 찾았는데, 그 목록은 **인기 상위 200곳뿐**이라 촬영지가 486곳이 되자 그 밖의 곳은 작품 줄이 비었다
+    /// (MZ2AZ-372 — 「전부 받아 거기서 찾기」 와 같은 꼴). 이제 목록에 없는 곳은 그 곳의 상세를 받아 채운다.
+    ///
+    /// **열쇠가 있으면 답을 받은 것이다** — 값이 빈 배열이면 「작품이 정말 없다」 는 답이다. 못 받은 곳은
+    /// 열쇠가 없어 다음에 다시 묻는다(`PlaceWorks.toAsk`).
+    @Published private(set) var placeWorks: [Int64: [String]] = [:]
+    private var placeWorksAsking: Set<Int64> = []
+
+    func workTitles(ofPlace id: Int64) -> [String] {
+        if let known = placeWorks[id] {
+            return known
+        }
+        return (places.first { $0.id == id }?.contents ?? []).map(\.title)
+    }
+
+    /// 코스에 든 촬영지 가운데 아직 작품을 모르는 곳만 묻는다. 한 곳에 한 번이고, 한꺼번에 몰아 보내지 않는다.
+    ///
+    /// 작품은 상세의 **`scenes`** 에 있다 — 상세의 `contents` 는 서버가 비워 준다(`PlaceWorks`).
+    func loadWorkTitles(for stops: [RouteStop]) async {
+        let wanted = PlaceWorks.toAsk(
+            stops.map(\.place.id),
+            listed: Set(places.map(\.id)),
+            answered: Set(placeWorks.keys),
+            asking: placeWorksAsking
+        )
+        placeWorksAsking.formUnion(wanted)
+        for id in wanted {
+            // 못 받았으면 답을 적지 않는다 — 다음에 다시 묻는다.
+            if let detail = try? await PlacesAPI.getPlace(placeId: id) {
+                placeWorks[id] = PlaceWorks.titles(scenes: detail.scenes, contents: detail.contents)
+            }
+            placeWorksAsking.remove(id)
+        }
     }
 
     func isFavorite(_ workId: Int64) -> Bool {
@@ -78,20 +123,48 @@ final class RouteStore: ObservableObject {
 
     // MARK: 서버
 
-    /// 코스 목록을 받아온다. 탭이 뜰 때와 저장·삭제 뒤에 부른다.
+    /// 코스 목록을 **받아 봤는가** — 홈의 코스 카드가 이것으로 「받는 중」 과 「코스 없음」 을 가른다.
+    enum CourseListState: Equatable {
+        /// 아직 한 번도 답을 못 받았다. 코스가 있는지 모른다.
+        case unknown
+        /// 받았다 — `courses` 가 비었으면 정말 없는 것이다.
+        case loaded
+        /// 물었는데 못 받았다(그리고 전에 받아 둔 것도 없다). 여전히 있는지 모른다.
+        case failed
+    }
+
+    @Published private(set) var courseList = CourseListState.unknown
+
+    /// 코스 목록과 초안의 재료를 받아온다. 탭이 뜰 때와 저장·삭제 뒤에 부른다.
+    ///
+    /// 둘을 차례로 받고 **다 끝나야 돌아온다** — 경로 탭과 마법사가 그 완료에 기댄다. 코스 목록만
+    /// 급한 곳(홈의 코스 카드)은 `refreshCourses` 와 `refreshMaterials` 를 따로 부른다(MZ2AZ-372).
     func refresh() async {
+        await refreshCourses()
+        await refreshMaterials()
+    }
+
+    /// 코스 목록만. 재료(촬영지 200 · 작품 30)를 기다리지 않는다.
+    func refreshCourses() async {
         loading = courses.isEmpty
         defer { loading = false }
         do {
             let list = try await CoursesAPI.listCourses(xInstallId: installId)
             courses = list.items.map(RouteBridge.course(from:))
+            courseList = .loaded
             failure = nil
         } catch {
+            // 전에 받아 둔 목록이 있으면 그것이 화면에 남는다 — 「모른다」 로 되돌리지 않는다.
+            if courseList != .loaded {
+                courseList = .failed
+            }
             failure = ApiFailure(error)
         }
+    }
 
-        // 초안에 쓸 재료. 코스 목록과 따로 받는 이유는 **하나가 실패해도 다른 쪽은
-        // 살리기** 위해서다 — 장소를 못 받았다고 이미 만든 코스까지 안 보이면 안 된다.
+    /// 초안에 쓸 재료. 코스 목록과 따로 받는 이유는 **하나가 실패해도 다른 쪽은
+    /// 살리기** 위해서다 — 장소를 못 받았다고 이미 만든 코스까지 안 보이면 안 된다.
+    func refreshMaterials() async {
         do {
             if places.isEmpty {
                 // **넉넉히 받는다.** 60건만 받았더니 그 안에 도깨비 촬영지가 몰려 있어
@@ -256,7 +329,7 @@ final class RouteStore: ObservableObject {
         pace: RoutePace,
         near: (lat: Double, lng: Double)? = nil
     ) async -> Result<RouteCourse, RouteGuideFailure> {
-        var titles = works.filter { workIds.contains($0.id) }.map(\.title)
+        var titles = sortedWorks.filter { workIds.contains($0.id) }.map(\.title)
         if titles.isEmpty {
             titles = sortedWorks.prefix(3).map(\.title)
         }
@@ -284,7 +357,7 @@ final class RouteStore: ObservableObject {
 
     /// 코스 이름. 이름을 비워 두면 AI 가 작품 이름으로 지어 준다(목업 설계 메모).
     private func title(for workIds: Set<Int64>, span: RouteSpan) -> String {
-        let titles = works.filter { workIds.contains($0.id) }.map(\.title)
+        let titles = sortedWorks.filter { workIds.contains($0.id) }.map(\.title)
         guard let first = titles.first else { return String(format: tr("인기 촬영지 %@"), span.label) }
         let name = titles.count == 1 ? first : String(format: tr("%@ 외 %d"), first, titles.count - 1)
         return "\(name) \(span.label)"

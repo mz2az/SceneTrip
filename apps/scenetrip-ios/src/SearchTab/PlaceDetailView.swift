@@ -39,7 +39,8 @@ struct PlaceDetailView: View {
                         .frame(maxWidth: .infinity)
                         .clipShape(.rect(cornerRadius: 10))
 
-                    if let type = summary.type, !type.isEmpty {
+                    // 코드(`set`)를 그대로 적지 않는다 — 표에 없는 유형이면 배지가 없다(MZ2AZ-372).
+                    if let type = PlaceType.label(summary.type) {
                         Text(type)
                             .font(.caption)
                             .padding(.horizontal, 8).padding(.vertical, 4)
