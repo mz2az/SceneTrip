@@ -190,17 +190,12 @@ enum RouteGuide {
     /// ADR 0011 — 비공식 호출, 데모 한정). 밖에 내보내는 빌드에는 쓸 수 없어 걷어냈다
     /// (2026-10-05, MZ2AZ-354). 더 볼 것은 네이버 지도로 **넘긴다** — 가져오지 않는다. 갈 곳은 상세의
     /// `naverPlaceUrl`(그 가게의 장소 화면)이고, 없으면 버튼이 없다(`NaverMapLink`, MZ2AZ-374).
+    ///
+    /// **촬영지와 같은 곳인 편의시설은 촬영지 상세를 받는다**(`Place.target`, MZ2AZ-378) — 그곳은 촬영지가
+    /// 대표한다. 카드의 제목도 촬영지 이름이다.
     static func card(for place: Place) async -> Card? {
-        if let placeId = place.placeId {
-            guard let detail = try? await PlacesAPI.getPlace(placeId: placeId) else { return nil }
-            return Card(
-                category: detail.type ?? place.category,
-                address: detail.address ?? place.address,
-                phone: nil,
-                photos: PhotoGalleryRules.book(for: detail),
-                naverUrl: detail.naverPlaceUrl, // 촬영지는 전과 같다 — 우리가 가진 링크가 있을 때만.
-                rating: detail.rating
-            )
+        if case let .place(placeId) = place.target {
+            return await card(place: try? PlacesAPI.getPlace(placeId: placeId), listed: place)
         }
         // 상세를 못 받아도 카드는 뜬다 — 이름·분류·주소는 목록이 이미 줬다. 전화만 빠진다.
         let detail: PoiDetail? = if let poiId = place.poiId {
@@ -209,6 +204,32 @@ enum RouteGuide {
             nil
         }
         return card(poi: detail, listed: place)
+    }
+
+    /// 촬영지 카드 — **받은 상세(없을 수도 있다)와 목록이 준 것**으로 짓는다. 네트워크를 모르는 순수 함수다.
+    ///
+    /// 상세를 못 받았을 때: 촬영지는 카드가 없다(전과 같다 — 「정보를 불러오지 못했습니다」). **촬영지와 같은 곳인
+    /// 편의시설은 목록이 준 것으로 선다**(MZ2AZ-378) — 연결 전에는 그 점이 상세 없이도 카드가 서고 담을 수 있었다.
+    /// 그 카드에서 담아도 촬영지로 담긴다(`Place.courseEntry` — `placeId` 는 목록이 이미 줬다).
+    static func card(place detail: PlaceDetail?, listed place: Place) -> Card? {
+        let linked = place.linkedPlaceId != nil
+        guard let detail else {
+            return linked ? card(poi: nil, listed: place) : nil
+        }
+        return Card(
+            // 연결된 편의시설은 목록이 준 이름이 가게 이름(「몽테드」)이다 — 촬영지 이름으로 바꿔 적는다.
+            title: linked ? detail.name : nil,
+            // 촬영지 유형은 코드(`cafe`)로 온다. 연결된 편의시설은 방금까지 「카페」 로 보이던 점이라
+            // 표시말로 적고, 표에 없으면 편의시설의 분류를 둔다. 촬영지 카드는 전과 같다.
+            category: linked
+                ? PlaceType.label(detail.type) ?? place.label.category
+                : detail.type ?? place.category,
+            address: detail.address ?? place.address,
+            phone: nil,
+            photos: PhotoGalleryRules.book(for: detail),
+            naverUrl: detail.naverPlaceUrl, // 촬영지는 전과 같다 — 우리가 가진 링크가 있을 때만.
+            rating: detail.rating
+        )
     }
 
     /// 편의시설 카드 — **받은 상세(없을 수도 있다)와 목록이 준 것**으로 짓는다. 네트워크를 모르는 순수 함수다.
@@ -375,6 +396,11 @@ enum RouteGuide {
         /// 코스 촬영지를 옮긴 것은 거리도 기준도 없다.
         var distanceBasis: DistanceBasis?
 
+        /// **같은 곳인 촬영지**(`PoiSummary.placeId`, MZ2AZ-378). 편의시설에만 있고, 있으면 그곳은 촬영지가
+        /// 대표한다 — 누르면 촬영지 상세, 코스에는 촬영지로, 촬영지 핀이 그려져 있으면 이 점은 안 그린다
+        /// (`PlacePoiLink`). `id` 는 그대로 `poi-N` 이다 — 지도·목록이 고른 줄을 찾는 열쇠라서.
+        var linkedPlaceId: Int64?
+
         /// 화면에 적을 거리. **기준이 지도 중심이면 적지 않는다** — 계획 화면의 카드에 「88 m」 가 떴는데
         /// 내 위치에서도 코스 장소에서도 아닌 값이었다(2026-10-08 실기). 가이드의 것은 답과 함께 읽히므로 둔다.
         var shownMeters: Int? {
@@ -424,6 +450,7 @@ enum RouteGuide {
             longitude = poi.longitude
             group = poi.categoryGroup.rawValue
             source = .poi
+            linkedPlaceId = poi.placeId
             displayName = poi.displayName
             nameRoman = poi.nameRoman
             categoryLabel = poi.categoryLabel
@@ -442,6 +469,8 @@ enum RouteGuide {
             latitude = place.latitude
             longitude = place.longitude
             group = place.categoryGroup.rawValue
+            // 계약: `source: place` 에는 `placeId` 가 없다(`id` 가 곧 촬영지다). 와도 편의시설일 때만 읽는다.
+            linkedPlaceId = place.source == .poi ? place.placeId : nil
             // 가이드가 찾아 준 곳에는 새 칸이 없을 수 있다(계약) — 없으면 한국어 원본이 보인다.
             displayName = place.displayName
             nameRoman = place.nameRoman

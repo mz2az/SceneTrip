@@ -151,10 +151,18 @@ struct RouteEditorView: View {
     /// **코스에 이미 담긴 곳은 뺀다** — 담는 순간 그 자리는 번호 핀의 것이다.
     /// 안 빼면 같은 좌표에 챗봇 마커가 겹쳐 핀이 두 장으로 보인다(2026-08-28
     /// 사용자 발견).
+    ///
+    /// **촬영지와 같은 곳인 편의시설**은 그 촬영지가 코스에 있거나, 챗봇이 그 촬영지도 함께 찾아 줬으면
+    /// 뺀다 — 같은 곳에 핀이 둘이 된다(MZ2AZ-378).
     var visibleGuidePlaces: [RouteGuide.Place] {
-        let taken = takenSpotKeys
-        guard aiPlacesOn else { return [] }
-        return guide.places.filter { !taken.contains(RouteDedupe.key($0.asPlaceSummary)) }
+        aiPlacesOn ? guidePlacesForMap : []
+    }
+
+    /// 칩으로 거르기 전 — 「AI 장소 N」 칩이 세는 것과 지도에 그리는 것이 같은 목록이다.
+    var guidePlacesForMap: [RouteGuide.Place] {
+        guide.places
+            .filter { !isAdded($0) }
+            .withoutDotsUnderPins(Set(guide.places.compactMap(\.placeId)))
     }
 
     /// 고른 장소도 제 칩이 꺼져 있으면 지도에서 감춘다 — AI 장소는 해태 칩, 주변 점은 갈래 칩.
@@ -166,20 +174,19 @@ struct RouteEditorView: View {
     }
 
     /// 이 가이드 장소가 이미 코스(어느 일차든)에 들어 있는가. `RouteDedupe` 와
-    /// 같은 열쇠(이름+좌표)로 본다 — 담을 때 걸러지는 기준 그대로다.
+    /// 같은 열쇠(이름+좌표)로 본다 — 담을 때 걸러지는 기준 그대로다. 촬영지와 같은 곳인
+    /// 편의시설은 **그 촬영지가 담겨 있으면** 담긴 것이다(`PlacePoiLink.holds`, MZ2AZ-378).
     func isAdded(_ place: RouteGuide.Place) -> Bool {
-        let key = RouteDedupe.key(place.asPlaceSummary)
-        return course.days.contains { day in
-            day.stops.contains { RouteDedupe.key($0.place) == key }
+        course.days.contains { day in
+            day.stops.contains { place.isSameSpot(as: $0.place) }
         }
     }
 
     /// 카드의 체크를 한 번 더 눌렀다 — **모든 일차에서** 뺀다. 담을 때와 같은
     /// 열쇠로 지우므로, 담은 것과 다른 것이 지워질 일은 없다.
     func removeGuidePlace(_ place: RouteGuide.Place) {
-        let key = RouteDedupe.key(place.asPlaceSummary)
         for index in course.days.indices {
-            course.days[index].stops.removeAll { RouteDedupe.key($0.place) == key }
+            course.days[index].stops.removeAll { place.isSameSpot(as: $0.place) }
         }
         fitToken += 1
     }
@@ -238,7 +245,7 @@ struct RouteEditorView: View {
                     RoutePlaceCard(
                         place: picked,
                         onAdd: {
-                            add([picked.asPlaceSummary], pinned: true, asNext: true)
+                            addGuidePlace(picked)
                             guide.picked = nil // 담았으면 카드는 할 일을 다 했다
                         },
                         added: isAdded(picked),
@@ -316,7 +323,7 @@ struct RouteEditorView: View {
                 session: guide,
                 here: guideHere,
                 context: guideContext,
-                onAdd: { add([$0], pinned: true, asNext: true) },
+                onAdd: addGuidePlace,
                 isAdded: isAdded,
                 onRemove: removeGuidePlace,
                 onOpenPlanner: leaveForPlanner,

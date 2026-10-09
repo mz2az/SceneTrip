@@ -30,8 +30,9 @@ struct RouteGuideSheet: View {
     /// 코스에 담긴 지점. 모델이 「2번 주변」을 알아듣는 재료다.
     var context: RouteGuide.Context?
 
-    /// 장소를 코스에 담는다. 촬영지가 아니라 편의시설이므로 **직접 찍은 핀**으로 넣는다.
-    var onAdd: (PlaceSummary) -> Void = { _ in }
+    /// 장소를 코스에 담는다. 무엇으로 담을지는 띄운 쪽이 정한다 — 촬영지와 같은 곳인 편의시설은
+    /// 촬영지로, 그 밖은 **직접 찍은 핀**으로(`RouteGuide.Place.courseEntry`, MZ2AZ-378).
+    var onAdd: (RouteGuide.Place) -> Void = { _ in }
 
     /// 이미 코스에 있는가. 있으면 ⊕ 대신 체크가 뜬다 — 두 번 담기지 않는다.
     var isAdded: (RouteGuide.Place) -> Bool = { _ in false }
@@ -236,7 +237,7 @@ struct RouteGuideSheet: View {
                         if isPicked {
                             RoutePlaceCard(
                                 place: place,
-                                onAdd: { onAdd(place.asPlaceSummary) },
+                                onAdd: { onAdd(place) },
                                 added: isAdded(place),
                                 onRemove: { onRemove(place) },
                                 onReroute: onReroute.map { fire in { fire(place) } },
@@ -308,7 +309,7 @@ struct RouteGuideSheet: View {
                 .buttonStyle(.plain)
             } else {
                 Button {
-                    onAdd(place.asPlaceSummary)
+                    onAdd(place)
                 } label: {
                     Image(systemName: "plus.circle")
                         .font(.footnote).foregroundStyle(Color.accentColor)
@@ -402,7 +403,8 @@ struct RouteGuideSheet: View {
 }
 
 extension RouteGuide.Place {
-    /// 코스에 담을 수 있는 모양으로 바꾼다.
+    /// **개인 핀** 모양으로 바꾼다 — 코스에 담을 때와, 같은 곳인지 견줄 열쇠(`RouteDedupe.key`)에 쓴다.
+    /// 촬영지와 같은 곳인 편의시설은 핀이 아니라 촬영지로 담긴다 — 담을 때는 `courseEntry` 를 쓴다(MZ2AZ-378).
     ///
     /// **촬영지가 아니라 편의시설이다.** 우리 `place` 표에 없으므로 서버에 `placeId`
     /// 로 보낼 수 없다 — 지도에 직접 찍은 핀과 같은 길로 들어간다(음수 id).
