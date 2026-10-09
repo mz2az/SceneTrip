@@ -8,6 +8,7 @@ py_library(
         "juso_api.py",
         "names.py",
         "pack.py",
+        "tourapi.py",
     ],
     data = glob(["data/*.tsv"]),
 )
@@ -27,6 +28,13 @@ py_binary(
     main = "pack.py",
 )
 
+# `just poi-tourapi` — 관광공사 상세 4종을 키 여러 개로 나눠 받는다(네트워크를 쓰는 도구라 시험은 가짜 호출로).
+py_binary(
+    name = "tourapi",
+    srcs = ["tourapi.py"],
+    main = "tourapi.py",
+)
+
 py_test(
     name = "unit_test",
     srcs = [
@@ -40,6 +48,7 @@ py_test(
         "tests/test_pack.py",
         "tests/test_poi.py",
         "tests/test_spec.py",
+        "tests/test_tourapi.py",
     ],
     main = "tests/test_poi.py",
     tags = ["unit"],

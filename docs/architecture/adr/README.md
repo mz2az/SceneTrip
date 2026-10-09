@@ -26,8 +26,8 @@ just adr-list
 
 `template.md` 가 `just adr-new` 가 렌더링하는 시작점이다.
 
-최근 결정: [0021 — 편의시설 네이버 링크는 장소 번호로, 링크용 검색만 비공식으로 되살린다](0021-poi-naver-link-by-place-id-lookup.md),
+최근 결정: [0022 — 편의시설은 출처 번호를 여럿 갖고 지우지 않는다, 영업 여부는 상가정보가 판단](0022-poi-multiple-source-ids-and-never-delete.md),
+[0021 — 편의시설 네이버 링크는 장소 번호로, 링크용 검색만 비공식으로 되살린다](0021-poi-naver-link-by-place-id-lookup.md),
 [0020 — 편의시설 카드는 공공데이터와 네이버 지도 링크로, 비공식 호출을 내린다](0020-poi-card-public-data-and-naver-link.md),
 [0019 — DEV API 를 인터넷 전체에 연다](0019-dev-api-is-public.md),
-[0018 — 로그인은 구글·애플 소셜 로그인과 JWT](0018-social-login-with-jwt.md),
-[0017 — 환경 올리기·내리기 workflow와 Cloudflare DNS](0017-dev-lifecycle-and-cloudflare-dns.md).
+[0018 — 로그인은 구글·애플 소셜 로그인과 JWT](0018-social-login-with-jwt.md).

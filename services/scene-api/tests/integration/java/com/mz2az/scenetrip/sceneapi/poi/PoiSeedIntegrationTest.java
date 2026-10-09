@@ -66,7 +66,7 @@ class PoiSeedIntegrationTest {
   }
 
   @Test
-  @DisplayName("여행 앱에 보일 일이 없는 분류(유흥 주점 둘·구내식당·고시원)는 들어오지 않는다")
+  @DisplayName("여행 앱에 보일 일이 없는 분류(유흥 주점 둘·구내식당·고시원)는 들어오지 않고, 이미 있던 것은 지우지 않고 숨긴다")
   void excludedCategoriesAreDropped() {
     assertThat(
             count(
@@ -75,9 +75,9 @@ class PoiSeedIntegrationTest {
         .isZero();
     assertThat(
             count(
-                "SELECT count(*) FROM poi WHERE category IN"
+                "SELECT count(*) FROM poi WHERE closed_at IS NULL AND category IN"
                     + " ('일반 유흥 주점', '무도 유흥 주점', '구내식당', '기숙사/고시원')"))
-        .as("표본만이 아니라 표 전체에서")
+        .as("표본만이 아니라 표 전체에서 — 열린 POI 중에는 없다(닫힌 채 남는 건 된다)")
         .isZero();
   }
 

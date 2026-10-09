@@ -182,17 +182,18 @@ just seed-poi --update ~/Downloads/SceneTrip_POI_<새 판>/out/poi_*.jsonl
 | --- | --- | --- |
 | 기본 | 그대로 둔다 | 같은 판을 다시 넣을 때, 일부 파일만 고쳐 넣을 때 |
 | `--update` | 같은 가게면 잇고, 아니면 폐업 표시 | **분기 갱신** |
-| `--prune` | 지운다(붙은 번역·사진도) | 출처를 통째로 바꿀 때만 |
 
 **제외 분류 넷은 넣지 않는다**(2026-10-05) — `일반 유흥 주점` · `무도 유흥 주점` · `구내식당` ·
 `기숙사/고시원`. 큰 갈래는 허용목록 안이지만 여행 앱에 보일 일이 없다. 상권 소분류(`category`)로
-거르고, 이미 들어 있는 행은 `--prune` 없이도 적재 때 지운다. 근거는
+거르고, 이미 들어 있는 행은 적재 때 숨긴다(`closed_at` — 지우지 않는다). 근거는
 [poi-i18n-image.md](../../../docs/project/plans/poi-i18n-image.md) §7.
 
-**지우지 않는다 — 기본은.** 성지 시드처럼 `TRUNCATE` 가 없다. 출처가 준 `source_id` 가
+**POI 는 지우지 않는다.** 성지 시드처럼 `TRUNCATE` 가 없다. 출처가 준 `source_id` 가
 자연키라 `ON CONFLICT` 로 UPSERT 한다 — 있는 행은 갱신, 없는 행은 추가, 바뀐 것이
-없으면 건드리지 않는다. 몇 번을 돌려도 안전하다. **출처를 통째로 바꿀 때만 `--prune`** —
-이번 입력에 없는 `source_id` 를 지운다(TMAP → 공공데이터 때 썼다). 표본과 함께는 막는다.
+없으면 건드리지 않는다. 몇 번을 돌려도 안전하다. 리뷰·코스 항목·번역·사진이 POI 를
+`ON DELETE CASCADE` 로 참조해, 지우면 함께 사라진다 — 보이지 않아야 할 POI 는 `closed_at` 으로 숨긴다
+([ADR 0022](../../../docs/architecture/adr/0022-poi-multiple-source-ids-and-never-delete.md)).
+TMAP → 공공데이터 출처 교체(2026-09-09)에 쓰던 `--prune`(입력에 없는 행 지우기)은 없앴다 — 주면 멈춘다.
 
 **읽는 칸.** `id` `name` `lat` `lng` `kind` `biz_middle` `addr` `road` `tel` `region`
 `city`. 세부 종류는 `COALESCE(kind, biz_lower)`. `src`(원본 전 칸)는 읽지 않는다 — 관광공사

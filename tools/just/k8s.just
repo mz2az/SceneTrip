@@ -232,7 +232,7 @@ place-poi-link *flags:
 #   just seed-poi "~/Downloads/압축 poi 2/허용목록만/"poi_{food,stay,sight,transit}.jsonl.gz
 #
 # 지우지 않는다 — source_id 로 UPSERT 라 다시 돌려도 안전하고, 좌표가 바뀐 판은 갱신된다.
-# 분기 갱신은 --update(같은 가게 잇기·폐업 표시), 출처를 통째로 바꿀 때만 --prune. 둘은 함께 쓰지 않는다.
+# 분기 갱신은 --update(같은 가게 잇기·폐업 표시). POI 는 지우지 않는다 — 옛 --prune 은 없앴다(ADR 0022).
 #   just seed-poi --update ~/Downloads/SceneTrip_POI_<새 판>/out/poi_*.jsonl
 #
 # POI(편의시설) 적재 — 인자 없으면 저장소 표본 31 행, 분기 갱신은 --update
@@ -259,6 +259,12 @@ poi-en poi_dir eng_zip store_zip out_dir:
 [group('db')]
 poi-pack poi_dir out_dir edition:
     {{BAZEL}} run //tools/poi:pack -- "{{ poi_dir }}" "{{ out_dir }}" "{{ edition }}"
+
+# 관광공사 TourAPI 상세를 받는다 — 서울·경기 먼저, 키는 환경변수 이름으로(TOURAPI_KEY_VARS 로 바꾼다) (tools/poi/README.md)
+# 예: `just poi-tourapi ~/SceneTrip-data/SceneTrip_POI` · `just poi-tourapi ~/SceneTrip-data/SceneTrip_POI Kor`
+[group('db')]
+poi-tourapi data_dir *langs:
+    {{BAZEL}} run //tools/poi:tourapi -- "{{ data_dir }}" --keys "${TOURAPI_KEY_VARS:-DATA_GO_KR_KEY,DATA_GO_KEY_GIL,DATA_GO_KEY_TAE}" {{ langs }}
 
 # 묶은 판을 GitHub Release `poi-data-<판>` 으로 올린다 — 공개 Release 다. 같은 판은 덮지 않는다
 [group('db')]

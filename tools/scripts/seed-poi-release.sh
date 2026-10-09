@@ -17,7 +17,7 @@ cd "$REPO_ROOT" || die "$REPO_ROOT 로 이동할 수 없습니다"
 EDITION="${1:-}"
 shift || true
 [ -n "$EDITION" ] || die "사용법: just seed-poi-release <판> [--update]   예: just seed-poi-release 2026-06"
-# --update 만 넘긴다. --prune 은 입력에 없는 POI 를 지운다 — 받은 판으로 할 일이 아니다.
+# --update 만 넘긴다. POI 를 지우는 옵션은 없다(ADR 0022).
 for flag in "$@"; do
   [ "$flag" = "--update" ] || die "모르는 옵션: $flag — --update 만 받습니다"
 done

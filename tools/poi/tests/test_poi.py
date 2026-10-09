@@ -47,6 +47,15 @@ from tools.poi.tests.test_spec import (
     SpecRoadRefs,
     SpecStoreKeys,
 )
+from tools.poi.tests.test_tourapi import (
+    TourConstants,
+    TourFetchOne,
+    TourItemsOf,
+    TourKeyRing,
+    TourMain,
+    TourOrder,
+    TourRun,
+)
 
 __all__ = [
     "Accept",
@@ -83,6 +92,13 @@ __all__ = [
     "SpecRomanizeStandard",
     "SpecStoreKeys",
     "StoreKeys",
+    "TourConstants",
+    "TourFetchOne",
+    "TourItemsOf",
+    "TourKeyRing",
+    "TourMain",
+    "TourOrder",
+    "TourRun",
 ]
 
 if __name__ == "__main__":
