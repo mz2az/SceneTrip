@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.7.0
+  version: 1.8.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -1889,6 +1889,10 @@ paths:
         기준으로 동선을 짰다면 남는 순서가 어색해 보일 수 있는데 올린 사람은 그것을
         모른다.
 
+        **편의시설(`source: poi`)도 지금은 빠진다**(1.8.0). 사본의 `MarketItem.placeId` 가 필수라 편의시설을 실을 자리가
+        없고, 그 자리를 선택으로 바꾸는 것은 파괴적 변경이라 다음 메이저에서 한다. 1.7.0 까지 편의시설은 개인 핀으로
+        저장돼 어차피 빠졌으므로 사용자가 보기에 달라지지 않는다.
+
         핀만 있던 일차는 사본에서 비어 있게 되고, 그래도 기간은 그대로 유지된다.
 
         **가입 사용자만 올릴 수 있다.** 비회원이 올린 뒤 앱을 지우면 그 코스를 아무도
@@ -3694,8 +3698,13 @@ components:
 
     CourseItemSource:
       type: string
-      enum: [place, customPin]
-      description: 등록된 촬영지인가, 사용자가 지도에 직접 찍은 핀인가.
+      enum: [place, poi, customPin]
+      description: |
+        등록된 촬영지(`place`)인가, 편의시설(`poi`)인가, 사용자가 지도에 직접 찍은 핀(`customPin`)인가.
+
+        **`poi` 는 1.8.0 에 더해졌다.** 1.7.0 이하의 생성 클라이언트는 이 값을 디코딩하지 못한다. 그래서 서버는
+        `CourseItemInput.poiId` 를 받았을 때만 편의시설 항목을 만든다 — 낡은 앱(편의시설을 개인 핀으로 저장한다)만 쓰는
+        사용자의 코스에는 생기지 않는다(계획 course-poi-item.md §3).
 
     CourseCreate:
       type: object
@@ -3839,6 +3848,14 @@ components:
           description: |
             등록된 촬영지일 때만 있다. 직접 찍은 핀에는 없다 — 그 핀은 `place` 에 들어가지
             않아 촬영지 상세로 갈 수 없다.
+        poiId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            편의시설일 때만 있다(`source: poi`). 상세는 `GET /pois/{poiId}`. 이름·주소·분류·사진은 저장할 때의 사본이
+            아니라 **지금의 편의시설 자료**다 — 편의시설이 갱신되면 코스에도 반영된다. 폐업한 편의시설이어도 항목은 남는다
+            (상세는 404).
         customPinId:
           type: integer
           format: int64
@@ -3852,13 +3869,13 @@ components:
         address:
           type: string
           nullable: true
-          description: 등록된 촬영지만 있다. 직접 찍은 핀은 주소를 받지 않는다.
+          description: 등록된 촬영지와 편의시설만 있다. 직접 찍은 핀은 주소를 받지 않는다.
         category:
           type: string
           nullable: true
           description: |
-            등록된 촬영지는 수집된 유형 문자열, 직접 찍은 핀은 `PinCategory` 값이다.
-            둘의 값 범위가 다르므로 하나로 묶어 필터에 쓰지 않는다.
+            등록된 촬영지는 수집된 유형 문자열, 편의시설은 분류(`PoiSummary.category`, 「카페」), 직접 찍은 핀은
+            `PinCategory` 값이다. 셋의 값 범위가 다르므로 하나로 묶어 필터에 쓰지 않는다.
         latitude:
           type: number
           format: double
@@ -3946,8 +3963,11 @@ components:
     CourseItemInput:
       type: object
       description: |
-        `placeId` 와 `customPin` 중 **정확히 하나**를 보낸다. 둘 다이거나 둘 다 없으면
+        `placeId` · `poiId` · `customPin` 중 **정확히 하나**를 보낸다. 둘 이상이거나 하나도 없으면
         `400` 이다. OpenAPI 로는 이 조건을 표현할 방법이 마땅치 않아 서버가 검사한다.
+
+        편의시설은 `poiId` 로 담는다 — 개인 핀으로 담지 않는다(1.8.0). 촬영지와 같은 곳인 편의시설(`PoiSummary.placeId`)은
+        `placeId` 로 담는다. `poiId` 로 보내도 서버가 촬영지로 저장하고 응답의 항목은 `source: place` 다.
       properties:
         id:
           type: integer
@@ -3960,6 +3980,12 @@ components:
           format: int64
           description: |
             등록된 촬영지. 장바구니에서 꺼내든 검색으로 찾든 같은 값이다.
+        poiId:
+          type: integer
+          format: int64
+          description: |
+            편의시설(`PoiSummary.id`, 1.8.0). 없거나 폐업한 편의시설이면 `400 POI_NOT_FOUND`. 이미 담겨 있던 폐업한
+            편의시설 항목은 `id` 를 보내 그대로 둘 수 있다.
         customPin:
           $ref: "#/components/schemas/CustomPinInput"
         dwellMinutes:
@@ -3970,7 +3996,7 @@ components:
             머무는 시간(분).
 
             **비우면 서버가 장소 유형에 맞는 기본값을 채운다** — 고궁 90, 카페 40,
-            다리 15 처럼 다르고 모르는 유형은 60 이다. 프론트가 그 표를 들고 있을 필요가
+            다리 15 처럼 다르고 모르는 유형은 60 이다. 편의시설은 갈래별(음식·명소 60, 숙박 30, 교통 15). 프론트가 그 표를 들고 있을 필요가
             없다. 값이 필요하면 담은 뒤 응답의 `CourseItem.dwellMinutes` 를 보면 된다.
 
             사용자가 슬라이더를 만졌으면 그 값을 보낸다. 이미 담긴 장소를 옮기기만 할

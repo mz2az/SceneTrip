@@ -28,6 +28,7 @@
 | [rate-limit.md](./rate-limit.md) | 요청 한도 — 계정별 제한, 유료 API(챗봇·길찾기) 하루 한도, 챗봇 멱등 키, 요금제별 설정 (MZ2AZ-334) |
 | [review-app.md](./review-app.md) | 리뷰·별점·사진첩·닉네임 — 앱 화면. 한 벌의 리뷰 시트를 세 곳에서, PR 다섯으로 (MZ2AZ-363) |
 | [place-poi-link.md](./place-poi-link.md) | 촬영지 ↔ 편의시설 같은 곳 연결 — 거리·이름·주소로 판정, 어디서든 촬영지가 대표(상세·리뷰·코스), 지도에 `placeId` (MZ2AZ-371) |
+| [course-poi-item.md](./course-poi-item.md) | 코스에 편의시설을 편의시설로 담는다 — `course_item.poi_id`, 같은 곳이면 촬영지로, 마켓 사본에서는 빠짐, 낡은 앱 보호 (MZ2AZ-377) |
 
 ## 언제 여기에 쓰는가
 
