@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.6.0
+  version: 1.7.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -1139,6 +1139,9 @@ paths:
       operationId: listPoiReviews
       summary: 편의시설 리뷰 목록과 별점 요약
       description: |
+        **`placeId` 가 있는 편의시설(촬영지와 같은 곳)이면 그 촬영지의 리뷰로 처리한다** — `GET /places/{placeId}/…` 와 같은
+        결과이고, 쓰기는 촬영지 리뷰로 저장된다.
+
         누구나 볼 수 있다. 요약(`summary`)은 **단순 평균**과 리뷰 수·점수 분포다 — 화면의 「★4.6 · 리뷰 128」.
         운영자가 내린 리뷰는 목록과 요약 모두에서 빠진다. 작성자가 탈퇴한 리뷰는 남고 `author` 가 null 이다
         (「탈퇴한 사용자」).
@@ -1174,7 +1177,7 @@ paths:
       tags: [reviews]
       operationId: getMyPoiReview
       summary: 이 편의시설에 내가 쓴 리뷰
-      description: 쓰기 화면을 채운다. 쓴 적이 없으면 `404 REVIEW_NOT_FOUND` — 빈 쓰기 화면을 연다.
+      description: 쓰기 화면을 채운다. 쓴 적이 없으면 `404 REVIEW_NOT_FOUND` — 빈 쓰기 화면을 연다. `placeId` 가 있으면 그 촬영지에 쓴 리뷰다.
       security:
         - bearerAuth: []
       parameters:
@@ -1197,6 +1200,9 @@ paths:
       operationId: putMyPoiReview
       summary: 이 편의시설에 리뷰 쓰기·고치기
       description: |
+        **`placeId` 가 있는 편의시설(촬영지와 같은 곳)이면 그 촬영지의 리뷰로 처리한다** — `GET /places/{placeId}/…` 와 같은
+        결과이고, 쓰기는 촬영지 리뷰로 저장된다.
+
         **가입한 사용자만**(`401 SIGN_IN_REQUIRED`). 한 사람이 한 곳에 리뷰 하나다 — 이미 있으면
         고친다. 보낸 것이 전부다(PUT 전체 교체): 사진 목록도 보낸 순서 그대로 바뀌고, 빠진 사진은 리뷰에서
         떨어진다.
@@ -1236,7 +1242,7 @@ paths:
       tags: [reviews]
       operationId: deleteMyPoiReview
       summary: 이 편의시설의 내 리뷰 지우기
-      description: 사진도 함께 지운다. 쓴 적이 없어도 `204` 다.
+      description: 사진도 함께 지운다. 쓴 적이 없어도 `204` 다. `placeId` 가 있으면 그 촬영지에 쓴 리뷰를 지운다.
       security:
         - bearerAuth: []
       parameters:
@@ -1257,6 +1263,9 @@ paths:
       operationId: listPoiPhotos
       summary: 편의시설 사진첩 전체
       description: |
+        **`placeId` 가 있는 편의시설(촬영지와 같은 곳)이면 그 촬영지의 리뷰로 처리한다** — `GET /places/{placeId}/…` 와 같은
+        결과이고, 쓰기는 촬영지 리뷰로 저장된다.
+
         상세의 `photos`(앞 20 장)를 넘어선 나머지까지. 순서는 상세와 같다 — **우리 사진 먼저, 그 뒤
         리뷰 사진**(최신 리뷰부터, 리뷰 안에서는 올린 순서). 「사진 전체 보기」 가 부른다.
       parameters:
@@ -3314,6 +3323,19 @@ components:
         id:
           type: integer
           format: int64
+        placeId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            **같은 곳인 촬영지**(`PlaceSummary.id`). 촬영지와 같은 가게·명소이면 있다 — 그곳은 촬영지가 대표한다.
+            있으면 앱은
+            - 누를 때 **촬영지 상세**(`GET /places/{placeId}`)를 연다,
+            - 코스에 **촬영지로** 담는다(`CourseItemInput.placeId`),
+            - 촬영지 핀과 함께 그리는 지도에서는 이 점을 그리지 않는다.
+            이 편의시설의 리뷰·별점·사진첩은 그 촬영지의 것이다(편의시설 리뷰 창구로 와도 촬영지로 처리한다).
+            편의시설 목록에서 빠지지는 않는다 — 편의시설 갈래만 보는 사람에게도 보여야 한다.
+          example: 45
         name:
           type: string
           description: |
@@ -4881,7 +4903,8 @@ components:
       enum: [place, poi]
       description: |
         `place` — 촬영지. `id` 는 `PlaceSummary.id`, 상세는 `GET /places/{id}`.
-        `poi` — 편의시설. `id` 는 `PoiSummary.id`, 상세는 `GET /pois/{id}`.
+        `poi` — 편의시설. `id` 는 `PoiSummary.id`, 상세는 `GET /pois/{id}`. `placeId` 가 있으면 촬영지와 같은 곳이다 —
+        상세는 `GET /places/{placeId}`, 담기는 촬영지로. `source: place` 에는 `placeId` 가 없다(`id` 가 곧 촬영지다).
 
     GuideToolUse:
       type: object
