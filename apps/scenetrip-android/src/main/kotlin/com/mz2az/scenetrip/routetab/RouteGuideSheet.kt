@@ -78,8 +78,7 @@ import kotlin.math.roundToInt
 
 /**
  * 화면 오른쪽 아래에 늘 떠 있는 해태 "내가 도와줄게!" — 가이드 챗봇의 입구.
- * iOS `RouteGuideFloatingChip`/`RouteGuideChipBody`를 옮긴 것이다 — **꾹 눌러 옮기는
- * 것은 없다**, 자리는 늘 오른쪽 아래로 고정이다.
+ * iOS `RouteGuideFloatingChip`/`RouteGuideChipBody`와 같은 입구. 꾹 눌러 옮긴 위치를 기억한다.
  */
 @Composable
 fun RouteGuideFloatingChip(
@@ -125,24 +124,34 @@ fun RouteGuideFloatingChip(
                     }
                 }.clickable(onClick = onTap),
     ) {
-        Text(
-            tr("내가 도와줄게!"),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = IOS.pinDeep,
-            // iOS `RouteGuideChipBody`: 흰 캡슐 + pinLight 60% 1pt 테두리 + 옅은 그림자(검정 12%, r3, y1).
-            modifier =
-                Modifier
-                    .shadow(
-                        3.dp,
-                        RoundedCornerShape(50),
-                        ambientColor = Color.Black.copy(alpha = 0.12f),
-                        spotColor = Color.Black.copy(alpha = 0.12f),
-                    ).clip(RoundedCornerShape(50))
-                    .background(IOS.systemBackground)
-                    .border(1.dp, IOS.pinLight.copy(alpha = 0.6f), RoundedCornerShape(50))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-        )
+        RouteGuideChipBody(bubble = true)
+    }
+}
+
+/** 떠 있는 입구와 안내 배너가 같은 얼굴을 쓰며 배너에는 말풍선을 붙이지 않는다. */
+@Composable
+fun RouteGuideChipBody(bubble: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (bubble) {
+            Text(
+                tr("내가 도와줄게!"),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IOS.pinDeep,
+                // iOS `RouteGuideChipBody`: 흰 캡슐 + pinLight 60% 1pt 테두리 + 옅은 그림자(검정 12%, r3, y1).
+                modifier =
+                    Modifier
+                        .shadow(
+                            3.dp,
+                            RoundedCornerShape(50),
+                            ambientColor = Color.Black.copy(alpha = 0.12f),
+                            spotColor = Color.Black.copy(alpha = 0.12f),
+                        ).clip(RoundedCornerShape(50))
+                        .background(IOS.systemBackground)
+                        .border(1.dp, IOS.pinLight.copy(alpha = 0.6f), RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+        }
         // 흰 원 + 핀 그러데이션 2pt 테두리 + 그림자(검정 20%, r4, y2), 안쪽 여백 5.
         Box(
             modifier =

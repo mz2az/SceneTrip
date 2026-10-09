@@ -7,7 +7,9 @@ import android.os.SystemClock
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,6 +57,7 @@ fun GuideUsageNotice() {
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun NavigationUsageNotice(
     start: ExternalDirections.Spot?,
     end: ExternalDirections.Spot,
@@ -85,7 +88,7 @@ fun NavigationUsageNotice(
         ) {
             Text(tr("약 %d분 뒤 다시 시도할 수 있어요").format(block.minutes(now)), style = IOS.caption, color = IOS.secondaryLabel)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
             val kakao = ExternalDirections.kakaoApp(start, end)
             Text(
                 tr("카카오맵 길찾기"),

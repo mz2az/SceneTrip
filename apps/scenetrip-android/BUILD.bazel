@@ -85,6 +85,7 @@ kt_android_library(
             "src/main/kotlin/com/mz2az/scenetrip/data/TranslationExtras.kt",
             "src/main/kotlin/com/mz2az/scenetrip/routetab/TripArrival.kt",
             "src/main/kotlin/com/mz2az/scenetrip/routetab/ExternalDirections.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/routetab/RouteGuideEntry.kt",
         ],
     ) + [
         "src/main/kotlin/com/mz2az/scenetrip/data/LimitLedger.kt",
@@ -108,6 +109,7 @@ kt_android_library(
         "src/main/kotlin/com/mz2az/scenetrip/routetab/ExternalDirections.kt",
         "src/main/kotlin/com/mz2az/scenetrip/routetab/PlacePoiLink.kt",
         "src/main/kotlin/com/mz2az/scenetrip/routetab/PoiLabel.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/routetab/RouteGuideEntry.kt",
         "src/main/kotlin/com/mz2az/scenetrip/routetab/TripArrival.kt",
         ":api_configuration",
     ],

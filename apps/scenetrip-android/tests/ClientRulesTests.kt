@@ -7,6 +7,7 @@ import com.mz2az.scenetrip.reviews.ReviewRules
 import com.mz2az.scenetrip.routetab.ExternalDirections
 import com.mz2az.scenetrip.routetab.NaverMapLink
 import com.mz2az.scenetrip.routetab.PoiLabel
+import com.mz2az.scenetrip.routetab.RouteGuideEntry
 import com.mz2az.scenetrip.routetab.TripArrival
 import com.mz2az.scenetrip.routetab.courseStop
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -16,6 +17,31 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ClientRulesTests {
+    @Test
+    fun guidanceMovesTheEntryIntoTheBanner() {
+        assertEquals(RouteGuideEntry.TRIP_HEADER, RouteGuideEntry.placement(true, true, false, false, false))
+    }
+
+    @Test
+    fun placeCardsKeepAnEntryOutsideTheCoveredBanner() {
+        assertEquals(RouteGuideEntry.FLOATING, RouteGuideEntry.placement(true, true, true, false, false))
+        assertEquals(RouteGuideEntry.HIDDEN, RouteGuideEntry.placement(true, true, true, true, false))
+    }
+
+    @Test
+    fun missingTargetAndFinishedGuidanceRestoreTheFloatingEntry() {
+        assertEquals(RouteGuideEntry.FLOATING, RouteGuideEntry.placement(true, false, false, false, false))
+        assertEquals(RouteGuideEntry.FLOATING, RouteGuideEntry.placement(false, true, false, false, false))
+    }
+
+    @Test
+    fun pinningAndOpenPanelHideBothEntries() {
+        for (guiding in listOf(true, false)) {
+            assertEquals(RouteGuideEntry.HIDDEN, RouteGuideEntry.placement(guiding, true, false, true, false))
+            assertEquals(RouteGuideEntry.HIDDEN, RouteGuideEntry.placement(guiding, true, false, false, true))
+        }
+    }
+
     @Test
     fun ratingBarsUseDistributionAndHandleEmptyOrInvalidBuckets() {
         assertEquals(0f, ReviewRules.ratingFraction(listOf(0, 0, 0, 0, 0), 5))

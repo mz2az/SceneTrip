@@ -181,6 +181,14 @@ fun RouteEditorView(
     val poisApi = remember { PoisApi(API_BASE) }
     val density = LocalDensity.current
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    val guideEntry =
+        RouteGuideEntry.placement(
+            guiding = trip.phase == TripSession.Phase.GUIDING,
+            hasTarget = trip.target != null,
+            hasCard = guideSession.picked != null || focusedStopId != null,
+            panelOpen = showGuide,
+            pinning = pinning,
+        )
 
     fun cancel() {
         if (saving) return
@@ -809,6 +817,7 @@ fun RouteEditorView(
                     if (trip.isActive) {
                         TripBanner(
                             trip = trip,
+                            onGuide = if (guideEntry == RouteGuideEntry.TRIP_HEADER) ({ showGuide = true }) else null,
                             // 「안내 끝」은 **안내만** 멈춘다 — 여행 중 상태는 「여행 종료」의 몫이다
                             // (iOS `tripControls`: `trip.end()` 뿐). 앞서 여기서 코스까지 끝내서,
                             // 안내를 잠깐 멈춘 사람의 코스가 「예정」으로 돌아갔다(2026-09-28 실기).
@@ -1107,7 +1116,7 @@ fun RouteEditorView(
                 }
             }
             RouteGuideFloatingChip(
-                hidden = pinning || showGuide,
+                hidden = guideEntry != RouteGuideEntry.FLOATING,
                 onTap = { showGuide = true },
                 // iOS `guideFloatingChip`: 편집 화면 전체 위, 오른쪽 12 · 아래(안전 영역 위) 76 — 목록 패널 위에 뜬다.
                 // 지도 쪽(패널 바로 위)에 두었더니 iOS 와 자리가 달랐다(2026-09-29 대조).
@@ -1461,6 +1470,7 @@ private fun LegChip(chip: RouteLegChip) {
 @Composable
 private fun TripBanner(
     trip: TripSession,
+    onGuide: (() -> Unit)?,
     onEnd: () -> Unit,
     onArrivedNow: () -> Unit,
     onNext: (RouteStop) -> Unit,
@@ -1475,7 +1485,16 @@ private fun TripBanner(
             Text(tr("성지 도착!"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
             Text(target.place.name, fontSize = 12.sp, color = IOS.secondaryLabel)
         } else {
-            Text(tr("%s로 가는 중").format(target.place.name), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    tr("%s로 가는 중").format(target.place.name),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IOS.label,
+                    modifier = Modifier.weight(1f),
+                )
+                if (onGuide != null) Box(Modifier.clickable(onClick = onGuide)) { RouteGuideChipBody(bubble = false) }
+            }
             // iOS `RouteEditorTrip.tripDetail` 순서 그대로: 받은 경로 → 실패(재시도) →
             // 구하는 중 → 자리를 못 찾음.
             when {
@@ -1514,7 +1533,7 @@ private fun TripBanner(
                 }
 
                 trip.failure != null -> {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(trip.failure!!, fontSize = 11.sp, color = IOS.systemOrange)
                         Text(
                             tr("다시 시도"),
