@@ -43,6 +43,18 @@ ci-lint-workflows:
 pr-checks number:
     gh pr checks "$1" --json name,state,bucket,link,workflow
 
+# 현재 브랜치의 main 대상 PR을 파일에 적힌 설명으로 생성
+[group('ci')]
+[confirm("현재 브랜치로 main 대상 PR을 생성합니다. 진행할까요?")]
+pr-create title body_file:
+    @echo 'GitHub PR 대상: main'
+    gh pr create --base main --head "$(git branch --show-current)" --title "$1" --body-file "$2"
+
+# PR의 원격 커밋·병합 가능 여부·검사 상태 조회
+[group('ci')]
+pr-status number:
+    gh pr view "$1" --json number,url,state,headRefName,headRefOid,baseRefName,mergeable,mergeStateStatus,statusCheckRollup
+
 # 지정 커밋에 연결된 GitHub Actions 실행 조회
 [group('ci')]
 pr-runs sha:
