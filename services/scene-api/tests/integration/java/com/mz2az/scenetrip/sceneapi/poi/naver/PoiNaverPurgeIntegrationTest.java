@@ -36,7 +36,7 @@ class PoiNaverPurgeIntegrationTest {
   }
 
   @Test
-  @DisplayName("V23 이 성공으로 적용돼 있고, 표는 남아 있으며 비어 있다")
+  @DisplayName("V23 이 성공으로 적용돼 있고, 표는 남아 있으며 네이버 상세가 실린 행이 없다 (ADR 0020 · 0021)")
   void appliedAndEmpty() {
     List<Boolean> applied =
         jdbc.sql(
@@ -52,8 +52,20 @@ class PoiNaverPurgeIntegrationTest {
                 .single())
         .as("표는 지우지 않는다")
         .isTrue();
-    assertThat(jdbc.sql("SELECT count(*) FROM poi_naver").query(Long.class).single())
-        .as("poi_naver 행")
+    // ADR 0021 뒤로 표에는 링크 경로가 쌓는 장소 번호 행(과 「없음」 행)이 생긴다 — 0 행은 더 이상 불변식이 아니다.
+    // 남는 불변식은 「네이버의 상세(이름·분류·주소·전화·영업시간·별점·리뷰 수·사진)는 표에 없다」 이다.
+    assertThat(
+            jdbc.sql(
+                    """
+                    SELECT count(*) FROM poi_naver
+                    WHERE name IS NOT NULL OR category IS NOT NULL OR address IS NOT NULL
+                       OR phone IS NOT NULL OR hours IS NOT NULL OR score IS NOT NULL
+                       OR review_count IS NOT NULL OR blog_reviews IS NOT NULL
+                       OR cardinality(images) > 0
+                    """)
+                .query(Long.class)
+                .single())
+        .as("네이버 상세가 실린 poi_naver 행")
         .isZero();
   }
 

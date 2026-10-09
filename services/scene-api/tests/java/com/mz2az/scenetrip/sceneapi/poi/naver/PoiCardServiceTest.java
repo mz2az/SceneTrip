@@ -74,7 +74,8 @@ class PoiCardServiceTest {
     store = mock(PoiNaverStore.class);
     fetcher = mock(PoiCardFetcher.class);
     filler = mock(CardFiller.class);
-    service = new PoiCardService(pois, store, fetcher, Optional.of(filler));
+    // 카드 스위치를 켠 경로(지금은 배포되지 않는 옛 경로). 꺼진 경로는 아래 cardSwitchOff* 가 본다.
+    service = new PoiCardService(pois, store, fetcher, Optional.of(filler), true);
     when(pois.findDetail(eq(ID), any(), any())).thenReturn(Optional.of(poi()));
     when(filler.retryAfterSeconds()).thenReturn(7);
   }
@@ -198,7 +199,7 @@ class PoiCardServiceTest {
   @Test
   @DisplayName("일꾼이 없으면 pending 만 답하고 힌트는 상한 30")
   void batchWithoutFiller() {
-    PoiCardService noFiller = new PoiCardService(pois, store, fetcher, Optional.empty());
+    PoiCardService noFiller = new PoiCardService(pois, store, fetcher, Optional.empty(), true);
     when(pois.existingIds(List.of(2L))).thenReturn(Set.of(2L));
     when(store.findAll(any(), anyString())).thenReturn(Map.of());
 
@@ -206,5 +207,61 @@ class PoiCardServiceTest {
 
     assertThat(batch.getItems().get(0).getPending()).isTrue();
     assertThat(batch.getRetryAfterSeconds()).isEqualTo(30);
+  }
+
+  // ── 카드 스위치 꺼짐(배포 설정, ADR 0020 · 0021) ─────────────────────────────
+
+  /** 링크 경로({@link NaverLinks})가 쌓는 행 — 장소 번호만 있다. */
+  private static NaverCard linkRow(long poiId, String naverId) {
+    return NaverCard.linkOnly(
+        poiId,
+        naverId,
+        NaverMatcher.RULE_VERSION,
+        "https://map.naver.com/p/entry/place/" + naverId);
+  }
+
+  @Test
+  @DisplayName("꺼짐 — 단건은 표에 장소 번호 행이 있어도 「못 찾음」, 표도 출처도 보지 않는다")
+  void cardSwitchOffSingleIsNotFound() {
+    PoiCardService off = new PoiCardService(pois, store, fetcher, Optional.of(filler), false);
+    when(store.find(anyLong(), anyString())).thenReturn(Optional.of(linkRow(ID, "5784380")));
+
+    PoiCard card = off.card(ID).orElseThrow();
+
+    assertThat(card.getFound()).isFalse();
+    assertThat(card.getWhy()).isNotBlank();
+    assertThat(card.getNaverUrl()).isNull();
+    assertThat(card.getName()).isNull();
+    verify(fetcher, never()).fetch(any());
+    verify(fetcher, never()).locate(any());
+    verify(store, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("꺼짐 — 없는 POI 는 여전히 비어 있다(404 의 근거)")
+  void cardSwitchOffMissingPoi() {
+    PoiCardService off = new PoiCardService(pois, store, fetcher, Optional.of(filler), false);
+    when(pois.findDetail(eq(7L), any(), any())).thenReturn(Optional.empty());
+
+    assertThat(off.card(7L)).isEmpty();
+  }
+
+  @Test
+  @DisplayName("꺼짐 — 여럿은 표에 장소 번호 행이 있어도 pending, 출처를 부르지 않는다")
+  void cardSwitchOffBatchIsPending() {
+    PoiCardService off = new PoiCardService(pois, store, fetcher, Optional.of(filler), false);
+    when(pois.existingIds(List.of(1L, 2L, 999L))).thenReturn(Set.of(1L, 2L));
+    when(store.findAll(any(), anyString()))
+        .thenReturn(Map.of(1L, linkRow(1L, "111"), 2L, linkRow(2L, "222")));
+
+    PoiCardBatch batch = off.cards(List.of(1L, 2L, 999L));
+
+    assertThat(batch.getItems()).extracting(PoiCard::getPoiId).containsExactly(1L, 2L, 999L);
+    assertThat(batch.getItems().get(0).getPending()).isTrue();
+    assertThat(batch.getItems().get(1).getPending()).isTrue();
+    assertThat(batch.getItems().get(2).getFound()).isFalse();
+    assertThat(batch.getItems()).allSatisfy(c -> assertThat(c.getNaverUrl()).isNull());
+    verify(fetcher, never()).fetch(any());
+    verify(fetcher, never()).locate(any());
   }
 }

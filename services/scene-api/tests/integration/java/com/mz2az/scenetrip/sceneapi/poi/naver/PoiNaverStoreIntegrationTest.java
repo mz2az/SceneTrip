@@ -113,6 +113,46 @@ class PoiNaverStoreIntegrationTest {
         .isInstanceOf(DataIntegrityViolationException.class);
   }
 
+  @Test
+  @DisplayName("링크 행(ADR 0021) — 장소 번호만 있는 「찾음」 이 저장되고, 상세 칸은 비어 돌아온다")
+  void savesLinkOnlyRow() {
+    NaverCard returned =
+        store.save(
+            NaverCard.linkOnly(
+                poiA, "11679241", "v3", "https://map.naver.com/p/entry/place/11679241"));
+
+    assertThat(returned.found()).isTrue();
+    assertThat(returned.checkedAt()).as("DB 가 찍은 시각").isNotNull();
+    NaverCard got = store.find(poiA, "v3").orElseThrow();
+    assertThat(got.found()).isTrue();
+    assertThat(got.why()).isNull();
+    assertThat(got.naverId()).isEqualTo("11679241");
+    assertThat(got.name()).isNull();
+    assertThat(got.category()).isNull();
+    assertThat(got.address()).isNull();
+    assertThat(got.phone()).isNull();
+    assertThat(got.hours()).isNull();
+    assertThat(got.score()).isNull();
+    assertThat(got.reviewCount()).isNull();
+    assertThat(got.blogReviews()).isNull();
+    assertThat(got.images()).isEmpty();
+  }
+
+  @Test
+  @DisplayName("링크 행이 옛 카드 행을 덮어쓰면 사진·평점·영업시간이 남지 않는다")
+  void linkOnlyOverwritesOldCardDetails() {
+    store.save(found(poiA, 4.39, List.of("https://img.example/1.jpg")));
+    store.save(
+        NaverCard.linkOnly(poiA, "1234567", "v3", "https://map.naver.com/p/entry/place/1234567"));
+
+    NaverCard got = store.find(poiA, "v3").orElseThrow();
+    assertThat(got.naverId()).isEqualTo("1234567");
+    assertThat(got.score()).isNull();
+    assertThat(got.hours()).isNull();
+    assertThat(got.name()).isNull();
+    assertThat(got.images()).isEmpty();
+  }
+
   private static NaverCard found(long poiId, Double score, List<String> images) {
     return new NaverCard(
         poiId,

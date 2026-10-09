@@ -28,6 +28,7 @@ import com.mz2az.scenetrip.sceneapi.auth.SignInService;
 import com.mz2az.scenetrip.sceneapi.auth.TokenCipher;
 import com.mz2az.scenetrip.sceneapi.place.PlaceStores;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStores;
+import com.mz2az.scenetrip.sceneapi.poi.naver.NaverLinksForTests;
 import com.mz2az.scenetrip.sceneapi.review.PhotoStorage;
 import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
 import com.mz2az.scenetrip.sceneapi.review.UploadStore;
@@ -87,7 +88,8 @@ class ReviewFlowIntegrationTest {
   private final UploadsController uploadsApi =
       new UploadsController(storage, uploadStore, accounts);
   private final PlacesController places = new PlacesController(PlaceStores.create(jdbc), views);
-  private final PoisController pois = new PoisController(PoiStores.create(jdbc), null, views);
+  private final PoisController pois =
+      new PoisController(PoiStores.create(jdbc), null, views, NaverLinksForTests.disabled(jdbc));
   private final RefreshTokenStore refreshTokens =
       new RefreshTokenStore(jdbc, transactions, Duration.ofDays(60), Clock.systemUTC());
   private final AuthController auth =

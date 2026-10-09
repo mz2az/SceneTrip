@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -28,6 +29,9 @@ import org.springframework.stereotype.Service;
  * </ul>
  *
  * <p>「못 받음」(타임아웃·차단)은 표에 쓰지 않는다 — 다음에 다시 묻는다. 「없음」은 쓴다 — 다시 물어도 없다.
+ *
+ * <p><b>꺼져 있으면({@code scenetrip.naver.enabled=false}, 지금) 표도 출처도 보지 않는다</b> — 단건은 늘 「못 찾음」, 여럿은 늘
+ * {@code pending}(ADR 0020). 표에는 링크용 장소 번호 행({@link NaverLinks})이 쌓이는데, 그것을 카드로 내주지 않으려고서다.
  */
 @Service
 public class PoiCardService {
@@ -38,10 +42,16 @@ public class PoiCardService {
   private final PoiNaverStore store;
   private final PoiCardFetcher fetcher;
   private final Optional<CardFiller> filler;
+  private final boolean enabled;
 
   /** {@code filler} 가 없으면(구현이 아직 없거나 꺼짐) 여럿 조회는 줄에 넣지 못하고 {@code pending} 만 답한다. */
   PoiCardService(
-      PoiStore pois, PoiNaverStore store, PoiCardFetcher fetcher, Optional<CardFiller> filler) {
+      PoiStore pois,
+      PoiNaverStore store,
+      PoiCardFetcher fetcher,
+      Optional<CardFiller> filler,
+      @Value("${scenetrip.naver.enabled:false}") boolean enabled) {
+    this.enabled = enabled;
     this.pois = pois;
     this.store = store;
     this.fetcher = fetcher;
@@ -53,6 +63,13 @@ public class PoiCardService {
     Optional<PoiDetail> poi = pois.findDetail(poiId, null, null);
     if (poi.isEmpty()) {
       return Optional.empty();
+    }
+    if (!enabled) {
+      return Optional.of(
+          new PoiCard(poiId)
+              .found(false)
+              .why("카드가 꺼져 있다 (ADR 0020)")
+              .checkedAt(OffsetDateTime.now()));
     }
     Optional<NaverCard> cached = store.find(poiId, NaverMatcher.RULE_VERSION);
     if (cached.isPresent()) {
@@ -76,7 +93,8 @@ public class PoiCardService {
   /** 여럿. 요청한 순서대로, 요청한 개수만큼. 출처를 부르지 않는다. */
   public PoiCardBatch cards(List<Long> poiIds) {
     Set<Long> existing = pois.existingIds(poiIds);
-    Map<Long, NaverCard> cached = store.findAll(existing, NaverMatcher.RULE_VERSION);
+    Map<Long, NaverCard> cached =
+        enabled ? store.findAll(existing, NaverMatcher.RULE_VERSION) : Map.of();
 
     List<PoiCard> items = new ArrayList<>(poiIds.size());
     List<Long> missing = new ArrayList<>();
@@ -95,11 +113,12 @@ public class PoiCardService {
     PoiCardBatch batch = new PoiCardBatch(items);
     if (!missing.isEmpty()) {
       List<Long> distinct = missing.stream().distinct().collect(Collectors.toList());
-      if (filler.isPresent()) {
+      if (enabled && filler.isPresent()) {
         filler.get().enqueue(distinct);
         batch.retryAfterSeconds(filler.get().retryAfterSeconds());
       } else {
-        // 일꾼이 없으면 채워질 일이 없다. 상한을 주어 앱이 세 번 묻고 그만두게 한다.
+        // 일꾼이 없거나 카드가 꺼져 있으면 채워질 일이 없다. 꺼진 채 줄에 넣으면 일꾼이 링크용으로 켜진 검색을 부른다(ADR 0021).
+        // 상한을 주어 앱이 세 번 묻고 그만두게 한다.
         batch.retryAfterSeconds(30);
       }
     }

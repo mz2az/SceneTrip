@@ -9,6 +9,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.PoiDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiList;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import com.mz2az.scenetrip.sceneapi.poi.PoiStore;
+import com.mz2az.scenetrip.sceneapi.poi.naver.NaverLinks;
 import com.mz2az.scenetrip.sceneapi.poi.naver.PoiCardService;
 import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
 import java.util.List;
@@ -29,11 +30,13 @@ class PoisController implements PoisApi {
   private final PoiStore store;
   private final PoiCardService cards;
   private final ReviewViews reviews;
+  private final NaverLinks naver;
 
-  PoisController(PoiStore store, PoiCardService cards, ReviewViews reviews) {
+  PoisController(PoiStore store, PoiCardService cards, ReviewViews reviews, NaverLinks naver) {
     this.store = store;
     this.cards = cards;
     this.reviews = reviews;
+    this.naver = naver;
   }
 
   @Override
@@ -85,7 +88,9 @@ class PoisController implements PoisApi {
         .poi()
         .rating(reviews.summary(ReviewStore.Target.POI, poiId))
         .photos(gallery.items())
-        .photoCount(gallery.total());
+        .photoCount(gallery.total())
+        // 처음 여는 곳이면 지금 네이버에 장소 번호를 묻는다(ADR 0021). 모르면 비어 있고 앱은 이름 검색으로 넘긴다.
+        .naverPlaceUrl(naver.placeUrl(detail.poi()).orElse(null));
     return Responses.ok(detail.poi(), detail.shownLang());
   }
 
