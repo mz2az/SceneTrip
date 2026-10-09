@@ -36,8 +36,10 @@ enum RouteGuideFailure: Equatable, Error {
     case interrupted
     /// `422 IDEMPOTENCY_KEY_REUSED` — 같은 멱등 키에 다른 내용을 보냈다. **앱 버그다.**
     case keyReused
-    /// 그 밖의 응답. 코드를 그대로 보여 준다. 챗봇 한도(429 `GUIDE_LIMIT_REACHED`)도 아직 여기다 —
-    /// 그 안내는 뒤의 일이다(계획 §5-2).
+    /// 챗봇 한도(429 `GUIDE_LIMIT_REACHED`) — 1 시간 창이든 하루 창이든 이 하나다. `retryAfter` 는 풀릴 때까지의
+    /// 초(서버의 `Retry-After`), 없으면 모른다. **자동으로 다시 보내지 않는다** — 화면이 안내한다(`GuideLimit`).
+    case limitReached(retryAfter: Int?)
+    /// 그 밖의 응답. 코드를 그대로 보여 준다.
     case other(status: Int)
 
     /// 「다시 시도」 가 무엇을 보내야 하나 (MZ2AZ-366).
@@ -56,7 +58,7 @@ enum RouteGuideFailure: Equatable, Error {
             self = .timedOut
             return
         }
-        guard case let ErrorResponse.error(status, data, _, underlying) = error else {
+        guard case let ErrorResponse.error(status, data, response, underlying) = error else {
             self = Self.unanswered(error)
             return
         }
@@ -76,7 +78,11 @@ enum RouteGuideFailure: Equatable, Error {
             }
         case 409 where code == RetryRules.inProgressCode: self = .timedOut
         case 422 where code == RetryRules.keyReusedCode: self = .keyReused
-        // 분당 한도만. 챗봇 한도(`GUIDE_LIMIT_REACHED`)는 기다려도 안 풀린다 — `other`.
+        case 429 where code == GuideLimit.code:
+            self = .limitReached(
+                retryAfter: (response as? HTTPURLResponse).flatMap(RateLimitLedger.retryAfter(in:))
+            )
+        // 분당 한도. 공통 계층이 `Retry-After` 뒤에 한 번 다시 보내 본 뒤다.
         case 429 where code == nil || code == "RATE_LIMITED": self = .rateLimited
         case 502, 503, 504: self = .unavailable
         default: self = .other(status: status)
@@ -103,11 +109,22 @@ enum RouteGuideFailure: Equatable, Error {
     var retry: Retry {
         switch self {
         case .unavailable, .timedOut, .offline, .unreachable, .rateLimited, .interrupted: .sameKey
+        // 한도에 걸린 턴은 서버가 처리하지 않았다(키도 지웠다) — 풀린 뒤 같은 키로 다시 보낸다. **단추는 풀린
+        // 뒤에만 뜬다**(`RouteGuideSession.canRetry`).
+        case .limitReached: .sameKey
         case .keyReused: .newKey
         // 500 은 공통 계층이 한 번 다시 보내 본 뒤다 — 그래도 사람이 한 번 더 해 볼 수 있다.
         case let .other(status): status == 500 ? .sameKey : .none
         case .signInRequired, .sessionExpired, .badRequest: .none
         }
+    }
+
+    /// 챗봇 한도인가 — 대화창은 이것을 실패 줄이 아니라 한도 안내로 그린다.
+    var isLimit: Bool {
+        if case .limitReached = self {
+            return true
+        }
+        return false
     }
 
     /// 화면에 보이는 한 줄. **안드로이드와 같은 문구여야 한다.**
@@ -131,6 +148,9 @@ enum RouteGuideFailure: Equatable, Error {
             tr("요청이 많아요. 잠시 뒤 다시 시도해 주세요")
         case .interrupted:
             tr("답을 기다리다 멈췄어요. 다시 시도해 주세요")
+        case let .limitReached(retryAfter):
+            // 대화창은 풀리는 때까지 남은 시간을 다시 세어 보인다(`RouteGuideSheet`) — 이것은 받은 순간의 말이다.
+            GuideLimit.Block(retryAfter: retryAfter, now: 0).message(at: 0)
         case .keyReused:
             String(format: tr("가이드 요청을 처리하지 못했어요 (%d)"), 422)
         case let .other(status):

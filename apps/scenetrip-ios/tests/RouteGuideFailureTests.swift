@@ -45,8 +45,8 @@ final class RouteGuideFailureTests: XCTestCase {
         XCTAssertEqual(RouteGuideFailure(response(422, code: "IDEMPOTENCY_KEY_REUSED")), .keyReused)
         XCTAssertEqual(RouteGuideFailure(response(429, code: "RATE_LIMITED")), .rateLimited)
         XCTAssertEqual(RouteGuideFailure(response(429)), .rateLimited, "게이트웨이의 429 에는 code 가 없다")
-        // 챗봇 한도의 안내는 뒤의 일이다 — 그때까지는 전과 같은 말이고, 다시 시도 단추는 없다.
-        XCTAssertEqual(RouteGuideFailure(response(429, code: "GUIDE_LIMIT_REACHED")), .other(status: 429))
+        // 챗봇 한도는 제 안내가 있다(`RouteGuideLimitRulesTests`). 응답이 없는 오류라 `Retry-After` 는 모른다.
+        XCTAssertEqual(RouteGuideFailure(response(429, code: "GUIDE_LIMIT_REACHED")), .limitReached(retryAfter: nil))
         XCTAssertEqual(RouteGuideFailure(response(502)), .unavailable)
         XCTAssertEqual(RouteGuideFailure(response(504)), .unavailable)
     }

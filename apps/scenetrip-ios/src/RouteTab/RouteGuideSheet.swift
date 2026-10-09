@@ -42,6 +42,9 @@ struct RouteGuideSheet: View {
     /// 「여기로 길찾기」. 여행 중 화면만 준다 — 주면 카드에 버튼이 뜬다.
     var onReroute: ((RouteGuide.Place) -> Void)?
 
+    /// 한도 안내의 「AI 로 짜기 열기」 — 일정짜기 마법사로 가는 길. 띄운 쪽이 주지 않으면 글만 보인다.
+    var onOpenPlanner: (() -> Void)?
+
     /// X 를 눌렀다. 시트가 아니라 오버레이 창이라 `dismiss` 로는 안 닫힌다 —
     /// 여닫는 상태는 띄운 쪽이 든다.
     var onClose: () -> Void = {}
@@ -120,9 +123,11 @@ struct RouteGuideSheet: View {
                     if session.asking {
                         thinking
                     }
-                    if let failure = session.failure {
+                    if let failure = session.failure, !failure.isLimit {
                         failed(failure)
                     }
+                    // 한도 안내는 실패 줄과 따로 둔다 — 대화를 지우거나 코스를 바꿔도 잠겨 있는 이유가 보여야 한다.
+                    limitNotice
                     Color.clear.frame(height: 1).id("bottom")
                 }
                 .padding(16)
@@ -134,6 +139,16 @@ struct RouteGuideSheet: View {
             .onChange(of: session.failure) { _, failure in
                 guard failure != nil else { return }
                 withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+            }
+            .onChange(of: session.limit) { _, limit in
+                guard limit != .clear else { return }
+                withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+            }
+            // 창을 접었다 다시 열면 스크롤이 맨 위에서 시작한다 — 대화가 길면 한도 안내가 화면 밖이고 「보내기」 만
+            // 회색이라 왜 잠겼는지 안 보인다. 한도에 걸려 있으면 안내가 있는 맨 아래로 내린다.
+            .onAppear {
+                guard session.limit != .clear else { return }
+                DispatchQueue.main.async { proxy.scrollTo("bottom", anchor: .bottom) }
             }
             // 펼친 줄이 보이게 그 자리로 내려간다 — 맨 아래로 보내면 목록 끝까지
             // 지나쳐 버린다(2026-08-27 사용자 지적: 정동커피를 눌렀는데 목록 끝
@@ -163,6 +178,9 @@ struct RouteGuideSheet: View {
                         .background(Capsule().fill(Color(.systemGray6)))
                 }
                 .buttonStyle(.plain)
+                // 한도가 풀리기를 기다리는 동안에는 보낼 수 없다 — 눌러도 입력창을 채우지 않고, 흐리게 보인다.
+                .disabled(session.isLimited)
+                .opacity(session.isLimited ? 0.4 : 1)
             }
         }
     }
@@ -331,16 +349,7 @@ struct RouteGuideSheet: View {
                 .font(.footnote)
                 .foregroundStyle(.orange)
             if session.canRetry {
-                Button {
-                    Task { await session.retry() }
-                } label: {
-                    Label("다시 시도", systemImage: "arrow.clockwise")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(Capsule().fill(Color.accentColor.opacity(0.14)))
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("guide-retry")
+                retryButton
             }
         }
     }
@@ -348,6 +357,14 @@ struct RouteGuideSheet: View {
     // MARK: 입력
 
     private var composer: some View {
+        VStack(spacing: 0) {
+            remainingLine
+            composerRow
+        }
+        .background(.thinMaterial)
+    }
+
+    private var composerRow: some View {
         HStack(spacing: 8) {
             TextField("주변에 무엇을 찾으세요?", text: $draft, axis: .vertical)
                 .textFieldStyle(.plain)
@@ -363,18 +380,22 @@ struct RouteGuideSheet: View {
             }
             .buttonStyle(.plain)
             .disabled(!canSend)
+            .accessibilityLabel("보내기")
+            .accessibilityHint(session.isLimited ? tr("한도가 풀리면 다시 보낼 수 있어요") : "")
+            .accessibilityIdentifier("guide-send")
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
-        .background(.thinMaterial)
     }
 
+    /// 글은 칠 수 있다 — 한도가 풀리기를 기다리는 동안에도. 보내기만 잠근다.
     private var canSend: Bool {
-        !draft.trimmingCharacters(in: .whitespaces).isEmpty && !session.asking
+        !draft.trimmingCharacters(in: .whitespaces).isEmpty && !session.asking && !session.isLimited
     }
 
     private func send() {
         let text = draft
-        guard let here else { return }
+        // 잠긴 동안 자판의 「완료」 로 들어오면 친 글을 지우지 않는다.
+        guard let here, canSend else { return }
         draft = ""
         Task { await session.ask(text, here: here, context: context) }
     }

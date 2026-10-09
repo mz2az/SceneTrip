@@ -46,6 +46,10 @@ final class TabRouter: ObservableObject {
     /// 계획 trip-mode.md §8). 편집 화면이 읽고 끈다.
     @Published var pendingTripStart = false
 
+    /// 경로여정이 띄워 줘야 할 **일정짜기 마법사**(「AI 로 짜기」) — 가이드 챗봇의 한도 안내가 남긴다(MZ2AZ-366).
+    /// 편집 화면이 닫힌 뒤에 코스 목록이 읽고 끈다.
+    @Published var pendingPlanner = false
+
     /// 작품검색 탭이 열어 줘야 할 작품 — 홈의 「지금 뜨는 작품」이 남긴다.
     ///
     /// id 가 아니라 **요약 자체**를 넘긴다(2026-09-16). id 만 넘겼더니 검색 탭이 자기

@@ -524,3 +524,19 @@
 "나머지를 확인하는 중이에요" = "Checking the rest…";
 "나머지를 확인하지 못했어요" = "Couldn't check the rest";
 "내 여행을 불러오지 못했어요" = "Couldn't load your trip";
+
+/* 가이드 챗봇 한도 안내·남은 양 (MZ2AZ-366 C). 「|하나」 는 한 번 남았을 때 */
+"가이드에게 잠시 많이 물어봤어요. %d분 뒤에 다시 물어볼 수 있어요" = "You've asked the guide a lot. You can ask again in %d min";
+"오늘은 가이드에게 물어볼 수 있는 횟수를 다 썼어요. 내일 다시 물어봐 주세요" = "You've used up today's questions for the guide. Please come back tomorrow";
+"이제 다시 물어볼 수 있어요" = "You can ask the guide again now";
+"새 일정은 「AI 로 짜기」에서도 만들 수 있어요" = "You can also build a new plan with “Plan with AI”";
+"AI 로 짜기 열기" = "Open Plan with AI";
+"%1$d번 더 물어볼 수 있어요 · %2$d분 뒤 다시 채워져요" = "%1$d questions left · refills in %2$d min";
+"%1$d번 더 물어볼 수 있어요 · %2$d분 뒤 다시 채워져요|하나" = "%1$d question left · refills in %2$d min";
+"오늘 %d번 더 물어볼 수 있어요" = "%d questions left today";
+"오늘 %d번 더 물어볼 수 있어요|하나" = "%d question left today";
+"지금은 더 물어볼 수 없어요 · %d분 뒤 다시 채워져요" = "No questions left for now · refills in %d min";
+"오늘은 더 물어볼 수 없어요" = "No questions left today";
+"보내기" = "Send";
+"한도가 풀리면 다시 보낼 수 있어요" = "You can send again once the limit resets";
+"지금은 가이드에게 물어볼 수 없어요. 잠시 뒤 다시 시도해 주세요" = "The guide can't take questions right now. Please try again shortly";

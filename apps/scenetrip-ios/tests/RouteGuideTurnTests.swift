@@ -147,13 +147,13 @@ final class RouteGuideTurnTests: XCTestCase {
         }
     }
 
-    /// 다시 해도 같은 실패에는 단추가 없다. 챗봇 한도(429 `GUIDE_LIMIT_REACHED`)도 — 그 안내는 뒤의 일이다.
+    /// 다시 해도 같은 실패에는 단추가 없다. (챗봇 한도는 따로다 — `RouteGuideLimitSessionTests`.)
     func testFinalFailuresDropTheTurn() async {
         let cases: [(Result<RouteGuide.Answer, Error>, RouteGuideFailure)] = [
             (failure(400, code: "INVALID_PARAMETER"), .badRequest),
             (failure(401, code: "SIGN_IN_REQUIRED"), .signInRequired),
             (failure(401, code: "ACCESS_TOKEN_INVALID"), .sessionExpired),
-            (failure(429, code: "GUIDE_LIMIT_REACHED"), .other(status: 429)),
+            (failure(429, code: "NAVIGATION_LIMIT_REACHED"), .other(status: 429)),
             (failure(404), .other(status: 404)),
         ]
         for (reply, expected) in cases {

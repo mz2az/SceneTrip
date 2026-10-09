@@ -319,6 +319,7 @@ struct RouteEditorView: View {
                 onAdd: { add([$0], pinned: true, asNext: true) },
                 isAdded: isAdded,
                 onRemove: removeGuidePlace,
+                onOpenPlanner: leaveForPlanner,
                 onClose: { showGuide = false }
             )
         }
@@ -616,6 +617,18 @@ extension RouteEditorView {
         isNew ? !RouteBridge.isBlank(course) : RouteBridge.changed(from: opened, to: course)
     }
 
+    /// 가이드 한도 안내의 「AI 로 짜기 열기」(MZ2AZ-366) — 이 편집 화면을 닫으면 코스 목록이 마법사를 띄운다
+    /// (`RouteTabView.openPlannerIfAsked`). **「취소」 와 같은 길로 닫는다** — 바꾼 것이 있으면 버릴지 묻는다.
+    func leaveForPlanner() {
+        showGuide = false
+        TabRouter.shared.pendingPlanner = true
+        if dirty {
+            confirmingDiscard = true
+        } else {
+            dismiss()
+        }
+    }
+
     var topBar: some View {
         HStack {
             // 바꾼 것이 있으면 버릴지 묻는다 — 저장이 머리줄의 작은 「저장」 하나가 된 뒤로는
@@ -671,7 +684,8 @@ extension RouteEditorView {
         // 취소 단추를 숨겨 「버리기」 하나만 보였다.
         .alert(tr("바꾼 내용을 버릴까요?"), isPresented: $confirmingDiscard) {
             Button(tr("버리기"), role: .destructive) { dismiss() }
-            Button(tr("계속 편집"), role: .cancel) {}
+            // 마법사로 가려다 남기로 했다 — 쪽지를 거둔다. 안 그러면 나중에 「취소」 로 닫을 때 마법사가 뜬다.
+            Button(tr("계속 편집"), role: .cancel) { TabRouter.shared.pendingPlanner = false }
         }
     }
 }
