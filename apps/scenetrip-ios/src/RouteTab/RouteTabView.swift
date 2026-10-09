@@ -78,12 +78,21 @@ struct RouteTabView: View {
             .refreshable { await store.refresh() }
         }
         .sheet(isPresented: $fork) { forkSheet }
-        .sheet(item: $wizard) { kind in
+        // 편집 화면(저장된 코스의 덮개, 새 코스의 시트)이 **다 닫힌 뒤에** 마법사를 띄운다 — 닫히는 중에
+        // 띄우면 SwiftUI 가 버린다.
+        .sheet(item: $wizard, onDismiss: openPlannerIfAsked) { kind in
             RouteWizardView(kind: kind)
         }
-        .fullScreenCover(item: $editing) { course in
+        .fullScreenCover(item: $editing, onDismiss: openPlannerIfAsked) { course in
             RouteEditorView(course: course, isNew: false)
         }
+    }
+
+    /// 가이드 챗봇의 한도 안내에서 「AI 로 짜기 열기」 를 눌렀다(`RouteEditorView.leaveForPlanner`).
+    private func openPlannerIfAsked() {
+        guard router.pendingPlanner else { return }
+        router.pendingPlanner = false
+        wizard = .aiPlan
     }
 
     // MARK: 코스가 없을 때

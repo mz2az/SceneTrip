@@ -235,7 +235,12 @@ final class RetryTask: URLSessionDataTaskProtocol, @unchecked Sendable {
         case .offline:
             handle(nil, nil, URLError(.notConnectedToInternet))
         case let .status(status):
+            log("뒷문 — 보내지 않고 \(status) 를 지어낸다")
             let (data, response) = NetFault.response(status: status, url: request.url)
+            handle(data, response, nil)
+        case let .shaped(shape):
+            log("뒷문 — 보내지 않고 \(shape.status)\(shape.code.map { " \($0)" } ?? "") 를 지어낸다")
+            let (data, response) = NetFault.response(shape, url: request.url)
             handle(data, response, nil)
         }
     }

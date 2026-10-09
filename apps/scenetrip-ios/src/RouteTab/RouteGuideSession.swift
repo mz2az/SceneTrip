@@ -38,6 +38,23 @@ final class RouteGuideSession: ObservableObject {
         var newKey: () -> UUID = UUID.init
         /// 사람이 질문을 보냈다(분석). 「다시 시도」 는 같은 질문이라 세지 않는다.
         var asked: () -> Void = { AppAnalytics.log(.askGuide) }
+        /// **연속 시계**의 지금(초) — 한도의 잠금과 「N분 뒤」 는 이것으로 잰다. 기기 시계를 돌려도 변하지 않는다.
+        var now: () -> TimeInterval = GuideLimit.uptime
+        /// 벽시계 — 장부의 「다시 차는 때」(벽시계로 적혀 있다)를 읽는 순간에 연속 시계로 옮기는 데만 쓴다.
+        var wall: () -> Date = Date.init
+        /// 서버가 마지막 챗봇 응답에 실어 준 남은 양(`RateLimit-*`). 없으면(옛 서버) nil.
+        var quota: () -> RateLimitLedger.Entry? = { RateLimitLedger.shared.entry(for: .guide) }
+        /// 한도가 풀릴 때까지 쉰다. 기기가 잠든 시간도 센다 — 깨어나서 30 분을 더 기다리지 않게.
+        var sleep: (TimeInterval) async -> Void = { try? await Task.sleep(for: .seconds($0), clock: .continuous) }
+    }
+
+    /// 챗봇 한도(429 `GUIDE_LIMIT_REACHED`)에 걸렸나 (MZ2AZ-366 C).
+    enum Limit: Equatable {
+        case clear
+        /// 걸려 있다. 풀리는 때를 알면 그때까지 전송이 잠긴다.
+        case reached(GuideLimit.Block)
+        /// 풀렸다 — 「이제 다시 물어볼 수 있어요」. 걸렸던 질문이 남아 있으면 「다시 시도」 가 같은 키로 보낸다.
+        case lifted
     }
 
     @Published private(set) var turns: [RouteGuide.Turn] = []
@@ -45,17 +62,35 @@ final class RouteGuideSession: ObservableObject {
     /// 보내는 중이거나 다시 보낼 수 있는 턴 (MZ2AZ-366). 답이 왔거나 다시 해도 같은 실패면 비운다.
     @Published private(set) var pending: PendingTurn?
 
+    /// 챗봇 한도의 상태. **대화가 아니라 계정의 것이다** — 코스를 바꿔도(`bind`·`clear`) 남는다.
+    @Published private(set) var limit: Limit = .clear
+
+    /// 서버가 마지막으로 알려 준 남은 양 — 입력창 위 한 줄의 재료(`GuideLimit.remaining`). 이것도 계정의 것이다.
+    @Published private(set) var quota: GuideLimit.Quota?
+    /// `quota` 를 만든 장부의 값. 같은 값을 다시 읽으면(헤더 없는 답) 옮겨 둔 시각을 그대로 둔다.
+    private var quotaSource: RateLimitLedger.Entry?
+    /// 계정이 바뀐 횟수 — 보낸 뒤에 계정이 바뀐 요청의 결과는 버린다(`fly`).
+    private var accountEpoch = 0
+
     /// 답을 기다리는 중인가. 그동안은 전송이 잠긴다 — **두 번 누름은 여기서 막힌다.**
     var asking: Bool {
         pending?.stage.isBusy ?? false
     }
 
-    /// 실패한 턴을 다시 보낼 수 있나 — 「다시 시도」 단추를 보일지.
-    var canRetry: Bool {
-        if case .failed = pending?.stage {
-            return true
+    /// 한도가 풀리기를 기다리는 중인가. 그동안은 전송이 잠긴다 — 뻔히 429 인 요청을 보내지 않는다.
+    /// 풀리는 때를 모르면(서버가 `Retry-After` 를 안 줌) 잠그지 않는다.
+    var isLimited: Bool {
+        if case let .reached(block) = limit {
+            return block.stopsSending(at: environment.now())
         }
         return false
+    }
+
+    /// 실패한 턴을 다시 보낼 수 있나 — 「다시 시도」 단추를 보일지. 한도에 걸린 턴은 **풀린 뒤에만.**
+    /// 풀리는 때를 모르면 잠그지 않으므로 단추도 바로 뜬다.
+    var canRetry: Bool {
+        guard case .failed = pending?.stage else { return false }
+        return !isLimited
     }
 
     /// 마지막 답이 부른 도구. **화면에 보여 준다** — 근거 없이 답한 것을 알아볼 수
@@ -94,6 +129,8 @@ final class RouteGuideSession: ObservableObject {
         !attendants.isEmpty
     }
 
+    /// 한도가 풀리는 때에 깨어나 잠금을 푼다.
+    private var limitWake: Task<Void, Never>?
     private var resendObserver: NSObjectProtocol?
     private static let log = Logger(subsystem: "com.mz2az.scenetrip", category: "retry")
 
@@ -125,9 +162,11 @@ final class RouteGuideSession: ObservableObject {
         context: RouteGuide.Context?
     ) async {
         let question = text.trimmingCharacters(in: .whitespaces)
-        guard !question.isEmpty, !asking else { return }
+        refreshLimit()
+        guard !question.isEmpty, !asking, !isLimited else { return }
 
         failure = nil
+        setLimit(.clear) // 새 질문이다 — 한도 안내는 답(또는 또 한 번의 429)이 다시 정한다
         turns.append(.init(role: .user, text: question))
         // 요청은 여기서 한 번 만든다 — 위치·화면 상태·이력이 박힌 채로. 다시 보낼 때 이것을 그대로 쓴다.
         pending = PendingTurn(
@@ -142,8 +181,12 @@ final class RouteGuideSession: ObservableObject {
 
     /// 「다시 시도」. **같은 턴을 같은 키로** 다시 보낸다 — 질문을 대화에 또 적지 않는다.
     func retry() async {
-        guard let turn = pending?.retried(lang: environment.lang(), newKey: environment.newKey) else { return }
+        refreshLimit()
+        guard canRetry,
+              let turn = pending?.retried(lang: environment.lang(), newKey: environment.newKey)
+        else { return }
         failure = nil
+        setLimit(.clear)
         pending = turn
         await fly()
     }
@@ -156,6 +199,7 @@ final class RouteGuideSession: ObservableObject {
     func setAttended(_ open: Bool, by panel: UUID) {
         if open {
             attendants.insert(panel)
+            refreshLimit() // 앱이 뒤에 있던 사이에 풀렸을 수 있다
         } else {
             attendants.remove(panel)
         }
@@ -178,14 +222,22 @@ final class RouteGuideSession: ObservableObject {
         let send = environment.send
         let task = Task { try await send(turn.request, turn.key, turn.keyed) }
         flight = task
+        let epoch = accountEpoch
         let result = await task.result
         // 기다리는 사이에 코스가 바뀌었거나 대화를 지웠다 — 늦게 온 답을 남의 대화에 적지 않는다.
         guard pending?.key == turn.key else { return }
         flight = nil
+        // 기다리는 사이에 **계정이 바뀌었다** — 앞 계정의 답도 한도(429)도 지금 계정의 것이 아니다. 통째로 버린다.
+        guard epoch == accountEpoch else {
+            pending = nil
+            return
+        }
+        readQuota()
 
         switch result {
         case let .success(answer):
             pending = nil
+            setLimit(.clear)
             tools = answer.tools
             // **장소를 새로 찾아 왔을 때만 목록을 갈아 끼운다.** 「어디 기준이야?」
             // 같은 되물음에는 장소가 안 실려 오는데, 그때 목록까지 지우면 방금
@@ -212,6 +264,62 @@ final class RouteGuideSession: ObservableObject {
             failure = reason
             // 다시 해 볼 만한 실패면 턴을 남긴다 — 「다시 시도」 가 같은 키로 보낸다.
             pending = turn.failing(reason)
+            if case let .limitReached(retryAfter) = reason {
+                setLimit(.reached(GuideLimit.Block(retryAfter: retryAfter, now: environment.now())))
+            } else {
+                setLimit(.clear)
+            }
+        }
+    }
+
+    // MARK: 챗봇 한도
+
+    /// 풀리는 때가 지났으면 잠금을 푼다. 창을 열 때와 보내기 직전에도 본다 — 타이머는 앱이 멈춰 있으면 늦는다.
+    func refreshLimit() {
+        guard case let .reached(block) = limit, block.isOver(at: environment.now()) else { return }
+        setLimit(.lifted)
+    }
+
+    /// 계정이 바뀌었다 — 한도와 남은 양은 앞 계정의 것이다. 떠 있는 요청도 앞 계정의 것이라 끊고, 늦게 돌아온
+    /// 결과는 `fly` 가 버린다.
+    func forgetLimit() {
+        accountEpoch += 1
+        flight?.cancel()
+        setLimit(.clear)
+        quota = nil
+        quotaSource = nil
+        if case .limitReached = failure {
+            failure = nil
+            pending = nil
+        }
+    }
+
+    /// 응답이 실어 온 남은 양. 헤더가 없었으면(옛 서버, 멱등 키로 되돌려 준 답) 장부가 앞의 값을 그대로 든다 —
+    /// 그때는 옮겨 둔 시각을 다시 계산하지 않는다(그 사이 기기 시계가 바뀌었을 수 있다).
+    private func readQuota() {
+        let entry = environment.quota()
+        guard entry != quotaSource else { return }
+        quotaSource = entry
+        quota = entry.map { GuideLimit.Quota($0, wall: environment.wall(), now: environment.now()) }
+    }
+
+    private func setLimit(_ new: Limit) {
+        limitWake?.cancel()
+        limitWake = nil
+        limit = new
+        guard case let .reached(block) = new, let until = block.until else { return }
+        let (now, sleep) = (environment.now, environment.sleep)
+        limitWake = Task { [weak self] in
+            // 시계가 어긋나 일찍 깨면 남은 만큼 더 쉰다.
+            while !Task.isCancelled {
+                let left = until - now()
+                if left <= 0 {
+                    break
+                }
+                await sleep(left)
+            }
+            guard !Task.isCancelled else { return }
+            self?.refreshLimit()
         }
     }
 
@@ -243,5 +351,9 @@ final class RouteGuideSession: ObservableObject {
         picked = nil
         failure = nil
         lastAnswer = nil
+        // 한도는 계정의 것이라 남는다. 다만 「이제 다시 물어볼 수 있어요」 는 지운 대화의 말이다.
+        if limit == .lifted {
+            limit = .clear
+        }
     }
 }

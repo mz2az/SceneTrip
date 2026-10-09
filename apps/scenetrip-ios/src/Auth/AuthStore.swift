@@ -207,6 +207,9 @@ final class AuthStore: ObservableObject {
 
     private func accountChanged() {
         epoch += 1
+        // 챗봇 한도와 남은 양은 계정마다 따로다 — 앞 계정의 잠금을 다음 계정에 남기지 않는다(MZ2AZ-366).
+        RateLimitLedger.shared.forget(.guide)
+        RouteGuideSession.shared.forgetLimit()
         Task { await LikeStore.shared.refresh() }
     }
 

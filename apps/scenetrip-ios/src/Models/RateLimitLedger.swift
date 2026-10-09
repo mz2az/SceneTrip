@@ -3,8 +3,8 @@ import Foundation
 /// 서버가 응답 헤더로 알려 준 **남은 양**을 적어 두는 장부 (MZ2AZ-366, 계약 「요청 한도」).
 ///
 /// 생성 클라이언트의 `async` 함수는 본문만 돌려준다 — 성공 응답의 `RateLimit-*` 는 화면까지 오지 않는다.
-/// 그래서 응답이 지나가는 자리(`RetryingSession`)에서 받아 여기 둔다. **지금은 적어 두기만 한다** — 「N번 더
-/// 물어볼 수 있어요」 를 보이는 것은 뒤의 일이다(계획 §5-4).
+/// 그래서 응답이 지나가는 자리(`RetryingSession`)에서 받아 여기 둔다. 챗봇 창이 여기서 읽어 「N번 더 물어볼 수
+/// 있어요」 를 보인다(`RouteGuideSession.quota`, 계획 §5-4).
 ///
 /// 숫자를 앱에 박지 않는다. 한도는 요금제 설정이라 바뀐다 — 서버가 준 것만 읽는다.
 final class RateLimitLedger: @unchecked Sendable {
@@ -29,11 +29,12 @@ final class RateLimitLedger: @unchecked Sendable {
     private let lock = NSLock()
     private var entries: [Bucket: Entry] = [:]
     private var waiting: Date?
+    private var seen = false
 
     /// 이번 실행에서 `RateLimit-*` 를 한 번이라도 봤나 — **이 서버가 요청 한도를 안다**는 표시다.
     /// 챗봇 멱등 키는 같은 서버 변경으로 들어왔으므로, 그 재시도를 켜도 되는지의 근거가 된다(계획 §4-5).
     var serverKnowsLimits: Bool {
-        locked { !entries.isEmpty }
+        locked { seen }
     }
 
     /// 분당 한도가 풀리기를 **오래**(`RetryRules.Tuning.rateLimitQuietSeconds` 넘게) 기다리는 중이면 그 끝.
@@ -49,7 +50,15 @@ final class RateLimitLedger: @unchecked Sendable {
     /// 응답 하나를 읽는다. 헤더가 없으면(옛 서버, 멱등 키로 되돌려 준 답) **적어 둔 것을 지우지 않는다.**
     func record(path: String, response: HTTPURLResponse, now: Date = Date()) {
         guard let entry = Self.entry(from: response, now: now) else { return }
-        locked { entries[Self.bucket(for: path)] = entry }
+        locked {
+            entries[Self.bucket(for: path)] = entry
+            seen = true
+        }
+    }
+
+    /// 그 묶음의 값을 잊는다 — 계정이 바뀌면 앞 계정의 남은 양은 남의 것이다. 「서버가 한도를 안다」 는 그대로다.
+    func forget(_ bucket: Bucket) {
+        locked { entries[bucket] = nil }
     }
 
     func setWaiting(until date: Date?) {
