@@ -2,6 +2,10 @@
 
 just 레시피가 호출하는 스크립트. 기여자가 직접 실행하지 않는다.
 
+- `just db-psql-file <파일>`: 큰 SQL을 로컬 kind DB에 표준입력으로 보낸다.
+  직접 접속 환경변수는 거부하고 SQL 오류는 실패로 돌려준다.
+  [실행·복구 안내](../../docs/ops/local-sql-file.md)를 먼저 읽는다.
+
 ## 관례
 
 - `source _lib.sh` 로 `log`·`warn`·`die`·`have`·`pending`·`REPO_ROOT` 와

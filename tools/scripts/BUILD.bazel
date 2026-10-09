@@ -1,5 +1,18 @@
 load("@rules_python//python:defs.bzl", "py_test")
 
+# 큰 SQL 파일의 표준입력 전달과 로컬 DB 경계 검증.
+py_test(
+    name = "db_psql_file_unit_test",
+    srcs = ["test_db_psql_file.py"],
+    data = [
+        "_lib.sh",
+        "db-psql-file.sh",
+    ],
+    legacy_create_init = 0,
+    main = "test_db_psql_file.py",
+    tags = ["unit"],
+)
+
 # Java 포맷 검사에서 Bazel 진단과 실제 포맷 결과를 구분하는 회귀 시험.
 py_test(
     name = "unit_test",
