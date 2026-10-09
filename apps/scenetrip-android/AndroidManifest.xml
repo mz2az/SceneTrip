@@ -32,6 +32,18 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <!-- 설치된 지도 앱만 길찾기 선택지로 표시한다. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="kakaomap" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="nmap" />
+        </intent>
+    </queries>
+
     <!--
       평문 HTTP 는 `res/xml/network_security_config.xml` 이 정한다 — 에뮬레이터가 노트북의
       로컬 서버(`http://10.0.2.2:8081`)를 부를 때만 허용하고 나머지는 막는다(MZ2AZ-335).

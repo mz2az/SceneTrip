@@ -17,6 +17,11 @@ import com.mz2az.scenetrip.sceneapi.client.model.AuthSession
 object AuthTokens {
     private const val ACCESS = "accessToken"
     private const val REFRESH = "refreshToken"
+    private const val EXPIRES = "accessExpiresAt"
+
+    @Volatile var expiresAt = 0L
+        private set
+    val isStale: Boolean get() = hasSession && System.currentTimeMillis() >= expiresAt - 30_000
 
     private lateinit var store: SecureStore
 
@@ -35,6 +40,7 @@ object AuthTokens {
         store = SecureStore(context)
         accessToken = store.read(ACCESS)
         refreshToken = store.read(REFRESH)
+        expiresAt = store.read(EXPIRES)?.toLongOrNull() ?: 0L
         ApiClient.accessToken = accessToken
     }
 
@@ -44,6 +50,8 @@ object AuthTokens {
         accessToken = session.accessToken
         refreshToken = session.refreshToken
         ApiClient.accessToken = session.accessToken
+        expiresAt = System.currentTimeMillis() + session.accessTokenExpiresIn * 1000L
+        store.write(EXPIRES, expiresAt.toString())
         store.write(ACCESS, session.accessToken)
         store.write(REFRESH, session.refreshToken)
     }
@@ -55,5 +63,7 @@ object AuthTokens {
         ApiClient.accessToken = null
         store.remove(ACCESS)
         store.remove(REFRESH)
+        store.remove(EXPIRES)
+        expiresAt = 0L
     }
 }

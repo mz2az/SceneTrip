@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [android-ios-parity.md](android-ios-parity.md) | Android를 현재 iOS의 리뷰·사진·POI 코스·요청 재시도·한도 처리에 맞춘다 |
 | [dev-lifecycle.md](dev-lifecycle.md) | 버튼 하나로 DEV 올리기·내리기 — runner·Secret·배포·Cloudflare DNS |
 | [aws-teardown.md](aws-teardown.md) | 비용 절감을 위한 서비스·bootstrap 수동 삭제와 잔존 데이터 정책 |
 | [alb-deployment.md](alb-deployment.md) | ALB 진입점·신뢰 경계·배포 검증·교육자료 전환 |

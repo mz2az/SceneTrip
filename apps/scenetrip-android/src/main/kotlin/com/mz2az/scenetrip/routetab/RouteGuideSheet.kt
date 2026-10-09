@@ -359,7 +359,26 @@ private fun GuideConversation(
             }
         }
         session.failure?.let { message ->
-            item { Text(message, fontSize = 13.sp, color = IOS.systemOrange) }
+            item {
+                Text(message, fontSize = 13.sp, color = IOS.systemOrange)
+                val now =
+                    com.mz2az.scenetrip.data
+                        .usageNow()
+                if (session.canRetry &&
+                    com.mz2az.scenetrip.data.LimitLedger.guideBlock
+                        ?.blocked(now) != true
+                ) {
+                    Text(
+                        tr("다시 시도"),
+                        color = IOS.accent,
+                        modifier = Modifier.clickable { scope.launch { session.retry() } }.padding(vertical = 8.dp),
+                    )
+                }
+            }
+        }
+        item {
+            com.mz2az.scenetrip.data
+                .GuideUsageNotice()
         }
     }
 }
@@ -426,10 +445,21 @@ private fun GuideComposer(
 ) {
     var draft by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
-    val canSend = draft.isNotBlank() && !session.asking
+    val now =
+        com.mz2az.scenetrip.data
+            .usageNow()
+    val locked =
+        com.mz2az.scenetrip.data.LimitLedger.guideBlock
+            ?.blocked(now) == true
+    val canSend = draft.isNotBlank() && draft.trim().length <= 4000 && !session.asking && !locked
 
     fun send() {
         if (!canSend) return
+        if (!com.mz2az.scenetrip.auth.AuthStore.signedIn) {
+            com.mz2az.scenetrip.auth.AuthStore
+                .promptSignIn()
+            return
+        }
         val text = draft
         draft = ""
         scope.launch { session.ask(text, here.first, here.second) }
@@ -456,7 +486,8 @@ private fun GuideComposer(
             if (draft.isEmpty()) Text(tr("주변에 무엇을 찾으세요?"), fontSize = 17.sp, color = IOS.tertiaryLabel, maxLines = 1)
             BasicTextField(
                 value = draft,
-                onValueChange = { draft = it },
+                onValueChange = { if (it.length <= 4000) draft = it },
+                enabled = !session.asking && !locked,
                 maxLines = 3,
                 textStyle = IOS.body.copy(color = IOS.label),
                 cursorBrush = SolidColor(IOS.accent),

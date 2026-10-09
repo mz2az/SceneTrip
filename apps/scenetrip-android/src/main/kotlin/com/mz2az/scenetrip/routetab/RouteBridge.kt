@@ -25,6 +25,25 @@ import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
  * 돌려보내야 한다. 그래서 [RouteStop.serverItemId]가 편집 중에도 따라다닌다.
  */
 object RouteBridge {
+    fun savedTitle(raw: String): String =
+        raw.trim().ifEmpty {
+            com.mz2az.scenetrip.data
+                .tr("내 코스", "코스 제목")
+        }
+
+    fun outgoing(course: RouteCourse): CourseReplace = replace(course).copy(title = savedTitle(course.title))
+
+    fun changed(
+        opened: CourseReplace,
+        course: RouteCourse,
+    ): Boolean = outgoing(course) != opened
+
+    fun isBlank(course: RouteCourse): Boolean =
+        outgoing(course).let { body ->
+            body.days.all { it.items.isEmpty() } &&
+                body.title == savedTitle("")
+        }
+
     // 서버 → 화면
 
     fun course(detail: CourseDetail): RouteCourse =
@@ -60,7 +79,7 @@ object RouteBridge {
             place =
                 PlaceSummary(
                     // 직접 찍은 핀은 촬영지 id가 없다.
-                    id = item.placeId ?: -item.id,
+                    id = if (item.source == CourseItemSource.poi) 0 else item.placeId ?: -item.id,
                     name = item.name,
                     type = item.category,
                     address = item.address,
@@ -70,7 +89,8 @@ object RouteBridge {
                 ),
             serverItemId = item.id,
             stayMinutes = item.dwellMinutes,
-            isPinned = item.source == CourseItemSource.customPin,
+            isPinned = item.source == CourseItemSource.customPin || (item.source == CourseItemSource.poi && item.poiId == null),
+            poiId = item.poiId.takeIf { item.source == CourseItemSource.poi },
             visited = item.visitedAt != null,
         )
 
@@ -94,7 +114,8 @@ object RouteBridge {
     private fun item(stop: RouteStop): CourseItemInput =
         CourseItemInput(
             id = stop.serverItemId,
-            placeId = if (stop.isPinned) null else stop.place.id,
+            placeId = stop.savablePlaceId,
+            poiId = stop.poiId.takeUnless { stop.isPinned },
             customPin =
                 if (stop.isPinned) {
                     CustomPinInput(
@@ -113,10 +134,10 @@ object RouteBridge {
     /** 직접 찍은 핀의 분류. 계약은 닫힌 다섯 갈래이고 화면은 한국어 이름을 쓴다. */
     private fun pinCategory(text: String?): PinCategory =
         when (text) {
-            "숙소" -> PinCategory.lodging
-            "음식점·카페" -> PinCategory.food
-            "명소·자연" -> PinCategory.attraction
-            "거리·다리" -> PinCategory.street
+            "숙소", "lodging" -> PinCategory.lodging
+            "음식점·카페", "food" -> PinCategory.food
+            "명소·자연", "attraction" -> PinCategory.attraction
+            "거리·다리", "street" -> PinCategory.street
             else -> PinCategory.building
         }
 

@@ -4,8 +4,10 @@ import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.sceneapi.client.api.AuthApi
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientException
 import com.mz2az.scenetrip.sceneapi.client.model.RefreshTokenBody
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.Response
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -19,9 +21,23 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 class AuthInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
-        val request = chain.request()
-        val url = request.url.toString()
-        if (!AuthRules.intercepts(url)) return chain.proceed(request)
+        val original = chain.request()
+        val api = API_BASE.toHttpUrl()
+        if (original.url.scheme != api.scheme || original.url.host != api.host ||
+            original.url.port != api.port
+        ) {
+            return chain.proceed(original)
+        }
+        val url = original.url.toString()
+        val epoch = AuthStore.epoch
+        if (!AuthRules.intercepts(url)) return chain.proceed(original)
+        if (original.method == "GET" && original.url.encodedPath.contains("/reviews") &&
+            AuthTokens.isStale
+        ) {
+            TokenRefresher.refresh(AuthTokens.accessToken)
+        }
+        if (epoch != AuthStore.epoch) throw IOException("account changed")
+        val request = AuthTokens.accessToken?.let { original.newBuilder().header("Authorization", "Bearer $it").build() } ?: original
 
         val write = request.method != "GET"
         if (write) PendingWrites.begin()
@@ -31,17 +47,18 @@ class AuthInterceptor : Interceptor {
             } finally {
                 if (write) PendingWrites.end()
             }
-        if (response.code != 401) return response
+        if (response.code != 401 || epoch != AuthStore.epoch) return response
 
         val code = AuthRules.apiCode(runCatching { response.peekBody(PEEK_BYTES).string() }.getOrNull())
         when (AuthRules.action(response.code, code)) {
             AuthAction.REFRESH_AND_RETRY -> {
                 val stale = request.header("Authorization")?.removePrefix("Bearer ")
                 val fresh = TokenRefresher.refresh(stale) ?: return response
+                if (epoch != AuthStore.epoch) return response
                 response.close()
                 val retried = chain.proceed(request.newBuilder().header("Authorization", "Bearer $fresh").build())
                 // 재시도는 한 번. 갱신 뒤에도 401 이면 로그인 화면이다.
-                if (retried.code == 401) AuthStore.sessionLost()
+                if (retried.code == 401 && epoch == AuthStore.epoch) AuthStore.sessionLost()
                 return retried
             }
 
@@ -79,13 +96,15 @@ object TokenRefresher {
         val current = AuthTokens.accessToken
         if (current != null && current != staleAccessToken) return current
         val token = AuthTokens.refreshToken ?: return null
+        val epoch = AuthStore.epoch
         return try {
             val session = AuthApi(API_BASE).refreshSession(RefreshTokenBody(token))
+            if (epoch != AuthStore.epoch || AuthTokens.refreshToken != token) return null
             AuthTokens.store(session)
             session.accessToken
         } catch (e: ClientException) {
             // 리프레시 토큰이 거절됐다 — 세션을 지우고 로그인 화면. 그 밖(서버에 못 닿음)은 토큰을 둔다.
-            if (e.statusCode == 401) AuthStore.sessionLost()
+            if (e.statusCode == 401 && epoch == AuthStore.epoch && AuthTokens.refreshToken == token) AuthStore.sessionLost()
             null
         } catch (_: Exception) {
             null

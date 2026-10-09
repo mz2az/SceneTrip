@@ -12,12 +12,15 @@ import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.InstallIdentity
 import com.mz2az.scenetrip.data.LikeStore
+import com.mz2az.scenetrip.data.NetworkFailure
+import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.sceneapi.client.api.AuthApi
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ApiClient
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientException
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ServerException
 import com.mz2az.scenetrip.sceneapi.client.model.GoogleSignIn
 import com.mz2az.scenetrip.sceneapi.client.model.Me
+import com.mz2az.scenetrip.sceneapi.client.model.NicknameInput
 import com.mz2az.scenetrip.sceneapi.client.model.RefreshTokenBody
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +45,8 @@ object AuthStore {
 
     /** 로그인 화면을 띄울 것인가. 화면 어디서든 이것을 켜면 맨 위에 시트가 올라온다. */
     var showingSignIn by mutableStateOf(false)
+    var showingNickname by mutableStateOf(false)
+        private set
 
     /**
      * 계정이 바뀔 때마다 오른다(로그인·로그아웃·탈퇴·세션 소실). 서버 데이터를 든 화면이
@@ -68,6 +73,11 @@ object AuthStore {
         if (::appContext.isInitialized) return
         appContext = context.applicationContext
         ApiClient.builder.addInterceptor(AuthInterceptor())
+        ApiClient.builder.retryOnConnectionFailure(false)
+        ApiClient.builder.addInterceptor(
+            com.mz2az.scenetrip.data
+                .RetryInterceptor(),
+        )
         AuthTokens.load(appContext)
         installId = InstallIdentity.of(appContext)
         signedIn = AuthTokens.hasSession
@@ -102,6 +112,10 @@ object AuthStore {
                 AppAnalytics.log(if (session.isNewUser) AppEvent.SignUp("google") else AppEvent.Login("google"))
                 // `merged` 가 아니어도 다시 읽는다 — 값이 싸고, 화면이 든 것이 서버와 같다는 보장이 된다.
                 accountChanged()
+                val user = session.user
+                showingNickname =
+                    user.nicknameConfirmed == false &&
+                    !appContext.getSharedPreferences("scenetrip", Context.MODE_PRIVATE).getBoolean("nickname.asked.${user.id}", false)
             } catch (_: GetCredentialCancellationException) {
                 // 사람이 창을 닫았다. 알릴 것이 없다.
             } catch (e: GoogleIdSignIn.Unavailable) {
@@ -159,13 +173,39 @@ object AuthStore {
         AuthTokens.clear()
         me = null
         signedIn = false
+        showingNickname = false
         AppAnalytics.setMember(false)
         accountChanged()
     }
 
     private fun accountChanged() {
+        com.mz2az.scenetrip.data.LimitLedger
+            .reset()
         epoch += 1
         scope.launch { LikeStore.getInstance(appContext).refresh() }
+    }
+
+    fun finishNicknamePrompt() {
+        me?.id?.let {
+            appContext
+                .getSharedPreferences(
+                    "scenetrip",
+                    Context.MODE_PRIVATE,
+                ).edit()
+                .putBoolean("nickname.asked.$it", true)
+                .apply()
+        }
+        showingNickname = false
+    }
+
+    suspend fun setNickname(name: String): String? {
+        val before = epoch
+        val result = apiResult { api.setMyNickname(NicknameInput(name)) }
+        if (before != epoch) return "로그인이 필요해요"
+        return result.fold(onSuccess = {
+            me = it
+            null
+        }, onFailure = { NetworkFailure.of(it).message })
     }
 
     private suspend fun <T> io(block: () -> T): Result<T> = withContext(Dispatchers.IO) { runCatching(block) }

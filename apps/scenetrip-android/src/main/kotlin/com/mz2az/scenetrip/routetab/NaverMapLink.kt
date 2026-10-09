@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.routetab
 
+import java.net.URI
 import java.net.URLEncoder
 
 /**
@@ -9,6 +10,16 @@ import java.net.URLEncoder
  * 방문자의 것이다. 이름으로 검색한 화면을 열어 줄 뿐이다.
  */
 object NaverMapLink {
+    /** 서버가 준 공식 장소 주소만 사용한다. 없거나 유효하지 않으면 단추를 숨긴다. */
+    fun place(raw: String?): String? {
+        val value = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val url = runCatching { URI(value) }.getOrNull() ?: return null
+        val host = url.host?.lowercase() ?: return null
+        if (!url.scheme.equals("https", ignoreCase = true) || url.rawUserInfo != null || url.port != -1) return null
+        if (host != "naver.com" && !host.endsWith(".naver.com") && host != "naver.me") return null
+        return value
+    }
+
     /**
      * 이름으로 검색한 네이버 지도 주소. 이름이 비면 없다.
      *

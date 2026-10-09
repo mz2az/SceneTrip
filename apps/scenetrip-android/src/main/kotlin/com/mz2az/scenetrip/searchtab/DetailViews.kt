@@ -183,8 +183,14 @@ fun PlaceDetailView(
     onOpenScene: (Scene) -> Unit,
 ) {
     var detail by remember(summary.id) { mutableStateOf<PlaceDetail?>(null) }
+    var reviews by remember(summary.id) { mutableStateOf(false) }
+    var revision by remember(summary.id) { mutableStateOf(0) }
+    var reviewId by remember(summary.id) { mutableStateOf<Long?>(null) }
+    val subject =
+        com.mz2az.scenetrip.reviews
+            .ReviewSubject(summary.id, summary.name)
     val context = LocalContext.current
-    LaunchedEffect(summary.id) {
+    LaunchedEffect(summary.id, revision) {
         AppAnalytics.log(AppEvent.ViewPlace(summary.id))
         detail = detailOf(summary.id)
     }
@@ -199,15 +205,28 @@ fun PlaceDetailView(
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                     modifier = Modifier.padding(top = 14.dp),
                 ) {
-                    RemoteImage(
-                        url = (detail?.imageUrl ?: summary.imageUrl)?.toString(),
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(180.dp)
-                                .padding(horizontal = IOS.gutter)
-                                .clip(RoundedCornerShape(10.dp)),
-                    )
+                    if (detail?.photos.orEmpty().isNotEmpty()) {
+                        com.mz2az.scenetrip.reviews
+                            .GalleryStrip(subject, detail!!.photos!!, detail?.photoCount ?: detail!!.photos!!.size, onReview = {
+                                reviewId =
+                                    it
+                                ; reviews = true
+                            })
+                    } else {
+                        RemoteImage(
+                            url = (detail?.imageUrl ?: summary.imageUrl)?.toString(),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp)
+                                    .padding(horizontal = IOS.gutter)
+                                    .clip(RoundedCornerShape(10.dp)),
+                        )
+                    }
+                    com.mz2az.scenetrip.reviews.RatingLine(detail?.rating, onClick = {
+                        reviewId = null
+                        reviews = true
+                    }, modifier = Modifier.padding(horizontal = IOS.gutter))
                     summary.type?.takeIf { it.isNotEmpty() }?.let {
                         Text(
                             text = it,
@@ -266,7 +285,9 @@ fun PlaceDetailView(
                                 )
                             }
                         }
-                        val naver = detail?.naverPlaceUrl?.toString()
+                        val naver =
+                            com.mz2az.scenetrip.routetab.NaverMapLink
+                                .place(detail?.naverPlaceUrl?.toString())
                         if (naver != null) {
                             Box(
                                 contentAlignment = Alignment.Center,
@@ -325,6 +346,11 @@ fun PlaceDetailView(
                 }
             }
         }
+    }
+    if (reviews) {
+        com.mz2az.scenetrip.reviews.ReviewsSheet(subject, onClose = {
+            reviews = false
+        }, onChanged = { revision += 1 }, focusReviewId = reviewId)
     }
 }
 

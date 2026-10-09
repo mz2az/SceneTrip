@@ -89,10 +89,8 @@ private val SYSTEM_INDIGO = Color(0xFF5856D6)
 private val SYSTEM_BLUE = IOS.accent
 
 /**
- * 마이페이지 — 임시판. iOS `ProfileTab/ProfileTabView.swift`를 옮긴 것이다.
- *
- * 로그인이 아직 없다. 그래서 이 화면은 "내 계정"이 아니라 "이 설치본에 쌓인 것"을
- * 보여 준다 — 찜한 작품, 내 코스, 사용법. 지어낸 숫자는 없다.
+ * 마이페이지. iOS `ProfileTab/ProfileTabView.swift`와 같은 계정·여행 기록을 보여 준다.
+ * Google 로그인·닉네임·내 리뷰와 찜한 작품·내 코스·사용법을 연결한다.
  *
  * [onClose]는 홈이 덮개로 띄울 때 넘긴다 — 있으면 왼쪽 위에 닫기 단추가 생긴다.
  */
@@ -122,6 +120,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
     var showingPosts by remember { mutableStateOf(false) }
     var clearingFootprints by remember { mutableStateOf(false) }
     var choosingLanguage by remember { mutableStateOf(false) }
+    var showingReviews by remember { mutableStateOf(false) }
+    var showingNickname by remember { mutableStateOf(false) }
 
     val likedWorks = allWorks.filter { likes.contentIds.contains(it.id) }
 
@@ -175,7 +175,20 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 
             // iOS insetGrouped List 는 첫 섹션 위에 약 38 을 비운다(2차 대조: 제목→해태 75.5 대 38).
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 38.dp)) {
-                item { ProfileHeader() }
+                item { ProfileHeader(onNickname = { showingNickname = true }) }
+                if (AuthStore.signedIn) {
+                    item {
+                        ProfileSection(tr("내 리뷰")) {
+                            ProfileRow(
+                                title = tr("내 리뷰"),
+                                value = "",
+                                onClick = { showingReviews = true },
+                                chevron = true,
+                                icon = { SquarePencilIcon(IOS.accent, it) },
+                            )
+                        }
+                    }
+                }
 
                 item {
                     ProfileSection(tr("내 여행")) {
@@ -429,6 +442,14 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
             MyPostsSheet(posts.mine, onRemove = { posts.remove(it) }, onClose = { showingPosts = false })
         }
         if (showingReels) ReelsTeaserView(onClose = { showingReels = false })
+        if (showingReviews) {
+            com.mz2az.scenetrip.reviews
+                .MyReviewsView(onClose = { showingReviews = false })
+        }
+        if (showingNickname) {
+            com.mz2az.scenetrip.reviews
+                .NicknameView(onClose = { showingNickname = false })
+        }
         if (replaying) {
             val flag = remember { OnboardingFlag(context) }
             OnboardingView(onboardingFlag = flag, onDone = { replaying = false })
@@ -438,7 +459,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 
 /** 피노와 비회원 안내. 로그인이 서면 이 자리가 계정 카드가 된다. */
 @Composable
-private fun ProfileHeader() {
+private fun ProfileHeader(onNickname: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -447,7 +468,13 @@ private fun ProfileHeader() {
         PinoMascot(width = 96.dp)
         // iOS `header` — 비회원이면 로그인 단추, 로그인했으면 이름과 메일 (MZ2AZ-336).
         if (AuthStore.signedIn) {
-            Text(AuthStore.me?.displayName ?: tr("여행자"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Text(
+                AuthStore.me?.nickname ?: tr("여행자"),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IOS.label,
+                modifier = Modifier.clickable(onClick = onNickname),
+            )
             AuthStore.me?.email?.let { Text(it, fontSize = 12.sp, color = IOS.secondaryLabel) }
         } else {
             Text(tr("비회원으로 여행 중"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
@@ -510,7 +537,7 @@ private fun AccountSection(onDeleted: () -> Unit) {
         IOSAlert(
             title = tr("정말 탈퇴할까요?"),
             // iOS 가 발자취까지 적는 문구로 고쳤다(2026-10-05) — 그대로 옮긴다.
-            message = tr("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요."),
+            message = tr("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요. 리뷰와 사진은 탈퇴한 사용자로 남아요."),
             actions =
                 listOf(
                     IOSAction(tr("취소"), IOSRole.CANCEL) {},

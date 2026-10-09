@@ -15,6 +15,30 @@ repo-files *paths:
 repo-read +paths:
     cat -- "$@"
 
+# 긴 소스·문서의 지정 줄 범위 읽기
+[group('dev')]
+repo-read-lines path start end:
+    sed -n '{{start}},{{end}}p' {{quote(path)}}
+
+# 빌드 산출물 아카이브의 소스 파일 읽기
+[group('dev')]
+repo-archive-read path member:
+    unzip -p {{quote(path)}} {{quote(member)}}
+
+# iOS 최신 영어 문구를 Android에 반영
+[group('dev')]
+android-translations:
+    {{BAZEL}} run //tools/scripts:android_translations
+
+# Android 소스·테스트만 포맷
+[group('dev')]
+android-fmt:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    paths=()
+    while IFS= read -r path; do paths+=("$PWD/$path"); done < <(rg --files apps/scenetrip-android -g '*.kt')
+    {{BAZEL}} run //:ktlint -- -F "${paths[@]}"
+
 # 저장소 소스·문서 검색
 [group('dev')]
 repo-search pattern +paths:
@@ -59,6 +83,11 @@ repo-inspect command +args:
 [group('dev')]
 repo-stage +paths:
     git add -- "$@"
+
+# 함께 편집한 파일에서 지정 패치만 스테이징 (다른 작업자의 변경 보존)
+[group('dev')]
+repo-stage-patch patch:
+    git apply --cached -- {{quote(patch)}}
 
 # 스테이징한 변경의 공백을 확인한 뒤 커밋
 [group('dev')]

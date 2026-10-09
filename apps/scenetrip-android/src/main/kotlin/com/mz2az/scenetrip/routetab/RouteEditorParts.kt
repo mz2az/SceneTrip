@@ -370,6 +370,11 @@ fun PoiSummary.asGuidePlace(): com.mz2az.scenetrip.sceneapi.client.model.GuidePl
         source = com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource.poi,
         address = address,
         distanceMeters = distanceMeters,
+        placeId = placeId,
+        displayName = displayName,
+        nameRoman = nameRoman,
+        categoryLabel = categoryLabel,
+        displayAddress = displayAddress,
     )
 
 /**
@@ -466,7 +471,7 @@ fun AmbientPoiPins(
                         com.naver.maps.geometry
                             .LatLng(poi.latitude, poi.longitude)
                     icon = AmbientDotImage.of(poi.categoryGroup, metrics)
-                    captionText = poi.name
+                    captionText = poi.displayName ?: poi.nameRoman ?: poi.name
                     captionMinZoom = 15.0
                     setOnClickListener {
                         onTap(poi)

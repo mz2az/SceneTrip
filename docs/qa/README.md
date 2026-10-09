@@ -10,6 +10,7 @@
 | [alb-verification.md](alb-verification.md) | ALB 진입점 전환의 로컬 검증과 실환경 확인 범위 |
 | [aws-teardown-verification.md](aws-teardown-verification.md) | 서비스·bootstrap 삭제의 계획·재시도·데이터 보존 검증 |
 | [place-naver-link-verification.md](place-naver-link-verification.md) | 촬영지 네이버 링크 검사와 로컬 리뷰 사진 업로드 확인 (MZ2AZ-383) |
+| [android-ios-parity-verification.md](android-ios-parity-verification.md) | Android 최신 iOS 기능 반영의 자동 검사·에뮬레이터 검증 범위 (MZ2AZ-148) |
 
 ## 상시 규칙
 

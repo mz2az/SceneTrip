@@ -16,6 +16,31 @@ import java.time.LocalDate
  * 있고 DB id 가 없다.
  */
 object RouteGuidePlan {
+    /** 손으로 고친 일정을 같은 계약으로 되돌려 보내야 챗봇이 낡은 초안을 고치지 않는다. */
+    fun plan(course: RouteCourse): GuidePlan =
+        GuidePlan(
+            pace = if (course.pace == RoutePace.LOOSE) GuidePlan.Pace.relaxed else GuidePlan.Pace.packed,
+            days =
+                course.days.mapIndexed { dayIndex, day ->
+                    com.mz2az.scenetrip.sceneapi.client.model.GuidePlanDay(
+                        day = dayIndex + 1,
+                        stops =
+                            day.stops.mapIndexed { index, stop ->
+                                com.mz2az.scenetrip.sceneapi.client.model.GuidePlanStop(
+                                    order = index + 1,
+                                    name = stop.place.name,
+                                    placeId = stop.savablePlaceId,
+                                    latitude = stop.place.latitude,
+                                    longitude = stop.place.longitude,
+                                    address = stop.place.address,
+                                    arriveMinute = stop.arriveMinute ?: 0,
+                                    dwellMinutes = stop.stayMinutes,
+                                )
+                            },
+                    )
+                },
+        )
+
     fun course(
         plan: GuidePlan,
         title: String,

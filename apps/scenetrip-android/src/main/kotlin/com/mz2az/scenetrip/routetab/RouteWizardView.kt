@@ -74,6 +74,7 @@ private fun RouteWizardViewBody(
     store: RouteStore,
     isAiPlan: Boolean = false,
     onClose: (RouteCourse?) -> Unit,
+    editorDismiss: java.util.concurrent.atomic.AtomicReference<(() -> Unit)?>,
 ) {
     var stepIndex by remember { mutableStateOf(0) }
     var span by remember { mutableStateOf(RouteSpan.ONE_NIGHT) }
@@ -108,7 +109,14 @@ private fun RouteWizardViewBody(
 
     val currentDraft = draft
     if (currentDraft != null) {
-        RouteEditorView(store = store, initial = currentDraft, isNew = true, onClose = onClose, inSheet = true)
+        RouteEditorView(
+            store = store,
+            initial = currentDraft,
+            isNew = true,
+            onClose = onClose,
+            inSheet = true,
+            editorDismiss = editorDismiss,
+        )
         return
     }
 
@@ -506,7 +514,15 @@ fun RouteWizardView(
     isAiPlan: Boolean = false,
     onClose: (RouteCourse?) -> Unit,
 ) {
-    IOSSheet(detents = listOf(SheetDetent.LARGE), onDismiss = { onClose(null) }) {
-        RouteWizardViewBody(store = store, isAiPlan = isAiPlan, onClose = onClose)
+    val editorDismiss =
+        remember {
+            java.util.concurrent.atomic
+                .AtomicReference<(() -> Unit)?>(null)
+        }
+    IOSSheet(detents = listOf(SheetDetent.LARGE), onDismiss = {
+        val cancel = editorDismiss.get()
+        if (cancel != null) cancel() else onClose(null)
+    }) {
+        RouteWizardViewBody(store = store, isAiPlan = isAiPlan, onClose = onClose, editorDismiss = editorDismiss)
     }
 }

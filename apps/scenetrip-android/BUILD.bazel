@@ -6,8 +6,7 @@
 #   :scenetrip-android  이 모듈의 주 라이브러리 (kt_android_library)
 #   :bin                기기/에뮬레이터에 설치하는 APK (android_binary)
 #
-# :unit_test 는 아직 없다 — 검증할 로직이 생기는 첫 화면 작업에서 함께 만든다.
-# iOS 쪽이 그렇게 했고(apps/scenetrip-ios/BUILD.bazel) 같은 순서를 따른다.
+# :unit_test 는 Android 프레임워크 없이 리뷰·재시도·도착·외부 지도 규칙을 검증한다.
 # :image / :push 는 모바일 모듈에 해당 없음 — 스토어로 나가지 클러스터로 가지 않는다.
 #
 # **iOS 와 달리 태그로 걸러 내지 않는다.** Android 는 리눅스에서 지어지므로 기존
@@ -19,10 +18,48 @@
 # `just doctor` 가 본다.
 
 load("@rules_android//rules:rules.bzl", "android_binary")
+load("@rules_java//java:defs.bzl", "java_test")
 load("@rules_kotlin//kotlin:android.bzl", "kt_android_library")
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
 load("//tools/bazel/defs:mobile_api_config.bzl", "mobile_api_config")
 
 package(default_visibility = ["//visibility:public"])
+
+kt_jvm_library(
+    name = "unit_test_lib",
+    testonly = True,
+    srcs = [
+        "tests/ClientRulesTests.kt",
+        "tests/NetworkTests.kt",
+    ],
+    deps = [
+        ":scenetrip-android",
+        "//contracts/openapi:scene_api_kotlin_lib",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven_android//:com_squareup_okhttp3_okhttp",
+        "@maven_android//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
+    ],
+)
+
+java_test(
+    name = "unit_test",
+    srcs = [],
+    args = [
+        "execute",
+        "--select-package=com.mz2az.scenetrip",
+        "--fail-if-no-tests",
+        "--disable-banner",
+    ],
+    main_class = "org.junit.platform.console.ConsoleLauncher",
+    tags = ["unit"],
+    use_testrunner = False,
+    runtime_deps = [
+        ":unit_test_lib",
+        "@maven//:org_junit_jupiter_junit_jupiter_engine",
+        "@maven//:org_junit_platform_junit_platform_console",
+        "@maven//:org_junit_platform_junit_platform_launcher",
+    ],
+)
 
 mobile_api_config(
     name = "api_configuration",
@@ -32,7 +69,48 @@ mobile_api_config(
 
 kt_android_library(
     name = "scenetrip-android",
-    srcs = glob(["src/**/*.kt"]) + [":api_configuration"],
+    srcs = glob(
+        ["src/**/*.kt"],
+        exclude = [
+            "src/main/kotlin/com/mz2az/scenetrip/routetab/PlacePoiLink.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/routetab/PoiLabel.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/reviews/**",
+            "src/main/kotlin/com/mz2az/scenetrip/data/NetworkFailure.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/data/RetryRules.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/data/UsageLimit.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/data/RetryInterceptor.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/data/LimitLedger.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/data/UsageLedger.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/data/UsageViews.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/data/TranslationExtras.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/routetab/TripArrival.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/routetab/ExternalDirections.kt",
+        ],
+    ) + [
+        "src/main/kotlin/com/mz2az/scenetrip/data/LimitLedger.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/NetworkFailure.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/RetryInterceptor.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/RetryRules.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/TranslationExtras.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/UsageLedger.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/UsageLimit.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/UsageViews.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/LocalPhoto.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/MyReviewsView.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/NicknameView.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/PhotoGallery.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/PhotoUploader.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/ReviewComposeView.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/ReviewDraft.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/ReviewRules.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/ReviewSubject.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/ReviewsSheet.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/routetab/ExternalDirections.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/routetab/PlacePoiLink.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/routetab/PoiLabel.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/routetab/TripArrival.kt",
+        ":api_configuration",
+    ],
     manifest = "AndroidManifest.xml",
     # Compose 는 컴파일러 플러그인 없이는 **조용히 잘못 돈다** — 이유는
     # //tools/bazel/kotlin:compose_compiler_plugin 의 주석에 있다.
@@ -72,6 +150,8 @@ kt_android_library(
         "@maven_android//:androidx_compose_ui_ui_text_android",
         "@maven_android//:androidx_compose_ui_ui_unit_android",
         "@maven_android//:androidx_lifecycle_lifecycle_runtime_compose_android",
+        "@maven_android//:androidx_lifecycle_lifecycle_runtime_android",
+        "@maven_android//:androidx_lifecycle_lifecycle_common_jvm",
         "@maven_android//:androidx_lifecycle_lifecycle_viewmodel_compose_android",
         "@maven_android//:org_jetbrains_kotlinx_kotlinx_coroutines_android",
         "@maven_android//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
