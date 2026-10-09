@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.5.0
+  version: 1.6.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -1103,6 +1103,9 @@ paths:
       description: |
         핀을 눌렀을 때 바로 보여 줄 수 있는 것 — 우리 자료에 있는 이름·종류·주소·전화와 우리가 모은
         사진(`images`, 지금은 빈 배열). 영업시간은 없다. 별점은 우리 리뷰의 것(`rating`)이다.
+
+        `naverPlaceUrl` 은 그 가게의 네이버 장소 화면이다. 처음 여는 곳이면 서버가 그때 찾아 보느라 응답이
+        조금(최대 1.5 초) 늦을 수 있다. 못 찾았거나 찾지 못하는 사정이면 비어 있다 — 앱은 이름 검색 링크로 넘긴다.
 
         언어는 `GET /pois` 와 같다 — 기존 칸은 한국어, 요청 언어는 `displayName`·`displayAddress`·`categoryLabel`.
       parameters:
@@ -3416,6 +3419,16 @@ components:
               type: integer
               format: int32
               description: 사진첩 전체 수
+            naverPlaceUrl:
+              type: string
+              nullable: true
+              format: uri
+              description: |
+                그 가게의 네이버 장소 화면(`https://map.naver.com/p/entry/place/{번호}`). 촬영지 상세의 같은 이름 칸과
+                같은 꼴이다. 네이버에서 가져오는 것은 이 주소뿐이다 — 사진·평점·영업시간은 없다(ADR 0021).
+                **없을 수 있다** — 네이버에 없거나, 찾는 데 실패했거나, 찾기가 꺼져 있다. 그때 앱은
+                `https://map.naver.com/p/search/<name> <city>` 로 넘긴다.
+              example: https://map.naver.com/p/entry/place/11679241
           required: [images]
 
     PoiImage:
