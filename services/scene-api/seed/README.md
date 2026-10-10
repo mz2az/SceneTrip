@@ -14,7 +14,7 @@
 | `place_poi_links.tsv` | 같은 곳 **사람 판정** — `place_key` · `poi_source_id` · `same`/`not` · 메모. 자동 판정(도로명 주소가 같음 · 5 m 안)보다 앞선다. 판정이 필요한 후보는 `just place-poi-link` 가 끝에 붙여 넣을 줄로 보여 준다 ([계획](../../../docs/project/plans/place-poi-link.md) §2·§3) |
 
 ```bash
-just seed                          # 저장소의 성지후보 98 행
+just seed                          # 저장소의 성지후보 544 행
 just seed <다른 CSV 경로>          # 같은 53 컬럼 형식이어야 한다(끝의 키 네 칸 포함)
 just seed-poi                      # 저장소의 POI 표본 31 행
 just seed-poi <파일.jsonl(.gz) ...>  # 전량. 여러 파일은 이어 붙여 한 번에
@@ -42,7 +42,7 @@ just seed-poi <파일.jsonl(.gz) ...>  # 전량. 여러 파일은 이어 붙여 
 
 v6 시절에는 표본 12 행만 두고 전량은 볼트에 있었다 — 데이터가 정제 전이었다. 성지후보
 v3 는 10 작품으로 골라졌고 이미지가 우리 S3 에 있고 `last_updated` 가 찍힌, 앱에 그대로
-보여 줄 수 있는 데이터라 저장소에 전량을 둔다. 98 행이다. 정본은 여전히
+보여 줄 수 있는 데이터라 저장소에 전량을 둔다. 지금은 128 작품 544 행이다(2026-10-10). 정본은 여전히
 볼트(`~/mz2az/01_Raw/김태환/4주차_촬영지수집/`)이고, 다음 수집분이 나오면 파일을 갈아
 끼운다.
 
@@ -61,10 +61,10 @@ v3 는 10 작품으로 골라졌고 이미지가 우리 S3 에 있고 `last_upda
 4. 모양은 자유다(`C0001` · `P0001`). 키가 빈 줄이 있거나, 한 `content_key` 에 제목이 둘이면 적재가 멈춘다.
 
 숨긴 작품·촬영지는 목록·지도·검색 제안에서 빠지고, 상세와 사용자가 저장해 둔 것에는 남는다. 다시 CSV 에
-나오면 숨김이 풀린다. 지금 98 행의 키는 옛 묶음 규칙(작품은 제목, 촬영지는 네이버 URL · 없으면 이름+주소)대로
-붙였다 — 작품 11 개(`C0001`~`C0011`), 촬영지 95 곳(`P0001`~`P0095`).
+나오면 숨김이 풀린다. 전 판(98 행)의 키 `C0001`·`P0001` 은 옛 묶음 규칙(작품은 제목, 촬영지는 네이버 URL · 없으면
+이름+주소)대로 붙였다. 지금 키는 위 「키 체계 바꾸기」 — 작품 128 개(`tv…`), 촬영지 487 곳(`nv…`·`px…`).
 
-## 컬럼 — 51 개
+## 컬럼 — 53 개
 
 `\copy` 는 헤더를 건너뛸 뿐 이름으로 맞추지 않는다. **CSV 헤더 순서가 `candidates.sql`
 의 `seed_staging` 컬럼 순서와 같아야 한다.** 다른 순서의 파일을 넣으면 오류 없이 엉뚱한
@@ -90,27 +90,32 @@ URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞�
 `place_name` 앞)을 더해 51 이다(2026-10-07). `famous_rank` 는 인기 점수(`popularity_score`)의 재료였으므로,
 뺀 뒤로는 모든 작품이 중간값 50 에서 시작한다.
 
+2026-10-10 판은 53 이다. 앞쪽 키 두 칸을 빼고, 끝(`notes` 뒤)에 `place_popularity_score` · `title_key` ·
+`place_key` · `sanctum_key` 넷을 붙였다. `title_key` 는 `content_key` 로 받는다. `place_popularity_score`
+(MZ2AZ-339)와 `sanctum_key`(작품-촬영지 짝)는 아직 넣을 곳이 없어 받기만 한다.
+
 | 컬럼 | 가는 곳 |
 | --- | --- |
-| `content_key` | `content.content_key` — 같은 작품을 알아보는 키(위 「키」) |
+| `title_key` | `content.content_key` — 같은 작품을 알아보는 키(위 「키」) |
 | `place_key` | `place.place_key` — 같은 촬영지를 알아보는 키 |
 | `title` `title_category` `poster_url` | `content` · `content_i18n(ko)` |
-| `title_en` `title_ja` `title_zh_hant` | `content_i18n` — 채워진 것만. 지금은 전부 비어 있다 |
+| `title_en` `title_ja` `title_zh_hant` | `content_i18n` — 채워진 것만 |
 | `title_description` · `_en` `_ja` `_zh_hant` | `content_i18n.description` — 작품 소개. 제목 행에 얹혀 가므로 그 언어 제목이 없으면 안 들어간다 |
 | `title_aliases` | `content_alias`. `title_en` 이 비면 첫 라틴 항목을 `en` 제목으로 승격 |
 | `title_cast` `director` | `person` · `person_i18n` · `content_cast` |
 | `title_cast_en` `_ja` `_zh_hant` · `director_en` `_ja` `_zh_hant` | `person_i18n` — `;` 로 나눈 **같은 자리끼리** 짝. 한국어 목록보다 짧으면 그 자리는 비고, 길면 남는 것은 버려진다 |
 | `place_name` `place_type` `place_address` `place_latitude` `place_longitude` `place_naver_url` | `place` · `place_i18n(ko)` |
 | `place_type_code` | `place.type` — 있으면 이것이, 없으면 `place_type` 한국어 라벨이 들어간다. 코드 매핑표가 생기기 전 과도기 |
-| `place_name_en` `place_name_ja` `place_name_zh_hant` | `place_i18n` — 채워진 것만. 지금은 전부 비어 있다 |
+| `place_name_en` `place_name_ja` `place_name_zh_hant` | `place_i18n` — 채워진 것만 |
 | `place_address_en` `_ja` `_zh_hant` | `place_i18n.address` — 없으면 그 언어 행에도 한국어 주소가 들어간다 |
 | `place_description` · `_en` `_ja` `_zh_hant` | `place_i18n.description` — 장소 자체의 소개(장면 설명이 아니다) |
-| `place_aliases` | `place_alias` — 30 행에 있다 |
-| `place_image_url` | `place_image` — 장소 사진. `;` 로 나눠 순서대로 `sort_order` 10, 20, 30… 을 매긴다. 65 행이 차 있고 비어 있는 22 행은 장소 썸네일이 NULL 이다 |
+| `place_aliases` | `place_alias` — 337 행에 있다 |
+| `place_image_url` | `place_image` — 장소 사진. `;` 로 나눠 순서대로 `sort_order` 10, 20, 30… 을 매긴다. 316 행이 차 있고 비어 있는 228 행은 장소 썸네일이 NULL 이다 |
 | `scene_description` `last_updated` | `place_content` · `place_content_i18n(ko)` |
 | `scene_description_en` `_ja` `_zh_hant` | `place_content_i18n` — 채워진 언어만. 없으면 API 가 `ko` 로 폴백 |
-| `scene_image_url` | `place_content.scene_image_url` — 장면 스틸. (장소, 작품) 한 쌍에 한 장 |
+| `scene_image_url` | `place_content.scene_image_url` — 장면 스틸. (장소, 작품) 한 쌍에 한 장. 2026-10-10 판은 전부 비어 있다 |
 | `id` `title_tmdb_url` `title_producer_url` `source_url` `notes` | 안 넣는다 — `candidates.sql` 머리에 이유 |
+| `place_popularity_score` `sanctum_key` | 아직 안 넣는다(위) |
 
 ## 무엇을 갱신하고 무엇을 다시 넣나
 
