@@ -49,7 +49,7 @@ final class CourseDisplayTests: XCTestCase {
         var course = RouteCourse(title: "코스", days: [RouteDay(stops: [stop])])
         let opened = RouteBridge.outgoing(from: course)
         course.days[0].stops[0].poiText = .init(displayName: "Cafe", nameRoman: nil,
-                                              categoryLabel: "Cafe", displayAddress: "Suwon")
+                                                categoryLabel: "Cafe", displayAddress: "Suwon")
         XCTAssertFalse(RouteBridge.changed(from: opened, to: course))
     }
 
@@ -76,7 +76,7 @@ final class CourseDisplayTests: XCTestCase {
         XCTAssertEqual(RouteBridge.replace(from: course).days[0].items.map(\.dwellMinutes), [60, 60])
         XCTAssertNil(RouteDay(stops: course.days[0].stops,
                               estimate: RouteDayEstimate(stops: course.days[0].stops, totalMinutes: 20))
-            .estimatedTotalMinutes, "체류 합보다 작은 잘못된 서버 합계를 표시하지 않는다")
+                .estimatedTotalMinutes, "체류 합보다 작은 잘못된 서버 합계를 표시하지 않는다")
     }
 
     func testChangedRouteInvalidatesAndRestoredRouteRecoversEstimate() {

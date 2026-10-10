@@ -182,7 +182,7 @@ extension RouteGuide.Place {
             name: name, category: category, address: address,
             latitude: latitude, longitude: longitude,
             poiText: RouteStop.PoiText(displayName: displayName, nameRoman: nameRoman,
-                                      categoryLabel: categoryLabel, displayAddress: displayAddress),
+                                       categoryLabel: categoryLabel, displayAddress: displayAddress),
             pin: { asPlaceSummary }
         )
     }
