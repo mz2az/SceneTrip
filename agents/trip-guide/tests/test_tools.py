@@ -470,6 +470,14 @@ class 편의시설(unittest.TestCase):
         self.assertNotIn("결과없음", out)
         self.assertEqual(s.book.poi_calls[0][3], "food")
 
+    def test_모델이_영어_갈래를_넣어도_받는다(self):
+        """gpt-oss 는 계약 쪽 값(food·stay)을 그대로 넣는다. 뜻이 하나라 받아 준다."""
+        s = self.session()
+        out = call("poi_nearby", {"group": "food"}, s)
+        self.assertNotIn("결과없음", out)
+        self.assertEqual(s.book.poi_calls[0][3], "food")
+        self.assertIn("중 하나여야", str(call("poi_nearby", {"group": "cafe"}, s)))
+
     def test_기본_반경은_300m(self):
         s = self.session()
         call("poi_nearby", {"group": "음식"}, s)
