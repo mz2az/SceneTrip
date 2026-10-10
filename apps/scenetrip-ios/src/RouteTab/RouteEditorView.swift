@@ -15,9 +15,8 @@ import SwiftUI
 /// - **동선 최적화** — 직선거리 기준으로 순서를 다시 잡는다. 길찾기 API 를 부르지 않는다.
 /// - 장바구니에서 담기 / 지도에 직접 핀 찍기
 ///
-/// **거리(km)는 보여 주고 예상 이동 시간은 보여 주지 않는다** (8/11 회의 2부 확정).
-/// 직선거리에서 시간을 지어내면 사용자는 그것을 실제 이동 시간으로 읽는다. 그날 **머무는
-/// 시간의 합**은 보여 준다 — 사용자가 정한 값을 더한 것이라 지어낸 것이 없다(MZ2AZ-368).
+/// 거리(km)와 서버가 어림한 **이동 포함 하루 합계**를 보여 준다(MZ2AZ-390). 앱은 이동 시간을
+/// 계산하지 않는다. 경로를 손보거나 아직 저장하지 않았으면 머무는 시간만 보여 준다.
 struct RouteEditorView: View {
     @EnvironmentObject var store: RouteStore
     @Environment(\.dismiss) private var dismiss
@@ -356,7 +355,7 @@ struct RouteEditorView: View {
             }
         }
         .sheet(isPresented: $showStay) {
-            RouteDayStaySheet(stops: stops) { stop, minutes in
+            RouteDayStaySheet(stops: stops, estimatedTotalMinutes: course.days[dayIndex].estimatedTotalMinutes) { stop, minutes in
                 setStay(stop, minutes: minutes)
             }
         }

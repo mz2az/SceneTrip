@@ -89,7 +89,7 @@ struct RouteStopRow: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
-                        Text(stop.place.name).font(.subheadline.weight(.semibold))
+                        Text(stop.label.title).font(.subheadline.weight(.semibold))
                         // 직접 찍은 핀은 우리 데이터에 없는 곳이라 표시를 남긴다.
                         if stop.isPinned {
                             Text("내가 찍은 곳")
@@ -108,13 +108,16 @@ struct RouteStopRow: View {
                                 .foregroundStyle(.orange)
                         }
                     }
+                    if let reading = stop.label.reading {
+                        Text(reading).font(.caption2).foregroundStyle(.secondary)
+                    }
                     // 초안의 도착 시각. 「09:00」은 앱이 만든다 — 계약은 정수 분만 준다.
                     if let minute = stop.arriveMinute {
                         Text("\(RouteGuidePlan.clock(minute)) 도착 예정")
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                     // 유형은 코드로 온다 — 표시말로 바꿔 적고, 표에 없으면 주소만(MZ2AZ-372).
-                    Text([PlaceType.stopLabel(stop.place.type, kind: stop.kind), stop.place.address]
+                    Text([stop.label.category, stop.label.address]
                         .compactMap { $0 }.joined(separator: " · "))
                         .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
 
@@ -408,6 +411,7 @@ struct RoutePinSheet: View {
 struct RouteDayStaySheet: View {
     /// 지금 보고 있는 일차의 장소. 고치면 부모가 새 값으로 다시 그려 합이 바로 바뀐다.
     let stops: [RouteStop]
+    var estimatedTotalMinutes: Int?
     let onPick: (RouteStop, Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -420,10 +424,13 @@ struct RouteDayStaySheet: View {
                         row(stop, number: index + 1)
                     }
                 } header: {
-                    Text("합계 \(RouteFormat.minutes(RouteStop.stayTotal(stops)))")
+                    Text(RouteDayEstimate.label(total: estimatedTotalMinutes, stops: stops))
                 } footer: {
-                    // 합에 이동이 왜 없는지 적어 둔다 — 그냥 빠져 있으면 하루 전체 길이로 읽힌다.
-                    Text("이동 시간은 들어 있지 않아요. 여행 중에 구간마다 보여 드려요.")
+                    if estimatedTotalMinutes != nil {
+                        Text("이동을 포함한 어림이에요. 실제 이동 시간은 여행 중에 확인해 주세요.")
+                    } else {
+                        Text("저장하면 이동을 포함한 시간을 다시 보여 드려요.")
+                    }
                 }
             }
             .navigationTitle("머무는 시간")
@@ -444,7 +451,12 @@ struct RouteDayStaySheet: View {
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 18)
                 .accessibilityHidden(true)
-            Text(stop.place.name).lineLimit(1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(stop.label.title).lineLimit(1)
+                if let reading = stop.label.reading {
+                    Text(reading).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
             Spacer()
             Menu {
                 ForEach(RouteStop.stayChoices(current: stop.stayMinutes), id: \.self) { minutes in
@@ -467,7 +479,7 @@ struct RouteDayStaySheet: View {
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(Capsule().fill(Color.accentColor.opacity(0.12)))
             }
-            .accessibilityLabel(Text("\(number)번 \(stop.place.name) 머무는 시간"))
+            .accessibilityLabel(Text("\(number)번 \(stop.label.title) 머무는 시간"))
             .accessibilityValue(stop.stayLabel)
         }
     }

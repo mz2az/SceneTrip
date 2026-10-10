@@ -281,8 +281,7 @@ extension RouteEditorView {
 
     // MARK: 요약과 동작
 
-    /// 곳 수와 **직선거리**, 그리고 그날 **머무는 시간의 합.** 예상 이동 시간은 없다 —
-    /// 8/11 회의 2부 확정.
+    /// 곳 수·직선거리와 서버가 준 하루 어림. 경로 편집 중에는 머무는 시간만.
     var summary: some View {
         HStack(spacing: 6) {
             Text(trCount("%lld곳", stops.count))
@@ -294,15 +293,12 @@ extension RouteEditorView {
                 Text("이동 시간은 여행 중에")
                     .foregroundStyle(.tertiary)
             } else {
-                // 목록 줄의 칩 대신 여기 하나(2026-10-08 사용자 결정, MZ2AZ-368). **「머무는
-                // 시간」이라고 적는다** — 이동이 빠진 합이라 그냥 「약 1시간」이면 하루 전체로
-                // 읽힌다. 누르면 장소별로 고치는 시트(`RouteDayStaySheet`). 이동 시간이 왜
-                // 없는지는 그 시트가 말한다.
+                // 같은 경로의 서버 합계가 있을 때는 이동 포함 어림을 보여 준다(MZ2AZ-390).
                 Button {
                     showStay = true
                 } label: {
                     HStack(spacing: 3) {
-                        Text("머무는 시간 \(RouteFormat.minutes(RouteStop.stayTotal(stops)))")
+                        Text(course.days[dayIndex].durationLabel)
                         Image(systemName: "chevron.right").font(.caption2.weight(.semibold))
                     }
                     .lineLimit(1)
