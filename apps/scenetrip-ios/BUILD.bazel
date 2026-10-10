@@ -71,7 +71,15 @@ mobile_api_config(
 
 swift_library(
     name = "scenetrip-ios",
-    srcs = glob(["src/**/*.swift"]) + [
+    srcs = glob(
+        ["src/**/*.swift"],
+        exclude = [
+            "src/RouteTab/PoiClusters.swift",
+            "src/RouteTab/PoiClusterRenderer.swift",
+        ],
+    ) + [
+        "src/RouteTab/PoiClusterRenderer.swift",
+        "src/RouteTab/PoiClusters.swift",
         ":api_configuration",
         ":secrets_swift",
     ],
@@ -147,7 +155,10 @@ ios_application(
 swift_library(
     name = "unit_test_lib",
     testonly = True,
-    srcs = glob(["tests/**/*.swift"]),
+    srcs = glob(
+        ["tests/**/*.swift"],
+        exclude = ["tests/PoiClustersTests.swift"],
+    ) + ["tests/PoiClustersTests.swift"],
     module_name = "SceneTripTests",
     tags = [
         "ios",
