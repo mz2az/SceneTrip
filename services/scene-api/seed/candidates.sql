@@ -9,7 +9,8 @@
 -- 49컬럼은 30컬럼(v3, 2026-08-24)에 다국어 21개와 scene_image_url 을 더하고
 -- (2026-09-12), title_producer_url 을 더한 뒤, recent_rank · audience_acc · award ·
 -- famous_rank 를 뺀 것이다(2026-09-23). 51컬럼은 거기에 content_key(title 앞)·place_key
--- (place_name 앞)를 더한 것이다(2026-10-07). 더한 것은 전부 형제 컬럼 옆에 있다 —
+-- (place_name 앞)를 더한 것이다(2026-10-07). **53컬럼(2026-10-10)** 은 키를 맨 끝으로 옮기고 이름을 바꿨다 —
+-- notes 뒤에 place_popularity_score · title_key(= content_key) · place_key · sanctum_key. 더한 것은 전부 형제 컬럼 옆에 있다 —
 -- title 옆에 title_description_*, place_address 옆에 place_address_*. 다국어는 지금
 -- 전부 비어 있다.
 --
@@ -52,7 +53,6 @@ BEGIN;
 -- 컬럼 순서가 CSV 헤더와 정확히 같아야 한다 — \copy 는 자리로 맞춘다.
 CREATE TEMP TABLE seed_staging (
     id                  TEXT,
-    content_key         TEXT,
     title               TEXT,
     title_tmdb_url      TEXT,
     title_producer_url  TEXT,
@@ -69,7 +69,6 @@ CREATE TEMP TABLE seed_staging (
     title_cast_en       TEXT,
     title_cast_ja       TEXT,
     title_cast_zh_hant  TEXT,
-    place_key           TEXT,
     place_name          TEXT,
     place_name_en       TEXT,
     place_name_ja       TEXT,
@@ -101,7 +100,13 @@ CREATE TEMP TABLE seed_staging (
     director_ja         TEXT,
     director_zh_hant    TEXT,
     poster_url          TEXT,
-    notes               TEXT
+    notes               TEXT,
+    -- 53컬럼(2026-10-10, 128 작품 545 행): 끝에 넷이 붙는다. CSV 이름은 title_key 지만 여기서는 content_key 로 받는다 —
+    -- 자리로 맞추므로 이름은 상관없고, 아래 변환이 쓰는 이름을 바꾸지 않으려고서다.
+    place_popularity_score TEXT,  -- 장소×작품 인기도. 아직 넣지 않는다 — MZ2AZ-339(place_content 인기도)에서 받는다
+    content_key         TEXT,     -- CSV 의 title_key (예: tv197067)
+    place_key           TEXT,     -- 예: nv17052534(네이버 장소 번호) · px…(번호를 못 찾은 곳)
+    sanctum_key         TEXT      -- 작품-촬영지 짝(title_key-place_key). 행마다 하나 — 넣을 곳은 아직 없다
 ) ON COMMIT DROP;
 
 -- \copy 는 **psql 이 도는 쪽**의 파일을 읽는다. 파드 안에서 돌면 파드의 /tmp 이고,
@@ -203,16 +208,19 @@ FROM (
     SELECT DISTINCT ON (content_key) * FROM seed_rows ORDER BY content_key, id
 ) s;
 
--- 처음 한 번의 다리(계획 §2-3). V20 직후의 작품에는 키가 없다 — 한국어 제목이 같은 작품에
--- 키를 붙여, 그 작품을 가리키는 코스·마켓이 새로 생긴 작품으로 끊기지 않게 한다. 키가 이미
--- 찬 작품은 건드리지 않으므로 몇 번 돌려도 같다.
+-- 다리(계획 §2-3). 이 CSV 의 키가 아직 DB 에 없으면, 한국어 제목이 같은 작품 중 **키가 없거나 이 CSV 에 없는 옛 키**를
+-- 가진 것에 새 키를 붙인다 — 그 작품을 가리키는 코스·마켓이 새로 생긴 작품으로 끊기지 않게. 처음엔 V20 직후의 키
+-- 없는 작품을 위해서였고, 2026-10-10 키 체계를 바꾸며(C0001… → tv197067…) 옛 키도 받게 넓혔다. 이 CSV 에 있는 키를
+-- 가진 작품은 건드리지 않으므로 몇 번 돌려도 같다.
 UPDATE content c
 SET content_key = m.content_key
 FROM (
     SELECT DISTINCT ON (t.content_key) t.content_key, ci.content_id
     FROM t_content t
     JOIN content_i18n ci ON ci.lang = 'ko' AND ci.title = t.title
-    JOIN content x ON x.id = ci.content_id AND x.content_key IS NULL
+    JOIN content x ON x.id = ci.content_id
+         AND (x.content_key IS NULL
+              OR NOT EXISTS (SELECT 1 FROM t_content o WHERE o.content_key = x.content_key))
     WHERE NOT EXISTS (SELECT 1 FROM content k WHERE k.content_key = t.content_key)
     ORDER BY t.content_key, ci.content_id
 ) m
@@ -401,15 +409,17 @@ FROM (
     SELECT DISTINCT ON (place_key) * FROM seed_rows ORDER BY place_key, id
 ) s;
 
--- 처음 한 번의 다리(계획 §2-3). V20 직후의 촬영지에는 키가 없다 — 옛 묶음 규칙(네이버 URL,
--- 없으면 한국어 이름+주소)으로 같은 촬영지를 찾아 키를 붙인다. 그래야 장바구니·코스·찜이
--- 가리키는 촬영지가 그대로 이어진다.
+-- 다리(계획 §2-3). 이 CSV 의 키가 아직 DB 에 없으면, 옛 묶음 규칙(네이버 URL, 없으면 한국어 이름+주소)으로 같은 촬영지를
+-- 찾아 새 키를 붙인다 — 대상은 **키가 없거나 이 CSV 에 없는 옛 키**를 가진 촬영지. 그래야 장바구니·코스·찜·리뷰·같은 곳
+-- 연결이 가리키는 촬영지가 그대로 이어진다(id 를 지킨다). 2026-10-10 키 체계를 바꿀 때(P0001… → nv17052534…) 옛 키도
+-- 받게 넓혔다 — 넓히지 않으면 같은 네이버 URL 의 촬영지가 둘이 되어 UNIQUE 에 걸린다.
 UPDATE place pl
 SET place_key = m.place_key
 FROM (
     SELECT DISTINCT ON (t.place_key) t.place_key, p.id
     FROM t_place t
-    JOIN place p ON p.place_key IS NULL
+    JOIN place p ON (p.place_key IS NULL
+                     OR NOT EXISTS (SELECT 1 FROM t_place o WHERE o.place_key = p.place_key))
     WHERE NOT EXISTS (SELECT 1 FROM place k WHERE k.place_key = t.place_key)
       AND (
           (NULLIF(btrim(t.place_naver_url), '') IS NOT NULL
