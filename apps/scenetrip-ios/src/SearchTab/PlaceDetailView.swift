@@ -149,14 +149,13 @@ struct PlaceDetailView: View {
 /// 장면이 여럿일 때 카드가 전부 같은 그림이 됐다 — "이 장면이 찍힌 곳" 을 보여 주는
 /// 것이 이 앱의 핵심이라 포스터로는 대체가 안 된다.
 ///
-/// 스틸이 없는 장면은 포스터로 물러선다. 계약이 "수집분에 없는 장면이 있어 null 이 올
-/// 수 있다" 고 적어 뒀다.
+/// 장면 이미지가 없으면 이미지 영역을 비운다. 작품 포스터를 장면 사진으로 오해하지 않게 한다(MZ2AZ-394).
 struct SceneCard: View {
     let scene: SceneItem
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            RemoteImage(url: scene.sceneImageUrl ?? scene.posterUrl, symbol: "film")
+            SceneImage(url: scene.sceneImageUrl)
                 .frame(width: 190, height: 110)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -186,6 +185,35 @@ struct SceneCard: View {
     }
 }
 
+/// 장면 전용 이미지. 연결되지 않은 주소·로컬 경로·다운로드 실패는 빈 영역으로 둔다(MZ2AZ-394).
+private struct SceneImage: View {
+    let url: String?
+
+    private var remoteURL: URL? {
+        guard let url, let parsed = URL(string: url.trimmingCharacters(in: .whitespacesAndNewlines)),
+              let scheme = parsed.scheme?.lowercased(), ["http", "https"].contains(scheme),
+              let host = parsed.host, !host.isEmpty
+        else { return nil }
+        return parsed
+    }
+
+    var body: some View {
+        Color.clear
+            .overlay {
+                if let remoteURL {
+                    AsyncImage(url: remoteURL) { phase in
+                        if let image = phase.image {
+                            image.resizable().scaledToFill()
+                        } else {
+                            Color.clear
+                        }
+                    }
+                }
+            }
+            .clipped()
+    }
+}
+
 /// 장면 팝업. 카드에서 두 줄로 잘린 설명의 전문을 본다.
 ///
 /// **담기 버튼을 두지 않는다.** 베타에는 있었으나 잘못된 설계였다 — 장바구니에 담기는
@@ -204,18 +232,18 @@ struct ScenePopup: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                RemoteImage(url: scene.sceneImageUrl ?? scene.posterUrl, symbol: "film")
+                SceneImage(url: scene.sceneImageUrl)
                     .frame(height: 200)
                     .frame(maxWidth: .infinity)
                     .clipShape(.rect(cornerRadius: 12))
                     // 닫기는 아래로 끌어내리는 것뿐이었다. 그 동작을 아는 사용자만
                     // 팝업을 닫을 수 있다.
                     //
-                    // 포스터 **위에** 겹친다. 포스터가 팝업 맨 위를 꽉 채우고 있어
+                    // 이미지 영역 **위에** 겹친다. 이미지가 팝업 맨 위를 꽉 채우고 있어
                     // 바깥 여백에 두면 버튼 하나 때문에 위쪽이 벌어진다.
                     //
-                    // 원 배경을 까는 이유: 포스터는 작품마다 밝기가 제각각이라
-                    // 선 아이콘만 두면 밝은 포스터에서 보이지 않는다.
+                    // 원 배경을 까는 이유: 장면 이미지는 밝기가 제각각이라
+                    // 선 아이콘만 두면 밝은 이미지에서 보이지 않는다.
                     .overlay(alignment: .topTrailing) { closeButton }
 
                 Text(scene.contentTitle)
