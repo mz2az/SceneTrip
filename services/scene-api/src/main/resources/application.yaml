@@ -221,6 +221,16 @@ scenetrip:
   course:
     walking-speed-kmh: 4.0
     detour-factor: 1.3
+    # 계획 단계의 이동시간 어림 — 구간마다 거리로 수단을 고른다(MZ2AZ-370, TravelEstimator). 카카오를 부르지 않는다.
+    # 실측 없이 정한 값이다. 1.5 km 이하는 걷기와 시내 대중교통(고정 15 분 + 시속 20 km) 중 빠른 쪽, 30 km 이하는 시내,
+    # 그보다 멀면 시외(고정 30 분 + 시속 60 km) — 단 시내 끝(30 km)의 값보다 짧지 않게. 거리가 늘면 시간이 줄지 않는다.
+    travel:
+      walk-max-meters: 1500
+      city-max-meters: 30000
+      city-overhead-minutes: 15
+      city-speed-kmh: 20
+      intercity-overhead-minutes: 30
+      intercity-speed-kmh: 60
 
     # 장소 유형별 기본 체류시간(분). 클라이언트가 dwellMinutes 를 비워 보내면 서버가
     # 이 표를 보고 채운다 — 표가 세 곳(iOS·Android·서버)에 흩어지지 않게 하려는 것이다.

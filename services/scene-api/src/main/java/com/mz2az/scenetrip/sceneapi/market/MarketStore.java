@@ -410,10 +410,10 @@ public class MarketStore {
 
   private List<MarketDay> days(long postId, int dayCount, Lang lang) {
     Map<Integer, List<MarketItem>> byDay = new LinkedHashMap<>();
-    Map<Integer, Integer> travelMetres = new LinkedHashMap<>();
+    Map<Integer, Integer> travelMinutesByDay = new LinkedHashMap<>();
     for (int i = 1; i <= dayCount; i++) {
       byDay.put(i, new ArrayList<>());
-      travelMetres.put(i, 0);
+      travelMinutesByDay.put(i, 0);
     }
 
     jdbc.sql(ITEMS_SQL)
@@ -423,7 +423,11 @@ public class MarketStore {
             (ResultSet rs, int rowNum) -> {
               int slot = Math.min(rs.getInt("day_no"), dayCount);
               byDay.get(slot).add(mapItem(rs));
-              travelMetres.merge(slot, intOrZero(rs, "distance_from_previous"), Integer::sum);
+              // 구간마다 어림해 더한다 — 거리에 따라 걷기·대중교통·시외가 달라서 합친 거리로는 낼 수 없다(MZ2AZ-370).
+              travelMinutesByDay.merge(
+                  slot,
+                  travel.segmentMinutes(intOrZero(rs, "distance_from_previous")),
+                  Integer::sum);
               return null;
             })
         .list();
@@ -432,7 +436,7 @@ public class MarketStore {
     for (Map.Entry<Integer, List<MarketItem>> e : byDay.entrySet()) {
       List<MarketItem> items = e.getValue();
       int dwell = items.stream().mapToInt(MarketItem::getDwellMinutes).sum();
-      int travelMinutes = travel.minutes(travelMetres.get(e.getKey()));
+      int travelMinutes = travelMinutesByDay.get(e.getKey());
       days.add(
           new MarketDay(
               e.getKey(),
