@@ -115,6 +115,15 @@ public class CourseStore {
               COALESCE(p.type, q.category, cp.category) AS category,
               COALESCE(p.geom, q.geom, cp.geom)         AS geom,
               cd.title                                  AS source_content_title,
+              -- 편의시설 항목의 표시말(1.9.0, MZ2AZ-381) — PoiStore 의 목록·상세와 같은 규칙. 한국어를 요청하면 없다(분류는 원본).
+              q.name_roman                              AS poi_name_roman,
+              CASE WHEN q.id IS NULL OR :lang = 'ko' THEN NULL
+                   ELSE COALESCE(qtr.name, qte.name) END AS poi_display_name,
+              CASE WHEN q.id IS NULL OR :lang = 'ko' THEN NULL
+                   ELSE COALESCE(qtr.address, qte.address) END AS poi_display_address,
+              CASE WHEN q.id IS NULL THEN NULL
+                   WHEN :lang = 'ko' THEN q.category
+                   ELSE COALESCE(qcr.name, qce.name, q.category) END AS poi_category_label,
               COALESCE(
                   (SELECT pim.url FROM place_image pim
                     WHERE pim.place_id = p.id
@@ -126,6 +135,10 @@ public class CourseStore {
           LEFT JOIN place p ON p.id = i.place_id
           LEFT JOIN place_display pd ON pd.place_id = p.id
           LEFT JOIN poi q ON q.id = i.poi_id
+          LEFT JOIN poi_i18n qtr ON qtr.poi_id = q.id AND qtr.lang = :lang
+          LEFT JOIN poi_i18n qte ON qte.poi_id = q.id AND qte.lang = 'en'
+          LEFT JOIN poi_category_i18n qcr ON qcr.ko = q.category AND qcr.lang = :lang
+          LEFT JOIN poi_category_i18n qce ON qce.ko = q.category AND qce.lang = 'en'
           LEFT JOIN custom_pin cp ON cp.id = i.custom_pin_id
           LEFT JOIN content_display cd ON cd.content_id = i.source_content_id
           WHERE i.course_id = :courseId
@@ -133,6 +146,7 @@ public class CourseStore {
       SELECT
           id, day_no, dwell_min, visited_at, place_id, poi_id, custom_pin_id,
           source_content_id, source_content_title, name, address, category, image_url,
+          poi_name_roman, poi_display_name, poi_display_address, poi_category_label,
           ST_Y(geom::geometry) AS latitude,
           ST_X(geom::geometry) AS longitude,
           ST_Distance(geom, lag(geom) OVER (PARTITION BY day_no ORDER BY sort_order))
@@ -701,6 +715,10 @@ public class CourseStore {
             rs.getInt("dwell_min"))
         .placeId(placeId)
         .poiId(poiId)
+        .displayName(rs.getString("poi_display_name"))
+        .nameRoman(rs.getString("poi_name_roman"))
+        .categoryLabel(rs.getString("poi_category_label"))
+        .displayAddress(rs.getString("poi_display_address"))
         .customPinId(longOrNull(rs, "custom_pin_id"))
         .address(rs.getString("address"))
         .category(rs.getString("category"))
