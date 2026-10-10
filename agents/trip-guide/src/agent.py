@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from .deepseek import ModelError, load_config
+from .model_client import ModelError, load_config
 from .session import Session
 from .tools import load_tool_specs, run_tool
 

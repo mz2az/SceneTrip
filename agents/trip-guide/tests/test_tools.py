@@ -10,7 +10,7 @@ import json
 import unittest
 
 from src.agent import TripGuide, detect_language
-from src.deepseek import ScriptedClient
+from src.model_client import ScriptedClient
 from src.session import Anchor, Session
 from src.tools import ToolArgError, load_tool_specs, run_tool, validate_args
 
@@ -410,7 +410,7 @@ class 바깥으로_나가는_지시(unittest.TestCase):
     def test_턴이_바뀌면_지난_지시는_사라진다(self):
         """남아 있으면 다음 턴에 화면이 엉뚱한 데로 튄다."""
         from src.agent import TripGuide
-        from src.deepseek import ScriptedClient
+        from src.model_client import ScriptedClient
 
         s = Session(book=seoul_incheon_book())
         call("plan_course", {"titles": ["도깨비"], "days": 2}, s)

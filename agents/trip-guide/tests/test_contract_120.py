@@ -179,7 +179,7 @@ class 경계의이름(unittest.TestCase):
 
 class 시간예산(unittest.TestCase):
     def test_턴_예산이_설정에_있다(self):
-        from src.deepseek import load_config
+        from src.model_client import load_config
 
         cfg = load_config()
         self.assertLessEqual(cfg["turn_budget_seconds"], 40)  # scene-api 보다 짧아야
@@ -187,7 +187,7 @@ class 시간예산(unittest.TestCase):
 
     def test_예산을_다_쓰면_모델을_부르지_않는다(self):
         from src.agent import TripGuide
-        from src.deepseek import ModelError, ScriptedClient
+        from src.model_client import ModelError, ScriptedClient
 
         client = ScriptedClient([{"content": "안녕하세요"}])
         guide = TripGuide(
@@ -235,7 +235,7 @@ class 세션열쇠(unittest.TestCase):
             def __init__(self, *a, **k):
                 pass
 
-        srv.DeepSeekClient = Fake
+        srv.ModelClient = Fake
         desk = self.desk()
         a = desk.guide("uuid-a")
         b = desk.guide("uuid-b")

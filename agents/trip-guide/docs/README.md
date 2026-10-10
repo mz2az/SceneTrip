@@ -190,7 +190,7 @@ def _refuse(reason):
 ## 7. 돌려 보기
 
 ```sh
-export DEEPSEEK_API_KEY=sk-...
+export AWS_BEARER_TOKEN_BEDROCK=...
 python3 -m src.cli --source csv --places-csv ../../services/scene-api/seed/v6.csv
 ```
 

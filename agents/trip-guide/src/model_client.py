@@ -1,9 +1,9 @@
-"""DeepSeek 챗 API 클라이언트.
+"""챗 모델 클라이언트 — OpenAI 규격(`/chat/completions`)을 따르는 곳이면 어디든 부른다.
 
-표준 라이브러리만 쓴다. DeepSeek 이 OpenAI 규격을 그대로 따르므로 요청은 JSON
-한 덩이를 POST 하는 것이 전부고, 그 정도에 SDK 를 의존성으로 들일 이유가 없다.
-규격이 같다는 뜻은 나중에 다른 곳으로 갈아 끼울 때도 `base_url` 과 `model` 만
-바꾸면 된다는 뜻이기도 하다.
+지금은 AWS Bedrock 의 OpenAI 호환 주소를 Bedrock API 키로 부른다(MZ2AZ-395, 그전은
+DeepSeek). 표준 라이브러리만 쓴다. 요청은 JSON 한 덩이를 POST 하는 것이 전부고, 그
+정도에 SDK 를 의존성으로 들일 이유가 없다. 규격이 같아서 다른 곳으로 갈아 끼울 때도
+`config/model.json` 의 `base_url`·`model`·`api_key_env` 만 바꾸면 된다.
 
 API 키는 환경변수에서만 읽는다. 설정 파일에는 **변수 이름**이 적혀 있지 키가
 적혀 있지 않다 — 저장소에 키가 들어가는 사고를 구조로 막는다.
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -55,17 +56,25 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
     }
 
 
-class DeepSeekClient:
+def key_env(config: dict[str, Any] | None = None) -> str:
+    """API 키를 읽는 환경변수 **이름**. 시험과 실측 평가가 같은 이름을 보게 한다."""
+    return (config or load_config())["api_key_env"]
+
+
+_REASONING = re.compile(r"^\s*<reasoning>.*?</reasoning>\s*", re.DOTALL)
+
+
+class ModelClient:
     """`chat()` 하나만 있는 얇은 클라이언트."""
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         self.config = config or load_config()
-        env_name = self.config.get("api_key_env", "DEEPSEEK_API_KEY")
+        env_name = key_env(self.config)
         self.api_key = os.environ.get(env_name, "").strip()
         if not self.api_key:
             raise ModelError(
                 f"환경변수 {env_name} 가 비어 있다. 키를 넣고 다시 실행해라:\n"
-                f"    export {env_name}=sk-..."
+                f"    export {env_name}=..."
             )
 
     def chat(
@@ -86,8 +95,8 @@ class DeepSeekClient:
             "temperature": self.config.get("temperature", 0.3),
             "max_tokens": self.config.get("max_tokens", 1200),
         }
-        if "thinking" in self.config:
-            body["thinking"] = self.config["thinking"]
+        # 제공자마다 다른 인자(추론 강도 등)는 설정의 `extra_body` 로만 들어온다.
+        body.update(self.config.get("extra_body", {}))
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
@@ -111,6 +120,7 @@ class DeepSeekClient:
         # **남은 턴 예산이 호출 상한을 이긴다.** 호출마다 15 초를 다 쓰면 도구를
         # 네 번 부르는 턴이 75 초가 되는데, 그때쯤이면 앱도 백엔드도 이미 끊었다
         # (agent.py 의 턴 예산).
+        name = self.config.get("provider", "모델")
         cap = float(self.config.get("timeout_seconds", 15))
         caller_budget = budget
         budget = lambda: remaining_timeout(caller_budget() if caller_budget else cap)
@@ -124,7 +134,12 @@ class DeepSeekClient:
                     request, timeout=cap if left is None else min(cap, left)
                 ) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
-                return data["choices"][0]["message"]
+                message = data["choices"][0]["message"]
+                # 추론 모델이 답 앞에 사고 과정을 붙여 주는 경우가 있다. 사용자에게
+                # 보일 말도, JSON 응답도 아니므로 걷어 낸다.
+                if isinstance(message.get("content"), str):
+                    message["content"] = _REASONING.sub("", message["content"])
+                return message
             except urllib.error.HTTPError as exc:
                 detail = exc.read().decode("utf-8", "replace")[:400]
                 if exc.code in (429, 500, 502, 503, 504) and attempt < 2:
@@ -132,17 +147,15 @@ class DeepSeekClient:
                     if not _wait(1.5 * (attempt + 1), budget):
                         raise ModelError("턴에 주어진 시간을 다 썼다") from exc
                     continue
-                raise ModelError(
-                    f"DeepSeek 이 {exc.code} 를 돌려줬다: {detail}"
-                ) from exc
+                raise ModelError(f"{name} 이 {exc.code} 를 돌려줬다: {detail}") from exc
             except urllib.error.URLError as exc:
                 if attempt < 2:
                     last = exc
                     if not _wait(1.5 * (attempt + 1), budget):
                         raise ModelError("턴에 주어진 시간을 다 썼다") from exc
                     continue
-                raise ModelError(f"DeepSeek 에 닿지 못했다: {exc.reason}") from exc
-        raise ModelError(f"DeepSeek 호출에 세 번 다 실패했다: {last}")
+                raise ModelError(f"{name} 에 닿지 못했다: {exc.reason}") from exc
+        raise ModelError(f"{name} 호출에 세 번 다 실패했다: {last}")
 
 
 class ScriptedClient:

@@ -1,17 +1,20 @@
 {
   "_설명": "모델 ID 와 호출 파라미터는 설정이지 로직이 아니다. 코드에서 이 값을 하드코딩하지 마라 (AGENTS.md · agents/README.md).",
-  "provider": "deepseek",
-  "base_url": "https://api.deepseek.com",
-  "api_key_env": "DEEPSEEK_API_KEY",
-  "model": "deepseek-v4-flash",
-  "_model_설명": "flash 는 pro 보다 입력 3배·출력 3배 싸다. 우리가 모델에게 시키는 일은 '어느 도구를 부를지 고르고 결과를 말로 푸는 것' 뿐이라 추론 난도가 낮다. 도구를 잘못 고르는 일이 잦아지면 deepseek-v4-pro 로 올린다.",
+  "provider": "bedrock",
+  "base_url": "https://bedrock-runtime.us-west-2.amazonaws.com/openai/v1",
+  "_base_url_설명": "Bedrock 의 OpenAI 호환 주소. 리전이 주소에 들어 있다 — gpt-oss 는 us-west-2 에서 호출된다(2026-10-05 팀 계정 확인). 모델을 바꾸면 그 모델이 열린 리전인지 함께 본다.",
+  "api_key_env": "AWS_BEARER_TOKEN_BEDROCK",
+  "_api_key_env_설명": "Bedrock API 키(Bearer 토큰)를 읽는 환경변수 이름. AWS 가 정한 표준 이름이다. IAM 액세스 키(AKIA…)가 아니다 — 그것은 요청 서명이 필요해 이 클라이언트로는 못 쓴다.",
+  "model": "openai.gpt-oss-120b-1:0",
+  "_model_설명": "입력 $0.15·출력 $0.60 / 1M 토큰(us-west-2, 2026-10-01 공개 가격). 우리가 모델에게 시키는 일은 '어느 도구를 부를지 고르고 결과를 말로 푸는 것' 뿐이라 추론 난도가 낮다. 더 싼 openai.gpt-oss-20b-1:0 로 내릴 수 있는지는 평가로 본다.",
   "temperature": 0.3,
   "_temperature_설명": "여행 안내는 매번 다른 말이 나올 이유가 없다. 낮게 두면 도구 인자도 덜 흔들린다.",
-  "max_tokens": 1200,
-  "thinking": {
-    "type": "disabled"
+  "max_tokens": 2000,
+  "_max_tokens_설명": "gpt-oss 는 추론 모델이라 사고에 쓴 토큰도 이 상한에 든다. DeepSeek 때의 1200 에서 올렸다. 실측 전 값이다 — 답이 잘리면 올리고, 턴 시간이 길면 내린다.",
+  "extra_body": {
+    "reasoning_effort": "low"
   },
-  "_thinking_설명": "긴 사고를 끄는 이유는 우리가 모델에게 계산을 안 시키기 때문이다. 거리·순위는 코드가 이미 풀어서 건네주므로 모델이 더 생각할 것이 없고, 켜면 첫 응답까지 몇 초가 더 걸린다.",
+  "_extra_body_설명": "요청 본문에 그대로 얹는 제공자 전용 인자. 추론을 낮게 두는 이유는 우리가 모델에게 계산을 안 시키기 때문이다. 거리·순위는 코드가 이미 풀어서 건네주므로 모델이 더 생각할 것이 없고, 높이면 첫 응답까지 몇 초가 더 걸린다.",
   "turn_budget_seconds": 30,
   "_turn_budget_설명": "한 번의 사용자 발화에 쓸 수 있는 전체 시간. 도구를 네 번 부르면 모델 호출도 다섯 번이라, 호출 하나에만 상한을 두면 턴 전체는 상한이 없어진다. **바깥이 안쪽보다 오래 기다려야 한다** — 에이전트 30 < scene-api 40 < 앱 50. 안쪽이 먼저 포기해야 바깥이 끊은 뒤 헛일을 하지 않는다. 실제 모델로 턴 시간 p95 를 재서 그 1.5~2 배로 고친다.",
   "timeout_seconds": 15,

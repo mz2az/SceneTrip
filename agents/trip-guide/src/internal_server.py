@@ -10,7 +10,7 @@ from http.server import ThreadingHTTPServer
 
 from web.server import Desk, Handler
 
-from src.deepseek import DeepSeekClient, load_config
+from src.model_client import ModelClient, load_config
 from src.production import (
     MAX_SESSIONS,
     BodyError,
@@ -208,7 +208,7 @@ class InternalServer(ThreadingHTTPServer):
 
 def main():
     config = load_config()
-    DeepSeekClient()  # 키가 없으면 시작을 실패시킨다. 모델 API는 호출하지 않는다.
+    ModelClient()  # 키가 없으면 시작을 실패시킨다. 모델 API는 호출하지 않는다.
     book = SceneApiPlaceBook(source_url(None, "http://scene-api:8080/v1"))
 
     class RuntimeHandler(InternalHandler):

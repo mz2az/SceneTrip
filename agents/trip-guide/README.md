@@ -51,7 +51,7 @@ GPT-4 는 복잡한 일정에서 0.6%)이기 때문이다. LLM 과 알고리즘�
 | `src/session.py` | 대화 하나가 들고 있는 상태(현위치·장바구니·보여 준 곳·짜 둔 일정) |
 | `src/places.py` | 장소 모델과 CSV 창구. 거리·이름 맞추기 계산이 여기 있다 |
 | `src/sceneapi.py` | scene-api 창구. 에이전트는 DB 를 직접 만지지 않는다 |
-| `src/deepseek.py` | 모델 클라이언트. 표준 라이브러리만. 키는 환경변수에서만 |
+| `src/model_client.py` | 모델 클라이언트. 표준 라이브러리만. 키는 환경변수에서만 |
 | `config/model.json` | 모델 ID·파라미터 (설정이지 로직이 아니다) |
 | `config/planner.json` | 코스 엔진 계수 — 점수 가중치·속도·체류시간·이동속도 |
 | `config/llm_planner.json` | AI 일정 생성 설정 — 켜고 끄기·후보 수·컨셉 문구 |
@@ -82,7 +82,7 @@ GPT-4 는 복잡한 일정에서 0.6%)이기 때문이다. LLM 과 알고리즘�
 ### 준비
 
 ```sh
-export DEEPSEEK_API_KEY=sk-...        # config/model.json 의 api_key_env
+export AWS_BEARER_TOKEN_BEDROCK=...   # Bedrock API 키. 이름은 config/model.json 의 api_key_env
 just stack-up                          # scene-api(:8081) 와 DB
 ```
 
@@ -129,7 +129,7 @@ just build //agents/trip-guide:image        # 고정 linux/amd64 OCI 이미지
 ```
 
 AI 일정 생성(`POST /plan` 의 모델 경로)은 실제 모델로만 잴 수 있어 게이트 밖에 있다.
-비용이 든다 — `DEEPSEEK_API_KEY` 가 필요하다:
+비용이 든다 — `AWS_BEARER_TOKEN_BEDROCK` 이 필요하다:
 
 ```sh
 just run //agents/trip-guide:llm_plan_live -- "$PWD/services/scene-api/seed/candidates.csv"
@@ -162,7 +162,7 @@ scene-api에서 오는 요청만 허용한다. 외부 로드밸런서에서 직�
 
 | 설정·경계 | 값·의미 |
 | --- | --- |
-| `DEEPSEEK_API_KEY` | 필수. 없으면 시작 실패. Secrets Manager에서 주입 |
+| `AWS_BEARER_TOKEN_BEDROCK` | Bedrock API 키. 필수. 없으면 시작 실패. Secrets Manager에서 주입 |
 | `SCENE_API_BASE_URL` | `http://scene-api:8080/v1`. CLI의 `--base-url`이 최우선 |
 | `/health/live`, `/health/ready` | 설정·키 검증 후 서버가 요청을 받을 수 있는지 확인. 외부 모델·API 가용성을 보증하지 않음 |
 | 요청 본문 | gateway와 같은 1 MiB. 40개×4,000자 한글 대화 계약을 수용하며 Content-Length·chunked 누적 크기 모두 제한 |

@@ -27,9 +27,9 @@ sys.path.insert(0, str(_HERE.parent))
 
 from src.agent import TripGuide
 from src.cli import open_source, set_here
-from src.deepseek import DeepSeekClient, ModelError, load_config
 from src.llm_planner import LlmPlanError, make_llm_plan
 from src.llm_planner import load_config as load_llm_planner_config
+from src.model_client import ModelClient, ModelError, load_config
 from src.planner import (
     PlanError,
     PlanRequest,
@@ -95,7 +95,7 @@ class Desk:
             self._sweep()
             if sid not in self.guides:
                 self.guides[sid] = TripGuide(
-                    Session(book=self.book), DeepSeekClient(), config=self.config
+                    Session(book=self.book), ModelClient(), config=self.config
                 )
             self.seen[sid] = time.monotonic()
             return self.guides[sid]
@@ -273,7 +273,7 @@ class Handler(BaseHTTPRequestHandler):
             plan = None
             if load_llm_planner_config().get("enabled"):
                 try:
-                    plan = make_llm_plan(self.desk.book, req, DeepSeekClient())
+                    plan = make_llm_plan(self.desk.book, req, ModelClient())
                 except SceneApiError as exc:
                     self._send(_bad(str(exc)), 400)
                     return
@@ -533,7 +533,7 @@ def main(argv: list[str] | None = None) -> int:
     # 앱의 AI 일정짜기 마법사는 모델을 쓰지 않으므로 키 없이도 돌아야 한다.
     chat_ready = True
     try:
-        DeepSeekClient()
+        ModelClient()
     except ModelError as exc:
         chat_ready = False
         print(f"[대화 불가] {exc}", file=sys.stderr)

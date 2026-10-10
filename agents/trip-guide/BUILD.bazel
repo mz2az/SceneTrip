@@ -8,7 +8,7 @@ SOURCES = [
     "src/__init__.py",
     "src/agent.py",
     "src/cli.py",
-    "src/deepseek.py",
+    "src/model_client.py",
     "src/internal_server.py",
     "src/llm_planner.py",
     "src/places.py",
@@ -97,7 +97,7 @@ py_binary(
 )
 
 # AI 일정 생성 실측 — **실제 모델을 부른다.** 비용이 들고 어떤 게이트에도 없다.
-# 시드 CSV 경로를 인자로 받는다. DEEPSEEK_API_KEY 필요.
+# 시드 CSV 경로를 인자로 받는다. 모델 키(config/model.json 의 api_key_env) 필요.
 py_binary(
     name = "llm_plan_live",
     srcs = [
