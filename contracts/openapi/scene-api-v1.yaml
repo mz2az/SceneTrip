@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.8.0
+  version: 1.9.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -3876,6 +3876,37 @@ components:
           description: |
             등록된 촬영지는 수집된 유형 문자열, 편의시설은 분류(`PoiSummary.category`, 「카페」), 직접 찍은 핀은
             `PinCategory` 값이다. 셋의 값 범위가 다르므로 하나로 묶어 필터에 쓰지 않는다.
+        displayName:
+          type: string
+          nullable: true
+          description: |
+            **편의시설 항목만**(1.9.0). 요청 언어의 이름 — `PoiSummary.displayName` 과 같은 값·규칙(확실할 때만 있다).
+            촬영지 항목은 `name` 이 이미 요청 언어이고, 핀은 사용자가 적은 그대로라 없다.
+
+            **화면 규칙**(편의시설 카드와 같다): 제목은 `displayName ?? name`. `displayName` 이 없으면 제목은 한국어
+            `name` 이고 그 아래에 `nameRoman` 을 작게 — 간판은 한국어라 제목이 한국어여야 맞춰 볼 수 있고, 로마자는
+            읽어서 물어볼 때 쓴다. 한 줄뿐인 자리(지도 점 캡션)는 `displayName ?? name`.
+          example: Starbucks Gurigalmaeyeok Branch
+        nameRoman:
+          type: string
+          nullable: true
+          description: |
+            **편의시설 항목만**(1.9.0). 한국어 이름의 로마자 읽기 — `PoiSummary.nameRoman` 과 같다. 번역이 아니다.
+          example: Seullousseonisaideu
+        categoryLabel:
+          type: string
+          nullable: true
+          description: |
+            **편의시설 항목만**(1.9.0). 요청 언어의 분류 이름 — `PoiSummary.categoryLabel` 과 같다(「Restaurant」).
+            `category` 는 한국어 원본(「음식점」) 그대로다. 화면에는 `categoryLabel ?? category`.
+          example: Restaurant
+        displayAddress:
+          type: string
+          nullable: true
+          description: |
+            **편의시설 항목만**(1.9.0). 요청 언어의 주소 — `PoiSummary.displayAddress` 와 같다. 화면에는
+            `displayAddress ?? address`.
+          example: 13 Sinpung-ro 45beon-gil, Paldal-gu, Suwon-si, Gyeonggi-do
         latitude:
           type: number
           format: double
