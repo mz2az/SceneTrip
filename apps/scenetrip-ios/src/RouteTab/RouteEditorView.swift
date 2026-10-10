@@ -19,7 +19,7 @@ import SwiftUI
 /// 계산하지 않는다. 경로를 손보거나 아직 저장하지 않았으면 머무는 시간만 보여 준다.
 struct RouteEditorView: View {
     @EnvironmentObject var store: RouteStore
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismiss) var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// 장바구니는 **검색 탭에서 이어진다.** 기기 UUID 가 같으므로 새로 만들어도 서버에
@@ -350,7 +350,9 @@ struct RouteEditorView: View {
             }
         }
         .sheet(isPresented: $showStay) {
-            RouteDayStaySheet(stops: stops, estimatedTotalMinutes: course.days[dayIndex].estimatedTotalMinutes) { stop, minutes in
+            RouteDayStaySheet(
+                stops: stops, estimatedTotalMinutes: course.days[dayIndex].estimatedTotalMinutes
+            ) { stop, minutes in
                 setStay(stop, minutes: minutes)
             }
         }
@@ -683,58 +685,6 @@ extension RouteEditorView {
             // 마법사로 가려다 남기로 했다 — 쪽지를 거둔다. 안 그러면 나중에 「취소」 로 닫을 때 마법사가 뜬다.
             Button(tr("계속 편집"), role: .cancel) { TabRouter.shared.pendingPlanner = false }
         }
-    }
-
-    private var stackedTopBar: some View {
-        VStack(spacing: 8) {
-            HStack {
-                cancelButton
-                Spacer()
-                saveButton
-            }
-            courseTitleField
-        }
-    }
-
-    private var cancelButton: some View {
-        Button("취소") {
-            if dirty {
-                confirmingDiscard = true
-            } else {
-                dismiss()
-            }
-        }
-        .lineLimit(1).fixedSize(horizontal: true, vertical: true)
-        .frame(minHeight: 44)
-    }
-
-    private var saveButton: some View {
-        Button(isNew ? tr("만들기") : tr("저장")) {
-            Task { await saveAndClose() }
-        }
-        .font(.body.weight(.semibold))
-        .lineLimit(1).fixedSize(horizontal: true, vertical: true)
-        .frame(minHeight: 44)
-    }
-
-    private var courseTitleField: some View {
-        HStack(spacing: 4) {
-            // 편집 가능한 제목은 최대 200pt. 긴 이름은 칸 안에서 넘겨 본다.
-            TextField("코스 이름", text: $course.title)
-                .font(.headline).multilineTextAlignment(.center).lineLimit(1).submitLabel(.done)
-                .frame(width: min(titleWidth + 4, 200))
-                .background {
-                    Text(course.title.isEmpty ? tr("코스 이름") : course.title)
-                        .font(.headline).fixedSize().hidden()
-                        .background(GeometryReader { geo in
-                            Color.clear.preference(key: EditorTitleWidthKey.self, value: geo.size.width)
-                        })
-                }
-                .onPreferenceChange(EditorTitleWidthKey.self) { titleWidth = $0 }
-            Image(systemName: "pencil")
-                .font(.caption.weight(.semibold)).foregroundStyle(.secondary).accessibilityHidden(true)
-        }
-        .frame(maxWidth: 220)
     }
 }
 

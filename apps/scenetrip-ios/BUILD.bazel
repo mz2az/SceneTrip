@@ -75,10 +75,12 @@ swift_library(
         ["src/**/*.swift"],
         exclude = [
             "src/RouteTab/RouteDayEstimate.swift",
+            "src/RouteTab/RouteEditorHeader.swift",
             "src/RouteTab/RouteStopLabel.swift",
         ],
     ) + [
         "src/RouteTab/RouteDayEstimate.swift",
+        "src/RouteTab/RouteEditorHeader.swift",
         "src/RouteTab/RouteStopLabel.swift",
         ":api_configuration",
         ":secrets_swift",
