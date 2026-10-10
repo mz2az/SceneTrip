@@ -115,8 +115,7 @@ struct RouteNavMapView: UIViewRepresentable {
         var onTapStop: (RouteStop) -> Void = { _ in }
         var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
         /// 주변 편의시설 마커 — 경로·추천 마커와 살림을 따로 낸다(갱신 주기가 다르다).
-        var ambientMarkers: [NMFMarker] = []
-        var lastAmbientKey = ""
+        let ambientRenderer = PoiClusterRenderer()
 
         /// 레이더 파문. 지도 마커가 아니라 **지도 위에 얹은 뷰**다 — 이유는
         /// `RadarPulse` 머리말 참고.

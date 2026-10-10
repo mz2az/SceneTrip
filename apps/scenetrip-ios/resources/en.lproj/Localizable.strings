@@ -104,6 +104,10 @@
 "다음" = "Next";
 "다음 · %lld번 %@로 길찾기" = "Next · Directions to #%lld %@";
 "닫기" = "Close";
+"편의시설 %d곳" = "%d nearby places";
+"주변 편의시설" = "Nearby places";
+"현재 지도에서 받은 결과 중 %d곳" = "%d of the places loaded on this map";
+"지역 전체 개수가 아니에요. 장소를 골라 정보를 확인하세요." = "This is not the area's total. Choose a place to see its details.";
 "담고 빼는 것은 작품검색 탭의 장바구니에서" = "Save and remove places from Saved in the Search tab";
 "담기" = "Save";
 "담기 %d|저장 수" = "%d saves";
