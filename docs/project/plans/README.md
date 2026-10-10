@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [cart-delete-failure.md](cart-delete-failure.md) | iOS 장바구니 삭제 오류의 목록 보존·삭제 성공 후 행/아이콘 일치 (MZ2AZ-260 / MZ2AZ-262) |
 | [meta-app-events.md](meta-app-events.md) | iOS 메타 광고 측정 — Core SDK·이벤트 허용 목록·ATT 동의 및 기본 비활성화 (MZ2AZ-391) |
 | [ios-poi-clustering.md](ios-poi-clustering.md) | 주변 POI 개수 묶음·확대·같은 좌표 구성원 선택 (MZ2AZ-403) |
 | [onboarding-refresh.md](onboarding-refresh.md) | 현재 AI 일정 안내와 사용법 이전/다음·큰 글자 접근성을 맞춘다 (MZ2AZ-399) |

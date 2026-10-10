@@ -178,12 +178,14 @@ swift_library(
     srcs = glob(
         ["tests/**/*.swift"],
         exclude = [
+            "tests/CartStoreTests.swift",
             "tests/CommunityServerTests.swift",
             "tests/CourseDisplayTests.swift",
             "tests/OnboardingProgressTests.swift",
             "tests/PoiClustersTests.swift",
         ],
     ) + [
+        "tests/CartStoreTests.swift",
         "tests/CommunityServerTests.swift",
         "tests/CourseDisplayTests.swift",
         "tests/OnboardingProgressTests.swift",
