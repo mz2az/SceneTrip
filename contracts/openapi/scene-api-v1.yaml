@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.9.1
+  version: 1.10.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -229,6 +229,8 @@ tags:
     description: 촬영지·편의시설 리뷰와 별점, 상세의 사진첩 (docs/project/plans/review.md)
   - name: uploads
     description: 사진 올리기 — 저장소에 바로 올릴 서명된 주소
+  - name: posts
+    description: 커뮤니티 여행후기 — 글·사진·다녀온 코스, 「내 코스로 담기」 (docs/project/plans/community-post.md)
 
 paths:
   /auth/google:
@@ -512,6 +514,158 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MyReviewList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /posts:
+    get:
+      tags: [posts]
+      operationId: listPosts
+      summary: 여행후기 목록
+      description: |
+        **최신순.** 누구나 읽는다. 토큰을 보낸 가입 사용자에게는 자기 글에 `isMine: true` 가 붙는다.
+        운영자가 내린 글은 나오지 않는다. 사진 주소는 한 시간 뒤 만료된다 — 저장하지 않는다.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: 여행후기
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripPostList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: [posts]
+      operationId: createPost
+      summary: 여행후기 쓰기
+      description: |
+        **가입한 사용자만**(그 밖은 `401 SIGN_IN_REQUIRED`). 사진은 먼저 `POST /uploads`(목적 `post`)로 받은 주소에 올리고
+        그 `key` 를 순서대로 보낸다 — 첫 장이 대표 사진이다. 0~8 장.
+
+        `courseId` 는 **내 코스**다. 그 순간의 장소 목록(촬영지·편의시설, 일차·순서·머무는 시간)을 떠 둔다 — 글쓴이가 나중에
+        코스를 고치거나 지워도 후기의 코스는 그대로다. **직접 찍은 핀은 빠진다**(개인 숙소 위치를 공개하지 않는다 — 마켓과 같다).
+        앱은 쓰기 화면에서 「직접 찍은 핀 N 곳은 공유되지 않습니다」 를 미리 알린다.
+
+        고치기는 없다 — 지우고 다시 쓴다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripPostCreate"
+      responses:
+        "201":
+          description: 쓴 글
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripPostDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignInRequired"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /posts/{postId}:
+    get:
+      tags: [posts]
+      operationId: getPost
+      summary: 여행후기 상세
+      description: |
+        사진들, 본문 전체, 붙은 코스의 일차별 장소. 코스 장소의 이름·주소·사진은 **지금의 자료**다(떠 둔 것은 장소 목록이다).
+        글쓴이가 탈퇴했으면 `author` 가 없다(「탈퇴한 사용자」).
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "200":
+          description: 여행후기
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripPostDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [posts]
+      operationId: deletePost
+      summary: 내 여행후기 지우기
+      description: 사진도 함께 지운다. **남의 글이거나 없는 글이면 `404 POST_NOT_FOUND`** — 있다는 것을 알려 주지 않는다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "204":
+          description: 지웠다
+        "401":
+          $ref: "#/components/responses/SignInRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /posts/{postId}/saves:
+    post:
+      tags: [posts]
+      operationId: savePostCourse
+      summary: 후기의 코스를 내 코스로 담기
+      description: |
+        후기에 붙은 코스를 순서·머무는 시간 그대로 복사해 **내 코스를 새로 만든다.** 응답이 그 새 코스다. 날짜는 비어 있다.
+        만든 방식(`origin`)은 `market` 이다 — 후기가 마켓 자리를 대신한다(`CourseOrigin` 에 값을 더하면 낡은 앱이 코스를 못
+        읽는다). 같은 후기를 여러 번 담으면 그때마다 새 코스가 생긴다. 코스가 붙지 않은 후기는 `404 POST_NOT_FOUND`.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - $ref: "#/components/parameters/InstallId"
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "201":
+          description: 새로 만들어진 내 코스
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseDetail"
+        "401":
+          $ref: "#/components/responses/SignInRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /me/posts:
+    get:
+      tags: [posts]
+      operationId: listMyPosts
+      summary: 내가 쓴 여행후기
+      description: 최신순. 운영자가 내린 글은 나오지 않는다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: 내 여행후기
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripPostList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -2384,6 +2538,14 @@ components:
         type: integer
         format: int64
 
+    PostId:
+      name: postId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+
     ContentId:
       name: contentId
       in: path
@@ -2928,6 +3090,204 @@ components:
           type: integer
           format: int32
 
+    TripPostCreate:
+      type: object
+      required: [title, body, photoKeys]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: 앞뒤 공백을 뗀 뒤 비면 `400 INVALID_PARAMETER`
+        body:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        photoKeys:
+          type: array
+          maxItems: 8
+          description: "`POST /uploads`(목적 `post`)로 받은 키. 이 순서대로 붙고 첫 장이 대표다. 빈 배열이면 사진 없음"
+          items:
+            type: string
+        courseId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 붙일 **내 코스**. 남의 코스·없는 코스면 `400 POST_COURSE_INVALID`
+
+    TripPostAuthor:
+      type: object
+      required: [nickname]
+      properties:
+        nickname:
+          type: string
+          example: 제주러버
+
+    TripPostCourseSummary:
+      type: object
+      required: [title, dayCount, placeCount]
+      properties:
+        title:
+          type: string
+        dayCount:
+          type: integer
+          format: int32
+        placeCount:
+          type: integer
+          format: int32
+          description: 떠 둔 장소 수(직접 찍은 핀은 빠져 있다)
+
+    TripPostSummary:
+      type: object
+      required: [id, title, excerpt, createdAt, photoCount, isMine]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        excerpt:
+          type: string
+          description: 본문 앞부분(120 자까지, 줄바꿈은 공백으로)
+        author:
+          $ref: "#/components/schemas/TripPostAuthor"
+        createdAt:
+          type: string
+          format: date-time
+        coverPhotoUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: 첫 사진. 한 시간 뒤 만료된다
+        photoCount:
+          type: integer
+          format: int32
+        course:
+          $ref: "#/components/schemas/TripPostCourseSummary"
+        isMine:
+          type: boolean
+
+    TripPostList:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripPostSummary"
+        total:
+          type: integer
+          format: int32
+
+    TripPostStopSource:
+      type: string
+      enum: [place, poi]
+      description: 촬영지(`place` — 상세는 `GET /places/{placeId}`)인가 편의시설(`poi` — `GET /pois/{poiId}`)인가
+
+    TripPostCourseStop:
+      type: object
+      required: [source, name, latitude, longitude, dwellMinutes]
+      properties:
+        source:
+          $ref: "#/components/schemas/TripPostStopSource"
+        placeId:
+          type: integer
+          format: int64
+          nullable: true
+        poiId:
+          type: integer
+          format: int64
+          nullable: true
+        name:
+          type: string
+          description: 촬영지는 요청 언어의 이름, 편의시설은 한국어 원본(`CourseItem.name` 과 같다)
+        displayName:
+          type: string
+          nullable: true
+          description: 편의시설만 — `CourseItem.displayName` 과 같은 규칙
+        nameRoman:
+          type: string
+          nullable: true
+          description: 편의시설만
+        address:
+          type: string
+          nullable: true
+        displayAddress:
+          type: string
+          nullable: true
+          description: 편의시설만
+        category:
+          type: string
+          nullable: true
+        categoryLabel:
+          type: string
+          nullable: true
+          description: 편의시설만
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+        dwellMinutes:
+          type: integer
+          format: int32
+
+    TripPostCourseDay:
+      type: object
+      required: [dayNumber, stops]
+      properties:
+        dayNumber:
+          type: integer
+          format: int32
+        stops:
+          type: array
+          description: 직접 찍은 핀만 있던 일차는 비어 있다
+          items:
+            $ref: "#/components/schemas/TripPostCourseStop"
+
+    TripPostCourse:
+      type: object
+      required: [title, days]
+      properties:
+        title:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripPostCourseDay"
+
+    TripPostDetail:
+      type: object
+      required: [id, title, body, createdAt, photoUrls, isMine]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        body:
+          type: string
+        author:
+          $ref: "#/components/schemas/TripPostAuthor"
+        createdAt:
+          type: string
+          format: date-time
+        photoUrls:
+          type: array
+          description: 순서대로, 첫 장이 대표. 한 시간 뒤 만료된다
+          items:
+            type: string
+            format: uri
+        course:
+          $ref: "#/components/schemas/TripPostCourse"
+        isMine:
+          type: boolean
+
     PhotoSource:
       type: string
       enum: [official, review]
@@ -2967,8 +3327,8 @@ components:
 
     UploadPurpose:
       type: string
-      enum: [review]
-      description: 무엇에 붙일 사진인가. 커뮤니티 후기(MZ2AZ-352)가 생기면 값이 늘어난다
+      enum: [review, post]
+      description: 무엇에 붙일 사진인가 — 리뷰(`review`) · 여행후기(`post`, 1.10.0)
 
     UploadCreate:
       type: object
