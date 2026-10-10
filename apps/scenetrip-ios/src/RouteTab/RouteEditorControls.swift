@@ -281,49 +281,56 @@ extension RouteEditorView {
 
     // MARK: 요약과 동작
 
-    /// 곳 수와 **직선거리**, 그리고 그날 **머무는 시간의 합.** 예상 이동 시간은 없다 —
-    /// 8/11 회의 2부 확정.
+    /// 곳 수·직선거리와 서버가 준 하루 어림. 경로 편집 중에는 머무는 시간만.
     var summary: some View {
-        HStack(spacing: 6) {
-            Text(trCount("%lld곳", stops.count))
-            Text("·")
-            Text("직선 \(RouteFormat.kilometers(RouteGeometry.totalKilometers(stops)))")
-            Spacer()
-            if stops.isEmpty {
-                // 소요 시간이 왜 없는지 적어 둔다 — 그냥 비어 있으면 빠뜨린 것으로 읽힌다.
-                Text("이동 시간은 여행 중에")
-                    .foregroundStyle(.tertiary)
-            } else {
-                // 목록 줄의 칩 대신 여기 하나(2026-10-08 사용자 결정, MZ2AZ-368). **「머무는
-                // 시간」이라고 적는다** — 이동이 빠진 합이라 그냥 「약 1시간」이면 하루 전체로
-                // 읽힌다. 누르면 장소별로 고치는 시트(`RouteDayStaySheet`). 이동 시간이 왜
-                // 없는지는 그 시트가 말한다.
-                Button {
-                    showStay = true
-                } label: {
-                    HStack(spacing: 3) {
-                        Text("머무는 시간 \(RouteFormat.minutes(RouteStop.stayTotal(stops)))")
-                        Image(systemName: "chevron.right").font(.caption2.weight(.semibold))
-                    }
-                    .lineLimit(1)
-                    // 글자 높이(15pt)만으로는 누르기 어렵다 — 줄의 위아래 여백까지 누르는
-                    // 자리로 삼되 줄 높이는 그대로 둔다.
-                    .padding(.vertical, 10)
-                    .contentShape(.rect)
-                    .padding(.vertical, -10)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
-                .accessibilityHint(Text("장소별 머무는 시간을 고칩니다"))
-                // 해태 동그라미가 카드를 비켜 설 때 이 단추를 덮지 않게 자리를 알린다.
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { stayFrame = $0 }
-                .onDisappear { stayFrame = nil }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                summaryDistance.fixedSize(horizontal: true, vertical: true)
+                Spacer()
+                summaryDuration.fixedSize(horizontal: true, vertical: true)
             }
+            VStack(alignment: .leading, spacing: 6) {
+                summaryDistance
+                summaryDuration
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
         .padding(.horizontal, 16).padding(.vertical, 10)
         .background(Color(.systemBackground))
+    }
+
+    private var summaryDistance: some View {
+        HStack(spacing: 6) {
+            Text(trCount("%lld곳", stops.count))
+            Text("·")
+            Text("직선 \(RouteFormat.kilometers(RouteGeometry.totalKilometers(stops)))")
+        }
+    }
+
+    @ViewBuilder
+    private var summaryDuration: some View {
+        if stops.isEmpty {
+            Text("이동 시간은 여행 중에").foregroundStyle(.tertiary)
+        } else {
+            Button {
+                showStay = true
+            } label: {
+                HStack(spacing: 3) {
+                    Text(course.days[dayIndex].durationLabel)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold))
+                }
+                .multilineTextAlignment(.leading)
+                .padding(.vertical, 10).contentShape(.rect).padding(.vertical, -10)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            .accessibilityHint(Text("장소별 머무는 시간을 고칩니다"))
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { stayFrame = $0 }
+            .onDisappear { stayFrame = nil }
+        }
     }
 
     /// 네 가지가 **한 줄에 다 보인다.** 앞서 가로 스크롤이라 「핀 찍기」가 오른쪽

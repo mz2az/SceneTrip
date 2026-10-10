@@ -29,7 +29,8 @@ enum RouteBridge {
             startDate: detail.startDate,
             pace: pace(from: detail.pace),
             days: detail.days.map { day in
-                RouteDay(stops: day.items.map(stop(from:)))
+                let stops = day.items.map(stop(from:))
+                return RouteDay(stops: stops, estimate: RouteDayEstimate(stops: stops, totalMinutes: day.totalMinutes))
             },
             madeByAI: detail.origin == .ai,
             isRunning: detail.status == .active
@@ -83,6 +84,10 @@ enum RouteBridge {
             serverItemId: item.id,
             stayMinutes: item.dwellMinutes,
             kind: kind,
+            poiText: item.source == .poi ? RouteStop.PoiText(
+                displayName: item.displayName, nameRoman: item.nameRoman,
+                categoryLabel: item.categoryLabel, displayAddress: item.displayAddress
+            ) : nil,
             visited: item.visitedAt != nil
         )
     }
