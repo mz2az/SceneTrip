@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.mz2az.scenetrip.sceneapi.IntegrationDatabase;
 import com.mz2az.scenetrip.sceneapi.api.model.EntityType;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
-import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -90,66 +90,74 @@ class SuggestionStoreIntegrationTest {
    * 영어 표기로만 걸리는 작품이 ja 요청에서도 걸리는가 — 폴백 사슬의 en 칸.
    *
    * <p>예전 질의는 요청한 언어·{@code NULL}·{@code ko} 표기만 보았다. 그래서 일본어 화면에서 「Goblin」 을 치면 영어 제목이 있는데도 0
-   * 건이었다. 고른 입력은 같은 작품의 ja·ko·{@code NULL} 표기 어디에도 들어 있지 않은 영어 표기라, en 표기를 보지 않으면 이 작품은 절대 걸리지 않는다.
+   * 건이었다. 입력은 같은 작품의 ja·ko·{@code NULL} 표기 어디에도 들어 있지 않은 영어 표기라, en 표기를 보지 않으면 이 작품은 절대 걸리지 않는다.
    *
    * <p>표시 이름도 사슬을 따라야 한다 — ja 제목이 없으니 en 제목이고, {@code shownLangs} 에 en 이 있어야 헤더가 en 이 된다.
+   *
+   * <p>작품은 적재 데이터에서 고르지 않고 <b>직접 만든다.</b> 예전에는 "en 제목은 있고 ja 제목은 없는 작품" 을 적재 데이터에서 찾았는데, 적재 CSV 가
+   * 모든 작품에 ja 제목을 갖춘 판으로 바뀌자 후보가 사라져 테스트가 깨졌다 — 동작이 아니라 데이터 모양이 바뀐 것이었다. 그래서 ko·en 제목만 있는 작품을 트랜잭션
+   * 안에 넣고 {@code search_term} 을 갱신한 뒤 보고, 끝나면 통째로 되돌린다.
    */
   @Test
   @DisplayName("영어로만 있는 표기가 ja 요청에서도 걸리고, 이름은 en 으로 나온다")
   void englishOnlyTermIsFoundForJapanese() {
-    EnglishOnly term = anyEnglishOnlyContentTerm();
+    IntegrationDatabase.rolledBack(
+        () -> {
+          EnglishOnly term = insertEnglishOnlyContent();
 
-    SuggestionStore.Result result = store.suggest(term.termNorm(), Lang.JA, 50);
+          SuggestionStore.Result result = store.suggest(term.termNorm(), Lang.JA, 50);
 
-    assertThat(result.items())
-        .as("'%s' — 작품 %d 의 영어 표기다", term.termNorm(), term.contentId())
-        .anySatisfy(
-            s -> {
-              assertThat(s.getType()).isEqualTo(EntityType.CONTENT);
-              assertThat(s.getId()).isEqualTo(term.contentId());
-              assertThat(s.getName()).isEqualTo(term.englishTitle());
-            });
-    assertThat(result.shownLangs()).contains(Lang.EN);
+          assertThat(result.items())
+              .as("'%s' — 작품 %d 의 영어 표기다", term.termNorm(), term.contentId())
+              .anySatisfy(
+                  s -> {
+                    assertThat(s.getType()).isEqualTo(EntityType.CONTENT);
+                    assertThat(s.getId()).isEqualTo(term.contentId());
+                    assertThat(s.getName()).isEqualTo(term.englishTitle());
+                  });
+          assertThat(result.shownLangs()).contains(Lang.EN);
+          return null;
+        });
   }
 
   private record EnglishOnly(String termNorm, long contentId, String englishTitle) {}
 
   /**
-   * 영어 제목이 있고 일본어 제목은 없는 작품의 영어 표기 — 그 작품의 ja·ko·{@code NULL} 표기에는 들어 있지 않은 것으로 고른다.
+   * ko·en 제목만 있고 ja 제목은 없는 작품을 넣고, 그 영어 표기를 돌려준다. {@link IntegrationDatabase#rolledBack} 안에서만 부른다.
    *
-   * <p>낱말을 코드에 박지 않는 이유는 {@link IntegrationDatabase} 의 헬퍼들과 같다.
+   * <p>영어 제목에 무작위 꼬리를 붙여 실제 데이터의 어떤 표기와도 겹치지 않게 한다. 한국어 제목은 한글이라 정규화해도 영어 표기를 품지 않는다 — 그래서 이 작품은 en
+   * 표기로만 걸린다.
+   *
+   * <p>{@code search_term} 은 머티리얼라이즈드 뷰라 행을 넣을 수 없다. 갱신해야 새 작품이 보인다. {@code CONCURRENTLY} 를 쓰지 않는
+   * 이유: 트랜잭션 안에서 갱신하고 그대로 되돌려 공유 DB 의 뷰를 원래대로 두기 위해서다.
    */
-  private static EnglishOnly anyEnglishOnlyContentTerm() {
-    List<EnglishOnly> rows =
-        jdbc.sql(
-                """
-                SELECT st.term_norm, st.entity_id, ci.title
-                FROM search_term st
-                JOIN content_i18n ci ON ci.content_id = st.entity_id AND ci.lang = 'en'
-                WHERE st.entity_type = 'content'
-                  AND st.lang = 'en'
-                  AND NOT EXISTS (
-                      SELECT 1 FROM content_i18n j
-                      WHERE j.content_id = st.entity_id AND j.lang = 'ja')
-                  AND NOT EXISTS (
-                      SELECT 1 FROM search_term s2
-                      WHERE s2.entity_type = st.entity_type
-                        AND s2.entity_id = st.entity_id
-                        AND (s2.lang IN ('ja', 'ko') OR s2.lang IS NULL)
-                        AND s2.term_norm LIKE '%' || st.term_norm || '%')
-                ORDER BY st.entity_id, st.term_norm
-                LIMIT 1
-                """)
-            .query(
-                (rs, n) ->
-                    new EnglishOnly(
-                        rs.getString("term_norm"), rs.getLong("entity_id"), rs.getString("title")))
-            .list();
-    if (rows.isEmpty()) {
-      throw new IllegalStateException(
-          "영어로만 있는 작품 표기가 없습니다 — en 제목이 적재됐는지 확인하고 `just seed` 뒤 `just db-refresh-search`");
-    }
-    return rows.get(0);
+  private static EnglishOnly insertEnglishOnlyContent() {
+    String englishTitle =
+        "Zqxfallback Lantern " + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+    long contentId =
+        jdbc.sql("INSERT INTO content (category) VALUES ('drama') RETURNING id")
+            .query(Long.class)
+            .single();
+    insertTitle(contentId, "ko", "폴백 픽스처 영어만");
+    insertTitle(contentId, "en", englishTitle);
+    jdbc.sql("REFRESH MATERIALIZED VIEW search_term").update();
+
+    String termNorm =
+        jdbc.sql("SELECT search_normalize(:t)")
+            .param("t", englishTitle)
+            .query(String.class)
+            .single();
+    return new EnglishOnly(termNorm, contentId, englishTitle);
+  }
+
+  private static void insertTitle(long contentId, String lang, String title) {
+    jdbc.sql(
+            "INSERT INTO content_i18n (content_id, lang, title)"
+                + " VALUES (:id, CAST(:lang AS lang_code), :title)")
+        .param("id", contentId)
+        .param("lang", lang)
+        .param("title", title)
+        .update();
   }
 
   /**

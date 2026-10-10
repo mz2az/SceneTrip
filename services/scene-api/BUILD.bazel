@@ -256,9 +256,11 @@ java_junit5_test(
     ],
 )
 
+# size 가 medium(300 초)인 이유: 로컬 19 초지만 CI 러너가 Android 빌드와 겹쳐 바쁠 때 small 의 60 초를 두 번 넘겼다
+# (2026-10-10, #189 머지 뒤 main). 시험이 멈춘 것이 아니라 제한이 빠듯했다. 단위 시험은 600 개를 넘었다.
 java_junit5_test(
     name = "unit_test",
-    size = "small",
+    size = "medium",
     srcs = glob(["tests/java/**/*.java"]),
     tags = ["unit"],
     test_package = "com.mz2az.scenetrip.sceneapi",
