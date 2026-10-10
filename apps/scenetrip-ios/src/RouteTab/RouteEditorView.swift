@@ -20,6 +20,7 @@ import SwiftUI
 struct RouteEditorView: View {
     @EnvironmentObject var store: RouteStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// 장바구니는 **검색 탭에서 이어진다.** 기기 UUID 가 같으므로 새로 만들어도 서버에
     /// 있는 그 장바구니가 온다 — 검색 탭의 `CartStore` 를 끌어오려면 그 파일을 고쳐야
@@ -221,14 +222,8 @@ struct RouteEditorView: View {
                 ) {
                     // `AnyView` 는 detent 타입을 맞추기 위한 것이다 — `Detent` 가
                     // 제네릭 안에 살아서 상태 선언이 내용 타입을 미리 못 안다.
-                    AnyView(VStack(spacing: 0) {
-                        tripBanner
-                        dayTabs
-                        poiFilter
-                        summary
-                        actions
-                        stopList
-                    })
+                    // 안내와 장소가 같은 스크롤을 쓴다. 큰 글자/medium에서도 복귀 문구까지 읽는다.
+                    AnyView(stopList)
                 }
             }
             bottomBar
@@ -382,7 +377,13 @@ struct RouteEditorView: View {
                 // 목록을 밀어 올린다(2026-09-04 사용자 요청). 다녀온 줄은 위로 흘러가 남는다.
                 .onChange(of: trip.target?.id) { _, id in
                     if let id {
-                        withAnimation { proxy.scrollTo(id, anchor: .top) }
+                        withAnimation {
+                            if trip.phase == .guiding {
+                                proxy.scrollTo("course-panel-header", anchor: .top)
+                            } else {
+                                proxy.scrollTo(id, anchor: .top)
+                            }
+                        }
                     }
                 }
                 .onChange(of: trip.phase) { _, phase in
@@ -395,6 +396,16 @@ struct RouteEditorView: View {
 
     private var stopRows: some View {
         List {
+            VStack(spacing: 0) {
+                tripBanner
+                dayTabs
+                poiFilter
+                summary
+                actions
+            }
+            .id("course-panel-header")
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
             ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
                 RouteStopRow(
                     stop: stop,
@@ -644,50 +655,21 @@ extension RouteEditorView {
     }
 
     var topBar: some View {
-        HStack {
-            // 바꾼 것이 있으면 버릴지 묻는다 — 저장이 머리줄의 작은 「저장」 하나가 된 뒤로는
-            // 그 옆의 「취소」를 잘못 눌러 편집한 것을 잃기 쉽다(MZ2AZ-368 → 369).
-            Button("취소") {
-                if dirty {
-                    confirmingDiscard = true
-                } else {
-                    dismiss()
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                stackedTopBar
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        cancelButton
+                        Spacer()
+                        courseTitleField
+                        Spacer()
+                        saveButton
+                    }
+                    stackedTopBar
                 }
             }
-            Spacer()
-            // 제목은 눌러서 바로 고친다 — 마법사·AI 가 붙인 「OO 1박 2일」을 그대로 두게 하지
-            // 않는다(2026-09-28 사용자: Android 는 되는데 iOS 는 제목 수정이 안 된다).
-            HStack(spacing: 4) {
-                // 칸 폭은 **글자 길이를 재서 정확히 준다(200pt 에서 멈춤).** 글자만큼 늘게(`fixedSize`)
-                // 두면 긴 제목이 취소·만들기를 덮어 「취소」 터치까지 가로챘고, `maxWidth` 로 두면
-                // 자리가 남을 때 200pt 까지 벌어져 연필이 글자에서 멀리 떨어졌다(2026-09-28 실기 세 번).
-                TextField("코스 이름", text: $course.title)
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(1)
-                    .submitLabel(.done)
-                    .frame(width: min(titleWidth + 4, 200)) // +4 는 커서 자리
-                    .background {
-                        Text(course.title.isEmpty ? tr("코스 이름") : course.title)
-                            .font(.headline)
-                            .fixedSize()
-                            .hidden()
-                            .background(GeometryReader { geo in
-                                Color.clear.preference(key: EditorTitleWidthKey.self, value: geo.size.width)
-                            })
-                    }
-                    .onPreferenceChange(EditorTitleWidthKey.self) { titleWidth = $0 }
-                Image(systemName: "pencil")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-            }
-            .frame(maxWidth: 220)
-            Spacer()
-            Button(isNew ? tr("만들기") : tr("저장")) {
-                Task { await saveAndClose() }
-            }
-            .font(.body.weight(.semibold))
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(Color(.systemBackground))
@@ -701,6 +683,58 @@ extension RouteEditorView {
             // 마법사로 가려다 남기로 했다 — 쪽지를 거둔다. 안 그러면 나중에 「취소」 로 닫을 때 마법사가 뜬다.
             Button(tr("계속 편집"), role: .cancel) { TabRouter.shared.pendingPlanner = false }
         }
+    }
+
+    private var stackedTopBar: some View {
+        VStack(spacing: 8) {
+            HStack {
+                cancelButton
+                Spacer()
+                saveButton
+            }
+            courseTitleField
+        }
+    }
+
+    private var cancelButton: some View {
+        Button("취소") {
+            if dirty {
+                confirmingDiscard = true
+            } else {
+                dismiss()
+            }
+        }
+        .lineLimit(1).fixedSize(horizontal: true, vertical: true)
+        .frame(minHeight: 44)
+    }
+
+    private var saveButton: some View {
+        Button(isNew ? tr("만들기") : tr("저장")) {
+            Task { await saveAndClose() }
+        }
+        .font(.body.weight(.semibold))
+        .lineLimit(1).fixedSize(horizontal: true, vertical: true)
+        .frame(minHeight: 44)
+    }
+
+    private var courseTitleField: some View {
+        HStack(spacing: 4) {
+            // 편집 가능한 제목은 최대 200pt. 긴 이름은 칸 안에서 넘겨 본다.
+            TextField("코스 이름", text: $course.title)
+                .font(.headline).multilineTextAlignment(.center).lineLimit(1).submitLabel(.done)
+                .frame(width: min(titleWidth + 4, 200))
+                .background {
+                    Text(course.title.isEmpty ? tr("코스 이름") : course.title)
+                        .font(.headline).fixedSize().hidden()
+                        .background(GeometryReader { geo in
+                            Color.clear.preference(key: EditorTitleWidthKey.self, value: geo.size.width)
+                        })
+                }
+                .onPreferenceChange(EditorTitleWidthKey.self) { titleWidth = $0 }
+            Image(systemName: "pencil")
+                .font(.caption.weight(.semibold)).foregroundStyle(.secondary).accessibilityHidden(true)
+        }
+        .frame(maxWidth: 220)
     }
 }
 

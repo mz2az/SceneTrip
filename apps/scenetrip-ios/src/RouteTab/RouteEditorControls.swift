@@ -283,43 +283,54 @@ extension RouteEditorView {
 
     /// 곳 수·직선거리와 서버가 준 하루 어림. 경로 편집 중에는 머무는 시간만.
     var summary: some View {
-        HStack(spacing: 6) {
-            Text(trCount("%lld곳", stops.count))
-            Text("·")
-            Text("직선 \(RouteFormat.kilometers(RouteGeometry.totalKilometers(stops)))")
-            Spacer()
-            if stops.isEmpty {
-                // 소요 시간이 왜 없는지 적어 둔다 — 그냥 비어 있으면 빠뜨린 것으로 읽힌다.
-                Text("이동 시간은 여행 중에")
-                    .foregroundStyle(.tertiary)
-            } else {
-                // 같은 경로의 서버 합계가 있을 때는 이동 포함 어림을 보여 준다(MZ2AZ-390).
-                Button {
-                    showStay = true
-                } label: {
-                    HStack(spacing: 3) {
-                        Text(course.days[dayIndex].durationLabel)
-                        Image(systemName: "chevron.right").font(.caption2.weight(.semibold))
-                    }
-                    .lineLimit(1)
-                    // 글자 높이(15pt)만으로는 누르기 어렵다 — 줄의 위아래 여백까지 누르는
-                    // 자리로 삼되 줄 높이는 그대로 둔다.
-                    .padding(.vertical, 10)
-                    .contentShape(.rect)
-                    .padding(.vertical, -10)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
-                .accessibilityHint(Text("장소별 머무는 시간을 고칩니다"))
-                // 해태 동그라미가 카드를 비켜 설 때 이 단추를 덮지 않게 자리를 알린다.
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { stayFrame = $0 }
-                .onDisappear { stayFrame = nil }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                summaryDistance.fixedSize(horizontal: true, vertical: true)
+                Spacer()
+                summaryDuration.fixedSize(horizontal: true, vertical: true)
             }
+            VStack(alignment: .leading, spacing: 6) {
+                summaryDistance
+                summaryDuration
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
         .padding(.horizontal, 16).padding(.vertical, 10)
         .background(Color(.systemBackground))
+    }
+
+    private var summaryDistance: some View {
+        HStack(spacing: 6) {
+            Text(trCount("%lld곳", stops.count))
+            Text("·")
+            Text("직선 \(RouteFormat.kilometers(RouteGeometry.totalKilometers(stops)))")
+        }
+    }
+
+    @ViewBuilder
+    private var summaryDuration: some View {
+        if stops.isEmpty {
+            Text("이동 시간은 여행 중에").foregroundStyle(.tertiary)
+        } else {
+            Button {
+                showStay = true
+            } label: {
+                HStack(spacing: 3) {
+                    Text(course.days[dayIndex].durationLabel)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold))
+                }
+                .multilineTextAlignment(.leading)
+                .padding(.vertical, 10).contentShape(.rect).padding(.vertical, -10)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            .accessibilityHint(Text("장소별 머무는 시간을 고칩니다"))
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { stayFrame = $0 }
+            .onDisappear { stayFrame = nil }
+        }
     }
 
     /// 네 가지가 **한 줄에 다 보인다.** 앞서 가로 스크롤이라 「핀 찍기」가 오른쪽
