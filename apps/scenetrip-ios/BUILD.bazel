@@ -74,12 +74,20 @@ swift_library(
     srcs = glob(
         ["src/**/*.swift"],
         exclude = [
-            "src/RouteTab/PoiClusters.swift",
             "src/RouteTab/PoiClusterRenderer.swift",
+            "src/RouteTab/PoiClusters.swift",
+            "src/RouteTab/RouteDayEstimate.swift",
+            "src/RouteTab/RouteEditorHeader.swift",
+            "src/RouteTab/RouteEditorList.swift",
+            "src/RouteTab/RouteStopLabel.swift",
         ],
     ) + [
         "src/RouteTab/PoiClusterRenderer.swift",
         "src/RouteTab/PoiClusters.swift",
+        "src/RouteTab/RouteDayEstimate.swift",
+        "src/RouteTab/RouteEditorHeader.swift",
+        "src/RouteTab/RouteEditorList.swift",
+        "src/RouteTab/RouteStopLabel.swift",
         ":api_configuration",
         ":secrets_swift",
     ],
@@ -157,8 +165,14 @@ swift_library(
     testonly = True,
     srcs = glob(
         ["tests/**/*.swift"],
-        exclude = ["tests/PoiClustersTests.swift"],
-    ) + ["tests/PoiClustersTests.swift"],
+        exclude = [
+            "tests/CourseDisplayTests.swift",
+            "tests/PoiClustersTests.swift",
+        ],
+    ) + [
+        "tests/CourseDisplayTests.swift",
+        "tests/PoiClustersTests.swift",
+    ],
     module_name = "SceneTripTests",
     tags = [
         "ios",

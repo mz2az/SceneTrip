@@ -5,6 +5,10 @@
 "%@ · %lld곳" = "%1$@ · %2$lld places";
 "%@ — 좌표 없음" = "%@ — no coordinates";
 "%@ 고정" = "Pin %@";
+"약 %@(이동 포함)" = "About %@ (including travel)";
+"머무는 시간 %@" = "Time at places %@";
+"이동을 포함한 어림이에요. 실제 이동 시간은 여행 중에 확인해 주세요." = "This includes estimated travel. Check actual travel times during your trip.";
+"저장하면 이동을 포함한 시간을 다시 보여 드려요." = "Save to refresh the estimate including travel.";
 "%@ 도착 예정" = "Arrives %@";
 "%@ 외 %d" = "%@ +%d";
 "%@%@ 도착" = "Arrived at %@%@";

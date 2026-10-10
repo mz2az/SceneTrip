@@ -44,7 +44,7 @@ extension RouteMapView.Coordinator {
             } else {
                 marker.iconImage = PinImage.numbered(index + 1)
             }
-            marker.captionText = PinCaption.text(stop.place.name)
+            marker.captionText = PinCaption.text(stop.label.title)
             marker.captionRequestedWidth = PinCaption.width
             marker.captionMinZoom = 12
             // 번호 핀을 누르면 성지 카드(장면 설명·여기로 길찾기)가 뜬다.

@@ -70,5 +70,9 @@ extension RouteGuide.Place {
         longitude = stop.place.longitude
         group = nil
         source = .poi
+        displayName = stop.poiText?.displayName
+        nameRoman = stop.poiText?.nameRoman
+        categoryLabel = stop.poiText?.categoryLabel
+        displayAddress = stop.poiText?.displayAddress
     }
 }
