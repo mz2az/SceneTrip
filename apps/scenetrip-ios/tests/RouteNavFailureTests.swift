@@ -39,6 +39,39 @@ final class RouteNavFailureTests: XCTestCase {
         XCTAssertEqual(RouteNavFailure(URLError(.notConnectedToInternet)), .unreachable)
     }
 
+    /// 오프라인·서버 연결 거부 모두 개발 서버를 켜라는 말 대신 사용자가 할 수 있는 복구를 안내한다.
+    func testConnectionFailuresGiveLocalizedRecoveryAdvice() throws {
+        let before = AppLanguage.current
+        defer { AppLanguage.current = before }
+        AppLanguage.current = .ko
+        // 호스트 없는 XCTest는 앱의 번역 표를 테스트 번들에 싣는다.
+        let englishPath = try XCTUnwrap(Bundle(for: Self.self).path(forResource: "en", ofType: "lproj"))
+        let english = try XCTUnwrap(Bundle(path: englishPath))
+        let errors: [Error] = [
+            response(-1), URLError(.notConnectedToInternet), URLError(.cannotConnectToHost),
+        ]
+        for language in [Lang.ko, .en] {
+            for error in errors {
+                let failure = RouteNavFailure(error)
+                XCTAssertEqual(failure, .unreachable)
+                XCTAssertTrue(failure.canRetry)
+                let message = language == .ko ? failure.message : english.localizedString(
+                    forKey: failure.message, value: nil, table: nil
+                )
+                XCTAssertFalse(message.contains("8081"), message)
+                XCTAssertFalse(message.contains("백엔드"), message)
+                XCTAssertFalse(message.lowercased().contains("backend"), message)
+                if language == .ko {
+                    XCTAssertTrue(message.contains("인터넷 연결"), message)
+                    XCTAssertTrue(message.contains("다시 시도"), message)
+                } else {
+                    XCTAssertTrue(message.contains("Check your internet connection"), message)
+                    XCTAssertTrue(message.contains("try again"), message)
+                }
+            }
+        }
+    }
+
     /// 다시 불러도 같은 답이 오는 것에는 「다시 시도」를 두지 않는다.
     func testRetryOnlyWhereItCanChangeTheAnswer() {
         XCTAssertTrue(RouteNavFailure.providerDown.canRetry)

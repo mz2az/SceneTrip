@@ -186,7 +186,7 @@
 "서버가 열리면 함께 열려요" = "Opens when the server does";
 "서버에 연결하지 못했습니다." = "Couldn't connect to the server.";
 "인터넷 연결을 확인해 주세요." = "Check your internet connection.";
-"서버에 연결하지 못했어요 — 백엔드(:8081)가 켜져 있나요?" = "Couldn't reach the server — is the backend (:8081) running?";
+"연결하지 못했어요. 인터넷 연결을 확인하고 잠시 뒤 다시 시도해 주세요" = "Couldn't connect. Check your internet connection and try again shortly.";
 "서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요" = "Couldn't reach the server. Please try again shortly";
 "답을 기다리다 멈췄어요. 다시 시도해 주세요" = "Stopped waiting for the answer. Tap Try again";
 "다시 연결하는 중이에요" = "Reconnecting…";
