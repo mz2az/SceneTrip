@@ -118,6 +118,7 @@
 "담았습니다" = "Saved";
 "담은 장소가 없습니다" = "No saved places";
 "담지 못했습니다. 잠시 후 다시 시도해 주세요" = "Couldn't save. Try again in a moment.";
+"빼지 못했습니다. 잠시 후 다시 시도해 주세요" = "Couldn't remove. Try again in a moment.";
 "답을 받지 못했습니다." = "No answer came back.";
 "답이 너무 오래 걸려 기다리기를 멈췄어요. 잠시 뒤 다시 물어봐 주세요" = "The answer took too long, so we stopped waiting. Ask again in a moment";
 "당일치기" = "Day trip";
