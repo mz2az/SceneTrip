@@ -4,7 +4,7 @@
 # 호출: just seed
 #
 # 인자가 없으면 저장소의 성지후보 전량(services/scene-api/seed/candidates.csv)을 넣는다.
-# 다른 CSV(다음 수집분 등)는 경로를 넘긴다 — 컬럼이 candidates.sql 의 staging 과 같아야 하고(51 칸),
+# 다른 CSV(다음 수집분 등)는 경로를 넘긴다 — 컬럼이 candidates.sql 의 staging 과 같아야 하고(53 칸),
 # 줄마다 content_key·place_key 가 있어야 한다:
 #
 #   just seed ~/Downloads/성지후보_10작품_v4.csv
