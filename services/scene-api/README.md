@@ -329,7 +329,7 @@ curl http://localhost:8081/v1/actuator/health
 | `SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY` | 아니오 | 없음 | 애플 refresh token 암호화 키(AES-256, base64 32 바이트). JWT 키와 따로. 로컬 `.env`(`openssl rand -base64 32`), DEV·PRD 는 배포가 `auth` 칸에 함께 만든다. 없으면 애플 로그인만 꺼진다 |
 | `SCENETRIP_AUTH_APPLE_PRIVATE_KEY` | 아니오 | 없음 | 애플 .p8 파일 전체의 base64 한 줄. 사람이 애플에서 받아 온다(다시 내려받을 수 없다). 로컬 `.env`, DEV·PRD 는 Secrets Manager `scene_api` 칸의 **선택 항목** — ⚠ **PRD 출시 전 필수로 옮긴다**(`tools/aws/config.py` 의 `OPTIONAL_SECRET_KEYS`). 없으면 `/auth/apple` 이 `501` |
 | `SCENETRIP_AUTH_REQUIRE_REGISTRATION` | 아니오 | `true` | 가입 판정. `false` 면 마켓·길찾기·챗봇의 401 이 나지 않는다. **로컬 kind 의 ConfigMap 만 끈다** — 로그인 전 시뮬레이터 검증용이고 기동 로그에 경고가 남는다 |
-| `SCENETRIP_GUIDE_AGENT_BASE_URL` | 아니오 | `http://localhost:8899` | 가이드 에이전트(`agents/trip-guide`) 주소. 없으면 기동은 하고 `/guide/*` 만 503 이다. 클러스터 값은 에이전트 컨테이너가 생길 때 정한다 |
+| `SCENETRIP_GUIDE_AGENT_BASE_URL` | 아니오 | `http://localhost:8899` | 가이드 에이전트(`agents/trip-guide`) 주소. 없으면 기동은 하고 `/guide/*` 만 503 이다. 로컬 kind 는 `http://host.docker.internal:8899`(노트북, `just guide-up`), DEV·PRD 는 `http://trip-guide:8899`(Helm) |
 
 비밀번호는 `application.yaml` 에 두지 않는다 — 이미지 안에 박히면 이미지를 가진 사람이
 곧 자격 증명을 가진 것이 된다. 로컬에서는 `postgres` ConfigMap 의 키를
@@ -437,12 +437,16 @@ just navigation-smoke      # 배포된 것이 실제로 답하나 — 카카오�
 `plan_course` 는 에이전트가 이 서비스를 되부르므로, 플랫폼 스레드였다면 톰캣 스레드가 전부
 에이전트를 기다릴 때 그 GET 을 받을 스레드가 없어 양쪽이 서로를 기다린다.
 
-**에이전트가 없으면 503 이 정상이다.** `rules_python` 이 꺼져 있어 에이전트 컨테이너가 아직
-없다 — 클러스터의 이 서비스는 설정된 주소에 아무것도 없으니 `/guide/*` 에 503 을 낸다.
-규칙 기반으로 조용히 떨어지지 않는다. 로컬에서 실제로 돌려 보려면 에이전트를 노트북에서 띄운다.
+**에이전트가 없으면 503 이 정상이다.** 규칙 기반으로 조용히 떨어지지 않는다.
+
+- **DEV·PRD**: Helm 이 `trip-guide` 파드를 이 서비스 옆에 띄우고 주소(`http://trip-guide:8899`)와 키를 넣는다.
+- **로컬 kind**: 에이전트를 노트북에서 띄운다 — 이미지가 linux/amd64 라 맥(arm64)의 kind 에 그대로 못 싣는다.
+  로컬 ConfigMap 이 주소를 `http://host.docker.internal:8899`(kind 안에서 본 노트북)로 둔다(MZ2AZ-400).
 
 ```sh
-cd agents/trip-guide && export DEEPSEEK_API_KEY=… && python3 -m web.server --port 8899
+just guide-up       # 빌드해 노트북에서 백그라운드로 띄운다. 키는 .env 의 DEEPSEEK_API_KEY
+just guide-status   # 떠 있는지
+just guide-down     # 끈다 — /guide/* 는 다시 503
 ```
 
 에이전트 호출은 SigNoz 에서 `http.client.requests{uri="/guide/chat"}`·`{uri="/plan"}` 으로 갈려
