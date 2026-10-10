@@ -78,6 +78,8 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `UPLOAD_TYPE_UNSUPPORTED` | JPEG·PNG·HEIC·WebP 가 아니다 |
 | `NOT_MARKET_COURSE_AUTHOR` | (`403`) 남이 올린 코스는 내릴 수 없다. **마켓의 코스는 이미 누구에게나 보이므로 404 로 숨기지 않는다** — 내 코스가 `COURSE_NOT_FOUND` 로 존재를 숨기는 것과 갈리는 지점이다 |
 | `UNKNOWN_COURSE_ITEM` | 편집 완료(`PUT /courses/{courseId}`)가 그 코스에 없는 항목 `id` 를 가리켰다. 이미 지워졌거나 남의 코스 것이다 — **새로 담는 장소라면 `id` 를 아예 비워야 한다** |
+| `POST_PHOTO_INVALID` | 여행후기 쓰기의 사진 키가 내가 받은 업로드가 아니거나, 그 주소로 올리지 않았거나, 같은 키가 두 번 있다 (1.10.0) |
+| `POST_COURSE_INVALID` | 여행후기에 붙일 `courseId` 가 내 코스가 아니거나 없다 (1.10.0) |
 | `POI_NOT_FOUND` (400) | 편집 완료가 새로 담는 편의시설(`poiId`)이 없거나 폐업했다(1.8.0). 대상 없음의 `404` 와 같은 이름이지만 여기서는 요청이 틀린 것이라 `400` 이다 — 그 항목을 빼고 다시 저장한다 |
 
 ### 인증 (`401`)
@@ -102,6 +104,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `REVIEW_NOT_FOUND` | 그곳에 내가 쓴 리뷰가 없다(`GET …/reviews/me`). 빈 쓰기 화면을 연다 |
 | `CART_ITEM_NOT_FOUND` | 장바구니에 그 장소가 담겨 있지 않다 |
 | `COURSE_NOT_FOUND` | 그 `courseId` 의 코스가 없다. **남의 코스도 여기에 해당한다** — 있다는 사실 자체를 알려 주지 않는다 |
+| `POST_NOT_FOUND` | 그 `postId` 의 여행후기가 없다. 지우기는 **남의 글도 여기에 해당한다**. 담기는 코스가 붙지 않은 후기도 (1.10.0) |
 | `COURSE_ITEM_NOT_FOUND` | 그 코스에 그 항목이 없다. 방문 체크가 이미 지워진 장소를 가리켰다 |
 | `MARKET_COURSE_NOT_FOUND` | 올라온 코스가 없다. **내려간 것도 여기에 해당한다** |
 | `ENDPOINT_NOT_FOUND` | **경로 자체가 없다.** 명세에 없는 주소를 불렀다 |
