@@ -283,17 +283,19 @@ extension RouteEditorView {
 
     /// 곳 수·직선거리와 서버가 준 하루 어림. 경로 편집 중에는 머무는 시간만.
     var summary: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 6) {
-                summaryDistance.fixedSize(horizontal: true, vertical: true)
-                Spacer()
-                summaryDuration.fixedSize(horizontal: true, vertical: true)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                stackedSummary
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) {
+                        summaryDistance.fixedSize(horizontal: true, vertical: true)
+                        Spacer()
+                        summaryDuration.fixedSize(horizontal: true, vertical: true)
+                    }
+                    stackedSummary
+                }
             }
-            VStack(alignment: .leading, spacing: 6) {
-                summaryDistance
-                summaryDuration
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
@@ -301,12 +303,19 @@ extension RouteEditorView {
         .background(Color(.systemBackground))
     }
 
-    private var summaryDistance: some View {
-        HStack(spacing: 6) {
-            Text(trCount("%lld곳", stops.count))
-            Text("·")
-            Text("직선 \(RouteFormat.kilometers(RouteGeometry.totalKilometers(stops)))")
+    private var stackedSummary: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            summaryDistance
+            summaryDuration
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var summaryDistance: some View {
+        let distance = String(format: tr("직선 %@"), RouteFormat.kilometers(RouteGeometry.totalKilometers(stops)))
+        return Text("\(trCount("%lld곳", stops.count)) · \(distance)")
+            .fixedSize(horizontal: false, vertical: true)
+            .multilineTextAlignment(.leading)
     }
 
     @ViewBuilder

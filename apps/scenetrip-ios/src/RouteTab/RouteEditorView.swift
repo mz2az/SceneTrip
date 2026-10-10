@@ -20,7 +20,7 @@ import SwiftUI
 struct RouteEditorView: View {
     @EnvironmentObject var store: RouteStore
     @Environment(\.dismiss) var dismiss
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.dynamicTypeSize) var dynamicTypeSize
 
     /// 장바구니는 **검색 탭에서 이어진다.** 기기 UUID 가 같으므로 새로 만들어도 서버에
     /// 있는 그 장바구니가 온다 — 검색 탭의 `CartStore` 를 끌어오려면 그 파일을 고쳐야
