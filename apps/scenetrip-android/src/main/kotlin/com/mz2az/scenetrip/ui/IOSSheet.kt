@@ -123,6 +123,9 @@ fun IOSSheet(
                         dismissing = true
                         shown.animateTo(0f, tween(200))
                         onDismiss()
+                        // 편집기가 버리기 확인을 띄우면 시트가 남는다. 계속 쓰기를 선택해도 보이도록 복구한다.
+                        dismissing = false
+                        shown.animateTo(restPx, tween(220))
                     } else {
                         val target =
                             if (abs(velocity) >
@@ -189,6 +192,8 @@ fun IOSSheet(
                                 dismissing = true
                                 shown.animateTo(0f, tween(200))
                                 onDismiss()
+                                dismissing = false
+                                shown.animateTo(restPx, tween(220))
                             }
                         },
             ) {

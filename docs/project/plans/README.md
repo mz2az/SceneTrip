@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [android-ios-parity.md](android-ios-parity.md) | Android를 현재 iOS의 리뷰·사진·POI 코스·요청 재시도·한도 처리에 맞춘다 |
 | [ios-followup-accessibility.md](ios-followup-accessibility.md) | iOS 큰 글자 길찾기 안내·해태 배치와 사진 업로드 실패 경계 (MZ2AZ-387) |
 | [dev-lifecycle.md](dev-lifecycle.md) | 버튼 하나로 DEV 올리기·내리기 — runner·Secret·배포·Cloudflare DNS |
 | [aws-teardown.md](aws-teardown.md) | 비용 절감을 위한 서비스·bootstrap 수동 삭제와 잔존 데이터 정책 |

@@ -6,25 +6,29 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.analytics.AppEvent
+import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.API_BASE
-import com.mz2az.scenetrip.data.ApiFailure
+import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.FootprintStore
 import com.mz2az.scenetrip.data.InstallIdentity
+import com.mz2az.scenetrip.data.LimitLedger
+import com.mz2az.scenetrip.data.NetworkFailure
+import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.haversineKm
 import com.mz2az.scenetrip.sceneapi.client.api.NavigationApi
 import com.mz2az.scenetrip.sceneapi.client.model.NextLeg
 import com.mz2az.scenetrip.sceneapi.client.model.NextLegRequest
 import com.mz2az.scenetrip.searchtab.hasLocationPermission
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /**
@@ -54,6 +58,8 @@ class TripSession(
         private set
     var asking by mutableStateOf(false)
         private set
+    var failureCode by mutableStateOf<String?>(null)
+        private set
 
     val isActive: Boolean get() = target != null
 
@@ -65,10 +71,11 @@ class TripSession(
     private val footprints = FootprintStore.getInstance(context)
     private var listener: LocationListener? = null
     private var courseId: Long = 0
-
-    /** 도착 판정 반경(m). iOS `DemoDrive.stopWithinMeters`보다 넓다 — 그건 걷기를
-     * 멈추는 자리, 이건 실제 「도착」 판정 자리라 서로 다른 값이다(iOS 주석 참고). */
-    private val arrivalMeters = 100.0
+    private val arrival = TripArrival()
+    private var request: Job? = null
+    private var dwell: Job? = null
+    private var revision = 0
+    private var locationAt = 0L
 
     fun start(
         courseId: Long,
@@ -76,69 +83,115 @@ class TripSession(
         scope: CoroutineScope,
     ) {
         AppAnalytics.log(AppEvent.StartTrip(target.place.id))
+        end()
         this.courseId = courseId
-        this.target = target
-        phase = Phase.GUIDING
-        leg = null
-        failure = null
+        resetTarget(target)
         startLocationUpdates(scope)
-        scope.launch {
-            var attempts = 0
-            while (here == null && attempts < 12) {
-                delay(500)
-                attempts += 1
+        request =
+            scope.launch {
+                var attempts = 0
+                while (here == null && attempts < 12) {
+                    delay(500)
+                    attempts += 1
+                }
+                fetchLeg()
             }
-            fetchLeg()
-        }
     }
 
     fun advance(
         next: RouteStop,
         scope: CoroutineScope,
     ) {
+        request?.cancel()
+        resetTarget(next)
+        request = scope.launch { fetchLeg() }
+    }
+
+    private fun resetTarget(next: RouteStop) {
+        revision += 1
         target = next
         phase = Phase.GUIDING
         leg = null
-        scope.launch { fetchLeg() }
+        failure = null
+        failureCode = null
+        asking = false
+        arrival.reset()
     }
 
     /** "여기 도착함" — GPS 판정을 기다리지 않고 사람이 직접 확인한다. */
     fun markArrived() {
+        if (phase != Phase.GUIDING) return
         val t = target ?: return
         phase = Phase.ARRIVED
+        revision += 1
+        request?.cancel()
+        asking = false
         onArrived?.invoke(t)
         AppAnalytics.log(AppEvent.VisitStamp(t.place.id))
     }
 
     fun end() {
+        revision += 1
+        request?.cancel()
+        request = null
         target = null
         leg = null
+        failure = null
+        failureCode = null
+        asking = false
         phase = Phase.PLAN
         stopLocationUpdates()
     }
 
     /** 실패했을 때 "다시 시도" — iOS `RouteEditorTrip.tripDetail`의 재시도 단추. */
     fun retry(scope: CoroutineScope) {
-        scope.launch { fetchLeg() }
+        if (asking || LimitLedger.navigationBlock?.blocked(SystemClock.elapsedRealtime()) == true) return
+        request = scope.launch { fetchLeg() }
     }
 
     suspend fun fetchLeg() {
+        if (asking || phase != Phase.GUIDING || LimitLedger.navigationBlock?.blocked(SystemClock.elapsedRealtime()) == true) return
         val t = target ?: return
         val (lat, lng) = here ?: return
         val itemId = t.serverItemId ?: return
+        val token = revision
+        val epoch = AuthStore.epoch
+        val selectedCourseId = courseId
         asking = true
+        failure = null
+        failureCode = null
         AppAnalytics.log(AppEvent.GetDirections)
-        runCatching {
-            withContext(Dispatchers.IO) {
-                navigationApi.getNextLeg(deviceId, NextLegRequest(courseId = courseId, itemId = itemId, latitude = lat, longitude = lng))
+        try {
+            apiResult {
+                navigationApi.getNextLeg(
+                    deviceId,
+                    NextLegRequest(courseId = selectedCourseId, itemId = itemId, latitude = lat, longitude = lng),
+                    acceptLanguage = AppLanguage.current,
+                )
+            }.onSuccess {
+                if (token != revision || epoch != AuthStore.epoch) return@onSuccess
+                leg = it
+                failure = null
+            }.onFailure {
+                if (token != revision || epoch != AuthStore.epoch) return@onFailure
+                val problem = NetworkFailure.of(it)
+                failure = problem.message
+                failureCode = problem.code
             }
-        }.onSuccess {
-            leg = it
-            failure = null
-        }.onFailure {
-            failure = ApiFailure.of(it).message
+        } finally {
+            if (token == revision) asking = false
         }
-        asking = false
+    }
+
+    fun foreground(
+        active: Boolean,
+        scope: CoroutineScope,
+    ) {
+        if (!active) {
+            stopLocationUpdates()
+        } else if (isActive) {
+            startLocationUpdates(scope)
+        }
     }
 
     private fun startLocationUpdates(scope: CoroutineScope) {
@@ -149,10 +202,14 @@ class TripSession(
             object : LocationListener {
                 override fun onLocationChanged(location: Location) {
                     here = location.latitude to location.longitude
+                    locationAt = SystemClock.elapsedRealtime()
                     // 기록은 보기 토글과 무관하게 늘 남는다 — 안내 중이면 언제나
                     // (iOS `FootprintStore.record` 주석). 보기는 지도에 그릴지만 가린다.
                     footprints.record(location.latitude, location.longitude)
                     checkArrival()
+                    if (phase == Phase.GUIDING && leg == null && failure == null && !asking && request?.isActive != true) {
+                        request = scope.launch { fetchLeg() }
+                    }
                 }
 
                 @Deprecated("API 29 에서 폐기됐지만 minSdk 26 때문에 필요하다")
@@ -172,9 +229,19 @@ class TripSession(
             .forEach { provider ->
                 runCatching { manager.requestLocationUpdates(provider, 2_000L, 5f, relay, Looper.getMainLooper()) }
             }
+        dwell =
+            scope.launch {
+                while (isActive) {
+                    delay(5_000)
+                    if (SystemClock.elapsedRealtime() - locationAt > 30_000) arrival.reset() else checkArrival()
+                }
+            }
     }
 
     private fun stopLocationUpdates() {
+        dwell?.cancel()
+        dwell = null
+        arrival.reset()
         listener?.let {
             (context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager)?.removeUpdates(it)
         }
@@ -186,10 +253,6 @@ class TripSession(
         val t = target ?: return
         val (lat, lng) = here ?: return
         val meters = haversineKm(lat, lng, t.place.latitude, t.place.longitude) * 1000
-        if (meters <= arrivalMeters) {
-            phase = Phase.ARRIVED
-            onArrived?.invoke(t)
-            AppAnalytics.log(AppEvent.VisitStamp(t.place.id))
-        }
+        if (arrival.update(meters, SystemClock.elapsedRealtime())) markArrived()
     }
 }

@@ -44,11 +44,16 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.API_BASE
+import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.reviews.ReviewSubject
 import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
 import com.mz2az.scenetrip.sceneapi.client.api.PoisApi
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource
+import com.mz2az.scenetrip.sceneapi.client.model.Lang
+import com.mz2az.scenetrip.sceneapi.client.model.Photo
+import com.mz2az.scenetrip.sceneapi.client.model.RatingSummary
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.IOS
 import kotlinx.coroutines.Dispatchers
@@ -71,6 +76,12 @@ data class RoutePlaceCardData(
     val images: List<String>,
     /** 「네이버 지도에서 보기」가 갈 곳. */
     val naverUrl: String?,
+    val title: String,
+    val reading: String? = null,
+    val rating: RatingSummary? = null,
+    val photos: List<Photo> = emptyList(),
+    val photoCount: Int = 0,
+    val subject: ReviewSubject,
 )
 
 /**
@@ -83,27 +94,50 @@ data class RoutePlaceCardData(
  */
 suspend fun fetchPlaceCard(place: GuidePlace): RoutePlaceCardData? =
     withContext(Dispatchers.IO) {
-        when (place.source) {
-            GuidePlaceSource.place -> {
-                val detail = runCatching { PlacesApi(API_BASE).getPlace(placeId = place.id) }.getOrNull() ?: return@withContext null
+        when {
+            place.targetPlaceId != null -> {
+                val detail =
+                    runCatching { PlacesApi(API_BASE).getPlace(placeId = place.targetPlaceId!!) }.getOrNull() ?: return@withContext null
                 RoutePlaceCardData(
                     category = detail.type ?: place.category,
                     address = detail.address ?: place.address,
                     phone = null,
                     images = detail.imageUrls?.map { it.toString() } ?: listOfNotNull(detail.imageUrl?.toString()),
                     // 촬영지는 전과 같다 — 우리가 가진 링크가 있을 때만.
-                    naverUrl = detail.naverPlaceUrl?.toString(),
+                    naverUrl = NaverMapLink.place(detail.naverPlaceUrl?.toString()),
+                    title = detail.name,
+                    rating = detail.rating,
+                    photos = detail.photos.orEmpty(),
+                    photoCount = detail.photoCount ?: 0,
+                    subject = ReviewSubject(detail.id, detail.name),
                 )
             }
 
-            GuidePlaceSource.poi -> {
+            else -> {
                 val detail = runCatching { PoisApi(API_BASE).getPoi(poiId = place.id) }.getOrNull()
+                val label =
+                    PoiLabel.make(
+                        detail?.name ?: place.name,
+                        detail?.displayName ?: place.displayName,
+                        detail?.nameRoman ?: place.nameRoman,
+                        detail?.category ?: place.category,
+                        detail?.categoryLabel ?: place.categoryLabel,
+                        detail?.address ?: place.address,
+                        detail?.displayAddress ?: place.displayAddress,
+                        AppLanguage.current == Lang.ko,
+                    )
                 RoutePlaceCardData(
-                    category = detail?.category ?: place.category,
-                    address = detail?.address ?: place.address,
+                    category = label.category,
+                    address = label.address,
                     phone = detail?.tel,
                     images = emptyList(),
-                    naverUrl = NaverMapLink.search(detail?.name ?: place.name, near = detail?.city),
+                    naverUrl = NaverMapLink.place(detail?.naverPlaceUrl?.toString()),
+                    title = label.title,
+                    reading = label.reading,
+                    rating = detail?.rating,
+                    photos = detail?.photos.orEmpty(),
+                    photoCount = detail?.photoCount ?: 0,
+                    subject = ReviewSubject(detail?.placeId ?: place.id, label.heading, isPoi = detail?.placeId == null),
                 )
             }
         }
@@ -125,11 +159,13 @@ fun RoutePlaceCard(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var card by remember(place.id) { mutableStateOf<RoutePlaceCardData?>(null) }
+    var card by remember(place) { mutableStateOf<RoutePlaceCardData?>(null) }
+    var reviews by remember(place) { mutableStateOf(false) }
+    var revision by remember(place) { mutableStateOf(0) }
     var loading by remember(place.id) { mutableStateOf(true) }
     var missing by remember(place.id) { mutableStateOf(false) }
 
-    LaunchedEffect(place.id) {
+    LaunchedEffect(place, revision) {
         loading = true
         missing = false
         val result = fetchPlaceCard(place)
@@ -148,7 +184,7 @@ fun RoutePlaceCard(
                 .border(1.dp, IOS.pinLight.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
     ) {
         PlaceCardHeader(
-            name = place.name,
+            name = card?.title ?: place.displayName ?: place.name,
             distanceMeters = place.distanceMeters,
             naverUrl = card?.naverUrl,
             onClose = onClose,
@@ -168,7 +204,15 @@ fun RoutePlaceCard(
                 }
             }
         } else {
-            card?.let { PlaceCardFound(it, added, onAdd, onRemove) }
+            card?.let { PlaceCardFound(it, added, onAdd, onRemove, onReviews = { reviews = true }) }
+        }
+    }
+    if (reviews) {
+        card?.let { value ->
+            com.mz2az.scenetrip.reviews.ReviewsSheet(value.subject, onClose = { reviews = false }, onChanged = {
+                revision +=
+                    1
+            })
         }
     }
 }
@@ -319,8 +363,15 @@ private fun PlaceCardFound(
     added: Boolean,
     onAdd: () -> Unit,
     onRemove: () -> Unit,
+    onReviews: () -> Unit,
 ) {
-    if (card.images.isNotEmpty()) {
+    card.reading?.let { Text(it, style = IOS.caption, color = IOS.secondaryLabel, modifier = Modifier.padding(horizontal = 14.dp)) }
+    com.mz2az.scenetrip.reviews
+        .RatingLine(card.rating, onReviews, Modifier.padding(horizontal = 14.dp))
+    if (card.photos.isNotEmpty()) {
+        com.mz2az.scenetrip.reviews
+            .GalleryStrip(card.subject, card.photos, card.photoCount, height = 100, onReview = { onReviews() })
+    } else if (card.images.isNotEmpty()) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp),

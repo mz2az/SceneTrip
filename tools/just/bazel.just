@@ -135,6 +135,27 @@ ios-reinstall:
 android-run:
     NAVER_MAP_CLIENT_ID="${NAVER_MAP_CLIENT_ID:-}" ./tools/scripts/android-run.sh
 
+# Android 기기·에뮬레이터 조작과 로그 조회 (SDK의 adb 사용)
+[group('build')]
+android-device +args:
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" "$@"
+
+# 자동 화면 점검용 에뮬레이터를 전경에서 실행 (종료 시 Ctrl+C)
+[group('build')]
+android-emulator:
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/emulator/emulator" -avd "${SCENETRIP_AVD:-scenetrip}" -no-window -no-snapshot-save -no-boot-anim
+
+# Android 화면을 PNG로 저장
+[group('build')]
+android-screenshot out:
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" exec-out screencap -p > {{quote(out)}}
+
+# Android 접근성 트리 조회 (화면 점검)
+[group('build')]
+android-ui:
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell uiautomator dump /sdcard/scenetrip-ui.xml >/dev/null
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" exec-out cat /sdcard/scenetrip-ui.xml
+
 # `just ios-run` 은 시뮬레이터까지다. **진짜 아이폰에 올리려면 애플 서명이 필요한데,
 # 그 서명 파일은 사람마다·기기마다 다르다.** BUILD 파일에 박으면 그것을 가진 한 사람만
 # 빌드할 수 있다. 그래서 서명은 Xcode 에게 맡기고 우리는 프로젝트 파일만 만들어 준다.

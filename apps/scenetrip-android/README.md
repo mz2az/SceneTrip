@@ -38,8 +38,16 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 | 핀 번호 — 첫 화면 작품 탭에서만 민 핀 | 됨 |
 | 자동완성 · 작품 드릴다운 · 지도 범위 검색 · 현위치 | 구현됨 |
 | 온보딩 — 스플래시(핀 낙하 애니메이션) + 사용법 4장 | 됨. 버전 플래그라 내용이 바뀌면 이미 본 사람에게도 다시 보인다 |
-| RootTabs — 3탭(검색·홈·커뮤니티) + 가운데 원형 홈 버튼 | 됨. 경로여정·마이페이지는 `TabRouter.cover` 자리표시자(두 탭 자체는 미이식) |
-| 홈 — 내 여행 이어가기 · 지금 뜨는 작품 · 오늘의 성지 · 여행자들의 코스 · 커뮤니티 지금 · 내 기록 | 됨. 전부 서버·기기 값, 코스 상세(`RouteStore`)는 홈이 쓰는 만큼만 최소 이식 |
+| RootTabs — 검색·홈·커뮤니티 + 코스·마이페이지 입구 | 구현됨 |
+| 홈 — 내 여행 이어가기 · 지금 뜨는 작품 · 오늘의 성지 · 여행자들의 코스 · 커뮤니티 지금 · 내 기록 | 서버·기기 값을 사용 |
+| 코스 — 편집·저장·공유·여행 안내·가이드 | 구현됨. 촬영지·POI·개인 핀을 구분하고 서버 항목 ID를 보존 |
+| 장소·POI 리뷰 | 평점 요약·정렬·페이지, 작성·수정·삭제, 프로필의 내 리뷰 |
+| 사진첩 | 공식·방문자 사진, 전체 비율·출처, 크게 보기·격자·추가 페이지·리뷰 연결 |
+| 리뷰 사진 업로드 | 최대 10장, JPEG 축소·회전·위치 메타데이터 제거, 실패한 사진 재시도 |
+| Google 로그인·닉네임·프로필 | 로그인 안내, 닉네임 검증·수정, 계정 전환 시 늦은 응답 무시 |
+| 요청 재시도·사용량 | 읽기·안전한 쓰기만 제한 재시도, 유료 호출 중복 방지, 서버 한도·지도 앱 연결 |
+| 안내 중 가이드 입구 | 배너 얼굴로 전환, 카드·서랍·핀 찍기 상태별 한 곳만 표시. 지도 앱 링크는 줄바꿈 |
+| 영어 | iOS의 최신 영어 문구에서 변환. Android 전용 문구는 `TranslationExtras.kt` |
 
 `SceneData`가 생성된 계약 클라이언트로 서버 검색·상세·자동완성을 호출한다.
 
@@ -47,13 +55,10 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 §3-5 칩 → §3-6 오류 화면)를 그대로 따라간다. 온보딩·홈은 iOS 소스와
 [홈 탭 계획](../../docs/project/plans/mobile-home-tab.md)을 그대로 따랐다.
 
-**아직 없는 것** — 커뮤니티·경로여정·마이페이지 탭 자체(홈의 입구만 있다), 온보딩
-유닛 테스트(이 저장소 `maven_android_install.json`에 JUnit이 없어 추가는 의존성
-결정으로 남겨 뒀다).
-
-`apps/scenetrip-ios` 가 먼저 만들어졌으므로 그쪽이 실질적인 대조군이다. Flutter
-프로토타입(`~/workspace/mobile`, 저장소 밖)도 여전히 참고본이다 — 코드는 옮기지 않고
-규칙만 가져온다 (ADR 0002).
+`apps/scenetrip-ios`가 동작 대조군이다.
+[최신 iOS 기능 반영 계획](../../docs/project/plans/android-ios-parity.md)과
+[검증 기록](../../docs/qa/android-ios-parity-verification.md)에 범위와 확인 결과를 남긴다.
+가상 GPS는 앱 기능 대신 Android 에뮬레이터의 위치 주입으로 확인한다.
 
 ## 인터페이스
 
@@ -95,10 +100,17 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 ```bash
 just build-module apps/scenetrip-android    # 빌드
 just android-run                            # 에뮬레이터에 띄운다
+just test //apps/scenetrip-android:unit_test  # 순수 규칙·HTTP 재시도 회귀 테스트
+just android-translations                   # iOS 영어 문구 변경 반영
+just android-fmt                            # Android 소스 포맷
 ```
 
 `just android-run` 은 AVD 가 없으면 만들고, 에뮬레이터가 꺼져 있으면 부팅을 기다린
 뒤 설치·실행한다. 끝나도 에뮬레이터는 살아 있어서, 다시 부르면 빌드·설치만 한다.
+Android Studio를 실행할 필요는 없다. 창 없는 실행 환경에서 프로세스가 자동 정리되면
+별도 터미널의 `just android-emulator`로 에뮬레이터를 유지한 뒤 `just android-run`을 실행한다.
+`just android-device <인자...>`는 기기 상태·탭·위치 주입에,
+`just android-screenshot <파일>`·`just android-ui`는 화면 검증에 사용한다.
 
 `just ios-run` 이 `bazel run` 한 줄인 것과 달리 스크립트를 거친다 — `android_binary`
 는 APK 만 내놓을 뿐 설치·실행을 하지 않기 때문이다. 이유는

@@ -30,6 +30,7 @@ import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.onboarding.LanguagePickView
 import com.mz2az.scenetrip.onboarding.OnboardingView
 import com.mz2az.scenetrip.onboarding.SplashView
+import com.mz2az.scenetrip.reviews.NicknameSheetHost
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.iosTypography
 
@@ -106,6 +107,7 @@ fun SceneTripApp() {
             AppRoot()
             // 로그인 시트 — 어느 화면·덮개 위에서든 올라온다.
             SignInSheetHost()
+            NicknameSheetHost()
         }
     }
 }

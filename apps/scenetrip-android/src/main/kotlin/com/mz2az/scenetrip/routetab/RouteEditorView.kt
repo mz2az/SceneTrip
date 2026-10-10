@@ -64,10 +64,12 @@ import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.FootprintStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.api.PoisApi
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource
+import com.mz2az.scenetrip.sceneapi.client.model.GuideTrip
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PoiCategoryGroup
 import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
@@ -140,8 +142,11 @@ fun RouteEditorView(
     onClose: (RouteCourse?) -> Unit,
     // 마법사 시트 안에서 열릴 때 — 시트가 이미 상태바 아래에 있으니 상태바 여백을 또 두지 않는다.
     inSheet: Boolean = false,
+    editorDismiss: java.util.concurrent.atomic.AtomicReference<(() -> Unit)?>? = null,
 ) {
     var course by remember { mutableStateOf(initial) }
+    val opened = remember(initial) { RouteBridge.outgoing(initial) }
+    var discarding by remember { mutableStateOf(false) }
     var dayIndex by remember { mutableStateOf(0) }
     var map by remember { mutableStateOf<NaverMap?>(null) }
     var detent by remember { mutableStateOf(Detent.MEDIUM) }
@@ -170,15 +175,45 @@ fun RouteEditorView(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val cart = remember { CartStore(context) }
-    val guideSession = remember { RouteGuideSession(context) }
+    val guideSession = remember { RouteGuideSession(context, scope) }
     val trip = remember { TripSession(context) }
     val footprints = remember { FootprintStore.getInstance(context) }
     val poisApi = remember { PoisApi(API_BASE) }
     val density = LocalDensity.current
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    val guideEntry =
+        RouteGuideEntry.placement(
+            guiding = trip.phase == TripSession.Phase.GUIDING,
+            hasTarget = trip.target != null,
+            hasCard = guideSession.picked != null || focusedStopId != null,
+            panelOpen = showGuide,
+            pinning = pinning,
+        )
+
+    fun cancel() {
+        if (saving) return
+        val changed = if (initial.serverId == null) !RouteBridge.isBlank(course) else RouteBridge.changed(opened, course)
+        if (changed) discarding = true else onClose(null)
+    }
+    androidx.activity.compose.BackHandler { cancel() }
+    androidx.compose.runtime.SideEffect { editorDismiss?.set { cancel() } }
+    androidx.compose.runtime.DisposableEffect(editorDismiss) { onDispose { editorDismiss?.set(null) } }
 
     LaunchedEffect(Unit) { cart.refresh() }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { trip.end() } }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    androidx.compose.runtime.DisposableEffect(lifecycle, trip) {
+        val observer =
+            androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) trip.foreground(false, scope)
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_START) trip.foreground(true, scope)
+            }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            trip.foreground(false, scope)
+        }
+    }
     val requestLocation =
         rememberLocate(
             onLocated = { found ->
@@ -222,13 +257,14 @@ fun RouteEditorView(
     }
 
     fun saveAndClose() {
+        if (saving) return
         // 제목을 비운 채 저장하면 목록에 이름 없는 코스가 생긴다 — iOS `saveAndClose`와 같이 기본 이름으로.
         course = course.copy(title = course.title.trim().ifEmpty { tr("내 코스", "코스 제목") })
         saving = true
         scope.launch {
             val saved = store.save(course)
             saving = false
-            onClose(saved ?: course)
+            if (saved != null) onClose(saved)
         }
     }
 
@@ -270,16 +306,102 @@ fun RouteEditorView(
     ) {
         if (newStops.isEmpty()) return
         updateDay(dayIndex) { day ->
-            val existing = day.stops.map { RouteDedupe.key(it.place) }.toSet()
-            val toAdd = newStops.filterNot { RouteDedupe.key(it.place) in existing }
+            val toAdd = mutableListOf<RouteStop>()
+            newStops.forEach { stop -> if ((day.stops + toAdd).none { stop.sameTarget(it) }) toAdd.add(stop) }
             if (toAdd.isEmpty()) return@updateDay day
-            day.copy(stops = if (asNext) toAdd + day.stops else day.stops + toAdd)
+            val slot =
+                if (asNext) {
+                    RouteGeometry.nextSlot(
+                        day.stops,
+                        trip.target,
+                        trip.phase == TripSession.Phase.ARRIVED,
+                    )
+                } else {
+                    day.stops.size
+                }
+            day.copy(stops = day.stops.take(slot) + toAdd + day.stops.drop(slot))
         }
         fitToken += 1
     }
 
     val day = course.days.getOrNull(dayIndex)
     val stops = day?.stops ?: emptyList()
+    androidx.compose.runtime.SideEffect {
+        guideSession.contextOf = {
+            val picked = stops.firstOrNull { it.id == focusedStopId }
+            val recent = footprints.points.filter { it.at >= System.currentTimeMillis() - 86_400_000L }
+            val walked =
+                recent.zipWithNext().sumOf { (a, b) ->
+                    com.mz2az.scenetrip.data
+                        .haversineKm(a.latitude, a.longitude, b.latitude, b.longitude)
+                }
+            com.mz2az.scenetrip.sceneapi.client.model.GuideContext(
+                plan = RouteGuidePlan.plan(course),
+                picked =
+                    picked?.let {
+                        com.mz2az.scenetrip.sceneapi.client.model.GuideStop(
+                            number = 0,
+                            name = it.place.name,
+                            latitude = it.place.latitude,
+                            longitude = it.place.longitude,
+                            category = it.place.type,
+                            visited = it.visited,
+                        )
+                    },
+                trip =
+                    if (course.isRunning) {
+                        GuideTrip(
+                            phase =
+                                when (trip.phase) {
+                                    TripSession.Phase.PLAN -> GuideTrip.Phase.plan
+                                    TripSession.Phase.GUIDING -> GuideTrip.Phase.guiding
+                                    TripSession.Phase.ARRIVED -> GuideTrip.Phase.arrived
+                                },
+                            course = course.title,
+                            day = dayIndex + 1,
+                            days = maxOf(1, course.days.size),
+                            walkedKilometers = kotlin.math.round(walked * 10) / 10,
+                            targetNumber =
+                                trip.target?.let { target ->
+                                    stops.indexOfFirst { it.id == target.id }.takeIf { it >= 0 }?.plus(1)
+                                },
+                            targetMeters =
+                                trip.target?.let { target ->
+                                    trip.here?.let { (lat, lng) ->
+                                        (
+                                            com.mz2az.scenetrip.data
+                                                .haversineKm(lat, lng, target.place.latitude, target.place.longitude) *
+                                                1000
+                                        ).toInt()
+                                    }
+                                },
+                        )
+                    } else {
+                        null
+                    },
+                stops =
+                    stops.take(50).mapIndexed { index, stop ->
+                        com.mz2az.scenetrip.sceneapi.client.model.GuideStop(
+                            number = index + 1,
+                            name = stop.place.name,
+                            latitude = stop.place.latitude,
+                            longitude = stop.place.longitude,
+                            category = stop.place.type,
+                            visited = stop.visited,
+                        )
+                    },
+            )
+        }
+    }
+    val accountEpoch = com.mz2az.scenetrip.auth.AuthStore.epoch
+    var lastAccountEpoch by remember { mutableStateOf(accountEpoch) }
+    LaunchedEffect(accountEpoch) {
+        if (lastAccountEpoch != accountEpoch) {
+            lastAccountEpoch = accountEpoch
+            guideSession.accountChanged()
+            trip.end()
+        }
+    }
     val takenIds =
         course.days
             .flatMap { it.stops }
@@ -293,10 +415,15 @@ fun RouteEditorView(
             .map { RouteDedupe.key(it.place) }
             .toSet()
     val poisForChips = ambientPois.filterNot { takenPlaceKeys.contains(RouteDedupe.key(it.asPlaceSummary())) }
-    val visibleAmbientPois = poisForChips.filter { poiGroupsOn.contains(it.categoryGroup) }
+    val drawnPlaceIds = stops.mapNotNull { it.savablePlaceId }.toSet()
+    val takenPoiIds = stops.mapNotNull { it.poiId }.toSet()
+    val visibleAmbientPois =
+        poisForChips.filter {
+            poiGroupsOn.contains(it.categoryGroup) && it.placeId !in drawnPlaceIds && it.id !in takenPoiIds
+        }
     val poiCounts = poisForChips.groupingBy { it.categoryGroup }.eachCount()
     val aiPlacesForChip = guideSession.places.filterNot { takenPlaceKeys.contains(RouteDedupe.key(it.asPlaceSummary())) }
-    val visibleAiPlaces = if (aiPlacesOn) aiPlacesForChip else emptyList()
+    val visibleAiPlaces = if (aiPlacesOn) aiPlacesForChip.filterNot { place -> stops.any { place.matches(it) } } else emptyList()
 
     // 챗봇이 장소를 찾아 오면 지도엔 그것만 남긴다(iOS `applyGuideAnswer`) — 주변 점
     // 서른 개 사이에서는 방금 추천받은 곳을 못 찾는다. 갈래는 칩으로 다시 켤 수 있다.
@@ -357,10 +484,8 @@ fun RouteEditorView(
         delay(350)
         val bbox = "%.6f,%.6f,%.6f,%.6f".format(Locale.US, v.west, v.south, v.east, v.north)
         val found =
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    poisApi.listPois(bbox = bbox, lat = v.lat, lng = v.lng, sort = PoisApi.SortListPois.distance, limit = 30)
-                }
+            apiResult {
+                poisApi.listPois(bbox = bbox, lat = v.lat, lng = v.lng, sort = PoisApi.SortListPois.distance, limit = 30)
             }.getOrNull()
         ambientPois = found?.items.orEmpty()
     }
@@ -379,7 +504,39 @@ fun RouteEditorView(
     // (`RouteEditorGuide.applyGuideDirective`) — 임의 장소 사이의 추천 경로선은 iOS
     // 에도 아직 없다(계획 `guide-app.md` §3). 「AI 장소」핀이 다 보이게 맞추는 것으로
     // 충분하다.
-    LaunchedEffect(guideSession.lastUi) {
+    LaunchedEffect(guideSession.replyRevision) {
+        // 새 계획을 먼저 적용해야 course.open의 날짜가 이전 코스 길이로 잘리지 않는다.
+        guideSession.lastEffects.forEach { effect ->
+            if (effect.op in listOf("plan.draft", "plan.revise", "plan.move")) {
+                effect.plan?.let { plan ->
+                    val oldStops = course.stops.toMutableList()
+                    val fresh = RouteGuidePlan.course(plan, course.title, course.startDate, course.pace)
+                    val days =
+                        fresh.days.map { day ->
+                            day.copy(
+                                stops =
+                                    day.stops.map { stop ->
+                                        val index = oldStops.indexOfFirst { it.sameTarget(stop) }
+                                        if (index < 0) {
+                                            stop
+                                        } else {
+                                            oldStops.removeAt(index).let { old ->
+                                                stop.copy(id = old.id, serverItemId = old.serverItemId, visited = old.visited)
+                                            }
+                                        }
+                                    },
+                            )
+                        }
+                    course = fresh.copy(serverId = course.serverId, isRunning = course.isRunning, days = days)
+                    dayIndex = dayIndex.coerceAtMost(course.days.lastIndex.coerceAtLeast(0))
+                    focusedStopId = null
+                    fitToken += 1
+                }
+            }
+        }
+        if (guideSession.lastEffects.any { it.op == "cart.add" || it.op == "cart.remove" }) {
+            cart.refresh()
+        }
         val target = map
         guideSession.lastUi.forEach { directive ->
             when (directive.op) {
@@ -411,14 +568,6 @@ fun RouteEditorView(
         }
     }
 
-    // 챗봇의 상태 명령 — 서버가 이미 적용했다(`GuideEffect` 계약, `cart.*`는 즉시 저장).
-    // 화면은 반영된 결과를 다시 읽어 오기만 하면 된다.
-    LaunchedEffect(guideSession.lastEffects) {
-        if (guideSession.lastEffects.any { it.op == "cart.add" || it.op == "cart.remove" }) {
-            cart.refresh()
-        }
-    }
-
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).then(if (inSheet) Modifier else Modifier.statusBarsPadding())) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -435,7 +584,7 @@ fun RouteEditorView(
                 tr("취소"),
                 fontSize = 17.sp,
                 color = IOS.accent,
-                modifier = Modifier.clickable { onClose(null) },
+                modifier = Modifier.clickable { cancel() },
             )
             Spacer(Modifier.weight(1f))
             // 폭은 **글자를 재서 준다**(40~200dp). `IntrinsicSize` 로 맞추게 두었더니 입력칸이 제
@@ -594,7 +743,11 @@ fun RouteEditorView(
                 map = map,
                 places = stops.map { it.place },
                 numbered = true,
-                onTap = { place -> focusedStopId = stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(place) }?.id },
+                onTap = { place ->
+                    val stop = stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(place) }
+                    focusedStopId = stop?.id
+                    stop?.cardPlace()?.let { guideSession.pick(it) }
+                },
             )
             PendingPinMarker(map = map, pin = pendingPin)
             TripOverlay(map = map, active = trip.isActive, here = trip.here, leg = trip.leg, target = trip.target, density = density)
@@ -664,6 +817,7 @@ fun RouteEditorView(
                     if (trip.isActive) {
                         TripBanner(
                             trip = trip,
+                            onGuide = if (guideEntry == RouteGuideEntry.TRIP_HEADER) ({ showGuide = true }) else null,
                             // 「안내 끝」은 **안내만** 멈춘다 — 여행 중 상태는 「여행 종료」의 몫이다
                             // (iOS `tripControls`: `trip.end()` 뿐). 앞서 여기서 코스까지 끝내서,
                             // 안내를 잠깐 멈춘 사람의 코스가 「예정」으로 돌아갔다(2026-09-28 실기).
@@ -825,6 +979,7 @@ fun RouteEditorView(
                                         fitToken += 1
                                     } else {
                                         focusedStopId = stop.id
+                                        stop.cardPlace()?.let { guideSession.pick(it) }
                                         map?.centerOn(stop.place)
                                     }
                                 },
@@ -961,7 +1116,7 @@ fun RouteEditorView(
                 }
             }
             RouteGuideFloatingChip(
-                hidden = pinning || showGuide,
+                hidden = guideEntry != RouteGuideEntry.FLOATING,
                 onTap = { showGuide = true },
                 // iOS `guideFloatingChip`: 편집 화면 전체 위, 오른쪽 12 · 아래(안전 영역 위) 76 — 목록 패널 위에 뜬다.
                 // 지도 쪽(패널 바로 위)에 두었더니 iOS 와 자리가 달랐다(2026-09-29 대조).
@@ -975,13 +1130,13 @@ fun RouteEditorView(
         session = guideSession,
         here = myLocation?.let { it.latitude to it.longitude },
         onAdd = { place ->
-            addStops(listOf(RouteStop(place = place.asPlaceSummary(), isPinned = place.source == GuidePlaceSource.poi)))
+            addStops(listOf(place.courseStop()))
         },
-        isAdded = { place -> stops.any { RouteDedupe.key(it.place) == RouteDedupe.key(place.asPlaceSummary()) } },
+        isAdded = { place -> stops.any { place.matches(it) } },
         onClose = { showGuide = false },
         onRemove = { place ->
             updateDay(dayIndex) { d ->
-                d.copy(stops = d.stops.filterNot { RouteDedupe.key(it.place) == RouteDedupe.key(place.asPlaceSummary()) })
+                d.copy(stops = d.stops.filterNot { place.matches(it) })
             }
         },
     )
@@ -993,16 +1148,16 @@ fun RouteEditorView(
         Box(modifier = Modifier.fillMaxSize()) {
             RoutePlaceCard(
                 place = pickedPlace,
-                added = stops.any { RouteDedupe.key(it.place) == RouteDedupe.key(pickedPlace.asPlaceSummary()) },
+                added = stops.any { pickedPlace.matches(it) },
                 onAdd = {
                     addStops(
-                        listOf(RouteStop(place = pickedPlace.asPlaceSummary(), isPinned = pickedPlace.source == GuidePlaceSource.poi)),
+                        listOf(pickedPlace.courseStop()),
                     )
                     guideSession.dismiss()
                 },
                 onRemove = {
                     updateDay(dayIndex) { d ->
-                        d.copy(stops = d.stops.filterNot { RouteDedupe.key(it.place) == RouteDedupe.key(pickedPlace.asPlaceSummary()) })
+                        d.copy(stops = d.stops.filterNot { pickedPlace.matches(it) })
                     }
                 },
                 onClose = { guideSession.dismiss() },
@@ -1054,12 +1209,18 @@ fun RouteEditorView(
     if (blockedDayRemoval) {
         IOSAlert(
             title = tr("일차를 뺄 수 없습니다"),
-            // TODO: iOS 는 막힌 일차의 실제 번호를 보여준다("%d일차에 담은 장소를 먼저 빼
-            // 주세요") — Android 는 그 번호를 들고 있지 않아 "마지막 일차"로 뭉뚱그렸다.
-            // 번역표에도 없다(이 문구 자체가 iOS와 다르다). 언어 작업과 별개의 패리티 차.
-            message = tr("마지막 일차에 담긴 장소를 먼저 빼 주세요."),
+            message = tr("%d일차에 담은 장소를 먼저 빼 주세요").format(course.days.size),
             actions = listOf(IOSAction(tr("확인"), IOSRole.CANCEL) {}),
             onDismiss = { blockedDayRemoval = false },
+        )
+    }
+
+    if (discarding) {
+        IOSAlert(
+            title = tr("바꾼 내용을 버릴까요?"),
+            message = null,
+            actions = listOf(IOSAction(tr("계속 편집"), IOSRole.CANCEL) {}, IOSAction(tr("버리기"), IOSRole.DESTRUCTIVE) { onClose(null) }),
+            onDismiss = { discarding = false },
         )
     }
 
@@ -1309,6 +1470,7 @@ private fun LegChip(chip: RouteLegChip) {
 @Composable
 private fun TripBanner(
     trip: TripSession,
+    onGuide: (() -> Unit)?,
     onEnd: () -> Unit,
     onArrivedNow: () -> Unit,
     onNext: (RouteStop) -> Unit,
@@ -1323,10 +1485,32 @@ private fun TripBanner(
             Text(tr("성지 도착!"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
             Text(target.place.name, fontSize = 12.sp, color = IOS.secondaryLabel)
         } else {
-            Text(tr("%s로 가는 중").format(target.place.name), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    tr("%s로 가는 중").format(target.place.name),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IOS.label,
+                    modifier = Modifier.weight(1f),
+                )
+                if (onGuide != null) Box(Modifier.clickable(onClick = onGuide)) { RouteGuideChipBody(bubble = false) }
+            }
             // iOS `RouteEditorTrip.tripDetail` 순서 그대로: 받은 경로 → 실패(재시도) →
             // 구하는 중 → 자리를 못 찾음.
             when {
+                trip.failureCode == "NAVIGATION_LIMIT_REACHED" ||
+                    com.mz2az.scenetrip.data.LimitLedger.navigationBlock
+                        ?.blocked(
+                            com.mz2az.scenetrip.data
+                                .usageNow(),
+                        ) == true -> {
+                    com.mz2az.scenetrip.data.NavigationUsageNotice(
+                        trip.here?.let { ExternalDirections.Spot(tr("내 위치"), it.first, it.second) },
+                        ExternalDirections.Spot(target.place.name, target.place.latitude, target.place.longitude),
+                        onRetry,
+                    )
+                }
+
                 trip.leg != null -> {
                     val result = trip.leg!!
                     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1349,7 +1533,7 @@ private fun TripBanner(
                 }
 
                 trip.failure != null -> {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(trip.failure!!, fontSize = 11.sp, color = IOS.systemOrange)
                         Text(
                             tr("다시 시도"),

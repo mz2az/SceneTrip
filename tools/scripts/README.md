@@ -2,6 +2,9 @@
 
 just 레시피가 호출하는 스크립트. 기여자가 직접 실행하지 않는다.
 
+- `just android-translations`: iOS 영어 문구의 형식 지정자·문자열 이스케이프를
+  Kotlin에 맞춰 Android 번역 파일에 반영한다. 중복 키는 마지막 값을 쓴다.
+  `just test //tools/scripts:android_translations_unit_test`로 변환 규칙을 검증한다.
 - `just ios-run [앱 실행 인자...]`: Bazel IPA를 부팅한 iOS 기기에 덮어 설치하고
   다시 실행한다. 로그인·앱 데이터는 유지한다.
   [실행·진단 안내](../../docs/ops/ios-simulator-run.md)를 따른다.

@@ -88,6 +88,8 @@ data class RouteStop(
     val stayMinutes: Int = DEFAULT_STAY_MINUTES,
     /** 지도를 눌러 직접 찍은 핀인가. */
     val isPinned: Boolean = false,
+    /** 편의시설은 개인 핀과 별개다. 저장·불러오기에서 원래 POI id를 보존한다. */
+    val poiId: Long? = null,
     /** 서버에 방문(`visitedAt`)이 찍혔나. */
     val visited: Boolean = false,
     /** 초안이 준 도착 시각 — 0시 기준 정수 분(540 = 09:00). */
@@ -99,7 +101,7 @@ data class RouteStop(
 
     /** 서버에 placeId로 보낼 수 있는 값. 직접 찍은 핀과 id 없는 초안 줄은 없다. */
     val savablePlaceId: Long?
-        get() = if (isPinned || placeMissing || place.id <= 0) null else place.id
+        get() = if (isPinned || poiId != null || placeMissing || place.id <= 0) null else place.id
 
     companion object {
         const val DEFAULT_STAY_MINUTES = 30

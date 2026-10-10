@@ -12,10 +12,8 @@ import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.Suggestion
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * 앱이 서버를 부르는 주소.
@@ -82,13 +80,10 @@ class SceneData(
         val keyword = query.trim().ifEmpty { null }
         inFlight =
             scope.launch {
-                runCatching {
-                    // 생성된 클라이언트는 동기(블로킹) 호출이라 IO 로 옮긴다.
-                    withContext(Dispatchers.IO) {
-                        val works = contentsApi.listContents(q = keyword, limit = 100)
-                        val spots = placesApi.listPlaces(q = keyword, limit = 200)
-                        works to spots
-                    }
+                apiResult {
+                    val works = contentsApi.listContents(q = keyword, limit = 100)
+                    val spots = placesApi.listPlaces(q = keyword, limit = 200)
+                    works to spots
                 }.onSuccess { (works, spots) ->
                     contents = works.items ?: emptyList()
                     places = spots.items ?: emptyList()
@@ -114,8 +109,8 @@ class SceneData(
         phase = Phase.LOADING
         inFlight =
             scope.launch {
-                runCatching {
-                    withContext(Dispatchers.IO) { placesApi.listPlaces(bbox = bbox, limit = 200) }
+                apiResult {
+                    placesApi.listPlaces(bbox = bbox, limit = 200)
                 }.onSuccess {
                     places = it.items ?: emptyList()
                     failure = null
@@ -129,10 +124,8 @@ class SceneData(
 
     /** 고른 작품의 촬영지 (드릴다운 2단). */
     suspend fun placesOf(contentId: Long): List<PlaceSummary> =
-        withContext(Dispatchers.IO) {
-            runCatching { contentsApi.listContentPlaces(contentId, limit = 100).items ?: emptyList() }
-                .getOrDefault(emptyList())
-        }
+        apiResult { contentsApi.listContentPlaces(contentId, limit = 100).items ?: emptyList() }
+            .getOrDefault(emptyList())
 
     /** 마지막 요청을 되풀이한다. iOS `data.retry()` 와 같다. */
     fun retry() {
@@ -140,21 +133,13 @@ class SceneData(
     }
 
     /** 작품 상세 — 줄거리·출연진은 여기에만 있다. */
-    suspend fun contentDetail(id: Long) =
-        withContext(Dispatchers.IO) {
-            runCatching { contentsApi.getContent(id) }.getOrNull()
-        }
+    suspend fun contentDetail(id: Long) = apiResult { contentsApi.getContent(id) }.getOrNull()
 
     /** 촬영지 상세 — 작품별 장면은 여기에만 있다. */
-    suspend fun placeDetail(id: Long) =
-        withContext(Dispatchers.IO) {
-            runCatching { placesApi.getPlace(id) }.getOrNull()
-        }
+    suspend fun placeDetail(id: Long) = apiResult { placesApi.getPlace(id) }.getOrNull()
 
     /** 자동완성. 글자마다 부르지만 결과가 늦게 오면 버린다 — 호출부가 판단한다. */
     suspend fun suggest(query: String): List<Suggestion> =
-        withContext(Dispatchers.IO) {
-            runCatching { searchApi.suggest(q = query, limit = 8).items ?: emptyList() }
-                .getOrDefault(emptyList())
-        }
+        apiResult { searchApi.suggest(q = query, limit = 8).items ?: emptyList() }
+            .getOrDefault(emptyList())
 }

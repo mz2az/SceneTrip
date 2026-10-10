@@ -1,4 +1,23 @@
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+# iOS와 Android가 같은 영어 문구를 사용하도록 변환한다.
+py_binary(
+    name = "android_translations",
+    srcs = ["android-translations.py"],
+    legacy_create_init = 0,
+    main = "android-translations.py",
+    visibility = ["//visibility:public"],
+)
+
+# iOS 형식 지정자·이스케이프·중복 문구 변환 검증.
+py_test(
+    name = "android_translations_unit_test",
+    srcs = ["test_android_translations.py"],
+    data = ["android-translations.py"],
+    legacy_create_init = 0,
+    main = "test_android_translations.py",
+    tags = ["unit"],
+)
 
 # 앱 데이터를 지우지 않는 iOS 설치와 실행 인자·오류 전달 검증.
 py_test(

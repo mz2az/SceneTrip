@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.R
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.SheetDetent
@@ -58,14 +59,14 @@ fun SignInSheetHost() {
                 modifier = Modifier.padding(top = 34.dp).height(96.dp),
             )
             Text(
-                "SceneTrip 로그인",
+                tr("SceneTrip 로그인"),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = IOS.label,
                 modifier = Modifier.padding(top = 14.dp),
             )
             Text(
-                "담아 둔 장바구니·코스·찜이 계정에 저장돼요.\n다른 기기에서도 그대로 이어집니다.",
+                tr("담아 둔 장바구니·코스·찜이 계정에 저장돼요.\n다른 기기에서도 그대로 이어집니다."),
                 fontSize = 15.sp,
                 color = IOS.secondaryLabel,
                 textAlign = TextAlign.Center,
@@ -76,7 +77,7 @@ fun SignInSheetHost() {
 
             AuthStore.message?.let {
                 Text(
-                    it,
+                    tr(it),
                     fontSize = 13.sp,
                     color = IOS.systemRed,
                     textAlign = TextAlign.Center,
@@ -103,11 +104,11 @@ fun SignInSheetHost() {
                 } else {
                     Text("G", fontSize = 18.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.SansSerif, color = GOOGLE_BLUE)
                 }
-                Text("Google 로 계속하기", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                Text(tr("Google 로 계속하기"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
             }
 
             Text(
-                "나중에 할게요",
+                tr("나중에 할게요"),
                 fontSize = 15.sp,
                 color = IOS.secondaryLabel,
                 modifier =

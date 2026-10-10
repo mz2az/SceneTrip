@@ -78,8 +78,7 @@ import kotlin.math.roundToInt
 
 /**
  * 화면 오른쪽 아래에 늘 떠 있는 해태 "내가 도와줄게!" — 가이드 챗봇의 입구.
- * iOS `RouteGuideFloatingChip`/`RouteGuideChipBody`를 옮긴 것이다 — **꾹 눌러 옮기는
- * 것은 없다**, 자리는 늘 오른쪽 아래로 고정이다.
+ * iOS `RouteGuideFloatingChip`/`RouteGuideChipBody`와 같은 입구. 꾹 눌러 옮긴 위치를 기억한다.
  */
 @Composable
 fun RouteGuideFloatingChip(
@@ -125,24 +124,34 @@ fun RouteGuideFloatingChip(
                     }
                 }.clickable(onClick = onTap),
     ) {
-        Text(
-            tr("내가 도와줄게!"),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = IOS.pinDeep,
-            // iOS `RouteGuideChipBody`: 흰 캡슐 + pinLight 60% 1pt 테두리 + 옅은 그림자(검정 12%, r3, y1).
-            modifier =
-                Modifier
-                    .shadow(
-                        3.dp,
-                        RoundedCornerShape(50),
-                        ambientColor = Color.Black.copy(alpha = 0.12f),
-                        spotColor = Color.Black.copy(alpha = 0.12f),
-                    ).clip(RoundedCornerShape(50))
-                    .background(IOS.systemBackground)
-                    .border(1.dp, IOS.pinLight.copy(alpha = 0.6f), RoundedCornerShape(50))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-        )
+        RouteGuideChipBody(bubble = true)
+    }
+}
+
+/** 떠 있는 입구와 안내 배너가 같은 얼굴을 쓰며 배너에는 말풍선을 붙이지 않는다. */
+@Composable
+fun RouteGuideChipBody(bubble: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (bubble) {
+            Text(
+                tr("내가 도와줄게!"),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IOS.pinDeep,
+                // iOS `RouteGuideChipBody`: 흰 캡슐 + pinLight 60% 1pt 테두리 + 옅은 그림자(검정 12%, r3, y1).
+                modifier =
+                    Modifier
+                        .shadow(
+                            3.dp,
+                            RoundedCornerShape(50),
+                            ambientColor = Color.Black.copy(alpha = 0.12f),
+                            spotColor = Color.Black.copy(alpha = 0.12f),
+                        ).clip(RoundedCornerShape(50))
+                        .background(IOS.systemBackground)
+                        .border(1.dp, IOS.pinLight.copy(alpha = 0.6f), RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+        }
         // 흰 원 + 핀 그러데이션 2pt 테두리 + 그림자(검정 20%, r4, y2), 안쪽 여백 5.
         Box(
             modifier =
@@ -359,7 +368,26 @@ private fun GuideConversation(
             }
         }
         session.failure?.let { message ->
-            item { Text(message, fontSize = 13.sp, color = IOS.systemOrange) }
+            item {
+                Text(message, fontSize = 13.sp, color = IOS.systemOrange)
+                val now =
+                    com.mz2az.scenetrip.data
+                        .usageNow()
+                if (session.canRetry &&
+                    com.mz2az.scenetrip.data.LimitLedger.guideBlock
+                        ?.blocked(now) != true
+                ) {
+                    Text(
+                        tr("다시 시도"),
+                        color = IOS.accent,
+                        modifier = Modifier.clickable { scope.launch { session.retry() } }.padding(vertical = 8.dp),
+                    )
+                }
+            }
+        }
+        item {
+            com.mz2az.scenetrip.data
+                .GuideUsageNotice()
         }
     }
 }
@@ -426,10 +454,21 @@ private fun GuideComposer(
 ) {
     var draft by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
-    val canSend = draft.isNotBlank() && !session.asking
+    val now =
+        com.mz2az.scenetrip.data
+            .usageNow()
+    val locked =
+        com.mz2az.scenetrip.data.LimitLedger.guideBlock
+            ?.blocked(now) == true
+    val canSend = draft.isNotBlank() && draft.trim().length <= 4000 && !session.asking && !locked
 
     fun send() {
         if (!canSend) return
+        if (!com.mz2az.scenetrip.auth.AuthStore.signedIn) {
+            com.mz2az.scenetrip.auth.AuthStore
+                .promptSignIn()
+            return
+        }
         val text = draft
         draft = ""
         scope.launch { session.ask(text, here.first, here.second) }
@@ -456,7 +495,8 @@ private fun GuideComposer(
             if (draft.isEmpty()) Text(tr("주변에 무엇을 찾으세요?"), fontSize = 17.sp, color = IOS.tertiaryLabel, maxLines = 1)
             BasicTextField(
                 value = draft,
-                onValueChange = { draft = it },
+                onValueChange = { if (it.length <= 4000) draft = it },
+                enabled = !session.asking && !locked,
                 maxLines = 3,
                 textStyle = IOS.body.copy(color = IOS.label),
                 cursorBrush = SolidColor(IOS.accent),
