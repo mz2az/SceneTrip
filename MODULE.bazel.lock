@@ -768,7 +768,7 @@
         "bzlTransitiveDigest": "ylnAw755th8T+6Buou/hnD61W4Q1RtalydQd5hC2dG0=",
         "usagesDigest": "nOCKDjleYGLhib4I/XKOXMWBI1Lwq8DCu0OlSHcyUCY=",
         "recordedFileInputs": {
-          "@@//Package.resolved": "377c5c3e7ae2696e803f916b45c5ae1a7c5f6404eed4d03b0714bf0c41d46109"
+          "@@//Package.resolved": "b061379c838f134ca5df5aced355f49b1ad40fb3104dadfd450a404338ed810f"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -839,6 +839,32 @@
               "commit": "8c29ca981990a32e626c8617544fa65d22b1834f",
               "remote": "https://github.com/firebase/firebase-ios-sdk.git",
               "version": "12.19.2",
+              "env": {},
+              "env_inherit": [],
+              "cached_json_directory": "",
+              "init_submodules": false,
+              "recursive_init_submodules": true,
+              "patch_args": [
+                "-p0"
+              ],
+              "patch_cmds": [],
+              "patch_cmds_win": [],
+              "patch_tool": "",
+              "patches": [],
+              "publicly_expose_all_targets": false,
+              "replace_scm_with_registry": false,
+              "target_deps": {},
+              "module_aliases": {},
+              "dep_module_aliases": ""
+            }
+          },
+          "swiftpkg_facebook_ios_sdk": {
+            "repoRuleId": "@@rules_swift_package_manager+//swiftpkg/internal:swift_package.bzl%swift_package",
+            "attributes": {
+              "bazel_package_name": "swiftpkg_facebook_ios_sdk",
+              "commit": "80d0ee82f6370d1bace1431a80cb80575f98ee90",
+              "remote": "https://github.com/facebook/facebook-ios-sdk.git",
+              "version": "18.1.1",
               "env": {},
               "env_inherit": [],
               "cached_json_directory": "",
@@ -1254,6 +1280,7 @@
             "swiftpkg_spm_nmapsmap",
             "swiftpkg_googlesignin_ios",
             "swiftpkg_firebase_ios_sdk",
+            "swiftpkg_facebook_ios_sdk",
             "swift_package"
           ],
           "explicitRootModuleDirectDevDeps": [],

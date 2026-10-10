@@ -54,5 +54,12 @@
 	     켜 두면 알림창·시트가 뜰 때마다 이름 없는 screen_view 가 섞여 들어온다. -->
 	<key>FirebaseAutomaticScreenReportingEnabled</key>
 	<false/>
+	<!-- 메타 SDK는 설정과 ATT 허용을 확인한 뒤 직접 초기화한다 (MZ2AZ-391). -->
+	<key>FacebookAutoInitEnabled</key>
+	<false/>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<false/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<false/>
 </dict>
 </plist>
