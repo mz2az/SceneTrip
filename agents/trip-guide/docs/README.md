@@ -190,7 +190,7 @@ def _refuse(reason):
 ## 7. 돌려 보기
 
 ```sh
-export AWS_BEARER_TOKEN_BEDROCK=...
+eval "$(aws configure export-credentials --profile bedrock-api-user --format env)"
 python3 -m src.cli --source csv --places-csv ../../services/scene-api/seed/v6.csv
 ```
 

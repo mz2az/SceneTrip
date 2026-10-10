@@ -1,7 +1,8 @@
 """챗 모델 클라이언트 — OpenAI 규격(`/chat/completions`)을 따르는 곳이면 어디든 부른다.
 
-지금은 AWS Bedrock 의 OpenAI 호환 주소를 Bedrock API 키로 부른다(MZ2AZ-395, 그전은
-DeepSeek). 표준 라이브러리만 쓴다. 요청은 JSON 한 덩이를 POST 하는 것이 전부고, 그
+지금은 AWS Bedrock 의 OpenAI 호환 주소를 부른다(MZ2AZ-395, 그전은 DeepSeek). 인증은
+설정의 `auth` 가 고른다 — `sigv4` 는 IAM 액세스 키로 요청에 서명하고, `bearer` 는
+키 하나를 그대로 싣는다(Bedrock API 키·DeepSeek). 표준 라이브러리만 쓴다. 요청은 JSON 한 덩이를 POST 하는 것이 전부고, 그
 정도에 SDK 를 의존성으로 들일 이유가 없다. 규격이 같아서 다른 곳으로 갈아 끼울 때도
 `config/model.json` 의 `base_url`·`model`·`api_key_env` 만 바꾸면 된다.
 
@@ -11,11 +12,15 @@ API 키는 환경변수에서만 읽는다. 설정 파일에는 **변수 이름*
 
 from __future__ import annotations
 
+import datetime
+import hashlib
+import hmac
 import json
 import os
 import re
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
@@ -64,18 +69,85 @@ def key_env(config: dict[str, Any] | None = None) -> str:
 _REASONING = re.compile(r"^\s*<reasoning>.*?</reasoning>\s*", re.DOTALL)
 
 
+def sigv4_headers(
+    url: str,
+    payload: bytes,
+    region: str,
+    access_key_id: str,
+    secret: str,
+    session_token: str = "",
+    now: datetime.datetime | None = None,
+) -> dict[str, str]:
+    """AWS 서명(SigV4) 헤더. Bedrock 은 서비스 이름이 `bedrock` 이다.
+
+    SDK 가 해 주는 일이지만 POST 하나에 필요한 것은 HMAC 네 번이 전부라 직접 한다.
+    """
+    parsed = urllib.parse.urlsplit(url)
+    stamp = (now or datetime.datetime.now(datetime.UTC)).strftime("%Y%m%dT%H%M%SZ")
+    day = stamp[:8]
+    headers = {"host": parsed.netloc, "x-amz-date": stamp}
+    if session_token:
+        headers["x-amz-security-token"] = session_token
+    signed = ";".join(sorted(headers))
+    canonical = "\n".join(
+        [
+            "POST",
+            urllib.parse.quote(parsed.path),
+            parsed.query,
+            "".join(f"{k}:{headers[k]}\n" for k in sorted(headers)),
+            signed,
+            hashlib.sha256(payload).hexdigest(),
+        ]
+    )
+    scope = f"{day}/{region}/bedrock/aws4_request"
+    to_sign = "\n".join(
+        [
+            "AWS4-HMAC-SHA256",
+            stamp,
+            scope,
+            hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        ]
+    )
+    key = ("AWS4" + secret).encode("utf-8")
+    for part in (day, region, "bedrock", "aws4_request"):
+        key = hmac.new(key, part.encode("utf-8"), hashlib.sha256).digest()
+    signature = hmac.new(key, to_sign.encode("utf-8"), hashlib.sha256).hexdigest()
+    headers["Authorization"] = (
+        f"AWS4-HMAC-SHA256 Credential={access_key_id}/{scope}, "
+        f"SignedHeaders={signed}, Signature={signature}"
+    )
+    del headers["host"]  # urllib 이 같은 값으로 붙인다
+    return headers
+
+
 class ModelClient:
     """`chat()` 하나만 있는 얇은 클라이언트."""
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         self.config = config or load_config()
-        env_name = key_env(self.config)
-        self.api_key = os.environ.get(env_name, "").strip()
-        if not self.api_key:
-            raise ModelError(
-                f"환경변수 {env_name} 가 비어 있다. 키를 넣고 다시 실행해라:\n"
-                f"    export {env_name}=..."
+        names = [key_env(self.config)]
+        if self.config.get("auth") == "sigv4":
+            names.insert(0, self.config["access_key_id_env"])
+        for env_name in names:
+            if not os.environ.get(env_name, "").strip():
+                raise ModelError(
+                    f"환경변수 {env_name} 가 비어 있다. 키를 넣고 다시 실행해라:\n"
+                    f"    export {env_name}=..."
+                )
+        self.api_key = os.environ[names[-1]].strip()
+        self.access_key_id = os.environ[names[0]].strip() if len(names) > 1 else ""
+
+    def _auth(self, url: str, payload: bytes) -> dict[str, str]:
+        if self.config.get("auth") == "sigv4":
+            return sigv4_headers(
+                url,
+                payload,
+                self.config["region"],
+                self.access_key_id,
+                self.api_key,
+                os.environ.get("AWS_SESSION_TOKEN", "").strip(),
             )
+        return {"Authorization": f"Bearer {self.api_key}"}
 
     def chat(
         self,
@@ -100,7 +172,9 @@ class ModelClient:
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
-        if json_mode:
+        # 프롬프트가 이미 JSON 만 달라고 하고 받는 쪽이 검증한다. `response_format` 은
+        # 그 위의 보강일 뿐이라, 그것이 오히려 응답을 깨는 제공자에서는 설정으로 끈다.
+        if json_mode and self.config.get("json_response_format", True):
             body["response_format"] = {"type": "json_object"}
 
         payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
@@ -108,10 +182,7 @@ class ModelClient:
         request = urllib.request.Request(
             url,
             data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            },
+            headers={"Content-Type": "application/json", **self._auth(url, payload)},
             method="POST",
         )
 

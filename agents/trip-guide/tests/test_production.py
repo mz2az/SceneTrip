@@ -101,6 +101,7 @@ class RuntimeConfiguration(unittest.TestCase):
             "model": "test",
             "base_url": "https://model.example.invalid/openai/v1",
             "extra_body": {"reasoning_effort": "low"},
+            "json_response_format": False,
         }
         client.api_key = "fixture"
         with patch("urllib.request.urlopen") as opened:
@@ -114,7 +115,56 @@ class RuntimeConfiguration(unittest.TestCase):
             request.full_url, "https://model.example.invalid/openai/v1/chat/completions"
         )
         self.assertEqual(request.get_header("Authorization"), "Bearer fixture")
-        self.assertEqual(json.loads(request.data)["reasoning_effort"], "low")
+        sent = json.loads(request.data)
+        self.assertEqual(sent["reasoning_effort"], "low")
+        self.assertNotIn("response_format", sent)
+
+    def test_sigv4_matches_the_published_aws_example_shape(self):
+        import datetime
+
+        from src.model_client import sigv4_headers
+
+        when = datetime.datetime(2026, 10, 10, 1, 2, 3, tzinfo=datetime.UTC)
+        args = (
+            "https://bedrock-runtime.us-west-2.amazonaws.com/openai/v1/chat/completions",
+            b"{}",
+            "us-west-2",
+            "AKIDEXAMPLE",
+            "fixture-secret",
+        )
+        got = sigv4_headers(*args, now=when)
+        self.assertEqual(got["x-amz-date"], "20261010T010203Z")
+        self.assertTrue(
+            got["Authorization"].startswith(
+                "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20261010/us-west-2/bedrock/"
+                "aws4_request, SignedHeaders=host;x-amz-date, Signature="
+            )
+        )
+        self.assertEqual(got, sigv4_headers(*args, now=when))  # 같은 입력이면 같은 서명
+        self.assertNotEqual(
+            got["Authorization"],
+            sigv4_headers(*args[:1], b'{"a":1}', *args[2:], now=when)["Authorization"],
+        )
+        with_token = sigv4_headers(*args, session_token="tok", now=when)
+        self.assertIn("x-amz-security-token", with_token["Authorization"])
+
+    def test_sigv4_client_needs_both_keys(self):
+        from src.model_client import ModelClient, ModelError
+
+        config = {
+            "auth": "sigv4",
+            "region": "us-west-2",
+            "access_key_id_env": "TEST_KEY_ID",
+            "api_key_env": "TEST_SECRET",
+        }
+        with (
+            patch.dict("os.environ", {"TEST_SECRET": "s"}, clear=True),
+            self.assertRaisesRegex(ModelError, "TEST_KEY_ID"),
+        ):
+            ModelClient(config)
+        with patch.dict("os.environ", {"TEST_KEY_ID": "k", "TEST_SECRET": "s"}):
+            headers = ModelClient(config)._auth("https://h.example/x", b"{}")
+            self.assertIn("Credential=k/", headers["Authorization"])
 
     def test_configured_model_key_is_named_not_stored(self):
         from src.model_client import key_env, load_config

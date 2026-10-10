@@ -82,7 +82,9 @@ GPT-4 는 복잡한 일정에서 0.6%)이기 때문이다. LLM 과 알고리즘�
 ### 준비
 
 ```sh
-export AWS_BEARER_TOKEN_BEDROCK=...   # Bedrock API 키. 이름은 config/model.json 의 api_key_env
+# Bedrock 을 IAM 액세스 키로 부른다. 변수 이름은 config/model.json 의 access_key_id_env · api_key_env.
+# 키를 셸 설정 파일에 적지 말고 AWS 프로필에서 꺼낸다:
+eval "$(aws configure export-credentials --profile bedrock-api-user --format env)"
 just stack-up                          # scene-api(:8081) 와 DB
 ```
 
@@ -129,7 +131,7 @@ just build //agents/trip-guide:image        # 고정 linux/amd64 OCI 이미지
 ```
 
 AI 일정 생성(`POST /plan` 의 모델 경로)은 실제 모델로만 잴 수 있어 게이트 밖에 있다.
-비용이 든다 — `AWS_BEARER_TOKEN_BEDROCK` 이 필요하다:
+비용이 든다 — 위 「준비」의 AWS 키가 필요하다:
 
 ```sh
 just run //agents/trip-guide:llm_plan_live -- "$PWD/services/scene-api/seed/candidates.csv"
@@ -162,7 +164,7 @@ scene-api에서 오는 요청만 허용한다. 외부 로드밸런서에서 직�
 
 | 설정·경계 | 값·의미 |
 | --- | --- |
-| `AWS_BEARER_TOKEN_BEDROCK` | Bedrock API 키. 필수. 없으면 시작 실패. Secrets Manager에서 주입 |
+| `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` | Bedrock 호출용 IAM 키. 필수. 없으면 시작 실패. Secrets Manager에서 주입 |
 | `SCENE_API_BASE_URL` | `http://scene-api:8080/v1`. CLI의 `--base-url`이 최우선 |
 | `/health/live`, `/health/ready` | 설정·키 검증 후 서버가 요청을 받을 수 있는지 확인. 외부 모델·API 가용성을 보증하지 않음 |
 | 요청 본문 | gateway와 같은 1 MiB. 40개×4,000자 한글 대화 계약을 수용하며 Content-Length·chunked 누적 크기 모두 제한 |
