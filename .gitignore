@@ -101,3 +101,6 @@ Thumbs.db
 # navi-proto 전용 브랜치의 모듈 — main 에는 없다(MZ2AZ-293 결정). 브랜치를
 # 오가는 로컬의 잔여물(데이터·venv·키)이 게이트에 걸리지 않게 통째로 무시한다.
 apps/navi_proto/
+
+# 메타 SDK 클라이언트 설정은 환경에서 공급한다 (MZ2AZ-391).
+apps/scenetrip-ios/resources/MetaService-Info.local.plist

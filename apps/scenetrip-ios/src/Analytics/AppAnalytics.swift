@@ -16,8 +16,8 @@ protocol AnalyticsSink {
 /// 것이라 CI 와 다른 팀원의 빌드에는 없을 수 있다 — 없으면 켜지 않고(켜면 죽는다) 이벤트를 버린다.
 /// 그래서 **파일이 없어도 앱은 그대로 빌드되고 돈다.**
 ///
-/// 광고 식별자(IDFA)는 쓰지 않는다(`FirebaseAnalyticsCore`). 광고를 집행하게 되면 다시 정한다 —
-/// 그때는 추적 동의 창이 필요하다.
+/// Firebase는 광고 식별자(IDFA)를 쓰지 않는다(`FirebaseAnalyticsCore`). 메타 광고 측정은 별도
+/// 설정과 실제 ATT 허용이 있어야 켜진다(MZ2AZ-391). Firebase 사용자 속성은 메타로 보내지 않는다.
 enum AppAnalytics {
     /// 시험에서 가짜로 갈아 끼운다.
     nonisolated(unsafe) static var sink: AnalyticsSink = NoSink()
@@ -34,6 +34,7 @@ enum AppAnalytics {
 
     static func log(_ event: AppEvent) {
         sink.log(event)
+        MetaAnalytics.shared.log(event)
     }
 
     /// 사용자 속성 — 이벤트를 언어별·회원 여부별로 나눠 보려고 둔다. 사람을 가리키는 값은 아니다.
