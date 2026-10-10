@@ -6,6 +6,7 @@ filegroup(
         [
             "aws/**",
             "bootstrap/*.json",
+            "shared-media/*.json",
         ],
         allow_empty = True,
     ) + [

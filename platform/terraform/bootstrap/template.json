@@ -15,6 +15,9 @@
       "Description": "Existing account-level GitHub OIDC provider; shared provider is not owned by this stack."
     }
   },
+  "Conditions": {
+    "IsProduction": {"Fn::Equals":[{"Ref":"Environment"},"prd"]}
+  },
   "Resources": {
     "TerraformStateBucket": {
       "Type": "AWS::S3::Bucket",
@@ -61,13 +64,15 @@
       "UpdateReplacePolicy": "Retain",
       "Properties": {
         "BucketName": {"Fn::Sub":"scenetrip-user-media-${AWS::AccountId}-${AWS::Region}-${Environment}"},
+        "VersioningConfiguration": {"Fn::If":["IsProduction",{"Status":"Enabled"},{"Ref":"AWS::NoValue"}]},
         "BucketEncryption": {"ServerSideEncryptionConfiguration":[{"ServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]},
         "PublicAccessBlockConfiguration": {"BlockPublicAcls":true,"IgnorePublicAcls":true,"BlockPublicPolicy":true,"RestrictPublicBuckets":true},
         "OwnershipControls": {"Rules":[{"ObjectOwnership":"BucketOwnerEnforced"}]},
         "LifecycleConfiguration": {
           "Rules": [
             {"Id":"ExpireUnattachedUploads","Status":"Enabled","Prefix":"uploads/tmp/","ExpirationInDays":1},
-            {"Id":"AbortIncompleteUploads","Status":"Enabled","Prefix":"","AbortIncompleteMultipartUpload":{"DaysAfterInitiation":1}}
+            {"Id":"AbortIncompleteUploads","Status":"Enabled","Prefix":"","AbortIncompleteMultipartUpload":{"DaysAfterInitiation":1}},
+            {"Fn::If":["IsProduction",{"Id":"ExpireNoncurrentVersions","Status":"Enabled","Prefix":"","NoncurrentVersionExpiration":{"NoncurrentDays":30}},{"Ref":"AWS::NoValue"}]}
           ]
         },
         "Tags": [
@@ -470,6 +475,12 @@
                     "rds:ListTagsForResource"
                   ],
                   "Resource": {"Fn::Sub":"arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:*:scenetrip-${Environment}*"}
+                },
+                {
+                  "Sid": "PruneDevFinalSnapshots",
+                  "Effect": "Allow",
+                  "Action": ["rds:DeleteDBSnapshot"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:snapshot:scenetrip-dev-final-*"}
                 },
                 {
                   "Sid": "ManageEnvironmentLogs",

@@ -30,6 +30,14 @@ from tools.aws.tests.test_gateway_limits import GatewayLimitsChartTest
 from tools.aws.tests.test_gateway_routes import GatewayContractRoutesTest
 from tools.aws.tests.test_lifecycle import CloudflareTest, LifecycleTest
 from tools.aws.tests.test_media import MediaChartTest, MediaDeployValuesTest
+from tools.aws.tests.test_ops import (
+    DriftTest,
+    PruneAfterDestroyTest,
+    RunnerSelectionTest,
+    SharedMediaFlowTest,
+    SharedMediaTemplateTest,
+    SnapshotPruneTest,
+)
 from tools.aws.tests.test_public_ingress import (
     PublicChartTest,
     PublicGatewayValuesTest,
@@ -54,6 +62,7 @@ __all__ = [
     "DestroyIdentityAuthTest",
     "DestroyPlanTest",
     "DestroyServiceTest",
+    "DriftTest",
     "EntryPointTest",
     "GatewayContractRoutesTest",
     "GatewayLimitsChartTest",
@@ -62,11 +71,16 @@ __all__ = [
     "MediaChartTest",
     "MediaDeployValuesTest",
     "OrchestrationTest",
+    "PruneAfterDestroyTest",
     "PublicChartTest",
     "PublicGatewayValuesTest",
     "RetainedAuthSecretTest",
+    "RunnerSelectionTest",
     "SceneApiAppleKeyTest",
     "SettingsTest",
+    "SharedMediaFlowTest",
+    "SharedMediaTemplateTest",
+    "SnapshotPruneTest",
     "TeardownEntryPointTest",
     "ValidateAuthSecretTest",
     "ValidateEncryptionKeyTest",

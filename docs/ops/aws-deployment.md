@@ -324,6 +324,46 @@ kind 의 리뷰 사진도 그대로다. 계획: [review.md](../project/plans/rev
 그 뒤 dev 를 올리면 파드가 키 없이 역할을 받는다. 버킷이 없거나 설정이 비면 서버는 뜨고 `POST /uploads` 만
 `503 UPLOAD_UNAVAILABLE` 이다.
 
+## 13. 끊긴 배포 정리
+
+올리기·배포가 Terraform apply 도중 끊기면(러너가 끊기거나 취소되면) **잠금 파일과 state 밖 자원**이 남을 수 있다.
+2026-10-09 dev 에서 실제로 일어났다 — 잠금 파일, state 에 적히기 직전의 EKS, 같은 이유로 state 에서 빠진 RDS 가 남아
+다음 올리기는 「잠김」 으로, 내리기는 「EKS 가 state 밖에 있다」 로 멈췄다. 계획: [ops-protection.md](../project/plans/ops-protection.md).
+
+**1. 점검(읽기만)** — `just aws-drift <env>`. 잠금 파일, state 밖 EKS·RDS·NAT·VPC 를 보여 주고, 어긋난 것이 있으면 실패로 끝난다.
+노트북의 관리자 자격으로 돈다(호스트 `aws` — 고정 CLI 는 리눅스 러너 전용).
+
+**2. 잠금 파일** — 도는 배포·삭제가 **정말 없는지** 먼저 본다(GitHub Actions 의 `aws-deploy`·`aws-destroy` 실행 목록, 러너 EC2
+상태). 그다음 잠금 파일의 내용(`Who`·`Created`)이 끊긴 그 실행의 것인지 확인하고 지운다.
+
+```sh
+aws s3 cp s3://scenetrip-tfstate-<계정>-ap-northeast-2-<env>/scenetrip/<env>/terraform.tfstate.tflock -
+aws s3 rm s3://scenetrip-tfstate-<계정>-ap-northeast-2-<env>/scenetrip/<env>/terraform.tfstate.tflock
+```
+
+**3. state 밖 자원** — 무엇인지 보고 정한다.
+
+| 자원 | 이번에 만들어진 빈 것이면 | 데이터가 있거나 오래된 것이면 |
+| --- | --- | --- |
+| EKS(노드 그룹·애드온 없음) | `aws eks delete-cluster` 후 내리기를 다시 | `terraform import` 로 state 에 들인다 |
+| RDS | **최종 스냅샷을 남기고** 지운다 — `aws rds delete-db-instance --final-db-snapshot-identifier scenetrip-<env>-final-manual-<날짜>` | 지우지 않는다. import 한다 |
+| NAT·VPC | state 에 있는 나머지와 함께 내리기가 지운다. 남으면 콘솔에서 의존 자원(ENI·EIP)부터 | — |
+
+**4. 다시 내리기(또는 올리기)** — dev 는 `dev-lifecycle` 의 down. 끝나면 `just aws-drift <env>` 가 「어긋난 것 없음」 이어야 한다.
+
+## 14. 스냅샷·장면 사진 버킷
+
+**dev 최종 스냅샷** — 내리기(retain)가 끝나면 `scenetrip-dev-final-*` 중 **최근 2 개만 남기고** 지운다(삭제 흐름이 자동으로).
+올리기는 스냅샷을 복원하지 않으므로(빈 DB 로 시작) 최종 스냅샷은 사람이 꺼내 쓰는 백업이다. 손으로는 `just aws-snapshot-prune dev`
+(미리 보기) · `--execute`. **prd 스냅샷은 이 명령이 지우지 않는다** — 배포 역할에도 prd 스냅샷 삭제 권한이 없다.
+
+**장면 사진 버킷 `scenetrip-media-prod`** — 촬영지 장면 사진(시드의 `scene_image_url`). 모든 환경이 공개 주소로 읽는다. 2026-08-28
+콘솔에서 만든 것을 CloudFormation 스택 `scenetrip-shared-media`(`platform/terraform/shared-media/template.json`)로 가져와
+관리한다 — `DeletionPolicy: Retain`, **버전 관리**(지운 사진은 30 일 동안 되살릴 수 있다), 공개 읽기 정책. 환경 bootstrap 과 따로 둬
+dev 를 지울 때 휘말리지 않는다. 바꿀 때는 템플릿을 고치고 `just aws-shared-media`(미리 보기) · `--execute`.
+
+**사용자 사진 버킷** — prd 만 버전 관리(지운 사진 30 일). bootstrap 템플릿의 `IsProduction` 조건.
+
 ## 배포 기록
 
 환경·계정·commit·이미지 digest·workflow URL·Terraform 변경 요약·Flyway 버전·

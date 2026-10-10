@@ -72,3 +72,16 @@ just aws-bootstrap-delete dev false
 
 스냅샷·관리 범위 밖 리소스에는 비용이 남을 수 있다. state를 보존한 bootstrap 재생성과
 삭제 예약된 Secret의 재사용에는 별도 복구 절차가 필요하므로 [삭제 런북](../../docs/ops/aws-teardown.md)을 따른다.
+
+## 운영 보호 (`ops.py`, MZ2AZ-364)
+
+노트북에서 관리자 자격으로 부르는 운영 명령. 고정 AWS CLI 는 리눅스 러너 전용이라 맥에서는 호스트 `aws` 를 쓴다. 바꾸는 것은
+`--execute` 를 줄 때만 한다. 런북: [배포 런북](../../docs/ops/aws-deployment.md) §13·§14.
+
+```sh
+just aws-drift dev                   # 잠금 파일·state 밖 EKS·RDS·NAT·VPC 점검(읽기만)
+just aws-snapshot-prune dev          # dev 최종 스냅샷을 최근 2 개만 남길 때 지울 것(미리 보기) — --execute, --keep N
+just aws-shared-media                # 장면 사진 버킷 scenetrip-media-prod 를 스택으로 가져오기·버전 관리(미리 보기) — --execute
+```
+
+dev 내리기(retain)는 끝에 `snapshot-prune` 을 스스로 부른다(`destroy.py` `prune_after_destroy`).

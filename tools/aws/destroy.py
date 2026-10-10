@@ -158,3 +158,18 @@ def destroy_service(
     if preparation:
         apply_saved(run, directory, preparation)
     finish_destroy(run, settings, directory, variables, temp, resources, expected)
+    prune_after_destroy(run, settings, snapshot_policy)
+
+
+def prune_after_destroy(run, settings, snapshot_policy, keep=2):
+    """dev 를 내리고 최종 스냅샷을 남겼으면 오래된 것을 정리한다(MZ2AZ-364). 실패해도 삭제는 끝난 것이다 — 알리기만 한다."""
+    if settings.environment != "dev" or snapshot_policy != "retain":
+        return
+    from tools.aws.ops import prune_snapshots
+
+    try:
+        prune_snapshots(run, settings.environment, keep, execute=True)
+    except Exception as error:  # noqa: BLE001 — 정리 실패가 삭제 성공을 뒤집지 않는다
+        print(
+            f"최종 스냅샷 정리 실패(삭제는 끝남) — just aws-snapshot-prune dev 로 다시: {error}"
+        )

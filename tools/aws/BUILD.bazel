@@ -17,6 +17,7 @@ py_library(
         "destroy_gateway.py",
         "destroy_identity.py",
         "destroy_plan.py",
+        "ops.py",
         "teardown_options.py",
     ],
     data = [
@@ -40,6 +41,14 @@ py_binary(
     ],
     data = ["//tools/bazel/cloud:aws_provider"],
     main = "aws.py",
+    deps = [":lib"],
+)
+
+# 출시 전 운영 보호(MZ2AZ-364) — 스냅샷 정리·끊긴 배포 점검·장면 사진 버킷. 노트북에서 관리자 자격으로.
+py_binary(
+    name = "ops",
+    srcs = ["ops.py"],
+    main = "ops.py",
     deps = [":lib"],
 )
 
@@ -77,6 +86,7 @@ py_test(
         "tests/test_gateway_routes.py",
         "tests/test_lifecycle.py",
         "tests/test_media.py",
+        "tests/test_ops.py",
         "tests/test_public_ingress.py",
         "tests/test_teardown_entrypoint.py",
         "tests/test_workflows.py",
@@ -85,6 +95,7 @@ py_test(
         "//.github/workflows:aws_workflows",
         "//contracts/openapi:scene-api-v1.yaml",
         "//platform/helm:sources",
+        "//platform/terraform:sources",
     ],
     main = "tests/test_aws.py",
     tags = ["unit"],

@@ -29,6 +29,16 @@ def expected_resources(settings, bucket):
             "AWS::IAM::Role",
             f"scenetrip-{settings.environment}-lifecycle",
         ),
+        # MZ2AZ-362 에서 더한 사용자 사진 버킷·정책·역할. 버킷은 DeletionPolicy Retain 이라 스택을 지워도 남는다(MZ2AZ-364).
+        "UserMediaBucket": (
+            "AWS::S3::Bucket",
+            f"scenetrip-user-media-{settings.account}-{settings.region}-{settings.environment}",
+        ),
+        "UserMediaBucketPolicy": (
+            "AWS::S3::BucketPolicy",
+            f"scenetrip-user-media-{settings.account}-{settings.region}-{settings.environment}",
+        ),
+        "MediaRole": ("AWS::IAM::Role", f"scenetrip-{settings.environment}-media"),
     }
 
 
