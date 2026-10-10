@@ -191,12 +191,22 @@ def drift(run, environment):
 # ─────────────────────────── 3. 공용 장면 사진 버킷 ───────────────────────────
 
 
+# 가져올 자원 — 버킷과 **이미 걸려 있는 버킷 정책**. 정책을 새로 만들려 하면 「이미 있다」 로 막힌다(2026-10-10 첫 적용이 그렇게
+# 되돌려졌다). 정책도 지금 내용 그대로 가져온다.
+IMPORTABLE = {
+    "SharedMediaBucket": ("AWS::S3::Bucket", {"BucketName": SHARED_MEDIA_BUCKET}),
+    "SharedMediaBucketPolicy": (
+        "AWS::S3::BucketPolicy",
+        {"Bucket": SHARED_MEDIA_BUCKET},
+    ),
+}
+
+
 def import_template(desired):
-    """가져오기용 템플릿 — 버킷이 **지금 가진 설정 그대로**. 가져오기는 속성을 적용하지 않으므로, 바라는 설정(버전 관리·버킷 정책 자원)을
-    처음부터 넣으면 가져온 뒤의 갱신이 「바뀐 것 없음」 으로 보고 영영 켜지 않는다. 그래서 둘로 나눈다."""
+    """가져오기용 템플릿 — 버킷·정책이 **지금 가진 설정 그대로**. 가져오기는 속성을 적용하지 않으므로, 바라는 설정(버전 관리)을 처음부터
+    넣으면 가져온 뒤의 갱신이 「바뀐 것 없음」 으로 보고 영영 켜지 않는다. 그래서 둘로 나눈다."""
     template = json.loads(json.dumps(desired))
     resources = template["Resources"]
-    resources.pop("SharedMediaBucketPolicy", None)
     properties = resources["SharedMediaBucket"]["Properties"]
     properties.pop("VersioningConfiguration", None)
     properties["LifecycleConfiguration"]["Rules"] = [
@@ -219,7 +229,22 @@ def stack_status(run):
     return found[0].get("StackStatus") if found else None
 
 
-def change_set(run, temp, template, change_type, *, execute):
+def stack_resources(run):
+    """스택에 이미 든 논리 이름들. 스택이 없으면 빈 집합."""
+    try:
+        listed = aws(
+            run,
+            "cloudformation",
+            "describe-stack-resources",
+            "--stack-name",
+            SHARED_MEDIA_STACK,
+        )
+    except Exception:  # noqa: BLE001 — 없는 스택
+        return set()
+    return {r.get("LogicalResourceId") for r in listed.get("StackResources", [])}
+
+
+def change_set(run, temp, template, change_type, *, execute, to_import=()):
     body = temp / f"shared-media-{change_type.lower()}.json"
     body.write_text(json.dumps(template, ensure_ascii=False))
     name = f"{SHARED_MEDIA_STACK}-{change_type.lower()}"
@@ -239,10 +264,11 @@ def change_set(run, temp, template, change_type, *, execute):
             json.dumps(
                 [
                     {
-                        "ResourceType": "AWS::S3::Bucket",
-                        "LogicalResourceId": "SharedMediaBucket",
-                        "ResourceIdentifier": {"BucketName": SHARED_MEDIA_BUCKET},
+                        "ResourceType": IMPORTABLE[logical][0],
+                        "LogicalResourceId": logical,
+                        "ResourceIdentifier": IMPORTABLE[logical][1],
                     }
+                    for logical in to_import
                 ]
             ),
         ]
@@ -331,32 +357,38 @@ def change_set(run, temp, template, change_type, *, execute):
 
 
 def shared_media(run, root, temp, *, execute):
-    """버킷을 스택으로 가져오고(처음 한 번), 바라는 설정(버전 관리 등)을 적용한다. 버킷을 지우거나 새로 만들지 않는다."""
+    """버킷·정책을 스택으로 가져오고(빠진 것만), 바라는 설정(버전 관리 등)을 적용한다. 버킷을 지우거나 새로 만들지 않는다."""
     desired = json.loads((root / SHARED_MEDIA_TEMPLATE).read_text())
     status = stack_status(run)
-    if status is None:
-        print(f"1/2 가져오기 — {SHARED_MEDIA_BUCKET} 을 {SHARED_MEDIA_STACK} 로")
-        if not execute:
-            # 가져오기 변경 세트는 만들기만 해도 빈 스택(REVIEW_IN_PROGRESS)을 남긴다 — 미리 보기에서는 변경 세트를 만들지 않는다(스택 조회만).
-            imported = import_template(desired)["Resources"]["SharedMediaBucket"][
-                "Properties"
-            ]
-            print(
-                f"가져올 버킷 설정(지금 그대로): {json.dumps(imported, ensure_ascii=False)}"
-            )
-            print(
-                "2/2 그 뒤 적용: 버전 관리 켬, 지운 판 30 일 뒤 영구 삭제, 버킷 정책(공개 읽기 그대로)을 스택이 관리"
-            )
-            print("미리 보기 — 적용하려면 --execute")
-            return
-        change_set(run, temp, import_template(desired), "IMPORT", execute=True)
-    elif not re.fullmatch(
-        r"(IMPORT|UPDATE|CREATE)_COMPLETE|UPDATE_ROLLBACK_COMPLETE", status
+    if status is not None and not re.fullmatch(
+        r"(IMPORT|UPDATE|CREATE)_COMPLETE|(IMPORT|UPDATE)_ROLLBACK_COMPLETE", status
     ):
         raise RuntimeError(
             f"{SHARED_MEDIA_STACK} 가 {status} 상태다 — 콘솔에서 먼저 본다"
         )
-    print("2/2 설정 적용 — 버전 관리·지운 판 30 일·버킷 정책")
+    present = stack_resources(run) if status is not None else set()
+    missing = [logical for logical in IMPORTABLE if logical not in present]
+    if missing:
+        print(
+            f"1/2 가져오기 — {', '.join(missing)} 을 {SHARED_MEDIA_STACK} 로(지금 설정 그대로)"
+        )
+        if not execute:
+            # 가져오기 변경 세트는 만들기만 해도 빈 스택(REVIEW_IN_PROGRESS)을 남긴다 — 미리 보기에서는 가져오기 변경 세트를 만들지 않는다(조회만).
+            # 갱신 미리 보기는 다르다: 바뀔 내용을 보이려고 변경 세트를 만들었다가 지운다(남는 것 없음).
+            imported = import_template(desired)["Resources"]
+            print(f"가져올 설정: {json.dumps(imported, ensure_ascii=False)}")
+            print("2/2 그 뒤 적용: 버전 관리 켬, 지운 판 30 일 뒤 영구 삭제")
+            print("미리 보기 — 적용하려면 --execute")
+            return
+        change_set(
+            run,
+            temp,
+            import_template(desired),
+            "IMPORT",
+            execute=True,
+            to_import=missing,
+        )
+    print("2/2 설정 적용 — 버전 관리·지운 판 30 일")
     change_set(run, temp, desired, "UPDATE", execute=execute)
 
 
