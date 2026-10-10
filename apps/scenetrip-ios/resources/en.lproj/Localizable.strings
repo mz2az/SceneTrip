@@ -552,3 +552,10 @@
 "지도 앱이 열려요" = "Opens the map app";
 "브라우저에서 지도가 열려요" = "Opens the map in your browser";
 "현재 위치|출발" = "Current location";
+
+/* 현재 기능에 맞춘 사용법과 진행 안내 (MZ2AZ-399). AI 방문 개수를 약속하지 않는다. */
+"원하는 속도에 맞춰 가까운 촬영지로 일정을 짭니다.\n완성된 초안은 원하는 대로 바꿀 수 있어요." = "Plan nearby filming locations at your own pace.\nYou can edit the draft to make it yours.";
+"코스를 따라 다음 장소로 가는 길을 확인해요.\n필요하면 지도 앱으로 길찾기를 이어갈 수 있어요." = "Follow your course to the next stop.\nYou can continue directions in a map app when needed.";
+"주변의 음식점·명소·교통·숙소를 보여 줘요.\n촬영지와 여행 계획을 해태에게 물어보세요." = "Find nearby food, sights, transport and stays.\nAsk HAETAE about filming locations and travel plans.";
+"방문 수는 고른 작품과 이동 거리에 따라 달라집니다" = "The number of stops depends on your choices and travel distances";
+"사용법 %d / %d" = "Tutorial %1$d of %2$d";

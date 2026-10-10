@@ -71,6 +71,7 @@ mobile_api_config(
 
 swift_library(
     name = "scenetrip-ios",
+    # 첫 실행 사용법과 OnboardingProgress도 앱 소스 대상에 포함한다(MZ2AZ-399).
     srcs = glob(["src/**/*.swift"]) + [
         ":api_configuration",
         ":secrets_swift",
@@ -147,6 +148,7 @@ ios_application(
 swift_library(
     name = "unit_test_lib",
     testonly = True,
+    # 사용법 진행과 완료 중복 방지 시험도 같은 iOS 단위 대상에 포함한다(MZ2AZ-399).
     srcs = glob(["tests/**/*.swift"]),
     module_name = "SceneTripTests",
     tags = [
