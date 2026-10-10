@@ -51,6 +51,15 @@
 - 앞으로를 위해: 생성기에 「모르는 enum 값은 기본 case 로」(`enumUnknownDefaultCase`)를 켜는 것을 앱 티켓에 제안한다 — 켜면 앱의
   `switch` 가 새 case 를 다뤄야 해서 앱 쪽 일이다.
 
+### 3-1. 표시말 (1.9.0, MZ2AZ-381 — 덧붙임 2026-10-10)
+
+1.8.0 의 편의시설 항목은 이름·분류·주소를 한국어 원본으로만 실어, 영어 화면에서 코스 줄은 한국어인데 그 핀의 카드(편의시설 상세)는
+영어였다(정승길, 380 확인 중). 편의시설 목록·상세와 같은 네 칸을 편의시설 항목에 더한다 — `displayName`·`nameRoman`·
+`categoryLabel`·`displayAddress`. `name`·`address`·`category` 는 한국어 원본 그대로(계약 `PoiSummary.name` 「언제나 한국어」).
+
+화면 규칙은 카드와 같다 — 제목 `displayName ?? name`, `displayName` 이 없으면 아래에 `nameRoman`. 로마자를 제목으로 올리지
+않는다: 번역이 아니라 읽는 법이라 뜻이 없고, 간판은 한국어라 제목이 한국어여야 맞춰 볼 수 있다(권호 2026-10-10).
+
 ## 4. 서버
 
 - **V26**: `course_item.poi_id` + 셋 중 하나 제약 + 인덱스.
