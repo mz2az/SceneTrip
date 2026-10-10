@@ -15,12 +15,12 @@ import SwiftUI
 /// - **동선 최적화** — 직선거리 기준으로 순서를 다시 잡는다. 길찾기 API 를 부르지 않는다.
 /// - 장바구니에서 담기 / 지도에 직접 핀 찍기
 ///
-/// **거리(km)는 보여 주고 예상 이동 시간은 보여 주지 않는다** (8/11 회의 2부 확정).
-/// 직선거리에서 시간을 지어내면 사용자는 그것을 실제 이동 시간으로 읽는다. 그날 **머무는
-/// 시간의 합**은 보여 준다 — 사용자가 정한 값을 더한 것이라 지어낸 것이 없다(MZ2AZ-368).
+/// 거리(km)와 서버가 어림한 **이동 포함 하루 합계**를 보여 준다(MZ2AZ-390). 앱은 이동 시간을
+/// 계산하지 않는다. 경로를 손보거나 아직 저장하지 않았으면 머무는 시간만 보여 준다.
 struct RouteEditorView: View {
     @EnvironmentObject var store: RouteStore
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismiss) var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// 장바구니는 **검색 탭에서 이어진다.** 기기 UUID 가 같으므로 새로 만들어도 서버에
     /// 있는 그 장바구니가 온다 — 검색 탭의 `CartStore` 를 끌어오려면 그 파일을 고쳐야
@@ -222,14 +222,8 @@ struct RouteEditorView: View {
                 ) {
                     // `AnyView` 는 detent 타입을 맞추기 위한 것이다 — `Detent` 가
                     // 제네릭 안에 살아서 상태 선언이 내용 타입을 미리 못 안다.
-                    AnyView(VStack(spacing: 0) {
-                        tripBanner
-                        dayTabs
-                        poiFilter
-                        summary
-                        actions
-                        stopList
-                    })
+                    // 안내와 장소가 같은 스크롤을 쓴다. 큰 글자/medium에서도 복귀 문구까지 읽는다.
+                    AnyView(stopList)
                 }
             }
             bottomBar
@@ -356,7 +350,9 @@ struct RouteEditorView: View {
             }
         }
         .sheet(isPresented: $showStay) {
-            RouteDayStaySheet(stops: stops) { stop, minutes in
+            RouteDayStaySheet(
+                stops: stops, estimatedTotalMinutes: course.days[dayIndex].estimatedTotalMinutes
+            ) { stop, minutes in
                 setStay(stop, minutes: minutes)
             }
         }
@@ -375,93 +371,6 @@ struct RouteEditorView: View {
     }
 
     // MARK: 목록
-
-    private var stopList: some View {
-        ScrollViewReader { proxy in
-            stopRows
-                // **다음 갈 곳이 맨 위에** — 안내가 켜지면 그 목적지, 도착하면 그다음 미방문 곳으로
-                // 목록을 밀어 올린다(2026-09-04 사용자 요청). 다녀온 줄은 위로 흘러가 남는다.
-                .onChange(of: trip.target?.id) { _, id in
-                    if let id {
-                        withAnimation { proxy.scrollTo(id, anchor: .top) }
-                    }
-                }
-                .onChange(of: trip.phase) { _, phase in
-                    if phase == .arrived, let next = nextUnvisited?.stop.id {
-                        withAnimation { proxy.scrollTo(next, anchor: .top) }
-                    }
-                }
-        }
-    }
-
-    private var stopRows: some View {
-        List {
-            ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
-                RouteStopRow(
-                    stop: stop,
-                    number: index + 1,
-                    // 다음 장소까지의 직선거리. 마지막 장소 뒤에는 갈 곳이 없다.
-                    nextKilometers: index + 1 < stops.count
-                        ? RouteGeometry.kilometers(stop.place, stops[index + 1].place)
-                        : nil,
-                    running: course.isRunning,
-                    isFocused: focusedStop?.id == stop.id,
-                    works: workTitles(for: stop),
-                    // 첫 줄에 「출발 고정」, 마지막 줄에 「도착 고정」. 한 곳뿐이면
-                    // 고정할 것이 없다 — 그 하나가 출발이자 도착이라 뜻이 없다.
-                    pinKind: stops.count > 1
-                        ? (index == 0 ? .start : (index == stops.count - 1 ? .end : nil))
-                        : nil,
-                    isPinned: index == 0 ? pinStart : pinEnd,
-                    // 도착하면 「안내 중」은 내린다 — 그 자리는 「다녀옴」의 것이다(2026-09-03
-                    // 사용자 지적: 도착했는데 안내 중이 남아 있었다).
-                    isTarget: trip.phase == .guiding && trip.target?.id == stop.id,
-                    // 여행 중이면 어느 곳이든 「길찾기」 — 다녀온 곳도 다시 갈 수 있다(2026-09-04
-                    // 사용자 지적: 코스를 또 만들 필요는 없다). 이 지도에 경로가 그려진다.
-                    onNavigate: course.isRunning ? { startTrip(to: stop) } : nil,
-                    onFocus: {
-                        // **한 번 더 누르면 놓는다.** 놓을 방법이 없으면 한 곳을
-                        // 고른 뒤 경로 전체를 다시 볼 수가 없다(2026-08-25 사용자 지적).
-                        if focusedStop?.id == stop.id {
-                            focusedStop = nil
-                            fitToken += 1 // 일차 전체가 다시 보이게 맞춘다.
-                        } else {
-                            focusedStop = stop
-                        }
-                    },
-                    onTogglePin: {
-                        if index == 0 {
-                            pinStart.toggle()
-                        } else {
-                            pinEnd.toggle()
-                        }
-                    }
-                )
-                .id(stop.id)
-            }
-            // **편집 모드를 켜지 않는다.** 켜면 드래그 손잡이가 늘 보이는 대신 행 안의
-            // 버튼(체류 시간 칩·길찾기)이 눌리지 않는다 — iOS 가 편집 중 행의 탭을
-            // 자기 것으로 가져간다. 목록을 길게 눌러 끄는 방식은 편집 모드 없이도
-            // 되므로, 눌리는 쪽을 지키고 손잡이는 행 안에 그림으로 남겼다.
-            .onMove { source, destination in
-                course.days[dayIndex].stops.move(fromOffsets: source, toOffset: destination)
-                // 손으로 순서를 바꿨다 — 동선이 낡았을 수 있다. 다시 권한다.
-                optimizeNudge = course.days[dayIndex].stops.count >= 2
-            }
-            .onDelete { offsets in
-                course.days[dayIndex].stops.remove(atOffsets: offsets)
-                optimizeNudge = course.days[dayIndex].stops.count >= 2
-            }
-
-            if stops.isEmpty {
-                Text("아직 담은 장소가 없습니다\n장바구니에서 담거나 지도에 핀을 찍어 보세요")
-                    .font(.footnote).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 24)
-            }
-        }
-        .listStyle(.plain)
-    }
 
     /// 저장하고 닫는다. **실패하면 닫지 않는다** — 조용히 닫으면 저장된 줄 알고
     /// 나갔다가 목록에 없는 것을 보게 된다.
@@ -535,7 +444,7 @@ struct RouteEditorView: View {
     ///
     /// 둘까지만 적는다 — 셋을 넘기면 줄이 넘쳐 주소가 밀린다. 「외 2편」처럼 세는
     /// 것도 생각했지만 남은 것이 무엇인지 모르면 세어 봐야 쓸모가 없다.
-    private func workTitles(for stop: RouteStop) -> String {
+    func workTitles(for stop: RouteStop) -> String {
         // 직접 찍은 핀과 편의시설은 촬영지가 아니라 되짚을 것이 없다.
         guard let placeId = stop.placeId else { return "" }
         // 방금 검색·장바구니에서 담은 곳은 작품을 이미 들고 있다.
@@ -645,50 +554,21 @@ extension RouteEditorView {
     }
 
     var topBar: some View {
-        HStack {
-            // 바꾼 것이 있으면 버릴지 묻는다 — 저장이 머리줄의 작은 「저장」 하나가 된 뒤로는
-            // 그 옆의 「취소」를 잘못 눌러 편집한 것을 잃기 쉽다(MZ2AZ-368 → 369).
-            Button("취소") {
-                if dirty {
-                    confirmingDiscard = true
-                } else {
-                    dismiss()
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                stackedTopBar
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        cancelButton
+                        Spacer()
+                        courseTitleField
+                        Spacer()
+                        saveButton
+                    }
+                    stackedTopBar
                 }
             }
-            Spacer()
-            // 제목은 눌러서 바로 고친다 — 마법사·AI 가 붙인 「OO 1박 2일」을 그대로 두게 하지
-            // 않는다(2026-09-28 사용자: Android 는 되는데 iOS 는 제목 수정이 안 된다).
-            HStack(spacing: 4) {
-                // 칸 폭은 **글자 길이를 재서 정확히 준다(200pt 에서 멈춤).** 글자만큼 늘게(`fixedSize`)
-                // 두면 긴 제목이 취소·만들기를 덮어 「취소」 터치까지 가로챘고, `maxWidth` 로 두면
-                // 자리가 남을 때 200pt 까지 벌어져 연필이 글자에서 멀리 떨어졌다(2026-09-28 실기 세 번).
-                TextField("코스 이름", text: $course.title)
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(1)
-                    .submitLabel(.done)
-                    .frame(width: min(titleWidth + 4, 200)) // +4 는 커서 자리
-                    .background {
-                        Text(course.title.isEmpty ? tr("코스 이름") : course.title)
-                            .font(.headline)
-                            .fixedSize()
-                            .hidden()
-                            .background(GeometryReader { geo in
-                                Color.clear.preference(key: EditorTitleWidthKey.self, value: geo.size.width)
-                            })
-                    }
-                    .onPreferenceChange(EditorTitleWidthKey.self) { titleWidth = $0 }
-                Image(systemName: "pencil")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-            }
-            .frame(maxWidth: 220)
-            Spacer()
-            Button(isNew ? tr("만들기") : tr("저장")) {
-                Task { await saveAndClose() }
-            }
-            .font(.body.weight(.semibold))
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(Color(.systemBackground))
