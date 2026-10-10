@@ -15,6 +15,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.MarketCourseDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.MarketSort;
 import com.mz2az.scenetrip.sceneapi.api.model.PinCategory;
 import com.mz2az.scenetrip.sceneapi.course.CourseStore;
+import com.mz2az.scenetrip.sceneapi.course.DeployedTravel;
 import com.mz2az.scenetrip.sceneapi.course.DwellDefaults;
 import com.mz2az.scenetrip.sceneapi.course.TravelEstimator;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
@@ -56,7 +57,7 @@ class MarketStoreIntegrationTest {
   static void connect() {
     jdbc = IntegrationDatabase.jdbcClient();
     IntegrationDatabase.requireSeeded(jdbc);
-    TravelEstimator travel = new TravelEstimator(4.0, 1.3);
+    TravelEstimator travel = DeployedTravel.estimator();
     DwellDefaults dwell = new DwellDefaults();
     dwell.putAll(Map.of());
     courses = new CourseStore(jdbc, travel, dwell, IntegrationDatabase.transactions());
@@ -317,6 +318,92 @@ class MarketStoreIntegrationTest {
           assertThat(post.getDays().get(1).getItems()).isEmpty();
           return null;
         });
+  }
+
+  @Test
+  @DisplayName("사본의 하루 이동시간도 구간마다 어림한 값의 합이고, 합계 = 머무는 시간 + 이동시간 (1.9.1, MZ2AZ-370)")
+  void copyDayTravelSumsPerSegmentEstimates() {
+    long[] p = placesAcrossTiers();
+    long postId =
+        store
+            .publish(
+                author,
+                courseWith(item(p[0], 30), item(p[1], 40), item(p[2], 50), item(p[3], 60)),
+                "설명")
+            .orElseThrow();
+
+    var day = store.find(reader, postId, Lang.KO).orElseThrow().getDays().get(0);
+    assertThat(day.getItems())
+        .extracting(i -> i.getPlaceId())
+        .containsExactly(p[0], p[1], p[2], p[3]);
+    List<Integer> segments =
+        day.getItems().stream().map(i -> i.getDistanceMetersFromPrevious()).toList();
+
+    assertThat(segments.get(0)).isNull();
+    assertThat(segments.get(1)).isPositive().isLessThanOrEqualTo(DeployedTravel.WALK_MAX_METERS);
+    assertThat(segments.get(2))
+        .isGreaterThan(DeployedTravel.WALK_MAX_METERS)
+        .isLessThanOrEqualTo(DeployedTravel.CITY_MAX_METERS);
+    assertThat(segments.get(3)).isGreaterThan(DeployedTravel.CITY_MAX_METERS);
+
+    int perSegment =
+        segments.stream()
+            .mapToInt(m -> DeployedTravel.expectedSegmentMinutes(m == null ? 0 : m))
+            .sum();
+    int ofSummedDistance =
+        DeployedTravel.expectedSegmentMinutes(
+            segments.stream().mapToInt(m -> m == null ? 0 : m).sum());
+
+    assertThat(perSegment).isNotEqualTo(ofSummedDistance);
+    assertThat(day.getTravelMinutes()).isEqualTo(perSegment);
+    assertThat(day.getDwellMinutes()).isEqualTo(180);
+    assertThat(day.getTotalMinutes()).isEqualTo(day.getDwellMinutes() + day.getTravelMinutes());
+    assertThat(day.getTravelBasis())
+        .isEqualTo(com.mz2az.scenetrip.sceneapi.api.model.TravelBasis.STRAIGHT_LINE);
+  }
+
+  /**
+   * 적재된 촬영지 중 걷기(100 m~1.4 km) → 시내(2~29 km) → 시외(40 km 넘게) 로 이어지는 네 곳. 사본에는 직접 찍은 핀이 빠지므로 등록된 촬영지로
+   * 골라야 한다. 경계에서 떨어진 거리만 고른다 — 정수로 자를 때 갈래가 흔들리지 않게.
+   */
+  private long[] placesAcrossTiers() {
+    List<long[]> rows =
+        jdbc.sql(
+                """
+                WITH ab AS (
+                    SELECT a.id AS a, b.id AS b, b.geom AS bg
+                    FROM place a
+                    JOIN place b ON b.id <> a.id
+                     AND ST_DWithin(a.geom, b.geom, 1400)
+                     AND NOT ST_DWithin(a.geom, b.geom, 100)
+                    ORDER BY a.id, b.id
+                    LIMIT 200
+                )
+                SELECT ab.a, ab.b, c.id AS c, d.id AS d
+                FROM ab
+                JOIN LATERAL (
+                    SELECT c.id, c.geom FROM place c
+                    WHERE c.id NOT IN (ab.a, ab.b)
+                      AND ST_DWithin(ab.bg, c.geom, 29000)
+                      AND NOT ST_DWithin(ab.bg, c.geom, 2000)
+                    ORDER BY c.id LIMIT 1) c ON true
+                JOIN LATERAL (
+                    SELECT d.id FROM place d
+                    WHERE d.id NOT IN (ab.a, ab.b, c.id)
+                      AND NOT ST_DWithin(c.geom, d.geom, 40000)
+                    ORDER BY d.id LIMIT 1) d ON true
+                ORDER BY ab.a, ab.b
+                LIMIT 1
+                """)
+            .query(
+                (rs, n) ->
+                    new long[] {rs.getLong("a"), rs.getLong("b"), rs.getLong("c"), rs.getLong("d")})
+            .list();
+    if (rows.isEmpty()) {
+      throw new IllegalStateException(
+          "걷기·시내·시외 거리로 이어지는 촬영지 네 곳이 적재 데이터에 없다 — `just seed` 를 확인하세요");
+    }
+    return rows.get(0);
   }
 
   // ───────────── 거들기 ─────────────

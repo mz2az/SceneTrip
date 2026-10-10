@@ -626,10 +626,10 @@ public class CourseStore {
    */
   private List<CourseDay> days(long courseId, int dayCount, Lang lang) {
     Map<Integer, List<CourseItem>> byDay = new LinkedHashMap<>();
-    Map<Integer, Integer> travelMetres = new LinkedHashMap<>();
+    Map<Integer, Integer> travelMinutesByDay = new LinkedHashMap<>();
     for (int i = 1; i <= dayCount; i++) {
       byDay.put(i, new ArrayList<>());
-      travelMetres.put(i, 0);
+      travelMinutesByDay.put(i, 0);
     }
 
     jdbc.sql(ITEMS_SQL)
@@ -642,7 +642,11 @@ public class CourseStore {
               // 직접 넣은 것이 있으면 조용히 감추지 않고 마지막 일차에 붙여 눈에 띄게 한다.
               int slot = Math.min(dayNo, dayCount);
               byDay.get(slot).add(mapItem(rs));
-              travelMetres.merge(slot, intOrZero(rs, "distance_from_previous"), Integer::sum);
+              // 구간마다 어림해 더한다 — 거리에 따라 걷기·대중교통·시외가 달라서 합친 거리로는 낼 수 없다(MZ2AZ-370).
+              travelMinutesByDay.merge(
+                  slot,
+                  travel.segmentMinutes(intOrZero(rs, "distance_from_previous")),
+                  Integer::sum);
               return null;
             })
         .list();
@@ -651,7 +655,7 @@ public class CourseStore {
     for (Map.Entry<Integer, List<CourseItem>> e : byDay.entrySet()) {
       List<CourseItem> items = e.getValue();
       int dwell = items.stream().mapToInt(CourseItem::getDwellMinutes).sum();
-      int travelMinutes = travel.minutes(travelMetres.get(e.getKey()));
+      int travelMinutes = travelMinutesByDay.get(e.getKey());
       days.add(
           new CourseDay(
               e.getKey(),

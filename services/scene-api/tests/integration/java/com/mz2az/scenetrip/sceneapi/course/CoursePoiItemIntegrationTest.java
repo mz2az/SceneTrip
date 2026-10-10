@@ -57,7 +57,7 @@ class CoursePoiItemIntegrationTest {
     dwell.setByPoiGroup("food=60, sight=60, stay=30, transit=15");
     store =
         new CourseStore(
-            jdbc, new TravelEstimator(4.0, 1.3), dwell, IntegrationDatabase.transactions());
+            jdbc, DeployedTravel.estimator(), dwell, IntegrationDatabase.transactions());
     users = new UserStore(jdbc);
   }
 

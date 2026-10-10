@@ -56,10 +56,7 @@ class CourseStoreIntegrationTest {
     IntegrationDatabase.requireSeeded(jdbc);
     store =
         new CourseStore(
-            jdbc,
-            new TravelEstimator(4.0, 1.3),
-            dwellDefaults(),
-            IntegrationDatabase.transactions());
+            jdbc, DeployedTravel.estimator(), dwellDefaults(), IntegrationDatabase.transactions());
     users = new UserStore(jdbc);
   }
 
@@ -252,6 +249,62 @@ class CourseStoreIntegrationTest {
     assertThat(day.getDwellMinutes()).isEqualTo(130);
     assertThat(day.getTravelMinutes()).isPositive();
     assertThat(day.getTotalMinutes()).isEqualTo(day.getDwellMinutes() + day.getTravelMinutes());
+  }
+
+  @Test
+  @DisplayName("하루 이동시간은 구간마다 어림한 값의 합이다 — 합친 거리의 어림이 아니다 (1.9.1, MZ2AZ-370)")
+  void travelMinutesSumPerSegmentEstimates() {
+    long id = store.create(user, new CourseCreate(1, CourseOrigin.SELF));
+    // 서울시청에서 북쪽 약 1 km(걷기 상한 이하) → 남쪽 약 20 km(시내) → 남쪽 약 150 km(시외 — 시내 끝 값보다 길다).
+    store.replace(
+        id,
+        replace(
+            day(
+                pinItem("출발", 37.5665, 126.9780),
+                pinItem("걷기", 37.5755, 126.9780),
+                pinItem("시내", 37.3955, 126.9780),
+                pinItem("시외", 36.0455, 126.9780))));
+
+    var day = store.find(user, id, Lang.KO).orElseThrow().getDays().get(0);
+    List<Integer> segments =
+        day.getItems().stream().map(CourseItem::getDistanceMetersFromPrevious).toList();
+
+    assertThat(segments.get(0)).isNull();
+    // 세 구간이 정말 세 갈래에 하나씩 떨어지는지 — 아니면 이 테스트는 아무것도 가르지 못한다.
+    assertThat(segments.get(1)).isPositive().isLessThanOrEqualTo(DeployedTravel.WALK_MAX_METERS);
+    assertThat(segments.get(2))
+        .isGreaterThan(DeployedTravel.WALK_MAX_METERS)
+        .isLessThanOrEqualTo(DeployedTravel.CITY_MAX_METERS);
+    assertThat(segments.get(3)).isGreaterThan(DeployedTravel.CITY_MAX_METERS);
+
+    int perSegment =
+        segments.stream()
+            .mapToInt(m -> DeployedTravel.expectedSegmentMinutes(m == null ? 0 : m))
+            .sum();
+    int ofSummedDistance =
+        DeployedTravel.expectedSegmentMinutes(
+            segments.stream().mapToInt(m -> m == null ? 0 : m).sum());
+
+    assertThat(perSegment).isNotEqualTo(ofSummedDistance);
+    assertThat(day.getTravelMinutes()).isEqualTo(perSegment);
+    assertThat(day.getDwellMinutes()).isEqualTo(240);
+    assertThat(day.getTotalMinutes()).isEqualTo(day.getDwellMinutes() + day.getTravelMinutes());
+    assertThat(day.getTravelBasis())
+        .isEqualTo(com.mz2az.scenetrip.sceneapi.api.model.TravelBasis.STRAIGHT_LINE);
+  }
+
+  @Test
+  @DisplayName("장소가 하나뿐인 날·빈 날은 이동시간이 0 이다 — 첫 구간은 0")
+  void singleItemDayHasNoTravel() {
+    long id = store.create(user, new CourseCreate(2, CourseOrigin.SELF));
+    store.replace(id, replace(day(item(placeA, 45)), day()));
+
+    CourseDetail course = store.find(user, id, Lang.KO).orElseThrow();
+
+    assertThat(course.getDays().get(0).getTravelMinutes()).isZero();
+    assertThat(course.getDays().get(0).getTotalMinutes()).isEqualTo(45);
+    assertThat(course.getDays().get(1).getTravelMinutes()).isZero();
+    assertThat(course.getDays().get(1).getTotalMinutes()).isZero();
   }
 
   @Test
