@@ -71,6 +71,7 @@ mobile_api_config(
 
 swift_library(
     name = "scenetrip-ios",
+    # 첫 실행 사용법과 OnboardingProgress도 앱 소스 대상에 포함한다(MZ2AZ-399).
     srcs = glob(
         ["src/**/*.swift"],
         exclude = [
@@ -78,6 +79,9 @@ swift_library(
             "src/CommunityTab/CommunityClient.swift",
             "src/CommunityTab/CommunitySubmission.swift",
             "src/CommunityTab/PostRemotePhoto.swift",
+            "src/Onboarding/OnboardingProgress.swift",
+            "src/RouteTab/PoiClusterRenderer.swift",
+            "src/RouteTab/PoiClusters.swift",
             "src/RouteTab/RouteDayEstimate.swift",
             "src/RouteTab/RouteEditorHeader.swift",
             "src/RouteTab/RouteEditorList.swift",
@@ -88,6 +92,9 @@ swift_library(
         "src/CommunityTab/CommunityClient.swift",
         "src/CommunityTab/CommunitySubmission.swift",
         "src/CommunityTab/PostRemotePhoto.swift",
+        "src/Onboarding/OnboardingProgress.swift",
+        "src/RouteTab/PoiClusterRenderer.swift",
+        "src/RouteTab/PoiClusters.swift",
         "src/RouteTab/RouteDayEstimate.swift",
         "src/RouteTab/RouteEditorHeader.swift",
         "src/RouteTab/RouteEditorList.swift",
@@ -167,15 +174,20 @@ ios_application(
 swift_library(
     name = "unit_test_lib",
     testonly = True,
+    # 사용법 진행과 완료 중복 방지 시험도 같은 iOS 단위 대상에 포함한다(MZ2AZ-399).
     srcs = glob(
         ["tests/**/*.swift"],
         exclude = [
             "tests/CommunityServerTests.swift",
             "tests/CourseDisplayTests.swift",
+            "tests/OnboardingProgressTests.swift",
+            "tests/PoiClustersTests.swift",
         ],
     ) + [
         "tests/CommunityServerTests.swift",
         "tests/CourseDisplayTests.swift",
+        "tests/OnboardingProgressTests.swift",
+        "tests/PoiClustersTests.swift",
     ],
     module_name = "SceneTripTests",
     tags = [

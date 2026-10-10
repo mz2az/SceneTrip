@@ -5,6 +5,8 @@
 | 문서 | 대상 |
 | --- | --- |
 | [meta-app-events.md](meta-app-events.md) | iOS 메타 광고 측정 — Core SDK·이벤트 허용 목록·ATT 동의 및 기본 비활성화 (MZ2AZ-391) |
+| [ios-poi-clustering.md](ios-poi-clustering.md) | 주변 POI 개수 묶음·확대·같은 좌표 구성원 선택 (MZ2AZ-403) |
+| [onboarding-refresh.md](onboarding-refresh.md) | 현재 AI 일정 안내와 사용법 이전/다음·큰 글자 접근성을 맞춘다 (MZ2AZ-399) |
 | [android-ios-parity.md](android-ios-parity.md) | Android를 현재 iOS의 리뷰·사진·POI 코스·요청 재시도·한도 처리에 맞춘다 |
 | [ios-followup-accessibility.md](ios-followup-accessibility.md) | iOS 큰 글자 길찾기 안내·해태 배치와 사진 업로드 실패 경계 (MZ2AZ-387) |
 | [dev-lifecycle.md](dev-lifecycle.md) | 버튼 하나로 DEV 올리기·내리기 — runner·Secret·배포·Cloudflare DNS |
