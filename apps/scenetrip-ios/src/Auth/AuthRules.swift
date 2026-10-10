@@ -49,7 +49,7 @@ enum AuthRules {
     static func carriesSignedUrls(url: String) -> Bool {
         let path = URLComponents(string: url)?.path ?? url
         return path.range(
-            of: #"/(places|pois)/\d+(/photos|/reviews(/me)?)?/?$|/me/reviews/?$"#, options: .regularExpression
+            of: #"/(places|pois)/\d+(/photos|/reviews(/me)?)?/?$|/me/(reviews|posts)/?$|/posts(/\d+)?/?$"#, options: .regularExpression
         ) != nil
     }
 

@@ -38,7 +38,12 @@ final class ReviewPhotoDraft: ObservableObject {
     private let loop = RestartableLoop()
     private var batch = 0
 
-    init() {
+    let purpose: UploadPurpose
+    let limit: Int
+
+    init(purpose: UploadPurpose = .review, limit: Int = ReviewPhotoRules.limit) {
+        self.purpose = purpose
+        self.limit = min(ReviewPhotoRules.limit, max(0, limit))
         loop.onRunning = { [weak self] running in self?.pumping = running }
     }
 
@@ -56,11 +61,11 @@ final class ReviewPhotoDraft: ObservableObject {
     }
 
     var canSave: Bool {
-        ReviewPhotoRules.canSave(states)
+        slots.count <= limit && ReviewPhotoRules.canSave(states)
     }
 
     var remaining: Int {
-        ReviewPhotoRules.remaining(count: slots.count)
+        max(0, limit - slots.count)
     }
 
     /// 줄이 멈춰 기다리기만 하는 사진의 수 — 앞 사진이 실패해 멈췄다. 돌고 있으면 0.
@@ -81,7 +86,7 @@ final class ReviewPhotoDraft: ObservableObject {
 
     /// 보관함에서 골랐다. 남은 자리만큼만 받는다.
     func add(_ items: [PhotosPickerItem]) {
-        let accepted = ReviewPhotoRules.accepted(picked: items.count, count: slots.count)
+        let accepted = min(items.count, remaining)
         guard accepted > 0 else { return }
         let batch = joinBatch()
         slots += items.prefix(accepted).map { Slot(state: .waiting, item: $0, batch: batch) }
@@ -174,7 +179,7 @@ final class ReviewPhotoDraft: ObservableObject {
     private func upload(_ id: UUID) async -> Result<String, PhotoUploadFailure>? {
         guard let slot = slots.first(where: { $0.id == id }) else { return nil }
         if let data = slot.data {
-            return await PhotoUploader.upload(data)
+            return await PhotoUploader.upload(data, purpose: purpose)
         }
         guard let item = slot.item, let file = await PhotoPick.file(from: item) else {
             return .failure(.unreadable)
@@ -194,7 +199,7 @@ final class ReviewPhotoDraft: ObservableObject {
                 $0.data = data
                 $0.item = nil
             }
-            return await PhotoUploader.upload(data)
+            return await PhotoUploader.upload(data, purpose: purpose)
         }
     }
 
