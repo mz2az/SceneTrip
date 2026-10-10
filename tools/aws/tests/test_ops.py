@@ -340,15 +340,35 @@ def desired_template():
     return json.loads((workspace_root() / ops.SHARED_MEDIA_TEMPLATE).read_text())
 
 
-def change_set_runner(*, status="UPDATE_COMPLETE", replacement="False"):
+BOTH = ("SharedMediaBucket", "SharedMediaBucketPolicy")
+
+
+def change_set_runner(*, status="UPDATE_COMPLETE", replacement="False", present=BOTH):
+    """`present` — 스택에 이미 든 논리 이름들(describe-stack-resources). 스택이 없으면(status=None) 조회가 실패한다."""
+    missing_stack = RuntimeError("Stack with id scenetrip-shared-media does not exist")
     stacks = (
-        RuntimeError("Stack with id scenetrip-shared-media does not exist")
+        missing_stack
         if status is None
         else {"Stacks": [{"StackName": ops.SHARED_MEDIA_STACK, "StackStatus": status}]}
+    )
+    resources = (
+        missing_stack
+        if status is None
+        else {
+            "StackResources": [
+                {
+                    "StackName": ops.SHARED_MEDIA_STACK,
+                    "LogicalResourceId": logical,
+                    "ResourceStatus": "IMPORT_COMPLETE",
+                }
+                for logical in present
+            ]
+        }
     )
     return FakeAws(
         {
             ("cloudformation", "describe-stacks"): stacks,
+            ("cloudformation", "describe-stack-resources"): resources,
             ("cloudformation", "describe-change-set"): {
                 "Changes": [
                     {
@@ -363,6 +383,42 @@ def change_set_runner(*, status="UPDATE_COMPLETE", replacement="False"):
             },
         }
     )
+
+
+def capture_change_sets(run):
+    """create-change-set 마다 (종류, 템플릿 본문, 가져올 자원 목록 또는 None) 을 모은다."""
+    captured = []
+
+    def capture(command):
+        path = command[command.index("--template-body") + 1].removeprefix("file://")
+        to_import = (
+            json.loads(command[command.index("--resources-to-import") + 1])
+            if "--resources-to-import" in command
+            else None
+        )
+        captured.append(
+            (
+                command[command.index("--change-set-type") + 1],
+                json.loads(Path(path).read_text()),
+                to_import,
+            )
+        )
+        return {}
+
+    run.responses[("cloudformation", "create-change-set")] = capture
+    return captured
+
+
+BUCKET_IMPORT = {
+    "ResourceType": "AWS::S3::Bucket",
+    "LogicalResourceId": "SharedMediaBucket",
+    "ResourceIdentifier": {"BucketName": "scenetrip-media-prod"},
+}
+POLICY_IMPORT = {
+    "ResourceType": "AWS::S3::BucketPolicy",
+    "LogicalResourceId": "SharedMediaBucketPolicy",
+    "ResourceIdentifier": {"Bucket": "scenetrip-media-prod"},
+}
 
 
 class SharedMediaTemplateTest(unittest.TestCase):
@@ -413,10 +469,15 @@ class SharedMediaTemplateTest(unittest.TestCase):
         self.assertFalse(block["BlockPublicPolicy"])
         self.assertFalse(block["RestrictPublicBuckets"])
 
-    def test_import_template_is_desired_minus_versioning_rule_and_policy(self):
+    def test_policy_is_retained(self):
+        # 가져오기는 DeletionPolicy 를 요구하고, Retain 이면 스택을 지워도 공개 읽기가 남는다
+        policy = self.desired["Resources"]["SharedMediaBucketPolicy"]
+        self.assertEqual(policy["DeletionPolicy"], "Retain")
+        self.assertEqual(policy["UpdateReplacePolicy"], "Retain")
+
+    def test_import_template_is_desired_minus_versioning_and_noncurrent_rule(self):
         imported = ops.import_template(self.desired)
         expected = json.loads(json.dumps(self.desired))
-        del expected["Resources"]["SharedMediaBucketPolicy"]
         props = expected["Resources"]["SharedMediaBucket"]["Properties"]
         del props["VersioningConfiguration"]
         props["LifecycleConfiguration"]["Rules"] = [
@@ -428,9 +489,17 @@ class SharedMediaTemplateTest(unittest.TestCase):
         imported.pop("Outputs", None)
         expected.pop("Outputs", None)
         self.assertEqual(imported, expected)
-        bucket = imported["Resources"]["SharedMediaBucket"]
-        self.assertEqual(bucket["DeletionPolicy"], "Retain")
-        self.assertEqual(bucket["UpdateReplacePolicy"], "Retain")
+        for logical in BOTH:
+            resource = imported["Resources"][logical]
+            self.assertEqual(resource["DeletionPolicy"], "Retain")
+            self.assertEqual(resource["UpdateReplacePolicy"], "Retain")
+
+    def test_import_template_keeps_policy_unchanged(self):
+        imported = ops.import_template(self.desired)
+        self.assertEqual(
+            imported["Resources"]["SharedMediaBucketPolicy"],
+            self.desired["Resources"]["SharedMediaBucketPolicy"],
+        )
 
     def test_import_template_does_not_mutate_desired(self):
         before = json.dumps(self.desired, sort_keys=True)
@@ -449,55 +518,92 @@ class SharedMediaFlowTest(unittest.TestCase):
                 execute=execute,
             )
 
+    def preview(self, run):
+        """미리 보기를 돌리고 만든 변경 세트들을 돌려준다. 어떤 미리 보기도 IMPORT 변경 세트를 만들지 않고(만들기만 해도 빈
+        REVIEW_IN_PROGRESS 스택이 남는다), 무엇도 실행하지 않는다."""
+        captured = capture_change_sets(run)
+        self.invoke(run, execute=False)
+        self.assertNotIn("IMPORT", [kind for kind, _, _ in captured])
+        for create in run.commands("cloudformation", "create-change-set"):
+            self.assertNotIn("--resources-to-import", create)
+        self.assertNotIn(("cloudformation", "execute-change-set"), run.operations())
+        return captured
+
     def test_preview_without_stack_creates_nothing(self):
         run = change_set_runner(status=None)
-        self.invoke(run, execute=False)
-        # 스택이 있는지 보는 읽기 하나뿐 — 가져오기 변경 세트는 만들기만 해도 빈 스택을 남긴다
-        self.assertEqual(run.operations(), [("cloudformation", "describe-stacks")])
+        self.preview(run)
+        # 읽기만 — 가져오기 변경 세트는 만들기만 해도 빈 스택을 남긴다
+        for service, operation in run.operations():
+            self.assertEqual(service, "cloudformation")
+            self.assertTrue(operation.startswith("describe-"), operation)
 
-    def test_execute_without_stack_imports_then_applies_desired(self):
-        run = change_set_runner(status=None)
-        bodies = []
-
-        def capture(command):
-            path = command[command.index("--template-body") + 1].removeprefix("file://")
-            bodies.append(
-                (
-                    command[command.index("--change-set-type") + 1],
-                    json.loads(Path(path).read_text()),
+    def test_preview_with_partial_stack_creates_no_import_change_set(self):
+        for status in ("IMPORT_COMPLETE", "IMPORT_ROLLBACK_COMPLETE"):
+            with self.subTest(status=status):
+                self.preview(
+                    change_set_runner(status=status, present=("SharedMediaBucket",))
                 )
-            )
-            return {}
 
-        run.responses[("cloudformation", "create-change-set")] = capture
+    def test_preview_with_full_stack_shows_update_diff_and_leaves_nothing(self):
+        run = change_set_runner()
+        captured = self.preview(run)
+        self.assertEqual([kind for kind, _, _ in captured], ["UPDATE"])
+        self.assertEqual(captured[0][1], desired_template())
+        operations = run.operations()
+        self.assertIn(("cloudformation", "describe-change-set"), operations)
+        # 차이를 보인 뒤 지운다 — 같은 이름의 변경 세트를 지워 아무것도 남지 않는다
+        (create,) = run.commands("cloudformation", "create-change-set")
+        (delete,) = run.commands("cloudformation", "delete-change-set")
+        name = create[create.index("--change-set-name") + 1]
+        self.assertEqual(delete[delete.index("--change-set-name") + 1], name)
+        self.assertGreater(
+            operations.index(("cloudformation", "delete-change-set")),
+            operations.index(("cloudformation", "describe-change-set")),
+        )
+
+    def test_execute_without_stack_imports_both_then_applies_desired(self):
+        run = change_set_runner(status=None)
+        captured = capture_change_sets(run)
         self.invoke(run, execute=True)
         desired = desired_template()
-        self.assertEqual([kind for kind, _ in bodies], ["IMPORT", "UPDATE"])
-        self.assertEqual(bodies[0][1], ops.import_template(desired))
-        self.assertEqual(bodies[1][1], desired)
-        (create_import, _) = run.commands("cloudformation", "create-change-set")
-        to_import = json.loads(
-            create_import[create_import.index("--resources-to-import") + 1]
-        )
-        self.assertEqual(
-            to_import,
-            [
-                {
-                    "ResourceType": "AWS::S3::Bucket",
-                    "LogicalResourceId": "SharedMediaBucket",
-                    "ResourceIdentifier": {"BucketName": "scenetrip-media-prod"},
-                }
-            ],
-        )
+        self.assertEqual([kind for kind, _, _ in captured], ["IMPORT", "UPDATE"])
+        self.assertEqual(captured[0][1], ops.import_template(desired))
+        self.assertEqual(captured[1][1], desired)
+        self.assertCountEqual(captured[0][2], [BUCKET_IMPORT, POLICY_IMPORT])
         self.assertEqual(len(run.commands("cloudformation", "execute-change-set")), 2)
 
-    def test_preview_with_stack_deletes_its_change_set(self):
+    def test_execute_with_bucket_only_imports_just_the_policy(self):
+        run = change_set_runner(
+            status="IMPORT_COMPLETE", present=("SharedMediaBucket",)
+        )
+        captured = capture_change_sets(run)
+        self.invoke(run, execute=True)
+        desired = desired_template()
+        self.assertEqual([kind for kind, _, _ in captured], ["IMPORT", "UPDATE"])
+        self.assertEqual(captured[0][1], ops.import_template(desired))
+        self.assertEqual(captured[0][2], [POLICY_IMPORT])
+        self.assertEqual(captured[1][1], desired)
+        self.assertEqual(len(run.commands("cloudformation", "execute-change-set")), 2)
+
+    def test_execute_with_nothing_missing_only_updates(self):
         run = change_set_runner()
-        self.invoke(run, execute=False)
-        operations = run.operations()
-        self.assertIn(("cloudformation", "create-change-set"), operations)
-        self.assertIn(("cloudformation", "delete-change-set"), operations)
-        self.assertNotIn(("cloudformation", "execute-change-set"), operations)
+        captured = capture_change_sets(run)
+        self.invoke(run, execute=True)
+        self.assertEqual([kind for kind, _, _ in captured], ["UPDATE"])
+        self.assertEqual(captured[0][1], desired_template())
+        self.assertIsNone(captured[0][2])
+        self.assertEqual(len(run.commands("cloudformation", "execute-change-set")), 1)
+
+    def test_rollback_complete_statuses_are_accepted(self):
+        for status in ("UPDATE_ROLLBACK_COMPLETE", "IMPORT_ROLLBACK_COMPLETE"):
+            with self.subTest(status=status):
+                run = change_set_runner(status=status, present=("SharedMediaBucket",))
+                captured = capture_change_sets(run)
+                self.invoke(run, execute=True)
+                self.assertEqual(
+                    [kind for kind, _, _ in captured], ["IMPORT", "UPDATE"]
+                )
+                self.assertEqual(captured[0][2], [POLICY_IMPORT])
 
     def test_replacement_aborts_before_execution(self):
         run = change_set_runner(replacement="True")
@@ -508,10 +614,20 @@ class SharedMediaFlowTest(unittest.TestCase):
         self.assertIn(("cloudformation", "delete-change-set"), operations)
 
     def test_unexpected_stack_status_stops(self):
-        run = change_set_runner(status="UPDATE_ROLLBACK_FAILED")
-        with self.assertRaises(RuntimeError):
-            self.invoke(run, execute=True)
-        self.assertNotIn(("cloudformation", "create-change-set"), run.operations())
+        for status in (
+            "UPDATE_ROLLBACK_FAILED",
+            "IMPORT_ROLLBACK_FAILED",
+            "ROLLBACK_COMPLETE",
+            "REVIEW_IN_PROGRESS",
+            "UPDATE_IN_PROGRESS",
+        ):
+            with self.subTest(status=status):
+                run = change_set_runner(status=status)
+                with self.assertRaises(RuntimeError):
+                    self.invoke(run, execute=True)
+                self.assertNotIn(
+                    ("cloudformation", "create-change-set"), run.operations()
+                )
 
 
 class RunnerSelectionTest(unittest.TestCase):
