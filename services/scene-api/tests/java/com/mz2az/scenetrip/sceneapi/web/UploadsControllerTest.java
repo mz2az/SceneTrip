@@ -114,6 +114,19 @@ class UploadsControllerTest {
   }
 
   @Test
+  @DisplayName("목적 post(여행후기, 1.10.0) — 201 이고 기록에 목적이 post 로 남는다")
+  void acceptsPostPurpose() throws Exception {
+    mvc.perform(
+            postJson(
+                "{\"purpose\":\"post\",\"contentType\":\"image/png\",\"bytes\":500}", bearer()))
+        .andExpect(status().isCreated())
+        .andExpect(
+            jsonPath("$.key").value(org.hamcrest.Matchers.matchesPattern(keyPattern("png"))));
+
+    verify(uploads).record(eq(USER), anyString(), eq("post"), eq("image/png"), eq(500L));
+  }
+
+  @Test
   @DisplayName("형식마다 확장자 — jpeg→jpg · png→png · heic→heic · webp→webp, 매번 새 키")
   void extensionFollowsType() throws Exception {
     Map<String, String> types =

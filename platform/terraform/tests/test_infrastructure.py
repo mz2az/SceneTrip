@@ -469,7 +469,9 @@ class InfrastructureBoundaryTest(unittest.TestCase):
         self.assertNotIn("StringLike", condition)
         self.assertNotIn("ArnLike", condition)
 
-    def test_media_role_reaches_only_two_prefixes_of_the_media_bucket(self):
+    def test_media_role_reaches_only_three_prefixes_of_the_media_bucket(self):
+        # uploads/tmp(막 올린 것) · reviews(리뷰 사진) · posts(여행후기 사진, MZ2AZ-352, community-post.md §4).
+        # 버킷 전체 객체(${UserMediaBucket}/*)나 다른 접두사에는 닿지 않는다.
         role = self._media_role()
         self.assertNotIn("ManagedPolicyArns", role)
         self.assertNotIn("PermissionsBoundary", role)
@@ -492,7 +494,13 @@ class InfrastructureBoundaryTest(unittest.TestCase):
         objects = {
             "arn:${AWS::Partition}:s3:::${UserMediaBucket}/uploads/tmp/*",
             "arn:${AWS::Partition}:s3:::${UserMediaBucket}/reviews/*",
+            "arn:${AWS::Partition}:s3:::${UserMediaBucket}/posts/*",
         }
+        every_resource = set().union(*by_action.values())
+        self.assertNotIn(
+            "arn:${AWS::Partition}:s3:::${UserMediaBucket}/*", every_resource
+        )
+        self.assertFalse(any("*" in r.split("/", 1)[0] for r in every_resource))
         self.assertEqual(
             by_action,
             {
