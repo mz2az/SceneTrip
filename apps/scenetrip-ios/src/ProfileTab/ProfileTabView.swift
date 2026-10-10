@@ -145,7 +145,7 @@ struct ProfileTabView: View {
                         showingPosts = true
                     } label: {
                         row(symbol: "square.and.pencil", tint: .indigo, title: tr("내가 쓴 글"),
-                            value: String(format: tr("%d개"), posts.mine.count), chevron: true)
+                            value: String(format: tr("%d개"), posts.mineTotal), chevron: true)
                     }
                     .buttonStyle(.plain)
                     myReviewsRow
@@ -330,6 +330,13 @@ struct ProfileTabView: View {
         let likesTask = Task { await likes.refresh() }
         let cartTask = Task { try? await CartAPI.getCart(xInstallId: installId) }
         let coursesTask = Task { try? await CoursesAPI.listCourses(xInstallId: installId) }
+        let postsTask = Task {
+            if auth.signedIn {
+                await posts.refresh(mine: true)
+            } else {
+                posts.clearMyPosts()
+            }
+        }
 
         // 못 받았어도 앞서 받아 둔 목록이 있으면 그것을 보인다 — 찜은 있는데 목록이 빌 때만 「못 받음」 이다.
         // 오류 원문을 그대로 보이지 않는다 — 서버 문장은 한국어이고 내부 정보가 섞인다 (MZ2AZ-345).
@@ -349,6 +356,7 @@ struct ProfileTabView: View {
         // 방문 스탬프 — 코스마다 상세를 받아 visitedAt 이 찍힌 것만 모은다.
         // 홈의 「내 기록」도 같은 것을 부른다(`VisitStamp.collect`).
         stamps = await VisitStamp.collect(courses: courses, installId: installId)
+        await postsTask.value
     }
 }
 
@@ -450,7 +458,7 @@ extension ProfileTabView {
                     Button("취소", role: .cancel) {}
                 } message: {
                     // 리뷰만 예외다 — 다른 사람을 위한 장소 정보라 작성자 표시 없이 남는다(서버 결정, MZ2AZ-362).
-                    Text("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰는 익명으로 남습니다. 지우려면 탈퇴 전에 지우세요.")
+                    Text("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 익명으로 남습니다. 지우려면 탈퇴 전에 지우세요.")
                 }
                 .alert("탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요", isPresented: $deleteFailed) {
                     Button("확인", role: .cancel) {}

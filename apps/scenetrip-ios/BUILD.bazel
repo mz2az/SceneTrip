@@ -74,12 +74,20 @@ swift_library(
     srcs = glob(
         ["src/**/*.swift"],
         exclude = [
+            "src/CommunityTab/CommunityBridge.swift",
+            "src/CommunityTab/CommunityClient.swift",
+            "src/CommunityTab/CommunitySubmission.swift",
+            "src/CommunityTab/PostRemotePhoto.swift",
             "src/RouteTab/RouteDayEstimate.swift",
             "src/RouteTab/RouteEditorHeader.swift",
             "src/RouteTab/RouteEditorList.swift",
             "src/RouteTab/RouteStopLabel.swift",
         ],
     ) + [
+        "src/CommunityTab/CommunityBridge.swift",
+        "src/CommunityTab/CommunityClient.swift",
+        "src/CommunityTab/CommunitySubmission.swift",
+        "src/CommunityTab/PostRemotePhoto.swift",
         "src/RouteTab/RouteDayEstimate.swift",
         "src/RouteTab/RouteEditorHeader.swift",
         "src/RouteTab/RouteEditorList.swift",
@@ -161,8 +169,12 @@ swift_library(
     testonly = True,
     srcs = glob(
         ["tests/**/*.swift"],
-        exclude = ["tests/CourseDisplayTests.swift"],
+        exclude = [
+            "tests/CommunityServerTests.swift",
+            "tests/CourseDisplayTests.swift",
+        ],
     ) + [
+        "tests/CommunityServerTests.swift",
         "tests/CourseDisplayTests.swift",
     ],
     module_name = "SceneTripTests",
