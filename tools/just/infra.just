@@ -101,6 +101,23 @@ aws-verify env:
 aws-lifecycle env action snapshot_policy="retain":
     {{BAZEL}} run //tools/aws:lifecycle -- "$1" "$2" --snapshot-policy "$3"
 
+# dev 최종 DB 스냅샷을 최근 N 개만 남기고 정리(MZ2AZ-364). 미리 보기 — 지우려면 --execute. dev 만.
+[group('infra')]
+[positional-arguments]
+aws-snapshot-prune env *flags:
+    {{BAZEL}} run //tools/aws:ops -- snapshot-prune "$@"
+
+# 끊긴 배포 점검(읽기만) — 잠금 파일·state 밖 EKS·RDS·NAT·VPC. 정리는 docs/ops/aws-deployment.md 「끊긴 배포 정리」
+[group('infra')]
+aws-drift env:
+    {{BAZEL}} run //tools/aws:ops -- drift "$1"
+
+# 장면 사진 버킷(scenetrip-media-prod)을 CloudFormation 으로 — 가져오기·버전 관리. 미리 보기, 적용은 --execute
+[group('infra')]
+[positional-arguments]
+aws-shared-media *flags:
+    {{BAZEL}} run //tools/aws:ops -- shared-media "$@"
+
 # AWS 인증 전에 삭제 범위·입력·확인값 검사
 [group('infra')]
 aws-teardown-validate env scope operation snapshot_policy="retain" purge_state="false":

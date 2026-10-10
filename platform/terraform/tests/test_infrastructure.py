@@ -8,6 +8,41 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 
 
+def resolve_conditions(template, value, environment):
+    """`Fn::If` 를 그 환경의 조건값으로 풀고 `AWS::NoValue` 를 지운다 — CloudFormation 이 배포 때 하는 것."""
+    conditions = template.get("Conditions", {})
+
+    def truth(name):
+        condition = conditions[name]
+        ((operator, operands),) = condition.items()
+        if operator != "Fn::Equals":
+            raise AssertionError(f"알 수 없는 조건 {operator}")
+        left, right = (
+            environment if operand == {"Ref": "Environment"} else operand
+            for operand in operands
+        )
+        return left == right
+
+    def walk(node):
+        if isinstance(node, list):
+            items = [walk(item) for item in node]
+            return [item for item in items if item is not NO_VALUE]
+        if not isinstance(node, dict):
+            return node
+        if node == {"Ref": "AWS::NoValue"}:
+            return NO_VALUE
+        if set(node) == {"Fn::If"}:
+            name, yes, no = node["Fn::If"]
+            return walk(yes if truth(name) else no)
+        items = {key: walk(child) for key, child in node.items()}
+        return {key: child for key, child in items.items() if child is not NO_VALUE}
+
+    return walk(value)
+
+
+NO_VALUE = object()
+
+
 class InfrastructureBoundaryTest(unittest.TestCase):
     def setUp(self):
         path = ROOT / "platform/terraform/bootstrap/template.json"
@@ -121,6 +156,11 @@ class InfrastructureBoundaryTest(unittest.TestCase):
                 self.assertIsInstance(value["Fn::Sub"], str)
             if "Ref" in value:
                 self.assertIsInstance(value["Ref"], str)
+            if "Fn::If" in value:
+                condition = value["Fn::If"]
+                self.assertIsInstance(condition, list)
+                self.assertEqual(len(condition), 3)
+                self.assertIn(condition[0], self.template.get("Conditions", {}))
             if "Fn::GetAtt" in value:
                 self.assertEqual(len(value["Fn::GetAtt"]), 2)
                 self.assertTrue(all(isinstance(v, str) for v in value["Fn::GetAtt"]))
@@ -263,7 +303,12 @@ class InfrastructureBoundaryTest(unittest.TestCase):
         return next(s for s in self.statements if s["Sid"] == sid)
 
     def test_user_media_bucket_is_retained_private_and_expires_tmp(self):
-        bucket = self._media_bucket()
+        for environment in ("dev", "prd"):
+            with self.subTest(environment=environment):
+                self._check_user_media_bucket(environment)
+
+    def _check_user_media_bucket(self, environment):
+        bucket = resolve_conditions(self.template, self._media_bucket(), environment)
         self.assertEqual(bucket["Type"], "AWS::S3::Bucket")
         # dev 를 내려도(Terraform 을 지워도) 사진은 남는다 — bootstrap 의 Retain
         self.assertEqual(bucket["DeletionPolicy"], "Retain")
@@ -304,7 +349,67 @@ class InfrastructureBoundaryTest(unittest.TestCase):
         self.assertEqual(expiring[0]["ExpirationInDays"], 1)
         prefix = expiring[0].get("Prefix", expiring[0].get("Filter", {}).get("Prefix"))
         self.assertEqual(prefix, "uploads/tmp/")
-        self.assertNotIn("VersioningConfiguration", props)
+        noncurrent = [r for r in rules if "NoncurrentVersionExpiration" in r]
+        if environment == "prd":
+            # 사용자가 올린 사진은 다시 만들 수 없다 — prd 만 버전 관리, 지운 판은 30 일 뒤 영구 삭제(ops-protection.md §1)
+            self.assertEqual(props["VersioningConfiguration"], {"Status": "Enabled"})
+            self.assertEqual(len(noncurrent), 1)
+            self.assertEqual(noncurrent[0]["Status"], "Enabled")
+            self.assertEqual(
+                noncurrent[0]["NoncurrentVersionExpiration"], {"NoncurrentDays": 30}
+            )
+            self.assertEqual(
+                noncurrent[0].get(
+                    "Prefix", noncurrent[0].get("Filter", {}).get("Prefix", "")
+                ),
+                "",
+            )
+        else:
+            # dev 는 시험용이라 켜지 않는다(비용) — 지금과 같다
+            self.assertNotIn("VersioningConfiguration", props)
+            self.assertEqual(noncurrent, [])
+            self.assertEqual(
+                [r["Id"] for r in rules],
+                ["ExpireUnattachedUploads", "AbortIncompleteUploads"],
+            )
+
+    def test_production_condition_is_environment_prd(self):
+        self.assertEqual(
+            self.template["Conditions"]["IsProduction"],
+            {"Fn::Equals": [{"Ref": "Environment"}, "prd"]},
+        )
+
+    # --- dev 최종 스냅샷 정리(docs/project/plans/ops-protection.md §1, docs/ops/aws-deployment.md §14) ---
+
+    def test_deployer_deletes_only_dev_final_snapshots(self):
+        statement = self._sid("PruneDevFinalSnapshots")
+        self.assertEqual(statement["Effect"], "Allow")
+        self.assertEqual(statement["Action"], ["rds:DeleteDBSnapshot"])
+        # 환경 변수가 아니라 dev 로 고정 — prd 스택이 만든 배포 역할도 prd 스냅샷은 못 지운다
+        self.assertEqual(
+            statement["Resource"],
+            {
+                "Fn::Sub": "arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:snapshot:scenetrip-dev-final-*"
+            },
+        )
+        self.assertNotIn("Condition", statement)
+
+    def test_no_other_statement_can_delete_snapshots(self):
+        for statement in self.statements:
+            if statement["Sid"] == "PruneDevFinalSnapshots":
+                continue
+            actions = statement["Action"]
+            actions = actions if isinstance(actions, list) else [actions]
+            for action in actions:
+                with self.subTest(sid=statement["Sid"], action=action):
+                    self.assertNotEqual(action, "rds:DeleteDBSnapshot")
+                    self.assertNotIn(action, {"rds:*", "*", "rds:Delete*"})
+
+    def test_deployer_policy_has_no_conditional_statements(self):
+        # 조건문을 권한 목록에 넣지 않는다 — 템플릿을 읽는 점검이 그대로 돈다(ops-protection.md §1)
+        policy = json.dumps(self.role["Policies"])
+        self.assertNotIn("Fn::If", policy)
+        self.assertNotIn("AWS::NoValue", policy)
 
     def test_user_media_bucket_policy_denies_plain_http(self):
         policies = [

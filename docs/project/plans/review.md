@@ -195,7 +195,7 @@ photoCount: 57     # 전체 수 — 「사진 전체 보기 (57)」
 §10 의 셋을 정했다.
 
 1. **저장소 — 사용자 사진 전용 버킷을 새로 만든다:** `scenetrip-user-media-dev` · `scenetrip-user-media-prod`.
-   성지 사진 버킷(`scene-media-prod`)은 쓰지 않는다 — 운영 버킷에 개발 시험 사진이 섞이고, 우리가 고른 사진과
+   성지 사진 버킷(`scenetrip-media-prod`)은 쓰지 않는다 — 운영 버킷에 개발 시험 사진이 섞이고, 우리가 고른 사진과
    누가 올릴지 모르는 사진에 같은 삭제·공개 규칙을 걸 수 없어서다. 둘 다 비공개이고, 키 앞부분으로 규칙을 건다:
    `uploads/tmp/` 는 하루 뒤 지운다, `reviews/` 는 남긴다(커뮤니티는 `community/`). 키 끝은 UUID 다. 버킷은
    Terraform 에 적어 만든다. **로컬(kind)도 MinIO 를 띄우지 않고 dev 버킷을 쓴다** — 팀원은 dev 버킷 전용 키를 둔다.
@@ -226,7 +226,7 @@ photoCount: 57     # 전체 수 — 「사진 전체 보기 (57)」
 (RDS 도 지우고 최종 스냅샷만 남긴다). 버킷을 거기 두면 내릴 때마다 사진이 사라지고, **그 dev 버킷을 쓰는 로컬
 kind 의 리뷰 사진까지 깨진다**(로컬 DB 는 남으므로). 그래서 state 버킷처럼 bootstrap(`DeletionPolicy: Retain`)에
 둔다. 비용은 사진 몇 GB 에 월 수백 원 — 아끼려는 EKS·NAT·RDS 와 단위가 다르다. dev·prd 는 버킷이 따로다.
-기존 성지 사진 버킷 `scene-media-prod` 는 손대지 않는다(코드로 관리하는 일은 MZ2AZ-364).
+기존 성지 사진 버킷 `scenetrip-media-prod` 는 손대지 않는다(코드로 관리하는 일은 MZ2AZ-364).
 
 | 자리 | 무엇 |
 | --- | --- |

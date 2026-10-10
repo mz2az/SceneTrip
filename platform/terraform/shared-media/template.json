@@ -1,0 +1,59 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "SceneTrip 공용 장면 사진 버킷(scenetrip-media-prod) — 모든 환경(로컬·dev·prd)이 시드의 scene_image_url 로 읽는다. 2026-08-28 콘솔에서 만든 것을 가져와(import) 관리한다(MZ2AZ-364, docs/project/plans/ops-protection.md). 환경 bootstrap 과 따로 둔다 — dev 를 지울 때 휘말리지 않게.",
+  "Resources": {
+    "SharedMediaBucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "BucketName": "scenetrip-media-prod",
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {"ServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}, "BucketKeyEnabled": true}
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": false,
+          "RestrictPublicBuckets": false
+        },
+        "OwnershipControls": {"Rules": [{"ObjectOwnership": "BucketOwnerEnforced"}]},
+        "VersioningConfiguration": {"Status": "Enabled"},
+        "LifecycleConfiguration": {
+          "Rules": [
+            {"Id": "cleanup-incomplete-uploads", "Status": "Enabled", "Prefix": "", "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 7}},
+            {"Id": "ExpireNoncurrentVersions", "Status": "Enabled", "Prefix": "", "NoncurrentVersionExpiration": {"NoncurrentDays": 30}}
+          ]
+        },
+        "Tags": [
+          {"Key": "Project", "Value": "scenetrip"},
+          {"Key": "Environment", "Value": "shared"},
+          {"Key": "ManagedBy", "Value": "cloudformation"}
+        ]
+      }
+    },
+    "SharedMediaBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {"Ref": "SharedMediaBucket"},
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "PublicReadForImages",
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": "s3:GetObject",
+              "Resource": {"Fn::Sub": "arn:${AWS::Partition}:s3:::${SharedMediaBucket}/*"}
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "SharedMediaBucketName": {"Value": {"Ref": "SharedMediaBucket"}}
+  }
+}

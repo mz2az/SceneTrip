@@ -30,6 +30,7 @@
 | [review-app.md](./review-app.md) | 리뷰·별점·사진첩·닉네임 — 앱 화면. 한 벌의 리뷰 시트를 세 곳에서, PR 다섯으로 (MZ2AZ-363) |
 | [place-poi-link.md](./place-poi-link.md) | 촬영지 ↔ 편의시설 같은 곳 연결 — 거리·이름·주소로 판정, 어디서든 촬영지가 대표(상세·리뷰·코스), 지도에 `placeId` (MZ2AZ-371) |
 | [course-poi-item.md](./course-poi-item.md) | 코스에 편의시설을 편의시설로 담는다 — `course_item.poi_id`, 같은 곳이면 촬영지로, 마켓 사본에서는 빠짐, 낡은 앱 보호 (MZ2AZ-377) |
+| [ops-protection.md](./ops-protection.md) | 출시 전 운영 보호 — dev 최종 스냅샷 2 개만, 장면 사진 버킷 CloudFormation·버전 관리, prd 사용자 사진 버전 관리, 끊긴 배포 점검·런북 (MZ2AZ-364) |
 | [poi-source.md](./poi-source.md) | 편의시설 출처 번호 여러 개 — 합친 기록(원본 97만 줄 재구성), 관광공사 상세 붙이기, 영업 여부는 상가정보 기준, POI 는 지우지 않음 (MZ2AZ-376) |
 
 ## 언제 여기에 쓰는가

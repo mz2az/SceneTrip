@@ -24,6 +24,8 @@ class BootstrapRunner:
         self.bucket_exists = True
         self.fail = None
         self.overrides = {}
+        self.media_bucket = "scenetrip-user-media-123456789012-ap-northeast-2-dev"
+        self.extra_resources = []
 
     def __call__(self, command, **kwargs):
         self.calls.append((command, kwargs))
@@ -40,7 +42,11 @@ class BootstrapRunner:
             ("NodeRole", "AWS::IAM::Role", "scenetrip-dev-eks-node"),
             ("DeploymentRole", "AWS::IAM::Role", "scenetrip-dev-deploy"),
             ("LifecycleRole", "AWS::IAM::Role", "scenetrip-dev-lifecycle"),
-        ]
+            # 사용자 사진 버킷·정책·역할(MZ2AZ-362) — 버킷은 Retain 이라 스택을 지워도 남는다
+            ("UserMediaBucket", "AWS::S3::Bucket", self.media_bucket),
+            ("UserMediaBucketPolicy", "AWS::S3::BucketPolicy", self.media_bucket),
+            ("MediaRole", "AWS::IAM::Role", "scenetrip-dev-media"),
+        ] + self.extra_resources
         outputs = {
             "TerraformStateBucket": self.bucket,
             "TerraformStateKey": self.key,
@@ -149,6 +155,27 @@ class BootstrapDeleteTest(unittest.TestCase):
     def invoke(self, run, **kwargs):
         with tempfile.TemporaryDirectory() as directory:
             delete_bootstrap(run, run.settings, Path(directory), **kwargs)
+
+    def test_stack_with_user_media_resources_is_allowed(self):
+        run = BootstrapRunner()
+        self.invoke(run, execute=True)
+        self.assertTrue(any(command[2] == "delete-stack" for command, _ in run.calls))
+
+    def test_unknown_or_foreign_media_resources_block_deletion(self):
+        cases = [
+            [("Unexpected", "AWS::IAM::Role", "scenetrip-dev-other")],
+        ]
+        for extra in cases:
+            with self.subTest(extra=extra):
+                run = BootstrapRunner()
+                run.extra_resources = extra
+                with self.assertRaisesRegex(ValueError, "허용되지 않은"):
+                    self.invoke(run, execute=True)
+        run = BootstrapRunner()
+        run.media_bucket = "scenetrip-user-media-999999999999-ap-northeast-2-dev"
+        with self.assertRaisesRegex(ValueError, "허용되지 않은"):
+            self.invoke(run, execute=True)
+        self.assertFalse(any(command[2] == "delete-stack" for command, _ in run.calls))
 
     def test_plan_is_read_only(self):
         run = BootstrapRunner()
