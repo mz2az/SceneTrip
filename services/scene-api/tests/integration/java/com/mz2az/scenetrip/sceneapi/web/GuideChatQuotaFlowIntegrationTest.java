@@ -11,6 +11,7 @@ import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.cart.CartStores;
 import com.mz2az.scenetrip.sceneapi.guide.GuideAgentClient;
 import com.mz2az.scenetrip.sceneapi.guide.GuideEffectAppliers;
+import com.mz2az.scenetrip.sceneapi.guide.GuideTurnLog;
 import com.mz2az.scenetrip.sceneapi.guide.IdempotencyStore;
 import com.mz2az.scenetrip.sceneapi.limit.PaidQuota;
 import com.mz2az.scenetrip.sceneapi.limit.UsageStore;
@@ -83,6 +84,8 @@ class GuideChatQuotaFlowIntegrationTest {
   private final List<UUID> created = new ArrayList<>();
   private UUID install;
   private UUID user;
+  // 이 시험의 턴이 남긴 처리 기록(guide_turn, MZ2AZ-410)을 지우는 기준 — 시작 때의 최대 id.
+  private long turnWatermark;
 
   private static byte[] filled(int n, byte b) {
     byte[] out = new byte[n];
@@ -128,6 +131,8 @@ class GuideChatQuotaFlowIntegrationTest {
 
   @BeforeEach
   void signedInUser() {
+    turnWatermark =
+        jdbc.sql("SELECT coalesce(max(id), 0) FROM guide_turn").query(Long.class).single();
     agentHits.set(0);
     agentStatus = 200;
     agentDelayMs = 0;
@@ -142,6 +147,7 @@ class GuideChatQuotaFlowIntegrationTest {
 
   @AfterEach
   void cleanUp() {
+    jdbc.sql("DELETE FROM guide_turn WHERE id > :w").param("w", turnWatermark).update();
     for (UUID id : created) {
       jdbc.sql("DELETE FROM usage_counter WHERE subject = :s").param("s", id.toString()).update();
       // idempotency_key 는 ON DELETE CASCADE 로 함께 지워진다
@@ -160,7 +166,8 @@ class GuideChatQuotaFlowIntegrationTest {
         new CurrentAccount(request, tokens, users),
         new PaidQuota(usage, perHour, perDay, 10, 300),
         new IdempotencyStore(jdbc),
-        JSON);
+        JSON,
+        new GuideTurnLog(jdbc, 90));
   }
 
   private static GuideChatRequest body(String text) {

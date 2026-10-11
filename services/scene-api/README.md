@@ -453,6 +453,20 @@ just guide-down     # 끈다 — /guide/* 는 다시 503
 에이전트 호출은 SigNoz 에서 `http.client.requests{uri="/guide/chat"}`·`{uri="/plan"}` 으로 갈려
 보인다. 타임아웃 값을 실측으로 정하는 근거가 여기서 나온다.
 
+### 처리 기록 — `guide_turn`
+
+에이전트를 부른 턴마다 한 줄(MZ2AZ-410, V29): 시각·언어·결과(`ok` 또는 오류 코드)·쓴 도구·돌려준 장소 수·효과 op·걸린 시간.
+**대화 원문·사용자·기기는 남기지 않는다.** 90 일 뒤 지운다(`scenetrip.guide.turn-log-retention-days`). **장소를 0 개 돌려주고
+효과도 없는 턴**이 「못 찾은 답」 후보다 — 에이전트를 고칠 재료. 일정 짜기 턴은 장소 0 개에 `plan.draft` 라 실패가 아니다
+(2026-10-11 실측: 「경복궁 근처 촬영지」 → `places_near`, 장소 0, 효과 없음).
+
+```sql
+-- 최근 7 일, 못 찾은 답 후보를 도구·언어별로
+SELECT tools, lang, count(*) FROM guide_turn
+WHERE outcome = 'ok' AND place_count = 0 AND effects = '{}' AND created_at > now() - interval '7 days'
+GROUP BY 1, 2 ORDER BY 3 DESC;
+```
+
 ## 인기도 — 매일 밤 다시 계산한다
 
 작품·촬영지·편의시설의 `popularity_score` 는 정렬값이다. **매일 밤 03:30(한국 시간)** 에 DB 함수

@@ -5,7 +5,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
 /**
@@ -17,7 +16,6 @@ import org.springframework.scheduling.annotation.Scheduled;
  * <p>{@code scenetrip.popularity.schedule-enabled=false} 면 돌지 않는다(시험).
  */
 @Configuration
-@EnableScheduling
 @ConditionalOnProperty(
     name = "scenetrip.popularity.schedule-enabled",
     havingValue = "true",

@@ -22,6 +22,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.guide.GuideAgentClient;
 import com.mz2az.scenetrip.sceneapi.guide.GuideEffectApplier;
+import com.mz2az.scenetrip.sceneapi.guide.GuideTurnLog;
 import com.mz2az.scenetrip.sceneapi.guide.IdempotencyStore;
 import com.mz2az.scenetrip.sceneapi.limit.InMemoryUsageStore;
 import com.mz2az.scenetrip.sceneapi.limit.PaidQuota;
@@ -78,6 +79,7 @@ class GuideControllerTest {
 
   @MockitoBean private CurrentAccount accounts;
   @MockitoBean private IdempotencyStore idempotency;
+  @MockitoBean private GuideTurnLog turns;
 
   @Autowired private InMemoryUsageStore usage;
   @Autowired private JsonMapper json;
