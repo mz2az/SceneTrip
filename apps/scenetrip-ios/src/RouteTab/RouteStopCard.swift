@@ -120,6 +120,7 @@ struct RouteStopCard: View {
             }
         }
         .task(id: stop.id) {
+            UsageEvents.opened(stop.placeId.map { .place($0) })
             loading = true
             detail = nil
             // 직접 찍은 핀은 우리 표에 없다 — 물어볼 곳이 없다.

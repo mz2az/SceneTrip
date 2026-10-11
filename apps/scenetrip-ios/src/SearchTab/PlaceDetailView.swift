@@ -61,6 +61,7 @@ struct PlaceDetailView: View {
         }
         .task(id: summary.id) {
             AppAnalytics.log(.viewPlace(placeId: summary.id))
+            UsageEvents.view(.place, id: summary.id)
             // 상세가 오기 전에는 목록이 준 대표 사진 한 장으로 그린다(전과 같다).
             gallery.show(
                 PhotoGalleryRules.book(photos: nil, count: nil, legacy: [summary.imageUrl].compactMap { $0 }),
