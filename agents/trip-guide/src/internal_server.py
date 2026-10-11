@@ -100,6 +100,7 @@ def validate_body(route: str, body) -> None:
 class InternalHandler(Handler):
     budget: RequestBudget
     active: threading.Lock
+    held: list | None = None
 
     def setup(self):
         self.request.settimeout(SOCKET_TIMEOUT)
@@ -126,6 +127,9 @@ class InternalHandler(Handler):
                 "message": "가이드를 일시적으로 사용할 수 없습니다",
             }
             status = 503
+        if self.held is not None:
+            self.held.append((payload, status))
+            return
         super()._send(payload, status)
 
     def do_POST(self):
@@ -139,6 +143,9 @@ class InternalHandler(Handler):
         if not self.active.acquire(blocking=False):
             self._send({"code": "GUIDE_UNAVAILABLE"}, 503)
             return
+        # 답은 자리를 비운 뒤에 보낸다(MZ2AZ-405). 보내고 나서 비우면, 답을 받자마자 온 다음 요청이
+        # 아직 안 비워진 자리에 걸려 503 으로 거절된다 — 부르는 쪽이 하나뿐이어도.
+        self.held = []
         try:
             with (
                 request_deadline(),
@@ -170,6 +177,9 @@ class InternalHandler(Handler):
             self._send({"code": "GUIDE_UNAVAILABLE"}, 503)
         finally:
             self.active.release()
+            held, self.held = self.held, None
+        if held:
+            super()._send(*held[-1])
 
     def _dispatch(self):
         self.validated_body = read_body(self.rfile, self.headers)
