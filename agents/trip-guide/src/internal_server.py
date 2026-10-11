@@ -12,11 +12,14 @@ from web.server import Desk, Handler
 
 from src.deepseek import DeepSeekClient, load_config
 from src.production import (
+    MAX_ACTIVE,
     MAX_SESSIONS,
+    WAIT_SECONDS,
     BodyError,
     RequestBudget,
     RequestExpired,
     read_body,
+    remaining_timeout,
     request_deadline,
     source_url,
 )
@@ -35,6 +38,17 @@ class LimitedDesk(Desk):
     def __init__(self, book, described, config):
         super().__init__(book, described, config)
         self.turn_counts = {}
+        self.turn_locks = {}
+
+    def turn_lock(self, sid):
+        """같은 대화의 턴은 한 번에 하나다 — 이력과 「보여 준 장소」 가 대화마다 메모리에 있어 겹치면 섞인다."""
+        with self.lock:
+            self.turn_locks = {
+                key: lock
+                for key, lock in self.turn_locks.items()
+                if key in self.guides or lock.locked()
+            }
+            return self.turn_locks.setdefault(sid, threading.Lock())
 
     def reserve_turn(self, sid):
         live = {
@@ -95,7 +109,7 @@ def validate_body(route: str, body) -> None:
 
 class InternalHandler(Handler):
     budget: RequestBudget
-    active: threading.Lock
+    active: threading.BoundedSemaphore
     held: list | None = None
 
     def setup(self):
@@ -136,15 +150,14 @@ class InternalHandler(Handler):
         if not self.budget.allow():
             self._send({"code": "RATE_LIMITED", "message": "요청이 너무 많습니다"}, 429)
             return
-        if not self.active.acquire(blocking=False):
-            self._send({"code": "GUIDE_UNAVAILABLE"}, 503)
-            return
-        # 답은 자리를 비운 뒤에 보낸다(MZ2AZ-405). 보내고 나서 비우면, 답을 받자마자 온 다음 요청이
-        # 아직 안 비워진 자리에 걸려 503 으로 거절된다 — 부르는 쪽이 하나뿐이어도.
+        # 자리(동시 MAX_ACTIVE 턴)가 없으면 거절하지 않고 기다린다(MZ2AZ-413). 기다린 시간도 턴 예산에 든다.
+        # 답은 자리를 비운 뒤에 보낸다(MZ2AZ-405) — 보내고 나서 비우면, 답을 받자마자 온 다음 요청이
+        # 아직 안 비워진 자리를 기다리게 된다.
         self.held = []
+        held_locks = []
         try:
             with request_deadline():
-                self._dispatch()
+                self._dispatch(held_locks)
         except RequestExpired:
             self._send({"code": "GUIDE_UNAVAILABLE"}, 503)
         except BodyError as exc:
@@ -169,24 +182,33 @@ class InternalHandler(Handler):
             LOG.exception("내부 에이전트 요청 처리 실패")
             self._send({"code": "GUIDE_UNAVAILABLE"}, 503)
         finally:
-            self.active.release()
+            for lock in reversed(held_locks):
+                lock.release()
             held, self.held = self.held, None
         if held:
             super()._send(*held[-1])
 
-    def _dispatch(self):
+    def _dispatch(self, held_locks):
+        # 몸체는 자리를 잡기 전에 읽고 검사한다 — 잘못된 요청이 자리를 쓰거나 줄에 서지 않게.
         self.validated_body = read_body(self.rfile, self.headers)
         body = json.loads(self.validated_body)
         validate_body(self.path, body)
-        self.desk._sweep()
-        if self.path == "/guide/chat":
-            sid = body["sessionId"]
-            if sid not in self.desk.guides and len(self.desk.guides) >= MAX_SESSIONS:
+        sid = body["sessionId"] if self.path == "/guide/chat" else None
+        waiting = [self.desk.turn_lock(sid)] if sid is not None else []
+        for lock in (*waiting, self.active):
+            if not lock.acquire(timeout=remaining_timeout(WAIT_SECONDS)):
                 self._send({"code": "GUIDE_UNAVAILABLE"}, 503)
                 return
-            if not self.desk.reserve_turn(sid):
-                self._send({"code": "GUIDE_UNAVAILABLE"}, 503)
-                return
+            held_locks.append(lock)
+        with self.desk.lock:
+            self.desk._sweep()
+            refused = sid is not None and (
+                (sid not in self.desk.guides and len(self.desk.guides) >= MAX_SESSIONS)
+                or not self.desk.reserve_turn(sid)
+            )
+        if refused:
+            self._send({"code": "GUIDE_UNAVAILABLE"}, 503)
+            return
         super().do_POST()
 
 
@@ -224,7 +246,7 @@ def main():
     class RuntimeHandler(InternalHandler):
         desk = LimitedDesk(book, "scene-api", config)
         budget = RequestBudget()
-        active = threading.Lock()
+        active = threading.BoundedSemaphore(MAX_ACTIVE)
 
     # 기동 시 scene-api.health()를 부르면 양쪽 readiness 의존이 순환한다.
     with InternalServer(("0.0.0.0", PORT), RuntimeHandler) as server:
