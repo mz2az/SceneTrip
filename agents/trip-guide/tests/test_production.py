@@ -3,6 +3,7 @@
 import io
 import json
 import threading
+import time
 import unittest
 from contextlib import closing
 from email.message import Message
@@ -231,8 +232,28 @@ class InternalHTTP(unittest.TestCase):
             self.assertEqual(status, 200, body)
             self.assertEqual(len(body["plan"]["days"]), 2)
 
+    def test_request_right_after_a_response_is_not_refused(self):
+        # MZ2AZ-405 — 답을 보낸 뒤에야 「동시 작업 1개」 자리를 비우면, 답을 받자마자 보낸 다음 요청이
+        # 503 으로 거절되고 몸체를 보내던 쪽은 BrokenPipe 를 본다. 자리를 늦게 비우는 잠금으로 그 틈을 넓힌다.
+        class SlowRelease:
+            def __init__(self):
+                self.lock = threading.Lock()
+
+            def acquire(self, blocking=True):
+                return self.lock.acquire(blocking)
+
+            def release(self):
+                time.sleep(0.05)
+                self.lock.release()
+
+        self.handler.active = SlowRelease()
+        for chunked in (False, True, True):
+            status, body = self.request(
+                "POST", "/plan", {"titles": ["도깨비"], "days": 2}, chunked
+            )
+            self.assertEqual(status, 200, body)
+
     def test_contract_maximum_korean_history_exceeds_64k_and_is_accepted(self):
-        import time
         from types import SimpleNamespace
         from unittest.mock import Mock
 
