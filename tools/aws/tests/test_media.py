@@ -143,7 +143,12 @@ class MediaDeployValuesTest(unittest.TestCase):
             ),
             patch(
                 "tools.aws.deploy.auth_secret",
-                return_value={"SCENETRIP_AUTH_JWT_SECRET": "fixture-signing-key"},
+                # auth 칸은 키 셋이다(MZ2AZ-412) — 서비스 비밀값은 에이전트 시크릿에도 간다.
+                return_value={
+                    "SCENETRIP_AUTH_JWT_SECRET": "fixture-signing-key",
+                    "SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY": "fixture-encryption-key",
+                    "SCENETRIP_SERVICE_TOKEN": "fixture-service-token",
+                },
             ),
             patch(
                 "tools.aws.deploy.secret_value",

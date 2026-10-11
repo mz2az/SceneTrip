@@ -13,11 +13,15 @@ from web.server import Desk, Handler
 from src.deepseek import DeepSeekClient, load_config
 from src.production import (
     MAX_SESSIONS,
+    RATE_SUBJECT_HEADER,
+    SERVICE_TOKEN_ENV,
     BodyError,
     RequestBudget,
     RequestExpired,
+    rate_subject,
     read_body,
     request_deadline,
+    service_token,
     source_url,
 )
 from src.sceneapi import SceneApiPlaceBook
@@ -136,7 +140,10 @@ class InternalHandler(Handler):
             self._send({"code": "GUIDE_UNAVAILABLE"}, 503)
             return
         try:
-            with request_deadline():
+            with (
+                request_deadline(),
+                rate_subject(self.headers.get(RATE_SUBJECT_HEADER)),
+            ):
                 self._dispatch()
         except RequestExpired:
             self._send({"code": "GUIDE_UNAVAILABLE"}, 503)
@@ -210,6 +217,11 @@ def main():
     config = load_config()
     DeepSeekClient()  # 키가 없으면 시작을 실패시킨다. 모델 API는 호출하지 않는다.
     book = SceneApiPlaceBook(source_url(None, "http://scene-api:8080/v1"))
+    if not service_token():
+        LOG.warning(
+            "%s 가 비어 있다 — scene-api 읽기가 사용자 몫이 아니라 이 에이전트 한 칸으로 세어진다(ADR 0023)",
+            SERVICE_TOKEN_ENV,
+        )
 
     class RuntimeHandler(InternalHandler):
         desk = LimitedDesk(book, "scene-api", config)

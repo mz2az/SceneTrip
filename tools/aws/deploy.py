@@ -141,8 +141,21 @@ def auth_secret(run, arn):
             "SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY": base64.b64encode(
                 secrets.token_bytes(32)
             ).decode(),
+            # 서비스 비밀값(ADR 0023) — trip-guide 가 scene-api 읽기에 달아 한도 열쇠를 믿게 한다.
+            "SCENETRIP_SERVICE_TOKEN": base64.b64encode(
+                secrets.token_bytes(32)
+            ).decode(),
         },
     )
+
+
+def trip_guide_secret(guide, auth):
+    """trip-guide 의 Secret — 사람이 넣은 모델 키와 서비스 비밀값 **하나만**.
+
+    auth 칸을 통째로 넘기지 않는다. 서명 키·암호화 키가 에이전트에 가면 에이전트가 토큰을
+    만들 수 있게 된다(ADR 0013·0023: 에이전트는 자격 증명을 쥐지 않는다).
+    """
+    return {**guide, "SCENETRIP_SERVICE_TOKEN": auth["SCENETRIP_SERVICE_TOKEN"]}
 
 
 def gateway_values(settings, outputs):
@@ -423,18 +436,22 @@ def deploy(run, root, settings, outputs):
     credentials = database_credentials(run, outputs["app_secret_arns"]["database"])
     # scene-api 는 사람이 넣은 카카오 키와 배포가 만든 서명 키를 한 Secret 으로 받는다 —
     # Helm 차트가 scene-api-secrets 를 통째로 환경변수로 넣는다(envFrom).
+    auth = auth_secret(run, outputs["app_secret_arns"]["auth"])
     sync_secret(
         run,
         "scene-api-secrets",
         {
             **secret_value(run, outputs["app_secret_arns"]["scene_api"], "scene_api"),
-            **auth_secret(run, outputs["app_secret_arns"]["auth"]),
+            **auth,
         },
     )
     sync_secret(
         run,
         "trip-guide-secrets",
-        secret_value(run, outputs["app_secret_arns"]["trip_guide"], "trip_guide"),
+        trip_guide_secret(
+            secret_value(run, outputs["app_secret_arns"]["trip_guide"], "trip_guide"),
+            auth,
+        ),
     )
     sync_secret(
         run,

@@ -18,7 +18,7 @@ import urllib.request
 from typing import Any
 
 from .places import Place, PlaceSource, Scene, norm
-from .production import remaining_timeout
+from .production import remaining_timeout, service_headers
 
 
 class SceneApiError(RuntimeError):
@@ -48,7 +48,10 @@ class SceneApiPlaceBook(PlaceSource):
             {k: v for k, v in (params or {}).items() if v is not None}, encoding="utf-8"
         )
         url = f"{self.base_url}{path}" + (f"?{query}" if query else "")
-        request = urllib.request.Request(url, headers={"Accept-Language": self.lang})
+        # 내부 서버가 턴을 받으면 한도 열쇠·서비스 비밀값이 붙는다(ADR 0023). CLI·개발 서버는 빈 사전.
+        request = urllib.request.Request(
+            url, headers={"Accept-Language": self.lang, **service_headers()}
+        )
         try:
             with urllib.request.urlopen(
                 request, timeout=remaining_timeout(self.timeout)

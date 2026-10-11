@@ -19,6 +19,8 @@ import java.util.HexFormat;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -113,7 +115,7 @@ class GuideController implements GuideApi {
     long started = System.nanoTime();
     GuideChatReply reply;
     try {
-      reply = agent.chat(request, acceptLanguage);
+      reply = agent.chat(request, acceptLanguage, rateSubject());
     } catch (RuntimeException e) {
       turns.failed(
           lang,
@@ -157,6 +159,21 @@ class GuideController implements GuideApi {
   @Override
   public ResponseEntity<GuidePlanReply> planWithGuide(
       GuidePlanRequest request, Lang acceptLanguage) {
-    return ResponseEntity.ok(agent.plan(request, acceptLanguage));
+    return ResponseEntity.ok(agent.plan(request, acceptLanguage, rateSubject()));
+  }
+
+  /**
+   * 한도 필터가 이 요청에 쓴 열쇠 — 에이전트에 넘겨 그 턴의 읽기도 같은 칸으로 세게 한다(ADR 0023). 요청 밖(통합 시험이 컨트롤러를 직접 부를 때)이면
+   * null.
+   */
+  private static String rateSubject() {
+    RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+    if (attrs == null) {
+      return null;
+    }
+    Object key =
+        attrs.getAttribute(
+            RequestRateLimitFilter.SUBJECT_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
+    return key instanceof String s ? s : null;
   }
 }
