@@ -124,6 +124,7 @@ struct RoutePlaceCard: View {
             Task { await load() }
         }
         .task(id: place.id) {
+            UsageEvents.opened(subject)
             loading = true
             card = nil
             await load()

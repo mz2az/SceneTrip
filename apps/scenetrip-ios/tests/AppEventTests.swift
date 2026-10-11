@@ -10,7 +10,7 @@ final class AppEventTests: XCTestCase {
         .signUp(method: "google"), .login(method: "google"), .logout, .deleteAccount,
         .setNickname(skipped: true),
         .screenView("home"), .search(termLength: 6, kind: "content"),
-        .viewTitle(contentId: 1), .viewPlace(placeId: 38), .viewReviews(targetType: "place"),
+        .viewTitle(contentId: 1), .viewPlace(placeId: 38), .viewPoi(poiId: 73), .viewReviews(targetType: "place"),
         .writeReview(targetType: "poi", rating: 5, photoCount: 0, hasBody: true, edited: false),
         .deleteReview(targetType: "place"), .viewPhotos(targetType: "place", entry: "detail"),
         .likeTitle(contentId: 1, liked: true), .savePlace(placeId: 38),
@@ -32,6 +32,8 @@ final class AppEventTests: XCTestCase {
     func testFunnelNamesAreFixed() {
         XCTAssertEqual(AppEvent.signUp(method: "google").name, "sign_up")
         XCTAssertEqual(AppEvent.savePlace(placeId: 1).name, "save_place")
+        XCTAssertEqual(AppEvent.viewPoi(poiId: 73).name, "view_poi")
+        XCTAssertEqual(AppEvent.viewPoi(poiId: 73).parameters, ["poi_id": Int64(73)])
         XCTAssertEqual(AppEvent.likeTitle(contentId: 1, liked: true).name, "like_title")
         XCTAssertEqual(AppEvent.createCourse(origin: "ai", dayCount: 1, placeCount: 1).name, "create_course")
         XCTAssertEqual(AppEvent.startTrip(placeId: 1).name, "start_trip")

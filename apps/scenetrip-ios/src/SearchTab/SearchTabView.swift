@@ -346,7 +346,7 @@ struct SearchTabView: View {
         contentPlaces = []
         searchFocused = false
         detent = .medium
-        data.search(term, kind: kind?.rawValue)
+        data.commitSearch(term, kind: kind?.rawValue, target: tab == .work ? .content : .place)
         pendingFit = true
     }
 

@@ -37,6 +37,31 @@ final class SceneData: ObservableObject {
 
     private var inFlight: Task<Void, Never>?
     private var lastQuery = ""
+    private var searchRun = 0
+    typealias SearchFetch = @MainActor (String?) async throws -> (ContentList, PlaceList)
+    private let fetchSearch: SearchFetch
+    private let fetchViewport: @MainActor (String) async throws -> PlaceList
+    private let recordUsage: @MainActor (UsageEvent) -> Void
+
+    init(
+        fetchSearch: @escaping SearchFetch = SceneData.fetchSearch,
+        fetchViewport: @escaping @MainActor (String) async throws -> PlaceList = SceneData.fetchViewport,
+        recordUsage: @escaping @MainActor (UsageEvent) -> Void = { UsageEvents.record($0) }
+    ) {
+        self.fetchSearch = fetchSearch
+        self.fetchViewport = fetchViewport
+        self.recordUsage = recordUsage
+    }
+
+    private static func fetchSearch(_ keyword: String?) async throws -> (ContentList, PlaceList) {
+        async let works = ContentsAPI.listContents(q: keyword, limit: PageSize.contents)
+        async let spots = PlacesAPI.listPlaces(q: keyword, limit: PageSize.places)
+        return try await (works, spots)
+    }
+
+    private static func fetchViewport(_ bbox: String) async throws -> PlaceList {
+        try await PlacesAPI.listPlaces(bbox: bbox, limit: PageSize.places)
+    }
 
     /// 지금 목록이 **무엇을 물은 결과인가** — 이어 받을 때 같은 조건에 `offset` 만 바꿔 보낸다.
     private var contentKeyword: String?
@@ -56,26 +81,35 @@ final class SceneData: ObservableObject {
     @Published private(set) var listSerial = 0
 
     /// 검색어 하나로 두 탭을 채운다. 빈 문자열이면 전체를 받는다.
-    /// `kind` 는 분석용 — 추천·자동완성에서 고른 갈래. 직접 쳤으면 없다.
-    func search(_ query: String, kind: String? = nil) {
-        if !query.isEmpty {
-            // 검색어 원문은 보내지 않는다 — 길이와 갈래만 (MZ2AZ-353).
-            AppAnalytics.log(.search(termLength: query.count, kind: kind ?? "typed"))
+    /// 첫 목록·재시도도 쓰므로 이용 기록을 만들지 않는다.
+    func search(_ query: String) {
+        search(query, usage: nil)
+    }
+
+    /// 사용자가 확정한 검색만. Firebase는 즉시, 서버 통계는 이 검색의 첫 성공 결과와 짝지어 보낸다.
+    func commitSearch(_ query: String, kind: String?, target: UsageEntityType) {
+        let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !term.isEmpty {
+            AppAnalytics.log(.search(termLength: term.count, kind: kind ?? "typed"))
         }
+        search(query, usage: SearchUsageIntent(query: query, target: target))
+    }
+
+    private func search(_ query: String, usage: SearchUsageIntent?) {
         lastQuery = query
         inFlight?.cancel()
+        searchRun += 1
+        let run = searchRun
         phase = .loading
-        let term = query.trimmingCharacters(in: .whitespaces)
+        let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let keyword: String? = term.isEmpty ? nil : term
         resetContentPaging()
         resetPlacePaging()
+        let fetch = fetchSearch
         inFlight = Task { [weak self] in
             do {
-                // 두 탭은 서로를 기다릴 이유가 없다.
-                async let works = ContentsAPI.listContents(q: keyword, limit: PageSize.contents)
-                async let spots = PlacesAPI.listPlaces(q: keyword, limit: PageSize.places)
-                let (contentList, placeList) = try await (works, spots)
-                guard !Task.isCancelled, let self else { return }
+                let (contentList, placeList) = try await fetch(keyword)
+                guard !Task.isCancelled, let self, run == searchRun else { return }
                 contentKeyword = keyword
                 placeScope = .keyword(keyword)
                 contents = contentList.items
@@ -84,10 +118,13 @@ final class SceneData: ObservableObject {
                 placePaging = Paging().advanced(received: placeList.items.count, total: placeList.total)
                 listSerial += 1
                 phase = .loaded
+                if let event = usage?.event(contents: contentList, places: placeList) {
+                    recordUsage(event)
+                }
             } catch is CancellationError {
                 return
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, self?.searchRun == run else { return }
                 self?.phase = .failed(ApiFailure(error))
             }
         }
@@ -106,12 +143,15 @@ final class SceneData: ObservableObject {
     func searchInViewport(bbox: String) {
         lastQuery = ""
         inFlight?.cancel()
+        searchRun += 1
+        let run = searchRun
         phase = .loading
         resetPlacePaging()
+        let fetch = fetchViewport
         inFlight = Task { [weak self] in
             do {
-                let spots = try await PlacesAPI.listPlaces(bbox: bbox, limit: PageSize.places)
-                guard !Task.isCancelled, let self else { return }
+                let spots = try await fetch(bbox)
+                guard !Task.isCancelled, let self, run == searchRun else { return }
                 placeScope = .viewport(bbox)
                 places = spots.items
                 placePaging = Paging().advanced(received: spots.items.count, total: spots.total)
@@ -120,7 +160,7 @@ final class SceneData: ObservableObject {
             } catch is CancellationError {
                 return
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, self?.searchRun == run else { return }
                 self?.phase = .failed(ApiFailure(error))
             }
         }
