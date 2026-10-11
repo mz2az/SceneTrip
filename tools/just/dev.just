@@ -150,6 +150,11 @@ lint:
 lint-python-fix +paths:
     ruff check --fix "$@"
 
+# 지정한 Java 소스만 포맷 — 같은 작업 트리의 다른 변경은 건드리지 않는다. `bazel run` 이 작업 디렉터리를 옮기므로 절대 경로로 넘긴다.
+[group('dev')]
+fmt-java +paths:
+    {{BAZEL}} run --ui_event_filters=-info,-stdout --noshow_progress //:google_java_format -- -i $(realpath {{paths}})
+
 # 지정한 Python 소스만 포맷
 [group('dev')]
 fmt-python +paths:

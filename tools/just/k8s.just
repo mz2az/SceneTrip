@@ -246,6 +246,12 @@ course-pin-to-poi *flags:
 place-poi-link *flags:
     ./tools/scripts/place-poi-link.sh "$@"
 
+# 인기도를 지금 다시 계산한다 — 서버가 매일 밤 하는 것과 같은 DB 함수(recompute_popularity, 기본 무게)를 부른다.
+# 조회·하트·코스를 만든 뒤 순서가 바뀌는지 바로 보려고. 계획: docs/project/plans/popularity.md §5.
+[group('db')]
+popularity-recompute:
+    @just db-psql 'SELECT jsonb_pretty(recompute_popularity());'
+
 # POI(편의시설)를 적재한다. 인자가 없으면 저장소의 표본 23 행.
 #
 # 전량(50만 행·190 MB)은 TMAP 약관상 저장소에 두지 않는다 — 승길이 준 파일을 경로로

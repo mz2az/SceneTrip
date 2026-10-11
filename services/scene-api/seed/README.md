@@ -92,7 +92,8 @@ URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞�
 
 2026-10-10 판은 53 이다. 앞쪽 키 두 칸을 빼고, 끝(`notes` 뒤)에 `place_popularity_score` · `title_key` ·
 `place_key` · `sanctum_key` 넷을 붙였다. `title_key` 는 `content_key` 로 받는다. `place_popularity_score`
-(MZ2AZ-339)와 `sanctum_key`(작품-촬영지 짝)는 아직 넣을 곳이 없어 받기만 한다.
+(장소×작품 산정 점수)는 `place_content.popularity_score` 로 간다(V28). `sanctum_key`(작품-촬영지 짝)는 아직 넣을 곳이
+없어 받기만 한다.
 
 | 컬럼 | 가는 곳 |
 | --- | --- |
@@ -115,7 +116,8 @@ URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞�
 | `scene_description_en` `_ja` `_zh_hant` | `place_content_i18n` — 채워진 언어만. 없으면 API 가 `ko` 로 폴백 |
 | `scene_image_url` | `place_content.scene_image_url` — 장면 스틸. (장소, 작품) 한 쌍에 한 장. 2026-10-10 판은 전부 비어 있다 |
 | `id` `title_tmdb_url` `title_producer_url` `source_url` `notes` | 안 넣는다 — `candidates.sql` 머리에 이유 |
-| `place_popularity_score` `sanctum_key` | 아직 안 넣는다(위) |
+| `place_popularity_score` | `place_content.popularity_score` — 장소×작품 산정 점수. **작품 안에서만** 비교한다(작품 상세의 촬영지 순서, 촬영지 인기도 출발점의 재료). 작품끼리는 비교할 수 없다 — 케데헌 촬영지만 40~66 이다 |
+| `sanctum_key` | 아직 안 넣는다(위) |
 
 ## 무엇을 갱신하고 무엇을 다시 넣나
 
@@ -166,7 +168,7 @@ URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞�
 | `place_type` 이 한국어 라벨 35 종 | 코드 매핑표가 아직 없다. 값 그대로 넣는다 |
 | 장소 이름·주소·소개, 인물 이름, 장면 설명이 한국어뿐 | 컬럼은 있지만 비어 있다. 채워지면 자동으로 들어간다 |
 | `place_i18n.description` 이 비어 있음 | `scene_description` 은 "이 작품의 이 장면" 설명이라 장소 자체의 설명이 아니다 |
-| `popularity_score` 가 임의값 | 모든 작품이 50. `user_event` 가 쌓이면 배치가 계산한다 |
+| 작품 인기도 출발점이 임의값 | 모든 작품의 `popularity_seed` 가 50. 데이터 담당자의 작품 인기도 칸이 오면 그것을 넣는다. 최종값(`popularity_score`)은 적재 끝과 매일 밤 `recompute_popularity()` 가 사용자 활동과 섞어 만든다 — [popularity.md](../../../docs/project/plans/popularity.md) |
 | 좌표 없는 2 곳 | 위 「건너뛰는 행」 |
 
 ## POI(편의시설) — `poi-sample.jsonl` · `poi.sql`

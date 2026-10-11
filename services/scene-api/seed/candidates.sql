@@ -103,7 +103,7 @@ CREATE TEMP TABLE seed_staging (
     notes               TEXT,
     -- 53컬럼(2026-10-10, 128 작품 545 행): 끝에 넷이 붙는다. CSV 이름은 title_key 지만 여기서는 content_key 로 받는다 —
     -- 자리로 맞추므로 이름은 상관없고, 아래 변환이 쓰는 이름을 바꾸지 않으려고서다.
-    place_popularity_score TEXT,  -- 장소×작품 인기도. 아직 넣지 않는다 — MZ2AZ-339(place_content 인기도)에서 받는다
+    place_popularity_score TEXT,  -- 장소×작품 산정 점수 → place_content.popularity_score(작품 안에서만 비교, V28)
     content_key         TEXT,     -- CSV 의 title_key (예: tv197067)
     place_key           TEXT,     -- 예: nv17052534(네이버 장소 번호) · px…(번호를 못 찾은 곳)
     sanctum_key         TEXT      -- 작품-촬영지 짝(title_key-place_key). 행마다 하나 — 넣을 곳은 아직 없다
@@ -193,9 +193,9 @@ SELECT
     NULLIF(btrim(s.title_description_zh_hant), '') AS title_description_zh_hant,
     s.title_category,
     NULLIF(s.poster_url, '') AS poster_url,
-    -- 인기도는 지금 임의값이다. 사용자 행동(user_event)이 쌓이면 배치가 계산한다.
-    -- famous_rank 컬럼을 뺐으므로(2026-09-23) 모든 작품이 중간값 50 에서 시작한다.
-    50 AS popularity_score,
+    -- 인기도 출발점(V28 popularity_seed). 데이터 담당자의 작품 인기도 칸이 오기 전에는 모두 중간값 50 이다
+    -- (famous_rank 를 2026-09-23 에 뺐다). 최종값은 recompute_popularity() 가 사용자 활동과 섞어 만든다(§7).
+    50 AS popularity_seed,
     s.title_cast,
     s.title_cast_en,
     s.title_cast_ja,
@@ -228,14 +228,16 @@ WHERE c.id = m.content_id;
 
 -- 있으면 갱신, 없으면 추가. CSV 에 없는 방송사·연도·장르는 덮지 않는다(이 형식에 칸이 없다).
 -- 다시 CSV 에 나온 작품은 숨김을 푼다.
-INSERT INTO content (content_key, category, broadcaster, poster_url, release_year, genres, popularity_score)
-SELECT content_key, title_category, NULL, poster_url, NULL, '{}', popularity_score
+-- 최종 인기도(popularity_score)는 덮지 않는다 — 사용자 활동이 섞인 값이다. §7 에서 다시 계산한다.
+INSERT INTO content (content_key, category, broadcaster, poster_url, release_year, genres,
+                     popularity_seed, popularity_score)
+SELECT content_key, title_category, NULL, poster_url, NULL, '{}', popularity_seed, popularity_seed
 FROM t_content
 ON CONFLICT (content_key) DO UPDATE SET
-    category         = EXCLUDED.category,
-    poster_url       = EXCLUDED.poster_url,
-    popularity_score = EXCLUDED.popularity_score,
-    hidden_at        = NULL;
+    category        = EXCLUDED.category,
+    poster_url      = EXCLUDED.poster_url,
+    popularity_seed = EXCLUDED.popularity_seed,
+    hidden_at       = NULL;
 
 UPDATE t_content t SET content_id = c.id FROM content c WHERE c.content_key = t.content_key;
 
@@ -537,7 +539,8 @@ SELECT
     s.scene_description_ja,
     s.scene_description_zh_hant,
     s.scene_image_url,
-    s.last_updated
+    s.last_updated,
+    s.place_popularity_score
 FROM (
     SELECT DISTINCT ON (place_key, content_key) * FROM seed_rows
     ORDER BY place_key, content_key, id
@@ -545,11 +548,12 @@ FROM (
 JOIN t_place   p ON p.place_key   = s.place_key
 JOIN t_content c ON c.content_key = s.content_key;
 
-INSERT INTO place_content (id, place_id, content_id, scene_image_url, updated_at)
+INSERT INTO place_content (id, place_id, content_id, scene_image_url, updated_at, popularity_score)
 SELECT
     place_content_id, place_id, content_id,
     NULLIF(btrim(scene_image_url), ''),
-    COALESCE(NULLIF(last_updated, '')::TIMESTAMPTZ, now())
+    COALESCE(NULLIF(last_updated, '')::TIMESTAMPTZ, now()),
+    NULLIF(btrim(place_popularity_score), '')::NUMERIC
 FROM t_place_content;
 
 INSERT INTO place_content_i18n (place_content_id, lang, relation_description)
@@ -569,20 +573,11 @@ UNION ALL
 SELECT place_content_id, 'zh-Hant', btrim(scene_description_zh_hant)
 FROM t_place_content WHERE NULLIF(btrim(scene_description_zh_hant), '') IS NOT NULL;
 
--- ── 7. 장소 인기도 ───────────────────────────────────────────────────────────
+-- ── 7. 인기도 ─────────────────────────────────────────────────────────────────
 --
--- CSV 에 장소별 지표가 없다. 지금은 그 장소가 나온 작품 중 가장 인기 있는 것의
--- 점수를 물려받는다 — 유명한 작품의 촬영지가 지도에서 먼저 보이는 편이 낫다.
--- 작품과 마찬가지로 임시값이고, user_event 가 쌓이면 배치가 다시 계산한다.
-UPDATE place p
-SET popularity_score = agg.score
-FROM (
-    SELECT pc.place_id, max(c.popularity_score) AS score
-    FROM place_content pc
-    JOIN content c ON c.id = pc.content_id
-    GROUP BY pc.place_id
-) agg
-WHERE p.id = agg.place_id;
+-- 촬영지 출발점(작품 출발점 × 작품 안 상대 산정 점수)과 최종값을 다시 계산한다. 서버가 매일 밤 하는 것과 같은 함수다
+-- (V28, docs/project/plans/popularity.md §5). 사용자 활동이 없는 로컬에서는 최종값 = 출발점이다.
+SELECT recompute_popularity();
 
 COMMIT;
 

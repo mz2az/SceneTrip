@@ -68,12 +68,23 @@ public class PlaceStore {
   /**
    * 정렬 구문만 코드에서 갈아 끼운다.
    *
-   * <p>사용자 입력을 SQL 에 이어 붙이는 것이 아니다 — {@link Sort} 는 이미 검증된 enum 이고, 여기서 넣는 것은 이 파일 안에 적힌 상수 문자열 둘 중
+   * <p>사용자 입력을 SQL 에 이어 붙이는 것이 아니다 — {@link Sort} 는 이미 검증된 enum 이고, 여기서 넣는 것은 이 파일 안에 적힌 상수 문자열 셋 중
    * 하나뿐이다. 정렬 방향은 파라미터로 표현할 수 없어(플레이스홀더는 값 자리에만 온다) 이 방법이 필요하다.
    *
    * <p>거리순에도 인기도를 뒤에 두는 이유: 같은 건물의 두 장소처럼 거리가 같은 경우가 실제로 있고, 순서가 흔들리면 offset 페이지네이션에서 항목이 겹치거나 빠진다.
    */
   private static final String ORDER_BY_POPULARITY = "p.popularity_score DESC, p.id DESC";
+
+  /**
+   * 한 작품의 촬영지(계약 {@code GET /contents/{id}/places})를 인기순으로 — 그 작품 안의 산정 점수가 먼저다(V28, {@code
+   * place_content.popularity_score}). 산정 점수는 작품끼리 비교할 수 없어 작품 안에서만 쓴다. 점수가 없는 짝은 뒤로, 같으면 장소 인기도.
+   */
+  private static final String ORDER_BY_CONTENT_SCENE =
+      """
+      (SELECT pc.popularity_score FROM place_content pc
+        WHERE pc.place_id = p.id AND pc.content_id = CAST(:contentId AS BIGINT)) DESC NULLS LAST,
+      p.popularity_score DESC, p.id DESC\
+      """;
 
   private static final String ORDER_BY_DISTANCE =
       "distance_meters ASC NULLS LAST, p.popularity_score DESC, p.id DESC";
@@ -407,7 +418,9 @@ public class PlaceStore {
     String sql =
         LIST_SQL.replace(
             "__ORDER_BY__",
-            criteria.sort() == Sort.DISTANCE ? ORDER_BY_DISTANCE : ORDER_BY_POPULARITY);
+            criteria.sort() == Sort.DISTANCE
+                ? ORDER_BY_DISTANCE
+                : criteria.contentId() != null ? ORDER_BY_CONTENT_SCENE : ORDER_BY_POPULARITY);
 
     List<Row> rows =
         jdbc.sql(sql)
