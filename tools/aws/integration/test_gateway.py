@@ -163,7 +163,7 @@ class GatewayTests(DockerTest):
     listen 8080;
     location / {
       default_type application/json;
-      return 200 '{"proto":"$http_x_forwarded_proto","forwarded":"$http_forwarded","service":"$http_x_service_token","host":"$host","xff":"$http_x_forwarded_for","real":"$http_x_real_ip"}';
+      return 200 '{"proto":"$http_x_forwarded_proto","forwarded":"$http_forwarded","service":"$http_x_service_token","subject":"$http_x_rate_subject","host":"$host","xff":"$http_x_forwarded_for","real":"$http_x_real_ip"}';
     }
   }
 }
@@ -214,6 +214,7 @@ class GatewayTests(DockerTest):
                 "X-Forwarded-Proto": "http",
                 "Forwarded": "for=untrusted",
                 "X-Service-Token": marker,
+                "X-Rate-Subject": "user:00000000-0000-0000-0000-000000000001",
                 "X-Forwarded-For": "198.51.100.7, 203.0.113.8",
                 "X-Real-IP": "198.51.100.9",
             },
@@ -227,6 +228,7 @@ class GatewayTests(DockerTest):
                 "host": "api.example.test",
                 "forwarded": "",
                 "service": "",
+                "subject": "",
                 "xff": self.client_ip,
                 "real": self.client_ip,
             },

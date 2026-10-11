@@ -131,6 +131,13 @@ spec:
                   name: scene-api-secrets
                   key: SCENETRIP_AUTH_APPLE_PRIVATE_KEY
                   optional: true
+            # 서비스 비밀값(ADR 0023). optional — 없으면 AI 서버의 읽기가 에이전트 한 칸으로 세어질 뿐이다.
+            - name: SCENETRIP_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: scene-api-secrets
+                  key: SCENETRIP_SERVICE_TOKEN
+                  optional: true
           resources:
             requests:
               cpu: 100m
