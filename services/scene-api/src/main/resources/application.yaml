@@ -113,6 +113,21 @@ scenetrip:
           per-day: 300
         requests-per-minute: 120
     guest-requests-per-minute: 60
+  # 인기도(MZ2AZ-407, docs/project/plans/popularity.md §2·§5). 매일 밤 cron(한국 시간)에 DB 함수 recompute_popularity 가
+  # 「w × 출발점 + (1 − w) × 활동 순위, w = k / (k + 활동 점수)」 로 다시 계산한다. 무게는 「실제로 가는 것」 에 가까울수록
+  # 크다. 사용자가 생긴 뒤 하루 활동량을 보고 k 를 고친다(적으면 작게, 많으면 크게).
+  popularity:
+    schedule-enabled: ${SCENETRIP_POPULARITY_SCHEDULE_ENABLED:true}
+    cron: "0 30 3 * * *"
+    k: 200
+    window-days: 30
+    retention-days: 90
+    weight-view: 1
+    weight-heart: 3
+    weight-cart: 3
+    weight-course: 5
+    weight-review: 5
+    weight-visit: 8
   # 사용자 사진 저장소(리뷰 사진) — S3 버킷 scenetrip-user-media-<계정>-<리전>-<환경>, bootstrap 이 만든다
   # (docs/project/plans/review.md §13). 비어 있으면 서버는 뜨고 사진 올리기만 503 이다(PhotoStorageConfiguration).
   # DEV·PRD 는 배포가 Helm ConfigMap 으로 버킷 이름만 넣고 자격 증명은 EKS Pod Identity(SDK 기본 사슬). 로컬은 kind

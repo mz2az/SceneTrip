@@ -293,6 +293,7 @@ just image  scene-api                   # 이미지 굽고 kind 에 적재
 just deploy scene-api local             # 클러스터에 배포
 just seed                               # 데이터 적재 — 배포만으로는 DB 가 비어 있다
 just db-refresh-search                  # 검색 색인 갱신 — 없으면 검색만 0 건
+just popularity-recompute               # 인기도를 지금 다시 계산 — 서버는 매일 밤 03:30 에 한다
 just update scene-api                   # 코드 변경 후 재빌드 → 적재 → 롤링 재시작
 just logs   scene-api                   # 로그 따라가기
 ```
@@ -451,6 +452,30 @@ just guide-down     # 끈다 — /guide/* 는 다시 503
 
 에이전트 호출은 SigNoz 에서 `http.client.requests{uri="/guide/chat"}`·`{uri="/plan"}` 으로 갈려
 보인다. 타임아웃 값을 실측으로 정하는 근거가 여기서 나온다.
+
+## 인기도 — 매일 밤 다시 계산한다
+
+작품·촬영지·편의시설의 `popularity_score` 는 정렬값이다. **매일 밤 03:30(한국 시간)** 에 DB 함수
+`recompute_popularity`(V28)가 다시 쓴다 — 계획 [popularity.md](../../docs/project/plans/popularity.md).
+
+```
+최종 = w × 출발점(popularity_seed) + (1 − w) × 활동 순위(0~100),   w = k / (k + 최근 30 일 활동 점수)
+```
+
+| 재료 | 표 | 무게 |
+| --- | --- | --- |
+| 상세 조회 — 앱이 `POST /events` 로 보낸다 | `entity_view`(같은 기기·대상·날은 한 번) | 1 |
+| 작품 하트 · 장바구니 | `saved_content` · `saved_place` | 3 · 3 |
+| 코스에 넣기 · 리뷰 | `course_item`(기간 안에 저장한 코스) · `review` | 5 · 5 |
+| 실제 방문(도장) | `course_item.visited_at` | 8 |
+
+- **출발점**: 작품은 적재가 넣는다(데이터 담당자 값, 오기 전에는 50). 촬영지는 함수가 「작품 출발점 × 작품 안 상대 산정
+  점수」 의 최댓값으로 채운다. 편의시설은 0 — 활동으로만 오른다
+- **작품 상세의 촬영지 순서**는 그 작품 안의 산정 점수(`place_content.popularity_score`)가 먼저다 — 산정 점수는 작품끼리
+  비교할 수 없다
+- 무게·k·기간은 설정 `scenetrip.popularity.*`. 파드가 여럿이어도 함수가 advisory lock 으로 한 번만 돈다
+- 원본(`entity_view`·`search_log`)은 90 일 뒤 지우고, 하루 집계 `entity_daily_stats` 는 남긴다. 검색어는 기기와 잇지 않는다
+- `just seed` 도 끝에서 이 함수를 부른다. 로컬에서 조회·하트를 만든 뒤 바로 보려면 `just popularity-recompute`
 
 ## 운영
 
