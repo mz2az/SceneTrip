@@ -446,7 +446,7 @@ just navigation-smoke      # 배포된 것이 실제로 답하나 — 카카오�
   로컬 ConfigMap 이 주소를 `http://host.docker.internal:8899`(kind 안에서 본 노트북)로 둔다(MZ2AZ-400).
 
 ```sh
-just guide-up       # 빌드해 노트북에서 백그라운드로 띄운다. 키는 .env 의 DEEPSEEK_API_KEY
+just guide-up       # 빌드해 노트북에서 백그라운드로 띄운다. 키는 .env 의 AWS_ACCESS_KEY_ID·AWS_SECRET_ACCESS_KEY(Bedrock)
 just guide-status   # 떠 있는지
 just guide-down     # 끈다 — /guide/* 는 다시 503
 ```

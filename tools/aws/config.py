@@ -14,7 +14,8 @@ STDIN_INPUT = "file:///dev/stdin"
 
 SECRET_KEYS = {
     "scene_api": {"KAKAO_REST_KEY"},
-    "trip_guide": {"DEEPSEEK_API_KEY"},
+    # 챗봇 모델은 AWS Bedrock 이다 — IAM 사용자의 액세스 키 한 쌍(MZ2AZ-395). 역할로 바꾸는 일은 MZ2AZ-317.
+    "trip_guide": {"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"},
     "database": {"username", "password", "migration_username", "migration_password"},
     # 로그인 액세스 토큰(JWT) 서명 키와 외부 토큰(애플 refresh token) 암호화 키. 사람이 넣지
     # 않는다 — 배포가 환경당 한 번 만든다(deploy.auth_secret). 카카오 키(scene_api)와 칸을 나눈

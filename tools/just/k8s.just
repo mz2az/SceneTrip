@@ -67,7 +67,7 @@ cluster-test-drive:
 # kind load 단계가 이미지를 클러스터에 보이게 만든다. 이걸 빠뜨리는 것이 로컬
 # Kubernetes 에서 가장 흔한 실수다 — 오류가 나지 않고 옛 이미지가 조용히 계속 돈다.
 #
-# 로컬에서 AI 마법사·챗봇을 쓰게 AI 서버(agents/trip-guide)를 노트북에 띄운다(MZ2AZ-400). 키는 .env 의 DEEPSEEK_API_KEY.
+# 로컬에서 AI 마법사·챗봇을 쓰게 AI 서버(agents/trip-guide)를 노트북에 띄운다(MZ2AZ-400). 키는 .env 의 AWS_ACCESS_KEY_ID·AWS_SECRET_ACCESS_KEY(Bedrock).
 # 로컬 scene-api 는 host.docker.internal:8899 로 부른다. 꺼져 있으면 /guide/* 만 503 이다.
 [group('k8s')]
 guide-up:

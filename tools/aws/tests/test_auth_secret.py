@@ -21,6 +21,10 @@ SERVICE_KEY = "SCENETRIP_SERVICE_TOKEN"
 AUTH_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/auth-FxAuth"
 SCENE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/scene-api-FxScene"
 GUIDE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/trip-guide-FxGuide"
+GUIDE_KEYS = {
+    "AWS_ACCESS_KEY_ID": "fixture-key-id",
+    "AWS_SECRET_ACCESS_KEY": "fixture-secret",
+}
 DATABASE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/database-FxDb"
 ALL_ARNS = (AUTH_ARN, SCENE_ARN, GUIDE_ARN, DATABASE_ARN)
 OWNED_TAGS = [
@@ -343,7 +347,7 @@ class DeploySecretWiringTest(unittest.TestCase):
     def stored(self, auth=None):
         values = {
             SCENE_ARN: json.dumps({"KAKAO_REST_KEY": "fixture-kakao"}),
-            GUIDE_ARN: json.dumps({"DEEPSEEK_API_KEY": "fixture-deepseek"}),
+            GUIDE_ARN: json.dumps(GUIDE_KEYS),
             DATABASE_ARN: json.dumps(
                 {
                     "username": "app_runtime",
@@ -404,8 +408,8 @@ class DeploySecretWiringTest(unittest.TestCase):
         self.assertEqual(scene[SERVICE_KEY], token)
         # 에이전트는 모델 키와 서비스 비밀값만 받는다 — 로그인 키는 절대 가지 않는다.
         guide = secrets["trip-guide-secrets"]
-        self.assertEqual(set(guide), {"DEEPSEEK_API_KEY", SERVICE_KEY})
-        self.assertEqual(guide["DEEPSEEK_API_KEY"], "fixture-deepseek")
+        self.assertEqual(set(guide), {*GUIDE_KEYS, SERVICE_KEY})
+        self.assertEqual(guide["AWS_SECRET_ACCESS_KEY"], "fixture-secret")
         self.assertEqual(guide[SERVICE_KEY], token)
         self.assertNotIn(AUTH_KEY, guide)
         self.assertNotIn(CIPHER_KEY, guide)
@@ -465,7 +469,7 @@ class DeploySecretWiringTest(unittest.TestCase):
         self.assertEqual(secrets["scene-api-secrets"][SERVICE_KEY], slot[SERVICE_KEY])
         self.assertEqual(
             secrets["trip-guide-secrets"],
-            {"DEEPSEEK_API_KEY": "fixture-deepseek", SERVICE_KEY: slot[SERVICE_KEY]},
+            {**GUIDE_KEYS, SERVICE_KEY: slot[SERVICE_KEY]},
         )
         self.assertEqual(len(store.puts()), 1)
 
@@ -494,11 +498,11 @@ class TripGuideSecretTest(unittest.TestCase):
             cipher=cipher_key(fill=b"B"),
             service=service_token(b"Z"),
         )
-        secret = trip_guide_secret({"DEEPSEEK_API_KEY": "fixture-deepseek"}, auth)
+        secret = trip_guide_secret(dict(GUIDE_KEYS), auth)
 
         self.assertEqual(
             secret,
-            {"DEEPSEEK_API_KEY": "fixture-deepseek", SERVICE_KEY: service_token(b"Z")},
+            {**GUIDE_KEYS, SERVICE_KEY: service_token(b"Z")},
         )
         dumped = json.dumps(secret)
         self.assertNotIn(auth[AUTH_KEY], dumped)
@@ -507,7 +511,7 @@ class TripGuideSecretTest(unittest.TestCase):
     def test_does_not_mutate_its_inputs(self):
         from tools.aws.deploy import trip_guide_secret
 
-        guide = {"DEEPSEEK_API_KEY": "fixture-deepseek"}
+        guide = dict(GUIDE_KEYS)
         auth = auth_slot()
         before_guide, before_auth = dict(guide), dict(auth)
         trip_guide_secret(guide, auth)

@@ -236,7 +236,7 @@ for e in effects:
 에이전트를 노트북에서 띄우고 scene-api 를 그쪽으로 돌린다.
 
 ```sh
-cd agents/trip-guide && export DEEPSEEK_API_KEY=… && python3 -m web.server --port 8899
+cd agents/trip-guide && export AWS_ACCESS_KEY_ID=… AWS_SECRET_ACCESS_KEY=… && python3 -m web.server --port 8899
 just stack-up …                            # scene-api(:8081) + DB
 ```
 
