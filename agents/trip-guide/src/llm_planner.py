@@ -39,7 +39,7 @@ from pathlib import Path
 from string import Template
 from typing import Any
 
-from .deepseek import ModelError
+from .model_client import ModelError
 from .places import Place, PlaceSource, haversine_m, norm
 from .planner import (
     DayPlan,

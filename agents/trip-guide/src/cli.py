@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 from .agent import TripGuide
-from .deepseek import DeepSeekClient, ModelError, load_config
+from .model_client import ModelClient, ModelError, load_config
 from .places import CsvPlaceBook, PlaceSource
 from .planner import PlanError
 from .production import source_url
@@ -168,7 +168,7 @@ def main(argv: list[str] | None = None) -> int:
 
     session = Session(book=book)
     try:
-        client = DeepSeekClient()
+        client = ModelClient()
     except ModelError as exc:
         print(f"[모델] {exc}", file=sys.stderr)
         return 1

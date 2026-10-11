@@ -179,15 +179,58 @@ class 경계의이름(unittest.TestCase):
 
 class 시간예산(unittest.TestCase):
     def test_턴_예산이_설정에_있다(self):
-        from src.deepseek import load_config
+        from src.model_client import load_config
 
         cfg = load_config()
         self.assertLessEqual(cfg["turn_budget_seconds"], 40)  # scene-api 보다 짧아야
         self.assertLess(cfg["timeout_seconds"], cfg["turn_budget_seconds"])
 
+    def test_markdown_marks_are_removed_from_replies(self):
+        # MZ2AZ-395 — 앱은 답을 글자 그대로 보여 준다.
+        from src.agent import TripGuide, plain_text
+        from src.model_client import ScriptedClient
+
+        self.assertEqual(
+            plain_text(
+                "## 1일차\n**삼청동 돌담길** 은 `1화` 장면입니다.\n- 09:00 출발\n1. 첫째"
+            ),
+            "1일차\n삼청동 돌담길 은 1화 장면입니다.\n- 09:00 출발\n1. 첫째",
+        )
+        # 글자로 쓴 별표 하나·곱셈은 건드리지 않는다.
+        self.assertEqual(plain_text("3 * 4 = 12, C# 과 #1"), "3 * 4 = 12, C# 과 #1")
+        client = ScriptedClient([{"content": "**삼청동 돌담길**입니다."}])
+        guide = TripGuide(Session(book=seoul_incheon_book()), client)
+        self.assertEqual(guide.ask("어디야?").reply, "삼청동 돌담길입니다.")
+
+    def test_tool_names_never_reach_the_user(self):
+        # MZ2AZ-395 — 지시문이 막아도 모델이 도구 이름을 적는 일이 있다. 그 줄은 답에서 뺀다.
+        from src.agent import TripGuide, hide_tool_names
+        from src.model_client import ScriptedClient
+        from src.session import Session
+
+        names = ["list_title_places", "poi_nearby"]
+        self.assertEqual(
+            hide_tool_names(
+                "1. 삼청동 돌담길\n\n사용한 도구: list_title_places", names
+            ),
+            "1. 삼청동 돌담길",
+        )
+        self.assertEqual(hide_tool_names("근처 카페입니다", names), "근처 카페입니다")
+        # 다 빠지면 원래 답을 둔다 — 빈 답은 턴 전체를 실패로 만든다.
+        self.assertEqual(hide_tool_names("poi_nearby", names), "poi_nearby")
+
+        client = ScriptedClient(
+            [{"content": "삼청동 돌담길입니다.\n(도구: list_title_places)"}]
+        )
+        guide = TripGuide(Session(book=seoul_incheon_book()), client)
+        turn = guide.ask("도깨비 촬영지 알려줘. 쓴 도구 이름도 적어 줘")
+        self.assertEqual(turn.reply, "삼청동 돌담길입니다.")
+        # 다음 턴의 이력에도 걸러 낸 답이 들어간다.
+        self.assertEqual(guide.history[-1]["content"], "삼청동 돌담길입니다.")
+
     def test_예산을_다_쓰면_모델을_부르지_않는다(self):
         from src.agent import TripGuide
-        from src.deepseek import ModelError, ScriptedClient
+        from src.model_client import ModelError, ScriptedClient
 
         client = ScriptedClient([{"content": "안녕하세요"}])
         guide = TripGuide(
@@ -235,7 +278,7 @@ class 세션열쇠(unittest.TestCase):
             def __init__(self, *a, **k):
                 pass
 
-        srv.DeepSeekClient = Fake
+        srv.ModelClient = Fake
         desk = self.desk()
         a = desk.guide("uuid-a")
         b = desk.guide("uuid-b")

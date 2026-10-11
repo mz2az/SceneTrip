@@ -13,7 +13,7 @@
 | 꼭 갈 곳 | 요청한 곳이 다 들어갔는가 |
 | 이동 | 서울 출발부터 날짜·순서대로 이은 직선거리 합 |
 
-사용법 (DEEPSEEK_API_KEY 필요):
+사용법 (모델 키 필요 — config/model.json 의 api_key_env):
     python3 -m evals.llm_plan_live [시드 CSV 경로]
 """
 
@@ -25,8 +25,8 @@ import sys
 import time
 from pathlib import Path
 
-from src.deepseek import DeepSeekClient
 from src.llm_planner import SEOUL, LlmPlanError, PlaceScores, make_llm_plan
+from src.model_client import ModelClient, key_env
 from src.places import CsvPlaceBook, haversine_m
 from src.planner import PlanRequest, make_plan
 
@@ -98,14 +98,12 @@ def measure(days, req, book, scores) -> dict:
 
 
 def main(argv: list[str]) -> int:
-    if not os.environ.get("DEEPSEEK_API_KEY"):
-        print(
-            "DEEPSEEK_API_KEY 가 없다 — 실측 평가는 실제 모델을 부른다", file=sys.stderr
-        )
+    if not os.environ.get(key_env()):
+        print(f"{key_env()} 가 없다 — 실측 평가는 실제 모델을 부른다", file=sys.stderr)
         return 2
     book = CsvPlaceBook.load(Path(argv[1]) if len(argv) > 1 else _SEED)
     scores = PlaceScores.load()
-    client = DeepSeekClient()
+    client = ModelClient()
     rows = []
     for titles, days, pace, must in CASES:
         req = PlanRequest(titles=titles, days=days, pace=pace, must=must)

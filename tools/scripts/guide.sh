@@ -7,7 +7,7 @@
 # kind 에 그대로 싣지 못한다. 그래서 로컬은 노트북에서 띄우고, kind 안의 scene-api 가 host.docker.internal:8899 로
 # 부른다(platform/kubernetes/scene-api/configmap.yaml). 꺼져 있으면 /guide/* 만 503 이고 나머지는 그대로 돈다.
 #
-# 키는 .env 의 DEEPSEEK_API_KEY(just 가 .env 를 읽어 넘긴다). 띄운 서버는 이 명령이 끝나도 계속 돈다 — 노트북을
+# 키는 .env 의 AWS_ACCESS_KEY_ID·AWS_SECRET_ACCESS_KEY — 챗봇 모델이 AWS Bedrock 이다(just 가 .env 를 읽어 넘긴다). 띄운 서버는 이 명령이 끝나도 계속 돈다 — 노트북을
 # 다시 켜면 다시 just guide-up.
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
@@ -28,7 +28,8 @@ up() {
     log "AI 서버가 이미 떠 있습니다 (localhost:$PORT)"
     return
   fi
-  [ -n "${DEEPSEEK_API_KEY:-}" ] || die "DEEPSEEK_API_KEY 가 .env 에 없습니다 — .env.example 을 보고 채우세요"
+  [ -n "${AWS_ACCESS_KEY_ID:-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY:-}" ] ||
+    die "AWS_ACCESS_KEY_ID·AWS_SECRET_ACCESS_KEY 가 .env 에 없습니다 — .env.example 을 보고 채우세요"
   [ -z "$(listener)" ] || die "$PORT 포트를 다른 프로그램이 쓰고 있습니다 — lsof -iTCP:$PORT 로 확인하세요"
 
   log "AI 서버 빌드"

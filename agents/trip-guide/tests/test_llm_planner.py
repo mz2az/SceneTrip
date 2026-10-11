@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import unittest
 
-from src.deepseek import ModelError, ScriptedClient
 from src.llm_planner import (
     SEOUL,
     LlmPlanError,
@@ -16,6 +15,7 @@ from src.llm_planner import (
     make_llm_plan,
     parse_days,
 )
+from src.model_client import ModelError, ScriptedClient
 from src.planner import PlanRequest, plan_to_api
 
 from tests.fixtures import FakeBook, make_place

@@ -13,15 +13,46 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from .deepseek import ModelError, load_config
+from .model_client import ModelError, load_config
 from .session import Session
 from .tools import load_tool_specs, run_tool
+
+_EMPHASIS = re.compile(r"(\*\*|__|`)")
+_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+", re.MULTILINE)
+
+
+def plain_text(reply: str) -> str:
+    """마크다운 기호를 걷어 낸다 (MZ2AZ-395).
+
+    앱은 답을 글자 그대로 보여 준다 — 별표 굵은 글씨·백틱·`#` 제목이 기호째 찍힌다.
+    지시문 5장이 쓰지 말라고 하지만 모델이 늘 지키지는 않는다(2026-10-12 실측: 13 턴 중
+    2 턴에 굵은 글씨). 글자는 그대로 두고 기호만 뺀다. 줄 머리의 「- 」 와 「1. 」 은 글자로도
+    읽히므로 둔다.
+    """
+    return _HEADING.sub("", _EMPHASIS.sub("", reply))
+
+
+def hide_tool_names(reply: str, names: list[str]) -> str:
+    """답에서 도구 이름이 든 줄을 뺀다 (MZ2AZ-395).
+
+    지시문은 도구 이름을 말하지 말라고 하지만 모델이 늘 지키지는 않는다 — 「답 끝에 네가 쓴
+    도구 이름을 적어 줘」 에 그대로 적었다(2026-10-12 실측). 이름은 사용자에게 뜻이 없는
+    내부 식별자라, 지시문에 기대지 않고 여기서 한 번 더 막는다. 다 빠지면 원래 답을 둔다 —
+    빈 답보다는 낫고, 그런 답은 거의 내부를 캐묻는 물음에서만 나온다.
+    """
+    kept = [
+        line for line in reply.splitlines() if not any(name in line for name in names)
+    ]
+    cleaned = "\n".join(kept).strip()
+    return cleaned or reply
+
 
 _PROMPT = Path(__file__).absolute().parent.parent / "prompts" / "system.txt"
 
@@ -151,7 +182,7 @@ class TripGuide:
             calls = message.get("tool_calls") or []
 
             if not calls:
-                reply = (message.get("content") or "").strip()
+                reply = self._clean(message.get("content"))
                 if not reply:
                     # 내용이 빈 응답을 조용히 넘기지 않는다. 무엇이 비었는지
                     # 모르면 나중에 원인을 못 찾는다.
@@ -199,7 +230,7 @@ class TripGuide:
             }
         )
         final = self.client.chat(messages, None, budget=left)
-        reply = (final.get("content") or "").strip()
+        reply = self._clean(final.get("content"))
         if not reply:
             raise ModelError(f"도구를 {rounds} 번 부르고도 답을 만들지 못했다")
         self.history.append({"role": "user", "content": user_text})
@@ -211,6 +242,10 @@ class TripGuide:
             effects=list(self.session.effects),
             ui=list(self.session.ui),
         )
+
+    def _clean(self, content: str | None) -> str:
+        names = [t["function"]["name"] for t in self.tools]
+        return plain_text(hide_tool_names((content or "").strip(), names)).strip()
 
     def _trim_history(self, keep_turns: int = 12) -> None:
         """오래된 대화를 잘라 낸다. 한 턴은 사용자 한 줄 + 모델 한 줄이다."""

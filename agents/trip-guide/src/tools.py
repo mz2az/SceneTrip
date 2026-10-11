@@ -269,8 +269,16 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
     if spec is None:
         return _refuse(f"「{name}」 라는 도구는 없다")
 
+    raw_args = dict(raw_args or {})
+    if name == "poi_nearby" and raw_args.get("group") in _POI_GROUPS.values():
+        # 모델이 계약 쪽 영어 값(food·stay…)을 그대로 넣는 일이 있다(gpt-oss, 2026-10-10
+        # 실측 — 세 번 물어 세 번). 뜻이 하나로 정해지는 값이라 거절하지 않고 받아 준다.
+        raw_args["group"] = next(
+            ko for ko, en in _POI_GROUPS.items() if en == raw_args["group"]
+        )
+
     try:
-        args = validate_args(spec["parameters"], raw_args or {})
+        args = validate_args(spec["parameters"], raw_args)
     except ToolArgError as exc:
         return _refuse(str(exc))
 

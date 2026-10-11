@@ -154,7 +154,10 @@ class MediaDeployValuesTest(unittest.TestCase):
                 "tools.aws.deploy.secret_value",
                 side_effect=[
                     {"KAKAO_REST_KEY": "fixture"},
-                    {"DEEPSEEK_API_KEY": "fixture"},
+                    {
+                        "AWS_ACCESS_KEY_ID": "fixture",
+                        "AWS_SECRET_ACCESS_KEY": "fixture",
+                    },
                 ],
             ),
             patch("tools.aws.deploy.migrate_database"),

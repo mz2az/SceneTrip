@@ -31,7 +31,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).absolute().parent.parent))
 
 from src.agent import TripGuide
-from src.deepseek import ScriptedClient
+from src.model_client import ScriptedClient
 from src.places import norm
 from src.planner import (
     PlanError,
