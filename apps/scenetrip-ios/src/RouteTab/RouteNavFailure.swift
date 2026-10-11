@@ -113,7 +113,7 @@ enum RouteNavFailure: Equatable {
         case .providerDown:
             tr("길찾기 서비스가 잠시 응답하지 않아요. 잠시 뒤 다시 시도해 주세요")
         case .unreachable:
-            tr("서버에 연결하지 못했어요 — 백엔드(:8081)가 켜져 있나요?")
+            tr("연결하지 못했어요. 인터넷 연결을 확인하고 잠시 뒤 다시 시도해 주세요")
         case let .limitReached(retryAfter):
             NavLimit.message(NavLimit.window(seconds: retryAfter))
         case .rateLimited:

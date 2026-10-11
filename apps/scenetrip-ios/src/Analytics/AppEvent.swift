@@ -34,6 +34,7 @@ enum AppEvent: Equatable {
     case search(termLength: Int, kind: String)
     case viewTitle(contentId: Int64)
     case viewPlace(placeId: Int64)
+    case viewPoi(poiId: Int64)
     /// 리뷰 시트를 열었다(MZ2AZ-363). `target_type` 은 `place`·`poi`.
     case viewReviews(targetType: String)
     /// 리뷰를 썼다·고쳤다(MZ2AZ-363). **글과 닉네임은 보내지 않는다.**
@@ -83,6 +84,7 @@ enum AppEvent: Equatable {
         case .search: "search"
         case .viewTitle: "view_title"
         case .viewPlace: "view_place"
+        case .viewPoi: "view_poi"
         case .viewReviews: "view_reviews"
         case .writeReview: "write_review"
         case .deleteReview: "delete_review"
@@ -108,6 +110,7 @@ enum AppEvent: Equatable {
         case let .setNickname(skipped): ["skipped": skipped ? 1 : 0]
         case let .search(termLength, kind): ["term_length": termLength, "kind": kind]
         case let .viewTitle(contentId): ["content_id": contentId]
+        case let .viewPoi(poiId): ["poi_id": poiId]
         case let .viewReviews(targetType), let .deleteReview(targetType): ["target_type": targetType]
         case let .viewPhotos(targetType, entry): ["target_type": targetType, "entry": entry]
         case let .writeReview(targetType, rating, photoCount, hasBody, edited):

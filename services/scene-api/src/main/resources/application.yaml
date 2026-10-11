@@ -113,6 +113,21 @@ scenetrip:
           per-day: 300
         requests-per-minute: 120
     guest-requests-per-minute: 60
+  # 인기도(MZ2AZ-407, docs/project/plans/popularity.md §2·§5). 매일 밤 cron(한국 시간)에 DB 함수 recompute_popularity 가
+  # 「w × 출발점 + (1 − w) × 활동 순위, w = k / (k + 활동 점수)」 로 다시 계산한다. 무게는 「실제로 가는 것」 에 가까울수록
+  # 크다. 사용자가 생긴 뒤 하루 활동량을 보고 k 를 고친다(적으면 작게, 많으면 크게).
+  popularity:
+    schedule-enabled: ${SCENETRIP_POPULARITY_SCHEDULE_ENABLED:true}
+    cron: "0 30 3 * * *"
+    k: 200
+    window-days: 30
+    retention-days: 90
+    weight-view: 1
+    weight-heart: 3
+    weight-cart: 3
+    weight-course: 5
+    weight-review: 5
+    weight-visit: 8
   # 사용자 사진 저장소(리뷰 사진) — S3 버킷 scenetrip-user-media-<계정>-<리전>-<환경>, bootstrap 이 만든다
   # (docs/project/plans/review.md §13). 비어 있으면 서버는 뜨고 사진 올리기만 503 이다(PhotoStorageConfiguration).
   # DEV·PRD 는 배포가 Helm ConfigMap 으로 버킷 이름만 넣고 자격 증명은 EKS Pod Identity(SDK 기본 사슬). 로컬은 kind
@@ -217,6 +232,15 @@ scenetrip:
     # **재시도는 없다.** /guide/chat 은 멱등이 아니다 — 토큰을 쓰고 세션 이력이 쌓이고 cart.add 가
     # 두 번 올 수 있다.
     timeout-seconds: 40
+    # 챗봇 처리 기록(guide_turn, MZ2AZ-410)을 며칠 남기나. 대화 원문은 애초에 남기지 않는다.
+    turn-log-retention-days: 90
+    # 서비스 비밀값 — 에이전트가 사용자 대신 보낸 읽기를 그 사용자 몫으로 세게 한다(ADR 0023, MZ2AZ-412).
+    # 에이전트는 X-Service-Token 으로 이 값을, X-Rate-Subject 로 이 서버가 넘긴 한도 열쇠를 돌려 보낸다.
+    #
+    # **값은 여기 두지 않는다.** SCENETRIP_SERVICE_TOKEN 환경변수 — 로컬은 .env 에서 `just secrets-apply`,
+    # 원격은 시크릿 매니저. 에이전트와 같은 값이어야 한다. 비어 있으면 서버는 뜨되 X-Rate-Subject 를 늘
+    # 무시한다(에이전트의 읽기가 에이전트 주소 한 칸으로 세어진다) — 기동 로그에 경고를 남긴다.
+    service-token: ${SCENETRIP_SERVICE_TOKEN:}
 
   course:
     walking-speed-kmh: 4.0

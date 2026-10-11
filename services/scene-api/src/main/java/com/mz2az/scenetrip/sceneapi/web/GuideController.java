@@ -8,6 +8,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.GuidePlanRequest;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.guide.GuideAgentClient;
 import com.mz2az.scenetrip.sceneapi.guide.GuideEffectApplier;
+import com.mz2az.scenetrip.sceneapi.guide.GuideTurnLog;
 import com.mz2az.scenetrip.sceneapi.guide.IdempotencyStore;
 import com.mz2az.scenetrip.sceneapi.limit.PaidQuota;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
@@ -18,6 +19,8 @@ import java.util.HexFormat;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -49,6 +52,7 @@ class GuideController implements GuideApi {
   private final PaidQuota quota;
   private final IdempotencyStore idempotency;
   private final JsonMapper json;
+  private final GuideTurnLog turns;
 
   GuideController(
       GuideAgentClient agent,
@@ -57,7 +61,8 @@ class GuideController implements GuideApi {
       CurrentAccount accounts,
       PaidQuota quota,
       IdempotencyStore idempotency,
-      JsonMapper json) {
+      JsonMapper json,
+      GuideTurnLog turns) {
     this.agent = agent;
     this.effects = effects;
     this.users = users;
@@ -65,6 +70,7 @@ class GuideController implements GuideApi {
     this.quota = quota;
     this.idempotency = idempotency;
     this.json = json;
+    this.turns = turns;
   }
 
   @Override
@@ -104,16 +110,24 @@ class GuideController implements GuideApi {
       }
       throw QuotaResponses.tooMany(e);
     }
+    // 처리 기록(MZ2AZ-410)은 에이전트를 부른 턴만 — 미가입·한도·재생은 모델을 안 불렀다. 원문은 남기지 않는다.
+    String lang = (acceptLanguage == null ? Lang.EN : acceptLanguage).getValue();
+    long started = System.nanoTime();
     GuideChatReply reply;
     try {
-      reply = agent.chat(request, acceptLanguage);
+      reply = agent.chat(request, acceptLanguage, rateSubject());
     } catch (RuntimeException e) {
+      turns.failed(
+          lang,
+          e instanceof ApiException api ? api.getCode() : "INTERNAL_ERROR",
+          (System.nanoTime() - started) / 1_000_000);
       quota.refund(grant);
       if (key != null) {
         idempotency.abandon(user, key);
       }
       throw e;
     }
+    turns.answered(lang, reply, (System.nanoTime() - started) / 1_000_000);
     try {
       // cart.* 만 DB 에. plan.* 과 ui 는 손대지 않고 앱으로 간다.
       effects.apply(user, reply.getEffects());
@@ -145,6 +159,21 @@ class GuideController implements GuideApi {
   @Override
   public ResponseEntity<GuidePlanReply> planWithGuide(
       GuidePlanRequest request, Lang acceptLanguage) {
-    return ResponseEntity.ok(agent.plan(request, acceptLanguage));
+    return ResponseEntity.ok(agent.plan(request, acceptLanguage, rateSubject()));
+  }
+
+  /**
+   * 한도 필터가 이 요청에 쓴 열쇠 — 에이전트에 넘겨 그 턴의 읽기도 같은 칸으로 세게 한다(ADR 0023). 요청 밖(통합 시험이 컨트롤러를 직접 부를 때)이면
+   * null.
+   */
+  private static String rateSubject() {
+    RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+    if (attrs == null) {
+      return null;
+    }
+    Object key =
+        attrs.getAttribute(
+            RequestRateLimitFilter.SUBJECT_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
+    return key instanceof String s ? s : null;
   }
 }

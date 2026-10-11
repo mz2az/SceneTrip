@@ -31,6 +31,8 @@ enum RouteGuideEntry: Equatable {
 /// 길게 누르기를 먼저 먹어 끌기가 시작되지 않았다(2026-09-16 사용자 확인). 탭과 끌기를
 /// 여기서 직접 다룬다.
 struct RouteGuideFloatingChip: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     /// 열려 있는 가이드 창·핀 찍기 중에는 숨긴다. 창은 같은 구석에서 나오고, 핀 찍기는
     /// 지도를 눌러야 하는데 손에 걸린다.
     var hidden = false
@@ -73,7 +75,7 @@ struct RouteGuideFloatingChip: View {
     /// 손짓은 **그림에 직접** 붙인다. 바깥의 가득 채운 `frame` 에 붙이면 빈 화면까지
     /// 손짓을 먹어 지도와 싸운다.
     private func chip(in size: CGSize, clear: Clearance?) -> some View {
-        RouteGuideChipBody(bubble: cardTop == nil)
+        RouteGuideChipBody(bubble: cardTop == nil && !dynamicTypeSize.isAccessibilitySize)
             .contentShape(.rect)
             .scaleEffect(lifted ? 1.08 : 1)
             .shadow(color: .black.opacity(lifted ? 0.3 : 0), radius: 10, y: 4)

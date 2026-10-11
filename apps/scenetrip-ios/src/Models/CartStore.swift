@@ -1,6 +1,22 @@
 import Foundation
 import SceneApiClient
 
+@MainActor
+protocol CartClient {
+    func fetch(installId: UUID) async throws -> Cart
+    func remove(installId: UUID, placeId: Int64) async throws
+}
+
+private struct ServerCartClient: CartClient {
+    func fetch(installId: UUID) async throws -> Cart {
+        try await CartAPI.getCart(xInstallId: installId)
+    }
+
+    func remove(installId: UUID, placeId: Int64) async throws {
+        try await CartAPI.removeCartItem(xInstallId: installId, placeId: placeId)
+    }
+}
+
 /// 장바구니. 서버가 정본이고 이 타입은 화면이 읽을 사본을 들고 있다.
 ///
 /// 계약이 담는 경로를 셋으로 적어 뒀다 — **장소 카드의 `+`, 상세의 저장 버튼, 장면
@@ -16,9 +32,16 @@ final class CartStore: ObservableObject {
     @Published private(set) var toast: String?
 
     private let installId: UUID
+    private let client: any CartClient
 
     init() {
         installId = InstallIdentity.current
+        client = ServerCartClient()
+    }
+
+    init(installId: UUID, client: any CartClient) {
+        self.installId = installId
+        self.client = client
     }
 
     func contains(_ placeId: Int64) -> Bool {
@@ -26,7 +49,7 @@ final class CartStore: ObservableObject {
     }
 
     func refresh() async {
-        guard let cart = try? await CartAPI.getCart(xInstallId: installId) else { return }
+        guard let cart = try? await client.fetch(installId: installId) else { return }
         items = cart.items
         placeIds = Set(cart.items.map(\.placeId))
     }
@@ -53,7 +76,13 @@ final class CartStore: ObservableObject {
     }
 
     func remove(placeId: Int64) async {
-        try? await CartAPI.removeCartItem(xInstallId: installId, placeId: placeId)
+        do {
+            try await client.remove(installId: installId, placeId: placeId)
+        } catch {
+            toast = tr("빼지 못했습니다. 잠시 후 다시 시도해 주세요")
+            return
+        }
+        items.removeAll { $0.placeId == placeId }
         placeIds.remove(placeId)
         // 담을 때 알려 줬으니 뺄 때도 알려 준다. 목록 행에서 빼면 아이콘만 바뀌어
         // 눌렸는지 확신이 안 선다.

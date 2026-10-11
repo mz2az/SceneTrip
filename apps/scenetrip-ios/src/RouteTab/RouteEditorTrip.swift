@@ -252,14 +252,14 @@ extension RouteEditorView {
     /// 읽혔다. 저장은 머리줄 하나다. 새 코스의 「코스 만들기」는 남긴다 — 그때는 이 줄에 다른
     /// 단추가 없고, 처음 만드는 사람이 머리줄의 작은 「만들기」를 놓치기 쉽다.
     var planControls: some View {
-        HStack(spacing: 10) {
+        controlLayout {
             if isNew {
                 // 「코스 시작」은 저장된 코스에만 있다 — 아직 만들지도 않은 일정을 여행
                 // 중으로 만들 수는 없다.
                 Button {
                     Task { await saveAndClose() }
                 } label: {
-                    Text("코스 만들기").frame(maxWidth: .infinity)
+                    Text("코스 만들기").fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
             } else if !course.isRunning {
@@ -268,7 +268,7 @@ extension RouteEditorView {
                 Button {
                     toggleRunning()
                 } label: {
-                    Text("코스 시작").frame(maxWidth: .infinity)
+                    Text("코스 시작").fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
             } else if let next = nextUnvisited {
@@ -279,7 +279,8 @@ extension RouteEditorView {
                 Button {
                     startTrip(to: next.stop)
                 } label: {
-                    Text("\(next.number)번으로 길찾기").lineLimit(1).frame(maxWidth: .infinity)
+                    Text("\(next.number)번으로 길찾기")
+                        .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
             } else {
@@ -298,6 +299,14 @@ extension RouteEditorView {
                 }
             }
         }
+        .multilineTextAlignment(.center)
+    }
+
+    /// 접근성 큰 글자에서는 두 동작이 각각 화면 폭을 쓴다(MZ2AZ-388).
+    private var controlLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 10))
     }
 
     /// 「코스 시작 / 여행 종료」.
@@ -333,7 +342,7 @@ extension RouteEditorView {
     /// 안내 중의 아래 줄 — 가는 중이면 「여기 도착함」(탈출구), 도착했으면 「다음 · N번으로」.
     /// 저장 단추는 이 줄에 없다 — 저장은 언제나 머리줄의 「저장」이 한다.
     var tripControls: some View {
-        HStack(spacing: 10) {
+        controlLayout {
             Button("안내 끝") { trip.end() }
                 .buttonStyle(.bordered)
             if trip.phase == .arrived {
@@ -342,7 +351,7 @@ extension RouteEditorView {
                         startTrip(to: next.stop)
                     } label: {
                         Text("다음 · \(next.number)번 \(next.stop.place.name)로 길찾기")
-                            .lineLimit(1).frame(maxWidth: .infinity)
+                            .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                 } else {
@@ -356,12 +365,13 @@ extension RouteEditorView {
                 Button {
                     trip.arriveNow()
                 } label: {
-                    Text("여기 도착함").frame(maxWidth: .infinity)
+                    Text("여기 도착함").fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(trip.stamped)
             }
         }
+        .multilineTextAlignment(.center)
     }
 
     // MARK: 스탬프와 성지 카드

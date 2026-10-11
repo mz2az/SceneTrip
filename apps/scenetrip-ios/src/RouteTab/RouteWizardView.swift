@@ -317,7 +317,7 @@ struct RouteWizardView: View {
     }
 
     /// 빡빡하게 / 널널하게. 이제 일정을 바꾼다 — 계약 `GuidePlanRequest.pace` 로 나가고
-    /// 하루 예산(시간·정지점 수)은 에이전트가 정한다: 여유 3곳 · 빡빡 7곳(MZ2AZ-321).
+    /// 실제 방문 수는 생성 경로와 이동 조건에 따라 달라진다. 모델 실행에 고정 수를 약속하지 않는다.
     private var paceStep: some View {
         VStack(spacing: 10) {
             ForEach(RoutePace.allCases) { each in
@@ -340,7 +340,7 @@ struct RouteWizardView: View {
                 .foregroundStyle(isOn ? .white : .primary)
                 .onTapGesture { pace = each }
             }
-            Text("빡빡하게는 하루 7곳까지, 널널하게는 3곳까지 담습니다")
+            Text("방문 수는 고른 작품과 이동 거리에 따라 달라집니다")
                 .font(.caption2).foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

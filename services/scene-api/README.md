@@ -293,6 +293,7 @@ just image  scene-api                   # 이미지 굽고 kind 에 적재
 just deploy scene-api local             # 클러스터에 배포
 just seed                               # 데이터 적재 — 배포만으로는 DB 가 비어 있다
 just db-refresh-search                  # 검색 색인 갱신 — 없으면 검색만 0 건
+just popularity-recompute               # 인기도를 지금 다시 계산 — 서버는 매일 밤 03:30 에 한다
 just update scene-api                   # 코드 변경 후 재빌드 → 적재 → 롤링 재시작
 just logs   scene-api                   # 로그 따라가기
 ```
@@ -329,7 +330,8 @@ curl http://localhost:8081/v1/actuator/health
 | `SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY` | 아니오 | 없음 | 애플 refresh token 암호화 키(AES-256, base64 32 바이트). JWT 키와 따로. 로컬 `.env`(`openssl rand -base64 32`), DEV·PRD 는 배포가 `auth` 칸에 함께 만든다. 없으면 애플 로그인만 꺼진다 |
 | `SCENETRIP_AUTH_APPLE_PRIVATE_KEY` | 아니오 | 없음 | 애플 .p8 파일 전체의 base64 한 줄. 사람이 애플에서 받아 온다(다시 내려받을 수 없다). 로컬 `.env`, DEV·PRD 는 Secrets Manager `scene_api` 칸의 **선택 항목** — ⚠ **PRD 출시 전 필수로 옮긴다**(`tools/aws/config.py` 의 `OPTIONAL_SECRET_KEYS`). 없으면 `/auth/apple` 이 `501` |
 | `SCENETRIP_AUTH_REQUIRE_REGISTRATION` | 아니오 | `true` | 가입 판정. `false` 면 마켓·길찾기·챗봇의 401 이 나지 않는다. **로컬 kind 의 ConfigMap 만 끈다** — 로그인 전 시뮬레이터 검증용이고 기동 로그에 경고가 남는다 |
-| `SCENETRIP_GUIDE_AGENT_BASE_URL` | 아니오 | `http://localhost:8899` | 가이드 에이전트(`agents/trip-guide`) 주소. 없으면 기동은 하고 `/guide/*` 만 503 이다. 클러스터 값은 에이전트 컨테이너가 생길 때 정한다 |
+| `SCENETRIP_SERVICE_TOKEN` | 아니오 | 없음 | 서비스 비밀값(ADR 0023). 에이전트가 사용자 대신 보낸 읽기의 `X-Rate-Subject` 를 이 값이 `X-Service-Token` 으로 맞을 때만 믿는다. 에이전트와 같은 값. 로컬은 `.env`(`openssl rand -base64 32`), DEV·PRD 는 배포가 Secrets Manager `auth` 칸에 환경당 한 번 만든다. **없으면 기동은 하고** 에이전트의 읽기가 에이전트 주소 한 칸으로 세어진다(기동 로그 경고) |
+| `SCENETRIP_GUIDE_AGENT_BASE_URL` | 아니오 | `http://localhost:8899` | 가이드 에이전트(`agents/trip-guide`) 주소. 없으면 기동은 하고 `/guide/*` 만 503 이다. 로컬 kind 는 `http://host.docker.internal:8899`(노트북, `just guide-up`), DEV·PRD 는 `http://trip-guide:8899`(Helm) |
 
 비밀번호는 `application.yaml` 에 두지 않는다 — 이미지 안에 박히면 이미지를 가진 사람이
 곧 자격 증명을 가진 것이 된다. 로컬에서는 `postgres` ConfigMap 의 키를
@@ -437,16 +439,58 @@ just navigation-smoke      # 배포된 것이 실제로 답하나 — 카카오�
 `plan_course` 는 에이전트가 이 서비스를 되부르므로, 플랫폼 스레드였다면 톰캣 스레드가 전부
 에이전트를 기다릴 때 그 GET 을 받을 스레드가 없어 양쪽이 서로를 기다린다.
 
-**에이전트가 없으면 503 이 정상이다.** `rules_python` 이 꺼져 있어 에이전트 컨테이너가 아직
-없다 — 클러스터의 이 서비스는 설정된 주소에 아무것도 없으니 `/guide/*` 에 503 을 낸다.
-규칙 기반으로 조용히 떨어지지 않는다. 로컬에서 실제로 돌려 보려면 에이전트를 노트북에서 띄운다.
+**에이전트가 없으면 503 이 정상이다.** 규칙 기반으로 조용히 떨어지지 않는다.
+
+- **DEV·PRD**: Helm 이 `trip-guide` 파드를 이 서비스 옆에 띄우고 주소(`http://trip-guide:8899`)와 키를 넣는다.
+- **로컬 kind**: 에이전트를 노트북에서 띄운다 — 이미지가 linux/amd64 라 맥(arm64)의 kind 에 그대로 못 싣는다.
+  로컬 ConfigMap 이 주소를 `http://host.docker.internal:8899`(kind 안에서 본 노트북)로 둔다(MZ2AZ-400).
 
 ```sh
-cd agents/trip-guide && export DEEPSEEK_API_KEY=… && python3 -m web.server --port 8899
+just guide-up       # 빌드해 노트북에서 백그라운드로 띄운다. 키는 .env 의 DEEPSEEK_API_KEY
+just guide-status   # 떠 있는지
+just guide-down     # 끈다 — /guide/* 는 다시 503
 ```
 
 에이전트 호출은 SigNoz 에서 `http.client.requests{uri="/guide/chat"}`·`{uri="/plan"}` 으로 갈려
 보인다. 타임아웃 값을 실측으로 정하는 근거가 여기서 나온다.
+
+### 처리 기록 — `guide_turn`
+
+에이전트를 부른 턴마다 한 줄(MZ2AZ-410, V29): 시각·언어·결과(`ok` 또는 오류 코드)·쓴 도구·돌려준 장소 수·효과 op·걸린 시간.
+**대화 원문·사용자·기기는 남기지 않는다.** 90 일 뒤 지운다(`scenetrip.guide.turn-log-retention-days`). **장소를 0 개 돌려주고
+효과도 없는 턴**이 「못 찾은 답」 후보다 — 에이전트를 고칠 재료. 일정 짜기 턴은 장소 0 개에 `plan.draft` 라 실패가 아니다
+(2026-10-11 실측: 「경복궁 근처 촬영지」 → `places_near`, 장소 0, 효과 없음).
+
+```sql
+-- 최근 7 일, 못 찾은 답 후보를 도구·언어별로
+SELECT tools, lang, count(*) FROM guide_turn
+WHERE outcome = 'ok' AND place_count = 0 AND effects = '{}' AND created_at > now() - interval '7 days'
+GROUP BY 1, 2 ORDER BY 3 DESC;
+```
+
+## 인기도 — 매일 밤 다시 계산한다
+
+작품·촬영지·편의시설의 `popularity_score` 는 정렬값이다. **매일 밤 03:30(한국 시간)** 에 DB 함수
+`recompute_popularity`(V28)가 다시 쓴다 — 계획 [popularity.md](../../docs/project/plans/popularity.md).
+
+```
+최종 = w × 출발점(popularity_seed) + (1 − w) × 활동 순위(0~100),   w = k / (k + 최근 30 일 활동 점수)
+```
+
+| 재료 | 표 | 무게 |
+| --- | --- | --- |
+| 상세 조회 — 앱이 `POST /events` 로 보낸다 | `entity_view`(같은 기기·대상·날은 한 번) | 1 |
+| 작품 하트 · 장바구니 | `saved_content` · `saved_place` | 3 · 3 |
+| 코스에 넣기 · 리뷰 | `course_item`(기간 안에 저장한 코스) · `review` | 5 · 5 |
+| 실제 방문(도장) | `course_item.visited_at` | 8 |
+
+- **출발점**: 작품은 적재가 넣는다(데이터 담당자 값, 오기 전에는 50). 촬영지는 함수가 「작품 출발점 × 작품 안 상대 산정
+  점수」 의 최댓값으로 채운다. 편의시설은 0 — 활동으로만 오른다
+- **작품 상세의 촬영지 순서**는 그 작품 안의 산정 점수(`place_content.popularity_score`)가 먼저다 — 산정 점수는 작품끼리
+  비교할 수 없다
+- 무게·k·기간은 설정 `scenetrip.popularity.*`. 파드가 여럿이어도 함수가 advisory lock 으로 한 번만 돈다
+- 원본(`entity_view`·`search_log`)은 90 일 뒤 지우고, 하루 집계 `entity_daily_stats` 는 남긴다. 검색어는 기기와 잇지 않는다
+- `just seed` 도 끝에서 이 함수를 부른다. 로컬에서 조회·하트를 만든 뒤 바로 보려면 `just popularity-recompute`
 
 ## 운영
 

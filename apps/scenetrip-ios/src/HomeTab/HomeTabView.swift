@@ -108,7 +108,8 @@ struct HomeTabView: View {
         async let restJob: Void = model.loadRest()
         async let cartJob: Void = cart.refresh()
         async let materialsJob: Void = routes.refreshMaterials()
-        _ = await (tripsJob, restJob, cartJob, materialsJob)
+        async let postsJob: Void = posts.refresh()
+        _ = await (tripsJob, restJob, cartJob, materialsJob, postsJob)
     }
 
     private func reloadTrips() async {

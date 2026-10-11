@@ -3,6 +3,7 @@
 import io
 import json
 import threading
+import time
 import unittest
 from contextlib import closing
 from email.message import Message
@@ -18,6 +19,8 @@ from src.internal_server import (
 from src.production import BodyError, RequestBudget, read_body, source_url
 
 from tests.fixtures import seoul_incheon_book
+
+PLAN = {"titles": ["도깨비"], "days": 2}
 
 
 def headers(**values):
@@ -263,7 +266,7 @@ class InternalHTTP(unittest.TestCase):
         class TestHandler(InternalHandler):
             desk = LimitedDesk(seoul_incheon_book(), "test", {})
             budget = RequestBudget()
-            active = threading.Lock()
+            active = threading.BoundedSemaphore(4)
 
         self.handler = TestHandler
         self.server = InternalServer(("127.0.0.1", 0), TestHandler)
@@ -310,8 +313,28 @@ class InternalHTTP(unittest.TestCase):
             self.assertEqual(status, 200, body)
             self.assertEqual(len(body["plan"]["days"]), 2)
 
+    def test_request_right_after_a_response_is_not_refused(self):
+        # MZ2AZ-405 — 답을 보낸 뒤에야 「동시 작업 1개」 자리를 비우면, 답을 받자마자 보낸 다음 요청이
+        # 503 으로 거절되고 몸체를 보내던 쪽은 BrokenPipe 를 본다. 자리를 늦게 비우는 잠금으로 그 틈을 넓힌다.
+        class SlowRelease:
+            def __init__(self):
+                self.lock = threading.Lock()
+
+            def acquire(self, timeout=None):
+                return self.lock.acquire(timeout=timeout)
+
+            def release(self):
+                time.sleep(0.05)
+                self.lock.release()
+
+        self.handler.active = SlowRelease()
+        for chunked in (False, True, True):
+            status, body = self.request(
+                "POST", "/plan", {"titles": ["도깨비"], "days": 2}, chunked
+            )
+            self.assertEqual(status, 200, body)
+
     def test_contract_maximum_korean_history_exceeds_64k_and_is_accepted(self):
-        import time
         from types import SimpleNamespace
         from unittest.mock import Mock
 
@@ -340,14 +363,96 @@ class InternalHTTP(unittest.TestCase):
         for payload in ([], "invalid", {"days": "bad"}):
             self.assertEqual(self.request("POST", "/plan", payload)[0], 400)
 
-    def test_busy_and_rate_limited_requests_fail_fast(self):
-        self.handler.active.acquire()
-        try:
-            self.assertEqual(self.request("POST", "/plan", {})[0], 503)
-        finally:
-            self.handler.active.release()
+    def test_rate_limited_requests_fail_fast(self):
         self.handler.budget = RequestBudget(limit=0)
         self.assertEqual(self.request("POST", "/plan", {})[0], 429)
+
+    # ── MZ2AZ-413 · 자리가 없으면 기다리고, 여러 턴을 함께 처리한다 ──────────────
+
+    def together(self, bodies, path="/plan"):
+        """요청 여럿을 같은 순간에 보낸다. 돌려주는 것은 보낸 순서대로의 상태 코드."""
+        out = [None] * len(bodies)
+
+        def one(i):
+            out[i] = self.request("POST", path, bodies[i])[0]
+
+        threads = [threading.Thread(target=one, args=(i,)) for i in range(len(bodies))]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10)
+        return out
+
+    def slow_guide(self, seconds=0.15):
+        """모델 자리에 넣는 가짜 — 잠깐 쉬고, 같은 순간에 몇 턴이 겹쳤는지 센다."""
+        from types import SimpleNamespace
+
+        from src.session import Session
+
+        guide = SimpleNamespace(
+            session=Session(book=seoul_incheon_book()), now=0, peak=0, calls=0
+        )
+        gate = threading.Lock()
+
+        def ask(_text):
+            with gate:
+                guide.now += 1
+                guide.calls += 1
+                guide.peak = max(guide.peak, guide.now)
+            time.sleep(seconds)
+            with gate:
+                guide.now -= 1
+            return SimpleNamespace(reply="응답", tool_runs=[], effects=[], ui=[])
+
+        guide.ask = ask
+        return guide
+
+    def test_requests_arriving_together_all_get_answers(self):
+        # 자리는 하나뿐 — 예전에는 한 건만 200 이고 나머지는 즉시 503 이었다.
+        self.handler.active = threading.BoundedSemaphore(1)
+        self.assertEqual(self.together([PLAN] * 5), [200] * 5)
+
+    def test_waiting_is_bounded(self):
+        self.handler.active = threading.BoundedSemaphore(1)
+        self.handler.active.acquire()
+        started = time.monotonic()
+        try:
+            with patch("src.internal_server.WAIT_SECONDS", 0.2):
+                self.assertEqual(self.request("POST", "/plan", PLAN)[0], 503)
+        finally:
+            self.handler.active.release()
+        self.assertLess(time.monotonic() - started, 2)
+
+    def test_bad_requests_are_refused_without_waiting_for_a_place(self):
+        self.handler.active = threading.BoundedSemaphore(1)
+        self.handler.active.acquire()
+        started = time.monotonic()
+        try:
+            self.assertEqual(self.request("POST", "/plan", {"days": "bad"})[0], 400)
+        finally:
+            self.handler.active.release()
+        self.assertLess(time.monotonic() - started, 2)
+
+    def test_turns_of_different_conversations_run_together(self):
+        guides = {sid: self.slow_guide() for sid in ("a", "b", "c")}
+        self.handler.desk.guides = dict(guides)
+        self.handler.desk.seen = dict.fromkeys(guides, time.monotonic())
+        started = time.monotonic()
+        bodies = [
+            {"sessionId": sid, "messages": [{"role": "user", "content": "안녕"}]}
+            for sid in guides
+        ]
+        self.assertEqual(self.together(bodies, "/guide/chat"), [200] * 3)
+        # 차례로 돌렸다면 0.45 초다.
+        self.assertLess(time.monotonic() - started, 0.4)
+
+    def test_turns_of_one_conversation_never_overlap(self):
+        guide = self.slow_guide(0.05)
+        self.handler.desk.guides = {"same": guide}
+        self.handler.desk.seen = {"same": time.monotonic()}
+        body = {"sessionId": "same", "messages": [{"role": "user", "content": "안녕"}]}
+        self.assertEqual(self.together([body] * 4, "/guide/chat"), [200] * 4)
+        self.assertEqual((guide.calls, guide.peak), (4, 1))
 
     def test_session_capacity_is_bounded(self):
         body = {"sessionId": "new", "messages": [{"role": "user", "content": "안녕"}]}

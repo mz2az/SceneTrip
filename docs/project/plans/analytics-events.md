@@ -44,7 +44,8 @@ flowchart LR
 | `screen_view` ★ | 탭·덮개가 바뀌었다 | `screen_name` = `search`·`home`·`community`·`courses`·`profile` | `RootTabs` | `RootTabs` |
 | `search` ★ | 검색어를 확정했다 | `term_length`, `kind`(`content`·`person`·`place`·`typed`) — **검색어 원문은 보내지 않는다** | `SearchTabView.commit` | `SceneData.search` + `SearchTabScreen.commit` |
 | `view_title` | 작품 상세를 열었다 | `content_id` | `ContentDetailView` | `ContentDetailView` |
-| `view_place` | 장소 상세를 열었다 | `place_id` | `PlaceDetailView` | `PlaceDetailView` |
+| `view_place` | 장소 상세를 열었다 | `place_id` | `PlaceDetailView`·`RoutePlaceCard`의 대표 촬영지·`RouteStopCard`의 촬영지 | `PlaceDetailView` |
+| `view_poi` | 편의시설 정보 카드를 열었다(MZ2AZ-408) | `poi_id` | `RoutePlaceCard` — 실제 대표 대상이 POI일 때 | 미연결 |
 | `view_reviews` | 리뷰 시트를 열었다(MZ2AZ-363) | `target_type`(`place`·`poi`) | `ReviewsSheet` | 아직 |
 | `write_review` | 리뷰를 썼다·고쳤다(MZ2AZ-363) | `target_type`, `rating`, `photo_count`, `has_body`(1·0), `edited`(1·0) — **글과 닉네임은 보내지 않는다** | `ReviewComposeView` | 아직 |
 | `delete_review` | 리뷰를 지웠다 | `target_type` | `ReviewComposeView` | 아직 |
@@ -71,10 +72,20 @@ flowchart LR
 
 ## 4. 보내지 않는 것 (개인정보)
 
-- **이름·이메일·설치 식별자·좌표·글 본문·검색어 원문.** 작품·장소는 우리 DB 의 id 로만 적는다
+- **위 Firebase 이벤트에는 이름·이메일·설치 식별자·좌표·글 본문·검색어 원문을 보내지 않는다.** 작품·장소·편의시설은 우리 DB 의 id 로만 적는다
 - **광고 식별자(IDFA)** — iOS 는 `FirebaseAnalyticsCore`(광고 식별자 없는 제품)를 쓴다. 그래서 추적 동의 창(ATT)이 필요 없다. **광고를 집행해 전환을 매체에 돌려주려면 다시 정해야 한다** — 그때는 동의 창과 처리방침 변경이 따라온다
 - 분석 수집 자체는 개인정보 처리방침에 적어야 한다(수집 항목: 앱 사용 기록, 기기·OS 정보, 대략적 지역 — Firebase 가 IP 로 추정). 볼트 `(9주차) 08_앱이 다루는 개인정보` 참고
 - 단위 시험 `AppEventTests.testNoPersonalDataInParameters` 가 매개변수 이름을 지킨다
+
+### 우리 서버의 인기도 기록 (iOS, MZ2AZ-408)
+
+Firebase와 별개인 생성 `POST /events`로 실제 상세 열기와 확정한 검색을 보낸다.
+조회는 대상 종류·DB ID만, 검색은 원문·같은 검색의 첫 성공 응답에 표시할 총수만 보낸다.
+설치 ID·선택 언어·선택 로그인 토큰은 요청 헤더에 담는다. 서버는 검색어를 기기·회원과
+연결하지 않고 조회·검색 기록을 90일 후 삭제한다(`popularity.md` §5·§7).
+검색 원문은 Firebase·메타 이벤트나 앱 디스크의 재전송 큐에 저장하지 않는다.
+실패는 자동 재시도·로그인 갱신·화면 알림 없이 버린다.
+[전송·검색 시점 계획](ios-usage-events.md)을 따른다. Android의 이 전송은 별도 구현이다.
 
 ## 5. 설정 파일
 

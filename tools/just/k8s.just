@@ -67,6 +67,22 @@ cluster-test-drive:
 # kind load 단계가 이미지를 클러스터에 보이게 만든다. 이걸 빠뜨리는 것이 로컬
 # Kubernetes 에서 가장 흔한 실수다 — 오류가 나지 않고 옛 이미지가 조용히 계속 돈다.
 #
+# 로컬에서 AI 마법사·챗봇을 쓰게 AI 서버(agents/trip-guide)를 노트북에 띄운다(MZ2AZ-400). 키는 .env 의 DEEPSEEK_API_KEY.
+# 로컬 scene-api 는 host.docker.internal:8899 로 부른다. 꺼져 있으면 /guide/* 만 503 이다.
+[group('k8s')]
+guide-up:
+    ./tools/scripts/guide.sh up
+
+# AI 서버를 끈다
+[group('k8s')]
+guide-down:
+    ./tools/scripts/guide.sh down
+
+# AI 서버가 떠 있는지
+[group('k8s')]
+guide-status:
+    ./tools/scripts/guide.sh status
+
 # 모듈 이미지를 빌드해 kind 노드에 적재. 예: `just image scene-api`
 [group('k8s')]
 image module tag="dev":
@@ -229,6 +245,12 @@ course-pin-to-poi *flags:
 [positional-arguments]
 place-poi-link *flags:
     ./tools/scripts/place-poi-link.sh "$@"
+
+# 인기도를 지금 다시 계산한다 — 서버가 매일 밤 하는 것과 같은 DB 함수(recompute_popularity, 기본 무게)를 부른다.
+# 조회·하트·코스를 만든 뒤 순서가 바뀌는지 바로 보려고. 계획: docs/project/plans/popularity.md §5.
+[group('db')]
+popularity-recompute:
+    @just db-psql 'SELECT jsonb_pretty(recompute_popularity());'
 
 # POI(편의시설)를 적재한다. 인자가 없으면 저장소의 표본 23 행.
 #

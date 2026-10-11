@@ -232,8 +232,7 @@ struct RouteMapView: UIViewRepresentable {
         var onTapPreview: (PlaceSummary) -> Void = { _ in }
         var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
         /// 주변 편의시설 마커. 챗봇 결과와 살림을 따로 낸다 — 갱신 주기가 다르다.
-        var ambientMarkers: [NMFMarker] = []
-        var lastAmbientKey = ""
+        let ambientRenderer = PoiClusterRenderer()
         private var lastInset: CGFloat = 0
 
         /// 번호 핀을 눌렀다.

@@ -74,10 +74,11 @@ enum PlacePoiLink {
     struct Entry: Equatable {
         let place: PlaceSummary
         let kind: RouteStop.Kind
+        var poiText: RouteStop.PoiText?
 
         /// 코스에 넣을 줄.
         var stop: RouteStop {
-            RouteStop(place: place, kind: kind)
+            RouteStop(place: place, kind: kind, poiText: poiText)
         }
     }
 
@@ -95,7 +96,7 @@ enum PlacePoiLink {
     static func entry(
         placeId: Int64? = nil, poiId: Int64? = nil, linkedPlaceId: Int64?,
         name: String, category: String?, address: String?,
-        latitude: Double, longitude: Double, pin: () -> PlaceSummary
+        latitude: Double, longitude: Double, poiText: RouteStop.PoiText? = nil, pin: () -> PlaceSummary
     ) -> Entry {
         if let asPlace = placeId ?? linkedPlaceId {
             return Entry(
@@ -111,7 +112,7 @@ enum PlacePoiLink {
                 poiId, name: name, category: category, address: address,
                 latitude: latitude, longitude: longitude
             )
-            return Entry(place: stop.place, kind: stop.kind)
+            return Entry(place: stop.place, kind: stop.kind, poiText: poiText)
         }
         return Entry(place: pin(), kind: .pin)
     }
@@ -179,7 +180,10 @@ extension RouteGuide.Place {
         PlacePoiLink.entry(
             placeId: placeId, poiId: poiId, linkedPlaceId: linkedPlaceId,
             name: name, category: category, address: address,
-            latitude: latitude, longitude: longitude, pin: { asPlaceSummary }
+            latitude: latitude, longitude: longitude,
+            poiText: RouteStop.PoiText(displayName: displayName, nameRoman: nameRoman,
+                                       categoryLabel: categoryLabel, displayAddress: displayAddress),
+            pin: { asPlaceSummary }
         )
     }
 

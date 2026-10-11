@@ -34,10 +34,8 @@ struct HomeCommunityNow: View {
             Text(post.title).font(.system(size: 14)).lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
             // 말머리가 하나뿐이라 딱지는 없다. 대표 사진이 있으면 그것이 줄의 얼굴이다.
-            if let name = post.photos?.first, let photo = CommunityStore.photo(name) {
-                Image(uiImage: photo)
-                    .resizable()
-                    .scaledToFill()
+            if post.remotePhotos?.first != nil || post.photos?.first != nil {
+                CommunityCoverPhoto(post: post)
                     .frame(width: 44, height: 44)
                     .clipShape(.rect(cornerRadius: 9))
             }

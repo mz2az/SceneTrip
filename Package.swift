@@ -23,5 +23,7 @@ let package = Package(
         // 앱 분석 (MZ2AZ-353). Firebase Analytics = GA4 의 앱 쪽 수집기다. **광고 식별자(IDFA)를 쓰지 않는
         // 제품**(`FirebaseAnalyticsCore` — 옛 이름 WithoutAdIdSupport)을 쓴다 — 광고를 집행할 때 다시 정한다.
         .package(url: "https://github.com/firebase/firebase-ios-sdk.git", from: "12.0.0"),
+        // 메타 광고 측정 (MZ2AZ-391). Core 제품만 사용하고 ATT 허용 전에는 초기화하지 않는다.
+        .package(url: "https://github.com/facebook/facebook-ios-sdk.git", exact: "18.1.1"),
     ]
 )

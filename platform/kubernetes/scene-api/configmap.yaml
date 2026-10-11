@@ -69,3 +69,8 @@ data:
   # 그대로 두면 트레이스의 대부분이 헬스체크가 된다.
   OTEL_INSTRUMENTATION_HTTP_SERVER_EXPERIMENTAL_TELEMETRY_ENABLED: "false"
   OTEL_INSTRUMENTATION_COMMON_EXPERIMENTAL_CONTROLLER_TELEMETRY_ENABLED: "false"
+
+  # AI 서버(agents/trip-guide) — 로컬은 노트북에서 띄운다(`just guide-up`, MZ2AZ-400). kind 안에서 localhost 는 이 컨테이너
+  # 자신이라 노트북에 닿지 않는다 — host.docker.internal 이 노트북이다(Docker Desktop). 꺼져 있으면 /guide/* 만 503 이다.
+  # DEV·PRD 는 Helm 이 trip-guide 파드를 옆에 띄우고 http://trip-guide:8899 를 넣는다.
+  SCENETRIP_GUIDE_AGENT_BASE_URL: "http://host.docker.internal:8899"

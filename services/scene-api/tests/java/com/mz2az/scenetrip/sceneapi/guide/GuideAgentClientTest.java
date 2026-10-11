@@ -48,6 +48,7 @@ class GuideAgentClientTest {
   private static volatile String lastPath;
   private static volatile String lastAcceptLanguage;
   private static volatile String lastRequestBody;
+  private static volatile com.sun.net.httpserver.Headers lastHeaders;
 
   @BeforeAll
   static void startFakeAgent() throws IOException {
@@ -57,6 +58,7 @@ class GuideAgentClientTest {
         exchange -> {
           lastPath = exchange.getRequestURI().getPath();
           lastAcceptLanguage = exchange.getRequestHeaders().getFirst("Accept-Language");
+          lastHeaders = exchange.getRequestHeaders();
           lastRequestBody =
               new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
           if (delayMs > 0) {
@@ -105,6 +107,7 @@ class GuideAgentClientTest {
     lastPath = null;
     lastAcceptLanguage = null;
     lastRequestBody = null;
+    lastHeaders = null;
   }
 
   private static GuideAgentClient client() {
@@ -162,7 +165,7 @@ class GuideAgentClientTest {
   @Test
   @DisplayName("챗봇 응답이 계약 모델로 읽힌다 — effects·ui 포함, 모르는 필드 무시")
   void parsesChatReply() {
-    GuideChatReply reply = client().chat(chatRequest(), Lang.KO);
+    GuideChatReply reply = client().chat(chatRequest(), Lang.KO, null);
 
     assertThat(reply.getReply()).isEqualTo("서울중앙고를 담았어요.");
     assertThat(reply.getEffects()).hasSize(1);
@@ -176,7 +179,7 @@ class GuideAgentClientTest {
   @Test
   @DisplayName("요청은 에이전트의 /guide/chat 으로, 계약 이름 그대로, context.plan 을 실어서")
   void sendsContractShapedRequest() {
-    client().chat(chatRequest(), Lang.EN);
+    client().chat(chatRequest(), Lang.EN, null);
 
     assertThat(lastPath).isEqualTo("/guide/chat");
     assertThat(lastAcceptLanguage).isEqualTo("en");
@@ -193,11 +196,11 @@ class GuideAgentClientTest {
   void missingLangFallsBackToEnglish() {
     // 응답 언어 폴백은 요청 언어 → en → ko 다. 에이전트만 ko 로 보내면 앱 화면은 영어인데
     // 챗봇 답만 한국어인 상태가 된다.
-    client().chat(chatRequest(), null);
+    client().chat(chatRequest(), null, null);
     assertThat(lastAcceptLanguage).isEqualTo("en");
 
     body = PLAN_JSON;
-    client().plan(new GuidePlanRequest(List.of("도깨비"), 2), null);
+    client().plan(new GuidePlanRequest(List.of("도깨비"), 2), null, null);
     assertThat(lastAcceptLanguage).isEqualTo("en");
   }
 
@@ -206,7 +209,7 @@ class GuideAgentClientTest {
   void parsesPlanReply() {
     body = PLAN_JSON;
 
-    GuidePlanReply reply = client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO);
+    GuidePlanReply reply = client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO, null);
 
     assertThat(lastPath).isEqualTo("/plan");
     assertThat(reply.getPlan().getDays()).hasSize(1);
@@ -220,7 +223,7 @@ class GuideAgentClientTest {
     status = 400;
     body = "{\"code\":\"INVALID_PARAMETER\",\"message\":\"「도깨비2」 로 찾은 촬영지가 없다\"}";
 
-    assertThatThrownBy(() -> client().plan(new GuidePlanRequest(List.of("도깨비2"), 2), Lang.KO))
+    assertThatThrownBy(() -> client().plan(new GuidePlanRequest(List.of("도깨비2"), 2), Lang.KO, null))
         .isInstanceOfSatisfying(
             ApiException.class,
             e -> {
@@ -236,7 +239,7 @@ class GuideAgentClientTest {
     status = 503;
     body = "{\"code\":\"GUIDE_UNAVAILABLE\",\"message\":\"DeepSeek 에 닿지 못했다\"}";
 
-    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO), "DeepSeek");
+    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO, null), "DeepSeek");
   }
 
   @Test
@@ -245,7 +248,7 @@ class GuideAgentClientTest {
     status = 404;
     body = "{\"error\":\"그런 주소가 없다\"}";
 
-    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO), null);
+    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO, null), null);
   }
 
   @Test
@@ -254,7 +257,7 @@ class GuideAgentClientTest {
     GuideAgentClient closed = client("http://127.0.0.1:1", 1);
 
     long started = System.nanoTime();
-    assertUnavailable(() -> closed.chat(chatRequest(), Lang.KO), null);
+    assertUnavailable(() -> closed.chat(chatRequest(), Lang.KO, null), null);
     assertThat(elapsedMs(started)).isLessThan(3_000);
   }
 
@@ -265,7 +268,7 @@ class GuideAgentClientTest {
     GuideAgentClient unreachable = client("http://10.255.255.1:9", 1);
 
     long started = System.nanoTime();
-    assertUnavailable(() -> unreachable.chat(chatRequest(), Lang.KO), null);
+    assertUnavailable(() -> unreachable.chat(chatRequest(), Lang.KO, null), null);
     assertThat(elapsedMs(started)).isLessThan(5_000);
   }
 
@@ -275,7 +278,7 @@ class GuideAgentClientTest {
     delayMs = 3_000;
 
     long started = System.nanoTime();
-    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO), null);
+    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO, null), null);
     assertThat(elapsedMs(started)).isBetween(900L, 2_500L);
   }
 
@@ -285,7 +288,7 @@ class GuideAgentClientTest {
     headersThenStall = true;
 
     long started = System.nanoTime();
-    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO), null);
+    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO, null), null);
     assertThat(elapsedMs(started)).isLessThan(4_500);
   }
 
@@ -295,8 +298,9 @@ class GuideAgentClientTest {
     // 2026-09-10 실측(MZ2AZ-321) — 모델 키가 없을 때 에이전트가 이걸 200 으로 줬다.
     body = "{\"error\": \"환경변수 DEEPSEEK_API_KEY 가 비어 있다\"}";
 
-    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO), null);
-    assertUnavailable(() -> client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO), null);
+    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO, null), null);
+    assertUnavailable(
+        () -> client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO, null), null);
   }
 
   @Test
@@ -304,7 +308,7 @@ class GuideAgentClientTest {
   void brokenJson() {
     body = "{\"reply\": ";
 
-    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO), null);
+    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO, null), null);
   }
 
   @Test
@@ -312,7 +316,7 @@ class GuideAgentClientTest {
   void emptyBaseUrl() {
     GuideAgentClient none = client("  ", 1);
 
-    assertUnavailable(() -> none.chat(chatRequest(), Lang.KO), null);
+    assertUnavailable(() -> none.chat(chatRequest(), Lang.KO, null), null);
     assertThat(lastPath).isNull();
   }
 
@@ -331,5 +335,79 @@ class GuideAgentClientTest {
 
   private static long elapsedMs(long startedNanos) {
     return (System.nanoTime() - startedNanos) / 1_000_000;
+  }
+
+  // ───────────── 한도 열쇠 (MZ2AZ-412, guide-rate-subject.md §5) ─────────────
+
+  private static final String USER_SUBJECT = "user:9d1e4b52-6c07-4a8f-b3d1-2e6f80c4a915";
+  private static final String INSTALL_SUBJECT = "install:3f2a7c10-8b4e-4f21-9a33-1c5d7e9b0a44";
+
+  @Test
+  @DisplayName("헤더 이름은 X-Rate-Subject")
+  void rateSubjectHeaderName() {
+    assertThat(GuideAgentClient.RATE_SUBJECT_HEADER).isEqualTo("X-Rate-Subject");
+  }
+
+  @Test
+  @DisplayName("챗봇 — 필터가 정한 열쇠가 X-Rate-Subject 로 /guide/chat 에 간다")
+  void chatCarriesRateSubject() {
+    client().chat(chatRequest(), Lang.KO, USER_SUBJECT);
+
+    assertThat(lastPath).isEqualTo("/guide/chat");
+    assertThat(lastHeaders.get("X-Rate-Subject")).containsExactly(USER_SUBJECT);
+  }
+
+  @Test
+  @DisplayName("마법사 — 필터가 정한 열쇠가 X-Rate-Subject 로 /plan 에 간다(install:·ip: 그대로)")
+  void planCarriesRateSubject() {
+    body = PLAN_JSON;
+    for (String subject : new String[] {INSTALL_SUBJECT, "ip:203.0.113.10", USER_SUBJECT}) {
+      client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO, subject);
+
+      assertThat(lastPath).isEqualTo("/plan");
+      assertThat(lastHeaders.get("X-Rate-Subject")).as(subject).containsExactly(subject);
+    }
+  }
+
+  @Test
+  @DisplayName("열쇠가 null 이면 X-Rate-Subject 를 보내지 않는다")
+  void nullSubjectSendsNoHeader() {
+    client().chat(chatRequest(), Lang.KO, null);
+    assertThat(lastHeaders.containsKey("X-Rate-Subject")).isFalse();
+
+    body = PLAN_JSON;
+    client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO, null);
+    assertThat(lastHeaders.containsKey("X-Rate-Subject")).isFalse();
+  }
+
+  @Test
+  @DisplayName(
+      "Authorization · X-Install-Id · X-Service-Token 은 에이전트로 가지 않는다 — 자격 증명은 넘기지 않는다(ADR"
+          + " 0013·0023)")
+  void credentialsNeverReachTheAgent() {
+    client().chat(chatRequest(), Lang.KO, USER_SUBJECT);
+    assertNoCredentials();
+
+    body = PLAN_JSON;
+    client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO, INSTALL_SUBJECT);
+    assertNoCredentials();
+  }
+
+  private static void assertNoCredentials() {
+    assertThat(lastHeaders).isNotNull();
+    assertThat(lastHeaders.containsKey("Authorization")).isFalse();
+    assertThat(lastHeaders.containsKey("X-Install-Id")).isFalse();
+    assertThat(lastHeaders.containsKey("X-Service-Token")).isFalse();
+    assertThat(lastHeaders.containsKey("Cookie")).isFalse();
+  }
+
+  @Test
+  @DisplayName("열쇠를 실어도 실패 번역은 그대로 — 에이전트 503 은 GUIDE_UNAVAILABLE")
+  void subjectDoesNotChangeErrorTranslation() {
+    status = 503;
+    body = "{\"code\":\"GUIDE_UNAVAILABLE\",\"message\":\"DeepSeek 에 닿지 못했다\"}";
+
+    assertUnavailable(() -> client().chat(chatRequest(), Lang.KO, USER_SUBJECT), "DeepSeek");
+    assertThat(lastHeaders.get("X-Rate-Subject")).containsExactly(USER_SUBJECT);
   }
 }

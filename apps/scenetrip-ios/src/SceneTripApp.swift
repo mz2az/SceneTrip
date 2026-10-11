@@ -4,6 +4,8 @@ import SwiftUI
 
 @main
 struct SceneTripApp: App {
+    @Environment(\.scenePhase) private var scenePhase
+
     init() {
         // 지도를 그리기 전에 인증 정보를 넣어야 한다.
         //
@@ -33,6 +35,11 @@ struct SceneTripApp: App {
         WindowGroup {
             // 스플래시 → (처음이면) 사용법 → 앱. AppRoot 가 그 순서만 든다.
             AppRoot()
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active {
+                        MetaAnalytics.shared.activate()
+                    }
+                }
         }
     }
 }

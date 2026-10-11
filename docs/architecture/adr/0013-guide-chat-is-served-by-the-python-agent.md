@@ -5,7 +5,7 @@ status: accepted
 date: 2026-09-07
 supersedes: 0012
 superseded-by:
-amended-by: 0015
+amended-by: 0015, 0023
 amends:
 ---
 
@@ -13,6 +13,9 @@ amends:
 
 > 배포 전제 보정: [ADR 0015](0015-aws-manual-environments.md)에서 Python Bazel 타깃과
 > 내부 전용 컨테이너 배포를 추가한다. 이 문서의 책임 경계는 유지한다.
+>
+> 신원 보정: [ADR 0023](0023-agent-reads-carry-rate-subject-not-credentials.md)에서 에이전트의 읽기 요청이
+> 자격 증명 대신 한도 열쇠(`X-Rate-Subject`)를 단다. 에이전트는 여전히 자격 증명을 받지 않는다.
 
 > [0012](./0012-guide-chat-is-served-by-the-server.md) 를 대체한다. 0012 는 「LLM 호출·도구 실행·
 > 프롬프트를 scene-api 안에 둔다」고 정했고, 파이썬 에이전트를 따로 두는 안을 기각했다. 그 기각의

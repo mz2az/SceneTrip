@@ -16,7 +16,13 @@ import SwiftUI
 struct OnboardingView: View {
     let onDone: () -> Void
 
-    @State private var page = 0
+    @State private var progress: OnboardingProgress
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    init(onDone: @escaping () -> Void) {
+        self.onDone = onDone
+        _progress = State(initialValue: OnboardingProgress(count: Self.lessons.count))
+    }
 
     private static let lessons: [Lesson] = [
         Lesson(
@@ -27,24 +33,23 @@ struct OnboardingView: View {
         Lesson(
             pose: .sparkle,
             title: "속도만 정하세요.\n일정은 해태가 짭니다.",
-            // 7 과 3 은 지어낸 수가 아니라 계약 `GuidePlanRequest.pace` 의 값이다(빡빡 7 · 여유 3,
-            // 계수는 에이전트 설정). 그쪽을 고치면 이 문장도 함께 고쳐야 한다(MZ2AZ-321).
-            body: "빡빡하게는 하루 7곳, 널널하게는 3곳.\n가까운 곳끼리 묶어 일차별로 나눠 줘요."
+            // 모델 실행은 방문 수를 고정하지 않는다. 결정적 엔진의 7/3 상한을 약속하지 않는다.
+            body: "원하는 속도에 맞춰 가까운 촬영지로 일정을 짭니다.\n완성된 초안은 원하는 대로 바꿀 수 있어요."
         ),
         Lesson(
             pose: .paw,
             title: "가고 싶어지면\n길찾기를 누르세요",
-            body: "지금 서 있는 자리에서 지하철·버스,\n걷는 골목 하나까지 안내해요."
+            body: "코스를 따라 다음 장소로 가는 길을 확인해요.\n필요하면 지도 앱으로 길찾기를 이어갈 수 있어요."
         ),
         Lesson(
             pose: .speech,
             title: "가는 길에 먹고,\n막히면 물어보세요",
-            body: "주변의 음식점·명소·교통·숙소를 보여 줘요.\n한국어는 해태가 맡습니다."
+            body: "주변의 음식점·명소·교통·숙소를 보여 줘요.\n촬영지와 여행 계획을 해태에게 물어보세요."
         ),
     ]
 
     private var isLast: Bool {
-        page == Self.lessons.count - 1
+        progress.isLast
     }
 
     var body: some View {
@@ -53,15 +58,18 @@ struct OnboardingView: View {
             HStack {
                 Spacer()
                 Button("건너뛰기") { finish() }
-                    .font(.system(size: 17))
+                    .font(.body)
                     .foregroundStyle(.secondary)
                     .opacity(isLast ? 0 : 1)
                     .disabled(isLast)
             }
-            .frame(height: 44)
+            .frame(minHeight: 44)
             .padding(.horizontal, 16)
 
-            TabView(selection: $page) {
+            TabView(selection: Binding(
+                get: { progress.page },
+                set: { progress.select($0) }
+            )) {
                 ForEach(Array(Self.lessons.enumerated()), id: \.offset) { index, lesson in
                     LessonPage(lesson: lesson, index: index)
                         .tag(index)
@@ -69,36 +77,64 @@ struct OnboardingView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
 
-            PageDots(count: Self.lessons.count, current: page)
+            PageDots(count: Self.lessons.count, current: progress.page)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(String(format: tr("사용법 %d / %d"), progress.page + 1, progress.count))
                 .padding(.top, 8)
-                .padding(.bottom, 22)
-
-            Button {
-                if isLast {
-                    finish()
-                } else {
-                    withAnimation(.easeInOut(duration: 0.28)) { page += 1 }
-                }
-            } label: {
-                Text(isLast ? tr("시작하기") : tr("다음"))
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Color.accentColor, in: .rect(cornerRadius: 12))
-                    .foregroundStyle(.white)
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 40)
+                .padding(.bottom, 12)
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { navigation }
         .background(Color(.systemBackground))
         .onAppear { AppAnalytics.log(.tutorialBegin) }
     }
 
     private func finish() {
+        guard progress.finish() else { return }
         AppAnalytics.log(.tutorialComplete)
         OnboardingFlag.markSeen()
         onDone()
+    }
+
+    private var navigation: some View {
+        Group {
+            if typeSize.isAccessibilitySize {
+                VStack(spacing: 10) { previousButton; nextButton }
+            } else {
+                HStack(spacing: 12) { previousButton; nextButton }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color(.systemBackground))
+    }
+
+    private var previousButton: some View {
+        Button("이전") {
+            withAnimation(.easeInOut(duration: 0.28)) { progress.previous() }
+        }
+        .font(.headline)
+        .frame(minHeight: 44)
+        .disabled(progress.page == 0)
+    }
+
+    private var nextButton: some View {
+        Button {
+            if isLast {
+                finish()
+            } else {
+                withAnimation(.easeInOut(duration: 0.28)) { progress.next() }
+            }
+        } label: {
+            Text(isLast ? tr("시작하기") : tr("다음"))
+                .font(.headline)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .padding(.vertical, 4)
+                .background(Color.accentColor, in: .rect(cornerRadius: 12))
+                .foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -116,33 +152,37 @@ private struct LessonPage: View {
     let index: Int
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
+        GeometryReader { geometry in
+            let width = min(300, max(1, geometry.size.width - 32))
+            ScrollView {
+                VStack(spacing: 20) {
+                    ZStack {
+                        Backdrop(index: index)
+                        PinoMascot(pose: lesson.pose, width: mascotWidth)
+                            .offset(mascotShift)
+                    }
+                    .frame(width: 300, height: 300)
+                    .scaleEffect(width / 300)
+                    .frame(width: width, height: width)
+                    .accessibilityHidden(true)
 
-            ZStack {
-                Backdrop(index: index)
-                PinoMascot(pose: lesson.pose, width: mascotWidth)
-                    .offset(mascotShift)
+                    Text(tr(lesson.title))
+                        .font(.title.bold())
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+
+                    Text(tr(lesson.body))
+                        .font(.body).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center).lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height)
             }
-            .frame(height: 300)
-
-            Spacer(minLength: 0)
-
-            Text(tr(lesson.title))
-                .font(.system(size: 28, weight: .bold))
-                .kerning(-0.5)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text(tr(lesson.body))
-                .font(.system(size: 16)).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center).lineSpacing(3)
-                .padding(.top, 12)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Spacer(minLength: 0)
+            .scrollIndicators(.hidden)
         }
-        .padding(.horizontal, 32)
     }
 
     /// 곁들인 그림이 한쪽에 몰린 장에서는 피노를 반대쪽으로 비켜 세운다.

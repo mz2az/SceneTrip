@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import threading
 import time
 from contextlib import contextmanager
@@ -14,8 +15,24 @@ MAX_CHUNK_LINE = 128
 MAX_TRAILERS = 16
 REQUESTS_PER_MINUTE = 120
 MAX_SESSIONS = 128
+MAX_ACTIVE = 4
+WAIT_SECONDS = 10
 REQUEST_SECONDS = 30
 _DEADLINE = ContextVar("request_deadline", default=None)
+
+# 한도 열쇠(ADR 0023). scene-api 가 이 턴을 센 열쇠를 X-Rate-Subject 로 넘기면, 이 턴의
+# scene-api 읽기에 같은 열쇠와 서비스 비밀값을 되돌려 달아 그 사용자 몫으로 세게 한다.
+# 열쇠는 자격 증명이 아니다 — 칸을 고를 뿐 어떤 창구도 열지 않는다.
+SERVICE_TOKEN_ENV = "SCENETRIP_SERVICE_TOKEN"
+SERVICE_TOKEN_HEADER = "X-Service-Token"
+RATE_SUBJECT_HEADER = "X-Rate-Subject"
+_RATE_SUBJECT = ContextVar("rate_subject", default=None)
+# scene-api 의 한도 필터가 만드는 모양 셋뿐. 그 밖은 버린다 — 받은 값을 그대로 다른 요청의
+# 헤더로 옮기므로 모양을 좁혀 둔다.
+_RATE_SUBJECT_SHAPE = re.compile(
+    r"(?:user|install):[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+    r"|ip:[0-9a-fA-F.:]{1,45}"
+)
 
 
 class RequestExpired(RuntimeError):
@@ -29,6 +46,35 @@ def request_deadline(seconds=REQUEST_SECONDS):
         yield
     finally:
         _DEADLINE.reset(token)
+
+
+@contextmanager
+def rate_subject(value: str | None):
+    """이 턴 동안 scene-api 읽기에 달 한도 열쇠를 들고 있는다. 모양이 틀리면 없는 것으로."""
+    subject = value.strip() if isinstance(value, str) else None
+    if subject is not None and not _RATE_SUBJECT_SHAPE.fullmatch(subject):
+        subject = None
+    token = _RATE_SUBJECT.set(subject)
+    try:
+        yield
+    finally:
+        _RATE_SUBJECT.reset(token)
+
+
+def service_token() -> str:
+    return os.getenv(SERVICE_TOKEN_ENV, "").strip()
+
+
+def service_headers() -> dict[str, str]:
+    """scene-api 읽기에 달 헤더. 열쇠나 비밀값 중 하나라도 없으면 아무것도 달지 않는다.
+
+    비밀값 없이 열쇠만 보내면 scene-api 는 어차피 무시한다. 둘 다 빼서 지금과 같게 둔다.
+    """
+    subject = _RATE_SUBJECT.get()
+    token = service_token()
+    if not subject or not token:
+        return {}
+    return {SERVICE_TOKEN_HEADER: token, RATE_SUBJECT_HEADER: subject}
 
 
 def remaining_timeout(cap):

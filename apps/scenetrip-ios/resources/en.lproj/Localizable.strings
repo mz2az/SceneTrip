@@ -5,6 +5,10 @@
 "%@ · %lld곳" = "%1$@ · %2$lld places";
 "%@ — 좌표 없음" = "%@ — no coordinates";
 "%@ 고정" = "Pin %@";
+"약 %@(이동 포함)" = "About %@ (including travel)";
+"머무는 시간 %@" = "Time at places %@";
+"이동을 포함한 어림이에요. 실제 이동 시간은 여행 중에 확인해 주세요." = "This includes estimated travel. Check actual travel times during your trip.";
+"저장하면 이동을 포함한 시간을 다시 보여 드려요." = "Save to refresh the estimate including travel.";
 "%@ 도착 예정" = "Arrives %@";
 "%@ 외 %d" = "%@ +%d";
 "%@%@ 도착" = "Arrived at %@%@";
@@ -100,6 +104,10 @@
 "다음" = "Next";
 "다음 · %lld번 %@로 길찾기" = "Next · Directions to #%lld %@";
 "닫기" = "Close";
+"편의시설 %d곳" = "%d nearby places";
+"주변 편의시설" = "Nearby places";
+"현재 지도에서 받은 결과 중 %d곳" = "%d of the places loaded on this map";
+"지역 전체 개수가 아니에요. 장소를 골라 정보를 확인하세요." = "This is not the area's total. Choose a place to see its details.";
 "담고 빼는 것은 작품검색 탭의 장바구니에서" = "Save and remove places from Saved in the Search tab";
 "담기" = "Save";
 "담기 %d|저장 수" = "%d saves";
@@ -110,6 +118,7 @@
 "담았습니다" = "Saved";
 "담은 장소가 없습니다" = "No saved places";
 "담지 못했습니다. 잠시 후 다시 시도해 주세요" = "Couldn't save. Try again in a moment.";
+"빼지 못했습니다. 잠시 후 다시 시도해 주세요" = "Couldn't remove. Try again in a moment.";
 "답을 받지 못했습니다." = "No answer came back.";
 "답이 너무 오래 걸려 기다리기를 멈췄어요. 잠시 뒤 다시 물어봐 주세요" = "The answer took too long, so we stopped waiting. Ask again in a moment";
 "당일치기" = "Day trip";
@@ -178,7 +187,7 @@
 "서버가 열리면 함께 열려요" = "Opens when the server does";
 "서버에 연결하지 못했습니다." = "Couldn't connect to the server.";
 "인터넷 연결을 확인해 주세요." = "Check your internet connection.";
-"서버에 연결하지 못했어요 — 백엔드(:8081)가 켜져 있나요?" = "Couldn't reach the server — is the backend (:8081) running?";
+"연결하지 못했어요. 인터넷 연결을 확인하고 잠시 뒤 다시 시도해 주세요" = "Couldn't connect. Check your internet connection and try again shortly.";
 "서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요" = "Couldn't reach the server. Please try again shortly";
 "답을 기다리다 멈췄어요. 다시 시도해 주세요" = "Stopped waiting for the answer. Tap Try again";
 "다시 연결하는 중이에요" = "Reconnecting…";
@@ -433,6 +442,22 @@
 "별점 %@점" = "%@ out of 5 stars";
 "더 불러오지 못했어요 · 다시 시도" = "Couldn't load more · Try again";
 "탈퇴한 사용자" = "Deleted user";
+"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 익명으로 남습니다. 지우려면 탈퇴 전에 지우세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews and travel posts you wrote stay without your name. Delete them before leaving if you want them removed.";
+"후기를 지울까요?" = "Delete this travel review?";
+"쓰던 후기를 버릴까요?" = "Discard this draft?";
+"게시 여부 확인" = "Check publication";
+"내 글 목록 보기" = "View my posts";
+"사진 없는 글은 게시 여부를 확정할 수 없어요. 내 글 목록에서 확인해 주세요. 중복을 막기 위해 다시 보내지 않습니다" = "Publication cannot be confirmed for a post without photos. Check My posts. We won't resend it to avoid duplicates.";
+"게시 응답을 받지 못했어요. 중복 게시를 막기 위해 게시 여부를 확인해 주세요" = "The publication response was lost. Check whether it was published to avoid posting twice.";
+"게시 여부를 아직 확인하지 못했어요. 잠시 뒤 다시 확인해 주세요. 초안은 그대로 있습니다" = "Publication is still unconfirmed. Please check again shortly. Your draft remains on this screen.";
+"계정이 바뀌었어요. 이 초안을 닫고 새로 작성해 주세요" = "Your account changed. Close this draft and start a new one.";
+"직접 찍은 핀 %d곳은 공유되지 않습니다" = "%d personal pins will be excluded from the shared course.";
+"제목 %d/100 · 본문 %d/5000" = "Title %d/100 · Body %d/5000";
+"사진 다시 받기" = "Reload photo";
+"붙인 코스를 다시 골라 주세요" = "Please select the attached course again.";
+"이 후기는 더 이상 볼 수 없어요" = "This travel review is no longer available.";
+"서버에 게시한 글" = "Published posts";
+"이 기기에만 저장된 옛 글" = "Older posts saved on this device only";
 "내 리뷰" = "My review";
 "내 리뷰|목록" = "My reviews";
 "수정됨" = "Edited";
@@ -552,3 +577,10 @@
 "지도 앱이 열려요" = "Opens the map app";
 "브라우저에서 지도가 열려요" = "Opens the map in your browser";
 "현재 위치|출발" = "Current location";
+
+/* 현재 기능에 맞춘 사용법과 진행 안내 (MZ2AZ-399). AI 방문 개수를 약속하지 않는다. */
+"원하는 속도에 맞춰 가까운 촬영지로 일정을 짭니다.\n완성된 초안은 원하는 대로 바꿀 수 있어요." = "Plan nearby filming locations at your own pace.\nYou can edit the draft to make it yours.";
+"코스를 따라 다음 장소로 가는 길을 확인해요.\n필요하면 지도 앱으로 길찾기를 이어갈 수 있어요." = "Follow your course to the next stop.\nYou can continue directions in a map app when needed.";
+"주변의 음식점·명소·교통·숙소를 보여 줘요.\n촬영지와 여행 계획을 해태에게 물어보세요." = "Find nearby food, sights, transport and stays.\nAsk HAETAE about filming locations and travel plans.";
+"방문 수는 고른 작품과 이동 거리에 따라 달라집니다" = "The number of stops depends on your choices and travel distances";
+"사용법 %d / %d" = "Tutorial %1$d of %2$d";

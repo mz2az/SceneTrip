@@ -61,15 +61,29 @@ jobs:
             | tar -xJ -C /tmp
           sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
 
-      - name: Bazel 캐시
-        uses: actions/cache@v4
+      # 캐시는 **main 에 올라갈 때마다 새로 저장**하고(키에 커밋), PR 은 꺼내 쓰기만 한다. 전에는 키가
+      # MODULE.bazel 해시뿐이라 그 파일이 안 바뀌는 동안 같은 키가 이미 있어 **저장이 한 번도 안 됐다** —
+      # 캐시가 2026-10-07 에 굳어 그 뒤 바뀐 코드는 매번 처음부터 지었다(verify 6 분 → 17~35 분, 2026-10-10).
+      # PR 이 저장하지 않는 것은 저장소 캐시 한도(10 GB)를 PR 마다 3 GB 씩 먹지 않게 하려는 것이다.
+      - name: Bazel 캐시 꺼내기
+        id: bazel-cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/.cache/bazel
-          key: bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}
-          restore-keys: bazel-${{ runner.os }}-
+          key: bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}
+          restore-keys: |
+            bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-
+            bazel-${{ runner.os }}-
 
       - name: 검증
         run: just ci-full
+
+      - name: Bazel 캐시 저장 (main 만)
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}
 
   # iOS 를 짓는 유일한 잡 (ADR 0002 후속 "CI 에 macOS 러너 잡 추가 — 첫 iOS 모듈이
   # 생길 때", 계획서 mobile-native-search-tab.md §5-4).
@@ -132,17 +146,33 @@ jobs:
             echo "build --repository_cache=~/.cache/bazel-repo"
           } >> .bazelrc.user
 
-      - name: Bazel 캐시
-        uses: actions/cache@v4
+      # 캐시는 **main 에 올라갈 때마다 새로 저장**하고(키에 커밋), PR 은 꺼내 쓰기만 한다. 전에는 키가
+      # MODULE.bazel 해시뿐이라 그 파일이 안 바뀌는 동안 같은 키가 이미 있어 **저장이 한 번도 안 됐다** —
+      # 캐시가 2026-10-07 에 굳어 그 뒤 바뀐 코드는 매번 처음부터 지었다(verify 6 분 → 17~35 분, 2026-10-10).
+      # PR 이 저장하지 않는 것은 저장소 캐시 한도(10 GB)를 PR 마다 3 GB 씩 먹지 않게 하려는 것이다.
+      - name: Bazel 캐시 꺼내기
+        id: bazel-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/bazel-disk
             ~/.cache/bazel-repo
-          key: bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}
-          restore-keys: bazel-${{ runner.os }}-
+          key: bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}
+          restore-keys: |
+            bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-
+            bazel-${{ runner.os }}-
 
       - name: 검증
         run: just ci-full
+
+      - name: Bazel 캐시 저장 (main 만)
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/bazel-disk
+            ~/.cache/bazel-repo
+          key: bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}
 
   # 통합 레인. 실제 PostgreSQL 이 필요해 잡을 나눈다 (ADR 0005).
   #
@@ -192,12 +222,19 @@ jobs:
             https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
           sudo chmod +x /usr/local/bin/bazel
 
-      - name: Bazel 캐시
-        uses: actions/cache@v4
+      # 캐시는 **main 에 올라갈 때마다 새로 저장**하고(키에 커밋), PR 은 꺼내 쓰기만 한다. 전에는 키가
+      # MODULE.bazel 해시뿐이라 그 파일이 안 바뀌는 동안 같은 키가 이미 있어 **저장이 한 번도 안 됐다** —
+      # 캐시가 2026-10-07 에 굳어 그 뒤 바뀐 코드는 매번 처음부터 지었다(verify 6 분 → 17~35 분, 2026-10-10).
+      # PR 이 저장하지 않는 것은 저장소 캐시 한도(10 GB)를 PR 마다 3 GB 씩 먹지 않게 하려는 것이다.
+      - name: Bazel 캐시 꺼내기
+        id: bazel-cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/.cache/bazel
-          key: bazel-integration-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}
-          restore-keys: bazel-integration-${{ runner.os }}-
+          key: bazel-integration-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}
+          restore-keys: |
+            bazel-integration-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-
+            bazel-integration-${{ runner.os }}-
 
       # 아래 셋은 노트북에서 치는 것과 같은 명령이다. 로컬에서는 kind 가, 여기서는
       # 서비스 컨테이너가 DB 를 준다는 것만 다르다.
@@ -216,6 +253,13 @@ jobs:
 
       - name: 통합 테스트
         run: just test-integration
+
+      - name: Bazel 캐시 저장 (main 만)
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-integration-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}
 
   security:
     runs-on: ubuntu-latest

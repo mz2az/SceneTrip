@@ -1,5 +1,5 @@
 {
-  "originHash" : "a9826b9eab367c408403af6059f41053cac2269465bd31a1b52bffb78c434bce",
+  "originHash" : "0a9e38822921b67c76c0928bf5dd2001351794ab1961412a83a67ed154d4330c",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -26,6 +26,15 @@
       "state" : {
         "revision" : "a7caeda164dc5108bf4649472b28a5af65dc6f33",
         "version" : "2.1.0"
+      }
+    },
+    {
+      "identity" : "facebook-ios-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/facebook/facebook-ios-sdk.git",
+      "state" : {
+        "revision" : "80d0ee82f6370d1bace1431a80cb80575f98ee90",
+        "version" : "18.1.1"
       }
     },
     {

@@ -1,8 +1,8 @@
 """애플 로그인 비밀값(MZ2AZ-337)을 명세 기준으로 검사한다. 클라우드에 연결하지 않는다.
 
-명세: auth 칸은 JWT 서명 키(32 바이트 이상)와 토큰 암호화 키(정확히 32 바이트) 두 개를 배포가
-만든다. 이 변경 전에 만들어진 환경(JWT 키만 있음)은 JWT 키를 그대로 두고 빠진 암호화 키만 더해
-한 번 쓴다. scene_api 칸의 애플 개인 키는 선택 항목이다.
+명세: auth 칸은 JWT 서명 키(32 바이트 이상)와 토큰 암호화 키(정확히 32 바이트), 그리고
+MZ2AZ-412 의 서비스 비밀값(32 바이트 base64)을 배포가 만든다. 이 변경 전에 만들어진 환경(JWT 키만
+있음)은 JWT 키를 그대로 두고 빠진 키만 더해 한 번 쓴다. scene_api 칸의 애플 개인 키는 선택 항목이다.
 """
 
 import base64
@@ -14,10 +14,13 @@ from tools.aws.tests.test_auth_secret import (
     AUTH_ARN,
     AUTH_KEY,
     CIPHER_KEY,
+    SERVICE_KEY,
     DeploySecretWiringTest,
     FakeSecretStore,
+    auth_slot,
     cipher_key,
     cluster_commands,
+    service_token,
     signing_key,
 )
 
@@ -38,7 +41,7 @@ def apple_key(pem=FIXTURE_PEM):
 class LegacyAuthSlotTest(unittest.TestCase):
     """이 변경 전에 만들어진 환경 — auth 칸에 JWT 키만 있다."""
 
-    def test_keeps_jwt_key_and_adds_only_the_missing_encryption_key(self):
+    def test_keeps_jwt_key_and_adds_only_the_missing_keys(self):
         from tools.aws.config import validate_secret
         from tools.aws.deploy import auth_secret
 
@@ -49,9 +52,11 @@ class LegacyAuthSlotTest(unittest.TestCase):
 
         # JWT 키를 바꾸면 이미 로그인한 사람이 전부 로그아웃된다.
         self.assertEqual(secret[AUTH_KEY], jwt_key)
-        self.assertEqual(set(secret), {AUTH_KEY, CIPHER_KEY})
+        self.assertEqual(set(secret), {AUTH_KEY, CIPHER_KEY, SERVICE_KEY})
         self.assertEqual(len(base64.b64decode(secret[CIPHER_KEY], validate=True)), 32)
+        self.assertEqual(len(base64.b64decode(secret[SERVICE_KEY], validate=True)), 32)
         validate_secret("auth", secret)
+        # 빠진 키가 둘이어도 쓰기는 한 번이다.
         puts = store.puts()
         self.assertEqual(len(puts), 1)
         body = json.loads(puts[0][1]["stdin"])
@@ -60,9 +65,10 @@ class LegacyAuthSlotTest(unittest.TestCase):
         for command, unused in store.calls:
             joined = " ".join(command)
             self.assertNotIn(secret[CIPHER_KEY], joined)
+            self.assertNotIn(secret[SERVICE_KEY], joined)
             self.assertNotIn(jwt_key, joined)
 
-    def test_after_upgrade_the_next_deploy_reuses_both_without_writing(self):
+    def test_after_upgrade_the_next_deploy_reuses_all_without_writing(self):
         from tools.aws.deploy import auth_secret
 
         jwt_key = signing_key(fill=b"L")
@@ -89,7 +95,7 @@ class ValidateEncryptionKeyTest(unittest.TestCase):
     def test_accepts_exactly_32_bytes(self):
         from tools.aws.config import validate_secret
 
-        validate_secret("auth", {AUTH_KEY: signing_key(), CIPHER_KEY: cipher_key()})
+        validate_secret("auth", auth_slot())
 
     def test_rejects_malformed_encryption_key_without_echoing_it(self):
         from tools.aws.config import validate_secret
@@ -101,14 +107,16 @@ class ValidateEncryptionKeyTest(unittest.TestCase):
             ("64 bytes", base64.b64encode(b"G" * 64).decode()),
         ):
             with self.subTest(label), self.assertRaises(ValueError) as caught:
-                validate_secret("auth", {AUTH_KEY: signing_key(), CIPHER_KEY: bad})
+                validate_secret("auth", auth_slot(cipher=bad))
             self.assertNotIn(bad, str(caught.exception))
 
     def test_missing_encryption_key_is_rejected(self):
         from tools.aws.config import validate_secret
 
         with self.assertRaises(ValueError):
-            validate_secret("auth", {AUTH_KEY: signing_key()})
+            validate_secret(
+                "auth", {AUTH_KEY: signing_key(), SERVICE_KEY: service_token()}
+            )
 
 
 class SceneApiAppleKeyTest(unittest.TestCase):
@@ -170,7 +178,7 @@ class SceneApiAppleKeyTest(unittest.TestCase):
 
 
 class DeployAppleWiringTest(unittest.TestCase):
-    """scene-api-secrets 에 애플 개인 키(있을 때)와 auth 칸의 두 키가 실린다."""
+    """scene-api-secrets 에 애플 개인 키(있을 때)와 auth 칸의 키가 모두 실린다."""
 
     # 상속하면 그 클래스의 시험이 한 번 더 돈다 — 도우미만 빌려 온다.
     stored = DeploySecretWiringTest.stored
@@ -185,11 +193,14 @@ class DeployAppleWiringTest(unittest.TestCase):
         values[next(k for k in values if "scene-api" in k)] = json.dumps(scene)
         return values
 
-    def test_apple_key_and_both_auth_keys_reach_scene_api_secret(self):
+    def test_apple_key_and_all_auth_keys_reach_scene_api_secret(self):
         jwt_key = signing_key(fill=b"J")
         enc_key = cipher_key(fill=b"N")
+        token = service_token(fill=b"M")
         store = FakeSecretStore(
-            self.stored_with_apple({AUTH_KEY: jwt_key, CIPHER_KEY: enc_key}),
+            self.stored_with_apple(
+                auth_slot(jwt=jwt_key, cipher=enc_key, service=token)
+            ),
             cluster_commands,
         )
         run = self.deploy(store)
@@ -199,20 +210,19 @@ class DeployAppleWiringTest(unittest.TestCase):
         self.assertEqual(scene[APPLE_KEY], apple_key())
         self.assertEqual(scene[AUTH_KEY], jwt_key)
         self.assertEqual(scene[CIPHER_KEY], enc_key)
+        self.assertEqual(scene[SERVICE_KEY], token)
         guide = json.dumps(secrets["trip-guide-secrets"])
         for value in (apple_key(), jwt_key, enc_key):
             self.assertNotIn(value, guide)
         self.assertEqual(store.puts(), [])
         for call in run.call_args_list:
             joined = " ".join(call.args[0])
-            for value in (apple_key(), jwt_key, enc_key):
+            for value in (apple_key(), jwt_key, enc_key, token):
                 self.assertNotIn(value, joined)
 
     def test_without_apple_key_deploy_proceeds_without_it(self):
         store = FakeSecretStore(
-            self.stored_with_apple(
-                {AUTH_KEY: signing_key(), CIPHER_KEY: cipher_key()}, apple=False
-            ),
+            self.stored_with_apple(auth_slot(), apple=False),
             cluster_commands,
         )
         run = self.deploy(store)
@@ -229,6 +239,11 @@ class DeployAppleWiringTest(unittest.TestCase):
         self.assertEqual(stored[AUTH_KEY], jwt_key)
         self.assertEqual(scene[AUTH_KEY], jwt_key)
         self.assertEqual(scene[CIPHER_KEY], stored[CIPHER_KEY])
+        self.assertEqual(scene[SERVICE_KEY], stored[SERVICE_KEY])
+        guide = self.kubernetes_secrets(run)["trip-guide-secrets"]
+        self.assertEqual(guide[SERVICE_KEY], stored[SERVICE_KEY])
+        self.assertNotIn(AUTH_KEY, guide)
+        self.assertNotIn(CIPHER_KEY, guide)
         self.assertEqual(len(store.puts()), 1)
 
 

@@ -18,7 +18,7 @@ struct ReviewPhotoStrip: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     PhotoAddTile(
-                        selection: $picked, count: draft.slots.count, limit: ReviewPhotoRules.limit,
+                        selection: $picked, count: draft.slots.count, limit: draft.limit,
                         maxSelection: draft.remaining
                     )
                     ForEach(Array(draft.slots.enumerated()), id: \.element.id) { index, slot in
@@ -45,6 +45,12 @@ struct ReviewPhotoStrip: View {
             .clipShape(.rect(cornerRadius: PhotoPick.corner))
             .overlay(alignment: .topTrailing) {
                 PhotoRemoveBadge { draft.remove(slot.id) }
+            }
+            .overlay(alignment: .bottomLeading) {
+                if draft.purpose == .post, number == 1 {
+                    Text("대표").font(.caption2.weight(.semibold)).foregroundStyle(.white)
+                        .padding(5).background(.black.opacity(0.6)).clipShape(Capsule()).padding(5)
+                }
             }
             .accessibilityElement(children: .contain)
             .accessibilityLabel(String(format: tr("사진 %d"), number))
@@ -133,7 +139,7 @@ struct ReviewPhotoStrip: View {
             Text(String(format: tr("사진 올리는 중 %d/%d"), progress.current, progress.total))
                 .font(.footnote).foregroundStyle(.secondary)
         } else {
-            Text(String(format: tr("사진은 %d장까지. 촬영 위치 정보는 올리기 전에 지워요"), ReviewPhotoRules.limit))
+            Text(String(format: tr("사진은 %d장까지. 촬영 위치 정보는 올리기 전에 지워요"), draft.limit))
                 .font(.caption).foregroundStyle(.tertiary)
         }
     }

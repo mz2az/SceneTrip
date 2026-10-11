@@ -104,6 +104,15 @@ struct RouteCourse: Identifiable, Hashable {
 struct RouteDay: Identifiable, Hashable {
     let id = UUID()
     var stops: [RouteStop] = []
+    var estimate: RouteDayEstimate?
+
+    var estimatedTotalMinutes: Int? {
+        estimate?.total(for: stops)
+    }
+
+    var durationLabel: String {
+        RouteDayEstimate.label(total: estimatedTotalMinutes, stops: stops)
+    }
 }
 
 /// 코스에 담긴 장소 하나.
@@ -125,6 +134,8 @@ struct RouteStop: Identifiable, Hashable {
     /// 촬영지인가, 편의시설인가, 지도를 눌러 직접 찍은 핀인가(`RouteStopKind.swift`, MZ2AZ-380).
     /// 저장할 때 무엇으로 보낼지를 이것이 정한다 — `place.id` 의 부호로 짐작하지 않는다.
     var kind: Kind = .place
+    /// 원본 이름·주소와 별도로 둔 요청 언어의 표시말(MZ2AZ-389).
+    var poiText: PoiText?
 
     /// 서버에 방문(`visitedAt`)이 찍혔나. 여행 모드가 「다음 미방문 성지」를 고르는 근거다
     /// (2026-09-02). 저장 전 장소는 false 고, 브리지가 서버 값을 옮겨 준다.
@@ -145,12 +156,7 @@ struct RouteStop: Identifiable, Hashable {
         RouteFormat.minutes(stayMinutes)
     }
 
-    /// 그날 **머무는 시간의 합**(분). 일차 머리줄이 이것만 보여 준다(MZ2AZ-368).
-    ///
-    /// 이동 시간은 더하지 않는다. 서버의 `CourseDay.travelMinutes` 는 직선거리 × 1.3 을
-    /// **시속 4 km 걸음**으로 나눈 값이라(`TravelEstimator`, `travelBasis: straight-line`),
-    /// 광주 → 수원 25.5 km 가 8시간 18분이 된다 — 그것을 얹어 「약 9시간 18분」이라고
-    /// 쓰면 지어낸 숫자다. 앱이 가진 값만으로 세므로 편집 중에도 낡지 않는다.
+    /// 머무는 시간 합. 저장 전 경로에서는 이것만 알고, 저장된 이동 어림은 `RouteDayEstimate`가 보관한다.
     static func stayTotal(_ stops: [RouteStop]) -> Int {
         stops.reduce(0) { $0 + $1.stayMinutes }
     }

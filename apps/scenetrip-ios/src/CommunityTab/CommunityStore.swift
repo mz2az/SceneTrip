@@ -20,10 +20,24 @@ struct PostCourse: Codable, Hashable {
         /// 편의시설 id(MZ2AZ-380). 편의시설로 담긴 곳에만 있다 — **이 칸이 생기기 전에 쓴 글에는 없고**,
         /// 그 글의 편의시설은 그때 저장되던 대로 개인 핀이다(`placeId` 도 없다).
         var poiId: Int64?
+        var displayName: String?
+        var nameRoman: String?
+        var displayAddress: String?
+        var categoryLabel: String?
+
+        var shownName: String {
+            AppLanguage.current == .ko ? name : displayName ?? name
+        }
+
+        var shownAddress: String? {
+            AppLanguage.current == .ko ? address : displayAddress ?? address
+        }
     }
 
     var title: String
     var days: [[Stop]]
+    var serverId: Int64?
+    var excludedPins: Int?
 
     var placeCount: Int {
         days.reduce(0) { $0 + $1.count }
@@ -36,6 +50,8 @@ struct PostCourse: Codable, Hashable {
 
     init(from course: RouteCourse) {
         title = course.title
+        serverId = course.serverId
+        excludedPins = course.days.flatMap(\.stops).filter { $0.kind == .pin }.count
         days = course.days.map { day in
             day.stops.map { stop in
                 Stop(
@@ -75,10 +91,7 @@ struct PostCourse: Codable, Hashable {
     }
 }
 
-/// 커뮤니티 게시글 — **임시판의 자료 모양** (2026-08-28, 여행후기로 재편 2026-10-05).
-///
-/// 게시판 서버는 아직 없다. 그래서 글과 사진은 **기기에만** 저장한다(글은 `UserDefaults`,
-/// 사진은 앱 폴더의 파일). 서버가 서면 이 저장소를 API 클라이언트로 갈아 끼우고 모양은 그대로 간다.
+/// 서버 글과 기기에 남은 옛 글. 서버 사진 주소는 메모리에서만 사용한다(MZ2AZ-396).
 struct CommunityPost: Identifiable, Codable {
     /// 옛 말머리. **지금은 여행후기 하나다**(2026-10-03 팀 회의) — 화면에서 고르지 않는다.
     /// 옛 글을 읽기 위해 갈래는 남겨 둔다.
@@ -108,11 +121,15 @@ struct CommunityPost: Identifiable, Codable {
     /// 붙인 코스의 사본.
     var course: PostCourse?
 
-    /// 글쓴이 이름. **없으면 내가 쓴 글이다.** 게시판 서버가 없어 남의 글은 시험용으로만 들어온다.
+    /// 서버의 글쓴이 이름. 탈퇴하면 nil이며 소유 여부는 serverIsMine으로 판정한다.
     var author: String?
+    var serverId: Int64?
+    var serverIsMine: Bool?
+    var remotePhotos: [String]?
+    var detailLoaded: Bool?
 
     var isMine: Bool {
-        author == nil
+        serverIsMine ?? (author == nil)
     }
 }
 
@@ -126,6 +143,9 @@ extension CommunityPost {
     func authorName(myNickname: String?) -> String {
         if let author {
             return author
+        }
+        if serverId != nil {
+            return tr("탈퇴한 사용자")
         }
         let nickname = myNickname?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return nickname.isEmpty ? tr("나") : nickname
@@ -144,47 +164,136 @@ final class CommunityStore: ObservableObject {
     static let shared = CommunityStore()
 
     @Published private(set) var posts: [CommunityPost] = []
+    @Published private(set) var myPosts: [CommunityPost] = []
+    @Published private(set) var legacyPosts: [CommunityPost] = []
+    @Published private(set) var loading = false
+    @Published private(set) var mineLoading = false
+    @Published private(set) var message: String?
+    @Published private(set) var total = 0
+    @Published private(set) var mineTotal = 0
+    private let client: CommunityClient
+    private let accountEpoch: @MainActor () -> Int
+    private var loadedEpoch: Int?
+    private var revision = 0
 
-    private let key = "scenetrip.communityPosts"
-
-    init() {
-        if let data = UserDefaults.standard.data(forKey: key),
+    init(client: CommunityClient? = nil, accountEpoch: (@MainActor () -> Int)? = nil) {
+        self.client = client ?? CommunityServerClient()
+        self.accountEpoch = accountEpoch ?? { AuthStore.shared.epoch }
+        if let data = UserDefaults.standard.data(forKey: "scenetrip.communityPosts"),
            let saved = try? JSONDecoder().decode([CommunityPost].self, from: data)
         {
-            posts = saved
+            legacyPosts = saved
         }
     }
 
     /// 내가 쓴 글만 — 마이페이지의 「내가 쓴 글」.
     var mine: [CommunityPost] {
-        posts.filter(\.isMine)
+        myPosts
     }
 
-    func add(title: String, body: String, photos: [UIImage], course: PostCourse?) {
-        let names = photos.compactMap(Self.store(photo:))
-        AppAnalytics.log(.postReview(photoCount: names.count, hasCourse: course != nil))
-        posts.insert(
-            CommunityPost(
-                id: UUID(), board: .review, title: title, body: body, createdAt: Date(),
-                courseTitle: course?.title, photos: names.isEmpty ? nil : names, course: course
-            ),
-            at: 0
-        )
-        persist()
-    }
-
-    func remove(_ post: CommunityPost) {
-        for name in post.photos ?? [] {
-            try? FileManager.default.removeItem(at: Self.photoURL(name))
+    /// 목록은 서버 최신순으로 받는다. 실패한 새로고침에서 기존 글을 지우지 않는다.
+    func refresh(mine: Bool = false, more: Bool = false) async {
+        let epoch = accountEpoch()
+        if loadedEpoch != epoch {
+            posts = []
+            myPosts = []
+            total = 0
+            mineTotal = 0
+            loadedEpoch = epoch
+            revision += 1
+            loading = false
+            mineLoading = false
         }
+        guard !(mine ? mineLoading : loading) else { return }
+        if mine {
+            mineLoading = true
+        } else {
+            loading = true
+        }
+        message = nil
+        let generation = revision
+        defer {
+            if generation == revision {
+                if mine {
+                    mineLoading = false
+                } else {
+                    loading = false
+                }
+            }
+        }
+        let old = mine ? myPosts : posts
+        do {
+            let page = try await client.list(mine: mine, limit: CommunityRules.pageSize, offset: more ? old.count : 0)
+            guard accountEpoch() == epoch, generation == revision else { return }
+            var merged = more ? old : []
+            for post in page.items.map(CommunityPost.init(summary:)) {
+                if let index = merged.firstIndex(where: { $0.id == post.id }) {
+                    merged[index] = post
+                } else {
+                    merged.append(post)
+                }
+            }
+            if mine {
+                myPosts = merged; mineTotal = page.total
+            } else {
+                posts = merged; total = page.total
+            }
+        } catch {
+            guard accountEpoch() == epoch, generation == revision else { return }
+            message = CommunityRules.failureText(error)
+        }
+    }
+
+    func accept(_ detail: TripPostDetail) {
+        let post = CommunityPost(detail: detail)
+        let known = posts.contains { $0.id == post.id }
+        let knownMine = myPosts.contains { $0.id == post.id }
         posts.removeAll { $0.id == post.id }
-        persist()
+        posts.insert(post, at: 0)
+        if post.isMine {
+            myPosts.removeAll { $0.id == post.id }; myPosts.insert(post, at: 0)
+        }
+        if !known {
+            total += 1
+        }
+        if post.isMine, !knownMine {
+            mineTotal += 1
+        }
     }
 
-    private func persist() {
-        if let data = try? JSONEncoder().encode(posts) {
-            UserDefaults.standard.set(data, forKey: key)
+    func clearMyPosts() {
+        myPosts = []; mineTotal = 0
+    }
+
+    func detail(_ post: CommunityPost) async throws -> CommunityPost {
+        guard let id = post.serverId else { return post }
+        let epoch = accountEpoch()
+        let detail = try await client.detail(id)
+        guard epoch == accountEpoch() else { throw CancellationError() }
+        return CommunityPost(detail: detail)
+    }
+
+    func remove(_ post: CommunityPost) async {
+        guard post.isMine, let id = post.serverId else { return }
+        let epoch = accountEpoch()
+        do {
+            try await client.delete(id)
+            guard epoch == accountEpoch() else { return }
+            posts.removeAll { $0.serverId == id }
+            myPosts.removeAll { $0.serverId == id }
+            total = max(0, total - 1)
+            mineTotal = max(0, mineTotal - 1)
+        } catch {
+            message = CommunityRules.failureText(error)
         }
+    }
+
+    func saveCourse(_ post: CommunityPost) async throws -> Int64 {
+        guard let id = post.serverId else { throw URLError(.unsupportedURL) }
+        let epoch = accountEpoch()
+        let course = try await client.saveCourse(id)
+        guard epoch == accountEpoch() else { throw CancellationError() }
+        return course.id
     }
 
     // MARK: 사진 파일
@@ -203,20 +312,5 @@ final class CommunityStore: ObservableObject {
 
     static func photo(_ name: String) -> UIImage? {
         UIImage(contentsOfFile: photoURL(name).path)
-    }
-
-    /// 기기에 두는 사진의 긴 변.
-    static let photoLongest: CGFloat = 1600
-
-    /// 긴 변 1600 으로 줄여 JPEG 로 둔다 — 폰 사진 원본은 장당 수 MB 다. 줄이기는 리뷰 사진과 같은 코드다.
-    private static func store(photo: UIImage) -> String? {
-        guard let data = PhotoShrink.jpeg(photo, longest: photoLongest) else { return nil }
-        let name = UUID().uuidString + ".jpg"
-        do {
-            try data.write(to: photoURL(name), options: .atomic)
-            return name
-        } catch {
-            return nil
-        }
     }
 }

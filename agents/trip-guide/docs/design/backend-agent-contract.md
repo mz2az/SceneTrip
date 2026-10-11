@@ -251,3 +251,15 @@ sequenceDiagram
 **5 번이 진짜 관문이다.** `MODULE.bazel` 에서 `rules_python` 이 주석 처리돼 있어
 `BUILD.bazel` 을 만들 수 없고, 그래서 컨테이너 이미지도 못 만든다. 켜는 것은 의존성
 추가라 팀 결정 사항이다 (CLAUDE.md §9). 초안은 [build-draft.md](build-draft.md) 에 있다.
+
+## 10. 한도 열쇠 — 읽기를 그 사용자 몫으로 (2026-10-11, MZ2AZ-412)
+
+에이전트의 scene-api 읽기는 자격 증명이 없어 한도 필터가 에이전트 주소 한 칸으로 셌다. 이제 둘 사이에 헤더 두 개를
+주고받는다([ADR 0023](../../../../docs/architecture/adr/0023-agent-reads-carry-rate-subject-not-credentials.md)).
+
+| 헤더 | 방향 | 값 |
+| --- | --- | --- |
+| `X-Rate-Subject` | scene-api → 에이전트, 에이전트 → scene-api | 한도 필터가 앱 요청에 쓴 열쇠 그대로(`user:<UUID>` · `install:<UUID>` · `ip:<주소>`) |
+| `X-Service-Token` | 에이전트 → scene-api | 서비스 비밀값(`SCENETRIP_SERVICE_TOKEN`). 맞을 때만 필터가 열쇠를 믿는다 |
+
+`Authorization`·`X-Install-Id` 는 여전히 에이전트로 가지 않는다. 열쇠는 칸을 고를 뿐 어떤 창구도 열지 않는다.

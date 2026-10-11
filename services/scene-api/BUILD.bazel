@@ -256,9 +256,11 @@ java_junit5_test(
     ],
 )
 
+# size 가 medium(300 초)인 이유: 로컬 19 초지만 CI 러너가 Android 빌드와 겹쳐 바쁠 때 small 의 60 초를 두 번 넘겼다
+# (2026-10-10, #189 머지 뒤 main). 시험이 멈춘 것이 아니라 제한이 빠듯했다. 단위 시험은 600 개를 넘었다.
 java_junit5_test(
     name = "unit_test",
-    size = "small",
+    size = "medium",
     srcs = glob(["tests/java/**/*.java"]),
     tags = ["unit"],
     test_package = "com.mz2az.scenetrip.sceneapi",
@@ -292,6 +294,8 @@ java_junit5_test(
         # UserStoreTest 가 JdbcClient 를 목으로 만든다 — 스타터가 전이로 끌어오지만 직접 쓰므로 명시한다.
         "@maven//:org_springframework_spring_jdbc",
         "@maven//:org_springframework_spring_test",
+        # EventsControllerTest 가 기록 실패(DataIntegrityViolationException 등, org.springframework.dao)를 목에서 던진다.
+        "@maven//:org_springframework_spring_tx",
         "@maven//:org_springframework_spring_web",
         # RequestRateLimitFilterTest 가 필터를 서블릿 컨테이너 없이 직접 부른다(doFilter 의 서블릿 타입).
         "@maven//:jakarta_servlet_jakarta_servlet_api",

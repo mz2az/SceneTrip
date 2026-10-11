@@ -172,54 +172,95 @@ struct ProfileCartSheet: View {
     }
 }
 
-/// 내가 쓴 글 (2026-08-28). 커뮤니티의 기기 저장 글을 마이페이지에서 되짚는다 —
-/// 누르면 커뮤니티와 **같은 전문 화면**이 열린다. 지우기도 여기서 된다(같은 저장소).
+/// 서버에 게시한 내 글과 이 기기의 옛 글. 커뮤니티와 같은 전문 화면을 쓴다.
 struct MyPostsSheet: View {
     @ObservedObject private var store = CommunityStore.shared
+    @ObservedObject private var auth = AuthStore.shared
 
     @Environment(\.dismiss) private var dismiss
 
     @State private var reading: CommunityPost?
+    @State private var deleting: CommunityPost?
 
     var body: some View {
         VStack(spacing: 0) {
             ProfileSheetHeader(title: tr("내가 쓴 글")) { dismiss() }
-            if store.mine.isEmpty {
-                ContentUnavailableView(
-                    "아직 쓴 글이 없습니다",
-                    systemImage: "square.and.pencil",
-                    description: Text("커뮤니티 탭에서 첫 글을 남겨 보세요")
-                )
-            } else {
-                List(store.mine) { post in
-                    Button {
-                        reading = post
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(post.title)
-                                .font(.subheadline.weight(.medium)).lineLimit(1)
-                            Text(post.createdAt.formatted(
-                                .dateTime.year().month().day().hour().minute().locale(AppLanguage.currentLocale)
-                            ))
-                            .font(.caption2).foregroundStyle(.tertiary)
-                        }
-                        .padding(.vertical, 2)
-                        .contentShape(.rect)
+            List {
+                if let message = store.message {
+                    Text(message).font(.footnote).foregroundStyle(.red)
+                }
+                if !auth.signedIn {
+                    Button("로그인") { auth.promptSignIn() }
+                }
+                Section("서버에 게시한 글") {
+                    if store.mine.isEmpty {
+                        Text("아직 쓴 글이 없습니다").foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain)
-                    .swipeActions {
-                        Button(role: .destructive) {
-                            store.remove(post)
+                    ForEach(store.mine) { post in
+                        Button {
+                            reading = post
                         } label: {
-                            Label("지우기", systemImage: "trash")
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(post.title)
+                                    .font(.subheadline.weight(.medium)).lineLimit(1)
+                                Text(post.createdAt.formatted(
+                                    .dateTime.year().month().day().hour().minute().locale(AppLanguage.currentLocale)
+                                ))
+                                .font(.caption2).foregroundStyle(.tertiary)
+                            }
+                            .padding(.vertical, 2)
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .swipeActions {
+                            Button(role: .destructive) {
+                                deleting = post
+                            } label: {
+                                Label("지우기", systemImage: "trash")
+                            }
+                        }
+                    }
+                    if store.mine.count < store.mineTotal {
+                        Button("더 보기") { Task { await store.refresh(mine: true, more: true) } }.disabled(store.mineLoading)
+                    }
+                }
+                if !store.legacyPosts.isEmpty {
+                    Section("이 기기에만 저장된 옛 글") {
+                        ForEach(store.legacyPosts) { post in
+                            Button(post.title) { reading = post }
                         }
                     }
                 }
-                .listStyle(.plain)
             }
+            .listStyle(.plain)
+            .refreshable { await reload() }
         }
+        .task { await reload() }
+        .onAccountChange { await reload() }
+        .signInSheet()
         .sheet(item: $reading) { post in
             CommunityPostView(post: post)
+        }
+        .alert(tr("후기를 지울까요?"), isPresented: Binding(get: { deleting != nil }, set: {
+            if !$0 {
+                deleting = nil
+            }
+        })) {
+            Button("지우기", role: .destructive) {
+                if let post = deleting {
+                    Task { await store.remove(post) }
+                }
+                deleting = nil
+            }
+            Button("취소", role: .cancel) { deleting = nil }
+        }
+    }
+
+    private func reload() async {
+        if auth.signedIn {
+            await store.refresh(mine: true)
+        } else {
+            store.clearMyPosts()
         }
     }
 }

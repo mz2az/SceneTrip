@@ -1,4 +1,9 @@
-"""로그인 서명 키(auth 칸)를 명세(MZ2AZ-332) 기준으로 검사한다. 클라우드에 연결하지 않는다."""
+"""로그인 서명 키(auth 칸)를 명세(MZ2AZ-332) 기준으로 검사한다. 클라우드에 연결하지 않는다.
+
+MZ2AZ-412 부터 auth 칸은 키 셋이다 — JWT 서명 키, 토큰 암호화 키, 서비스 비밀값
+(`SCENETRIP_SERVICE_TOKEN`, 난수 32 바이트 base64). 서비스 비밀값은 scene-api 와 에이전트가 함께
+받는다(guide-rate-subject.md §2, ADR 0023).
+"""
 
 import base64
 import json
@@ -11,6 +16,8 @@ from tools.aws.tests.fixtures import valid_settings
 AUTH_KEY = "SCENETRIP_AUTH_JWT_SECRET"
 # MZ2AZ-337 에서 auth 칸에 더해진 애플 토큰 암호화 키(AES-256, 32 바이트).
 CIPHER_KEY = "SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY"
+# MZ2AZ-412 에서 auth 칸에 더해진 서비스 비밀값 — 에이전트 읽기의 한도 열쇠를 믿게 하는 값.
+SERVICE_KEY = "SCENETRIP_SERVICE_TOKEN"
 AUTH_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/auth-FxAuth"
 SCENE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/scene-api-FxScene"
 GUIDE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/trip-guide-FxGuide"
@@ -34,6 +41,19 @@ def cipher_key(fill=b"C"):
 
 def signing_key(size=48, fill=b"F"):
     return base64.b64encode(fill * size).decode()
+
+
+def service_token(fill=b"T"):
+    return base64.b64encode(fill * 32).decode()
+
+
+def auth_slot(jwt=None, cipher=None, service=None):
+    """키 셋이 다 있는 auth 칸. 시험마다 바꾸고 싶은 값만 넘긴다."""
+    return {
+        AUTH_KEY: jwt or signing_key(),
+        CIPHER_KEY: cipher or cipher_key(),
+        SERVICE_KEY: service or service_token(),
+    }
 
 
 class FakeSecretStore:
@@ -93,14 +113,17 @@ class AuthSecretTest(unittest.TestCase):
         run = Mock(side_effect=store)
         secret = auth_secret(run, AUTH_ARN)
 
-        self.assertEqual(set(secret), {AUTH_KEY, CIPHER_KEY})
+        self.assertEqual(set(secret), {AUTH_KEY, CIPHER_KEY, SERVICE_KEY})
         self.assertEqual(len(base64.b64decode(secret[CIPHER_KEY], validate=True)), 32)
+        self.assertEqual(len(base64.b64decode(secret[SERVICE_KEY], validate=True)), 32)
         validate_secret("auth", secret)
         self.assertEqual(len(base64.b64decode(secret[AUTH_KEY], validate=True)), 48)
         puts = store.puts()
         self.assertEqual(len(puts), 1)
         for command, unused in store.calls:
-            self.assertNotIn(secret[AUTH_KEY], " ".join(command))
+            joined = " ".join(command)
+            self.assertNotIn(secret[AUTH_KEY], joined)
+            self.assertNotIn(secret[SERVICE_KEY], joined)
         body = json.loads(puts[0][1]["stdin"])
         self.assertEqual(body["SecretId"], AUTH_ARN)
         self.assertEqual(json.loads(body["SecretString"]), secret)
@@ -112,14 +135,52 @@ class AuthSecretTest(unittest.TestCase):
         first = auth_secret(Mock(side_effect=FakeSecretStore()), AUTH_ARN)
         second = auth_secret(Mock(side_effect=FakeSecretStore()), AUTH_ARN)
         self.assertNotEqual(first, second)
+        # 서비스 비밀값도 환경마다 다르다 — 한 환경의 값으로 다른 환경의 한도 열쇠를 고르면 안 된다.
+        self.assertNotEqual(first[SERVICE_KEY], second[SERVICE_KEY])
+        # 세 키가 서로 같은 난수를 나눠 쓰지 않는다.
+        self.assertEqual(
+            len({first[AUTH_KEY], first[CIPHER_KEY], first[SERVICE_KEY]}), 3
+        )
 
     def test_existing_key_is_reused_without_writing(self):
         from tools.aws.deploy import auth_secret
 
-        stored = {CIPHER_KEY: cipher_key(), AUTH_KEY: signing_key(fill=b"S")}
+        stored = auth_slot(jwt=signing_key(fill=b"S"), service=service_token(b"U"))
         store = FakeSecretStore({AUTH_ARN: json.dumps(stored)})
         self.assertEqual(auth_secret(Mock(side_effect=store), AUTH_ARN), stored)
         self.assertEqual(store.puts(), [])
+
+    def test_slot_without_service_token_adds_only_that_key_in_one_write(self):
+        from tools.aws.config import validate_secret
+        from tools.aws.deploy import auth_secret
+
+        # MZ2AZ-412 전에 만들어진 환경 — JWT·암호화 키는 그대로 두고 서비스 비밀값만 더한다.
+        jwt_key = signing_key(fill=b"P")
+        enc_key = cipher_key(fill=b"Q")
+        store = FakeSecretStore(
+            {AUTH_ARN: json.dumps({AUTH_KEY: jwt_key, CIPHER_KEY: enc_key})}
+        )
+
+        secret = auth_secret(Mock(side_effect=store), AUTH_ARN)
+
+        self.assertEqual(secret[AUTH_KEY], jwt_key)
+        self.assertEqual(secret[CIPHER_KEY], enc_key)
+        self.assertEqual(set(secret), {AUTH_KEY, CIPHER_KEY, SERVICE_KEY})
+        self.assertEqual(len(base64.b64decode(secret[SERVICE_KEY], validate=True)), 32)
+        validate_secret("auth", secret)
+        puts = store.puts()
+        self.assertEqual(len(puts), 1)
+        body = json.loads(puts[0][1]["stdin"])
+        self.assertEqual(body["SecretId"], AUTH_ARN)
+        self.assertEqual(json.loads(body["SecretString"]), secret)
+        for command, unused in store.calls:
+            joined = " ".join(command)
+            for value in (jwt_key, enc_key, secret[SERVICE_KEY]):
+                self.assertNotIn(value, joined)
+
+        # 다음 배포는 더한 값을 그대로 쓰고 다시 쓰지 않는다.
+        self.assertEqual(auth_secret(Mock(side_effect=store), AUTH_ARN), secret)
+        self.assertEqual(len(store.puts()), 1)
 
     def test_consecutive_deploys_keep_the_first_key(self):
         from tools.aws.deploy import auth_secret
@@ -139,13 +200,13 @@ class AuthSecretTest(unittest.TestCase):
         for label, stored, hidden in (
             (
                 "not base64",
-                {CIPHER_KEY: cipher_key(), AUTH_KEY: "FIXTURE*not*base64*value!!"},
+                auth_slot(jwt="FIXTURE*not*base64*value!!"),
                 "FIXTURE*not*base64*value!!",
             ),
-            ("short", {CIPHER_KEY: cipher_key(), AUTH_KEY: short}, short),
+            ("short", auth_slot(jwt=short), short),
             (
                 "extra key",
-                {CIPHER_KEY: cipher_key(), AUTH_KEY: valid, "EXTRA_FIXTURE": "x"},
+                {**auth_slot(jwt=valid), "EXTRA_FIXTURE": "x"},
                 valid,
             ),
             (
@@ -153,7 +214,8 @@ class AuthSecretTest(unittest.TestCase):
                 {"OTHER_FIXTURE": "fixture-other-value"},
                 "fixture-other-value",
             ),
-            ("empty", {CIPHER_KEY: cipher_key(), AUTH_KEY: ""}, None),
+            ("empty", {**auth_slot(), AUTH_KEY: ""}, None),
+            ("service token empty", {**auth_slot(), SERVICE_KEY: ""}, None),
         ):
             store = FakeSecretStore({AUTH_ARN: json.dumps(stored)})
             run = Mock(side_effect=store)
@@ -169,12 +231,10 @@ class ValidateAuthSecretTest(unittest.TestCase):
     def test_accepts_minimum_and_generated_lengths(self):
         from tools.aws.config import SECRET_KEYS, validate_secret
 
-        self.assertEqual(SECRET_KEYS["auth"], {AUTH_KEY, CIPHER_KEY})
+        self.assertEqual(SECRET_KEYS["auth"], {AUTH_KEY, CIPHER_KEY, SERVICE_KEY})
         for size in (32, 48):
             with self.subTest(size=size):
-                validate_secret(
-                    "auth", {CIPHER_KEY: cipher_key(), AUTH_KEY: signing_key(size=size)}
-                )
+                validate_secret("auth", auth_slot(jwt=signing_key(size=size)))
 
     def test_rejects_malformed_keys_without_echoing_them(self):
         from tools.aws.config import validate_secret
@@ -183,21 +243,23 @@ class ValidateAuthSecretTest(unittest.TestCase):
         for label, value, hidden in (
             (
                 "not base64",
-                {CIPHER_KEY: cipher_key(), AUTH_KEY: "FIXTURE*not*base64*value!!"},
+                auth_slot(jwt="FIXTURE*not*base64*value!!"),
                 "FIXTURE*not*base64*value!!",
             ),
-            ("31 bytes", {CIPHER_KEY: cipher_key(), AUTH_KEY: short}, short),
+            ("31 bytes", auth_slot(jwt=short), short),
             (
                 "extra key",
-                {
-                    CIPHER_KEY: cipher_key(),
-                    AUTH_KEY: signing_key(),
-                    "EXTRA_FIXTURE": "x",
-                },
+                {**auth_slot(), "EXTRA_FIXTURE": "x"},
                 signing_key(),
             ),
             ("missing key", {}, None),
-            ("empty", {CIPHER_KEY: cipher_key(), AUTH_KEY: ""}, None),
+            ("empty", {**auth_slot(), AUTH_KEY: ""}, None),
+            (
+                "missing service token",
+                {AUTH_KEY: signing_key(), CIPHER_KEY: cipher_key()},
+                signing_key(),
+            ),
+            ("service token empty", {**auth_slot(), SERVICE_KEY: ""}, None),
         ):
             with self.subTest(label), self.assertRaises(ValueError) as caught:
                 validate_secret("auth", value)
@@ -327,27 +389,46 @@ class DeploySecretWiringTest(unittest.TestCase):
 
     def test_scene_api_secret_carries_kakao_and_stored_signing_key(self):
         key = signing_key(fill=b"K")
+        enc_key = cipher_key(fill=b"E")
+        token = service_token(fill=b"V")
         store = FakeSecretStore(
-            self.stored({CIPHER_KEY: cipher_key(), AUTH_KEY: key}), cluster_commands
+            self.stored(auth_slot(jwt=key, cipher=enc_key, service=token)),
+            cluster_commands,
         )
         run = self.deploy(store)
         secrets = self.kubernetes_secrets(run)
-        self.assertEqual(
-            secrets["scene-api-secrets"]["KAKAO_REST_KEY"], "fixture-kakao"
-        )
-        self.assertEqual(secrets["scene-api-secrets"][AUTH_KEY], key)
-        self.assertNotIn(AUTH_KEY, secrets["trip-guide-secrets"])
-        self.assertNotIn(key, json.dumps(secrets["trip-guide-secrets"]))
+        scene = secrets["scene-api-secrets"]
+        self.assertEqual(scene["KAKAO_REST_KEY"], "fixture-kakao")
+        self.assertEqual(scene[AUTH_KEY], key)
+        self.assertEqual(scene[CIPHER_KEY], enc_key)
+        self.assertEqual(scene[SERVICE_KEY], token)
+        # 에이전트는 모델 키와 서비스 비밀값만 받는다 — 로그인 키는 절대 가지 않는다.
+        guide = secrets["trip-guide-secrets"]
+        self.assertEqual(set(guide), {"DEEPSEEK_API_KEY", SERVICE_KEY})
+        self.assertEqual(guide["DEEPSEEK_API_KEY"], "fixture-deepseek")
+        self.assertEqual(guide[SERVICE_KEY], token)
+        self.assertNotIn(AUTH_KEY, guide)
+        self.assertNotIn(CIPHER_KEY, guide)
+        self.assertNotIn(key, json.dumps(guide))
+        self.assertNotIn(enc_key, json.dumps(guide))
         self.assertEqual(store.puts(), [])
         for call in run.call_args_list:
-            self.assertNotIn(key, " ".join(call.args[0]))
+            joined = " ".join(call.args[0])
+            for value in (key, enc_key, token):
+                self.assertNotIn(value, joined)
 
     def test_first_deploy_generates_key_into_scene_api_secret(self):
         store = FakeSecretStore(self.stored(), cluster_commands)
         run = self.deploy(store)
-        generated = json.loads(store.values[AUTH_ARN])[AUTH_KEY]
+        slot = json.loads(store.values[AUTH_ARN])
+        generated = slot[AUTH_KEY]
         secrets = self.kubernetes_secrets(run)
         self.assertEqual(secrets["scene-api-secrets"][AUTH_KEY], generated)
+        # 처음 만든 서비스 비밀값이 두 시크릿에 같은 값으로 간다.
+        self.assertEqual(secrets["scene-api-secrets"][SERVICE_KEY], slot[SERVICE_KEY])
+        self.assertEqual(secrets["trip-guide-secrets"][SERVICE_KEY], slot[SERVICE_KEY])
+        self.assertNotIn(AUTH_KEY, secrets["trip-guide-secrets"])
+        self.assertNotIn(CIPHER_KEY, secrets["trip-guide-secrets"])
         self.assertEqual(
             secrets["scene-api-secrets"]["KAKAO_REST_KEY"], "fixture-kakao"
         )
@@ -361,8 +442,30 @@ class DeploySecretWiringTest(unittest.TestCase):
 
         # 두 번째 배포는 첫 키를 그대로 쓴다.
         again = self.deploy(store)
+        again_secrets = self.kubernetes_secrets(again)
+        self.assertEqual(again_secrets["scene-api-secrets"][AUTH_KEY], generated)
         self.assertEqual(
-            self.kubernetes_secrets(again)["scene-api-secrets"][AUTH_KEY], generated
+            again_secrets["trip-guide-secrets"][SERVICE_KEY], slot[SERVICE_KEY]
+        )
+        self.assertEqual(len(store.puts()), 1)
+
+    def test_two_key_slot_gets_service_token_in_both_secrets(self):
+        # MZ2AZ-412 전 환경의 첫 배포 — 기존 두 키는 그대로, 새 비밀값은 양쪽에 같은 값.
+        jwt_key = signing_key(fill=b"W")
+        enc_key = cipher_key(fill=b"X")
+        store = FakeSecretStore(
+            self.stored({AUTH_KEY: jwt_key, CIPHER_KEY: enc_key}), cluster_commands
+        )
+        run = self.deploy(store)
+        slot = json.loads(store.values[AUTH_ARN])
+        self.assertEqual(slot[AUTH_KEY], jwt_key)
+        self.assertEqual(slot[CIPHER_KEY], enc_key)
+        secrets = self.kubernetes_secrets(run)
+        self.assertEqual(secrets["scene-api-secrets"][AUTH_KEY], jwt_key)
+        self.assertEqual(secrets["scene-api-secrets"][SERVICE_KEY], slot[SERVICE_KEY])
+        self.assertEqual(
+            secrets["trip-guide-secrets"],
+            {"DEEPSEEK_API_KEY": "fixture-deepseek", SERVICE_KEY: slot[SERVICE_KEY]},
         )
         self.assertEqual(len(store.puts()), 1)
 
@@ -373,14 +476,43 @@ class DeploySecretWiringTest(unittest.TestCase):
             "scene_api": SCENE_ARN,
             "trip_guide": GUIDE_ARN,
         }
-        store = FakeSecretStore(
-            self.stored({CIPHER_KEY: cipher_key(), AUTH_KEY: signing_key()}),
-            cluster_commands,
-        )
+        store = FakeSecretStore(self.stored(auth_slot()), cluster_commands)
         # 명세는 「크게 실패」 만 정한다. 현재 구현은 KeyError('auth') 를 낸다.
         with self.assertRaises((KeyError, ValueError)):
             self.deploy(store, deploy_outputs(settings, arns))
         self.assertFalse(any(command[0] == "helm" for command, unused in store.calls))
+
+
+class TripGuideSecretTest(unittest.TestCase):
+    """trip-guide-secrets 의 내용 — 모델 키와 서비스 비밀값만(ADR 0023: 에이전트는 자격 증명을 받지 않는다)."""
+
+    def test_carries_model_key_and_only_the_service_token_from_auth(self):
+        from tools.aws.deploy import trip_guide_secret
+
+        auth = auth_slot(
+            jwt=signing_key(fill=b"A"),
+            cipher=cipher_key(fill=b"B"),
+            service=service_token(b"Z"),
+        )
+        secret = trip_guide_secret({"DEEPSEEK_API_KEY": "fixture-deepseek"}, auth)
+
+        self.assertEqual(
+            secret,
+            {"DEEPSEEK_API_KEY": "fixture-deepseek", SERVICE_KEY: service_token(b"Z")},
+        )
+        dumped = json.dumps(secret)
+        self.assertNotIn(auth[AUTH_KEY], dumped)
+        self.assertNotIn(auth[CIPHER_KEY], dumped)
+
+    def test_does_not_mutate_its_inputs(self):
+        from tools.aws.deploy import trip_guide_secret
+
+        guide = {"DEEPSEEK_API_KEY": "fixture-deepseek"}
+        auth = auth_slot()
+        before_guide, before_auth = dict(guide), dict(auth)
+        trip_guide_secret(guide, auth)
+        self.assertEqual(guide, before_guide)
+        self.assertEqual(auth, before_auth)
 
 
 class RetainedAuthSecretTest(unittest.TestCase):

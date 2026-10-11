@@ -2,6 +2,7 @@
 
 | 문서 | 목적 |
 | --- | --- |
+| [community-post-verification.md](community-post-verification.md) | iOS 여행후기 본문·사진·코스의 서버 저장 및 다른 계정 조회 검증 (MZ2AZ-396) |
 | [ios-followup-verification.md](ios-followup-verification.md) | 큰 글자 길찾기·해태 배치와 사진 업로드 오류 경계 (MZ2AZ-387) |
 | `test-strategy.md` | 각 계층에서 무엇을 왜 테스트하는가 |
 | `coverage-policy.md` | 커버리지 기준과 예외를 허용하는 방식 |

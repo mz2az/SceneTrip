@@ -108,7 +108,7 @@
       "Type": "AWS::IAM::Role",
       "Properties": {
         "RoleName": {"Fn::Sub":"scenetrip-${Environment}-media"},
-        "Description": "scene-api pod access to the user media bucket via EKS Pod Identity: presigned upload/view and move from uploads/tmp to reviews.",
+        "Description": "scene-api pod access to the user media bucket via EKS Pod Identity: presigned upload/view and move from uploads/tmp to reviews or posts (community posts, MZ2AZ-352).",
         "AssumeRolePolicyDocument": {
           "Version": "2012-10-17",
           "Statement": [
@@ -135,7 +135,8 @@
                   "Action": ["s3:GetObject","s3:PutObject","s3:DeleteObject"],
                   "Resource": [
                     {"Fn::Sub":"arn:${AWS::Partition}:s3:::${UserMediaBucket}/uploads/tmp/*"},
-                    {"Fn::Sub":"arn:${AWS::Partition}:s3:::${UserMediaBucket}/reviews/*"}
+                    {"Fn::Sub":"arn:${AWS::Partition}:s3:::${UserMediaBucket}/reviews/*"},
+                    {"Fn::Sub":"arn:${AWS::Partition}:s3:::${UserMediaBucket}/posts/*"}
                   ]
                 },
                 {

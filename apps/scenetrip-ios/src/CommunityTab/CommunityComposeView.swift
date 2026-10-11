@@ -11,129 +11,136 @@ import SwiftUI
 /// 담을 수 있다(`CommunityPostView`).
 struct CommunityComposeView: View {
     @ObservedObject private var store = CommunityStore.shared
+    @ObservedObject private var auth = AuthStore.shared
+    @StateObject private var photos = ReviewPhotoDraft(purpose: .post, limit: CommunityRules.photoLimit)
+    @StateObject private var submission = CommunitySubmission()
 
     @Environment(\.dismiss) private var dismiss
 
     @State private var title = ""
     @State private var story = ""
-    @State private var picked: [PhotosPickerItem] = []
-    @State private var photos: [UIImage] = []
     @State private var course: PostCourse?
     @State private var pickingCourse = false
-
-    private static let photoLimit = 8
+    @State private var checkingPosts = false
+    @State private var confirmingDiscard = false
+    @State private var composingEpoch = AuthStore.shared.epoch
 
     private var canPost: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty
+        !submission.working && !submission.uncertain && !submission.completed && photos.canSave && auth.signedIn
+            && composingEpoch == auth.epoch
+            && CommunityRules.canPost(title: title, body: story, photoCount: photos.slots.count)
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    photoStrip
-
-                    TextField("제목", text: $title, axis: .vertical)
-                        .font(.title2.weight(.bold))
-                        .lineLimit(1 ... 3)
-                        .padding(.horizontal, 20)
-
-                    Divider().padding(.horizontal, 20)
-
-                    TextField("어디를 다녀왔나요? 장면 속 그 자리에 선 이야기를 들려주세요", text: $story, axis: .vertical)
-                        .font(.body)
-                        .lineSpacing(5)
-                        .lineLimit(8...)
-                        .padding(.horizontal, 20)
-
-                    courseCard
-                        .padding(.horizontal, 16)
-                        .padding(.top, 6)
-                }
-                .padding(.vertical, 16)
+                form
             }
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("여행후기 쓰기")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { dismiss() }
+                    Button("취소") {
+                        if !title.isEmpty || !story.isEmpty || !photos.slots.isEmpty || course != nil {
+                            confirmingDiscard = true
+                        } else {
+                            dismiss()
+                        }
+                    }.disabled(submission.working)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("올리기") {
-                        store.add(
-                            title: title.trimmingCharacters(in: .whitespaces),
-                            body: story.trimmingCharacters(in: .whitespacesAndNewlines),
-                            photos: photos, course: course
-                        )
-                        dismiss()
+                        Task { await submit() }
                     }
                     .disabled(!canPost)
                 }
-            }
-            .onChange(of: picked) { _, items in
-                Task { await load(items) }
             }
             .sheet(isPresented: $pickingCourse) {
                 CoursePickSheet { course = $0 }
                     .presentationDetents([.medium, .large])
             }
+            .sheet(isPresented: $checkingPosts) { MyPostsSheet() }
+            .signInSheet()
+            .interactiveDismissDisabled(submission.working || !title.isEmpty || !story.isEmpty || !photos.slots.isEmpty)
+            .onDisappear { photos.cancel() }
+            .onAppear { photos.resume() }
+            .onChange(of: auth.epoch) { _, _ in photos.cancel() }
+            .alert(tr("쓰던 후기를 버릴까요?"), isPresented: $confirmingDiscard) {
+                Button("버리기", role: .destructive) { dismiss() }
+                Button("계속 쓰기", role: .cancel) {}
+            }
         }
+    }
+
+    private var form: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            status
+            ReviewPhotoStrip(draft: photos, locked: submission.working || submission.uncertain)
+                .padding(.horizontal, 20)
+            editor
+            courseCard.padding(.horizontal, 16).padding(.top, 6)
+            if let count = course?.excludedPins, count > 0 {
+                Text(String(format: tr("직접 찍은 핀 %d곳은 공유되지 않습니다"), count))
+                    .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 20)
+            }
+            Text(String(format: tr("제목 %d/100 · 본문 %d/5000"), title.count, story.count))
+                .font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 20)
+        }.padding(.vertical, 16)
+    }
+
+    @ViewBuilder private var status: some View {
+        if let message = submission.message {
+            Text(message).font(.footnote).foregroundStyle(.red).padding(.horizontal, 20)
+        }
+        if submission.uncertain {
+            Button("게시 여부 확인") { Task { await check() } }
+                .disabled(submission.working).padding(.horizontal, 20)
+            Button("내 글 목록 보기") { checkingPosts = true }
+                .disabled(submission.working).padding(.horizontal, 20)
+        }
+        if !auth.signedIn {
+            Button("로그인한 뒤에 쓸 수 있어요") { auth.promptSignIn() }.padding(.horizontal, 20)
+        } else if composingEpoch != auth.epoch {
+            Text("계정이 바뀌었어요. 이 초안을 닫고 새로 작성해 주세요")
+                .font(.footnote).foregroundStyle(.red).padding(.horizontal, 20)
+        }
+    }
+
+    private var editor: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            TextField("제목", text: $title, axis: .vertical)
+                .font(.title2.weight(.bold)).lineLimit(1 ... 3)
+            Divider()
+            TextField("어디를 다녀왔나요? 장면 속 그 자리에 선 이야기를 들려주세요", text: $story, axis: .vertical)
+                .font(.body).lineSpacing(5).lineLimit(8...)
+        }.padding(.horizontal, 20).disabled(submission.working || submission.uncertain)
     }
 
     // MARK: 사진
 
     /// 가로로 넘기는 사진 줄. 첫 칸은 늘 「사진 추가」다 — 첫 장이 대표 사진이 된다.
-    private var photoStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                PhotoAddTile(
-                    selection: $picked, count: photos.count, limit: Self.photoLimit,
-                    maxSelection: Self.photoLimit
-                )
-
-                ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
-                    Image(uiImage: photo)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: PhotoPick.tile, height: PhotoPick.tile)
-                        .clipShape(.rect(cornerRadius: PhotoPick.corner))
-                        .overlay(alignment: .bottomLeading) {
-                            if index == 0 {
-                                Text("대표")
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 6).padding(.vertical, 2)
-                                    .background(Capsule().fill(.black.opacity(0.55)))
-                                    .padding(6)
-                            }
-                        }
-                        .overlay(alignment: .topTrailing) {
-                            PhotoRemoveBadge { remove(at: index) }
-                        }
-                }
-            }
-            .padding(.horizontal, 20)
+    private func submit() async {
+        guard canPost else { return }
+        let input = TripPostCreate(title: CommunityRules.normalized(title), body: CommunityRules.normalized(story),
+                                   photoKeys: photos.keys, courseId: course?.serverId)
+        if let saved = await submission.submit(input, expectedCourse: course) {
+            finish(saved)
+        } else if submission.photoInvalid {
+            photos.rejectUploaded()
         }
     }
 
-    private func load(_ items: [PhotosPickerItem]) async {
-        var loaded: [UIImage] = []
-        for item in items {
-            // 저장할 크기로만 푼다 — 원본 여덟 장을 통째로 쥐지 않는다.
-            if let image = await PhotoPick.image(from: item, longest: CommunityStore.photoLongest) {
-                loaded.append(image)
-            }
+    private func check() async {
+        if let saved = await submission.check() {
+            finish(saved)
         }
-        photos = loaded
     }
 
-    private func remove(at index: Int) {
-        guard photos.indices.contains(index) else { return }
-        photos.remove(at: index)
-        if picked.indices.contains(index) {
-            picked.remove(at: index)
-        }
+    private func finish(_ saved: TripPostDetail) {
+        store.accept(saved)
+        AppAnalytics.log(.postReview(photoCount: saved.photoUrls.count, hasCourse: saved.course != nil))
+        dismiss()
     }
 
     // MARK: 코스
@@ -145,7 +152,7 @@ struct CommunityComposeView: View {
                 PostCourseBadge()
                 VStack(alignment: .leading, spacing: 2) {
                     Text(course.title).font(.subheadline.weight(.semibold)).lineLimit(1)
-                    Text(String(format: tr("%d일 · %d곳"), course.days.count, course.placeCount))
+                    Text(String(format: tr("%d일 · %d곳"), course.days.count, course.placeCount - (course.excludedPins ?? 0)))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -161,6 +168,7 @@ struct CommunityComposeView: View {
             }
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 16).fill(Color(.systemGray6)))
+            .disabled(submission.working || submission.uncertain)
         } else {
             Button {
                 pickingCourse = true
@@ -180,6 +188,7 @@ struct CommunityComposeView: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
+            .disabled(submission.working || submission.uncertain)
         }
     }
 }
@@ -206,6 +215,7 @@ private struct CoursePickSheet: View {
     @State private var courses: [CourseSummary] = []
     @State private var loading = true
     @State private var fetching: Int64?
+    @State private var message: String?
 
     private let installId = InstallIdentity.current
 
@@ -214,6 +224,11 @@ private struct CoursePickSheet: View {
             Group {
                 if loading {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let message {
+                    VStack(spacing: 12) {
+                        Text(message).font(.footnote).foregroundStyle(.secondary)
+                        Button("다시 시도") { Task { await reload() } }
+                    }.padding(20)
                 } else if courses.isEmpty {
                     ContentUnavailableView(
                         "붙일 코스가 없습니다",
@@ -252,20 +267,27 @@ private struct CoursePickSheet: View {
                     Button("닫기") { dismiss() }
                 }
             }
-            .task {
-                courses = await (try? CoursesAPI.listCourses(xInstallId: installId).items) ?? []
-                loading = false
-            }
+            .task { await reload() }
         }
+    }
+
+    private func reload() async {
+        loading = true
+        message = nil
+        defer { loading = false }
+        do { courses = try await CoursesAPI.listCourses(xInstallId: installId).items }
+        catch { message = CommunityRules.failureText(error) }
     }
 
     private func pick(_ item: CourseSummary) async {
         fetching = item.id
         defer { fetching = nil }
-        guard let detail = try? await CoursesAPI.getCourse(xInstallId: installId, courseId: item.id) else {
-            return
+        do {
+            let detail = try await CoursesAPI.getCourse(xInstallId: installId, courseId: item.id)
+            onPick(PostCourse(from: RouteBridge.course(from: detail)))
+            dismiss()
+        } catch {
+            message = CommunityRules.failureText(error)
         }
-        onPick(PostCourse(from: RouteBridge.course(from: detail)))
-        dismiss()
     }
 }

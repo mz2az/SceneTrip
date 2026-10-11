@@ -6,8 +6,7 @@ import SwiftUI
 /// (2026-10-03 팀 회의). 후기는 사진과 다녀온 코스를 붙여 쓰고, 읽는 사람은 그 코스를
 /// 보고 내 코스로 담는다.
 ///
-/// 게시판 서버가 아직 없어 글은 **기기에만** 있다 — 남의 글을 받아 올 길이 없다.
-/// 지어낸 글을 앱에 박지 않는다(시험용 글은 기기에 직접 넣어 본다).
+/// 서버의 최신 후기를 받는다. 기기에 남은 옛 글은 내 글의 별도 목록에 보존한다(MZ2AZ-396).
 struct CommunityTabView: View {
     @ObservedObject private var store = CommunityStore.shared
     /// 내 글의 글쓴이 이름이 닉네임이다 — 닉네임을 바꾸거나 로그인·로그아웃하면 목록이 다시 그려져야 한다.
@@ -17,6 +16,7 @@ struct CommunityTabView: View {
 
     /// 읽고 있는 글. 목록 행은 두 줄로 잘리므로, 누르면 전문이 큰 팝업으로 뜬다.
     @State private var reading: CommunityPost?
+    @State private var deleting: CommunityPost?
 
     var body: some View {
         NavigationStack {
@@ -35,6 +35,22 @@ struct CommunityTabView: View {
             .sheet(isPresented: $composing) {
                 CommunityComposeView()
             }
+            .task { await store.refresh() }
+            .onAccountChange { await store.refresh() }
+            .signInSheet()
+            .alert(tr("후기를 지울까요?"), isPresented: Binding(get: { deleting != nil }, set: {
+                if !$0 {
+                    deleting = nil
+                }
+            })) {
+                Button("지우기", role: .destructive) {
+                    if let post = deleting {
+                        Task { await store.remove(post) }
+                    }
+                    deleting = nil
+                }
+                Button("취소", role: .cancel) { deleting = nil }
+            }
         }
     }
 
@@ -45,7 +61,11 @@ struct CommunityTabView: View {
             HStack {
                 Spacer()
                 Button {
-                    composing = true
+                    if auth.signedIn {
+                        composing = true
+                    } else {
+                        auth.promptSignIn()
+                    }
                 } label: {
                     Image(systemName: "square.and.pencil")
                         .font(.system(size: 14, weight: .semibold))
@@ -72,7 +92,14 @@ struct CommunityTabView: View {
 
     private var postList: some View {
         List {
-            if store.posts.isEmpty {
+            if let message = store.message {
+                Text(message).font(.footnote).foregroundStyle(.red)
+                Button("다시 시도") { Task { await store.refresh() } }.disabled(store.loading)
+            }
+            if store.loading {
+                ProgressView().frame(maxWidth: .infinity)
+            }
+            if store.posts.isEmpty, !store.loading, store.message == nil {
                 ContentUnavailableView {
                     Label("아직 후기가 없습니다", systemImage: "bubble.left.and.bubble.right")
                 } description: {
@@ -84,8 +111,12 @@ struct CommunityTabView: View {
             ForEach(store.posts) { post in
                 myPostRow(post)
             }
+            if store.posts.count < store.total {
+                Button("더 보기") { Task { await store.refresh(more: true) } }.disabled(store.loading)
+            }
         }
         .listStyle(.plain)
+        .refreshable { await store.refresh() }
     }
 
     private func myPostRow(_ post: CommunityPost) -> some View {
@@ -100,7 +131,7 @@ struct CommunityTabView: View {
             // 지우기는 **내 글만** — 남의 글을 밀어서 지울 수 있으면 안 된다.
             if post.isMine {
                 Button(role: .destructive) {
-                    store.remove(post)
+                    deleting = post
                 } label: {
                     Label("지우기", systemImage: "trash")
                 }
@@ -129,10 +160,8 @@ struct CommunityTabView: View {
                 }
             }
             Spacer(minLength: 0)
-            if let name = post.photos?.first, let photo = CommunityStore.photo(name) {
-                Image(uiImage: photo)
-                    .resizable()
-                    .scaledToFill()
+            if post.remotePhotos?.first != nil || post.photos?.first != nil {
+                CommunityCoverPhoto(post: post)
                     .frame(width: 76, height: 76)
                     .clipShape(.rect(cornerRadius: 12))
             }
