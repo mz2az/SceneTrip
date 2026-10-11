@@ -52,7 +52,9 @@ if [ -n "${SCENETRIP_AUTH_JWT_SECRET:-}" ]; then
   JWT_ARGS=(--from-literal=SCENETRIP_AUTH_JWT_SECRET="$SCENETRIP_AUTH_JWT_SECRET")
 fi
 # 애플 로그인 두 값도 같은 규칙 — 있을 때만 싣는다. 없으면 애플 로그인만 꺼진다.
-for name in SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY SCENETRIP_AUTH_APPLE_PRIVATE_KEY; do
+# 서비스 비밀값(ADR 0023)도 같다 — 없으면 에이전트의 읽기가 에이전트 한 칸으로 세어질 뿐이다. 에이전트
+# (just guide-up)는 just 가 .env 를 읽어 같은 값을 받는다.
+for name in SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY SCENETRIP_AUTH_APPLE_PRIVATE_KEY SCENETRIP_SERVICE_TOKEN; do
   if [ -n "${!name:-}" ]; then
     JWT_ARGS+=(--from-literal="$name=${!name}")
   fi
@@ -66,7 +68,7 @@ kubectl create secret generic "$SECRET_NAME" \
 
 # 값은 찍지 않는다. 있는지만 말한다.
 present() { if [ -n "${!1:-}" ]; then echo "$1 있음"; else echo "$1 없음"; fi; }
-log "적용됨 — KAKAO_REST_KEY 있음, $(present SCENETRIP_AUTH_JWT_SECRET), $(present SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY), $(present SCENETRIP_AUTH_APPLE_PRIVATE_KEY)"
+log "적용됨 — KAKAO_REST_KEY 있음, $(present SCENETRIP_AUTH_JWT_SECRET), $(present SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY), $(present SCENETRIP_AUTH_APPLE_PRIVATE_KEY), $(present SCENETRIP_SERVICE_TOKEN)"
 
 # 환경변수는 컨테이너가 뜰 때 한 번 읽힌다. 이미 떠 있는 파드는 새 값을 모른다.
 if kubectl get deployment/scene-api -n "$NAMESPACE" >/dev/null 2>&1; then

@@ -164,6 +164,8 @@ scene-api에서 오는 요청만 허용한다. 외부 로드밸런서에서 직�
 | --- | --- |
 | `DEEPSEEK_API_KEY` | 필수. 없으면 시작 실패. Secrets Manager에서 주입 |
 | `SCENE_API_BASE_URL` | `http://scene-api:8080/v1`. CLI의 `--base-url`이 최우선 |
+| `SCENETRIP_SERVICE_TOKEN` | 서비스 비밀값(ADR 0023). scene-api 와 같은 값. 없으면 경고만 하고 뜬다 — 읽기가 이 에이전트 한 칸으로 세어진다 |
+| `X-Rate-Subject` (받는 헤더) | scene-api 가 넘긴 한도 열쇠. 그 턴의 scene-api 읽기에 `X-Service-Token` 과 함께 되돌려 단다. 자격 증명이 아니며 로그에 남기지 않는다. 열쇠가 없는 턴(CLI·시연 서버)은 달지 않는다 |
 | `/health/live`, `/health/ready` | 설정·키 검증 후 서버가 요청을 받을 수 있는지 확인. 외부 모델·API 가용성을 보증하지 않음 |
 | 요청 본문 | gateway와 같은 1 MiB. 40개×4,000자 한글 대화 계약을 수용하며 Content-Length·chunked 누적 크기 모두 제한 |
 | 호출·연결 | 프로세스당 120회/분, 동시 작업 1개, 연결 스레드 최대 16개, 소켓 무응답 10초. 답은 작업 자리를 비운 뒤에 보낸다 — 답을 받자마자 온 다음 요청이 앞 요청의 자리에 걸려 503 이 되지 않게(MZ2AZ-405) |

@@ -3,6 +3,7 @@ package com.mz2az.scenetrip.sceneapi.web;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -22,6 +23,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.guide.GuideAgentClient;
 import com.mz2az.scenetrip.sceneapi.guide.GuideEffectApplier;
+import com.mz2az.scenetrip.sceneapi.guide.GuideTurnLog;
 import com.mz2az.scenetrip.sceneapi.guide.IdempotencyStore;
 import com.mz2az.scenetrip.sceneapi.limit.InMemoryUsageStore;
 import com.mz2az.scenetrip.sceneapi.limit.PaidQuota;
@@ -78,6 +80,7 @@ class GuideControllerTest {
 
   @MockitoBean private CurrentAccount accounts;
   @MockitoBean private IdempotencyStore idempotency;
+  @MockitoBean private GuideTurnLog turns;
 
   @Autowired private InMemoryUsageStore usage;
   @Autowired private JsonMapper json;
@@ -111,10 +114,10 @@ class GuideControllerTest {
         .thenReturn(new IdempotencyStore.Begin.Started());
     when(accounts.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
     when(users.isRegistered(USER)).thenReturn(true);
-    when(agent.chat(any(), any())).thenReturn(chatReply());
+    when(agent.chat(any(), any(), any())).thenReturn(chatReply());
     GuidePlanReply planReply =
         new GuidePlanReply(new GuidePlan(List.of()), List.of(), List.of(), 0.02);
-    when(agent.plan(any(), any())).thenReturn(planReply);
+    when(agent.plan(any(), any(), any())).thenReturn(planReply);
   }
 
   private static MockHttpServletRequestBuilder chat(String acceptLanguage) {
@@ -137,7 +140,7 @@ class GuideControllerTest {
         .andExpect(jsonPath("$.ui[0].op").value("map.focus"))
         .andExpect(jsonPath("$.ui[0].placeIds[0]").value(1187));
 
-    verify(agent).chat(any(), eq(Lang.EN));
+    verify(agent).chat(any(), eq(Lang.EN), any());
     verify(effects).apply(eq(USER), any());
   }
 
@@ -150,7 +153,7 @@ class GuideControllerTest {
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.code").value("SIGN_IN_REQUIRED"));
 
-    verify(agent, never()).chat(any(), any());
+    verify(agent, never()).chat(any(), any(), any());
     verify(effects, never()).apply(any(), any());
   }
 
@@ -160,7 +163,7 @@ class GuideControllerTest {
     mvc.perform(post("/guide/chat").contentType(MediaType.APPLICATION_JSON).content(CHAT_BODY))
         .andExpect(status().isBadRequest());
 
-    verify(agent, never()).chat(any(), any());
+    verify(agent, never()).chat(any(), any(), any());
   }
 
   @Test
@@ -174,13 +177,13 @@ class GuideControllerTest {
                     "{\"sessionId\":\"0d4f7b1e-5c4a-4a1e-9b0e-6f1f6d2b8c11\",\"latitude\":37.0,\"longitude\":127.0}"))
         .andExpect(status().isBadRequest());
 
-    verify(agent, never()).chat(any(), any());
+    verify(agent, never()).chat(any(), any(), any());
   }
 
   @Test
   @DisplayName("에이전트에 못 닿으면 503 GUIDE_UNAVAILABLE — 처리기는 안 불린다")
   void agentDownIs503() throws Exception {
-    when(agent.chat(any(), any()))
+    when(agent.chat(any(), any(), any()))
         .thenThrow(
             ApiException.unavailable(GuideAgentClient.CODE_UNAVAILABLE, "가이드 에이전트에 연결하지 못했습니다"));
 
@@ -194,7 +197,7 @@ class GuideControllerTest {
   @Test
   @DisplayName("에이전트의 400 은 그대로 400 — code·message 가 앱까지 간다")
   void agent400PassesThrough() throws Exception {
-    when(agent.chat(any(), any()))
+    when(agent.chat(any(), any(), any()))
         .thenThrow(ApiException.badRequest("INVALID_PARAMETER", "context.plan: 모양이 맞지 않는다"));
 
     mvc.perform(chat("ko"))
@@ -224,7 +227,7 @@ class GuideControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.tookSeconds").value(0.02));
 
-    verify(agent).plan(any(), eq(Lang.JA));
+    verify(agent).plan(any(), eq(Lang.JA), any());
     verify(users, never()).isRegistered(any());
     verify(effects, never()).apply(any(), any());
   }
@@ -238,7 +241,7 @@ class GuideControllerTest {
                 .content("{\"titles\":[\"도깨비\"],\"days\":8}"))
         .andExpect(status().isBadRequest());
 
-    verify(agent, never()).plan(any(), any());
+    verify(agent, never()).plan(any(), any(), any());
   }
 
   // ───────────── 유료 한도 (계약 「요청 한도」) ─────────────
@@ -291,7 +294,7 @@ class GuideControllerTest {
         .andExpect(header().string("RateLimit-Remaining", "0"))
         .andExpect(header().exists("RateLimit-Reset"));
 
-    verify(agent, times(15)).chat(any(), any());
+    verify(agent, times(15)).chat(any(), any(), any());
     // 넘은 시도는 세지 않는다 — 시간 15 + 하루 15
     assertThatUsed(30);
   }
@@ -318,7 +321,7 @@ class GuideControllerTest {
   @Test
   @DisplayName("한도 — 에이전트 503 이면 되돌린다(사용자 몫이 아니다)")
   void agentUnavailableIsRefunded() throws Exception {
-    when(agent.chat(any(), any()))
+    when(agent.chat(any(), any(), any()))
         .thenThrow(ApiException.unavailable(GuideAgentClient.CODE_UNAVAILABLE, "닿지 않음"));
 
     mvc.perform(chat("ko")).andExpect(status().isServiceUnavailable());
@@ -378,7 +381,7 @@ class GuideControllerTest {
     mvc.perform(chat("ko")).andExpect(status().isOk());
 
     verify(idempotency, never()).begin(any(), any(), any());
-    verify(agent, times(2)).chat(any(), any());
+    verify(agent, times(2)).chat(any(), any(), any());
     assertThatUsed(4);
   }
 
@@ -411,7 +414,7 @@ class GuideControllerTest {
         .andExpect(jsonPath("$.effects[0].op").value("cart.add"))
         .andExpect(jsonPath("$.ui[0].placeIds[0]").value(1187));
 
-    verify(agent, never()).chat(any(), any());
+    verify(agent, never()).chat(any(), any(), any());
     verify(effects, never()).apply(any(), any());
     verify(idempotency, never()).complete(any(), any(), any());
     assertThatUsed(0);
@@ -427,7 +430,7 @@ class GuideControllerTest {
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.code").value("IDEMPOTENCY_IN_PROGRESS"));
 
-    verify(agent, never()).chat(any(), any());
+    verify(agent, never()).chat(any(), any(), any());
     verify(idempotency, never()).abandon(any(), any());
     assertThatUsed(0);
   }
@@ -442,7 +445,7 @@ class GuideControllerTest {
         .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
 
-    verify(agent, never()).chat(any(), any());
+    verify(agent, never()).chat(any(), any(), any());
     assertThatUsed(0);
   }
 
@@ -466,7 +469,7 @@ class GuideControllerTest {
   @Test
   @DisplayName("멱등 — 에이전트가 실패하면(503) 키를 놓아 같은 키의 재시도가 다시 처리된다, 저장은 없다")
   void agentFailureReleasesKey() throws Exception {
-    when(agent.chat(any(), any()))
+    when(agent.chat(any(), any(), any()))
         .thenThrow(ApiException.unavailable(GuideAgentClient.CODE_UNAVAILABLE, "닿지 않음"));
 
     mvc.perform(chatWithKey("turn-1", "ko", CHAT_BODY)).andExpect(status().isServiceUnavailable());
@@ -508,5 +511,89 @@ class GuideControllerTest {
     mvc.perform(chatWithKey("   ", "ko", CHAT_BODY)).andExpect(status().isOk());
 
     verify(idempotency, never()).begin(any(), any(), any());
+  }
+
+  // ───────────── 한도 열쇠를 에이전트에 (MZ2AZ-412, guide-rate-subject.md §5) ─────────────
+
+  @Test
+  @DisplayName("열쇠 — 분당 필터가 이 요청에 쓴 열쇠(install:<UUID>)가 그대로 에이전트 챗봇 호출로 간다")
+  void chatPassesFilterKeyToAgent() throws Exception {
+    // /v1 아래로 보내야 분당 필터가 이 요청을 센다(context-path 가 /v1).
+    mvc.perform(
+            post("/v1/guide/chat")
+                .contextPath("/v1")
+                .header("X-Install-Id", INSTALL_ID)
+                .header("Accept-Language", "ko")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(CHAT_BODY))
+        .andExpect(status().isOk());
+
+    verify(agent).chat(any(), eq(Lang.KO), eq("install:" + INSTALL_ID));
+  }
+
+  @Test
+  @DisplayName("열쇠 — 마법사도 필터의 열쇠를 넘긴다, 설치 UUID 가 없으면 ip:<주소>")
+  void planPassesFilterKeyToAgent() throws Exception {
+    mvc.perform(
+            post("/v1/guide/plan")
+                .contextPath("/v1")
+                .with(
+                    r -> {
+                      r.setRemoteAddr("198.51.100.30");
+                      return r;
+                    })
+                .header("Accept-Language", "ko")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"titles\":[\"도깨비\"],\"days\":2}"))
+        .andExpect(status().isOk());
+
+    verify(agent).plan(any(), eq(Lang.KO), eq("ip:198.51.100.30"));
+  }
+
+  @Test
+  @DisplayName("열쇠 — 요청 속성의 값을 다시 계산하지 않고 그대로 넘긴다(챗봇·마법사)")
+  void passesTheStoredAttributeAsIs() throws Exception {
+    String key = "user:9d1e4b52-6c07-4a8f-b3d1-2e6f80c4a915";
+    mvc.perform(chat("ko").requestAttr(RequestRateLimitFilter.SUBJECT_ATTRIBUTE, key))
+        .andExpect(status().isOk());
+    verify(agent).chat(any(), any(), eq(key));
+
+    mvc.perform(
+            post("/guide/plan")
+                .requestAttr(RequestRateLimitFilter.SUBJECT_ATTRIBUTE, "ip:203.0.113.9")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"titles\":[\"도깨비\"],\"days\":2}"))
+        .andExpect(status().isOk());
+    verify(agent).plan(any(), any(), eq("ip:203.0.113.9"));
+  }
+
+  @Test
+  @DisplayName("열쇠 — 필터가 세지 않은 요청이면(속성 없음) null 로 넘긴다")
+  void noAttributeMeansNullSubject() throws Exception {
+    mvc.perform(chat("ko")).andExpect(status().isOk());
+    verify(agent).chat(any(), any(), isNull());
+
+    mvc.perform(
+            post("/guide/plan")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"titles\":[\"도깨비\"],\"days\":2}"))
+        .andExpect(status().isOk());
+    verify(agent).plan(any(), any(), isNull());
+  }
+
+  @Test
+  @DisplayName("열쇠 — 앱이 직접 보낸 X-Rate-Subject 는 비밀값이 없으니 무시되고, 에이전트에는 필터의 열쇠가 간다")
+  void appSuppliedSubjectIsNotForwarded() throws Exception {
+    mvc.perform(
+            post("/v1/guide/chat")
+                .contextPath("/v1")
+                .header("X-Install-Id", INSTALL_ID)
+                .header("X-Rate-Subject", "user:1b6a0e33-2f4d-4c8e-9a71-5d0c3e8f7b26")
+                .header("Accept-Language", "ko")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(CHAT_BODY))
+        .andExpect(status().isOk());
+
+    verify(agent).chat(any(), any(), eq("install:" + INSTALL_ID));
   }
 }

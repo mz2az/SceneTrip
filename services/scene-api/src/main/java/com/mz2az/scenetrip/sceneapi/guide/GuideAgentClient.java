@@ -63,6 +63,9 @@ public class GuideAgentClient {
 
   static final String PATH_PLAN = "/plan";
 
+  /** 한도 열쇠를 에이전트에 넘기는 헤더 — 에이전트가 scene-api 읽기에 같은 이름으로 되돌려 단다(ADR 0023). */
+  static final String RATE_SUBJECT_HEADER = "X-Rate-Subject";
+
   /** {@code base-url} 이 비어 있으면 null. 부를 때 503 을 낸다 — 챗봇 없이도 나머지 API 는 돌아야 한다. */
   private final RestClient restClient;
 
@@ -96,14 +99,19 @@ public class GuideAgentClient {
             .build();
   }
 
-  /** 챗봇 한 턴. 요청은 앱이 보낸 것 그대로 — {@code X-Install-Id} 는 여기 없다. 에이전트는 신원을 모른다. */
-  public GuideChatReply chat(GuideChatRequest request, Lang lang) {
-    return post(PATH_CHAT, request, lang, GuideChatReply.class);
+  /**
+   * 챗봇 한 턴. 요청은 앱이 보낸 것 그대로 — {@code X-Install-Id} 는 여기 없다. 에이전트는 자격 증명을 모른다.
+   *
+   * @param rateSubject 이 요청을 센 한도 열쇠({@code user:<UUID>} 등). 에이전트가 그 턴의 읽기에 되돌려 달아 같은 칸으로 세게 한다(ADR
+   *     0023). null 이면 헤더를 달지 않는다
+   */
+  public GuideChatReply chat(GuideChatRequest request, Lang lang, String rateSubject) {
+    return post(PATH_CHAT, request, lang, rateSubject, GuideChatReply.class);
   }
 
-  /** 마법사의 일정 초안. 모델을 부르지 않는 창구라 빠르고, 저장도 없다. */
-  public GuidePlanReply plan(GuidePlanRequest request, Lang lang) {
-    return post(PATH_PLAN, request, lang, GuidePlanReply.class);
+  /** 마법사의 일정 초안. 모델을 부르지 않는 창구라 빠르고, 저장도 없다. {@code rateSubject} 는 {@link #chat} 과 같다. */
+  public GuidePlanReply plan(GuidePlanRequest request, Lang lang, String rateSubject) {
+    return post(PATH_PLAN, request, lang, rateSubject, GuidePlanReply.class);
   }
 
   /**
@@ -111,7 +119,7 @@ public class GuideAgentClient {
    *
    * @param path URI 템플릿 문자열 그대로 — 관측의 {@code uri} 태그가 이 문자열을 쓴다.
    */
-  private <T> T post(String path, Object body, Lang lang, Class<T> type) {
+  private <T> T post(String path, Object body, Lang lang, String rateSubject, Class<T> type) {
     if (restClient == null) {
       log.error("가이드 에이전트 주소가 없어 부를 수 없습니다 — SCENETRIP_GUIDE_AGENT_BASE_URL 을 설정하세요");
       throw ApiException.unavailable(CODE_UNAVAILABLE, "가이드 에이전트 설정이 없습니다");
@@ -122,6 +130,12 @@ public class GuideAgentClient {
               .post()
               .uri(path)
               .header("Accept-Language", lang == null ? Lang.EN.getValue() : lang.getValue())
+              .headers(
+                  h -> {
+                    if (rateSubject != null) {
+                      h.set(RATE_SUBJECT_HEADER, rateSubject);
+                    }
+                  })
               .contentType(MediaType.APPLICATION_JSON)
               .body(body)
               .retrieve()
