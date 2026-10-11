@@ -232,6 +232,8 @@ scenetrip:
     # **재시도는 없다.** /guide/chat 은 멱등이 아니다 — 토큰을 쓰고 세션 이력이 쌓이고 cart.add 가
     # 두 번 올 수 있다.
     timeout-seconds: 40
+    # 챗봇 처리 기록(guide_turn, MZ2AZ-410)을 며칠 남기나. 대화 원문은 애초에 남기지 않는다.
+    turn-log-retention-days: 90
 
   course:
     walking-speed-kmh: 4.0
