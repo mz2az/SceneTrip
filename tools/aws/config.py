@@ -19,7 +19,14 @@ SECRET_KEYS = {
     # 로그인 액세스 토큰(JWT) 서명 키와 외부 토큰(애플 refresh token) 암호화 키. 사람이 넣지
     # 않는다 — 배포가 환경당 한 번 만든다(deploy.auth_secret). 카카오 키(scene_api)와 칸을 나눈
     # 이유는 deploy.auth_secret. 두 키를 따로 두는 이유는 scene-api 의 TokenCipher.
-    "auth": {"SCENETRIP_AUTH_JWT_SECRET", "SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY"},
+    #
+    # 서비스 비밀값(ADR 0023)도 같은 칸이다 — 배포가 만들고 사람은 보지 않는다. scene-api 와
+    # trip-guide 가 같은 값을 받는다(trip-guide 에는 이 키 하나만, deploy.trip_guide_secret).
+    "auth": {
+        "SCENETRIP_AUTH_JWT_SECRET",
+        "SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY",
+        "SCENETRIP_SERVICE_TOKEN",
+    },
 }
 
 # 있어도 되고 없어도 되는 키. 없으면 배포는 성공하고 그 기능만 꺼진 채 뜬다.

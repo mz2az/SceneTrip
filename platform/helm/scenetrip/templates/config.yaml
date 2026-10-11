@@ -98,6 +98,8 @@ data:
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header Forwarded "";
           proxy_set_header X-Service-Token "";
+          # 한도 열쇠(ADR 0023) — 에이전트만 달 수 있다. 바깥에서 남의 칸을 고르지 못하게 지운다.
+          proxy_set_header X-Rate-Subject "";
           proxy_set_header Connection "";
           proxy_connect_timeout 3s;
           proxy_read_timeout 45s;

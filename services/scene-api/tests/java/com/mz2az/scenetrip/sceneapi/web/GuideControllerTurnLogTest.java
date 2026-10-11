@@ -106,7 +106,7 @@ class GuideControllerTurnLogTest {
         .thenReturn(new IdempotencyStore.Begin.Started());
     when(accounts.resolve(UUID.fromString(INSTALL_ID))).thenReturn(USER);
     when(users.isRegistered(USER)).thenReturn(true);
-    when(agent.chat(any(), any())).thenReturn(chatReply());
+    when(agent.chat(any(), any(), any())).thenReturn(chatReply());
   }
 
   private static MockHttpServletRequestBuilder chat(String acceptLanguage) {
@@ -155,7 +155,7 @@ class GuideControllerTurnLogTest {
   @Test
   @DisplayName("에이전트 503 — 실패 턴 하나, outcome GUIDE_UNAVAILABLE, 응답은 그대로 503")
   void agentUnavailableIsLoggedAsFailure() throws Exception {
-    when(agent.chat(any(), any()))
+    when(agent.chat(any(), any(), any()))
         .thenThrow(ApiException.unavailable(GuideAgentClient.CODE_UNAVAILABLE, "닿지 않음"));
 
     mvc.perform(chat("ko"))
@@ -171,7 +171,7 @@ class GuideControllerTurnLogTest {
   @Test
   @DisplayName("에이전트 400 — outcome 은 응답의 오류 코드(INVALID_PARAMETER)")
   void agentBadRequestIsLoggedWithItsCode() throws Exception {
-    when(agent.chat(any(), any()))
+    when(agent.chat(any(), any(), any()))
         .thenThrow(ApiException.badRequest("INVALID_PARAMETER", "모양이 맞지 않는다"));
 
     mvc.perform(chat("en"))
@@ -184,7 +184,7 @@ class GuideControllerTurnLogTest {
   @Test
   @DisplayName("에이전트 호출이 결함으로 실패 — outcome 은 응답과 같은 INTERNAL_ERROR")
   void agentDefectIsLoggedAsInternalError() throws Exception {
-    when(agent.chat(any(), any())).thenThrow(new IllegalStateException("결함"));
+    when(agent.chat(any(), any(), any())).thenThrow(new IllegalStateException("결함"));
 
     mvc.perform(chat("ko"))
         .andExpect(status().isInternalServerError())

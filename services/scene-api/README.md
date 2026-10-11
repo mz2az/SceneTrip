@@ -330,6 +330,7 @@ curl http://localhost:8081/v1/actuator/health
 | `SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY` | 아니오 | 없음 | 애플 refresh token 암호화 키(AES-256, base64 32 바이트). JWT 키와 따로. 로컬 `.env`(`openssl rand -base64 32`), DEV·PRD 는 배포가 `auth` 칸에 함께 만든다. 없으면 애플 로그인만 꺼진다 |
 | `SCENETRIP_AUTH_APPLE_PRIVATE_KEY` | 아니오 | 없음 | 애플 .p8 파일 전체의 base64 한 줄. 사람이 애플에서 받아 온다(다시 내려받을 수 없다). 로컬 `.env`, DEV·PRD 는 Secrets Manager `scene_api` 칸의 **선택 항목** — ⚠ **PRD 출시 전 필수로 옮긴다**(`tools/aws/config.py` 의 `OPTIONAL_SECRET_KEYS`). 없으면 `/auth/apple` 이 `501` |
 | `SCENETRIP_AUTH_REQUIRE_REGISTRATION` | 아니오 | `true` | 가입 판정. `false` 면 마켓·길찾기·챗봇의 401 이 나지 않는다. **로컬 kind 의 ConfigMap 만 끈다** — 로그인 전 시뮬레이터 검증용이고 기동 로그에 경고가 남는다 |
+| `SCENETRIP_SERVICE_TOKEN` | 아니오 | 없음 | 서비스 비밀값(ADR 0023). 에이전트가 사용자 대신 보낸 읽기의 `X-Rate-Subject` 를 이 값이 `X-Service-Token` 으로 맞을 때만 믿는다. 에이전트와 같은 값. 로컬은 `.env`(`openssl rand -base64 32`), DEV·PRD 는 배포가 Secrets Manager `auth` 칸에 환경당 한 번 만든다. **없으면 기동은 하고** 에이전트의 읽기가 에이전트 주소 한 칸으로 세어진다(기동 로그 경고) |
 | `SCENETRIP_GUIDE_AGENT_BASE_URL` | 아니오 | `http://localhost:8899` | 가이드 에이전트(`agents/trip-guide`) 주소. 없으면 기동은 하고 `/guide/*` 만 503 이다. 로컬 kind 는 `http://host.docker.internal:8899`(노트북, `just guide-up`), DEV·PRD 는 `http://trip-guide:8899`(Helm) |
 
 비밀번호는 `application.yaml` 에 두지 않는다 — 이미지 안에 박히면 이미지를 가진 사람이

@@ -51,6 +51,11 @@ usage_counter (subject TEXT, feature TEXT, window_start TIMESTAMPTZ, count INT,
 
 **누구로 세나:** 가입자는 계정 id, 비회원은 설치 UUID 로 찾은 계정 id(`CurrentAccount`). 둘 다 계정 행이 있으므로 같은 열쇠다.
 
+**가이드 에이전트가 대신 보낸 읽기**(2026-10-11, MZ2AZ-412, [ADR 0023](../../architecture/adr/0023-agent-reads-carry-rate-subject-not-credentials.md)):
+챗봇 한 턴 안에서 에이전트가 scene-api 를 다시 부르는 읽기는 자격 증명이 없어 에이전트 주소 한 칸으로 세어졌다. 이제 scene-api
+가 앱 요청을 센 열쇠를 `X-Rate-Subject` 로 넘기고, 에이전트가 읽기에 그 열쇠와 서비스 비밀값 `X-Service-Token` 을 달면 분당
+필터가 그 사용자 칸으로 센다. 자세한 것은 [guide-rate-subject.md](guide-rate-subject.md).
+
 ## 4. 요금제 — 숫자는 설정으로
 
 ```yaml
