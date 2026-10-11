@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.10.0
+  version: 1.11.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -227,6 +227,8 @@ tags:
     description: 여행 가이드 챗봇 — 앱은 화면 상태를 보내고, LLM 호출과 도구 실행은 서버가 한다 (ADR 0012)
   - name: reviews
     description: 촬영지·편의시설 리뷰와 별점, 상세의 사진첩 (docs/project/plans/review.md)
+  - name: events
+    description: 사용 기록 — 상세를 열었다·검색을 확정했다. 인기도 계산의 재료 (docs/project/plans/popularity.md, 1.11.0)
   - name: uploads
     description: 사진 올리기 — 저장소에 바로 올릴 서명된 주소
   - name: posts
@@ -2420,6 +2422,52 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /events:
+    post:
+      tags: [events]
+      operationId: recordEvent
+      summary: 사용 기록 하나 보내기
+      description: |
+        인기도(작품·촬영지·편의시설의 `popularity_score`)를 매일 밤 다시 계산하는 재료다. 앱이 **사용자가 실제로 한 일**만
+        보낸다 — 서버는 상세 API 호출을 세지 않는다. 앱이 상세 화면 밖에서도 상세를 부르기 때문이다(검색창의 포스터,
+        챗봇 카드, 코스 편집의 이름 고치기).
+
+        | `type` | 언제 보내나 | 채울 칸 |
+        | --- | --- | --- |
+        | `view` | 작품·촬영지·편의시설 **상세 화면이 열렸을 때** — Firebase `view_title`·`view_place` 를 보내는 자리 | `entityType`·`entityId` |
+        | `search` | 검색어를 **확정했을 때**(자동완성 글자마다가 아니라) — Firebase `search` 자리 | `query`·`resultCount` |
+
+        **보내고 잊는다.** 응답을 기다리지 않고, 실패해도 다시 보내지 않고, 화면에 알리지 않는다. 서버도 기록에
+        실패하면 로그만 남기고 204 를 준다. 같은 기기가 같은 대상을 하루에 여러 번 열어도 한 번으로 센다 — 앱이
+        걸러 보낼 필요 없다.
+
+        비회원도 보낸다(`X-Install-Id`). 토큰이 있으면 가입 사용자로 적는다. 언어는 `Accept-Language` 로 적는다.
+        검색어는 기기·사용자와 잇지 않고 적으며, 기록은 90 일 뒤 지운다.
+      parameters:
+        - $ref: "#/components/parameters/InstallId"
+        - $ref: "#/components/parameters/AcceptLanguage"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsageEvent"
+      responses:
+        "204":
+          description: 받았다(기록에 실패했어도 같다 — 위)
+        "400":
+          description: |
+            `INVALID_PARAMETER` — `view` 인데 `entityType`·`entityId` 가 없다, `search` 인데 `query`·`resultCount` 가 없다,
+            길이·범위를 넘었다. 앱의 버그다 — 다시 보내지 않는다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /uploads:
     post:
       tags: [uploads]
@@ -2754,6 +2802,47 @@ components:
             $ref: "#/components/schemas/ApiError"
 
   schemas:
+    UsageEvent:
+      type: object
+      description: |
+        사용 기록 하나(1.11.0). `type` 에 따라 채우는 칸이 다르다 — `view` 는 `entityType`·`entityId`, `search` 는
+        `query`·`resultCount`. 다른 쪽 칸은 비운다(보내도 무시한다).
+      required: [type]
+      properties:
+        type:
+          $ref: "#/components/schemas/UsageEventType"
+        entityType:
+          $ref: "#/components/schemas/UsageEntityType"
+        entityId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+          description: 연 상세의 id — 작품은 `contentId`, 촬영지는 `placeId`, 편의시설은 `poiId`
+        query:
+          type: string
+          minLength: 1
+          maxLength: 100
+          nullable: true
+          description: 확정한 검색어. 앞뒤 공백은 서버가 지운다
+        resultCount:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: 확정했을 때 화면에 보인 결과 수. 0 이면 「찾는 것이 없었다」 — 다음 수집 대상을 고르는 데 쓴다
+
+    UsageEventType:
+      type: string
+      enum: [view, search]
+      description: "`view` 상세를 열었다 · `search` 검색어를 확정했다"
+
+    UsageEntityType:
+      type: string
+      nullable: true
+      enum: [content, place, poi]
+      description: "`view` 의 대상 — 작품 · 촬영지 · 편의시설"
+
     Lang:
       type: string
       enum: [ko, en, ja, zh-Hant]
