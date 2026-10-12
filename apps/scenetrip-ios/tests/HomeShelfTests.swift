@@ -2,32 +2,59 @@ import SceneApiClient
 @testable import SceneTrip
 import XCTest
 
-/// 홈 「지금 뜨는 작품」 — 촬영지 많은 순 (MZ2AZ-372).
-///
-/// 전에는 서버 순서의 앞 20편만 받아 그 안에서 정렬해, 촬영지가 가장 많은 작품이 그 20편 밖이면 선반에 없었다.
+/// 홈 선반은 서버 인기도 순서를 그대로 유지한다 (MZ2AZ-411).
 final class HomeShelfTests: XCTestCase {
     private func work(_ id: Int64, places: Int) -> ContentSummary {
         ContentSummary(id: id, category: .drama, title: "작품 \(id)", placeCount: places)
     }
 
-    /// 훑은 것 전체에서 고른다 — 맨 뒤에 있던 19곳짜리가 맨 앞에 온다.
-    func testMostLocationsComeFirstWhereverTheyWere() {
+    func testOnlyFirstTwentyPopularWorksAppearEvenIfLaterWorkHasMorePlaces() {
         var works = (1 ... 127).map { work(Int64($0), places: 3) }
         works.append(work(128, places: 19))
         let shelf = HomeTabModel.shelf(from: works)
-        XCTAssertEqual(shelf.first?.id, 128)
+        XCTAssertEqual(shelf.map(\.id), Array(1 ... 20).map(Int64.init))
         XCTAssertEqual(shelf.count, HomeTabModel.shelfCount)
     }
 
-    /// 촬영지 수가 같으면 서버가 준 순서를 지킨다 — 화면을 다시 그릴 때마다 자리가 바뀌면 안 된다.
-    func testTiesKeepServerOrder() {
+    func testServerOrderWinsOverPlaceCount() {
         let works = [work(5, places: 4), work(2, places: 9), work(9, places: 4), work(1, places: 4)]
         let shelf = HomeTabModel.shelf(from: works)
-        XCTAssertEqual(shelf.map(\.id), [2, 5, 9, 1])
+        XCTAssertEqual(shelf.map(\.id), [5, 2, 9, 1])
     }
 
     func testSmallCatalogShowsAll() {
-        XCTAssertEqual(HomeTabModel.shelf(from: [work(1, places: 1), work(2, places: 2)]).map(\.id), [2, 1])
+        XCTAssertEqual(HomeTabModel.shelf(from: [work(1, places: 1), work(2, places: 2)]).map(\.id), [1, 2])
         XCTAssertTrue(HomeTabModel.shelf(from: []).isEmpty)
+    }
+
+    @MainActor func testShelfLoadsOnceWithTwentyItemLimit() async {
+        var limits: [Int] = []
+        let expected = [work(5, places: 1), work(2, places: 19)]
+        let model = HomeTabModel { limit in
+            limits.append(limit)
+            return expected
+        }
+        await model.loadShelf()
+        XCTAssertEqual(limits, [20])
+        XCTAssertEqual(model.works.map(\.id), [5, 2])
+        XCTAssertFalse(model.failed)
+    }
+
+    @MainActor func testRefreshFailurePreservesLoadedShelf() async {
+        var shouldFail = false
+        let model = HomeTabModel { _ in
+            if shouldFail {
+                throw URLError(.notConnectedToInternet)
+            }
+            return [self.work(5, places: 1)]
+        }
+        await model.loadShelf()
+        shouldFail = true
+        await model.loadShelf()
+        XCTAssertEqual(model.works.map(\.id), [5])
+        XCTAssertFalse(model.failed)
+        let empty = HomeTabModel { _ in throw URLError(.notConnectedToInternet) }
+        await empty.loadShelf()
+        XCTAssertTrue(empty.failed)
     }
 }

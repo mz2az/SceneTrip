@@ -223,7 +223,7 @@ struct HomeWorkShelf: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HomeSectionHeader(
-                title: tr("지금 뜨는 작품"), subtitle: tr("촬영지 많은 순"), action: tr("전체 보기"), onAction: onAll
+                title: tr("지금 뜨는 작품"), subtitle: tr("인기순"), action: tr("전체 보기"), onAction: onAll
             )
             if failed {
                 Text("작품을 불러오지 못했습니다 — 백엔드(:8081)가 켜져 있나요?")
