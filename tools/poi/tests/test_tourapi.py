@@ -16,6 +16,7 @@ from tools.poi.tourapi import (
     items_of,
     main,
     order,
+    region_rank,
     run,
 )
 
@@ -25,10 +26,12 @@ TAG = {SECRET_A: "A", SECRET_B: "B"}
 ENV = {"POI_TEST_KEY_ONE": SECRET_A, "POI_TEST_KEY_TWO": SECRET_B}
 
 
-def item(cid, regn=None, ctype="12"):
+def item(cid, regn=None, ctype="12", sggu=None):
     d = {"contentid": cid, "contenttypeid": ctype}
     if regn is not None:
         d["lDongRegnCd"] = regn
+    if sggu is not None:
+        d["lDongSignguCd"] = sggu
     return d
 
 
@@ -109,8 +112,39 @@ class TourConstants(unittest.TestCase):
         self.assertTrue(issubclass(Quota, Exception))
 
 
+class TourRegionRank(unittest.TestCase):
+    def test_two_digit_code_matches_regn(self):
+        self.assertEqual(region_rank(item("1", "26", sggu="440"), ["11", "26"]), 1)
+        self.assertEqual(region_rank(item("1", "11"), ["11", "26"]), 0)
+
+    def test_five_digit_code_matches_regn_plus_signgu(self):
+        first = ["11", "41", "26", "50", "47130"]
+        self.assertEqual(region_rank(item("1", "47", sggu="130"), first), 4)
+
+    def test_five_digit_code_does_not_match_other_signgu(self):
+        first = ["11", "47130"]
+        self.assertEqual(region_rank(item("1", "47", sggu="111"), first), 2)
+        self.assertEqual(region_rank(item("1", "47"), first), 2)
+
+    def test_no_match_returns_len(self):
+        self.assertEqual(region_rank(item("1", "36"), ["11", "41", "26"]), 3)
+
+    def test_missing_fields(self):
+        self.assertEqual(region_rank(item("1"), ["11", "47130"]), 2)
+        self.assertEqual(region_rank(item("1"), []), 0)
+
+    def test_first_matching_code_wins(self):
+        it = item("1", "47", sggu="130")
+        self.assertEqual(region_rank(it, ["47130", "47"]), 0)
+        self.assertEqual(region_rank(it, ["47", "47130"]), 0)
+        self.assertEqual(region_rank(it, ["11", "47", "47130"]), 1)
+
+
 class TourOrder(unittest.TestCase):
-    def test_first_regions_first_keep_relative_order(self):
+    def ids(self, out):
+        return [i["contentid"] for i in out]
+
+    def test_tiers_follow_first_order_keep_relative_order(self):
         items = [
             item("1", "11"),
             item("2", "41"),
@@ -118,22 +152,85 @@ class TourOrder(unittest.TestCase):
             item("4", "11"),
             item("5"),
         ]
-        out = order(items, set(), {"41", "11"})
-        self.assertEqual([i["contentid"] for i in out], ["1", "2", "4", "3", "5"])
+        out = order(items, set(), ["41", "11"])
+        self.assertEqual(self.ids(out), ["2", "1", "4", "3", "5"])
+
+    def test_several_tiers_in_given_order(self):
+        items = [
+            item("a", "50"),
+            item("b", "36"),
+            item("c", "26"),
+            item("d", "11"),
+            item("e", "50"),
+            item("f", "26"),
+        ]
+        out = order(items, set(), ["11", "26", "50"])
+        self.assertEqual(self.ids(out), ["d", "c", "f", "a", "e", "b"])
+
+    def test_five_digit_tier_does_not_capture_other_places_in_same_province(self):
+        items = [
+            item("pohang", "47", sggu="111"),
+            item("gyeongju1", "47", sggu="130"),
+            item("seoul", "11", sggu="110"),
+            item("gyeongju2", "47", sggu="130"),
+            item("nowhere"),
+        ]
+        out = order(items, set(), ["11", "47130"])
+        self.assertEqual(
+            self.ids(out), ["seoul", "gyeongju1", "gyeongju2", "pohang", "nowhere"]
+        )
+
+    def test_default_style_first(self):
+        items = [
+            item("1", "47", sggu="130"),
+            item("2", "50"),
+            item("3", "26"),
+            item("4", "41"),
+            item("5", "11"),
+            item("6", "47", sggu="111"),
+        ]
+        out = order(items, set(), ["11", "41", "26", "50", "47130"])
+        self.assertEqual(self.ids(out), ["5", "4", "3", "2", "1", "6"])
+
+    def test_stable_within_tier(self):
+        items = [item(str(i), "26" if i % 2 else "11") for i in range(10)]
+        out = order(items, set(), ["26", "11"])
+        self.assertEqual(
+            self.ids(out), ["1", "3", "5", "7", "9", "0", "2", "4", "6", "8"]
+        )
 
     def test_skips_done(self):
         items = [item("1", "11"), item("2", "41"), item("3", "26")]
-        out = order(items, {"1", "3"}, {"11"})
-        self.assertEqual([i["contentid"] for i in out], ["2"])
+        out = order(items, {"1", "3"}, ["11"])
+        self.assertEqual(self.ids(out), ["2"])
+
+    def test_skips_done_across_tiers(self):
+        items = [
+            item("1", "26"),
+            item("2", "11"),
+            item("3", "26"),
+            item("4", "11"),
+            item("5"),
+        ]
+        out = order(items, {"2", "3"}, ["11", "26"])
+        self.assertEqual(self.ids(out), ["4", "1", "5"])
 
     def test_empty_first_keeps_order(self):
         items = [item("3"), item("1"), item("2")]
-        out = order(items, set(), set())
-        self.assertEqual([i["contentid"] for i in out], ["3", "1", "2"])
+        out = order(items, set(), [])
+        self.assertEqual(self.ids(out), ["3", "1", "2"])
+
+    def test_accepts_tuple(self):
+        items = [item("1", "41"), item("2", "11")]
+        self.assertEqual(self.ids(order(items, set(), ("11", "41"))), ["2", "1"])
 
     def test_returns_items_themselves(self):
         it = item("9", "11")
-        self.assertEqual(order([it], set(), {"11"}), [it])
+        other = item("8", "47", sggu="130")
+        out = order([other, it], set(), ["11", "47130"])
+        self.assertEqual(out, [it, other])
+        self.assertIs(out[0], it)
+        self.assertIs(out[1], other)
 
 
 class TourItemsOf(unittest.TestCase):
@@ -246,7 +343,7 @@ class TourRun(TmpDir):
         self.write_list([item("1", "26"), item("2", "11"), item("3")])
         ring = self.ring()
         logs = []
-        n = run("Kor", self.tmp, ring, FakeCall(), {"11"}, pause=0, log=logs.append)
+        n = run("Kor", self.tmp, ring, FakeCall(), ["11"], pause=0, log=logs.append)
         self.assertEqual(n, 3)
         recs = self.details()
         self.assertEqual([r["contentid"] for r in recs], ["2", "1", "3"])
@@ -256,6 +353,36 @@ class TourRun(TmpDir):
             self.assertEqual(ring.calls[(0, "KorService2", op)], 3)
         self.assertEqual(ring.calls[(1, "KorService2", "detailCommon2")], 0)
 
+    def test_visits_in_tier_order(self):
+        self.write_list(
+            [
+                item("1", "47", sggu="111"),
+                item("2", "50"),
+                item("3", "47", sggu="130"),
+                item("4", "26"),
+                item("5", "11"),
+            ]
+        )
+        call = FakeCall()
+        n = run(
+            "Kor",
+            self.tmp,
+            self.ring(),
+            call,
+            ("11", "26", "50", "47130"),
+            pause=0,
+            log=lambda s: None,
+        )
+        self.assertEqual(n, 5)
+        self.assertEqual(
+            [r["contentid"] for r in self.details()], ["5", "4", "2", "3", "1"]
+        )
+        seen = []
+        for c in call.log:
+            if not seen or seen[-1] != c[3]["contentId"]:
+                seen.append(c[3]["contentId"])
+        self.assertEqual(seen, ["5", "4", "2", "3", "1"])
+
     def test_appends_and_respects_existing_done(self):
         self.write_list([item("1"), item("2"), item("3"), item("4")])
         (self.tmp / "detail.jsonl").write_text(
@@ -263,7 +390,7 @@ class TourRun(TmpDir):
         )
         (self.tmp / "detail_done.txt").write_text("1 2\n\n3\n", encoding="utf-8")
         call = FakeCall()
-        n = run("Kor", self.tmp, self.ring(), call, set(), pause=0, log=lambda s: None)
+        n = run("Kor", self.tmp, self.ring(), call, [], pause=0, log=lambda s: None)
         self.assertEqual(n, 1)
         self.assertEqual([r["contentid"] for r in self.details()], ["old", "4"])
         self.assertEqual({c[3]["contentId"] for c in call.log}, {"4"})
@@ -271,11 +398,9 @@ class TourRun(TmpDir):
 
     def test_resume_does_not_refetch(self):
         self.write_list([item("1"), item("2")])
-        run(
-            "Kor", self.tmp, self.ring(), FakeCall(), set(), pause=0, log=lambda s: None
-        )
+        run("Kor", self.tmp, self.ring(), FakeCall(), [], pause=0, log=lambda s: None)
         call = FakeCall()
-        n = run("Kor", self.tmp, self.ring(), call, set(), pause=0, log=lambda s: None)
+        n = run("Kor", self.tmp, self.ring(), call, [], pause=0, log=lambda s: None)
         self.assertEqual(n, 0)
         self.assertEqual(call.log, [])
         self.assertEqual(len(self.details()), 2)
@@ -283,7 +408,7 @@ class TourRun(TmpDir):
     def test_language_maps_to_service(self):
         self.write_list([item("1")])
         call = FakeCall()
-        run("Jpn", self.tmp, self.ring(), call, set(), pause=0, log=lambda s: None)
+        run("Jpn", self.tmp, self.ring(), call, [], pause=0, log=lambda s: None)
         self.assertTrue(call.log)
         self.assertTrue(all(c[1] == "JpnService2" for c in call.log))
 
@@ -293,7 +418,7 @@ class TourRun(TmpDir):
         # A 는 Kor 에서 detailIntro2 에 한도(detailCommon2 는 이미 성공한 뒤).
         call = FakeCall(quota=lambda k, s, o, p: k == SECRET_A and o == "detailIntro2")
         logs = []
-        n = run("Kor", self.tmp, ring, call, set(), pause=0, log=logs.append)
+        n = run("Kor", self.tmp, ring, call, [], pause=0, log=logs.append)
         self.assertEqual(n, 2)
         recs = self.details()
         self.assertEqual([r["contentid"] for r in recs], ["1", "2"])
@@ -323,11 +448,11 @@ class TourRun(TmpDir):
         self.write_list([item("1")], eng)
         ring = self.ring()
         call = FakeCall(quota=lambda k, s, o, p: k == SECRET_A and s == "KorService2")
-        run("Kor", kor, ring, call, set(), pause=0, log=lambda s: None)
+        run("Kor", kor, ring, call, [], pause=0, log=lambda s: None)
         self.assertEqual(ring.usable("KorService2"), 1)
         self.assertEqual(ring.usable("EngService2"), 0)
         call.log.clear()
-        n = run("Eng", eng, ring, call, set(), pause=0, log=lambda s: None)
+        n = run("Eng", eng, ring, call, [], pause=0, log=lambda s: None)
         self.assertEqual(n, 1)
         self.assertTrue(
             all(c[0] == SECRET_A and c[1] == "EngService2" for c in call.log)
@@ -339,7 +464,7 @@ class TourRun(TmpDir):
         self.write_list([item("1"), item("2"), item("3")])
         ring = self.ring(1)
         call = FakeCall(quota=lambda k, s, o, p: p["contentId"] == "2")
-        n = run("Kor", self.tmp, ring, call, set(), pause=0, log=lambda s: None)
+        n = run("Kor", self.tmp, ring, call, [], pause=0, log=lambda s: None)
         self.assertEqual(n, 1)
         self.assertEqual(self.done(), ["1"])
         self.assertEqual([r["contentid"] for r in self.details()], ["1"])
@@ -350,7 +475,7 @@ class TourRun(TmpDir):
         self.write_list([item("1"), item("2"), item("3")])
         ring = self.ring()
         call = FakeCall(fail={"2"})
-        n = run("Kor", self.tmp, ring, call, set(), pause=0, log=lambda s: None)
+        n = run("Kor", self.tmp, ring, call, [], pause=0, log=lambda s: None)
         self.assertEqual(n, 2)
         self.assertEqual(sorted(self.done()), ["1", "3"])
         self.assertEqual([r["contentid"] for r in self.details()], ["1", "3"])
@@ -367,7 +492,7 @@ class TourRun(TmpDir):
                 raise e
             return {"items": {"item": []}}
 
-        n = run("Kor", self.tmp, self.ring(), call, set(), pause=0, log=lambda s: None)
+        n = run("Kor", self.tmp, self.ring(), call, [], pause=0, log=lambda s: None)
         self.assertEqual(n, 1)
         self.assertEqual(self.done(), ["4"])
 
@@ -376,7 +501,7 @@ class TourRun(TmpDir):
         self.write_list(items)
         fail = {f"f{i}" for i in range(301)}
         call = FakeCall(fail=fail)
-        n = run("Kor", self.tmp, self.ring(), call, set(), pause=0, log=lambda s: None)
+        n = run("Kor", self.tmp, self.ring(), call, [], pause=0, log=lambda s: None)
         self.assertEqual(n, 0)
         self.assertEqual(self.done(), [])
         self.assertFalse(any(c[3]["contentId"] == "good" for c in call.log))
@@ -385,7 +510,7 @@ class TourRun(TmpDir):
         items = [item(f"f{i}") for i in range(300)] + [item("good")]
         self.write_list(items)
         call = FakeCall(fail={f"f{i}" for i in range(300)})
-        n = run("Kor", self.tmp, self.ring(), call, set(), pause=0, log=lambda s: None)
+        n = run("Kor", self.tmp, self.ring(), call, [], pause=0, log=lambda s: None)
         self.assertEqual(n, 1)
         self.assertEqual(self.done(), ["good"])
 
@@ -397,7 +522,7 @@ class TourRun(TmpDir):
             quota=lambda k, s, o, p: k == SECRET_A and p["contentId"] == "2",
             fail={"3"},
         )
-        run("Kor", self.tmp, ring, call, set(), pause=0, log=logs.append)
+        run("Kor", self.tmp, ring, call, [], pause=0, log=logs.append)
         ring.block(1, "KorService2", "detailInfo2")
         text = "\n".join(str(x) for x in logs) + "\n" + "\n".join(ring.report())
         self.assertNotIn(SECRET_A, text)
@@ -439,6 +564,32 @@ class TourMain(TmpDir):
             )
         self.assertEqual(rc, 1)
         self.assertFalse((self.lang_dir("Kor") / "detail.jsonl").exists())
+
+    def test_bad_first_code_returns_1_before_fetching(self):
+        self.write_list([item("1", "11")], self.lang_dir("Kor"))
+
+        def no_network(*a, **k):
+            raise AssertionError("network must not be used")
+
+        for first in ("4713", "ab", "11,4713", "11,ab,41", "1", "471300", "47 13"):
+            with self.subTest(first=first):
+                with (
+                    mock.patch.dict(os.environ, ENV),
+                    mock.patch("urllib.request.urlopen", no_network),
+                ):
+                    rc = run_main(
+                        [
+                            str(self.tmp),
+                            "Kor",
+                            "--keys",
+                            "POI_TEST_KEY_ONE,POI_TEST_KEY_TWO",
+                            "--first",
+                            first,
+                        ]
+                    )
+                self.assertEqual(rc, 1)
+                self.assertFalse((self.lang_dir("Kor") / "detail.jsonl").exists())
+                self.assertFalse((self.lang_dir("Kor") / "detail_done.txt").exists())
 
 
 if __name__ == "__main__":

@@ -9,7 +9,8 @@
 - 키는 값이 아니라 **환경변수 이름**으로 받는다(`--keys DATA_GO_KR_KEY,DATA_GO_KEY_GIL`). 값은 저장소·로그에 남지 않는다.
 - 한 키가 한 서비스에서 한도(오류 22)를 만나면 그 서비스에서는 다음 키로 넘어간다. 모든 키가 막히면 그 언어는
   멈추고 다음 언어로 간다 — 서비스마다 한도가 따로다. 다음 날 같은 명령이면 이어 간다.
-- `--first` 의 시도 코드(`lDongRegnCd`, 기본 서울 11·경기 41)를 먼저 받는다.
+- `--first` 의 지역을 적은 순서대로 먼저 받는다. 두 자리는 시도(`lDongRegnCd`), 다섯 자리는 시도 + 시군구(`lDongSignguCd`).
+  기본 `11,41,26,50,47130` — 서울 · 경기 · 부산 · 제주 · 경주. 나머지는 그 뒤에 목록 순서대로.
 - 끝에 키·서비스·기능마다 성공한 호출 수를 찍는다 — 하루 한도가 기능마다인지 서비스 전체인지 이것으로 안다.
 
 키를 URL 인코딩하면 403 이 난다(자료 폴더 README) — 받은 값 그대로 붙인다.
@@ -24,7 +25,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 SERVICES = {"Kor": "KorService2", "Eng": "EngService2", "Jpn": "JpnService2"}
@@ -75,12 +76,23 @@ class KeyRing:
 Call = Callable[[str, str, str, dict], dict]  # (키 값, 서비스, 기능, 인자) → 응답 body
 
 
-def order(items: list[dict], done: set[str], first: set[str]) -> list[dict]:
-    """끝나지 않은 장소를 `first` 시도 먼저, 그 안에서는 목록 순서대로."""
+def region_rank(item: dict, first: Sequence[str]) -> int:
+    """`first` 에서 이 장소가 걸리는 첫 지역의 자리. 어디에도 안 걸리면 len(first).
+
+    두 자리 코드는 시도(`lDongRegnCd`), 다섯 자리는 시도 + 시군구(`lDongSignguCd`) — 경주는 `47130`.
+    """
+    regn = item.get("lDongRegnCd") or ""
+    signgu = regn + (item.get("lDongSignguCd") or "")
+    for i, code in enumerate(first):
+        if code == (regn if len(code) == 2 else signgu):
+            return i
+    return len(first)
+
+
+def order(items: list[dict], done: set[str], first: Sequence[str]) -> list[dict]:
+    """끝나지 않은 장소를 `first` 의 지역 순서대로, 같은 지역 안에서는 목록 순서대로. 나머지는 맨 뒤."""
     todo = [it for it in items if it["contentid"] not in done]
-    return [it for it in todo if it.get("lDongRegnCd") in first] + [
-        it for it in todo if it.get("lDongRegnCd") not in first
-    ]
+    return sorted(todo, key=lambda it: region_rank(it, first))
 
 
 def items_of(body: dict) -> list[dict]:
@@ -125,7 +137,7 @@ def run(
     lang_dir: Path,
     ring: KeyRing,
     call: Call,
-    first: set[str],
+    first: Sequence[str],
     pause: float = 0.6,
     log=print,
 ) -> int:
@@ -256,8 +268,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument(
         "--first",
-        default="11,41",
-        help="먼저 받을 시도 코드(lDongRegnCd), 쉼표로. 기본 서울·경기",
+        default="11,41,26,50,47130",
+        help="먼저 받을 지역, 받을 순서대로 쉼표로. 두 자리는 시도, 다섯 자리는 시도+시군구."
+        " 기본 서울·경기·부산·제주·경주",
     )
     args = ap.parse_args(argv)
 
@@ -282,7 +295,14 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     ring = KeyRing([(n, os.environ[n]) for n in names])
-    first = {c.strip() for c in args.first.split(",") if c.strip()}
+    first = [c.strip() for c in args.first.split(",") if c.strip()]
+    bad_codes = [c for c in first if not (c.isdigit() and len(c) in (2, 5))]
+    if bad_codes:
+        print(
+            f"오류: 지역 코드는 두 자리(시도)나 다섯 자리(시도+시군구) — {bad_codes}",
+            file=sys.stderr,
+        )
+        return 1
     for lang in args.langs:
         run(
             lang,
