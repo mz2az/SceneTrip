@@ -1,0 +1,19 @@
+{
+  "time": "2026-10-12T04:25:16+09:00",
+  "source": "6fa9df2dac15868b35c7ae7276f50d4fe114fe81",
+  "root_head": "6c4a9d73c60b977dc07edccfd553ea7eb107ba9a",
+  "installed_build_verified": false,
+  "live_e2e_executed": 0,
+  "live_e2e_passed": 0,
+  "product_code_changes": false,
+  "db_changes": false,
+  "shared_runtime_changes": false,
+  "android_operations": false,
+  "followup": {
+    "time": "2026-10-12T14:32:20+09:00",
+    "permission_access": "사용자 승인 후 접근 정상",
+    "runtime": "Docker·AI 가이드·iOS 시뮬레이터·Android 에뮬레이터 종료 확인",
+    "chrome_open": true,
+    "live_e2e_executed": 0
+  }
+}

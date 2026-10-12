@@ -1,0 +1,10 @@
+{
+  "command": "open -a [CHROME_APP] [LOCAL_USER]/workspace/SceneTrip/docs/qa/reports/ios-e2e-2026-10-12/report.html",
+  "exit_code": 1,
+  "output": "The application [CHROME_APP] cannot be opened for an unexpected reason, error=Error Domain=NSOSStatusErrorDomain Code=-10827 \"kLSNoExecutableErr: The executable is missing\" UserInfo={_LSLine=4277, _LSFunction=_LSOpenStuffCallLocal, _LSFile=LSOpenCore.mm, _LSErrorMessage=kLSNoExecutableErr}\n",
+  "time": "2026-10-12T04:24:14+09:00",
+  "approved_followup": {
+    "exit_code": 0,
+    "time": "2026-10-12T14:32:20+09:00"
+  }
+}

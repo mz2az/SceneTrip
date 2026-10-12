@@ -2,6 +2,7 @@
 
 | 문서 | 목적 |
 | --- | --- |
+| [reports/README.md](reports/README.md) | 2026-10-12 iOS 전체 기능 E2E 실행 제한, 70개 재개 시나리오와 확인 사항의 HTML 보고서 |
 | [android-visual-e2e-parity.md](android-visual-e2e-parity.md) | Android·iOS 실제 화면 대조, 시뮬레이터 오류 조치와 확인·미검증 경로 (MZ2AZ-148) |
 | [community-post-verification.md](community-post-verification.md) | iOS 여행후기 본문·사진·코스의 서버 저장 및 다른 계정 조회 검증 (MZ2AZ-396) |
 | [ios-followup-verification.md](ios-followup-verification.md) | 큰 글자 길찾기·해태 배치와 사진 업로드 오류 경계 (MZ2AZ-387) |
