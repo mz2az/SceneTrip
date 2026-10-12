@@ -1,10 +1,10 @@
 locals {
   name       = "scenetrip-${var.environment}"
   production = var.environment == "prd"
-  # DEV 는 HTTPS 를 인터넷 전체에 연다 — 팀원·실기기(LTE) 테스트 (ADR 0019, MZ2AZ-333).
-  # PRD 는 허용 CIDR 만. 로그인으로 가입 계정·유료 API 는 보호되지만, 사용자별 요청 제한과
-  # 유료 API 한도(MZ2AZ-334)가 생기기 전까지 PRD 는 열지 않는다.
-  ingress_public = var.environment == "dev"
+  # HTTPS 를 인터넷 전체에 연다 — DEV 는 팀원·실기기(LTE) 테스트(ADR 0019), PRD 는 스토어 앱이 어디서나 붙어야 해서
+  # (ADR 0024). 0019 가 PRD 공개의 선행 조건으로 꼽은 계정별 요청 제한·유료 API 한도(MZ2AZ-334)는 서버에 있다.
+  # gateway 의 「ALB 를 거쳐 왔는가」 검사와 IP 당 제한은 그대로다. EKS 관리 API 허용 CIDR 은 별개다.
+  ingress_public = true
   azs        = var.availability_zones
   az_count   = length(var.availability_zones)
   nat_count  = local.production ? local.az_count : 1

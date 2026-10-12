@@ -25,7 +25,7 @@ def sync_secret(run, name, values):
     run(["kubectl", "apply", "-f", "-"], stdin=json.dumps(manifest), quiet=True)
 
 
-def secret_value(run, arn, kind):
+def secret_value(run, arn, kind, environment=None):
     raw = run(
         [
             "aws",
@@ -38,7 +38,9 @@ def secret_value(run, arn, kind):
         ],
         quiet=True,
     )
-    return validate_secret(kind, json.loads(json.loads(raw)["SecretString"]))
+    return validate_secret(
+        kind, json.loads(json.loads(raw)["SecretString"]), environment
+    )
 
 
 def generated_once(run, arn, kind, make):
@@ -159,13 +161,10 @@ def trip_guide_secret(guide, auth):
 
 
 def gateway_values(settings, outputs):
-    # DEV 는 인터넷 전체에 연다(ADR 0019). 그 판단은 Terraform 이 환경으로 내리고 출력한다 —
-    # 여기서는 그 값이 PRD 에서 켜져 오지 않았는지 한 번 더 막는다.
+    # 인터넷 전체 공개 여부는 Terraform 이 내리고 출력한다 — DEV·PRD 모두 연다(ADR 0019·0024).
     public = outputs.get("ingress_public", False)
     if not isinstance(public, bool):
         raise TypeError("ingress_public 은 true/false 여야 합니다")
-    if public and settings.environment != "dev":
-        raise ValueError("전체 공개는 dev 에서만 허용합니다")
     cidrs = outputs["ingress_allowed_cidrs"]
     if not isinstance(cidrs, list) or not cidrs:
         raise ValueError("외부 API 접근 CIDR을 명시해야 합니다")
@@ -583,7 +582,12 @@ def deploy(run, root, settings, outputs):
         run,
         "scene-api-secrets",
         {
-            **secret_value(run, outputs["app_secret_arns"]["scene_api"], "scene_api"),
+            **secret_value(
+                run,
+                outputs["app_secret_arns"]["scene_api"],
+                "scene_api",
+                settings.environment,
+            ),
             **auth,
         },
     )

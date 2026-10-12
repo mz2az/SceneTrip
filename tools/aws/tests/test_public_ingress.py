@@ -1,6 +1,10 @@
-"""ADR 0019(MZ2AZ-333) 명세 검사 — DEV 만 공개, PRD 는 허용 CIDR.
+"""ADR 0019(MZ2AZ-333)·ADR 0024(MZ2AZ-417) 명세 검사 — DEV·PRD 모두 공개.
 
-구현이 아니라 명세(ADR 0019·Helm README)를 기준으로 쓴다.
+공개 여부는 Terraform 출력(ingress_public)이 정하고 배포기는 그대로 Helm 에 넘긴다. 공개는
+gateway.public 으로만 하고 allowedCidrs 의 전체 인터넷 CIDR 은 여전히 거절한다. 공개여도
+「ALB 를 거쳐 왔는가」 검사는 남는다.
+
+구현이 아니라 명세(ADR 0019·0024·Helm README)를 기준으로 쓴다.
 """
 
 import json
@@ -38,6 +42,13 @@ class PublicGatewayValuesTest(unittest.TestCase):
         values = gateway_values(settings_for("dev"), outputs(ingress_public=True))
         self.assertIs(values["gateway"]["public"], True)
 
+    def test_prd_public_output_reaches_helm(self):
+        # ADR 0024 — PRD 도 공개. 예전에는 ValueError 였다.
+        values = gateway_values(settings_for("prd"), outputs(ingress_public=True))
+        self.assertIs(values["gateway"]["public"], True)
+        # 공개여도 allowedCidrs 는 Terraform 출력 그대로 실린다(공개 표현은 gateway.public 뿐).
+        self.assertEqual(values["gateway"]["allowedCidrs"], ["203.0.113.1/32"])
+
     def test_dev_not_public_when_output_false(self):
         values = gateway_values(settings_for("dev"), outputs(ingress_public=False))
         self.assertIs(values["gateway"]["public"], False)
@@ -47,10 +58,6 @@ class PublicGatewayValuesTest(unittest.TestCase):
             with self.subTest(environment=environment):
                 values = gateway_values(settings_for(environment), outputs())
                 self.assertIs(values["gateway"]["public"], False)
-
-    def test_prd_public_is_rejected(self):
-        with self.assertRaises(ValueError):
-            gateway_values(settings_for("prd"), outputs(ingress_public=True))
 
     def test_prd_not_public_is_accepted(self):
         values = gateway_values(settings_for("prd"), outputs(ingress_public=False))
@@ -70,11 +77,16 @@ class PublicGatewayValuesTest(unittest.TestCase):
                     )
 
     def test_public_does_not_relax_world_cidr_check(self):
-        with self.assertRaises(ValueError):
-            gateway_values(
-                settings_for("dev"),
-                outputs(ingress_public=True, ingress_allowed_cidrs=["0.0.0.0/0"]),
-            )
+        for environment in ("dev", "prd"):
+            for world in ("0.0.0.0/0", "::/0"):
+                with (
+                    self.subTest(environment=environment, world=world),
+                    self.assertRaises(ValueError),
+                ):
+                    gateway_values(
+                        settings_for(environment),
+                        outputs(ingress_public=True, ingress_allowed_cidrs=[world]),
+                    )
 
 
 def chart_values(**gateway):
@@ -162,18 +174,29 @@ class PublicChartTest(unittest.TestCase):
             "public 이 nginx client 검사를 바꾸지 않았습니다",
         )
 
-    def test_prd_public_fails_to_render(self):
+    def test_prd_public_renders_world_annotation_and_keeps_alb_peer_check(self):
+        # ADR 0024 — 예전에는 렌더가 실패했다.
         process = self.helm_template("prd", chart_values(public=True))
-        self.assertNotEqual(process.returncode, 0, process.stdout)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(self.inbound_cidrs(process.stdout), ["0.0.0.0/0"])
+        self.assertIn("real_ip_recursive off;", process.stdout)
+        self.assertIn("set_real_ip_from 10.40.0.0/24;", process.stdout)
+        self.assertIn("geo $realip_remote_addr $trusted_alb_peer", process.stdout)
 
     def test_world_allowed_cidr_still_fails_to_render(self):
-        for environment, public in (("dev", False), ("dev", True), ("prd", False)):
-            with self.subTest(environment=environment, public=public):
-                process = self.helm_template(
-                    environment,
-                    chart_values(public=public, allowedCidrs=["0.0.0.0/0"]),
-                )
-                self.assertNotEqual(process.returncode, 0, process.stdout)
+        for environment, public in (
+            ("dev", False),
+            ("dev", True),
+            ("prd", False),
+            ("prd", True),
+        ):
+            for world in ("0.0.0.0/0", "::/0"):
+                with self.subTest(environment=environment, public=public, world=world):
+                    process = self.helm_template(
+                        environment,
+                        chart_values(public=public, allowedCidrs=[world]),
+                    )
+                    self.assertNotEqual(process.returncode, 0, process.stdout)
 
     def run_render(self, environment):
         run = Mock()
@@ -197,13 +220,12 @@ class PublicChartTest(unittest.TestCase):
         self.assertEqual(process.returncode, 0, process.stderr)
         self.assertEqual(self.inbound_cidrs(process.stdout), ["0.0.0.0/0"])
 
-    def test_cli_render_prd_is_not_public(self):
+    def test_cli_render_prd_is_public(self):
+        # 미리보기 렌더는 실제 배포와 같은 규칙(Terraform ingress_public)을 따른다 — ADR 0024 부터 PRD 도 공개.
         values, process = self.run_render("prd")
-        self.assertIs(values["gateway"]["public"], False)
+        self.assertIs(values["gateway"]["public"], True)
         self.assertEqual(process.returncode, 0, process.stderr)
-        self.assertEqual(
-            self.inbound_cidrs(process.stdout), values["gateway"]["allowedCidrs"]
-        )
+        self.assertEqual(self.inbound_cidrs(process.stdout), ["0.0.0.0/0"])
 
 
 if __name__ == "__main__":

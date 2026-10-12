@@ -4,10 +4,10 @@
 들어온다. `/v1`을 유지하며 계약에 있는 API 경로 계열만 전달한다. Actuator·internal과
 agent 8899는 외부에 공개하지 않는다. `allowedCidrs` 에 전체 인터넷 CIDR 은 거절한다.
 
-**DEV 는 인터넷 전체에 열려 있다** — `gateway.public: true` 면 client IP 검증을 끄고 ALB 가 `0.0.0.0/0` 의 443 을
-받는다. 배포기가 Terraform 출력(`ingress_public`)으로 넣고, dev 가 아니면 렌더가 실패한다. PRD 는 허용 CIDR 만
-받는다 — 사용자별 요청 제한·유료 API 한도(MZ2AZ-334) 전에는 열지 않는다. 결정과 감수한 위험은
-[ADR 0019](../../../docs/architecture/adr/0019-dev-api-is-public.md). 공개여도 「ALB 를 거쳐 왔는가」 검사는 그대로다.
+**DEV·PRD 모두 인터넷 전체에 열려 있다** — `gateway.public: true` 면 client IP 검증을 끄고 ALB 가 `0.0.0.0/0` 의 443 을
+받는다. 배포기가 Terraform 출력(`ingress_public`)으로 넣는다. 결정과 감수한 위험은
+[ADR 0019](../../../docs/architecture/adr/0019-dev-api-is-public.md)(DEV)·[ADR 0024](../../../docs/architecture/adr/0024-prd-same-account-and-public.md)(PRD,
+계정별 요청 제한·유료 API 한도 MZ2AZ-334 가 선행 조건이었다). 공개여도 「ALB 를 거쳐 왔는가」 검사와 IP 당 제한은 그대로다.
 
 EKS Auto Mode의 `IngressClassParams`·`IngressClass` 이름은 환경별
 `scenetrip-dev-alb`·`scenetrip-prd-alb`이며 `gateway` Ingress가 API 도메인의 `/v1` Prefix를

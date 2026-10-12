@@ -2,24 +2,30 @@
 
 명세: auth 칸은 JWT 서명 키(32 바이트 이상)와 토큰 암호화 키(정확히 32 바이트), 그리고
 MZ2AZ-412 의 서비스 비밀값(32 바이트 base64)을 배포가 만든다. 이 변경 전에 만들어진 환경(JWT 키만
-있음)은 JWT 키를 그대로 두고 빠진 키만 더해 한 번 쓴다. scene_api 칸의 애플 개인 키는 선택 항목이다.
+있음)은 JWT 키를 그대로 두고 빠진 키만 더해 한 번 쓴다. scene_api 칸의 애플 개인 키는 DEV(또는 환경을
+주지 않을 때) 선택 항목이고, PRD 에서는 필수다(MZ2AZ-417, ADR 0024) — 없으면 그 키 이름을 담은 오류로
+실패한다. 모르는 키는 어느 환경에서나 거절한다. 배포기는 배포 환경을 넘겨 scene_api 칸을 검사한다.
 """
 
 import base64
 import json
 import unittest
-from unittest.mock import Mock
+from pathlib import Path
+from unittest.mock import Mock, patch
 
+from tools.aws.tests.fixtures import valid_settings
 from tools.aws.tests.test_auth_secret import (
     AUTH_ARN,
     AUTH_KEY,
     CIPHER_KEY,
+    SCENE_ARN,
     SERVICE_KEY,
     DeploySecretWiringTest,
     FakeSecretStore,
     auth_slot,
     cipher_key,
     cluster_commands,
+    deploy_outputs,
     service_token,
     signing_key,
 )
@@ -177,6 +183,108 @@ class SceneApiAppleKeyTest(unittest.TestCase):
             )
 
 
+class SceneApiAppleKeyByEnvironmentTest(unittest.TestCase):
+    """MZ2AZ-417 — 애플 개인 키는 PRD 에서만 필수다."""
+
+    def validate(self, value, environment):
+        from tools.aws.config import validate_secret
+
+        if environment is None:
+            return validate_secret("scene_api", value)
+        return validate_secret("scene_api", value, environment)
+
+    def test_optional_on_dev_and_without_environment(self):
+        for environment in ("dev", None):
+            for value in (
+                {"KAKAO_REST_KEY": "fixture-kakao"},
+                {"KAKAO_REST_KEY": "fixture-kakao", APPLE_KEY: apple_key()},
+            ):
+                with self.subTest(environment=environment, keys=sorted(value)):
+                    self.assertEqual(self.validate(value, environment), value)
+
+    def test_explicit_none_environment_is_optional(self):
+        from tools.aws.config import validate_secret
+
+        value = {"KAKAO_REST_KEY": "fixture-kakao"}
+        self.assertEqual(validate_secret("scene_api", value, None), value)
+
+    def test_prd_accepts_with_apple_key(self):
+        value = {"KAKAO_REST_KEY": "fixture-kakao", APPLE_KEY: apple_key()}
+        self.assertEqual(self.validate(value, "prd"), value)
+
+    def test_prd_without_apple_key_fails_naming_the_key(self):
+        with self.assertRaises(ValueError) as caught:
+            self.validate({"KAKAO_REST_KEY": "fixture-kakao"}, "prd")
+        self.assertIn(APPLE_KEY, str(caught.exception))
+        self.assertNotIn("fixture-kakao", str(caught.exception))
+
+    def test_prd_still_requires_kakao_key(self):
+        with self.assertRaises(ValueError):
+            self.validate({APPLE_KEY: apple_key()}, "prd")
+
+    def test_prd_rejects_malformed_apple_key_without_echoing_it(self):
+        bad = "FIXTURE*apple*not*base64!!"
+        with self.assertRaises(ValueError) as caught:
+            self.validate({"KAKAO_REST_KEY": "fixture-kakao", APPLE_KEY: bad}, "prd")
+        self.assertNotIn(bad, str(caught.exception))
+
+    def test_unknown_extra_key_is_rejected_in_every_environment(self):
+        for environment in ("dev", "prd", None):
+            for value in (
+                {"KAKAO_REST_KEY": "fixture-kakao", "EXTRA_FIXTURE": "x"},
+                {
+                    "KAKAO_REST_KEY": "fixture-kakao",
+                    APPLE_KEY: apple_key(),
+                    "EXTRA_FIXTURE": "x",
+                },
+            ):
+                with (
+                    self.subTest(environment=environment, keys=sorted(value)),
+                    self.assertRaises(ValueError),
+                ):
+                    self.validate(value, environment)
+
+    def test_prd_rule_applies_only_to_scene_api(self):
+        # 다른 칸은 환경과 무관하게 예전 규칙 그대로다.
+        from tools.aws.config import validate_secret
+
+        validate_secret("auth", auth_slot(), "prd")
+
+
+def stored_secret(value):
+    return json.dumps({"SecretString": json.dumps(value)})
+
+
+class SecretValueEnvironmentTest(unittest.TestCase):
+    """배포기의 비밀값 읽기가 환경을 받아 같은 규칙으로 검사한다."""
+
+    def test_prd_read_without_apple_key_fails_naming_the_key(self):
+        from tools.aws.deploy import secret_value
+
+        run = Mock(return_value=stored_secret({"KAKAO_REST_KEY": "fixture-kakao"}))
+        with self.assertRaises(ValueError) as caught:
+            secret_value(run, SCENE_ARN, "scene_api", "prd")
+        self.assertIn(APPLE_KEY, str(caught.exception))
+
+    def test_prd_read_with_apple_key_returns_it(self):
+        from tools.aws.deploy import secret_value
+
+        value = {"KAKAO_REST_KEY": "fixture-kakao", APPLE_KEY: apple_key()}
+        run = Mock(return_value=stored_secret(value))
+        self.assertEqual(secret_value(run, SCENE_ARN, "scene_api", "prd"), value)
+
+    def test_dev_and_no_environment_read_without_apple_key(self):
+        from tools.aws.deploy import secret_value
+
+        value = {"KAKAO_REST_KEY": "fixture-kakao"}
+        for args in (("dev",), ()):
+            with self.subTest(args=args):
+                run = Mock(return_value=stored_secret(value))
+                self.assertEqual(
+                    secret_value(run, SCENE_ARN, "scene_api", *args), value
+                )
+
+
 class DeployAppleWiringTest(unittest.TestCase):
     """scene-api-secrets 에 애플 개인 키(있을 때)와 auth 칸의 키가 모두 실린다."""
 
@@ -229,6 +337,66 @@ class DeployAppleWiringTest(unittest.TestCase):
         scene = self.kubernetes_secrets(run)["scene-api-secrets"]
         self.assertNotIn(APPLE_KEY, scene)
         self.assertEqual(scene[CIPHER_KEY], cipher_key())
+
+    def deploy_prd(self, store):
+        """PRD 배포 — Terraform 출력도 PRD 이고 공개(ADR 0024)다."""
+        from tools.aws.deploy import deploy
+
+        settings = valid_settings(
+            environment="prd",
+            role="arn:aws:iam::123456789012:role/scenetrip-prd-deploy",
+            domain="api.example.com",
+        )
+        outputs = {
+            **deploy_outputs(settings),
+            "environment": "prd",
+            "user_media_bucket": "scenetrip-user-media-123456789012-ap-northeast-2-prd",
+            "ingress_public": True,
+        }
+        run = Mock(side_effect=store)
+        with (
+            patch("tools.aws.deploy.verify_nodeclass"),
+            patch(
+                "tools.aws.deploy.wait_for_alb",
+                return_value="fixture.ap-northeast-2.elb.amazonaws.com",
+            ),
+            patch("tools.aws.deploy.migrate_database"),
+            patch("tools.aws.deploy.verify_network_deny"),
+        ):
+            deploy(run, Path("."), settings, outputs)
+        return run
+
+    def test_prd_deploy_without_apple_key_fails_naming_the_key(self):
+        store = FakeSecretStore(
+            self.stored_with_apple(auth_slot(), apple=False),
+            cluster_commands,
+        )
+        with self.assertRaises(ValueError) as caught:
+            self.deploy_prd(store)
+        self.assertIn(APPLE_KEY, str(caught.exception))
+        # scene-api-secrets 가 애플 키 없이 클러스터에 실리지 않았다.
+        run_calls = [
+            json.loads(kwargs["stdin"])
+            for command, kwargs in store.calls
+            if command[0] == "kubectl" and kwargs.get("stdin", "").startswith("{")
+        ]
+        self.assertFalse(
+            any(
+                m.get("kind") == "Secret"
+                and m["metadata"]["name"] == "scene-api-secrets"
+                for m in run_calls
+            )
+        )
+
+    def test_prd_deploy_with_apple_key_carries_it(self):
+        store = FakeSecretStore(
+            self.stored_with_apple(auth_slot()),
+            cluster_commands,
+        )
+        run = self.deploy_prd(store)
+        scene = self.kubernetes_secrets(run)["scene-api-secrets"]
+        self.assertEqual(scene[APPLE_KEY], apple_key())
+        self.assertEqual(scene["KAKAO_REST_KEY"], "fixture-kakao")
 
     def test_legacy_auth_slot_upgraded_during_deploy(self):
         jwt_key = signing_key(fill=b"O")
