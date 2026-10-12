@@ -288,7 +288,7 @@ struct SearchTabView: View {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         default:
             if let place = selectedPlace {
-                PlaceDetailView(summary: place, load: data.detail(ofPlace:)) {
+                PlaceDetailView(summary: place, sourceContentId: selectedContent?.id, load: data.detail(ofPlace:)) {
                     selectedPlace = nil
                     fitToken += 1
                 }
@@ -307,7 +307,7 @@ struct SearchTabView: View {
                         selectedPlace = place
                         focusToken += 1
                     },
-                    onSave: { save($0) }
+                    onSave: { save($0, sourceContentId: content.id) }
                 )
                 .environmentObject(cart)
             } else {
@@ -371,13 +371,13 @@ struct SearchTabView: View {
 
     /// 담기 — 계약이 적어 둔 세 경로 중 목록 행의 `+`. 담는 순간 그 핀이 가운데
     /// 오게 지도를 **이동만** 한다. 확대는 장소를 열 때만 한다.
-    func save(_ place: PlaceSummary) {
+    func save(_ place: PlaceSummary, sourceContentId: Int64? = nil) {
         // 이미 담긴 장소면 **뺀다.** 목록 행의 버튼은 담기 전용이 아니라 토글이다.
         if cart.contains(place.id) {
             Task { await cart.remove(placeId: place.id) }
             return
         }
-        Task { await cart.add(placeId: place.id) }
+        Task { await cart.add(placeId: place.id, sourceContentId: sourceContentId) }
         // 지도를 옮기는 것은 담을 때만이다. 뺄 때 옮기면 사라진 것을 보여 주는 꼴이다.
         panTarget = place
         panToken += 1

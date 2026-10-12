@@ -11,6 +11,7 @@ typealias SceneItem = SceneApiClient.Scene
 /// 채운다. 상세에만 있는 것이 **작품별 장면**(`scenes`) 이라 그 절은 도착 후에 뜬다.
 struct PlaceDetailView: View {
     let summary: PlaceSummary
+    var sourceContentId: Int64?
     let load: (Int64) async throws -> PlaceDetail
     let onBack: () -> Void
 
@@ -104,7 +105,7 @@ struct PlaceDetailView: View {
                     if saved {
                         await cart.remove(placeId: summary.id)
                     } else {
-                        await cart.add(placeId: summary.id)
+                        await cart.add(placeId: summary.id, sourceContentId: sourceContentId)
                     }
                 }
             } label: {
