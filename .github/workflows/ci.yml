@@ -36,6 +36,10 @@ env:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # 옛 캐시 정리(gh cache delete)가 actions: write 를 쓴다. 나머지는 읽기만.
+    permissions:
+      contents: read
+      actions: write
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -79,11 +83,24 @@ jobs:
         run: just ci-full
 
       - name: Bazel 캐시 저장 (main 만)
+        id: bazel-cache-save
         if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v4
         with:
           path: ~/.cache/bazel
           key: bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}
+
+      # 방금 저장한 것 하나만 남기고 **같은 종류의** 옛 main 캐시를 지운다. 한 벌(셋, 약 9 GB)이 쌓이면
+      # 한도 10 GB 를 넘어 GitHub 이 오래 안 쓴 것부터 지우는데, 아직 꺼내지 않은 macOS 캐시가 지워져
+      # 그 잡이 처음부터 지었다(CI #546, 4 분 → 40 분, MZ2AZ-421). 종류별로만 지운다 — 먼저 끝난 잡이
+      # 다른 잡의 옛 상자를 지우면 같은 일이 난다. 정리는 살림이라 실패해도 검증을 빨갛게 하지 않는다.
+      - name: 옛 Bazel 캐시 정리 (main 만)
+        if: ${{ steps.bazel-cache-save.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: just ci-cache-prune "bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}" "bazel-${{ runner.os }}-"
 
   # iOS 를 짓는 유일한 잡 (ADR 0002 후속 "CI 에 macOS 러너 잡 추가 — 첫 iOS 모듈이
   # 생길 때", 계획서 mobile-native-search-tab.md §5-4).
@@ -97,6 +114,10 @@ jobs:
   # 저장소가 공개라 GitHub 표준 러너는 무료다(비공개였다면 macOS 는 10배 차감).
   verify-macos:
     runs-on: macos-latest
+    # 옛 캐시 정리(gh cache delete)가 actions: write 를 쓴다. 나머지는 읽기만.
+    permissions:
+      contents: read
+      actions: write
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -166,6 +187,7 @@ jobs:
         run: just ci-full
 
       - name: Bazel 캐시 저장 (main 만)
+        id: bazel-cache-save
         if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v4
         with:
@@ -174,6 +196,15 @@ jobs:
             ~/.cache/bazel-repo
           key: bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}
 
+      # 같은 종류의 옛 main 캐시를 지운다 — verify 잡의 같은 단계 주석 참조 (MZ2AZ-421).
+      - name: 옛 Bazel 캐시 정리 (main 만)
+        if: ${{ steps.bazel-cache-save.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: just ci-cache-prune "bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}" "bazel-${{ runner.os }}-"
+
   # 통합 레인. 실제 PostgreSQL 이 필요해 잡을 나눈다 (ADR 0005).
   #
   # 이 잡의 services 블록이 ADR 0001 의 "CI 워크플로는 얇은 껍데기" 에 대한 **유일한
@@ -181,6 +212,10 @@ jobs:
   # 그 위에서 도는 명령은 전부 just 레시피여야 한다 — 아래 steps 를 보면 그렇다.
   integration:
     runs-on: ubuntu-latest
+    # 옛 캐시 정리(gh cache delete)가 actions: write 를 쓴다. 나머지는 읽기만.
+    permissions:
+      contents: read
+      actions: write
     timeout-minutes: 30
 
     services:
@@ -255,11 +290,21 @@ jobs:
         run: just test-integration
 
       - name: Bazel 캐시 저장 (main 만)
+        id: bazel-cache-save
         if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v4
         with:
           path: ~/.cache/bazel
           key: bazel-integration-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}
+
+      # 같은 종류의 옛 main 캐시를 지운다 — verify 잡의 같은 단계 주석 참조 (MZ2AZ-421).
+      - name: 옛 Bazel 캐시 정리 (main 만)
+        if: ${{ steps.bazel-cache-save.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: just ci-cache-prune "bazel-integration-${{ runner.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}" "bazel-integration-${{ runner.os }}-"
 
   security:
     runs-on: ubuntu-latest

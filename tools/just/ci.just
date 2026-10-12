@@ -33,6 +33,11 @@ ci-release version:
     @echo ">>> RELEASE {{version}}"
     ./tools/scripts/release.sh {{version}}
 
+# main 이 방금 저장한 캐시만 남기고 같은 접두사의 옛 main 캐시를 지운다 (DRY_RUN=1 이면 목록만)
+[group('ci')]
+ci-cache-prune keep prefix:
+    ./tools/scripts/ci-cache-prune.sh "$1" "$2"
+
 # GitHub Actions 워크플로 파일 자체를 린트
 [group('ci')]
 ci-lint-workflows:
