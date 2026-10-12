@@ -38,6 +38,7 @@ from src.planner import (
 )
 from src.sceneapi import SceneApiError
 from src.session import Anchor, Session
+from src.tools import ARG_WORDS
 
 # 모델에게 주는 인자 이름과 계약의 인자 이름이 다른 둘. `schemas/tools.json` 은
 # 그대로 둔다 — 모델과 주고받는 이름은 에이전트 내부 일이고, 계약이 정하는 것은
@@ -51,7 +52,9 @@ _ARG_NAMES = {"radius_m": "radiusMeters", "to_day": "toDay"}
 # 「가이드 에이전트 응답을 읽지 못했습니다: /guide/chat」). 모델에게 한국어를 주는
 # 것은 그대로 둔다 — 도구 스키마는 에이전트 내부 일이다(tools.py `_POI_GROUPS`).
 _ARG_VALUES = {
-    "group": {"음식": "food", "숙박": "stay", "명소": "sight", "교통": "transit"}
+    "group": {"음식": "food", "숙박": "stay", "명소": "sight", "교통": "transit"},
+    # 모델에게는 한국어 말로 보이고(MZ2AZ-426) 앱에는 전과 같은 값으로 나간다.
+    **ARG_WORDS,
 }
 
 

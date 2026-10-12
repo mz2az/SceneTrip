@@ -31,7 +31,7 @@ class 인자검증(unittest.TestCase):
         out = validate_args(schema, {"titles": ["도깨비", "이태원 클라쓰"], "days": 2})
         self.assertEqual(out["titles"], ["도깨비", "이태원 클라쓰"])
         self.assertEqual(out["days"], 2)
-        self.assertEqual(out["pace"], "normal")  # 기본값이 채워진다
+        self.assertEqual(out["pace"], "보통")  # 기본값이 채워진다 — 스키마의 말 그대로
 
     def test_목록_자리에_문자열_하나가_와도_감싸서_받는다(self):
         """모델이 titles="도깨비" 로 보내는 일이 잦다. 뜻이 분명하므로 거절하지 않는다."""
@@ -79,6 +79,45 @@ class 인자검증(unittest.TestCase):
         schema = specs()["plan_course"]["parameters"]
         with self.assertRaises(ToolArgError):
             validate_args(schema, {"titles": ["가"], "pace": "빠르게"})
+
+
+class 모델에게_보이는_말(unittest.TestCase):
+    """스키마의 열거값과 도구 결과는 모델이 읽고, 읽은 값은 답에 섞여 나온다 (MZ2AZ-426)."""
+
+    def test_스키마의_열거값에_영어_설정값이_없다(self):
+        def enums(node):
+            if isinstance(node, dict):
+                yield from node.get("enum", [])
+                for v in node.values():
+                    yield from enums(v)
+            elif isinstance(node, list):
+                for v in node:
+                    yield from enums(v)
+
+        ascii_values = [e for e in enums(load_tool_specs()) if str(e).isascii()]
+        self.assertEqual(ascii_values, [])
+
+    def test_한국어_말로_불러도_예전_영어_값으로_불러도_같다(self):
+        for pace in ("느긋하게", "relaxed"):
+            session = Session(book=seoul_incheon_book())
+            out = call("plan_course", {"titles": ["도깨비"], "pace": pace}, session)
+            self.assertNotIn("결과없음", out, out)
+            self.assertEqual(session.plan.request.pace, "relaxed")
+
+    def test_일정_요약의_여행_속도는_한국어_말이다(self):
+        session = Session(book=seoul_incheon_book())
+        out = call("plan_course", {"titles": ["도깨비"], "pace": "packed"}, session)
+        self.assertEqual(out["근거"]["여행 속도"], "빡빡하게")
+        self.assertNotIn("packed", json.dumps(out, ensure_ascii=False))
+
+
+class 조사(unittest.TestCase):
+    def test_받침에_맞춰_을_를_을_붙인다(self):
+        from src.tools import _with_object_particle
+
+        self.assertEqual(_with_object_particle("정동길"), "정동길을")
+        self.assertEqual(_with_object_particle("카페낙타"), "카페낙타를")
+        self.assertEqual(_with_object_particle("N Tower"), "N Tower을(를)")
 
 
 class 계약(unittest.TestCase):

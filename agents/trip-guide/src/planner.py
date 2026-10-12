@@ -59,6 +59,11 @@ class PlanError(ValueError):
 # ── 주고받는 모양 ─────────────────────────────────────────────────────────────
 
 
+# 모델에게 보이는 여행 속도의 말. 설정 키(relaxed·normal·packed)는 코드 안에서만 쓴다 —
+# 모델이 본 값은 답에 그대로 나온다(「속도 'relaxed' 상한」, 2026-10-13 실측 8 회 중 2 회, MZ2AZ-426).
+PACE_WORDS = {"relaxed": "느긋하게", "normal": "보통", "packed": "빡빡하게"}
+
+
 @dataclass
 class PlanRequest:
     """무엇을 어떻게 돌 것인가. ① 이해 단계의 산출물이다."""
@@ -1140,7 +1145,7 @@ def plan_to_dict(plan: Plan) -> dict[str, Any]:
         "근거": {
             "본 후보": plan.considered,
             "쓴 신호": used,
-            "여행 속도": plan.request.pace,
+            "여행 속도": PACE_WORDS.get(plan.request.pace, "보통"),
         },
         "주의": plan.notes,
     }

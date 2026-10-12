@@ -28,6 +28,7 @@ from typing import Any
 
 from .places import Place
 from .planner import (
+    PACE_WORDS,
     PlanError,
     PlanRequest,
     Revision,
@@ -165,6 +166,15 @@ def _brief(p: Place, distance_m: int | None = None) -> dict[str, Any]:
 
 
 _POI_GROUPS = {"음식": "food", "숙박": "stay", "명소": "sight", "교통": "transit"}
+
+# **모델에게 보이는 인자 값은 사람의 말이다 (MZ2AZ-426).** 도구 스키마의 열거값은 모델이 그대로
+# 읽고, 읽은 값은 답에 섞여 나온다. 그래서 스키마에는 한국어 말만 두고 코드가 쓰는 값으로는
+# 여기서 바꾼다. 예전 값(영어)으로 불러도 받는다 — 뜻이 하나로 정해지는 값이다.
+ARG_WORDS: dict[str, dict[str, str]] = {
+    "pace": {word: key for key, word in PACE_WORDS.items()},
+    "sort": {"가까운순": "distance", "유명한순": "popular"},
+    "action": {"담기": "add", "빼기": "remove"},
+}
 """도구의 한국어 갈래를 계약의 `PoiCategoryGroup` 으로. 네 가지뿐이다."""
 
 
@@ -221,6 +231,15 @@ def _ids(places: list[Place]) -> list[Any]:
     return [i for i in (_place_id(p) for p in places) if i is not None]
 
 
+def _with_object_particle(name: str) -> str:
+    """이름에 「을」·「를」 을 붙인다. 모델은 도구가 준 문장을 글자 그대로 옮기므로
+    (「카페낙타을」, 2026-10-13 실측 10 회 중 8 회) 조사를 여기서 맞춘다."""
+    last = name.rstrip()[-1:] if name.strip() else ""
+    if "가" <= last <= "힣":
+        return name + ("을" if (ord(last) - 0xAC00) % 28 else "를")
+    return name + "을(를)"
+
+
 def _refuse(reason: str) -> dict[str, Any]:
     """결과 없이 이유만 돌려준다. 지어낼 재료 자체를 주지 않는 것이 요점이다."""
     return {
@@ -267,7 +286,8 @@ def _revision_result(rev: Revision) -> dict[str, Any]:
     if rev.over_stops:
         warn.append(
             f"{rev.day}일차 정지점이 {rev.stops} 곳으로 "
-            f"이 속도의 상한 {rev.max_stops} 곳을 넘는다"
+            f"이 일정({PACE_WORDS.get(rev.plan.request.pace, '보통')})의 "
+            f"하루 상한 {rev.max_stops} 곳을 넘는다"
         )
 
     if warn:
@@ -304,10 +324,17 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
             ko for ko, en in _POI_GROUPS.items() if en == raw_args["group"]
         )
 
+    for key, words in ARG_WORDS.items():
+        if raw_args.get(key) in words.values():
+            raw_args[key] = next(w for w, v in words.items() if v == raw_args[key])
+
     try:
         args = validate_args(spec["parameters"], raw_args)
     except ToolArgError as exc:
         return _refuse(str(exc))
+    for key, words in ARG_WORDS.items():
+        if args.get(key) in words:
+            args[key] = words[args[key]]
 
     book = session.book
 
@@ -406,16 +433,18 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
             session.emit(op="cart.add", placeId=pid, name=p.name)
             session.show(op="map.focus", placeIds=_ids([p]))
             return {
-                "결과": f"{p.name} 을 담으라고 요청했다",
+                "결과": f"{_with_object_particle(p.name)} 장바구니에 담아 달라고 요청했다",
                 "할 일": (
-                    "담겼다고 단정해 말하지 마라. 이미 담겨 있었을 수도 있고 저장은 "
-                    "서버가 한다. 담은 목록 전체를 읊지도 마라 — 우리는 그것을 모른다."
+                    "위 결과 한 문장만, 사용자가 쓴 말의 공손한 말투로 옮겨 전해라. "
+                    "담겼다고 단정하지 마라 — 이미 담겨 있었을 수도 있다. 담은 목록 전체를 "
+                    "읊지도 마라 — 우리는 그것을 모른다. 장소는 위 이름 그대로 부르고 "
+                    "앞뒤에 설명을 붙이지 마라."
                 ),
             }
 
         session.emit(op="cart.remove", placeId=pid, name=p.name)
         return {
-            "결과": f"{p.name} 을 빼라고 요청했다",
+            "결과": f"{_with_object_particle(p.name)} 장바구니에서 빼 달라고 요청했다",
             "할 일": "담은 목록 전체를 읊지 마라 — 우리는 그것을 모른다.",
         }
 
