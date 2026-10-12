@@ -18,10 +18,11 @@ import SwiftUI
 struct RemoteImage: View {
     let url: String?
     let symbol: String
+    var fits = false
 
     var body: some View {
         Color.clear
-            .overlay { content }
+            .overlay(alignment: .center) { content }
             .clipped()
     }
 
@@ -33,7 +34,7 @@ struct RemoteImage: View {
             AsyncImage(url: parsed) { phase in
                 switch phase {
                 case let .success(image):
-                    image.resizable().scaledToFill()
+                    image.resizable().aspectRatio(contentMode: fits ? .fit : .fill)
                 case .empty:
                     placeholder.overlay(ProgressView().scaleEffect(0.6))
                 default:

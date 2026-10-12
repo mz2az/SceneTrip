@@ -23,7 +23,7 @@ struct WorkRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            RemoteImage(url: content.posterUrl, symbol: "film")
+            RemoteImage(url: content.posterUrl, symbol: "film", fits: true)
                 .frame(width: 46, height: 62)
                 .clipShape(.rect(cornerRadius: 6))
 

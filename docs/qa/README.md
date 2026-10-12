@@ -2,6 +2,7 @@
 
 | 문서 | 목적 |
 | --- | --- |
+| [ios-front-completion-verification.md](ios-front-completion-verification.md) | 2026-10-13 포스터·씬 확대·인기순·장바구니·닉네임·테마·방문 저장의 실제 화면·API·단위 검사와 남은 조건 |
 | [reports/README.md](reports/README.md) | 2026-10-12 iOS 전체 기능 E2E 실행 제한, 70개 재개 시나리오와 확인 사항의 HTML 보고서 |
 | [android-visual-e2e-parity.md](android-visual-e2e-parity.md) | Android·iOS 실제 화면 대조, 시뮬레이터 오류 조치와 확인·미검증 경로 (MZ2AZ-148) |
 | [community-post-verification.md](community-post-verification.md) | iOS 여행후기 본문·사진·코스의 서버 저장 및 다른 계정 조회 검증 (MZ2AZ-396) |

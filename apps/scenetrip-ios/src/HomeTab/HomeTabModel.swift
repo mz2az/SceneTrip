@@ -22,7 +22,7 @@ struct HomeTrip {
 /// 하나가 실패해도 나머지는 그린다 — 홈은 서버가 꺼져 있어도 죽지 않는다.
 @MainActor
 final class HomeTabModel: ObservableObject {
-    /// 「지금 뜨는 작품」 — 촬영지 많은 순.
+    /// 「지금 뜨는 작품」 — 서버 인기도 순서 그대로.
     @Published private(set) var works: [ContentSummary] = []
 
     /// 「오늘의 성지」 — 하루 동안 같은 곳.
@@ -42,10 +42,13 @@ final class HomeTabModel: ObservableObject {
     @Published private(set) var failed = false
 
     private let installId = InstallIdentity.current
+    private let fetchWorks: (Int) async throws -> [ContentSummary]
 
-    /// 선반이 **작품 전부가 아니라 받은 범위에서** 골라졌나 — 훑다가 뒤쪽을 못 받았거나 상한(`scanLimit`)에
-    /// 걸렸다. 화면에는 쓰지 않는다(선반은 그대로 그린다). 다음에 홈을 열면 처음부터 다시 훑는다.
-    @Published private(set) var shelfIsPartial = false
+    init(fetchWorks: @escaping (Int) async throws -> [ContentSummary] = {
+        try await ContentsAPI.listContents(limit: $0).items
+    }) {
+        self.fetchWorks = fetchWorks
+    }
 
     /// 코스 카드의 모습. 값만 보는 규칙이라 시험이 선다(`HomeTripCardTests`).
     enum TripCard: Equatable {
@@ -89,7 +92,7 @@ final class HomeTabModel: ObservableObject {
     /// 전에는 넷을 나란히 보내 놓고도 **작품 응답을 먼저 기다린 뒤** 나머지를 대입했고, 그 앞에서는 화면이
     /// 코스 목록·촬영지 200·작품 30·장바구니를 차례로 다 기다린 뒤에야 이것을 불렀다. 작품이 한 번의 호출이던
     /// 때는 티가 안 났는데, 선반을 고르려고 작품을 끝까지 훑게 되면서 「오늘의 성지」·스탬프까지 그 뒤로
-    /// 밀렸다. 이제 각자 받는 대로 제 자리에 넣는다 — 선반만 훑기가 끝난 뒤에 찬다.
+    /// 밀렸다. 이제 각자 받는 대로 제 자리에 넣는다. 선반은 인기순 첫 20편만 받는다.
     func loadRest() async {
         async let todayJob: Void = loadToday()
         async let stampsJob: Void = loadStamps()
@@ -97,14 +100,12 @@ final class HomeTabModel: ObservableObject {
         _ = await (todayJob, stampsJob, shelfJob)
     }
 
-    private func loadShelf() async {
-        let scan = await Self.scanWorks()
-        if scan.works.isEmpty, !scan.complete {
+    func loadShelf() async {
+        guard let fresh = try? await fetchWorks(Self.shelfCount) else {
             failed = works.isEmpty
             return
         }
-        works = Self.shelf(from: scan.works)
-        shelfIsPartial = !scan.complete
+        works = Self.shelf(from: fresh)
         failed = false
     }
 
@@ -124,42 +125,13 @@ final class HomeTabModel: ObservableObject {
         stamps = await VisitStamp.collect(installId: installId)
     }
 
-    // MARK: 「지금 뜨는 작품」 — 촬영지 많은 순
+    // MARK: 「지금 뜨는 작품」 — 서버 인기순
 
     /// 선반에 올리는 수.
     nonisolated static let shelfCount = 20
-    /// 정렬하려고 훑는 작품 수의 상한. 넘으면 그 안에서만 고른다.
-    nonisolated static let scanLimit = 500
-
-    /// 작품을 **끝까지 훑어** 받는다 — 선반은 「촬영지 많은 순」 인데 서버에 그 정렬이 없다(MZ2AZ-372).
-    ///
-    /// 전에는 서버 순서의 앞 20편만 받아 그 안에서 정렬했다. 서버 순서가 사실상 「나중에 올린 순」 이라
-    /// (인기 점수가 전부 같다) 선반 맨 앞이 6곳짜리 작품이고 19곳짜리는 아예 없었다. 지금은 전부를 보고 고른다.
-    ///
-    /// **임시다.** 작품이 `scanLimit` 을 넘으면 다시 틀린다 — 서버가 촬영지 수 정렬을 주면 그 한 번으로 바꾼다
-    /// (계획 `catalog-scale.md` §6).
-    ///
-    /// `complete` 가 거짓이면 **받은 범위에서만** 고른 것이다 — 뒤쪽 쪽을 못 받았거나(공통 계층이 이미
-    /// 세 번 다시 보낸 뒤다) 상한에 걸렸다. 그래도 받은 것으로 선반을 그린다(빈 선반보다 낫다).
-    private static func scanWorks() async -> (works: [ContentSummary], complete: Bool) {
-        var all: [ContentSummary] = []
-        var paging = Paging()
-        while paging.hasMore, paging.offset < scanLimit {
-            guard let page = try? await ContentsAPI.listContents(limit: 100, offset: paging.offset) else {
-                return (all, false)
-            }
-            all = Paging.merged(all, with: page.items, by: \.id)
-            paging = paging.advanced(received: page.items.count, total: page.total)
-        }
-        return (all, !paging.hasMore)
-    }
-
-    /// 촬영지 많은 순으로 `shelfCount` 편. 같은 수면 서버가 준 순서(인기순)를 지킨다.
+    /// 서버가 준 인기도 순서를 유지하며 첫 20편만 표시한다 (MZ2AZ-411).
     nonisolated static func shelf(from works: [ContentSummary]) -> [ContentSummary] {
-        works.enumerated()
-            .sorted { ($0.element.placeCount, $1.offset) > ($1.element.placeCount, $0.offset) }
-            .prefix(shelfCount)
-            .map(\.element)
+        Array(works.prefix(shelfCount))
     }
 
     /// 여행 중인 코스를 앞에, 나머지는 목록 순서대로 — 최대 셋. 상세는 나란히 받는다.

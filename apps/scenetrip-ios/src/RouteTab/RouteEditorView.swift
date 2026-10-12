@@ -88,6 +88,7 @@ struct RouteEditorView: View {
     /// 여행 안내 — **이 화면 안에서 돈다**(2026-09-03, 계획 trip-mode.md §8). 별도
     /// 길찾기 창은 코스 여행에서 더 안 쓴다. 목적지·경로·머무름·스탬프는 이것이 든다.
     @StateObject var trip = TripSession()
+    @StateObject var visitSync = VisitSync()
 
     /// 홈 「이어서 길찾기」가 이 코스를 열며 안내를 켜 달라고 남긴 표시를 읽는다.
     /// 환경 객체가 아니라 공용 인스턴스다 — 이 화면은 덮개(fullScreenCover) 안에 떠서

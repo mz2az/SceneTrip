@@ -29,6 +29,23 @@ final class AuthStore: ObservableObject {
     @Published var askingNickname = false
 
     private let installId = InstallIdentity.current
+    private let hasStoredSession: () -> Bool
+    private let fetchProfile: () async throws -> Me
+    private let refreshLikes: () async -> Void
+    private let nicknamePromptDelay: Duration
+    private var nicknamePromptTask: Task<Void, Never>?
+
+    init(
+        hasStoredSession: @escaping () -> Bool = { AuthTokens.hasSession },
+        fetchProfile: @escaping () async throws -> Me = { try await AuthAPI.getMe() },
+        refreshLikes: @escaping () async -> Void = { await LikeStore.shared.refresh() },
+        nicknamePromptDelay: Duration = .milliseconds(600)
+    ) {
+        self.hasStoredSession = hasStoredSession
+        self.fetchProfile = fetchProfile
+        self.refreshLikes = refreshLikes
+        self.nicknamePromptDelay = nicknamePromptDelay
+    }
 
     /// 앱이 뜰 때 한 번. 생성 클라이언트에 토큰·401 처리를 끼우고 저장된 세션을 되살린다.
     func start() {
@@ -37,7 +54,7 @@ final class AuthStore: ObservableObject {
         if InstallMarker.freshInstall {
             AuthTokens.clear()
         }
-        signedIn = AuthTokens.hasSession
+        signedIn = hasStoredSession()
         if signedIn {
             Task { await loadMe() }
         }
@@ -223,17 +240,21 @@ final class AuthStore: ObservableObject {
 
     /// 로그인 화면이 내려간 뒤에 올린다 — 시트가 내려가는 중에 다른 시트를 올리면 안 뜬다.
     private func askNicknameIfNeeded(_ user: Me) {
+        nicknamePromptTask?.cancel()
         guard NicknameAsked.shouldAsk(confirmed: user.nicknameConfirmed, accountId: user.id.uuidString) else {
             return
         }
-        Task {
-            try? await Task.sleep(for: .milliseconds(600))
-            guard signedIn, me?.id == user.id else { return }
+        nicknamePromptTask = Task {
+            do { try await Task.sleep(for: nicknamePromptDelay) } catch { return }
+            guard !Task.isCancelled, signedIn, me?.id == user.id,
+                  NicknameAsked.shouldAsk(confirmed: me?.nicknameConfirmed, accountId: user.id.uuidString)
+            else { return }
             askingNickname = true
         }
     }
 
     private func forget() {
+        nicknamePromptTask?.cancel()
         // 발자취는 기기에만 있지만 그 사람의 것이다 — 계정이 떠나면 함께 지운다 (MZ2AZ-348).
         FootprintStore.shared.forgetOwner()
         AuthTokens.clear()
@@ -253,11 +274,20 @@ final class AuthStore: ObservableObject {
         // 길찾기 한도도 계정의 것이다 (MZ2AZ-366 D).
         RateLimitLedger.shared.forget(.navigation)
         NavLimitStore.shared.forget()
-        Task { await LikeStore.shared.refresh() }
+        Task { await refreshLikes() }
     }
 
-    private func loadMe() async {
-        me = try? await AuthAPI.getMe()
+    /// 세션 복원·새로고침도 미확정 닉네임을 확인한다. 늦은 응답은 떠난 계정을 되살리지 않는다.
+    func loadMe() async {
+        let requestedEpoch = epoch
+        guard signedIn, let fresh = try? await fetchProfile(),
+              !Task.isCancelled, signedIn, epoch == requestedEpoch,
+              me == nil || me?.id == fresh.id else { return }
+        me = fresh
+        if fresh.nicknameConfirmed == true {
+            askingNickname = false
+        }
+        askNicknameIfNeeded(fresh)
     }
 }
 

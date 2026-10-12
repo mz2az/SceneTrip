@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [ios-front-completion.md](ios-front-completion.md) | iOS 씬 사진 확대·상세 포스터 링크·홈 인기순·작품 출처·닉네임·테마와 열린 티켓 검증 (MZ2AZ-148) |
 | [ios-apple-login.md](ios-apple-login.md) | iOS Apple 기본 로그인 버튼·nonce·서버 인증·기존 계정 흐름 연결 (MZ2AZ-415) |
 | [android-visual-e2e-parity.md](android-visual-e2e-parity.md) | 최신 iOS와 Android의 UI·E2E 동등성, 비교 증거와 미검증 경로 (MZ2AZ-148) |
 | [ios-usage-events.md](ios-usage-events.md) | 실제 상세 열기·검색 확정의 생성 EventsAPI 전송과 재시도/로그인 경계 (MZ2AZ-408) |

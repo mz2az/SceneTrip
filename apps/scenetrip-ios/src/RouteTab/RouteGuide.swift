@@ -425,6 +425,7 @@ enum RouteGuide {
         /// 「여기로 길찾기」 — 갈아탈 목적지는 이 타입이다).
         init(
             id: String, name: String, category: String?,
+            address: String? = nil,
             latitude: Double, longitude: Double
         ) {
             self.id = id
@@ -432,7 +433,7 @@ enum RouteGuide {
             self.category = category
             self.latitude = latitude
             self.longitude = longitude
-            address = nil
+            self.address = address
             distanceMeters = nil
             group = nil
             source = nil
