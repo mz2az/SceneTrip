@@ -25,7 +25,7 @@ from tools.aws.tests.test_bedrock_role import (
 from tools.aws.tests.test_bootstrap_delete import BootstrapDeleteTest
 from tools.aws.tests.test_bootstrap_state import BootstrapStateTest
 from tools.aws.tests.test_boundaries import BoundaryTest
-from tools.aws.tests.test_commands import CliTest
+from tools.aws.tests.test_commands import CliTest, FirstDeployEmptyStateTest
 from tools.aws.tests.test_data_load import (
     DataLoadEntryPointTest,
     DataLoadJobTest,
@@ -81,6 +81,7 @@ __all__ = [
     "DestroyServiceTest",
     "DriftTest",
     "EntryPointTest",
+    "FirstDeployEmptyStateTest",
     "GatewayContractRoutesTest",
     "GatewayLimitsChartTest",
     "LegacyAuthSlotTest",

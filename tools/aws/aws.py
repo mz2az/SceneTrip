@@ -156,6 +156,24 @@ def initialize_terraform(run, root, settings, temp):
     return directory
 
 
+def managed_addresses(run, directory):
+    """state 가 관리하는 자원 주소. 환경에 **처음** 배포할 때는 state 파일이 아직 없다 — 그때는 빈 집합.
+
+    `terraform state list` 는 state 파일이 없으면 「No state file was found」 로 실패한다. DEV 는 내려도 빈
+    state 가 남아 드러나지 않았고, PRD 첫 배포가 여기서 멈췄다(2026-10-13). 실패하면 `state pull` 로 정말 비었는지
+    확인하고(빈 출력), 아니면 그대로 실패시킨다 — 다른 이유의 실패를 「관리하는 것 없음」 으로 덮지 않는다.
+    """
+    try:
+        return set(
+            run(["terraform", "state", "list"], quiet=True, cwd=directory).split()
+        )
+    except RuntimeError:
+        pulled = run(["terraform", "state", "pull"], quiet=True, cwd=directory)
+        if pulled.strip():
+            raise
+        return set()
+
+
 def adopt_retained_secrets(run, settings, directory, var_file):
     """서비스 삭제 뒤 남은 환경 Secret 을 state 로 되돌린다.
 
@@ -163,9 +181,7 @@ def adopt_retained_secrets(run, settings, directory, var_file):
     다시 배포하면 CreateSecret 이 같은 이름에 막힌다. 삭제 예약이면 복원하고, 이 환경이
     Terraform 으로 만든 것임을 태그로 확인한 뒤에만 import 한다.
     """
-    managed = set(
-        run(["terraform", "state", "list"], quiet=True, cwd=directory).split()
-    )
+    managed = managed_addresses(run, directory)
     for key in APP_SECRETS:
         address = f'aws_secretsmanager_secret.app["{key}"]'
         if address in managed:
