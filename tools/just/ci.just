@@ -21,6 +21,15 @@ ci-affected base="origin/main":
 ci-full: gen-check fmt-check lint
     ./tools/scripts/bazel-test.sh {{ALL}} --config=ci --test_tag_filters=-integration,-e2e
 
+# PR 의 macOS 잡이 부른다. 생성·포맷·린트는 ci-full 과 같고(Swift 검사는 맥에서만 된다), 테스트는
+# `ios` 태그가 붙은 것만 — 나머지는 같은 PR 의 리눅스 verify 가 이미 본다. 맥에서 전체를 다시 도는
+# 것(맥에서만 깨지는 것 잡기)은 main 에 올라갈 때 ci-full 이 한다 (.github/workflows/ci.yml, MZ2AZ-421).
+#
+# iOS 몫만 검사한다 — 생성·포맷·린트 + `ios` 태그 테스트. PR 의 macOS 잡이 쓴다.
+[group('ci')]
+ci-ios: gen-check fmt-check lint
+    ./tools/scripts/bazel-test.sh {{ALL}} --config=ci --test_tag_filters=ios,-integration,-e2e
+
 # 보안 점검 — 의존성 감사와 시크릿 탐지
 [group('ci')]
 ci-security:
