@@ -10,7 +10,8 @@
 -- (2026-09-12), title_producer_url 을 더한 뒤, recent_rank · audience_acc · award ·
 -- famous_rank 를 뺀 것이다(2026-09-23). 51컬럼은 거기에 content_key(title 앞)·place_key
 -- (place_name 앞)를 더한 것이다(2026-10-07). **53컬럼(2026-10-10)** 은 키를 맨 끝으로 옮기고 이름을 바꿨다 —
--- notes 뒤에 place_popularity_score · title_key(= content_key) · place_key · sanctum_key. 더한 것은 전부 형제 컬럼 옆에 있다 —
+-- notes 뒤에 place_popularity_score · title_key(= content_key) · place_key · sanctum_key. **55컬럼(2026-10-12)** 은 산정 점수
+-- 뒤에 place_total_score · title_famous_rank 를 더했다. 더한 것은 전부 형제 컬럼 옆에 있다 —
 -- title 옆에 title_description_*, place_address 옆에 place_address_*. 다국어는 지금
 -- 전부 비어 있다.
 --
@@ -104,6 +105,9 @@ CREATE TEMP TABLE seed_staging (
     -- 53컬럼(2026-10-10, 128 작품 545 행): 끝에 넷이 붙는다. CSV 이름은 title_key 지만 여기서는 content_key 로 받는다 —
     -- 자리로 맞추므로 이름은 상관없고, 아래 변환이 쓰는 이름을 바꾸지 않으려고서다.
     place_popularity_score TEXT,  -- 장소×작품 산정 점수 → place_content.popularity_score(작품 안에서만 비교, V28)
+    -- 55컬럼(2026-10-12): 산정 점수 뒤에 둘이 더 붙었다.
+    place_total_score   TEXT,     -- 장소별 산정 점수 합계. 받기만 한다 — 작품끼리 비교할 수 없는 값의 합이라 쏠린다(popularity.md §1)
+    title_famous_rank   TEXT,     -- 작품 인기 순위(1 이 가장 유명, 작품마다 하나) → content.popularity_seed(§2)
     content_key         TEXT,     -- CSV 의 title_key (예: tv197067)
     place_key           TEXT,     -- 예: nv17052534(네이버 장소 번호) · px…(번호를 못 찾은 곳)
     sanctum_key         TEXT      -- 작품-촬영지 짝(title_key-place_key). 행마다 하나 — 넣을 곳은 아직 없다
@@ -193,9 +197,13 @@ SELECT
     NULLIF(btrim(s.title_description_zh_hant), '') AS title_description_zh_hant,
     s.title_category,
     NULLIF(s.poster_url, '') AS poster_url,
-    -- 인기도 출발점(V28 popularity_seed). 데이터 담당자의 작품 인기도 칸이 오기 전에는 모두 중간값 50 이다
-    -- (famous_rank 를 2026-09-23 에 뺐다). 최종값은 recompute_popularity() 가 사용자 활동과 섞어 만든다(§7).
-    50 AS popularity_seed,
+    -- 인기도 출발점(V28 popularity_seed) 0~100 — 데이터 담당자의 작품 순위(title_famous_rank, 1 이 가장 유명)를
+    -- 100 × (n + 1 − 순위) / n 으로 편다(n = CSV 의 최하위 순위). 1 위 100, 꼴찌 100/n. 예전 식 100 − famous_rank 는
+    -- 작품이 100 편을 넘으면 음수가 된다. 순위가 빈 작품은 중간값 50. 최종값은 recompute_popularity() 가 사용자 활동과
+    -- 섞어 만든다(§7).
+    COALESCE(
+        round(100 * (r.n + 1 - NULLIF(btrim(s.title_famous_rank), '')::NUMERIC) / r.n, 3),
+        50) AS popularity_seed,
     s.title_cast,
     s.title_cast_en,
     s.title_cast_ja,
@@ -206,7 +214,10 @@ SELECT
     s.director_zh_hant
 FROM (
     SELECT DISTINCT ON (content_key) * FROM seed_rows ORDER BY content_key, id
-) s;
+) s
+CROSS JOIN (
+    SELECT COALESCE(max(NULLIF(btrim(title_famous_rank), '')::NUMERIC), 1) AS n FROM seed_rows
+) r;
 
 -- 다리(계획 §2-3). 이 CSV 의 키가 아직 DB 에 없으면, 한국어 제목이 같은 작품 중 **키가 없거나 이 CSV 에 없는 옛 키**를
 -- 가진 것에 새 키를 붙인다 — 그 작품을 가리키는 코스·마켓이 새로 생긴 작품으로 끊기지 않게. 처음엔 V20 직후의 키

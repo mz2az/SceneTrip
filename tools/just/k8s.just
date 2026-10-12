@@ -228,6 +228,14 @@ db-schema:
 seed *csv:
     ./tools/scripts/seed.sh "{{ csv }}"
 
+# 작품·촬영지를 지우고 CSV 로 처음부터 다시 적재한다 — 같은 곳 연결까지. 수집 쪽이 키를 다시 정했을 때 쓴다.
+# 그 작품·촬영지를 가리키는 로컬 사용자 데이터(장바구니·코스 항목·촬영지 리뷰)도 지워진다. 편의시설·계정은 남는다.
+# 로컬 kind 에서만 동작한다. 예: `just seed-reset` · `just seed-reset ~/Downloads/candidates.csv`
+[group('db')]
+[positional-arguments]
+seed-reset *csv:
+    ./tools/scripts/seed-reset.sh "$@"
+
 # 개인 핀으로 저장된 편의시설을 편의시설 항목으로 바꾼다(MZ2AZ-377). 몇 번을 돌려도 같다.
 #
 # **앱(MZ2AZ-380)이 배포된 뒤에** 돌린다 — 낡은 앱은 바뀐 항목이 든 코스를 못 연다. `--dry-run` 은 세어 보고 되돌린다.
