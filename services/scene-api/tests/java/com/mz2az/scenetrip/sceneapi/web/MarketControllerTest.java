@@ -13,12 +13,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.mz2az.scenetrip.sceneapi.api.model.ContentRef;
+import com.mz2az.scenetrip.sceneapi.api.model.MarketCourseDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.MarketCourseSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.MarketSort;
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.course.CourseStore;
 import com.mz2az.scenetrip.sceneapi.market.MarketStore;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
+import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -235,5 +238,57 @@ class MarketControllerTest {
         .andExpect(status().isOk());
 
     verify(store).list(eq(USER), eq(null), eq(MarketSort.LIKES), eq(20), eq(0));
+  }
+
+  // ───────────── producerUrl (MZ2AZ-393, 계약 1.12.0) ─────────────
+
+  private static List<ContentRef> producerRefs() {
+    return List.of(
+        new ContentRef(1L, "있음")
+            .posterUrl(URI.create("https://img.example/p1.jpg"))
+            .producerUrl(URI.create("http://producer.example/works/1")),
+        new ContentRef(2L, "없음").posterUrl(URI.create("https://img.example/p2.jpg")));
+  }
+
+  @Test
+  @DisplayName("마켓 목록의 contents — producerUrl 이 있으면 그대로, 없으면 null 이거나 빠진다")
+  void listContentsCarryProducerUrl() throws Exception {
+    MarketStore.Page page = new MarketStore.Page(List.of(summary(3L).contents(producerRefs())), 1);
+    when(store.list(eq(USER), eq(null), any(), eq(20), eq(0))).thenReturn(page);
+    when(store.withContents(any(), any())).thenReturn(page);
+
+    mvc.perform(get("/market/courses").header("X-Install-Id", INSTALL_ID))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath("$.items[0].contents[0].producerUrl").value("http://producer.example/works/1"))
+        .andExpect(jsonPath("$.items[0].contents[1].posterUrl").value("https://img.example/p2.jpg"))
+        .andExpect(jsonPath("$.items[0].contents[1].producerUrl").doesNotExist());
+  }
+
+  @Test
+  @DisplayName("마켓 상세의 contents — producerUrl 이 있으면 그대로, 없으면 null 이거나 빠진다")
+  void detailContentsCarryProducerUrl() throws Exception {
+    MarketCourseDetail detail =
+        new MarketCourseDetail(
+                3L,
+                "제주 3일",
+                "설명",
+                1,
+                1,
+                0,
+                0,
+                false,
+                false,
+                false,
+                OffsetDateTime.parse("2026-08-13T06:00:00Z"),
+                List.of())
+            .contents(producerRefs());
+    when(store.find(eq(USER), eq(3L), any())).thenReturn(Optional.of(detail));
+
+    mvc.perform(get("/market/courses/3").header("X-Install-Id", INSTALL_ID))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.contents[0].producerUrl").value("http://producer.example/works/1"))
+        .andExpect(jsonPath("$.contents[1].posterUrl").value("https://img.example/p2.jpg"))
+        .andExpect(jsonPath("$.contents[1].producerUrl").doesNotExist());
   }
 }

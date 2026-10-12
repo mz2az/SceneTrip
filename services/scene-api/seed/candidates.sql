@@ -121,8 +121,6 @@ CREATE TEMP TABLE seed_staging (
 
 -- 넣지 않는 컬럼과 이유:
 --   title_tmdb_url    전량 비어 있다. 채워지면 content 에 외부 id 컬럼을 두고 받는다
---   title_producer_url 작품 제작사의 페이지. 포스터를 누르면 이리로 간다. content 에 받을
---                     컬럼이 아직 없다 — 마이그레이션과 API 가 생기면 넣는다
 --   source_url        앱이 읽지 않는다. 값은 수집 CSV 에 보존된다
 --   notes             수집 판정 메모(「성지점수 20.7 …」). 사용자에게 보일 것이 아니다
 
@@ -197,6 +195,8 @@ SELECT
     NULLIF(btrim(s.title_description_zh_hant), '') AS title_description_zh_hant,
     s.title_category,
     NULLIF(s.poster_url, '') AS poster_url,
+    -- 제작사(원저작권자) 작품 페이지 — 포스터를 누르면 이리로(V31, MZ2AZ-393).
+    NULLIF(btrim(s.title_producer_url), '') AS producer_url,
     -- 인기도 출발점(V28 popularity_seed) 0~100 — 데이터 담당자의 작품 순위(title_famous_rank, 1 이 가장 유명)를
     -- 100 × (n + 1 − 순위) / n 으로 편다(n = CSV 의 최하위 순위). 1 위 100, 꼴찌 100/n. 예전 식 100 − famous_rank 는
     -- 작품이 100 편을 넘으면 음수가 된다. 순위가 빈 작품은 중간값 50. 최종값은 recompute_popularity() 가 사용자 활동과
@@ -240,13 +240,14 @@ WHERE c.id = m.content_id;
 -- 있으면 갱신, 없으면 추가. CSV 에 없는 방송사·연도·장르는 덮지 않는다(이 형식에 칸이 없다).
 -- 다시 CSV 에 나온 작품은 숨김을 푼다.
 -- 최종 인기도(popularity_score)는 덮지 않는다 — 사용자 활동이 섞인 값이다. §7 에서 다시 계산한다.
-INSERT INTO content (content_key, category, broadcaster, poster_url, release_year, genres,
+INSERT INTO content (content_key, category, broadcaster, poster_url, producer_url, release_year, genres,
                      popularity_seed, popularity_score)
-SELECT content_key, title_category, NULL, poster_url, NULL, '{}', popularity_seed, popularity_seed
+SELECT content_key, title_category, NULL, poster_url, producer_url, NULL, '{}', popularity_seed, popularity_seed
 FROM t_content
 ON CONFLICT (content_key) DO UPDATE SET
     category        = EXCLUDED.category,
     poster_url      = EXCLUDED.poster_url,
+    producer_url    = EXCLUDED.producer_url,
     popularity_seed = EXCLUDED.popularity_seed,
     hidden_at       = NULL;
 

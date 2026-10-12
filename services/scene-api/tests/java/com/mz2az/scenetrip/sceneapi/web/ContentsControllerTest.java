@@ -21,6 +21,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.RoleType;
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.content.ContentStore;
 import com.mz2az.scenetrip.sceneapi.place.PlaceStore;
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -182,5 +183,53 @@ class ContentsControllerTest {
     mvc.perform(get("/contents/999"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("CONTENT_NOT_FOUND"));
+  }
+
+  // ───────────── producerUrl (MZ2AZ-393, 계약 1.12.0) ─────────────
+
+  @Test
+  @DisplayName("작품 목록 — producerUrl 이 있으면 그대로, 없으면 null 이거나 빠진다")
+  void listCarriesProducerUrl() throws Exception {
+    givenContents(
+        2,
+        new ContentSummary(1L, ContentCategory.DRAMA, "있음", 3)
+            .posterUrl(URI.create("https://img.example/p1.jpg"))
+            .producerUrl(URI.create("http://producer.example/works/1")),
+        new ContentSummary(2L, ContentCategory.DRAMA, "없음", 3)
+            .posterUrl(URI.create("https://img.example/p2.jpg")));
+
+    mvc.perform(get("/contents"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].producerUrl").value("http://producer.example/works/1"))
+        .andExpect(jsonPath("$.items[1].posterUrl").value("https://img.example/p2.jpg"))
+        .andExpect(jsonPath("$.items[1].producerUrl").doesNotExist());
+  }
+
+  @Test
+  @DisplayName("작품 상세 — producerUrl 이 있으면 그대로, 없으면 null 이거나 빠진다")
+  void detailCarriesProducerUrl() throws Exception {
+    when(store.findDetail(eq(1L), any()))
+        .thenReturn(
+            Optional.of(
+                new ContentStore.Detail(
+                    new ContentDetail(1L, ContentCategory.DRAMA, "있음", 3)
+                        .posterUrl(URI.create("https://img.example/p1.jpg"))
+                        .producerUrl(URI.create("http://producer.example/works/1")),
+                    Lang.KO)));
+    when(store.findDetail(eq(2L), any()))
+        .thenReturn(
+            Optional.of(
+                new ContentStore.Detail(
+                    new ContentDetail(2L, ContentCategory.DRAMA, "없음", 3)
+                        .posterUrl(URI.create("https://img.example/p2.jpg")),
+                    Lang.KO)));
+
+    mvc.perform(get("/contents/1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.producerUrl").value("http://producer.example/works/1"));
+    mvc.perform(get("/contents/2"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.posterUrl").value("https://img.example/p2.jpg"))
+        .andExpect(jsonPath("$.producerUrl").doesNotExist());
   }
 }

@@ -262,7 +262,7 @@ public class PlaceStore {
           WHERE pci.lang IN (:lang, 'en', 'ko')
           ORDER BY pci.place_content_id, (pci.lang = :lang) DESC, (pci.lang = 'en') DESC
       )
-      SELECT pc.place_id, c.id AS content_id, d.title, c.poster_url, s.relation_description
+      SELECT pc.place_id, c.id AS content_id, d.title, c.poster_url, c.producer_url, s.relation_description
       FROM place_content pc
       JOIN content c ON c.id = pc.content_id
       JOIN display d ON d.content_id = c.id
@@ -337,7 +337,7 @@ public class PlaceStore {
           WHERE pci.lang IN (:lang, 'en', 'ko')
           ORDER BY pci.place_content_id, (pci.lang = :lang) DESC, (pci.lang = 'en') DESC
       )
-      SELECT c.id AS content_id, d.title, c.poster_url, pc.scene_image_url,
+      SELECT c.id AS content_id, d.title, c.poster_url, c.producer_url, pc.scene_image_url,
              s.relation_description
       FROM place_content pc
       JOIN content c ON c.id = pc.content_id
@@ -388,6 +388,7 @@ public class PlaceStore {
                 (rs, rowNum) ->
                     new Scene(rs.getLong("content_id"), rs.getString("title"))
                         .posterUrl(uri(rs.getString("poster_url")))
+                        .producerUrl(uri(rs.getString("producer_url")))
                         .sceneDescription(rs.getString("relation_description"))
                         .sceneImageUrl(uri(rs.getString("scene_image_url"))))
             .list());
@@ -474,7 +475,8 @@ public class PlaceStore {
                   .computeIfAbsent(placeId, k -> new ArrayList<>())
                   .add(
                       new ContentRef(thisContentId, rs.getString("title"))
-                          .posterUrl(uri(rs.getString("poster_url"))));
+                          .posterUrl(uri(rs.getString("poster_url")))
+                          .producerUrl(uri(rs.getString("producer_url"))));
               if (contentId != null && contentId == thisContentId) {
                 String description = rs.getString("relation_description");
                 if (description != null) {
