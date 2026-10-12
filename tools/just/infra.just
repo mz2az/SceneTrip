@@ -91,6 +91,12 @@ aws-test-integration:
 aws-preflight sha:
     {{BAZEL}} run //tools/aws:aws -- preflight "$1"
 
+# 원격 데이터 적재 — 이 커밋의 적재 이미지를 올리고 EKS Job 으로 촬영지·편의시설·같은 곳 연결·인기도·검색 색인을 넣는다.
+# 몇 번을 돌려도 같다(지우지 않는다). GitHub Actions aws-deploy workflow 의 data-load 동작이 부른다(MZ2AZ-414).
+[group('infra')]
+aws-data-load env:
+    {{BAZEL}} run //tools/aws:aws -- data-load "$1"
+
 # 기존 AWS 형상의 ALB·DNS·HTTPS만 읽기 전용으로 다시 검증
 [group('infra')]
 aws-verify env:

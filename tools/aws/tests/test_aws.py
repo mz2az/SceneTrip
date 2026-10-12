@@ -21,6 +21,13 @@ from tools.aws.tests.test_bootstrap_delete import BootstrapDeleteTest
 from tools.aws.tests.test_bootstrap_state import BootstrapStateTest
 from tools.aws.tests.test_boundaries import BoundaryTest
 from tools.aws.tests.test_commands import CliTest
+from tools.aws.tests.test_data_load import (
+    DataLoadEntryPointTest,
+    DataLoadJobTest,
+    DataLoadNetworkPolicyTest,
+    DataLoadPublishTest,
+    DataLoadRunTest,
+)
 from tools.aws.tests.test_deploy import DeployTest, OrchestrationTest, SettingsTest
 from tools.aws.tests.test_destroy import DestroyServiceTest
 from tools.aws.tests.test_destroy_gateway import DestroyGatewayTest
@@ -54,6 +61,11 @@ __all__ = [
     "BoundaryTest",
     "CliTest",
     "CloudflareTest",
+    "DataLoadEntryPointTest",
+    "DataLoadJobTest",
+    "DataLoadNetworkPolicyTest",
+    "DataLoadPublishTest",
+    "DataLoadRunTest",
     "DatabaseCredentialsGeneratedOnceTest",
     "DeployAppleWiringTest",
     "DeploySecretWiringTest",

@@ -282,6 +282,148 @@ def apply_job(run, manifest):
     )
 
 
+DATA_LOAD_JOB = "data-load"
+DATA_LOAD_SECRET = "database-load-transient"
+DATA_LOAD_DEADLINE = 1800
+
+
+def data_load_job(host, image):
+    """원격 데이터 적재 Job(MZ2AZ-414, docs/project/plans/remote-data-load.md).
+
+    DB 초기화 Job 과 같은 모양(restricted)에, 적재 이미지의 entrypoint(seed/remote-load.sh)를 그대로 쓴다. 편의시설 압축을
+    /tmp 에 풀어 emptyDir 1Gi, 91 만 행이라 상한 30 분·메모리 512Mi. 라벨 app=data-load 는 네트워크 정책
+    database-jobs 가 5432 만 연다.
+    """
+    job = bootstrap_job(host, image)
+    container = {
+        key: value
+        for key, value in job["spec"]["template"]["spec"]["containers"][0].items()
+        if key != "command"
+    }
+    container = {
+        **container,
+        "name": "data-load",
+        "env": [
+            {"name": "PGHOST", "value": host},
+            {"name": "PGDATABASE", "value": "scenetrip"},
+            {"name": "PGSSLMODE", "value": "require"},
+        ],
+        "envFrom": [{"secretRef": {"name": DATA_LOAD_SECRET}}],
+        "resources": {
+            "requests": {"cpu": "250m", "memory": "256Mi"},
+            "limits": {"memory": "512Mi"},
+        },
+        "volumeMounts": [{"name": "tmp", "mountPath": "/tmp"}],
+    }
+    return {
+        **job,
+        "metadata": {"name": DATA_LOAD_JOB, "namespace": NAMESPACE},
+        "spec": {
+            **job["spec"],
+            "activeDeadlineSeconds": DATA_LOAD_DEADLINE,
+            "template": {
+                "metadata": {"labels": {"app": DATA_LOAD_JOB}},
+                "spec": {
+                    **job["spec"]["template"]["spec"],
+                    "containers": [container],
+                    "volumes": [{"name": "tmp", "emptyDir": {"sizeLimit": "1Gi"}}],
+                },
+            },
+        },
+    }
+
+
+def delete_data_load(run):
+    run(
+        [
+            "kubectl",
+            "-n",
+            NAMESPACE,
+            "delete",
+            "job",
+            DATA_LOAD_JOB,
+            "--ignore-not-found",
+        ],
+        quiet=True,
+    )
+    run(
+        [
+            "kubectl",
+            "-n",
+            NAMESPACE,
+            "delete",
+            "secret",
+            DATA_LOAD_SECRET,
+            "--ignore-not-found",
+        ],
+        quiet=True,
+    )
+
+
+def data_load_progress(run):
+    """Job 로그 중 단계 줄(==>)과 요약·실패 줄만 — 적재 SQL 의 출력이나 비밀값은 내보내지 않는다."""
+    try:
+        logs = run(
+            ["kubectl", "-n", NAMESPACE, "logs", f"job/{DATA_LOAD_JOB}", "--tail=200"],
+            quiet=True,
+        )
+    except RuntimeError:
+        return []
+    return [
+        line
+        for line in logs.splitlines()
+        if line.startswith(("==> ", "DATA_LOAD_SUMMARY ", "DATA_LOAD_FAILED "))
+    ]
+
+
+def load_data(run, outputs, database, image, commit):
+    """적재 Job 을 띄우고 끝날 때까지 기다린다. 적재 계정은 소유자(app_migrate) — 적재 SQL 이 임시 표·TRUNCATE·MV 갱신을
+    한다. 몇 번을 돌려도 같다(지우지 않는다). 끝나면 성공·실패와 관계없이 Job 과 임시 Secret 을 지운다."""
+    matched(r"[0-9a-f]{7,40}", commit, "커밋")
+    delete_data_load(run)
+    try:
+        sync_secret(
+            run,
+            DATA_LOAD_SECRET,
+            {
+                "PGUSER": database["migration_username"],
+                "PGPASSWORD": database["migration_password"],
+                "SCENETRIP_COMMIT": commit,
+            },
+        )
+        run(
+            ["kubectl", "apply", "-f", "-"],
+            stdin=json.dumps(data_load_job(outputs["database_host"], image)),
+            quiet=True,
+        )
+        try:
+            run(
+                [
+                    "kubectl",
+                    "-n",
+                    NAMESPACE,
+                    "wait",
+                    "--for=condition=complete",
+                    f"job/{DATA_LOAD_JOB}",
+                    f"--timeout={DATA_LOAD_DEADLINE + 60}s",
+                ],
+                quiet=True,
+            )
+        except RuntimeError:
+            for line in data_load_progress(run):
+                print(line)
+            raise RuntimeError(
+                "데이터 적재 Job 이 끝나지 못했습니다 — 위 단계 줄을 보세요"
+            )
+        lines = data_load_progress(run)
+        for line in lines:
+            print(line)
+        if not any(line.startswith("DATA_LOAD_SUMMARY ") for line in lines):
+            raise RuntimeError("데이터 적재 요약이 없습니다")
+    finally:
+        delete_data_load(run)
+
+
 def migrate_database(run, outputs, database, migration_image):
     delete_transient(run)
     raw = run(

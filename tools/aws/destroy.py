@@ -29,6 +29,7 @@ def validate_resource_identity(resources, settings):
         "scene_api": "scene-api",
         "trip_guide": "trip-guide",
         "migration": "migration",
+        "data_load": "data-load",
     }
     for key, name in names.items():
         repository = resources.get(f'aws_ecr_repository.app["{key}"]')

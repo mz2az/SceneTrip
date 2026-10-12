@@ -189,6 +189,23 @@ class LifecycleTests(unittest.TestCase):
             if item["mode"] == "managed"
         }
         self.validate_identity_categories(actual, settings)
+        # 준비 단계(force_delete)가 실제 형상의 모든 앱 저장소를 덮어야 한다 — data_load 포함(MZ2AZ-414).
+        repositories = {
+            address
+            for address in actual
+            if address.startswith("aws_ecr_repository.app[")
+        }
+        self.assertEqual(
+            repositories,
+            {
+                f'aws_ecr_repository.app["{key}"]'
+                for key in ("scene_api", "trip_guide", "migration", "data_load")
+            },
+        )
+        self.assertEqual(
+            repositories,
+            {address for address in expected if address.startswith("aws_ecr_")},
+        )
         for address, attributes in expected.items():
             for key, value in attributes.items():
                 self.assertEqual(actual[address][key], value, f"{address}.{key}")

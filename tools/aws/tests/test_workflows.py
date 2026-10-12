@@ -52,11 +52,32 @@ class WorkflowSecurityTest(unittest.TestCase):
     def test_verify_is_an_explicit_read_only_workflow_operation(self):
         root = Path(os.environ["TEST_SRCDIR"]) / os.environ["TEST_WORKSPACE"]
         source = (root / ".github/workflows/aws-deploy.yml").read_text()
-        self.assertIn("options: [plan, apply, verify]", source)
+        self.assertIn("options: [plan, apply, verify, data-load]", source)
         self.assertIn(
             "if: inputs.operation == 'verify'\n        run: just aws-verify", source
         )
-        self.assertIn("if: always() && inputs.operation == 'apply'", source)
+        self.assertIn("if: always() && ", source)
+
+    def test_data_load_is_an_explicit_operation_with_credential_cleanup(self):
+        root = Path(os.environ["TEST_SRCDIR"]) / os.environ["TEST_WORKSPACE"]
+        source = (root / ".github/workflows/aws-deploy.yml").read_text()
+        _, deploy = source.split("  deploy:\n", 1)
+        self.assertIn(
+            "if: inputs.operation == 'data-load'\n"
+            '        run: just aws-data-load "$TARGET_ENVIRONMENT"',
+            deploy,
+        )
+        # 적재는 apply 단계에 끼어들지 않는다.
+        self.assertNotIn("aws-data-load", deploy.split("aws-apply", 1)[0])
+        cleanup = deploy.split("임시 DB 자격 증명 정리", 1)[1]
+        condition = cleanup.split("\n")[1]
+        self.assertIn("if: always() && ", condition)
+        self.assertIn("inputs.operation == 'apply'", condition)
+        self.assertIn("inputs.operation == 'data-load'", condition)
+        self.assertIn('just --yes aws-cleanup "$TARGET_ENVIRONMENT"', cleanup)
+        self.assertLess(
+            deploy.index("just aws-data-load"), deploy.index("just --yes aws-cleanup")
+        )
 
     def test_candidate_code_only_runs_after_trusted_preflight(self):
         root = Path(os.environ["TEST_SRCDIR"]) / os.environ["TEST_WORKSPACE"]

@@ -16,7 +16,7 @@ TAGGED_ADDRESSES = (
     r"aws_cloudwatch_log_group\.eks",
     r"aws_eks_cluster\.this",
     r"aws_eks_access_entry\.deployment",
-    r'aws_ecr_repository\.app\["(scene_api|trip_guide|migration)"\]',
+    r'aws_ecr_repository\.app\["(scene_api|trip_guide|migration|data_load)"\]',
     r'aws_secretsmanager_secret\.app\["(scene_api|trip_guide|database|auth)"\]',
 )
 
@@ -65,7 +65,8 @@ def validate_tagless(address, value, resources, settings):
         reference(value, "route_table_id", resources, "aws_route_table.")
         reference(value, "subnet_id", resources, "aws_subnet.")
     elif re.fullmatch(
-        r'aws_ecr_lifecycle_policy\.app\["(scene_api|trip_guide|migration)"\]', address
+        r'aws_ecr_lifecycle_policy\.app\["(scene_api|trip_guide|migration|data_load)"\]',
+        address,
     ):
         repository = resources.get(
             address.replace("aws_ecr_lifecycle_policy", "aws_ecr_repository"), {}

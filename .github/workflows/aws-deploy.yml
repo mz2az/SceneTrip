@@ -9,11 +9,11 @@ on:
         type: choice
         options: [dev, prd]
       operation:
-        description: 계획 검토·인프라 적용·기존 ALB 검증
+        description: 계획 검토·인프라 적용·기존 ALB 검증·데이터 적재
         required: true
         default: plan
         type: choice
-        options: [plan, apply, verify]
+        options: [plan, apply, verify, data-load]
       commit_sha:
         description: main에 포함된 배포 커밋의 40자리 SHA
         required: true
@@ -94,6 +94,11 @@ jobs:
       - name: 기존 ALB·DNS·HTTPS 읽기 전용 검증
         if: inputs.operation == 'verify'
         run: just aws-verify "$TARGET_ENVIRONMENT"
+      # 원격 데이터 적재(MZ2AZ-414). 배포가 끝난 환경에 이 커밋의 데이터를 넣는다 — 지우지 않는다. PRD 는 Environment 검토자 승인.
+      - name: 데이터 적재
+        id: load
+        if: inputs.operation == 'data-load'
+        run: just aws-data-load "$TARGET_ENVIRONMENT"
       - name: 임시 DB 자격 증명 정리
-        if: always() && inputs.operation == 'apply' && steps.deploy.outcome != 'skipped'
+        if: always() && ((inputs.operation == 'apply' && steps.deploy.outcome != 'skipped') || (inputs.operation == 'data-load' && steps.load.outcome != 'skipped'))
         run: just --yes aws-cleanup "$TARGET_ENVIRONMENT"

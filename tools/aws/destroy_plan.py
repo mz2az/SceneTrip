@@ -7,6 +7,7 @@ from tools.aws.config import matched
 PREPARATION_ADDRESSES = (
     "aws_db_instance.postgres",
     "aws_eks_cluster.this",
+    'aws_ecr_repository.app["data_load"]',
     'aws_ecr_repository.app["migration"]',
     'aws_ecr_repository.app["scene_api"]',
     'aws_ecr_repository.app["trip_guide"]',

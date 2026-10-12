@@ -1,5 +1,5 @@
 locals {
-  repositories = { scene_api = "scene-api", trip_guide = "trip-guide", migration = "migration" }
+  repositories = { scene_api = "scene-api", trip_guide = "trip-guide", migration = "migration", data_load = "data-load" }
   app_secret_descriptions = {
     scene_api  = "SceneTrip 외부 API 인증정보"
     trip_guide = "Trip Guide 모델 API 인증정보"

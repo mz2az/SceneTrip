@@ -2,6 +2,7 @@
 
 import json
 import unittest
+import unittest.mock
 
 from tools.aws.lifecycle import (
     Cloudflare,
@@ -219,7 +220,7 @@ class LifecycleTest(unittest.TestCase):
 
     def test_up_points_dns_before_deploy_finishes_and_requires_success(self):
         aws = FakeAws()
-        github = FakeGitHub(conclusions=["success"])
+        github = FakeGitHub(conclusions=["success", "success"])
         cloudflare = FakeCloudflare()
         up(aws, github_for(github), cloudflare, TARGET)
         self.assertEqual(
@@ -232,7 +233,15 @@ class LifecycleTest(unittest.TestCase):
                         "operation": "apply",
                         "commit_sha": "a" * 40,
                     },
-                )
+                ),
+                (
+                    "aws-deploy.yml",
+                    {
+                        "environment": "dev",
+                        "operation": "data-load",
+                        "commit_sha": "a" * 40,
+                    },
+                ),
             ],
         )
         # 첫 폴링(in_progress) 동안 DNS 가 먼저 바뀐다.
@@ -249,6 +258,36 @@ class LifecycleTest(unittest.TestCase):
         failed = FakeGitHub(conclusions=["failure"])
         with self.assertRaisesRegex(RuntimeError, "배포 실패"):
             up(FakeAws(), github_for(failed), FakeCloudflare(), TARGET)
+        # 배포가 실패하면 데이터 적재를 부르지 않는다.
+        self.assertEqual(
+            [inputs["operation"] for _, inputs in failed.dispatched], ["apply"]
+        )
+
+    def test_up_requires_data_load_success_before_reporting_done(self):
+        github = FakeGitHub(conclusions=["success", "failure"])
+        with (
+            self.assertRaisesRegex(RuntimeError, "데이터 적재"),
+            unittest.mock.patch("builtins.print") as printed,
+        ):
+            up(FakeAws(), github_for(github), FakeCloudflare(), TARGET)
+        self.assertEqual(
+            [inputs["operation"] for _, inputs in github.dispatched],
+            ["apply", "data-load"],
+        )
+        self.assertFalse(
+            any("올리기 완료" in str(call) for call in printed.call_args_list)
+        )
+
+    def test_up_loads_data_only_after_dns_points_at_alb(self):
+        # ALB 를 끝내 못 찾으면 DNS 가 안 바뀌었으므로 적재도 하지 않는다.
+        github = FakeGitHub(conclusions=["success", "success"])
+        cloudflare = FakeCloudflare()
+        with self.assertRaisesRegex(RuntimeError, "ALB"):
+            up(FakeAws(alb_after=100), github_for(github), cloudflare, TARGET)
+        self.assertEqual(cloudflare.pointed, [])
+        self.assertEqual(
+            [inputs["operation"] for _, inputs in github.dispatched], ["apply"]
+        )
 
     def test_down_plans_then_destroys_and_retries_once(self):
         github = FakeGitHub(conclusions=["success", "failure", "success"])
