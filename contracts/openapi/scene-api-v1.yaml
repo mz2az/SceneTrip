@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.11.0
+  version: 1.12.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -3565,6 +3565,15 @@ components:
           type: string
           nullable: true
           format: uri
+        producerUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: |
+            작품 제작사(원저작권자)의 작품 페이지(1.12.0). **포스터를 누르면 여기로 보낸다** — 법률 멘토와 정한 규칙
+            (2026-09-23): 포스터는 플랫폼이 올린 이미지를 주소 그대로 쓰고, 누르면 원저작권자에게 간다. 제작사에 사이트가
+            없으면 함께 크레디트된 모회사·공동제작사의 작품 페이지다. `http://` 주소가 있다 — 앱 안 웹뷰가 아니라 **외부
+            브라우저**로 연다. 없으면 null(포스터를 눌러도 아무 일 없음).
         broadcaster:
           type: string
           nullable: true
@@ -3628,6 +3637,15 @@ components:
           type: string
           nullable: true
           format: uri
+        producerUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: |
+            작품 제작사(원저작권자)의 작품 페이지(1.12.0). **포스터를 누르면 여기로 보낸다** — 법률 멘토와 정한 규칙
+            (2026-09-23): 포스터는 플랫폼이 올린 이미지를 주소 그대로 쓰고, 누르면 원저작권자에게 간다. 제작사에 사이트가
+            없으면 함께 크레디트된 모회사·공동제작사의 작품 페이지다. `http://` 주소가 있다 — 앱 안 웹뷰가 아니라 **외부
+            브라우저**로 연다. 없으면 null(포스터를 눌러도 아무 일 없음).
 
     PlaceList:
       type: object
@@ -4020,6 +4038,15 @@ components:
           nullable: true
           format: uri
           description: 작품 포스터. 장면 사진이 아니다 — 그쪽은 `sceneImageUrl`.
+        producerUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: |
+            작품 제작사(원저작권자)의 작품 페이지(1.12.0). **포스터를 누르면 여기로 보낸다** — 법률 멘토와 정한 규칙
+            (2026-09-23): 포스터는 플랫폼이 올린 이미지를 주소 그대로 쓰고, 누르면 원저작권자에게 간다. 제작사에 사이트가
+            없으면 함께 크레디트된 모회사·공동제작사의 작품 페이지다. `http://` 주소가 있다 — 앱 안 웹뷰가 아니라 **외부
+            브라우저**로 연다. 없으면 null(포스터를 눌러도 아무 일 없음).
         sceneDescription:
           type: string
           nullable: true
