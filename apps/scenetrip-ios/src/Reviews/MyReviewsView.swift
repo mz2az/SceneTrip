@@ -3,7 +3,7 @@ import SwiftUI
 
 /// 내 리뷰 (MZ2AZ-363) — 내가 쓴 리뷰 전부. 촬영지와 편의시설이 섞여 최신순으로 온다(`GET /me/reviews`).
 ///
-/// 줄을 누르면 그 대상의 리뷰 시트가 열린다 — 고치기·지우기는 거기서 한다.
+/// 줄을 누르면 그 대상의 상세가 열린다. 고치기·지우기는 별도 단추로 바로 연다.
 struct MyReviewsView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var auth = AuthStore.shared
@@ -13,6 +13,7 @@ struct MyReviewsView: View {
     @State private var moreFailed = false
     @State private var generation = 0
     @State private var opening: MyReview?
+    @State private var editing: MyReview?
     /// 편의시설의 앱 언어 이름 (MZ2AZ-367). 서버(`target.name`)는 편의시설을 한국어 원본으로만 준다 —
     /// 영어 화면에서는 줄이 보일 때 상세를 한 번 물어 카드와 같은 이름으로 바꾼다. 못 받으면 원본 그대로.
     @State private var poiNames: [Int64: PoiLabel] = [:]
@@ -55,7 +56,10 @@ struct MyReviewsView: View {
                 dismiss()
             }
         }
-        .sheet(item: $opening) { review in
+        .fullScreenCover(item: $opening) { review in
+            MyReviewDetailView(target: review.target)
+        }
+        .sheet(item: $editing) { review in
             ReviewsSheet(subject: MyReviewRules.subject(of: review.target), title: heading(of: review.target)) {
                 // 거기서 고치거나 지웠다 — 내 목록도 다시 읽는다.
                 Task { await reload() }
@@ -111,7 +115,10 @@ struct MyReviewsView: View {
                     }
                     .buttonStyle(.plain)
                     .task(id: review.target.id) { await lookUpName(of: review.target) }
-                    // 사진은 줄의 단추 밖에 둔다 — 줄을 누르면 그 대상의 리뷰로, 사진을 누르면 크게 보기로 간다.
+                    Button(tr("내 리뷰 고치기·지우기")) { editing = review }
+                        .font(.caption).frame(minHeight: 44)
+                        .padding(.horizontal, 16)
+                    // 사진은 줄의 단추 밖에 둔다 — 줄은 대상 상세로, 사진은 크게 보기로 간다.
                     if !review.photos.isEmpty {
                         ReviewPhotoThumbs(photos: review.photos, size: 64)
                             .padding(.horizontal, 16).padding(.bottom, 14)

@@ -9,9 +9,9 @@
 
 ## 0. 막는 것 두 가지
 
-1. **iOS 앱에 애플 로그인이 없다.** 서버는 끝났다(MZ2AZ-337). 앱은 구글만 있다 — `apps/scenetrip-ios/README.md` 「애플 로그인은
-   자리만」, `src/Auth/` 에 `GoogleOAuth.swift` 뿐. App Store 4.8 은 구글 로그인을 내면 애플 로그인도 요구한다 — **이대로는
-   심사에서 떨어진다.**
+1. **Apple 인증 설정·실기기 검증이 남았다.** iOS 네이티브 Apple 로그인은 MZ2AZ-415 / PR #235로
+   main에 들어왔다. 10/12 로컬 서버는 Apple 개인 키·토큰 암호화 키가 없어 `/auth/apple`이 501을
+   반환한다. 개발자 팀의 `.p8` 공급·DEV 설정·실기기 가입/재로그인/탈퇴를 확인해야 한다.
 2. **구글 동의 화면이 「테스트」 다** — 등록한 테스트 사용자(최대 100 명)만 가입한다. 「프로덕션」 전환에는 구글 심사가 있고
    **개인정보 처리방침 URL** 이 필요한데 처리방침이 아직 없다.
 
@@ -38,7 +38,7 @@ RDS 삭제 보호·Multi-AZ·백업 14 일은 Terraform 이 PRD 에 이미 켠�
 
 | 할 일 | 담당 | 상태 |
 | --- | --- | --- |
-| **iOS 애플 로그인 화면**(서버 `POST /auth/apple` 은 있음) | 승길 | 안 함 — 새 티켓 |
+| **iOS 애플 로그인 화면**(서버 `POST /auth/apple` 은 있음) | 승길 | PR #235로 main 반영. `.p8`·서명·실기기 인증 검증은 남음(MZ2AZ-415) |
 | 실기기 서명 — entitlements 의 임시 팀 ID `SIM0000000` → `$(AppIdentifierPrefix)`, 버전·빌드 번호 | 승길 | 안 함 |
 | PRD 주소로 빌드(`just mobile-build-cloud`), TestFlight·Play 내부 테스트 | 승길 | 안 함 |
 | Play 앱 서명 키 SHA-1 을 Android OAuth 클라이언트로 등록 | 사람(구글 콘솔) | 안 함 |

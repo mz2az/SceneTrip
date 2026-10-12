@@ -11,6 +11,7 @@ typealias SceneItem = SceneApiClient.Scene
 /// 채운다. 상세에만 있는 것이 **작품별 장면**(`scenes`) 이라 그 절은 도착 후에 뜬다.
 struct PlaceDetailView: View {
     let summary: PlaceSummary
+    var sourceContentId: Int64?
     let load: (Int64) async throws -> PlaceDetail
     let onBack: () -> Void
 
@@ -18,6 +19,7 @@ struct PlaceDetailView: View {
     @Environment(\.openURL) private var openURL
     @State private var detail: PlaceDetail?
     @State private var scene: SceneItem?
+    @State private var viewingScene: SceneItem?
     /// 리뷰 시트 (MZ2AZ-363).
     @State private var reviewing: ReviewSubject?
     /// 대표 사진 자리에서 넘겨 보는 사진첩 — 우리 사진 뒤로 방문자 사진 (MZ2AZ-363).
@@ -73,6 +75,9 @@ struct PlaceDetailView: View {
             ScenePopup(scene: picked, placeName: summary.name)
                 .presentationDetents([.medium])
         }
+        .fullScreenCover(item: $viewingScene) { picked in
+            ScenePhotoViewer(scene: picked, placeName: summary.name)
+        }
         .reviewsSheet($reviewing, title: summary.name) {
             // 리뷰가 바뀌었다 — 별점 줄과 사진이 든 상세를 다시 읽는다.
             Task { await refresh() }
@@ -100,7 +105,7 @@ struct PlaceDetailView: View {
                     if saved {
                         await cart.remove(placeId: summary.id)
                     } else {
-                        await cart.add(placeId: summary.id)
+                        await cart.add(placeId: summary.id, sourceContentId: sourceContentId)
                     }
                 }
             } label: {
@@ -135,149 +140,11 @@ struct PlaceDetailView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(scenes, id: \.contentId) { item in
-                        Button { scene = item } label: { SceneCard(scene: item) }
-                            .buttonStyle(.plain)
+                        SceneCard(scene: item, onPhoto: { viewingScene = item }, onDetails: { scene = item })
                     }
                 }
             }
         }
-    }
-}
-
-/// 가로로 넘기는 장면 카드.
-///
-/// **장면 스틸을 쓴다** (`sceneImageUrl`). 한동안 포스터로 대신했는데, 그러면 한 작품의
-/// 장면이 여럿일 때 카드가 전부 같은 그림이 됐다 — "이 장면이 찍힌 곳" 을 보여 주는
-/// 것이 이 앱의 핵심이라 포스터로는 대체가 안 된다.
-///
-/// 장면 이미지가 없으면 이미지 영역을 비운다. 작품 포스터를 장면 사진으로 오해하지 않게 한다(MZ2AZ-394).
-struct SceneCard: View {
-    let scene: SceneItem
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SceneImage(url: scene.sceneImageUrl)
-                .frame(width: 190, height: 110)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(scene.contentTitle)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(Color.accentColor)
-                Text(scene.sceneDescription ?? tr("장면 설명이 아직 없습니다"))
-                    .font(.subheadline)
-                    .foregroundStyle(scene.sceneDescription == nil ? .secondary : .primary)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                HStack {
-                    Spacer()
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .font(.caption2).foregroundStyle(.tertiary)
-                }
-            }
-            .padding(10)
-            .frame(height: 96, alignment: .top)
-        }
-        .frame(width: 190)
-        .background(Color(.systemBackground))
-        .clipShape(.rect(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12).stroke(Color(.systemGray5))
-        )
-    }
-}
-
-/// 장면 전용 이미지. 연결되지 않은 주소·로컬 경로·다운로드 실패는 빈 영역으로 둔다(MZ2AZ-394).
-private struct SceneImage: View {
-    let url: String?
-
-    private var remoteURL: URL? {
-        guard let url, let parsed = URL(string: url.trimmingCharacters(in: .whitespacesAndNewlines)),
-              let scheme = parsed.scheme?.lowercased(), ["http", "https"].contains(scheme),
-              let host = parsed.host, !host.isEmpty
-        else { return nil }
-        return parsed
-    }
-
-    var body: some View {
-        Color.clear
-            .overlay {
-                if let remoteURL {
-                    AsyncImage(url: remoteURL) { phase in
-                        if let image = phase.image {
-                            image.resizable().scaledToFill()
-                        } else {
-                            Color.clear
-                        }
-                    }
-                }
-            }
-            .clipped()
-    }
-}
-
-/// 장면 팝업. 카드에서 두 줄로 잘린 설명의 전문을 본다.
-///
-/// **담기 버튼을 두지 않는다.** 베타에는 있었으나 잘못된 설계였다 — 장바구니에 담기는
-/// 단위는 **장소**인데(계약의 `CartItemCreate` 가 `placeId` 를 받는다), 장면 팝업은
-/// "이 장소에서 어느 작품의 어떤 장면을 찍었나" 를 보는 자리다. 거기서 담으면
-/// 사용자는 장면을 담는다고 생각하는데 실제로는 장소가 담긴다.
-///
-/// 담는 자리는 이미 둘 있다 — 장소 목록 행의 `+`, 장소 상세의 저장 버튼. 둘 다
-/// 장소를 다루는 자리다.
-struct ScenePopup: View {
-    let scene: SceneItem
-    let placeName: String
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                SceneImage(url: scene.sceneImageUrl)
-                    .frame(height: 200)
-                    .frame(maxWidth: .infinity)
-                    .clipShape(.rect(cornerRadius: 12))
-                    // 닫기는 아래로 끌어내리는 것뿐이었다. 그 동작을 아는 사용자만
-                    // 팝업을 닫을 수 있다.
-                    //
-                    // 이미지 영역 **위에** 겹친다. 이미지가 팝업 맨 위를 꽉 채우고 있어
-                    // 바깥 여백에 두면 버튼 하나 때문에 위쪽이 벌어진다.
-                    //
-                    // 원 배경을 까는 이유: 장면 이미지는 밝기가 제각각이라
-                    // 선 아이콘만 두면 밝은 이미지에서 보이지 않는다.
-                    .overlay(alignment: .topTrailing) { closeButton }
-
-                Text(scene.contentTitle)
-                    .font(.caption.weight(.bold))
-                    .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(Capsule().fill(Color.accentColor.opacity(0.15)))
-                    .foregroundStyle(Color.accentColor)
-
-                Text(placeName).font(.headline)
-
-                if let description = scene.sceneDescription {
-                    Text(description).font(.subheadline)
-                }
-            }
-            .padding(18)
-        }
-    }
-
-    /// 보이는 원은 28pt 인데 누를 수 있는 자리는 44pt 다. 애플이 권하는 최소
-    /// 터치 크기가 44pt 이고, 그보다 작으면 손가락이 자꾸 빗나간다.
-    private var closeButton: some View {
-        Button {
-            dismiss()
-        } label: {
-            Image(systemName: "xmark")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(.black.opacity(0.45)))
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel("닫기")
     }
 }
 

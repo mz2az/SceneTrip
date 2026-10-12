@@ -180,7 +180,7 @@ struct LikedWorksSheet: View {
             }
         } label: {
             HStack(spacing: 10) {
-                RemoteImage(url: work.posterUrl, symbol: "film")
+                RemoteImage(url: work.posterUrl, symbol: "film", fits: true)
                     .frame(width: 34, height: 46)
                     .clipShape(.rect(cornerRadius: 5))
                 VStack(alignment: .leading, spacing: 2) {

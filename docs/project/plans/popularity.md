@@ -169,7 +169,9 @@ erDiagram
    돌려 보기). 시험은 새 컨텍스트가 명세로
 4. **로컬에서 실제로** — 시험 사용자로 조회·하트·코스를 만들고 `just popularity-recompute` 뒤 순서가 바뀌는지
 5. ~~데이터 담당자 CSV 가 오면 작품 인기도를 적재~~ — **2026-10-12 판의 `title_famous_rank`(작품 순위 1~128)를 `100 × (n + 1 − 순위) / n` 으로 `content.popularity_seed` 에 넣었다.** 같은 판의 `place_total_score`(장소별 산정 점수 합)는 케데헌으로 쏠려 받기만 한다
-6. 앱이 정렬을 바꾼다 — 홈 「지금 뜨는 작품」 이 지금은 **촬영지 수 순**이다. 인기순(같으면 촬영지 수)으로(catalog-scale.md §6)
+6. iOS 홈 「지금 뜨는 작품」은 MZ2AZ-411 후속으로 서버 인기순 첫 20편을 그대로 표시한다.
+   앱에서 촬영지 수로 다시 정렬하지 않는다. Android 반영은 별도 담당 세션에서 확인한다
+   ([ios-front-completion.md](ios-front-completion.md)).
 
 ## 10. 하지 않는 것
 

@@ -62,35 +62,59 @@ struct ContentDetailView: View {
             }
         }
         .task(id: summary.id) {
+            detail = nil
             AppAnalytics.log(.viewTitle(contentId: summary.id))
             UsageEvents.view(.content, id: summary.id)
-            detail = try? await ContentsAPI.getContent(contentId: summary.id)
+            guard let fresh = try? await ContentsAPI.getContent(contentId: summary.id),
+                  !Task.isCancelled, fresh.id == summary.id else { return }
+            detail = fresh
         }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 14) {
-                RemoteImage(url: summary.posterUrl, symbol: "film")
-                    .frame(width: 92, height: 124)
-                    .clipShape(.rect(cornerRadius: 8))
-
-                VStack(alignment: .leading, spacing: 6) {
+            poster.frame(maxWidth: .infinity, alignment: .center)
+            VStack(alignment: .leading, spacing: 6) {
+                if !meta.isEmpty {
                     Text(meta).font(.subheadline).foregroundStyle(.secondary)
-                    if !castLine.isEmpty {
-                        Text(castLine).font(.caption).foregroundStyle(.secondary)
-                    }
-                    // 별칭(`Goblin · Guardian: The Lonely and Great God · 쓸…`)은
-                    // 빼 둔다. 한 줄에 담기지 않아 늘 뒤가 잘렸고, **잘린 별칭은
-                    // 아무 값도 하지 않는다** — 사용자가 그 이름으로 찾아 들어온
-                    // 뒤라 이미 아는 정보이기 때문이다. 검색에는 그대로 쓰인다.
                 }
+                if !castLine.isEmpty {
+                    Text(castLine).font(.caption).foregroundStyle(.secondary)
+                }
+                // 별칭(`Goblin · Guardian: The Lonely and Great God · 쓸…`)은
+                // 빼 둔다. 한 줄에 담기지 않아 늘 뒤가 잘렸고, **잘린 별칭은
+                // 아무 값도 하지 않는다** — 사용자가 그 이름으로 찾아 들어온
+                // 뒤라 이미 아는 정보이기 때문이다. 검색에는 그대로 쓰인다.
             }
             if let description = detail?.description, !description.isEmpty {
                 Text(description)
                     .font(.caption).foregroundStyle(.secondary).lineLimit(3)
             }
         }
+    }
+
+    @ViewBuilder private var poster: some View {
+        if let url = ProducerLink.destination(summary: summary, detail: detail) {
+            Link(destination: url) {
+                posterImage.overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "arrow.up.right.square")
+                        .font(.caption.weight(.semibold)).padding(6)
+                        .background(.regularMaterial, in: Circle()).padding(6)
+                }
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel(String(format: tr("%@ 제작사 홈페이지 열기"), summary.title))
+            .accessibilityHint(tr("외부 브라우저에서 열립니다"))
+        } else {
+            posterImage
+        }
+    }
+
+    private var posterImage: some View {
+        RemoteImage(url: summary.posterUrl, symbol: "film", fits: true)
+            .frame(height: 176, alignment: .center)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .clipShape(.rect(cornerRadius: 8))
     }
 
     @ViewBuilder private var placeList: some View {

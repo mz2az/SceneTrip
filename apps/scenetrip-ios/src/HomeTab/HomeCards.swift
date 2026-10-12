@@ -213,7 +213,7 @@ struct HomeTripCard: View {
     }
 }
 
-/// **지금 뜨는 작품** — 포스터 가로 스크롤, 촬영지 많은 순.
+/// **지금 뜨는 작품** — 서버 인기순 첫 20편의 포스터 가로 스크롤.
 struct HomeWorkShelf: View {
     let works: [ContentSummary]
     let failed: Bool
@@ -223,7 +223,7 @@ struct HomeWorkShelf: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HomeSectionHeader(
-                title: tr("지금 뜨는 작품"), subtitle: tr("촬영지가 많은 순"), action: tr("전체 보기"), onAction: onAll
+                title: tr("지금 뜨는 작품"), subtitle: tr("인기순"), action: tr("전체 보기"), onAction: onAll
             )
             if failed {
                 Text("작품을 불러오지 못했습니다 — 백엔드(:8081)가 켜져 있나요?")
@@ -249,13 +249,9 @@ struct HomeWorkShelf: View {
                     .fill(LinearGradient(colors: [Color(PinImage.deep).opacity(0.7), Color(PinImage.deep)],
                                          startPoint: .topLeading, endPoint: .bottomTrailing))
                 if let url = work.posterUrl.flatMap(URL.init(string:)) {
-                    AsyncImage(url: url) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        Color.clear
-                    }
-                    .frame(width: 108, height: 144)
-                    .clipped()
+                    RemoteImage(url: url.absoluteString, symbol: "film", fits: true)
+                        .frame(width: 108, height: 144)
+                        .clipped()
                 }
                 LinearGradient(colors: [.clear, .black.opacity(0.65)], startPoint: .center, endPoint: .bottom)
                 Text(work.title)
