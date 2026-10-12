@@ -10,7 +10,7 @@
 
 ## 1. 계정과 외부 입력 준비
 
-DEV와 PRD를 분리된 AWS 계정으로 준비하는 것을 권장한다. 다음 표를 환경별로
+DEV와 PRD를 분리된 AWS 계정으로 준비하는 것을 권장한다. **SceneTrip 은 같은 계정에 둔다**([ADR 0024](../architecture/adr/0024-prd-same-account-and-public.md)) — 환경은 `scenetrip-<env>` 이름으로 나눈다. 다음 표를 환경별로
 확정한다. 예제의 문서용 주소·ARN을 실제 값으로 착각하지 않는다.
 
 | 입력 | 누가 준비하는가 | 확인할 내용 |
