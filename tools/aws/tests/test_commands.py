@@ -370,7 +370,13 @@ class FirstDeployEmptyStateTest(unittest.TestCase):
         from tools.aws.aws import managed_addresses
 
         original = RuntimeError("state list exploded")
-        real_state = json.dumps({"version": 4, "serial": 3, "resources": []})
+        real_state = json.dumps(
+            {
+                "version": 4,
+                "serial": 3,
+                "resources": [{"mode": "managed", "type": "aws_vpc", "name": "this"}],
+            }
+        )
         run = self.fake(original, real_state, {"scene-api": {"Tags": self.owned}})
         with self.assertRaises(RuntimeError) as caught:
             managed_addresses(run, Path("."))
@@ -401,3 +407,137 @@ class FirstDeployEmptyStateTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.adopt(run)
         self.assertEqual(self.imports(run), [])
+
+    def test_state_list_calls_run_quietly_in_directory(self):
+        from pathlib import Path
+
+        from tools.aws.aws import managed_addresses
+
+        directory = Path("some/terraform/dir")
+        run = self.fake("module.vpc.aws_vpc.this", AssertionError("pull 금지"), {})
+        self.assertEqual(
+            set(managed_addresses(run, directory)), {"module.vpc.aws_vpc.this"}
+        )
+        self.assertEqual(self.commands(run), [["terraform", "state", "list"]])
+        self.assertEqual(run.call_args.kwargs, {"quiet": True, "cwd": directory})
+
+    def test_list_failure_pull_uses_same_options(self):
+        from pathlib import Path
+
+        from tools.aws.aws import managed_addresses
+
+        directory = Path("some/terraform/dir")
+        run = self.fake(RuntimeError("No state file was found!"), "", {})
+        self.assertEqual(set(managed_addresses(run, directory)), set())
+        self.assertEqual(
+            self.commands(run),
+            [["terraform", "state", "list"], ["terraform", "state", "pull"]],
+        )
+        for call in run.call_args_list:
+            self.assertEqual(call.kwargs, {"quiet": True, "cwd": directory})
+
+    def test_missing_state_file_with_terraform_113_empty_json_is_empty_set(self):
+        from pathlib import Path
+
+        from tools.aws.aws import managed_addresses
+
+        pulled = json.dumps(
+            {
+                "version": 4,
+                "terraform_version": "1.13.5",
+                "serial": 0,
+                "lineage": "",
+                "outputs": {},
+                "resources": [],
+                "check_results": None,
+            }
+        )
+        for output in (pulled, pulled + "\n", "\n  " + pulled + "\n\n"):
+            with self.subTest(output=repr(output)):
+                run = self.fake(RuntimeError("No state file was found!"), output, {})
+                self.assertEqual(set(managed_addresses(run, Path("."))), set())
+
+    def test_first_deploy_with_terraform_113_empty_json_imports_owned_secret(self):
+        pulled = json.dumps(
+            {
+                "version": 4,
+                "terraform_version": "1.13.5",
+                "serial": 0,
+                "lineage": "",
+                "outputs": {},
+                "resources": [],
+                "check_results": None,
+            }
+        )
+        run = self.fake(
+            RuntimeError("No state file was found!"),
+            pulled,
+            {"scene-api": {"Tags": self.owned}},
+        )
+        self.adopt(run)
+        self.assertEqual(
+            [c[-2] for c in self.imports(run)],
+            ['aws_secretsmanager_secret.app["scene_api"]'],
+        )
+
+    def test_list_failure_with_nonempty_resources_reraises_original(self):
+        from pathlib import Path
+
+        from tools.aws.aws import managed_addresses
+
+        original = RuntimeError("state list exploded")
+        pulled = json.dumps(
+            {
+                "version": 4,
+                "serial": 7,
+                "lineage": "abc",
+                "resources": [
+                    {
+                        "mode": "managed",
+                        "type": "aws_vpc",
+                        "name": "this",
+                        "instances": [],
+                    }
+                ],
+            }
+        )
+        run = self.fake(original, pulled, {})
+        with self.assertRaises(RuntimeError) as caught:
+            managed_addresses(run, Path("."))
+        self.assertIs(caught.exception, original)
+
+    def test_list_failure_with_json_missing_resources_raises(self):
+        from pathlib import Path
+
+        from tools.aws.aws import managed_addresses
+
+        for pulled in (
+            json.dumps({"version": 4, "serial": 0}),
+            json.dumps({}),
+        ):
+            with self.subTest(pulled=pulled):
+                run = self.fake(RuntimeError("No state file was found!"), pulled, {})
+                with self.assertRaises(RuntimeError):
+                    managed_addresses(run, Path("."))
+
+    def test_list_failure_with_non_object_json_raises(self):
+        from pathlib import Path
+
+        from tools.aws.aws import managed_addresses
+
+        for pulled in ("[]", json.dumps([{"resources": []}]), "42", '"text"', "null"):
+            with self.subTest(pulled=pulled):
+                run = self.fake(RuntimeError("No state file was found!"), pulled, {})
+                with self.assertRaises(RuntimeError):
+                    managed_addresses(run, Path("."))
+
+    def test_list_failure_with_invalid_json_raises(self):
+        from pathlib import Path
+
+        from tools.aws.aws import managed_addresses
+
+        for pulled in ("not json", "{", '{"resources": [}', "No state file was found!"):
+            with self.subTest(pulled=pulled):
+                run = self.fake(RuntimeError("No state file was found!"), pulled, {})
+                with self.assertRaises(RuntimeError):
+                    managed_addresses(run, Path("."))

@@ -161,7 +161,10 @@ def managed_addresses(run, directory):
 
     `terraform state list` 는 state 파일이 없으면 「No state file was found」 로 실패한다. DEV 는 내려도 빈
     state 가 남아 드러나지 않았고, PRD 첫 배포가 여기서 멈췄다(2026-10-13). 실패하면 `state pull` 로 정말 비었는지
-    확인하고(빈 출력), 아니면 그대로 실패시킨다 — 다른 이유의 실패를 「관리하는 것 없음」 으로 덮지 않는다.
+    확인하고, 아니면 그대로 실패시킨다 — 다른 이유의 실패를 「관리하는 것 없음」 으로 덮지 않는다.
+
+    state 가 없을 때 `state pull` 은 빈 출력이 아니라 **자원 목록이 빈 state JSON**(`"resources": []`)을 낸다
+    (terraform 1.13, S3 백엔드 실측 2026-10-13).
     """
     try:
         return set(
@@ -169,9 +172,15 @@ def managed_addresses(run, directory):
         )
     except RuntimeError:
         pulled = run(["terraform", "state", "pull"], quiet=True, cwd=directory)
-        if pulled.strip():
-            raise
-        return set()
+        if not pulled.strip():
+            return set()
+        try:
+            state = json.loads(pulled)
+        except json.JSONDecodeError:
+            raise RuntimeError("terraform state pull 결과를 읽을 수 없습니다") from None
+        if isinstance(state, dict) and state.get("resources") == []:
+            return set()
+        raise
 
 
 def adopt_retained_secrets(run, settings, directory, var_file):
