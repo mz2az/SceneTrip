@@ -73,6 +73,7 @@ py_test(
         "tests/test_apple_secret.py",
         "tests/test_auth_secret.py",
         "tests/test_aws.py",
+        "tests/test_bedrock_role.py",
         "tests/test_bootstrap_delete.py",
         "tests/test_bootstrap_state.py",
         "tests/test_boundaries.py",

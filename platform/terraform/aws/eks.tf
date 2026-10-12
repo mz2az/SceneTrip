@@ -92,3 +92,16 @@ resource "aws_eks_pod_identity_association" "scene_api_media" {
   service_account = "scene-api"
   role_arn        = data.aws_iam_role.media.arn
 }
+
+# trip-guide 파드가 Bedrock 모델을 부르는 역할 — 고정 IAM 사용자 키 대신(MZ2AZ-317, bedrock-iam-role.md).
+# 역할은 bootstrap 이 만들고(모델 하나만 호출), 여기서는 trip-guide 서비스 계정에 잇기만 한다.
+data "aws_iam_role" "bedrock" {
+  name = "${local.name}-bedrock"
+}
+
+resource "aws_eks_pod_identity_association" "trip_guide_bedrock" {
+  cluster_name    = aws_eks_cluster.this.name
+  namespace       = "scenetrip"
+  service_account = "trip-guide"
+  role_arn        = data.aws_iam_role.bedrock.arn
+}

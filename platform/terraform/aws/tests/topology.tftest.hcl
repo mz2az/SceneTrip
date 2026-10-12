@@ -340,3 +340,45 @@ run "prd_media_names_follow_environment" {
     error_message = "PRD 버킷 이름은 환경 접미사 prd 를 가져야 합니다."
   }
 }
+
+# --- trip-guide 의 Bedrock 역할(MZ2AZ-317, docs/project/plans/bedrock-iam-role.md) ----------
+# 역할은 bootstrap 이 만든다. Terraform 은 trip-guide 서비스 계정을 그 역할에 잇기만 한다.
+run "trip_guide_bedrock_pod_identity" {
+  command = plan
+  override_data {
+    target = data.aws_iam_role.bedrock
+    values = {
+      arn = "arn:aws:iam::111122223333:role/scenetrip-dev-bedrock"
+    }
+  }
+  assert {
+    condition     = data.aws_iam_role.bedrock.name == "scenetrip-dev-bedrock"
+    error_message = "Pod Identity 는 그 환경의 -bedrock 역할(scenetrip-<env>-bedrock)을 찾아야 합니다."
+  }
+  assert {
+    condition = (
+      aws_eks_pod_identity_association.trip_guide_bedrock.cluster_name == aws_eks_cluster.this.name &&
+      aws_eks_pod_identity_association.trip_guide_bedrock.namespace == "scenetrip" &&
+      aws_eks_pod_identity_association.trip_guide_bedrock.service_account == "trip-guide" &&
+      aws_eks_pod_identity_association.trip_guide_bedrock.role_arn == "arn:aws:iam::111122223333:role/scenetrip-dev-bedrock"
+    )
+    error_message = "scenetrip 네임스페이스의 trip-guide 서비스 계정만 -bedrock 역할에 이어야 합니다."
+  }
+  assert {
+    condition     = aws_eks_pod_identity_association.scene_api_media.service_account == "scene-api"
+    error_message = "Bedrock 연결이 scene-api 의 사진 버킷 연결을 바꾸면 안 됩니다."
+  }
+}
+
+run "prd_bedrock_role_follows_environment" {
+  command = plan
+  variables {
+    environment        = "prd"
+    availability_zones = ["ap-northeast-2a", "ap-northeast-2b", "ap-northeast-2c"]
+    vpc_cidr           = "10.50.0.0/16"
+  }
+  assert {
+    condition     = data.aws_iam_role.bedrock.name == "scenetrip-prd-bedrock"
+    error_message = "PRD 는 PRD 의 -bedrock 역할을 써야 합니다."
+  }
+}

@@ -551,21 +551,73 @@ class InfrastructureBoundaryTest(unittest.TestCase):
 
     def test_deployer_passes_and_reads_only_environment_roles(self):
         media = "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-media"
+        bedrock = "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-bedrock"
         allowed = {
             "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-cluster",
             "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-node",
             media,
+            bedrock,
         }
         passing = [s for s in self.statements if "iam:PassRole" in s["Action"]]
         self.assertEqual(len(passing), 1)
-        passed = {r["Fn::Sub"] for r in passing[0]["Resource"]}
-        self.assertEqual(passed, allowed)
-        services = passing[0]["Condition"]["StringEquals"]["iam:PassedToService"]
-        self.assertIn("pods.eks.amazonaws.com", services)
-        # Terraform 의 data "aws_iam_role" "media" 가 역할을 읽는다
+        self.assertEqual(passing[0]["Action"], ["iam:PassRole"])
+        # PassRole 은 역할 이름을 하나하나 — 와일드카드로 넓히지 않는다
+        self.assertIsInstance(passing[0]["Resource"], list)
+        passed = [r["Fn::Sub"] for r in passing[0]["Resource"]]
+        self.assertEqual(len(passed), len(set(passed)))
+        self.assertEqual(set(passed), allowed)
+        self.assertFalse(any("*" in arn for arn in passed), passed)
+        self.assertEqual(
+            passing[0]["Condition"],
+            {
+                "StringEquals": {
+                    "iam:PassedToService": [
+                        "eks.amazonaws.com",
+                        "ec2.amazonaws.com",
+                        "pods.eks.amazonaws.com",
+                    ]
+                }
+            },
+        )
+        # Terraform 의 data "aws_iam_role" "media"·"bedrock" 이 역할을 읽는다 — 읽기만, 이 환경의 역할만.
+        # 정책 크기 한도(10240) 때문에 역할을 나열하지 않고 환경 접두사 하나로 묶는다.
         reading = [s for s in self.statements if "iam:GetRole" in s["Action"]]
         self.assertEqual(len(reading), 1)
-        self.assertEqual({r["Fn::Sub"] for r in reading[0]["Resource"]}, allowed)
+        read = reading[0]
+        self.assertEqual(read["Sid"], "ReadClusterRoles")
+        self.assertEqual(read["Effect"], "Allow")
+        self.assertNotIn("Condition", read)
+        self.assertEqual(
+            set(read["Action"]),
+            {
+                "iam:GetRole",
+                "iam:ListRoleTags",
+                "iam:ListAttachedRolePolicies",
+                "iam:ListRolePolicies",
+                "iam:GetRolePolicy",
+            },
+        )
+        self.assertEqual(
+            read["Resource"],
+            {
+                "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-*"
+            },
+        )
+        # 환경 역할 와일드카드(scenetrip-${Environment}-*)는 이 읽기 문장에만 있다
+        for statement in self.statements:
+            if statement is read:
+                continue
+            resources = statement["Resource"]
+            resources = resources if isinstance(resources, list) else [resources]
+            for r in resources:
+                text = (
+                    r["Fn::Sub"] if isinstance(r, dict) and "Fn::Sub" in r else str(r)
+                )
+                with self.subTest(sid=statement.get("Sid"), resource=text):
+                    self.assertFalse(
+                        text.endswith(":role/scenetrip-${Environment}-*"),
+                        "환경 역할 와일드카드는 읽기 문장에만 허용한다",
+                    )
         # 배포 역할은 사진 버킷 자체에 손대지 않는다(파드의 역할만 쓴다)
         for statement in self.statements:
             resources = statement["Resource"]
@@ -605,6 +657,113 @@ class InfrastructureBoundaryTest(unittest.TestCase):
         self.assertRegex(
             outputs,
             r'output\s+"user_media_bucket"\s*\{\s*value\s*=\s*"scenetrip-user-media-\$\{var\.aws_account_id\}-\$\{var\.aws_region\}-\$\{var\.environment\}"',
+        )
+
+    # --- trip-guide 의 Bedrock 역할(MZ2AZ-317, docs/project/plans/bedrock-iam-role.md) ---
+
+    def _bedrock_role(self):
+        return self.template["Resources"]["BedrockRole"]["Properties"]
+
+    def test_bedrock_role_trusts_only_environment_pod_identity(self):
+        role = self._bedrock_role()
+        self.assertEqual(
+            role["RoleName"], {"Fn::Sub": "scenetrip-${Environment}-bedrock"}
+        )
+        trust = role["AssumeRolePolicyDocument"]["Statement"]
+        self.assertEqual(len(trust), 1)
+        # 사진 버킷 역할과 같은 모양 — 이 계정·이 환경의 클러스터의 Pod Identity 만
+        self.assertEqual(
+            trust, self._media_role()["AssumeRolePolicyDocument"]["Statement"]
+        )
+        statement = trust[0]
+        self.assertEqual(statement["Effect"], "Allow")
+        self.assertEqual(statement["Principal"], {"Service": "pods.eks.amazonaws.com"})
+        self.assertEqual(
+            sorted(statement["Action"]), ["sts:AssumeRole", "sts:TagSession"]
+        )
+        condition = statement["Condition"]
+        self.assertEqual(
+            condition["StringEquals"], {"aws:SourceAccount": {"Ref": "AWS::AccountId"}}
+        )
+        self.assertEqual(
+            condition["ArnEquals"],
+            {
+                "aws:SourceArn": {
+                    "Fn::Sub": "arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/scenetrip-${Environment}"
+                }
+            },
+        )
+        self.assertNotIn("StringLike", condition)
+        self.assertNotIn("ArnLike", condition)
+
+    def test_bedrock_role_invokes_only_the_configured_model(self):
+        config = json.loads((ROOT / "agents/trip-guide/config/model.json").read_text())
+        role = self._bedrock_role()
+        self.assertNotIn("ManagedPolicyArns", role)
+        self.assertNotIn("PermissionsBoundary", role)
+        statements = [
+            s
+            for policy in role["Policies"]
+            for s in policy["PolicyDocument"]["Statement"]
+        ]
+        self.assertTrue(statements)
+        actions = set()
+        resources = set()
+        for s in statements:
+            self.assertEqual(s["Effect"], "Allow")
+            self.assertNotIn("NotAction", s)
+            self.assertNotIn("NotResource", s)
+            items = s["Action"] if isinstance(s["Action"], list) else [s["Action"]]
+            actions.update(items)
+            targets = (
+                s["Resource"] if isinstance(s["Resource"], list) else [s["Resource"]]
+            )
+            for r in targets:
+                resources.add(r["Fn::Sub"] if isinstance(r, dict) else r)
+        self.assertEqual(
+            actions, {"bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"}
+        )
+        self.assertEqual(config["region"], "us-west-2")
+        self.assertEqual(
+            resources,
+            {
+                "arn:${AWS::Partition}:bedrock:"
+                + config["region"]
+                + "::foundation-model/"
+                + config["model"]
+            },
+        )
+
+    def test_bedrock_role_output(self):
+        self.assertEqual(
+            self.template["Outputs"]["BedrockRoleArn"]["Value"],
+            {"Fn::GetAtt": ["BedrockRole", "Arn"]},
+        )
+
+    def test_terraform_associates_trip_guide_service_account_with_bedrock_role(self):
+        source = (ROOT / "platform/terraform/aws/eks.tf").read_text()
+        data = re.search(
+            r'data\s+"aws_iam_role"\s+"bedrock"\s*\{(.*?)\n\}', source, re.DOTALL
+        )
+        self.assertIsNotNone(data)
+        self.assertRegex(data.group(1), r'name\s*=\s*"\$\{local\.name\}-bedrock"')
+        block = re.search(
+            r'resource\s+"aws_eks_pod_identity_association"\s+"trip_guide_bedrock"\s*\{(.*?)\n\}',
+            source,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(block)
+        body = block.group(1)
+        self.assertRegex(body, r'namespace\s*=\s*"scenetrip"')
+        self.assertRegex(body, r'service_account\s*=\s*"trip-guide"')
+        self.assertRegex(body, r"role_arn\s*=\s*data\.aws_iam_role\.bedrock\.arn")
+        self.assertRegex(body, r"cluster_name\s*=\s*aws_eks_cluster\.this\.name")
+        # 연결은 정확히 두 개 — scene-api↔media, trip-guide↔bedrock
+        associations = re.findall(
+            r'resource\s+"aws_eks_pod_identity_association"\s+"(\w+)"', source
+        )
+        self.assertEqual(
+            sorted(associations), ["scene_api_media", "trip_guide_bedrock"]
         )
 
     def test_examples_have_distinct_topology_and_no_real_account(self):

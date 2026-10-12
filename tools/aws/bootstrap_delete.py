@@ -39,6 +39,7 @@ def expected_resources(settings, bucket):
             f"scenetrip-user-media-{settings.account}-{settings.region}-{settings.environment}",
         ),
         "MediaRole": ("AWS::IAM::Role", f"scenetrip-{settings.environment}-media"),
+        "BedrockRole": ("AWS::IAM::Role", f"scenetrip-{settings.environment}-bedrock"),
     }
 
 

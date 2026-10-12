@@ -26,6 +26,9 @@ spec:
       # 사용자 사진 버킷 권한을 EKS Pod Identity 로 받는다 — Terraform 이 이 이름으로 역할을 잇는다
       # (platform/terraform/aws/eks.tf 의 scene_api_media). 쿠버네티스 API 토큰은 여전히 마운트하지 않는다.
       serviceAccountName: scene-api
+      {{- else if eq $name "trip-guide" }}
+      # Bedrock 호출 권한을 Pod Identity 로 받는다(eks.tf trip_guide_bedrock, MZ2AZ-317) — 고정 키 대신.
+      serviceAccountName: trip-guide
       {{- end }}
       nodeSelector:
         kubernetes.io/arch: amd64
@@ -143,5 +146,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: scene-api
+  namespace: {{ .Release.Namespace }}
+automountServiceAccountToken: false
+---
+# trip-guide 의 Bedrock 역할(Pod Identity, MZ2AZ-317). 쿠버네티스 API 토큰은 마운트하지 않는다.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: trip-guide
   namespace: {{ .Release.Namespace }}
 automountServiceAccountToken: false

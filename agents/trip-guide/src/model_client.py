@@ -8,6 +8,9 @@
 
 API 키는 환경변수에서만 읽는다. 설정 파일에는 **변수 이름**이 적혀 있지 키가
 적혀 있지 않다 — 저장소에 키가 들어가는 사고를 구조로 막는다.
+
+DEV·PRD 의 EKS 에서는 고정 키가 없다 — EKS Pod Identity 가 준 **임시 자격 증명**으로 서명한다(MZ2AZ-317,
+docs/project/plans/bedrock-iam-role.md). 로컬은 지금처럼 `.env` 의 키.
 """
 
 from __future__ import annotations
@@ -18,13 +21,14 @@ import hmac
 import json
 import os
 import re
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from .production import remaining_timeout
 
@@ -48,6 +52,89 @@ def _wait(seconds: float, budget: Callable[[], float] | None) -> bool:
 
 class ModelError(RuntimeError):
     """모델을 부르지 못했을 때. 조용히 넘어가지 않고 위로 던진다."""
+
+
+class Credentials(NamedTuple):
+    """SigV4 서명에 쓰는 AWS 자격 증명. 임시면 세션 토큰과 만료 시각(epoch 초)이 있다."""
+
+    access_key_id: str
+    secret: str
+    token: str = ""
+    expires: float | None = None
+
+
+# EKS Pod Identity 가 파드에 넣는 환경변수(AWS SDK 와 같은 이름). 에이전트 주소와, 그 주소에 보일 토큰 파일.
+POD_IDENTITY_URI_ENV = "AWS_CONTAINER_CREDENTIALS_FULL_URI"
+POD_IDENTITY_TOKEN_FILE_ENV = "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE"
+# 평문 HTTP 로 자격 증명을 받아도 되는 곳 — 노드의 Pod Identity 에이전트(EKS)·ECS 에이전트·자기 자신. SDK 와 같은 제한이다.
+_CREDENTIAL_HOSTS = {"169.254.170.23", "169.254.170.2", "127.0.0.1", "localhost"}
+# 만료 이만큼 전에 새로 받는다 — 서명한 요청이 가는 도중에 만료되지 않게.
+_REFRESH_BEFORE_SECONDS = 300
+
+
+class ContainerCredentials:
+    """EKS Pod Identity 에이전트에서 받는 임시 자격 증명. 만료 전에 다시 받고, 그 사이에는 기억해 둔다.
+
+    턴은 여러 스레드에서 돈다(ThreadingHTTPServer) — 받기는 한 번에 하나.
+    """
+
+    def __init__(
+        self,
+        uri: str,
+        token_file: str,
+        opener: Callable[..., Any] = urllib.request.urlopen,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        parsed = urllib.parse.urlsplit(uri)
+        if parsed.scheme != "https" and not (
+            parsed.scheme == "http" and parsed.hostname in _CREDENTIAL_HOSTS
+        ):
+            raise ModelError(
+                f"{POD_IDENTITY_URI_ENV} 가 허용된 주소가 아니다: {parsed.hostname}"
+            )
+        self.uri = uri
+        self.token_file = token_file
+        self._opener = opener
+        self._clock = clock
+        self._lock = threading.Lock()
+        self._cached: Credentials | None = None
+
+    def get(self) -> Credentials:
+        with self._lock:
+            cached = self._cached
+            if cached and (
+                cached.expires is None
+                or self._clock() < cached.expires - _REFRESH_BEFORE_SECONDS
+            ):
+                return cached
+            self._cached = self._fetch()
+            return self._cached
+
+    def _fetch(self) -> Credentials:
+        try:
+            token = Path(self.token_file).read_text(encoding="utf-8").strip()
+        except OSError as error:
+            raise ModelError(f"Pod Identity 토큰 파일을 읽지 못했다: {error}") from None
+        request = urllib.request.Request(self.uri, headers={"Authorization": token})
+        try:
+            with self._opener(request, timeout=3) as response:
+                body = json.loads(response.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError, ValueError) as error:
+            raise ModelError(
+                f"Pod Identity 에서 임시 자격 증명을 받지 못했다: {error}"
+            ) from None
+        try:
+            expires = datetime.datetime.fromisoformat(
+                str(body["Expiration"]).replace("Z", "+00:00")
+            ).timestamp()
+            return Credentials(
+                str(body["AccessKeyId"]),
+                str(body["SecretAccessKey"]),
+                str(body.get("Token") or ""),
+                expires,
+            )
+        except (KeyError, TypeError, ValueError):
+            raise ModelError("Pod Identity 응답의 모양이 다르다") from None
 
 
 def load_config(path: Path | None = None) -> dict[str, Any]:
@@ -120,32 +207,71 @@ def sigv4_headers(
     return headers
 
 
+_SHARED_CONTAINER: dict[tuple[str, str], ContainerCredentials] = {}
+_SHARED_LOCK = threading.Lock()
+
+
+def shared_container_credentials(uri: str, token_file: str) -> ContainerCredentials:
+    """프로세스 안의 모든 ModelClient 가 같은 임시 자격 증명을 나눠 쓴다 — 턴마다 에이전트를 부르지 않게."""
+    with _SHARED_LOCK:
+        key = (uri, token_file)
+        if key not in _SHARED_CONTAINER:
+            _SHARED_CONTAINER[key] = ContainerCredentials(uri, token_file)
+        return _SHARED_CONTAINER[key]
+
+
 class ModelClient:
     """`chat()` 하나만 있는 얇은 클라이언트."""
 
-    def __init__(self, config: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        config: dict[str, Any] | None = None,
+        environ: dict[str, str] | None = None,
+    ) -> None:
         self.config = config or load_config()
+        env = os.environ if environ is None else environ
+        self.container: ContainerCredentials | None = None
+        # EKS 에서는 Pod Identity 가 먼저다 — 고정 키를 쓰지 않는다. 받는 것은 첫 요청 때(시작이 에이전트를 기다리지 않게).
+        if self.config.get("auth") == "sigv4" and env.get(POD_IDENTITY_URI_ENV):
+            token_file = env.get(POD_IDENTITY_TOKEN_FILE_ENV, "")
+            if not token_file:
+                raise ModelError(
+                    f"{POD_IDENTITY_URI_ENV} 는 있는데 {POD_IDENTITY_TOKEN_FILE_ENV} 가 없다"
+                )
+            self.container = shared_container_credentials(
+                env[POD_IDENTITY_URI_ENV], token_file
+            )
+            self.api_key = ""
+            self.access_key_id = ""
+            return
         names = [key_env(self.config)]
         if self.config.get("auth") == "sigv4":
             names.insert(0, self.config["access_key_id_env"])
         for env_name in names:
-            if not os.environ.get(env_name, "").strip():
+            if not env.get(env_name, "").strip():
                 raise ModelError(
                     f"환경변수 {env_name} 가 비어 있다. 키를 넣고 다시 실행해라:\n"
                     f"    export {env_name}=..."
                 )
-        self.api_key = os.environ[names[-1]].strip()
-        self.access_key_id = os.environ[names[0]].strip() if len(names) > 1 else ""
+        self.api_key = env[names[-1]].strip()
+        self.access_key_id = env[names[0]].strip() if len(names) > 1 else ""
+        self.session_token = env.get("AWS_SESSION_TOKEN", "").strip()
 
     def _auth(self, url: str, payload: bytes) -> dict[str, str]:
         if self.config.get("auth") == "sigv4":
+            if self.container is not None:
+                creds = self.container.get()
+            else:
+                creds = Credentials(
+                    self.access_key_id, self.api_key, self.session_token
+                )
             return sigv4_headers(
                 url,
                 payload,
                 self.config["region"],
-                self.access_key_id,
-                self.api_key,
-                os.environ.get("AWS_SESSION_TOKEN", "").strip(),
+                creds.access_key_id,
+                creds.secret,
+                creds.token,
             )
         return {"Authorization": f"Bearer {self.api_key}"}
 
