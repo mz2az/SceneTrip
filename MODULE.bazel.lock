@@ -443,7 +443,7 @@
     "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "Rb/Z+MRjcLD6FLL81DRNkc43GQlET+b8QIDqqoGXnkw=",
-        "usagesDigest": "ZjO5qSC/UCG10NMvFTIWrh3lLs7k8dHs7mnl59ayoDk=",
+        "usagesDigest": "ypXCuI6c7uiTBff9L92iz2sG7eHity4TPdLLs68Qbk8=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -503,6 +503,35 @@
                 "@@platforms//cpu:x86_64": "@python_runtime_linux_amd64"
               },
               "bzlmod_repository": "python_runtime",
+              "reproducible": true
+            }
+          },
+          "postgres_client_linux_amd64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "library/postgres",
+              "identifier": "sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3",
+              "platform": "linux/amd64",
+              "target_name": "postgres_client_linux_amd64",
+              "bazel_tags": []
+            }
+          },
+          "postgres_client": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
+            "attributes": {
+              "target_name": "postgres_client",
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "library/postgres",
+              "identifier": "sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@postgres_client_linux_amd64"
+              },
+              "bzlmod_repository": "postgres_client",
               "reproducible": true
             }
           },
@@ -684,6 +713,8 @@
             "java21_runtime_linux_amd64",
             "python_runtime",
             "python_runtime_linux_amd64",
+            "postgres_client",
+            "postgres_client_linux_amd64",
             "integration_postgis",
             "integration_postgis_linux_amd64",
             "integration_nginx",

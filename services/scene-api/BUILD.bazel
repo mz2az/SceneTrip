@@ -12,7 +12,7 @@
 # Dockerfile 경로(`just image scene-api`)는 개발용으로 유지한다.
 
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_spring//springboot:springboot.bzl", "springboot")
 load("//tools/bazel/defs:java_junit5_test.bzl", "java_junit5_test")
@@ -82,6 +82,85 @@ oci_push(
     name = "migration_push",
     image = ":migration_image",
     repository = "localhost/scenetrip/scene-api-migration",
+    tags = ["manual"],
+)
+
+# ── 원격 데이터 적재 이미지 (MZ2AZ-414, docs/project/plans/remote-data-load.md) ──────────────────────
+#
+# psql 이 든 postgres(배포기 DB 초기화 Job 과 같은 digest) 위에 적재 SQL·스크립트·데이터를 얹는다. Job 이 밖으로 내려받지
+# 않게 데이터가 이미지에 박힌다 — 태그(커밋)와 데이터가 함께 고정된다. 편의시설 판(약 71 MB)과 기반 이미지 때문에 크다 —
+# 전부 manual 이라 `just check` 는 받지 않는다. 배포기가 `just run :data_load_push` 로, 로컬 검증이 `:data_load_load` 로 짓는다.
+pkg_tar(
+    name = "data_load_seed_layer",
+    srcs = [
+        "seed/candidates.csv",
+        "seed/candidates.sql",
+        "seed/place_poi_link.sql",
+        "seed/place_poi_links.tsv",
+        "seed/poi.sql",
+        "seed/poi_update.sql",
+    ],
+    mode = "0444",
+    package_dir = "/data/seed",
+    tags = ["manual"],
+)
+
+pkg_tar(
+    name = "data_load_poi_layer",
+    srcs = [
+        "@poi_release_manifest//file",
+        "@poi_release_poi_food//file",
+        "@poi_release_poi_sight//file",
+        "@poi_release_poi_stay//file",
+        "@poi_release_poi_tour_food//file",
+        "@poi_release_poi_tour_stay//file",
+        "@poi_release_poi_transit//file",
+    ],
+    mode = "0444",
+    package_dir = "/data/poi",
+    tags = ["manual"],
+)
+
+pkg_tar(
+    name = "data_load_script_layer",
+    srcs = ["seed/remote-load.sh"],
+    mode = "0555",
+    package_dir = "/data",
+    tags = ["manual"],
+)
+
+oci_image(
+    name = "data_load_image",
+    base = "@postgres_client_linux_amd64",
+    # 기반 이미지의 entrypoint(postgres 서버 기동 스크립트)를 쓰지 않는다 — 이 이미지는 클라이언트다.
+    entrypoint = [
+        "/bin/bash",
+        "/data/remote-load.sh",
+    ],
+    env = {"TMPDIR": "/tmp"},
+    tags = ["manual"],
+    tars = [
+        ":data_load_seed_layer",
+        ":data_load_poi_layer",
+        ":data_load_script_layer",
+    ],
+    # 배포 Job 들과 같은 비루트 사용자(Pod Security restricted). /tmp 는 Job 이 emptyDir 로 붙인다.
+    user = "10001:10001",
+    workdir = "/tmp",
+)
+
+oci_push(
+    name = "data_load_push",
+    image = ":data_load_image",
+    repository = "localhost/scenetrip/data-load",
+    tags = ["manual"],
+)
+
+# 로컬 검증 — docker 에 올린 뒤 kind 에 싣는다(`just data-load-local`).
+oci_load(
+    name = "data_load_load",
+    image = ":data_load_image",
+    repo_tags = ["scenetrip/data-load:dev"],
     tags = ["manual"],
 )
 

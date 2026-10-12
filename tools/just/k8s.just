@@ -228,6 +228,12 @@ db-schema:
 seed *csv:
     ./tools/scripts/seed.sh "{{ csv }}"
 
+# 원격 데이터 적재 이미지(DEV·PRD 가 쓰는 것)를 로컬 kind 에서 Job 으로 돌려 본다 — 촬영지·편의시설·같은 곳 연결·인기도·
+# 검색 색인. 지우지 않는다. 계획: docs/project/plans/remote-data-load.md (MZ2AZ-414)
+[group('db')]
+data-load-local:
+    ./tools/scripts/data-load-local.sh
+
 # 작품·촬영지를 지우고 CSV 로 처음부터 다시 적재한다 — 같은 곳 연결까지. 수집 쪽이 키를 다시 정했을 때 쓴다.
 # 그 작품·촬영지를 가리키는 로컬 사용자 데이터(장바구니·코스 항목·촬영지 리뷰)도 지워진다. 편의시설·계정은 남는다.
 # 로컬 kind 에서만 동작한다. 예: `just seed-reset` · `just seed-reset ~/Downloads/candidates.csv`

@@ -116,8 +116,8 @@ ON CONFLICT (poi_id) DO UPDATE SET method = EXCLUDED.method;
 
 -- ── 리뷰를 촬영지로 옮긴다 (계획 §5) ──────────────────────────────────────────
 --
--- 한 사람이 양쪽에 썼으면 updated_at 이 늦은 것 하나만 남긴다(「한 사람 한 곳 하나」). 지우는 리뷰의 사진 행은 CASCADE 로
--- 지워진다 — 저장소의 파일은 아래 NOTICE 로 알린다. 연결이 나중에 풀려도 옮긴 리뷰는 촬영지에 남는다.
+-- 한 사람이 양쪽에 썼으면 updated_at 이 늦은 것 하나만 남긴다(「한 사람 한 곳 하나」). 지우는 리뷰는 먼저 review_archive 에
+-- 사진 키와 함께 복사한다(V30). 사진 행은 CASCADE 로 지워진다 — 저장소의 파일은 아래 NOTICE 로 알린다. 연결이 나중에 풀려도 옮긴 리뷰는 촬영지에 남는다.
 
 CREATE TEMP TABLE clash ON COMMIT DROP AS
 SELECT r.id AS poi_review, pr.id AS place_review,
@@ -138,6 +138,16 @@ BEGIN
             (SELECT count(*) FROM clash), n, coalesce(keys, '없음');
     END IF;
 END $$;
+
+-- 지우기 전에 보관한다(V30, MZ2AZ-414) — 사용자 글이 말없이 사라지지 않게. 사진 키도 함께(파일은 저장소에 남는다).
+INSERT INTO review_archive (reason, review_id, place_id, poi_id, user_id, rating, body, created_at, updated_at,
+                            photo_keys, kept_review_id)
+SELECT 'place_poi_link: 같은 곳 연결로 한 사람의 리뷰가 겹쳐 오래된 쪽',
+       r.id, r.place_id, r.poi_id, r.user_id, r.rating, r.body, r.created_at, r.updated_at,
+       COALESCE((SELECT array_agg(i.storage_key ORDER BY i.sort_order) FROM review_image i WHERE i.review_id = r.id), '{}'),
+       CASE WHEN c.loser = c.poi_review THEN c.place_review ELSE c.poi_review END
+FROM clash c
+JOIN review r ON r.id = c.loser;
 
 DELETE FROM review WHERE id IN (SELECT loser FROM clash);
 

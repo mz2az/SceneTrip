@@ -45,7 +45,16 @@ oci.pull(
     image = "gcr.io/distroless/python3-debian13",
     platforms = ["linux/amd64"],
 )
-use_repo(oci, "java21_runtime", "java21_runtime_linux_amd64", "python_runtime", "python_runtime_linux_amd64")
+
+# 원격 데이터 적재 이미지(MZ2AZ-414)의 기반 — psql 이 든 공개 postgres. 배포기의 DB 초기화 Job 과 **같은 digest**
+# (tools/aws/deploy.py POSTGRES_IMAGE)라 RDS 쪽과 클라이언트 판이 하나다. 적재 이미지는 manual 이라 평소 빌드는 받지 않는다.
+oci.pull(
+    name = "postgres_client",
+    digest = "sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3",
+    image = "index.docker.io/library/postgres",
+    platforms = ["linux/amd64"],
+)
+use_repo(oci, "java21_runtime", "java21_runtime_linux_amd64", "postgres_client", "postgres_client_linux_amd64", "python_runtime", "python_runtime_linux_amd64")
 
 # BUILD 파일 포맷·린트 (`just fmt` / `just lint` 가 사용)
 bazel_dep(name = "buildifier_prebuilt", version = "8.2.1.1", dev_dependency = True)
@@ -138,6 +147,61 @@ http_file(
     downloaded_file_path = "redoc.standalone.js",
     sha256 = "0ec05be285ac885a330289b02f470e1bdbd2b6b3223a9fa213f24bf805a851d1",
     urls = ["https://cdn.redoc.ly/redoc/v2.5.0/bundles/redoc.standalone.js"],
+)
+
+# --- 편의시설 적재 판 (원격 데이터 적재, MZ2AZ-414) ---------------------------------
+#
+# GitHub Release `poi-data-<판>` 의 파일을 적재 이미지에 박는다 — Job 이 밖으로 내려받지 않게(443 을 열지 않는다).
+# sha256 은 그 판 manifest.json 의 값 그대로다(manifest 자신은 받아서 잰 값). 판을 바꾸면 아래 일곱 줄의 판·sha256 을
+# 바꾸는 PR 하나 — `just poi-publish` 가 올린 새 판의 manifest 에서 옮긴다. 이름에 판을 넣지 않아 BUILD 는 그대로다.
+# 계획: docs/project/plans/remote-data-load.md §3.
+http_file(
+    name = "poi_release_manifest",
+    downloaded_file_path = "manifest.json",
+    sha256 = "040c4592c4ea416153fb72fba8534a56a2d11680a62a2ef54f202b1c2b0112c4",
+    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-data-2026-06/manifest.json"],
+)
+
+http_file(
+    name = "poi_release_poi_food",
+    downloaded_file_path = "poi_food.jsonl.gz",
+    sha256 = "ff380c0f85f604d6de1befda05969d61892fa8167b92b5b56496772152158907",
+    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-data-2026-06/poi_food.jsonl.gz"],
+)
+
+http_file(
+    name = "poi_release_poi_sight",
+    downloaded_file_path = "poi_sight.jsonl.gz",
+    sha256 = "2e19150511418d4592b1f7a08b36fd9490315c0c469fd136e4d1617a6fa45b0d",
+    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-data-2026-06/poi_sight.jsonl.gz"],
+)
+
+http_file(
+    name = "poi_release_poi_stay",
+    downloaded_file_path = "poi_stay.jsonl.gz",
+    sha256 = "3910cb359bb3cbac4db62fb74ef8fdd74be5c2cf5cfd5ca0c1e7496022cc5afb",
+    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-data-2026-06/poi_stay.jsonl.gz"],
+)
+
+http_file(
+    name = "poi_release_poi_tour_food",
+    downloaded_file_path = "poi_tour_food.jsonl.gz",
+    sha256 = "7dff94765c03a2aead05e54aeb511052694f982e0b98e0b1b2f48615325a0fd5",
+    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-data-2026-06/poi_tour_food.jsonl.gz"],
+)
+
+http_file(
+    name = "poi_release_poi_tour_stay",
+    downloaded_file_path = "poi_tour_stay.jsonl.gz",
+    sha256 = "824be4d8a30ecfa33bf47ad71815b4dc4bc8d609390e8ff24a2b772325e7f4b6",
+    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-data-2026-06/poi_tour_stay.jsonl.gz"],
+)
+
+http_file(
+    name = "poi_release_poi_transit",
+    downloaded_file_path = "poi_transit.jsonl.gz",
+    sha256 = "b9421071f1acd54a092dee9a0ea85e11ae8d5154b05827caa282311f38fedd1a",
+    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-data-2026-06/poi_transit.jsonl.gz"],
 )
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
