@@ -235,3 +235,169 @@ class CliTest(unittest.TestCase):
         for call in run.call_args_list[1:]:
             self.assertNotIn("fixture-token", " ".join(call.args[0]))
             self.assertIn(settings.tag, call.args[0])
+
+
+class FirstDeployEmptyStateTest(unittest.TestCase):
+    """첫 배포에는 Terraform 상태 파일이 없다 — state list 는 실패, state pull 은 빈 출력."""
+
+    @property
+    def owned(self):
+        return [
+            {"Key": "Project", "Value": "scenetrip"},
+            {"Key": "Environment", "Value": "prd"},
+            {"Key": "ManagedBy", "Value": "terraform"},
+        ]
+
+    ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/prd/{}-AbC123"
+
+    @staticmethod
+    def settings():
+        return valid_settings(
+            environment="prd",
+            role="arn:aws:iam::123456789012:role/scenetrip-prd-deploy",
+            domain="api.example.com",
+        )
+
+    def fake(self, state_list, state_pull, secrets):
+        """state_list/state_pull: 문자열이면 출력, 예외면 raise."""
+
+        def execute(command, **unused):
+            if command[:2] == ["terraform", "state"] and len(command) > 2:
+                outcome = {"list": state_list, "pull": state_pull}.get(command[2])
+                if isinstance(outcome, BaseException):
+                    raise outcome
+                if outcome is not None:
+                    return outcome
+            if command[1:3] == ["secretsmanager", "describe-secret"]:
+                name = command[4].rsplit("/", 1)[1]
+                if name not in secrets:
+                    raise RuntimeError("not found")
+                return json.dumps({"ARN": self.ARN.format(name), **secrets[name]})
+            return ""
+
+        return Mock(side_effect=execute)
+
+    @staticmethod
+    def commands(run):
+        return [call.args[0] for call in run.call_args_list]
+
+    def imports(self, run):
+        return [c for c in self.commands(run) if c[:2] == ["terraform", "import"]]
+
+    def adopt(self, run):
+        from pathlib import Path
+
+        from tools.aws.aws import adopt_retained_secrets
+
+        adopt_retained_secrets(run, self.settings(), Path("."), Path("vars.json"))
+
+    def test_state_list_success_uses_listed_addresses(self):
+        from pathlib import Path
+
+        from tools.aws.aws import managed_addresses
+
+        listed = (
+            'aws_secretsmanager_secret.app["database"]\n'
+            '  aws_secretsmanager_secret.app["auth"]  \n'
+        )
+        run = self.fake(listed, AssertionError("pull 은 부르지 않아도 된다"), {})
+        self.assertEqual(
+            set(managed_addresses(run, Path("."))),
+            {
+                'aws_secretsmanager_secret.app["database"]',
+                'aws_secretsmanager_secret.app["auth"]',
+            },
+        )
+
+    def test_state_list_success_skips_already_managed_secrets(self):
+        run = self.fake(
+            'aws_secretsmanager_secret.app["scene_api"]',
+            "",
+            {"scene-api": {"Tags": self.owned}},
+        )
+        self.adopt(run)
+        self.assertEqual(self.imports(run), [])
+
+    def test_missing_state_file_with_empty_pull_is_empty_set(self):
+        from pathlib import Path
+
+        from tools.aws.aws import managed_addresses
+
+        for pulled in ("", "   \n\t"):
+            with self.subTest(pulled=repr(pulled)):
+                run = self.fake(RuntimeError("No state file was found!"), pulled, {})
+                self.assertEqual(set(managed_addresses(run, Path("."))), set())
+
+    def test_first_deploy_imports_pre_created_owned_secret(self):
+        for pulled in ("", "\n  \n"):
+            with self.subTest(pulled=repr(pulled)):
+                run = self.fake(
+                    RuntimeError("No state file was found!"),
+                    pulled,
+                    {"scene-api": {"Tags": self.owned}},
+                )
+                self.adopt(run)
+                imports = self.imports(run)
+                self.assertEqual(
+                    [c[-2] for c in imports],
+                    ['aws_secretsmanager_secret.app["scene_api"]'],
+                )
+                self.assertTrue(
+                    imports[0][-1].endswith("/scenetrip/prd/scene-api-AbC123")
+                )
+                self.assertIn("-var-file=vars.json", imports[0])
+
+    def test_first_deploy_matches_state_without_those_secrets(self):
+        secrets = {"scene-api": {"Tags": self.owned}, "auth": {"Tags": self.owned}}
+        empty_state = self.fake(RuntimeError("No state file was found!"), "", secrets)
+        unrelated_state = self.fake("module.vpc.aws_vpc.this", "", secrets)
+        self.adopt(empty_state)
+        self.adopt(unrelated_state)
+        self.assertEqual(
+            [c[-2] for c in self.imports(empty_state)],
+            [c[-2] for c in self.imports(unrelated_state)],
+        )
+        self.assertEqual(len(self.imports(empty_state)), 2)
+
+    def test_first_deploy_with_no_secrets_imports_nothing(self):
+        run = self.fake(RuntimeError("No state file was found!"), "", {})
+        self.adopt(run)
+        self.assertEqual(self.imports(run), [])
+
+    def test_list_failure_with_real_state_reraises_original(self):
+        from pathlib import Path
+
+        from tools.aws.aws import managed_addresses
+
+        original = RuntimeError("state list exploded")
+        real_state = json.dumps({"version": 4, "serial": 3, "resources": []})
+        run = self.fake(original, real_state, {"scene-api": {"Tags": self.owned}})
+        with self.assertRaises(RuntimeError) as caught:
+            managed_addresses(run, Path("."))
+        self.assertIs(caught.exception, original)
+
+        run = self.fake(original, real_state, {"scene-api": {"Tags": self.owned}})
+        with self.assertRaises(RuntimeError) as caught:
+            self.adopt(run)
+        self.assertIs(caught.exception, original)
+        self.assertEqual(self.imports(run), [])
+
+    def test_pull_failure_propagates(self):
+        from pathlib import Path
+
+        from tools.aws.aws import managed_addresses
+
+        pull_error = RuntimeError("state pull failed")
+        run = self.fake(RuntimeError("No state file was found!"), pull_error, {})
+        with self.assertRaises(RuntimeError) as caught:
+            managed_addresses(run, Path("."))
+        self.assertIs(caught.exception, pull_error)
+
+        run = self.fake(
+            RuntimeError("No state file was found!"),
+            pull_error,
+            {"scene-api": {"Tags": self.owned}},
+        )
+        with self.assertRaises(RuntimeError):
+            self.adopt(run)
+        self.assertEqual(self.imports(run), [])
