@@ -42,6 +42,7 @@
 | 언제 | **DEV**: `dev-lifecycle` up 이 배포 성공 뒤 자동으로. **PRD**: 수동 워크플로(`aws-data-load.yml`, 환경 검토자 승인)만 | DEV 는 매번 빈 DB 다. PRD 는 사람이 판·커밋을 보고 누른다 |
 | 확인 | Job 끝에 건수 검사 — 작품·촬영지·편의시설·연결·검색 색인이 0 이면 **실패**. 성공하면 건수 요약 한 줄(JSON)을 배포기가 `kubectl logs` 로 받아 출력 | 배포는 초록인데 화면이 비는 조용한 실패를 막는다. 요약에는 비밀값이 없어 stderr 정책과 부딪히지 않는다 |
 | 기록 | 표 `data_load`(V30) — 시각·커밋·CSV sha256·편의시설 판·건수 | PRD 에 무엇이 언제 들어갔는지 DB 에서 바로 본다 |
+| 겹친 리뷰 | **지우기 전에 보관 표 `review_archive` 로 복사한다**(V30 에 함께). 같은 곳 연결이 새로 생겨 한 사람의 리뷰가 한 곳에 둘이 되면 `place_poi_link.sql` 이 오래된 쪽을 지운다(「한 사람 한 곳 하나」) — 그 행과 사진 키를 먼저 옮겨 둔다 | 지금은 말없이 사라진다. 숨김(`removed_at`)으로 바꾸면 유일 제약이 숨긴 행까지 세어 제약·쓰기 쿼리까지 고쳐야 한다. 드문 일이라 보관 표면 충분하고, 화면·규칙은 그대로다(권호 2026-10-12) |
 
 ## 4. 하지 않는 것 / 나중
 
@@ -56,7 +57,7 @@
 1. 이 문서 → 머지. 티켓
 2. **적재 이미지** — Bazel 타깃(`//services/scene-api:data_load_image`·`_push`), `MODULE.bazel` 에 기반 이미지와 편의시설 판 `http_file`.
    이미지 안 `load.sh`(§3 순서·건수 검사·요약). **`MODULE.bazel` 에 의존성을 더하는 일이라 PR 전에 한 번 더 확인받는다**
-3. **V30 `data_load`** · 정책 라벨 · 배포기 `data-load` 동작(`tools/aws`) · `just aws-data-load <env>` · 워크플로 `aws-data-load.yml`
+3. **V30 `data_load`·`review_archive`**(+ `place_poi_link.sql` 이 지우기 전에 복사) · 정책 라벨 · 배포기 `data-load` 동작(`tools/aws`) · `just aws-data-load <env>` · 워크플로 `aws-data-load.yml`
 4. 로컬 검증 — kind 에서 같은 이미지로 Job 을 띄워(로컬 postgres) 처음부터·두 번째(멱등) 모두
 5. **DEV 에서 실제로** — up 뒤 자동 적재, 앱에서 작품·지도·검색·편의시설 확인. 걸린 시간 실측 → `activeDeadlineSeconds` 조정
 6. dev-lifecycle up 에 연결. 문서(aws-deployment.md 「적재」, 이 문서 결과)
