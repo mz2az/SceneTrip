@@ -453,7 +453,7 @@ public class MarketStore {
   private List<ContentRef> contents(long postId, Lang lang) {
     return jdbc.sql(
             """
-            SELECT DISTINCT ON (c.id) c.id, ci.title, c.poster_url
+            SELECT DISTINCT ON (c.id) c.id, ci.title, c.poster_url, c.producer_url
             FROM market_course_content mcc
             JOIN content c ON c.id = mcc.content_id
             JOIN content_i18n ci ON ci.content_id = c.id AND ci.lang IN (:lang, 'en', 'ko')
@@ -465,7 +465,8 @@ public class MarketStore {
         .query(
             (ResultSet rs, int rowNum) ->
                 new ContentRef(rs.getLong("id"), rs.getString("title"))
-                    .posterUrl(uri(rs.getString("poster_url"))))
+                    .posterUrl(uri(rs.getString("poster_url")))
+                    .producerUrl(uri(rs.getString("producer_url"))))
         .list();
   }
 

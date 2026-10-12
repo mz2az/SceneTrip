@@ -18,6 +18,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.ContentSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
 import com.mz2az.scenetrip.sceneapi.favorite.FavoriteStore;
+import java.net.URI;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -137,5 +138,25 @@ class FavoriteControllerTest {
 
     verify(accounts).resolve(UUID.fromString(INSTALL_ID));
     verify(store).add(USER, 2L);
+  }
+
+  @Test
+  @DisplayName("찜 목록 — producerUrl 이 있으면 그대로, 없으면 null 이거나 빠진다 (MZ2AZ-393)")
+  void listCarriesProducerUrl() throws Exception {
+    ContentSummary with =
+        new ContentSummary(1L, ContentCategory.DRAMA, "있음", 3)
+            .posterUrl(URI.create("https://img.example/p1.jpg"))
+            .producerUrl(URI.create("http://producer.example/works/1"));
+    ContentSummary without =
+        new ContentSummary(2L, ContentCategory.DRAMA, "없음", 3)
+            .posterUrl(URI.create("https://img.example/p2.jpg"));
+    when(store.list(eq(USER), any(), eq(20), eq(0)))
+        .thenReturn(new FavoriteStore.Page(List.of(with, without), 2, Set.of(Lang.KO)));
+
+    mvc.perform(get("/favorites/contents").header("X-Install-Id", INSTALL_ID))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].producerUrl").value("http://producer.example/works/1"))
+        .andExpect(jsonPath("$.items[1].posterUrl").value("https://img.example/p2.jpg"))
+        .andExpect(jsonPath("$.items[1].producerUrl").doesNotExist());
   }
 }

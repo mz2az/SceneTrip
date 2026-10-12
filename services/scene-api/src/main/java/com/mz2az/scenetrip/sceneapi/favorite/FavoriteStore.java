@@ -47,7 +47,7 @@ public class FavoriteStore {
           ORDER BY ci.content_id, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC
       )
       SELECT
-          c.id, c.category, c.broadcaster, c.poster_url, c.release_year, c.genres,
+          c.id, c.category, c.broadcaster, c.poster_url, c.producer_url, c.release_year, c.genres,
           d.title, d.shown_lang,
           (SELECT count(*) FROM place_content pc
              JOIN place pl ON pl.id = pc.place_id AND pl.hidden_at IS NULL
@@ -132,6 +132,7 @@ public class FavoriteStore {
                 rs.getString("title"),
                 rs.getInt("place_count"))
             .posterUrl(uri(rs.getString("poster_url")))
+            .producerUrl(uri(rs.getString("producer_url")))
             .broadcaster(rs.getString("broadcaster"))
             .releaseYear(integerOrNull(rs, "release_year"))
             .genres(stringArray(rs.getArray("genres")));

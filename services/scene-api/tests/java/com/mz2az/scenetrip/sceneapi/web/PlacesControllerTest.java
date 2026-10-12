@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.mz2az.scenetrip.sceneapi.api.model.ContentRef;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.Photo;
 import com.mz2az.scenetrip.sceneapi.api.model.PhotoSource;
@@ -236,5 +237,56 @@ class PlacesControllerTest {
     mvc.perform(get("/places/2").param("lng", "126.9"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("INCOMPLETE_ORIGIN"));
+  }
+
+  // ───────────── producerUrl (MZ2AZ-393, 계약 1.12.0) ─────────────
+
+  private static ContentRef refWith() {
+    return new ContentRef(1L, "있음")
+        .posterUrl(URI.create("https://img.example/p1.jpg"))
+        .producerUrl(URI.create("http://producer.example/works/1"));
+  }
+
+  private static ContentRef refWithout() {
+    return new ContentRef(2L, "없음").posterUrl(URI.create("https://img.example/p2.jpg"));
+  }
+
+  @Test
+  @DisplayName("장소 목록의 contents — producerUrl 이 있으면 그대로, 없으면 null 이거나 빠진다")
+  void listContentsCarryProducerUrl() throws Exception {
+    givenPlaces(
+        new PlaceSummary(7L, "북촌한옥마을", 37.5818, 126.9848)
+            .contents(List.of(refWith(), refWithout())));
+
+    mvc.perform(get("/places"))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath("$.items[0].contents[0].producerUrl").value("http://producer.example/works/1"))
+        .andExpect(jsonPath("$.items[0].contents[1].posterUrl").value("https://img.example/p2.jpg"))
+        .andExpect(jsonPath("$.items[0].contents[1].producerUrl").doesNotExist());
+  }
+
+  @Test
+  @DisplayName("장소 상세의 contents·scenes — producerUrl 이 있으면 그대로, 없으면 null 이거나 빠진다")
+  void detailContentsAndScenesCarryProducerUrl() throws Exception {
+    PlaceDetail detail =
+        new PlaceDetail(2L, "북촌한옥마을", 37.5818, 126.9848)
+            .contents(List.of(refWith(), refWithout()))
+            .scenes(
+                List.of(
+                    new Scene(1L, "있음")
+                        .posterUrl(URI.create("https://img.example/p1.jpg"))
+                        .producerUrl(URI.create("http://producer.example/works/1")),
+                    new Scene(2L, "없음").posterUrl(URI.create("https://img.example/p2.jpg"))));
+    when(store.findDetail(eq(2L), any(), any(), any()))
+        .thenReturn(Optional.of(new PlaceStore.Detail(detail, Lang.KO)));
+
+    mvc.perform(get("/places/2"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.contents[0].producerUrl").value("http://producer.example/works/1"))
+        .andExpect(jsonPath("$.contents[1].producerUrl").doesNotExist())
+        .andExpect(jsonPath("$.scenes[0].producerUrl").value("http://producer.example/works/1"))
+        .andExpect(jsonPath("$.scenes[1].posterUrl").value("https://img.example/p2.jpg"))
+        .andExpect(jsonPath("$.scenes[1].producerUrl").doesNotExist());
   }
 }

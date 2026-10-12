@@ -119,7 +119,8 @@ URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞�
 | `scene_description` `last_updated` | `place_content` · `place_content_i18n(ko)` |
 | `scene_description_en` `_ja` `_zh_hant` | `place_content_i18n` — 채워진 언어만. 없으면 API 가 `ko` 로 폴백 |
 | `scene_image_url` | `place_content.scene_image_url` — 장면 스틸. (장소, 작품) 한 쌍에 한 장. 2026-10-10 판은 전부 비어 있다 |
-| `id` `title_tmdb_url` `title_producer_url` `source_url` `notes` | 안 넣는다 — `candidates.sql` 머리에 이유 |
+| `title_producer_url` | `content.producer_url` — 제작사(원저작권자) 작품 페이지. 포스터를 누르면 이리로(V31, 계약 1.12.0 `producerUrl`, MZ2AZ-393). 128 편 전부 있고 6 편이 `http://` |
+| `id` `title_tmdb_url` `source_url` `notes` | 안 넣는다 — `candidates.sql` 머리에 이유 |
 | `place_popularity_score` | `place_content.popularity_score` — 장소×작품 산정 점수. **작품 안에서만** 비교한다(작품 상세의 촬영지 순서, 촬영지 인기도 출발점의 재료). 작품끼리는 비교할 수 없다 — 2026-10-10 판에서 케데헌 촬영지만 40~66 이었다 |
 | `place_total_score` | 안 넣는다 — 작품끼리 비교할 수 없는 산정 점수의 합이라 케데헌 촬영지로 쏠린다. 촬영지 출발점은 「작품 출발점 × 작품 안 상대 산정 점수」 의 최댓값으로 계산한다(popularity.md §5) |
 | `sanctum_key` | 아직 안 넣는다(위) |
