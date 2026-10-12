@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.reviews
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +29,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.NetworkFailure
@@ -37,6 +43,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.PhotoSource
 import com.mz2az.scenetrip.sceneapi.client.model.RatingSummary
 import com.mz2az.scenetrip.sceneapi.client.model.Review
 import com.mz2az.scenetrip.sceneapi.client.model.ReviewSort
+import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.IOSSheetToolbar
@@ -51,15 +58,45 @@ fun RatingLine(
     modifier: Modifier = Modifier,
 ) {
     if (rating == null) return
-    val label =
-        if (rating.count ==
-            0
-        ) {
-            tr("아직 리뷰가 없어요 · 첫 리뷰 쓰기")
+    Row(
+        modifier.clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        RatingStar(rating.count > 0, Modifier.size(14.dp))
+        if (rating.count == 0) {
+            Text(tr("아직 리뷰가 없어요"), style = IOS.caption, color = IOS.secondaryLabel)
         } else {
-            "★ ${rating.average?.let { "%.1f".format(it) } ?: "-"} · ${tr("리뷰 %d").format(rating.count)}"
+            Text(rating.average?.let { "%.1f".format(it) } ?: "-", style = IOS.caption, color = IOS.label)
+            Text("·", style = IOS.caption, color = IOS.tertiaryLabel)
+            Text(tr("리뷰 %d").format(rating.count), style = IOS.caption, color = IOS.secondaryLabel)
         }
-    Text(label, style = IOS.subheadline, color = IOS.accent, modifier = modifier.clickable(onClick = onClick).padding(vertical = 10.dp))
+        ChevronRightIcon(IOS.tertiaryLabel, Modifier.size(9.dp))
+    }
+}
+
+@Composable
+private fun RatingStar(
+    filled: Boolean,
+    modifier: Modifier,
+) {
+    Canvas(modifier) {
+        val edge = size.minDimension
+        val path = Path()
+        repeat(10) { index ->
+            val angle = index * Math.PI / 5 - Math.PI / 2
+            val radius = edge * if (index % 2 == 0) 0.46f else 0.2f
+            val x = edge / 2 + (kotlin.math.cos(angle) * radius).toFloat()
+            val y = edge / 2 + (kotlin.math.sin(angle) * radius).toFloat()
+            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+        drawPath(
+            path,
+            if (filled) Color(0xFFFFB800) else IOS.secondaryLabel,
+            style = if (filled) Fill else Stroke(width = 1.2.dp.toPx()),
+        )
+    }
 }
 
 @Composable

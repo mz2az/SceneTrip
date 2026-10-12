@@ -33,12 +33,13 @@ object PhotoUploader {
     fun upload(
         context: Context,
         uri: Uri,
+        purpose: UploadPurpose = UploadPurpose.review,
     ): String {
         val bytes = shrink(context, uri)
         val ticket =
             UploadsApi(
                 API_BASE,
-            ).createUpload(UploadCreate(purpose = UploadPurpose.review, contentType = "image/jpeg", bytes = bytes.size.toLong()))
+            ).createUpload(UploadCreate(purpose = purpose, contentType = "image/jpeg", bytes = bytes.size.toLong()))
         val request = Request.Builder().url(ticket.uploadUrl.toString()).put(bytes.toRequestBody("image/jpeg".toMediaType()))
         ticket.requiredHeaders.forEach { (name, value) ->
             require(!name.equals("Authorization", true))

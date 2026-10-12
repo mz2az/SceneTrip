@@ -169,6 +169,10 @@ private fun CartRow(
 
         RemoteImage(
             url = item.imageUrl?.toString(),
+            placeholder = {
+                com.mz2az.scenetrip.ui
+                    .MapPinEllipseIcon(IOS.secondaryLabel, Modifier.size(20.dp))
+            },
             modifier = Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)),
         )
 

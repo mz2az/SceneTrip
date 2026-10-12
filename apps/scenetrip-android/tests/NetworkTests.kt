@@ -5,6 +5,7 @@ import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.RetryInterceptor
 import com.mz2az.scenetrip.data.UsageLedger
 import com.mz2az.scenetrip.data.apiResult
+import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientError
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientException
 import kotlinx.coroutines.CancellationException
@@ -21,6 +22,35 @@ import java.net.SocketTimeoutException
 
 /** 실제 소켓·잠·Android 시계 없이 공통 HTTP 계층을 실행한다. */
 class NetworkTests {
+    @Test
+    fun generatedPlaceDetailReadsOfficialPhotosAndLegacyScenePaths() {
+        val json = """{
+            "id":35,"name":"잉글랜드 경양식돈까스","latitude":37.4,"longitude":126.6,
+            "contents":[],"photoCount":1,
+            "photos":[{"url":"https://images.example.test/35.jpg","source":"official"}],
+            "rating":{"count":0,"distribution":[0,0,0,0,0]},
+            "scenes":[{"contentId":5,"contentTitle":"응답하라 1988",
+                "sceneImageUrl":"01_Raw/김태환/4주차_촬영지수집/이미지/kt_039_인천잉글랜드왕돈까스.png"}]
+        }"""
+        val client =
+            OkHttpClient
+                .Builder()
+                .addInterceptor { chain ->
+                    Response
+                        .Builder()
+                        .request(chain.request())
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(200)
+                        .message("ok")
+                        .body(json.toResponseBody())
+                        .build()
+                }.build()
+        val detail = PlacesApi("http://localhost/v1", client).getPlace(35)
+        assertEquals(1, detail.photos?.size)
+        assertEquals(0, detail.rating?.count)
+        assertEquals("응답하라 1988", detail.scenes?.single()?.contentTitle)
+    }
+
     @Test
     fun cancelledRequestsStayCancelledInsteadOfBecomingScreenErrors() {
         org.junit.jupiter.api.Assertions.assertThrows(CancellationException::class.java) {

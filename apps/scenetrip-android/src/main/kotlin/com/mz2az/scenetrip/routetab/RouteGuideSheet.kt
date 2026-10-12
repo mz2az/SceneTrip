@@ -85,6 +85,7 @@ fun RouteGuideFloatingChip(
     hidden: Boolean,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
+    bubble: Boolean = true,
 ) {
     if (hidden) return
     // **길게 눌러 끌어 옮긴다**(iOS `RouteGuideFloatingChip.moveGesture`) — 옮긴 자리는 기억한다
@@ -124,7 +125,7 @@ fun RouteGuideFloatingChip(
                     }
                 }.clickable(onClick = onTap),
     ) {
-        RouteGuideChipBody(bubble = true)
+        RouteGuideChipBody(bubble = bubble && screen.fontScale < 1.3f)
     }
 }
 

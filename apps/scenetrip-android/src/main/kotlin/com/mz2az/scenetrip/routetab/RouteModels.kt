@@ -74,6 +74,7 @@ data class RouteCourse(
 data class RouteDay(
     val id: UUID = UUID.randomUUID(),
     val stops: List<RouteStop> = emptyList(),
+    val estimate: RouteDayEstimate? = null,
 )
 
 /**
@@ -90,6 +91,8 @@ data class RouteStop(
     val isPinned: Boolean = false,
     /** 편의시설은 개인 핀과 별개다. 저장·불러오기에서 원래 POI id를 보존한다. */
     val poiId: Long? = null,
+    /** 편의시설 이름·분류·주소의 표시용 문자열. 원본과 별개로 보존한다. */
+    val poiText: PoiText? = null,
     /** 서버에 방문(`visitedAt`)이 찍혔나. */
     val visited: Boolean = false,
     /** 초안이 준 도착 시각 — 0시 기준 정수 분(540 = 09:00). */
@@ -106,6 +109,8 @@ data class RouteStop(
     companion object {
         const val DEFAULT_STAY_MINUTES = 30
         val STAY_OPTIONS = listOf(15, 30, 45, 60, 90, 120, 180)
+
+        fun stayChoices(current: Int): List<Int> = (STAY_OPTIONS + current).distinct().sorted()
     }
 }
 
@@ -408,6 +413,26 @@ object RouteGeometry {
 object RouteDedupe {
     /** 한 곳을 가리키는 열쇠. 좌표는 소수 다섯 자리(약 1m)까지만 본다. */
     fun key(place: PlaceSummary): String = "%s|%.5f|%.5f".format(Locale.US, place.name, place.latitude, place.longitude)
+
+    /** 다른 일차와 한 번에 고른 후보까지 촬영지·POI·개인 핀을 같은 규칙으로 거른다. */
+    fun fresh(
+        candidates: List<RouteStop>,
+        existing: List<RouteStop>,
+    ): List<RouteStop> {
+        val placeIds = existing.mapNotNull { it.savablePlaceId }.toMutableSet()
+        val poiIds = existing.mapNotNull { it.poiId }.toMutableSet()
+        val keys = existing.map { key(it.place) }.toMutableSet()
+        return candidates.filter { stop ->
+            val key = key(stop.place)
+            val fresh = stop.savablePlaceId !in placeIds && stop.poiId !in poiIds && key !in keys
+            if (fresh) {
+                keys.add(key)
+                stop.savablePlaceId?.let { placeIds.add(it) }
+                stop.poiId?.let { poiIds.add(it) }
+            }
+            fresh
+        }
+    }
 
     /** 이미 담긴 것과 겹치지 않는 것만 남긴다. 이번에 담는 것끼리도 본다. */
     fun fresh(

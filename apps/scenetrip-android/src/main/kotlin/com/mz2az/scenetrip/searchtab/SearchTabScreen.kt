@@ -270,6 +270,19 @@ fun SearchTabScreen() {
         map?.fit(visiblePlaces, density, screenHeight, sheetHeight, SEARCH_BAR_INSET + statusBar)
     }
 
+    fun searchViewport() {
+        map?.contentBounds?.let { box ->
+            nearby = true
+            draft = ""
+            committed = ""
+            selectedContent = null
+            tab = ListTab.PLACE
+            chip = CategoryChip.ALL
+            detent = Detent.MEDIUM
+            data.searchInViewport("${box.westLongitude},${box.southLatitude},${box.eastLongitude},${box.northLatitude}")
+        }
+    }
+
     fun commit(
         term: String,
         kind: EntityType? = null,
@@ -293,7 +306,15 @@ fun SearchTabScreen() {
         searching = false
         keyboard?.hide()
         detent = Detent.MEDIUM
-        data.search(term, kind = kind?.name)
+        data.commitSearch(
+            term,
+            kind?.name,
+            if (tab == ListTab.PLACE) {
+                com.mz2az.scenetrip.sceneapi.client.model.UsageEntityType.place
+            } else {
+                com.mz2az.scenetrip.sceneapi.client.model.UsageEntityType.content
+            },
+        )
         pendingFit = true
     }
 
@@ -385,6 +406,9 @@ fun SearchTabScreen() {
 
                 else -> {
                     ListContent(
+                        data = data,
+                        nearby = nearby,
+                        onSearchViewport = ::searchViewport,
                         committed = committed,
                         onClearSearch = { commit("") },
                         tab = tab,
@@ -479,7 +503,7 @@ fun SearchTabScreen() {
                 ) {
                     NearbyButton(
                         on = nearby,
-                        count = data.places.size,
+                        count = data.placePaging.shownTotal(data.places.size),
                         onToggle = {
                             if (nearby) {
                                 nearby = false
@@ -488,21 +512,7 @@ fun SearchTabScreen() {
                                 chip = CategoryChip.ALL
                                 data.search("")
                             } else {
-                                map?.contentBounds?.let { box ->
-                                    nearby = true
-                                    draft = ""
-                                    committed = ""
-                                    selectedContent = null
-                                    tab = ListTab.PLACE
-                                    chip = CategoryChip.ALL
-                                    detent = Detent.MEDIUM
-                                    // **카메라를 건드리지 않는다.** 이 기능은 "지금
-                                    // 보고 있는 이 화면 안" 을 묻는 것이다.
-                                    data.searchInViewport(
-                                        "${box.westLongitude},${box.southLatitude}," +
-                                            "${box.eastLongitude},${box.northLatitude}",
-                                    )
-                                }
+                                searchViewport()
                             }
                         },
                     )
@@ -621,97 +631,6 @@ private fun ErrorView(
             )
         }
     }
-}
-
-@Composable
-private fun ListContent(
-    committed: String,
-    onClearSearch: () -> Unit,
-    tab: ListTab,
-    onTabChange: (ListTab) -> Unit,
-    chip: String,
-    onChipChange: (String) -> Unit,
-    isInitial: Boolean,
-    places: List<PlaceSummary>,
-    contents: List<ContentSummary>,
-    saved: (Long) -> Boolean,
-    liked: (Long) -> Boolean,
-    onToggleLike: (Long) -> Unit,
-    onOpenContent: (ContentSummary) -> Unit,
-    onSelectPlace: (PlaceSummary) -> Unit,
-    onAdd: (PlaceSummary) -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        // 검색을 하고 들어온 목록이면 나가는 길을 준다 — 상세와 같은 헤더를 같은
-        // 자리에 쓴다. 브라우저 뒤로가기처럼 한 번에 한 단계씩만 나온다.
-        if (committed.isNotEmpty()) {
-            DetailHeader(title = committed, onBack = onClearSearch)
-        }
-
-        // 첫 화면의 숫자는 **전체가 아니라 인기순으로 추린 것**이다. 그냥 "장소 10"
-        // 이라고만 두면 전국에 10곳뿐인 것으로 읽힌다.
-        SegmentedControl(
-            options = ListTab.values().toList(),
-            selected = tab,
-            label = { entry ->
-                val count = if (entry == ListTab.WORK) contents.size else places.size
-                // 「인기 작품 12」·「장소 8」 — 지금 언어로 그린다(iOS `tabLabel`, MZ2AZ-343).
-                val format =
-                    if (entry == ListTab.WORK) {
-                        if (isInitial) tr("인기 작품 %d") else tr("작품 %d")
-                    } else {
-                        if (isInitial) tr("인기 장소 %d") else tr("장소 %d")
-                    }
-                format.format(count)
-            },
-            onSelect = onTabChange,
-        )
-        Spacer(Modifier.height(8.dp))
-
-        if (tab == ListTab.PLACE) {
-            ChipRow(selected = chip, onSelect = onChipChange)
-            Spacer(Modifier.height(8.dp))
-        }
-
-        LazyColumn {
-            if (tab == ListTab.WORK) {
-                itemsIndexed(contents) { _, content ->
-                    WorkRow(
-                        content = content,
-                        liked = liked(content.id),
-                        onTap = { onOpenContent(content) },
-                        onToggleLike = { onToggleLike(content.id) },
-                    )
-                    RowDivider()
-                }
-            } else {
-                // 번호는 지도 핀과 같은 배열의 같은 순서다 — "3번 행 = 3번 핀".
-                itemsIndexed(places) { index, place ->
-                    PlaceRow(
-                        place = place,
-                        number = index + 1,
-                        saved = saved(place.id),
-                        onTap = { onSelectPlace(place) },
-                        onAdd = { onAdd(place) },
-                    )
-                    RowDivider()
-                }
-            }
-        }
-    }
-}
-
-/** iOS 는 `Divider().padding(.leading, 14)` 다 — 왼쪽이 들여쓰기된 선. */
-@Composable
-private fun RowDivider() {
-    Box(
-        modifier =
-            Modifier
-                .padding(start = IOS.gutter)
-                .fillMaxWidth()
-                .height(0.5.dp)
-                .background(IOS.separator),
-    )
 }
 
 /**

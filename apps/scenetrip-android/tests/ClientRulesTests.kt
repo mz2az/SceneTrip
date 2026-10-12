@@ -10,6 +10,7 @@ import com.mz2az.scenetrip.routetab.PoiLabel
 import com.mz2az.scenetrip.routetab.RouteGuideEntry
 import com.mz2az.scenetrip.routetab.TripArrival
 import com.mz2az.scenetrip.routetab.courseStop
+import com.mz2az.scenetrip.sceneapi.client.model.PhotoSource
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -17,6 +18,24 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ClientRulesTests {
+    @Test
+    fun officialTourPhotosKeepTheFullFrameWithoutTreatingVisitorPhotosAsOfficial() {
+        val photo =
+            com.mz2az.scenetrip.sceneapi.client.model.Photo(
+                java.net.URI("https://tong.visitkorea.or.kr/official.jpg"),
+                com.mz2az.scenetrip.sceneapi.client.model.PhotoSource.official,
+            )
+        assertTrue(ReviewRules.preservesPhotoFrame(photo))
+        assertFalse(ReviewRules.preservesPhotoFrame(photo.copy(source = PhotoSource.review)))
+        assertFalse(ReviewRules.preservesPhotoFrame(photo.copy(url = java.net.URI("https://tong.visitkorea.or.kr/official.jpg?sig=x"))))
+        assertFalse(ReviewRules.preservesPhotoFrame(photo.copy(url = java.net.URI("https://other.example.test/official.jpg"))))
+        assertTrue(
+            ReviewRules.preservesPhotoFrame(
+                photo.copy(url = java.net.URI("https://other.example.test/official.jpg"), credit = "공공누리 제3유형"),
+            ),
+        )
+    }
+
     @Test
     fun guidanceMovesTheEntryIntoTheBanner() {
         assertEquals(RouteGuideEntry.TRIP_HEADER, RouteGuideEntry.placement(true, true, false, false, false))

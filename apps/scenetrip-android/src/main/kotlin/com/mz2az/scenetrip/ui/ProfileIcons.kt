@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 /*
@@ -216,7 +218,11 @@ fun IOSCloseButton(
         contentAlignment = Alignment.Center,
         modifier =
             modifier
-                .size(44.dp)
+                .semantics {
+                    contentDescription =
+                        com.mz2az.scenetrip.data
+                            .tr("닫기")
+                }.size(44.dp)
                 .shadow(6.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.12f), spotColor = Color.Black.copy(alpha = 0.12f))
                 .clip(CircleShape)
                 .background(IOS.systemBackground)

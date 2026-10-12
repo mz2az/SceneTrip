@@ -162,7 +162,10 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
         }
 
     // 계정이 바뀌면(로그인·로그아웃·탈퇴) 다시 읽는다 — iOS `.onAccountChange`.
-    LaunchedEffect(AuthStore.epoch) { load() }
+    LaunchedEffect(AuthStore.epoch) {
+        load()
+        posts.refresh(mine = true)
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6)) {
@@ -273,7 +276,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                     ProfileSection(tr("커뮤니티")) {
                         ProfileRow(
                             title = tr("내가 쓴 글"),
-                            value = tr("%d개").format(posts.mine.size),
+                            value = tr("%d개").format(posts.mineTotal),
                             onClick = { showingPosts = true },
                             chevron = true,
                             icon = { SquarePencilIcon(SYSTEM_INDIGO, it) },
@@ -439,7 +442,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
         if (showingCart) ProfileCartSheet(cartItems, onClose = { showingCart = false })
         if (showingStamps) StampsSheet(stamps, onClose = { showingStamps = false })
         if (showingPosts) {
-            MyPostsSheet(posts.mine, onRemove = { posts.remove(it) }, onClose = { showingPosts = false })
+            MyPostsSheet(onClose = { showingPosts = false })
         }
         if (showingReels) ReelsTeaserView(onClose = { showingReels = false })
         if (showingReviews) {

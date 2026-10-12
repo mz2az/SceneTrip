@@ -12,6 +12,7 @@ import com.mz2az.scenetrip.routetab.RouteDay
 import com.mz2az.scenetrip.routetab.RouteGuidePlan
 import com.mz2az.scenetrip.routetab.RoutePace
 import com.mz2az.scenetrip.routetab.RouteSpan
+import com.mz2az.scenetrip.routetab.RouteStop
 import com.mz2az.scenetrip.sceneapi.client.api.ContentsApi
 import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
 import com.mz2az.scenetrip.sceneapi.client.api.GuideApi
@@ -70,6 +71,36 @@ class RouteStore(
      */
     var places by mutableStateOf<List<PlaceSummary>>(emptyList())
         private set
+
+    private var placeWorks by mutableStateOf<Map<Long, List<String>>>(emptyMap())
+    private val worksAsking = mutableSetOf<Long>()
+
+    fun workTitles(placeId: Long): List<String> =
+        placeWorks[placeId] ?: places
+            .firstOrNull { it.id == placeId }
+            ?.contents
+            .orEmpty()
+            .map { it.title }
+
+    suspend fun loadWorkTitles(stops: List<RouteStop>) {
+        val wanted =
+            PlaceWorks.toAsk(
+                stops.mapNotNull { it.savablePlaceId },
+                places.map { it.id }.toSet(),
+                placeWorks.keys,
+                worksAsking,
+            )
+        worksAsking.addAll(wanted)
+        try {
+            for (id in wanted) {
+                apiResult { placesApi.getPlace(id) }
+                    .onSuccess { placeWorks = placeWorks + (id to PlaceWorks.titles(it)) }
+                worksAsking.remove(id)
+            }
+        } finally {
+            worksAsking.removeAll(wanted.toSet())
+        }
+    }
 
     private val coursesApi = CoursesApi(API_BASE)
     private val guideApi = GuideApi(API_BASE)

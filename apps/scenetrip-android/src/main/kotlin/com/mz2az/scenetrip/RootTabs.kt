@@ -221,7 +221,7 @@ private fun SideTab(
     modifier: Modifier,
     onClick: () -> Unit,
 ) {
-    val tint = if (active) IOS.accent else IOS.secondaryLabel
+    val tint = if (active) HOME_PURPLE else IOS.secondaryLabel
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         // iOS `VStack(spacing: 3)` 을 칸 가운데에 — 위아래 반씩 나눠 아이콘을 아래로 붙이면 묶음이 4.8 위로 떴다.
@@ -316,7 +316,8 @@ private fun TabIcon(
     when (tab) {
         RootTab.SEARCH -> {
             // SF `magnifyingglass` 20pt 는 글리프가 약 22pt — Material 것은 24 격자 안에 작게 그려져 30% 작았다.
-            MagnifierIcon(tint, Modifier.size(size))
+            com.mz2az.scenetrip.ui
+                .MapSearchIcon(tint, Modifier.size(width = size + 8.dp, height = size + 2.dp))
         }
 
         // 가운데 원형 버튼이 대신한다.

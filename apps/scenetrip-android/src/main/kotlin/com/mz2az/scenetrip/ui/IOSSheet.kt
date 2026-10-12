@@ -73,10 +73,11 @@ fun IOSSheet(
     detents: List<SheetDetent>,
     onDismiss: () -> Unit,
     fixedHeight: Dp? = null,
+    interactiveDismissEnabled: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (interactiveDismissEnabled) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         DisableDialogDim()
@@ -119,7 +120,7 @@ fun IOSSheet(
                         add(restPx)
                     }
                 scope.launch {
-                    if (shown.value < restPx * 0.72f || (velocity > 2500f && shown.value <= restPx)) {
+                    if (interactiveDismissEnabled && (shown.value < restPx * 0.72f || (velocity > 2500f && shown.value <= restPx))) {
                         dismissing = true
                         shown.animateTo(0f, tween(200))
                         onDismiss()
@@ -140,7 +141,7 @@ fun IOSSheet(
                 }
             }
             val nested =
-                remember(maxPx) {
+                remember(maxPx, interactiveDismissEnabled) {
                     object : NestedScrollConnection {
                         override fun onPreScroll(
                             available: Offset,
@@ -161,7 +162,7 @@ fun IOSSheet(
                             source: NestedScrollSource,
                         ): Offset {
                             // 목록이 맨 위라 남은 아래 끌기는 시트가 받는다.
-                            if (available.y > 0) {
+                            if (available.y > 0 && interactiveDismissEnabled) {
                                 scope.launch { shown.snapTo((shown.value - available.y).coerceAtLeast(0f)) }
                                 return Offset(0f, available.y)
                             }
@@ -188,6 +189,7 @@ fun IOSSheet(
                         .fillMaxSize()
                         .background(Color.Black.copy(alpha = IOS.DIM * (shown.value / restPx).coerceIn(0f, 1f)))
                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                            if (!interactiveDismissEnabled) return@clickable
                             scope.launch {
                                 dismissing = true
                                 shown.animateTo(0f, tween(200))
@@ -220,10 +222,11 @@ fun IOSSheet(
                             // 끌기는 **카드 윗부분(손잡이·머리줄 44)에서 시작한 것만** 받는다. 카드 전체에 걸었더니
                             // 시트 안 편집기의 지도를 위아래로 움직이는 손가락까지 시트가 가져갔다(10차 검증).
                             // 목록은 위 nestedScroll 로 시트와 이어진다.
-                            .pointerInput(detents) {
+                            .pointerInput(detents, interactiveDismissEnabled) {
                                 val headerPx = 44.dp.toPx()
                                 awaitEachGesture {
                                     val down = awaitFirstDown(requireUnconsumed = false)
+                                    if (!interactiveDismissEnabled) return@awaitEachGesture
                                     if (down.position.y > headerPx) return@awaitEachGesture
                                     val slop = awaitVerticalTouchSlopOrCancellation(down.id) { change, _ -> change.consume() }
                                     if (slop != null) {

@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.sceneapi.client.model.ReviewPhoto
+import com.mz2az.scenetrip.sceneapi.client.model.UploadPurpose
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
@@ -27,6 +28,8 @@ data class DraftPhoto(
 class ReviewDraft(
     private val context: Context,
     private val scope: CoroutineScope,
+    private val purpose: UploadPurpose = UploadPurpose.review,
+    val limit: Int = ReviewRules.PHOTO_LIMIT,
 ) {
     var photos by mutableStateOf<List<DraftPhoto>>(emptyList())
         private set
@@ -34,7 +37,7 @@ class ReviewDraft(
     private var paused = false
 
     val ready: Int get() = photos.count { it.key != null }
-    val remaining: Int get() = (ReviewRules.PHOTO_LIMIT - photos.size).coerceAtLeast(0)
+    val remaining: Int get() = (limit - photos.size).coerceAtLeast(0)
     val keys: List<String> get() = photos.mapNotNull { it.key }
 
     fun load(existing: List<ReviewPhoto>) {
@@ -64,6 +67,18 @@ class ReviewDraft(
         start()
     }
 
+    fun cancel() {
+        paused = true
+        worker?.cancel()
+        worker = null
+        photos = photos.map { it.copy(uploading = false) }
+    }
+
+    fun resume() {
+        paused = false
+        start()
+    }
+
     private fun update(
         id: UUID,
         transform: (DraftPhoto) -> DraftPhoto,
@@ -78,7 +93,7 @@ class ReviewDraft(
                 while (!paused) {
                     val next = photos.firstOrNull { it.uri != null && it.key == null && it.problem == null } ?: break
                     update(next.id) { it.copy(uploading = true) }
-                    val result = apiResult { PhotoUploader.upload(context, next.uri!!) }
+                    val result = apiResult { PhotoUploader.upload(context, next.uri!!, purpose) }
                     ensureActive()
                     result.fold(
                         onSuccess = { key -> update(next.id) { it.copy(key = key, uploading = false) } },

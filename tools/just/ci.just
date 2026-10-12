@@ -55,6 +55,15 @@ pr-create title body_file:
 pr-status number:
     gh pr view "$1" --json number,url,state,headRefName,headRefOid,baseRefName,mergeable,mergeStateStatus,statusCheckRollup
 
+# main 대상과 전체 CI 성공을 확인한 PR을 지정 커밋에서 병합
+[group('ci')]
+[confirm("지정 PR을 main에 병합합니다. 진행할까요?")]
+pr-merge number head_sha:
+    @echo 'GitHub PR 병합 대상: main'
+    test "$(gh pr view "$1" --json baseRefName --jq .baseRefName)" = main
+    gh pr checks "$1"
+    gh pr merge "$1" --merge --match-head-commit "$2"
+
 # 지정 커밋에 연결된 GitHub Actions 실행 조회
 [group('ci')]
 pr-runs sha:

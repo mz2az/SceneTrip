@@ -4,20 +4,29 @@ import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,19 +34,30 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.Photo
 import com.mz2az.scenetrip.sceneapi.client.model.PhotoSource
 import com.mz2az.scenetrip.searchtab.RemoteImage
+import com.mz2az.scenetrip.ui.DisableDialogDim
+import com.mz2az.scenetrip.ui.FullScreenDialogWindow
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSCloseButton
 import com.mz2az.scenetrip.ui.IOSSheet
-import com.mz2az.scenetrip.ui.IOSSheetToolbar
 import com.mz2az.scenetrip.ui.SheetDetent
+import com.mz2az.scenetrip.ui.XMarkIcon
 import kotlinx.coroutines.launch
 
 val Photo.galleryKey: String get() = ReviewRules.photoKey(url.toString(), reviewId.takeIf { source == PhotoSource.review })
@@ -138,6 +158,7 @@ fun GalleryStrip(
     onReview: ((Long?) -> Unit)? = null,
     visitorsOnly: Boolean = false,
     paged: Boolean = true,
+    modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
     val book = remember(subject, photos, total, visitorsOnly) { PhotoBook(subject, photos, total, visitorsOnly, paged) }
@@ -158,25 +179,49 @@ fun GalleryStrip(
     LaunchedEffect(pager.currentPage, book.photos.size) {
         if (pager.currentPage >= book.photos.size - 5) book.more()
     }
-    Column {
-        HorizontalPager(state = pager, modifier = Modifier.fillMaxWidth().height(height.dp)) { index ->
-            val photo = book.photos.getOrNull(index) ?: return@HorizontalPager
-            GalleryImage(
-                photo,
-                Modifier.fillMaxSize().clickable {
-                    viewer = index
-                },
-                onFailure = { scope.launch { book.renew() } },
-                onRetry = { scope.launch { book.renew(true) } },
-            )
+    Column(modifier) {
+        Box(Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(10.dp))) {
+            HorizontalPager(state = pager, modifier = Modifier.fillMaxWidth().height(height.dp)) { index ->
+                val photo = book.photos.getOrNull(index) ?: return@HorizontalPager
+                GalleryImage(
+                    photo,
+                    Modifier.fillMaxSize().clickable {
+                        viewer = index
+                    },
+                    onFailure = { scope.launch { book.renew() } },
+                    onRetry = { scope.launch { book.renew(true) } },
+                )
+            }
+            if (book.photos.getOrNull(pager.currentPage)?.source == PhotoSource.review) {
+                Text(
+                    tr("방문자 사진"),
+                    color = Color.White,
+                    style = IOS.caption2,
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(8.dp)
+                            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
+                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                )
+            }
+            if (book.total > 1) {
+                Text(
+                    "▦ ${pager.currentPage + 1} / ${book.total}",
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(8.dp)
+                            .clickable { grid = true }
+                            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+            }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            if (book.photos.getOrNull(pager.currentPage)?.source == PhotoSource.review) Text(tr("방문자 사진"), color = IOS.secondaryLabel)
-            Text(
-                "▦ ${pager.currentPage + 1} / ${book.total}",
-                color = IOS.accent,
-                modifier = Modifier.clickable { grid = true }.padding(6.dp),
-            )
+        book.photos.getOrNull(pager.currentPage)?.credit?.takeIf { it.isNotBlank() }?.let {
+            Text(it, style = IOS.caption2, color = IOS.secondaryLabel, modifier = Modifier.padding(top = 4.dp))
         }
         book.failure?.let {
             Text(
@@ -213,10 +258,7 @@ fun GalleryStrip(
         )
     }
     if (grid) {
-        PhotoGrid(book, onClose = { grid = false }, onPick = {
-            grid = false
-            viewer = it
-        })
+        PhotoGrid(book, onClose = { grid = false }, onReview = onReview)
     }
 }
 
@@ -227,32 +269,20 @@ private fun GalleryImage(
     edge: Int = 360,
     onFailure: () -> Unit = {},
     onRetry: () -> Unit = {},
+    fits: Boolean = ReviewRules.preservesPhotoFrame(photo),
+    dark: Boolean = false,
 ) {
-    Column(modifier) {
-        RemoteImage(
-            photo.url.toString(),
-            Modifier
-                .weight(
-                    1f,
-                ).fillMaxWidth(),
-            contentScale = ContentScale.Fit,
-            cacheKey = photo.galleryKey,
-            edge = edge,
-            retryable = true,
-            onFailure = {
-                if (photo.source ==
-                    PhotoSource.review
-                ) {
-                    onFailure()
-                }
-            },
-            onRetry = onRetry,
-        )
-        photo.credit
-            ?.takeIf {
-                it.isNotBlank()
-            }?.let { Text(it, style = IOS.caption2, color = IOS.secondaryLabel, modifier = Modifier.padding(4.dp)) }
-    }
+    RemoteImage(
+        photo.url.toString(),
+        modifier,
+        contentScale = if (fits) ContentScale.Fit else ContentScale.Crop,
+        backgroundColor = if (dark) Color.Black else IOS.systemGray6,
+        cacheKey = photo.galleryKey,
+        edge = edge,
+        retryable = true,
+        onFailure = { if (photo.source == PhotoSource.review) onFailure() },
+        onRetry = onRetry,
+    )
 }
 
 @Composable
@@ -264,30 +294,96 @@ private fun GalleryViewer(
 ) {
     val scope = rememberCoroutineScope()
     val pager =
-        rememberPagerState(initialPage = initial.coerceAtMost((book.photos.size - 1).coerceAtLeast(0)), pageCount = { book.photos.size })
-    LaunchedEffect(pager.currentPage, book.photos.size) { if (pager.currentPage >= book.photos.size - 5) book.more() }
-    IOSSheet(detents = listOf(SheetDetent.LARGE), onDismiss = { onClose(pager.currentPage) }) {
-        Column(Modifier.fillMaxSize().background(IOS.systemBackground)) {
-            IOSSheetToolbar(
-                title = "${pager.currentPage + 1} / ${book.total}",
-                leading = tr("닫기"),
-                onLeading = { onClose(pager.currentPage) },
-            )
-            HorizontalPager(pager, Modifier.weight(1f)) {
-                val photo = book.photos.getOrNull(it) ?: return@HorizontalPager
-                GalleryImage(photo, Modifier.fillMaxSize(), edge = 1600, onFailure = {
-                    scope.launch { book.renew() }
-                }, onRetry = { scope.launch { book.renew(true) } })
+        rememberPagerState(
+            initialPage = initial.coerceIn(0, (book.photos.size - 1).coerceAtLeast(0)),
+            pageCount = { book.photos.size },
+        )
+    LaunchedEffect(pager.currentPage, book.photos.size) {
+        if (book.photos.isEmpty()) onClose(0)
+        if (pager.currentPage >= book.photos.size - 5) book.more()
+    }
+    Dialog(
+        onDismissRequest = { onClose(pager.currentPage) },
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        DisableDialogDim()
+        FullScreenDialogWindow()
+        val view = LocalView.current
+        SideEffect {
+            val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+            androidx.core.view.WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = false
+                isAppearanceLightNavigationBars = false
             }
-            book.photos.getOrNull(pager.currentPage)?.takeIf { it.source == PhotoSource.review }?.let { photo ->
-                Text(tr("방문자 사진"), color = IOS.secondaryLabel, modifier = Modifier.padding(12.dp))
-                if (onReview !=
-                    null
-                ) {
-                    Text(tr("리뷰 보기"), color = IOS.accent, modifier = Modifier.clickable { onReview(photo.reviewId) }.padding(16.dp))
+        }
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            HorizontalPager(pager, Modifier.fillMaxSize()) { index ->
+                book.photos.getOrNull(index)?.let { photo ->
+                    GalleryImage(
+                        photo,
+                        Modifier.fillMaxSize(),
+                        edge = 1600,
+                        fits = true,
+                        dark = true,
+                        onFailure = { scope.launch { book.renew() } },
+                        onRetry = { scope.launch { book.renew(true) } },
+                    )
                 }
             }
-            book.failure?.let { Text(it, color = IOS.systemOrange, modifier = Modifier.padding(12.dp)) }
+            Row(
+                Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "${pager.currentPage + 1} / ${book.total}",
+                    color = Color.White,
+                    style = IOS.subheadlineSemibold,
+                    modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                )
+                Box(
+                    Modifier
+                        .semantics { contentDescription = tr("닫기") }
+                        .size(44.dp)
+                        .background(Color.Black.copy(alpha = 0.45f), CircleShape)
+                        .clickable { onClose(pager.currentPage) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    XMarkIcon(Color.White, Modifier.size(15.dp))
+                }
+            }
+            book.photos.getOrNull(pager.currentPage)?.let { photo ->
+                Row(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    if (photo.source == PhotoSource.review) Text(tr("방문자 사진"), color = Color.White, style = IOS.caption)
+                    photo.credit?.let {
+                        Text(
+                            it,
+                            color = Color.White.copy(alpha = 0.75f),
+                            style = IOS.caption2,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (photo.source == PhotoSource.review && onReview != null) {
+                        Text(
+                            tr("리뷰 보기"),
+                            color = Color.White,
+                            style = IOS.subheadlineSemibold,
+                            modifier =
+                                Modifier
+                                    .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(50))
+                                    .clickable { onReview(photo.reviewId) }
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -296,23 +392,59 @@ private fun GalleryViewer(
 private fun PhotoGrid(
     book: PhotoBook,
     onClose: () -> Unit,
-    onPick: (Int) -> Unit,
+    onReview: ((Long?) -> Unit)?,
 ) {
     val scope = rememberCoroutineScope()
+    var viewing by remember { mutableStateOf<Int?>(null) }
     IOSSheet(detents = listOf(SheetDetent.LARGE), onDismiss = onClose) {
         Column(Modifier.fillMaxSize().background(IOS.systemBackground)) {
-            IOSSheetToolbar(title = tr("사진 전체 보기"), leading = tr("닫기"), onLeading = onClose)
-            LazyVerticalGrid(GridCells.Fixed(3), Modifier.weight(1f)) {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp)) {
+                Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(tr("사진 %d").format(book.total), style = IOS.headline, color = IOS.label)
+                    Text(book.subject.name, style = IOS.subheadline, color = IOS.secondaryLabel)
+                }
+                IOSCloseButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterEnd))
+            }
+            LazyVerticalGrid(
+                GridCells.Fixed(3),
+                Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
                 itemsIndexed(book.photos, key = { _, photo -> photo.galleryKey }) { index, photo ->
                     LaunchedEffect(index) { if (index >= book.photos.size - 5) book.more() }
-                    GalleryImage(
-                        photo,
-                        Modifier.height(140.dp).padding(2.dp).clickable {
-                            onPick(index)
-                        },
-                        onFailure = { scope.launch { book.renew() } },
-                        onRetry = { scope.launch { book.renew(true) } },
-                    )
+                    Box(Modifier.aspectRatio(1f).clickable { viewing = index }) {
+                        GalleryImage(
+                            photo,
+                            Modifier.fillMaxSize(),
+                            onFailure = { scope.launch { book.renew() } },
+                            onRetry = { scope.launch { book.renew(true) } },
+                        )
+                        if (photo.source == PhotoSource.review) {
+                            Text(
+                                tr("방문자 사진"),
+                                style = IOS.caption2,
+                                color = Color.White,
+                                modifier =
+                                    Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(3.dp)
+                                        .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
+                                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                            )
+                        }
+                    }
+                }
+                val credits = book.photos.mapNotNull { it.credit?.takeIf(String::isNotBlank) }.distinct()
+                if (credits.isNotEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            credits.joinToString("\n"),
+                            style = IOS.caption2,
+                            color = IOS.secondaryLabel,
+                            modifier = Modifier.padding(14.dp),
+                        )
+                    }
                 }
             }
             book.failure?.let {
@@ -323,5 +455,20 @@ private fun PhotoGrid(
                 )
             }
         }
+    }
+    viewing?.let { index ->
+        GalleryViewer(
+            book,
+            index,
+            onClose = { viewing = null },
+            onReview =
+                onReview?.let { callback ->
+                    { id ->
+                        viewing = null
+                        onClose()
+                        callback(id)
+                    }
+                },
+        )
     }
 }

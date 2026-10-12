@@ -1,6 +1,9 @@
 package com.mz2az.scenetrip.searchtab
 
+import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.PlaceType
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
+import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.naver.maps.geometry.LatLng
 
@@ -29,7 +32,7 @@ val PlaceSummary.worksAndType: String
     get() =
         listOf(
             contents.orEmpty().joinToString(", ") { it.title },
-            type.orEmpty(),
+            PlaceType.label(type, korean = AppLanguage.current == Lang.ko).orEmpty(),
         ).filter { it.isNotEmpty() }.joinToString(" · ")
 
 /**
@@ -40,57 +43,17 @@ val PlaceSummary.worksAndType: String
  * 「음식점·카페 / 명소·자연 / 거리·다리 / 건물·시설」 이라 **같은 장소가 서로 다른
  * 칩에 들어갔다.** 같은 데이터를 쓰는 두 앱이 다른 분류를 보여 주면 같은 앱이 아니다.
  *
- * 어느 쪽도 아닌 분류는 「건물·시설」 로 떨어진다 — iOS 와 같은 기본값이다.
+ * 표에 없는 분류는 「기타」에 포함한다.
  */
 object CategoryChip {
     const val ALL = "전체"
+    val names: List<String> =
+        listOf(ALL) +
+            com.mz2az.scenetrip.data.PlaceType.Group.entries
+                .map { it.label }
 
-    private val groups: List<Pair<String, Set<String>>> =
-        listOf(
-            "음식점·카페" to setOf("음식점", "카페", "바", "편의점", "마트", "시장"),
-            "명소·자연" to
-                setOf(
-                    "명소",
-                    "자연",
-                    "공원",
-                    "해변",
-                    "항구",
-                    "전망대",
-                    "사찰",
-                    "성당",
-                    "고궁",
-                    "한옥",
-                    "한옥마을",
-                    "마을",
-                    "테마파크",
-                    "체험시설",
-                    "캠핑장",
-                ),
-            "거리·다리" to setOf("거리", "다리", "역/교통", "공항"),
-            "건물·시설" to
-                setOf(
-                    "건물",
-                    "호텔",
-                    "병원",
-                    "학교",
-                    "박물관/미술관",
-                    "서점",
-                    "상점",
-                    "백화점",
-                    "쇼핑몰",
-                    "경기장",
-                    "스포츠시설",
-                    "예식장",
-                    "장례식장",
-                    "세트장",
-                    "관공서",
-                ),
-        )
-
-    val names: List<String> = listOf(ALL) + groups.map { it.first }
-
-    fun of(placeType: String?): String {
-        if (placeType == null) return "건물·시설"
-        return groups.firstOrNull { placeType in it.second }?.first ?: "건물·시설"
-    }
+    fun of(placeType: String?): String =
+        com.mz2az.scenetrip.data.PlaceType
+            .group(placeType)
+            .label
 }

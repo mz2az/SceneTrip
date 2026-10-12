@@ -52,7 +52,11 @@ object RouteBridge {
             title = detail.title,
             startDate = detail.startDate,
             pace = pace(detail.pace),
-            days = detail.days.map { day -> RouteDay(stops = day.items.map { stop(it) }) },
+            days =
+                detail.days.map { day ->
+                    val stops = day.items.map { stop(it) }
+                    RouteDay(stops = stops, estimate = RouteDayEstimate(stops, day.totalMinutes))
+                },
             madeByAI = detail.origin == CourseOrigin.ai,
             isRunning = detail.status == CourseStatus.active,
         )
@@ -91,6 +95,14 @@ object RouteBridge {
             stayMinutes = item.dwellMinutes,
             isPinned = item.source == CourseItemSource.customPin || (item.source == CourseItemSource.poi && item.poiId == null),
             poiId = item.poiId.takeIf { item.source == CourseItemSource.poi },
+            poiText =
+                if (item.source ==
+                    CourseItemSource.poi
+                ) {
+                    PoiText(item.displayName, item.nameRoman, item.categoryLabel, item.displayAddress)
+                } else {
+                    null
+                },
             visited = item.visitedAt != null,
         )
 

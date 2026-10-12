@@ -2,6 +2,7 @@ package com.mz2az.scenetrip.communitytab
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,11 +40,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.auth.AuthStore
+import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.CommunityStore
+import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.PostCourse
-import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.CheckmarkIcon
 import com.mz2az.scenetrip.ui.IOS
@@ -68,6 +72,20 @@ fun CommunityPostView(
     val store = remember { CommunityStore.getInstance(context) }
     val scope = rememberCoroutineScope()
 
+    var loaded by remember(post.id) { mutableStateOf<CommunityPost?>(null) }
+    var loading by remember(post.id) { mutableStateOf(false) }
+    var loadMessage by remember(post.id) { mutableStateOf<String?>(null) }
+    var revision by remember(post.id) { mutableStateOf(0) }
+    val content = loaded ?: post
+    LaunchedEffect(post.id, revision, AuthStore.epoch, AppLanguage.current) {
+        loaded = null
+        if (post.serverId != null) {
+            loading = true
+            loadMessage = null
+            apiResult { store.detail(post) }.fold(onSuccess = { loaded = it }, onFailure = { loadMessage = NetworkFailure.of(it).message })
+            loading = false
+        }
+    }
     var saving by remember { mutableStateOf(false) }
     var savedCourseId by remember { mutableStateOf<Long?>(null) }
     var saveFailed by remember { mutableStateOf(false) }
@@ -77,62 +95,82 @@ fun CommunityPostView(
 
     Box(Modifier.fillMaxSize().background(IOS.systemBackground)) {
         LazyColumn(Modifier.fillMaxSize()) {
-            val photos = post.photos
-            if (!photos.isNullOrEmpty()) {
-                item { PostPhotoPager(store = store, names = photos) }
-            }
-            item {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
-                ) {
-                    Text(post.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label)
-
-                    AuthorRow(post)
-
-                    if (post.body.isNotEmpty()) {
-                        Text(post.body, fontSize = 17.sp, color = IOS.label, lineHeight = 23.sp)
+            if (post.serverId != null && loaded == null) {
+                item {
+                    if (loading) {
+                        Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(24.dp), color = IOS.accent)
+                        }
                     }
+                    loadMessage?.let {
+                        Text(it, color = IOS.secondaryLabel, modifier = Modifier.padding(20.dp))
+                        CommunityListButton("다시 시도", !loading) { revision++ }
+                    }
+                }
+            } else {
+                val photos = content.photos
+                if (content.remotePhotos.isNotEmpty()) {
+                    item { PostPhotoPager(store = store, urls = content.remotePhotos) }
+                } else {
+                    if (!photos.isNullOrEmpty()) {
+                        item { PostPhotoPager(store = store, names = photos) }
+                    }
+                }
+                item {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                    ) {
+                        Text(content.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label)
 
-                    val course = post.course
-                    if (course != null) {
-                        CourseCard(
-                            course = course,
-                            expanded = expanded,
-                            shown = ::shown,
-                            isMine = post.isMine,
-                            saving = saving,
-                            savedCourseId = savedCourseId,
-                            onExpand = { expanded = true },
-                            onSave = {
-                                saving = true
-                                scope.launch {
-                                    val saved = RouteStore(context).save(course.asNewCourse())
-                                    saving = false
-                                    val id = saved?.serverId
-                                    if (id != null) savedCourseId = id else saveFailed = true
-                                }
-                            },
-                            onOpenSaved = {
-                                savedCourseId?.let { id ->
-                                    onDismiss()
-                                    TabRouter.openCourse(id)
-                                }
-                            },
-                        )
-                    } else if (post.courseTitle != null) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(IOS.systemGray6)
-                                    .padding(12.dp),
-                        ) {
-                            PostCourseBadge(size = 30.dp)
-                            Text(post.courseTitle, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                        AuthorRow(content)
+
+                        if (content.body.isNotEmpty()) {
+                            Text(content.body, fontSize = 17.sp, color = IOS.label, lineHeight = 23.sp)
+                        }
+
+                        val course = content.course
+                        if (course != null) {
+                            CourseCard(
+                                course = course,
+                                expanded = expanded,
+                                shown = ::shown,
+                                allowSaving = content.serverId != null,
+                                saving = saving,
+                                savedCourseId = savedCourseId,
+                                onExpand = { expanded = true },
+                                onSave = {
+                                    saving = true
+                                    scope.launch {
+                                        val account = AuthStore.epoch
+                                        apiResult { store.saveCourse(content) }.fold(
+                                            onSuccess = { if (account == AuthStore.epoch) savedCourseId = it.id },
+                                            onFailure = { if (account == AuthStore.epoch) saveFailed = true },
+                                        )
+                                        saving = false
+                                    }
+                                },
+                                onOpenSaved = {
+                                    savedCourseId?.let { id ->
+                                        onDismiss()
+                                        TabRouter.openCourse(id)
+                                    }
+                                },
+                            )
+                        } else if (content.courseTitle != null) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(IOS.systemGray6)
+                                        .padding(12.dp),
+                            ) {
+                                PostCourseBadge(size = 30.dp)
+                                Text(content.courseTitle!!, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                            }
                         }
                     }
                 }
@@ -171,7 +209,7 @@ fun CommunityPostView(
 
 @Composable
 private fun AuthorRow(post: CommunityPost) {
-    val name = post.author ?: tr("나")
+    val name = post.authorName(AuthStore.me?.nickname)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(
             contentAlignment = Alignment.Center,
@@ -191,7 +229,7 @@ private fun CourseCard(
     course: PostCourse,
     expanded: Boolean,
     shown: (List<PostCourse.Stop>) -> List<PostCourse.Stop>,
-    isMine: Boolean,
+    allowSaving: Boolean,
     saving: Boolean,
     savedCourseId: Long?,
     onExpand: () -> Unit,
@@ -233,9 +271,9 @@ private fun CourseCard(
                             Text("${index + 1}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                            Text(stop.name, fontSize = 15.sp, color = IOS.label)
-                            if (!stop.address.isNullOrEmpty()) {
-                                Text(stop.address, fontSize = 11.sp, color = IOS.secondaryLabel, maxLines = 1)
+                            Text(stop.shownName, fontSize = 15.sp, color = IOS.label)
+                            if (!stop.shownAddress.isNullOrEmpty()) {
+                                Text(stop.shownAddress!!, fontSize = 11.sp, color = IOS.secondaryLabel, maxLines = 1)
                             }
                         }
                     }
@@ -260,8 +298,8 @@ private fun CourseCard(
             )
         }
 
-        // 내 글이면 담기가 없다 — 이미 내 코스다. 눌리면 같은 코스가 하나 더 생길 뿐이다.
-        if (!isMine) {
+        // 서버 글에 첨부된 사본만 담는다. 옛 기기 글은 비공개로 보존한다.
+        if (allowSaving) {
             SaveButton(saving = saving, savedCourseId = savedCourseId, onSave = onSave, onOpenSaved = onOpenSaved)
         }
     }
@@ -284,6 +322,7 @@ private fun SaveButton(
                     .height(46.dp)
                     .clip(RoundedCornerShape(50))
                     .background(IOS.systemBackground)
+                    .border(1.5.dp, IOS.pinDeep, RoundedCornerShape(50))
                     .clickable(onClick = onOpenSaved),
         ) {
             CheckmarkIcon(IOS.pinDeep, Modifier.size(14.dp))
@@ -316,13 +355,18 @@ private fun SaveButton(
 @Composable
 fun PostPhotoPager(
     store: CommunityStore,
-    names: List<String>,
+    names: List<String> = emptyList(),
+    urls: List<String> = emptyList(),
 ) {
-    val pagerState = rememberPagerState(pageCount = { names.size })
+    val count = if (urls.isEmpty()) names.size else urls.size
+    val pagerState = rememberPagerState(pageCount = { count })
     Box(Modifier.fillMaxWidth().height(300.dp).background(IOS.systemGray5)) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            val bitmap = remember(names[page]) { store.photo(names[page]) }
-            if (bitmap != null) {
+            val bitmap = if (urls.isEmpty()) remember(names[page]) { store.photo(names[page]) } else null
+            if (urls.isNotEmpty()) {
+                com.mz2az.scenetrip.searchtab
+                    .RemoteImage(urls[page], Modifier.fillMaxSize(), edge = 1024, retryable = true)
+            } else if (bitmap != null) {
                 Image(
                     bitmap = bitmap.asImageBitmap(),
                     contentDescription = null,
@@ -335,12 +379,12 @@ fun PostPhotoPager(
                 }
             }
         }
-        if (names.size > 1) {
+        if (count > 1) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp),
             ) {
-                names.indices.forEach { index ->
+                (0 until count).forEach { index ->
                     Box(
                         modifier =
                             Modifier
