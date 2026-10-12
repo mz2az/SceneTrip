@@ -54,6 +54,7 @@ from tools.poi.tests.test_tourapi import (
     TourKeyRing,
     TourMain,
     TourOrder,
+    TourRegionRank,
     TourRun,
 )
 
@@ -98,6 +99,7 @@ __all__ = [
     "TourKeyRing",
     "TourMain",
     "TourOrder",
+    "TourRegionRank",
     "TourRun",
 ]
 
