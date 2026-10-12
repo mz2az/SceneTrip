@@ -26,6 +26,7 @@ class BootstrapRunner:
         self.overrides = {}
         self.media_bucket = "scenetrip-user-media-123456789012-ap-northeast-2-dev"
         self.extra_resources = []
+        self.bedrock_role = "scenetrip-dev-bedrock"
 
     def __call__(self, command, **kwargs):
         self.calls.append((command, kwargs))
@@ -46,6 +47,8 @@ class BootstrapRunner:
             ("UserMediaBucket", "AWS::S3::Bucket", self.media_bucket),
             ("UserMediaBucketPolicy", "AWS::S3::BucketPolicy", self.media_bucket),
             ("MediaRole", "AWS::IAM::Role", "scenetrip-dev-media"),
+            # trip-guide 의 Bedrock 호출 역할(MZ2AZ-317)
+            ("BedrockRole", "AWS::IAM::Role", self.bedrock_role),
         ] + self.extra_resources
         outputs = {
             "TerraformStateBucket": self.bucket,
@@ -176,6 +179,22 @@ class BootstrapDeleteTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "허용되지 않은"):
             self.invoke(run, execute=True)
         self.assertFalse(any(command[2] == "delete-stack" for command, _ in run.calls))
+
+    def test_stack_with_bedrock_role_is_allowed(self):
+        run = BootstrapRunner()
+        self.invoke(run, execute=True)
+        self.assertTrue(any(command[2] == "delete-stack" for command, _ in run.calls))
+
+    def test_foreign_bedrock_role_blocks_deletion(self):
+        for name in ("scenetrip-prd-bedrock", "scenetrip-dev-bedrock-extra"):
+            with self.subTest(name=name):
+                run = BootstrapRunner()
+                run.bedrock_role = name
+                with self.assertRaisesRegex(ValueError, "허용되지 않은"):
+                    self.invoke(run, execute=True)
+                self.assertFalse(
+                    any(command[2] == "delete-stack" for command, _ in run.calls)
+                )
 
     def test_plan_is_read_only(self):
         run = BootstrapRunner()

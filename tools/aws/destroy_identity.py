@@ -89,6 +89,16 @@ def validate_tagless(address, value, resources, settings):
             raise ValueError(
                 "Pod Identity 연결의 클러스터·서비스 계정이 삭제 환경과 다릅니다"
             )
+    elif address == "aws_eks_pod_identity_association.trip_guide_bedrock":
+        # trip-guide 파드 ↔ Bedrock 호출 역할(MZ2AZ-317). 역할은 bootstrap 소유라 연결만 지운다.
+        if (
+            value.get("cluster_name") != settings.cluster
+            or value.get("namespace") != "scenetrip"
+            or value.get("service_account") != "trip-guide"
+        ):
+            raise ValueError(
+                "Pod Identity 연결의 클러스터·서비스 계정이 삭제 환경과 다릅니다"
+            )
     else:
         raise ValueError(
             "현재 SceneTrip 소스에 없는 managed 리소스를 삭제하지 않습니다"

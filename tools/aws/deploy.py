@@ -152,12 +152,14 @@ def auth_secret(run, arn):
 
 
 def trip_guide_secret(guide, auth):
-    """trip-guide 의 Secret — 사람이 넣은 모델 키와 서비스 비밀값 **하나만**.
+    """trip-guide 의 Secret — 서비스 비밀값 **하나만**.
 
     auth 칸을 통째로 넘기지 않는다. 서명 키·암호화 키가 에이전트에 가면 에이전트가 토큰을
-    만들 수 있게 된다(ADR 0013·0023: 에이전트는 자격 증명을 쥐지 않는다).
+    만들 수 있게 된다(ADR 0013·0023: 에이전트는 자격 증명을 쥐지 않는다). 모델 키도 넣지 않는다 — Bedrock 은
+    Pod Identity 역할의 임시 자격 증명으로 부른다(MZ2AZ-317). 비밀값에 예전 고정 키가 남아 있어도 버린다.
     """
-    return {**guide, "SCENETRIP_SERVICE_TOKEN": auth["SCENETRIP_SERVICE_TOKEN"]}
+    del guide  # 남은 예전 키를 파드로 옮기지 않는다
+    return {"SCENETRIP_SERVICE_TOKEN": auth["SCENETRIP_SERVICE_TOKEN"]}
 
 
 def gateway_values(settings, outputs):

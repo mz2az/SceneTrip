@@ -156,6 +156,48 @@
         ]
       }
     },
+    "BedrockRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": {"Fn::Sub":"scenetrip-${Environment}-bedrock"},
+        "Description": "trip-guide pod access to Bedrock via EKS Pod Identity: invoke one chat model only (MZ2AZ-317). Replaces a long-lived IAM user key.",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {"Service":"pods.eks.amazonaws.com"},
+              "Action": ["sts:AssumeRole","sts:TagSession"],
+              "Condition": {
+                "StringEquals": {"aws:SourceAccount":{"Ref":"AWS::AccountId"}},
+                "ArnEquals": {"aws:SourceArn":{"Fn::Sub":"arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/scenetrip-${Environment}"}}
+              }
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "InvokeChatModel",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "InvokeConfiguredModel",
+                  "Effect": "Allow",
+                  "Action": ["bedrock:InvokeModel","bedrock:InvokeModelWithResponseStream"],
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/openai.gpt-oss-120b-1:0"}
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {"Key":"Project","Value":"scenetrip"},
+          {"Key":"Environment","Value":{"Ref":"Environment"}},
+          {"Key":"ManagedBy","Value":"cloudformation"}
+        ]
+      }
+    },
     "ClusterRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -263,11 +305,7 @@
                   "Sid": "ReadClusterRoles",
                   "Effect": "Allow",
                   "Action": ["iam:GetRole","iam:ListRoleTags","iam:ListAttachedRolePolicies","iam:ListRolePolicies","iam:GetRolePolicy"],
-                  "Resource": [
-                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-cluster"},
-                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-node"},
-                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-media"}
-                  ]
+                  "Resource": {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-*"}
                 },
                 {
                   "Sid": "PassClusterRoles",
@@ -276,7 +314,8 @@
                   "Resource": [
                     {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-cluster"},
                     {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-eks-node"},
-                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-media"}
+                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-media"},
+                    {"Fn::Sub":"arn:${AWS::Partition}:iam::${AWS::AccountId}:role/scenetrip-${Environment}-bedrock"}
                   ],
                   "Condition": {"StringEquals":{"iam:PassedToService":["eks.amazonaws.com","ec2.amazonaws.com","pods.eks.amazonaws.com"]}}
                 },
@@ -688,6 +727,7 @@
     "NodeRoleArn": {"Value":{"Fn::GetAtt":["NodeRole","Arn"]}},
     "LifecycleRoleArn": {"Description":"GitHub Environment AWS_LIFECYCLE_ROLE_ARN에 설정할 올리기·내리기 역할.","Value":{"Fn::GetAtt":["LifecycleRole","Arn"]}},
     "UserMediaBucket": {"Description":"사용자 사진(리뷰) 버킷. 내려도 남는다(Retain).","Value":{"Ref":"UserMediaBucket"}},
-    "MediaRoleArn": {"Description":"scene-api 파드가 Pod Identity 로 쓰는 사진 버킷 역할.","Value":{"Fn::GetAtt":["MediaRole","Arn"]}}
+    "MediaRoleArn": {"Description":"scene-api 파드가 Pod Identity 로 쓰는 사진 버킷 역할.","Value":{"Fn::GetAtt":["MediaRole","Arn"]}},
+    "BedrockRoleArn": {"Description":"trip-guide 파드가 Pod Identity 로 쓰는 Bedrock 호출 역할(MZ2AZ-317).","Value":{"Fn::GetAtt":["BedrockRole","Arn"]}}
   }
 }

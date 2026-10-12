@@ -102,8 +102,11 @@ class MediaChartTest(unittest.TestCase):
                 deployment = self.one(docs, "Deployment", name)
                 self.assertNotIn("serviceAccountName: scene-api", deployment)
                 self.assertIn("automountServiceAccountToken: false", deployment)
-        accounts = [n for k, n, _ in docs if k == "ServiceAccount"]
-        self.assertEqual(accounts, ["scene-api"])
+        # gateway 는 서비스 계정을 받지 않는다(기본)
+        self.assertNotIn("serviceAccountName:", self.one(docs, "Deployment", "gateway"))
+        # trip-guide 는 Bedrock 역할용 자기 서비스 계정을 갖는다(MZ2AZ-317, test_bedrock_role.py)
+        accounts = sorted(n for k, n, _ in docs if k == "ServiceAccount")
+        self.assertEqual(accounts, ["scene-api", "trip-guide"])
 
     def test_config_map_carries_media_bucket(self):
         for environment in ("dev", "prd"):

@@ -238,6 +238,48 @@ class DestroyPlanTest(unittest.TestCase):
                 {"aws_eks_pod_identity_association.other": matching}, settings
             )
 
+    def test_bedrock_pod_identity_association_is_deleted_only_for_environment_trip_guide(
+        self,
+    ):
+        # MZ2AZ-317 — trip-guide ↔ -bedrock 역할 연결만 Terraform 소유, 역할은 bootstrap 소유.
+        from tools.aws.destroy_identity import validate_owned_state
+
+        settings = valid_settings()
+        address = "aws_eks_pod_identity_association.trip_guide_bedrock"
+        matching = {
+            "cluster_name": settings.cluster,
+            "namespace": "scenetrip",
+            "service_account": "trip-guide",
+            "role_arn": "arn:aws:iam::123456789012:role/scenetrip-dev-bedrock",
+        }
+        validate_owned_state({address: matching}, settings)
+        # 두 연결이 함께 있어도 통과한다
+        validate_owned_state(
+            {
+                address: matching,
+                "aws_eks_pod_identity_association.scene_api_media": {
+                    **matching,
+                    "service_account": "scene-api",
+                    "role_arn": "arn:aws:iam::123456789012:role/scenetrip-dev-media",
+                },
+            },
+            settings,
+        )
+        for field, value in (
+            ("cluster_name", "scenetrip-prd"),
+            ("cluster_name", "other-cluster"),
+            ("namespace", "default"),
+            ("namespace", "kube-system"),
+            ("service_account", "scene-api"),
+            ("service_account", "default"),
+        ):
+            with self.subTest(field=field, value=value), self.assertRaises(ValueError):
+                validate_owned_state({address: {**matching, field: value}}, settings)
+        for missing in ("cluster_name", "namespace", "service_account"):
+            changed = {k: v for k, v in matching.items() if k != missing}
+            with self.subTest(missing=missing), self.assertRaises(ValueError):
+                validate_owned_state({address: changed}, settings)
+
     def test_saved_plan_uses_locking_private_file_and_json_without_logging_secrets(
         self,
     ):

@@ -406,11 +406,13 @@ class DeploySecretWiringTest(unittest.TestCase):
         self.assertEqual(scene[AUTH_KEY], key)
         self.assertEqual(scene[CIPHER_KEY], enc_key)
         self.assertEqual(scene[SERVICE_KEY], token)
-        # 에이전트는 모델 키와 서비스 비밀값만 받는다 — 로그인 키는 절대 가지 않는다.
+        # 에이전트는 서비스 비밀값만 받는다 — 로그인 키는 절대 가지 않는다. 비밀값에 남은 예전 Bedrock
+        # 고정 키도 파드로 옮기지 않는다(MZ2AZ-317: Bedrock 은 Pod Identity 역할로 부른다).
         guide = secrets["trip-guide-secrets"]
-        self.assertEqual(set(guide), {*GUIDE_KEYS, SERVICE_KEY})
-        self.assertEqual(guide["AWS_SECRET_ACCESS_KEY"], "fixture-secret")
+        self.assertEqual(set(guide), {SERVICE_KEY})
         self.assertEqual(guide[SERVICE_KEY], token)
+        for value in GUIDE_KEYS.values():
+            self.assertNotIn(value, json.dumps(guide))
         self.assertNotIn(AUTH_KEY, guide)
         self.assertNotIn(CIPHER_KEY, guide)
         self.assertNotIn(key, json.dumps(guide))
@@ -469,9 +471,26 @@ class DeploySecretWiringTest(unittest.TestCase):
         self.assertEqual(secrets["scene-api-secrets"][SERVICE_KEY], slot[SERVICE_KEY])
         self.assertEqual(
             secrets["trip-guide-secrets"],
-            {**GUIDE_KEYS, SERVICE_KEY: slot[SERVICE_KEY]},
+            {SERVICE_KEY: slot[SERVICE_KEY]},
         )
         self.assertEqual(len(store.puts()), 1)
+
+    def test_trip_guide_secret_without_model_keys_deploys(self):
+        # MZ2AZ-317 — 고정 키를 지운 뒤의 비밀값(빈 객체)도 배포를 막지 않는다.
+        token = service_token(fill=b"N")
+        values = self.stored(auth_slot(service=token))
+        values[GUIDE_ARN] = json.dumps({})
+        run = self.deploy(FakeSecretStore(values, cluster_commands))
+        secrets = self.kubernetes_secrets(run)
+        self.assertEqual(secrets["trip-guide-secrets"], {SERVICE_KEY: token})
+
+    def test_trip_guide_secret_with_unknown_key_fails_before_helm(self):
+        values = self.stored(auth_slot())
+        values[GUIDE_ARN] = json.dumps({**GUIDE_KEYS, "OPENAI_API_KEY": "fixture"})
+        store = FakeSecretStore(values, cluster_commands)
+        with self.assertRaises(ValueError):
+            self.deploy(store)
+        self.assertFalse(any(command[0] == "helm" for command, unused in store.calls))
 
     def test_missing_auth_output_fails_before_helm(self):
         settings = valid_settings()
@@ -488,9 +507,12 @@ class DeploySecretWiringTest(unittest.TestCase):
 
 
 class TripGuideSecretTest(unittest.TestCase):
-    """trip-guide-secrets 의 내용 — 모델 키와 서비스 비밀값만(ADR 0023: 에이전트는 자격 증명을 받지 않는다)."""
+    """trip-guide-secrets 의 내용 — 서비스 비밀값만(ADR 0023: 에이전트는 자격 증명을 받지 않는다).
 
-    def test_carries_model_key_and_only_the_service_token_from_auth(self):
+    MZ2AZ-317: Bedrock 은 Pod Identity 역할로 부르므로 비밀값의 예전 고정 키도 파드에 넣지 않는다.
+    """
+
+    def test_carries_only_the_service_token_from_auth(self):
         from tools.aws.deploy import trip_guide_secret
 
         auth = auth_slot(
@@ -498,15 +520,15 @@ class TripGuideSecretTest(unittest.TestCase):
             cipher=cipher_key(fill=b"B"),
             service=service_token(b"Z"),
         )
-        secret = trip_guide_secret(dict(GUIDE_KEYS), auth)
-
-        self.assertEqual(
-            secret,
-            {**GUIDE_KEYS, SERVICE_KEY: service_token(b"Z")},
-        )
-        dumped = json.dumps(secret)
-        self.assertNotIn(auth[AUTH_KEY], dumped)
-        self.assertNotIn(auth[CIPHER_KEY], dumped)
+        for guide in (dict(GUIDE_KEYS), {}):
+            with self.subTest(guide=sorted(guide)):
+                secret = trip_guide_secret(guide, auth)
+                self.assertEqual(secret, {SERVICE_KEY: service_token(b"Z")})
+                dumped = json.dumps(secret)
+                self.assertNotIn(auth[AUTH_KEY], dumped)
+                self.assertNotIn(auth[CIPHER_KEY], dumped)
+                for value in GUIDE_KEYS.values():
+                    self.assertNotIn(value, dumped)
 
     def test_does_not_mutate_its_inputs(self):
         from tools.aws.deploy import trip_guide_secret

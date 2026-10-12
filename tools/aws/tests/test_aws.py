@@ -15,7 +15,12 @@ from tools.aws.tests.test_auth_secret import (
     DeploySecretWiringTest,
     DestroyIdentityAuthTest,
     RetainedAuthSecretTest,
+    TripGuideSecretTest,
     ValidateAuthSecretTest,
+)
+from tools.aws.tests.test_bedrock_role import (
+    TripGuideChartTest,
+    TripGuideSecretValidationTest,
 )
 from tools.aws.tests.test_bootstrap_delete import BootstrapDeleteTest
 from tools.aws.tests.test_bootstrap_state import BootstrapStateTest
@@ -94,6 +99,9 @@ __all__ = [
     "SharedMediaTemplateTest",
     "SnapshotPruneTest",
     "TeardownEntryPointTest",
+    "TripGuideChartTest",
+    "TripGuideSecretTest",
+    "TripGuideSecretValidationTest",
     "ValidateAuthSecretTest",
     "ValidateEncryptionKeyTest",
     "WorkflowSecurityTest",

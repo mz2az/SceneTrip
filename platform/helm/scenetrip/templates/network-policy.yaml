@@ -64,6 +64,10 @@ spec:
     - to: [{ podSelector: { matchLabels: { app: trip-guide } } }]
       ports: [{ protocol: TCP, port: 8899 }]
     - ports: [{ protocol: TCP, port: 5432 }, { protocol: TCP, port: 443 }]
+    # EKS Pod Identity 에이전트(노드의 링크 로컬 주소) — 역할의 임시 자격 증명을 여기서 받는다(MZ2AZ-317). 막으면
+    # 사진 버킷(scene-api)·Bedrock(trip-guide) 호출이 키를 못 받아 실패한다.
+    - to: [{ ipBlock: { cidr: 169.254.170.23/32 } }]
+      ports: [{ protocol: TCP, port: 80 }]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -80,6 +84,10 @@ spec:
     - to: [{ podSelector: { matchLabels: { app: scene-api } } }]
       ports: [{ protocol: TCP, port: 8080 }]
     - ports: [{ protocol: TCP, port: 443 }]
+    # EKS Pod Identity 에이전트(노드의 링크 로컬 주소) — 역할의 임시 자격 증명을 여기서 받는다(MZ2AZ-317). 막으면
+    # 사진 버킷(scene-api)·Bedrock(trip-guide) 호출이 키를 못 받아 실패한다.
+    - to: [{ ipBlock: { cidr: 169.254.170.23/32 } }]
+      ports: [{ protocol: TCP, port: 80 }]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
