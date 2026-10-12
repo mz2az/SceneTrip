@@ -57,14 +57,13 @@ extension RouteEditorView {
     /// 스탬프가 찍혔다 — 코스 상태와 서버 둘 다에 「다녀옴」. 시각은 서버가 찍는다.
     /// 저장 전 코스(서버 id 없음)는 화면에만 남는다.
     func markVisited(_ stop: RouteStop) {
-        markVisitedLocally(stop)
-        guard let courseId = course.serverId, let itemId = stop.serverItemId else { return }
+        guard let courseId = course.serverId, let itemId = stop.serverItemId else {
+            markVisitedLocally(stop)
+            return
+        }
         Task {
-            try? await CoursesAPI.updateCourseItemVisit(
-                xInstallId: InstallIdentity.current,
-                courseId: courseId, itemId: itemId,
-                visitUpdate: VisitUpdate(visited: true)
-            )
+            guard await visitSync.save(courseId: courseId, itemId: itemId), course.serverId == courseId else { return }
+            markVisitedLocally(stop)
         }
     }
 
@@ -160,10 +159,14 @@ extension RouteEditorView {
     @ViewBuilder
     private var tripDetail: some View {
         if trip.phase == .arrived {
-            // **다음으로 넘기지 않는다.** 둘러볼 시간은 사람의 것이다.
-            Text(nextUnvisited.map { String(format: tr("둘러본 뒤 아래 「다음 · %d번으로」를 누르세요"), $0.number) }
-                ?? tr("오늘 일정을 모두 돌았어요"))
-                .font(.caption).foregroundStyle(.secondary)
+            if let target = trip.target, visitSync.isPending(target.serverItemId) {
+                visitSaveNotice(target)
+            } else {
+                // **다음으로 넘기지 않는다.** 둘러볼 시간은 사람의 것이다.
+                Text(nextUnvisited.map { String(format: tr("둘러본 뒤 아래 「다음 · %d번으로」를 누르세요"), $0.number) }
+                    ?? tr("오늘 일정을 모두 돌았어요"))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         } else if let result = trip.result {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(RouteFormat.minutes(result.totalMinutes)).font(.title3.weight(.bold))
@@ -221,6 +224,18 @@ extension RouteEditorView {
         } else if trip.here == nil {
             Label("현재 위치를 찾는 중입니다", systemImage: "location.slash")
                 .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder func visitSaveNotice(_ target: RouteStop) -> some View {
+        if let id = target.serverItemId, visitSync.saving.contains(id) {
+            Text("방문 기록을 저장하는 중이에요").font(.caption).foregroundStyle(.secondary)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("방문 기록을 저장하지 못했어요").font(.caption).foregroundStyle(.secondary)
+                Button(tr("다시 저장")) { markVisited(target) }
+                    .font(.caption.weight(.semibold)).frame(minHeight: 44)
+            }
         }
     }
 
@@ -354,6 +369,7 @@ extension RouteEditorView {
                             .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
+                    .disabled(visitSync.isPending(trip.target?.serverItemId))
                 } else {
                     Label("오늘 일정을 모두 돌았어요", systemImage: "checkmark.seal.fill")
                         .font(.subheadline.weight(.semibold))
