@@ -9,9 +9,26 @@ import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.sceneapi.client.api.CartApi
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.sceneapi.client.model.CartItemCreate
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.util.UUID
+
+private class ServerCartClient(
+    private val installId: UUID,
+) : CartClient {
+    private val api = CartApi(API_BASE)
+
+    override fun fetch(): List<CartItem> = api.getCart(installId).items.orEmpty()
+
+    override fun add(
+        placeId: Long,
+        sourceContentId: Long?,
+    ) {
+        api.addCartItem(installId, CartItemCreate(placeId = placeId, sourceContentId = sourceContentId))
+    }
+
+    override fun remove(placeId: Long) {
+        api.removeCartItem(installId, placeId)
+    }
+}
 
 /**
  * 장바구니. iOS `Models/CartStore.swift` 를 옮긴 것이다.
@@ -21,23 +38,19 @@ import java.util.UUID
  * 한다. iOS 는 UserDefaults, 여기서는 SharedPreferences 다.
  */
 class CartStore(
-    context: Context,
+    private val client: CartClient,
 ) {
-    var items by mutableStateOf<List<CartItem>>(emptyList())
-        private set
-    var toast by mutableStateOf<String?>(null)
-        private set
+    constructor(context: Context) : this(ServerCartClient(InstallIdentity.of(context)))
 
-    private val api = CartApi(API_BASE)
+    private var snapshot by mutableStateOf(CartState())
+    private val session = CartSession(client) { snapshot = it }
+    val items: List<CartItem> get() = snapshot.items
+    val toast: String? get() = snapshot.toast
 
-    // 저장 키는 옛 "deviceId" 그대로 — InstallIdentity 가 같은 자리를 읽는다(깔린 앱의 값 유지).
-    private val installId: UUID = InstallIdentity.of(context)
-
-    fun contains(placeId: Long): Boolean = items.any { it.placeId == placeId }
+    fun contains(placeId: Long): Boolean = placeId in snapshot.placeIds
 
     suspend fun refresh() {
-        runCatching { withContext(Dispatchers.IO) { api.getCart(installId) } }
-            .onSuccess { items = it.items ?: emptyList() }
+        session.refresh()
     }
 
     /**
@@ -50,25 +63,14 @@ class CartStore(
         placeId: Long,
         sourceContentId: Long? = null,
     ) {
-        runCatching {
-            withContext(Dispatchers.IO) {
-                api.addCartItem(installId, CartItemCreate(placeId = placeId, sourceContentId = sourceContentId))
-            }
-        }.onSuccess {
-            AppAnalytics.log(AppEvent.SavePlace(placeId))
-            refresh()
-        }.onFailure {
-            // 계약이 409 에 "이미 저장된 장소입니다" 를 띄우라고 적어 뒀다.
-            toast = tr("이미 저장된 장소입니다")
-        }
+        if (session.add(placeId, sourceContentId)) AppAnalytics.log(AppEvent.SavePlace(placeId))
     }
 
     suspend fun remove(placeId: Long) {
-        runCatching { withContext(Dispatchers.IO) { api.removeCartItem(installId, placeId) } }
-        refresh()
+        session.remove(placeId)
     }
 
     fun clearToast() {
-        toast = null
+        session.clearToast()
     }
 }

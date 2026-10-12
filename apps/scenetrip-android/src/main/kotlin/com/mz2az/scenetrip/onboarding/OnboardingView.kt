@@ -7,27 +7,33 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +46,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -51,14 +62,14 @@ import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.data.OnboardingFlag
 import com.mz2az.scenetrip.data.RoutePoiGroup
 import com.mz2az.scenetrip.data.RoutePoiTone
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
 import kotlinx.coroutines.launch
 
 /**
  * 첫 실행에 한 번 보여 주는 사용법 넉 장. iOS `Onboarding/OnboardingView.swift`를 옮긴 것이다.
  *
- * **영어가 본문이다** — 이 앱은 외국인이 쓰는 앱이다. 본체 UI 의 영문화는 여기서
- * 하지 않는다(별도 일감). 한국어는 팀 검수용 흐린 보조줄로만 남긴다.
+ * 언어 선택에서 고른 언어로 한 벌만 표시한다. 큰 글자는 세로로 스크롤할 수 있다.
  *
  * 앱이 실제로 하는 일이 넷이라 넉 장이다 — 검색 / AI 코스 / 길찾기 / 반경 POI·챗봇.
  * 다섯 장을 넘으면 사람이 「Skip」을 누른다.
@@ -67,36 +78,29 @@ private data class Lesson(
     val pose: PinoPose,
     val title: String,
     val body: String,
-    val korean: String,
 )
 
 private val LESSONS =
     listOf(
         Lesson(
             pose = PinoPose.MAGNIFIER,
-            title = "Where the scene\nwas filmed",
-            body = "Search by drama, movie, or the scene itself.\nReal locations, straight onto the map.",
-            korean = "드라마 이름으로도, 장면 설명으로도 찾는다",
+            title = "그 장면,\n어디서 찍었을까",
+            body = "드라마·영화 제목으로도, 장면 설명으로도 찾아요.\n실제 촬영지가 바로 지도에 뜹니다.",
         ),
         Lesson(
             pose = PinoPose.SPARKLE,
-            title = "Set your pace.\nHAETAE plans the days.",
-            // 7과 3은 지어낸 수가 아니라 계약 GuidePlanRequest.pace 의 값이다(빡빡 7 · 여유 3).
-            // 그쪽을 고치면 이 문장도 함께 고쳐야 한다(MZ2AZ-321).
-            body = "Packed fits 7 stops a day, Easy fits 3.\nNearby spots get grouped, day by day.",
-            korean = "빡빡하게 하루 7곳 · 널널하게 3곳",
+            title = "속도만 정하세요.\n일정은 해태가 짭니다.",
+            body = "원하는 속도에 맞춰 가까운 촬영지로 일정을 짭니다.\n완성된 초안은 원하는 대로 바꿀 수 있어요.",
         ),
         Lesson(
             pose = PinoPose.PAW,
-            title = "Tap Directions\nwhen you feel like going",
-            body = "From wherever you are standing — subway,\nbus, and every turn of the walk.",
-            korean = "지금 서 있는 자리에서 지하철·버스·골목까지",
+            title = "가고 싶어지면\n길찾기를 누르세요",
+            body = "코스를 따라 다음 장소로 가는 길을 확인해요.\n필요하면 지도 앱으로 길찾기를 이어갈 수 있어요.",
         ),
         Lesson(
             pose = PinoPose.SPEECH,
-            title = "Eat on the way.\nAsk when you are stuck.",
-            body = "Restaurants, sights, transit and stays\naround you. HAETAE handles the Korean.",
-            korean = "반경 안의 음식점·명소·교통·숙소, 그리고 챗봇",
+            title = "가는 길에 먹고,\n막히면 물어보세요",
+            body = "주변의 음식점·명소·교통·숙소를 보여 줘요.\n촬영지와 여행 계획을 해태에게 물어보세요.",
         ),
     )
 
@@ -107,15 +111,18 @@ fun OnboardingView(
 ) {
     val pagerState = rememberPagerState(pageCount = { LESSONS.size })
     val scope = rememberCoroutineScope()
+    val progress = remember { OnboardingProgress(LESSONS.size) }
     val isLast = pagerState.currentPage == LESSONS.lastIndex
 
     fun finish() {
+        if (!progress.finish()) return
         onboardingFlag.markSeen()
         AppAnalytics.log(AppEvent.TutorialComplete)
         onDone()
     }
 
     LaunchedEffect(Unit) { AppAnalytics.log(AppEvent.TutorialBegin) }
+    LaunchedEffect(pagerState.currentPage) { progress.select(pagerState.currentPage) }
 
     Column(
         modifier =
@@ -135,7 +142,7 @@ fun OnboardingView(
         ) {
             if (!isLast) {
                 TextButton(onClick = { finish() }) {
-                    Text("Skip", fontSize = 17.sp, color = IOS.secondaryLabel)
+                    Text(tr("건너뛰기"), fontSize = 17.sp, color = IOS.secondaryLabel)
                 }
             }
         }
@@ -150,42 +157,85 @@ fun OnboardingView(
         PageDots(
             count = LESSONS.size,
             current = pagerState.currentPage,
-            modifier = Modifier.padding(top = 8.dp, bottom = 22.dp).fillMaxWidth(),
-        )
-
-        Box(
             modifier =
-                Modifier
-                    .fillMaxWidth()
-                    // iOS 는 안전 영역(홈 인디케이터) **위로** 40 띄운다 — 제스처 막대를 빼지 않았더니
-                    // 버튼이 iOS 보다 바닥에 붙었다(2026-09-28 대조: 아래 여백 40 대 74).
-                    .navigationBarsPadding()
-                    .padding(horizontal = 16.dp)
-                    // Android 제스처 여백(24)은 iOS 안전 영역(34)보다 10 작다 — 그만큼 더해 iOS 74 에 맞춘다.
-                    .padding(bottom = 50.dp)
-                    .height(50.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(IOS.accent)
-                    .clickable {
-                        if (isLast) {
-                            finish()
-                        } else {
-                            scope.launch {
-                                pagerState.animateScrollToPage(
-                                    pagerState.currentPage + 1,
-                                    animationSpec = tween(280),
-                                )
-                            }
-                        }
-                    },
+                Modifier.padding(top = 8.dp, bottom = 12.dp).fillMaxWidth().semantics {
+                    contentDescription = tr("사용법 %d / %d").format(pagerState.currentPage + 1, LESSONS.size)
+                },
+        )
+        OnboardingNavigation(
+            page = pagerState.currentPage,
+            isLast = isLast,
+            previous = {
+                scope.launch {
+                    pagerState.animateScrollToPage(
+                        (pagerState.currentPage - 1).coerceAtLeast(0),
+                        animationSpec = tween(280),
+                    )
+                }
+            },
+            next = {
+                if (isLast) {
+                    finish()
+                } else {
+                    scope.launch {
+                        pagerState.animateScrollToPage(
+                            (pagerState.currentPage + 1).coerceAtMost(LESSONS.lastIndex),
+                            animationSpec = tween(280),
+                        )
+                    }
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun OnboardingNavigation(
+    page: Int,
+    isLast: Boolean,
+    previous: () -> Unit,
+    next: () -> Unit,
+) {
+    val large = LocalDensity.current.fontScale >= 1.6f
+    val previousButton: @Composable () -> Unit = {
+        TextButton(onClick = previous, enabled = page > 0, modifier = Modifier.heightIn(min = 44.dp)) {
+            Text(
+                tr("이전"),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (page > 0) IOS.accent else IOS.tertiaryLabel,
+            )
+        }
+    }
+    val nextButton: @Composable (Modifier) -> Unit = { modifier ->
+        Box(
+            modifier
+                .heightIn(min = 52.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(IOS.accent)
+                .clickable(onClick = next)
+                .padding(vertical = 4.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = if (isLast) "Get started" else "Next",
+                tr(if (isLast) "시작하기" else "다음"),
                 color = Color.White,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
             )
+        }
+    }
+    val modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)
+    if (large) {
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            previousButton()
+            nextButton(Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            previousButton()
+            nextButton(Modifier.weight(1f))
         }
     }
 }
@@ -206,51 +256,56 @@ private fun LessonPage(
             else -> Offset.Zero
         }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(Modifier.weight(1f))
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val drawingSize = minOf(300.dp, (maxWidth - 32.dp).coerceAtLeast(1.dp))
+        val scale = drawingSize / 300.dp
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .heightIn(min = maxHeight)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
+        ) {
+            Box(modifier = Modifier.size(drawingSize), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier =
+                        Modifier.requiredSize(300.dp).graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Backdrop(index)
+                    PinoMascot(
+                        pose = lesson.pose,
+                        width = mascotWidth,
+                        modifier = Modifier.offset(x = mascotShift.x.dp, y = mascotShift.y.dp),
+                    )
+                }
+            }
 
-        Box(modifier = Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
-            Backdrop(index)
-            PinoMascot(
-                pose = lesson.pose,
-                width = mascotWidth,
-                modifier = Modifier.offset(x = mascotShift.x.dp, y = mascotShift.y.dp),
+            Text(
+                text = tr(lesson.title),
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.5).sp,
+                // 큰 글자는 iOS 줄 간격이 약 1.16em 이다 — 앱 기본 1.3em 을 그대로 두면 두 줄 제목이 벌어졌다.
+                lineHeight = 1.16.em,
+                textAlign = TextAlign.Center,
+                color = IOS.label,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text(
+                text = tr(lesson.body),
+                fontSize = 17.sp,
+                textAlign = TextAlign.Center,
+                lineHeight = 23.sp,
+                color = IOS.secondaryLabel,
             )
         }
-
-        Spacer(Modifier.weight(1f))
-
-        Text(
-            text = lesson.title,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.5).sp,
-            // 큰 글자는 iOS 줄 간격이 약 1.16em 이다 — 앱 기본 1.3em 을 그대로 두면 두 줄 제목이 벌어졌다.
-            lineHeight = 1.16.em,
-            textAlign = TextAlign.Center,
-            color = IOS.label,
-        )
-        Text(
-            text = lesson.body,
-            fontSize = 16.sp,
-            textAlign = TextAlign.Center,
-            lineHeight = 22.sp,
-            color = IOS.secondaryLabel,
-            modifier = Modifier.padding(top = 12.dp),
-        )
-        // 한국어는 팀 검수용 보조줄이다. 영어보다 확실히 흐려야 "본문이 둘"로 보이지 않는다.
-        Text(
-            text = lesson.korean,
-            fontSize = 13.sp,
-            textAlign = TextAlign.Center,
-            color = IOS.tertiaryLabel,
-            modifier = Modifier.padding(top = 14.dp),
-        )
-
-        Spacer(Modifier.weight(1f))
     }
 }
 
@@ -331,8 +386,8 @@ private fun DayCards() {
                         .padding(horizontal = 11.dp, vertical = 9.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                Text(day.title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
-                day.places.forEach { place -> Text(place, fontSize = 12.sp, color = IOS.label) }
+                Text(tr(day.title), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
+                day.places.forEach { place -> Text(tr(place), fontSize = 12.sp, color = IOS.label) }
             }
         }
     }
@@ -410,7 +465,7 @@ private fun Caption(
     y: Dp,
 ) {
     Text(
-        text = text,
+        text = tr(text),
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
         color = IOS.secondaryLabel,
@@ -431,10 +486,10 @@ private fun RadiusChips() {
     )
     val chips =
         listOf(
-            Chip(RoutePoiGroup.FOOD, "Food", Offset(-116f, -100f)),
-            Chip(RoutePoiGroup.SIGHT, "Sights", Offset(122f, 4f)),
-            Chip(RoutePoiGroup.TRANSIT, "Transit", Offset(-112f, 66f)),
-            Chip(RoutePoiGroup.STAY, "Stays", Offset(104f, 92f)),
+            Chip(RoutePoiGroup.FOOD, "음식점", Offset(-116f, -100f)),
+            Chip(RoutePoiGroup.SIGHT, "명소", Offset(122f, 4f)),
+            Chip(RoutePoiGroup.TRANSIT, "교통", Offset(-112f, 66f)),
+            Chip(RoutePoiGroup.STAY, "숙소", Offset(104f, 92f)),
         )
 
     Box(contentAlignment = Alignment.Center) {
@@ -475,7 +530,7 @@ private fun RadiusChips() {
                         .padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
             ) {
                 Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(RoutePoiTone.of(chip.group)))
-                Text(chip.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                Text(tr(chip.label), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
             }
         }
     }

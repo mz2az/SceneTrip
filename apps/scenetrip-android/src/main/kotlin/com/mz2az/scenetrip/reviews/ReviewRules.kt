@@ -8,6 +8,15 @@ object ReviewRules {
     const val BODY_LIMIT = 2000
     const val PHOTO_LIMIT = 10
 
+    fun preservesPhotoFrame(photo: com.mz2az.scenetrip.sceneapi.client.model.Photo): Boolean {
+        if (photo.source == com.mz2az.scenetrip.sceneapi.client.model.PhotoSource.review) return false
+        val url = photo.url
+        val tour =
+            url.scheme.equals("https", true) && url.host.equals("tong.visitkorea.or.kr", true) &&
+                url.port == -1 && url.userInfo == null && url.rawQuery == null && url.rawFragment == null
+        return tour || photo.credit?.contains("공공누리 제3유형") == true
+    }
+
     fun ratingFraction(
         distribution: List<Int>,
         score: Int,

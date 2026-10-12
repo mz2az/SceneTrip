@@ -166,12 +166,19 @@ fun RoutePlaceCard(
     var missing by remember(place.id) { mutableStateOf(false) }
 
     LaunchedEffect(place, revision) {
+        // 아래 조회 재시도는 이용 기록을 만들지 않는다.
         loading = true
         missing = false
         val result = fetchPlaceCard(place)
         card = result
         missing = result == null
         loading = false
+    }
+
+    LaunchedEffect(place.id, place.targetPlaceId) {
+        com.mz2az.scenetrip.analytics.UsageEvents.opened(
+            ReviewSubject(place.targetPlaceId ?: place.id, place.name, isPoi = place.targetPlaceId == null),
+        )
     }
 
     Column(

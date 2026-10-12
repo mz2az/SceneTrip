@@ -137,6 +137,10 @@ fun PlaceRow(
 
         RemoteImage(
             url = place.imageUrl?.toString(),
+            placeholder = {
+                com.mz2az.scenetrip.ui
+                    .MapPinEllipseIcon(IOS.secondaryLabel, Modifier.size(20.dp))
+            },
             modifier =
                 Modifier
                     .size(54.dp)

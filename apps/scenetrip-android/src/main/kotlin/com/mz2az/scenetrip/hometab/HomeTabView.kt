@@ -57,6 +57,7 @@ fun HomeTabScreen() {
     suspend fun reload() {
         routes.refresh()
         cart.refresh()
+        posts.refresh()
         model.load(routes.courses)
     }
 

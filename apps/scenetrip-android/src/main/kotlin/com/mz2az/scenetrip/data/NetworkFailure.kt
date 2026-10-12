@@ -61,7 +61,7 @@ data class NetworkFailure(
 }
 
 /** 취소는 실패 화면으로 바꾸지 않고 코루틴에 돌려준다. */
-suspend fun <T> apiResult(block: () -> T): Result<T> =
+suspend fun <T> apiResult(block: suspend () -> T): Result<T> =
     withContext(Dispatchers.IO) {
         try {
             Result.success(block())

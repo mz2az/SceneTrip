@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.routetab
 
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -47,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -156,8 +158,9 @@ fun RouteEditorView(
     var pendingPin by remember { mutableStateOf<RoutePin?>(null) }
     var searching by remember { mutableStateOf(false) }
     var showCart by remember { mutableStateOf(false) }
-    var stayTarget by remember { mutableStateOf<RouteStop?>(null) }
+    var showDayStay by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
+    var saveFailure by remember { mutableStateOf<com.mz2az.scenetrip.data.ApiFailure?>(null) }
     var blockedDayRemoval by remember { mutableStateOf(false) }
     var pinStart by remember { mutableStateOf(false) }
     var pinEnd by remember { mutableStateOf(false) }
@@ -166,6 +169,7 @@ fun RouteEditorView(
     // 견주고 싶어서 본다. 끄는 것은 선택으로 남는다.
     var showingMe by remember { mutableStateOf(true) }
     var fitToken by remember { mutableStateOf(0) }
+    var optimizeNudge by remember { mutableStateOf(false) }
     var showGuide by remember { mutableStateOf(false) }
     var viewport by remember { mutableStateOf<MapViewport?>(null) }
     var ambientPois by remember { mutableStateOf<List<PoiSummary>>(emptyList()) }
@@ -264,25 +268,23 @@ fun RouteEditorView(
         scope.launch {
             val saved = store.save(course)
             saving = false
-            if (saved != null) onClose(saved)
+            if (saved != null) onClose(saved) else saveFailure = store.failure
         }
     }
 
-    // 정지점 줄의 "어느 작품에 나온 곳인가" — iOS `RouteEditorView.workTitles(for:)`.
-    // 계약의 `CourseItem`엔 작품이 없어(`placeId`·`name`·`address`만 온다)
-    // `RouteStore.places`(촬영지 전체)로 되짚는다. 직접 찍은 핀(id가 음수)은
-    // 되짚을 것이 없다.
+    // 검색에서 담은 작품 제목을 먼저 쓰고, 저장된 코스는 상세 조회 결과로 채운다.
     fun workTitles(stop: RouteStop): String {
-        val placeId = stop.place.id
-        if (placeId <= 0) return ""
-        val found = store.places.firstOrNull { it.id == placeId } ?: return ""
-        return found.contents
-            .orEmpty()
-            .map { it.title }
-            .take(2)
-            .joinToString(" · ")
+        val placeId = stop.savablePlaceId ?: return ""
+        val carried =
+            stop.place.contents
+                .orEmpty()
+                .map { it.title }
+        return carried.ifEmpty { store.workTitles(placeId) }.take(2).joinToString(" · ")
     }
     LaunchedEffect(Unit) { store.loadPlaces() }
+    LaunchedEffect(course.days.flatMap { it.stops }.map { it.savablePlaceId }) {
+        store.loadWorkTitles(course.days.flatMap { it.stops })
+    }
 
     LaunchedEffect(Unit) { trip.onArrived = { stop -> markVisited(stop) } }
 
@@ -304,13 +306,11 @@ fun RouteEditorView(
         newStops: List<RouteStop>,
         asNext: Boolean = false,
     ) {
-        if (newStops.isEmpty()) return
+        val toAdd = RouteDedupe.fresh(newStops, course.stops)
+        if (toAdd.isEmpty()) return
         updateDay(dayIndex) { day ->
-            val toAdd = mutableListOf<RouteStop>()
-            newStops.forEach { stop -> if ((day.stops + toAdd).none { stop.sameTarget(it) }) toAdd.add(stop) }
-            if (toAdd.isEmpty()) return@updateDay day
             val slot =
-                if (asNext) {
+                if (asNext && course.isRunning) {
                     RouteGeometry.nextSlot(
                         day.stops,
                         trip.target,
@@ -322,6 +322,7 @@ fun RouteEditorView(
             day.copy(stops = day.stops.take(slot) + toAdd + day.stops.drop(slot))
         }
         fitToken += 1
+        optimizeNudge = course.days[dayIndex].stops.size >= 2
     }
 
     val day = course.days.getOrNull(dayIndex)
@@ -730,13 +731,16 @@ fun RouteEditorView(
             AmbientPoiPins(
                 map = map,
                 pois = visibleAmbientPois,
+                zoom = viewport?.zoom ?: map?.cameraPosition?.zoom ?: 14.0,
+                pickedId = guideSession.picked?.takeIf { it.source == com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource.poi }?.id,
                 // iOS `RouteMapAmbient`: 점을 눌러도 바로 담기지 않는다 — 카드가 먼저 뜨고
                 // "경로에 추가"는 사람이 카드에서 직접 누른다.
-                onTap = { poi -> guideSession.pick(poi.asGuidePlace()) },
+                onTap = { poi -> guideSession.pick(poi) },
             )
             AiPlacePins(
                 map = map,
                 places = visibleAiPlaces,
+                picked = guideSession.picked,
                 onTap = { place -> guideSession.pick(place) },
             )
             MapPins(
@@ -892,23 +896,7 @@ fun RouteEditorView(
                             },
                         )
                     }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(horizontal = 16.dp, vertical = 10.dp),
-                    ) {
-                        // iOS `.footnote`(13) + HStack(spacing: 6).
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(tr("%d곳").format(stops.size), fontSize = 13.sp, color = IOS.secondaryLabel)
-                            Text("·", fontSize = 13.sp, color = IOS.secondaryLabel)
-                            Text(
-                                tr("직선 %s").format(RouteFormat.kilometers(RouteGeometry.totalKilometers(stops))),
-                                fontSize = 13.sp,
-                                color = IOS.secondaryLabel,
-                            )
-                        }
-                        Spacer(Modifier.weight(1f))
-                        Text(tr("이동 시간은 여행 중에"), fontSize = 13.sp, color = IOS.tertiaryLabel)
-                    }
+                    RouteDaySummary(course.days.getOrNull(dayIndex)) { showDayStay = true }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier =
@@ -918,7 +906,12 @@ fun RouteEditorView(
                                     IOS.systemBackground,
                                 ).padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
                     ) {
-                        EditorAction(label = tr("동선 최적화"), icon = { SwapArrowsIcon(IOS.label, it) }, modifier = Modifier.weight(1f)) {
+                        EditorAction(
+                            label = tr("동선 최적화"),
+                            icon = { SwapArrowsIcon(if (optimizeNudge) Color.White else IOS.label, it) },
+                            highlight = optimizeNudge,
+                            modifier = Modifier.weight(1f),
+                        ) {
                             var ordered = stops
                             var head = pinStart
                             if (!pinStart) {
@@ -931,6 +924,7 @@ fun RouteEditorView(
                             updateDay(dayIndex) { d -> d.copy(stops = RouteGeometry.optimized(ordered, pinStart = head, pinEnd = pinEnd)) }
                             focusedStopId = null
                             fitToken += 1
+                            optimizeNudge = false
                         }
                         EditorAction(label = tr("검색"), icon = { MagnifierIcon(IOS.label, it) }, modifier = Modifier.weight(1f)) {
                             searching =
@@ -983,7 +977,6 @@ fun RouteEditorView(
                                         map?.centerOn(stop.place)
                                     }
                                 },
-                                onStay = { stayTarget = stop },
                                 onRemove = { updateDay(dayIndex) { d -> d.copy(stops = d.stops.filterNot { it.id == stop.id }) } },
                                 onMoveUp =
                                     if (index > 0) {
@@ -1117,6 +1110,7 @@ fun RouteEditorView(
             }
             RouteGuideFloatingChip(
                 hidden = guideEntry != RouteGuideEntry.FLOATING,
+                bubble = guideSession.picked == null && focusedStopId == null,
                 onTap = { showGuide = true },
                 // iOS `guideFloatingChip`: 편집 화면 전체 위, 오른쪽 12 · 아래(안전 영역 위) 76 — 목록 패널 위에 뜬다.
                 // 지도 쪽(패널 바로 위)에 두었더니 iOS 와 자리가 달랐다(2026-09-29 대조).
@@ -1196,13 +1190,18 @@ fun RouteEditorView(
         )
     }
 
-    stayTarget?.let { target ->
-        RouteStaySheet(
-            stop = target,
-            onPick = { minutes ->
+    if (showDayStay) {
+        RouteDayStaySheet(
+            stops = stops,
+            estimatedTotalMinutes =
+                course.days
+                    .getOrNull(dayIndex)
+                    ?.estimate
+                    ?.total(stops),
+            onPick = { target, minutes ->
                 updateDay(dayIndex) { d -> d.copy(stops = d.stops.map { if (it.id == target.id) it.copy(stayMinutes = minutes) else it }) }
             },
-            onDismiss = { stayTarget = null },
+            onDismiss = { showDayStay = false },
         )
     }
 
@@ -1226,12 +1225,15 @@ fun RouteEditorView(
 
     // 저장이 실패하면 이유를 말한다 — 안 그러면 단추가 안 먹는 것처럼 보여 같은
     // 단추를 계속 누르게 된다(iOS `RouteEditorView`의 "저장하지 못했습니다" alert).
-    store.failure?.let { failure ->
+    saveFailure?.let { failure ->
         IOSAlert(
             title = tr("저장하지 못했습니다"),
             message = failure.message,
             actions = listOf(IOSAction(tr("확인")) {}),
-            onDismiss = { store.clearFailure() },
+            onDismiss = {
+                saveFailure = null
+                store.clearFailure()
+            },
         )
     }
 }
@@ -1256,12 +1258,30 @@ private fun GuidePlace.asPlaceSummary(): PlaceSummary =
 private fun EditorAction(
     label: String,
     modifier: Modifier = Modifier,
+    highlight: Boolean = false,
     // iOS `action(_:symbol:)` — 아이콘이 위, 글자가 아래다(넷이 한 줄에 들어가야
     // 해서 나란히 두면 "동선 최적화" 하나가 폭 절반을 먹는다).
     // SF Symbols 외곽선 아이콘(`ui/OutlineIcons.kt`) — 크기 Modifier 를 받아 그린다.
     icon: (@Composable (Modifier) -> Unit)? = null,
     onClick: () -> Unit,
 ) {
+    val glow =
+        if (highlight) {
+            val pulse by androidx.compose.animation.core.rememberInfiniteTransition(label = "optimize-nudge").animateFloat(
+                initialValue = 0.55f,
+                targetValue = 0.95f,
+                animationSpec =
+                    androidx.compose.animation.core.infiniteRepeatable(
+                        androidx.compose.animation.core
+                            .tween(700, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                        androidx.compose.animation.core.RepeatMode.Reverse,
+                    ),
+                label = "optimize-glow",
+            )
+            pulse
+        } else {
+            0f
+        }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -1269,14 +1289,16 @@ private fun EditorAction(
             modifier
                 .clip(RoundedCornerShape(10.dp))
                 .background(IOS.systemGray6)
-                .clickable(onClick = onClick)
+                .then(
+                    if (highlight) Modifier.background(Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep)), alpha = glow) else Modifier,
+                ).clickable(onClick = onClick)
                 .padding(vertical = 7.dp),
     ) {
         icon?.invoke(Modifier.size(17.dp))
         Text(
             label,
             fontSize = 11.sp,
-            color = IOS.label,
+            color = if (highlight) Color.White else IOS.label,
             textAlign = TextAlign.Center,
             maxLines = 1,
         )
@@ -1483,11 +1505,11 @@ private fun TripBanner(
             // TODO: iOS 문구는 "%d번 성지 도착!"(정지점 번호 포함) — Android 는 번호 없이
             // 뭉뚱그렸다. 언어 작업과 별개의 패리티 차, 번역표에도 이 짧은 형태는 없다.
             Text(tr("성지 도착!"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
-            Text(target.place.name, fontSize = 12.sp, color = IOS.secondaryLabel)
+            Text(target.label().title, fontSize = 12.sp, color = IOS.secondaryLabel)
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    tr("%s로 가는 중").format(target.place.name),
+                    tr("%s로 가는 중").format(target.label().title),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = IOS.label,
@@ -1506,7 +1528,7 @@ private fun TripBanner(
                         ) == true -> {
                     com.mz2az.scenetrip.data.NavigationUsageNotice(
                         trip.here?.let { ExternalDirections.Spot(tr("내 위치"), it.first, it.second) },
-                        ExternalDirections.Spot(target.place.name, target.place.latitude, target.place.longitude),
+                        ExternalDirections.Spot(target.label().title, target.place.latitude, target.place.longitude),
                         onRetry,
                     )
                 }
@@ -1653,12 +1675,12 @@ private fun DayTabs(
         }
         CircleSignIcon(
             plus = false,
-            tint = if (canRemove) IOS.accent else IOS.tertiaryLabel,
+            tint = if (canRemove) IOS.label else IOS.tertiaryLabel,
             modifier = Modifier.size(18.dp).clickable(enabled = canRemove, onClick = onRemoveDay),
         )
         CircleSignIcon(
             plus = true,
-            tint = if (canAdd) IOS.accent else IOS.tertiaryLabel,
+            tint = if (canAdd) IOS.label else IOS.tertiaryLabel,
             modifier = Modifier.size(18.dp).clickable(enabled = canAdd, onClick = onAddDay),
         )
     }

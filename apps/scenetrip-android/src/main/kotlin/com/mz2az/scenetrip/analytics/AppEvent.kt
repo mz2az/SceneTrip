@@ -103,6 +103,13 @@ sealed class AppEvent {
         override val parameters = mapOf("place_id" to placeId)
     }
 
+    data class ViewPoi(
+        val poiId: Long,
+    ) : AppEvent() {
+        override val name = "view_poi"
+        override val parameters = mapOf("poi_id" to poiId)
+    }
+
     // 담기·찜 (의미 있는 첫 행동)
 
     data class LikeTitle(

@@ -182,6 +182,8 @@ object AuthStore {
         com.mz2az.scenetrip.data.LimitLedger
             .reset()
         epoch += 1
+        com.mz2az.scenetrip.data.CommunityStore
+            .accountChanged()
         scope.launch { LikeStore.getInstance(appContext).refresh() }
     }
 

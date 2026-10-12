@@ -379,52 +379,6 @@ private fun ProfileCartSheetBody(
     }
 }
 
-/**
- * 내가 쓴 글. 커뮤니티의 기기 저장 글을 마이페이지에서 되짚는다 — 누르면 커뮤니티와
- * 같은 전문 화면이 열린다.
- */
-@Composable
-private fun MyPostsSheetBody(
-    posts: List<CommunityPost>,
-    onRemove: (CommunityPost) -> Unit,
-    onClose: () -> Unit,
-) {
-    var reading by remember { mutableStateOf<CommunityPost?>(null) }
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
-            ProfileSheetHeader(tr("내가 쓴 글"), onClose)
-            // 글이 isMine 으로 걸러져 들어오므로 여기서 또 거르지 않는다 — 호출부가 store.mine 을 넘긴다.
-            if (posts.isEmpty()) {
-                IOSEmptyState(tr("아직 쓴 글이 없습니다"), tr("커뮤니티 탭에서 첫 글을 남겨 보세요")) { SquarePencilIcon(IOS.secondaryLabel, it) }
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
-                    items(posts, key = { it.id }) { post ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().clickable { reading = post }.padding(horizontal = 16.dp, vertical = 8.dp),
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(post.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, color = IOS.label)
-                                Text(formatDateTimeShort(post.createdAt), fontSize = 10.sp, color = IOS.tertiaryLabel)
-                            }
-                            Icon(
-                                Icons.Filled.Close,
-                                contentDescription = tr("지우기"),
-                                tint = IOS.tertiaryLabel,
-                                modifier = Modifier.size(16.dp).clickable { onRemove(post) },
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        reading?.let { post ->
-            com.mz2az.scenetrip.communitytab
-                .CommunityPostView(post = post, onDismiss = { reading = null })
-        }
-    }
-}
-
 private fun formatSimpleDate(isoDate: String): String = isoDate.take(10)
 
 private fun formatDateTimeShort(millis: Long): String = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.KOREA).format(Date(millis))
@@ -466,12 +420,7 @@ fun ProfileCartSheet(
 
 /** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
 @Composable
-fun MyPostsSheet(
-    posts: List<CommunityPost>,
-    onRemove: (CommunityPost) -> Unit,
-    onClose: () -> Unit,
-) {
-    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
-        MyPostsSheetBody(posts = posts, onRemove = onRemove, onClose = onClose)
-    }
+fun MyPostsSheet(onClose: () -> Unit) {
+    com.mz2az.scenetrip.communitytab
+        .MyPostsSheet(onClose)
 }

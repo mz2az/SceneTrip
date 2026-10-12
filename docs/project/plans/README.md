@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [android-visual-e2e-parity.md](android-visual-e2e-parity.md) | 최신 iOS와 Android의 UI·E2E 동등성, 비교 증거와 미검증 경로 (MZ2AZ-148) |
 | [ios-usage-events.md](ios-usage-events.md) | 실제 상세 열기·검색 확정의 생성 EventsAPI 전송과 재시도/로그인 경계 (MZ2AZ-408) |
 | [cart-delete-failure.md](cart-delete-failure.md) | iOS 장바구니 삭제 오류의 목록 보존·삭제 성공 후 행/아이콘 일치 (MZ2AZ-260 / MZ2AZ-262) |
 | [meta-app-events.md](meta-app-events.md) | iOS 메타 광고 측정 — Core SDK·이벤트 허용 목록·ATT 동의 및 기본 비활성화 (MZ2AZ-391) |

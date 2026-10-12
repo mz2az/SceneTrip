@@ -86,6 +86,8 @@ class MainActivity : ComponentActivity() {
         // 앱 분석 — 설정 파일(res/raw/google_services.json)이 있고 SDK 의존성이 붙어 있을
         // 때만 켜진다 (MZ2AZ-353).
         AppAnalytics.start(context = this, language = language.lang.value, member = AuthStore.signedIn)
+        com.mz2az.scenetrip.analytics.UsageEvents
+            .start(this)
 
         setContent { SceneTripApp() }
     }

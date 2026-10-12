@@ -21,6 +21,14 @@ fun GuidePlace.courseStop(): RouteStop {
                 longitude = longitude,
             ),
         poiId = id.takeIf { asPlace == null && source == GuidePlaceSource.poi },
+        poiText =
+            if (asPlace == null &&
+                source == GuidePlaceSource.poi
+            ) {
+                PoiText(displayName, nameRoman, categoryLabel, displayAddress)
+            } else {
+                null
+            },
     )
 }
 
@@ -32,11 +40,9 @@ fun GuidePlace.matches(stop: RouteStop): Boolean =
     }
 
 fun RouteStop.sameTarget(other: RouteStop): Boolean =
-    when {
-        savablePlaceId != null && other.savablePlaceId != null -> savablePlaceId == other.savablePlaceId
-        poiId != null && other.poiId != null -> poiId == other.poiId
-        else -> RouteDedupe.key(place) == RouteDedupe.key(other.place)
-    }
+    (savablePlaceId != null && savablePlaceId == other.savablePlaceId) ||
+        (poiId != null && poiId == other.poiId) ||
+        RouteDedupe.key(place) == RouteDedupe.key(other.place)
 
 fun RouteStop.cardPlace(): GuidePlace? {
     if (isPinned || placeMissing) return null
@@ -52,6 +58,10 @@ fun RouteStop.cardPlace(): GuidePlace? {
         latitude = place.latitude,
         longitude = place.longitude,
         address = place.address,
+        displayName = poiText?.displayName,
+        nameRoman = poiText?.nameRoman,
+        categoryLabel = poiText?.categoryLabel,
+        displayAddress = poiText?.displayAddress,
         source =
             if (poiId ==
                 null

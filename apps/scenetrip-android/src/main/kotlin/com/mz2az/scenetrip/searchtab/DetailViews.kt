@@ -81,6 +81,8 @@ fun ContentDetailView(
     var detail by remember(summary.id) { mutableStateOf<ContentDetail?>(null) }
     LaunchedEffect(summary.id) {
         AppAnalytics.log(AppEvent.ViewTitle(summary.id))
+        com.mz2az.scenetrip.analytics.UsageEvents
+            .view(com.mz2az.scenetrip.sceneapi.client.model.UsageEntityType.content, summary.id)
         detail = detailOf(summary.id)
     }
 
@@ -177,7 +179,7 @@ fun ContentDetailView(
 fun PlaceDetailView(
     summary: PlaceSummary,
     saved: Boolean,
-    detailOf: suspend (Long) -> PlaceDetail?,
+    detailOf: suspend (Long) -> Result<PlaceDetail>,
     onBack: () -> Unit,
     onToggleSave: () -> Unit,
     onOpenScene: (Scene) -> Unit,
@@ -186,13 +188,28 @@ fun PlaceDetailView(
     var reviews by remember(summary.id) { mutableStateOf(false) }
     var revision by remember(summary.id) { mutableStateOf(0) }
     var reviewId by remember(summary.id) { mutableStateOf<Long?>(null) }
+    var detailFailure by remember(summary.id) { mutableStateOf<com.mz2az.scenetrip.data.ApiFailure?>(null) }
     val subject =
         com.mz2az.scenetrip.reviews
             .ReviewSubject(summary.id, summary.name)
     val context = LocalContext.current
-    LaunchedEffect(summary.id, revision) {
+    LaunchedEffect(summary.id) {
         AppAnalytics.log(AppEvent.ViewPlace(summary.id))
-        detail = detailOf(summary.id)
+        com.mz2az.scenetrip.analytics.UsageEvents
+            .view(com.mz2az.scenetrip.sceneapi.client.model.UsageEntityType.place, summary.id)
+    }
+    LaunchedEffect(summary.id, revision) {
+        detailOf(summary.id).fold(
+            onSuccess = {
+                detail = it
+                detailFailure = null
+            },
+            onFailure = {
+                detailFailure =
+                    com.mz2az.scenetrip.data.ApiFailure
+                        .of(it)
+            },
+        )
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -211,7 +228,7 @@ fun PlaceDetailView(
                                 reviewId =
                                     it
                                 ; reviews = true
-                            })
+                            }, modifier = Modifier.padding(horizontal = IOS.gutter))
                     } else {
                         RemoteImage(
                             url = (detail?.imageUrl ?: summary.imageUrl)?.toString(),
@@ -223,22 +240,37 @@ fun PlaceDetailView(
                                     .clip(RoundedCornerShape(10.dp)),
                         )
                     }
+                    com.mz2az.scenetrip.data.PlaceType
+                        .label(
+                            summary.type,
+                            korean = com.mz2az.scenetrip.data.AppLanguage.current == com.mz2az.scenetrip.sceneapi.client.model.Lang.ko,
+                        )?.let {
+                            Text(
+                                text = it,
+                                style = IOS.caption,
+                                color = IOS.secondaryLabel,
+                                modifier =
+                                    Modifier
+                                        .padding(horizontal = IOS.gutter)
+                                        .clip(CircleShape)
+                                        .background(IOS.systemGray6)
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                            )
+                        }
                     com.mz2az.scenetrip.reviews.RatingLine(detail?.rating, onClick = {
                         reviewId = null
                         reviews = true
                     }, modifier = Modifier.padding(horizontal = IOS.gutter))
-                    summary.type?.takeIf { it.isNotEmpty() }?.let {
-                        Text(
-                            text = it,
-                            style = IOS.caption,
-                            color = IOS.secondaryLabel,
-                            modifier =
-                                Modifier
-                                    .padding(horizontal = IOS.gutter)
-                                    .clip(CircleShape)
-                                    .background(IOS.systemGray6)
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                        )
+                    detailFailure?.let { failure ->
+                        Column(Modifier.padding(horizontal = IOS.gutter)) {
+                            Text(failure.message, style = IOS.caption, color = IOS.secondaryLabel)
+                            Text(
+                                tr("다시 시도"),
+                                style = IOS.subheadline,
+                                color = IOS.accent,
+                                modifier = Modifier.clickable { revision++ }.padding(vertical = 8.dp),
+                            )
+                        }
                     }
                     // 담긴 상태에서 다시 누르면 뺀다 — 목록 행과 같은 규칙이다.
                     //
@@ -374,7 +406,7 @@ private fun openUrl(
  * iOS `PlaceDetailView.swift` 의 `SceneCard` 와 같다. **장면 스틸을 쓴다**
  * (`sceneImageUrl`). 한동안 포스터로 대신했는데, 그러면 한 작품의 장면이 여럿일 때
  * 카드가 전부 같은 그림이 됐다 — "이 장면이 찍힌 곳" 을 보여 주는 것이 이 앱의
- * 핵심이라 포스터로는 대체가 안 된다. 스틸이 없는 장면만 포스터로 물러선다.
+ * 핵심이라 포스터로는 대체가 안 된다. 스틸이 없는 장면은 빈 영역으로 남긴다.
  */
 @Composable
 private fun SceneCard(
@@ -391,7 +423,7 @@ private fun SceneCard(
                 .clickable(onClick = onClick),
     ) {
         RemoteImage(
-            url = (scene.sceneImageUrl ?: scene.posterUrl)?.toString(),
+            url = scene.sceneImageUrl?.toString(),
             modifier = Modifier.size(width = 190.dp, height = 110.dp),
         )
         Column(
@@ -471,7 +503,7 @@ fun ScenePopup(
             ) {
                 Box {
                     RemoteImage(
-                        url = (scene.sceneImageUrl ?: scene.posterUrl)?.toString(),
+                        url = scene.sceneImageUrl?.toString(),
                         modifier =
                             Modifier
                                 .fillMaxWidth()

@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -105,6 +106,8 @@ fun RemoteImage(
     retryable: Boolean = false,
     onFailure: () -> Unit = {},
     onRetry: () -> Unit = {},
+    placeholder: (@Composable () -> Unit)? = null,
+    backgroundColor: Color = IOS.systemGray6,
 ) {
     var bitmap by remember(cacheKey, edge) { mutableStateOf<ImageBitmap?>(null) }
     var failed by remember(cacheKey) { mutableStateOf(false) }
@@ -119,7 +122,10 @@ fun RemoteImage(
         }
     }
 
-    Box(modifier = modifier.background(IOS.systemGray6)) {
+    Box(modifier = modifier.background(backgroundColor)) {
+        if (bitmap == null && placeholder != null) {
+            Box(Modifier.fillMaxSize().background(IOS.systemGray5), contentAlignment = Alignment.Center) { placeholder() }
+        }
         bitmap?.let {
             Image(
                 bitmap = it,

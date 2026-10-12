@@ -40,14 +40,16 @@ val IOSSheetMaterial = Color(0xFFF2F2F5)
 @Composable
 fun IOSSheetToolbar(
     title: String,
-    leading: String,
-    onLeading: () -> Unit,
+    leading: String? = null,
+    onLeading: () -> Unit = {},
     trailing: String? = null,
     trailingEnabled: Boolean = true,
     onTrailing: () -> Unit = {},
 ) {
     Box(modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp)) {
-        GlassCapsule(leading, bold = false, enabled = true, onClick = onLeading, modifier = Modifier.align(Alignment.CenterStart))
+        if (leading != null) {
+            GlassCapsule(leading, bold = false, enabled = true, onClick = onLeading, modifier = Modifier.align(Alignment.CenterStart))
+        }
         Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.align(Alignment.Center))
         if (trailing != null) {
             GlassCapsule(

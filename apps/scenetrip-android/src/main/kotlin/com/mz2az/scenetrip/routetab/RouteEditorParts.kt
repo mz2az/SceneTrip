@@ -103,7 +103,6 @@ fun RouteStopRow(
     pinLabel: String?,
     isPinned: Boolean,
     onFocus: () -> Unit,
-    onStay: () -> Unit,
     onRemove: () -> Unit,
     onMoveUp: (() -> Unit)?,
     onMoveDown: (() -> Unit)?,
@@ -172,7 +171,13 @@ fun RouteStopRow(
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(stop.place.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, maxLines = 1)
+                        Text(
+                            stop.label().title,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = IOS.label,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
                         if (stop.isPinned) {
                             Badge(text = tr("내가 찍은 곳"), background = IOS.systemGray5, foreground = IOS.secondaryLabel)
                         }
@@ -183,7 +188,8 @@ fun RouteStopRow(
                     stop.arriveMinute?.let {
                         Text(tr("%s 도착 예정").format(RouteGuidePlan.clock(it)), fontSize = 11.sp, color = IOS.secondaryLabel)
                     }
-                    val subtitle = listOfNotNull(stop.place.type, stop.place.address).joinToString(" · ")
+                    stop.label().reading?.let { Text(it, fontSize = 11.sp, color = IOS.secondaryLabel) }
+                    val subtitle = listOfNotNull(stop.label().category, stop.label().address).joinToString(" · ")
                     if (subtitle.isNotEmpty()) {
                         Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel, maxLines = 1)
                     }
@@ -195,18 +201,6 @@ fun RouteStopRow(
                         }
                     }
                 }
-                Text(
-                    stop.stayLabel,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = IOS.label,
-                    modifier =
-                        Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(IOS.accent.copy(alpha = 0.12f))
-                            .clickable(onClick = onStay)
-                            .padding(horizontal = 9.dp, vertical = 5.dp),
-                )
                 // 손잡이 — 끄는 만큼 행이 따라오고, 반 줄을 넘으면 이웃과 자리를 바꾼다.
                 GripLinesIcon(
                     IOS.tertiaryLabel,
@@ -449,148 +443,53 @@ private fun PoiChip(
     }
 }
 
-/**
- * 주변 편의시설 점 — 갈래 색 원. iOS `PinoPin.guideDot`처럼 업종 글리프까지는
- * 넣지 않았다(SF Symbol 을 Material 아이콘으로 낱낱이 맞추는 일은 다음 단계) —
- * 색만으로 네 갈래를 가른다, iOS 도 처음엔 이 모양이었다(`RoutePoiTone.swift`).
- */
+/** 지도 축척·선택에 따라 주변 편의시설을 묶는다. */
 @Composable
 fun AmbientPoiPins(
     map: NaverMap?,
     pois: List<PoiSummary>,
-    onTap: (PoiSummary) -> Unit,
+    zoom: Double,
+    pickedId: Long?,
+    onTap: (GuidePlace) -> Unit,
 ) {
-    if (map == null) return
-    val context = LocalContext.current
-    DisposableEffect(map, pois) {
-        val metrics = context.resources.displayMetrics
-        val markers =
-            pois.map { poi ->
-                Marker().apply {
-                    position =
-                        com.naver.maps.geometry
-                            .LatLng(poi.latitude, poi.longitude)
-                    icon = AmbientDotImage.of(poi.categoryGroup, metrics)
-                    captionText = poi.displayName ?: poi.nameRoman ?: poi.name
-                    captionMinZoom = 15.0
-                    setOnClickListener {
-                        onTap(poi)
-                        true
-                    }
-                    this.map = map
-                    // 코스 번호 핀(기본 zIndex 0)보다 아래에 깐다 — 배경은 배경답게
-                    // 조용해야 한다(iOS 주석과 같은 뜻, `RouteMapAmbient.swift`).
-                    zIndex = -1
-                }
-            }
-        onDispose { markers.forEach { it.map = null } }
-    }
+    val places = remember(pois) { pois.map { it.asGuidePlace() } }
+    PoiClusterPins(map, places, zoom, pickedId, onTap)
 }
 
-/**
- * 챗봇이 찾아 준 「AI 장소」 점 — iOS `PinoPin.marker(.ai)`(작은 해태). 여기서는
- * 해태 얼굴 대신 강조색 점만 쓴다(글리프는 UI 폴리싱 단계) — 주변 편의시설 점보다
- * 커서(24dp) 눈에 먼저 띈다. 고른 곳은 [RoutePlaceCard]가 따로 보여 주므로 여기선
- * 고른 표시를 하지 않는다.
- */
+/** 챗봇이 찾은 곳은 작은 해태, 고른 한 곳은 빨간 테와 항상 보이는 이름표다. */
 @Composable
 fun AiPlacePins(
     map: NaverMap?,
     places: List<GuidePlace>,
+    picked: GuidePlace?,
     onTap: (GuidePlace) -> Unit,
 ) {
     if (map == null) return
     val context = LocalContext.current
-    DisposableEffect(map, places) {
-        val metrics = context.resources.displayMetrics
+    val select by rememberUpdatedState(onTap)
+    DisposableEffect(map, places, picked, com.mz2az.scenetrip.data.AppLanguage.current) {
+        val images = PoiPinImage(context)
         val markers =
             places.map { place ->
+                val selected = place.id == picked?.id && place.source == picked.source
                 Marker().apply {
                     position =
                         com.naver.maps.geometry
                             .LatLng(place.latitude, place.longitude)
-                    icon = AiPlaceDotImage.of(metrics)
-                    captionText = place.name
-                    captionMinZoom = 14.0
+                    icon = images.mascot(selected)
+                    anchor = android.graphics.PointF(0.5f, 1f)
+                    captionText = place.label().title
+                    captionMinZoom = if (selected) 0.0 else 17.0
+                    isHideCollidedCaptions = !selected
+                    zIndex = if (selected) 30 else 5
                     setOnClickListener {
-                        onTap(place)
+                        select(place)
                         true
                     }
                     this.map = map
-                    zIndex = 1 // 편의시설 점 위, 코스 번호 핀 아래.
                 }
             }
         onDispose { markers.forEach { it.map = null } }
-    }
-}
-
-private object AiPlaceDotImage {
-    private var cached: com.naver.maps.map.overlay.OverlayImage? = null
-
-    fun of(metrics: android.util.DisplayMetrics): com.naver.maps.map.overlay.OverlayImage {
-        cached?.let { return it }
-        val size = 24f
-        val s = metrics.density
-        val bitmap =
-            android.graphics.Bitmap.createBitmap((size * s).toInt(), (size * s).toInt(), android.graphics.Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(bitmap)
-        canvas.scale(s, s)
-        val paint =
-            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = IOS.accent.toArgb()
-                setShadowLayer(2f, 0f, 0f, android.graphics.Color.argb(90, 0, 0, 0))
-            }
-        val center = size / 2
-        canvas.drawCircle(center, center, center - 2, paint)
-        val border =
-            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = android.graphics.Color.WHITE
-                style = android.graphics.Paint.Style.STROKE
-                strokeWidth = 2f
-            }
-        canvas.drawCircle(center, center, center - 2, border)
-        val overlay =
-            com.naver.maps.map.overlay.OverlayImage
-                .fromBitmap(bitmap)
-        cached = overlay
-        return overlay
-    }
-}
-
-/** 갈래 색 점 비트맵. 번호 핀(`PinImage`)과 같은 이유로 캐시한다 — 카메라가 멈출 때마다 새로 구우면 버벅인다. */
-private object AmbientDotImage {
-    private val cache = mutableMapOf<PoiCategoryGroup, com.naver.maps.map.overlay.OverlayImage>()
-
-    fun of(
-        group: PoiCategoryGroup,
-        metrics: android.util.DisplayMetrics,
-    ): com.naver.maps.map.overlay.OverlayImage {
-        cache[group]?.let { return it }
-        val size = 20f
-        val s = metrics.density
-        val bitmap =
-            android.graphics.Bitmap.createBitmap((size * s).toInt(), (size * s).toInt(), android.graphics.Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(bitmap)
-        canvas.scale(s, s)
-        val paint =
-            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = RoutePoiTone.of(group.toRoutePoiGroup()).toArgb()
-                setShadowLayer(1.8f, 0f, 0f, android.graphics.Color.argb(76, 0, 0, 0))
-            }
-        val center = size / 2
-        canvas.drawCircle(center, center, center - 2, paint)
-        val border =
-            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = android.graphics.Color.WHITE
-                style = android.graphics.Paint.Style.STROKE
-                strokeWidth = 1.5f
-            }
-        canvas.drawCircle(center, center, center - 2, border)
-        val overlay =
-            com.naver.maps.map.overlay.OverlayImage
-                .fromBitmap(bitmap)
-        cache[group] = overlay
-        return overlay
     }
 }
 

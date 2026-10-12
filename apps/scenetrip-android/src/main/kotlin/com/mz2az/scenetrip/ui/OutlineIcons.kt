@@ -18,6 +18,75 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 
 private fun stroke(w: Float) = Stroke(width = w * 0.09f, cap = StrokeCap.Round, join = StrokeJoin.Round)
 
+/** 사진 추가 칸의 외곽선 사진과 오른쪽 아래 더하기 배지. */
+@Composable
+fun PhotoAddIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        drawRoundRect(
+            tint,
+            Offset(w * 0.06f, h * 0.08f),
+            Size(w * 0.74f, h * 0.62f),
+            androidx.compose.ui.geometry
+                .CornerRadius(w * 0.07f),
+            style = Stroke(w * 0.07f),
+        )
+        drawCircle(tint, w * 0.065f, Offset(w * 0.25f, h * 0.26f))
+        val mountains =
+            Path().apply {
+                moveTo(w * 0.08f, h * 0.63f)
+                lineTo(w * 0.3f, h * 0.41f)
+                lineTo(w * 0.43f, h * 0.54f)
+                lineTo(w * 0.6f, h * 0.36f)
+                lineTo(w * 0.77f, h * 0.53f)
+                lineTo(w * 0.77f, h * 0.65f)
+                close()
+            }
+        drawPath(mountains, tint)
+        val badge = Offset(w * 0.79f, h * 0.75f)
+        drawCircle(IOS.systemGray6, w * 0.24f, badge)
+        drawCircle(tint, w * 0.19f, badge, style = Stroke(w * 0.055f))
+        drawLine(tint, Offset(w * 0.69f, h * 0.75f), Offset(w * 0.89f, h * 0.75f), w * 0.05f, StrokeCap.Round)
+        drawLine(tint, Offset(w * 0.79f, h * 0.65f), Offset(w * 0.79f, h * 0.85f), w * 0.05f, StrokeCap.Round)
+    }
+}
+
+@Composable
+fun MapSearchIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val s = Stroke(width = h * 0.07f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val map =
+            Path().apply {
+                moveTo(w * 0.06f, h * 0.2f)
+                lineTo(w * 0.28f, h * 0.07f)
+                lineTo(w * 0.5f, h * 0.2f)
+                lineTo(w * 0.72f, h * 0.07f)
+                lineTo(w * 0.72f, h * 0.65f)
+                lineTo(w * 0.5f, h * 0.78f)
+                lineTo(w * 0.28f, h * 0.65f)
+                lineTo(w * 0.06f, h * 0.78f)
+                close()
+                moveTo(w * 0.5f, h * 0.2f)
+                lineTo(w * 0.5f, h * 0.78f)
+                moveTo(w * 0.28f, h * 0.07f)
+                lineTo(w * 0.28f, h * 0.65f)
+            }
+        drawPath(map, tint, style = s)
+        drawCircle(IOS.systemBackground, radius = h * 0.3f, center = Offset(w * 0.72f, h * 0.64f))
+        drawCircle(tint, radius = h * 0.22f, center = Offset(w * 0.72f, h * 0.64f), style = s)
+        drawLine(tint, Offset(w * 0.84f, h * 0.8f), Offset(w * 0.96f, h * 0.97f), strokeWidth = s.width, cap = StrokeCap.Round)
+    }
+}
+
 /** `magnifyingglass` */
 @Composable
 fun MagnifierIcon(
