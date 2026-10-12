@@ -5,7 +5,6 @@
 {{- range .Values.gateway.allowedCidrs }}
 {{- if or (eq . "0.0.0.0/0") (eq . "::/0") }}{{ fail "전체 인터넷 공개는 allowedCidrs 가 아니라 gateway.public 으로 한다" }}{{ end }}
 {{- end }}
-{{- if and .Values.gateway.public (ne .Values.environment "dev") }}{{ fail "전체 인터넷 공개는 dev 에서만 허용합니다 (ADR 0019)" }}{{ end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

@@ -34,10 +34,13 @@ SECRET_KEYS = {
 OPTIONAL_SECRET_KEYS = {
     # 애플 로그인 개인 키(.p8 PEM 의 base64). 사람이 애플에서 받아 와 넣는다(MZ2AZ-337).
     #
-    # ⚠ PRD 출시(App Store 심사) 전에 **필수 항목으로 옮긴다** — 위 SECRET_KEYS["scene_api"] 로.
-    # iOS 에서 구글 로그인을 내면 애플 로그인도 반드시 제공해야 한다(App Store 4.8). 선택 항목이면
-    # 키를 빠뜨린 PRD 가 「애플 로그인만 꺼진 채」 조용히 뜨고, 그 상태로 심사에 나가면 거절된다.
-    # 지금 선택인 것은 DEV·PRD 에 아직 넣지 않은 환경의 배포를 막지 않으려는 것뿐이다.
+    # DEV 에서는 선택이다 — 키 없이도 DEV 를 올릴 수 있게. **PRD 에서는 필수**다(아래 PRD_REQUIRED_SECRET_KEYS).
+    "scene_api": {"SCENETRIP_AUTH_APPLE_PRIVATE_KEY"},
+}
+
+# PRD 에서만 필수인 키. iOS 에서 구글 로그인을 내면 애플 로그인도 반드시 제공해야 한다(App Store 4.8) — 선택이면
+# 키를 빠뜨린 PRD 가 「애플 로그인만 꺼진 채」 조용히 뜨고 그대로 심사에 나가 거절된다(MZ2AZ-417).
+PRD_REQUIRED_SECRET_KEYS = {
     "scene_api": {"SCENETRIP_AUTH_APPLE_PRIVATE_KEY"},
 }
 
@@ -106,9 +109,20 @@ class Settings:
         )
 
 
-def validate_secret(kind, value):
+def validate_secret(kind, value, environment=None):
     required = SECRET_KEYS[kind]
+    if environment == "prd":
+        required = required | PRD_REQUIRED_SECRET_KEYS.get(kind, set())
     allowed = required | OPTIONAL_SECRET_KEYS.get(kind, set())
+    missing_prd = (
+        PRD_REQUIRED_SECRET_KEYS.get(kind, set()) - set(value)
+        if environment == "prd" and isinstance(value, dict)
+        else set()
+    )
+    if missing_prd:
+        raise ValueError(
+            f"{kind} 비밀값에 PRD 필수 키가 없습니다: {', '.join(sorted(missing_prd))}"
+        )
     if not isinstance(value, dict) or not required <= set(value) <= allowed:
         raise ValueError(f"{kind} 비밀값 키가 허용 목록과 다릅니다")
     if any(

@@ -116,26 +116,36 @@ run "dev_alb_is_public_on_443_only" {
     condition     = output.ingress_public == true
     error_message = "DEV 는 배포기에 공개(ingress_public)를 알려야 합니다."
   }
+  # 공개는 사용자 HTTPS 만이다 — EKS 관리 API 허용 CIDR 은 입력 그대로다.
+  assert {
+    condition     = toset(aws_eks_cluster.this.vpc_config[0].public_access_cidrs) == toset(var.eks_public_access_cidrs)
+    error_message = "DEV EKS 관리 API 허용 CIDR 은 eks_public_access_cidrs 그대로여야 합니다."
+  }
 }
 
-# PRD 는 허용 CIDR 만 — 사용자별 요청 제한·유료 API 한도(MZ2AZ-334) 전에는 열지 않는다.
-run "prd_alb_allows_only_approved_cidrs" {
+# PRD 도 HTTPS 를 인터넷 전체에 연다(ADR 0024, MZ2AZ-417). 열어도 443 하나뿐이어야 한다.
+run "prd_alb_is_public_on_443_only" {
   command = apply
   variables {
     environment        = "prd"
     availability_zones = ["ap-northeast-2a", "ap-northeast-2b", "ap-northeast-2c"]
   }
   assert {
-    condition = length(aws_vpc_security_group_ingress_rule.alb_https) == length(var.ingress_allowed_cidrs) && alltrue([
+    condition = length(aws_vpc_security_group_ingress_rule.alb_https) == 1 && alltrue([
       for rule in aws_vpc_security_group_ingress_rule.alb_https :
       rule.security_group_id == aws_security_group.alb.id && rule.ip_protocol == "tcp" &&
-      rule.from_port == 443 && rule.to_port == 443 && contains(var.ingress_allowed_cidrs, rule.cidr_ipv4)
+      rule.from_port == 443 && rule.to_port == 443 && rule.cidr_ipv4 == "0.0.0.0/0"
     ])
-    error_message = "PRD ALB HTTPS는 승인된 client CIDR의 TCP443만 허용해야 합니다."
+    error_message = "PRD ALB 는 인터넷 전체의 TCP443 하나만 열어야 합니다."
   }
   assert {
-    condition     = output.ingress_public == false
-    error_message = "PRD 는 공개되면 안 됩니다."
+    condition     = output.ingress_public == true
+    error_message = "PRD 는 배포기에 공개(ingress_public)를 알려야 합니다."
+  }
+  # 공개는 사용자 HTTPS 만이다 — EKS 관리 API 허용 CIDR 은 PRD 도 입력 그대로다(ADR 0024).
+  assert {
+    condition     = toset(aws_eks_cluster.this.vpc_config[0].public_access_cidrs) == toset(var.eks_public_access_cidrs)
+    error_message = "PRD EKS 관리 API 허용 CIDR 은 eks_public_access_cidrs 그대로여야 합니다."
   }
 }
 
@@ -224,8 +234,8 @@ run "spec_dev_public_ignores_allowed_cidr_list" {
   }
 }
 
-# PRD 의 443 규칙 CIDR 집합은 ingress_allowed_cidrs 와 정확히 같고 0.0.0.0/0 은 없다.
-run "spec_prd_rules_equal_allowed_cidrs" {
+# ADR 0024 — PRD 도 DEV 와 같다. 허용 CIDR 목록이 여러 개여도 PRD 규칙은 0.0.0.0/0 하나다.
+run "spec_prd_public_ignores_allowed_cidr_list" {
   command = plan
   variables {
     environment           = "prd"
@@ -233,21 +243,15 @@ run "spec_prd_rules_equal_allowed_cidrs" {
     ingress_allowed_cidrs = ["198.51.100.0/24", "203.0.113.0/24"]
   }
   assert {
-    condition = length(aws_vpc_security_group_ingress_rule.alb_https) == 2 && toset([
-      for rule in aws_vpc_security_group_ingress_rule.alb_https : rule.cidr_ipv4
-    ]) == toset(["198.51.100.0/24", "203.0.113.0/24"])
-    error_message = "PRD 443 규칙 CIDR 은 ingress_allowed_cidrs 와 같아야 합니다."
-  }
-  assert {
-    condition = alltrue([
+    condition = length(aws_vpc_security_group_ingress_rule.alb_https) == 1 && alltrue([
       for rule in aws_vpc_security_group_ingress_rule.alb_https :
-      rule.cidr_ipv4 != "0.0.0.0/0" && rule.ip_protocol == "tcp" && rule.from_port == 443 && rule.to_port == 443
+      rule.cidr_ipv4 == "0.0.0.0/0" && rule.ip_protocol == "tcp" && rule.from_port == 443 && rule.to_port == 443
     ])
-    error_message = "PRD 는 TCP443 만, 그리고 인터넷 전체 CIDR 없이 열어야 합니다."
+    error_message = "PRD 는 허용 목록과 무관하게 TCP443 0.0.0.0/0 규칙 하나만 가져야 합니다."
   }
   assert {
-    condition     = output.ingress_public == false
-    error_message = "PRD 의 ingress_public 출력은 false 여야 합니다."
+    condition     = output.ingress_public == true
+    error_message = "PRD 의 ingress_public 출력은 true 여야 합니다."
   }
 }
 
