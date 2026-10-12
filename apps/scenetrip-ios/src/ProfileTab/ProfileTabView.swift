@@ -61,6 +61,8 @@ struct ProfileTabView: View {
     /// 앱 언어 (MZ2AZ-343). 바꾸면 루트가 화면을 통째로 다시 만들어 이 덮개도 닫힌다.
     @ObservedObject private var language = AppLanguage.shared
     @State private var choosingLanguage = false
+    @State private var choosingTheme = false
+    @AppStorage(AppTheme.key) private var theme = AppTheme.system.rawValue
 
     /// 뒷문은 프로세스당 한 번. 화면 상태가 아니라 **프로세스 상태**라 static 이다.
     private static var likesBackdoorUsed = false
@@ -187,6 +189,11 @@ struct ProfileTabView: View {
                 footprintSection
 
                 Section("도움") {
+                    Button { choosingTheme = true } label: {
+                        row(symbol: "circle.lefthalf.filled", tint: .indigo, title: tr("화면 모드"),
+                            value: AppTheme.resolve(theme).title, chevron: true)
+                    }
+                    .buttonStyle(.plain)
                     Button {
                         choosingLanguage = true
                     } label: {
@@ -252,7 +259,10 @@ struct ProfileTabView: View {
                     showingLikes = true
                 }
             }
-            .refreshable { await load() }
+            .refreshable {
+                await auth.loadMe()
+                await load()
+            }
             .onAccountChange { await load() }
             .signInSheet()
             .nicknameSheet()
@@ -298,6 +308,9 @@ struct ProfileTabView: View {
             .sheet(isPresented: $showingMyReviews) {
                 MyReviewsView()
                     .presentationDetents([.large])
+            }
+            .sheet(isPresented: $choosingTheme) {
+                ThemeChoiceView()
             }
         }
     }
