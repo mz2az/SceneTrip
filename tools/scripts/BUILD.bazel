@@ -45,6 +45,19 @@ py_test(
     tags = ["unit"],
 )
 
+# CI 캐시 정리가 방금 저장한 캐시만 남기고 나머지만 지우는지 검증.
+py_test(
+    name = "ci_cache_prune_unit_test",
+    srcs = ["test_ci_cache_prune.py"],
+    data = [
+        "_lib.sh",
+        "ci-cache-prune.sh",
+    ],
+    legacy_create_init = 0,
+    main = "test_ci_cache_prune.py",
+    tags = ["unit"],
+)
+
 # Java 포맷 검사에서 Bazel 진단과 실제 포맷 결과를 구분하는 회귀 시험.
 py_test(
     name = "unit_test",
