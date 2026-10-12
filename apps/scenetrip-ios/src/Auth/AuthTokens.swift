@@ -118,6 +118,10 @@ enum AuthRefresher {
 /// 로그인은 이것이 0 이 되기를 기다렸다 부른다 — 겹치면 그 쓰기가 합쳐지기 전 비회원 계정에
 /// 떨어질 수 있다(계약 `/auth/google` 설명, `social-login.md` §5 「알려진 틈」).
 enum PendingWrites {
+    enum Failure: Error {
+        case stillRunning
+    }
+
     private static let lock = NSLock()
     private static var count = 0
 
@@ -139,10 +143,11 @@ enum PendingWrites {
         return count == 0
     }
 
-    /// 쓰기가 다 끝날 때까지, 길어야 3초 기다린다.
-    static func settle() async {
+    /// 3초 안에 쓰기가 끝나지 않으면 로그인·병합을 진행하지 않는다(MZ2AZ-415).
+    static func settle() async throws {
         for _ in 0 ..< 30 where !isIdle {
-            try? await Task.sleep(nanoseconds: 100_000_000)
+            try await Task.sleep(nanoseconds: 100_000_000)
         }
+        guard isIdle else { throw Failure.stillRunning }
     }
 }

@@ -75,6 +75,9 @@ swift_library(
     srcs = glob(
         ["src/**/*.swift"],
         exclude = [
+            "src/Auth/AppleOAuth.swift",
+            "src/Auth/AppleSignInButton.swift",
+            "src/Auth/AppleSignInFlow.swift",
             "src/Analytics/SearchUsageIntent.swift",
             "src/Analytics/UsageEvents.swift",
             "src/CommunityTab/CommunityBridge.swift",
@@ -92,6 +95,9 @@ swift_library(
     ) + [
         "src/Analytics/SearchUsageIntent.swift",
         "src/Analytics/UsageEvents.swift",
+        "src/Auth/AppleOAuth.swift",
+        "src/Auth/AppleSignInButton.swift",
+        "src/Auth/AppleSignInFlow.swift",
         "src/CommunityTab/CommunityBridge.swift",
         "src/CommunityTab/CommunityClient.swift",
         "src/CommunityTab/CommunitySubmission.swift",
@@ -182,6 +188,9 @@ swift_library(
     srcs = glob(
         ["tests/**/*.swift"],
         exclude = [
+            "tests/AppleAuthStoreTests.swift",
+            "tests/AppleOAuthTests.swift",
+            "tests/AppleSignInFlowTests.swift",
             "tests/CartStoreTests.swift",
             "tests/CommunityServerTests.swift",
             "tests/CourseDisplayTests.swift",
@@ -191,6 +200,9 @@ swift_library(
             "tests/UsageEventsTests.swift",
         ],
     ) + [
+        "tests/AppleAuthStoreTests.swift",
+        "tests/AppleOAuthTests.swift",
+        "tests/AppleSignInFlowTests.swift",
         "tests/CartStoreTests.swift",
         "tests/CommunityServerTests.swift",
         "tests/CourseDisplayTests.swift",
