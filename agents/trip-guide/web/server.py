@@ -355,6 +355,10 @@ class Handler(BaseHTTPRequestHandler):
 
             fresh = guide.session.shown[before:]
             fresh_pois = guide.session.shown_pois[before_pois:]
+            # 같은 곳이 촬영지 줄과 편의시설 줄로 두 번 실리지 않게 한다 — 편의시설
+            # 줄이 `placeId` 로 그 촬영지를 가리키므로 그쪽 하나만 남긴다(MZ2AZ-379).
+            linked = {str(r["placeId"]) for r in fresh_pois if r.get("placeId")}
+            fresh = [p for p in fresh if p.place_id not in linked]
             self._send(
                 {
                     "reply": turn.reply,
@@ -393,6 +397,10 @@ class Handler(BaseHTTPRequestHandler):
                                 "latitude": r.get("latitude"),
                                 "longitude": r.get("longitude"),
                                 "distanceMeters": r.get("distanceMeters"),
+                                # 촬영지와 같은 곳이면 그 촬영지 id — 앱이 촬영지 상세로
+                                # 보낸다(계약 `PoiSummary.placeId`, MZ2AZ-379). scene-api 는
+                                # 이 목록을 채우지 않고 그대로 넘긴다.
+                                "placeId": r.get("placeId"),
                                 "source": "poi",
                             }
                             for r in fresh_pois

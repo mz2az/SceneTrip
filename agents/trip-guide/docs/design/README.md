@@ -13,4 +13,5 @@
 | [contract-1.2.0.md](contract-1.2.0.md) | **계약 1.2.0 맞추기.** 화면 번호·장바구니의 정본을 앱으로 넘긴 이유, 경계의 이름, 시간 예산 (MZ2AZ-320) |
 | [bedrock-migration.md](bedrock-migration.md) | **모델을 DeepSeek 에서 AWS Bedrock 으로.** 왜 gpt-oss-120b 인가, 돌려 보고 고친 것, 실측, 합치기 전에 배포 쪽에서 할 일 (MZ2AZ-395) |
 | [concurrent-turns.md](concurrent-turns.md) | **동시에 온 요청.** 거절 대신 기다리게, 한 서버에서 4 턴을 함께, 같은 대화는 한 번에 하나 — 왜 그렇게 나눴는가 (MZ2AZ-413) |
+| [poi-identity.md](poi-identity.md) | **편의시설과 촬영지.** 같은 곳이면 촬영지 이름으로 한 번만, 「담아 줘」 는 촬영지로. 일정 줄의 세 갈래(촬영지·편의시설·직접 찍은 핀)를 고친 뒤에도 그대로 — 재현과 고친 것 (MZ2AZ-379·382) |
 | [build-draft.md](build-draft.md) | `rules_python` 이 켜질 때 붙일 BUILD.bazel 초안. 지금 넣으면 팀 빌드가 깨진다 |

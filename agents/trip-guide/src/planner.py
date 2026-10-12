@@ -1181,6 +1181,10 @@ def plan_to_api(plan: Plan) -> dict[str, Any]:
                 {
                     "order": leg.order,
                     "placeId": _api_place_id(place),
+                    # 촬영지가 아닌 줄의 정체 — 받은 그대로 돌려준다(MZ2AZ-382). 빠지면 앱은
+                    # 그 줄을 저장하지 못한다.
+                    "poiId": place.poi_id,
+                    "customPinId": place.custom_pin_id,
                     "name": place.name,
                     "address": place.address or None,
                     "latitude": place.lat,
@@ -1229,6 +1233,13 @@ def _api_place_id(place: Place) -> int | None:
     return int(raw)
 
 
+def _int_or_none(raw: Any) -> int | None:
+    """계약의 int64·nullable 칸 하나. 숫자가 아니면 없는 것으로 본다(참·거짓도 숫자가 아니다)."""
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        return None
+    return raw
+
+
 def plan_from_api(payload: dict[str, Any], book: PlaceSource) -> Plan:
     """`plan_to_api` 가 내보낸 사전을 `Plan` 객체로 되읽는다.
 
@@ -1240,6 +1251,13 @@ def plan_from_api(payload: dict[str, Any], book: PlaceSource) -> Plan:
 
     `book` 은 장면 설명·등급 같은 부가 정보를 되찾는 데만 쓴다. 못 찾아도 일정은
     성립한다 — 앱이 보낸 좌표만으로 충분하다.
+
+    **정지점의 정체는 앱이 보낸 것만 믿는다 (MZ2AZ-382).** 코스 항목은 세 갈래다 — 촬영지
+    (`placeId`)·편의시설(`poiId`)·직접 찍은 핀(`customPinId`). 받은 값을 그대로 들고 있다가
+    `plan_to_api` 가 그대로 돌려준다. `placeId` 가 없는 줄에 **같은 이름의 촬영지 id 를 대신
+    넣지 않는다** — 예전에는 넣었는데, 그러면 편의시설 「몽테드」 줄이 촬영지 「몽테드」 로 바뀌어
+    저장된다(계약: 「없으면 null 이고 이름으로 대체하지 않는다」). 촬영지가 아닌 줄에는 촬영지
+    자료(장면·등급)도 붙이지 않는다.
     """
     if not isinstance(payload, dict):
         raise PlanError("일정 모양이 사전이 아니다")
@@ -1255,17 +1273,27 @@ def plan_from_api(payload: dict[str, Any], book: PlaceSource) -> Plan:
         if need_coords and (lat is None or lng is None):
             return None
 
-        if name not in resolved:
-            # 창구가 답을 못 주거나 느려도 일정은 살아야 한다.
-            try:
-                resolved[name] = book.resolve(name)
-            except Exception:  # noqa: BLE001 — 부가 정보일 뿐이다
-                resolved[name] = None
-        hit = resolved[name]
-
         pid = raw.get("placeId")
+        poi_id = _int_or_none(raw.get("poiId"))
+        pin_id = _int_or_none(raw.get("customPinId"))
+
+        hit: Place | None = None
+        if pid is not None:
+            if name not in resolved:
+                # 창구가 답을 못 주거나 느려도 일정은 살아야 한다.
+                try:
+                    resolved[name] = book.resolve(name)
+                except Exception:  # noqa: BLE001 — 부가 정보일 뿐이다
+                    resolved[name] = None
+            hit = resolved[name]
+            # 이름만 같은 다른 촬영지의 장면을 붙이지 않는다.
+            if hit is not None and hit.place_id != str(pid):
+                hit = None
+
         return Place(
-            place_id=str(pid) if pid is not None else (hit.place_id if hit else ""),
+            place_id=str(pid) if pid is not None else "",
+            poi_id=poi_id,
+            custom_pin_id=pin_id,
             name=name,
             address=str(raw.get("address") or (hit.address if hit else "")),
             lat=float(lat) if lat is not None else None,

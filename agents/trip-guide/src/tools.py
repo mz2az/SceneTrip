@@ -186,6 +186,33 @@ def _place_id(place: Place) -> Any:
     return int(raw) if raw.isdigit() else raw
 
 
+def _linked_place(session: Session, row: dict[str, Any]) -> Place | None:
+    """편의시설 한 줄이 가리키는 **같은 곳인 촬영지** (계약 `PoiSummary.placeId`, MZ2AZ-379).
+
+    `placeId` 가 없으면 연결되지 않은 편의시설이다 — None.
+
+    촬영지를 id 로 묻는 창구는 없다. 그래서 이번 대화에서 보여 준 것 중에서 먼저 찾고, 없으면 그
+    편의시설 자리 곁의 촬영지를 물어 id 가 같은 것을 고른다(연결은 50 m 안에서만 생긴다 —
+    docs/project/plans/place-poi-link.md §2). **이름으로 맞추지 않는다** — 「몽테드」 와 「수원 카페
+    몽테드」 처럼 이름은 다르다. 못 찾으면 None 이고, 그 줄은 연결되지 않은 편의시설처럼 다룬다.
+    """
+    pid = row.get("placeId")
+    if pid is None:
+        return None
+    key = str(pid)
+    for p in session.shown:
+        if p.place_id == key:
+            return p
+    lat, lng = row.get("latitude"), row.get("longitude")
+    if lat is None or lng is None:
+        return None
+    try:
+        around = session.book.near(lat, lng, 150, 10)
+    except Exception:  # noqa: BLE001 — 부가 정보다. 못 찾아도 편의시설 목록은 나가야 한다
+        return None
+    return next((p for p, _ in around if p.place_id == key), None)
+
+
 def _ids(places: list[Place]) -> list[Any]:
     """화면 지시에 실을 id 목록. **id 가 없는 장소는 빠진다.**
 
@@ -356,7 +383,21 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
         # 저장은 백엔드가 `cart.*` effect 를 받아서 한다. 우리가 따로 목록을 들면
         # 정본이 둘이 되고, 앱에서 담은 것은 우리에게 오지 않으므로 그 목록은
         # 언제나 화면과 다르다 (MZ2AZ-320 §5).
-        p = session.find_shown(args["name"])
+        # **보여 준 편의시설의 이름이면 그 줄을 먼저 본다 (MZ2AZ-379).** 장바구니는 촬영지 전용이다
+        # (`cart_item.place_id`). 촬영지와 같은 곳으로 연결된 편의시설이면 그 촬영지로 담고, 연결되지
+        # 않은 편의시설이면 담지 못한다고 말한다. 예전에는 「몽테드」 를 전체 촬영지에서 이름으로 찾아
+        # 못 찾으면 거절하고, 우연히 같은 이름의 다른 촬영지가 있으면 그것을 담았다.
+        poi = session.find_shown_poi(args["name"])
+        p = None
+        if poi is not None:
+            p = _linked_place(session, poi)
+            if p is None:
+                return _refuse(
+                    f"「{poi.get('name', '')}」 는 편의시설이다. 장바구니에는 촬영지만 담을 수 있다 — "
+                    "촬영지가 아니라서 담지 못한다고 말하고, 코스 편집 화면에서 직접 넣을 수 있다고 안내하라"
+                )
+        if p is None:
+            p = session.find_shown(args["name"])
         if p is None:
             return _refuse(f"「{args['name']}」 라는 장소를 찾을 수 없어 담을 수 없다")
 
@@ -472,26 +513,53 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
         # 찍혔다 (MZ2AZ-320 §6).
         session.remember_pois(rows)
 
+        # **촬영지와 같은 곳인 편의시설 (MZ2AZ-379).** 그곳은 어디서든 촬영지가 대표한다 — 모델에게
+        # 촬영지 이름을 함께 줘서 같은 곳을 두 번 소개하지 않게 하고, 「담아 줘」 가 그 촬영지를 가리킬
+        # 수 있게 보여 준 장소에도 넣는다. 지도 핀(`places`)은 편의시설 그대로 나간다 — `placeId` 가
+        # 실려 있어 앱이 촬영지 상세로 보낸다.
+        linked: dict[Any, Place] = {}
+        for r in rows:
+            place = _linked_place(session, r)
+            if place is not None:
+                linked[r.get("id")] = place
+        session.remember(list(linked.values()))
+
         # 화면에는 좌표를, 모델에게는 좌표 없는 것을 준다. 좌표를 보면 모델이
         # 스스로 거리를 재려 들고 하버사인을 틀린다 — 계약 §4 가 같은 규칙을 적어 두었다.
         session.show(
             op="map.focus", placeIds=[r["id"] for r in rows if r.get("id") is not None]
         )
-        return {
+        found = []
+        for r in rows:
+            item = {
+                "이름": r.get("name", ""),
+                "업종": r.get("category", ""),
+                "주소": r.get("address") or "주소 미상",
+                "거리": f"약 {r['distanceMeters']}m"
+                if r.get("distanceMeters") is not None
+                else "거리를 잴 수 없다",
+            }
+            place = linked.get(r.get("id"))
+            if place is not None:
+                # 이름 자리에 **촬영지 이름**을 둔다 — 모델은 「이름」 을 그대로 읽어 말한다. 편의시설
+                # 이름을 앞에 두고 촬영지를 덧붙였더니 딱지째 옮겨 적었다(2026-10-12 실측).
+                item["편의시설 이름"] = item["이름"]
+                item["이름"] = place.name
+                item["촬영지이기도 하다"] = place.titles[:3] or True
+            found.append(item)
+
+        out = {
             "기준": anchor.label,
-            "찾은 곳": [
-                {
-                    "이름": r.get("name", ""),
-                    "업종": r.get("category", ""),
-                    "주소": r.get("address") or "주소 미상",
-                    "거리": f"약 {r['distanceMeters']}m"
-                    if r.get("distanceMeters") is not None
-                    else "거리를 잴 수 없다",
-                }
-                for r in rows
-            ],
+            "찾은 곳": found,
             "주의": "편의시설이다. 촬영지가 아니다 — 섞어 말하지 마라",
         }
+        if linked:
+            out["같은 곳"] = (
+                "「촬영지이기도 하다」 가 적힌 줄은 그 작품의 촬영지와 같은 가게·명소다. 「이름」 에 적힌 "
+                "촬영지 이름으로 한 번만 소개하고, 어느 작품의 촬영지이기도 하다고 사람의 말로 밝혀라. "
+                "앞에서 이미 소개한 촬영지면 새 장소처럼 다시 소개하지 마라"
+            )
+        return out
 
     if name == "revise_plan":
         # 대화로 고치기 (MZ2AZ-201). 여기도 가운데는 알고리즘이다 — 모델은 「어느
@@ -521,7 +589,15 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
         # 여기서 비로소 세션의 일정이 바뀐다. revise_day 는 원본을 건드리지 않으므로,
         # 위에서 거절당한 수정은 세션에 아무 흔적도 남기지 않는다.
         session.plan = rev.plan
-        session.remember([leg.place for day in rev.plan.days for leg in day.legs])
+        # 촬영지인 줄만 「보여 준 장소」 에 넣는다 — 편의시설·개인 핀 줄은 촬영지가 아니다(MZ2AZ-382).
+        session.remember(
+            [
+                leg.place
+                for day in rev.plan.days
+                for leg in day.legs
+                if leg.place.place_id
+            ]
+        )
 
         session.emit(
             op="plan.revise",
