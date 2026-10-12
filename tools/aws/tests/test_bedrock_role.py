@@ -2,7 +2,7 @@
 
 - Helm: trip-guide 는 자기 서비스 계정(trip-guide, API 토큰 마운트 없음)으로 뜬다.
 - 네트워크 정책: scene-api·trip-guide 에 Pod Identity 에이전트(169.254.170.23/32 TCP 80)만 더한다.
-- 배포기: trip_guide 비밀값에 필수 키가 없다. 예전 고정 키는 받아 들이되(파드에는 넣지 않는다) 모르는 키는 거절한다.
+- 배포기: trip-guide 비밀값은 아예 없다 — 검사 종류에도 trip_guide 가 없고, 앱 비밀값은 scene_api·database·auth 셋이다.
 """
 
 import unittest
@@ -84,44 +84,44 @@ class TripGuideChartTest(unittest.TestCase):
 
 
 class TripGuideSecretValidationTest(unittest.TestCase):
-    def validate(self, value, environment=None):
+    """MZ2AZ-317 후속 — trip-guide 의 Secrets Manager 비밀값을 없앴다. 검사 종류에도 남지 않는다."""
+
+    def test_app_secrets_are_scene_api_database_auth(self):
+        from tools.aws.config import APP_SECRETS
+
+        self.assertEqual(APP_SECRETS, ("scene_api", "database", "auth"))
+
+    def test_trip_guide_is_not_a_secret_kind(self):
+        from tools.aws import config
+
+        self.assertNotIn("trip_guide", config.SECRET_KEYS)
+        self.assertNotIn("trip_guide", config.OPTIONAL_SECRET_KEYS)
+        self.assertNotIn("trip_guide", getattr(config, "PRD_REQUIRED_SECRET_KEYS", {}))
+
+    def test_validating_trip_guide_kind_fails(self):
         from tools.aws.config import validate_secret
 
-        return validate_secret("trip_guide", value, environment)
-
-    def test_no_required_keys(self):
-        for environment in (None, "dev", "prd"):
-            with self.subTest(environment=environment):
-                self.validate({}, environment)
-
-    def test_legacy_bedrock_keys_are_optional(self):
         for value in (
+            {},
             {"AWS_ACCESS_KEY_ID": "fixture-id", "AWS_SECRET_ACCESS_KEY": "fixture"},
-            {"AWS_ACCESS_KEY_ID": "fixture-id"},
-            {"AWS_SECRET_ACCESS_KEY": "fixture"},
         ):
-            for environment in ("dev", "prd"):
-                with self.subTest(keys=sorted(value), environment=environment):
-                    self.validate(value, environment)
+            for environment in (None, "dev", "prd"):
+                with (
+                    self.subTest(keys=sorted(value), environment=environment),
+                    self.assertRaises((KeyError, ValueError)),
+                ):
+                    validate_secret("trip_guide", value, environment)
 
-    def test_unknown_keys_are_rejected(self):
-        for value in (
-            {"AWS_SESSION_TOKEN": "fixture"},
-            {"OPENAI_API_KEY": "fixture"},
-            {"AWS_ACCESS_KEY_ID": "fixture-id", "SCENETRIP_SERVICE_TOKEN": "x"},
-        ):
-            with self.subTest(keys=sorted(value)), self.assertRaises(ValueError):
-                self.validate(value, "dev")
+    def test_scene_api_does_not_accept_legacy_bedrock_keys(self):
+        # 예전 고정 키가 다른 칸으로 옮겨 가지 않았는지 — scene_api 에 넣으면 거절한다.
+        from tools.aws.config import validate_secret
 
-    def test_values_must_be_non_empty_strings(self):
-        for bad in ("", "   ", 123, None):
-            with self.subTest(value=bad), self.assertRaises(ValueError):
-                self.validate({"AWS_ACCESS_KEY_ID": bad}, "dev")
-
-    def test_non_object_is_rejected(self):
-        for bad in ([], "AWS_ACCESS_KEY_ID", None):
-            with self.subTest(value=bad), self.assertRaises(ValueError):
-                self.validate(bad, "dev")
+        validate_secret("scene_api", {"KAKAO_REST_KEY": "fixture"}, "dev")
+        for key in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                validate_secret(
+                    "scene_api", {"KAKAO_REST_KEY": "fixture", key: "fixture"}, "dev"
+                )
 
 
 if __name__ == "__main__":

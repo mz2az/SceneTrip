@@ -206,6 +206,25 @@ class LifecycleTests(unittest.TestCase):
             repositories,
             {address for address in expected if address.startswith("aws_ecr_")},
         )
+        # 앱 비밀값은 셋뿐이다 — trip-guide 비밀값은 없앴다(MZ2AZ-317). 실제 형상의 비밀값이
+        # 모두 삭제 안전 목록(TAGGED_ADDRESSES)에 들어야 내리기가 멈추지 않는다.
+        secrets = {
+            address
+            for address in actual
+            if address.startswith("aws_secretsmanager_secret.app[")
+        }
+        self.assertEqual(
+            secrets,
+            {
+                f'aws_secretsmanager_secret.app["{key}"]'
+                for key in ("scene_api", "database", "auth")
+            },
+        )
+        for address in secrets:
+            self.assertTrue(
+                any(re.fullmatch(pattern, address) for pattern in TAGGED_ADDRESSES),
+                address,
+            )
         for address, attributes in expected.items():
             for key, value in attributes.items():
                 self.assertEqual(actual[address][key], value, f"{address}.{key}")

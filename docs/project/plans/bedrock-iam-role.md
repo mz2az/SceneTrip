@@ -38,4 +38,8 @@ Bedrock 을 부를 수 있고 비용이 우리 계정에 청구된다. AWS 안�
 1. 이 문서 → 코드 PR(에이전트·bootstrap·Terraform·Helm·배포기·시험) — 태환님 리뷰
 2. **dev bootstrap apply**(역할·PassRole) — 확인받고
 3. dev 올리기 → 챗봇 한 턴 + 리뷰 사진 올리기(네트워크 정책 수정 확인) — 원격 적재 확인과 함께
-4. 확인되면 Bedrock 용 IAM 사용자 키 비활성 → 삭제
+4. ~~확인되면 Bedrock 용 IAM 사용자 키 비활성 → 삭제~~ — **2026-10-12 DEV 실측: 챗봇이 역할로 Bedrock 을 불렀다**(CloudTrail
+   `ChatCompletions`, AssumedRole `…trip-guide`, 오류 없음). 그런데 IAM 사용자 `bedrock-api-user`(권한 `AmazonBedrockFullAccess`)의 키는
+   **로컬 개발(`just guide-up`)이 쓴다** — 지우지 않는다. 권한을 모델 하나로 줄이거나 로컬을 SSO 로 바꾸는 것은 선택(권호: 지금은 두기)
+5. trip-guide 용 Secrets Manager 비밀값을 없앤다 — Terraform·배포기·되살리기 목록에서. DEV 의 옛 값(`DEEPSEEK_API_KEY`)이 남아 있어
+   올리기가 「키가 허용 목록과 다르다」 로 멈췄다(2026-10-12)

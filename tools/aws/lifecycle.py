@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
-from tools.aws.config import Runner, matched, workspace
+from tools.aws.config import APP_SECRETS, Runner, matched, workspace
 
 DEPLOY_WORKFLOW = "aws-deploy.yml"
 DESTROY_WORKFLOW = "aws-destroy.yml"
@@ -168,11 +168,13 @@ def restore_secrets(run, environment):
         "--filters",
         f"Key=name,Values={prefix}",
     )
+    # 지금 Terraform 이 관리하는 비밀값만 되살린다 — 없앤 비밀값(2026-10-12 의 trip-guide)을 되살리면 아무도
+    # 관리하지 않는 채로 남는다. 필터는 접두 일치이므로 정확한 이름인지 다시 확인한다.
+    managed = {prefix + key.replace("_", "-") for key in APP_SECRETS}
     restored = []
     for secret in data.get("SecretList", []):
         name = secret.get("Name", "")
-        # 필터는 접두 일치이므로 정확한 환경 경로인지 다시 확인한다.
-        if not name.startswith(prefix) or not secret.get("DeletedDate"):
+        if name not in managed or not secret.get("DeletedDate"):
             continue
         run(
             ["aws", "secretsmanager", "restore-secret", "--secret-id", secret["ARN"]],

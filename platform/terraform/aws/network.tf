@@ -5,9 +5,9 @@ locals {
   # (ADR 0024). 0019 가 PRD 공개의 선행 조건으로 꼽은 계정별 요청 제한·유료 API 한도(MZ2AZ-334)는 서버에 있다.
   # gateway 의 「ALB 를 거쳐 왔는가」 검사와 IP 당 제한은 그대로다. EKS 관리 API 허용 CIDR 은 별개다.
   ingress_public = true
-  azs        = var.availability_zones
-  az_count   = length(var.availability_zones)
-  nat_count  = local.production ? local.az_count : 1
+  azs            = var.availability_zones
+  az_count       = length(var.availability_zones)
+  nat_count      = local.production ? local.az_count : 1
 }
 
 resource "aws_vpc" "this" {

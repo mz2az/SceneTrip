@@ -15,7 +15,14 @@ from pathlib import Path
 
 from tools.aws.alb import alb_values, verify_nodeclass, wait_for_alb
 from tools.aws.bootstrap_delete import delete_bootstrap
-from tools.aws.config import Runner, Settings, matched, output_values, workspace
+from tools.aws.config import (
+    APP_SECRETS,
+    Runner,
+    Settings,
+    matched,
+    output_values,
+    workspace,
+)
 from tools.aws.deploy import (
     database_credentials,
     delete_data_load,
@@ -147,9 +154,6 @@ def initialize_terraform(run, root, settings, temp):
         cwd=directory,
     )
     return directory
-
-
-APP_SECRETS = ("scene_api", "trip_guide", "database", "auth")
 
 
 def adopt_retained_secrets(run, settings, directory, var_file):

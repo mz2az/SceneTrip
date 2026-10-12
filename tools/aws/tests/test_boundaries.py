@@ -514,7 +514,6 @@ class BoundaryTest(unittest.TestCase):
             "app_secret_arns": {
                 "database": "database-arn",
                 "scene_api": "scene-arn",
-                "trip_guide": "guide-arn",
                 "auth": "auth-arn",
             },
             "ecr_repository_urls": {
@@ -564,16 +563,11 @@ class BoundaryTest(unittest.TestCase):
                     "SCENETRIP_SERVICE_TOKEN": "fixture-service-token",
                 },
             ),
+            # trip-guide 비밀값은 없다(MZ2AZ-317) — 배포기가 읽는 Secrets Manager 비밀값은 scene_api 하나다.
             patch(
                 "tools.aws.deploy.secret_value",
-                side_effect=[
-                    {"KAKAO_REST_KEY": "fixture"},
-                    {
-                        "AWS_ACCESS_KEY_ID": "fixture",
-                        "AWS_SECRET_ACCESS_KEY": "fixture",
-                    },
-                ],
-            ),
+                side_effect=[{"KAKAO_REST_KEY": "fixture"}],
+            ) as secret_value,
             patch(
                 "tools.aws.deploy.migrate_database",
                 side_effect=lambda *unused: events.append("migration"),
@@ -609,3 +603,16 @@ class BoundaryTest(unittest.TestCase):
             "scenetrip-user-media-123456789012-ap-northeast-2-dev",
         )
         self.assertEqual(events, ["migration"])
+        self.assertEqual(
+            [call.args[1:3] for call in secret_value.call_args_list],
+            [("scene-arn", "scene_api")],
+        )
+        guide = next(
+            item
+            for item in manifests
+            if item.get("kind") == "Secret"
+            and item.get("metadata", {}).get("name") == "trip-guide-secrets"
+        )
+        self.assertEqual(
+            guide["stringData"], {"SCENETRIP_SERVICE_TOKEN": "fixture-service-token"}
+        )

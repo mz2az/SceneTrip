@@ -25,7 +25,7 @@ class CliTest(unittest.TestCase):
         }
         managed = "\n".join(
             f'aws_secretsmanager_secret.app["{key}"]'
-            for key in ("scene_api", "trip_guide", "database", "auth")
+            for key in ("scene_api", "database", "auth")
         )
 
         def execute(command, **unused):
@@ -114,12 +114,14 @@ class CliTest(unittest.TestCase):
 
             return Mock(side_effect=execute)
 
+        # 남은 trip-guide 비밀값(MZ2AZ-317 에서 없앰)은 소유 태그·삭제 예정이어도 손대지 않는다.
         run = fake(
             'aws_secretsmanager_secret.app["database"]',
             {
                 "scene-api": {"Tags": owned, "DeletedDate": "2026-09-29"},
-                "trip-guide": {"Tags": owned},
+                "trip-guide": {"Tags": owned, "DeletedDate": "2026-09-29"},
                 "database": {"Tags": owned},
+                "auth": {"Tags": owned},
             },
         )
         adopt_retained_secrets(run, settings, Path("."), Path("vars.json"))
@@ -134,8 +136,16 @@ class CliTest(unittest.TestCase):
             [command[-2] for command in imports],
             [
                 'aws_secretsmanager_secret.app["scene_api"]',
-                'aws_secretsmanager_secret.app["trip_guide"]',
+                'aws_secretsmanager_secret.app["auth"]',
             ],
+        )
+        self.assertFalse(
+            any("trip-guide" in " ".join(command) for command in commands),
+            commands,
+        )
+        self.assertFalse(
+            any("trip_guide" in " ".join(command) for command in commands),
+            commands,
         )
         self.assertIn("-var-file=vars.json", imports[0])
         # 복원은 import 보다 먼저다.
