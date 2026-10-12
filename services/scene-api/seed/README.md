@@ -12,6 +12,7 @@
 | `place_poi_link.sql` | 촬영지와 같은 곳인 편의시설을 연결하고 편의시설 쪽 리뷰를 촬영지로 옮긴다(MZ2AZ-371). `just place-poi-link [--dry-run]` 이 쓴다 — `just seed`·`just seed-poi --update` 뒤에 |
 | `course_pin_to_poi.sql` | 개인 핀으로 저장된 편의시설을 편의시설 항목으로 바꾼다(MZ2AZ-377). `just course-pin-to-poi [--dry-run]` — **앱(MZ2AZ-380) 배포 뒤에** |
 | `place_poi_links.tsv` | 같은 곳 **사람 판정** — `place_key` · `poi_source_id` · `same`/`not` · 메모. 자동 판정(도로명 주소가 같음 · 5 m 안)보다 앞선다. 판정이 필요한 후보는 `just place-poi-link` 가 끝에 붙여 넣을 줄로 보여 준다 ([계획](../../../docs/project/plans/place-poi-link.md) §2·§3) |
+| `remote-load.sh` | **원격 데이터 적재**(MZ2AZ-414) — 적재 이미지(`//services/scene-api:data_load_image`) 안에서 Job 이 돌린다. 위 SQL 을 로컬 스크립트와 같은 방식으로 부른다: 촬영지 → 편의시설(비었으면 처음, 아니면 `--update`) → 같은 곳 연결 → 인기도 → 검색 색인 → 건수 검사·`data_load` 기록. 지우지 않는다. 로컬에서 `just data-load-local` 로 같은 이미지를 돌려 본다(2026-10-12 실측 78 초) — [remote-data-load.md](../../../docs/project/plans/remote-data-load.md) |
 
 ```bash
 just seed                          # 저장소의 성지후보 538 행 — 키로 갱신·추가, 빠진 것은 숨김

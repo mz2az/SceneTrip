@@ -58,6 +58,6 @@
 2. **적재 이미지** — Bazel 타깃(`//services/scene-api:data_load_image`·`_push`), `MODULE.bazel` 에 기반 이미지와 편의시설 판 `http_file`.
    이미지 안 `load.sh`(§3 순서·건수 검사·요약). **`MODULE.bazel` 에 의존성을 더하는 일이라 PR 전에 한 번 더 확인받는다**
 3. **V30 `data_load`·`review_archive`**(+ `place_poi_link.sql` 이 지우기 전에 복사) · 정책 라벨 · 배포기 `data-load` 동작(`tools/aws`) · `just aws-data-load <env>` · 워크플로 `aws-data-load.yml`
-4. 로컬 검증 — kind 에서 같은 이미지로 Job 을 띄워(로컬 postgres) 처음부터·두 번째(멱등) 모두
+4. 로컬 검증 — kind 에서 같은 이미지로 Job 을 띄워(로컬 postgres) 처음부터·두 번째(멱등) 모두 — **2026-10-12 `just data-load-local`: 편의시설 91 만 행 포함 78 초·75 초, 두 번 모두 같은 건수(작품 128 · 촬영지 479 · 편의시설 910,394 · 연결 110 · 검색 색인 4,841)**
 5. **DEV 에서 실제로** — up 뒤 자동 적재, 앱에서 작품·지도·검색·편의시설 확인. 걸린 시간 실측 → `activeDeadlineSeconds` 조정
 6. dev-lifecycle up 에 연결. 문서(aws-deployment.md 「적재」, 이 문서 결과)
