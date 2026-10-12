@@ -134,6 +134,75 @@ class DestroyPlanTest(unittest.TestCase):
             with self.subTest(address=address), self.assertRaises(ValueError):
                 validate_owned_state({**resources, address: {}}, valid_settings())
 
+    def test_every_app_repository_including_data_load_is_owned_and_identified(self):
+        # MZ2AZ-414 — data_load 저장소도 나머지 셋과 같은 소유권·이름 검사를 받는다.
+        from tools.aws.destroy import validate_resource_identity
+        from tools.aws.destroy_identity import validate_owned_state
+
+        settings = valid_settings()
+        tags = {"Project": "scenetrip", "Environment": "dev", "ManagedBy": "terraform"}
+        names = {
+            "scene_api": "scene-api",
+            "trip_guide": "trip-guide",
+            "migration": "migration",
+            "data_load": "data-load",
+        }
+        resources = {}
+        for key, name in names.items():
+            resources[f'aws_ecr_repository.app["{key}"]'] = {
+                "name": f"scenetrip-dev/{name}",
+                "registry_id": settings.account,
+                "arn": "arn:aws:ecr:ap-northeast-2:123456789012:repository/"
+                + f"scenetrip-dev/{name}",
+                "tags_all": tags,
+            }
+            resources[f'aws_ecr_lifecycle_policy.app["{key}"]'] = {
+                "repository": f"scenetrip-dev/{name}"
+            }
+        validate_owned_state(resources, settings)
+        validate_resource_identity(resources, settings)
+
+        repository = 'aws_ecr_repository.app["data_load"]'
+        policy = 'aws_ecr_lifecycle_policy.app["data_load"]'
+        for address, changes in (
+            (repository, {"name": "scenetrip-prd/data-load"}),
+            (repository, {"name": "scenetrip-dev/migration"}),
+            (repository, {"registry_id": "999999999999"}),
+            (repository, {"tags_all": {**tags, "Environment": "prd"}}),
+            (policy, {"repository": "scenetrip-dev/migration"}),
+            (policy, {"repository": ""}),
+        ):
+            changed = {**resources, address: {**resources[address], **changes}}
+            with (
+                self.subTest(address=address, changes=changes),
+                self.assertRaises(ValueError),
+            ):
+                validate_owned_state(changed, settings)
+                validate_resource_identity(changed, settings)
+        # 목록에 없는 저장소 키는 여전히 거부한다.
+        unknown = {
+            **resources,
+            'aws_ecr_repository.app["other"]': resources[repository],
+        }
+        with self.assertRaises(ValueError):
+            validate_owned_state(unknown, settings)
+
+    def test_teardown_preparation_force_deletes_every_app_repository(self):
+        # 데이터 적재 이미지가 든 저장소도 준비 단계에서 force_delete 가 켜져야 최종 삭제가 비지 않은 저장소에서 멈추지 않는다.
+        from tools.aws.destroy_plan import preparation_targets, write_override
+
+        repositories = [
+            f'aws_ecr_repository.app["{key}"]'
+            for key in ("scene_api", "trip_guide", "migration", "data_load")
+        ]
+        state = {address: {} for address in repositories}
+        self.assertEqual(sorted(preparation_targets(state)), sorted(repositories))
+        with tempfile.TemporaryDirectory() as temporary:
+            expected = write_override(Path(temporary), valid_settings(), "retain")
+        for address in repositories:
+            with self.subTest(address=address):
+                self.assertEqual(expected.get(address), {"force_delete": True})
+
     def test_media_pod_identity_association_is_deleted_only_for_environment_scene_api(
         self,
     ):

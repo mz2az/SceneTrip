@@ -90,7 +90,8 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [database-bootstrap, database-migrate]
+        # data-load: 원격 데이터 적재 Job(MZ2AZ-414). 데이터가 이미지에 있어 5432 밖으로 나갈 일이 없다.
+        values: [database-bootstrap, database-migrate, data-load]
   policyTypes: [Egress]
   egress:
     - ports: [{ protocol: TCP, port: 5432 }]

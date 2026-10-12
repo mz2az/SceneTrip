@@ -147,9 +147,19 @@ DB는 `scenetrip`이며 UTF8·한글 인식 locale·PostGIS·pg_trgm을 확인�
 수정하거나 무조건 repair/baseline으로 우회하지 않는다.
 
 데이터는 migration에 포함되지 않는다. 로컬 `just seed`, `just seed-poi`,
-`just db-recreate`는 AWS 운영 데이터 적재/복구 명령이 아니다. 로컬 절차를
-원격 DB URL로 바꿔 실행하지 않는다. 운영 데이터의 출처·권한·행 수·MV 갱신은
-별도 작업으로 검토한다.
+`just seed-reset`, `just db-recreate`는 AWS 운영 데이터 적재/복구 명령이 아니다. 로컬 절차를
+원격 DB URL로 바꿔 실행하지 않는다.
+
+**원격 데이터 적재는 `aws-deploy` workflow 의 `data-load` 동작이다**(`just aws-data-load <env>`, MZ2AZ-414,
+[계획](../project/plans/remote-data-load.md)). 이 커밋의 적재 이미지(`scenetrip-<env>/data-load` — postgres + 적재 SQL·
+촬영지 CSV·편의시설 판)를 올리고 EKS Job `data-load` 로 촬영지 → 편의시설 → 같은 곳 연결 → 인기도 → 검색 색인을 넣는다.
+
+- 계정은 소유자 `app_migrate`(임시 Secret `database-load-transient`, 끝나면 지운다), 네트워크는 5432 만(정책 `database-jobs`)
+- **지우지 않는다** — 몇 번을 돌려도 같다. 사용자 데이터를 지우는 `seed-reset` 은 원격에 없다
+- 건수가 0 이면 실패, 성공하면 `DATA_LOAD_SUMMARY {json}` 한 줄을 출력하고 DB `data_load` 에 기록한다. 실패하면 단계 줄(`==>`)만
+  출력한다 — SQL 출력·비밀값은 내보내지 않는다
+- DEV 는 `dev-lifecycle` up 이 배포 성공 뒤 자동으로 부른다. PRD 는 사람이 workflow 에서 고르고 Environment 검토자가 승인한다
+- 로컬에서 같은 이미지를 돌려 보려면 `just data-load-local`
 
 ## 7. DNS와 검증 완료 조건
 

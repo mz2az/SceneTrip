@@ -52,11 +52,25 @@ run "dev_private_and_cost_boundary" {
   }
   assert {
     condition     = alltrue([for r in aws_ecr_repository.app : r.image_tag_mutability == "IMMUTABLE" && !r.force_delete])
-    error_message = "세 가지 OCI 저장소는 태그 불변·강제 삭제 금지여야 합니다."
+    error_message = "네 가지 OCI 저장소는 태그 불변·강제 삭제 금지여야 합니다."
   }
   assert {
-    condition     = length(aws_secretsmanager_secret.app) == 4 && length(aws_ecr_repository.app) == 3
-    error_message = "Scene API·Trip Guide·DB 비밀값, 앱·에이전트·migration 이미지가 필요합니다."
+    condition     = length(aws_secretsmanager_secret.app) == 4 && length(aws_ecr_repository.app) == 4
+    error_message = "Scene API·Trip Guide·DB 비밀값, 앱·에이전트·migration·data-load 이미지가 필요합니다."
+  }
+  # 원격 데이터 적재 이미지(MZ2AZ-414) — 다른 저장소와 같은 규칙, 환경 이름 아래.
+  assert {
+    condition = (
+      aws_ecr_repository.app["data_load"].name == "scenetrip-dev/data-load" &&
+      aws_ecr_repository.app["data_load"].image_tag_mutability == "IMMUTABLE" &&
+      !aws_ecr_repository.app["data_load"].force_delete &&
+      aws_ecr_repository.app["data_load"].image_scanning_configuration[0].scan_on_push
+    )
+    error_message = "data-load 저장소는 scenetrip-<env>/data-load, 태그 불변·강제 삭제 금지·푸시 시 검사여야 합니다."
+  }
+  assert {
+    condition     = toset(keys(aws_ecr_repository.app)) == toset(["scene_api", "trip_guide", "migration", "data_load"]) && toset(keys(aws_ecr_lifecycle_policy.app)) == toset(keys(aws_ecr_repository.app))
+    error_message = "ECR 저장소 키는 scene_api·trip_guide·migration·data_load 이고, 저장소마다 수명 주기 정책이 있어야 합니다."
   }
 }
 
@@ -78,6 +92,10 @@ run "prd_high_availability_and_retention" {
   assert {
     condition     = aws_eks_cluster.this.deletion_protection && aws_cloudwatch_log_group.eks.retention_in_days == 90
     error_message = "PRD EKS 삭제 보호와 90일 제어면 로그 보존이 필요합니다."
+  }
+  assert {
+    condition     = aws_ecr_repository.app["data_load"].name == "scenetrip-prd/data-load" && !aws_ecr_repository.app["data_load"].force_delete
+    error_message = "PRD data-load 저장소는 scenetrip-prd/data-load 이고 강제 삭제 금지여야 합니다."
   }
 }
 

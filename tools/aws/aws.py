@@ -17,9 +17,12 @@ from tools.aws.alb import alb_values, verify_nodeclass, wait_for_alb
 from tools.aws.bootstrap_delete import delete_bootstrap
 from tools.aws.config import Runner, Settings, matched, output_values, workspace
 from tools.aws.deploy import (
+    database_credentials,
+    delete_data_load,
     delete_transient,
     deploy,
     gateway_values,
+    load_data,
     validate_environment_outputs,
 )
 from tools.aws.destroy import destroy_service
@@ -272,7 +275,7 @@ def verify_certificate(run, settings, outputs):
         raise ValueError("ACM 인증서가 API 도메인을 포함하지 않습니다")
 
 
-def publish(run, outputs, settings, temp):
+def publish(run, outputs, settings, temp, images=None):
     data = json.loads(
         run(["aws", "ecr", "get-authorization-token", "--output", "json"], quiet=True)
     )["authorizationData"]
@@ -293,9 +296,13 @@ def publish(run, outputs, settings, temp):
     config.write_text(json.dumps({"auths": {registry: {"auth": token}}}))
     config.chmod(0o600)
     for key, target in (
-        ("scene_api", "//services/scene-api:push"),
-        ("trip_guide", "//agents/trip-guide:push"),
-        ("migration", "//services/scene-api:migration_push"),
+        (
+            ("scene_api", "//services/scene-api:push"),
+            ("trip_guide", "//agents/trip-guide:push"),
+            ("migration", "//services/scene-api:migration_push"),
+        )
+        if images is None
+        else images
     ):
         repository = outputs["ecr_repository_urls"][key]
         expected = (
@@ -304,6 +311,7 @@ def publish(run, outputs, settings, temp):
                 "scene_api": "scene-api",
                 "trip_guide": "trip-guide",
                 "migration": "migration",
+                "data_load": "data-load",
             }[key]
         )
         if repository != expected:
@@ -321,6 +329,41 @@ def publish(run, outputs, settings, temp):
             ],
             env={"DOCKER_CONFIG": str(docker)},
         )
+
+
+def data_load(run, root, settings, temp):
+    """원격 데이터 적재(MZ2AZ-414) — 이 커밋의 적재 이미지를 올리고 EKS Job 으로 돌린다.
+
+    배포(apply)와 따로 돈다: DEV 는 dev-lifecycle 이 올린 뒤 부르고, PRD 는 사람이 워크플로에서 누른다(검토자 승인). 이미지는
+    여기서 올린다 — 배포 태그가 실행마다 달라 배포 때 올린 것을 찾을 수 없고, 평소 배포가 큰 적재 이미지를 올리지 않게.
+    """
+    directory = initialize_terraform(run, root, settings, temp)
+    outputs = output_values(
+        run(["terraform", "output", "-json"], quiet=True, cwd=directory)
+    )
+    validate_environment_outputs(settings, outputs)
+    publish(
+        run,
+        outputs,
+        settings,
+        temp,
+        images=(("data_load", "//services/scene-api:data_load_push"),),
+    )
+    run(
+        [
+            "aws",
+            "eks",
+            "update-kubeconfig",
+            "--name",
+            settings.cluster,
+            "--region",
+            settings.region,
+        ],
+        quiet=True,
+    )
+    credentials = database_credentials(run, outputs["app_secret_arns"]["database"])
+    image = outputs["ecr_repository_urls"]["data_load"] + ":" + settings.tag
+    load_data(run, outputs, credentials, image, settings.sha)
 
 
 def verify_https_once(settings, hostname):
@@ -667,6 +710,7 @@ def main():
             "bootstrap-apply",
             "render",
             "cleanup",
+            "data-load",
             "tf-check",
             "teardown-validate",
             *TEARDOWN_COMMANDS,
@@ -757,6 +801,10 @@ def main():
                 quiet=True,
             )
             delete_transient(run)
+            delete_data_load(run)
+            return
+        if args.operation == "data-load":
+            data_load(run, root, settings, temp)
             return
         outputs = terraform(run, root, settings, temp, args.operation)
         if outputs is not None:

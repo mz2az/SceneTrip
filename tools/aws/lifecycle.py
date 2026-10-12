@@ -378,6 +378,17 @@ def up(run, github, cloudflare, target):
     point_dns()
     if not pointed["value"]:
         raise RuntimeError("배포는 끝났지만 환경 ALB를 찾지 못했습니다")
+    # DEV 는 올릴 때마다 빈 DB 다 — 같은 커밋의 데이터를 넣는다(MZ2AZ-414). 같은 workflow 의 data-load 동작이라
+    # 같은 concurrency 그룹·같은 OIDC 역할을 쓴다.
+    loading = github.dispatch(
+        DEPLOY_WORKFLOW,
+        {
+            "environment": target.environment,
+            "operation": "data-load",
+            "commit_sha": target.sha,
+        },
+    )
+    require_success(github.wait(loading), "데이터 적재")
     print(f"올리기 완료: https://{target.domain}/v1")
 
 
