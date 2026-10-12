@@ -211,6 +211,57 @@ class LifecycleTest(unittest.TestCase):
             [["aws", "secretsmanager", "restore-secret", "--secret-id", "arn:db"]],
         )
 
+    def test_only_the_three_managed_secret_names_are_restored(self):
+        # MZ2AZ-317 — Terraform 이 관리하는 이름(scene-api·database·auth)만 되살린다. 없앤
+        # trip-guide 처럼 같은 경로 아래 다른 비밀값, 이름이 비슷한 것, 다른 환경은 손대지 않는다.
+        scheduled = "2026-10-12"
+        for environment, other in (("dev", "prd"), ("prd", "dev")):
+            managed = [
+                f"/scenetrip/{environment}/{name}"
+                for name in ("scene-api", "database", "auth")
+            ]
+            untouched = [
+                f"/scenetrip/{environment}/trip-guide",
+                f"/scenetrip/{environment}/scene_api",
+                f"/scenetrip/{environment}/auth-old",
+                f"/scenetrip/{environment}/database/extra",
+                f"/scenetrip/{environment}/",
+                f"/scenetrip/{environment}x/auth",
+                f"/scenetrip/{other}/auth",
+                f"/scenetrip/{other}/scene-api",
+                f"/scenetrip/{other}/trip-guide",
+            ]
+            secrets = [
+                {"Name": name, "ARN": f"arn:{name}", "DeletedDate": scheduled}
+                for name in managed + untouched
+            ]
+            with self.subTest(environment=environment):
+                aws = FakeAws(secrets=secrets)
+                with unittest.mock.patch("builtins.print"):
+                    restored = restore_secrets(aws, environment)
+                self.assertEqual(sorted(restored), sorted(managed))
+                restores = [call for call in aws.calls if call[2] == "restore-secret"]
+                self.assertEqual(
+                    sorted(call[-1] for call in restores),
+                    sorted(f"arn:{name}" for name in managed),
+                )
+
+    def test_leftover_trip_guide_secret_alone_is_not_restored(self):
+        aws = FakeAws(
+            secrets=[
+                {
+                    "Name": "/scenetrip/dev/trip-guide",
+                    "ARN": "arn:guide",
+                    "DeletedDate": "2026-10-12",
+                },
+                # 삭제 예약이 아닌 관리 비밀값도 되살리지 않는다.
+                {"Name": "/scenetrip/dev/auth", "ARN": "arn:auth"},
+            ]
+        )
+        with unittest.mock.patch("builtins.print"):
+            self.assertEqual(restore_secrets(aws, "dev"), [])
+        self.assertFalse(any(call[2] == "restore-secret" for call in aws.calls))
+
     def test_alb_is_found_by_environment_security_group(self):
         self.assertEqual(environment_alb(FakeAws(), "dev"), ALB)
         self.assertIsNone(environment_alb(FakeAws(alb_after=1), "dev"))

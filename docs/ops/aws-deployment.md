@@ -22,7 +22,7 @@ DEV와 PRD를 분리된 AWS 계정으로 준비하는 것을 권장한다. **Sce
 | 사용자 진입 CIDR | 운영자 | 회사/VPN/검증 단말과 HTTPS 검증 runner의 고정 egress; 전체 인터넷 아님 |
 | EKS API 접근 CIDR | 운영자 | 배포 runner의 고정 egress; 사용자 CIDR와 별개 |
 | self-hosted 배포 runner | 저장소 관리자 | Linux x64, 환경별 라벨, 신뢰된 작업만 실행 |
-| Kakao·DeepSeek 키 | 서비스 운영자 | Secrets Manager에 입력, GitHub 로그·tfvars·repo에 넣지 않음 |
+| Kakao 키·애플 로그인 키(.p8, PRD 필수) | 서비스 운영자 | Secrets Manager `/scenetrip/<env>/scene-api` 에 입력, GitHub 로그·tfvars·repo에 넣지 않음. 챗봇 모델(Bedrock)은 키가 없다 — trip-guide 파드가 Pod Identity 역할 `scenetrip-<env>-bedrock` 로 부른다(MZ2AZ-317) |
 
 배포 runner는 **이번 작업으로 만들 EKS 안에 먼저 있어야 하는 자원으로 가정하지
 않는다.** 이미 운영하는 네트워크에서 고정 egress로 AWS/EKS API에 연결할 수 있어야
@@ -213,7 +213,7 @@ Job으로 수행하며 읽기 전용 `aws-verify`에서는 다시 실행하지 �
 | network policy 차단 | 허용되지 않은 Pod에서 API·agent 접근 실패를 자동 검사; DB 접근 차단은 별도 실환경 확인 |
 | 관측 | OTEL 비활성화 또는 실제 수집기에서 수신 확인 |
 
-실제 DeepSeek 호출은 비용이 발생한다. 운영 검증에서 필요한 최소 요청만 하고
+실제 모델(Bedrock) 호출은 비용이 발생한다. 운영 검증에서 필요한 최소 요청만 하고
 테스트 결과에 모델 호출 여부를 기록한다. 일반 오프라인 테스트는 모델을 부르지 않는다.
 
 앱은 다음처럼 HTTPS 주소를 명시하여 빌드한다. 서명·스토어 제출 단계는 별도다.
@@ -293,7 +293,7 @@ bootstrap과 DNS 준비가 끝난 환경은 GitHub Actions의 **AWS 환경 올�
 
 유예 기간 안의 Secret은 `aws-apply`가 복원하고 Terraform state로 가져온다.
 Secret이 복구 유예(DEV 7일)를 넘겨 완전히 삭제됐다면 Terraform이 빈 Secret을 새로 만들고
-배포가 외부 키 단계에서 멈춘다. 운영자가 Kakao·DeepSeek 키를 넣고 `up`을 다시 실행한다.
+배포가 외부 키 단계에서 멈춘다. 운영자가 Kakao 키(와 애플 .p8)를 넣고 `up`을 다시 실행한다.
 내릴 때마다 RDS는 새로 만들어지므로 데이터가 비워진다.
 
 ## 11. 사용하지 않는 환경 삭제

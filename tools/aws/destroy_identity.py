@@ -17,7 +17,7 @@ TAGGED_ADDRESSES = (
     r"aws_eks_cluster\.this",
     r"aws_eks_access_entry\.deployment",
     r'aws_ecr_repository\.app\["(scene_api|trip_guide|migration|data_load)"\]',
-    r'aws_secretsmanager_secret\.app\["(scene_api|trip_guide|database|auth)"\]',
+    r'aws_secretsmanager_secret\.app\["(scene_api|database|auth)"\]',
 )
 
 

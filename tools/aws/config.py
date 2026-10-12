@@ -15,8 +15,6 @@ STDIN_INPUT = "file:///dev/stdin"
 SECRET_KEYS = {
     "scene_api": {"KAKAO_REST_KEY"},
     # 챗봇 모델은 AWS Bedrock 이다 — IAM 사용자의 액세스 키 한 쌍(MZ2AZ-395). 역할로 바꾸는 일은 MZ2AZ-317.
-    # Bedrock 은 Pod Identity 역할로 부른다(MZ2AZ-317) — 필수 키가 없다. 예전 고정 키는 OPTIONAL(아래)에서 받아 들이되 파드에 넣지 않는다.
-    "trip_guide": set(),
     "database": {"username", "password", "migration_username", "migration_password"},
     # 로그인 액세스 토큰(JWT) 서명 키와 외부 토큰(애플 refresh token) 암호화 키. 사람이 넣지
     # 않는다 — 배포가 환경당 한 번 만든다(deploy.auth_secret). 카카오 키(scene_api)와 칸을 나눈
@@ -32,14 +30,15 @@ SECRET_KEYS = {
 }
 
 # 있어도 되고 없어도 되는 키. 없으면 배포는 성공하고 그 기능만 꺼진 채 뜬다.
+# 환경마다 Terraform 이 만드는 Secrets Manager 비밀값(/scenetrip/<env>/<이름, _ 는 ->). trip-guide 비밀값은 없앴다 —
+# Bedrock 을 Pod Identity 역할로 부른다(MZ2AZ-317). 배포의 되살리기(lifecycle)·가져오기(adopt)가 이 목록만 다룬다.
+APP_SECRETS = ("scene_api", "database", "auth")
+
 OPTIONAL_SECRET_KEYS = {
     # 애플 로그인 개인 키(.p8 PEM 의 base64). 사람이 애플에서 받아 와 넣는다(MZ2AZ-337).
     #
     # DEV 에서는 선택이다 — 키 없이도 DEV 를 올릴 수 있게. **PRD 에서는 필수**다(아래 PRD_REQUIRED_SECRET_KEYS).
     "scene_api": {"SCENETRIP_AUTH_APPLE_PRIVATE_KEY"},
-    # 예전 Bedrock 고정 키(IAM 사용자). 비밀값에 남아 있어도 배포가 거절하지 않지만 **파드에는 넣지 않는다**
-    # (deploy.trip_guide_secret). 역할로 부르는 것이 확인되면 사람이 IAM 사용자 키를 비활성·삭제한다.
-    "trip_guide": {"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"},
 }
 
 # PRD 에서만 필수인 키. iOS 에서 구글 로그인을 내면 애플 로그인도 반드시 제공해야 한다(App Store 4.8) — 선택이면

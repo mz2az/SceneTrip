@@ -20,13 +20,9 @@ CIPHER_KEY = "SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY"
 SERVICE_KEY = "SCENETRIP_SERVICE_TOKEN"
 AUTH_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/auth-FxAuth"
 SCENE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/scene-api-FxScene"
-GUIDE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/trip-guide-FxGuide"
-GUIDE_KEYS = {
-    "AWS_ACCESS_KEY_ID": "fixture-key-id",
-    "AWS_SECRET_ACCESS_KEY": "fixture-secret",
-}
 DATABASE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/database-FxDb"
-ALL_ARNS = (AUTH_ARN, SCENE_ARN, GUIDE_ARN, DATABASE_ARN)
+# trip-guide 비밀값은 없다(MZ2AZ-317) — 가짜 저장소는 이 셋 밖의 대상을 거절해, 배포기가 다른 비밀값을 읽으면 드러난다.
+ALL_ARNS = (AUTH_ARN, SCENE_ARN, DATABASE_ARN)
 OWNED_TAGS = [
     {"Key": "Project", "Value": "scenetrip"},
     {"Key": "Environment", "Value": "dev"},
@@ -310,7 +306,6 @@ def deploy_outputs(settings, arns=None):
         or {
             "database": DATABASE_ARN,
             "scene_api": SCENE_ARN,
-            "trip_guide": GUIDE_ARN,
             "auth": AUTH_ARN,
         },
         "ecr_repository_urls": {
@@ -347,7 +342,6 @@ class DeploySecretWiringTest(unittest.TestCase):
     def stored(self, auth=None):
         values = {
             SCENE_ARN: json.dumps({"KAKAO_REST_KEY": "fixture-kakao"}),
-            GUIDE_ARN: json.dumps(GUIDE_KEYS),
             DATABASE_ARN: json.dumps(
                 {
                     "username": "app_runtime",
@@ -406,13 +400,11 @@ class DeploySecretWiringTest(unittest.TestCase):
         self.assertEqual(scene[AUTH_KEY], key)
         self.assertEqual(scene[CIPHER_KEY], enc_key)
         self.assertEqual(scene[SERVICE_KEY], token)
-        # 에이전트는 서비스 비밀값만 받는다 — 로그인 키는 절대 가지 않는다. 비밀값에 남은 예전 Bedrock
-        # 고정 키도 파드로 옮기지 않는다(MZ2AZ-317: Bedrock 은 Pod Identity 역할로 부른다).
+        # 에이전트는 서비스 비밀값만 받는다 — 로그인 키는 절대 가지 않는다. 모델 키도 없다
+        # (MZ2AZ-317: Bedrock 은 Pod Identity 역할로 부른다).
         guide = secrets["trip-guide-secrets"]
         self.assertEqual(set(guide), {SERVICE_KEY})
         self.assertEqual(guide[SERVICE_KEY], token)
-        for value in GUIDE_KEYS.values():
-            self.assertNotIn(value, json.dumps(guide))
         self.assertNotIn(AUTH_KEY, guide)
         self.assertNotIn(CIPHER_KEY, guide)
         self.assertNotIn(key, json.dumps(guide))
@@ -475,29 +467,54 @@ class DeploySecretWiringTest(unittest.TestCase):
         )
         self.assertEqual(len(store.puts()), 1)
 
-    def test_trip_guide_secret_without_model_keys_deploys(self):
-        # MZ2AZ-317 — 고정 키를 지운 뒤의 비밀값(빈 객체)도 배포를 막지 않는다.
+    def test_deploy_reads_no_trip_guide_secret(self):
+        # MZ2AZ-317 — trip-guide 의 Secrets Manager 비밀값은 없다. 출력에 trip_guide 칸이 없어도
+        # 배포가 되고, 쿠버네티스 Secret trip-guide-secrets 는 auth 의 서비스 비밀값 하나만 담는다.
         token = service_token(fill=b"N")
-        values = self.stored(auth_slot(service=token))
-        values[GUIDE_ARN] = json.dumps({})
-        run = self.deploy(FakeSecretStore(values, cluster_commands))
+        store = FakeSecretStore(self.stored(auth_slot(service=token)), cluster_commands)
+        run = self.deploy(store)
         secrets = self.kubernetes_secrets(run)
         self.assertEqual(secrets["trip-guide-secrets"], {SERVICE_KEY: token})
+        targets = set()
+        for command, kwargs in store.calls:
+            if "secretsmanager" not in command:
+                continue
+            joined = " ".join(command) + " " + (kwargs.get("stdin") or "")
+            self.assertNotIn("trip-guide", joined)
+            targets.add(store.arn_of(command, kwargs.get("stdin")))
+        self.assertLessEqual(targets, {SCENE_ARN, DATABASE_ARN, AUTH_ARN})
+        self.assertIn(SCENE_ARN, targets)
+        self.assertIn(AUTH_ARN, targets)
+        self.assertTrue(any(command[0] == "helm" for command, unused in store.calls))
 
-    def test_trip_guide_secret_with_unknown_key_fails_before_helm(self):
-        values = self.stored(auth_slot())
-        values[GUIDE_ARN] = json.dumps({**GUIDE_KEYS, "OPENAI_API_KEY": "fixture"})
-        store = FakeSecretStore(values, cluster_commands)
-        with self.assertRaises(ValueError):
-            self.deploy(store)
-        self.assertFalse(any(command[0] == "helm" for command, unused in store.calls))
+    def test_stale_trip_guide_output_is_ignored(self):
+        # 예전 state 의 출력에 trip_guide 칸이 남아 있어도 배포기는 그 비밀값을 읽지 않는다.
+        settings = valid_settings()
+        stale = (
+            "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:"
+            "/scenetrip/dev/trip-guide-FxGuide"
+        )
+        arns = {
+            "database": DATABASE_ARN,
+            "scene_api": SCENE_ARN,
+            "auth": AUTH_ARN,
+            "trip_guide": stale,
+        }
+        token = service_token(fill=b"S")
+        store = FakeSecretStore(self.stored(auth_slot(service=token)), cluster_commands)
+        run = self.deploy(store, deploy_outputs(settings, arns))
+        for call in run.call_args_list:
+            self.assertNotIn(stale, " ".join(call.args[0]))
+            self.assertNotIn(stale, call.kwargs.get("stdin") or "")
+        self.assertEqual(
+            self.kubernetes_secrets(run)["trip-guide-secrets"], {SERVICE_KEY: token}
+        )
 
     def test_missing_auth_output_fails_before_helm(self):
         settings = valid_settings()
         arns = {
             "database": DATABASE_ARN,
             "scene_api": SCENE_ARN,
-            "trip_guide": GUIDE_ARN,
         }
         store = FakeSecretStore(self.stored(auth_slot()), cluster_commands)
         # 명세는 「크게 실패」 만 정한다. 현재 구현은 KeyError('auth') 를 낸다.
@@ -509,7 +526,7 @@ class DeploySecretWiringTest(unittest.TestCase):
 class TripGuideSecretTest(unittest.TestCase):
     """trip-guide-secrets 의 내용 — 서비스 비밀값만(ADR 0023: 에이전트는 자격 증명을 받지 않는다).
 
-    MZ2AZ-317: Bedrock 은 Pod Identity 역할로 부르므로 비밀값의 예전 고정 키도 파드에 넣지 않는다.
+    MZ2AZ-317: Bedrock 은 Pod Identity 역할로 부르므로 모델 키도, trip-guide 비밀값도 없다 — auth 칸만 받는다.
     """
 
     def test_carries_only_the_service_token_from_auth(self):
@@ -520,24 +537,18 @@ class TripGuideSecretTest(unittest.TestCase):
             cipher=cipher_key(fill=b"B"),
             service=service_token(b"Z"),
         )
-        for guide in (dict(GUIDE_KEYS), {}):
-            with self.subTest(guide=sorted(guide)):
-                secret = trip_guide_secret(guide, auth)
-                self.assertEqual(secret, {SERVICE_KEY: service_token(b"Z")})
-                dumped = json.dumps(secret)
-                self.assertNotIn(auth[AUTH_KEY], dumped)
-                self.assertNotIn(auth[CIPHER_KEY], dumped)
-                for value in GUIDE_KEYS.values():
-                    self.assertNotIn(value, dumped)
+        secret = trip_guide_secret(auth)
+        self.assertEqual(secret, {SERVICE_KEY: service_token(b"Z")})
+        dumped = json.dumps(secret)
+        self.assertNotIn(auth[AUTH_KEY], dumped)
+        self.assertNotIn(auth[CIPHER_KEY], dumped)
 
     def test_does_not_mutate_its_inputs(self):
         from tools.aws.deploy import trip_guide_secret
 
-        guide = dict(GUIDE_KEYS)
         auth = auth_slot()
-        before_guide, before_auth = dict(guide), dict(auth)
-        trip_guide_secret(guide, auth)
-        self.assertEqual(guide, before_guide)
+        before_auth = dict(auth)
+        trip_guide_secret(auth)
         self.assertEqual(auth, before_auth)
 
 
@@ -568,12 +579,65 @@ class RetainedAuthSecretTest(unittest.TestCase):
 
         self.assertIn("auth", APP_SECRETS)
 
+    def test_app_secrets_are_exactly_the_three_terraform_secrets(self):
+        # MZ2AZ-317 — trip_guide 는 없다. 배포(aws)와 되살리기(lifecycle)가 같은 목록을 쓴다.
+        from tools.aws import aws, config
+
+        self.assertEqual(config.APP_SECRETS, ("scene_api", "database", "auth"))
+        self.assertEqual(tuple(aws.APP_SECRETS), config.APP_SECRETS)
+
+    def test_adopt_describes_only_the_three_managed_secrets(self):
+        from tools.aws.aws import adopt_retained_secrets
+
+        owned = {"Tags": OWNED_TAGS, "DeletedDate": "2026-09-29"}
+        run = self.fake(
+            "",
+            {
+                "scene-api": owned,
+                "database": owned,
+                "auth": owned,
+                "trip-guide": owned,
+            },
+        )
+        adopt_retained_secrets(run, valid_settings(), Path("."), Path("vars.json"))
+        commands = [call.args[0] for call in run.call_args_list]
+        described = [
+            command[4]
+            for command in commands
+            if command[1:3] == ["secretsmanager", "describe-secret"]
+        ]
+        self.assertEqual(
+            sorted(described),
+            [
+                "/scenetrip/dev/auth",
+                "/scenetrip/dev/database",
+                "/scenetrip/dev/scene-api",
+            ],
+        )
+        restores = [command for command in commands if "restore-secret" in command]
+        self.assertEqual(len(restores), 3)
+        for command in restores:
+            self.assertNotIn("trip-guide", " ".join(command))
+        imports = sorted(
+            command[-2]
+            for command in commands
+            if command[:2] == ["terraform", "import"]
+        )
+        self.assertEqual(
+            imports,
+            [
+                'aws_secretsmanager_secret.app["auth"]',
+                'aws_secretsmanager_secret.app["database"]',
+                'aws_secretsmanager_secret.app["scene_api"]',
+            ],
+        )
+
     def test_retained_auth_secret_is_restored_and_imported(self):
         from tools.aws.aws import adopt_retained_secrets
 
         state = "\n".join(
             f'aws_secretsmanager_secret.app["{key}"]'
-            for key in ("scene_api", "trip_guide", "database")
+            for key in ("scene_api", "database")
         )
         run = self.fake(
             state, {"auth": {"Tags": OWNED_TAGS, "DeletedDate": "2026-09-29"}}
@@ -634,6 +698,27 @@ class DestroyIdentityAuthTest(unittest.TestCase):
             {'aws_secretsmanager_secret.app["auth"]': self.secret("auth")},
             valid_settings(),
         )
+
+    def test_trip_guide_secret_is_not_an_owned_address(self):
+        # MZ2AZ-317 — 셋(scene_api·database·auth)은 받고 trip_guide 는 모르는 리소스처럼 거절한다.
+        from tools.aws.destroy_identity import validate_owned_state
+
+        for key, name in (
+            ("scene_api", "scene-api"),
+            ("database", "database"),
+            ("auth", "auth"),
+        ):
+            with self.subTest(key=key):
+                validate_owned_state(
+                    {f'aws_secretsmanager_secret.app["{key}"]': self.secret(name)},
+                    valid_settings(),
+                )
+        for key, name in (("trip_guide", "trip-guide"), ("other", "other")):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                validate_owned_state(
+                    {f'aws_secretsmanager_secret.app["{key}"]': self.secret(name)},
+                    valid_settings(),
+                )
 
     def test_auth_secret_from_other_environment_is_rejected(self):
         from tools.aws.destroy_identity import validate_owned_state

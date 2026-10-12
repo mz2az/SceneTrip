@@ -793,6 +793,46 @@ class InfrastructureBoundaryTest(unittest.TestCase):
         self.assertNotIn('resource "random_password"', source)
         self.assertIn("manage_master_user_password", source)
 
+    def test_app_secrets_are_scene_api_database_auth_without_trip_guide(self):
+        # MZ2AZ-317 후속 — trip-guide 는 Bedrock 을 Pod Identity 역할로 부르므로 비밀값이 없다.
+        # 비밀값 이름은 /scenetrip/<env>/<키, _ 는 -> 이다. 이미지 저장소는 그대로 넷이다.
+        source = (ROOT / "platform/terraform/aws/registry-secrets.tf").read_text()
+
+        def local_map(name):
+            match = re.search(rf"\n\s*{name}\s*=\s*\{{(.*?)\n\s*\}}", source, re.DOTALL)
+            self.assertIsNotNone(match, name)
+            return re.findall(r"^\s*(\w+)\s*=", match.group(1), re.MULTILINE)
+
+        self.assertEqual(
+            sorted(local_map("app_secret_descriptions")),
+            sorted(["scene_api", "database", "auth"]),
+        )
+        repositories = re.search(r"repositories\s*=\s*\{([^}]*)\}", source)
+        self.assertIsNotNone(repositories)
+        self.assertEqual(
+            sorted(re.findall(r"(\w+)\s*=", repositories.group(1))),
+            sorted(["scene_api", "trip_guide", "migration", "data_load"]),
+        )
+        secret = re.search(
+            r'resource\s+"aws_secretsmanager_secret"\s+"app"\s*\{(.*?)\n\}',
+            source,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(secret)
+        self.assertRegex(
+            secret.group(1), r"for_each\s*=\s*local\.app_secret_descriptions"
+        )
+        self.assertIn(
+            '"/scenetrip/${var.environment}/${replace(each.key, "_", "-")}"',
+            secret.group(1),
+        )
+        outputs = (ROOT / "platform/terraform/aws/outputs.tf").read_text()
+        self.assertRegex(
+            outputs,
+            r'output\s+"app_secret_arns"\s*\{\s*value\s*=\s*\{\s*for\s+name,\s*secret\s+in\s+'
+            r"aws_secretsmanager_secret\.app\s*:",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
