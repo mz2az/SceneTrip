@@ -26,7 +26,8 @@ just adr-list
 
 `template.md` 가 `just adr-new` 가 렌더링하는 시작점이다.
 
-최근 결정: [0023 — 에이전트의 읽기 요청은 자격 증명 대신 한도 열쇠를 단다](0023-agent-reads-carry-rate-subject-not-credentials.md),
+최근 결정: [0024 — PRD 는 DEV 와 같은 AWS 계정에 두고 인터넷 전체에 연다](0024-prd-same-account-and-public.md),
+[0023 — 에이전트의 읽기 요청은 자격 증명 대신 한도 열쇠를 단다](0023-agent-reads-carry-rate-subject-not-credentials.md),
 [0022 — 편의시설은 출처 번호를 여럿 갖고 지우지 않는다, 영업 여부는 상가정보가 판단](0022-poi-multiple-source-ids-and-never-delete.md),
 [0021 — 편의시설 네이버 링크는 장소 번호로, 링크용 검색만 비공식으로 되살린다](0021-poi-naver-link-by-place-id-lookup.md),
 [0020 — 편의시설 카드는 공공데이터와 네이버 지도 링크로, 비공식 호출을 내린다](0020-poi-card-public-data-and-naver-link.md),
