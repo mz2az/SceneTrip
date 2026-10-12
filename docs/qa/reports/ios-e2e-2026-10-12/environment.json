@@ -1,0 +1,33 @@
+{
+  "time": "2026-10-12T04:20:57+09:00",
+  "commands": [
+    {
+      "command": "orca worktree list --repo id:[LOCAL_REPO_ID] --json",
+      "exit_code": 1,
+      "output": "{\n  \"id\": \"local\",\n  \"ok\": false,\n  \"error\": {\n    \"code\": \"runtime_access_denied\",\n    \"message\": \"The Codex sandbox blocked this command from connecting to Orca (EPERM). Orca may be running normally.\",\n    \"data\": {\n      \"systemCode\": \"EPERM\",\n      \"nextSteps\": [\n        \"Re-run this command with escalated permissions, outside the Codex sandbox.\",\n        \"Do not restart Orca or run 'orca open'; a restart cannot grant this command access.\"\n      ]\n    }\n  },\n  \"_meta\": {\n    \"runtimeId\": null\n  }\n}\n[1012/042057.453271:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)\n"
+    },
+    {
+      "command": "xcrun simctl list devices booted --json",
+      "exit_code": 1,
+      "output": "2026-10-12 04:20:57.532 simctl[65195:3930287] CoreSimulatorService connection became invalid.  Simulator services will no longer be available.\n2026-10-12 04:20:57.575 simctl[65195:3930288] Logging connecton invalid: <OS_xpc_error: <dictionary: 0x1fc0c2080> { count = 1, transaction: 0, voucher = 0x0, contents =\n\t\"XPCErrorDescription\" => <string: 0x1fc0c21c0> { string cache = 0x0, length = 18, contents = \"Connection invalid\" }\n}>\n2026-10-12 04:20:57.575 simctl[65195:3930287] Error opening log file ([LOCAL_USER]/Library/Logs/CoreSimulator/CoreSimulator.com.apple.CoreSimulator.simctl.log): Operation not permitted\n[-[SimServiceContext initWithDeveloperDir:connectionType:error:]:499] WARN  : Unable to discover any Simulator runtimes. Developer Directory is [XCODE_DEVELOPER].\n[-[SimDiskImageManager _onQueue_checkConnection:]:239] ERROR : simdiskimaged returned error (invalid), marking disconnected.\n[-[SimDiskImageManager init]:175] ERROR : Could not kickstart simdiskimaged; SimDiskImageManager services will not be available: Error Domain=NSPOSIXErrorDomain Code=53 \"Software caused connection abort\" UserInfo={NSLocalizedDescription=Error returned in reply from CoreSimulatorService: Connection invalid}\n[-[SimDiskImageManager _onQueue_checkConnection:]:239] ERROR : simdiskimaged returned error (invalid), marking disconnected.\n[-[SimServiceContext initWithDeveloperDir:connectionType:error:]_block_invoke:556] ERROR : Could not get list of trusted mount directories: Error Domain=com.apple.CoreSimulator.SimError Code=410 \"The service used to manage runtime disk images (simdiskimaged) crashed or is not responding\" UserInfo={NSLocalizedDescription=The service used to manage runtime disk images (simdiskimaged) crashed or is not responding}\n[-[SimServiceContext sendRequest:reply:error:]:1982] ERROR : Unable to deliver request ({\n    request = \"notification_subscription\";\n    \"set_path\" = \"[LOCAL_USER]/Library/Developer/CoreSimulator/Devices\";\n}) because we are not connected to CoreSimulatorService.\n2026-10-12 04:20:57.576 simctl[65195:3930286] Error Domain=NSPOSIXErrorDomain Code=61 \"Connection refused\" UserInfo={NSLocalizedDescription=CoreSimulatorService connection became invalid.  Simulator services will no longer be available.}\nUnable to locate device set: Error Domain=NSPOSIXErrorDomain Code=61 \"Connection refused\" UserInfo={NSLocalizedFailureReason=Failed to subscribe to notifications from CoreSimulatorService., NSLocalizedDescription=Failed to initialize simulator device set., NSUnderlyingError=0x80b1a87b0 {Error Domain=NSPOSIXErrorDomain Code=61 \"Connection refused\" UserInfo={NSLocalizedDescription=CoreSimulatorService connection became invalid.  Simulator services will no longer be available.}}}\n"
+    },
+    {
+      "command": "docker ps --format {{.Names}} {{.Status}}",
+      "exit_code": 1,
+      "output": "permission denied while trying to connect to the docker API at unix://[LOCAL_USER]/.docker/run/docker.sock\n"
+    }
+  ],
+  "http": [
+    {
+      "url": "http://localhost:8081/actuator/health",
+      "status": null,
+      "error": "<urlopen error [Errno 1] Operation not permitted>"
+    },
+    {
+      "url": "http://localhost:8899/health/ready",
+      "status": null,
+      "error": "<urlopen error [Errno 1] Operation not permitted>"
+    }
+  ],
+  "redacted": "공개용으로 사용자 경로와 로컬 저장소 식별자를 치환했습니다."
+}

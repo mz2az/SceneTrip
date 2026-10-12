@@ -1,0 +1,1098 @@
+{
+  "date": "2026-10-12",
+  "source_sha": "6fa9df2dac15868b35c7ae7276f50d4fe114fe81",
+  "source_ref": "로컬 origin/main 추적 객체; 이번 네트워크 fetch 없음",
+  "scope": "iOS 전체 사용자흐름 E2E 체크리스트·읽기전용 코드대조",
+  "status": "LIVE_E2E_BLOCKED",
+  "live_e2e_pass": 0,
+  "live_e2e_run": 0,
+  "code_changes": false,
+  "db_changes": false,
+  "android_access": false,
+  "limitations": [
+    "부모 실실행 Orca runtime_access_denied EPERM·CoreSimulator XPC·Docker socket·API8081/guide8899 Errno1차단",
+    "workspace-write/network restricted/approval never; 권한우회없음",
+    "기존단위시험·과거QA를 이번 E2E PASS로 합산하지 않음",
+    "실기기·로그인·광고콘솔·유료API는별도조건"
+  ],
+  "cases": [
+    {
+      "id": "entry",
+      "group": "첫 실행·언어·온보딩",
+      "title": "첫 실행·언어·온보딩",
+      "steps": "새 설치→KO/EN 선택→4장 이전/다음/건너뛰기/완료→재실행",
+      "expected": "완료 한번 저장, 기존 설치는 자료를 보존하고 Home으로",
+      "requirements": "새 설치용 별도 iOS 기기·미로그인 fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/Onboarding/AppRoot.swift:15"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "entry-small",
+      "group": "온보딩 작은 화면·큰글자",
+      "title": "온보딩 작은 화면·큰글자",
+      "steps": "작은 iPhone·XXXL에서 첫/마지막 페이지와 하단 버튼",
+      "expected": "본문 스크롤·44pt 버튼·페이지 범위 유지",
+      "requirements": "작은 iPhone/iOS17 및 접근성 설정",
+      "evidence": [
+        "apps/scenetrip-ios/src/Onboarding/OnboardingView.swift:50"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "home",
+      "group": "홈 진입·새로고침·자료없음",
+      "title": "홈 진입·새로고침·자료없음",
+      "steps": "홈 코스/작품/오늘성지/내기록→세부→뒤로; empty/offline fixture",
+      "expected": "기존 개수·내용 일치, 실패가 빈자료 성공처럼 보이지 않음",
+      "requirements": "기존 코스·찜·스탬프 및 빈 계정",
+      "evidence": [
+        "apps/scenetrip-ios/src/HomeTab/HomeTabView.swift:106"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "home-sort",
+      "group": "홈 작품 표시순",
+      "title": "홈 작품 표시순",
+      "steps": "촬영지 수가 다른 작품과 동일수 작품 카드순서 대조",
+      "expected": "현재 구현은 촬영지수순, 같은수는 서버순; 인기순 후속과 구분",
+      "requirements": "작품100편이상·placeCount가 다른 fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/HomeTab/HomeTabModel.swift:144"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "search",
+      "group": "검색·자동완성·상세·뒤로",
+      "title": "검색·자동완성·상세·뒤로",
+      "steps": "작품/배우/별칭/장소 제안·확정→상세→뒤로→검색삭제",
+      "expected": "선택 갈래에 맞는 탭, 늦은응답 무시, 뒤로 이전검색 유지",
+      "requirements": "KO/EN 별칭과 배우검색 fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/SearchTab/SearchTabView.swift:328"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "search-empty",
+      "group": "검색0건·오류·경합",
+      "title": "검색0건·오류·경합",
+      "steps": "0건검색→실패주입→재시도→짧은시간 다른검색",
+      "expected": "0건/오류 분리, 최신 요청결과만 화면에 반영",
+      "requirements": "개발NetFault 응답주입·연속검색",
+      "evidence": [
+        "apps/scenetrip-ios/src/Models/SceneData.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "paging",
+      "group": "작품·촬영지 페이지·칩",
+      "title": "작품·촬영지 페이지·칩",
+      "steps": "128작품 끝까지/486장소·분류칩·전국영역목록",
+      "expected": "서버total, 페이지중복없음, 한글유형/코드모두 분류",
+      "requirements": "최소128작품·486visible places·다양한 유형",
+      "evidence": [
+        "apps/scenetrip-ios/src/SearchTab/SearchTabList.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "map",
+      "group": "지도·핀·목록·현위치",
+      "title": "지도·핀·목록·현위치",
+      "steps": "번호핀/목록 선택→fit→viewport검색→내위치/한국으로",
+      "expected": "목록번호와 핀 일치, viewport검색은 현재카메라 유지",
+      "requirements": "위치권한 허용/거부·한국안/밖 기기위치",
+      "evidence": [
+        "apps/scenetrip-ios/src/SearchTab/SearchTabOverlays.swift:120"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "scene-photo",
+      "group": "촬영지 장면이미지",
+      "title": "촬영지 장면이미지",
+      "steps": "실sceneImageUrl/없음/잘못된주소/실패 장면 카드·확대",
+      "expected": "장면사진만 표시, 포스터 대체없음, 제목설명 유지",
+      "requirements": "스틸있는/없는/실패하는 PlaceDetail",
+      "evidence": [
+        "apps/scenetrip-ios/src/SearchTab/PlaceDetailView.swift:149"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "official-photo",
+      "group": "관광공사 사진·출처",
+      "title": "관광공사 사진·출처",
+      "steps": "대표사진/지도카드/격자/확대에서 가로·세로 원본",
+      "expected": "비율유지, credit 원문 사진밖, 업로드캐시와 혼용없음",
+      "requirements": "공식가로·세로사진·긴credit",
+      "evidence": [
+        "apps/scenetrip-ios/src/Reviews/PhotoGalleryView.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "producer-link",
+      "group": "포스터 제작사 링크",
+      "title": "포스터 제작사 링크",
+      "steps": "작품·장면의 포스터탭으로 제작사URL 열기",
+      "expected": "393 계약 선행 없으므로 현재 구현완료로 판정불가",
+      "requirements": "제작사URL API 계약과 valid/invalid fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/SearchTab/ContentDetailView.swift:76"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "naver-link",
+      "group": "네이버 장소링크",
+      "title": "네이버 장소링크",
+      "steps": "네이버주소 있음/없음/불허호스트 POI·place 카드",
+      "expected": "유효 https 네이버만 버튼, 없는주소 검색대체없음",
+      "requirements": "링크있는/없는/잘못된 응답",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/NaverMapLink.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "cart",
+      "group": "장바구니 기본",
+      "title": "장바구니 기본",
+      "steps": "조회→신규담기→중복→빼기→앱재실행",
+      "expected": "서버와 행/저장아이콘 일치, installId 전달",
+      "requirements": "별도 QA 설치계정·미저장장소",
+      "evidence": [
+        "apps/scenetrip-ios/src/Models/CartStore.swift:40"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "cart-source",
+      "group": "작품에서 담은 출처",
+      "title": "작품에서 담은 출처",
+      "steps": "작품 상세의 촬영지 +→장바구니 대표작품→코스로 담기",
+      "expected": "sourceContentId=선택작품ID; 현재 코드미전달 발견",
+      "requirements": "미저장촬영지와 해당작품",
+      "evidence": [
+        "apps/scenetrip-ios/src/SearchTab/SearchTabView.swift:297"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "cart-delete-fail",
+      "group": "삭제실패·성공후GET실패",
+      "title": "삭제실패·성공후GET실패",
+      "steps": "최초DELETE404/503/timeout·성공DELETE후조회실패",
+      "expected": "실패엔 행보존, 성공엔 행제거, 거짓성공없음",
+      "requirements": "개발NetFault·기존자기QA행",
+      "evidence": [
+        "apps/scenetrip-ios/src/Models/CartStore.swift:78"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "favorites",
+      "group": "작품찜·내목록",
+      "title": "작품찜·내목록",
+      "steps": "작품 하트→마이페이지목록→재실행→해제",
+      "expected": "첫페이지밖 찜도 보임, 서버값과 개수일치",
+      "requirements": "128작품중 후반ID 포함 찜fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/Models/LikeStore.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "course-crud",
+      "group": "코스 CRUD",
+      "title": "코스 CRUD",
+      "steps": "빈코스생성→제목/날짜/일차→저장→재열기→삭제",
+      "expected": "성공후에만완료, 실패중초안보존·부분생성롤백",
+      "requirements": "독립QA코스·인증된/비회원설치",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteStore.swift:204"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "course-edit",
+      "group": "코스 편집·검색·순서·취소",
+      "title": "코스 편집·검색·순서·취소",
+      "steps": "Gyeongbok검색→장바구니담기→중복/삭제/드래그/최적화→취소",
+      "expected": "전체서버검색·중복정확·변경없는열기취소는확인안함",
+      "requirements": "검색앞200밖장소·드래그가능UI도구",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteEditorView.swift:423"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "course-kind",
+      "group": "촬영지/POI/개인핀 왕복",
+      "title": "촬영지/POI/개인핀 왕복",
+      "steps": "각종류담기→저장→번호핀카드→항목하나삭제재저장",
+      "expected": "정확히하나ID, 종류보존, 개인핀은장소조회기록없음",
+      "requirements": "place/미연결POI/customPin 혼합QA코스",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteStopKind.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "course-poi-link",
+      "group": "연결POI·지도숨김",
+      "title": "연결POI·지도숨김",
+      "steps": "몽테드연결POI 탭·담기·동일촬영지중복·핀숨김",
+      "expected": "placeId대표, 촬영지핀이그려진경우에만POI숨김",
+      "requirements": "277819↔45같은 실제연결 fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/PlacePoiLink.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "course-time",
+      "group": "일차시간·체류",
+      "title": "일차시간·체류",
+      "steps": "서버totalMinutes→체류+15→순서변경→원복→재저장",
+      "expected": "약/이동포함 표시;체류차이만반영;경로변경시옛어림무효",
+      "requirements": "서버travelMinutes/totalMinutes 있는코스",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteDayEstimate.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "poi-cluster",
+      "group": "POI 클러스터·필터",
+      "title": "POI 클러스터·필터",
+      "steps": "음식/숙소/명소·줌별묶음→확대→동일좌표목록→개별카드",
+      "expected": "받은30건한도표시, 선택핀유지, course핀은따로",
+      "requirements": "POI밀집지역·동일좌표두POI",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/PoiClusterRenderer.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "poi-i18n",
+      "group": "POI 영어·한국어",
+      "title": "POI 영어·한국어",
+      "steps": "브랜드영문있음/없음→카드/코스행/지도캡션 KO↔EN",
+      "expected": "title/displayName·읽는법·영문주소·분류일치,원본저장",
+      "requirements": "브랜드+동네가게+영문주소결측 fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/PoiLabel.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "trip-start",
+      "group": "여행 시작·종료·다음날",
+      "title": "여행 시작·종료·다음날",
+      "steps": "저장된QA코스 시작→홈이어가기→종료→다음일차",
+      "expected": "여행상태와 서버저장 일치, 저장전 길찾기 차단",
+      "requirements": "자기QA코스·네비요청차단응답주입",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/TripSession.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "trip-nav",
+      "group": "유료 길찾기·도착·스탬프",
+      "title": "유료 길찾기·도착·스탬프",
+      "steps": "현재위치→next-leg→경로→100m체류→다음구간→재개",
+      "expected": "서버경로/안내언어·한번방문·다음은사용자탭",
+      "requirements": "실물GPS/QA코스/서버스탬프; 실제 유료창구 호출금지",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteEditorTrip.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "trip-limit",
+      "group": "길찾기 한도·외부앱",
+      "title": "길찾기 한도·외부앱",
+      "steps": "429 주입→카카오웹/앱·네이버앱→복귀→도착처리",
+      "expected": "한도중재요청없음, 지도앱단추/돌아온안내 읽힘",
+      "requirements": "실제iPhone에지도앱설치/미설치·response fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/ExternalDirections.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "wizard-ui",
+      "group": "일정 마법사 입력",
+      "title": "일정 마법사 입력",
+      "steps": "기간/출발일/작품/빡빡·널널 선택→요약→취소",
+      "expected": "선택값유지, 방문수를고정약속하지않음",
+      "requirements": "자료있는코스/empty·KOEN",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteWizardView.swift:273"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "wizard-response",
+      "group": "AI 일정생성 응답·실패",
+      "title": "AI 일정생성 응답·실패",
+      "steps": "계약POSTguide/plan fixture→초안→편집→저장/취소",
+      "expected": "실제model 호출없이 응답표시검증;중복/유형/일차검증",
+      "requirements": "전체JSON응답/503/401;현재 enabled=true로 실제호출금지",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteGuidePlan.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "guide-entry",
+      "group": "가이드 입구·시트·닫기",
+      "title": "가이드 입구·시트·닫기",
+      "steps": "홈/코스/안내 입구→드래그→시트닫기→재열기",
+      "expected": "안내·버튼안덮음,큰글자는말풍선접기",
+      "requirements": "KOEN·작은폰·XXXL",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteGuideFloat.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "guide-chat",
+      "group": "가이드 실제대화·도구",
+      "title": "가이드 실제대화·도구",
+      "steps": "여행질문/날씨/DB검색/금융주제거절→추천담기/일정",
+      "expected": "최신Bedrock변경후가드/도구/일정전체왕복은미실행",
+      "requirements": "인증·Bedrock/IAM/네트워크·유료실호출 금지",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteGuide.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "guide-retry",
+      "group": "챗봇 멱등·한도·취소",
+      "title": "챗봇 멱등·한도·취소",
+      "steps": "주입409/429/503/down→자동/버튼재시도→닫기",
+      "expected": "동일키/유한횟수·한도잠금·새메시지새키·닫으면대기취소",
+      "requirements": "개발NetFault·멱등지원header fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteGuideFailure.swift:167"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "review-read",
+      "group": "리뷰·별점·분포·정렬",
+      "title": "리뷰·별점·분포·정렬",
+      "steps": "place/poi카드별점→리뷰·세정렬·쪽받기·익명사용자",
+      "expected": "서버정렬total·막대·내리뷰·수정표시 일치",
+      "requirements": "25건이상·평점분산·익명/내/남 리뷰",
+      "evidence": [
+        "apps/scenetrip-ios/src/Reviews/ReviewsSheet.swift:272"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "review-write",
+      "group": "리뷰 CRUD·내리뷰",
+      "title": "리뷰 CRUD·내리뷰",
+      "steps": "가입계정별점/본문선택/사진→저장→수정→내리뷰→삭제",
+      "expected": "한대상하나,2000자,서버성공후목록평점갱신",
+      "requirements": "독립QA계정과리뷰없는place/poi",
+      "evidence": [
+        "apps/scenetrip-ios/src/Reviews/ReviewComposeView.swift:219"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "review-photo",
+      "group": "사진선택·제거·실패·재시도",
+      "title": "사진선택·제거·실패·재시도",
+      "steps": "10장선택/11장시도·PNG/HEIC/JPEG→429401503/PUT403→재시도",
+      "expected": "2048JPEG/EXIF제거;완료전저장차단;storagePUT는Auth없음",
+      "requirements": "시스템PhotosPickerfixture·EXIFGPS사진·저장소주입",
+      "evidence": [
+        "apps/scenetrip-ios/src/Reviews/PhotoUploader.swift:86"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "gallery",
+      "group": "사진첩20장초과·만료URL",
+      "title": "사진첩20장초과·만료URL",
+      "steps": "공식20+방문자5→끝쪽/격자/리뷰로→주소만료→재받기",
+      "expected": "offset맞음/중복없음/같은key캐시/한번자동갱신",
+      "requirements": "공식+리뷰25장이상·서명주소만료 fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/Reviews/PhotoGallery.swift:95"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "community-read",
+      "group": "커뮤니티 공개목록·내글",
+      "title": "커뮤니티 공개목록·내글",
+      "steps": "목록→페이징→전문→사진·코스더보기·내글",
+      "expected": "닉네임과본문/사진/순서·전체수 서버와일치",
+      "requirements": "8장사진·여러일차·빈목록·탈퇴작성자",
+      "evidence": [
+        "apps/scenetrip-ios/src/CommunityTab/CommunityTabView.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "community-write",
+      "group": "커뮤니티 글·사진·코스",
+      "title": "커뮤니티 글·사진·코스",
+      "steps": "제목본문·사진0~8·코스선택→게시→재실행→내글삭제",
+      "expected": "성공만완료,개인핀제외수고지,원본코스그대로",
+      "requirements": "독립QA계정·place/poi/pin혼합코스",
+      "evidence": [
+        "apps/scenetrip-ios/src/CommunityTab/CommunityComposeView.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "community-loss",
+      "group": "게시응답유실·중복방지",
+      "title": "게시응답유실·중복방지",
+      "steps": "POST응답유실→게시여부확인→사진없는초안/계정변경",
+      "expected": "동일초안재POST없음,원래글을성공오인안함",
+      "requirements": "서버저장은성공응답만유실fixture·0/1/2일치",
+      "evidence": [
+        "apps/scenetrip-ios/src/CommunityTab/CommunitySubmission.swift:25"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "community-copy",
+      "group": "후기코스담기·옛글",
+      "title": "후기코스담기·옛글",
+      "steps": "후기course사본→내코스→왕복·기기옛글읽기",
+      "expected": "place/poi보존·개인핀공개제외,옛자료읽기전용",
+      "requirements": "서버post-course+legacy기기JSON",
+      "evidence": [
+        "apps/scenetrip-ios/src/CommunityTab/CommunityStore.swift:291"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "login",
+      "group": "Google 로그인·취소·병합",
+      "title": "Google 로그인·취소·병합",
+      "steps": "비회원장바구니/찜/코스→Google→닉네임→서버자료",
+      "expected": "cancel은조용히,진행중쓰기뒤계정병합,성공후재조회",
+      "requirements": "별도GoogleQA계정/브라우저동의·oauthnetwork",
+      "evidence": [
+        "apps/scenetrip-ios/src/Auth/AuthStore.swift:58"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "nickname",
+      "group": "닉네임 최초/재실행/중복",
+      "title": "닉네임 최초/재실행/중복",
+      "steps": "신규로그인/기존세션재실행·skip·마이페이지변경",
+      "expected": "미확정일때계정별한번묻기·NFC규칙·중복안내",
+      "requirements": "nicknameConfirmed=false·asked기록없음·taken fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/Auth/AuthStore.swift:185"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "auth-expiry",
+      "group": "토큰만료·세션소실",
+      "title": "토큰만료·세션소실",
+      "steps": "401expired→refreshonce→retry·refresh거절·오프라인",
+      "expected": "불필요signout없음/거절시세션초기화/초안유지",
+      "requirements": "expired access·valid/invalid refresh 별도QA계정",
+      "evidence": [
+        "apps/scenetrip-ios/src/Auth/AuthTokens.swift:76"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "signout-delete",
+      "group": "로그아웃·탈퇴·자료정책",
+      "title": "로그아웃·탈퇴·자료정책",
+      "steps": "자기QA계정로그아웃·탈퇴→비회원재시작",
+      "expected": "발자취/동의초기화·리뷰익명안내,인증자료남지않음",
+      "requirements": "삭제가능한전용계정·기기로그인 fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/Auth/AuthStore.swift:92"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "footprints",
+      "group": "발자취 동의·보기·지우기",
+      "title": "발자취 동의·보기·지우기",
+      "steps": "기본OFF→안내동의→25m 이동→보기OFF→전체삭제",
+      "expected": "기기에만·한국안·로그아웃시삭제·동의초기화",
+      "requirements": "별도기기/전용QA이동점; navigation실호출없이 fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/Models/FootprintStore.swift:84"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "profile",
+      "group": "마이페이지 모든입구",
+      "title": "마이페이지 모든입구",
+      "steps": "닉네임/내코스/찜/장바구니/스탬프/내글/내리뷰/도움/릴스",
+      "expected": "개수/항목일치·릴스는준비중·마켓진입없음",
+      "requirements": "각자료있는/빈계정",
+      "evidence": [
+        "apps/scenetrip-ios/src/ProfileTab/ProfileTabView.swift:259"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "appearance",
+      "group": "KOEN·다크·큰글자·회전",
+      "title": "KOEN·다크·큰글자·회전",
+      "steps": "세탭/시트/코스/카드/리뷰/후기·시스템picker 재실행",
+      "expected": "잘림/겹침/버튼비활성 혼동없음·대비/voiceover이름",
+      "requirements": "iOS17/18/26·소형기기·XXXL·VoiceOver",
+      "evidence": [
+        "apps/scenetrip-ios/src/RootTabs.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "usage",
+      "group": "이용기록·인기도반영",
+      "title": "이용기록·인기도반영",
+      "steps": "content/place/poi상세·personalpin·typing/search0/1·재열기",
+      "expected": "daily중복제거·선택탭total·실패무재시도·민감원문외부미전송",
+      "requirements": "서버V28·QA설치·이벤트읽기전용조회",
+      "evidence": [
+        "apps/scenetrip-ios/src/Analytics/UsageEvents.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "analytics",
+      "group": "Firebase/Meta·ATT",
+      "title": "Firebase/Meta·ATT",
+      "steps": "GA4허용이벤트·기본MetaOFF·실ATT허용/철회",
+      "expected": "OFF일때SDK초기화/전송없음·정책미정ATT창없음",
+      "requirements": "콘솔디버그확인·실iPhone·391/402정책",
+      "evidence": [
+        "apps/scenetrip-ios/src/Analytics/MetaAnalytics.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "offline",
+      "group": "앱전체 네트워크실패",
+      "title": "앱전체 네트워크실패",
+      "steps": "조회502503504/down·POST/PUT/DELETE·앱백그라운드복귀",
+      "expected": "횟수상한·유료창구자동재호출없음·문구노출·초안보존",
+      "requirements": "응답주입·오프라인·foreground/background",
+      "evidence": [
+        "apps/scenetrip-ios/src/Models/RetryingSession.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "apple-login",
+      "group": "Apple 로그인",
+      "title": "Apple 로그인",
+      "steps": "Apple 계정로그인→닉네임/자료병합",
+      "expected": "현재SignInView는Google버튼만·Apple은기능자리아직",
+      "requirements": "SignInWithApple entitlement/개발계정/구현선행",
+      "evidence": [
+        "apps/scenetrip-ios/src/Auth/SignInView.swift:39"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "entry-restore",
+      "group": "온보딩 완료한 기존 설치 재실행",
+      "title": "온보딩 완료한 기존 설치 재실행",
+      "steps": "기존자료있는앱종료→재실행",
+      "expected": "온보딩재노출없음·로그인/코스/찜보존",
+      "requirements": "기존설치기기",
+      "evidence": [
+        "apps/scenetrip-ios/src/Onboarding/AppRoot.swift:15"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "search-actor",
+      "group": "배우 자동완성 선택",
+      "title": "배우 자동완성 선택",
+      "steps": "배우이름검색→person제안선택→작품선택",
+      "expected": "장소탭아닌작품탭·matchedTerm과작품일치",
+      "requirements": "배우별칭fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/SearchTab/SearchTabView.swift:328"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "map-denied",
+      "group": "위치권한 거부 후 설정 복귀",
+      "title": "위치권한 거부 후 설정 복귀",
+      "steps": "내위치→거부안내→설정→허용→복귀",
+      "expected": "지도상태유지·내위치재시도·안내단추읽힘",
+      "requirements": "권한거부된별도기기",
+      "evidence": [
+        "apps/scenetrip-ios/src/SearchTab/LocateAlert.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "course-unsaved",
+      "group": "저장 전 편집 버리기",
+      "title": "저장 전 편집 버리기",
+      "steps": "코스제목/항목변경→취소→계속편집→취소버리기",
+      "expected": "질문은실제변경에만·버리면원서버코스보존",
+      "requirements": "읽기와수정용QA코스",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteEditorView.swift:377"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "course-day-move",
+      "group": "코스 일차와 항목 이동",
+      "title": "코스 일차와 항목 이동",
+      "steps": "2박3일→항목일차이동→빈일차추가/삭제→재열기",
+      "expected": "dayNo/sortOrder·이동시간무효화·항목수일치",
+      "requirements": "여러일차QA코스·드래그가능도구",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteEditorView.swift:423"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "course-optimize",
+      "group": "동선 최적화 고정 시작/끝",
+      "title": "동선 최적화 고정 시작/끝",
+      "steps": "여러장소선택→출발고정/도착고정조합→최적화취소",
+      "expected": "핀과행순서일치·고정조건유지·초안만변경",
+      "requirements": "4곳이상QA코스",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteModels.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "course-pin-edit",
+      "group": "개인핀 좌표/이름/체류",
+      "title": "개인핀 좌표/이름/체류",
+      "steps": "지도를길게눌러개인핀→이름/주소수정→저장왕복",
+      "expected": "개인핀은place/poi와분리·좌표/이름보존",
+      "requirements": "longpress가능UI·QA코스",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteEditorView.swift:344"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "trip-return",
+      "group": "외부지도 앱 복귀 후 수동도착",
+      "title": "외부지도 앱 복귀 후 수동도착",
+      "steps": "한도fixture에서외부지도→복귀→여기도착함→다음",
+      "expected": "여행계속·스탬프중복없음·한도중새유료호출없음",
+      "requirements": "실iPhone+지도앱·주입응답·QA코스",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteEditorTripLimit.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "guide-add",
+      "group": "가이드 추천 장소 담기·빼기",
+      "title": "가이드 추천 장소 담기·빼기",
+      "steps": "fixture추천촬영지/미연결POI/연결POI ⊕→기존항목중복→빼기",
+      "expected": "placeId/poiId각각정확·연결POI는place대표",
+      "requirements": "모델호출없는GuideChatResponse fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteEditorGuide.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "guide-edit",
+      "group": "가이드 일정 수정 응답",
+      "title": "가이드 일정 수정 응답",
+      "steps": "fixture로POI/개인핀포함현재일정→수정제안→수락/취소",
+      "expected": "모르는ID/잘못된결과검증·기존kind와개인핀유지",
+      "requirements": "GuideCourseDraft형식과수정fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/RouteTab/RouteGuidePlan.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "review-guest",
+      "group": "비회원 리뷰쓰기 로그인 이어가기",
+      "title": "비회원 리뷰쓰기 로그인 이어가기",
+      "steps": "비회원리뷰쓰기→로그인→닉네임skip→리뷰쓰기",
+      "expected": "시트겹침없음·원subject유지·닉네임뒤작성창",
+      "requirements": "OAuthQA계정·nickname미확정",
+      "evidence": [
+        "apps/scenetrip-ios/src/Reviews/ReviewsSheet.swift:86"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "review-discard",
+      "group": "리뷰 초안 취소와 보존",
+      "title": "리뷰 초안 취소와 보존",
+      "steps": "별점/글/사진변경→닫기·취소→계속쓰기/버리기",
+      "expected": "dirty이면묻기·버리기전서버리뷰안변경",
+      "requirements": "자기QA리뷰·이미지fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/Reviews/ReviewComposeView.swift:90"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "gallery-card",
+      "group": "지도 카드 방문자사진에서 리뷰 연결",
+      "title": "지도 카드 방문자사진에서 리뷰 연결",
+      "steps": "코스place/poi카드사진줄→사진크게→방문자리뷰",
+      "expected": "올바른subject/reviewId·닫고원카드복귀",
+      "requirements": "리뷰사진있는place와poi",
+      "evidence": [
+        "apps/scenetrip-ios/src/Reviews/CardPhotoStrip.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "post-discard",
+      "group": "후기 초안 취소와 재개",
+      "title": "후기 초안 취소와 재개",
+      "steps": "제목본문사진코스선택→취소계속쓰기→버리기",
+      "expected": "게시전서버글없음·업로드중취소정지·기존글보존",
+      "requirements": "독립QA계정/사진fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/CommunityTab/CommunityComposeView.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "post-delete-fail",
+      "group": "내 후기 삭제 실패",
+      "title": "내 후기 삭제 실패",
+      "steps": "자기QA글삭제확인→401503timeout→새로고침",
+      "expected": "실패에글남음·삭제성공으로표시않음",
+      "requirements": "자기QA글·NetFault응답",
+      "evidence": [
+        "apps/scenetrip-ios/src/CommunityTab/CommunityStore.swift:276"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "nickname-duplicate",
+      "group": "닉네임 규칙·중복·건너뛰기",
+      "title": "닉네임 규칙·중복·건너뛰기",
+      "steps": "1자/17자/한글NFC/예약자동이름/남의이름→skip",
+      "expected": "규칙안내·taken구분·skip은계정별한번",
+      "requirements": "독립QA사용자/중복사용닉네임",
+      "evidence": [
+        "apps/scenetrip-ios/src/Reviews/NicknameView.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "auth-background",
+      "group": "인증 중 앱 배경/복귀",
+      "title": "인증 중 앱 배경/복귀",
+      "steps": "로그인/refresh중background→복귀·동시여러요청",
+      "expected": "진행중쓰기와계정병합순서·refresh중복없음",
+      "requirements": "OAuth가능기기·만료fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/Auth/AuthTokens.swift:76"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "language-restart",
+      "group": "언어 변경 후 시스템 UI",
+      "title": "언어 변경 후 시스템 UI",
+      "steps": "KO→EN변경→picker/지도→앱종료재실행",
+      "expected": "앱문구즉시·시스템언어는다음실행·네이버라벨변경",
+      "requirements": "PhotosPicker·Location설정·별도기기",
+      "evidence": [
+        "apps/scenetrip-ios/src/Models/AppLanguage.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "usage-dedup",
+      "group": "다시 열기·자동완성 계측 제외",
+      "title": "다시 열기·자동완성 계측 제외",
+      "steps": "작품/장소동일일재열기→typing만→personalpin카드",
+      "expected": "daily조회한건·typing검색없음·personalpin이벤트없음",
+      "requirements": "V28 QA설치·DB읽기증거",
+      "evidence": [
+        "apps/scenetrip-ios/src/Analytics/UsageEvents.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    },
+    {
+      "id": "meta-revoke",
+      "group": "추적 동의 철회",
+      "title": "추적 동의 철회",
+      "steps": "실ATT허용과로컬ON설정fixture→철회→foreground/이벤트",
+      "expected": "철회뒤이벤트차단·동의전기록재전송없음",
+      "requirements": "실기기/정책승인후별도측정fixture",
+      "evidence": [
+        "apps/scenetrip-ios/src/Analytics/MetaAnalytics.swift:1"
+      ],
+      "status": "BLOCKED_NOT_RUN",
+      "live_e2e": false
+    }
+  ],
+  "findings": [
+    {
+      "id": "CODE-262",
+      "ticket": "MZ2AZ-262",
+      "kind": "코드 경로 확정·실 E2E 미재현",
+      "title": "작품 상세의 담기에서 작품 출처 누락",
+      "expected": "작품 상세의 촬영지 +는 sourceContentId=열린 작품 ID를 전송",
+      "actual": "onSave→save→cart.add(placeId:)에 sourceContentId가 없어 default nil을 DTO에 전달",
+      "impact": "장바구니 대표 작품·코스 출처 소실",
+      "sources": [
+        "apps/scenetrip-ios/src/SearchTab/SearchTabView.swift:297",
+        "apps/scenetrip-ios/src/SearchTab/SearchTabView.swift:380",
+        "apps/scenetrip-ios/src/Models/CartStore.swift:58",
+        "contracts/openapi/scene-api-v1.yaml:4060"
+      ],
+      "reproduction": "전용 QA계정의 미저장 장소를 작품 상세에서 담은 뒤 saved_place.source_content_id 읽기",
+      "fixed": false,
+      "status": "코드 경로 확정·실 E2E 미재현",
+      "detail": "onSave→save→cart.add(placeId:)에 sourceContentId가 없어 default nil을 DTO에 전달",
+      "evidence": [
+        "apps/scenetrip-ios/src/SearchTab/SearchTabView.swift:297",
+        "apps/scenetrip-ios/src/SearchTab/SearchTabView.swift:380",
+        "apps/scenetrip-ios/src/Models/CartStore.swift:58",
+        "contracts/openapi/scene-api-v1.yaml:4060"
+      ],
+      "remaining": "전용 QA계정의 미저장 장소를 작품 상세에서 담은 뒤 saved_place.source_content_id 읽기"
+    },
+    {
+      "id": "CODE-363",
+      "ticket": "MZ2AZ-363",
+      "kind": "코드상 누락 소견·실 E2E 미재현",
+      "title": "기존 로그인 상태 재시작에서 최초 닉네임 요청 연결 없음",
+      "expected": "지라10/7보충: 기존회원도 시작/refresh에서 nicknameConfirmed=false면 한번묻기",
+      "actual": "start→loadMe는 me만 갱신. askNicknameIfNeeded는 Google로그인 성공 한곳. refresh는 session.user를 버리고 토큰만 저장。 전체 src 검색에서 RootTabs78·Profile258·RouteTab59·Reviews75는 askingNickname을 관찰해 시트를 표시할뿐이며 Reviews86~109는 닉네임 종료 뒤 리뷰작성 이어가기만 수행한다. 추가 nicknameConfirmed 관찰로 질문을 켜는 경로는 찾지못했다.",
+      "impact": "닉네임 기능전가입/로그인상태 유지자는 최초정하기화면을 자동으로못봄",
+      "sources": [
+        "apps/scenetrip-ios/src/Auth/AuthStore.swift:32",
+        "apps/scenetrip-ios/src/Auth/AuthStore.swift:77",
+        "apps/scenetrip-ios/src/Auth/AuthStore.swift:219",
+        "apps/scenetrip-ios/src/Auth/AuthTokens.swift:85",
+        "apps/scenetrip-ios/src/Auth/AuthStore.swift:267",
+        "apps/scenetrip-ios/src/Reviews/ReviewsSheet.swift:86",
+        "apps/scenetrip-ios/src/RootTabs.swift:78"
+      ],
+      "reproduction": "nicknameConfirmed=false/Asked표시없는 로그인세션으로 앱재실행; 서버/기기fixture부족으로 미실행",
+      "fixed": false,
+      "status": "코드상 누락 소견·실 E2E 미재현",
+      "detail": "start→loadMe는 me만 갱신. askNicknameIfNeeded는 Google로그인 성공 한곳. refresh는 session.user를 버리고 토큰만 저장。 전체 src 검색에서 RootTabs78·Profile258·RouteTab59·Reviews75는 askingNickname을 관찰해 시트를 표시할뿐이며 Reviews86~109는 닉네임 종료 뒤 리뷰작성 이어가기만 수행한다. 추가 nicknameConfirmed 관찰로 질문을 켜는 경로는 찾지못했다.",
+      "evidence": [
+        "apps/scenetrip-ios/src/Auth/AuthStore.swift:32",
+        "apps/scenetrip-ios/src/Auth/AuthStore.swift:77",
+        "apps/scenetrip-ios/src/Auth/AuthStore.swift:219",
+        "apps/scenetrip-ios/src/Auth/AuthTokens.swift:85",
+        "apps/scenetrip-ios/src/Auth/AuthStore.swift:267",
+        "apps/scenetrip-ios/src/Reviews/ReviewsSheet.swift:86",
+        "apps/scenetrip-ios/src/RootTabs.swift:78"
+      ],
+      "remaining": "nicknameConfirmed=false/Asked표시없는 로그인세션으로 앱재실행; 서버/기기fixture부족으로 미실행"
+    },
+    {
+      "id": "DOC-PLAN",
+      "kind": "문서·실설정불일치·실 E2E 미재현",
+      "title": "일정생성 비용없음 서술은 현재 모델설정과 다름",
+      "actual": "iOS README와 OpenAPI는 모델없음/비용없음. agents config/llm_planner.json enabled=true이며 최신README는 AI일정 모델호출을 설명",
+      "impact": "비용없는 검증으로 오해하여 유료호출할 수 있어 현재 실제plan/chat 금지",
+      "sources": [
+        "apps/scenetrip-ios/README.md:98",
+        "contracts/openapi/scene-api-v1.yaml:2307",
+        "agents/trip-guide/config/llm_planner.json:4",
+        "agents/trip-guide/README.md:47"
+      ],
+      "fixed": false,
+      "status": "문서·실설정불일치·실 E2E 미재현",
+      "detail": "iOS README와 OpenAPI는 모델없음/비용없음. agents config/llm_planner.json enabled=true이며 최신README는 AI일정 모델호출을 설명",
+      "evidence": [
+        "apps/scenetrip-ios/README.md:98",
+        "contracts/openapi/scene-api-v1.yaml:2307",
+        "agents/trip-guide/config/llm_planner.json:4",
+        "agents/trip-guide/README.md:47"
+      ],
+      "remaining": "원조건/출시범위 확인과 접근가능한실행환경에서 검증"
+    },
+    {
+      "id": "DOC-NICKNAME",
+      "kind": "이미 알려진 문서불일치",
+      "title": "닉네임 저장 미확인이라는 README 서술이 과거실기정정과 모순",
+      "actual": "최신 README는 서버362전이라실기미확인. 과거10/7지라댓글은로컬닉네임저장·중복확인으로정정",
+      "sources": [
+        "apps/scenetrip-ios/README.md:106"
+      ],
+      "live_e2e": false,
+      "fixed": false,
+      "status": "이미 알려진 문서불일치",
+      "detail": "최신 README는 서버362전이라실기미확인. 과거10/7지라댓글은로컬닉네임저장·중복확인으로정정",
+      "evidence": [
+        "apps/scenetrip-ios/README.md:106"
+      ],
+      "impact": "현재코드/문서의범위 소견이며 새liveE2E버그로 판정하지않음",
+      "remaining": "원조건/출시범위 확인과 접근가능한실행환경에서 검증"
+    },
+    {
+      "id": "SCOPE-PRODUCER",
+      "kind": "계약선행·실 E2E 미재현",
+      "title": "포스터 제작사 링크는 현재 계약에 필드없음",
+      "actual": "origin/main 계약 producer/producerUrl 없음, 포스터는RemoteImage; MZ393선행대기",
+      "sources": [
+        "apps/scenetrip-ios/src/SearchTab/ContentDetailView.swift:76",
+        "contracts/openapi/scene-api-v1.yaml"
+      ],
+      "fixed": false,
+      "status": "계약선행·실 E2E 미재현",
+      "detail": "origin/main 계약 producer/producerUrl 없음, 포스터는RemoteImage; MZ393선행대기",
+      "evidence": [
+        "apps/scenetrip-ios/src/SearchTab/ContentDetailView.swift:76",
+        "contracts/openapi/scene-api-v1.yaml"
+      ],
+      "impact": "현재코드/문서의범위 소견이며 새liveE2E버그로 판정하지않음",
+      "remaining": "원조건/출시범위 확인과 접근가능한실행환경에서 검증"
+    },
+    {
+      "id": "SCOPE-APPLE",
+      "kind": "출시범위 확인 필요·새 E2E 버그 아님",
+      "title": "Apple 로그인은 현재 사용자 버튼 동선없음",
+      "actual": "SignInView는 Google버튼과나중에만제공; 기존README도Apple은자리만",
+      "sources": [
+        "apps/scenetrip-ios/src/Auth/SignInView.swift:39"
+      ],
+      "fixed": false,
+      "status": "출시범위 확인 필요·새 E2E 버그 아님",
+      "detail": "SignInView는 Google버튼과나중에만제공; 기존README도Apple은자리만",
+      "evidence": [
+        "apps/scenetrip-ios/src/Auth/SignInView.swift:39"
+      ],
+      "impact": "현재코드/문서의범위 소견이며 새liveE2E버그로 판정하지않음",
+      "remaining": "원조건/출시범위 확인과 접근가능한실행환경에서 검증"
+    },
+    {
+      "id": "SCOPE-HOME",
+      "kind": "의도된후속·버그판정아님",
+      "title": "홈 인기순 전환은 아직별도후속",
+      "actual": "shelf는placeCount순·동일수server순;408계측과혼동안함",
+      "sources": [
+        "apps/scenetrip-ios/src/HomeTab/HomeTabModel.swift:157"
+      ],
+      "fixed": false,
+      "status": "의도된후속·버그판정아님",
+      "detail": "shelf는placeCount순·동일수server순;408계측과혼동안함",
+      "evidence": [
+        "apps/scenetrip-ios/src/HomeTab/HomeTabModel.swift:157"
+      ],
+      "impact": "현재코드/문서의범위 소견이며 새liveE2E버그로 판정하지않음",
+      "remaining": "원조건/출시범위 확인과 접근가능한실행환경에서 검증"
+    }
+  ],
+  "fixture_groups": [
+    "새설치/기존로그인/비회원/삭제가능QA계정·Asked미기록닉네임",
+    "128작품·486visibleplace·다종류·25장사진·25개리뷰",
+    "촬영지/POI/개인핀 혼합코스·연결POI·동일좌표클러스터",
+    "GPS EXIF/HEIC/PNG/JPEG·업로드실패·만료서명주소·게시응답유실",
+    "iOS17/18/26 및소형/XXXL/다크/KOEN/실기기지도앱",
+    "GuideChat/GuidePlan/Navigation 전체 응답fixture; 실제유료호출 금지"
+  ],
+  "evidence_commands": [
+    "just repo-inspect rev-parse origin/main",
+    "just repo-inspect log --oneline -20 origin/main",
+    "just --justfile [TEMP_REVIEW_RECIPE] review read <path> <start> <end>",
+    "just --justfile [TEMP_REVIEW_RECIPE] review find <pattern> <paths>"
+  ]
+}
