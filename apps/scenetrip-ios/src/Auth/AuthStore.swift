@@ -20,6 +20,8 @@ final class AuthStore: ObservableObject {
     /// 이것을 보고 다시 읽는다 — 설치본이 가리키는 계정이 달라졌기 때문이다.
     @Published private(set) var epoch = 0
     @Published private(set) var busy = false
+    /// 이 실행에서 서버가 501로 미설정을 알려 주면 Apple 버튼을 숨긴다(계약 /auth/apple).
+    @Published private(set) var appleSignInEnabled = true
     /// 로그인 화면에 보일 한 줄.
     @Published var message: String?
     /// 닉네임 정하기 화면을 띄울 것인가 (MZ2AZ-363). 로그인 직후, 서버가 붙인 자동 닉네임을 아직
@@ -63,22 +65,17 @@ final class AuthStore: ObservableObject {
         do {
             let google = try await GoogleOAuth.signIn()
             // 나가 있는 쓰기가 끝난 뒤에 부른다 — 겹치면 합치기 전 계정에 떨어진다(계약).
-            await PendingWrites.settle()
+            try await PendingWrites.settle()
             let session = try await AuthAPI.signInWithGoogle(
                 xInstallId: installId,
                 googleSignIn: GoogleSignIn(idToken: google.idToken, nonce: google.nonce)
             )
-            AuthTokens.store(session)
-            me = session.user
-            signedIn = true
-            AppAnalytics.setMember(true)
-            AppAnalytics.log(session.isNewUser ? .signUp(method: "google") : .login(method: "google"))
-            showingSignIn = false
-            askNicknameIfNeeded(session.user)
-            // `merged` 가 아니어도 다시 읽는다 — 값이 싸고, 화면이 든 것이 서버와 같다는 보장이 된다.
-            accountChanged()
+            completeSignIn(session, method: "google")
         } catch GoogleOAuth.Failure.cancelled {
             // 사람이 창을 닫았다. 알릴 것이 없다.
+        } catch is CancellationError {
+        } catch PendingWrites.Failure.stillRunning {
+            message = tr("저장 중인 내용이 있어요. 잠시 뒤 다시 로그인해 주세요")
         } catch let ErrorResponse.error(status, data, _, _) where status > 0 {
             message = AuthRules.apiCode(from: data) == "AUTH_PROVIDER_UNAVAILABLE"
                 ? tr("구글에 잠시 닿지 않아요. 잠시 뒤 다시 해 주세요")
@@ -86,6 +83,49 @@ final class AuthStore: ObservableObject {
         } catch {
             message = tr("연결이 원활하지 않아요. 잠시 뒤 다시 해 주세요")
         }
+    }
+
+    func signInWithApple(
+        authenticate: @MainActor (UUID) async throws -> AuthSession = { try await AppleSignInFlow.signIn(installId: $0) }
+    ) async {
+        guard !busy, appleSignInEnabled else { return }
+        busy = true
+        defer { busy = false }
+        message = nil
+        do {
+            let session = try await authenticate(installId)
+            completeSignIn(session, method: "apple")
+        } catch AppleOAuth.Failure.cancelled {
+        } catch is CancellationError {
+        } catch PendingWrites.Failure.stillRunning {
+            message = tr("저장 중인 내용이 있어요. 잠시 뒤 다시 로그인해 주세요")
+        } catch is AppleOAuth.Failure {
+            message = tr("로그인하지 못했어요. 다시 해 주세요")
+        } catch let ErrorResponse.error(status, data, _, _) where status > 0 {
+            if status == 501 {
+                appleSignInEnabled = false
+                message = tr("Apple 로그인이 아직 준비되지 않았어요")
+            } else if AuthRules.apiCode(from: data) == "AUTH_PROVIDER_UNAVAILABLE" {
+                message = tr("Apple에 잠시 닿지 않아요. 잠시 뒤 다시 해 주세요")
+            } else {
+                message = tr("로그인하지 못했어요. 다시 해 주세요")
+            }
+        } catch {
+            message = tr("연결이 원활하지 않아요. 잠시 뒤 다시 해 주세요")
+        }
+    }
+
+    /// 서버가 인증·병합을 끝낸 성공 응답만 계정으로 채택한다. 구글·Apple이 같은 경로를 쓴다.
+    private func completeSignIn(_ session: AuthSession, method: String) {
+        AuthTokens.store(session)
+        me = session.user
+        signedIn = true
+        AppAnalytics.setMember(true)
+        AppAnalytics.log(session.isNewUser ? .signUp(method: method) : .login(method: method))
+        showingSignIn = false
+        askNicknameIfNeeded(session.user)
+        // `merged`가 아니어도 다시 읽어 화면이 가진 비회원 데이터를 새 계정과 맞춘다.
+        accountChanged()
     }
 
     /// 로그아웃. 서버 응답과 상관없이 토큰을 지운다 — 이 설치본은 서버에서 **새 비회원**이 된다.
@@ -254,6 +294,7 @@ private struct SignInSheet: ViewModifier {
         )) {
             SignInView()
                 .presentationDetents([.medium])
+                .interactiveDismissDisabled(auth.busy)
         }
     }
 }

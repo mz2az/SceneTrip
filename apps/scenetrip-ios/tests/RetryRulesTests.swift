@@ -38,6 +38,18 @@ final class RetryRulesTests: XCTestCase {
 
     // MARK: 창구 → 갈래
 
+    /// Apple 인가 코드는 한 번만 교환한다. 응답 유실·한도 응답 뒤에도 자동으로 다시 쓰지 않는다(MZ2AZ-415).
+    func testAppleAuthorizationCodeIsNeverAutomaticallyReplayed() {
+        let policy = Rules.policy(method: "POST", path: "/v1/auth/apple")
+        XCTAssertEqual(policy.lane, .never)
+        for outcome in [.noResponse(.cannotConnectToHost), .noResponse(.timedOut), http(503),
+                        http(429, code: "RATE_LIMITED", retryAfter: 1)] as [Rules.Outcome]
+        {
+            XCTAssertEqual(Rules.next(policy: policy, method: "POST", history: .init(), outcome: outcome, elapsed: 0),
+                           .stop)
+        }
+    }
+
     func testLaneFollowsMethodAndPath() {
         XCTAssertEqual(Rules.lane(method: "GET", path: "/v1/places"), .read)
         XCTAssertEqual(Rules.lane(method: "PUT", path: "/v1/courses/3"), .idempotentWrite)

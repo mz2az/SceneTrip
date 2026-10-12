@@ -46,6 +46,7 @@ final class AuthRulesTests: XCTestCase {
     func testAuthEndpointsAreNotIntercepted() {
         XCTAssertFalse(AuthRules.intercepts(url: "http://localhost:8081/v1/auth/refresh"))
         XCTAssertFalse(AuthRules.intercepts(url: "http://localhost:8081/v1/auth/google"))
+        XCTAssertFalse(AuthRules.intercepts(url: "http://localhost:8081/v1/auth/apple"))
         XCTAssertTrue(AuthRules.intercepts(url: "http://localhost:8081/v1/cart"))
         XCTAssertTrue(AuthRules.intercepts(url: "http://localhost:8081/v1/me"))
     }

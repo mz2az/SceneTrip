@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [ios-apple-login.md](ios-apple-login.md) | iOS Apple 기본 로그인 버튼·nonce·서버 인증·기존 계정 흐름 연결 (MZ2AZ-415) |
 | [android-visual-e2e-parity.md](android-visual-e2e-parity.md) | 최신 iOS와 Android의 UI·E2E 동등성, 비교 증거와 미검증 경로 (MZ2AZ-148) |
 | [ios-usage-events.md](ios-usage-events.md) | 실제 상세 열기·검색 확정의 생성 EventsAPI 전송과 재시도/로그인 경계 (MZ2AZ-408) |
 | [cart-delete-failure.md](cart-delete-failure.md) | iOS 장바구니 삭제 오류의 목록 보존·삭제 성공 후 행/아이콘 일치 (MZ2AZ-260 / MZ2AZ-262) |

@@ -98,7 +98,7 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | AI 코스 추천(마법사) | **계약 `POST /guide/plan`** — 에이전트의 코스 엔진이 짠다(모델 없음, 키 없어도 됨). 앱 안의 규칙(`RoutePlanner`)은 지웠다 |
 | 찜 | 서버(`/favorites/contents`)가 정본, 기기에는 사본 (MZ2AZ-335) |
 | 장바구니 빼기 | 서버 DELETE 성공 뒤 행과 저장 아이콘을 함께 제거한다. 실패하면 둘 다 보존하고 실패 안내를 표시한다. 삭제 성공 뒤 목록 재조회가 실패해도 해당 행은 제거된 상태다 (MZ2AZ-262, 계획 `cart-delete-failure.md`) |
-| 로그인 | 구글 로그인·토큰 키체인 저장·401 자동 갱신·로그아웃·탈퇴 (MZ2AZ-336). 애플 로그인은 자리만 |
+| 로그인 | 구글·Apple 기본 인증 창·토큰 키체인 저장·401 자동 갱신·로그아웃·탈퇴 (MZ2AZ-336, MZ2AZ-415). Apple 실기기 인증은 아래 준비 절차 참고 |
 | 리뷰 보기 | 촬영지 상세·성지 카드·편의시설 카드의 별점 줄(「★4.6 · 리뷰 128」) → 리뷰 시트(요약·점수 막대·정렬·목록) — `Reviews/`. 서버가 별점을 안 실어 주면(옛 서버) 줄이 없다 (MZ2AZ-363) |
 | 리뷰 쓰기 | 리뷰 시트의 「리뷰 쓰기」 → 별점(필수)·글(선택, 2,000자)·**사진(10장까지)**. 한 곳에 한 개 — 있으면 고친다. 지우기는 고치는 화면 안에. 가입한 사람만(비회원은 로그인 화면을 거친다) (MZ2AZ-363) |
 | 리뷰 사진 | 고르는 즉시 줄여서 올린다 — 긴 변 2,048px·JPEG 로 **다시 그려 촬영 위치 등 EXIF 를 뗀다**(`Models/PhotoShrink`) → `POST /uploads` → 저장소로 바로 PUT(`Reviews/PhotoUploader`) → 저장할 때 `photoKeys`. 칸마다 올리는 중·실패(다시 시도)·빼기, 올리는 중이거나 못 올린 사진이 있으면 저장하지 못한다. 목록과 「내 리뷰」 의 사진은 누르면 크게 넘겨 본다. 로컬 저장소는 클러스터 안 MinIO(`localhost:9000`) (MZ2AZ-363) |
@@ -334,6 +334,15 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
   ID 토큰을 받는다(`GoogleOAuth.swift`, 의존성 선언은 `//:Package.swift`). 토큰 싣기와 401 처리(만료 → 갱신 한 번 → 재시도)는
   `AuthRequestBuilder.swift` 가 생성 클라이언트에 끼워 넣는다 — 화면 코드는 API 를 그냥 부른다.
   로컬에서 로그인하려면 `.env` 에 `SCENETRIP_AUTH_JWT_SECRET` 이 있어야 한다(`.env.example`).
+- Apple 로그인(MZ2AZ-415)은 `AppleSignInButton`의 Apple 기본 버튼 → `AppleOAuth`의 시스템 인증 창 →
+  `AppleSignInFlow`의 생성 `POST /auth/apple`을 따른다. 시도마다 보안 난수 32바이트를 만들고 Apple에는
+  SHA-256 소문자 16진수, 서버에는 원문 nonce를 보낸다. identityToken·authorizationCode·첫 로그인 이름은
+  메모리에서 서버로만 전달한다. 취소하면 로그인하지 않으며 인증 중에는 두 버튼과 시트 닫기를 잠근다.
+  3초 안에 비회원 쓰기가 끝나지 않으면 병합을 진행하지 않는다(구글에도 동일 적용).
+  Apple 인가 코드는 일회용이라 오류·한도 응답에서 자동 재전송하지 않는다.
+  서버에 `.p8` 설정이 없으면 501 안내를 표시하고 해당 실행에서 Apple 버튼을 숨긴다(기존 계약).
+  [Apple 로그인 계획](../../docs/project/plans/ios-apple-login.md)에
+  단위·시뮬레이터 검사와 DEV 실기기 가입·재로그인·탈퇴 검사 절차를 구분했다.
 - **실패한 요청은 공통 계층이 다시 보낸다** (MZ2AZ-366, 계획 `docs/project/plans/app-retry.md`). 빌더가 내주는 세션이
   `Models/RetryingSession.swift` 이고 규칙은 `Models/RetryRules.swift` 다(숫자는 `RetryRules.Tuning` 한 곳) — 조회는 끊김·502·503·504 에
   세 번(1·2·4초), PUT·DELETE 는 두 번, POST 는 서버에 닿지 않은 것이 확실할 때만, 분당 한도(429 `RATE_LIMITED`)는
@@ -445,6 +454,13 @@ just ios-xcode                          # Xcode 로 연다 (코드 탐색·디�
 
 `Xcode → Settings → Accounts → +` 에서 애플 ID 를 넣는다. **유료 개발자 계정이 아니어도
 된다.** 무료 계정으로도 자기 기기에는 설치할 수 있다.
+
+**Apple 로그인은 유료 개발자 팀의 Sign in with Apple capability가 필요하다.** SceneTrip은 김태환님의
+개발자 팀에서 번들 ID `com.mz2az.scenetrip`의 capability를 켜고 같은 권한이 든 프로파일로 서명한다.
+`SceneTrip.entitlements`에는 `com.apple.developer.applesignin = [Default]`가 포함되어 있다.
+아래 실기기 서명 설정을 넣을 때 기존 시뮬레이터용 `SIM0000000` 두 곳도 파일 머리말대로
+`$(AppIdentifierPrefix)`로 바꾼다. 실제 가입·로그아웃·재로그인·탈퇴는 Apple 키가 설정된 DEV에서
+서명된 실기기로 확인해야 한다. 서버 개인 키를 앱이나 저장소에 넣지 않는다.
 
 ### 2. BUILD.bazel 에서 device 를 켠다
 

@@ -195,7 +195,7 @@ enum RetryRules {
         // 키를 알면 위에서 `keyedChat` 으로 빠졌다). 길찾기·마법사는
         // 부를 때마다 돈이 나갈 수 있다. 갱신은 리프레시 토큰이 일회용이라 응답만 잃은 요청을 다시 보내면
         // 재사용으로 판정된다.
-        let posts = ["/guide/chat", "/guide/plan", "/navigation/next-leg", "/auth/refresh", "/auth/sign-out"]
+        let posts = ["/guide/chat", "/guide/plan", "/navigation/next-leg", "/auth/refresh", "/auth/sign-out", "/auth/apple"]
         if posts.contains(where: path.hasSuffix) {
             return true
         }

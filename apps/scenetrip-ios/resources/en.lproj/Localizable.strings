@@ -584,3 +584,7 @@
 "주변의 음식점·명소·교통·숙소를 보여 줘요.\n촬영지와 여행 계획을 해태에게 물어보세요." = "Find nearby food, sights, transport and stays.\nAsk HAETAE about filming locations and travel plans.";
 "방문 수는 고른 작품과 이동 거리에 따라 달라집니다" = "The number of stops depends on your choices and travel distances";
 "사용법 %d / %d" = "Tutorial %1$d of %2$d";
+"Apple 계정으로 계속하기" = "Continue with Apple";
+"Apple 로그인이 아직 준비되지 않았어요" = "Apple sign-in is not ready yet";
+"Apple에 잠시 닿지 않아요. 잠시 뒤 다시 해 주세요" = "Apple is unavailable right now. Please try again shortly.";
+"저장 중인 내용이 있어요. 잠시 뒤 다시 로그인해 주세요" = "Your changes are still saving. Please try signing in again shortly.";
