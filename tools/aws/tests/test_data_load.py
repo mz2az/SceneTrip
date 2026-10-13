@@ -11,7 +11,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from tools.aws.tests.fixtures import valid_settings
+from tools.aws.config import SIGNOZ_MIRROR
+from tools.aws.tests.fixtures import mirror_urls, valid_settings
 
 HOST = "db.example.internal"
 IMAGE = "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/scenetrip-dev/data-load:t"
@@ -34,7 +35,7 @@ def repositories(environment="dev"):
             ("migration", "migration"),
             ("data_load", "data-load"),
         )
-    }
+    } | mirror_urls(valid_settings(environment=environment))
 
 
 def is_delete(command, kind, name):
@@ -329,9 +330,17 @@ class DataLoadPublishTest(unittest.TestCase):
                 ]
             }
         )
-        run = Mock(
-            side_effect=lambda command, **unused: auth if "ecr" in command else ""
+        # SigNoz 복사본(ADR 0025)은 이미 ECR 에 있다 — 이 시험은 앱 이미지 push 만 본다.
+        mirrored = json.dumps(
+            {"imageIds": [{"imageTag": tag} for unused, tag in SIGNOZ_MIRROR.values()]}
         )
+
+        def execute(command, **unused):
+            if "list-images" in command:
+                return mirrored
+            return auth if "ecr" in command else ""
+
+        run = Mock(side_effect=execute)
         with tempfile.TemporaryDirectory() as temp:
             publish(run, outputs, valid_settings(), Path(temp), **kwargs)
         return [

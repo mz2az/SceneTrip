@@ -1,0 +1,2 @@
+# DEV — 부하 테스트용. 차트 기본 크기(ClickHouse 20Gi·ZooKeeper 8Gi)와 기본 보관 기간을 쓴다. DEV 를 내리면 디스크도 지운다.
+{}

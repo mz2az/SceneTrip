@@ -2,6 +2,11 @@
 
 import re
 
+from tools.aws.config import REPOSITORIES
+
+# 환경 ECR 저장소 키 — config.REPOSITORIES 한 곳에서.
+REPOSITORY_KEYS = "|".join(REPOSITORIES)
+
 TAGGED_ADDRESSES = (
     r"aws_vpc\.this",
     r"aws_internet_gateway\.this",
@@ -16,7 +21,7 @@ TAGGED_ADDRESSES = (
     r"aws_cloudwatch_log_group\.eks",
     r"aws_eks_cluster\.this",
     r"aws_eks_access_entry\.deployment",
-    r'aws_ecr_repository\.app\["(scene_api|trip_guide|migration|data_load)"\]',
+    rf'aws_ecr_repository\.app\["({REPOSITORY_KEYS})"\]',
     r'aws_secretsmanager_secret\.app\["(scene_api|database|auth)"\]',
 )
 
@@ -65,7 +70,7 @@ def validate_tagless(address, value, resources, settings):
         reference(value, "route_table_id", resources, "aws_route_table.")
         reference(value, "subnet_id", resources, "aws_subnet.")
     elif re.fullmatch(
-        r'aws_ecr_lifecycle_policy\.app\["(scene_api|trip_guide|migration|data_load)"\]',
+        rf'aws_ecr_lifecycle_policy\.app\["({REPOSITORY_KEYS})"\]',
         address,
     ):
         repository = resources.get(

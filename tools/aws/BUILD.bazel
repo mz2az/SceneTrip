@@ -38,8 +38,13 @@ py_binary(
     args = [
         "--provider-runfile",
         "$(rlocationpath //tools/bazel/cloud:aws_provider)",
+        "--signoz-chart-runfile",
+        "$(rlocationpath @signoz_chart//file)",
     ],
-    data = ["//tools/bazel/cloud:aws_provider"],
+    data = [
+        "//tools/bazel/cloud:aws_provider",
+        "@signoz_chart//file",
+    ],
     main = "aws.py",
     deps = [":lib"],
 )
@@ -90,13 +95,17 @@ py_test(
         "tests/test_media.py",
         "tests/test_ops.py",
         "tests/test_public_ingress.py",
+        "tests/test_signoz.py",
         "tests/test_teardown_entrypoint.py",
         "tests/test_workflows.py",
     ],
     data = [
+        "//:MODULE.bazel",
         "//.github/workflows:aws_workflows",
         "//contracts/openapi:scene-api-v1.yaml",
         "//platform/helm:sources",
+        "//platform/helm/signoz:BUILD.bazel",
+        "//platform/helm/signoz:values",
         "//platform/terraform:sources",
     ],
     main = "tests/test_aws.py",

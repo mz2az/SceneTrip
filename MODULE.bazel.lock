@@ -443,7 +443,7 @@
     "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "Rb/Z+MRjcLD6FLL81DRNkc43GQlET+b8QIDqqoGXnkw=",
-        "usagesDigest": "ypXCuI6c7uiTBff9L92iz2sG7eHity4TPdLLs68Qbk8=",
+        "usagesDigest": "Tqz2N/0UL47NMbnHuVsI7TJiLEIHReTEobC+F6HHVdM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -532,6 +532,209 @@
                 "@@platforms//cpu:x86_64": "@postgres_client_linux_amd64"
               },
               "bzlmod_repository": "postgres_client",
+              "reproducible": true
+            }
+          },
+          "mirror_signoz_linux_amd64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "signoz/signoz",
+              "identifier": "sha256:1301f2df51f01ba4227dfd5a8281e61d10aa09b771d2b20a30027bc68dba993d",
+              "platform": "linux/amd64",
+              "target_name": "mirror_signoz_linux_amd64",
+              "bazel_tags": []
+            }
+          },
+          "mirror_signoz": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
+            "attributes": {
+              "target_name": "mirror_signoz",
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "signoz/signoz",
+              "identifier": "sha256:1301f2df51f01ba4227dfd5a8281e61d10aa09b771d2b20a30027bc68dba993d",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@mirror_signoz_linux_amd64"
+              },
+              "bzlmod_repository": "mirror_signoz",
+              "reproducible": true
+            }
+          },
+          "mirror_otel_collector_linux_amd64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "signoz/signoz-otel-collector",
+              "identifier": "sha256:deb566a7a3c0ba544ee58ccc92ee1f0e6da827bc40383e52f3c824705e100a3d",
+              "platform": "linux/amd64",
+              "target_name": "mirror_otel_collector_linux_amd64",
+              "bazel_tags": []
+            }
+          },
+          "mirror_otel_collector": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
+            "attributes": {
+              "target_name": "mirror_otel_collector",
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "signoz/signoz-otel-collector",
+              "identifier": "sha256:deb566a7a3c0ba544ee58ccc92ee1f0e6da827bc40383e52f3c824705e100a3d",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@mirror_otel_collector_linux_amd64"
+              },
+              "bzlmod_repository": "mirror_otel_collector",
+              "reproducible": true
+            }
+          },
+          "mirror_clickhouse_linux_amd64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "clickhouse/clickhouse-server",
+              "identifier": "sha256:cacf32d6884291dc2ff5e0156a97f46fc53ff7c929a7906d114e268a929dfd3a",
+              "platform": "linux/amd64",
+              "target_name": "mirror_clickhouse_linux_amd64",
+              "bazel_tags": []
+            }
+          },
+          "mirror_clickhouse": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
+            "attributes": {
+              "target_name": "mirror_clickhouse",
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "clickhouse/clickhouse-server",
+              "identifier": "sha256:cacf32d6884291dc2ff5e0156a97f46fc53ff7c929a7906d114e268a929dfd3a",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@mirror_clickhouse_linux_amd64"
+              },
+              "bzlmod_repository": "mirror_clickhouse",
+              "reproducible": true
+            }
+          },
+          "mirror_alpine_linux_amd64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "library/alpine",
+              "identifier": "sha256:82d1e9d7ed48a7523bdebc18cf6290bdb97b82302a8a9c27d4fe885949ea94d1",
+              "platform": "linux/amd64",
+              "target_name": "mirror_alpine_linux_amd64",
+              "bazel_tags": []
+            }
+          },
+          "mirror_alpine": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
+            "attributes": {
+              "target_name": "mirror_alpine",
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "library/alpine",
+              "identifier": "sha256:82d1e9d7ed48a7523bdebc18cf6290bdb97b82302a8a9c27d4fe885949ea94d1",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@mirror_alpine_linux_amd64"
+              },
+              "bzlmod_repository": "mirror_alpine",
+              "reproducible": true
+            }
+          },
+          "mirror_clickhouse_operator_linux_amd64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "altinity/clickhouse-operator",
+              "identifier": "sha256:cd9252644ce0a1a26feea66eb77edbfe91b10dec2634b7b8ad73fa3196551488",
+              "platform": "linux/amd64",
+              "target_name": "mirror_clickhouse_operator_linux_amd64",
+              "bazel_tags": []
+            }
+          },
+          "mirror_clickhouse_operator": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
+            "attributes": {
+              "target_name": "mirror_clickhouse_operator",
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "altinity/clickhouse-operator",
+              "identifier": "sha256:cd9252644ce0a1a26feea66eb77edbfe91b10dec2634b7b8ad73fa3196551488",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@mirror_clickhouse_operator_linux_amd64"
+              },
+              "bzlmod_repository": "mirror_clickhouse_operator",
+              "reproducible": true
+            }
+          },
+          "mirror_metrics_exporter_linux_amd64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "altinity/metrics-exporter",
+              "identifier": "sha256:df3d57215356043a2b5bcc03a9cdb62198b907932c7077131e079fae1c01156c",
+              "platform": "linux/amd64",
+              "target_name": "mirror_metrics_exporter_linux_amd64",
+              "bazel_tags": []
+            }
+          },
+          "mirror_metrics_exporter": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
+            "attributes": {
+              "target_name": "mirror_metrics_exporter",
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "altinity/metrics-exporter",
+              "identifier": "sha256:df3d57215356043a2b5bcc03a9cdb62198b907932c7077131e079fae1c01156c",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@mirror_metrics_exporter_linux_amd64"
+              },
+              "bzlmod_repository": "mirror_metrics_exporter",
+              "reproducible": true
+            }
+          },
+          "mirror_zookeeper_linux_amd64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "signoz/zookeeper",
+              "identifier": "sha256:fcc4a3288154ccaa3bdb5ae6dc10180c084d29a8a6a26b62ac8e30a8940dc2e6",
+              "platform": "linux/amd64",
+              "target_name": "mirror_zookeeper_linux_amd64",
+              "bazel_tags": []
+            }
+          },
+          "mirror_zookeeper": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
+            "attributes": {
+              "target_name": "mirror_zookeeper",
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "signoz/zookeeper",
+              "identifier": "sha256:fcc4a3288154ccaa3bdb5ae6dc10180c084d29a8a6a26b62ac8e30a8940dc2e6",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@mirror_zookeeper_linux_amd64"
+              },
+              "bzlmod_repository": "mirror_zookeeper",
               "reproducible": true
             }
           },
@@ -715,6 +918,20 @@
             "python_runtime_linux_amd64",
             "postgres_client",
             "postgres_client_linux_amd64",
+            "mirror_signoz",
+            "mirror_signoz_linux_amd64",
+            "mirror_otel_collector",
+            "mirror_otel_collector_linux_amd64",
+            "mirror_clickhouse",
+            "mirror_clickhouse_linux_amd64",
+            "mirror_alpine",
+            "mirror_alpine_linux_amd64",
+            "mirror_clickhouse_operator",
+            "mirror_clickhouse_operator_linux_amd64",
+            "mirror_metrics_exporter",
+            "mirror_metrics_exporter_linux_amd64",
+            "mirror_zookeeper",
+            "mirror_zookeeper_linux_amd64",
             "integration_postgis",
             "integration_postgis_linux_amd64",
             "integration_nginx",

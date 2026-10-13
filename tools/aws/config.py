@@ -47,6 +47,33 @@ PRD_REQUIRED_SECRET_KEYS = {
     "scene_api": {"SCENETRIP_AUTH_APPLE_PRIVATE_KEY"},
 }
 
+# SigNoz(ADR 0025)가 쓰는 공개 이미지를 환경 ECR 로 복사한 것 — 키: (원래 경로, 태그). 차트의 `global.imageRegistry` 를
+# `<ECR>/scenetrip-<env>/mirror` 로 두면 차트가 원래 경로를 그대로 붙인다(`…/mirror/signoz/signoz:v0.145.0`). 태그는
+# 차트 0.145.0 의 기본값과 같아야 하고, MODULE.bazel 의 `oci.pull`(digest 고정)이 같은 이미지를 받는다. 저장소는 태그 불변이라
+# 한 번 올린 태그는 내용이 바뀌지 않는다 — 배포기는 없는 태그만 올린다.
+SIGNOZ_MIRROR = {
+    "mirror_signoz": ("signoz/signoz", "v0.145.0"),
+    "mirror_otel_collector": ("signoz/signoz-otel-collector", "v0.144.12"),
+    "mirror_clickhouse": ("clickhouse/clickhouse-server", "25.12.5"),
+    "mirror_alpine": ("alpine", "3.18.2"),
+    "mirror_clickhouse_operator": ("altinity/clickhouse-operator", "0.21.2"),
+    "mirror_metrics_exporter": ("altinity/metrics-exporter", "0.21.2"),
+    "mirror_zookeeper": ("signoz/zookeeper", "3.7.1"),
+}
+
+# SigNoz 를 올리는 환경. PRD 는 DEV 에서 확인한 뒤 더한다(observability-aws.md §6 의 4 단계).
+SIGNOZ_ENVIRONMENTS = ("dev",)
+
+# 환경 ECR 저장소(`scenetrip-<env>/<이름>`). Terraform `local.repositories` 와 같아야 한다(시험이 대조). 배포·삭제 검사가
+# 모두 이 목록을 쓴다 — 저장소를 더할 때 여기 한 곳만 고친다.
+REPOSITORIES = {
+    "scene_api": "scene-api",
+    "trip_guide": "trip-guide",
+    "migration": "migration",
+    "data_load": "data-load",
+    **{key: f"mirror/{path}" for key, (path, _) in SIGNOZ_MIRROR.items()},
+}
+
 # 외부 토큰 암호화 키 길이(AES-256). scene-api 의 TokenCipher 와 같다.
 TOKEN_ENCRYPTION_KEY_BYTES = 32
 

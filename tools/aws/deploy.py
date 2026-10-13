@@ -7,11 +7,19 @@ import secrets
 from pathlib import Path
 
 from tools.aws.alb import alb_values, verify_nodeclass, wait_for_alb
-from tools.aws.config import matched, validate_secret
+from tools.aws.config import SIGNOZ_ENVIRONMENTS, matched, validate_secret
 
 NAMESPACE = "scenetrip"
 # 버전과 다중 아키텍처 manifest digest를 함께 고정한다.
 POSTGRES_IMAGE = "postgres:17.6-bookworm@sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3"
+
+
+# SigNoz(ADR 0025). 수집기 Service 는 차트가 `<릴리스>-otel-collector` 로 만든다 — scene-api 가 OTLP gRPC 로 보낸다.
+SIGNOZ_NAMESPACE = "signoz"
+SIGNOZ_RELEASE = "signoz"
+SIGNOZ_OTLP_ENDPOINT = "http://signoz-otel-collector.signoz.svc.cluster.local:4317"
+SIGNOZ_STORAGE_CLASS = "signoz-gp3"
+SIGNOZ_PASSWORD_SECRET = "signoz-clickhouse"
 
 
 def sync_secret(run, name, values):
@@ -524,7 +532,7 @@ def validate_environment_outputs(settings, outputs):
             raise ValueError(f"Terraform 출력 {key}가 선택한 환경과 다릅니다")
 
 
-def deploy(run, root, settings, outputs):
+def deploy(run, root, settings, outputs, signoz_chart=None):
     validate_environment_outputs(settings, outputs)
     values = gateway_values(settings, outputs)
     values = {**values, "gateway": {**values["gateway"], **alb_values(outputs)}}
@@ -575,6 +583,9 @@ def deploy(run, root, settings, outputs):
         "data": {"enable-network-policy-controller": "true"},
     }
     run(["kubectl", "apply", "-f", "-"], stdin=json.dumps(cni), quiet=True)
+    signoz = settings.environment in SIGNOZ_ENVIRONMENTS
+    if signoz:
+        install_signoz(run, root, settings, outputs, signoz_chart)
     credentials = database_credentials(run, outputs["app_secret_arns"]["database"])
     # scene-api 는 사람이 넣은 카카오 키와 배포가 만든 서명 키를 한 Secret 으로 받는다 —
     # Helm 차트가 scene-api-secrets 를 통째로 환경변수로 넣는다(envFrom).
@@ -620,6 +631,8 @@ def deploy(run, root, settings, outputs):
             "mediaBucket": outputs["user_media_bucket"],
         },
         "tripGuide": {"image": image("trip_guide")},
+        # 비면 scene-api 가 OTEL 을 끈다(templates/config.yaml). SigNoz 를 올린 환경만 켠다.
+        "otel": {"endpoint": SIGNOZ_OTLP_ENDPOINT if signoz else ""},
     }
     run(
         [
@@ -664,6 +677,115 @@ def deploy(run, root, settings, outputs):
         f"{settings.environment} Helm 배포 완료: {settings.tag}; DB 변경은 Helm 롤백 대상이 아닙니다"
     )
     return hostname
+
+
+def signoz_storage_class():
+    """EKS Auto Mode 의 내장 EBS 드라이버(`ebs.csi.eks.amazonaws.com`)로 gp3·암호화 디스크. PVC 를 지우면 디스크도 지운다."""
+    return {
+        "apiVersion": "storage.k8s.io/v1",
+        "kind": "StorageClass",
+        "metadata": {"name": SIGNOZ_STORAGE_CLASS},
+        "provisioner": "ebs.csi.eks.amazonaws.com",
+        "volumeBindingMode": "WaitForFirstConsumer",
+        "reclaimPolicy": "Delete",
+        "allowVolumeExpansion": True,
+        "parameters": {"type": "gp3", "encrypted": "true"},
+    }
+
+
+def clickhouse_password(run):
+    """SigNoz 의 ClickHouse 비밀번호 — 클러스터에 한 번 만들고 다시 쓴다. 바꾸면 이미 뜬 ClickHouse 와 어긋난다.
+
+    사람이 쓸 값이 아니라 Secrets Manager 에 두지 않는다. 클러스터를 지우면 디스크와 함께 사라진다. 차트가 이 값을
+    `tcp://user:password@…` 주소에 그대로 넣으므로 16 진 문자만 쓴다."""
+    raw = run(
+        [
+            "kubectl",
+            "-n",
+            SIGNOZ_NAMESPACE,
+            "get",
+            "secret",
+            SIGNOZ_PASSWORD_SECRET,
+            "--ignore-not-found",
+            "-o",
+            "json",
+        ],
+        quiet=True,
+    )
+    if raw.strip():
+        encoded = json.loads(raw).get("data", {}).get("password", "")
+        password = base64.b64decode(encoded).decode() if encoded else ""
+        return matched(r"[0-9a-f]{64}", password, "SigNoz ClickHouse 비밀번호")
+    password = secrets.token_hex(32)
+    manifest = {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": {"name": SIGNOZ_PASSWORD_SECRET, "namespace": SIGNOZ_NAMESPACE},
+        "type": "Opaque",
+        "stringData": {"password": password},
+    }
+    run(["kubectl", "apply", "-f", "-"], stdin=json.dumps(manifest), quiet=True)
+    return password
+
+
+def install_signoz(run, root, settings, outputs, chart):
+    """SigNoz 를 `signoz` 네임스페이스에 올린다(ADR 0025). 이미지는 환경 ECR 의 복사본(aws.mirror_signoz)에서 받는다."""
+    if not chart:
+        raise ValueError("SigNoz 차트 파일이 지정되지 않았습니다")
+    registry = (
+        f"{settings.account}.dkr.ecr.{settings.region}.amazonaws.com"
+        f"/scenetrip-{settings.environment}/mirror"
+    )
+    if outputs["ecr_repository_urls"]["mirror_signoz"] != registry + "/signoz/signoz":
+        raise ValueError("Terraform ECR 출력이 선택한 계정·환경과 다릅니다")
+    namespace = {
+        "apiVersion": "v1",
+        "kind": "Namespace",
+        "metadata": {
+            "name": SIGNOZ_NAMESPACE,
+            # ClickHouse 초기화 컨테이너가 restricted 를 넘는다. 특권·호스트 경로는 baseline 이 막는다.
+            "labels": {
+                "pod-security.kubernetes.io/enforce": "baseline",
+                "pod-security.kubernetes.io/warn": "restricted",
+            },
+        },
+    }
+    run(["kubectl", "apply", "-f", "-"], stdin=json.dumps(namespace), quiet=True)
+    run(
+        ["kubectl", "apply", "-f", "-"],
+        stdin=json.dumps(signoz_storage_class()),
+        quiet=True,
+    )
+    values = {
+        "global": {"imageRegistry": registry},
+        "clickhouse": {"password": clickhouse_password(run)},
+    }
+    run(
+        [
+            "helm",
+            "upgrade",
+            "--install",
+            SIGNOZ_RELEASE,
+            str(chart),
+            "--namespace",
+            SIGNOZ_NAMESPACE,
+            "--values",
+            str(root / "platform/helm/signoz/values.yaml"),
+            "--values",
+            str(root / f"platform/helm/signoz/values-{settings.environment}.yaml"),
+            "--values",
+            "-",
+            "--atomic",
+            "--wait",
+            "--timeout",
+            "15m",
+            "--history-max",
+            "5",
+        ],
+        stdin=json.dumps(values),
+        quiet=True,
+    )
+    print(f"{settings.environment} SigNoz 배포 완료")
 
 
 def verify_network_deny(run, image):
