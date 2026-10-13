@@ -63,7 +63,11 @@ def live_cluster(run, settings, resources):
 
 
 def validate_alb(item, settings, resources):
-    group = resources.get("aws_security_group.alb", {}).get("id")
+    # API ALB 와 SigNoz 화면 ALB(ADR 0025) — 각자 Terraform 의 전용 보안 그룹 하나만 단다.
+    groups = {
+        resources.get(address, {}).get("id")
+        for address in ("aws_security_group.alb", "aws_security_group.signoz_alb")
+    } - {None}
     subnets = {
         value["id"]
         for address, value in resources.items()
@@ -72,8 +76,8 @@ def validate_alb(item, settings, resources):
     if (
         item.get("Type") != "application"
         or item.get("Scheme") != "internet-facing"
-        or not group
-        or set(item.get("SecurityGroups", [])) != {group}
+        or len(item.get("SecurityGroups", [])) != 1
+        or item["SecurityGroups"][0] not in groups
         or len(subnets) < 2
         or {zone["SubnetId"] for zone in item.get("AvailabilityZones", [])} != subnets
     ):
@@ -94,10 +98,13 @@ def matching_albs(run, settings, resources):
     if not isinstance(candidates, list):
         raise TypeError("ALB 목록 형식이 올바르지 않습니다")
     matching = [item for item in candidates if item.get("VpcId") == vpc]
-    if len(matching) > 1:
+    # API ALB 하나와 SigNoz 화면 ALB 하나까지 — 보안 그룹이 서로 달라야 한다.
+    if len(matching) > 2:
         raise ValueError("선택한 VPC에 예상보다 많은 로드 밸런서가 있습니다")
     for item in matching:
         validate_alb(item, settings, resources)
+    if len({tuple(item["SecurityGroups"]) for item in matching}) != len(matching):
+        raise ValueError("같은 보안 그룹을 단 로드 밸런서가 둘입니다")
     return matching
 
 
@@ -120,6 +127,42 @@ def get_ingress(run):
     return json.loads(raw) if raw.strip() else None
 
 
+def get_signoz_ingress(run):
+    raw = run(
+        [
+            "kubectl",
+            "-n",
+            "signoz",
+            "get",
+            "ingress",
+            "signoz-ui",
+            "--ignore-not-found",
+            "-o",
+            "json",
+            "--request-timeout=15s",
+        ],
+        quiet=True,
+    )
+    return json.loads(raw) if raw.strip() else None
+
+
+def delete_signoz_ingress(run):
+    run(
+        [
+            "kubectl",
+            "-n",
+            "signoz",
+            "delete",
+            "ingress",
+            "signoz-ui",
+            "--ignore-not-found",
+            "--wait=false",
+            "--request-timeout=15s",
+        ],
+        quiet=True,
+    )
+
+
 def validate_ingress(ingress, settings, albs):
     if ingress is None:
         return
@@ -137,7 +180,7 @@ def validate_ingress(ingress, settings, albs):
         )
     endpoints = ingress.get("status", {}).get("loadBalancer", {}).get("ingress", [])
     hosts = {item.get("hostname") for item in endpoints}
-    if hosts and albs and hosts != {item["DNSName"] for item in albs}:
+    if hosts and albs and not hosts <= {item["DNSName"] for item in albs}:
         raise ValueError("Ingress DNS와 확인한 ALB가 다릅니다")
 
 
@@ -172,8 +215,9 @@ def wait_gateway_absent(run, settings, resources, timeout=GATEWAY_TIMEOUT):
     deadline = time.monotonic() + timeout
     while True:
         ingress = get_ingress(run)
+        signoz = get_signoz_ingress(run)
         albs = matching_albs(run, settings, resources)
-        if ingress is None and not albs:
+        if ingress is None and signoz is None and not albs:
             return
         if time.monotonic() >= deadline:
             raise TimeoutError(
@@ -227,6 +271,8 @@ def remove_gateway(run, settings, resources):
     release = helm_release(run)
     if ingress is not None:
         delete_ingress(run)
+    # SigNoz 화면 ALB 도 클러스터가 살아 있을 때 컨트롤러가 지워야 한다 — 남으면 VPC 를 지우지 못한다.
+    delete_signoz_ingress(run)
     wait_gateway_absent(run, settings, resources)
     if release:
         run(

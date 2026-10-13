@@ -79,3 +79,9 @@ output "topology" {
 output "user_media_bucket" {
   value = "scenetrip-user-media-${var.aws_account_id}-${var.aws_region}-${var.environment}"
 }
+output "signoz_alb_security_group_id" {
+  value = aws_security_group.signoz_alb.id
+}
+output "signoz_certificate_arn" {
+  value = var.signoz_certificate_arn
+}

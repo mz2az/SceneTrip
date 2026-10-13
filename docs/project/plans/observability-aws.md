@@ -81,6 +81,28 @@ DEV 에서 **부하 테스트**를 할 예정이다. 「느려졌다」 는 Clou
 - **보관 기간은 values 로 정할 수 없다**(화면·API 만). DEV 는 기본값(trace·로그 15 일, 지표 30 일), PRD 에서 API 로 줄인다.
 - 차트가 클러스터 전체에 까는 것: ClickHouse CRD 3 개(Altinity), 읽기 전용 ClusterRole 1 개. DaemonSet·hostPath·특권 없음.
 
+## 6-2. 2 단계 ②: 화면 주소 — Cloudflare Access (2026-10-13)
+
+1 차(①)는 DEV 에서 끝났다 — 올리기 검증이 span 104 개를 셌다. 화면은 아직 클러스터 밖에서 닿지 않는다.
+
+```mermaid
+flowchart LR
+  B[브라우저] --> CF[Cloudflare 프록시 + Access<br/>허용 메일만 통과]
+  CF --> ALB[SigNoz 전용 ALB<br/>Cloudflare IP 대역만]
+  ALB --> UI[signoz:8080]
+```
+
+| 항목 | 결정 |
+| --- | --- |
+| ALB | API 와 **따로**. API ALB 는 인터넷 전체(ADR 0024), 이것은 Cloudflare IP 대역만 — 보안 그룹이 ALB 단위라 나눈다 |
+| 보안 그룹 | Terraform `aws_security_group.signoz_alb` — 들어옴: Cloudflare IPv4 대역(https://www.cloudflare.com/ips-v4 를 Terraform 에 고정, 15 개) 443. 나감: 클러스터 SG 8080. 클러스터 SG 에 「SigNoz ALB → 8080」 |
+| Ingress | `signoz` 네임스페이스, IngressClassParams `scenetrip-<env>-signoz-alb`(인증서·internet-facing), 대상 `signoz:8080`(ip). 배포기가 SigNoz 설치 뒤 만든다 |
+| 인증서 | ACM `signoz-dev.scenetrip.io`(PRD 는 `signoz.scenetrip.io`) — API 인증서처럼 사람이 한 번 요청하고 Cloudflare CNAME 으로 검증, Terraform 변수 `signoz_certificate_arn` 으로 받는다 |
+| DNS | 올리기(`lifecycle.up`)가 `signoz-dev` CNAME 을 SigNoz ALB 로 — **프록시 켬**(API 는 DNS only 그대로) |
+| Access | 애플리케이션 `signoz-dev.scenetrip.io` + 정책(허용 메일). 주소에 묶이므로 **한 번 만들면 DEV 를 내렸다 올려도 그대로** — Cloudflare API 로 한 번 만든다. 허용 메일은 저장소에 적지 않는다 |
+| 로그인 | Access 의 One-time PIN(메일 코드) → SigNoz 로그인(`admin@scenetrip.io`, 비밀번호는 Secrets Manager `/scenetrip/dev/signoz`) |
+| 확인 | ① 허용 메일로 화면 열림 ② 로그인 안 하면 Access 로그인으로 넘어감 ③ ALB 주소로 직접 → 연결 안 됨 |
+
 ## 7. 열린 것
 
 - SigNoz 가 쓰는 자원(메모리·디스크)은 설치 뒤 **실측**해서 PRD 비용을 적는다 — 지금 숫자를 지어내지 않는다

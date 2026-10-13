@@ -10,6 +10,7 @@ from tools.aws.lifecycle import (
     Target,
     down,
     environment_alb,
+    point_signoz,
     restore_secrets,
     start_runner,
     stop_runner,
@@ -25,16 +26,21 @@ TARGET = Target(
     "owner/repo",
 )
 ALB = "k8s-scenetri-gateway-abc-123.ap-northeast-2.elb.amazonaws.com"
+SIGNOZ_ALB = "k8s-signoz-signozui-def-456.ap-northeast-2.elb.amazonaws.com"
 
 
 class FakeAws:
     """명령 앞부분으로 응답을 고르고 호출 순서를 기록한다."""
 
-    def __init__(self, state="stopped", instances=1, secrets=(), alb_after=0):
+    def __init__(
+        self, state="stopped", instances=1, secrets=(), alb_after=0, signoz=False
+    ):
         self.state = state
         self.instances = instances
         self.secrets = list(secrets)
         self.alb_after = alb_after
+        # SigNoz 화면 ALB(ADR 0025) — 기본은 없다(화면 인증서를 비운 환경).
+        self.signoz = signoz
         self.alb_queries = 0
         self.calls = []
 
@@ -57,6 +63,9 @@ class FakeAws:
         if key == ("secretsmanager", "list-secrets"):
             return json.dumps({"SecretList": self.secrets})
         if key == ("ec2", "describe-security-groups"):
+            if any(part.endswith("-signoz-alb") for part in command):
+                groups = [{"GroupId": "sg-0signoz"}] if self.signoz else []
+                return json.dumps({"SecurityGroups": groups})
             return json.dumps({"SecurityGroups": [{"GroupId": "sg-0alb"}]})
         if key == ("elbv2", "describe-load-balancers"):
             self.alb_queries += 1
@@ -67,6 +76,11 @@ class FakeAws:
                     "DNSName": "other.elb",
                     "Type": "application",
                     "SecurityGroups": ["sg-x"],
+                },
+                {
+                    "DNSName": SIGNOZ_ALB,
+                    "Type": "application",
+                    "SecurityGroups": ["sg-0signoz"],
                 },
             ]
             return json.dumps({"LoadBalancers": balancers if ready else balancers[1:]})
@@ -126,9 +140,11 @@ class FakeGitHub:
 class FakeCloudflare:
     def __init__(self):
         self.pointed = []
+        self.proxied = []
 
-    def point(self, domain, target, region):
+    def point(self, domain, target, region, proxied=False):
         self.pointed.append((domain, target, region))
+        self.proxied.append(proxied)
 
 
 def github_for(fake):
@@ -416,6 +432,145 @@ class CloudflareTest(unittest.TestCase):
             Cloudflare("token", failing).point(
                 "api-dev.example.com", ALB, "ap-northeast-2"
             )
+
+
+PRD_TARGET = Target(**(TARGET.__dict__ | {"environment": "prd"}))
+
+
+class OrderedCloudflare(FakeCloudflare):
+    """DNS 를 바꾼 순간 GitHub 에 이미 보낸 dispatch 수를 함께 적는다."""
+
+    def __init__(self, github):
+        super().__init__()
+        self.github = github
+        self.dispatched_before = []
+
+    def point(self, domain, target, region, proxied=False):
+        self.dispatched_before.append(len(self.github.dispatched))
+        super().point(domain, target, region, proxied)
+
+
+class SignozDnsTest(unittest.TestCase):
+    """SigNoz 화면 주소(ADR 0025) — 전용 ALB 를 Cloudflare 프록시로 가리킨다. API 주소는 여전히 DNS only."""
+
+    def fake(self, records, answer=None):
+        calls = []
+
+        def http(method, url, token, body=None):
+            path = url.split("/client/v4", 1)[1]
+            calls.append((method, path, body))
+            if path.startswith("/zones?name=scenetrip.io"):
+                return 200, {"success": True, "result": [{"id": "zone1"}]}
+            if path.startswith("/zones?name="):
+                return 200, {"success": True, "result": []}
+            if method == "GET":
+                return 200, {"success": True, "result": records}
+            return 200, {"success": True, "result": {**body, **(answer or {})}}
+
+        return http, calls
+
+    def test_proxied_point_sends_and_verifies_proxy(self):
+        http, calls = self.fake([{"id": "rec1", "type": "CNAME"}])
+        with unittest.mock.patch("builtins.print"):
+            Cloudflare("token", http).point(
+                "signoz-dev.scenetrip.io", SIGNOZ_ALB, "ap-northeast-2", proxied=True
+            )
+        method, path, body = calls[-1]
+        self.assertEqual((method, path), ("PUT", "/zones/zone1/dns_records/rec1"))
+        self.assertIs(body["proxied"], True)
+        self.assertEqual(body["content"], SIGNOZ_ALB)
+        self.assertEqual(body["type"], "CNAME")
+
+    def test_default_point_stays_dns_only(self):
+        http, calls = self.fake([])
+        with unittest.mock.patch("builtins.print"):
+            Cloudflare("token", http).point(
+                "signoz-dev.scenetrip.io", SIGNOZ_ALB, "ap-northeast-2"
+            )
+        self.assertIs(calls[-1][2]["proxied"], False)
+
+    def test_result_differing_from_request_is_rejected(self):
+        for proxied, answer in (
+            (True, {"proxied": False}),
+            (False, {"proxied": True}),
+            (True, {"content": "other.ap-northeast-2.elb.amazonaws.com"}),
+            (False, {"content": "other.ap-northeast-2.elb.amazonaws.com"}),
+        ):
+            http, _calls = self.fake([], answer)
+            with (
+                self.subTest(proxied=proxied, answer=answer),
+                self.assertRaises(RuntimeError),
+            ):
+                Cloudflare("token", http).point(
+                    "signoz-dev.scenetrip.io",
+                    SIGNOZ_ALB,
+                    "ap-northeast-2",
+                    proxied=proxied,
+                )
+
+    def test_environment_alb_finds_signoz_alb_by_its_own_group(self):
+        aws = FakeAws(signoz=True)
+        self.assertEqual(
+            environment_alb(aws, "dev", "scenetrip-dev-signoz-alb"), SIGNOZ_ALB
+        )
+        self.assertIn("Name=group-name,Values=scenetrip-dev-signoz-alb", aws.calls[0])
+        # 기본 이름은 API ALB 다.
+        self.assertEqual(environment_alb(FakeAws(signoz=True), "dev"), ALB)
+        self.assertIsNone(environment_alb(FakeAws(), "dev", "scenetrip-dev-signoz-alb"))
+
+    def test_point_signoz_proxies_dev_domain_to_signoz_alb(self):
+        cloudflare = FakeCloudflare()
+        point_signoz(FakeAws(signoz=True), cloudflare, TARGET)
+        self.assertEqual(
+            cloudflare.pointed,
+            [("signoz-dev.scenetrip.io", SIGNOZ_ALB, "ap-northeast-2")],
+        )
+        self.assertEqual(cloudflare.proxied, [True])
+
+    def test_point_signoz_without_alb_changes_nothing(self):
+        cloudflare = FakeCloudflare()
+        with unittest.mock.patch("builtins.print") as printed:
+            point_signoz(FakeAws(), cloudflare, TARGET)
+        self.assertEqual(cloudflare.pointed, [])
+        printed.assert_called()
+
+    def test_point_signoz_skips_environment_without_signoz(self):
+        aws = FakeAws(signoz=True)
+        cloudflare = FakeCloudflare()
+        point_signoz(aws, cloudflare, PRD_TARGET)
+        self.assertEqual(aws.calls, [])
+        self.assertEqual(cloudflare.pointed, [])
+
+    def test_up_points_signoz_after_api_and_before_data_load(self):
+        github = FakeGitHub(conclusions=["success", "success"])
+        cloudflare = OrderedCloudflare(github)
+        with unittest.mock.patch("builtins.print"):
+            up(FakeAws(signoz=True), github_for(github), cloudflare, TARGET)
+        self.assertEqual(
+            cloudflare.pointed,
+            [
+                ("api-dev.example.com", ALB, "ap-northeast-2"),
+                ("signoz-dev.scenetrip.io", SIGNOZ_ALB, "ap-northeast-2"),
+            ],
+        )
+        self.assertEqual(cloudflare.proxied, [False, True])
+        # 둘 다 apply 하나만 보낸 뒤 — data-load 는 화면 주소를 바꾼 다음이다.
+        self.assertEqual(cloudflare.dispatched_before, [1, 1])
+        self.assertEqual(
+            [inputs["operation"] for _, inputs in github.dispatched],
+            ["apply", "data-load"],
+        )
+
+    def test_up_without_signoz_alb_still_loads_data(self):
+        github = FakeGitHub(conclusions=["success", "success"])
+        cloudflare = FakeCloudflare()
+        with unittest.mock.patch("builtins.print"):
+            up(FakeAws(), github_for(github), cloudflare, TARGET)
+        self.assertEqual(cloudflare.proxied, [False])
+        self.assertEqual(
+            [inputs["operation"] for _, inputs in github.dispatched],
+            ["apply", "data-load"],
+        )
 
 
 if __name__ == "__main__":

@@ -237,6 +237,33 @@ class LifecycleTests(unittest.TestCase):
                 any(re.fullmatch(pattern, address) for pattern in TAGGED_ADDRESSES),
                 address,
             )
+        # SigNoz 화면 전용 ALB 의 보안 그룹·규칙(ADR 0025) — Cloudflare 대역 15 개. 실제 형상에 있고 삭제 안전 목록에 든다.
+        signoz = {
+            address
+            for address in actual
+            if address.startswith(
+                (
+                    "aws_security_group.signoz_alb",
+                    "aws_vpc_security_group_ingress_rule.signoz_",
+                    "aws_vpc_security_group_egress_rule.signoz_",
+                )
+            )
+        }
+        self.assertEqual(len(signoz), 18)
+        self.assertTrue(
+            {
+                "aws_security_group.signoz_alb",
+                "aws_vpc_security_group_egress_rule.signoz_alb_to_ui",
+                "aws_vpc_security_group_ingress_rule.signoz_from_alb",
+                'aws_vpc_security_group_ingress_rule.signoz_alb_https["173.245.48.0/20"]',
+            }
+            <= signoz
+        )
+        for address in signoz:
+            self.assertTrue(
+                any(re.fullmatch(pattern, address) for pattern in TAGGED_ADDRESSES),
+                address,
+            )
         for address, attributes in expected.items():
             for key, value in attributes.items():
                 self.assertEqual(actual[address][key], value, f"{address}.{key}")

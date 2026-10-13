@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from tools.aws.tests.fixtures import valid_settings
-from tools.aws.tests.test_alb import load_balancer
+from tools.aws.tests.test_alb import load_balancer, signoz_load_balancer
 
 
 def gateway_state():
@@ -95,6 +95,7 @@ class DestroyGatewayTest(unittest.TestCase):
             patch(
                 "tools.aws.destroy_gateway.get_ingress", side_effect=[ingress(), None]
             ),
+            patch("tools.aws.destroy_gateway.get_signoz_ingress", return_value=None),
             patch("tools.aws.destroy_gateway.matching_albs", return_value=[]),
             patch("tools.aws.destroy_gateway.time.sleep") as sleep,
         ):
@@ -213,6 +214,8 @@ class DestroyGatewayTest(unittest.TestCase):
             patch(
                 "tools.aws.destroy_gateway.get_ingress", side_effect=[ingress(), None]
             ),
+            # SigNoz 화면 Ingress(ADR 0025)는 이미 없다 — 정리 대기는 SigNozGatewayTeardownTest 가 시험한다.
+            patch("tools.aws.destroy_gateway.get_signoz_ingress", return_value=None),
             # SigNoz 정리(ADR 0025)는 따로 시험한다(RemoveSignozTest) — 여기서는 불린 시점만 본다.
             patch(
                 "tools.aws.destroy_gateway.remove_signoz",
@@ -242,15 +245,31 @@ class DestroyGatewayTest(unittest.TestCase):
             patch("tools.aws.destroy_gateway.live_cluster", return_value=cluster()),
             patch("tools.aws.destroy_gateway.matching_albs", return_value=[]),
             patch("tools.aws.destroy_gateway.get_ingress", return_value=None),
+            patch("tools.aws.destroy_gateway.get_signoz_ingress", return_value=None),
             patch("tools.aws.destroy_gateway.remove_signoz") as remove_signoz,
         ):
             remove_gateway(run, valid_settings(), gateway_state())
         # SigNoz 정리는 scenetrip 릴리스가 없어도 불린다(남은 디스크 정리) — 동작은 RemoveSignozTest.
         remove_signoz.assert_called_once()
+        # SigNoz 화면 Ingress 삭제(ADR 0025)는 --ignore-not-found 로 항상 보낸다 — 그것 말고는 지우거나 해제하지 않는다.
+        signoz_delete = [
+            "kubectl",
+            "-n",
+            "signoz",
+            "delete",
+            "ingress",
+            "signoz-ui",
+            "--ignore-not-found",
+            "--wait=false",
+            "--request-timeout=15s",
+        ]
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(commands.count(signoz_delete), 1)
         self.assertFalse(
             any(
-                "delete" in call.args[0] or "uninstall" in call.args[0]
-                for call in run.call_args_list
+                "delete" in command or "uninstall" in command
+                for command in commands
+                if command != signoz_delete
             )
         )
 
@@ -278,6 +297,7 @@ class DestroyGatewayTest(unittest.TestCase):
 
         with (
             patch("tools.aws.destroy_gateway.get_ingress", return_value=ingress()),
+            patch("tools.aws.destroy_gateway.get_signoz_ingress", return_value=None),
             patch("tools.aws.destroy_gateway.matching_albs", return_value=[]),
             patch("tools.aws.destroy_gateway.time.monotonic", side_effect=[0, 2]),
             self.assertRaises(TimeoutError),
@@ -291,6 +311,276 @@ class DestroyGatewayTest(unittest.TestCase):
             self.assertRaises(RuntimeError),
         ):
             wait_gateway_absent(Mock(), valid_settings(), gateway_state())
+
+
+SIGNOZ_INGRESS_READ = [
+    "kubectl",
+    "-n",
+    "signoz",
+    "get",
+    "ingress",
+    "signoz-ui",
+    "--ignore-not-found",
+    "-o",
+    "json",
+    "--request-timeout=15s",
+]
+SIGNOZ_INGRESS_DELETE = [
+    "kubectl",
+    "-n",
+    "signoz",
+    "delete",
+    "ingress",
+    "signoz-ui",
+    "--ignore-not-found",
+    "--wait=false",
+    "--request-timeout=15s",
+]
+
+
+def signoz_state():
+    """API ALB 와 SigNoz 화면 ALB(ADR 0025)의 보안 그룹이 모두 있는 state."""
+    return {
+        **gateway_state(),
+        "aws_security_group.signoz_alb": {"id": "sg-ddddddddddddddddd"},
+    }
+
+
+def signoz_ingress():
+    return {
+        "metadata": {"name": "signoz-ui", "namespace": "signoz"},
+        "status": {
+            "loadBalancer": {
+                "ingress": [{"hostname": signoz_load_balancer()["DNSName"]}]
+            }
+        },
+    }
+
+
+def listing(*balancers):
+    return Mock(return_value=json.dumps({"LoadBalancers": list(balancers)}))
+
+
+class SignozGatewayTeardownTest(unittest.TestCase):
+    """내리기가 SigNoz 화면 ALB 도 클러스터가 살아 있을 때 지운다(ADR 0025)."""
+
+    def test_api_and_signoz_albs_are_both_recognized(self):
+        from tools.aws.destroy_gateway import matching_albs, validate_alb
+
+        settings = valid_settings()
+        validate_alb(signoz_load_balancer(), settings, signoz_state())
+        validate_alb(load_balancer(), settings, signoz_state())
+        self.assertEqual(
+            matching_albs(
+                listing(load_balancer(), signoz_load_balancer()),
+                settings,
+                signoz_state(),
+            ),
+            [load_balancer(), signoz_load_balancer()],
+        )
+        self.assertEqual(
+            matching_albs(listing(signoz_load_balancer()), settings, signoz_state()),
+            [signoz_load_balancer()],
+        )
+
+    def test_signoz_group_without_state_or_with_extra_group_is_rejected(self):
+        from tools.aws.destroy_gateway import validate_alb
+
+        settings = valid_settings()
+        # state 에 SigNoz 보안 그룹이 없으면 그 그룹을 단 ALB 는 남의 것이다.
+        with self.assertRaises(ValueError):
+            validate_alb(signoz_load_balancer(), settings, gateway_state())
+        for groups in (
+            ["sg-ddddddddddddddddd", "sg-aaaaaaaaaaaaaaaaa"],
+            [],
+            ["sg-eeeeeeeeeeeeeeeee"],
+        ):
+            with self.subTest(groups=groups), self.assertRaises(ValueError):
+                validate_alb(
+                    {**signoz_load_balancer(), "SecurityGroups": groups},
+                    settings,
+                    signoz_state(),
+                )
+        # 보안 그룹 말고 다른 검사는 그대로다.
+        for changes in (
+            {"Type": "network"},
+            {"Scheme": "internal"},
+            {"AvailabilityZones": []},
+            {
+                "LoadBalancerArn": signoz_load_balancer()["LoadBalancerArn"].replace(
+                    "123456789012", "999999999999"
+                )
+            },
+        ):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                validate_alb(
+                    {**signoz_load_balancer(), **changes}, settings, signoz_state()
+                )
+
+    def test_three_albs_or_two_with_same_group_are_rejected(self):
+        from tools.aws.destroy_gateway import matching_albs
+
+        settings = valid_settings()
+        third = {**signoz_load_balancer(), "DNSName": "third.elb.amazonaws.com"}
+        with self.assertRaisesRegex(ValueError, "많은"):
+            matching_albs(
+                listing(load_balancer(), signoz_load_balancer(), third),
+                settings,
+                signoz_state(),
+            )
+        for pair in (
+            (signoz_load_balancer(), third),
+            (
+                load_balancer(),
+                {**load_balancer(), "DNSName": "second.elb.amazonaws.com"},
+            ),
+        ):
+            with self.subTest(pair=pair), self.assertRaises(ValueError):
+                matching_albs(listing(*pair), settings, signoz_state())
+
+    def test_albs_in_other_vpc_are_ignored(self):
+        from tools.aws.destroy_gateway import matching_albs
+
+        foreign = {**signoz_load_balancer(), "VpcId": "vpc-ccccccccccccccccc"}
+        self.assertEqual(
+            matching_albs(
+                listing(load_balancer(), signoz_load_balancer(), foreign),
+                valid_settings(),
+                signoz_state(),
+            ),
+            [load_balancer(), signoz_load_balancer()],
+        )
+
+    def test_signoz_ingress_read_and_delete_commands(self):
+        from tools.aws.destroy_gateway import delete_signoz_ingress, get_signoz_ingress
+
+        run = Mock(return_value="")
+        self.assertIsNone(get_signoz_ingress(run))
+        self.assertEqual(run.call_args.args[0], SIGNOZ_INGRESS_READ)
+        self.assertIsNone(get_signoz_ingress(Mock(return_value="  \n")))
+        self.assertEqual(
+            get_signoz_ingress(Mock(return_value=json.dumps(signoz_ingress()))),
+            signoz_ingress(),
+        )
+        run = Mock(return_value="")
+        delete_signoz_ingress(run)
+        run.assert_called_once()
+        self.assertEqual(run.call_args.args[0], SIGNOZ_INGRESS_DELETE)
+
+    def test_gateway_hosts_must_be_subset_of_found_albs(self):
+        from tools.aws.destroy_gateway import validate_ingress
+
+        settings = valid_settings()
+        validate_ingress(ingress(), settings, [load_balancer(), signoz_load_balancer()])
+        validate_ingress(ingress(), settings, [load_balancer()])
+        with self.assertRaisesRegex(ValueError, "DNS"):
+            validate_ingress(ingress(), settings, [signoz_load_balancer()])
+        two_hosts = ingress()
+        two_hosts["status"]["loadBalancer"]["ingress"].append(
+            {"hostname": "stray.ap-northeast-2.elb.amazonaws.com"}
+        )
+        with self.assertRaisesRegex(ValueError, "DNS"):
+            validate_ingress(
+                two_hosts, settings, [load_balancer(), signoz_load_balancer()]
+            )
+
+    def test_remove_deletes_both_ingresses_before_waiting_then_uninstalls(self):
+        from tools.aws.destroy_gateway import remove_gateway
+
+        def execute(command, **unused):
+            if command[:2] == ["helm", "list"]:
+                return json.dumps([{"name": "scenetrip", "namespace": "scenetrip"}])
+            return ""
+
+        run = Mock(side_effect=execute)
+        with (
+            patch("tools.aws.destroy_gateway.live_cluster", return_value=cluster()),
+            patch(
+                "tools.aws.destroy_gateway.matching_albs",
+                return_value=[load_balancer(), signoz_load_balancer()],
+            ),
+            patch("tools.aws.destroy_gateway.get_ingress", return_value=ingress()),
+            patch(
+                "tools.aws.destroy_gateway.wait_gateway_absent",
+                side_effect=lambda *unused, **kw: run(["wait_gateway_absent"]),
+            ),
+            patch("tools.aws.destroy_gateway.remove_signoz"),
+        ):
+            remove_gateway(run, valid_settings(), signoz_state())
+        commands = [entry.args[0] for entry in run.call_args_list]
+        gateway_delete = next(
+            i
+            for i, command in enumerate(commands)
+            if "delete" in command and "gateway" in command
+        )
+        signoz_delete = commands.index(SIGNOZ_INGRESS_DELETE)
+        wait = commands.index(["wait_gateway_absent"])
+        uninstall = next(
+            i for i, command in enumerate(commands) if "uninstall" in command
+        )
+        self.assertLess(gateway_delete, signoz_delete)
+        self.assertLess(signoz_delete, wait)
+        self.assertLess(wait, uninstall)
+        self.assertEqual(commands.count(SIGNOZ_INGRESS_DELETE), 1)
+
+    def test_remove_without_gateway_ingress_still_deletes_signoz_ingress(self):
+        from tools.aws.destroy_gateway import remove_gateway
+
+        run = Mock(return_value="[]")
+        with (
+            patch("tools.aws.destroy_gateway.live_cluster", return_value=cluster()),
+            patch(
+                "tools.aws.destroy_gateway.matching_albs",
+                return_value=[signoz_load_balancer()],
+            ),
+            patch("tools.aws.destroy_gateway.get_ingress", return_value=None),
+            patch("tools.aws.destroy_gateway.wait_gateway_absent") as wait,
+            patch("tools.aws.destroy_gateway.remove_signoz"),
+        ):
+            remove_gateway(run, valid_settings(), signoz_state())
+        commands = [entry.args[0] for entry in run.call_args_list]
+        self.assertIn(SIGNOZ_INGRESS_DELETE, commands)
+        self.assertFalse(
+            any("delete" in command and "gateway" in command for command in commands)
+        )
+        wait.assert_called_once()
+
+    def test_wait_continues_while_signoz_ingress_or_any_alb_remains(self):
+        from tools.aws.destroy_gateway import POLL_SECONDS, wait_gateway_absent
+
+        with (
+            patch("tools.aws.destroy_gateway.get_ingress", return_value=None),
+            patch(
+                "tools.aws.destroy_gateway.get_signoz_ingress",
+                side_effect=[signoz_ingress(), None, None],
+            ),
+            patch(
+                "tools.aws.destroy_gateway.matching_albs",
+                side_effect=[[signoz_load_balancer()], [signoz_load_balancer()], []],
+            ),
+            patch("tools.aws.destroy_gateway.time.sleep") as sleep,
+        ):
+            wait_gateway_absent(Mock(), valid_settings(), signoz_state())
+        self.assertEqual(
+            [entry.args for entry in sleep.call_args_list],
+            [(POLL_SECONDS,), (POLL_SECONDS,)],
+        )
+
+    def test_wait_times_out_on_leftover_signoz_ingress(self):
+        from tools.aws.destroy_gateway import wait_gateway_absent
+
+        with (
+            patch("tools.aws.destroy_gateway.get_ingress", return_value=None),
+            patch(
+                "tools.aws.destroy_gateway.get_signoz_ingress",
+                return_value=signoz_ingress(),
+            ),
+            patch("tools.aws.destroy_gateway.matching_albs", return_value=[]),
+            patch("tools.aws.destroy_gateway.time.monotonic", side_effect=[0, 2]),
+            patch("tools.aws.destroy_gateway.time.sleep"),
+            self.assertRaises(TimeoutError),
+        ):
+            wait_gateway_absent(Mock(), valid_settings(), signoz_state(), timeout=1)
 
 
 if __name__ == "__main__":

@@ -79,6 +79,15 @@ variable "ingress_certificate_arn" {
     error_message = "ACM 인증서는 대상 AWS 계정·리전과 일치해야 합니다."
   }
 }
+variable "signoz_certificate_arn" {
+  description = "SigNoz 화면 주소(signoz-<env>.scenetrip.io, PRD 는 signoz.scenetrip.io)의 ACM 인증서 ARN. 비우면 SigNoz 화면을 열지 않는다(ADR 0025)."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.signoz_certificate_arn == "" || can(regex("^arn:aws:acm:${var.aws_region}:${var.aws_account_id}:certificate/[0-9a-f-]{36}$", var.signoz_certificate_arn))
+    error_message = "SigNoz ACM 인증서는 비우거나 대상 AWS 계정·리전과 일치해야 합니다."
+  }
+}
 variable "database_instance_class" {
   description = "RDS PostgreSQL 17 인스턴스 종류. 리전 지원 여부는 사전 확인."
   type        = string

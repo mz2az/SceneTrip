@@ -5,7 +5,7 @@ import os
 import subprocess
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from tools.aws.tests.fixtures import valid_settings
 
@@ -17,6 +17,8 @@ def alb_outputs():
         "public_subnet_cidrs": ["10.40.0.0/24", "10.40.1.0/24"],
         "alb_security_group_id": "sg-aaaaaaaaaaaaaaaaa",
         "workload_security_group_id": "sg-bbbbbbbbbbbbbbbbb",
+        # SigNoz 화면 전용 ALB 의 보안 그룹(ADR 0025) — API ALB 와 다른 그룹이다.
+        "signoz_alb_security_group_id": "sg-ddddddddddddddddd",
     }
 
 
@@ -32,6 +34,36 @@ def load_balancer():
             {"SubnetId": value} for value in alb_outputs()["public_subnet_ids"]
         ],
         "LoadBalancerArn": "arn:aws:elasticloadbalancing:ap-northeast-2:123456789012:loadbalancer/app/scenetrip/123",
+    }
+
+
+def signoz_load_balancer():
+    """SigNoz 화면 전용 ALB(ADR 0025) — API ALB 와 같은 VPC·subnet, 다른 이름·보안 그룹."""
+    return {
+        **load_balancer(),
+        "DNSName": "signoz.ap-northeast-2.elb.amazonaws.com",
+        "SecurityGroups": [alb_outputs()["signoz_alb_security_group_id"]],
+        "LoadBalancerArn": "arn:aws:elasticloadbalancing:ap-northeast-2:123456789012:loadbalancer/app/signoz/456",
+    }
+
+
+def ip_target_group():
+    return {
+        "TargetGroupArn": "signoz-group",
+        "TargetType": "ip",
+        "Protocol": "HTTP",
+        "Port": 1,
+    }
+
+
+def target_health(state):
+    return {
+        "TargetHealthDescriptions": [
+            {
+                "Target": {"Id": "10.40.26.214", "Port": 8080},
+                "TargetHealth": {"State": state},
+            }
+        ]
     }
 
 
@@ -315,6 +347,139 @@ class AlbBoundaryTest(unittest.TestCase):
             self.assertRaisesRegex(TimeoutError, "ALB"),
         ):
             wait_for_alb(run, valid_settings(), alb_outputs(), timeout=1)
+
+
+SIGNOZ_INGRESS_READ = [
+    "kubectl",
+    "-n",
+    "signoz",
+    "get",
+    "ingress",
+    "signoz-ui",
+    "-o",
+    "json",
+    "--request-timeout=15s",
+]
+
+
+class SignozAlbTest(unittest.TestCase):
+    """SigNoz 화면 ALB 준비 확인(ADR 0025) — API ALB 와 같은 검사, 보안 그룹만 signoz_alb_security_group_id."""
+
+    def test_application_ready_checks_the_requested_security_group(self):
+        from tools.aws.alb import application_ready
+
+        signoz = signoz_load_balancer()
+        ready = Mock(
+            side_effect=[
+                json.dumps({"LoadBalancers": [signoz]}),
+                json.dumps({"TargetGroups": [ip_target_group()]}),
+                json.dumps(target_health("healthy")),
+            ]
+        )
+        self.assertTrue(
+            application_ready(
+                ready,
+                valid_settings(),
+                alb_outputs(),
+                signoz["DNSName"],
+                group="signoz_alb_security_group_id",
+            )
+        )
+        # 기본 그룹은 API ALB 의 것이다 — SigNoz ALB 는 그 검사를 통과하지 못한다.
+        with self.assertRaisesRegex(ValueError, "보안 그룹"):
+            application_ready(
+                Mock(return_value=json.dumps({"LoadBalancers": [signoz]})),
+                valid_settings(),
+                alb_outputs(),
+                signoz["DNSName"],
+            )
+        # 반대로 API ALB 는 SigNoz 그룹 검사를 통과하지 못한다.
+        with self.assertRaisesRegex(ValueError, "보안 그룹"):
+            application_ready(
+                Mock(return_value=json.dumps({"LoadBalancers": [load_balancer()]})),
+                valid_settings(),
+                alb_outputs(),
+                load_balancer()["DNSName"],
+                group="signoz_alb_security_group_id",
+            )
+        # 두 그룹을 함께 단 ALB 도 거부한다.
+        both = {
+            **signoz,
+            "SecurityGroups": [
+                alb_outputs()["signoz_alb_security_group_id"],
+                alb_outputs()["alb_security_group_id"],
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "보안 그룹"):
+            application_ready(
+                Mock(return_value=json.dumps({"LoadBalancers": [both]})),
+                valid_settings(),
+                alb_outputs(),
+                signoz["DNSName"],
+                group="signoz_alb_security_group_id",
+            )
+
+    def test_wait_reads_signoz_ingress_and_retries_until_targets_healthy(self):
+        from tools.aws.alb import POLL_SECONDS, wait_for_signoz_alb
+
+        signoz = signoz_load_balancer()
+        hostname = signoz["DNSName"]
+        address = json.dumps(
+            {"status": {"loadBalancer": {"ingress": [{"hostname": hostname}]}}}
+        )
+        run = Mock(
+            side_effect=[
+                json.dumps({"status": {}}),
+                address,
+                json.dumps({"LoadBalancers": [signoz]}),
+                json.dumps({"TargetGroups": [ip_target_group()]}),
+                json.dumps(target_health("initial")),
+                address,
+                json.dumps({"LoadBalancers": [signoz]}),
+                json.dumps({"TargetGroups": [ip_target_group()]}),
+                json.dumps(target_health("healthy")),
+            ]
+        )
+        with patch("tools.aws.alb.time.sleep") as sleep:
+            self.assertEqual(
+                wait_for_signoz_alb(run, valid_settings(), alb_outputs(), timeout=30),
+                hostname,
+            )
+        self.assertEqual(
+            [entry.args for entry in sleep.call_args_list],
+            [(POLL_SECONDS,), (POLL_SECONDS,)],
+        )
+        self.assertEqual(run.call_args_list[0].args[0], SIGNOZ_INGRESS_READ)
+        self.assertEqual(run.call_args_list[5].args[0], SIGNOZ_INGRESS_READ)
+        self.assertEqual(run.call_count, 9)
+
+    def test_wait_rejects_api_security_group_on_signoz_address(self):
+        from tools.aws.alb import wait_for_signoz_alb
+
+        hostname = load_balancer()["DNSName"]
+        run = Mock(
+            side_effect=[
+                json.dumps(
+                    {"status": {"loadBalancer": {"ingress": [{"hostname": hostname}]}}}
+                ),
+                json.dumps({"LoadBalancers": [load_balancer()]}),
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, "보안 그룹"):
+            wait_for_signoz_alb(run, valid_settings(), alb_outputs(), timeout=30)
+
+    def test_wait_times_out_without_address(self):
+        from tools.aws.alb import wait_for_signoz_alb
+
+        run = Mock(return_value=json.dumps({"status": {}}))
+        with (
+            patch("tools.aws.alb.time.monotonic", side_effect=[0, 0, 2]),
+            patch("tools.aws.alb.time.sleep") as sleep,
+            self.assertRaisesRegex(TimeoutError, "SigNoz"),
+        ):
+            wait_for_signoz_alb(run, valid_settings(), alb_outputs(), timeout=1)
+        sleep.assert_called_once()
+        self.assertEqual(run.call_args_list, [call(SIGNOZ_INGRESS_READ, quiet=True)])
 
 
 class AlbChartTest(unittest.TestCase):

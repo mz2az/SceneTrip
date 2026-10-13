@@ -15,7 +15,14 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
-from tools.aws.config import APP_SECRETS, Runner, matched, workspace
+from tools.aws.config import (
+    APP_SECRETS,
+    SIGNOZ_DOMAINS,
+    SIGNOZ_ENVIRONMENTS,
+    Runner,
+    matched,
+    workspace,
+)
 
 DEPLOY_WORKFLOW = "aws-deploy.yml"
 DESTROY_WORKFLOW = "aws-destroy.yml"
@@ -192,13 +199,15 @@ def restore_secrets(run, environment):
 # ---------------------------------------------------------------- ALB·DNS
 
 
-def environment_alb(run, environment):
+def environment_alb(run, environment, group_name=None):
+    """환경 ALB 의 DNS 이름 — Terraform 이 만든 전용 보안 그룹 이름으로 찾는다. 기본은 API ALB, SigNoz 화면은
+    `scenetrip-<env>-signoz-alb`(ADR 0025)."""
     groups = aws_json(
         run,
         "ec2",
         "describe-security-groups",
         "--filters",
-        f"Name=group-name,Values=scenetrip-{environment}-alb",
+        f"Name=group-name,Values={group_name or f'scenetrip-{environment}-alb'}",
     ).get("SecurityGroups", [])
     if not groups:
         return None
@@ -242,7 +251,7 @@ class Cloudflare:
                 return zones[0]["id"]
         raise ValueError(f"{domain}을 담는 Cloudflare 존이 토큰 범위에 없습니다")
 
-    def point(self, domain, target, region):
+    def point(self, domain, target, region, proxied=False):
         matched(
             rf"[a-zA-Z0-9.-]+\.{re.escape(region)}\.elb\.amazonaws\.com",
             target,
@@ -252,12 +261,13 @@ class Cloudflare:
         records = self.call("GET", f"/zones/{zone}/dns_records?name={domain}")
         if any(record["type"] != "CNAME" for record in records):
             raise ValueError(f"{domain}에 CNAME이 아닌 레코드가 있어 바꾸지 않습니다")
-        # 프록시를 켜면 ALB가 보는 접속자가 Cloudflare가 되어 허용 CIDR·XFF 신뢰가 깨진다.
+        # API 는 프록시를 끈다 — 켜면 ALB가 보는 접속자가 Cloudflare가 되어 허용 CIDR·XFF 신뢰가 깨진다.
+        # SigNoz 화면만 켠다 — Cloudflare Access 가 앞에서 허용 메일을 확인하고, ALB 는 Cloudflare 대역만 받는다(ADR 0025).
         body = {
             "type": "CNAME",
             "name": domain,
             "content": target,
-            "proxied": False,
+            "proxied": proxied,
             "ttl": DNS_TTL_SECONDS,
             "comment": "SceneTrip ALB; managed by dev-lifecycle workflow",
         }
@@ -267,9 +277,9 @@ class Cloudflare:
             )
         else:
             result = self.call("POST", f"/zones/{zone}/dns_records", body)
-        if result.get("proxied") or result.get("content") != target:
-            raise RuntimeError("Cloudflare 레코드가 요청한 DNS only 값과 다릅니다")
-        print(f"DNS 갱신: {domain} → {target} (DNS only)")
+        if bool(result.get("proxied")) != proxied or result.get("content") != target:
+            raise RuntimeError("Cloudflare 레코드가 요청한 값·프록시 설정과 다릅니다")
+        print(f"DNS 갱신: {domain} → {target} ({'프록시' if proxied else 'DNS only'})")
         return result
 
 
@@ -351,6 +361,21 @@ def require_success(run, label):
 # ---------------------------------------------------------------- 흐름
 
 
+def point_signoz(run, cloudflare, target):
+    """SigNoz 화면 주소를 SigNoz 전용 ALB 로(프록시 켬, ADR 0025). 화면 인증서가 없어 ALB 가 없으면 건너뛴다."""
+    if target.environment not in SIGNOZ_ENVIRONMENTS:
+        return
+    balancer = environment_alb(
+        run, target.environment, f"scenetrip-{target.environment}-signoz-alb"
+    )
+    if not balancer:
+        print("SigNoz 화면 ALB 가 없어 화면 주소를 바꾸지 않습니다")
+        return
+    cloudflare.point(
+        SIGNOZ_DOMAINS[target.environment], balancer, target.region, proxied=True
+    )
+
+
 def up(run, github, cloudflare, target):
     start_runner(run, target.environment)
     restore_secrets(run, target.environment)
@@ -380,6 +405,7 @@ def up(run, github, cloudflare, target):
     point_dns()
     if not pointed["value"]:
         raise RuntimeError("배포는 끝났지만 환경 ALB를 찾지 못했습니다")
+    point_signoz(run, cloudflare, target)
     # DEV 는 올릴 때마다 빈 DB 다 — 같은 커밋의 데이터를 넣는다(MZ2AZ-414). 같은 workflow 의 data-load 동작이라
     # 같은 concurrency 그룹·같은 OIDC 역할을 쓴다.
     loading = github.dispatch(
