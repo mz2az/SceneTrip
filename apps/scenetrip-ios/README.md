@@ -91,6 +91,8 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 3. **백엔드** — 앱은 `http://localhost:8081/v1` 을 부른다. 로컬 클러스터를
    띄워 둔다(`just cluster-up`, MZ2AZ-157 구성 그대로).
 4. **실행** — `just ios-run`.
+   원격 서버로 붙이려면 `just ios-run-cloud https://api-dev.scenetrip.io/v1`(DEV) · `just ios-run-cloud https://api.scenetrip.io/v1`(PRD).
+   서버를 바꾸면 토큰이 맞지 않아 다시 로그인해야 한다.
 
 ### 되는 것 / 안 되는 것
 
