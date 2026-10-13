@@ -31,7 +31,7 @@ class 인자검증(unittest.TestCase):
         out = validate_args(schema, {"titles": ["도깨비", "이태원 클라쓰"], "days": 2})
         self.assertEqual(out["titles"], ["도깨비", "이태원 클라쓰"])
         self.assertEqual(out["days"], 2)
-        self.assertEqual(out["pace"], "normal")  # 기본값이 채워진다
+        self.assertEqual(out["pace"], "보통")  # 기본값이 채워진다 — 스키마의 말 그대로
 
     def test_목록_자리에_문자열_하나가_와도_감싸서_받는다(self):
         """모델이 titles="도깨비" 로 보내는 일이 잦다. 뜻이 분명하므로 거절하지 않는다."""
@@ -79,6 +79,45 @@ class 인자검증(unittest.TestCase):
         schema = specs()["plan_course"]["parameters"]
         with self.assertRaises(ToolArgError):
             validate_args(schema, {"titles": ["가"], "pace": "빠르게"})
+
+
+class 모델에게_보이는_말(unittest.TestCase):
+    """스키마의 열거값과 도구 결과는 모델이 읽고, 읽은 값은 답에 섞여 나온다 (MZ2AZ-426)."""
+
+    def test_스키마의_열거값에_영어_설정값이_없다(self):
+        def enums(node):
+            if isinstance(node, dict):
+                yield from node.get("enum", [])
+                for v in node.values():
+                    yield from enums(v)
+            elif isinstance(node, list):
+                for v in node:
+                    yield from enums(v)
+
+        ascii_values = [e for e in enums(load_tool_specs()) if str(e).isascii()]
+        self.assertEqual(ascii_values, [])
+
+    def test_한국어_말로_불러도_예전_영어_값으로_불러도_같다(self):
+        for pace in ("느긋하게", "relaxed"):
+            session = Session(book=seoul_incheon_book())
+            out = call("plan_course", {"titles": ["도깨비"], "pace": pace}, session)
+            self.assertNotIn("결과없음", out, out)
+            self.assertEqual(session.plan.request.pace, "relaxed")
+
+    def test_일정_요약의_여행_속도는_한국어_말이다(self):
+        session = Session(book=seoul_incheon_book())
+        out = call("plan_course", {"titles": ["도깨비"], "pace": "packed"}, session)
+        self.assertEqual(out["근거"]["여행 속도"], "빡빡하게")
+        self.assertNotIn("packed", json.dumps(out, ensure_ascii=False))
+
+
+class 조사(unittest.TestCase):
+    def test_받침에_맞춰_을_를_을_붙인다(self):
+        from src.tools import _with_object_particle
+
+        self.assertEqual(_with_object_particle("정동길"), "정동길을")
+        self.assertEqual(_with_object_particle("카페낙타"), "카페낙타를")
+        self.assertEqual(_with_object_particle("N Tower"), "N Tower을(를)")
 
 
 class 계약(unittest.TestCase):
@@ -228,6 +267,122 @@ class 언어(unittest.TestCase):
     def test_섞어_쓰면_한국어로_본다(self):
         """「Goblin 촬영지 알려줘」 쪽이 훨씬 흔하다."""
         self.assertEqual(detect_language("Goblin 촬영지 알려줘")[0], "ko")
+
+
+class 같은곳인편의시설(unittest.TestCase):
+    """촬영지와 같은 곳인 편의시설 — `PoiSummary.placeId` (MZ2AZ-379).
+
+    같은 곳이면 어디서든 촬영지가 대표한다. 이름으로 맞추지 않는다 — 편의시설 「몽테드」 와 촬영지
+    「수원 카페 몽테드」 는 이름이 다르다.
+    """
+
+    def session(self, pois=None):
+        from tests.fixtures import PoiBook, make_place
+
+        places = [
+            make_place(
+                "45", "수원 카페 몽테드", 37.2850, 127.0150, title="그 해 우리는"
+            ),
+            make_place("46", "수원 화홍문", 37.2875, 127.0178, title="그 해 우리는"),
+        ]
+        rows = (
+            pois
+            if pois is not None
+            else [
+                {
+                    "id": 9001,
+                    "name": "몽테드",
+                    "category": "카페",
+                    "categoryGroup": "food",
+                    "address": "경기 수원시 팔달구 신풍로",
+                    "latitude": 37.2850,
+                    "longitude": 127.0150,
+                    "distanceMeters": 40,
+                    "placeId": 45,
+                },
+                {
+                    "id": 9002,
+                    "name": "행궁다방",
+                    "category": "카페",
+                    "categoryGroup": "food",
+                    "address": "경기 수원시 팔달구 행궁로",
+                    "latitude": 37.2853,
+                    "longitude": 127.0155,
+                    "distanceMeters": 95,
+                },
+            ]
+        )
+        s = Session(book=PoiBook({"그 해 우리는": places}, pois=rows))
+        s.here = Anchor("현위치", 37.2851, 127.0152)
+        return s
+
+    def test_연결된_줄은_촬영지_이름으로_준다(self):
+        """모델은 「이름」 을 그대로 말한다 — 그 자리에 촬영지 이름을 둔다."""
+        s = self.session()
+        out = call("poi_nearby", {"group": "음식"}, s)
+        first, second = out["찾은 곳"]
+        self.assertEqual(first["이름"], "수원 카페 몽테드")
+        self.assertEqual(first["편의시설 이름"], "몽테드")
+        self.assertEqual(first["촬영지이기도 하다"], ["그 해 우리는"])
+        self.assertIn("같은 곳", out)
+        # 연결되지 않은 줄은 그대로다.
+        self.assertEqual(second["이름"], "행궁다방")
+        self.assertNotIn("촬영지이기도 하다", second)
+
+    def test_연결이_없으면_안내도_없다(self):
+        s = self.session()
+        s.book.pois = [p for p in s.book.pois if p.get("placeId") is None]
+        out = call("poi_nearby", {"group": "음식"}, s)
+        self.assertNotIn("같은 곳", out)
+
+    def test_연결된_촬영지를_보여_준_장소에_넣는다(self):
+        """그래야 「그거 담아 줘」 가 촬영지를 가리킨다."""
+        s = self.session()
+        call("poi_nearby", {"group": "음식"}, s)
+        self.assertEqual([p.place_id for p in s.shown], ["45"])
+
+    def test_편의시설_이름으로_담아도_촬영지로_담긴다(self):
+        s = self.session()
+        call("poi_nearby", {"group": "음식"}, s)
+        s.clear_outbox()
+        out = call("update_cart", {"action": "add", "name": "몽테드"}, s)
+        self.assertNotIn("결과없음", out)
+        self.assertEqual(
+            s.effects, [{"op": "cart.add", "placeId": 45, "name": "수원 카페 몽테드"}]
+        )
+
+    def test_촬영지_이름으로_담아도_같다(self):
+        s = self.session()
+        call("poi_nearby", {"group": "음식"}, s)
+        s.clear_outbox()
+        call("update_cart", {"action": "add", "name": "수원 카페 몽테드"}, s)
+        self.assertEqual(s.effects[0]["placeId"], 45)
+
+    def test_연결되지_않은_편의시설은_담지_않는다(self):
+        """장바구니는 촬영지 전용이다. 같은 이름의 다른 촬영지를 찾아 담지도 않는다."""
+        s = self.session()
+        call("poi_nearby", {"group": "음식"}, s)
+        s.clear_outbox()
+        out = call("update_cart", {"action": "add", "name": "행궁다방"}, s)
+        self.assertIn("편의시설", out["결과없음"])
+        self.assertEqual(s.effects, [])
+
+    def test_가리키는_촬영지를_못_찾으면_연결되지_않은_것으로_본다(self):
+        """`placeId` 는 있는데 곁에서 그 촬영지를 못 찾았다 — 지어내지 않는다."""
+        s = self.session()
+        s.book.pois[0]["placeId"] = 99999
+        out = call("poi_nearby", {"group": "음식"}, s)
+        self.assertEqual(out["찾은 곳"][0]["이름"], "몽테드")
+        self.assertNotIn("같은 곳", out)
+
+    def test_응답의_places_에_placeId_가_실린다(self):
+        """scene-api 는 이 목록을 채우지 않고 그대로 넘긴다 — 에이전트가 실어야 앱이 촬영지 상세로 간다."""
+        s = self.session()
+        call("poi_nearby", {"group": "음식"}, s)
+        self.assertEqual(
+            [(r["name"], r.get("placeId")) for r in s.shown_pois],
+            [("몽테드", 45), ("행궁다방", None)],
+        )
 
 
 if __name__ == "__main__":

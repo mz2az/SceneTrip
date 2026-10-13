@@ -127,11 +127,11 @@
             "sort": {
               "type": "string",
               "enum": [
-                "distance",
-                "popular"
+                "가까운순",
+                "유명한순"
               ],
-              "default": "distance",
-              "description": "distance 는 가까운 순, popular 는 반경 안에서 유명한 순이다"
+              "default": "가까운순",
+              "description": "가까운순 은 거리 순, 유명한순 은 반경 안에서 유명한 순이다"
             }
           }
         }
@@ -174,8 +174,8 @@
             "action": {
               "type": "string",
               "enum": [
-                "add",
-                "remove"
+                "담기",
+                "빼기"
               ]
             },
             "name": {
@@ -219,12 +219,12 @@
             "pace": {
               "type": "string",
               "enum": [
-                "relaxed",
-                "normal",
-                "packed"
+                "느긋하게",
+                "보통",
+                "빡빡하게"
               ],
-              "default": "normal",
-              "description": "relaxed 는 하루 3곳 느긋하게, normal 은 5곳, packed 는 7곳까지 빡빡하게"
+              "default": "보통",
+              "description": "느긋하게 는 하루 3곳, 보통 은 5곳, 빡빡하게 는 7곳까지"
             },
             "start": {
               "type": "string",

@@ -38,6 +38,7 @@ from src.planner import (
 )
 from src.sceneapi import SceneApiError
 from src.session import Anchor, Session
+from src.tools import ARG_WORDS
 
 # 모델에게 주는 인자 이름과 계약의 인자 이름이 다른 둘. `schemas/tools.json` 은
 # 그대로 둔다 — 모델과 주고받는 이름은 에이전트 내부 일이고, 계약이 정하는 것은
@@ -51,7 +52,9 @@ _ARG_NAMES = {"radius_m": "radiusMeters", "to_day": "toDay"}
 # 「가이드 에이전트 응답을 읽지 못했습니다: /guide/chat」). 모델에게 한국어를 주는
 # 것은 그대로 둔다 — 도구 스키마는 에이전트 내부 일이다(tools.py `_POI_GROUPS`).
 _ARG_VALUES = {
-    "group": {"음식": "food", "숙박": "stay", "명소": "sight", "교통": "transit"}
+    "group": {"음식": "food", "숙박": "stay", "명소": "sight", "교통": "transit"},
+    # 모델에게는 한국어 말로 보이고(MZ2AZ-426) 앱에는 전과 같은 값으로 나간다.
+    **ARG_WORDS,
 }
 
 
@@ -355,6 +358,10 @@ class Handler(BaseHTTPRequestHandler):
 
             fresh = guide.session.shown[before:]
             fresh_pois = guide.session.shown_pois[before_pois:]
+            # 같은 곳이 촬영지 줄과 편의시설 줄로 두 번 실리지 않게 한다 — 편의시설
+            # 줄이 `placeId` 로 그 촬영지를 가리키므로 그쪽 하나만 남긴다(MZ2AZ-379).
+            linked = {str(r["placeId"]) for r in fresh_pois if r.get("placeId")}
+            fresh = [p for p in fresh if p.place_id not in linked]
             self._send(
                 {
                     "reply": turn.reply,
@@ -393,6 +400,10 @@ class Handler(BaseHTTPRequestHandler):
                                 "latitude": r.get("latitude"),
                                 "longitude": r.get("longitude"),
                                 "distanceMeters": r.get("distanceMeters"),
+                                # 촬영지와 같은 곳이면 그 촬영지 id — 앱이 촬영지 상세로
+                                # 보낸다(계약 `PoiSummary.placeId`, MZ2AZ-379). scene-api 는
+                                # 이 목록을 채우지 않고 그대로 넘긴다.
+                                "placeId": r.get("placeId"),
                                 "source": "poi",
                             }
                             for r in fresh_pois

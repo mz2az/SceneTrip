@@ -161,8 +161,24 @@ class Session:
         if len(self.shown) > 60:
             self.shown = self.shown[-60:]
 
+    def find_shown_poi(self, name: str) -> dict | None:
+        """이번 대화에서 보여 준 **편의시설** 중에서 이름으로 찾는다 (MZ2AZ-379).
+
+        「몽테드 담아 줘」 의 「몽테드」 가 편의시설 목록에 나온 이름인지 가리는 데 쓴다.
+        가장 최근에 보여 준 것이 먼저다.
+        """
+        from .places import norm
+
+        k = norm(name)
+        if not k:
+            return None
+        for row in reversed(self.shown_pois):
+            if norm(str(row.get("name") or "")) == k:
+                return row
+        return None
+
     def remember_pois(self, rows: list[dict]) -> None:
-        """보여 준 편의시설을 기억한다. 지도 핀에만 쓴다."""
+        """보여 준 편의시설을 기억한다. 지도 핀과 「같은 곳인 촬영지」 찾기에 쓴다."""
         seen = {r.get("id") for r in self.shown_pois}
         for r in rows:
             if r.get("id") not in seen:

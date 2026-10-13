@@ -79,6 +79,10 @@ class Place:
     selected: bool  # is_selected=Y. 991 곳뿐인 엄선 목록
     mentions: int  # mention_total. **작품을 가로질러 비교할 수 있는 유일한 값**
     scenes: list[Scene] = field(default_factory=list)
+    # 일정의 정지점이 촬영지가 아닐 때의 정체 (MZ2AZ-382). 코스 항목은 세 갈래다 — 촬영지(`place_id`)·
+    # 편의시설(`poi_id`)·직접 찍은 핀(`custom_pin_id`). 앱이 보낸 값을 **그대로 들고 있다가 돌려준다.**
+    poi_id: int | None = None
+    custom_pin_id: int | None = None
 
     @property
     def titles(self) -> list[str]:

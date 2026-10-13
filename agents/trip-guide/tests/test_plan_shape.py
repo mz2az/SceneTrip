@@ -217,5 +217,122 @@ class placeId(unittest.TestCase):
         )
 
 
+class 정지점의_정체(unittest.TestCase):
+    """코스 항목의 세 갈래 — 촬영지·편의시설·직접 찍은 핀 (MZ2AZ-382).
+
+    앱이 보낸 `poiId`·`customPinId` 를 그대로 돌려준다. 빠지면 앱은 그 줄을 저장하지 못한다.
+    """
+
+    def wire(self):
+        return {
+            "request": {"titles": ["도깨비"], "days": 1},
+            "days": [
+                {
+                    "day": 1,
+                    "stops": [
+                        _stop(1, "서울중앙고", 37.5826, 126.9910, placeId=7),
+                        _stop(2, "행궁다방", 37.5810, 126.9890, poiId=9002),
+                        _stop(3, "우리 숙소", 37.5800, 126.9870, customPinId=31),
+                        _stop(4, "북촌한옥마을", 37.5826, 126.9830, placeId=9),
+                    ],
+                }
+            ],
+        }
+
+    def book(self):
+        return FakeBook(
+            {
+                "도깨비": [
+                    make_place("7", "서울중앙고", 37.5826, 126.9910),
+                    make_place("9", "북촌한옥마을", 37.5826, 126.9830),
+                    # 편의시설 줄과 이름이 같은 **다른** 촬영지.
+                    make_place("55", "행궁다방", 35.1000, 129.0000),
+                ]
+            }
+        )
+
+    def ids(self, plan_dict):
+        return [
+            (s["name"], s["placeId"], s["poiId"], s["customPinId"])
+            for s in plan_dict["days"][0]["stops"]
+        ]
+
+    def test_되읽고_내보내면_세_갈래가_그대로다(self):
+        back = plan_to_api(plan_from_api(self.wire(), self.book()))
+        self.assertEqual(
+            self.ids(back),
+            [
+                ("서울중앙고", 7, None, None),
+                ("행궁다방", None, 9002, None),
+                ("우리 숙소", None, None, 31),
+                ("북촌한옥마을", 9, None, None),
+            ],
+        )
+
+    def test_같은_이름의_촬영지_id_를_대신_넣지_않는다(self):
+        """예전에는 `placeId` 가 없으면 이름으로 찾은 촬영지의 id 를 넣었다 — 편의시설이 촬영지로 바뀐다."""
+        plan = plan_from_api(self.wire(), self.book())
+        cafe = plan.days[0].legs[1].place
+        self.assertEqual(cafe.place_id, "")
+        self.assertEqual(cafe.poi_id, 9002)
+        self.assertEqual(cafe.scenes, [])
+
+    def test_정체가_하나도_없는_줄도_이름으로_채우지_않는다(self):
+        wire = self.wire()
+        del wire["days"][0]["stops"][1]["poiId"]
+        back = plan_to_api(plan_from_api(wire, self.book()))
+        self.assertEqual(self.ids(back)[1], ("행궁다방", None, None, None))
+
+    def test_고친_뒤에도_남은_줄의_정체가_그대로다(self):
+        """「순서 바꿔 줘」·「하나 빼 줘」 뒤에도 편의시설·핀이 편의시설·핀이다."""
+        s = Session(book=self.book())
+        s.adopt_context({"plan": self.wire()})
+        out = run_tool("revise_plan", {"day": 1, "remove": ["북촌한옥마을"]}, s)
+        self.assertNotIn("결과없음", out)
+        got = {i[0]: i[1:] for i in self.ids(s.effects[0]["plan"])}
+        self.assertEqual(
+            got,
+            {
+                "서울중앙고": (7, None, None),
+                "행궁다방": (None, 9002, None),
+                "우리 숙소": (None, None, 31),
+            },
+        )
+
+    def test_편의시설과_핀_줄은_보여_준_촬영지에_들지_않는다(self):
+        s = Session(book=self.book())
+        s.adopt_context({"plan": self.wire()})
+        run_tool("revise_plan", {"day": 1, "remove": ["북촌한옥마을"]}, s)
+        self.assertEqual([p.name for p in s.shown], ["서울중앙고"])
+
+    def test_숫자가_아닌_값은_없는_것으로_본다(self):
+        wire = self.wire()
+        wire["days"][0]["stops"][1]["poiId"] = "9002"
+        wire["days"][0]["stops"][2]["customPinId"] = True
+        back = plan_to_api(plan_from_api(wire, self.book()))
+        self.assertEqual(self.ids(back)[1][2], None)
+        self.assertEqual(self.ids(back)[2][3], None)
+
+    def test_마법사_초안에는_두_칸이_null_로_나간다(self):
+        book = FakeBook({"도깨비": SEOUL})
+        plan = make_plan(book, PlanRequest(titles=["도깨비"], days=1))
+        for stop in plan_to_api(plan)["days"][0]["stops"]:
+            self.assertIsNone(stop["poiId"])
+            self.assertIsNone(stop["customPinId"])
+
+
+def _stop(order, name, lat, lng, **ids):
+    return {
+        "order": order,
+        "placeId": None,
+        "name": name,
+        "latitude": lat,
+        "longitude": lng,
+        "arriveMinute": 540 + order * 60,
+        "dwellMinutes": 40,
+        **ids,
+    }
+
+
 if __name__ == "__main__":
     unittest.main()
