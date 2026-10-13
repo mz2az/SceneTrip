@@ -213,12 +213,19 @@ class DestroyGatewayTest(unittest.TestCase):
             patch(
                 "tools.aws.destroy_gateway.get_ingress", side_effect=[ingress(), None]
             ),
+            # SigNoz 정리(ADR 0025)는 따로 시험한다(RemoveSignozTest) — 여기서는 불린 시점만 본다.
+            patch(
+                "tools.aws.destroy_gateway.remove_signoz",
+                side_effect=lambda *unused, **kwargs: run("remove_signoz"),
+            ) as remove_signoz,
         ):
             run.return_value = json.dumps(
                 [{"name": "scenetrip", "namespace": "scenetrip"}]
             )
             remove_gateway(run, valid_settings(), gateway_state())
-        commands = [entry.args[0] for entry in run.call_args_list]
+        remove_signoz.assert_called_once()
+        self.assertEqual(run.call_args_list[-1].args[0], "remove_signoz")
+        commands = [entry.args[0] for entry in run.call_args_list[:-1]]
         delete = next(i for i, command in enumerate(commands) if "delete" in command)
         uninstall = next(
             i for i, command in enumerate(commands) if "uninstall" in command
@@ -235,8 +242,11 @@ class DestroyGatewayTest(unittest.TestCase):
             patch("tools.aws.destroy_gateway.live_cluster", return_value=cluster()),
             patch("tools.aws.destroy_gateway.matching_albs", return_value=[]),
             patch("tools.aws.destroy_gateway.get_ingress", return_value=None),
+            patch("tools.aws.destroy_gateway.remove_signoz") as remove_signoz,
         ):
             remove_gateway(run, valid_settings(), gateway_state())
+        # SigNoz 정리는 scenetrip 릴리스가 없어도 불린다(남은 디스크 정리) — 동작은 RemoveSignozTest.
+        remove_signoz.assert_called_once()
         self.assertFalse(
             any(
                 "delete" in call.args[0] or "uninstall" in call.args[0]

@@ -4,7 +4,12 @@ import json
 import unittest
 from unittest.mock import Mock
 
-from tools.aws.tests.fixtures import valid_settings
+from tools.aws.tests.fixtures import (
+    SIGNOZ_CHART,
+    is_scenetrip_helm,
+    mirror_urls,
+    valid_settings,
+)
 
 
 class BoundaryTest(unittest.TestCase):
@@ -520,6 +525,7 @@ class BoundaryTest(unittest.TestCase):
                 "scene_api": "scene-image",
                 "trip_guide": "guide-image",
                 "migration": "migration-image",
+                **mirror_urls(settings),
             },
             "ingress_allowed_cidrs": ["192.0.2.1/32"],
             "ingress_certificate_arn": "arn:aws:acm:ap-northeast-2:123456789012:certificate/"
@@ -527,6 +533,8 @@ class BoundaryTest(unittest.TestCase):
         }
 
         def execute(command, **unused):
+            if "get" in command and "signoz-clickhouse" in command:
+                return ""
             if "describe-cluster" in command:
                 return json.dumps(
                     {
@@ -574,7 +582,7 @@ class BoundaryTest(unittest.TestCase):
             ),
             patch("tools.aws.deploy.verify_network_deny"),
         ):
-            hostname = deploy(run, Path("."), settings, outputs)
+            hostname = deploy(run, Path("."), settings, outputs, Path(SIGNOZ_CHART))
         self.assertTrue(hostname.endswith(".elb.amazonaws.com"))
         manifests = [
             json.loads(call.kwargs["stdin"])
@@ -591,7 +599,7 @@ class BoundaryTest(unittest.TestCase):
         )
         self.assertNotIn("migration-fixture", json.dumps(runtime))
         helm_call = next(
-            call for call in run.call_args_list if call.args[0][0] == "helm"
+            call for call in run.call_args_list if is_scenetrip_helm(call.args[0])
         )
         self.assertIn("--atomic", helm_call.args[0])
         self.assertEqual(

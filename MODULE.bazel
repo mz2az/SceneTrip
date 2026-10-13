@@ -724,6 +724,74 @@ http_file(
     urls = ["https://releases.hashicorp.com/terraform-provider-aws/6.64.0/terraform-provider-aws_6.64.0_darwin_arm64.zip"],
 )
 
+# --- SigNoz on EKS (ADR 0025, docs/project/plans/observability-aws.md) ---------------------------------------
+# 공식 차트를 버전·sha256 으로 고정한다. 차트가 띄우는 공개 이미지는 digest 로 고정해 받아 환경 ECR 로 복사한다
+# (platform/helm/signoz:*_push, 배포기 tools/aws/aws.py mirror_signoz). 태그는 tools/aws/config.py SIGNOZ_MIRROR 와 같다.
+# 전부 배포기만 쓴다 — 평소 빌드(`just check`)는 받지 않는다(push 대상이 manual).
+http_file(
+    name = "signoz_chart",
+    downloaded_file_path = "signoz-0.145.0.tgz",
+    sha256 = "3393f02811764a9341e6d0e46d1195040737258c3fccecd575299fbb81642e42",
+    urls = ["https://github.com/SigNoz/charts/releases/download/signoz-0.145.0/signoz-0.145.0.tgz"],
+)
+
+# signoz/signoz:v0.145.0
+oci.pull(
+    name = "mirror_signoz",
+    digest = "sha256:1301f2df51f01ba4227dfd5a8281e61d10aa09b771d2b20a30027bc68dba993d",
+    image = "index.docker.io/signoz/signoz",
+    platforms = ["linux/amd64"],
+)
+
+# signoz/signoz-otel-collector:v0.144.12
+oci.pull(
+    name = "mirror_otel_collector",
+    digest = "sha256:deb566a7a3c0ba544ee58ccc92ee1f0e6da827bc40383e52f3c824705e100a3d",
+    image = "index.docker.io/signoz/signoz-otel-collector",
+    platforms = ["linux/amd64"],
+)
+
+# clickhouse/clickhouse-server:25.12.5
+oci.pull(
+    name = "mirror_clickhouse",
+    digest = "sha256:cacf32d6884291dc2ff5e0156a97f46fc53ff7c929a7906d114e268a929dfd3a",
+    image = "index.docker.io/clickhouse/clickhouse-server",
+    platforms = ["linux/amd64"],
+)
+
+# library/alpine:3.18.2
+oci.pull(
+    name = "mirror_alpine",
+    digest = "sha256:82d1e9d7ed48a7523bdebc18cf6290bdb97b82302a8a9c27d4fe885949ea94d1",
+    image = "index.docker.io/library/alpine",
+    platforms = ["linux/amd64"],
+)
+
+# altinity/clickhouse-operator:0.21.2
+oci.pull(
+    name = "mirror_clickhouse_operator",
+    digest = "sha256:cd9252644ce0a1a26feea66eb77edbfe91b10dec2634b7b8ad73fa3196551488",
+    image = "index.docker.io/altinity/clickhouse-operator",
+    platforms = ["linux/amd64"],
+)
+
+# altinity/metrics-exporter:0.21.2
+oci.pull(
+    name = "mirror_metrics_exporter",
+    digest = "sha256:df3d57215356043a2b5bcc03a9cdb62198b907932c7077131e079fae1c01156c",
+    image = "index.docker.io/altinity/metrics-exporter",
+    platforms = ["linux/amd64"],
+)
+
+# signoz/zookeeper:3.7.1
+oci.pull(
+    name = "mirror_zookeeper",
+    digest = "sha256:fcc4a3288154ccaa3bdb5ae6dc10180c084d29a8a6a26b62ac8e30a8940dc2e6",
+    image = "index.docker.io/signoz/zookeeper",
+    platforms = ["linux/amd64"],
+)
+use_repo(oci, "mirror_alpine", "mirror_alpine_linux_amd64", "mirror_clickhouse", "mirror_clickhouse_linux_amd64", "mirror_clickhouse_operator", "mirror_clickhouse_operator_linux_amd64", "mirror_metrics_exporter", "mirror_metrics_exporter_linux_amd64", "mirror_otel_collector", "mirror_otel_collector_linux_amd64", "mirror_signoz", "mirror_signoz_linux_amd64", "mirror_zookeeper", "mirror_zookeeper_linux_amd64")
+
 # 클라우드 없이 bootstrap SQL과 실제 nginx를 검증하는 폐기형 통합 픽스처.
 oci.pull(
     name = "integration_postgis",

@@ -10,6 +10,9 @@ load("@rules_java//java:defs.bzl", "java_binary")
 
 package(default_visibility = ["//visibility:public"])
 
+# 배포기 시험(tools/aws)이 SigNoz 이미지 고정(oci.pull)을 tools/aws/config.py 와 대조한다(ADR 0025).
+exports_files(["MODULE.bazel"])
+
 # --- BUILD 파일 ----------------------------------------------------------------
 
 # BUILD 파일을 제자리에서 정리한다. `just fmt` 가 호출한다.

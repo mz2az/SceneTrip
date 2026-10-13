@@ -374,6 +374,20 @@ dev 를 지울 때 휘말리지 않는다. 바꿀 때는 템플릿을 고치고 
 
 **사용자 사진 버킷** — prd 만 버전 관리(지운 사진 30 일). bootstrap 템플릿의 `IsProduction` 조건.
 
+## 15. 관측 — SigNoz (DEV)
+
+[ADR 0025](../architecture/adr/0025-aws-observability-signoz-in-eks.md) · [계획](../project/plans/observability-aws.md). **DEV 만** 올린다
+(`tools/aws/config.py` `SIGNOZ_ENVIRONMENTS`) — PRD 는 계획 §6 의 4 단계.
+
+- **배포(apply)** 가 앱보다 먼저 `signoz` 네임스페이스에 공식 차트 0.145.0(`MODULE.bazel` `@signoz_chart`)을 올리고, scene-api 의
+  `otel.endpoint` 를 수집기(`signoz-otel-collector.signoz:4317`)로 켠다.
+- **이미지**는 Docker Hub 가 아니라 환경 ECR 의 복사본 `scenetrip-dev/mirror/*` 에서 받는다. 배포가 **없는 태그만** 복사한다(태그 불변).
+- **디스크**는 배포가 만든 StorageClass `signoz-gp3`(Auto Mode EBS, gp3·암호화) — ClickHouse 20Gi·ZooKeeper 8Gi·SigNoz 1Gi.
+- **ClickHouse 비밀번호**는 배포가 클러스터에 한 번 만든다(`signoz/signoz-clickhouse`). 사람이 쓸 값이 아니다.
+- **내리기**는 클러스터보다 먼저 ClickHouse 설치 → Helm 해제 → PVC 를 지우고 디스크가 사라질 때까지 기다린다 — 남은 EBS 가 없다.
+- **화면**은 아직 밖에 열지 않는다 — Cloudflare Access 뒤 `signoz-dev.scenetrip.io` 는 계획 PR ②. 그 전까지 첫 가입(=관리자)
+  창이 열려 있지만 화면이 클러스터 밖에서 닿지 않는다.
+
 ## 배포 기록
 
 환경·계정·commit·이미지 digest·workflow URL·Terraform 변경 요약·Flyway 버전·

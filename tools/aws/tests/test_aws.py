@@ -54,6 +54,14 @@ from tools.aws.tests.test_public_ingress import (
     PublicChartTest,
     PublicGatewayValuesTest,
 )
+from tools.aws.tests.test_signoz import (
+    ClickhousePasswordTest,
+    RemoveSignozTest,
+    SignozConfigTest,
+    SignozDeployTest,
+    SignozPublishTest,
+    SignozTeardownTest,
+)
 from tools.aws.tests.test_teardown_entrypoint import TeardownEntryPointTest
 from tools.aws.tests.test_workflows import WorkflowSecurityTest
 
@@ -65,6 +73,7 @@ __all__ = [
     "BootstrapStateTest",
     "BoundaryTest",
     "CliTest",
+    "ClickhousePasswordTest",
     "CloudflareTest",
     "DataLoadEntryPointTest",
     "DataLoadJobTest",
@@ -92,12 +101,17 @@ __all__ = [
     "PruneAfterDestroyTest",
     "PublicChartTest",
     "PublicGatewayValuesTest",
+    "RemoveSignozTest",
     "RetainedAuthSecretTest",
     "RunnerSelectionTest",
     "SceneApiAppleKeyTest",
     "SettingsTest",
     "SharedMediaFlowTest",
     "SharedMediaTemplateTest",
+    "SignozConfigTest",
+    "SignozDeployTest",
+    "SignozPublishTest",
+    "SignozTeardownTest",
     "SnapshotPruneTest",
     "TeardownEntryPointTest",
     "TripGuideChartTest",

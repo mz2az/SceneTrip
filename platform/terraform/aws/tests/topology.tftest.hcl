@@ -55,8 +55,8 @@ run "dev_private_and_cost_boundary" {
     error_message = "네 가지 OCI 저장소는 태그 불변·강제 삭제 금지여야 합니다."
   }
   assert {
-    condition     = length(aws_secretsmanager_secret.app) == 3 && length(aws_ecr_repository.app) == 4
-    error_message = "Scene API·DB·auth 비밀값, 앱·에이전트·migration·data-load 이미지가 필요합니다."
+    condition     = length(aws_secretsmanager_secret.app) == 3 && length(aws_ecr_repository.app) == 11
+    error_message = "Scene API·DB·auth 비밀값, 앱·에이전트·migration·data-load 이미지와 SigNoz 미러 일곱 저장소가 필요합니다."
   }
   # trip-guide 비밀값은 없다 — Bedrock 을 Pod Identity 역할로 부른다(MZ2AZ-317). 이미지 저장소는 그대로다.
   assert {
@@ -81,8 +81,8 @@ run "dev_private_and_cost_boundary" {
     error_message = "data-load 저장소는 scenetrip-<env>/data-load, 태그 불변·강제 삭제 금지·푸시 시 검사여야 합니다."
   }
   assert {
-    condition     = toset(keys(aws_ecr_repository.app)) == toset(["scene_api", "trip_guide", "migration", "data_load"]) && toset(keys(aws_ecr_lifecycle_policy.app)) == toset(keys(aws_ecr_repository.app))
-    error_message = "ECR 저장소 키는 scene_api·trip_guide·migration·data_load 이고, 저장소마다 수명 주기 정책이 있어야 합니다."
+    condition     = toset(keys(aws_ecr_repository.app)) == toset(["scene_api", "trip_guide", "migration", "data_load", "mirror_signoz", "mirror_otel_collector", "mirror_clickhouse", "mirror_alpine", "mirror_clickhouse_operator", "mirror_metrics_exporter", "mirror_zookeeper"]) && toset(keys(aws_ecr_lifecycle_policy.app)) == toset(keys(aws_ecr_repository.app))
+    error_message = "ECR 저장소 키는 scene_api·trip_guide·migration·data_load 와 SigNoz 미러 mirror_* 일곱이고, 저장소마다 수명 주기 정책이 있어야 합니다."
   }
 }
 

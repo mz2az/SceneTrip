@@ -11,7 +11,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from tools.aws.tests.fixtures import valid_settings
+from tools.aws.tests.fixtures import (
+    SIGNOZ_CHART,
+    is_scenetrip_helm,
+    mirror_urls,
+    valid_settings,
+)
 
 AUTH_KEY = "SCENETRIP_AUTH_JWT_SECRET"
 # MZ2AZ-337 에서 auth 칸에 더해진 애플 토큰 암호화 키(AES-256, 32 바이트).
@@ -312,6 +317,8 @@ def deploy_outputs(settings, arns=None):
             "scene_api": "scene-image",
             "trip_guide": "guide-image",
             "migration": "migration-image",
+            # SigNoz 복사 저장소(ADR 0025) — dev 배포가 차트 이미지 주소를 이것과 대조한다.
+            **mirror_urls(settings),
         },
         "ingress_allowed_cidrs": ["192.0.2.1/32"],
         "ingress_certificate_arn": "arn:aws:acm:ap-northeast-2:123456789012:certificate/"
@@ -320,6 +327,9 @@ def deploy_outputs(settings, arns=None):
 
 
 def cluster_commands(command, **unused):
+    # SigNoz ClickHouse 비밀번호 Secret 이 아직 없다(첫 배포) — 배포기가 새로 만든다.
+    if "get" in command and "signoz-clickhouse" in command:
+        return ""
     if "describe-cluster" in command:
         return json.dumps(
             {
@@ -369,7 +379,13 @@ class DeploySecretWiringTest(unittest.TestCase):
             patch("tools.aws.deploy.migrate_database"),
             patch("tools.aws.deploy.verify_network_deny"),
         ):
-            deploy(run, Path("."), settings, outputs or deploy_outputs(settings))
+            deploy(
+                run,
+                Path("."),
+                settings,
+                outputs or deploy_outputs(settings),
+                Path(SIGNOZ_CHART),
+            )
         return run
 
     def kubernetes_secrets(self, run):
@@ -520,7 +536,10 @@ class DeploySecretWiringTest(unittest.TestCase):
         # 명세는 「크게 실패」 만 정한다. 현재 구현은 KeyError('auth') 를 낸다.
         with self.assertRaises((KeyError, ValueError)):
             self.deploy(store, deploy_outputs(settings, arns))
-        self.assertFalse(any(command[0] == "helm" for command, unused in store.calls))
+        # dev 는 SigNoz 를 비밀값보다 먼저 올린다(ADR 0025) — 막혀야 하는 것은 scenetrip 릴리스다.
+        self.assertFalse(
+            any(is_scenetrip_helm(command) for command, unused in store.calls)
+        )
 
 
 class TripGuideSecretTest(unittest.TestCase):

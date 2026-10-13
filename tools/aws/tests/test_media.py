@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from tools.aws.tests.fixtures import valid_settings
+from tools.aws.tests.fixtures import SIGNOZ_CHART, is_scenetrip_helm, valid_settings
 from tools.aws.tests.test_alb import alb_outputs
 from tools.aws.tests.test_auth_secret import cluster_commands, deploy_outputs
 
@@ -166,8 +166,10 @@ class MediaDeployValuesTest(unittest.TestCase):
             patch("tools.aws.deploy.migrate_database"),
             patch("tools.aws.deploy.verify_network_deny"),
         ):
-            deploy(run, Path("."), settings, outputs)
-        helm = next(call for call in run.call_args_list if call.args[0][0] == "helm")
+            deploy(run, Path("."), settings, outputs, Path(SIGNOZ_CHART))
+        helm = next(
+            call for call in run.call_args_list if is_scenetrip_helm(call.args[0])
+        )
         values = json.loads(helm.kwargs["stdin"])
         self.assertEqual(values["sceneApi"]["mediaBucket"], BUCKET)
         self.assertEqual(values["sceneApi"]["image"], "scene-image:" + settings.tag)
