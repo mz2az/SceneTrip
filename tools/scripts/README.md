@@ -11,6 +11,9 @@ just 레시피가 호출하는 스크립트. 기여자가 직접 실행하지 �
 - `just db-psql-file <파일>`: 큰 SQL을 로컬 kind DB에 표준입력으로 보낸다.
   직접 접속 환경변수는 거부하고 SQL 오류는 실패로 돌려준다.
   [실행·복구 안내](../../docs/ops/local-sql-file.md)를 먼저 읽는다.
+- `just community-guides-local <자료> <상태 폴더> [--apply|--verify|--download]`:
+  지역·출처·장소를 확인한 사진·코스 추천 글을 로컬에 준비한다. 기본은 검증만 한다.
+  [적재·중단 복구 안내](../../docs/ops/community-guides-local.md)를 따른다.
 - `just ci-cache-prune <남길 키> <접두사>`: CI 가 main 에서 Bazel 캐시를 저장한 직후 부른다.
   방금 저장한 것만 남기고 같은 접두사의 옛 main 캐시를 지워 저장소 캐시 한도(10 GB)를
   넘지 않게 한다. 남길 키가 목록에 없으면 아무것도 지우지 않는다. `DRY_RUN=1` 이면 지울

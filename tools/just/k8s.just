@@ -173,6 +173,11 @@ db-psql *sql:
 db-psql-file file:
     ./tools/scripts/db-psql-file.sh "$@"
 
+# 지역별 사진·코스 가이드 자료를 검증하고 명시한 경우에만 로컬에 적재
+[group('data')]
+community-guides-local dataset state_directory *args:
+    {{BAZEL}} run //tools/scripts:community_guides_local -- {{quote(dataset)}} {{quote(state_directory)}} {{args}}
+
 # 터미널을 붙잡고 있는다. Ctrl+C 로 중지.
 #
 # `just db-psql` 은 파드 안에서 돌아 포워딩이 필요 없다. 이 레시피가 필요한 자리는

@@ -1,5 +1,36 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
+# 계약의 글·사진·코스 창구를 사용하는 로컬 가이드 자료 적재.
+py_binary(
+    name = "community_guides_local",
+    srcs = [
+        "community_guide_rules.py",
+        "community_guides_local.py",
+        "community_guides_transport.py",
+    ],
+    imports = ["."],
+    legacy_create_init = 0,
+    main = "community_guides_local.py",
+    tags = ["manual"],
+    visibility = ["//visibility:public"],
+)
+
+# 지역을 벗어난 코스와 사진 출처 누락을 로컬 적재 전에 검출한다.
+py_test(
+    name = "community_guides_unit_test",
+    srcs = [
+        "community_guide_rules.py",
+        "community_guides_local.py",
+        "community_guides_transport.py",
+        "test_community_guides.py",
+    ],
+    data = ["//docs/product/community-guides:regional-guides-2026-10.json"],
+    imports = ["."],
+    legacy_create_init = 0,
+    main = "test_community_guides.py",
+    tags = ["unit"],
+)
+
 # iOS와 Android가 같은 영어 문구를 사용하도록 변환한다.
 py_binary(
     name = "android_translations",
