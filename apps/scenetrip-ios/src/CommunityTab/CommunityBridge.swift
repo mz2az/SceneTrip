@@ -15,7 +15,7 @@ extension CommunityPost {
             id: CommunityRules.identity(detail.id), board: .review, title: detail.title,
             body: detail.body, createdAt: detail.createdAt, course: detail.course.map(PostCourse.init),
             author: detail.author?.nickname, serverId: detail.id, serverIsMine: detail.isMine,
-            remotePhotos: detail.photoUrls, detailLoaded: true
+            remotePhotos: detail.photoUrls, detailLoaded: true, bodyBlocks: detail.bodyBlocks
         )
     }
 }

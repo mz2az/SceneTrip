@@ -1,3 +1,4 @@
+import SceneApiClient
 import SwiftUI
 
 /// 여행후기 읽기 (MZ2AZ-351) — 블로그 글처럼 **사진이 먼저, 그 아래 글, 끝에 다녀온 코스.**
@@ -46,12 +47,10 @@ struct CommunityPostView: View {
                         Button("다시 시도") { Task { await load() } }.disabled(loading)
                     }
                 } else {
-                    if let photos = post.remotePhotos, !photos.isEmpty {
-                        TabView {
-                            ForEach(Array(photos.enumerated()), id: \.offset) { _, url in PostRemotePhoto(url: url) }
-                        }.tabViewStyle(.page(indexDisplayMode: photos.count > 1 ? .always : .never)).frame(height: 300)
-                    } else if let photos = post.photos, !photos.isEmpty {
-                        PostPhotoPager(names: photos)
+                    if let cover = articlePhotos.first {
+                        CommunityArticlePhoto(source: cover, block: coverBlock, representative: true)
+                            .padding(.horizontal, 20).padding(.top, 14)
+                            .accessibilityIdentifier("community-representative-photo")
                     }
 
                     VStack(alignment: .leading, spacing: 16) {
@@ -61,12 +60,7 @@ struct CommunityPostView: View {
 
                         authorRow
 
-                        if !post.body.isEmpty {
-                            Text(post.body)
-                                .font(.body)
-                                .lineSpacing(6)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
+                        CommunityArticleView(blocks: articleBlocks, photos: articlePhotos)
 
                         if let course = post.course {
                             courseCard(course)
@@ -112,6 +106,21 @@ struct CommunityPostView: View {
         .alert("코스를 담지 못했어요. 잠시 뒤 다시 해 주세요", isPresented: $saveFailed) {
             Button("확인", role: .cancel) {}
         }
+    }
+
+    private var articlePhotos: [CommunityPhotoSource] {
+        if let remote = post.remotePhotos, !remote.isEmpty {
+            return remote.map(CommunityPhotoSource.remote)
+        }
+        return (post.photos ?? []).map(CommunityPhotoSource.local)
+    }
+
+    private var articleBlocks: [TripPostBlock] {
+        post.bodyBlocks ?? CommunityArticle.legacy(body: post.body, photoCount: articlePhotos.count)
+    }
+
+    private var coverBlock: TripPostBlock {
+        articleBlocks.first { $0.kind == .photo && $0.photoIndex == 0 } ?? TripPostBlock(kind: .photo, photoIndex: 0)
     }
 
     private var authorRow: some View {

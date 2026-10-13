@@ -127,6 +127,7 @@ struct CommunityPost: Identifiable, Codable {
     var serverIsMine: Bool?
     var remotePhotos: [String]?
     var detailLoaded: Bool?
+    var bodyBlocks: [TripPostBlock]?
 
     var isMine: Bool {
         serverIsMine ?? (author == nil)

@@ -68,6 +68,7 @@ enum CommunityRules {
             switch code {
             case "POST_PHOTO_INVALID": return tr("사진을 다시 올려 주세요")
             case "POST_COURSE_INVALID": return tr("붙인 코스를 다시 골라 주세요")
+            case "POST_BODY_INVALID": return tr("본문의 문단과 사진 배치를 확인해 주세요")
             case "RATE_LIMITED": return tr("요청이 많아요. 잠시 뒤 다시 시도해 주세요")
             case "POST_NOT_FOUND": return tr("이 후기는 더 이상 볼 수 없어요")
             default: break
@@ -99,6 +100,9 @@ enum CommunityRules {
         guard !input.photoKeys.isEmpty else { return false }
         guard detail.title == input.title, detail.body == input.body,
               (detail.course != nil) == (input.courseId != nil) else { return false }
+        if let blocks = input.bodyBlocks, detail.bodyBlocks != blocks {
+            return false
+        }
         let names = detail.photoUrls.compactMap { URL(string: $0)?.lastPathComponent }
         guard names == input.photoKeys.map({ ($0 as NSString).lastPathComponent }) else { return false }
         guard input.courseId != nil else { return true }
