@@ -104,6 +104,14 @@ py_test(
 
 # //platform/kubernetes:unit_test 가 로컬 스택이 MinIO 를 띄우는지 확인한다(review.md §14).
 exports_files(
-    ["stack-up.sh"],
+    [
+        "stack-up.sh",
+    ],
     visibility = ["//platform/kubernetes:__pkg__"],
+)
+
+# 별도 Android 씬 사진 시험 앱의 결과를 just에 전달한다.
+exports_files(
+    ["android-photo-qa-test.sh"],
+    visibility = ["//visibility:public"],
 )

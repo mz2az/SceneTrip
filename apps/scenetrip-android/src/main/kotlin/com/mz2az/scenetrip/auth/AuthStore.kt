@@ -14,6 +14,7 @@ import com.mz2az.scenetrip.data.InstallIdentity
 import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.apiResult
+import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.api.AuthApi
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ApiClient
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientException
@@ -81,7 +82,15 @@ object AuthStore {
         AuthTokens.load(appContext)
         installId = InstallIdentity.of(appContext)
         signedIn = AuthTokens.hasSession
-        if (signedIn) scope.launch { me = io { api.getMe() }.getOrNull() }
+        if (signedIn) {
+            scope.launch {
+                val before = epoch
+                val restored = io { api.getMe() }.getOrNull() ?: return@launch
+                if (!AccountReply.restoration(before, epoch, signedIn)) return@launch
+                me = restored
+                offerNickname(restored)
+            }
+        }
     }
 
     /** 다른 스레드(요청 가로채기)에서도 부른다. */
@@ -112,10 +121,7 @@ object AuthStore {
                 AppAnalytics.log(if (session.isNewUser) AppEvent.SignUp("google") else AppEvent.Login("google"))
                 // `merged` 가 아니어도 다시 읽는다 — 값이 싸고, 화면이 든 것이 서버와 같다는 보장이 된다.
                 accountChanged()
-                val user = session.user
-                showingNickname =
-                    user.nicknameConfirmed == false &&
-                    !appContext.getSharedPreferences("scenetrip", Context.MODE_PRIVATE).getBoolean("nickname.asked.${user.id}", false)
+                offerNickname(session.user)
             } catch (_: GetCredentialCancellationException) {
                 // 사람이 창을 닫았다. 알릴 것이 없다.
             } catch (e: GoogleIdSignIn.Unavailable) {
@@ -170,6 +176,9 @@ object AuthStore {
     }
 
     private fun forget() {
+        com.mz2az.scenetrip.data.FootprintStore
+            .getInstance(appContext)
+            .forgetOwner()
         AuthTokens.clear()
         me = null
         signedIn = false
@@ -187,6 +196,11 @@ object AuthStore {
         scope.launch { LikeStore.getInstance(appContext).refresh() }
     }
 
+    private fun offerNickname(user: Me) {
+        showingNickname = user.nicknameConfirmed == false &&
+            !appContext.getSharedPreferences("scenetrip", Context.MODE_PRIVATE).getBoolean("nickname.asked.${user.id}", false)
+    }
+
     fun finishNicknamePrompt() {
         me?.id?.let {
             appContext
@@ -202,9 +216,11 @@ object AuthStore {
 
     suspend fun setNickname(name: String): String? {
         val before = epoch
+        val expectedUser = me?.id?.toString()
         val result = apiResult { api.setMyNickname(NicknameInput(name)) }
         if (before != epoch) return "로그인이 필요해요"
         return result.fold(onSuccess = {
+            if (!AccountReply.nickname(before, epoch, expectedUser, me?.id?.toString(), it.id.toString())) return@fold tr("요청을 처리하지 못했습니다.")
             me = it
             null
         }, onFailure = { NetworkFailure.of(it).message })

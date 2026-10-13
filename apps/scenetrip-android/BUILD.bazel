@@ -21,18 +21,70 @@ load("@rules_android//rules:rules.bzl", "android_binary")
 load("@rules_java//java:defs.bzl", "java_test")
 load("@rules_kotlin//kotlin:android.bzl", "kt_android_library")
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
+load("@rules_python//python:defs.bzl", "py_binary")
 load("//tools/bazel/defs:mobile_api_config.bzl", "mobile_api_config")
 
 package(default_visibility = ["//visibility:public"])
+
+py_binary(
+    name = "scene_photo_qa_server",
+    testonly = True,
+    srcs = ["tests/scene-photo-qa-server.py"],
+    legacy_create_init = False,
+    main = "tests/scene-photo-qa-server.py",
+    tags = ["manual"],
+)
+
+kt_android_library(
+    name = "scene_photo_qa_lib",
+    testonly = True,
+    srcs = [
+        "tests/ScenePhotoQaActivity.kt",
+        "tests/ScenePhotoQaInstrumentation.kt",
+    ],
+    manifest = "tests/AndroidManifest.xml",
+    plugins = ["//tools/bazel/kotlin:compose_compiler_plugin"],
+    tags = ["manual"],
+    deps = [
+        ":scenetrip-android",
+        "//contracts/openapi:scene_api_kotlin_lib",
+        "@maven_android//:androidx_activity_activity_compose",
+        "@maven_android//:androidx_compose_material3_material3_android",
+        "@maven_android//:androidx_compose_runtime_runtime_android",
+    ],
+)
+
+android_binary(
+    name = "scene_photo_qa",
+    testonly = True,
+    manifest = "tests/AndroidManifest.xml",
+    manifest_values = {
+        "applicationId": "com.mz2az.scenetrip.qa",
+        "naverNcpKeyId": "",
+        "minSdkVersion": "26",
+        "targetSdkVersion": "36",
+        "versionCode": "1",
+        "versionName": "0.1.0",
+    },
+    tags = ["manual"],
+    deps = [":scene_photo_qa_lib"],
+)
 
 kt_jvm_library(
     name = "unit_test_lib",
     testonly = True,
     srcs = [
+        "tests/AccountAndImageTests.kt",
         "tests/ClientRulesTests.kt",
         "tests/CommunityTests.kt",
+        "tests/ContentPlacePagesTests.kt",
+        "tests/FootprintPrivacyTests.kt",
+        "tests/LanguageAndCartTests.kt",
+        "tests/LatestIosSyncTests.kt",
+        "tests/MyReviewDetailsTests.kt",
         "tests/NetworkTests.kt",
         "tests/SearchParityTests.kt",
+        "tests/VisitSyncTests.kt",
         "tests/VisualParityRulesTests.kt",
     ],
     deps = [
@@ -75,6 +127,20 @@ kt_android_library(
     srcs = glob(
         ["src/**/*.kt"],
         exclude = [
+            "src/main/kotlin/com/mz2az/scenetrip/data/ContentPlacePages.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/profiletab/ThemeChoiceView.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/data/FootprintRecording.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/data/ImageRequests.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/auth/AccountReply.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/routetab/VisitSync.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/data/AppThemeStore.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/ui/SceneTripTheme.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/searchtab/ScenePhotoViewer.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/data/WebAddress.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/searchtab/ProducerLink.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/searchtab/ScenePhotoRules.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/data/AppThemeMode.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/hometab/HomeShelf.kt",
             "src/main/kotlin/com/mz2az/scenetrip/routetab/RouteDaySummary.kt",
             "src/main/kotlin/com/mz2az/scenetrip/data/PlaceWorks.kt",
             "src/main/kotlin/com/mz2az/scenetrip/searchtab/SearchList.kt",
@@ -119,16 +185,22 @@ kt_android_library(
     ) + [
         "src/main/kotlin/com/mz2az/scenetrip/analytics/SearchUsageIntent.kt",
         "src/main/kotlin/com/mz2az/scenetrip/analytics/UsageEvents.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/auth/AccountReply.kt",
         "src/main/kotlin/com/mz2az/scenetrip/communitytab/CommunityComposeParts.kt",
         "src/main/kotlin/com/mz2az/scenetrip/communitytab/CommunityComposeState.kt",
         "src/main/kotlin/com/mz2az/scenetrip/communitytab/CommunityList.kt",
         "src/main/kotlin/com/mz2az/scenetrip/communitytab/CoursePickSheet.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/AppThemeMode.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/AppThemeStore.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/CartSession.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/CommunityClient.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/CommunityModels.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/CommunityRules.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/CommunitySession.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/CommunitySubmission.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/ContentPlacePages.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/FootprintRecording.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/ImageRequests.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/LimitLedger.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/NetworkFailure.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/Paging.kt",
@@ -142,8 +214,13 @@ kt_android_library(
         "src/main/kotlin/com/mz2az/scenetrip/data/UsageLedger.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/UsageLimit.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/UsageViews.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/data/WebAddress.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/hometab/HomeShelf.kt",
         "src/main/kotlin/com/mz2az/scenetrip/onboarding/OnboardingProgress.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/profiletab/ThemeChoiceView.kt",
         "src/main/kotlin/com/mz2az/scenetrip/reviews/LocalPhoto.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/MyReviewDetails.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/MyReviewTargetSheet.kt",
         "src/main/kotlin/com/mz2az/scenetrip/reviews/MyReviewsView.kt",
         "src/main/kotlin/com/mz2az/scenetrip/reviews/NicknameView.kt",
         "src/main/kotlin/com/mz2az/scenetrip/reviews/PhotoGallery.kt",
@@ -165,7 +242,12 @@ kt_android_library(
         "src/main/kotlin/com/mz2az/scenetrip/routetab/RouteGuideEntry.kt",
         "src/main/kotlin/com/mz2az/scenetrip/routetab/RouteStopLabel.kt",
         "src/main/kotlin/com/mz2az/scenetrip/routetab/TripArrival.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/routetab/VisitSync.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/searchtab/ProducerLink.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/searchtab/ScenePhotoRules.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/searchtab/ScenePhotoViewer.kt",
         "src/main/kotlin/com/mz2az/scenetrip/searchtab/SearchList.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/ui/SceneTripTheme.kt",
         ":api_configuration",
     ],
     manifest = "AndroidManifest.xml",

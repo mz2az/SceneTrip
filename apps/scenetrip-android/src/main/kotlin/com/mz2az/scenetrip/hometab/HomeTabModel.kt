@@ -53,7 +53,7 @@ data class HomeTrip(
 class HomeTabModel(
     context: Context,
 ) {
-    /** "지금 뜨는 작품" — 촬영지 많은 순. */
+    /** "지금 뜨는 작품" — 서버 인기순 그대로 최대20개 (MZ2AZ-422). */
     var works by mutableStateOf<List<ContentSummary>>(emptyList())
         private set
 
@@ -96,7 +96,7 @@ class HomeTabModel(
 
                 val worksResult = worksDeferred.await()
                 if (worksResult != null) {
-                    works = (worksResult.items ?: emptyList()).sortedByDescending { it.placeCount }
+                    works = HomeShelf.from(worksResult.items.orEmpty())
                     failed = false
                 } else {
                     failed = works.isEmpty()

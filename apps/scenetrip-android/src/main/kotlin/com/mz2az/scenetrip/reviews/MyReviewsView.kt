@@ -43,18 +43,18 @@ fun MyReviewsView(onClose: () -> Unit) {
     var failure by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<MyReview?>(null) }
     var revision by remember { mutableStateOf(0) }
+    var generation by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
     suspend fun load(reset: Boolean = false) {
         if (loading || !AuthStore.signedIn) return
         loading = true
         val epoch = AuthStore.epoch
+        val request = ++generation
         try {
             apiResult { ReviewsApi(API_BASE).listMyReviews(acceptLanguage = AppLanguage.current, offset = if (reset) 0 else offset) }.fold(
                 onSuccess = {
-                    if (epoch ==
-                        AuthStore.epoch
-                    ) {
+                    if (epoch == AuthStore.epoch && request == generation) {
                         rows = ((if (reset) emptyList() else rows) + it.items).distinctBy { row -> row.id }
                         offset =
                             (if (reset) 0 else offset) + it.items.size
@@ -62,13 +62,23 @@ fun MyReviewsView(onClose: () -> Unit) {
                         failure = null
                     }
                 },
-                onFailure = { if (epoch == AuthStore.epoch) failure = NetworkFailure.of(it).message },
+                onFailure = { if (epoch == AuthStore.epoch && request == generation) failure = NetworkFailure.of(it).message },
             )
         } finally {
-            loading = false
+            if (epoch == AuthStore.epoch && request == generation) loading = false
         }
     }
-    LaunchedEffect(AuthStore.epoch, revision) { if (!AuthStore.signedIn) onClose() else load(reset = true) }
+    LaunchedEffect(AuthStore.epoch) {
+        generation++
+        rows = emptyList()
+        offset = 0
+        total = 0
+        failure = null
+        selected = null
+        loading = false
+        if (!AuthStore.signedIn) onClose() else load(reset = true)
+    }
+    LaunchedEffect(revision) { if (revision > 0) load(reset = true) }
     IOSSheet(detents = listOf(SheetDetent.LARGE), onDismiss = onClose) {
         Column(Modifier.fillMaxSize().background(IOS.systemBackground)) {
             IOSSheetToolbar(title = tr("내 리뷰"), leading = tr("닫기"), onLeading = onClose)
@@ -115,9 +125,9 @@ fun MyReviewsView(onClose: () -> Unit) {
         }
     }
     selected?.let { row ->
-        ReviewsSheet(ReviewSubject(row.target.id, row.target.name, row.target.type == ReviewTargetType.poi), onClose = {
-            selected =
-                null
-        }, onChanged = { revision += 1 }, focusReviewId = row.id)
+        MyReviewTargetSheet(row.target, onClose = {
+            selected = null
+            revision++
+        })
     }
 }

@@ -65,6 +65,13 @@ class MainActivity : ComponentActivity() {
         // 지도를 상태바 아래까지 채우는 것과 같다.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        val theme =
+            com.mz2az.scenetrip.data.AppThemeStore
+                .getInstance(this)
+        val systemDark =
+            resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        IOS.updateTheme(theme.mode.isDark(systemDark))
 
         // 앱이 쓰는 API 클라이언트가 **처음 만들어지기 전에** 언어를 읽고
         // Accept-Language 인터셉터를 달아야 한다(MZ2AZ-343) — 늦으면 끼울 자리가
@@ -104,7 +111,7 @@ fun SceneTripApp() {
     // **MaterialTheme 의 기본 색을 쓰지 않는다.** 기본값은 보라 계열이라 iOS 의
     // systemBlue 와 갈린다. 색은 전부 `ui/IOSTheme.kt` 에서 명시로 가져온다 —
     // 테마는 글꼴 기본값 정도로만 남긴다.
-    MaterialTheme(typography = iosTypography()) {
+    com.mz2az.scenetrip.ui.SceneTripTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = IOS.systemBackground) {
             AppRoot()
             // 로그인 시트 — 어느 화면·덮개 위에서든 올라온다.

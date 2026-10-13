@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -287,6 +288,7 @@ private fun LikedWorksSheetBody(
                             ) {
                                 RemoteImage(
                                     url = work.posterUrl?.toString(),
+                                    contentScale = ContentScale.Fit,
                                     modifier = Modifier.size(width = 34.dp, height = 46.dp).clip(RoundedCornerShape(5.dp)),
                                 )
                                 Column(modifier = Modifier.weight(1f)) {

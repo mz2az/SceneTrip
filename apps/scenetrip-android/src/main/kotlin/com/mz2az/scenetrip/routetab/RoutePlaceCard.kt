@@ -154,8 +154,8 @@ suspend fun fetchPlaceCard(place: GuidePlace): RoutePlaceCardData? =
 fun RoutePlaceCard(
     place: GuidePlace,
     added: Boolean,
-    onAdd: () -> Unit,
-    onRemove: () -> Unit,
+    onAdd: (() -> Unit)?,
+    onRemove: (() -> Unit)?,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -368,8 +368,8 @@ private fun PlaceCardCloseButton(onClose: () -> Unit) {
 private fun PlaceCardFound(
     card: RoutePlaceCardData,
     added: Boolean,
-    onAdd: () -> Unit,
-    onRemove: () -> Unit,
+    onAdd: (() -> Unit)?,
+    onRemove: (() -> Unit)?,
     onReviews: () -> Unit,
 ) {
     card.reading?.let { Text(it, style = IOS.caption, color = IOS.secondaryLabel, modifier = Modifier.padding(horizontal = 14.dp)) }
@@ -396,30 +396,32 @@ private fun PlaceCardFound(
         cardRow(tr("전화"), card.phone)
     }
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp)
-                .height(44.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(if (added) IOS.systemGray5 else IOS.accent)
-                .clickable(onClick = if (added) onRemove else onAdd),
-    ) {
-        Icon(
-            if (added) Icons.Filled.CheckCircle else Icons.Filled.Add,
-            contentDescription = null,
-            tint = if (added) IOS.secondaryLabel else Color.White,
-            modifier = Modifier.size(14.dp),
-        )
-        Text(
-            if (added) tr("경로에 있음 · 누르면 빼기") else tr("경로에 추가"),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = if (added) IOS.secondaryLabel else Color.White,
-        )
+    if (onAdd != null && onRemove != null) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (added) IOS.systemGray5 else IOS.accent)
+                    .clickable(onClick = if (added) onRemove else onAdd),
+        ) {
+            Icon(
+                if (added) Icons.Filled.CheckCircle else Icons.Filled.Add,
+                contentDescription = null,
+                tint = if (added) IOS.secondaryLabel else Color.White,
+                modifier = Modifier.size(14.dp),
+            )
+            Text(
+                if (added) tr("경로에 있음 · 누르면 빼기") else tr("경로에 추가"),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (added) IOS.secondaryLabel else Color.White,
+            )
+        }
     }
     Spacer(Modifier.height(14.dp))
 }

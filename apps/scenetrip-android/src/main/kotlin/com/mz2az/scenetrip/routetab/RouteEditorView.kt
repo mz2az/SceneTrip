@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.FootprintStore
@@ -181,6 +182,17 @@ fun RouteEditorView(
     val cart = remember { CartStore(context) }
     val guideSession = remember { RouteGuideSession(context, scope) }
     val trip = remember { TripSession(context) }
+    var visitStates by remember { mutableStateOf<Map<VisitKey, VisitStatus>>(emptyMap()) }
+    val visitSync = remember { VisitSync(store::markVisited, { AuthStore.epoch }) { visitStates = it } }
+    LaunchedEffect(AuthStore.epoch) { visitSync.reset() }
+
+    fun visitStatus(stop: RouteStop?): VisitStatus? {
+        val courseId = course.serverId ?: return null
+        val itemId = stop?.serverItemId ?: return null
+        return visitStates[VisitKey(courseId, itemId)]
+    }
+
+    fun visitBlocked(): Boolean = visitStates.any { (key, status) -> key.courseId == course.serverId && status != VisitStatus.SAVED }
     val footprints = remember { FootprintStore.getInstance(context) }
     val poisApi = remember { PoisApi(API_BASE) }
     val density = LocalDensity.current
@@ -239,7 +251,7 @@ fun RouteEditorView(
         }
     }
 
-    fun markVisited(stop: RouteStop) {
+    fun markVisitedLocally(stop: RouteStop) {
         course =
             course.copy(
                 days =
@@ -251,12 +263,17 @@ fun RouteEditorView(
                         }
                     },
             )
-        // 서버에도 남긴다 — iOS `RouteEditorTrip.markVisited`. 로컬만 바꾸면 코스를
-        // 다시 열었을 때 방문 표시가 없던 일이 된다.
+    }
+
+    fun markVisited(stop: RouteStop) {
         val courseId = course.serverId
         val itemId = stop.serverItemId
-        if (courseId != null && itemId != null) {
-            scope.launch { store.markVisited(courseId, itemId) }
+        if (courseId == null || itemId == null) {
+            markVisitedLocally(stop)
+            return
+        }
+        scope.launch {
+            if (visitSync.save(courseId, itemId) && course.serverId == courseId) markVisitedLocally(stop)
         }
     }
 
@@ -821,13 +838,21 @@ fun RouteEditorView(
                     if (trip.isActive) {
                         TripBanner(
                             trip = trip,
+                            visitStatus = visitStatus(trip.target),
+                            onRetryVisit = { trip.target?.let { markVisited(it) } },
                             onGuide = if (guideEntry == RouteGuideEntry.TRIP_HEADER) ({ showGuide = true }) else null,
                             // 「안내 끝」은 **안내만** 멈춘다 — 여행 중 상태는 「여행 종료」의 몫이다
                             // (iOS `tripControls`: `trip.end()` 뿐). 앞서 여기서 코스까지 끝내서,
                             // 안내를 잠깐 멈춘 사람의 코스가 「예정」으로 돌아갔다(2026-09-28 실기).
                             onEnd = trip::end,
                             onArrivedNow = trip::markArrived,
-                            onNext = { next -> trip.advance(next, scope) },
+                            onNext = { next ->
+                                if (!visitBlocked()) {
+                                    if (!visitBlocked()) {
+                                        trip.advance(next, scope)
+                                    }
+                                }
+                            },
                             onRetry = { trip.retry(scope) },
                             unvisitedAfter = { current ->
                                 val flat = course.days.flatMap { it.stops }
@@ -1011,18 +1036,35 @@ fun RouteEditorView(
                                 },
                                 isTarget = trip.target?.id == stop.id,
                                 onNavigate =
-                                    if (course.isRunning) {
+                                    if (course.isRunning && !visitBlocked()) {
                                         {
                                             if (trip.isActive) {
-                                                trip.advance(stop, scope)
+                                                if (!visitBlocked()) trip.advance(stop, scope)
                                             } else {
-                                                course.serverId?.let { trip.start(it, stop, scope) }
+                                                course.serverId?.takeIf { !visitBlocked() }?.let { trip.start(it, stop, scope) }
                                             }
                                         }
                                     } else {
                                         null
                                     },
                             )
+                            when (visitStatus(stop)) {
+                                VisitStatus.PENDING -> {
+                                    Text(tr("방문 기록을 저장하는 중"), color = IOS.secondaryLabel, modifier = Modifier.padding(start = 50.dp))
+                                }
+
+                                VisitStatus.FAILED -> {
+                                    Text(
+                                        tr("방문 기록을 저장하지 못했어요 · 다시 저장"),
+                                        color = IOS.systemOrange,
+                                        modifier = Modifier.padding(start = 50.dp).clickable { markVisited(stop) },
+                                    )
+                                }
+
+                                else -> {
+                                    Unit
+                                }
+                            }
                             // iOS `List` 줄 구분선 — 번호 뒤 글자 시작(16 + 22 + 12)부터.
                             if (index < stops.lastIndex) IOSListDivider(start = 50.dp)
                         }
@@ -1071,12 +1113,14 @@ fun RouteEditorView(
                                 EditorCapsuleButton(
                                     tr("%d번으로 길찾기").format(nextIndex + 1),
                                     prominent = true,
-                                    onClick = { trip.start(serverId, stops[nextIndex], scope) },
+                                    enabled = !visitBlocked(),
+                                    onClick = { if (!visitBlocked()) trip.start(serverId, stops[nextIndex], scope) },
                                 )
                             }
                             EditorCapsuleButton(
                                 if (running) tr("여행 종료") else tr("코스 시작"),
                                 prominent = false,
+                                enabled = running || !visitBlocked(),
                                 onClick = {
                                     val turningOn = !running
                                     val dayNo = dayIndex + 1
@@ -1086,7 +1130,7 @@ fun RouteEditorView(
                                         course = course.copy(isRunning = turningOn)
                                         if (turningOn) {
                                             val first = stops.firstOrNull { !it.visited } ?: stops.firstOrNull()
-                                            if (first != null) trip.start(serverId, first, scope)
+                                            if (first != null && !visitBlocked()) trip.start(serverId, first, scope)
                                         }
                                     }
                                 },
@@ -1492,6 +1536,8 @@ private fun LegChip(chip: RouteLegChip) {
 @Composable
 private fun TripBanner(
     trip: TripSession,
+    visitStatus: VisitStatus?,
+    onRetryVisit: () -> Unit,
     onGuide: (() -> Unit)?,
     onEnd: () -> Unit,
     onArrivedNow: () -> Unit,
@@ -1506,6 +1552,14 @@ private fun TripBanner(
             // 뭉뚱그렸다. 언어 작업과 별개의 패리티 차, 번역표에도 이 짧은 형태는 없다.
             Text(tr("성지 도착!"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
             Text(target.label().title, fontSize = 12.sp, color = IOS.secondaryLabel)
+            if (visitStatus == VisitStatus.PENDING) Text(tr("방문 기록을 저장하는 중"), color = IOS.secondaryLabel, style = IOS.caption)
+            if (visitStatus == VisitStatus.FAILED) {
+                Text(
+                    tr("방문 기록을 저장하지 못했어요 · 다시 저장"),
+                    color = IOS.systemOrange,
+                    modifier = Modifier.clickable(onClick = onRetryVisit),
+                )
+            }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -1596,7 +1650,7 @@ private fun TripBanner(
                     tr("여기 도착함"),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = IOS.systemBackground,
+                    color = IOS.onAccent,
                     textAlign = TextAlign.Center,
                     modifier =
                         Modifier
@@ -1614,14 +1668,16 @@ private fun TripBanner(
                     if (next != null) tr("다음 · %s로 길찾기").format(next.place.name) else tr("코스 완료"),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = IOS.systemBackground,
+                    color = IOS.onAccent,
                     textAlign = TextAlign.Center,
                     modifier =
                         Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
                             .background(IOS.accent)
-                            .clickable(enabled = next != null) { next?.let(onNext) }
+                            .clickable(
+                                enabled = next != null && visitStatus !in setOf(VisitStatus.PENDING, VisitStatus.FAILED),
+                            ) { next?.let(onNext) }
                             .padding(vertical = 6.dp),
                 )
             }

@@ -164,7 +164,7 @@ private fun CartRow(
             contentAlignment = Alignment.Center,
             modifier = Modifier.size(24.dp).clip(CircleShape).background(IOS.accent),
         ) {
-            Text("${index + 1}", style = IOS.caption2Heavy, color = IOS.systemBackground)
+            Text("${index + 1}", style = IOS.caption2Heavy, color = IOS.onAccent)
         }
 
         RemoteImage(

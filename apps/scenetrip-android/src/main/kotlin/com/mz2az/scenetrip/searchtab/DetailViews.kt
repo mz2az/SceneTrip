@@ -40,7 +40,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -72,6 +75,8 @@ fun ContentDetailView(
     summary: ContentSummary,
     places: List<PlaceSummary>,
     loading: Boolean,
+    failure: String?,
+    onRetry: () -> Unit,
     saved: (Long) -> Boolean,
     detailOf: suspend (Long) -> ContentDetail?,
     onBack: () -> Unit,
@@ -79,6 +84,9 @@ fun ContentDetailView(
     onSave: (PlaceSummary) -> Unit,
 ) {
     var detail by remember(summary.id) { mutableStateOf<ContentDetail?>(null) }
+    val context = LocalContext.current
+    val producer = ProducerLink.destination(summary, detail)
+    var producerFailed by remember(summary.id) { mutableStateOf(false) }
     LaunchedEffect(summary.id) {
         AppAnalytics.log(AppEvent.ViewTitle(summary.id))
         com.mz2az.scenetrip.analytics.UsageEvents
@@ -101,11 +109,14 @@ fun ContentDetailView(
                     modifier = Modifier.padding(horizontal = IOS.gutter, vertical = 12.dp),
                 ) {
                     RemoteImage(
-                        url = summary.posterUrl?.toString(),
+                        url = detail?.posterUrl?.toString() ?: summary.posterUrl?.toString(),
+                        contentScale = ContentScale.Fit,
                         modifier =
                             Modifier
                                 .size(width = 92.dp, height = 124.dp)
-                                .clip(RoundedCornerShape(8.dp)),
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(enabled = producer != null) { producer?.let { producerFailed = !openUrl(context, it) } }
+                                .semantics { contentDescription = tr("제작사 공식 페이지") },
                     )
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(summary.meta, style = IOS.subheadline, color = IOS.secondaryLabel)
@@ -113,6 +124,13 @@ fun ContentDetailView(
                             Text(castLine, style = IOS.caption, color = IOS.secondaryLabel)
                         }
                     }
+                }
+                if (producerFailed) {
+                    Text(
+                        tr("외부 브라우저를 열지 못했어요"),
+                        color = IOS.systemRed,
+                        modifier = Modifier.padding(horizontal = IOS.gutter),
+                    )
                 }
                 detail?.description?.takeIf { it.isNotEmpty() }?.let {
                     Text(
@@ -136,12 +154,19 @@ fun ContentDetailView(
 
             if (loading || places.isEmpty()) {
                 item {
-                    Text(
-                        text = if (loading) "" else tr("촬영지를 불러오지 못했습니다"),
-                        style = IOS.caption,
-                        color = IOS.secondaryLabel,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp),
-                    )
+                    if (!loading) {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 28.dp)) {
+                            Text(failure ?: tr("연결된 촬영지가 없습니다"), style = IOS.caption, color = IOS.secondaryLabel)
+                            if (failure != null) {
+                                Text(
+                                    tr("다시 시도"),
+                                    color = IOS.accent,
+                                    style = IOS.subheadline,
+                                    modifier = Modifier.clickable(onClick = onRetry).padding(vertical = 10.dp),
+                                )
+                            }
+                        }
+                    }
                 }
             } else {
                 // 지도 핀과 같은 배열이므로 행 번호가 곧 핀 번호다.
@@ -185,6 +210,7 @@ fun PlaceDetailView(
     onOpenScene: (Scene) -> Unit,
 ) {
     var detail by remember(summary.id) { mutableStateOf<PlaceDetail?>(null) }
+    var viewingScene by remember(summary.id) { mutableStateOf<Scene?>(null) }
     var reviews by remember(summary.id) { mutableStateOf(false) }
     var revision by remember(summary.id) { mutableStateOf(0) }
     var reviewId by remember(summary.id) { mutableStateOf<Long?>(null) }
@@ -302,18 +328,18 @@ fun PlaceDetailView(
                                     Icon(
                                         Icons.Filled.Check,
                                         contentDescription = null,
-                                        tint = IOS.systemBackground,
+                                        tint = IOS.onAccent,
                                         modifier = Modifier.size(17.dp),
                                     )
                                 } else {
                                     // iOS 는 `bag.badge.plus` — **가방에 ＋ 배지**다.
                                     // 쇼핑카트로 대신하면 모양이 한눈에 다르다.
-                                    BagPlusIcon(IOS.systemBackground, Modifier.size(17.dp))
+                                    BagPlusIcon(IOS.onAccent, Modifier.size(17.dp))
                                 }
                                 Text(
                                     text = if (saved) tr("담김 · 누르면 빼기") else tr("장바구니에 담기"),
                                     style = IOS.subheadlineSemibold,
-                                    color = IOS.systemBackground,
+                                    color = IOS.onAccent,
                                 )
                             }
                         }
@@ -372,13 +398,17 @@ fun PlaceDetailView(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(scenes.size) { index ->
-                            SceneCard(scene = scenes[index], onClick = { onOpenScene(scenes[index]) })
+                            SceneCard(scene = scenes[index], onClick = { onOpenScene(scenes[index]) }, onPhoto = {
+                                viewingScene =
+                                    scenes[index]
+                            })
                         }
                     }
                 }
             }
         }
     }
+    viewingScene?.let { scene -> ScenePhotoViewer(scene, summary.name, onClose = { viewingScene = null }) }
     if (reviews) {
         com.mz2az.scenetrip.reviews.ReviewsSheet(subject, onClose = {
             reviews = false
@@ -390,15 +420,18 @@ fun PlaceDetailView(
 private fun openUrl(
     context: android.content.Context,
     url: String,
-) {
+): Boolean =
     runCatching {
         context.startActivity(
             android.content
-                .Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                .Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri
+                        .parse(url)
+                        .normalizeScheme(),
+                ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
         )
-    }
-}
+    }.isSuccess
 
 /**
  * 가로로 넘기는 장면 카드.
@@ -412,6 +445,7 @@ private fun openUrl(
 private fun SceneCard(
     scene: Scene,
     onClick: () -> Unit,
+    onPhoto: () -> Unit,
 ) {
     Column(
         modifier =
@@ -419,16 +453,21 @@ private fun SceneCard(
                 .width(190.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(IOS.systemBackground)
-                .border(1.dp, IOS.systemGray5, RoundedCornerShape(12.dp))
-                .clickable(onClick = onClick),
+                .border(1.dp, IOS.systemGray5, RoundedCornerShape(12.dp)),
     ) {
         RemoteImage(
             url = scene.sceneImageUrl?.toString(),
-            modifier = Modifier.size(width = 190.dp, height = 110.dp),
+            modifier =
+                Modifier
+                    .size(width = 190.dp, height = 110.dp)
+                    .clickable(enabled = ScenePhotoRules.photo(scene) != null, onClick = onPhoto)
+                    .semantics { contentDescription = tr("%s 장면 사진 크게 보기").format(scene.contentTitle) },
+            contentScale = ContentScale.Fit,
+            backgroundColor = IOS.systemBackground,
         )
         Column(
             verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.height(96.dp).padding(10.dp),
+            modifier = Modifier.height(96.dp).clickable(onClick = onClick).padding(10.dp),
         ) {
             Text(
                 text = scene.contentTitle,
@@ -464,6 +503,9 @@ fun ScenePopup(
     placeName: String,
     onClose: () -> Unit,
 ) {
+    var viewingPhoto by remember(scene) { mutableStateOf(false) }
+    if (viewingPhoto) ScenePhotoViewer(scene, placeName, onClose = { viewingPhoto = false })
+
     Dialog(
         onDismissRequest = onClose,
         properties =
@@ -508,7 +550,10 @@ fun ScenePopup(
                             Modifier
                                 .fillMaxWidth()
                                 .height(200.dp)
-                                .clip(RoundedCornerShape(12.dp)),
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable(enabled = ScenePhotoRules.photo(scene) != null) { viewingPhoto = true },
+                        contentScale = ContentScale.Fit,
+                        backgroundColor = IOS.systemBackground,
                     )
                     // 보이는 원은 28 인데 누를 수 있는 자리는 44 다 — 애플이 권하는
                     // 최소 터치 크기이고, 그보다 작으면 손가락이 자꾸 빗나간다.
@@ -531,7 +576,7 @@ fun ScenePopup(
                             Icon(
                                 Icons.Filled.Close,
                                 contentDescription = tr("닫기"),
-                                tint = IOS.systemBackground,
+                                tint = IOS.onAccent,
                                 modifier = Modifier.size(14.dp),
                             )
                         }

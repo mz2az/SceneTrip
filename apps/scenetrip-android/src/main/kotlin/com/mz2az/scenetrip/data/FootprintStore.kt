@@ -51,13 +51,16 @@ data class FootprintPoint(
  * **한국 안에서만** 기록한다([KoreaBounds]). 25m 안에서 오락가락한 것은 한 점으로
  * 친다.
  *
- * `record()`를 실제로 부르는 라이브 내비게이션(RouteTab)은 아직 이식되지 않았다 —
- * 지금은 마이페이지가 읽기·지우기만 한다. 데이터가 비어 있어도 화면은 정상 동작한다.
+ * 기록은 기본 꺼짐이며 마이페이지에서 안내에 동의해야 켜진다.
+ * 로그아웃·탈퇴·세션 소실 때 기록과 동의를 지운다 (MZ2AZ-348).
  */
 class FootprintStore private constructor(
     context: Context,
 ) {
     var points by mutableStateOf<List<FootprintPoint>>(emptyList())
+        private set
+
+    var recording by mutableStateOf(false)
         private set
 
     /** 마이페이지의 「지도에 발자취 보기」 설정 — 꺼 두면 지도에 단추도 발자국도 없다. */
@@ -75,10 +78,19 @@ class FootprintStore private constructor(
 
     private val prefs = context.getSharedPreferences("scenetrip", Context.MODE_PRIVATE)
 
+    private val session =
+        FootprintRecording(load(), prefs.getBoolean(RECORDING_KEY, false)) {
+            points = it.points
+            recording = it.recording
+            persist()
+            prefs.edit().putBoolean(RECORDING_KEY, recording).apply()
+        }
+
     init {
+        recording = session.state.recording
         enabled = prefs.getBoolean(ENABLED_KEY, false)
         trailVisible = prefs.getBoolean(TRAIL_KEY, true)
-        points = load()
+        points = session.state.points
     }
 
     fun updateEnabled(value: Boolean) {
@@ -96,19 +108,14 @@ class FootprintStore private constructor(
         longitude: Double,
         atMillis: Long = System.currentTimeMillis(),
     ) {
-        if (!KoreaBounds.contains(latitude, longitude)) return
-        points.lastOrNull()?.let { last ->
-            val meters = haversineKm(last.latitude, last.longitude, latitude, longitude) * 1000
-            if (meters < MIN_STEP_METERS) return
-        }
-        points = points + FootprintPoint(latitude, longitude, atMillis)
-        persist()
+        session.record(latitude, longitude, atMillis)
     }
 
-    fun clear() {
-        points = emptyList()
-        persist()
-    }
+    fun updateRecording(value: Boolean) = session.consent(value)
+
+    fun forgetOwner() = session.forgetOwner()
+
+    fun clear() = session.clear()
 
     /** 걸은 거리(km) — 점 사이 직선 합. */
     val kilometers: Double
@@ -142,7 +149,7 @@ class FootprintStore private constructor(
     }
 
     companion object {
-        private const val MIN_STEP_METERS = 25.0
+        private const val RECORDING_KEY = "footprint.recording"
         private const val ENABLED_KEY = "footprint.enabled"
         private const val TRAIL_KEY = "footprint.trailVisible"
         private const val POINTS_KEY = "footprint.points"

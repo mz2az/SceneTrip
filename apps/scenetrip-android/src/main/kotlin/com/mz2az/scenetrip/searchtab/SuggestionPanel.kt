@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.data.tr
@@ -194,6 +195,7 @@ private fun WorkCard(
     ) {
         RemoteImage(
             url = work.posterUrl?.toString(),
+            contentScale = ContentScale.Fit,
             modifier = Modifier.size(width = 46.dp, height = 62.dp).clip(RoundedCornerShape(6.dp)),
         )
         Column(
