@@ -29,9 +29,10 @@ private enum AuthIntercept {
     ///
     /// 실은 토큰을 들고 있어야 401 을 받았을 때 「이 요청이 낡은 토큰으로 나갔던 것인가」 를 안다 — 재시도
     /// 계층이 쉬었다 다시 보내는 사이에 다른 요청이 토큰을 갱신했을 수 있다.
-    static func prepare(_ builder: RequestBuilder<some Any>) -> (counted: Bool, token: String?) {
+    static func prepare(_ builder: RequestBuilder<some Any>) -> (counted: Bool, token: String?, identity: AuthTokens.Snapshot) {
+        let identity = AuthTokens.snapshot
         var sent: String?
-        if builder.requiresAuthentication, let token = AuthTokens.accessToken {
+        if builder.requiresAuthentication, let token = identity.accessToken {
             _ = builder.addHeader(name: "Authorization", value: "Bearer \(token)")
             sent = token
         }
@@ -39,13 +40,14 @@ private enum AuthIntercept {
         if counts {
             PendingWrites.begin()
         }
-        return (counts, sent)
+        return (counts, sent, identity)
     }
 
     static func finish<T>(
         _ result: Swift.Result<Response<T>, ErrorResponse>,
         builder: RequestBuilder<T>,
         sent: String?,
+        identity: AuthTokens.Snapshot,
         resend: @escaping (@escaping Completion<T>) -> Void,
         completion: @escaping Completion<T>
     ) {
@@ -55,23 +57,34 @@ private enum AuthIntercept {
             completion(result)
             return
         }
+        guard AuthTokens.isSameSession(as: identity) else {
+            completion(result)
+            return
+        }
         switch AuthRules.action(status: status, code: AuthRules.apiCode(from: data)) {
         case .refreshAndRetry:
             // **이미 누가 갱신했다** — 이 요청은 낡은 토큰으로 나갔을 뿐이다. 또 갱신하면 리프레시 토큰을 한 번 더
             // 쓰고 갱신이 두 번 나간다(재시도가 쉬는 사이에 다른 요청이 갱신한 경우, 2026-10-08 실기). 새 토큰으로
             // 바로 다시 보낸다. 그것도 401 이면 아래의 보통 흐름(갱신 → 한 번)을 탄다 — `sent: nil` 이라 여기로
             // 다시 들어오지 않는다.
-            if AuthRules.alreadyRefreshed(sent: sent, current: AuthTokens.accessToken),
-               let token = AuthTokens.accessToken
+            let current = AuthTokens.snapshot
+            if current.generation == identity.generation,
+               AuthRules.alreadyRefreshed(sent: sent, current: current.accessToken),
+               let token = current.accessToken
             {
                 _ = builder.addHeader(name: "Authorization", value: "Bearer \(token)")
                 resend { second in
-                    finish(second, builder: builder, sent: nil, resend: resend, completion: completion)
+                    finish(second, builder: builder, sent: nil, identity: current, resend: resend, completion: completion)
                 }
                 return
             }
             Task {
-                guard await AuthRefresher.refresh(), let token = AuthTokens.accessToken else {
+                guard await AuthRefresher.refresh(for: identity) else {
+                    completion(result)
+                    return
+                }
+                let renewed = AuthTokens.snapshot
+                guard renewed.generation == identity.generation, let token = renewed.accessToken else {
                     completion(result)
                     return
                 }
@@ -79,16 +92,19 @@ private enum AuthIntercept {
                 resend { second in
                     // 재시도는 한 번. 갱신 뒤에도 401 이면 로그인 화면이다.
                     if case let .failure(.error(again, _, _, _)) = second, again == 401 {
-                        Task { await AuthStore.shared.sessionLost() }
+                        Task { await AuthRefresher.loseSession(ifCurrent: renewed) }
                     }
                     completion(second)
                 }
             }
         case .signOut:
-            Task { await AuthStore.shared.sessionLost() }
+            Task { await AuthRefresher.loseSession(ifCurrent: identity) }
             completion(result)
         case .promptSignIn:
-            Task { await AuthStore.shared.promptSignIn() }
+            Task { @MainActor in
+                guard AuthTokens.isSameSession(as: identity) else { return }
+                AuthStore.shared.promptSignIn()
+            }
             completion(result)
         case .none:
             completion(result)
@@ -142,13 +158,13 @@ private final class AuthPlainBuilder<T>: URLSessionRequestBuilder<T> {
         _ queue: DispatchQueue = SceneApiClientAPI.apiResponseQueue,
         _ completion: @escaping (Swift.Result<Response<T>, ErrorResponse>) -> Void
     ) -> RequestTask {
-        let (counted, token) = AuthIntercept.prepare(self)
+        let (counted, token, identity) = AuthIntercept.prepare(self)
         return super.execute(queue) { result in
             if counted {
                 PendingWrites.end()
             }
             AuthIntercept.finish(
-                result, builder: self, sent: token,
+                result, builder: self, sent: token, identity: identity,
                 resend: { again in _ = super.execute(queue, again) },
                 completion: completion
             )
@@ -167,13 +183,13 @@ private final class AuthDecodableBuilder<T: Decodable>: URLSessionDecodableReque
         _ queue: DispatchQueue = SceneApiClientAPI.apiResponseQueue,
         _ completion: @escaping (Swift.Result<Response<T>, ErrorResponse>) -> Void
     ) -> RequestTask {
-        let (counted, token) = AuthIntercept.prepare(self)
+        let (counted, token, identity) = AuthIntercept.prepare(self)
         return super.execute(queue) { result in
             if counted {
                 PendingWrites.end()
             }
             AuthIntercept.finish(
-                result, builder: self, sent: token,
+                result, builder: self, sent: token, identity: identity,
                 resend: { again in _ = super.execute(queue, again) },
                 completion: completion
             )

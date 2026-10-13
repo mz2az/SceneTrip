@@ -87,6 +87,10 @@ struct PhotoViewer: View {
             topBar
         }
         .overlay(alignment: .bottom) { caption }
+        .onChange(of: photos.map(\.key)) { old, fresh in
+            let selected = old.indices.contains(index) ? old[index] : nil
+            index = selected.flatMap { fresh.firstIndex(of: $0) } ?? min(index, max(0, fresh.count - 1))
+        }
         // 보던 사진이 사라졌다(리뷰를 지웠다) — 빈 화면을 남기지 않는다.
         .onChange(of: photos.isEmpty, initial: true) { _, empty in
             if empty {

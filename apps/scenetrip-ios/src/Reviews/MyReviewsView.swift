@@ -12,6 +12,8 @@ struct MyReviewsView: View {
     @State private var phase: Phase = .loading
     @State private var moreFailed = false
     @State private var generation = 0
+    @State private var photoRenewal = PhotoRenewal()
+    @State private var renewingPhotos = false
     @State private var opening: MyReview?
     @State private var editing: MyReview?
     /// 편의시설의 앱 언어 이름 (MZ2AZ-367). 서버(`target.name`)는 편의시설을 한국어 원본으로만 준다 —
@@ -50,6 +52,20 @@ struct MyReviewsView: View {
             }
         }
         .task { await reload() }
+        .renewsPhotos { forced in Task { await renewPhotos(forced: forced) } }
+        .onAccountChange {
+            generation += 1
+            photoRenewal.cancel()
+            renewingPhotos = false
+            reviews = []
+            total = 0
+            poiNames = [:]
+            opening = nil
+            editing = nil
+            guard auth.signedIn else { dismiss(); return }
+            phase = .loading
+            await reload()
+        }
         // 세션이 풀리면 닫는다 — 내 리뷰는 로그인한 사람의 것이고, 남겨 두면 「불러오지 못했어요」 만 반복된다.
         .onChange(of: auth.signedIn) { _, signedIn in
             if !signedIn {
@@ -175,9 +191,11 @@ struct MyReviewsView: View {
 
     /// 한 곳에 리뷰는 한 개라 줄마다 한 번이고, 화면에 나온 줄만 묻는다.
     private func lookUpName(of target: ReviewTarget) async {
+        let epoch = auth.epoch
         guard MyReviewRules.needsLookup(target, korean: AppLanguage.current == .ko), poiNames[target.id] == nil,
               let detail = try? await PoisAPI.getPoi(poiId: target.id)
         else { return }
+        guard !Task.isCancelled, epoch == auth.epoch else { return }
         poiNames[target.id] = PoiLabel.make(
             name: detail.name, displayName: detail.displayName, nameRoman: detail.nameRoman,
             category: detail.category, categoryLabel: detail.categoryLabel,
@@ -220,32 +238,67 @@ struct MyReviewsView: View {
     }
 
     private func reload() async {
+        guard !Task.isCancelled, auth.signedIn else { return }
+        generation += 1
+        photoRenewal.cancel()
+        renewingPhotos = false
+        phase = .loading
+        let asked = (generation: generation, epoch: auth.epoch)
         do {
             let page = try await ReviewsAPI.listMyReviews(limit: Self.pageSize, offset: 0)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, asked.generation == generation, asked.epoch == auth.epoch, auth.signedIn else { return }
             reviews = page.items
             total = page.total
             moreFailed = false
-            generation += 1
             phase = .loaded
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, asked.generation == generation, asked.epoch == auth.epoch else { return }
             phase = .failed
         }
     }
 
     private func loadMore() async {
-        let asked = (generation: generation, offset: reviews.count)
+        guard case .loaded = phase, !renewingPhotos, !Task.isCancelled, auth.signedIn,
+              ReviewRules.hasMore(loaded: reviews.count, total: total) else { return }
+        let asked = (generation: generation, offset: reviews.count, epoch: auth.epoch)
         do {
             let page = try await ReviewsAPI.listMyReviews(limit: Self.pageSize, offset: asked.offset)
-            guard !Task.isCancelled, asked.generation == generation, asked.offset == reviews.count else { return }
+            guard !Task.isCancelled, asked.generation == generation, asked.epoch == auth.epoch, auth.signedIn,
+                  asked.offset == reviews.count else { return }
             let known = Set(reviews.map(\.id))
             let fresh = page.items.filter { !known.contains($0.id) }
             reviews += fresh
             total = fresh.isEmpty ? reviews.count : page.total
         } catch {
-            guard !Task.isCancelled, asked.generation == generation else { return }
+            guard !Task.isCancelled, asked.generation == generation, asked.epoch == auth.epoch else { return }
             moreFailed = true
+        }
+    }
+
+    private func renewPhotos(forced: Bool) async {
+        guard case .loaded = phase, auth.signedIn, !reviews.isEmpty else { return }
+        _ = await photoRenewal.run(forced: forced) {
+            guard case .loaded = phase, auth.signedIn else { throw CancellationError() }
+            generation += 1
+            let asked = (generation: generation, epoch: auth.epoch, count: reviews.count)
+            renewingPhotos = true
+            defer {
+                if asked.generation == generation {
+                    renewingPhotos = false
+                    generation += 1
+                }
+            }
+            let page = try await PhotoPages.refetch(wanted: asked.count, id: { $0.id }) { offset in
+                guard auth.signedIn, asked.generation == generation, asked.epoch == auth.epoch else { throw CancellationError() }
+                let fresh = try await ReviewsAPI.listMyReviews(limit: Self.pageSize, offset: offset)
+                return PhotoPages.Page(items: fresh.items, total: fresh.total)
+            }
+            try Task.checkCancellation()
+            guard auth.signedIn, asked.generation == generation, asked.epoch == auth.epoch,
+                  asked.count == reviews.count else { throw CancellationError() }
+            reviews = page.items
+            total = page.total
+            moreFailed = false
         }
     }
 }

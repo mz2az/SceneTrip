@@ -129,6 +129,35 @@ final class AuthProfileTests: XCTestCase {
         XCTAssertTrue(NicknameAsked.has(current.id.uuidString))
     }
 
+    @MainActor func testOldProfileCannotOverwriteSavedNickname() async {
+        var old = user(confirmed: false)
+        old.nickname = "이전닉네임"
+        var updated = old
+        updated.nickname = "새닉네임"
+        updated.nicknameConfirmed = true
+        let entered = expectation(description: "옛 프로필 조회 시작")
+        var finish: CheckedContinuation<Me, Never>?
+        let auth = AuthStore(fetchProfile: {
+            await withCheckedContinuation {
+                finish = $0
+                entered.fulfill()
+            }
+        }, refreshLikes: {})
+        defer {
+            AuthTokens.clear()
+            UserDefaults.standard.removeObject(forKey: "scenetrip.nickname.asked.\(old.id.uuidString)")
+        }
+        await auth.signInWithApple { _ in self.session(old) }
+        let loading = Task { @MainActor in await auth.loadMe() }
+        await fulfillment(of: [entered], timeout: 1)
+        let outcome = await auth.setNickname("새닉네임", save: { _ in updated })
+        XCTAssertEqual(outcome, .saved)
+        finish?.resume(returning: old)
+        await loading.value
+        XCTAssertEqual(auth.me?.nickname, "새닉네임")
+        XCTAssertEqual(auth.me?.nicknameConfirmed, true)
+    }
+
     private func session(_ profile: Me) -> AuthSession {
         AuthSession(accessToken: "unit-access", accessTokenExpiresIn: 1800, refreshToken: "unit-refresh",
                     refreshTokenExpiresIn: 2_592_000, user: profile, isNewUser: false, merged: false)

@@ -15,12 +15,21 @@ struct ReviewComposeView: View {
     /// 저장하거나 지웠다 — 목록과 별점 줄을 다시 읽게 한다.
     let onChanged: () -> Void
 
+    init(subject: ReviewSubject, title: String, onChanged: @escaping () -> Void) {
+        self.subject = subject
+        self.title = title
+        self.onChanged = onChanged
+        _session = StateObject(wrappedValue: ReviewEditSession(subject: subject))
+    }
+
     @Environment(\.dismiss) private var dismiss
     @State private var phase: Phase = .loading
     @State private var existing: Review?
     @State private var rating = 0
     @State private var text = ""
     @StateObject private var photos = ReviewPhotoDraft()
+    @StateObject private var session: ReviewEditSession
+    @ObservedObject private var auth = AuthStore.shared
     @State private var working = false
     @State private var message: String?
     @State private var confirmingDelete = false
@@ -44,7 +53,7 @@ struct ReviewComposeView: View {
     }
 
     private var canSave: Bool {
-        !working && dirty && ReviewRules.canSave(rating: rating, body: text) && photos.canSave
+        session.isCurrent && !working && dirty && ReviewRules.canSave(rating: rating, body: text) && photos.canSave
     }
 
     var body: some View {
@@ -81,6 +90,12 @@ struct ReviewComposeView: View {
         .task { await load() }
         // 화면이 사라지면(저장·버리기·닫기) 올리던 사진을 그만둔다. 이미 올라간 것은 서버에 있어 영향이 없다.
         .onDisappear { photos.cancel() }
+        .onChange(of: auth.epoch) { _, _ in
+            if !session.isCurrent {
+                photos.cancel()
+                dismiss()
+            }
+        }
         // 가려졌다 돌아온 것이면(사라진 것이 아니면) 멈춘 사진을 잇는다.
         .onAppear { photos.resume() }
         // 쓰던 것이 있으면 쓸어내려 닫히지 않는다 — 「취소」 가 버릴지 묻는다.
@@ -206,12 +221,13 @@ struct ReviewComposeView: View {
 
     private func load() async {
         do {
-            existing = try await subject.myReview()
+            existing = try await session.load()
             rating = existing?.rating ?? 0
             text = existing?.body ?? ""
             photos.start(with: existing?.photos ?? [])
             phase = .ready
         } catch {
+            guard session.isCurrent, !Task.isCancelled else { return }
             phase = .failed
         }
     }
@@ -228,9 +244,10 @@ struct ReviewComposeView: View {
             // 화면에 남아 있는 사진이 전부다 — 붙어 있던 것은 그 키로, 새로 올린 것은 새 키로, 보이는 순서대로.
             let keys = photos.keys
             do {
-                let saved = try await subject.save(rating: rating, body: body, photoKeys: keys)
+                let saved = try await session.save(rating: rating, body: body, photoKeys: keys)
                 finishSaved(saved, wasNew: wasNew)
             } catch {
+                guard session.isCurrent, !Task.isCancelled else { return }
                 guard case let ErrorResponse.error(_, data, _, _) = error,
                       AuthRules.apiCode(from: data) == "REVIEW_PHOTO_INVALID"
                 else {
@@ -239,7 +256,7 @@ struct ReviewComposeView: View {
                 }
                 // 서버가 사진 키를 거절했다. **먼저 이미 저장된 것이 아닌지 본다** — 앞선 요청이 응답만 잃고
                 // 저장됐으면, 다시 보낸 이 요청은 사진이 이미 옮겨져 거절된다(`ReviewRules.landed`).
-                if let mine = try? await subject.myReview(),
+                if let mine = try? await session.load(),
                    ReviewRules.landed(mine, rating: rating, body: body, photoKeys: keys)
                 {
                     finishSaved(mine, wasNew: wasNew)
@@ -262,16 +279,18 @@ struct ReviewComposeView: View {
     }
 
     private func remove() {
+        guard session.isCurrent, !working, existing != nil else { return }
         working = true
         message = nil
         Task {
             defer { working = false }
             do {
-                try await subject.deleteMine()
+                try await session.remove()
                 AppAnalytics.log(.deleteReview(targetType: subject.kind))
                 onChanged()
                 dismiss()
             } catch {
+                guard session.isCurrent, !Task.isCancelled else { return }
                 message = failureText(error)
             }
         }

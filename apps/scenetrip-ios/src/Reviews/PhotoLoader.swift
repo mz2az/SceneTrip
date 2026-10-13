@@ -244,4 +244,8 @@ extension View {
     func renewsPhotos(from gallery: PhotoGallery) -> some View {
         environment(\.photoRenew) { [weak gallery] forced in gallery?.renew(forced: forced) }
     }
+
+    func renewsPhotos(_ renew: @escaping (Bool) -> Void) -> some View {
+        environment(\.photoRenew, renew)
+    }
 }
