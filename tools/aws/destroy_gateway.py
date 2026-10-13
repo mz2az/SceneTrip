@@ -7,6 +7,7 @@ from tools.aws.alb import aws_read
 from tools.aws.config import matched
 
 GATEWAY_TIMEOUT = 600
+VOLUME_TIMEOUT = 600
 POLL_SECONDS = 5
 
 
@@ -242,7 +243,90 @@ def remove_gateway(run, settings, resources):
             ],
             quiet=True,
         )
+    remove_signoz(run)
     print("Ingress·ALB 정리와 Helm 해제 확인 완료")
+
+
+def remove_signoz(run, timeout=VOLUME_TIMEOUT):
+    """SigNoz(ADR 0025)와 그 디스크를 클러스터보다 먼저 지운다 — 클러스터를 먼저 지우면 EBS 가 계정에 남는다.
+
+    순서가 중요하다. ClickHouse 설치(CHI)는 운영 도구(operator)가 finalizer 로 정리하므로 Helm 해제 **전에** 지운다 —
+    operator 가 먼저 사라지면 CHI 가 지워지지 않아 네임스페이스가 멈춘다. 그다음 Helm 해제, 남은 PVC(ZooKeeper 등) 삭제,
+    StorageClass 의 디스크가 실제로 사라질 때까지 기다린다. SigNoz 를 올리지 않은 환경에서는 할 일이 없다."""
+    releases = json.loads(
+        run(
+            [
+                "helm",
+                "list",
+                "--namespace",
+                "signoz",
+                "--all",
+                "--filter",
+                "^signoz$",
+                "--output",
+                "json",
+            ],
+            quiet=True,
+        )
+    )
+    if not isinstance(releases, list) or len(releases) > 1:
+        raise ValueError("SigNoz Helm release 목록을 하나로 식별하지 못했습니다")
+    if releases:
+        run(
+            [
+                "kubectl",
+                "-n",
+                "signoz",
+                "delete",
+                "clickhouseinstallations.clickhouse.altinity.com",
+                "--all",
+                "--ignore-not-found",
+                "--wait",
+                "--timeout=5m",
+            ],
+            quiet=True,
+        )
+        run(
+            [
+                "helm",
+                "uninstall",
+                "signoz",
+                "--namespace",
+                "signoz",
+                "--wait",
+                "--timeout",
+                "10m",
+            ],
+            quiet=True,
+        )
+    run(
+        [
+            "kubectl",
+            "-n",
+            "signoz",
+            "delete",
+            "pvc",
+            "--all",
+            "--ignore-not-found",
+            "--wait",
+            "--timeout=5m",
+        ],
+        quiet=True,
+    )
+    deadline = time.monotonic() + timeout
+    while True:
+        volumes = json.loads(
+            run(["kubectl", "get", "pv", "--output", "json"], quiet=True)
+        ).get("items", [])
+        if not any(
+            volume.get("spec", {}).get("storageClassName") == "signoz-gp3"
+            for volume in volumes
+        ):
+            break
+        if time.monotonic() > deadline:
+            raise RuntimeError("SigNoz 디스크(PV)가 제한 시간 안에 지워지지 않았습니다")
+        time.sleep(POLL_SECONDS)
+    print("SigNoz 와 디스크 정리 확인 완료")
 
 
 def delete_ingress(run):

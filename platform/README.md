@@ -5,7 +5,7 @@
 | `kind/` | 로컬 Kubernetes 클러스터 정의 (`cluster.yaml`) |
 | `terraform/` | 클라우드 리소스: 네트워크, 데이터베이스, 클러스터, IAM |
 | `kubernetes/` | 기본 매니페스트와 오버레이 |
-| `helm/` | 이 저장소가 소유하는 차트 |
+| `helm/` | 이 저장소가 소유하는 차트(`scenetrip/`)와 공식 차트에 얹는 값(`signoz/`, ADR 0025) |
 | `environments/` | 분리된 AWS 계정의 환경별 값: `dev`, `prd` |
 | `docker/` | 로컬 개발 보조 컨테이너 구성 |
 

@@ -1,0 +1,30 @@
+# SigNoz on EKS(ADR 0025). 차트는 저장소가 소유하지 않는다 — 공식 차트(@signoz_chart)에 얹는 값과, 차트가 쓰는 공개
+# 이미지를 환경 ECR 로 복사하는 push 대상만 둔다. 배포기(tools/aws/aws.py mirror_signoz)가
+# `just run //platform/helm/signoz:<키>_push -- --repository … --tag …` 로 부른다. 키와 태그는 tools/aws/config.py SIGNOZ_MIRROR.
+load("@rules_oci//oci:defs.bzl", "oci_push")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "values",
+    srcs = glob(["values*.yaml"]),
+)
+
+[
+    oci_push(
+        name = key + "_push",
+        # 배포 노드는 linux/amd64 — 호스트 플랫폼과 무관하게 그 이미지를 그대로 복사한다.
+        image = "@" + key + "_linux_amd64",
+        repository = "localhost/scenetrip/" + key,
+        tags = ["manual"],
+    )
+    for key in [
+        "mirror_signoz",
+        "mirror_otel_collector",
+        "mirror_clickhouse",
+        "mirror_alpine",
+        "mirror_clickhouse_operator",
+        "mirror_metrics_exporter",
+        "mirror_zookeeper",
+    ]
+]

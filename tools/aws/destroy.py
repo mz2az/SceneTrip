@@ -2,6 +2,7 @@
 
 import json
 
+from tools.aws.config import REPOSITORIES
 from tools.aws.destroy_gateway import aws_query, matching_albs, remove_gateway
 from tools.aws.destroy_identity import validate_owned_state
 from tools.aws.destroy_plan import (
@@ -25,13 +26,7 @@ def validate_resource_identity(resources, settings):
         != f"arn:aws:rds:{settings.region}:{settings.account}:db:{settings.cluster}"
     ):
         raise ValueError("Terraform state의 DB가 선택한 계정·리전·환경과 다릅니다")
-    names = {
-        "scene_api": "scene-api",
-        "trip_guide": "trip-guide",
-        "migration": "migration",
-        "data_load": "data-load",
-    }
-    for key, name in names.items():
+    for key, name in REPOSITORIES.items():
         repository = resources.get(f'aws_ecr_repository.app["{key}"]')
         if repository and (
             repository.get("name") != f"{settings.cluster}/{name}"

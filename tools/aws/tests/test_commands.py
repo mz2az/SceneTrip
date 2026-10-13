@@ -4,7 +4,7 @@ import json
 import unittest
 from unittest.mock import Mock
 
-from tools.aws.tests.fixtures import valid_settings
+from tools.aws.tests.fixtures import mirror_urls, valid_settings
 
 
 class CliTest(unittest.TestCase):
@@ -208,25 +208,29 @@ class CliTest(unittest.TestCase):
                 "scene_api": registry + "/scenetrip-dev/scene-api",
                 "trip_guide": registry + "/scenetrip-dev/trip-guide",
                 "migration": registry + "/scenetrip-dev/migration",
+                # dev 는 SigNoz 이미지도 복사한다(ADR 0025).
+                **mirror_urls(settings),
             }
         }
-        run = Mock(
-            side_effect=[
-                json.dumps(
+        auth = json.dumps(
+            {
+                "authorizationData": [
                     {
-                        "authorizationData": [
-                            {
-                                "proxyEndpoint": "https://" + registry,
-                                "authorizationToken": "fixture-token",
-                            }
-                        ]
+                        "proxyEndpoint": "https://" + registry,
+                        "authorizationToken": "fixture-token",
                     }
-                ),
-                "",
-                "",
-                "",
-            ]
+                ]
+            }
         )
+
+        def execute(command, **unused):
+            if "get-authorization-token" in command:
+                return auth
+            if "list-images" in command:
+                return json.dumps({"imageIds": []})
+            return ""
+
+        run = Mock(side_effect=execute)
         with tempfile.TemporaryDirectory() as temp:
             publish(run, outputs, settings, Path(temp))
             config = Path(temp) / "docker/config.json"
@@ -234,7 +238,16 @@ class CliTest(unittest.TestCase):
         self.assertFalse(config.exists())
         for call in run.call_args_list[1:]:
             self.assertNotIn("fixture-token", " ".join(call.args[0]))
-            self.assertIn(settings.tag, call.args[0])
+            self.assertNotIn("fixture-token", call.kwargs.get("stdin") or "")
+        app_pushes = [
+            call.args[0]
+            for call in run.call_args_list
+            if call.args[0][:2] == ["just", "run"]
+            and not call.args[0][2].startswith("//platform/helm/signoz:")
+        ]
+        self.assertEqual(len(app_pushes), 3)
+        for command in app_pushes:
+            self.assertIn(settings.tag, command)
 
 
 class FirstDeployEmptyStateTest(unittest.TestCase):

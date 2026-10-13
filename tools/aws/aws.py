@@ -17,6 +17,9 @@ from tools.aws.alb import alb_values, verify_nodeclass, wait_for_alb
 from tools.aws.bootstrap_delete import delete_bootstrap
 from tools.aws.config import (
     APP_SECRETS,
+    REPOSITORIES,
+    SIGNOZ_ENVIRONMENTS,
+    SIGNOZ_MIRROR,
     Runner,
     Settings,
     matched,
@@ -31,6 +34,7 @@ from tools.aws.deploy import (
     gateway_values,
     load_data,
     validate_environment_outputs,
+    verify_signoz_traces,
 )
 from tools.aws.destroy import destroy_service
 from tools.aws.teardown_options import TEARDOWN_COMMANDS, validate_teardown
@@ -103,6 +107,14 @@ def isolated_terraform(run, root, temp):
             "추적된 Terraform 소스가 없습니다. 검토 후 커밋한 소스만 배포합니다"
         )
     return destination
+
+
+def signoz_chart(chart_runfile):
+    if not chart_runfile:
+        return None
+    from python.runfiles import runfiles
+
+    return Path(runfiles.Create().Rlocation(chart_runfile))
 
 
 def configure_tools(temp, provider_runfile):
@@ -334,15 +346,7 @@ def publish(run, outputs, settings, temp, images=None):
         else images
     ):
         repository = outputs["ecr_repository_urls"][key]
-        expected = (
-            f"{registry}/scenetrip-{settings.environment}/"
-            + {
-                "scene_api": "scene-api",
-                "trip_guide": "trip-guide",
-                "migration": "migration",
-                "data_load": "data-load",
-            }[key]
-        )
+        expected = f"{registry}/scenetrip-{settings.environment}/" + REPOSITORIES[key]
         if repository != expected:
             raise ValueError("Terraform ECR 출력이 선택한 계정·환경과 다릅니다")
         run(
@@ -358,6 +362,50 @@ def publish(run, outputs, settings, temp, images=None):
             ],
             env={"DOCKER_CONFIG": str(docker)},
         )
+    if images is None and settings.environment in SIGNOZ_ENVIRONMENTS:
+        mirror_signoz(run, outputs, settings, registry, docker)
+
+
+def mirror_signoz(run, outputs, settings, registry, docker):
+    """SigNoz 이미지(ADR 0025)를 환경 ECR 로 복사한다 — **없는 태그만**. 저장소가 태그 불변이라 한 번 올린 태그는 다시
+    올리지 못하고(같은 내용이어도 거절), 내용도 바뀌지 않는다. 그래서 매 배포 Docker Hub 를 부르지 않는다."""
+    for key, (_, tag) in SIGNOZ_MIRROR.items():
+        repository = outputs["ecr_repository_urls"][key]
+        name = f"scenetrip-{settings.environment}/{REPOSITORIES[key]}"
+        if repository != f"{registry}/{name}":
+            raise ValueError("Terraform ECR 출력이 선택한 계정·환경과 다릅니다")
+        listed = json.loads(
+            run(
+                [
+                    "aws",
+                    "ecr",
+                    "list-images",
+                    "--repository-name",
+                    name,
+                    "--filter",
+                    "tagStatus=TAGGED",
+                    "--output",
+                    "json",
+                ],
+                quiet=True,
+            )
+        )
+        if any(image.get("imageTag") == tag for image in listed.get("imageIds", [])):
+            continue
+        run(
+            [
+                "just",
+                "run",
+                f"//platform/helm/signoz:{key}_push",
+                "--",
+                "--repository",
+                repository,
+                "--tag",
+                tag,
+            ],
+            env={"DOCKER_CONFIG": str(docker)},
+        )
+        print(f"SigNoz 이미지를 ECR 로 복사: {REPOSITORIES[key]}:{tag}")
 
 
 def data_load(run, root, settings, temp):
@@ -475,6 +523,8 @@ def verify_existing(run, root, settings, temp):
     hostname = wait_for_alb(run, settings, outputs)
     print(f"검증할 ALB DNS: {hostname}")
     verify_https(settings, hostname)
+    if settings.environment in SIGNOZ_ENVIRONMENTS:
+        verify_signoz_traces(run)
 
 
 def print_failed_stack_events(run, name):
@@ -727,6 +777,8 @@ def teardown(run, root, settings, args):
 def main():
     parser = argparse.ArgumentParser(description="SceneTrip 수동 AWS 배포")
     parser.add_argument("--provider-runfile", required=True)
+    # SigNoz 공식 차트(@signoz_chart, ADR 0025). 배포(apply)가 SigNoz 를 올리는 환경에서만 쓴다.
+    parser.add_argument("--signoz-chart-runfile", default="")
     parser.add_argument(
         "operation",
         choices=[
@@ -839,8 +891,16 @@ def main():
         if outputs is not None:
             verify_certificate(run, settings, outputs)
             publish(run, outputs, settings, temp)
-            hostname = deploy(run, root, settings, outputs)
+            hostname = deploy(
+                run,
+                root,
+                settings,
+                outputs,
+                signoz_chart(args.signoz_chart_runfile),
+            )
             verify_https(settings, hostname)
+            if settings.environment in SIGNOZ_ENVIRONMENTS:
+                verify_signoz_traces(run)
 
 
 if __name__ == "__main__":

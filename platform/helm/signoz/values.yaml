@@ -1,0 +1,9 @@
+# SigNoz 공식 차트 0.145.0(MODULE.bazel @signoz_chart) 위에 얹는 값 — ADR 0025, docs/project/plans/observability-aws.md.
+# 배포기(tools/aws/deploy.py install_signoz)가 stdin 으로 두 값을 더한다 — 저장소에 적지 않는 것들이다:
+#   global.imageRegistry  환경 ECR 의 복사본 `<ECR>/scenetrip-<env>/mirror` (차트가 원래 경로를 뒤에 붙인다)
+#   clickhouse.password   환경마다 배포가 만든 값. 차트 기본값은 모든 설치에 같은 문자열이라 그대로 쓰지 않는다
+global:
+  # 배포기가 만드는 EKS Auto Mode 용 gp3 StorageClass. 차트의 installCustomStorageClass 는 옛 gp2·in-tree 라 끈다.
+  storageClass: signoz-gp3
+clickhouse:
+  installCustomStorageClass: false

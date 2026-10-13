@@ -1,5 +1,18 @@
 locals {
-  repositories = { scene_api = "scene-api", trip_guide = "trip-guide", migration = "migration", data_load = "data-load" }
+  # tools/aws/config.py REPOSITORIES 와 같아야 한다(시험이 대조). mirror_* 는 SigNoz 가 쓰는 공개 이미지의 복사본(ADR 0025).
+  repositories = {
+    scene_api                  = "scene-api"
+    trip_guide                 = "trip-guide"
+    migration                  = "migration"
+    data_load                  = "data-load"
+    mirror_signoz              = "mirror/signoz/signoz"
+    mirror_otel_collector      = "mirror/signoz/signoz-otel-collector"
+    mirror_clickhouse          = "mirror/clickhouse/clickhouse-server"
+    mirror_alpine              = "mirror/alpine"
+    mirror_clickhouse_operator = "mirror/altinity/clickhouse-operator"
+    mirror_metrics_exporter    = "mirror/altinity/metrics-exporter"
+    mirror_zookeeper           = "mirror/signoz/zookeeper"
+  }
   app_secret_descriptions = {
     scene_api = "SceneTrip 외부 API 인증정보"
     database  = "런타임·마이그레이션 PostgreSQL 역할 인증정보"

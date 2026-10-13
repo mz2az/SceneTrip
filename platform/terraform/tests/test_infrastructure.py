@@ -795,7 +795,7 @@ class InfrastructureBoundaryTest(unittest.TestCase):
 
     def test_app_secrets_are_scene_api_database_auth_without_trip_guide(self):
         # MZ2AZ-317 후속 — trip-guide 는 Bedrock 을 Pod Identity 역할로 부르므로 비밀값이 없다.
-        # 비밀값 이름은 /scenetrip/<env>/<키, _ 는 -> 이다. 이미지 저장소는 그대로 넷이다.
+        # 비밀값 이름은 /scenetrip/<env>/<키, _ 는 -> 이다. 이미지 저장소는 앱 넷과 SigNoz 미러 일곱이다.
         source = (ROOT / "platform/terraform/aws/registry-secrets.tf").read_text()
 
         def local_map(name):
@@ -811,7 +811,21 @@ class InfrastructureBoundaryTest(unittest.TestCase):
         self.assertIsNotNone(repositories)
         self.assertEqual(
             sorted(re.findall(r"(\w+)\s*=", repositories.group(1))),
-            sorted(["scene_api", "trip_guide", "migration", "data_load"]),
+            sorted(
+                [
+                    "scene_api",
+                    "trip_guide",
+                    "migration",
+                    "data_load",
+                    "mirror_signoz",
+                    "mirror_otel_collector",
+                    "mirror_clickhouse",
+                    "mirror_alpine",
+                    "mirror_clickhouse_operator",
+                    "mirror_metrics_exporter",
+                    "mirror_zookeeper",
+                ]
+            ),
         )
         secret = re.search(
             r'resource\s+"aws_secretsmanager_secret"\s+"app"\s*\{(.*?)\n\}',
