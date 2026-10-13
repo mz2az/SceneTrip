@@ -1,0 +1,5 @@
+# 지역 가이드 원본 자료를 외부 서비스 없는 검증의 입력으로 선언한다.
+exports_files(
+    ["regional-guides-2026-10.json"],
+    visibility = ["//visibility:public"],
+)

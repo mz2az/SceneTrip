@@ -1,6 +1,8 @@
 /* English (MZ2AZ-343). 열쇠는 한국어 원문이다 — 코드의 글자와 하나까지 같아야 한다.
    숫자·이름이 들어가는 자리(%lld·%d·%@)는 열쇠와 값에서 개수와 종류가 같아야 한다. */
 
+"기존 사진과 코스를 보관하고 있어요. 이 기기에서만 보입니다" = "Your original photos and course are kept here, visible only on this device.";
+
 "%.1f km · %d점" = "%.1f km · %d points";
 "%@ · %lld곳" = "%1$@ · %2$lld places";
 "%@ — 좌표 없음" = "%@ — no coordinates";

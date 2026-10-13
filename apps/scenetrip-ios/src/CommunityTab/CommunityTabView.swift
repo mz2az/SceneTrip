@@ -6,7 +6,7 @@ import SwiftUI
 /// (2026-10-03 팀 회의). 후기는 사진과 다녀온 코스를 붙여 쓰고, 읽는 사람은 그 코스를
 /// 보고 내 코스로 담는다.
 ///
-/// 서버의 최신 후기를 받는다. 기기에 남은 옛 글은 내 글의 별도 목록에 보존한다(MZ2AZ-396).
+/// 서버 최신 후기와 기기에 보관한 옛 글을 함께 찾는다(MZ2AZ-396, MZ2AZ-423).
 struct CommunityTabView: View {
     @ObservedObject private var store = CommunityStore.shared
     /// 내 글의 글쓴이 이름이 닉네임이다 — 닉네임을 바꾸거나 로그인·로그아웃하면 목록이 다시 그려져야 한다.
@@ -99,7 +99,18 @@ struct CommunityTabView: View {
             if store.loading {
                 ProgressView().frame(maxWidth: .infinity)
             }
-            if store.posts.isEmpty, !store.loading, store.message == nil {
+            if !store.legacyPosts.isEmpty {
+                Section {
+                    ForEach(store.legacyPosts) { post in
+                        myPostRow(post)
+                    }
+                } header: {
+                    Text("이 기기에만 저장된 옛 글")
+                } footer: {
+                    Text("기존 사진과 코스를 보관하고 있어요. 이 기기에서만 보입니다")
+                }
+            }
+            if store.posts.isEmpty, store.legacyPosts.isEmpty, !store.loading, store.message == nil {
                 ContentUnavailableView {
                     Label("아직 후기가 없습니다", systemImage: "bubble.left.and.bubble.right")
                 } description: {
@@ -129,7 +140,7 @@ struct CommunityTabView: View {
         .buttonStyle(.plain)
         .swipeActions {
             // 지우기는 **내 글만** — 남의 글을 밀어서 지울 수 있으면 안 된다.
-            if post.isMine {
+            if post.isMine, post.serverId != nil {
                 Button(role: .destructive) {
                     deleting = post
                 } label: {
