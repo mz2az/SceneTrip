@@ -1,4 +1,20 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_swift//swift:swift.bzl", "swift_binary")
+
+# 생성 도구의 확정 결과를 픽셀 크기 그대로 JPEG로 저장한다(그림 편집 없음).
+swift_binary(
+    name = "community_image_jpeg",
+    srcs = ["community-image-jpeg.swift"],
+    tags = [
+        "ios",
+        "manual",
+    ],
+    target_compatible_with = select({
+        "@platforms//os:macos": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//visibility:public"],
+)
 
 # 계약의 글·사진·코스 창구를 사용하는 로컬 가이드 자료 적재.
 py_binary(
@@ -28,6 +44,42 @@ py_test(
     imports = ["."],
     legacy_create_init = 0,
     main = "test_community_guides.py",
+    tags = ["unit"],
+)
+
+# 변환 사진의 해시·출처·문단 배치·저장 키를 외부 호출 없이 검증한다.
+py_binary(
+    name = "community_blog_local",
+    srcs = [
+        "community_blog_local.py",
+        "community_blog_rules.py",
+        "community_guide_rules.py",
+        "community_guides_transport.py",
+    ],
+    data = ["community-blog-apply.sql"],
+    imports = ["."],
+    legacy_create_init = 0,
+    main = "community_blog_local.py",
+    tags = ["manual"],
+    visibility = ["//visibility:public"],
+)
+
+# 변환 사진의 해시·출처·문단 배치·저장 키를 외부 호출 없이 검증한다.
+py_test(
+    name = "community_blog_unit_test",
+    srcs = [
+        "community_blog_rules.py",
+        "community_guide_rules.py",
+        "community_guides_transport.py",
+        "test_community_blog.py",
+    ],
+    data = [
+        "//docs/product/community-guides:regional-guides-2026-10.json",
+        "//docs/product/community-guides/ai-images:assets",
+    ],
+    imports = ["."],
+    legacy_create_init = 0,
+    main = "test_community_blog.py",
     tags = ["unit"],
 )
 

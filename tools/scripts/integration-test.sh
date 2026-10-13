@@ -14,15 +14,17 @@ source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 cd "$REPO_ROOT" || die "$REPO_ROOT 로 이동할 수 없습니다"
 
 BAZEL_BIN="${BAZEL:-bazel}"
-TARGETS="${1:-//...}"
+if [ "$#" -eq 0 ]; then
+  set -- //...
+fi
 
 db_connect
 
-log "통합 테스트 실행 — 대상 $TARGETS"
+log "통합 테스트 실행 — 대상 $*"
 
 # --test_env 로 접속 정보를 넘긴다. 테스트는 이 값이 없으면 건너뛰지 않고 실패한다
 # (IntegrationDatabase). 조용히 0 개 실행되고 초록인 상태가 제일 나쁘다.
-"$BAZEL_BIN" test "$TARGETS" \
+"$BAZEL_BIN" test "$@" \
   --test_tag_filters=integration \
   --test_output=errors \
   --test_env="SCENETRIP_TEST_JDBC_URL=jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME" \

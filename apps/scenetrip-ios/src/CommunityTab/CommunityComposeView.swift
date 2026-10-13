@@ -24,11 +24,15 @@ struct CommunityComposeView: View {
     @State private var checkingPosts = false
     @State private var confirmingDiscard = false
     @State private var composingEpoch = AuthStore.shared.epoch
+    @State private var placements: [UUID: CommunityPhotoPlacement] = [:]
+    @State private var previewing = false
 
     private var canPost: Bool {
         !submission.working && !submission.uncertain && !submission.completed && photos.canSave && auth.signedIn
             && composingEpoch == auth.epoch
             && CommunityRules.canPost(title: title, body: story, photoCount: photos.slots.count)
+            && CommunityArticle.canCompose(story) && CommunityArticle.plainBody(story).utf16.count <= CommunityRules.bodyLimit
+            && placements.values.allSatisfy(\.metadataValid)
     }
 
     var body: some View {
@@ -50,10 +54,11 @@ struct CommunityComposeView: View {
                     }.disabled(submission.working)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("올리기") {
-                        Task { await submit() }
+                    HStack {
+                        Button("미리보기") { previewing = true }
+                            .disabled(!CommunityArticle.canCompose(story))
+                        Button("올리기") { Task { await submit() } }.disabled(!canPost)
                     }
-                    .disabled(!canPost)
                 }
             }
             .sheet(isPresented: $pickingCourse) {
@@ -61,11 +66,17 @@ struct CommunityComposeView: View {
                     .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $checkingPosts) { MyPostsSheet() }
+            .sheet(isPresented: $previewing) {
+                CommunityArticlePreview(title: title, blocks: articleBlocks, slots: photos.slots, course: course)
+            }
             .signInSheet()
             .interactiveDismissDisabled(submission.working || !title.isEmpty || !story.isEmpty || !photos.slots.isEmpty)
             .onDisappear { photos.cancel() }
             .onAppear { photos.resume() }
             .onChange(of: auth.epoch) { _, _ in photos.cancel() }
+            .onChange(of: photos.slots.map(\.id)) { _, ids in
+                placements = placements.filter { ids.contains($0.key) }
+            }
             .alert(tr("쓰던 후기를 버릴까요?"), isPresented: $confirmingDiscard) {
                 Button("버리기", role: .destructive) { dismiss() }
                 Button("계속 쓰기", role: .cancel) {}
@@ -79,6 +90,11 @@ struct CommunityComposeView: View {
             ReviewPhotoStrip(draft: photos, locked: submission.working || submission.uncertain)
                 .padding(.horizontal, 20)
             editor
+            if !photos.slots.isEmpty {
+                CommunityPlacementEditor(story: story, slots: photos.slots, placements: $placements,
+                                         locked: submission.working || submission.uncertain)
+                    .padding(.horizontal, 20)
+            }
             courseCard.padding(.horizontal, 16).padding(.top, 6)
             if let count = course?.excludedPins, count > 0 {
                 Text(String(format: tr("직접 찍은 핀 %d곳은 공유되지 않습니다"), count))
@@ -119,11 +135,15 @@ struct CommunityComposeView: View {
 
     // MARK: 사진
 
+    private var articleBlocks: [TripPostBlock] {
+        CommunityArticle.blocks(body: story, photoIds: photos.slots.map(\.id), placements: placements)
+    }
+
     /// 가로로 넘기는 사진 줄. 첫 칸은 늘 「사진 추가」다 — 첫 장이 대표 사진이 된다.
     private func submit() async {
         guard canPost else { return }
-        let input = TripPostCreate(title: CommunityRules.normalized(title), body: CommunityRules.normalized(story),
-                                   photoKeys: photos.keys, courseId: course?.serverId)
+        let input = TripPostCreate(title: CommunityRules.normalized(title), body: CommunityArticle.plainBody(story),
+                                   photoKeys: photos.keys, courseId: course?.serverId, bodyBlocks: articleBlocks)
         if let saved = await submission.submit(input, expectedCourse: course) {
             finish(saved)
         } else if submission.photoInvalid {

@@ -180,7 +180,10 @@ oci_load(
 # spring-boot-actuator-autoconfigure …) 스타터 없이 직접 나열하면 빠뜨리기 쉽다.
 java_library(
     name = "scene-api",
-    srcs = glob(["src/main/java/**/*.java"]),
+    srcs = glob(
+        ["src/main/java/**/*.java"],
+        exclude = ["src/main/java/com/mz2az/scenetrip/sceneapi/post/PostBody.java"],
+    ) + ["src/main/java/com/mz2az/scenetrip/sceneapi/post/PostBody.java"],
     resources = glob(["src/main/resources/**"]),
     runtime_deps = [
         # 방언과 드라이버는 코드에서 부르지 않는다. 클래스패스에 있으면 Flyway 와 Spring
@@ -346,7 +349,16 @@ java_junit5_test(
 java_junit5_test(
     name = "unit_test",
     size = "medium",
-    srcs = glob(["tests/java/**/*.java"]),
+    srcs = glob(
+        ["tests/java/**/*.java"],
+        exclude = [
+            "tests/java/com/mz2az/scenetrip/sceneapi/post/PostBodyTest.java",
+            "tests/java/com/mz2az/scenetrip/sceneapi/web/PostsBlogControllerTest.java",
+        ],
+    ) + [
+        "tests/java/com/mz2az/scenetrip/sceneapi/post/PostBodyTest.java",
+        "tests/java/com/mz2az/scenetrip/sceneapi/web/PostsBlogControllerTest.java",
+    ],
     tags = ["unit"],
     test_package = "com.mz2az.scenetrip.sceneapi",
     runtime_deps = [

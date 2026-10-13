@@ -1,0 +1,688 @@
+[
+  {
+    "assetId": "tour-129501-d5231218",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-129501-d5231218-v1.jpg",
+    "place": "낙산공원",
+    "sourceTitle": "낙산공원",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/28/3506728_image2_1.jpg",
+    "sourceId": "tour-129501",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "76124f2f9b7a831862791df00eea54020deef5b8dfa78a3f013b7e22b62fb90f",
+    "outputSha256": "a15213bd7e287f35e11daebaa9559f91acf56a2874af3096885a12f8c450cc04",
+    "bytes": 876922,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: SceneTrip travel blog photograph. Input image is the EDIT TARGET: the real Naksan Park stone city wall and paved path in Seoul. Create a photorealistic AI-transformed derivative of this exact place: adjust the framing subtly toward the wall and path, reduce empty sky slightly, improve natural daylight tonal balance, remove any visitors if present. Keep the actual stone wall construction, embrasures, curved path, grass slopes, trees, railings and real geographic relationships faithful to the source. Do not invent buildings, signs, monuments, people or new architecture. Preserve any existing source attribution stamp. Output one wide 3:2 landscape photograph, no collage, no extra text or logos. This image will be labeled as AI-transformed with source attribution outside the photo.",
+    "guides": [
+      {
+        "slug": "seoul-kpop-roofs",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-126508-97d5a695",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-126508-97d5a695-v1.jpg",
+    "place": "경복궁",
+    "sourceTitle": "경복궁",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/98/3487598_image2_1.jpg",
+    "sourceId": "tour-126508",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "8e902852ea6c0a082d3c1ffd316b8189e8c29b26d3e7f9aa55b9266c4e140863",
+    "outputSha256": "f8d3681c40cd5df13794cea87f7d93621838562aa9624d564a4291ee15da98a3",
+    "bytes": 929073,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: SceneTrip travel blog photo. Input image is the EDIT TARGET: Gyeongbokgung Palace, Gyeonghoeru Pavilion in Seoul. Make a photorealistic AI-transformed derivative of this exact place: a modest reframing or small viewpoint adjustment, natural balanced daylight and subtle editorial travel-photo color. Remove all visitors/people without leaving blurred silhouettes. Keep the two-story pavilion's real roof, columns, stairs, stone platform, pond, and willow framing faithful. Do not invent another palace building. Preserve geographical relationships and real architectural details; avoid invented buildings, monuments, changed signs or staged subjects. Preserve the existing source attribution stamp if present; no additional logos, text or collage. One wide 3:2 landscape photo. It will be labeled AI-transformed and retain source attribution outside the photo.",
+    "guides": [
+      {
+        "slug": "seoul-palace-screen",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-126511-cd6f9b64",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-126511-cd6f9b64-v1.jpg",
+    "place": "창경궁",
+    "sourceTitle": "창경궁",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/94/3536794_image2_1.jpg",
+    "sourceId": "tour-126511",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "42d70341ba5875b71f1d40d94bc2483ecb8e89aea4858188f1a7cd2148cd4f5b",
+    "outputSha256": "bc2c5d7d897d1902490537fc79ebf7f29dea5b13197fbb7debb5e3c18d97d163",
+    "bytes": 690664,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: SceneTrip travel blog photo. Input image is the EDIT TARGET: Changgyeonggung Palace, Myeongjeongjeon courtyard in Seoul. Make a photorealistic AI-transformed derivative of this exact place: a modest reframing or small viewpoint adjustment, natural balanced daylight and subtle editorial travel-photo color. Remove all visitors/people without leaving blurred silhouettes. Keep the palace facade, roof tiers, plaque, side buildings, stone courtyard path and rank stones faithful. Preserve geographical relationships and real architectural details; avoid invented buildings, monuments, changed signs or staged subjects. Preserve the existing source attribution stamp if present; no additional logos, text or collage. One wide 3:2 landscape photo. It will be labeled AI-transformed and retain source attribution outside the photo.",
+    "guides": [
+      {
+        "slug": "seoul-palace-screen",
+        "index": 1
+      }
+    ]
+  },
+  {
+    "assetId": "tour-264394-d651085e",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-264394-d651085e-v1.jpg",
+    "place": "화홍문(華虹門)",
+    "sourceTitle": "화홍문(華虹門)",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/19/4054019_image2_1.jpg",
+    "sourceId": "tour-264394",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "277c5b9d68088b9c8c8069e967d6cfc1b65c3f428777fcc8a695857f11032457",
+    "outputSha256": "610ca282629eba77b80f15370913a8407a3e905617604e30f0ebbac321e39f4d",
+    "bytes": 777040,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: SceneTrip travel blog photo. Input image is the EDIT TARGET: Hwahongmun floodgate at Suwon Hwaseong Fortress. Make a photorealistic AI-transformed derivative of this exact place: a modest reframing or small viewpoint adjustment, natural balanced daylight and subtle editorial travel-photo color. Remove all visitors/people without leaving blurred silhouettes. Keep the actual watergate arches, water cascade, stone bridge, wooden pavilion with green lattice and red columns, and real plaque faithful. Preserve geographical relationships and real architectural details; avoid invented buildings, monuments, changed signs or staged subjects. Preserve the existing source attribution stamp if present; no additional logos, text or collage. One wide 3:2 landscape photo. It will be labeled AI-transformed and retain source attribution outside the photo.",
+    "guides": [
+      {
+        "slug": "suwon-lovely-runner",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-2613658-e0c8ae61",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-2613658-e0c8ae61-v1.jpg",
+    "place": "방화수류정(동북각루)",
+    "sourceTitle": "방화수류정(동북각루)",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/69/4054069_image2_1.jpg",
+    "sourceId": "tour-2613658",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "50b687b6b13bcd39fe0e6dcf3005c6d85e1733438a02b7f49718b1665b034004",
+    "outputSha256": "60b9ce9b9714de8399e7707329ecfc534018e7eb25a04f538379ace1278b161b",
+    "bytes": 819513,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: SceneTrip travel blog photo. Input image is the EDIT TARGET: Banghwasuryujeong Pavilion above Yongyeon pond in Suwon. Make a photorealistic AI-transformed derivative of this exact place: a modest reframing or small viewpoint adjustment, natural balanced daylight and subtle editorial travel-photo color. Remove all visitors/people without leaving blurred silhouettes. Keep the pavilion and fortress on the hillside, oval island, real pond banks, willows and reflections faithful. Preserve geographical relationships and real architectural details; avoid invented buildings, monuments, changed signs or staged subjects. Preserve the existing source attribution stamp if present; no additional logos, text or collage. One wide 3:2 landscape photo. It will be labeled AI-transformed and retain source attribution outside the photo.",
+    "guides": [
+      {
+        "slug": "suwon-lovely-runner",
+        "index": 1
+      },
+      {
+        "slug": "suwon-art-and-walls",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-2946407-c3cfd3ff",
+    "version": 2,
+    "file": "docs/product/community-guides/ai-images/tour-2946407-c3cfd3ff-v2.jpg",
+    "place": "수원 지동벽화마을",
+    "sourceTitle": "수원 지동벽화마을",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/13/2947313_image2_1.jpg",
+    "sourceId": "tour-2946407",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "f9357a9cfef994941c0fd034d761e637d4c7231211557070686fd7cbdd590b07",
+    "outputSha256": "216569ee9e8c558c17ab28ecc65bcf3e9feb10d22a3e6f59cc7a7f74104c6ee2",
+    "bytes": 642684,
+    "mode": "built-in image_gen edit",
+    "prompt": "Edit this source photograph of Suwon Jidong Mural Village into a photographic travel reference image. Reframe closer toward the LEFT mural wall and the small blue doorway to show the alley's actual painted walls, pink bottle decoration, tiled roof, and cat sculptures. Choose a composition that excludes the blue street-address plaque near the upper-right and all other readable small plaques, rather than inventing text. Keep the real physical alley structure, murals and the painted red tree accurate where visible. Remove people if any. Use soft natural afternoon light. No new signs, buildings, words or fake logos; no border. The image is an AI-transformed scenic reference.",
+    "guides": [
+      {
+        "slug": "suwon-art-and-walls",
+        "index": 1
+      }
+    ]
+  },
+  {
+    "assetId": "tour-264284-081ac572",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-264284-081ac572-v1.jpg",
+    "place": "전주 한옥마을 인근 전동성당 정원 · 참고 풍경",
+    "sourceTitle": "전북 전주 한옥마을 [슬로시티]",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource_photo/67/3516667_image2_1.jpg",
+    "sourceId": "tour-264284",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "10858b894475d2b8d20acd560a4cd7d0316e2a5ff9a926a5dc84e7ba1bf8dfe0",
+    "outputSha256": "f0a6a7219cbea75ef55f908cf75614f8f39b8c391b96fa3497c73019c50f6202",
+    "bytes": 831915,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: SceneTrip travel blog photo. Input is the EDIT TARGET. Subject: The Jeondong Catholic Church GARDEN AND SIDE VIEW near Jeonju Hanok Village, not a hanok-roof panorama: preserve the real brick church with green side roof and single visible bell tower, lawn, garden, trees and white statue. Make a photorealistic AI-transformed derivative with a small reframing and natural editorial tonal balance. Remove any real visitors/people. Preserve actual architecture, geography, art and signs; no invented structures, altered landmark identities or staged subjects. Keep any existing source attribution stamp. No additional logo, text, collage or grid. Produce ONE wide 3:2 photo; app will display AI-transformed label and source credit.",
+    "guides": [
+      {
+        "slug": "jeonju-2521",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-147656-a3620037",
+    "version": 2,
+    "file": "docs/product/community-guides/ai-images/tour-147656-a3620037-v2.jpg",
+    "place": "전주 경기전",
+    "sourceTitle": "전주 경기전",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource_photo/45/3365745_image2_1.jpg",
+    "sourceId": "tour-147656",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "b3bb638d2fa2a9a5c8e94d52d74ebe88b13dc4999bf4321136449b5688fb11d2",
+    "outputSha256": "40a106738dc9f03866c86ecdeadbeccd5bd8a68a86544a81a8fe71a3c7149cc2",
+    "bytes": 1001583,
+    "mode": "built-in image_gen edit",
+    "prompt": "Edit this reference photo of Jeonju Gyeonggijeon's bamboo passage into a realistic photographic travel-blog reference. Keep its real bamboo canopy, tiled Korean gate, red columns, stone path and background traditional building unchanged. Modestly adjust framing and soft green natural light, remove all people, preserve the real landmark architecture. Keep the existing source attribution in the lower right legibly as exactly '한국관광공사' with exactly 'KOREA TOURISM ORGANIZATION' below, retaining the reference's simple white emblem. Do not use garbled lettering, add signs or invent buildings. The result is an AI-transformed reference landscape with no frame.",
+    "guides": [
+      {
+        "slug": "jeonju-palace-and-film",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-250331-4e2358bb",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-250331-4e2358bb-v1.jpg",
+    "place": "전주전동성당",
+    "sourceTitle": "전주전동성당",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/71/4094271_image2_1.jpg",
+    "sourceId": "tour-250331",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "b4a99d54452af8dc8381eefaa19567143b408998ba8367d34adff6d31d49784c",
+    "outputSha256": "f0c5dcc55a03b4d29a18f35a09ee2542d8cbb16c7006a80cc900f3fdf220b064",
+    "bytes": 760166,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: SceneTrip travel blog photo. Input is the EDIT TARGET. Subject: Jeondong Catholic Church facade in Jeonju: preserve the real brick facade, circular rose window, three existing towers and domes, entrance stairs, and white statue. Do not invent a new church or change signs. Make a photorealistic AI-transformed derivative with a small reframing and natural editorial tonal balance. Remove any real visitors/people. Preserve actual architecture, geography, art and signs; no invented structures, altered landmark identities or staged subjects. Keep any existing source attribution stamp. No additional logo, text, collage or grid. Produce ONE wide 3:2 photo; app will display AI-transformed label and source credit.",
+    "guides": [
+      {
+        "slug": "jeonju-palace-and-film",
+        "index": 1
+      }
+    ]
+  },
+  {
+    "assetId": "tour-2554180-3be4895a",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-2554180-3be4895a-v1.jpg",
+    "place": "배다리 헌책방 골목",
+    "sourceTitle": "배다리 헌책방 골목",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/29/3370329_image2_1.jpg",
+    "sourceId": "tour-2554180",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "4189ce90646b47391110d718c2b8d241e1e6d8d9857b08cc611f1f679ab11577",
+    "outputSha256": "4c655793e6d42a303c7f6cb67f89cbde34c5d82d9dbfed6e43599aee095a2d3f",
+    "bytes": 673111,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset type: realistic AI-transformed reference scenery for a SceneTrip regional travel article. Edit ONLY the attached source image of the named real place. Preserve its true architectural/geographic features and identities, with a modest compositional and lighting change as specified. Remove visible people; no recognizable people or faces. Preserve any existing Korea Tourism Organization attribution mark and existing signage wording accurately; do not invent characters, additional signs, logos, captions or watermarks. This is illustrative AI-transformed scenery, not a fabricated exact documentary photograph. Keep a natural photographic appearance and similar orientation to the original. Place: 인천 배다리 헌책방 골목. Keep the exact narrow brick alley, turquoise doorway curtain, old roof tiles, pots, overhead cables and background buildings. Gently change framing by a small camera shift along the alley and use soft afternoon light; do not turn it into a new street.",
+    "guides": [
+      {
+        "slug": "incheon-books-and-retro",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-127585-a75fa35d",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-127585-a75fa35d-v1.jpg",
+    "place": "월미도",
+    "sourceTitle": "월미도",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/94/3518594_image2_1.jpg",
+    "sourceId": "tour-127585",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "67f80df748da3bcb2b9f3362a02d7198a5c2498e52e8f6c9e9b35ce949e86447",
+    "outputSha256": "066d636474e767991ca36b45e681d5ce47c14360df02249d0d8a86847427a8af",
+    "bytes": 619950,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset type: realistic AI-transformed reference scenery for a SceneTrip regional travel article. Edit ONLY the attached source image of the named real place. Preserve its true architectural/geographic features and identities, with a modest compositional and lighting change as specified. Remove visible people; no recognizable people or faces. Preserve any existing Korea Tourism Organization attribution mark and existing signage wording accurately; do not invent characters, additional signs, logos, captions or watermarks. This is illustrative AI-transformed scenery, not a fabricated exact documentary photograph. Keep a natural photographic appearance and similar orientation to the original. Place: 인천 월미도. Preserve the light turquoise elevated monorail track and train, red Ferris wheel, tree on left and turquoise commercial building in their genuine relative positions. Slightly reframe and use softer afternoon sunlight. Do not add rides, rails, trains, logos or shop names.",
+    "guides": [
+      {
+        "slug": "incheon-books-and-retro",
+        "index": 1
+      }
+    ]
+  },
+  {
+    "assetId": "tour-129585-c0e9bd8e",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-129585-c0e9bd8e-v1.jpg",
+    "place": "소돌아들바위공원",
+    "sourceTitle": "소돌아들바위공원",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource_photo/40/3590140_image2_1.jpg",
+    "sourceId": "tour-129585",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "baac5a65464db63b910edb206be3e6d5ce712355a8ac046fa61690f42f3b0bdf",
+    "outputSha256": "bd6281fcc55de65df6bf043f2aa2a07e7aa727eeb1fc67990465b17db96e2c67",
+    "bytes": 578858,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset type: realistic AI-transformed reference scenery for a SceneTrip regional travel article. Edit ONLY the attached source image of the named real place. Preserve its true architectural/geographic features and identities, with a modest compositional and lighting change as specified. Remove visible people; no recognizable people or faces. Preserve any existing Korea Tourism Organization attribution mark and existing signage wording accurately; do not invent characters, additional signs, logos, captions or watermarks. This is illustrative AI-transformed scenery, not a fabricated exact documentary photograph. Keep a natural photographic appearance and similar orientation to the original. Place: 강릉 소돌아들바위공원. Keep the exact distinctive eroded golden coastal rock formation, its openings and contours, the foreground seawater pool, breakwater stones and sea horizon. Shift viewpoint very slightly and brighten the cloudy light naturally. No invented cliffs, paths, buildings or sculptures.",
+    "guides": [
+      {
+        "slug": "gangneung-jumunjin",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-132774-b46a4856",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-132774-b46a4856-v1.jpg",
+    "place": "주문진수산시장",
+    "sourceTitle": "주문진수산시장",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/22/3500122_image2_1.jpg",
+    "sourceId": "tour-132774",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "f5f6ac5f8e14d57f2e0e4e0821fb5fd8e1eae0876729493d505539022f2a654f",
+    "outputSha256": "9c72d7904cdecc18fc358b1c6551f78a5d92d19c347e214d642ebf06f43d490d",
+    "bytes": 644592,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset type: realistic AI-transformed reference scenery for a SceneTrip regional travel article. Edit ONLY the attached source image of the named real place. Preserve its true architectural/geographic features and identities, with a modest compositional and lighting change as specified. Remove visible people; no recognizable people or faces. Preserve any existing Korea Tourism Organization attribution mark and existing signage wording accurately; do not invent characters, additional signs, logos, captions or watermarks. This is illustrative AI-transformed scenery, not a fabricated exact documentary photograph. Keep a natural photographic appearance and similar orientation to the original. Place: 강릉 주문진수산시장. Preserve the fish market entrance building, large fish sculpture on the roof, existing main sign wording, awnings and adjacent buildings. Remove all shoppers, vendors and faces without changing the physical market. Slightly reframe closer to the entrance and keep a natural daytime atmosphere. Do not invent new sign text, fish sculptures or buildings.",
+    "guides": [
+      {
+        "slug": "gangneung-jumunjin",
+        "index": 1
+      }
+    ]
+  },
+  {
+    "assetId": "tour-2706817-392b1696",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-2706817-392b1696-v1.jpg",
+    "place": "강릉시립미술관 교동",
+    "sourceTitle": "강릉시립미술관 교동",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/31/3577531_image2_1.jpg",
+    "sourceId": "tour-2706817",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "c37988664aab6bab5b2439c2401fb83a6cef16dfe1289dbc7e1a17084277700d",
+    "outputSha256": "b675327c53ddd00f7f4b8d283d1b4411f7ef997d6a29f3dbad5834b5fb857a87",
+    "bytes": 860455,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Create a natural photographic AI-transformed reference scenery image for a SceneTrip travel article, based only on this licensed input photo of 강릉시립미술관 교동. Preserve the location's actual architectural and geographical features; change the viewpoint/framing modestly and improve natural lighting. Remove all people and faces. Preserve source attribution/watermark and existing sign text accurately. Do not add imaginary buildings, words, signs, contact numbers, logos or watermarks. Keep the angular dark roof, wooden facade and existing museum sign '강릉시립미술관, 교동' / 'GANGNEUNG ART MUSEUM' exactly, with red maple leaves. Reframe slightly and soften light. Do not invent an exhibit poster or new wording.",
+    "guides": [
+      {
+        "slug": "gangneung-city-cinema",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-1013716-bcafa652",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-1013716-bcafa652-v1.jpg",
+    "place": "국제시장 젊음의거리",
+    "sourceTitle": "국제시장 젊음의거리",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/49/3498549_image2_1.jpg",
+    "sourceId": "tour-1013716",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "96add3e1c712c1007c2cec9ca9427be26346dd5ca516a603d7072e920efe881b",
+    "outputSha256": "5e3464efd13940702520134cf3318ead2ffbfff72858eca6a628fdb516e1fbfe",
+    "bytes": 793750,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Create a natural photographic AI-transformed reference scenery image for a SceneTrip travel article, based only on this licensed input photo of 국제시장 젊음의거리. Preserve the location's actual architectural and geographical features; change the viewpoint/framing modestly and improve natural lighting. Remove all people and faces. Preserve source attribution/watermark and existing sign text accurately. Do not add imaginary buildings, words, signs, contact numbers, logos or watermarks. Keep the same narrow tiled market street, dense existing awnings, clothing displays, utility wires and shop fronts. Remove the real pedestrians without adding mannequins that look like people. Keep existing sign wording, and change only framing and gentle light.",
+    "guides": [
+      {
+        "slug": "busan-old-city-cinema",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-1608633-fc1a746b",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-1608633-fc1a746b-v1.jpg",
+    "place": "보수동 책방골목",
+    "sourceTitle": "보수동 책방골목",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/32/4055732_image2_1.png",
+    "sourceId": "tour-1608633",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "82e34f406342c26ad2d9fe30107bfadd1fbe1842e512ac113bd56d94fc1ac3ad",
+    "outputSha256": "e2cf340129cbd37b385d0173631456354a8e2153d8c05831b6d5392723715672",
+    "bytes": 944531,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Create a natural photographic AI-transformed reference scenery image for a SceneTrip travel article, based only on this licensed input photo of 보수동 책방골목. Preserve the location's actual architectural and geographical features; change the viewpoint/framing modestly and improve natural lighting. Remove all people and faces. Preserve source attribution/watermark and existing sign text accurately. Do not add imaginary buildings, words, signs, contact numbers, logos or watermarks. Preserve the stone retaining wall and ivy, distinctive orange Korean letter sculptures reading '보수동 책방골목', and adjacent street buildings. Remove people. A modest closer composition is fine; do not invent letters or new bookstores.",
+    "guides": [
+      {
+        "slug": "busan-old-city-cinema",
+        "index": 1
+      }
+    ]
+  },
+  {
+    "assetId": "tour-2684712-bcbe6fb2",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-2684712-bcbe6fb2-v1.jpg",
+    "place": "흰여울문화마을",
+    "sourceTitle": "흰여울문화마을",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/74/3495874_image2_1.jpg",
+    "sourceId": "tour-2684712",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "96934d18f43cbdd3c1b1cd1411cffa97cc887c41aee6d8b1812657f91d719f20",
+    "outputSha256": "e026ad737224e6108349a16cef6289489caf0f2e4b7d8f64c1c74fa582948cba",
+    "bytes": 591951,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Create a natural photographic AI-transformed reference scenery image for a SceneTrip travel article, based only on this licensed input photo of 흰여울문화마을. Preserve the location's actual architectural and geographical features; change the viewpoint/framing modestly and improve natural lighting. Remove all people and faces. Preserve source attribution/watermark and existing sign text accurately. Do not add imaginary buildings, words, signs, contact numbers, logos or watermarks. Keep the coastal lane, white seaside railing, houses, distant harbor skyline and bridge. Remove pedestrians. Preserve the genuine film-location sign. Slightly change camera framing and afternoon light without adding roads or buildings.",
+    "guides": [
+      {
+        "slug": "busan-yeongdo-and-songdo",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-126081-355aee2f",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-126081-355aee2f-v1.jpg",
+    "place": "해운대해수욕장",
+    "sourceTitle": "해운대해수욕장",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/34/3090534_image2_1.JPG",
+    "sourceId": "tour-126081",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "a1a6b53030a9fa2778c47cfb937153c123e0dc8039b8927a61f6ecb98afdf8b2",
+    "outputSha256": "5c7900eca267dd132ba99fe93da29dd70738c6e2159ad4dcebeac4990b4463f4",
+    "bytes": 683226,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Create a natural photographic AI-transformed reference scenery image for a SceneTrip travel article, based only on this licensed input photo of 해운대해수욕장. Preserve the location's actual architectural and geographical features; change the viewpoint/framing modestly and improve natural lighting. Remove all people and faces. Preserve source attribution/watermark and existing sign text accurately. Do not add imaginary buildings, words, signs, contact numbers, logos or watermarks. Keep the same real aerial Haeundae beach coastline, sand/sea, rows of parasols and exact referenced city skyline. Remove recognizable people, keeping empty umbrellas. Adjust light and modest framing; don't add landmarks or claim it is a current documentary photo.",
+    "guides": [
+      {
+        "slug": "busan-east-sea",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-126078-e821dc8e",
+    "version": 2,
+    "file": "docs/product/community-guides/ai-images/tour-126078-e821dc8e-v2.jpg",
+    "place": "광안리해수욕장",
+    "sourceTitle": "광안리해수욕장",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/45/3311245_image2_1.jpg",
+    "sourceId": "tour-126078",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "d0d5a30dc98fa8ba20682b5dd6a5d1be06cf61f70178e72ccebc4165c36ef1cd",
+    "outputSha256": "e925e18e935e57eda35bde41afbf021284ece7afefd9ad75f2b583b36f85d285",
+    "bytes": 435508,
+    "mode": "built-in image_gen edit",
+    "prompt": "Edit the real source photo of Busan Gwangalli Beach and Gwangan Bridge. Make a slightly closer horizontal view centered on the actual bridge, preserving both real suspension towers, all bridge spans, the sea horizon and twilight sky. Frame ABOVE the foreground red letter sculpture so that ALL red sculptural lettering is outside the image; do not recreate or invent any lettering. Remove every person from the visible beach. Preserve source attribution at lower right legibly exactly '한국관광공사' and 'KOREA TOURISM ORGANIZATION', with the existing white emblem. Natural blue-hour light with bridge clarity. No new islands, signs, buildings or decorations. Realistic photographic AI-transformed scenic reference, no frame.",
+    "guides": [
+      {
+        "slug": "busan-east-sea",
+        "index": 1
+      }
+    ]
+  },
+  {
+    "assetId": "tour-132371-b0a49bd8",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-132371-b0a49bd8-v1.jpg",
+    "place": "청하공진시장 (1, 6일)",
+    "sourceTitle": "청하공진시장 (1, 6일)",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/04/2947804_image2_1.jpg",
+    "sourceId": "tour-132371",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "80b3f44b0556b83156cf15854401e2a5278fd0c4fafb8838baf87304439efb8a",
+    "outputSha256": "dd6146182ed9edfc32e3cb884e071c35ebb5b2a26f5d27e4e732b46644fac7d0",
+    "bytes": 568198,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: AI-transformed photographic reference scenery for a SceneTrip regional travel article. Edit this licensed source image of 청하공진시장 (1, 6일). Maintain the real place's identifiable architecture, terrain and relative geography; make only modest framing and lighting changes. Remove people and faces. Preserve existing Korea Tourism Organization attribution where present and existing sign wording accurately. Do not add invented text, contact numbers, signs, logos, buildings or landmarks. Preserve the existing yellow curved market entrance roof and lettering '청하공진시장', shop entrances, tiles and surrounding details. Modestly shift the viewpoint and natural light without inventing new signs.",
+    "guides": [
+      {
+        "slug": "pohang-chachacha-north",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-2406101-8c55fba0",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-2406101-8c55fba0-v1.jpg",
+    "place": "사방기념공원",
+    "sourceTitle": "사방기념공원",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/17/3586617_image2_1.jpg",
+    "sourceId": "tour-2406101",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "ed2102333ced13ea5634d839f2d3bd0fcd3164e0775d71a12e258ce5ba9e7c3d",
+    "outputSha256": "6ff30ea5b827d0f46fbd50c6c7eaf938f6c8973c637fd864bc905156145f4533",
+    "bytes": 628358,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: AI-transformed photographic reference scenery for a SceneTrip regional travel article. Edit this licensed source image of 사방기념공원. Maintain the real place's identifiable architecture, terrain and relative geography; make only modest framing and lighting changes. Remove people and faces. Preserve existing Korea Tourism Organization attribution where present and existing sign wording accurately. Do not add invented text, contact numbers, signs, logos, buildings or landmarks. Preserve the exact weathered white/blue/red fishing boat placed on land beside the ocean, railing, cabin, ropes and grassy surroundings. Change only subtle framing and warm natural daylight, with no new equipment or boats.",
+    "guides": [
+      {
+        "slug": "pohang-chachacha-north",
+        "index": 1
+      }
+    ]
+  },
+  {
+    "assetId": "tour-1909659-33a2aeaa",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-1909659-33a2aeaa-v1.jpg",
+    "place": "구룡포 일본인 가옥거리",
+    "sourceTitle": "구룡포 일본인 가옥거리",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/11/4060811_image2_1.png",
+    "sourceId": "tour-1909659",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "ebc5ca5f15aa02040d99ca02cc5ff26f8e84a7bf615ea9a3e74335b2af1393d6",
+    "outputSha256": "ec7ea1f1679bf88857a0afc556d8f330bb5ab27faaff5ca96b3665d57dedc746",
+    "bytes": 840625,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: AI-transformed photographic reference scenery for a SceneTrip regional travel article. Edit this licensed source image of 구룡포 일본인 가옥거리. Maintain the real place's identifiable architecture, terrain and relative geography; make only modest framing and lighting changes. Remove people and faces. Preserve existing Korea Tourism Organization attribution where present and existing sign wording accurately. Do not add invented text, contact numbers, signs, logos, buildings or landmarks. Keep the black-tile wooden entrance gate, stone steps ascending the hill, adjacent buildings, vegetation and overhead traffic lights. Remove all people on the steps and street. Preserve sign wording; no invented gates, buildings or text.",
+    "guides": [
+      {
+        "slug": "pohang-south-coast",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-2660046-598e96ae",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-2660046-598e96ae-v1.jpg",
+    "place": "구룡포과메기문화관",
+    "sourceTitle": "구룡포과메기문화관",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/40/3586540_image2_1.jpg",
+    "sourceId": "tour-2660046",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "cd3a7db6e6f92fe5da1e0ad6fba8c90dcf7a29d1e9cd229ba951e268b8e0cfcd",
+    "outputSha256": "86f29c9c1368e4616b8104ae698d799330039d81fbdf9bf97f994bca9bebc2db",
+    "bytes": 615142,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: AI-transformed photographic reference scenery for a SceneTrip regional travel article. Edit this licensed source image of 구룡포과메기문화관. Maintain the real place's identifiable architecture, terrain and relative geography; make only modest framing and lighting changes. Remove people and faces. Preserve existing Korea Tourism Organization attribution where present and existing sign wording accurately. Do not add invented text, contact numbers, signs, logos, buildings or landmarks. Preserve the distinctive actual blue-glass modern museum building and its asymmetric beige rounded facade, trees, lawn and paths. Shift composition slightly and use softer morning light. Do not add logos, signage or new architecture.",
+    "guides": [
+      {
+        "slug": "pohang-south-coast",
+        "index": 1
+      }
+    ]
+  },
+  {
+    "assetId": "tour-126435-daaa0af8",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-126435-daaa0af8-v1.jpg",
+    "place": "성산일출봉 [유네스코 세계자연유산]",
+    "sourceTitle": "성산일출봉 [유네스코 세계자연유산]",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource_photo/26/3052926_image2_1.jpg",
+    "sourceId": "tour-126435",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "2fc764c13f84a10a4890d31fd8b679c40b39a3f6387c345f93ca5d9cdf1e3e18",
+    "outputSha256": "0a70c7157130ec7ecfcf48705af79f0839f87c8170d4adad96cd737b61c92614",
+    "bytes": 647800,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: AI-transformed photographic reference scenery for a SceneTrip regional travel article. Edit this licensed source image of 성산일출봉 [유네스코 세계자연유산]. Maintain the real place's identifiable architecture, terrain and relative geography; make only modest framing and lighting changes. Remove people and faces. Preserve existing Korea Tourism Organization attribution where present and existing sign wording accurately. Do not add invented text, contact numbers, signs, logos, buildings or landmarks. Keep the exact large Seongsan tuff-cone outline and steep cliff face as seen from this shoreline, actual rocky beach and coastal grass. Remove people, slightly adjust framing and sunset exposure; do not invent mountains, caves or buildings.",
+    "guides": [
+      {
+        "slug": "jeju-seongsan-screen",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-2564158-24ba4c05",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-2564158-24ba4c05-v1.jpg",
+    "place": "광치기해변",
+    "sourceTitle": "광치기해변",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/00/4098400_image2_1.JPG",
+    "sourceId": "tour-2564158",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "10699f5b30c1a19fa8cbfaedad06c285789cf61074e29d1911f7099dc10fb54c",
+    "outputSha256": "a5a4b249f6a0f50426a5a9ddf8d43214db865a308bb6125d2f8edc5363c97d20",
+    "bytes": 581288,
+    "mode": "built-in image_gen edit",
+    "prompt": "Use case: precise-object-edit. Asset: AI-transformed photographic reference scenery for a SceneTrip regional travel article. Edit this licensed source image of 광치기해변. Maintain the real place's identifiable architecture, terrain and relative geography; make only modest framing and lighting changes. Remove people and faces. Preserve existing Korea Tourism Organization attribution where present and existing sign wording accurately. Do not add invented text, contact numbers, signs, logos, buildings or landmarks. Keep the actual intertidal volcanic rock shelves, shallow tidal pools and distant Seongsan tuff cone with the same landform contours. Remove people. Gently reframe and brighten natural daylight; no new landforms, boats, buildings or text.",
+    "guides": [
+      {
+        "slug": "jeju-seongsan-screen",
+        "index": 1
+      }
+    ]
+  },
+  {
+    "assetId": "tour-130857-ee0a06c7",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-130857-ee0a06c7-v1.jpg",
+    "place": "제주해녀박물관",
+    "sourceTitle": "제주해녀박물관",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/05/4073405_image2_1.jpg",
+    "sourceId": "tour-130857",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "193513b2a556ae2495b2e00e5aeac5748b484d575b7d39184c2e6f057e4ee5d8",
+    "outputSha256": "e470500d5b5ceaeaa9229c88f21cd2bc0460d919c81e428b7058b62451160f5b",
+    "bytes": 682135,
+    "mode": "built-in image_gen edit",
+    "prompt": "Edit the supplied real photograph of 제주해녀박물관 in South Korea into a polished travel-blog reference illustration rendered as realistic photography. Preserve the specific place, its actual building structure, coastline, bridges, landscaping, permanent objects and visible Korean signs accurately. Make only a modest composition and lighting change within the same viewpoint: slightly reframe with natural early evening or morning light and improve tonal clarity. Remove all identifiable people cleanly without changing the architecture or terrain. Do not invent new signs, text, buildings, boats, attractions or landmarks. If text cannot be preserved accurately, do not render pseudo-lettering; keep the original visible lettering faithful. Preserve the original Korean Tourism Organization credit watermark clearly and legibly if present. Do not add promotional branding. This is an AI-transformed scenic reference, not documentation of an actual visit. Output one usable photographic blog image with no surrounding frame.",
+    "guides": [
+      {
+        "slug": "jeju-east-haenyeo",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-879234-739d117e",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-879234-739d117e-v1.jpg",
+    "place": "새연교",
+    "sourceTitle": "새연교",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/09/3011809_image2_1.jpg",
+    "sourceId": "tour-879234",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "2d21b6c1eabc98e6bcf037e10d3b71cfaec2f29c465b9d861c6e78791d7d48ab",
+    "outputSha256": "396d4cfb21ad413fe726289f0f56ea56cb9cb5567f8698d068f7fd719dd4d931",
+    "bytes": 638105,
+    "mode": "built-in image_gen edit",
+    "prompt": "Edit the supplied real photograph of 새연교 in South Korea into a polished travel-blog reference illustration rendered as realistic photography. Preserve the specific place, its actual building structure, coastline, bridges, landscaping, permanent objects and visible Korean signs accurately. Make only a modest composition and lighting change within the same viewpoint: slightly reframe with natural early evening or morning light and improve tonal clarity. Remove all identifiable people cleanly without changing the architecture or terrain. Do not invent new signs, text, buildings, boats, attractions or landmarks. If text cannot be preserved accurately, do not render pseudo-lettering; keep the original visible lettering faithful. Preserve the original Korean Tourism Organization credit watermark clearly and legibly if present. Do not add promotional branding. This is an AI-transformed scenic reference, not documentation of an actual visit. Output one usable photographic blog image with no surrounding frame.",
+    "guides": [
+      {
+        "slug": "seogwipo-sea-and-forest",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-2738742-8f5b5ffb",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-2738742-8f5b5ffb-v1.jpg",
+    "place": "보목포구",
+    "sourceTitle": "보목포구",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/92/3550692_image2_1.jpg",
+    "sourceId": "tour-2738742",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "0858b9f72327e9f18fd17f18fefb9d3117b6bcdc1d83bfae80fd75409963d5dd",
+    "outputSha256": "de13c22ff50dd11295dd745889426b98ab7d3b060719739a6f38bb3de24d9e3c",
+    "bytes": 543596,
+    "mode": "built-in image_gen edit",
+    "prompt": "Edit the supplied real photograph of 보목포구 in South Korea into a polished travel-blog reference illustration rendered as realistic photography. Preserve the specific place, its actual building structure, coastline, bridges, landscaping, permanent objects and visible Korean signs accurately. Make only a modest composition and lighting change within the same viewpoint: slightly reframe with natural early evening or morning light and improve tonal clarity. Remove all identifiable people cleanly without changing the architecture or terrain. Do not invent new signs, text, buildings, boats, attractions or landmarks. If text cannot be preserved accurately, do not render pseudo-lettering; keep the original visible lettering faithful. Preserve the original Korean Tourism Organization credit watermark clearly and legibly if present. Do not add promotional branding. This is an AI-transformed scenic reference, not documentation of an actual visit. Output one usable photographic blog image with no surrounding frame.",
+    "guides": [
+      {
+        "slug": "seogwipo-sea-and-forest",
+        "index": 1
+      }
+    ]
+  },
+  {
+    "assetId": "tour-2354323-5a42495c",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-2354323-5a42495c-v1.jpg",
+    "place": "미메시스 아트 뮤지엄",
+    "sourceTitle": "미메시스 아트 뮤지엄",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/38/3505438_image2_1.jpg",
+    "sourceId": "tour-2354323",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "30f7e41d2582e7605df99ca2be0dcf87fea37c09887ea434a184f83d34ecc088",
+    "outputSha256": "44d21fa522fc8923485c0eb2a57609e39cf0c1fcade25fdeeb8cfc03c80db6d1",
+    "bytes": 538587,
+    "mode": "built-in image_gen edit",
+    "prompt": "Edit the supplied real photograph of 미메시스 아트 뮤지엄 in South Korea into a polished travel-blog reference illustration rendered as realistic photography. Preserve the specific place, its actual building structure, coastline, bridges, landscaping, permanent objects and visible Korean signs accurately. Make only a modest composition and lighting change within the same viewpoint: slightly reframe with natural early evening or morning light and improve tonal clarity. Remove all identifiable people cleanly without changing the architecture or terrain. Do not invent new signs, text, buildings, boats, attractions or landmarks. If text cannot be preserved accurately, do not render pseudo-lettering; keep the original visible lettering faithful. Preserve the original Korean Tourism Organization credit watermark clearly and legibly if present. Do not add promotional branding. This is an AI-transformed scenic reference, not documentation of an actual visit. Output one usable photographic blog image with no surrounding frame.",
+    "guides": [
+      {
+        "slug": "paju-books-and-art",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-1967801-cb43293f",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-1967801-cb43293f-v1.jpg",
+    "place": "청주 성안길",
+    "sourceTitle": "청주 성안길",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/69/3503669_image2_1.jpg",
+    "sourceId": "tour-1967801",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "d42c45dc19e2455343a3d1ed1b40dc40c4979236015b0dadc75a6821eba0b199",
+    "outputSha256": "7c12087c00e14d2bbe04c24873d5743be8acc1a815ebcac859bbd44cefd86ed0",
+    "bytes": 724706,
+    "mode": "built-in image_gen edit",
+    "prompt": "Edit the supplied real photograph of 청주 성안길 in South Korea into a polished travel-blog reference illustration rendered as realistic photography. Preserve the specific place, its actual building structure, coastline, bridges, landscaping, permanent objects and visible Korean signs accurately. Make only a modest composition and lighting change within the same viewpoint: slightly reframe with natural early evening or morning light and improve tonal clarity. Remove all identifiable people cleanly without changing the architecture or terrain. Do not invent new signs, text, buildings, boats, attractions or landmarks. If text cannot be preserved accurately, do not render pseudo-lettering; keep the original visible lettering faithful. Preserve the original Korean Tourism Organization credit watermark clearly and legibly if present. Do not add promotional branding. This is an AI-transformed scenic reference, not documentation of an actual visit. Output one usable photographic blog image with no surrounding frame.",
+    "guides": [
+      {
+        "slug": "cheongju-glory-downtown",
+        "index": 0
+      }
+    ]
+  },
+  {
+    "assetId": "tour-2611140-617e4ffb",
+    "version": 1,
+    "file": "docs/product/community-guides/ai-images/tour-2611140-617e4ffb-v1.jpg",
+    "place": "동산청라언덕",
+    "sourceTitle": "동산청라언덕",
+    "sourceUrl": "https://tong.visitkorea.or.kr/cms/resource/60/4056360_image2_1.jpg",
+    "sourceId": "tour-2611140",
+    "license": "공공누리 제1유형",
+    "credit": "AI 변환 이미지 · 원본: 한국관광공사 · 공공누리 제1유형",
+    "inputSha256": "bc951ba60862dd475e74402039a1e5f62d0c85f21a5ec425b6ede36473fe04a2",
+    "outputSha256": "ff4d494ef939aaa6a2fabce754078beee9cbb7c4facbd1193a259d8ae81be108",
+    "bytes": 729055,
+    "mode": "built-in image_gen edit",
+    "prompt": "Edit the supplied real photograph of 동산청라언덕 in South Korea into a polished travel-blog reference illustration rendered as realistic photography. Preserve the specific place, its actual building structure, coastline, bridges, landscaping, permanent objects and visible Korean signs accurately. Make only a modest composition and lighting change within the same viewpoint: slightly reframe with natural early evening or morning light and improve tonal clarity. Remove all identifiable people cleanly without changing the architecture or terrain. Do not invent new signs, text, buildings, boats, attractions or landmarks. If text cannot be preserved accurately, do not render pseudo-lettering; keep the original visible lettering faithful. Preserve the original Korean Tourism Organization credit watermark clearly and legibly if present. Do not add promotional branding. This is an AI-transformed scenic reference, not documentation of an actual visit. Output one usable photographic blog image with no surrounding frame.",
+    "guides": [
+      {
+        "slug": "daegu-drama-alley",
+        "index": 0
+      }
+    ]
+  }
+]

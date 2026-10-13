@@ -14,6 +14,8 @@ import com.mz2az.scenetrip.sceneapi.api.model.CourseReplace;
 import com.mz2az.scenetrip.sceneapi.api.model.CustomPinInput;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.PinCategory;
+import com.mz2az.scenetrip.sceneapi.api.model.TripPostBlock;
+import com.mz2az.scenetrip.sceneapi.api.model.TripPostBlockKind;
 import com.mz2az.scenetrip.sceneapi.course.CourseStore;
 import com.mz2az.scenetrip.sceneapi.course.DeployedTravel;
 import com.mz2az.scenetrip.sceneapi.course.DwellDefaults;
@@ -76,6 +78,33 @@ class PostStoreIntegrationTest {
   }
 
   // ───────────── 쓰기 — 코스 사본 ─────────────
+
+  @Test
+  @DisplayName("블로그 — DB에서 문단·사진 순서·출처·AI 표시가 그대로 복원되고 옛 글은 NULL이다")
+  void blogLayoutRoundTripAndLegacyCompatibility() {
+    rolledBack(
+        () -> {
+          UUID me = member();
+          String key = "posts/" + tag + "-blog.jpg";
+          List<TripPostBlock> blocks =
+              List.of(
+                  new TripPostBlock(TripPostBlockKind.TEXT).text("첫째"),
+                  new TripPostBlock(TripPostBlockKind.PHOTO)
+                      .photoIndex(0)
+                      .caption("성곽")
+                      .credit("원본: 한국관광공사 · 공공누리 제1유형")
+                      .aiGenerated(true),
+                  new TripPostBlock(TripPostBlockKind.TEXT).text("둘째"));
+          long id = store.create(me, "블로그", "첫째\n\n둘째", List.of(key), List.of(key), null, blocks);
+          Detail detail = store.find(id, me).orElseThrow();
+          assertThat(detail.bodyBlocks()).isEqualTo(blocks);
+          assertThat(detail.photoKeys()).containsExactly(key);
+          assertThat(detail.body()).isEqualTo("첫째\n\n둘째");
+          long old = store.create(me, "옛 글", "옛 본문", List.of(), List.of(), null);
+          assertThat(store.find(old, me).orElseThrow().bodyBlocks()).isNull();
+          return null;
+        });
+  }
 
   @Test
   @DisplayName("쓰기 — 촬영지·편의시설 항목만 일차·순서·체류 그대로 떠 두고, 직접 찍은 핀은 빠진다")
