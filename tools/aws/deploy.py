@@ -839,7 +839,9 @@ def verify_signoz_traces(run, timeout=180, poll=10):
             print(f"SigNoz 에 최근 15 분 span {spans} 개 확인")
             return spans
         if time.monotonic() > deadline:
-            raise RuntimeError("SigNoz 에 trace 가 쌓이지 않았습니다 — scene-api 의 OTEL 설정·수집기를 확인하세요")
+            raise RuntimeError(
+                "SigNoz 에 trace 가 쌓이지 않았습니다 — scene-api 의 OTEL 설정·수집기를 확인하세요"
+            )
         time.sleep(poll)
 
 
