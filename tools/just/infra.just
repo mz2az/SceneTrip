@@ -124,6 +124,12 @@ aws-drift env:
 aws-shared-media *flags:
     {{BAZEL}} run //tools/aws:ops -- shared-media "$@"
 
+# 바깥 감시 알람 — PRD API 를 밖에서 부르는 헬스 체크와 계정 월 예산(ADR 0025). 미리 보기, 적용은 --execute. 예: `just aws-alerts --email you@example.com`
+[group('infra')]
+[positional-arguments]
+aws-alerts *flags:
+    {{BAZEL}} run //tools/aws:ops -- alerts "$@"
+
 # AWS 인증 전에 삭제 범위·입력·확인값 검사
 [group('infra')]
 aws-teardown-validate env scope operation snapshot_policy="retain" purge_state="false":

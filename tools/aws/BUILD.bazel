@@ -9,6 +9,7 @@ py_library(
     name = "lib",
     srcs = [
         "alb.py",
+        "alerts.py",
         "bootstrap_delete.py",
         "bootstrap_state.py",
         "config.py",
@@ -75,6 +76,7 @@ py_test(
     srcs = [
         "tests/fixtures.py",
         "tests/test_alb.py",
+        "tests/test_alerts.py",
         "tests/test_apple_secret.py",
         "tests/test_auth_secret.py",
         "tests/test_aws.py",

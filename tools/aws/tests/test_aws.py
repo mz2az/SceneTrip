@@ -3,6 +3,12 @@
 import unittest
 
 from tools.aws.tests.test_alb import AlbBoundaryTest, AlbChartTest, SignozAlbTest
+from tools.aws.tests.test_alerts import (
+    AlertsCliTest,
+    AlertsFlowTest,
+    AlertsRecipeTest,
+    AlertsTemplateTest,
+)
 from tools.aws.tests.test_apple_secret import (
     DeployAppleWiringTest,
     LegacyAuthSlotTest,
@@ -77,6 +83,10 @@ from tools.aws.tests.test_workflows import WorkflowSecurityTest
 __all__ = [
     "AlbBoundaryTest",
     "AlbChartTest",
+    "AlertsCliTest",
+    "AlertsFlowTest",
+    "AlertsRecipeTest",
+    "AlertsTemplateTest",
     "AuthSecretTest",
     "BootstrapDeleteTest",
     "BootstrapStateTest",
