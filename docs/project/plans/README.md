@@ -34,6 +34,7 @@
 | [remote-data-load.md](./remote-data-load.md) | 원격 데이터 적재 — EKS 안 Job 이 적재 이미지(psql + 데이터)로 DEV·PRD RDS 에 촬영지·편의시설·같은 곳 연결을 넣는다 |
 | [prd-launch.md](./prd-launch.md) | PRD 출시 — 서버 올리기·스토어 제출·법·정책의 남은 일을 한 곳에, 막는 것(iOS 애플 로그인·구글 동의 화면)부터 |
 | [bedrock-iam-role.md](./bedrock-iam-role.md) | trip-guide 의 Bedrock 을 고정 키 대신 Pod Identity 역할로, 네트워크 정책에 Pod Identity 에이전트 길 (MZ2AZ-317) |
+| [observability-aws.md](./observability-aws.md) | AWS 관측 — DEV·PRD 에 SigNoz(EKS 안), 바깥 감시 알람 두 개(ALB 정상 대상 0·비용), UI 는 Cloudflare Access |
 | [analytics-events.md](./analytics-events.md) | 앱 분석 이벤트 — Firebase·GA4, 퍼널(설치→가입→조회→담기·찜→첫 코스 생성→여행 시작), 보내지 않는 것 (MZ2AZ-353) |
 | [poi-i18n-image.md](./poi-i18n-image.md) | 편의시설 다국어·사진 — 번역은 옆 표, 분류 사전, 영문 주소는 행안부 영문도로명주소DB, 분기 갱신과 번호 변경 |
 | [place-key-seed.md](./place-key-seed.md) | 촬영지 적재를 고유 키로 — 지우지 않고 갱신·추가, CSV 에서 빠지면 숨김 (MZ2AZ-361) |
