@@ -36,8 +36,10 @@ from tools.aws.tests.test_data_load import (
     DataLoadEntryPointTest,
     DataLoadJobTest,
     DataLoadNetworkPolicyTest,
+    DataLoadPollingTest,
     DataLoadPublishTest,
     DataLoadRunTest,
+    RemoteLoadScriptTest,
 )
 from tools.aws.tests.test_deploy import DeployTest, OrchestrationTest, SettingsTest
 from tools.aws.tests.test_destroy import DestroyServiceTest
@@ -101,6 +103,7 @@ __all__ = [
     "DataLoadEntryPointTest",
     "DataLoadJobTest",
     "DataLoadNetworkPolicyTest",
+    "DataLoadPollingTest",
     "DataLoadPublishTest",
     "DataLoadRunTest",
     "DatabaseCredentialsGeneratedOnceTest",
@@ -127,6 +130,7 @@ __all__ = [
     "PruneAfterDestroyTest",
     "PublicChartTest",
     "PublicGatewayValuesTest",
+    "RemoteLoadScriptTest",
     "RemoveSignozTest",
     "RetainedAuthSecretTest",
     "RunnerSelectionTest",
