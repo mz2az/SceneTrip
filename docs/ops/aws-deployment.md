@@ -385,8 +385,10 @@ dev 를 지울 때 휘말리지 않는다. 바꿀 때는 템플릿을 고치고 
 - **디스크**는 배포가 만든 StorageClass `signoz-gp3`(Auto Mode EBS, gp3·암호화) — ClickHouse 20Gi·ZooKeeper 8Gi·SigNoz 1Gi.
 - **ClickHouse 비밀번호**는 배포가 클러스터에 한 번 만든다(`signoz/signoz-clickhouse`). 사람이 쓸 값이 아니다.
 - **내리기**는 클러스터보다 먼저 ClickHouse 설치 → Helm 해제 → PVC 를 지우고 디스크가 사라질 때까지 기다린다 — 남은 EBS 가 없다.
-- **화면**은 아직 밖에 열지 않는다 — Cloudflare Access 뒤 `signoz-dev.scenetrip.io` 는 계획 PR ②. 그 전까지 첫 가입(=관리자)
-  창이 열려 있지만 화면이 클러스터 밖에서 닿지 않는다.
+- **관리자**는 배포가 만든다 — 아이디 `admin@scenetrip.io`, 비밀번호는 Secrets Manager `/scenetrip/<env>/signoz` 의
+  `SIGNOZ_ROOT_PASSWORD`(배포가 한 번 만들고 다시 쓴다). 관리자(=조직)가 없으면 수집기가 설정을 못 받아 trace 를 버린다.
+- **확인**: 배포·`just aws-verify dev` 가 HTTPS 검증 뒤 ClickHouse 에 최근 15 분 span 을 센다 — 0 이면 실패.
+- **화면**은 아직 밖에 열지 않는다 — Cloudflare Access 뒤 `signoz-dev.scenetrip.io` 는 계획 PR ②.
 
 ## 배포 기록
 

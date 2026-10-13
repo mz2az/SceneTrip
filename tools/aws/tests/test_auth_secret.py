@@ -26,8 +26,12 @@ SERVICE_KEY = "SCENETRIP_SERVICE_TOKEN"
 AUTH_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/auth-FxAuth"
 SCENE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/scene-api-FxScene"
 DATABASE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/database-FxDb"
-# trip-guide 비밀값은 없다(MZ2AZ-317) — 가짜 저장소는 이 셋 밖의 대상을 거절해, 배포기가 다른 비밀값을 읽으면 드러난다.
-ALL_ARNS = (AUTH_ARN, SCENE_ARN, DATABASE_ARN)
+# SigNoz 관리자 비밀번호 칸(ADR 0025) — dev 배포가 SigNoz 를 올리기 전에 읽거나 처음 한 번 만든다.
+SIGNOZ_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/signoz-FxSignoz"
+# 이미 저장된 SigNoz 관리자 비밀번호(시험용 고정 값).
+SIGNOZ_ROOT_PASSWORD = "fixture-signoz-root-passwordAa1!"
+# trip-guide 비밀값은 없다(MZ2AZ-317) — 가짜 저장소는 이 넷 밖의 대상을 거절해, 배포기가 다른 비밀값을 읽으면 드러난다.
+ALL_ARNS = (AUTH_ARN, SCENE_ARN, DATABASE_ARN, SIGNOZ_ARN)
 OWNED_TAGS = [
     {"Key": "Project", "Value": "scenetrip"},
     {"Key": "Environment", "Value": "dev"},
@@ -312,6 +316,7 @@ def deploy_outputs(settings, arns=None):
             "database": DATABASE_ARN,
             "scene_api": SCENE_ARN,
             "auth": AUTH_ARN,
+            "signoz": SIGNOZ_ARN,
         },
         "ecr_repository_urls": {
             "scene_api": "scene-image",
@@ -330,6 +335,13 @@ def cluster_commands(command, **unused):
     # SigNoz ClickHouse 비밀번호 Secret 이 아직 없다(첫 배포) — 배포기가 새로 만든다.
     if "get" in command and "signoz-clickhouse" in command:
         return ""
+    # SigNoz 관리자 비밀번호(ADR 0025)는 이미 저장돼 있다 — 배포기는 읽기만 한다.
+    if command[1:3] == ["secretsmanager", "list-secret-version-ids"]:
+        return json.dumps({"Versions": [{"VersionId": "1"}]})
+    if command[1:3] == ["secretsmanager", "get-secret-value"]:
+        return json.dumps(
+            {"SecretString": json.dumps({"SIGNOZ_ROOT_PASSWORD": SIGNOZ_ROOT_PASSWORD})}
+        )
     if "describe-cluster" in command:
         return json.dumps(
             {
@@ -360,6 +372,8 @@ class DeploySecretWiringTest(unittest.TestCase):
                     "migration_password": "fixture-migration-password",
                 }
             ),
+            # SigNoz 관리자 비밀번호는 이미 있다 — 이 시험들의 put 수는 auth 칸만 센다.
+            SIGNOZ_ARN: json.dumps({"SIGNOZ_ROOT_PASSWORD": SIGNOZ_ROOT_PASSWORD}),
         }
         if auth is not None:
             values[AUTH_ARN] = json.dumps(auth)
@@ -498,7 +512,7 @@ class DeploySecretWiringTest(unittest.TestCase):
             joined = " ".join(command) + " " + (kwargs.get("stdin") or "")
             self.assertNotIn("trip-guide", joined)
             targets.add(store.arn_of(command, kwargs.get("stdin")))
-        self.assertLessEqual(targets, {SCENE_ARN, DATABASE_ARN, AUTH_ARN})
+        self.assertLessEqual(targets, {SCENE_ARN, DATABASE_ARN, AUTH_ARN, SIGNOZ_ARN})
         self.assertIn(SCENE_ARN, targets)
         self.assertIn(AUTH_ARN, targets)
         self.assertTrue(any(command[0] == "helm" for command, unused in store.calls))
@@ -514,6 +528,7 @@ class DeploySecretWiringTest(unittest.TestCase):
             "database": DATABASE_ARN,
             "scene_api": SCENE_ARN,
             "auth": AUTH_ARN,
+            "signoz": SIGNOZ_ARN,
             "trip_guide": stale,
         }
         token = service_token(fill=b"S")
@@ -531,6 +546,7 @@ class DeploySecretWiringTest(unittest.TestCase):
         arns = {
             "database": DATABASE_ARN,
             "scene_api": SCENE_ARN,
+            "signoz": SIGNOZ_ARN,
         }
         store = FakeSecretStore(self.stored(auth_slot()), cluster_commands)
         # 명세는 「크게 실패」 만 정한다. 현재 구현은 KeyError('auth') 를 낸다.
@@ -598,14 +614,17 @@ class RetainedAuthSecretTest(unittest.TestCase):
 
         self.assertIn("auth", APP_SECRETS)
 
-    def test_app_secrets_are_exactly_the_three_terraform_secrets(self):
-        # MZ2AZ-317 — trip_guide 는 없다. 배포(aws)와 되살리기(lifecycle)가 같은 목록을 쓴다.
+    def test_app_secrets_are_exactly_the_four_terraform_secrets(self):
+        # MZ2AZ-317 — trip_guide 는 없다. ADR 0025 — signoz(관리자 비밀번호)가 더해졌다.
+        # 배포(aws)와 되살리기(lifecycle)가 같은 목록을 쓴다.
         from tools.aws import aws, config
 
-        self.assertEqual(config.APP_SECRETS, ("scene_api", "database", "auth"))
+        self.assertEqual(
+            config.APP_SECRETS, ("scene_api", "database", "auth", "signoz")
+        )
         self.assertEqual(tuple(aws.APP_SECRETS), config.APP_SECRETS)
 
-    def test_adopt_describes_only_the_three_managed_secrets(self):
+    def test_adopt_describes_only_the_four_managed_secrets(self):
         from tools.aws.aws import adopt_retained_secrets
 
         owned = {"Tags": OWNED_TAGS, "DeletedDate": "2026-09-29"}
@@ -615,6 +634,7 @@ class RetainedAuthSecretTest(unittest.TestCase):
                 "scene-api": owned,
                 "database": owned,
                 "auth": owned,
+                "signoz": owned,
                 "trip-guide": owned,
             },
         )
@@ -631,10 +651,11 @@ class RetainedAuthSecretTest(unittest.TestCase):
                 "/scenetrip/dev/auth",
                 "/scenetrip/dev/database",
                 "/scenetrip/dev/scene-api",
+                "/scenetrip/dev/signoz",
             ],
         )
         restores = [command for command in commands if "restore-secret" in command]
-        self.assertEqual(len(restores), 3)
+        self.assertEqual(len(restores), 4)
         for command in restores:
             self.assertNotIn("trip-guide", " ".join(command))
         imports = sorted(
@@ -648,6 +669,7 @@ class RetainedAuthSecretTest(unittest.TestCase):
                 'aws_secretsmanager_secret.app["auth"]',
                 'aws_secretsmanager_secret.app["database"]',
                 'aws_secretsmanager_secret.app["scene_api"]',
+                'aws_secretsmanager_secret.app["signoz"]',
             ],
         )
 
@@ -656,7 +678,7 @@ class RetainedAuthSecretTest(unittest.TestCase):
 
         state = "\n".join(
             f'aws_secretsmanager_secret.app["{key}"]'
-            for key in ("scene_api", "database")
+            for key in ("scene_api", "database", "signoz")
         )
         run = self.fake(
             state, {"auth": {"Tags": OWNED_TAGS, "DeletedDate": "2026-09-29"}}
@@ -680,6 +702,52 @@ class RetainedAuthSecretTest(unittest.TestCase):
             ['aws_secretsmanager_secret.app["auth"]'],
         )
         self.assertLess(commands.index(restores[0]), commands.index(imports[0]))
+
+    def test_retained_signoz_secret_is_restored_and_imported(self):
+        # ADR 0025 — SigNoz 관리자 비밀번호 칸도 APP_SECRETS 에 있어 같은 방식으로 되살린다.
+        from tools.aws.aws import adopt_retained_secrets
+
+        state = "\n".join(
+            f'aws_secretsmanager_secret.app["{key}"]'
+            for key in ("scene_api", "database", "auth")
+        )
+        run = self.fake(
+            state, {"signoz": {"Tags": OWNED_TAGS, "DeletedDate": "2026-10-13"}}
+        )
+        adopt_retained_secrets(run, valid_settings(), Path("."), Path("vars.json"))
+        commands = [call.args[0] for call in run.call_args_list]
+        described = [
+            command[4]
+            for command in commands
+            if command[1:3] == ["secretsmanager", "describe-secret"]
+        ]
+        self.assertEqual(described, ["/scenetrip/dev/signoz"])
+        restores = [command for command in commands if "restore-secret" in command]
+        self.assertEqual(len(restores), 1)
+        self.assertTrue(restores[0][-1].endswith("/scenetrip/dev/signoz-AbC123"))
+        imports = [
+            command for command in commands if command[:2] == ["terraform", "import"]
+        ]
+        self.assertEqual(
+            [command[-2] for command in imports],
+            ['aws_secretsmanager_secret.app["signoz"]'],
+        )
+        self.assertLess(commands.index(restores[0]), commands.index(imports[0]))
+
+    def test_foreign_signoz_secret_is_not_imported(self):
+        from tools.aws.aws import adopt_retained_secrets
+
+        run = self.fake(
+            "", {"signoz": {"Tags": [{"Key": "Project", "Value": "other"}]}}
+        )
+        with self.assertRaises(ValueError):
+            adopt_retained_secrets(run, valid_settings(), Path("."), Path("vars.json"))
+        self.assertFalse(
+            any(
+                call.args[0][:2] == ["terraform", "import"]
+                for call in run.call_args_list
+            )
+        )
 
     def test_foreign_auth_secret_is_not_imported(self):
         from tools.aws.aws import adopt_retained_secrets
@@ -719,13 +787,14 @@ class DestroyIdentityAuthTest(unittest.TestCase):
         )
 
     def test_trip_guide_secret_is_not_an_owned_address(self):
-        # MZ2AZ-317 — 셋(scene_api·database·auth)은 받고 trip_guide 는 모르는 리소스처럼 거절한다.
+        # MZ2AZ-317 — 넷(scene_api·database·auth·signoz)은 받고 trip_guide 는 모르는 리소스처럼 거절한다.
         from tools.aws.destroy_identity import validate_owned_state
 
         for key, name in (
             ("scene_api", "scene-api"),
             ("database", "database"),
             ("auth", "auth"),
+            ("signoz", "signoz"),
         ):
             with self.subTest(key=key):
                 validate_owned_state(
@@ -753,6 +822,26 @@ class DestroyIdentityAuthTest(unittest.TestCase):
                     {
                         'aws_secretsmanager_secret.app["auth"]': self.secret(
                             "auth", **changes
+                        )
+                    },
+                    valid_settings(),
+                )
+
+    def test_signoz_secret_from_other_environment_or_account_is_rejected(self):
+        # ADR 0025 — signoz 칸도 다른 비밀값과 같은 소유 검사를 받는다.
+        from tools.aws.destroy_identity import validate_owned_state
+
+        for changes in (
+            {"tags_all": {**OWNED_TAGS_ALL, "Environment": "prd"}},
+            {
+                "arn": "arn:aws:secretsmanager:ap-northeast-2:999999999999:secret:/scenetrip/dev/signoz-AbC123"
+            },
+        ):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                validate_owned_state(
+                    {
+                        'aws_secretsmanager_secret.app["signoz"]': self.secret(
+                            "signoz", **changes
                         )
                     },
                     valid_settings(),

@@ -27,12 +27,15 @@ SECRET_KEYS = {
         "SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY",
         "SCENETRIP_SERVICE_TOKEN",
     },
+    # SigNoz 관리자(admin@scenetrip.io) 비밀번호(ADR 0025). 배포가 환경당 한 번 만든다(deploy.signoz_root_password).
+    # SigNoz 는 조직이 있어야 수집기에 설정을 내려준다 — 관리자가 없으면 수집기가 받는 포트를 열지 않아 trace 가 버려진다.
+    "signoz": {"SIGNOZ_ROOT_PASSWORD"},
 }
 
 # 있어도 되고 없어도 되는 키. 없으면 배포는 성공하고 그 기능만 꺼진 채 뜬다.
 # 환경마다 Terraform 이 만드는 Secrets Manager 비밀값(/scenetrip/<env>/<이름, _ 는 ->). trip-guide 비밀값은 없앴다 —
 # Bedrock 을 Pod Identity 역할로 부른다(MZ2AZ-317). 배포의 되살리기(lifecycle)·가져오기(adopt)가 이 목록만 다룬다.
-APP_SECRETS = ("scene_api", "database", "auth")
+APP_SECRETS = ("scene_api", "database", "auth", "signoz")
 
 OPTIONAL_SECRET_KEYS = {
     # 애플 로그인 개인 키(.p8 PEM 의 base64). 사람이 애플에서 받아 와 넣는다(MZ2AZ-337).

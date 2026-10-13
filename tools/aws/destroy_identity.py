@@ -2,10 +2,12 @@
 
 import re
 
-from tools.aws.config import REPOSITORIES
+from tools.aws.config import APP_SECRETS, REPOSITORIES
 
 # 환경 ECR 저장소 키 — config.REPOSITORIES 한 곳에서.
 REPOSITORY_KEYS = "|".join(REPOSITORIES)
+# 환경 Secrets Manager 비밀값 키 — config.APP_SECRETS 한 곳에서.
+SECRET_KEYS = "|".join(APP_SECRETS)
 
 TAGGED_ADDRESSES = (
     r"aws_vpc\.this",
@@ -22,7 +24,7 @@ TAGGED_ADDRESSES = (
     r"aws_eks_cluster\.this",
     r"aws_eks_access_entry\.deployment",
     rf'aws_ecr_repository\.app\["({REPOSITORY_KEYS})"\]',
-    r'aws_secretsmanager_secret\.app\["(scene_api|database|auth)"\]',
+    rf'aws_secretsmanager_secret\.app\["({SECRET_KEYS})"\]',
 )
 
 
