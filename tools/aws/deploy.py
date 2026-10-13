@@ -29,6 +29,10 @@ POSTGRES_IMAGE = "postgres:17.6-bookworm@sha256:f3bd19c606e442c3d7bdfa8002e03fe2
 SIGNOZ_NAMESPACE = "signoz"
 SIGNOZ_RELEASE = "signoz"
 SIGNOZ_OTLP_ENDPOINT = "http://signoz-otel-collector.signoz.svc.cluster.local:4317"
+# trip-guide 는 표준 라이브러리로 OTLP/JSON 을 HTTP 로 보낸다(agents/trip-guide/src/tracing.py).
+SIGNOZ_OTLP_TRACES_HTTP = (
+    "http://signoz-otel-collector.signoz.svc.cluster.local:4318/v1/traces"
+)
 SIGNOZ_STORAGE_CLASS = "signoz-gp3"
 SIGNOZ_PASSWORD_SECRET = "signoz-clickhouse"
 # SigNoz 관리자 — 로그인 아이디일 뿐 메일을 보내지 않는다(개인 메일을 저장소에 적지 않는다). 팀원은 SigNoz 안에서 초대한다.
@@ -659,7 +663,10 @@ def deploy(run, root, settings, outputs, signoz_chart=None):
         },
         "tripGuide": {"image": image("trip_guide")},
         # 비면 scene-api 가 OTEL 을 끈다(templates/config.yaml). SigNoz 를 올린 환경만 켠다.
-        "otel": {"endpoint": SIGNOZ_OTLP_ENDPOINT if signoz else ""},
+        "otel": {
+            "endpoint": SIGNOZ_OTLP_ENDPOINT if signoz else "",
+            "tracesHttpEndpoint": SIGNOZ_OTLP_TRACES_HTTP if signoz else "",
+        },
     }
     run(
         [

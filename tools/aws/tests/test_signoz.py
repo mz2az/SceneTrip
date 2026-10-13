@@ -17,6 +17,7 @@ from unittest.mock import Mock, patch
 from tools.aws.tests.fixtures import (
     SIGNOZ_CHART,
     SIGNOZ_OTLP,
+    SIGNOZ_OTLP_TRACES_HTTP,
     ecr_registry,
     is_scenetrip_helm,
     is_signoz_helm,
@@ -758,6 +759,15 @@ class SignozDeployTest(unittest.TestCase):
             },
         )
 
+    def test_trip_guide_traces_http_constant(self):
+        from tools.aws import deploy
+
+        self.assertEqual(
+            deploy.SIGNOZ_OTLP_TRACES_HTTP,
+            "http://signoz-otel-collector.signoz.svc.cluster.local:4318/v1/traces",
+        )
+        self.assertEqual(deploy.SIGNOZ_OTLP_TRACES_HTTP, SIGNOZ_OTLP_TRACES_HTTP)
+
     def test_root_constants(self):
         from tools.aws import deploy
 
@@ -834,7 +844,10 @@ class SignozDeployTest(unittest.TestCase):
             call for call in run.call_args_list if is_scenetrip_helm(call.args[0])
         )
         values = json.loads(helm.kwargs["stdin"])
-        self.assertEqual(values["otel"], {"endpoint": SIGNOZ_OTLP})
+        self.assertEqual(
+            values["otel"],
+            {"endpoint": SIGNOZ_OTLP, "tracesHttpEndpoint": SIGNOZ_OTLP_TRACES_HTTP},
+        )
 
     def test_dev_without_chart_fails_before_app_release(self):
         settings = valid_settings()
@@ -897,7 +910,8 @@ class SignozDeployTest(unittest.TestCase):
             call for call in run.call_args_list if is_scenetrip_helm(call.args[0])
         )
         self.assertEqual(
-            json.loads(app_helm.kwargs["stdin"])["otel"], {"endpoint": SIGNOZ_OTLP}
+            json.loads(app_helm.kwargs["stdin"])["otel"],
+            {"endpoint": SIGNOZ_OTLP, "tracesHttpEndpoint": SIGNOZ_OTLP_TRACES_HTTP},
         )
 
     def test_prd_without_chart_fails_before_app_release(self):
@@ -924,7 +938,99 @@ class SignozDeployTest(unittest.TestCase):
         helm = next(
             call for call in run.call_args_list if is_scenetrip_helm(call.args[0])
         )
-        self.assertEqual(json.loads(helm.kwargs["stdin"])["otel"], {"endpoint": ""})
+        self.assertEqual(
+            json.loads(helm.kwargs["stdin"])["otel"],
+            {"endpoint": "", "tracesHttpEndpoint": ""},
+        )
+
+
+class TripGuideTraceChartTest(unittest.TestCase):
+    """trip-guide 의 OTLP/HTTP trace — otel.tracesHttpEndpoint 가 있을 때만 env 와 4318 출구가 생긴다."""
+
+    def setUp(self):
+        from tools.aws.tests.test_public_ingress import PublicChartTest
+
+        self.chart = PublicChartTest("helm_template")
+        self.chart.setUp()
+
+    def render(self, environment, otel):
+        from tools.aws.tests.test_public_ingress import chart_values
+
+        values = {**chart_values(), "otel": otel}
+        process = self.chart.helm_template(environment, values)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        return [doc for doc in re.split(r"(?m)^---\s*$", process.stdout) if doc.strip()]
+
+    @staticmethod
+    def named(documents, kind, name):
+        return [
+            doc
+            for doc in documents
+            if re.search(rf"(?m)^kind: {kind}\s*$", doc)
+            and re.search(rf"(?m)^  name: {re.escape(name)}\s*$", doc)
+        ]
+
+    def trip_guide(self, documents):
+        found = self.named(documents, "Deployment", "trip-guide")
+        self.assertEqual(len(found), 1, [d[:200] for d in documents])
+        return found[0]
+
+    def test_endpoint_set_adds_env_and_4318_egress(self):
+        for environment in ("dev", "prd"):
+            with self.subTest(environment=environment):
+                documents = self.render(
+                    environment,
+                    {
+                        "endpoint": SIGNOZ_OTLP,
+                        "tracesHttpEndpoint": SIGNOZ_OTLP_TRACES_HTTP,
+                    },
+                )
+                guide = self.trip_guide(documents)
+                self.assertRegex(
+                    guide,
+                    r"- name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT\s+value: \"?"
+                    + re.escape(SIGNOZ_OTLP_TRACES_HTTP),
+                )
+                self.assertRegex(
+                    guide,
+                    r"- name: OTEL_SERVICE_NAME\s+value: \"?scenetrip-trip-guide\"?",
+                )
+                (policy,) = self.named(documents, "NetworkPolicy", "trip-guide-otel")
+                self.assertRegex(policy, r"app: trip-guide")
+                self.assertIn("Egress", policy)
+                self.assertRegex(policy, r"protocol: TCP, port: 4318")
+                self.assertNotIn("4317", policy)
+
+    def test_endpoint_empty_adds_neither(self):
+        for environment in ("dev", "prd"):
+            for otel in (
+                {"endpoint": "", "tracesHttpEndpoint": ""},
+                {"endpoint": SIGNOZ_OTLP, "tracesHttpEndpoint": ""},
+            ):
+                with self.subTest(environment=environment, otel=otel):
+                    documents = self.render(environment, otel)
+                    guide = self.trip_guide(documents)
+                    self.assertNotIn("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", guide)
+                    self.assertNotIn("OTEL_SERVICE_NAME", guide)
+                    self.assertEqual(
+                        self.named(documents, "NetworkPolicy", "trip-guide-otel"), []
+                    )
+
+    def test_trace_env_is_only_on_trip_guide(self):
+        documents = self.render(
+            "dev",
+            {"endpoint": SIGNOZ_OTLP, "tracesHttpEndpoint": SIGNOZ_OTLP_TRACES_HTTP},
+        )
+        for name in ("scene-api", "gateway"):
+            for doc in self.named(documents, "Deployment", name):
+                self.assertNotIn("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", doc)
+
+    def test_chart_default_is_off(self):
+        documents = self.render("dev", {})
+        self.assertNotIn(
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", self.trip_guide(documents)
+        )
+        self.assertEqual(self.named(documents, "NetworkPolicy", "trip-guide-otel"), [])
 
 
 class SignozRootPasswordTest(unittest.TestCase):

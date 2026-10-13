@@ -18,6 +18,7 @@ SOURCES = [
     "src/sceneapi.py",
     "src/session.py",
     "src/tools.py",
+    "src/tracing.py",
     "web/server.py",
 ]
 
@@ -49,6 +50,7 @@ TESTS = [
     "tests/test_production.py",
     "tests/test_rate_subject.py",
     "tests/test_tools.py",
+    "tests/test_tracing.py",
 ]
 
 py_library(

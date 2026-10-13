@@ -85,6 +85,7 @@ from tools.aws.tests.test_signoz import (
     SignozTeardownTest,
     SignozTraceVerifyTest,
     SignozUiConfigTest,
+    TripGuideTraceChartTest,
 )
 from tools.aws.tests.test_teardown_entrypoint import TeardownEntryPointTest
 from tools.aws.tests.test_workflows import WorkflowSecurityTest
@@ -159,6 +160,7 @@ __all__ = [
     "TripGuideChartTest",
     "TripGuideSecretTest",
     "TripGuideSecretValidationTest",
+    "TripGuideTraceChartTest",
     "ValidateAuthSecretTest",
     "ValidateEncryptionKeyTest",
     "WorkflowSecurityTest",
