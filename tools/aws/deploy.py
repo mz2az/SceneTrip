@@ -387,7 +387,7 @@ def data_load_progress(run):
     """Job 로그 중 단계 줄(==>)과 요약·실패 줄만 — 적재 SQL 의 출력이나 비밀값은 내보내지 않는다."""
     try:
         logs = run(
-            ["kubectl", "-n", NAMESPACE, "logs", f"job/{DATA_LOAD_JOB}", "--tail=200"],
+            ["kubectl", "-n", NAMESPACE, "logs", f"job/{DATA_LOAD_JOB}", "--tail=2000"],
             quiet=True,
         )
     except RuntimeError:
@@ -440,10 +440,12 @@ def load_data(run, outputs, database, image, commit):
                 complete = True
             except RuntimeError:
                 complete = False
-            lines = data_load_progress(run) or seen
-            for line in lines[len(seen) :]:
-                print(line)
-            seen = lines
+            # 내용으로 거른다 — 로그 꼬리(--tail)가 밀리면 앞 줄이 빠져 위치가 어긋난다(2026-10-13 DEV: ③~⑥ 이 안 찍혔다).
+            # 단계 줄에는 지난 초가 붙어 같은 줄이 두 번 나오지 않는다.
+            for line in data_load_progress(run):
+                if line not in seen:
+                    print(line)
+                    seen.append(line)
             if complete or any(line.startswith("DATA_LOAD_FAILED ") for line in seen):
                 break
         if not complete:
