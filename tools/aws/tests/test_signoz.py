@@ -1244,5 +1244,286 @@ class SignozTraceVerifyTest(unittest.TestCase):
             self.assertNotIn("input", call.kwargs)
 
 
+# --- F. 화면(Cloudflare Access 뒤, ADR 0025) ---------------------------------------------------------------
+
+SIGNOZ_CERTIFICATE = "arn:aws:acm:ap-northeast-2:123456789012:certificate/" + "b" * 36
+SIGNOZ_ALB_NAME = "scenetrip-dev-signoz-alb"
+SIGNOZ_ALB_HOST = "signoz.ap-northeast-2.elb.amazonaws.com"
+KUBECTL_APPLY = ["kubectl", "apply", "-f", "-"]
+
+
+def ui_outputs(settings=None, **changes):
+    """dev 배포 출력 + SigNoz 화면 인증서."""
+    from tools.aws.tests.test_auth_secret import deploy_outputs
+
+    settings = settings or valid_settings()
+    return {
+        **deploy_outputs(settings),
+        "environment": settings.environment,
+        "signoz_certificate_arn": SIGNOZ_CERTIFICATE,
+        **changes,
+    }
+
+
+def describe_certificate(status="ISSUED", names=("signoz-dev.scenetrip.io",)):
+    return json.dumps(
+        {
+            "Certificate": {
+                "CertificateArn": SIGNOZ_CERTIFICATE,
+                "Status": status,
+                "SubjectAlternativeNames": list(names),
+            }
+        }
+    )
+
+
+class SignozUiConfigTest(unittest.TestCase):
+    def test_domains_per_environment(self):
+        from tools.aws.config import SIGNOZ_DOMAINS
+
+        self.assertEqual(
+            SIGNOZ_DOMAINS,
+            {"dev": "signoz-dev.scenetrip.io", "prd": "signoz.scenetrip.io"},
+        )
+
+    def test_teardown_owns_signoz_alb_security_resources(self):
+        from tools.aws.destroy_identity import TAGGED_ADDRESSES
+
+        def owned(address):
+            return any(re.fullmatch(pattern, address) for pattern in TAGGED_ADDRESSES)
+
+        for address in (
+            "aws_security_group.signoz_alb",
+            'aws_vpc_security_group_ingress_rule.signoz_alb_https["173.245.48.0/20"]',
+            'aws_vpc_security_group_ingress_rule.signoz_alb_https["104.16.0.0/13"]',
+            "aws_vpc_security_group_egress_rule.signoz_alb_to_ui",
+            "aws_vpc_security_group_ingress_rule.signoz_from_alb",
+            # 원래 있던 API ALB 자원은 그대로 받는다.
+            "aws_security_group.alb",
+            "aws_security_group.postgres",
+            'aws_vpc_security_group_ingress_rule.alb_https["0.0.0.0/0"]',
+            "aws_vpc_security_group_ingress_rule.gateway_from_alb",
+            "aws_vpc_security_group_egress_rule.alb_to_gateway",
+        ):
+            with self.subTest(address=address):
+                self.assertTrue(owned(address))
+        for address in (
+            "aws_security_group.signoz",
+            "aws_security_group.signoz_alb_extra",
+            "aws_vpc_security_group_ingress_rule.signoz_alb_https",
+            'aws_vpc_security_group_ingress_rule.signoz_alb_https["any"]',
+            "aws_vpc_security_group_egress_rule.signoz_alb_to_anything",
+            "aws_vpc_security_group_ingress_rule.signoz_from_internet",
+        ):
+            with self.subTest(address=address):
+                self.assertFalse(owned(address))
+
+
+class SignozIngressTest(unittest.TestCase):
+    def manifests(self, settings=None, **changes):
+        from tools.aws.deploy import signoz_ingress
+
+        settings = settings or valid_settings()
+        return signoz_ingress(settings, ui_outputs(settings, **changes))
+
+    def test_three_manifests_in_apply_order(self):
+        params, ingress_class, ingress = self.manifests()
+        self.assertEqual(
+            [params["kind"], ingress_class["kind"], ingress["kind"]],
+            ["IngressClassParams", "IngressClass", "Ingress"],
+        )
+
+    def test_class_params_are_public_ipv4_on_public_subnets_with_certificate(self):
+        params, ingress_class, _ingress = self.manifests()
+        self.assertEqual(params["metadata"]["name"], SIGNOZ_ALB_NAME)
+        spec = params["spec"]
+        self.assertEqual(spec["scheme"], "internet-facing")
+        self.assertEqual(spec["ipAddressType"], "ipv4")
+        self.assertEqual(
+            spec["namespaceSelector"],
+            {"matchLabels": {"kubernetes.io/metadata.name": "signoz"}},
+        )
+        self.assertEqual(spec["subnets"], {"ids": ui_outputs()["public_subnet_ids"]})
+        self.assertEqual(spec["certificateARNs"], [SIGNOZ_CERTIFICATE])
+        self.assertEqual(ingress_class["metadata"]["name"], SIGNOZ_ALB_NAME)
+        self.assertEqual(ingress_class["spec"]["parameters"]["name"], SIGNOZ_ALB_NAME)
+        self.assertEqual(
+            ingress_class["spec"]["parameters"]["kind"], "IngressClassParams"
+        )
+
+    def test_ingress_routes_dev_domain_to_signoz_8080_through_terraform_group(self):
+        *_unused, ingress = self.manifests()
+        self.assertEqual(ingress["metadata"]["name"], "signoz-ui")
+        self.assertEqual(ingress["metadata"]["namespace"], "signoz")
+        annotations = ingress["metadata"]["annotations"]
+        prefix = "alb.ingress.kubernetes.io/"
+        self.assertEqual(
+            json.loads(annotations[prefix + "listen-ports"]), [{"HTTPS": 443}]
+        )
+        self.assertEqual(annotations[prefix + "certificate-arn"], SIGNOZ_CERTIFICATE)
+        self.assertEqual(
+            annotations[prefix + "security-groups"], "sg-ddddddddddddddddd"
+        )
+        self.assertEqual(
+            annotations[prefix + "manage-backend-security-group-rules"], "false"
+        )
+        self.assertEqual(annotations[prefix + "target-type"], "ip")
+        self.assertEqual(annotations[prefix + "healthcheck-path"], "/api/v1/health")
+        spec = ingress["spec"]
+        self.assertEqual(spec["ingressClassName"], SIGNOZ_ALB_NAME)
+        self.assertEqual(len(spec["rules"]), 1)
+        rule = spec["rules"][0]
+        self.assertEqual(rule["host"], "signoz-dev.scenetrip.io")
+        self.assertEqual(
+            rule["http"]["paths"],
+            [
+                {
+                    "path": "/",
+                    "pathType": "Prefix",
+                    "backend": {
+                        "service": {"name": "signoz", "port": {"number": 8080}}
+                    },
+                }
+            ],
+        )
+
+    def test_prd_uses_prd_names(self):
+        settings = prd_settings()
+        params, _class, ingress = self.manifests(settings)
+        self.assertEqual(params["metadata"]["name"], "scenetrip-prd-signoz-alb")
+        self.assertEqual(
+            ingress["spec"]["ingressClassName"], "scenetrip-prd-signoz-alb"
+        )
+        self.assertEqual(ingress["spec"]["rules"][0]["host"], "signoz.scenetrip.io")
+
+    def test_rejects_malformed_security_group_and_subnets(self):
+        for changes in (
+            {"signoz_alb_security_group_id": "sg-malicious;"},
+            {"signoz_alb_security_group_id": ""},
+            {"signoz_alb_security_group_id": "sg-DDDDDDDD"},
+            {"public_subnet_ids": ["subnet-aaaaaaaaaaaaaaaaa"]},
+            {"public_subnet_cidrs": ["0.0.0.0/0", "10.40.1.0/24"]},
+        ):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.manifests(**changes)
+
+
+class ExposeSignozTest(unittest.TestCase):
+    def expose(self, outputs, answers=(), wait=SIGNOZ_ALB_HOST):
+        from tools.aws.deploy import expose_signoz
+
+        run = Mock(side_effect=list(answers))
+        with patch(
+            "tools.aws.deploy.wait_for_signoz_alb", return_value=wait
+        ) as waiting:
+            result = expose_signoz(run, valid_settings(), outputs)
+        return result, run, waiting
+
+    def test_without_certificate_nothing_runs(self):
+        with patch("builtins.print") as printed:
+            result, run, waiting = self.expose(ui_outputs(signoz_certificate_arn=""))
+        self.assertIsNone(result)
+        run.assert_not_called()
+        waiting.assert_not_called()
+        printed.assert_called()
+
+    def test_certificate_is_checked_then_three_manifests_applied_then_alb_awaited(self):
+        from tools.aws.deploy import signoz_ingress
+
+        outputs = ui_outputs()
+        result, run, waiting = self.expose(
+            outputs, answers=[describe_certificate(), "", "", ""]
+        )
+        self.assertEqual(result, SIGNOZ_ALB_HOST)
+        commands = [entry.args[0] for entry in run.call_args_list]
+        self.assertEqual(
+            commands[0],
+            [
+                "aws",
+                "acm",
+                "describe-certificate",
+                "--certificate-arn",
+                SIGNOZ_CERTIFICATE,
+                "--output",
+                "json",
+            ],
+        )
+        self.assertEqual(commands[1:], [KUBECTL_APPLY] * 3)
+        self.assertEqual(
+            [json.loads(entry.kwargs["stdin"]) for entry in run.call_args_list[1:]],
+            signoz_ingress(valid_settings(), outputs),
+        )
+        waiting.assert_called_once_with(run, valid_settings(), outputs)
+
+    def test_certificate_not_issued_or_not_covering_domain_stops_before_apply(self):
+        for answer in (
+            describe_certificate(status="PENDING_VALIDATION"),
+            describe_certificate(status="EXPIRED"),
+            describe_certificate(names=("signoz.scenetrip.io",)),
+            describe_certificate(names=("*.scenetrip.io",)),
+            describe_certificate(names=()),
+        ):
+            with self.subTest(answer=answer):
+                from tools.aws.deploy import expose_signoz
+
+                run = Mock(side_effect=[answer])
+                with (
+                    patch("tools.aws.deploy.wait_for_signoz_alb") as waiting,
+                    self.assertRaises(ValueError),
+                ):
+                    expose_signoz(run, valid_settings(), ui_outputs())
+                self.assertEqual(run.call_count, 1)
+                self.assertNotIn(
+                    KUBECTL_APPLY, [entry.args[0] for entry in run.call_args_list]
+                )
+                waiting.assert_not_called()
+
+
+class SignozExposeWiringTest(unittest.TestCase):
+    """deploy() 가 dev 에서 install_signoz 바로 뒤에 화면을 열고, prd 에서는 열지 않는다."""
+
+    @staticmethod
+    def marker(name):
+        # 배포기가 넘긴 run 으로 표지를 남긴다 — 다른 명령·비밀값 조회와의 순서를 같은 기록에서 본다.
+        return lambda run, *unused, **kw: run(["test-marker", name])
+
+    def deploy(self, settings, outputs, chart):
+        with (
+            patch(
+                "tools.aws.deploy.install_signoz", side_effect=self.marker("install")
+            ) as install,
+            patch(
+                "tools.aws.deploy.expose_signoz", side_effect=self.marker("expose")
+            ) as expose,
+        ):
+            run, events = SignozDeployTest.deploy(self, settings, outputs, chart)
+        order = [
+            event[1][1]
+            if event[0] == "run" and event[1][0] == "test-marker"
+            else event[0]
+            for event in events
+            if event[0] != "run" or event[1][0] == "test-marker"
+        ]
+        return run, order, install, expose
+
+    def test_dev_exposes_right_after_install(self):
+        settings = valid_settings()
+        outputs = SignozDeployTest.outputs(self, settings)
+        run, order, install, expose = self.deploy(settings, outputs, Path(SIGNOZ_CHART))
+        self.assertEqual(order[:3], ["install", "expose", "database_credentials"])
+        install.assert_called_once()
+        expose.assert_called_once_with(run, settings, outputs)
+
+    def test_prd_never_exposes(self):
+        settings = prd_settings()
+        outputs = SignozDeployTest.outputs(self, settings)
+        for key in MIRROR_KEYS:
+            outputs["ecr_repository_urls"].pop(key, None)
+        _run, order, install, expose = self.deploy(settings, outputs, None)
+        install.assert_not_called()
+        expose.assert_not_called()
+        self.assertNotIn("expose", order)
+
+
 if __name__ == "__main__":
     unittest.main()

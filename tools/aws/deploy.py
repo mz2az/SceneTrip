@@ -7,8 +7,18 @@ import secrets
 import time
 from pathlib import Path
 
-from tools.aws.alb import alb_values, verify_nodeclass, wait_for_alb
-from tools.aws.config import SIGNOZ_ENVIRONMENTS, matched, validate_secret
+from tools.aws.alb import (
+    alb_values,
+    verify_nodeclass,
+    wait_for_alb,
+    wait_for_signoz_alb,
+)
+from tools.aws.config import (
+    SIGNOZ_DOMAINS,
+    SIGNOZ_ENVIRONMENTS,
+    matched,
+    validate_secret,
+)
 
 NAMESPACE = "scenetrip"
 # 버전과 다중 아키텍처 manifest digest를 함께 고정한다.
@@ -590,6 +600,7 @@ def deploy(run, root, settings, outputs, signoz_chart=None):
     signoz = settings.environment in SIGNOZ_ENVIRONMENTS
     if signoz:
         install_signoz(run, root, settings, outputs, signoz_chart)
+        expose_signoz(run, settings, outputs)
     credentials = database_credentials(run, outputs["app_secret_arns"]["database"])
     # scene-api 는 사람이 넣은 카카오 키와 배포가 만든 서명 키를 한 Secret 으로 받는다 —
     # Helm 차트가 scene-api-secrets 를 통째로 환경변수로 넣는다(envFrom).
@@ -830,6 +841,121 @@ def install_signoz(run, root, settings, outputs, chart):
         quiet=True,
     )
     print(f"{settings.environment} SigNoz 배포 완료")
+
+
+def signoz_ingress(settings, outputs):
+    """SigNoz 화면 전용 ALB(ADR 0025) — Terraform 의 Cloudflare 전용 보안 그룹·인증서로. API ALB 와 같은 형식이다."""
+    name = f"scenetrip-{settings.environment}-signoz-alb"
+    certificate = outputs["signoz_certificate_arn"]
+    group = matched(
+        r"sg-(?:[a-f0-9]{8}|[a-f0-9]{17})",
+        outputs["signoz_alb_security_group_id"],
+        "SigNoz ALB 보안 그룹",
+    )
+    return [
+        {
+            "apiVersion": "eks.amazonaws.com/v1",
+            "kind": "IngressClassParams",
+            "metadata": {"name": name},
+            "spec": {
+                "scheme": "internet-facing",
+                "ipAddressType": "ipv4",
+                "namespaceSelector": {
+                    "matchLabels": {"kubernetes.io/metadata.name": SIGNOZ_NAMESPACE}
+                },
+                "subnets": {"ids": list(alb_values(outputs)["albSubnetIds"])},
+                "certificateARNs": [certificate],
+            },
+        },
+        {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "IngressClass",
+            "metadata": {"name": name},
+            "spec": {
+                "controller": "eks.amazonaws.com/alb",
+                "parameters": {
+                    "apiGroup": "eks.amazonaws.com",
+                    "kind": "IngressClassParams",
+                    "name": name,
+                },
+            },
+        },
+        {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "Ingress",
+            "metadata": {
+                "name": "signoz-ui",
+                "namespace": SIGNOZ_NAMESPACE,
+                "annotations": {
+                    "alb.ingress.kubernetes.io/listen-ports": '[{"HTTPS":443}]',
+                    "alb.ingress.kubernetes.io/certificate-arn": certificate,
+                    "alb.ingress.kubernetes.io/ssl-policy": "ELBSecurityPolicy-TLS13-1-2-2021-06",
+                    "alb.ingress.kubernetes.io/target-type": "ip",
+                    "alb.ingress.kubernetes.io/backend-protocol": "HTTP",
+                    "alb.ingress.kubernetes.io/security-groups": group,
+                    # 443 의 Cloudflare 대역 규칙과 8080 backend 규칙은 Terraform(signoz.tf)이 관리한다.
+                    "alb.ingress.kubernetes.io/manage-backend-security-group-rules": "false",
+                    "alb.ingress.kubernetes.io/healthcheck-path": "/api/v1/health",
+                    "alb.ingress.kubernetes.io/success-codes": "200",
+                    "alb.ingress.kubernetes.io/load-balancer-attributes": "idle_timeout.timeout_seconds=120",
+                    "alb.ingress.kubernetes.io/target-group-attributes": "deregistration_delay.timeout_seconds=30",
+                },
+            },
+            "spec": {
+                "ingressClassName": name,
+                "rules": [
+                    {
+                        "host": SIGNOZ_DOMAINS[settings.environment],
+                        "http": {
+                            "paths": [
+                                {
+                                    "path": "/",
+                                    "pathType": "Prefix",
+                                    "backend": {
+                                        "service": {
+                                            "name": SIGNOZ_RELEASE,
+                                            "port": {"number": 8080},
+                                        }
+                                    },
+                                }
+                            ]
+                        },
+                    }
+                ],
+            },
+        },
+    ]
+
+
+def expose_signoz(run, settings, outputs):
+    """SigNoz 화면을 Cloudflare 뒤로 연다 — 인증서가 주소를 덮는지 먼저 본다. 인증서가 없으면(Terraform 변수 비움) 열지 않는다."""
+    certificate = outputs["signoz_certificate_arn"]
+    if not certificate:
+        print(f"{settings.environment} SigNoz 화면 인증서가 없어 화면을 열지 않습니다")
+        return None
+    details = json.loads(
+        run(
+            [
+                "aws",
+                "acm",
+                "describe-certificate",
+                "--certificate-arn",
+                certificate,
+                "--output",
+                "json",
+            ],
+            quiet=True,
+        )
+    )["Certificate"]
+    if details["Status"] != "ISSUED":
+        raise ValueError("SigNoz ACM 인증서가 ISSUED 상태가 아닙니다")
+    if SIGNOZ_DOMAINS[settings.environment] not in details["SubjectAlternativeNames"]:
+        raise ValueError("SigNoz ACM 인증서가 화면 주소를 포함하지 않습니다")
+    for manifest in signoz_ingress(settings, outputs):
+        run(["kubectl", "apply", "-f", "-"], stdin=json.dumps(manifest), quiet=True)
+    hostname = wait_for_signoz_alb(run, settings, outputs)
+    print(f"SigNoz 화면 ALB: {hostname}")
+    return hostname
 
 
 # 받은 span 이 들어가는 표(SigNoz 0.145 의 trace 저장소). HTTPS 검증이 보낸 실제 요청이 여기 쌓여야 한다.
