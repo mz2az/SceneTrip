@@ -72,28 +72,29 @@ import java.time.LocalDate
 @Composable
 private fun RouteWizardViewBody(
     store: RouteStore,
+    state: RouteWizardState,
+    scope: kotlinx.coroutines.CoroutineScope,
     isAiPlan: Boolean = false,
     onClose: (RouteCourse?) -> Unit,
     editorDismiss: java.util.concurrent.atomic.AtomicReference<(() -> Unit)?>,
 ) {
-    var stepIndex by remember { mutableStateOf(0) }
-    var span by remember { mutableStateOf(RouteSpan.ONE_NIGHT) }
+    var stepIndex by state::stepIndex
+    var span by state::span
     // iOS 처럼 **오늘이 골라진 채로** 시작하고, 날짜를 한 번 눌러야 「정했다」가 된다(`hasDate`).
     // 지난 날짜는 달력이 막는다(`minDate`).
-    var pickedDate by remember { mutableStateOf(LocalDate.now()) }
-    var hasDate by remember { mutableStateOf(false) }
-    var selectedWorkIds by remember { mutableStateOf(setOf<Long>()) }
-    var pace by remember { mutableStateOf(RoutePace.TIGHT) }
-    var draft by remember { mutableStateOf<RouteCourse?>(null) }
-    var planning by remember { mutableStateOf(false) }
-    var planFailed by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    var pickedDate by state::pickedDate
+    var hasDate by state::hasDate
+    var selectedWorkIds by state::selectedWorkIds
+    var pace by state::pace
+    var draft by state::draft
+    var planning by state::planning
+    var planFailed by state::planFailed
 
     // **질문을 시작할 때 미리 물어 둔다**(iOS `RouteWizardView.locator` 주석 그대로) —
     // 마지막 화면에서 물으면 위치가 오기를 기다리느라 코스 만들기가 그만큼
     // 늦어진다. 못 받아도 코스는 만들어진다(`near: nil` → 서버가 촬영지가 가장
     // 몰린 곳을 중심으로 잡는다) — 그래서 실패는 조용히 넘긴다.
-    var here by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var here by state::here
     val requestLocation =
         rememberLocate(
             onLocated = { found -> here = found.latitude to found.longitude },
@@ -111,7 +112,9 @@ private fun RouteWizardViewBody(
     if (currentDraft != null) {
         RouteEditorView(
             store = store,
-            initial = currentDraft,
+            initial = currentDraft.initial,
+            draftState = currentDraft,
+            operationScope = scope,
             isNew = true,
             onClose = onClose,
             inSheet = true,
@@ -389,7 +392,7 @@ private fun RouteWizardViewBody(
                             }
                             val startDate = if (hasDate) pickedDate else null
                             if (!isAiPlan) {
-                                draft = store.emptyCourse(span, startDate)
+                                draft = RouteEditorDraft(store.emptyCourse(span, startDate))
                                 return@clickable
                             }
                             planning = true
@@ -404,7 +407,7 @@ private fun RouteWizardViewBody(
                                         longitude = here?.second,
                                     )
                                 planning = false
-                                if (result != null) draft = result else planFailed = true
+                                if (result != null) draft = RouteEditorDraft(result) else planFailed = true
                             }
                         }.padding(vertical = 14.dp),
             ) {
@@ -514,6 +517,8 @@ fun RouteWizardView(
     isAiPlan: Boolean = false,
     onClose: (RouteCourse?) -> Unit,
 ) {
+    val state = remember { RouteWizardState() }
+    val scope = rememberCoroutineScope()
     val editorDismiss =
         remember {
             java.util.concurrent.atomic
@@ -523,6 +528,13 @@ fun RouteWizardView(
         val cancel = editorDismiss.get()
         if (cancel != null) cancel() else onClose(null)
     }) {
-        RouteWizardViewBody(store = store, isAiPlan = isAiPlan, onClose = onClose, editorDismiss = editorDismiss)
+        RouteWizardViewBody(
+            store = store,
+            state = state,
+            scope = scope,
+            isAiPlan = isAiPlan,
+            onClose = onClose,
+            editorDismiss = editorDismiss,
+        )
     }
 }

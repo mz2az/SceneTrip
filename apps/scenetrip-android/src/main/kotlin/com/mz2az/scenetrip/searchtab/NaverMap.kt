@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -45,6 +46,7 @@ fun NaverMapCanvas(
     modifier: Modifier = Modifier,
     sheetHeight: Dp = 0.dp,
     searchBarInset: Dp,
+    insetMode: MapInsetMode = MapInsetMode.SEARCH,
     onMapReady: (NaverMap) -> Unit = {},
     // 카메라가 멈췄다 — 부를지 말지, 얼마나 자주 부를지는 **바깥이 정한다.** 지도는
     // 위치만 안다. iOS `RouteMapView.Coordinator.mapViewCameraIdle` 과 같은 자리.
@@ -53,6 +55,7 @@ fun NaverMapCanvas(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var map by remember { mutableStateOf<NaverMap?>(null) }
+    var measuredHeight by remember { mutableStateOf(0.dp) }
 
     // `remember` 없이 만들면 **재구성마다 지도가 새로 생긴다.** 화면이 깜빡이는
     // 정도가 아니라 타일을 매번 다시 받아 오고 카메라 위치도 초기화된다.
@@ -103,11 +106,11 @@ fun NaverMapCanvas(
     // 그래서 **한 프레임 기다렸다가** 맞춘다. 여백도 그 전에는 주지 않는다 —
     // `fitBounds` 는 여백을 뺀 영역에 맞추므로, 시트가 덮는 만큼 좁은 띠에
     // 한반도를 우겨넣게 된다. iOS 는 화면 전체를 기준으로 맞춘다.
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    val screenHeight = if (insetMode == MapInsetMode.ROUTE) measuredHeight else LocalConfiguration.current.screenHeightDp.dp
     var fitted by remember { mutableStateOf(false) }
-    LaunchedEffect(map, sheetHeight) {
+    LaunchedEffect(map, sheetHeight, screenHeight) {
         val target = map ?: return@LaunchedEffect
-        if (fitted || sheetHeight <= 0.dp) return@LaunchedEffect
+        if (fitted || sheetHeight <= 0.dp || screenHeight <= 0.dp) return@LaunchedEffect
         withFrameNanos {}
         // **여백을 먼저 주고 그 다음에 맞춘다.**
         //
@@ -125,13 +128,13 @@ fun NaverMapCanvas(
         // 때문이다. 그래서 맞춘 뒤 **화면을 미는 쪽으로** 여백을 준다.
         target.setContentPadding(0, 0, 0, 0, true)
         target.showWholeKorea(density)
-        applyInset(target, density, screenHeight, sheetHeight, searchBarInset, keepCamera = false)
+        applyInset(target, density, screenHeight, sheetHeight, searchBarInset, keepCamera = false, mode = insetMode)
         fitted = true
     }
-    DisposableEffect(map, sheetHeight, fitted) {
+    DisposableEffect(map, sheetHeight, screenHeight, fitted, insetMode) {
         val target = map
         if (target != null && fitted) {
-            applyInset(target, density, screenHeight, sheetHeight, searchBarInset)
+            applyInset(target, density, screenHeight, sheetHeight, searchBarInset, mode = insetMode)
         }
         onDispose {}
     }
@@ -150,7 +153,7 @@ fun NaverMapCanvas(
 
     AndroidView(
         factory = { mapView },
-        modifier = modifier,
+        modifier = modifier.onSizeChanged { measuredHeight = with(density) { it.height.toDp() } },
         // `update` 가 아니라 여기서 한 번만 지도를 받는다. getMapAsync 를 재구성마다
         // 부르면 콜백이 쌓인다.
         onReset = null,
@@ -198,6 +201,12 @@ val KOREA: LatLngBounds = LatLngBounds(LatLng(33.0, 125.8), LatLng(38.7, 129.8))
  * 서울 핀이 화면 위로 잘렸다). 그래서 dp 로 두고 쓸 때 곱한다.
  */
 val KOREA_FIT_PADDING = 24.dp
+private val ROUTE_FIT_PADDING = 40.dp
+
+// 번호 핀은 좌표 위로 45.5dp(꼬리 45 - 원 위 3 + 그림자 3.5) 뻗는다.
+// fitBounds의 40dp에 모자라는 5.5dp를 올림하여 상단 그림자까지 보인다.
+private val ROUTE_PIN_TOP_CLEARANCE = 6.dp
+private val MINIMUM_VISIBLE_MAP_HEIGHT = 120.dp
 
 /** 지금 보이는 범위가 남한을 **완전히 벗어났는가.** iOS `MapCamera.isOutsideKorea`. */
 fun NaverMap.isOutsideKorea(): Boolean {
@@ -224,24 +233,26 @@ fun NaverMap.fit(
     screenHeight: Dp,
     sheetHeight: Dp,
     searchBarInset: Dp,
+    mode: MapInsetMode = MapInsetMode.SEARCH,
 ) {
     if (places.isEmpty()) return
+    if (mode == MapInsetMode.ROUTE && screenHeight <= ROUTE_FIT_PADDING * 2) return
     // **한 곳이면 그 장소로 확대한다** — iOS `fit(_ pins:)` 가 `zoom(to:)` 로
     // 넘긴다(줌 16). 줌 14 로 해 뒀더니 같은 검색어에서 iOS 는 골목이 보이는데
     // 안드로이드는 경복궁·창덕궁까지 보였다(4 차 검사 — 3.2 배 차).
     if (places.size == 1) {
-        zoomTo(places.first(), density, screenHeight, sheetHeight, searchBarInset)
+        zoomTo(places.first(), density, screenHeight, sheetHeight, searchBarInset, mode)
         return
     }
     // iOS 는 **맞추기 전에 여백을 다시 건다.** 빠뜨리면 시트가 덮는 만큼을 셈에
     // 넣지 않아 결과가 조금씩 더 확대된다(4 차 검사 — 7.5% 차).
-    applyInset(this, density, screenHeight, sheetHeight, searchBarInset)
+    applyInset(this, density, screenHeight, sheetHeight, searchBarInset, mode = mode)
     val bounds =
         LatLngBounds
             .Builder()
             .apply { places.forEach { include(it.position) } }
             .build()
-    val padding = with(density) { KOREA_FIT_PADDING.roundToPx() }
+    val padding = with(density) { (if (mode == MapInsetMode.ROUTE) ROUTE_FIT_PADDING else KOREA_FIT_PADDING).roundToPx() }
     moveCamera(
         CameraUpdate
             .fitBounds(bounds, padding)
@@ -258,11 +269,12 @@ fun NaverMap.zoomTo(
     screenHeight: Dp,
     sheetHeight: Dp,
     searchBarInset: Dp,
+    mode: MapInsetMode = MapInsetMode.SEARCH,
 ) {
-    applyInset(this, density, screenHeight, sheetHeight, searchBarInset)
+    applyInset(this, density, screenHeight, sheetHeight, searchBarInset, mode = mode)
     moveCamera(
         CameraUpdate
-            .scrollAndZoomTo(place.position, 16.0)
+            .scrollAndZoomTo(place.position, if (mode == MapInsetMode.ROUTE) 15.0 else 16.0)
             .animate(CameraAnimation.Easing, 500L),
     )
 }
@@ -371,11 +383,20 @@ internal fun applyInset(
     sheetHeight: Dp,
     searchBarInset: Dp,
     keepCamera: Boolean = true,
+    mode: MapInsetMode = MapInsetMode.SEARCH,
 ) {
     with(density) {
         val heightPx = screenHeight.toPx()
         val sheetPx = sheetHeight.toPx().toInt()
-        val cameraBottom = minOf(sheetPx, (heightPx * 0.48f).toInt())
+        val topInset = (searchBarInset + if (mode == MapInsetMode.ROUTE) ROUTE_PIN_TOP_CLEARANCE else 0.dp).roundToPx()
+        val cameraBottom =
+            MapInsets.cameraBottom(
+                heightPx.toInt(),
+                sheetPx,
+                topInset,
+                MINIMUM_VISIBLE_MAP_HEIGHT.roundToPx(),
+                mode,
+            )
         // 위 여백은 검색바가 덮는 만큼이다. iOS 는 108pt 를 쓰는데, 안드로이드는
         // 검색바가 상태바 아래에 놓여 그만큼 덜 덮는다 — 3 차에서 -122 였던 세로
         // 어긋남이 4 차에 +25.4 로 뒤집혔던 것이 이 차이다.
@@ -385,7 +406,6 @@ internal fun applyInset(
         //
         // 그래서 **숫자를 옮기지 않고 뜻을 옮긴다.** 상태바 + 바깥 여백 + 바 높이를
         // 화면이 재서 넘겨 준다.
-        val topInset = searchBarInset.toPx().toInt()
         map.setContentPadding(0, topInset, 0, cameraBottom, keepCamera)
         val logoBottom = maxOf(0, sheetPx - cameraBottom) + 6.dp.toPx().toInt()
         val side = 4.dp.toPx().toInt()

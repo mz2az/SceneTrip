@@ -185,6 +185,13 @@ android-photo-qa kind="ok":
 android-photo-qa-test: (android-photo-qa "ok")
     bash ./tools/scripts/android-photo-qa-test.sh
 
+# 실행 중 제품 앱의 저장하지 않은 초안과 글자 배율을 검증·복원 (한국어 화면, 기존 초안이 없을 때)
+[group('build')]
+android-route-font-qa-test:
+    {{BAZEL}} build //apps/scenetrip-android:scene_photo_qa
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" install -r bazel-bin/apps/scenetrip-android/scene_photo_qa.apk
+    bash ./tools/scripts/android-route-font-qa-test.sh
+
 # `just ios-run` 은 시뮬레이터까지다. **진짜 아이폰에 올리려면 애플 서명이 필요한데,
 # 그 서명 파일은 사람마다·기기마다 다르다.** BUILD 파일에 박으면 그것을 가진 한 사람만
 # 빌드할 수 있다. 그래서 서명은 Xcode 에게 맡기고 우리는 프로젝트 파일만 만들어 준다.

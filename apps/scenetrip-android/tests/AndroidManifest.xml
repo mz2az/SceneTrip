@@ -10,4 +10,5 @@
         </activity>
     </application>
     <instrumentation android:name="com.mz2az.scenetrip.qa.ScenePhotoQaInstrumentation" android:targetPackage="com.mz2az.scenetrip.qa" android:functionalTest="true" />
+    <instrumentation android:name="com.mz2az.scenetrip.qa.RouteFontQaInstrumentation" android:targetPackage="com.mz2az.scenetrip.qa" android:functionalTest="true" />
 </manifest>

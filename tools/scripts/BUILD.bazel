@@ -112,6 +112,9 @@ exports_files(
 
 # 별도 Android 씬 사진 시험 앱의 결과를 just에 전달한다.
 exports_files(
-    ["android-photo-qa-test.sh"],
+    [
+        "android-photo-qa-test.sh",
+        "android-route-font-qa-test.sh",
+    ],
     visibility = ["//visibility:public"],
 )

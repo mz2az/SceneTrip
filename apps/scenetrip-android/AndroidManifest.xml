@@ -92,6 +92,7 @@
         -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="fontScale"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"
             android:exported="true">
             <intent-filter>

@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -50,7 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -117,6 +118,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
+private const val MAP_FIT_DEBOUNCE_MILLIS = 150L
+
 /**
  * 코스 편집. iOS `RouteTab/RouteEditorView.swift`(+Controls/+Parts, 지도 중심 화면)를
  * 옮긴 것이다 — **처음 이 화면을 목록으로만 만들었다가, iOS 시뮬레이터와 나란히 대조해
@@ -145,12 +148,15 @@ fun RouteEditorView(
     onClose: (RouteCourse?) -> Unit,
     // 마법사 시트 안에서 열릴 때 — 시트가 이미 상태바 아래에 있으니 상태바 여백을 또 두지 않는다.
     inSheet: Boolean = false,
+    draftState: RouteEditorDraft? = null,
+    operationScope: kotlinx.coroutines.CoroutineScope? = null,
     editorDismiss: java.util.concurrent.atomic.AtomicReference<(() -> Unit)?>? = null,
 ) {
-    var course by remember { mutableStateOf(initial) }
+    val editorDraft = draftState ?: remember { RouteEditorDraft(initial) }
+    var course by editorDraft.course
     val opened = remember(initial) { RouteBridge.outgoing(initial) }
-    var discarding by remember { mutableStateOf(false) }
-    var dayIndex by remember { mutableStateOf(0) }
+    var discarding by editorDraft.discarding
+    var dayIndex by editorDraft.dayIndex
     var map by remember { mutableStateOf<NaverMap?>(null) }
     var detent by remember { mutableStateOf(Detent.MEDIUM) }
     var panelHeight by remember { mutableStateOf(0.dp) }
@@ -160,8 +166,8 @@ fun RouteEditorView(
     var searching by remember { mutableStateOf(false) }
     var showCart by remember { mutableStateOf(false) }
     var showDayStay by remember { mutableStateOf(false) }
-    var saving by remember { mutableStateOf(false) }
-    var saveFailure by remember { mutableStateOf<com.mz2az.scenetrip.data.ApiFailure?>(null) }
+    var saving by editorDraft.saving
+    var saveFailure by editorDraft.saveFailure
     var blockedDayRemoval by remember { mutableStateOf(false) }
     var pinStart by remember { mutableStateOf(false) }
     var pinEnd by remember { mutableStateOf(false) }
@@ -177,7 +183,8 @@ fun RouteEditorView(
     var poiGroupsOn by remember { mutableStateOf(PoiCategoryGroup.entries.toSet()) }
     var aiPlacesOn by remember { mutableStateOf(true) }
     var showDraftNotes by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val localScope = rememberCoroutineScope()
+    val scope = operationScope ?: localScope
     val context = LocalContext.current
     val cart = remember { CartStore(context) }
     val guideSession = remember { RouteGuideSession(context, scope) }
@@ -196,7 +203,7 @@ fun RouteEditorView(
     val footprints = remember { FootprintStore.getInstance(context) }
     val poisApi = remember { PoisApi(API_BASE) }
     val density = LocalDensity.current
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    var screenHeight by remember { mutableStateOf(0.dp) }
     val guideEntry =
         RouteGuideEntry.placement(
             guiding = trip.phase == TripSession.Phase.GUIDING,
@@ -459,8 +466,10 @@ fun RouteEditorView(
         poiGroupsOn = if (trip.isActive) emptySet() else PoiCategoryGroup.entries.toSet()
     }
 
-    LaunchedEffect(map, dayIndex, fitToken, showingMe, myLocation) {
+    LaunchedEffect(map, dayIndex, fitToken, showingMe, myLocation, screenHeight, panelHeight) {
         val target = map ?: return@LaunchedEffect
+        if (screenHeight <= 0.dp || panelHeight <= 0.dp) return@LaunchedEffect
+        delay(MAP_FIT_DEBOUNCE_MILLIS) // 시트 드래그 중 반복 맞추기를 취소하고 마지막 보이는 영역에 맞춘다.
         // `map`이 막 생겼을 때는 `NaverMapCanvas`의 `AndroidView`가 아직 배치되기 전이다
         // — 그 상태로 `fitBounds`를 부르면 크기 0 인 화면 기준으로 계산돼 한 단계 축소된
         // 값이 나온다(실기 확인, searchtab `NaverMap.kt`의 최초 진입 카메라와 같은 함정).
@@ -470,7 +479,16 @@ fun RouteEditorView(
         // 왜 그 순서인지("여기서 가까운 곳이 1번") 알 수 있다(RouteEditorControls.swift).
         val here = myLocation.takeIf { showingMe }
         val toFit = stops.map { it.place } + listOfNotNull(here)
-        if (toFit.isNotEmpty()) target.fit(toFit, density, screenHeight, panelHeight, 0.dp)
+        if (toFit.isNotEmpty()) {
+            target.fit(
+                toFit,
+                density,
+                screenHeight,
+                panelHeight,
+                0.dp,
+                com.mz2az.scenetrip.searchtab.MapInsetMode.ROUTE,
+            )
+        }
     }
 
     // **파란 점 자체는 카메라 맞추기와 별개다.** 위에서는 화면 범위만 맞췄지,
@@ -572,7 +590,11 @@ fun RouteEditorView(
                     guideSession.dismiss()
                     val ids = directive.placeIds.orEmpty().toSet()
                     val places = guideSession.places.filter { ids.contains(it.id) }.map { it.asPlaceSummary() }
-                    if (target != null && places.isNotEmpty()) target.fit(places, density, screenHeight, panelHeight, 0.dp)
+                    if (target != null &&
+                        places.isNotEmpty()
+                    ) {
+                        target.fit(places, density, screenHeight, panelHeight, 0.dp, com.mz2az.scenetrip.searchtab.MapInsetMode.ROUTE)
+                    }
                 }
 
                 "place.card" -> {
@@ -720,9 +742,10 @@ fun RouteEditorView(
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             NaverMapCanvas(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().onSizeChanged { screenHeight = with(density) { it.height.toDp() } },
                 sheetHeight = panelHeight,
                 searchBarInset = 0.dp,
+                insetMode = com.mz2az.scenetrip.searchtab.MapInsetMode.ROUTE,
                 onMapReady = { map = it },
                 onCameraIdle = { bounds, center, zoom ->
                     viewport =
@@ -1711,7 +1734,13 @@ private fun DayTabs(
                 val active = index == dayIndex
                 Column(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.width(IntrinsicSize.Max).clickable { onSelect(index) },
+                    modifier =
+                        Modifier
+                            .width(
+                                IntrinsicSize.Max,
+                            ).selectable(selected = active, role = androidx.compose.ui.semantics.Role.Tab) {
+                                onSelect(index)
+                            },
                 ) {
                     Text(
                         tr("%d일차").format(index + 1),
