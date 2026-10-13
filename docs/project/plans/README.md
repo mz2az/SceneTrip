@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [ios-release-followups.md](ios-release-followups.md) | 열린 iOS 티켓의 계정 갱신·사진 만료 재시도와 출시용 설정 준비 (MZ2AZ-148) |
 | [android-home-profile-polish.md](android-home-profile-polish.md) | iOS431 main의 포스터 고정 칸·홈 선반·닉네임 화면을 Android에 동기화 |
 | [ios-home-profile-polish.md](ios-home-profile-polish.md) | 포스터 고정 칸 채우기·홈 가로 스크롤·닉네임 UI 및 늦은 계정 응답 보호 (MZ2AZ-431) |
 | [android-ios-sync-2026-10.md](android-ios-sync-2026-10.md) | 10월13일 iOS·지역 가이드 인계 후 Android 누락과 실제 UI 검증 (MZ2AZ-148) |
