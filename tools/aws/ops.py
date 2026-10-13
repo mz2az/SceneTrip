@@ -13,6 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from tools.aws.alerts import alerts
 from tools.aws.config import Runner, workspace
 
 REGION = "ap-northeast-2"
@@ -449,6 +450,11 @@ def main(argv=None):
         "shared-media", help="장면 사진 버킷을 CloudFormation 으로 관리"
     )
     media.add_argument("--execute", action="store_true")
+    alarm = sub.add_parser(
+        "alerts", help="바깥 감시 알람(PRD API 헬스 체크·월 예산)을 CloudFormation 으로"
+    )
+    alarm.add_argument("--email", required=True, help="알람을 받을 메일")
+    alarm.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
 
     root = workspace()
@@ -458,6 +464,9 @@ def main(argv=None):
     elif args.command == "drift":
         if drift(run, args.environment):
             sys.exit(1)
+    elif args.command == "alerts":
+        with tempfile.TemporaryDirectory(prefix="scenetrip-ops-") as temporary:
+            alerts(run, root, Path(temporary), email=args.email, execute=args.execute)
     else:
         with tempfile.TemporaryDirectory(prefix="scenetrip-ops-") as temporary:
             shared_media(run, root, Path(temporary), execute=args.execute)

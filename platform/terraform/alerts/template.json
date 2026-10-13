@@ -1,0 +1,98 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "SceneTrip 바깥 감시(ADR 0025, observability-aws.md 6-3) - PRD API 를 밖에서 부르는 헬스 체크와 계정 월 예산. us-east-1 (Route 53 지표가 거기 있다).",
+  "Parameters": {
+    "AlertEmail": {
+      "Type": "String",
+      "Description": "알람을 받을 메일. 저장소에 적지 않고 실행 때 넘긴다.",
+      "AllowedPattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    },
+    "ApiDomain": {
+      "Type": "String",
+      "Default": "api.scenetrip.io"
+    },
+    "MonthlyBudgetUsd": {
+      "Type": "Number",
+      "Default": 900,
+      "Description": "PRD 최대 ~600 + DEV 를 한 달 내내 켠 ~300 (공시 가격 어림, 2026-10-13)"
+    }
+  },
+  "Resources": {
+    "AlertTopic": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "TopicName": "scenetrip-alerts",
+        "Subscription": [{ "Protocol": "email", "Endpoint": { "Ref": "AlertEmail" } }],
+        "Tags": [{ "Key": "Project", "Value": "scenetrip" }]
+      }
+    },
+    "ApiHealthCheck": {
+      "Type": "AWS::Route53::HealthCheck",
+      "Properties": {
+        "HealthCheckConfig": {
+          "Type": "HTTPS",
+          "FullyQualifiedDomainName": { "Ref": "ApiDomain" },
+          "Port": 443,
+          "ResourcePath": "/v1/search/suggestions?q=a",
+          "EnableSNI": true,
+          "RequestInterval": 30,
+          "FailureThreshold": 3,
+          "Regions": ["ap-northeast-1", "ap-southeast-1", "us-west-2"]
+        },
+        "HealthCheckTags": [
+          { "Key": "Name", "Value": "scenetrip-prd-api" },
+          { "Key": "Project", "Value": "scenetrip" }
+        ]
+      }
+    },
+    "ApiDownAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": "scenetrip-prd-api-down",
+        "AlarmDescription": "PRD API 를 밖에서 부르는 헬스 체크가 2 분 연속 실패했다 - DNS, ALB, gateway, scene-api, DB 중 하나",
+        "Namespace": "AWS/Route53",
+        "MetricName": "HealthCheckStatus",
+        "Dimensions": [{ "Name": "HealthCheckId", "Value": { "Ref": "ApiHealthCheck" } }],
+        "Statistic": "Minimum",
+        "Period": 60,
+        "EvaluationPeriods": 2,
+        "Threshold": 1,
+        "ComparisonOperator": "LessThanThreshold",
+        "TreatMissingData": "breaching",
+        "AlarmActions": [{ "Ref": "AlertTopic" }],
+        "OKActions": [{ "Ref": "AlertTopic" }]
+      }
+    },
+    "MonthlyBudget": {
+      "Type": "AWS::Budgets::Budget",
+      "Properties": {
+        "Budget": {
+          "BudgetName": "scenetrip-monthly",
+          "BudgetType": "COST",
+          "TimeUnit": "MONTHLY",
+          "BudgetLimit": { "Amount": { "Ref": "MonthlyBudgetUsd" }, "Unit": "USD" }
+        },
+        "NotificationsWithSubscribers": [
+          {
+            "Notification": {
+              "NotificationType": "FORECASTED",
+              "ComparisonOperator": "GREATER_THAN",
+              "Threshold": 100,
+              "ThresholdType": "PERCENTAGE"
+            },
+            "Subscribers": [{ "SubscriptionType": "EMAIL", "Address": { "Ref": "AlertEmail" } }]
+          },
+          {
+            "Notification": {
+              "NotificationType": "ACTUAL",
+              "ComparisonOperator": "GREATER_THAN",
+              "Threshold": 100,
+              "ThresholdType": "PERCENTAGE"
+            },
+            "Subscribers": [{ "SubscriptionType": "EMAIL", "Address": { "Ref": "AlertEmail" } }]
+          }
+        ]
+      }
+    }
+  }
+}

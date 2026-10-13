@@ -103,6 +103,24 @@ flowchart LR
 | 로그인 | Access 의 One-time PIN(메일 코드) → SigNoz 로그인(`admin@scenetrip.io`, 비밀번호는 Secrets Manager `/scenetrip/dev/signoz`) |
 | 확인 | ① 허용 메일로 화면 열림 ② 로그인 안 하면 Access 로그인으로 넘어감 ③ ALB 주소로 직접 → 연결 안 됨 |
 
+## 6-3. 4 단계 일부: 바깥 감시 알람 두 개 (2026-10-13)
+
+계획 §3 은 「ALB 정상 대상 0」 을 CloudWatch 로 보려 했다. 바꾼다 — ALB·대상 그룹 이름은 Kubernetes 가 만들어 배포마다 달라질 수
+있어 알람이 그 이름을 따라가야 하고, 그러려면 배포 역할에 알람 권한을 더해야 하는데 **배포 역할 정책이 IAM 한도(10,240 자)에
+이미 10,159 자**다(bedrock-iam-role.md). 그래서:
+
+| 알람 | 무엇을 | 어떻게 |
+| --- | --- | --- |
+| 서버가 죽었다 | **밖에서 실제로 부른다** — Route 53 헬스 체크가 `https://api.scenetrip.io/v1/search/suggestions?q=a` 를 30 초마다(3 개 지역) | 2 분 연속 실패면 CloudWatch 알람 → SNS → 메일. DNS·Cloudflare·ALB·gateway·scene-api·DB 를 한 번에 본다 |
+| 비용이 예상보다 많다 | AWS Budgets — 계정 월 **900 달러** | 예상(FORECASTED)·실제(ACTUAL)가 넘으면 메일. 900 = PRD 최대 ~600 + DEV 를 한 달 내내 켠 ~300(어림, 공시 가격) |
+
+- 둘 다 계정 공용 CloudFormation 스택 `scenetrip-alerts`(us-east-1 — Route 53 지표가 거기 있다)로, 장면 사진 버킷과 같은 방식
+  (`just aws-alerts` 미리 보기 · `--execute`, 관리자 자격). 배포 역할을 건드리지 않는다.
+- 받는 메일은 실행 때 넘긴다 — 저장소에 적지 않는다. SNS 구독 확인 메일의 「Confirm」 을 사람이 누른다.
+- 이 계정은 회사 조직 정책(SCP)이 Cost Explorer 를 막는다(2026-10-13 실측). Budgets·Route 53 헬스 체크가 막혀 있으면 **막힌 것은
+  건너뛴다**(권호 결정) — 스택에서 빼고 되는 것만 건다.
+- 헬스 체크는 공개 읽기 API 를 분당 몇 번 부른다 — IP 당 제한에 걸리지 않을 만큼이고, PRD SigNoz 에도 그만큼 쌓인다.
+
 ## 7. 열린 것
 
 - SigNoz 가 쓰는 자원(메모리·디스크)은 설치 뒤 **실측**해서 PRD 비용을 적는다 — 지금 숫자를 지어내지 않는다

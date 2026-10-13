@@ -30,7 +30,7 @@
 | 비밀값 — 카카오·Bedrock·애플 .p8 (JWT·DB 는 배포가 만든다) | 안 함 | aws-deployment.md §6 |
 | 배포 → 데이터 적재(`data-load`, 검토자 승인) → `just aws-verify prd` | 안 함 | remote-data-load.md |
 | 카카오 「허용 IP」 에 PRD 송신 IP(NAT) | 안 함 | ADR 0009:80 |
-| 모니터링·알람·비용 상한 — AWS 에는 SigNoz 가 없다 | 계획 | [observability-aws.md](observability-aws.md) |
+| 모니터링·알람·비용 상한 | 바깥 감시 알람 2 개 걸림(2026-10-13), PRD SigNoz 는 아직 | [observability-aws.md](observability-aws.md) §6-3 |
 
 RDS 삭제 보호·Multi-AZ·백업 14 일은 Terraform 이 PRD 에 이미 켠다(`database.tf:49-53`).
 

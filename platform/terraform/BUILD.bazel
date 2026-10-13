@@ -4,6 +4,7 @@ filegroup(
     name = "sources",
     srcs = glob(
         [
+            "alerts/*.json",
             "aws/**",
             "bootstrap/*.json",
             "shared-media/*.json",

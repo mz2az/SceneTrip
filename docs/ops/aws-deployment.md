@@ -395,6 +395,20 @@ dev 를 지울 때 휘말리지 않는다. 바꿀 때는 템플릿을 고치고 
   Cloudflare 가 바꾼 IP 대역은 `platform/terraform/aws/signoz.tf` 에서 고친다.
 - **내리기**는 SigNoz 화면 Ingress 도 함께 지우고 두 ALB 가 모두 사라질 때까지 기다린다.
 
+## 16. 바깥 감시 알람
+
+[계획 §6-3](../project/plans/observability-aws.md) · 계정 공용 CloudFormation 스택 `scenetrip-alerts`(us-east-1,
+`platform/terraform/alerts/template.json`). 관리자 자격으로 `just aws-alerts --email <받는 메일>`(미리 보기) · `--execute`.
+
+| 알람 | 울리는 때 |
+| --- | --- |
+| `scenetrip-prd-api-down` | Route 53 헬스 체크가 `https://api.scenetrip.io/v1/search/suggestions?q=a` 를 30 초마다(도쿄·싱가포르·오리건) 불러 2 분 연속 실패 — 회복하면 OK 메일 |
+| `scenetrip-monthly` (Budgets) | 계정 월 비용의 예상·실제가 900 달러를 넘을 때 |
+
+- 메일은 SNS 주제 `scenetrip-alerts` 의 구독 — 구독 확인 메일의 「Confirm subscription」 을 눌러야 온다.
+- PRD 를 내리면 헬스 체크가 실패해 알람이 울린다 — 내릴 때는 이 스택도 함께 정리하거나 알람을 끈다.
+- 회사 조직 정책(SCP)이 Cost Explorer 를 막는다. Budgets·Route 53 헬스 체크·CloudWatch 알람은 된다(2026-10-13 생성 확인).
+
 ## 배포 기록
 
 환경·계정·commit·이미지 digest·workflow URL·Terraform 변경 요약·Flyway 버전·
