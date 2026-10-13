@@ -21,6 +21,9 @@ SIGNOZ_RELEASE = "signoz"
 SIGNOZ_OTLP_ENDPOINT = "http://signoz-otel-collector.signoz.svc.cluster.local:4317"
 SIGNOZ_STORAGE_CLASS = "signoz-gp3"
 SIGNOZ_PASSWORD_SECRET = "signoz-clickhouse"
+# SigNoz 관리자 — 로그인 아이디일 뿐 메일을 보내지 않는다(개인 메일을 저장소에 적지 않는다). 팀원은 SigNoz 안에서 초대한다.
+SIGNOZ_ROOT_EMAIL = "admin@scenetrip.io"
+SIGNOZ_ROOT_SECRET = "signoz-root"
 
 
 def sync_secret(run, name, values):
@@ -729,6 +732,20 @@ def clickhouse_password(run):
     return password
 
 
+def signoz_root_password(run, arn):
+    """SigNoz 관리자 비밀번호 — 환경당 한 번 만들어 Secrets Manager 에 두고 다시 쓴다. 사람이 로그인할 때 거기서 꺼낸다.
+
+    SigNoz 는 조직(첫 관리자)이 있어야 수집기에 파이프라인 설정을 내려준다(opamp). 사람이 가입하기를 기다리면 DEV 를 올릴
+    때마다 trace 가 버려진다(2026-10-13 실측: 「cannot create agent without orgId」, 수집기가 4317 을 열지 않음). 그래서 배포가
+    관리자를 만든다. SigNoz 의 비밀번호 규칙(대·소문자·숫자·기호)을 늘 만족하도록 끝에 네 종류를 하나씩 붙인다."""
+    return generated_once(
+        run,
+        arn,
+        "signoz",
+        lambda: {"SIGNOZ_ROOT_PASSWORD": secrets.token_urlsafe(24) + "Aa1!"},
+    )["SIGNOZ_ROOT_PASSWORD"]
+
+
 def install_signoz(run, root, settings, outputs, chart):
     """SigNoz 를 `signoz` 네임스페이스에 올린다(ADR 0025). 이미지는 환경 ECR 의 복사본(aws.mirror_signoz)에서 받는다."""
     if not chart:
@@ -757,9 +774,35 @@ def install_signoz(run, root, settings, outputs, chart):
         stdin=json.dumps(signoz_storage_class()),
         quiet=True,
     )
+    root_secret = {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": {"name": SIGNOZ_ROOT_SECRET, "namespace": SIGNOZ_NAMESPACE},
+        "type": "Opaque",
+        "stringData": {
+            "password": signoz_root_password(run, outputs["app_secret_arns"]["signoz"])
+        },
+    }
+    run(["kubectl", "apply", "-f", "-"], stdin=json.dumps(root_secret), quiet=True)
     values = {
         "global": {"imageRegistry": registry},
         "clickhouse": {"password": clickhouse_password(run)},
+        # 첫 관리자(=조직)를 설치 때 만든다. 비밀번호는 Secret 에서 읽어 파드 명세에 값이 남지 않는다.
+        "signoz": {
+            "env": {
+                "signoz_user_root_enabled": "true",
+                "signoz_user_root_email": SIGNOZ_ROOT_EMAIL,
+                "signoz_user_root_org_name": "scenetrip",
+                "signoz_user_root_password": {
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": SIGNOZ_ROOT_SECRET,
+                            "key": "password",
+                        }
+                    }
+                },
+            }
+        },
     }
     run(
         [

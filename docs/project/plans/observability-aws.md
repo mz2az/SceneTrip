@@ -71,8 +71,11 @@ DEV 에서 **부하 테스트**를 할 예정이다. 「느려졌다」 는 Clou
 
 차트 0.145.0 을 받아 `helm template` 으로 확인했다.
 
-- **관리자 계정 자동 생성(`SIGNOZ_USER_ROOT_*`)은 쓰지 않는다.** 첫 가입자가 관리자가 되고 그 뒤는 초대만 받는다. 화면은
-  Cloudflare Access 뒤에서만 열리므로(허용 메일만 가입 화면에 닿는다) 그 틈이 막힌다 — 비밀번호를 하나 더 관리하지 않는다.
+- ~~관리자 계정 자동 생성(`SIGNOZ_USER_ROOT_*`)은 쓰지 않는다~~ — **틀렸다(2026-10-13 DEV 실측).** SigNoz 는 조직(첫 관리자)이
+  있어야 수집기에 설정을 내려준다(opamp). 관리자가 없으면 서버가 「cannot create agent without orgId」 로 거절하고, 수집기는
+  받는 포트(4317)를 열지 않아 scene-api 의 trace 가 전부 버려졌다. 그래서 **배포가 관리자를 만든다** — 아이디 `admin@scenetrip.io`
+  (메일을 보내지 않는 로그인 아이디), 비밀번호는 Secrets Manager `/scenetrip/<env>/signoz` 에 배포가 한 번 만들고 다시 쓴다.
+  팀원은 SigNoz 안에서 초대한다. 화면은 여전히 Cloudflare Access 뒤에만 연다.
 - **ClickHouse 비밀번호는 Secrets Manager 대신 클러스터 Secret** — 사람이 쓸 값이 아니고 디스크와 수명이 같다. 차트 기본값은 모든
   설치에 같은 문자열이라 반드시 바꾼다.
 - **보관 기간은 values 로 정할 수 없다**(화면·API 만). DEV 는 기본값(trace·로그 15 일, 지표 30 일), PRD 에서 API 로 줄인다.

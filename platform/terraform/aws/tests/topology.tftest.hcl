@@ -55,20 +55,21 @@ run "dev_private_and_cost_boundary" {
     error_message = "네 가지 OCI 저장소는 태그 불변·강제 삭제 금지여야 합니다."
   }
   assert {
-    condition     = length(aws_secretsmanager_secret.app) == 3 && length(aws_ecr_repository.app) == 11
-    error_message = "Scene API·DB·auth 비밀값, 앱·에이전트·migration·data-load 이미지와 SigNoz 미러 일곱 저장소가 필요합니다."
+    condition     = length(aws_secretsmanager_secret.app) == 4 && length(aws_ecr_repository.app) == 11
+    error_message = "Scene API·DB·auth·SigNoz 비밀값, 앱·에이전트·migration·data-load 이미지와 SigNoz 미러 일곱 저장소가 필요합니다."
   }
   # trip-guide 비밀값은 없다 — Bedrock 을 Pod Identity 역할로 부른다(MZ2AZ-317). 이미지 저장소는 그대로다.
+  # signoz 는 SigNoz 관리자 비밀번호 칸이다(ADR 0025).
   assert {
     condition = (
-      toset(keys(aws_secretsmanager_secret.app)) == toset(["scene_api", "database", "auth"]) &&
-      toset([for s in aws_secretsmanager_secret.app : s.name]) == toset(["/scenetrip/dev/scene-api", "/scenetrip/dev/database", "/scenetrip/dev/auth"])
+      toset(keys(aws_secretsmanager_secret.app)) == toset(["scene_api", "database", "auth", "signoz"]) &&
+      toset([for s in aws_secretsmanager_secret.app : s.name]) == toset(["/scenetrip/dev/scene-api", "/scenetrip/dev/database", "/scenetrip/dev/auth", "/scenetrip/dev/signoz"])
     )
-    error_message = "앱 비밀값은 /scenetrip/dev/{scene-api,database,auth} 셋뿐이어야 합니다 — trip-guide 비밀값은 없습니다."
+    error_message = "앱 비밀값은 /scenetrip/dev/{scene-api,database,auth,signoz} 넷뿐이어야 합니다 — trip-guide 비밀값은 없습니다."
   }
   assert {
-    condition     = toset(keys(output.app_secret_arns)) == toset(["scene_api", "database", "auth"])
-    error_message = "app_secret_arns 출력의 키는 scene_api·database·auth 여야 합니다."
+    condition     = toset(keys(output.app_secret_arns)) == toset(["scene_api", "database", "auth", "signoz"])
+    error_message = "app_secret_arns 출력의 키는 scene_api·database·auth·signoz 여야 합니다."
   }
   # 원격 데이터 적재 이미지(MZ2AZ-414) — 다른 저장소와 같은 규칙, 환경 이름 아래.
   assert {
@@ -111,10 +112,10 @@ run "prd_high_availability_and_retention" {
   }
   assert {
     condition = (
-      toset([for s in aws_secretsmanager_secret.app : s.name]) == toset(["/scenetrip/prd/scene-api", "/scenetrip/prd/database", "/scenetrip/prd/auth"]) &&
+      toset([for s in aws_secretsmanager_secret.app : s.name]) == toset(["/scenetrip/prd/scene-api", "/scenetrip/prd/database", "/scenetrip/prd/auth", "/scenetrip/prd/signoz"]) &&
       alltrue([for s in aws_secretsmanager_secret.app : s.recovery_window_in_days == 30])
     )
-    error_message = "PRD 앱 비밀값은 /scenetrip/prd/{scene-api,database,auth} 셋이고 복구 기간 30일이어야 합니다."
+    error_message = "PRD 앱 비밀값은 /scenetrip/prd/{scene-api,database,auth,signoz} 넷이고 복구 기간 30일이어야 합니다."
   }
 }
 

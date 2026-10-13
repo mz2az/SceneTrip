@@ -520,6 +520,7 @@ class BoundaryTest(unittest.TestCase):
                 "database": "database-arn",
                 "scene_api": "scene-arn",
                 "auth": "auth-arn",
+                "signoz": "signoz-arn",
             },
             "ecr_repository_urls": {
                 "scene_api": "scene-image",
@@ -562,6 +563,11 @@ class BoundaryTest(unittest.TestCase):
                 return_value="fixture.ap-northeast-2.elb.amazonaws.com",
             ),
             patch("tools.aws.deploy.database_credentials", return_value=credentials),
+            # SigNoz 관리자 비밀번호(ADR 0025) — Secrets Manager 대신 고정 값.
+            patch(
+                "tools.aws.deploy.signoz_root_password",
+                return_value="fixture-signoz-root",
+            ),
             patch(
                 "tools.aws.deploy.auth_secret",
                 # auth 칸은 키 셋이다(MZ2AZ-412) — 서비스 비밀값은 에이전트 시크릿에도 간다.

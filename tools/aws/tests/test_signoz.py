@@ -34,6 +34,8 @@ MIRROR_KEYS = (
     "mirror_zookeeper",
 )
 HEX64 = re.compile(r"[0-9a-f]{64}")
+# SigNoz 관리자 비밀번호 — token_urlsafe(24)(32 자) 뒤에 대·소문자·숫자·기호 하나씩.
+ROOT_PASSWORD = re.compile(r"\A[A-Za-z0-9_-]{32}Aa1!\Z")
 
 
 def workspace():
@@ -451,8 +453,18 @@ class SignozDeployTest(unittest.TestCase):
             outputs["ingress_public"] = True
         return outputs
 
-    def deploy(self, settings, outputs, chart=Path(SIGNOZ_CHART), stored=None):
-        """stored: 클러스터에 이미 있는 SigNoz ClickHouse 비밀번호(없으면 첫 배포)."""
+    def deploy(
+        self,
+        settings,
+        outputs,
+        chart=Path(SIGNOZ_CHART),
+        stored=None,
+        root_store=None,
+    ):
+        """stored: 클러스터에 이미 있는 SigNoz ClickHouse 비밀번호(없으면 첫 배포).
+
+        root_store: Secrets Manager 흉내(FakeSecretStore). 주면 SigNoz 관리자 비밀번호 칸 호출을 거기로 보낸다.
+        안 주면 cluster_commands 가 「이미 저장된 비밀번호」 로 답한다."""
         from tools.aws.deploy import deploy
         from tools.aws.tests.test_auth_secret import cluster_commands
 
@@ -460,6 +472,8 @@ class SignozDeployTest(unittest.TestCase):
 
         def execute(command, **kwargs):
             events.append(("run", command, kwargs))
+            if root_store is not None and "secretsmanager" in command:
+                return root_store(command, **kwargs)
             if "get" in command and "signoz-clickhouse" in command:
                 if stored is None:
                     return ""
@@ -648,6 +662,137 @@ class SignozDeployTest(unittest.TestCase):
         for call in run.call_args_list:
             self.assertNotIn(stored, " ".join(call.args[0]))
 
+    # --- SigNoz 관리자(ADR 0025) ---
+
+    def root_secret(self, run):
+        return next(
+            m
+            for m in self.applied(run)
+            if m.get("kind") == "Secret"
+            and m["metadata"] == {"name": "signoz-root", "namespace": "signoz"}
+        )
+
+    def test_dev_applies_root_secret_from_stored_password_before_signoz_helm(self):
+        from tools.aws.tests.test_auth_secret import (
+            SIGNOZ_ARN,
+            SIGNOZ_ROOT_PASSWORD,
+            FakeSecretStore,
+        )
+
+        settings = valid_settings()
+        store = FakeSecretStore(
+            {SIGNOZ_ARN: json.dumps({"SIGNOZ_ROOT_PASSWORD": SIGNOZ_ROOT_PASSWORD})}
+        )
+        run, events = self.deploy(settings, self.outputs(settings), root_store=store)
+        secret = self.root_secret(run)
+        self.assertEqual(secret["stringData"], {"password": SIGNOZ_ROOT_PASSWORD})
+        # 저장된 값을 그대로 쓴다 — 다시 쓰지 않는다.
+        self.assertEqual(store.puts(), [])
+        # 읽은 대상은 Terraform 출력의 signoz 칸이다.
+        self.assertTrue(any(SIGNOZ_ARN in command for command, unused in store.calls))
+        applied = next(
+            i
+            for i, e in enumerate(events)
+            if e[0] == "run"
+            and e[1] == ["kubectl", "apply", "-f", "-"]
+            and json.loads(e[2]["stdin"]).get("metadata", {}).get("name")
+            == "signoz-root"
+        )
+        helm = next(
+            i for i, e in enumerate(events) if e[0] == "run" and is_signoz_helm(e[1])
+        )
+        self.assertLess(applied, helm)
+
+    def test_dev_signoz_helm_values_create_root_user_from_secret(self):
+        settings = valid_settings()
+        run, _unused = self.deploy(settings, self.outputs(settings))
+        helm = next(call for call in run.call_args_list if is_signoz_helm(call.args[0]))
+        values = json.loads(helm.kwargs["stdin"])
+        self.assertEqual(
+            values["signoz"],
+            {
+                "env": {
+                    "signoz_user_root_enabled": "true",
+                    "signoz_user_root_email": "admin@scenetrip.io",
+                    "signoz_user_root_org_name": "scenetrip",
+                    "signoz_user_root_password": {
+                        "valueFrom": {
+                            "secretKeyRef": {"name": "signoz-root", "key": "password"}
+                        }
+                    },
+                }
+            },
+        )
+
+    def test_root_constants(self):
+        from tools.aws import deploy
+
+        self.assertEqual(deploy.SIGNOZ_ROOT_EMAIL, "admin@scenetrip.io")
+        self.assertEqual(deploy.SIGNOZ_ROOT_SECRET, "signoz-root")
+
+    def test_first_deploy_generates_root_password_only_on_stdin(self):
+        from tools.aws.tests.test_auth_secret import SIGNOZ_ARN, FakeSecretStore
+
+        settings = valid_settings()
+        store = FakeSecretStore()
+        run, _unused = self.deploy(settings, self.outputs(settings), root_store=store)
+        password = self.root_secret(run)["stringData"]["password"]
+        self.assertRegex(password, ROOT_PASSWORD)
+        puts = store.puts()
+        self.assertEqual(len(puts), 1)
+        body = json.loads(puts[0][1]["stdin"])
+        self.assertEqual(body["SecretId"], SIGNOZ_ARN)
+        self.assertEqual(
+            json.loads(body["SecretString"]), {"SIGNOZ_ROOT_PASSWORD": password}
+        )
+        helm = next(call for call in run.call_args_list if is_signoz_helm(call.args[0]))
+        self.assertNotIn(password, helm.kwargs["stdin"])
+        for call in run.call_args_list:
+            self.assertNotIn(password, " ".join(call.args[0]))
+        # 비밀번호가 실리는 stdin 은 Secret 명세와 Secrets Manager 저장 본문 둘뿐이다.
+        carriers = [
+            call
+            for call in run.call_args_list
+            if password in (call.kwargs.get("stdin") or "")
+        ]
+        self.assertEqual(len(carriers), 2)
+        for call in carriers:
+            self.assertIn(
+                call.args[0],
+                (
+                    ["kubectl", "apply", "-f", "-"],
+                    [
+                        "aws",
+                        "secretsmanager",
+                        "put-secret-value",
+                        "--cli-input-json",
+                        "file:///dev/stdin",
+                    ],
+                ),
+            )
+
+        # 두 번째 배포는 처음 만든 비밀번호를 다시 쓴다.
+        again, _unused = self.deploy(settings, self.outputs(settings), root_store=store)
+        self.assertEqual(self.root_secret(again)["stringData"]["password"], password)
+        self.assertEqual(len(store.puts()), 1)
+
+    def test_stored_root_password_never_appears_in_argv_or_helm_values(self):
+        from tools.aws.tests.test_auth_secret import SIGNOZ_ROOT_PASSWORD
+
+        settings = valid_settings()
+        run, _unused = self.deploy(settings, self.outputs(settings))
+        for call in run.call_args_list:
+            self.assertNotIn(SIGNOZ_ROOT_PASSWORD, " ".join(call.args[0]))
+            if is_signoz_helm(call.args[0]) or is_scenetrip_helm(call.args[0]):
+                self.assertNotIn(SIGNOZ_ROOT_PASSWORD, call.kwargs["stdin"])
+
+    def test_dev_without_signoz_secret_output_fails_before_signoz_helm(self):
+        settings = valid_settings()
+        outputs = self.outputs(settings)
+        del outputs["app_secret_arns"]["signoz"]
+        with self.assertRaises((KeyError, ValueError)):
+            self.deploy(settings, outputs)
+
     def test_dev_app_values_point_otel_at_signoz_collector(self):
         settings = valid_settings()
         run, _unused = self.deploy(settings, self.outputs(settings))
@@ -703,11 +848,67 @@ class SignozDeployTest(unittest.TestCase):
             self.assertNotIn("signoz-clickhouse", call.args[0])
         for manifest in self.applied(run):
             self.assertNotEqual(manifest.get("metadata", {}).get("name"), "signoz")
+            self.assertNotEqual(manifest.get("metadata", {}).get("name"), "signoz-root")
             self.assertNotEqual(manifest.get("kind"), "StorageClass")
         helm = next(
             call for call in run.call_args_list if is_scenetrip_helm(call.args[0])
         )
         self.assertEqual(json.loads(helm.kwargs["stdin"])["otel"], {"endpoint": ""})
+
+
+class SignozRootPasswordTest(unittest.TestCase):
+    """deploy.signoz_root_password — generated_once 로 환경당 한 번 만들고 다시 쓴다(ADR 0025)."""
+
+    def test_empty_slot_generates_once_and_value_only_reaches_stdin(self):
+        from tools.aws.deploy import signoz_root_password
+        from tools.aws.tests.test_auth_secret import SIGNOZ_ARN, FakeSecretStore
+
+        store = FakeSecretStore()
+        password = signoz_root_password(Mock(side_effect=store), SIGNOZ_ARN)
+        self.assertIsInstance(password, str)
+        self.assertRegex(password, ROOT_PASSWORD)
+        puts = store.puts()
+        self.assertEqual(len(puts), 1)
+        body = json.loads(puts[0][1]["stdin"])
+        self.assertEqual(body["SecretId"], SIGNOZ_ARN)
+        self.assertEqual(
+            json.loads(body["SecretString"]), {"SIGNOZ_ROOT_PASSWORD": password}
+        )
+        for command, _unused in store.calls:
+            self.assertNotIn(password, " ".join(command))
+
+        again = signoz_root_password(Mock(side_effect=store), SIGNOZ_ARN)
+        self.assertEqual(again, password)
+        self.assertEqual(len(store.puts()), 1)
+
+    def test_stored_password_is_returned_without_put(self):
+        from tools.aws.deploy import signoz_root_password
+        from tools.aws.tests.test_auth_secret import SIGNOZ_ARN, FakeSecretStore
+
+        stored = "stored-signoz-root-passwordAa1!"
+        store = FakeSecretStore(
+            {SIGNOZ_ARN: json.dumps({"SIGNOZ_ROOT_PASSWORD": stored})}
+        )
+        self.assertEqual(
+            signoz_root_password(Mock(side_effect=store), SIGNOZ_ARN), stored
+        )
+        self.assertEqual(store.puts(), [])
+
+    def test_generated_passwords_differ(self):
+        from tools.aws.deploy import signoz_root_password
+        from tools.aws.tests.test_auth_secret import SIGNOZ_ARN, FakeSecretStore
+
+        first = signoz_root_password(Mock(side_effect=FakeSecretStore()), SIGNOZ_ARN)
+        second = signoz_root_password(Mock(side_effect=FakeSecretStore()), SIGNOZ_ARN)
+        self.assertNotEqual(first, second)
+
+    def test_signoz_secret_kind_requires_root_password(self):
+        from tools.aws.config import SECRET_KEYS, validate_secret
+
+        self.assertEqual(SECRET_KEYS["signoz"], {"SIGNOZ_ROOT_PASSWORD"})
+        validate_secret("signoz", {"SIGNOZ_ROOT_PASSWORD": "x" * 32 + "Aa1!"})
+        with self.assertRaises(ValueError):
+            validate_secret("signoz", {})
 
 
 # --- E. ClickHouse 비밀번호 ---------------------------------------------------------------------------------
