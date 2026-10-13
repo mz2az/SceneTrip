@@ -2,6 +2,9 @@ package com.mz2az.scenetrip.ui
 
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -32,6 +35,15 @@ import androidx.compose.ui.unit.sp
  */
 
 object IOS {
+    var isDark by mutableStateOf(false)
+        private set
+
+    fun updateTheme(dark: Boolean) {
+        isDark = dark
+    }
+
+    val onAccent = Color.White
+
     // --- 색 ---------------------------------------------------------------
     //
     // iOS 는 커스텀 accent 에셋을 두지 않는다. 즉 `Color.accentColor` 는 시스템
@@ -39,8 +51,8 @@ object IOS {
     // **화면에서 실제로 잰 값이다.** 문서의 systemBlue 는 #007AFF 지만 iOS 26 이
     // 실제로 칠하는 값은 #0088FF 였다(스크린샷 픽셀 측정). 교과서 값을 쓰면 두 앱을
     // 나란히 놓았을 때 파랑이 미묘하게 달라 보인다. 빨강도 같은 이유다.
-    val accent = Color(0xFF0088FF)
-    val systemRed = Color(0xFFFF383C)
+    val accent get() = if (isDark) Color(0xFF0A84FF) else Color(0xFF0088FF)
+    val systemRed get() = if (isDark) Color(0xFFFF453A) else Color(0xFFFF383C)
 
     /** 찜한 작품의 하트. iOS `Color.pink` — 빨강(`systemRed`)과 다른 톤이다. */
     val systemPink = Color(0xFFFF2D55)
@@ -51,41 +63,41 @@ object IOS {
     /** 버스 구간 칩. iOS `Color(.systemGreen)` — 애플 공개값이다(아직 화면에서 재지 않았다). */
     val systemGreen = Color(0xFF34C759)
 
-    val systemBackground = Color(0xFFFFFFFF)
-    val systemGray3 = Color(0xFFC7C7CC)
+    val systemBackground get() = if (isDark) Color(0xFF000000) else Color(0xFFFFFFFF)
+    val systemGray3 get() = if (isDark) Color(0xFF48484A) else Color(0xFFC7C7CC)
 
     /** 검색어 지우기 원. iOS 는 연파랑이다 — 실측 #BFE1FF. */
     val clearCircle = Color(0xFFBFE1FF)
 
     /** 장면 카드 테두리. iOS `systemGray5`. */
-    val systemGray5 = Color(0xFFE5E5EA)
+    val systemGray5 get() = if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA)
 
     /** 온보딩 지도 조각의 격자선, 페이지 점의 비활성 색. iOS `systemGray4`. */
-    val systemGray4 = Color(0xFFD1D1D6)
-    val systemGray6 = Color(0xFFF2F2F7)
+    val systemGray4 get() = if (isDark) Color(0xFF3A3A3C) else Color(0xFFD1D1D6)
+    val systemGray6 get() = if (isDark) Color(0xFF1C1C1E) else Color(0xFFF2F2F7)
 
     /** `.bordered` 버튼의 회색 채움. iOS `tertiarySystemFill` — (118,118,128) 12%. */
     val tertiaryFill = Color(0x1F767680)
 
     /** 세그먼트 컨트롤의 트랙. systemGray6 보다 살짝 어둡다 — 실측 #EEEEEF. */
-    val segmentTrack = Color(0xFFEEEEEF)
+    val segmentTrack get() = if (isDark) Color(0xFF2C2C2E) else Color(0xFFEEEEEF)
 
     /**
      * 장면 팝업 카드의 바탕. iOS 는 반투명 재질이라 뒤가 희미하게 비치는데,
      * 흰 화면 위에서 잰 값이 #EBEBEB 다. systemGray6(#F2F2F7)를 쓰면 파란 기가
      * 돌아 다르게 보인다(6 차 실측).
      */
-    val popupSurface = Color(0xFFEBEBEB)
+    val popupSurface get() = if (isDark) Color(0xFF2C2C2E) else Color(0xFFEBEBEB)
 
     /** `.primary` — 완전한 검정이 아니라 label 색이다. */
-    val label = Color(0xFF000000)
+    val label get() = if (isDark) Color(0xFFFFFFFF) else Color(0xFF000000)
 
     /** `.secondary` · `.tertiary` 는 label 에 불투명도를 건 것이다. */
-    val secondaryLabel = Color(0xFF3C3C43).copy(alpha = 0.60f)
-    val tertiaryLabel = Color(0xFF3C3C43).copy(alpha = 0.30f)
+    val secondaryLabel get() = (if (isDark) Color(0xFFEBEBF5) else Color(0xFF3C3C43)).copy(alpha = 0.60f)
+    val tertiaryLabel get() = (if (isDark) Color(0xFFEBEBF5) else Color(0xFF3C3C43)).copy(alpha = 0.30f)
 
     /** `Divider()` 의 색. */
-    val separator = Color(0xFF3C3C43).copy(alpha = 0.29f)
+    val separator get() = (if (isDark) Color(0xFF545458) else Color(0xFF3C3C43)).copy(alpha = 0.60f)
 
     /**
      * 번호 배지와 지도 핀의 그러데이션. `NaverMapView.swift` 의 `PinImage` 와

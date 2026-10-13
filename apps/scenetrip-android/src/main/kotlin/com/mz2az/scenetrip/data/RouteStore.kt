@@ -284,22 +284,11 @@ class RouteStore(
         refresh()
     }
 
-    /**
-     * 도착 표시를 서버에 남긴다. iOS `RouteEditorTrip.markVisited` — 화면은 이 호출 전에
-     * 이미 자기 사본을 `visited = true`로 바꿔 둔다(`markVisitedLocally`와 같은 뜻).
-     * 실패해도 조용히 넘긴다 — 다음에 코스를 다시 열면 서버 값으로 맞춰진다, 방문
-     * 자체를 막을 이유는 아니다.
-     */
+    /** 방문 완료는 서버 성공 응답 뒤에만 화면에 반영한다 (MZ2AZ-225). */
     suspend fun markVisited(
         courseId: Long,
         itemId: Long,
-    ) {
-        runCatching {
-            withContext(Dispatchers.IO) {
-                coursesApi.updateCourseItemVisit(deviceId, courseId, itemId, VisitUpdate(visited = true))
-            }
-        }
-    }
+    ): Result<Unit> = apiResult { coursesApi.updateCourseItemVisit(deviceId, courseId, itemId, VisitUpdate(visited = true)) }.map { }
 
     /**
      * "AI 로 여정 짜기". 고른 작품이 없으면 인기 작품 상위 3개로 채운다(iOS와 같은

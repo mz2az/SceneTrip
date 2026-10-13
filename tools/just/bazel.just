@@ -167,6 +167,24 @@ android-ui:
     "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell uiautomator dump /sdcard/scenetrip-ui.xml >/dev/null
     "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" exec-out cat /sdcard/scenetrip-ui.xml
 
+# 사용자 데이터와 분리한 씬 사진 시험 서버 (PNG·JSON만 제공)
+[group('build')]
+android-photo-qa-server:
+    {{BAZEL}} run //apps/scenetrip-android:scene_photo_qa_server
+
+# 별도 시험 앱으로 정상·실패·미연결 씬 사진 화면 점검
+[group('build')]
+android-photo-qa kind="ok":
+    {{BAZEL}} build //apps/scenetrip-android:scene_photo_qa
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" install -r bazel-bin/apps/scenetrip-android/scene_photo_qa.apk
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am force-stop com.mz2az.scenetrip.qa
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am start -n com.mz2az.scenetrip.qa/.ScenePhotoQaActivity --es photoCase {{quote(kind)}}
+
+# 별도 시험 앱에 두 손가락 입력·두 번 누르기·재시도를 실행한다 (사진 시험 서버 필요)
+[group('build')]
+android-photo-qa-test: (android-photo-qa "ok")
+    bash ./tools/scripts/android-photo-qa-test.sh
+
 # `just ios-run` 은 시뮬레이터까지다. **진짜 아이폰에 올리려면 애플 서명이 필요한데,
 # 그 서명 파일은 사람마다·기기마다 다르다.** BUILD 파일에 박으면 그것을 가진 한 사람만
 # 빌드할 수 있다. 그래서 서명은 Xcode 에게 맡기고 우리는 프로젝트 파일만 만들어 준다.

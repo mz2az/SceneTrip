@@ -409,7 +409,7 @@ private fun RouteWizardViewBody(
                         }.padding(vertical = 14.dp),
             ) {
                 if (planning) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = IOS.systemBackground)
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = IOS.onAccent)
                 }
                 Text(
                     if (planning) {
@@ -420,7 +420,7 @@ private fun RouteWizardViewBody(
                         tr("다음")
                     },
                     fontSize = 17.sp,
-                    color = IOS.systemBackground,
+                    color = IOS.onAccent,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
             }

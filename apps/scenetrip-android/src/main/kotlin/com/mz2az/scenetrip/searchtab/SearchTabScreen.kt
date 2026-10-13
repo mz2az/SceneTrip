@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.ApiFailure
+import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.SceneData
@@ -143,6 +144,8 @@ fun SearchTabScreen() {
     var selectedContent by remember { mutableStateOf<ContentSummary?>(null) }
     var contentPlaces by remember { mutableStateOf<List<PlaceSummary>>(emptyList()) }
     var contentLoading by remember { mutableStateOf(false) }
+    var contentFailure by remember { mutableStateOf<String?>(null) }
+    var contentRetry by remember { mutableStateOf(0) }
 
     // 드릴다운 3단 — 고른 촬영지.
     var selectedPlace by remember { mutableStateOf<PlaceSummary?>(null) }
@@ -159,14 +162,49 @@ fun SearchTabScreen() {
 
     // 홈의 "지금 뜨는 작품"/"오늘의 성지" 카드가 남긴 쪽지 — 받으면 곧장 지우는
     // 한 번짜리다. 남겨 두면 이 탭에 다시 올 때마다 같은 상세가 또 열린다.
+    fun openContent(content: ContentSummary) {
+        selectedPlace = null
+        selectedScene = null
+        contentPlaces = emptyList()
+        contentFailure = null
+        contentLoading = true
+        selectedContent = content
+        contentRetry++
+    }
+
     LaunchedEffect(TabRouter.pendingContent) {
         TabRouter.pendingContent?.let {
-            selectedContent = it
+            openContent(it)
             TabRouter.pendingContent = null
+        }
+    }
+    // 홈·검색 목록·자동완성의 모든 작품 진입에서 같은 촬영지 조회를 한다.
+    // 작품이 바뀌면 이전 요청이 취소되어 오래된 목록을 새 상세에 붙이지 않는다.
+    LaunchedEffect(selectedContent?.id, AppLanguage.current, contentRetry) {
+        val id = selectedContent?.id
+        contentPlaces = emptyList()
+        contentFailure = null
+        contentLoading = id != null
+        if (id != null) {
+            try {
+                data.placesOf(id).fold(
+                    onSuccess = { contentPlaces = it },
+                    onFailure = {
+                        contentFailure =
+                            com.mz2az.scenetrip.data.NetworkFailure
+                                .of(it)
+                                .message
+                    },
+                )
+            } finally {
+                contentLoading = false
+            }
         }
     }
     LaunchedEffect(TabRouter.pendingPlace) {
         TabRouter.pendingPlace?.let {
+            selectedContent = null
+            selectedScene = null
             selectedPlace = it
             TabRouter.pendingPlace = null
         }
@@ -366,11 +404,12 @@ fun SearchTabScreen() {
                         onOpenScene = { selectedScene = it },
                         onToggleSave = {
                             val place = selectedPlace!!
+                            val source = selectedContent?.id
                             scope.launch {
                                 if (cart.contains(place.id)) {
                                     cart.remove(place.id)
                                 } else {
-                                    cart.add(place.id)
+                                    cart.add(place.id, source)
                                 }
                             }
                         },
@@ -382,6 +421,8 @@ fun SearchTabScreen() {
                         summary = selectedContent!!,
                         places = contentPlaces,
                         loading = contentLoading,
+                        failure = contentFailure,
+                        onRetry = { contentRetry++ },
                         saved = { cart.contains(it) },
                         detailOf = { data.contentDetail(it) },
                         onBack = {
@@ -390,6 +431,7 @@ fun SearchTabScreen() {
                         },
                         onSelectPlace = { selectedPlace = it },
                         onSave = { place ->
+                            val source = selectedContent?.id
                             scope.launch {
                                 // **어느 작품 때문에 담았는지 함께 보낸다** — 같은
                                 // 장소가 여러 작품에 나오므로 이것이 없으면 나중에
@@ -397,7 +439,7 @@ fun SearchTabScreen() {
                                 if (cart.contains(place.id)) {
                                     cart.remove(place.id)
                                 } else {
-                                    cart.add(place.id, selectedContent?.id)
+                                    cart.add(place.id, source)
                                 }
                             }
                         },
@@ -423,13 +465,8 @@ fun SearchTabScreen() {
                         onToggleLike = { likes.toggle(it) },
                         onSelectPlace = { selectedPlace = it },
                         onOpenContent = { content ->
-                            selectedContent = content
+                            openContent(content)
                             detent = Detent.MEDIUM
-                            contentLoading = true
-                            scope.launch {
-                                contentPlaces = data.placesOf(content.id)
-                                contentLoading = false
-                            }
                         },
                         onAdd = { place ->
                             scope.launch {
@@ -481,12 +518,7 @@ fun SearchTabScreen() {
                         // 돌아갈 수 없다 (iOS 가 겪고 폐기한 구현이다).
                         searching = false
                         keyboard?.hide()
-                        selectedContent = work.toSummary()
-                        contentLoading = true
-                        scope.launch {
-                            contentPlaces = data.placesOf(work.id)
-                            contentLoading = false
-                        }
+                        openContent(work.toSummary())
                     },
                     onSelectPlace = { item ->
                         searching = false
@@ -621,7 +653,7 @@ private fun ErrorView(
             Text(
                 text = tr("다시 시도"),
                 style = IOS.subheadlineSemibold,
-                color = IOS.systemBackground,
+                color = IOS.onAccent,
                 modifier =
                     Modifier
                         .clip(RoundedCornerShape(IOS.capsuleButton))
@@ -646,6 +678,7 @@ private fun ContentDetail.toSummary() =
         title = title,
         placeCount = placeCount,
         posterUrl = posterUrl,
+        producerUrl = producerUrl,
         broadcaster = broadcaster,
         releaseYear = releaseYear,
         genres = genres,

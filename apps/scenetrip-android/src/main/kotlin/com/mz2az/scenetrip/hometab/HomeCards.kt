@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -400,7 +401,7 @@ fun HomeWorkShelf(
     onAll: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        HomeSectionHeader(tr("지금 뜨는 작품"), subtitle = tr("촬영지가 많은 순"), action = tr("전체 보기"), onAction = onAll)
+        HomeSectionHeader(tr("지금 뜨는 작품"), subtitle = tr("인기순"), action = tr("전체 보기"), onAction = onAll)
         if (failed) {
             Text(
                 tr("작품을 불러오지 못했습니다 — 백엔드(:8081)가 켜져 있나요?"),
@@ -437,7 +438,7 @@ private fun WorkPoster(
                     .clip(RoundedCornerShape(14.dp))
                     .background(Brush.linearGradient(listOf(IOS.pinDeep.copy(alpha = 0.7f), IOS.pinDeep))),
         ) {
-            RemoteImage(url = work.posterUrl?.toString(), modifier = Modifier.fillMaxSize())
+            RemoteImage(url = work.posterUrl?.toString(), modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
             Box(
                 modifier =
                     Modifier

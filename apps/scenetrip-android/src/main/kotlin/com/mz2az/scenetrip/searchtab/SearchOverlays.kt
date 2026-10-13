@@ -144,7 +144,7 @@ fun SearchBar(
                 Text(
                     text = "$cartCount",
                     style = IOS.caption2Heavy,
-                    color = IOS.systemBackground,
+                    color = IOS.onAccent,
                     modifier =
                         Modifier
                             .align(Alignment.TopEnd)
@@ -222,7 +222,7 @@ fun NearbyButton(
     ) {
         // iOS `xmark` / `arrow.clockwise`(footnote semibold, 잉크 약 11×14) — Material Refresh 는 작고 모양도 달랐다.
         if (on) {
-            XMarkIcon(IOS.systemBackground, Modifier.size(12.dp))
+            XMarkIcon(IOS.onAccent, Modifier.size(12.dp))
         } else {
             ArrowClockwiseIcon(IOS.label, Modifier.size(14.dp))
         }

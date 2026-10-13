@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [android-ios-sync-2026-10.md](android-ios-sync-2026-10.md) | 10월13일 iOS·지역 가이드 인계 후 Android 누락과 실제 UI 검증 (MZ2AZ-148) |
 | [community-regional-guides.md](community-regional-guides.md) | 기기 후기 2개 보존·발견 동선과 지역 사진·코스 가이드 20개 (MZ2AZ-423) |
 | [ios-front-completion.md](ios-front-completion.md) | iOS 씬 사진 확대·상세 포스터 링크·홈 인기순·작품 출처·닉네임·테마와 열린 티켓 검증 (MZ2AZ-148) |
 | [ios-apple-login.md](ios-apple-login.md) | iOS Apple 기본 로그인 버튼·nonce·서버 인증·기존 계정 흐름 연결 (MZ2AZ-415) |

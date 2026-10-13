@@ -73,6 +73,7 @@ internal fun CommunityPostList(
     val scope = rememberCoroutineScope()
     var reading by remember { mutableStateOf<CommunityPost?>(null) }
     var deleting by remember { mutableStateOf<CommunityPost?>(null) }
+    var showingLegacy by remember { mutableStateOf(false) }
     val state = store.state
     val posts = if (mine) state.mine else state.posts
     val loading = if (mine) state.mineLoading else state.loading
@@ -83,6 +84,9 @@ internal fun CommunityPostList(
     }
     PullToRefreshBox(isRefreshing = loading, onRefresh = { scope.launch { store.refresh(mine) } }) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
+            if (!mine && store.legacyPosts.isNotEmpty()) {
+                item { CommunityListButton("기기에 보관된 옛 글 찾기") { showingLegacy = true } }
+            }
             state.message?.let { message ->
                 item {
                     Text(message, color = IOS.systemRed, style = IOS.footnote, modifier = Modifier.padding(16.dp))
@@ -143,6 +147,7 @@ internal fun CommunityPostList(
             }
         }
     }
+    if (showingLegacy) MyPostsSheet(onClose = { showingLegacy = false })
     reading?.let { post ->
         IOSSheet(listOf(SheetDetent.LARGE), onDismiss = { reading = null }) {
             CommunityPostView(post, onDismiss = { reading = null })

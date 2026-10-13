@@ -90,6 +90,11 @@ fun CommunityPostView(
     var savedCourseId by remember { mutableStateOf<Long?>(null) }
     var saveFailed by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
+    LaunchedEffect(AuthStore.epoch) {
+        savedCourseId = null
+        saving = false
+        saveFailed = false
+    }
 
     fun shown(stops: List<PostCourse.Stop>) = if (expanded) stops else stops.take(PREVIEW_STOPS)
 
@@ -140,6 +145,10 @@ fun CommunityPostView(
                                 savedCourseId = savedCourseId,
                                 onExpand = { expanded = true },
                                 onSave = {
+                                    if (!AuthStore.signedIn) {
+                                        AuthStore.promptSignIn()
+                                        return@CourseCard
+                                    }
                                     saving = true
                                     scope.launch {
                                         val account = AuthStore.epoch

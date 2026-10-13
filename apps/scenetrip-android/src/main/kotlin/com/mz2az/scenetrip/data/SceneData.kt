@@ -44,6 +44,10 @@ class SceneData(
     private val contentsApi = ContentsApi(API_BASE)
     private val placesApi = PlacesApi(API_BASE)
     private val searchApi = SearchApi(API_BASE)
+    private val contentPlaces =
+        ContentPlacePages { id, limit, offset ->
+            contentsApi.listContentPlaces(id, limit = limit, offset = offset)
+        }
 
     fun search(query: String) = session.search(query)
 
@@ -64,18 +68,7 @@ class SceneData(
     suspend fun loadNextPlaces() = session.loadNextPlaces()
 
     /** 작품에 연결된 촬영지를 끝까지 받는다. 취소는 API 실패로 바꾸지 않는다. */
-    suspend fun placesOf(contentId: Long): List<PlaceSummary> {
-        var paging = Paging()
-        var places = emptyList<PlaceSummary>()
-        while (paging.hasMore) {
-            val page =
-                apiResult { contentsApi.listContentPlaces(contentId, limit = ServerSearchClient.PLACE_PAGE_SIZE, offset = paging.offset) }
-                    .getOrNull() ?: return places
-            places = Paging.merged(places, page.items) { it.id }
-            paging = paging.advanced(page.items.size, page.total)
-        }
-        return places
-    }
+    suspend fun placesOf(contentId: Long): Result<List<PlaceSummary>> = contentPlaces.load(contentId)
 
     suspend fun contentDetail(id: Long) = apiResult { contentsApi.getContent(id) }.getOrNull()
 

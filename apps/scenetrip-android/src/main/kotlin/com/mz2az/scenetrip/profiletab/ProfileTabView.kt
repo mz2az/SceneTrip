@@ -119,6 +119,11 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
     var showingLikes by remember { mutableStateOf(false) }
     var showingPosts by remember { mutableStateOf(false) }
     var clearingFootprints by remember { mutableStateOf(false) }
+    var consentingToFootprints by remember { mutableStateOf(false) }
+    var choosingTheme by remember { mutableStateOf(false) }
+    val theme =
+        com.mz2az.scenetrip.data.AppThemeStore
+            .getInstance(context)
     var choosingLanguage by remember { mutableStateOf(false) }
     var showingReviews by remember { mutableStateOf(false) }
     var showingNickname by remember { mutableStateOf(false) }
@@ -320,6 +325,27 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 
                 item {
                     ProfileSection(tr("발자취")) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
+                        ) {
+                            Text(tr("발자취 기록하기"), fontSize = 15.sp, color = IOS.label, modifier = Modifier.weight(1f))
+                            IOSToggle(checked = footprints.recording, onCheckedChange = {
+                                if (it) consentingToFootprints = true else footprints.updateRecording(false)
+                            })
+                        }
+                        if (consentingToFootprints) {
+                            IOSAlert(
+                                tr("발자취를 기록할까요?"),
+                                tr("여행 모드에서 지나간 길을 이 기기에만 저장해요. 서버로 보내지 않고, 로그아웃하거나 탈퇴하면 지워집니다."),
+                                listOf(
+                                    IOSAction(tr("취소"), IOSRole.CANCEL) {},
+                                    IOSAction(tr("기록하기")) { footprints.updateRecording(true) },
+                                ),
+                                onDismiss = { consentingToFootprints = false },
+                            )
+                        }
+                        ProfileDivider(afterIcon = false)
                         ProfileRow(
                             title = tr("기록한 거리"),
                             value = tr("%.1f km · %d점").format(footprints.kilometers, footprints.points.size),
@@ -369,6 +395,20 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 
                 item {
                     ProfileSection(tr("도움")) {
+                        Box {
+                            ProfileRow(
+                                title = tr("화면 모드"),
+                                value =
+                                    com.mz2az.scenetrip.data.AppThemeStore
+                                        .label(theme.mode),
+                                onClick = { choosingTheme = true },
+                                chevron = true,
+                                icon = { AppearanceIcon(SYSTEM_INDIGO, it) },
+                            )
+                            if (choosingTheme) ThemeChoiceView(theme, onClose = { choosingTheme = false })
+                        }
+                        ProfileDivider()
+
                         Box {
                             ProfileRow(
                                 title = tr("언어"),
@@ -596,7 +636,7 @@ private fun ProfileSection(
 private fun ProfileDivider(afterIcon: Boolean = true) {
     androidx.compose.material3.HorizontalDivider(
         thickness = 1.dp,
-        color = Color(0xFFE8E8E8),
+        color = if (IOS.isDark) IOS.separator else Color(0xFFE8E8E8),
         modifier = Modifier.padding(start = if (afterIcon) 54.dp else 16.dp, end = 16.dp),
     )
 }

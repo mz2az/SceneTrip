@@ -21,18 +21,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import com.mz2az.scenetrip.data.API_BASE
+import com.mz2az.scenetrip.data.ImageRequests
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.net.URL
 
 /**
  * 서버가 준 URL 로 이미지를 그린다. 실패하면 자리표시자로 떨어진다.
  *
  * iOS `RemoteImage.swift` 와 같은 자리다. 그쪽 주석이 이유를 적어 뒀다 — **이미지
- * 주소는 우리 것이 아니다.** TMDB 포스터, 구글·위키미디어 장소 사진처럼 수집 시점의
- * 외부 URL 이 그대로 온다. 그래서 **깨지는 것을 정상 경로로 다룬다.**
+ * 주소는 우리 것이 아니다.** 작품 제공 플랫폼의 공식 포스터와 장소 사진은 수집 시점의
+ * 외부 URL이 그대로 온다. 그래서 **깨지는 것을 정상 경로로 다룬다.**
  *
  * ## 왜 라이브러리를 쓰지 않는가
  *
@@ -44,6 +45,7 @@ import java.net.URL
  * 다시 검토한다. 지금 데이터로는 장소 155 개이고 화면에 한 번에 예닐곱 줄이다.
  */
 object ImageCache {
+    private val client by lazy { ImageRequests.client(API_BASE) }
     private const val MEMORY_BYTES = 80 * 1024 * 1024
     private const val MAX_DOWNLOAD_BYTES = 24 * 1024 * 1024
     private val memory =
@@ -64,25 +66,21 @@ object ImageCache {
         val bitmap =
             withContext(Dispatchers.IO) {
                 runCatching {
-                    val source = URL(url)
-                    require(source.protocol in listOf("http", "https"))
-                    val connection =
-                        source.openConnection().apply {
-                            connectTimeout = 15_000
-                            readTimeout = 15_000
-                            useCaches = false
-                        }
                     val bytes =
-                        connection.getInputStream().use { stream ->
-                            val out = java.io.ByteArrayOutputStream()
-                            val buffer = ByteArray(8192)
-                            var count = stream.read(buffer)
-                            while (count != -1) {
-                                require(out.size() + count <= MAX_DOWNLOAD_BYTES)
-                                out.write(buffer, 0, count)
-                                count = stream.read(buffer)
+                        client.newCall(ImageRequests.request(url)).execute().use { response ->
+                            require(response.isSuccessful)
+                            val stream = requireNotNull(response.body).byteStream()
+                            stream.use {
+                                val out = java.io.ByteArrayOutputStream()
+                                val buffer = ByteArray(8192)
+                                var count = stream.read(buffer)
+                                while (count != -1) {
+                                    require(out.size() + count <= MAX_DOWNLOAD_BYTES)
+                                    out.write(buffer, 0, count)
+                                    count = stream.read(buffer)
+                                }
+                                out.toByteArray()
                             }
-                            out.toByteArray()
                         }
                     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
