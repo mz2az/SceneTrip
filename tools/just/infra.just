@@ -1,5 +1,10 @@
 # 인프라의 환경은 dev | prd다. 클라우드 변경은 수동 확인을 거친다.
 
+# AI 생성 도구에서 확정한 사진을 크기 그대로 JPEG로 저장한다. 기존 파일은 덮지 않는다.
+[group('infra')]
+community-image-jpeg input output:
+    {{BAZEL}} run //tools/scripts:community_image_jpeg -- {{quote(input)}} {{quote(output)}}
+
 # 워크스페이스의 OCI 이미지 빌드
 [group('infra')]
 images:

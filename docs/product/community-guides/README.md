@@ -41,6 +41,9 @@
 
 ## 적재와 유지
 
+블로그형 본문과 [AI 변환 사진 제작 이력](ai-images/README.md)은 MZ2AZ-428에서 추가했다.
+기존 글·코스 ID와 원본을 보존하는 [적용 절차](../../ops/community-blog-local.md)를 따른다.
+
 [로컬 준비·검증 절차](../../ops/community-guides-local.md)를 따른다. 자료 파일을
 커밋하는 것과 서버에 실제로 게시하는 것은 별개다. 이번 적재는 로컬 kind DB와
 MinIO에만 적용한다. 다른 DB나 운영 서버로 자동 전파하지 않는다. 준비 상태와

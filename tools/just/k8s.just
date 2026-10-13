@@ -178,6 +178,11 @@ db-psql-file file:
 community-guides-local dataset state_directory *args:
     {{BAZEL}} run //tools/scripts:community_guides_local -- {{quote(dataset)}} {{quote(state_directory)}} {{args}}
 
+# 기존 추천 글의 ID·코스·원본 사진을 보존하며 블로그 배치·AI 변환 사진을 로컬에 적용
+[group('data')]
+community-blog-local baseline_directory state_directory *args:
+    {{BAZEL}} run //tools/scripts:community_blog_local -- {{quote(baseline_directory)}} {{quote(state_directory)}} {{args}}
+
 # 터미널을 붙잡고 있는다. Ctrl+C 로 중지.
 #
 # `just db-psql` 은 파드 안에서 돌아 포워딩이 필요 없다. 이 레시피가 필요한 자리는

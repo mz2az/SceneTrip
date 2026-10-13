@@ -6,6 +6,7 @@
 | [aws-teardown.md](aws-teardown.md) | 비용 절감을 위한 서비스·bootstrap 수동 삭제, 데이터 보존과 재배포 |
 | [local-sql-file.md](local-sql-file.md) | 큰 SQL 파일을 로컬 kind DB로 스트리밍하고 오류에서 중단 |
 | [community-guides-local.md](community-guides-local.md) | 지역별 사진·코스 가이드 20개 로컬 적재와 중복 없는 재개 |
+| [community-blog-local.md](community-blog-local.md) | 기존 글·코스·원본 객체를 보존하는 블로그형 본문·AI 사진 적용 |
 | [ios-simulator-run.md](ios-simulator-run.md) | Xcode GUI 경로에 의존하지 않는 iOS 앱 덮어 설치·실행과 진단 |
 | `runbooks/<서비스>.md` | 서비스별 운영과 복구 방법 |
 | `slo.md` | 서비스 수준 목표와 오류 예산 |
