@@ -3,6 +3,7 @@
 import json
 import struct
 import zlib
+from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 WIDTH = 900
@@ -18,26 +19,33 @@ def chunk(kind, data):
     )
 
 
-def test_image():
+def test_image(width=WIDTH, height=HEIGHT):
     colors = ((225, 45, 45), (40, 170, 90), (40, 90, 225))
     rows = b"".join(
-        bytes([0]) + b"".join(bytes(colors[x // 300]) for x in range(WIDTH))
-        for _ in range(HEIGHT)
+        bytes([0]) + b"".join(bytes(colors[x * 3 // width]) for x in range(width))
+        for _ in range(height)
     )
     return (
         bytes.fromhex("89504e470d0a1a0a")
-        + chunk(b"IHDR", struct.pack(">IIBBBBB", WIDTH, HEIGHT, 8, 2, 0, 0, 0))
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
         + chunk(b"IDAT", zlib.compress(rows))
         + chunk(b"IEND", b"")
     )
 
 
 IMAGE = test_image()
+PORTRAIT = test_image(450, 900)
+REQUESTS = Counter()
 
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path == "/photo.png":
+        REQUESTS[self.path] += 1
+        if self.path == "/portrait.png":
+            data, status, mime = PORTRAIT, 200, "image/png"
+        elif self.path == "/photo.png" or (
+            self.path.startswith("/flaky.png?case=") and REQUESTS[self.path] > 1
+        ):
             data, status, mime = IMAGE, 200, "image/png"
         else:
             data, status, mime = (

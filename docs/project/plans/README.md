@@ -5,6 +5,7 @@
 | 문서 | 대상 |
 | --- | --- |
 | [android-home-profile-polish.md](android-home-profile-polish.md) | iOS431 main의 포스터 고정 칸·홈 선반·닉네임 화면을 Android에 동기화 |
+| [android-community-blog.md](android-community-blog.md) | 계약1.13의 Android 대표·문단 사진·작성/미리보기·확대와 기존 글 호환 |
 | [ios-home-profile-polish.md](ios-home-profile-polish.md) | 포스터 고정 칸 채우기·홈 가로 스크롤·닉네임 UI 및 늦은 계정 응답 보호 (MZ2AZ-431) |
 | [android-ios-sync-2026-10.md](android-ios-sync-2026-10.md) | 10월13일 iOS·지역 가이드 인계 후 Android 누락과 실제 UI 검증 (MZ2AZ-148) |
 | [community-regional-guides.md](community-regional-guides.md) | 기기 후기 2개 보존·발견 동선과 지역 사진·코스 가이드 20개 (MZ2AZ-423) |

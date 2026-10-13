@@ -83,6 +83,17 @@ iOS431의 main 반영 뒤 작품 포스터는 홈·목록·자동완성·상세�
 `just android-nickname-qa edit ko light`로 확인한다. `welcome`, `busy`, `stale`, `failure`와
 `en`, `dark`를 조합할 수 있다. 제품 계정과 API 쓰기를 실행하지 않는다.
 
+커뮤니티 여행후기는 첫 사진 하나를 대표로, 본문은 계약1.13의 bodyBlocks 순서로 표시한다.
+작성 시 사진별 문단 위치·설명·출처·AI 표시를 정하고 상단 미리보기로 확인한다.
+사진 삭제 뒤 남은 사진의 UUID에 연결된 배치를 유지하며, 기존 글은 읽기 시에만 문단별로 배치한다.
+원래 비율의 사진을 눌러100~400% 확대·이동하며 실패한 사진은 다시 받을 수 있다.
+블록 배치까지 같은지 확인해야 불확실한 게시를 성공으로 처리한다.
+`just android-community-blog-qa compose ko light`는 별도 QA 설치본의 합성 초안만 사용한다.
+read/legacy/retry/pending/failed/portrait 및 en/dark 조합과 검증 범위는
+[Android 블로그 검증](../../docs/qa/android-community-blog.md)을 따른다.
+사진 시험 서버를 유지한 뒤 `just android-community-blog-qa-test`로 세로 대표 사진이 제목을
+덮지 않는 실제 픽셀 회귀를 검사한다. 이 시험은 기기 글자 배율을 원래 값으로 복원한다.
+
 사진의 두 손가락 입력 시험은 제품 데이터와 분리한다. 별도 터미널에서
 `just android-photo-qa-server`를 유지한 뒤 `just android-photo-qa-test`를 실행한다.
 수동 화면 확인은 `just android-photo-qa ok`, `failure`, `missing`으로 나눈다.

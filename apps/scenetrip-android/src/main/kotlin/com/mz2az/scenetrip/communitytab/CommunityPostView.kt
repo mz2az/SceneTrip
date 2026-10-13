@@ -1,24 +1,19 @@
 package com.mz2az.scenetrip.communitytab
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,14 +29,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.CommunityArticle
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.NetworkFailure
@@ -113,12 +107,23 @@ fun CommunityPostView(
                     }
                 }
             } else {
-                val photos = content.photos
-                if (content.remotePhotos.isNotEmpty()) {
-                    item { PostPhotoPager(store = store, urls = content.remotePhotos) }
-                } else {
-                    if (!photos.isNullOrEmpty()) {
-                        item { PostPhotoPager(store = store, names = photos) }
+                val photos =
+                    if (content.remotePhotos.isNotEmpty()) {
+                        content.remotePhotos.map(
+                            CommunityPhotoSource::Remote,
+                        )
+                    } else {
+                        content.photos.orEmpty().map(CommunityPhotoSource::Local)
+                    }
+                val blocks = content.bodyBlocks ?: CommunityArticle.legacy(content.body, photos.size)
+                photos.firstOrNull()?.let { cover ->
+                    item {
+                        CommunityArticlePhoto(
+                            cover,
+                            blocks.coverBlock(),
+                            representative = true,
+                            modifier = Modifier.padding(horizontal = 20.dp).padding(top = 14.dp),
+                        )
                     }
                 }
                 item {
@@ -129,11 +134,16 @@ fun CommunityPostView(
                         Text(content.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label)
 
                         AuthorRow(content)
-
-                        if (content.body.isNotEmpty()) {
-                            Text(content.body, fontSize = 17.sp, color = IOS.label, lineHeight = 23.sp)
-                        }
-
+                    }
+                }
+                itemsIndexed(blocks) { _, block ->
+                    CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp).padding(bottom = 22.dp))
+                }
+                item {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 18.dp),
+                    ) {
                         val course = content.course
                         if (course != null) {
                             CourseCard(
@@ -356,55 +366,6 @@ private fun SaveButton(
                     .ArrowDownIcon(Color.White, Modifier.size(14.dp))
             }
             Text(tr("내 코스로 담기"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-        }
-    }
-}
-
-/** 사진 넘겨 보기 — 화면 폭을 꽉 채우고 옆으로 넘긴다. */
-@Composable
-fun PostPhotoPager(
-    store: CommunityStore,
-    names: List<String> = emptyList(),
-    urls: List<String> = emptyList(),
-) {
-    val count = if (urls.isEmpty()) names.size else urls.size
-    val pagerState = rememberPagerState(pageCount = { count })
-    Box(Modifier.fillMaxWidth().height(300.dp).background(IOS.systemGray5)) {
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            val bitmap = if (urls.isEmpty()) remember(names[page]) { store.photo(names[page]) } else null
-            if (urls.isNotEmpty()) {
-                com.mz2az.scenetrip.searchtab
-                    .RemoteImage(urls[page], Modifier.fillMaxSize(), edge = 1024, retryable = true)
-            } else if (bitmap != null) {
-                Image(
-                    bitmap = bitmap.asImageBitmap(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(tr("사진"), color = IOS.secondaryLabel)
-                }
-            }
-        }
-        if (count > 1) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp),
-            ) {
-                (0 until count).forEach { index ->
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (index == pagerState.currentPage) Color.White else Color.White.copy(alpha = 0.5f),
-                                ),
-                    )
-                }
-            }
         }
     }
 }

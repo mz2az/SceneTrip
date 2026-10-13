@@ -3,6 +3,7 @@
 | 문서 | 목적 |
 | --- | --- |
 | [android-home-profile-polish.md](android-home-profile-polish.md) | iOS431의 Android 포스터·홈 선반·닉네임 UI와 99개 회귀·모의 응답/실제 화면 검증 |
+| [android-community-blog.md](android-community-blog.md) | Android428의 블록 배치·작성/미리보기·사진 확대/재시도·공개 AI 사진과 코스 보존 |
 | [ios-home-profile-polish.md](ios-home-profile-polish.md) | 포스터 고정 칸·홈 가로 이동·닉네임 UI/계정 응답 보호와 실제 화면 검증 범위 (MZ2AZ-431) |
 | [community-blog-verification.md](community-blog-verification.md) | 대표·문단 사진·실제 게시/읽기·AI 변환 32첨부와 원본/코스 보존 검증 (MZ2AZ-428) |
 | [android-ios-sync-2026-10.md](android-ios-sync-2026-10.md) | 2026-10-13 iOS 기능 대조, Android 87개 회귀·실제 터치 사진 시험·원본 데이터 보존과 후속 계약 |

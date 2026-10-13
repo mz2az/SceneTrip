@@ -40,16 +40,20 @@ import com.mz2az.scenetrip.ui.SheetDetent
 import kotlinx.coroutines.launch
 
 @Composable
-fun CommunityComposeView(onDismiss: () -> Unit) {
+fun CommunityComposeView(
+    onDismiss: () -> Unit,
+    suppliedDraft: CommunityComposeState? = null,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = rememberCommunityStore()
-    val draft = remember { CommunityComposeState(context, scope, store) }
+    val draft = suppliedDraft ?: remember { CommunityComposeState(context, scope, store) }
     DisposableEffect(draft) {
         draft.photos.resume()
         onDispose { draft.photos.cancel() }
     }
     LaunchedEffect(AuthStore.epoch) { if (!draft.sameAccount) draft.photos.cancel() }
+    LaunchedEffect(draft.photoIds) { draft.placements = draft.retainedPlacements }
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(draft.photos.limit)) {
             if (!draft.locked) draft.photos.add(it)
@@ -60,14 +64,7 @@ fun CommunityComposeView(onDismiss: () -> Unit) {
         interactiveDismissEnabled = !draft.status.working && !draft.hasDraft,
     ) {
         Column(Modifier.fillMaxSize().background(IOS.systemBackground).imePadding()) {
-            IOSSheetToolbar(
-                title = tr("여행후기 쓰기"),
-                leading = tr("취소"),
-                onLeading = { draft.close(onDismiss) },
-                trailing = tr("올리기"),
-                trailingEnabled = draft.canPost,
-                onTrailing = { scope.launch { draft.submit(onDismiss) } },
-            )
+            CommunityComposeToolbar(draft, onDismiss) { scope.launch { draft.submit(onDismiss) } }
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -81,6 +78,7 @@ fun CommunityComposeView(onDismiss: () -> Unit) {
                     picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 }
                 ComposeEditor(draft)
+                CommunityPlacementEditor(draft.story, draft.photos.photos, draft.placements, draft.locked) { draft.placements = it }
                 Box(Modifier.padding(horizontal = 16.dp).padding(top = 6.dp)) {
                     ComposeCourseCard(draft.course, draft.locked, { draft.pickingCourse = true }, { draft.course = null })
                 }
@@ -102,6 +100,12 @@ fun CommunityComposeView(onDismiss: () -> Unit) {
         }
     }
     ComposeOverlays(draft, onDismiss)
+    if (draft.previewing) {
+        CommunityArticlePreview(draft.title, draft.articleBlocks, draft.photos.photos.map(CommunityPhotoSource::from), draft.course) {
+            draft.previewing =
+                false
+        }
+    }
 }
 
 @Composable

@@ -200,6 +200,22 @@ android-nickname-qa kind="edit" language="ko" theme="light":
     "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am force-stop com.mz2az.scenetrip.qa
     "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am start -n com.mz2az.scenetrip.qa/.NicknameQaActivity --es qaCase {{quote(kind)}} --es language {{quote(language)}} --es theme {{quote(theme)}}
 
+# 별도 QA 앱에서 합성 블로그 작성/읽기/옛 글/재시도/대기/실패를 확인 (사진 시험 서버 필요)
+[group('build')]
+android-community-blog-qa kind="compose" language="ko" theme="light":
+    {{BAZEL}} build //apps/scenetrip-android:scene_photo_qa
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" install -r bazel-bin/apps/scenetrip-android/scene_photo_qa.apk
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am force-stop com.mz2az.scenetrip.qa
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am start -n com.mz2az.scenetrip.qa/.CommunityBlogQaActivity --es qaCase {{quote(kind)}} --es language {{quote(language)}} --es theme {{quote(theme)}}
+
+# 별도 QA 설치본의 세로 대표 사진 실제 픽셀 회귀 검사 (사진 시험 서버 필요, 글자 배율 복원)
+[group('build')]
+android-community-blog-qa-test:
+    {{BAZEL}} build //apps/scenetrip-android:scene_photo_qa
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" install -r bazel-bin/apps/scenetrip-android/scene_photo_qa.apk
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am force-stop com.mz2az.scenetrip.qa
+    bash ./tools/scripts/android-community-blog-qa-test.sh
+
 # 한국어 제품 홈의 공개 작품 진입·떠 있는 홈 버튼·전체 보기 검증 (기존 편집 초안이 없을 때)
 [group('build')]
 android-home-qa-test:
