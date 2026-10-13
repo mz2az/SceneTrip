@@ -44,6 +44,9 @@ object IOS {
 
     val onAccent = Color.White
 
+    /** 홈과 닉네임 저장 단추의 iOS `TabBar.homePurple`. */
+    val homePurple = Color(0xFF5B49D6)
+
     // --- 색 ---------------------------------------------------------------
     //
     // iOS 는 커스텀 accent 에셋을 두지 않는다. 즉 `Color.accentColor` 는 시스템

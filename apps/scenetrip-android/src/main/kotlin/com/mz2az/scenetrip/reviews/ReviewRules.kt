@@ -7,6 +7,7 @@ import java.text.Normalizer
 object ReviewRules {
     const val BODY_LIMIT = 2000
     const val PHOTO_LIMIT = 10
+    const val NICKNAME_MAX_LENGTH = 16
 
     fun preservesPhotoFrame(photo: com.mz2az.scenetrip.sceneapi.client.model.Photo): Boolean {
         if (photo.source == com.mz2az.scenetrip.sceneapi.client.model.PhotoSource.review) return false
@@ -43,7 +44,7 @@ object ReviewRules {
         val value = nickname(raw)
         if (!value.matches(Regex("[a-zA-Z0-9_가-힣ㄱ-ㆎ]*")) || value.contains('\u3164')) return "한글·영문·숫자·밑줄(_)만 쓸 수 있어요"
         if (value.length < 2) return "2자 이상으로 정해 주세요"
-        if (value.length > 16) return "16자 이하로 정해 주세요"
+        if (value.length > NICKNAME_MAX_LENGTH) return "16자 이하로 정해 주세요"
         if (automaticNickname(value)) return "「여행자 + 숫자」 는 자동으로 붙는 이름이라 고를 수 없어요"
         return null
     }

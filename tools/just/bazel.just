@@ -192,6 +192,21 @@ android-route-font-qa-test:
     "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" install -r bazel-bin/apps/scenetrip-android/scene_photo_qa.apk
     bash ./tools/scripts/android-route-font-qa-test.sh
 
+# 제품 계정·API 없이 닉네임 UI의 모의 응답 확인 (edit/welcome/busy/stale/failure, ko/en, light/dark)
+[group('build')]
+android-nickname-qa kind="edit" language="ko" theme="light":
+    {{BAZEL}} build //apps/scenetrip-android:scene_photo_qa
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" install -r bazel-bin/apps/scenetrip-android/scene_photo_qa.apk
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am force-stop com.mz2az.scenetrip.qa
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am start -n com.mz2az.scenetrip.qa/.NicknameQaActivity --es qaCase {{quote(kind)}} --es language {{quote(language)}} --es theme {{quote(theme)}}
+
+# 한국어 제품 홈의 공개 작품 진입·떠 있는 홈 버튼·전체 보기 검증 (기존 편집 초안이 없을 때)
+[group('build')]
+android-home-qa-test:
+    {{BAZEL}} build //apps/scenetrip-android:scene_photo_qa
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" install -r bazel-bin/apps/scenetrip-android/scene_photo_qa.apk
+    bash ./tools/scripts/android-home-qa-test.sh
+
 # `just ios-run` 은 시뮬레이터까지다. **진짜 아이폰에 올리려면 애플 서명이 필요한데,
 # 그 서명 파일은 사람마다·기기마다 다르다.** BUILD 파일에 박으면 그것을 가진 한 사람만
 # 빌드할 수 있다. 그래서 서명은 Xcode 에게 맡기고 우리는 프로젝트 파일만 만들어 준다.

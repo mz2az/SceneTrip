@@ -118,7 +118,7 @@ fun HomeTabScreen() {
                     works = model.works,
                     failed = model.failed,
                     onOpen = { TabRouter.openContent(it) },
-                    onAll = { TabRouter.selected = RootTab.SEARCH },
+                    onAll = { TabRouter.openWorkList() },
                 )
             }
 

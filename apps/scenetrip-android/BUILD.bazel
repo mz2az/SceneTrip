@@ -39,6 +39,8 @@ kt_android_library(
     name = "scene_photo_qa_lib",
     testonly = True,
     srcs = [
+        "tests/HomeQaInstrumentation.kt",
+        "tests/NicknameQaActivity.kt",
         "tests/RouteFontQaInstrumentation.kt",
         "tests/ScenePhotoQaActivity.kt",
         "tests/ScenePhotoQaInstrumentation.kt",
@@ -52,6 +54,7 @@ kt_android_library(
         "@maven_android//:androidx_activity_activity_compose",
         "@maven_android//:androidx_compose_material3_material3_android",
         "@maven_android//:androidx_compose_runtime_runtime_android",
+        "@maven_android//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
     ],
 )
 
@@ -85,6 +88,7 @@ kt_jvm_library(
         "tests/MapInsetsTests.kt",
         "tests/MyReviewDetailsTests.kt",
         "tests/NetworkTests.kt",
+        "tests/NicknameEditorTests.kt",
         "tests/SearchParityTests.kt",
         "tests/VisitSyncTests.kt",
         "tests/VisualParityRulesTests.kt",
@@ -129,6 +133,8 @@ kt_android_library(
     srcs = glob(
         ["src/**/*.kt"],
         exclude = [
+            "src/main/kotlin/com/mz2az/scenetrip/reviews/NicknameEditor.kt",
+            "src/main/kotlin/com/mz2az/scenetrip/reviews/NicknameInput.kt",
             "src/main/kotlin/com/mz2az/scenetrip/searchtab/MapInsets.kt",
             "src/main/kotlin/com/mz2az/scenetrip/routetab/RouteWizardState.kt",
             "src/main/kotlin/com/mz2az/scenetrip/data/ContentPlacePages.kt",
@@ -226,6 +232,8 @@ kt_android_library(
         "src/main/kotlin/com/mz2az/scenetrip/reviews/MyReviewDetails.kt",
         "src/main/kotlin/com/mz2az/scenetrip/reviews/MyReviewTargetSheet.kt",
         "src/main/kotlin/com/mz2az/scenetrip/reviews/MyReviewsView.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/NicknameEditor.kt",
+        "src/main/kotlin/com/mz2az/scenetrip/reviews/NicknameInput.kt",
         "src/main/kotlin/com/mz2az/scenetrip/reviews/NicknameView.kt",
         "src/main/kotlin/com/mz2az/scenetrip/reviews/PhotoGallery.kt",
         "src/main/kotlin/com/mz2az/scenetrip/reviews/PhotoUploader.kt",

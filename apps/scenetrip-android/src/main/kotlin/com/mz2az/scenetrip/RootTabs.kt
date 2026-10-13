@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
@@ -24,20 +25,30 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -56,6 +67,7 @@ import com.mz2az.scenetrip.searchtab.SearchTabScreen
 import com.mz2az.scenetrip.ui.BubblesIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.MagnifierIcon
+import kotlin.math.roundToInt
 
 /**
  * 앱의 최상위 — 하단 탭 셋과, 탭에서 내려온 두 화면의 덮개를 든다.
@@ -73,6 +85,7 @@ import com.mz2az.scenetrip.ui.MagnifierIcon
 fun RootTabs() {
     val selected = TabRouter.selected
     val cover = TabRouter.cover
+    var homeBounds by remember { mutableStateOf<Rect?>(null) }
 
     // 어느 화면을 보는가 — 탭과 덮개 단위로 적는다 (MZ2AZ-353). 덮개가 이긴다 —
     // iOS `RootTabs.screenName`과 같은 우선순위다.
@@ -137,7 +150,19 @@ fun RootTabs() {
                     CommunityTabScreen()
                 }
             }
-            TabBar(selected = selected, onSelect = { TabRouter.selected = it })
+            TabBar(selected = selected, onSelect = { TabRouter.selected = it }, onHomeBounds = { homeBounds = it })
+        }
+
+        // 바 위로 솟은 원은 56dp 탭 행 밖에서도 눌려야 한다. 자리만 행에서 재고
+        // 실제 단추는 전체 화면 부모에 둔다. 글자 배율에 따라 달라지는 위치도 그대로 따른다.
+        if (cover == null) {
+            homeBounds?.let { bounds ->
+                FloatingHome(
+                    active = selected == RootTab.HOME,
+                    modifier = Modifier.offset { IntOffset(bounds.left.roundToInt(), bounds.top.roundToInt()) },
+                    onClick = { TabRouter.selected = RootTab.HOME },
+                )
+            }
         }
 
         when (cover) {
@@ -194,6 +219,7 @@ private val RootTab.stubLabel: String
 private fun TabBar(
     selected: RootTab,
     onSelect: (RootTab) -> Unit,
+    onHomeBounds: (Rect) -> Unit,
 ) {
     Column {
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(IOS.separator))
@@ -205,7 +231,7 @@ private fun TabBar(
                     .background(IOS.systemBackground),
         ) {
             SideTab(RootTab.SEARCH, selected == RootTab.SEARCH, Modifier.weight(1f)) { onSelect(RootTab.SEARCH) }
-            HomeTab(selected == RootTab.HOME, Modifier.weight(1f)) { onSelect(RootTab.HOME) }
+            HomeTab(selected == RootTab.HOME, Modifier.weight(1f), onHomeBounds) { onSelect(RootTab.HOME) }
             SideTab(RootTab.COMMUNITY, selected == RootTab.COMMUNITY, Modifier.weight(1f)) {
                 onSelect(RootTab.COMMUNITY)
             }
@@ -234,12 +260,13 @@ private fun SideTab(
 }
 
 /** 목업의 홈 글자색. 핀 보라보다 한 톤 짙어 흰 바탕에서 읽힌다. */
-private val HOME_PURPLE = Color(0xFF5B49D6)
+private val HOME_PURPLE = IOS.homePurple
 
 @Composable
 private fun HomeTab(
     active: Boolean,
     modifier: Modifier,
+    onBounds: (Rect) -> Unit,
     onClick: () -> Unit,
 ) {
     // **`wrapContentSize(unbounded = true)` 가 핵심이다.** 원 62dp + 간격 3dp + 글자가
@@ -260,37 +287,7 @@ private fun HomeTab(
             verticalArrangement = Arrangement.spacedBy(3.dp),
             modifier = Modifier.wrapContentSize(unbounded = true).offset(y = (-18).dp),
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(62.dp)
-                        // iOS `.shadow(pinDeep 42%, r7, y6)` — 아래로 퍼지는 보라 글로우. Android elevation 그림자는
-                        // 옅은 회색에 가까워 직접 그린다(2차 대조).
-                        .drawBehind {
-                            val glow = size.minDimension / 2 + 9.dp.toPx()
-                            val c = center + Offset(0f, 6.dp.toPx())
-                            drawCircle(
-                                Brush.radialGradient(
-                                    0.6f to IOS.pinDeep.copy(alpha = 0.42f),
-                                    1f to Color.Transparent,
-                                    center = c,
-                                    radius = glow,
-                                ),
-                                radius = glow,
-                                center = c,
-                            )
-                        }.clip(CircleShape)
-                        .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)))
-                        .border(4.dp, IOS.systemGray6, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.haetae_face),
-                    contentDescription = tr("홈"),
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(width = 40.dp, height = 34.dp),
-                )
-            }
+            Box(Modifier.size(62.dp).onGloballyPositioned { onBounds(it.boundsInRoot()) })
             Text(
                 tr("홈"),
                 fontSize = 11.sp,
@@ -298,6 +295,48 @@ private fun HomeTab(
                 color = if (active) HOME_PURPLE else IOS.secondaryLabel,
             )
         }
+    }
+}
+
+@Composable
+private fun FloatingHome(
+    active: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    val label = tr("홈")
+    Box(
+        modifier =
+            modifier
+                .size(62.dp)
+                .selectable(selected = active, role = Role.Tab, onClick = onClick)
+                .semantics { contentDescription = label }
+                // iOS `.shadow(pinDeep 42%, r7, y6)` — 아래로 퍼지는 보라 글로우. Android elevation 그림자는
+                // 옅은 회색에 가까워 직접 그린다(2차 대조).
+                .drawBehind {
+                    val glow = size.minDimension / 2 + 9.dp.toPx()
+                    val c = center + Offset(0f, 6.dp.toPx())
+                    drawCircle(
+                        Brush.radialGradient(
+                            0.6f to IOS.pinDeep.copy(alpha = 0.42f),
+                            1f to Color.Transparent,
+                            center = c,
+                            radius = glow,
+                        ),
+                        radius = glow,
+                        center = c,
+                    )
+                }.clip(CircleShape)
+                .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)))
+                .border(4.dp, IOS.systemGray6, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(R.drawable.haetae_face),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(width = 40.dp, height = 34.dp),
+        )
     }
 }
 

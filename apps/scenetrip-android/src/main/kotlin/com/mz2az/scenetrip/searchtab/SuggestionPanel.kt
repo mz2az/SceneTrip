@@ -195,7 +195,7 @@ private fun WorkCard(
     ) {
         RemoteImage(
             url = work.posterUrl?.toString(),
-            contentScale = ContentScale.Fit,
+            contentScale = ContentScale.Crop,
             modifier = Modifier.size(width = 46.dp, height = 62.dp).clip(RoundedCornerShape(6.dp)),
         )
         Column(

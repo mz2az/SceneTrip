@@ -61,7 +61,7 @@ fun WorkRow(
     ) {
         RemoteImage(
             url = content.posterUrl?.toString(),
-            contentScale = ContentScale.Fit,
+            contentScale = ContentScale.Crop,
             modifier =
                 Modifier
                     .size(width = 46.dp, height = 62.dp)
