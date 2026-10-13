@@ -96,6 +96,7 @@ py_test(
         "tests/test_lifecycle.py",
         "tests/test_media.py",
         "tests/test_ops.py",
+        "tests/test_prd_protection.py",
         "tests/test_public_ingress.py",
         "tests/test_signoz.py",
         "tests/test_teardown_entrypoint.py",

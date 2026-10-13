@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 삭제할 GitHub Environment
+        description: 삭제할 GitHub Environment — prd 는 막혀 있다(MZ2AZ-364, tools/aws/teardown_options.py)
         required: true
         type: choice
-        options: [dev, prd]
+        options: [dev]
       scope:
         description: service 삭제 완료 후 bootstrap을 별도 실행
         required: true

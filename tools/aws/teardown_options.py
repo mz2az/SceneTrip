@@ -4,6 +4,10 @@ import os
 
 from tools.aws.config import matched
 
+# 실제 사용자가 있는 환경 — 삭제 도구가 지우지 않는다(MZ2AZ-364, 2026-10-13). 읽기 전용 삭제 계획(plan)은 된다.
+# 워크플로(aws-destroy.yml)의 선택지에서도 뺐다. 지우려면 이 목록을 고치는 PR 이 먼저다 — 실수 한 번·클릭 한 번으로 지워지지 않게.
+PROTECTED_ENVIRONMENTS = ("prd",)
+
 TEARDOWN_COMMANDS = {
     "service-destroy-plan": ("service", "plan"),
     "service-destroy": ("service", "destroy"),
@@ -35,6 +39,10 @@ def validate_teardown(settings, scope, operation, snapshot_policy, purge_state):
             f"{settings.cluster}-eks-node",
         }:
             raise ValueError("삭제할 스택 밖에 있는 bootstrap 역할이 필요합니다")
+    if operation == "destroy" and settings.environment in PROTECTED_ENVIRONMENTS:
+        raise ValueError(
+            f"{settings.environment} 삭제는 막혀 있습니다(MZ2AZ-364) — 정말 지워야 하면 PROTECTED_ENVIRONMENTS 를 고치는 PR 부터"
+        )
     if operation == "destroy":
         expected = f"DELETE {settings.environment} {settings.account}"
         if os.environ.get("AWS_DELETE_CONFIRMATION") != expected:
