@@ -4,6 +4,7 @@ import base64
 import ipaddress
 import json
 import secrets
+import time
 from pathlib import Path
 
 from tools.aws.alb import alb_values, verify_nodeclass, wait_for_alb
@@ -786,6 +787,62 @@ def install_signoz(run, root, settings, outputs, chart):
         quiet=True,
     )
     print(f"{settings.environment} SigNoz 배포 완료")
+
+
+# 받은 span 이 들어가는 표(SigNoz 0.145 의 trace 저장소). HTTPS 검증이 보낸 실제 요청이 여기 쌓여야 한다.
+SIGNOZ_SPAN_QUERY = (
+    "SELECT count() FROM signoz_traces.distributed_signoz_index_v3 "
+    "WHERE timestamp > now() - INTERVAL 15 MINUTE"
+)
+
+
+def verify_signoz_traces(run, timeout=180, poll=10):
+    """scene-api 의 trace 가 SigNoz 에 **실제로** 쌓였는지 확인한다 — SigNoz 가 떠 있어도 보내는 쪽이 꺼져 있으면 화면만 빈다.
+
+    HTTPS 검증(verify_https)이 보낸 요청의 span 을 ClickHouse 에 직접 센다. ClickHouse 파드 안에서 기본 사용자로
+    묻는다(그 파드의 localhost 만 허용된다) — 비밀번호를 명령줄에 싣지 않는다. 수집기가 묶어 보내므로 몇 초 늦게 보인다."""
+    pod = run(
+        [
+            "kubectl",
+            "-n",
+            SIGNOZ_NAMESPACE,
+            "get",
+            "pods",
+            "-l",
+            "clickhouse.altinity.com/chi=signoz-clickhouse",
+            "-o",
+            "jsonpath={.items[0].metadata.name}",
+        ],
+        quiet=True,
+    ).strip()
+    matched(r"[a-z0-9-]{1,253}", pod, "SigNoz ClickHouse 파드 이름")
+    deadline = time.monotonic() + timeout
+    while True:
+        counted = run(
+            [
+                "kubectl",
+                "-n",
+                SIGNOZ_NAMESPACE,
+                "exec",
+                pod,
+                "-c",
+                "clickhouse",
+                "--",
+                "clickhouse-client",
+                "--query",
+                SIGNOZ_SPAN_QUERY,
+            ],
+            quiet=True,
+        ).strip()
+        spans = int(matched(r"[0-9]+", counted, "SigNoz span 수"))
+        if spans > 0:
+            print(f"SigNoz 에 최근 15 분 span {spans} 개 확인")
+            return spans
+        if time.monotonic() > deadline:
+            raise RuntimeError(
+                "SigNoz 에 trace 가 쌓이지 않았습니다 — scene-api 의 OTEL 설정·수집기를 확인하세요"
+            )
+        time.sleep(poll)
 
 
 def verify_network_deny(run, image):
