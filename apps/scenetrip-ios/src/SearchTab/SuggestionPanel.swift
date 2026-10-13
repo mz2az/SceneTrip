@@ -110,7 +110,7 @@ struct SuggestionPanel: View {
     private func workCard(_ work: ContentDetail) -> some View {
         Button { onOpenWork(work) } label: {
             HStack(spacing: 12) {
-                RemoteImage(url: work.posterUrl, symbol: "film", fits: true)
+                RemoteImage(url: work.posterUrl, symbol: "film")
                     .frame(width: 46, height: 62)
                     .clipShape(.rect(cornerRadius: 6))
                 VStack(alignment: .leading, spacing: 4) {

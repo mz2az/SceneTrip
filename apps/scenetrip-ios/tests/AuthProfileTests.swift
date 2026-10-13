@@ -64,4 +64,73 @@ final class AuthProfileTests: XCTestCase {
         XCTAssertNil(auth.me)
         XCTAssertFalse(auth.askingNickname)
     }
+
+    @MainActor func testNicknameReturningAfterAccountSwitchCannotReplaceNewAccount() async {
+        let first = user(confirmed: true)
+        let second = user(confirmed: true)
+        let auth = AuthStore(refreshLikes: {})
+        defer {
+            AuthTokens.clear()
+            UserDefaults.standard.removeObject(forKey: "scenetrip.nickname.asked.\(first.id.uuidString)")
+        }
+        await auth.signInWithApple { _ in self.session(first) }
+        let entered = expectation(description: "첫 계정의 닉네임 저장 시작")
+        var finish: CheckedContinuation<Me, Never>?
+        let saving = Task { @MainActor in
+            await auth.setNickname("서울여행자", save: { _ in
+                await withCheckedContinuation { continuation in
+                    finish = continuation
+                    entered.fulfill()
+                }
+            })
+        }
+        await fulfillment(of: [entered], timeout: 1)
+        auth.sessionLost()
+        await auth.signInWithApple { _ in self.session(second) }
+        finish?.resume(returning: first)
+        let outcome = await saving.value
+        XCTAssertEqual(outcome, .failed)
+        XCTAssertEqual(auth.me?.id, second.id)
+        XCTAssertFalse(NicknameAsked.has(first.id.uuidString))
+    }
+
+    @MainActor func testNicknameResponseForDifferentAccountIsRejected() async {
+        let current = user(confirmed: true)
+        let unrelated = user(confirmed: true)
+        let auth = AuthStore(refreshLikes: {})
+        defer {
+            AuthTokens.clear()
+            UserDefaults.standard.removeObject(forKey: "scenetrip.nickname.asked.\(unrelated.id.uuidString)")
+        }
+        await auth.signInWithApple { _ in self.session(current) }
+        let outcome = await auth.setNickname("제주여행자", save: { _ in unrelated })
+        XCTAssertEqual(outcome, .failed)
+        XCTAssertEqual(auth.me?.id, current.id)
+        XCTAssertFalse(NicknameAsked.has(unrelated.id.uuidString))
+    }
+
+    @MainActor func testNicknameSuccessNormalizesInputAndKeepsCurrentAccount() async {
+        let current = user(confirmed: true)
+        var updated = current
+        updated.nickname = "서울팬"
+        let auth = AuthStore(refreshLikes: {})
+        defer {
+            AuthTokens.clear()
+            UserDefaults.standard.removeObject(forKey: "scenetrip.nickname.asked.\(current.id.uuidString)")
+        }
+        await auth.signInWithApple { _ in self.session(current) }
+        let outcome = await auth.setNickname("  서울팬\n", save: { input in
+            XCTAssertEqual(input.nickname, "서울팬")
+            return updated
+        })
+        XCTAssertEqual(outcome, .saved)
+        XCTAssertEqual(auth.me?.id, current.id)
+        XCTAssertEqual(auth.me?.nickname, "서울팬")
+        XCTAssertTrue(NicknameAsked.has(current.id.uuidString))
+    }
+
+    private func session(_ profile: Me) -> AuthSession {
+        AuthSession(accessToken: "unit-access", accessTokenExpiresIn: 1800, refreshToken: "unit-refresh",
+                    refreshTokenExpiresIn: 2_592_000, user: profile, isNewUser: false, merged: false)
+    }
 }

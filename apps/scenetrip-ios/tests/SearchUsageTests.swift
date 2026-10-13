@@ -177,13 +177,7 @@ final class SearchUsageTests: XCTestCase {
     }
 
     private func waitUntil(_ condition: () -> Bool) async {
-        for _ in 0 ..< 200 {
-            if condition() {
-                return
-            }
-            await Task.yield()
-        }
-        XCTFail("가짜 검색 응답이 적용되지 않았다")
+        await waitForSearchCondition(condition, message: "가짜 검색 응답이 적용되지 않았다")
     }
 }
 
@@ -206,13 +200,7 @@ private final class SearchReplyQueue {
     }
 
     func wait(for keyword: String?) async {
-        for _ in 0 ..< 200 {
-            if pending[keyword ?? ""] != nil {
-                return
-            }
-            await Task.yield()
-        }
-        XCTFail("가짜 검색 요청이 도착하지 않았다")
+        await waitForSearchCondition({ self.pending[keyword ?? ""] != nil }, message: "가짜 검색 요청이 도착하지 않았다")
     }
 
     func succeed(_ keyword: String?, contents: Int, places: Int) {
@@ -230,5 +218,24 @@ private final class SearchReplyQueue {
 
     func fail(_ keyword: String?) {
         pending.removeValue(forKey: keyword ?? "")?.resume(throwing: URLError(.timedOut))
+    }
+}
+
+@MainActor
+private func waitForSearchCondition(
+    _ condition: () -> Bool, message: String, file: StaticString = #filePath, line: UInt = #line
+) async {
+    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+    while !condition() {
+        guard ContinuousClock.now < deadline else {
+            XCTFail(message, file: file, line: line)
+            return
+        }
+        do {
+            try await Task.sleep(for: .milliseconds(5))
+        } catch {
+            XCTFail("검색 시험 대기가 취소되었다", file: file, line: line)
+            return
+        }
     }
 }

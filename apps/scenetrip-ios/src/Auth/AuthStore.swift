@@ -205,18 +205,24 @@ final class AuthStore: ObservableObject {
     }
 
     /// 닉네임을 정한다·바꾼다. 서버가 받으면 `me` 가 바뀐다.
-    func setNickname(_ raw: String) async -> NicknameOutcome {
+    func setNickname(
+        _ raw: String,
+        save: (NicknameInput) async throws -> Me = { try await AuthAPI.setMyNickname(nicknameInput: $0) }
+    ) async -> NicknameOutcome {
+        guard signedIn, let requestedId = me?.id, !Task.isCancelled else { return .failed }
+        let requestedEpoch = epoch
         do {
-            let updated = try await AuthAPI.setMyNickname(
-                nicknameInput: NicknameInput(nickname: NicknameRules.normalized(raw))
-            )
-            // 기다리는 사이 로그아웃됐으면 떠난 계정을 되살리지 않는다.
-            guard signedIn else { return .failed }
+            let updated = try await save(NicknameInput(nickname: NicknameRules.normalized(raw)))
+            // 늦은 응답으로 떠난 계정을 되살리거나 새 계정을 덮지 않는다.
+            guard !Task.isCancelled, signedIn, epoch == requestedEpoch,
+                  me?.id == requestedId, updated.id == requestedId else { return .failed }
             me = updated
             NicknameAsked.mark(updated.id.uuidString)
             AppAnalytics.log(.setNickname(skipped: false))
             return .saved
         } catch let ErrorResponse.error(_, data, _, _) {
+            guard !Task.isCancelled, signedIn, epoch == requestedEpoch,
+                  me?.id == requestedId else { return .failed }
             // 서버 문장이 아니라 code 로 가른다(MZ2AZ-345).
             switch AuthRules.apiCode(from: data) {
             case "NICKNAME_INVALID": return .invalid
@@ -345,7 +351,7 @@ private struct NicknameSheet: ViewModifier {
             }
         )) {
             NicknameView(mode: .welcome) { auth.askingNickname = false }
-                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
         }
     }
 }
