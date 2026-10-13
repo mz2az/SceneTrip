@@ -264,6 +264,23 @@ class InfrastructureBoundaryTest(unittest.TestCase):
         ]
         self.assertTrue(tag["Fn::Sub"].endswith("db:scenetrip-${Environment}"))
 
+    def test_environment_teardown_can_detach_nat_eip_before_release(self):
+        # NAT 탄력적 IP 는 떼어낸(DisassociateAddress) 뒤에야 반납(ReleaseAddress)된다.
+        # 2026-10-13 첫 삭제가 UnauthorizedOperation 으로 실패하고 재시도로만 끝났다.
+        statement = next(
+            s for s in self.statements if s["Sid"] == "ManageEnvironmentNetwork"
+        )
+        self.assertEqual(statement["Effect"], "Allow")
+        self.assertIn("ec2:ReleaseAddress", statement["Action"])
+        self.assertIn("ec2:DisassociateAddress", statement["Action"])
+        self.assertEqual(
+            statement["Condition"]["StringEquals"],
+            {
+                "aws:ResourceTag/Project": "scenetrip",
+                "aws:ResourceTag/Environment": {"Ref": "Environment"},
+            },
+        )
+
     def test_resolved_inline_policy_fits_iam_quota(self):
         values = {
             "AWS::AccountId": "111122223333",
