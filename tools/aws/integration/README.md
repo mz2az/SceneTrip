@@ -13,7 +13,7 @@ Bazel이 `MODULE.bazel`의 digest로 고정한 PostGIS·nginx 이미지를 tar�
 | 검증 | 실제 실행 내용 |
 | --- | --- |
 | PostgreSQL 17 역할 경계 | `NOSUPERUSER CREATEDB CREATEROLE` 관리자에서 실제 bootstrap SQL의 역할·DB 생성 구간 실행. `SET ROLE` 권한이 빠지면 실패 |
-| DB 초기화 | C/C.UTF-8 locale, PostGIS·pg_trgm, 실제 `db-bootstrap.sh` 실행과 반복 실행 |
+| DB 초기화 | C/C.UTF-8 locale, PostGIS·pg_trgm·fuzzystrmatch(`levenshtein`), 실제 `db-bootstrap.sh` 실행과 반복 실행 |
 | 마이그레이션 | 저장소의 마이그레이션 원문 전부를 `app_migrate`로 각 트랜잭션에서 실행. 번호가 V1 부터 빈 칸·겹침 없이 이어지는지 확인(마지막 번호는 박지 않는다) |
 | 런타임 권한 | `app_runtime`의 공간 데이터 INSERT·SELECT·UPDATE·DELETE와 sequence 사용, 로그인 표(`user_identity`·`refresh_token`) 쓰기 — 마이그레이션 역할이 만든 표에 기본 권한이 걸리는지. schema 생성과 Flyway 이력 접근은 거절 |
 | Gateway | 실제 Helm 출력에서 nginx 설정 추출, 고정 nginx 이미지에서 ALB 모의 relay→gateway→backend HTTP 요청 |
@@ -27,7 +27,7 @@ proxy 시험은 허용 client 2개와 비허용 client, ALB 동작을 모사한 
 동일한 proxy 동작에 대한 nginx 경계를 검증한다.
 
 로컬 PostgreSQL에는 AWS의 `rds_superuser` 확장 설치 기능이 없다. 역할·DB 생성은
-권한이 제한된 관리자로 검증한 뒤, PostGIS·pg_trgm 설치만 로컬 superuser로 수행한다.
+권한이 제한된 관리자로 검증한 뒤, PostGIS·pg_trgm 설치만 로컬 superuser로 수행한다. fuzzystrmatch 는 미리 설치하지 않는다 — `db-bootstrap.sh` 가 만드는지 확인하려고.
 이후 전체 bootstrap과 역할 검증은 다시 제한된 관리자로 수행한다. 비밀번호는 실행 중
 생성하고 환경으로만 전달한다. 저장소나 출력에 기록하지 않는다.
 

@@ -26,6 +26,9 @@ DO $do$ BEGIN
 END $do$;
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- 편의시설 갱신 적재(poi_update.sql)의 levenshtein. 로컬 이미지(imresamu/postgis)는 저절로 켜지만 RDS 는 아니다 —
+-- 없어서 DEV 갱신 적재가 「function levenshtein does not exist」 로 실패했다(2026-10-13).
+CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
 SET ROLE app_migrate;
 REVOKE ALL ON DATABASE scenetrip FROM PUBLIC;
 GRANT CONNECT ON DATABASE scenetrip TO app_migrate, app_runtime;
