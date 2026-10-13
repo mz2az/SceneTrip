@@ -1,0 +1,2 @@
+/* 위치 권한은 앱을 사용하는 동안에만 요청한다(MZ2AZ-416). */
+"NSLocationWhenInUseUsageDescription" = "SceneTrip uses your location while you use the app to find nearby filming locations and amenities, show travel directions, and record your trail when you enable it.";

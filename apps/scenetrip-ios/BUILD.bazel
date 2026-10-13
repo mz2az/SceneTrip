@@ -153,7 +153,7 @@ swift_library(
     # 마스코트 일러스트(진도 캐릭터 시트에서 오려 낸 6장). rules_apple 이
     # xcassets 를 Assets.car 로 구워 번들에 넣는다.
     # 데모 코스(중간발표 영상용) — `-demoCourse 1` 이 읽어 서버에 코스를 만든다.
-    data = glob([
+    data = ["resources/PrivacyInfo.xcprivacy"] + glob([
         "resources/Images.xcassets/**",
         "resources/demo/*.json",
         # 화면 문구 번역 표 (MZ2AZ-343). 열쇠는 한국어 원문이다.
@@ -214,6 +214,13 @@ ios_application(
     deps = [":scenetrip-ios"],
 )
 
+# 실제 개발자 팀 프로파일을 준비한 뒤 서명 구성에서 사용하는 파일(MZ2AZ-416).
+filegroup(
+    name = "store_resources",
+    srcs = ["deploy/SceneTrip-device.entitlements"],
+    tags = ["manual"],
+)
+
 # 검색 규칙(계획서 §3-2 · §3-3 · §3-5)을 고정하는 테스트.
 #
 # **리눅스에서는 돌지 않는다.** `tools/just/test.just` 의 IOS_TEST_FILTER 가 리눅스일
@@ -241,6 +248,7 @@ swift_library(
             "tests/AuthRefreshTests.swift",
             "tests/ReviewSessionTests.swift",
             "tests/PhotoRenewalTests.swift",
+            "tests/ReleaseResourcesTests.swift",
             "tests/ScenePhotoRulesTests.swift",
             "tests/SceneZoomViewTests.swift",
             "tests/VisitSyncTests.swift",
@@ -264,6 +272,7 @@ swift_library(
         "tests/PhotoRenewalTests.swift",
         "tests/PoiClustersTests.swift",
         "tests/ProducerLinkTests.swift",
+        "tests/ReleaseResourcesTests.swift",
         "tests/ReviewSessionTests.swift",
         "tests/ScenePhotoRulesTests.swift",
         "tests/SceneZoomViewTests.swift",
