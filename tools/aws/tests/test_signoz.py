@@ -99,10 +99,10 @@ class SignozConfigTest(unittest.TestCase):
             REPOSITORIES["mirror_clickhouse"], "mirror/clickhouse/clickhouse-server"
         )
 
-    def test_signoz_runs_only_on_dev(self):
+    def test_signoz_runs_on_dev_and_prd(self):
         from tools.aws.config import SIGNOZ_ENVIRONMENTS
 
-        self.assertEqual(SIGNOZ_ENVIRONMENTS, ("dev",))
+        self.assertEqual(SIGNOZ_ENVIRONMENTS, ("dev", "prd"))
 
     def test_repositories_match_terraform_locals(self):
         from tools.aws.config import REPOSITORIES
@@ -411,11 +411,45 @@ class SignozPublishTest(unittest.TestCase):
             with self.subTest(url=wrong), self.assertRaises(ValueError):
                 self.publish(outputs, settings)
 
-    def test_prd_never_lists_or_mirrors(self):
+    def test_prd_mirrors_every_missing_image_into_prd_repositories(self):
+        from tools.aws.config import REPOSITORIES, SIGNOZ_MIRROR
+
         settings = prd_settings()
-        run, _unused = self.publish(
-            {"ecr_repository_urls": app_urls(settings)}, settings
+        outputs = self.outputs(settings)
+        run, _unused = self.publish(outputs, settings)
+        commands = [call.args[0] for call in run.call_args_list]
+        listed = [
+            command[command.index("--repository-name") + 1]
+            for command in commands
+            if "list-images" in command
+        ]
+        self.assertEqual(
+            listed, [f"scenetrip-prd/{REPOSITORIES[key]}" for key in SIGNOZ_MIRROR]
         )
+        pushes = {
+            command[2]: command[command.index("--repository") + 1]
+            for command in commands
+            if command[:2] == ["just", "run"]
+            and command[2].startswith("//platform/helm/signoz:")
+        }
+        self.assertEqual(
+            pushes,
+            {
+                f"//platform/helm/signoz:{key}_push": outputs["ecr_repository_urls"][
+                    key
+                ]
+                for key in SIGNOZ_MIRROR
+            },
+        )
+        for repository in pushes.values():
+            self.assertIn("/scenetrip-prd/mirror/", repository)
+
+    def test_environment_outside_signoz_environments_never_lists_or_mirrors(self):
+        settings = prd_settings()
+        with patch("tools.aws.aws.SIGNOZ_ENVIRONMENTS", ("dev",)):
+            run, _unused = self.publish(
+                {"ecr_repository_urls": app_urls(settings)}, settings
+            )
         for call in run.call_args_list:
             self.assertNotIn("list-images", call.args[0])
             self.assertFalse(
@@ -836,12 +870,49 @@ class SignozDeployTest(unittest.TestCase):
             with self.subTest(url=wrong), self.assertRaises(ValueError):
                 self.deploy(settings, outputs)
 
-    def test_prd_installs_no_signoz_and_disables_otel(self):
+    def test_prd_installs_signoz_with_prd_values_and_enables_otel(self):
+        settings = prd_settings()
+        run, events = self.deploy(settings, self.outputs(settings))
+        helm = [call for call in run.call_args_list if is_signoz_helm(call.args[0])]
+        self.assertEqual(len(helm), 1)
+        command = helm[0].args[0]
+        self.assertIn("/repo/platform/helm/signoz/values-prd.yaml", command)
+        self.assertNotIn("/repo/platform/helm/signoz/values-dev.yaml", command)
+        values = json.loads(helm[0].kwargs["stdin"])
+        self.assertEqual(
+            values["global"],
+            {
+                "imageRegistry": "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com"
+                "/scenetrip-prd/mirror"
+            },
+        )
+        signoz = next(
+            i for i, e in enumerate(events) if e[0] == "run" and is_signoz_helm(e[1])
+        )
+        app = next(
+            i for i, e in enumerate(events) if e[0] == "run" and is_scenetrip_helm(e[1])
+        )
+        self.assertLess(signoz, app)
+        app_helm = next(
+            call for call in run.call_args_list if is_scenetrip_helm(call.args[0])
+        )
+        self.assertEqual(
+            json.loads(app_helm.kwargs["stdin"])["otel"], {"endpoint": SIGNOZ_OTLP}
+        )
+
+    def test_prd_without_chart_fails_before_app_release(self):
+        settings = prd_settings()
+        for chart in (None, ""):
+            with self.subTest(chart=chart), self.assertRaises(ValueError):
+                self.deploy(settings, self.outputs(settings), chart=chart)
+
+    def test_environment_outside_signoz_environments_installs_no_signoz(self):
         settings = prd_settings()
         outputs = self.outputs(settings)
         for key in MIRROR_KEYS:
             outputs["ecr_repository_urls"].pop(key, None)
-        run, _unused = self.deploy(settings, outputs, chart=None)
+        with patch("tools.aws.deploy.SIGNOZ_ENVIRONMENTS", ("dev",)):
+            run, _unused = self.deploy(settings, outputs, chart=None)
         for call in run.call_args_list:
             self.assertFalse(is_signoz_helm(call.args[0]))
             self.assertNotIn("signoz", call.args[0])
@@ -1480,7 +1551,7 @@ class ExposeSignozTest(unittest.TestCase):
 
 
 class SignozExposeWiringTest(unittest.TestCase):
-    """deploy() 가 dev 에서 install_signoz 바로 뒤에 화면을 열고, prd 에서는 열지 않는다."""
+    """deploy() 가 SigNoz 환경(dev·prd)에서 install_signoz 바로 뒤에 화면을 열고, 그 밖의 환경에서는 열지 않는다."""
 
     @staticmethod
     def marker(name):
@@ -1514,12 +1585,21 @@ class SignozExposeWiringTest(unittest.TestCase):
         install.assert_called_once()
         expose.assert_called_once_with(run, settings, outputs)
 
-    def test_prd_never_exposes(self):
+    def test_prd_exposes_right_after_install(self):
+        settings = prd_settings()
+        outputs = SignozDeployTest.outputs(self, settings)
+        run, order, install, expose = self.deploy(settings, outputs, Path(SIGNOZ_CHART))
+        self.assertEqual(order[:3], ["install", "expose", "database_credentials"])
+        install.assert_called_once()
+        expose.assert_called_once_with(run, settings, outputs)
+
+    def test_environment_outside_signoz_environments_never_exposes(self):
         settings = prd_settings()
         outputs = SignozDeployTest.outputs(self, settings)
         for key in MIRROR_KEYS:
             outputs["ecr_repository_urls"].pop(key, None)
-        _run, order, install, expose = self.deploy(settings, outputs, None)
+        with patch("tools.aws.deploy.SIGNOZ_ENVIRONMENTS", ("dev",)):
+            _run, order, install, expose = self.deploy(settings, outputs, None)
         install.assert_not_called()
         expose.assert_not_called()
         self.assertNotIn("expose", order)
