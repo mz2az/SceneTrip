@@ -67,6 +67,13 @@ spec:
           env:
             - name: SCENE_API_BASE_URL
               value: "http://scene-api:8080/v1"
+            {{- if $.Values.otel.tracesHttpEndpoint }}
+            # trace — 표준 라이브러리로 OTLP/JSON 을 HTTP 로 보낸다(agents/trip-guide/src/tracing.py, ADR 0025).
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: {{ $.Values.otel.tracesHttpEndpoint | quote }}
+            - name: OTEL_SERVICE_NAME
+              value: "scenetrip-trip-guide"
+            {{- end }}
           envFrom:
             - secretRef: { name: trip-guide-secrets }
           {{- end }}

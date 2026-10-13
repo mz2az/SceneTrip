@@ -20,6 +20,9 @@ def valid_settings(**changes):
 # SigNoz(ADR 0025) — dev 배포는 차트 파일을 받아야 하고, Terraform 출력에 복사 저장소 주소가 있어야 한다.
 SIGNOZ_CHART = "signoz-fixture.tgz"
 SIGNOZ_OTLP = "http://signoz-otel-collector.signoz.svc.cluster.local:4317"
+SIGNOZ_OTLP_TRACES_HTTP = (
+    "http://signoz-otel-collector.signoz.svc.cluster.local:4318/v1/traces"
+)
 
 
 def ecr_registry(settings):
