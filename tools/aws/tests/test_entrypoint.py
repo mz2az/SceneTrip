@@ -69,10 +69,20 @@ class EntryPointTest(unittest.TestCase):
         signoz.assert_called_once_with(run)
         self.assertEqual(events, ["https", "signoz"])
 
-    def test_verify_existing_prd_skips_signoz_traces(self):
+    def test_verify_existing_prd_verifies_signoz_traces_after_https(self):
         from tools.aws.tests.test_signoz import prd_settings
 
-        _run, signoz, events = self.verify_existing(prd_settings())
+        run, signoz, events = self.verify_existing(prd_settings())
+        signoz.assert_called_once_with(run)
+        self.assertEqual(events, ["https", "signoz"])
+
+    def test_verify_existing_skips_signoz_traces_outside_signoz_environments(self):
+        from unittest.mock import patch
+
+        from tools.aws.tests.test_signoz import prd_settings
+
+        with patch("tools.aws.aws.SIGNOZ_ENVIRONMENTS", ("dev",)):
+            _run, signoz, events = self.verify_existing(prd_settings())
         signoz.assert_not_called()
         self.assertEqual(events, ["https"])
 
@@ -171,10 +181,33 @@ class EntryPointTest(unittest.TestCase):
         )
         self.assertEqual(events[-1][1], (runner,))
 
-    def test_apply_prd_skips_signoz_traces(self):
+    def test_apply_prd_verifies_signoz_traces_after_https(self):
         from tools.aws.tests.test_signoz import prd_settings
 
-        _runner, events = self.apply(prd_settings())
+        runner, events = self.apply(prd_settings())
+        self.assertEqual(
+            [name for name, _ in events],
+            [
+                "validate_source",
+                "validate_identity",
+                "configure_tools",
+                "terraform",
+                "verify_certificate",
+                "publish",
+                "deploy",
+                "verify_https",
+                "verify_signoz_traces",
+            ],
+        )
+        self.assertEqual(events[-1][1], (runner,))
+
+    def test_apply_skips_signoz_traces_outside_signoz_environments(self):
+        from unittest.mock import patch
+
+        from tools.aws.tests.test_signoz import prd_settings
+
+        with patch("tools.aws.aws.SIGNOZ_ENVIRONMENTS", ("dev",)):
+            _runner, events = self.apply(prd_settings())
         self.assertEqual(
             [name for name, _ in events],
             [

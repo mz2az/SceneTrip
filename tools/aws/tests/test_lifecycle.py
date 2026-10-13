@@ -534,10 +534,22 @@ class SignozDnsTest(unittest.TestCase):
         self.assertEqual(cloudflare.pointed, [])
         printed.assert_called()
 
-    def test_point_signoz_skips_environment_without_signoz(self):
+    def test_point_signoz_proxies_prd_domain_to_prd_signoz_alb(self):
         aws = FakeAws(signoz=True)
         cloudflare = FakeCloudflare()
         point_signoz(aws, cloudflare, PRD_TARGET)
+        self.assertIn("Name=group-name,Values=scenetrip-prd-signoz-alb", aws.calls[0])
+        self.assertEqual(
+            cloudflare.pointed,
+            [("signoz.scenetrip.io", SIGNOZ_ALB, "ap-northeast-2")],
+        )
+        self.assertEqual(cloudflare.proxied, [True])
+
+    def test_point_signoz_skips_environment_without_signoz(self):
+        aws = FakeAws(signoz=True)
+        cloudflare = FakeCloudflare()
+        with unittest.mock.patch("tools.aws.lifecycle.SIGNOZ_ENVIRONMENTS", ("dev",)):
+            point_signoz(aws, cloudflare, PRD_TARGET)
         self.assertEqual(aws.calls, [])
         self.assertEqual(cloudflare.pointed, [])
 

@@ -1,2 +1,4 @@
-# PRD — 아직 설치하지 않는다(observability-aws.md §6 의 4 단계). 크기·보관 기간은 DEV 실측 뒤 정한다.
+# PRD — 차트 기본 크기(ClickHouse 20Gi·ZooKeeper 8Gi·SigNoz 1Gi)로 시작한다. 디스크는 지우지 않는다(PRD 는 내리지 않는다,
+# MZ2AZ-364). StorageClass 가 늘리기를 허용하니 차면 PVC 크기만 키운다. 보관 기간은 SigNoz 기본(trace·로그 15 일, 지표 30 일) —
+# values 로는 못 바꾸고 화면(Settings → General)에서 바꾼다.
 {}

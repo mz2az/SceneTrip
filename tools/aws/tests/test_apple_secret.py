@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from tools.aws.tests.fixtures import valid_settings
+from tools.aws.tests.fixtures import SIGNOZ_CHART, valid_settings
 from tools.aws.tests.test_auth_secret import (
     AUTH_ARN,
     AUTH_KEY,
@@ -339,7 +339,7 @@ class DeployAppleWiringTest(unittest.TestCase):
         self.assertEqual(scene[CIPHER_KEY], cipher_key())
 
     def deploy_prd(self, store):
-        """PRD 배포 — Terraform 출력도 PRD 이고 공개(ADR 0024)다."""
+        """PRD 배포 — Terraform 출력도 PRD 이고 공개(ADR 0024)다. PRD 도 SigNoz 를 올리므로 dev 처럼 차트를 넘긴다."""
         from tools.aws.deploy import deploy
 
         settings = valid_settings(
@@ -363,7 +363,7 @@ class DeployAppleWiringTest(unittest.TestCase):
             patch("tools.aws.deploy.migrate_database"),
             patch("tools.aws.deploy.verify_network_deny"),
         ):
-            deploy(run, Path("."), settings, outputs)
+            deploy(run, Path("."), settings, outputs, Path(SIGNOZ_CHART))
         return run
 
     def test_prd_deploy_without_apple_key_fails_naming_the_key(self):

@@ -378,10 +378,12 @@ dev 를 지울 때 휘말리지 않는다. 바꿀 때는 템플릿을 고치고 
 
 **사용자 사진 버킷** — prd 만 버전 관리(지운 사진 30 일). bootstrap 템플릿의 `IsProduction` 조건.
 
-## 15. 관측 — SigNoz (DEV)
+## 15. 관측 — SigNoz (DEV·PRD)
 
-[ADR 0025](../architecture/adr/0025-aws-observability-signoz-in-eks.md) · [계획](../project/plans/observability-aws.md). **DEV 만** 올린다
-(`tools/aws/config.py` `SIGNOZ_ENVIRONMENTS`) — PRD 는 계획 §6 의 4 단계.
+[ADR 0025](../architecture/adr/0025-aws-observability-signoz-in-eks.md) · [계획](../project/plans/observability-aws.md). DEV·PRD 둘 다
+(`tools/aws/config.py` `SIGNOZ_ENVIRONMENTS`, PRD 는 2026-10-13 부터). 화면은 DEV `signoz-dev.scenetrip.io` · PRD `signoz.scenetrip.io`.
+PRD 는 올리기(lifecycle)를 쓰지 않으니 **화면 DNS 는 첫 배포 뒤 한 번** SigNoz ALB 로 가리킨다(프록시 켬) — PRD 의 Ingress 를 지우지 않는 한
+ALB 이름이 그대로다. PRD 디스크는 지우지 않는다.
 
 - **배포(apply)** 가 앱보다 먼저 `signoz` 네임스페이스에 공식 차트 0.145.0(`MODULE.bazel` `@signoz_chart`)을 올리고, scene-api 의
   `otel.endpoint` 를 수집기(`signoz-otel-collector.signoz:4317`)로 켠다.

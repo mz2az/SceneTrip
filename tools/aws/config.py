@@ -68,8 +68,8 @@ SIGNOZ_MIRROR = {
 # 환경을 내렸다 올려도 그대로다. 올리기(lifecycle.up)가 이 이름을 SigNoz 전용 ALB 로 가리킨다(프록시 켬).
 SIGNOZ_DOMAINS = {"dev": "signoz-dev.scenetrip.io", "prd": "signoz.scenetrip.io"}
 
-# SigNoz 를 올리는 환경. PRD 는 DEV 에서 확인한 뒤 더한다(observability-aws.md §6 의 4 단계).
-SIGNOZ_ENVIRONMENTS = ("dev",)
+# SigNoz 를 올리는 환경(observability-aws.md §6). PRD 는 DEV 에서 설치·trace·화면·내리기를 확인한 뒤 더했다(2026-10-13).
+SIGNOZ_ENVIRONMENTS = ("dev", "prd")
 
 # 환경 ECR 저장소(`scenetrip-<env>/<이름>`). Terraform `local.repositories` 와 같아야 한다(시험이 대조). 배포·삭제 검사가
 # 모두 이 목록을 쓴다 — 저장소를 더할 때 여기 한 곳만 고친다.
