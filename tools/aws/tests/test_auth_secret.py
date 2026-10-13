@@ -328,6 +328,8 @@ def deploy_outputs(settings, arns=None):
         "ingress_allowed_cidrs": ["192.0.2.1/32"],
         "ingress_certificate_arn": "arn:aws:acm:ap-northeast-2:123456789012:certificate/"
         + "a" * 36,
+        # SigNoz 화면 인증서(ADR 0025) — 비우면 배포가 화면을 열지 않는다. 여는 경로는 test_signoz 가 시험한다.
+        "signoz_certificate_arn": "",
     }
 
 

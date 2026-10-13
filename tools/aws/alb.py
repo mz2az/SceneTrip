@@ -131,7 +131,7 @@ def healthy_targets(run, arn):
     return True
 
 
-def application_ready(run, settings, outputs, hostname):
+def application_ready(run, settings, outputs, hostname, group="alb_security_group_id"):
     matched(
         rf"[a-zA-Z0-9.-]+\.{settings.region}\.elb\.amazonaws\.com",
         hostname,
@@ -148,7 +148,7 @@ def application_ready(run, settings, outputs, hostname):
         raise ValueError("로드 밸런서 타입이 application이 아닙니다")
     if load_balancer["Scheme"] != "internet-facing":
         raise ValueError("ALB 공개 형상이 Terraform 설계와 다릅니다")
-    if set(load_balancer["SecurityGroups"]) != {outputs["alb_security_group_id"]}:
+    if set(load_balancer["SecurityGroups"]) != {outputs[group]}:
         raise ValueError("ALB 보안 그룹이 Terraform의 전용 보안 그룹과 다릅니다")
     if load_balancer["VpcId"] != outputs["vpc_id"] or {
         zone["SubnetId"] for zone in load_balancer["AvailabilityZones"]
@@ -190,4 +190,36 @@ def wait_for_alb(run, settings, outputs, timeout=600):
         time.sleep(POLL_SECONDS)
     raise TimeoutError(
         "ALB Ingress 주소·application active·gateway target healthy 대기 시간을 초과했습니다"
+    )
+
+
+def wait_for_signoz_alb(run, settings, outputs, timeout=600):
+    """SigNoz 화면 ALB(ADR 0025)가 active 이고 signoz:8080 대상이 healthy 일 때까지 — API ALB 와 같은 검사, 보안 그룹만 다르다."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        raw = run(
+            [
+                "kubectl",
+                "-n",
+                "signoz",
+                "get",
+                "ingress",
+                "signoz-ui",
+                "-o",
+                "json",
+                "--request-timeout=15s",
+            ],
+            quiet=True,
+        )
+        endpoints = (
+            json.loads(raw).get("status", {}).get("loadBalancer", {}).get("ingress", [])
+        )
+        hostname = endpoints[0].get("hostname", "") if endpoints else ""
+        if hostname and application_ready(
+            run, settings, outputs, hostname, group="signoz_alb_security_group_id"
+        ):
+            return hostname
+        time.sleep(POLL_SECONDS)
+    raise TimeoutError(
+        "SigNoz 화면 ALB 주소·active·대상 healthy 대기 시간을 초과했습니다"
     )

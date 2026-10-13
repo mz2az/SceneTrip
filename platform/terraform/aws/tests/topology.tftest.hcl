@@ -402,3 +402,110 @@ run "prd_bedrock_role_follows_environment" {
     error_message = "PRD 는 PRD 의 -bedrock 역할을 써야 합니다."
   }
 }
+
+# --- SigNoz 화면 전용 ALB(ADR 0025, signoz.tf) -----------------------------------------
+# 화면 ALB 는 Cloudflare 엣지 대역에서 온 TCP443 만 받고, 클러스터 SG 의 8080(signoz UI)으로만 보낸다.
+run "signoz_alb_accepts_only_cloudflare_on_443" {
+  command = apply
+  assert {
+    condition = (
+      aws_security_group.signoz_alb.name == "scenetrip-dev-signoz-alb" &&
+      aws_security_group.signoz_alb.vpc_id == aws_vpc.this.id &&
+      aws_security_group.signoz_alb.id != aws_security_group.alb.id
+    )
+    error_message = "SigNoz 화면 ALB 는 환경 VPC 의 scenetrip-<env>-signoz-alb 전용 SG 를 API ALB 와 따로 가져야 합니다."
+  }
+  assert {
+    condition = length(aws_vpc_security_group_ingress_rule.signoz_alb_https) == 15 && alltrue([
+      for rule in aws_vpc_security_group_ingress_rule.signoz_alb_https :
+      rule.security_group_id == aws_security_group.signoz_alb.id && rule.ip_protocol == "tcp" &&
+      rule.from_port == 443 && rule.to_port == 443
+    ])
+    error_message = "SigNoz 화면 ALB ingress 는 Cloudflare 대역 15 개의 TCP443 뿐이어야 합니다."
+  }
+  assert {
+    condition = toset([for rule in aws_vpc_security_group_ingress_rule.signoz_alb_https : rule.cidr_ipv4]) == toset([
+      "173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18",
+      "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17",
+      "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22",
+    ])
+    error_message = "SigNoz 화면 ALB 는 Cloudflare IPv4 대역(https://www.cloudflare.com/ips-v4)만 받아야 합니다 — 0.0.0.0/0 금지."
+  }
+  assert {
+    condition = (
+      aws_vpc_security_group_egress_rule.signoz_alb_to_ui.security_group_id == aws_security_group.signoz_alb.id &&
+      aws_vpc_security_group_egress_rule.signoz_alb_to_ui.referenced_security_group_id == aws_eks_cluster.this.vpc_config[0].cluster_security_group_id &&
+      aws_vpc_security_group_egress_rule.signoz_alb_to_ui.ip_protocol == "tcp" &&
+      aws_vpc_security_group_egress_rule.signoz_alb_to_ui.from_port == 8080 &&
+      aws_vpc_security_group_egress_rule.signoz_alb_to_ui.to_port == 8080
+    )
+    error_message = "SigNoz 화면 ALB egress 는 클러스터 SG 의 TCP8080 만 허용해야 합니다."
+  }
+  assert {
+    condition = (
+      aws_vpc_security_group_ingress_rule.signoz_from_alb.security_group_id == aws_eks_cluster.this.vpc_config[0].cluster_security_group_id &&
+      aws_vpc_security_group_ingress_rule.signoz_from_alb.referenced_security_group_id == aws_security_group.signoz_alb.id &&
+      aws_vpc_security_group_ingress_rule.signoz_from_alb.ip_protocol == "tcp" &&
+      aws_vpc_security_group_ingress_rule.signoz_from_alb.from_port == 8080 &&
+      aws_vpc_security_group_ingress_rule.signoz_from_alb.to_port == 8080
+    )
+    error_message = "클러스터 SG 는 SigNoz 화면 ALB SG 에서 온 TCP8080 만 더 받아야 합니다."
+  }
+  assert {
+    condition     = output.signoz_alb_security_group_id == aws_security_group.signoz_alb.id && output.signoz_certificate_arn == ""
+    error_message = "SigNoz 화면 출력은 실제 SG 이고, 인증서 변수를 비우면 인증서 출력도 비어야 합니다."
+  }
+  # 화면 ALB 가 생겨도 API ALB 의 공개 규칙은 그대로다.
+  assert {
+    condition     = length(aws_vpc_security_group_ingress_rule.alb_https) == 1
+    error_message = "SigNoz 화면 ALB 가 API ALB 규칙을 바꾸면 안 됩니다."
+  }
+}
+
+run "prd_signoz_alb_name_follows_environment" {
+  command = plan
+  variables {
+    environment        = "prd"
+    availability_zones = ["ap-northeast-2a", "ap-northeast-2b", "ap-northeast-2c"]
+    vpc_cidr           = "10.50.0.0/16"
+  }
+  assert {
+    condition     = aws_security_group.signoz_alb.name == "scenetrip-prd-signoz-alb" && length(aws_vpc_security_group_ingress_rule.signoz_alb_https) == 15
+    error_message = "PRD 화면 ALB SG 는 scenetrip-prd-signoz-alb 이고 같은 Cloudflare 대역을 받아야 합니다."
+  }
+}
+
+run "signoz_certificate_passes_through_to_output" {
+  command = plan
+  variables {
+    signoz_certificate_arn = "arn:aws:acm:ap-northeast-2:111122223333:certificate/11111111-2222-3333-4444-555555555555"
+  }
+  assert {
+    condition     = output.signoz_certificate_arn == "arn:aws:acm:ap-northeast-2:111122223333:certificate/11111111-2222-3333-4444-555555555555"
+    error_message = "signoz_certificate_arn 출력은 입력 변수 그대로여야 합니다."
+  }
+}
+
+run "reject_cross_account_signoz_certificate" {
+  command = plan
+  variables {
+    signoz_certificate_arn = "arn:aws:acm:ap-northeast-2:444455556666:certificate/11111111-2222-3333-4444-555555555555"
+  }
+  expect_failures = [var.signoz_certificate_arn]
+}
+
+run "reject_other_region_signoz_certificate" {
+  command = plan
+  variables {
+    signoz_certificate_arn = "arn:aws:acm:us-east-1:111122223333:certificate/11111111-2222-3333-4444-555555555555"
+  }
+  expect_failures = [var.signoz_certificate_arn]
+}
+
+run "reject_malformed_signoz_certificate" {
+  command = plan
+  variables {
+    signoz_certificate_arn = "signoz-dev.scenetrip.io"
+  }
+  expect_failures = [var.signoz_certificate_arn]
+}

@@ -64,6 +64,10 @@ SIGNOZ_MIRROR = {
     "mirror_zookeeper": ("signoz/zookeeper", "3.7.1"),
 }
 
+# SigNoz 화면 주소(ADR 0025). Cloudflare 프록시 + Access(허용 메일) 뒤에만 연다 — Access 애플리케이션은 이 주소에 묶여 있어
+# 환경을 내렸다 올려도 그대로다. 올리기(lifecycle.up)가 이 이름을 SigNoz 전용 ALB 로 가리킨다(프록시 켬).
+SIGNOZ_DOMAINS = {"dev": "signoz-dev.scenetrip.io", "prd": "signoz.scenetrip.io"}
+
 # SigNoz 를 올리는 환경. PRD 는 DEV 에서 확인한 뒤 더한다(observability-aws.md §6 의 4 단계).
 SIGNOZ_ENVIRONMENTS = ("dev",)
 

@@ -54,6 +54,17 @@ ios-run *args:
         --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
     bash ./tools/scripts/ios-run.sh "$@"
 
+# 덮어 설치라 저장한 것은 남는다 — 다만 토큰은 서버마다 달라 다른 서버로 바꾸면 다시 로그인해야 한다.
+#
+# iOS 앱을 원격 서버(DEV·PRD) 주소로 시뮬레이터에 띄운다. 예: `just ios-run-cloud https://api.scenetrip.io/v1`
+[group('build')]
+ios-run-cloud endpoint *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case {{quote(endpoint)}} in https://*/v1) ;; *) echo 'HTTPS /v1 API 주소가 필요합니다 (예: https://api.scenetrip.io/v1)' >&2; exit 1 ;; esac
+    {{BAZEL}} build //apps/scenetrip-ios:bin --define=scenetrip_api_base_url={{quote(endpoint)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+    bash ./tools/scripts/ios-run.sh {{args}}
+
 # 껐다 켜는 것과 사용법을 다시 보는 것은 **다른 일**이다.
 #
 # 앱을 껐다 켜면 스플래시는 다시 나오지만 사용법 넉 장은 안 나온다 — 본 적 있다는

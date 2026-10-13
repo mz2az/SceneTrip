@@ -388,7 +388,12 @@ dev 를 지울 때 휘말리지 않는다. 바꿀 때는 템플릿을 고치고 
 - **관리자**는 배포가 만든다 — 아이디 `admin@scenetrip.io`, 비밀번호는 Secrets Manager `/scenetrip/<env>/signoz` 의
   `SIGNOZ_ROOT_PASSWORD`(배포가 한 번 만들고 다시 쓴다). 관리자(=조직)가 없으면 수집기가 설정을 못 받아 trace 를 버린다.
 - **확인**: 배포·`just aws-verify dev` 가 HTTPS 검증 뒤 ClickHouse 에 최근 15 분 span 을 센다 — 0 이면 실패.
-- **화면**은 아직 밖에 열지 않는다 — Cloudflare Access 뒤 `signoz-dev.scenetrip.io` 는 계획 PR ②.
+- **화면** `https://signoz-dev.scenetrip.io` — Cloudflare 프록시 + Access(허용 메일, 메일 코드) 뒤. 배포가 SigNoz 전용 ALB
+  (Terraform `signoz_alb` 보안 그룹: Cloudflare IPv4 대역만 443)를 만들고, 올리기가 이 주소를 그 ALB 로 가리킨다(프록시 켬).
+  인증서는 Terraform 변수 `signoz_certificate_arn`(GitHub `dev` 의 `TF_VAR_FILE_JSON`) — 비우면 화면을 열지 않는다.
+  Access 애플리케이션·정책은 주소에 묶여 내렸다 올려도 그대로다(Cloudflare Zero Trust 에서 관리, 허용 메일은 저장소에 없다).
+  Cloudflare 가 바꾼 IP 대역은 `platform/terraform/aws/signoz.tf` 에서 고친다.
+- **내리기**는 SigNoz 화면 Ingress 도 함께 지우고 두 ALB 가 모두 사라질 때까지 기다린다.
 
 ## 배포 기록
 

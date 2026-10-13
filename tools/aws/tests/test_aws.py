@@ -2,7 +2,7 @@
 
 import unittest
 
-from tools.aws.tests.test_alb import AlbBoundaryTest, AlbChartTest
+from tools.aws.tests.test_alb import AlbBoundaryTest, AlbChartTest, SignozAlbTest
 from tools.aws.tests.test_apple_secret import (
     DeployAppleWiringTest,
     LegacyAuthSlotTest,
@@ -35,12 +35,15 @@ from tools.aws.tests.test_data_load import (
 )
 from tools.aws.tests.test_deploy import DeployTest, OrchestrationTest, SettingsTest
 from tools.aws.tests.test_destroy import DestroyServiceTest
-from tools.aws.tests.test_destroy_gateway import DestroyGatewayTest
+from tools.aws.tests.test_destroy_gateway import (
+    DestroyGatewayTest,
+    SignozGatewayTeardownTest,
+)
 from tools.aws.tests.test_destroy_plan import DestroyPlanTest
 from tools.aws.tests.test_entrypoint import EntryPointTest
 from tools.aws.tests.test_gateway_limits import GatewayLimitsChartTest
 from tools.aws.tests.test_gateway_routes import GatewayContractRoutesTest
-from tools.aws.tests.test_lifecycle import CloudflareTest, LifecycleTest
+from tools.aws.tests.test_lifecycle import CloudflareTest, LifecycleTest, SignozDnsTest
 from tools.aws.tests.test_media import MediaChartTest, MediaDeployValuesTest
 from tools.aws.tests.test_ops import (
     DriftTest,
@@ -56,12 +59,17 @@ from tools.aws.tests.test_public_ingress import (
 )
 from tools.aws.tests.test_signoz import (
     ClickhousePasswordTest,
+    ExposeSignozTest,
     RemoveSignozTest,
     SignozConfigTest,
     SignozDeployTest,
+    SignozExposeWiringTest,
+    SignozIngressTest,
     SignozPublishTest,
+    SignozRootPasswordTest,
     SignozTeardownTest,
     SignozTraceVerifyTest,
+    SignozUiConfigTest,
 )
 from tools.aws.tests.test_teardown_entrypoint import TeardownEntryPointTest
 from tools.aws.tests.test_workflows import WorkflowSecurityTest
@@ -91,6 +99,7 @@ __all__ = [
     "DestroyServiceTest",
     "DriftTest",
     "EntryPointTest",
+    "ExposeSignozTest",
     "FirstDeployEmptyStateTest",
     "GatewayContractRoutesTest",
     "GatewayLimitsChartTest",
@@ -109,11 +118,18 @@ __all__ = [
     "SettingsTest",
     "SharedMediaFlowTest",
     "SharedMediaTemplateTest",
+    "SignozAlbTest",
     "SignozConfigTest",
     "SignozDeployTest",
+    "SignozDnsTest",
+    "SignozExposeWiringTest",
+    "SignozGatewayTeardownTest",
+    "SignozIngressTest",
     "SignozPublishTest",
+    "SignozRootPasswordTest",
     "SignozTeardownTest",
     "SignozTraceVerifyTest",
+    "SignozUiConfigTest",
     "SnapshotPruneTest",
     "TeardownEntryPointTest",
     "TripGuideChartTest",

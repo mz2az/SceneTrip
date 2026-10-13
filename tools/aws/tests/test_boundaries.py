@@ -531,6 +531,8 @@ class BoundaryTest(unittest.TestCase):
             "ingress_allowed_cidrs": ["192.0.2.1/32"],
             "ingress_certificate_arn": "arn:aws:acm:ap-northeast-2:123456789012:certificate/"
             + "a" * 36,
+            # SigNoz 화면 인증서가 없다 — 화면(ADR 0025)은 열지 않는다.
+            "signoz_certificate_arn": "",
         }
 
         def execute(command, **unused):
