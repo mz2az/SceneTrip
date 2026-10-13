@@ -699,7 +699,7 @@ class DataLoadPollingTest(unittest.TestCase):
         for command in logs:
             self.assertEqual(
                 command,
-                ["kubectl", "-n", "scenetrip", "logs", "job/data-load", "--tail=200"],
+                ["kubectl", "-n", "scenetrip", "logs", "job/data-load", "--tail=2000"],
             )
 
     def test_lines_are_printed_once_across_polls(self):
@@ -727,6 +727,50 @@ class DataLoadPollingTest(unittest.TestCase):
         )
         self.assertEqual(len(fake.waits_run()), 4)
         self.assert_deleted_at_end(fake)
+
+    def test_new_lines_are_printed_when_tail_window_shifts(self):
+        # 로그 꼬리(--tail)가 밀려 앞 줄이 빠져도, 처음 보는 줄은 모두 순서대로 찍고 이미 찍은 줄은 다시 찍지 않는다.
+        fake = ScriptedKubectl(
+            waits=[False, True],
+            logs=[
+                "==> [+0s] A\n==> [+30s] B\n",
+                "==> [+61s] C\n==> [+90s] D\nDATA_LOAD_SUMMARY ok\n",
+            ],
+        )
+        self.load(fake)
+        self.assertEqual(
+            self.printed,
+            [
+                "==> [+0s] A",
+                "==> [+30s] B",
+                "==> [+61s] C",
+                "==> [+90s] D",
+                "DATA_LOAD_SUMMARY ok",
+            ],
+        )
+        self.assertEqual(len(fake.waits_run()), 2)
+        self.assert_deleted_at_end(fake)
+
+    def test_shifted_window_keeping_some_seen_lines_prints_only_new_ones(self):
+        fake = ScriptedKubectl(
+            waits=[False, False, True],
+            logs=[
+                "==> [+0s] A\n==> [+30s] B\n",
+                "==> [+30s] B\n==> [+61s] C\n",
+                "==> [+61s] C\n==> [+90s] D\nDATA_LOAD_SUMMARY ok\n",
+            ],
+        )
+        self.load(fake)
+        self.assertEqual(
+            self.printed,
+            [
+                "==> [+0s] A",
+                "==> [+30s] B",
+                "==> [+61s] C",
+                "==> [+90s] D",
+                "DATA_LOAD_SUMMARY ok",
+            ],
+        )
 
     def test_progress_is_kept_when_logs_disappear(self):
         # 두 번째 폴링부터 파드가 사라져 로그를 못 읽는다 — 이미 본 줄은 다시 찍지 않고, 요약도 잃지 않는다.
