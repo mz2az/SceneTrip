@@ -16,7 +16,9 @@ set -euo pipefail
 DATA=/data
 TMP=${TMPDIR:-/tmp}
 
-say() { printf '==> %s\n' "$*"; }
+# 단계 줄에 시작부터 지난 초를 붙인다 — 원격에서 어느 단계가 느린지 로그만으로 보이게(2026-10-13 DEV 갱신 적재가 30 분을 넘겼는데
+# 어느 단계인지 몰랐다).
+say() { printf '==> [+%ss] %s\n' "$(($(date +%s) - started))" "$*"; }
 fail() {
   printf 'DATA_LOAD_FAILED %s\n' "$*"
   exit 1

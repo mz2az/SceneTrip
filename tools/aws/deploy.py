@@ -307,6 +307,7 @@ def apply_job(run, manifest):
 DATA_LOAD_JOB = "data-load"
 DATA_LOAD_SECRET = "database-load-transient"
 DATA_LOAD_DEADLINE = 1800
+DATA_LOAD_POLL_SECONDS = 60
 
 
 def data_load_job(host, image):
@@ -418,29 +419,38 @@ def load_data(run, outputs, database, image, commit):
             stdin=json.dumps(data_load_job(outputs["database_host"], image)),
             quiet=True,
         )
-        try:
-            run(
-                [
-                    "kubectl",
-                    "-n",
-                    NAMESPACE,
-                    "wait",
-                    "--for=condition=complete",
-                    f"job/{DATA_LOAD_JOB}",
-                    f"--timeout={DATA_LOAD_DEADLINE + 60}s",
-                ],
-                quiet=True,
-            )
-        except RuntimeError:
-            for line in data_load_progress(run):
+        # 기다리는 동안 1 분마다 단계 줄을 읽어 새 줄만 찍는다. 끝난 뒤에만 읽으면 제한 시간에 걸린 Job 은 파드가 지워져
+        # 로그가 없다 — 어느 단계에서 멈췄는지 모른다(2026-10-13 DEV).
+        seen = []
+        complete = False
+        for _ in range(DATA_LOAD_DEADLINE // DATA_LOAD_POLL_SECONDS + 2):
+            try:
+                run(
+                    [
+                        "kubectl",
+                        "-n",
+                        NAMESPACE,
+                        "wait",
+                        "--for=condition=complete",
+                        f"job/{DATA_LOAD_JOB}",
+                        f"--timeout={DATA_LOAD_POLL_SECONDS}s",
+                    ],
+                    quiet=True,
+                )
+                complete = True
+            except RuntimeError:
+                complete = False
+            lines = data_load_progress(run) or seen
+            for line in lines[len(seen) :]:
                 print(line)
+            seen = lines
+            if complete or any(line.startswith("DATA_LOAD_FAILED ") for line in seen):
+                break
+        if not complete:
             raise RuntimeError(
                 "데이터 적재 Job 이 끝나지 못했습니다 — 위 단계 줄을 보세요"
             )
-        lines = data_load_progress(run)
-        for line in lines:
-            print(line)
-        if not any(line.startswith("DATA_LOAD_SUMMARY ") for line in lines):
+        if not any(line.startswith("DATA_LOAD_SUMMARY ") for line in seen):
             raise RuntimeError("데이터 적재 요약이 없습니다")
     finally:
         delete_data_load(run)

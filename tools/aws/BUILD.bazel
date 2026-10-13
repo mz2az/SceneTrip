@@ -110,6 +110,7 @@ py_test(
         "//platform/helm/signoz:BUILD.bazel",
         "//platform/helm/signoz:values",
         "//platform/terraform:sources",
+        "//services/scene-api:seed/remote-load.sh",
     ],
     main = "tests/test_aws.py",
     tags = ["unit"],

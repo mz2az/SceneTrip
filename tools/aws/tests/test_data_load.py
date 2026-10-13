@@ -594,5 +594,234 @@ class DataLoadNetworkPolicyTest(unittest.TestCase):
                     self.assertNotIn("data-load", document)
 
 
+class ScriptedKubectl:
+    """폴링마다 다른 대기 결과·로그를 돌려준다. waits[i] 가 False 면 i 번째 대기는 시간 초과(RuntimeError),
+    logs[i] 가 None 이면 i 번째 로그 읽기는 실패(파드가 지워진 경우)다. 목록을 넘어가면 마지막 값을 쓴다."""
+
+    def __init__(self, waits, logs):
+        self.waits = waits
+        self.logs = logs
+        self.calls = []
+        self.wait_count = 0
+        self.logs_count = 0
+
+    @staticmethod
+    def pick(values, index):
+        return values[min(index, len(values) - 1)]
+
+    def __call__(self, command, **kwargs):
+        self.calls.append((command, kwargs))
+        if command[:1] == ["kubectl"] and "wait" in command:
+            ok = self.pick(self.waits, self.wait_count)
+            self.wait_count += 1
+            if not ok:
+                raise RuntimeError("timed out waiting for the condition")
+            return ""
+        if command[:1] == ["kubectl"] and "logs" in command:
+            text = self.pick(self.logs, self.logs_count)
+            self.logs_count += 1
+            if text is None:
+                raise RuntimeError("no pods")
+            return text
+        return ""
+
+    def commands(self):
+        return [command for command, _ in self.calls]
+
+    def waits_run(self):
+        return [c for c in self.commands() if c[:1] == ["kubectl"] and "wait" in c]
+
+
+class DataLoadPollingTest(unittest.TestCase):
+    """적재 Job 을 1 분씩 기다리며 단계 줄을 한 번씩만 찍는 동작(remote-data-load 명세)."""
+
+    def load(self, fake):
+        from tools.aws.deploy import load_data
+
+        # 대기는 kubectl --timeout 이 맡는다 — 시험 중 실제로 잠들면 안 된다.
+        with (
+            patch("builtins.print") as printed,
+            patch(
+                "tools.aws.deploy.time.sleep",
+                side_effect=AssertionError("시험 중 sleep 호출"),
+            ),
+        ):
+            try:
+                load_data(fake, {"database_host": HOST}, CREDENTIALS, IMAGE, COMMIT)
+            finally:
+                self.printed = [
+                    " ".join(str(arg) for arg in call.args)
+                    for call in printed.call_args_list
+                ]
+
+    def assert_deleted_at_end(self, fake):
+        tail = fake.commands()[-2:]
+        self.assertTrue(any(is_delete(c, "job", "data-load") for c in tail), tail)
+        self.assertTrue(
+            any(is_delete(c, "secret", "database-load-transient") for c in tail), tail
+        )
+
+    def test_each_wait_is_a_quiet_one_poll_complete_wait(self):
+        fake = ScriptedKubectl(
+            waits=[False, True], logs=["==> a\n", "==> a\nDATA_LOAD_SUMMARY ok\n"]
+        )
+        self.load(fake)
+        waits = [(c, kw) for c, kw in fake.calls if "wait" in c]
+        self.assertEqual(len(waits), 2)
+        for command, kwargs in waits:
+            self.assertEqual(
+                command,
+                [
+                    "kubectl",
+                    "-n",
+                    "scenetrip",
+                    "wait",
+                    "--for=condition=complete",
+                    "job/data-load",
+                    "--timeout=60s",
+                ],
+            )
+            self.assertTrue(kwargs.get("quiet"))
+
+    def test_progress_is_read_after_every_wait(self):
+        fake = ScriptedKubectl(
+            waits=[False, False, True],
+            logs=["==> a\n", "==> a\n", "==> a\nDATA_LOAD_SUMMARY ok\n"],
+        )
+        self.load(fake)
+        kinds = [
+            "wait" if "wait" in c else "logs"
+            for c in fake.commands()
+            if c[:1] == ["kubectl"] and ("wait" in c or "logs" in c)
+        ]
+        self.assertEqual(kinds, ["wait", "logs"] * 3)
+        logs = [c for c in fake.commands() if "logs" in c]
+        for command in logs:
+            self.assertEqual(
+                command,
+                ["kubectl", "-n", "scenetrip", "logs", "job/data-load", "--tail=200"],
+            )
+
+    def test_lines_are_printed_once_across_polls(self):
+        fake = ScriptedKubectl(
+            waits=[False, False, False, True],
+            logs=[
+                "==> [+0s] ① 촬영지\n",
+                "==> [+0s] ① 촬영지\nCOPY 10\n==> [+61s] ② 편의시설\n",
+                "==> [+0s] ① 촬영지\nCOPY 10\n==> [+61s] ② 편의시설\n",
+                (
+                    "==> [+0s] ① 촬영지\nCOPY 10\n==> [+61s] ② 편의시설\n"
+                    "==> [+130s] ⑥ 건수 검사\nDATA_LOAD_SUMMARY places=1\n"
+                ),
+            ],
+        )
+        self.load(fake)
+        self.assertEqual(
+            self.printed,
+            [
+                "==> [+0s] ① 촬영지",
+                "==> [+61s] ② 편의시설",
+                "==> [+130s] ⑥ 건수 검사",
+                "DATA_LOAD_SUMMARY places=1",
+            ],
+        )
+        self.assertEqual(len(fake.waits_run()), 4)
+        self.assert_deleted_at_end(fake)
+
+    def test_progress_is_kept_when_logs_disappear(self):
+        # 두 번째 폴링부터 파드가 사라져 로그를 못 읽는다 — 이미 본 줄은 다시 찍지 않고, 요약도 잃지 않는다.
+        fake = ScriptedKubectl(
+            waits=[False, False, True],
+            logs=["==> a\n==> b\nDATA_LOAD_SUMMARY ok\n", None, None],
+        )
+        self.load(fake)
+        self.assertEqual(self.printed, ["==> a", "==> b", "DATA_LOAD_SUMMARY ok"])
+        self.assert_deleted_at_end(fake)
+
+    def test_lines_after_logs_return_are_printed_once(self):
+        fake = ScriptedKubectl(
+            waits=[False, False, True],
+            logs=["==> a\n", None, "==> a\n==> b\nDATA_LOAD_SUMMARY ok\n"],
+        )
+        self.load(fake)
+        self.assertEqual(self.printed, ["==> a", "==> b", "DATA_LOAD_SUMMARY ok"])
+
+    def test_stops_polling_once_failure_line_is_seen(self):
+        fake = ScriptedKubectl(
+            waits=[False],
+            logs=["==> a\n", "==> a\nDATA_LOAD_FAILED step=poi\n"],
+        )
+        with self.assertRaisesRegex(
+            RuntimeError, "데이터 적재 Job 이 끝나지 못했습니다"
+        ):
+            self.load(fake)
+        self.assertEqual(len(fake.waits_run()), 2)
+        self.assertEqual(self.printed, ["==> a", "DATA_LOAD_FAILED step=poi"])
+        self.assert_deleted_at_end(fake)
+
+    def test_never_complete_times_out_after_max_polls(self):
+        from tools.aws.deploy import DATA_LOAD_DEADLINE, DATA_LOAD_POLL_SECONDS
+
+        self.assertEqual((DATA_LOAD_DEADLINE, DATA_LOAD_POLL_SECONDS), (1800, 60))
+        fake = ScriptedKubectl(waits=[False], logs=["==> a\n"])
+        with self.assertRaisesRegex(
+            RuntimeError, "데이터 적재 Job 이 끝나지 못했습니다"
+        ):
+            self.load(fake)
+        self.assertEqual(
+            len(fake.waits_run()), DATA_LOAD_DEADLINE // DATA_LOAD_POLL_SECONDS + 2
+        )
+        self.assertEqual(len(fake.waits_run()), 32)
+        self.assertEqual(self.printed, ["==> a"])
+        self.assert_deleted_at_end(fake)
+
+    def test_complete_without_summary_fails(self):
+        fake = ScriptedKubectl(waits=[False, True], logs=["==> a\n", "==> a\n"])
+        with self.assertRaisesRegex(RuntimeError, "데이터 적재 요약이 없습니다"):
+            self.load(fake)
+        self.assert_deleted_at_end(fake)
+
+    def test_complete_with_summary_succeeds_on_first_poll(self):
+        fake = ScriptedKubectl(waits=[True], logs=["==> a\nDATA_LOAD_SUMMARY ok\n"])
+        self.load(fake)
+        self.assertEqual(len(fake.waits_run()), 1)
+        self.assertEqual(self.printed, ["==> a", "DATA_LOAD_SUMMARY ok"])
+        self.assert_deleted_at_end(fake)
+
+    def test_unexpected_error_while_reading_logs_still_deletes(self):
+        fake = ScriptedKubectl(waits=[True], logs=["DATA_LOAD_SUMMARY ok\n"])
+        original = fake.__call__
+
+        def broken(command, **kwargs):
+            if "logs" in command:
+                fake.calls.append((command, kwargs))
+                raise KeyError("boom")
+            return original(command, **kwargs)
+
+        with self.assertRaises(KeyError):
+            self.load(broken)
+        self.assert_deleted_at_end(fake)
+
+
+class RemoteLoadScriptTest(unittest.TestCase):
+    """remote-load.sh 의 say 줄 모양 — 적재 Job 로그에서 load_data 가 고르는 ==> 줄."""
+
+    def test_say_prints_elapsed_seconds_since_start(self):
+        relative = "services/scene-api/seed/remote-load.sh"
+        srcdir = os.environ.get("TEST_SRCDIR")
+        workspace = os.environ.get("TEST_WORKSPACE", "_main")
+        script = Path(srcdir, workspace, relative) if srcdir else None
+        if script is None or not script.is_file():
+            self.skipTest(
+                f"{relative} 가 //tools/aws:unit_test 의 data 에 없어 runfiles 로 읽을 수 없다"
+            )
+        text = script.read_text()
+        self.assertRegex(
+            text,
+            r"""say\(\) \{ printf '==> \[\+%ss\] %s\\n' "\$\(\(\$\(date \+%s\) - started\)\)" "\$\*"; \}""",
+        )
+        self.assertRegex(text, r"(?m)^started=\$\(date \+%s\)$")
+
+
 if __name__ == "__main__":
     unittest.main()
