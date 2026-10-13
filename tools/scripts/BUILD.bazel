@@ -168,6 +168,7 @@ exports_files(
         "android-photo-qa-test.sh",
         "android-route-font-qa-test.sh",
         "android-home-qa-test.sh",
+        "android-community-blog-qa-test.sh",
     ],
     visibility = ["//visibility:public"],
 )

@@ -6,6 +6,7 @@ import com.mz2az.scenetrip.routetab.RouteDay
 import com.mz2az.scenetrip.routetab.RouteStop
 import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
+import com.mz2az.scenetrip.sceneapi.client.model.TripPostBlock
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostCourse
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostDetail
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostSummary
@@ -156,6 +157,7 @@ data class CommunityPost(
     val serverIsMine: Boolean? = null,
     val remotePhotos: List<String> = emptyList(),
     val detailLoaded: Boolean = false,
+    val bodyBlocks: List<TripPostBlock>? = null,
 ) {
     val isMine: Boolean get() = serverIsMine ?: (author == null)
 
@@ -192,6 +194,7 @@ data class CommunityPost(
                 serverIsMine = detail.isMine,
                 remotePhotos = detail.photoUrls.map { it.toString() },
                 detailLoaded = true,
+                bodyBlocks = detail.bodyBlocks,
             )
     }
 }

@@ -50,6 +50,7 @@ object CommunityRules {
         ) {
             return false
         }
+        if (input.bodyBlocks != null && detail.bodyBlocks != input.bodyBlocks) return false
         val names = detail.photoUrls.map { it.path.substringAfterLast('/') }
         if (names != input.photoKeys.map { it.substringAfterLast('/') }) return false
         if (input.courseId == null) return true

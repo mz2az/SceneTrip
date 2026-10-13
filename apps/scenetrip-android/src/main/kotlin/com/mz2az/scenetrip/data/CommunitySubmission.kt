@@ -32,7 +32,8 @@ class CommunitySubmission(
         expectedCourse: PostCourse? = null,
     ): TripPostDetail? {
         if (state.working || state.uncertain || state.completed ||
-            !CommunityRules.canPost(input.title, input.body, input.photoKeys.size)
+            !CommunityRules.canPost(input.title, input.body, input.photoKeys.size) ||
+            !CommunityArticle.validBlocks(input.body, input.photoKeys.size, input.bodyBlocks)
         ) {
             return null
         }

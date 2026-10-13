@@ -40,6 +40,8 @@ class ScenePhotoQaInstrumentation : Instrumentation() {
             SystemClock.sleep(50)
             tap(width / 2, height / 2)
             await("100%")
+            // 별도 두 번 누르기를 보내기 전 이전 포인터 처리와 화면 반영을 끝낸다.
+            uiAutomation.waitForIdle(400, 15_000)
             tap(width / 2, height / 2)
             SystemClock.sleep(50)
             tap(width / 2, height / 2)
