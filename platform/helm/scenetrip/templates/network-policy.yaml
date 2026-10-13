@@ -116,3 +116,17 @@ spec:
   egress:
     - ports: [{ protocol: TCP, port: 4317 }]
 {{- end }}
+{{- if .Values.otel.tracesHttpEndpoint }}
+---
+# trip-guide 의 trace — SigNoz 수집기의 OTLP/HTTP(4318).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trip-guide-otel
+spec:
+  podSelector:
+    matchLabels: { app: trip-guide }
+  policyTypes: [Egress]
+  egress:
+    - ports: [{ protocol: TCP, port: 4318 }]
+{{- end }}

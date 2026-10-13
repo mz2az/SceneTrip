@@ -48,6 +48,7 @@ GPT-4 는 복잡한 일정에서 0.6%)이기 때문이다. LLM 과 알고리즘�
 | `src/plan_flow.py` | 세 단계를 한 번에 도는 경로(`--plan`). 발표·디버깅용으로 단계를 갈라 보여 준다 |
 | `src/agent.py` | 말 → 도구 → 말 루프. 대화 이력에 도구 결과를 쌓지 않는다 |
 | `src/tools.py` | 도구 7 개의 실행과 인자 검증. 계약은 `schemas/tools.json` 한 벌뿐 |
+| `src/tracing.py` | trace — W3C traceparent 이어받기, span, OTLP/JSON 을 HTTP 로 묶어 보내기(표준 라이브러리만) |
 | `src/session.py` | 대화 하나가 들고 있는 상태(현위치·장바구니·보여 준 곳·짜 둔 일정) |
 | `src/places.py` | 장소 모델과 CSV 창구. 거리·이름 맞추기 계산이 여기 있다 |
 | `src/sceneapi.py` | scene-api 창구. 에이전트는 DB 를 직접 만지지 않는다 |
@@ -169,6 +170,7 @@ scene-api에서 오는 요청만 허용한다. 외부 로드밸런서에서 직�
 | `SCENE_API_BASE_URL` | `http://scene-api:8080/v1`. CLI의 `--base-url`이 최우선 |
 | `SCENETRIP_SERVICE_TOKEN` | 서비스 비밀값(ADR 0023). scene-api 와 같은 값. 없으면 경고만 하고 뜬다 — 읽기가 이 에이전트 한 칸으로 세어진다 |
 | `X-Rate-Subject` (받는 헤더) | scene-api 가 넘긴 한도 열쇠. 그 턴의 scene-api 읽기에 `X-Service-Token` 과 함께 되돌려 단다. 자격 증명이 아니며 로그에 남기지 않는다. 열쇠가 없는 턴(CLI·시연 서버)은 달지 않는다 |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` · `OTEL_SERVICE_NAME` | trace(ADR 0025) — DEV·PRD 배포가 SigNoz 수집기 `…:4318/v1/traces` 를 넣는다. 비면 보내지 않는다(로컬·시험). OpenTelemetry SDK 대신 표준 라이브러리로 OTLP/JSON 을 보낸다(`src/tracing.py`): 받은 `traceparent` 를 이어 scene-api 의 trace 한 줄에 붙고, span 은 턴(`POST /guide/chat`·`/plan`)·모델 호출·scene-api 읽기. **질문·답 원문은 싣지 않는다** — 길·상태·모델 이름·재시도 수만 |
 | `/health/live`, `/health/ready` | 설정·키 검증 후 서버가 요청을 받을 수 있는지 확인. 외부 모델·API 가용성을 보증하지 않음 |
 | 요청 본문 | gateway와 같은 1 MiB. 40개×4,000자 한글 대화 계약을 수용하며 Content-Length·chunked 누적 크기 모두 제한 |
 | 호출·연결 | 프로세스당 120회/분, **동시 4턴**(`MAX_ACTIVE`), 연결 스레드 최대 16개, 소켓 무응답 10초. 자리가 없으면 거절하지 않고 최대 10초(`WAIT_SECONDS`, 턴 예산 안에서) 기다린다. 같은 `sessionId` 의 턴은 한 번에 하나 — 겹치면 뒤의 것이 기다린다. 몸체는 자리를 잡기 전에 읽고 검사한다. 답은 자리를 비운 뒤에 보낸다(MZ2AZ-405·413) |

@@ -19,6 +19,7 @@ from typing import Any
 
 from .places import Place, PlaceSource, Scene, norm
 from .production import remaining_timeout, service_headers
+from .tracing import span, traceparent
 
 
 class SceneApiError(RuntimeError):
@@ -49,15 +50,28 @@ class SceneApiPlaceBook(PlaceSource):
         )
         url = f"{self.base_url}{path}" + (f"?{query}" if query else "")
         # 내부 서버가 턴을 받으면 한도 열쇠·서비스 비밀값이 붙는다(ADR 0023). CLI·개발 서버는 빈 사전.
-        request = urllib.request.Request(
-            url, headers={"Accept-Language": self.lang, **service_headers()}
-        )
+        # trace — 쿼리 값(검색어 등)은 싣지 않고 길만. traceparent 를 달아 scene-api 쪽 span 도 같은 trace 에 붙는다.
+        with span(f"GET {path}") as call:
+            call.set("http.request.method", "GET")
+            call.set("url.path", path)
+            request = urllib.request.Request(
+                url,
+                headers={
+                    "Accept-Language": self.lang,
+                    **service_headers(),
+                    **traceparent(),
+                },
+            )
+            return self._fetch(request, path, call)
+
+    def _fetch(self, request, path: str, call) -> dict[str, Any]:
         try:
             with urllib.request.urlopen(
                 request, timeout=remaining_timeout(self.timeout)
             ) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
+            call.set("http.response.status_code", exc.code)
             if exc.code == 404:
                 return {}
             raise SceneApiError(f"scene-api 가 {exc.code} 를 돌려줬다: {path}") from exc

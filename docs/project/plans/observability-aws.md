@@ -121,6 +121,14 @@ flowchart LR
   건너뛴다**(권호 결정) — 스택에서 빼고 되는 것만 건다.
 - 헬스 체크는 공개 읽기 API 를 분당 몇 번 부른다 — IP 당 제한에 걸리지 않을 만큼이고, PRD SigNoz 에도 그만큼 쌓인다.
 
+## 6-4. 3 단계: trip-guide trace (2026-10-13)
+
+trip-guide 는 표준 라이브러리만 쓴다(외부 패키지 없음). OpenTelemetry SDK(protobuf·gRPC 네이티브)를 들이는 대신
+OTLP 의 **JSON over HTTP** 를 직접 보낸다(`agents/trip-guide/src/tracing.py`) — 수집기 4318. 받은 `traceparent` 를 이어받아
+scene-api → trip-guide → (Bedrock · scene-api 읽기) 가 한 trace 로 보인다. span 에 질문·답 원문은 없다. 보내기는 뒤쪽 스레드가
+2 초마다 묶어서, 줄이 차면 버린다 — 관측이 턴을 막지 않는다. 배포가 `otel.tracesHttpEndpoint` 를 넣고 네트워크 정책
+`trip-guide-otel`(4318)이 함께 생긴다.
+
 ## 7. 열린 것
 
 - SigNoz 가 쓰는 자원(메모리·디스크)은 설치 뒤 **실측**해서 PRD 비용을 적는다 — 지금 숫자를 지어내지 않는다

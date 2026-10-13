@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from .production import remaining_timeout
+from .tracing import span
 
 _CONFIG = Path(__file__).absolute().parent.parent / "config" / "model.json"
 
@@ -317,12 +318,22 @@ class ModelClient:
         # **남은 턴 예산이 호출 상한을 이긴다.** 호출마다 15 초를 다 쓰면 도구를
         # 네 번 부르는 턴이 75 초가 되는데, 그때쯤이면 앱도 백엔드도 이미 끊었다
         # (agent.py 의 턴 예산).
+        # trace — 모델 이름·재시도 수·상태만. 메시지 원문은 싣지 않는다(src/tracing.py).
+        with span(f"chat {self.config['model']}") as call:
+            call.set("gen_ai.system", self.config.get("provider", "model"))
+            call.set("gen_ai.request.model", self.config["model"])
+            call.set("gen_ai.request.json_mode", bool(json_mode))
+            call.set("gen_ai.request.tools", len(tools or []))
+            return self._send_chat(request, budget, call)
+
+    def _send_chat(self, request, budget, call) -> dict[str, Any]:
         name = self.config.get("provider", "모델")
         cap = float(self.config.get("timeout_seconds", 15))
         caller_budget = budget
         budget = lambda: remaining_timeout(caller_budget() if caller_budget else cap)
         last: Exception | None = None
         for attempt in range(3):
+            call.set("retries", attempt)
             left = budget() if budget else None
             if left is not None and left <= 0:
                 raise ModelError("턴에 주어진 시간을 다 썼다")
@@ -338,6 +349,7 @@ class ModelClient:
                     message["content"] = _REASONING.sub("", message["content"])
                 return message
             except urllib.error.HTTPError as exc:
+                call.set("http.response.status_code", exc.code)
                 detail = exc.read().decode("utf-8", "replace")[:400]
                 if exc.code in (429, 500, 502, 503, 504) and attempt < 2:
                     last = exc

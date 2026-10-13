@@ -42,7 +42,10 @@ from tools.aws.tests.test_data_load import (
     RemoteLoadScriptTest,
 )
 from tools.aws.tests.test_deploy import DeployTest, OrchestrationTest, SettingsTest
-from tools.aws.tests.test_destroy import DestroyServiceTest
+from tools.aws.tests.test_destroy import (
+    DestroyServiceTest,
+    ReleaseDetachedNatAddressesTest,
+)
 from tools.aws.tests.test_destroy_gateway import (
     DestroyGatewayTest,
     SignozGatewayTeardownTest,
@@ -82,6 +85,7 @@ from tools.aws.tests.test_signoz import (
     SignozTeardownTest,
     SignozTraceVerifyTest,
     SignozUiConfigTest,
+    TripGuideTraceChartTest,
 )
 from tools.aws.tests.test_teardown_entrypoint import TeardownEntryPointTest
 from tools.aws.tests.test_workflows import WorkflowSecurityTest
@@ -130,6 +134,7 @@ __all__ = [
     "PruneAfterDestroyTest",
     "PublicChartTest",
     "PublicGatewayValuesTest",
+    "ReleaseDetachedNatAddressesTest",
     "RemoteLoadScriptTest",
     "RemoveSignozTest",
     "RetainedAuthSecretTest",
@@ -155,6 +160,7 @@ __all__ = [
     "TripGuideChartTest",
     "TripGuideSecretTest",
     "TripGuideSecretValidationTest",
+    "TripGuideTraceChartTest",
     "ValidateAuthSecretTest",
     "ValidateEncryptionKeyTest",
     "WorkflowSecurityTest",

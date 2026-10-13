@@ -28,6 +28,7 @@ from src.production import (
     source_url,
 )
 from src.sceneapi import SceneApiPlaceBook
+from src.tracing import KIND_SERVER, TRACEPARENT, span
 
 LOG = logging.getLogger(__name__)
 PORT = 8899
@@ -151,9 +152,21 @@ class InternalHandler(Handler):
         if self.path not in ("/plan", "/guide/chat"):
             self._send({"code": "NOT_FOUND", "message": "그런 주소가 없습니다"}, 404)
             return
+        # trace — scene-api 가 넘긴 traceparent 를 이어받는다(src/tracing.py). 원문은 싣지 않는다.
+        with span(
+            f"POST {self.path}", KIND_SERVER, parent=self.headers.get(TRACEPARENT)
+        ) as turn:
+            turn.set("http.request.method", "POST")
+            turn.set("http.route", self.path)
+            status = self._handle_post()
+            turn.set("http.response.status_code", status)
+            turn.error = status >= 500
+
+    def _handle_post(self) -> int:
+        """처리하고 보낸 상태 코드를 돌려준다(trace 용)."""
         if not self.budget.allow():
             self._send({"code": "RATE_LIMITED", "message": "요청이 너무 많습니다"}, 429)
-            return
+            return 429
         # 자리(동시 MAX_ACTIVE 턴)가 없으면 거절하지 않고 기다린다(MZ2AZ-413). 기다린 시간도 턴 예산에 든다.
         # 답은 자리를 비운 뒤에 보낸다(MZ2AZ-405) — 보내고 나서 비우면, 답을 받자마자 온 다음 요청이
         # 아직 안 비워진 자리를 기다리게 된다.
@@ -194,6 +207,8 @@ class InternalHandler(Handler):
             held, self.held = self.held, None
         if held:
             super()._send(*held[-1])
+            return held[-1][1]
+        return 200
 
     def _dispatch(self, held_locks):
         # 몸체는 자리를 잡기 전에 읽고 검사한다 — 잘못된 요청이 자리를 쓰거나 줄에 서지 않게.
