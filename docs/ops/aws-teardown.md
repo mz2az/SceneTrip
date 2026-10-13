@@ -69,7 +69,7 @@ S3는 이름만 대조하지 않고 계정 소유자·리전·프로젝트/환�
 
 | 입력 | 값과 의미 |
 | --- | --- |
-| `environment` | `dev` 또는 `prd` |
+| `environment` | `dev` — `prd` 는 막혀 있다(MZ2AZ-364, [aws-deployment.md](aws-deployment.md) §11) |
 | `scope` | 기본 `service`. 서비스 삭제 완료 후 별도 실행에서 `bootstrap` |
 | `operation` | 기본 `plan`; 삭제 실행은 `destroy` |
 | `commit_sha` | 삭제 도구를 포함하며 `main`에 포함된 전체 40자리 SHA |

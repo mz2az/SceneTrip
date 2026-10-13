@@ -304,6 +304,10 @@ RDS 최종 스냅샷과 state S3는 기본 보존한다. 서비스 삭제 runner
 삭제 대상 밖에 유지해야 한다. 입력·권한·남는 비용·재배포 조건은
 [삭제 런북](aws-teardown.md)을 따른다.
 
+**PRD 는 이 경로로 지우지 못한다**(MZ2AZ-364, 2026-10-13). 워크플로 선택지에 `prd` 가 없고, 삭제 도구도 `prd` 의 `destroy` 를
+거절한다(`tools/aws/teardown_options.py` `PROTECTED_ENVIRONMENTS`). 읽기 전용 계획은 도구에서 된다. 정말 지워야 하면 그 목록과
+워크플로 선택지를 고치는 PR 이 먼저다. PRD 의 DB·EKS 삭제 보호와 최종 스냅샷 강제는 Terraform 이 그대로 켠다.
+
 ## 12. 사용자 사진 버킷 (리뷰 사진)
 
 리뷰 사진은 `scenetrip-user-media-<계정>-<리전>-<환경>` 버킷에 산다. **bootstrap 이 만들고(`UserMediaBucket`,

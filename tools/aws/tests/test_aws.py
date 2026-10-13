@@ -59,6 +59,10 @@ from tools.aws.tests.test_ops import (
     SharedMediaTemplateTest,
     SnapshotPruneTest,
 )
+from tools.aws.tests.test_prd_protection import (
+    PrdTeardownProtectionTest,
+    PrdWorkflowProtectionTest,
+)
 from tools.aws.tests.test_public_ingress import (
     PublicChartTest,
     PublicGatewayValuesTest,
@@ -118,6 +122,8 @@ __all__ = [
     "MediaChartTest",
     "MediaDeployValuesTest",
     "OrchestrationTest",
+    "PrdTeardownProtectionTest",
+    "PrdWorkflowProtectionTest",
     "PruneAfterDestroyTest",
     "PublicChartTest",
     "PublicGatewayValuesTest",
