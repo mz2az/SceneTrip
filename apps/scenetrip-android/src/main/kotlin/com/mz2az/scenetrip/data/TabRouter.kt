@@ -55,6 +55,16 @@ object TabRouter {
     /** 작품검색 탭이 열어 줘야 할 촬영지 — 홈의 "오늘의 성지"가 남긴다. */
     var pendingPlace by mutableStateOf<PlaceSummary?>(null)
 
+    /** 홈의 전체 보기만 목록을 초기화한다. 일반 검색 탭 선택은 상세 상태를 보존한다. */
+    var pendingWorkList by mutableStateOf(false)
+
+    fun openWorkList() {
+        pendingContent = null
+        pendingPlace = null
+        pendingWorkList = true
+        selected = RootTab.SEARCH
+    }
+
     fun openCourse(serverId: Long) {
         pendingCourseId = serverId
         cover = Cover.Route
@@ -70,12 +80,16 @@ object TabRouter {
 
     /** 홈이 부른다 — 작품검색 탭으로 가서 그 작품의 상세를 연다. */
     fun openContent(content: ContentSummary) {
+        pendingWorkList = false
+        pendingPlace = null
         pendingContent = content
         selected = RootTab.SEARCH
     }
 
     /** 홈이 부른다 — 작품검색 탭으로 가서 그 촬영지의 상세를 연다. */
     fun openPlace(place: PlaceSummary) {
+        pendingWorkList = false
+        pendingContent = null
         pendingPlace = place
         selected = RootTab.SEARCH
     }

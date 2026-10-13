@@ -170,7 +170,7 @@ class SearchParityTests {
         }
 
     @Test fun apiResultAcceptsSuspendingWorkAndRethrowsCancellation() =
-        runBlocking {
+        runBlocking<Unit> {
             assertEquals(7, apiResult { CompletableDeferred(7).await() }.getOrThrow())
             assertThrows(CancellationException::class.java) {
                 runBlocking { apiResult<Int> { throw CancellationException("cancelled") } }

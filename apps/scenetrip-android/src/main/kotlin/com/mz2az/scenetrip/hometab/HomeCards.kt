@@ -392,7 +392,7 @@ private fun HomeTripCardEmpty(
     )
 }
 
-/** 지금 뜨는 작품 — 포스터 가로 스크롤, 촬영지 많은 순. */
+/** 지금 뜨는 작품 — 서버 인기순 첫20편을 그대로 보여 주는 포스터 가로 스크롤. */
 @Composable
 fun HomeWorkShelf(
     works: List<ContentSummary>,
@@ -438,7 +438,7 @@ private fun WorkPoster(
                     .clip(RoundedCornerShape(14.dp))
                     .background(Brush.linearGradient(listOf(IOS.pinDeep.copy(alpha = 0.7f), IOS.pinDeep))),
         ) {
-            RemoteImage(url = work.posterUrl?.toString(), modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+            RemoteImage(url = work.posterUrl?.toString(), modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(
                 modifier =
                     Modifier

@@ -104,20 +104,38 @@ fun ContentDetailView(
         DetailHeader(title = summary.title, onBack = onBack)
         LazyColumn {
             item {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.padding(horizontal = IOS.gutter, vertical = 12.dp),
                 ) {
-                    RemoteImage(
-                        url = detail?.posterUrl?.toString() ?: summary.posterUrl?.toString(),
-                        contentScale = ContentScale.Fit,
-                        modifier =
-                            Modifier
-                                .size(width = 92.dp, height = 124.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable(enabled = producer != null) { producer?.let { producerFailed = !openUrl(context, it) } }
-                                .semantics { contentDescription = tr("제작사 공식 페이지") },
-                    )
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(176.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(enabled = producer != null) { producer?.let { producerFailed = !openUrl(context, it) } }
+                            .semantics { contentDescription = tr("제작사 공식 페이지") },
+                    ) {
+                        RemoteImage(
+                            url = detail?.posterUrl?.toString() ?: summary.posterUrl?.toString(),
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        if (producer != null) {
+                            Text(
+                                "↗",
+                                style = IOS.caption.copy(fontWeight = FontWeight.SemiBold),
+                                color = IOS.label,
+                                modifier =
+                                    Modifier
+                                        .align(
+                                            Alignment.BottomEnd,
+                                        ).padding(6.dp)
+                                        .background(IOS.systemBackground.copy(alpha = 0.85f), CircleShape)
+                                        .padding(6.dp),
+                            )
+                        }
+                    }
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(summary.meta, style = IOS.subheadline, color = IOS.secondaryLabel)
                         if (castLine.isNotEmpty()) {

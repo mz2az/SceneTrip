@@ -178,6 +178,24 @@ fun SearchTabScreen() {
             TabRouter.pendingContent = null
         }
     }
+    LaunchedEffect(TabRouter.pendingWorkList) {
+        if (TabRouter.pendingWorkList) {
+            selectedContent = null
+            selectedPlace = null
+            selectedScene = null
+            draft = ""
+            committed = ""
+            tab = ListTab.WORK
+            chip = CategoryChip.ALL
+            nearby = false
+            searching = false
+            detent = Detent.MEDIUM
+            keyboard?.hide()
+            data.search("")
+            pendingFit = true
+            TabRouter.pendingWorkList = false
+        }
+    }
     // 홈·검색 목록·자동완성의 모든 작품 진입에서 같은 촬영지 조회를 한다.
     // 작품이 바뀌면 이전 요청이 취소되어 오래된 목록을 새 상세에 붙이지 않는다.
     LaunchedEffect(selectedContent?.id, AppLanguage.current, contentRetry) {

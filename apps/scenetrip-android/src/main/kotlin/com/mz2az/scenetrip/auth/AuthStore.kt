@@ -217,6 +217,7 @@ object AuthStore {
     suspend fun setNickname(name: String): String? {
         val before = epoch
         val expectedUser = me?.id?.toString()
+        if (!signedIn || expectedUser == null) return tr("로그인이 필요해요")
         val result = apiResult { api.setMyNickname(NicknameInput(name)) }
         if (before != epoch) return "로그인이 필요해요"
         return result.fold(onSuccess = {
