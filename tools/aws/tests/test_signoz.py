@@ -922,5 +922,126 @@ class RemoveSignozTest(unittest.TestCase):
             )
 
 
+class SignozTraceVerifyTest(unittest.TestCase):
+    POD = "chi-signoz-clickhouse-cluster-0-0-0"
+    POD_LOOKUP: ClassVar[list[str]] = [
+        "kubectl",
+        "-n",
+        "signoz",
+        "get",
+        "pods",
+        "-l",
+        "clickhouse.altinity.com/chi=signoz-clickhouse",
+        "-o",
+        "jsonpath={.items[0].metadata.name}",
+    ]
+
+    def count_command(self, pod=POD):
+        from tools.aws.deploy import SIGNOZ_SPAN_QUERY
+
+        return [
+            "kubectl",
+            "-n",
+            "signoz",
+            "exec",
+            pod,
+            "-c",
+            "clickhouse",
+            "--",
+            "clickhouse-client",
+            "--query",
+            SIGNOZ_SPAN_QUERY,
+        ]
+
+    def verify(self, outputs, clock=(), **kwargs):
+        from tools.aws.deploy import verify_signoz_traces
+
+        run = Mock(side_effect=list(outputs))
+        fake_time = Mock()
+        fake_time.monotonic.side_effect = list(clock)
+        with patch("tools.aws.deploy.time", fake_time):
+            try:
+                return verify_signoz_traces(run, **kwargs), run, fake_time
+            except Exception as error:
+                error.run = run
+                error.time = fake_time
+                raise
+
+    def test_span_query_counts_recent_index_rows(self):
+        from tools.aws.deploy import SIGNOZ_SPAN_QUERY
+
+        self.assertRegex(
+            SIGNOZ_SPAN_QUERY,
+            re.compile(
+                r"SELECT\s+count\(\).*FROM\s+signoz_traces\.distributed_signoz_index_v3"
+                r".*INTERVAL\s+15\s+MINUTE",
+                re.DOTALL,
+            ),
+        )
+
+    def test_spans_found_first_time_return_count_without_sleep(self):
+        spans, run, fake_time = self.verify([f"{self.POD}\n", " 42\n"], clock=[100.0])
+        self.assertEqual(spans, 42)
+        self.assertEqual(
+            [call.args[0] for call in run.call_args_list],
+            [self.POD_LOOKUP, self.count_command()],
+        )
+        for call in run.call_args_list:
+            self.assertEqual(call.kwargs, {"quiet": True})
+        fake_time.sleep.assert_not_called()
+
+    def test_zero_spans_polls_until_spans_appear(self):
+        spans, run, fake_time = self.verify(
+            [self.POD, "0", "0", "7"], clock=[0.0, 10.0, 20.0], timeout=180, poll=10
+        )
+        self.assertEqual(spans, 7)
+        self.assertEqual(
+            [call.args[0] for call in run.call_args_list],
+            [self.POD_LOOKUP] + [self.count_command()] * 3,
+        )
+        self.assertEqual(
+            [call.args for call in fake_time.sleep.call_args_list], [(10,), (10,)]
+        )
+
+    def test_zero_spans_past_deadline_raise_runtime_error(self):
+        with self.assertRaises(RuntimeError) as caught:
+            self.verify(
+                [self.POD, "0", "0", "0"],
+                clock=[0.0, 5.0, 20.0, 31.0],
+                timeout=30,
+                poll=3,
+            )
+        self.assertEqual(
+            [call.args[0] for call in caught.exception.run.call_args_list],
+            [self.POD_LOOKUP] + [self.count_command()] * 3,
+        )
+        self.assertEqual(
+            [call.args for call in caught.exception.time.sleep.call_args_list],
+            [(3,), (3,)],
+        )
+
+    def test_invalid_pod_name_fails_before_exec(self):
+        for pod in ("", "  \n", "Signoz_Pod", "pod; rm -rf /", "a" * 254):
+            with self.subTest(pod=pod), self.assertRaises(ValueError) as caught:
+                self.verify([pod, "1"])
+            self.assertEqual(
+                [call.args[0] for call in caught.exception.run.call_args_list],
+                [self.POD_LOOKUP],
+            )
+
+    def test_non_numeric_count_is_rejected(self):
+        for counted in ("", "abc", "-1", "1.5", "Code: 516. Authentication failed"):
+            with self.subTest(counted=counted), self.assertRaises(ValueError):
+                self.verify([self.POD, counted], clock=[0.0])
+
+    def test_no_password_or_secret_in_any_command(self):
+        _spans, run, _time = self.verify([self.POD, "0", "3"], clock=[0.0, 1.0])
+        for call in run.call_args_list:
+            joined = " ".join(call.args[0]).lower()
+            for word in ("password", "secret", "--user"):
+                self.assertNotIn(word, joined)
+            self.assertNotIn("input", call.kwargs)
+
+
 if __name__ == "__main__":
     unittest.main()

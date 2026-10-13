@@ -34,6 +34,7 @@ from tools.aws.deploy import (
     gateway_values,
     load_data,
     validate_environment_outputs,
+    verify_signoz_traces,
 )
 from tools.aws.destroy import destroy_service
 from tools.aws.teardown_options import TEARDOWN_COMMANDS, validate_teardown
@@ -522,6 +523,8 @@ def verify_existing(run, root, settings, temp):
     hostname = wait_for_alb(run, settings, outputs)
     print(f"검증할 ALB DNS: {hostname}")
     verify_https(settings, hostname)
+    if settings.environment in SIGNOZ_ENVIRONMENTS:
+        verify_signoz_traces(run)
 
 
 def print_failed_stack_events(run, name):
@@ -896,6 +899,8 @@ def main():
                 signoz_chart(args.signoz_chart_runfile),
             )
             verify_https(settings, hostname)
+            if settings.environment in SIGNOZ_ENVIRONMENTS:
+                verify_signoz_traces(run)
 
 
 if __name__ == "__main__":
