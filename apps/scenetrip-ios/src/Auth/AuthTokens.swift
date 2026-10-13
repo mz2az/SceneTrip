@@ -14,9 +14,24 @@ enum AuthTokens {
     private static var loaded = false
     private static var access: String?
     private static var refresh: String?
+    private static var generation: UInt64 = 0
     /// 액세스 토큰이 죽는 때. 비밀이 아니라 `UserDefaults` 에 둔다 — 앱을 다시 켜도 안다.
     private static var expiry: Date?
     private static let expiryKey = "scenetrip.auth.accessExpiresAt"
+
+    struct Snapshot: Hashable, Sendable {
+        let generation: UInt64
+        let accessToken: String?
+        let refreshToken: String?
+    }
+
+    static var snapshot: Snapshot {
+        locked { currentSnapshot }
+    }
+
+    static func isSameSession(as snapshot: Snapshot) -> Bool {
+        locked { generation == snapshot.generation }
+    }
 
     static var accessToken: String? {
         locked { access }
@@ -39,24 +54,53 @@ enum AuthTokens {
     /// 로그인·갱신이 돌려준 묶음. **두 토큰을 모두 바꾼다** — 리프레시 토큰은 일회용이다.
     static func store(_ session: AuthSession) {
         locked {
-            access = session.accessToken
-            refresh = session.refreshToken
-            expiry = Date().addingTimeInterval(TimeInterval(session.accessTokenExpiresIn))
-            UserDefaults.standard.set(expiry, forKey: expiryKey)
-            accessItem.write(session.accessToken)
-            refreshItem.write(session.refreshToken)
+            generation &+= 1
+            write(session)
+        }
+    }
+
+    /// 갱신 응답은 요청할 때의 계정과 일회용 리프레시 토큰이 그대로일 때만 채택한다.
+    static func store(_ session: AuthSession, ifCurrent snapshot: Snapshot) -> Bool {
+        locked {
+            guard currentSnapshot == snapshot else { return false }
+            write(session)
+            return true
         }
     }
 
     static func clear() {
+        locked { erase() }
+    }
+
+    static func clear(ifCurrent snapshot: Snapshot) -> Bool {
         locked {
-            access = nil
-            refresh = nil
-            expiry = nil
-            UserDefaults.standard.removeObject(forKey: expiryKey)
-            accessItem.remove()
-            refreshItem.remove()
+            guard currentSnapshot == snapshot else { return false }
+            erase()
+            return true
         }
+    }
+
+    private static var currentSnapshot: Snapshot {
+        Snapshot(generation: generation, accessToken: access, refreshToken: refresh)
+    }
+
+    private static func write(_ session: AuthSession) {
+        access = session.accessToken
+        refresh = session.refreshToken
+        expiry = Date().addingTimeInterval(TimeInterval(session.accessTokenExpiresIn))
+        UserDefaults.standard.set(expiry, forKey: expiryKey)
+        accessItem.write(session.accessToken)
+        refreshItem.write(session.refreshToken)
+    }
+
+    private static func erase() {
+        generation &+= 1
+        access = nil
+        refresh = nil
+        expiry = nil
+        UserDefaults.standard.removeObject(forKey: expiryKey)
+        accessItem.remove()
+        refreshItem.remove()
     }
 
     private static func locked<T>(_ body: () -> T) -> T {
@@ -74,27 +118,41 @@ enum AuthTokens {
 
 /// 토큰 갱신. **동시에 하나만** 나간다(`SingleFlight`).
 enum AuthRefresher {
-    private static let flight = SingleFlight<Bool>()
+    private static let flight = SessionFlight<AuthTokens.Snapshot, Bool>()
 
     /// 새 토큰을 받았으면 `true`. 리프레시 토큰이 거절되면 세션을 지우고 로그인 화면을 띄운다.
     /// 서버에 못 닿은 것이면 토큰을 그대로 둔다 — 다음 요청에서 다시 해 본다.
-    static func refresh() async -> Bool {
-        let done = try? await flight.run {
-            guard let token = AuthTokens.refreshToken else { return false }
+    static func refresh(
+        for identity: AuthTokens.Snapshot? = nil,
+        request: @escaping (String) async throws -> AuthSession = {
+            try await AuthAPI.refreshSession(refreshTokenBody: RefreshTokenBody(refreshToken: $0))
+        },
+        sessionLost: @escaping @MainActor () -> Void = { AuthStore.shared.sessionLost() }
+    ) async -> Bool {
+        let snapshot = AuthTokens.snapshot
+        guard identity == nil || identity?.generation == snapshot.generation,
+              let token = snapshot.refreshToken else { return false }
+        let done = try? await flight.run(key: snapshot) {
+            guard AuthTokens.snapshot == snapshot else { return false }
             do {
-                let session = try await AuthAPI.refreshSession(
-                    refreshTokenBody: RefreshTokenBody(refreshToken: token)
-                )
-                AuthTokens.store(session)
-                return true
+                let session = try await request(token)
+                return AuthTokens.store(session, ifCurrent: snapshot)
             } catch let ErrorResponse.error(status, _, _, _) where status == 401 {
-                await AuthStore.shared.sessionLost()
+                await loseSession(ifCurrent: snapshot, action: sessionLost)
                 return false
             } catch {
                 return false
             }
         }
         return done ?? false
+    }
+
+    @MainActor static func loseSession(
+        ifCurrent snapshot: AuthTokens.Snapshot,
+        action: @MainActor () -> Void = { AuthStore.shared.sessionLost() }
+    ) {
+        guard AuthTokens.clear(ifCurrent: snapshot) else { return }
+        action()
     }
 
     /// 액세스 토큰이 죽었거나 곧 죽으면 **부르기 전에** 갱신한다. 로그인하지 않았으면 아무것도 하지 않는다.

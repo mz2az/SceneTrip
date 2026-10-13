@@ -16,6 +16,7 @@ struct ReviewsSheet: View {
 
     /// 이 대상의 사진첩 — 위쪽의 방문자 사진 모아 보기가 쓴다.
     @StateObject private var gallery: PhotoGallery
+    @StateObject private var listing: ReviewListStore
     /// 목록을 이 리뷰까지 내린다.
     @State private var jump: Int64?
     /// 방금 찾아간 리뷰 — 잠깐 바탕을 칠해 어느 줄인지 보인다.
@@ -27,6 +28,7 @@ struct ReviewsSheet: View {
         self.focusReviewId = focusReviewId
         self.onChanged = onChanged
         _gallery = StateObject(wrappedValue: PhotoGallery(subject: subject))
+        _listing = StateObject(wrappedValue: ReviewListStore(subject: subject))
     }
 
     @Environment(\.dismiss) private var dismiss
@@ -38,19 +40,30 @@ struct ReviewsSheet: View {
     /// 로그인 뒤 닉네임 화면이 먼저 떴다 — 그것이 닫히면 쓰기로 잇는다.
     @State private var composeAfterNickname = false
     @State private var sort: ReviewSort = .recent
-    @State private var reviews: [Review] = []
-    @State private var summary: RatingSummary?
-    @State private var total = 0
-    @State private var phase: Phase = .loading
-    /// 첫 쪽을 새로 받을 때마다 오른다 — 다음 쪽 받기의 열쇠에 섞어, 정렬이 바뀌어 같은 개수가 와도 다시 돈다.
-    @State private var generation = 0
-    /// 다음 쪽을 못 받았다. 돌아가는 표시 대신 「다시 시도」 를 보인다.
-    @State private var moreFailed = false
+    private var reviews: [Review] {
+        listing.reviews
+    }
 
-    private enum Phase {
-        case loading
-        case loaded
-        case failed
+    private var summary: RatingSummary? {
+        listing.summary
+    }
+
+    private var total: Int {
+        listing.total
+    }
+
+    private var phase: ReviewListStore.Phase {
+        listing.phase
+    }
+
+    /// 첫 쪽을 새로 받을 때마다 오른다 — 다음 쪽 받기의 열쇠에 섞어, 정렬이 바뀌어 같은 개수가 와도 다시 돈다.
+    private var generation: Int {
+        listing.generation
+    }
+
+    /// 다음 쪽을 못 받았다. 돌아가는 표시 대신 「다시 시도」 를 보인다.
+    private var moreFailed: Bool {
+        listing.moreFailed
     }
 
     var body: some View {
@@ -73,6 +86,7 @@ struct ReviewsSheet: View {
         // 이 시트가 맨 위 화면이다 — 로그인·닉네임 화면은 여기서 올린다.
         .signInSheet()
         .nicknameSheet()
+        .renewsPhotos { forced in Task { await listing.renewPhotos(forced: forced) } }
         .sheet(isPresented: $composing) {
             ReviewComposeView(subject: subject, title: title) {
                 onChanged()
@@ -110,7 +124,14 @@ struct ReviewsSheet: View {
             }
         }
         // 로그인하면 「내 리뷰」 표시가 달라진다 — 목록을 다시 읽는다.
-        .onAccountChange { await reload() }
+        .onAccountChange {
+            composing = false
+            jump = nil
+            lit = nil
+            listing.resetForAccount()
+            await reload()
+            await reloadPhotos()
+        }
         .onChange(of: auth.showingSignIn) { _, showing in
             // 로그인하지 않고 닫았으면 잇지 않는다.
             if !showing, !auth.signedIn {
@@ -126,7 +147,7 @@ struct ReviewsSheet: View {
             }
         }
         // 정렬을 바꾸면 새 첫 쪽이 올 때까지 다음 쪽을 받지 않는다 — 옛 목록 끝에 새 정렬의 둘째 쪽이 붙지 않게.
-        .onChange(of: sort) { _, _ in total = reviews.count }
+        .onChange(of: sort) { _, _ in listing.prepareSortChange() }
         .onAppear { AppAnalytics.log(.viewReviews(targetType: subject.kind)) }
     }
 
@@ -177,7 +198,7 @@ struct ReviewsSheet: View {
     private var moreFooter: some View {
         if moreFailed {
             Button {
-                moreFailed = false
+                listing.retryMore()
             } label: {
                 Text("더 불러오지 못했어요 · 다시 시도")
                     .font(.footnote)
@@ -257,7 +278,7 @@ struct ReviewsSheet: View {
             Spacer()
             Text("리뷰를 불러오지 못했어요").font(.subheadline.weight(.medium))
             Button(tr("다시 시도")) {
-                phase = .loading
+                listing.prepareRetry()
                 Task { await reload() }
             }
             .font(.subheadline)
@@ -270,19 +291,7 @@ struct ReviewsSheet: View {
 private extension ReviewsSheet {
     /// 첫 쪽부터 다시. 정렬이 바뀌어도 이것이 돈다.
     func reload() async {
-        do {
-            let page = try await subject.reviews(sort: sort, offset: 0)
-            guard !Task.isCancelled else { return }
-            reviews = page.items
-            summary = page.summary
-            total = page.total
-            moreFailed = false
-            generation += 1
-            phase = .loaded
-        } catch {
-            guard !Task.isCancelled else { return }
-            phase = .failed
-        }
+        await listing.reload(sort: sort)
     }
 
     /// 방문자 사진. 목록과 따로 받는다 — 못 받아도 리뷰는 보이고, 정렬을 바꿀 때는 다시 받지 않는다.
@@ -317,20 +326,6 @@ private extension ReviewsSheet {
     }
 
     func loadMore() async {
-        let asked = (sort: sort, generation: generation, offset: reviews.count)
-        do {
-            let page = try await subject.reviews(sort: asked.sort, offset: asked.offset)
-            // 받는 사이 정렬이 바뀌었거나 첫 쪽을 새로 받았으면 버린다.
-            guard !Task.isCancelled, asked.generation == generation, asked.offset == reviews.count else { return }
-            // 받는 사이 새 리뷰가 끼어들면 같은 리뷰가 두 번 올 수 있다 — id 로 거른다.
-            let known = Set(reviews.map(\.id))
-            let fresh = page.items.filter { !known.contains($0.id) }
-            reviews += fresh
-            // 더 올 것이 없으면(빈 쪽) 끝낸다 — 안 그러면 끝에서 계속 묻는다.
-            total = fresh.isEmpty ? reviews.count : page.total
-        } catch {
-            guard !Task.isCancelled, asked.generation == generation else { return }
-            moreFailed = true
-        }
+        await listing.loadMore(sort: sort)
     }
 }

@@ -34,6 +34,7 @@ final class AuthStore: ObservableObject {
     private let refreshLikes: () async -> Void
     private let nicknamePromptDelay: Duration
     private var nicknamePromptTask: Task<Void, Never>?
+    private var profileGeneration = 0
 
     init(
         hasStoredSession: @escaping () -> Bool = { AuthTokens.hasSession },
@@ -216,6 +217,7 @@ final class AuthStore: ObservableObject {
             // 늦은 응답으로 떠난 계정을 되살리거나 새 계정을 덮지 않는다.
             guard !Task.isCancelled, signedIn, epoch == requestedEpoch,
                   me?.id == requestedId, updated.id == requestedId else { return .failed }
+            profileGeneration += 1
             me = updated
             NicknameAsked.mark(updated.id.uuidString)
             AppAnalytics.log(.setNickname(skipped: false))
@@ -286,8 +288,11 @@ final class AuthStore: ObservableObject {
     /// 세션 복원·새로고침도 미확정 닉네임을 확인한다. 늦은 응답은 떠난 계정을 되살리지 않는다.
     func loadMe() async {
         let requestedEpoch = epoch
+        profileGeneration += 1
+        let requestedProfile = profileGeneration
         guard signedIn, let fresh = try? await fetchProfile(),
               !Task.isCancelled, signedIn, epoch == requestedEpoch,
+              profileGeneration == requestedProfile,
               me == nil || me?.id == fresh.id else { return }
         me = fresh
         if fresh.nicknameConfirmed == true {

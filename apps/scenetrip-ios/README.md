@@ -134,6 +134,22 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 발자취 | **개인정보로 다룬다** — 기기에만 저장, 기본 꺼짐·동의 후 기록, 로그아웃·탈퇴 때 삭제 (MZ2AZ-348) |
 | 커뮤니티 여행후기 | 생성 `PostsAPI`로 공개 목록·내 글·전문·게시·삭제·코스 담기. 제목/본문·사진 0~8장·내 코스 선택, 가입 사용자만 게시한다. 사진은 `post` 목적으로 JPEG 업로드하며 준비가 끝나야 게시할 수 있다. 성공 응답 뒤에만 완료한다. 응답을 잃으면 같은 초안을 다시 보내지 않고 「게시 여부 확인」으로 내 글을 대조한다. 직접 찍은 핀은 공개 사본에서 빠지고 제외 수를 미리 알린다. 예전 기기 글은 「이 기기에만 저장된 옛 글」에서 읽는다. 서버 사진 주소는 메모리에만 두고 다시 받는다(MZ2AZ-396, 계획 `community-post.md` §7) |
 
+### 계정 전환과 사진 주소 갱신 (MZ2AZ-363·366·428·431)
+
+로그인 갱신은 같은 세션의 요청끼리 공유한다. 로그아웃·다른 계정 로그인 뒤 도착한
+이전 갱신 응답은 새 토큰과 계정 상태를 바꾸지 않는다. 닉네임 저장 뒤 도착한 옛
+프로필 조회도 새 이름을 덮지 않는다. 리뷰 편집과 목록 응답은 연 계정·요청 세대를
+확인하고 계정이 바뀌면 초안 업로드를 취소한다.
+
+커뮤니티 대표·본문 사진, 리뷰·내 리뷰 썸네일이 실패하면 원래 글 또는 현재 읽은
+리뷰 페이지를 다시 받아 사진 주소를 갱신한다. 커뮤니티 본문·출처·AI 표시는 같은
+상세 응답으로 함께 바뀐다. 화면마다 자동 갱신은 30초에 한 번, 수동 재시도는
+실패 뒤 다시 가능하며 동시 요청은 공유한다. 갱신 중 다음 리뷰 페이지 요청을
+잠시 멈추고 새 순서가 적용된 뒤 이어 받는다. 서명 주소는 메모리에만 둔다.
+
+[후속 검증 기록](../../docs/qa/ios-release-followup-verification.md)은 자동 시험과
+실제 화면 확인, 실제 계정·실기기에 남은 동선을 구분한다.
+
 ### 메타 측정 설정 (MZ2AZ-391)
 
 `resources/MetaService-Info.local.plist`에 `AppID`·`ClientToken` 문자열과
@@ -480,8 +496,8 @@ just ios-xcode                          # Xcode 로 연다 (코드 탐색·디�
 **Apple 로그인은 유료 개발자 팀의 Sign in with Apple capability가 필요하다.** SceneTrip은 김태환님의
 개발자 팀에서 번들 ID `com.mz2az.scenetrip`의 capability를 켜고 같은 권한이 든 프로파일로 서명한다.
 `SceneTrip.entitlements`에는 `com.apple.developer.applesignin = [Default]`가 포함되어 있다.
-아래 실기기 서명 설정을 넣을 때 기존 시뮬레이터용 `SIM0000000` 두 곳도 파일 머리말대로
-`$(AppIdentifierPrefix)`로 바꾼다. 실제 가입·로그아웃·재로그인·탈퇴는 Apple 키가 설정된 DEV에서
+아래 실기기 서명 설정에는 `deploy/SceneTrip-device.entitlements`를 선택한다.
+시뮬레이터의 키체인 식별자는 유지한다. 실제 가입·로그아웃·재로그인·탈퇴는 Apple 키가 설정된 DEV에서
 서명된 실기기로 확인해야 한다. 서버 개인 키를 앱이나 저장소에 넣지 않는다.
 
 ### 2. BUILD.bazel 에서 device 를 켠다
@@ -515,8 +531,9 @@ xcode_provisioning_profile(
 )
 ```
 
-`ios_application(name = "bin", ...)` 에 `provisioning_profile = ":provisioning_profile"`
-를 더한다.
+`ios_application(name = "bin", ...)` 에 `provisioning_profile = ":provisioning_profile"`를
+더하고, 실기기 대상에서는 `entitlements = "deploy/SceneTrip-device.entitlements"`를
+선택한다. 시뮬레이터 대상의 기존 키체인 그룹은 유지한다.
 
 > **이 변경은 커밋하지 않는다.** 프로파일 이름이 사람마다 다르다. 팀 전원이 아이폰으로
 > 확인하게 되면 그때 `--define` 으로 이름을 받는 형태로 정리한다.
@@ -566,5 +583,10 @@ Xcode에서 같은 환경을 쓰려면 gitignore 대상인 `.bazelrc.user`에
 이 명령은 앱 빌드만 수행한다. 실기기 서명·TestFlight·App Store 배포는 별도 절차다.
 
 ## 운영
+
+앱 자체 `UserDefaults` 사용 사유는 `resources/PrivacyInfo.xcprivacy`의 `CA92.1`로
+선언하며 실제 번들 포함을 단위 시험으로 확인한다(MZ2AZ-416). 위치 권한 문구는
+한국어·영어 `InfoPlist.strings`에서 제공한다. 최종 개인정보 수집 표시·SDK 선언
+검토·실기기 서명·스토어 제출 조건은 [배포 준비 안내](deploy/README.md)에 있다.
 
 스토어 배포 없음 — MZ2AZ-148 의 완료 조건이 "팀원이 로컬에서 실행"까지다.

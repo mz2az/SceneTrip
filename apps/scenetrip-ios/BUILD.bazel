@@ -6,7 +6,7 @@
 #   :scenetrip-ios      이 모듈의 주 라이브러리 (swift_library)
 #   :bin                시뮬레이터/기기에 설치하는 .app 번들 (ios_application)
 #
-# :unit_test 는 아직 없다 — 검증할 로직이 생기는 첫 화면 작업에서 함께 만든다.
+# :unit_test 는 앱 로직과 실제 번들 리소스를 검증한다.
 # :image / :push 는 모바일 모듈에 해당 없음 (MODULE.bazel 컨테이너 절 참고).
 #
 # iOS 는 macOS + Xcode 에서만 지어진다. 그것을 리눅스 러너로부터 지키는 장치는
@@ -78,12 +78,14 @@ swift_library(
             "src/Auth/AppleOAuth.swift",
             "src/Auth/AppleSignInButton.swift",
             "src/Auth/AppleSignInFlow.swift",
+            "src/Auth/SessionFlight.swift",
             "src/Analytics/SearchUsageIntent.swift",
             "src/Analytics/UsageEvents.swift",
             "src/CommunityTab/CommunityBridge.swift",
             "src/CommunityTab/CommunityArticle.swift",
             "src/CommunityTab/CommunityArticleView.swift",
             "src/CommunityTab/CommunityPhotoViewer.swift",
+            "src/CommunityTab/CommunityPhotoRefresh.swift",
             "src/CommunityTab/CommunityPlacementEditor.swift",
             "src/CommunityTab/CommunityClient.swift",
             "src/CommunityTab/CommunitySubmission.swift",
@@ -92,6 +94,9 @@ swift_library(
             "src/Models/AppTheme.swift",
             "src/ProfileTab/ThemeChoiceView.swift",
             "src/Reviews/MyReviewDetailView.swift",
+            "src/Reviews/ReviewEditSession.swift",
+            "src/Reviews/ReviewListStore.swift",
+            "src/Reviews/PhotoRenewal.swift",
             "src/Onboarding/OnboardingProgress.swift",
             "src/RouteTab/PoiClusterRenderer.swift",
             "src/RouteTab/PoiClusters.swift",
@@ -112,10 +117,12 @@ swift_library(
         "src/Auth/AppleOAuth.swift",
         "src/Auth/AppleSignInButton.swift",
         "src/Auth/AppleSignInFlow.swift",
+        "src/Auth/SessionFlight.swift",
         "src/CommunityTab/CommunityArticle.swift",
         "src/CommunityTab/CommunityArticleView.swift",
         "src/CommunityTab/CommunityBridge.swift",
         "src/CommunityTab/CommunityClient.swift",
+        "src/CommunityTab/CommunityPhotoRefresh.swift",
         "src/CommunityTab/CommunityPhotoViewer.swift",
         "src/CommunityTab/CommunityPlacementEditor.swift",
         "src/CommunityTab/CommunitySubmission.swift",
@@ -125,6 +132,9 @@ swift_library(
         "src/Onboarding/OnboardingProgress.swift",
         "src/ProfileTab/ThemeChoiceView.swift",
         "src/Reviews/MyReviewDetailView.swift",
+        "src/Reviews/PhotoRenewal.swift",
+        "src/Reviews/ReviewEditSession.swift",
+        "src/Reviews/ReviewListStore.swift",
         "src/RouteTab/PoiClusterRenderer.swift",
         "src/RouteTab/PoiClusters.swift",
         "src/RouteTab/RouteDayEstimate.swift",
@@ -143,7 +153,7 @@ swift_library(
     # 마스코트 일러스트(진도 캐릭터 시트에서 오려 낸 6장). rules_apple 이
     # xcassets 를 Assets.car 로 구워 번들에 넣는다.
     # 데모 코스(중간발표 영상용) — `-demoCourse 1` 이 읽어 서버에 코스를 만든다.
-    data = glob([
+    data = ["resources/PrivacyInfo.xcprivacy"] + glob([
         "resources/Images.xcassets/**",
         "resources/demo/*.json",
         # 화면 문구 번역 표 (MZ2AZ-343). 열쇠는 한국어 원문이다.
@@ -204,6 +214,13 @@ ios_application(
     deps = [":scenetrip-ios"],
 )
 
+# 실제 개발자 팀 프로파일을 준비한 뒤 서명 구성에서 사용하는 파일(MZ2AZ-416).
+filegroup(
+    name = "store_resources",
+    srcs = ["deploy/SceneTrip-device.entitlements"],
+    tags = ["manual"],
+)
+
 # 검색 규칙(계획서 §3-2 · §3-3 · §3-5)을 고정하는 테스트.
 #
 # **리눅스에서는 돌지 않는다.** `tools/just/test.just` 의 IOS_TEST_FILTER 가 리눅스일
@@ -228,6 +245,10 @@ swift_library(
             "tests/ProducerLinkTests.swift",
             "tests/AppThemeTests.swift",
             "tests/AuthProfileTests.swift",
+            "tests/AuthRefreshTests.swift",
+            "tests/ReviewSessionTests.swift",
+            "tests/PhotoRenewalTests.swift",
+            "tests/ReleaseResourcesTests.swift",
             "tests/ScenePhotoRulesTests.swift",
             "tests/SceneZoomViewTests.swift",
             "tests/VisitSyncTests.swift",
@@ -241,14 +262,18 @@ swift_library(
         "tests/AppleOAuthTests.swift",
         "tests/AppleSignInFlowTests.swift",
         "tests/AuthProfileTests.swift",
+        "tests/AuthRefreshTests.swift",
         "tests/CartStoreTests.swift",
         "tests/CommunityArticleTests.swift",
         "tests/CommunityServerTests.swift",
         "tests/CourseDisplayTests.swift",
         "tests/MyReviewDetailTests.swift",
         "tests/OnboardingProgressTests.swift",
+        "tests/PhotoRenewalTests.swift",
         "tests/PoiClustersTests.swift",
         "tests/ProducerLinkTests.swift",
+        "tests/ReleaseResourcesTests.swift",
+        "tests/ReviewSessionTests.swift",
         "tests/ScenePhotoRulesTests.swift",
         "tests/SceneZoomViewTests.swift",
         "tests/SearchUsageTests.swift",

@@ -36,6 +36,13 @@ enum CommunityPhotoSource {
         case .failed: "failed"
         }
     }
+
+    var objectKey: String {
+        if case let .remote(url) = self {
+            return "remote:\(PhotoGalleryRules.unsigned(url))"
+        }
+        return identity
+    }
 }
 
 struct CommunityArticleView: View {
@@ -69,6 +76,11 @@ struct CommunityArticlePhoto: View {
     @State private var failed = false
     @State private var attempt = 0
     @State private var expanded = false
+    @State private var shown: String?
+    @State private var failedIdentity: String?
+    @State private var lastAttempt = -1
+    @State private var renewedFor: String?
+    @Environment(\.photoRenew) private var renew
 
     private static let session: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
@@ -93,7 +105,7 @@ struct CommunityArticlePhoto: View {
                     .textSelection(.enabled)
             }
         }
-        .task(id: "\(source.identity)-\(attempt)") { await load() }
+        .task(id: "\(source.objectKey)-\(failed ? source.identity : "")-\(attempt)") { await load() }
         .fullScreenCover(isPresented: $expanded) {
             if let image {
                 CommunityPhotoViewer(image: image, block: block)
@@ -127,7 +139,7 @@ struct CommunityArticlePhoto: View {
                             Text(source.retryable ? tr("사진을 불러오지 못했어요") : tr("사진을 다시 골라 주세요"))
                                 .font(.caption).foregroundStyle(.secondary)
                             if source.retryable {
-                                Button("사진 다시 받기") { attempt += 1 }.frame(minHeight: 44)
+                                Button("사진 다시 받기") { retry() }.frame(minHeight: 44)
                             }
                         }
                     } else {
@@ -139,7 +151,14 @@ struct CommunityArticlePhoto: View {
     }
 
     private func load() async {
-        image = nil; failed = false
+        if shown != source.objectKey {
+            shown = source.objectKey
+            image = nil
+            failed = false
+            failedIdentity = nil
+        }
+        guard image == nil, failedIdentity != source.identity || lastAttempt != attempt else { return }
+        lastAttempt = attempt
         switch source {
         case let .local(name):
             image = CommunityStore.photo(name)
@@ -152,23 +171,54 @@ struct CommunityArticlePhoto: View {
             failed = true
             return
         case let .remote(url):
-            guard let address = URL(string: url), ["http", "https"].contains(address.scheme), address.host != nil else {
-                failed = true; return
+            await loadRemote(url)
+            return
+        }
+        if image == nil {
+            reportFailure()
+        } else {
+            failed = false; failedIdentity = nil
+        }
+    }
+
+    private func loadRemote(_ url: String) async {
+        guard let address = URL(string: url), ["http", "https"].contains(address.scheme), address.host != nil else {
+            reportFailure(); return
+        }
+        do {
+            let (data, response) = try await Self.session.data(from: address)
+            guard let response = response as? HTTPURLResponse, (200 ..< 300).contains(response.statusCode),
+                  data.count <= PhotoUploadRules.maxBytes else { reportFailure(); return }
+            let decoded = await Task.detached { PhotoShrink.image(from: data, longest: PhotoUploadRules.longestSide) }.value
+            guard !Task.isCancelled else { return }
+            image = decoded
+            if decoded == nil {
+                reportFailure()
+            } else {
+                failed = false; failedIdentity = nil
             }
-            do {
-                let (data, response) = try await Self.session.data(from: address)
-                guard let response = response as? HTTPURLResponse, (200 ..< 300).contains(response.statusCode),
-                      data.count <= PhotoUploadRules.maxBytes else { failed = true; return }
-                let decoded = await Task.detached { PhotoShrink.image(from: data, longest: PhotoUploadRules.longestSide) }.value
-                guard !Task.isCancelled else { return }
-                image = decoded
-            } catch {
-                if !Task.isCancelled {
-                    failed = true
-                }
-                return
+        } catch {
+            if !Task.isCancelled {
+                reportFailure()
             }
         }
-        failed = image == nil
+    }
+
+    private func retry() {
+        failed = false
+        failedIdentity = nil
+        attempt += 1
+        if case .remote = source {
+            renew?(true)
+        }
+    }
+
+    private func reportFailure() {
+        guard !Task.isCancelled else { return }
+        failed = true
+        failedIdentity = source.identity
+        guard case .remote = source, let renew, renewedFor != source.objectKey else { return }
+        renewedFor = source.objectKey
+        renew(false)
     }
 }

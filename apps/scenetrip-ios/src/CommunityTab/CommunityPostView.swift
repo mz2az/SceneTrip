@@ -10,12 +10,15 @@ struct CommunityPostView: View {
     @State private var loaded: CommunityPost?
     @State private var loading = false
     @State private var loadMessage: String?
+    @State private var loadGeneration = 0
+    @StateObject private var photoRefresh: CommunityPhotoRefresh
     private var post: CommunityPost {
-        loaded ?? initialPost
+        photoRefresh.post ?? loaded ?? initialPost
     }
 
     init(post: CommunityPost) {
         initialPost = post
+        _photoRefresh = StateObject(wrappedValue: CommunityPhotoRefresh(post: post))
     }
 
     @Environment(\.dismiss) private var dismiss
@@ -81,9 +84,18 @@ struct CommunityPostView: View {
             }
         }
         .task { await load() }
+        .renewsPhotos { forced in Task { await photoRefresh.renew(forced: forced) } }
+        .onDisappear {
+            loadGeneration += 1
+            loading = false
+            photoRefresh.cancelPending()
+        }
         .onAccountChange {
+            photoRefresh.invalidate()
             loaded = nil
             savedCourseId = nil
+            saving = false
+            saveFailed = false
             await load()
         }
         .signInSheet()
@@ -245,22 +257,43 @@ struct CommunityPostView: View {
     private func save(_: PostCourse) async {
         guard auth.signedIn else { auth.promptSignIn(); return }
         guard !saving else { return }
+        let epoch = auth.epoch
         saving = true
-        defer { saving = false }
+        defer {
+            if epoch == auth.epoch {
+                saving = false
+            }
+        }
         do {
-            savedCourseId = try await CommunityStore.shared.saveCourse(post)
+            let id = try await CommunityStore.shared.saveCourse(post)
+            guard !Task.isCancelled, epoch == auth.epoch else { return }
+            savedCourseId = id
         } catch {
+            guard !Task.isCancelled, epoch == auth.epoch, !(error is CancellationError) else { return }
             saveFailed = true
         }
     }
 
     private func load() async {
         guard initialPost.serverId != nil else { return }
+        loadGeneration += 1
+        let asked = (generation: loadGeneration, epoch: auth.epoch)
         loading = true
         loadMessage = nil
-        defer { loading = false }
-        do { loaded = try await CommunityStore.shared.detail(initialPost) }
-        catch { loadMessage = CommunityRules.failureText(error) }
+        defer {
+            if asked.generation == loadGeneration {
+                loading = false
+            }
+        }
+        do {
+            let fresh = try await CommunityStore.shared.detail(initialPost)
+            guard !Task.isCancelled, asked.generation == loadGeneration, asked.epoch == auth.epoch else { return }
+            loaded = fresh
+            photoRefresh.show(fresh)
+        } catch {
+            guard !Task.isCancelled, asked.generation == loadGeneration, asked.epoch == auth.epoch else { return }
+            loadMessage = CommunityRules.failureText(error)
+        }
     }
 }
 
