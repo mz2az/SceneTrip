@@ -4,6 +4,7 @@ import com.mz2az.scenetrip.sceneapi.api.PostsApi;
 import com.mz2az.scenetrip.sceneapi.api.model.CourseDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.TripPostAuthor;
+import com.mz2az.scenetrip.sceneapi.api.model.TripPostBlock;
 import com.mz2az.scenetrip.sceneapi.api.model.TripPostCourse;
 import com.mz2az.scenetrip.sceneapi.api.model.TripPostCourseDay;
 import com.mz2az.scenetrip.sceneapi.api.model.TripPostCourseStop;
@@ -14,6 +15,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.TripPostList;
 import com.mz2az.scenetrip.sceneapi.api.model.TripPostStopSource;
 import com.mz2az.scenetrip.sceneapi.api.model.TripPostSummary;
 import com.mz2az.scenetrip.sceneapi.course.CourseStore;
+import com.mz2az.scenetrip.sceneapi.post.PostBody;
 import com.mz2az.scenetrip.sceneapi.post.PostStore;
 import com.mz2az.scenetrip.sceneapi.review.PhotoStorage;
 import com.mz2az.scenetrip.sceneapi.review.UploadStore;
@@ -76,6 +78,12 @@ class PostsController implements PostsApi {
     if (Set.copyOf(keys).size() != keys.size()) {
       throw ApiException.badRequest("POST_PHOTO_INVALID", "같은 사진이 두 번 있습니다");
     }
+    List<TripPostBlock> blocks;
+    try {
+      blocks = PostBody.normalize(in.getBodyBlocks(), body, keys.size());
+    } catch (PostBody.RejectedException e) {
+      throw ApiException.badRequest("POST_BODY_INVALID", e.getMessage());
+    }
 
     // 옮기기는 DB 트랜잭션 밖이다 — 저장소 호출을 트랜잭션 안에서 기다리지 않는다(리뷰와 같다).
     Set<String> fresh = uploads.unattached(user, keys);
@@ -99,7 +107,11 @@ class PostsController implements PostsApi {
 
     long postId;
     try {
-      postId = store.create(user, title, body, finalKeys, moved.keySet(), in.getCourseId());
+      postId =
+          blocks == null
+              ? store.create(user, title, body, finalKeys, moved.keySet(), in.getCourseId())
+              : store.create(
+                  user, title, body, finalKeys, moved.keySet(), in.getCourseId(), blocks);
     } catch (PostStore.CourseRejectedException e) {
       moveBack(moved);
       throw ApiException.badRequest("POST_COURSE_INVALID", e.getMessage());
@@ -200,6 +212,7 @@ class PostsController implements PostsApi {
                 s.createdAt(),
                 d.photoKeys().stream().map(storage::viewUrl).toList(),
                 s.mine())
+            .bodyBlocks(d.bodyBlocks())
             .author(s.nickname() == null ? null : new TripPostAuthor(s.nickname()));
     if (s.courseTitle() != null) {
       out.course(course(postId, s.courseTitle(), s.courseDayCount(), lang(acceptLanguage)));

@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.sceneapi.post;
 
+import com.mz2az.scenetrip.sceneapi.api.model.TripPostBlock;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -50,7 +51,12 @@ public class PostStore {
       boolean mine) {}
 
   /** 상세 — 목록 줄에 본문 전체와 사진 키들. */
-  public record Detail(Summary head, String body, List<String> photoKeys) {}
+  public record Detail(
+      Summary head, String body, List<String> photoKeys, List<TripPostBlock> bodyBlocks) {
+    public Detail(Summary head, String body, List<String> photoKeys) {
+      this(head, body, photoKeys, null);
+    }
+  }
 
   /**
    * 코스 사본의 한 곳. 촬영지면 이름·주소가 요청 언어, 편의시설이면 한국어 원본과 표시말({@code display*}·{@code nameRoman}·{@code
@@ -169,6 +175,18 @@ public class PostStore {
       List<String> photoKeys,
       Collection<String> fresh,
       Long courseId) {
+    return create(user, title, body, photoKeys, fresh, courseId, null);
+  }
+
+  public long create(
+      UUID user,
+      String title,
+      String body,
+      List<String> photoKeys,
+      Collection<String> fresh,
+      Long courseId,
+      List<TripPostBlock> bodyBlocks) {
+    String layout = PostBody.encode(PostBody.normalize(bodyBlocks, body, photoKeys.size()));
     if (new HashSet<>(photoKeys).size() != photoKeys.size()) {
       throw new PhotoKeyRejectedException("같은 사진이 두 번 있습니다");
     }
@@ -200,13 +218,16 @@ public class PostStore {
           long postId =
               jdbc.sql(
                       """
-                      INSERT INTO community_post (user_id, title, body, course_title, course_day_count)
-                      VALUES (CAST(:user AS UUID), :title, :body, :courseTitle, CAST(:dayCount AS INT))
+                      INSERT INTO community_post
+                          (user_id, title, body, body_blocks, course_title, course_day_count)
+                      VALUES (CAST(:user AS UUID), :title, :body, CAST(:blocks AS JSONB),
+                              :courseTitle, CAST(:dayCount AS INT))
                       RETURNING id
                       """)
                   .param("user", user.toString())
                   .param("title", title)
                   .param("body", body)
+                  .param("blocks", layout)
                   .param("courseTitle", courseTitle)
                   .param("dayCount", dayCount)
                   .query(Long.class)
@@ -272,11 +293,17 @@ public class PostStore {
         jdbc.sql(
                 "SELECT "
                     + SUMMARY_COLUMNS
-                    + ", p.body FROM community_post p LEFT JOIN app_user u ON u.id = p.user_id"
-                    + " WHERE p.id = :postId AND p.removed_at IS NULL")
+                    + ", p.body, p.body_blocks FROM community_post p LEFT JOIN app_user u ON u.id ="
+                    + " p.user_id WHERE p.id = :postId AND p.removed_at IS NULL")
             .param("postId", postId)
             .param("viewer", viewer == null ? null : viewer.toString())
-            .query((rs, n) -> new Detail(mapSummary(rs, n), rs.getString("body"), List.of()))
+            .query(
+                (rs, n) ->
+                    new Detail(
+                        mapSummary(rs, n),
+                        rs.getString("body"),
+                        List.of(),
+                        PostBody.decode(rs.getString("body_blocks"))))
             .optional();
     return head.map(
         d ->
@@ -288,7 +315,8 @@ public class PostStore {
                             + " WHERE post_id = :postId ORDER BY sort_order")
                     .param("postId", postId)
                     .query(String.class)
-                    .list()));
+                    .list(),
+                d.bodyBlocks()));
   }
 
   /** 코스 사본의 장소들, 일차·순서대로. */
