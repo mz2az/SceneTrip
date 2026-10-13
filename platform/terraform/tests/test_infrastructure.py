@@ -1,5 +1,6 @@
 """AWS 계정 접근 없이 배포 권한·환경 경계를 회귀 검증한다."""
 
+import fnmatch
 import json
 import re
 import unittest
@@ -264,15 +265,28 @@ class InfrastructureBoundaryTest(unittest.TestCase):
         ]
         self.assertTrue(tag["Fn::Sub"].endswith("db:scenetrip-${Environment}"))
 
-    def test_environment_teardown_can_detach_nat_eip_before_release(self):
-        # NAT 탄력적 IP 는 떼어낸(DisassociateAddress) 뒤에야 반납(ReleaseAddress)된다.
-        # 2026-10-13 첫 삭제가 UnauthorizedOperation 으로 실패하고 재시도로만 끝났다.
+    def test_deploy_role_never_detaches_elastic_ips(self):
+        # DisassociateAddress 는 연결 번호(association id)로 호출되어 자원이 "*/*" 로 인가된다.
+        # 그래서 환경 태그 조건(aws:ResourceTag/Environment)이 맞을 수 없고, 조건 없이 열면
+        # DEV 역할이 PRD NAT 의 탄력적 IP 까지 떼어 낼 수 있다. 떼기는 허용하지 않고,
+        # 삭제 도구가 state 를 새로 읽은 뒤(연결 없음) 반납(ReleaseAddress)만 한다.
+        for policy in self.role["Policies"]:
+            for statement in policy["PolicyDocument"]["Statement"]:
+                if statement["Effect"] != "Allow":
+                    continue
+                actions = statement["Action"]
+                if isinstance(actions, str):
+                    actions = [actions]
+                for action in actions:
+                    self.assertFalse(
+                        fnmatch.fnmatchcase("ec2:DisassociateAddress", action),
+                        f"{statement.get('Sid')} 가 {action} 로 EIP 떼기를 허용한다",
+                    )
         statement = next(
             s for s in self.statements if s["Sid"] == "ManageEnvironmentNetwork"
         )
         self.assertEqual(statement["Effect"], "Allow")
         self.assertIn("ec2:ReleaseAddress", statement["Action"])
-        self.assertIn("ec2:DisassociateAddress", statement["Action"])
         self.assertEqual(
             statement["Condition"]["StringEquals"],
             {

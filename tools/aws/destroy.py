@@ -1,6 +1,7 @@
 """서비스 형상을 두 개의 검증된 저장 계획으로 순서대로 삭제한다."""
 
 import json
+import re
 
 from tools.aws.config import REPOSITORIES
 from tools.aws.destroy_gateway import aws_query, matching_albs, remove_gateway
@@ -115,11 +116,53 @@ def finish_destroy(run, settings, directory, variables, temp, resources, expecte
     validate_final_policy(final, expected)
     if matching_albs(run, settings, resources):
         raise RuntimeError("최종 삭제 직전에 ALB가 다시 발견되어 중단합니다")
-    apply_saved(run, directory, final_path)
+    try:
+        apply_saved(run, directory, final_path)
+    except RuntimeError:
+        if not release_detached_nat_addresses(run, directory, variables, temp):
+            raise
     assert_empty_state(run, directory)
     print(
         "서비스 삭제 완료: Terraform state가 비었습니다. bootstrap은 별도로 삭제하세요"
     )
+
+
+NAT_ADDRESS = re.compile(r"aws_eip\.nat\[[0-2]\]")
+
+
+def release_detached_nat_addresses(run, directory, variables, temp):
+    """최종 삭제가 NAT 의 EIP 만 남기고 실패했을 때 — state 를 새로 읽고 그 EIP 만 다시 지운다. 그 밖의 실패면 False.
+
+    NAT 를 지우면 AWS 가 EIP 를 이미 떼어 낸다. 그런데 state 에 옛 연결(association_id)이 남아 Terraform 이
+    DisassociateAddress 를 부르고, 그 호출은 연결 번호로 와서 자원 단위 조건(환경 태그)을 걸 수 없다 — 조건 없이
+    열면 DEV 역할이 PRD NAT 의 EIP 까지 뗄 수 있다. 그래서 권한을 열지 않고, 새로 읽은 state(연결 없음)로 놓기만 한다
+    (2026-10-13 DEV 내리기 첫 시도가 세 번 여기서 실패했다).
+    """
+    left = run(["terraform", "state", "list"], cwd=directory, quiet=True).split()
+    if not left or not all(NAT_ADDRESS.fullmatch(address) for address in left):
+        return False
+    print(f"NAT EIP 만 남았다({', '.join(left)}) — state 를 새로 읽고 다시 놓는다")
+    run(
+        [
+            "terraform",
+            "apply",
+            "-refresh-only",
+            "-auto-approve",
+            "-input=false",
+            "-no-color",
+            "-lock-timeout=60s",
+            f"-var-file={variables}",
+        ],
+        cwd=directory,
+        quiet=True,
+    )
+    retry_path = temp / "teardown-release-eip.tfplan"
+    retry = saved_plan(run, directory, variables, retry_path, destroy=True)
+    validate_destroy(retry)
+    if set(resource_values(retry)) - set(left):
+        raise ValueError("EIP 재삭제 계획에 다른 리소스가 들어 있습니다")
+    apply_saved(run, directory, retry_path)
+    return True
 
 
 def destroy_service(
