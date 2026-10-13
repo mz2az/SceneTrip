@@ -125,6 +125,14 @@ class DatabaseTests(DockerTest):
             ).stdout.strip(),
             "C/C.UTF-8",
         )
+        # poi_update.sql 의 levenshtein() — fuzzystrmatch 는 위에서 미리 만들지 않으므로
+        # bootstrap 자신이 scenetrip 에 켰는지를 본다(RDS 갱신 적재 실패, 2026-10-13).
+        self.assertEqual(
+            self.sql(
+                "SELECT levenshtein('a', 'b');", "app_runtime", "scenetrip"
+            ).stdout.strip(),
+            "1",
+        )
 
     def apply_migrations(self):
         migrations = sorted(

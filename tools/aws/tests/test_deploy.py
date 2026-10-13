@@ -83,6 +83,21 @@ class DeployTest(unittest.TestCase):
         self.assertIn("DO $do$", script)
         self.assertIn("END $do$;", script)
 
+    def test_bootstrap_creates_extensions_in_scenetrip_before_dropping_privilege(self):
+        # poi_update.sql 의 levenshtein() 은 fuzzystrmatch 가 준다. 로컬 postgis 이미지는
+        # 저절로 켜지만 RDS 는 아니어서 원격 갱신 적재가 실패했다(2026-10-13).
+        # 확장은 scenetrip 안에서, 마스터 권한을 내려놓는 SET ROLE 앞에서 만들어야 한다.
+        job = bootstrap_job("db.example.com")
+        script = job["spec"]["template"]["spec"]["containers"][0]["command"][2]
+        connect = script.index("\\connect scenetrip")
+        set_role = script.index("SET ROLE app_migrate")
+        for extension in ("postgis", "pg_trgm", "fuzzystrmatch"):
+            with self.subTest(extension=extension):
+                statement = f"CREATE EXTENSION IF NOT EXISTS {extension};"
+                self.assertEqual(script.count(statement), 1)
+                self.assertLess(connect, script.index(statement))
+                self.assertLess(script.index(statement), set_role)
+
     def test_gateway_rejects_open_ingress_and_mismatched_cert(self):
         good = {
             "ingress_allowed_cidrs": ["203.0.113.1/32"],
