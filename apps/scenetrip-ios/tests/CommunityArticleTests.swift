@@ -17,12 +17,17 @@ final class CommunityArticleTests: XCTestCase {
         XCTAssertFalse(placement.metadataValid)
     }
 
-    @MainActor func testUnreadablePhotoPreviewFailsRatherThanLoadingForever() {
-        let failed = ReviewPhotoDraft.Slot(state: .failed(.unreadable))
-        let source = CommunityPhotoSource(slot: failed)
+    @MainActor func testUnreadablePhotoPreviewFailsRatherThanLoadingForever() throws {
+        let draft = ReviewPhotoDraft(purpose: .post)
+        draft.start(with: [ReviewPhoto(key: "posts/preview.jpg", url: "https://example.com/preview.jpg")])
+        var slot = try XCTUnwrap(draft.slots.first)
+        slot.remoteUrl = nil
+        slot.state = .failed(.unreadable)
+        let source = CommunityPhotoSource(slot: slot)
         guard case .failed = source else { return XCTFail("읽기 실패를 계속 로딩으로 표시했다") }
         XCTAssertFalse(source.retryable)
-        let waiting = CommunityPhotoSource(slot: ReviewPhotoDraft.Slot(state: .waiting))
+        slot.state = .waiting
+        let waiting = CommunityPhotoSource(slot: slot)
         guard case .pending = waiting else { return XCTFail("대기 중 사진을 실패로 표시했다") }
     }
 
