@@ -21,6 +21,8 @@ struct NicknameView: View {
     /// 서버가 돌려준 판정. 글자를 고치면 지운다.
     @State private var serverMessage: String?
     @FocusState private var focused: Bool
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var detent: PresentationDetent = .height(480)
 
     private var problem: NicknameRules.Problem? {
         NicknameRules.problem(in: text)
@@ -38,71 +40,121 @@ struct NicknameView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(mode == .welcome ? tr("닉네임을 정해 주세요") : tr("닉네임 바꾸기"))
-                .font(.title3.weight(.bold))
-                .padding(.top, 28)
-            Text("리뷰와 후기에 이 이름으로 보여요. 로그인 계정의 이름은 다른 사람에게 보이지 않습니다.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 6)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(mode == .welcome ? tr("닉네임을 정해 주세요") : tr("닉네임 바꾸기"))
+                            .font(.title2.weight(.bold))
+                        Text("리뷰와 후기에 이 이름으로 보여요. 로그인 계정의 이름은 다른 사람에게 보이지 않습니다.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 8)
+                    Button { cancel() } label: {
+                        Image(systemName: "xmark").font(.system(size: 17, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                            .background(Color(.secondarySystemGroupedBackground), in: Circle())
+                    }.buttonStyle(.plain).disabled(saving).accessibilityLabel(tr("닫기"))
+                }
+                namePreview
+                input
+            }
+            .padding(.horizontal, 24).padding(.vertical, 24)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .background(Color(.systemGroupedBackground))
+        .safeAreaInset(edge: .bottom) { actions }
+        .tint(TabBar.homePurple)
+        .interactiveDismissDisabled(saving)
+        .presentationDetents([.height(480), .large], selection: $detent)
+        .onAppear {
+            text = auth.me?.nickname ?? ""
+            if typeSize.isAccessibilitySize {
+                detent = .large
+            }
+        }
+        .onChange(of: typeSize) { _, size in
+            if size.isAccessibilitySize {
+                detent = .large
+            }
+        }
+    }
 
-            TextField(tr("닉네임"), text: $text)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .submitLabel(.done)
-                .focused($focused)
-                .onSubmit { save() }
-                .padding(.horizontal, 14)
-                .frame(height: 48)
-                .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
-                .padding(.top, 20)
-                .onChange(of: text) { _, _ in serverMessage = nil }
+    private var namePreview: some View {
+        HStack(spacing: 16) {
+            PinoMascot(width: 66).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("작성자 이름 미리보기").font(.caption).foregroundStyle(.secondary)
+                Text(verbatim: NicknameRules.normalized(text).isEmpty ? tr("여행자") : NicknameRules.normalized(text))
+                    .font(.title3.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.65)
+                    .accessibilityIdentifier("nickname-preview")
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+    }
 
-            // 서버 판정이 있으면 그것이 먼저다. 없으면 규칙 — 어긴 데가 있을 때만 빨갛게.
+    private var input: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("닉네임").font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(verbatim: "\(NicknameRules.normalized(text).count)/\(NicknameRules.maxLength)")
+                    .font(.caption.monospacedDigit()).foregroundStyle(shownProblem == .tooLong ? .red : .secondary)
+            }
+            HStack(spacing: 8) {
+                TextField(tr("닉네임"), text: $text)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .submitLabel(.done).focused($focused).onSubmit { save() }
+                    .accessibilityIdentifier("nickname-input")
+                if !text.isEmpty {
+                    Button { text = ""; focused = true } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                            .frame(width: 32, height: 44)
+                    }.buttonStyle(.plain).accessibilityLabel(tr("입력 지우기"))
+                }
+            }
+            .padding(.horizontal, 14).frame(minHeight: 56)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+            .overlay { RoundedRectangle(cornerRadius: 14).strokeBorder(focused ? TabBar.homePurple : .clear, lineWidth: 1.5) }
+            .disabled(saving).onChange(of: text) { _, _ in serverMessage = nil }
             Text(serverMessage ?? NicknameRules.hint(for: text.isEmpty ? nil : shownProblem))
                 .font(.footnote)
                 .foregroundStyle(serverMessage != nil || (!text.isEmpty && shownProblem != nil) ? Color.red : .secondary)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 8)
+        }
+    }
 
-            Spacer(minLength: 16)
-
-            Button {
-                save()
-            } label: {
+    private var actions: some View {
+        VStack(spacing: 6) {
+            Button { save() } label: {
                 HStack(spacing: 8) {
                     if saving {
                         ProgressView().tint(.white)
                     }
                     Text(mode == .welcome ? tr("이 닉네임으로 시작") : tr("저장"))
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.headline)
                 }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(Capsule().fill(Color.accentColor.opacity(canSave ? 1 : 0.4)))
-            }
-            .buttonStyle(.plain)
-            .disabled(!canSave)
+                .foregroundStyle(.white).padding(.vertical, 15)
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .background(Capsule().fill(TabBar.homePurple.opacity(canSave ? 1 : 0.4)))
+            }.buttonStyle(.plain).disabled(!canSave)
+            Button(mode == .welcome ? tr("건너뛰기") : tr("취소")) { cancel() }
+                .font(.subheadline).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: 44).disabled(saving)
+        }
+        .padding(.horizontal, 24).padding(.top, 14).padding(.bottom, 6)
+        .background(Color(.systemBackground)).overlay(alignment: .top) { Divider() }
+    }
 
-            Button(mode == .welcome ? tr("건너뛰기") : tr("취소")) {
-                if mode == .welcome {
-                    auth.skipNickname()
-                }
-                onDone()
-            }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.top, 14)
-            .padding(.bottom, 18)
+    private func cancel() {
+        guard !saving else { return }
+        if mode == .welcome {
+            auth.skipNickname()
         }
-        .padding(.horizontal, 24)
-        .onAppear {
-            text = auth.me?.nickname ?? ""
-        }
+        onDone()
     }
 
     /// 마이페이지에서는 바뀐 것이 있어야 저장한다. 처음 물을 때는 미리 채워진 자동 닉네임 그대로도 누를 수 있다
@@ -125,9 +177,15 @@ struct NicknameView: View {
         }
         saving = true
         focused = false
+        let requestEpoch = auth.epoch
         Task {
+            guard auth.epoch == requestEpoch else {
+                saving = false
+                return
+            }
             let outcome = await auth.setNickname(text)
             saving = false
+            guard auth.epoch == requestEpoch else { return }
             switch outcome {
             case .saved:
                 onDone()

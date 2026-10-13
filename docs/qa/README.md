@@ -2,6 +2,7 @@
 
 | 문서 | 목적 |
 | --- | --- |
+| [ios-home-profile-polish.md](ios-home-profile-polish.md) | 포스터 고정 칸·홈 가로 이동·닉네임 UI/계정 응답 보호와 실제 화면 검증 범위 (MZ2AZ-431) |
 | [android-ios-sync-2026-10.md](android-ios-sync-2026-10.md) | 2026-10-13 iOS 기능 대조, Android 87개 회귀·실제 터치 사진 시험·원본 데이터 보존과 후속 계약 |
 | [community-guides-verification.md](community-guides-verification.md) | 옛 후기 원본 보존과 지역 가이드 20개·사진·코스의 API 및 iOS 검증 |
 | [ios-front-completion-verification.md](ios-front-completion-verification.md) | 2026-10-13 포스터·씬 확대·인기순·장바구니·닉네임·테마·방문 저장의 실제 화면·API·단위 검사와 남은 조건 |

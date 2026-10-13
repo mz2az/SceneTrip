@@ -249,7 +249,7 @@ struct HomeWorkShelf: View {
                     .fill(LinearGradient(colors: [Color(PinImage.deep).opacity(0.7), Color(PinImage.deep)],
                                          startPoint: .topLeading, endPoint: .bottomTrailing))
                 if let url = work.posterUrl.flatMap(URL.init(string:)) {
-                    RemoteImage(url: url.absoluteString, symbol: "film", fits: true)
+                    RemoteImage(url: url.absoluteString, symbol: "film")
                         .frame(width: 108, height: 144)
                         .clipped()
                 }

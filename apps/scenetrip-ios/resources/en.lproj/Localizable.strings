@@ -419,6 +419,8 @@
 "닉네임 바꾸기" = "Change nickname";
 "리뷰와 후기에 이 이름으로 보여요. 로그인 계정의 이름은 다른 사람에게 보이지 않습니다." = "Your reviews and posts show this name. The name on your sign-in account is never shown to others.";
 "닉네임" = "Nickname";
+"작성자 이름 미리보기" = "Author name preview";
+"입력 지우기" = "Clear input";
 "이 닉네임으로 시작" = "Use this nickname";
 "2자 이상으로 정해 주세요" = "Use at least 2 characters";
 "16자 이하로 정해 주세요" = "Use 16 characters or fewer";

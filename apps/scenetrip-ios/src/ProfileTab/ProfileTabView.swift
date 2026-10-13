@@ -268,7 +268,7 @@ struct ProfileTabView: View {
             .nicknameSheet()
             .sheet(isPresented: $editingNickname) {
                 NicknameView(mode: .edit) { editingNickname = false }
-                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
             }
             // 세션이 풀리면 바꾸기 시트를 내린다 — 그 밑에서는 로그인 화면이 못 뜬다.
             .onChange(of: auth.signedIn) { _, signedIn in
