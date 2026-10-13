@@ -1,7 +1,7 @@
 # AWS 관측 — DEV·PRD 에 SigNoz, 바깥 감시 알람 두 개, Cloudflare Access 로 UI
 
 - **상태**: 계획(2026-10-13, 권호)
-- **관련**: [prd-launch.md](prd-launch.md) §1 「모니터링·알람·비용 상한」 · [ADR 0004](../../architecture/adr/0004-opentelemetry-javaagent.md)(Java OTEL 에이전트) ·
+- **관련**: [ADR 0025](../../architecture/adr/0025-aws-observability-signoz-in-eks.md) · [prd-launch.md](prd-launch.md) §1 「모니터링·알람·비용 상한」 · [ADR 0004](../../architecture/adr/0004-opentelemetry-javaagent.md)(Java OTEL 에이전트) ·
   [aws-dev-prd.md](../../architecture/aws-dev-prd.md) §텔레메트리 · [dev-lifecycle.md](dev-lifecycle.md) · [aws-deployment.md](../../ops/aws-deployment.md)
 
 ## 1. 왜
