@@ -8,8 +8,10 @@ import com.mz2az.scenetrip.sceneapi.api.model.GuideChatRequest;
 import com.mz2az.scenetrip.sceneapi.api.model.GuideContext;
 import com.mz2az.scenetrip.sceneapi.api.model.GuideMessage;
 import com.mz2az.scenetrip.sceneapi.api.model.GuidePlan;
+import com.mz2az.scenetrip.sceneapi.api.model.GuidePlanDay;
 import com.mz2az.scenetrip.sceneapi.api.model.GuidePlanReply;
 import com.mz2az.scenetrip.sceneapi.api.model.GuidePlanRequest;
+import com.mz2az.scenetrip.sceneapi.api.model.GuidePlanStop;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.web.ApiException;
 import com.sun.net.httpserver.HttpServer;
@@ -27,6 +29,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 에이전트 클라이언트의 전송과 예외 번역. 에이전트 대신 JDK 내장 {@code HttpServer} 로 가짜를 띄우고 {@code base-url} 을 거기로 돌린다 —
@@ -409,5 +413,112 @@ class GuideAgentClientTest {
 
     assertUnavailable(() -> client().chat(chatRequest(), Lang.KO, USER_SUBJECT), "DeepSeek");
     assertThat(lastHeaders.get("X-Rate-Subject")).containsExactly(USER_SUBJECT);
+  }
+
+  // ───────────── 일정 줄의 신원 poiId · customPinId (1.15.0, MZ2AZ-424) ─────────────
+  //
+  // 일정의 한 줄은 촬영지(placeId)·편의시설(poiId)·직접 찍은 핀(customPinId) 셋 중 하나다. 에이전트가 받은 값을
+  // 그대로 돌려주고 scene-api 는 양쪽 방향 모두 손대지 않는다. placeId 만 있는 줄에 값을 지어내지도 않는다.
+
+  private static final long POI_ID = 433299L;
+  private static final long CUSTOM_PIN_ID = 7L;
+
+  private static final JsonMapper JSON = JsonMapper.builder().build();
+
+  /** 촬영지 줄 · 편의시설 줄 · 직접 찍은 핀 줄 셋이 든 하루 일정. */
+  private static GuidePlan mixedPlan() {
+    GuidePlanStop sight = new GuidePlanStop(1, "서울중앙고", 540);
+    sight.setPlaceId(1187L);
+    GuidePlanStop poi = new GuidePlanStop(2, "근처 카페", 600);
+    poi.setPoiId(POI_ID);
+    GuidePlanStop pin = new GuidePlanStop(3, "내가 찍은 곳", 660);
+    pin.setCustomPinId(CUSTOM_PIN_ID);
+    GuidePlan plan = new GuidePlan(List.of(new GuidePlanDay(1, List.of(sight, poi, pin))));
+    plan.setTitles(List.of("도깨비"));
+    return plan;
+  }
+
+  /** 계약 모양의 일정 JSON — 둘째 줄은 편의시설, 셋째 줄은 직접 찍은 핀, 첫째 줄은 촬영지(placeId 만). */
+  private static final String MIXED_PLAN_JSON =
+      """
+      {"titles": ["도깨비"], "pace": "relaxed", "travelBasis": "straight-line",
+       "days": [{"day": 1, "endMinute": 737, "totalMeters": 11878,
+                 "stops": [{"order": 1, "placeId": 1187, "name": "서울중앙고", "arriveMinute": 540},
+                           {"order": 2, "placeId": null, "poiId": 433299, "name": "근처 카페", "arriveMinute": 600},
+                           {"order": 3, "placeId": null, "customPinId": 7, "name": "내가 찍은 곳", "arriveMinute": 660}]}]}
+      """;
+
+  private static boolean absentOrNull(JsonNode node, String field) {
+    JsonNode v = node.get(field);
+    return v == null || v.isNull();
+  }
+
+  @Test
+  @DisplayName("앱 → 에이전트 — context.plan 줄의 poiId·customPinId 가 제 줄에 그대로 실려 /guide/chat 으로 간다")
+  void forwardsPlanStopIdentityToAgent() {
+    GuideChatRequest req = chatRequest();
+    req.getContext().setPlan(mixedPlan());
+
+    client().chat(req, Lang.KO, null);
+
+    assertThat(lastPath).isEqualTo("/guide/chat");
+    JsonNode stops = JSON.readTree(lastRequestBody).at("/context/plan/days/0/stops");
+    assertThat(stops.size()).isEqualTo(3);
+    assertThat(stops.get(1).get("poiId").asLong()).isEqualTo(POI_ID);
+    assertThat(absentOrNull(stops.get(1), "customPinId")).isTrue();
+    assertThat(stops.get(2).get("customPinId").asLong()).isEqualTo(CUSTOM_PIN_ID);
+    assertThat(absentOrNull(stops.get(2), "poiId")).isTrue();
+  }
+
+  @Test
+  @DisplayName("앱 → 에이전트 — placeId 만 있는 줄에는 poiId·customPinId 를 지어내지 않는다")
+  void doesNotInventIdentityOnPlaceOnlyStop() {
+    GuideChatRequest req = chatRequest();
+    req.getContext().setPlan(mixedPlan());
+
+    client().chat(req, Lang.KO, null);
+
+    JsonNode sight = JSON.readTree(lastRequestBody).at("/context/plan/days/0/stops/0");
+    assertThat(sight.get("placeId").asLong()).isEqualTo(1187L);
+    assertThat(absentOrNull(sight, "poiId")).isTrue();
+    assertThat(absentOrNull(sight, "customPinId")).isTrue();
+  }
+
+  @Test
+  @DisplayName("에이전트 → 앱 — /plan 응답의 일정 줄 poiId·customPinId 가 모델로 그대로 읽힌다, placeId 만 있는 줄은 비어 있다")
+  void readsPlanReplyStopIdentity() {
+    body =
+        "{\"plan\": "
+            + MIXED_PLAN_JSON
+            + ", \"effects\": [{\"op\": \"plan.draft\"}], \"ui\": [], \"tookSeconds\": 0.02}";
+
+    GuidePlanReply reply = client().plan(new GuidePlanRequest(List.of("도깨비"), 1), Lang.KO, null);
+
+    List<GuidePlanStop> stops = reply.getPlan().getDays().get(0).getStops();
+    assertThat(stops.get(0).getPlaceId()).isEqualTo(1187L);
+    assertThat(stops.get(0).getPoiId()).isNull();
+    assertThat(stops.get(0).getCustomPinId()).isNull();
+    assertThat(stops.get(1).getPoiId()).isEqualTo(POI_ID);
+    assertThat(stops.get(1).getCustomPinId()).isNull();
+    assertThat(stops.get(2).getCustomPinId()).isEqualTo(CUSTOM_PIN_ID);
+    assertThat(stops.get(2).getPoiId()).isNull();
+  }
+
+  @Test
+  @DisplayName("에이전트 → 앱 — 챗봇 응답 effects[].plan(plan.revise)의 poiId·customPinId 가 그대로 읽힌다")
+  void readsChatReplyEffectPlanStopIdentity() {
+    body =
+        "{\"reply\": \"1일차를 바꿨어요.\", \"effects\": [{\"op\": \"plan.revise\", \"day\": 1, \"plan\": "
+            + MIXED_PLAN_JSON
+            + "}], \"ui\": []}";
+
+    GuideChatReply reply = client().chat(chatRequest(), Lang.KO, null);
+
+    assertThat(reply.getEffects().get(0).getOp()).isEqualTo("plan.revise");
+    List<GuidePlanStop> stops = reply.getEffects().get(0).getPlan().getDays().get(0).getStops();
+    assertThat(stops.get(0).getPoiId()).isNull();
+    assertThat(stops.get(0).getCustomPinId()).isNull();
+    assertThat(stops.get(1).getPoiId()).isEqualTo(POI_ID);
+    assertThat(stops.get(2).getCustomPinId()).isEqualTo(CUSTOM_PIN_ID);
   }
 }

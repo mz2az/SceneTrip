@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.14.0
+  version: 1.15.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -5370,6 +5370,21 @@ components:
           description: |
             `PlaceSummary.id`. **없으면 `null` 이고 이름으로 대체하지 않는다** — 이름을 id 로
             알고 저장하면 동명 장소에 걸린다. `null` 이면 앱은 이 정지점을 저장하지 못한다.
+        poiId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            편의시설 줄일 때만 있다(1.15.0, MZ2AZ-424 · `CourseItem.poiId`). 일정의 한 줄은 촬영지(`placeId`)·
+            편의시설(`poiId`)·직접 찍은 핀(`customPinId`) 셋 중 하나다. 앱이 `context.plan` 에 보낸 값을 챗봇이
+            **그대로 돌려준다** — 챗봇이 새로 채우지 않는다(마법사 초안은 촬영지만 고른다). 빠지면 그 줄은 저장되지 않는다.
+        customPinId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            직접 찍은 핀 줄일 때만 있다(1.15.0, MZ2AZ-424 · `CourseItem.customPinId`). `poiId` 와 같은 규칙 — 받은 값을
+            그대로 돌려준다.
         name:
           type: string
         address:
