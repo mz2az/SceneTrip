@@ -30,4 +30,9 @@ final class NoPhotoStorage implements PhotoStorage {
   public void move(String fromKey, String toKey) {
     throw new IllegalStateException("사진 저장소가 설정되지 않았습니다");
   }
+
+  @Override
+  public void delete(String storageKey) {
+    throw new IllegalStateException("사진 저장소가 설정되지 않았는데 지울 사진이 있습니다: " + storageKey);
+  }
 }

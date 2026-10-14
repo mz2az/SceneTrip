@@ -31,6 +31,14 @@ public interface PhotoStorage {
   /** 옮긴다(복사 뒤 원본 삭제). 원본이 없으면 {@link MissingPhotoException}. */
   void move(String fromKey, String toKey);
 
+  /**
+   * 지운다(MZ2AZ-406). 없는 키여도 성공이다 — 같은 키를 두 번 지워도 된다.
+   *
+   * <p>저장소가 실패하면 <b>던진다</b>. {@link #move} 안의 원본 삭제와 달리 삼키지 않는다 — {@code uploads/tmp/} 는 수명 규칙이 하루
+   * 뒤 지워 주지만 {@code posts/} 에는 그런 규칙이 없어, 삼키면 파일이 영영 남는다. 부른 쪽이 그 키를 지울 목록에 남긴다.
+   */
+  void delete(String storageKey);
+
   /** 서명된 올릴 주소와, PUT 에 그대로 붙여야 하는 헤더. */
   record PresignedUpload(URI url, Map<String, String> requiredHeaders, Instant expiresAt) {}
 
