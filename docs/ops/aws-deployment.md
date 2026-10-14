@@ -415,6 +415,17 @@ ALB 이름이 그대로다. PRD 디스크는 지우지 않는다.
 - PRD 를 내리면 헬스 체크가 실패해 알람이 울린다 — 내릴 때는 이 스택도 함께 정리하거나 알람을 끈다.
 - 회사 조직 정책(SCP)이 Cost Explorer 를 막는다. Budgets·Route 53 헬스 체크·CloudWatch 알람은 된다(2026-10-13 생성 확인).
 
+## 17. 노드와 자원 — 한 대에 몰리지 않게
+
+EKS Auto Mode 는 파드가 적은 **최소 필요량(requests)** 을 보고 노드 수를 정한다. 실제보다 작게 적으면 한 대에 넘치게 싣는다.
+2026-10-14 PRD 는 앱 5 개와 SigNoz 전체가 `c5a.large` 한 대(메모리 약 3GB)에 있었고, 상한 합이 노드의 115% 였다 — 노드가 스왑
+(ZRAM)에 들어가 멈출 때마다 그 노드의 모든 파드가 상태 검사 시간 초과로 함께 재시작했고, API 가 15 분마다 502 를 냈다
+(바깥 감시 알람 25 번).
+
+- scene-api(JVM)는 최소 필요량을 상한과 같은 1Gi 로. SigNoz 부품도 공식 권장치에 가깝게(`platform/helm/signoz/values.yaml`).
+- 두 벌인 scene-api·gateway 는 가용 영역을 **반드시** 나눈다(`DoNotSchedule`) — 한 노드가 멈춰도 다른 영역의 것이 받는다.
+- 클러스터에 metrics-server 가 없어 실제 사용량은 아직 재지 못했다. 재시작 횟수(`kubectl get pods`)와 바깥 감시 알람으로 본다.
+
 ## 배포 기록
 
 환경·계정·commit·이미지 digest·workflow URL·Terraform 변경 요약·Flyway 버전·

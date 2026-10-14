@@ -56,6 +56,10 @@ from tools.aws.tests.test_gateway_limits import GatewayLimitsChartTest
 from tools.aws.tests.test_gateway_routes import GatewayContractRoutesTest
 from tools.aws.tests.test_lifecycle import CloudflareTest, LifecycleTest, SignozDnsTest
 from tools.aws.tests.test_media import MediaChartTest, MediaDeployValuesTest
+from tools.aws.tests.test_node_packing import (
+    SceneTripSpreadChartTest,
+    SignozResourcesChartTest,
+)
 from tools.aws.tests.test_ops import (
     DriftTest,
     PruneAfterDestroyTest,
@@ -140,6 +144,7 @@ __all__ = [
     "RetainedAuthSecretTest",
     "RunnerSelectionTest",
     "SceneApiAppleKeyTest",
+    "SceneTripSpreadChartTest",
     "SettingsTest",
     "SharedMediaFlowTest",
     "SharedMediaTemplateTest",
@@ -151,6 +156,7 @@ __all__ = [
     "SignozGatewayTeardownTest",
     "SignozIngressTest",
     "SignozPublishTest",
+    "SignozResourcesChartTest",
     "SignozRootPasswordTest",
     "SignozTeardownTest",
     "SignozTraceVerifyTest",
