@@ -1,7 +1,8 @@
 """PRD 가 노드 한 대에 몰리던 문제(2026-10-14)의 명세 검사.
 
 - scenetrip 차트: 두 벌(replicas 2)인 scene-api·gateway 는 가용 영역을 반드시 나누고(DoNotSchedule), 같은 영역 안에서는
-  노드를 되도록 나눈다(ScheduleAnyway). 한 벌이면 분산 조건이 없다.
+  노드를 되도록 나눈다(ScheduleAnyway). 두 조건 모두 matchLabelKeys [pod-template-hash] 로 같은 판(ReplicaSet)의
+  파드끼리만 센다 — 배포 중 남은 옛 판 파드 때문에 새 두 벌이 한 영역에 몰리지 않게. 한 벌이면 분산 조건이 없다.
 - scene-api 의 최소 필요량(requests)은 상한과 같은 1Gi 다. gateway·trip-guide 는 128Mi/512Mi 그대로다.
 - SigNoz 공식 차트(@signoz_chart)에 values.yaml 을 얹어 그린 결과에 부품별 requests·limits 가 실린다.
 
@@ -94,8 +95,20 @@ def container_resources(doc, container):
     raise AssertionError(f"컨테이너 {container} 에 resources 가 없습니다")
 
 
+def flow_or_scalar(value):
+    """「[a, b]」 꼴(흐름 목록)은 list 로, 나머지는 scalar 로."""
+    text = value.strip()
+    if text.startswith("[") and text.endswith("]"):
+        inner = text[1:-1].strip()
+        return [scalar(part) for part in inner.split(",")] if inner else []
+    return scalar(text)
+
+
 def spread_constraints(doc):
-    """Deployment 의 topologySpreadConstraints 를 항목별 dict 목록으로. 없으면 []."""
+    """Deployment 의 topologySpreadConstraints 를 항목별 dict 목록으로. 없으면 [].
+
+    목록 값(matchLabelKeys 등)은 흐름 꼴(「[a]」)이든 블록 꼴(「- a」 줄)이든 list 로 읽는다.
+    """
     lines = doc.splitlines()
     starts = [
         i
@@ -106,15 +119,25 @@ def spread_constraints(doc):
         return []
     if len(starts) != 1:
         raise AssertionError("topologySpreadConstraints 가 두 번 이상 나옵니다")
+    body = block(lines, starts[0])
+    item_indent = min(indent(line) for line in body)
     items = []
-    for line in block(lines, starts[0]):
+    pending = None  # 값 없이 끝난 키 — 아래에 블록 목록이 오면 그 키의 list 가 된다.
+    for line in body:
         text = line.strip()
-        if text.startswith("- "):
+        if indent(line) == item_indent and text.startswith("- "):
             items.append({})
+            pending = None
             text = text[2:]
+        elif text.startswith("- ") and pending is not None:
+            items[-1].setdefault(pending, []).append(scalar(text[2:]))
+            continue
         key, _, value = text.partition(":")
         if value.strip():
-            items[-1][key.strip()] = scalar(value)
+            items[-1][key.strip()] = flow_or_scalar(value)
+            pending = None
+        else:
+            pending = key.strip()
     return items
 
 
@@ -125,12 +148,14 @@ def expected_spread(app):
             "topologyKey": "topology.kubernetes.io/zone",
             "whenUnsatisfiable": "DoNotSchedule",
             "app": app,
+            "matchLabelKeys": ["pod-template-hash"],
         },
         {
             "maxSkew": "1",
             "topologyKey": "kubernetes.io/hostname",
             "whenUnsatisfiable": "ScheduleAnyway",
             "app": app,
+            "matchLabelKeys": ["pod-template-hash"],
         },
     ]
 
