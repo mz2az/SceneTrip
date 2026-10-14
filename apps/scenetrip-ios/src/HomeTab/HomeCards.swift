@@ -336,6 +336,8 @@ struct HomeTodayCard: View {
             }
         }
         .frame(height: 96)
+        // 잘린 원본 사진의 보이지 않는 영역이 위의 작품 목록 터치를 가로채지 않게 한다.
+        .contentShape(.rect)
     }
 
     /// 「장소명 — 장면 설명」. 장면 설명이 없으면 장소명만.
