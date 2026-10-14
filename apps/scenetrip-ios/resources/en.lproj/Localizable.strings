@@ -524,6 +524,8 @@
 
 /* 사진첩 (MZ2AZ-363) */
 "사진 %d / %d" = "Photo %d of %d";
+"이전 사진" = "Previous photo";
+"다음 사진" = "Next photo";
 "방문자 사진" = "Visitor photo";
 "방문자 사진|모음" = "Visitor photos";
 "방문자 사진 %d" = "Visitor photos (%d)";
