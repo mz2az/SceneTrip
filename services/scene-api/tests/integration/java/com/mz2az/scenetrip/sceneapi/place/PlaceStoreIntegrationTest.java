@@ -130,42 +130,207 @@ class PlaceStoreIntegrationTest {
   /**
    * 장면 스틸이 실제로 실려 오는가.
    *
-   * <p>{@code scene_image_url} 은 컬럼이 {@code place_content_i18n} 이 아니라 {@code place_content} 에 있다.
-   * 조인을 한 단계 잘못 걸어도 문법 오류가 나지 않고 전부 {@code null} 이 되므로 — 화면에서는 사진이 없는 것과 구분되지 않는다 — 값이 실제로 오는지를 여기서
-   * 본다.
+   * <p>스틸은 {@code place_content_image} 에 한 장이 한 줄로 있다(V33, MZ2AZ-429). 묶는 조건을 한 단계 잘못 걸어도 문법 오류가 나지
+   * 않고 전부 빈 배열이 되므로 — 화면에서는 사진이 없는 것과 구분되지 않는다 — 값이 실제로 오는지를 여기서 본다.
    *
    * <p><b>스틸을 테스트가 직접 심는다.</b> 시드에 스틸이 있기를 기대하면 시드가 바뀔 때 깨진다 — 성지후보 v3 에는 그 컬럼 자체가 없어 실제로 깨졌다(ADR
-   * 0007 도 스틸이 오래 비어 있을 것이라 한다). 검사하는 것은 조인이지 데이터가 아니므로, 아무 장면 하나에 값을 넣고 보고 되돌린다.
+   * 0007 도 스틸이 오래 비어 있을 것이라 한다). 검사하는 것은 질의지 데이터가 아니므로, 아무 장면 하나에 줄을 넣고 보고 트랜잭션째 되돌린다.
    */
   @Test
   @DisplayName("장면 스틸이 응답에 실린다")
   void scenesCarryStillImages() {
-    long placeContentId =
-        jdbc.sql("SELECT id FROM place_content ORDER BY id LIMIT 1").query(Long.class).single();
-    long placeId =
-        jdbc.sql("SELECT place_id FROM place_content WHERE id = :id")
-            .param("id", placeContentId)
-            .query(Long.class)
-            .single();
     String planted = "https://example.invalid/scene-still.jpg";
 
-    jdbc.sql("UPDATE place_content SET scene_image_url = :url WHERE id = :id")
-        .param("url", planted)
-        .param("id", placeContentId)
-        .update();
-    try {
-      List<Scene> scenes =
-          store.findDetail(placeId, Lang.KO, null, null).orElseThrow().place().getScenes();
+    IntegrationDatabase.rolledBack(
+        () -> {
+          SceneTarget t = sceneTarget();
+          clearStills(t);
+          still(t, planted, 10);
 
-      assertThat(scenes)
-          .as("심어 둔 장면 스틸이 실려 오지 않으면 조인이 끊긴 것이다")
-          // 생성된 모델은 이 필드를 URI 로 든다 — 문자열로 견준다.
-          .anyMatch(s -> planted.equals(String.valueOf(s.getSceneImageUrl())));
-    } finally {
-      jdbc.sql("UPDATE place_content SET scene_image_url = NULL WHERE id = :id")
-          .param("id", placeContentId)
-          .update();
-    }
+          List<Scene> scenes =
+              store.findDetail(t.placeId(), Lang.KO, null, null).orElseThrow().place().getScenes();
+
+          assertThat(scenes)
+              .as("심어 둔 장면 스틸이 실려 오지 않으면 질의가 끊긴 것이다")
+              // 생성된 모델은 이 필드를 URI 로 든다 — 문자열로 견준다.
+              .anyMatch(s -> planted.equals(String.valueOf(s.getSceneImageUrl())));
+          return null;
+        });
+  }
+
+  /**
+   * 한 성지에 장면 스틸이 여러 장이면 전부, 순서대로 실린다(MZ2AZ-429, 계약 1.14.0).
+   *
+   * <p>송광사 성지의 실제 모양 — 두 장. {@code sceneImageUrl} 은 그 첫 장이다.
+   */
+  @Test
+  @DisplayName("장면 스틸 여러 장이 sceneImageUrls 로 순서대로 실리고 sceneImageUrl 은 첫 장이다")
+  void scenesCarryMultipleStills() {
+    String one =
+        "https://scenetrip-media-prod.s3.ap-northeast-2.amazonaws.com/scene/mv705996/nv11664039_1.png";
+    String two =
+        "https://scenetrip-media-prod.s3.ap-northeast-2.amazonaws.com/scene/mv705996/nv11664039_2.png";
+
+    IntegrationDatabase.rolledBack(
+        () -> {
+          SceneTarget t = sceneTarget();
+          clearStills(t);
+          still(t, one, 10);
+          still(t, two, 20);
+
+          Scene scene = scene(t);
+
+          assertThat(scene.getSceneImageUrls())
+              .extracting(String::valueOf)
+              .as("두 장 모두, sort_order 순서대로")
+              .containsExactly(one, two);
+          assertThat(String.valueOf(scene.getSceneImageUrl()))
+              .as("sceneImageUrl 은 sceneImageUrls 의 첫 장")
+              .isEqualTo(one);
+          return null;
+        });
+  }
+
+  /**
+   * 보여 줄 순서는 넣은 순서가 아니라 {@code sort_order} 다. 같으면 먼저 넣은 줄(id)이 앞이다.
+   *
+   * <p>일부러 거꾸로 넣는다 — 넣은 순서대로 넣으면 정렬이 빠져도 대개 그 순서로 나와 테스트가 통과해 버린다.
+   */
+  @Test
+  @DisplayName("장면 스틸은 sort_order 순, 같으면 id 순이다 — 넣은 순서가 아니다")
+  void scenesStillsFollowSortOrder() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          SceneTarget t = sceneTarget();
+          clearStills(t);
+          still(t, "https://example.invalid/c.jpg", 30);
+          still(t, "https://example.invalid/a.jpg", 10);
+          still(t, "https://example.invalid/b1.jpg", 20);
+          still(t, "https://example.invalid/b2.jpg", 20);
+
+          Scene scene = scene(t);
+
+          assertThat(scene.getSceneImageUrls())
+              .extracting(String::valueOf)
+              .containsExactly(
+                  "https://example.invalid/a.jpg",
+                  "https://example.invalid/b1.jpg",
+                  "https://example.invalid/b2.jpg",
+                  "https://example.invalid/c.jpg");
+          assertThat(String.valueOf(scene.getSceneImageUrl()))
+              .as("첫 장은 sort_order 가 가장 작은 것")
+              .isEqualTo("https://example.invalid/a.jpg");
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("장면 스틸이 없으면 sceneImageUrls 는 빈 목록이고 sceneImageUrl 은 null")
+  void scenesWithoutStillsHaveEmptyList() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          SceneTarget t = sceneTarget();
+          clearStills(t);
+
+          Scene scene = scene(t);
+
+          assertThat(scene.getSceneImageUrls()).as("없으면 빈 배열 — null 이 아니다").isNotNull().isEmpty();
+          assertThat(scene.getSceneImageUrl()).isNull();
+          return null;
+        });
+  }
+
+  /** 주소로 읽히지 않는 줄은 그 장만 빠진다 — 상세 전체가 500 이 되지 않는다. 첫 줄이 깨졌으면 {@code sceneImageUrl} 은 살아남은 첫 장이다. */
+  @Test
+  @DisplayName("주소가 아닌 장면 스틸은 빠지고 sceneImageUrl 은 남은 첫 장이다")
+  void scenesDropInvalidStillUrls() {
+    String valid = "https://example.invalid/valid-still.jpg";
+
+    IntegrationDatabase.rolledBack(
+        () -> {
+          SceneTarget t = sceneTarget();
+          clearStills(t);
+          still(t, "https://example.invalid/has space.jpg", 10);
+          still(t, valid, 20);
+          still(t, "   ", 30);
+
+          Scene scene = scene(t);
+
+          assertThat(scene.getSceneImageUrls())
+              .extracting(String::valueOf)
+              .as("공백이 든 값·빈 값은 URI 가 아니다 — 버린다")
+              .containsExactly(valid);
+          assertThat(String.valueOf(scene.getSceneImageUrl())).isEqualTo(valid);
+          return null;
+        });
+  }
+
+  /**
+   * 옛 칸 {@code place_content.scene_image_url} 은 남아 있지만 더는 읽지 않는다(V33). 그 칸에 값이 있어도 표에 줄이 없으면 스틸은 없다
+   * — 옛 칸을 다시 읽기 시작하면 이어 붙인 문자열이 주소 하나로 나간다.
+   */
+  @Test
+  @DisplayName("옛 scene_image_url 칸은 읽지 않는다 — 표에 줄이 없으면 스틸도 없다")
+  void scenesIgnoreLegacyColumn() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          SceneTarget t = sceneTarget();
+          clearStills(t);
+          jdbc.sql("UPDATE place_content SET scene_image_url = :url WHERE id = :id")
+              .param(
+                  "url",
+                  "https://example.invalid/legacy-1.jpg;https://example.invalid/legacy-2.jpg")
+              .param("id", t.placeContentId())
+              .update();
+
+          Scene scene = scene(t);
+
+          assertThat(scene.getSceneImageUrls()).isEmpty();
+          assertThat(scene.getSceneImageUrl()).isNull();
+          return null;
+        });
+  }
+
+  /** 스틸을 심을 장면 하나 — 장소×작품 한 쌍. */
+  private record SceneTarget(long placeContentId, long placeId, long contentId) {}
+
+  private static SceneTarget sceneTarget() {
+    Map<String, Object> row =
+        jdbc.sql("SELECT id, place_id, content_id FROM place_content ORDER BY id LIMIT 1")
+            .query()
+            .singleRow();
+    return new SceneTarget(
+        ((Number) row.get("id")).longValue(),
+        ((Number) row.get("place_id")).longValue(),
+        ((Number) row.get("content_id")).longValue());
+  }
+
+  private static void clearStills(SceneTarget t) {
+    jdbc.sql("DELETE FROM place_content_image WHERE place_content_id = :id")
+        .param("id", t.placeContentId())
+        .update();
+  }
+
+  private static void still(SceneTarget t, String url, int sortOrder) {
+    jdbc.sql(
+            "INSERT INTO place_content_image (place_content_id, url, sort_order)"
+                + " VALUES (:id, :url, :sort)")
+        .param("id", t.placeContentId())
+        .param("url", url)
+        .param("sort", sortOrder)
+        .update();
+  }
+
+  private static Scene scene(SceneTarget t) {
+    return store
+        .findDetail(t.placeId(), Lang.KO, null, null)
+        .orElseThrow()
+        .place()
+        .getScenes()
+        .stream()
+        .filter(s -> s.getContentId() == t.contentId())
+        .findFirst()
+        .orElseThrow();
   }
 
   private int popularity(Scene scene) {

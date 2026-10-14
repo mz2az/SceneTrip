@@ -8,7 +8,7 @@ import XCTest
 /// 인기 200곳 밖 정지점의 작품 줄이 계속 비었다(화홍마트, id 49).
 final class PlaceWorksTests: XCTestCase {
     private func scene(_ id: Int64, _ title: String) -> SceneItem {
-        SceneItem(contentId: id, contentTitle: title)
+        SceneItem(contentId: id, contentTitle: title, sceneImageUrls: [])
     }
 
     /// 서버가 실제로 주는 꼴 — `contents` 는 비고 `scenes` 에 작품이 있다.

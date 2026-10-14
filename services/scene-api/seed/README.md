@@ -118,7 +118,7 @@ URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞�
 | `place_image_url` | `place_image` — 장소 사진. `;` 로 나눠 순서대로 `sort_order` 10, 20, 30… 을 매긴다. 316 행이 차 있고 비어 있는 228 행은 장소 썸네일이 NULL 이다 |
 | `scene_description` `last_updated` | `place_content` · `place_content_i18n(ko)` |
 | `scene_description_en` `_ja` `_zh_hant` | `place_content_i18n` — 채워진 언어만. 없으면 API 가 `ko` 로 폴백 |
-| `scene_image_url` | `place_content.scene_image_url` — 장면 스틸. (장소, 작품) 한 쌍에 한 장. 2026-10-10 판은 전부 비어 있다 |
+| `scene_image_url` | `place_content_image` — 장면 스틸. 보여 줄 순서대로 `;` 로 이은 주소들(MZ2AZ-429) → 한 장이 한 줄, `sort_order` 10·20·30(V33). 응답은 `scenes[].sceneImageUrls` |
 | `title_producer_url` | `content.producer_url` — 제작사(원저작권자) 작품 페이지. 포스터를 누르면 이리로(V31, 계약 1.12.0 `producerUrl`, MZ2AZ-393). 128 편 전부 있고 6 편이 `http://` |
 | `id` `title_tmdb_url` `source_url` `notes` | 안 넣는다 — `candidates.sql` 머리에 이유 |
 | `place_popularity_score` | `place_content.popularity_score` — 장소×작품 산정 점수. **작품 안에서만** 비교한다(작품 상세의 촬영지 순서, 촬영지 인기도 출발점의 재료). 작품끼리는 비교할 수 없다 — 2026-10-10 판에서 케데헌 촬영지만 40~66 이었다 |

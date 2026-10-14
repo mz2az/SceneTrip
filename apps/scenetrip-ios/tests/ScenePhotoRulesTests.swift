@@ -5,7 +5,8 @@ import XCTest
 final class ScenePhotoRulesTests: XCTestCase {
     func testOnlySceneImageAppearsEvenWhenPosterIsPresent() throws {
         let scene = SceneItem(contentId: 7, contentTitle: "작품", posterUrl: "https://example.com/poster.jpg",
-                              sceneImageUrl: "https://example.com/scene.jpg")
+                              sceneImageUrl: "https://example.com/scene.jpg",
+                              sceneImageUrls: ["https://example.com/scene.jpg"])
         let photo = ScenePhotoRules.photo(scene)
         XCTAssertEqual(photo?.url, "https://example.com/scene.jpg")
         XCTAssertFalse(photo?.isReview ?? true)
@@ -17,19 +18,21 @@ final class ScenePhotoRulesTests: XCTestCase {
                     "javascript:alert(1)", "https://user:pass@example.com/a.jpg"]
         {
             let scene = SceneItem(contentId: 7, contentTitle: "작품", posterUrl: "https://example.com/poster.jpg",
-                                  sceneImageUrl: raw)
+                                  sceneImageUrl: raw, sceneImageUrls: raw.map { [$0] } ?? [])
             XCTAssertNil(ScenePhotoRules.photo(scene), raw ?? "nil")
         }
     }
 
     func testDifferentSceneImagesOfSameWorkHaveDifferentCacheKeys() {
-        let one = SceneItem(contentId: 7, contentTitle: "작품", sceneImageUrl: "https://example.com/one.jpg")
-        let two = SceneItem(contentId: 7, contentTitle: "작품", sceneImageUrl: "https://example.com/two.jpg")
+        let one = SceneItem(contentId: 7, contentTitle: "작품", sceneImageUrl: "https://example.com/one.jpg",
+                            sceneImageUrls: ["https://example.com/one.jpg"])
+        let two = SceneItem(contentId: 7, contentTitle: "작품", sceneImageUrl: "https://example.com/two.jpg",
+                            sceneImageUrls: ["https://example.com/two.jpg"])
         XCTAssertNotEqual(ScenePhotoRules.photo(one)?.key, ScenePhotoRules.photo(two)?.key)
     }
 
     func testSceneDescriptionCanRemainWithoutPhoto() {
-        let scene = SceneItem(contentId: 7, contentTitle: "작품", sceneDescription: "이곳의 장면")
+        let scene = SceneItem(contentId: 7, contentTitle: "작품", sceneDescription: "이곳의 장면", sceneImageUrls: [])
         XCTAssertNil(ScenePhotoRules.photo(scene))
         XCTAssertEqual(scene.sceneDescription, "이곳의 장면")
     }

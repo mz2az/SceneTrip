@@ -540,7 +540,7 @@ WHERE btrim(u.alias) <> ''
 -- ── 6. 장소 × 작품 ───────────────────────────────────────────────────────────
 --
 -- 여기가 CSV 한 행에 해당한다. 같은 (장소, 작품) 이 두 번 나오면 하나로 접는다.
--- scene_image_url 은 (장소, 작품) 한 쌍에 한 장이라 여기 붙는다(V7).
+-- scene_image_url 은 보여 줄 순서대로 ';' 로 이은 장면 스틸 목록이다(MZ2AZ-429) — 아래에서 place_content_image 로 나눈다(V33).
 CREATE TEMP TABLE t_place_content ON COMMIT DROP AS
 SELECT
     nextval('place_content_id_seq') AS place_content_id,
@@ -560,13 +560,19 @@ FROM (
 JOIN t_place   p ON p.place_key   = s.place_key
 JOIN t_content c ON c.content_key = s.content_key;
 
-INSERT INTO place_content (id, place_id, content_id, scene_image_url, updated_at, popularity_score)
+INSERT INTO place_content (id, place_id, content_id, updated_at, popularity_score)
 SELECT
     place_content_id, place_id, content_id,
-    NULLIF(btrim(scene_image_url), ''),
     COALESCE(NULLIF(last_updated, '')::TIMESTAMPTZ, now()),
     NULLIF(btrim(place_popularity_score), '')::NUMERIC
 FROM t_place_content;
+
+-- 장면 스틸 — 한 장이 한 줄(V33). place_image 와 같이 목록 순서대로 sort_order 를 10, 20, 30… 으로. 비어 있으면 줄이 없다.
+INSERT INTO place_content_image (place_content_id, url, sort_order)
+SELECT pc.place_content_id, btrim(u.url), u.ord * 10
+FROM t_place_content pc
+CROSS JOIN unnest(string_to_array(pc.scene_image_url, ';')) WITH ORDINALITY AS u(url, ord)
+WHERE NULLIF(btrim(u.url), '') IS NOT NULL;
 
 INSERT INTO place_content_i18n (place_content_id, lang, relation_description)
 SELECT place_content_id, 'ko', scene_description
@@ -611,6 +617,7 @@ UNION ALL SELECT 'place',              count(*) FROM place
 UNION ALL SELECT 'place_i18n',         count(*) FROM place_i18n
 UNION ALL SELECT 'place_alias',        count(*) FROM place_alias
 UNION ALL SELECT 'place_image',        count(*) FROM place_image
+UNION ALL SELECT 'place_content_image', count(*) FROM place_content_image
 UNION ALL SELECT 'place_content',      count(*) FROM place_content
 UNION ALL SELECT 'place_content_i18n', count(*) FROM place_content_i18n
 UNION ALL SELECT 'search_term',        count(*) FROM search_term;

@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.13.0
+  version: 1.14.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -4076,7 +4076,7 @@ components:
 
     Scene:
       type: object
-      required: [contentId, contentTitle]
+      required: [contentId, contentTitle, sceneImageUrls]
       properties:
         contentId:
           type: integer
@@ -4115,6 +4115,18 @@ components:
             수집분에 없는 장면이 있어 `null` 이 올 수 있다. 그때는 자리를 비우고
             설명만 보여 준다 — 포스터로 대신 채우면 사용자가 그것을 장면 사진으로
             읽는다.
+
+            **1.14.0 부터 `sceneImageUrls` 의 첫 장과 같다** — 여러 장을 모르는 앱이 지금처럼 한 장을
+            그리도록 남긴다. 새 앱은 `sceneImageUrls` 를 쓴다.
+        sceneImageUrls:
+          type: array
+          description: |
+            그 장면의 스틸 전부, 보여 줄 순서대로(1.14.0, MZ2AZ-429). 한 성지(작품 × 장소)에 여러 장이 있을 수 있다.
+            없으면 빈 배열 — `null` 은 오지 않는다. 첫 장은 `sceneImageUrl` 과 같다. 포스터로 대신 채우지 않는다
+            (`sceneImageUrl` 과 같은 규칙).
+          items:
+            type: string
+            format: uri
 
     Cart:
       type: object
