@@ -141,6 +141,12 @@ scenetrip:
     public-port: ${SCENETRIP_MEDIA_PUBLIC_PORT:}
     access-key: ${SCENETRIP_MEDIA_ACCESS_KEY:}
     secret-key: ${SCENETRIP_MEDIA_SECRET_KEY:}
+    # 지운 글의 사진 파일 지우기(MZ2AZ-406, docs/project/plans/post-photo-deletion.md). 글을 지우면 키가
+    # storage_deletion 에 오르고, 이 작업이 1 분마다 한 대에서 저장소에서 지운다. cron 이어야 한다(고정 지연은 스케줄러
+    # 스레드를 붙잡는다 — 계획 §2).
+    deletion:
+      schedule-enabled: ${SCENETRIP_MEDIA_DELETION_SCHEDULE_ENABLED:true}
+      cron: "0 * * * * *"
   auth:
     # 가입 판정. **기본은 켬**이고 이 값은 어느 환경에서도 여기서 바꾸지 않는다.
     #

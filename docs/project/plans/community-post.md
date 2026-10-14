@@ -68,6 +68,8 @@ prd 는 prd bootstrap 때. 로컬(MinIO)은 상관없다.
 
 글 고치기, 좋아요·댓글, 신고 화면, 마켓 API 지우기.
 
+글을 지울 때 사진 파일을 저장소에서 지우는 것은 [post-photo-deletion.md](./post-photo-deletion.md)(MZ2AZ-406)가 더했다.
+
 ## 7. iOS 연동 (MZ2AZ-396)
 
 목록·내 글·상세는 생성된 `PostsAPI`로 다시 받는다. 제목·본문·작성자·사진 주소는 메모리에만 둔다.
