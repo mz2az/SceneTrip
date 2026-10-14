@@ -5165,7 +5165,7 @@ components:
       type: object
       description: |
         에이전트가 백엔드에 내리는 **상태 변경 명령 하나.** 정본은
-        `contracts/schemas/guide/effects.schema.json` (에이전트 `schemas/effects.json` 과 같다).
+        `contracts/schemas/guide/effects.schema.json` — 에이전트 시험이 실제 effects 를 이것으로 검사한다.
 
         `op` 는 문자열이다 — enum 으로 못 박으면 에이전트가 명령을 하나 늘릴 때 옛 앱이
         응답 전체를 못 읽는다. 대신 **백엔드는 아는 `op` 만 수행하고, 앱은 모르는 `op` 를
@@ -5287,7 +5287,7 @@ components:
         챗봇(`plan_course`)이나 마법사(`POST /guide/plan`)가 짠 **일정 초안.** 앱이 그리는
         데이터이지 모델이 읽는 글이 아니다 — 에이전트는 같은 일정을 두 벌로 내보내고, 모델에게
         가는 한글 사전에는 좌표·`placeId` 가 없다. 모델은 이 모양을 보지 않는다.
-        정본: `contracts/schemas/guide/effects.schema.json` (에이전트 `schemas/effects.json`).
+        정본: `contracts/schemas/guide/effects.schema.json`.
 
         **저장된 코스(`CourseDay`)와 다른 모양이고 일부러 합치지 않았다.** 초안에는 도착 시각과
         「넣지 못한 곳」이 있고 DB id(`CourseItem.id`)가 없다. 저장된 코스는 도착 시각을 주지

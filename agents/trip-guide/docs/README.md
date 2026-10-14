@@ -138,7 +138,7 @@ def _refuse(reason):
 | `poi_nearby` | 「근처 카페」 — **편의시설**. 촬영지와 다른 표 |
 
 도구가 부수효과를 낼 때는 **화면 지시도 함께 내보낸다** — 챗봇은 시트 안에 있고
-지도·코스는 바깥에 있기 때문이다. 계약은 `schemas/effects.json`,
+지도·코스는 바깥에 있기 때문이다. 계약은 `contracts/schemas/guide/effects.schema.json`,
 설계는 [design/backend-agent-contract.md](design/backend-agent-contract.md) §5.
 
 계약은 `schemas/tools.json` **한 벌뿐**이다 — 모델에게 내미는 것과 돌아온 인자를 검증하는

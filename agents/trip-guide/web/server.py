@@ -413,7 +413,7 @@ class Handler(BaseHTTPRequestHandler):
                     "route": None,
                     "tookSeconds": round(time.monotonic() - started, 1),
                     # 계약 밖의 확장 둘. 백엔드가 effects 를 갈라 처리하고 ui 는
-                    # 통과시킨다 — schemas/effects.json.
+                    # 통과시킨다 — contracts/schemas/guide/effects.schema.json.
                     "effects": turn.effects,
                     "ui": turn.ui,
                 }
@@ -482,7 +482,7 @@ class Handler(BaseHTTPRequestHandler):
                         for p in fresh
                         if p.has_coords()
                     ],
-                    # 채팅창 바깥을 바꾸라는 지시. 계약은 schemas/effects.json.
+                    # 채팅창 바깥을 바꾸라는 지시. 계약은 contracts/schemas/guide/effects.schema.json.
                     # 정식 구조에서는 백엔드가 effects 를 DB 에 반영한 뒤 ui 만
                     # 앱에 넘긴다 — 여기서는 붙일 백엔드가 없어 둘 다 그대로 보낸다.
                     "effects": turn.effects,

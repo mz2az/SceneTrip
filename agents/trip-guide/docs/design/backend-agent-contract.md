@@ -142,7 +142,7 @@ sequenceDiagram
 앱이 정한다. 좌표나 화면 전환 절차를 에이전트가 정하면 iOS 와 Android 가 갈리고, 앱을
 고칠 때마다 에이전트를 같이 고쳐야 한다.
 
-계약은 [`schemas/effects.json`](../../schemas/effects.json) 한 벌뿐이다.
+계약은 [`contracts/schemas/guide/effects.schema.json`](../../../../contracts/schemas/guide/effects.schema.json) 한 벌뿐이다(에이전트 쪽 사본은 2026-10-14 지웠다 — 시험이 실제 effects 를 이것으로 검사한다).
 
 ### 지시 목록 (구현 완료)
 

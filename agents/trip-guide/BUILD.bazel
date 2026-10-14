@@ -32,17 +32,18 @@ RESOURCES = [
     "prompts/plan_llm.txt",
     "prompts/plan_narrate.txt",
     "prompts/system.txt",
-    "schemas/effects.json",
     "schemas/tools.json",
     "web/index.html",
 ]
 
 TESTS = [
     "tests/__init__.py",
+    "tests/contract_schema.py",
     "tests/fixtures.py",
     "tests/run.py",
     "tests/test_chunked_body.py",
     "tests/test_contract_120.py",
+    "tests/test_effects_contract.py",
     "tests/test_llm_planner.py",
     "tests/test_model_client.py",
     "tests/test_plan_shape.py",
@@ -120,6 +121,8 @@ py_binary(
 py_test(
     name = "unit_test",
     srcs = TESTS,
+    # effects 의 정본 — 시험이 에이전트가 실제로 내보낸 effects 를 이 스키마로 검사한다(계약이 한 벌, 어기면 실패).
+    data = ["//contracts/schemas:guide/effects.schema.json"],
     legacy_create_init = 0,
     main = "tests/run.py",
     tags = ["unit"],

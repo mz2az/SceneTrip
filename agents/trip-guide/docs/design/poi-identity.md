@@ -53,7 +53,7 @@
 
 | 어디 | 무엇 |
 | --- | --- |
-| `schemas/effects.json` (에이전트 쪽 사본) | `poiId`·`customPinId` (int64, nullable) |
+| `schemas/effects.json` (에이전트 쪽 사본 — 2026-10-14 지웠다, 정본은 `contracts/schemas/guide/effects.schema.json`) | `poiId`·`customPinId` (int64, nullable) |
 | `src/places.py` `Place` | `poi_id`·`custom_pin_id` |
 | `src/planner.py` `plan_from_api` | 받은 정체를 그대로 든다. `placeId` 없는 줄에 이름으로 찾은 id 를 넣지 않는다. 촬영지 자료(장면·등급)는 `placeId` 가 있고 그 id 가 같을 때만 붙인다 |
 | `src/planner.py` `plan_to_api` | 두 칸을 그대로 내보낸다(촬영지 줄은 null) |

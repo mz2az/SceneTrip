@@ -106,7 +106,7 @@ class Session:
     말로 답해서 끝날 일이 아니라 **바깥이 바뀌어야** 끝나는 일이다. 그런데 에이전트는
     DB 를 만지지 않으므로(CLAUDE.md §5), 무엇을 바꿔야 하는지를 여기에 적어 올려 보낸다.
 
-    계약은 `schemas/effects.json` 한 벌뿐이다.
+    계약은 `contracts/schemas/guide/effects.schema.json` 한 벌뿐이다.
     """
 
     ui: list[dict] = field(default_factory=list)
