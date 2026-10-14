@@ -10,7 +10,7 @@ final class PoiClustersTests: XCTestCase {
 
     func testSameCoordinatesRemainIndividuallySelectableAtMaximumZoom() {
         let places = [place("c"), place("a"), place("b")]
-        let groups = PoiClusters.make(places, zoom: 21)
+        let groups = PoiClusters.make(places, zoom: 13)
         XCTAssertEqual(groups.count, 1)
         XCTAssertEqual(groups[0].places.map(\.id), ["a", "b", "c"])
         XCTAssertTrue(groups[0].opensList(zoom: 21, maximumZoom: 21))
@@ -65,6 +65,42 @@ final class PoiClustersTests: XCTestCase {
             let members = PoiClusters.make(places, zoom: zoom).flatMap(\.places)
             XCTAssertEqual(members.count, places.count)
             XCTAssertEqual(Set(members.map(\.id)), ids)
+        }
+    }
+
+    func testDetailZoomExpandsTwelveCoincidentPlacesWithoutChangingCoordinates() {
+        let places = (0 ..< 12).map { place(String($0)) }
+        let groups = PoiClusters.make(places, zoom: 18)
+        XCTAssertEqual(groups.count, 12)
+        XCTAssertTrue(groups.allSatisfy { $0.places.count == 1 })
+        XCTAssertEqual(Set(groups.flatMap(\.places).map(\.id)), Set(places.map(\.id)))
+        XCTAssertTrue(groups.allSatisfy { $0.latitude == 37.5663 && $0.longitude == 126.98 })
+        XCTAssertEqual(PoiClusters.make(places, zoom: 17.99).count, 1)
+        XCTAssertEqual(PoiClusters.make(places, zoom: 21).count, 12)
+    }
+
+    func testExpandedOffsetsAreDistinctAndCenteredForTwelvePlaces() {
+        let offsets = (0 ..< 12).map { PoiClusters.displayOffset(index: $0, count: 12) }
+        for first in offsets.indices {
+            for second in offsets.indices where second > first {
+                XCTAssertGreaterThanOrEqual(hypot(offsets[first].x - offsets[second].x,
+                                                  offsets[first].y - offsets[second].y), 44)
+            }
+        }
+        XCTAssertEqual(offsets.map(\.x).reduce(0, +), 0, accuracy: 0.001)
+        XCTAssertEqual(offsets.map(\.y).reduce(0, +), 0, accuracy: 0.001)
+        XCTAssertEqual(PoiClusters.displayOffset(index: 0, count: 1), .zero)
+    }
+
+    func testExpandedPinsStayAboveTheCourseSheet() {
+        let bounds = CGRect(x: 24, y: 24, width: 350, height: 250)
+        let offsets = (0 ..< 30).map { PoiClusters.displayOffset(index: $0, count: 30) }
+        let center = PoiClusters.displayCenter(CGPoint(x: 340, y: 260), offsets: offsets, within: bounds)
+        for offset in offsets {
+            XCTAssertGreaterThanOrEqual(center.x + offset.x, bounds.minX)
+            XCTAssertLessThanOrEqual(center.x + offset.x, bounds.maxX)
+            XCTAssertGreaterThanOrEqual(center.y + offset.y, bounds.minY)
+            XCTAssertLessThanOrEqual(center.y + offset.y, bounds.maxY)
         }
     }
 

@@ -4,6 +4,8 @@ import Foundation
 enum PoiClusters {
     enum Tuning {
         static let radius = 64.0
+        static let detailZoom = 18.0
+        static let pinSpacing = 44.0
         static let tileSize = 256.0
         static let maximumZoom = 21.0
         static let maximumLatitude = 85.05112878
@@ -47,7 +49,7 @@ enum PoiClusters {
     }
 
     static func make(
-        _ places: [RouteGuide.Place], zoom: Double, pickedId: String? = nil
+        _ places: [RouteGuide.Place], zoom: Double, pickedId: String? = nil, expandDetails: Bool = true
     ) -> [Cluster] {
         guard zoom.isFinite else { return [] }
         var groups: [[RouteGuide.Place]] = []
@@ -70,7 +72,33 @@ enum PoiClusters {
                 }
             }
         }
+        if expandDetails, zoom >= Tuning.detailZoom {
+            return groups.flatMap { $0.map { Cluster(places: [$0]) } }
+        }
         return groups.map { Cluster(places: $0) }
+    }
+
+    /// 같은 화면 위치의 핀들을 벌린다. 실제 장소 좌표를 변경하지 않는 표시 전용 값이다.
+    static func displayOffset(index: Int, count: Int) -> CGPoint {
+        guard count > 1 else { return .zero }
+        let columns = Int(ceil(sqrt(Double(count))))
+        let row = index / columns
+        let column = index % columns
+        let rowCount = min(columns, count - row * columns)
+        // 마지막 줄이 짧아도 각 줄을 가운데 맞춘다.
+        let meanRow = (0 ..< count).reduce(0.0) { $0 + Double($1 / columns) } / Double(count)
+        return CGPoint(x: (Double(column) - Double(rowCount - 1) / 2) * Tuning.pinSpacing,
+                       y: (Double(row) - meanRow) * Tuning.pinSpacing)
+    }
+
+    /// 아래 일정 시트나 화면 가장자리 뒤에 펼친 핀이 숨지 않도록 표시 중심을 옮긴다.
+    static func displayCenter(_ origin: CGPoint, offsets: [CGPoint], within bounds: CGRect) -> CGPoint {
+        let left = bounds.minX - (offsets.map(\.x).min() ?? 0)
+        let right = bounds.maxX - (offsets.map(\.x).max() ?? 0)
+        let top = bounds.minY - (offsets.map(\.y).min() ?? 0)
+        let bottom = bounds.maxY - (offsets.map(\.y).max() ?? 0)
+        return CGPoint(x: left <= right ? min(max(origin.x, left), right) : bounds.midX,
+                       y: top <= bottom ? min(max(origin.y, top), bottom) : bounds.midY)
     }
 
     private static func project(_ place: RouteGuide.Place, width: Double) -> Point? {

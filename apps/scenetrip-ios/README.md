@@ -597,3 +597,5 @@ Xcode에서 같은 환경을 쓰려면 gitignore 대상인 `.bazelrc.user`에
 
 배포용 실기기 패키지는 `just ios-package`를 사용한다. 시뮬레이터 실행과 구분하며
 [서명·iPad 검증·TestFlight 준비 절차](deploy/README.md#배포용-패키지-mz2az-440)를 따른다.
+
+POI 클러스터(MZ2AZ-403)는 줌 18부터 개별 핀을 보여 줍니다. 같은 지점에 겹친 핀은 표시만 벌리고 실제 위치와 선으로 연결합니다. 카드 조회·코스 저장에는 원래 좌표와 ID를 사용합니다.
