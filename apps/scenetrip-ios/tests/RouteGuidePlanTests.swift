@@ -4,6 +4,94 @@ import XCTest
 
 /// 계약의 일정 초안(`GuidePlan`)과 화면 코스(`RouteCourse`) 사이 (MZ2AZ-321).
 final class RouteGuidePlanTests: XCTestCase {
+    func testPoiAndPinGuideResponsesRemainSavable() throws {
+        let json = """
+        {"days":[{"day":1,"stops":[
+          {"order":1,"name":"카페","poiId":9002,"latitude":37.5,"longitude":127,"arriveMinute":660},
+          {"order":2,"name":"숙소","customPinId":7,"latitude":37.6,"longitude":127,"arriveMinute":720}
+        ]}]}
+        """
+        let plan = try JSONDecoder().decode(GuidePlan.self, from: Data(json.utf8))
+        let course = RouteGuidePlan.course(from: plan, title: "t", startDate: nil, pace: .loose)
+        XCTAssertEqual(course.days[0].stops.map(\.placeMissing), [false, false])
+        let items = RouteBridge.replace(from: course).days[0].items
+        XCTAssertEqual(items.count, 2)
+        XCTAssertEqual(items.first?.poiId, 9002)
+        XCTAssertEqual(items.last?.customPin?.name, "숙소")
+        let back = RouteGuidePlan.plan(from: course).days[0].stops
+        XCTAssertEqual(back.first?.poiId, 9002)
+        XCTAssertEqual(back.last?.customPinId, 7)
+    }
+
+    func testSavedMixedCourseReorderAndDeleteKeepDistinctIdentities() throws {
+        let originals: [CourseItem] = [
+            CourseItem(id: 21, source: .place, placeId: 7, name: "같은 이름",
+                       latitude: 37.5, longitude: 127, dwellMinutes: 45),
+            CourseItem(id: 22, source: .poi, poiId: 7, name: "같은 이름",
+                       latitude: 37.5, longitude: 127, dwellMinutes: 60),
+            CourseItem(id: 23, source: .custompin, customPinId: 7, name: "같은 이름", category: "lodging",
+                       latitude: 37.5, longitude: 127, dwellMinutes: 90, visitedAt: Date()),
+        ]
+        let original = RouteCourse(serverId: 9, title: "수원", days: [RouteDay(stops: originals.map(RouteBridge.stop))])
+        var plan = RouteGuidePlan.plan(from: original)
+        let encoded = try JSONEncoder().encode(plan)
+        let decoded = try JSONDecoder().decode(GuidePlan.self, from: encoded)
+        XCTAssertEqual(decoded.days[0].stops.map(\.customPinId), [nil, nil, 7])
+        XCTAssertEqual(decoded.days[0].stops.map(\.poiId), [nil, 7, nil])
+        let pin = plan.days[0].stops[2]
+        let poi = plan.days[0].stops[1]
+        plan.days = [GuidePlanDay(day: 1, stops: [pin]), GuidePlanDay(day: 2, stops: [poi])]
+        let revised = RouteGuidePlan.revising(original, with: plan)
+        let items = RouteBridge.replace(from: revised).days.flatMap(\.items)
+        XCTAssertEqual(items.map(\.id), [23, 22])
+        XCTAssertEqual(items.map(\.placeId), [nil, nil])
+        XCTAssertEqual(items.map(\.poiId), [nil, 7])
+        XCTAssertEqual(items[0].customPin?.category, .lodging)
+        XCTAssertEqual(items.map(\.dwellMinutes), [90, 60])
+        XCTAssertTrue(revised.days[0].stops[0].visited)
+        XCTAssertEqual(revised.serverId, 9)
+        XCTAssertEqual(RouteGuidePlan.plan(from: revised).days[0].stops[0].customPinId, 7)
+    }
+
+    func testConflictingOrInvalidIdsStayUnsavable() {
+        var conflicting = stop(1, "충돌")
+        conflicting.poiId = 12
+        var zero = stop(2, "0", placeId: nil)
+        zero.customPinId = 0
+        let invalid = [conflicting, zero, stop(3, "음수", placeId: -1), stop(4, "없음", placeId: nil)]
+        let plan = GuidePlan(days: [GuidePlanDay(day: 1, stops: invalid)])
+        let course = RouteGuidePlan.course(from: plan, title: "t", startDate: nil, pace: .loose)
+        XCTAssertTrue(course.days[0].stops.allSatisfy(\.placeMissing))
+        XCTAssertTrue(RouteBridge.replace(from: course).days[0].items.isEmpty)
+    }
+
+    func testDuplicateIdentityDoesNotReuseOneServerItemTwice() {
+        var originalStop = RouteStop.poi(7, name: "카페", category: nil, address: nil, latitude: 37.5, longitude: 127)
+        originalStop.serverItemId = 22
+        let original = RouteCourse(title: "t", days: [RouteDay(stops: [originalStop])])
+        var plan = RouteGuidePlan.plan(from: original)
+        plan.days[0].stops.append(plan.days[0].stops[0])
+        let revised = RouteGuidePlan.revising(original, with: plan)
+        XCTAssertEqual(revised.days[0].stops.map(\.serverItemId), [nil, nil])
+        XCTAssertEqual(RouteBridge.replace(from: revised).days[0].items.map(\.poiId), [7, 7])
+    }
+
+    func testEachChatPlanEffectDecodesPoiAndPinIdentities() throws {
+        for op in ["plan.draft", "plan.revise", "plan.move"] {
+            let json = """
+            {"op":"\(op)","plan":{"days":[{"day":1,"stops":[
+              {"order":1,"name":"핀","customPinId":8,"latitude":37.5,"longitude":127,"arriveMinute":600},
+              {"order":2,"name":"식당","poiId":8,"latitude":37.5,"longitude":127,"arriveMinute":660}
+            ]}]}}
+            """
+            let effect = try JSONDecoder().decode(GuideEffect.self, from: Data(json.utf8))
+            let plan = try XCTUnwrap(effect.plan)
+            let course = RouteGuidePlan.revising(RouteCourse(title: "t", days: []), with: plan)
+            XCTAssertEqual(course.days[0].stops.map(\.kind), [.pin, .poi(8)])
+            XCTAssertEqual(RouteBridge.replace(from: course).days[0].items.count, 2)
+        }
+    }
+
     private func stop(
         _ order: Int, _ name: String, placeId: Int64? = 100, arrive: Int = 540, dwell: Int = 45
     ) -> GuidePlanStop {

@@ -124,13 +124,7 @@ extension RouteEditorView {
     }
 
     private func replaceDraft(with plan: GuidePlan) {
-        var next = RouteGuidePlan.course(
-            from: plan, title: course.title, startDate: course.startDate, pace: course.pace
-        )
-        // 서버 id 와 여행 상태는 사본의 것이다 — 초안은 내용만 바꾼다.
-        next.serverId = course.serverId
-        next.isRunning = course.isRunning
-        course = next
+        course = RouteGuidePlan.revising(course, with: plan)
         dayIndex = min(dayIndex, max(course.days.count - 1, 0))
         focusedStop = nil
         fitToken += 1
