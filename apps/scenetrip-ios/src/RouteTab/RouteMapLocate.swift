@@ -56,6 +56,7 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
         // 끌어당기면 점이 튄다(`tripHere`, 2026-09-03).
         guard tripHere == nil else { return }
         here = NMGLatLng(lat: spot.coordinate.latitude, lng: spot.coordinate.longitude)
+        onLocation?(TripSpot(latitude: spot.coordinate.latitude, longitude: spot.coordinate.longitude))
         guard showingMe, let mapView = mapForLocate else { return }
 
         showPulse(on: mapView)

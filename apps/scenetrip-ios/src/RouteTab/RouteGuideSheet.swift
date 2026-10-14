@@ -26,6 +26,11 @@ struct RouteGuideSheet: View {
 
     /// 어디를 기준으로 「주변」인가.
     let here: CLLocationCoordinate2D?
+    var anchorDescription = tr("지도에 표시된 내 위치 주변을 찾아 드립니다.")
+    var onChangeAnchor: (() -> Void)?
+    var anchorActionTitle = ""
+    var cartPlaces: [String] = []
+    var onOpenCart: (() -> Void)?
 
     /// 코스에 담긴 지점. 모델이 「2번 주변」을 알아듣는 재료다.
     var context: RouteGuide.Context?
@@ -55,27 +60,11 @@ struct RouteGuideSheet: View {
     /// 이 창의 이름표 — 대화 객체가 「떠 있는 창」 을 세는 데 쓴다(`RouteGuideSession.setAttended`).
     @State private var panelId = UUID()
 
-    /// **되는 것만 보여 준다.** 앞서 한식집·카페·편의점 세 줄을 두었는데 셋 다
-    /// 제대로 동작하지 않았다(2026-08-27 사용자 확인) — 안 되는 예시는 첫인상에서
-    /// 신뢰를 깎는다. poi_nearby 가 확실히 답하는 질문 하나만 남긴다.
-    private static let examples = [
-        "주변 음식점 알려줘",
-    ]
-
     var body: some View {
         VStack(spacing: 0) {
             header
-            if here == nil {
-                // 「주변」이 어디인지 모르면 물어볼 수가 없다.
-                ContentUnavailableView(
-                    "현재 위치를 알 수 없습니다",
-                    systemImage: "location.slash",
-                    description: Text("위치 권한을 켜면 주변 장소를 찾아 드립니다")
-                )
-            } else {
-                conversation
-                composer
-            }
+            conversation
+            composer
         }
         // 창이 떠 있는 동안만 다시 보내기·되묻기를 기다린다 — 닫거나 화면을 떠나면 끊는다(MZ2AZ-366).
         // 편집 화면과 길찾기 화면이 같은 창을 쓰므로 창 자신이 알린다.
@@ -162,27 +151,14 @@ struct RouteGuideSheet: View {
     }
 
     private var starters: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("무엇을 도와드릴까요?")
-                .font(.subheadline.weight(.semibold))
-            Text("지금 있는 자리를 기준으로 주변을 찾아 드립니다.")
-                .font(.caption).foregroundStyle(.secondary)
-
-            ForEach(Self.examples, id: \.self) { example in
-                Button {
-                    draft = tr(example)
-                    send()
-                } label: {
-                    Text(tr(example))
-                        .font(.caption)
-                        .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(Capsule().fill(Color(.systemGray6)))
-                }
-                .buttonStyle(.plain)
-                // 한도가 풀리기를 기다리는 동안에는 보낼 수 없다 — 눌러도 입력창을 채우지 않고, 흐리게 보인다.
-                .disabled(session.isLimited)
-                .opacity(session.isLimited ? 0.4 : 1)
-            }
+        RouteGuideStart(
+            hasLocation: here != nil,
+            anchorActionTitle: anchorActionTitle, onChangeAnchor: onChangeAnchor,
+            cartPlaces: cartPlaces, onOpenCart: onOpenCart,
+            canAsk: here != nil && !session.isLimited && !session.asking
+        ) { question in
+            draft = question
+            send()
         }
     }
 
@@ -359,6 +335,9 @@ struct RouteGuideSheet: View {
 
     private var composer: some View {
         VStack(spacing: 0) {
+            Text(here == nil ? tr("지도의 위치를 확인하고 있어요. 질문을 미리 적어 두세요.") : anchorDescription)
+                .font(.caption2).foregroundStyle(.secondary)
+                .padding(.horizontal, 16).padding(.top, 6)
             remainingLine
             composerRow
         }
@@ -390,7 +369,7 @@ struct RouteGuideSheet: View {
 
     /// 글은 칠 수 있다 — 한도가 풀리기를 기다리는 동안에도. 보내기만 잠근다.
     private var canSend: Bool {
-        !draft.trimmingCharacters(in: .whitespaces).isEmpty && !session.asking && !session.isLimited
+        here != nil && !draft.trimmingCharacters(in: .whitespaces).isEmpty && !session.asking && !session.isLimited
     }
 
     private func send() {

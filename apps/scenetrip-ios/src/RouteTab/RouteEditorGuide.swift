@@ -9,6 +9,39 @@ import SwiftUI
 /// 다 찍혔는데 「방문 여부는 알려지지 않았어요」라고 답했다(2026-09-05 사용자 지적).
 /// 질문마다 답을 적는 대신 **상태의 항목을 넓힌다.**
 extension RouteEditorView {
+    /// 지도의 파란 점과 같은 좌표를 쓰며, GPS가 없으면 보이는 지도 중심을 쓴다.
+    var guideAnchor: RouteGuideAnchor? {
+        RouteGuideAnchor.resolve(
+            current: mapHere, mapCenter: guideMapCenter, preferMap: guideUsesMapCenter
+        )
+    }
+
+    var guidePanelContent: some View {
+        let anchor = guideAnchor
+        let changeAnchor: (() -> Void)? = guideMapCenter != nil && mapHere != nil
+            ? { guideUsesMapCenter.toggle() } : nil
+        return RouteGuideSheet(
+            session: guide,
+            here: anchor?.coordinate,
+            anchorDescription: anchor?.isMapCenter == true
+                ? tr("현재 지도 중심 주변을 찾아 드립니다.")
+                : tr("지도에 표시된 내 위치 주변을 찾아 드립니다."),
+            onChangeAnchor: changeAnchor,
+            anchorActionTitle: anchor?.isMapCenter == true ? tr("내 위치 주변") : tr("지도 중심 주변"),
+            cartPlaces: cart.items.map(\.name),
+            onOpenCart: {
+                showGuide = false
+                showCart = true
+            },
+            context: guideContext,
+            onAdd: addGuidePlace,
+            isAdded: isAdded,
+            onRemove: removeGuidePlace,
+            onOpenPlanner: leaveForPlanner,
+            onClose: { showGuide = false }
+        )
+    }
+
     // MARK: 요청에 싣는 것
 
     /// 가이드에게 줄 화면 상태 — **지금 일차의 번호 핀 그대로.**

@@ -85,6 +85,7 @@ extension RouteEditorView {
         south: Double, west: Double, north: Double, east: Double,
         centerLat: Double, centerLng: Double, zoom: Double
     ) {
+        guideMapCenter = TripSpot(latitude: centerLat, longitude: centerLng)
         ambientTask?.cancel()
         guard zoom >= 13 else {
             ambientPois = []

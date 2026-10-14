@@ -43,6 +43,9 @@
 	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<!-- 시스템 설정과 관계없이 밝은 화면을 유지한다 (MZ2AZ-419). -->
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<!-- 위치 권한 문구. iOS 는 이것이 없으면 권한을 **묻지도 않고** 바로 거부한다.

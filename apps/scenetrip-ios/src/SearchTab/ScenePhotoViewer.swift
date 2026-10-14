@@ -24,7 +24,7 @@ struct ScenePhotoViewer: View {
         .background(Color.black.ignoresSafeArea())
         .safeAreaInset(edge: .top) { header }
         .safeAreaInset(edge: .bottom) { controls }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
     }
 
     private var header: some View {
