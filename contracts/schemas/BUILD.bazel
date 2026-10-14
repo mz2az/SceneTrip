@@ -1,0 +1,10 @@
+# 모듈 사이를 오가는 도구 입출력 JSON 스키마(AGENTS.md·CLAUDE.md §6). 정본은 여기 한 벌 — 에이전트·서버의 시험이 이 파일로
+# 실제 입출력을 검사한다(예: trip-guide 의 effects).
+package(default_visibility = ["//visibility:public"])
+
+exports_files(glob(["guide/**/*.json"]))
+
+filegroup(
+    name = "guide",
+    srcs = glob(["guide/**/*.json"]),
+)

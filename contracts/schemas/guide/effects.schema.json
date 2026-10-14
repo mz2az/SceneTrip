@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mz2az.com/schemas/guide/effects.schema.json",
   "title": "에이전트가 한 턴에 내보내는 부수효과와 화면 지시",
-  "description": "**정본은 이 파일이다.** 에이전트(agents/trip-guide/schemas/effects.json)와 scene-api 가 같은 것을 본다. OpenAPI 의 GuideEffect·GuideUiDirective·GuidePlan 과 같은 모양.\n\n챗봇은 떠 있는 시트 안에 있고, 지도와 코스 편집기는 그 바깥에 있다. 「2일차에서 빼 줘」 는 말로 답해서 끝날 일이 아니라 **바깥 화면이 바뀌어야** 끝나는 일이다. 그런데 에이전트는 화면도 DB 도 만지지 않는다 — 그래서 「무엇을 바꿔야 하는가」 를 이 두 목록으로 내보내고, 상태 변경은 백엔드가, 화면 변경은 앱이 수행한다.\n\n둘을 나눈 이유: effects 는 되돌릴 수 없는 기록이라 권한·검증·트랜잭션이 필요하고, ui 는 그냥 화면이라 실패해도 데이터가 상하지 않는다. 백엔드는 effects 를 적용한 뒤 ui 를 그대로 통과시킨다.",
+  "description": "**정본은 이 파일이다** — 사본이 없다(에이전트 쪽 사본은 2026-10-14 에 지웠다). 에이전트 시험이 실제로 내보낸 effects 를 이것으로 검사하고, scene-api 는 같은 모양의 OpenAPI 로 받는다. OpenAPI 의 GuideEffect·GuideUiDirective·GuidePlan 과 같은 모양.\n\n챗봇은 떠 있는 시트 안에 있고, 지도와 코스 편집기는 그 바깥에 있다. 「2일차에서 빼 줘」 는 말로 답해서 끝날 일이 아니라 **바깥 화면이 바뀌어야** 끝나는 일이다. 그런데 에이전트는 화면도 DB 도 만지지 않는다 — 그래서 「무엇을 바꿔야 하는가」 를 이 두 목록으로 내보내고, 상태 변경은 백엔드가, 화면 변경은 앱이 수행한다.\n\n둘을 나눈 이유: effects 는 되돌릴 수 없는 기록이라 권한·검증·트랜잭션이 필요하고, ui 는 그냥 화면이라 실패해도 데이터가 상하지 않는다. 백엔드는 effects 를 적용한 뒤 ui 를 그대로 통과시킨다.",
   "type": "object",
   "properties": {
     "effects": {

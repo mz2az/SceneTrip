@@ -206,7 +206,7 @@ for d in answer.ui {
 1. **챗봇 창구를 열어 달라** — 앱의 말을 받아 에이전트에 넘기고 `effects` 를 적용하는 자리
 2. **`effects` 를 DB 에 반영** — 쓰기 API 는 이미 다 있으니 연결만
 3. **`PlaceSummary` 에 언급량·선별등급**을 실을 수 있는지 (§3-2)
-5. 계약을 `contracts/schemas/` 에 확정 — 지금 초안은 `agents/trip-guide/schemas/effects.json`
+5. ~~계약을 `contracts/schemas/` 에 확정~~ — 했다. 정본 `contracts/schemas/guide/effects.schema.json`, 에이전트 쪽 초안은 2026-10-14 지웠다
 
 ### 정승길 (프론트)
 

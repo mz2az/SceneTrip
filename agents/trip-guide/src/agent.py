@@ -115,7 +115,7 @@ class Turn:
     reply: str
     tool_runs: list[ToolRun] = field(default_factory=list)
     effects: list[dict[str, Any]] = field(default_factory=list)
-    """백엔드가 저장해야 할 것. 계약은 `schemas/effects.json`."""
+    """백엔드가 저장해야 할 것. 계약은 `contracts/schemas/guide/effects.schema.json`."""
 
     ui: list[dict[str, Any]] = field(default_factory=list)
     """앱이 화면에서 해야 할 것. 백엔드는 통과만 시킨다."""

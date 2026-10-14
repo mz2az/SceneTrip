@@ -45,7 +45,7 @@
 
 ### 모양
 
-`schemas/effects.json` 의 `$defs/guidePlan` 이 정본이다. 요지만 —
+`contracts/schemas/guide/effects.schema.json` 의 `$defs/guidePlan` 이 정본이다. 요지만 —
 
 ```json
 {
@@ -163,7 +163,7 @@ scene-api(kind 클러스터)와 DeepSeek 을 붙이고 `POST /guide/chat` 으로
 | `src/session.py` | `Session.adopt_plan(context)` |
 | `src/tools.py` | `effects` 에 실리는 일정 셋(`plan.draft`·`revise`·`move`)을 `plan_to_api` 로. **모델에게 가는 것은 그대로** |
 | `web/server.py` | `/guide/chat` 이 `adopt_plan` 을 부른다. `/plan` 응답도 앱용 모양 |
-| `schemas/effects.json` | `$defs/guidePlan` 정의 |
+| `contracts/schemas/guide/effects.schema.json` | `$defs/guidePlan` 정의 |
 | `tests/test_plan_shape.py` | 시험 12 종 (아래) |
 
 모델이 좌표를 보지 않는다는 원칙은 그대로다. 구조화된 모양은 도구 결과가 아니라
