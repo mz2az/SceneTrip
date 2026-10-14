@@ -163,8 +163,8 @@ class PlacesControllerTest {
             .type("한옥마을")
             .scenes(
                 List.of(
-                    new Scene(2L, "도깨비").sceneDescription("시간이 멈춘 장면…"),
-                    new Scene(4L, "케이팝 데몬 헌터스")));
+                    new Scene(2L, "도깨비", List.of()).sceneDescription("시간이 멈춘 장면…"),
+                    new Scene(4L, "케이팝 데몬 헌터스", List.of())));
     when(store.findDetail(eq(2L), any(), any(), any()))
         .thenReturn(Optional.of(new PlaceStore.Detail(detail, Lang.EN)));
 
@@ -274,10 +274,11 @@ class PlacesControllerTest {
             .contents(List.of(refWith(), refWithout()))
             .scenes(
                 List.of(
-                    new Scene(1L, "있음")
+                    new Scene(1L, "있음", List.of())
                         .posterUrl(URI.create("https://img.example/p1.jpg"))
                         .producerUrl(URI.create("http://producer.example/works/1")),
-                    new Scene(2L, "없음").posterUrl(URI.create("https://img.example/p2.jpg"))));
+                    new Scene(2L, "없음", List.of())
+                        .posterUrl(URI.create("https://img.example/p2.jpg"))));
     when(store.findDetail(eq(2L), any(), any(), any()))
         .thenReturn(Optional.of(new PlaceStore.Detail(detail, Lang.KO)));
 
@@ -288,5 +289,39 @@ class PlacesControllerTest {
         .andExpect(jsonPath("$.scenes[0].producerUrl").value("http://producer.example/works/1"))
         .andExpect(jsonPath("$.scenes[1].posterUrl").value("https://img.example/p2.jpg"))
         .andExpect(jsonPath("$.scenes[1].producerUrl").doesNotExist());
+  }
+
+  // ───────────── sceneImageUrls (MZ2AZ-429, 계약 1.14.0) ─────────────
+
+  @Test
+  @DisplayName(
+      "장면 스틸 여러 장 — sceneImageUrls 는 순서대로 배열, sceneImageUrl 은 그 첫 장. 없으면 [] 이고 sceneImageUrl 은 빠진다")
+  void detailScenesCarryAllStillsInOrder() throws Exception {
+    URI first =
+        URI.create(
+            "https://scenetrip-media-prod.s3.ap-northeast-2.amazonaws.com/scene/mv705996/nv11664039_1.png");
+    URI second =
+        URI.create(
+            "https://scenetrip-media-prod.s3.ap-northeast-2.amazonaws.com/scene/mv705996/nv11664039_2.png");
+    PlaceDetail detail =
+        new PlaceDetail(2L, "송광사", 35.0, 127.2)
+            .scenes(
+                List.of(
+                    new Scene(1L, "두 장", List.of(first, second)).sceneImageUrl(first),
+                    new Scene(2L, "없음", List.of())));
+    when(store.findDetail(eq(2L), any(), any(), any()))
+        .thenReturn(Optional.of(new PlaceStore.Detail(detail, Lang.KO)));
+
+    mvc.perform(get("/places/2"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.scenes[0].sceneImageUrls").isArray())
+        .andExpect(jsonPath("$.scenes[0].sceneImageUrls.length()").value(2))
+        .andExpect(jsonPath("$.scenes[0].sceneImageUrls[0]").value(first.toString()))
+        .andExpect(jsonPath("$.scenes[0].sceneImageUrls[1]").value(second.toString()))
+        .andExpect(jsonPath("$.scenes[0].sceneImageUrl").value(first.toString()))
+        // 필수 칸이다 — 빈 배열도 빠지지 않고 [] 로 나가야 한다(null 은 오지 않는다).
+        .andExpect(jsonPath("$.scenes[1].sceneImageUrls").isArray())
+        .andExpect(jsonPath("$.scenes[1].sceneImageUrls.length()").value(0))
+        .andExpect(jsonPath("$.scenes[1].sceneImageUrl").doesNotExist());
   }
 }

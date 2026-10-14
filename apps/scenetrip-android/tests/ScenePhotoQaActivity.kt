@@ -15,17 +15,19 @@ class ScenePhotoQaActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val kind = intent.getStringExtra("photoCase") ?: "ok"
+        val sceneImageUrl =
+            when (kind) {
+                "missing" -> null
+                "failure" -> URI("http://10.0.2.2:8898/broken.png")
+                else -> URI("http://10.0.2.2:8898/photo.png")
+            }
         val scene =
             Scene(
                 contentId = 1,
                 contentTitle = "Scene photo QA",
                 posterUrl = URI("http://10.0.2.2:8898/photo.png"),
-                sceneImageUrl =
-                    when (kind) {
-                        "missing" -> null
-                        "failure" -> URI("http://10.0.2.2:8898/broken.png")
-                        else -> URI("http://10.0.2.2:8898/photo.png")
-                    },
+                sceneImageUrl = sceneImageUrl,
+                sceneImageUrls = listOfNotNull(sceneImageUrl),
             )
         setContent {
             if (ScenePhotoRules.photo(scene) == null) {

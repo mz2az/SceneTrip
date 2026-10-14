@@ -59,7 +59,9 @@ class VisualParityRulesTests {
         val b = ContentRef(contentId = 3, title = "B")
         assertEquals(listOf(a, b), PlaceWorks.refs(null, listOf(a, a, b)))
         assertEquals(emptyList<ContentRef>(), PlaceWorks.refs(null, null))
-        assertEquals(listOf(b, a), PlaceWorks.refs(listOf(Scene(3, "B"), Scene(2, "A"), Scene(3, "B")), listOf(a)))
+        val sceneB = Scene(3, "B", emptyList())
+        val sceneA = Scene(2, "A", emptyList())
+        assertEquals(listOf(b, a), PlaceWorks.refs(listOf(sceneB, sceneA, sceneB), listOf(a)))
     }
 
     @Test

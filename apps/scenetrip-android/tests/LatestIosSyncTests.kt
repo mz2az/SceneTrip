@@ -87,6 +87,7 @@ class LatestIosSyncTests {
             com.mz2az.scenetrip.sceneapi.client.model.Scene(
                 1,
                 "Scene",
+                sceneImageUrls = emptyList(),
                 posterUrl = java.net.URI("https://producer.example/poster"),
             )
         assertEquals(
@@ -97,7 +98,12 @@ class LatestIosSyncTests {
         assertEquals(
             "https://producer.example/scene",
             com.mz2az.scenetrip.searchtab.ScenePhotoRules
-                .photo(scene.copy(sceneImageUrl = java.net.URI("https://producer.example/scene"))),
+                .photo(
+                    scene.copy(
+                        sceneImageUrl = java.net.URI("https://producer.example/scene"),
+                        sceneImageUrls = listOf(java.net.URI("https://producer.example/scene")),
+                    ),
+                ),
         )
         val rules = com.mz2az.scenetrip.searchtab.ScenePhotoRules
         assertEquals(1f, rules.scale(Float.NaN))

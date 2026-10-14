@@ -6,9 +6,11 @@ import com.mz2az.scenetrip.sceneapi.api.model.PlaceDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.Scene;
 import java.net.URI;
+import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -337,8 +339,12 @@ public class PlaceStore {
           WHERE pci.lang IN (:lang, 'en', 'ko')
           ORDER BY pci.place_content_id, (pci.lang = :lang) DESC, (pci.lang = 'en') DESC
       )
-      SELECT c.id AS content_id, d.title, c.poster_url, c.producer_url, pc.scene_image_url,
-             s.relation_description
+      SELECT c.id AS content_id, d.title, c.poster_url, c.producer_url,
+             s.relation_description,
+             -- 장면 스틸 — 한 장이 한 줄(V33, MZ2AZ-429). 보여 줄 순서대로 묶는다. 없으면 빈 배열.
+             ARRAY(SELECT pci.url FROM place_content_image pci
+                   WHERE pci.place_content_id = pc.id
+                   ORDER BY pci.sort_order, pci.id) AS scene_image_urls
       FROM place_content pc
       JOIN content c ON c.id = pc.content_id
       JOIN display d ON d.content_id = c.id
@@ -385,12 +391,14 @@ public class PlaceStore {
             .param("id", placeId)
             .param("lang", lang.getValue())
             .query(
-                (rs, rowNum) ->
-                    new Scene(rs.getLong("content_id"), rs.getString("title"))
-                        .posterUrl(uri(rs.getString("poster_url")))
-                        .producerUrl(uri(rs.getString("producer_url")))
-                        .sceneDescription(rs.getString("relation_description"))
-                        .sceneImageUrl(uri(rs.getString("scene_image_url"))))
+                (rs, rowNum) -> {
+                  List<URI> stills = sceneImages(rs.getArray("scene_image_urls"));
+                  return new Scene(rs.getLong("content_id"), rs.getString("title"), stills)
+                      .posterUrl(uri(rs.getString("poster_url")))
+                      .producerUrl(uri(rs.getString("producer_url")))
+                      .sceneDescription(rs.getString("relation_description"))
+                      .sceneImageUrl(stills.isEmpty() ? null : stills.get(0));
+                })
             .list());
 
     return Optional.of(new Detail(detail, row.shownLang()));
@@ -506,6 +514,17 @@ public class PlaceStore {
             .imageUrl(uri(rs.getString("image_url")))
             .distanceMeters(integerOrNull(rs, "distance_meters"));
     return new Row(summary, rs.getInt("total_count"), Lang.fromValue(rs.getString("shown_lang")));
+  }
+
+  /** 장면 스틸 배열(SQL {@code ARRAY(...)}) — 주소가 아닌 값은 버린다. */
+  static List<URI> sceneImages(Array value) throws SQLException {
+    if (value == null) {
+      return List.of();
+    }
+    return Arrays.stream((String[]) value.getArray())
+        .map(PlaceStore::uri)
+        .filter(Objects::nonNull)
+        .toList();
   }
 
   /** 수집한 URL 이 URI 로 파싱되지 않으면 그 필드만 비운다. 목록 전체를 500 으로 만들지 않는다. */

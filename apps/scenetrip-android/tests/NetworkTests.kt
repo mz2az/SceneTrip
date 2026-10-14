@@ -30,7 +30,8 @@ class NetworkTests {
             "photos":[{"url":"https://images.example.test/35.jpg","source":"official"}],
             "rating":{"count":0,"distribution":[0,0,0,0,0]},
             "scenes":[{"contentId":5,"contentTitle":"응답하라 1988",
-                "sceneImageUrl":"01_Raw/김태환/4주차_촬영지수집/이미지/kt_039_인천잉글랜드왕돈까스.png"}]
+                "sceneImageUrl":"01_Raw/김태환/4주차_촬영지수집/이미지/kt_039_인천잉글랜드왕돈까스.png",
+                "sceneImageUrls":["01_Raw/김태환/4주차_촬영지수집/이미지/kt_039_인천잉글랜드왕돈까스.png"]}]
         }"""
         val client =
             OkHttpClient
