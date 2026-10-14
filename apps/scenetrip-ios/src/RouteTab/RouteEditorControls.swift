@@ -27,6 +27,9 @@ extension RouteEditorView {
             guideCameraKey: guide.places.map(\.id).joined(separator: ",") + "|\(guide.picked?.id ?? "-")",
             ambientPlaces: visibleAmbientPois,
             onViewport: viewportChanged,
+            onLocation: { spot in
+                guideLocator.inject(latitude: spot.latitude, longitude: spot.longitude)
+            },
             onTapGuide: {
                 guide.picked = $0
                 pickedStop = nil // 카드는 한 장만

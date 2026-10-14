@@ -53,6 +53,45 @@ final class GuideChatRequestBuildTests: XCTestCase {
         XCTAssertNotNil(sent["context"])
     }
 
+    func testEmptyCourseUsesTheLocationShownOnTheMap() throws {
+        let anchor = try XCTUnwrap(RouteGuideAnchor.resolve(
+            current: TripSpot(latitude: 37.5, longitude: 127.0), mapCenter: nil, preferMap: false
+        ))
+        let request = RouteGuide.request(
+            history: [.init(role: .user, text: "주변 촬영지 알려줘")],
+            here: anchor.coordinate, sessionId: UUID(), context: .init(stops: [], picked: nil)
+        )
+        let turn = PendingTurn(key: UUID(), request: request, lang: .ko, keyed: true)
+        let sent = try json(urlRequest(for: turn))
+        XCTAssertEqual(sent["latitude"] as? Double, 37.5)
+        XCTAssertEqual(sent["longitude"] as? Double, 127.0)
+        let context = try XCTUnwrap(sent["context"] as? [String: Any])
+        XCTAssertEqual((context["stops"] as? [Any])?.count, 0)
+        XCTAssertFalse(anchor.isMapCenter)
+    }
+
+    func testMissingGPSFallsBackToTheVisibleMap() throws {
+        let center = TripSpot(latitude: 35.16, longitude: 129.16)
+        let anchor = try XCTUnwrap(RouteGuideAnchor.resolve(current: nil, mapCenter: center, preferMap: false))
+        XCTAssertEqual(anchor.spot, center)
+        XCTAssertTrue(anchor.isMapCenter)
+    }
+
+    func testExplicitMapChoiceWinsOverGPS() {
+        let here = TripSpot(latitude: 37.5, longitude: 127.0)
+        let center = TripSpot(latitude: 35.16, longitude: 129.16)
+        XCTAssertEqual(RouteGuideAnchor.resolve(current: here, mapCenter: center, preferMap: true)?.spot, center)
+        XCTAssertEqual(RouteGuideAnchor.resolve(current: here, mapCenter: center, preferMap: false)?.spot, here)
+    }
+
+    func testNoValidLocationDoesNotInventAnAnchor() {
+        XCTAssertNil(RouteGuideAnchor.resolve(current: nil, mapCenter: nil, preferMap: false))
+        XCTAssertNil(RouteGuideAnchor.resolve(
+            current: TripSpot(latitude: .nan, longitude: 127),
+            mapCenter: TripSpot(latitude: 91, longitude: 0), preferMap: false
+        ))
+    }
+
     /// 생성 클라이언트가 이 턴으로 만드는 요청. 빌더가 쓸 세션만 가짜로 바꿔, 나가려던 `URLRequest` 를 받는다.
     private func urlRequest(for turn: PendingTurn) throws -> URLRequest {
         let factory = SceneApiClientAPI.requestBuilderFactory

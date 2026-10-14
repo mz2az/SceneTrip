@@ -627,3 +627,27 @@
 "내 리뷰 고치기·지우기" = "Edit or delete my review";
 "Apple에 잠시 닿지 않아요. 잠시 뒤 다시 해 주세요" = "Apple is unavailable right now. Please try again shortly.";
 "저장 중인 내용이 있어요. 잠시 뒤 다시 로그인해 주세요" = "Your changes are still saving. Please try signing in again shortly.";
+
+"현재 지도 중심 주변을 찾아 드립니다." = "I'll find places around the map center.";
+
+"지도에 표시된 내 위치 주변을 찾아 드립니다." = "I'll find places around your location on the map.";
+
+"내 위치 주변" = "Around my location";
+
+"지도 중심 주변" = "Around the map center";
+
+"지도의 위치를 확인하고 있어요. 질문을 미리 적어 두세요." = "Finding the map location. You can type your question now.";
+
+"장소를 코스에 담기 전에도 주변을 찾아볼 수 있어요." = "Explore nearby places before adding stops to your course.";
+
+"주변 촬영지 알려줘" = "Find nearby filming locations";
+
+"주변 카페 알려줘" = "Find nearby cafes";
+
+"주변 명소 알려줘" = "Find nearby landmarks";
+
+"추천 장소를 확인하고 원하는 곳을 코스에 담아 보세요." = "Review the suggestions and add the places you like to your course.";
+
+"장바구니에 담긴 장소가 없어요." = "Your cart has no places yet.";
+
+"장바구니 장소 보기" = "View places in my cart";

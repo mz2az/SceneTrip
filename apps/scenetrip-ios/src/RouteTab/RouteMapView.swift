@@ -88,6 +88,7 @@ struct RouteMapView: UIViewRepresentable {
 
     /// 카메라가 멈췄다. (남, 서, 북, 동, 가운데위도, 가운데경도, 줌).
     var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
+    var onLocation: ((TripSpot) -> Void)?
 
     /// 가이드 핀을 눌렀다. 정보 카드를 띄우는 쪽이 받는다.
     var onTapGuide: (RouteGuide.Place) -> Void = { _ in }
@@ -158,6 +159,7 @@ struct RouteMapView: UIViewRepresentable {
         context.coordinator.onTapGuide = onTapGuide
         context.coordinator.onTapPreview = onTapPreview
         context.coordinator.onViewport = onViewport
+        context.coordinator.onLocation = onLocation
         context.coordinator.onTapStop = onTapStop
         context.coordinator.renderAmbient(ambientPlaces, picked: pickedGuide, on: view.mapView)
         context.coordinator.pinning = pinning
@@ -231,6 +233,7 @@ struct RouteMapView: UIViewRepresentable {
         var onTapGuide: (RouteGuide.Place) -> Void = { _ in }
         var onTapPreview: (PlaceSummary) -> Void = { _ in }
         var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
+        var onLocation: ((TripSpot) -> Void)?
         /// 주변 편의시설 마커. 챗봇 결과와 살림을 따로 낸다 — 갱신 주기가 다르다.
         let ambientRenderer = PoiClusterRenderer()
         private var lastInset: CGFloat = 0
