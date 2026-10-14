@@ -727,7 +727,8 @@ http_file(
 # --- SigNoz on EKS (ADR 0025, docs/project/plans/observability-aws.md) ---------------------------------------
 # 공식 차트를 버전·sha256 으로 고정한다. 차트가 띄우는 공개 이미지는 digest 로 고정해 받아 환경 ECR 로 복사한다
 # (platform/helm/signoz:*_push, 배포기 tools/aws/aws.py mirror_signoz). 태그는 tools/aws/config.py SIGNOZ_MIRROR 와 같다.
-# 전부 배포기만 쓴다 — 평소 빌드(`just check`)는 받지 않는다(push 대상이 manual).
+# 이미지는 배포기만 쓴다 — 평소 빌드(`just check`)는 받지 않는다(push 대상이 manual). 차트 tgz(작다)는 배포기 시험이
+# 실제로 렌더링해 자원·저장소 값을 확인하느라 `just check` 도 받는다(2026-10-14).
 http_file(
     name = "signoz_chart",
     downloaded_file_path = "signoz-0.145.0.tgz",

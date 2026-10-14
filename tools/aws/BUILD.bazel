@@ -95,6 +95,7 @@ py_test(
         "tests/test_gateway_routes.py",
         "tests/test_lifecycle.py",
         "tests/test_media.py",
+        "tests/test_node_packing.py",
         "tests/test_ops.py",
         "tests/test_prd_protection.py",
         "tests/test_public_ingress.py",
@@ -111,7 +112,10 @@ py_test(
         "//platform/helm/signoz:values",
         "//platform/terraform:sources",
         "//services/scene-api:seed/remote-load.sh",
+        # SigNoz 공식 차트에 values.yaml 을 얹어 그려 자원 설정을 검사한다(test_node_packing.py).
+        "@signoz_chart//file",
     ],
+    env = {"SIGNOZ_CHART_RUNFILE": "$(rlocationpath @signoz_chart//file)"},
     main = "tests/test_aws.py",
     tags = ["unit"],
     deps = [

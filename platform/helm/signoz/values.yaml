@@ -5,5 +5,26 @@
 global:
   # 배포기가 만드는 EKS Auto Mode 용 gp3 StorageClass. 차트의 installCustomStorageClass 는 옛 gp2·in-tree 라 끈다.
   storageClass: signoz-gp3
+
+# 자원 — 차트 기본 「최소 필요량(requests)」 은 실제 사용량보다 훨씬 작다(ClickHouse 200Mi). 그대로 두면 클러스터가 앱과
+# SigNoz 를 노드 한 대(c5a.large)에 몰아 넣고, 실제 사용량이 노드를 넘어 스왑(ZRAM)에 들어가 노드가 멈춘다 — 그 노드의
+# 모든 파드가 상태 검사 시간 초과로 함께 재시작돼 PRD API 가 15 분마다 502 를 냈다(2026-10-14). 실제에 가깝게 적어
+# Auto Mode 가 노드를 더 띄우게 하고, 상한을 걸어 한 부품이 노드를 다 먹지 못하게 한다. 클러스터에 metrics-server 가
+# 없어 공식 권장치를 기준으로 잡았다 — 실측 뒤 조정.
 clickhouse:
   installCustomStorageClass: false
+  resources:
+    requests: { cpu: 250m, memory: 1536Mi }
+    limits: { memory: 3Gi }
+  zookeeper:
+    resources:
+      requests: { cpu: 100m, memory: 512Mi }
+      limits: { memory: 1Gi }
+signoz:
+  resources:
+    requests: { cpu: 100m, memory: 512Mi }
+    limits: { memory: 1Gi }
+otelCollector:
+  resources:
+    requests: { cpu: 100m, memory: 512Mi }
+    limits: { memory: 1Gi }

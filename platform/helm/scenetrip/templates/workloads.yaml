@@ -33,9 +33,18 @@ spec:
       nodeSelector:
         kubernetes.io/arch: amd64
       {{- if ge (int $config.replicas) 2 }}
+      # 두 벌을 둔 이유는 한 대가 죽어도 남는 것이다 — 가용 영역을 **반드시** 나눈다(DoNotSchedule). 「되면」(ScheduleAnyway)
+      # 이던 때는 클러스터가 전부를 노드 한 대에 넣었고, 그 노드가 멈추자 두 벌이 함께 죽어 PRD 가 15 분마다 502 를 냈다
+      # (2026-10-14). Auto Mode 가 다른 영역에 노드를 띄운다. 같은 영역 안에서는 노드도 되도록 나눈다.
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: {{ $name }}
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
@@ -94,9 +103,10 @@ spec:
               port: http
             periodSeconds: 10
           resources:
+            # scene-api(JVM)는 상한(1Gi) 가까이 쓴다 — 최소 필요량을 상한과 같게 적어야 클러스터가 노드에 넘치게 싣지 않는다.
             requests:
               cpu: {{ ternary "250m" "100m" (eq $name "scene-api") }}
-              memory: {{ ternary "512Mi" "128Mi" (eq $name "scene-api") }}
+              memory: {{ ternary "1Gi" "128Mi" (eq $name "scene-api") }}
             limits:
               memory: {{ ternary "1Gi" "512Mi" (eq $name "scene-api") }}
           securityContext:
