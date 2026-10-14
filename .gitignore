@@ -104,3 +104,7 @@ apps/navi_proto/
 
 # 메타 SDK 클라이언트 설정은 환경에서 공급한다 (MZ2AZ-391).
 apps/scenetrip-ios/resources/MetaService-Info.local.plist
+
+# iOS 배포 프로파일·패키지 잠금은 로컬에만 둔다.
+*.mobileprovision
+apps/scenetrip-ios/deploy/.package-lock/
