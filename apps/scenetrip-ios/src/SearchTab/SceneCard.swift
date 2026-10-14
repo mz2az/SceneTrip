@@ -38,6 +38,7 @@ struct SceneCard: View {
                 SceneImage(scene: scene)
                     .frame(width: 190, height: 110)
                     .background(Color(.systemBackground))
+                    .overlay(alignment: .bottomLeading) { ScenePhotoCount(scene: scene) }
                     .overlay(alignment: .bottomTrailing) {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
                             .font(.caption).foregroundStyle(.white)
@@ -116,6 +117,7 @@ struct ScenePopup: View {
                 SceneImage(scene: scene, size: .page).frame(height: 200).frame(maxWidth: .infinity)
                     .background(Color(.systemBackground))
                     .clipShape(.rect(cornerRadius: 12))
+                    .overlay(alignment: .bottomLeading) { ScenePhotoCount(scene: scene) }
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -133,5 +135,19 @@ struct ScenePopup: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(tr("닫기"))
+    }
+}
+
+private struct ScenePhotoCount: View {
+    let scene: SceneItem
+
+    var body: some View {
+        let count = ScenePhotoRules.photos(scene).count
+        if count > 1 {
+            Text(verbatim: String(format: tr("사진 %d / %d"), 1, count))
+                .font(.caption2.bold()).foregroundStyle(.white)
+                .padding(6).background(.black.opacity(0.65), in: Capsule()).padding(6)
+                .allowsHitTesting(false)
+        }
     }
 }

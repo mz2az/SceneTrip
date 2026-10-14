@@ -8,9 +8,15 @@ enum ScenePhotoRules {
     static let doubleTapScale: CGFloat = 2
 
     static func photo(_ scene: SceneItem) -> GalleryPhoto? {
-        guard let url = WebAddress.url(scene.sceneImageUrl) else { return nil }
-        // 공개·서명 주소 어느 쪽이 와도 디스크에 남기지 않는다.
-        return GalleryPhoto(key: "s:\(scene.contentId):\(url.absoluteString)", url: url.absoluteString)
+        photos(scene).first
+    }
+
+    static func photos(_ scene: SceneItem) -> [GalleryPhoto] {
+        scene.sceneImageUrls.compactMap { raw in
+            guard let url = WebAddress.url(raw) else { return nil }
+            // 공개·서명 주소 어느 쪽이 와도 디스크에 남기지 않는다.
+            return GalleryPhoto(key: "s:\(scene.contentId):\(url.absoluteString)", url: url.absoluteString)
+        }
     }
 
     static func scale(_ value: CGFloat) -> CGFloat {

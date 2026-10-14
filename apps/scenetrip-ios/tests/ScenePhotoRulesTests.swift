@@ -3,6 +3,29 @@ import SceneApiClient
 import XCTest
 
 final class ScenePhotoRulesTests: XCTestCase {
+    func testArrayPreservesServerOrderIncludingRepeatedImages() {
+        let urls = ["https://example.com/two.jpg", "https://example.com/one.jpg", "https://example.com/two.jpg"]
+        let scene = SceneItem(contentId: 7, contentTitle: "작품",
+                              sceneImageUrl: "https://example.com/legacy.jpg", sceneImageUrls: urls)
+        XCTAssertEqual(ScenePhotoRules.photos(scene).map(\.url), urls)
+        XCTAssertEqual(ScenePhotoRules.photo(scene)?.url, urls[0])
+    }
+
+    func testEmptyArrayNeverFallsBackToLegacyImageOrPoster() {
+        let scene = SceneItem(contentId: 7, contentTitle: "작품", posterUrl: "https://example.com/poster.jpg",
+                              sceneImageUrl: "https://example.com/legacy.jpg", sceneImageUrls: [])
+        XCTAssertTrue(ScenePhotoRules.photos(scene).isEmpty)
+        XCTAssertNil(ScenePhotoRules.photo(scene))
+    }
+
+    func testInvalidArrayEntriesAreSkippedWithoutReorderingValidPhotos() {
+        let scene = SceneItem(contentId: 7, contentTitle: "작품", sceneImageUrls: [
+            "file:///tmp/local.jpg", "https://example.com/one.jpg", "", "https://example.com/two.jpg",
+        ])
+        XCTAssertEqual(ScenePhotoRules.photos(scene).map(\.url),
+                       ["https://example.com/one.jpg", "https://example.com/two.jpg"])
+    }
+
     func testOnlySceneImageAppearsEvenWhenPosterIsPresent() throws {
         let scene = SceneItem(contentId: 7, contentTitle: "작품", posterUrl: "https://example.com/poster.jpg",
                               sceneImageUrl: "https://example.com/scene.jpg",

@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [ios-scene-gallery.md](ios-scene-gallery.md) | 서버 순서대로 장면 사진 여러 장을 확대 화면에서 넘겨 보기 (MZ2AZ-430) |
 | [ios-release-followups.md](ios-release-followups.md) | 열린 iOS 티켓의 계정 갱신·사진 만료 재시도와 출시용 설정 준비 (MZ2AZ-148) |
 | [android-home-profile-polish.md](android-home-profile-polish.md) | iOS431 main의 포스터 고정 칸·홈 선반·닉네임 화면을 Android에 동기화 |
 | [android-community-blog.md](android-community-blog.md) | 계약1.13의 Android 대표·문단 사진·작성/미리보기·확대와 기존 글 호환 |
