@@ -165,7 +165,7 @@ scene-api에서 오는 요청만 허용한다. 외부 로드밸런서에서 직�
 
 | 설정·경계 | 값·의미 |
 | --- | --- |
-| `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` | Bedrock 호출용 IAM 키 — **로컬만**(`.env`, `just guide-up`). 없으면 시작 실패 |
+| `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` | Bedrock 호출용 IAM 키 — **로컬만**. `.env` 에는 `BEDROCK_AWS_ACCESS_KEY_ID` · `BEDROCK_AWS_SECRET_ACCESS_KEY` 로 두고 `just guide-up` 이 이 이름으로 넘긴다(셸의 다른 `AWS_*` 는 넘기지 않는다). 없으면 시작 실패 |
 | `AWS_CONTAINER_CREDENTIALS_FULL_URI` · `AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE` | **DEV·PRD(EKS)** — EKS Pod Identity 가 넣는다. 있으면 고정 키 대신 역할 `scenetrip-<env>-bedrock` 의 임시 자격 증명을 받아 쓴다(만료 5 분 전 다시). MZ2AZ-317, [계획](../../docs/project/plans/bedrock-iam-role.md) |
 | `SCENE_API_BASE_URL` | `http://scene-api:8080/v1`. CLI의 `--base-url`이 최우선 |
 | `SCENETRIP_SERVICE_TOKEN` | 서비스 비밀값(ADR 0023). scene-api 와 같은 값. 없으면 경고만 하고 뜬다 — 읽기가 이 에이전트 한 칸으로 세어진다 |

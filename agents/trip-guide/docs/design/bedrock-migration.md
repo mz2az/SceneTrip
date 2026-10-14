@@ -107,7 +107,7 @@ DeepSeek 는 남기지 않았다 — 모델 경로는 Bedrock 하나다(사용�
 ## 로컬에서 띄우기
 
 ```sh
-# .env 에 AWS_ACCESS_KEY_ID·AWS_SECRET_ACCESS_KEY 를 채운 뒤(.env.example)
+# .env 에 BEDROCK_AWS_ACCESS_KEY_ID·BEDROCK_AWS_SECRET_ACCESS_KEY 를 채운 뒤(.env.example, 2026-10-14 이름 바꿈)
 just guide-up      # 끄기: just guide-down
 ```
 
