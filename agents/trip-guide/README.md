@@ -56,7 +56,7 @@ GPT-4 는 복잡한 일정에서 0.6%)이기 때문이다. LLM 과 알고리즘�
 | `config/model.json` | 모델 ID·파라미터 (설정이지 로직이 아니다) |
 | `config/planner.json` | 코스 엔진 계수 — 점수 가중치·속도·체류시간·이동속도 |
 | `config/llm_planner.json` | AI 일정 생성 설정 — 켜고 끄기·후보 수·컨셉 문구 |
-| `config/place_scores.json` | 성지별 인기도. 수집 CSV `notes` 에서 `scripts/extract_place_scores.py` 가 뽑는다. scene-api 가 이 값을 주면 지운다 |
+| `config/place_scores.json` | 성지별 인기도의 **다리**. scene-api 1.16.0 부터 `contents[].popularity` 가 정본이고, 이 파일은 그 값이 없을 때만 쓴다(예전 CSV 라 DB 와 다르다). PRD 가 1.16.0 이 되면 지운다(MZ2AZ-339) |
 | `config/source.json` | 어느 창구를 쓸지. 실패해도 다른 창구로 넘어가지 않는다 |
 | `prompts/` | 버전 관리되는 프롬프트 4 개. 코드에 문자열로 박지 않는다 |
 | `schemas/tools.json` | 도구 계약. 모델에게 내밀고, 돌아온 인자를 이것으로 검증한다 |
