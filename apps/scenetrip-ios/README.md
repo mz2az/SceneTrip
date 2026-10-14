@@ -592,3 +592,6 @@ Xcode에서 같은 환경을 쓰려면 gitignore 대상인 `.bazelrc.user`에
 검토·실기기 서명·스토어 제출 조건은 [배포 준비 안내](deploy/README.md)에 있다.
 
 스토어 배포 없음 — MZ2AZ-148 의 완료 조건이 "팀원이 로컬에서 실행"까지다.
+
+배포용 실기기 패키지는 `just ios-package`를 사용한다. 시뮬레이터 실행과 구분하며
+[서명·iPad 검증·TestFlight 준비 절차](deploy/README.md#배포용-패키지-mz2az-440)를 따른다.

@@ -33,3 +33,5 @@ just 레시피가 호출하는 스크립트. 기여자가 직접 실행하지 �
 
 `pending: …` 을 출력하는 스크립트는 아직 도구를 정하지 않은 영역의 **의도적 자리표시자**다.
 게이트를 초록으로 유지하기 위해 0 으로 끝나며, 각자 무엇을 연결해야 하는지 밝힌다.
+
+- `ios-package.sh` · `ios_release.py`: 명시한 배포 프로파일을 검사하고 운영 서버용 iOS IPA를 빌드한다(MZ2AZ-440). `just ios-package`와 `just ios-release-check`로 실행한다.

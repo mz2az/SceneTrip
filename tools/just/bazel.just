@@ -277,3 +277,15 @@ clean:
 [confirm("Bazel 출력 베이스를 통째로 지우고 전체 재빌드를 강제합니다. 진행할까요?")]
 clean-all:
     {{BAZEL}} clean --expunge
+
+# 명시한 프로파일의 공개 메타데이터만 검사한다. 키체인 비밀값은 읽지 않는다.
+[group('build')]
+[positional-arguments]
+ios-release-check +args:
+    {{BAZEL}} run //tools/scripts:ios_release_check -- "$@"
+
+# 운영 서버용 실기기 IPA 생성. 인증서·프로파일 필요, 업로드는 별도.
+[group('build')]
+[positional-arguments]
+ios-package profile mode version build:
+    ./tools/scripts/ios-package.sh "$@"

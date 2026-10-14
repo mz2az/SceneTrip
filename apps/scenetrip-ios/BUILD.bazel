@@ -34,6 +34,7 @@ load("@rules_apple//apple:ios.bzl", "ios_application", "ios_unit_test")
 load("@rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
 load("@rules_swift//swift:swift.bzl", "swift_library")
 load("@rules_xcodeproj//xcodeproj:defs.bzl", "top_level_target", "xcodeproj")
+load("//apps/scenetrip-ios:deploy/release.bzl", "release_info")
 load("//tools/bazel/defs:mobile_api_config.bzl", "mobile_api_config")
 
 package(default_visibility = ["//visibility:public"])
@@ -360,4 +361,28 @@ xcodeproj(
             target_environments = ["simulator"],
         ),
     ],
+)
+
+# 프로파일은 커밋하지 않으며 just ios-package가 검증 후 잠시 공급한다.
+release_info(
+    name = "release_info",
+    tags = ["manual"],
+    template = "Info.plist",
+)
+
+ios_application(
+    name = "ipa",
+    app_icons = glob(["resources/Assets.xcassets/AppIcon.appiconset/**"]),
+    bundle_id = "com.mz2az.scenetrip",
+    entitlements = "deploy/SceneTrip-device.entitlements",
+    families = ["iphone"],
+    infoplists = [":release_info"],
+    minimum_os_version = "17.0",
+    provisioning_profile = "deploy/Signing.local.mobileprovision",
+    tags = [
+        "ios",
+        "manual",
+    ],
+    target_compatible_with = APPLE_ONLY,
+    deps = [":scenetrip-ios"],
 )

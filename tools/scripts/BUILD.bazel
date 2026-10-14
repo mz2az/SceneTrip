@@ -172,3 +172,26 @@ exports_files(
     ],
     visibility = ["//visibility:public"],
 )
+
+# 배포 전 프로파일 판정을 외부 계정 없이 검증한다.
+py_test(
+    name = "ios_release_unit_test",
+    srcs = [
+        "ios_release.py",
+        "test_ios_release.py",
+    ],
+    imports = ["."],
+    legacy_create_init = 0,
+    main = "test_ios_release.py",
+    tags = ["unit"],
+)
+
+# Apple CMS 파일은 명시적으로 제공한 로컬 프로파일만 읽는다.
+py_binary(
+    name = "ios_release_check",
+    srcs = ["ios_release.py"],
+    legacy_create_init = 0,
+    main = "ios_release.py",
+    tags = ["manual"],
+    visibility = ["//visibility:public"],
+)
