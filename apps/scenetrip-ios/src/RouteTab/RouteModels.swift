@@ -128,6 +128,9 @@ struct RouteStop: Identifiable, Hashable {
     /// 아직 저장 전인 장소는 nil 이고, 저장하면 서버가 붙여 준다.
     var serverItemId: Int64?
 
+    /// 개인 핀의 실제 DB 번호. 코스 항목 번호와 다르며 챗봇 왕복에 사용한다(MZ2AZ-425).
+    var customPinId: Int64?
+
     /// 체류 시간. 기본 30분은 8/11 회의에서 확정된 값이다(*"30분만 하고 시작 시간은 뺐다"*).
     var stayMinutes: Int = RouteStop.defaultStayMinutes
 
@@ -145,7 +148,7 @@ struct RouteStop: Identifiable, Hashable {
     /// 표시 문자열은 `RouteGuidePlan.clock` 이 만든다(MZ2AZ-321).
     var arriveMinute: Int?
 
-    /// 초안에 `placeId` 가 없던 줄. **이름으로 대체하지 않는다** — 이름을 id 로 알고 저장하면 동명
+    /// 초안에 유효한 종류·ID가 없거나 충돌한 줄. **이름으로 대체하지 않는다** — 이름을 id 로 알고 저장하면 동명
     /// 장소에 걸린다. 화면에는 남되 저장(`RouteBridge.replace`)에서 빠진다.
     var placeMissing = false
 

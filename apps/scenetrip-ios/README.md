@@ -235,7 +235,7 @@ ATT 정책 결정 전에는 `MeasurementEnabled=false`를 유지한다. 이 변�
 | `RouteGuide.swift` · `RouteGuideSession.swift` · `RouteGuideSheet.swift` | 여행 가이드 챗봇 — `GuideAPI.chatWithGuide`. 이력·위치·**화면 상태**(`Context`)를 싣고 답·근거·장소·`effects`·`ui` 를 받는다 |
 | `RouteGuideTurn.swift` | 보내는 중이거나 다시 보낼 수 있는 턴(`PendingTurn`, MZ2AZ-366) — 「전송」 마다 새 멱등 키, 처음 만든 요청을 그대로 든다. 자동 재시도와 「다시 시도」 는 같은 키·같은 요청. 전이는 순수 함수(표: `docs/project/plans/app-retry.md` §10) |
 | `RouteEditorGuide.swift` | 편집 화면 ↔ 가이드 — 화면 상태를 만들고(`guideContext`) 답의 명령을 적용한다(`applyGuideAnswer`: 초안 갈아 끼우기 · 일차 열기 · 시트 내리기) |
-| `RouteGuidePlan.swift` | 계약의 일정 초안(`GuidePlan`) ↔ 코스. 도착 시각·뺀 곳·`placeId` 없는 줄(저장 안 됨)을 옮긴다 |
+| `RouteGuidePlan.swift` · `RouteGuideIdentity.swift` | 계약의 일정 초안 ↔ 코스. 촬영지·편의시설·개인 핀 ID를 왕복하고 유일하게 대응하는 기존 항목 번호·방문·분류를 보존한다. 번호 없음·충돌은 저장 안 됨으로 남긴다(MZ2AZ-425·434) |
 | `RouteGuideFailure.swift` | 가이드 오류를 계약 응답별로 분류 — 401 가입 · 400 · 502·503·504 잠시 뒤 · 시간 초과 · 오프라인 · 연결 실패 · 분당 한도 · 422 키 재사용. 갈래마다 「다시 시도」 가 같은 키로·새 키로·없음 중 무엇인지(`retry`)를 안다. 마법사도 이 분류를 쓴다(재시도는 없다) |
 | `RouteEditorView.swift` · `RouteEditorControls.swift` · `RouteEditorParts.swift` | 편집 화면 — 일차 ＋/−, 드래그 정렬, 체류 시간(일차 머리줄의 합 → 「머무는 시간」 시트), 동선 최적화(출발·도착 고정 선택), 장소 검색·장바구니·핀 찍기. 「취소」는 저장하면 달라질 것이 있을 때만 버릴지 묻는다(`RouteBridge.changed`, MZ2AZ-369) |
 | `RouteSearchSheet.swift` | 편집 화면 안에서 바로 장소를 찾아 담는 시트 — 장바구니를 거치지 않는다 |

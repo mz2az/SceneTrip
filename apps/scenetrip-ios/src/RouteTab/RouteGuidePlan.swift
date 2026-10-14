@@ -12,7 +12,7 @@ import SceneApiClient
 enum RouteGuidePlan {
     // MARK: 계약 → 화면
 
-    /// 초안을 코스로. `placeId` 가 없는 정지점은 **이름으로 대체하지 않는다** — 그 줄은
+    /// 초안을 코스로. 종류와 ID가 불명확한 정지점은 **이름으로 대체하지 않는다** — 그 줄은
     /// `placeMissing` 으로 남고 저장에서 빠진다(`RouteBridge.replace`). 좌표가 없는 정지점은
     /// 그릴 수 없으므로 뺀 곳으로 적어 두고 넣지 않는다.
     static func course(
@@ -25,18 +25,21 @@ enum RouteGuidePlan {
                     skipped.append(String(format: tr("%@ — 좌표 없음"), stop.name))
                     return nil
                 }
+                let identity = identity(of: stop)
                 return RouteStop(
                     place: PlaceSummary(
-                        id: stop.placeId ?? Self.missingId(for: stop),
+                        id: identity == nil ? Self.missingId(for: stop) : stop.placeId ?? RouteStop.noPlaceId,
                         name: stop.name,
                         type: nil,
                         address: stop.address,
                         latitude: latitude,
                         longitude: longitude
                     ),
+                    customPinId: identity?.kind == .pin ? stop.customPinId : nil,
                     stayMinutes: stop.dwellMinutes ?? RouteStop.defaultStayMinutes,
+                    kind: identity?.kind ?? .place,
                     arriveMinute: stop.arriveMinute,
-                    placeMissing: stop.placeId == nil
+                    placeMissing: identity == nil
                 )
             })
         }
@@ -107,6 +110,8 @@ enum RouteGuidePlan {
                         GuidePlanStop(
                             order: index + 1,
                             placeId: stop.savablePlaceId,
+                            poiId: stop.placeMissing ? nil : stop.poiId,
+                            customPinId: stop.isPinned && !stop.placeMissing ? stop.customPinId : nil,
                             name: stop.place.name,
                             address: stop.place.address,
                             latitude: stop.place.latitude,
