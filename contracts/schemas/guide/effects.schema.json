@@ -196,6 +196,20 @@
                       ],
                       "description": "scene-api 의 정수 id. **없으면 `null` 이고 이름으로 대체하지 않는다** — 이름을 id 로 알고 저장하면 동명 장소에 걸린다. `null` 이면 앱은 저장하지 못한다."
                     },
+                    "poiId": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "편의시설 줄일 때만 있다(`CourseItem.poiId`, MZ2AZ-382·424). 앱이 `context.plan` 에 보낸 값을 에이전트가 **그대로 돌려준다** — 빠지면 그 줄은 저장되지 않는다. 에이전트가 새로 채우지 않는다."
+                    },
+                    "customPinId": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "직접 찍은 핀 줄일 때만 있다(`CourseItem.customPinId`, MZ2AZ-382·424). `poiId` 와 같은 규칙 — 받은 값을 그대로 돌려준다."
+                    },
                     "name": {
                       "type": "string"
                     },

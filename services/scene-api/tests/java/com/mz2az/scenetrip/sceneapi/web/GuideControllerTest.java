@@ -15,9 +15,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.mz2az.scenetrip.sceneapi.api.model.GuideChatReply;
+import com.mz2az.scenetrip.sceneapi.api.model.GuideChatRequest;
 import com.mz2az.scenetrip.sceneapi.api.model.GuideEffect;
 import com.mz2az.scenetrip.sceneapi.api.model.GuidePlan;
 import com.mz2az.scenetrip.sceneapi.api.model.GuidePlanReply;
+import com.mz2az.scenetrip.sceneapi.api.model.GuidePlanStop;
 import com.mz2az.scenetrip.sceneapi.api.model.GuideUiDirective;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.auth.AccessTokens;
@@ -595,5 +597,116 @@ class GuideControllerTest {
         .andExpect(status().isOk());
 
     verify(agent).chat(any(), any(), eq("install:" + INSTALL_ID));
+  }
+
+  // ───────────── 일정 줄의 신원 poiId · customPinId (1.15.0, MZ2AZ-424) ─────────────
+  //
+  // 앱이 context.plan 에 보낸 값은 그대로 에이전트로, 에이전트가 plan · effects[].plan 에 돌려준 값은 그대로 앱으로.
+  // scene-api 는 채우지도 지우지도 않는다. placeId 만 있는 줄에 값을 지어내지 않는다.
+
+  /** 촬영지 줄(placeId 만) · 편의시설 줄(poiId 433299) · 직접 찍은 핀 줄(customPinId 7). */
+  private static final String MIXED_PLAN_JSON =
+      """
+      {"titles":["도깨비"],"pace":"relaxed","travelBasis":"straight-line",
+       "days":[{"day":1,"endMinute":737,"totalMeters":11878,
+                "stops":[{"order":1,"placeId":1187,"name":"서울중앙고","arriveMinute":540},
+                         {"order":2,"placeId":null,"poiId":433299,"name":"근처 카페","arriveMinute":600},
+                         {"order":3,"placeId":null,"customPinId":7,"name":"내가 찍은 곳","arriveMinute":660}]}]}
+      """;
+
+  private static final String CHAT_BODY_WITH_PLAN =
+      """
+      {"sessionId":"0d4f7b1e-5c4a-4a1e-9b0e-6f1f6d2b8c11","latitude":37.5665,"longitude":126.978,
+       "messages":[{"role":"user","content":"1일차 순서 바꿔 줘"}],
+       "context":{"stops":[],"plan":%s}}
+      """
+          .formatted(MIXED_PLAN_JSON);
+
+  private static final String STOPS = "$.plan.days[0].stops";
+  private static final String EFFECT_STOPS = "$.effects[0].plan.days[0].stops";
+
+  @Test
+  @DisplayName(
+      "신원 — 앱이 context.plan 줄에 보낸 poiId·customPinId 가 제 줄에 그대로 에이전트 요청으로 간다, placeId 만 있는 줄은 비어 있다")
+  void chatForwardsPlanStopIdentityToAgent() throws Exception {
+    mvc.perform(
+            post("/v1/guide/chat")
+                .contextPath("/v1")
+                .header("X-Install-Id", INSTALL_ID)
+                .header("Accept-Language", "ko")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(CHAT_BODY_WITH_PLAN))
+        .andExpect(status().isOk());
+
+    ArgumentCaptor<GuideChatRequest> sent = ArgumentCaptor.forClass(GuideChatRequest.class);
+    verify(agent).chat(sent.capture(), any(), any());
+    List<GuidePlanStop> stops = sent.getValue().getContext().getPlan().getDays().get(0).getStops();
+    org.assertj.core.api.Assertions.assertThat(stops).hasSize(3);
+    org.assertj.core.api.Assertions.assertThat(stops.get(0).getPlaceId()).isEqualTo(1187L);
+    org.assertj.core.api.Assertions.assertThat(stops.get(0).getPoiId()).isNull();
+    org.assertj.core.api.Assertions.assertThat(stops.get(0).getCustomPinId()).isNull();
+    org.assertj.core.api.Assertions.assertThat(stops.get(1).getPoiId()).isEqualTo(433299L);
+    org.assertj.core.api.Assertions.assertThat(stops.get(1).getCustomPinId()).isNull();
+    org.assertj.core.api.Assertions.assertThat(stops.get(2).getCustomPinId()).isEqualTo(7L);
+    org.assertj.core.api.Assertions.assertThat(stops.get(2).getPoiId()).isNull();
+  }
+
+  @Test
+  @DisplayName(
+      "신원 — POST /v1/guide/plan 응답의 plan 줄 poiId·customPinId 가 그대로 앱으로 간다, placeId 만 있는 줄에는 지어내지"
+          + " 않는다")
+  void planReplyKeepsStopIdentity() throws Exception {
+    GuidePlan plan = json.readValue(MIXED_PLAN_JSON, GuidePlan.class);
+    GuideEffect draft = new GuideEffect("plan.draft");
+    when(agent.plan(any(), any(), any()))
+        .thenReturn(new GuidePlanReply(plan, List.of(draft), List.of(), 0.02));
+
+    mvc.perform(
+            post("/v1/guide/plan")
+                .contextPath("/v1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"titles\":[\"도깨비\"],\"days\":1}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath(STOPS + "[0].placeId").value(1187))
+        .andExpect(jsonPath(STOPS + "[0].poiId").doesNotExist())
+        .andExpect(jsonPath(STOPS + "[0].customPinId").doesNotExist())
+        .andExpect(jsonPath(STOPS + "[1].poiId").value(433299))
+        .andExpect(jsonPath(STOPS + "[1].customPinId").doesNotExist())
+        .andExpect(jsonPath(STOPS + "[2].customPinId").value(7))
+        .andExpect(jsonPath(STOPS + "[2].poiId").doesNotExist());
+  }
+
+  @Test
+  @DisplayName(
+      "신원 — POST /v1/guide/chat 응답의 plan.revise effects[].plan 줄 poiId·customPinId 가 그대로 앱으로 간다,"
+          + " placeId 만 있는 줄에는 지어내지 않는다")
+  void chatReplyEffectPlanKeepsStopIdentity() throws Exception {
+    GuideEffect revise = new GuideEffect("plan.revise");
+    revise.setDay(1);
+    revise.setPlan(json.readValue(MIXED_PLAN_JSON, GuidePlan.class));
+    when(agent.chat(any(), any(), any()))
+        .thenReturn(
+            new GuideChatReply(
+                "1일차 순서를 바꿨어요.", List.of(), List.of(), 2.1, List.of(revise), List.of()));
+
+    mvc.perform(
+            post("/v1/guide/chat")
+                .contextPath("/v1")
+                .header("X-Install-Id", INSTALL_ID)
+                .header("Accept-Language", "ko")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(CHAT_BODY_WITH_PLAN))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.effects[0].op").value("plan.revise"))
+        .andExpect(jsonPath(EFFECT_STOPS + "[0].placeId").value(1187))
+        .andExpect(jsonPath(EFFECT_STOPS + "[0].poiId").doesNotExist())
+        .andExpect(jsonPath(EFFECT_STOPS + "[0].customPinId").doesNotExist())
+        .andExpect(jsonPath(EFFECT_STOPS + "[1].poiId").value(433299))
+        .andExpect(jsonPath(EFFECT_STOPS + "[1].customPinId").doesNotExist())
+        .andExpect(jsonPath(EFFECT_STOPS + "[2].customPinId").value(7))
+        .andExpect(jsonPath(EFFECT_STOPS + "[2].poiId").doesNotExist());
+
+    // plan.* 은 실행하지 않고 넘긴다 — 처리기에는 그 쪽지가 손대지 않은 채로 간다.
+    verify(effects).apply(eq(USER), eq(List.of(revise)));
   }
 }
