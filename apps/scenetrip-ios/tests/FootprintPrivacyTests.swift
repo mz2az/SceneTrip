@@ -9,10 +9,12 @@ final class FootprintPrivacyTests: XCTestCase {
     private let store = FootprintStore.shared
     private var savedPoints: [FootprintPoint] = []
     private var savedRecording = false
+    private var savedEnabled = false
 
     override func setUp() async throws {
         savedPoints = store.points
         savedRecording = store.recording
+        savedEnabled = store.enabled
         store.clear()
     }
 
@@ -23,6 +25,7 @@ final class FootprintPrivacyTests: XCTestCase {
             store.record(latitude: point.latitude, longitude: point.longitude, at: point.at)
         }
         store.recording = savedRecording
+        store.enabled = savedEnabled
     }
 
     /// 서울시청과 거기서 수백 미터 떨어진 점 — 25 m 규칙에 걸리지 않게.
@@ -46,10 +49,16 @@ final class FootprintPrivacyTests: XCTestCase {
     /// 로그아웃·탈퇴·세션 소실 — 기록도 동의도 남지 않는다.
     func testLeavingTheAccountErasesFootprintsAndConsent() {
         store.recording = true
+        store.enabled = true
         walk()
+        XCTAssertGreaterThan(store.kilometers, 0)
         store.forgetOwner()
         XCTAssertTrue(store.points.isEmpty)
+        XCTAssertEqual(store.kilometers, 0)
         XCTAssertFalse(store.recording)
+        XCTAssertFalse(store.enabled, "다음 로그인에 이전 계정의 지도 보기 설정을 넘기지 않는다")
+        XCTAssertFalse(store.drawsTrail)
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: "footprint.enabled"))
         walk()
         XCTAssertTrue(store.points.isEmpty, "동의가 되돌려졌으니 다시 쌓이면 안 된다")
     }

@@ -74,11 +74,12 @@ final class FootprintStore: ObservableObject {
         points = Self.load()
     }
 
-    /// 계정이 이 기기를 떠났다(로그아웃·탈퇴·세션 소실). 기록을 지우고 동의도 되돌린다 —
+    /// 계정이 이 기기를 떠났다(로그아웃·탈퇴·세션 소실). 기록을 지우고 동의·지도 보기를 끈다 —
     /// 다음 사람이 앞사람의 길을 보거나, 앞사람의 동의로 기록되면 안 된다.
     func forgetOwner() {
         clear()
         recording = false
+        enabled = false
     }
 
     /// 새 위치. **기록 동의가 꺼져 있으면 버린다.** 한국 밖이거나 직전 점에서 25 m 안이어도 버린다.
