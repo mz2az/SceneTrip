@@ -23,7 +23,7 @@ struct CommunityPhotoViewer: View {
                 }.padding(.horizontal, 16).foregroundStyle(.white).background(.black)
             }
             .safeAreaInset(edge: .bottom) { footer }
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(.light)
     }
 
     private var footer: some View {
