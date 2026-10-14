@@ -264,7 +264,8 @@ public class PlaceStore {
           WHERE pci.lang IN (:lang, 'en', 'ko')
           ORDER BY pci.place_content_id, (pci.lang = :lang) DESC, (pci.lang = 'en') DESC
       )
-      SELECT pc.place_id, c.id AS content_id, d.title, c.poster_url, c.producer_url, s.relation_description
+      SELECT pc.place_id, c.id AS content_id, d.title, c.poster_url, c.producer_url, s.relation_description,
+             pc.popularity_score
       FROM place_content pc
       JOIN content c ON c.id = pc.content_id
       JOIN display d ON d.content_id = c.id
@@ -484,7 +485,9 @@ public class PlaceStore {
                   .add(
                       new ContentRef(thisContentId, rs.getString("title"))
                           .posterUrl(uri(rs.getString("poster_url")))
-                          .producerUrl(uri(rs.getString("producer_url"))));
+                          .producerUrl(uri(rs.getString("producer_url")))
+                          // 장소×작품 산정 점수 — 작품 안에서만 비교한다(MZ2AZ-339). 없으면 null, 0 이 아니다.
+                          .popularity(doubleOrNull(rs, "popularity_score")));
               if (contentId != null && contentId == thisContentId) {
                 String description = rs.getString("relation_description");
                 if (description != null) {
@@ -542,6 +545,12 @@ public class PlaceStore {
   /** {@code getInt} 는 NULL 을 0 으로 바꾼다. "0 미터" 와 "기준점이 없어 거리를 모른다" 는 다르다. */
   private static Integer integerOrNull(ResultSet rs, String column) throws SQLException {
     int value = rs.getInt(column);
+    return rs.wasNull() ? null : value;
+  }
+
+  /** {@code getDouble} 도 NULL 을 0 으로 바꾼다. "점수 0" 과 "점수가 없다" 는 다르다. */
+  private static Double doubleOrNull(ResultSet rs, String column) throws SQLException {
+    double value = rs.getDouble(column);
     return rs.wasNull() ? null : value;
   }
 
