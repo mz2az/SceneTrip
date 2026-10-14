@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.15.0
+  version: 1.17.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -3580,8 +3580,27 @@ components:
           nullable: true
           description: |
             같은 이름을 구별하기 위한 보조 문구. 작품은 `방송사 · 연도`,
-            장소는 주소의 시·구, 인물은 대표 작품이 들어간다.
+            장소는 주소의 시·구, 인물은 대표 작품이 들어간다. 장소 행의 아랫줄은 1.17.0 부터
+            `placeType`·`contentTitle` 로 앱이 짓는다 — 이 값은 둘 다 없을 때 쓰는 대신이다.
           example: "tvN · 2016"
+        placeType:
+          type: string
+          nullable: true
+          description: |
+            장소 행(`type` 이 `place`)에서만 — 장소 종류 **코드**(1.17.0, MZ2AZ-195). `PlaceSummary.type` 과 같은
+            값이다(`hotel`, `street` 처럼). 표시말(「호텔」·「Hotel」)로 바꾸는 것은 앱의 표가 한다 — 서버는 코드만
+            보낸다. 작품·인물 행은 null.
+          example: hotel
+        contentTitle:
+          type: string
+          nullable: true
+          description: |
+            장소 행에서만 — 그 장소에 나온 작품 중 **작품 인기도가 가장 높은** 작품의 이름(1.17.0, MZ2AZ-195). 인기도가
+            같으면 작품 번호(`contentId`)가 작은 쪽. 숨긴 작품은 고르지 않는다. 요청 언어, 없으면 en → ko — 언어는
+            고른 작품의 제목에만 쓰이고 고르는 기준이 아니다. 「이태원」 을 쳤는데 「몬드리안서울 이태원」 이 뜬 이유(「눈물의 여왕」)를 한 줄에
+            보여 주려는 것이다. 앱은 `placeType` 의 표시말과 이어 `호텔 · 눈물의 여왕` 으로 그리고, 둘 다 없으면
+            `subtitle`(주소)을 쓴다. 작품·인물 행은 null.
+          example: 눈물의 여왕
 
     ContentList:
       type: object
