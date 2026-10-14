@@ -46,8 +46,13 @@
 
 ## 성지 인기도는 어디서 오나
 
-DB 와 scene-api 응답에는 성지 인기도가 없다. 에이전트가 `config/place_scores.json` 을 함께 읽는다.
-수집 CSV `notes` 의 성지점수를 `scripts/extract_place_scores.py` 가 (작품, 장소 이름, 좌표, 점수) 로
+**scene-api 응답이 정본이다**(scene-api 1.16.0, MZ2AZ-339). 장소 목록의 `contents[].popularity` 가
+장소×작품 산정 점수다(`place_content.popularity_score`, 수집 CSV 의 정식 칸에서 적재). `src/sceneapi.py` 가
+그 값을 `Scene.popularity` 로 받고, `popularity()` 가 0 보다 크면 그것을 쓴다.
+
+값이 없을 때만 `config/place_scores.json` 으로 돌아간다 — PRD 의 scene-api 가 1.16.0 이 되기 전까지의 다리다.
+이 표는 **예전 CSV 에서 뽑아 지금 DB 와 다르다**(2026-10-14 로컬: 배다리헌책방거리 파일 15.4 · DB 1.5, 도깨비방파제
+39.1 · 20.0). 수집 CSV `notes` 의 성지점수를 `scripts/extract_place_scores.py` 가 (작품, 장소 이름, 좌표, 점수) 로
 뽑은 표다. scene-api 에서 받은 성지에 (작품, 이름) 으로 붙이고, 이름이 다르면 **같은 작품의 300m 안
 좌표**로 붙인다 — 같은 장소가 작품마다 다른 이름으로 수집됐고(「고창 학원농장」 · 「고창 학원농장
 메밀밭」) DB 는 이름을 하나만 남긴다. 로컬 DB 96 곳 전부 점수를 찾는다.
@@ -115,8 +120,8 @@ DB 와 scene-api 응답에는 성지 인기도가 없다. 에이전트가 `confi
 
 | 일 | 담당 |
 | --- | --- |
-| 수집 CSV 에 성지 인기도 정식 컬럼 | 김태환 (수집) |
-| 그 값을 DB 에 적재 — `place_content` 처럼 (장소, 작품) 단위가 맞다 | 정권호 (scene-api) |
-| `PlaceSummary` 에 성지 인기도 필드 | 정권호 (계약) |
-| 위 셋이 끝나면 `config/place_scores.json` 과 `scripts/extract_place_scores.py` 를 지운다 | 김태환 |
+| ~~수집 CSV 에 성지 인기도 정식 컬럼~~ — 끝(`place_popularity_score`) | 김태환 (수집) |
+| ~~그 값을 DB 에 적재~~ — 끝(`place_content.popularity_score`, V28) | 정권호 (scene-api) |
+| ~~성지 인기도 필드~~ — 끝(`ContentRef.popularity`, 1.16.0, MZ2AZ-339) | 정권호 (계약) |
+| PRD 의 scene-api 가 1.16.0 이 되면 `config/place_scores.json` 과 `scripts/extract_place_scores.py` 를 지운다 | 김태환 |
 | 먼 곳 섞기·컨셉 넘침·날짜 순서를 어떻게 다룰지 결정 | 팀 |

@@ -491,6 +491,8 @@ GROUP BY 1, 2 ORDER BY 3 DESC;
 
 - **출발점**: 작품은 적재가 넣는다(데이터 담당자 값, 오기 전에는 50). 촬영지는 함수가 「작품 출발점 × 작품 안 상대 산정
   점수」 의 최댓값으로 채운다. 편의시설은 0 — 활동으로만 오른다
+- **장소 목록의 `contents[].popularity`**(`ContentRef`, 1.16.0)는 그 작품 안의 산정 점수(`place_content.popularity_score`)
+  그대로다 — 없으면 null. AI 일정 마법사가 성지를 고를 때 쓴다(MZ2AZ-339). 마켓 코스 요약에서는 null
 - **작품 상세의 촬영지 순서**는 그 작품 안의 산정 점수(`place_content.popularity_score`)가 먼저다 — 산정 점수는 작품끼리
   비교할 수 없다
 - 무게·k·기간은 설정 `scenetrip.popularity.*`. 파드가 여럿이어도 함수가 advisory lock 으로 한 번만 돈다

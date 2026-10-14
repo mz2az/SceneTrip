@@ -1,5 +1,5 @@
 {
-  "_설명": "수집 CSV notes 의 성지점수. scripts/extract_place_scores.py 가 만든다 — 손으로 고치지 않는다. 작품 안에서만 비교한다. scene-api 가 성지 인기도를 응답에 실으면 지운다.",
+  "_설명": "수집 CSV notes 의 성지점수. scripts/extract_place_scores.py 가 만든다 — 손으로 고치지 않는다. 작품 안에서만 비교한다. scene-api 1.16.0 의 contents[].popularity 가 정본이고 이 표는 그 값이 없을 때만 쓴다(예전 CSV — DB 와 다르다). PRD 가 1.16.0 이 되면 지운다(MZ2AZ-339).",
   "source": "candidates.csv",
   "scores": {
     "더 글로리": {
