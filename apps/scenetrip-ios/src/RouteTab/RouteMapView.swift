@@ -235,7 +235,7 @@ struct RouteMapView: UIViewRepresentable {
         var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
         var onLocation: ((TripSpot) -> Void)?
         /// 주변 편의시설 마커. 챗봇 결과와 살림을 따로 낸다 — 갱신 주기가 다르다.
-        let ambientRenderer = PoiClusterRenderer()
+        let ambientRenderer = PoiMarkerRenderer()
         private var lastInset: CGFloat = 0
 
         /// 번호 핀을 눌렀다.
