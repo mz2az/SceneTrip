@@ -6,7 +6,6 @@ import UIKit
 @MainActor
 final class PoiClusterRenderer {
     private var markers: [NMFMarker] = []
-    private var stems: [NMFPath] = []
     private var detailed = false
     private var places: [RouteGuide.Place] = []
     private var picked: RouteGuide.Place?
@@ -29,41 +28,15 @@ final class PoiClusterRenderer {
 
     func refresh(on mapView: NMFMapView) {
         let showDetails = mapView.zoomLevel >= PoiClusters.Tuning.detailZoom
-        let next = PoiClusters.make(places, zoom: mapView.zoomLevel, pickedId: picked?.id, expandDetails: false)
-        guard showDetails || detailed != showDetails || next != groups
+        let next = PoiClusters.make(places, zoom: mapView.zoomLevel, pickedId: picked?.id)
+        guard detailed != showDetails || next != groups
             || pickedId != picked?.id || language != AppLanguage.current.rawValue else { return }
         detailed = showDetails
         groups = next
         pickedId = picked?.id
         language = AppLanguage.current.rawValue
         markers.forEach { $0.mapView = nil }
-        stems.forEach { $0.mapView = nil }
-        stems.removeAll()
-        markers = next.flatMap { cluster in
-            showDetails ? expanded(cluster, on: mapView) : [marker(for: cluster, on: mapView)]
-        }
-    }
-
-    private func expanded(_ cluster: PoiClusters.Cluster, on mapView: NMFMapView) -> [NMFMarker] {
-        guard cluster.places.count > 1 else { return [marker(for: cluster, on: mapView)] }
-        let origin = mapView.projection.point(from: NMGLatLng(lat: cluster.latitude, lng: cluster.longitude))
-        let offsets = cluster.places.indices.map { PoiClusters.displayOffset(index: $0, count: cluster.places.count) }
-        let visible = mapView.bounds.inset(by: mapView.contentInset).insetBy(dx: 24, dy: 24)
-        let center = PoiClusters.displayCenter(origin, offsets: offsets, within: visible)
-        return cluster.places.enumerated().map { index, place in
-            let pin = marker(for: PoiClusters.Cluster(places: [place]), on: mapView)
-            let offset = offsets[index]
-            let display = mapView.projection.latlng(from: CGPoint(x: center.x + offset.x, y: center.y + offset.y))
-            if let stem = NMFPath(points: [pin.position, display]) {
-                stem.width = 1
-                stem.outlineWidth = 0
-                stem.color = .systemGray
-                stem.mapView = mapView
-                stems.append(stem)
-            }
-            pin.position = display
-            return pin
-        }
+        markers = next.map { marker(for: $0, on: mapView) }
     }
 
     private func marker(for cluster: PoiClusters.Cluster, on mapView: NMFMapView) -> NMFMarker {
@@ -82,7 +55,9 @@ final class PoiClusterRenderer {
             marker.iconImage = icon(count: cluster.places.count)
             marker.anchor = CGPoint(x: 0.5, y: 0.5)
             marker.zIndex = 4
-            marker.captionText = String(format: tr("편의시설 %d곳"), cluster.places.count)
+            marker.captionText = String(
+                format: tr(detailed ? "겹친 장소 %d곳 · 목록" : "편의시설 %d곳"), cluster.places.count
+            )
             marker.captionMinZoom = 17
             marker.touchHandler = { [weak self, weak mapView] _ in
                 guard let mapView else { return true }
