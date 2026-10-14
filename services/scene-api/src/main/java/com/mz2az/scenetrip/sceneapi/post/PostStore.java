@@ -344,14 +344,37 @@ public class PostStore {
         .list();
   }
 
-  /** 내 글을 지운다. 사진·코스 사본 행은 CASCADE. 내 글이 아니거나 없으면 {@code false}. */
+  /**
+   * 내 글을 지운다. 사진·코스 사본 행은 CASCADE. 내 글이 아니거나 없으면 {@code false}.
+   *
+   * <p>사진 파일은 같은 트랜잭션에서 지울 목록({@code storage_deletion})에 올린다 — 저장소에서 지우는 일은 {@code
+   * StorageDeletionJob} 이 맡는다(MZ2AZ-406). 목록에 <b>먼저</b> 올린다: 글을 먼저 지우면 CASCADE 로 사진 행이 사라져 키를 모른다.
+   * 남의 글이면 목록 쪽도 {@code user_id} 조건에 걸려 아무것도 오르지 않는다.
+   */
   public boolean delete(long postId, UUID user) {
-    return jdbc.sql(
-                "DELETE FROM community_post WHERE id = :postId AND user_id = CAST(:user AS UUID)")
-            .param("postId", postId)
-            .param("user", user.toString())
-            .update()
-        > 0;
+    return Boolean.TRUE.equals(
+        transactions.execute(
+            status -> {
+              jdbc.sql(
+                      """
+                      INSERT INTO storage_deletion (storage_key)
+                      SELECT ph.storage_key
+                      FROM community_post_photo ph
+                      JOIN community_post p ON p.id = ph.post_id
+                      WHERE p.id = :postId AND p.user_id = CAST(:user AS UUID)
+                      ON CONFLICT (storage_key) DO NOTHING
+                      """)
+                  .param("postId", postId)
+                  .param("user", user.toString())
+                  .update();
+              return jdbc.sql(
+                          "DELETE FROM community_post"
+                              + " WHERE id = :postId AND user_id = CAST(:user AS UUID)")
+                      .param("postId", postId)
+                      .param("user", user.toString())
+                      .update()
+                  > 0;
+            }));
   }
 
   /**

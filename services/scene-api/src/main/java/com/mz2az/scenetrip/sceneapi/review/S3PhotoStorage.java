@@ -118,6 +118,15 @@ final class S3PhotoStorage implements PhotoStorage {
     }
   }
 
+  /**
+   * S3 는 없는 키를 지워도 성공을 돌려준다. PRD 버킷은 버전 관리가 켜져 있어 「삭제 표시」만 얹히고 원본은 이전 버전으로 남았다가 수명 규칙이 30 일 뒤
+   * 지운다(계획 {@code post-photo-deletion.md} §1).
+   */
+  @Override
+  public void delete(String storageKey) {
+    s3.deleteObject(d -> d.bucket(bucket).key(storageKey));
+  }
+
   /** {@code content-type} → {@code Content-Type}. 앱 개발자가 읽기 쉽게. */
   private static String canonical(String name) {
     StringBuilder out = new StringBuilder();

@@ -497,6 +497,24 @@ GROUP BY 1, 2 ORDER BY 3 DESC;
 - 원본(`entity_view`·`search_log`)은 90 일 뒤 지우고, 하루 집계 `entity_daily_stats` 는 남긴다. 검색어는 기기와 잇지 않는다
 - `just seed` 도 끝에서 이 함수를 부른다. 로컬에서 조회·하트를 만든 뒤 바로 보려면 `just popularity-recompute`
 
+## 지운 글의 사진 파일 — 1 분마다 지운다
+
+작성자가 커뮤니티 여행후기를 지우면(`DELETE /posts/{postId}`) 사진 파일도 저장소(로컬 MinIO, AWS S3)에서
+지운다 — 계획 [post-photo-deletion.md](../../docs/project/plans/post-photo-deletion.md), MZ2AZ-406.
+
+- 요청은 같은 트랜잭션에서 사진 키를 `storage_deletion`(V34)에 올리고 글을 지운 뒤 바로 204 를 낸다. 저장소는 기다리지
+  않는다
+- `StorageDeletionJob` 이 **1 분마다** 오래된 키부터 20 개를 지우고 줄을 뺀다. 저장소가 실패하면 그 키의
+  `attempts`·`last_error` 를 올리고 그 차례는 멈춘다 — 남은 키는 다음 차례에 다시 지워진다
+- cron 이어야 한다(`scenetrip.media.deletion.cron`). 가상 스레드를 켠 이 서버의 스케줄러는 cron 실행을 매번 새 스레드에
+  넘기지만, 고정 지연은 스케줄러 스레드 하나를 붙잡아 다른 작업의 시작까지 밀린다
+- 파드가 여럿이어도 advisory lock 으로 한 대만 돈다. 저장소가 없는 환경에서는 돌지 않는다.
+  `scenetrip.media.deletion.schedule-enabled=false` 면 꺼진다
+- PRD 사용자 사진 버킷은 버전 관리가 켜져 있어 지우면 주소는 바로 404 가 되고, 원본은 이전 버전으로 남았다가 30 일 뒤
+  영구 삭제된다
+- 아직 못 지운 것: `SELECT storage_key, attempts, last_error FROM storage_deletion ORDER BY created_at`
+- 리뷰 사진·운영자 내림·탈퇴는 이 길을 쓰지 않는다(탈퇴해도 글·사진은 남는다)
+
 ## 운영
 
 컨테이너는 **비-root(UID 10001)** 로 돌고 루트 파일시스템이 읽기 전용이다.

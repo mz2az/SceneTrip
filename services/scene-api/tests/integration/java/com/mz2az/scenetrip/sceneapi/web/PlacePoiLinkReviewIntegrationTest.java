@@ -557,5 +557,10 @@ class PlacePoiLinkReviewIntegrationTest {
       }
       files.add(toKey);
     }
+
+    @Override
+    public void delete(String storageKey) {
+      files.remove(storageKey);
+    }
   }
 }

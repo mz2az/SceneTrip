@@ -842,6 +842,11 @@ class ReviewFlowIntegrationTest {
       files.add(toKey);
       moves.add(new String[] {fromKey, toKey});
     }
+
+    @Override
+    public void delete(String storageKey) {
+      files.remove(storageKey);
+    }
   }
 
   /** 지금 사용자로 올릴 주소를 받고, 그 주소로 올린 것처럼 버킷에 파일을 둔다. 받은 키(uploads/tmp/…). */
