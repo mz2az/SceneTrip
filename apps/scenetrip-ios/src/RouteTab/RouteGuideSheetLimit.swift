@@ -5,7 +5,9 @@ import SwiftUI
 extension RouteGuideSheet {
     var retryButton: some View {
         Button {
-            Task { await session.retry() }
+            consentGate.request {
+                Task { await session.retry() }
+            }
         } label: {
             Label("다시 시도", systemImage: "arrow.clockwise")
                 .font(.caption.weight(.semibold))

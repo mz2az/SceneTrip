@@ -27,6 +27,7 @@ struct RouteWizardView: View {
 
     /// 모델이 코스를 짜는 중인가.
     @State private var planning = false
+    @StateObject private var consentGate = AIConsentGate()
 
     /// 지금 어디에 있나. **질문을 시작할 때 미리 물어 둔다** — 마지막 화면에서
     /// 물으면 위치가 오기를 기다리느라 코스 만들기가 그만큼 늦어진다. 질문 넷에
@@ -101,6 +102,7 @@ struct RouteWizardView: View {
             footer
         }
         .background(Color(.systemGroupedBackground))
+        .aiConsentSheet(consentGate)
         .alert("일정을 짜지 못했습니다", isPresented: Binding(
             get: { planFailure != nil },
             set: {
@@ -192,7 +194,11 @@ struct RouteWizardView: View {
             draft = store.emptyCourse(span: span, startDate: startDate)
             return
         }
-        // 서버가 답하는 동안 화면이 멈춘 것처럼 보이면 안 된다. 계산 창구라 보통 1초 안이다.
+        consentGate.request { createAIPlan() }
+    }
+
+    private func createAIPlan() {
+        guard !planning else { return }
         planning = true
         Task {
             let result = await store.guideDraft(

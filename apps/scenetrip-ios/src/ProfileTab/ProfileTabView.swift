@@ -226,6 +226,7 @@ struct ProfileTabView: View {
                 }
 
                 statisticsSection
+                ProfileAISettings()
 
                 legalSection
 

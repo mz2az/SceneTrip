@@ -17,6 +17,7 @@ enum FakeReply {
 final class RetryFakeSession: URLSessionProtocol, @unchecked Sendable {
     var replies: [FakeReply]
     var requests: [URLRequest] = []
+    var resumedTasks = 0
     /// 답 하나를 줄 때마다 시계를 이만큼 돌린다(요청이 걸린 시간).
     var seconds: TimeInterval = 0
     var clock: RetryFakeClock?
@@ -55,6 +56,7 @@ final class RetryFakeTask: URLSessionDataTaskProtocol, @unchecked Sendable {
     }
 
     func resume() {
+        session.resumedTasks += 1
         switch reply {
         case let .status(status, code, headers):
             session.clock?.now.addTimeInterval(session.seconds)
@@ -91,7 +93,10 @@ final class RetryFakeClock: @unchecked Sendable {
     func environment(fault: @escaping (URLRequest) -> NetFault.Injection? = { _ in nil })
         -> RetryingSession.Environment
     {
-        RetryingSession.Environment(
+        // 재시도 시험은 이미 동의한 상황이다. 동의 차단 자체는 AIConsentTests가 검사한다.
+        let consent = AIConsentStore(storage: MemoryAIConsentStorage())
+        consent.allow()
+        return RetryingSession.Environment(
             now: { self.now },
             jitter: { 0 },
             schedule: { seconds, work in
@@ -112,7 +117,8 @@ final class RetryFakeClock: @unchecked Sendable {
                     self.cancelledSleeps += 1
                 }
             },
-            fault: fault
+            fault: fault,
+            aiConsent: consent
         )
     }
 }
