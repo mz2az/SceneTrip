@@ -25,7 +25,13 @@ from typing import Any, Protocol
 
 from .planner import Plan, PlanError, PlanRequest, make_plan, plan_to_dict
 from .session import Session
-from .tools import ToolArgError, load_tool_specs, validate_args
+from .tools import (
+    ToolArgError,
+    load_tool_specs,
+    validate_args,
+    words_for_code,
+    words_for_schema,
+)
 
 _PROMPTS = Path(__file__).absolute().parent.parent / "prompts"
 _INTENT = _PROMPTS / "plan_intent.txt"
@@ -92,7 +98,8 @@ def understand(
     if "error" in raw:
         raise IntentError(str(raw["error"]))
     try:
-        return validate_args(_plan_schema(), raw)
+        # 도구를 부를 때와 같은 변환 — 예전 값("normal")도 받고, 「보통」 은 코드 값으로 되돌린다.
+        return words_for_code(validate_args(_plan_schema(), words_for_schema(raw)))
     except ToolArgError as exc:
         raise IntentError(f"모델이 계약에 맞지 않는 요청을 만들었다: {exc}") from exc
 

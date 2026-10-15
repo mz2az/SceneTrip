@@ -262,15 +262,12 @@ class 일정초안(unittest.TestCase):
         self.assertEqual(len(wire["days"]), 3)
         validate_def(wire, "guidePlan", SCHEMA)
 
-    @unittest.expectedFailure
     def test_한_문장_경로의_일정도_guidePlan_이다(self):
-        """**지금은 일정까지 가지 못한다** — 계약 문제가 아니라 `plan_flow` 의 속도 값 문제다.
+        """CLI 한 문장 경로(`PlanFlow`)도 계약 모양의 일정을 만든다 (MZ2AZ-435).
 
         `understand` 는 `plan_course` 도구 계약(한국어 열거 「느긋하게·보통·빡빡하게」)으로 검증해
-        기본값 「보통」 을 채우는데, `to_request` 는 `tools.ARG_WORDS` 로 되돌리지 않고 그대로
-        `PlanRequest(pace="보통")` 에 넣어 `make_plan` 이 「모르는 여행 속도」 로 거절한다. 프롬프트
-        (`prompts/plan_intent.txt`)대로 모델이 "normal" 을 보내면 이번에는 `validate_args` 가 거절한다.
-        고쳐지면 이 시험이 「예상 밖 성공」 으로 알린다 — 그때 표식을 지운다.
+        기본값 「보통」 을 채운다. 예전에는 그 말이 그대로 `PlanRequest` 로 가 `make_plan` 이
+        「모르는 여행 속도」 로 거절했다 — 이제 도구 호출과 같이 `words_for_code` 로 되돌린다.
         """
         client = ScriptedClient(
             [
@@ -280,6 +277,22 @@ class 일정초안(unittest.TestCase):
         )
         _, plan, _, _ = PlanFlow(Session(book=numbered_book()), client).run(
             "도깨비 1박 2일"
+        )
+        validate_def(plan_to_api(plan), "guidePlan", SCHEMA)
+
+    def test_한_문장_경로가_예전_속도_값도_받는다(self):
+        """`prompts/plan_intent.txt` 대로 모델이 "normal" 같은 예전 값을 보내도 거절하지 않는다."""
+        client = ScriptedClient(
+            [
+                {
+                    "role": "assistant",
+                    "content": '{"titles": ["도깨비"], "days": 1, "pace": "packed"}',
+                },
+                {"role": "assistant", "content": "하루 일정입니다."},
+            ]
+        )
+        _, plan, _, _ = PlanFlow(Session(book=numbered_book()), client).run(
+            "도깨비 하루 빡빡하게"
         )
         validate_def(plan_to_api(plan), "guidePlan", SCHEMA)
 
@@ -531,20 +544,19 @@ class 검사가문다(unittest.TestCase):
 class CSV창구의_장바구니(unittest.TestCase):
     """CSV 창구(시험·데모용)는 `st_04123` 같은 문자열 id 를 들고 있다.
 
-    `tools._place_id` 는 숫자가 아니면 문자열을 그대로 내보낸다 — 정본은 `placeId` 를
-    `integer|null` 로 정했으므로 이것은 계약 위반이다. 운영 창구(scene-api)는 정수 id 만 주어
-    닿지 않는 경로라 생산 코드는 고치지 않고 위반을 여기에 못 박아 둔다. 고쳐지면 이 시험이
-    「예상 밖 성공」 으로 실패해 지울 때를 알린다.
+    정본은 `placeId` 를 `integer|null` 로 정했으므로 숫자가 아닌 id 는 null 로 내보낸다
+    (MZ2AZ-435). 예전에는 문자열을 그대로 내보내 계약을 어겼다.
     """
 
-    @unittest.expectedFailure
-    def test_문자열_id_장소를_담으면_계약을_어긴다(self):
+    def test_문자열_id_장소를_담으면_placeId_는_null(self):
         session = Session(
             book=FakeBook({"도깨비": [make_place("st_1", "가", 37.5, 127.0)]})
         )
         session.remember(session.book.catalog["도깨비"])
         run_tool("update_cart", {"action": "add", "name": "가"}, session)
-        validate(turn_payload(session), SCHEMA)
+        payload = turn_payload(session)
+        validate(payload, SCHEMA)
+        self.assertIsNone(payload["effects"][0]["placeId"])
 
 
 if __name__ == "__main__":
