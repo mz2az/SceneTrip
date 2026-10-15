@@ -288,7 +288,6 @@
 "장면 정보가 아직 없습니다" = "No scene info yet";
 "장바구니" = "Saved";
 "장바구니 %d곳" = "Saved · %d places";
-"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.";
 "장바구니가 비어 인기 장소를 보여 줍니다" = "Saved is empty, so here are popular places";
 "장바구니가 비었습니다" = "Nothing saved yet";
 "장바구니에 담기" = "Save";
@@ -443,7 +442,7 @@
 "별점 %@점" = "%@ out of 5 stars";
 "더 불러오지 못했어요 · 다시 시도" = "Couldn't load more · Try again";
 "탈퇴한 사용자" = "Deleted user";
-"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 사진과 함께 「탈퇴한 사용자」로 남고, 탈퇴한 뒤에는 지울 수 없어요. 지우고 싶은 글은 먼저 삭제해 주세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews and travel posts you wrote stay, with their photos, as \"Deleted user\" and can't be deleted after you leave. Delete anything you want removed first.";
+"장바구니·코스·찜과 이 기기의 발자취, 작성한 리뷰·여행후기와 사진이 모두 지워지고 되돌릴 수 없어요." = "Your cart, courses, favorites, this device's trail, and the reviews and travel stories you wrote with their photos will all be deleted. This can't be undone.";
 "후기를 지울까요?" = "Delete this travel review?";
 "쓰던 후기를 버릴까요?" = "Discard this draft?";
 "게시 여부 확인" = "Check publication";
