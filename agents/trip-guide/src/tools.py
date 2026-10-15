@@ -175,25 +175,47 @@ ARG_WORDS: dict[str, dict[str, str]] = {
     "sort": {"가까운순": "distance", "유명한순": "popular"},
     "action": {"담기": "add", "빼기": "remove"},
 }
+
+
+def words_for_schema(raw_args: dict[str, Any]) -> dict[str, Any]:
+    """검사 **전에** — 예전 값(영어)으로 온 인자를 스키마의 한국어 말로 바꾼다."""
+    out = dict(raw_args)
+    for key, words in ARG_WORDS.items():
+        if out.get(key) in words.values():
+            out[key] = next(w for w, v in words.items() if v == out[key])
+    return out
+
+
+def words_for_code(args: dict[str, Any]) -> dict[str, Any]:
+    """검사 **뒤에** — 스키마의 한국어 말을 코드가 쓰는 값으로 되돌린다.
+
+    도구를 부르는 곳은 모두 이것을 거쳐야 한다. 빠뜨리면 「보통」 같은 말이 그대로
+    planner 까지 가서 「모르는 여행 속도」 로 거절된다(MZ2AZ-435 — CLI 한 문장 경로).
+    """
+    out = dict(args)
+    for key, words in ARG_WORDS.items():
+        if out.get(key) in words:
+            out[key] = words[out[key]]
+    return out
+
+
 """도구의 한국어 갈래를 계약의 `PoiCategoryGroup` 으로. 네 가지뿐이다."""
 
 
-def _place_id(place: Place) -> Any:
+def _place_id(place: Place) -> int | None:
     """장소 하나의 **id**. 없으면 None 이다.
 
     **이름으로 대신하지 않는다.** 예전에는 id 가 없으면 이름을 넣었는데, 그러면
     백엔드가 이름을 id 로 알고 쓰기를 시도하고 조용히 엉뚱한 행에 걸린다. 없으면
     없다고 말하고 백엔드가 시끄럽게 거절하게 두는 편이 낫다.
 
-    **숫자로 보낸다.** scene-api 의 `placeId` 는 계약상 integer 다
+    **숫자로 보낸다.** scene-api 의 `placeId` 는 계약상 `integer|null` 이다
     (contracts/openapi §PlaceSummary.id). 우리가 문자열로 들고 있을 뿐이라
-    내보낼 때 되돌린다. CSV 창구의 `st_04123` 같은 값은 숫자가 아니므로 그대로
-    나가는데, 그 경로는 시험용이라 백엔드에 닿지 않는다.
+    내보낼 때 되돌린다. CSV 창구의 `st_04123` 같은 숫자가 아닌 값은 None 이다 —
+    그대로 내보내면 계약을 어긴다(MZ2AZ-435). planner 의 `_api_place_id` 와 같은 규칙.
     """
-    raw = place.place_id
-    if not raw:
-        return None
-    return int(raw) if raw.isdigit() else raw
+    raw = (place.place_id or "").strip()
+    return int(raw) if raw.isdigit() else None
 
 
 def _linked_place(session: Session, row: dict[str, Any]) -> Place | None:
@@ -324,17 +346,12 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
             ko for ko, en in _POI_GROUPS.items() if en == raw_args["group"]
         )
 
-    for key, words in ARG_WORDS.items():
-        if raw_args.get(key) in words.values():
-            raw_args[key] = next(w for w, v in words.items() if v == raw_args[key])
-
     try:
-        args = validate_args(spec["parameters"], raw_args)
+        args = words_for_code(
+            validate_args(spec["parameters"], words_for_schema(raw_args))
+        )
     except ToolArgError as exc:
         return _refuse(str(exc))
-    for key, words in ARG_WORDS.items():
-        if args.get(key) in words:
-            args[key] = words[args[key]]
 
     book = session.book
 
