@@ -9,23 +9,30 @@ final class MetaAnalytics {
     static let shared = MetaAnalytics(
         configuration: MetaConfiguration.load(),
         authorized: { ATTrackingManager.trackingAuthorizationStatus == .authorized },
-        client: FacebookMetaEventsClient()
+        client: FacebookMetaEventsClient(),
+        statisticsEnabled: { UsageStatistics.shared.isEnabled }
     )
 
     private let configuration: MetaConfiguration?
     private let authorized: () -> Bool
     private let client: MetaEventsClient
+    private let statisticsEnabled: () -> Bool
     private var started = false
 
-    init(configuration: MetaConfiguration?, authorized: @escaping () -> Bool, client: MetaEventsClient) {
+    init(
+        configuration: MetaConfiguration?, authorized: @escaping () -> Bool, client: MetaEventsClient,
+        statisticsEnabled: @escaping () -> Bool = { true }
+    ) {
         self.configuration = configuration
         self.authorized = authorized
         self.client = client
+        self.statisticsEnabled = statisticsEnabled
     }
 
     func activate() {
         guard synchronizeConsent() else { return }
         client.activate()
+        flushIfAllowed()
     }
 
     func log(_ event: AppEvent) {
@@ -37,10 +44,16 @@ final class MetaAnalytics {
         }
         guard synchronizeConsent() else { return }
         client.log(name: name)
+        flushIfAllowed()
+    }
+
+    private func flushIfAllowed() {
+        guard synchronizeConsent() else { return }
+        client.flush()
     }
 
     private func synchronizeConsent() -> Bool {
-        guard let configuration, configuration.enabled, authorized() else {
+        guard let configuration, configuration.enabled, authorized(), statisticsEnabled() else {
             if started {
                 client.setEnabled(false)
             }
@@ -90,6 +103,7 @@ protocol MetaEventsClient {
     func setEnabled(_ enabled: Bool)
     func activate()
     func log(name: String)
+    func flush()
 }
 
 private struct FacebookMetaEventsClient: MetaEventsClient {
@@ -98,22 +112,29 @@ private struct FacebookMetaEventsClient: MetaEventsClient {
         Settings.shared.clientToken = configuration.clientToken
         Settings.shared.isAutoLogAppEventsEnabled = false
         Settings.shared.isAdvertiserIDCollectionEnabled = true
-        // 정기 자동 전송을 끄고, ATT 허용을 확인한 호출에서만 전송한다.
+        // 자동 flush만 막는다. 이미 예약한 flush·설치 전송을 취소하지는 않는다.
         AppEvents.shared.flushBehavior = .explicitOnly
         ApplicationDelegate.shared.application(UIApplication.shared, didFinishLaunchingWithOptions: nil)
     }
 
     func setEnabled(_ enabled: Bool) {
+        AppEvents.shared.flushBehavior = .explicitOnly
+        Settings.shared.isAutoLogAppEventsEnabled = false
+        // SDK 18.1.1은 iOS 17+에서 이 setter를 무시하고 시스템 ATT 상태를 사용한다.
+        // 공개 API에는 이벤트 큐 삭제나 예약된 전송 취소 기능이 없다(MZ2AZ-402).
+        Settings.shared.isAdvertiserTrackingEnabled = enabled
         Settings.shared.isAdvertiserIDCollectionEnabled = enabled
     }
 
     func activate() {
         AppEvents.shared.activateApp()
-        AppEvents.shared.flush()
     }
 
     func log(name: String) {
         AppEvents.shared.logEvent(AppEvents.Name(rawValue: name))
+    }
+
+    func flush() {
         AppEvents.shared.flush()
     }
 }

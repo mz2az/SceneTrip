@@ -58,6 +58,11 @@
 	     한국어·영어 문구는 번들 InfoPlist.strings에서 고른다 (MZ2AZ-416). -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>가까운 촬영지·편의시설 검색, 여행 중 길 안내와 동의한 발자취 기록에 위치를 사용합니다.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>광고가 SceneTrip 설치와 앱 사용(장소 저장·코스 만들기)으로 이어졌는지 측정하는 데 사용합니다. 허용하지 않아도 모든 기능을 쓸 수 있어요.</string>
+	<!-- 저장한 이용 통계 설정을 적용하기 전에는 자동 수집을 시작하지 않는다(MZ2AZ-402). -->
+	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
+	<false/>
 	<!-- 분석 (MZ2AZ-353). 화면 조회는 앱이 이름을 붙여 직접 보낸다(RootTabs) — Firebase 의 자동 화면 기록을
 	     켜 두면 알림창·시트가 뜰 때마다 이름 없는 screen_view 가 섞여 들어온다. -->
 	<key>FirebaseAutomaticScreenReportingEnabled</key>

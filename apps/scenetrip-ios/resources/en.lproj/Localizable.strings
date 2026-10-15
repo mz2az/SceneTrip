@@ -695,3 +695,10 @@
 "문의하기" = "Contact Us";
 "메일 쓰기" = "Send Email";
 "쓸 수 없는 말이 들어 있어요. 고친 뒤 다시 저장해 주세요." = "This contains words that aren't allowed. Please edit it and save again.";
+
+/* ATT와 이용 통계 설정 (MZ2AZ-402). */
+"이용 통계 수집" = "Usage statistics";
+"꺼도 앱 기능은 그대로예요. 광고 추적 허용은 설정 앱에서 바꿀 수 있어요." = "Everything still works when this is off. You can change ad tracking permission in Settings.";
+"광고 추적 허용" = "Ad tracking permission";
+"허용됨" = "Allowed";
+"허용 안 함" = "Not allowed";

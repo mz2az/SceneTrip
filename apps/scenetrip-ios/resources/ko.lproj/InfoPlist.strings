@@ -1,2 +1,3 @@
 /* 위치 권한은 앱을 사용하는 동안에만 요청한다(MZ2AZ-416). */
 "NSLocationWhenInUseUsageDescription" = "가까운 촬영지·편의시설 검색, 여행 중 길 안내와 동의한 발자취 기록에 위치를 사용합니다.";
+"NSUserTrackingUsageDescription" = "광고가 SceneTrip 설치와 앱 사용(장소 저장·코스 만들기)으로 이어졌는지 측정하는 데 사용합니다. 허용하지 않아도 모든 기능을 쓸 수 있어요.";

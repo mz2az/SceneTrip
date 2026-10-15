@@ -1,3 +1,4 @@
+import AppTrackingTransparency
 import SceneApiClient
 import SwiftUI
 
@@ -63,6 +64,10 @@ struct ProfileTabView: View {
     /// 앱 언어 (MZ2AZ-343). 바꾸면 루트가 화면을 통째로 다시 만들어 이 덮개도 닫힌다.
     @ObservedObject private var language = AppLanguage.shared
     @State private var choosingLanguage = false
+    @AppStorage(UsageStatistics.key) private var statisticsEnabled = true
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
+    @State private var trackingAllowed = ATTrackingManager.trackingAuthorizationStatus == .authorized
 
     /// 뒷문은 프로세스당 한 번. 화면 상태가 아니라 **프로세스 상태**라 static 이다.
     private static var likesBackdoorUsed = false
@@ -220,6 +225,8 @@ struct ProfileTabView: View {
                     SupportContactRow()
                 }
 
+                statisticsSection
+
                 legalSection
 
                 accountSection
@@ -264,6 +271,12 @@ struct ProfileTabView: View {
                 await load()
             }
             .onAccountChange { await load() }
+            .onAppear { refreshTrackingPermission() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    refreshTrackingPermission()
+                }
+            }
             .signInSheet()
             .nicknameSheet()
             .sheet(isPresented: $editingNickname) {
@@ -334,6 +347,35 @@ struct ProfileTabView: View {
             }
         }
         .contentShape(.rect)
+    }
+
+    private var statisticsSection: some View {
+        Section {
+            Toggle(isOn: Binding(
+                get: { statisticsEnabled },
+                set: {
+                    UsageStatistics.shared.setEnabled($0)
+                    statisticsEnabled = $0
+                }
+            )) {
+                row(symbol: "chart.bar", tint: .blue, title: tr("이용 통계 수집"), value: "")
+            }
+            Button {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    openURL(url)
+                }
+            } label: {
+                row(symbol: "hand.raised", tint: .blue, title: tr("광고 추적 허용"),
+                    value: trackingAllowed ? tr("허용됨") : tr("허용 안 함"), chevron: true)
+            }
+            .buttonStyle(.plain)
+        } footer: {
+            Text("꺼도 앱 기능은 그대로예요. 광고 추적 허용은 설정 앱에서 바꿀 수 있어요.")
+        }
+    }
+
+    private func refreshTrackingPermission() {
+        trackingAllowed = ATTrackingManager.trackingAuthorizationStatus == .authorized
     }
 
     private func load() async {
