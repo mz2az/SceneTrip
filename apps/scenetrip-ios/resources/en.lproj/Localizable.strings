@@ -443,7 +443,7 @@
 "별점 %@점" = "%@ out of 5 stars";
 "더 불러오지 못했어요 · 다시 시도" = "Couldn't load more · Try again";
 "탈퇴한 사용자" = "Deleted user";
-"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 익명으로 남습니다. 지우려면 탈퇴 전에 지우세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews and travel posts you wrote stay without your name. Delete them before leaving if you want them removed.";
+"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 사진과 함께 「탈퇴한 사용자」로 남고, 탈퇴한 뒤에는 지울 수 없어요. 지우고 싶은 글은 먼저 삭제해 주세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews and travel posts you wrote stay, with their photos, as \"Deleted user\" and can't be deleted after you leave. Delete anything you want removed first.";
 "후기를 지울까요?" = "Delete this travel review?";
 "쓰던 후기를 버릴까요?" = "Discard this draft?";
 "게시 여부 확인" = "Check publication";
@@ -533,10 +533,9 @@
 "모두 보기" = "See all";
 "리뷰 보기|사진" = "View review";
 
-/* 내 리뷰 · 탈퇴 안내 (MZ2AZ-363) */
+/* 내 리뷰 (MZ2AZ-363) */
 "아직 쓴 리뷰가 없어요" = "You haven't written a review yet";
 "다녀온 촬영지와 가게에 별점을 남겨 보세요" = "Rate the filming spots and places you've visited";
-"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰는 익명으로 남습니다. 지우려면 탈퇴 전에 지우세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews you wrote stay, without your name. Delete them first if you want them gone.";
 "편의시설" = "Place nearby";
 
 /* 머무는 시간 — 일차 머리줄의 합과 시트 (MZ2AZ-368) */
