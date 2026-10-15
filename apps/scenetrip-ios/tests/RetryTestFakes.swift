@@ -93,9 +93,11 @@ final class RetryFakeClock: @unchecked Sendable {
     func environment(fault: @escaping (URLRequest) -> NetFault.Injection? = { _ in nil })
         -> RetryingSession.Environment
     {
-        // 재시도 시험은 이미 동의한 상황이다. 동의 차단 자체는 AIConsentTests가 검사한다.
+        // 재시도 시험은 이미 동의한 상황이다. 차단은 AIConsentTests·LocationConsentTests가 검사한다.
         let consent = AIConsentStore(storage: MemoryAIConsentStorage())
         consent.allow()
+        let location = LocationConsentStore(storage: MemoryAIConsentStorage())
+        location.allow()
         return RetryingSession.Environment(
             now: { self.now },
             jitter: { 0 },
@@ -118,7 +120,8 @@ final class RetryFakeClock: @unchecked Sendable {
                 }
             },
             fault: fault,
-            aiConsent: consent
+            aiConsent: consent,
+            locationConsent: location
         )
     }
 }

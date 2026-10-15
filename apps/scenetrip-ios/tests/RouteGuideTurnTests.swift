@@ -45,7 +45,7 @@ final class RouteGuideTurnTests: XCTestCase {
 
     private func makeSession() -> RouteGuideSession {
         let session = RouteGuideSession(environment: .init(
-            send: { [wire] in try await wire.send($0, key: $1, keyed: $2) },
+            send: { [wire] request, key, keyed, _ in try await wire.send(request, key: key, keyed: keyed) },
             serverKeepsKeys: { [unowned self] in serverKeepsKeys },
             lang: { [unowned self] in lang },
             newKey: UUID.init,

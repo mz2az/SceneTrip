@@ -15,6 +15,8 @@ struct GalleryPhoto: Equatable, Identifiable {
     var reviewId: Int64?
     /// 우리 사진의 저작자·라이선스 표기. 있으면 사진 곁에 보인다(계약).
     var credit: String?
+    var thumbnailUrl: String?
+    var license: PhotoLicense?
 
     var id: String {
         key
@@ -34,13 +36,28 @@ enum PhotoGalleryRules {
     /// 전체 그림을 보전해야 하는 공식 사진인가.
     static func preservesFrame(_ photo: GalleryPhoto) -> Bool {
         guard !signed(photo) else { return false }
-        return tourImage(photo.url) || photo.credit?.contains("공공누리 제3유형") == true
+        return photo.license == .koglType3 || tourImage(photo.url) || photo.credit?.contains("공공누리 제3유형") == true
     }
 
-    /// 사진 줄 아래에 적을 원문 출처 목록.
+    /// 작은 줄·격자는 서버 썸네일, 상세·확대는 원본. 썸네일이 없거나 웹 주소가 아니면 원본이다.
+    static func imageUrl(_ photo: GalleryPhoto, thumbnail: Bool) -> String {
+        guard thumbnail, let url = WebAddress.url(photo.thumbnailUrl) else { return photo.url }
+        return url.absoluteString
+    }
+
+    /// 라이선스가 있으면 앱 언어의 관광공사 출처를 표시한다. 추가 저작자·라이선스 원문도 보존한다.
+    static func credit(_ photo: GalleryPhoto) -> String? {
+        guard photo.license != nil else { return photo.credit }
+        let source = tr("출처: 한국관광공사")
+        guard let raw = photo.credit, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !["한국관광공사", "Korea Tourism Organization"].contains(raw) else { return source }
+        return "\(source)\n\(raw)"
+    }
+
+    /// 사진 줄 아래에 적을 출처 목록.
     static func credits(_ photos: [GalleryPhoto]) -> [String] {
         var seen = Set<String>()
-        return photos.compactMap(\.credit).filter {
+        return photos.compactMap(credit).filter {
             !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && seen.insert($0).inserted
         }
     }
@@ -79,7 +96,9 @@ enum PhotoGalleryRules {
             url: photo.url,
             isReview: photo.source == .review,
             reviewId: photo.reviewId,
-            credit: photo.credit
+            credit: photo.credit,
+            thumbnailUrl: photo.thumbnailUrl,
+            license: photo.license
         )
     }
 

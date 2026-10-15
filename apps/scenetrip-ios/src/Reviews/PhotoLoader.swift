@@ -8,8 +8,8 @@ import SwiftUI
 /// 1. **열쇠가 주소가 아니다.** 리뷰 사진의 주소는 서명돼 있어 받을 때마다 다르다 — 주소로 기억하면 같은
 ///    사진을 다시 받고(깜빡임), 죽은 주소가 기억에 쌓인다. 여기서는 `GalleryPhoto.key` 로 기억한다.
 ///    서명된 주소는 디스크에도 남기지 않는다.
-/// 2. **원본을 통째로 풀지 않는다.** 썸네일 주소가 없다 — 올 수 있는 것은 긴 변 2,048 의 원본이고
-///    우리 사진은 3,000 을 넘기도 한다. 풀면 한 장이 수십 MB 라, 그릴 크기까지만 푼다(ImageIO).
+/// 2. **원본을 통째로 풀지 않는다.** 작은 칸은 서버 썸네일을 우선 사용하고, 없으면 원본을 받는다.
+///    원본은 3,000 을 넘기도 해 그릴 크기까지만 푼다(ImageIO).
 enum PhotoLoader {
     /// 어느 크기로 풀 것인가(긴 변, 픽셀).
     enum Size: Int {
@@ -59,7 +59,7 @@ enum PhotoLoader {
     }
 
     private static func fetch(_ photo: GalleryPhoto, size: Size) async -> UIImage? {
-        guard let url = URL(string: photo.url) else { return nil }
+        guard let url = URL(string: PhotoGalleryRules.imageUrl(photo, thumbnail: size == .tile)) else { return nil }
         let session = PhotoGalleryRules.signed(photo) ? unsaved : URLSession.shared
         guard let (data, response) = try? await session.data(from: url),
               (response as? HTTPURLResponse).map({ (200 ..< 300).contains($0.statusCode) }) ?? true
@@ -130,6 +130,10 @@ struct GalleryImage: View {
         let attempt: Int
     }
 
+    private var preservesFrame: Bool {
+        fits || photo.license == .koglType3
+    }
+
     var body: some View {
         // `RemoteImage` 와 같은 까닭 — 빈 색이 제안된 크기를 받고, 그 위에서 채운 뒤 자른다.
         Color.clear
@@ -140,14 +144,14 @@ struct GalleryImage: View {
 
     @ViewBuilder private var content: some View {
         if let image = current {
-            if fits {
+            if preservesFrame {
                 Image(uiImage: image).resizable().scaledToFit()
             } else {
                 Image(uiImage: image).resizable().scaledToFill()
             }
         } else if failed {
             failure
-        } else if fits {
+        } else if preservesFrame {
             ProgressView().tint(dark ? .white : .secondary)
         } else {
             Color(.systemGray5).overlay(ProgressView().scaleEffect(0.6))
@@ -156,7 +160,11 @@ struct GalleryImage: View {
 
     /// 이 칸의 사진 — 방금 받은 것, 없으면 풀어 둔 것.
     private var work: Work {
-        Work(key: photo.key, active: active, retry: failedUrl == nil ? nil : photo.url, attempt: attempt)
+        Work(key: photo.key, active: active, retry: failedUrl == nil ? nil : imageUrl, attempt: attempt)
+    }
+
+    private var imageUrl: String {
+        PhotoGalleryRules.imageUrl(photo, thumbnail: size == .tile)
     }
 
     private var failed: Bool {
@@ -211,11 +219,11 @@ struct GalleryImage: View {
             shown = photo.key
             failedUrl = nil
         }
-        guard image == nil, active, failedUrl != photo.url else { return }
+        guard image == nil, active, failedUrl != imageUrl else { return }
         let loaded = await PhotoLoader.load(photo, size: size)
         guard !Task.isCancelled else { return }
         image = loaded
-        failedUrl = loaded == nil ? photo.url : nil
+        failedUrl = loaded == nil ? imageUrl : nil
         guard loaded == nil, let renew,
               PhotoGalleryRules.renewsAfterFailure(
                   signed: PhotoGalleryRules.signed(photo), alreadyRenewed: renewedFor == photo.key

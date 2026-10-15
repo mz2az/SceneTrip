@@ -9,19 +9,17 @@ protocol AIConsentStorage: AnyObject {
 
 extension UserDefaults: AIConsentStorage {}
 
-/// 두 AI 기능이 공유하는 동의. 전송 스레드에서도 읽으므로 저장소 접근을 잠근다.
-final class AIConsentStore: @unchecked Sendable {
-    static let shared = AIConsentStore(storage: UserDefaults.standard)
-    static let key = "scenetrip.aiConsentVersion"
-    /// 안내 내용이 바뀌면 올린다. 이전 버전의 허용은 새 안내의 동의가 아니다.
-    static let currentVersion = 1
+/// AI·위치 동의가 공유하는 버전 저장소. 전송 스레드에서도 읽으므로 접근을 잠근다.
+class VersionedConsentStore: @unchecked Sendable {
+    private let storageKey: String
     private let storage: AIConsentStorage
     private let version: Int
-    // 시험 세션은 resume 안에서 완료·재시도를 동기 호출할 수 있으므로 재진입을 허용한다.
+    /// 시험 세션은 resume 안에서 완료·재시도를 동기 호출할 수 있으므로 재진입을 허용한다.
     private let lock = NSRecursiveLock()
 
-    init(storage: AIConsentStorage, version: Int = currentVersion) {
+    init(storage: AIConsentStorage, key: String, version: Int) {
         precondition(version > 0)
+        storageKey = key
         self.storage = storage
         self.version = version
     }
@@ -29,7 +27,7 @@ final class AIConsentStore: @unchecked Sendable {
     var isAllowed: Bool {
         lock.lock()
         defer { lock.unlock() }
-        return storage.integer(forKey: Self.key) == version
+        return storage.integer(forKey: storageKey) == version
     }
 
     func allow() {
@@ -44,15 +42,32 @@ final class AIConsentStore: @unchecked Sendable {
     func startIfAllowed(_ start: () -> Void) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        guard storage.integer(forKey: Self.key) == version else { return false }
+        guard storage.integer(forKey: storageKey) == version else { return false }
         start()
         return true
+    }
+
+    func withConsentLock<T>(_ action: () throws -> T) rethrows -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return try action()
     }
 
     private func save(_ value: Int) {
         lock.lock()
         defer { lock.unlock() }
-        storage.set(value, forKey: Self.key)
+        storage.set(value, forKey: storageKey)
+    }
+}
+
+final class AIConsentStore: VersionedConsentStore, @unchecked Sendable {
+    static let shared = AIConsentStore(storage: UserDefaults.standard)
+    static let key = "scenetrip.aiConsentVersion"
+    /// 안내 내용이 바뀌면 올린다. 이전 버전의 허용은 새 안내의 동의가 아니다.
+    static let currentVersion = 1
+
+    init(storage: AIConsentStorage, version: Int = currentVersion) {
+        super.init(storage: storage, key: Self.key, version: version)
     }
 
     static func requiresConsent(method: String, path: String) -> Bool {
@@ -68,11 +83,11 @@ struct AIConsentRequired: Error, Equatable {}
 @MainActor
 final class AIConsentGate: ObservableObject {
     @Published var isPresented = false
-    private let store: AIConsentStore
+    private let store: VersionedConsentStore
     private var pending: (() -> Void)?
     private var approved = false
 
-    init(store: AIConsentStore = .shared) {
+    init(store: VersionedConsentStore = AIConsentStore.shared) {
         self.store = store
     }
 

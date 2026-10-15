@@ -65,6 +65,7 @@ struct RouteNavView: View {
     /// 안 된 이유. 결과가 오면 nil 로 돌아간다.
     @State var failure: RouteNavFailure?
     @State var asking = false
+    @StateObject var directionsConsent = LocationDirectionsConsent()
 
     /// 지금 위치. 아직 못 받았으면 nil 이고, 그때 지도는 파란 점을 그리지 않는다 —
     /// **없는 위치를 지어내 찍지 않는다.** 엉뚱한 자리에 내가 있다고 하는 것이
@@ -95,7 +96,16 @@ struct RouteNavView: View {
             legList
             bottomBar
         }
-        .task { locator.start() }
+        .task {
+            directionsConsent.beginRequest()
+            locator.start()
+        }
+        .locationConsentSheet(directionsConsent.gate, onCancel: {
+            if !LocationConsentStore.shared.isAllowed {
+                failure = .locationConsentRequired
+            }
+        })
+        .kakaoDirectionsNotice(directionsConsent.notice)
         // 정보 카드는 화면 바닥에. 지도(300pt) 위에 얹으면 카드가 더 커서
         // 뚫고 나간다 — 편집 화면과 같은 규칙이다.
         .overlay(alignment: .bottom) {
@@ -140,6 +150,7 @@ struct RouteNavView: View {
                     // 「거기 가면 뭐가 있나」도 물을 만한 질문이다.
                     latitude: stop.place.latitude, longitude: stop.place.longitude
                 ),
+                coordinateSource: here == nil ? .userSelected : .device,
                 context: RouteGuide.Context(
                     // 일차 전체를 번호째 준다 — 여행 중에도 「2번 주변 음식점」
                     // 이 통해야 한다(2026-08-28 사용자 요청).

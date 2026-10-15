@@ -39,13 +39,14 @@ final class SceneData: ObservableObject {
     private var lastQuery = ""
     private var searchRun = 0
     typealias SearchFetch = @MainActor (String?) async throws -> (ContentList, PlaceList)
+    typealias ViewportFetch = @MainActor (String, LocationCoordinateSource) async throws -> PlaceList
     private let fetchSearch: SearchFetch
-    private let fetchViewport: @MainActor (String) async throws -> PlaceList
+    private let fetchViewport: ViewportFetch
     private let recordUsage: @MainActor (UsageEvent) -> Void
 
     init(
         fetchSearch: @escaping SearchFetch = SceneData.fetchSearch,
-        fetchViewport: @escaping @MainActor (String) async throws -> PlaceList = SceneData.fetchViewport,
+        fetchViewport: @escaping ViewportFetch = SceneData.fetchViewport,
         recordUsage: @escaping @MainActor (UsageEvent) -> Void = { UsageEvents.record($0) }
     ) {
         self.fetchSearch = fetchSearch
@@ -59,8 +60,15 @@ final class SceneData: ObservableObject {
         return try await (works, spots)
     }
 
-    private static func fetchViewport(_ bbox: String) async throws -> PlaceList {
-        try await PlacesAPI.listPlaces(bbox: bbox, limit: PageSize.places)
+    private static func fetchViewport(_ bbox: String, source: LocationCoordinateSource) async throws -> PlaceList {
+        try await viewportBuilder(bbox, source: source).execute().body
+    }
+
+    static func viewportBuilder(
+        _ bbox: String, source: LocationCoordinateSource, offset: Int? = nil
+    ) -> RequestBuilder<PlaceList> {
+        PlacesAPI.listPlacesWithRequestBuilder(bbox: bbox, limit: PageSize.places, offset: offset)
+            .coordinateSource(source)
     }
 
     /// 지금 목록이 **무엇을 물은 결과인가** — 이어 받을 때 같은 조건에 `offset` 만 바꿔 보낸다.
@@ -69,7 +77,7 @@ final class SceneData: ObservableObject {
 
     private enum PlaceScope {
         case keyword(String?)
-        case viewport(String)
+        case viewport(String, LocationCoordinateSource)
     }
 
     /// 검색이 새로 걸릴 때마다 오른다. 이어 받던 응답이 그 뒤에 오면 버린다 — 옛 검색의 줄이 새 목록에 붙는다.
@@ -140,7 +148,7 @@ final class SceneData: ObservableObject {
     /// 질문이라 섞으면 결과를 설명할 수 없다.
     ///
     /// 작품 탭은 건드리지 않는다. 뷰포트는 장소의 성질이지 작품의 성질이 아니다.
-    func searchInViewport(bbox: String) {
+    func searchInViewport(bbox: String, source: LocationCoordinateSource) {
         lastQuery = ""
         inFlight?.cancel()
         searchRun += 1
@@ -150,9 +158,9 @@ final class SceneData: ObservableObject {
         let fetch = fetchViewport
         inFlight = Task { [weak self] in
             do {
-                let spots = try await fetch(bbox)
+                let spots = try await fetch(bbox, source)
                 guard !Task.isCancelled, let self, run == searchRun else { return }
-                placeScope = .viewport(bbox)
+                placeScope = .viewport(bbox, source)
                 places = spots.items
                 placePaging = Paging().advanced(received: spots.items.count, total: spots.total)
                 listSerial += 1
@@ -223,8 +231,8 @@ final class SceneData: ObservableObject {
             switch scope {
             case let .keyword(keyword):
                 try await PlacesAPI.listPlaces(q: keyword, limit: PageSize.places, offset: offset)
-            case let .viewport(bbox):
-                try await PlacesAPI.listPlaces(bbox: bbox, limit: PageSize.places, offset: offset)
+            case let .viewport(bbox, source):
+                try await Self.viewportBuilder(bbox, source: source, offset: offset).execute().body
             }
         }
         // 받는 사이 새 검색이 걸렸으면 버린다 — 옛 검색의 줄이 새 목록에 붙는다.

@@ -65,6 +65,7 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
         // 없으면 안 되는 것으로 보인다(2026-08-27 사용자 지적 — 추천 핀에만
         // 맞춘 화면 밖에 내가 있었다).
         if let here, !mapView.contentBounds.hasPoint(here) {
+            region.source = .device
             let bounds = mapView.contentBounds
             let update = NMFCameraUpdate(fit: NMGLatLngBounds(
                 southWest: NMGLatLng(
@@ -161,6 +162,11 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
 
     /// 지도가 움직이는 **동안 계속** 부른다 — 멈춘 뒤에만 옮기면 미는 사이에
     /// 파문이 제자리에 남는다(`RouteNavMapView` 와 같은 규칙).
+    nonisolated func mapView(_: NMFMapView, cameraWillChangeByReason reason: Int, animated _: Bool) {
+        // SDK 카메라 콜백은 메인 스레드다. idle보다 늦게 출처가 바뀌지 않게 즉시 기록한다.
+        MainActor.assumeIsolated { region.cameraWillChange(reason: reason) }
+    }
+
     nonisolated func mapView(_: NMFMapView, cameraIsChangingByReason _: Int) {
         Task { @MainActor in
             self.positionPulse()

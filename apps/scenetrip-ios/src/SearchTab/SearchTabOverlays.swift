@@ -125,6 +125,13 @@ extension SearchTabView {
     /// — 받는 양에 상한(200)이 있어 넓은 화면에서는 일부만 오고, 좁히면 그 안의 것이 다 들어온다(MZ2AZ-372).
     func searchViewport() {
         guard let box = camera.boundingBox else { return }
+        let source = camera.region.source
+        locationGate.requestLocation(for: source) {
+            applyViewportSearch(bbox: box, source: source)
+        }
+    }
+
+    private func applyViewportSearch(bbox: String, source: LocationCoordinateSource) {
         nearby = true
         draft = ""
         committed = ""
@@ -137,7 +144,7 @@ extension SearchTabView {
         // **카메라를 건드리지 않는다.** 이 기능은 "지금 보고 있는 이 화면
         // 안" 을 묻는 것이라, 결과가 왔다고 지도를 옮기거나 확대하면
         // 사용자가 물어본 그 화면이 사라진다. 그래서 fit 을 걸지 않는다.
-        data.searchInViewport(bbox: box)
+        data.searchInViewport(bbox: bbox, source: source)
     }
 
     /// 켜진 단추의 글자. 받은 것이 전부면 「이 지도에서 12곳」, 상한에 걸려 일부면 「486곳 중 200곳」 —

@@ -135,10 +135,13 @@ enum RouteGuide {
 
     /// 생성 클라이언트의 요청. **「전송」 과 「다시 시도」 가 같은 것을 만든다** — 시험이 이것을 두 번 불러 실제로
     /// 나가는 `URLRequest` 의 헤더와 본문 값이 같은지 본다(`GuideChatRequestBuildTests`).
-    static func chatBuilder(_ request: GuideChatRequest, key: UUID) -> RequestBuilder<GuideChatReply> {
+    static func chatBuilder(
+        _ request: GuideChatRequest, key: UUID, source: LocationCoordinateSource = .device
+    ) -> RequestBuilder<GuideChatReply> {
         GuideAPI.chatWithGuideWithRequestBuilder(
             xInstallId: InstallIdentity.current, guideChatRequest: request, idempotencyKey: key.uuidString
         )
+        .coordinateSource(source)
     }
 
     /// 만들어 둔 요청을 보낸다. 「전송」 도 「다시 시도」 도 이리로 온다.
@@ -147,11 +150,13 @@ enum RouteGuide {
     ///   - key: 이 턴의 멱등 키. 같은 턴을 다시 보낼 때는 **같은 값**.
     ///   - keyed: 서버가 멱등 키를 아는가. 알면 공통 계층(`RetryingSession`)이 요청마다 50초 벽을 걸고 한 번
     ///     다시 보내므로, 여기서는 턴 전체의 벽만 건다. 모르면 전처럼 50초에 끊고 다시 보내지 않는다.
-    static func send(_ request: GuideChatRequest, key: UUID, keyed: Bool) async throws -> Answer {
+    static func send(
+        _ request: GuideChatRequest, key: UUID, keyed: Bool, source: LocationCoordinateSource = .device
+    ) async throws -> Answer {
         let tuning = RetryRules.Tuning.self
         let wall = keyed ? tuning.chatBudget + tuning.chatWallMargin : timeoutSeconds
         let reply = try await RouteGuideTimeout.run(seconds: wall) {
-            try await chatBuilder(request, key: key).execute().body
+            try await chatBuilder(request, key: key, source: source).execute().body
         }
         return Answer(
             reply: reply.reply,
@@ -172,13 +177,14 @@ enum RouteGuide {
     /// 주변 점은 장식이라 화면이 막히지 않는다.
     static func pois(
         south: Double, west: Double, north: Double, east: Double,
-        centerLat: Double, centerLng: Double, limit: Int = 30
+        centerLat: Double, centerLng: Double, limit: Int = 30,
+        source: LocationCoordinateSource
     ) async -> [Place] {
         // bbox 는 GeoJSON 순서 — minLng,minLat,maxLng,maxLat.
         let bbox = "\(west),\(south),\(east),\(north)"
-        guard let list = try? await PoisAPI.listPois(
+        guard let list = try? await PoisAPI.listPoisWithRequestBuilder(
             bbox: bbox, lat: centerLat, lng: centerLng, sort: .distance, limit: limit
-        ) else { return [] }
+        ).coordinateSource(source).execute().body else { return [] }
         return list.items.map(Place.init(poi:))
     }
 
@@ -255,13 +261,14 @@ enum RouteGuide {
             category: label.category,
             address: label.address,
             phone: detail?.tel,
-            // 편의시설의 우리 사진은 아직 모으기 전이다 — 지금 오는 것은 방문자 사진뿐이다.
+            // 관광공사 공식 사진과 방문자 사진을 같은 사진첩으로 표시한다.
             photos: detail.map(PhotoGalleryRules.book(for:)) ?? PhotoGalleryRules.Book(),
             // 서버가 찾아 둔 그 가게의 네이버 장소 화면만 연다. 없으면(상세를 못 받았을 때도) 버튼이 없다 —
             // 이름 검색으로 넘기지 않는다(MZ2AZ-374).
             naverUrl: NaverMapLink.place(detail?.naverPlaceUrl)?.absoluteString,
             rating: detail?.rating,
-            detailed: detail != nil
+            detailed: detail != nil,
+            info: detail?.info
         )
     }
 
@@ -284,6 +291,9 @@ enum RouteGuide {
         /// 상세를 받아 지은 카드인가. 편의시설은 상세를 못 받아도 목록이 준 것으로 서는데, 그 카드에는
         /// 전화·사진·별점·네이버 주소가 없다.
         var detailed = true
+
+        /// 관광공사 안내. 상가정보 가게 대부분과 상세 조회 실패에는 없다.
+        var info: PoiInfo?
 
         /// 카드가 떠 있는 채 **다시 읽었을 때** 앞의 것을 그대로 둘 것인가(MZ2AZ-374).
         ///

@@ -98,11 +98,13 @@ final class AppLanguage: ObservableObject {
         Locale(identifier: current.rawValue)
     }
 
-    /// 그 언어의 문자열 표. 한 번 찾아 두고 다시 쓴다.
+    /// 앱 코드가 속한 번들에서 요청한 언어의 문자열 표를 찾는다.
+    /// 호스트 없는 단위 시험에서는 앱 리소스도 테스트 번들에 있으므로 실행 파일의 번들을 쓰지 않는다.
     nonisolated static func bundle(for lang: Lang) -> Bundle {
-        guard let path = Bundle.main.path(forResource: lang.rawValue, ofType: "lproj"),
+        let resources = Bundle(for: AppLanguage.self)
+        guard let path = resources.path(forResource: lang.rawValue, ofType: "lproj"),
               let found = Bundle(path: path)
-        else { return .main }
+        else { return resources }
         return found
     }
 }

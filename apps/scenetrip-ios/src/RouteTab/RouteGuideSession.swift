@@ -30,8 +30,9 @@ final class RouteGuideSession: ObservableObject {
 
     /// 밖과 닿는 자리들 — 시험이 가짜로 바꿔 끼운다.
     struct Environment {
-        /// 만들어 둔 요청을 보낸다. 인자는 요청·멱등 키·「서버가 키를 아는가」.
-        var send: (GuideChatRequest, UUID, Bool) async throws -> RouteGuide.Answer = RouteGuide.send
+        /// 만들어 둔 요청을 보낸다. 인자는 요청·멱등 키·「서버가 키를 아는가」·좌표 출처.
+        var send: (GuideChatRequest, UUID, Bool, LocationCoordinateSource) async throws -> RouteGuide.Answer
+            = RouteGuide.send
         /// 서버가 멱등 키를 아는가 — 이번 실행에서 `RateLimit-*` 를 본 적이 있는가(계획 §4-5).
         var serverKeepsKeys: () -> Bool = { RateLimitLedger.shared.serverKnowsLimits }
         var lang: () -> Lang = { AppLanguage.current }
@@ -159,7 +160,8 @@ final class RouteGuideSession: ObservableObject {
     func ask(
         _ text: String,
         here: CLLocationCoordinate2D,
-        context: RouteGuide.Context?
+        context: RouteGuide.Context?,
+        source: LocationCoordinateSource = .device
     ) async {
         let question = text.trimmingCharacters(in: .whitespaces)
         refreshLimit()
@@ -173,7 +175,7 @@ final class RouteGuideSession: ObservableObject {
             key: environment.newKey(),
             request: RouteGuide.request(history: turns, here: here, sessionId: sessionId, context: context),
             lang: environment.lang(),
-            keyed: environment.serverKeepsKeys()
+            keyed: environment.serverKeepsKeys(), source: source
         )
         environment.asked()
         await fly()
@@ -220,7 +222,7 @@ final class RouteGuideSession: ObservableObject {
     private func fly() async {
         guard let turn = pending else { return }
         let send = environment.send
-        let task = Task { try await send(turn.request, turn.key, turn.keyed) }
+        let task = Task { try await send(turn.request, turn.key, turn.keyed, turn.source) }
         flight = task
         let epoch = accountEpoch
         let result = await task.result

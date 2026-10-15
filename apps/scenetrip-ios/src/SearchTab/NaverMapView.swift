@@ -25,6 +25,7 @@ import SwiftUI
 /// **필요할 때 꺼내 가게** 한다.
 final class MapCamera {
     fileprivate weak var mapView: NMFMapView?
+    let region = MapRegionSource()
 
     /// 지금 보이는 범위가 남한을 **완전히 벗어났는가.**
     ///
@@ -92,7 +93,7 @@ struct NaverMapView: UIViewRepresentable {
     let onTapPin: (PlaceSummary) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onTapPin: onTapPin, onLocateFailure: onLocateFailure)
+        Coordinator(onTapPin: onTapPin, onLocateFailure: onLocateFailure, region: camera.region)
     }
 
     func makeUIView(context: Context) -> NMFNaverMapView {
@@ -135,6 +136,7 @@ struct NaverMapView: UIViewRepresentable {
     final class Coordinator: NSObject, CLLocationManagerDelegate, NMFMapViewCameraDelegate {
         var onTapPin: (PlaceSummary) -> Void
         var onLocateFailure: (LocateOutcome) -> Void
+        private let region: MapRegionSource
         private var markers: [NMFMarker] = []
         private var lastPinKey: String = ""
 
@@ -174,10 +176,12 @@ struct NaverMapView: UIViewRepresentable {
 
         init(
             onTapPin: @escaping (PlaceSummary) -> Void,
-            onLocateFailure: @escaping (LocateOutcome) -> Void
+            onLocateFailure: @escaping (LocateOutcome) -> Void,
+            region: MapRegionSource
         ) {
             self.onTapPin = onTapPin
             self.onLocateFailure = onLocateFailure
+            self.region = region
             super.init()
             locationManager.delegate = self
             // 촬영지를 찾아 주는 앱이지 내비게이션이 아니다. 미터 단위 정확도는
@@ -215,6 +219,10 @@ struct NaverMapView: UIViewRepresentable {
 
         /// 지도가 움직이는 **동안 계속** 부른다. 멈춘 뒤에만 옮기면 미는 사이에
         /// 파문이 제자리에 남아 따라오지 않는 것처럼 보인다.
+        func mapView(_: NMFMapView, cameraWillChangeByReason reason: Int, animated _: Bool) {
+            region.cameraWillChange(reason: reason)
+        }
+
         func mapView(_: NMFMapView, cameraIsChangingByReason _: Int) {
             positionPulse()
         }
@@ -334,6 +342,7 @@ struct NaverMapView: UIViewRepresentable {
 
         /// 선택한 장소 하나로 확대한다.
         private func zoom(to place: PlaceSummary, on mapView: NMFMapView) {
+            region.source = .userSelected
             applyInset(on: mapView)
             let update = NMFCameraUpdate(
                 scrollTo: NMGLatLng(lat: place.latitude, lng: place.longitude),
@@ -346,6 +355,7 @@ struct NaverMapView: UIViewRepresentable {
 
         /// 담은 장소가 가운데 오도록 **이동만** 한다 — 확대는 장소를 열 때만 한다.
         private func center(on place: PlaceSummary, in mapView: NMFMapView) {
+            region.source = .userSelected
             applyInset(on: mapView)
             let update = NMFCameraUpdate(
                 scrollTo: NMGLatLng(lat: place.latitude, lng: place.longitude)
@@ -443,6 +453,7 @@ struct NaverMapView: UIViewRepresentable {
 
         func locationManager(_: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
             guard let coordinate = locations.last?.coordinate, let mapView else { return }
+            region.source = .device
             applyInset(on: mapView)
             showPulse(
                 at: NMGLatLng(lat: coordinate.latitude, lng: coordinate.longitude),
@@ -470,6 +481,7 @@ struct NaverMapView: UIViewRepresentable {
 
         /// 주어진 범위가 다 보이게 맞춘다. 시트가 덮는 만큼은 빼고 계산한다.
         private func fit(bounds: NMGLatLngBounds, on mapView: NMFMapView) {
+            region.source = .userSelected
             applyInset(on: mapView)
             let update = NMFCameraUpdate(fit: bounds, padding: 24)
             update.animation = .easeIn
@@ -479,6 +491,7 @@ struct NaverMapView: UIViewRepresentable {
 
         private func fit(_ pins: [PlaceSummary], on mapView: NMFMapView) {
             guard !pins.isEmpty else { return }
+            region.source = .userSelected
             if pins.count == 1, let only = pins.first {
                 zoom(to: only, on: mapView)
                 return

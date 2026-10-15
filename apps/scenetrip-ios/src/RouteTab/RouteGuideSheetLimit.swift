@@ -6,7 +6,9 @@ extension RouteGuideSheet {
     var retryButton: some View {
         Button {
             consentGate.request {
-                Task { await session.retry() }
+                locationGate.requestLocation(for: session.pending?.source ?? .device) {
+                    Task { await session.retry() }
+                }
             }
         } label: {
             Label("다시 시도", systemImage: "arrow.clockwise")

@@ -87,9 +87,7 @@ extension RouteEditorView {
     /// 지금 자리 → 안내 중인 성지. 이동 수단은 앱 안 길찾기와 같은 대중교통이다.
     private var handoffOffers: [ExternalDirections.Offer] {
         guard let target = trip.target else { return [] }
-        let origin = trip.here.map {
-            ExternalDirections.Spot(name: tr("현재 위치", at: "출발"), latitude: $0.latitude, longitude: $0.longitude)
-        }
+        // 외부 앱이 출발지를 얻는다. 기기 좌표를 URL에 첨부하지 않는다(MZ2AZ-472).
         let destination = ExternalDirections.Spot(
             name: target.place.name, latitude: target.place.latitude, longitude: target.place.longitude
         )
@@ -97,7 +95,7 @@ extension RouteEditorView {
             URL(string: "\(app.scheme)://").map(UIApplication.shared.canOpenURL) ?? false
         })
         return ExternalDirections.offers(
-            from: origin, to: destination, mode: .transit,
+            from: nil, to: destination, mode: .transit,
             appName: Bundle.main.bundleIdentifier ?? "com.mz2az.scenetrip", installed: installed
         )
     }

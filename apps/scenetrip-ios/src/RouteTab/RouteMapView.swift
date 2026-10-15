@@ -86,8 +86,8 @@ struct RouteMapView: UIViewRepresentable {
     /// 보여 주는 것과 같은 자리다(2026-08-28).
     var ambientPlaces: [RouteGuide.Place] = []
 
-    /// 카메라가 멈췄다. (남, 서, 북, 동, 가운데위도, 가운데경도, 줌).
-    var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
+    /// 카메라가 멈췄다. (남, 서, 북, 동, 가운데위도, 가운데경도, 줌, 좌표 출처).
+    var onViewport: ((Double, Double, Double, Double, Double, Double, Double, LocationCoordinateSource) -> Void)?
     var onLocation: ((TripSpot) -> Void)?
 
     /// 가이드 핀을 눌렀다. 정보 카드를 띄우는 쪽이 받는다.
@@ -232,7 +232,8 @@ struct RouteMapView: UIViewRepresentable {
         private var lastCameraKey = ""
         var onTapGuide: (RouteGuide.Place) -> Void = { _ in }
         var onTapPreview: (PlaceSummary) -> Void = { _ in }
-        var onViewport: ((Double, Double, Double, Double, Double, Double, Double) -> Void)?
+        var onViewport: ((Double, Double, Double, Double, Double, Double, Double, LocationCoordinateSource) -> Void)?
+        let region = MapRegionSource()
         var onLocation: ((TripSpot) -> Void)?
         /// 주변 편의시설 마커. 챗봇 결과와 살림을 따로 낸다 — 갱신 주기가 다르다.
         let ambientRenderer = PoiMarkerRenderer()
@@ -406,14 +407,7 @@ struct RouteMapView: UIViewRepresentable {
                     guard let mapView else { return }
                     if let pickedGuide {
                         // 펼친 가게로 확대해 들어간다. 골랐다는 것이 지도에서 보여야 한다.
-                        let update = NMFCameraUpdate(
-                            scrollTo: NMGLatLng(
-                                lat: pickedGuide.latitude, lng: pickedGuide.longitude
-                            ),
-                            zoomTo: 16
-                        )
-                        update.animation = .easeIn
-                        mapView.moveCamera(update)
+                        self.move(to: pickedGuide, on: mapView)
                     } else if let focused {
                         self.move(to: focused, on: mapView)
                     } else {
@@ -425,6 +419,15 @@ struct RouteMapView: UIViewRepresentable {
 
         // MARK: 카메라
 
+        private func move(to place: RouteGuide.Place, on mapView: NMFMapView) {
+            region.source = .userSelected
+            let update = NMFCameraUpdate(
+                scrollTo: NMGLatLng(lat: place.latitude, lng: place.longitude), zoomTo: 16
+            )
+            update.animation = .easeIn
+            mapView.moveCamera(update)
+        }
+
         /// 고른 장소로 옮긴다.
         ///
         /// **토글이 켜져 있고 내 자리를 알면 둘이 같이 보이는 크기**로, 아니면 그곳만
@@ -434,6 +437,7 @@ struct RouteMapView: UIViewRepresentable {
             let there = NMGLatLng(lat: stop.place.latitude, lng: stop.place.longitude)
 
             guard showingMe, let here else {
+                region.source = .userSelected
                 let update = NMFCameraUpdate(scrollTo: there, zoomTo: 15)
                 update.animation = .easeIn
                 mapView.moveCamera(update)
@@ -449,6 +453,7 @@ struct RouteMapView: UIViewRepresentable {
             let update = NMFCameraUpdate(fit: bounds, padding: 56)
             update.animation = .easeIn
             update.animationDuration = 0.4
+            region.source = .device
             mapView.moveCamera(update)
         }
 
@@ -517,6 +522,9 @@ struct RouteMapView: UIViewRepresentable {
             if let here, showingMe || (withMe && nearMe) {
                 lats.append(here.lat)
                 lngs.append(here.lng)
+                region.source = .device
+            } else {
+                region.source = .userSelected
             }
             // 한 점이거나 **한 건물에 몰린 점들**이면 범위 맞추기를 하지 않는다 — 범위가 0 에
             // 가까우면 SDK 가 끝까지 확대해 1 m 축척의 빈 화면이 된다(2026-09-17, 네이버에

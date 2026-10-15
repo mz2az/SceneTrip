@@ -55,6 +55,7 @@ struct SearchTabView: View {
 
     /// 지도 중심을 읽어 오는 창구 — "현 지도 내 성지 검색" 이 누르는 순간에 쓴다.
     @State var camera = MapCamera()
+    @StateObject var locationGate = AIConsentGate(store: LocationConsentStore.shared)
 
     /// 반경 검색이 켜져 있나. 켜져 있으면 버튼이 해제 버튼으로 바뀐다(목업).
     @State var nearby = false
@@ -211,6 +212,7 @@ struct SearchTabView: View {
         // 홈의 「지금 뜨는 작품」·「오늘의 성지」가 남긴 쪽지 — 요약을 그대로 받아 상세를
         // 연다. 자기 목록에서 찾지 않는다(검색한 뒤면 목록이 걸러져 있다).
         .onChange(of: router.pendingContent) { _, wanted in openPendingContent(wanted) }
+        .locationConsentSheet(locationGate)
         .onChange(of: router.pendingPlace) { _, wanted in openPendingPlace(wanted) }
         // 카메라 fit 은 결과가 실제로 도착한 순간에 건다. 첫 진입 로드는 pendingFit
         // 이 false 라 서울 중심을 유지한다 (MZ2AZ-162, §3-1).
