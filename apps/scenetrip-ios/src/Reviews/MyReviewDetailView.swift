@@ -17,7 +17,7 @@ struct MyReviewDetailView: View {
         Group {
             switch store.detail {
             case let .place(detail):
-                PlaceDetailView(summary: summary(detail), load: { try await PlacesAPI.getPlace(placeId: $0) }) {
+                PlaceDetailView(summary: summary(detail), load: { try await MyReviewDetailStore.place($0) }) {
                     dismiss()
                 }
                 .environmentObject(cart)
@@ -71,8 +71,9 @@ final class MyReviewDetailStore: ObservableObject {
 
     init(
         subject: ReviewSubject,
-        loadPlace: @escaping (Int64) async throws -> PlaceDetail = { try await PlacesAPI.getPlace(placeId: $0) },
+        loadPlace: @escaping (Int64) async throws -> PlaceDetail = { try await MyReviewDetailStore.place($0) },
         loadPoi: @escaping (Int64) async throws -> RouteGuide.Place = { id in
+            await AuthRefresher.refreshIfStale()
             let detail = try await PoisAPI.getPoi(poiId: id)
             var place = RouteGuide.Place(
                 id: "poi-\(detail.id)", name: detail.name, category: detail.category,
@@ -90,6 +91,13 @@ final class MyReviewDetailStore: ObservableObject {
         self.subject = subject
         self.loadPlace = loadPlace
         self.loadPoi = loadPoi
+    }
+
+    /// 촬영지 상세 — 리뷰 사진이 실려 온다. 만료된 토큰이면 서버가 비회원으로 답해 차단한 사람의 사진이 섞이므로
+    /// 부르기 전에 토큰을 살핀다(MZ2AZ-461).
+    static func place(_ id: Int64) async throws -> PlaceDetail {
+        await AuthRefresher.refreshIfStale()
+        return try await PlacesAPI.getPlace(placeId: id)
     }
 
     func reload() async {

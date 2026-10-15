@@ -202,6 +202,8 @@ final class AuthStore: ObservableObject {
         case invalid
         /// `409 NICKNAME_TAKEN` — 다른 사람이 쓴다.
         case taken
+        /// `400 TEXT_NOT_ALLOWED` — 쓸 수 없는 말이 들어 있다(MZ2AZ-461).
+        case textNotAllowed
         case failed
     }
 
@@ -229,6 +231,7 @@ final class AuthStore: ObservableObject {
             switch AuthRules.apiCode(from: data) {
             case "NICKNAME_INVALID": return .invalid
             case "NICKNAME_TAKEN": return .taken
+            case let code where ModerationRules.isTextNotAllowed(code: code): return .textNotAllowed
             default: return .failed
             }
         } catch {
@@ -323,10 +326,12 @@ extension View {
 private struct SignInSheet: ViewModifier {
     let active: Bool
     @ObservedObject private var auth = AuthStore.shared
+    /// 신고 시트가 떠 있으면 그것이 닫힐 때까지 기다린다(MZ2AZ-461) — 그 밑에서는 시트가 뜨지 않는다.
+    @ObservedObject private var report = ReportSheetPresence.shared
 
     func body(content: Content) -> some View {
         content.sheet(isPresented: Binding(
-            get: { active && auth.showingSignIn },
+            get: { active && auth.showingSignIn && !report.open },
             set: {
                 if !$0 {
                     auth.showingSignIn = false

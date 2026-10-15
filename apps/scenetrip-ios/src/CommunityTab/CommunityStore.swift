@@ -175,14 +175,14 @@ final class CommunityStore: ObservableObject {
     private let client: CommunityClient
     private let accountEpoch: @MainActor () -> Int
     private var loadedEpoch: Int?
-    private var revision = 0
+    private var feedGeneration = 0
+    private var mineGeneration = 0
 
     init(client: CommunityClient? = nil, accountEpoch: (@MainActor () -> Int)? = nil) {
         self.client = client ?? CommunityServerClient()
         self.accountEpoch = accountEpoch ?? { AuthStore.shared.epoch }
-        if let data = UserDefaults.standard.data(forKey: "scenetrip.communityPosts"),
-           let saved = try? JSONDecoder().decode([CommunityPost].self, from: data)
-        {
+        guard let data = UserDefaults.standard.data(forKey: "scenetrip.communityPosts") else { return }
+        if let saved = try? JSONDecoder().decode([CommunityPost].self, from: data) {
             legacyPosts = saved
         }
     }
@@ -195,16 +195,7 @@ final class CommunityStore: ObservableObject {
     /// 목록은 서버 최신순으로 받는다. 실패한 새로고침에서 기존 글을 지우지 않는다.
     func refresh(mine: Bool = false, more: Bool = false) async {
         let epoch = accountEpoch()
-        if loadedEpoch != epoch {
-            posts = []
-            myPosts = []
-            total = 0
-            mineTotal = 0
-            loadedEpoch = epoch
-            revision += 1
-            loading = false
-            mineLoading = false
-        }
+        resetForAccount(epoch)
         guard !(mine ? mineLoading : loading) else { return }
         if mine {
             mineLoading = true
@@ -212,9 +203,9 @@ final class CommunityStore: ObservableObject {
             loading = true
         }
         message = nil
-        let generation = revision
+        let generation = requestGeneration(mine: mine)
         defer {
-            if generation == revision {
+            if generation == requestGeneration(mine: mine) {
                 if mine {
                     mineLoading = false
                 } else {
@@ -225,7 +216,7 @@ final class CommunityStore: ObservableObject {
         let old = mine ? myPosts : posts
         do {
             let page = try await client.list(mine: mine, limit: CommunityRules.pageSize, offset: more ? old.count : 0)
-            guard accountEpoch() == epoch, generation == revision else { return }
+            guard accountEpoch() == epoch, generation == requestGeneration(mine: mine) else { return }
             var merged = more ? old : []
             for post in page.items.map(CommunityPost.init(summary:)) {
                 if let index = merged.firstIndex(where: { $0.id == post.id }) {
@@ -240,9 +231,27 @@ final class CommunityStore: ObservableObject {
                 posts = merged; total = page.total
             }
         } catch {
-            guard accountEpoch() == epoch, generation == revision else { return }
+            guard accountEpoch() == epoch, generation == requestGeneration(mine: mine) else { return }
             message = CommunityRules.failureText(error)
         }
+    }
+
+    private func resetForAccount(_ epoch: Int) {
+        if loadedEpoch != epoch {
+            posts = []
+            myPosts = []
+            total = 0
+            mineTotal = 0
+            loadedEpoch = epoch
+            feedGeneration += 1
+            mineGeneration += 1
+            loading = false
+            mineLoading = false
+        }
+    }
+
+    private func requestGeneration(mine: Bool) -> Int {
+        mine ? mineGeneration : feedGeneration
     }
 
     func accept(_ detail: TripPostDetail) {
@@ -287,6 +296,35 @@ final class CommunityStore: ObservableObject {
         } catch {
             message = CommunityRules.failureText(error)
         }
+    }
+
+    /// 차단한 사람의 글을 다시 받기 전에 바로 뺀다(MZ2AZ-461). 그 사람의 다른 글은 다시 받은 목록에서 빠진다 —
+    /// 앱은 작성자 번호를 모른다.
+    ///
+    /// **나가 있던 받기를 무효로 한다** — 차단 전에 떠난 새로고침·더 보기 응답은 그 글을 담고 있어 늦게 오면 되살린다.
+    func drop(postId: Int64) {
+        invalidateFeed()
+        if posts.contains(where: { $0.serverId == postId }) {
+            posts.removeAll { $0.serverId == postId }
+            total = max(posts.count, total - 1)
+        }
+    }
+
+    /// 그 글의 작성자를 차단했다 — 바로 빼고, 첫 쪽부터 새로 받는다(서버가 그 사람의 다른 글도 뺀다).
+    func blocked(postId: Int64) async {
+        drop(postId: postId)
+        await invalidateAndRefresh()
+    }
+
+    /// 차단·풀기 뒤에는 진행 중인 피드 요청을 버리고 첫 쪽을 반드시 다시 받는다.
+    func invalidateAndRefresh() async {
+        invalidateFeed()
+        await refresh()
+    }
+
+    private func invalidateFeed() {
+        feedGeneration += 1
+        loading = false
     }
 
     func saveCourse(_ post: CommunityPost) async throws -> Int64 {

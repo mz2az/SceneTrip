@@ -193,7 +193,11 @@ enum RouteGuide {
     ///
     /// **촬영지와 같은 곳인 편의시설은 촬영지 상세를 받는다**(`Place.target`, MZ2AZ-378) — 그곳은 촬영지가
     /// 대표한다. 카드의 제목도 촬영지 이름이다.
+    ///
+    /// 두 상세 모두 리뷰 사진(카드의 사진 줄)이 실려 온다 — 만료된 토큰이면 서버가 비회원으로 답해 차단한 사람의
+    /// 사진이 섞이므로 부르기 전에 토큰을 살핀다(MZ2AZ-461).
     static func card(for place: Place) async -> Card? {
+        await AuthRefresher.refreshIfStale()
         if case let .place(placeId) = place.target {
             return await card(place: try? PlacesAPI.getPlace(placeId: placeId), listed: place)
         }

@@ -309,6 +309,9 @@ struct ReviewComposeView: View {
             case "SIGN_IN_REQUIRED": return tr("로그인한 뒤에 쓸 수 있어요")
             case "REVIEW_PHOTO_INVALID": return tr("사진을 다시 올려 주세요")
             case "RATE_LIMITED": return tr("요청이 많아요. 잠시 뒤 다시 시도해 주세요")
+            // 금칙어(MZ2AZ-461) — 어떤 말인지는 서버가 알려 주지 않는다.
+            case let code where ModerationRules.isTextNotAllowed(code: code):
+                return ModerationRules.textNotAllowedMessage
             default: break
             }
         }

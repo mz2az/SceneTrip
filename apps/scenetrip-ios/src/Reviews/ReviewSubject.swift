@@ -46,10 +46,14 @@ enum ReviewSubject: Hashable, Identifiable {
     }
 
     /// 사진첩 한 쪽 — 우리 사진 먼저, 그 뒤 리뷰 사진(상세의 `photos` 와 같은 순서). 비회원도 읽는다.
+    ///
+    /// 리뷰 목록과 같은 까닭으로 부르기 전에 토큰을 살핀다 — 만료된 토큰이면 서버가 비회원으로 답해 **차단한
+    /// 사람의 사진이 다시 섞인다**(MZ2AZ-461, 권호 결정 2026-10-15).
     func photos(offset: Int, limit: Int = PhotoGalleryRules.pageSize) async throws -> PhotoList {
+        await AuthRefresher.refreshIfStale()
         switch self {
-        case let .place(id): try await ReviewsAPI.listPlacePhotos(placeId: id, limit: limit, offset: offset)
-        case let .poi(id): try await ReviewsAPI.listPoiPhotos(poiId: id, limit: limit, offset: offset)
+        case let .place(id): return try await ReviewsAPI.listPlacePhotos(placeId: id, limit: limit, offset: offset)
+        case let .poi(id): return try await ReviewsAPI.listPoiPhotos(poiId: id, limit: limit, offset: offset)
         }
     }
 

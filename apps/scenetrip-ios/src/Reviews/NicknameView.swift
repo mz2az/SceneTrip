@@ -193,6 +193,8 @@ struct NicknameView: View {
                 serverMessage = tr("쓸 수 없는 닉네임이에요. 2~16자, 한글·영문·숫자·밑줄(_)만 쓸 수 있어요")
             case .taken:
                 serverMessage = tr("이미 쓰는 닉네임입니다")
+            case .textNotAllowed:
+                serverMessage = ModerationRules.textNotAllowedMessage
             case .failed:
                 serverMessage = tr("저장하지 못했어요. 잠시 뒤 다시 해 주세요")
             }

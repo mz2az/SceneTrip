@@ -31,6 +31,8 @@ struct CommunityPostView: View {
     @State private var saveFailed = false
     /// 긴 코스는 일차마다 몇 곳만 보이고 접어 둔다 — 26곳짜리를 다 펼치면 담기 단추가 화면 밖으로 밀린다.
     @State private var expanded = false
+    /// 남의 후기의 신고·차단(MZ2AZ-461).
+    @StateObject private var moderation = ModerationController()
 
     private static let previewStops = 4
 
@@ -99,6 +101,13 @@ struct CommunityPostView: View {
             await load()
         }
         .signInSheet()
+        .moderationSheets(moderation) { target in
+            // 차단한 사람의 후기 상세는 이제 404 다 — 목록에서 빼고 닫는다.
+            if case let .post(id) = target {
+                Task { await CommunityStore.shared.blocked(postId: id) }
+            }
+            dismiss()
+        }
         .overlay(alignment: .topTrailing) {
             Button {
                 dismiss()
@@ -150,6 +159,13 @@ struct CommunityPostView: View {
                 .font(.caption2).foregroundStyle(.tertiary)
             }
             Spacer()
+            if let id = post.serverId, ModerationRules.showsMenu(isMine: post.isMine) {
+                ModerationMenu(
+                    target: .post(id),
+                    canBlock: ModerationRules.canBlock(isMine: post.isMine, hasAuthor: post.author != nil),
+                    controller: moderation
+                )
+            }
         }
     }
 

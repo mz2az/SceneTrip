@@ -71,8 +71,6 @@ struct RoutePlaceCard: View {
         PoiLabel.heading(title: shownTitle, reading: shownReading)
     }
 
-    @State private var loading = true
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -83,7 +81,7 @@ struct RoutePlaceCard: View {
                     .padding(.horizontal, 14).padding(.bottom, 8)
             }
 
-            if loading {
+            if gallery.loading {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
                     Text("불러오는 중입니다")
@@ -123,9 +121,13 @@ struct RoutePlaceCard: View {
         .reviewsSheet($reviewing, title: reviewTitle) {
             Task { await load() }
         }
+        // 다른 화면에서 누군가를 차단·풀었다(MZ2AZ-461) — 방문자 사진을 비우고 다시 받는다.
+        .onModerationChange {
+            gallery.forgetReviewPhotos()
+            Task { await load() }
+        }
         .task(id: place.id) {
             UsageEvents.opened(subject)
-            loading = true
             card = nil
             await load()
         }
@@ -304,16 +306,12 @@ struct RoutePlaceCard: View {
 
     private func load() async {
         let asked = place.id
-        let loaded = await RouteGuide.card(for: place)
-        // 떠 있는 카드를 다시 읽다 실패했으면 가진 것을 둔다 — 네이버 버튼·전화·사진·별점이 사라지지 않게.
-        // 핀을 갈아탔을 때는 `.task` 가 먼저 비우므로 `fresh` 가 없다.
-        if RouteGuide.Card.keeps(fresh, over: loaded) {
-            loading = false
-            return
+        await gallery.loadDetail(subject: subject, fetch: { await RouteGuide.card(for: place) }) { loaded in
+            // 떠 있는 카드를 다시 읽다 실패했으면 가진 것을 둔다. 핀 전환은 `.task` 가 먼저 비운다.
+            guard !RouteGuide.Card.keeps(fresh, over: loaded) else { return nil }
+            card = loaded
+            cardFor = asked
+            return loaded?.photos ?? PhotoGalleryRules.Book()
         }
-        card = loaded
-        gallery.show(loaded?.photos ?? PhotoGalleryRules.Book(), subject: subject)
-        cardFor = asked
-        loading = false
     }
 }

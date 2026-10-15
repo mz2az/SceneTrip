@@ -282,8 +282,12 @@ final class SceneData: ObservableObject {
     /// 촬영지 상세. 목록용 `PlaceSummary` 에는 없는 것들이 여기 있다 — 장소 사진 여러
     /// 장, 네이버 링크, 그리고 **작품별 장면**(`scenes`). 한 장소에서 여러 작품을
     /// 찍었으면 그 수만큼 온다.
+    ///
+    /// 상세에는 리뷰 사진이 실려 온다 — 누구나 읽는 창구라 만료된 토큰에 401 을 주지 않고 비회원으로 답해
+    /// 차단한 사람의 사진이 섞인다. 부르기 전에 토큰을 살핀다(MZ2AZ-461, 권호 결정).
     func detail(ofPlace id: Int64) async throws -> PlaceDetail {
-        try await PlacesAPI.getPlace(placeId: id)
+        await AuthRefresher.refreshIfStale()
+        return try await PlacesAPI.getPlace(placeId: id)
     }
 }
 
@@ -296,6 +300,8 @@ struct ApiFailure: Equatable {
     let traceId: String?
     /// 기기가 오프라인이라 실패했다 — 서버 탓이 아니라 「인터넷 연결」 을 말해야 한다 (MZ2AZ-366).
     var isOffline = false
+    /// 오류 본문의 `code`. 화면 문구를 code 로 가를 때만 쓴다 — 지금은 금칙어(`TEXT_NOT_ALLOWED`, MZ2AZ-461)뿐이다.
+    var apiCode: String?
 
     /// 「다시 시도」 가 의미 있는 경우 — **다시 누르면 달라질 수 있는 것.** 서버에 닿지 못했거나(statusCode
     /// 없음), 서버 사정(500·502·503·504)이거나, 분당 한도(429)다. 400·404 처럼 요청이 틀린 것은 눌러도 같다.
@@ -314,7 +320,11 @@ struct ApiFailure: Equatable {
     /// 상황에서 다른 말을 하면 같은 앱으로 보이지 않는다. 앞서 이 문구가 검색 탭의
     /// `ErrorView` 안에만 있어서 다른 화면이 재사용할 수 없었다.
     var message: String {
-        switch statusCode {
+        // 코스 이름이 금칙어에 걸렸다(`POST /courses`·`PUT /courses/{id}`) — 고쳐 달라고 한다.
+        if ModerationRules.isTextNotAllowed(code: apiCode) {
+            return ModerationRules.textNotAllowedMessage
+        }
+        return switch statusCode {
         case nil where isOffline: tr("인터넷 연결을 확인해 주세요.")
         case nil: tr("서버에 연결하지 못했습니다.")
         case 500, 502, 503, 504: tr("잠시 문제가 생겼습니다.")
@@ -323,10 +333,11 @@ struct ApiFailure: Equatable {
         }
     }
 
-    init(statusCode: Int?, traceId: String?, isOffline: Bool = false) {
+    init(statusCode: Int?, traceId: String?, isOffline: Bool = false, apiCode: String? = nil) {
         self.statusCode = statusCode
         self.traceId = traceId
         self.isOffline = isOffline
+        self.apiCode = apiCode
     }
 
     init(_ error: Error) {
@@ -344,7 +355,8 @@ struct ApiFailure: Equatable {
         self.init(
             statusCode: reachedServer ? code : nil,
             traceId: reachedServer ? Self.traceId(from: data) : nil,
-            isOffline: !reachedServer && offline
+            isOffline: !reachedServer && offline,
+            apiCode: reachedServer ? AuthRules.apiCode(from: data) : nil
         )
     }
 

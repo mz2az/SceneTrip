@@ -15,6 +15,8 @@ struct HomeTabView: View {
     @ObservedObject private var posts = CommunityStore.shared
     @ObservedObject private var likes = LikeStore.shared
     @StateObject private var model = HomeTabModel()
+    /// 「커뮤니티 지금」 의 신고·차단(MZ2AZ-461). 비회원의 차단은 루트의 로그인 화면이 받는다.
+    @StateObject private var moderation = ModerationController()
 
     /// 「오늘의 성지」의 담기. 검색 탭과 같은 장바구니(설치 id 가 같다).
     @StateObject private var cart = CartStore()
@@ -74,6 +76,7 @@ struct HomeTabView: View {
 
                 HomeCommunityNow(
                     posts: Array(posts.posts.prefix(2)),
+                    moderation: moderation,
                     onOpen: { router.selected = .community }
                 )
 
@@ -90,6 +93,11 @@ struct HomeTabView: View {
         .task { await reload() }
         .refreshable { await reload() }
         .onAccountChange { await reload() }
+        .moderationSheets(moderation) { target in
+            if case let .post(id) = target {
+                Task { await posts.blocked(postId: id) }
+            }
+        }
         // 덮개(경로여정·마이페이지)를 닫고 돌아오면 코스·스탬프가 달라졌을 수 있다.
         .onChange(of: router.cover) { old, new in
             if old != nil, new == nil {
