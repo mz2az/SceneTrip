@@ -275,10 +275,13 @@ class AppleSignInControllerTest {
   }
 
   @Test
-  @DisplayName("토큰 없이 탈퇴하면 애플 끊기도 하지 않는다")
+  @DisplayName("가입 계정의 설치본이 토큰 없이 부르면 401 SESSION_REQUIRED — 애플 끊기도 지우기도 하지 않는다(1.22.0)")
   void deleteMeWithoutTokenDoesNotRevoke() throws Exception {
+    when(users.lookup(INSTALL_ID)).thenReturn(new UserStore.Account(USER, true));
+
     mvc.perform(delete("/me").header("X-Install-Id", INSTALL_ID.toString()))
-        .andExpect(status().isUnauthorized());
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("SESSION_REQUIRED"));
 
     verify(apple, never()).revokeFor(any());
     verify(users, never()).delete(any());

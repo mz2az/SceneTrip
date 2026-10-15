@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.21.0
+  version: 1.22.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -424,8 +424,12 @@ paths:
     delete:
       tags: [auth]
       operationId: deleteMe
-      summary: 탈퇴
+      summary: 탈퇴 · 비회원 기록 지우기
       description: |
+        **비회원도 부른다**(1.22.0, MZ2AZ-467) — 토큰 없이 `X-Install-Id` 로 부르면 이 설치본의 비회원 계정과 그 기록
+        (장바구니·코스·찜)을 지운다. 앱 설정의 「이 기기의 기록 지우기」 가 부른다(처리방침의 「비회원 기록 삭제」 — 메일로
+        받지 않고 앱에서 직접). 가입한 계정의 설치본이 토큰 없이 부르면 `401 SESSION_REQUIRED` 다 — 회원은 토큰으로 부른다.
+
         계정과 **그 계정의 모든 것**을 지운다 — 장바구니·코스·찜·마켓에 올린 코스와
         좋아요, 로그인 기록, 모든 설치본의 리프레시 토큰, 차단 목록. 되돌릴 수 없다.
 
@@ -440,11 +444,19 @@ paths:
 
         지운 뒤 이 설치본이 다음 요청을 보내면 처음 보는 설치본처럼 새 비회원 계정이
         생긴다. 앱은 토큰을 지우고 첫 화면으로 돌아간다.
-      security:
-        - bearerAuth: []
+      parameters:
+        # 공용 InstallId 는 필수라, 여기서만 선택으로 따로 적는다 — 필수로 바꾸면 이 창구를 부르는 기존 앱 코드(생성 클라이언트)가
+        # 컴파일되지 않는다. 회원은 토큰으로 부르므로 없어도 된다.
+        - name: X-Install-Id
+          in: header
+          required: false
+          description: 비회원이 자기 기록을 지울 때의 설치 UUID. 토큰이 있으면 쓰지 않는다. 토큰도 이것도 없으면 `401 ACCESS_TOKEN_INVALID`.
+          schema:
+            type: string
+            format: uuid
       responses:
         "204":
-          description: 탈퇴됨. 저장한 두 토큰을 지운다.
+          description: 지웠다. 회원이면 저장한 두 토큰을 지운다. 비회원이면 저장해 둔 장바구니·코스 화면을 비운다.
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
