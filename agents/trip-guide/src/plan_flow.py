@@ -23,7 +23,8 @@ import re
 from pathlib import Path
 from typing import Any, Protocol
 
-from .planner import Plan, PlanError, PlanRequest, make_plan, plan_to_dict
+from .llm_planner import plan_with_model
+from .planner import Plan, PlanError, PlanRequest, plan_to_dict
 from .session import Session
 from .tools import (
     ToolArgError,
@@ -161,7 +162,7 @@ class PlanFlow:
         """
         args = understand(self.client, utterance)
         request = to_request(args, self.session)
-        plan = make_plan(self.session.book, request)
+        plan = plan_with_model(self.session.book, request, self.client)
 
         for day in plan.days:
             self.session.remember([leg.place for leg in day.legs])

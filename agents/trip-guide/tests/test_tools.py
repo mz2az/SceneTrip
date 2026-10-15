@@ -186,6 +186,45 @@ class 일정도구(unittest.TestCase):
         self.assertIn("결과없음", out)
 
 
+class 일정은_모델이_짠다(unittest.TestCase):
+    """챗봇의 `plan_course` 도 모델이 짠다 — `plan_with_model` (2026-10-15 사용자 결정)."""
+
+    def session(self, client=None) -> Session:
+        s = Session(book=FakeBook({"도깨비": SEOUL}))
+        s.planner_client = client
+        return s
+
+    def test_모델이_고른_순서로_일정이_된다(self):
+        client = ScriptedClient(
+            [
+                {
+                    "role": "assistant",
+                    "content": '{"days": [{"day": 1, "place_ids": ["s3", "s1"]}]}',
+                }
+            ]
+        )
+        s = self.session(client)
+        call("plan_course", {"titles": ["도깨비"], "days": 1}, s)
+        self.assertTrue(s.plan.signals.get("llm"))
+        self.assertEqual(
+            [leg.place.name for leg in s.plan.days[0].legs],
+            ["북촌한옥마을", "서울중앙고"],
+        )
+        self.assertEqual(s.effects[0]["op"], "plan.draft")
+
+    def test_모델_응답이_깨지면_엔진이_짠다(self):
+        client = ScriptedClient([{"role": "assistant", "content": "모르겠어요"}])
+        s = self.session(client)
+        call("plan_course", {"titles": ["도깨비"], "days": 1}, s)
+        self.assertFalse(s.plan.signals.get("llm"))
+        self.assertTrue(s.plan.days[0].legs)
+
+    def test_모델이_없으면_엔진이_짠다(self):
+        s = self.session(None)
+        call("plan_course", {"titles": ["도깨비"], "days": 1}, s)
+        self.assertFalse(s.plan.signals.get("llm"))
+
+
 class 도구선택(unittest.TestCase):
     """모델이 어떤 도구를 고르는가. 대본 클라이언트라 모델을 부르지 않는다."""
 

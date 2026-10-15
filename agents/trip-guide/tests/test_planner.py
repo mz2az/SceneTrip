@@ -133,6 +133,24 @@ class 지역거르기(unittest.TestCase):
         self.assertNotIn("제주카페", names)
         self.assertTrue(all(d.legs for d in plan.days), "빈 날이 생겼다")
 
+    def test_지역을_좁혀도_요청한_작품은_빠지지_않는다(self):
+        """「도깨비 + 폭싹 속았수다 2박 3일」 이 사흘 모두 제주였다 (2026-10-15 실측).
+
+        촬영지가 가장 많이 몰린 한 지역만 남기면 그 지역의 작품이 이긴다. 두 작품을 말한
+        사람에게 한 작품만 보여 주면 요청을 절반만 들어준 것이다.
+        """
+        cfg = load_config()
+        jeju = [
+            make_place(f"j{i}", f"제주{i}", 33.45 + i * 0.01, 126.56, title="폭싹")
+            for i in range(8)
+        ]
+        book = FakeBook({"도깨비": SEOUL[:3], "폭싹": jeju})
+        plan = make_plan(
+            book, PlanRequest(titles=["도깨비", "폭싹"], days=3, pace="relaxed"), cfg
+        )
+        titles = {t for d in plan.days for leg in d.legs for t in leg.place.titles}
+        self.assertEqual(titles, {"도깨비", "폭싹"})
+
     def test_후보가_적으면_거르지_않는다(self):
         cfg = load_config()
         scored, _, _ = collect_candidates(FakeBook({"작품": SEOUL[:3]}), ["작품"], cfg)

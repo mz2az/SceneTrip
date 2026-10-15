@@ -27,7 +27,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from .places import Place, PlaceSource
 from .planner import Plan, plan_from_api
@@ -116,6 +118,16 @@ class Session:
     앱이 정한다. 좌표나 화면 전환 절차를 여기서 정하면 iOS 와 Android 가 갈리고,
     앱을 고칠 때마다 에이전트를 같이 고쳐야 한다.
     """
+
+    planner_client: Any = None
+    """일정을 짤 모델 (`llm_planner.plan_with_model`). None 이면 엔진이 짠다.
+
+    `TripGuide` 가 턴마다 넣는다 — 운영(`web/server.py`)과 CLI 는 대화 모델과 같은 것을 준다.
+    시험은 넣지 않아 결정적 엔진으로 돈다(실제 모델을 부르지 않는다).
+    """
+
+    planner_budget: Callable[[], float] | None = None
+    """이번 턴에 남은 시간. 일정 모델 호출도 턴 마감 안에서 끝나야 한다."""
 
     plan: Plan | None = None
     """마지막으로 짠 일정.

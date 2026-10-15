@@ -26,13 +26,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .llm_planner import plan_with_model
 from .places import Place
 from .planner import (
     PACE_WORDS,
     PlanError,
     PlanRequest,
     Revision,
-    make_plan,
     move_stop,
     plan_to_api,
     plan_to_dict,
@@ -466,10 +466,9 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
         }
 
     if name == "plan_course":
-        # 여기가 「LLM 샌드위치」 의 가운데다. 모델이 도구를 부른 순간 자연어는 이미
-        # 구조화된 제약으로 바뀌어 있고(① 이해), 일정 계산은 planner.py 가 결정적으로
-        # 하고(② 계획), 돌려준 결과를 모델이 말로 푼다(③ 설명).
-        # 근거는 docs/design/ai-course-planner.md §2.
+        # 모델이 도구를 부른 순간 자연어는 이미 구조화된 요청으로 바뀌어 있다(① 이해).
+        # 일정은 **모델이 짠다**(② — `plan_with_model`, 2026-10-15 사용자 결정). 모델을 못 쓸
+        # 때만 결정적 엔진(planner.py)이 짠다. 돌려준 결과를 대화 모델이 말로 푼다(③ 설명).
         start: tuple[float, float] | None = None
         start_label = ""
         if args.get("start"):
@@ -489,7 +488,12 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
             avoid=args.get("avoid", []),
         )
         try:
-            plan = make_plan(session.book, req)
+            plan = plan_with_model(
+                session.book,
+                req,
+                session.planner_client,
+                budget=session.planner_budget,
+            )
         except PlanError as exc:
             return _refuse(str(exc))
 

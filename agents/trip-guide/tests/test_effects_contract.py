@@ -272,12 +272,19 @@ class 일정초안(unittest.TestCase):
         client = ScriptedClient(
             [
                 {"role": "assistant", "content": '{"titles": ["도깨비"], "days": 2}'},
+                # 일정은 모델이 짠다(plan_with_model) — 날짜별 성지 id.
+                {
+                    "role": "assistant",
+                    "content": '{"days": [{"day": 1, "place_ids": [1187, 2202]},'
+                    ' {"day": 2, "place_ids": [2203, 2204]}]}',
+                },
                 {"role": "assistant", "content": "이틀 일정입니다."},
             ]
         )
         _, plan, _, _ = PlanFlow(Session(book=numbered_book()), client).run(
             "도깨비 1박 2일"
         )
+        self.assertTrue(plan.signals.get("llm"), "모델이 짠 일정이어야 한다")
         validate_def(plan_to_api(plan), "guidePlan", SCHEMA)
 
     def test_한_문장_경로가_예전_속도_값도_받는다(self):
@@ -287,6 +294,10 @@ class 일정초안(unittest.TestCase):
                 {
                     "role": "assistant",
                     "content": '{"titles": ["도깨비"], "days": 1, "pace": "packed"}',
+                },
+                {
+                    "role": "assistant",
+                    "content": '{"days": [{"day": 1, "place_ids": [1187, 2202, 2203]}]}',
                 },
                 {"role": "assistant", "content": "하루 일정입니다."},
             ]
@@ -330,9 +341,7 @@ class HTTP응답(unittest.TestCase):
 
     def test_plan_응답의_일정과_effects_가_계약_모양이다(self):
         # 모델 경로를 끈다 — 결정적 엔진만 돈다(네트워크 없음).
-        with patch(
-            "web.server.load_llm_planner_config", return_value={"enabled": False}
-        ):
+        with patch("src.llm_planner.load_config", return_value={"enabled": False}):
             status, body = self.post("/plan", {"titles": ["도깨비"], "days": 2})
         self.assertEqual(status, 200, body)
         validate_def(body["plan"], "guidePlan", SCHEMA)
