@@ -209,6 +209,7 @@ class AuthController implements AuthApi {
     if (!NICKNAME.matcher(nickname).matches()) {
       throw ApiException.badRequest("NICKNAME_INVALID", "닉네임은 2~16 자, 한글·영문·숫자·_ 만 쓸 수 있습니다");
     }
+    ApiException.requireAllowedText("닉네임", nickname);
     if (AUTO_NICKNAME.matcher(nickname).matches()) {
       throw ApiException.badRequest("NICKNAME_INVALID", "「여행자 + 숫자」 꼴은 자동 닉네임 자리라 고를 수 없습니다");
     }
