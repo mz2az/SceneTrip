@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.17.0
+  version: 1.18.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -1592,7 +1592,10 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: 이미 담긴 장소
+          description: |
+            `DUPLICATE_CART_ITEM` — 이미 담긴 장소.
+            `PLACE_DELISTED` — 목록에서 빠진 촬영지(`PlaceDetail.delisted`)는 **새로** 담을 수 없다(1.18.0, MZ2AZ-451). 이미
+            담아 둔 것은 장바구니에 남는다(`CartItem.delisted`).
           content:
             application/json:
               schema:
@@ -1788,6 +1791,11 @@ paths:
           description: |
             여행 중인 코스를 지금 일차보다 짧게 줄이려 했다. 3일차를 걷고 있는데 2일
             코스로 만들 수는 없다.
+
+            `PLACE_DELISTED`·`POI_CLOSED` — **새 줄**(`id` 없음)로 목록에서 빠진 촬영지나 폐업한 편의시설을 넣으려 했다(1.18.0,
+            MZ2AZ-451). **이미 있던 줄**(`id` 있음)은 숨김·폐업이어도 그대로 저장된다 — 앱은 코스 전체를 다시 보내므로, 막으면
+            그런 줄이 든 코스를 아무것도 고칠 수 없다. 걸리는 새 줄이 여럿이면 앞에서부터 처음 걸린 줄의 코드다. 거절되면 그 요청의
+            다른 편집도 하나도 반영되지 않는다.
           content:
             application/json:
               schema:
@@ -1958,6 +1966,14 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: |
+            `CONTENT_DELISTED` — 목록에서 빠진 작품(`ContentDetail.delisted`)은 **새로** 찜할 수 없다(1.18.0, MZ2AZ-451). 이미
+            찜해 둔 것은 찜 목록에 남는다(`ContentSummary.delisted`). 이미 찜한 것을 다시 찜하면 지금처럼 204.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -3668,6 +3684,13 @@ components:
         placeCount:
           type: integer
           description: 이 작품의 촬영지 수
+        delisted:
+          type: boolean
+          description: |
+            이 작품이 **목록에서 빠졌다**(1.18.0, MZ2AZ-451) — 적재 CSV 에서 빠져 작품 목록·검색에 더는 나오지 않는다. **찜한
+            작품(`GET /favorites/contents`)과 작품 상세(`GET /contents/{id}`)에서만** `true` 가 될 수 있다 — 목록·검색에서는
+            숨긴 작품이 애초에 빠지므로 늘 `false` 다. 앱은 찜 목록에서 「더 이상 소개하지 않는 작품이에요」 처럼 알리고, 상세에서는
+            「찜」 을 숨기거나 막는다(새로 찜하면 409 `CONTENT_DELISTED`). 없으면 `false`.
 
     ContentDetail:
       allOf:
@@ -3810,6 +3833,12 @@ components:
               type: string
               nullable: true
               description: 장소 자체의 설명. 작품별 장면 설명은 `scenes` 쪽이다.
+            delisted:
+              type: boolean
+              description: |
+                이 촬영지가 **목록에서 빠졌다**(1.18.0, MZ2AZ-451) — 적재 CSV 에서 빠져 지도·목록·검색에 더는 나오지 않는다.
+                상세는 열리지만(담아 둔 사람이 볼 수 있게) **새로 담을 수 없다** — 앱은 「담기」 를 숨기거나 막는다
+                (`POST /cart/items`·코스 새 줄은 409 `PLACE_DELISTED`). 없으면 `false`.
             naverPlaceUrl:
               type: string
               nullable: true
@@ -4223,6 +4252,12 @@ components:
         addedAt:
           type: string
           format: date-time
+        delisted:
+          type: boolean
+          description: |
+            이 촬영지가 **목록에서 빠졌다**(1.18.0, MZ2AZ-451) — 적재 CSV 에서 빠져 지도·목록·검색에 더는 나오지 않는다.
+            사용자가 담은 것이라 지우지 않고 남겨 두며, 앱은 「더 이상 소개하지 않는 장소예요」 처럼 알리고 빼기 쉽게 한다.
+            다시 CSV 에 나오면 `false` 로 돌아온다. 없으면 `false`.
     # ───────────── 코스 ─────────────
 
     CourseStatus:
@@ -4531,6 +4566,19 @@ components:
             여행 중 방문 체크를 누른 시각. 없으면 아직 안 갔다는 뜻이다.
 
             **편집 완료에서 `id` 를 빠뜨리면 이 값이 사라진다.**
+        delisted:
+          type: boolean
+          readOnly: true
+          description: |
+            촬영지 줄(`placeId`)에서만 — 이 촬영지가 **목록에서 빠졌다**(1.18.0, MZ2AZ-451). 적재 CSV 에서 빠져 지도·목록·
+            검색에 더는 나오지 않는다. 코스에는 남겨 두며, 앱은 「더 이상 소개하지 않는 장소예요」 처럼 알리고 빼기 쉽게 한다.
+            다시 CSV 에 나오면 `false`. 없으면 `false`. 편집 완료(`PUT`)에서 보내지 않는다 — 서버가 정한다.
+        closed:
+          type: boolean
+          readOnly: true
+          description: |
+            편의시설 줄(`poiId`)에서만 — 이 편의시설이 **폐업했다**(1.18.0, MZ2AZ-451, 상가정보 기준). 코스에는 남겨 두며, 앱은
+            「폐업했어요」 처럼 알리고 빼기 쉽게 한다. 없으면 `false`. 편집 완료에서 보내지 않는다.
 
     CourseReplace:
       type: object
