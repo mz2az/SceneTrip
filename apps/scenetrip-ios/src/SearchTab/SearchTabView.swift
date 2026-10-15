@@ -273,6 +273,7 @@ struct SearchTabView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: cart.toast)
+        .likeFailureNotice()
         .sheet(isPresented: $showCart) {
             CartSheet().environmentObject(cart)
         }

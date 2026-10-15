@@ -51,6 +51,9 @@ struct PlaceDetailView: View {
                     // 별점 한 줄 — 서버가 별점을 실어 줄 때만 보인다(MZ2AZ-363).
                     RatingLine(rating: detail?.rating) { reviewing = .place(summary.id) }
 
+                    if detail?.delisted == true {
+                        UnavailableItemNotice(item: .place)
+                    }
                     actions
 
                     if !scenes.isEmpty {
@@ -62,6 +65,7 @@ struct PlaceDetailView: View {
             }
         }
         .task(id: summary.id) {
+            detail = nil
             AppAnalytics.log(.viewPlace(placeId: summary.id))
             UsageEvents.view(.place, id: summary.id)
             // 상세가 오기 전에는 목록이 준 대표 사진 한 장으로 그린다(전과 같다).
@@ -122,6 +126,7 @@ struct PlaceDetailView: View {
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
+            .disabled(!UnavailableItem.canToggle(delisted: detail?.delisted, saved: saved))
 
             if let url = NaverMapLink.place(detail?.naverPlaceUrl) {
                 Button { openURL(url) } label: {

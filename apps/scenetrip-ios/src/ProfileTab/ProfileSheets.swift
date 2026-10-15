@@ -90,8 +90,15 @@ struct MyCoursesSheet: View {
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(Color(PinImage.deep))
                             .frame(width: 38, alignment: .leading)
-                        Text(day.items.map(\.name).joined(separator: " → "))
-                            .font(.caption2).foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(day.items, id: \.id) { item in
+                                Text(item.name).font(.caption2)
+                                    .opacity(UnavailableItem.notice(for: item) == nil ? 1 : 0.65)
+                                if let notice = UnavailableItem.notice(for: item) {
+                                    UnavailableItemNotice(item: notice)
+                                }
+                            }
+                        }
                     }
                 }
                 Button {
@@ -124,6 +131,7 @@ struct MyCoursesSheet: View {
 
 struct LikedWorksSheet: View {
     let works: [ContentSummary]
+    @ObservedObject private var likes = LikeStore.shared
 
     /// 아직 받아오는 중인가. **비어 있음과 받는 중은 다른 화면이다.**
     var loading = false
@@ -161,7 +169,21 @@ struct LikedWorksSheet: View {
             } else {
                 List(works, id: \.id) { work in
                     VStack(alignment: .leading, spacing: 6) {
-                        workRow(work)
+                        HStack {
+                            workRow(work)
+                            Button {
+                                if likes.contains(work.id) {
+                                    likes.toggle(work.id)
+                                }
+                            } label: {
+                                Image(systemName: "trash").frame(minWidth: 44, minHeight: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(tr("찜 빼기"))
+                        }
+                        if let notice = UnavailableItem.notice(for: work) {
+                            UnavailableItemNotice(item: notice)
+                        }
                         if expanded == work.id {
                             workDetail(work)
                         }
@@ -171,6 +193,7 @@ struct LikedWorksSheet: View {
                 .listStyle(.plain)
             }
         }
+        .likeFailureNotice()
     }
 
     private func workRow(_ work: ContentSummary) -> some View {
@@ -183,8 +206,10 @@ struct LikedWorksSheet: View {
                 RemoteImage(url: work.posterUrl, symbol: "film", fits: true)
                     .frame(width: 34, height: 46)
                     .clipShape(.rect(cornerRadius: 5))
+                    .opacity(work.delisted == true ? 0.65 : 1)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(work.title).font(.subheadline.weight(.medium))
+                        .opacity(work.delisted == true ? 0.65 : 1)
                     Text([work.broadcaster, work.releaseYear.map(String.init)]
                         .compactMap { $0 }.joined(separator: " · "))
                         .font(.caption).foregroundStyle(.secondary)

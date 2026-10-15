@@ -37,7 +37,7 @@ extension RouteGuidePlan {
         }
     }
 
-    /// 순서·일차가 바뀌어도 유일하게 대응하는 항목만 서버 번호와 방문 상태를 이어받는다.
+    /// 순서·일차가 바뀌어도 유일하게 대응하는 항목만 서버 번호·방문·숨김·폐업 상태를 이어받는다.
     /// 같은 대상을 두 번 담은 코스는 GuidePlan에 항목 번호가 없어 임의 매칭하지 않는다.
     static func revising(_ original: RouteCourse, with plan: GuidePlan) -> RouteCourse {
         var next = course(from: plan, title: original.title, startDate: original.startDate, pace: original.pace)
@@ -53,6 +53,7 @@ extension RouteGuidePlan {
                       newStops[key]?.count == 1, let previous = matches.first else { continue }
                 stop.serverItemId = previous.serverItemId
                 stop.visited = previous.visited
+                stop.unavailable = previous.unavailable
                 stop.place.type = previous.place.type
                 stop.poiText = previous.poiText
                 next.days[day].stops[index] = stop
