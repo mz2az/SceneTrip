@@ -167,6 +167,11 @@ def _brief(p: Place, distance_m: int | None = None) -> dict[str, Any]:
 
 _POI_GROUPS = {"음식": "food", "숙박": "stay", "명소": "sight", "교통": "transit"}
 
+# `places_near` 를 반경 없이 불렀을 때 차례로 넓혀 볼 반경(m)과, 이만큼 찾으면 멈출 개수 (MZ2AZ-454).
+# 마지막 값은 도구 스키마의 radius_m 최댓값과 같다.
+_NEAR_STEPS = (2000, 5000, 10000, 20000)
+_NEAR_ENOUGH = 3
+
 # **모델에게 보이는 인자 값은 사람의 말이다 (MZ2AZ-426).** 도구 스키마의 열거값은 모델이 그대로
 # 읽고, 읽은 값은 답에 섞여 나온다. 그래서 스키마에는 한국어 말만 두고 코드가 쓰는 값으로는
 # 여기서 바꾼다. 예전 값(영어)으로 불러도 받는다 — 뜻이 하나로 정해지는 값이다.
@@ -346,6 +351,20 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
             ko for ko, en in _POI_GROUPS.items() if en == raw_args["group"]
         )
 
+    if name == "places_near" and not str(raw_args.get("near") or "").strip():
+        # 모델이 기준을 빼먹고 부르는 일이 실제로 있다(MZ2AZ-446·454). 앱이 현재 위치를
+        # 보냈으면 그것이 기준이다 — 추측이 아니라 앱이 보낸 실제 위치다. `near` 는 필수라
+        # 검사 **전에** 채워야 한다. 위치가 없으면 지도 한가운데로 떨어지지 않고 되묻게 한다.
+        if session.here is None:
+            return _refuse(
+                "현재 위치를 받지 못했다 — 어느 장소 근처인지 사용자에게 물어봐라"
+            )
+        raw_args["near"] = "현위치"
+    # 반경을 모델이 넣었는지는 검사 **전에** 본다 — 검사가 기본값을 채워 버린다.
+    # 시작 반경(2km)과 같은 값은 「안 넣은 것」 으로 본다 — 모델이 사용자가 반경을 말하지 않았는데도
+    # 2000 을 넣어 부르는 일이 있었다(성남시청 「근처 촬영지」, 2026-10-15 실측 2/2).
+    radius_asked = raw_args.get("radius_m") not in (None, _NEAR_STEPS[0])
+
     try:
         args = words_for_code(
             validate_args(spec["parameters"], words_for_schema(raw_args))
@@ -380,23 +399,38 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
         if err:
             # 기준점을 못 풀면 여기서 끝낸다. 지도 한가운데로 대신 떨어지지 않는다.
             return _refuse(err)
-        radius = args.get("radius_m", 2000)
-        found = book.near(
-            anchor.lat,
-            anchor.lng,
-            radius,
-            args.get("limit", 8),
-            sort=args.get("sort", "distance"),
-        )
+        # 사용자가 반경을 말했으면 그 반경만. 말하지 않았으면 결과가 적을 때 넓혀 다시 찾는다
+        # (MZ2AZ-454) — 촬영지가 드문 곳(성남시청 2km 안 1 곳, PRD 실측)에서도 답이 비지 않게.
+        # 편의시설(poi_nearby)은 넓히지 않는다 — 음식점·카페는 가까운 곳만 뜻이 있다.
+        steps = [args["radius_m"]] if radius_asked else list(_NEAR_STEPS)
+        first = steps[0]
+        found: list[tuple[Place, int]] = []
+        radius = first
+        for radius in steps:
+            found = book.near(
+                anchor.lat,
+                anchor.lng,
+                radius,
+                args.get("limit", 8),
+                sort=args.get("sort", "distance"),
+            )
+            if len(found) >= _NEAR_ENOUGH:
+                break
         if not found:
             return _refuse(f"{anchor.label} 에서 {radius}m 안에는 촬영지가 없다")
         session.remember([p for p, _ in found])
         session.show(op="map.focus", placeIds=_ids([p for p, _ in found]))
-        return {
+        out = {
             "기준": anchor.label,
             "반경": f"{radius}m",
             "찾은 곳": [_brief(p, d) for p, d in found],
         }
+        if radius != first:
+            out["넓힌 반경"] = (
+                f"{first}m 안에는 촬영지가 적어 {radius}m 까지 넓혀 찾았다. "
+                "답할 때 넓혀 찾았다고 한 문장으로 알려라."
+            )
+        return out
 
     if name == "place_detail":
         p = session.find_shown(args["name"])
