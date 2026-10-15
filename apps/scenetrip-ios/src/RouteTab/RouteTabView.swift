@@ -22,7 +22,7 @@ struct RouteTabView: View {
 
     @State private var fork = false
     @State private var wizard: RouteWizardKind?
-    @State var editing: RouteCourse?
+    @StateObject private var opening = RouteCourseOpening()
 
     /// 지우기 직전에 한 번 묻는다. `nil` 이면 안 묻는 중이다.
     ///
@@ -36,6 +36,9 @@ struct RouteTabView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
+                if opening.failedCourse != nil {
+                    detailLoadError
+                }
                 // 「둘러보기」(코스마켓) 세그먼트가 있었다 — 쓰지 않는 기능이라 걷어냈다
                 // (2026-10-03 팀 회의, MZ2AZ-350). 이 화면은 내 코스 하나다.
                 if store.courses.isEmpty {
@@ -83,7 +86,7 @@ struct RouteTabView: View {
         .sheet(item: $wizard, onDismiss: openPlannerIfAsked) { kind in
             RouteWizardView(kind: kind)
         }
-        .fullScreenCover(item: $editing, onDismiss: openPlannerIfAsked) { course in
+        .fullScreenCover(item: $opening.editing, onDismiss: openPlannerIfAsked) { course in
             RouteEditorView(course: course, isNew: false)
         }
     }
@@ -216,6 +219,19 @@ struct RouteTabView: View {
 
     // MARK: 코스 목록
 
+    private var detailLoadError: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("코스를 불러오지 못했어요", systemImage: "exclamationmark.circle")
+                .font(.subheadline)
+            Button("다시 시도") {
+                Task { await opening.retry(using: store) }
+            }
+            .buttonStyle(.bordered)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16).padding(.vertical, 10)
+    }
+
     private var courseList: some View {
         List {
             // 진행 중인 코스를 맨 위에 따로 모은다 — 여행 중에는 그것 말고 볼 것이 없다.
@@ -252,7 +268,7 @@ struct RouteTabView: View {
               let course = store.courses.first(where: { $0.serverId == wanted })
         else { return }
         router.pendingCourseId = nil
-        Task { editing = await store.detail(course) ?? course }
+        Task { await opening.open(course, using: store) }
     }
 
     private func row(_ course: RouteCourse) -> some View {
@@ -277,7 +293,7 @@ struct RouteTabView: View {
         Button {
             // 목록 카드에는 일차 속이 없다(`CourseSummary`). 열 때 상세를 받아온다 —
             // 목록에서 전부 받아 두면 코스가 많을 때 첫 화면이 그만큼 느려진다.
-            Task { editing = await store.detail(course) ?? course }
+            Task { await opening.open(course, using: store) }
         } label: {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
@@ -302,6 +318,7 @@ struct RouteTabView: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .disabled(opening.isLoading)
     }
 }
 

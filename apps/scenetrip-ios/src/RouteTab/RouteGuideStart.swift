@@ -7,6 +7,9 @@ struct RouteGuideStart: View {
     var onChangeAnchor: (() -> Void)?
     let cartPlaces: [String]
     var onOpenCart: (() -> Void)?
+    var onOpenNearby: (() -> Void)?
+    var onOpenPlanner: (() -> Void)?
+    var showQuestions = true
     let canAsk: Bool
     let onAsk: (String) -> Void
 
@@ -18,23 +21,40 @@ struct RouteGuideStart: View {
                 .font(.subheadline.weight(.semibold))
             Text("장소를 코스에 담기 전에도 주변을 찾아볼 수 있어요.")
                 .font(.caption).foregroundStyle(.secondary)
+            if let onOpenNearby {
+                Button("지도 주변 촬영지 보기", action: onOpenNearby)
+                    .font(.subheadline.weight(.semibold)).buttonStyle(.bordered)
+                    .accessibilityIdentifier("guide-nearby-places")
+            }
             if hasLocation, let onChangeAnchor {
                 Button(anchorActionTitle, action: onChangeAnchor)
                     .font(.caption).buttonStyle(.bordered)
                     .accessibilityIdentifier("guide-change-anchor")
             }
-            ForEach(prompts, id: \.self) { prompt in
-                Button { onAsk(tr(prompt)) } label: {
-                    Text(tr(prompt))
-                        .font(.caption)
-                        .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(Capsule().fill(Color(.systemGray6)))
-                }
-                .buttonStyle(.plain)
-                .disabled(!canAsk)
+            Divider()
+            if let onOpenPlanner {
+                Button("코스 추천받기 (AI)", action: onOpenPlanner)
+                    .font(.subheadline.weight(.semibold)).buttonStyle(.bordered)
+                    .accessibilityIdentifier("guide-ai-planner")
+                Text("AI 일정은 편집할 초안으로 열려요. 확인한 뒤 직접 저장해 주세요.")
+                    .font(.caption2).foregroundStyle(.secondary)
             }
-            Text("추천 장소를 확인하고 원하는 곳을 코스에 담아 보세요.")
-                .font(.caption2).foregroundStyle(.secondary)
+            if showQuestions {
+                Text("AI에게 주변 장소 물어보기")
+                    .font(.caption.weight(.semibold))
+                ForEach(prompts, id: \.self) { prompt in
+                    Button { onAsk(tr(prompt)) } label: {
+                        Text(tr(prompt))
+                            .font(.caption)
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(Capsule().fill(Color(.systemGray6)))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canAsk)
+                }
+                Text("추천 장소는 골라 담으세요. 일정 변경 요청은 초안에 반영돼요.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
             if let onOpenCart {
                 Divider()
                 Text(cartPlaces.isEmpty ? tr("장바구니에 담긴 장소가 없어요.") : cartPlaces.prefix(3).joined(separator: " · "))

@@ -66,6 +66,13 @@ struct RouteCourse: Identifiable, Hashable {
     /// 「7곳」을 그리려고 상세를 부르면 코스 수만큼 호출이 는다.
     var placeCountFromServer: Int?
 
+    /// 상세 응답으로 만든 사본인가. 목록 요약의 빈 일정으로 기존 장소를 덮어쓰면 안 된다.
+    var detailLoaded = false
+
+    var canSave: Bool {
+        serverId == nil || detailLoaded
+    }
+
     var stops: [RouteStop] {
         days.flatMap(\.stops)
     }

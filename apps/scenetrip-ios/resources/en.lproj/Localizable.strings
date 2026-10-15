@@ -102,6 +102,7 @@
 "다녀온 코스의 동선과 장소를 AI 가 읽고" = "AI reads your finished course,";
 "다시 길찾기" = "Directions again";
 "다시 시도" = "Try again";
+"코스를 불러오지 못했어요" = "Couldn't load the course";
 "다음" = "Next";
 "다음 · %lld번 %@로 길찾기" = "Next · Directions to #%lld %@";
 "닫기" = "Close";
@@ -744,3 +745,23 @@
 "일본어" = "Japanese";
 "중국어 번체" = "Traditional Chinese";
 "출처: 한국관광공사" = "Source: Korea Tourism Organization";
+
+/* 빈 코스 첫 안내와 모델 없는 주변 촬영지 (MZ2AZ-444). */
+"담아둔 장소로 코스를 시작해 보세요" = "Start your course with places you saved";
+"장소를 담으면 여기서 코스에 넣을 수 있어요" = "Save places to add them to your course here";
+"지도 주변 촬영지 보기" = "Filming locations around the map";
+"코스 추천받기 (AI)" = "Get course suggestions (AI)";
+"AI 일정은 편집할 초안으로 열려요. 확인한 뒤 직접 저장해 주세요." = "AI itineraries open as editable drafts. Review them, then save.";
+"AI에게 주변 장소 물어보기" = "Ask AI about nearby places";
+"추천 장소는 골라 담으세요. 일정 변경 요청은 초안에 반영돼요." = "Choose which suggested places to add. Requested itinerary changes update your draft.";
+"AI 가이드 오류" = "AI guide error";
+"주변 촬영지" = "Nearby filming locations";
+"내 위치 주변 촬영지입니다. AI를 사용하지 않아요." = "Filming locations near your location. No AI is used.";
+"지도 중심 주변 촬영지입니다. AI를 사용하지 않아요." = "Filming locations around the map center. No AI is used.";
+"내 위치로" = "Use my location";
+"내 위치를 사용할 수 없어 지도 중심으로 찾아요." = "Your location is unavailable. Search around the map center instead.";
+"검색 기준을 선택해 주세요" = "Choose a search location";
+"주변에 촬영지가 없어요" = "No filming locations nearby";
+"지도를 다른 곳으로 옮겨 다시 찾아보세요." = "Move the map to another area and try again.";
+"%@ 코스에 담기" = "Add %@ to course";
+"%@ · 코스에 담김" = "%@ · Added to course";

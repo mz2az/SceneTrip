@@ -32,6 +32,7 @@ struct RouteGuideSheet: View {
     var anchorActionTitle = ""
     var cartPlaces: [String] = []
     var onOpenCart: (() -> Void)?
+    var onOpenNearby: (() -> Void)?
 
     /// 코스에 담긴 지점. 모델이 「2번 주변」을 알아듣는 재료다.
     var context: RouteGuide.Context?
@@ -109,7 +110,7 @@ struct RouteGuideSheet: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    if session.isEmpty {
+                    if session.isEmpty || onOpenCart != nil || onOpenNearby != nil {
                         starters
                     }
                     ForEach(session.turns) { turn in
@@ -160,6 +161,8 @@ struct RouteGuideSheet: View {
             hasLocation: here != nil,
             anchorActionTitle: anchorActionTitle, onChangeAnchor: onChangeAnchor,
             cartPlaces: cartPlaces, onOpenCart: onOpenCart,
+            onOpenNearby: onOpenNearby, onOpenPlanner: onOpenPlanner,
+            showQuestions: session.isEmpty,
             canAsk: here != nil && !session.isLimited && !session.asking
         ) { question in
             draft = question
@@ -327,6 +330,8 @@ struct RouteGuideSheet: View {
     /// 두었으면 그 답이 오고, 모델을 다시 부르지 않는다. 서버가 키를 모르면 단추가 없다(전과 같다).
     private func failed(_ failure: RouteGuideFailure) -> some View {
         VStack(alignment: .leading, spacing: 8) {
+            Text("AI 가이드 오류")
+                .font(.caption.weight(.semibold))
             Label(failure.message, systemImage: "exclamationmark.triangle")
                 .font(.footnote)
                 .foregroundStyle(.orange)

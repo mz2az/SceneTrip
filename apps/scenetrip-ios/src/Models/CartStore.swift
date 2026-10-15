@@ -35,6 +35,11 @@ private struct ServerCartClient: CartClient {
 /// (`Cart.add` 가 false 를 돌려주고 화면이 스낵바를 띄웠다).
 @MainActor
 final class CartStore: ObservableObject {
+    enum LoadState {
+        case notLoaded, loading, loaded, failed
+    }
+
+    @Published private(set) var loadState = LoadState.notLoaded
     @Published private(set) var placeIds: Set<Int64> = []
     @Published private(set) var items: [CartItem] = []
     @Published private(set) var toast: String?
@@ -57,9 +62,15 @@ final class CartStore: ObservableObject {
     }
 
     func refresh() async {
-        guard let cart = try? await client.fetch(installId: installId) else { return }
-        items = cart.items
-        placeIds = Set(cart.items.map(\.placeId))
+        loadState = .loading
+        do {
+            let cart = try await client.fetch(installId: installId)
+            items = cart.items
+            placeIds = Set(cart.items.map(\.placeId))
+            loadState = .loaded
+        } catch {
+            loadState = .failed
+        }
     }
 
     /// 담기. 409 중 `DUPLICATE_CART_ITEM`만 이미 담긴 상태로 처리한다.

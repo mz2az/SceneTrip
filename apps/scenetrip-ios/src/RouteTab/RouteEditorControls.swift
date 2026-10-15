@@ -381,7 +381,15 @@ extension RouteEditorView {
             }
             // 장바구니를 거치지 않고 **여기서 바로** 찾아 담는다.
             action(tr("검색"), symbol: "magnifyingglass") { showSearch = true }
-            action(tr("장바구니"), symbol: "bag") { showCart = true }
+            action(tr("장바구니"), symbol: "bag") {
+                cartHint.dismiss()
+                showCart = true
+            }
+            .overlay {
+                if cartHint.isHighlighted {
+                    RouteCartHintRing()
+                }
+            }
             action(pinning ? tr("취소") : tr("핀 찍기"), symbol: "mappin.and.ellipse") {
                 pinning.toggle()
             }
