@@ -66,6 +66,12 @@ enum RouteLegMode {
         if name.contains("호선") || name.hasSuffix("선") || name.contains("철도") {
             return .subway
         }
+        // 영문 응답도 차종은 「일반」일 수 있다. 버스 종류를 먼저 판정한 뒤,
+        // 숫자 호선 이름 전체가 일치할 때만 지하철로 분류한다(MZ2AZ-250).
+        let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalizedName.range(of: #"^line\s+[0-9]+$"#, options: .regularExpression) != nil {
+            return .subway
+        }
         return .transit
     }
 }

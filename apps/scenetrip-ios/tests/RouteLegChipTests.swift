@@ -39,6 +39,22 @@ final class RouteLegChipTests: XCTestCase {
         XCTAssertEqual(RouteLegMode.from(contractMode: "transit", vehicleType: "마을", vehicleName: "종로02"), .bus)
     }
 
+    func testEnglishNumberedLineIsSubway() {
+        XCTAssertEqual(RouteLegMode.from(contractMode: "transit", vehicleType: "일반", vehicleName: "Line 1"), .subway)
+        XCTAssertEqual(RouteLegMode.from(contractMode: "transit", vehicleType: nil, vehicleName: " line 2 "), .subway)
+        XCTAssertEqual(RouteLegMode.from(contractMode: "transit", vehicleType: "BUS", vehicleName: "Line 1"), .bus)
+        XCTAssertEqual(RouteLegMode.from(contractMode: "transit", vehicleType: nil, vehicleName: "Line 1 Express Bus"), .transit)
+    }
+
+    func testEnglishSubwayDropsKoreanVehicleTypeAndRepeatedLine() {
+        let chip = RouteLeg(contract: leg(
+            .transit, guidance: "Line 1 (City Hall > Daebang)", type: "일반", name: "Line 1"
+        ))
+        XCTAssertEqual(chip.mode, .subway)
+        XCTAssertEqual(chip.title, "Line 1")
+        XCTAssertEqual(chip.detail, "City Hall > Daebang")
+    }
+
     func testUnknownVehicleStaysTransit() {
         XCTAssertEqual(RouteLegMode.from(contractMode: "transit", vehicleType: "일반", vehicleName: "100"), .transit)
         XCTAssertEqual(RouteLegMode.from(contractMode: "walk", vehicleType: "일반", vehicleName: "1호선"), .walk)

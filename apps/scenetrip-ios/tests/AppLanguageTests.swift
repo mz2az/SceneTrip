@@ -1,9 +1,28 @@
 import SceneApiClient
 @testable import SceneTrip
+import SwiftUI
 import XCTest
 
 /// 앱 언어 (MZ2AZ-343).
 final class AppLanguageTests: XCTestCase {
+    @MainActor
+    func testNavigationSummaryGrowsForNarrowScreensAndLargeText() {
+        for summary in ["환승 3회 · 도보 1234 m · 12,500원", "3 transfers · Walk 1234 m · ₩12,500"] {
+            func height(width: CGFloat, size: DynamicTypeSize) -> CGFloat {
+                let controller = UIHostingController(rootView:
+                    TripNavigationSummary(duration: "128 min", summary: summary)
+                        .environment(\.dynamicTypeSize, size))
+                return controller.sizeThatFits(in: CGSize(width: width, height: 1000)).height
+            }
+            let wide = height(width: 600, size: .large)
+            let narrow = height(width: 240, size: .large)
+            let accessible = height(width: 240, size: .accessibility3)
+            XCTAssertGreaterThan(narrow, wide, summary)
+            XCTAssertGreaterThan(accessible, narrow, summary)
+            XCTAssertLessThan(accessible, 1000, summary)
+        }
+    }
+
     /// 고르기 전에는 기기 언어를 따른다 — 한국어면 한국어, **그 밖은 전부 영어**(번역 표가 둘뿐이다).
     func testDeviceLanguageFoldsToKoreanOrEnglish() {
         XCTAssertEqual(AppLanguage.deviceDefault(preferred: ["ko-KR", "en-US"]), .ko)
