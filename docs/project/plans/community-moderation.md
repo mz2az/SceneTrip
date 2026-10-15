@@ -43,6 +43,8 @@
   본문에 `[신고] 접수` 가 들어간 로그가 5 분 안에 1 건 이상이면 그 채널로. 코드가 아니라 SigNoz 설정이다(웹훅 주소는 저장소에 적지 않는다). 로그 모양은 `ModerationController` 가 정한다 — 바꾸면 알람도 고친다.
 - **게이트웨이**: PRD 앞단 nginx 가 정해진 경로만 통과시킨다(`platform/helm/scenetrip/templates/config.yaml`) — `reports` 를 더했다.
   차단은 이미 허용된 `/me/` 아래(`/me/blocks`)라 더할 것이 없다.
+- **보관**: 접수 후 **1 년**이 지나면 지운다(권호 2026-10-15 — 처리방침에 적는다). 매일 새벽 3 시 50 분 서버가 지운다
+  (`ReportStore.purge`, 설정 `scenetrip.moderation.report-retention-days`).
 - **보기**: 처리 도구가 없는 동안은 SQL 로 —
   `SELECT * FROM content_report ORDER BY created_at DESC;`
 

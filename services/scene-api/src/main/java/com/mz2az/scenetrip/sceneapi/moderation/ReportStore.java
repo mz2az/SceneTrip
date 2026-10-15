@@ -3,7 +3,12 @@ package com.mz2az.scenetrip.sceneapi.moderation;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -11,7 +16,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 커뮤니티 신고(V35, MZ2AZ-438, 계획 {@code community-moderation.md} §3).
  *
  * <p>리뷰·여행후기를 신고한다. 신고 당시의 작성자와 본문 앞부분을 함께 적는다 — 글이 나중에 지워지거나 고쳐져도 무엇이 신고됐는지 알 수 있게. 처리(글 내리기)는 아직
- * 없다.
+ * 없다. 접수 후 1 년이 지난 기록은 지운다(처리방침에 적는 보관 기간, {@link #purge()}).
  */
 @Repository
 public class ReportStore {
@@ -43,14 +48,21 @@ public class ReportStore {
   /** 신고하는 글의 지금 모습 — 작성자(탈퇴했으면 {@code null})와 본문 앞부분. */
   private record Snapshot(UUID authorId, String excerpt) {}
 
+  private static final Logger log = LoggerFactory.getLogger(ReportStore.class);
+
   private static final int EXCERPT_LENGTH = 200;
 
   private final JdbcClient jdbc;
   private final TransactionTemplate transactions;
+  private final int retentionDays;
 
-  public ReportStore(JdbcClient jdbc, TransactionTemplate transactions) {
+  public ReportStore(
+      JdbcClient jdbc,
+      TransactionTemplate transactions,
+      @Value("${scenetrip.moderation.report-retention-days:365}") int retentionDays) {
     this.jdbc = jdbc;
     this.transactions = transactions;
+    this.retentionDays = retentionDays;
   }
 
   /**
@@ -112,5 +124,21 @@ public class ReportStore {
                   author == null ? null : UUID.fromString(author), rs.getString("excerpt"));
             })
         .optional();
+  }
+
+  /** 보관 기간이 지난 신고를 지운다 — 한국 시간 새벽, 챗봇 처리 기록 정리 조금 뒤. 여러 서버가 함께 돌아도 같은 줄을 지울 뿐이다. */
+  @Scheduled(cron = "${scenetrip.moderation.report-purge-cron:0 50 3 * * *}", zone = "Asia/Seoul")
+  public void purge() {
+    try {
+      int rows =
+          jdbc.sql(
+                  "DELETE FROM content_report"
+                      + " WHERE created_at < now() - make_interval(days => :days)")
+              .param("days", retentionDays)
+              .update();
+      log.info("신고 기록 정리: {} 줄", rows);
+    } catch (DataAccessException e) {
+      log.error("신고 기록 정리 실패", e);
+    }
   }
 }

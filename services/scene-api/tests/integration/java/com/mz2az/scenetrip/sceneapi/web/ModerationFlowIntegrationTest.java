@@ -100,7 +100,7 @@ class ModerationFlowIntegrationTest {
       new PostsController(postStore, courses(), storage, uploadStore, users, accounts);
   private final ModerationController moderation =
       new ModerationController(
-          new ReportStore(jdbc, transactions), new BlockStore(jdbc, transactions), accounts);
+          new ReportStore(jdbc, transactions, 365), new BlockStore(jdbc, transactions), accounts);
   private final RefreshTokenStore refreshTokens =
       new RefreshTokenStore(jdbc, transactions, Duration.ofDays(60), Clock.systemUTC());
   private final AuthController auth =
