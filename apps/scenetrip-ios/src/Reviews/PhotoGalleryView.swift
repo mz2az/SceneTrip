@@ -33,13 +33,26 @@ struct PhotoHero: View {
         .sheet(title: title, onChanged: onChanged)
     }
 
+    private var protectedPhotos: Bool {
+        photos.contains { $0.license == .koglType3 }
+    }
+
     var body: some View {
         VStack(spacing: 4) {
             content
                 .frame(height: 180)
-                .clipShape(.rect(cornerRadius: 10))
-            if photos.indices.contains(index) {
-                PhotoCredit(credits: PhotoGalleryRules.credits([photos[index]]))
+                .clipShape(.rect(cornerRadius: protectedPhotos ? 0 : 10))
+            HStack {
+                if photos.indices.contains(index) {
+                    PhotoCredit(credits: PhotoGalleryRules.credits([photos[index]]))
+                    if protectedPhotos, photos[index].isReview {
+                        VisitorBadge()
+                    }
+                }
+                // 변경 금지 사진에는 쪽 표시도 겹치지 않는다.
+                if protectedPhotos, PhotoGalleryRules.pages(total: gallery.book.total) {
+                    counter
+                }
             }
         }
         .renewsPhotos(from: gallery)
@@ -62,18 +75,22 @@ struct PhotoHero: View {
             // 한 장뿐이어도 방문자 사진이면 그렇다고 적는다(사진이 없던 곳에 리뷰 사진 한 장).
             page(0)
                 .overlay(alignment: .bottomLeading) {
-                    if photos[0].isReview {
+                    if !protectedPhotos, photos[0].isReview {
                         VisitorBadge().padding(8).allowsHitTesting(false)
                     }
                 }
         } else {
             PhotoPager(count: photos.count, index: $index) { page($0) }
                 .overlay(alignment: .bottomLeading) {
-                    if photos.indices.contains(index), photos[index].isReview {
+                    if !protectedPhotos, photos.indices.contains(index), photos[index].isReview {
                         VisitorBadge().padding(8).allowsHitTesting(false)
                     }
                 }
-                .overlay(alignment: .bottomTrailing) { counter }
+                .overlay(alignment: .bottomTrailing) {
+                    if !protectedPhotos {
+                        counter
+                    }
+                }
         }
     }
 

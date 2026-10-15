@@ -261,13 +261,14 @@ enum RouteGuide {
             category: label.category,
             address: label.address,
             phone: detail?.tel,
-            // 편의시설의 우리 사진은 아직 모으기 전이다 — 지금 오는 것은 방문자 사진뿐이다.
+            // 관광공사 공식 사진과 방문자 사진을 같은 사진첩으로 표시한다.
             photos: detail.map(PhotoGalleryRules.book(for:)) ?? PhotoGalleryRules.Book(),
             // 서버가 찾아 둔 그 가게의 네이버 장소 화면만 연다. 없으면(상세를 못 받았을 때도) 버튼이 없다 —
             // 이름 검색으로 넘기지 않는다(MZ2AZ-374).
             naverUrl: NaverMapLink.place(detail?.naverPlaceUrl)?.absoluteString,
             rating: detail?.rating,
-            detailed: detail != nil
+            detailed: detail != nil,
+            info: detail?.info
         )
     }
 
@@ -290,6 +291,9 @@ enum RouteGuide {
         /// 상세를 받아 지은 카드인가. 편의시설은 상세를 못 받아도 목록이 준 것으로 서는데, 그 카드에는
         /// 전화·사진·별점·네이버 주소가 없다.
         var detailed = true
+
+        /// 관광공사 안내. 상가정보 가게 대부분과 상세 조회 실패에는 없다.
+        var info: PoiInfo?
 
         /// 카드가 떠 있는 채 **다시 읽었을 때** 앞의 것을 그대로 둘 것인가(MZ2AZ-374).
         ///

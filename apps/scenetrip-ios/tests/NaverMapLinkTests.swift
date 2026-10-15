@@ -80,7 +80,7 @@ final class NaverMapLinkTests: XCTestCase {
         let fields = Mirror(reflecting: card).children.compactMap(\.label)
         XCTAssertEqual(
             Set(fields),
-            ["title", "reading", "category", "address", "phone", "photos", "naverUrl", "rating", "detailed"]
+            ["title", "reading", "category", "address", "phone", "photos", "naverUrl", "rating", "detailed", "info"]
         )
     }
 
