@@ -378,7 +378,7 @@ class CourseControllerTest {
   }
 
   @Test
-  @DisplayName("없거나 폐업한 편의시설이면 400 POI_NOT_FOUND — docs/api/errors.md")
+  @DisplayName("없는 편의시설이면 400 POI_NOT_FOUND — docs/api/errors.md")
   void unknownPoiIsBadRequest() throws Exception {
     when(store.exists(USER, 7L)).thenReturn(true);
     when(store.currentDayNo(USER, 7L)).thenReturn(Optional.empty());

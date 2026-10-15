@@ -80,6 +80,10 @@ class CourseController implements CoursesApi {
       throw ApiException.badRequest("UNKNOWN_COURSE_ITEM", e.getMessage());
     } catch (CourseStore.UnknownPoiException e) {
       throw ApiException.badRequest("POI_NOT_FOUND", e.getMessage());
+    } catch (CourseStore.ClosedPoiException e) {
+      throw ApiException.conflict("POI_CLOSED", e.getMessage());
+    } catch (CourseStore.DelistedPlaceException e) {
+      throw ApiException.conflict("PLACE_DELISTED", e.getMessage());
     }
 
     return ResponseEntity.ok(read(user, courseId, acceptLanguage));

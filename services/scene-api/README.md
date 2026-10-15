@@ -522,6 +522,17 @@ GROUP BY 1, 2 ORDER BY 3 DESC;
 - 운영자 내림(`removed_at`)은 사진을 남긴다 — 신고·차단(MZ2AZ-438)에서 정한다. 탈퇴해도 글·사진은 남는다(처리방침·탈퇴
   확인 창에 알린다)
 
+## 목록에서 빠진 것 — 담은 것은 알리고, 새로 담기는 막는다
+
+적재 CSV 에서 빠진 촬영지·작품은 지우지 않고 `hidden_at` 을 채우고(V20), 폐업한 편의시설은 `closed_at` 을 채운다. 지도·목록·
+검색에서는 빠진다. 사용자가 담아 둔 것은 남기되 알리고, 새로 담는 것은 막는다 — 계획 [delisted-items.md](../../docs/project/plans/delisted-items.md),
+MZ2AZ-451.
+
+- 알린다: 장바구니·코스·찜과 촬영지·작품 상세에 `delisted`(숨긴 촬영지·작품), 코스의 편의시설 줄에 `closed`(폐업)
+- 막는다(409): 장바구니 새로 담기 `PLACE_DELISTED`, 새로 찜하기 `CONTENT_DELISTED`, 코스 편집의 **새 줄**(`id` 없음)
+  `PLACE_DELISTED`·`POI_CLOSED`. 이미 담긴 것은 원래 답이 먼저다(`DUPLICATE_CART_ITEM`·찜 204), 코스의 이미 있던 줄은 통과한다
+- DB 변경 없음. 후기·마켓의 코스 사본은 이 규칙 밖이다
+
 ## 운영
 
 컨테이너는 **비-root(UID 10001)** 로 돌고 루트 파일시스템이 읽기 전용이다.

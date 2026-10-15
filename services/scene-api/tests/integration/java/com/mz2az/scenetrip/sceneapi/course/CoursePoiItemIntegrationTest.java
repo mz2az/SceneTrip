@@ -25,8 +25,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 /**
  * 코스 항목의 편의시설 갈래(scene-api 1.8.0, docs/project/plans/course-poi-item.md §1·§4) — 실제 DB.
  *
- * <p>명세: {@code CourseItemInput.poiId} 로 담는다. 없거나 폐업한 편의시설은 {@code POI_NOT_FOUND}(여기서는 {@link
- * CourseStore.UnknownPoiException}). 촬영지와 같은 곳으로 연결된 편의시설은 촬영지로 저장된다. 조회는 사본이 아니라 지금의 편의시설 자료이고, 체류
+ * <p>명세: {@code CourseItemInput.poiId} 로 담는다. 없는 편의시설은 {@code POI_NOT_FOUND}(여기서는 {@link
+ * CourseStore.UnknownPoiException}), 폐업은 {@code POI_CLOSED}(1.20.0, 여기서는 {@link
+ * CourseStore.ClosedPoiException}). 촬영지와 같은 곳으로 연결된 편의시설은 촬영지로 저장된다. 조회는 사본이 아니라 지금의 편의시설 자료이고, 체류
  * 기본값은 갈래별, 길찾기 목적지는 편의시설 좌표다.
  *
  * <p>픽스처는 적재 데이터와 겹치지 않는 바다 위(위도 34.9 · 경도 129.6 근처)에 두고, 전부 {@link IntegrationDatabase#rolledBack}
@@ -112,7 +113,7 @@ class CoursePoiItemIntegrationTest {
   }
 
   @Test
-  @DisplayName("폐업한 편의시설을 새로 담으면 UnknownPoiException")
+  @DisplayName("폐업한 편의시설을 새로 담으면 ClosedPoiException (1.20.0 — 컨트롤러가 409 POI_CLOSED 로 바꾼다)")
   void rejectsClosedPoi() {
     rolledBack(
         () -> {
@@ -121,7 +122,7 @@ class CoursePoiItemIntegrationTest {
           long course = course(1);
 
           assertThatThrownBy(() -> store.replace(course, replace(day(poiItem(q)))))
-              .isInstanceOf(CourseStore.UnknownPoiException.class);
+              .isInstanceOf(CourseStore.ClosedPoiException.class);
           return null;
         });
   }

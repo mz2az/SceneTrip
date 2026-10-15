@@ -84,7 +84,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `UNKNOWN_COURSE_ITEM` | 편집 완료(`PUT /courses/{courseId}`)가 그 코스에 없는 항목 `id` 를 가리켰다. 이미 지워졌거나 남의 코스 것이다 — **새로 담는 장소라면 `id` 를 아예 비워야 한다** |
 | `POST_PHOTO_INVALID` | 여행후기 쓰기의 사진 키가 내가 받은 업로드가 아니거나, 그 주소로 올리지 않았거나, 같은 키가 두 번 있다 (1.10.0) |
 | `POST_COURSE_INVALID` | 여행후기에 붙일 `courseId` 가 내 코스가 아니거나 없다 (1.10.0) |
-| `POI_NOT_FOUND` (400) | 편집 완료가 새로 담는 편의시설(`poiId`)이 없거나 폐업했다(1.8.0). 대상 없음의 `404` 와 같은 이름이지만 여기서는 요청이 틀린 것이라 `400` 이다 — 그 항목을 빼고 다시 저장한다 |
+| `POI_NOT_FOUND` (400) | 편집 완료가 새로 담는 편의시설(`poiId`)이 없다(1.8.0 — 1.20.0 부터 폐업은 `409 POI_CLOSED`). 대상 없음의 `404` 와 같은 이름이지만 여기서는 요청이 틀린 것이라 `400` 이다 — 그 항목을 빼고 다시 저장한다 |
 
 ### 인증 (`401`)
 
@@ -125,6 +125,9 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `code` | 뜻 |
 | --- | --- |
 | `DUPLICATE_CART_ITEM` | 이미 담긴 장소를 또 담으려 했다 |
+| `PLACE_DELISTED` | 목록에서 빠진(숨긴) 촬영지를 **새로** 담으려 했다 — 장바구니 담기, 코스 편집의 새 줄(`id` 없음)(1.20.0, MZ2AZ-451). 이미 담아 둔 것은 남는다. 「더 이상 소개하지 않는 장소예요」 |
+| `CONTENT_DELISTED` | 목록에서 빠진(숨긴) 작품을 **새로** 찜하려 했다(1.20.0). 이미 찜한 것은 남는다 |
+| `POI_CLOSED` | 코스 편집의 새 줄로 폐업한 편의시설을 넣으려 했다(1.20.0). 이미 있던 줄은 남는다. 「폐업했어요」 |
 | `IDEMPOTENCY_IN_PROGRESS` | 같은 `Idempotency-Key` 의 가이드 턴이 아직 처리 중이다(두 번 누름). 첫 응답을 기다리거나 잠시 뒤 같은 키로 |
 | `NICKNAME_TAKEN` | 다른 사람이 쓰는 닉네임이다(영문 대소문자는 같은 것으로 본다) |
 | `COURSE_SHORTER_THAN_PROGRESS` | 여행 중인 코스를 지금 걷고 있는 일차보다 짧게 줄이려 했다. 3일차를 걷는 중이면 2일 코스로 만들 수 없다 |

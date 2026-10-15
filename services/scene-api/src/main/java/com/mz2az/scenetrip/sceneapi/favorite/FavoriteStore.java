@@ -52,6 +52,8 @@ public class FavoriteStore {
           (SELECT count(*) FROM place_content pc
              JOIN place pl ON pl.id = pc.place_id AND pl.hidden_at IS NULL
             WHERE pc.content_id = c.id) AS place_count,
+          -- 목록에서 빠진 작품(1.20.0, MZ2AZ-451). 거르지 않는다 — 찜한 것은 남기고 알리기만 한다.
+          c.hidden_at IS NOT NULL AS delisted,
           count(*) OVER () AS total_count
       FROM saved_content s
       JOIN content c ON c.id = s.content_id
@@ -115,6 +117,21 @@ public class FavoriteStore {
         .update();
   }
 
+  /** 새로 찜할 수 없는가 — 목록에서 빠진(숨긴) 작품인데 아직 이 사람이 찜하지 않았다(MZ2AZ-451). 이미 찜한 것을 다시 찜하면 지금처럼 204 다. */
+  public boolean delistedAndNew(UUID userId, long contentId) {
+    return Boolean.TRUE.equals(
+        jdbc.sql(
+                """
+                SELECT EXISTS (SELECT 1 FROM content WHERE id = :contentId AND hidden_at IS NOT NULL)
+                   AND NOT EXISTS (SELECT 1 FROM saved_content
+                                   WHERE user_id = CAST(:userId AS UUID) AND content_id = :contentId)
+                """)
+            .param("userId", userId.toString())
+            .param("contentId", contentId)
+            .query(Boolean.class)
+            .single());
+  }
+
   /** 그 작품이 있는가. 없는 작품을 찜하려 하면 404 다 — 외래키 위반을 500 으로 내보내지 않는다. */
   public boolean contentExists(long contentId) {
     return Boolean.TRUE.equals(
@@ -135,7 +152,8 @@ public class FavoriteStore {
             .producerUrl(uri(rs.getString("producer_url")))
             .broadcaster(rs.getString("broadcaster"))
             .releaseYear(integerOrNull(rs, "release_year"))
-            .genres(stringArray(rs.getArray("genres")));
+            .genres(stringArray(rs.getArray("genres")))
+            .delisted(rs.getBoolean("delisted"));
     return new Row(summary, rs.getInt("total_count"), Lang.fromValue(rs.getString("shown_lang")));
   }
 

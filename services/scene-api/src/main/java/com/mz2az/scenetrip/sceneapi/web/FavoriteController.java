@@ -55,7 +55,13 @@ class FavoriteController implements FavoritesApi {
       throw ApiException.notFound("CONTENT_NOT_FOUND", "작품 " + contentId + " 이(가) 없습니다");
     }
 
-    store.add(accounts.resolve(xInstallId), contentId);
+    UUID user = accounts.resolve(xInstallId);
+    // 목록에서 빠진 작품은 새로 찜하지 않는다(MZ2AZ-451). 이미 찜한 것은 지금처럼 204.
+    if (store.delistedAndNew(user, contentId)) {
+      throw ApiException.conflict(
+          "CONTENT_DELISTED", "작품 " + contentId + " 은(는) 목록에서 빠져 새로 찜할 수 없습니다");
+    }
+    store.add(user, contentId);
     return ResponseEntity.noContent().build();
   }
 

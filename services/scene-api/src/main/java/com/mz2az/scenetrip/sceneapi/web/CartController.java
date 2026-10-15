@@ -51,14 +51,15 @@ class CartController implements CartApi {
     if (!store.placeExists(placeId)) {
       throw ApiException.notFound("PLACE_NOT_FOUND", "장소 " + placeId + " 이(가) 없습니다");
     }
+    UUID user = accounts.resolve(xInstallId);
+    // 목록에서 빠진 촬영지는 새로 담지 않는다(MZ2AZ-451). 이미 담아 둔 것은 아래에서 지금처럼 「이미 담김」.
+    if (store.delistedAndNew(user, placeId)) {
+      throw ApiException.conflict("PLACE_DELISTED", "장소 " + placeId + " 은(는) 목록에서 빠져 새로 담을 수 없습니다");
+    }
 
     CartItem item =
         store
-            .add(
-                accounts.resolve(xInstallId),
-                placeId,
-                cartItemCreate.getSourceContentId(),
-                acceptLanguage)
+            .add(user, placeId, cartItemCreate.getSourceContentId(), acceptLanguage)
             .orElseThrow(
                 () ->
                     ApiException.conflict(
