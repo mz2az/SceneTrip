@@ -47,6 +47,16 @@ from tools.poi.tests.test_spec import (
     SpecRoadRefs,
     SpecStoreKeys,
 )
+from tools.poi.tests.test_tour_detail import (
+    TourDetailClean,
+    TourDetailEnglish,
+    TourDetailHomepage,
+    TourDetailIdentity,
+    TourDetailImages,
+    TourDetailIntroByType,
+    TourDetailMain,
+    TourDetailModified,
+)
 from tools.poi.tests.test_tourapi import (
     TourConstants,
     TourFetchOne,
@@ -94,6 +104,14 @@ __all__ = [
     "SpecStoreKeys",
     "StoreKeys",
     "TourConstants",
+    "TourDetailClean",
+    "TourDetailEnglish",
+    "TourDetailHomepage",
+    "TourDetailIdentity",
+    "TourDetailImages",
+    "TourDetailIntroByType",
+    "TourDetailMain",
+    "TourDetailModified",
     "TourFetchOne",
     "TourItemsOf",
     "TourKeyRing",

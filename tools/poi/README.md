@@ -12,6 +12,7 @@
 | `juso_api.py` | 영문주소 검색 API — 받는 규칙과 캐시 |
 | `pack.py` | `just poi-pack` — 한 판을 공유용으로 묶는다(`src` 를 빼고 gzip, `manifest.json` 에 행 수·sha256) |
 | `tourapi.py` | `just poi-tourapi` — 관광공사 TourAPI 상세 4종을 키 여러 개로 나눠 받는다(아래 「관광공사 상세 받기」) |
+| `tour_detail.py` | `just poi-tour-detail` — 받은 상세를 `poi_detail`·`poi_image` 적재 파일로(아래 「관광공사 상세 넣기」) |
 | `tests/` | 단위 시험(`just test //tools/poi:unit_test`) — 진짜 API·파일은 쓰지 않는다 |
 
 ```bash
@@ -86,3 +87,27 @@ TOURAPI_KEY_VARS=KEY_A,KEY_B,KEY_C just poi-tourapi …  # 키 변수 이름을 
   `detailCommon2` 에서 막혔다(서비스 전체 1,000 회였다면 250 곳에서 막힌다). 키 셋이면 언어마다 하루 약 3,000 곳.
 - 매일 돌리려면 자료 폴더를 `~/Downloads`·`~/Documents`·`~/Desktop` 밖에 둔다 — macOS 의 launchd 는 그 폴더에
   들어가지 못한다.
+
+## 관광공사 상세 넣기 — `just poi-tour-detail` → `just seed-poi-detail`
+
+받은 상세(`raw/tourapi/Kor/detail.jsonl`)에서 개요·이용시간·쉬는 날·주차·대표 메뉴(음식점)·입장료·홈페이지와 사진을 뽑아
+DB 의 `poi_detail`·`poi_image` 에 넣는다(계약 1.21.0 `PoiDetail.info`, 표 V37, 계획 `docs/project/plans/poi-source.md` §6-1).
+
+```bash
+just poi-tour-detail ~/SceneTrip-data/SceneTrip_POI/raw/tourapi/Kor/detail.jsonl ~/SceneTrip-data/SceneTrip_POI/out/tour_detail.jsonl
+just seed-poi-detail ~/SceneTrip-data/SceneTrip_POI/out/tour_detail.jsonl
+# 영문 — 국문 뒤에(순서는 상관없다)
+just poi-tour-detail ~/SceneTrip-data/SceneTrip_POI/raw/tourapi/Eng/detail.jsonl ~/SceneTrip-data/SceneTrip_POI/out/tour_detail_en.jsonl --lang en
+just seed-poi-detail ~/SceneTrip-data/SceneTrip_POI/out/tour_detail_en.jsonl
+```
+
+- **다시 돌려도 된다** — POI·언어마다 한 줄을 덮어쓰고 같은 주소 사진은 한 번이다. 수집이 이어지는 동안 언제든 두 줄을 다시
+  돌리면 새로 받은 곳이 더해진다.
+- 국문은 관광공사에서 바로 들어온 POI(`tour-<번호>`)에만 붙는다 — 상가정보 가게에 합쳐진 줄은 `poi_source` 뒤에.
+- 영문은 번호가 국문과 달라 적재 SQL 이 짝을 짓는다 — 제목 괄호 속 한국어 이름이 **300 m 안 열린 POI 이름과 같으면**(대괄호
+  꼬리·기호 무시) 가장 가까운 것. 영문 사진은 국문 사진 뒤에.
+- 글은 HTML 을 지우고 `<br>` 을 줄바꿈으로. 이용시간 등은 종류마다 칸 이름이 달라 하나로 모은다(`FIELDS`).
+- 사진은 대표 이미지 → 상세 사진 순, https 로 바꾸고, 공공누리 유형(`kogl_type1`·`kogl_type3`)과 썸네일을 함께 넣는다.
+- 홈페이지는 `<a href>` 나 글 속 첫 주소. 주소 뒤에 붙은 한글 이름표는 떼고, 한글 도메인은 둔다.
+- 로컬 실측(2026-10-15): 국문 21,997 곳 중 17,285 곳에 상세, 사진 53,055 장 더해짐(대표 이미지는 예전 적재분과 겹침).
+  영문 15,287 곳 중 13,419 곳(88 %)에 짝, 사진 16,799 장. 국문·영문 어느 순서로 다시 돌려도 바뀌는 것 0.

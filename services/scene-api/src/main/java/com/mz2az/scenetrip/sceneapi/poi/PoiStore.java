@@ -4,17 +4,24 @@ import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCategoryGroup;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiImage;
+import com.mz2az.scenetrip.sceneapi.api.model.PoiInfo;
+import com.mz2az.scenetrip.sceneapi.api.model.PoiInfoText;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiSummary;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -221,6 +228,14 @@ public class PoiStore {
           WHERE p.id = :id AND p.closed_at IS NULL
           """;
 
+  /** 관광공사 상세(V37, MZ2AZ-376) — 요청 언어·en·ko 줄. 칸마다 따로 요청 언어 → en → ko 로 고른다({@link #info}). */
+  private static final String INFO_SQL =
+      """
+      SELECT lang::text AS lang, overview, use_time, rest_date, parking, first_menu, use_fee, homepage
+      FROM poi_detail
+      WHERE poi_id = :id AND lang::text IN (:lang, 'en', 'ko')
+      """;
+
   /** 우리가 모은 사진 — 정렬 순서대로, 첫 장이 대표(V17 의 poi_image_poi_idx 가 받는다). */
   private static final String IMAGES_SQL =
       """
@@ -299,7 +314,81 @@ public class PoiStore {
                                 new PoiImage(URI.create(rs.getString("url")))
                                     .credit(rs.getString("credit")))
                         .list()));
+    found.ifPresent(d -> d.poi().info(info(id, lang)));
     return found;
+  }
+
+  /** 상세 칸 하나의 언어별 값. */
+  private record InfoRow(
+      Lang lang,
+      String overview,
+      String useTime,
+      String restDate,
+      String parking,
+      String firstMenu,
+      String useFee,
+      String homepage) {}
+
+  /**
+   * 관광공사 상세. 고를 줄이 없으면 {@code null}(앱은 상세 영역을 그리지 않는다). 칸마다 요청 언어 → en → ko 순서로 처음 값이 있는 줄의 것 — 어느
+   * 언어에도 없으면 그 칸은 {@code null}. 각 칸의 {@code lang} 이 실제 언어다. 순서는 응답 언어 폴백(i18n-en-fallback.md)과 같다.
+   */
+  PoiInfo info(long id, Lang lang) {
+    Map<Lang, InfoRow> rows =
+        jdbc
+            .sql(INFO_SQL)
+            .param("id", id)
+            .param("lang", lang.getValue())
+            .query(
+                (rs, n) ->
+                    new InfoRow(
+                        Lang.fromValue(rs.getString("lang")),
+                        rs.getString("overview"),
+                        rs.getString("use_time"),
+                        rs.getString("rest_date"),
+                        rs.getString("parking"),
+                        rs.getString("first_menu"),
+                        rs.getString("use_fee"),
+                        rs.getString("homepage")))
+            .list()
+            .stream()
+            .collect(Collectors.toMap(InfoRow::lang, r -> r));
+    if (rows.isEmpty()) {
+      return null;
+    }
+    List<InfoRow> order =
+        new LinkedHashSet<>(List.of(lang, Lang.EN, Lang.KO))
+            .stream().map(rows::get).filter(Objects::nonNull).toList();
+    InfoRow homepageRow = first(order, InfoRow::homepage);
+    return new PoiInfo()
+        .overview(text(order, InfoRow::overview))
+        .useTime(text(order, InfoRow::useTime))
+        .restDate(text(order, InfoRow::restDate))
+        .parking(text(order, InfoRow::parking))
+        .firstMenu(text(order, InfoRow::firstMenu))
+        .useFee(text(order, InfoRow::useFee))
+        .homepage(homepageRow == null ? null : uri(homepageRow.homepage()));
+  }
+
+  private static InfoRow first(List<InfoRow> order, Function<InfoRow, String> field) {
+    return order.stream().filter(r -> field.apply(r) != null).findFirst().orElse(null);
+  }
+
+  private static PoiInfoText text(List<InfoRow> order, Function<InfoRow, String> field) {
+    InfoRow row = first(order, field);
+    return row == null ? null : new PoiInfoText(field.apply(row), row.lang());
+  }
+
+  /** 관광공사 홈페이지 칸은 손으로 쓴 글에서 뽑은 주소라 URI 로 못 읽는 것이 섞일 수 있다 — 그러면 보내지 않는다. */
+  private static URI uri(String value) {
+    if (value == null) {
+      return null;
+    }
+    try {
+      return new URI(value);
+    } catch (URISyntaxException e) {
+      return null;
+    }
   }
 
   /**
