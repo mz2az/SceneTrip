@@ -68,25 +68,23 @@ struct PhotoViewer: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            Color.black.ignoresSafeArea()
-            PhotoPager(count: photos.count, index: $index) { number in
-                GalleryImage(
-                    photo: photos[number], fits: true, dark: true,
-                    active: PhotoGalleryRules.loads(page: number, current: index)
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityElement(children: .ignore)
-                .accessibilityAddTraits(.isImage)
-                .accessibilityLabel(
-                    PhotoGalleryRules.spoken(
-                        index: number, total: total, isReview: marksVisitors && photos[number].isReview
-                    )
-                )
+        Group {
+            if photos.contains(where: { $0.license == .koglType3 }) {
+                // 옆 쪽으로 넘기는 중에도 Type3에 닫기·쪽 번호·출처가 겹치지 않는다.
+                VStack(spacing: 0) {
+                    topBar
+                    pages
+                    caption
+                }
+            } else {
+                ZStack(alignment: .top) {
+                    pages
+                    topBar
+                }
+                .overlay(alignment: .bottom) { caption }
             }
-            topBar
         }
-        .overlay(alignment: .bottom) { caption }
+        .background(Color.black.ignoresSafeArea())
         .onChange(of: photos.map(\.key)) { old, fresh in
             let selected = old.indices.contains(index) ? old[index] : nil
             index = selected.flatMap { fresh.firstIndex(of: $0) } ?? min(index, max(0, fresh.count - 1))
@@ -96,6 +94,23 @@ struct PhotoViewer: View {
             if empty {
                 dismiss()
             }
+        }
+    }
+
+    private var pages: some View {
+        PhotoPager(count: photos.count, index: $index) { number in
+            GalleryImage(
+                photo: photos[number], fits: true, dark: true,
+                active: PhotoGalleryRules.loads(page: number, current: index)
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityAddTraits(.isImage)
+            .accessibilityLabel(
+                PhotoGalleryRules.spoken(
+                    index: number, total: total, isReview: marksVisitors && photos[number].isReview
+                )
+            )
         }
     }
 
@@ -128,14 +143,16 @@ struct PhotoViewer: View {
     @ViewBuilder private var caption: some View {
         if let current {
             let visitor = marksVisitors && current.isReview
-            if visitor || current.credit != nil {
+            let credit = PhotoGalleryRules.credit(current)
+            if visitor || credit != nil {
                 HStack(spacing: 10) {
                     if visitor {
                         VisitorBadge()
                     }
-                    if let credit = current.credit {
+                    if let credit {
                         Text(verbatim: credit)
-                            .font(.caption2).foregroundStyle(.white.opacity(0.75)).lineLimit(2)
+                            .font(.caption2).foregroundStyle(.white.opacity(0.75))
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 8)
                     if visitor, let onReview, let reviewId = current.reviewId {

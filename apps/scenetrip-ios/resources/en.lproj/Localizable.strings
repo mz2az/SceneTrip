@@ -8,7 +8,6 @@
 "%@ — 좌표 없음" = "%@ — no coordinates";
 "%@ 고정" = "Pin %@";
 "약 %@(이동 포함)" = "About %@ (including travel)";
-"머무는 시간 %@" = "Time at places %@";
 "이동을 포함한 어림이에요. 실제 이동 시간은 여행 중에 확인해 주세요." = "This includes estimated travel. Check actual travel times during your trip.";
 "저장하면 이동을 포함한 시간을 다시 보여 드려요." = "Save to refresh the estimate including travel.";
 "%@ 도착 예정" = "Arrives %@";
@@ -719,3 +718,17 @@
 "끄면 위치를 쓰는 기능을 쓸 때 다시 물어봐요." = "If you turn this off, we will ask again when you use a feature that uses your location.";
 "길 안내를 위해 카카오에 현재 위치를 보냈어요." = "Your current location was sent to Kakao to calculate directions.";
 "위치기반서비스 이용에 동의한 뒤 다시 시도해 주세요." = "Please agree to location-based services and try again.";
+
+/* 관광공사 편의시설 안내 (MZ2AZ-470). */
+"개요" = "Overview";
+"이용 시간" = "Hours";
+"쉬는 날" = "Closed";
+"주차" = "Parking";
+"대표 메뉴" = "Signature menu";
+"입장료" = "Admission";
+"홈페이지" = "Website";
+"한국어" = "Korean";
+"영어" = "English";
+"일본어" = "Japanese";
+"중국어 번체" = "Traditional Chinese";
+"출처: 한국관광공사" = "Source: Korea Tourism Organization";

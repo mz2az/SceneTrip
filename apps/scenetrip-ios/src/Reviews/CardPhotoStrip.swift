@@ -54,7 +54,7 @@ struct CardPhotoStrip: View {
                         VisitorBadge(compact: true).padding(3)
                     }
                 }
-                .clipShape(.rect(cornerRadius: 8))
+                .clipShape(.rect(cornerRadius: photo.license == .koglType3 ? 0 : 8))
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -66,7 +66,7 @@ struct CardPhotoStrip: View {
     }
 }
 
-/// API가 준 출처를 사진 바깥에 원문 그대로 적는다. 작은 카드에서도 끝을 자르지 않는다.
+/// 앱 언어의 출처와 API의 추가 credit를 사진 바깥에 적는다. 작은 카드에서도 끝을 자르지 않는다.
 struct PhotoCredit: View {
     let credits: [String]
 

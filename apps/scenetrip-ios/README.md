@@ -75,6 +75,21 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 표시용 디코딩을 재사용한다. 원본 파일과 일반 포스터·서명 리뷰의 캐시 정책은 변경하지 않는다.
 구현·검증 범위는 [관광공사 사진 표시 계획](../../docs/project/plans/tour-photo-display.md)을 따른다.
 
+### 관광공사 편의시설 안내 (MZ2AZ-470)
+
+편의시설 상세 카드의 `info`에 값이 있는 개요·이용 시간·쉬는 날·주차·대표 메뉴·입장료만
+표시한다. `info`와 개별 필드는 누락·null 모두 숨기며, 긴 안내는 카드 안에서 스크롤한다.
+서버의 문장과 줄바꿈을 유지하고 영업 중 여부를 계산하지 않는다. 각 필드의 실제 언어가 앱 언어와
+다르면 작은 언어 태그를 붙인다. 기존 앱에는 시스템 번역 패턴이 없어 태그만 제공한다.
+홈페이지는 HTTP(S) 주소만 브라우저로 연다. 행 제목·태그·출처는 KO/EN 문자열 표를 따른다.
+
+사진 줄·격자는 `thumbnailUrl`을 우선 사용하고 없으면 `url`로 폴백한다. 상세 대표·확대 화면은
+원본 `url`을 쓴다. `kogl_type1`·`kogl_type3` 사진에는 앱 언어에 맞춰 「출처: 한국관광공사」 /
+“Source: Korea Tourism Organization”을 사진 밖에 표시하며 추가 credit도 보존한다. Type3는
+자르기·필터·문구 덮기 없이 전체 비율로 보이고 확대 화면의 조작도 사진 밖에 둔다.
+규칙은 `RouteTab/PoiInfoRules.swift`·`Reviews/PhotoGalleryRules.swift`,
+계획과 인계 검증은 [iOS 관광공사 안내 계획](../../docs/project/plans/ios-poi-tour-info.md)에 있다.
+
 촬영지 상세·지도 카드와 편의시설 카드의 네이버 버튼은 `NaverMapLink.place` 로 주소를 검사한다
 (MZ2AZ-374·383). `https`, 포트·사용자정보 없음, `naver.com`·그 하위 도메인 또는 `naver.me` 만 허용한다.
 없거나 검사에 실패한 주소는 버튼을 숨긴다.
