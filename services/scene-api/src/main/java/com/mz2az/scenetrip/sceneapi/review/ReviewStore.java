@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.sceneapi.review;
 
+import com.mz2az.scenetrip.sceneapi.moderation.BlockStore;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -170,11 +171,12 @@ public class ReviewStore {
                        (r.user_id IS NOT NULL AND r.user_id = CAST(:viewer AS UUID)) AS mine
                 FROM review r
                 LEFT JOIN app_user u ON u.id = r.user_id
-                WHERE r.%s = :id AND r.removed_at IS NULL
+                WHERE r.%s = :id AND r.removed_at IS NULL AND %s
                 ORDER BY %s
                 LIMIT :limit OFFSET :offset
                 """
-                    .formatted(target.column, sort.orderBy))
+                    .formatted(
+                        target.column, BlockStore.NOT_BLOCKED.formatted("r.user_id"), sort.orderBy))
             .param("id", id)
             .param("viewer", viewer == null ? null : viewer.toString())
             .param("limit", limit)
@@ -183,9 +185,10 @@ public class ReviewStore {
             .list();
     int total =
         jdbc.sql(
-                "SELECT count(*) FROM review WHERE %s = :id AND removed_at IS NULL"
-                    .formatted(target.column))
+                "SELECT count(*) FROM review r WHERE r.%s = :id AND r.removed_at IS NULL AND %s"
+                    .formatted(target.column, BlockStore.NOT_BLOCKED.formatted("r.user_id")))
             .param("id", id)
+            .param("viewer", viewer == null ? null : viewer.toString())
             .query(Integer.class)
             .single();
     return new Page<>(withPhotos(rows), total);
@@ -381,6 +384,13 @@ public class ReviewStore {
    * <p>우리 사진은 촬영지면 {@code place_image}(저작자 표기 칸이 없다), 편의시설이면 {@code poi_image}.
    */
   public Page<Photo> photos(Target target, long id, int limit, int offset) {
+    return photos(target, id, limit, offset, null);
+  }
+
+  /**
+   * 사진첩 — 보는 사람({@code viewer})이 차단한 작성자의 리뷰 사진은 뺀다(MZ2AZ-438). 우리 사진은 그대로. 보는 사람이 없으면 아무것도 빼지 않는다.
+   */
+  public Page<Photo> photos(Target target, long id, int limit, int offset, UUID viewer) {
     String official =
         target == Target.PLACE
             ? "SELECT url, NULL::TEXT AS credit, sort_order, id FROM place_image WHERE place_id ="
@@ -396,9 +406,9 @@ public class ReviewStore {
                1, r.created_at, ri.sort_order, r.id
         FROM review r
         JOIN review_image ri ON ri.review_id = r.id
-        WHERE r.%s = :id AND r.removed_at IS NULL
+        WHERE r.%s = :id AND r.removed_at IS NULL AND %s
         """
-            .formatted(official, target.column);
+            .formatted(official, target.column, BlockStore.NOT_BLOCKED.formatted("r.user_id"));
     List<Photo> items =
         jdbc.sql(
                 """
@@ -412,6 +422,7 @@ public class ReviewStore {
                 """
                     .formatted(union))
             .param("id", id)
+            .param("viewer", viewer == null ? null : viewer.toString())
             .param("limit", limit)
             .param("offset", offset)
             .query(
@@ -427,6 +438,7 @@ public class ReviewStore {
     int total =
         jdbc.sql("SELECT count(*) FROM (%s) u".formatted(union))
             .param("id", id)
+            .param("viewer", viewer == null ? null : viewer.toString())
             .query(Integer.class)
             .single();
     return new Page<>(items, total);

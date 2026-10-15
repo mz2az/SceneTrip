@@ -54,6 +54,16 @@ public class ApiException extends RuntimeException {
     return new ApiException(HttpStatus.NOT_FOUND, code, message);
   }
 
+  /**
+   * 쓸 수 없는 말이 있으면 400 {@code TEXT_NOT_ALLOWED}(MZ2AZ-438). 어느 칸인지는 알리고 <b>어떤 말이 걸렸는지는 알리지 않는다</b> —
+   * 알리면 그 말만 피해 간다.
+   */
+  public static void requireAllowedText(String field, String text) {
+    if (!com.mz2az.scenetrip.sceneapi.moderation.TextFilter.allows(text)) {
+      throw badRequest("TEXT_NOT_ALLOWED", field + " 에 쓸 수 없는 말이 있습니다");
+    }
+  }
+
   /** 이미 있는 것을 또 만들려 했다. */
   public static ApiException conflict(String code, String message) {
     return new ApiException(HttpStatus.CONFLICT, code, message);

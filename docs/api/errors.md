@@ -71,8 +71,12 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `INCOMPLETE_ORIGIN` | `lat` 과 `lng` 중 하나만 보냈다. 둘은 짝이다 |
 | `MISSING_AREA_FILTER` | `GET /pois` 에 영역 조건(`bbox` 또는 `lat`·`lng`+`radiusMeters`)이 하나도 없다. 편의시설 50 만 건을 전국 대상으로 돌려줄 정렬 기준이 없다 — 촬영지(`/places`)는 인기도가 있어 허용하고, POI 는 없어 거부한다 |
 | `MISSING_INSTALL_ID` | `X-Install-Id` 헤더가 없거나 UUID 형식이 아니다. 장바구니·코스·찜·마켓이 전부 이 헤더를 요구한다 |
-| `SIGN_IN_REQUIRED` | (`401`) 가입해야 할 수 있는 동작이다. 마켓 좋아요·담기·올리기·내리기, 여행 중 길찾기, 가이드 챗봇, 리뷰 쓰기·고치기·지우기, 사진 올리기. 로그인 화면으로 안내한다 |
+| `SIGN_IN_REQUIRED` | (`401`) 가입해야 할 수 있는 동작이다. 마켓 좋아요·담기·올리기·내리기, 여행 중 길찾기, 가이드 챗봇, 리뷰 쓰기·고치기·지우기, 사진 올리기, 차단하기·차단 목록·풀기. 로그인 화면으로 안내한다 |
 | `NICKNAME_INVALID` | 닉네임이 규칙에 맞지 않는다 — 앞뒤 공백을 뗀 뒤 2~16 자, 한글·영문·숫자·`_` 만 |
+| `TEXT_NOT_ALLOWED` | 리뷰·여행후기(제목·본문·문단 블록)·닉네임에 쓸 수 없는 말이 있다(1.19.0, MZ2AZ-438). `message` 에 어느 칸인지 있고, 어떤 말이 걸렸는지는 알리지 않는다. 「쓸 수 없는 표현이 있어요」 |
+| `CANNOT_REPORT_OWN` | 자기 글을 신고하려 했다(1.19.0, MZ2AZ-438). 앱은 자기 글(`isMine`)에 신고 버튼을 두지 않는다 |
+| `CANNOT_BLOCK_SELF` | 자기 글로 자기 자신을 차단하려 했다(1.19.0) |
+| `BLOCK_TARGET_HAS_NO_AUTHOR` | 차단하려는 글의 작성자가 탈퇴해 글쓴이가 없다(1.19.0) |
 | `REVIEW_PHOTO_INVALID` | 리뷰의 `photoKeys` 에 내가 올리지 않았거나 만료된 업로드, 또는 없는 사진이 있다. 사진을 다시 올린다 |
 | `UPLOAD_TOO_LARGE` | 올리려는 사진이 10 MB 를 넘거나 크기가 1 바이트 미만이다. 줄여서 다시 |
 | `UPLOAD_TYPE_UNSUPPORTED` | JPEG·PNG·HEIC·WebP 가 아니다 |
@@ -101,6 +105,9 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `CONTENT_NOT_FOUND` | 그 `contentId` 의 작품이 없다 |
 | `PLACE_NOT_FOUND` | 그 `placeId` 의 장소가 없다 |
 | `POI_NOT_FOUND` | 그 `poiId` 의 편의시설이 없다 |
+| `REPORT_TARGET_NOT_FOUND` | 신고하려는 리뷰·여행후기가 없거나 이미 내려갔다(1.19.0, MZ2AZ-438) |
+| `BLOCK_TARGET_NOT_FOUND` | 차단하려는 리뷰·여행후기가 없거나 이미 내려갔다(1.19.0) |
+| `BLOCK_NOT_FOUND` | 내 차단 목록에 그런 줄이 없다(1.19.0) |
 | `REVIEW_NOT_FOUND` | 그곳에 내가 쓴 리뷰가 없다(`GET …/reviews/me`). 빈 쓰기 화면을 연다 |
 | `CART_ITEM_NOT_FOUND` | 장바구니에 그 장소가 담겨 있지 않다 |
 | `COURSE_NOT_FOUND` | 그 `courseId` 의 코스가 없다. **남의 코스도 여기에 해당한다** — 있다는 사실 자체를 알려 주지 않는다 |

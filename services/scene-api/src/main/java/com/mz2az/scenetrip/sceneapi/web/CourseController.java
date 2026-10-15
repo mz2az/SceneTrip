@@ -49,6 +49,7 @@ class CourseController implements CoursesApi {
   public ResponseEntity<CourseDetail> createCourse(
       UUID xInstallId, CourseCreate courseCreate, Lang acceptLanguage) {
 
+    ApiException.requireAllowedText("코스 이름", courseCreate.getTitle());
     UUID user = accounts.resolve(xInstallId);
     long courseId = store.create(user, courseCreate);
     return ResponseEntity.status(HttpStatus.CREATED).body(read(user, courseId, acceptLanguage));
@@ -68,6 +69,7 @@ class CourseController implements CoursesApi {
     UUID user = accounts.resolve(xInstallId);
     requireCourse(user, courseId);
     validate(courseReplace);
+    ApiException.requireAllowedText("코스 이름", courseReplace.getTitle());
     requireLongEnoughForTrip(user, courseId, courseReplace.getDays().size());
 
     try {

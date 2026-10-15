@@ -253,6 +253,10 @@ scenetrip:
     # 무시한다(에이전트의 읽기가 에이전트 주소 한 칸으로 세어진다) — 기동 로그에 경고를 남긴다.
     service-token: ${SCENETRIP_SERVICE_TOKEN:}
 
+  # 커뮤니티 신고(content_report, MZ2AZ-438). 접수 후 이만큼 지나면 지운다 — 처리방침에 적는 보관 기간(1 년)과 같아야 한다.
+  moderation:
+    report-retention-days: 365
+
   course:
     walking-speed-kmh: 4.0
     detour-factor: 1.3

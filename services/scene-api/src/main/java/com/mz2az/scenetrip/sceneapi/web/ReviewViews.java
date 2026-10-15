@@ -10,6 +10,8 @@ import com.mz2az.scenetrip.sceneapi.review.PhotoStorage;
 import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
 import java.net.URI;
 import java.util.List;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -26,9 +28,18 @@ class ReviewViews {
   private final ReviewStore reviews;
   private final PhotoStorage storage;
 
+  /** 보는 사람 — 사진첩에서 그 사람이 차단한 작성자의 사진을 뺀다(MZ2AZ-438). 시험이 만든 것은 {@code null} 이라 빼지 않는다. */
+  private final CurrentAccount accounts;
+
   ReviewViews(ReviewStore reviews, PhotoStorage storage) {
+    this(reviews, storage, null);
+  }
+
+  @Autowired
+  ReviewViews(ReviewStore reviews, PhotoStorage storage, CurrentAccount accounts) {
     this.reviews = reviews;
     this.storage = storage;
+    this.accounts = accounts;
   }
 
   RatingSummary summary(ReviewStore.Target target, long id) {
@@ -40,7 +51,12 @@ class ReviewViews {
   record Gallery(List<Photo> items, int total) {}
 
   Gallery gallery(ReviewStore.Target target, long id, int limit, int offset) {
-    ReviewStore.Page<ReviewStore.Photo> page = reviews.photos(target, id, limit, offset);
+    UUID viewer = accounts == null ? null : accounts.signedInOrNull();
+    // 보는 사람이 없으면 차단을 볼 일이 없다 — 예전 창구 그대로(MZ2AZ-438).
+    ReviewStore.Page<ReviewStore.Photo> page =
+        viewer == null
+            ? reviews.photos(target, id, limit, offset)
+            : reviews.photos(target, id, limit, offset, viewer);
     return new Gallery(page.items().stream().map(this::photo).toList(), page.total());
   }
 

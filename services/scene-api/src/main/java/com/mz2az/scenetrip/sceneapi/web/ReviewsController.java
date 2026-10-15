@@ -120,6 +120,7 @@ class ReviewsController implements ReviewsApi {
     Ref at = resolve(asked, askedId);
     // 앞뒤 공백만인 글은 없는 것으로(계약). 길이·별점 범위·사진 수는 계약의 제약이 이미 막았다.
     String text = in.getBody() == null || in.getBody().isBlank() ? null : in.getBody().strip();
+    ApiException.requireAllowedText("리뷰", text);
     List<String> keys = in.getPhotoKeys() == null ? List.of() : in.getPhotoKeys();
 
     // 막 올린 사진(uploads/tmp/)은 붙이기 전에 reviews/ 로 옮긴다 — 임시 자리는 버킷 수명 규칙이 하루 뒤
