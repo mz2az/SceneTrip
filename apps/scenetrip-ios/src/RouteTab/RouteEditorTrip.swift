@@ -15,6 +15,10 @@ extension RouteEditorView {
     /// 챗봇이 찾아 준 가게를 담고 곧바로 「다음 · 2번으로 길찾기」를 누르면 「저장된 코스의
     /// 장소에서만…」으로 막혔다(2026-09-17). 저장이 실패하면 시작하지 않는다(알림은 저장 쪽이 띄운다).
     func startTrip(to stop: RouteStop) {
+        guard stop.canNavigate else {
+            pickedStop = stop
+            return
+        }
         guard stop.serverItemId == nil, course.serverId != nil, !stop.placeMissing else {
             beginTrip(to: stop)
             return
@@ -30,6 +34,10 @@ extension RouteEditorView {
     }
 
     private func beginTrip(to stop: RouteStop) {
+        guard stop.canNavigate else {
+            pickedStop = stop
+            return
+        }
         let number = (stops.firstIndex { $0.id == stop.id } ?? 0) + 1
         focusedStop = nil
         pickedStop = nil
@@ -40,7 +48,7 @@ extension RouteEditorView {
 
     /// 지금 일차에서 **아직 안 간 첫 곳.** 도착 뒤 「다음 · N번으로」와 「코스 시작」이 이것을 본다.
     var nextUnvisited: (number: Int, stop: RouteStop)? {
-        stops.firstIndex { !$0.visited }.map { ($0 + 1, stops[$0]) }
+        RouteAvailability.nextUnvisited(in: stops)
     }
 
     /// 지도에 「내 자리 → 여기」 직선을 미리 그을 곳(2026-09-03 사용자 결정).
@@ -306,6 +314,8 @@ extension RouteEditorView {
                     Text("코스 만들기").fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+            } else if !course.isRunning, RouteAvailability.hasOnlyUnavailableRemaining(in: stops) {
+                dayFinishedNotice
             } else if !course.isRunning {
                 // 시작 전에는 이것이 이 줄의 하나뿐인 동작이다 — 누르면 앱이 흐름을 이어받는다
                 // (계획 trip-mode.md §2·§8).
@@ -336,10 +346,7 @@ extension RouteEditorView {
                 if stops.isEmpty {
                     Spacer()
                 } else {
-                    Label("오늘 일정을 모두 돌았어요", systemImage: "checkmark.seal.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color(PinImage.deep))
-                        .frame(maxWidth: .infinity)
+                    dayFinishedNotice
                 }
             }
         }
@@ -353,9 +360,27 @@ extension RouteEditorView {
             : AnyLayout(HStackLayout(spacing: 10))
     }
 
+    @ViewBuilder
+    private var dayFinishedNotice: some View {
+        if RouteAvailability.hasOnlyUnavailableRemaining(in: stops) {
+            Text(tr("갈 수 있는 곳이 없어요. 목록에서 빠지거나 폐업한 곳만 남았어요."))
+                .font(.subheadline).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity)
+        } else {
+            Label("오늘 일정을 모두 돌았어요", systemImage: "checkmark.seal.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color(PinImage.deep))
+                .frame(maxWidth: .infinity)
+        }
+    }
+
     /// 「코스 시작 / 여행 종료」.
     private func toggleRunning() {
-        course.isRunning.toggle()
+        if course.isRunning {
+            course.isRunning = false
+        } else {
+            guard RouteAvailability.start(&course, dayIndex: dayIndex) != nil else { return }
+        }
         // 상태만 바꾼다 — 코스 내용을 함께 덮어쓰면 편집 중이던 것이
         // 저장돼 버려 「시작」이 「저장」을 겸하게 된다.
         // 지금 보고 있는 일차에서 시작한다 — 서버가 `currentDayNo` 를
@@ -375,7 +400,7 @@ extension RouteEditorView {
             await store.setRunning(course, running, dayNo: dayNo)
             // **시작하면 바로 첫 성지로 길찾기.** 여기서 앱이 흐름을 이어받는다
             // (계획 trip-mode.md §2·§8) — 경로는 이 지도에, 도착은 머무름으로.
-            if running, course.isRunning, let first = nextUnvisited?.stop ?? stops.first {
+            if running, course.isRunning, let first = nextUnvisited?.stop ?? stops.first(where: \.canNavigate) {
                 startTrip(to: first)
             }
         }
@@ -400,10 +425,7 @@ extension RouteEditorView {
                     .buttonStyle(.borderedProminent)
                     .disabled(visitSync.isPending(trip.target?.serverItemId))
                 } else {
-                    Label("오늘 일정을 모두 돌았어요", systemImage: "checkmark.seal.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color(PinImage.deep))
-                        .frame(maxWidth: .infinity)
+                    dayFinishedNotice
                 }
             } else {
                 // 머무를 시간이 없거나 GPS 가 튈 때의 탈출구. 저절로 찍힐 때와 같은 길이다.
@@ -444,7 +466,7 @@ extension RouteEditorView {
         if let tapped = pickedStop, !showGuide, guide.picked == nil {
             RouteCourseStopCard(
                 stop: tapped,
-                onReroute: course.isRunning && trip.target?.id != tapped.id
+                onReroute: course.isRunning && tapped.canNavigate && trip.target?.id != tapped.id
                     ? { startTrip(to: tapped) } : nil,
                 onClose: { pickedStop = nil }
             )

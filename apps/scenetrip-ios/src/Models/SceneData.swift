@@ -308,7 +308,7 @@ struct ApiFailure: Equatable {
     let traceId: String?
     /// 기기가 오프라인이라 실패했다 — 서버 탓이 아니라 「인터넷 연결」 을 말해야 한다 (MZ2AZ-366).
     var isOffline = false
-    /// 오류 본문의 `code`. 화면 문구를 code 로 가를 때만 쓴다 — 지금은 금칙어(`TEXT_NOT_ALLOWED`, MZ2AZ-461)뿐이다.
+    /// 오류 본문의 `code`. 금칙어·숨김·폐업처럼 구체적인 안내가 필요한 경우에 쓴다.
     var apiCode: String?
 
     /// 「다시 시도」 가 의미 있는 경우 — **다시 누르면 달라질 수 있는 것.** 서버에 닿지 못했거나(statusCode
@@ -328,6 +328,9 @@ struct ApiFailure: Equatable {
     /// 상황에서 다른 말을 하면 같은 앱으로 보이지 않는다. 앞서 이 문구가 검색 탭의
     /// `ErrorView` 안에만 있어서 다른 화면이 재사용할 수 없었다.
     var message: String {
+        if let message = UnavailableItem.rejection(status: statusCode, code: apiCode) {
+            return message
+        }
         // 코스 이름이 금칙어에 걸렸다(`POST /courses`·`PUT /courses/{id}`) — 고쳐 달라고 한다.
         if ModerationRules.isTextNotAllowed(code: apiCode) {
             return ModerationRules.textNotAllowedMessage

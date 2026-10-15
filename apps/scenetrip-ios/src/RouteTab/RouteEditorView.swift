@@ -318,7 +318,7 @@ struct RouteEditorView: View {
         )) {
             Button("확인") { store.clearFailure() }
         } message: {
-            Text(store.failure?.message ?? "")
+            Text(store.failure?.courseSaveMessage ?? "")
         }
         // 해태 「내가 도와줄게!」 — 안내 헤더 입구와 교대한다. 지도가 아니라 **화면** 오른쪽
         // 아래에 떠 있고, 꾹 누르면 옮길 수 있다(2026-09-16). 창이 열려 있거나 핀을 찍는
@@ -504,7 +504,8 @@ extension RouteEditorView {
     func runPendingTripStart() async {
         guard router.pendingTripStart else { return }
         router.pendingTripStart = false
-        guard await waitForStops(count: 1), let next = nextUnvisited?.stop ?? stops.first else { return }
+        guard await waitForStops(count: 1),
+              let next = nextUnvisited?.stop ?? stops.first(where: \.canNavigate) else { return }
         startTrip(to: next)
     }
 

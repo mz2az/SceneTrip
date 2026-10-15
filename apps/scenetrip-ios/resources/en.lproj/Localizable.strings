@@ -709,6 +709,18 @@
 "끄면 AI 가이드와 AI 코스 만들기를 쓸 때 다시 물어봐요." = "If you turn this off, we’ll ask again when you use the AI guide or AI course creation.";
 "AI 기능 사용을 허용한 뒤 다시 시도해 주세요." = "Please allow AI features, then try again.";
 
+/* 숨김·폐업 안내 (MZ2AZ-458). */
+"더 이상 소개하지 않는 장소예요" = "We no longer feature this place";
+"더 이상 소개하지 않는 작품이에요" = "We no longer feature this title";
+"폐업했어요" = "Closed permanently";
+"갈 수 있는 곳이 없어요. 목록에서 빠지거나 폐업한 곳만 남았어요." = "No places left to visit — the remaining ones are no longer featured or closed.";
+"목록에서 빠진 장소라 담을 수 없어요." = "We no longer feature this place, so you can’t add it.";
+"목록에서 빠진 작품이라 찜할 수 없어요." = "We no longer feature this title, so you can’t favorite it.";
+"폐업한 곳이라 코스에 넣을 수 없어요." = "This place is permanently closed, so you can’t add it to your course.";
+"편집 내용은 그대로예요. 해당 항목을 빼고 다시 저장해 주세요." = "Your edits are still here. Remove the unavailable item and save again.";
+"찜을 바꾸지 못했습니다" = "Couldn’t update your favorites";
+"빼기" = "Remove";
+
 /* MZ2AZ-472 위치 서비스 동의와 카카오 제공 알림 */
 "위치기반서비스 이용 동의" = "Location-based service consent";
 "현재 위치를 주변 촬영지·편의시설 찾기, AI 가이드, 길 안내에 씁니다. 위치는 요청을 처리하는 데만 쓰고 바로 지우며, 길 안내 때는 경로 계산을 위해 카카오에 보냅니다." = "We use your current location to find nearby filming locations and places, for the AI guide, and for directions. It is used only to handle the request and deleted right away; for directions it is sent to Kakao to calculate the route.";
