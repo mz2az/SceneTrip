@@ -264,6 +264,17 @@ public class ReviewStore {
             }
           }
 
+          // 고치며 뺀 사진(붙어 있었는데 새 목록에 없는 것)은 지울 목록에 올린다(MZ2AZ-448). 아래에서 줄을 다시 넣으므로
+          // 그대로 둔 사진은 건드리지 않는다. 같은 트랜잭션이라 고치기가 실패하면 목록에도 오르지 않는다.
+          for (String key : attached) {
+            if (!seen.contains(key)) {
+              jdbc.sql(
+                      "INSERT INTO storage_deletion (storage_key) VALUES (:key)"
+                          + " ON CONFLICT (storage_key) DO NOTHING")
+                  .param("key", key)
+                  .update();
+            }
+          }
           jdbc.sql("DELETE FROM review_image WHERE review_id = :r").param("r", reviewId).update();
           for (int i = 0; i < photoKeys.size(); i++) {
             jdbc.sql(
@@ -279,15 +290,38 @@ public class ReviewStore {
         });
   }
 
-  /** 지운다. 사진 행은 CASCADE. 없었으면 {@code false}. */
+  /**
+   * 지운다. 사진 행은 CASCADE. 없었으면 {@code false}.
+   *
+   * <p>사진 파일은 같은 트랜잭션에서 지울 목록({@code storage_deletion})에 올린다 — 저장소에서 지우는 일은 {@link
+   * StorageDeletionJob} 이 맡는다(MZ2AZ-448, 후기와 같은 길). 목록에 <b>먼저</b> 올린다: 리뷰를 먼저 지우면 CASCADE 로 사진 행이
+   * 사라져 키를 모른다. 남의 리뷰면 목록 쪽도 {@code user_id} 조건에 걸려 아무것도 오르지 않는다.
+   */
   public boolean delete(Target target, long id, UUID user) {
-    return jdbc.sql(
-                "DELETE FROM review WHERE %s = :id AND user_id = CAST(:user AS UUID)"
-                    .formatted(target.column))
-            .param("id", id)
-            .param("user", user.toString())
-            .update()
-        > 0;
+    return Boolean.TRUE.equals(
+        transactions.execute(
+            status -> {
+              jdbc.sql(
+                      """
+                      INSERT INTO storage_deletion (storage_key)
+                      SELECT ri.storage_key
+                      FROM review_image ri
+                      JOIN review r ON r.id = ri.review_id
+                      WHERE r.%s = :id AND r.user_id = CAST(:user AS UUID)
+                      ON CONFLICT (storage_key) DO NOTHING
+                      """
+                          .formatted(target.column))
+                  .param("id", id)
+                  .param("user", user.toString())
+                  .update();
+              return jdbc.sql(
+                          "DELETE FROM review WHERE %s = :id AND user_id = CAST(:user AS UUID)"
+                              .formatted(target.column))
+                      .param("id", id)
+                      .param("user", user.toString())
+                      .update()
+                  > 0;
+            }));
   }
 
   /** 내가 쓴 리뷰, 촬영지·편의시설을 섞어 최신순. */

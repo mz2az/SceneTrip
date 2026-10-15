@@ -2,6 +2,8 @@ package com.mz2az.scenetrip.sceneapi.review;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * 저장소가 설정되지 않은 환경의 자리 — 올리기 창구는 {@link #available()} 을 보고 503 을 낸다.
@@ -28,6 +30,11 @@ final class NoPhotoStorage implements PhotoStorage {
 
   @Override
   public void move(String fromKey, String toKey) {
+    throw new IllegalStateException("사진 저장소가 설정되지 않았습니다");
+  }
+
+  @Override
+  public void listPages(String prefix, Consumer<List<StoredObject>> onPage) {
     throw new IllegalStateException("사진 저장소가 설정되지 않았습니다");
   }
 

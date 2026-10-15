@@ -499,13 +499,13 @@ GROUP BY 1, 2 ORDER BY 3 DESC;
 - 원본(`entity_view`·`search_log`)은 90 일 뒤 지우고, 하루 집계 `entity_daily_stats` 는 남긴다. 검색어는 기기와 잇지 않는다
 - `just seed` 도 끝에서 이 함수를 부른다. 로컬에서 조회·하트를 만든 뒤 바로 보려면 `just popularity-recompute`
 
-## 지운 글의 사진 파일 — 1 분마다 지운다
+## 지운 글의 사진 파일 — 1 분마다 지우고, 주마다 고아를 찾는다
 
-작성자가 커뮤니티 여행후기를 지우면(`DELETE /posts/{postId}`) 사진 파일도 저장소(로컬 MinIO, AWS S3)에서
-지운다 — 계획 [post-photo-deletion.md](../../docs/project/plans/post-photo-deletion.md), MZ2AZ-406.
+작성자가 커뮤니티 여행후기·리뷰를 지우거나 리뷰를 고치며 사진을 빼면 그 사진 파일을 저장소(로컬 MinIO, AWS S3)에서
+지운다 — 계획 [post-photo-deletion.md](../../docs/project/plans/post-photo-deletion.md), MZ2AZ-406(후기) · 448(리뷰·청소).
 
-- 요청은 같은 트랜잭션에서 사진 키를 `storage_deletion`(V34)에 올리고 글을 지운 뒤 바로 204 를 낸다. 저장소는 기다리지
-  않는다
+- 요청은 같은 트랜잭션에서 사진 키를 `storage_deletion`(V34)에 올린 뒤 바로 응답한다. 저장소는 기다리지 않는다.
+  후기 지우기(`PostStore.delete`), 리뷰 지우기(`ReviewStore.delete`), 리뷰 고치기(`ReviewStore.put` — 뺀 사진만)
 - `StorageDeletionJob` 이 **1 분마다** 오래된 키부터 20 개를 지우고 줄을 뺀다. 저장소가 실패하면 그 키의
   `attempts`·`last_error` 를 올리고 그 차례는 멈춘다 — 남은 키는 다음 차례에 다시 지워진다
 - cron 이어야 한다(`scenetrip.media.deletion.cron`). 가상 스레드를 켠 이 서버의 스케줄러는 cron 실행을 매번 새 스레드에
@@ -515,7 +515,12 @@ GROUP BY 1, 2 ORDER BY 3 DESC;
 - PRD 사용자 사진 버킷은 버전 관리가 켜져 있어 지우면 주소는 바로 404 가 되고, 원본은 이전 버전으로 남았다가 30 일 뒤
   영구 삭제된다
 - 아직 못 지운 것: `SELECT storage_key, attempts, last_error FROM storage_deletion ORDER BY created_at`
-- 리뷰 사진·운영자 내림·탈퇴는 이 길을 쓰지 않는다(탈퇴해도 글·사진은 남는다)
+- **주간 고아 청소** `OrphanPhotoSweep` — 한국 시간 일요일 04:00(`scenetrip.media.orphan-sweep.cron`). `reviews/`·`posts/`
+  파일 중 바뀐 지 7 일이 넘었고 리뷰 사진·후기 사진 어디에서도 가리키지 않는 것을 위 목록에 올린다(지우는 것은 1 분 작업).
+  7 일은 옮긴 직후·되돌리는 도중의 파일을 지키는 여유다. S3 목록을 1,000 개씩 읽는다. advisory lock 열쇠가 1 분 작업과 달라
+  서로 막지 않는다. `scenetrip.media.orphan-sweep.schedule-enabled=false` 면 꺼진다
+- 운영자 내림(`removed_at`)은 사진을 남긴다 — 신고·차단(MZ2AZ-438)에서 정한다. 탈퇴해도 글·사진은 남는다(처리방침·탈퇴
+  확인 창에 알린다)
 
 ## 운영
 

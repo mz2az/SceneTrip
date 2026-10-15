@@ -147,6 +147,11 @@ scenetrip:
     deletion:
       schedule-enabled: ${SCENETRIP_MEDIA_DELETION_SCHEDULE_ENABLED:true}
       cron: "0 * * * * *"
+    # 아무 글도 가리키지 않는 사진 파일 청소(MZ2AZ-448, 계획 §6-3). 일주일에 한 번 reviews/·posts/ 를 훑어, 바뀐 지
+    # 7 일이 넘었고 가리키는 곳이 없는 파일을 위 지울 목록에 올린다. 한국 시간 일요일 04:00.
+    orphan-sweep:
+      schedule-enabled: ${SCENETRIP_MEDIA_ORPHAN_SWEEP_SCHEDULE_ENABLED:true}
+      cron: "0 0 4 * * SUN"
   auth:
     # 가입 판정. **기본은 켬**이고 이 값은 어느 환경에서도 여기서 바꾸지 않는다.
     #

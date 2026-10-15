@@ -3,7 +3,9 @@ package com.mz2az.scenetrip.sceneapi.review;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * 사용자 사진 저장소(계획 {@code review.md} §6·§12·§13) — 사진은 앱이 저장소에 바로 올리고, 서버는 키만 다룬다.
@@ -38,6 +40,15 @@ public interface PhotoStorage {
    * 뒤 지워 주지만 {@code posts/} 에는 그런 규칙이 없어, 삼키면 파일이 영영 남는다. 부른 쪽이 그 키를 지울 목록에 남긴다.
    */
   void delete(String storageKey);
+
+  /**
+   * {@code prefix} 아래 파일을 쪽마다 넘긴다(MZ2AZ-448, 주간 고아 청소). S3 는 한 쪽에 1,000 개까지다 — 목록을 한꺼번에 메모리에 올리지
+   * 않는다. 저장소가 실패하면 던진다.
+   */
+  void listPages(String prefix, Consumer<List<StoredObject>> onPage);
+
+  /** 저장소에 있는 파일 하나 — 키와 마지막으로 바뀐 때. */
+  record StoredObject(String key, Instant lastModified) {}
 
   /** 서명된 올릴 주소와, PUT 에 그대로 붙여야 하는 헤더. */
   record PresignedUpload(URI url, Map<String, String> requiredHeaders, Instant expiresAt) {}
