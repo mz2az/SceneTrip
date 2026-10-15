@@ -293,6 +293,18 @@ popularity-recompute:
 seed-poi *files:
     ./tools/scripts/seed-poi.sh "$@"
 
+# 편의시설 상세(관광공사 개요·이용시간·쉬는 날·주차·대표 메뉴·입장료·홈페이지)와 관광공사 사진을 맞춘다 — 다시 돌려도 같다 (poi-source.md §6-1)
+# 예: `just seed-poi-detail ~/SceneTrip-data/SceneTrip_POI/out/tour_detail.jsonl`
+[group('db')]
+seed-poi-detail file:
+    ./tools/scripts/seed-poi-detail.sh "{{ file }}"
+
+# 관광공사 상세 파일(just poi-tourapi 가 쌓은 것)로 상세 적재 파일을 만든다 — 결과는 just seed-poi-detail 로
+# 예: `just poi-tour-detail ~/SceneTrip-data/SceneTrip_POI/raw/tourapi/Kor/detail.jsonl ~/SceneTrip-data/SceneTrip_POI/out/tour_detail.jsonl`
+[group('db')]
+poi-tour-detail detail_jsonl out:
+    {{BAZEL}} run //tools/poi:tour_detail -- "{{ detail_jsonl }}" "{{ out }}"
+
 #   just poi-filter "~/Downloads/압축 poi 2/poi_food.jsonl.gz" "~/Downloads/압축 poi 2/허용목록만/poi_food.jsonl.gz"
 #
 # POI 원본에서 허용목록 갈래만 남긴 파일을 만든다. 원본은 손대지 않는다
