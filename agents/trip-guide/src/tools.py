@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -166,6 +167,49 @@ def _brief(p: Place, distance_m: int | None = None) -> dict[str, Any]:
 
 
 _POI_GROUPS = {"음식": "food", "숙박": "stay", "명소": "sight", "교통": "transit"}
+
+# ── 지역 검색 (MZ2AZ-457) ───────────────────────────────────────────────────
+# 서버 검색(`GET /places?q=`)은 이름·주소·작품·출연진·**장면 설명**을 함께 훑는다. 그래서 「제주」 로
+# 찾으면 장면 설명에 「극중 제주 유채꽃밭」 이 든 고창 촬영지가 섞이고, 모델이 「제주도 성지」 처럼
+# 일반 단어를 붙이면 0 건이 된다(2026-10-15 실측).
+_GENERIC_WORDS = re.compile(
+    r"성지순례|성지|촬영지|촬영\s*장소|촬영장|드라마|영화|추천|명소|가볼\s*만한\s*곳"
+)
+# 주소에 적히는 이름과 사람이 부르는 이름이 다른 도. 줄인 뒤의 말로 맞춘다.
+_REGION_ALIASES = {
+    "전라북": "전북",
+    "전라남": "전남",
+    "충북": "충청북",
+    "충남": "충청남",
+    "경북": "경상북",
+    "경남": "경상남",
+}
+_REGION_SUFFIX = re.compile(r"(특별자치도|특별자치시|특별시|광역시|도|시|군|구)$")
+_REGION_FETCH = 60  # 지역 검색은 넉넉히 받아 주소로 거른다(서버 상한 200)
+
+
+def _clean_query(query: str) -> str:
+    """검색어에서 「성지·촬영지」 같은 일반 단어를 뺀다 — 모든 장소가 촬영지라 걸러 줄 말이 아니다."""
+    return re.sub(r"\s+", " ", _GENERIC_WORDS.sub(" ", query)).strip()
+
+
+def _region_stem(query: str) -> str:
+    """「제주도」→제주, 「성남시」→성남, 「전라북도」→전북. 두 글자보다 짧아지면 줄이지 않는다."""
+    q = query.replace(" ", "")
+    stem = _REGION_SUFFIX.sub("", q)
+    if len(stem) < 2:
+        stem = q
+    return _REGION_ALIASES.get(stem, stem)
+
+
+def _in_region(address: str, stem: str) -> bool:
+    """주소의 앞부분(도·시·군·구)에 그 지역이 있는가. 도로 이름(「북촌로」)은 보지 않는다."""
+    parts = (address or "").split()
+    regions = parts[:1] + [
+        t for t in parts[1:3] if t.endswith(("도", "시", "군", "구"))
+    ]
+    return any(stem in t for t in regions)
+
 
 # `places_near` 를 반경 없이 불렀을 때 차례로 넓혀 볼 반경(m)과, 이만큼 찾으면 멈출 개수 (MZ2AZ-454).
 # 마지막 값은 도구 스키마의 radius_m 최댓값과 같다.
@@ -375,12 +419,44 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
     book = session.book
 
     if name == "search_places":
-        hits = book.search(args["query"], args.get("limit", 8))
-        if not hits:
-            return _refuse(f"「{args['query']}」 로 찾은 촬영지가 없다")
-        session.remember(hits)
-        session.show(op="map.focus", placeIds=_ids(hits))
-        return {"찾은 곳": [_brief(p) for p in hits]}
+        query = _clean_query(args["query"])
+        if not query:
+            return _refuse("무엇으로 찾을지(지역·작품·장소 이름) 사용자에게 물어봐라")
+        limit = args.get("limit", 8)
+        hits = book.search(query, _REGION_FETCH)
+        # **검색어가 지역이면 주소가 그 지역인 곳만 남긴다.** 하나도 안 맞으면 지역이 아니라
+        # 작품·장소 이름으로 찾은 것이라 그대로 둔다.
+        stem = _region_stem(query)
+        regional = [p for p in hits if _in_region(p.address, stem)]
+        if not regional and stem != query.replace(" ", ""):
+            # 주소에는 「제주도」 가 아니라 「제주특별자치도」, 「전라북도」 가 아니라 「전북특별자치도」
+            # 로 적혀 있어 사람이 부르는 이름으로는 서버 검색에 안 걸린다. 줄인 이름으로 한 번 더.
+            again = book.search(stem, _REGION_FETCH)
+            regional = [p for p in again if _in_region(p.address, stem)]
+            if regional:
+                hits = again
+        if regional:
+            shown = regional[:limit]
+            more = len(regional) > len(shown) or len(hits) >= _REGION_FETCH
+            out: dict[str, Any] = {
+                "지역": query,
+                "이 지역에서 찾은 곳": f"{len(regional)}곳"
+                + (" 이상" if len(hits) >= _REGION_FETCH else ""),
+                "찾은 곳": [_brief(p) for p in shown],
+            }
+            if more:
+                # 다 보여 줬을 때 이 말을 넣으면 모델이 「일부만 보여 드린다」 고 잘못 말한다(실측).
+                out["안내"] = (
+                    f"인기 순서로 {len(shown)}곳만 보여 준다. 더 있다고 한 문장으로 알려라"
+                )
+        else:
+            shown = hits[:limit]
+            out = {"찾은 곳": [_brief(p) for p in shown]}
+        if not shown:
+            return _refuse(f"「{query}」 로 찾은 촬영지가 없다")
+        session.remember(shown)
+        session.show(op="map.focus", placeIds=_ids(shown))
+        return out
 
     if name == "list_title_places":
         matched, hits = book.by_title(args["title"], args.get("limit", 8))
