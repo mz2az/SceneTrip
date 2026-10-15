@@ -89,6 +89,7 @@ enum RouteBridge {
                 displayName: item.displayName, nameRoman: item.nameRoman,
                 categoryLabel: item.categoryLabel, displayAddress: item.displayAddress
             ) : nil,
+            unavailable: UnavailableItem.notice(for: item),
             visited: item.visitedAt != nil
         )
     }

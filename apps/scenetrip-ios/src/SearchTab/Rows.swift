@@ -29,7 +29,11 @@ struct WorkRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(content.title).font(.headline).foregroundStyle(.primary)
+                    .opacity(content.delisted == true ? 0.65 : 1)
                 Text(meta).font(.caption).foregroundStyle(.secondary)
+                if let notice = UnavailableItem.notice(for: content) {
+                    UnavailableItemNotice(item: notice)
+                }
                 Text(trCount("촬영지 %lld", content.placeCount))
                     .font(.caption2)
                     .padding(.horizontal, 6).padding(.vertical, 2)
@@ -51,6 +55,7 @@ struct WorkRow: View {
                         .foregroundStyle(liked ? Color.red : .secondary)
                 }
                 .buttonStyle(.plain)
+                .disabled(!UnavailableItem.canToggle(delisted: content.delisted, saved: liked))
                 .accessibilityLabel(liked ? tr("찜 빼기") : tr("찜하기"))
             }
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)

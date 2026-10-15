@@ -125,6 +125,7 @@ final class TripSession: ObservableObject {
     /// 이 성지로 안내를 시작한다(다시 시작해도 된다 — 도착 뒤 「다음으로」가 이것을 부른다).
     /// `courseId` 는 저장된 코스의 서버 id — 없으면(저장 전) 경로를 못 받고 그 이유를 보인다.
     func start(to stop: RouteStop, number: Int, courseId: Int64?) {
+        guard stop.canNavigate else { return }
         directionsConsent.beginRequest()
         AppAnalytics.log(.startTrip(placeId: stop.place.id))
         target = stop

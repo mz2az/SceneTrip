@@ -43,7 +43,7 @@ struct ProfileTabView: View {
         likes.likedWorks
     }
 
-    @State private var cartItems: [CartItem] = []
+    @StateObject private var cart = CartStore()
     @State private var stamps: [VisitStamp] = []
     @State private var showingCart = false
     @State private var showingStamps = false
@@ -104,7 +104,7 @@ struct ProfileTabView: View {
                         showingCart = true
                     } label: {
                         row(symbol: "bag.fill", tint: .orange, title: tr("장바구니"),
-                            value: trCount("%d곳", cartItems.count), chevron: true)
+                            value: trCount("%d곳", cart.items.count), chevron: true)
                     }
                     .buttonStyle(.plain)
                 }
@@ -309,7 +309,7 @@ struct ProfileTabView: View {
                 .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showingCart) {
-                ProfileCartSheet(items: cartItems)
+                ProfileCartSheet(cart: cart)
                     .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showingStamps) {
@@ -386,7 +386,7 @@ struct ProfileTabView: View {
         likesLoading = true
 
         let likesTask = Task { await likes.refresh() }
-        let cartTask = Task { try? await CartAPI.getCart(xInstallId: installId) }
+        let cartTask = Task { await cart.refresh() }
         let coursesTask = Task { try? await CoursesAPI.listCourses(xInstallId: installId) }
         let postsTask = Task {
             if auth.signedIn {
@@ -403,9 +403,7 @@ struct ProfileTabView: View {
             ? nil : tr("찜한 작품을 불러오지 못했어요. 잠시 뒤 다시 해 주세요")
         likesLoading = false
 
-        if let cart = await cartTask.value {
-            cartItems = cart.items
-        }
+        await cartTask.value
         if let list = await coursesTask.value {
             courses = list.items
             courseCount = list.items.count
