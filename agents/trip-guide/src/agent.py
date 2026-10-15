@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
+from . import scope
 from .model_client import ModelError, load_config
 from .session import Session
 from .tools import load_tool_specs, run_tool
@@ -146,7 +147,16 @@ class TripGuide:
         # 지난 턴의 화면 지시가 남아 있으면, 사용자가 다른 것을 물었는데 화면이
         # 엉뚱한 데로 튄다. 턴마다 비우고 시작한다.
         self.session.clear_outbox()
-        _, language = detect_language(user_text)
+        code, language = detect_language(user_text)
+
+        # **명백히 무관한 질문은 모델을 부르지 않고 거절한다**(MZ2AZ-398) — 주가·코드·지시문 빼내기에
+        # 여행 낱말이 하나도 없을 때만. 섞인 질문과 애매한 것은 아래에서 모델이 판단한다.
+        if scope.off_topic(user_text):
+            reply = scope.refusal(code)
+            self.history.append({"role": "user", "content": user_text})
+            self.history.append({"role": "assistant", "content": reply})
+            self._trim_history()
+            return Turn(reply, [], effects=[], ui=[])
 
         # **턴 전체에 마감을 둔다.** 모델 호출 하나에만 상한을 두면, 도구를 네 번
         # 부르는 턴은 다섯 번 호출하므로 총 시간에 상한이 없어진다. 바깥이 안쪽보다
