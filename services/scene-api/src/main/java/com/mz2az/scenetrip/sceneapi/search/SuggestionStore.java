@@ -161,23 +161,49 @@ public class SuggestionStore {
           WHERE pi.lang IN (:lang, 'en', 'ko')
             AND pi.person_id IN (SELECT entity_id FROM matched WHERE entity_type = 'person')
           ORDER BY pi.person_id, (pi.lang = :lang) DESC, (pi.lang = 'en') DESC
+      ),
+      top AS (
+          SELECT
+              m.entity_type,
+              m.entity_id,
+              m.term_display,
+              COALESCE(pd.name, cd.name, sd.name) AS display_name,
+              COALESCE(pd.subtitle, cd.subtitle, sd.subtitle) AS subtitle,
+              COALESCE(pd.shown_lang, cd.shown_lang, sd.shown_lang) AS shown_lang,
+              m.is_prefix,
+              m.weight
+          FROM matched m
+          LEFT JOIN place_display   pd ON m.entity_type = 'place'   AND pd.place_id   = m.entity_id
+          LEFT JOIN content_display cd ON m.entity_type = 'content' AND cd.content_id = m.entity_id
+          LEFT JOIN person_display  sd ON m.entity_type = 'person'  AND sd.person_id  = m.entity_id
+          -- 이름을 찾지 못한 항목은 버린다. 색인과 원본이 어긋난 상태(적재 도중 등)이고,
+          -- 이름 없는 제안은 화면에 띄울 수 없다.
+          WHERE COALESCE(pd.name, cd.name, sd.name) IS NOT NULL
+          ORDER BY m.is_prefix DESC, m.weight DESC, display_name
+          LIMIT :limit
       )
+      -- 장소 행의 종류 코드와 대표 작품(1.17.0, MZ2AZ-195)은 **잘린 뒤**에 붙인다 — matched 에는 상한이 없어
+      -- 한 글자 검색이면 장소 수백 곳이 걸린다. 대표 작품은 그 장소에 나온 작품 중 작품 인기도가 가장 높은 것이다
+      -- (인물의 대표 작품과 같은 기준). 장소×작품 점수(place_content.popularity_score)는 작품끼리 비교할 수 없어
+      -- 쓰지 않는다. 같은 점수면 id 로 고정한다.
       SELECT
-          m.entity_type,
-          m.entity_id,
-          m.term_display,
-          COALESCE(pd.name, cd.name, sd.name) AS display_name,
-          COALESCE(pd.subtitle, cd.subtitle, sd.subtitle) AS subtitle,
-          COALESCE(pd.shown_lang, cd.shown_lang, sd.shown_lang) AS shown_lang
-      FROM matched m
-      LEFT JOIN place_display   pd ON m.entity_type = 'place'   AND pd.place_id   = m.entity_id
-      LEFT JOIN content_display cd ON m.entity_type = 'content' AND cd.content_id = m.entity_id
-      LEFT JOIN person_display  sd ON m.entity_type = 'person'  AND sd.person_id  = m.entity_id
-      -- 이름을 찾지 못한 항목은 버린다. 색인과 원본이 어긋난 상태(적재 도중 등)이고,
-      -- 이름 없는 제안은 화면에 띄울 수 없다.
-      WHERE COALESCE(pd.name, cd.name, sd.name) IS NOT NULL
-      ORDER BY m.is_prefix DESC, m.weight DESC, display_name
-      LIMIT :limit
+          t.entity_type,
+          t.entity_id,
+          t.term_display,
+          t.display_name,
+          t.subtitle,
+          t.shown_lang,
+          p.type AS place_type,
+          (SELECT ci.title
+             FROM place_content pc
+             JOIN content c ON c.id = pc.content_id AND c.hidden_at IS NULL
+             JOIN content_i18n ci ON ci.content_id = c.id AND ci.lang IN (:lang, 'en', 'ko')
+            WHERE t.entity_type = 'place' AND pc.place_id = t.entity_id
+            ORDER BY c.popularity_score DESC, c.id, (ci.lang = :lang) DESC, (ci.lang = 'en') DESC
+            LIMIT 1) AS content_title
+      FROM top t
+      LEFT JOIN place p ON t.entity_type = 'place' AND p.id = t.entity_id
+      ORDER BY t.is_prefix DESC, t.weight DESC, t.display_name
       """;
 
   private final JdbcClient jdbc;
@@ -203,7 +229,9 @@ public class SuggestionStore {
                         rs.getString("display_name"),
                         rs.getString("term_display"),
                         rs.getString("subtitle"),
-                        Lang.fromValue(rs.getString("shown_lang"))))
+                        Lang.fromValue(rs.getString("shown_lang")),
+                        rs.getString("place_type"),
+                        rs.getString("content_title")))
             .list();
 
     List<Suggestion> items =
@@ -214,7 +242,9 @@ public class SuggestionStore {
                         // 걸린 표기가 표시 이름과 같으면 굳이 내려보내지 않는다. 화면에
                         // 같은 글자를 두 번 보여 줄 이유가 없다.
                         .matchedTerm(r.name().equals(r.matchedTerm()) ? null : r.matchedTerm())
-                        .subtitle(r.subtitle()))
+                        .subtitle(r.subtitle())
+                        .placeType(r.placeType())
+                        .contentTitle(r.contentTitle()))
             .toList();
 
     return new Result(
@@ -227,5 +257,7 @@ public class SuggestionStore {
       String name,
       String matchedTerm,
       String subtitle,
-      Lang shownLang) {}
+      Lang shownLang,
+      String placeType,
+      String contentTitle) {}
 }

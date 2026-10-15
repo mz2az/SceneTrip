@@ -35,7 +35,7 @@ SceneTrip 앱의 **검색·지도 탭**과 **경로여정 탭**을 받치는 백
 
 | 경로 | 하는 일 |
 | --- | --- |
-| `GET /v1/search/suggestions` | 자동완성. **이름·별칭만** 본다 (설명 제외) |
+| `GET /v1/search/suggestions` | 자동완성. **이름·별칭만** 본다 (설명 제외). 장소 행에는 종류 코드 `placeType` 과 대표 작품 `contentTitle`(작품 인기도 최고, 1.17.0) — 잘린 결과에만 붙인다 |
 | `GET /v1/contents` | 작품 목록·검색 |
 | `GET /v1/contents/{contentId}` | 작품 상세 |
 | `GET /v1/contents/{contentId}/places` | 한 작품의 촬영지 |
