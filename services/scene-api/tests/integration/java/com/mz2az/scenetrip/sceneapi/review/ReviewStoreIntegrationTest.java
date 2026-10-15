@@ -430,31 +430,47 @@ class ReviewStoreIntegrationTest {
   // ───────────── 탈퇴 ─────────────
 
   @Test
-  @DisplayName("탈퇴(UserStore.delete) — 리뷰는 남고 작성자만 끊긴다: 목록의 nickname 이 null, 별점 요약도 그대로")
-  void accountDeletionKeepsReviewsAnonymously() {
+  @DisplayName(
+      "탈퇴(UserStore.delete, MZ2AZ-466) — 리뷰와 사진이 사라지고 사진 키가 지울 목록에 오른다: 목록·별점 요약·사진첩에서 빠진다")
+  void accountDeletionDeletesReviews() {
     long place = place("시험 촬영지");
     UUID leaver = member();
     String key = "reviews/" + UUID.randomUUID();
-    Row saved = reviews.put(Target.PLACE, place, leaver, 4, "남는 글", List.of(key), Set.of(key));
+    Row saved = reviews.put(Target.PLACE, place, leaver, 4, "지워질 글", List.of(key), Set.of(key));
 
-    assertThat(users.delete(leaver)).isTrue();
+    try {
+      assertThat(users.delete(leaver)).isTrue();
 
-    assertThat(userIdOf(saved.id())).isNull();
-    Page<Row> page = reviews.list(Target.PLACE, place, Sort.RECENT, 20, 0, null);
-    assertThat(page.total()).isEqualTo(1);
-    Row row = page.items().get(0);
-    assertThat(row.id()).isEqualTo(saved.id());
-    assertThat(row.nickname()).isNull();
-    assertThat(row.body()).isEqualTo("남는 글");
-    assertThat(row.photoKeys()).containsExactly(key);
-    assertThat(reviews.summary(Target.PLACE, place).count()).isEqualTo(1);
-    assertThat(reviews.photos(Target.PLACE, place, 20, 0).items())
-        .extracting(Photo::storageKey)
-        .contains(key);
+      assertThat(
+              jdbc.sql("SELECT count(*) FROM review WHERE id = :id")
+                  .param("id", saved.id())
+                  .query(Long.class)
+                  .single())
+          .isZero();
+      assertThat(
+              jdbc.sql("SELECT count(*) FROM review_image WHERE storage_key = :k")
+                  .param("k", key)
+                  .query(Long.class)
+                  .single())
+          .isZero();
+      assertThat(
+              jdbc.sql("SELECT count(*) FROM storage_deletion WHERE storage_key = :k")
+                  .param("k", key)
+                  .query(Long.class)
+                  .single())
+          .isEqualTo(1);
+      assertThat(reviews.list(Target.PLACE, place, Sort.RECENT, 20, 0, null).total()).isZero();
+      assertThat(reviews.summary(Target.PLACE, place).count()).isZero();
+      assertThat(reviews.photos(Target.PLACE, place, 20, 0).items())
+          .extracting(Photo::storageKey)
+          .doesNotContain(key);
+    } finally {
+      jdbc.sql("DELETE FROM storage_deletion WHERE storage_key = :k").param("k", key).update();
+    }
   }
 
   @Test
-  @DisplayName("탈퇴한 두 사람의 리뷰가 같은 곳에 함께 남을 수 있다(user_id NULL 끼리는 유일 제약에 걸리지 않는다)")
+  @DisplayName("같은 곳에 리뷰를 남긴 두 사람이 탈퇴하면 두 리뷰 모두 지워진다")
   void twoDeletedAuthorsOnSameTarget() {
     long poi = poi("시험 식당");
     UUID a = member();
@@ -465,7 +481,7 @@ class ReviewStoreIntegrationTest {
     users.delete(a);
     users.delete(b);
 
-    assertThat(reviews.list(Target.POI, poi, Sort.RECENT, 20, 0, null).total()).isEqualTo(2);
+    assertThat(reviews.list(Target.POI, poi, Sort.RECENT, 20, 0, null).total()).isZero();
   }
 
   // ───────────── 내가 쓴 리뷰 ─────────────
@@ -810,14 +826,6 @@ class ReviewStoreIntegrationTest {
         .param("id", user.toString())
         .query(String.class)
         .single();
-  }
-
-  private static UUID userIdOf(long reviewId) {
-    return jdbc.sql("SELECT user_id FROM review WHERE id = :id")
-        .param("id", reviewId)
-        .query(UUID.class)
-        .optional()
-        .orElse(null);
   }
 
   private static List<Long> ids(Page<Row> page) {

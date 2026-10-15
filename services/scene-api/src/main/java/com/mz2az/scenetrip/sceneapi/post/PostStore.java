@@ -21,7 +21,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p>코스는 <b>글 쓴 순간의 사본</b>이다 — 쓰는 때 그 코스의 촬영지·편의시설 항목을 {@code community_post_item} 으로 떠 둔다. 직접 찍은
  * 핀은 떠 두지 않는다(개인 숙소 위치, 마켓과 같다). 이름·주소·사진은 떠 두지 않고 읽을 때 지금의 자료에서 가져온다.
  *
- * <p>운영자가 내린 글({@code removed_at})은 목록·상세·담기 어디에도 없다. 글쓴이가 탈퇴한 글({@code user_id} NULL)은 남는다.
+ * <p>운영자가 내린 글({@code removed_at})은 목록·상세·담기 어디에도 없다. 탈퇴하면 글이 함께 지워진다({@code UserStore.delete},
+ * MZ2AZ-466) — 글쓴이가 없는 글({@code user_id} NULL)은 그 전에 남은 옛 글뿐이다.
  */
 @Repository
 public class PostStore {

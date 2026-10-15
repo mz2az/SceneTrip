@@ -376,25 +376,30 @@ class PostStoreIntegrationTest {
   }
 
   @Test
-  @DisplayName("탈퇴 — 글은 남고 글쓴이만 끊긴다: nickname null, 아무에게도 isMine 이 아니다")
-  void withdrawnAuthorKeepsPost() {
+  @DisplayName("탈퇴(MZ2AZ-466) — 글쓴이의 글은 사진·사본 행까지 사라지고 목록·상세에 나오지 않는다. 사진 키는 지울 목록에 오른다")
+  void withdrawnAuthorsPostIsDeleted() {
     rolledBack(
         () -> {
           UUID leaver = member();
           List<String> keys = List.of(key("w"));
-          long postId = store.create(leaver, "남는 글", "본문", keys, keys, null);
+          long postId = store.create(leaver, "지워질 글", "본문", keys, keys, null);
           setCreated(postId, "2999-02-01T00:00:00Z");
 
           assertThat(users.delete(leaver)).isTrue();
 
-          Detail d = store.find(postId, null).orElseThrow();
-          assertThat(d.head().nickname()).isNull();
-          assertThat(d.head().mine()).isFalse();
-          assertThat(d.body()).isEqualTo("본문");
-          assertThat(d.photoKeys()).containsExactlyElementsOf(keys);
-          Summary top = store.list(null, null, 1, 0).items().get(0);
-          assertThat(top.id()).isEqualTo(postId);
-          assertThat(top.nickname()).isNull();
+          assertThat(store.find(postId, null)).isEmpty();
+          assertThat(count("SELECT count(*) FROM community_post WHERE id = " + postId)).isZero();
+          assertThat(count("SELECT count(*) FROM community_post_photo WHERE post_id = " + postId))
+              .isZero();
+          assertThat(
+                  jdbc.sql("SELECT count(*) FROM storage_deletion WHERE storage_key IN (:k)")
+                      .param("k", keys)
+                      .query(Long.class)
+                      .single())
+              .isEqualTo(keys.size());
+          assertThat(store.list(null, null, 1, 0).items())
+              .extracting(Summary::id)
+              .doesNotContain(postId);
           return null;
         });
   }
