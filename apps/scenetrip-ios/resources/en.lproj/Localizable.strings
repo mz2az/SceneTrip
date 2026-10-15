@@ -702,3 +702,11 @@
 "광고 추적 허용" = "Ad tracking permission";
 "허용됨" = "Allowed";
 "허용 안 함" = "Not allowed";
+
+/* AI 기능 동의 (MZ2AZ-468). */
+"AI 기능 사용 안내" = "About AI features";
+"AI 가이드와 AI 코스 만들기는 입력한 내용, 대화, 관심 작품·여행 조건·코스 맥락을 미국 오리건에 있는 Amazon Bedrock(AWS)으로 보내 답변과 일정을 만듭니다. 이름·이메일은 보내지 않아요. AI 답변은 틀릴 수 있어요." = "The AI guide and AI course creation send what you type, the conversation, and your favorite titles, trip conditions and course context to Amazon Bedrock (AWS) in Oregon, USA, to create answers and itineraries. Your name and email are not sent. AI answers can be wrong.";
+"허용하고 계속" = "Allow and continue";
+"AI 기능 사용" = "AI features";
+"끄면 AI 가이드와 AI 코스 만들기를 쓸 때 다시 물어봐요." = "If you turn this off, we’ll ask again when you use the AI guide or AI course creation.";
+"AI 기능 사용을 허용한 뒤 다시 시도해 주세요." = "Please allow AI features, then try again.";

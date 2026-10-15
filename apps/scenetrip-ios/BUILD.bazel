@@ -91,7 +91,10 @@ swift_library(
             "src/CommunityTab/CommunityClient.swift",
             "src/CommunityTab/CommunitySubmission.swift",
             "src/CommunityTab/PostRemotePhoto.swift",
+            "src/Models/AIConsent.swift",
+            "src/Models/AIConsentSheet.swift",
             "src/Models/WebAddress.swift",
+            "src/ProfileTab/ProfileAISettings.swift",
             "src/Reviews/MyReviewDetailView.swift",
             "src/Reviews/ReviewEditSession.swift",
             "src/Reviews/ReviewListStore.swift",
@@ -129,8 +132,11 @@ swift_library(
         "src/CommunityTab/CommunityPlacementEditor.swift",
         "src/CommunityTab/CommunitySubmission.swift",
         "src/CommunityTab/PostRemotePhoto.swift",
+        "src/Models/AIConsent.swift",
+        "src/Models/AIConsentSheet.swift",
         "src/Models/WebAddress.swift",
         "src/Onboarding/OnboardingProgress.swift",
+        "src/ProfileTab/ProfileAISettings.swift",
         "src/Reviews/MyReviewDetailView.swift",
         "src/Reviews/PhotoRenewal.swift",
         "src/Reviews/ReviewEditSession.swift",
@@ -236,6 +242,7 @@ swift_library(
     srcs = glob(
         ["tests/**/*.swift"],
         exclude = [
+            "tests/AIConsentTests.swift",
             "tests/AppleAuthStoreTests.swift",
             "tests/AppleOAuthTests.swift",
             "tests/AppleSignInFlowTests.swift",
@@ -259,6 +266,7 @@ swift_library(
             "tests/UsageEventsTests.swift",
         ],
     ) + [
+        "tests/AIConsentTests.swift",
         "tests/AppleAuthStoreTests.swift",
         "tests/AppleOAuthTests.swift",
         "tests/AppleSignInFlowTests.swift",

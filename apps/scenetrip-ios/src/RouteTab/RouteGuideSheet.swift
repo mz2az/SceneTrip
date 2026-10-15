@@ -56,6 +56,7 @@ struct RouteGuideSheet: View {
     var onClose: () -> Void = {}
 
     @State private var draft = ""
+    @StateObject var consentGate = AIConsentGate()
 
     /// 이 창의 이름표 — 대화 객체가 「떠 있는 창」 을 세는 데 쓴다(`RouteGuideSession.setAttended`).
     @State private var panelId = UUID()
@@ -70,6 +71,7 @@ struct RouteGuideSheet: View {
         // 편집 화면과 길찾기 화면이 같은 창을 쓰므로 창 자신이 알린다.
         .onAppear { session.setAttended(true, by: panelId) }
         .onDisappear { session.setAttended(false, by: panelId) }
+        .aiConsentSheet(consentGate)
     }
 
     /// 손수 그린 머리줄. 내비게이션 바를 쓰지 않는 이유는 닫기 단추다 — 바에
@@ -377,8 +379,10 @@ struct RouteGuideSheet: View {
         let text = draft
         // 잠긴 동안 자판의 「완료」 로 들어오면 친 글을 지우지 않는다.
         guard let here, canSend else { return }
-        draft = ""
-        Task { await session.ask(text, here: here, context: context) }
+        consentGate.request {
+            draft = ""
+            Task { await session.ask(text, here: here, context: context) }
+        }
     }
 }
 

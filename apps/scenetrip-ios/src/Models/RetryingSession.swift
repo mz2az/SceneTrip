@@ -33,6 +33,8 @@ final class RetryingSession: URLSessionProtocol, @unchecked Sendable {
 
         /// 실패 넣기 뒷문(`NetFault`). 개발 빌드가 아니면 언제나 nil.
         var fault: (URLRequest) -> NetFault.Injection? = NetFault.take(for:)
+        /// 실제 전송마다 읽는다. 철회 뒤 인증 재전송·자동 재시도도 나가지 않는다.
+        var aiConsent: AIConsentStore = .shared
     }
 
     static let log = Logger(subsystem: "com.mz2az.scenetrip", category: "retry")
@@ -212,6 +214,10 @@ final class RetryTask: URLSessionDataTaskProtocol, @unchecked Sendable {
             finish(nil, nil, URLError(.cancelled))
             return
         }
+        guard !AIConsentStore.requiresConsent(method: method, path: path) || session.environment.aiConsent.isAllowed else {
+            finish(nil, nil, AIConsentRequired())
+            return
+        }
         if let key {
             _ = session.keyClock.started(key, now: session.environment.now()) // 처음 보내는 키면 시각을 적는다
         }
@@ -290,7 +296,16 @@ final class RetryTask: URLSessionDataTaskProtocol, @unchecked Sendable {
             task.cancel() // 만들기만 하고 띄우지 않은 것 — 그냥 두면 안쪽 세션에 매달려 남는다.
             return
         }
-        task.resume()
+        if AIConsentStore.requiresConsent(method: method, path: path) {
+            guard session.environment.aiConsent.startIfAllowed({ task.resume() }) else {
+                // 취소 콜백보다 먼저 동의 오류를 알린다. 완료·취소는 동의 잠금 밖에서 처리한다.
+                finish(nil, nil, AIConsentRequired())
+                task.cancel()
+                return
+            }
+        } else {
+            task.resume()
+        }
     }
 
     // MARK: 받기
