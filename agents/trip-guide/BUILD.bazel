@@ -15,6 +15,7 @@ SOURCES = [
     "src/plan_flow.py",
     "src/planner.py",
     "src/production.py",
+    "src/scope.py",
     "src/sceneapi.py",
     "src/session.py",
     "src/tools.py",
@@ -27,6 +28,7 @@ RESOURCES = [
     "config/model.json",
     "config/place_scores.json",
     "config/planner.json",
+    "config/scope.json",
     "config/source.json",
     "prompts/plan_intent.txt",
     "prompts/plan_llm.txt",
@@ -50,6 +52,7 @@ TESTS = [
     "tests/test_planner.py",
     "tests/test_production.py",
     "tests/test_rate_subject.py",
+    "tests/test_scope.py",
     "tests/test_tools.py",
     "tests/test_tracing.py",
 ]
