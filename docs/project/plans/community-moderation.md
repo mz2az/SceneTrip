@@ -39,7 +39,7 @@
   신고할 수 없다. 대상 글이 지워져도 신고 기록은 남는다(무엇이 신고됐는지 나중에 알 수 있게 작성자와 본문 일부를 함께 적는다).
 - **알림**: 신고가 들어오면 서버가 정해진 모양의 로그를 남기고, SigNoz 알람 규칙이 **Slack 채널**로 보낸다. 신고가 쌓이기만 하고
   아무도 모르면 안 된다 — 채널이라 여럿이 함께 받는다. 메일이 아닌 이유: SigNoz 에 메일 발송(SMTP) 설정이 없다(2026-10-15 확인).
-- **SigNoz 알람 규칙(사람, PRD)**: Slack 들어오는 웹훅을 SigNoz 알람 채널(종류 Slack)로 넣고, 로그 알람 — 서비스 `scene-api`,
+- **SigNoz 알람 규칙(사람, PRD)**: Slack 들어오는 웹훅을 SigNoz 알람 채널(종류 Slack)로 넣고, 로그 알람 — 서비스 `scenetrip-scene-api`(SigNoz 의 service.name),
   본문에 `[신고] 접수` 가 들어간 로그가 5 분 안에 1 건 이상이면 그 채널로. 코드가 아니라 SigNoz 설정이다(웹훅 주소는 저장소에 적지 않는다). 로그 모양은 `ModerationController` 가 정한다 — 바꾸면 알람도 고친다.
 - **게이트웨이**: PRD 앞단 nginx 가 정해진 경로만 통과시킨다(`platform/helm/scenetrip/templates/config.yaml`) — `reports` 를 더했다.
   차단은 이미 허용된 `/me/` 아래(`/me/blocks`)라 더할 것이 없다.
