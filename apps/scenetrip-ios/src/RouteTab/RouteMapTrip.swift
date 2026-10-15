@@ -31,6 +31,7 @@ extension RouteMapView.Coordinator {
     /// 찍은 1번으로 다시 가는 동안에도 「1번 다음은 2번」이 지도에 보여야 한다(사용자
     /// 지적: "현재 위치에서 1번 갈 땐 2번까지의 직선은 아직 유지").
     func drawLine(_ stops: [RouteStop], keepFrom: RouteStop? = nil, on mapView: NMFMapView) {
+        let stops = stops.filter(\.canNavigate)
         planPaths.forEach { $0.mapView = nil }
         planPaths = []
         guard stops.count > 1 else { return }

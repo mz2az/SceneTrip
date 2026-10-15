@@ -90,6 +90,7 @@ struct RouteStopRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
                         Text(stop.label.title).font(.subheadline.weight(.semibold))
+                            .opacity(stop.canNavigate ? 1 : 0.65)
                         // 직접 찍은 핀은 우리 데이터에 없는 곳이라 표시를 남긴다.
                         if stop.isPinned {
                             Text("내가 찍은 곳")
@@ -278,6 +279,10 @@ struct RouteCartSheet: View {
         return real.isSample ? (store.cartSample(), true) : real
     }
 
+    private var selectedPlaces: [PlaceSummary] {
+        content.places.filter { picked.contains($0.id) && !isDelisted($0) }
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -297,16 +302,25 @@ struct RouteCartSheet: View {
                     Button("닫기") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("담기 \(picked.count)") {
-                        onPick(content.places.filter { picked.contains($0.id) })
+                    Button("담기 \(selectedPlaces.count)") {
+                        onPick(selectedPlaces)
                         dismiss()
                     }
-                    .disabled(picked.isEmpty)
+                    .disabled(selectedPlaces.isEmpty)
                 }
             }
         }
         .presentationDetents([.medium, .large])
         .presentationBackground(.regularMaterial)
+        .task { await cart.refresh() }
+        .onChange(of: cart.items) { _, _ in
+            picked.formIntersection(Set(selectedPlaces.map(\.id)))
+            onPreview(selectedPlaces)
+        }
+    }
+
+    private func isDelisted(_ place: PlaceSummary) -> Bool {
+        cart.items.first { $0.placeId == place.id }?.delisted == true
     }
 
     private func row(_ place: PlaceSummary) -> some View {
@@ -316,14 +330,28 @@ struct RouteCartSheet: View {
                 .clipShape(.rect(cornerRadius: 6))
             VStack(alignment: .leading, spacing: 2) {
                 Text(place.name).font(.subheadline.weight(.semibold))
+                    .opacity(isDelisted(place) ? 0.65 : 1)
                 Text(place.address ?? PlaceType.label(place.type) ?? "")
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                if isDelisted(place) {
+                    UnavailableItemNotice(item: .place)
+                }
             }
             Spacer()
             // 장소는 플러스·체크다 (8/11 회의: 작품에는 하트, 장소에는 플러스).
             // **이미 코스에 있는 것은 흐린 체크**다 — 지금 고른 것(진한 체크)과
             // 갈라 보여야 왜 안 눌리는지 안다.
-            if taken.contains(place.id) {
+            if isDelisted(place) {
+                Button {
+                    picked.remove(place.id)
+                    onPreview(selectedPlaces)
+                    Task { await cart.remove(placeId: place.id) }
+                } label: {
+                    Image(systemName: "trash").frame(minWidth: 44, minHeight: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(tr("장바구니에서 빼기"))
+            } else if taken.contains(place.id) {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(Color.accentColor.opacity(0.45))
             } else {
@@ -334,13 +362,13 @@ struct RouteCartSheet: View {
         .opacity(taken.contains(place.id) ? 0.5 : 1)
         .contentShape(.rect)
         .onTapGesture {
-            guard !taken.contains(place.id) else { return }
+            guard !taken.contains(place.id), !isDelisted(place) else { return }
             if picked.contains(place.id) {
                 picked.remove(place.id)
             } else {
                 picked.insert(place.id)
             }
-            onPreview(content.places.filter { picked.contains($0.id) })
+            onPreview(selectedPlaces)
         }
     }
 }

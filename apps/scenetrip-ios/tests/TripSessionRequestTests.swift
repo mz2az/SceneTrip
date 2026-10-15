@@ -51,6 +51,40 @@ final class TripSessionRequestTests: XCTestCase {
         XCTAssertNil(trip.failure)
     }
 
+    func testUnavailableDestinationDoesNotReplaceQueuedDestinationOrConsentRequest() async {
+        let store = LocationConsentStore(storage: MemoryAIConsentStorage())
+        store.allow()
+        var sent: [Int64] = []
+        var finish: CheckedContinuation<NextLeg, Error>?
+        let trip = TripSession(limits: NavLimitStore(), locationConsent: store) { request in
+            sent.append(request.itemId)
+            if sent.count == 1 {
+                return try await withCheckedThrowingContinuation { finish = $0 }
+            }
+            return NextLeg(totalMinutes: 22, transfers: 0, guidanceLang: .ko, legs: [])
+        }
+        defer { trip.end() }
+        trip.start(to: stop(1), number: 1, courseId: 1)
+        trip.locator.inject(latitude: 37.5, longitude: 127)
+        await settle { finish != nil }
+        trip.start(to: stop(2), number: 2, courseId: 1)
+        let requestId = trip.directionsConsent.requestId
+        for notice in [UnavailableItem.place, .closedPoi] {
+            var unavailable = stop(3)
+            unavailable.unavailable = notice
+            trip.start(to: unavailable, number: 3, courseId: 1)
+            XCTAssertEqual(trip.target?.serverItemId, 2)
+            XCTAssertEqual(trip.targetNumber, 2)
+            XCTAssertEqual(trip.directionsConsent.requestId, requestId)
+        }
+        finish?.resume(returning: NextLeg(totalMinutes: 11, transfers: 0, guidanceLang: .ko, legs: []))
+        await settle { trip.result != nil && !trip.asking }
+        XCTAssertEqual(sent, [1, 2])
+        XCTAssertEqual(trip.result?.destination, "목적지 2")
+        XCTAssertEqual(trip.directionsConsent.notice.visibleRequest, requestId)
+        XCTAssertNil(trip.failure)
+    }
+
     private func stop(_ id: Int64) -> RouteStop {
         var stop = RouteStop(place: PlaceSummary(id: id, name: "목적지 \(id)", latitude: 35, longitude: 129))
         stop.serverItemId = id

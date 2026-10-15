@@ -24,6 +24,7 @@ struct ContentDetailView: View {
 
     @EnvironmentObject private var cart: CartStore
     @State private var detail: ContentDetail?
+    @ObservedObject private var likes = LikeStore.shared
 
     private var meta: String {
         [
@@ -74,6 +75,18 @@ struct ContentDetailView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             poster.frame(maxWidth: .infinity, alignment: .center)
+            let delisted = UnavailableItem.contentDelisted(summary: summary, detail: detail)
+            if delisted {
+                UnavailableItemNotice(item: .content)
+            }
+            Button {
+                likes.toggle(summary.id)
+            } label: {
+                Label(likes.contains(summary.id) ? tr("찜 빼기") : tr("찜하기"),
+                      systemImage: likes.contains(summary.id) ? "heart.fill" : "heart")
+            }
+            .buttonStyle(.bordered)
+            .disabled(!UnavailableItem.canToggle(delisted: delisted, saved: likes.contains(summary.id)))
             VStack(alignment: .leading, spacing: 6) {
                 if !meta.isEmpty {
                     Text(meta).font(.subheadline).foregroundStyle(.secondary)

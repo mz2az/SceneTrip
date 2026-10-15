@@ -53,6 +53,7 @@ final class LikeStore: ObservableObject {
     static let shared = LikeStore()
 
     @Published private(set) var contentIds: Set<Int64> = []
+    @Published private(set) var failure: ApiFailure?
 
     /// 찜한 작품의 **요약** — 서버가 찜 목록에 실어 주는 그대로, 찜한 순서(최근 것부터)다 (MZ2AZ-372).
     ///
@@ -103,9 +104,15 @@ final class LikeStore: ObservableObject {
                     xInstallId: installId, favoriteContentCreate: FavoriteContentCreate(contentId: id)
                 )
                 server.insert(id)
-            } catch let ErrorResponse.error(code, _, _, _) where code == 404 {
-                // 사라진 작품 — 올릴 것이 없다. 다시 시도해도 같다.
             } catch {
+                let rejected = ApiFailure(error)
+                if rejected.statusCode == 404 {
+                    continue
+                } // 사라진 작품 — 올릴 것이 없다.
+                if rejected.statusCode == 409, rejected.apiCode == "CONTENT_DELISTED" {
+                    failure = rejected
+                    continue // 옛 기기 찜도 새 추가다. 영구 거절을 재시도하지 않는다.
+                }
                 allUploaded = false
                 server.insert(id) // 다음 실행에 다시 올린다. 그때까지 하트는 유지한다.
             }
@@ -122,6 +129,8 @@ final class LikeStore: ObservableObject {
     /// 하트는 **누르는 즉시** 바뀐다. 서버가 거절하면 되돌린다.
     func toggle(_ contentId: Int64) {
         let liked = !contentIds.contains(contentId)
+        let previous = works.first { $0.id == contentId }
+        let previousIndex = works.firstIndex { $0.id == contentId }
         apply(contentId, liked: liked)
         AppAnalytics.log(.likeTitle(contentId: contentId, liked: liked))
         Task {
@@ -141,12 +150,20 @@ final class LikeStore: ObservableObject {
                 }
             } catch {
                 apply(contentId, liked: !liked)
+                if !liked, let previous, !works.contains(where: { $0.id == contentId }) {
+                    works.insert(previous, at: min(previousIndex ?? 0, works.count))
+                }
+                failure = ApiFailure(error)
                 // 실패가 「서버는 처리했는데 응답만 잃은 것」 일 수 있다 — 그러면 되돌린 화면이 서버와 어긋난다
                 // (찜을 풀었는데 하트가 다시 켜진다). 서버 값을 한 번 받아 맞춘다. 그 조회도 실패하면 되돌린
                 // 채로 둔다(`refresh` 는 못 받으면 아무것도 바꾸지 않는다). (MZ2AZ-366)
                 await refresh()
             }
         }
+    }
+
+    func clearFailure() {
+        failure = nil
     }
 
     /// 찜한 작품의 요약만 다시 읽는다 — 하트(`contentIds`)는 건드리지 않는다. 못 받으면 가진 것을 둔다.

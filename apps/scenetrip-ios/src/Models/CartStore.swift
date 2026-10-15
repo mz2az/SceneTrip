@@ -4,6 +4,7 @@ import SceneApiClient
 @MainActor
 protocol CartClient {
     func fetch(installId: UUID) async throws -> Cart
+    func add(installId: UUID, placeId: Int64, sourceContentId: Int64?) async throws
     func remove(installId: UUID, placeId: Int64) async throws
 }
 
@@ -14,6 +15,13 @@ private struct ServerCartClient: CartClient {
 
     func remove(installId: UUID, placeId: Int64) async throws {
         try await CartAPI.removeCartItem(xInstallId: installId, placeId: placeId)
+    }
+
+    func add(installId: UUID, placeId: Int64, sourceContentId: Int64?) async throws {
+        _ = try await CartAPI.addCartItem(
+            xInstallId: installId,
+            cartItemCreate: CartItemCreate(placeId: placeId, sourceContentId: sourceContentId)
+        )
     }
 }
 
@@ -54,23 +62,22 @@ final class CartStore: ObservableObject {
         placeIds = Set(cart.items.map(\.placeId))
     }
 
-    /// 담기. 이미 있으면 서버가 409 를 주고, 그것도 담긴 상태이므로 목록에 넣는다.
+    /// 담기. 409 중 `DUPLICATE_CART_ITEM`만 이미 담긴 상태로 처리한다.
     func add(placeId: Int64, sourceContentId: Int64? = nil) async {
         do {
-            _ = try await CartAPI.addCartItem(
-                xInstallId: installId,
-                cartItemCreate: CartItemCreate(
-                    placeId: placeId, sourceContentId: sourceContentId
-                )
-            )
+            try await client.add(installId: installId, placeId: placeId, sourceContentId: sourceContentId)
             placeIds.insert(placeId)
             toast = tr("장바구니에 담았습니다")
             AppAnalytics.log(.savePlace(placeId: placeId))
-        } catch let ErrorResponse.error(code, _, _, _) where code == 409 {
-            placeIds.insert(placeId)
-            toast = tr("이미 저장된 장소입니다")
         } catch {
-            toast = tr("담지 못했습니다. 잠시 후 다시 시도해 주세요")
+            let failure = ApiFailure(error)
+            if failure.statusCode == 409, failure.apiCode == "DUPLICATE_CART_ITEM" {
+                placeIds.insert(placeId)
+                toast = tr("이미 저장된 장소입니다")
+            } else {
+                toast = UnavailableItem.rejection(status: failure.statusCode, code: failure.apiCode)
+                    ?? tr("담지 못했습니다. 잠시 후 다시 시도해 주세요")
+            }
         }
         await refresh()
     }

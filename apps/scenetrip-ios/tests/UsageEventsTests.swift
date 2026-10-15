@@ -1,3 +1,4 @@
+import Combine
 import SceneApiClient
 @testable import SceneTrip
 import XCTest
@@ -165,13 +166,19 @@ final class UsageEventsTests: XCTestCase {
 
     @MainActor
     private func waitForFailure(_ data: SceneData) async {
-        for _ in 0 ..< 100 {
-            if case .failed = data.phase {
-                return
+        let failed = expectation(description: "가짜 생성 요청의 실패 응답")
+        // yield 횟수는 응답 완료를 보장하지 않는다. 이미 실패했어도 현재 값을 받아 완료한다.
+        let observation = data.$phase.filter { phase in
+            if case .failed = phase {
+                return true
             }
-            await Task.yield()
+            return false
+        }.prefix(1).sink { _ in failed.fulfill() }
+        defer { observation.cancel() }
+        await fulfillment(of: [failed], timeout: 2)
+        if case let .failed(failure) = data.phase {
+            XCTAssertEqual(failure.statusCode, 503)
         }
-        XCTFail("가짜 생성 요청의 실패 응답이 도착하지 않았다")
     }
 }
 
