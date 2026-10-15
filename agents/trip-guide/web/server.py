@@ -27,13 +27,11 @@ sys.path.insert(0, str(_HERE.parent))
 
 from src.agent import TripGuide
 from src.cli import open_source, set_here
-from src.llm_planner import LlmPlanError, make_llm_plan
-from src.llm_planner import load_config as load_llm_planner_config
+from src.llm_planner import plan_with_model
 from src.model_client import ModelClient, ModelError, load_config
 from src.planner import (
     PlanError,
     PlanRequest,
-    make_plan,
     plan_to_api,
 )
 from src.sceneapi import SceneApiError
@@ -97,8 +95,12 @@ class Desk:
         with self.lock:
             self._sweep()
             if sid not in self.guides:
+                client = ModelClient()
                 self.guides[sid] = TripGuide(
-                    Session(book=self.book), ModelClient(), config=self.config
+                    Session(book=self.book),
+                    client,
+                    config=self.config,
+                    plan_client=client,
                 )
             self.seen[sid] = time.monotonic()
             return self.guides[sid]
@@ -273,29 +275,17 @@ class Handler(BaseHTTPRequestHandler):
                 must=[str(x) for x in (body.get("must") or [])],
                 avoid=[str(x) for x in (body.get("avoid") or [])],
             )
-            plan = None
-            if load_llm_planner_config().get("enabled"):
-                try:
-                    plan = make_llm_plan(self.desk.book, req, ModelClient())
-                except SceneApiError as exc:
-                    self._send(_bad(str(exc)), 400)
-                    return
-                except Exception as exc:  # noqa: BLE001 — 모델 경로는 선택이다
-                    # **어떤 이유로든** 엔진으로 돌아간다. 모델 경로는 더 나은 초안을
-                    # 주려는 것이지, 그것이 깨졌다고 마법사가 503 을 받을 이유는 없다.
-                    # 이유는 남긴다 — 조용히 넘어가면 모델이 계속 실패해도 아무도 모른다.
-                    kind = (
-                        "모델"
-                        if isinstance(exc, (LlmPlanError, ModelError))
-                        else "예상 밖"
-                    )
-                    print(f"[plan] {kind} 일정 실패 → 엔진: {exc!r}", file=sys.stderr)
-            if plan is None:
-                try:
-                    plan = make_plan(self.desk.book, req)
-                except (PlanError, SceneApiError) as exc:
-                    self._send(_bad(str(exc)), 400)
-                    return
+            try:
+                client = ModelClient()
+            except ModelError as exc:
+                # 모델을 못 만들면 엔진이 짠다 — 이유는 남긴다(plan_with_model 과 같은 규칙).
+                print(f"[plan] 모델을 만들지 못함 → 엔진: {exc!r}", file=sys.stderr)
+                client = None
+            try:
+                plan = plan_with_model(self.desk.book, req, client)
+            except (PlanError, SceneApiError) as exc:
+                self._send(_bad(str(exc)), 400)
+                return
 
             # **앱이 그리는 모양**이다. 모델이 읽는 한글 사전(`plan_to_dict`)이
             # 아니다 — 이 창구의 응답은 모델을 거치지 않고 앱으로 바로 간다.

@@ -119,9 +119,12 @@ def run_plan(
     if show_stages:
         print("\n① 이해 — 모델이 읽어 낸 요청 (도구 계약으로 검증됨)")
         print(f"   {json.dumps(args, ensure_ascii=False)}")
-        print(
-            f"\n② 계획 — 알고리즘이 계산한 일정 (LLM 없음, 후보 {plan.considered} 곳 검토)"
+        who = (
+            "AI 가 짠 일정"
+            if plan.signals.get("llm")
+            else "알고리즘이 계산한 일정 (모델이 못 해서 엔진)"
         )
+        print(f"\n② 계획 — {who} (후보 {plan.considered} 곳 검토)")
         for day in payload["일정"]:
             names = " → ".join(s["이름"] for s in day["동선"])
             print(
@@ -174,7 +177,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     config = load_config()
-    guide = TripGuide(session, client, config=config)
+    guide = TripGuide(session, client, config=config, plan_client=client)
     show_tools = args.show_tools
 
     print(f"성지 데이터  {described}")

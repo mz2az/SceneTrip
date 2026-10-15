@@ -129,9 +129,13 @@ class TripGuide:
         *,
         prompt_path: Path | None = None,
         config: dict[str, Any] | None = None,
+        plan_client: Client | None = None,
     ) -> None:
         self.session = session
         self.client = client
+        # 일정은 모델이 짠다(`llm_planner.plan_with_model`). 운영과 CLI 는 대화 모델과 같은 것을
+        # 넘긴다. 시험은 넘기지 않아 엔진으로 돈다 — 대본(ScriptedClient)의 순서가 흐트러지지 않게.
+        self.plan_client = plan_client
         self.config = config or load_config()
         self.system_prompt = (prompt_path or _PROMPT).read_text(encoding="utf-8")
         self.tools = load_tool_specs()
@@ -152,6 +156,9 @@ class TripGuide:
 
         def left() -> float:
             return deadline - time.monotonic()
+
+        self.session.planner_client = self.plan_client
+        self.session.planner_budget = left
 
         # 「지금 상태」 를 매 턴 새로 만들어 넣는다. 담은 것을 뺐으면 다음 요청부터
         # 그냥 사라진다 — 화면에서는 지웠는데 모델은 아직 알고 있는 어긋남이

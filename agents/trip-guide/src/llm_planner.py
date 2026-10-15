@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from string import Template
@@ -44,13 +45,16 @@ from .places import Place, PlaceSource, haversine_m, norm
 from .planner import (
     DayPlan,
     Plan,
+    PlanError,
     PlanRequest,
     Scored,
     _lay_out,
+    make_plan,
 )
 from .planner import (
     load_config as load_planner_config,
 )
+from .sceneapi import SceneApiError
 
 _ROOT = Path(__file__).absolute().parent.parent
 _CONFIG = _ROOT / "config" / "llm_planner.json"
@@ -373,3 +377,32 @@ def make_llm_plan(
         signals={"llm": True, "popularity": any(score(p) > 0 for p in places)},
         notes=notes,
     )
+
+
+def plan_with_model(
+    book: PlaceSource,
+    req: PlanRequest,
+    client: Any | None,
+    *,
+    budget: Callable[[], float] | None = None,
+) -> Plan:
+    """**일정은 모델이 짠다** — 마법사(`POST /plan`)·챗봇(`plan_course`)·CLI(`--plan`)가 모두 이것을 부른다.
+
+    2026-10-15 사용자 결정: 모든 일정 생성은 LLM 으로. 예전에는 마법사만 모델이 짜고 챗봇과 CLI 는
+    결정적 엔진(`planner.make_plan`)이 짰는데, 엔진은 촬영지가 가장 많이 몰린 한 지역만 남겨
+    「도깨비 + 폭싹 속았수다」 같은 요청에서 한 작품을 통째로 뺐다.
+
+    엔진은 **모델이 못 했을 때만** 쓴다 — 모델 응답이 깨졌거나, 모델을 부를 수 없거나(`client` 가
+    None), 설정(`config/llm_planner.json` 의 `enabled`)으로 껐을 때. 이유는 stderr 에 남긴다 —
+    조용히 넘어가면 모델이 계속 실패해도 아무도 모른다. 요청 자체가 틀린 것(`PlanError`)과
+    scene-api 장애는 엔진으로 돌리지 않고 그대로 올린다.
+    """
+    if client is not None and load_config().get("enabled"):
+        try:
+            return make_llm_plan(book, req, client, budget=budget)
+        except (PlanError, SceneApiError):
+            raise
+        except Exception as exc:  # noqa: BLE001 — 모델 경로가 깨져도 일정은 나가야 한다
+            kind = "모델" if isinstance(exc, (LlmPlanError, ModelError)) else "예상 밖"
+            print(f"[plan] {kind} 일정 실패 → 엔진: {exc!r}", file=sys.stderr)
+    return make_plan(book, req)

@@ -750,7 +750,21 @@ def make_plan(
 
     # **날짜에 나누기 전에 지역으로 먼저 좁힌다.** 이 줄이 없으면 1박 2일 일정의
     # 2일차가 제주도 한 곳이 된다 — region_pool 의 주석에 그 실측이 있다.
-    located = region_pool(located, keep, cfg, req.start)
+    pooled = region_pool(located, keep, cfg, req.start)
+
+    # **좁히다가 요청한 작품을 통째로 버리지 않는다.** 한 지역만 남기면 촬영지가 많이 몰린
+    # 작품의 지역이 이긴다 — 「도깨비 + 폭싹 속았수다 2박 3일」 이 제주만 남겨 도깨비가 한 곳도
+    # 안 나왔다(2026-10-15 실측). 빠진 작품은 그 작품의 중심 지역을 몫만큼 붙인다. 붙은
+    # 지역은 아래 cluster_by_day 가 다른 날로 가른다.
+    share = max(1, keep // len(found)) if found else keep
+    for title in found:
+        if any(title in s.titles for s in pooled):
+            continue
+        mine = [s for s in located if title in s.titles]
+        pooled += [
+            s for s in region_pool(mine, share, cfg, req.start) if s not in pooled
+        ]
+    located = pooled
 
     # **작품마다 최소 한 곳은 확보한 뒤** 나머지를 점수순으로 채운다.
     #
