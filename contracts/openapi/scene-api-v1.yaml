@@ -1821,7 +1821,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/CourseDetail"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: |
+            요청이 계약을 어겼다(`INVALID_PARAMETER` 등 — docs/api/errors.md).
+            `TEXT_NOT_ALLOWED` — 쓸 수 없는 말이 있다(1.19.0, MZ2AZ-438). `message` 에 어느 칸인지 있고 어떤 말인지는 없다 — 코스 이름(여행후기에 붙으면 모두에게 보인다).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -1918,7 +1924,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/CourseDetail"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: |
+            요청이 계약을 어겼다(`INVALID_PARAMETER` 등 — docs/api/errors.md).
+            `TEXT_NOT_ALLOWED` — 쓸 수 없는 말이 있다(1.19.0, MZ2AZ-438). `message` 에 어느 칸인지 있고 어떤 말인지는 없다 — 코스 이름(여행후기에 붙으면 모두에게 보인다).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -4083,6 +4095,7 @@ components:
               description: |
                 사진첩의 앞 20 장 — **우리 사진 먼저, 그 뒤 리뷰 사진**(최신 리뷰부터). 넘겨 보다 끝에
                 닿으면 `GET /places/{placeId}/photos?offset=20` 으로 이어 받는다. 리뷰 사진에는 「방문자 사진」
+                로그인했으면 내가 차단한 사용자의 리뷰 사진은 빠진다(1.19.0, MZ2AZ-438).
               items:
                 $ref: "#/components/schemas/Photo"
             photoCount:
@@ -4246,6 +4259,7 @@ components:
               description: |
                 사진첩의 앞 20 장 — **우리 사진(`images`) 먼저, 그 뒤 리뷰 사진**(최신 리뷰부터). 이어서는
                 `GET /pois/{poiId}/photos?offset=20`. 앱이 `photos` 로 옮기면 `images` 는 뺀다
+                로그인했으면 내가 차단한 사용자의 리뷰 사진은 빠진다(1.19.0, MZ2AZ-438).
               items:
                 $ref: "#/components/schemas/Photo"
             photoCount:

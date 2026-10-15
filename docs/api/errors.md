@@ -71,7 +71,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `INCOMPLETE_ORIGIN` | `lat` 과 `lng` 중 하나만 보냈다. 둘은 짝이다 |
 | `MISSING_AREA_FILTER` | `GET /pois` 에 영역 조건(`bbox` 또는 `lat`·`lng`+`radiusMeters`)이 하나도 없다. 편의시설 50 만 건을 전국 대상으로 돌려줄 정렬 기준이 없다 — 촬영지(`/places`)는 인기도가 있어 허용하고, POI 는 없어 거부한다 |
 | `MISSING_INSTALL_ID` | `X-Install-Id` 헤더가 없거나 UUID 형식이 아니다. 장바구니·코스·찜·마켓이 전부 이 헤더를 요구한다 |
-| `SIGN_IN_REQUIRED` | (`401`) 가입해야 할 수 있는 동작이다. 마켓 좋아요·담기·올리기·내리기, 여행 중 길찾기, 가이드 챗봇, 리뷰 쓰기·고치기·지우기, 사진 올리기. 로그인 화면으로 안내한다 |
+| `SIGN_IN_REQUIRED` | (`401`) 가입해야 할 수 있는 동작이다. 마켓 좋아요·담기·올리기·내리기, 여행 중 길찾기, 가이드 챗봇, 리뷰 쓰기·고치기·지우기, 사진 올리기, 차단하기·차단 목록·풀기. 로그인 화면으로 안내한다 |
 | `NICKNAME_INVALID` | 닉네임이 규칙에 맞지 않는다 — 앞뒤 공백을 뗀 뒤 2~16 자, 한글·영문·숫자·`_` 만 |
 | `TEXT_NOT_ALLOWED` | 리뷰·여행후기(제목·본문·문단 블록)·닉네임에 쓸 수 없는 말이 있다(1.19.0, MZ2AZ-438). `message` 에 어느 칸인지 있고, 어떤 말이 걸렸는지는 알리지 않는다. 「쓸 수 없는 표현이 있어요」 |
 | `CANNOT_REPORT_OWN` | 자기 글을 신고하려 했다(1.19.0, MZ2AZ-438). 앱은 자기 글(`isMine`)에 신고 버튼을 두지 않는다 |
