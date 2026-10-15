@@ -141,7 +141,7 @@ CREATE INDEX ON poi_source (poi_id);
 주차 89 / 92 / 99 / 20 %, 대표 메뉴(음식점) 97 %, 입장료(문화시설) 86 %, 홈페이지(관광지·문화시설) 69 · 92 %. 숙박 부대시설·
 유모차·신용카드·문의처는 뺀다. 칸 이름이 종류마다 달라(`usetime`·`opentimefood`·`usetimeculture` …) 적재 때 하나로 모은다.
 
-**계약 1.21.0** — `PoiDetail.info`(`PoiInfo`: 칸마다 `{text, lang}`, 칸마다 요청 언어 → ko 폴백, 둘 다 없으면 null, 상세가
+**계약 1.21.0** — `PoiDetail.info`(`PoiInfo`: 칸마다 `{text, lang}`, 칸마다 요청 언어 → en → ko 폴백(응답 언어 폴백과 같은 순서), 모두 없으면 null, 상세가
 없으면 `info` 가 null), `Photo.thumbnailUrl`·`license`(`kogl_type1`·`kogl_type3`, 문구는 앱이 언어에 맞춰).
 
 **표 V37** — `poi_detail`(POI · 언어마다 한 줄, ko 도 여기, 관광공사 번호·수정 시각) · `poi_image` 에 `thumbnail_url`·`license`·
@@ -215,9 +215,9 @@ CREATE INDEX ON poi_source (poi_id);
 | 1 | ✅ [ADR 0022](../../architecture/adr/0022-poi-multiple-source-ids-and-never-delete.md) — 0014 보정(출처 번호 여러 개 · 영업 여부 판단 출처 · 지우지 않음) | 없음 |
 | 2 | ✅ `--prune` 막기 — 주면 멈춘다. 적재 §5-1 의 제외 분류도 지우지 않고 `closed_at` 으로 숨긴다(지우는 길이 하나 더 있었다) | 없음 |
 | 3 | ✅ 계약 1.21.0(`PoiDetail.info`, `Photo.thumbnailUrl`·`license`) · V37 `poi_detail`·`poi_image` 칸 (§6-1) | **완료** |
-| 4 | 국문 상세·사진 적재 명령 — `tour-` POI 37,985 부터, 다시 돌려도 되게 | 없음 |
-| 5 | 서버 응답에 `info`·사진 칸 채우기 | 3 |
-| 6 | 영문 짝(§6-1) → 영문 상세·사진 | 없음 |
+| 4 | ✅ 국문 상세·사진 적재 명령 — `just poi-tour-detail` · `just seed-poi-detail`, 다시 돌려도 같다. 로컬 17,285 곳 | 없음 |
+| 5 | ✅ 서버 응답에 `info`(칸마다 요청 언어 → en → ko)·사진 `thumbnailUrl`·`license` | 3 |
+| 6 | ✅ 영문 짝(§6-1) → 영문 상세·사진 — 적재 SQL 이 300 m · 같은 이름으로. 로컬 13,419 곳(88 %) | 없음 |
 | 7 | `poi_source` + 재구성 결과로 첫 채움 → 합쳐진 줄에 상세(§6-1 기준) | 없음 |
 | 8 | 적재·갱신을 §5 순서로. 같은 건물 판정과 배포 판 칸(§7) | 없음 |
 

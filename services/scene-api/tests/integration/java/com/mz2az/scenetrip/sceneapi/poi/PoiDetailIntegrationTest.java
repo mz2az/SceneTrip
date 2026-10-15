@@ -26,6 +26,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 class PoiDetailIntegrationTest {
   private static final Path DETAIL_SQL = Path.of("services/scene-api/seed/poi_detail.sql");
   private static final OffsetDateTime PAST = OffsetDateTime.parse("2020-01-01T00:00:00+09:00");
+  private static final double BASE_LAT = 37.6;
+  private static final double BASE_LNG = 127.0;
   private static final String MOD = "2024-01-15T09:30:00+09:00";
 
   private static JdbcClient jdbc;
@@ -49,6 +51,26 @@ class PoiDetailIntegrationTest {
         .param("s", sourceId)
         .query(Long.class)
         .single();
+  }
+
+  /** 이름·자리를 정한 POI. 자리는 위도 37.6 · 경도 127.0 에서 북쪽으로 metersNorth 미터. */
+  private static long poiAt(String sourceId, String name, double metersNorth) {
+    return jdbc.sql(
+            """
+            INSERT INTO poi (source_id, name, geom, category, category_group)
+            VALUES (:s, :n, ST_SetSRID(ST_MakePoint(127.0, :lat), 4326)::geography, '관광지', 'sight')
+            RETURNING id
+            """)
+        .param("s", sourceId)
+        .param("n", name)
+        .param("lat", BASE_LAT + metersNorth / 111_320.0)
+        .query(Long.class)
+        .single();
+  }
+
+  /** 기준점에서 북쪽으로 metersNorth 미터의 위도. */
+  private static double latAt(double metersNorth) {
+    return BASE_LAT + metersNorth / 111_320.0;
   }
 
   private static void existingDetail(long poiId, String lang, String overview, String contentId) {
@@ -86,36 +108,68 @@ class PoiDetailIntegrationTest {
     IntegrationDatabase.execute(
         """
         CREATE TEMP TABLE t_poi_detail_in (
-            source_id TEXT, lang TEXT, tour_content_id TEXT, tour_modified TIMESTAMPTZ,
+            source_id TEXT, match_name TEXT, lat FLOAT8, lng FLOAT8,
+            lang TEXT, tour_content_id TEXT, tour_modified TIMESTAMPTZ,
             overview TEXT, use_time TEXT, rest_date TEXT, parking TEXT, first_menu TEXT, use_fee TEXT,
             homepage TEXT
         ) ON COMMIT DROP;
         CREATE TEMP TABLE t_poi_detail_image_in (
-            source_id TEXT, tour_content_id TEXT, url TEXT, thumbnail_url TEXT, license TEXT,
+            lang TEXT, tour_content_id TEXT, url TEXT, thumbnail_url TEXT, license TEXT,
             credit TEXT, sort_order INT
         ) ON COMMIT DROP;
         """);
   }
 
-  /** 입력 상세 한 줄. 이용시간은 '09:00', 나머지 칸(쉬는 날·주차…)은 null. */
+  /** 입력 상세 한 줄(source_id 로 찾는 국문). 이용시간은 '09:00', 나머지 칸(쉬는 날·주차…)은 null. */
   private static void inDetail(String sourceId, String lang, String contentId, String overview) {
+    inRow(sourceId, null, null, null, lang, contentId, MOD, overview);
+  }
+
+  /** 영문 상세 한 줄 — source_id 없이 이름·좌표로 짝을 짓는다. */
+  private static void inEn(
+      String matchName,
+      double lat,
+      double lng,
+      String contentId,
+      String modified,
+      String overview) {
+    inRow(null, matchName, lat, lng, "en", contentId, modified, overview);
+  }
+
+  private static void inRow(
+      String sourceId,
+      String matchName,
+      Double lat,
+      Double lng,
+      String lang,
+      String contentId,
+      String modified,
+      String overview) {
     jdbc.sql(
             """
-            INSERT INTO t_poi_detail_in
-            VALUES (:s, :l, :c, CAST(:m AS timestamptz), :o, '09:00', NULL, NULL, NULL, NULL, NULL)
+            INSERT INTO t_poi_detail_in (source_id, match_name, lat, lng, lang, tour_content_id,
+                                         tour_modified, overview, use_time)
+            VALUES (:s, :n, :lat, :lng, :l, :c, CAST(:m AS timestamptz), :o, '09:00')
             """)
         .param("s", sourceId)
+        .param("n", matchName)
+        .param("lat", lat)
+        .param("lng", lng)
         .param("l", lang)
         .param("c", contentId)
-        .param("m", MOD)
+        .param("m", modified)
         .param("o", overview)
         .update();
   }
 
   private static void inImage(
-      String sourceId, String contentId, String url, String thumb, String license, int sort) {
-    jdbc.sql("INSERT INTO t_poi_detail_image_in VALUES (:s, :c, :u, :t, :l, '한국관광공사', :o)")
-        .param("s", sourceId)
+      String lang, String contentId, String url, String thumb, String license, int sort) {
+    jdbc.sql(
+            """
+            INSERT INTO t_poi_detail_image_in (lang, tour_content_id, url, thumbnail_url, license, credit, sort_order)
+            VALUES (:lang, :c, :u, :t, :l, '한국관광공사', :o)
+            """)
+        .param("lang", lang)
         .param("c", contentId)
         .param("u", url)
         .param("t", thumb)
@@ -220,14 +274,14 @@ class PoiDetailIntegrationTest {
           inDetail("tdtest-a", "ko", "c-a", "새 개요");
           inDetail("tdtest-missing", "ko", "c-m", "없는 곳");
           inImage(
-              "tdtest-a",
+              "ko",
               "c-a",
               "https://img.test/a1.jpg",
               "https://img.test/a1_s.jpg",
               "kogl_type1",
               10);
-          inImage("tdtest-a", "c-a", "https://img.test/a2.jpg", null, null, 20);
-          inImage("tdtest-missing", "c-m", "https://img.test/m1.jpg", null, null, 10);
+          inImage("ko", "c-a", "https://img.test/a2.jpg", null, null, 20);
+          inImage("ko", "c-m", "https://img.test/m1.jpg", null, null, 10);
 
           Map<String, Long> s = runSql();
 
@@ -301,13 +355,13 @@ class PoiDetailIntegrationTest {
           inDetail("tdtest-a", "ko", "c-a", "개요");
           inDetail("tdtest-missing", "ko", "c-m", "없는 곳");
           inImage(
-              "tdtest-a",
+              "ko",
               "c-a",
               "https://img.test/a1.jpg",
               "https://img.test/a1_s.jpg",
               "kogl_type3",
               10);
-          inImage("tdtest-a", "c-a", "https://img.test/a2.jpg", null, null, 20);
+          inImage("ko", "c-a", "https://img.test/a2.jpg", null, null, 20);
 
           Map<String, Long> first = runSql();
           assertThat(first).isEqualTo(summary(2, 1, 1, 1, 0, 2, 1));
@@ -348,21 +402,21 @@ class PoiDetailIntegrationTest {
           createInputTables();
           inDetail("tdtest-a", "ko", "c-a", "개요");
           inImage(
-              "tdtest-a",
+              "ko",
               "c-a",
               "https://img.test/u1.jpg",
               "https://img.test/u1_s.jpg",
               "kogl_type1",
               10);
-          inImage("tdtest-a", "c-a", "https://img.test/u2.jpg", null, "kogl_type3", 20);
+          inImage("ko", "c-a", "https://img.test/u2.jpg", null, "kogl_type3", 20);
           inImage(
-              "tdtest-a",
+              "ko",
               "c-a",
               "https://img.test/u3.jpg",
               "https://img.test/u3_s.jpg",
               "kogl_type1",
               30);
-          inImage("tdtest-a", "c-a", "https://img.test/u4.jpg", null, null, 40);
+          inImage("ko", "c-a", "https://img.test/u4.jpg", null, null, 40);
 
           Map<String, Long> s = runSql();
 
@@ -417,6 +471,218 @@ class PoiDetailIntegrationTest {
           assertThat(count("SELECT count(*) FROM poi_detail WHERE poi_id = :p", other))
               .isEqualTo(1);
           assertThat(count("SELECT count(*) FROM poi_image WHERE poi_id = :p", other)).isEqualTo(1);
+          return null;
+        });
+  }
+
+  // ── 영문 — 이름·좌표로 짝 짓기 ─────────────────────────────────────────
+
+  private static long enDetailCount(long poiId) {
+    return count("SELECT count(*) FROM poi_detail WHERE poi_id = :p AND lang = 'en'", poiId);
+  }
+
+  private static String enContentId(long poiId) {
+    Map<String, Object> d = detail(poiId, "en");
+    return d == null ? null : (String) d.get("tour_content_id");
+  }
+
+  @Test
+  @DisplayName("영문 — 300 m 안 이름이 같은 열린 POI 와 짝(띄어쓰기·대소문자·기호는 무시)")
+  void enPairsSameNameInRange() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          long p = poiAt("tdtest-en-1", "시험짝 조각공원", 0);
+          long q = poiAt("tdtest-en-2", "TD-Cafe 시험짝", 0);
+          createInputTables();
+          inEn("시험짝조각공원", latAt(100), BASE_LNG, "e-1", MOD, "Sculpture park");
+          inEn("td cafe 시험짝", latAt(250), BASE_LNG, "e-2", MOD, "Cafe");
+
+          Map<String, Long> s = runSql();
+
+          assertThat(s).isEqualTo(summary(2, 2, 0, 2, 0, 0, 0));
+          assertThat(detail(p, "en").get("overview")).isEqualTo("Sculpture park");
+          assertThat(enContentId(p)).isEqualTo("e-1");
+          assertThat(enContentId(q)).isEqualTo("e-2");
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("영문 — 300 m 밖·비슷하지만 다른 이름·닫힌 POI 는 짝 짓지 않는다(못 찾은 줄로 센다)")
+  void enDoesNotPairOutOfRangeSimilarOrClosed() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          long far = poiAt("tdtest-en-far", "시험먼 공원", 0);
+          long similar = poiAt("tdtest-en-sim", "시험비슷 공원관", 0);
+          long closed = poiAt("tdtest-en-closed", "시험닫힌 공원", 0);
+          jdbc.sql("UPDATE poi SET closed_at = now() WHERE id = :id").param("id", closed).update();
+          createInputTables();
+          inEn("시험먼 공원", latAt(400), BASE_LNG, "e-far", MOD, "Far");
+          inEn("시험비슷 공원", latAt(10), BASE_LNG, "e-sim", MOD, "Similar");
+          inEn("시험닫힌 공원", latAt(10), BASE_LNG, "e-closed", MOD, "Closed");
+
+          Map<String, Long> s = runSql();
+
+          assertThat(s).isEqualTo(summary(3, 0, 3, 0, 0, 0, 0));
+          assertThat(enDetailCount(far)).isZero();
+          assertThat(enDetailCount(similar)).isZero();
+          assertThat(enDetailCount(closed)).isZero();
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("영문 — 닫힌 POI 가 더 가까워도 열린 POI(300 m 안) 와 짝, 같은 이름 여럿이면 가장 가까운 것")
+  void enPairsNearestOpen() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          long closedNear = poiAt("tdtest-en-c", "시험여럿 공원", 0);
+          jdbc.sql("UPDATE poi SET closed_at = now() WHERE id = :id")
+              .param("id", closedNear)
+              .update();
+          long openMid = poiAt("tdtest-en-m", "시험여럿 공원", 100);
+          long openFar = poiAt("tdtest-en-f", "시험여럿 공원", 250);
+          createInputTables();
+          inEn("시험여럿공원", latAt(0), BASE_LNG, "e-n", MOD, "Nearest");
+
+          runSql();
+
+          assertThat(enDetailCount(closedNear)).isZero();
+          assertThat(enContentId(openMid)).isEqualTo("e-n");
+          assertThat(enDetailCount(openFar)).isZero();
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("영문 — 이름 끝 대괄호 꼬리([...])는 떼고 비교한다")
+  void enIgnoresBracketTail() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          long p = poiAt("tdtest-en-br", "시험에잇 제주점 [면세점]", 0);
+          createInputTables();
+          inEn("시험에잇 제주점", latAt(30), BASE_LNG, "e-br", MOD, "Shop");
+
+          Map<String, Long> s = runSql();
+
+          assertThat(s.get("matched_rows")).isEqualTo(1L);
+          assertThat(enContentId(p)).isEqualTo("e-br");
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("영문 — 두 줄이 한 POI 로 오면 가까운 줄, 거리가 같으면 tour_modified 가 최근인 줄")
+  void enTwoRowsOnePoi() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          long p = poiAt("tdtest-en-two", "시험두줄 공원", 0);
+          long t = poiAt("tdtest-en-tie", "시험동점 공원", 0);
+          createInputTables();
+          inEn("시험두줄 공원", latAt(150), BASE_LNG, "e-far", MOD, "Far row");
+          inEn("시험두줄 공원", latAt(50), BASE_LNG, "e-near", MOD, "Near row");
+          inImage("en", "e-near", "https://img.test/two-near.jpg", null, null, 10);
+          inImage("en", "e-far", "https://img.test/two-far.jpg", null, null, 10);
+          inEn("시험동점 공원", latAt(80), BASE_LNG, "e-old", "2023-01-01T00:00:00+09:00", "Old");
+          inEn("시험동점 공원", latAt(80), BASE_LNG, "e-new", "2024-06-01T00:00:00+09:00", "New");
+
+          runSql();
+
+          assertThat(enDetailCount(p)).isEqualTo(1);
+          assertThat(enContentId(p)).isEqualTo("e-near");
+          assertThat(detail(p, "en").get("overview")).isEqualTo("Near row");
+          assertThat(images(p))
+              .containsExactly("https://img.test/two-near.jpg|tour_api|1010|한국관광공사|-|-|e-near");
+          assertThat(enContentId(t)).isEqualTo("e-new");
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("영문 사진은 국문 뒤 — sort_order + 1000")
+  void enPhotosSortAfterKorean() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          long p = poiAt("tdtest-en-ph", "시험사진 공원", 0);
+          createInputTables();
+          inDetail("tdtest-en-ph", "ko", "k-ph", "국문");
+          inImage("ko", "k-ph", "https://img.test/ph-ko.jpg", null, "kogl_type1", 10);
+          inEn("시험사진 공원", latAt(20), BASE_LNG, "e-ph", MOD, "English");
+          inImage("en", "e-ph", "https://img.test/ph-en.jpg", null, "kogl_type3", 10);
+
+          Map<String, Long> s = runSql();
+
+          assertThat(s).isEqualTo(summary(2, 2, 0, 2, 0, 2, 0));
+          assertThat(images(p))
+              .containsExactly(
+                  "https://img.test/ph-en.jpg|tour_api|1010|한국관광공사|-|kogl_type3|e-ph",
+                  "https://img.test/ph-ko.jpg|tour_api|10|한국관광공사|-|kogl_type1|k-ph");
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("번호 없는 관광공사 사진은 국문 줄만 맞춘다 — 영문 줄은 지우지 않는다")
+  void enKeepsNullNumberPhotos() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          long p = poiAt("tdtest-en-null", "시험번호없음 공원", 0);
+          existingImage(p, "https://img.test/null-old.jpg", 10, "tour_api", "한국관광공사", null);
+          existingImage(p, "https://img.test/en-old.jpg", 1020, "tour_api", "한국관광공사", "e-nl");
+          createInputTables();
+          inEn("시험번호없음 공원", latAt(20), BASE_LNG, "e-nl", MOD, "English");
+          inImage("en", "e-nl", "https://img.test/en-new.jpg", null, null, 10);
+
+          Map<String, Long> s = runSql();
+
+          assertThat(images(p))
+              .containsExactly(
+                  "https://img.test/en-new.jpg|tour_api|1010|한국관광공사|-|-|e-nl",
+                  "https://img.test/null-old.jpg|tour_api|10|한국관광공사|-|-|-");
+          assertThat(s.get("images_inserted")).isEqualTo(1L);
+          assertThat(s.get("images_removed")).isEqualTo(1L);
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("같은 주소를 다른 관광공사 번호(국문↔영문)가 먼저 가졌으면 그대로 — 번호·순서·나머지 칸 모두")
+  void sharedAddressFirstOwnerKeeps() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          long p = poiAt("tdtest-own", "시험주인 공원", 0);
+          // 국문이 먼저 가진 주소 — 영문 실행이 같은 주소를 보내도 바뀌지 않는다
+          existingImage(p, "https://img.test/shared-ko.jpg", 10, "tour_api", "국문 표기", "k-own");
+          // 영문이 먼저 가진 주소 — 국문 실행이 같은 주소를 보내도 바뀌지 않는다
+          existingImage(p, "https://img.test/shared-en.jpg", 1030, "tour_api", "영문 표기", "e-own");
+          createInputTables();
+          inEn("시험주인 공원", latAt(20), BASE_LNG, "e-own", MOD, "English");
+          inImage("en", "e-own", "https://img.test/shared-en.jpg", null, null, 30);
+          inImage(
+              "en",
+              "e-own",
+              "https://img.test/shared-ko.jpg",
+              "https://img.test/t.jpg",
+              "kogl_type1",
+              5);
+          inDetail("tdtest-own", "ko", "k-own", "국문");
+          inImage("ko", "k-own", "https://img.test/shared-ko.jpg", null, null, 10);
+          inImage(
+              "ko",
+              "k-own",
+              "https://img.test/shared-en.jpg",
+              "https://img.test/t2.jpg",
+              "kogl_type3",
+              20);
+
+          Map<String, Long> s = runSql();
+
+          assertThat(images(p))
+              .containsExactly(
+                  "https://img.test/shared-en.jpg|tour_api|1030|한국관광공사|-|-|e-own",
+                  "https://img.test/shared-ko.jpg|tour_api|10|한국관광공사|-|-|k-own");
+          assertThat(s.get("images_inserted")).isZero();
+          assertThat(s.get("images_removed")).isZero();
           return null;
         });
   }

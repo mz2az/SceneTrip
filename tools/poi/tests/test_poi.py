@@ -49,6 +49,7 @@ from tools.poi.tests.test_spec import (
 )
 from tools.poi.tests.test_tour_detail import (
     TourDetailClean,
+    TourDetailEnglish,
     TourDetailHomepage,
     TourDetailIdentity,
     TourDetailImages,
@@ -104,6 +105,7 @@ __all__ = [
     "StoreKeys",
     "TourConstants",
     "TourDetailClean",
+    "TourDetailEnglish",
     "TourDetailHomepage",
     "TourDetailIdentity",
     "TourDetailImages",

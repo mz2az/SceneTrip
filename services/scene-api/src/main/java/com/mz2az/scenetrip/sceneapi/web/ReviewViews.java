@@ -1,6 +1,7 @@
 package com.mz2az.scenetrip.sceneapi.web;
 
 import com.mz2az.scenetrip.sceneapi.api.model.Photo;
+import com.mz2az.scenetrip.sceneapi.api.model.PhotoLicense;
 import com.mz2az.scenetrip.sceneapi.api.model.PhotoSource;
 import com.mz2az.scenetrip.sceneapi.api.model.RatingSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.Review;
@@ -75,6 +76,9 @@ class ReviewViews {
     if (p.storageKey() != null) {
       return new Photo(storage.viewUrl(p.storageKey()), PhotoSource.REVIEW).reviewId(p.reviewId());
     }
-    return new Photo(URI.create(p.url()), PhotoSource.OFFICIAL).credit(p.credit());
+    return new Photo(URI.create(p.url()), PhotoSource.OFFICIAL)
+        .credit(p.credit())
+        .thumbnailUrl(p.thumbnailUrl() == null ? null : URI.create(p.thumbnailUrl()))
+        .license(p.license() == null ? null : PhotoLicense.fromValue(p.license()));
   }
 }

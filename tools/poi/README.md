@@ -96,12 +96,18 @@ DB 의 `poi_detail`·`poi_image` 에 넣는다(계약 1.21.0 `PoiDetail.info`, �
 ```bash
 just poi-tour-detail ~/SceneTrip-data/SceneTrip_POI/raw/tourapi/Kor/detail.jsonl ~/SceneTrip-data/SceneTrip_POI/out/tour_detail.jsonl
 just seed-poi-detail ~/SceneTrip-data/SceneTrip_POI/out/tour_detail.jsonl
+# 영문 — 국문 뒤에(순서는 상관없다)
+just poi-tour-detail ~/SceneTrip-data/SceneTrip_POI/raw/tourapi/Eng/detail.jsonl ~/SceneTrip-data/SceneTrip_POI/out/tour_detail_en.jsonl --lang en
+just seed-poi-detail ~/SceneTrip-data/SceneTrip_POI/out/tour_detail_en.jsonl
 ```
 
 - **다시 돌려도 된다** — POI·언어마다 한 줄을 덮어쓰고 같은 주소 사진은 한 번이다. 수집이 이어지는 동안 언제든 두 줄을 다시
   돌리면 새로 받은 곳이 더해진다.
-- 지금은 관광공사에서 바로 들어온 POI(`tour-<번호>`)에만 붙는다 — 상가정보 가게에 합쳐진 줄은 `poi_source` 뒤에.
+- 국문은 관광공사에서 바로 들어온 POI(`tour-<번호>`)에만 붙는다 — 상가정보 가게에 합쳐진 줄은 `poi_source` 뒤에.
+- 영문은 번호가 국문과 달라 적재 SQL 이 짝을 짓는다 — 제목 괄호 속 한국어 이름이 **300 m 안 열린 POI 이름과 같으면**(대괄호
+  꼬리·기호 무시) 가장 가까운 것. 영문 사진은 국문 사진 뒤에.
 - 글은 HTML 을 지우고 `<br>` 을 줄바꿈으로. 이용시간 등은 종류마다 칸 이름이 달라 하나로 모은다(`FIELDS`).
 - 사진은 대표 이미지 → 상세 사진 순, https 로 바꾸고, 공공누리 유형(`kogl_type1`·`kogl_type3`)과 썸네일을 함께 넣는다.
 - 홈페이지는 `<a href>` 나 글 속 첫 주소. 주소 뒤에 붙은 한글 이름표는 떼고, 한글 도메인은 둔다.
-- 로컬 실측(2026-10-15, 국문 21,997 곳): 17,285 곳에 상세, 사진 53,055 장 더해짐(대표 이미지는 예전 적재분과 겹침).
+- 로컬 실측(2026-10-15): 국문 21,997 곳 중 17,285 곳에 상세, 사진 53,055 장 더해짐(대표 이미지는 예전 적재분과 겹침).
+  영문 15,287 곳 중 13,419 곳(88 %)에 짝, 사진 16,799 장. 국문·영문 어느 순서로 다시 돌려도 바뀌는 것 0.

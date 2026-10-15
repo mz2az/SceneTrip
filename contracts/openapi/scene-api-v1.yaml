@@ -4337,9 +4337,10 @@ components:
     PoiInfo:
       type: object
       description: |
-        관광공사 TourAPI 상세에서 뽑은 안내(1.21.0, MZ2AZ-376). **칸마다 따로** 요청 언어(`Accept-Language`) → 한국어로
-        폴백한다 — 개요는 영어인데 주차는 한국어일 수 있다. 각 칸의 `lang` 이 실제 언어다. 한국어에도 없는 칸은 **null** 이고,
-        앱은 그 줄을 그리지 않는다. 앱 언어와 `lang` 이 다르면 「한국어」 표시·기기 번역을 붙일 수 있다.
+        관광공사 TourAPI 상세에서 뽑은 안내(1.21.0, MZ2AZ-376). **칸마다 따로** 요청 언어(`Accept-Language`) → `en` →
+        `ko` 로 폴백한다(맨 위 「언어」 와 같은 순서) — 개요는 영어인데 주차는 한국어일 수 있다. 각 칸의 `lang` 이 실제 언어다.
+        어느 언어에도 없는 칸은 **null** 이고, 앱은 그 줄을 그리지 않는다. 앱 언어와 `lang` 이 다르면 언어 표시·기기 번역을
+        붙일 수 있다.
 
         글은 관광공사가 사람이 읽으라고 쓴 자유 문장이다 — 「10:30~21:00 (라스트오더 20:30)」. 시각으로 계산하지 않는다
         (「지금 영업 중」 같은 판단을 하지 않는다). HTML 은 서버가 지우고 줄바꿈(`<br>`)은 `\n` 으로 바꿔 보낸다.
@@ -4378,7 +4379,7 @@ components:
           type: string
           format: uri
           nullable: true
-          description: 홈페이지. 요청 언어 → 한국어 순서로 고른 주소 하나. 누르면 브라우저로 연다
+          description: 홈페이지. 요청 언어 → `en` → `ko` 순서로 고른 주소 하나. 누르면 브라우저로 연다
           example: https://www.royalpalace.go.kr
 
     PoiInfoText:

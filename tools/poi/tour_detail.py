@@ -12,7 +12,10 @@ homepage, images: [{url, thumbnail_url, license, credit}]}` 로 쓴다. `source_
   https 만 받고, 관광공사 사진 서버는 같은 주소를 https 로도 준다. 같은 주소는 한 번.
 - 사진의 공공누리 유형(Type1 · Type3)은 `kogl_type1` · `kogl_type3` 로. 모르면 null.
 
-지금은 국문만(lang = ko). 영문은 번호가 국문과 달라 짝을 다시 지은 뒤 붙인다.
+`--lang en` 은 영문 상세(`raw/tourapi/Eng/detail.jsonl`)다. 영문은 관광공사 번호가 국문과 달라 우리 POI 에 바로 잇지
+못한다 — `source_id` 를 비우고 짝 지을 단서를 싣는다: `match_name`(제목 「영어 이름 (한국어 이름)」 의 마지막 괄호 속 한국어,
+겹친 괄호를 고려), `lat`·`lng`. 짝은 적재 SQL 이 짓는다(300 m 안 · 이름이 같은 POI). 영문 종류 번호는 국문 번호로 바꿔
+같은 칸 이름을 쓴다(`ENG_TYPE`). 국문 줄의 세 칸은 null.
 계획: docs/project/plans/poi-source.md §6 · §6-1.
 """
 
@@ -59,6 +62,18 @@ FIELDS: dict[str, dict[str, str]] = {
     },
 }
 TEXT_KEYS = ("use_time", "rest_date", "parking", "first_menu", "use_fee")
+
+# 영문 서비스의 종류 번호 → 국문 번호. 칸 이름은 국문과 같다.
+# 76 관광지 · 78 문화시설 · 85 축제 · 75 레포츠 · 80 숙박 · 79 쇼핑 · 82 음식점 (77 교통은 상세 칸이 없다)
+ENG_TYPE = {
+    "76": "12",
+    "78": "14",
+    "85": "15",
+    "75": "28",
+    "80": "32",
+    "79": "38",
+    "82": "39",
+}
 
 LICENSE = {"Type1": "kogl_type1", "Type3": "kogl_type3"}
 CREDIT = "한국관광공사"
@@ -161,6 +176,38 @@ def images(common: dict, detail_images: object) -> list[dict]:
     return out
 
 
+_HANGUL = re.compile("[가-힣]")
+
+
+def korean_name(title: object) -> str | None:
+    """영문 제목 「영어 이름 (한국어 이름)」 → 한국어 이름. 마지막 괄호 묶음(겹친 괄호 고려) 속에 한글이 있으면 그것,
+    드물게 「한국어 (영어)」 꼴이면 괄호 앞. 한글이 없으면 None."""
+    t = str(title or "").strip()
+    if t.endswith(")"):
+        depth = 0
+        for i in range(len(t) - 1, -1, -1):
+            if t[i] == ")":
+                depth += 1
+            elif t[i] == "(":
+                depth -= 1
+                if depth == 0:
+                    inner, before = t[i + 1 : -1].strip(), t[:i].strip()
+                    if _HANGUL.search(inner):
+                        return inner
+                    if _HANGUL.search(before):
+                        return before
+                    return None
+        return None
+    return t if _HANGUL.search(t) else None
+
+
+def _coord(value: object) -> float | None:
+    try:
+        return float(str(value).strip())
+    except ValueError:
+        return None
+
+
 def row(item: dict, lang: str = "ko") -> dict | None:
     """상세 한 줄 → 적재 한 줄. 번호가 없으면 None."""
     cid = str(item.get("contentid") or "").strip()
@@ -169,9 +216,14 @@ def row(item: dict, lang: str = "ko") -> dict | None:
     common = _first(item.get("common"))
     intro = _first(item.get("intro"))
     ctype = str(item.get("contenttypeid") or common.get("contenttypeid") or "").strip()
+    if lang == "en":
+        ctype = ENG_TYPE.get(ctype, "")
     fields = FIELDS.get(ctype, {})
     out: dict = {
-        "source_id": f"tour-{cid}",
+        "source_id": f"tour-{cid}" if lang == "ko" else None,
+        "match_name": korean_name(common.get("title")) if lang == "en" else None,
+        "lat": _coord(common.get("mapy")) if lang == "en" else None,
+        "lng": _coord(common.get("mapx")) if lang == "en" else None,
         "lang": lang,
         "tour_content_id": cid,
         "tour_modified": modified(common.get("modifiedtime")),
@@ -194,9 +246,13 @@ def _resolve(path: str) -> Path:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument(
-        "detail_jsonl", help="관광공사 국문 상세 (raw/tourapi/Kor/detail.jsonl)"
+        "detail_jsonl",
+        help="관광공사 상세 (raw/tourapi/Kor/detail.jsonl · Eng/detail.jsonl)",
     )
     ap.add_argument("out", help="결과 파일 (예 tour_detail.jsonl)")
+    ap.add_argument(
+        "--lang", choices=("ko", "en"), default="ko", help="입력의 언어 (기본 ko)"
+    )
     args = ap.parse_args(argv)
 
     src, out = _resolve(args.detail_jsonl), _resolve(args.out)
@@ -217,11 +273,11 @@ def main(argv: list[str] | None = None) -> int:
             if not line.strip():
                 continue
             items += 1
-            r = row(json.loads(line))
+            r = row(json.loads(line), args.lang)
             # 수집이 같은 장소를 두 번 받았으면 뒤의 것이 최신이지만, 수집은 끝난 장소를 다시 부르지 않아 두 번은 드물다.
-            if r is None or r["source_id"] in seen:
+            if r is None or r["tour_content_id"] in seen:
                 continue
-            seen.add(r["source_id"])
+            seen.add(r["tour_content_id"])
             with_images += bool(r["images"])
             w.write(json.dumps(r, ensure_ascii=False) + "\n")
             written += 1

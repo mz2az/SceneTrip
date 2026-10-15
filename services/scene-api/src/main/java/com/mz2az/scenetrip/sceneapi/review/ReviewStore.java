@@ -85,8 +85,21 @@ public class ReviewStore {
    * @param storageKey 리뷰 사진의 저장소 키. 우리 사진이면 {@code null}
    * @param reviewId 리뷰 사진이면 그 리뷰
    * @param credit 우리 사진의 저작자 표기
+   * @param thumbnailUrl 우리 사진의 작은 사진(관광공사가 만든 것). 없으면 {@code null}
+   * @param license 공공누리 유형({@code kogl_type1}·{@code kogl_type3}, MZ2AZ-376). 없으면 {@code null}
    */
-  public record Photo(String url, String storageKey, Long reviewId, String credit) {}
+  public record Photo(
+      String url,
+      String storageKey,
+      Long reviewId,
+      String credit,
+      String thumbnailUrl,
+      String license) {
+
+    public Photo(String url, String storageKey, Long reviewId, String credit) {
+      this(url, storageKey, reviewId, credit, null, null);
+    }
+  }
 
   /** 리뷰를 저장할 때 사진 키가 받아들여지지 않았다. */
   public static final class PhotoKeyRejectedException extends RuntimeException {
@@ -393,16 +406,19 @@ public class ReviewStore {
   public Page<Photo> photos(Target target, long id, int limit, int offset, UUID viewer) {
     String official =
         target == Target.PLACE
-            ? "SELECT url, NULL::TEXT AS credit, sort_order, id FROM place_image WHERE place_id ="
-                + " :id"
-            : "SELECT url, credit, sort_order, id FROM poi_image WHERE poi_id = :id";
+            ? "SELECT url, NULL::TEXT AS credit, NULL::TEXT AS thumbnail_url, NULL::TEXT AS"
+                + " license, sort_order, id FROM place_image WHERE place_id = :id"
+            : "SELECT url, credit, thumbnail_url, license, sort_order, id FROM poi_image"
+                + " WHERE poi_id = :id";
     String union =
         """
         SELECT o.url, NULL::TEXT AS storage_key, NULL::BIGINT AS review_id, o.credit,
+               o.thumbnail_url, o.license,
                0 AS part, NULL::TIMESTAMPTZ AS created_at, o.sort_order, o.id
         FROM (%s) o
         UNION ALL
         SELECT NULL, ri.storage_key, r.id, NULL,
+               NULL, NULL,
                1, r.created_at, ri.sort_order, r.id
         FROM review r
         JOIN review_image ri ON ri.review_id = r.id
@@ -432,7 +448,9 @@ public class ReviewStore {
                       rs.getString("url"),
                       rs.getString("storage_key"),
                       rs.wasNull() ? null : reviewId,
-                      rs.getString("credit"));
+                      rs.getString("credit"),
+                      rs.getString("thumbnail_url"),
+                      rs.getString("license"));
                 })
             .list();
     int total =

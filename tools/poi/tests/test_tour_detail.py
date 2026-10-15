@@ -26,6 +26,9 @@ KEYS = {
     "use_fee",
     "homepage",
     "images",
+    "match_name",
+    "lat",
+    "lng",
 }
 TEXT = ("use_time", "rest_date", "parking", "first_menu", "use_fee")
 
@@ -51,7 +54,7 @@ class TmpRun(unittest.TestCase):
     def tearDown(self):
         self._td.cleanup()
 
-    def run_lines(self, items, out_name="tour_detail.jsonl", raw=None):
+    def run_lines(self, items, out_name="tour_detail.jsonl", raw=None, extra=()):
         src = self.tmp / "detail.jsonl"
         if raw is not None:
             src.write_text(raw, encoding="utf-8")
@@ -63,7 +66,7 @@ class TmpRun(unittest.TestCase):
         out = self.tmp / out_name
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
-            rc = main([str(src), str(out)])
+            rc = main([str(src), str(out), *extra])
         self.stdout = buf.getvalue()
         self.rc = rc
         if rc != 0 or not out.exists():
@@ -74,8 +77,8 @@ class TmpRun(unittest.TestCase):
             if x.strip()
         ]
 
-    def one(self, item):
-        rows = self.run_lines([item])
+    def one(self, item, extra=()):
+        rows = self.run_lines([item], extra=extra)
         self.assertEqual(self.rc, 0)
         self.assertEqual(len(rows), 1)
         return rows[0]
@@ -89,6 +92,23 @@ class TourDetailIdentity(TmpRun):
         self.assertEqual(r["lang"], "ko")
         self.assertEqual(r["tour_content_id"], "126508")
         self.assertIsInstance(r["tour_content_id"], str)
+        self.assertIsNone(r["match_name"])
+        self.assertIsNone(r["lat"])
+        self.assertIsNone(r["lng"])
+
+    def test_ko_ignores_title_and_coords(self):
+        r = self.one(
+            place(common={"title": "추암조각공원", "mapx": "129.16", "mapy": "37.47"})
+        )
+        self.assertEqual(r["source_id"], "tour-126508")
+        self.assertIsNone(r["match_name"])
+        self.assertIsNone(r["lat"])
+        self.assertIsNone(r["lng"])
+
+    def test_explicit_lang_ko_same_as_default(self):
+        r = self.one(place("5"), extra=("--lang", "ko"))
+        self.assertEqual(r["lang"], "ko")
+        self.assertEqual(r["source_id"], "tour-5")
 
     def test_numeric_contentid_becomes_string(self):
         r = self.one(place(126508))
@@ -356,6 +376,115 @@ class TourDetailMain(TmpRun):
         self.assertEqual(self.rc, 0)
         self.assertEqual(len(rows), 2)
         self.assertTrue(self.stdout.strip())
+
+
+EN = ("--lang", "en")
+
+
+class TourDetailEnglish(TmpRun):
+    def en(self, item):
+        return self.one(item, extra=EN)
+
+    def test_identity(self):
+        r = self.en(place("2465071", ctype="76", common={"title": "Seoul Tower"}))
+        self.assertEqual(set(r), KEYS)
+        self.assertIsNone(r["source_id"])
+        self.assertEqual(r["lang"], "en")
+        self.assertEqual(r["tour_content_id"], "2465071")
+
+    def test_match_name_examples(self):
+        cases = {
+            "Chuam Sculpture Park (추암조각공원)": "추암조각공원",
+            "1004 (Cheonsa) Bridge (천사대교)": "천사대교",
+            "8 Seconds [Tax Refund Shop](에잇세컨즈 제주중앙점)": "에잇세컨즈 제주중앙점",
+            "추암조각공원 (Chuam Sculpture Park)": "추암조각공원",
+            "Seoul Tower": None,
+            "경복궁": "경복궁",
+            "Gyeongbokgung (Palace)": None,
+            "Café (Cafe (Seoul) 카페)": "Cafe (Seoul) 카페",
+        }
+        for title, expect in cases.items():
+            with self.subTest(title=title):
+                self.assertEqual(
+                    self.en(place(common={"title": title}))["match_name"], expect
+                )
+
+    def test_missing_title(self):
+        self.assertIsNone(self.en(place(common={}))["match_name"])
+
+    def test_coords(self):
+        r = self.en(place(common={"mapx": "129.1612", "mapy": "37.4775"}))
+        self.assertEqual(r["lat"], 37.4775)
+        self.assertEqual(r["lng"], 129.1612)
+        self.assertIsInstance(r["lat"], float)
+
+    def test_bad_coords_null(self):
+        for v in ("", "abc", None):
+            with self.subTest(v=v):
+                c = {} if v is None else {"mapx": v, "mapy": v}
+                r = self.en(place(common=c))
+                self.assertIsNone(r["lat"])
+                self.assertIsNone(r["lng"])
+
+    def test_type_mapping(self):
+        mapping = {
+            "76": "12",
+            "78": "14",
+            "85": "15",
+            "75": "28",
+            "80": "32",
+            "79": "38",
+            "82": "39",
+            "77": "25",
+        }
+        for en_type, ko_type in mapping.items():
+            with self.subTest(en_type=en_type):
+                r = self.en(
+                    place(
+                        cid="8" + en_type,
+                        ctype=en_type,
+                        intro=dict(TourDetailIntroByType.ALL),
+                    )
+                )
+                self.assertEqual(
+                    tuple(r[k] for k in TEXT), TourDetailIntroByType.EXPECT[ko_type]
+                )
+
+    def test_korean_type_numbers_not_mapped_for_en(self):
+        # 국문 번호(12)는 영문 매핑표에 없다 — 「다른 유형」 이라 다섯 칸 모두 null
+        r = self.en(place(ctype="12", intro={"usetime": "9am"}))
+        self.assertIsNone(r["use_time"])
+
+    def test_text_cleaning_and_images_same_rules(self):
+        r = self.en(
+            place(
+                ctype="76",
+                common={
+                    "overview": "A &amp; B<br><br><br>C",
+                    "homepage": '<a href="https://english.visitkorea.or.kr/x">site</a>',
+                    "firstimage": "http://x.kr/a.jpg",
+                    "cpyrhtDivCd": "Type3",
+                },
+            )
+        )
+        self.assertEqual(r["overview"], "A & B\n\nC")
+        self.assertEqual(r["homepage"], "https://english.visitkorea.or.kr/x")
+        self.assertEqual(r["images"][0]["url"], "https://x.kr/a.jpg")
+        self.assertEqual(r["images"][0]["license"], "kogl_type3")
+
+    def test_dedupe_by_content_id(self):
+        rows = self.run_lines(
+            [
+                place("1", common={"overview": "first"}),
+                place("2"),
+                place("1", common={"overview": "second"}),
+                place(None),
+            ],
+            extra=EN,
+        )
+        self.assertEqual(self.rc, 0)
+        self.assertEqual([r["tour_content_id"] for r in rows], ["1", "2"])
+        self.assertEqual(rows[0]["overview"], "first")
 
 
 if __name__ == "__main__":

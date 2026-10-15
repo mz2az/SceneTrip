@@ -299,11 +299,12 @@ seed-poi *files:
 seed-poi-detail file:
     ./tools/scripts/seed-poi-detail.sh "{{ file }}"
 
-# 관광공사 상세 파일(just poi-tourapi 가 쌓은 것)로 상세 적재 파일을 만든다 — 결과는 just seed-poi-detail 로
+# 관광공사 상세 파일(just poi-tourapi 가 쌓은 것)로 상세 적재 파일을 만든다 — 결과는 just seed-poi-detail 로. 영문은 `--lang en`
 # 예: `just poi-tour-detail ~/SceneTrip-data/SceneTrip_POI/raw/tourapi/Kor/detail.jsonl ~/SceneTrip-data/SceneTrip_POI/out/tour_detail.jsonl`
+#     `just poi-tour-detail ~/SceneTrip-data/SceneTrip_POI/raw/tourapi/Eng/detail.jsonl ~/SceneTrip-data/SceneTrip_POI/out/tour_detail_en.jsonl --lang en`
 [group('db')]
-poi-tour-detail detail_jsonl out:
-    {{BAZEL}} run //tools/poi:tour_detail -- "{{ detail_jsonl }}" "{{ out }}"
+poi-tour-detail detail_jsonl out *flags:
+    {{BAZEL}} run //tools/poi:tour_detail -- "{{ detail_jsonl }}" "{{ out }}" {{ flags }}
 
 #   just poi-filter "~/Downloads/압축 poi 2/poi_food.jsonl.gz" "~/Downloads/압축 poi 2/허용목록만/poi_food.jsonl.gz"
 #
