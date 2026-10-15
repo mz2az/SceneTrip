@@ -22,7 +22,7 @@ extension RouteMapView.Coordinator {
             onViewport(
                 bounds.southWestLat, bounds.southWestLng,
                 bounds.northEastLat, bounds.northEastLng,
-                center.lat, center.lng, mapView.zoomLevel
+                center.lat, center.lng, mapView.zoomLevel, region.source
             )
         }
     }

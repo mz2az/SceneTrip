@@ -26,6 +26,7 @@ struct RouteGuideSheet: View {
 
     /// 어디를 기준으로 「주변」인가.
     let here: CLLocationCoordinate2D?
+    var coordinateSource = LocationCoordinateSource.device
     var anchorDescription = tr("지도에 표시된 내 위치 주변을 찾아 드립니다.")
     var onChangeAnchor: (() -> Void)?
     var anchorActionTitle = ""
@@ -57,6 +58,7 @@ struct RouteGuideSheet: View {
 
     @State private var draft = ""
     @StateObject var consentGate = AIConsentGate()
+    @StateObject var locationGate = AIConsentGate(store: LocationConsentStore.shared)
 
     /// 이 창의 이름표 — 대화 객체가 「떠 있는 창」 을 세는 데 쓴다(`RouteGuideSession.setAttended`).
     @State private var panelId = UUID()
@@ -72,6 +74,7 @@ struct RouteGuideSheet: View {
         .onAppear { session.setAttended(true, by: panelId) }
         .onDisappear { session.setAttended(false, by: panelId) }
         .aiConsentSheet(consentGate)
+        .locationConsentSheet(locationGate)
     }
 
     /// 손수 그린 머리줄. 내비게이션 바를 쓰지 않는 이유는 닫기 단추다 — 바에
@@ -380,8 +383,10 @@ struct RouteGuideSheet: View {
         // 잠긴 동안 자판의 「완료」 로 들어오면 친 글을 지우지 않는다.
         guard let here, canSend else { return }
         consentGate.request {
-            draft = ""
-            Task { await session.ask(text, here: here, context: context) }
+            locationGate.requestLocation(for: coordinateSource) {
+                draft = ""
+                Task { await session.ask(text, here: here, context: context, source: coordinateSource) }
+            }
         }
     }
 }

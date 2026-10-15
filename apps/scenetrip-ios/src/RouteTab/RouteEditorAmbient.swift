@@ -83,23 +83,34 @@ extension RouteEditorView {
     /// 서버도 헛돈다.
     func viewportChanged(
         south: Double, west: Double, north: Double, east: Double,
-        centerLat: Double, centerLng: Double, zoom: Double
+        centerLat: Double, centerLng: Double, zoom: Double, source: LocationCoordinateSource
     ) {
         guideMapCenter = TripSpot(latitude: centerLat, longitude: centerLng)
+        guideMapSource = source
         ambientTask?.cancel()
+        ambientLocationGate.cancel()
         guard zoom >= 13 else {
+            ambientPois = []
+            return
+        }
+        // 여행 시작의 동의 시트와 겹치지 않는다. 허용 뒤 경로 맞춤에서 다시 조회한다.
+        if source == .device, trip.isActive, !LocationConsentStore.shared.isAllowed {
             ambientPois = []
             return
         }
         ambientTask = Task {
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
-            let found = await RouteGuide.pois(
-                south: south, west: west, north: north, east: east,
-                centerLat: centerLat, centerLng: centerLng, limit: 30
-            )
-            guard !Task.isCancelled else { return }
-            ambientPois = found
+            ambientLocationGate.requestLocation(for: source) {
+                ambientTask = Task {
+                    let found = await RouteGuide.pois(
+                        south: south, west: west, north: north, east: east,
+                        centerLat: centerLat, centerLng: centerLng, limit: 30, source: source
+                    )
+                    guard !Task.isCancelled else { return }
+                    ambientPois = found
+                }
+            }
         }
     }
 }

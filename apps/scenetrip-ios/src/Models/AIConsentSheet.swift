@@ -1,7 +1,13 @@
 import SwiftUI
 
 /// 첫 질문·첫 AI 코스 만들기·설정에서 공통으로 쓰는 안내.
-struct AIConsentSheet: View {
+struct ConsentSheet: View {
+    let title: LocalizedStringKey
+    let disclosure: String
+    let linkTitle: LocalizedStringKey
+    let link: URL
+    let allowTitle: LocalizedStringKey
+    let identifier: String
     let allow: () -> Void
     let cancel: () -> Void
 
@@ -9,20 +15,20 @@ struct AIConsentSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("AI 기능 사용 안내")
+                    Text(title)
                         .font(.title2.bold())
                         .accessibilityAddTraits(.isHeader)
                     Text(disclosure)
                         .fixedSize(horizontal: false, vertical: true)
-                    Link("개인정보 처리방침", destination: LegalLinks.privacy)
-                    Button("허용하고 계속", action: allow)
+                    Link(linkTitle, destination: link)
+                    Button(allowTitle, action: allow)
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
-                        .accessibilityIdentifier("ai-consent-allow")
+                        .accessibilityIdentifier("\(identifier)-allow")
                     Button("취소", role: .cancel, action: cancel)
                         .buttonStyle(.bordered)
                         .controlSize(.large)
-                        .accessibilityIdentifier("ai-consent-cancel")
+                        .accessibilityIdentifier("\(identifier)-cancel")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(24)
@@ -31,6 +37,20 @@ struct AIConsentSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+    }
+}
+
+struct AIConsentSheet: View {
+    let allow: () -> Void
+    let cancel: () -> Void
+
+    var body: some View {
+        ConsentSheet(
+            title: "AI 기능 사용 안내", disclosure: disclosure,
+            linkTitle: "개인정보 처리방침", link: LegalLinks.privacy,
+            allowTitle: "허용하고 계속", identifier: "ai-consent",
+            allow: allow, cancel: cancel
+        )
     }
 
     private var disclosure: String {

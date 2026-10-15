@@ -197,7 +197,7 @@ final class RouteGuideLimitSessionTests: XCTestCase {
 
     private func makeSession() -> RouteGuideSession {
         let session = RouteGuideSession(environment: .init(
-            send: { [wire] in try await wire.send($0, key: $1, keyed: $2) },
+            send: { [wire] request, key, keyed, _ in try await wire.send(request, key: key, keyed: keyed) },
             serverKeepsKeys: { [unowned self] in serverKeepsKeys },
             lang: { .ko },
             newKey: UUID.init,
@@ -373,7 +373,7 @@ final class RouteGuideLimitSessionTests: XCTestCase {
             var release = false
             var sent = 0
             let session = RouteGuideSession(environment: .init(
-                send: { _, _, _ in
+                send: { _, _, _, _ in
                     sent += 1
                     while !release { // 취소돼도 서버는 이미 답을 보내고 있다 — 끊김을 무시하고 늦게 돌아온다
                         await Task.yield()

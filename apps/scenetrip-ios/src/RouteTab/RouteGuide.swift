@@ -135,10 +135,13 @@ enum RouteGuide {
 
     /// 생성 클라이언트의 요청. **「전송」 과 「다시 시도」 가 같은 것을 만든다** — 시험이 이것을 두 번 불러 실제로
     /// 나가는 `URLRequest` 의 헤더와 본문 값이 같은지 본다(`GuideChatRequestBuildTests`).
-    static func chatBuilder(_ request: GuideChatRequest, key: UUID) -> RequestBuilder<GuideChatReply> {
+    static func chatBuilder(
+        _ request: GuideChatRequest, key: UUID, source: LocationCoordinateSource = .device
+    ) -> RequestBuilder<GuideChatReply> {
         GuideAPI.chatWithGuideWithRequestBuilder(
             xInstallId: InstallIdentity.current, guideChatRequest: request, idempotencyKey: key.uuidString
         )
+        .coordinateSource(source)
     }
 
     /// 만들어 둔 요청을 보낸다. 「전송」 도 「다시 시도」 도 이리로 온다.
@@ -147,11 +150,13 @@ enum RouteGuide {
     ///   - key: 이 턴의 멱등 키. 같은 턴을 다시 보낼 때는 **같은 값**.
     ///   - keyed: 서버가 멱등 키를 아는가. 알면 공통 계층(`RetryingSession`)이 요청마다 50초 벽을 걸고 한 번
     ///     다시 보내므로, 여기서는 턴 전체의 벽만 건다. 모르면 전처럼 50초에 끊고 다시 보내지 않는다.
-    static func send(_ request: GuideChatRequest, key: UUID, keyed: Bool) async throws -> Answer {
+    static func send(
+        _ request: GuideChatRequest, key: UUID, keyed: Bool, source: LocationCoordinateSource = .device
+    ) async throws -> Answer {
         let tuning = RetryRules.Tuning.self
         let wall = keyed ? tuning.chatBudget + tuning.chatWallMargin : timeoutSeconds
         let reply = try await RouteGuideTimeout.run(seconds: wall) {
-            try await chatBuilder(request, key: key).execute().body
+            try await chatBuilder(request, key: key, source: source).execute().body
         }
         return Answer(
             reply: reply.reply,
@@ -172,13 +177,14 @@ enum RouteGuide {
     /// 주변 점은 장식이라 화면이 막히지 않는다.
     static func pois(
         south: Double, west: Double, north: Double, east: Double,
-        centerLat: Double, centerLng: Double, limit: Int = 30
+        centerLat: Double, centerLng: Double, limit: Int = 30,
+        source: LocationCoordinateSource
     ) async -> [Place] {
         // bbox 는 GeoJSON 순서 — minLng,minLat,maxLng,maxLat.
         let bbox = "\(west),\(south),\(east),\(north)"
-        guard let list = try? await PoisAPI.listPois(
+        guard let list = try? await PoisAPI.listPoisWithRequestBuilder(
             bbox: bbox, lat: centerLat, lng: centerLng, sort: .distance, limit: limit
-        ) else { return [] }
+        ).coordinateSource(source).execute().body else { return [] }
         return list.items.map(Place.init(poi:))
     }
 

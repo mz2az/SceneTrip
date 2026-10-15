@@ -126,6 +126,7 @@ extension RouteMapView.Coordinator {
 
     /// 안내 중 — 내 자리·목적지·경로선이 다 들어오게. 자리를 모르면 목적지만.
     func fitTrip(to target: RouteStop, legs: [RouteLeg], on mapView: NMFMapView) {
+        region.source = here != nil || !legs.isEmpty ? .device : .userSelected
         let goal = NMGLatLng(lat: target.place.latitude, lng: target.place.longitude)
         var points = legs.flatMap(\.path).compactMap { pair -> NMGLatLng? in
             pair.count >= 2 ? NMGLatLng(lat: pair[1], lng: pair[0]) : nil // [경도, 위도]
