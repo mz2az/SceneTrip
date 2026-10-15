@@ -215,6 +215,8 @@ struct ProfileTabView: View {
                     .buttonStyle(.plain)
                 }
 
+                legalSection
+
                 accountSection
 
                 Section("준비 중") {
@@ -421,6 +423,22 @@ extension ProfileTabView {
                 showingMyReviews = true
             } label: {
                 row(symbol: "star.bubble", tint: .orange, title: tr("내 리뷰", at: "목록"), value: "", chevron: true)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// 처리방침·약관 (MZ2AZ-455, App Store 5.1.1 — 앱 안에서 찾을 수 있어야 한다). 비회원에게도 보인다.
+    /// 앱의 다른 외부 페이지처럼 Safari 로 연다. 주소는 `LegalLinks` 한 곳에 있다.
+    var legalSection: some View {
+        Section("약관 및 정책") {
+            Link(destination: LegalLinks.privacy) {
+                row(symbol: "hand.raised", tint: .blue, title: tr("개인정보 처리방침"),
+                    value: "", chevron: true)
+            }
+            .buttonStyle(.plain)
+            Link(destination: LegalLinks.terms) {
+                row(symbol: "doc.text", tint: .blue, title: tr("이용약관"), value: "", chevron: true)
             }
             .buttonStyle(.plain)
         }
