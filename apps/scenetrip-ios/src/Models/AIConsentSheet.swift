@@ -11,32 +11,63 @@ struct ConsentSheet: View {
     let allow: () -> Void
     let cancel: () -> Void
 
+    @State private var contentHeight: CGFloat = 0
+
+    private static let minimumHeight: CGFloat = 240
+    private static let maximumHeight: CGFloat = 480
+
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    Text(title)
-                        .font(.title2.bold())
-                        .accessibilityAddTraits(.isHeader)
-                    Text(disclosure)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Link(linkTitle, destination: link)
-                    Button(allowTitle, action: allow)
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .accessibilityIdentifier("\(identifier)-allow")
-                    Button("취소", role: .cancel, action: cancel)
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
-                        .accessibilityIdentifier("\(identifier)-cancel")
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(24)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Text(title)
+                    .font(.title2.bold())
+                    .accessibilityAddTraits(.isHeader)
+                Text(disclosure)
+                Link(linkTitle, destination: link)
+                actions
             }
-            .navigationBarTitleDisplayMode(.inline)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(24)
+            .onGeometryChange(for: CGFloat.self) { geometry in
+                ceil(geometry.size.height)
+            } action: { height in
+                contentHeight = height
+            }
         }
-        .presentationDetents([.large])
+        .scrollBounceBehavior(.basedOnSize)
+        .presentationDetents([contentDetent, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private var contentDetent: PresentationDetent {
+        guard contentHeight > 0 else { return .medium }
+        return .height(min(max(contentHeight, Self.minimumHeight), Self.maximumHeight))
+    }
+
+    private var actions: some View {
+        VStack(spacing: 6) {
+            Button(action: allow) {
+                Text(allowTitle)
+                    .font(.headline)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: 28)
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .controlSize(.large)
+            .accessibilityIdentifier("\(identifier)-allow")
+            Button(role: .cancel, action: cancel) {
+                Text("취소")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("\(identifier)-cancel")
+        }
     }
 }
 
