@@ -92,6 +92,44 @@ final class GuideChatRequestBuildTests: XCTestCase {
         ))
     }
 
+    func testMapGuideSourceSurvivesBuilderAndRetry() throws {
+        let request = RouteGuide.request(history: [], here: seoul, sessionId: UUID())
+        let turn = PendingTurn(key: UUID(), request: request, lang: .ko, keyed: true, source: .userSelected)
+        let again = try XCTUnwrap(turn.failing(.unavailable)?.retried(lang: .ko, newKey: UUID.init))
+        for sending in [turn, again] {
+            let built = try urlRequest(for: sending)
+            XCTAssertEqual(
+                built.value(forHTTPHeaderField: LocationCoordinateSource.header),
+                LocationCoordinateSource.userSelected.rawValue
+            )
+            let store = LocationConsentStore(storage: MemoryAIConsentStorage())
+            XCTAssertNoThrow(try store.requestForSending(built))
+        }
+    }
+
+    func testViewportPaginationKeepsGPSCoordinateSource() throws {
+        let factory = SceneApiClientAPI.requestBuilderFactory
+        defer { SceneApiClientAPI.requestBuilderFactory = factory }
+        let session = RetryFakeSession([.hang, .hang])
+        CapturedSession.current = session
+        SceneApiClientAPI.requestBuilderFactory = CapturingFactory()
+        for offset in [0, 200] {
+            let task = SceneData.viewportBuilder("126,37,127,38", source: .device, offset: offset).execute { _ in }
+            task.cancel()
+            let request = try XCTUnwrap(session.requests.last)
+            XCTAssertEqual(
+                request.value(forHTTPHeaderField: LocationCoordinateSource.header),
+                LocationCoordinateSource.device.rawValue
+            )
+            let store = LocationConsentStore(storage: MemoryAIConsentStorage())
+            XCTAssertThrowsError(try store.requestForSending(request))
+            store.allow()
+            XCTAssertNoThrow(try store.requestForSending(request))
+            store.revoke()
+            XCTAssertThrowsError(try store.requestForSending(request))
+        }
+    }
+
     /// 생성 클라이언트가 이 턴으로 만드는 요청. 빌더가 쓸 세션만 가짜로 바꿔, 나가려던 `URLRequest` 를 받는다.
     private func urlRequest(for turn: PendingTurn) throws -> URLRequest {
         let factory = SceneApiClientAPI.requestBuilderFactory
@@ -105,7 +143,7 @@ final class GuideChatRequestBuildTests: XCTestCase {
         SceneApiClientAPI.requestBuilderFactory = CapturingFactory()
         SceneApiClientAPI.customHeaders["Accept-Language"] = turn.lang.rawValue // 앱이 언어를 싣는 자리(`AppLocale`)
 
-        let task = RouteGuide.chatBuilder(turn.request, key: turn.key).execute { _ in }
+        let task = RouteGuide.chatBuilder(turn.request, key: turn.key, source: turn.source).execute { _ in }
         task.cancel()
         return try XCTUnwrap(session.requests.first)
     }

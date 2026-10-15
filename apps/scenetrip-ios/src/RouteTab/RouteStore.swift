@@ -338,8 +338,8 @@ final class RouteStore: ObservableObject {
             titles: Array(titles.prefix(5)),
             days: span.days,
             pace: pace == .loose ? .relaxed : .packed,
-            latitude: near?.lat,
-            longitude: near?.lng
+            latitude: LocationConsentStore.shared.isAllowed ? near?.lat : nil,
+            longitude: LocationConsentStore.shared.isAllowed ? near?.lng : nil
         )
         do {
             let reply = try await GuideAPI.planWithGuide(guidePlanRequest: request)

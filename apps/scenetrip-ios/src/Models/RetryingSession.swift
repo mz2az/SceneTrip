@@ -35,6 +35,7 @@ final class RetryingSession: URLSessionProtocol, @unchecked Sendable {
         var fault: (URLRequest) -> NetFault.Injection? = NetFault.take(for:)
         /// 실제 전송마다 읽는다. 철회 뒤 인증 재전송·자동 재시도도 나가지 않는다.
         var aiConsent: AIConsentStore = .shared
+        var locationConsent: LocationConsentStore = .shared
     }
 
     static let log = Logger(subsystem: "com.mz2az.scenetrip", category: "retry")
@@ -221,11 +222,17 @@ final class RetryTask: URLSessionDataTaskProtocol, @unchecked Sendable {
         if let key {
             _ = session.keyClock.started(key, now: session.environment.now()) // 처음 보내는 키면 시각을 적는다
         }
-        var attempt = request
+        var attempt: URLRequest
+        do {
+            attempt = try session.environment.locationConsent.requestForSending(request)
+        } catch {
+            finish(nil, nil, error)
+            return
+        }
         // 남은 벽보다 오래 기다리지 않는다 — 15초짜리 요청이 벽 25초의 20초째에 나가면 5초만 기다린다.
         attempt.timeoutInterval = max(1, min(policy.attemptTimeout, policy.budget - elapsed()))
 
-        switch session.environment.fault(request) {
+        switch session.environment.fault(attempt) {
         case nil:
             fly(attempt) { data, response, error in self.handle(data, response, error) }
         case .lost:
@@ -283,7 +290,21 @@ final class RetryTask: URLSessionDataTaskProtocol, @unchecked Sendable {
     private func fly(
         _ attempt: URLRequest, _ handler: @escaping @Sendable (Data?, URLResponse?, Error?) -> Void
     ) {
-        let task = session.inner.dataTaskFromProtocol(with: attempt, completionHandler: handler)
+        do {
+            try session.environment.locationConsent.start(attempt) { safe in
+                flyWithLocationConsent(safe, handler)
+            }
+        } catch {
+            finish(nil, nil, error)
+        }
+    }
+
+    private func flyWithLocationConsent(
+        _ attempt: URLRequest, _ handler: @escaping @Sendable (Data?, URLResponse?, Error?) -> Void
+    ) {
+        var outgoing = attempt
+        outgoing.setValue(nil, forHTTPHeaderField: LocationCoordinateSource.header)
+        let task = session.inner.dataTaskFromProtocol(with: outgoing, completionHandler: handler)
         // `send()` 가 취소를 확인한 뒤 여기까지 오는 사이에 취소가 올 수 있다. 그랬다면 **내보내지 않는다** —
         // `cancel()` 이 떠 있는 것이 없다고 보고 이미 끝을 알렸다.
         let late = locked { () -> Bool in

@@ -47,6 +47,7 @@ struct PendingTurn: Equatable {
     /// 보낼 때 **서버가 멱등 키를 아는 것이 확인됐나**(`RateLimitLedger.serverKnowsLimits`). 아니면 자동 재시도도
     /// 「다시 시도」 도 없다 — 옛 서버는 같은 턴을 두 번 처리한다.
     let keyed: Bool
+    var source: LocationCoordinateSource = .device
     var stage: Stage = .sending
 
     // MARK: 전이 — 순수 함수. 표는 `docs/project/plans/app-retry.md` §10.
@@ -75,7 +76,7 @@ struct PendingTurn: Equatable {
     /// 서버가 「키 재사용」(422)이라 한 턴, 그리고 그 사이 앱 언어가 바뀐 턴(지문이 달라진다).
     func retried(lang now: Lang, newKey: () -> UUID) -> PendingTurn? {
         guard case let .failed(failure) = stage else { return nil }
-        var turn = PendingTurn(key: key, request: request, lang: now, keyed: keyed)
+        var turn = PendingTurn(key: key, request: request, lang: now, keyed: keyed, source: source)
         if failure.retry == .newKey || now != lang {
             turn.key = newKey()
         }

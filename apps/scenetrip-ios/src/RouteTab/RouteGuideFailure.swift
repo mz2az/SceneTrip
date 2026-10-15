@@ -14,6 +14,7 @@ import SceneApiClient
 /// 응답이 없을 때는 **왜 없는지**를 가른다(MZ2AZ-366) — 기기가 오프라인인지, 서버에 닿지 못했는지, 기다리다
 /// 그만둔 것인지. 전에는 셋 다 「백엔드(:8081)가 켜져 있나요?」 였다(개발자에게 하는 말).
 enum RouteGuideFailure: Equatable, Error {
+    case locationConsentRequired
     case consentRequired
     /// 가입해야 부를 수 있다 (401). 로컬 kind 는 벽을 치워 두어(MZ2AZ-302) 안 난다.
     case signInRequired
@@ -92,6 +93,9 @@ enum RouteGuideFailure: Equatable, Error {
 
     /// 응답이 없었다 — 원래 오류로 왜인지 가른다.
     private static func unanswered(_ error: Error) -> RouteGuideFailure {
+        if error is LocationConsentRequired {
+            return .locationConsentRequired
+        }
         if error is AIConsentRequired {
             return .consentRequired
         }
@@ -115,7 +119,7 @@ enum RouteGuideFailure: Equatable, Error {
         case .unavailable, .timedOut, .offline, .unreachable, .rateLimited, .interrupted: .sameKey
         // 한도에 걸린 턴은 서버가 처리하지 않았다(키도 지웠다) — 풀린 뒤 같은 키로 다시 보낸다. **단추는 풀린
         // 뒤에만 뜬다**(`RouteGuideSession.canRetry`).
-        case .limitReached, .consentRequired: .sameKey
+        case .limitReached, .consentRequired, .locationConsentRequired: .sameKey
         case .keyReused: .newKey
         // 500 은 공통 계층이 한 번 다시 보내 본 뒤다 — 그래도 사람이 한 번 더 해 볼 수 있다.
         case let .other(status): status == 500 ? .sameKey : .none
@@ -134,6 +138,8 @@ enum RouteGuideFailure: Equatable, Error {
     /// 화면에 보이는 한 줄. **안드로이드와 같은 문구여야 한다.**
     var message: String {
         switch self {
+        case .locationConsentRequired:
+            tr("위치기반서비스 이용에 동의한 뒤 다시 시도해 주세요.")
         case .consentRequired:
             tr("AI 기능 사용을 허용한 뒤 다시 시도해 주세요.")
         case .signInRequired:

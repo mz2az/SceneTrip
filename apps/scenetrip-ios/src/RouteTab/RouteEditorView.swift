@@ -59,6 +59,8 @@ struct RouteEditorView: View {
     /// 여행 가이드 대화창이 열려 있는가.
     @State var showGuide = false
     @State var guideMapCenter: TripSpot?
+    @State var guideMapSource = LocationCoordinateSource.userSelected
+    @StateObject var ambientLocationGate = AIConsentGate(store: LocationConsentStore.shared)
     @State var guideUsesMapCenter = false
 
     /// 「주변」의 기준이 되는 자리. 가이드가 이것으로 찾는다.
@@ -259,6 +261,9 @@ struct RouteEditorView: View {
         }
         // 도착 스탬프 — 화면 가운데 발바닥이 쾅.
         .overlay { stampOverlay }
+        .locationConsentSheet(trip.directionsConsent.gate, onCancel: trip.cancelLocationRequest)
+        .locationConsentSheet(ambientLocationGate)
+        .kakaoDirectionsNotice(trip.directionsConsent.notice)
         // 작품 줄 — 받아 둔 촬영지 목록(인기 200곳)에 없는 곳은 여기서 물어 채운다(MZ2AZ-372).
         .task(id: stops.map(\.place.id)) { await store.loadWorkTitles(for: stops) }
         .task {
@@ -284,6 +289,8 @@ struct RouteEditorView: View {
         // 화면을 닫으면 안내도 끝난다 — 위치 받기가 뒤에서 계속 돌면 안 된다.
         // 가상 GPS 는 서울시청으로 되돌린다 — 다음 코스도 같은 자리에서 출발(2026-09-04).
         .onDisappear {
+            ambientTask?.cancel()
+            ambientLocationGate.cancel()
             trip.end()
             DemoDrive.resetToHome()
         }

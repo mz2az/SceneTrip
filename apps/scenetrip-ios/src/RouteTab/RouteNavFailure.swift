@@ -43,10 +43,15 @@ enum RouteNavFailure: Equatable {
     /// 좌표는 물을 수 없다.
     case detourUnsupported
     /// 저장 전 코스라 서버 항목 id 가 없다.
+    case locationConsentRequired
     case unsavedCourse
 
     /// 오류를 계약 응답으로 분류한다.
     init(_ error: Error) {
+        if Self.isLocationConsentError(error) {
+            self = .locationConsentRequired
+            return
+        }
         guard case let ErrorResponse.error(status, data, response, _) = error else {
             self = .unreachable
             return
@@ -67,6 +72,16 @@ enum RouteNavFailure: Equatable {
         case 503: self = .providerDown
         default: self = .other(status: status)
         }
+    }
+
+    private static func isLocationConsentError(_ error: Error) -> Bool {
+        if error is LocationConsentRequired {
+            return true
+        }
+        if case let ErrorResponse.error(_, _, _, underlying) = error {
+            return underlying is LocationConsentRequired
+        }
+        return false
     }
 
     private static func unauthorized(code: String?) -> RouteNavFailure {
@@ -122,6 +137,8 @@ enum RouteNavFailure: Equatable {
             String(format: tr("길찾기를 처리하지 못했어요 (%d)"), status)
         case .detourUnsupported:
             tr("코스 밖 장소로의 길찾기는 아직 지원하지 않아요")
+        case .locationConsentRequired:
+            tr("위치기반서비스 이용에 동의한 뒤 다시 시도해 주세요.")
         case .unsavedCourse:
             tr("저장된 코스의 장소에서만 길찾기를 부를 수 있어요")
         }
@@ -135,7 +152,7 @@ enum RouteNavFailure: Equatable {
     /// (`NavLimitStore.state`).
     var canRetry: Bool {
         switch self {
-        case .providerDown, .unreachable, .rateLimited, .other: true
+        case .providerDown, .unreachable, .rateLimited, .other, .locationConsentRequired: true
         default: false
         }
     }

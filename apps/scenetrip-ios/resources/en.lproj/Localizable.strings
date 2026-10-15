@@ -710,3 +710,13 @@
 "AI 기능 사용" = "AI features";
 "끄면 AI 가이드와 AI 코스 만들기를 쓸 때 다시 물어봐요." = "If you turn this off, we’ll ask again when you use the AI guide or AI course creation.";
 "AI 기능 사용을 허용한 뒤 다시 시도해 주세요." = "Please allow AI features, then try again.";
+
+/* MZ2AZ-472 위치 서비스 동의와 카카오 제공 알림 */
+"위치기반서비스 이용 동의" = "Location-based service consent";
+"현재 위치를 주변 촬영지·편의시설 찾기, AI 가이드, 길 안내에 씁니다. 위치는 요청을 처리하는 데만 쓰고 바로 지우며, 길 안내 때는 경로 계산을 위해 카카오에 보냅니다." = "We use your current location to find nearby filming locations and places, for the AI guide, and for directions. It is used only to handle the request and deleted right away; for directions it is sent to Kakao to calculate the route.";
+"위치기반서비스 이용약관" = "Location-based service terms";
+"동의하고 계속" = "Agree and continue";
+"위치기반서비스 이용" = "Location-based services";
+"끄면 위치를 쓰는 기능을 쓸 때 다시 물어봐요." = "If you turn this off, we will ask again when you use a feature that uses your location.";
+"길 안내를 위해 카카오에 현재 위치를 보냈어요." = "Your current location was sent to Kakao to calculate directions.";
+"위치기반서비스 이용에 동의한 뒤 다시 시도해 주세요." = "Please agree to location-based services and try again.";
