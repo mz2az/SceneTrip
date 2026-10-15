@@ -115,6 +115,9 @@ public class CourseStore {
               COALESCE(p.type, q.category, cp.category) AS category,
               COALESCE(p.geom, q.geom, cp.geom)         AS geom,
               cd.title                                  AS source_content_title,
+              -- 목록에서 빠진 촬영지·폐업한 편의시설(1.18.0, MZ2AZ-451). 거르지 않는다 — 코스에 남기고 알리기만 한다.
+              p.hidden_at IS NOT NULL                   AS place_delisted,
+              q.closed_at IS NOT NULL                   AS poi_closed,
               -- 편의시설 항목의 표시말(1.9.0, MZ2AZ-381) — PoiStore 의 목록·상세와 같은 규칙. 한국어를 요청하면 없다(분류는 원본).
               q.name_roman                              AS poi_name_roman,
               CASE WHEN q.id IS NULL OR :lang = 'ko' THEN NULL
@@ -147,6 +150,7 @@ public class CourseStore {
           id, day_no, dwell_min, visited_at, place_id, poi_id, custom_pin_id,
           source_content_id, source_content_title, name, address, category, image_url,
           poi_name_roman, poi_display_name, poi_display_address, poi_category_label,
+          place_delisted, poi_closed,
           ST_Y(geom::geometry) AS latitude,
           ST_X(geom::geometry) AS longitude,
           ST_Distance(geom, lag(geom) OVER (PARTITION BY day_no ORDER BY sort_order))
@@ -463,30 +467,51 @@ public class CourseStore {
    * CourseItemInput}). 앱이 놓쳐도 여기서 막는다. 숨긴 촬영지의 연결은 쓰지 않는다({@code PoiStore} 의 {@code placeId} 와 같은
    * 규칙).
    *
-   * @throws UnknownPoiException 편의시설이 없거나 폐업했다
+   * <p><b>새 줄만 여기를 지난다</b> — 이미 있던 줄({@code id} 있음)은 저장된 대상을 그대로 쓴다. 그래서 목록에서 빠진 촬영지·폐업한 편의시설을 새로
+   * 넣는 것만 막고, 이미 담아 둔 줄은 남는다(MZ2AZ-451). 한 번 뺐다가 다시 넣으면 새 줄이라 막힌다.
+   *
+   * @throws UnknownPoiException 편의시설이 없다
+   * @throws ClosedPoiException 편의시설이 폐업했다
+   * @throws DelistedPlaceException 촬영지가 목록에서 빠졌다
    */
   private Target target(CourseItemInput in) {
     if (in.getPoiId() == null) {
-      return new Target(in.getPlaceId(), null);
+      Long placeId = in.getPlaceId();
+      if (placeId != null
+          && Boolean.TRUE.equals(
+              jdbc.sql(
+                      "SELECT EXISTS (SELECT 1 FROM place WHERE id = :id AND hidden_at IS NOT"
+                          + " NULL)")
+                  .param("id", placeId)
+                  .query(Boolean.class)
+                  .single())) {
+        throw new DelistedPlaceException(placeId);
+      }
+      return new Target(placeId, null);
     }
-    return jdbc.sql(
-            """
-            SELECT q.id AS poi_id, lp.id AS place_id
-            FROM poi q
-            LEFT JOIN place_poi_link l ON l.poi_id = q.id
-            LEFT JOIN place lp ON lp.id = l.place_id AND lp.hidden_at IS NULL
-            WHERE q.id = :poiId AND q.closed_at IS NULL
-            """)
-        .param("poiId", in.getPoiId())
-        .query(
-            (rs, i) -> {
-              Long place = longOrNull(rs, "place_id");
-              return place != null
-                  ? new Target(place, null)
-                  : new Target(null, rs.getLong("poi_id"));
-            })
-        .optional()
-        .orElseThrow(() -> new UnknownPoiException(in.getPoiId()));
+    record Found(long poiId, boolean closed, Long placeId) {}
+    Found found =
+        jdbc.sql(
+                """
+                SELECT q.id AS poi_id, q.closed_at IS NOT NULL AS closed, lp.id AS place_id
+                FROM poi q
+                LEFT JOIN place_poi_link l ON l.poi_id = q.id
+                LEFT JOIN place lp ON lp.id = l.place_id AND lp.hidden_at IS NULL
+                WHERE q.id = :poiId
+                """)
+            .param("poiId", in.getPoiId())
+            .query(
+                (rs, i) ->
+                    new Found(
+                        rs.getLong("poi_id"), rs.getBoolean("closed"), longOrNull(rs, "place_id")))
+            .optional()
+            .orElseThrow(() -> new UnknownPoiException(in.getPoiId()));
+    if (found.closed()) {
+      throw new ClosedPoiException(found.poiId());
+    }
+    return found.placeId() != null
+        ? new Target(found.placeId(), null)
+        : new Target(null, found.poiId());
   }
 
   /** 항목이 가리키는 것 — 촬영지나 편의시설 중 하나, 또는 둘 다 없음(개인 핀). */
@@ -596,11 +621,27 @@ public class CourseStore {
   }
 
   /** 요청이 남의 항목 id 를 가리켰다. 400 으로 바꾸는 것은 컨트롤러 몫이다. */
-  /** 담으려는 편의시설이 없거나 폐업했다. 클라이언트가 고칠 요청이다(400). */
+  /** 담으려는 편의시설이 없다. 클라이언트가 고칠 요청이다(400). */
   public static class UnknownPoiException extends RuntimeException {
     /** 단위 테스트가 이 상황을 흉내 낼 수 있어야 해서 public 이다. */
     public UnknownPoiException(long poiId) {
-      super("편의시설 " + poiId + " 이(가) 없거나 폐업했습니다");
+      super("편의시설 " + poiId + " 이(가) 없습니다");
+    }
+  }
+
+  /** 새 줄로 넣으려는 편의시설이 폐업했다(409 {@code POI_CLOSED}, MZ2AZ-451). */
+  public static class ClosedPoiException extends RuntimeException {
+    /** 단위 테스트가 이 상황을 흉내 낼 수 있어야 해서 public 이다. */
+    public ClosedPoiException(long poiId) {
+      super("편의시설 " + poiId + " 은(는) 폐업해 새로 넣을 수 없습니다");
+    }
+  }
+
+  /** 새 줄로 넣으려는 촬영지가 목록에서 빠졌다(409 {@code PLACE_DELISTED}, MZ2AZ-451). */
+  public static class DelistedPlaceException extends RuntimeException {
+    /** 단위 테스트가 이 상황을 흉내 낼 수 있어야 해서 public 이다. */
+    public DelistedPlaceException(long placeId) {
+      super("장소 " + placeId + " 은(는) 목록에서 빠져 새로 넣을 수 없습니다");
     }
   }
 
@@ -730,7 +771,10 @@ public class CourseStore {
         .distanceMetersFromPrevious(integerOrNull(rs, "distance_from_previous"))
         .sourceContentId(longOrNull(rs, "source_content_id"))
         .sourceContentTitle(rs.getString("source_content_title"))
-        .visitedAt(rs.getObject("visited_at", OffsetDateTime.class));
+        .visitedAt(rs.getObject("visited_at", OffsetDateTime.class))
+        // 촬영지 줄에만 delisted, 편의시설 줄에만 closed — 핀 줄에는 둘 다 없다.
+        .delisted(placeId != null ? rs.getBoolean("place_delisted") : null)
+        .closed(poiId != null ? rs.getBoolean("poi_closed") : null);
   }
 
   /** 이름은 비울 수 없다. 화면마다 따로 처리하지 않도록 채우는 자리를 서버 한 곳으로 모은다. */

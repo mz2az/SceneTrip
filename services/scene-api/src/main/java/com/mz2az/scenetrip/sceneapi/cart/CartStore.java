@@ -61,7 +61,9 @@ public class CartStore {
             ORDER BY pim.sort_order, pim.id LIMIT 1) AS image_url,
           ci_.source_content_id,
           cd.title AS source_content_title,
-          ci_.created_at
+          ci_.created_at,
+          -- 목록에서 빠진 촬영지(MZ2AZ-451). 거르지 않는다 — 담은 것은 남기고 알리기만 한다.
+          p.hidden_at IS NOT NULL AS delisted
       FROM saved_place ci_
       JOIN place p ON p.id = ci_.place_id
       JOIN place_display pd ON pd.place_id = p.id
@@ -135,6 +137,24 @@ public class CartStore {
         > 0;
   }
 
+  /**
+   * 새로 담을 수 없는가 — 목록에서 빠진(숨긴) 촬영지인데 아직 이 사람의 장바구니에 없다(MZ2AZ-451). 이미 담아 둔 것은 다시 눌러도 지금처럼 「이미 담김」 이
+   * 답이다 — 그래서 「이미 있나」 를 먼저 본다.
+   */
+  public boolean delistedAndNew(UUID userId, long placeId) {
+    return Boolean.TRUE.equals(
+        jdbc.sql(
+                """
+                SELECT EXISTS (SELECT 1 FROM place WHERE id = :placeId AND hidden_at IS NOT NULL)
+                   AND NOT EXISTS (SELECT 1 FROM saved_place
+                                   WHERE user_id = CAST(:userId AS UUID) AND place_id = :placeId)
+                """)
+            .param("userId", userId.toString())
+            .param("placeId", placeId)
+            .query(Boolean.class)
+            .single());
+  }
+
   /** 그 장소가 있는가. 없는 장소를 담으려 하면 404 다. */
   public boolean placeExists(long placeId) {
     return Boolean.TRUE.equals(
@@ -155,7 +175,8 @@ public class CartStore {
             .longitude(rs.getDouble("longitude"))
             .imageUrl(uri(rs.getString("image_url")))
             .sourceContentId(longOrNull(rs))
-            .sourceContentTitle(rs.getString("source_content_title"));
+            .sourceContentTitle(rs.getString("source_content_title"))
+            .delisted(rs.getBoolean("delisted"));
     return new Row(item, Lang.fromValue(rs.getString("shown_lang")));
   }
 

@@ -204,6 +204,8 @@ public class ContentStore {
       SELECT
           c.id, c.category, c.poster_url, c.producer_url, c.broadcaster, c.release_year, c.genres,
           d.title, d.description, d.lang AS display_lang,
+          -- 목록에서 빠진 작품(1.18.0, MZ2AZ-451). 상세는 열린다 — 앱이 「찜」 을 막는 데 쓴다.
+          c.hidden_at IS NOT NULL AS delisted,
           (SELECT count(*) FROM place_content pc
              JOIN place pl ON pl.id = pc.place_id AND pl.hidden_at IS NULL
             WHERE pc.content_id = c.id) AS place_count
@@ -301,7 +303,8 @@ public class ContentStore {
             .broadcaster(rs.getString("broadcaster"))
             .releaseYear(integerOrNull(rs, "release_year"))
             .genres(stringArray(rs.getArray("genres")))
-            .description(rs.getString("description"));
+            .description(rs.getString("description"))
+            .delisted(rs.getBoolean("delisted"));
     return new DetailRow(detail, rs.getString("display_lang"));
   }
 

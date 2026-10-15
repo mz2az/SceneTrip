@@ -305,6 +305,8 @@ public class PlaceStore {
       SELECT
           p.id, d.name, p.type, d.address, d.description, p.naver_place_url,
           d.shown_lang,
+          -- 목록에서 빠진 촬영지(1.18.0, MZ2AZ-451). 상세는 열린다 — 앱이 「담기」 를 막는 데 쓴다.
+          p.hidden_at IS NOT NULL AS delisted,
           ST_Y(p.geom::geometry) AS latitude,
           ST_X(p.geom::geometry) AS longitude,
           CASE WHEN o.point IS NULL THEN NULL
@@ -416,7 +418,8 @@ public class PlaceStore {
             .address(rs.getString("address"))
             .description(rs.getString("description"))
             .naverPlaceUrl(uri(rs.getString("naver_place_url")))
-            .distanceMeters(integerOrNull(rs, "distance_meters"));
+            .distanceMeters(integerOrNull(rs, "distance_meters"))
+            .delisted(rs.getBoolean("delisted"));
     return new DetailRow(detail, Lang.fromValue(rs.getString("shown_lang")));
   }
 
