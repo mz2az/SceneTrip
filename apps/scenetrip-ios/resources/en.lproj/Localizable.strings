@@ -586,6 +586,10 @@
 "한도가 풀리면 다시 보낼 수 있어요" = "You can send again once the limit resets";
 "지금은 가이드에게 물어볼 수 없어요. 잠시 뒤 다시 시도해 주세요" = "The guide can't take questions right now. Please try again shortly";
 
+/* 가이드 챗봇 — AI 답변 안내 (MZ2AZ-439) */
+"AI 답변은 틀릴 수 있어요. 영업시간·요금·교통은 직접 확인해 주세요." = "AI answers can be wrong. Please check hours, prices and transit yourself.";
+"AI 답변은 틀릴 수 있어요." = "AI answers can be wrong.";
+
 /* 길찾기 한도 — 지도 앱으로 넘기기 (MZ2AZ-366 D) */
 "길찾기를 잠시 많이 썼어요. 1분 안에 다시 찾을 수 있어요. 지도 앱에서 이어서 볼 수도 있어요" = "You've used directions a lot. You can search again within a minute, or continue in a map app";
 "오늘은 앱 안 길찾기를 다 썼어요. 지도 앱에서 이어서 볼 수 있어요" = "You've used up today's in-app directions. Continue in a map app";

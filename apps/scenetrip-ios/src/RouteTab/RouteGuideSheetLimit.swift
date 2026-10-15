@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 가이드 대화창의 **한도 안내와 남은 양** (MZ2AZ-366 C). 본체(`RouteGuideSheet.swift`)의 길이 한도
+/// 가이드 대화창의 **한도 안내와 남은 양** (MZ2AZ-366 C), 입력창 아래 **AI 답변 안내** (MZ2AZ-439). 본체(`RouteGuideSheet.swift`)의 길이 한도
 /// (`type_body_length`) 때문에 확장으로 뺐다 — 규칙은 `GuideLimit`, 상태는 `RouteGuideSession.limit`·`quota`.
 extension RouteGuideSheet {
     var retryButton: some View {
@@ -93,5 +93,44 @@ extension RouteGuideSheet {
                     .accessibilityIdentifier("guide-remaining")
             }
         }
+    }
+
+    /// 입력창 아래 AI 답변 안내(MZ2AZ-439) — `RouteGuideAINotice`.
+    var aiNotice: some View {
+        RouteGuideAINotice()
+    }
+}
+
+/// 가이드 창 입력창 **바로 아래** 작은 회색 줄 — 답은 모델이 만든 것이라 틀리거나 낡을 수 있다(MZ2AZ-439,
+/// 약관 초안 §4 「AI 가이드의 답변」).
+///
+/// 시작 화면이든 대화 중이든 늘 보이도록 스크롤 밖, 입력창 아래에 둔다. 남은 양 줄(`remainingLine`)은 입력창
+/// **위**라 둘이 겹치거나 서로 밀지 않는다. 줄은 늘어날 뿐 잘리지 않는다.
+///
+/// 창은 높이가 고정(470pt)이라 이 줄이 커지면 대화 자리를 먹는다. 접근성 크기(`isAccessibilitySize`)에서는 앞
+/// 문장만 보이고 글자 크기에 상한(`accessibility1`)을 건다 — 가장 큰 크기에서도 한 줄 안팎이다. 그 아래 크기에서는
+/// 전체 문장이 최대 세 줄(영어 xxxLarge)이 된다. VoiceOver 는 크기와 관계없이 늘 전체 문장을 읽는다.
+struct RouteGuideAINotice: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        Text(typeSize.isAccessibilitySize ? short : full)
+            .font(.caption2)
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16).padding(.bottom, 8)
+            .accessibilityLabel(full)
+            .accessibilityIdentifier("guide-ai-notice")
+    }
+
+    private var full: String {
+        tr("AI 답변은 틀릴 수 있어요. 영업시간·요금·교통은 직접 확인해 주세요.")
+    }
+
+    private var short: String {
+        tr("AI 답변은 틀릴 수 있어요.")
     }
 }
