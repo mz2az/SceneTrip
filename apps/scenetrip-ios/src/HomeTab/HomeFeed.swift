@@ -4,6 +4,8 @@ import SwiftUI
 /// **커뮤니티 지금** — 최근 글 둘. 게시판 배지 · 제목 · 하트 자리.
 struct HomeCommunityNow: View {
     let posts: [CommunityPost]
+    /// 남의 글의 신고·차단(MZ2AZ-461) — 홈 화면이 들고 시트를 단다.
+    @ObservedObject var moderation: ModerationController
     let onOpen: () -> Void
 
     var body: some View {
@@ -20,12 +22,27 @@ struct HomeCommunityNow: View {
                         if index > 0 {
                             Divider().padding(.leading, 16)
                         }
-                        Button(action: onOpen) { row(post) }.buttonStyle(.plain)
+                        HStack(spacing: 0) {
+                            Button(action: onOpen) { row(post) }.buttonStyle(.plain)
+                            // 단추 밖에 둔다 — 안에 두면 「⋯」 를 눌러도 커뮤니티 탭으로 간다.
+                            menu(post)
+                        }
                     }
                 }
                 .homeCard()
                 .padding(.horizontal, 20)
             }
+        }
+    }
+
+    @ViewBuilder private func menu(_ post: CommunityPost) -> some View {
+        if let id = post.serverId, ModerationRules.showsMenu(isMine: post.isMine) {
+            ModerationMenu(
+                target: .post(id),
+                canBlock: ModerationRules.canBlock(isMine: post.isMine, hasAuthor: post.author != nil),
+                controller: moderation
+            )
+            .padding(.trailing, 8)
         }
     }
 

@@ -71,6 +71,8 @@ enum CommunityRules {
             case "POST_BODY_INVALID": return tr("본문의 문단과 사진 배치를 확인해 주세요")
             case "RATE_LIMITED": return tr("요청이 많아요. 잠시 뒤 다시 시도해 주세요")
             case "POST_NOT_FOUND": return tr("이 후기는 더 이상 볼 수 없어요")
+            // 금칙어(MZ2AZ-461) — 제목·본문·문단·사진 설명·출처 중 어디인지는 화면에 말하지 않는다.
+            case let code where ModerationRules.isTextNotAllowed(code: code): return ModerationRules.textNotAllowedMessage
             default: break
             }
         }

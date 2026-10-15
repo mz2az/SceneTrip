@@ -17,6 +17,8 @@ struct ReviewsSheet: View {
     /// 이 대상의 사진첩 — 위쪽의 방문자 사진 모아 보기가 쓴다.
     @StateObject private var gallery: PhotoGallery
     @StateObject private var listing: ReviewListStore
+    /// 남의 리뷰의 신고·차단(MZ2AZ-461).
+    @StateObject private var moderation = ModerationController()
     /// 목록을 이 리뷰까지 내린다.
     @State private var jump: Int64?
     /// 방금 찾아간 리뷰 — 잠깐 바탕을 칠해 어느 줄인지 보인다.
@@ -86,6 +88,15 @@ struct ReviewsSheet: View {
         // 이 시트가 맨 위 화면이다 — 로그인·닉네임 화면은 여기서 올린다.
         .signInSheet()
         .nicknameSheet()
+        .moderationSheets(moderation, onBlocked: blocked)
+        // 다른 화면(차단 목록 등)에서 차단·풀기가 일어났다 — 리뷰와 방문자 사진을 다시 받는다.
+        .onModerationChange {
+            gallery.forgetReviewPhotos()
+            Task {
+                await reload()
+                await reloadPhotos()
+            }
+        }
         .renewsPhotos { forced in Task { await listing.renewPhotos(forced: forced) } }
         .sheet(isPresented: $composing) {
             ReviewComposeView(subject: subject, title: title) {
@@ -173,10 +184,14 @@ struct ReviewsSheet: View {
                     } else {
                         sortPicker
                         ForEach(reviews, id: \.id) { review in
-                            ReviewRow(review: review, onEdit: review.isMine ? { composing = true } : nil)
-                                .padding(.horizontal, 16).padding(.vertical, 14)
-                                .background(Color.accentColor.opacity(lit == review.id ? 0.1 : 0))
-                                .id(review.id)
+                            ReviewRow(
+                                review: review,
+                                onEdit: review.isMine ? { composing = true } : nil,
+                                moderation: moderation
+                            )
+                            .padding(.horizontal, 16).padding(.vertical, 14)
+                            .background(Color.accentColor.opacity(lit == review.id ? 0.1 : 0))
+                            .id(review.id)
                             Divider().padding(.leading, 16)
                         }
                         if ReviewRules.hasMore(loaded: reviews.count, total: total) {
@@ -327,5 +342,16 @@ private extension ReviewsSheet {
 
     func loadMore() async {
         await listing.loadMore(sort: sort)
+    }
+
+    /// 작성자를 차단했다(MZ2AZ-461). 그 리뷰는 바로 빼고, 서버가 그 사람의 리뷰·사진을 뺀 목록을 다시 받는다.
+    /// 부른 화면(사진 줄)과 여행후기 목록도 다시 읽는다.
+    func blocked(_ target: ModerationTarget) {
+        if case let .review(id) = target {
+            listing.drop(reviewId: id)
+        }
+        onChanged()
+        // 리뷰·사진은 `onModerationChange` 가 다시 받는다(차단하면 신호가 간다).
+        Task { await CommunityStore.shared.invalidateAndRefresh() }
     }
 }

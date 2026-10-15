@@ -131,6 +131,83 @@ final class PhotoRenewalTests: XCTestCase {
         XCTAssertEqual(refresh.post?.remotePhotos, next.remotePhotos)
     }
 
+    @MainActor func testHeldPlaceARefreshCannotDiscardPlaceBPhotosOrEndItsLoading() async {
+        let gallery = PhotoGallery()
+        let bookA = PhotoGalleryRules.book(photos: nil, count: nil, legacy: ["https://img.example/a.jpg"])
+        let bookB = PhotoGalleryRules.book(photos: nil, count: nil, legacy: ["https://img.example/b.jpg"])
+        await gallery.loadDetail(subject: .place(1), fetch: { bookA }, apply: { $0 })
+        let startedA = expectation(description: "A 상세 갱신 보류")
+        let startedB = expectation(description: "B 선택 후 상세 조회 보류")
+        var finishA: CheckedContinuation<PhotoGalleryRules.Book, Never>?
+        var finishB: CheckedContinuation<PhotoGalleryRules.Book, Never>?
+        let refreshA = Task { @MainActor in
+            await gallery.loadDetail(subject: .place(1), fetch: {
+                await withCheckedContinuation { finishA = $0; startedA.fulfill() }
+            }, apply: { $0 })
+        }
+        await fulfillment(of: [startedA], timeout: 1)
+        let generationA = gallery.generation
+        let fetchB = Task { @MainActor in
+            await gallery.loadDetail(subject: .place(2), fetch: {
+                await withCheckedContinuation { finishB = $0; startedB.fulfill() }
+            }, apply: { $0 })
+        }
+        await fulfillment(of: [startedB], timeout: 1)
+        XCTAssertEqual(gallery.subject, .place(2))
+        XCTAssertGreaterThan(gallery.generation, generationA)
+        XCTAssertTrue(gallery.book.photos.isEmpty)
+        XCTAssertTrue(gallery.loading)
+        let generationB = gallery.generation
+        finishA?.resume(returning: bookA)
+        await refreshA.value
+        XCTAssertEqual(gallery.generation, generationB)
+        XCTAssertTrue(gallery.loading)
+        finishB?.resume(returning: bookB)
+        await fetchB.value
+        XCTAssertEqual(gallery.book.photos, bookB.photos)
+        XCTAssertEqual(gallery.subject, .place(2))
+        XCTAssertFalse(gallery.loading)
+    }
+
+    @MainActor func testDiscardedCurrentDetailResponseClearsLoading() async {
+        let gallery = PhotoGallery()
+        await gallery.loadDetail(subject: .place(1), fetch: {
+            gallery.forgetReviewPhotos()
+            return PhotoGalleryRules.Book()
+        }, apply: { _ in
+            XCTFail("무효화한 상세 응답은 적용하지 않습니다")
+            return nil
+        })
+        XCTAssertFalse(gallery.loading)
+    }
+
+    @MainActor func testFailedDetailRequestClearsLoading() async {
+        let gallery = PhotoGallery()
+        await gallery.loadDetail(subject: .place(1), fetch: { () throws -> PhotoGalleryRules.Book in
+            throw URLError(.notConnectedToInternet)
+        }, apply: { $0 })
+        XCTAssertFalse(gallery.loading)
+    }
+
+    @MainActor func testCancelledDetailRequestClearsLoadingWithoutApplyingPhotos() async {
+        let gallery = PhotoGallery()
+        let started = expectation(description: "취소할 상세 조회 보류")
+        var finish: CheckedContinuation<PhotoGalleryRules.Book, Never>?
+        let request = Task { @MainActor in
+            await gallery.loadDetail(subject: .place(1), fetch: {
+                await withCheckedContinuation { finish = $0; started.fulfill() }
+            }, apply: { _ in
+                XCTFail("취소한 상세 응답은 적용하지 않습니다")
+                return nil
+            })
+        }
+        await fulfillment(of: [started], timeout: 1)
+        request.cancel()
+        finish?.resume(returning: PhotoGalleryRules.Book())
+        await request.value
+        XCTAssertFalse(gallery.loading)
+    }
+
     private func post(url: String, id: UUID = UUID(uuidString: "00000000-0000-0000-0000-000000000428")!) -> CommunityPost {
         CommunityPost(id: id, board: .review,
                       title: "시험 글", body: "본문", createdAt: Date(timeIntervalSince1970: 1),

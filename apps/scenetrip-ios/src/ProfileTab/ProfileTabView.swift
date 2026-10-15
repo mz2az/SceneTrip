@@ -23,6 +23,8 @@ struct ProfileTabView: View {
     @State private var editingNickname = false
     /// 내 리뷰 시트 (MZ2AZ-363).
     @State private var showingMyReviews = false
+    /// 차단한 사용자 시트 (MZ2AZ-461).
+    @State private var showingBlocked = false
     @State private var deleteFailed = false
 
     @State private var courses: [CourseSummary] = []
@@ -149,6 +151,7 @@ struct ProfileTabView: View {
                     }
                     .buttonStyle(.plain)
                     myReviewsRow
+                    blockedUsersRow
                 }
 
                 Section("AI 여행 릴스") {
@@ -213,6 +216,8 @@ struct ProfileTabView: View {
                             title: tr("사용법 다시 보기"), value: "")
                     }
                     .buttonStyle(.plain)
+                    // 연락처 공개(App Store 1.2, MZ2AZ-461) — 비회원에게도 보인다.
+                    SupportContactRow()
                 }
 
                 legalSection
@@ -269,6 +274,7 @@ struct ProfileTabView: View {
             .onChange(of: auth.signedIn) { _, signedIn in
                 if !signedIn {
                     editingNickname = false
+                    showingBlocked = false
                 }
             }
             .fullScreenCover(isPresented: $replaying) {
@@ -303,6 +309,10 @@ struct ProfileTabView: View {
             .sheet(isPresented: $showingMyReviews) {
                 MyReviewsView()
                     .presentationDetents([.large])
+            }
+            .sheet(isPresented: $showingBlocked) {
+                BlockedUsersView()
+                    .presentationDetents([.medium, .large])
             }
         }
     }
@@ -423,6 +433,18 @@ extension ProfileTabView {
                 showingMyReviews = true
             } label: {
                 row(symbol: "star.bubble", tint: .orange, title: tr("내 리뷰", at: "목록"), value: "", chevron: true)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// 차단한 사용자 — 가입한 사람에게만 보인다(차단은 로그인해야 한다, MZ2AZ-461).
+    @ViewBuilder var blockedUsersRow: some View {
+        if auth.signedIn {
+            Button {
+                showingBlocked = true
+            } label: {
+                row(symbol: "nosign", tint: .gray, title: tr("차단한 사용자"), value: "", chevron: true)
             }
             .buttonStyle(.plain)
         }

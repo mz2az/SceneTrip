@@ -17,6 +17,8 @@ struct CommunityTabView: View {
     /// 읽고 있는 글. 목록 행은 두 줄로 잘리므로, 누르면 전문이 큰 팝업으로 뜬다.
     @State private var reading: CommunityPost?
     @State private var deleting: CommunityPost?
+    /// 남의 후기의 신고·차단(MZ2AZ-461).
+    @StateObject private var moderation = ModerationController()
 
     var body: some View {
         NavigationStack {
@@ -38,6 +40,11 @@ struct CommunityTabView: View {
             .task { await store.refresh() }
             .onAccountChange { await store.refresh() }
             .signInSheet()
+            .moderationSheets(moderation) { target in
+                if case let .post(id) = target {
+                    Task { await store.blocked(postId: id) }
+                }
+            }
             .alert(tr("후기를 지울까요?"), isPresented: Binding(get: { deleting != nil }, set: {
                 if !$0 {
                     deleting = nil
@@ -131,13 +138,23 @@ struct CommunityTabView: View {
     }
 
     private func myPostRow(_ post: CommunityPost) -> some View {
-        Button {
-            reading = post
-        } label: {
-            myPostBody(post)
-                .contentShape(.rect)
+        HStack(alignment: .top, spacing: 4) {
+            Button {
+                reading = post
+            } label: {
+                myPostBody(post)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            // 단추 밖에 둔다 — 안에 두면 「⋯」 를 눌러도 글이 열린다.
+            if let id = post.serverId, ModerationRules.showsMenu(isMine: post.isMine) {
+                ModerationMenu(
+                    target: .post(id),
+                    canBlock: ModerationRules.canBlock(isMine: post.isMine, hasAuthor: post.author != nil),
+                    controller: moderation
+                )
+            }
         }
-        .buttonStyle(.plain)
         .swipeActions {
             // 지우기는 **내 글만** — 남의 글을 밀어서 지울 수 있으면 안 된다.
             if post.isMine, post.serverId != nil {

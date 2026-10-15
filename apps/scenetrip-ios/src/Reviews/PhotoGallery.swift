@@ -22,7 +22,9 @@ final class PhotoGallery: ObservableObject {
     @Published private(set) var book = PhotoGalleryRules.Book()
     private(set) var subject: ReviewSubject?
     /// 통째로 다시 받을 때마다 오른다 — 그 전에 떠난 「다음 쪽」 응답을 버린다.
-    private var generation = 0
+    private(set) var generation = 0
+    @Published private(set) var loading = true
+    private var detailRequest = 0
     private var loadingMore = false
     /// 주소를 새로 받는 중인 일 — 여러 칸이 함께 청해도 하나만 나간다.
     private var renewing: Task<Void, Never>?
@@ -42,21 +44,57 @@ final class PhotoGallery: ObservableObject {
     }
 
     /// 상세가 왔다(또는 리뷰가 바뀌어 다시 왔다) — 그것으로 갈아 끼운다.
-    func show(_ fresh: PhotoGalleryRules.Book, subject: ReviewSubject?) {
+    func show(_ fresh: PhotoGalleryRules.Book, subject: ReviewSubject?, generation asked: Int) {
+        guard asked == generation else { return }
         generation += 1
         self.subject = subject
         book = fresh
     }
 
+    /// 상세 조회 전에 대상을 바꾸고, 모든 종료 경로에서 현재 요청의 로딩만 끝낸다.
+    func loadDetail<Value>(subject: ReviewSubject?, fetch: () async throws -> Value,
+                           apply: (Value) -> PhotoGalleryRules.Book?) async
+    {
+        if subject != self.subject {
+            show(PhotoGalleryRules.Book(), subject: subject, generation: generation)
+            loading = true
+        }
+        detailRequest += 1
+        let request = detailRequest
+        let asked = generation
+        defer {
+            if request == detailRequest {
+                loading = false
+            }
+        }
+        do {
+            let value = try await fetch()
+            guard !Task.isCancelled, request == detailRequest, asked == generation else { return }
+            if let fresh = apply(value) {
+                show(fresh, subject: subject, generation: asked)
+            }
+        } catch {
+            // 상세 조회 실패 시 이미 보여 주던 사진은 그대로 둔다.
+        }
+    }
+
+    /// 차단·풀기가 일어났다(MZ2AZ-461) — 방문자 사진을 먼저 비운다. 다시 받기가 실패해도 차단한 사람의 사진이
+    /// 남지 않게. 우리 사진은 둔다.
+    func forgetReviewPhotos() {
+        generation += 1
+        book = book.withoutReviewPhotos()
+    }
+
     /// 첫 쪽부터 서버에서 다시. 못 받으면 가진 것을 그대로 둔다.
     func reload() async {
         guard let subject else { return }
+        let asked = generation
         guard let page = try? await subject.photos(offset: 0), !Task.isCancelled, subject == self.subject else {
             return
         }
         var fresh = PhotoGalleryRules.Book()
         fresh.append(page.items, total: page.total, offset: 0)
-        show(fresh, subject: subject)
+        show(fresh, subject: subject, generation: asked)
     }
 
     /// 사진을 못 받았다 — **받아 둔 만큼을 새 주소로 다시 받는다**(리뷰 사진의 주소는 한 시간 뒤 죽는다).
@@ -89,7 +127,7 @@ final class PhotoGallery: ObservableObject {
                 break
             }
         }
-        show(fresh, subject: subject)
+        show(fresh, subject: subject, generation: asked)
     }
 
     /// 보는 자리가 끝에 가까우면 다음 쪽을 받는다. 넘길 때마다 부른다.

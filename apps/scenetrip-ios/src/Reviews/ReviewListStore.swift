@@ -41,6 +41,14 @@ final class ReviewListStore: ObservableObject {
         loadingMoreGeneration = nil
     }
 
+    /// 차단한 사람의 리뷰를 다시 받기 전에 바로 뺀다(MZ2AZ-461). 앱은 작성자 번호를 몰라 그 사람의 다른 리뷰는
+    /// 다시 받은 목록에서 빠진다.
+    func drop(reviewId: Int64) {
+        guard reviews.contains(where: { $0.id == reviewId }) else { return }
+        reviews.removeAll { $0.id == reviewId }
+        total = max(reviews.count, total - 1)
+    }
+
     func prepareSortChange() {
         photoRenewal.cancel()
         renewingPhotos = false

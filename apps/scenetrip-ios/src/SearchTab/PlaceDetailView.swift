@@ -67,7 +67,7 @@ struct PlaceDetailView: View {
             // 상세가 오기 전에는 목록이 준 대표 사진 한 장으로 그린다(전과 같다).
             gallery.show(
                 PhotoGalleryRules.book(photos: nil, count: nil, legacy: [summary.imageUrl].compactMap { $0 }),
-                subject: .place(summary.id)
+                subject: .place(summary.id), generation: gallery.generation
             )
             await refresh()
         }
@@ -82,14 +82,20 @@ struct PlaceDetailView: View {
             // 리뷰가 바뀌었다 — 별점 줄과 사진이 든 상세를 다시 읽는다.
             Task { await refresh() }
         }
+        // 다른 화면에서 누군가를 차단·풀었다(MZ2AZ-461) — 방문자 사진을 비우고 다시 받는다.
+        .onModerationChange {
+            gallery.forgetReviewPhotos()
+            Task { await refresh() }
+        }
     }
 
     /// 상세를 (다시) 읽고 사진첩을 그것으로 갈아 끼운다. 못 읽으면 가진 것을 그대로 둔다.
     private func refresh() async {
         let asked = summary.id
-        guard let fresh = try? await load(asked), asked == summary.id else { return }
-        detail = fresh
-        gallery.show(PhotoGalleryRules.book(for: fresh), subject: .place(asked))
+        await gallery.loadDetail(subject: .place(asked), fetch: { try await load(asked) }) { fresh in
+            detail = fresh
+            return PhotoGalleryRules.book(for: fresh)
+        }
     }
 
     /// 베타의 장소 상세와 같은 두 버튼이다 — 담기와 네이버 지도.

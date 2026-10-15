@@ -155,6 +155,12 @@ enum PhotoGalleryRules {
             return true
         }
 
+        /// 방문자 사진을 뺀 것 — 더 받지 않는다(다시 받을 때 첫 쪽부터 새로 받는다).
+        func withoutReviewPhotos() -> Book {
+            let kept = photos.filter { !$0.isReview }
+            return Book(photos: kept, fetched: kept.count, serverTotal: kept.count)
+        }
+
         /// 방문자 사진만.
         var reviewPhotos: [GalleryPhoto] {
             photos.filter(\.isReview)
