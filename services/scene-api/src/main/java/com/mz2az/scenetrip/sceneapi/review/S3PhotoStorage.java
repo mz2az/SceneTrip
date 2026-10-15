@@ -2,8 +2,10 @@ package com.mz2az.scenetrip.sceneapi.review;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -125,6 +127,17 @@ final class S3PhotoStorage implements PhotoStorage {
   @Override
   public void delete(String storageKey) {
     s3.deleteObject(d -> d.bucket(bucket).key(storageKey));
+  }
+
+  @Override
+  public void listPages(String prefix, Consumer<List<StoredObject>> onPage) {
+    s3.listObjectsV2Paginator(r -> r.bucket(bucket).prefix(prefix))
+        .forEach(
+            page ->
+                onPage.accept(
+                    page.contents().stream()
+                        .map(o -> new StoredObject(o.key(), o.lastModified()))
+                        .toList()));
   }
 
   /** {@code content-type} → {@code Content-Type}. 앱 개발자가 읽기 쉽게. */

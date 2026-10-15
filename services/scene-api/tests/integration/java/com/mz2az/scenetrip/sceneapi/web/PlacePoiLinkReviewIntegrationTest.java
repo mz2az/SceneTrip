@@ -559,6 +559,12 @@ class PlacePoiLinkReviewIntegrationTest {
     }
 
     @Override
+    public void listPages(
+        String prefix, java.util.function.Consumer<java.util.List<StoredObject>> onPage) {
+      // 이 시험은 고아 청소를 보지 않는다 — 파일이 없는 것처럼.
+    }
+
+    @Override
     public void delete(String storageKey) {
       files.remove(storageKey);
     }
