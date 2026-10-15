@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import json
 import unittest
+from dataclasses import replace
 
 from src.agent import TripGuide, detect_language
 from src.model_client import ScriptedClient
+from src.places import norm
 from src.session import Anchor, Session
 from src.tools import ToolArgError, load_tool_specs, run_tool, validate_args
 
-from tests.fixtures import SEOUL, FakeBook, seoul_incheon_book
+from tests.fixtures import SEOUL, FakeBook, make_place, seoul_incheon_book
 
 
 def specs() -> dict:
@@ -223,6 +225,142 @@ class 일정은_모델이_짠다(unittest.TestCase):
         s = self.session(None)
         call("plan_course", {"titles": ["도깨비"], "days": 1}, s)
         self.assertFalse(s.plan.signals.get("llm"))
+
+
+class 근처촬영지(unittest.TestCase):
+    """`places_near` — 빈 기준 위치와 반경 자동 넓히기 (MZ2AZ-454)."""
+
+    HERE = (37.5663, 126.9779)  # 서울시청
+
+    def session(self, *, here: bool = True) -> Session:
+        lat, lng = self.HERE
+        places = [
+            make_place("a", "가까운곳", lat + 0.010, lng),  # 약 1.1km
+            make_place("b", "조금먼곳1", lat + 0.035, lng),  # 약 3.9km
+            make_place("c", "조금먼곳2", lat - 0.035, lng),  # 약 3.9km
+            make_place("d", "먼곳", lat + 0.080, lng),  # 약 8.9km
+        ]
+        s = Session(book=FakeBook({"도깨비": places}))
+        if here:
+            s.here = Anchor("현위치", lat, lng)
+        return s
+
+    def test_빈_기준이면_현위치로_찾는다(self):
+        s = self.session()
+        out = call("places_near", {"near": ""}, s)
+        self.assertEqual(out["기준"], "현위치")
+        self.assertTrue(out["찾은 곳"])
+
+    def test_기준이_빠져도_현위치로_찾는다(self):
+        out = call("places_near", {}, self.session())
+        self.assertEqual(out["기준"], "현위치")
+
+    def test_현위치도_없으면_되묻게_한다(self):
+        out = call("places_near", {"near": " "}, self.session(here=False))
+        self.assertIn("물어봐라", out["결과없음"])
+
+    def test_반경을_말하지_않았으면_적을_때_넓힌다(self):
+        out = call("places_near", {"near": "현위치"}, self.session())
+        self.assertEqual(out["반경"], "5000m")
+        self.assertEqual(len(out["찾은 곳"]), 3)
+        self.assertIn("넓혀", out["넓힌 반경"])
+
+    def test_모델이_시작_반경을_그대로_넣어도_넓힌다(self):
+        """사용자는 반경을 말하지 않았는데 모델이 2000 을 넣는 일 (2026-10-15 실측)."""
+        out = call("places_near", {"near": "", "radius_m": 2000}, self.session())
+        self.assertEqual(out["반경"], "5000m")
+
+    def test_사용자가_반경을_말했으면_넓히지_않는다(self):
+        out = call("places_near", {"near": "현위치", "radius_m": 1500}, self.session())
+        self.assertEqual(out["반경"], "1500m")
+        self.assertEqual([p["이름"] for p in out["찾은 곳"]], ["가까운곳"])
+        self.assertNotIn("넓힌 반경", out)
+
+    def test_충분하면_처음_반경에서_멈춘다(self):
+        s = self.session()
+        lat, lng = self.HERE
+        s.book = FakeBook(
+            {
+                "도깨비": [
+                    make_place(f"n{i}", f"근처{i}", lat + 0.001 * i, lng)
+                    for i in range(1, 5)
+                ]
+            }
+        )
+        out = call("places_near", {"near": "현위치"}, s)
+        self.assertEqual(out["반경"], "2000m")
+        self.assertNotIn("넓힌 반경", out)
+
+
+class 지역검색(unittest.TestCase):
+    """`search_places` 로 지역을 물을 때 (MZ2AZ-457)."""
+
+    class 서버처럼찾기(FakeBook):
+        """서버 `GET /places?q=` 처럼 이름·주소·장면 설명을 함께 훑는 가짜."""
+
+        def search(self, query, limit=10):
+            q = norm(query)
+            hits = [
+                p
+                for ps in self.catalog.values()
+                for p in ps
+                if q in norm(p.name)
+                or q in norm(p.address)
+                or any(q in norm(s.description) for s in p.scenes)
+            ]
+            return hits[:limit]
+
+    def session(self) -> Session:
+        def at(pid, name, address, description=""):
+            return replace(
+                make_place(pid, name, 33.4, 126.5, description=description),
+                address=address,
+            )
+
+        places = [
+            at("j1", "성산일출봉", "제주특별자치도 서귀포시 성산읍 성산리 1"),
+            at("j2", "김녕해수욕장", "제주특별자치도 제주시 구좌읍 김녕리"),
+            # 장면 설명에 「제주」 가 들어 있지만 고창이다(실제 데이터).
+            at(
+                "g1",
+                "넓은들 학원농장",
+                "전북특별자치도 고창군 공음면 학원농장길 150",
+                "극중 제주 유채꽃밭으로 나오지만 실제로는 고창이다",
+            ),
+            at("w1", "전주 한옥마을", "전북특별자치도 전주시 완산구 기린대로 99"),
+            at("s1", "북촌한옥마을", "서울특별시 종로구 계동길 37"),
+        ]
+        return Session(book=self.서버처럼찾기({"작품": places}))
+
+    def names(self, out) -> list[str]:
+        return [p["이름"] for p in out["찾은 곳"]]
+
+    def test_지역이면_주소가_그_지역인_곳만(self):
+        out = call("search_places", {"query": "제주"}, self.session())
+        self.assertEqual(self.names(out), ["성산일출봉", "김녕해수욕장"])
+        self.assertEqual(out["이 지역에서 찾은 곳"], "2곳")
+
+    def test_성지_같은_일반_단어는_뺀다(self):
+        out = call("search_places", {"query": "제주도 성지"}, self.session())
+        self.assertEqual(self.names(out), ["성산일출봉", "김녕해수욕장"])
+
+    def test_도_이름이_주소와_달라도_맞춘다(self):
+        out = call("search_places", {"query": "전라북도"}, self.session())
+        self.assertEqual(set(self.names(out)), {"넓은들 학원농장", "전주 한옥마을"})
+
+    def test_지역이_아니면_그대로(self):
+        out = call("search_places", {"query": "한옥마을"}, self.session())
+        self.assertEqual(set(self.names(out)), {"전주 한옥마을", "북촌한옥마을"})
+        self.assertNotIn("지역", out)
+
+    def test_도로_이름은_지역으로_보지_않는다(self):
+        """「계동길」 의 「계동」 으로 찾았다고 서울 종로구 전체로 거르지 않는다."""
+        out = call("search_places", {"query": "계동"}, self.session())
+        self.assertNotIn("지역", out)
+
+    def test_일반_단어뿐이면_되묻게_한다(self):
+        out = call("search_places", {"query": "성지 추천"}, self.session())
+        self.assertIn("물어봐라", out["결과없음"])
 
 
 class 도구선택(unittest.TestCase):

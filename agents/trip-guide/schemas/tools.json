@@ -56,7 +56,7 @@
             "query": {
               "type": "string",
               "minLength": 1,
-              "description": "찾을 말. 예: '도깨비', '공유', '북촌한옥마을', '전주'"
+              "description": "찾을 말. 예: '도깨비', '공유', '북촌한옥마을', '전주'. 지역을 물으면 지역 이름만 넣어라('제주도', '성남시') — '성지'·'촬영지' 같은 말은 붙이지 마라"
             },
             "limit": {
               "type": "integer",
@@ -116,7 +116,7 @@
               "type": "integer",
               "minimum": 100,
               "maximum": 20000,
-              "default": 2000
+              "description": "사용자가 반경(「1km 안」 등)을 말했을 때만 넣어라. 넣지 않으면 2km 부터 찾고, 적으면 20km 까지 알아서 넓힌다"
             },
             "limit": {
               "type": "integer",

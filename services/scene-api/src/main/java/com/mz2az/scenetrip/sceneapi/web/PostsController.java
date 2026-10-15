@@ -84,6 +84,16 @@ class PostsController implements PostsApi {
     } catch (PostBody.RejectedException e) {
       throw ApiException.badRequest("POST_BODY_INVALID", e.getMessage());
     }
+    // 쓸 수 없는 말(MZ2AZ-438) — 제목·본문과 문단 블록의 글·사진 설명·출처까지.
+    ApiException.requireAllowedText("제목", title);
+    ApiException.requireAllowedText("본문", body);
+    if (blocks != null) {
+      for (TripPostBlock block : blocks) {
+        ApiException.requireAllowedText("본문", block.getText());
+        ApiException.requireAllowedText("사진 설명", block.getCaption());
+        ApiException.requireAllowedText("사진 출처", block.getCredit());
+      }
+    }
 
     // 옮기기는 DB 트랜잭션 밖이다 — 저장소 호출을 트랜잭션 안에서 기다리지 않는다(리뷰와 같다).
     Set<String> fresh = uploads.unattached(user, keys);

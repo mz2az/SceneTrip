@@ -443,7 +443,7 @@
 "별점 %@점" = "%@ out of 5 stars";
 "더 불러오지 못했어요 · 다시 시도" = "Couldn't load more · Try again";
 "탈퇴한 사용자" = "Deleted user";
-"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 익명으로 남습니다. 지우려면 탈퇴 전에 지우세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews and travel posts you wrote stay without your name. Delete them before leaving if you want them removed.";
+"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 사진과 함께 「탈퇴한 사용자」로 남고, 탈퇴한 뒤에는 지울 수 없어요. 지우고 싶은 글은 먼저 삭제해 주세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews and travel posts you wrote stay, with their photos, as \"Deleted user\" and can't be deleted after you leave. Delete anything you want removed first.";
 "후기를 지울까요?" = "Delete this travel review?";
 "쓰던 후기를 버릴까요?" = "Discard this draft?";
 "게시 여부 확인" = "Check publication";
@@ -533,10 +533,9 @@
 "모두 보기" = "See all";
 "리뷰 보기|사진" = "View review";
 
-/* 내 리뷰 · 탈퇴 안내 (MZ2AZ-363) */
+/* 내 리뷰 (MZ2AZ-363) */
 "아직 쓴 리뷰가 없어요" = "You haven't written a review yet";
 "다녀온 촬영지와 가게에 별점을 남겨 보세요" = "Rate the filming spots and places you've visited";
-"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰는 익명으로 남습니다. 지우려면 탈퇴 전에 지우세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews you wrote stay, without your name. Delete them first if you want them gone.";
 "편의시설" = "Place nearby";
 
 /* 머무는 시간 — 일차 머리줄의 합과 시트 (MZ2AZ-368) */
@@ -585,6 +584,10 @@
 "보내기" = "Send";
 "한도가 풀리면 다시 보낼 수 있어요" = "You can send again once the limit resets";
 "지금은 가이드에게 물어볼 수 없어요. 잠시 뒤 다시 시도해 주세요" = "The guide can't take questions right now. Please try again shortly";
+
+/* 가이드 챗봇 — AI 답변 안내 (MZ2AZ-439) */
+"AI 답변은 틀릴 수 있어요. 영업시간·요금·교통은 직접 확인해 주세요." = "AI answers can be wrong. Please check hours, prices and transit yourself.";
+"AI 답변은 틀릴 수 있어요." = "AI answers can be wrong.";
 
 /* 길찾기 한도 — 지도 앱으로 넘기기 (MZ2AZ-366 D) */
 "길찾기를 잠시 많이 썼어요. 1분 안에 다시 찾을 수 있어요. 지도 앱에서 이어서 볼 수도 있어요" = "You've used directions a lot. You can search again within a minute, or continue in a map app";
@@ -648,3 +651,11 @@
 "장바구니에 담긴 장소가 없어요." = "Your cart has no places yet.";
 
 "장바구니 장소 보기" = "View places in my cart";
+
+"약관 및 정책" = "Terms & Policies";
+
+"개인정보 처리방침" = "Privacy Policy";
+
+"이용약관" = "Terms of Service";
+
+"계속하면 이용약관과 개인정보 처리방침에 동의하는 것으로 봅니다." = "By continuing, you agree to the Terms of Service and Privacy Policy.";

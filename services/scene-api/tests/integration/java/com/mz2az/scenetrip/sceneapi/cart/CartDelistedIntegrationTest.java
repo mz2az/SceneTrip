@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * 장바구니의 「목록에서 빠짐」 표시(scene-api 1.18.0, docs/project/plans/delisted-items.md) — 실제 DB.
+ * 장바구니의 「목록에서 빠짐」 표시(scene-api 1.20.0, docs/project/plans/delisted-items.md) — 실제 DB.
  *
  * <p>명세: {@code place.hidden_at} 이 찬 촬영지는 {@code CartItem.delisted = true}, 아니면 {@code false}(없으면
  * {@code false} 로 읽는다). 숨긴 촬영지도 장바구니에서 <b>빠지지 않는다</b>. 숨김이 풀리면 다시 {@code false}.

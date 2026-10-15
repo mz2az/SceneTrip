@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * 코스 항목의 「목록에서 빠짐」·「폐업」 표시(scene-api 1.18.0, docs/project/plans/delisted-items.md) — 실제 DB.
+ * 코스 항목의 「목록에서 빠짐」·「폐업」 표시(scene-api 1.20.0, docs/project/plans/delisted-items.md) — 실제 DB.
  *
  * <p>명세: 촬영지 줄은 {@code place.hidden_at} 으로 {@code delisted}, 편의시설 줄은 {@code poi.closed_at} 으로
  * {@code closed} 를 싣는다. 해당 없는 칸(촬영지 줄의 {@code closed}, 편의시설 줄의 {@code delisted}, 핀 줄의 둘 다)은 없다.

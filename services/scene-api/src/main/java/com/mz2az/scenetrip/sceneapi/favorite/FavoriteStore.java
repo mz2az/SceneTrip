@@ -52,7 +52,7 @@ public class FavoriteStore {
           (SELECT count(*) FROM place_content pc
              JOIN place pl ON pl.id = pc.place_id AND pl.hidden_at IS NULL
             WHERE pc.content_id = c.id) AS place_count,
-          -- 목록에서 빠진 작품(1.18.0, MZ2AZ-451). 거르지 않는다 — 찜한 것은 남기고 알리기만 한다.
+          -- 목록에서 빠진 작품(1.20.0, MZ2AZ-451). 거르지 않는다 — 찜한 것은 남기고 알리기만 한다.
           c.hidden_at IS NOT NULL AS delisted,
           count(*) OVER () AS total_count
       FROM saved_content s

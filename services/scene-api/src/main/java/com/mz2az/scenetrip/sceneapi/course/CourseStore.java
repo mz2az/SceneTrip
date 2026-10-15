@@ -115,7 +115,7 @@ public class CourseStore {
               COALESCE(p.type, q.category, cp.category) AS category,
               COALESCE(p.geom, q.geom, cp.geom)         AS geom,
               cd.title                                  AS source_content_title,
-              -- 목록에서 빠진 촬영지·폐업한 편의시설(1.18.0, MZ2AZ-451). 거르지 않는다 — 코스에 남기고 알리기만 한다.
+              -- 목록에서 빠진 촬영지·폐업한 편의시설(1.20.0, MZ2AZ-451). 거르지 않는다 — 코스에 남기고 알리기만 한다.
               p.hidden_at IS NOT NULL                   AS place_delisted,
               q.closed_at IS NOT NULL                   AS poi_closed,
               -- 편의시설 항목의 표시말(1.9.0, MZ2AZ-381) — PoiStore 의 목록·상세와 같은 규칙. 한국어를 요청하면 없다(분류는 원본).

@@ -305,7 +305,7 @@ public class PlaceStore {
       SELECT
           p.id, d.name, p.type, d.address, d.description, p.naver_place_url,
           d.shown_lang,
-          -- 목록에서 빠진 촬영지(1.18.0, MZ2AZ-451). 상세는 열린다 — 앱이 「담기」 를 막는 데 쓴다.
+          -- 목록에서 빠진 촬영지(1.20.0, MZ2AZ-451). 상세는 열린다 — 앱이 「담기」 를 막는 데 쓴다.
           p.hidden_at IS NOT NULL AS delisted,
           ST_Y(p.geom::geometry) AS latitude,
           ST_X(p.geom::geometry) AS longitude,

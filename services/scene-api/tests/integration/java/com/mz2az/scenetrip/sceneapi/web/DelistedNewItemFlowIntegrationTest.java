@@ -48,7 +48,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 /**
- * 숨긴 촬영지·작품, 폐업한 편의시설을 <b>새로</b> 담는 것은 막고, 이미 담은 것은 남긴다(scene-api 1.18.0,
+ * 숨긴 촬영지·작품, 폐업한 편의시설을 <b>새로</b> 담는 것은 막고, 이미 담은 것은 남긴다(scene-api 1.20.0,
  * docs/project/plans/delisted-items.md §3-1, docs/api/errors.md 의 409 표) — 컨트롤러와 진짜 Store, 실제 DB.
  *
  * <ul>

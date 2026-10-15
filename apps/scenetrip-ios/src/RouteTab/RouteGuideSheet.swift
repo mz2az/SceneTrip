@@ -340,6 +340,7 @@ struct RouteGuideSheet: View {
                 .padding(.horizontal, 16).padding(.top, 6)
             remainingLine
             composerRow
+            aiNotice
         }
         .background(.thinMaterial)
     }

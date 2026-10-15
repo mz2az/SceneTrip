@@ -1,6 +1,7 @@
 package com.mz2az.scenetrip.sceneapi.post;
 
 import com.mz2az.scenetrip.sceneapi.api.model.TripPostBlock;
+import com.mz2az.scenetrip.sceneapi.moderation.BlockStore;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -265,8 +266,11 @@ public class PostStore {
 
   /** 목록, 최신순. {@code author} 가 있으면 그 사람의 글만. */
   public Page<Summary> list(UUID viewer, UUID author, int limit, int offset) {
+    // 보는 사람이 차단한 작성자의 글은 뺀다(MZ2AZ-438). 보는 사람이 없으면 아무것도 빼지 않는다.
     String where =
-        "p.removed_at IS NULL" + (author == null ? "" : " AND p.user_id = CAST(:author AS UUID)");
+        "p.removed_at IS NULL AND "
+            + BlockStore.NOT_BLOCKED.formatted("p.user_id")
+            + (author == null ? "" : " AND p.user_id = CAST(:author AS UUID)");
     var listQuery =
         jdbc.sql(
                 "SELECT "
@@ -277,7 +281,9 @@ public class PostStore {
             .param("viewer", viewer == null ? null : viewer.toString())
             .param("limit", limit)
             .param("offset", offset);
-    var countQuery = jdbc.sql("SELECT count(*) FROM community_post p WHERE " + where);
+    var countQuery =
+        jdbc.sql("SELECT count(*) FROM community_post p WHERE " + where)
+            .param("viewer", viewer == null ? null : viewer.toString());
     if (author != null) {
       listQuery = listQuery.param("author", author.toString());
       countQuery = countQuery.param("author", author.toString());
@@ -294,7 +300,9 @@ public class PostStore {
                 "SELECT "
                     + SUMMARY_COLUMNS
                     + ", p.body, p.body_blocks FROM community_post p LEFT JOIN app_user u ON u.id ="
-                    + " p.user_id WHERE p.id = :postId AND p.removed_at IS NULL")
+                    + " p.user_id WHERE p.id = :postId AND p.removed_at IS NULL AND "
+                    // 차단한 작성자의 글은 열지 않는다(404, MZ2AZ-438).
+                    + BlockStore.NOT_BLOCKED.formatted("p.user_id"))
             .param("postId", postId)
             .param("viewer", viewer == null ? null : viewer.toString())
             .query(

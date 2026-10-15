@@ -215,6 +215,8 @@ struct ProfileTabView: View {
                     .buttonStyle(.plain)
                 }
 
+                legalSection
+
                 accountSection
 
                 Section("준비 중") {
@@ -426,6 +428,22 @@ extension ProfileTabView {
         }
     }
 
+    /// 처리방침·약관 (MZ2AZ-455, App Store 5.1.1 — 앱 안에서 찾을 수 있어야 한다). 비회원에게도 보인다.
+    /// 앱의 다른 외부 페이지처럼 Safari 로 연다. 주소는 `LegalLinks` 한 곳에 있다.
+    var legalSection: some View {
+        Section("약관 및 정책") {
+            Link(destination: LegalLinks.privacy) {
+                row(symbol: "hand.raised", tint: .blue, title: tr("개인정보 처리방침"),
+                    value: "", chevron: true)
+            }
+            .buttonStyle(.plain)
+            Link(destination: LegalLinks.terms) {
+                row(symbol: "doc.text", tint: .blue, title: tr("이용약관"), value: "", chevron: true)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
     /// 계정 — 로그아웃과 탈퇴. 탈퇴는 App Store 요건이라 앱 안에 있어야 한다.
     @ViewBuilder var accountSection: some View {
         if auth.signedIn {
@@ -460,8 +478,10 @@ extension ProfileTabView {
                     }
                     Button("취소", role: .cancel) {}
                 } message: {
-                    // 리뷰만 예외다 — 다른 사람을 위한 장소 정보라 작성자 표시 없이 남는다(서버 결정, MZ2AZ-362).
-                    Text("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 익명으로 남습니다. 지우려면 탈퇴 전에 지우세요.")
+                    // 리뷰·여행후기는 예외다 — 사진과 함께 「탈퇴한 사용자」로 남고(작성자 연결만 끊는다) 탈퇴 뒤엔
+                    // 지울 수 없다. 남겨도 되는 근거가 「탈퇴 전에 알렸다」는 것이라 여기서 빠짐없이 말한다
+                    // (MZ2AZ-362, MZ2AZ-452 — 개인정보 처리방침 MZ2AZ-418 과 같은 뜻).
+                    Text("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 사진과 함께 「탈퇴한 사용자」로 남고, 탈퇴한 뒤에는 지울 수 없어요. 지우고 싶은 글은 먼저 삭제해 주세요.")
                 }
                 .alert("탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요", isPresented: $deleteFailed) {
                     Button("확인", role: .cancel) {}

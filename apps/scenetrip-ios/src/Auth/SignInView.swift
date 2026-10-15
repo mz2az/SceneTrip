@@ -76,6 +76,9 @@ struct SignInView: View {
                 .buttonStyle(.plain)
                 .disabled(auth.busy)
 
+                legalNotice
+                    .padding(.top, 12)
+
                 Button("나중에 할게요") { auth.showingSignIn = false }
                     .disabled(auth.busy)
                     .font(.subheadline)
@@ -84,6 +87,42 @@ struct SignInView: View {
                     .padding(.bottom, 18)
             }
             .padding(.horizontal, 24)
+        }
+    }
+
+    /// 가입 동의 안내 (MZ2AZ-455). 로그인이 가입을 겸하므로 단추 바로 아래에 둔다 — 체크박스는 없다.
+    /// 두 링크는 따로 누를 수 있는 `Link` 라 VoiceOver 가 「링크」로 읽는다. 큰 글자에서 한 줄에
+    /// 안 들어가면 위아래로 쌓는다. 주소는 `LegalLinks` 한 곳에 있다.
+    private var legalNotice: some View {
+        VStack(spacing: 0) {
+            Text("계속하면 이용약관과 개인정보 처리방침에 동의하는 것으로 봅니다.")
+                .fixedSize(horizontal: false, vertical: true)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) { legalLinks(separated: true) }
+                VStack(spacing: 0) { legalLinks(separated: false) }
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .multilineTextAlignment(.center)
+    }
+
+    @ViewBuilder private func legalLinks(separated: Bool) -> some View {
+        legalLink("이용약관", to: LegalLinks.terms)
+        if separated {
+            Text(verbatim: "·").accessibilityHidden(true)
+        }
+        legalLink("개인정보 처리방침", to: LegalLinks.privacy)
+    }
+
+    /// 글자는 작아도 누르는 자리는 44pt 이상으로 넓힌다 — 캡션 높이(14pt)만으로는 손가락이 빗나간다.
+    private func legalLink(_ title: LocalizedStringKey, to url: URL) -> some View {
+        Link(destination: url) {
+            Text(title)
+                .underline()
+                .foregroundStyle(Color.accentColor)
+                .frame(minHeight: 44)
+                .contentShape(.rect)
         }
     }
 }

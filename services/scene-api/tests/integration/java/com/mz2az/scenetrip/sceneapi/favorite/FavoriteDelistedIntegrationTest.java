@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * 찜한 작품의 「목록에서 빠짐」 표시(scene-api 1.18.0, docs/project/plans/delisted-items.md) — 실제 DB.
+ * 찜한 작품의 「목록에서 빠짐」 표시(scene-api 1.20.0, docs/project/plans/delisted-items.md) — 실제 DB.
  *
  * <p>명세: {@code content.hidden_at} 이 찬 작품은 찜 목록({@code GET /favorites/contents})의 {@code
  * ContentSummary.delisted} 가 {@code true}. 숨긴 작품도 찜에서 빠지지 않는다. 숨김이 풀리면 {@code false}. 작품 목록·검색에서는
