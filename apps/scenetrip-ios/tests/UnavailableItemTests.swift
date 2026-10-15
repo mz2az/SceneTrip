@@ -248,6 +248,42 @@ final class UnavailableItemTests: XCTestCase {
         }
     }
 
+    func testGuideRevisionPreservesUnavailableTargetsAcrossDuplicateRows() {
+        for (oldCount, newCount) in [(2, 2), (1, 2), (2, 1)] {
+            var hidden = courseItem(source: .place)
+            hidden.placeId = 3
+            hidden.delisted = true
+            var closed = courseItem(source: .poi)
+            closed.closed = true
+            let days = (0 ..< oldCount).map { day in
+                var place = hidden
+                place.id = Int64(10 + day)
+                var poi = closed
+                poi.id = Int64(20 + day)
+                var rows = [RouteBridge.stop(from: place), RouteBridge.stop(from: poi)]
+                rows[0].visited = true
+                rows[1].visited = true
+                return RouteDay(stops: rows + [stop(4, longitude: 127.1)])
+            }
+            let original = RouteCourse(serverId: 8, title: "편집", days: days)
+            var plan = RouteGuidePlan.plan(from: original)
+            plan.days = (1 ... newCount).map { GuidePlanDay(day: $0, stops: plan.days[0].stops) }
+            for day in plan.days.indices {
+                plan.days[day].stops[2].dwellMinutes = 60
+            }
+            let revised = RouteGuidePlan.revising(original, with: plan)
+            XCTAssertEqual(revised.days.count, newCount)
+            for day in revised.days {
+                XCTAssertEqual(day.stops.map(\.unavailable), [.place, .closedPoi, nil])
+                XCTAssertEqual(day.stops.prefix(2).map(\.serverItemId), [nil, nil])
+                XCTAssertTrue(day.stops.prefix(2).allSatisfy { !$0.visited })
+                XCTAssertEqual(day.stops[2].stayMinutes, 60)
+                XCTAssertEqual(RouteAvailability.nextUnvisited(in: day.stops)?.number, 3)
+                XCTAssertEqual(RouteGeometry.totalKilometers(day.stops), 0)
+            }
+        }
+    }
+
     private func courseItem(source: CourseItemSource) -> CourseItem {
         CourseItem(id: 11, source: source, placeId: 1, poiId: 3, name: "장소",
                    latitude: 37, longitude: 127, dwellMinutes: 30)
