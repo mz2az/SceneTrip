@@ -16,6 +16,11 @@ SceneTrip 의 iOS 네이티브 앱. 탭은 셋 — 작품검색 · **홈**(첫 �
 
 현재 구현된 동선:
 
+- 마이페이지 「약관 및 정책」 절과 로그인 시트의 동의 안내가 개인정보 처리방침·이용약관을 Safari로 연다.
+  주소는 `src/Models/LegalLinks.swift` 한 곳에 둔다. 2026-10-15 기준 `https://scenetrip.io/privacy`는
+  한국어 초안만 게시돼 있고 영어판 주소는 없으며, `https://scenetrip.io/terms`는 **404**다 — 출시 전에
+  게시해야 한다(MZ2AZ-455, 게시는 MZ2AZ-437·418).
+
 - 커뮤니티는 서버 후기와 이 기기에만 보관한 옛 글을 함께 보여 준다. 옛 글의 사진·첨부
   코스는 보존하며 서버에 자동 공개하지 않는다. 지역별 추천 가이드 20개는 같은 지역의
   1일 코스와 사진을 붙여 제공한다([MZ2AZ-423](../../docs/project/plans/community-regional-guides.md)).
