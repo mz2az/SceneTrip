@@ -323,20 +323,49 @@ public class UserStore {
   }
 
   /**
-   * 탈퇴 — 계정 행을 지운다.
+   * 탈퇴 — 계정과 그 계정이 쓴 글을 지운다(MZ2AZ-466, App Store 5.1.1 — 「다른 사람과 공유한 사진·글·리뷰도 포함」).
    *
-   * <p>작성한 리뷰는 남는다 — {@code review.user_id} 가 {@code ON DELETE SET NULL} 이라 작성자만 끊긴다(V21, 계약). 그 밖의
-   * 모든 것은 {@code ON DELETE CASCADE} 로 함께 사라진다: 설치본 연결·장바구니·코스(아이템·핀)·찜·마켓에 올린 코스와 좋아요·소셜 신분·리프레시
-   * 토큰. 이 계정으로 합쳐진 빈 비회원 행들은 {@code merged_into} 가 이 행을 가리키는데 그 FK 에는 CASCADE 가 없으므로, 먼저 끊는다 — 그
-   * 행들은 이미 비어 있으니 함께 지운다.
+   * <p>함께 지우는 것: 리뷰(사진 행은 CASCADE), 여행후기(사진·블록·코스 사본은 CASCADE), 리뷰 보관본({@code review_archive} — 같은
+   * 곳 연결이 지운 리뷰의 사본). 사진 파일은 지울 목록({@code storage_deletion})에 올리고 {@code StorageDeletionJob} 이
+   * 저장소에서 지운다(글 삭제·리뷰 사진 삭제와 같은 길). 그 밖의 것은 {@code ON DELETE CASCADE} 로 함께 사라진다: 설치본 연결·장바구니·코스
+   * (아이템·핀)·찜·마켓·소셜 신분·리프레시 토큰·차단. 신고 기록(신고자)과 조회 기록은 {@code SET NULL} 로 연결만 끊고 각자의 보관 기간을 따른다.
+   *
+   * <p><b>한 문장</b>이다 — 목록 올리기와 행 지우기가 함께 되거나 함께 안 된다. 목록을 <b>먼저</b> 채운다: 글을 지우면 CASCADE 로 사진 행이 사라져
+   * 키를 모른다. 이 계정으로 합쳐진 빈 비회원 행들({@code merged_into})의 글도 같이 지우고 그 행들도 지운다 — 그 FK 에는 CASCADE 가 없다.
    *
    * @return 지웠으면 {@code true}. 이미 없었으면 {@code false}
    */
   public boolean delete(UUID userId) {
-    jdbc.sql("DELETE FROM app_user WHERE merged_into = CAST(:id AS UUID)")
-        .param("id", userId.toString())
-        .update();
-    return jdbc.sql("DELETE FROM app_user WHERE id = CAST(:id AS UUID)")
+    return jdbc.sql(
+                """
+                WITH owners AS (
+                    SELECT id FROM app_user
+                    WHERE id = CAST(:id AS UUID) OR merged_into = CAST(:id AS UUID)
+                ),
+                photo_keys AS (
+                    SELECT ri.storage_key
+                    FROM review_image ri JOIN review r ON r.id = ri.review_id
+                    WHERE r.user_id IN (SELECT id FROM owners)
+                    UNION
+                    SELECT ph.storage_key
+                    FROM community_post_photo ph JOIN community_post p ON p.id = ph.post_id
+                    WHERE p.user_id IN (SELECT id FROM owners)
+                    UNION
+                    SELECT unnest(a.photo_keys)
+                    FROM review_archive a
+                    WHERE a.user_id IN (SELECT id FROM owners)
+                ),
+                queued AS (
+                    INSERT INTO storage_deletion (storage_key)
+                    SELECT storage_key FROM photo_keys
+                    ON CONFLICT (storage_key) DO NOTHING
+                ),
+                reviews AS (DELETE FROM review WHERE user_id IN (SELECT id FROM owners)),
+                posts AS (DELETE FROM community_post WHERE user_id IN (SELECT id FROM owners)),
+                archived AS (DELETE FROM review_archive WHERE user_id IN (SELECT id FROM owners)),
+                merged AS (DELETE FROM app_user WHERE merged_into = CAST(:id AS UUID))
+                DELETE FROM app_user WHERE id = CAST(:id AS UUID)
+                """)
             .param("id", userId.toString())
             .update()
         > 0;

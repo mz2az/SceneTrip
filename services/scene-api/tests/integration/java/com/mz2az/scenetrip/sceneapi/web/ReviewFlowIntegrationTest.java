@@ -771,13 +771,13 @@ class ReviewFlowIntegrationTest {
   // ───────────── 탈퇴 ─────────────
 
   @Test
-  @DisplayName("DELETE /me — 리뷰는 남고 author 가 null, 별점 요약도 그대로. 계정은 지워진다")
-  void deleteMeKeepsReviewsWithoutAuthor() {
+  @DisplayName("DELETE /me(MZ2AZ-466) — 그 사람의 촬영지·편의시설 리뷰가 함께 지워져 목록·별점 요약에서 빠진다. 계정도 지워진다")
+  void deleteMeDeletesReviews() {
     long place = place("시험 촬영지");
     long poi = poi("시험 식당");
     UUID leaver = member();
     as(leaver);
-    Review placeReview = reviews.putMyPlaceReview(place, input(4, "남는 글")).getBody();
+    reviews.putMyPlaceReview(place, input(4, "지워질 글"));
     reviews.putMyPoiReview(poi, input(2, null));
 
     assertThat(auth.deleteMe().getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
@@ -785,14 +785,10 @@ class ReviewFlowIntegrationTest {
     withoutToken();
     assertThat(appUserCount(leaver)).isZero();
     ReviewList list = reviews.listPlaceReviews(place, null, null, null).getBody();
-    assertThat(list.getTotal()).isEqualTo(1);
-    Review kept = list.getItems().get(0);
-    assertThat(kept.getId()).isEqualTo(placeReview.getId());
-    assertThat(kept.getAuthor()).isNull();
-    assertThat(kept.getBody()).isEqualTo("남는 글");
-    assertThat(kept.getIsMine()).isFalse();
-    assertThat(list.getSummary().getCount()).isEqualTo(1);
-    assertThat(reviews.listPoiReviews(poi, null, null, null).getBody().getTotal()).isEqualTo(1);
+    assertThat(list.getTotal()).isZero();
+    assertThat(list.getItems()).isEmpty();
+    assertThat(list.getSummary().getCount()).isZero();
+    assertThat(reviews.listPoiReviews(poi, null, null, null).getBody().getTotal()).isZero();
   }
 
   // ───────────── 도우미 ─────────────

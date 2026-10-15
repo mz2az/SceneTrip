@@ -257,6 +257,11 @@ scenetrip:
   moderation:
     report-retention-days: 365
 
+  # 리뷰 보관본(review_archive — 같은 곳 연결이 지운 겹친 리뷰의 사본, V30). 이만큼 지나면 사진과 함께 지운다(MZ2AZ-466).
+  # 처리방침에 적는 기간과 같아야 한다. 탈퇴하면 기간과 상관없이 바로 지운다.
+  review:
+    archive-retention-days: 90
+
   course:
     walking-speed-kmh: 4.0
     detour-factor: 1.3
