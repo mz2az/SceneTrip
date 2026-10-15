@@ -115,7 +115,8 @@ extension RouteEditorView {
             Image(systemName: symbol)
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(Color(PinImage.deep))
-            Text(tripTitle(target)).font(.subheadline.weight(.bold)).lineLimit(1)
+            Text(tripTitle(target)).font(.subheadline.weight(.bold))
+                .fixedSize(horizontal: false, vertical: true)
             Spacer()
             if guideEntry == .tripHeader {
                 Button { showGuide = true } label: {
@@ -141,6 +142,34 @@ extension RouteEditorView {
 }
 
 /// 도착 알림 카드의 높이를 위로 알린다 — 지도 오른쪽 위 단추가 카드 밑으로 내려가게.
+/// MZ2AZ-117: 긴 번역·큰 글자는 요약을 다음 줄로 내려 전체 정보를 보존한다.
+struct TripNavigationSummary: View {
+    let duration: String
+    let summary: String
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                durationText
+                summaryText
+            }
+            .fixedSize(horizontal: true, vertical: true)
+            VStack(alignment: .leading, spacing: 4) {
+                durationText
+                summaryText.fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var durationText: some View {
+        Text(duration).font(.title3.weight(.bold))
+    }
+
+    private var summaryText: some View {
+        Text(summary).font(.caption).foregroundStyle(.secondary)
+    }
+}
+
 struct TripBannerHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -168,14 +197,14 @@ extension RouteEditorView {
                     .font(.caption).foregroundStyle(.secondary)
             }
         } else if let result = trip.result {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(RouteFormat.minutes(result.totalMinutes)).font(.title3.weight(.bold))
-                Text(result.summaryLine).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
+            TripNavigationSummary(
+                duration: RouteFormat.minutes(result.totalMinutes), summary: result.summaryLine
+            )
             // 안내 언어가 앱 언어와 다르면 그대로 보여 주고 언어만 표시한다(MZ2AZ-305). 번역은 별도.
             if let note = result.languageNote {
                 Label(note, systemImage: "character.bubble")
-                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             // 구간 — 도보·대중교통 조각을 한 줄로. 화면을 밀면 다 보인다.
             ScrollView(.horizontal, showsIndicators: false) {

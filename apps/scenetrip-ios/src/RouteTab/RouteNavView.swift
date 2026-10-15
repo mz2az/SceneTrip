@@ -191,7 +191,7 @@ struct RouteNavView: View {
     private var header: some View {
         ZStack {
             Text(destination.name)
-                .font(.headline).lineLimit(1)
+                .font(.headline).fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 44)
             HStack {
                 Spacer()
