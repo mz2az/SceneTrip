@@ -41,7 +41,7 @@ App Store Connect 초대만으로 개발자 포털 인증서 접근 권한이 �
 프로파일은 저장소 밖에 보관한다. `.env` 또는 현재 셸에서 아래 값을 공급한다.
 
 - `SCENETRIP_APPLE_TEAM_ID`: 실제 개발자 팀 식별자.
-- `SCENETRIP_IOS_SIGNING_IDENTITY`: Mac 키체인의 Apple Distribution 인증서 이름 또는 SHA-1.
+- `SCENETRIP_IOS_SIGNING_IDENTITY`: Mac 키체인의 Apple Distribution 인증서 **이름**(`Apple Distribution: <이름> (<팀ID>)`). SHA-1 을 넣으면 rules_apple 이 `No signing identity found` 로 실패한다(MZ2AZ-460).
 - `NAVER_MAP_CLIENT_ID`: 지도 클라이언트 ID.
 - `SCENETRIP_IOS_DEVICE_UDID`: Ad Hoc 검증 시 등록된 iPhone/iPad 식별자.
 

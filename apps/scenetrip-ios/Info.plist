@@ -43,6 +43,14 @@
 	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<!-- HTTPS 같은 표준 암호화만 쓴다 — 수출 규정 면제, 업로드마다 묻지 않게 (MZ2AZ-460). -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- 배포 빌드는 arm64 전용이라 App Store 가 요구한다 (MZ2AZ-460, 오류 90502). -->
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
 	<!-- 시스템 설정과 관계없이 밝은 화면을 유지한다 (MZ2AZ-419). -->
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
