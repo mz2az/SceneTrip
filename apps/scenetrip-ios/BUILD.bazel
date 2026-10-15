@@ -72,7 +72,7 @@ mobile_api_config(
 
 swift_library(
     name = "scenetrip-ios",
-    # 첫 실행 사용법과 OnboardingProgress도 앱 소스 대상에 포함한다(MZ2AZ-399).
+    # Analytics의 ATT·통계 설정도 아래 glob에 포함한다(MZ2AZ-402).
     srcs = glob(
         ["src/**/*.swift"],
         exclude = [
@@ -232,7 +232,7 @@ filegroup(
 swift_library(
     name = "unit_test_lib",
     testonly = True,
-    # 사용법 진행과 완료 중복 방지 시험도 같은 iOS 단위 대상에 포함한다(MZ2AZ-399).
+    # ATT·통계 설정 시험도 아래 glob으로 같은 iOS 단위 대상에 포함한다(MZ2AZ-402).
     srcs = glob(
         ["tests/**/*.swift"],
         exclude = [

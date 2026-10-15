@@ -24,6 +24,11 @@ struct AppRoot: View {
 
     @State private var stage: Stage = .splash
     @ObservedObject private var language = AppLanguage.shared
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var canRequestTracking: Bool {
+        stage == .app && scenePhase == .active
+    }
 
     var body: some View {
         ZStack {
@@ -59,6 +64,19 @@ struct AppRoot: View {
         .preferredColorScheme(.light)
         // 구글 로그인이 끝나면 구글이 이 앱으로 되돌려 보낸다 (MZ2AZ-336).
         .onOpenURL { _ = GoogleOAuth.handle($0) }
+        .task(id: canRequestTracking) {
+            guard canRequestTracking else { return }
+            // 덮개 제거 애니메이션(0.32초)이 끝난 뒤 묻는다. 백그라운드 전환 시 취소된다.
+            let dismissalDelay: Duration = .milliseconds(600)
+            do {
+                try await Task.sleep(for: dismissalDelay)
+            } catch { return }
+            guard !Task.isCancelled else { return }
+            TrackingAuthorization.shared.requestIfNeeded(
+                onboardingComplete: stage == .app && OnboardingFlag.hasSeen,
+                isActive: scenePhase == .active && UIApplication.shared.applicationState == .active
+            )
+        }
     }
 
     private var afterLanguage: Stage {

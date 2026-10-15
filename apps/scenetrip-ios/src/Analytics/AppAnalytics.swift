@@ -21,29 +21,49 @@ protocol AnalyticsSink {
 enum AppAnalytics {
     /// 시험에서 가짜로 갈아 끼운다.
     nonisolated(unsafe) static var sink: AnalyticsSink = NoSink()
+    private nonisolated(unsafe) static var language: String?
+    private nonisolated(unsafe) static var account: String?
 
     /// 앱이 뜰 때 한 번.
     static func start(language: String, member: Bool) {
-        if Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
-            FirebaseApp.configure()
-            sink = FirebaseSink()
-        }
+        setCollectionEnabled(UsageStatistics.shared.isEnabled)
         setLanguage(language)
         setMember(member)
     }
 
+    static func setCollectionEnabled(_ enabled: Bool) {
+        // OFF로 시작하면 SDK 초기화 자체를 미룬다. 첫 자동 이벤트보다 저장한 선택이 먼저다.
+        if enabled, FirebaseApp.app() == nil,
+           Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil
+        {
+            FirebaseApp.configure()
+            sink = FirebaseSink()
+        }
+        guard FirebaseApp.app() != nil else { return }
+        Analytics.setAnalyticsCollectionEnabled(enabled)
+        if enabled {
+            sink.setUserProperty(language, for: "app_language")
+            sink.setUserProperty(account, for: "account")
+        }
+    }
+
     static func log(_ event: AppEvent) {
+        guard UsageStatistics.shared.isEnabled else { return }
         sink.log(event)
         MetaAnalytics.shared.log(event)
     }
 
     /// 사용자 속성 — 이벤트를 언어별·회원 여부별로 나눠 보려고 둔다. 사람을 가리키는 값은 아니다.
     static func setLanguage(_ language: String) {
+        self.language = language
+        guard UsageStatistics.shared.isEnabled else { return }
         sink.setUserProperty(language, for: "app_language")
     }
 
     static func setMember(_ member: Bool) {
-        sink.setUserProperty(member ? "member" : "guest", for: "account")
+        account = member ? "member" : "guest"
+        guard UsageStatistics.shared.isEnabled else { return }
+        sink.setUserProperty(account, for: "account")
     }
 }
 
