@@ -187,5 +187,7 @@ private struct NearbyCartClient: CartClient {
         Cart(items: [CartItem(placeId: 42, name: "저장한 곳", addedAt: Date(timeIntervalSince1970: 1))], totalCount: 1)
     }
 
+    func add(installId _: UUID, placeId _: Int64, sourceContentId _: Int64?) async throws {}
+
     func remove(installId _: UUID, placeId _: Int64) async throws {}
 }

@@ -43,6 +43,7 @@ extension RouteGuidePlan {
     static func revising(_ original: RouteCourse, with plan: GuidePlan) -> RouteCourse {
         var next = course(from: plan, title: original.title, startDate: original.startDate, pace: original.pace)
         next.serverId = original.serverId
+        next.detailLoaded = original.detailLoaded
         next.isRunning = original.isRunning
         let oldStops = Dictionary(grouping: original.days.flatMap(\.stops), by: identity(of:))
         let newStops = Dictionary(grouping: next.days.flatMap(\.stops), by: identity(of:))

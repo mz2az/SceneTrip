@@ -51,9 +51,7 @@ struct RouteEditorView: View {
     @State var showSearch = false
     @State var nearbyMapAnchor: RouteGuideAnchor?
     @State var showNearby = false
-    @State var cartHintReady = false
-    @State var cartHintVisible = false
-    @State var cartHintText = ""
+    @StateObject var cartHint = RouteCartHintStore()
 
     /// 일정 시트가 얼마나 올라와 있나. **반이 기본이다** — 지도와 일정을 같이 본다.
     @State var panelDetent: BottomSheet<AnyView>.Detent = .medium
@@ -269,6 +267,8 @@ struct RouteEditorView: View {
         .locationConsentSheet(trip.directionsConsent.gate, onCancel: trip.cancelLocationRequest)
         .locationConsentSheet(ambientLocationGate)
         .kakaoDirectionsNotice(trip.directionsConsent.notice)
+        // 편집기 진입 시 즉시 강조하고, 문구는 장바구니 조회 완료 후 표시한다.
+        .task { await presentCartHint() }
         // 작품 줄 — 받아 둔 촬영지 목록(인기 200곳)에 없는 곳은 여기서 물어 채운다(MZ2AZ-372).
         .task(id: stops.map(\.place.id)) { await store.loadWorkTitles(for: stops) }
         .task {
@@ -277,7 +277,6 @@ struct RouteEditorView: View {
             // 대화는 코스의 것이다 — 다른 코스를 열었으면 앞 코스의 대화와 AI 장소를 비운다.
             guide.bind(to: guideKey(for: course))
             await cart.refresh()
-            cartHintReady = true
             // 가이드가 「주변」을 찾으려면 자리가 있어야 한다. 미리 물어 둔다 —
             // 단추를 누른 뒤에 물으면 그만큼 기다린다.
             guideLocator.start()
@@ -309,7 +308,7 @@ struct RouteEditorView: View {
         // 저장이 실패하면 이유를 말한다. 버튼이 안 먹는 것처럼 보이면 사용자는
         // 같은 버튼을 계속 누르게 된다.
         .alert("저장하지 못했습니다", isPresented: Binding(
-            get: { store.failure != nil },
+            get: { store.saveFailure != nil },
             set: {
                 if !$0 {
                     store.clearFailure()
@@ -318,7 +317,7 @@ struct RouteEditorView: View {
         )) {
             Button("확인") { store.clearFailure() }
         } message: {
-            Text(store.failure?.courseSaveMessage ?? "")
+            Text(store.saveFailure?.courseSaveMessage ?? "")
         }
         // 해태 「내가 도와줄게!」 — 안내 헤더 입구와 교대한다. 지도가 아니라 **화면** 오른쪽
         // 아래에 떠 있고, 꾹 누르면 옮길 수 있다(2026-09-16). 창이 열려 있거나 핀을 찍는

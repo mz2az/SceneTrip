@@ -102,6 +102,7 @@
 "다녀온 코스의 동선과 장소를 AI 가 읽고" = "AI reads your finished course,";
 "다시 길찾기" = "Directions again";
 "다시 시도" = "Try again";
+"코스를 불러오지 못했어요" = "Couldn't load the course";
 "다음" = "Next";
 "다음 · %lld번 %@로 길찾기" = "Next · Directions to #%lld %@";
 "닫기" = "Close";

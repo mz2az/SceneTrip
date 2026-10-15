@@ -64,7 +64,14 @@ struct UnavailableItemNotice: View {
 }
 
 extension ApiFailure {
+    static let courseDetailNotLoaded = ApiFailure(
+        statusCode: nil, traceId: nil, apiCode: "COURSE_DETAIL_NOT_LOADED"
+    )
+
     var courseSaveMessage: String {
+        if self == .courseDetailNotLoaded {
+            return tr("코스를 불러오지 못했어요")
+        }
         guard let rejection = UnavailableItem.rejection(status: statusCode, code: apiCode) else { return message }
         return rejection + " " + tr("편집 내용은 그대로예요. 해당 항목을 빼고 다시 저장해 주세요.")
     }

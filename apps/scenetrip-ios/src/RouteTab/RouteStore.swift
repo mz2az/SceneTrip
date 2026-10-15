@@ -23,6 +23,9 @@ final class RouteStore: ObservableObject {
     /// 마지막 호출이 실패했나. 화면이 「불러오지 못했습니다」를 띄우는 데 쓴다.
     @Published private(set) var failure: ApiFailure?
 
+    /// 편집 화면의 저장·여행 상태 변경 실패. 목록·재료 조회 실패로 저장 경고를 띄우지 않는다.
+    @Published private(set) var saveFailure: ApiFailure?
+
     /// 목록을 처음 받아오는 중인가.
     @Published private(set) var loading = false
 
@@ -119,6 +122,7 @@ final class RouteStore: ObservableObject {
 
     func clearFailure() {
         failure = nil
+        saveFailure = nil
     }
 
     // MARK: 서버
@@ -202,6 +206,11 @@ final class RouteStore: ObservableObject {
     /// `origin` 은 분석용 출처(`review` 등) — 안 주면 AI 초안인지로 정한다.
     @discardableResult
     func save(_ course: RouteCourse, origin: String? = nil) async -> RouteCourse? {
+        saveFailure = nil
+        guard course.canSave else {
+            saveFailure = .courseDetailNotLoaded
+            return nil
+        }
         do {
             let saved: CourseDetail
             if let serverId = course.serverId {
@@ -252,6 +261,7 @@ final class RouteStore: ObservableObject {
             return result
         } catch {
             failure = ApiFailure(error)
+            saveFailure = failure
             return nil
         }
     }
@@ -281,6 +291,7 @@ final class RouteStore: ObservableObject {
     ///   뜻이 없고, 계약도 그렇게 적어 두었다.
     func setRunning(_ course: RouteCourse, _ running: Bool, dayNo: Int = 1) async {
         guard let serverId = course.serverId else { return }
+        saveFailure = nil
         do {
             _ = try await CoursesAPI.updateCourseProgress(
                 xInstallId: installId,
@@ -293,6 +304,7 @@ final class RouteStore: ObservableObject {
             failure = nil
         } catch {
             failure = ApiFailure(error)
+            saveFailure = failure
             // **실패했으면 되돌린다.** 화면은 이미 「여행 종료」로 바뀌어 있는데
             // 서버는 예정 그대로다 — 그 어긋남을 두면 다음 저장이 엉뚱하게 나간다.
             await refresh()
