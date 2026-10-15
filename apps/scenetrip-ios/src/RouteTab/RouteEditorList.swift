@@ -34,6 +34,7 @@ extension RouteEditorView {
                 poiFilter
                 summary
                 actions
+                cartHintNotice
             }
             .id("course-panel-header")
             .listRowInsets(EdgeInsets())

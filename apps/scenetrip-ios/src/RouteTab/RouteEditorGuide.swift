@@ -34,6 +34,7 @@ extension RouteEditorView {
                 showGuide = false
                 showCart = true
             },
+            onOpenNearby: guideMapCenter == nil ? nil : openNearbyPlaces,
             context: guideContext,
             onAdd: addGuidePlace,
             isAdded: isAdded,
@@ -41,6 +42,13 @@ extension RouteEditorView {
             onOpenPlanner: leaveForPlanner,
             onClose: { showGuide = false }
         )
+    }
+
+    /// AI의 기준 위치와 별개로 누른 시점의 지도 중심과 출처를 함께 고정한다.
+    private func openNearbyPlaces() {
+        guard let center = guideMapCenter else { return }
+        nearbyMapAnchor = RouteGuideAnchor(spot: center, isMapCenter: true, source: guideMapSource)
+        showNearby = true
     }
 
     // MARK: 요청에 싣는 것

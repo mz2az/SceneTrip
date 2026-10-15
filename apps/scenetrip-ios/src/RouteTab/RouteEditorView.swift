@@ -49,6 +49,11 @@ struct RouteEditorView: View {
     @State var pendingPin: RoutePin?
     @State var showCart = false
     @State var showSearch = false
+    @State var nearbyMapAnchor: RouteGuideAnchor?
+    @State var showNearby = false
+    @State var cartHintReady = false
+    @State var cartHintVisible = false
+    @State var cartHintText = ""
 
     /// 일정 시트가 얼마나 올라와 있나. **반이 기본이다** — 지도와 일정을 같이 본다.
     @State var panelDetent: BottomSheet<AnyView>.Detent = .medium
@@ -272,6 +277,7 @@ struct RouteEditorView: View {
             // 대화는 코스의 것이다 — 다른 코스를 열었으면 앞 코스의 대화와 AI 장소를 비운다.
             guide.bind(to: guideKey(for: course))
             await cart.refresh()
+            cartHintReady = true
             // 가이드가 「주변」을 찾으려면 자리가 있어야 한다. 미리 물어 둔다 —
             // 단추를 누른 뒤에 물으면 그만큼 기다린다.
             guideLocator.start()
@@ -332,6 +338,13 @@ struct RouteEditorView: View {
                 onAdd: { add($0) }
             )
             .onDisappear { previewPlaces = [] }
+        }
+        .sheet(isPresented: $showNearby) {
+            if let nearbyMapAnchor {
+                RouteNearbySheet(mapAnchor: nearbyMapAnchor, deviceLocation: mapHere, taken: takenPlaceIds) {
+                    add([$0])
+                }
+            }
         }
         .sheet(isPresented: $showCart) {
             RouteCartSheet(
