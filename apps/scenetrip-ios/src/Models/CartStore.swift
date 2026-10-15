@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SceneApiClient
 
@@ -33,15 +34,26 @@ final class CartStore: ObservableObject {
 
     private let installId: UUID
     private let client: any CartClient
+    private var resetWatch: AnyCancellable?
 
     init() {
         installId = InstallIdentity.current
         client = ServerCartClient()
+        watchReset()
     }
 
     init(installId: UUID, client: any CartClient) {
         self.installId = installId
         self.client = client
+        watchReset()
+    }
+
+    private func watchReset() {
+        resetWatch = AccountDataReset.changes.sink { [weak self] _ in
+            self?.items = []
+            self?.placeIds = []
+            self?.toast = nil
+        }
     }
 
     func contains(_ placeId: Int64) -> Bool {
@@ -49,13 +61,16 @@ final class CartStore: ObservableObject {
     }
 
     func refresh() async {
-        guard let cart = try? await client.fetch(installId: installId) else { return }
+        let generation = AccountDataReset.generation
+        guard let cart = try? await client.fetch(installId: installId),
+              generation == AccountDataReset.generation else { return }
         items = cart.items
         placeIds = Set(cart.items.map(\.placeId))
     }
 
     /// 담기. 이미 있으면 서버가 409 를 주고, 그것도 담긴 상태이므로 목록에 넣는다.
     func add(placeId: Int64, sourceContentId: Int64? = nil) async {
+        let generation = AccountDataReset.generation
         do {
             _ = try await CartAPI.addCartItem(
                 xInstallId: installId,
@@ -63,25 +78,31 @@ final class CartStore: ObservableObject {
                     placeId: placeId, sourceContentId: sourceContentId
                 )
             )
+            guard generation == AccountDataReset.generation else { return }
             placeIds.insert(placeId)
             toast = tr("장바구니에 담았습니다")
             AppAnalytics.log(.savePlace(placeId: placeId))
         } catch let ErrorResponse.error(code, _, _, _) where code == 409 {
+            guard generation == AccountDataReset.generation else { return }
             placeIds.insert(placeId)
             toast = tr("이미 저장된 장소입니다")
         } catch {
+            guard generation == AccountDataReset.generation else { return }
             toast = tr("담지 못했습니다. 잠시 후 다시 시도해 주세요")
         }
         await refresh()
     }
 
     func remove(placeId: Int64) async {
+        let generation = AccountDataReset.generation
         do {
             try await client.remove(installId: installId, placeId: placeId)
         } catch {
+            guard generation == AccountDataReset.generation else { return }
             toast = tr("빼지 못했습니다. 잠시 후 다시 시도해 주세요")
             return
         }
+        guard generation == AccountDataReset.generation else { return }
         items.removeAll { $0.placeId == placeId }
         placeIds.remove(placeId)
         // 담을 때 알려 줬으니 뺄 때도 알려 준다. 목록 행에서 빼면 아이콘만 바뀌어

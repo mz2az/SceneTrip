@@ -4,6 +4,29 @@ import XCTest
 
 @MainActor
 final class CartStoreTests: XCTestCase {
+    func testAccountResetClearsRowsAndIconsEvenIfNextReloadFails() async {
+        let client = CartFakeClient()
+        let store = CartStore(installId: UUID(), client: client)
+        await store.refresh()
+        XCTAssertFalse(store.items.isEmpty)
+        AccountDataReset.clear()
+        client.fetchError = URLError(.notConnectedToInternet)
+        await store.refresh()
+        XCTAssertTrue(store.items.isEmpty)
+        XCTAssertTrue(store.placeIds.isEmpty)
+        XCTAssertNil(store.toast)
+    }
+
+    func testResponseStartedBeforeResetCannotRestoreDeletedCart() async {
+        let client = CartFakeClient()
+        let store = CartStore(installId: UUID(), client: client)
+        await store.refresh()
+        client.beforeFetchReturns = { AccountDataReset.clear() }
+        await store.refresh()
+        XCTAssertTrue(store.items.isEmpty)
+        XCTAssertTrue(store.placeIds.isEmpty)
+    }
+
     func testFailedDeletePreservesRowsAndSavedIcons() async {
         let failures: [Error] = [serverError(503), serverError(404), URLError(.timedOut), URLError(.notConnectedToInternet)]
         for error in failures {
@@ -71,6 +94,7 @@ private final class CartFakeClient: CartClient {
     var fetches = 0
     var deleted: [Int64] = []
     var installIds: [UUID] = []
+    var beforeFetchReturns: (() -> Void)?
 
     func fetch(installId: UUID) async throws -> Cart {
         installIds.append(installId)
@@ -78,6 +102,7 @@ private final class CartFakeClient: CartClient {
         if let fetchError {
             throw fetchError
         }
+        beforeFetchReturns?()
         return Cart(items: items, totalCount: items.count)
     }
 
