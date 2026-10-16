@@ -97,7 +97,7 @@ These are the mistakes that actually happen. Check yourself against them.
 | Added a source file | Add it to `srcs` of the owning target in the same edit |
 | Added a cross-module import | Add the `deps` entry; if the dep is not in `libs/` or `contracts/`, the import is illegal |
 | Added an external dependency | Edit `MODULE.bazel` only, then `just deps-update`, then commit the `MODULE.bazel.lock` diff |
-| Added a BUILD target | Write it by hand — no generator is wired up yet (see AGENTS.md §4.5) |
+| Added a BUILD target | Write it by hand — the repo uses no BUILD generator (see AGENTS.md §4.5) |
 | Test needs a database/container | Tag it `integration`, put it in the integration lane, never in `:unit_test` |
 | Test needs the network | Tag `requires-network` — and first ask whether it can be faked instead |
 | Build fails with a missing file | Check `srcs`/`data` before touching the code — it is usually a BUILD file gap |
@@ -111,8 +111,9 @@ time, no absolute paths, no non-deterministic output.**
 
 ## 5. Multi-module awareness
 
-This repo holds many Spring backends, two native mobile apps, and many Python agents. Before adding
-code, ask which category the work belongs to:
+This repo holds a Spring backend (`services/scene-api`), two native mobile apps, and a Python agent
+(`agents/trip-guide`); each category can grow. Before adding code, ask which category the work
+belongs to:
 
 | Category | Directory | Language | Owns | Talks to others via |
 | --- | --- | --- | --- | --- |
