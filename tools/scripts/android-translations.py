@@ -21,6 +21,9 @@ def convert(source: str) -> str:
         raise ValueError("번역 문구를 찾지 못했습니다")
     lines = [
         "// iOS 영어 문구에서 생성합니다. 수정 뒤 just android-translations를 실행하세요.",
+        # 열쇠(한국어 원문) 하나가 140자를 넘을 수 있어 — 생성 파일에만 줄 길이 검사를 끈다.
+        '@file:Suppress("ktlint:standard:max-line-length")',
+        "",
         "package com.mz2az.scenetrip.data",
         "",
         "internal val TRANSLATIONS_EN: Map<String, String> =",

@@ -44,10 +44,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.API_BASE
+import com.mz2az.scenetrip.data.AccountDeletionCopy
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.FootprintStore
 import com.mz2az.scenetrip.data.InstallIdentity
+import com.mz2az.scenetrip.data.LegalLinks
 import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.OnboardingFlag
 import com.mz2az.scenetrip.data.VisitStamp
@@ -63,7 +65,9 @@ import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
 import com.mz2az.scenetrip.ui.BagFillIcon
 import com.mz2az.scenetrip.ui.ChevronRightIcon
+import com.mz2az.scenetrip.ui.DocTextIcon
 import com.mz2az.scenetrip.ui.GlobeIcon
+import com.mz2az.scenetrip.ui.HandRaisedIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSAlert
@@ -77,6 +81,7 @@ import com.mz2az.scenetrip.ui.ShoeprintsIcon
 import com.mz2az.scenetrip.ui.SignOutIcon
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.SquarePencilIcon
+import com.mz2az.scenetrip.ui.openExternalUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -442,6 +447,28 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                     }
                 }
 
+                // 처리방침·약관 (MZ2AZ-455, App Store 5.1.1 — 앱 안에서 찾을 수 있어야 한다). 비회원에게도 보인다.
+                // iOS 와 같이 계정 바로 위에 두고, 앱의 다른 외부 페이지처럼 브라우저로 연다.
+                item {
+                    ProfileSection(tr(LegalLinks.SECTION_TITLE_KO)) {
+                        ProfileRow(
+                            title = tr(LegalLinks.PRIVACY_TITLE_KO),
+                            value = "",
+                            onClick = { openExternalUrl(context, LegalLinks.PRIVACY) },
+                            chevron = true,
+                            icon = { HandRaisedIcon(SYSTEM_BLUE, it) },
+                        )
+                        ProfileDivider()
+                        ProfileRow(
+                            title = tr(LegalLinks.TERMS_TITLE_KO),
+                            value = "",
+                            onClick = { openExternalUrl(context, LegalLinks.TERMS) },
+                            chevron = true,
+                            icon = { DocTextIcon(SYSTEM_BLUE, it) },
+                        )
+                    }
+                }
+
                 if (AuthStore.signedIn) {
                     item { AccountSection(onDeleted = { onClose?.invoke() }) }
                 }
@@ -579,8 +606,9 @@ private fun AccountSection(onDeleted: () -> Unit) {
     if (confirmingDelete) {
         IOSAlert(
             title = tr("정말 탈퇴할까요?"),
-            // iOS 가 발자취까지 적는 문구로 고쳤다(2026-10-05) — 그대로 옮긴다.
-            message = tr("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요. 리뷰와 사진은 탈퇴한 사용자로 남아요."),
+            // 서버는 탈퇴 시 작성한 리뷰·여행후기와 사진도 삭제한다(MZ2AZ-466, MZ2AZ-452) — iOS 문구 그대로.
+            // 「탈퇴한 사용자」 표시는 작성자가 없는 옛 글을 위해 그대로 둔다(ReviewsSheet·CommunityModels).
+            message = tr(AccountDeletionCopy.CONFIRM_KO),
             actions =
                 listOf(
                     IOSAction(tr("취소"), IOSRole.CANCEL) {},
