@@ -21,6 +21,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,14 +34,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.auth.AuthStore
-import com.mz2az.scenetrip.data.NetworkFailure
+import com.mz2az.scenetrip.data.CommunityStore
+import com.mz2az.scenetrip.data.ModerationController
+import com.mz2az.scenetrip.data.ModerationEvents
+import com.mz2az.scenetrip.data.ModerationRules
+import com.mz2az.scenetrip.data.ModerationTarget
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.Photo
 import com.mz2az.scenetrip.sceneapi.client.model.PhotoSource
 import com.mz2az.scenetrip.sceneapi.client.model.RatingSummary
+import com.mz2az.scenetrip.sceneapi.client.model.ReportTargetType
 import com.mz2az.scenetrip.sceneapi.client.model.Review
 import com.mz2az.scenetrip.sceneapi.client.model.ReviewSort
 import com.mz2az.scenetrip.ui.ChevronRightIcon
@@ -104,14 +111,29 @@ fun ReviewRow(
     review: Review,
     subject: ReviewSubject,
     onEdit: (() -> Unit)? = null,
+    // 남의 리뷰에 「⋯」(신고·차단)를 둔다 — 리뷰 시트가 준다(MZ2AZ-461). 없으면 메뉴가 없다.
+    moderation: ModerationController? = null,
 ) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(review.author?.nickname ?: tr("탈퇴한 사용자"), style = IOS.headline, color = IOS.label)
+    val menu = moderation != null && ModerationRules.showsMenu(isMine = review.isMine)
+    Column(
+        Modifier.fillMaxWidth().padding(top = if (menu) 4.dp else 12.dp, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(review.author?.nickname ?: tr("탈퇴한 사용자"), style = IOS.headline, color = IOS.label, modifier = Modifier.weight(1f))
             if (review.isMine &&
                 onEdit != null
             ) {
                 Text(tr("고치기"), color = IOS.accent, modifier = Modifier.clickable(onClick = onEdit).padding(4.dp))
+            }
+            // 묶은 줄 밖에 둔다 — 안에 두면 읽기 묶음에 삼켜져 접근성으로 누를 수 없다.
+            if (menu && moderation != null) {
+                ModerationMenu(
+                    target = ModerationTarget.review(review.id),
+                    canBlock = ModerationRules.canBlock(isMine = review.isMine, hasAuthor = review.author != null),
+                    controller = moderation,
+                    modifier = Modifier.size(width = 44.dp, height = 36.dp),
+                )
             }
         }
         Text("★".repeat(review.rating.coerceIn(0, 5)) + "☆".repeat((5 - review.rating).coerceIn(0, 5)), color = IOS.systemOrange)
@@ -148,22 +170,33 @@ fun ReviewsSheet(
     focusReviewId: Long? = null,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val listState =
         androidx.compose.foundation.lazy
             .rememberLazyListState()
-    var reviews by remember(subject) { mutableStateOf<List<Review>>(emptyList()) }
-    var summary by remember(subject) { mutableStateOf<RatingSummary?>(null) }
-    var total by remember(subject) { mutableStateOf(0) }
-    var offset by remember(subject) { mutableStateOf(0) }
+    // 목록 받기는 세대를 세는 한 곳이 맡는다 — 차단 뒤 늦게 온 응답이 지운 리뷰를 되살리지 못한다(MZ2AZ-461).
+    val listing = remember(subject) { ReviewListStore({ sort, offset -> subject.list(sort, offset) }, { AuthStore.epoch }) }
+    val list by listing.ui.collectAsState()
+    val reviews = list.reviews
+    val summary = list.summary
+    val total = list.total
+    val offset = list.offset
+    val loading = list.loading
+    val error = list.error
     var sort by remember(subject) { mutableStateOf(ReviewSort.recent) }
-    var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
     var composing by remember { mutableStateOf(false) }
     var waitingSignIn by remember { mutableStateOf(false) }
     var revision by remember { mutableStateOf(0) }
     var visitorPhotos by remember(subject) { mutableStateOf<List<Photo>>(emptyList()) }
     var photoTotal by remember(subject) { mutableStateOf(0) }
     var focusedReview by remember(subject, focusReviewId) { mutableStateOf(focusReviewId) }
+    // 남의 리뷰의 신고·차단(MZ2AZ-461).
+    val moderation = rememberModerationController()
+    val moderationVersion by ModerationEvents.shared.version.collectAsState()
+    // 방문자 사진을 받아 둔 때의 신호 번호 — 그 뒤에 차단·풀기가 있었으면 다시 받기 전까지 비워 둔다.
+    var photosAt by remember(subject) { mutableStateOf(moderationVersion) }
+    val shownPhotos = if (photosAt == moderationVersion) visitorPhotos else emptyList()
+    val shownPhotoTotal = if (photosAt == moderationVersion) photoTotal else 0
 
     fun startWriting() {
         if (AuthStore.signedIn) {
@@ -174,32 +207,16 @@ fun ReviewsSheet(
         }
     }
 
-    suspend fun load(reset: Boolean = false) {
-        if (loading) return
-        loading = true
-        val epoch = AuthStore.epoch
-        try {
-            apiResult { subject.list(sort, if (reset) 0 else offset) }.fold(
-                onSuccess = {
-                    if (epoch == AuthStore.epoch) {
-                        reviews = ((if (reset) emptyList() else reviews) + it.items).distinctBy { row -> row.id }
-                        offset = (if (reset) 0 else offset) + it.items.size
-                        total = if (it.items.isEmpty()) offset else it.total
-                        summary = it.summary
-                        error = null
-                    }
-                },
-                onFailure = { if (epoch == AuthStore.epoch) error = NetworkFailure.of(it).message },
-            )
-        } finally {
-            loading = false
-        }
-    }
-    LaunchedEffect(subject, sort, revision, AuthStore.epoch) {
+    suspend fun load(reset: Boolean = false) = listing.load(sort, reset)
+
+    // 다른 화면에서도 차단·풀기가 일어난다(`ModerationEvents`) — 키에 넣어 리뷰와 방문자 사진을 다시 받는다.
+    LaunchedEffect(subject, sort, revision, AuthStore.epoch, moderationVersion) {
+        val asked = moderationVersion
         load(reset = true)
         apiResult { subject.photos(0) }.onSuccess { page ->
             visitorPhotos = page.items
             photoTotal = page.total
+            photosAt = asked
         }
         if (waitingSignIn && AuthStore.signedIn) {
             waitingSignIn = false
@@ -270,16 +287,16 @@ fun ReviewsSheet(
                     }
                 }
                 item {
-                    if (photoTotal >
+                    if (shownPhotoTotal >
                         0
                     ) {
-                        GalleryStrip(subject, visitorPhotos, photoTotal, height = 100, visitorsOnly = true, onReview = { id ->
+                        GalleryStrip(subject, shownPhotos, shownPhotoTotal, height = 100, visitorsOnly = true, onReview = { id ->
                             focusedReview = id
                         })
                     }
                 }
                 items(reviews, key = { it.id }) { row ->
-                    ReviewRow(row, subject, onEdit = { composing = true })
+                    ReviewRow(row, subject, onEdit = { composing = true }, moderation = moderation)
                 }
                 item {
                     if (loading) CircularProgressIndicator(Modifier.padding(12.dp))
@@ -312,6 +329,13 @@ fun ReviewsSheet(
                         .padding(16.dp),
             )
         }
+    }
+    ModerationSheets(moderation) { target ->
+        // 작성자를 차단했다(MZ2AZ-461). 그 리뷰는 바로 빼고, 서버가 그 사람의 리뷰·사진을 뺀 목록을 다시 받는다.
+        // 부른 화면(사진 줄)과 여행후기 목록도 다시 읽는다. 리뷰·사진은 위의 키(`moderationVersion`)가 다시 받는다.
+        if (target.type == ReportTargetType.review) listing.drop(target.targetId)
+        onChanged()
+        CommunityStore.getInstance(context).invalidateAndRefreshInBackground()
     }
     if (composing) {
         ReviewComposeView(subject, onClose = { composing = false }, onChanged = {

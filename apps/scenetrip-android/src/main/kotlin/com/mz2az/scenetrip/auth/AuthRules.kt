@@ -32,6 +32,21 @@ object AuthRules {
     /** 오류 본문의 `code`. 본문이 없거나 우리 모양이 아니면 `null`. */
     fun apiCode(body: String?): String? = body?.let { codePattern.find(it)?.groupValues?.get(1) }
 
+    private val anonymousReadPath =
+        Regex("""(^|/)((places|pois)/\d+(/photos)?|posts(/\d+)?|me/posts)/?$""")
+
+    /**
+     * 부르기 **전에** 액세스 토큰을 살필 읽기 창구인가 (MZ2AZ-461, 권호 결정 2026-10-15). iOS `AuthRefresher.refreshIfStale()` 를
+     * 거치는 곳과 같다 — 리뷰 목록·내 리뷰, 촬영지·편의시설 상세와 사진첩, 여행후기 목록·상세.
+     *
+     * 이런 **누구나 읽는 창구**는 만료된 토큰에 401 을 주지 않고 비회원으로 답한다(서버 `CurrentAccount.signedInOrNull`). 그러면 갱신할
+     * 계기가 없어 차단한 사람의 리뷰·사진·후기가 다시 섞이고 「내 리뷰」 표시가 빠진다. 그래서 만료됐거나 곧 만료되면 먼저 갱신한다.
+     */
+    fun refreshesBeforeRead(
+        method: String,
+        encodedPath: String,
+    ): Boolean = method == "GET" && (encodedPath.contains("/reviews") || anonymousReadPath.containsMatchIn(encodedPath))
+
     /** 로그인·갱신·로그아웃 창구 자신의 401 은 가로채지 않는다 — 갱신이 갱신을 부르면 끝나지 않는다. */
     fun intercepts(url: String): Boolean = !url.contains("/auth/")
 }

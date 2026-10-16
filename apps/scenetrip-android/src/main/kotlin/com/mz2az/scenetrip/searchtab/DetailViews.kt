@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -233,6 +234,21 @@ fun PlaceDetailView(
     var revision by remember(summary.id) { mutableStateOf(0) }
     var reviewId by remember(summary.id) { mutableStateOf<Long?>(null) }
     var detailFailure by remember(summary.id) { mutableStateOf<com.mz2az.scenetrip.data.ApiFailure?>(null) }
+    // 어디서든 차단·풀기가 일어나면(MZ2AZ-461) 받아 둔 방문자 사진을 먼저 비우고 상세를 다시 받는다.
+    val moderationVersion by com.mz2az.scenetrip.data.ModerationEvents.shared.version
+        .collectAsState()
+    var detailAt by remember(summary.id) { mutableStateOf(moderationVersion) }
+    val detailCurrent = detailAt == moderationVersion
+    val shownPhotos =
+        detail?.photos.orEmpty().let {
+            if (detailCurrent) {
+                it
+            } else {
+                com.mz2az.scenetrip.reviews.ReviewRules
+                    .withoutReviewPhotos(it)
+            }
+        }
+    val shownPhotoCount = if (detailCurrent) detail?.photoCount ?: shownPhotos.size else shownPhotos.size
     val subject =
         com.mz2az.scenetrip.reviews
             .ReviewSubject(summary.id, summary.name)
@@ -242,10 +258,12 @@ fun PlaceDetailView(
         com.mz2az.scenetrip.analytics.UsageEvents
             .view(com.mz2az.scenetrip.sceneapi.client.model.UsageEntityType.place, summary.id)
     }
-    LaunchedEffect(summary.id, revision) {
+    LaunchedEffect(summary.id, revision, moderationVersion) {
+        val asked = moderationVersion
         detailOf(summary.id).fold(
             onSuccess = {
                 detail = it
+                detailAt = asked
                 detailFailure = null
             },
             onFailure = {
@@ -266,9 +284,9 @@ fun PlaceDetailView(
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                     modifier = Modifier.padding(top = 14.dp),
                 ) {
-                    if (detail?.photos.orEmpty().isNotEmpty()) {
+                    if (shownPhotos.isNotEmpty()) {
                         com.mz2az.scenetrip.reviews
-                            .GalleryStrip(subject, detail!!.photos!!, detail?.photoCount ?: detail!!.photos!!.size, onReview = {
+                            .GalleryStrip(subject, shownPhotos, shownPhotoCount, onReview = {
                                 reviewId =
                                     it
                                 ; reviews = true

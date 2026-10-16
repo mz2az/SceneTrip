@@ -71,6 +71,7 @@ import com.mz2az.scenetrip.ui.IOSCloseButton
 import com.mz2az.scenetrip.ui.IOSConfirmPopover
 import com.mz2az.scenetrip.ui.IOSRole
 import com.mz2az.scenetrip.ui.IOSToggle
+import com.mz2az.scenetrip.ui.NoSignIcon
 import com.mz2az.scenetrip.ui.QuestionCircleIcon
 import com.mz2az.scenetrip.ui.RouteCurveIcon
 import com.mz2az.scenetrip.ui.ShoeprintsIcon
@@ -126,6 +127,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
             .getInstance(context)
     var choosingLanguage by remember { mutableStateOf(false) }
     var showingReviews by remember { mutableStateOf(false) }
+    // 차단한 사용자 시트 (MZ2AZ-461).
+    var showingBlocked by remember { mutableStateOf(false) }
     var showingNickname by remember { mutableStateOf(false) }
 
     val likedWorks = allWorks.filter { likes.contentIds.contains(it.id) }
@@ -286,6 +289,17 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                             chevron = true,
                             icon = { SquarePencilIcon(SYSTEM_INDIGO, it) },
                         )
+                        // 차단한 사용자 — 가입한 사람에게만 보인다(차단은 로그인해야 한다, MZ2AZ-461).
+                        if (AuthStore.signedIn) {
+                            ProfileDivider()
+                            ProfileRow(
+                                title = tr("차단한 사용자"),
+                                value = "",
+                                onClick = { showingBlocked = true },
+                                chevron = true,
+                                icon = { NoSignIcon(Color(0xFF8E8E93), it) },
+                            )
+                        }
                     }
                 }
 
@@ -439,6 +453,9 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                             onClick = { replaying = true },
                             icon = { QuestionCircleIcon(SYSTEM_BLUE, it) },
                         )
+                        ProfileDivider()
+                        // 연락처 공개(App Store 1.2, MZ2AZ-461) — 비회원에게도 보인다.
+                        SupportContactRow(SYSTEM_BLUE)
                     }
                 }
 
@@ -489,6 +506,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
             com.mz2az.scenetrip.reviews
                 .MyReviewsView(onClose = { showingReviews = false })
         }
+        if (showingBlocked && AuthStore.signedIn) BlockedUsersView(onClose = { showingBlocked = false })
         if (showingNickname) {
             com.mz2az.scenetrip.reviews
                 .NicknameView(onClose = { showingNickname = false })

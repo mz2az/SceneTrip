@@ -23,13 +23,17 @@ class CommunitySession(
     var state = CommunityState()
         private set
     private var loadedEpoch: Int? = null
-    private var revision = 0
+
+    // 피드와 내 글은 따로 센다 — 차단은 피드의 나가 있는 받기만 버리고 내 글 받기는 건드리지 않는다(iOS `feedGeneration`·`mineGeneration`).
+    private var feedGeneration = 0
+    private var mineGeneration = 0
 
     fun syncAccount() {
         val epoch = accountEpoch()
         if (loadedEpoch == epoch) return
         loadedEpoch = epoch
-        revision++
+        feedGeneration++
+        mineGeneration++
         publish(CommunityState())
     }
 
@@ -40,12 +44,12 @@ class CommunitySession(
         syncAccount()
         if (if (mine) state.mineLoading else state.loading) return
         val epoch = accountEpoch()
-        val generation = revision
+        val generation = generationOf(mine)
         val old = if (mine) state.mine else state.posts
         publish(if (mine) state.copy(mineLoading = true, message = null) else state.copy(loading = true, message = null))
         try {
             val page = client.list(mine, CommunityRules.PAGE_SIZE, if (more) old.size else 0)
-            if (!current(epoch, generation)) return
+            if (!current(epoch, mine, generation)) return
             val merged = if (more) old.toMutableList() else mutableListOf()
             for (summary in page.items) {
                 val post = CommunityPost.from(summary)
@@ -62,9 +66,9 @@ class CommunitySession(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
-            if (current(epoch, generation)) publish(state.copy(message = CommunityRules.failureText(error)))
+            if (current(epoch, mine, generation)) publish(state.copy(message = CommunityRules.failureText(error)))
         } finally {
-            if (current(epoch, generation)) publish(if (mine) state.copy(mineLoading = false) else state.copy(loading = false))
+            if (current(epoch, mine, generation)) publish(if (mine) state.copy(mineLoading = false) else state.copy(loading = false))
         }
     }
 
@@ -125,10 +129,43 @@ class CommunitySession(
         publish(state.copy(mine = emptyList(), mineTotal = 0))
     }
 
+    /**
+     * 차단한 사람의 글을 다시 받기 전에 바로 뺀다(MZ2AZ-461). 그 사람의 다른 글은 다시 받은 목록에서 빠진다 — 앱은 작성자 번호를 모른다.
+     *
+     * **나가 있던 받기를 무효로 한다** — 차단 전에 떠난 새로고침·더 보기 응답은 그 글을 담고 있어 늦게 오면 되살린다.
+     */
+    fun drop(postId: Long) {
+        invalidateFeed()
+        if (state.posts.any { it.serverId == postId }) {
+            val rest = state.posts.filterNot { it.serverId == postId }
+            publish(state.copy(posts = rest, total = maxOf(rest.size, state.total - 1)))
+        }
+    }
+
+    /** 그 글의 작성자를 차단했다 — 바로 빼고, 첫 쪽부터 새로 받는다(서버가 그 사람의 다른 글도 뺀다). */
+    suspend fun blocked(postId: Long) {
+        drop(postId)
+        invalidateAndRefresh()
+    }
+
+    /** 차단·풀기 뒤에는 진행 중인 피드 요청을 버리고 첫 쪽을 반드시 다시 받는다. */
+    suspend fun invalidateAndRefresh() {
+        invalidateFeed()
+        refresh()
+    }
+
+    private fun invalidateFeed() {
+        feedGeneration++
+        if (state.loading) publish(state.copy(loading = false))
+    }
+
+    private fun generationOf(mine: Boolean) = if (mine) mineGeneration else feedGeneration
+
     private fun current(
         epoch: Int,
+        mine: Boolean,
         generation: Int,
-    ): Boolean = epoch == accountEpoch() && generation == revision
+    ): Boolean = epoch == accountEpoch() && generation == generationOf(mine)
 
     private fun publish(value: CommunityState) {
         state = value

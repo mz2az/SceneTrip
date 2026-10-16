@@ -24,10 +24,18 @@ object CommunityRules {
         return tr(
             when {
                 status == 401 -> "로그인한 뒤에 쓸 수 있어요"
+
                 failure.code == "POST_PHOTO_INVALID" -> "사진을 다시 올려 주세요"
+
                 failure.code == "POST_COURSE_INVALID" -> "붙인 코스를 다시 골라 주세요"
+
                 failure.code == "RATE_LIMITED" -> "요청이 많아요. 잠시 뒤 다시 시도해 주세요"
+
                 failure.code == "POST_NOT_FOUND" -> "이 후기는 더 이상 볼 수 없어요"
+
+                // 금칙어(MZ2AZ-461) — 제목·본문·문단·사진 설명·출처 중 어디인지는 화면에 말하지 않는다.
+                ModerationRules.isTextNotAllowed(failure.code) -> ModerationRules.TEXT_NOT_ALLOWED_MESSAGE
+
                 else -> "연결이 원활하지 않아요. 잠시 뒤 다시 해 주세요"
             },
         )

@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import com.mz2az.scenetrip.data.ModerationEvents
 import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
@@ -161,7 +163,10 @@ fun GalleryStrip(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    val book = remember(subject, photos, total, visitorsOnly) { PhotoBook(subject, photos, total, visitorsOnly, paged) }
+    // 차단·풀기가 일어나면(MZ2AZ-461) 책을 새로 만든다 — 나가 있던 「다음 쪽」·주소 갱신 응답이 옛 책에만 쓰이고, 차단한 사람의
+    // 방문자 사진이 새 책에 섞이지 않는다. 부른 쪽은 그 사이 `ReviewRules.withoutReviewPhotos` 로 비운 목록을 준다.
+    val moderation by ModerationEvents.shared.version.collectAsState()
+    val book = remember(subject, photos, total, visitorsOnly, moderation) { PhotoBook(subject, photos, total, visitorsOnly, paged) }
     val pager = rememberPagerState(pageCount = { book.photos.size })
     var viewer by remember { mutableStateOf<Int?>(null) }
     var grid by remember { mutableStateOf(false) }

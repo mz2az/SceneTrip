@@ -44,7 +44,13 @@ import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.CommunityStore
+import com.mz2az.scenetrip.data.ModerationController
+import com.mz2az.scenetrip.data.ModerationRules
+import com.mz2az.scenetrip.data.ModerationTarget
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.reviews.ModerationMenu
+import com.mz2az.scenetrip.reviews.ModerationSheets
+import com.mz2az.scenetrip.reviews.rememberModerationController
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.BubblesIcon
 import com.mz2az.scenetrip.ui.IOS
@@ -71,6 +77,8 @@ internal fun CommunityPostList(
     mine: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
+    // 남의 후기의 신고·차단(MZ2AZ-461).
+    val moderation = rememberModerationController()
     var reading by remember { mutableStateOf<CommunityPost?>(null) }
     var deleting by remember { mutableStateOf<CommunityPost?>(null) }
     var showingLegacy by remember { mutableStateOf(false) }
@@ -126,7 +134,7 @@ internal fun CommunityPostList(
                             Text(tr("지우기"), color = Color.White)
                         }
                     },
-                ) { CommunityPostRow(store, post, mine) { reading = post } }
+                ) { CommunityPostRow(store, post, mine, moderation) { reading = post } }
                 IOSListDivider(start = 16.dp)
             }
             if (posts.size < total) {
@@ -148,6 +156,7 @@ internal fun CommunityPostList(
         }
     }
     if (showingLegacy) MyPostsSheet(onClose = { showingLegacy = false })
+    ModerationSheets(moderation) { target -> store.blockedInBackground(target.targetId) }
     reading?.let { post ->
         IOSSheet(listOf(SheetDetent.LARGE), onDismiss = { reading = null }) {
             CommunityPostView(post, onDismiss = { reading = null })
@@ -217,50 +226,69 @@ private fun CommunityPostRow(
     store: CommunityStore,
     post: CommunityPost,
     compact: Boolean,
+    moderation: ModerationController,
     onClick: () -> Unit,
 ) {
+    val postId = post.serverId
+    val menu = postId != null && ModerationRules.showsMenu(isMine = post.isMine)
     Row(
         Modifier
             .fillMaxWidth()
-            .background(IOS.systemBackground)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .background(IOS.systemBackground),
         verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 5.dp)) {
-            Text(
-                post.title,
-                fontSize = 15.sp,
-                fontWeight = if (compact) FontWeight.Medium else FontWeight.SemiBold,
-                maxLines = if (compact) 1 else 2,
-                color = IOS.label,
-            )
-            if (compact) {
-                Text(formatDateTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel)
-            } else {
-                if (post.body.isNotEmpty()) Text(post.body, fontSize = 12.sp, color = IOS.secondaryLabel, maxLines = 2)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(post.authorName(AuthStore.me?.nickname), fontSize = 11.sp, color = IOS.tertiaryLabel)
-                    Text(relativeTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel)
-                }
-                (post.course?.title ?: post.courseTitle)?.let { title ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                        RouteCurveIcon(IOS.pinDeep, Modifier.size(10.dp))
-                        Text(title, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = IOS.pinDeep, maxLines = 1)
+        Row(
+            Modifier
+                .weight(1f)
+                .clickable(onClick = onClick)
+                .padding(start = 16.dp, end = if (menu) 0.dp else 16.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 5.dp)) {
+                Text(
+                    post.title,
+                    fontSize = 15.sp,
+                    fontWeight = if (compact) FontWeight.Medium else FontWeight.SemiBold,
+                    maxLines = if (compact) 1 else 2,
+                    color = IOS.label,
+                )
+                if (compact) {
+                    Text(formatDateTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel)
+                } else {
+                    if (post.body.isNotEmpty()) Text(post.body, fontSize = 12.sp, color = IOS.secondaryLabel, maxLines = 2)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(post.authorName(AuthStore.me?.nickname), fontSize = 11.sp, color = IOS.tertiaryLabel)
+                        Text(relativeTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel)
+                    }
+                    (post.course?.title ?: post.courseTitle)?.let { title ->
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            RouteCurveIcon(IOS.pinDeep, Modifier.size(10.dp))
+                            Text(title, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = IOS.pinDeep, maxLines = 1)
+                        }
                     }
                 }
             }
-        }
-        if (!compact) {
-            val remote = post.remotePhotos.firstOrNull()
-            val bitmap = post.photos?.firstOrNull()?.let { remember(it) { store.photo(it) } }
-            val photoModifier = Modifier.size(76.dp).clip(RoundedCornerShape(12.dp))
-            if (remote != null) {
-                RemoteImage(remote, photoModifier, retryable = true)
-            } else if (bitmap != null) {
-                Image(bitmap.asImageBitmap(), null, photoModifier, contentScale = ContentScale.Crop)
+            if (!compact) {
+                val remote = post.remotePhotos.firstOrNull()
+                val bitmap = post.photos?.firstOrNull()?.let { remember(it) { store.photo(it) } }
+                val photoModifier = Modifier.size(76.dp).clip(RoundedCornerShape(12.dp))
+                if (remote != null) {
+                    RemoteImage(remote, photoModifier, retryable = true)
+                } else if (bitmap != null) {
+                    Image(bitmap.asImageBitmap(), null, photoModifier, contentScale = ContentScale.Crop)
+                }
             }
+        }
+        // 눌리는 줄 밖에 둔다 — 안에 두면 「⋯」 를 눌러도 글이 열린다.
+        if (postId != null && menu) {
+            ModerationMenu(
+                target = ModerationTarget.post(postId),
+                canBlock = ModerationRules.canBlock(isMine = post.isMine, hasAuthor = post.author != null),
+                controller = moderation,
+                modifier = Modifier.padding(top = 4.dp, end = 4.dp),
+            )
         }
     }
 }
