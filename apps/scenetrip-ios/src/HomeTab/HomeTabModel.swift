@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SceneApiClient
 
@@ -41,6 +42,7 @@ final class HomeTabModel: ObservableObject {
     /// 작품 목록조차 못 받았나 — 화면이 「불러오지 못했습니다」 를 띄우는 기준.
     @Published private(set) var failed = false
 
+    private var resetWatch: AnyCancellable?
     private let installId = InstallIdentity.current
     private let fetchWorks: (Int) async throws -> [ContentSummary]
 
@@ -48,6 +50,11 @@ final class HomeTabModel: ObservableObject {
         try await ContentsAPI.listContents(limit: $0).items
     }) {
         self.fetchWorks = fetchWorks
+        resetWatch = AccountDataReset.changes.sink { [weak self] _ in
+            self?.trips = []
+            self?.stamps = []
+            self?.loading = false
+        }
     }
 
     /// 코스 카드의 모습. 값만 보는 규칙이라 시험이 선다(`HomeTripCardTests`).
@@ -82,8 +89,11 @@ final class HomeTabModel: ObservableObject {
 
     /// 코스 카드 — 코스 목록이 오는 대로 부른다. 나머지(`loadRest`)를 기다리지 않는다.
     func loadTrips(courses: [RouteCourse]) async {
+        let generation = AccountDataReset.generation
         loading = true
-        trips = await Self.trips(from: courses, installId: installId)
+        let fetched = await Self.trips(from: courses, installId: installId)
+        guard generation == AccountDataReset.generation else { return }
+        trips = fetched
         loading = false
     }
 
@@ -122,7 +132,10 @@ final class HomeTabModel: ObservableObject {
     }
 
     private func loadStamps() async {
-        stamps = await VisitStamp.collect(installId: installId)
+        let generation = AccountDataReset.generation
+        let fetched = await VisitStamp.collect(installId: installId)
+        guard generation == AccountDataReset.generation else { return }
+        stamps = fetched
     }
 
     // MARK: 「지금 뜨는 작품」 — 서버 인기순

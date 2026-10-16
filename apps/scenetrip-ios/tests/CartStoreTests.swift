@@ -4,6 +4,70 @@ import XCTest
 
 @MainActor
 final class CartStoreTests: XCTestCase {
+    func testAccountResetClearsRowsAndIconsEvenIfNextReloadFails() async {
+        let client = CartFakeClient()
+        let store = CartStore(installId: UUID(), client: client)
+        XCTAssertEqual(store.loadState, .notLoaded)
+        await store.refresh()
+        XCTAssertEqual(store.loadState, .loaded)
+        XCTAssertFalse(store.items.isEmpty)
+        AccountDataReset.clear()
+        XCTAssertEqual(store.loadState, .notLoaded)
+        client.fetchError = URLError(.notConnectedToInternet)
+        await store.refresh()
+        XCTAssertEqual(store.loadState, .failed)
+        XCTAssertTrue(store.items.isEmpty)
+        XCTAssertTrue(store.placeIds.isEmpty)
+        XCTAssertNil(store.toast)
+    }
+
+    func testResponseStartedBeforeResetCannotRestoreDeletedCart() async {
+        let client = CartFakeClient()
+        let store = CartStore(installId: UUID(), client: client)
+        await store.refresh()
+        client.beforeFetchReturns = { AccountDataReset.clear() }
+        await store.refresh()
+        XCTAssertTrue(store.items.isEmpty)
+        XCTAssertTrue(store.placeIds.isEmpty)
+        XCTAssertEqual(store.loadState, .notLoaded)
+    }
+
+    func testFailureStartedBeforeResetCannotChangeResetLoadState() async {
+        let client = CartFakeClient()
+        let store = CartStore(installId: UUID(), client: client)
+        client.beforeFetchReturns = { AccountDataReset.clear() }
+        client.fetchError = URLError(.notConnectedToInternet)
+
+        await store.refresh()
+
+        XCTAssertEqual(store.loadState, .notLoaded)
+        XCTAssertTrue(store.items.isEmpty)
+        XCTAssertNil(store.toast)
+    }
+
+    func testAddCompletedAfterResetCannotRestoreIconsToastOrReload() async {
+        let failures: [ErrorResponse?] = [nil, serverError(503), serverError(409),
+                                          .error(409, Data("{\"code\":\"DUPLICATE_CART_ITEM\"}".utf8), nil,
+                                                 URLError(.badServerResponse)),
+                                          .error(409, Data("{\"code\":\"PLACE_DELISTED\"}".utf8), nil,
+                                                 URLError(.badServerResponse))]
+        for error in failures {
+            let client = CartFakeClient()
+            let store = CartStore(installId: UUID(), client: client)
+            await store.refresh()
+            client.beforeAddReturns = { AccountDataReset.clear() }
+            client.addError = error
+
+            await store.add(placeId: 99, sourceContentId: 7)
+
+            XCTAssertTrue(store.items.isEmpty)
+            XCTAssertTrue(store.placeIds.isEmpty)
+            XCTAssertNil(store.toast)
+            XCTAssertEqual(store.loadState, .notLoaded)
+            XCTAssertEqual(client.fetches, 1, "이전 계정의 담기 응답으로 다시 조회하지 않는다")
+        }
+    }
+
     func testOnlyDuplicateConflictMarksPlaceAsSavedWhenReloadFails() async {
         for code in ["DUPLICATE_CART_ITEM", "PLACE_DELISTED", "UNKNOWN"] {
             let client = CartFakeClient()
@@ -106,10 +170,13 @@ private final class CartFakeClient: CartClient {
     var fetches = 0
     var deleted: [Int64] = []
     var installIds: [UUID] = []
+    var beforeFetchReturns: (() -> Void)?
+    var beforeAddReturns: (() -> Void)?
 
     func fetch(installId: UUID) async throws -> Cart {
         installIds.append(installId)
         fetches += 1
+        beforeFetchReturns?()
         if let fetchError {
             throw fetchError
         }
@@ -126,6 +193,7 @@ private final class CartFakeClient: CartClient {
     }
 
     func add(installId _: UUID, placeId: Int64, sourceContentId: Int64?) async throws {
+        beforeAddReturns?()
         if let addError {
             throw addError
         }

@@ -710,6 +710,15 @@
 "끄면 AI 가이드와 AI 코스 만들기를 쓸 때 다시 물어봐요." = "If you turn this off, we’ll ask again when you use the AI guide or AI course creation.";
 "AI 기능 사용을 허용한 뒤 다시 시도해 주세요." = "Please allow AI features, then try again.";
 
+/* 비회원 기록 삭제 (MZ2AZ-471). */
+"이 기기의 기록 지우기" = "Delete this device's data";
+"이 기기의 기록을 지울까요?" = "Delete this device's data?";
+"이 기기의 장바구니·코스·찜이 모두 지워지고 되돌릴 수 없어요." = "All cart items, courses, and favorites on this device will be deleted. This cannot be undone.";
+"이 기기의 기록을 지웠어요." = "This device's data has been deleted.";
+"가입한 계정의 기록이에요. 로그인한 뒤 마이페이지에서 회원 탈퇴를 이용해 주세요." = "This data belongs to a registered account. Sign in, then use Delete account on My page.";
+"기록을 지우지 못했어요. 잠시 뒤 다시 시도해 주세요." = "Couldn't delete the data. Please try again later.";
+"이 기기의 발자취도 함께 지워져요." = "Your trail on this device will also be deleted.";
+
 /* 숨김·폐업 안내 (MZ2AZ-458). */
 "더 이상 소개하지 않는 장소예요" = "We no longer feature this place";
 "더 이상 소개하지 않는 작품이에요" = "We no longer feature this title";
@@ -765,3 +774,7 @@
 "지도를 다른 곳으로 옮겨 다시 찾아보세요." = "Move the map to another area and try again.";
 "%@ 코스에 담기" = "Add %@ to course";
 "%@ · 코스에 담김" = "%@ · Added to course";
+
+/* 이전 버전 문구 보존. */
+"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.";
+"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 사진과 함께 「탈퇴한 사용자」로 남고, 탈퇴한 뒤에는 지울 수 없어요. 지우고 싶은 글은 먼저 삭제해 주세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews and travel posts you wrote stay, with their photos, as \"Deleted user\" and can't be deleted after you leave. Delete anything you want removed first.";

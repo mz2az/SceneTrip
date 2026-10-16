@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SceneApiClient
 
@@ -69,19 +70,33 @@ final class LikeStore: ObservableObject {
         LikeSync.shown(works, liked: contentIds, id: \.id)
     }
 
+    private var resetWatch: AnyCancellable?
+    private let defaults: UserDefaults
+
     private let key = "scenetrip.likedContents"
     /// 옛 기기 찜을 서버로 다 올렸는가.
     private let migratedKey = "scenetrip.likesOnServer"
     private let installId = InstallIdentity.current
 
-    init() {
+    init(defaults: UserDefaults = .standard, refreshOnInit: Bool = true) {
+        self.defaults = defaults
         // 숫자로 저장하지만 **읽을 때는 문자열도 받아 준다** — 도구(`defaults`)로
         // 심은 값이 문자열로 들어오는 일이 실제로 있었다(2026-08-28).
-        let saved = UserDefaults.standard.array(forKey: key) ?? []
+        let saved = defaults.array(forKey: key) ?? []
         contentIds = Set(saved.compactMap { item in
             (item as? NSNumber)?.int64Value ?? (item as? String).flatMap { Int64($0) }
         })
-        Task { await refresh() }
+        resetWatch = AccountDataReset.changes.sink { [weak self] _ in
+            guard let self else { return }
+            contentIds = []
+            works = []
+            failure = nil
+            defaults.set(true, forKey: migratedKey)
+            save()
+        }
+        if refreshOnInit {
+            Task { await refresh() }
+        }
     }
 
     func contains(_ contentId: Int64) -> Bool {
@@ -94,17 +109,20 @@ final class LikeStore: ObservableObject {
     /// 닿았는지를 돌려준다 — 찜 목록 화면이 「없음」 과 「못 받음」 을 가른다.
     @discardableResult
     func refresh() async -> Bool {
-        guard let fetched = try? await fetchAll() else { return false }
+        let generation = AccountDataReset.generation
+        guard let fetched = try? await fetchAll(), generation == AccountDataReset.generation else { return false }
         var server = Set(fetched.map(\.id))
-        let migrated = UserDefaults.standard.bool(forKey: migratedKey)
+        let migrated = defaults.bool(forKey: migratedKey)
         var allUploaded = true
         for id in LikeSync.pendingUploads(local: contentIds, server: server, migrated: migrated) {
+            guard generation == AccountDataReset.generation else { return false }
             do {
                 try await FavoritesAPI.addFavoriteContent(
                     xInstallId: installId, favoriteContentCreate: FavoriteContentCreate(contentId: id)
                 )
                 server.insert(id)
             } catch {
+                guard generation == AccountDataReset.generation else { return false }
                 let rejected = ApiFailure(error)
                 if rejected.statusCode == 404 {
                     continue
@@ -117,8 +135,9 @@ final class LikeStore: ObservableObject {
                 server.insert(id) // 다음 실행에 다시 올린다. 그때까지 하트는 유지한다.
             }
         }
+        guard generation == AccountDataReset.generation else { return false }
         if allUploaded {
-            UserDefaults.standard.set(true, forKey: migratedKey)
+            defaults.set(true, forKey: migratedKey)
         }
         contentIds = server
         works = fetched
@@ -128,12 +147,14 @@ final class LikeStore: ObservableObject {
 
     /// 하트는 **누르는 즉시** 바뀐다. 서버가 거절하면 되돌린다.
     func toggle(_ contentId: Int64) {
+        let generation = AccountDataReset.generation
         let liked = !contentIds.contains(contentId)
         let previous = works.first { $0.id == contentId }
         let previousIndex = works.firstIndex { $0.id == contentId }
         apply(contentId, liked: liked)
         AppAnalytics.log(.likeTitle(contentId: contentId, liked: liked))
         Task {
+            guard generation == AccountDataReset.generation else { return }
             do {
                 if liked {
                     try await FavoritesAPI.addFavoriteContent(
@@ -142,6 +163,7 @@ final class LikeStore: ObservableObject {
                     )
                     // 새로 찜한 작품의 요약은 서버에만 있다 — 찜 목록에 바로 보이게 다시 읽는다.
                     // **요약만** 채운다. 하트는 덮지 않는다(`LikeSync.idsAfterSummaryReload`).
+                    guard generation == AccountDataReset.generation else { return }
                     await reloadSummaries()
                 } else {
                     try await FavoritesAPI.removeFavoriteContent(
@@ -149,6 +171,7 @@ final class LikeStore: ObservableObject {
                     )
                 }
             } catch {
+                guard generation == AccountDataReset.generation else { return }
                 apply(contentId, liked: !liked)
                 if !liked, let previous, !works.contains(where: { $0.id == contentId }) {
                     works.insert(previous, at: min(previousIndex ?? 0, works.count))
@@ -168,7 +191,8 @@ final class LikeStore: ObservableObject {
 
     /// 찜한 작품의 요약만 다시 읽는다 — 하트(`contentIds`)는 건드리지 않는다. 못 받으면 가진 것을 둔다.
     private func reloadSummaries() async {
-        guard let fetched = try? await fetchAll() else { return }
+        let generation = AccountDataReset.generation
+        guard let fetched = try? await fetchAll(), generation == AccountDataReset.generation else { return }
         contentIds = LikeSync.idsAfterSummaryReload(current: contentIds, fetched: fetched.map(\.id))
         works = fetched
     }
@@ -184,7 +208,7 @@ final class LikeStore: ObservableObject {
     }
 
     private func save() {
-        UserDefaults.standard.set(contentIds.map(NSNumber.init(value:)), forKey: key)
+        defaults.set(contentIds.map(NSNumber.init(value:)), forKey: key)
     }
 
     /// 계약의 한 번 최대가 100 이라 끝까지 넘긴다. 찜은 사람이 누른 만큼이라 전부 받아도 작다.
