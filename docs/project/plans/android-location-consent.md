@@ -78,6 +78,8 @@ iOS [ios-location-consent.md](ios-location-consent.md)(PR 커밋 `359c45c`)를 �
 | AI 가이드 질문·재시도 | `RouteGuidePanel` → `RouteGuideSession.ask`·`retry` → `POST /guide/chat` | AI 동의 다음에 위치 동의(기기 좌표). 재시도는 최초 출처 보존. 취소하면 입력 유지·전송 없음 |
 | AI 코스 만들기 | `RouteWizardView.createAiPlan` → `RouteStore.guideDraft` → `POST /guide/plan` | 출발점이 있으면 위치 동의 시트, 취소·미동의면 **좌표 없이** 생성. 저장소도 동의 없으면 좌표를 빼고, 전송 계층이 한 번 더 뺀다 |
 | 길 안내 | `TripSession.fetchLeg` → `POST /navigation/next-leg` | 요청마다 동의 확인·카카오 알림. 전송 계층이 필수 차단 |
+| 주변 촬영지 시트 (`GET /places?bbox`, MZ2AZ-474) | `routetab/RouteNearbySheet.kt` → `RouteNearbySearch.load` → `CoordinateSources.with(query.source)` | 지도 중심(사용자 선택)은 동의 없이 조회. 「내 위치로」·GPS로 맞춘 지도 중심(기기 출처)은 기준을 바꾸기 전에 시트 확인, 취소하면 기준 불변. 조회 시작·전송 계층도 동의를 검사하고 없으면 「동의한 뒤 다시 시도」 안내 |
+| 가이드 기준 좌표 (MZ2AZ-474) | `RouteGuideAnchor.source` → `RouteEditorView.kt` `RouteGuidePanel(source = …)` → `RouteGuideSheet.kt` `send` | 기기 위치 기준만 AI 동의 다음에 위치 동의. 지도 중심 기준은 AI 동의만. 지도 중심 출처는 보이는 범위(`viewport.source`)를 따른다 |
 | 외부 지도 앱 넘기기 | `RouteEditorView.kt` `TripBanner` → `NavigationUsageNotice` | 현재 좌표를 주소에 싣지 않고 목적지만 넘긴다(출발지는 외부 앱이 정함) |
 
 그 밖의 호출(작품·장소 상세·검색어 조회·홈·코스 저장·방문 저장 등)은 기기 좌표를 싣지 않는다. 안내 중 발자취·도착 판정·파란 점은 기기 안에서만 처리한다.
@@ -90,8 +92,7 @@ iOS [ios-location-consent.md](ios-location-consent.md)(PR 커밋 `359c45c`)를 �
 - 마이페이지 토글 자리는 「AI 기능 사용」 바로 아래다(Android에는 이용 통계 설정이 없다).
 - 외부 지도 링크는 출발지가 없으면 카카오맵 웹의 목적지 링크만 쓰고 네이버 지도 단추는 세우지 않는다(iOS `ExternalDirections.offers`와 같다). 이전 Android는 현재 좌표를 출발지로 실었다.
 - Android는 길 안내가 자동 재탐색을 하지 않는다(iOS와 같다). 위치 갱신이 첫 요청을 이어 부르는 경우는 같은 사용자 요청의 일부로 센다.
-- 지도 주변·`RouteGuideAnchor`(MZ2AZ-474, 다른 워크트리)는 main에 아직 없어 이번 범위에서 제외했다. 합쳐질 때 `GET /places?bbox`를 `CoordinateSources.with(출처)`로 감싸고
-  UI에서 `requestLocation`을 거치지 않으면, 출처 표식이 없는 호출은 기기 위치로 취급되어 전송 계층이 동의 없이 막는다.
+- MZ2AZ-474(iOS 444)의 `RouteGuideAnchor`·`RouteNearbySearch`·`RouteNearbySheet`는 main에 합쳐진 뒤 같이 옮겼다(위 표). 출처 없는 호출은 기기로 취급되므로 새 `GET /places?bbox` 호출은 반드시 `CoordinateSources.with(출처)`로 감싼다.
 
 ## 검증과 남은 확인
 

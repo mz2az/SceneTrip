@@ -86,6 +86,8 @@ kt_jvm_library(
         "tests/CommunityBlogTests.kt",
         "tests/CommunityTests.kt",
         "tests/ContentPlacePagesTests.kt",
+        "tests/CourseDetailSafetyTests.kt",
+        "tests/FirstCourseGuideTests.kt",
         "tests/FootprintPrivacyTests.kt",
         "tests/LanguageAndCartTests.kt",
         "tests/LatestIosSyncTests.kt",

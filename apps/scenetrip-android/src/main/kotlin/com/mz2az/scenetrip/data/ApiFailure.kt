@@ -51,7 +51,16 @@ data class ApiFailure(
             else -> tr("요청을 처리하지 못했습니다.")
         }
 
+    /**
+     * 코스 저장 실패 알림에 띄우는 문구. 상세를 받지 못한 코스를 저장하려던 경우(서버에 닿은 적이 없다)는
+     * 「코스를 불러오지 못했어요」다. iOS `ApiFailure.courseSaveMessage`.
+     */
+    val courseSaveMessage: String get() = if (this == courseDetailNotLoaded) tr("코스를 불러오지 못했어요") else message
+
     companion object {
+        /** 상세를 받지 못한 서버 코스를 저장하려 했다 — 요청을 보내지 않고 막는다. iOS `ApiFailure.courseDetailNotLoaded`. */
+        val courseDetailNotLoaded = ApiFailure(statusCode = null, apiCode = "COURSE_DETAIL_NOT_LOADED")
+
         fun of(error: Throwable): ApiFailure =
             when {
                 AIConsentRequired.isIn(error) -> ApiFailure(statusCode = null, apiCode = AIConsentRequired.CODE)

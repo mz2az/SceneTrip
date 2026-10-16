@@ -23,9 +23,12 @@ import com.mz2az.scenetrip.data.VersionedConsentStore
 import com.mz2az.scenetrip.data.englishOf
 import com.mz2az.scenetrip.data.requestLocation
 import com.mz2az.scenetrip.routetab.ExternalDirections
+import com.mz2az.scenetrip.routetab.RouteGuideAnchor
+import com.mz2az.scenetrip.routetab.RouteNearbySearch
 import com.mz2az.scenetrip.searchtab.MapRegionSource
 import com.mz2az.scenetrip.ui.AIConsentCopy
 import com.mz2az.scenetrip.ui.LocationConsentCopy
+import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -573,6 +576,119 @@ class LocationConsentTests {
         assertFalse(queue.begin())
         queue.clearQueued() // 안내 종료·도착
         assertFalse(queue.end(), "끝났거나 도착했으면 대기 중이던 요청은 보내지 않는다")
+    }
+
+    // --- 주변 촬영지·가이드 기준 (MZ2AZ-474 × 472) ---
+
+    @Test
+    fun anchorCarriesTheCoordinateSource() {
+        val device = 37.5 to 127.0
+        val center = 35.2 to 129.1
+        // 기기 위치 기준은 늘 기기 출처, 지도 중심은 보이는 범위의 출처를 따른다(기본은 사용자 선택).
+        assertEquals(CoordinateSource.DEVICE, RouteGuideAnchor.resolve(device, center, preferMap = false)!!.source)
+        assertEquals(CoordinateSource.USER_SELECTED, RouteGuideAnchor.resolve(device, center, preferMap = true)!!.source)
+        assertEquals(CoordinateSource.USER_SELECTED, RouteGuideAnchor.resolve(null, center, preferMap = false)!!.source)
+        assertEquals(
+            CoordinateSource.DEVICE,
+            RouteGuideAnchor.resolve(device, center, preferMap = true, mapSource = CoordinateSource.DEVICE)!!.source,
+            "GPS 로 맞춘 지도의 중심은 기기 출처다",
+        )
+        assertEquals(
+            CoordinateSource.DEVICE,
+            RouteGuideAnchor.resolve(null, center, preferMap = false, mapSource = CoordinateSource.DEVICE)!!.source,
+        )
+        assertEquals(CoordinateSource.DEVICE, RouteGuideAnchor(1.0, 2.0, isMapCenter = false).source, "출처를 빠뜨리면 기기로 본다")
+    }
+
+    @Test
+    fun nearbySearchRunsMapCenterWithoutConsentAndKeepsTheSourceInTheQuery() =
+        runBlocking {
+            val queries = mutableListOf<RouteNearbySearch.Query>()
+            val search =
+                RouteNearbySearch(fetch = {
+                    queries += it
+                    emptyList()
+                }, locationAllowed = { false })
+            search.load(RouteGuideAnchor(35.2, 129.1, isMapCenter = true, source = CoordinateSource.USER_SELECTED))
+            assertEquals(RouteNearbySearch.Phase.LOADED, search.state.phase)
+            assertEquals(listOf(CoordinateSource.USER_SELECTED), queries.map { it.source }, "출처는 조회까지 보존된다")
+        }
+
+    @Test
+    fun nearbySearchWithDeviceSourceNeedsConsentAndDoesNotCallTheServer() =
+        runBlocking {
+            var calls = 0
+            var allowed = false
+            val search =
+                RouteNearbySearch(fetch = {
+                    calls += 1
+                    emptyList()
+                }, locationAllowed = { allowed })
+            val device = RouteGuideAnchor(37.5, 127.0, isMapCenter = false)
+            search.load(device)
+            assertEquals(RouteNearbySearch.Phase.NEEDS_CONSENT, search.state.phase)
+            assertEquals(0, calls, "동의 없이는 조회하지 않는다")
+            // GPS 로 맞춘 지도 중심도 기기 출처다.
+            search.load(RouteGuideAnchor(35.2, 129.1, isMapCenter = true, source = CoordinateSource.DEVICE))
+            assertEquals(RouteNearbySearch.Phase.NEEDS_CONSENT, search.state.phase)
+            allowed = true
+            search.load(device)
+            assertEquals(RouteNearbySearch.Phase.LOADED, search.state.phase)
+            assertEquals(1, calls)
+            allowed = false // 철회
+            search.load(device)
+            assertEquals(RouteNearbySearch.Phase.NEEDS_CONSENT, search.state.phase)
+            assertEquals(1, calls)
+        }
+
+    @Test
+    fun nearbyTransportBlockedByRevocationShowsNeedsConsent() =
+        runBlocking {
+            // UI 검사를 지난 뒤 전송 계층이 막은 경우도 실패 화면이 아니라 동의 안내가 된다.
+            val search =
+                RouteNearbySearch(fetch = { throw RuntimeException("wrapped", LocationConsentRequired()) }, locationAllowed = { true })
+            search.load(RouteGuideAnchor(37.5, 127.0, isMapCenter = false))
+            assertEquals(RouteNearbySearch.Phase.NEEDS_CONSENT, search.state.phase)
+        }
+
+    @Test
+    fun nearbyBboxRequestFollowsItsSourceThroughTheTransport() {
+        val store = LocationConsentStore(storage)
+        val map = RouteNearbySearch.Query.of(RouteGuideAnchor(35.2, 129.1, isMapCenter = true, source = CoordinateSource.USER_SELECTED))
+        val device = RouteNearbySearch.Query.of(RouteGuideAnchor(37.5, 127.0, isMapCenter = false))
+        val userWire = Wire()
+        CoordinateSources.with(map.source) { userWire.client(store).get("/places?bbox=${map.bbox}&limit=40") }
+        assertEquals(1, userWire.requests.size, "지도 중심(사용자 선택)은 동의 없이 나간다")
+        val deviceWire = Wire()
+        CoordinateSources.with(device.source) {
+            assertThrows(LocationConsentRequired::class.java) { deviceWire.client(store).get("/places?bbox=${device.bbox}&limit=40") }
+        }
+        assertEquals(0, deviceWire.requests.size, "내 위치 기준은 동의 없이 나가지 않는다")
+        store.allow()
+        CoordinateSources.with(device.source) { deviceWire.client(store).get("/places?bbox=${device.bbox}&limit=40") }
+        assertEquals(1, deviceWire.requests.size)
+    }
+
+    @Test
+    fun guideQuestionAsksLocationConsentOnlyForDeviceCoordinates() {
+        val store = LocationConsentStore(storage)
+        val gate = AIConsentGate(store)
+        var asked = 0
+        // 지도 중심 앵커(사용자 선택): AI 동의만 필요 — 위치 시트 없음, 전송 계층도 통과.
+        gate.requestLocation(CoordinateSource.USER_SELECTED) { asked += 1 }
+        assertEquals(1, asked)
+        assertFalse(gate.isPresented)
+        val userWire = Wire()
+        CoordinateSources.with(CoordinateSource.USER_SELECTED) {
+            assertEquals(200, userWire.client(store).post("/guide/chat", payload).code)
+        }
+        // 기기 앵커: 위치 시트 → 허용 뒤에만 진행.
+        gate.requestLocation(CoordinateSource.DEVICE) { asked += 1 }
+        assertTrue(gate.isPresented)
+        assertEquals(1, asked)
+        gate.allow()
+        gate.didDismiss()
+        assertEquals(2, asked)
     }
 
     // --- 문구·링크·화면 규칙 ---

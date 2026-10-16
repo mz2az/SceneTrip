@@ -666,7 +666,7 @@ private fun Centered(message: String?) {
  * 고쳐야 하는 오류에 버튼을 두면 눌러도 같은 화면이 돌아온다.
  */
 @Composable
-private fun ErrorView(
+internal fun ErrorView(
     failure: ApiFailure?,
     onRetry: () -> Unit,
 ) {

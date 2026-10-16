@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +66,7 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.AIConsentGate
 import com.mz2az.scenetrip.data.API_BASE
+import com.mz2az.scenetrip.data.CartLoadState
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.CoordinateSource
 import com.mz2az.scenetrip.data.CoordinateSources
@@ -122,6 +124,7 @@ import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.NaverMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -188,6 +191,9 @@ fun RouteEditorView(
     var fitToken by remember { mutableStateOf(0) }
     var optimizeNudge by remember { mutableStateOf(false) }
     var showGuide by remember { mutableStateOf(false) }
+    // 가이드 기준: 기기 위치가 있어도 지도 중심을 쓰는가, 그리고 「지도 주변 촬영지 보기」를 누른 시점에 고정한 지도 중심.
+    var guideUsesMapCenter by remember { mutableStateOf(false) }
+    var nearbyAnchor by remember { mutableStateOf<RouteGuideAnchor?>(null) }
     var viewport by remember { mutableStateOf<MapViewport?>(null) }
     var ambientPois by remember { mutableStateOf<List<PoiSummary>>(emptyList()) }
     var poiGroupsOn by remember { mutableStateOf(PoiCategoryGroup.entries.toSet()) }
@@ -197,6 +203,10 @@ fun RouteEditorView(
     val scope = operationScope ?: localScope
     val context = LocalContext.current
     val cart = remember { CartStore(context) }
+    // 직접 짜기의 새 빈 코스에서 장바구니 버튼을 한 번 알려 준다(MZ2AZ-444).
+    var cartHintState by remember { mutableStateOf(RouteCartHintState()) }
+    val cartHint = remember { RouteCartHint(PreferencesCartHintStorage(context)) { cartHintState = it } }
+    val rootView = androidx.compose.ui.platform.LocalView.current
     val guideSession = remember { RouteGuideSession(context, scope) }
     val trip = remember { TripSession(context) }
     var visitStates by remember { mutableStateOf<Map<VisitKey, VisitStatus>>(emptyMap()) }
@@ -223,16 +233,40 @@ fun RouteEditorView(
             pinning = pinning,
         )
 
-    fun cancel() {
+    // 「마법사를 열어 달라」는 표시는 편집 화면이 실제로 닫힐 때만 올린다 — 알림 창이 onDismiss 를 먼저 부르므로 거기서 만지면 안 된다.
+    val plannerExit = remember { PlannerExit { TabRouter.pendingPlanner = it } }
+
+    fun cancel(planner: Boolean = false) {
         if (saving) return
         val changed = if (initial.serverId == null) !RouteBridge.isBlank(course) else RouteBridge.changed(opened, course)
-        if (changed) discarding = true else onClose(null)
+        if (plannerExit.request(planner, changed) { onClose(null) }) discarding = true
+    }
+
+    // 가이드 창의 「AI 로 짜기」 — 이 편집 화면을 「취소」와 같은 길로 닫고(바꾼 것이 있으면 버릴지 묻는다),
+    // 다 닫히면 코스 목록이 마법사를 띄운다(`RouteTabView.openPlannerIfAsked`). iOS `leaveForPlanner`.
+    fun leaveForPlanner() {
+        if (saving) return
+        showGuide = false
+        cancel(planner = true)
     }
     androidx.activity.compose.BackHandler { cancel() }
     androidx.compose.runtime.SideEffect { editorDismiss?.set { cancel() } }
     androidx.compose.runtime.DisposableEffect(editorDismiss) { onDispose { editorDismiss?.set(null) } }
 
     LaunchedEffect(Unit) { cart.refresh() }
+    // 편집기에 들어서면 링을 바로 켜고, 문구는 장바구니 조회가 끝난 뒤 낭독(TalkBack)과 함께 한 번 보인다.
+    LaunchedEffect(Unit) {
+        cartHint.present(
+            course = course,
+            cart = {
+                val (loadState, isEmpty) =
+                    snapshotFlow { cart.loadState to cart.items.isEmpty() }
+                        .first { it.first == CartLoadState.LOADED || it.first == CartLoadState.FAILED }
+                CartOutcome(loadState, isEmpty)
+            },
+            announce = { rootView.announceForAccessibility(it) },
+        )
+    }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { trip.end() } }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     androidx.compose.runtime.DisposableEffect(lifecycle, trip) {
@@ -295,14 +329,15 @@ fun RouteEditorView(
     }
 
     fun saveAndClose() {
-        if (saving) return
+        // 상세를 받지 못한 서버 코스는 저장하지 않는다 — 빈 일정으로 서버 코스를 덮어쓴다(저장 경로에도 같은 막이 있다).
+        if (saving || !course.canSave) return
         // 제목을 비운 채 저장하면 목록에 이름 없는 코스가 생긴다 — iOS `saveAndClose`와 같이 기본 이름으로.
         course = course.copy(title = course.title.trim().ifEmpty { tr("내 코스", "코스 제목") })
         saving = true
         scope.launch {
             val saved = store.save(course)
             saving = false
-            if (saved != null) onClose(saved) else saveFailure = store.failure
+            if (saved != null) onClose(saved) else saveFailure = store.saveFailure
         }
     }
 
@@ -602,7 +637,13 @@ fun RouteEditorView(
                                     },
                             )
                         }
-                    course = fresh.copy(serverId = course.serverId, isRunning = course.isRunning, days = days)
+                    course =
+                        fresh.copy(
+                            serverId = course.serverId,
+                            isRunning = course.isRunning,
+                            detailLoaded = course.detailLoaded,
+                            days = days,
+                        )
                     dayIndex = dayIndex.coerceAtMost(course.days.lastIndex.coerceAtLeast(0))
                     focusedStopId = null
                     fitToken += 1
@@ -725,8 +766,8 @@ fun RouteEditorView(
                     if (course.serverId == null) tr("만들기") else tr("저장"),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = IOS.accent,
-                    modifier = Modifier.clickable { saveAndClose() },
+                    color = if (course.canSave) IOS.accent else IOS.accent.copy(alpha = 0.4f),
+                    modifier = Modifier.clickable(enabled = course.canSave) { saveAndClose() },
                 )
             }
         }
@@ -1021,17 +1062,24 @@ fun RouteEditorView(
                             searching =
                                 true
                         }
-                        EditorAction(
-                            label = tr("장바구니"),
-                            icon = { BagIcon(IOS.label, it) },
-                            modifier = Modifier.weight(1f),
-                        ) { showCart = true }
+                        Box(modifier = Modifier.weight(1f)) {
+                            EditorAction(
+                                label = tr("장바구니"),
+                                icon = { BagIcon(IOS.label, it) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                cartHint.dismiss()
+                                showCart = true
+                            }
+                            if (cartHintState.isHighlighted) RouteCartHintRing(Modifier.matchParentSize())
+                        }
                         EditorAction(
                             label = if (pinning) tr("취소") else tr("핀 찍기"),
                             icon = { MapPinEllipseIcon(IOS.label, it) },
                             modifier = Modifier.weight(1f),
                         ) { pinning = !pinning }
                     }
+                    cartHintState.message?.let { text -> RouteCartHintNotice(text, onDismiss = { cartHint.dismiss() }) }
                     LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         itemsIndexed(stops, key = { _, stop -> stop.id }) { index, stop ->
                             RouteStopRow(
@@ -1211,7 +1259,7 @@ fun RouteEditorView(
                                 tr("저장하고 닫기")
                             },
                             prominent = true,
-                            enabled = !saving,
+                            enabled = !saving && course.canSave,
                             onClick = { saveAndClose() },
                             modifier = Modifier.weight(1f),
                         )
@@ -1237,10 +1285,42 @@ fun RouteEditorView(
         modifier = Modifier.fillMaxSize().then(if (inSheet) Modifier else Modifier.statusBarsPadding()).padding(top = 54.dp),
     )
 
+    // 가이드의 「주변」 기준: 기기 위치(지도의 파란 점)를 먼저 쓰고, 없거나 사용자가 바꾸면 보이는 지도 중심을 쓴다.
+    // 지도 중심의 출처는 보이는 범위가 GPS 에서 왔는지에 따른다 — 기기 위치로 맞춘 지도는 기기 출처다(MZ2AZ-472).
+    val guideMapCenter = viewport?.let { it.lat to it.lng }
+    val guideMapSource = viewport?.source ?: CoordinateSource.USER_SELECTED
+    val guideAnchor =
+        RouteGuideAnchor.resolve(
+            current = myLocation?.let { it.latitude to it.longitude },
+            mapCenter = guideMapCenter,
+            preferMap = guideUsesMapCenter,
+            mapSource = guideMapSource,
+        )
     RouteGuidePanel(
         isOpen = showGuide,
         session = guideSession,
-        here = myLocation?.let { it.latitude to it.longitude },
+        here = guideAnchor?.let { it.latitude to it.longitude },
+        // 기기 위치 기준일 때만 질문 전에 위치 동의를 묻는다. 지도 중심(사용자가 고른 영역)은 AI 동의만 필요하다(MZ2AZ-472).
+        source = guideAnchor?.source ?: CoordinateSource.USER_SELECTED,
+        anchorDescription =
+            if (guideAnchor?.isMapCenter == true) {
+                tr("현재 지도 중심 주변을 찾아 드립니다.")
+            } else {
+                tr("지도에 표시된 내 위치 주변을 찾아 드립니다.")
+            },
+        anchorActionTitle = if (guideAnchor?.isMapCenter == true) tr("내 위치 주변") else tr("지도 중심 주변"),
+        onChangeAnchor = if (guideMapCenter != null && myLocation != null) ({ guideUsesMapCenter = !guideUsesMapCenter }) else null,
+        cartPlaces = cart.items.map { it.name },
+        onOpenCart = {
+            showGuide = false
+            showCart = true
+        },
+        // AI 의 기준과 별개로 누른 시점의 지도 중심을 고정한다(iOS `openNearbyPlaces`).
+        onOpenNearby =
+            guideMapCenter?.let { center ->
+                { nearbyAnchor = RouteGuideAnchor(center.first, center.second, isMapCenter = true, source = guideMapSource) }
+            },
+        onOpenPlanner = { leaveForPlanner() },
         onAdd = { place ->
             addStops(listOf(place.courseStop()))
         },
@@ -1284,6 +1364,16 @@ fun RouteEditorView(
             taken = takenIds,
             onDismiss = { searching = false },
             onAdd = { places -> addStops(places.map { RouteStop(place = it) }) },
+        )
+    }
+
+    nearbyAnchor?.let { anchor ->
+        RouteNearbySheet(
+            mapAnchor = anchor,
+            deviceLocation = myLocation?.let { it.latitude to it.longitude },
+            taken = takenIds,
+            onAdd = { place -> addStops(listOf(RouteStop(place = place))) },
+            onDismiss = { nearbyAnchor = null },
         )
     }
 
@@ -1336,7 +1426,12 @@ fun RouteEditorView(
         IOSAlert(
             title = tr("바꾼 내용을 버릴까요?"),
             message = null,
-            actions = listOf(IOSAction(tr("계속 편집"), IOSRole.CANCEL) {}, IOSAction(tr("버리기"), IOSRole.DESTRUCTIVE) { onClose(null) }),
+            // 계속 편집하면 마법사를 열어 달라던 표시도 거둔다 — 남기면 다음 닫기에 엉뚱하게 마법사가 뜬다.
+            actions =
+                listOf(
+                    IOSAction(tr("계속 편집"), IOSRole.CANCEL) { plannerExit.keepEditing() },
+                    IOSAction(tr("버리기"), IOSRole.DESTRUCTIVE) { plannerExit.discard { onClose(null) } },
+                ),
             onDismiss = { discarding = false },
         )
     }
@@ -1346,7 +1441,7 @@ fun RouteEditorView(
     saveFailure?.let { failure ->
         IOSAlert(
             title = tr("저장하지 못했습니다"),
-            message = failure.message,
+            message = failure.courseSaveMessage,
             actions = listOf(IOSAction(tr("확인")) {}),
             onDismiss = {
                 saveFailure = null
