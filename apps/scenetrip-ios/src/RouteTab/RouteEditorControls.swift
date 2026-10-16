@@ -48,6 +48,7 @@ extension RouteEditorView {
                 }) {
                     pickedStop = stop
                     guide.picked = nil
+                    focusedStop = stop
                 }
             },
             bottomInset: panelHeight,
@@ -58,9 +59,12 @@ extension RouteEditorView {
             legs: trip.drawnLegs,
             recenterTick: trip.recenterTick,
             previewTo: previewTarget,
-            onTapStop: {
-                pickedStop = $0
+            onTapStop: { stop in
+                pickedStop = stop
                 guide.picked = nil // 카드는 한 장만
+                // 누른 곳으로 확대해 들어간다 — 일차 전체를 맞춘 화면 그대로면 무엇을 눌렀는지
+                // 지도에서 알 수 없다(2026-10-16 사용자 지적). 목록에서 누른 것과 같은 확대다.
+                focusedStop = stop
             },
             // 최근 하루치만 — 지난 여행(데모 주행 여러 번)의 발자국까지 다 그리면 뭉친다.
             footprints: footprints.points.filter { $0.at > Date().addingTimeInterval(-86400) },

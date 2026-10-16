@@ -468,7 +468,14 @@ extension RouteEditorView {
                 stop: tapped,
                 onReroute: course.isRunning && tapped.canNavigate && trip.target?.id != tapped.id
                     ? { startTrip(to: tapped) } : nil,
-                onClose: { pickedStop = nil }
+                onClose: {
+                    pickedStop = nil
+                    // 핀을 눌러 확대해 들어왔다면 카드를 닫을 때 일차 전체로 돌아간다.
+                    if focusedStop?.id == tapped.id {
+                        focusedStop = nil
+                        fitToken += 1
+                    }
+                }
             )
             .padding(.horizontal, 12)
             .padding(.bottom, 90)
