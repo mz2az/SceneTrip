@@ -47,6 +47,9 @@ class CartStore(
     val items: List<CartItem> get() = snapshot.items
     val toast: String? get() = snapshot.toast
 
+    /** 장바구니를 받아 봤는가. 첫 안내가 문구를 정할 때 쓴다(iOS `CartStore.loadState`). */
+    val loadState: CartLoadState get() = snapshot.loadState
+
     fun contains(placeId: Long): Boolean = placeId in snapshot.placeIds
 
     suspend fun refresh() {

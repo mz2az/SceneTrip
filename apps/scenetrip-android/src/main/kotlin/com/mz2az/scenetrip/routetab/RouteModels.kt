@@ -42,7 +42,15 @@ data class RouteCourse(
     val draftNotes: List<String> = emptyList(),
     /** 서버가 세어 준 장소 수. 목록 카드에서만 쓴다(상세를 안 받은 코스). */
     val placeCountFromServer: Int? = null,
+    /**
+     * 상세 응답으로 만든 사본인가. 목록 요약은 일차 속이 비어 있어서, 그것으로 저장하면 서버 코스의
+     * 장소를 빈 일정으로 덮어쓴다. iOS `RouteCourse.detailLoaded`.
+     */
+    val detailLoaded: Boolean = false,
 ) {
+    /** 저장해도 되는가 — 아직 서버에 없는 새 코스이거나, 상세를 받아 온 사본일 때만이다. */
+    val canSave: Boolean get() = serverId == null || detailLoaded
+
     val stops: List<RouteStop> get() = days.flatMap { it.stops }
 
     /** 카드에 적을 장소 수. 상세를 받았으면 실제 개수, 목록만 받았으면 서버 값이다. */

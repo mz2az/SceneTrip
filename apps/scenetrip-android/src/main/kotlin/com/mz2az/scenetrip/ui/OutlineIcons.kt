@@ -291,6 +291,21 @@ fun HandDrawIcon(
     }
 }
 
+/** `exclamationmark.circle` — 원 안의 느낌표. 불러오기 실패 같은 가벼운 경고 줄에 쓴다. */
+@Composable
+fun ExclamationCircleIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = stroke(w)
+        drawCircle(tint, radius = w * 0.44f, center = Offset(w * 0.5f, w * 0.5f), style = s)
+        drawLine(tint, Offset(w * 0.5f, w * 0.26f), Offset(w * 0.5f, w * 0.56f), strokeWidth = w * 0.09f, cap = StrokeCap.Round)
+        drawCircle(tint, radius = w * 0.055f, center = Offset(w * 0.5f, w * 0.72f))
+    }
+}
+
 /** `checkmark` — 굵은 체크. */
 @Composable
 fun CheckmarkIcon(

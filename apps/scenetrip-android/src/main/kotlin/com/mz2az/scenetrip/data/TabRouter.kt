@@ -41,6 +41,12 @@ object TabRouter {
     /** 경로 탭이 열어 줘야 할 코스의 서버 id. 확인용 뒷문 `-e openCourseId 26`도 이걸 채운다. */
     var pendingCourseId by mutableStateOf<Long?>(null)
 
+    /**
+     * 가이드 창의 「코스 추천받기 (AI)」·한도 안내의 「AI 로 짜기 열기」가 남긴다 — 편집 화면이 닫힌 뒤 코스 목록이
+     * 일정짜기 마법사를 띄우고 곧장 지운다(iOS `TabRouter.pendingPlanner`).
+     */
+    var pendingPlanner by mutableStateOf(false)
+
     /** 홈 "이어서 길찾기" — 코스를 열자마자 첫 미방문 성지로 안내를 켠다. 편집 화면이 읽고 끈다. */
     var pendingTripStart by mutableStateOf(false)
 

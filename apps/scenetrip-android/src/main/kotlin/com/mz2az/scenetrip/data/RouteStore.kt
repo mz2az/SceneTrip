@@ -20,9 +20,8 @@ import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseCreate
 import com.mz2az.scenetrip.sceneapi.client.model.CourseDetail
-import com.mz2az.scenetrip.sceneapi.client.model.CourseOrigin
-import com.mz2az.scenetrip.sceneapi.client.model.CoursePace
 import com.mz2az.scenetrip.sceneapi.client.model.CourseProgress
+import com.mz2az.scenetrip.sceneapi.client.model.CourseReplace
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlanRequest
@@ -50,9 +49,16 @@ class RouteStore(
     var courses by mutableStateOf<List<CourseSummary>>(emptyList())
         private set
 
+    private val coursesApi = CoursesApi(API_BASE)
+    private val deviceId: UUID = InstallIdentity.of(context)
+    private var failures by mutableStateOf(RouteFailureState())
+    private val session = RouteCourseSession(ApiCourseServer(coursesApi, deviceId)) { failures = it }
+
     /** 마지막 호출이 실패했나. 화면이 "불러오지 못했습니다"를 띄우는 데 쓴다. */
-    var failure by mutableStateOf<ApiFailure?>(null)
-        private set
+    val failure: ApiFailure? get() = failures.failure
+
+    /** 편집 화면의 저장 실패. 목록·재료 조회 실패로는 채워지지 않는다(iOS `RouteStore.saveFailure`). */
+    val saveFailure: ApiFailure? get() = failures.saveFailure
 
     var loading by mutableStateOf(false)
         private set
@@ -102,12 +108,10 @@ class RouteStore(
         }
     }
 
-    private val coursesApi = CoursesApi(API_BASE)
     private val guideApi = GuideApi(API_BASE)
     private val contentsApi = ContentsApi(API_BASE)
     private val placesApi = PlacesApi(API_BASE)
     private val likeStore = LikeStore.getInstance(context)
-    private val deviceId: UUID = InstallIdentity.of(context)
 
     /** [works]를 채운다. 마법사가 작품 선택 단계에 들어갈 때 부른다. */
     suspend fun loadWorks() {
@@ -133,9 +137,7 @@ class RouteStore(
 
     fun toggleFavoriteWork(contentId: Long) = likeStore.toggle(contentId)
 
-    fun clearFailure() {
-        failure = null
-    }
+    fun clearFailure() = session.clearFailure()
 
     /** 코스 목록을 받아온다. 홈이 뜰 때 부른다. */
     suspend fun refresh() {
@@ -144,9 +146,9 @@ class RouteStore(
             withContext(Dispatchers.IO) { coursesApi.listCourses(deviceId) }
         }.onSuccess {
             courses = it.items ?: emptyList()
-            failure = null
+            session.clearLoadFailure()
         }.onFailure {
-            failure = ApiFailure.of(it)
+            session.recordFailure(it)
         }
         loading = false
     }
@@ -158,85 +160,26 @@ class RouteStore(
         }
 
     /**
-     * 코스 하나의 속을 [RouteCourse]로 받아온다. 목록 카드에는 일차 속이 없으므로
-     * 편집 화면을 열 때 부른다 — 목록에서 전부 받아 두면 코스가 많을 때 첫 화면이
-     * 느려진다. 서버 id가 없는(아직 안 저장한) 코스는 그대로 돌려준다.
+     * 코스 하나의 속을 [RouteCourse]로 받아온다. 목록 카드에는 일차 속이 없으므로 편집 화면을 열 때
+     * 부른다 — 목록에서 전부 받아 두면 코스가 많을 때 첫 화면이 느려진다. 서버 id가 없는(아직 안 저장한)
+     * 코스는 그대로 돌려준다. **실패하면 null이며, 그때 편집 화면을 열면 안 된다**(요약만 있는 빈 코스를
+     * 저장하면 서버 코스가 지워진다 — [RouteCourseOpening]).
      */
-    suspend fun routeCourse(course: RouteCourse): RouteCourse? {
-        val serverId = course.serverId ?: return course
-        return withContext(Dispatchers.IO) {
-            runCatching { coursesApi.getCourse(deviceId, serverId) }
-        }.fold(
-            onSuccess = {
-                failure = null
-                RouteBridge.course(it)
-            },
-            onFailure = {
-                failure = ApiFailure.of(it)
-                null
-            },
-        )
-    }
+    suspend fun routeCourse(course: RouteCourse): RouteCourse? = session.detail(course)
 
     /**
-     * 코스를 넣거나 덮어쓴다. 편집 화면이 작업 사본을 들고 있다가 저장할 때 부른다.
-     * 서버 id가 없으면 만들고(POST), 있으면 통째로 덮어쓴다(PUT) — **덮어쓰기는
-     * 보낸 것이 전부다**, 빠진 아이템은 지운 것이 된다.
+     * 코스를 넣거나 덮어쓴다. 편집 화면이 작업 사본을 들고 있다가 저장할 때 부른다. 상세를 못 받은 서버
+     * 코스는 요청 없이 거절한다 — [RouteCourseSession.save].
      */
     suspend fun save(
         course: RouteCourse,
         origin: String? = null,
-    ): RouteCourse? =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val serverId = course.serverId
-                if (serverId != null) {
-                    coursesApi.replaceCourse(deviceId, serverId, RouteBridge.replace(course))
-                } else {
-                    // 만들기와 내용 채우기가 두 번에 나뉜다 — 계약이 만들 때는 기간과
-                    // 출처만 받고, 장소는 편집 완료로 넣게 돼 있다.
-                    val created =
-                        coursesApi.createCourse(
-                            deviceId,
-                            CourseCreate(
-                                dayCount = course.days.size,
-                                title = course.title,
-                                origin = if (course.madeByAI) CourseOrigin.ai else CourseOrigin.self,
-                                pace = if (course.pace == RoutePace.LOOSE) CoursePace.loose else CoursePace.tight,
-                            ),
-                        )
-                    val replaced =
-                        try {
-                            coursesApi.replaceCourse(deviceId, created.id, RouteBridge.replace(course))
-                        } catch (error: Exception) {
-                            // 채우기가 실패하면 만든 코스를 되돌린다 — 안 그러면 장소 없는
-                            // 껍데기가 목록에 남는다.
-                            runCatching { coursesApi.deleteCourse(deviceId, created.id) }
-                            throw error
-                        }
-                    // 핵심 지표 — 코스가 **새로** 만들어졌다. 고쳐 저장한 것은 세지 않는다 (MZ2AZ-353).
-                    AppAnalytics.log(
-                        AppEvent.CreateCourse(
-                            origin = origin ?: if (course.madeByAI) "ai" else "self",
-                            dayCount = course.days.size,
-                            placeCount = course.placeCount,
-                        ),
-                    )
-                    replaced
-                }
-            }
-        }.fold(
-            onSuccess = { saved ->
-                failure = null
-                val result = RouteBridge.course(saved)
-                refresh()
-                result
-            },
-            onFailure = {
-                failure = ApiFailure.of(it)
-                null
-            },
-        )
+    ): RouteCourse? {
+        val saved = session.save(course, origin) ?: return null
+        val result = RouteBridge.course(saved)
+        refresh()
+        return result
+    }
 
     suspend fun delete(course: RouteCourse) {
         val serverId = course.serverId
@@ -247,9 +190,9 @@ class RouteStore(
         runCatching {
             withContext(Dispatchers.IO) { coursesApi.deleteCourse(deviceId, serverId) }
         }.onSuccess {
-            failure = null
+            session.clearLoadFailure()
         }.onFailure {
-            failure = ApiFailure.of(it)
+            session.recordFailure(it)
         }
         refresh()
     }
@@ -276,9 +219,9 @@ class RouteStore(
                 )
             }
         }.onSuccess {
-            failure = null
+            session.clearLoadFailure()
         }.onFailure {
-            failure = ApiFailure.of(it)
+            session.recordFailure(it)
         }
         // 실패했으면 되돌린다 — 화면과 서버가 어긋난 채 두면 다음 저장이 엉뚱하게 나간다.
         refresh()
@@ -326,11 +269,11 @@ class RouteStore(
             }
         }.fold(
             onSuccess = { course ->
-                failure = null
+                session.clearLoadFailure()
                 course
             },
             onFailure = {
-                failure = ApiFailure.of(it)
+                session.recordFailure(it)
                 null
             },
         )
@@ -355,4 +298,23 @@ class RouteStore(
             startDate = startDate,
             days = List(span.days) { RouteDay() },
         )
+}
+
+/** 생성된 [CoursesApi]를 [CourseServer]로 감싼 것. 설치 식별자를 모든 호출에 싣는다. */
+private class ApiCourseServer(
+    private val api: CoursesApi,
+    private val installId: UUID,
+) : CourseServer {
+    override fun get(courseId: Long): CourseDetail = api.getCourse(installId, courseId)
+
+    override fun create(body: CourseCreate): CourseDetail = api.createCourse(installId, body)
+
+    override fun replace(
+        courseId: Long,
+        body: CourseReplace,
+    ): CourseDetail = api.replaceCourse(installId, courseId, body)
+
+    override fun delete(courseId: Long) {
+        api.deleteCourse(installId, courseId)
+    }
 }

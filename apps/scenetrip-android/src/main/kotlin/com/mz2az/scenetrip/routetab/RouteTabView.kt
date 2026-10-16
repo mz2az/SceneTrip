@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -31,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -51,6 +53,7 @@ import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.ui.ChevronRightIcon
+import com.mz2az.scenetrip.ui.ExclamationCircleIcon
 import com.mz2az.scenetrip.ui.HandDrawIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
@@ -76,19 +79,33 @@ fun RouteTabView(
     var fork by remember { mutableStateOf(false) }
     var wizardOpen by remember { mutableStateOf(false) }
     var aiWizardOpen by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<RouteCourse?>(null) }
+    // 목록 요약으로 편집 화면을 열지 않는다 — 상세 조회에 성공한 코스만 `opening.editing`에 오른다.
+    var openingState by remember { mutableStateOf(RouteOpeningState()) }
+    val opening = remember { RouteCourseOpening { openingState = it } }
     var doomed by remember { mutableStateOf<RouteCourse?>(null) }
     val scope = rememberCoroutineScope()
+
+    // 가이드 창의 「AI 로 짜기」 — 편집 화면(또는 마법사)이 다 닫힌 뒤에 마법사를 띄운다. 새 마법사라 열 때마다 키를 올려 답변을 비운다.
+    var plannerEpoch by remember { mutableStateOf(0) }
+
+    fun openPlannerIfAsked() {
+        if (!TabRouter.pendingPlanner) return
+        TabRouter.pendingPlanner = false
+        plannerEpoch += 1
+        aiWizardOpen = true
+    }
 
     LaunchedEffect(AuthStore.epoch) {
         store.refresh()
     }
 
-    LaunchedEffect(TabRouter.pendingCourseId) {
+    // 홈에서 넘어온 코스. 목록이 아직 없으면 목록이 오는 대로 다시 시도한다(iOS `openPending`은 새로고침 뒤에 부른다).
+    LaunchedEffect(TabRouter.pendingCourseId, store.courses) {
         val wanted = TabRouter.pendingCourseId ?: return@LaunchedEffect
         val found = store.courses.firstOrNull { it.id == wanted } ?: return@LaunchedEffect
         TabRouter.pendingCourseId = null
-        editing = store.detail(found.id)?.let { RouteBridge.course(it) } ?: RouteBridge.course(found)
+        // 효과가 아니라 화면의 범위에서 연다 — 목록이 다시 와서 효과가 재시작돼도 열던 조회가 끊기지 않는다.
+        scope.launch { opening.open(RouteBridge.course(found), store::routeCourse) }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).statusBarsPadding()) {
@@ -131,6 +148,10 @@ fun RouteTabView(
             }
         }
 
+        if (openingState.failedCourse != null) {
+            DetailLoadError(onRetry = { scope.launch { opening.retry(store::routeCourse) } })
+        }
+
         // 「둘러보기」(코스마켓) 세그먼트가 있었다 — 쓰지 않는 기능이라 걷어냈다
         // (2026-10-03 팀 회의, MZ2AZ-350). 이 화면은 내 코스 하나다.
         if (store.courses.isEmpty()) {
@@ -138,10 +159,9 @@ fun RouteTabView(
         } else {
             CourseList(
                 store = store,
+                // 목록 카드에는 일차 속이 없다 — 열 때 상세를 받아오고, 못 받으면 편집 화면을 열지 않는다.
                 onOpen = { course ->
-                    scope.launch {
-                        editing = store.detail(course.id)?.let { RouteBridge.course(it) } ?: RouteBridge.course(course)
-                    }
+                    if (!openingState.isLoading) scope.launch { opening.open(RouteBridge.course(course), store::routeCourse) }
                 },
                 onDelete = { course -> doomed = RouteBridge.course(course) },
                 confirmingId = doomed?.serverId,
@@ -170,14 +190,17 @@ fun RouteTabView(
     }
 
     if (aiWizardOpen) {
-        RouteWizardView(
-            store = store,
-            isAiPlan = true,
-            onClose = { saved ->
-                aiWizardOpen = false
-                if (saved != null) editing = saved
-            },
-        )
+        key(plannerEpoch) {
+            RouteWizardView(
+                store = store,
+                isAiPlan = true,
+                onClose = { saved ->
+                    aiWizardOpen = false
+                    if (saved != null) opening.show(saved)
+                    openPlannerIfAsked()
+                },
+            )
+        }
     }
 
     if (wizardOpen) {
@@ -185,17 +208,50 @@ fun RouteTabView(
             store = store,
             onClose = { saved ->
                 wizardOpen = false
-                if (saved != null) editing = saved
+                if (saved != null) opening.show(saved)
+                openPlannerIfAsked()
             },
         )
     }
 
-    val current = editing
+    val current = openingState.editing
     if (current != null) {
         RouteEditorView(
             store = store,
             initial = current,
-            onClose = { editing = null },
+            onClose = {
+                opening.close()
+                openPlannerIfAsked()
+            },
+        )
+    }
+}
+
+/**
+ * 상세 조회가 실패했다 — 편집 화면은 열지 않았다는 안내와 「다시 시도」. iOS `detailLoadError`:
+ * 왼쪽 정렬 `exclamationmark.circle` 라벨(subheadline) 아래 bordered 버튼, 가로 16 · 세로 10.
+ */
+@Composable
+private fun DetailLoadError(onRetry: () -> Unit) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            ExclamationCircleIcon(IOS.label, Modifier.size(16.dp))
+            Text(tr("코스를 불러오지 못했어요"), fontSize = 15.sp, color = IOS.label)
+        }
+        Text(
+            tr("다시 시도"),
+            fontSize = 15.sp,
+            color = IOS.accent,
+            modifier =
+                Modifier
+                    .heightIn(min = 44.dp)
+                    .clip(CircleShape)
+                    .background(IOS.tertiaryFill)
+                    .clickable(onClick = onRetry)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
         )
     }
 }
