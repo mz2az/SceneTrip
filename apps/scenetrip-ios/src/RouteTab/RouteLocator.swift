@@ -9,14 +9,14 @@ import SceneApiClient
 /// **좌표 자체가 필요하다** — 「현재 위치 → 다음 목적지」를 서버에 물으려면 출발지를
 /// 실어 보내야 하기 때문이다. 그래서 값으로 다루는 쪽을 따로 만든다.
 ///
-/// 두 모드다. `start()` 는 **한 건 받고 끊는다** — 길찾기를 누르는 순간의 위치.
+/// 두 모드다. `start()` 는 **잠깐 받아 가장 나은 값을 고르고 끊는다** — 길찾기를 누르는 순간의 위치.
+/// 처음 값을 바로 내놓고, 더 정확한 값이 오면 갈아 끼운다. 20 m 안쪽이 오거나 3초가 지나면 끊는다.
 /// `track()` 은 여행 모드(2026-09-02)용으로 **계속 받는다** — 반경 안 머무름으로 도착을
-/// 판정하고 발자취를 남기려면 위치가 이어져야 한다. 25 m 움직일 때마다 한 번이고,
+/// 판정하고 발자취를 남기려면 위치가 이어져야 한다. 10 m 움직일 때마다 한 번이고,
 /// 화면이 닫히면 `stop()` 으로 끊는다(앱 사용 중 권한이라 뒤로 가면 어차피 멈춘다).
 ///
-/// 정확도는 100 m 로 잡는다. 촬영지를 이어 주는 앱이지 내비게이션이 아니라 미터
-/// 단위가 필요 없고, 낮은 정확도가 훨씬 빨리 온다 — 사용자가 「길찾기」를 누르고
-/// 기다리는 시간이 그만큼 짧아진다.
+/// 정확도는 **최고**로 잡는다. 앞서는 100 m 로 낮춰 한 번만 받았는데, 도심에서 첫 값이 몇백 m
+/// 어긋나 서면역이 전포로 떴다(2026-10-16 사용자 실기 지적). 고르는 규칙은 `LocationFix`.
 @MainActor
 final class RouteLocator: NSObject, ObservableObject, CLLocationManagerDelegate {
     enum State: Equatable {
@@ -37,11 +37,15 @@ final class RouteLocator: NSObject, ObservableObject, CLLocationManagerDelegate 
     override init() {
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        manager.desiredAccuracy = kCLLocationAccuracyBest
     }
 
     /// 계속 받는 중인가. 권한 대답이 늦게 오면 그때 `track` 을 이어 가기 위한 표시.
     private var tracking = false
+    /// 지금 내놓은 값의 원본(정확도·시각).
+    private var shown: CLLocation?
+    /// 한 번 받기를 끊을 때를 세는 차례 — 새로 `start` 하면 앞의 끊기 예약은 무시된다.
+    private var oneShotTicket = 0
 
     /// 받은 자리를 장소 모양으로. 거리 계산(`RouteGeometry`)이 `PlaceSummary` 를 받아서다.
     var found: PlaceSummary? {
@@ -58,14 +62,30 @@ final class RouteLocator: NSObject, ObservableObject, CLLocationManagerDelegate 
         case .restricted, .denied:
             state = .denied
         default:
-            manager.requestLocation()
+            beginOneShot()
+        }
+    }
+
+    /// 잠깐 받는다. 값이 하나라도 오면 3초 뒤 끊고, 그 전에 충분히 정확한 값이 오면 바로 끊는다.
+    private func beginOneShot() {
+        shown = nil
+        oneShotTicket &+= 1
+        let ticket = oneShotTicket
+        LocationFix.requestFullAccuracyIfReduced(manager)
+        manager.distanceFilter = kCLDistanceFilterNone
+        manager.startUpdatingLocation()
+        DispatchQueue.main.asyncAfter(deadline: .now() + LocationFix.oneShotWait) { [weak self] in
+            guard let self, !self.tracking, oneShotTicket == ticket, shown != nil else { return }
+            manager.stopUpdatingLocation()
         }
     }
 
     /// 여행 모드 — 위치를 계속 받는다. `stop()` 으로 끊는다.
     func track() {
         tracking = true
-        manager.distanceFilter = 25
+        shown = nil
+        manager.distanceFilter = 10
+        LocationFix.requestFullAccuracyIfReduced(manager)
         switch manager.authorizationStatus {
         case .notDetermined:
             manager.requestWhenInUseAuthorization()
@@ -99,7 +119,7 @@ final class RouteLocator: NSObject, ObservableObject, CLLocationManagerDelegate 
                 if self.tracking {
                     manager.startUpdatingLocation()
                 } else {
-                    manager.requestLocation()
+                    self.beginOneShot()
                 }
             }
         }
@@ -109,16 +129,33 @@ final class RouteLocator: NSObject, ObservableObject, CLLocationManagerDelegate 
         _: CLLocationManager,
         didUpdateLocations locations: [CLLocation]
     ) {
-        guard let point = locations.last?.coordinate else { return }
         Task { @MainActor in
-            self.state = .found(latitude: point.latitude, longitude: point.longitude)
+            for fix in locations where LocationFix.isUsable(fix) {
+                if self.tracking {
+                    // 여행 중엔 새 값이 곧 지금 자리다. 다만 이미 자리를 알면 확 흐린 값은 버린다.
+                    guard LocationFix.acceptsTripFix(fix, hasFix: self.shown != nil) else { continue }
+                } else {
+                    guard LocationFix.shouldReplace(self.shown, with: fix) else { continue }
+                }
+                self.shown = fix
+                self.state = .found(latitude: fix.coordinate.latitude, longitude: fix.coordinate.longitude)
+            }
+            if !self.tracking, let shown = self.shown, shown.horizontalAccuracy <= LocationFix.goodEnough {
+                self.manager.stopUpdatingLocation()
+            }
         }
     }
 
     nonisolated func locationManager(_: CLLocationManager, didFailWithError error: Error) {
-        let denied = (error as? CLError)?.code == .denied
+        let code = (error as? CLError)?.code
         Task { @MainActor in
-            self.state = denied ? .denied : .failed
+            if code == .denied {
+                self.state = .denied
+                return
+            }
+            // 계속 받는 중의 「아직 모름」은 잠깐이다. 이미 자리를 알면 그 자리를 지킨다.
+            guard code != .locationUnknown, self.shown == nil else { return }
+            self.state = .failed
         }
     }
 }
