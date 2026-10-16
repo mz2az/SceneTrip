@@ -204,6 +204,12 @@ CREATE INDEX ON poi_source (poi_id);
 
 ## 7. 배포 판(`poi-data-<판>`)에 칸 더하기
 
+**관광공사 상세는 따로 판을 낸다(2026-10-16)** — `just poi-detail-publish <국문> <영문> <판>` 이 `just poi-tour-detail` 의 두 파일을
+묶어 공개 Release `poi-detail-<판>` 으로 올리고, `MODULE.bazel` 의 `poi_detail_*` 세 줄이 받아 적재 이미지(`/data/poi-detail`)에
+넣는다. 원격 적재(`remote-load.sh`)는 같은 곳 연결 다음 「③-2 관광공사 상세」 에서 로컬과 같은 `poi_detail_load.sql` 을 국문 → 영문
+순서로 돌린다 — 노트북의 수집 파일은 원격 DB 에 닿지 못해서다. 첫 판 `2026-10-16`(국문 24,996 · 영문 15,287 곳, 수집 중). 수집이
+이어지면 새 판을 내고 세 줄만 바꾼다 — 적재는 다시 돌려도 같다. 로컬 `just data-load-local` 실측: 상세 단계 18 초.
+
 `just poi-pack` 은 `src` 를 빼서 합치기에 필요한 칸이 없다. 세 칸을 정식 칸으로 싣는다 — 건물 열쇠(도로명 + 건물번호),
 지점명, 원 번호. 서버·다른 사람도 같은 판정을 한다.
 

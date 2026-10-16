@@ -7,7 +7,8 @@
 # 접속은 표준 PG 환경변수로 받는다: PGHOST · PGUSER(app_migrate — 소유자, 적재 SQL 이 임시 표·TRUNCATE·MV 갱신을 한다) ·
 # PGPASSWORD · PGDATABASE · PGSSLMODE. 그 밖에 SCENETRIP_COMMIT(배포 커밋, data_load 기록용).
 #
-# 순서(계획 §3): ① 촬영지 ② 편의시설(표가 비면 처음, 아니면 --update) ③ 같은 곳 연결 ④ 인기도 ⑤ 검색 색인 ⑥ 건수 검사·기록.
+# 순서(계획 §3): ① 촬영지 ② 편의시설(표가 비면 처음, 아니면 --update) ③ 같은 곳 연결 ③-2 관광공사 상세(국문 → 영문, MZ2AZ-376)
+# ④ 인기도 ⑤ 검색 색인 ⑥ 건수 검사·기록.
 # 몇 번을 돌려도 같다. **사용자 데이터를 지우는 seed-reset 은 여기 없다.**
 #
 # 마지막 줄에 `DATA_LOAD_SUMMARY {json}` 을 찍는다 — 배포기가 kubectl logs 로 이 줄만 읽는다(비밀값이 없다).
@@ -52,6 +53,19 @@ cp "$DATA/seed/place_poi_links.tsv" "$TMP/place-poi-links.tsv"
 run -f "$DATA/seed/place_poi_link.sql" || fail "같은 곳 연결"
 rm -f "$TMP/place-poi-links.tsv"
 
+# 관광공사 상세 — 로컬 `just seed-poi-detail` 과 같은 SQL. 영문은 이름·거리로 짝을 지어 국문 뒤에(poi_detail.sql). 판이 이미지에 없으면
+# 건너뛴다(상세 판을 싣기 전의 이미지와 같게).
+detail_edition=""
+if [ -f "$DATA/poi-detail/manifest.json" ]; then
+  detail_edition=$(sed -n 's/.*"edition": *"\([^"]*\)".*/\1/p' "$DATA/poi-detail/manifest.json" | head -1)
+  say "③-2 관광공사 상세 — 판 $detail_edition"
+  for f in tour_detail_ko tour_detail_en; do
+    gzip -dc "$DATA/poi-detail/$f.jsonl.gz" >"$TMP/seed-poi-detail.jsonl"
+    run -v detail_sql="$DATA/seed/poi_detail.sql" -f "$DATA/seed/poi_detail_load.sql" || fail "관광공사 상세 ($f)"
+  done
+  rm -f "$TMP/seed-poi-detail.jsonl"
+fi
+
 say "④ 인기도 · ⑤ 검색 색인"
 run -c "SELECT recompute_popularity();" || fail "인기도"
 run -c "REFRESH MATERIALIZED VIEW CONCURRENTLY search_term;" || fail "검색 색인"
@@ -62,16 +76,17 @@ counts=$(q -F' ' -c "
          (SELECT count(*) FROM place   WHERE hidden_at IS NULL),
          (SELECT count(*) FROM poi     WHERE closed_at IS NULL),
          (SELECT count(*) FROM place_poi_link),
-         (SELECT count(*) FROM search_term)")
-read -r n_content n_place n_poi n_link n_search <<<"$counts"
+         (SELECT count(*) FROM search_term),
+         (SELECT count(*) FROM poi_detail)")
+read -r n_content n_place n_poi n_link n_search n_detail <<<"$counts"
 for pair in "작품:$n_content" "촬영지:$n_place" "편의시설:$n_poi" "검색 색인:$n_search"; do
   [ "${pair#*:}" -gt 0 ] || fail "${pair%%:*} 이 0 건이다 — 화면이 빈다"
 done
 
 took=$(($(date +%s) - started))
-summary=$(printf '{"commit":"%s","poi_edition":"%s","poi_mode":"%s","csv_sha256":"%s","content":%s,"place":%s,"poi":%s,"place_poi_link":%s,"search_term":%s,"seconds":%s}' \
+summary=$(printf '{"commit":"%s","poi_edition":"%s","poi_mode":"%s","csv_sha256":"%s","content":%s,"place":%s,"poi":%s,"place_poi_link":%s,"search_term":%s,"poi_detail_edition":"%s","poi_detail":%s,"seconds":%s}' \
   "${SCENETRIP_COMMIT:-}" "$poi_edition" "$([ "$update" = 1 ] && echo update || echo initial)" "$csv_sha" \
-  "$n_content" "$n_place" "$n_poi" "$n_link" "$n_search" "$took")
+  "$n_content" "$n_place" "$n_poi" "$n_link" "$n_search" "$detail_edition" "$n_detail" "$took")
 # 변수 치환(:'summary')은 -c 에서는 일어나지 않는다 — 표준 입력으로 넘긴다.
 printf '%s\n' "INSERT INTO data_load (summary) VALUES (:'summary'::jsonb);" |
   run -v summary="$summary" || fail "기록"

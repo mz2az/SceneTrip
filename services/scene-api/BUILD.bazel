@@ -104,6 +104,8 @@ pkg_tar(
         "seed/place_poi_link.sql",
         "seed/place_poi_links.tsv",
         "seed/poi.sql",
+        "seed/poi_detail.sql",
+        "seed/poi_detail_load.sql",
         "seed/poi_update.sql",
     ],
     mode = "0444",
@@ -124,6 +126,19 @@ pkg_tar(
     ],
     mode = "0444",
     package_dir = "/data/poi",
+    tags = ["manual"],
+)
+
+# 관광공사 상세 한 판(MODULE.bazel 의 poi_detail_*) — POI 다음에 넣는다(MZ2AZ-376).
+pkg_tar(
+    name = "data_load_poi_detail_layer",
+    srcs = [
+        "@poi_detail_en//file",
+        "@poi_detail_ko//file",
+        "@poi_detail_manifest//file",
+    ],
+    mode = "0444",
+    package_dir = "/data/poi-detail",
     tags = ["manual"],
 )
 
@@ -148,6 +163,7 @@ oci_image(
     tars = [
         ":data_load_seed_layer",
         ":data_load_poi_layer",
+        ":data_load_poi_detail_layer",
         ":data_load_script_layer",
     ],
     # 배포 Job 들과 같은 비루트 사용자(Pod Security restricted). /tmp 는 Job 이 emptyDir 로 붙인다.
