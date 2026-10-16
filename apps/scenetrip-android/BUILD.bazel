@@ -100,6 +100,7 @@ kt_jvm_library(
         "tests/NicknameEditorTests.kt",
         "tests/SearchParityTests.kt",
         "tests/SuggestionDetailTests.kt",
+        "tests/UsageStatisticsTests.kt",
         "tests/VisitSyncTests.kt",
         "tests/VisualParityRulesTests.kt",
     ],

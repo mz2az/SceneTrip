@@ -135,6 +135,21 @@ fun ShoeprintsIcon(
     }
 }
 
+/** `chart.bar` — 세 막대와 바닥선(이용 통계 수집 줄). */
+@Composable
+fun ChartBarIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val bar = Stroke(width = w * 0.16f, cap = StrokeCap.Round)
+        drawLine(tint, Offset(w * 0.24f, w * 0.86f), Offset(w * 0.24f, w * 0.56f), strokeWidth = bar.width, cap = StrokeCap.Round)
+        drawLine(tint, Offset(w * 0.5f, w * 0.86f), Offset(w * 0.5f, w * 0.14f), strokeWidth = bar.width, cap = StrokeCap.Round)
+        drawLine(tint, Offset(w * 0.76f, w * 0.86f), Offset(w * 0.76f, w * 0.38f), strokeWidth = bar.width, cap = StrokeCap.Round)
+    }
+}
+
 /** `questionmark.circle` */
 @Composable
 fun QuestionCircleIcon(

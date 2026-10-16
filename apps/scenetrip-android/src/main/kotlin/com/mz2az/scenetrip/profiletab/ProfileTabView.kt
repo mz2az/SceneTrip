@@ -464,8 +464,10 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                     }
                 }
 
-                // AI 기능 동의 토글 (MZ2AZ-468). iOS 는 이용 통계 설정 바로 아래, 약관 위에 둔다 — Android 에는
-                // 통계 설정이 없어 「도움」 바로 아래다.
+                // 이용 통계 수집 토글 (MZ2AZ-475) — iOS `statisticsSection`. 「도움」 바로 아래, AI 동의 위다.
+                item { ProfileStatisticsSettings() }
+
+                // AI 기능 동의 토글 (MZ2AZ-468). iOS 는 이용 통계 설정 바로 아래, 약관 위에 둔다.
                 item { ProfileAISettings() }
 
                 // 처리방침·약관 (MZ2AZ-455, App Store 5.1.1 — 앱 안에서 찾을 수 있어야 한다). 비회원에게도 보인다.
