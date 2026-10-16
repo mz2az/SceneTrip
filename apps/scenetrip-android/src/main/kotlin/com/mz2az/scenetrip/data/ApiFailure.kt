@@ -38,6 +38,9 @@ data class ApiFailure(
             // 코스 이름이 금칙어에 걸렸다(`POST /courses`·`PUT /courses/{id}`) — 고쳐 달라고 한다.
             ModerationRules.isTextNotAllowed(apiCode) -> ModerationRules.textNotAllowedMessage
 
+            // 동의 전에는 AI 요청이 나가지 않는다(MZ2AZ-468) — 연결 실패가 아니라 허용을 안내한다.
+            apiCode == AIConsentRequired.CODE -> tr(AIConsentRequired.MESSAGE_KO)
+
             statusCode == null -> tr("서버에 연결하지 못했습니다.")
 
             statusCode == 500 -> tr("잠시 문제가 생겼습니다.")
@@ -56,6 +59,12 @@ data class ApiFailure(
         val courseDetailNotLoaded = ApiFailure(statusCode = null, apiCode = "COURSE_DETAIL_NOT_LOADED")
 
         fun of(error: Throwable): ApiFailure =
+            when {
+                AIConsentRequired.isIn(error) -> ApiFailure(statusCode = null, apiCode = AIConsentRequired.CODE)
+                else -> ofResponse(error)
+            }
+
+        private fun ofResponse(error: Throwable): ApiFailure =
             when (error) {
                 // 생성 클라이언트는 상태 코드를 모를 때 -1 을 넣는다. 그것은 HTTP 코드가
                 // 아니므로 "닿지 못했다" 와 같이 다룬다.

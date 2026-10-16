@@ -464,6 +464,10 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                     }
                 }
 
+                // AI 기능 동의 토글 (MZ2AZ-468). iOS 는 이용 통계 설정 바로 아래, 약관 위에 둔다 — Android 에는
+                // 통계 설정이 없어 「도움」 바로 아래다.
+                item { ProfileAISettings() }
+
                 // 처리방침·약관 (MZ2AZ-455, App Store 5.1.1 — 앱 안에서 찾을 수 있어야 한다). 비회원에게도 보인다.
                 // iOS 와 같이 계정 바로 위에 두고, 앱의 다른 외부 페이지처럼 브라우저로 연다.
                 item {
@@ -650,18 +654,21 @@ private fun AccountSection(onDeleted: () -> Unit) {
 // iOS `List(.insetGrouped)`(iOS 26): 섹션 머리 15 semibold 회색(카드 안쪽 16 에 맞춤), 카드 모서리 26,
 // 좌우 여백 16. 줄은 카드에 바로 붙고 줄 사이에 구분선이 있다(2026-09-28 대조 #4).
 @Composable
-private fun ProfileSection(
-    title: String,
+internal fun ProfileSection(
+    title: String?,
     content: @Composable () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 26.dp)) {
-        Text(
-            title,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = IOS.secondaryLabel,
-            modifier = Modifier.padding(start = 16.dp, bottom = 10.dp),
-        )
+        // 머리 없는 섹션(iOS `Section { } footer: { }`)은 제목 줄이 없다.
+        if (title != null) {
+            Text(
+                title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IOS.secondaryLabel,
+                modifier = Modifier.padding(start = 16.dp, bottom = 10.dp),
+            )
+        }
         Column(
             modifier =
                 Modifier

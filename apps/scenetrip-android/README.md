@@ -53,6 +53,7 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 | 안내 중 가이드 입구 | 배너 얼굴로 전환, 카드·서랍·핀 찍기 상태별 한 곳만 표시. 지도 앱 링크는 줄바꿈 |
 | 신고·차단·문의 (MZ2AZ-461) | 남의 리뷰·여행후기·홈 「커뮤니티 지금」의 「⋯」 → 신고(이유 여섯 + 설명)·이 사용자 차단, 마이페이지 「차단한 사용자」·「문의하기」, 금칙어 안내. [계획](../../docs/project/plans/android-moderation.md) |
 | 코스 상세 실패 보호·가이드 시작·주변 촬영지·첫 안내 (MZ2AZ-474) | 상세를 못 받은 코스는 편집 화면을 열지 않고 「다시 시도」, 저장은 막음. 지도 중심 기준 가이드 시작 화면, 모델 없는 「지도 주변 촬영지 보기」, 새 직접 짜기의 장바구니 첫 안내. [계획](../../docs/project/plans/android-first-course-guide.md) |
+| AI 기능 동의 (MZ2AZ-468) | 첫 가이드 질문·첫 AI 코스 만들기 전 「AI 기능 사용 안내」 시트, 마이페이지 토글. [계획](../../docs/project/plans/android-ai-consent.md) |
 | 영어 | iOS의 최신 영어 문구에서 변환. Android 전용 문구는 `TranslationExtras.kt` |
 | 약관·정책·탈퇴·AI 안내 (MZ2AZ-455·452·439) | 아래 「약관 링크·탈퇴 문구·AI 답변 안내」 |
 
@@ -152,6 +153,18 @@ iOS PR #296(MZ2AZ-455)·#305(MZ2AZ-452)·#294(MZ2AZ-439)를 같은 한국어·�
   문장만 보이고 글자 배율을 1.65로 묶으며, 화면 낭독기는 늘 전체 문장을 읽는다.
 - 영어 문구는 iOS 번역표에서 `just android-translations`로 가져왔다. iOS 표에서 빠졌지만 Android 주변 지도가 아직
   쓰는 문구 셋은 `TranslationExtras.kt`로 옮겼다. 시험은 `tests/LegalAndAiNoticeTests.kt`.
+
+### AI 기능 동의 (MZ2AZ-468)
+
+iOS의 AI 동의([`ios-ai-consent.md`](../../docs/project/plans/ios-ai-consent.md))를 같은 문구로 옮겼다. 첫 가이드 질문(「다시 시도」·예시 질문 포함)과 마법사의
+「AI 로 일정 짜기」 전에 시트 한 장(`ui/AIConsentSheet.kt`)을 띄우고, 허용하면 두 기능이 함께 열린다. 취소·닫기는 입력한 질문과
+마법사 선택값을 그대로 둔다. 마이페이지 「AI 기능 사용」 토글을 끄면 철회하고 다음에 다시 묻는다. 동의는 `SharedPreferences`
+`scenetrip.aiConsentVersion` 정수(현재 안내 버전과 같을 때만 허용)이고, 저장·철회·게이트는 위치 동의(MZ2AZ-472)가 키만 바꿔 쓰도록
+`VersionedConsentStore`/`AIConsentGate`로 일반화했다(`data/AIConsent.kt`).
+
+**요청 계층에서도 막는다.** `AIConsentInterceptor`가 `AuthInterceptor` → `RetryInterceptor` 다음에 붙어 `POST /guide/chat`·`/guide/plan`의
+매 전송(인증 갱신 뒤 재전송·자동 재시도 포함)을 검사하고, 동의가 없으면 `AIConsentRequired`로 끝낸다. 허용 확인과 호출 등록이
+철회와 같은 잠금이라 첫 검사 뒤 철회돼도 시작되지 않고, 나가 있는 호출은 철회 때 끊긴다. 시험은 `tests/AIConsentTests.kt`.
 
 | 항목 | 값 |
 | --- | --- |
