@@ -32,14 +32,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.CommunityBoard
 import com.mz2az.scenetrip.data.CommunityPost
+import com.mz2az.scenetrip.data.ModerationController
+import com.mz2az.scenetrip.data.ModerationRules
+import com.mz2az.scenetrip.data.ModerationTarget
 import com.mz2az.scenetrip.data.VisitStamp
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.reviews.ModerationMenu
 import com.mz2az.scenetrip.ui.IOS
 
 /** 커뮤니티 지금 — 최근 글 둘. 게시판 배지 · 제목 · 하트 자리. */
 @Composable
 fun HomeCommunityNow(
     posts: List<CommunityPost>,
+    // 남의 글의 신고·차단(MZ2AZ-461) — 홈 화면이 들고 시트를 단다. 비회원의 차단은 앱 맨 위의 로그인 화면이 받는다.
+    moderation: ModerationController,
     onOpen: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -63,7 +69,19 @@ fun HomeCommunityNow(
                                 .background(IOS.separator),
                         )
                     }
-                    CommunityPostRow(post, onClick = onOpen)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CommunityPostRow(post, onClick = onOpen, modifier = Modifier.weight(1f))
+                        // 눌리는 줄 밖에 둔다 — 안에 두면 「⋯」 를 눌러도 커뮤니티 탭으로 간다.
+                        val postId = post.serverId
+                        if (postId != null && ModerationRules.showsMenu(isMine = post.isMine)) {
+                            ModerationMenu(
+                                target = ModerationTarget.post(postId),
+                                canBlock = ModerationRules.canBlock(isMine = post.isMine, hasAuthor = post.author != null),
+                                controller = moderation,
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -74,12 +92,13 @@ fun HomeCommunityNow(
 private fun CommunityPostRow(
     post: CommunityPost,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 13.dp),

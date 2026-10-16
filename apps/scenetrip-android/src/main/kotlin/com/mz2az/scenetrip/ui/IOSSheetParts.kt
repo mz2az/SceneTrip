@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +46,8 @@ fun IOSSheetToolbar(
     trailing: String? = null,
     trailingEnabled: Boolean = true,
     onTrailing: () -> Unit = {},
+    // 보내는 중이면 글자 대신 돌아가는 표시를 보인다(iOS 툴바의 `ProgressView`).
+    trailingBusy: Boolean = false,
 ) {
     Box(modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp)) {
         if (leading != null) {
@@ -55,9 +58,10 @@ fun IOSSheetToolbar(
             GlassCapsule(
                 trailing,
                 bold = true,
-                enabled = trailingEnabled,
+                enabled = trailingEnabled && !trailingBusy,
                 onClick = onTrailing,
                 modifier = Modifier.align(Alignment.CenterEnd),
+                busy = trailingBusy,
             )
         }
     }
@@ -70,6 +74,7 @@ private fun GlassCapsule(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    busy: Boolean = false,
 ) {
     Box(
         contentAlignment = Alignment.Center,
@@ -82,12 +87,16 @@ private fun GlassCapsule(
                 .clickable(enabled = enabled, onClick = onClick)
                 .padding(horizontal = 16.dp),
     ) {
-        Text(
-            label,
-            fontSize = 17.sp,
-            fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (enabled) IOS.label else IOS.tertiaryLabel,
-        )
+        if (busy) {
+            CircularProgressIndicator(Modifier.size(18.dp), color = IOS.secondaryLabel, strokeWidth = 2.dp)
+        } else {
+            Text(
+                label,
+                fontSize = 17.sp,
+                fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (enabled) IOS.label else IOS.tertiaryLabel,
+            )
+        }
     }
 }
 

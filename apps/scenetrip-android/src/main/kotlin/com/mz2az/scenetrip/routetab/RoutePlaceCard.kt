@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,7 +46,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.ModerationEvents
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.reviews.ReviewRules
 import com.mz2az.scenetrip.reviews.ReviewSubject
 import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
 import com.mz2az.scenetrip.sceneapi.client.api.PoisApi
@@ -164,15 +167,29 @@ fun RoutePlaceCard(
     var revision by remember(place) { mutableStateOf(0) }
     var loading by remember(place.id) { mutableStateOf(true) }
     var missing by remember(place.id) { mutableStateOf(false) }
+    // 어디서든 차단·풀기가 일어나면(MZ2AZ-461) 카드의 방문자 사진을 먼저 비우고 다시 받는다.
+    val moderationVersion by ModerationEvents.shared.version.collectAsState()
+    var cardAt by remember(place) { mutableStateOf(moderationVersion) }
 
     LaunchedEffect(place, revision) {
         // 아래 조회 재시도는 이용 기록을 만들지 않는다.
+        val asked = moderationVersion
         loading = true
         missing = false
         val result = fetchPlaceCard(place)
         card = result
+        cardAt = asked
         missing = result == null
         loading = false
+    }
+    LaunchedEffect(moderationVersion) {
+        if (cardAt == moderationVersion) return@LaunchedEffect
+        // 떠 있는 카드를 다시 읽다 실패했으면 가진 것을 둔다(방문자 사진만 빠진 채로).
+        val asked = moderationVersion
+        fetchPlaceCard(place)?.let {
+            card = it
+            cardAt = asked
+        }
     }
 
     LaunchedEffect(place.id, place.targetPlaceId) {
@@ -211,7 +228,16 @@ fun RoutePlaceCard(
                 }
             }
         } else {
-            card?.let { PlaceCardFound(it, added, onAdd, onRemove, onReviews = { reviews = true }) }
+            card?.let {
+                val shown =
+                    if (cardAt == moderationVersion) {
+                        it
+                    } else {
+                        val kept = ReviewRules.withoutReviewPhotos(it.photos)
+                        it.copy(photos = kept, photoCount = kept.size)
+                    }
+                PlaceCardFound(shown, added, onAdd, onRemove, onReviews = { reviews = true })
+            }
         }
     }
     if (reviews) {

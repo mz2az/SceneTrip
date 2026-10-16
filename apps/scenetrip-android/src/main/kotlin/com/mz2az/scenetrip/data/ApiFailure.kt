@@ -20,6 +20,8 @@ import com.mz2az.scenetrip.sceneapi.client.infrastructure.ServerException
 data class ApiFailure(
     /** HTTP 상태 코드. **서버에 닿지도 못했으면 null 이다.** */
     val statusCode: Int?,
+    /** 오류 본문의 `code`. 화면 문구를 code 로 가를 때만 쓴다 — 지금은 금칙어(`TEXT_NOT_ALLOWED`, MZ2AZ-461)뿐이다. */
+    val apiCode: String? = null,
 ) {
     /**
      * 재시도가 의미 있는 경우.
@@ -32,9 +34,14 @@ data class ApiFailure(
 
     /** 화면에 띄우는 문구. iOS `ErrorView` 와 **같은 세 갈래**다. */
     val message: String get() =
-        when (statusCode) {
-            null -> tr("서버에 연결하지 못했습니다.")
-            500 -> tr("잠시 문제가 생겼습니다.")
+        when {
+            // 코스 이름이 금칙어에 걸렸다(`POST /courses`·`PUT /courses/{id}`) — 고쳐 달라고 한다.
+            ModerationRules.isTextNotAllowed(apiCode) -> ModerationRules.textNotAllowedMessage
+
+            statusCode == null -> tr("서버에 연결하지 못했습니다.")
+
+            statusCode == 500 -> tr("잠시 문제가 생겼습니다.")
+
             else -> tr("요청을 처리하지 못했습니다.")
         }
 
@@ -43,9 +50,9 @@ data class ApiFailure(
             when (error) {
                 // 생성 클라이언트는 상태 코드를 모를 때 -1 을 넣는다. 그것은 HTTP 코드가
                 // 아니므로 "닿지 못했다" 와 같이 다룬다.
-                is ClientException -> ApiFailure(error.statusCode.takeIf { it > 0 })
+                is ClientException -> ApiFailure(error.statusCode.takeIf { it > 0 }, NetworkFailure.of(error).code)
 
-                is ServerException -> ApiFailure(error.statusCode.takeIf { it > 0 })
+                is ServerException -> ApiFailure(error.statusCode.takeIf { it > 0 }, NetworkFailure.of(error).code)
 
                 // 연결 실패·타임아웃은 OkHttp 의 IOException 으로 온다.
                 else -> ApiFailure(statusCode = null)

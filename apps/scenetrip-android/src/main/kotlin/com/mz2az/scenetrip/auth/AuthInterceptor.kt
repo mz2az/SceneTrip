@@ -31,9 +31,7 @@ class AuthInterceptor : Interceptor {
         val url = original.url.toString()
         val epoch = AuthStore.epoch
         if (!AuthRules.intercepts(url)) return chain.proceed(original)
-        if (original.method == "GET" && original.url.encodedPath.contains("/reviews") &&
-            AuthTokens.isStale
-        ) {
+        if (AuthRules.refreshesBeforeRead(original.method, original.url.encodedPath) && AuthTokens.isStale) {
             TokenRefresher.refresh(AuthTokens.accessToken)
         }
         if (epoch != AuthStore.epoch) throw IOException("account changed")

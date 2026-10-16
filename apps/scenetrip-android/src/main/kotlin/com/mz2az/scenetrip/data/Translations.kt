@@ -82,6 +82,8 @@ internal val TRANSLATIONS_EN: Map<String, String> =
         "가이드 요청을 처리하지 못했어요 (%d)" to "Couldn't process the Guide request (%d)",
         "가이드가 잠시 응답하지 않아요. 잠시 뒤 다시 물어봐 주세요" to "The Guide isn't responding right now. Ask again in a moment",
         "가이드에게 잠시 많이 물어봤어요. %d분 뒤에 다시 물어볼 수 있어요" to "You've asked the guide a lot. You can ask again in %d min",
+        "가입한 계정의 기록이에요. 로그인한 뒤 마이페이지에서 회원 탈퇴를 이용해 주세요." to
+            "This data belongs to a registered account. Sign in, then use Delete account on My page.",
         "갈 수 있는 곳이 없어요. 목록에서 빠지거나 폐업한 곳만 남았어요." to "No places left to visit — the remaining ones are no longer featured or closed.",
         "갈래" to "Category",
         "개요" to "Overview",
@@ -125,6 +127,7 @@ internal val TRANSLATIONS_EN: Map<String, String> =
         "기간" to "Duration",
         "기간·작품만 고르면 동선까지 짜 드립니다" to "Pick the length and titles — we'll plan the route",
         "기다리는 중" to "Waiting",
+        "기록을 지우지 못했어요. 잠시 뒤 다시 시도해 주세요." to "Couldn't delete the data. Please try again later.",
         "기록하기" to "Record",
         "기록한 거리" to "Distance recorded",
         "기존 사진과 코스를 보관하고 있어요. 이 기기에서만 보입니다" to "Your original photos and course are kept here, visible only on this device.",
@@ -480,6 +483,12 @@ internal val TRANSLATIONS_EN: Map<String, String> =
         "음식점·카페" to "Food & cafés",
         "이 기기에만 저장돼요. 서버로 보내지 않아요." to "Saved on this device only. Never sent to our servers.",
         "이 기기에만 저장된 옛 글" to "Older posts saved on this device only",
+        "이 기기의 기록 지우기" to "Delete this device's data",
+        "이 기기의 기록을 지울까요?" to "Delete this device's data?",
+        "이 기기의 기록을 지웠어요." to "This device's data has been deleted.",
+        "이 기기의 발자취도 함께 지워져요." to "Your trail on this device will also be deleted.",
+        "이 기기의 장바구니·코스·찜이 모두 지워지고 되돌릴 수 없어요." to
+            "All cart items, courses, and favorites on this device will be deleted. This cannot be undone.",
         "이 닉네임으로 시작" to "Use this nickname",
         "이 분류를 %2\$d곳 중 %1\$d곳에서 찾았어요" to "Checked %1\$d of %2\$d places for this category",
         "이 분류의 촬영지가 없어요" to "No filming spots in this category",
@@ -550,6 +559,10 @@ internal val TRANSLATIONS_EN: Map<String, String> =
         "장바구니" to "Saved",
         "장바구니·코스·찜과 이 기기의 발자취, 작성한 리뷰·여행후기와 사진이 모두 지워지고 되돌릴 수 없어요." to
             "Your cart, courses, favorites, this device's trail, and the reviews and travel stories you wrote with their photos will all be deleted. This can't be undone.",
+        "장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요." to
+            "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.",
+        "장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 사진과 함께 「탈퇴한 사용자」로 남고, 탈퇴한 뒤에는 지울 수 없어요. 지우고 싶은 글은 먼저 삭제해 주세요." to
+            "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews and travel posts you wrote stay, with their photos, as \"Deleted user\" and can't be deleted after you leave. Delete anything you want removed first.",
         "장바구니가 비어 인기 장소를 보여 줍니다" to "Saved is empty, so here are popular places",
         "장바구니가 비었습니다" to "Nothing saved yet",
         "장바구니에 담기" to "Save",

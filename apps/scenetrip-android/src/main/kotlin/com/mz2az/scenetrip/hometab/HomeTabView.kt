@@ -25,6 +25,8 @@ import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.RootTab
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.reviews.ModerationSheets
+import com.mz2az.scenetrip.reviews.rememberModerationController
 import com.mz2az.scenetrip.ui.IOS
 import kotlinx.coroutines.launch
 
@@ -49,6 +51,8 @@ fun HomeTabScreen() {
     val posts = remember { CommunityStore.getInstance(context) }
     val likes = remember { LikeStore.getInstance(context) }
     val model = remember { HomeTabModel(context) }
+    // 「커뮤니티 지금」 의 신고·차단(MZ2AZ-461). 비회원의 차단은 앱 맨 위의 로그인 화면이 받는다.
+    val moderation = rememberModerationController()
     // "오늘의 성지"의 담기 — 검색 탭과 같은 장바구니(설치 id 가 같다).
     val cart = remember { CartStore(context) }
 
@@ -141,6 +145,7 @@ fun HomeTabScreen() {
             item {
                 HomeCommunityNow(
                     posts = posts.posts.take(2),
+                    moderation = moderation,
                     onOpen = { TabRouter.selected = RootTab.COMMUNITY },
                 )
             }
@@ -154,4 +159,6 @@ fun HomeTabScreen() {
             }
         }
     }
+
+    ModerationSheets(moderation) { target -> posts.blockedInBackground(target.targetId) }
 }

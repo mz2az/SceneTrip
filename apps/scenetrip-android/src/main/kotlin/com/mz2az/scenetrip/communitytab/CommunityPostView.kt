@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,11 +39,17 @@ import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CommunityArticle
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.CommunityStore
+import com.mz2az.scenetrip.data.ModerationController
+import com.mz2az.scenetrip.data.ModerationRules
+import com.mz2az.scenetrip.data.ModerationTarget
 import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.PostCourse
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.reviews.ModerationMenu
+import com.mz2az.scenetrip.reviews.ModerationSheets
+import com.mz2az.scenetrip.reviews.rememberModerationController
 import com.mz2az.scenetrip.ui.CheckmarkIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.XMarkIcon
@@ -65,6 +72,8 @@ fun CommunityPostView(
     val context = LocalContext.current
     val store = remember { CommunityStore.getInstance(context) }
     val scope = rememberCoroutineScope()
+    // 남의 후기의 신고·차단(MZ2AZ-461).
+    val moderation = rememberModerationController()
 
     var loaded by remember(post.id) { mutableStateOf<CommunityPost?>(null) }
     var loading by remember(post.id) { mutableStateOf(false) }
@@ -133,7 +142,7 @@ fun CommunityPostView(
                     ) {
                         Text(content.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label)
 
-                        AuthorRow(content)
+                        AuthorRow(content, moderation)
                     }
                 }
                 itemsIndexed(blocks) { _, block ->
@@ -196,6 +205,12 @@ fun CommunityPostView(
             }
         }
 
+        ModerationSheets(moderation) { target ->
+            // 차단한 사람의 후기 상세는 이제 404 다 — 목록에서 빼고 닫는다.
+            store.blockedInBackground(target.targetId)
+            onDismiss()
+        }
+
         Box(
             contentAlignment = Alignment.Center,
             modifier =
@@ -227,9 +242,17 @@ fun CommunityPostView(
 }
 
 @Composable
-private fun AuthorRow(post: CommunityPost) {
+private fun AuthorRow(
+    post: CommunityPost,
+    moderation: ModerationController,
+) {
     val name = post.authorName(AuthStore.me?.nickname)
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    val postId = post.serverId
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier.size(32.dp).clip(CircleShape).background(IOS.pinDeep),
@@ -239,6 +262,14 @@ private fun AuthorRow(post: CommunityPost) {
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IOS.label)
             Text(formatDateTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel)
+        }
+        if (postId != null && ModerationRules.showsMenu(isMine = post.isMine)) {
+            Spacer(Modifier.weight(1f))
+            ModerationMenu(
+                target = ModerationTarget.post(postId),
+                canBlock = ModerationRules.canBlock(isMine = post.isMine, hasAuthor = post.author != null),
+                controller = moderation,
+            )
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.mz2az.scenetrip.reviews
 
+import com.mz2az.scenetrip.sceneapi.client.model.Photo
+import com.mz2az.scenetrip.sceneapi.client.model.PhotoSource
 import java.net.URI
 import java.text.Normalizer
 
@@ -9,14 +11,20 @@ object ReviewRules {
     const val PHOTO_LIMIT = 10
     const val NICKNAME_MAX_LENGTH = 16
 
-    fun preservesPhotoFrame(photo: com.mz2az.scenetrip.sceneapi.client.model.Photo): Boolean {
-        if (photo.source == com.mz2az.scenetrip.sceneapi.client.model.PhotoSource.review) return false
+    fun preservesPhotoFrame(photo: Photo): Boolean {
+        if (photo.source == PhotoSource.review) return false
         val url = photo.url
         val tour =
             url.scheme.equals("https", true) && url.host.equals("tong.visitkorea.or.kr", true) &&
                 url.port == -1 && url.userInfo == null && url.rawQuery == null && url.rawFragment == null
         return tour || photo.credit?.contains("공공누리 제3유형") == true
     }
+
+    /**
+     * 방문자 사진을 뺀 목록 — 차단·풀기가 일어난 직후(MZ2AZ-461) 다시 받기 전까지 보이는 목록이다. 다시 받기가 실패해도 차단한
+     * 사람의 사진이 남지 않게 먼저 비운다. 우리 사진은 둔다. iOS `PhotoGalleryRules.Book.withoutReviewPhotos`.
+     */
+    fun withoutReviewPhotos(photos: List<Photo>): List<Photo> = photos.filter { it.source != PhotoSource.review }
 
     fun ratingFraction(
         distribution: List<Int>,

@@ -8,6 +8,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostDetail
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -23,6 +27,7 @@ class CommunityStore private constructor(
     private val client = CommunityServerClient(InstallIdentity.of(appContext))
     private val session = CommunitySession(client, { AuthStore.epoch }) { state = it }
     private val prefs = appContext.getSharedPreferences("scenetrip", Context.MODE_PRIVATE)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val legacyPosts: List<CommunityPost> = load()
     val posts get() = state.posts
     val mine get() = state.mine
@@ -39,6 +44,20 @@ class CommunityStore private constructor(
     suspend fun saveCourse(post: CommunityPost) = session.saveCourse(post)
 
     suspend fun remove(post: CommunityPost) = session.remove(post)
+
+    /**
+     * 그 글의 작성자를 차단했다(MZ2AZ-461) — 바로 빼고 첫 쪽부터 새로 받는다. 화면이 닫혀도 끝까지 간다 — 차단한 글의 상세를
+     * 닫으면 그 화면의 코루틴이 같이 취소돼 목록을 다시 받지 못한다(iOS 는 전역 `Task` 로 부른다).
+     */
+    fun blockedInBackground(postId: Long) {
+        session.drop(postId)
+        scope.launch { session.invalidateAndRefresh() }
+    }
+
+    /** 차단·풀기 뒤 — 진행 중인 피드 요청을 버리고 첫 쪽을 반드시 다시 받는다. */
+    fun invalidateAndRefreshInBackground() {
+        scope.launch { session.invalidateAndRefresh() }
+    }
 
     suspend fun refresh(
         mine: Boolean = false,
