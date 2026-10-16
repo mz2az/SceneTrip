@@ -34,6 +34,7 @@ extension RouteEditorView {
                 poiFilter
                 summary
                 actions
+                cartHintNotice
             }
             .id("course-panel-header")
             .listRowInsets(EdgeInsets())
@@ -44,9 +45,7 @@ extension RouteEditorView {
                         stop: stop,
                         number: index + 1,
                         // 다음 장소까지의 직선거리. 마지막 장소 뒤에는 갈 곳이 없다.
-                        nextKilometers: index + 1 < stops.count
-                            ? RouteGeometry.kilometers(stop.place, stops[index + 1].place)
-                            : nil,
+                        nextKilometers: RouteAvailability.nextKilometers(after: index, in: stops),
                         running: course.isRunning,
                         isFocused: focusedStop?.id == stop.id,
                         works: workTitles(for: stop),
@@ -61,7 +60,7 @@ extension RouteEditorView {
                         isTarget: trip.phase == .guiding && trip.target?.id == stop.id,
                         // 여행 중이면 어느 곳이든 「길찾기」 — 다녀온 곳도 다시 갈 수 있다(2026-09-04
                         // 사용자 지적: 코스를 또 만들 필요는 없다). 이 지도에 경로가 그려진다.
-                        onNavigate: course.isRunning ? { startTrip(to: stop) } : nil,
+                        onNavigate: course.isRunning && stop.canNavigate ? { startTrip(to: stop) } : nil,
                         onFocus: {
                             // **한 번 더 누르면 놓는다.** 놓을 방법이 없으면 한 곳을
                             // 고른 뒤 경로 전체를 다시 볼 수가 없다(2026-08-25 사용자 지적).
@@ -80,6 +79,21 @@ extension RouteEditorView {
                             }
                         }
                     )
+                    if let notice = stop.unavailable {
+                        HStack(alignment: .top) {
+                            UnavailableItemNotice(item: notice)
+                            Spacer(minLength: 8)
+                            Button(role: .destructive) {
+                                course.days[dayIndex].stops.removeAll { $0.id == stop.id }
+                                optimizeNudge = stops.count >= 2
+                            } label: {
+                                Label(tr("빼기"), systemImage: "trash")
+                                    .font(.caption).frame(minHeight: 44)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        .padding(.horizontal, 16)
+                    }
                     if visitSync.isPending(stop.serverItemId) {
                         visitSaveNotice(stop).padding(.horizontal, 16).padding(.bottom, 8)
                     }

@@ -8,7 +8,6 @@
 "%@ — 좌표 없음" = "%@ — no coordinates";
 "%@ 고정" = "Pin %@";
 "약 %@(이동 포함)" = "About %@ (including travel)";
-"머무는 시간 %@" = "Time at places %@";
 "이동을 포함한 어림이에요. 실제 이동 시간은 여행 중에 확인해 주세요." = "This includes estimated travel. Check actual travel times during your trip.";
 "저장하면 이동을 포함한 시간을 다시 보여 드려요." = "Save to refresh the estimate including travel.";
 "%@ 도착 예정" = "Arrives %@";
@@ -103,6 +102,7 @@
 "다녀온 코스의 동선과 장소를 AI 가 읽고" = "AI reads your finished course,";
 "다시 길찾기" = "Directions again";
 "다시 시도" = "Try again";
+"코스를 불러오지 못했어요" = "Couldn't load the course";
 "다음" = "Next";
 "다음 · %lld번 %@로 길찾기" = "Next · Directions to #%lld %@";
 "닫기" = "Close";
@@ -288,7 +288,6 @@
 "장면 정보가 아직 없습니다" = "No scene info yet";
 "장바구니" = "Saved";
 "장바구니 %d곳" = "Saved · %d places";
-"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.";
 "장바구니가 비어 인기 장소를 보여 줍니다" = "Saved is empty, so here are popular places";
 "장바구니가 비었습니다" = "Nothing saved yet";
 "장바구니에 담기" = "Save";
@@ -443,7 +442,7 @@
 "별점 %@점" = "%@ out of 5 stars";
 "더 불러오지 못했어요 · 다시 시도" = "Couldn't load more · Try again";
 "탈퇴한 사용자" = "Deleted user";
-"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 사진과 함께 「탈퇴한 사용자」로 남고, 탈퇴한 뒤에는 지울 수 없어요. 지우고 싶은 글은 먼저 삭제해 주세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews and travel posts you wrote stay, with their photos, as \"Deleted user\" and can't be deleted after you leave. Delete anything you want removed first.";
+"장바구니·코스·찜과 이 기기의 발자취, 작성한 리뷰·여행후기와 사진이 모두 지워지고 되돌릴 수 없어요." = "Your cart, courses, favorites, this device's trail, and the reviews and travel stories you wrote with their photos will all be deleted. This can't be undone.";
 "후기를 지울까요?" = "Delete this travel review?";
 "쓰던 후기를 버릴까요?" = "Discard this draft?";
 "게시 여부 확인" = "Check publication";
@@ -719,3 +718,63 @@
 "가입한 계정의 기록이에요. 로그인한 뒤 마이페이지에서 회원 탈퇴를 이용해 주세요." = "This data belongs to a registered account. Sign in, then use Delete account on My page.";
 "기록을 지우지 못했어요. 잠시 뒤 다시 시도해 주세요." = "Couldn't delete the data. Please try again later.";
 "이 기기의 발자취도 함께 지워져요." = "Your trail on this device will also be deleted.";
+
+/* 숨김·폐업 안내 (MZ2AZ-458). */
+"더 이상 소개하지 않는 장소예요" = "We no longer feature this place";
+"더 이상 소개하지 않는 작품이에요" = "We no longer feature this title";
+"폐업했어요" = "Closed permanently";
+"갈 수 있는 곳이 없어요. 목록에서 빠지거나 폐업한 곳만 남았어요." = "No places left to visit — the remaining ones are no longer featured or closed.";
+"목록에서 빠진 장소라 담을 수 없어요." = "We no longer feature this place, so you can’t add it.";
+"목록에서 빠진 작품이라 찜할 수 없어요." = "We no longer feature this title, so you can’t favorite it.";
+"폐업한 곳이라 코스에 넣을 수 없어요." = "This place is permanently closed, so you can’t add it to your course.";
+"편집 내용은 그대로예요. 해당 항목을 빼고 다시 저장해 주세요." = "Your edits are still here. Remove the unavailable item and save again.";
+"찜을 바꾸지 못했습니다" = "Couldn’t update your favorites";
+"빼기" = "Remove";
+
+/* MZ2AZ-472 위치 서비스 동의와 카카오 제공 알림 */
+"위치기반서비스 이용 동의" = "Location-based service consent";
+"현재 위치를 주변 촬영지·편의시설 찾기, AI 가이드, 길 안내에 씁니다. 위치는 요청을 처리하는 데만 쓰고 바로 지우며, 길 안내 때는 경로 계산을 위해 카카오에 보냅니다." = "We use your current location to find nearby filming locations and places, for the AI guide, and for directions. It is used only to handle the request and deleted right away; for directions it is sent to Kakao to calculate the route.";
+"위치기반서비스 이용약관" = "Location-based service terms";
+"동의하고 계속" = "Agree and continue";
+"위치기반서비스 이용" = "Location-based services";
+"끄면 위치를 쓰는 기능을 쓸 때 다시 물어봐요." = "If you turn this off, we will ask again when you use a feature that uses your location.";
+"길 안내를 위해 카카오에 현재 위치를 보냈어요." = "Your current location was sent to Kakao to calculate directions.";
+"위치기반서비스 이용에 동의한 뒤 다시 시도해 주세요." = "Please agree to location-based services and try again.";
+
+/* 관광공사 편의시설 안내 (MZ2AZ-470). */
+"개요" = "Overview";
+"이용 시간" = "Hours";
+"쉬는 날" = "Closed";
+"주차" = "Parking";
+"대표 메뉴" = "Signature menu";
+"입장료" = "Admission";
+"홈페이지" = "Website";
+"한국어" = "Korean";
+"영어" = "English";
+"일본어" = "Japanese";
+"중국어 번체" = "Traditional Chinese";
+"출처: 한국관광공사" = "Source: Korea Tourism Organization";
+
+/* 빈 코스 첫 안내와 모델 없는 주변 촬영지 (MZ2AZ-444). */
+"담아둔 장소로 코스를 시작해 보세요" = "Start your course with places you saved";
+"장소를 담으면 여기서 코스에 넣을 수 있어요" = "Save places to add them to your course here";
+"지도 주변 촬영지 보기" = "Filming locations around the map";
+"코스 추천받기 (AI)" = "Get course suggestions (AI)";
+"AI 일정은 편집할 초안으로 열려요. 확인한 뒤 직접 저장해 주세요." = "AI itineraries open as editable drafts. Review them, then save.";
+"AI에게 주변 장소 물어보기" = "Ask AI about nearby places";
+"추천 장소는 골라 담으세요. 일정 변경 요청은 초안에 반영돼요." = "Choose which suggested places to add. Requested itinerary changes update your draft.";
+"AI 가이드 오류" = "AI guide error";
+"주변 촬영지" = "Nearby filming locations";
+"내 위치 주변 촬영지입니다. AI를 사용하지 않아요." = "Filming locations near your location. No AI is used.";
+"지도 중심 주변 촬영지입니다. AI를 사용하지 않아요." = "Filming locations around the map center. No AI is used.";
+"내 위치로" = "Use my location";
+"내 위치를 사용할 수 없어 지도 중심으로 찾아요." = "Your location is unavailable. Search around the map center instead.";
+"검색 기준을 선택해 주세요" = "Choose a search location";
+"주변에 촬영지가 없어요" = "No filming locations nearby";
+"지도를 다른 곳으로 옮겨 다시 찾아보세요." = "Move the map to another area and try again.";
+"%@ 코스에 담기" = "Add %@ to course";
+"%@ · 코스에 담김" = "%@ · Added to course";
+
+/* 이전 버전 문구 보존. */
+"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.";
+"장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 사진과 함께 「탈퇴한 사용자」로 남고, 탈퇴한 뒤에는 지울 수 없어요. 지우고 싶은 글은 먼저 삭제해 주세요." = "Your saved places, courses, likes and the footprints on this device will be erased. This can't be undone.\nReviews and travel posts you wrote stay, with their photos, as \"Deleted user\" and can't be deleted after you leave. Delete anything you want removed first.";

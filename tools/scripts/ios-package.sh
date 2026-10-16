@@ -12,7 +12,7 @@ build="${4:?빌드 번호가 필요합니다}"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "버전은 1.0.0 형태입니다"
 [[ "$build" =~ ^[1-9][0-9]*$ ]] || die "빌드 번호는 양의 정수입니다"
 : "${SCENETRIP_APPLE_TEAM_ID:?개발자 팀 ID를 지정하세요}"
-: "${SCENETRIP_IOS_SIGNING_IDENTITY:?키체인에 설치된 배포 인증서의 이름 또는 SHA-1을 지정하세요}"
+: "${SCENETRIP_IOS_SIGNING_IDENTITY:?키체인에 설치된 배포 인증서 이름(Apple Distribution: <이름> (<팀ID>))을 지정하세요. SHA-1은 rules_apple에서 실패합니다}"
 : "${NAVER_MAP_CLIENT_ID:?지도 클라이언트 ID를 지정하세요}"
 [ -f apps/scenetrip-ios/resources/GoogleService-Info.plist ] || die "Firebase 운영 설정 파일이 없습니다"
 args=("$profile" "$mode" --team "$SCENETRIP_APPLE_TEAM_ID")

@@ -222,11 +222,7 @@ struct RoutePlaceCard: View {
             .padding(.bottom, 10)
         }
 
-        VStack(spacing: 0) {
-            row(tr("분류"), card.category)
-            row(tr("주소"), card.address)
-            row(tr("전화"), card.phone)
-        }
+        details(card)
 
         if let onAdd {
             Button(action: added ? (onRemove ?? {}) : onAdd) {
@@ -272,6 +268,15 @@ struct RoutePlaceCard: View {
         // 네이버 링크는 머리줄의 아이콘이 맡는다(`header`). 여기 큰 단추로 두면
         // 표 한 줄이 밀려 화면 밖으로 나간다.
         Color.clear.frame(height: 14)
+    }
+
+    private func details(_ card: RouteGuide.Card) -> some View {
+        VStack(spacing: 0) {
+            row(tr("분류"), card.category)
+            row(tr("주소"), card.address)
+            row(tr("전화"), card.phone)
+            PoiInfoSection(info: card.info)
+        }
     }
 
     /// 촬영지 상세를 못 받았을 때뿐이다 — 편의시설은 목록이 준 것만으로도 카드가 선다.

@@ -124,12 +124,12 @@ final class SearchUsageTests: XCTestCase {
         var recorded: [UsageEvent] = []
         let data = SceneData(
             fetchSearch: replies.fetch,
-            fetchViewport: { _ in PlaceList(items: [], total: 17, limit: 200, offset: 0) },
+            fetchViewport: { _, _ in PlaceList(items: [], total: 17, limit: 200, offset: 0) },
             recordUsage: { recorded.append($0) }
         )
         data.commitSearch("옛검색", kind: nil, target: .content)
         await replies.wait(for: "옛검색")
-        data.searchInViewport(bbox: "126.9,37.5,127.0,37.6")
+        data.searchInViewport(bbox: "126.9,37.5,127.0,37.6", source: .userSelected)
         await waitUntil { data.phase == .loaded }
         replies.succeed("옛검색", contents: 128, places: 521)
         for _ in 0 ..< 20 {

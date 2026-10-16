@@ -131,43 +131,39 @@ struct StampBadge: View {
     }
 }
 
-/// 장바구니 팝업 — 검색 탭에서 담아 둔 촬영지. **보는 자리**다: 빼고 담는 것은
-/// 검색 탭의 장바구니가 맡는다.
+/// 검색 탭에서 담아 둔 촬영지. 숨김 안내와 빼기는 검색 장바구니와 같은 행을 쓴다.
 struct ProfileCartSheet: View {
-    let items: [CartItem]
+    @ObservedObject var cart: CartStore
 
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
             ProfileSheetHeader(title: tr("장바구니")) { dismiss() }
-            if items.isEmpty {
+            if cart.items.isEmpty {
                 ContentUnavailableView(
                     "장바구니가 비었습니다",
                     systemImage: "bag",
                     description: Text("작품검색 탭에서 촬영지를 담아 보세요")
                 )
             } else {
-                List(items, id: \.placeId) { item in
-                    HStack(spacing: 10) {
-                        RemoteImage(url: item.imageUrl, symbol: "mappin.and.ellipse")
-                            .frame(width: 40, height: 40)
-                            .clipShape(.rect(cornerRadius: 7))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.name).font(.subheadline.weight(.medium))
-                            Text([item.sourceContentTitle, item.address]
-                                .compactMap { $0 }.joined(separator: " · "))
-                                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                List {
+                    ForEach(Array(cart.items.enumerated()), id: \.element.placeId) { index, item in
+                        CartItemRow(index: index, item: item) {
+                            Task { await cart.remove(placeId: item.placeId) }
                         }
-                        Spacer()
                     }
-                    .padding(.vertical, 2)
                 }
                 .listStyle(.plain)
-                Text("담고 빼는 것은 작품검색 탭의 장바구니에서")
-                    .font(.caption2).foregroundStyle(.tertiary)
-                    .padding(.vertical, 8)
             }
+            if let toast = cart.toast {
+                Text(toast).font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true).padding(12)
+            }
+        }
+        .task {
+            cart.clearToast()
+            await cart.refresh()
         }
     }
 }

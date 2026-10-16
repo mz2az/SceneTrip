@@ -26,7 +26,9 @@ struct CartSheet: View {
                     List {
                         ForEach(Array(cart.items.enumerated()), id: \.element.placeId) {
                             index, item in
-                            row(index: index, item: item)
+                            CartItemRow(index: index, item: item) {
+                                Task { await cart.remove(placeId: item.placeId) }
+                            }
                         }
                     }
                     .listStyle(.plain)
@@ -46,8 +48,15 @@ struct CartSheet: View {
         }
         .task { await cart.refresh() }
     }
+}
 
-    private func row(index: Int, item: CartItem) -> some View {
+/// 검색·마이페이지 장바구니가 같은 안내·약한 표시·빼기 동선을 쓴다.
+struct CartItemRow: View {
+    let index: Int
+    let item: CartItem
+    let onRemove: () -> Void
+
+    var body: some View {
         HStack(spacing: 12) {
             Text("\(index + 1)")
                 .font(.caption.weight(.bold))
@@ -58,9 +67,12 @@ struct CartSheet: View {
             RemoteImage(url: item.imageUrl, symbol: "mappin.and.ellipse")
                 .frame(width: 44, height: 44)
                 .clipShape(.rect(cornerRadius: 6))
+                .opacity(item.delisted == true ? 0.65 : 1)
 
             VStack(alignment: .leading, spacing: 2) {
+                let notice = UnavailableItem.notice(for: item)
                 Text(item.name).font(.subheadline.weight(.semibold))
+                    .opacity(notice == nil ? 1 : 0.65)
                 // 어느 작품 때문에 담았는지를 서버가 기억한다 (sourceContentId).
                 // 같은 장소라도 담은 맥락이 다르면 사용자에게는 다른 의미다.
                 if let title = item.sourceContentTitle {
@@ -68,14 +80,17 @@ struct CartSheet: View {
                 } else if let address = item.address {
                     Text(address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
+                if let notice {
+                    UnavailableItemNotice(item: notice)
+                }
             }
             Spacer()
-            Button {
-                Task { await cart.remove(placeId: item.placeId) }
-            } label: {
+            Button(action: onRemove) {
                 Image(systemName: "trash").foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+            .frame(minWidth: 44, minHeight: 44)
+            .accessibilityLabel(tr("장바구니에서 빼기"))
         }
         .padding(.vertical, 4)
     }

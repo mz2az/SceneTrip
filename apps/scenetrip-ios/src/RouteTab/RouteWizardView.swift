@@ -28,6 +28,7 @@ struct RouteWizardView: View {
     /// 모델이 코스를 짜는 중인가.
     @State private var planning = false
     @StateObject private var consentGate = AIConsentGate()
+    @StateObject private var locationGate = AIConsentGate(store: LocationConsentStore.shared)
 
     /// 지금 어디에 있나. **질문을 시작할 때 미리 물어 둔다** — 마지막 화면에서
     /// 물으면 위치가 오기를 기다리느라 코스 만들기가 그만큼 늦어진다. 질문 넷에
@@ -102,7 +103,9 @@ struct RouteWizardView: View {
             footer
         }
         .background(Color(.systemGroupedBackground))
+        .likeFailureNotice()
         .aiConsentSheet(consentGate)
+        .locationConsentSheet(locationGate, onCancel: { createAIPlan() })
         .alert("일정을 짜지 못했습니다", isPresented: Binding(
             get: { planFailure != nil },
             set: {
@@ -194,7 +197,13 @@ struct RouteWizardView: View {
             draft = store.emptyCourse(span: span, startDate: startDate)
             return
         }
-        consentGate.request { createAIPlan() }
+        consentGate.request {
+            if here != nil {
+                locationGate.request { createAIPlan() }
+            } else {
+                createAIPlan()
+            }
+        }
     }
 
     private func createAIPlan() {
@@ -203,7 +212,7 @@ struct RouteWizardView: View {
         Task {
             let result = await store.guideDraft(
                 span: span, startDate: startDate, workIds: workIds, pace: pace,
-                near: here
+                near: LocationConsentStore.shared.isAllowed ? here : nil
             )
             planning = false
             switch result {
@@ -300,12 +309,18 @@ struct RouteWizardView: View {
                     .foregroundStyle(store.isFavorite(work.id) ? .pink : .secondary)
             }
             .buttonStyle(.plain)
+            .disabled(!UnavailableItem.canToggle(delisted: work.delisted, saved: store.isFavorite(work.id)))
+            .accessibilityLabel(store.isFavorite(work.id) ? tr("찜 빼기") : tr("찜하기"))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(work.title).font(.subheadline.weight(.semibold))
+                    .opacity(work.delisted == true ? 0.65 : 1)
                 Text([work.broadcaster, work.releaseYear.map(String.init)]
                     .compactMap { $0 }.joined(separator: " · "))
                     .font(.caption2).foregroundStyle(.secondary)
+                if let notice = UnavailableItem.notice(for: work) {
+                    UnavailableItemNotice(item: notice)
+                }
             }
             Spacer()
             Image(systemName: workIds.contains(work.id) ? "checkmark.circle.fill" : "circle")

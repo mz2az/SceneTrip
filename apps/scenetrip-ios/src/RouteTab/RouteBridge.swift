@@ -33,7 +33,8 @@ enum RouteBridge {
                 return RouteDay(stops: stops, estimate: RouteDayEstimate(stops: stops, totalMinutes: day.totalMinutes))
             },
             madeByAI: detail.origin == .ai,
-            isRunning: detail.status == .active
+            isRunning: detail.status == .active,
+            detailLoaded: true
         )
     }
 
@@ -89,6 +90,7 @@ enum RouteBridge {
                 displayName: item.displayName, nameRoman: item.nameRoman,
                 categoryLabel: item.categoryLabel, displayAddress: item.displayAddress
             ) : nil,
+            unavailable: UnavailableItem.notice(for: item),
             visited: item.visitedAt != nil
         )
     }

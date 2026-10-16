@@ -9,6 +9,7 @@ import Foundation
 /// `terms` 는 아직 게시 전이라 404 다(MZ2AZ-437·418) — 출시 전에 게시해야 한다. 링크는 숨기지 않는다.
 enum LegalLinks {
     static let privacy = URL(string: "https://scenetrip.io/privacy")!
+    static let locationServices = URL(string: "https://scenetrip.io/terms#location-services")!
     static let terms = URL(string: "https://scenetrip.io/terms")!
 
     /// 문의 메일 (MZ2AZ-461, App Store 1.2 — 연락처 공개). 앱 마이페이지·스토어 설명·처리방침이 같은 주소를 쓴다.

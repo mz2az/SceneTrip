@@ -227,13 +227,16 @@ class AuthController implements AuthApi {
   private static final Pattern AUTO_NICKNAME = Pattern.compile("^여행자[0-9]+$");
 
   /**
-   * 탈퇴.
+   * 탈퇴 · 비회원 기록 지우기.
    *
-   * <p>애플로 가입한 계정이면 애플 쪽 연결도 끊는다(App Store 요건). 애플이 응답하지 않아도 우리 쪽 삭제는 진행한다(계약).
+   * <p>토큰이 있으면 회원 탈퇴, 없으면 {@code X-Install-Id} 의 비회원 계정을 지운다(MZ2AZ-467 — 처리방침의 비회원 기록 삭제를 앱에서 직접).
+   * 가입 계정의 설치본이 토큰 없이 오면 {@code resolve} 가 {@code SESSION_REQUIRED} 로 막는다. 애플로 가입한 계정이면 애플 쪽 연결도
+   * 끊는다(App Store 요건). 애플이 응답하지 않아도 우리 쪽 삭제는 진행한다(계약).
    */
   @Override
-  public ResponseEntity<Void> deleteMe() {
-    UUID userId = accounts.requireSignedIn();
+  public ResponseEntity<Void> deleteMe(UUID xInstallId) {
+    // 토큰도 설치 UUID 도 없으면 예전처럼 「로그인 상태를 잘못 안다」(ACCESS_TOKEN_INVALID) — requireSignedIn 이 그 응답이다.
+    UUID userId = xInstallId == null ? accounts.requireSignedIn() : accounts.resolve(xInstallId);
     // 애플 연결 끊기는 계정 행을 지우기 전에 — 토큰 암호문이 그 행에 매달려 있다. 실패해도 진행한다.
     // revokeFor 는 던지지 않기로 했지만 탈퇴를 그 약속 하나에 걸지 않는다 — 사용자가 탈퇴를 요청했는데
     // 애플 쪽 사정으로 500 이 나면 안 된다(계약).

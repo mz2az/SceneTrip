@@ -49,6 +49,9 @@ struct RouteEditorView: View {
     @State var pendingPin: RoutePin?
     @State var showCart = false
     @State var showSearch = false
+    @State var nearbyMapAnchor: RouteGuideAnchor?
+    @State var showNearby = false
+    @StateObject var cartHint = RouteCartHintStore()
 
     /// 일정 시트가 얼마나 올라와 있나. **반이 기본이다** — 지도와 일정을 같이 본다.
     @State var panelDetent: BottomSheet<AnyView>.Detent = .medium
@@ -59,6 +62,8 @@ struct RouteEditorView: View {
     /// 여행 가이드 대화창이 열려 있는가.
     @State var showGuide = false
     @State var guideMapCenter: TripSpot?
+    @State var guideMapSource = LocationCoordinateSource.userSelected
+    @StateObject var ambientLocationGate = AIConsentGate(store: LocationConsentStore.shared)
     @State var guideUsesMapCenter = false
 
     /// 「주변」의 기준이 되는 자리. 가이드가 이것으로 찾는다.
@@ -259,6 +264,11 @@ struct RouteEditorView: View {
         }
         // 도착 스탬프 — 화면 가운데 발바닥이 쾅.
         .overlay { stampOverlay }
+        .locationConsentSheet(trip.directionsConsent.gate, onCancel: trip.cancelLocationRequest)
+        .locationConsentSheet(ambientLocationGate)
+        .kakaoDirectionsNotice(trip.directionsConsent.notice)
+        // 편집기 진입 시 즉시 강조하고, 문구는 장바구니 조회 완료 후 표시한다.
+        .task { await presentCartHint() }
         // 작품 줄 — 받아 둔 촬영지 목록(인기 200곳)에 없는 곳은 여기서 물어 채운다(MZ2AZ-372).
         .task(id: stops.map(\.place.id)) { await store.loadWorkTitles(for: stops) }
         .task {
@@ -284,6 +294,8 @@ struct RouteEditorView: View {
         // 화면을 닫으면 안내도 끝난다 — 위치 받기가 뒤에서 계속 돌면 안 된다.
         // 가상 GPS 는 서울시청으로 되돌린다 — 다음 코스도 같은 자리에서 출발(2026-09-04).
         .onDisappear {
+            ambientTask?.cancel()
+            ambientLocationGate.cancel()
             trip.end()
             DemoDrive.resetToHome()
         }
@@ -296,7 +308,7 @@ struct RouteEditorView: View {
         // 저장이 실패하면 이유를 말한다. 버튼이 안 먹는 것처럼 보이면 사용자는
         // 같은 버튼을 계속 누르게 된다.
         .alert("저장하지 못했습니다", isPresented: Binding(
-            get: { store.failure != nil },
+            get: { store.saveFailure != nil },
             set: {
                 if !$0 {
                     store.clearFailure()
@@ -305,7 +317,7 @@ struct RouteEditorView: View {
         )) {
             Button("확인") { store.clearFailure() }
         } message: {
-            Text(store.failure?.message ?? "")
+            Text(store.saveFailure?.courseSaveMessage ?? "")
         }
         // 해태 「내가 도와줄게!」 — 안내 헤더 입구와 교대한다. 지도가 아니라 **화면** 오른쪽
         // 아래에 떠 있고, 꾹 누르면 옮길 수 있다(2026-09-16). 창이 열려 있거나 핀을 찍는
@@ -325,6 +337,13 @@ struct RouteEditorView: View {
                 onAdd: { add($0) }
             )
             .onDisappear { previewPlaces = [] }
+        }
+        .sheet(isPresented: $showNearby) {
+            if let nearbyMapAnchor {
+                RouteNearbySheet(mapAnchor: nearbyMapAnchor, deviceLocation: mapHere, taken: takenPlaceIds) {
+                    add([$0])
+                }
+            }
         }
         .sheet(isPresented: $showCart) {
             RouteCartSheet(
@@ -484,7 +503,8 @@ extension RouteEditorView {
     func runPendingTripStart() async {
         guard router.pendingTripStart else { return }
         router.pendingTripStart = false
-        guard await waitForStops(count: 1), let next = nextUnvisited?.stop ?? stops.first else { return }
+        guard await waitForStops(count: 1),
+              let next = nextUnvisited?.stop ?? stops.first(where: \.canNavigate) else { return }
         startTrip(to: next)
     }
 

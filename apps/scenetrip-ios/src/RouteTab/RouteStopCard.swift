@@ -12,7 +12,7 @@ struct RouteCourseStopCard: View {
     let onClose: () -> Void
 
     var body: some View {
-        if let place = RouteGuide.Place(poiStop: stop) {
+        if let place = RouteGuide.Place(poiStop: stop), stop.canNavigate {
             RoutePlaceCard(place: place, onReroute: onReroute, onClose: onClose)
         } else {
             RouteStopCard(stop: stop, onReroute: onReroute, onClose: onClose)
@@ -36,9 +36,17 @@ struct RouteStopCard: View {
     @State private var reviewing: ReviewSubject?
     @State private var loading = true
 
+    private var notice: UnavailableItem? {
+        stop.unavailable ?? (detail?.delisted == true ? .place : nil)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+            if let notice {
+                UnavailableItemNotice(item: notice)
+                    .padding(.horizontal, 14).padding(.bottom, 8)
+            }
 
             // 별점 한 줄 — 직접 찍은 핀에는 리뷰가 없다.
             if let placeId = stop.placeId {
@@ -46,7 +54,11 @@ struct RouteStopCard: View {
                     .padding(.horizontal, 14).padding(.bottom, 8)
             }
 
-            if loading {
+            if stop.unavailable == .closedPoi {
+                Text([stop.label.category, stop.label.address].compactMap { $0 }.joined(separator: " · "))
+                    .font(.caption).foregroundStyle(.secondary)
+                    .padding(.horizontal, 14).padding(.bottom, 12)
+            } else if loading {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
                     Text("장면 설명을 찾는 중입니다")
@@ -78,7 +90,7 @@ struct RouteStopCard: View {
                     .padding(.horizontal, 14).padding(.bottom, 12)
             }
 
-            if let onReroute {
+            if let onReroute, notice == nil {
                 Button(action: onReroute) {
                     HStack(spacing: 6) {
                         Image(systemName: "location.north.fill").font(.caption)

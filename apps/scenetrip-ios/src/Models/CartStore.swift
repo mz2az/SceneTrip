@@ -5,6 +5,7 @@ import SceneApiClient
 @MainActor
 protocol CartClient {
     func fetch(installId: UUID) async throws -> Cart
+    func add(installId: UUID, placeId: Int64, sourceContentId: Int64?) async throws
     func remove(installId: UUID, placeId: Int64) async throws
 }
 
@@ -15,6 +16,13 @@ private struct ServerCartClient: CartClient {
 
     func remove(installId: UUID, placeId: Int64) async throws {
         try await CartAPI.removeCartItem(xInstallId: installId, placeId: placeId)
+    }
+
+    func add(installId: UUID, placeId: Int64, sourceContentId: Int64?) async throws {
+        _ = try await CartAPI.addCartItem(
+            xInstallId: installId,
+            cartItemCreate: CartItemCreate(placeId: placeId, sourceContentId: sourceContentId)
+        )
     }
 }
 
@@ -28,6 +36,11 @@ private struct ServerCartClient: CartClient {
 /// (`Cart.add` 가 false 를 돌려주고 화면이 스낵바를 띄웠다).
 @MainActor
 final class CartStore: ObservableObject {
+    enum LoadState {
+        case notLoaded, loading, loaded, failed
+    }
+
+    @Published private(set) var loadState = LoadState.notLoaded
     @Published private(set) var placeIds: Set<Int64> = []
     @Published private(set) var items: [CartItem] = []
     @Published private(set) var toast: String?
@@ -53,6 +66,7 @@ final class CartStore: ObservableObject {
             self?.items = []
             self?.placeIds = []
             self?.toast = nil
+            self?.loadState = .notLoaded
         }
     }
 
@@ -62,33 +76,38 @@ final class CartStore: ObservableObject {
 
     func refresh() async {
         let generation = AccountDataReset.generation
-        guard let cart = try? await client.fetch(installId: installId),
-              generation == AccountDataReset.generation else { return }
-        items = cart.items
-        placeIds = Set(cart.items.map(\.placeId))
+        loadState = .loading
+        do {
+            let cart = try await client.fetch(installId: installId)
+            guard generation == AccountDataReset.generation else { return }
+            items = cart.items
+            placeIds = Set(cart.items.map(\.placeId))
+            loadState = .loaded
+        } catch {
+            guard generation == AccountDataReset.generation else { return }
+            loadState = .failed
+        }
     }
 
-    /// 담기. 이미 있으면 서버가 409 를 주고, 그것도 담긴 상태이므로 목록에 넣는다.
+    /// 담기. 409 중 `DUPLICATE_CART_ITEM`만 이미 담긴 상태로 처리한다.
     func add(placeId: Int64, sourceContentId: Int64? = nil) async {
         let generation = AccountDataReset.generation
         do {
-            _ = try await CartAPI.addCartItem(
-                xInstallId: installId,
-                cartItemCreate: CartItemCreate(
-                    placeId: placeId, sourceContentId: sourceContentId
-                )
-            )
+            try await client.add(installId: installId, placeId: placeId, sourceContentId: sourceContentId)
             guard generation == AccountDataReset.generation else { return }
             placeIds.insert(placeId)
             toast = tr("장바구니에 담았습니다")
             AppAnalytics.log(.savePlace(placeId: placeId))
-        } catch let ErrorResponse.error(code, _, _, _) where code == 409 {
-            guard generation == AccountDataReset.generation else { return }
-            placeIds.insert(placeId)
-            toast = tr("이미 저장된 장소입니다")
         } catch {
             guard generation == AccountDataReset.generation else { return }
-            toast = tr("담지 못했습니다. 잠시 후 다시 시도해 주세요")
+            let failure = ApiFailure(error)
+            if failure.statusCode == 409, failure.apiCode == "DUPLICATE_CART_ITEM" {
+                placeIds.insert(placeId)
+                toast = tr("이미 저장된 장소입니다")
+            } else {
+                toast = UnavailableItem.rejection(status: failure.statusCode, code: failure.apiCode)
+                    ?? tr("담지 못했습니다. 잠시 후 다시 시도해 주세요")
+            }
         }
         await refresh()
     }

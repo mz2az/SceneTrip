@@ -178,7 +178,7 @@ final class AuthStore: ObservableObject {
     /// 비회원 기록만 지운다. 성공해도 토큰·설치 UUID·로그인 상태를 변경하지 않는다.
     func deleteDeviceData(
         delete: (UUID) async -> GuestDataDeletion.Outcome = { await GuestDataDeletion.delete(installId: $0) },
-        clearOwner: () -> Void = { FootprintStore.shared.forgetOwner() }
+        clearOwner: @MainActor () -> Void = { FootprintStore.shared.forgetOwner() }
     ) async -> GuestDataDeletion.Outcome {
         guard GuestDataDeletion.isVisible(signedIn: signedIn), !busy else { return .failed }
         busy = true
@@ -301,7 +301,7 @@ final class AuthStore: ObservableObject {
         accountChanged()
     }
 
-    private func clearLocalAccountData(_ clearOwner: () -> Void = { FootprintStore.shared.forgetOwner() }) {
+    private func clearLocalAccountData(_ clearOwner: @MainActor () -> Void = { FootprintStore.shared.forgetOwner() }) {
         clearOwner()
         AccountDataReset.clear()
     }

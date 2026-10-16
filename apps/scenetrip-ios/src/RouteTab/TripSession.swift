@@ -95,15 +95,18 @@ final class TripSession: ObservableObject {
     /// 서버에 다음 구간을 묻는 자리 — 시험이 가짜로 바꿔 끼운다.
     typealias LegRequest = (NextLegRequest) async throws -> NextLeg
     private let requestLeg: LegRequest
+    let directionsConsent: LocationDirectionsConsent
 
     init(
         limits: NavLimitStore? = nil,
+        locationConsent: LocationConsentStore = .shared,
         requestLeg: @escaping LegRequest = {
             try await NavigationAPI.getNextLeg(xInstallId: InstallIdentity.current, nextLegRequest: $0)
         }
     ) {
         self.limits = limits ?? .shared // 기본값 자리에서는 메인 액터의 것을 못 부른다
         self.requestLeg = requestLeg
+        directionsConsent = LocationDirectionsConsent(store: locationConsent)
         // 한도가 풀리면(또는 계정이 바뀌어 잊으면) 안내 띠가 다시 그려져야 한다.
         limitSubscription = self.limits.objectWillChange.sink { [weak self] in
             self?.objectWillChange.send()
@@ -122,6 +125,8 @@ final class TripSession: ObservableObject {
     /// 이 성지로 안내를 시작한다(다시 시작해도 된다 — 도착 뒤 「다음으로」가 이것을 부른다).
     /// `courseId` 는 저장된 코스의 서버 id — 없으면(저장 전) 경로를 못 받고 그 이유를 보인다.
     func start(to stop: RouteStop, number: Int, courseId: Int64?) {
+        guard stop.canNavigate else { return }
+        directionsConsent.beginRequest()
         AppAnalytics.log(.startTrip(placeId: stop.place.id))
         target = stop
         targetNumber = number
@@ -142,6 +147,7 @@ final class TripSession: ObservableObject {
 
     /// 안내를 끝낸다. 위치 받기도 멈춘다 — 여행 종료·화면 닫기.
     func end() {
+        directionsConsent.beginRequest()
         target = nil
         phase = .idle
         result = nil
@@ -153,6 +159,7 @@ final class TripSession: ObservableObject {
 
     /// 「다시 시도」 — 결과와 실패를 비우고 지금 자리에서 다시 묻는다.
     func retry() {
+        directionsConsent.beginRequest()
         result = nil
         failure = nil
         clearDemoPath() // 새 경로는 첫 꼭짓점부터 — 옛 진행 번호로 새 길을 걸으면 가로지른다.
@@ -258,7 +265,7 @@ final class TripSession: ObservableObject {
     private func load(from spot: TripSpot) async {
         // 실패가 서 있으면 묻지 않는다 — 위치가 연달아 와 이 함수가 두 번 예약됐을 때, 앞의 것이 실패로 끝난 직후
         // 뒤의 것이 유료 요청을 또 내지 않게. 다시 묻는 길(`start`·`retry`)은 실패를 먼저 비운다.
-        guard let target, result == nil, failure == nil, !asking else { return }
+        guard phase == .guiding, let target, result == nil, failure == nil, !asking else { return }
         // 계약은 목적지를 **저장된 코스의 항목**으로만 받는다. 저장 전 코스에는 서버 id 가 없다.
         guard let courseId, let itemId = target.serverItemId else {
             failure = .unsavedCourse
@@ -271,8 +278,20 @@ final class TripSession: ObservableObject {
             failure = .limitReached(retryAfter: limits.secondsLeft)
             return
         }
+        let requestId = directionsConsent.requestId
+        guard directionsConsent.proceedOrAsk({ [weak self] in
+            guard let self else { return }
+            Task { await self.load(from: self.here ?? spot) }
+        }) else { return }
         asking = true
-        defer { asking = false }
+        defer {
+            asking = false
+            // 요청 중 start·retry가 ID를 바꿨으면 최신 목적지를 이어서 묻는다.
+            // 중간 목적지는 대체되며 추가 GPS 갱신 없이도 진행한다. end·도착 뒤에는 보내지 않는다.
+            if directionsConsent.requestId != requestId, phase == .guiding, let here {
+                Task { await load(from: here) }
+            }
+        }
         AppAnalytics.log(.getDirections)
         let epoch = limits.epoch
         do {
@@ -280,8 +299,9 @@ final class TripSession: ObservableObject {
                 courseId: courseId, itemId: itemId,
                 latitude: spot.latitude, longitude: spot.longitude
             ))
-            // 기다리는 사이에 계정이 바뀌었다 — 앞 계정의 경로도 한도도 지금 계정의 것이 아니다.
-            guard epoch == limits.epoch else { return }
+            directionsConsent.notice.succeeded(requestId)
+            // 기다리는 사이 목적지나 계정이 바뀌면 옛 응답을 버린다.
+            guard ownsResponse(requestId, epoch: epoch) else { return }
             let loaded = RouteNavResult(contract: leg, destinationName: target.place.name)
             result = loaded
             keepDemoPath(of: loaded)
@@ -289,7 +309,7 @@ final class TripSession: ObservableObject {
             limits.succeeded()
             recenterTick += 1 // 경로가 왔다 — 카메라를 경로 전체로
         } catch {
-            guard epoch == limits.epoch else { return }
+            guard ownsResponse(requestId, epoch: epoch) else { return }
             let reason = RouteNavFailure(error)
             failure = reason
             // 자동으로 다시 부르지 않는다. 풀리는 때를 적어 두고, 그때까지는 위의 문이 요청을 막는다.
@@ -364,5 +384,16 @@ final class TripSession: ObservableObject {
         demoPath = []
         demoModes = []
         demoPathIndex = 0
+    }
+}
+
+extension TripSession {
+    func cancelLocationRequest() {
+        guard !directionsConsent.isAllowed else { return }
+        failure = .locationConsentRequired
+    }
+
+    private func ownsResponse(_ requestId: UUID, epoch: Int) -> Bool {
+        phase == .guiding && directionsConsent.requestId == requestId && limits.epoch == epoch
     }
 }

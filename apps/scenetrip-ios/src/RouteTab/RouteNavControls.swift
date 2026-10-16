@@ -29,6 +29,7 @@ extension RouteNavView {
 
     /// 목적지를 이 가게로 갈아타고 경로를 다시 받는다.
     func reroute(to place: RouteGuide.Place) {
+        directionsConsent.beginRequest()
         detour = place
         guide.picked = nil
         result = nil // `load` 의 「이미 받았으면 안 받는다」 문을 다시 연다.
@@ -45,6 +46,7 @@ extension RouteNavView {
     /// 앱 → scene-api → 카카오. 안 될 때는 **왜 안 되는지를 계약 응답대로**
     /// 말한다(`RouteNavFailure`) — 「준비 중」은 더 이상 사실이 아니다.
     func load(from latitude: Double, longitude: Double) async {
+        guard stop.canNavigate else { return }
         guard result == nil, !asking else { return }
         // 계약은 목적지를 **활성 코스의 항목**으로만 가리킨다 — 코스 밖
         // 좌표(챗봇 가게로 갈아타기)는 계약에 없다.
@@ -56,6 +58,10 @@ extension RouteNavView {
             failure = .unsavedCourse
             return
         }
+        let requestId = directionsConsent.requestId
+        guard directionsConsent.proceedOrAsk({
+            Task { await load(from: latitude, longitude: longitude) }
+        }) else { return }
         asking = true
         defer { asking = false }
         do {
@@ -66,9 +72,12 @@ extension RouteNavView {
                     latitude: latitude, longitude: longitude
                 )
             )
+            directionsConsent.notice.succeeded(requestId)
+            guard directionsConsent.requestId == requestId else { return }
             result = RouteNavResult(contract: leg, destinationName: destination.name)
             failure = nil
         } catch {
+            guard directionsConsent.requestId == requestId else { return }
             failure = RouteNavFailure(error)
         }
     }
@@ -76,6 +85,7 @@ extension RouteNavView {
     /// 「다시 시도」. 결과를 비워 `load` 의 「이미 받았으면 안 받는다」 문을 다시 열고,
     /// 위치를 아직 들고 있으면 그 자리에서 다시 묻는다.
     func retry() {
+        directionsConsent.beginRequest()
         result = nil
         failure = nil
         if let here {

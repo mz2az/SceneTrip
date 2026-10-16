@@ -12,7 +12,7 @@ extension RouteEditorView {
     /// 지도의 파란 점과 같은 좌표를 쓰며, GPS가 없으면 보이는 지도 중심을 쓴다.
     var guideAnchor: RouteGuideAnchor? {
         RouteGuideAnchor.resolve(
-            current: mapHere, mapCenter: guideMapCenter, preferMap: guideUsesMapCenter
+            current: mapHere, mapCenter: guideMapCenter, preferMap: guideUsesMapCenter, mapSource: guideMapSource
         )
     }
 
@@ -23,6 +23,7 @@ extension RouteEditorView {
         return RouteGuideSheet(
             session: guide,
             here: anchor?.coordinate,
+            coordinateSource: anchor?.source ?? .userSelected,
             anchorDescription: anchor?.isMapCenter == true
                 ? tr("현재 지도 중심 주변을 찾아 드립니다.")
                 : tr("지도에 표시된 내 위치 주변을 찾아 드립니다."),
@@ -33,6 +34,7 @@ extension RouteEditorView {
                 showGuide = false
                 showCart = true
             },
+            onOpenNearby: guideMapCenter == nil ? nil : openNearbyPlaces,
             context: guideContext,
             onAdd: addGuidePlace,
             isAdded: isAdded,
@@ -40,6 +42,13 @@ extension RouteEditorView {
             onOpenPlanner: leaveForPlanner,
             onClose: { showGuide = false }
         )
+    }
+
+    /// AI의 기준 위치와 별개로 누른 시점의 지도 중심과 출처를 함께 고정한다.
+    private func openNearbyPlaces() {
+        guard let center = guideMapCenter else { return }
+        nearbyMapAnchor = RouteGuideAnchor(spot: center, isMapCenter: true, source: guideMapSource)
+        showNearby = true
     }
 
     // MARK: 요청에 싣는 것

@@ -29,6 +29,7 @@ struct RouteDayEstimate: Hashable {
     }
 
     func total(for stops: [RouteStop]) -> Int? {
+        guard stops.allSatisfy(\.canNavigate) else { return nil }
         guard totalMinutes >= dwellMinutes, targets == stops.map(Target.init) else { return nil }
         return totalMinutes + RouteStop.stayTotal(stops) - dwellMinutes
     }
@@ -37,6 +38,6 @@ struct RouteDayEstimate: Hashable {
         if let total {
             return String(format: tr("약 %@(이동 포함)"), RouteFormat.minutes(total))
         }
-        return String(format: tr("머무는 시간 %@"), RouteFormat.minutes(RouteStop.stayTotal(stops)))
+        return String(format: tr("머무는 시간 %@"), RouteFormat.minutes(RouteAvailability.stayTotal(stops)))
     }
 }

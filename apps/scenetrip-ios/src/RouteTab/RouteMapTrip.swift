@@ -31,6 +31,7 @@ extension RouteMapView.Coordinator {
     /// 찍은 1번으로 다시 가는 동안에도 「1번 다음은 2번」이 지도에 보여야 한다(사용자
     /// 지적: "현재 위치에서 1번 갈 땐 2번까지의 직선은 아직 유지").
     func drawLine(_ stops: [RouteStop], keepFrom: RouteStop? = nil, on mapView: NMFMapView) {
+        let stops = stops.filter(\.canNavigate)
         planPaths.forEach { $0.mapView = nil }
         planPaths = []
         guard stops.count > 1 else { return }
@@ -126,6 +127,7 @@ extension RouteMapView.Coordinator {
 
     /// 안내 중 — 내 자리·목적지·경로선이 다 들어오게. 자리를 모르면 목적지만.
     func fitTrip(to target: RouteStop, legs: [RouteLeg], on mapView: NMFMapView) {
+        region.source = here != nil || !legs.isEmpty ? .device : .userSelected
         let goal = NMGLatLng(lat: target.place.latitude, lng: target.place.longitude)
         var points = legs.flatMap(\.path).compactMap { pair -> NMGLatLng? in
             pair.count >= 2 ? NMGLatLng(lat: pair[1], lng: pair[0]) : nil // [경도, 위도]

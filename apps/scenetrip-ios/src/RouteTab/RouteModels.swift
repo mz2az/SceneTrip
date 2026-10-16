@@ -66,6 +66,13 @@ struct RouteCourse: Identifiable, Hashable {
     /// 「7곳」을 그리려고 상세를 부르면 코스 수만큼 호출이 는다.
     var placeCountFromServer: Int?
 
+    /// 상세 응답으로 만든 사본인가. 목록 요약의 빈 일정으로 기존 장소를 덮어쓰면 안 된다.
+    var detailLoaded = false
+
+    var canSave: Bool {
+        serverId == nil || detailLoaded
+    }
+
     var stops: [RouteStop] {
         days.flatMap(\.stops)
     }
@@ -139,6 +146,13 @@ struct RouteStop: Identifiable, Hashable {
     var kind: Kind = .place
     /// 원본 이름·주소와 별도로 둔 요청 언어의 표시말(MZ2AZ-389).
     var poiText: PoiText?
+
+    /// 생성 클라이언트의 상태를 표시·이동 판단에 보존한다. 저장할 때는 보내지 않는다.
+    var unavailable: UnavailableItem?
+
+    var canNavigate: Bool {
+        unavailable == nil
+    }
 
     /// 서버에 방문(`visitedAt`)이 찍혔나. 여행 모드가 「다음 미방문 성지」를 고르는 근거다
     /// (2026-09-02). 저장 전 장소는 false 고, 브리지가 서버 값을 옮겨 준다.
@@ -263,6 +277,7 @@ enum RouteGeometry {
 
     /// 순서대로 이었을 때의 총 직선거리(km).
     static func totalKilometers(_ stops: [RouteStop]) -> Double {
+        let stops = stops.filter(\.canNavigate)
         guard stops.count > 1 else { return 0 }
         return zip(stops, stops.dropFirst())
             .reduce(0) { $0 + kilometers($1.0.place, $1.1.place) }
@@ -304,6 +319,9 @@ enum RouteGeometry {
         pinStart: Bool = true,
         pinEnd: Bool = false
     ) -> [RouteStop] {
+        if stops.contains(where: { !$0.canNavigate }) {
+            return RouteAvailability.reordering(stops) { optimized($0, pinStart: pinStart, pinEnd: pinEnd) }
+        }
         guard stops.count > 2 else { return stops }
 
         let matrix = distanceMatrix(stops)
@@ -348,6 +366,7 @@ enum RouteGeometry {
     static func usableAnchor(
         _ here: PlaceSummary?, for stops: [RouteStop], within limit: Double = 100
     ) -> PlaceSummary? {
+        let stops = stops.filter(\.canNavigate)
         guard let here, isInKorea(here), !stops.isEmpty else { return nil }
         let nearest = stops.map { kilometers(here, $0.place) }.min() ?? .infinity
         return nearest <= limit ? here : nil
@@ -364,13 +383,16 @@ enum RouteGeometry {
         if !arrived, let target, let index = stops.firstIndex(where: { $0.id == target.id }) {
             return index + 1
         }
-        return stops.firstIndex { !$0.visited } ?? stops.count
+        return stops.firstIndex { $0.canNavigate && !$0.visited } ?? stops.count
     }
 
     /// **지금 선 자리에서 가장 가까운 곳을 맨 앞으로.** 나머지 순서는 그대로 — 그다음은
     /// `optimized(pinStart: true)` 가 정한다. 「출발 고정이 꺼진 채 현재 위치를 아는」
     /// 사람의 동선 최적화 첫 걸음이다(2026-09-04 사용자 결정).
     static func startingNearest(_ stops: [RouteStop], to here: PlaceSummary) -> [RouteStop] {
+        if stops.contains(where: { !$0.canNavigate }) {
+            return RouteAvailability.reordering(stops) { startingNearest($0, to: here) }
+        }
         guard stops.count > 1 else { return stops }
         let distances = stops.map { kilometers(here, $0.place) }
         guard let nearest = distances.indices.min(by: { distances[$0] < distances[$1] }) else { return stops }

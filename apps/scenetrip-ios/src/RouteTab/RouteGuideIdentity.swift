@@ -37,24 +37,30 @@ extension RouteGuidePlan {
         }
     }
 
-    /// 순서·일차가 바뀌어도 유일하게 대응하는 항목만 서버 번호와 방문 상태를 이어받는다.
+    /// 숨김·폐업 상태는 같은 대상의 모든 행에 이어받는다.
+    /// 순서·일차가 바뀌어도 유일하게 대응하는 항목만 서버 번호·방문 상태를 이어받는다.
     /// 같은 대상을 두 번 담은 코스는 GuidePlan에 항목 번호가 없어 임의 매칭하지 않는다.
     static func revising(_ original: RouteCourse, with plan: GuidePlan) -> RouteCourse {
         var next = course(from: plan, title: original.title, startDate: original.startDate, pace: original.pace)
         next.serverId = original.serverId
+        next.detailLoaded = original.detailLoaded
         next.isRunning = original.isRunning
         let oldStops = Dictionary(grouping: original.days.flatMap(\.stops), by: identity(of:))
         let newStops = Dictionary(grouping: next.days.flatMap(\.stops), by: identity(of:))
+        let unavailable = oldStops.compactMapValues { $0.compactMap(\.unavailable).first }
         for day in next.days.indices {
             for index in next.days[day].stops.indices {
                 var stop = next.days[day].stops[index]
-                guard let key = identity(of: stop),
-                      let matches = oldStops[key], matches.count == 1,
-                      newStops[key]?.count == 1, let previous = matches.first else { continue }
-                stop.serverItemId = previous.serverItemId
-                stop.visited = previous.visited
-                stop.place.type = previous.place.type
-                stop.poiText = previous.poiText
+                guard let key = identity(of: stop) else { continue }
+                stop.unavailable = unavailable[key]
+                if let matches = oldStops[key], matches.count == 1,
+                   newStops[key]?.count == 1, let previous = matches.first
+                {
+                    stop.serverItemId = previous.serverItemId
+                    stop.visited = previous.visited
+                    stop.place.type = previous.place.type
+                    stop.poiText = previous.poiText
+                }
                 next.days[day].stops[index] = stop
             }
         }

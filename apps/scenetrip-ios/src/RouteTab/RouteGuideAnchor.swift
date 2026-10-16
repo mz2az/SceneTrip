@@ -4,21 +4,25 @@ import CoreLocation
 struct RouteGuideAnchor {
     let spot: TripSpot
     let isMapCenter: Bool
+    var source: LocationCoordinateSource = .device
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: spot.latitude, longitude: spot.longitude)
     }
 
-    static func resolve(current: TripSpot?, mapCenter: TripSpot?, preferMap: Bool) -> Self? {
+    static func resolve(
+        current: TripSpot?, mapCenter: TripSpot?, preferMap: Bool,
+        mapSource: LocationCoordinateSource = .userSelected
+    ) -> Self? {
         let current = current.flatMap(valid)
         let center = mapCenter.flatMap(valid)
         if preferMap, let center {
-            return Self(spot: center, isMapCenter: true)
+            return Self(spot: center, isMapCenter: true, source: mapSource)
         }
         if let current {
             return Self(spot: current, isMapCenter: false)
         }
-        return center.map { Self(spot: $0, isMapCenter: true) }
+        return center.map { Self(spot: $0, isMapCenter: true, source: mapSource) }
     }
 
     private static func valid(_ spot: TripSpot) -> TripSpot? {

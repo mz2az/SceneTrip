@@ -43,7 +43,7 @@ struct ProfileTabView: View {
         likes.likedWorks
     }
 
-    @State private var cartItems: [CartItem] = []
+    @StateObject private var cart = CartStore()
     @State private var stamps: [VisitStamp] = []
     @State private var showingCart = false
     @State private var showingStamps = false
@@ -104,7 +104,7 @@ struct ProfileTabView: View {
                         showingCart = true
                     } label: {
                         row(symbol: "bag.fill", tint: .orange, title: tr("장바구니"),
-                            value: trCount("%d곳", cartItems.count), chevron: true)
+                            value: trCount("%d곳", cart.items.count), chevron: true)
                     }
                     .buttonStyle(.plain)
                 }
@@ -273,14 +273,7 @@ struct ProfileTabView: View {
                 await load()
             }
             .onAccountChange { await load() }
-            .onReceive(AccountDataReset.changes) {
-                courses = []
-                courseCount = 0
-                cartItems = []
-                stamps = []
-                likesFailure = nil
-                likesLoading = false
-            }
+            .onReceive(AccountDataReset.changes) { clearAccountData() }
             .onAppear { refreshTrackingPermission() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
@@ -318,7 +311,7 @@ struct ProfileTabView: View {
                 .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showingCart) {
-                ProfileCartSheet(items: cartItems)
+                ProfileCartSheet(cart: cart)
                     .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showingStamps) {
@@ -396,7 +389,7 @@ struct ProfileTabView: View {
         likesLoading = true
 
         let likesTask = Task { await likes.refresh() }
-        let cartTask = Task { try? await CartAPI.getCart(xInstallId: installId) }
+        let cartTask = Task { await cart.refresh() }
         let coursesTask = Task { try? await CoursesAPI.listCourses(xInstallId: installId) }
         let postsTask = Task {
             if auth.signedIn {
@@ -414,12 +407,9 @@ struct ProfileTabView: View {
             ? nil : tr("찜한 작품을 불러오지 못했어요. 잠시 뒤 다시 해 주세요")
         likesLoading = false
 
-        let cart = await cartTask.value
+        await cartTask.value
         let list = await coursesTask.value
         guard generation == AccountDataReset.generation else { return }
-        if let cart {
-            cartItems = cart.items
-        }
         if let list {
             courses = list.items
             courseCount = list.items.count
@@ -436,6 +426,14 @@ struct ProfileTabView: View {
 
 /// 계정 카드와 계정 절 — 본문이 길어져 떼어 냈다(같은 파일이라 상태를 그대로 본다).
 extension ProfileTabView {
+    private func clearAccountData() {
+        courses = []
+        courseCount = 0
+        stamps = []
+        likesFailure = nil
+        likesLoading = false
+    }
+
     /// 피노와 계정 카드 — 비회원이면 로그인 단추, 로그인했으면 닉네임(누르면 바꾸기)과 메일 (MZ2AZ-336·363).
     var header: some View {
         VStack(spacing: 8) {
@@ -560,10 +558,8 @@ extension ProfileTabView {
                     }
                     Button("취소", role: .cancel) {}
                 } message: {
-                    // 리뷰·여행후기는 예외다 — 사진과 함께 「탈퇴한 사용자」로 남고(작성자 연결만 끊는다) 탈퇴 뒤엔
-                    // 지울 수 없다. 남겨도 되는 근거가 「탈퇴 전에 알렸다」는 것이라 여기서 빠짐없이 말한다
-                    // (MZ2AZ-362, MZ2AZ-452 — 개인정보 처리방침 MZ2AZ-418 과 같은 뜻).
-                    Text("장바구니·코스·찜과 이 기기의 발자취가 모두 지워지고 되돌릴 수 없어요.\n작성한 리뷰와 여행후기는 사진과 함께 「탈퇴한 사용자」로 남고, 탈퇴한 뒤에는 지울 수 없어요. 지우고 싶은 글은 먼저 삭제해 주세요.")
+                    // 서버는 탈퇴 시 작성한 리뷰·여행후기와 사진도 삭제한다(MZ2AZ-466, MZ2AZ-452).
+                    Text("장바구니·코스·찜과 이 기기의 발자취, 작성한 리뷰·여행후기와 사진이 모두 지워지고 되돌릴 수 없어요.")
                 }
                 .alert("탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요", isPresented: $deleteFailed) {
                     Button("확인", role: .cancel) {}

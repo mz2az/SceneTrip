@@ -32,6 +32,7 @@ extension RouteEditorView {
         .font(.body.weight(.semibold))
         .lineLimit(1).fixedSize(horizontal: true, vertical: true)
         .frame(minHeight: 44)
+        .disabled(!course.canSave)
     }
 
     var courseTitleField: some View {

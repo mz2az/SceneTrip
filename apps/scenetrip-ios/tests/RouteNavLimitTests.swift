@@ -124,8 +124,14 @@ final class RouteNavLimitSessionTests: XCTestCase {
         ))
     }
 
+    private func allowedLocationConsent() -> LocationConsentStore {
+        let consent = LocationConsentStore(storage: MemoryAIConsentStorage())
+        consent.allow()
+        return consent
+    }
+
     private func makeTrip(_ store: NavLimitStore) -> TripSession {
-        TripSession(limits: store) { [unowned self] request in
+        TripSession(limits: store, locationConsent: allowedLocationConsent()) { [unowned self] request in
             sent.append(request)
             await Task.yield() // 진짜 요청처럼 한 번 쉰다
             return try replies.removeFirst().get()
@@ -338,7 +344,7 @@ final class RouteNavLimitSessionTests: XCTestCase {
     func testDoubleScheduledLoadAsksOnce() async {
         let store = makeStore()
         // 쉬지 않고 곧장 실패하는 요청 — 앞의 예약이 통째로 끝난 뒤에 뒤의 예약이 돈다(`asking` 이 막아 주지 않는 순서).
-        let trip = TripSession(limits: store) { [unowned self] request in
+        let trip = TripSession(limits: store, locationConsent: allowedLocationConsent()) { [unowned self] request in
             sent.append(request)
             return try providerDown.get()
         }
@@ -364,7 +370,7 @@ final class RouteNavLimitSessionTests: XCTestCase {
     func testLateLimitAfterAccountChangeIsDropped() async {
         let store = makeStore()
         var release = false
-        let trip = TripSession(limits: store) { [unowned self] request in
+        let trip = TripSession(limits: store, locationConsent: allowedLocationConsent()) { [unowned self] request in
             sent.append(request)
             while !release {
                 await Task.yield()

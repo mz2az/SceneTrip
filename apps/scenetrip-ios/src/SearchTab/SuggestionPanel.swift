@@ -62,7 +62,7 @@ struct SuggestionPanel: View {
                             row(
                                 icon: "mappin.and.ellipse",
                                 text: item.name,
-                                detail: item.subtitle ?? "",
+                                detail: SuggestionDetail.text(for: item, korean: AppLanguage.current == .ko),
                                 alias: alias(of: item)
                             )
                         }
@@ -192,5 +192,16 @@ struct SuggestionPanel: View {
         }
         .padding(.horizontal, 14).padding(.vertical, 11)
         .contentShape(.rect)
+    }
+}
+
+/// 장소는 유형 표시말과 서버가 현지화한 대표 작품명, 둘 다 없으면 주소를 적는다 (MZ2AZ-450).
+enum SuggestionDetail {
+    static func text(for item: Suggestion, korean: Bool) -> String {
+        guard item.type == .place else { return item.subtitle ?? "" }
+        let parts = [PlaceType.label(item.placeType, korean: korean), item.contentTitle]
+            .compactMap { $0 }
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return parts.isEmpty ? (item.subtitle ?? "") : parts.joined(separator: " · ")
     }
 }
