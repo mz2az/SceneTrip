@@ -109,5 +109,7 @@ just seed-poi-detail ~/SceneTrip-data/SceneTrip_POI/out/tour_detail_en.jsonl
 - 글은 HTML 을 지우고 `<br>` 을 줄바꿈으로. 이용시간 등은 종류마다 칸 이름이 달라 하나로 모은다(`FIELDS`).
 - 사진은 대표 이미지 → 상세 사진 순, https 로 바꾸고, 공공누리 유형(`kogl_type1`·`kogl_type3`)과 썸네일을 함께 넣는다.
 - 홈페이지는 `<a href>` 나 글 속 첫 주소. 주소 뒤에 붙은 한글 이름표는 떼고, 한글 도메인은 둔다.
+- **원격(DEV·PRD)** 은 이 두 파일을 `just poi-detail-publish <국문> <영문> <판>` 으로 공개 Release `poi-detail-<판>` 에 올리고
+  `MODULE.bazel` 의 `poi_detail_*` 판·sha256 을 바꾸면 원격 데이터 적재가 넣는다(`remote-load.sh` ③-2).
 - 로컬 실측(2026-10-15): 국문 21,997 곳 중 17,285 곳에 상세, 사진 53,055 장 더해짐(대표 이미지는 예전 적재분과 겹침).
   영문 15,287 곳 중 13,419 곳(88 %)에 짝, 사진 16,799 장. 국문·영문 어느 순서로 다시 돌려도 바뀌는 것 0.

@@ -306,6 +306,12 @@ seed-poi-detail file:
 poi-tour-detail detail_jsonl out *flags:
     {{BAZEL}} run //tools/poi:tour_detail -- "{{ detail_jsonl }}" "{{ out }}" {{ flags }}
 
+# 관광공사 상세 적재 파일 둘(국문·영문)을 GitHub Release `poi-detail-<판>` 으로 올린다 — 공개 Release. 원격 적재가 MODULE.bazel 로 받는다
+# 예: `just poi-detail-publish ~/SceneTrip-data/SceneTrip_POI/out/tour_detail.jsonl ~/SceneTrip-data/SceneTrip_POI/out/tour_detail_en.jsonl 2026-10-16`
+[group('db')]
+poi-detail-publish ko en edition:
+    ./tools/scripts/poi-detail-publish.sh "{{ ko }}" "{{ en }}" "{{ edition }}"
+
 #   just poi-filter "~/Downloads/압축 poi 2/poi_food.jsonl.gz" "~/Downloads/압축 poi 2/허용목록만/poi_food.jsonl.gz"
 #
 # POI 원본에서 허용목록 갈래만 남긴 파일을 만든다. 원본은 손대지 않는다
