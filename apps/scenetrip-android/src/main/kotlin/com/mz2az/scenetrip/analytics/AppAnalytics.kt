@@ -13,6 +13,9 @@ interface AnalyticsSink {
         name: String,
         value: String?,
     )
+
+    /** SDK의 수집 스위치(자동 수집 포함). 시험용 가짜는 기본 구현 그대로 둔다. */
+    fun setCollectionEnabled(enabled: Boolean) = Unit
 }
 
 /**
@@ -37,12 +40,28 @@ interface AnalyticsSink {
  * already exists!"로 죽는다(실기 확인). 그래서 `res/raw/google_services.json`은 값의
  * 원본 출처로만 남기고, 초기화는 전부 리소스 기반 자동 초기화에 맡긴다.
  *
+ * ## 이용 통계 수집 설정 (MZ2AZ-475)
+ *
+ * 마이페이지 「이용 통계 수집」을 끄면 [log]와 사용자 속성을 입구에서 버리고, SDK의 자동 수집까지
+ * `setAnalyticsCollectionEnabled(false)`로 끈다. 매니페스트의 `firebase_analytics_collection_enabled`가
+ * false라 [start]가 저장한 값으로 명시해 주기 전에는 SDK가 아무것도 모으지 않는다 — 꺼 둔 사람의
+ * 첫 자동 이벤트가 [start] 전에 나가지 않게 하려는 것이다(iOS는 OFF로 시작하면 SDK 초기화를 미룬다).
+ * `FirebaseApp` 초기화는 여전히 건드리지 않는다.
+ *
  * 광고 식별자(IDFA/AAID)는 쓰지 않는다. 광고를 집행하게 되면 다시 정한다 — 그때는
  * 추적 동의 창이 필요하다.
  */
 object AppAnalytics {
     /** 시험에서 가짜로 갈아 끼운다. */
     var sink: AnalyticsSink = NoSink
+
+    /** 이용 통계 수집이 켜져 있는지(MZ2AZ-475). [start]가 저장한 값으로 맞춘다. 기본은 켜짐. */
+    @Volatile
+    var collectionEnabled: Boolean = true
+        private set
+
+    private var language: String? = null
+    private var account: String? = null
 
     /**
      * 앱이 뜰 때 한 번.
@@ -61,21 +80,41 @@ object AppAnalytics {
         if (FirebaseApp.getApps(context).isNotEmpty()) {
             sink = FirebaseSink(context)
         }
-        setLanguage(language)
-        setMember(member)
+        this.language = language
+        account = if (member) "member" else "guest"
+        // 저장한 선택이 첫 이벤트보다 먼저다. ON이면 속성도 함께 밀어 넣는다.
+        setCollectionEnabled(UsageStatistics.getInstance(context).isEnabled)
+    }
+
+    /**
+     * 이용 통계 수집 스위치. 끄면 입구에서 이벤트·속성을 버리고 SDK 수집도 끈다. 켜면 SDK 수집을 켜고
+     * 꺼 둔 동안 바뀐 언어·회원 속성을 다시 쓴다.
+     */
+    fun setCollectionEnabled(enabled: Boolean) {
+        collectionEnabled = enabled
+        sink.setCollectionEnabled(enabled)
+        if (enabled) {
+            language?.let { sink.setUserProperty("app_language", it) }
+            account?.let { sink.setUserProperty("account", it) }
+        }
     }
 
     fun log(event: AppEvent) {
+        if (!collectionEnabled) return
         sink.log(event)
     }
 
     /** 사용자 속성 — 이벤트를 언어별·회원 여부별로 나눠 보려고 둔다. 사람을 가리키는 값은 아니다. */
     fun setLanguage(language: String) {
+        this.language = language
+        if (!collectionEnabled) return
         sink.setUserProperty("app_language", language)
     }
 
     fun setMember(member: Boolean) {
-        sink.setUserProperty("account", if (member) "member" else "guest")
+        account = if (member) "member" else "guest"
+        if (!collectionEnabled) return
+        sink.setUserProperty("account", account)
     }
 }
 
@@ -86,6 +125,8 @@ private object NoSink : AnalyticsSink {
         name: String,
         value: String?,
     ) = Unit
+
+    override fun setCollectionEnabled(enabled: Boolean) = Unit
 }
 
 private class FirebaseSink(
@@ -113,5 +154,9 @@ private class FirebaseSink(
         value: String?,
     ) {
         analytics.setUserProperty(name, value)
+    }
+
+    override fun setCollectionEnabled(enabled: Boolean) {
+        analytics.setAnalyticsCollectionEnabled(enabled)
     }
 }
