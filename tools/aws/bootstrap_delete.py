@@ -12,6 +12,14 @@ from tools.aws.bootstrap_state import (
 )
 
 
+def optional_resources(settings):
+    """있어도 되고 없어도 되는 리소스 — 물리 ID 를 미리 알 수 없어 종류만 본다.
+
+    MZ2AZ-472 DEV NAT 고정 IP(공인 IP 가 물리 ID). 이 리소스를 더하기 전의 DEV bootstrap 에는 없다. PRD 에는 없다.
+    """
+    return {} if settings.environment == "prd" else {"NatEip": "AWS::EC2::EIP"}
+
+
 def expected_resources(settings, bucket):
     return {
         "TerraformStateBucket": ("AWS::S3::Bucket", bucket),
@@ -151,7 +159,12 @@ def validate_stack_resources(run, settings, bucket, identifier):
         )
         for item in resources
     }
-    if actual != expected or len(actual) != len(resources):
+    optional = optional_resources(settings)
+    required = {name: value for name, value in actual.items() if name not in optional}
+    matches = required == expected and all(
+        actual[name][0] == optional[name] for name in actual.keys() & optional.keys()
+    )
+    if not matches or len(actual) != len(resources):
         raise ValueError("bootstrap stack에 허용되지 않은 리소스·역할이 있습니다")
     result = aws_json(
         run,

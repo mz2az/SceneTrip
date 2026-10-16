@@ -8,6 +8,20 @@ locals {
   azs            = var.availability_zones
   az_count       = length(var.availability_zones)
   nat_count      = local.production ? local.az_count : 1
+  # DEV NAT 고정 IP(MZ2AZ-472) — bootstrap 스택이 만든 것(태그 role=nat-fixed). 내리기에도 남아, 카카오 모빌리티 허용 IP 를
+  # 한 번만 등록한다. 없으면(bootstrap 을 아직 안 고친 계정) 지금처럼 배포가 새 IP 를 만든다. PRD 는 내리지 않아 IP 가 그대로라
+  # 쓰지 않는다.
+  fixed_nat_ids = local.production ? [] : data.aws_eips.fixed_nat[0].allocation_ids
+  use_fixed_nat = length(local.fixed_nat_ids) > 0
+}
+
+data "aws_eips" "fixed_nat" {
+  count = local.production ? 0 : 1
+  tags = {
+    project     = "scenetrip"
+    environment = var.environment
+    role        = "nat-fixed"
+  }
 }
 
 resource "aws_vpc" "this" {
@@ -81,7 +95,7 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_eip" "nat" {
-  count  = local.nat_count
+  count  = local.use_fixed_nat ? 0 : local.nat_count
   domain = "vpc"
   tags   = { Name = "${local.name}-nat-${count.index + 1}" }
 }
@@ -89,7 +103,7 @@ resource "aws_eip" "nat" {
 resource "aws_nat_gateway" "this" {
   count = local.nat_count
 
-  allocation_id = aws_eip.nat[count.index].id
+  allocation_id = local.use_fixed_nat ? local.fixed_nat_ids[0] : aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.public[count.index].id
   tags          = { Name = "${local.name}-${count.index + 1}" }
 
