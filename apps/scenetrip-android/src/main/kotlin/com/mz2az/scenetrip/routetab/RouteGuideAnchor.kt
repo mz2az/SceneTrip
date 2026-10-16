@@ -1,19 +1,22 @@
 package com.mz2az.scenetrip.routetab
 
+import com.mz2az.scenetrip.data.CoordinateSource
+
 /**
  * 코스 항목 유무와 무관한 챗봇·주변 촬영지 검색 기준 (MZ2AZ-444). iOS `RouteGuideAnchor`를 옮긴 것이다.
  *
  * 기준은 둘이다. 기기 위치(`isMapCenter = false`)와 지금 보이는 지도 중심(`isMapCenter = true`). 위치를
  * 못 받았거나 거절했어도 지도 중심이 있으면 가이드를 쓸 수 있다.
  *
- * iOS 는 좌표 출처(`device`/`userSelected`)도 함께 든다 — 위치기반서비스 동의 때문이다. Android 는 아직
- * 위치 동의가 없어 출처를 두지 않는다.
- * TODO(MZ2AZ-472): 위치기반서비스 동의가 Android 에 들어오면 출처(기기 GPS 에서 맞춘 지도인가)를 여기 싣는다.
+ * 좌표 출처([source])도 함께 든다 (MZ2AZ-472) — 위치기반서비스 동의 때문이다. 기기 위치 기준은 [CoordinateSource.DEVICE],
+ * 지도 중심은 보이는 범위가 GPS 에서 왔으면 기기, 사용자가 옮기거나 고른 범위면 [CoordinateSource.USER_SELECTED]다.
+ * 기기 출처일 때만 가이드 질문과 주변 촬영지 조회 앞에서 위치 동의를 묻는다. 출처를 빠뜨리면 기기로 본다(iOS `source = .device`).
  */
 data class RouteGuideAnchor(
     val latitude: Double,
     val longitude: Double,
     val isMapCenter: Boolean,
+    val source: CoordinateSource = CoordinateSource.DEVICE,
 ) {
     companion object {
         /**
@@ -24,12 +27,13 @@ data class RouteGuideAnchor(
             current: Pair<Double, Double>?,
             mapCenter: Pair<Double, Double>?,
             preferMap: Boolean,
+            mapSource: CoordinateSource = CoordinateSource.USER_SELECTED,
         ): RouteGuideAnchor? {
             val here = current?.takeIf { isValid(it) }
             val center = mapCenter?.takeIf { isValid(it) }
-            if (preferMap && center != null) return RouteGuideAnchor(center.first, center.second, isMapCenter = true)
+            if (preferMap && center != null) return RouteGuideAnchor(center.first, center.second, isMapCenter = true, source = mapSource)
             if (here != null) return RouteGuideAnchor(here.first, here.second, isMapCenter = false)
-            return center?.let { RouteGuideAnchor(it.first, it.second, isMapCenter = true) }
+            return center?.let { RouteGuideAnchor(it.first, it.second, isMapCenter = true, source = mapSource) }
         }
 
         fun isValid(point: Pair<Double, Double>): Boolean =

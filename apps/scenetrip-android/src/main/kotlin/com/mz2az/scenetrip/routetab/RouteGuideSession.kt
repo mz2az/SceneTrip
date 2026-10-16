@@ -9,6 +9,8 @@ import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.CoordinateSource
+import com.mz2az.scenetrip.data.CoordinateSources
 import com.mz2az.scenetrip.data.InstallIdentity
 import com.mz2az.scenetrip.data.LimitLedger
 import com.mz2az.scenetrip.data.NetworkFailure
@@ -96,9 +98,14 @@ class RouteGuideSession(
         val request: GuideChatRequest,
         val key: String,
         val epoch: Int,
+        // 좌표가 기기 위치인지 사용자가 고른 지도·목적지인지. 「다시 시도」 도 최초 출처를 그대로 쓴다(MZ2AZ-472).
+        val source: CoordinateSource,
     )
 
     private var pending: Pending? = null
+
+    /** 「다시 시도」 로 다시 보낼 질문의 좌표 출처. 없으면 기기 위치로 취급한다. */
+    val pendingSource: CoordinateSource get() = pending?.source ?: CoordinateSource.DEVICE
     var contextOf: () -> GuideContext? = { null }
     val canRetry: Boolean get() = pending != null && !asking
     val blocked: Boolean get() = LimitLedger.guideBlock?.blocked(android.os.SystemClock.elapsedRealtime()) == true
@@ -123,6 +130,7 @@ class RouteGuideSession(
         text: String,
         latitude: Double,
         longitude: Double,
+        source: CoordinateSource = CoordinateSource.DEVICE,
     ) {
         val trimmed = text.trim()
         if (asking || blocked || trimmed.isEmpty() || trimmed.length > 4000) return
@@ -152,7 +160,7 @@ class RouteGuideSession(
                     },
                 context = contextOf(),
             )
-        pending = Pending(request, UUID.randomUUID().toString(), AuthStore.epoch)
+        pending = Pending(request, UUID.randomUUID().toString(), AuthStore.epoch, source)
         submit(pending!!)
     }
 
@@ -172,12 +180,14 @@ class RouteGuideSession(
         AppAnalytics.log(AppEvent.AskGuide)
         try {
             apiResult {
-                guideApi.chatWithGuide(
-                    deviceId,
-                    turn.request,
-                    acceptLanguage = AppLanguage.current,
-                    idempotencyKey = turn.key,
-                )
+                CoordinateSources.with(turn.source) {
+                    guideApi.chatWithGuide(
+                        deviceId,
+                        turn.request,
+                        acceptLanguage = AppLanguage.current,
+                        idempotencyKey = turn.key,
+                    )
+                }
             }.onSuccess { reply ->
                 if (turn.epoch != AuthStore.epoch) return@onSuccess
                 turns = turns + GuideTurn(role = GuideTurn.Role.ASSISTANT, text = reply.reply, tools = reply.toolsUsed.map { it.tool })

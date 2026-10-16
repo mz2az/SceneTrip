@@ -64,13 +64,18 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.auth.AuthStore
+import com.mz2az.scenetrip.data.AIConsentGate
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CartLoadState
 import com.mz2az.scenetrip.data.CartStore
+import com.mz2az.scenetrip.data.CoordinateSource
+import com.mz2az.scenetrip.data.CoordinateSources
 import com.mz2az.scenetrip.data.FootprintStore
+import com.mz2az.scenetrip.data.LocationConsentStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.data.apiResult
+import com.mz2az.scenetrip.data.requestLocation
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.api.PoisApi
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
@@ -86,6 +91,7 @@ import com.mz2az.scenetrip.searchtab.NaverMapCanvas
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.centerOn
 import com.mz2az.scenetrip.searchtab.fit
+import com.mz2az.scenetrip.searchtab.regionSource
 import com.mz2az.scenetrip.searchtab.rememberLocate
 import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.BusIcon
@@ -99,6 +105,8 @@ import com.mz2az.scenetrip.ui.IOSSearchField
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.IOSSheetMaterial
 import com.mz2az.scenetrip.ui.IOSSheetToolbar
+import com.mz2az.scenetrip.ui.KakaoDirectionsNoticeBanner
+import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.mz2az.scenetrip.ui.MagnifierIcon
 import com.mz2az.scenetrip.ui.MapPinEllipseIcon
 import com.mz2az.scenetrip.ui.SheetDetent
@@ -141,6 +149,8 @@ private data class MapViewport(
     val lat: Double,
     val lng: Double,
     val zoom: Double,
+    // 이 범위가 GPS(내 위치 포함 맞춤)에서 왔는가 — 주변 편의시설 조회에 위치 동의가 필요한지를 가른다(MZ2AZ-472).
+    val source: CoordinateSource,
 )
 
 @Composable
@@ -522,6 +532,8 @@ fun RouteEditorView(
                 panelHeight,
                 0.dp,
                 com.mz2az.scenetrip.searchtab.MapInsetMode.ROUTE,
+                // 내 위치가 들어간 맞춤은 기기 위치에서 온 범위다(iOS `RouteMapView.fit`).
+                source = if (here != null) CoordinateSource.DEVICE else CoordinateSource.USER_SELECTED,
             )
         }
     }
@@ -546,19 +558,46 @@ fun RouteEditorView(
     // 카메라가 멈추면 그 범위의 주변 편의시설을 받는다. iOS `RouteEditorAmbient.viewportChanged`
     // — 너무 넓은 화면(줌 13 미만)에서는 안 부른다(점이 먼지처럼 흩어질 뿐이고 서버도 헛돈다),
     // `LaunchedEffect`가 새 뷰포트마다 이전 요청을 스스로 취소하고 350ms 조용해지길 기다린다.
+    //
+    // 범위가 GPS 에서 왔으면(내 위치 포함 맞춤) 이 조회가 기기 위치를 서버로 보내는 것이므로 위치기반서비스 동의를 먼저 받는다.
+    // 취소하면 조회하지 않는다. 손으로 옮긴 범위는 사용자가 고른 영역이라 묻지 않는다(MZ2AZ-472).
+    val locationStore = remember { LocationConsentStore.getInstance(context) }
+    val ambientGate = remember { AIConsentGate(locationStore) }
+    LocationConsentSheetHost(ambientGate)
+    var ambientRequest by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     LaunchedEffect(viewport) {
         val v = viewport
+        ambientRequest?.cancel()
+        ambientGate.cancel()
         if (v == null || v.zoom < 13.0) {
+            ambientPois = emptyList()
+            return@LaunchedEffect
+        }
+        // 여행 시작의 동의 시트와 겹치지 않는다. 허용 뒤 경로 맞춤에서 다시 조회한다.
+        if (v.source == CoordinateSource.DEVICE && trip.isActive && !locationStore.isAllowed) {
             ambientPois = emptyList()
             return@LaunchedEffect
         }
         delay(350)
         val bbox = "%.6f,%.6f,%.6f,%.6f".format(Locale.US, v.west, v.south, v.east, v.north)
-        val found =
-            apiResult {
-                poisApi.listPois(bbox = bbox, lat = v.lat, lng = v.lng, sort = PoisApi.SortListPois.distance, limit = 30)
-            }.getOrNull()
-        ambientPois = found?.items.orEmpty()
+        ambientGate.requestLocation(v.source) {
+            ambientRequest =
+                scope.launch {
+                    val found =
+                        apiResult {
+                            CoordinateSources.with(v.source) {
+                                poisApi.listPois(bbox = bbox, lat = v.lat, lng = v.lng, sort = PoisApi.SortListPois.distance, limit = 30)
+                            }
+                        }.getOrNull()
+                    ambientPois = found?.items.orEmpty()
+                }
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            ambientRequest?.cancel()
+            ambientGate.cancel()
+        }
     }
 
     LaunchedEffect(map, pinning) {
@@ -788,7 +827,7 @@ fun RouteEditorView(
                 searchBarInset = 0.dp,
                 insetMode = com.mz2az.scenetrip.searchtab.MapInsetMode.ROUTE,
                 onMapReady = { map = it },
-                onCameraIdle = { bounds, center, zoom ->
+                onCameraIdle = { bounds, center, zoom, source ->
                     viewport =
                         MapViewport(
                             south = bounds.southLatitude,
@@ -798,6 +837,7 @@ fun RouteEditorView(
                             lat = center.latitude,
                             lng = center.longitude,
                             zoom = zoom,
+                            source = source,
                         )
                 },
             )
@@ -855,7 +895,10 @@ fun RouteEditorView(
                         onClick = {
                             if (trip.isActive) {
                                 trip.here?.let { (lat, lng) ->
-                                    map?.centerOn(PlaceSummary(id = 0, name = "여기", latitude = lat, longitude = lng))
+                                    map?.centerOn(
+                                        PlaceSummary(id = 0, name = "여기", latitude = lat, longitude = lng),
+                                        CoordinateSource.DEVICE,
+                                    )
                                 }
                             } else {
                                 showingMe = !showingMe
@@ -1234,18 +1277,31 @@ fun RouteEditorView(
         }
     }
 
+    // 길 안내는 요청마다 위치기반서비스 동의를 확인한다. 취소하면 안내 띠에 동의 안내와 「다시 시도」 가 남는다.
+    // 성공하면 사용자 요청 하나에 한 번 「카카오에 현재 위치를 보냈어요」 를 알린다(MZ2AZ-472).
+    LocationConsentSheetHost(trip.directionsConsent.gate, onCancel = trip::cancelLocationRequest)
+    KakaoDirectionsNoticeBanner(
+        trip.directionsConsent.notice,
+        modifier = Modifier.fillMaxSize().then(if (inSheet) Modifier else Modifier.statusBarsPadding()).padding(top = 54.dp),
+    )
+
     // 가이드의 「주변」 기준: 기기 위치(지도의 파란 점)를 먼저 쓰고, 없거나 사용자가 바꾸면 보이는 지도 중심을 쓴다.
+    // 지도 중심의 출처는 보이는 범위가 GPS 에서 왔는지에 따른다 — 기기 위치로 맞춘 지도는 기기 출처다(MZ2AZ-472).
     val guideMapCenter = viewport?.let { it.lat to it.lng }
+    val guideMapSource = viewport?.source ?: CoordinateSource.USER_SELECTED
     val guideAnchor =
         RouteGuideAnchor.resolve(
             current = myLocation?.let { it.latitude to it.longitude },
             mapCenter = guideMapCenter,
             preferMap = guideUsesMapCenter,
+            mapSource = guideMapSource,
         )
     RouteGuidePanel(
         isOpen = showGuide,
         session = guideSession,
         here = guideAnchor?.let { it.latitude to it.longitude },
+        // 기기 위치 기준일 때만 질문 전에 위치 동의를 묻는다. 지도 중심(사용자가 고른 영역)은 AI 동의만 필요하다(MZ2AZ-472).
+        source = guideAnchor?.source ?: CoordinateSource.USER_SELECTED,
         anchorDescription =
             if (guideAnchor?.isMapCenter == true) {
                 tr("현재 지도 중심 주변을 찾아 드립니다.")
@@ -1262,7 +1318,7 @@ fun RouteEditorView(
         // AI 의 기준과 별개로 누른 시점의 지도 중심을 고정한다(iOS `openNearbyPlaces`).
         onOpenNearby =
             guideMapCenter?.let { center ->
-                { nearbyAnchor = RouteGuideAnchor(center.first, center.second, isMapCenter = true) }
+                { nearbyAnchor = RouteGuideAnchor(center.first, center.second, isMapCenter = true, source = guideMapSource) }
             },
         onOpenPlanner = { leaveForPlanner() },
         onAdd = { place ->
@@ -1564,6 +1620,8 @@ private fun NaverMap.fitTrip(
     here: Pair<Double, Double>?,
     density: Density,
 ) {
+    // 내 자리나 받은 경로(내 위치에서 출발한 길)가 들어간 범위는 기기 위치에서 온 것이다(iOS `RouteMapTrip.fitTrip`).
+    regionSource.source = if (here != null || legs.isNotEmpty()) CoordinateSource.DEVICE else CoordinateSource.USER_SELECTED
     val goal = LatLng(target.place.latitude, target.place.longitude)
     val points = mutableListOf<LatLng>()
     legs.forEach { routeLeg ->
@@ -1694,7 +1752,8 @@ private fun TripBanner(
                                 .usageNow(),
                         ) == true -> {
                     com.mz2az.scenetrip.data.NavigationUsageNotice(
-                        trip.here?.let { ExternalDirections.Spot(tr("내 위치"), it.first, it.second) },
+                        // 외부 지도 앱이 출발지를 얻는다. 기기 좌표를 주소에 싣지 않는다(MZ2AZ-472).
+                        null,
                         ExternalDirections.Spot(target.label().title, target.place.latitude, target.place.longitude),
                         onRetry,
                     )

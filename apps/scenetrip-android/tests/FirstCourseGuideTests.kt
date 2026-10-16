@@ -3,6 +3,7 @@ package com.mz2az.scenetrip
 import com.mz2az.scenetrip.data.CartClient
 import com.mz2az.scenetrip.data.CartLoadState
 import com.mz2az.scenetrip.data.CartSession
+import com.mz2az.scenetrip.data.CoordinateSource
 import com.mz2az.scenetrip.data.englishOf
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.routetab.CartHintStorage
@@ -44,9 +45,12 @@ class FirstCourseGuideTests {
         val gps = RouteGuideAnchor.resolve(current = device, mapCenter = center, preferMap = false)
         assertEquals(RouteGuideAnchor(37.5, 127.0, isMapCenter = false), gps)
         val map = RouteGuideAnchor.resolve(current = device, mapCenter = center, preferMap = true)
-        assertEquals(RouteGuideAnchor(35.2, 129.1, isMapCenter = true), map)
+        assertEquals(RouteGuideAnchor(35.2, 129.1, isMapCenter = true, source = CoordinateSource.USER_SELECTED), map)
         // 위치를 못 받았거나 거절해도 지도 중심이 있으면 가이드를 쓸 수 있다.
-        assertEquals(RouteGuideAnchor(35.2, 129.1, isMapCenter = true), RouteGuideAnchor.resolve(null, center, preferMap = false))
+        assertEquals(
+            RouteGuideAnchor(35.2, 129.1, isMapCenter = true, source = CoordinateSource.USER_SELECTED),
+            RouteGuideAnchor.resolve(null, center, preferMap = false),
+        )
         assertNull(RouteGuideAnchor.resolve(null, null, preferMap = false))
         // preferMap 이어도 지도 중심이 없으면 기기 위치다.
         assertEquals(gps, RouteGuideAnchor.resolve(device, null, preferMap = true))
@@ -56,7 +60,7 @@ class FirstCourseGuideTests {
     fun anchorIgnoresOutOfRangeCoordinates() {
         assertNull(RouteGuideAnchor.resolve(91.0 to 0.0, Double.NaN to 10.0, preferMap = false))
         assertEquals(
-            RouteGuideAnchor(35.2, 129.1, isMapCenter = true),
+            RouteGuideAnchor(35.2, 129.1, isMapCenter = true, source = CoordinateSource.USER_SELECTED),
             RouteGuideAnchor.resolve(0.0 to 181.0, center, preferMap = false),
         )
     }
@@ -65,7 +69,7 @@ class FirstCourseGuideTests {
 
     @Test
     fun searchBoundsAreCenteredOnChosenMapPosition() {
-        val query = RouteNearbySearch.Query.of(RouteGuideAnchor(35.2, 129.1, isMapCenter = true))
+        val query = RouteNearbySearch.Query.of(RouteGuideAnchor(35.2, 129.1, isMapCenter = true, source = CoordinateSource.USER_SELECTED))
         val bounds = query.bbox.split(",").map { it.toDouble() }
         assertEquals(4, bounds.size)
         // minLng, minLat, maxLng, maxLat — GeoJSON 순서(계약).
@@ -80,7 +84,7 @@ class FirstCourseGuideTests {
     fun searchBoundsStayInsideValidRangeNearThePoles() {
         val bounds =
             RouteNearbySearch.Query
-                .of(RouteGuideAnchor(89.99, 179.99, isMapCenter = true))
+                .of(RouteGuideAnchor(89.99, 179.99, isMapCenter = true, source = CoordinateSource.USER_SELECTED))
                 .bbox
                 .split(",")
                 .map { it.toDouble() }
@@ -100,7 +104,7 @@ class FirstCourseGuideTests {
                     },
                     changed = { seen += it },
                 )
-            search.load(RouteGuideAnchor(35.2, 129.1, isMapCenter = true))
+            search.load(RouteGuideAnchor(35.2, 129.1, isMapCenter = true, source = CoordinateSource.USER_SELECTED))
             assertEquals(listOf(35.2), queries.map { it.centerLatitude })
             assertEquals(listOf(129.1), queries.map { it.centerLongitude })
             assertEquals(RouteNearbySearch.Phase.LOADED, search.state.phase)
@@ -119,7 +123,7 @@ class FirstCourseGuideTests {
                     if (calls == 1) throw IOException("offline")
                     emptyList()
                 })
-            val anchor = RouteGuideAnchor(35.2, 129.1, isMapCenter = true)
+            val anchor = RouteGuideAnchor(35.2, 129.1, isMapCenter = true, source = CoordinateSource.USER_SELECTED)
             search.load(anchor)
             assertEquals(RouteNearbySearch.Phase.FAILED, search.state.phase)
             assertNotNull(search.state.failure)
@@ -148,9 +152,9 @@ class FirstCourseGuideTests {
                         emptyList()
                     }
                 })
-            val old = async { search.load(RouteGuideAnchor(35.2, 129.1, isMapCenter = true)) }
+            val old = async { search.load(RouteGuideAnchor(35.2, 129.1, isMapCenter = true, source = CoordinateSource.USER_SELECTED)) }
             started.await()
-            search.load(RouteGuideAnchor(37.5, 127.0, isMapCenter = true))
+            search.load(RouteGuideAnchor(37.5, 127.0, isMapCenter = true, source = CoordinateSource.USER_SELECTED))
             reply.complete(listOf(place(42)))
             old.await()
             assertEquals(RouteNearbySearch.Phase.LOADED, search.state.phase)
@@ -166,7 +170,7 @@ class FirstCourseGuideTests {
                     calls += 1
                     emptyList()
                 })
-            search.load(RouteGuideAnchor(200.0, 0.0, isMapCenter = true))
+            search.load(RouteGuideAnchor(200.0, 0.0, isMapCenter = true, source = CoordinateSource.USER_SELECTED))
             assertEquals(RouteNearbySearch.Phase.FAILED, search.state.phase)
             assertEquals(0, calls)
         }

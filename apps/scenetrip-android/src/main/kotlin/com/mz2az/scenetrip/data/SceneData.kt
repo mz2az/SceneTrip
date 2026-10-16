@@ -57,7 +57,10 @@ class SceneData(
         target: UsageEntityType,
     ) = session.commitSearch(query, kind, target)
 
-    fun searchInViewport(bbox: String) = session.searchInViewport(bbox)
+    fun searchInViewport(
+        bbox: String,
+        source: CoordinateSource,
+    ) = session.searchInViewport(bbox, source)
 
     fun retry() = session.retry()
 

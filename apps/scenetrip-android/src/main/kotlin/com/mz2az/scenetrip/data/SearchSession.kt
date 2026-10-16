@@ -45,6 +45,9 @@ class SearchSession(
     private var query: String? = null
     private var contentQuery: String? = null
     private var bbox: String? = null
+
+    // 지도 범위가 GPS 에서 왔는지 — 이어 받기·다시 시도도 최초 출처를 그대로 쓴다(MZ2AZ-472).
+    private var bboxSource = CoordinateSource.DEVICE
     private var lastCall: (() -> Unit)? = null
 
     fun commitSearch(
@@ -93,16 +96,20 @@ class SearchSession(
             }
     }
 
-    fun searchInViewport(bbox: String) {
-        lastCall = { searchInViewport(bbox) }
+    fun searchInViewport(
+        bbox: String,
+        source: CoordinateSource = CoordinateSource.DEVICE,
+    ) {
+        lastCall = { searchInViewport(bbox, source) }
         reset(true)
         this.bbox = bbox
+        bboxSource = source
         query = null
         val run = generation
         request =
             scope.launch {
                 try {
-                    val spots = client.places(null, bbox, 0)
+                    val spots = client.places(null, bbox, 0, source)
                     ensureActive()
                     if (run != generation) return@launch
                     publish(
@@ -168,7 +175,7 @@ class SearchSession(
         val offset = state.placePaging.offset
         publish(state.copy(loadingMorePlaces = true, morePlacesFailed = false))
         try {
-            val page = client.places(keyword, viewport, offset)
+            val page = client.places(keyword, viewport, offset, bboxSource)
             coroutineContext.ensureActive()
             if (run != generation) return false
             publish(

@@ -3,6 +3,7 @@ package com.mz2az.scenetrip
 import com.mz2az.scenetrip.analytics.SearchUsageIntent
 import com.mz2az.scenetrip.analytics.UsageEventRequestFactory
 import com.mz2az.scenetrip.analytics.UsageTransport
+import com.mz2az.scenetrip.data.CoordinateSource
 import com.mz2az.scenetrip.data.Paging
 import com.mz2az.scenetrip.data.SearchClient
 import com.mz2az.scenetrip.data.SearchPhase
@@ -126,6 +127,31 @@ class SearchParityTests {
             assertEquals(17, session.state.placePaging.total)
         }
 
+    @Test fun viewportKeepsItsCoordinateSourceForNextPageAndRetry() =
+        runBlocking {
+            val client = FakeSearchClient()
+            val session = SearchSession(this, client)
+            // 출처를 빠뜨리면 기기 위치로 취급한다(동의 우회 방지).
+            session.searchInViewport("126,35,127,36")
+            waitFor { session.state.phase == SearchPhase.LOADED }
+            assertEquals(listOf(CoordinateSource.DEVICE), client.placeSources)
+            session.searchInViewport("126,35,127,36", CoordinateSource.USER_SELECTED)
+            waitFor { session.state.phase == SearchPhase.LOADED }
+            assertTrue(session.loadNextPlaces())
+            session.retry()
+            waitFor { session.state.phase == SearchPhase.LOADED }
+            assertEquals(
+                listOf(
+                    CoordinateSource.DEVICE,
+                    CoordinateSource.USER_SELECTED,
+                    CoordinateSource.USER_SELECTED,
+                    CoordinateSource.USER_SELECTED,
+                ),
+                client.placeSources,
+                "이어 받기와 다시 시도는 최초 좌표 출처를 유지한다",
+            )
+        }
+
     @Test fun eventHeadersKeepCapturedTokenAndLanguageWithoutRefreshOrRetry() {
         var captured: Request? = null
         var attempts = 0
@@ -208,11 +234,15 @@ private class FakeSearchClient : SearchClient {
         return contents(listOf(2), 9)
     }
 
+    val placeSources = mutableListOf<CoordinateSource>()
+
     override suspend fun places(
         query: String?,
         bbox: String?,
         offset: Int,
+        source: CoordinateSource,
     ): PlaceList {
+        placeSources.add(source)
         lastOffset = offset
         if (pageFailure) throw IOException("offline")
         return placePage

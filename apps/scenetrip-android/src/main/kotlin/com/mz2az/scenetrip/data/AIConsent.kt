@@ -227,7 +227,14 @@ class AIConsentGate(
         }
     private var pending: (() -> Unit)? = null
     private var approved = false
+    private var denied = false
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
+
+    /**
+     * 시트가 **허용 없이** 닫혔을 때(취소·바깥 누르기·끌어 내려 닫기) 시트가 사라진 뒤 한 번 부른다. 위치기반서비스 동의가
+     * 「위치 없이 계속」 하는 화면(AI 코스 만들기)과 길 안내 실패 표시에 쓴다. iOS `locationConsentSheet(onCancel:)`.
+     */
+    var onCancel: (() -> Unit)? = null
 
     fun addListener(listener: () -> Unit): () -> Unit {
         listeners.add(listener)
@@ -240,6 +247,7 @@ class AIConsentGate(
         if (!store.isAllowed) {
             pending = action
             approved = false
+            denied = false
             isPresented = true
             return
         }
@@ -254,6 +262,7 @@ class AIConsentGate(
     }
 
     fun cancel() {
+        if (isPresented && !approved) denied = true
         pending = null
         approved = false
         isPresented = false
@@ -262,8 +271,11 @@ class AIConsentGate(
     /** 끌어 내려 닫기도 취소다. 명시적으로 허용한 경우에만 닫힌 뒤 한 번 진행한다. */
     fun didDismiss() {
         val action = if (approved && store.isAllowed) pending else null
+        val wasDenied = denied
+        denied = false
         cancel()
         action?.invoke()
+        if (wasDenied) onCancel?.invoke()
     }
 
     /** 설정에서 켤 때도 안내를 읽고 허용해야 한다. */

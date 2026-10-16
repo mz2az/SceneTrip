@@ -66,7 +66,10 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.R
 import com.mz2az.scenetrip.data.AIConsentGate
 import com.mz2az.scenetrip.data.AIConsentStore
+import com.mz2az.scenetrip.data.CoordinateSource
+import com.mz2az.scenetrip.data.LocationConsentStore
 import com.mz2az.scenetrip.data.RoutePoiTone
+import com.mz2az.scenetrip.data.requestLocation
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.ui.AIConsentSheetHost
@@ -75,6 +78,7 @@ import com.mz2az.scenetrip.ui.CircleSignIcon
 import com.mz2az.scenetrip.ui.CollapseArrowsIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSSheetMaterial
+import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.mz2az.scenetrip.ui.SendArrowCircleIcon
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -188,6 +192,8 @@ fun RouteGuidePanel(
     session: RouteGuideSession,
     /** 「주변」의 기준 좌표 — 기기 위치 또는 지도 중심([RouteGuideAnchor]). 없으면 질문은 미리 적어 둘 수만 있다. */
     here: Pair<Double, Double>?,
+    /** [here] 가 기기 위치인지 사용자가 고른 지도 중심인지(MZ2AZ-472). 기기 위치일 때만 질문 전에 위치 동의를 묻는다. */
+    source: CoordinateSource = CoordinateSource.DEVICE,
     onAdd: (GuidePlace) -> Unit,
     isAdded: (GuidePlace) -> Boolean,
     onClose: () -> Unit,
@@ -204,6 +210,10 @@ fun RouteGuidePanel(
     // AI 기능 동의 (MZ2AZ-468) — 첫 질문·다시 시도 전에 안내 시트. 패널이 접혀도 시트는 남도록 패널 밖에 둔다.
     val consent = remember { AIConsentGate(AIConsentStore.getInstance(context)) }
     AIConsentSheetHost(consent)
+    // 위치기반서비스 동의 (MZ2AZ-472) — 질문이 기기 좌표를 싣는 순간(첫 질문·다시 시도·예시 질문) AI 동의 다음에 한 번 더 묻는다.
+    // 기준 좌표가 지도 중심(사용자가 고른 영역)이면 AI 동의만 필요하다. 취소하면 입력한 질문을 그대로 두고 아무것도 보내지 않는다.
+    val locationConsent = remember { AIConsentGate(LocationConsentStore.getInstance(context)) }
+    LocationConsentSheetHost(locationConsent)
     // iOS `guidePanel`: 화면 오른쪽 아래에 **떠 있는 316×470 카드**(모서리 20, 그림자, 재질 바탕, 오른쪽 6 ·
     // 아래 8). 뒤를 어둡게 덮지 않아 지도가 계속 보이고, 닫으면 오른쪽 아래 동그라미 쪽으로 오므라든다.
     // 앞서 Android 는 오른쪽에서 나오는 전체 높이 서랍에 딤까지 깔아 모양이 달랐다(2026-09-29 대조).
@@ -259,8 +269,11 @@ fun RouteGuidePanel(
                                 com.mz2az.scenetrip.auth.AuthStore
                                     .promptSignIn()
                             } else {
-                                draft = ""
-                                askScope.launch { session.ask(text, point.first, point.second) }
+                                // 기준 좌표가 기기 위치일 때만 위치 동의를 묻는다. 지도 중심(사용자가 고른 영역)은 AI 동의만 필요하다.
+                                locationConsent.requestLocation(source) {
+                                    draft = ""
+                                    askScope.launch { session.ask(text, point.first, point.second, source) }
+                                }
                             }
                         }
                     }
@@ -281,6 +294,7 @@ fun RouteGuidePanel(
                     onRemove = onRemove,
                     isAdded = isAdded,
                     consent = consent,
+                    locationConsent = locationConsent,
                     onExample = {
                         if (!session.asking && !session.blocked) {
                             draft = it
@@ -321,6 +335,7 @@ private fun GuideConversation(
     onRemove: (GuidePlace) -> Unit,
     isAdded: (GuidePlace) -> Boolean,
     consent: AIConsentGate,
+    locationConsent: AIConsentGate,
     onExample: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -426,8 +441,11 @@ private fun GuideConversation(
                         color = IOS.accent,
                         modifier =
                             Modifier
-                                .clickable { consent.request { scope.launch { session.retry() } } }
-                                .padding(vertical = 8.dp),
+                                .clickable {
+                                    consent.request {
+                                        locationConsent.requestLocation(session.pendingSource) { scope.launch { session.retry() } }
+                                    }
+                                }.padding(vertical = 8.dp),
                     )
                 }
             }

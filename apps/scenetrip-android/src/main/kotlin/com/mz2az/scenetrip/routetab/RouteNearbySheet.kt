@@ -20,6 +20,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,14 +30,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.data.AIConsentGate
 import com.mz2az.scenetrip.data.API_BASE
+import com.mz2az.scenetrip.data.CoordinateSource
+import com.mz2az.scenetrip.data.CoordinateSources
+import com.mz2az.scenetrip.data.LocationConsentRequired
+import com.mz2az.scenetrip.data.LocationConsentStore
 import com.mz2az.scenetrip.data.apiResult
+import com.mz2az.scenetrip.data.requestLocation
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
@@ -48,6 +57,7 @@ import com.mz2az.scenetrip.ui.IOSListDivider
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.IOSSheetMaterial
 import com.mz2az.scenetrip.ui.IOSSheetToolbar
+import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.mz2az.scenetrip.ui.MapPinEllipseIcon
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.sheetListBottom
@@ -59,8 +69,9 @@ import com.mz2az.scenetrip.ui.sheetListBottom
  * [mapAnchor]는 누른 시점의 지도 중심으로 고정된 기준이다. [deviceLocation]이 없으면 「내 위치로」는 눌리지 않고
  * 지도 중심으로 찾는다.
  *
- * TODO(MZ2AZ-472): 「내 위치로」는 지금 편집 화면이 이미 읽어 둔 기기 위치를 그대로 쓴다. 위치기반서비스
- * 동의가 Android 에 들어오면 iOS 처럼 이 버튼 앞에서 동의를 확인하고, 거절·철회 시 지도 기준만 남긴다.
+ * 위치기반서비스 동의 (MZ2AZ-472): 기준의 좌표 출처가 기기 위치(「내 위치로」, GPS 로 맞춘 지도 중심)일 때만 기준을 바꾸기
+ * 전에 동의 시트를 띄운다. 취소하면 기준을 바꾸지 않아 이전 기준(사용자가 고른 지도 중심)이 남는다. 조회는
+ * [CoordinateSources.with]로 출처를 싣고 전송 계층이 철회까지 검사한다. iOS `RouteNearbySheet`.
  */
 @Composable
 fun RouteNearbySheet(
@@ -72,28 +83,39 @@ fun RouteNearbySheet(
 ) {
     var state by remember { mutableStateOf(RouteNearbyState()) }
     val placesApi = remember { PlacesApi(API_BASE) }
+    val context = LocalContext.current
+    val locationStore = remember { LocationConsentStore.getInstance(context) }
+    val gate = remember { AIConsentGate(locationStore) }
+    LocationConsentSheetHost(gate)
+    DisposableEffect(gate) { onDispose { gate.cancel() } }
     val search =
         remember {
             RouteNearbySearch(
                 fetch = { query ->
-                    apiResult { placesApi.listPlaces(bbox = query.bbox, limit = RouteNearbySearch.LIMIT) }
-                        .getOrThrow()
+                    apiResult {
+                        CoordinateSources.with(query.source) { placesApi.listPlaces(bbox = query.bbox, limit = RouteNearbySearch.LIMIT) }
+                    }.getOrThrow()
                         .items
                         .orEmpty()
                 },
                 changed = { state = it },
+                locationAllowed = { locationStore.isAllowed },
             )
         }
     var anchor by remember { mutableStateOf<RouteGuideAnchor?>(null) }
     var requestNumber by remember { mutableStateOf(0) }
 
+    // 기기 출처의 기준만 동의를 확인한다. 취소하면 기준도 요청 번호도 바꾸지 않는다.
     fun request(wanted: RouteGuideAnchor) {
-        anchor = wanted
-        requestNumber += 1
+        gate.requestLocation(wanted.source) {
+            anchor = wanted
+            requestNumber += 1
+        }
     }
     // 열리자마자 지도 중심으로 한 번 찾는다. 요청 번호가 바뀌면 이전 조회는 취소되고 새로 시작한다.
+    LaunchedEffect(Unit) { request(mapAnchor) }
     LaunchedEffect(requestNumber) {
-        if (requestNumber == 0) request(mapAnchor) else anchor?.let { search.load(it) }
+        if (requestNumber > 0) anchor?.let { search.load(it) }
     }
 
     IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onDismiss) {
@@ -105,7 +127,13 @@ fun RouteNearbySheet(
                 usingMapCenter = anchor?.isMapCenter != false,
                 hasDeviceLocation = deviceLocation != null,
                 onMapCenter = { request(mapAnchor) },
-                onDeviceLocation = { deviceLocation?.let { request(RouteGuideAnchor(it.first, it.second, isMapCenter = false)) } },
+                onDeviceLocation = {
+                    deviceLocation?.let {
+                        request(
+                            RouteGuideAnchor(it.first, it.second, isMapCenter = false, source = CoordinateSource.DEVICE),
+                        )
+                    }
+                },
             )
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 Results(
@@ -184,6 +212,17 @@ private fun Results(
 
         RouteNearbySearch.Phase.LOADING -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        }
+
+        RouteNearbySearch.Phase.NEEDS_CONSENT -> {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+            ) {
+                Text(tr(LocationConsentRequired.MESSAGE_KO), fontSize = 15.sp, color = IOS.label, textAlign = TextAlign.Center)
+                Pill(tr("다시 시도"), enabled = true, onClick = onRetry)
+            }
         }
 
         RouteNearbySearch.Phase.FAILED -> {

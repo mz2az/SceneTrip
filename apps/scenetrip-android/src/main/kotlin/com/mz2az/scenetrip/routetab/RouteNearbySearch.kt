@@ -1,6 +1,8 @@
 package com.mz2az.scenetrip.routetab
 
 import com.mz2az.scenetrip.data.ApiFailure
+import com.mz2az.scenetrip.data.CoordinateSource
+import com.mz2az.scenetrip.data.LocationConsentRequired
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import java.io.IOException
 import java.util.Locale
@@ -21,20 +23,23 @@ data class RouteNearbyState(
  * Compose 상태를 직접 들지 않는다(JVM 단위 시험에서 Looper 가 없다) — 값이 바뀔 때마다 [changed]로 알린다.
  * 늦게 온 옛 응답은 세대 번호로 버린다.
  *
- * TODO(MZ2AZ-472): iOS 는 기기 위치 기준 조회 앞에서 위치기반서비스 동의를 확인한다(`needsConsent`). Android 는
- * 동의 기능이 아직 없어 기기 위치도 기존 위치 사용(편집 화면이 여는 순간 한 번 읽는 값) 그대로 쓴다.
+ * 기준의 좌표 출처([RouteGuideAnchor.source])가 기기 위치면 조회 시작 때 위치기반서비스 동의를 확인하고(없으면
+ * [Phase.NEEDS_CONSENT], 요청은 나가지 않는다), 출처는 [Query.source]로 조회와 전송 계층까지 보존한다 (MZ2AZ-472).
+ * 지도 중심처럼 사용자가 고른 범위는 동의 없이 조회한다. iOS `RouteNearbySearch`.
  */
 class RouteNearbySearch(
     private val fetch: suspend (Query) -> List<PlaceSummary>,
     private val changed: (RouteNearbyState) -> Unit = {},
+    private val locationAllowed: () -> Boolean = { false },
 ) {
-    enum class Phase { IDLE, LOADING, LOADED, FAILED }
+    enum class Phase { IDLE, LOADING, LOADED, NEEDS_CONSENT, FAILED }
 
     /** 중심에서 남북·동서 약 3km 인 사각 영역. 고위도·날짜 변경선에서는 유효 범위로 제한한다. */
     data class Query(
         val centerLatitude: Double,
         val centerLongitude: Double,
         val bbox: String,
+        val source: CoordinateSource,
     ) {
         companion object {
             private const val HALF_SIDE_KILOMETERS = 3.0
@@ -51,7 +56,7 @@ class RouteNearbySearch(
                         minOf(180.0, anchor.longitude + longitudeDelta),
                         minOf(90.0, anchor.latitude + latitudeDelta),
                     )
-                return Query(anchor.latitude, anchor.longitude, box.joinToString(",") { "%.6f".format(Locale.US, it) })
+                return Query(anchor.latitude, anchor.longitude, box.joinToString(",") { "%.6f".format(Locale.US, it) }, anchor.source)
             }
         }
     }
@@ -72,13 +77,25 @@ class RouteNearbySearch(
         val asked = generation
         publish(RouteNearbyState(phase = Phase.LOADING))
         try {
+            if (anchor.source == CoordinateSource.DEVICE && !locationAllowed()) throw LocationConsentRequired()
             if (!RouteGuideAnchor.isValid(anchor.latitude to anchor.longitude)) throw IOException("invalid coordinate")
             val places = fetch(Query.of(anchor))
             if (generation == asked) publish(RouteNearbyState(phase = Phase.LOADED, places = places))
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (error: LocationConsentRequired) {
+            // 동의 전·철회 뒤에는 조회하지 않는다. 전송 계층이 막은 경우도 같다.
+            if (generation == asked) publish(RouteNearbyState(phase = Phase.NEEDS_CONSENT))
         } catch (error: Exception) {
-            if (generation == asked) publish(RouteNearbyState(phase = Phase.FAILED, failure = ApiFailure.of(error)))
+            if (generation == asked) {
+                publish(
+                    if (LocationConsentRequired.isIn(error)) {
+                        RouteNearbyState(phase = Phase.NEEDS_CONSENT)
+                    } else {
+                        RouteNearbyState(phase = Phase.FAILED, failure = ApiFailure.of(error))
+                    },
+                )
+            }
         }
     }
 

@@ -21,6 +21,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.mz2az.scenetrip.data.CoordinateSource
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.geometry.LatLngBounds
@@ -50,7 +51,8 @@ fun NaverMapCanvas(
     onMapReady: (NaverMap) -> Unit = {},
     // 카메라가 멈췄다 — 부를지 말지, 얼마나 자주 부를지는 **바깥이 정한다.** 지도는
     // 위치만 안다. iOS `RouteMapView.Coordinator.mapViewCameraIdle` 과 같은 자리.
-    onCameraIdle: ((bounds: LatLngBounds, center: LatLng, zoom: Double) -> Unit)? = null,
+    // 네 번째 값은 이 범위가 GPS 에서 왔는지(위치 동의가 필요한지)다 — iOS `onViewport` 의 좌표 출처.
+    onCameraIdle: ((bounds: LatLngBounds, center: LatLng, zoom: Double, source: CoordinateSource) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -145,7 +147,7 @@ fun NaverMapCanvas(
         if (target == null || callback == null) return@DisposableEffect onDispose {}
         val listener =
             NaverMap.OnCameraIdleListener {
-                callback(target.contentBounds, target.cameraPosition.target, target.cameraPosition.zoom)
+                callback(target.contentBounds, target.cameraPosition.target, target.cameraPosition.zoom, target.regionSource.source)
             }
         target.addOnCameraIdleListener(listener)
         onDispose { target.removeOnCameraIdleListener(listener) }
@@ -176,6 +178,11 @@ fun NaverMapCanvas(
             ready.uiSettings.isScaleBarEnabled = true
             ready.uiSettings.logoGravity =
                 android.view.Gravity.BOTTOM or android.view.Gravity.START
+            // 카메라가 움직이는 원인으로 지도 범위의 출처를 기록한다(MZ2AZ-472). 코드가 옮기는 쪽은 옮기기 전에 직접 정한다.
+            // 한 번만 단다 — 이 블록은 재구성마다 다시 불려 매번 달면 이벤트마다 같은 일이 여러 번 돈다(MZ2AZ-472 실측: 한 이동에 수십 번).
+            if (ready.regionSource.tryAttach()) {
+                ready.addOnCameraChangeListener { reason, _ -> ready.regionSource.cameraWillChange(reason) }
+            }
             map = ready
             onMapReady(ready)
         }
@@ -234,14 +241,17 @@ fun NaverMap.fit(
     sheetHeight: Dp,
     searchBarInset: Dp,
     mode: MapInsetMode = MapInsetMode.SEARCH,
+    // 맞출 점에 내 위치가 들어 있으면 [CoordinateSource.DEVICE] — 그 범위의 조회는 위치 동의가 필요하다(iOS `RouteMapView.fit`).
+    source: CoordinateSource = CoordinateSource.USER_SELECTED,
 ) {
     if (places.isEmpty()) return
     if (mode == MapInsetMode.ROUTE && screenHeight <= ROUTE_FIT_PADDING * 2) return
+    regionSource.source = source
     // **한 곳이면 그 장소로 확대한다** — iOS `fit(_ pins:)` 가 `zoom(to:)` 로
     // 넘긴다(줌 16). 줌 14 로 해 뒀더니 같은 검색어에서 iOS 는 골목이 보이는데
     // 안드로이드는 경복궁·창덕궁까지 보였다(4 차 검사 — 3.2 배 차).
     if (places.size == 1) {
-        zoomTo(places.first(), density, screenHeight, sheetHeight, searchBarInset, mode)
+        zoomTo(places.first(), density, screenHeight, sheetHeight, searchBarInset, mode, source)
         return
     }
     // iOS 는 **맞추기 전에 여백을 다시 건다.** 빠뜨리면 시트가 덮는 만큼을 셈에
@@ -270,7 +280,9 @@ fun NaverMap.zoomTo(
     sheetHeight: Dp,
     searchBarInset: Dp,
     mode: MapInsetMode = MapInsetMode.SEARCH,
+    source: CoordinateSource = CoordinateSource.USER_SELECTED,
 ) {
+    regionSource.source = source
     applyInset(this, density, screenHeight, sheetHeight, searchBarInset, mode = mode)
     moveCamera(
         CameraUpdate
@@ -294,6 +306,8 @@ fun NaverMap.zoomToMyLocation(
     sheetHeight: Dp,
     searchBarInset: Dp,
 ) {
+    // 내 위치로 날아간 범위다 — 이 범위로 장소를 찾으면 기기 위치가 서버로 가므로 동의가 필요하다(MZ2AZ-472).
+    regionSource.source = CoordinateSource.DEVICE
     applyInset(this, density, screenHeight, sheetHeight, searchBarInset)
     moveCamera(
         CameraUpdate
@@ -306,7 +320,11 @@ fun NaverMap.zoomToMyLocation(
  * 담은 장소가 가운데 오도록 **이동만** 한다 — 확대는 장소를 열 때만 한다.
  * iOS `center(on:)` — easeIn 0.4 초.
  */
-fun NaverMap.centerOn(place: PlaceSummary) {
+fun NaverMap.centerOn(
+    place: PlaceSummary,
+    source: CoordinateSource = CoordinateSource.USER_SELECTED,
+) {
+    regionSource.source = source
     moveCamera(
         CameraUpdate
             .scrollTo(place.position)
@@ -316,6 +334,7 @@ fun NaverMap.centerOn(place: PlaceSummary) {
 
 /** 첫 진입에서 [KOREA] 가 다 보이게 맞춘다. */
 fun NaverMap.showWholeKorea(density: Density) {
+    regionSource.source = CoordinateSource.USER_SELECTED
     val padding = with(density) { KOREA_FIT_PADDING.roundToPx() }
     moveCamera(CameraUpdate.fitBounds(KOREA, padding))
 }

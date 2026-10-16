@@ -24,8 +24,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.CoordinateSource
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
+import com.mz2az.scenetrip.searchtab.regionSource
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSListDivider
 import com.mz2az.scenetrip.ui.IOSSheet
@@ -60,6 +62,8 @@ fun PoiClusterPins(
                     if (cluster.opensList(map.cameraPosition.zoom, map.maxZoom)) {
                         opened = cluster
                     } else {
+                        // 눌러 들어간 범위는 사용자가 고른 영역이다 — 내 위치에서 왔다는 표시를 풀어 위치 동의를 묻지 않게 한다(MZ2AZ-472).
+                        map.regionSource.source = CoordinateSource.USER_SELECTED
                         map.moveCamera(
                             CameraUpdate
                                 .scrollAndZoomTo(

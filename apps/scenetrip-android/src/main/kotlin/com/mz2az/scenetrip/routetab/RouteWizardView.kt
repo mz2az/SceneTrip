@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.AIConsentGate
 import com.mz2az.scenetrip.data.AIConsentStore
+import com.mz2az.scenetrip.data.LocationConsentStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
@@ -59,6 +60,7 @@ import com.mz2az.scenetrip.ui.IOSAlert
 import com.mz2az.scenetrip.ui.IOSGraphicalDatePicker
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.LeafIcon
+import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.UTurnLeftIcon
@@ -117,6 +119,33 @@ private fun RouteWizardViewBody(
     val context = LocalContext.current
     val consent = remember { AIConsentGate(AIConsentStore.getInstance(context)) }
     AIConsentSheetHost(consent)
+
+    // 위치기반서비스 동의 (MZ2AZ-472) — 출발점(기기 위치)이 있을 때만 묻는다. 위치는 선택값이라 취소·미동의면 **위치 없이** 코스를 만든다
+    // (서버가 촬영지가 가장 몰린 곳을 중심으로 잡는다). 저장소도 동의가 없으면 좌표를 빼고 보내고, 전송 계층이 한 번 더 뺀다.
+    val locationStore = remember { LocationConsentStore.getInstance(context) }
+    val locationConsent = remember { AIConsentGate(locationStore) }
+
+    // AI 코스 만들기. 위치는 동의가 있을 때만 싣는다 — 취소·미동의·철회면 좌표 없이 만든다.
+    fun createAiPlan() {
+        if (planning) return
+        planning = true
+        val startDate = if (hasDate) pickedDate else null
+        val near = here.takeIf { locationStore.isAllowed }
+        scope.launch {
+            val result =
+                store.guideDraft(
+                    selectedWorkIds,
+                    span,
+                    startDate,
+                    pace,
+                    latitude = near?.first,
+                    longitude = near?.second,
+                )
+            planning = false
+            if (result != null) draft = RouteEditorDraft(result) else planFailed = true
+        }
+    }
+    LocationConsentSheetHost(locationConsent, onCancel = { createAiPlan() })
 
     val currentDraft = draft
     if (currentDraft != null) {
@@ -406,20 +435,10 @@ private fun RouteWizardViewBody(
                                 return@clickable
                             }
                             consent.request {
-                                if (planning) return@request
-                                planning = true
-                                scope.launch {
-                                    val result =
-                                        store.guideDraft(
-                                            selectedWorkIds,
-                                            span,
-                                            startDate,
-                                            pace,
-                                            latitude = here?.first,
-                                            longitude = here?.second,
-                                        )
-                                    planning = false
-                                    if (result != null) draft = RouteEditorDraft(result) else planFailed = true
+                                if (here != null) {
+                                    locationConsent.request { createAiPlan() }
+                                } else {
+                                    createAiPlan()
                                 }
                             }
                         }.padding(vertical = 14.dp),

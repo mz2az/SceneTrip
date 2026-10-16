@@ -41,6 +41,9 @@ data class ApiFailure(
             // 동의 전에는 AI 요청이 나가지 않는다(MZ2AZ-468) — 연결 실패가 아니라 허용을 안내한다.
             apiCode == AIConsentRequired.CODE -> tr(AIConsentRequired.MESSAGE_KO)
 
+            // 위치기반서비스 동의 전에는 기기 좌표가 나가지 않는다(MZ2AZ-472).
+            apiCode == LocationConsentRequired.CODE -> tr(LocationConsentRequired.MESSAGE_KO)
+
             statusCode == null -> tr("서버에 연결하지 못했습니다.")
 
             statusCode == 500 -> tr("잠시 문제가 생겼습니다.")
@@ -61,6 +64,7 @@ data class ApiFailure(
         fun of(error: Throwable): ApiFailure =
             when {
                 AIConsentRequired.isIn(error) -> ApiFailure(statusCode = null, apiCode = AIConsentRequired.CODE)
+                LocationConsentRequired.isIn(error) -> ApiFailure(statusCode = null, apiCode = LocationConsentRequired.CODE)
                 else -> ofResponse(error)
             }
 
