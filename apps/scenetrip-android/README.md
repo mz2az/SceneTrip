@@ -52,6 +52,7 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 | 요청 재시도·사용량 | 읽기·안전한 쓰기만 제한 재시도, 유료 호출 중복 방지, 서버 한도·지도 앱 연결 |
 | 안내 중 가이드 입구 | 배너 얼굴로 전환, 카드·서랍·핀 찍기 상태별 한 곳만 표시. 지도 앱 링크는 줄바꿈 |
 | 신고·차단·문의 (MZ2AZ-461) | 남의 리뷰·여행후기·홈 「커뮤니티 지금」의 「⋯」 → 신고(이유 여섯 + 설명)·이 사용자 차단, 마이페이지 「차단한 사용자」·「문의하기」, 금칙어 안내. [계획](../../docs/project/plans/android-moderation.md) |
+| 코스 상세 실패 보호·가이드 시작·주변 촬영지·첫 안내 (MZ2AZ-474) | 상세를 못 받은 코스는 편집 화면을 열지 않고 「다시 시도」, 저장은 막음. 지도 중심 기준 가이드 시작 화면, 모델 없는 「지도 주변 촬영지 보기」, 새 직접 짜기의 장바구니 첫 안내. [계획](../../docs/project/plans/android-first-course-guide.md) |
 | 영어 | iOS의 최신 영어 문구에서 변환. Android 전용 문구는 `TranslationExtras.kt` |
 | 약관·정책·탈퇴·AI 안내 (MZ2AZ-455·452·439) | 아래 「약관 링크·탈퇴 문구·AI 답변 안내」 |
 
@@ -119,6 +120,17 @@ read/legacy/retry/pending/failed/portrait 및 en/dark 조합과 검증 범위는
 `support@scenetrip.io` 를 글자로 보이고(길게 눌러 복사) 「메일 쓰기」로 메일 앱을 연다. `400 TEXT_NOT_ALLOWED` 는 리뷰·여행후기·닉네임·코스 저장 모두
 「쓸 수 없는 말이 들어 있어요. 고친 뒤 다시 저장해 주세요.」 로 안내한다. 누구나 읽는 창구(촬영지·편의시설 상세, 사진첩, 여행후기)도 부르기 전에
 만료된 액세스 토큰을 갱신해 차단한 사람의 글이 다시 섞이지 않는다(`AuthRules.refreshesBeforeRead`). 시험은 `tests/ModerationTests.kt`.
+
+코스 상세 실패 보호(MZ2AZ-474, iOS MZ2AZ-444 몫)는 목록 요약으로 편집 화면을 열지 않는다. 코스 목록·홈의 「내 여행 이어가기」가 상세를 받아
+올 때(`routetab/RouteCourseOpening.kt`) 실패하면 편집 화면 대신 「코스를 불러오지 못했어요」+「다시 시도」를 목록 위에 보이고, 상세를 받지
+못한 서버 코스(`RouteCourse.canSave`가 거짓)는 저장 단추가 눌리지 않을 뿐 아니라 저장 경로(`data/RouteCourseSession.kt`)도 요청을 보내지 않아
+빈 일차로 서버 코스를 덮어쓰지 못한다. 저장 오류(`saveFailure`)는 목록·재료 조회 오류(`failure`)와 나뉜다. 가이드 창은 위치가 없어도 열리며
+기준은 기기 위치 또는 지금 보이는 지도 중심(`routetab/RouteGuideAnchor.kt`, 둘 다 있으면 전환 단추)이고, 시작 화면(`RouteGuideStart.kt`)에
+추천 질문 넷·「지도 주변 촬영지 보기」·「코스 추천받기 (AI)」·장바구니 미리보기가 있다. 「지도 주변 촬영지 보기」(`RouteNearbySheet.kt`)는
+생성된 `GET /places`(bbox 약 3km, 40개)만 부르고 AI 와 상태를 나눈다. 「내 위치로」는 기존 기기 위치를 쓰며 위치 동의는 MZ2AZ-472 몫이다
+(`TODO(MZ2AZ-472)`). 서버에 없는 AI 아닌 빈 코스는 기기당 한 번 장바구니 버튼에 링과 문구(`RouteCartHint.kt`)를 보이고, 문구는 장바구니
+조회가 끝난 뒤 정해 TalkBack 이 한 번 읽으며 「애니메이션 제거」에서는 링이 움직이지 않는다. 시험은 `tests/CourseDetailSafetyTests.kt`·
+`tests/FirstCourseGuideTests.kt`.
 
 홈의 원형 버튼은 탭 행 위로 나온 부분도 터치할 수 있다. 전체 보기는 이전 상세·검색 조건을 지워
 인기 작품 목록을 열고, 일반 검색 탭 선택은 이전 상태를 보존한다. `just android-home-qa-test`는

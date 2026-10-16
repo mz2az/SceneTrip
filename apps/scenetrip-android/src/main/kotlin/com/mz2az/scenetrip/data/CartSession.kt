@@ -13,10 +13,14 @@ interface CartClient {
     fun remove(placeId: Long)
 }
 
+/** 장바구니를 서버에서 받아 봤는가 — 빈 목록이 「비어 있다」인지 「아직 모른다」인지 가른다. iOS `CartStore.LoadState`. */
+enum class CartLoadState { NOT_LOADED, LOADING, LOADED, FAILED }
+
 data class CartState(
     val items: List<CartItem> = emptyList(),
     val placeIds: Set<Long> = emptySet(),
     val toast: String? = null,
+    val loadState: CartLoadState = CartLoadState.NOT_LOADED,
 )
 
 /** Android 화면 없이도 검증하는 장바구니 요청·오류·목록 보존 흐름. */
@@ -38,8 +42,19 @@ class CartSession(
     }
 
     suspend fun refresh() {
-        apiResult { client.fetch() }.onSuccess {
-            publish(state.copy(items = it, placeIds = it.map { item -> item.placeId }.toSet()))
+        publish(state.copy(loadState = CartLoadState.LOADING))
+        try {
+            apiResult { client.fetch() }
+                .onSuccess {
+                    publish(state.copy(items = it, placeIds = it.map { item -> item.placeId }.toSet(), loadState = CartLoadState.LOADED))
+                }.onFailure {
+                    // 실패한 조회의 빈 목록은 「비어 있다」는 증거가 아니다 — 받아 둔 것은 그대로 두고 실패만 알린다.
+                    publish(state.copy(loadState = CartLoadState.FAILED))
+                }
+        } catch (cancelled: kotlin.coroutines.cancellation.CancellationException) {
+            // 중간에 끊긴 조회가 「조회 중」으로 남으면 기다리는 쪽이 영영 풀리지 않는다.
+            publish(state.copy(loadState = CartLoadState.NOT_LOADED))
+            throw cancelled
         }
     }
 

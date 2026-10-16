@@ -59,6 +59,7 @@ object RouteBridge {
                 },
             madeByAI = detail.origin == CourseOrigin.ai,
             isRunning = detail.status == CourseStatus.active,
+            detailLoaded = true,
         )
 
     /**

@@ -183,11 +183,19 @@ fun RouteGuideChipBody(bubble: Boolean) {
 fun RouteGuidePanel(
     isOpen: Boolean,
     session: RouteGuideSession,
+    /** 「주변」의 기준 좌표 — 기기 위치 또는 지도 중심([RouteGuideAnchor]). 없으면 질문은 미리 적어 둘 수만 있다. */
     here: Pair<Double, Double>?,
     onAdd: (GuidePlace) -> Unit,
     isAdded: (GuidePlace) -> Boolean,
     onClose: () -> Unit,
     onRemove: (GuidePlace) -> Unit = {},
+    anchorDescription: String = tr("지도에 표시된 내 위치 주변을 찾아 드립니다."),
+    anchorActionTitle: String = "",
+    onChangeAnchor: (() -> Unit)? = null,
+    cartPlaces: List<String> = emptyList(),
+    onOpenCart: (() -> Unit)? = null,
+    onOpenNearby: (() -> Unit)? = null,
+    onOpenPlanner: (() -> Unit)? = null,
 ) {
     // iOS `guidePanel`: 화면 오른쪽 아래에 **떠 있는 316×470 카드**(모서리 20, 그림자, 재질 바탕, 오른쪽 6 ·
     // 아래 8). 뒤를 어둡게 덮지 않아 지도가 계속 보이고, 닫으면 오른쪽 아래 동그라미 쪽으로 오므라든다.
@@ -231,50 +239,46 @@ fun RouteGuidePanel(
                         CollapseArrowsIcon(IOS.secondaryLabel, Modifier.size(15.dp))
                     }
                 }
-                if (here == null) {
-                    Column(
-                        modifier = Modifier.weight(1f).fillMaxWidth().padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                    ) {
-                        Text(
-                            tr("현재 위치를 알 수 없습니다"),
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = IOS.label,
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
-                            tr("위치 권한을 켜면 주변 장소를 찾아 드립니다"),
-                            fontSize = 15.sp,
-                            color = IOS.secondaryLabel,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                } else {
-                    GuideConversation(
-                        session = session,
-                        here = here,
-                        onAdd = onAdd,
-                        onRemove = onRemove,
-                        isAdded = isAdded,
-                        modifier = Modifier.weight(1f),
-                    )
-                    GuideComposer(session = session, here = here)
-                }
+                // iOS 처럼 위치가 없어도 대화창은 열린다 — 기기 위치를 못 받아도 지도 중심이 있으면 되고, 둘 다
+                // 없으면 질문을 미리 적어 둘 수만 있다(보내기·추천 질문은 잠긴다).
+                GuideConversation(
+                    session = session,
+                    here = here,
+                    onAdd = onAdd,
+                    onRemove = onRemove,
+                    isAdded = isAdded,
+                    start =
+                        GuideStartActions(
+                            anchorActionTitle = anchorActionTitle,
+                            onChangeAnchor = onChangeAnchor,
+                            cartPlaces = cartPlaces,
+                            onOpenCart = onOpenCart,
+                            onOpenNearby = onOpenNearby,
+                            onOpenPlanner = onOpenPlanner,
+                        ),
+                    modifier = Modifier.weight(1f),
+                )
+                GuideComposer(session = session, here = here, anchorDescription = anchorDescription)
             }
         }
     }
 }
 
-/** iOS `examples` — 되는 질문 하나만 둔다(안 되는 예시는 첫인상에서 신뢰를 깎는다). */
-private val GUIDE_EXAMPLES get() = listOf(tr("주변 음식점 알려줘"))
+/** 가이드 시작 화면([RouteGuideStart])이 부르는 동작 모음. */
+private class GuideStartActions(
+    val anchorActionTitle: String,
+    val onChangeAnchor: (() -> Unit)?,
+    val cartPlaces: List<String>,
+    val onOpenCart: (() -> Unit)?,
+    val onOpenNearby: (() -> Unit)?,
+    val onOpenPlanner: (() -> Unit)?,
+)
 
 @Composable
 private fun GuideConversation(
     session: RouteGuideSession,
-    here: Pair<Double, Double>,
+    here: Pair<Double, Double>?,
+    start: GuideStartActions,
     onAdd: (GuidePlace) -> Unit,
     onRemove: (GuidePlace) -> Unit,
     isAdded: (GuidePlace) -> Boolean,
@@ -284,8 +288,10 @@ private fun GuideConversation(
     val listState =
         androidx.compose.foundation.lazy
             .rememberLazyListState()
+    // 시작 화면 항목이 맨 위에 하나 더 있으면(iOS: 대화 중에도 장바구니·주변 입구를 유지한다) 마지막 말 다음 항목의 번호가 하나 밀린다.
+    val hasStart = session.isEmpty || start.onOpenCart != null || start.onOpenNearby != null
     LaunchedEffect(session.turns.size) {
-        if (session.turns.isNotEmpty()) listState.animateScrollToItem(session.turns.size)
+        if (session.turns.isNotEmpty()) listState.animateScrollToItem(session.turns.size + if (hasStart) 1 else 0)
     }
     LazyColumn(
         state = listState,
@@ -293,25 +299,22 @@ private fun GuideConversation(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (session.isEmpty) {
+        // iOS: 대화가 비었거나 장바구니·주변 입구가 있으면 시작 화면을 늘 맨 위에 둔다.
+        // 추천 질문은 대화가 비어 있을 때만 보인다.
+        if (session.isEmpty || start.onOpenCart != null || start.onOpenNearby != null) {
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(tr("무엇을 도와드릴까요?"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-                    Text(tr("지금 있는 자리를 기준으로 주변을 찾아 드립니다."), fontSize = 12.sp, color = IOS.secondaryLabel)
-                    GUIDE_EXAMPLES.forEach { example ->
-                        Text(
-                            example,
-                            fontSize = 12.sp,
-                            color = IOS.label,
-                            modifier =
-                                Modifier
-                                    .clip(CircleShape)
-                                    .background(IOS.systemGray6)
-                                    .clickable { scope.launch { session.ask(example, here.first, here.second) } }
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                        )
-                    }
-                }
+                RouteGuideStart(
+                    hasLocation = here != null,
+                    anchorActionTitle = start.anchorActionTitle,
+                    onChangeAnchor = start.onChangeAnchor,
+                    cartPlaces = start.cartPlaces,
+                    onOpenCart = start.onOpenCart,
+                    onOpenNearby = start.onOpenNearby,
+                    onOpenPlanner = start.onOpenPlanner,
+                    showQuestions = session.isEmpty,
+                    canAsk = here != null && !session.blocked && !session.asking,
+                    onAsk = { question -> here?.let { scope.launch { session.ask(question, it.first, it.second) } } },
+                )
             }
         }
         items(session.turns, key = { it.id }) { turn ->
@@ -388,7 +391,7 @@ private fun GuideConversation(
         }
         item {
             com.mz2az.scenetrip.data
-                .GuideUsageNotice()
+                .GuideUsageNotice(onOpenPlanner = start.onOpenPlanner)
         }
     }
 }
@@ -451,7 +454,8 @@ private fun GuidePlaceRow(
 @Composable
 private fun GuideComposer(
     session: RouteGuideSession,
-    here: Pair<Double, Double>,
+    here: Pair<Double, Double>?,
+    anchorDescription: String,
 ) {
     var draft by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -461,10 +465,11 @@ private fun GuideComposer(
     val locked =
         com.mz2az.scenetrip.data.LimitLedger.guideBlock
             ?.blocked(now) == true
-    val canSend = draft.isNotBlank() && draft.trim().length <= 4000 && !session.asking && !locked
+    // 위치를 아직 모르면 글은 칠 수 있지만 보내지는 못한다(iOS `canSend`).
+    val canSend = here != null && draft.isNotBlank() && draft.trim().length <= 4000 && !session.asking && !locked
 
     fun send() {
-        if (!canSend) return
+        if (!canSend || here == null) return
         if (!com.mz2az.scenetrip.auth.AuthStore.signedIn) {
             com.mz2az.scenetrip.auth.AuthStore
                 .promptSignIn()
@@ -477,6 +482,13 @@ private fun GuideComposer(
     // 입력줄 바탕 — iOS `.thinMaterial` 은 지도 빛이 비쳐 푸르스름하다(실측 약 224,238,246).
     // iOS `composer` 는 입력줄과 AI 답변 안내(MZ2AZ-439)를 한 재질 안에 쌓는다.
     Column(modifier = Modifier.fillMaxWidth().background(Color(0xFFE0EEF6))) {
+        // iOS `composer`: 기준이 무엇인지(기기 위치·지도 중심)를 입력줄 위에 한 줄로 알린다.
+        Text(
+            if (here == null) tr("지도의 위치를 확인하고 있어요. 질문을 미리 적어 두세요.") else anchorDescription,
+            fontSize = 11.sp,
+            color = IOS.secondaryLabel,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp),
+        )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),

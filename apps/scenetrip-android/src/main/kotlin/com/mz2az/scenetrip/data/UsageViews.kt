@@ -4,13 +4,16 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.SystemClock
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,7 +22,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.routetab.ExternalDirections
 import com.mz2az.scenetrip.ui.IOS
@@ -37,8 +42,12 @@ fun usageNow(): Long {
     return now
 }
 
+/**
+ * 가이드 대화창의 한도 안내와 남은 양. [onOpenPlanner]가 있고 한도에 걸려 있으면 「AI 로 짜기」 안내를 붙인다
+ * (iOS `RouteGuideSheetLimit.plannerHint` — 문구는 마법사가 무료라고 약속하지 않는다).
+ */
 @Composable
-fun GuideUsageNotice() {
+fun GuideUsageNotice(onOpenPlanner: (() -> Unit)? = null) {
     val now = usageNow()
     val block = LimitLedger.guideBlock
     val message =
@@ -50,6 +59,23 @@ fun GuideUsageNotice() {
             else -> null
         }
     message?.let { Text(it, style = IOS.caption, color = IOS.secondaryLabel) }
+    if (block?.blocked(now) == true) {
+        Text(tr("새 일정은 「AI 로 짜기」에서도 만들 수 있어요"), style = IOS.caption, color = IOS.secondaryLabel)
+        if (onOpenPlanner != null) {
+            Text(
+                tr("AI 로 짜기 열기"),
+                style = IOS.caption.copy(fontWeight = FontWeight.SemiBold),
+                color = IOS.accent,
+                modifier =
+                    Modifier
+                        .heightIn(min = 44.dp)
+                        .clip(CircleShape)
+                        .background(IOS.accent.copy(alpha = 0.14f))
+                        .clickable(onClick = onOpenPlanner)
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+            )
+        }
+    }
     LimitLedger.guideQuota
         ?.takeIf {
             it.visible(now)
