@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.ModerationEvents
+import com.mz2az.scenetrip.data.UnavailableItem
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.reviews.ReviewRules
 import com.mz2az.scenetrip.reviews.ReviewSubject
@@ -59,6 +60,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.Photo
 import com.mz2az.scenetrip.sceneapi.client.model.RatingSummary
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.UnavailableItemNotice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -85,6 +87,8 @@ data class RoutePlaceCardData(
     val photos: List<Photo> = emptyList(),
     val photoCount: Int = 0,
     val subject: ReviewSubject,
+    /** 상세가 「목록에서 빠진 촬영지」라고 알렸다(MZ2AZ-458). */
+    val delisted: Boolean = false,
 )
 
 /**
@@ -95,7 +99,11 @@ data class RoutePlaceCardData(
  * **편의시설은 상세 실패로도 카드를 못 띄우는 일이 없다** — 그 경우에만 `null`을 돌려주는
  * 것은 촬영지(`place`) 쪽뿐이다.
  */
-suspend fun fetchPlaceCard(place: GuidePlace): RoutePlaceCardData? =
+suspend fun fetchPlaceCard(
+    place: GuidePlace,
+    // 폐업한 편의시설은 서버가 상세를 404 로 닫는다 — 부르지 않고 코스가 보관한 이름·분류·주소만 쓴다(MZ2AZ-458).
+    skipDetail: Boolean = false,
+): RoutePlaceCardData? =
     withContext(Dispatchers.IO) {
         when {
             place.targetPlaceId != null -> {
@@ -113,11 +121,12 @@ suspend fun fetchPlaceCard(place: GuidePlace): RoutePlaceCardData? =
                     photos = detail.photos.orEmpty(),
                     photoCount = detail.photoCount ?: 0,
                     subject = ReviewSubject(detail.id, detail.name),
+                    delisted = detail.delisted == true,
                 )
             }
 
             else -> {
-                val detail = runCatching { PoisApi(API_BASE).getPoi(poiId = place.id) }.getOrNull()
+                val detail = if (skipDetail) null else runCatching { PoisApi(API_BASE).getPoi(poiId = place.id) }.getOrNull()
                 val label =
                     PoiLabel.make(
                         detail?.name ?: place.name,
@@ -161,6 +170,8 @@ fun RoutePlaceCard(
     onRemove: (() -> Unit)?,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    // 이 곳이 코스에서 목록에서 빠졌거나 폐업한 행이면 그 종류. 안내를 붙이고 새로 넣는 단추는 숨긴다(MZ2AZ-458).
+    unavailable: UnavailableItem? = null,
 ) {
     var card by remember(place) { mutableStateOf<RoutePlaceCardData?>(null) }
     var reviews by remember(place) { mutableStateOf(false) }
@@ -176,7 +187,7 @@ fun RoutePlaceCard(
         val asked = moderationVersion
         loading = true
         missing = false
-        val result = fetchPlaceCard(place)
+        val result = fetchPlaceCard(place, skipDetail = unavailable == UnavailableItem.CLOSED_POI)
         card = result
         cardAt = asked
         missing = result == null
@@ -186,7 +197,7 @@ fun RoutePlaceCard(
         if (cardAt == moderationVersion) return@LaunchedEffect
         // 떠 있는 카드를 다시 읽다 실패했으면 가진 것을 둔다(방문자 사진만 빠진 채로).
         val asked = moderationVersion
-        fetchPlaceCard(place)?.let {
+        fetchPlaceCard(place, skipDetail = unavailable == UnavailableItem.CLOSED_POI)?.let {
             card = it
             cardAt = asked
         }
@@ -214,6 +225,12 @@ fun RoutePlaceCard(
             onClose = onClose,
         )
 
+        // 코스가 알려 준 상태가 우선이고, 아니면 상세가 알린 「목록에서 빠짐」이다.
+        val notice = unavailable ?: if (card?.delisted == true) UnavailableItem.PLACE else null
+        if (notice != null) {
+            UnavailableItemNotice(notice, Modifier.padding(horizontal = 14.dp).padding(bottom = 8.dp))
+        }
+
         if (loading) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(14.dp)) {
                 CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
@@ -236,7 +253,8 @@ fun RoutePlaceCard(
                         val kept = ReviewRules.withoutReviewPhotos(it.photos)
                         it.copy(photos = kept, photoCount = kept.size)
                     }
-                PlaceCardFound(shown, added, onAdd, onRemove, onReviews = { reviews = true })
+                // 목록에서 빠진 곳은 새로 넣을 수 없다. 이미 코스에 있으면 빼는 단추는 남는다.
+                PlaceCardFound(shown, added, if (notice != null && !added) null else onAdd, onRemove, onReviews = { reviews = true })
             }
         }
     }

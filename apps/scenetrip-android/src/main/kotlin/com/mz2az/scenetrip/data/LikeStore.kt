@@ -7,7 +7,7 @@ import androidx.compose.runtime.setValue
 import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.sceneapi.client.api.FavoritesApi
-import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientException
+import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.FavoriteContentCreate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +40,21 @@ class LikeStore private constructor(
     var contentIds by mutableStateOf<Set<Long>>(emptySet())
         private set
 
+    /** 마지막 찜 변경이 거절된 이유. 화면이 닫을 때까지 안내한다(iOS `LikeStore.failure`, MZ2AZ-458). */
+    var failure by mutableStateOf<ApiFailure?>(null)
+        private set
+
+    /**
+     * 찜한 작품의 **요약** — 서버가 찜 목록에 실어 주는 그대로, 찜한 순서(최근 것부터)다. 숨긴 작품도 여기에는 남아
+     * `delisted` 로 알린다(작품 목록 `GET /contents` 에는 숨긴 작품이 없다). 기기에 저장하지 않는다.
+     * iOS `LikeStore.works`.
+     */
+    var works by mutableStateOf<List<ContentSummary>>(emptyList())
+        private set
+
+    /** 찜 목록에 그릴 줄 — [works] 가운데 지금 하트가 켜진 것(iOS `LikeSync.shown`). */
+    val likedWorks: List<ContentSummary> get() = shown(works, contentIds)
+
     private val prefs = context.getSharedPreferences("scenetrip", Context.MODE_PRIVATE)
     private val api = FavoritesApi(API_BASE)
     private val installId = InstallIdentity.of(context)
@@ -64,37 +79,51 @@ class LikeStore private constructor(
      *
      * 서버에 못 닿으면 기기 사본을 그대로 둔다 — 빈 목록으로 덮으면 찜이 사라져 보인다.
      */
-    suspend fun refresh() {
-        val server = runCatching { withContext(Dispatchers.IO) { fetchAll() } }.getOrNull()?.toMutableSet() ?: return
+    suspend fun refresh(): Boolean {
+        val fetched = runCatching { withContext(Dispatchers.IO) { fetchAll() } }.getOrNull() ?: return false
+        val server = fetched.map { it.id }.toMutableSet()
         val migrated = prefs.getBoolean(MIGRATED_KEY, false)
         var allUploaded = true
         for (id in pendingUploads(contentIds, server, migrated)) {
             val result = runCatching { withContext(Dispatchers.IO) { api.addFavoriteContent(installId, FavoriteContentCreate(id)) } }
-            val gone = (result.exceptionOrNull() as? ClientException)?.statusCode == 404
+            val rejected = result.exceptionOrNull()?.let { ApiFailure.of(it) }
             when {
                 result.isSuccess -> {
                     server += id
                 }
 
-                gone -> {
-                    Unit
-                }
-
-                // 사라진 작품 — 올릴 것이 없다. 다시 시도해도 같다.
                 else -> {
-                    allUploaded = false
-                    server += id // 다음 실행에 다시 올린다. 그때까지 하트는 유지한다.
+                    when (uploadOutcome(rejected)) {
+                        // 사라진 작품 — 올릴 것이 없다. 다시 시도해도 같다.
+                        UploadOutcome.GONE -> {
+                            Unit
+                        }
+
+                        // 옛 기기 찜도 새 추가다. 영구 거절을 재시도하지 않는다.
+                        UploadOutcome.DELISTED -> {
+                            failure = rejected
+                        }
+
+                        UploadOutcome.RETRY -> {
+                            allUploaded = false
+                            server += id // 다음 실행에 다시 올린다. 그때까지 하트는 유지한다.
+                        }
+                    }
                 }
             }
         }
         if (allUploaded) prefs.edit().putBoolean(MIGRATED_KEY, true).apply()
         contentIds = server
+        works = fetched
         save()
+        return true
     }
 
-    /** 하트는 **누르는 즉시** 바뀐다. 서버가 거절하면 되돌린다. */
+    /** 하트는 **누르는 즉시** 바뀐다. 서버가 거절하면 되돌리고 이유를 [failure] 에 남긴다. */
     fun toggle(contentId: Long) {
         val liked = contentId !in contentIds
+        val previous = works.firstOrNull { it.id == contentId }
+        val previousIndex = works.indexOfFirst { it.id == contentId }
         apply(contentId, liked)
         AppAnalytics.log(AppEvent.LikeTitle(contentId, liked))
         scope.launch {
@@ -108,8 +137,28 @@ class LikeStore private constructor(
                         }
                     }
                 }
-            if (result.isFailure) apply(contentId, !liked)
+            if (result.isFailure) {
+                apply(contentId, !liked)
+                // 찜 빼기가 거절됐다면 목록에서 치웠던 줄을 제자리에 되돌린다.
+                if (!liked && previous != null && works.none { it.id == contentId }) {
+                    works = works.toMutableList().also { it.add(minOf(previousIndex.coerceAtLeast(0), it.size), previous) }
+                }
+                failure = result.exceptionOrNull()?.let { ApiFailure.of(it) }
+            } else if (liked) {
+                // 새로 찜한 작품의 요약은 서버에만 있다 — 찜 목록에 바로 보이게 다시 읽는다. **요약만** 채운다(하트는 덮지 않는다).
+                reloadSummaries()
+            }
         }
+    }
+
+    fun clearFailure() {
+        failure = null
+    }
+
+    /** 찜한 작품의 요약만 다시 읽는다 — 하트([contentIds])는 건드리지 않는다. 못 받으면 가진 것을 둔다. */
+    private suspend fun reloadSummaries() {
+        val fetched = runCatching { withContext(Dispatchers.IO) { fetchAll() } }.getOrNull() ?: return
+        works = fetched
     }
 
     private fun apply(
@@ -117,6 +166,7 @@ class LikeStore private constructor(
         liked: Boolean,
     ) {
         contentIds = if (liked) contentIds + contentId else contentIds - contentId
+        if (!liked) works = works.filterNot { it.id == contentId }
         save()
     }
 
@@ -125,14 +175,14 @@ class LikeStore private constructor(
     }
 
     /** 계약의 한 번 최대가 100 이라 끝까지 넘긴다. */
-    private fun fetchAll(): Set<Long> {
-        val ids = mutableSetOf<Long>()
+    private fun fetchAll(): List<ContentSummary> {
+        val all = mutableListOf<ContentSummary>()
         var offset = 0
         while (true) {
             val page = api.listFavoriteContents(installId, limit = 100, offset = offset)
-            ids += page.items.map { it.id }
+            all += page.items.filter { item -> all.none { it.id == item.id } }
             offset += page.items.size
-            if (page.items.isEmpty() || offset >= page.total) return ids
+            if (page.items.isEmpty() || offset >= page.total) return all
         }
     }
 
@@ -152,6 +202,22 @@ class LikeStore private constructor(
             server: Set<Long>,
             migrated: Boolean,
         ): Set<Long> = if (migrated) emptySet() else local - server
+
+        /** 찜 목록에 그릴 줄 — 받아 둔 요약 가운데 **지금 하트가 켜진 것만**, 받은 순서(최근 찜부터)로. iOS `LikeSync.shown`. */
+        fun shown(
+            works: List<ContentSummary>,
+            liked: Set<Long>,
+        ): List<ContentSummary> = works.filter { liked.contains(it.id) }
+
+        /** 옛 기기 찜을 올리다 거절됐을 때의 처리. iOS `LikeStore.refresh` 의 catch. */
+        enum class UploadOutcome { GONE, DELISTED, RETRY }
+
+        fun uploadOutcome(rejected: ApiFailure?): UploadOutcome =
+            when {
+                rejected?.statusCode == 404 -> UploadOutcome.GONE
+                rejected?.statusCode == 409 && rejected.apiCode == "CONTENT_DELISTED" -> UploadOutcome.DELISTED
+                else -> UploadOutcome.RETRY
+            }
 
         @Volatile
         private var instance: LikeStore? = null

@@ -55,6 +55,7 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 | 코스 상세 실패 보호·가이드 시작·주변 촬영지·첫 안내 (MZ2AZ-474) | 상세를 못 받은 코스는 편집 화면을 열지 않고 「다시 시도」, 저장은 막음. 지도 중심 기준 가이드 시작 화면, 모델 없는 「지도 주변 촬영지 보기」, 새 직접 짜기의 장바구니 첫 안내. [계획](../../docs/project/plans/android-first-course-guide.md) |
 | AI 기능 동의 (MZ2AZ-468) | 첫 가이드 질문·첫 AI 코스 만들기 전 「AI 기능 사용 안내」 시트, 마이페이지 토글. [계획](../../docs/project/plans/android-ai-consent.md) |
 | 위치기반서비스 이용 동의 (MZ2AZ-472) | 기기 좌표를 서버로 보내기 전 「위치기반서비스 이용 동의」 시트, 마이페이지 토글, 길 안내 성공 때 카카오 제공 알림. [계획](../../docs/project/plans/android-location-consent.md) |
+| 담아 둔 항목의 숨김·폐업 안내 (MZ2AZ-458) | 장바구니(검색·마이페이지 같은 행)·내 코스·찜한 작품에 「더 이상 소개하지 않는 장소/작품이에요」·「폐업했어요」와 빼기. 상세의 새 담기·찜은 막고 409(`PLACE_DELISTED` 등)는 종류별 안내, `DUPLICATE_CART_ITEM`만 「이미 저장됨」. 숨김·폐업 행은 다음 목적지·거리·계획선·최적화·길찾기에서 제외. [계획](../../docs/project/plans/android-delisted-items.md) |
 | 이용 통계 수집 (MZ2AZ-475) | 마이페이지 「이용 통계 수집」 토글(기본 켜짐, `SharedPreferences("scenetrip")`의 `scenetrip.analytics.collectionEnabled`). 끄면 `AppAnalytics`가 이벤트·사용자 속성을 입구에서 버리고 `setAnalyticsCollectionEnabled(false)`로 Firebase 자동 수집까지 끈다. 매니페스트 `firebase_analytics_collection_enabled=false` 위에서 시작 때 저장값을 적용한다. ATT는 iOS 전용이며 Meta 광고 측정은 아직 없다. [Meta·광고 ID 계획](../../docs/project/plans/android-meta-ads-ad-id.md) |
 | 영어 | iOS의 최신 영어 문구에서 변환. Android 전용 문구는 `TranslationExtras.kt` |
 | 약관·정책·탈퇴·AI 안내 (MZ2AZ-455·452·439) | 아래 「약관 링크·탈퇴 문구·AI 답변 안내」 |

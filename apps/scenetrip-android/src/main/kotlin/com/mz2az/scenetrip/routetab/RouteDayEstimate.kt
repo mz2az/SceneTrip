@@ -20,6 +20,8 @@ class RouteDayEstimate(
     private val dwellMinutes = dwell(stops)
 
     fun total(stops: List<RouteStop>): Int? {
+        // 서버가 센 이동 포함 시간은 숨김·폐업 행까지 포함한 값이라 그 행이 있으면 보여 주지 않는다(MZ2AZ-458).
+        if (stops.any { !it.canNavigate }) return null
         if (totalMinutes < dwellMinutes || targets != stops.map(::target)) return null
         return totalMinutes + dwell(stops) - dwellMinutes
     }
@@ -44,7 +46,7 @@ class RouteDayEstimate(
             if (total != null) {
                 tr("약 %s(이동 포함)").format(RouteFormat.minutes(total))
             } else {
-                tr("머무는 시간 %s").format(RouteFormat.minutes(dwell(stops)))
+                tr("머무는 시간 %s").format(RouteFormat.minutes(RouteAvailability.stayTotal(stops)))
             }
     }
 }

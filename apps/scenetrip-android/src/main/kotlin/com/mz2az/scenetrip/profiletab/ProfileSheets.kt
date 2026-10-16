@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -32,40 +34,49 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.API_BASE
+import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.InstallIdentity
+import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.data.UnavailableItem
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
-import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseDetail
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
+import com.mz2az.scenetrip.searchtab.CartItemRow
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSEmptyState
 import com.mz2az.scenetrip.ui.IOSListDivider
 import com.mz2az.scenetrip.ui.IOSSheet
+import com.mz2az.scenetrip.ui.LikeFailureNotice
 import com.mz2az.scenetrip.ui.RouteCurveIcon
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SquarePencilIcon
+import com.mz2az.scenetrip.ui.UnavailableItemNotice
 import com.mz2az.scenetrip.ui.XMarkIcon
 import com.mz2az.scenetrip.ui.sheetListBottom
+import com.mz2az.scenetrip.ui.unavailableAlpha
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -192,11 +203,19 @@ private fun MyCoursesSheetBody(
                                                 color = IOS.pinDeep,
                                                 modifier = Modifier.width(38.dp),
                                             )
-                                            Text(
-                                                day.items.joinToString(" → ") { it.name },
-                                                fontSize = 11.sp,
-                                                color = IOS.secondaryLabel,
-                                            )
+                                            // 목록에서 빠진 촬영지·폐업한 편의시설은 지우지 않고 이유를 붙인다(MZ2AZ-458).
+                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                day.items.forEach { item ->
+                                                    val notice = UnavailableItem.notice(item)
+                                                    Text(
+                                                        item.name,
+                                                        fontSize = 11.sp,
+                                                        color = IOS.secondaryLabel,
+                                                        modifier = Modifier.alpha(unavailableAlpha(notice)),
+                                                    )
+                                                    if (notice != null) UnavailableItemNotice(notice)
+                                                }
+                                            }
                                         }
                                     }
                                     Row(
@@ -242,6 +261,7 @@ private fun MyCoursesSheetBody(
 @Composable
 private fun LikedWorksSheetBody(
     works: List<ContentSummary>,
+    likes: LikeStore,
     loading: Boolean,
     failure: String?,
     onClose: () -> Unit,
@@ -275,42 +295,78 @@ private fun LikedWorksSheetBody(
             }
 
             else -> {
-                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
+                LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = sheetListBottom()) {
                     items(works, key = { it.id }) { work ->
+                        val notice = UnavailableItem.notice(work)
                         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clickable { expanded = if (expanded == work.id) null else work.id },
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
-                                RemoteImage(
-                                    url = work.posterUrl?.toString(),
-                                    contentScale = ContentScale.Fit,
-                                    modifier = Modifier.size(width = 34.dp, height = 46.dp).clip(RoundedCornerShape(5.dp)),
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(work.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = IOS.label)
-                                    val meta =
-                                        listOfNotNull(work.broadcaster, work.releaseYear?.toString()).joinToString(" · ")
-                                    // iOS 는 비어도 부제 줄을 그려 행 높이가 같다(2차 대조).
-                                    Text(meta, fontSize = 12.sp, color = IOS.secondaryLabel)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier =
+                                        Modifier
+                                            .weight(1f)
+                                            .clickable { expanded = if (expanded == work.id) null else work.id },
+                                ) {
+                                    RemoteImage(
+                                        url = work.posterUrl?.toString(),
+                                        contentScale = ContentScale.Fit,
+                                        modifier =
+                                            Modifier
+                                                .size(width = 34.dp, height = 46.dp)
+                                                .clip(RoundedCornerShape(5.dp))
+                                                .alpha(unavailableAlpha(notice)),
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            work.title,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = IOS.label,
+                                            modifier = Modifier.alpha(unavailableAlpha(notice)),
+                                        )
+                                        val meta =
+                                            listOfNotNull(work.broadcaster, work.releaseYear?.toString()).joinToString(" · ")
+                                        // iOS 는 비어도 부제 줄을 그려 행 높이가 같다(2차 대조).
+                                        Text(meta, fontSize = 12.sp, color = IOS.secondaryLabel)
+                                    }
+                                    Icon(
+                                        Icons.Filled.Favorite,
+                                        contentDescription = null,
+                                        tint = IOS.systemRed,
+                                        modifier = Modifier.size(13.dp),
+                                    )
+                                    Icon(
+                                        if (expanded == work.id) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                        contentDescription = null,
+                                        tint = IOS.tertiaryLabel,
+                                        modifier = Modifier.size(16.dp),
+                                    )
                                 }
-                                Icon(
-                                    Icons.Filled.Favorite,
-                                    contentDescription = null,
-                                    tint = IOS.systemRed,
-                                    modifier = Modifier.size(13.dp),
-                                )
-                                Icon(
-                                    if (expanded == work.id) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                                    contentDescription = null,
-                                    tint = IOS.tertiaryLabel,
-                                    modifier = Modifier.size(16.dp),
-                                )
+                                // 찜 빼기 — 숨긴 작품도 사용자가 직접 뺀다(MZ2AZ-458). 누르는 자리는 48dp 이상이다.
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier =
+                                        Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                            .clickable(role = Role.Button) {
+                                                if (likes.contains(work.id)) likes.toggle(work.id)
+                                            },
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Delete,
+                                        contentDescription = tr("찜 빼기"),
+                                        tint = IOS.secondaryLabel,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
                             }
+                            if (notice != null) UnavailableItemNotice(notice)
                             if (expanded == work.id) {
                                 Column(
                                     verticalArrangement = Arrangement.spacedBy(5.dp),
@@ -340,42 +396,44 @@ private fun LikedWorksSheetBody(
                 }
             }
         }
+        // 찜을 바꾸지 못했을 때(예: 숨긴 작품은 새로 찜할 수 없다)의 안내.
+        LikeFailureNotice(likes.failure, onClose = { likes.clearFailure() })
     }
 }
 
-/** 장바구니 팝업 — 검색 탭에서 담아 둔 촬영지. 보는 자리다. */
+/**
+ * 장바구니 팝업 — 검색 탭에서 담아 둔 촬영지. 안내와 빼기는 검색 장바구니와 같은 행([CartItemRow])을 쓴다
+ * (MZ2AZ-458, iOS `ProfileCartSheet`).
+ */
 @Composable
 private fun ProfileCartSheetBody(
-    items: List<CartItem>,
+    cart: CartStore,
     onClose: () -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
+    // 열 때 낡은 알림은 치우고 서버 값을 다시 받는다.
+    LaunchedEffect(Unit) {
+        cart.clearToast()
+        cart.refresh()
+    }
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         ProfileSheetHeader(tr("장바구니"), onClose)
-        if (items.isEmpty()) {
+        if (cart.items.isEmpty()) {
             IOSEmptyState(tr("장바구니가 비었습니다"), tr("작품검색 탭에서 촬영지를 담아 보세요")) { BagIcon(IOS.secondaryLabel, it) }
         } else {
             LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = sheetListBottom()) {
-                items(items, key = { it.placeId }) { item ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                    ) {
-                        RemoteImage(url = item.imageUrl?.toString(), modifier = Modifier.size(40.dp).clip(RoundedCornerShape(7.dp)))
-                        Column {
-                            Text(item.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = IOS.label)
-                            val meta = listOfNotNull(item.sourceContentTitle, item.address).joinToString(" · ")
-                            if (meta.isNotEmpty()) Text(meta, fontSize = 12.sp, color = IOS.secondaryLabel, maxLines = 1)
-                        }
-                    }
+                itemsIndexed(cart.items, key = { _, item -> item.placeId }) { index, item ->
+                    CartItemRow(index = index, item = item, onRemove = { scope.launch { cart.remove(item.placeId) } })
+                    IOSListDivider(start = 16.dp)
                 }
             }
+        }
+        cart.toast?.let { toast ->
             Text(
-                tr("담고 빼는 것은 작품검색 탭의 장바구니에서"),
-                fontSize = 11.sp,
-                color = IOS.tertiaryLabel,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                textAlign = TextAlign.Center,
+                toast,
+                fontSize = 12.sp,
+                color = IOS.secondaryLabel,
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
             )
         }
     }
@@ -400,23 +458,24 @@ fun MyCoursesSheet(
 @Composable
 fun LikedWorksSheet(
     works: List<ContentSummary>,
+    likes: LikeStore,
     loading: Boolean,
     failure: String?,
     onClose: () -> Unit,
 ) {
     IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
-        LikedWorksSheetBody(works = works, loading = loading, failure = failure, onClose = onClose)
+        LikedWorksSheetBody(works = works, likes = likes, loading = loading, failure = failure, onClose = onClose)
     }
 }
 
 /** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
 @Composable
 fun ProfileCartSheet(
-    items: List<CartItem>,
+    cart: CartStore,
     onClose: () -> Unit,
 ) {
     IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
-        ProfileCartSheetBody(items = items, onClose = onClose)
+        ProfileCartSheetBody(cart = cart, onClose = onClose)
     }
 }
 

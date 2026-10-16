@@ -24,19 +24,24 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.mz2az.scenetrip.data.UnavailableItem
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSEmptyState
+import com.mz2az.scenetrip.ui.UnavailableItemNotice
+import com.mz2az.scenetrip.ui.unavailableAlpha
 
 /**
  * 장바구니 — 담은 장소를 보여 주고 뺄 수 있게 한다.
@@ -132,7 +137,7 @@ private fun CartContent(
         } else {
             LazyColumn(modifier = Modifier.weight(1f)) {
                 itemsIndexed(items, key = { _, item -> item.placeId }) { index, item ->
-                    CartRow(index = index, item = item, onRemove = { onRemove(item.placeId) })
+                    CartItemRow(index = index, item = item, onRemove = { onRemove(item.placeId) })
                     Box(
                         Modifier
                             .padding(start = IOS.gutter)
@@ -147,16 +152,21 @@ private fun CartContent(
     }
 }
 
+/**
+ * 검색·마이페이지 장바구니가 같은 안내·약한 표시·빼기 동선을 쓴다. iOS `CartItemRow`(MZ2AZ-458).
+ * 목록에서 빠진 촬영지는 지우지 않고 이유를 알리며, 뺄지는 사용자가 정한다.
+ */
 @Composable
-private fun CartRow(
+fun CartItemRow(
     index: Int,
     item: CartItem,
     onRemove: () -> Unit,
 ) {
+    val notice = UnavailableItem.notice(item)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 19.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = IOS.gutter, vertical = 17.dp),
     ) {
         // **강조색 원에 흰 숫자** — 목록의 번호 배지(핀과 짝을 이루는 보라
         // 그러데이션)와는 다른 것이다. 여기 번호는 담은 순서이지 지도 핀이 아니다.
@@ -173,7 +183,7 @@ private fun CartRow(
                 com.mz2az.scenetrip.ui
                     .MapPinEllipseIcon(IOS.secondaryLabel, Modifier.size(20.dp))
             },
-            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)),
+            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)).alpha(unavailableAlpha(notice)),
         )
 
         Column(modifier = Modifier.weight(1f)) {
@@ -183,6 +193,7 @@ private fun CartRow(
                 color = IOS.label,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.alpha(unavailableAlpha(notice)),
             )
             // 어느 작품 때문에 담았는지를 서버가 기억한다 (sourceContentId).
             // 같은 장소라도 담은 맥락이 다르면 사용자에게는 다른 의미다.
@@ -196,13 +207,20 @@ private fun CartRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            if (notice != null) UnavailableItemNotice(notice)
         }
 
-        Icon(
-            Icons.Filled.Delete,
-            contentDescription = tr("빼기"),
-            tint = IOS.secondaryLabel,
-            modifier = Modifier.clip(CircleShape).clickable(onClick = onRemove).size(22.dp),
-        )
+        // 누르는 자리는 48dp 이상이다 — 그림은 22dp.
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onRemove),
+        ) {
+            Icon(
+                Icons.Filled.Delete,
+                contentDescription = tr("장바구니에서 빼기"),
+                tint = IOS.secondaryLabel,
+                modifier = Modifier.size(22.dp),
+            )
+        }
     }
 }

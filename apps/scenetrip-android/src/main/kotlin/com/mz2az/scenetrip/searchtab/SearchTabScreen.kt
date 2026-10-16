@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -59,6 +60,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.Scene
 import com.mz2az.scenetrip.sceneapi.client.model.Suggestion
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.LikeFailureNotice
 import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.naver.maps.map.LocationTrackingMode
 import com.naver.maps.map.NaverMap
@@ -467,6 +469,8 @@ fun SearchTabScreen() {
                             contentPlaces = emptyList()
                         },
                         onSelectPlace = { selectedPlace = it },
+                        liked = likes.contains(selectedContent!!.id),
+                        onToggleLike = { likes.toggle(selectedContent!!.id) },
                         onSave = { place ->
                             val source = selectedContent?.id
                             scope.launch {
@@ -622,6 +626,15 @@ fun SearchTabScreen() {
             )
         }
 
+        // 담기 결과(이미 담김·숨긴 장소라 담을 수 없음 등)는 이 자리에 잠깐 뜬다.
+        CartToast(cart.toast, onTimeout = { cart.clearToast() }, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp))
+        // 찜 변경이 거절되면(숨긴 작품 새 찜 등) 이유를 말한다.
+        LikeFailureNotice(
+            failure = likes.failure,
+            onClose = { likes.clearFailure() },
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+        )
+
         if (showCart) {
             CartSheet(
                 items = cart.items,
@@ -719,4 +732,5 @@ private fun ContentDetail.toSummary() =
         broadcaster = broadcaster,
         releaseYear = releaseYear,
         genres = genres,
+        delisted = delisted,
     )

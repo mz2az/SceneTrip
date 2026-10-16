@@ -86,6 +86,46 @@ object RouteGuidePlan {
         )
     }
 
+    /**
+     * AI 가 순서·일차를 고친 일정([GuidePlan])을 지금 코스에 적용한다. 코스의 서버 번호·진행 상태는 이어받고,
+     * 항목 번호·방문 표시는 대응하는 행을 앞에서부터 하나씩 이어받는다. iOS `RouteGuidePlan.revising`.
+     *
+     * 숨김·폐업 표시([RouteStop.unavailable])는 **같은 대상의 모든 행**에 이어받는다 — 같은 장소가 여러 일차에 있거나
+     * 이어받을 행이 모자라도 길찾기·다음 목적지 제외 규칙이 풀리지 않는다(MZ2AZ-458).
+     */
+    fun revising(
+        original: RouteCourse,
+        plan: GuidePlan,
+    ): RouteCourse {
+        val fresh = course(plan, original.title, original.startDate, original.pace)
+        val oldStops = original.stops.toMutableList()
+        val days =
+            fresh.days.map { day ->
+                day.copy(
+                    stops =
+                        day.stops.map { stop ->
+                            val unavailable = original.stops.firstOrNull { it.unavailable != null && it.sameTarget(stop) }?.unavailable
+                            val index = oldStops.indexOfFirst { it.sameTarget(stop) }
+                            val carried =
+                                if (index < 0) {
+                                    stop
+                                } else {
+                                    oldStops.removeAt(index).let { old ->
+                                        stop.copy(id = old.id, serverItemId = old.serverItemId, visited = old.visited)
+                                    }
+                                }
+                            carried.copy(unavailable = unavailable)
+                        },
+                )
+            }
+        return fresh.copy(
+            serverId = original.serverId,
+            isRunning = original.isRunning,
+            detailLoaded = original.detailLoaded,
+            days = days,
+        )
+    }
+
     /** 사용자에게 알릴 것 — 뺀 곳과 이유, 에이전트의 주의, 거리의 근거. */
     fun notes(plan: GuidePlan): List<String> {
         val out = mutableListOf<String>()

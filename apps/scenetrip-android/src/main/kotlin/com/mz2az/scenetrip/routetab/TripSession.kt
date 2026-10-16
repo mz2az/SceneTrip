@@ -95,6 +95,8 @@ class TripSession(
         target: RouteStop,
         scope: CoroutineScope,
     ) {
+        // 숨김·폐업 행으로는 안내를 시작하지 않는다 — 경로 요청도 나가지 않는다(MZ2AZ-458, iOS `TripSession.start`).
+        if (!target.canNavigate) return
         AppAnalytics.log(AppEvent.StartTrip(target.place.id))
         end()
         this.scope = scope
@@ -117,6 +119,7 @@ class TripSession(
         next: RouteStop,
         scope: CoroutineScope,
     ) {
+        if (!next.canNavigate) return
         this.scope = scope
         directionsConsent.beginRequest()
         request?.cancel()

@@ -20,7 +20,7 @@ import com.mz2az.scenetrip.sceneapi.client.infrastructure.ServerException
 data class ApiFailure(
     /** HTTP 상태 코드. **서버에 닿지도 못했으면 null 이다.** */
     val statusCode: Int?,
-    /** 오류 본문의 `code`. 화면 문구를 code 로 가를 때만 쓴다 — 지금은 금칙어(`TEXT_NOT_ALLOWED`, MZ2AZ-461)뿐이다. */
+    /** 오류 본문의 `code`. 금칙어·숨김·폐업처럼 구체적인 안내가 필요한 경우에 쓴다(MZ2AZ-461·458). */
     val apiCode: String? = null,
 ) {
     /**
@@ -33,8 +33,10 @@ data class ApiFailure(
     val isRetryable: Boolean get() = statusCode == null || statusCode == 500
 
     /** 화면에 띄우는 문구. iOS `ErrorView` 와 **같은 세 갈래**다. */
-    val message: String get() =
-        when {
+    val message: String get() {
+        // 숨김·폐업으로 거절된 새 담기(409)는 종류별 안내다. 그 밖의 409 는 아래 일반 문구다(MZ2AZ-458).
+        UnavailableItem.rejection(statusCode, apiCode)?.let { return it }
+        return when {
             // 코스 이름이 금칙어에 걸렸다(`POST /courses`·`PUT /courses/{id}`) — 고쳐 달라고 한다.
             ModerationRules.isTextNotAllowed(apiCode) -> ModerationRules.textNotAllowedMessage
 
@@ -50,12 +52,18 @@ data class ApiFailure(
 
             else -> tr("요청을 처리하지 못했습니다.")
         }
+    }
 
     /**
      * 코스 저장 실패 알림에 띄우는 문구. 상세를 받지 못한 코스를 저장하려던 경우(서버에 닿은 적이 없다)는
      * 「코스를 불러오지 못했어요」다. iOS `ApiFailure.courseSaveMessage`.
      */
-    val courseSaveMessage: String get() = if (this == courseDetailNotLoaded) tr("코스를 불러오지 못했어요") else message
+    val courseSaveMessage: String get() {
+        if (this == courseDetailNotLoaded) return tr("코스를 불러오지 못했어요")
+        // 숨김·폐업 거절은 첫 실패의 종류만 알 수 있다 — 특정 행을 지목하지 않고 편집이 남아 있음을 알린다(MZ2AZ-458).
+        val rejection = UnavailableItem.rejection(statusCode, apiCode) ?: return message
+        return rejection + " " + tr("편집 내용은 그대로예요. 해당 항목을 빼고 다시 저장해 주세요.")
+    }
 
     companion object {
         /** 상세를 받지 못한 서버 코스를 저장하려 했다 — 요청을 보내지 않고 막는다. iOS `ApiFailure.courseDetailNotLoaded`. */

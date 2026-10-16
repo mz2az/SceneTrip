@@ -63,19 +63,20 @@ class CartSession(
         sourceContentId: Long? = null,
     ): Boolean {
         val result = apiResult { client.add(placeId, sourceContentId) }
-        val duplicate = result.exceptionOrNull()?.let { NetworkFailure.of(it).status == 409 } == true
+        val failure = result.exceptionOrNull()?.let { ApiFailure.of(it) }
+        // 409 중 `DUPLICATE_CART_ITEM` 만 「이미 담긴 상태」다. 숨긴 장소(`PLACE_DELISTED`)는 담기지 않았다 —
+        // 담긴 것으로 표시하면 목록에 없는 장소가 담긴 것처럼 보인다(MZ2AZ-458, iOS `CartStore.add`).
+        val duplicate = failure?.statusCode == 409 && failure.apiCode == DUPLICATE_ITEM_CODE
         val present = result.isSuccess || duplicate
         publish(
             state.copy(
                 placeIds = if (present) state.placeIds + placeId else state.placeIds,
                 toast =
-                    tr(
-                        when {
-                            result.isSuccess -> "장바구니에 담았습니다"
-                            duplicate -> "이미 저장된 장소입니다"
-                            else -> "담지 못했습니다. 잠시 후 다시 시도해 주세요"
-                        },
-                    ),
+                    when {
+                        result.isSuccess -> tr("장바구니에 담았습니다")
+                        duplicate -> tr("이미 저장된 장소입니다")
+                        else -> failure?.let { UnavailableItem.rejection(it.statusCode, it.apiCode) } ?: tr("담지 못했습니다. 잠시 후 다시 시도해 주세요")
+                    },
             ),
         )
         refresh()
@@ -99,5 +100,10 @@ class CartSession(
 
     fun clearToast() {
         publish(state.copy(toast = null))
+    }
+
+    companion object {
+        /** 이미 담긴 장소를 또 담았다(409). 이것만 「이미 저장된 장소입니다」다. */
+        const val DUPLICATE_ITEM_CODE = "DUPLICATE_CART_ITEM"
     }
 }

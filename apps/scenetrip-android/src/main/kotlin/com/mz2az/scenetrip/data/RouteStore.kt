@@ -138,6 +138,11 @@ class RouteStore(
 
     fun toggleFavoriteWork(contentId: Long) = likeStore.toggle(contentId)
 
+    /** 찜을 바꾸지 못한 이유(MZ2AZ-458). 마법사의 작품 단계가 검색·찜 목록과 같은 안내를 쓴다. */
+    val likeFailure: ApiFailure? get() = likeStore.failure
+
+    fun clearLikeFailure() = likeStore.clearFailure()
+
     fun clearFailure() = session.clearFailure()
 
     /** 코스 목록을 받아온다. 홈이 뜰 때 부른다. */
