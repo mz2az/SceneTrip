@@ -217,6 +217,8 @@ struct RouteMapView: UIViewRepresentable {
 
         /// 마지막으로 받은 내 자리. 「나와 그곳을 같이 보여 준다」에 쓴다.
         var here: NMGLatLng?
+        /// `here` 의 원본(정확도·시각). 더 나은 값이 오면 갈아탄다(`LocationFix`).
+        var hereFix: CLLocation?
         /// 내 위치의 레이더 파문. 여행 중 화면과 같은 방식 — `RadarPulse` 머리말 참고.
         var pulse: RadarPulse?
         /// 내 자리와 겹쳐서 키워 둔 핀. 겹침이 풀리면 원래 크기로 되돌린다.
@@ -262,7 +264,9 @@ struct RouteMapView: UIViewRepresentable {
             self.onTapMap = onTapMap
             super.init()
             locationManager.delegate = self
-            locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+            // 최고 정확도로 계속 받는다 — 100 m 로 한 번 받으면 도심에서 몇백 m 어긋난 첫 값에 멈췄다(2026-10-16).
+            locationManager.desiredAccuracy = kCLLocationAccuracyBest
+            locationManager.distanceFilter = 5
         }
 
         func mapView(_: NMFMapView, didTapMap latlng: NMGLatLng, point _: CGPoint) {

@@ -165,6 +165,11 @@ struct NaverMapView: UIViewRepresentable {
         /// 흐름일 때만 참이다.
         private var awaitingAuthorization = false
 
+        /// 지금 파문을 놓은 자리(받은 값 그대로). 더 나은 값이 오면 갈아탄다(`LocationFix`).
+        private var shownFix: CLLocation?
+        /// 「내 위치」를 누른 때 — 이 뒤 잠깐 동안만 더 나은 값으로 카메라를 다시 맞춘다.
+        private var locateStartedAt: Date?
+
         /// 남한 전체가 들어오는 범위. 제주까지 담고 울릉도·독도는 뺐다 — 그것까지
         /// 넣으면 동해가 화면의 절반을 차지해 정작 촬영지가 몰린 서남부가 작아진다.
         static let korea = NMGLatLngBounds(
@@ -184,9 +189,10 @@ struct NaverMapView: UIViewRepresentable {
             self.region = region
             super.init()
             locationManager.delegate = self
-            // 촬영지를 찾아 주는 앱이지 내비게이션이 아니다. 미터 단위 정확도는
-            // 필요 없고, 낮은 정확도가 **훨씬 빨리·배터리를 덜 쓰고** 온다.
-            locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+            // **최고 정확도로 계속 받는다**(네이버 지도와 같게). 앞서는 100 m 로 낮춰 한 번만 받아
+            // 도심에서 몇백 m 어긋난 첫 값에 멈춰 있었다(2026-10-16 사용자 실기 지적 — 서면역이 전포로).
+            locationManager.desiredAccuracy = kCLLocationAccuracyBest
+            locationManager.distanceFilter = 5
         }
 
         func attach(to mapView: NMFMapView) {
@@ -409,7 +415,8 @@ struct NaverMapView: UIViewRepresentable {
         ///
         /// `NMFMyPositionMode.direction` 이 아니라 `.normal` 을 쓴다. 나침반을 따라
         /// 지도가 회전하면 핀 번호와 목록을 대조하기 어려워진다.
-        /// 「내 위치」 버튼. 권한을 확인하고 **좌표를 한 번 받아 카메라를 옮긴다.**
+        /// 「내 위치」 버튼. 권한을 확인하고 **첫 좌표로 카메라를 옮긴 뒤 계속 받아 파문을 따라 옮긴다**
+        /// (더 나은 값은 `LocationFix`, 2026-10-16).
         ///
         /// 예전에는 `positionMode = .normal` 만 세웠는데, SDK 문서가 그 모드를
         /// *"위치는 추적하지만 지도는 움직이지 않는 모드"* 로 정의한다 — 파란 점만
@@ -432,7 +439,20 @@ struct NaverMapView: UIViewRepresentable {
             case .restricted, .denied:
                 onLocateFailure(.denied)
             default:
-                locationManager.requestLocation()
+                beginUpdating()
+            }
+        }
+
+        /// 새로 받기 시작한다. 처음 오는 쓸 만한 값으로 날아가고, 그 뒤로는 파문이 따라간다.
+        private func beginUpdating() {
+            shownFix = nil
+            locateStartedAt = Date()
+            LocationFix.requestFullAccuracyIfReduced(locationManager)
+            locationManager.startUpdatingLocation()
+            // 이미 받는 중이면 iOS 는 같은 자리를 다시 보내지 않는다 — 두 번째 탭이 아무 일도 안 했다
+            // (2026-10-16 시뮬레이터 실측). 가진 최신 값으로 바로 날아가고, 더 나은 값은 이어서 온다.
+            if let latest = locationManager.location, LocationFix.isUsable(latest) {
+                locationManager(locationManager, didUpdateLocations: [latest])
             }
         }
 
@@ -447,20 +467,41 @@ struct NaverMapView: UIViewRepresentable {
                 onLocateFailure(.denied)
             default:
                 awaitingAuthorization = false
-                manager.requestLocation()
+                beginUpdating()
             }
         }
 
         func locationManager(_: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-            guard let coordinate = locations.last?.coordinate, let mapView else { return }
+            guard let mapView else { return }
+            for fix in locations where LocationFix.isUsable(fix) {
+                guard LocationFix.shouldReplace(shownFix, with: fix) else { continue }
+                let previous = shownFix
+                shownFix = fix
+                let spot = NMGLatLng(lat: fix.coordinate.latitude, lng: fix.coordinate.longitude)
+                guard let previous else {
+                    flyToFirstFix(spot, on: mapView)
+                    continue
+                }
+                // 파문은 늘 따라간다. 카메라는 누른 직후 잠깐, 사람이 지도를 안 만졌을 때만 다시 맞춘다 —
+                // 민 지도를 끌어당기면 안 된다.
+                showPulse(at: spot, on: mapView)
+                if let started = locateStartedAt, Date().timeIntervalSince(started) <= LocationFix.settleWindow,
+                   region.source == .device, LocationFix.worthRecentering(from: previous, to: fix)
+                {
+                    let update = NMFCameraUpdate(scrollTo: spot)
+                    update.animation = .easeOut
+                    update.animationDuration = 0.4
+                    mapView.moveCamera(update)
+                }
+            }
+        }
+
+        private func flyToFirstFix(_ spot: NMGLatLng, on mapView: NMFMapView) {
             region.source = .device
             applyInset(on: mapView)
-            showPulse(
-                at: NMGLatLng(lat: coordinate.latitude, lng: coordinate.longitude),
-                on: mapView
-            )
+            showPulse(at: spot, on: mapView)
             let update = NMFCameraUpdate(
-                scrollTo: NMGLatLng(lat: coordinate.latitude, lng: coordinate.longitude),
+                scrollTo: spot,
                 // 장소 하나를 열 때(16)보다 한 단계 넓게 잡는다. 「내 위치」 는 한 점을
                 // 보려는 것이 아니라 **주변에 뭐가 있나**를 보려는 동작이다.
                 zoomTo: 15
@@ -473,7 +514,13 @@ struct NaverMapView: UIViewRepresentable {
         func locationManager(_: CLLocationManager, didFailWithError error: Error) {
             // 권한 거부는 여기로도 온다. 이미 알린 것을 두 번 띄우지 않는다.
             if let clError = error as? CLError, clError.code == .denied {
+                locationManager.stopUpdatingLocation()
                 onLocateFailure(.denied)
+                return
+            }
+            // 계속 받는 중에는 「아직 모름」(`locationUnknown`)이 잠깐씩 온다 — 곧 다음 값이 온다(애플 문서).
+            // 이미 자리를 보여 주고 있으면 실패를 띄우지 않는다(2026-10-16 시뮬레이터에서 실측).
+            if (error as? CLError)?.code == .locationUnknown || shownFix != nil {
                 return
             }
             onLocateFailure(.failed)

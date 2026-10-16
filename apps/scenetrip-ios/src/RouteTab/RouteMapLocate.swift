@@ -24,14 +24,22 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
         case .restricted, .denied:
             return // 앱 안에서 풀 수 없다.
         default:
-            locationManager.requestLocation()
+            beginUpdating()
         }
+    }
+
+    /// 토글이 켜져 있는 동안 **계속** 받는다 — 첫 값은 대략값일 수 있어 더 나은 값으로 점을 옮긴다.
+    private func beginUpdating() {
+        LocationFix.requestFullAccuracyIfReduced(locationManager)
+        locationManager.startUpdatingLocation()
     }
 
     /// 토글을 껐다. 파문을 지우고 **마지막 자리도 버린다** — 껐는데 「나와 그곳」이
     /// 계속 보이면 끈 것이 아니다.
     func stopLocating() {
+        locationManager.stopUpdatingLocation()
         here = nil
+        hereFix = nil
         pulse?.removeFromSuperview()
         pulse = nil
         restoreGrown()
@@ -46,15 +54,19 @@ extension RouteMapView.Coordinator: CLLocationManagerDelegate, NMFMapViewCameraD
             awaitingAuthorization = false
         default:
             awaitingAuthorization = false
-            manager.requestLocation()
+            beginUpdating()
         }
     }
 
     func locationManager(_: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let spot = locations.last else { return }
-        // 여행 안내가 자리를 주고 있으면 한 번 받기는 무시한다 — 두 출처가 파문을 서로
+        // 가장 새로 온 쓸 만한 값 중 지금 것보다 나은 것만 — 흐린 값으로 점이 튀지 않게.
+        guard let spot = locations.last(where: {
+            LocationFix.isUsable($0) && LocationFix.shouldReplace(hereFix, with: $0)
+        }) else { return }
+        // 여행 안내가 자리를 주고 있으면 이쪽 값은 무시한다 — 두 출처가 파문을 서로
         // 끌어당기면 점이 튄다(`tripHere`, 2026-09-03).
         guard tripHere == nil else { return }
+        hereFix = spot
         here = NMGLatLng(lat: spot.coordinate.latitude, lng: spot.coordinate.longitude)
         onLocation?(TripSpot(latitude: spot.coordinate.latitude, longitude: spot.coordinate.longitude))
         guard showingMe, let mapView = mapForLocate else { return }
