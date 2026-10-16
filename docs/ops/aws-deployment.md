@@ -300,6 +300,14 @@ Secret이 복구 유예(DEV 7일)를 넘겨 완전히 삭제됐다면 Terraform�
 `NatEip`(태그 `role=nat-fixed`, 출력 `NatEipPublicIp`)라 내리기에도 남고, 배포(`network.tf`)가 그 IP 로 NAT 를 만든다 — 카카오에
 한 번만 등록한다. bootstrap 에 아직 없으면 배포가 예전처럼 새 IP 를 만든다. 내려 둔 동안에도 공인 IPv4 요금(월 약 3.6 달러)이 난다.
 PRD 는 내리지 않아 배포가 만든 IP 3 개가 그대로다.
+- **태그는 대문자 `Project`·`Environment` 가 꼭 있어야 한다** — 배포 역할은 그 태그가 붙은 IP 로만 NAT 를 만들 수 있다(`ManageEnvironmentNetwork`).
+  소문자만 붙였다가 배포가 옛 NAT 를 지우고 새 NAT 를 못 만들어 DEV 바깥 호출이 끊긴 적이 있다(2026-10-16, 태그를 더해 복구).
+- bootstrap 역할(저장소 밖)의 인라인 정책 `scenetrip-bootstrap-scope` 에 고정 IP 권한을 더했다(2026-10-16):
+  ```json
+  {"Sid":"FixedNatEip","Effect":"Allow",
+   "Action":["ec2:AllocateAddress","ec2:ReleaseAddress","ec2:CreateTags","ec2:DescribeAddresses"],"Resource":"*"}
+  ```
+- 계정의 탄력적 IP 한도를 5 → 10 으로 올렸다(Service Quotas `L-0263D0A3`, 2026-10-16) — PRD NAT 3 · DEV NAT · DEV 러너로 5 개가 차 있었다.
 
 ## 11. 사용하지 않는 환경 삭제
 
