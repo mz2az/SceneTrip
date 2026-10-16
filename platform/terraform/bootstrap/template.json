@@ -16,7 +16,8 @@
     }
   },
   "Conditions": {
-    "IsProduction": {"Fn::Equals":[{"Ref":"Environment"},"prd"]}
+    "IsProduction": {"Fn::Equals":[{"Ref":"Environment"},"prd"]},
+    "IsNotProduction": {"Fn::Not":[{"Condition":"IsProduction"}]}
   },
   "Resources": {
     "TerraformStateBucket": {
@@ -102,6 +103,19 @@
             }
           ]
         }
+      }
+    },
+    "NatEip": {
+      "Type": "AWS::EC2::EIP",
+      "Condition": "IsNotProduction",
+      "Properties": {
+        "Domain": "vpc",
+        "Tags": [
+          {"Key":"Name","Value":{"Fn::Sub":"scenetrip-${Environment}-nat-fixed"}},
+          {"Key":"project","Value":"scenetrip"},
+          {"Key":"environment","Value":{"Ref":"Environment"}},
+          {"Key":"role","Value":"nat-fixed"}
+        ]
       }
     },
     "MediaRole": {
@@ -728,6 +742,7 @@
     "LifecycleRoleArn": {"Description":"GitHub Environment AWS_LIFECYCLE_ROLE_ARN에 설정할 올리기·내리기 역할.","Value":{"Fn::GetAtt":["LifecycleRole","Arn"]}},
     "UserMediaBucket": {"Description":"사용자 사진(리뷰) 버킷. 내려도 남는다(Retain).","Value":{"Ref":"UserMediaBucket"}},
     "MediaRoleArn": {"Description":"scene-api 파드가 Pod Identity 로 쓰는 사진 버킷 역할.","Value":{"Fn::GetAtt":["MediaRole","Arn"]}},
-    "BedrockRoleArn": {"Description":"trip-guide 파드가 Pod Identity 로 쓰는 Bedrock 호출 역할(MZ2AZ-317).","Value":{"Fn::GetAtt":["BedrockRole","Arn"]}}
+    "BedrockRoleArn": {"Description":"trip-guide 파드가 Pod Identity 로 쓰는 Bedrock 호출 역할(MZ2AZ-317).","Value":{"Fn::GetAtt":["BedrockRole","Arn"]}},
+    "NatEipPublicIp": {"Condition":"IsNotProduction","Description":"DEV NAT 고정 IP — 내리기에도 남는다. 카카오 모빌리티 허용 IP 에 한 번 등록한다(MZ2AZ-484).","Value":{"Ref":"NatEip"}}
   }
 }
