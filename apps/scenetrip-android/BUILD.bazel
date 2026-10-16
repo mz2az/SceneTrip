@@ -80,6 +80,7 @@ kt_jvm_library(
     name = "unit_test_lib",
     testonly = True,
     srcs = [
+        "tests/AIConsentTests.kt",
         "tests/AccountAndImageTests.kt",
         "tests/ClientRulesTests.kt",
         "tests/CommunityBlogTests.kt",

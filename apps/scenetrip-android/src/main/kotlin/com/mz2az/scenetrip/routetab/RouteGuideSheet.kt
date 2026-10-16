@@ -64,9 +64,12 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.R
+import com.mz2az.scenetrip.data.AIConsentGate
+import com.mz2az.scenetrip.data.AIConsentStore
 import com.mz2az.scenetrip.data.RoutePoiTone
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
+import com.mz2az.scenetrip.ui.AIConsentSheetHost
 import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.CircleSignIcon
 import com.mz2az.scenetrip.ui.CollapseArrowsIcon
@@ -189,6 +192,10 @@ fun RouteGuidePanel(
     onClose: () -> Unit,
     onRemove: (GuidePlace) -> Unit = {},
 ) {
+    val context = LocalContext.current
+    // AI 기능 동의 (MZ2AZ-468) — 첫 질문·다시 시도 전에 안내 시트. 패널이 접혀도 시트는 남도록 패널 밖에 둔다.
+    val consent = remember { AIConsentGate(AIConsentStore.getInstance(context)) }
+    AIConsentSheetHost(consent)
     // iOS `guidePanel`: 화면 오른쪽 아래에 **떠 있는 316×470 카드**(모서리 20, 그림자, 재질 바탕, 오른쪽 6 ·
     // 아래 8). 뒤를 어둡게 덮지 않아 지도가 계속 보이고, 닫으면 오른쪽 아래 동그라미 쪽으로 오므라든다.
     // 앞서 Android 는 오른쪽에서 나오는 전체 높이 서랍에 딤까지 깔아 모양이 달랐다(2026-09-29 대조).
@@ -253,15 +260,35 @@ fun RouteGuidePanel(
                         )
                     }
                 } else {
+                    // 입력 중인 글은 동의 안내를 취소해도 남는다(iOS `draft`). 예시 질문도 같은 길로 보낸다.
+                    var draft by remember { mutableStateOf("") }
+                    val askScope = rememberCoroutineScope()
+                    val send = { text: String ->
+                        consent.request {
+                            if (!com.mz2az.scenetrip.auth.AuthStore.signedIn) {
+                                com.mz2az.scenetrip.auth.AuthStore
+                                    .promptSignIn()
+                            } else {
+                                draft = ""
+                                askScope.launch { session.ask(text, here.first, here.second) }
+                            }
+                        }
+                    }
                     GuideConversation(
                         session = session,
-                        here = here,
                         onAdd = onAdd,
                         onRemove = onRemove,
                         isAdded = isAdded,
+                        consent = consent,
+                        onExample = {
+                            if (!session.asking && !session.blocked) {
+                                draft = it
+                                send(it)
+                            }
+                        },
                         modifier = Modifier.weight(1f),
                     )
-                    GuideComposer(session = session, here = here)
+                    GuideComposer(session = session, draft = draft, onDraft = { draft = it }, submit = send)
                 }
             }
         }
@@ -274,10 +301,11 @@ private val GUIDE_EXAMPLES get() = listOf(tr("주변 음식점 알려줘"))
 @Composable
 private fun GuideConversation(
     session: RouteGuideSession,
-    here: Pair<Double, Double>,
     onAdd: (GuidePlace) -> Unit,
     onRemove: (GuidePlace) -> Unit,
     isAdded: (GuidePlace) -> Boolean,
+    consent: AIConsentGate,
+    onExample: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -307,7 +335,7 @@ private fun GuideConversation(
                                 Modifier
                                     .clip(CircleShape)
                                     .background(IOS.systemGray6)
-                                    .clickable { scope.launch { session.ask(example, here.first, here.second) } }
+                                    .clickable { onExample(example) }
                                     .padding(horizontal = 12.dp, vertical = 8.dp),
                         )
                     }
@@ -381,7 +409,10 @@ private fun GuideConversation(
                     Text(
                         tr("다시 시도"),
                         color = IOS.accent,
-                        modifier = Modifier.clickable { scope.launch { session.retry() } }.padding(vertical = 8.dp),
+                        modifier =
+                            Modifier
+                                .clickable { consent.request { scope.launch { session.retry() } } }
+                                .padding(vertical = 8.dp),
                     )
                 }
             }
@@ -451,10 +482,10 @@ private fun GuidePlaceRow(
 @Composable
 private fun GuideComposer(
     session: RouteGuideSession,
-    here: Pair<Double, Double>,
+    draft: String,
+    onDraft: (String) -> Unit,
+    submit: (String) -> Unit,
 ) {
-    var draft by remember { mutableStateOf("") }
-    val scope = rememberCoroutineScope()
     val now =
         com.mz2az.scenetrip.data
             .usageNow()
@@ -465,14 +496,7 @@ private fun GuideComposer(
 
     fun send() {
         if (!canSend) return
-        if (!com.mz2az.scenetrip.auth.AuthStore.signedIn) {
-            com.mz2az.scenetrip.auth.AuthStore
-                .promptSignIn()
-            return
-        }
-        val text = draft
-        draft = ""
-        scope.launch { session.ask(text, here.first, here.second) }
+        submit(draft)
     }
     // 입력줄 바탕 — iOS `.thinMaterial` 은 지도 빛이 비쳐 푸르스름하다(실측 약 224,238,246).
     // iOS `composer` 는 입력줄과 AI 답변 안내(MZ2AZ-439)를 한 재질 안에 쌓는다.
@@ -494,7 +518,7 @@ private fun GuideComposer(
                 if (draft.isEmpty()) Text(tr("주변에 무엇을 찾으세요?"), fontSize = 17.sp, color = IOS.tertiaryLabel, maxLines = 1)
                 BasicTextField(
                     value = draft,
-                    onValueChange = { if (it.length <= 4000) draft = it },
+                    onValueChange = { if (it.length <= 4000) onDraft(it) },
                     enabled = !session.asking && !locked,
                     maxLines = 3,
                     textStyle = IOS.body.copy(color = IOS.label),

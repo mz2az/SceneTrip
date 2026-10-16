@@ -79,6 +79,14 @@ object AuthStore {
             com.mz2az.scenetrip.data
                 .RetryInterceptor(),
         )
+        // 재시도 계층의 안쪽 — 인증 갱신 뒤 재전송과 자동 재시도도 매번 동의를 확인한다(MZ2AZ-468).
+        ApiClient.builder.addInterceptor(
+            com.mz2az.scenetrip.data
+                .AIConsentInterceptor(
+                    com.mz2az.scenetrip.data.AIConsentStore
+                        .getInstance(appContext),
+                ),
+        )
         AuthTokens.load(appContext)
         installId = InstallIdentity.of(appContext)
         signedIn = AuthTokens.hasSession
