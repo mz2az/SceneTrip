@@ -787,6 +787,40 @@ class LocationConsentTests {
     }
 
     @Test
+    fun regionReachedByMyLocationStaysDeviceThroughTheSdkEventSequence() {
+        // 에뮬레이터(네이버 SDK 3.23.3)에서 「내 위치」 한 번에 실제로 나온 순서: 코드가 옮기는 애니메이션은 프레임마다
+        // reason=0(DEVELOPER) animated=true 로 수십 번 오고, 여백 변경은 -4, 위치 소스 갱신(geo fix)은 이벤트가 없다.
+        val region = MapRegionSource()
+        region.source = CoordinateSource.DEVICE // zoomToMyLocation 이 옮기기 전에 정한다
+        region.cameraWillChange(-4)
+        repeat(40) { region.cameraWillChange(0) }
+        assertEquals(CoordinateSource.DEVICE, region.source, "애니메이션·여백 이벤트는 출처를 바꾸지 않는다")
+        // 같은 지도에 리스너가 중복으로 달려도(재구성마다 달던 때) 결과는 같지만, 이제 한 번만 단다.
+        assertTrue(region.tryAttach())
+        assertFalse(region.tryAttach())
+        assertFalse(region.tryAttach())
+        // 사용자가 밀면(-1, 프레임마다 여러 번) 그때부터 사용자 선택이다.
+        repeat(3) { region.cameraWillChange(-1) }
+        assertEquals(CoordinateSource.USER_SELECTED, region.source)
+        // 밀고 난 뒤 다시 「내 위치」 를 누르면 기기 출처로 돌아온다.
+        region.source = CoordinateSource.DEVICE
+        repeat(5) { region.cameraWillChange(0) }
+        assertEquals(CoordinateSource.DEVICE, region.source)
+        // 이 출처로 지도 범위를 조회하면 동의 전에는 전송 계층이 막고, 시트가 먼저 뜬다.
+        val store = LocationConsentStore(storage)
+        val gate = AIConsentGate(store)
+        var searched = 0
+        gate.requestLocation(region.source) { searched += 1 }
+        assertEquals(0, searched)
+        assertTrue(gate.isPresented)
+        val wire = Wire()
+        CoordinateSources.with(region.source) {
+            assertThrows(LocationConsentRequired::class.java) { wire.client(store).get("/places?bbox=126.9,37.5,127.0,37.6&limit=200") }
+        }
+        assertEquals(0, wire.requests.size)
+    }
+
+    @Test
     fun requestsForAnotherConsentStoreDoNotReuseLocationFlights() {
         // 위치 인터셉터는 위치 저장소의 호출만 등록한다 — AI 동의를 철회해도 나가 있는 길 안내는 끊기지 않는다.
         val location = LocationConsentStore(storage)

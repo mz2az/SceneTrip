@@ -18,6 +18,12 @@ import java.util.WeakHashMap
  */
 class MapRegionSource {
     @Volatile var source: CoordinateSource = CoordinateSource.USER_SELECTED
+    private val attached =
+        java.util.concurrent.atomic
+            .AtomicBoolean(false)
+
+    /** 카메라 리스너를 이 지도에 이미 달았는가. 처음 부른 한 번만 `true` 다. */
+    fun tryAttach(): Boolean = attached.compareAndSet(false, true)
 
     fun cameraWillChange(reason: Int) {
         if (reason == CameraUpdate.REASON_GESTURE || reason == CameraUpdate.REASON_CONTROL) {

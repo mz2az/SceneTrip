@@ -179,7 +179,10 @@ fun NaverMapCanvas(
             ready.uiSettings.logoGravity =
                 android.view.Gravity.BOTTOM or android.view.Gravity.START
             // 카메라가 움직이는 원인으로 지도 범위의 출처를 기록한다(MZ2AZ-472). 코드가 옮기는 쪽은 옮기기 전에 직접 정한다.
-            ready.addOnCameraChangeListener { reason, _ -> ready.regionSource.cameraWillChange(reason) }
+            // 한 번만 단다 — 이 블록은 재구성마다 다시 불려 매번 달면 이벤트마다 같은 일이 여러 번 돈다(MZ2AZ-472 실측: 한 이동에 수십 번).
+            if (ready.regionSource.tryAttach()) {
+                ready.addOnCameraChangeListener { reason, _ -> ready.regionSource.cameraWillChange(reason) }
+            }
             map = ready
             onMapReady(ready)
         }
