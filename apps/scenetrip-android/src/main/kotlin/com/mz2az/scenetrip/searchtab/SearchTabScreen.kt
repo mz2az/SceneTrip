@@ -627,9 +627,7 @@ fun SearchTabScreen() {
         }
 
         // 담기 결과(이미 담김·숨긴 장소라 담을 수 없음 등)는 이 자리에 잠깐 뜬다.
-        cart.toast?.let { toast ->
-            CartToast(toast, onTimeout = { cart.clearToast() }, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp))
-        }
+        CartToast(cart.toast, onTimeout = { cart.clearToast() }, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp))
         // 찜 변경이 거절되면(숨긴 작품 새 찜 등) 이유를 말한다.
         LikeFailureNotice(
             failure = likes.failure,
