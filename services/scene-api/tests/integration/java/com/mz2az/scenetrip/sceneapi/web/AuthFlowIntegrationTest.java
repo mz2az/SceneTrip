@@ -389,7 +389,7 @@ class AuthFlowIntegrationTest {
     like(otherAuthor, myMarketCourse);
     withBearer(accessTokens.issue(me).value());
 
-    ResponseEntity<Void> response = controller.deleteMe();
+    ResponseEntity<Void> response = controller.deleteMe(UUID.randomUUID());
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
     assertThat(count("app_user", "id", me)).isZero();
@@ -434,7 +434,7 @@ class AuthFlowIntegrationTest {
         .update();
     withBearer(accessTokens.issue(login.userId()).value());
 
-    ResponseEntity<Void> response = controller.deleteMe();
+    ResponseEntity<Void> response = controller.deleteMe(login.install());
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
     assertThat(count("app_user", "id", login.userId())).isZero();
@@ -447,12 +447,12 @@ class AuthFlowIntegrationTest {
     String access = accessTokens.issue(login.userId()).value();
     withBearer(access);
 
-    controller.deleteMe();
+    controller.deleteMe(login.install());
 
     assertThatThrownBy(controller::getMe)
         .isInstanceOfSatisfying(
             ApiException.class, e -> expect(e, HttpStatus.UNAUTHORIZED, "ACCESS_TOKEN_INVALID"));
-    assertThatThrownBy(controller::deleteMe)
+    assertThatThrownBy(() -> controller.deleteMe(login.install()))
         .isInstanceOfSatisfying(
             ApiException.class, e -> expect(e, HttpStatus.UNAUTHORIZED, "ACCESS_TOKEN_INVALID"));
     expectRefreshInvalid(login.refresh().value());
@@ -463,7 +463,7 @@ class AuthFlowIntegrationTest {
   void installAfterDeleteGetsNewGuest() {
     Login login = signedIn();
     withBearer(accessTokens.issue(login.userId()).value());
-    controller.deleteMe();
+    controller.deleteMe(login.install());
 
     withoutAuthorization();
     UUID resolved = track(accounts.resolve(login.install()));
@@ -492,7 +492,8 @@ class AuthFlowIntegrationTest {
 
     AuthSession tabletSession = refreshOk(tablet.value());
     withBearer(tabletSession.getAccessToken());
-    assertThat(controller.deleteMe().getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    assertThat(controller.deleteMe(phone.install()).getStatusCode())
+        .isEqualTo(HttpStatus.NO_CONTENT);
 
     assertThat(count("app_user", "id", phone.userId())).isZero();
     expectRefreshInvalid(tabletSession.getRefreshToken());

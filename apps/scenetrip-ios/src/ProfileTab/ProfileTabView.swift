@@ -231,6 +231,7 @@ struct ProfileTabView: View {
                 legalSection
 
                 accountSection
+                ProfileDeviceDataSection()
 
                 Section("준비 중") {
                     // 자리를 미리 보여 준다 — 없는 척하다 갑자기 생기는 것보다
@@ -272,6 +273,7 @@ struct ProfileTabView: View {
                 await load()
             }
             .onAccountChange { await load() }
+            .onReceive(AccountDataReset.changes) { clearAccountData() }
             .onAppear { refreshTrackingPermission() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
@@ -380,6 +382,7 @@ struct ProfileTabView: View {
     }
 
     private func load() async {
+        let generation = AccountDataReset.generation
         // **넷을 나란히 받는다.** 앞서 줄줄이 기다렸더니 코스 상세(스탬프용)
         // 하나가 느리면 찜 목록이 그동안 「없습니다」로 보였다(2026-08-28 버그 —
         // 개수는 기기 값이라 바로 3인데 목록만 비어 있던 이유).
@@ -399,25 +402,38 @@ struct ProfileTabView: View {
         // 못 받았어도 앞서 받아 둔 목록이 있으면 그것을 보인다 — 찜은 있는데 목록이 빌 때만 「못 받음」 이다.
         // 오류 원문을 그대로 보이지 않는다 — 서버 문장은 한국어이고 내부 정보가 섞인다 (MZ2AZ-345).
         let reached = await likesTask.value
+        guard generation == AccountDataReset.generation else { return }
         likesFailure = reached || !likes.works.isEmpty || likes.contentIds.isEmpty
             ? nil : tr("찜한 작품을 불러오지 못했어요. 잠시 뒤 다시 해 주세요")
         likesLoading = false
 
         await cartTask.value
-        if let list = await coursesTask.value {
+        let list = await coursesTask.value
+        guard generation == AccountDataReset.generation else { return }
+        if let list {
             courses = list.items
             courseCount = list.items.count
         }
 
         // 방문 스탬프 — 코스마다 상세를 받아 visitedAt 이 찍힌 것만 모은다.
         // 홈의 「내 기록」도 같은 것을 부른다(`VisitStamp.collect`).
-        stamps = await VisitStamp.collect(courses: courses, installId: installId)
+        let collected = await VisitStamp.collect(courses: courses, installId: installId)
+        guard generation == AccountDataReset.generation else { return }
+        stamps = collected
         await postsTask.value
     }
 }
 
 /// 계정 카드와 계정 절 — 본문이 길어져 떼어 냈다(같은 파일이라 상태를 그대로 본다).
 extension ProfileTabView {
+    private func clearAccountData() {
+        courses = []
+        courseCount = 0
+        stamps = []
+        likesFailure = nil
+        likesLoading = false
+    }
+
     /// 피노와 계정 카드 — 비회원이면 로그인 단추, 로그인했으면 닉네임(누르면 바꾸기)과 메일 (MZ2AZ-336·363).
     var header: some View {
         VStack(spacing: 8) {
@@ -460,6 +476,7 @@ extension ProfileTabView {
                         .background(Capsule().fill(Color.accentColor))
                 }
                 .buttonStyle(.plain)
+                .disabled(auth.busy)
                 .padding(.top, 4)
             }
         }

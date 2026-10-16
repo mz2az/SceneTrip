@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SceneApiClient
 
@@ -46,15 +47,27 @@ final class CartStore: ObservableObject {
 
     private let installId: UUID
     private let client: any CartClient
+    private var resetWatch: AnyCancellable?
 
     init() {
         installId = InstallIdentity.current
         client = ServerCartClient()
+        watchReset()
     }
 
     init(installId: UUID, client: any CartClient) {
         self.installId = installId
         self.client = client
+        watchReset()
+    }
+
+    private func watchReset() {
+        resetWatch = AccountDataReset.changes.sink { [weak self] _ in
+            self?.items = []
+            self?.placeIds = []
+            self?.toast = nil
+            self?.loadState = .notLoaded
+        }
     }
 
     func contains(_ placeId: Int64) -> Bool {
@@ -62,25 +75,31 @@ final class CartStore: ObservableObject {
     }
 
     func refresh() async {
+        let generation = AccountDataReset.generation
         loadState = .loading
         do {
             let cart = try await client.fetch(installId: installId)
+            guard generation == AccountDataReset.generation else { return }
             items = cart.items
             placeIds = Set(cart.items.map(\.placeId))
             loadState = .loaded
         } catch {
+            guard generation == AccountDataReset.generation else { return }
             loadState = .failed
         }
     }
 
     /// 담기. 409 중 `DUPLICATE_CART_ITEM`만 이미 담긴 상태로 처리한다.
     func add(placeId: Int64, sourceContentId: Int64? = nil) async {
+        let generation = AccountDataReset.generation
         do {
             try await client.add(installId: installId, placeId: placeId, sourceContentId: sourceContentId)
+            guard generation == AccountDataReset.generation else { return }
             placeIds.insert(placeId)
             toast = tr("장바구니에 담았습니다")
             AppAnalytics.log(.savePlace(placeId: placeId))
         } catch {
+            guard generation == AccountDataReset.generation else { return }
             let failure = ApiFailure(error)
             if failure.statusCode == 409, failure.apiCode == "DUPLICATE_CART_ITEM" {
                 placeIds.insert(placeId)
@@ -94,12 +113,15 @@ final class CartStore: ObservableObject {
     }
 
     func remove(placeId: Int64) async {
+        let generation = AccountDataReset.generation
         do {
             try await client.remove(installId: installId, placeId: placeId)
         } catch {
+            guard generation == AccountDataReset.generation else { return }
             toast = tr("빼지 못했습니다. 잠시 후 다시 시도해 주세요")
             return
         }
+        guard generation == AccountDataReset.generation else { return }
         items.removeAll { $0.placeId == placeId }
         placeIds.remove(placeId)
         // 담을 때 알려 줬으니 뺄 때도 알려 준다. 목록 행에서 빼면 아이콘만 바뀌어

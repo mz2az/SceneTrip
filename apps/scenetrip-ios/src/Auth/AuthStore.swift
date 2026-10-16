@@ -175,6 +175,30 @@ final class AuthStore: ObservableObject {
         }
     }
 
+    /// 비회원 기록만 지운다. 성공해도 토큰·설치 UUID·로그인 상태를 변경하지 않는다.
+    func deleteDeviceData(
+        delete: (UUID) async -> GuestDataDeletion.Outcome = { await GuestDataDeletion.delete(installId: $0) },
+        clearOwner: @MainActor () -> Void = { FootprintStore.shared.forgetOwner() }
+    ) async -> GuestDataDeletion.Outcome {
+        guard GuestDataDeletion.isVisible(signedIn: signedIn), !busy else { return .failed }
+        busy = true
+        defer { busy = false }
+        let requestedEpoch = epoch
+        do {
+            try await PendingWrites.settle()
+        } catch {
+            return .failed
+        }
+        guard !Task.isCancelled, !signedIn, epoch == requestedEpoch else { return .failed }
+        let outcome = await delete(installId)
+        guard !signedIn, epoch == requestedEpoch else { return .failed }
+        if outcome == .deleted {
+            clearLocalAccountData(clearOwner)
+            accountChanged()
+        }
+        return outcome
+    }
+
     /// 세션이 깨졌다(토큰 위조·폐기·리프레시 만료). 토큰을 지우고 로그인 화면을 띄운다.
     func sessionLost() {
         guard signedIn else { return }
@@ -267,7 +291,7 @@ final class AuthStore: ObservableObject {
     private func forget() {
         nicknamePromptTask?.cancel()
         // 발자취는 기기에만 있지만 그 사람의 것이다 — 계정이 떠나면 함께 지운다 (MZ2AZ-348).
-        FootprintStore.shared.forgetOwner()
+        clearLocalAccountData()
         AuthTokens.clear()
         GoogleOAuth.forget()
         me = nil
@@ -275,6 +299,11 @@ final class AuthStore: ObservableObject {
         askingNickname = false
         AppAnalytics.setMember(false)
         accountChanged()
+    }
+
+    private func clearLocalAccountData(_ clearOwner: @MainActor () -> Void = { FootprintStore.shared.forgetOwner() }) {
+        clearOwner()
+        AccountDataReset.clear()
     }
 
     private func accountChanged() {

@@ -203,7 +203,7 @@ class AppleSignInIntegrationTest {
     assertThat(cipher.decrypt(stored)).isEqualTo(issuedRefreshToken);
 
     request.addHeader("Authorization", "Bearer " + session.getAccessToken());
-    ResponseEntity<Void> deleted = controller.deleteMe();
+    ResponseEntity<Void> deleted = controller.deleteMe(install);
 
     assertThat(deleted.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
     assertThat(revokeRequests).hasSize(1);

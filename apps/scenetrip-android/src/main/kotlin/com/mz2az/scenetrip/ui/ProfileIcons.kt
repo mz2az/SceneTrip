@@ -191,6 +191,57 @@ fun GlobeIcon(
     }
 }
 
+/** `hand.raised` — 네 손가락과 손바닥(개인정보 처리방침 줄). */
+@Composable
+fun HandRaisedIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = line(w)
+        val finger = Stroke(width = w * 0.12f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        // 손가락 네 개 — 가운데 둘이 더 길다.
+        drawLine(tint, Offset(w * 0.28f, w * 0.52f), Offset(w * 0.28f, w * 0.26f), strokeWidth = finger.width, cap = StrokeCap.Round)
+        drawLine(tint, Offset(w * 0.43f, w * 0.44f), Offset(w * 0.43f, w * 0.12f), strokeWidth = finger.width, cap = StrokeCap.Round)
+        drawLine(tint, Offset(w * 0.58f, w * 0.44f), Offset(w * 0.58f, w * 0.14f), strokeWidth = finger.width, cap = StrokeCap.Round)
+        drawLine(tint, Offset(w * 0.73f, w * 0.5f), Offset(w * 0.73f, w * 0.28f), strokeWidth = finger.width, cap = StrokeCap.Round)
+        // 손바닥 — 아래가 둥근 윤곽과 왼쪽으로 뻗은 엄지.
+        val palm =
+            Path().apply {
+                moveTo(w * 0.28f, w * 0.52f)
+                lineTo(w * 0.28f, w * 0.62f)
+                cubicTo(w * 0.28f, w * 0.9f, w * 0.73f, w * 0.9f, w * 0.73f, w * 0.62f)
+                lineTo(w * 0.73f, w * 0.5f)
+                moveTo(w * 0.28f, w * 0.52f)
+                lineTo(w * 0.16f, w * 0.42f)
+            }
+        drawPath(palm, tint, style = s)
+    }
+}
+
+/** `doc.text` — 글줄이 있는 문서(이용약관 줄). */
+@Composable
+fun DocTextIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = line(w)
+        drawRoundRect(
+            tint,
+            topLeft = Offset(w * 0.2f, w * 0.08f),
+            size = Size(w * 0.6f, w * 0.84f),
+            cornerRadius = CornerRadius(w * 0.1f),
+            style = s,
+        )
+        drawLine(tint, Offset(w * 0.34f, w * 0.38f), Offset(w * 0.66f, w * 0.38f), strokeWidth = s.width, cap = StrokeCap.Round)
+        drawLine(tint, Offset(w * 0.34f, w * 0.54f), Offset(w * 0.66f, w * 0.54f), strokeWidth = s.width, cap = StrokeCap.Round)
+        drawLine(tint, Offset(w * 0.34f, w * 0.70f), Offset(w * 0.54f, w * 0.70f), strokeWidth = s.width, cap = StrokeCap.Round)
+    }
+}
+
 /** `xmark` — 굵은 X. */
 @Composable
 fun XMarkIcon(

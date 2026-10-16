@@ -51,8 +51,16 @@ final class RouteStore: ObservableObject {
 
     /// `LikeStore` 가 바뀌면 이 객체를 보는 화면(마법사의 하트·정렬)도 다시 그려져야 한다.
     private var likesWatch: AnyCancellable?
+    private var resetWatch: AnyCancellable?
 
     init() {
+        resetWatch = AccountDataReset.changes.sink { [weak self] _ in
+            self?.courses = []
+            self?.courseList = .loaded
+            self?.failure = nil
+            self?.saveFailure = nil
+            self?.loading = false
+        }
         // 하트(`contentIds`)와 찜한 작품의 요약(`works`) 어느 쪽이 바뀌어도 다시 그린다.
         likesWatch = LikeStore.shared.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
@@ -150,14 +158,17 @@ final class RouteStore: ObservableObject {
 
     /// 코스 목록만. 재료(촬영지 200 · 작품 30)를 기다리지 않는다.
     func refreshCourses() async {
+        let generation = AccountDataReset.generation
         loading = courses.isEmpty
         defer { loading = false }
         do {
             let list = try await CoursesAPI.listCourses(xInstallId: installId)
+            guard generation == AccountDataReset.generation else { return }
             courses = list.items.map(RouteBridge.course(from:))
             courseList = .loaded
             failure = nil
         } catch {
+            guard generation == AccountDataReset.generation else { return }
             // 전에 받아 둔 목록이 있으면 그것이 화면에 남는다 — 「모른다」 로 되돌리지 않는다.
             if courseList != .loaded {
                 courseList = .failed
