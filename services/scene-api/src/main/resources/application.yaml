@@ -257,6 +257,12 @@ scenetrip:
   moderation:
     report-retention-days: 365
 
+  # 방치된 비회원 계정(MZ2AZ-467). 마지막 이용 후 이만큼 지나면 지운다 — 처리방침의 「비회원 기록은 마지막 이용 후 1 년」 과 같아야 한다.
+  # 하루에 purge-batch 개까지(큰 DELETE 로 표를 오래 잡지 않는다).
+  guest:
+    retention-days: 365
+    purge-batch: 10000
+
   # 리뷰 보관본(review_archive — 같은 곳 연결이 지운 겹친 리뷰의 사본, V30). 이만큼 지나면 사진과 함께 지운다(MZ2AZ-466).
   # 처리방침에 적는 기간과 같아야 한다. 탈퇴하면 기간과 상관없이 바로 지운다.
   review:

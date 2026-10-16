@@ -780,7 +780,7 @@ class ReviewFlowIntegrationTest {
     reviews.putMyPlaceReview(place, input(4, "지워질 글"));
     reviews.putMyPoiReview(poi, input(2, null));
 
-    assertThat(auth.deleteMe().getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    assertThat(auth.deleteMe(UUID.randomUUID()).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 
     withoutToken();
     assertThat(appUserCount(leaver)).isZero();

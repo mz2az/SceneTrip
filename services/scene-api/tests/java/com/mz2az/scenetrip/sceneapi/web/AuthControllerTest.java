@@ -73,6 +73,7 @@ class AuthControllerTest {
 
   private static final UUID INSTALL_ID = UUID.fromString("5b0c2d71-3e4f-4a9b-8c1d-7e6f5a4b3c21");
   private static final UUID USER = UUID.fromString("7a3e9c10-4b2d-4e8f-a1c6-0d9b8e7f6a52");
+  private static final UUID GUEST = UUID.fromString("0c4f8a2e-6d1b-4c3a-9e7f-2b5d8a1c4e63");
   private static final OffsetDateTime REGISTERED_AT = OffsetDateTime.parse("2026-09-20T03:15:30Z");
 
   private static final String OLD_REFRESH = "old-refresh-token-value-aaaaaaaaaaaaaaaaaaaa";
@@ -380,10 +381,68 @@ class AuthControllerTest {
     verify(users).delete(USER);
   }
 
+  // 계약 1.22.0(MZ2AZ-467): 토큰 없이 부르면 X-Install-Id 의 비회원 계정과 그 기록을 지운다. 지운 결과(DB)는 통합 레인
+  // GuestDeleteMeIntegrationTest 가 본다. 여기서는 HTTP 상태와 거절 코드를 본다.
+
   @Test
-  @DisplayName("토큰 없이 탈퇴하면 401 ACCESS_TOKEN_INVALID 이고 아무것도 지우지 않는다")
-  void deleteMeWithoutTokenIsInvalid() throws Exception {
+  @DisplayName("토큰 없이 비회원 설치본이 부르면 204 — 비회원 기록 지우기(1.22.0)")
+  void deleteMeWithoutTokenForGuestInstallIsNoContent() throws Exception {
+    when(users.lookup(INSTALL_ID)).thenReturn(new UserStore.Account(GUEST, false));
+
     mvc.perform(delete("/me").header("X-Install-Id", INSTALL_ID.toString()))
+        .andExpect(status().isNoContent());
+
+    verify(users, never()).delete(USER);
+  }
+
+  @Test
+  @DisplayName("토큰도 X-Install-Id 도 없으면 401 ACCESS_TOKEN_INVALID 이고 아무것도 지우지 않는다(X-Install-Id 는 선택)")
+  void deleteMeWithoutTokenAndInstallIsInvalid() throws Exception {
+    mvc.perform(delete("/me"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("ACCESS_TOKEN_INVALID"));
+
+    verify(users, never()).delete(any());
+  }
+
+  @Test
+  @DisplayName("토큰 없이 가입 계정의 설치본이 부르면 401 SESSION_REQUIRED 이고 아무것도 지우지 않는다")
+  void deleteMeWithoutTokenForMemberInstallIsSessionRequired() throws Exception {
+    when(users.lookup(INSTALL_ID)).thenReturn(new UserStore.Account(USER, true));
+
+    mvc.perform(delete("/me").header("X-Install-Id", INSTALL_ID.toString()))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("SESSION_REQUIRED"));
+
+    verify(users, never()).delete(any());
+  }
+
+  @Test
+  @DisplayName("토큰이 있으면 X-Install-Id 는 무시한다 — 다른 비회원 설치본을 실어도 토큰의 계정만 지운다")
+  void deleteMeWithTokenIgnoresInstallId() throws Exception {
+    when(users.touchSignedIn(USER)).thenReturn(true);
+    when(users.delete(USER)).thenReturn(true);
+    when(users.lookup(INSTALL_ID)).thenReturn(new UserStore.Account(GUEST, false));
+
+    mvc.perform(
+            delete("/me")
+                .header("Authorization", bearer())
+                .header("X-Install-Id", INSTALL_ID.toString()))
+        .andExpect(status().isNoContent());
+
+    verify(users).delete(USER);
+    verify(users, never()).delete(GUEST);
+  }
+
+  @Test
+  @DisplayName("깨진 토큰이면 X-Install-Id 가 있어도 401 ACCESS_TOKEN_INVALID — 비회원 지우기로 넘어가지 않는다")
+  void deleteMeWithBrokenTokenAndInstallIsInvalid() throws Exception {
+    when(users.lookup(INSTALL_ID)).thenReturn(new UserStore.Account(GUEST, false));
+
+    mvc.perform(
+            delete("/me")
+                .header("Authorization", "Bearer not-a-token")
+                .header("X-Install-Id", INSTALL_ID.toString()))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.code").value("ACCESS_TOKEN_INVALID"));
 
