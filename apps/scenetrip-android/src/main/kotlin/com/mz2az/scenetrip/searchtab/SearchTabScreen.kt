@@ -41,12 +41,16 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.auth.AuthStore
+import com.mz2az.scenetrip.data.AIConsentGate
 import com.mz2az.scenetrip.data.ApiFailure
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CartStore
+import com.mz2az.scenetrip.data.CoordinateSource
 import com.mz2az.scenetrip.data.LikeStore
+import com.mz2az.scenetrip.data.LocationConsentStore
 import com.mz2az.scenetrip.data.SceneData
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.data.requestLocation
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
@@ -55,6 +59,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.Scene
 import com.mz2az.scenetrip.sceneapi.client.model.Suggestion
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.naver.maps.map.LocationTrackingMode
 import com.naver.maps.map.NaverMap
 import kotlinx.coroutines.launch
@@ -326,17 +331,31 @@ fun SearchTabScreen() {
         map?.fit(visiblePlaces, density, screenHeight, sheetHeight, SEARCH_BAR_INSET + statusBar)
     }
 
+    // 지도 범위가 GPS(내 위치)에서 왔으면 이 범위로 조회하는 순간 기기 위치가 서버로 간다 — 위치기반서비스 동의를 먼저 받는다.
+    // 손으로 옮기거나 검색 결과를 고른 범위는 사용자가 고른 영역이라 묻지 않는다. 취소하면 아무것도 바꾸지 않는다(MZ2AZ-472).
+    val locationGate = remember { AIConsentGate(LocationConsentStore.getInstance(context)) }
+    LocationConsentSheetHost(locationGate)
+
+    fun applyViewportSearch(
+        bbox: String,
+        source: CoordinateSource,
+    ) {
+        nearby = true
+        draft = ""
+        committed = ""
+        selectedContent = null
+        tab = ListTab.PLACE
+        chip = CategoryChip.ALL
+        detent = Detent.MEDIUM
+        data.searchInViewport(bbox, source)
+    }
+
     fun searchViewport() {
-        map?.contentBounds?.let { box ->
-            nearby = true
-            draft = ""
-            committed = ""
-            selectedContent = null
-            tab = ListTab.PLACE
-            chip = CategoryChip.ALL
-            detent = Detent.MEDIUM
-            data.searchInViewport("${box.westLongitude},${box.southLatitude},${box.eastLongitude},${box.northLatitude}")
-        }
+        val target = map ?: return
+        val box = target.contentBounds
+        val bbox = "${box.westLongitude},${box.southLatitude},${box.eastLongitude},${box.northLatitude}"
+        val source = target.regionSource.source
+        locationGate.requestLocation(source) { applyViewportSearch(bbox, source) }
     }
 
     fun commit(

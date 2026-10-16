@@ -87,6 +87,15 @@ object AuthStore {
                         .getInstance(appContext),
                 ),
         )
+        // 기기 좌표를 싣는 요청(지도 범위 검색·주변 편의시설·가이드·길 안내)은 위치기반서비스 동의가 있어야 나간다(MZ2AZ-472).
+        // 같은 자리(재시도 계층의 안쪽)라 인증 갱신 뒤 재전송과 자동 재시도도 매번 검사받는다.
+        ApiClient.builder.addInterceptor(
+            com.mz2az.scenetrip.data
+                .LocationConsentInterceptor(
+                    com.mz2az.scenetrip.data.LocationConsentStore
+                        .getInstance(appContext),
+                ),
+        )
         AuthTokens.load(appContext)
         installId = InstallIdentity.of(appContext)
         signedIn = AuthTokens.hasSession

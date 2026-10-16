@@ -11,6 +11,9 @@ object LegalLinks {
     const val PRIVACY = "https://scenetrip.io/privacy"
     const val TERMS = "https://scenetrip.io/terms"
 
+    /** 위치기반서비스 이용약관(이용약관 안의 별도 조) — 위치 동의 시트의 링크 (MZ2AZ-472). iOS `LegalLinks.locationServices`. */
+    const val LOCATION_SERVICES = "https://scenetrip.io/terms#location-services"
+
     /** 마이페이지 섹션 제목과 줄 이름 — iOS 와 같은 한국어 원문이 번역표의 열쇠다. */
     const val SECTION_TITLE_KO = "약관 및 정책"
     const val PRIVACY_TITLE_KO = "개인정보 처리방침"

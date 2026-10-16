@@ -34,6 +34,9 @@ data class NetworkFailure(
                 // 로컬 차단(MZ2AZ-468) — 서버 코드가 아니라 [AIConsentRequired] 가 만든 열쇠다.
                 AIConsentRequired.CODE -> AIConsentRequired.MESSAGE_KO
 
+                // 위치기반서비스 동의 전에는 기기 좌표를 싣는 요청이 나가지 않는다(MZ2AZ-472).
+                LocationConsentRequired.CODE -> LocationConsentRequired.MESSAGE_KO
+
                 "SIGN_IN_REQUIRED", "ACCESS_TOKEN_EXPIRED", "SESSION_REQUIRED" -> "로그인이 필요해요"
 
                 "RATE_LIMITED" -> "요청이 많아요. 잠시 뒤 다시 시도해 주세요"
@@ -50,6 +53,7 @@ data class NetworkFailure(
     companion object {
         fun of(error: Throwable): NetworkFailure {
             if (AIConsentRequired.isIn(error)) return NetworkFailure(null, AIConsentRequired.CODE, null)
+            if (LocationConsentRequired.isIn(error)) return NetworkFailure(null, LocationConsentRequired.CODE, null)
             val response =
                 when (error) {
                     is ClientException -> error.response

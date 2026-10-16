@@ -19,23 +19,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.AIConsentGate
 import com.mz2az.scenetrip.data.AIConsentStore
+import com.mz2az.scenetrip.data.LocationConsentStore
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.AIConsentCopy
 import com.mz2az.scenetrip.ui.AIConsentSheetHost
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSToggle
+import com.mz2az.scenetrip.ui.LocationArrowIcon
+import com.mz2az.scenetrip.ui.LocationConsentCopy
+import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.rememberConsentTick
 
 private val SYSTEM_PURPLE = Color(0xFFAF52DE)
 
 /**
- * 마이페이지의 AI 기능 토글 (MZ2AZ-468). iOS `ProfileTab/ProfileAISettings.swift` 를 옮긴 것이다.
+ * 마이페이지의 AI 기능·위치기반서비스 이용 토글 (MZ2AZ-468·472). iOS `ProfileTab/ProfileAISettings.swift` 를 옮긴 것이다.
  *
  * 켜진 상태는 저장된 동의 버전이 현재 안내 버전과 같을 때뿐이다. **끄면 동의를 철회**하고, 다시 켤 때도
- * 같은 안내를 확인해야 한다(안내를 취소하면 켜지지 않는다). 다른 기능에는 영향이 없다.
- * 위치기반서비스 동의(MZ2AZ-472)가 들어오면 같은 저장소 클래스([com.mz2az.scenetrip.data.VersionedConsentStore])로
- * 바로 아래에 토글 하나를 더 두면 된다.
+ * 같은 안내를 확인해야 한다(안내를 취소하면 켜지지 않는다). 두 동의는 저장 키·철회가 서로 독립이다 —
+ * 위치를 끄면 이미 나가 있는 위치 요청만 끊고 AI 동의는 그대로다.
  */
 @Composable
 fun ProfileAISettings() {
@@ -66,4 +69,31 @@ fun ProfileAISettings() {
         modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 8.dp),
     )
     AIConsentSheetHost(gate)
+
+    // 위치기반서비스 이용 (MZ2AZ-472) — 지도 범위 검색·주변 편의시설·가이드·길 안내가 쓰는 기기 위치. 시스템 위치 권한과 별개다.
+    val locationStore = LocationConsentStore.getInstance(context)
+    val locationGate = remember(locationStore) { AIConsentGate(locationStore) }
+    val locationSubscribe = remember(locationStore) { locationStore::addListener }
+    rememberConsentTick(locationSubscribe)
+    val locationAllowed = locationStore.isAllowed
+    ProfileSection(null) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
+        ) {
+            Box(modifier = Modifier.width(26.dp), contentAlignment = Alignment.Center) {
+                LocationArrowIcon(IOS.label, filled = false, modifier = Modifier.size(16.dp))
+            }
+            Text(tr(LocationConsentCopy.TOGGLE_KO), fontSize = 15.sp, color = IOS.label, modifier = Modifier.weight(1f), maxLines = 2)
+            IOSToggle(checked = locationAllowed, onCheckedChange = { locationGate.setEnabled(it) })
+        }
+    }
+    Text(
+        tr(LocationConsentCopy.FOOTNOTE_KO),
+        fontSize = 13.sp,
+        color = IOS.secondaryLabel,
+        modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 8.dp),
+    )
+    LocationConsentSheetHost(locationGate)
 }

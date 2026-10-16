@@ -90,6 +90,7 @@ kt_jvm_library(
         "tests/LanguageAndCartTests.kt",
         "tests/LatestIosSyncTests.kt",
         "tests/LegalAndAiNoticeTests.kt",
+        "tests/LocationConsentTests.kt",
         "tests/MapInsetsTests.kt",
         "tests/ModerationTests.kt",
         "tests/MyReviewDetailsTests.kt",

@@ -50,8 +50,8 @@ class RetryInterceptor(
             } catch (error: IOException) {
                 failed = error
             }
-            // 동의가 없거나 철회됐다 — 요청이 나가지 않았으니 되풀이하지 않는다(iOS `AIConsentRequired`).
-            if (failed is AIConsentRequired) throw failed
+            // 동의가 없거나 철회됐다 — 요청이 나가지 않았으니 되풀이하지 않는다(iOS `AIConsentRequired`·`LocationConsentRequired`).
+            if (failed is AIConsentRequired || failed is LocationConsentRequired) throw failed
             if (chain.call().isCanceled()) {
                 response?.close()
                 throw InterruptedIOException("cancelled")

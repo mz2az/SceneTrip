@@ -17,10 +17,12 @@ interface SearchClient {
         offset: Int,
     ): ContentList
 
+    /** [source] 는 [bbox] 가 기기 위치(GPS)에서 온 범위인지다 — 위치기반서비스 동의가 필요한지를 전송 계층이 가른다(MZ2AZ-472). */
     suspend fun places(
         query: String?,
         bbox: String?,
         offset: Int,
+        source: CoordinateSource = CoordinateSource.DEVICE,
     ): PlaceList
 }
 
@@ -48,9 +50,12 @@ class ServerSearchClient : SearchClient {
         query: String?,
         bbox: String?,
         offset: Int,
+        source: CoordinateSource,
     ): PlaceList =
         withContext(Dispatchers.IO) {
-            placeApi.listPlaces(q = query, bbox = bbox, limit = PLACE_PAGE_SIZE, offset = offset)
+            CoordinateSources.with(source) {
+                placeApi.listPlaces(q = query, bbox = bbox, limit = PLACE_PAGE_SIZE, offset = offset)
+            }
         }
 
     companion object {

@@ -107,6 +107,7 @@ class RouteStore(
     private val contentsApi = ContentsApi(API_BASE)
     private val placesApi = PlacesApi(API_BASE)
     private val likeStore = LikeStore.getInstance(context)
+    private val locationConsent = LocationConsentStore.getInstance(context)
     private val deviceId: UUID = InstallIdentity.of(context)
 
     /** [works]를 채운다. 마법사가 작품 선택 단계에 들어갈 때 부른다. */
@@ -317,8 +318,9 @@ class RouteStore(
                         titles = requestTitles.take(5),
                         days = span.days,
                         pace = if (pace == RoutePace.LOOSE) GuidePlanRequest.Pace.relaxed else GuidePlanRequest.Pace.packed,
-                        latitude = latitude,
-                        longitude = longitude,
+                        // 출발점은 선택값이다. 위치기반서비스 동의가 없으면 좌표를 빼고 만든다 — 전송 계층도 한 번 더 뺀다(MZ2AZ-472).
+                        latitude = latitude.takeIf { locationConsent.isAllowed },
+                        longitude = longitude.takeIf { locationConsent.isAllowed },
                     )
                 val reply = guideApi.planWithGuide(request)
                 AppAnalytics.log(AppEvent.GeneratePlan(span.days, request.titles.size))

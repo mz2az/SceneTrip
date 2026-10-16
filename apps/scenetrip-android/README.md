@@ -53,6 +53,7 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 | 안내 중 가이드 입구 | 배너 얼굴로 전환, 카드·서랍·핀 찍기 상태별 한 곳만 표시. 지도 앱 링크는 줄바꿈 |
 | 신고·차단·문의 (MZ2AZ-461) | 남의 리뷰·여행후기·홈 「커뮤니티 지금」의 「⋯」 → 신고(이유 여섯 + 설명)·이 사용자 차단, 마이페이지 「차단한 사용자」·「문의하기」, 금칙어 안내. [계획](../../docs/project/plans/android-moderation.md) |
 | AI 기능 동의 (MZ2AZ-468) | 첫 가이드 질문·첫 AI 코스 만들기 전 「AI 기능 사용 안내」 시트, 마이페이지 토글. [계획](../../docs/project/plans/android-ai-consent.md) |
+| 위치기반서비스 이용 동의 (MZ2AZ-472) | 기기 좌표를 서버로 보내기 전 「위치기반서비스 이용 동의」 시트, 마이페이지 토글, 길 안내 성공 때 카카오 제공 알림. [계획](../../docs/project/plans/android-location-consent.md) |
 | 영어 | iOS의 최신 영어 문구에서 변환. Android 전용 문구는 `TranslationExtras.kt` |
 | 약관·정책·탈퇴·AI 안내 (MZ2AZ-455·452·439) | 아래 「약관 링크·탈퇴 문구·AI 답변 안내」 |
 
@@ -153,6 +154,19 @@ iOS의 AI 동의([`ios-ai-consent.md`](../../docs/project/plans/ios-ai-consent.m
 **요청 계층에서도 막는다.** `AIConsentInterceptor`가 `AuthInterceptor` → `RetryInterceptor` 다음에 붙어 `POST /guide/chat`·`/guide/plan`의
 매 전송(인증 갱신 뒤 재전송·자동 재시도 포함)을 검사하고, 동의가 없으면 `AIConsentRequired`로 끝낸다. 허용 확인과 호출 등록이
 철회와 같은 잠금이라 첫 검사 뒤 철회돼도 시작되지 않고, 나가 있는 호출은 철회 때 끊긴다. 시험은 `tests/AIConsentTests.kt`.
+
+### 위치기반서비스 이용 동의 (MZ2AZ-472)
+
+iOS의 위치 동의([`ios-location-consent.md`](../../docs/project/plans/ios-location-consent.md))를 같은 문구로 옮겼다. **기기 좌표를 우리 서버로 보내는 순간**에만 묻는다 — GPS(내 위치)에서 온 지도 범위로 촬영지를 찾을 때
+(`현 지도 내 성지 검색`), 같은 범위로 코스 편집 지도의 주변 편의시설을 받을 때, 가이드 질문(AI 동의 다음), 출발점이 있는 AI 코스 만들기, 길 안내 요청. 손으로 옮기거나 검색 결과를 고른 지도 범위,
+파란 점·도착 판정·발자취처럼 기기 안에서만 쓰는 위치는 묻지 않는다. 시트는 AI 안내와 같은 `ConsentSheet`(`ui/LocationConsentSheet.kt`)이고 약관 링크는 `LegalLinks.LOCATION_SERVICES`
+(`https://scenetrip.io/terms#location-services`)다. 취소하면 보내지 않거나(촬영지 검색·편의시설·가이드·길 안내) 위치 없이 이어 간다(AI 코스 만들기). 마이페이지 「위치기반서비스 이용」 토글은
+「AI 기능 사용」 바로 아래이고 서로 독립으로 철회한다. 동의는 `SharedPreferences` 정수 `scenetrip.locationConsentVersion`(현재 안내 버전과 같을 때만 허용)이다.
+
+**요청 계층에서도 막는다.** `LocationConsentInterceptor`가 `AIConsentInterceptor` 바로 뒤에 붙어(재시도 안쪽) `/navigation/*`, 기기 출처의 `GET /places`·`/pois` 지도 좌표, 좌표를 실은 `POST /guide/chat`을 동의 없이는
+보내지 않고(`LocationConsentRequired`), `POST /guide/plan`은 `latitude`·`longitude`만 빼고 보낸다. 좌표 출처(기기 / 사용자가 고른 지도·목적지)는 호출 스레드 값(`CoordinateSources.with`)으로 싣고
+표식이 없으면 기기로 본다. 철회는 전송 시작과 같은 잠금이고 나가 있는 위치 요청을 끊는다. 길 안내는 요청마다 동의를 확인하고, 성공하면 사용자 요청 하나에 한 번
+「길 안내를 위해 카카오에 현재 위치를 보냈어요.」 띠를 4초 띄운다. 외부 지도 링크에는 현재 좌표를 싣지 않는다(목적지만). 시험은 `tests/LocationConsentTests.kt`.
 
 | 항목 | 값 |
 | --- | --- |
