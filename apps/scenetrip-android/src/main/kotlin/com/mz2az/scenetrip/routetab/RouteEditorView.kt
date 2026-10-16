@@ -115,6 +115,7 @@ import com.mz2az.scenetrip.ui.StairsIcon
 import com.mz2az.scenetrip.ui.SubwayIcon
 import com.mz2az.scenetrip.ui.SwapArrowsIcon
 import com.mz2az.scenetrip.ui.TransitIcon
+import com.mz2az.scenetrip.ui.UnavailableNoticeRow
 import com.mz2az.scenetrip.ui.WalkIcon
 import com.mz2az.scenetrip.ui.sheetListBottom
 import com.naver.maps.geometry.LatLng
@@ -364,7 +365,8 @@ fun RouteEditorView(
         val allStops = course.days.flatMap { it.stops }
         if (allStops.isEmpty()) return@LaunchedEffect
         TabRouter.pendingTripStart = false
-        val next = allStops.firstOrNull { !it.visited } ?: allStops.first()
+        // 숨김·폐업 행은 건너뛴다. 갈 수 있는 곳이 없으면 코스를 시작하지 않는다(MZ2AZ-458).
+        val next = RouteAvailability.startTarget(allStops) ?: return@LaunchedEffect
         val serverId = course.serverId ?: return@LaunchedEffect
         store.setRunning(course, true, dayNo = 1)
         course = course.copy(isRunning = true)
@@ -619,31 +621,7 @@ fun RouteEditorView(
         guideSession.lastEffects.forEach { effect ->
             if (effect.op in listOf("plan.draft", "plan.revise", "plan.move")) {
                 effect.plan?.let { plan ->
-                    val oldStops = course.stops.toMutableList()
-                    val fresh = RouteGuidePlan.course(plan, course.title, course.startDate, course.pace)
-                    val days =
-                        fresh.days.map { day ->
-                            day.copy(
-                                stops =
-                                    day.stops.map { stop ->
-                                        val index = oldStops.indexOfFirst { it.sameTarget(stop) }
-                                        if (index < 0) {
-                                            stop
-                                        } else {
-                                            oldStops.removeAt(index).let { old ->
-                                                stop.copy(id = old.id, serverItemId = old.serverItemId, visited = old.visited)
-                                            }
-                                        }
-                                    },
-                            )
-                        }
-                    course =
-                        fresh.copy(
-                            serverId = course.serverId,
-                            isRunning = course.isRunning,
-                            detailLoaded = course.detailLoaded,
-                            days = days,
-                        )
+                    course = RouteGuidePlan.revising(course, plan)
                     dayIndex = dayIndex.coerceAtMost(course.days.lastIndex.coerceAtLeast(0))
                     focusedStopId = null
                     fitToken += 1
@@ -843,7 +821,7 @@ fun RouteEditorView(
             )
             PlanOverlay(
                 map = map,
-                stops = stops,
+                allStops = stops,
                 // 안내 중인 목표에서 나가는 선은 남긴다 — 다녀온 곳에서 끊되, 지금
                 // 가는 길은 계획선으로도 보여야 한다(iOS `RouteMapTrip.drawLine`
                 // 의 `keepFrom`).
@@ -964,8 +942,10 @@ fun RouteEditorView(
                             unvisitedAfter = { current ->
                                 val flat = course.days.flatMap { it.stops }
                                 val index = flat.indexOfFirst { it.id == current.id }
-                                if (index < 0) null else flat.drop(index + 1).firstOrNull { !it.visited }
+                                // 숨김·폐업 행은 다음 목적지가 될 수 없다(MZ2AZ-458).
+                                if (index < 0) null else flat.drop(index + 1).firstOrNull { !it.visited && it.canNavigate }
                             },
+                            onlyUnavailableRemaining = RouteAvailability.hasOnlyUnavailableRemaining(course.days.flatMap { it.stops }),
                         )
                     }
                     DayTabs(
@@ -1085,7 +1065,7 @@ fun RouteEditorView(
                             RouteStopRow(
                                 number = index + 1,
                                 stop = stop,
-                                nextKilometers = stops.getOrNull(index + 1)?.let { RouteGeometry.kilometers(stop.place, it.place) },
+                                nextKilometers = RouteAvailability.nextKilometers(index, stops),
                                 isFocused = focusedStopId == stop.id,
                                 // 첫 줄에 "출발 고정", 마지막 줄에 "도착 고정". 한 곳뿐이면
                                 // 고정할 것이 없다 — 그 하나가 출발이자 도착이라 뜻이 없다
@@ -1150,7 +1130,7 @@ fun RouteEditorView(
                                 },
                                 isTarget = trip.target?.id == stop.id,
                                 onNavigate =
-                                    if (course.isRunning && !visitBlocked()) {
+                                    if (course.isRunning && stop.canNavigate && !visitBlocked()) {
                                         {
                                             if (trip.isActive) {
                                                 if (!visitBlocked()) trip.advance(stop, scope)
@@ -1162,6 +1142,17 @@ fun RouteEditorView(
                                         null
                                     },
                             )
+                            // 목록에서 빠진 촬영지·폐업한 편의시설: 지우지 않고 이유를 알리며, 뺄지는 사용자가 정한다(MZ2AZ-458).
+                            stop.unavailable?.let { notice ->
+                                UnavailableNoticeRow(
+                                    item = notice,
+                                    onRemove = {
+                                        updateDay(dayIndex) { d -> d.copy(stops = d.stops.filterNot { it.id == stop.id }) }
+                                        optimizeNudge = stops.size - 1 >= 2
+                                    },
+                                    modifier = Modifier.padding(start = 50.dp, end = 12.dp),
+                                )
+                            }
                             when (visitStatus(stop)) {
                                 VisitStatus.PENDING -> {
                                     Text(tr("방문 기록을 저장하는 중"), color = IOS.secondaryLabel, modifier = Modifier.padding(start = 50.dp))
@@ -1208,6 +1199,24 @@ fun RouteEditorView(
                     // 글자 폭만, 저장이 나머지를 채운다. 여행 중이면 「N번으로 길찾기」가 맨 앞에 온다.
                     // 「코스 시작」은 **지금 보는 일차**로 시작한다(`dayNo = dayIndex + 1`, 그 일차의 첫
                     // 미방문 곳) — 앞서 Android 는 늘 1일차·전체 첫 미방문이었다(2026-09-28 대조).
+                    // 남은 곳이 숨김·폐업뿐이면 「코스를 모두 돌았다」가 아니다 — 완료와 구별해 알리고 시작하지 않는다(MZ2AZ-458).
+                    val nextStop = RouteAvailability.nextUnvisited(stops)
+                    val onlyUnavailable = RouteAvailability.hasOnlyUnavailableRemaining(stops)
+                    val showNoOneToVisit =
+                        course.serverId != null && onlyUnavailable && !trip.isActive && (!course.isRunning || nextStop == null)
+                    if (showNoOneToVisit) {
+                        Text(
+                            tr("갈 수 있는 곳이 없어요. 목록에서 빠지거나 폐업한 곳만 남았어요."),
+                            fontSize = 13.sp,
+                            color = IOS.secondaryLabel,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        IOS.systemBackground,
+                                    ).padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -1222,33 +1231,35 @@ fun RouteEditorView(
                         val serverId = course.serverId
                         if (serverId != null) {
                             val running = course.isRunning
-                            val nextIndex = stops.indexOfFirst { !it.visited }
-                            if (running && nextIndex >= 0 && !trip.isActive) {
+                            if (running && nextStop != null && !trip.isActive) {
                                 EditorCapsuleButton(
-                                    tr("%d번으로 길찾기").format(nextIndex + 1),
+                                    tr("%d번으로 길찾기").format(nextStop.first),
                                     prominent = true,
                                     enabled = !visitBlocked(),
-                                    onClick = { if (!visitBlocked()) trip.start(serverId, stops[nextIndex], scope) },
+                                    onClick = { if (!visitBlocked()) trip.start(serverId, nextStop.second, scope) },
                                 )
                             }
-                            EditorCapsuleButton(
-                                if (running) tr("여행 종료") else tr("코스 시작"),
-                                prominent = false,
-                                enabled = running || !visitBlocked(),
-                                onClick = {
-                                    val turningOn = !running
-                                    val dayNo = dayIndex + 1
-                                    if (!turningOn) trip.end()
-                                    scope.launch {
-                                        store.setRunning(course, turningOn, dayNo = dayNo)
-                                        course = course.copy(isRunning = turningOn)
-                                        if (turningOn) {
-                                            val first = stops.firstOrNull { !it.visited } ?: stops.firstOrNull()
+                            // 시작할 곳이 없으면 시작 단추 자리에 위의 안내가 있다. 이미 여행 중이면 「여행 종료」는 늘 있다.
+                            if (running || !onlyUnavailable) {
+                                EditorCapsuleButton(
+                                    if (running) tr("여행 종료") else tr("코스 시작"),
+                                    prominent = false,
+                                    enabled = running || !visitBlocked(),
+                                    onClick = {
+                                        val turningOn = !running
+                                        val dayNo = dayIndex + 1
+                                        // 시작할 목적지를 먼저 확인한다 — 없으면 화면·서버의 활성 상태를 바꾸지 않는다.
+                                        val first = if (turningOn) RouteAvailability.start(course, dayIndex)?.second else null
+                                        if (turningOn && first == null) return@EditorCapsuleButton
+                                        if (!turningOn) trip.end()
+                                        scope.launch {
+                                            store.setRunning(course, turningOn, dayNo = dayNo)
+                                            course = course.copy(isRunning = turningOn)
                                             if (first != null && !visitBlocked()) trip.start(serverId, first, scope)
                                         }
-                                    }
-                                },
-                            )
+                                    },
+                                )
+                            }
                         }
                         EditorCapsuleButton(
                             if (saving) {
@@ -1354,6 +1365,8 @@ fun RouteEditorView(
                 },
                 onClose = { guideSession.dismiss() },
                 modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 12.dp).padding(bottom = 90.dp),
+                // 코스의 이 행이 목록에서 빠졌거나 폐업했다면 안내를 붙이고 새로 넣는 단추를 숨긴다.
+                unavailable = stops.firstOrNull { pickedPlace.matches(it) }?.unavailable,
             )
         }
     }
@@ -1527,9 +1540,11 @@ private fun EditorAction(
 @Composable
 private fun PlanOverlay(
     map: NaverMap?,
-    stops: List<RouteStop>,
+    allStops: List<RouteStop>,
     keepFromId: java.util.UUID?,
 ) {
+    // 숨김·폐업 행은 핀과 번호는 남기되 계획선에서는 건너뛴다(MZ2AZ-458, iOS `drawLine`).
+    val stops = allStops.filter { it.canNavigate }
     if (map == null || stops.size < 2) return
     androidx.compose.runtime.DisposableEffect(map, stops, keepFromId) {
         val segments = mutableListOf<List<LatLng>>()
@@ -1715,6 +1730,8 @@ private fun TripBanner(
     onNext: (RouteStop) -> Unit,
     onRetry: () -> Unit,
     unvisitedAfter: (RouteStop) -> RouteStop?,
+    // 남은 곳이 숨김·폐업뿐이면 「코스 완료」가 아니다.
+    onlyUnavailableRemaining: Boolean = false,
 ) {
     val target = trip.target ?: return
     Column(modifier = Modifier.fillMaxWidth().background(IOS.pinDeep.copy(alpha = 0.08f)).padding(12.dp)) {
@@ -1837,7 +1854,11 @@ private fun TripBanner(
                 Text(
                     // TODO: iOS 는 "다음 · N번 장소명로 길찾기"로 정지점 번호가 있다 —
                     // 위 ARRIVED 경우와 같은 패리티 차(언어 작업과 별개).
-                    if (next != null) tr("다음 · %s로 길찾기").format(next.place.name) else tr("코스 완료"),
+                    when {
+                        next != null -> tr("다음 · %s로 길찾기").format(next.place.name)
+                        onlyUnavailableRemaining -> tr("갈 수 있는 곳이 없어요. 목록에서 빠지거나 폐업한 곳만 남았어요.")
+                        else -> tr("코스 완료")
+                    },
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = IOS.onAccent,

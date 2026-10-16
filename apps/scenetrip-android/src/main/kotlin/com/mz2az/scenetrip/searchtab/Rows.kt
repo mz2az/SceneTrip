@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -31,10 +32,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.mz2az.scenetrip.data.UnavailableItem
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.UnavailableItemNotice
+import com.mz2az.scenetrip.ui.unavailableAlpha
 
 /**
  * 목록 행. iOS `SearchTab/Rows.swift` 를 그대로 옮긴 것이다.
@@ -72,8 +76,11 @@ fun WorkRow(
             verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier.weight(1f),
         ) {
-            Text(content.title, style = IOS.headline, color = IOS.label)
+            val notice = UnavailableItem.notice(content)
+            Text(content.title, style = IOS.headline, color = IOS.label, modifier = Modifier.alpha(unavailableAlpha(notice)))
             Text(content.meta, style = IOS.caption, color = IOS.secondaryLabel)
+            // 목록에서 빠진 작품은 이유를 알린다 — 찜 목록 말고는 거의 나오지 않지만 같은 행을 쓴다(MZ2AZ-458).
+            if (notice != null) UnavailableItemNotice(notice)
             // "촬영지 N" 은 회색 캡슐 안에 들어간다 — iOS 와 같은 모양이다.
             Text(
                 text = tr("촬영지 %d").format(content.placeCount),
@@ -90,14 +97,17 @@ fun WorkRow(
         // **작품에는 하트, 장소에는 플러스** (8/11 회의 확정). 장소의 `+` 와 같은
         // 자리에 두어 사용자가 규칙을 한 번만 배우게 한다. iOS `Rows.swift` 의
         // `WorkRow` 와 같은 아이콘·같은 색이다 — 찜한 하트는 빨강(`Color.red`).
+        // 목록에서 빠진 작품은 새로 찜할 수 없다. 이미 찜한 것을 빼는 것은 항상 된다(MZ2AZ-458).
+        val canToggle = UnavailableItem.canToggle(delisted = content.delisted, saved = liked)
         Icon(
             imageVector = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
             contentDescription = if (liked) tr("찜 빼기") else tr("찜하기"),
             tint = if (liked) IOS.systemRed else IOS.secondaryLabel,
             modifier =
                 Modifier
+                    .alpha(if (canToggle) 1f else 0.4f)
                     .clip(CircleShape)
-                    .clickable(onClick = onToggleLike)
+                    .clickable(enabled = canToggle, onClick = onToggleLike)
                     .padding(2.dp)
                     .size(24.dp),
         )

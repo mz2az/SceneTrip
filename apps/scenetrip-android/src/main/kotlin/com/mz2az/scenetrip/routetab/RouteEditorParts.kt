@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,6 +57,7 @@ import com.mz2az.scenetrip.data.FootprintPoint
 import com.mz2az.scenetrip.data.RoutePoiGroup
 import com.mz2az.scenetrip.data.RoutePoiTone
 import com.mz2az.scenetrip.data.RouteStore
+import com.mz2az.scenetrip.data.UnavailableItem
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
@@ -77,9 +80,12 @@ import com.mz2az.scenetrip.ui.IOSSheetMaterial
 import com.mz2az.scenetrip.ui.IOSSheetToolbar
 import com.mz2az.scenetrip.ui.LocationArrowIcon
 import com.mz2az.scenetrip.ui.SheetDetent
+import com.mz2az.scenetrip.ui.UnavailableItemNotice
 import com.mz2az.scenetrip.ui.sheetListBottom
+import com.mz2az.scenetrip.ui.unavailableAlpha
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
@@ -176,7 +182,8 @@ fun RouteStopRow(
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = IOS.label,
-                            modifier = Modifier.weight(1f, fill = false),
+                            // 숨김·폐업 행은 내용만 약하게 — 안내와 「빼기」는 읽기 쉽게 따로 둔다(MZ2AZ-458).
+                            modifier = Modifier.weight(1f, fill = false).alpha(unavailableAlpha(stop.unavailable)),
                         )
                         if (stop.isPinned) {
                             Badge(text = tr("내가 찍은 곳"), background = IOS.systemGray5, foreground = IOS.secondaryLabel)
@@ -601,10 +608,25 @@ private fun RouteCartSheetBody(
     onDismiss: () -> Unit,
 ) {
     var picked by remember { mutableStateOf(setOf<Long>()) }
+    val scope = rememberCoroutineScope()
     val cartPlaces = cart.items.mapNotNull { it.toPlaceSummary() }
     val isSample = cartPlaces.isEmpty()
     LaunchedEffect(isSample) { if (isSample) store.loadPlaces() }
+    LaunchedEffect(Unit) { cart.refresh() }
     val places = if (isSample) store.places.take(6) else cartPlaces
+
+    // 목록에서 빠진 촬영지는 코스에 새로 넣을 수 없다 — 안내하고 빼기만 허용한다(MZ2AZ-458, iOS `RouteCartSheet`).
+    fun isDelisted(place: PlaceSummary): Boolean = !isSample && cart.items.firstOrNull { it.placeId == place.id }?.delisted == true
+
+    val selectedPlaces = places.filter { picked.contains(it.id) && !isDelisted(it) }
+    // 서버에서 새로 받은 장바구니가 선택한 곳을 숨겼다면 선택에서도 뺀다.
+    LaunchedEffect(cart.items) {
+        val still = picked.filter { id -> places.none { it.id == id && isDelisted(it) } }.toSet()
+        if (still != picked) {
+            picked = still
+            onPreview(places.filter { still.contains(it.id) })
+        }
+    }
 
     // iOS `RouteCartSheet`: 툴바(닫기 · 장바구니에서 담기 · 담기 N), 구분선 있는 목록, `.regularMaterial` 바탕.
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
@@ -613,10 +635,10 @@ private fun RouteCartSheetBody(
                 title = tr("장바구니에서 담기"),
                 leading = tr("닫기"),
                 onLeading = onDismiss,
-                trailing = tr("담기 %d").format(picked.size),
-                trailingEnabled = picked.isNotEmpty(),
+                trailing = tr("담기 %d").format(selectedPlaces.size),
+                trailingEnabled = selectedPlaces.isNotEmpty(),
                 onTrailing = {
-                    onPick(places.filter { picked.contains(it.id) })
+                    onPick(selectedPlaces)
                     onDismiss()
                 },
             )
@@ -634,24 +656,52 @@ private fun RouteCartSheetBody(
             items(places, key = { it.id }) { place ->
                 val isTaken = taken.contains(place.id)
                 val isPicked = picked.contains(place.id)
+                val delisted = isDelisted(place)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .clickable(enabled = !isTaken) {
+                            .clickable(enabled = !isTaken && !delisted) {
                                 picked = if (isPicked) picked - place.id else picked + place.id
                                 onPreview(places.filter { picked.contains(it.id) || it.id == place.id })
                             }.padding(horizontal = 16.dp, vertical = 13.dp),
                 ) {
                     RemoteImage(url = place.imageUrl?.toString(), modifier = Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)))
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(place.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                        Text(
+                            place.name,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = IOS.label,
+                            modifier = Modifier.alpha(unavailableAlpha(if (delisted) UnavailableItem.PLACE else null)),
+                        )
                         Text(place.address ?: place.type ?: "", fontSize = 12.sp, color = IOS.secondaryLabel, maxLines = 1)
+                        if (delisted) UnavailableItemNotice(UnavailableItem.PLACE)
                     }
-                    // iOS: 담긴 곳은 옅은 체크, 고른 곳은 파란 체크, 아니면 회색 `plus.circle`.
-                    if (isTaken || isPicked) {
+                    // iOS: 담긴 곳은 옅은 체크, 고른 곳은 파란 체크, 아니면 회색 `plus.circle`. 목록에서 빠진 곳은 「빼기」 뿐이다.
+                    if (delisted) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier =
+                                Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .clickable(role = androidx.compose.ui.semantics.Role.Button) {
+                                        picked = picked - place.id
+                                        onPreview(places.filter { picked.contains(it.id) && !isDelisted(it) })
+                                        scope.launch { cart.remove(place.id) }
+                                    },
+                        ) {
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = tr("장바구니에서 빼기"),
+                                tint = IOS.secondaryLabel,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    } else if (isTaken || isPicked) {
                         Icon(
                             Icons.Filled.CheckCircle,
                             contentDescription = if (isTaken) tr("담김") else tr("선택"),

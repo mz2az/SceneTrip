@@ -2,6 +2,7 @@ package com.mz2az.scenetrip.routetab
 
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.KoreaBounds
+import com.mz2az.scenetrip.data.UnavailableItem
 import com.mz2az.scenetrip.data.haversineKm
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.Lang
@@ -107,7 +108,12 @@ data class RouteStop(
     val arriveMinute: Int? = null,
     /** 초안에 placeId가 없던 줄. 화면에는 남되 저장에서 빠진다. */
     val placeMissing: Boolean = false,
+    /** 서버가 알린 숨김·폐업. 표시·이동 판단에만 쓰고 저장할 때는 보내지 않는다(MZ2AZ-458, iOS `RouteStop.unavailable`). */
+    val unavailable: UnavailableItem? = null,
 ) {
+    /** 숨김·폐업이 아니면 길찾기·다음 목적지·거리 계산에 쓴다. */
+    val canNavigate: Boolean get() = unavailable == null
+
     val stayLabel: String get() = RouteFormat.minutes(stayMinutes)
 
     /** 서버에 placeId로 보낼 수 있는 값. 직접 찍은 핀과 id 없는 초안 줄은 없다. */
@@ -187,8 +193,10 @@ object RouteGeometry {
     ): Double = haversineKm(start.latitude, start.longitude, end.latitude, end.longitude)
 
     fun totalKilometers(stops: List<RouteStop>): Double {
-        if (stops.size <= 1) return 0.0
-        return stops.zipWithNext().sumOf { (a, b) -> kilometers(a.place, b.place) }
+        // 숨김·폐업 행은 표시 순서·번호만 남기고 거리에서는 건너뛴다(MZ2AZ-458).
+        val usable = stops.filter { it.canNavigate }
+        if (usable.size <= 1) return 0.0
+        return usable.zipWithNext().sumOf { (a, b) -> kilometers(a.place, b.place) }
     }
 
     fun isInKorea(place: PlaceSummary): Boolean = KoreaBounds.contains(place.latitude, place.longitude)
@@ -199,8 +207,9 @@ object RouteGeometry {
         stops: List<RouteStop>,
         limit: Double = 100.0,
     ): PlaceSummary? {
-        if (here == null || !isInKorea(here) || stops.isEmpty()) return null
-        val nearest = stops.minOf { kilometers(here, it.place) }
+        val usable = stops.filter { it.canNavigate }
+        if (here == null || !isInKorea(here) || usable.isEmpty()) return null
+        val nearest = usable.minOf { kilometers(here, it.place) }
         return if (nearest <= limit) here else null
     }
 
@@ -214,7 +223,7 @@ object RouteGeometry {
             val index = stops.indexOfFirst { it.id == target.id }
             if (index >= 0) return index + 1
         }
-        val firstUnvisited = stops.indexOfFirst { !it.visited }
+        val firstUnvisited = stops.indexOfFirst { it.canNavigate && !it.visited }
         return if (firstUnvisited >= 0) firstUnvisited else stops.size
     }
 
@@ -223,6 +232,8 @@ object RouteGeometry {
         stops: List<RouteStop>,
         here: PlaceSummary,
     ): List<RouteStop> {
+        // 숨김·폐업 행은 제자리에 두고 갈 수 있는 곳만 고른다.
+        if (stops.any { !it.canNavigate }) return RouteAvailability.reordering(stops) { startingNearest(it, here) }
         if (stops.size <= 1) return stops
         val nearestIndex = stops.indices.minByOrNull { kilometers(here, stops[it].place) } ?: return stops
         val mutable = stops.toMutableList()
@@ -243,6 +254,8 @@ object RouteGeometry {
         pinStart: Boolean = true,
         pinEnd: Boolean = false,
     ): List<RouteStop> {
+        // 숨김·폐업 행은 제자리에 두고 갈 수 있는 곳의 동선만 최적화한다(MZ2AZ-458).
+        if (stops.any { !it.canNavigate }) return RouteAvailability.reordering(stops) { optimized(it, pinStart, pinEnd) }
         if (stops.size <= 2) return stops
 
         val matrix = distanceMatrix(stops)

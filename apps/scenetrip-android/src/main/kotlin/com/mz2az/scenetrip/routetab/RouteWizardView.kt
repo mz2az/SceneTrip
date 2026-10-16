@@ -40,6 +40,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +50,7 @@ import com.mz2az.scenetrip.data.AIConsentGate
 import com.mz2az.scenetrip.data.AIConsentStore
 import com.mz2az.scenetrip.data.LocationConsentStore
 import com.mz2az.scenetrip.data.RouteStore
+import com.mz2az.scenetrip.data.UnavailableItem
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.searchtab.rememberLocate
@@ -60,10 +62,13 @@ import com.mz2az.scenetrip.ui.IOSAlert
 import com.mz2az.scenetrip.ui.IOSGraphicalDatePicker
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.LeafIcon
+import com.mz2az.scenetrip.ui.LikeFailureNotice
 import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.UTurnLeftIcon
+import com.mz2az.scenetrip.ui.UnavailableItemNotice
+import com.mz2az.scenetrip.ui.unavailableAlpha
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -460,6 +465,8 @@ private fun RouteWizardViewBody(
                 )
             }
         }
+        // 작품 찜이 거절되면(숨긴 작품 등) 이유를 말한다 — 검색·찜 목록과 같은 안내(MZ2AZ-458).
+        LikeFailureNotice(store.likeFailure, onClose = { store.clearLikeFailure() })
     }
 
     if (planFailed) {
@@ -511,17 +518,27 @@ private fun WorkRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth().clickable(onClick = onToggleSelected).padding(vertical = 10.dp),
     ) {
+        // 목록에서 빠진 작품은 새로 찜할 수 없다. 이미 찜한 것을 빼는 것은 항상 된다(MZ2AZ-458).
+        val canToggle = UnavailableItem.canToggle(delisted = work.delisted, saved = isFavorite)
         Icon(
             if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            contentDescription = tr("좋아요"),
+            contentDescription = if (isFavorite) tr("찜 빼기") else tr("찜하기"),
             tint = if (isFavorite) IOS.systemPink else IOS.secondaryLabel,
-            modifier = Modifier.size(18.dp).clickable(onClick = onToggleFavorite),
+            modifier = Modifier.alpha(if (canToggle) 1f else 0.4f).size(18.dp).clickable(enabled = canToggle, onClick = onToggleFavorite),
         )
         Column(modifier = Modifier.weight(1f)) {
-            Text(work.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            val notice = UnavailableItem.notice(work)
+            Text(
+                work.title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IOS.label,
+                modifier = Modifier.alpha(unavailableAlpha(notice)),
+            )
             val subtitle = listOfNotNull(work.broadcaster, work.releaseYear?.toString()).joinToString(" · ")
             // iOS 는 부제가 비어도 caption2 줄을 그려 행 높이가 늘 같다(2차 대조: 54.3 대 40.4).
             Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel)
+            if (notice != null) UnavailableItemNotice(notice)
         }
         if (isSelected) {
             Icon(

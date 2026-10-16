@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.routetab
 
+import com.mz2az.scenetrip.data.UnavailableItem
 import com.mz2az.scenetrip.sceneapi.client.model.CourseDayInput
 import com.mz2az.scenetrip.sceneapi.client.model.CourseDetail
 import com.mz2az.scenetrip.sceneapi.client.model.CourseItem
@@ -79,7 +80,8 @@ object RouteBridge {
             placeCountFromServer = summary.placeCount,
         )
 
-    private fun stop(item: CourseItem): RouteStop =
+    /** 서버 항목 → 화면 행. 숨김·폐업은 [RouteStop.unavailable] 로 보존하고 저장에서는 지우지 않는다(MZ2AZ-458). */
+    fun stop(item: CourseItem): RouteStop =
         RouteStop(
             place =
                 PlaceSummary(
@@ -105,6 +107,7 @@ object RouteBridge {
                     null
                 },
             visited = item.visitedAt != null,
+            unavailable = UnavailableItem.notice(item),
         )
 
     // 화면 → 서버
@@ -124,7 +127,7 @@ object RouteBridge {
                 },
         )
 
-    private fun item(stop: RouteStop): CourseItemInput =
+    fun item(stop: RouteStop): CourseItemInput =
         CourseItemInput(
             id = stop.serverItemId,
             placeId = stop.savablePlaceId,

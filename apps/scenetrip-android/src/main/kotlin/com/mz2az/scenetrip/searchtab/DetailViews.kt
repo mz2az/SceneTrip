@@ -26,6 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -52,6 +55,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.analytics.AppEvent
+import com.mz2az.scenetrip.data.UnavailableItem
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
@@ -60,6 +64,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.Scene
 import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.UnavailableItemNotice
 
 /**
  * 드릴다운 2단 — 작품 상세.
@@ -83,6 +88,9 @@ fun ContentDetailView(
     onBack: () -> Unit,
     onSelectPlace: (PlaceSummary) -> Unit,
     onSave: (PlaceSummary) -> Unit,
+    // 작품 찜. 목록에서 빠진 작품은 새로 찜할 수 없고 이미 찜한 것은 뺄 수 있다(MZ2AZ-458, iOS `ContentDetailView`).
+    liked: Boolean = false,
+    onToggleLike: () -> Unit = {},
 ) {
     var detail by remember(summary.id) { mutableStateOf<ContentDetail?>(null) }
     val context = LocalContext.current
@@ -137,6 +145,14 @@ fun ContentDetailView(
                             )
                         }
                     }
+                    // 상세를 다시 받으면 누락도 false 다 — 옛 요약의 true 를 계속 붙들지 않는다.
+                    val delisted = UnavailableItem.contentDelisted(summary, detail)
+                    if (delisted) UnavailableItemNotice(UnavailableItem.CONTENT)
+                    LikeButton(
+                        liked = liked,
+                        enabled = UnavailableItem.canToggle(delisted = delisted, saved = liked),
+                        onClick = onToggleLike,
+                    )
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(summary.meta, style = IOS.subheadline, color = IOS.secondaryLabel)
                         if (castLine.isNotEmpty()) {
@@ -323,6 +339,9 @@ fun PlaceDetailView(
                         reviewId = null
                         reviews = true
                     }, modifier = Modifier.padding(horizontal = IOS.gutter))
+                    if (detail?.delisted == true) {
+                        UnavailableItemNotice(UnavailableItem.PLACE, Modifier.padding(horizontal = IOS.gutter))
+                    }
                     detailFailure?.let { failure ->
                         Column(Modifier.padding(horizontal = IOS.gutter)) {
                             Text(failure.message, style = IOS.caption, color = IOS.secondaryLabel)
@@ -343,14 +362,17 @@ fun PlaceDetailView(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(horizontal = IOS.gutter),
                     ) {
+                        // 목록에서 빠진 촬영지는 새로 담을 수 없다. 이미 담은 것을 빼는 것은 항상 된다(MZ2AZ-458).
+                        val canToggleSave = UnavailableItem.canToggle(delisted = detail?.delisted, saved = saved)
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier =
                                 Modifier
                                     .weight(1f)
+                                    .alpha(if (canToggleSave) 1f else 0.4f)
                                     .clip(RoundedCornerShape(IOS.capsuleButton))
                                     .background(IOS.accent)
-                                    .clickable(onClick = onToggleSave)
+                                    .clickable(enabled = canToggleSave, onClick = onToggleSave)
                                     // iOS `.borderedProminent` 높이 35(2차 대조 실측 — 32.5 는 작았다).
                                     .padding(vertical = 7.dp),
                         ) {
@@ -635,6 +657,38 @@ fun ScenePopup(
                 }
             }
         }
+    }
+}
+
+/** 작품 상세의 찜 단추. iOS `Button { likes.toggle } label: Label(찜하기/찜 빼기, heart)` + `.bordered`. */
+@Composable
+private fun LikeButton(
+    liked: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier =
+            Modifier
+                .alpha(if (enabled) 1f else 0.4f)
+                .clip(RoundedCornerShape(IOS.capsuleButton))
+                .background(IOS.systemGray6)
+                .clickable(enabled = enabled, onClick = onClick)
+                .padding(horizontal = 14.dp, vertical = 7.dp),
+    ) {
+        Icon(
+            if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+            contentDescription = null,
+            tint = IOS.accent,
+            modifier = Modifier.size(15.dp),
+        )
+        Text(
+            text = if (liked) tr("찜 빼기") else tr("찜하기"),
+            style = IOS.subheadlineSemibold,
+            color = IOS.accent,
+        )
     }
 }
 

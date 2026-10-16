@@ -46,6 +46,7 @@ import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.AccountDeletionCopy
 import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.FootprintStore
 import com.mz2az.scenetrip.data.InstallIdentity
@@ -57,11 +58,7 @@ import com.mz2az.scenetrip.data.collectVisitStamps
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.onboarding.OnboardingView
 import com.mz2az.scenetrip.onboarding.PinoMascot
-import com.mz2az.scenetrip.sceneapi.client.api.CartApi
-import com.mz2az.scenetrip.sceneapi.client.api.ContentsApi
 import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
-import com.mz2az.scenetrip.sceneapi.client.model.CartItem
-import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
 import com.mz2az.scenetrip.ui.BagFillIcon
 import com.mz2az.scenetrip.ui.ChevronRightIcon
@@ -111,10 +108,10 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 
     var courses by remember { mutableStateOf<List<CourseSummary>>(emptyList()) }
     var courseCount by remember { mutableStateOf<Int?>(null) }
-    var allWorks by remember { mutableStateOf<List<ContentSummary>>(emptyList()) }
     var likesLoading by remember { mutableStateOf(true) }
     var likesFailure by remember { mutableStateOf<String?>(null) }
-    var cartItems by remember { mutableStateOf<List<CartItem>>(emptyList()) }
+    // 검색 장바구니와 같은 저장소·행을 쓴다 — 마이페이지에서도 숨긴 장소를 안내하고 뺄 수 있다(MZ2AZ-458, iOS 와 같다).
+    val cart = remember { CartStore(context) }
     var stamps by remember { mutableStateOf<List<VisitStamp>>(emptyList()) }
 
     var showingCart by remember { mutableStateOf(false) }
@@ -136,35 +133,25 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
     var showingBlocked by remember { mutableStateOf(false) }
     var showingNickname by remember { mutableStateOf(false) }
 
-    val likedWorks = allWorks.filter { likes.contentIds.contains(it.id) }
+    // 찜 목록은 서버가 준 찜한 작품의 요약으로 그린다 — 작품 목록(`GET /contents`)에는 목록에서 빠진 작품이 없어
+    // 숨긴 작품을 찜해 둔 사람의 목록에서 그 줄이 사라진다(MZ2AZ-458, iOS `LikeStore.likedWorks`).
+    val likedWorks = likes.likedWorks
 
     suspend fun load() =
         coroutineScope {
             // 넷을 나란히 받는다 — 코스 상세(스탬프용)가 느려도 찜 목록은 바로 뜬다.
             likesLoading = true
-            val worksDeferred =
-                async(Dispatchers.IO) {
-                    runCatching { ContentsApi(API_BASE).listContents(limit = 100) }
-                }
-            val cartDeferred =
-                async(Dispatchers.IO) {
-                    runCatching { CartApi(API_BASE).getCart(deviceId) }.getOrNull()
-                }
+            val likesDeferred = async { likes.refresh() }
+            val cartDeferred = async { cart.refresh() }
             val coursesDeferred =
                 async(Dispatchers.IO) {
                     runCatching { CoursesApi(API_BASE).listCourses(deviceId) }.getOrNull()
                 }
 
-            worksDeferred.await().fold(
-                onSuccess = {
-                    allWorks = it.items ?: emptyList()
-                    likesFailure = null
-                },
-                onFailure = { likesFailure = it.message?.take(300) ?: tr("알 수 없는 오류") },
-            )
+            likesFailure = if (likesDeferred.await()) null else tr("찜한 작품을 불러오지 못했어요. 잠시 뒤 다시 해 주세요")
             likesLoading = false
 
-            cartDeferred.await()?.let { cartItems = it.items ?: emptyList() }
+            cartDeferred.await()
             coursesDeferred.await()?.let {
                 courses = it.items ?: emptyList()
                 courseCount = courses.size
@@ -226,7 +213,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                         ProfileDivider()
                         ProfileRow(
                             title = tr("장바구니"),
-                            value = tr("%d곳").format(cartItems.size),
+                            value = tr("%d곳").format(cart.items.size),
                             onClick = { showingCart = true },
                             chevron = true,
                             icon = { BagFillIcon(SYSTEM_ORANGE, it) },
@@ -526,8 +513,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
         }
 
         if (showingCourses) MyCoursesSheet(courses, onClose = { showingCourses = false })
-        if (showingLikes) LikedWorksSheet(likedWorks, likesLoading, likesFailure, onClose = { showingLikes = false })
-        if (showingCart) ProfileCartSheet(cartItems, onClose = { showingCart = false })
+        if (showingLikes) LikedWorksSheet(likedWorks, likes, likesLoading, likesFailure, onClose = { showingLikes = false })
+        if (showingCart) ProfileCartSheet(cart, onClose = { showingCart = false })
         if (showingStamps) StampsSheet(stamps, onClose = { showingStamps = false })
         if (showingPosts) {
             MyPostsSheet(onClose = { showingPosts = false })
