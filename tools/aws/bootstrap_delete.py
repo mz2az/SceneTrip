@@ -15,7 +15,7 @@ from tools.aws.bootstrap_state import (
 def optional_resources(settings):
     """있어도 되고 없어도 되는 리소스 — 물리 ID 를 미리 알 수 없어 종류만 본다.
 
-    MZ2AZ-472 DEV NAT 고정 IP(공인 IP 가 물리 ID). 이 리소스를 더하기 전의 DEV bootstrap 에는 없다. PRD 에는 없다.
+    MZ2AZ-484 DEV NAT 고정 IP(공인 IP 가 물리 ID). 이 리소스를 더하기 전의 DEV bootstrap 에는 없다. PRD 에는 없다.
     """
     return {} if settings.environment == "prd" else {"NatEip": "AWS::EC2::EIP"}
 

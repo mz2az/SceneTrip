@@ -8,7 +8,7 @@ locals {
   azs            = var.availability_zones
   az_count       = length(var.availability_zones)
   nat_count      = local.production ? local.az_count : 1
-  # DEV NAT 고정 IP(MZ2AZ-472) — bootstrap 스택이 만든 것(태그 role=nat-fixed). 내리기에도 남아, 카카오 모빌리티 허용 IP 를
+  # DEV NAT 고정 IP(MZ2AZ-484) — bootstrap 스택이 만든 것(태그 role=nat-fixed). 내리기에도 남아, 카카오 모빌리티 허용 IP 를
   # 한 번만 등록한다. 없으면(bootstrap 을 아직 안 고친 계정) 지금처럼 배포가 새 IP 를 만든다. PRD 는 내리지 않아 IP 가 그대로라
   # 쓰지 않는다.
   fixed_nat_ids = local.production ? [] : data.aws_eips.fixed_nat[0].allocation_ids

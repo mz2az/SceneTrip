@@ -296,7 +296,7 @@ Secret이 복구 유예(DEV 7일)를 넘겨 완전히 삭제됐다면 Terraform�
 배포가 외부 키 단계에서 멈춘다. 운영자가 Kakao 키(와 애플 .p8)를 넣고 `up`을 다시 실행한다.
 내릴 때마다 RDS는 새로 만들어지므로 데이터가 비워진다.
 
-**DEV 바깥 IP 는 고정이다(MZ2AZ-472)** — 카카오 모빌리티는 허용 IP 만 받는다. DEV NAT 의 공인 IP 는 bootstrap 스택의
+**DEV 바깥 IP 는 고정이다(MZ2AZ-484)** — 카카오 모빌리티는 허용 IP 만 받는다. DEV NAT 의 공인 IP 는 bootstrap 스택의
 `NatEip`(태그 `role=nat-fixed`, 출력 `NatEipPublicIp`)라 내리기에도 남고, 배포(`network.tf`)가 그 IP 로 NAT 를 만든다 — 카카오에
 한 번만 등록한다. bootstrap 에 아직 없으면 배포가 예전처럼 새 IP 를 만든다. 내려 둔 동안에도 공인 IPv4 요금(월 약 3.6 달러)이 난다.
 PRD 는 내리지 않아 배포가 만든 IP 3 개가 그대로다.
