@@ -36,9 +36,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.PlaceType
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
 import com.mz2az.scenetrip.sceneapi.client.model.EntityType
+import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import com.mz2az.scenetrip.sceneapi.client.model.Suggestion
 import com.mz2az.scenetrip.ui.IOS
 
@@ -116,7 +119,7 @@ fun SuggestionPanel(
                 SuggestRow(
                     type = EntityType.place,
                     text = item.name,
-                    detail = item.subtitle.orEmpty(),
+                    detail = SuggestionDetail.text(item),
                     alias = aliasOf(item),
                     onClick = { onSelectPlace(item) },
                 )
@@ -154,6 +157,25 @@ fun SuggestionPanel(
                 }
             }
         }
+    }
+}
+
+/**
+ * 장소는 유형 표시말과 서버가 현지화한 대표 작품명, 둘 다 없으면 주소를 적는다 (MZ2AZ-450).
+ *
+ * iOS `SuggestionDetail` 과 같다. 표에 없는 유형 코드는 적지 않고(`PlaceType.label` 이 null),
+ * 비었거나 공백뿐인 조각은 버린다. 작품·인물 행은 서버가 준 `subtitle` 그대로다.
+ */
+object SuggestionDetail {
+    fun text(
+        item: Suggestion,
+        korean: Boolean = AppLanguage.current == Lang.ko,
+    ): String {
+        if (item.type != EntityType.place) return item.subtitle.orEmpty()
+        val parts =
+            listOfNotNull(PlaceType.label(item.placeType, korean), item.contentTitle)
+                .filter { it.isNotBlank() }
+        return if (parts.isEmpty()) item.subtitle.orEmpty() else parts.joinToString(" · ")
     }
 }
 
