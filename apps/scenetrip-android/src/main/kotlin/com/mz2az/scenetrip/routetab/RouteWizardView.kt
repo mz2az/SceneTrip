@@ -41,13 +41,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.data.AIConsentGate
+import com.mz2az.scenetrip.data.AIConsentStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.searchtab.rememberLocate
+import com.mz2az.scenetrip.ui.AIConsentSheetHost
 import com.mz2az.scenetrip.ui.BoltIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
@@ -107,6 +111,12 @@ private fun RouteWizardViewBody(
             requestLocation()
         }
     }
+
+    // AI 기능 동의 (MZ2AZ-468) — 「AI 로 일정 짜기」 를 처음 누를 때 안내 시트를 띄우고, 허용된 뒤에만 /guide/plan 을 부른다.
+    // 취소하면 이 화면의 답변(기간·작품·날짜)을 그대로 두고 아무것도 보내지 않는다.
+    val context = LocalContext.current
+    val consent = remember { AIConsentGate(AIConsentStore.getInstance(context)) }
+    AIConsentSheetHost(consent)
 
     val currentDraft = draft
     if (currentDraft != null) {
@@ -395,19 +405,22 @@ private fun RouteWizardViewBody(
                                 draft = RouteEditorDraft(store.emptyCourse(span, startDate))
                                 return@clickable
                             }
-                            planning = true
-                            scope.launch {
-                                val result =
-                                    store.guideDraft(
-                                        selectedWorkIds,
-                                        span,
-                                        startDate,
-                                        pace,
-                                        latitude = here?.first,
-                                        longitude = here?.second,
-                                    )
-                                planning = false
-                                if (result != null) draft = RouteEditorDraft(result) else planFailed = true
+                            consent.request {
+                                if (planning) return@request
+                                planning = true
+                                scope.launch {
+                                    val result =
+                                        store.guideDraft(
+                                            selectedWorkIds,
+                                            span,
+                                            startDate,
+                                            pace,
+                                            latitude = here?.first,
+                                            longitude = here?.second,
+                                        )
+                                    planning = false
+                                    if (result != null) draft = RouteEditorDraft(result) else planFailed = true
+                                }
                             }
                         }.padding(vertical = 14.dp),
             ) {
