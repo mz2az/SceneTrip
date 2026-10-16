@@ -526,6 +526,7 @@ internal val TRANSLATIONS_EN: Map<String, String> =
         "인기 작품" to "Popular titles",
         "인기 장소 %d" to "Top places %d",
         "인기 촬영지 %s" to "Popular filming locations %s",
+        "인기순" to "Most popular",
         "인스타그램에 올릴 15초 릴스를 만들어 드릴 예정이에요" to "and makes a 15-second reel for Instagram",
         "인증샷" to "Photos",
         "인터넷 연결을 확인해 주세요." to "Check your internet connection.",
