@@ -474,42 +474,42 @@ private fun GuideComposer(
         draft = ""
         scope.launch { session.ask(text, here.first, here.second) }
     }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                // 입력줄 바탕 — iOS `.thinMaterial` 은 지도 빛이 비쳐 푸르스름하다(실측 약 224,238,246).
-                .background(Color(0xFFE0EEF6))
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-    ) {
-        Box(
-            contentAlignment = Alignment.CenterStart,
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .clip(CircleShape)
-                    .background(IOS.systemGray6)
-                    .padding(horizontal = 12.dp, vertical = 9.dp),
+    // 입력줄 바탕 — iOS `.thinMaterial` 은 지도 빛이 비쳐 푸르스름하다(실측 약 224,238,246).
+    // iOS `composer` 는 입력줄과 AI 답변 안내(MZ2AZ-439)를 한 재질 안에 쌓는다.
+    Column(modifier = Modifier.fillMaxWidth().background(Color(0xFFE0EEF6))) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
         ) {
-            if (draft.isEmpty()) Text(tr("주변에 무엇을 찾으세요?"), fontSize = 17.sp, color = IOS.tertiaryLabel, maxLines = 1)
-            BasicTextField(
-                value = draft,
-                onValueChange = { if (it.length <= 4000) draft = it },
-                enabled = !session.asking && !locked,
-                maxLines = 3,
-                textStyle = IOS.body.copy(color = IOS.label),
-                cursorBrush = SolidColor(IOS.accent),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { send() }),
-                modifier = Modifier.fillMaxWidth(),
+            Box(
+                contentAlignment = Alignment.CenterStart,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .clip(CircleShape)
+                        .background(IOS.systemGray6)
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
+            ) {
+                if (draft.isEmpty()) Text(tr("주변에 무엇을 찾으세요?"), fontSize = 17.sp, color = IOS.tertiaryLabel, maxLines = 1)
+                BasicTextField(
+                    value = draft,
+                    onValueChange = { if (it.length <= 4000) draft = it },
+                    enabled = !session.asking && !locked,
+                    maxLines = 3,
+                    textStyle = IOS.body.copy(color = IOS.label),
+                    cursorBrush = SolidColor(IOS.accent),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { send() }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            SendArrowCircleIcon(
+                if (canSend) IOS.accent else Color(0xFFD2DAE0), // 비었을 때 iOS 는 푸른 기 도는 옅은 회색(실측)
+                Modifier.size(30.dp).clickable(enabled = canSend) { send() },
+                arrow = Color(0xFFE0EEF6),
             )
         }
-        SendArrowCircleIcon(
-            if (canSend) IOS.accent else Color(0xFFD2DAE0), // 비었을 때 iOS 는 푸른 기 도는 옅은 회색(실측)
-            Modifier.size(30.dp).clickable(enabled = canSend) { send() },
-            arrow = Color(0xFFE0EEF6),
-        )
+        GuideAiNoticeLine()
     }
 }
