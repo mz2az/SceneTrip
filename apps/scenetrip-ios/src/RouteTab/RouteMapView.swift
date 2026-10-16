@@ -433,12 +433,21 @@ struct RouteMapView: UIViewRepresentable {
         /// **토글이 켜져 있고 내 자리를 알면 둘이 같이 보이는 크기**로, 아니면 그곳만
         /// 확대한다. 이것이 토글을 만든 이유다 — 그냥 내 자리로 날아가면 촬영지가
         /// 화면 밖으로 나가 무엇을 보러 온 화면인지 알 수 없다.
+        ///
+        /// 단 **내가 멀리 있으면 그곳만** 확대한다. 서울 시청에서 인천의 2번을 누르면 둘을 다 담은
+        /// 화면이 일차 전체 화면과 거의 같아, 눌러도 지도가 그대로인 것처럼 보였다(2026-10-16 사용자 지적).
         private func move(to stop: RouteStop, on mapView: NMFMapView) {
             let there = NMGLatLng(lat: stop.place.latitude, lng: stop.place.longitude)
+            let meNearby = here.map {
+                CLLocation(latitude: $0.lat, longitude: $0.lng)
+                    .distance(from: CLLocation(latitude: there.lat, longitude: there.lng)) <= Self.withMeRadius
+            } ?? false
 
-            guard showingMe, let here else {
+            guard showingMe, meNearby, let here else {
                 region.source = .userSelected
-                let update = NMFCameraUpdate(scrollTo: there, zoomTo: 15)
+                // 14 — 고른 곳 둘레의 동네가 보이는 크기. 15 는 골목까지 들어가 주변 가게 핀이
+                // 화면을 덮고 어느 동네인지 알 수 없었다(2026-10-16).
+                let update = NMFCameraUpdate(scrollTo: there, zoomTo: 14)
                 update.animation = .easeIn
                 mapView.moveCamera(update)
                 return
@@ -485,6 +494,10 @@ struct RouteMapView: UIViewRepresentable {
         /// 고른 곳이 화면 밖이면 고른 보람이 없다.
         ///
         /// 한 점뿐이면 확대한다.
+        /// 고른 곳과 나를 한 화면에 담는 거리의 한계. 이보다 멀면 둘을 담은 화면이 너무 넓어
+        /// 고른 곳이 어디인지 보이지 않는다.
+        static let withMeRadius: CLLocationDistance = 3000
+
         private func fit(
             _ stops: [RouteStop],
             previews: [PlaceSummary] = [],
