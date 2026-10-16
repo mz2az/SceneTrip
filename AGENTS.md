@@ -178,22 +178,21 @@ Tags are how `just` slices the graph. Apply them or your test will run in the wr
   to Bazel**, never a parallel build path.
 - After changing any dependency declaration: `just deps-update`, then `just build`. Commit the
   resulting `MODULE.bazel.lock` diff in the same commit.
-- Apple rules (`rules_apple`, `rules_swift`, `apple_support`) stay commented out until the first
-  iOS module lands. Declaring them on a machine without the full Xcode app crashes the entire
-  build, not just the iOS targets.
+- Apple rules (`rules_apple`, `rules_swift`, `apple_support`) are declared in `MODULE.bazel` for
+  `apps/scenetrip-ios`. On a machine without the full Xcode app they can break the entire build,
+  not just the iOS targets — install the pinned Xcode first (§4.3).
 
 ### 4.5 BUILD files are hand-written
 
-There is no BUILD file generator in this repo **yet**. Write `BUILD.bazel` by hand: when you add a
+There is no BUILD file generator in this repo. Write `BUILD.bazel` by hand: when you add a
 source file, add it to the target's `srcs` in the same edit. Follow the target naming in §4.1 so
 labels stay predictable without reading the file first. `just gen` covers only contract-derived
 artifacts (proto stubs, API clients, mocks) — never BUILD files.
 
-Gazelle, the usual choice, ships only Go and proto natively; every other language needs a separate
-extension. Those extensions do exist, so this is "not yet", not "impossible" — it was removed
-because the repo has zero modules today, each extension is its own `bazel_dep` plus config, and the
-gazelle binary drags in `rules_go` for no benefit. Add the matching extension when a language's
-first module lands:
+Gazelle, the usual choice, is not used because it does not fit this stack: it ships only Go and
+proto natively, each of our languages would need its own extension (`bazel_dep` plus config), the
+gazelle binary pulls in `rules_go`, and Kotlin for Android has no usable extension at all.
+Candidate extensions, if this is revisited:
 
 | Language | Extension |
 | --- | --- |
@@ -235,7 +234,7 @@ recipe grouped by area.
 
 1. **Never document a raw `bazel` invocation.** Wrap it in a recipe first, then reference the
    recipe.
-2. Put the recipe in the right module file: `tools/just/{bazel,dev,test,docs,infra,ci,agent,scaffold}.just`.
+2. Put the recipe in the right module file: `tools/just/{bazel,dev,test,docs,infra,ci,agent,scaffold,k8s}.just`.
 3. Every recipe carries a `[group('…')]` attribute and a `#` doc comment — these render in
    `just --list` and are how agents discover the command surface.
 4. Recipes that mutate cloud state or push artifacts must be marked `[confirm]` **and** print the
@@ -285,9 +284,6 @@ A change is done only when **all** of these hold:
 - All work happens on a branch cut from `main` — never commit directly to `main`.
 - Merges to `main` happen **only** through a PR that has **either a review or a fully
   green CI run**. Both paths are legitimate; what is not allowed is merging on neither.
-  *(The team confirmed on 2026-08-09 that a green CI run is sufficient in practice. The
-  earlier wording demanded a review and did not match how the team works — a doc that
-  contradicts practice gets ignored wholesale, so it is corrected rather than left.)*
 - AWS DEV/PRD deployment is manual through protected `workflow_dispatch` workflows
   (ADR 0015). Pushes, PRs, and merges do not deploy AWS resources. `main` must remain
   deployable; automatic promotion requires a subsequent documented decision.
@@ -416,7 +412,7 @@ of another task.
 | Dimension | Bar |
 | --- | --- |
 | Test coverage | ≥80% for new/changed code; critical paths covered end-to-end |
-| File size | 200–400 lines typical, 800 hard maximum |
+| File size | 200–400 lines typical; when a change grows a file past ~800 lines, split it |
 | Function size | <50 lines |
 | Nesting | ≤4 levels — prefer early returns |
 | Error handling | explicit at every level; never silently swallowed |
