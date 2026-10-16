@@ -101,6 +101,7 @@ kt_jvm_library(
         "tests/SearchParityTests.kt",
         "tests/SuggestionDetailTests.kt",
         "tests/UnavailableItemTests.kt",
+        "tests/UsageStatisticsTests.kt",
         "tests/VisitSyncTests.kt",
         "tests/VisualParityRulesTests.kt",
     ],

@@ -112,6 +112,8 @@
         "Domain": "vpc",
         "Tags": [
           {"Key":"Name","Value":{"Fn::Sub":"scenetrip-${Environment}-nat-fixed"}},
+          {"Key":"Project","Value":"scenetrip"},
+          {"Key":"Environment","Value":{"Ref":"Environment"}},
           {"Key":"project","Value":"scenetrip"},
           {"Key":"environment","Value":{"Ref":"Environment"}},
           {"Key":"role","Value":"nat-fixed"}
