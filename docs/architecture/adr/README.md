@@ -26,7 +26,8 @@ just adr-list
 
 `template.md` 가 `just adr-new` 가 렌더링하는 시작점이다.
 
-최근 결정: [0025 — AWS 관측은 EKS 안 SigNoz, 바깥 감시 알람 두 개, UI 는 Cloudflare Access](0025-aws-observability-signoz-in-eks.md),
+최근 결정: [0026 — API e2e 는 로컬 kind 의 별도 인스턴스에서, 바깥 서비스는 시험이 띄운 가짜 HTTP 로](0026-api-e2e-on-local-kind-with-fake-externals.md),
+[0025 — AWS 관측은 EKS 안 SigNoz, 바깥 감시 알람 두 개, UI 는 Cloudflare Access](0025-aws-observability-signoz-in-eks.md),
 [0024 — PRD 는 DEV 와 같은 AWS 계정에 두고 인터넷 전체에 연다](0024-prd-same-account-and-public.md),
 [0023 — 에이전트의 읽기 요청은 자격 증명 대신 한도 열쇠를 단다](0023-agent-reads-carry-rate-subject-not-credentials.md),
 [0022 — 편의시설은 출처 번호를 여럿 갖고 지우지 않는다, 영업 여부는 상가정보가 판단](0022-poi-multiple-source-ids-and-never-delete.md),
