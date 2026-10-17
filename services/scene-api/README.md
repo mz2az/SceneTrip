@@ -257,12 +257,18 @@ Gradle·Maven 을 빌드 경로로 쓰지 않으므로 이 모듈에 `build.grad
 
 ## 테스트
 
-레인이 둘이고 **보는 것이 다르다.**
+레인이 둘이고 **보는 것이 다르다.** 통합 레인 안에 시험이 두 종류 있다.
 
 | 타깃 | 레인 | 무엇을 보는가 | DB |
 | --- | --- | --- | --- |
 | `:unit_test` | `just test` | HTTP 계층 — 파라미터 검증, 오류 코드, 응답 모양 | 필요 없음 (Store 를 가짜로 끼움) |
-| `:integration_test` | `just test-integration` | Store 의 SQL 이 실제로 성립하는가 | **실제 PostgreSQL** |
+| `:integration_test` — DB 시험 | `just test-integration` | Store 의 SQL 이 실제로 성립하는가 | **실제 PostgreSQL** |
+| `:integration_test` — API 시험(`apiflow/`) | `just test-integration` | 요청 → 필터 → 컨트롤러 → Store → DB 를 한 번에. 바깥 API(카카오·챗봇·사진 저장소·네이버)만 가짜 | **실제 PostgreSQL**, 시험마다 되돌림 |
+
+API 시험(MZ2AZ-494, `docs/project/plans/api-integration-tests.md`)은 단위 시험(Store 가짜)과 DB 시험(HTTP 없음) 사이 이음매를 지킨다.
+`@SpringBootTest` + MockMvc 로 앱 전체를 띄우고 `ApiIntegrationTest` 를 상속한다. 시험 하나가 한 트랜잭션이라 DB 제약 위반(409)을 확인하는 단계는
+시험 맨 끝에 둔다 — 위반 뒤에는 PostgreSQL 이 같은 트랜잭션의 다음 문장을 받지 않는다. 새 API 시험은 지키는 동작을 잠깐 망가뜨려 의도한 이유로
+실패하는 것을 본 뒤에만 넣는다.
 
 통합 테스트가 필요한 이유는 단위 테스트가 Store 를 가짜로 바꿔 끼우기 때문이다. 그
 상태에서는 SQL 이 한 줄도 실행되지 않아, 컬럼 이름 오타나 `ST_DWithin` 의 인자 순서
