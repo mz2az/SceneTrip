@@ -1,4 +1,7 @@
-# PRD — 차트 기본 크기(ClickHouse 20Gi·ZooKeeper 8Gi·SigNoz 1Gi)로 시작한다. 디스크는 지우지 않는다(PRD 는 내리지 않는다,
-# MZ2AZ-364). StorageClass 가 늘리기를 허용하니 차면 PVC 크기만 키운다. 보관 기간은 SigNoz 기본(trace·로그 15 일, 지표 30 일) —
-# values 로는 못 바꾸고 화면(Settings → General)에서 바꾼다.
-{}
+# PRD — ClickHouse 60Gi(차트 기본 20Gi 는 4 일 만에 찼다, 2026-10-17)·ZooKeeper 8Gi·SigNoz 1Gi. 디스크는 지우지 않는다(PRD 는
+# 내리지 않는다, MZ2AZ-364). StorageClass 가 늘리기를 허용하니 차면 이 크기만 키운다 — 이미 있는 PVC 는 배포기가 아니라
+# kubectl patch 로 먼저 늘리고 여기에 같은 값을 적는다(줄이기는 안 된다). 보관 기간은 trace·로그 7 일, 지표 30 일 —
+# values 로는 못 바꾸고 화면(Settings → General) 이나 API 로 바꾼다.
+clickhouse:
+  persistence:
+    size: 60Gi
