@@ -276,18 +276,16 @@ place-poi-link *flags:
 popularity-recompute:
     @just db-psql 'SELECT jsonb_pretty(recompute_popularity());'
 
-# POI(편의시설)를 적재한다. 인자가 없으면 저장소의 표본 23 행.
+# POI(편의시설)를 적재한다. 인자가 없으면 저장소의 표본 29 행(공개 판 poi-data-2026-06 의 실제 줄).
 #
-# 전량(50만 행·190 MB)은 TMAP 약관상 저장소에 두지 않는다 — 승길이 준 파일을 경로로
-# 넘긴다. 여러 파일은 이어 붙여 **한 번에** 넣는다 — 파일을 넘나드는 중복을 한 번에 접는다.
-# `just poi-filter` 로 걸러 둔 파일을 준다. 예:
-#   just seed-poi "~/Downloads/압축 poi 2/허용목록만/"poi_{food,stay,sight,transit}.jsonl.gz
+# 전량(97 만 행)은 저장소에 두지 않는다 — 공개 Release 로 받는 `just seed-poi-release <판>` 을 쓰거나
+# `just poi-en` 결과 폴더(out-en)의 여섯 파일을 넘긴다. 여러 파일은 이어 붙여 **한 번에** 넣는다 —
+# 파일을 넘나드는 중복을 한 번에 접는다. 영어 칸이 없는 원본 폴더(out/)를 넣으면 영어 주소·이름이 안 붙는다.
 #
-# 지우지 않는다 — source_id 로 UPSERT 라 다시 돌려도 안전하고, 좌표가 바뀐 판은 갱신된다.
-# 분기 갱신은 --update(같은 가게 잇기·폐업 표시). POI 는 지우지 않는다 — 옛 --prune 은 없앴다(ADR 0022).
-#   just seed-poi --update ~/Downloads/SceneTrip_POI_<새 판>/out/poi_*.jsonl
+# 지우지 않는다 — source_id 로 UPSERT 라 다시 돌려도 안전하고, 좌표가 바뀐 판은 갱신된다(ADR 0022).
+# 분기 갱신은 --update(같은 가게 잇기·폐업 표시). 앞으로의 갱신 흐름은 docs/project/plans/poi-load-cleanup.md.
 #
-# POI(편의시설) 적재 — 인자 없으면 저장소 표본 31 행, 분기 갱신은 --update
+# POI(편의시설) 적재 — 인자 없으면 저장소 표본 29 행, 분기 갱신은 --update
 [group('db')]
 [positional-arguments]
 seed-poi *files:
@@ -311,13 +309,6 @@ poi-tour-detail detail_jsonl out *flags:
 [group('db')]
 poi-detail-publish ko en edition:
     ./tools/scripts/poi-detail-publish.sh "{{ ko }}" "{{ en }}" "{{ edition }}"
-
-#   just poi-filter "~/Downloads/압축 poi 2/poi_food.jsonl.gz" "~/Downloads/압축 poi 2/허용목록만/poi_food.jsonl.gz"
-#
-# POI 원본에서 허용목록 갈래만 남긴 파일을 만든다. 원본은 손대지 않는다
-[group('db')]
-poi-filter src dst:
-    ./tools/scripts/poi-filter.sh "{{ src }}" "{{ dst }}"
 
 # POI 적재 파일에 공식 영문 주소·영어 이름(확실할 때만)·로마자 읽기를 덧붙인다 — 결과 폴더를 just seed-poi 로 (tools/poi/README.md)
 # 남는 주소는 JUSO_ENG_API_KEY 가 있을 때만 API 로 채운다. 입력·결과는 저장소 밖.
@@ -362,7 +353,7 @@ db-refresh-search:
     @just db-psql 'REFRESH MATERIALIZED VIEW CONCURRENTLY search_term;'
     @just db-psql 'SELECT entity_type, count(*) FROM search_term GROUP BY entity_type ORDER BY entity_type;'
 
-# 전량 적재 뒤에 돌린다(표본 23 행에는 강남이 없다). 인자로 다른 주소를 줄 수 있다.
+# 전량 적재 뒤에 돌린다(표본 29 행에는 강남이 없다). 인자로 다른 주소를 줄 수 있다.
 #
 # 배포된 서버에 편의시설 조회를 흘려 본다 — 강남 bbox 30 개·정렬·400·404·왕복 ms
 [group('k8s')]

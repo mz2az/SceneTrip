@@ -60,6 +60,7 @@
 | [community-moderation.md](./community-moderation.md) | 커뮤니티 신고·금칙어 거르기·차단 — App Store 지침 1.2, 운영자 처리 도구는 나중, 차단 걸러내기는 서버에서 (MZ2AZ-438) |
 | [post-photo-deletion.md](./post-photo-deletion.md) | 사용자 사진 파일 지우기 — 후기·리뷰를 지우거나 리뷰를 고치면 같은 트랜잭션에 지울 목록, 1 분 작업이 한 대에서 지움, 주간 고아 청소(7 일 여유), 탈퇴는 남김, PRD 원본은 30 일 뒤 영구 삭제 (MZ2AZ-406 · 448) |
 | [poi-source.md](./poi-source.md) | 편의시설 출처 번호 여러 개 — 합친 기록(원본 97만 줄 재구성), 관광공사 상세 붙이기, 영업 여부는 상가정보 기준, POI 는 지우지 않음 (MZ2AZ-376) |
+| [poi-load-cleanup.md](./poi-load-cleanup.md) | 편의시설 적재 정리 — 기준판 한 번, 그 뒤로는 DB 기준 출처별 업데이트(번호 기록 표, 관광공사 동기화 목록, 같은 가게 판정 하나로), TMAP 잔재 제거 |
 
 ## 언제 여기에 쓰는가
 

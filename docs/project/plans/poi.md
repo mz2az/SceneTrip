@@ -312,6 +312,9 @@ CREATE TEMP TABLE t_raw (doc TEXT);
 했는데 그 전제가 뒤집혔다. `poi.sql` 은 `COALESCE(kind, biz_lower)` 로 두 판을 다 받는다.
 `kind` 는 93 종이다.
 
+> 아래 두 문단은 TMAP 판 시절 기록이다. 2026-10-17 에 `just poi-filter` 와 `biz_lower` 대체 읽기를 지웠다
+> ([poi-load-cleanup.md](./poi-load-cleanup.md)).
+
 **원본은 손대지 않고 걸러 낸 파일을 넣는다.** `just poi-filter` 가 원본 네 파일에서
 허용목록 갈래(§3-4)만 남긴 파일을 만든다. 빠지는 건 `poi_food` 의 114 행뿐이다 — 수집기가
 `keyword=음식점` 으로 긁다 담아 온 정육점·반찬가게(`음식료`, 쇼핑 갈래)·꽃집(`생활서비스`)·
@@ -346,14 +349,13 @@ V13 + geometry KNN 정렬 (500,514 행)  Index Scan           0.3 ms
 
 ```
 services/scene-api/seed/
-├── poi-sample.jsonl             표본 23 행 (갈래별 5 + 중복 한 쌍 + 버려질 행 하나)
+├── poi-sample.jsonl             표본 29 행 (공개 판의 실제 줄, seed/README.md)
 ├── poi.sql                      JSONL → poi. 표본·전량 공용
 src/main/resources/db/migration/
 ├── V12__poi.sql                 표 + 인덱스 (MZ2AZ-276)
 └── V13__poi_geometry_index.sql  뷰포트 인덱스
 tools/scripts/seed-poi.sh        gz 를 파드로 옮겨 풀고 poi.sql 을 먹인다
-tools/scripts/poi-filter.sh      원본 → 허용목록 갈래만
-tools/just/k8s.just              seed-poi · poi-filter
+tools/just/k8s.just              seed-poi
 ```
 
 적재 결과 — food 404,827 · stay 65,444 · sight 27,998 · transit 2,245 = **500,514 행**, 26 초
@@ -400,7 +402,7 @@ TMAP 을 쓰지 않는다(2026-09-05 팀 결정, [ADR 0014](../../architecture/a
 
 **달라지는 것.** 종교 갈래(사찰·교회 12,027)가 없어진다(관광공사 관광지에 유명 사찰은 있다).
 주소 형식이 섞인다 — 상가정보는 동까지, 관광공사는 도로명 전체. 계약 `PoiSummary.address`
-설명을 그에 맞췄다. `just poi-filter` 는 필요 없어졌다(전부 허용목록 안) — 남겨 둔다.
+설명을 그에 맞췄다. `just poi-filter` 는 필요 없어져 2026-10-17 지웠다(전부 허용목록 안, poi-load-cleanup.md).
 
 적재 결과(2026-09-09, kind) — 입력 973,000 행 → 좌표 밖 69 · 중복 접힘 12,353 · 관광공사 겹침
 11,672 → **948,858 행** 적재, TMAP 500,516 행 삭제, **2분 57초**. food 833,220 · stay 79,979 ·
@@ -463,7 +465,7 @@ GET /pois/{poiId}    상세
 | --- | --- | --- |
 | 1 | 이 문서 | 계획 |
 | 2 | 스키마 | `V12__poi.sql` — `poi` + 인덱스 ✅ MZ2AZ-276 · `V13__poi_geometry_index.sql` 뷰포트 인덱스 ✅ (§5-3) |
-| 3 | 적재 | `seed-poi.sh` · `poi.sql` · `poi-sample.jsonl` · `just seed-poi` · `just poi-filter` ✅ (§5-3) |
+| 3 | 적재 | `seed-poi.sh` · `poi.sql` · `poi-sample.jsonl` · `just seed-poi` ✅ (§5-3) |
 | 4 | 계약 | `/pois` 두 경로 + `PoiSummary`·`PoiDetail` ✅ |
 | 5 | 검색 API | `PoiStore` · `PoiController` ✅ (bbox·반경·갈래·거리순. `q` 는 MZ2AZ-283) |
 | 5-1 | 카드 | 사진·영업시간·평점 — [poi-card.md](./poi-card.md) ✅ |

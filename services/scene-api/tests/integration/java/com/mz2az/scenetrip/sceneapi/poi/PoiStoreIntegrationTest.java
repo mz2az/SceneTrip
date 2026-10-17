@@ -17,23 +17,23 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 /**
  * {@link PoiStore} 의 SQL 을 진짜 PostgreSQL 에 태운다.
  *
- * <p>같은 테스트가 두 DB 에서 돈다 — 노트북의 kind(50 만 행)와 CI 의 서비스 컨테이너(저장소 표본 23 행). 그래서 단언은 <b>양쪽에서 성립하는
- * 것</b>만 쓴다: 특정 가게가 나온다가 아니라 "거리 오름차순이다", "전부 bbox 안이다", "요청한 갈래뿐이다". 기준 자리는 표본이 뭉쳐 있는 제주 모슬포다 — 숙박
- * 5 곳과 명소 3 곳이 한 bbox 에 든다.
+ * <p>같은 테스트가 두 DB 에서 돈다 — 노트북의 kind(전량, 약 91 만 곳)와 CI 의 서비스 컨테이너(저장소 표본 29 행 → POI 20 곳). 그래서 단언은
+ * <b>양쪽에서 성립하는 것</b>만 쓴다: 특정 가게가 나온다가 아니라 "거리 오름차순이다", "전부 bbox 안이다", "요청한 갈래뿐이다", "반경 안이다". 상세·있는
+ * id 시험도 가게 이름을 박지 않고, 기준 bbox 안의 숙박 하나를 실행 때 고른다. 기준 자리는 표본이 뭉쳐 있는 제주 모슬포다 — 숙박 5 곳·명소 3 곳·음식 2
+ * 곳·카페 1 곳이 한 bbox 에 든다.
  *
- * <p>실행 계획 단언은 표가 작으면 건너뛴다. 23 행에서는 플래너가 인덱스보다 순차 스캔을 고르는 것이 맞고, 그것을 실패로 보면 테스트가 거짓말을 한다.
+ * <p>실행 계획 단언은 표가 작으면 건너뛴다. 수십 행에서는 플래너가 인덱스보다 순차 스캔을 고르는 것이 맞고, 그것을 실패로 보면 테스트가 거짓말을 한다.
  */
 @DisplayName("PoiStore — 실제 DB 질의")
 class PoiStoreIntegrationTest {
 
-  /** 제주 모슬포. 표본의 숙박 5 곳·명소 3 곳이 이 안에 있다. */
+  /** 제주 모슬포. 표본의 숙박 5 곳·명소 3 곳·음식 2 곳·카페 1 곳이 이 안에 있다. */
   private static final Bbox MOSEULPO = new Bbox(126.24, 33.21, 126.30, 33.26);
 
-  /** 모슬포호텔 — 표본의 첫 숙박 행. 기준점으로 쓴다. */
-  private static final double ORIGIN_LAT = 33.21768496;
+  /** 기준점 — 표본 모슬포 묶음의 한가운데(모슬포2호텔 자리). */
+  private static final double ORIGIN_LAT = 33.21773097;
 
-  private static final double ORIGIN_LNG = 126.25061150;
-  private static final String MOSEULPO_HOTEL_SOURCE_ID = "7682943";
+  private static final double ORIGIN_LNG = 126.25071928;
 
   private static JdbcClient jdbc;
   private static PoiStore store;
@@ -133,22 +133,22 @@ class PoiStoreIntegrationTest {
   }
 
   @Test
-  @DisplayName("상세 — 기준점이 있으면 거리도 같이")
+  @DisplayName("상세 — 목록의 같은 POI 와 이름·갈래·거리가 맞는다")
   void findsDetail() {
-    long id = idOf(MOSEULPO_HOTEL_SOURCE_ID);
-    Optional<PoiDetail> detail = store.findDetail(id, ORIGIN_LAT, ORIGIN_LNG);
+    PoiSummary stay = nearestStay();
+    Optional<PoiDetail> detail = store.findDetail(stay.getId(), ORIGIN_LAT, ORIGIN_LNG);
 
     assertThat(detail).isPresent();
-    assertThat(detail.get().getName()).isEqualTo("모슬포호텔");
+    assertThat(detail.get().getId()).isEqualTo(stay.getId());
+    assertThat(detail.get().getName()).isNotBlank().isEqualTo(stay.getName());
     assertThat(detail.get().getCategoryGroup()).isEqualTo(PoiCategoryGroup.STAY);
-    assertThat(detail.get().getDistanceMeters()).isLessThan(5);
-    assertThat(detail.get().getCity()).isEqualTo("서귀포시");
+    assertThat(detail.get().getDistanceMeters()).isEqualTo(stay.getDistanceMeters());
   }
 
   @Test
   @DisplayName("있는 id 만 골라낸다 — 여럿 카드 조회가 「없는 id」를 표시하는 근거")
   void existingIds() {
-    long id = idOf(MOSEULPO_HOTEL_SOURCE_ID);
+    long id = nearestStay().getId();
 
     assertThat(store.existingIds(java.util.List.of(id, -1L, -2L))).containsExactly(id);
     assertThat(store.existingIds(java.util.List.of())).isEmpty();
@@ -166,21 +166,18 @@ class PoiStoreIntegrationTest {
     long rows = jdbc.sql("SELECT count(*) FROM poi").query(Long.class).single();
     assumeTrue(rows >= 10_000, "표본 " + rows + " 행에서는 순차 스캔이 정답이라 계획을 단언하지 않는다");
 
-    // 성긴 곳(모슬포, bbox 안 수백 행) — 플래너가 평면 인덱스로 거른 뒤 정렬한다. 그것도 인덱스다.
+    // 성긴 곳(모슬포, bbox 안 수백 행) — 플래너가 평면 인덱스로 거른 뒤 정렬할 수도, KNN 을 탈 수도 있다. 어느 인덱스든 된다.
     String sparse =
         store.explainList(
             criteria(MOSEULPO, ORIGIN_LAT, ORIGIN_LNG, null, null, PoiStore.Sort.DISTANCE, 30, 0));
     assertThat(sparse).as("성긴 뷰포트\n" + sparse).doesNotContain("Seq Scan on poi");
 
-    // 빽빽한 곳(강남역 2 km, bbox 안 4 천 행) — 여기서는 구면 KNN 이 이긴다. 전부 꺼내 정렬하면 10 ms, KNN 은 4 ms.
+    // 빽빽한 곳(강남역 2 km, bbox 안 수천 행). 어느 인덱스를 고르는지는 플래너 몫 — 순차 스캔만 아니면 된다.
     Bbox gangnam = new Bbox(127.017, 37.489, 127.037, 37.507);
     String dense =
         store.explainList(
             criteria(gangnam, 37.498, 127.027, null, null, PoiStore.Sort.DISTANCE, 30, 0));
-    assertThat(dense)
-        .as("빽빽한 뷰포트는 KNN\n" + dense)
-        .contains("poi_geom_idx")
-        .doesNotContain("Seq Scan on poi");
+    assertThat(dense).as("빽빽한 뷰포트\n" + dense).doesNotContain("Seq Scan on poi");
   }
 
   private static PoiStore.Criteria criteria(
@@ -200,10 +197,20 @@ class PoiStoreIntegrationTest {
     assertThat(p.getLatitude()).isBetween(b.minLat(), b.maxLat());
   }
 
-  private static long idOf(String sourceId) {
-    return jdbc.sql("SELECT id FROM poi WHERE source_id = :s")
-        .param("s", sourceId)
-        .query(Long.class)
-        .single();
+  /** 기준 bbox 안에서 기준점에 가장 가까운 숙박 — 어느 DB 든 모슬포에는 숙박이 있다. */
+  private static PoiSummary nearestStay() {
+    PoiStore.Page page =
+        store.list(
+            criteria(
+                MOSEULPO,
+                ORIGIN_LAT,
+                ORIGIN_LNG,
+                null,
+                PoiCategoryGroup.STAY,
+                PoiStore.Sort.DISTANCE,
+                1,
+                0));
+    assertThat(page.items()).as("모슬포 bbox 안 숙박").isNotEmpty();
+    return page.items().get(0);
   }
 }

@@ -412,7 +412,7 @@ navi-proto 의 홈 재편(`cd8debd`)과 편의시설 점을 옮겼다. 홈은 �
 | `RouteTab/RouteGuide.swift` `pois`·`card` | 편의시설 — `PoisAPI.listPois`(bbox+중심, 거리순 30) · `PoisAPI.getPoi`(분류·주소·전화). 카드 엔드포인트(`getPoiCard`·`listPoiCards`)는 부르지 않는다 |
 | `RouteTab/RoutePoiTone.swift` `RoutePoiGlyph` | 점의 업종 아이콘(카페·식당·지하철·공항…) · 이름표는 크게 확대했을 때만(`PinoPin.caption`) |
 
-로컬에서 점을 보려면 POI 가 적재돼 있어야 한다 — `just seed-poi`(표본 23행) 또는
+로컬에서 점을 보려면 POI 가 적재돼 있어야 한다 — `just seed-poi`(표본 29행) 또는
 `just seed-poi <걸러 둔 jsonl.gz …>`(전량 50만 행, 저장소 밖).
 
 ## 여행 모드 — 편집 화면 안에서 길찾기·스탬프 (2026-09-04, MZ2AZ-307)

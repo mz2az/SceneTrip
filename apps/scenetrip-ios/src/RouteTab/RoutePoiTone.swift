@@ -36,8 +36,7 @@ enum RoutePoiTone {
 /// 이유가 그것이다: 음식 갈래 안에서 카페와 식당이, 교통 갈래 안에서 지하철·기차·버스·
 /// 공항이 서로 달라야 쓸모가 있다.
 ///
-/// 업종 이름은 프로토타입 서버의 `poi.kind`(TMAP 분류를 우리 열두 개 안팎으로 접은 것 —
-/// `/api/poi-categories` 가 목록을 준다)다. 못 맞추면 갈래의 기본 글리프로 떨어진다.
+/// 업종 이름은 서버가 주는 편의시설 세부 종류(`category`)다. 못 맞추면 갈래의 기본 글리프로 떨어진다.
 enum RoutePoiGlyph {
     static func symbol(group: RoutePoiGroup, category: String?) -> String {
         let kind = category ?? ""
