@@ -252,9 +252,9 @@ recipe grouped by area.
                  (docs/project/ for a feature plan, docs/architecture/adr/ for a decision).
  3. CONTRACT     If a wire interface changes, edit contracts/ FIRST, run `just gen`,
                  and let the generated stubs drive the implementation.
- 4. IMPLEMENT    Update BUILD.bazel in the same edit.
- 5. TEST         Someone without the implementation in mind writes the tests from the spec,
-                 and shows each new test fails on the base commit for the right reason.
+ 4. TEST FIRST   Before implementing, someone other than the implementer writes the tests from
+                 the spec and runs them — each new test fails for the right reason.
+ 5. IMPLEMENT    Until those tests pass. Update BUILD.bazel in the same edit.
  6. RUN          Unit (`just test`) and integration (`just test-integration`) lanes for the
                  changed modules and everything that depends on them.
  7. VERIFY       `just check` must pass. Never hand off red.
