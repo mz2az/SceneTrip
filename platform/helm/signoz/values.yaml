@@ -16,6 +16,20 @@ clickhouse:
   resources:
     requests: { cpu: 250m, memory: 1536Mi }
     limits: { memory: 3Gi }
+  # ClickHouse 가 자기 자신에 대해 남기는 내부 기록 중 무겁고 우리가 안 보는 것을 끈다. 2026-10-17 PRD 디스크 20Gi 중
+  # 18.5Gi 가 이것이었고(trace_log 13.7Gi — 메모리 할당마다 쌓이는 추적, 시간당 약 210 만 줄) 우리 데이터(signoz_*)는 0.15Gi
+  # 뿐이었다. 그 표들을 합치느라 노드 CPU 가 49→100% 로 올랐다. SigNoz 는 이 표들을 읽지 않는다. 운영자가 넣는
+  # 01-clickhouse-*.xml 보다 뒤에 읽히도록 이름을 zz- 로 시작한다. query_log·part_log·text_log·error_log 는 남긴다(문제 볼 때 쓴다).
+  files:
+    config.d/zz-system-logs-off.xml: |
+      <clickhouse>
+        <trace_log remove="1"/>
+        <zookeeper_log remove="1"/>
+        <processors_profile_log remove="1"/>
+        <query_views_log remove="1"/>
+        <query_thread_log remove="1"/>
+        <metric_log remove="1"/>
+      </clickhouse>
   zookeeper:
     resources:
       requests: { cpu: 100m, memory: 512Mi }
