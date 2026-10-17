@@ -40,14 +40,19 @@ cp "$DATA/seed/candidates.csv" "$TMP/seed-input.csv"
 run -f "$DATA/seed/candidates.sql" || fail "촬영지 적재"
 rm -f "$TMP/seed-input.csv"
 
-say "② 편의시설 — 판 $poi_edition"
 existing=$(q -c "SELECT count(*) FROM poi")
 update=0
 [ "$existing" -gt 0 ] && update=1
-# 여섯 파일을 하나로 — seed-poi.sh 와 같이 한 번의 적재 안에서 파일을 넘나드는 중복을 접는다.
-cat "$DATA"/poi/poi_*.jsonl.gz | gzip -dc >"$TMP/seed-poi-input.jsonl"
-run -v update="$update" -v update_sql="$DATA/seed/poi_update.sql" -f "$DATA/seed/poi.sql" || fail "편의시설 적재"
-rm -f "$TMP/seed-poi-input.jsonl"
+# 표가 비었을 때만 판 전체를 처음 적재한다. 이미 있으면 그 판은 들어가 있다 — 바뀐 것은 아래 업데이트 묶음으로만(MZ2AZ-492).
+if [ "$update" = 0 ]; then
+  say "② 편의시설 — 판 $poi_edition (처음 적재)"
+  # 여섯 파일을 하나로 — seed-poi.sh 와 같이 한 번의 적재 안에서 파일을 넘나드는 중복을 접는다.
+  cat "$DATA"/poi/poi_*.jsonl.gz | gzip -dc >"$TMP/seed-poi-input.jsonl"
+  run -v update=0 -v update_sql="$DATA/seed/poi_update.sql" -f "$DATA/seed/poi.sql" || fail "편의시설 적재"
+  rm -f "$TMP/seed-poi-input.jsonl"
+else
+  say "② 편의시설 — 판 $poi_edition 은 이미 들어 있다(처음 적재 건너뜀)"
+fi
 
 # 처음 적재 때 합쳐진 줄의 번호(poi_source) — 관광공사 상세가 합쳐진 곳에도 붙게. 로컬 `just poi-source-merged` 와 같은 SQL.
 say "②-2 합쳐진 번호 기록"
@@ -58,6 +63,54 @@ rm -f "$TMP/poi-merged.tsv"
 # 남아 있던 같은 가게 중복(반올림 경계로 갈린 쌍) — 로컬 `just poi-dedupe` 와 같은 SQL. 두 번째부터는 할 일이 없다.
 say "②-3 같은 가게 정리"
 run -f "$DATA/seed/poi_dedupe.sql" || fail "같은 가게 정리"
+
+# 업데이트 묶음(poi-update-<출처>-<이름>.tar.gz, 안에 manifest.json 이름표) — 이름 순서대로, 이미 넣은 것은 건너뛴다.
+# 로컬 `just poi-update` 와 같은 SQL(poi_update_load.sql). 관광공사 묶음은 편의시설 다음에 상세도.
+applied=()
+shopt -s nullglob
+for t in "$DATA"/poi-update/*.tar.gz; do
+  work="$TMP/poi-update"
+  rm -rf "$work" && mkdir -p "$work"
+  tar -xzf "$t" -C "$work" || fail "업데이트 묶음 풀기 ($t)"
+  manifests=("$work"/*/manifest.json)
+  [ -f "${manifests[0]}" ] || fail "업데이트 묶음에 manifest.json 이 없다 ($t)"
+  dir=$(dirname "${manifests[0]}")
+  label=$(sed -n 's/.*"label": *"\([^"]*\)".*/\1/p' "$dir/manifest.json" | head -1)
+  source=$(sed -n 's/.*"source": *"\([^"]*\)".*/\1/p' "$dir/manifest.json" | head -1)
+  kind=$(sed -n 's/.*"kind": *"\([^"]*\)".*/\1/p' "$dir/manifest.json" | head -1)
+  [ "$kind" = update ] || fail "업데이트 재료가 아니다 ($t: kind=$kind)"
+  done_already=$(q -c "SELECT EXISTS (SELECT 1 FROM data_load WHERE summary->'poi_updates' ? '$label')")
+  if [ "$done_already" = t ]; then
+    say "②-4 업데이트 $label — 이미 넣었다(건너뜀)"
+    continue
+  fi
+  say "②-4 업데이트 $label"
+  case "$source" in
+    store) files="poi_food poi_stay"; full=1 ;;
+    transit) files="poi_transit"; full=1 ;;
+    tour) files="poi_sight poi_tour_food poi_tour_stay"; full=0 ;;
+    *) fail "모르는 출처 ($label: $source)" ;;
+  esac
+  : >"$TMP/poi-update-input.jsonl"
+  for f in $files; do [ -f "$dir/$f.jsonl" ] && cat "$dir/$f.jsonl" >>"$TMP/poi-update-input.jsonl"; done
+  : >"$TMP/poi-update-hidden.jsonl"
+  [ -f "$dir/tour_hidden.jsonl" ] && cp "$dir/tour_hidden.jsonl" "$TMP/poi-update-hidden.jsonl"
+  run -v source="$source" -v full="$full" -v filter_sql="$DATA/seed/poi_filter.sql" \
+      -v update_sql="$DATA/seed/poi_source_update.sql" -f "$DATA/seed/poi_update_load.sql" || fail "업데이트 ($label)"
+  if [ "$source" = tour ]; then
+    for f in tour_detail_ko tour_detail_en; do
+      if [ -s "$dir/$f.jsonl" ]; then
+        cp "$dir/$f.jsonl" "$TMP/seed-poi-detail.jsonl"
+        run -v detail_sql="$DATA/seed/poi_detail.sql" -f "$DATA/seed/poi_detail_load.sql" || fail "업데이트 상세 ($label $f)"
+      fi
+    done
+    rm -f "$TMP/seed-poi-detail.jsonl"
+  fi
+  rm -f "$TMP/poi-update-input.jsonl" "$TMP/poi-update-hidden.jsonl"
+  applied+=("\"$label\"")
+done
+shopt -u nullglob
+poi_updates="[$(IFS=,; echo "${applied[*]}")]"
 
 say "③ 같은 곳 연결"
 cp "$DATA/seed/place_poi_links.tsv" "$TMP/place-poi-links.tsv"
@@ -95,9 +148,9 @@ for pair in "작품:$n_content" "촬영지:$n_place" "편의시설:$n_poi" "검�
 done
 
 took=$(($(date +%s) - started))
-summary=$(printf '{"commit":"%s","poi_edition":"%s","poi_mode":"%s","csv_sha256":"%s","content":%s,"place":%s,"poi":%s,"place_poi_link":%s,"search_term":%s,"poi_detail_edition":"%s","poi_detail":%s,"seconds":%s}' \
+summary=$(printf '{"commit":"%s","poi_edition":"%s","poi_mode":"%s","csv_sha256":"%s","content":%s,"place":%s,"poi":%s,"place_poi_link":%s,"search_term":%s,"poi_detail_edition":"%s","poi_detail":%s,"poi_updates":%s,"seconds":%s}' \
   "${SCENETRIP_COMMIT:-}" "$poi_edition" "$([ "$update" = 1 ] && echo update || echo initial)" "$csv_sha" \
-  "$n_content" "$n_place" "$n_poi" "$n_link" "$n_search" "$detail_edition" "$n_detail" "$took")
+  "$n_content" "$n_place" "$n_poi" "$n_link" "$n_search" "$detail_edition" "$n_detail" "$poi_updates" "$took")
 # 변수 치환(:'summary')은 -c 에서는 일어나지 않는다 — 표준 입력으로 넘긴다.
 printf '%s\n' "INSERT INTO data_load (summary) VALUES (:'summary'::jsonb);" |
   run -v summary="$summary" || fail "기록"

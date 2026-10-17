@@ -107,9 +107,12 @@ pkg_tar(
         "seed/poi_dedupe.sql",
         "seed/poi_detail.sql",
         "seed/poi_detail_load.sql",
+        "seed/poi_filter.sql",
         "seed/poi_merged_2026-06.tsv",
         "seed/poi_source_merged.sql",
+        "seed/poi_source_update.sql",
         "seed/poi_update.sql",
+        "seed/poi_update_load.sql",
     ],
     mode = "0444",
     package_dir = "/data/seed",
@@ -145,6 +148,19 @@ pkg_tar(
     tags = ["manual"],
 )
 
+# 편의시설 업데이트 재료 묶음(MZ2AZ-492) — `just poi-update-publish` 가 찍는 줄을 여기와 MODULE.bazel 에 옮긴다. 이름 순서대로 넣으니
+# 오래된 것부터 적는다. 운영 적재가 이미 넣은 묶음(data_load 기록의 poi_updates)은 건너뛴다.
+POI_UPDATES = [
+]
+
+pkg_tar(
+    name = "data_load_poi_update_layer",
+    srcs = POI_UPDATES,
+    mode = "0444",
+    package_dir = "/data/poi-update",
+    tags = ["manual"],
+)
+
 pkg_tar(
     name = "data_load_script_layer",
     srcs = ["seed/remote-load.sh"],
@@ -167,6 +183,7 @@ oci_image(
         ":data_load_seed_layer",
         ":data_load_poi_layer",
         ":data_load_poi_detail_layer",
+        ":data_load_poi_update_layer",
         ":data_load_script_layer",
     ],
     # 배포 Job 들과 같은 비루트 사용자(Pod Security restricted). /tmp 는 Job 이 emptyDir 로 붙인다.
@@ -321,10 +338,12 @@ java_binary(
 #   external        캐시하지 않고 매번 실행한다. 입력 파일이 그대로여도 DB 내용은
 #                   바뀌므로, 캐시된 초록은 "지금도 통과한다" 는 뜻이 아니다.
 #
-# size 가 medium 인 이유: 접속과 질의가 있어 small 의 기본 제한(60 초)에 걸릴 수 있다.
+# size: 접속과 질의가 있어 small 의 기본 제한(60 초)에 걸릴 수 있다 — 지금은 large(아래 설명).
 java_junit5_test(
     name = "integration_test",
-    size = "medium",
+    # large: 출처별 업데이트 시험(PoiSourceUpdateIntegrationTest)의 상가정보 판 전체 실행이 로컬 전체 DB(91 만 곳)에서 약 100 초 걸려
+    # 전체가 medium 제한(300 초)에 닿는다(2026-10-17 실측 282 초).
+    size = "large",
     srcs = glob(["tests/integration/java/**/*.java"]),
     # PoiUpdateIntegrationTest 가 적재가 psql 로 돌리는 바로 그 파일을 JDBC 로 돌린다.
     # place_poi_link.sql 도 같다 — 같은 곳 연결(MZ2AZ-371)을 실제 DB 에 돌려 본다. poi_detail.sql 은 관광공사 상세·사진 맞추기.
@@ -334,8 +353,11 @@ java_junit5_test(
         # 번호 기록(MZ2AZ-491) — 합쳐진 번호 넣기·같은 가게 정리를 같은 방식으로 JDBC 로 돌리고, 합쳐진 번호 파일의 모양을 본다.
         "seed/poi_dedupe.sql",
         "seed/poi_detail.sql",
+        # 출처별 업데이트(MZ2AZ-492) — 줄 거르기·번호 기록 기준 업데이트를 JDBC 로 돌린다(PoiSourceUpdateIntegrationTest).
+        "seed/poi_filter.sql",
         "seed/poi_merged_2026-06.tsv",
         "seed/poi_source_merged.sql",
+        "seed/poi_source_update.sql",
         "seed/poi_update.sql",
     ],
     tags = [
