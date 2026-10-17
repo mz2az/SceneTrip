@@ -252,19 +252,29 @@ recipe grouped by area.
                  (docs/project/ for a feature plan, docs/architecture/adr/ for a decision).
  3. CONTRACT     If a wire interface changes, edit contracts/ FIRST, run `just gen`,
                  and let the generated stubs drive the implementation.
- 4. TEST FIRST   Write the failing test. Run `just test` — confirm it fails for the right reason.
- 5. IMPLEMENT    Minimal code to pass. Update BUILD.bazel in the same edit.
- 6. VERIFY       `just check` must pass. Never hand off red.
- 7. DOCUMENT     Update the module README, docs/, and any ADR affected by the change.
- 8. COMMIT       Branch and commit per the JIRA ticket key, on a branch off `main` (see §7).
+ 4. IMPLEMENT    Update BUILD.bazel in the same edit.
+ 5. TEST         Someone without the implementation in mind writes the tests from the spec,
+                 and shows each new test fails on the base commit for the right reason.
+ 6. RUN          Unit (`just test`) and integration (`just test-integration`) lanes for the
+                 changed modules and everything that depends on them.
+ 7. VERIFY       `just check` must pass. Never hand off red.
+ 8. SMOKE        Backend change: deploy locally (`just update <module>`) and send real requests
+                 to the changed endpoints — normal path and every promised error status.
+ 9. DOCUMENT     Update the module README, docs/, and any ADR affected by the change.
+10. COMMIT       Branch and commit per the JIRA ticket key, on a branch off `main` (see §7).
 ```
+
+The step-by-step procedure for Claude Code (subagents, baselines, the test-lane table) is
+[`CLAUDE.md` §3](./CLAUDE.md#3-task-loop).
 
 ### Definition of Done
 
 A change is done only when **all** of these hold:
 
 - [ ] `just check` passes locally
-- [ ] New/changed behavior is covered by a test in the correct lane
+- [ ] New/changed behavior is covered by a test in the correct lane, and that test was seen to
+      fail without the change
+- [ ] Backend change: the changed endpoints answered real requests correctly on local kind
 - [ ] `BUILD.bazel` files hand-updated for every added/removed source file
 - [ ] Contracts updated before implementation when the wire format changed
 - [ ] When `contracts/` changed: every `docs/project/plans/` doc that consumes that contract was
