@@ -54,6 +54,11 @@ rather than running the underlying tool ad hoc. Adding the recipe *is* part of t
 Follow this loop for every code change. Steps are ordered by cost — do the cheap ones first.
 
 ```
+DESIGN   → Settle the design with the user in conversation.
+           Any plan-first trigger (below)? → write the plan in docs/project/.
+           A decision with lasting consequences → write its ADR now, at design time.
+           The user confirms the plan before any code is written.
+
 LOCATE   → Use the placement table (AGENTS.md §2) to decide where code goes.
            Never create a new top-level directory.
 
@@ -61,18 +66,53 @@ CONTRACT → Does this change a wire format (API, event, proto, tool schema)?
            YES → edit contracts/ first, `just gen`, then implement against the stubs.
            NO  → continue.
 
-TEST     → Write the failing test in the correct lane (unit / integration / e2e).
-           `just test <target>` — confirm it fails for the intended reason.
-
 BUILD    → Implement. Update BUILD.bazel in the SAME edit that adds the source file.
            A source file without a Bazel target is an incomplete change.
 
-VERIFY   → `just check`. Do not report success on a red gate.
-           If `just gen` produces a diff, commit it.
+TEST     → A fresh subagent writes the tests from the spec only — the plan section, the
+           contract, public signatures. It does not read the implementation body.
+           Put each test in the lane that matches what it needs (see "Test lanes" below).
+           Prove each new test can fail: run it against the base commit without the
+           implementation; it must fail for the intended reason. A new test that passes
+           there checks nothing.
 
-DOCUMENT → Update the module README and any affected docs/ page.
-           Architectural decision? Add an ADR in docs/architecture/adr/.
+RUN      → A fresh subagent runs `just test <targets>` and `just test-integration <targets>`
+           for the changed modules plus every target outside them that depends on them
+           (grep BUILD.bazel for the module label, or `just rdeps`). A new migration always
+           includes //tools/aws/integration:database_test.
+           Give it what changed and the commands only — no expected results, no list of
+           "known failures". Baseline for "was it already failing" = main's CI run at the
+           merge-base, not a local rebuild.
+
+VERIFY   → `just check` (fmt, lint, build, unit — integration is not in it).
+           Do not report success on a red gate. If `just gen` produces a diff, commit it.
+
+SMOKE    → Backend change: `just update <module>` (not `just deploy` — same tag, old pod),
+           then curl the changed endpoints on http://localhost:8081: the normal path and every
+           error status the contract promises. Check status AND body — an empty 200 is a
+           failure. The ticket is done when this passes; PRD deploys are batched separately.
+
+DOCUMENT → Update the module README and any affected docs/ page in the same PR.
+           A decision that changed during implementation gets a new ADR that supersedes
+           the old one — accepted ADRs are never rewritten.
+
+PR       → Open the PR. CI reruns the unit lane (`verify`) and the integration lane
+           (`integration` job against a real PostgreSQL).
 ```
+
+### Test lanes — what each one can and cannot see
+
+| Lane | Real | Faked | Cannot see |
+| --- | --- | --- | --- |
+| unit (`just test`) — e.g. `@WebMvcTest` | Spring MVC: routing, validation, exception → status | the database (`@MockitoBean` stores) | SQL, schema, real DB errors |
+| integration (`just test-integration`) | PostgreSQL, SQL, stores | the Spring context — controllers are built by hand | migrations at startup, config binding, filters, how a real DB error maps to a status |
+| smoke (SMOKE step, manual) | the image running on local kind | nothing | — |
+
+The gap today: no test boots the full Spring context against a real database (the one
+`@SpringBootTest` turns Flyway off). Silent failures have come from exactly there — a migration
+that never ran, a list query that failed only on the real database. When a change depends on
+Spring startup behaviour **and** the database, add an integration-lane test that boots the
+context against the real database, instead of relying on SMOKE alone.
 
 ### When to plan first
 
@@ -160,6 +200,7 @@ Delegate when it saves context, not by reflex.
 | Independent parallel work (review 3 modules at once) | Sequential, dependent edits |
 | Reading a large surface to answer one question | A single-fact lookup |
 | Language-specific review after a change | Trivial mechanical edits |
+| Writing and running tests for a change you implemented (TEST, RUN) | — always delegate: the implementer's context bends the tests toward the code |
 
 Rules: run independent subagents in **one message** so they execute concurrently; never fabricate
 a pending subagent's result; relay only the conclusion, not the file dumps.
