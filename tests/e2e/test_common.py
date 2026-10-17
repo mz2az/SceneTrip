@@ -117,19 +117,26 @@ class CommonTest(E2ETestCase):
         self.assertEqual(r.json()["code"], "ACCESS_TOKEN_INVALID")
 
     def test_tampered_access_token_is_401_access_token_invalid(self):
-        s = sign_in_google()
-        header, payload, sig = s["accessToken"].split(".")
-        # 서명은 그대로 두고 몸통만 바꾼다
+        # 몸통의 sub 를 "다른 진짜 사용자" 의 id 로 바꾼다 — 계정 id 모양은 맞으므로
+        # 서버가 서명을 확인하지 않으면 B 의 계정이 열린다. 401 은 서명 탓이어야만 나온다.
+        a = sign_in_google()
+        b = sign_in_google()
+        self.assertNotEqual(a["user"]["id"], b["user"]["id"])
+        header, payload, sig = a["accessToken"].split(".")
         claims = json.loads(
             base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))
         )
-        claims["sub"] = "e2e-tampered"
+        self.assertEqual(claims["sub"], a["user"]["id"], claims)
+        claims["sub"] = b["user"]["id"]
+        # A 의 머리·서명은 그대로, 몸통만 B 로
         tampered = ".".join([header, _b64url(json.dumps(claims).encode()), sig])
         r = call("GET", "/me", token=tampered)
         self.assertEqual(r.status, 401, r)
-        self.assertEqual(r.json()["code"], "ACCESS_TOKEN_INVALID")
-        # 원래 토큰은 그대로 통한다 — 401 이 토큰 탓임을 보인다
-        self.assertEqual(call("GET", "/me", token=s["accessToken"]).status, 200)
+        self.assertEqual(r.json()["code"], "ACCESS_TOKEN_INVALID", r)
+        # B 의 자기 토큰은 그대로 통한다 — 401 이 바꿔치기 탓임을 보인다
+        me = call("GET", "/me", token=b["accessToken"])
+        self.assertEqual(me.status, 200, me)
+        self.assertEqual(me.json()["id"], b["user"]["id"])
 
     def test_invalid_token_is_rejected_even_on_public_endpoint(self):
         # 토큰이 있으면 토큰의 계정이다 — 깨진 토큰을 비회원으로 조용히 넘기지 않는다

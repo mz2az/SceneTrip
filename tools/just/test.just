@@ -39,6 +39,11 @@ test-e2e *args:
 e2e-up:
     ./tools/scripts/e2e.sh up
 
+# API e2e 인스턴스로 가는 port-forward 만 다시 건다 — 파드가 바뀌면 끊긴다(이미지는 그대로 둔다)
+[group('test')]
+e2e-forward:
+    ./tools/scripts/e2e.sh forward
+
 # API e2e 인스턴스를 내린다
 [group('test')]
 e2e-down:

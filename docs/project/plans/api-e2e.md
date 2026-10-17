@@ -2,7 +2,7 @@
 
 - **작성일**: 2026-10-18
 - **티켓**: MZ2AZ-496
-- **상태**: 진행 중
+- **상태**: 1차 완료(2026-10-18) — 시험 108 개, 망가뜨려 실패 확인
 - **정한 것**(사용자, 2026-10-18): API e2e 먼저(앱 화면 e2e 는 나중) · 바깥 서비스는 가짜 서버 · 로컬 kind
 
 ## 1. 왜 — 지금 시험이 못 보는 것
@@ -69,7 +69,30 @@ flowchart LR
 본다(여러 시험을 한 번에 묶어 굽는다). 바깥 서비스 쪽 시험은 가짜의 답을 틀리게 바꿔 본다. 망가뜨린 코드는 커밋하지 않는다.
 시험이 실제 결함을 찾으면 시험을 고치지 않고 보고한다.
 
-## 5. 하지 않는 것(1차)
+절차 — 평소 서버(`deployment/scene-api`)는 건드리지 않는다:
+
+```
+(소스에 버그를 넣고) just image scene-api sabotage
+kubectl -n scenetrip set image deployment/scene-api-e2e scene-api=scene-api:sabotage
+just e2e-forward          # 파드가 바뀌면 port-forward 가 끊긴다. e2e-up 은 이미지를 dev 로 되돌리므로 쓰지 않는다
+just test-e2e             # 겨냥한 시험이 의도한 이유로 빨간지
+git checkout -- services/scene-api/src ; set image … scene-api:dev ; just e2e-forward
+```
+
+**1차 결과(2026-10-18)**: 시험 108 개 중 106 개가 망가뜨린 서버에서 의도한 이유로 빨간 것을 봤다(이미지 4 번에 버그 100 개 남짓).
+약한 시험 1 개 — 「몸통을 바꾼 액세스 토큰」 이 `sub` 를 UUID 꼴이 아닌 값으로 바꿔, 서명 검사를 꺼도 다른 이유로 401 이 났다(서명 검사를
+끄면 남의 실제 id 로 바꾼 토큰이 그 사람 계정을 연다). 남의 실제 id 로 바꾸게 다시 썼다. 나머지 1 개는 알려진 실패(`/v1` 밖 경로, §5).
+
+## 5. 발견
+
+- **`/v1` 밖 경로가 오류 JSON 이 아니다.** 로컬은 톰캣 기본 HTML 404, PRD 는 gateway 의 빈 text/plain 404. `docs/api/errors.md` 는
+  「버전 접두사를 빠뜨리면 `ENDPOINT_NOT_FOUND`」 라고 한다 — 문서를 고칠지 동작을 고칠지 결정 대기. 시험은 `expectedFailure`.
+- 계약이 정하지 않은 것(시험은 실제 동작으로 고정): 깨진 JSON 의 코드 `INVALID_PARAMETER`, 토큰 없는 `/me` 의 코드 `ACCESS_TOKEN_INVALID`,
+  애플 미설정 501 의 몸체(비어 있다), 여행 중 아님 409 의 코드 `COURSE_NOT_ACTIVE`, 리뷰 사진 키가 붙인 뒤 `uploads/tmp/…` →
+  `reviews/…` 로 바뀐다(계약은 「응답의 키를 다시 보내면 남는다」 만 약속).
+- `ApiError.traceId` — 계약은 500·503 에만 싣는다고 하는데 `errors.md` 예시는 404 에 붙어 있다. 실제는 계약대로.
+
+## 6. 하지 않는 것(1차)
 
 - 앱 화면 e2e(iOS·Android) — 사용자 결정으로 나중
 - gateway(nginx) 경로 — `gateway_test` 가 본다
