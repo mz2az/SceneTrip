@@ -3,26 +3,26 @@
 # 사용법: seed-poi.sh [--update] [파일.jsonl(.gz) ...]
 # 호출: just seed-poi
 #
-# 인자가 없으면 저장소의 표본(services/scene-api/seed/poi-sample.jsonl)을 넣는다.
-# 전량은 저장소에 없다 — 250 MB 다. 공공데이터 판(SceneTrip_POI_20260907/out, 여섯 파일)을
-# 경로로 넘긴다. 여러 파일을 주면 이어 붙여 **한 번에** 넣는다 — 파일을 넘나드는 중복과
+# 인자가 없으면 저장소의 표본(services/scene-api/seed/poi-sample.jsonl, 29 행)을 넣는다.
+# 전량은 저장소에 없다 — 공개 Release 로 받는 `just seed-poi-release <판>` 을 쓰거나, 영어 칸을 붙인
+# 여섯 파일(`just poi-en` 결과 폴더 out-en)을 경로로 넘긴다. 영어 칸이 없는 원본 폴더(out/)를 넣으면
+# 영어 주소·이름이 붙지 않는다. 여러 파일을 주면 이어 붙여 **한 번에** 넣는다 — 파일을 넘나드는 중복과
 # 관광공사↔상가정보 겹침을 한 번의 적재 안에서 접기 위해서다.
 #
-#   just seed-poi ~/Downloads/SceneTrip_POI_20260907/out/poi_*.jsonl
+#   just seed-poi ~/SceneTrip-data/SceneTrip_POI/out-en/poi_*.jsonl
 #
 # **다시 돌려도 안전하다.** seed.sh(성지)와 달리 지우지 않는다 — source_id 로 UPSERT 한다.
 # 있는 행은 갱신하고 없는 행은 더한다. **POI 는 어떤 경우에도 지우지 않는다**(ADR 0022) — 리뷰·코스
 # 항목·번역·사진이 poi 를 ON DELETE CASCADE 로 참조해 함께 사라진다. 보이지 않아야 할 POI 는 closed_at.
 #
-# 예전의 --prune(이번 입력에 없는 POI 를 지움)은 TMAP → 공공데이터 출처 교체(2026-09-09)에 한 번 쓰고
-# 없앴다. 주면 멈춘다.
+# 예전의 --prune(이번 입력에 없는 POI 를 지움)은 없앴다. 주면 멈춘다.
 #
 # **분기 갱신은 --update.** 입력에 없는 가게를 지우지 않는다. 좌표·이름으로 새 번호와 같은 가게면
 # 번호만 갈아 잇고(poi.id 와 붙은 번역·사진이 남는다), 이어지지 않으면 폐업 표시(closed_at)만 한다.
 # 같은 출처끼리만 본다 — 상가정보 파일만 넣어도 관광지는 그대로다. 규칙은 seed/poi_update.sql,
 # 근거는 docs/project/plans/poi-i18n-image.md §8. 표본에는 막아 둔다.
 #
-#   just seed-poi --update ~/Downloads/SceneTrip_POI_<새 판>/out/poi_*.jsonl
+#   just seed-poi --update ~/SceneTrip-data/SceneTrip_POI/out-en/poi_*.jsonl
 #
 # shellcheck source=tools/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"

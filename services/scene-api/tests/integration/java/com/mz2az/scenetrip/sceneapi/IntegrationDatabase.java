@@ -125,7 +125,7 @@ public final class IntegrationDatabase {
     long rows = jdbc.sql("SELECT count(*) FROM poi").query(Long.class).single();
     if (rows == 0) {
       throw new IllegalStateException(
-          "poi 가 비어 있습니다. `just seed-poi` 를 먼저 실행하세요 — 인자 없이 치면 저장소의 표본 31 행이 들어갑니다.");
+          "poi 가 비어 있습니다. `just seed-poi` 를 먼저 실행하세요 — 인자 없이 치면 저장소의 표본 29 행이 들어갑니다.");
     }
   }
 

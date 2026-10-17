@@ -6,10 +6,9 @@
 --
 -- ── 출처 — 공공데이터 (2026-09-07 판) ─────────────────────────────────────────
 --
--- TMAP 을 쓰지 않는다(2026-09-05 결정). 음식·숙박은 소상공인 상가정보(id `MA…`), 관광·
--- 음식·숙박 일부는 관광공사 TourAPI(id `tour-…`), 교통은 공항·철도·터미널 공공자료다.
--- 파일은 여섯(food·stay·sight·tour_food·tour_stay·transit)이고 열두 키 모양은 TMAP 판과
--- 같아 읽는 칸은 안 바뀐다. `src` 에 원본 전 칸이 붙어 오지만 읽지 않는다.
+-- 음식·숙박은 소상공인 상가정보(id `MA…`), 관광·음식·숙박 일부는 관광공사 TourAPI(id `tour-…`),
+-- 교통은 공항·철도·터미널 공공자료다(ADR 0014). 파일은 여섯(food·stay·sight·tour_food·tour_stay·
+-- transit). `src` 에 원본 전 칸이 붙어 오지만 읽지 않는다.
 -- 상가정보에는 전화가 없다 — tel 이 음식·숙박 전부 빈 값이다(2026-09-09 실측).
 --
 -- ── candidates.sql 과 다른 점: 지우지 않고 UPSERT 한다. POI 는 어떤 경우에도 지우지 않는다 ─────
@@ -17,8 +16,7 @@
 -- POI 에는 자연키가 있다 — 출처가 준 source_id. 그래서 ON CONFLICT 로 멱등이 된다.
 -- 있는 행은 갱신하고 없는 행은 더한다. 지우지 않는 이유: review · course_item · place_poi_link ·
 -- poi_i18n · poi_image 가 poi 를 ON DELETE CASCADE 로 참조해, POI 하나를 지우면 사용자 리뷰와 코스
--- 항목까지 사라진다. 보이지 않아야 할 POI 는 closed_at 으로 숨긴다(ADR 0022). 예전에 출처를 통째로
--- 바꿀 때(TMAP → 공공데이터) 쓰던 `-v prune=1`(입력에 없는 행 지우기)은 없앴다.
+-- 항목까지 사라진다. 보이지 않아야 할 POI 는 closed_at 으로 숨긴다(ADR 0022).
 
 \set ON_ERROR_STOP on
 -- 분기 갱신(--update). update_sql 은 seed-poi.sh 가 넘긴다 — 파드에서는 표준 입력으로 들어와 상대
@@ -45,7 +43,7 @@ CREATE TEMP TABLE t_raw (doc TEXT) ON COMMIT DROP;
 -- 오타가 적재 전체를 실패시킨다. 형식이 틀린 행은 아래에서 세어 버린다.
 --
 -- origin 은 id 의 생김새로 안다 — 관광공사(tour-…)와 상가정보(MA…)를 겹침 처리(§4-1)에서
--- 가려야 해서다. 그 밖(교통 공공자료, TMAP 판 표본)은 other 로 두고 겹침 처리를 안 한다.
+-- 가려야 해서다. 그 밖(교통 공공자료)은 other 로 두고 겹침 처리를 안 한다.
 CREATE TEMP TABLE t_in ON COMMIT DROP AS
 SELECT
     NULLIF(btrim(d ->> 'id'), '')                             AS source_id,
@@ -56,7 +54,6 @@ SELECT
          THEN (d ->> 'lng')::double precision END             AS lng,
     NULLIF(btrim(d ->> 'biz_middle'), '')                     AS biz_middle,
     COALESCE(NULLIF(btrim(d ->> 'kind'), ''),
-             NULLIF(btrim(d ->> 'biz_lower'), ''),
              NULLIF(btrim(d ->> 'biz_middle'), ''))           AS category,
     NULLIF(btrim(d ->> 'addr'), '')                           AS address,
     -- 영어 화면용 칸 — `just poi-en` 이 덧붙인다(§5-2). 칸 자체가 없는 입력(원본 그대로)은 그 값을
@@ -78,9 +75,9 @@ FROM (SELECT doc::jsonb AS d FROM t_raw WHERE doc IS NOT NULL AND btrim(doc) <> 
 
 -- ── 3. 갈래 허용목록 ─────────────────────────────────────────────────────────
 --
--- 원본 biz_middle 아홉 종을 네 갈래로 접는다 (poi.md §3-4·§4-0). 여기 없는 값은
--- 넣지 않는다 — TMAP 판에서는 수집기가 keyword=음식점 으로 긁다 담아 온 정육점(음식료)·
--- 꽃집(생활서비스)이 걸렸다. 공공데이터 판은 전부 허용목록 안이라 0 행이어야 정상이다.
+-- 원본 biz_middle 아홉 종을 네 갈래로 접는다 (poi.md §3-4·§4-0). 여기 없는 값은 넣지 않는다 —
+-- 공공데이터 판은 전부 허용목록 안이라 0 행이어야 정상이다(2026-06 판 실측 0). 0 이 아니면 변환이
+-- 바뀐 것이니 들여다본다.
 -- 파일 이름으로 갈래를 정하지 않는다 — 파일에 다른 갈래가 섞여 있을 수 있다.
 CREATE TEMP TABLE t_group (biz_middle TEXT PRIMARY KEY, category_group TEXT NOT NULL) ON COMMIT DROP;
 INSERT INTO t_group VALUES
@@ -140,8 +137,8 @@ CREATE TEMP TABLE t_ok ON COMMIT DROP AS
 SELECT i.source_id, i.name, i.lat, i.lng, i.category, g.category_group,
        i.address, i.road, i.tel, i.region, i.city, i.origin, i.addr_en, i.has_addr_en,
        i.name_en, i.has_name_en, i.name_roman, i.has_name_roman,
-       -- 자루 카테고리(~기타·전문음식점)가 아닌 것. 중복을 접을 때 남길 쪽을 고르는 첫 기준.
-       (i.category NOT LIKE '%기타' AND i.category <> '전문음식점') AS concrete,
+       -- 자루 카테고리(~기타)가 아닌 것. 중복을 접을 때 남길 쪽을 고르는 첫 기준.
+       (i.category NOT LIKE '%기타') AS concrete,
        -- 소수 5자리 ≈ 1 m. 좌표를 이 정밀도로 비교한다.
        round(i.lat::numeric, 5) AS lat5,
        round(i.lng::numeric, 5) AS lng5
