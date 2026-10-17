@@ -368,10 +368,21 @@ java_junit5_test(
     test_package = "com.mz2az.scenetrip.sceneapi",
     runtime_deps = [
         "@maven//:org_postgresql_postgresql",
+        # API 통합 시험(apiflow/)의 MockMvc jsonPath 가 실행 때 json-path 를 찾는다 — 단위 레인과 같은 스타터.
+        "@maven//:org_springframework_boot_spring_boot_starter_test",
     ],
     deps = [
         ":scene-api",
         "//contracts/openapi:scene_api_spring_lib",
+        # API 통합 시험(apiflow/, MZ2AZ-494) — 앱 전체를 @SpringBootTest 로 띄우고 MockMvc 로 요청해 실제 DB 까지 태운다.
+        # 바깥 API(카카오·에이전트·사진 저장소·네이버)만 @MockitoBean 으로 바꾼다. 단위 레인이 이미 쓰는 아티팩트라 MODULE.bazel 은 그대로다.
+        "@maven//:org_hamcrest_hamcrest",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_springframework_boot_spring_boot_test",
+        "@maven//:org_springframework_boot_spring_boot_test_autoconfigure",
+        "@maven//:org_springframework_boot_spring_boot_webmvc_test",
+        "@maven//:org_springframework_spring_beans",
+        "@maven//:org_springframework_spring_context",
         # AuthFlowIntegrationTest 가 CurrentAccount 에 넣을 요청(MockHttpServletRequest)을 만들고
         # 컨트롤러의 ResponseEntity 를 읽는다 — 스프링 컨텍스트 없이 실제 Store 로 흐름을 태운다.
         "@maven//:jakarta_servlet_jakarta_servlet_api",
