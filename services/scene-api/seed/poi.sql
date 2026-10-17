@@ -296,6 +296,19 @@ WITH hidden AS (
 )
 SELECT category, count(*) AS rows FROM hidden GROUP BY 1 ORDER BY 2 DESC, 1;
 
+-- ── 5-1-2. 번호 기록 — 대표 번호를 poi_source 에(V38) ───────────────────────────────
+--
+-- 새로 들어온 편의시설과 번호가 갈아 끼워진 편의시설(--update)의 대표 번호를 기록한다. 이미 있는 번호는 그대로 —
+-- 기록의 주인(poi_id)을 바꾸지 않는다. 출처별 업데이트(poi-load-cleanup.md §5)가 이 칸을 제대로 다루기 전까지의 다리다.
+INSERT INTO poi_source (source_id, poi_id, source)
+SELECT source_id,
+       id,
+       CASE WHEN source_id LIKE 'MA%'   THEN 'store'
+            WHEN source_id LIKE 'tour-%' THEN 'tour'
+            ELSE 'transit' END
+FROM poi
+ON CONFLICT (source_id) DO NOTHING;
+
 -- ── 5-2. 영어 화면용 칸 — 영문 주소, 영어 이름, 로마자 읽기 ─────────────────────
 --
 -- 영문 주소는 번역하지 않는다 — 행정안전부 영문도로명주소DB·영문주소 API 의 공식 표기다(계획 §6-3·§11).

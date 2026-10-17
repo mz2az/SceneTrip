@@ -104,8 +104,11 @@ pkg_tar(
         "seed/place_poi_link.sql",
         "seed/place_poi_links.tsv",
         "seed/poi.sql",
+        "seed/poi_dedupe.sql",
         "seed/poi_detail.sql",
         "seed/poi_detail_load.sql",
+        "seed/poi_merged_2026-06.tsv",
+        "seed/poi_source_merged.sql",
         "seed/poi_update.sql",
     ],
     mode = "0444",
@@ -328,7 +331,11 @@ java_junit5_test(
     data = [
         "seed/course_pin_to_poi.sql",
         "seed/place_poi_link.sql",
+        # 번호 기록(MZ2AZ-491) — 합쳐진 번호 넣기·같은 가게 정리를 같은 방식으로 JDBC 로 돌리고, 합쳐진 번호 파일의 모양을 본다.
+        "seed/poi_dedupe.sql",
         "seed/poi_detail.sql",
+        "seed/poi_merged_2026-06.tsv",
+        "seed/poi_source_merged.sql",
         "seed/poi_update.sql",
     ],
     tags = [

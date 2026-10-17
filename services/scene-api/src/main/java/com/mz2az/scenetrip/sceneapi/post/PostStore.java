@@ -132,7 +132,7 @@ public class PostStore {
           COALESCE(
               (SELECT pim.url FROM place_image pim WHERE pim.place_id = pl.id
                 ORDER BY pim.sort_order, pim.id LIMIT 1),
-              (SELECT qim.url FROM poi_image qim WHERE qim.poi_id = q.id
+              (SELECT qim.url FROM poi_image_visible qim WHERE qim.poi_id = q.id
                 ORDER BY qim.sort_order, qim.id LIMIT 1)) AS image_url,
           q.name_roman AS poi_name_roman,
           CASE WHEN q.id IS NULL OR :lang = 'ko' THEN NULL

@@ -270,6 +270,19 @@ course-pin-to-poi *flags:
 place-poi-link *flags:
     ./tools/scripts/place-poi-link.sh "$@"
 
+# 처음 적재 때 합쳐진 줄의 번호를 번호 기록(poi_source)에 넣는다 — 몇 번을 돌려도 같다(MZ2AZ-491).
+# 넣은 뒤 just seed-poi-detail 을 다시 돌리면 합쳐진 곳에도 관광공사 상세가 붙는다.
+[group('db')]
+poi-source-merged:
+    ./tools/scripts/poi-source-merged.sh
+
+# 이미 남아 있는 같은 가게 중복(이름 같고 1.5 m 안)을 정리한다 — 한쪽을 숨기고 리뷰·코스·번호를 옮긴다(MZ2AZ-491).
+# `--dry-run` 은 계산하고 목록만 보여 준 뒤 되돌린다. 몇 번을 돌려도 같다.
+[group('db')]
+[positional-arguments]
+poi-dedupe *flags:
+    ./tools/scripts/poi-dedupe.sh "$@"
+
 # 인기도를 지금 다시 계산한다 — 서버가 매일 밤 하는 것과 같은 DB 함수(recompute_popularity, 기본 무게)를 부른다.
 # 조회·하트·코스를 만든 뒤 순서가 바뀌는지 바로 보려고. 계획: docs/project/plans/popularity.md §5.
 [group('db')]

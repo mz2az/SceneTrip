@@ -7,7 +7,8 @@
 # 접속은 표준 PG 환경변수로 받는다: PGHOST · PGUSER(app_migrate — 소유자, 적재 SQL 이 임시 표·TRUNCATE·MV 갱신을 한다) ·
 # PGPASSWORD · PGDATABASE · PGSSLMODE. 그 밖에 SCENETRIP_COMMIT(배포 커밋, data_load 기록용).
 #
-# 순서(계획 §3): ① 촬영지 ② 편의시설(표가 비면 처음, 아니면 --update) ③ 같은 곳 연결 ③-2 관광공사 상세(국문 → 영문, MZ2AZ-376)
+# 순서(계획 §3): ① 촬영지 ② 편의시설(표가 비면 처음, 아니면 --update) ②-2 합쳐진 번호 기록 ②-3 같은 가게 정리(MZ2AZ-491)
+# ③ 같은 곳 연결 ③-2 관광공사 상세(국문 → 영문, MZ2AZ-376 — 번호 기록으로 찾는다)
 # ④ 인기도 ⑤ 검색 색인 ⑥ 건수 검사·기록.
 # 몇 번을 돌려도 같다. **사용자 데이터를 지우는 seed-reset 은 여기 없다.**
 #
@@ -47,6 +48,16 @@ update=0
 cat "$DATA"/poi/poi_*.jsonl.gz | gzip -dc >"$TMP/seed-poi-input.jsonl"
 run -v update="$update" -v update_sql="$DATA/seed/poi_update.sql" -f "$DATA/seed/poi.sql" || fail "편의시설 적재"
 rm -f "$TMP/seed-poi-input.jsonl"
+
+# 처음 적재 때 합쳐진 줄의 번호(poi_source) — 관광공사 상세가 합쳐진 곳에도 붙게. 로컬 `just poi-source-merged` 와 같은 SQL.
+say "②-2 합쳐진 번호 기록"
+cp "$DATA/seed/poi_merged_2026-06.tsv" "$TMP/poi-merged.tsv"
+run -f "$DATA/seed/poi_source_merged.sql" || fail "합쳐진 번호 기록"
+rm -f "$TMP/poi-merged.tsv"
+
+# 남아 있던 같은 가게 중복(반올림 경계로 갈린 쌍) — 로컬 `just poi-dedupe` 와 같은 SQL. 두 번째부터는 할 일이 없다.
+say "②-3 같은 가게 정리"
+run -f "$DATA/seed/poi_dedupe.sql" || fail "같은 가게 정리"
 
 say "③ 같은 곳 연결"
 cp "$DATA/seed/place_poi_links.tsv" "$TMP/place-poi-links.tsv"

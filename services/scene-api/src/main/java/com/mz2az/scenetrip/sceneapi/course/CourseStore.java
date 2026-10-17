@@ -131,7 +131,7 @@ public class CourseStore {
                   (SELECT pim.url FROM place_image pim
                     WHERE pim.place_id = p.id
                     ORDER BY pim.sort_order, pim.id LIMIT 1),
-                  (SELECT qim.url FROM poi_image qim
+                  (SELECT qim.url FROM poi_image_visible qim
                     WHERE qim.poi_id = q.id
                     ORDER BY qim.sort_order, qim.id LIMIT 1)) AS image_url
           FROM course_item i
