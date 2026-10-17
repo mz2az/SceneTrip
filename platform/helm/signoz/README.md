@@ -8,7 +8,7 @@
 | 파일 | 내용 |
 | --- | --- |
 | `values.yaml` | 모든 환경 — StorageClass `signoz-gp3`, 차트의 옛 gp2 StorageClass 끄기 |
-| `values-dev.yaml` · `values-prd.yaml` | 환경별. PRD 는 아직 설치하지 않는다 |
+| `values-dev.yaml` · `values-prd.yaml` | 환경별 — ClickHouse 디스크 60Gi, 보관 기간(trace·로그 7 일, 지표 30 일)은 주석에 적고 화면·API 로 바꾼다 |
 | `BUILD.bazel` | `<키>_push` — 차트가 쓰는 공개 이미지 7 개(`@mirror_*`, digest 고정)를 환경 ECR `scenetrip-<env>/mirror/…` 로 |
 
 배포기가 stdin 으로 더하는 값(저장소에 없음): `global.imageRegistry`(환경 ECR 복사본), `clickhouse.password`(클러스터 Secret).
