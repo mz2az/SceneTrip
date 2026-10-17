@@ -169,6 +169,67 @@ class FavoriteStoreIntegrationTest {
         .isZero();
   }
 
+  @Test
+  @DisplayName("수집한 포스터·제작사 주소가 URI 로 읽히지 않으면 그 칸만 null — 찜 목록은 그대로 나온다")
+  void unparseableUrlEmptiesOnlyThatField() {
+    // FavoriteStore.uri Javadoc: 수집한 URL 이 URI 로 파싱되지 않으면 그 필드만 비운다. 목록 전체가 500 이 되면 안 된다.
+    IntegrationDatabase.rolledBack(
+        () -> {
+          store.add(user, contentA);
+          store.add(user, contentB);
+          jdbc.sql(
+                  "UPDATE content SET poster_url = 'https://img.example/포스터 1.jpg|x',"
+                      + " producer_url = 'http://bad host/^' WHERE id = :id")
+              .param("id", contentA)
+              .update();
+
+          FavoriteStore.Page page = store.list(user, Lang.KO, 20, 0);
+
+          assertThat(page.items()).extracting(ContentSummary::getId).contains(contentA, contentB);
+          ContentSummary broken =
+              page.items().stream().filter(s -> s.getId() == contentA).findFirst().orElseThrow();
+          assertThat(broken.getPosterUrl()).isNull();
+          assertThat(broken.getProducerUrl()).isNull();
+          assertThat(broken.getTitle()).isNotBlank();
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("포스터 주소가 빈 문자열·공백이면 null — 빈 URI 를 내보내지 않는다")
+  void blankUrlIsNull() {
+    // 계약 ContentSummary.posterUrl·producerUrl: nullable, format uri. 「없으면 null」(producerUrl).
+    IntegrationDatabase.rolledBack(
+        () -> {
+          store.add(user, contentA);
+          jdbc.sql("UPDATE content SET poster_url = '', producer_url = '   ' WHERE id = :id")
+              .param("id", contentA)
+              .update();
+
+          ContentSummary only = store.list(user, Lang.KO, 20, 0).items().get(0);
+
+          assertThat(only.getPosterUrl()).isNull();
+          assertThat(only.getProducerUrl()).isNull();
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("개봉 연도가 없는 작품은 releaseYear 가 null — 0 년이 아니다")
+  void missingReleaseYearIsNull() {
+    // FavoriteStore.integerOrNull Javadoc: 연도 0 과 「연도 없음」 은 다르다. 계약 releaseYear 는 nullable.
+    IntegrationDatabase.rolledBack(
+        () -> {
+          store.add(user, contentA);
+          jdbc.sql("UPDATE content SET release_year = NULL WHERE id = :id")
+              .param("id", contentA)
+              .update();
+
+          assertThat(store.list(user, Lang.KO, 20, 0).items().get(0).getReleaseYear()).isNull();
+          return null;
+        });
+  }
+
   private int savedPlaceCount() {
     return jdbc.sql("SELECT count(*) FROM saved_place WHERE user_id = CAST(:u AS UUID)")
         .param("u", user.toString())

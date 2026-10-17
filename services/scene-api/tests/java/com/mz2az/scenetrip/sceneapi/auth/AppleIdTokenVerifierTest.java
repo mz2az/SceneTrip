@@ -219,6 +219,25 @@ class AppleIdTokenVerifierTest {
   }
 
   @Test
+  @DisplayName("번들 ID 설정이 비었거나 없으면 aud 가 빈 문자열인 토큰도 INVALID — 「우리 앱」 이 정해지지 않으면 아무것도 받지 않는다")
+  void missingBundleIdConfigRejectsEverything() {
+    // Javadoc: 구글 검증기와 「같은 틀」 이고 다른 점은 셋(발급자·aud 가 번들 ID 하나·nonce 해시)뿐이다. 구글 검증기는 허용 목록이
+    // 비어 있으면 아무 토큰도 통과하지 못한다 — 애플도 같아야 한다.
+    for (String config : new String[] {"", "   ", null}) {
+      AppleIdTokenVerifier closed =
+          new AppleIdTokenVerifier(
+              new ImmutableJWKSet<>(new JWKSet(appleKey.toPublicJWK())), config, CLOCK);
+
+      assertThat(reasonOf(closed, signed(valid().audience("").build()), RAW_NONCE))
+          .as("client-id=%s", config)
+          .isEqualTo(Reason.INVALID);
+      assertThat(reasonOf(closed, signed(valid().build()), RAW_NONCE))
+          .as("client-id=%s", config)
+          .isEqualTo(Reason.INVALID);
+    }
+  }
+
+  @Test
   @DisplayName("만료가 1 분 여유를 넘겨 지났거나 없으면 INVALID")
   void expiredIsInvalid() {
     assertInvalid(

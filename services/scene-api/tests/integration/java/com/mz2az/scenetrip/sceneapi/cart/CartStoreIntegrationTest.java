@@ -3,8 +3,10 @@ package com.mz2az.scenetrip.sceneapi.cart;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mz2az.scenetrip.sceneapi.IntegrationDatabase;
+import com.mz2az.scenetrip.sceneapi.api.model.CartItem;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -70,6 +72,25 @@ class CartStoreIntegrationTest {
 
     assertThat(added).isPresent();
     assertThat(store.list(user, Lang.KO).items()).extracting("placeId").containsExactly(placeId);
+  }
+
+  @Test
+  @DisplayName("작품을 주고 담으면 sourceContentId 가 그 작품, 안 주고 담으면 null — 0 이 아니다")
+  void sourceContentIdIsKeptOrNull() {
+    // CartStore.longOrNull Javadoc: 작품 id 0 과 「담을 때 작품을 안 줬다」 는 다르다. 계약 CartItem.sourceContentId 는
+    // nullable.
+    List<Long> places =
+        jdbc.sql("SELECT id FROM place ORDER BY id LIMIT 2").query(Long.class).list();
+    long contentId = IntegrationDatabase.anyContentId(jdbc);
+
+    CartItem withContent = store.add(user, places.get(0), contentId, Lang.KO).orElseThrow();
+    CartItem withoutContent = store.add(user, places.get(1), null, Lang.KO).orElseThrow();
+
+    assertThat(withContent.getSourceContentId()).isEqualTo(contentId);
+    assertThat(withoutContent.getSourceContentId()).isNull();
+    assertThat(store.list(user, Lang.KO).items())
+        .extracting(CartItem::getSourceContentId)
+        .containsExactly(contentId, null);
   }
 
   @Test
