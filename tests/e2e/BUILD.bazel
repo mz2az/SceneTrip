@@ -1,0 +1,26 @@
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+# API e2e — 로컬 kind 의 scene-api-e2e 에 진짜 HTTP 를 흘린다(MZ2AZ-496, docs/project/plans/api-e2e.md).
+# 먼저 `just e2e-up`, 그다음 `just test-e2e`. 가짜 바깥 서버를 호스트 0.0.0.0:18900 에 띄우므로 샌드박스 밖에서 돈다.
+# e2e 태그라 빠른 레인·통합 레인·CI 에 들어가지 않는다.
+
+py_library(
+    name = "support",
+    srcs = ["support.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "api_e2e_test",
+    size = "large",
+    srcs = ["run_all.py"] + glob(["test_*.py"]),
+    legacy_create_init = 0,
+    main = "run_all.py",
+    tags = [
+        "e2e",
+        "external",
+        "local",
+        "no-sandbox",
+    ],
+    deps = [":support"],
+)

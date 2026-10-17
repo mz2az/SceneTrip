@@ -29,10 +29,20 @@ test *targets=ALL:
 test-integration *targets=ALL:
     ./tools/scripts/integration-test.sh {{targets}}
 
-# 전체 스택을 관통하는 end-to-end 테스트
+# 전체 스택을 관통하는 end-to-end 테스트 — 먼저 `just e2e-up` (docs/project/plans/api-e2e.md)
 [group('test')]
-test-e2e:
-    ./tools/scripts/bazel-test.sh //tests/e2e/... --test_tag_filters=e2e --test_output=streamed
+test-e2e *args:
+    ./tools/scripts/bazel-test.sh //tests/e2e/... --test_tag_filters=e2e --test_output=streamed {{args}}
+
+# API e2e 인스턴스(scene-api-e2e)를 로컬 kind 에 띄운다 — 바깥 서비스는 시험이 띄우는 가짜로 간다
+[group('test')]
+e2e-up:
+    ./tools/scripts/e2e.sh up
+
+# API e2e 인스턴스를 내린다
+[group('test')]
+e2e-down:
+    ./tools/scripts/e2e.sh down
 
 # 생산자와 소비자가 contracts/ 에 합의했는지 검증하는 계약 테스트
 [group('test')]
