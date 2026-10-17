@@ -30,6 +30,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.NextLeg;
 import com.mz2az.scenetrip.sceneapi.api.model.RouteLeg;
 import com.mz2az.scenetrip.sceneapi.navigation.kakao.KakaoRoutingClient;
 import com.mz2az.scenetrip.sceneapi.navigation.kakao.KakaoTransitResponse;
+import com.mz2az.scenetrip.sceneapi.navigation.kakao.KakaoWalkResponse;
 import com.mz2az.scenetrip.sceneapi.web.ApiException;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -399,6 +400,201 @@ class NextLegPlannerTest {
           .isEqualTo(NextLeg.GuidanceLangEnum.EN);
       verify(kakao).transit(any(), any(), eq("en"));
       verify(kakao, times(2)).walk(any(), any(), eq("en")); // 기운 도보도 같은 언어로
+    }
+  }
+
+  @Nested
+  @DisplayName("그 밖의 응답 모양 — 계획 §3·계약 NextLeg/RouteLeg")
+  class OtherShapes {
+
+    @Test
+    @DisplayName("대중교통이 OK 인데 후보가 비었으면 대중교통이 없는 것 — 도보로, 그것도 없으면 422 ROUTE_NOT_FOUND")
+    void okWithNoRoutesFallsBackToWalk() {
+      // 클래스 Javadoc 규칙 2: 대중교통이 없으면 걷는다. 후보 0 개는 「대중교통 없음」 이다.
+      when(kakao.transit(any(), any(), anyString())).thenReturn(transit("OK"));
+      when(kakao.walk(eq(HERE), eq(FAR), anyString())).thenReturn(anyWalk());
+
+      NextLeg leg = planner.plan(HERE, FAR, Lang.KO);
+
+      assertThat(leg.getLegs()).isNotEmpty().allMatch(l -> l.getMode() == RouteLeg.ModeEnum.WALK);
+      assertThat(leg.getWalkMeters()).isEqualTo(300);
+
+      when(kakao.walk(any(), any(), anyString())).thenReturn(walk("NO_RESULTS"));
+      assertThatThrownBy(() -> planner.plan(HERE, FAR, Lang.KO))
+          .isInstanceOfSatisfying(
+              ApiException.class, e -> assertThat(e.getCode()).isEqualTo("ROUTE_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("도착 정류장이 없어도(ENDNODES_NULL) 걷는다 — 걷는 길도 없으면 422 NO_TRANSIT_NEARBY")
+    void endNodesNullFallsBackWithDistinctCode() {
+      // 계획 §3: NO_RESULTS · *NODES_NULL → 도보 1번. 출발 쪽만이 아니라 도착 쪽도.
+      when(kakao.transit(any(), any(), anyString())).thenReturn(transit("ENDNODES_NULL"));
+      when(kakao.walk(eq(HERE), eq(FAR), anyString())).thenReturn(anyWalk());
+
+      assertThat(planner.plan(HERE, FAR, Lang.KO).getLegs())
+          .isNotEmpty()
+          .allMatch(l -> l.getMode() == RouteLeg.ModeEnum.WALK);
+
+      when(kakao.walk(any(), any(), anyString())).thenReturn(walk("NO_RESULTS"));
+      assertThatThrownBy(() -> planner.plan(HERE, FAR, Lang.KO))
+          .isInstanceOfSatisfying(
+              ApiException.class,
+              e -> {
+                assertThat(e.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+                assertThat(e.getCode()).isEqualTo("NO_TRANSIT_NEARBY");
+              });
+    }
+
+    @Test
+    @DisplayName("도보 API 가 같은 점(EQUAL_POINTS)이라 하면 오류가 아니라 이미 도착 — legs [] · 0 분")
+    void walkEqualPointsIsArrived() {
+      // 계약 NextLeg: legs 가 비어 있으면 이미 도착한 것이다. 오류가 아니다.
+      when(kakao.walk(any(), any(), anyString())).thenReturn(walk("EQUAL_POINTS"));
+
+      NextLeg leg = planner.plan(HERE, NEAR, Lang.KO);
+
+      assertThat(leg.getLegs()).isEmpty();
+      assertThat(leg.getTotalMinutes()).isZero();
+      assertThat(leg.getTransfers()).isZero();
+    }
+
+    @Test
+    @DisplayName("도보 API 가 정류장·노드 없음(START/ENDNODES_NULL)이면 걷는 길이 없는 것 — 422")
+    void walkNodesNullIs422() {
+      // 계획 §3: 900 m 미만에서 도보가 실패하면 422 다. 지어내지 않는다.
+      for (String status : new String[] {"STARTNODES_NULL", "ENDNODES_NULL"}) {
+        when(kakao.walk(any(), any(), anyString())).thenReturn(walk(status));
+
+        assertThatThrownBy(() -> planner.plan(HERE, NEAR, Lang.KO))
+            .as("도보 status=%s", status)
+            .isInstanceOfSatisfying(
+                ApiException.class,
+                e -> {
+                  assertThat(e.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+                  assertThat(e.getCode()).isEqualTo("ROUTE_NOT_FOUND");
+                });
+      }
+    }
+
+    @Test
+    @DisplayName("도보 응답에 합계가 없으면 503 ROUTING_UNAVAILABLE — 대중교통과 같다")
+    void walkMissingTotalsIs503() {
+      // 계약 NextLeg.totalMinutes 는 필수다. 채울 수 없으면 「제공자 응답을 읽지 못함」(requireTotals Javadoc).
+      when(kakao.walk(any(), any(), anyString()))
+          .thenReturn(
+              new KakaoWalkResponse(
+                  "OK",
+                  new KakaoWalkResponse.Route(
+                      new KakaoWalkResponse.Properties(300, null), List.of())));
+
+      assertThatThrownBy(() -> planner.plan(HERE, NEAR, Lang.KO))
+          .isInstanceOfSatisfying(
+              ApiException.class,
+              e -> {
+                assertThat(e.getStatus()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+                assertThat(e.getCode()).isEqualTo("ROUTING_UNAVAILABLE");
+              });
+    }
+
+    @Test
+    @DisplayName("기울 도보가 OK 가 아니게(NO_RESULTS) 오면 그 끝만 빠지고 숫자는 그대로 — 예외를 내지 않는다")
+    void stitchNonOkStatusDropsThatEndOnly() {
+      // 계획 §3: 도보 2번은 좌표·안내문만 보탠다 — 숫자는 안 건드린다. 실패하면 그 끝만 빠진다.
+      when(kakao.transit(any(), any(), anyString())).thenReturn(transit("OK", busOnly()));
+      when(kakao.walk(eq(HERE), any(), anyString())).thenReturn(anyWalk());
+      when(kakao.walk(eq(new Coordinate(37.018, 127.0)), any(), anyString()))
+          .thenReturn(walk("NO_RESULTS"));
+
+      NextLeg leg = planner.plan(HERE, FAR, Lang.KO);
+
+      assertThat(leg.getLegs())
+          .extracting(RouteLeg::getMode)
+          .containsExactly(
+              RouteLeg.ModeEnum.WALK, RouteLeg.ModeEnum.WALK, RouteLeg.ModeEnum.TRANSIT);
+      assertThat(leg.getTotalMinutes()).isEqualTo(25);
+      assertThat(leg.getWalkMeters()).isEqualTo(700);
+      assertThat(leg.getFareWon()).isEqualTo(1200);
+    }
+
+    @Test
+    @DisplayName("요금이 범위의 한쪽만(min 또는 max) 오면 모르는 것 — 0 이 아니라 null")
+    void halfFareRangeIsUnknown() {
+      // 계약 fareWon: 모르면 null. 범위면 중간값인데, 한쪽만으로는 중간값을 낼 수 없다.
+      when(kakao.walk(any(), any(), anyString())).thenReturn(anyWalk());
+      for (KakaoTransitResponse.Fare half :
+          List.of(
+              new KakaoTransitResponse.Fare(null, 1500, null),
+              new KakaoTransitResponse.Fare(null, null, 3200))) {
+        when(kakao.transit(any(), any(), anyString()))
+            .thenReturn(
+                transit("OK", route(2000, 1500, 0, half, bus("x", 1300, 400, 5, BUS_PATH))));
+
+        assertThat(planner.plan(HERE, FAR, Lang.KO).getFareWon()).as("fare=%s", half).isNull();
+      }
+    }
+
+    @Test
+    @DisplayName("합계보다 차량 거리가 길어 뺄셈이 음수면 walkMeters 는 모르는 것 — null")
+    void negativeWalkMetersIsUnknown() {
+      // 계약 walkMeters: 걷는 거리(m), 모르면 null 이고 0 이 아니다. 음수 거리는 거리가 아니다.
+      when(kakao.transit(any(), any(), anyString()))
+          .thenReturn(
+              transit("OK", route(1000, 1500, 0, fare(1200), bus("x", 1300, 400, 5, BUS_PATH))));
+      when(kakao.walk(any(), any(), anyString())).thenReturn(anyWalk());
+
+      NextLeg leg = planner.plan(HERE, FAR, Lang.KO);
+
+      assertThat(leg.getWalkMeters()).isNull();
+      assertThat(leg.getTotalMinutes()).isEqualTo(25);
+    }
+
+    @Test
+    @DisplayName("안내문이 없는 step 도 guidance 는 null 이 아니다 — 계약상 필수·nullable 아님")
+    void missingGuidanceIsNeverNull() {
+      KakaoTransitResponse.Step silentBus =
+          new KakaoTransitResponse.Step(
+              new KakaoTransitResponse.StepProperties(
+                  "BUS",
+                  null,
+                  1300,
+                  400,
+                  List.of(
+                      new KakaoTransitResponse.Stop("가상정류장A"),
+                      new KakaoTransitResponse.Stop("가상정류장B")),
+                  List.of(new KakaoTransitResponse.Vehicle("x", "마을"))),
+              new KakaoTransitResponse.Path(BUS_PATH));
+      when(kakao.transit(any(), any(), anyString()))
+          .thenReturn(transit("OK", route(2000, 1500, 0, fare(1200), silentBus)));
+      when(kakao.walk(any(), any(), anyString())).thenReturn(anyWalk());
+
+      NextLeg leg = planner.plan(HERE, FAR, Lang.KO);
+
+      assertThat(leg.getLegs())
+          .filteredOn(l -> l.getMode() == RouteLeg.ModeEnum.TRANSIT)
+          .singleElement()
+          .satisfies(l -> assertThat(l.getGuidance()).isNotNull().isEmpty());
+    }
+
+    @Test
+    @DisplayName("정거장 목록이 비어 오면 stopCount 는 모르는 것 — 음수가 아니라 null")
+    void emptyStopsIsUnknownStopCount() {
+      // 계약 stopCount: 지나는 정거장 수, nullable. -1 정거장은 없다.
+      KakaoTransitResponse.Step noStops =
+          new KakaoTransitResponse.Step(
+              new KakaoTransitResponse.StepProperties(
+                  "BUS", "마을 x", 1300, 400, List.of(), List.of()),
+              new KakaoTransitResponse.Path(BUS_PATH));
+      when(kakao.transit(any(), any(), anyString()))
+          .thenReturn(transit("OK", route(2000, 1500, 0, fare(1200), noStops)));
+      when(kakao.walk(any(), any(), anyString())).thenReturn(anyWalk());
+
+      NextLeg leg = planner.plan(HERE, FAR, Lang.KO);
+
+      assertThat(leg.getLegs())
+          .filteredOn(l -> l.getMode() == RouteLeg.ModeEnum.TRANSIT)
+          .singleElement()
+          .satisfies(l -> assertThat(l.getStopCount()).isNull());
     }
   }
 

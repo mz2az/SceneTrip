@@ -3,6 +3,7 @@ package com.mz2az.scenetrip.sceneapi.review;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -13,8 +14,10 @@ import static org.mockito.Mockito.verify;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,8 +33,11 @@ import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 /**
@@ -193,6 +199,88 @@ class S3PhotoStorageTest {
     storage.move("uploads/tmp/y.jpg", "reviews/y.jpg");
 
     verify(s3).copyObject(any(CopyObjectRequest.class));
+  }
+
+  @Test
+  @DisplayName("지우기 — 그 버킷의 그 키를 지운다")
+  void deleteRemovesThatKey() {
+    doReturn(DeleteObjectResponse.builder().build())
+        .when(s3)
+        .deleteObject(any(DeleteObjectRequest.class));
+
+    storage.delete("posts/p1/a.jpg");
+
+    ArgumentCaptor<DeleteObjectRequest> delete = ArgumentCaptor.forClass(DeleteObjectRequest.class);
+    verify(s3).deleteObject(delete.capture());
+    assertThat(delete.getValue().bucket()).isEqualTo(BUCKET);
+    assertThat(delete.getValue().key()).isEqualTo("posts/p1/a.jpg");
+  }
+
+  @Test
+  @DisplayName("지우기 — 저장소가 실패하면 삼키지 않고 던진다(부른 쪽이 그 키를 지울 목록에 남긴다)")
+  void deleteFailureIsThrown() {
+    // PhotoStorage.delete Javadoc: 저장소가 실패하면 던진다. move 안의 원본 삭제와 달리 삼키지 않는다.
+    doThrow(S3Exception.builder().statusCode(503).message("slow down").build())
+        .when(s3)
+        .deleteObject(any(DeleteObjectRequest.class));
+
+    assertThatThrownBy(() -> storage.delete("posts/p1/a.jpg")).isInstanceOf(S3Exception.class);
+  }
+
+  @Test
+  @DisplayName("쪽 목록 — 그 버킷·그 접두사로 묻고, 쪽마다 키·마지막 수정 시각을 넘긴다(다음 쪽 토큰을 따라간다)")
+  void listPagesWalksEveryPage() {
+    Instant t1 = Instant.parse("2026-10-01T00:00:00Z");
+    Instant t2 = Instant.parse("2026-10-02T00:00:00Z");
+    Instant t3 = Instant.parse("2026-10-03T00:00:00Z");
+    List<ListObjectsV2Request> asked = new ArrayList<>();
+    doAnswer(
+            inv -> {
+              ListObjectsV2Request r = inv.getArgument(0);
+              asked.add(r);
+              if (r.continuationToken() == null) {
+                return ListObjectsV2Response.builder()
+                    .contents(object("reviews/a.jpg", t1), object("reviews/b.jpg", t2))
+                    .isTruncated(true)
+                    .nextContinuationToken("page-2")
+                    .build();
+              }
+              return ListObjectsV2Response.builder()
+                  .contents(object("reviews/c.jpg", t3))
+                  .isTruncated(false)
+                  .build();
+            })
+        .when(s3)
+        .listObjectsV2(any(ListObjectsV2Request.class));
+
+    List<List<PhotoStorage.StoredObject>> pages = new ArrayList<>();
+    storage.listPages("reviews/", pages::add);
+
+    assertThat(pages)
+        .containsExactly(
+            List.of(
+                new PhotoStorage.StoredObject("reviews/a.jpg", t1),
+                new PhotoStorage.StoredObject("reviews/b.jpg", t2)),
+            List.of(new PhotoStorage.StoredObject("reviews/c.jpg", t3)));
+    assertThat(asked).allSatisfy(r -> assertThat(r.bucket()).isEqualTo(BUCKET));
+    assertThat(asked).allSatisfy(r -> assertThat(r.prefix()).isEqualTo("reviews/"));
+    assertThat(asked.get(1).continuationToken()).isEqualTo("page-2");
+  }
+
+  @Test
+  @DisplayName("쪽 목록 — 저장소가 실패하면 던진다")
+  void listPagesFailureIsThrown() {
+    // PhotoStorage.listPages Javadoc: 저장소가 실패하면 던진다.
+    doThrow(S3Exception.builder().statusCode(500).message("boom").build())
+        .when(s3)
+        .listObjectsV2(any(ListObjectsV2Request.class));
+
+    assertThatThrownBy(() -> storage.listPages("posts/", page -> {}))
+        .isInstanceOf(S3Exception.class);
+  }
+
+  private static S3Object object(String key, Instant lastModified) {
+    return S3Object.builder().key(key).lastModified(lastModified).build();
   }
 
   private static Map<String, String> query(URI url) {

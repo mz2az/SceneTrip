@@ -259,6 +259,20 @@ class GoogleIdTokenVerifierTest {
         .isEqualTo(Reason.INVALID);
   }
 
+  @Test
+  @DisplayName("허용 목록에 빈 값만 있으면(설정 끝의 쉼표 등) aud 가 빈 문자열인 토큰도 INVALID — 빈 값은 클라이언트 ID 가 아니다")
+  void blankClientIdEntriesDoNotAdmitEmptyAudience() {
+    // 생성자 Javadoc: 「비어 있으면 아무 토큰도 통과하지 못한다」. 빈 칸·공백 칸만 있는 목록도 비어 있는 목록이다.
+    GoogleIdTokenVerifier blankOnly =
+        new GoogleIdTokenVerifier(
+            new ImmutableJWKSet<>(new JWKSet(googleKey.toPublicJWK())), List.of("", "  "), CLOCK);
+
+    assertThat(reasonOf(blankOnly, signed(valid().audience("").build()), NONCE))
+        .isEqualTo(Reason.INVALID);
+    assertThat(reasonOf(blankOnly, signed(valid().audience("  ").build()), NONCE))
+        .isEqualTo(Reason.INVALID);
+  }
+
   // ───────────── 만료 ─────────────
 
   @Test
