@@ -8,7 +8,13 @@
 | `candidates.csv` | 성지후보 **538 행** — 128 작품 × 촬영지 479 곳, 55 컬럼(2026-10-12 판). 키는 `title_key`(tv197067…)·`place_key`(nv… 네이버 장소 번호, px… 번호를 못 찾은 곳)·`sanctum_key`(작품-촬영지), 점수는 `place_popularity_score`(장소×작품)·`place_total_score`(장소별 합)·`title_famous_rank`(작품 순위). 닭칼은 원본에서 빠졌다. 전 판들은 git 이력에 |
 | `candidates.sql` | CSV 를 15 개 테이블로 옮기는 변환. 이 CSV 와 같은 컬럼의 다른 파일에도 쓴다 |
 | `poi-sample.jsonl` | POI(편의시설) 표본 **29 행** — 공개 판 `poi-data-2026-06` 의 실제 줄. 모슬포 묶음 11(숙박 5·명소 3·음식 2·카페 1) + 규칙 쌍(같은 이름·1 m 상가정보끼리·다른 출처·교통, 관광공사 가리기) + 한국 밖 좌표 1 + 제외 분류 4 + 관광공사에만 있는 음식점 1 + 교통 접두어별 4 |
-| `poi.sql` | JSON Lines 를 `poi` 표로 옮기는 변환. `just seed-poi` 가 쓴다 |
+| `poi.sql` | JSON Lines 를 `poi` 표로 옮기는 변환. `just seed-poi` 가 쓴다. 대표 번호를 번호 기록(`poi_source`, V38)에도 남긴다 |
+| `poi_merged_2026-06.tsv` | 처음 적재(2026-06 판) 때 다른 편의시설에 합쳐진 줄 22,818 — 「이 번호 → 이 번호에 합쳐졌다」. 원본 97 만 줄 행방 재구성(`poi-source.md` §2-1)에서 뽑았다 |
+| `poi_source_merged.sql` | 위 파일을 번호 기록에 넣는다. `just poi-source-merged`, 원격 적재 ②-2 |
+| `poi_filter.sql` | 편의시설 입력 거르기(갈래·제외 분류·필수 칸·좌표 범위) — 순수 SQL. 출처별 업데이트가 쓴다 |
+| `poi_source_update.sql` | 출처별 업데이트 — 번호 기록으로 찾고, 없으면 같은 가게 판정, 빠지거나 표출 중단이면 끄고 판단 출처 기준으로 숨김 — 순수 SQL(MZ2AZ-492) |
+| `poi_update_load.sql` | 위 둘을 묶어 psql 로 돌린다. `just poi-update <출처> <묶음> [--dry-run]`, 원격 적재 ②-4 |
+| `poi_dedupe.sql` | 이미 남아 있는 같은 가게 중복(이름 같고 1.5 m 안)을 정리 — 한쪽 숨김, 리뷰·코스·글 항목·번호를 남는 쪽으로. `just poi-dedupe [--dry-run]`, 원격 적재 ②-3 |
 | `place_poi_link.sql` | 촬영지와 같은 곳인 편의시설을 연결하고 편의시설 쪽 리뷰를 촬영지로 옮긴다(MZ2AZ-371). `just place-poi-link [--dry-run]` 이 쓴다 — `just seed`·`just seed-poi --update` 뒤에 |
 | `poi_detail.sql` · `poi_detail_load.sql` | 관광공사 상세(개요·이용시간·쉬는 날·주차·대표 메뉴·입장료·홈페이지)와 사진을 `poi_detail`·`poi_image` 에 맞춘다(MZ2AZ-376, V37). `just seed-poi-detail` 이 쓴다 — 다시 돌려도 같다. `poi_detail.sql` 은 순수 SQL 이라 통합 시험이 JDBC 로 돌린다 ([계획](../../../docs/project/plans/poi-source.md) §6-1) |
 | `course_pin_to_poi.sql` | 개인 핀으로 저장된 편의시설을 편의시설 항목으로 바꾼다(MZ2AZ-377). `just course-pin-to-poi [--dry-run]` — **앱(MZ2AZ-380) 배포 뒤에** |

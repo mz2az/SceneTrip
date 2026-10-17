@@ -5,13 +5,22 @@ py_library(
     name = "lib",
     srcs = [
         "addresses.py",
+        "convert.py",
         "juso_api.py",
         "names.py",
         "pack.py",
         "tour_detail.py",
+        "tour_sync.py",
         "tourapi.py",
     ],
     data = glob(["data/*.tsv"]),
+)
+
+# `just poi-convert` — 공공데이터 원본(상가정보·관광공사 목록·교통) → 적재 파일. 저장소 밖 build_*.py 를 옮겼다(MZ2AZ-492).
+py_binary(
+    name = "convert",
+    srcs = ["convert.py"],
+    main = "convert.py",
 )
 
 # `just poi-en` — POI 적재 파일에 공식 영문 주소·영어 이름(확실할 때만)·로마자 읽기를 덧붙인다.
@@ -36,6 +45,14 @@ py_binary(
     main = "tourapi.py",
 )
 
+# `just poi-tour-sync` — 관광공사 동기화(바뀐 것만) → 바뀐 번호 상세 → 업데이트 재료 묶음(MZ2AZ-492, poi-load-cleanup.md §5-3·§5-5).
+py_binary(
+    name = "tour_sync",
+    srcs = ["tour_sync.py"],
+    main = "tour_sync.py",
+    deps = [":lib"],
+)
+
 # `just poi-tour-detail` — 관광공사 상세 → poi_detail · poi_image 적재 파일(poi-source.md §6-1).
 py_binary(
     name = "tour_detail",
@@ -47,6 +64,7 @@ py_test(
     name = "unit_test",
     srcs = [
         "tests/test_addresses.py",
+        "tests/test_convert.py",
         "tests/test_juso_api.py",
         "tests/test_names_brands.py",
         "tests/test_names_final.py",
@@ -57,6 +75,7 @@ py_test(
         "tests/test_poi.py",
         "tests/test_spec.py",
         "tests/test_tour_detail.py",
+        "tests/test_tour_sync.py",
         "tests/test_tourapi.py",
     ],
     main = "tests/test_poi.py",

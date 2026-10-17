@@ -270,6 +270,19 @@ course-pin-to-poi *flags:
 place-poi-link *flags:
     ./tools/scripts/place-poi-link.sh "$@"
 
+# 처음 적재 때 합쳐진 줄의 번호를 번호 기록(poi_source)에 넣는다 — 몇 번을 돌려도 같다(MZ2AZ-491).
+# 넣은 뒤 just seed-poi-detail 을 다시 돌리면 합쳐진 곳에도 관광공사 상세가 붙는다.
+[group('db')]
+poi-source-merged:
+    ./tools/scripts/poi-source-merged.sh
+
+# 이미 남아 있는 같은 가게 중복(이름 같고 1.5 m 안)을 정리한다 — 한쪽을 숨기고 리뷰·코스·번호를 옮긴다(MZ2AZ-491).
+# `--dry-run` 은 계산하고 목록만 보여 준 뒤 되돌린다. 몇 번을 돌려도 같다.
+[group('db')]
+[positional-arguments]
+poi-dedupe *flags:
+    ./tools/scripts/poi-dedupe.sh "$@"
+
 # 인기도를 지금 다시 계산한다 — 서버가 매일 밤 하는 것과 같은 DB 함수(recompute_popularity, 기본 무게)를 부른다.
 # 조회·하트·코스를 만든 뒤 순서가 바뀌는지 바로 보려고. 계획: docs/project/plans/popularity.md §5.
 [group('db')]
@@ -309,6 +322,33 @@ poi-tour-detail detail_jsonl out *flags:
 [group('db')]
 poi-detail-publish ko en edition:
     ./tools/scripts/poi-detail-publish.sh "{{ ko }}" "{{ en }}" "{{ edition }}"
+
+# 편의시설 출처별 업데이트 — 묶음 폴더의 재료를 번호 기록 기준으로 반영한다(MZ2AZ-492, poi-load-cleanup.md §5).
+# store·transit 은 판 전체, tour 는 just poi-tour-sync 가 만든 묶음(바뀐 것만 + 상세). `--dry-run` 은 계산하고 되돌린다.
+[group('db')]
+[positional-arguments]
+poi-update source bundle *flags:
+    ./tools/scripts/poi-update.sh "$@"
+
+# 업데이트 재료 묶음을 공개 Release(poi-update-<출처>-<이름>)로 올린다 — 운영 적재가 받는다. 끝에 MODULE.bazel·BUILD 에 옮길 줄을 찍는다(MZ2AZ-492).
+# 예: `just poi-update-publish store ~/SceneTrip-data/SceneTrip_POI/out-en 2026-09`
+[group('db')]
+[confirm("편의시설 업데이트 재료를 공개 GitHub Release 로 올립니다. 진행할까요?")]
+poi-update-publish source bundle label:
+    ./tools/scripts/poi-update-publish.sh "{{ source }}" "{{ bundle }}" "{{ label }}"
+
+# 관광공사 동기화 — 지난번 다음 날부터 어제까지 바뀐 것만 받고, 바뀐 번호 상세를 다시 받아 업데이트 재료 묶음을 만든다(MZ2AZ-492).
+# 한도에 막히면 같은 명령으로 이어 간다. 예: `just poi-tour-sync ~/SceneTrip-data/SceneTrip_POI` (첫 실행은 2026-09-07 부터)
+[group('db')]
+poi-tour-sync data_dir *flags:
+    {{BAZEL}} run //tools/poi:tour_sync -- "{{ data_dir }}" --keys "${TOURAPI_KEY_VARS:-DATA_GO_KR_KEY,DATA_GO_KEY_GIL,DATA_GO_KEY_TAE}" {{ flags }}
+
+# 공공데이터 원본 → 적재 파일(JSON Lines). store: 상가정보 CSV 폴더 · tour: 관광공사 목록 jsonl · transit: 교통 원본 폴더 (MZ2AZ-492)
+# 예: `just poi-convert store ~/SceneTrip-data/SceneTrip_POI/raw/상가정보_202606 ~/SceneTrip-data/SceneTrip_POI/out`
+#     다음은 영어 칸 붙이기(just poi-en) — 영어 칸이 없는 파일을 넣으면 영어 주소·이름이 안 붙는다
+[group('db')]
+poi-convert source input out:
+    {{BAZEL}} run //tools/poi:convert -- "{{ source }}" "{{ input }}" "{{ out }}"
 
 # POI 적재 파일에 공식 영문 주소·영어 이름(확실할 때만)·로마자 읽기를 덧붙인다 — 결과 폴더를 just seed-poi 로 (tools/poi/README.md)
 # 남는 주소는 JUSO_ENG_API_KEY 가 있을 때만 API 로 채운다. 입력·결과는 저장소 밖.

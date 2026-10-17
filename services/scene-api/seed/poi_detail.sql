@@ -15,9 +15,11 @@
 --
 -- ── 어느 POI 인가 ───────────────────────────────────────────────────────────────
 --
--- 1. source_id 가 있으면 poi.source_id 로(`tour-<번호>` — 관광공사 국문에서 바로 들어온 POI).
--- 2. source_id 가 없고 match_name·lat·lng 가 있으면(관광공사 영문 — 번호가 국문과 달라 바로 못 잇는다) **300 m 안의 열린
---    POI 중 이름이 같은 가장 가까운 것**. 이름은 대괄호 꼬리(「[면세점(TAX REFUND SHOP)]」)를 빼고 소문자 영숫자·한글만
+-- 1. source_id 가 있으면 번호 기록(poi_source, V38)으로 — 처음 적재 때 상가정보에 합쳐진 관광공사 줄도 찾는다. 기록이 없으면
+--    poi.source_id 로(`tour-<번호>` — 관광공사 국문에서 바로 들어온 POI).
+-- 2. source_id 가 없으면(관광공사 영문 — 번호가 국문과 달라 바로 못 잇는다) 먼저 번호 기록의 `tour-en-<번호>` 로. 기록이 없고
+--    match_name·lat·lng 가 있으면 **300 m 안의 열린 POI 중 이름이 같은 가장 가까운 것** — 짝이 되면 기록에 남겨 다음부터 번호로
+--    찾는다. 이름은 대괄호 꼬리(「[면세점(TAX REFUND SHOP)]」)를 빼고 소문자 영숫자·한글만
 --    남겨 비교한다. 거리를 늘리거나 비슷한 이름까지 잇지 않는다 — 같은 이름 체인이 여러 곳이고, 틀린 짝에 붙으면 다른 가게
 --    정보가 보인다(계획 §6-1).
 -- 3. 한 POI·언어에 여러 줄이 이어지면 가장 가까운 줄 하나(같으면 최근 수정).
@@ -37,9 +39,19 @@
 CREATE TEMP TABLE t_poi_detail_link ON COMMIT DROP AS
 SELECT DISTINCT ON (x.poi_id, x.lang) x.*
 FROM (
+    SELECT i.lang, i.tour_content_id, s.poi_id, 0::float8 AS dist, i.tour_modified
+    FROM t_poi_detail_in i
+    JOIN poi_source s ON s.source_id = i.source_id
+    UNION ALL
     SELECT i.lang, i.tour_content_id, p.id AS poi_id, 0::float8 AS dist, i.tour_modified
     FROM t_poi_detail_in i
     JOIN poi p ON p.source_id = i.source_id
+    WHERE NOT EXISTS (SELECT 1 FROM poi_source s WHERE s.source_id = i.source_id)
+    UNION ALL
+    SELECT i.lang, i.tour_content_id, s.poi_id, 0::float8 AS dist, i.tour_modified
+    FROM t_poi_detail_in i
+    JOIN poi_source s ON s.source_id = 'tour-en-' || i.tour_content_id
+    WHERE i.source_id IS NULL
     UNION ALL
     SELECT i.lang, i.tour_content_id, m.id, m.dist, i.tour_modified
     FROM t_poi_detail_in i
@@ -56,6 +68,7 @@ FROM (
     ) m
     WHERE i.source_id IS NULL
       AND i.match_name IS NOT NULL AND i.lat IS NOT NULL AND i.lng IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM poi_source s WHERE s.source_id = 'tour-en-' || i.tour_content_id)
 ) x
 ORDER BY x.poi_id, x.lang, x.dist, x.tour_modified DESC NULLS LAST;
 
@@ -152,3 +165,11 @@ WHERE poi_image.source = 'tour_api'
   AND (poi_image.sort_order, poi_image.credit, poi_image.thumbnail_url, poi_image.license, poi_image.tour_content_id)
       IS DISTINCT FROM
       (EXCLUDED.sort_order, EXCLUDED.credit, EXCLUDED.thumbnail_url, EXCLUDED.license, EXCLUDED.tour_content_id);
+
+-- 영문 짝을 번호 기록에 남긴다 — 다음 적재·업데이트는 이름·거리로 다시 찾지 않고 번호로 찾는다(V38).
+INSERT INTO poi_source (source_id, poi_id, source)
+SELECT DISTINCT ON (tour_content_id) 'tour-en-' || tour_content_id, poi_id, 'tour_en'
+FROM t_poi_detail_link
+WHERE lang = 'en'
+ORDER BY tour_content_id, dist
+ON CONFLICT (source_id) DO NOTHING;

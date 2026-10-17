@@ -408,7 +408,7 @@ public class ReviewStore {
         target == Target.PLACE
             ? "SELECT url, NULL::TEXT AS credit, NULL::TEXT AS thumbnail_url, NULL::TEXT AS"
                 + " license, sort_order, id FROM place_image WHERE place_id = :id"
-            : "SELECT url, credit, thumbnail_url, license, sort_order, id FROM poi_image"
+            : "SELECT url, credit, thumbnail_url, license, sort_order, id FROM poi_image_visible"
                 + " WHERE poi_id = :id";
     String union =
         """

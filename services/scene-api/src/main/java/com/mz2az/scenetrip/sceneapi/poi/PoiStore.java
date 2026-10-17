@@ -228,18 +228,21 @@ public class PoiStore {
           WHERE p.id = :id AND p.closed_at IS NULL
           """;
 
-  /** 관광공사 상세(V37, MZ2AZ-376) — 요청 언어·en·ko 줄. 칸마다 따로 요청 언어 → en → ko 로 고른다({@link #info}). */
+  /**
+   * 관광공사 상세(V37, MZ2AZ-376) — 요청 언어·en·ko 줄. 칸마다 따로 요청 언어 → en → ko 로 고른다({@link #info}). 표출 중단된
+   * 관광공사 번호의 상세는 뷰가 뺀다(V38 poi_detail_visible).
+   */
   private static final String INFO_SQL =
       """
       SELECT lang::text AS lang, overview, use_time, rest_date, parking, first_menu, use_fee, homepage
-      FROM poi_detail
+      FROM poi_detail_visible
       WHERE poi_id = :id AND lang::text IN (:lang, 'en', 'ko')
       """;
 
-  /** 우리가 모은 사진 — 정렬 순서대로, 첫 장이 대표(V17 의 poi_image_poi_idx 가 받는다). */
+  /** 우리가 모은 사진 — 정렬 순서대로, 첫 장이 대표. 표출 중단된 관광공사 번호의 사진은 뷰가 뺀다(V38 poi_image_visible). */
   private static final String IMAGES_SQL =
       """
-      SELECT url, credit FROM poi_image WHERE poi_id = :id ORDER BY sort_order, id
+      SELECT url, credit FROM poi_image_visible WHERE poi_id = :id ORDER BY sort_order, id
       """;
 
   private final JdbcClient jdbc;

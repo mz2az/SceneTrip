@@ -35,7 +35,7 @@
 | 편의시설 파일 | Release `poi-data-<판>` 의 gz 여섯 개(약 70 MB)를 **`MODULE.bazel` 의 `http_file`(sha256 고정)** 로 받아 이미지에 넣는다. 판을 바꾸면 sha256 을 바꾸는 PR 하나 | 빌드 중 네트워크 금지(헤르메틱)를 지킨다 — Bazel 이 저장소 단계에서 sha256 으로 받는다. manifest 의 sha256 을 그대로 옮긴다 |
 | 역할 | **`app_migrate`** — migrate Job 과 같은 임시 Secret 방식(`database-load-transient`, 끝나면 지운다) | 적재 SQL 이 임시 표·TRUNCATE·MV 갱신을 한다(§2) |
 | SQL | **로컬과 같은 파일**을 그대로 쓴다(`candidates.sql`·`poi.sql`·`poi_update.sql`·`place_poi_link.sql`) | 두 벌이 되면 어긋난다. 이미지 안 스크립트가 로컬 스크립트처럼 입력을 `/tmp` 에 놓고 부른다 |
-| 순서 | ① 촬영지(`candidates.sql`, 끝에 인기도 계산) ② 편의시설(첫 적재면 기본, 이미 있으면 `--update`) ③ 같은 곳 연결 ③-2 관광공사 상세(판 `poi-detail-<판>`, 국문 → 영문 — 2026-10-16 MZ2AZ-376) ④ 인기도 다시(`recompute_popularity()`) ⑤ `REFRESH MATERIALIZED VIEW CONCURRENTLY search_term` | 연결은 촬영지·편의시설이 다 있어야 한다. 검색 색인은 맨 끝 |
+| 순서 | ① 촬영지(`candidates.sql`, 끝에 인기도 계산) ② 편의시설(첫 적재면 기본, 이미 있으면 `--update`) ②-2 합쳐진 번호 기록(`poi_source_merged.sql`) ②-3 같은 가게 정리(`poi_dedupe.sql` — 2026-10-17 MZ2AZ-491) ③ 같은 곳 연결 ③-2 관광공사 상세(판 `poi-detail-<판>`, 국문 → 영문 — 2026-10-16 MZ2AZ-376) ④ 인기도 다시(`recompute_popularity()`) ⑤ `REFRESH MATERIALIZED VIEW CONCURRENTLY search_term` | 연결은 촬영지·편의시설이 다 있어야 한다. 검색 색인은 맨 끝 |
 | 멱등 | 몇 번을 돌려도 같다 — 촬영지는 키로 갱신·추가(빠진 것은 숨김), 편의시설은 지우지 않음(ADR 0022), 연결은 다시 계산 | PRD 에서 다시 돌려도 사용자 데이터가 지워지지 않는다. **`seed-reset` 은 원격에서 절대 부르지 않는다** |
 | 네트워크 | 정책 `database-jobs` 의 라벨 목록에 `data-load` 를 더한다(5432 만). 443 은 열지 않는다 | 이미지에 다 있어 밖으로 나갈 일이 없다 |
 | 자원 | `activeDeadlineSeconds` **1800**, 메모리 512Mi·`/tmp` emptyDir 1Gi(편의시설 압축 해제 약 250 MB) | 편의시설 91 만 행. 시간은 첫 DEV 적재에서 실측해 고친다 |
