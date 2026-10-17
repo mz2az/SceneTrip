@@ -24,6 +24,12 @@
 | [place-naver-link-verification.md](place-naver-link-verification.md) | 촬영지 네이버 링크 검사와 로컬 리뷰 사진 업로드 확인 (MZ2AZ-383) |
 | [android-ios-parity-verification.md](android-ios-parity-verification.md) | Android 최신 iOS 기능 반영의 자동 검사·에뮬레이터 검증 범위 (MZ2AZ-148) |
 
+커버리지는 **어떤 테스트로 쟀는지에 달린 숫자**다. scene-api 는 DB 를 쓰는 코드(`…Store`)를
+통합 레인에서 시험하므로 `just coverage`(단위만)로는 줄 56.8 %, `just coverage-integration` 으로는
+줄 95.4 %·분기 85.9 % 였다(2026-10-16, 로컬). 숫자를 적을 때는 레인을 함께 적는다.
+로컬 DB 에 전량 데이터가 들어 있으면 표본 데이터를 전제한 통합 테스트 몇 개가 떨어지고, 실패한 타깃은
+커버리지를 모으지 않는다 — 그때는 `COVERAGE_EXCLUDE_METHODS='.*(메서드1|메서드2).*'` 로 그 메서드만 빼고 잰다.
+
 ## 상시 규칙
 
 - 새로 쓰거나 바꾼 코드는 커버리지 80% 이상, 핵심 경로는 end-to-end 로 덮는다.
@@ -34,6 +40,7 @@
 
 ```bash
 just test / test-integration / test-e2e
-just coverage
+just coverage                                   # 빠른 레인(단위)만
+just coverage-integration //services/scene-api/... # 단위 + 통합 — 클러스터 DB 필요
 just test-flaky <타깃>
 ```
