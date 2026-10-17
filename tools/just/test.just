@@ -75,6 +75,11 @@ coverage *targets=ALL:
         --combined_report=lcov
     ./tools/scripts/coverage-report.sh
 
+# 단위 + 통합 레인을 합친 커버리지. `just cluster-up` 과 `just seed` 가 먼저 되어 있어야 한다.
+[group('test')]
+coverage-integration *targets=ALL:
+    ./tools/scripts/coverage-integration.sh {{targets}}
+
 # 특정 타깃의 마지막 테스트 로그 출력
 [group('test')]
 test-log target:

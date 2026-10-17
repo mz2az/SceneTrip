@@ -97,15 +97,25 @@ public class PaidQuota {
       Window w = windows.get(i);
       counts[i] = usage.increment(subject, w.column(feature), w.start());
     }
+    // 넘은 창이 여럿이면 **가장 늦게 열리는 창**으로 알린다. 짧은 창과 하루 창이 함께 찼는데 짧은 창의 남은 초를
+    // 알리면, 그만큼 기다려 다시 보내도 하루 창에 또 걸린다(계약 RetryAfter — 하루 한도면 다음 한국 자정까지).
+    Window blocking = null;
+    long retry = 0;
     for (int i = 0; i < windows.size(); i++) {
       Window w = windows.get(i);
       if (counts[i] > w.limit()) {
-        for (Window undo : windows) {
-          usage.decrement(subject, undo.column(feature), undo.start());
+        long seconds = secondsUntilEnd(w, now);
+        if (blocking == null || seconds > retry) {
+          blocking = w;
+          retry = seconds;
         }
-        long retry = secondsUntilEnd(w, now);
-        throw new LimitExceeded(feature.code, new Headers(w.limit(), 0, retry), retry);
       }
+    }
+    if (blocking != null) {
+      for (Window undo : windows) {
+        usage.decrement(subject, undo.column(feature), undo.start());
+      }
+      throw new LimitExceeded(feature.code, new Headers(blocking.limit(), 0, retry), retry);
     }
     // 남은 양이 가장 적은 창을 알린다.
     Headers tightest = null;
@@ -148,7 +158,9 @@ public class PaidQuota {
 
   private static long secondsUntilEnd(Window w, Instant now) {
     Instant end = w.start().toInstant().plus(w.length());
-    return Math.max(1, Duration.between(now, end).toSeconds());
+    // 올림 — 남은 49.75 초를 49 로 버리면 그만큼 기다려 보내도 창이 아직 닫혀 있다(「몇 초 뒤에 보내도 되는가」).
+    long millis = Duration.between(now, end).toMillis();
+    return Math.max(1, (millis + 999) / 1000);
   }
 
   /** 한 시간에 한 번쯤 오래된 창을 지운다 — 따로 정리 작업을 두지 않는다. */
