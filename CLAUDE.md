@@ -66,15 +66,16 @@ CONTRACT → Does this change a wire format (API, event, proto, tool schema)?
            YES → edit contracts/ first, `just gen`, then implement against the stubs.
            NO  → continue.
 
-BUILD    → Implement. Update BUILD.bazel in the SAME edit that adds the source file.
-           A source file without a Bazel target is an incomplete change.
-
-TEST     → A fresh subagent writes the tests from the spec only — the plan section, the
-           contract, public signatures. It does not read the implementation body.
+TEST     → Before any implementation, a fresh subagent writes the tests from the spec only —
+           the plan section, the contract, public signatures.
            Put each test in the lane that matches what it needs (see "Test lanes" below).
-           Prove each new test can fail: run it against the base commit without the
-           implementation; it must fail for the intended reason. A new test that passes
-           there checks nothing.
+           Run them: each new test must fail, for the intended reason (e.g. 500 where 400 is
+           expected — not a compile error or a missing DB). A new test that passes before
+           the implementation exists checks nothing.
+
+BUILD    → Implement until those tests pass. Do not edit a test to make it pass — if the
+           test is wrong, go back to the spec. Update BUILD.bazel in the SAME edit that adds
+           the source file. A source file without a Bazel target is an incomplete change.
 
 RUN      → A fresh subagent runs `just test <targets>` and `just test-integration <targets>`
            for the changed modules plus every target outside them that depends on them
@@ -200,7 +201,7 @@ Delegate when it saves context, not by reflex.
 | Independent parallel work (review 3 modules at once) | Sequential, dependent edits |
 | Reading a large surface to answer one question | A single-fact lookup |
 | Language-specific review after a change | Trivial mechanical edits |
-| Writing and running tests for a change you implemented (TEST, RUN) | — always delegate: the implementer's context bends the tests toward the code |
+| Writing and running tests for a change you will implement (TEST, RUN) | — always delegate: the implementer's context bends the tests toward the code |
 
 Rules: run independent subagents in **one message** so they execute concurrently; never fabricate
 a pending subagent's result; relay only the conclusion, not the file dumps.
