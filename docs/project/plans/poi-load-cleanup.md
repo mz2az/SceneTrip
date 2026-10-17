@@ -129,16 +129,16 @@ flowchart LR
 
 ### 5-6. 업데이트하는 방법 (사람이 하는 일)
 
-명령 이름은 4 단계에서 만든다(지금은 없다). **4 단계 전에 꼭 업데이트해야 하면** 예전 방식 `just seed-poi --update <영어 칸을 붙인 폴더>`
+명령은 4 단계에서 만들었다(MZ2AZ-492) — `just poi-convert` · `just poi-tour-sync` · `just poi-update` · `just poi-update-publish`. **4 단계 전에 꼭 업데이트해야 하면** 예전 방식 `just seed-poi --update <영어 칸을 붙인 폴더>`
 뿐이고, §2 의 구멍(관광공사만 넣으면 중복 핀, 다른 출처 줄로 되살아남)이 그대로다 — 여섯 파일을 한꺼번에 넣고, 끝나면 `just poi-dedupe --dry-run`
 으로 중복을 본다. 소상공인 다음 판(2026-10-31 등록 예정) 전에 4 단계를 끝내는 것이 목표다. 원칙은 **재료를 올리고, 로컬과 똑같은 업데이트 과정을 운영에서 돌린다** — 운영 DB 를 로컬 DB 로
 덮지 않는다(편의시설 번호 `poi.id` 가 두 DB 에서 같다는 보장이 없고, 운영에만 있는 리뷰·코스·촬영지 연결이 그 번호를 가리킨다).
 
 | 출처 | 언제 | 사람이 하는 일 | 명령이 하는 일 |
 | --- | --- | --- | --- |
-| 소상공인 | 분기(다음 판 기준일 2026-09-30, 등록 예정 2026-10-31) | 공공데이터포털에서 상가정보 zip 을 받아 `~/SceneTrip-data/SceneTrip_POI/raw/` 에 푼다 → `just poi-update store <폴더>` | 변환(건물번호 포함) → 영어 칸 → §5-2 → 상세 없음 → 요약 |
-| 관광공사 | 원할 때(매일도 된다) | `just poi-update tour` | 지난번 받은 다음 날부터 국문·영문 동기화 → §5-3 → §5-5 → 요약 |
-| 교통 | 가끔 | 새 파일을 받아 두고 `just poi-update transit <폴더>` | §5-4 → 요약 |
+| 소상공인 | 분기(다음 판 기준일 2026-09-30, 등록 예정 2026-10-31) | 상가정보 zip 을 받아 `raw/` 에 푼다 → `just poi-convert store <CSV 폴더> <out>` → `just poi-en …`(영어 칸) → `just poi-update store <out-en> --dry-run` 으로 보고 → `just poi-update store <out-en>` | §5-2 → 요약 |
+| 관광공사 | 원할 때(매일도 된다) | `just poi-tour-sync <자료 폴더>`(한도에 막히면 같은 명령으로 이어 간다) → `just poi-update tour <묶음> --dry-run` → `just poi-update tour <묶음>` | 국문·영문 동기화 → §5-3 → §5-5(상세) → 요약 |
+| 교통 | 가끔 | 새 원본을 `raw/교통/` 에 → `just poi-convert transit …` → `just poi-en …` → `just poi-update transit <out-en>` | §5-4 → 요약 |
 
 요약에는 이어진 곳 · 새로 넣은 곳 · 숨긴 곳 · 다시 보이게 된 곳 · 상세 갱신 수 · 사람이 볼 목록(같은 가게 판정이 애매했던 쌍, 두 출처의 말이 다른 곳)을 싣는다.
 
@@ -152,6 +152,9 @@ flowchart LR
   d --> e[("운영 DB 를 같은 규칙으로 제자리에서 고침")]
 ```
 
+- 운영으로: `just poi-update-publish <출처> <묶음> <이름>` → 찍힌 줄을 `MODULE.bazel`·`services/scene-api/BUILD.bazel` 의 `POI_UPDATES` 에 옮기는 PR →
+  배포 워크플로 「데이터 적재」. 원격 적재(②-4)는 아직 넣지 않은 묶음만(`data_load` 기록의 `poi_updates`) 이름 순서대로 넣는다.
+  표가 비어 있지 않으면 판 전체(`poi-data-<판>`)의 처음 적재는 건너뛴다.
 - 재료: 소상공인·교통은 변환·영어 칸을 붙인 새 판, 관광공사는 그 기간의 동기화 목록과 다시 받은 상세. 운영 적재 Job 은 밖으로 나가지 않는다(네트워크
   규칙상 DB 포트만) — 그래서 노트북이 받아 Release 로 올린다.
 - 같은 재료를 두 번 넣어도 바뀌는 것이 없다 — 실수로 다시 돌려도 안전하다.

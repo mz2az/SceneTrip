@@ -9,6 +9,11 @@ from tools.poi.tests.test_addresses import (
     RoadRefs,
     StoreKeys,
 )
+from tools.poi.tests.test_convert import (
+    ConvertStoreRecord,
+    ConvertTourRecord,
+    ConvertTransit,
+)
 from tools.poi.tests.test_juso_api import Accept, Cache
 from tools.poi.tests.test_names_brands import (
     BrandCandidates,
@@ -57,6 +62,15 @@ from tools.poi.tests.test_tour_detail import (
     TourDetailMain,
     TourDetailModified,
 )
+from tools.poi.tests.test_tour_sync import (
+    TourSyncBundle,
+    TourSyncDay,
+    TourSyncDays,
+    TourSyncDefaultSince,
+    TourSyncHidden,
+    TourSyncLatest,
+    TourSyncRun,
+)
 from tools.poi.tests.test_tourapi import (
     TourConstants,
     TourFetchOne,
@@ -74,6 +88,9 @@ __all__ = [
     "BrandSourceRequired",
     "BrandSourceShipped",
     "Cache",
+    "ConvertStoreRecord",
+    "ConvertTourRecord",
+    "ConvertTransit",
     "CutToBuildingNumber",
     "FinalAddedSpellings",
     "FinalEmptyEnglishIsNotBrand",
@@ -119,6 +136,13 @@ __all__ = [
     "TourOrder",
     "TourRegionRank",
     "TourRun",
+    "TourSyncBundle",
+    "TourSyncDay",
+    "TourSyncDays",
+    "TourSyncDefaultSince",
+    "TourSyncHidden",
+    "TourSyncLatest",
+    "TourSyncRun",
 ]
 
 if __name__ == "__main__":

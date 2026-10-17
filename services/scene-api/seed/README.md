@@ -11,6 +11,9 @@
 | `poi.sql` | JSON Lines 를 `poi` 표로 옮기는 변환. `just seed-poi` 가 쓴다. 대표 번호를 번호 기록(`poi_source`, V38)에도 남긴다 |
 | `poi_merged_2026-06.tsv` | 처음 적재(2026-06 판) 때 다른 편의시설에 합쳐진 줄 22,818 — 「이 번호 → 이 번호에 합쳐졌다」. 원본 97 만 줄 행방 재구성(`poi-source.md` §2-1)에서 뽑았다 |
 | `poi_source_merged.sql` | 위 파일을 번호 기록에 넣는다. `just poi-source-merged`, 원격 적재 ②-2 |
+| `poi_filter.sql` | 편의시설 입력 거르기(갈래·제외 분류·필수 칸·좌표 범위) — 순수 SQL. 출처별 업데이트가 쓴다 |
+| `poi_source_update.sql` | 출처별 업데이트 — 번호 기록으로 찾고, 없으면 같은 가게 판정, 빠지거나 표출 중단이면 끄고 판단 출처 기준으로 숨김 — 순수 SQL(MZ2AZ-492) |
+| `poi_update_load.sql` | 위 둘을 묶어 psql 로 돌린다. `just poi-update <출처> <묶음> [--dry-run]`, 원격 적재 ②-4 |
 | `poi_dedupe.sql` | 이미 남아 있는 같은 가게 중복(이름 같고 1.5 m 안)을 정리 — 한쪽 숨김, 리뷰·코스·글 항목·번호를 남는 쪽으로. `just poi-dedupe [--dry-run]`, 원격 적재 ②-3 |
 | `place_poi_link.sql` | 촬영지와 같은 곳인 편의시설을 연결하고 편의시설 쪽 리뷰를 촬영지로 옮긴다(MZ2AZ-371). `just place-poi-link [--dry-run]` 이 쓴다 — `just seed`·`just seed-poi --update` 뒤에 |
 | `poi_detail.sql` · `poi_detail_load.sql` | 관광공사 상세(개요·이용시간·쉬는 날·주차·대표 메뉴·입장료·홈페이지)와 사진을 `poi_detail`·`poi_image` 에 맞춘다(MZ2AZ-376, V37). `just seed-poi-detail` 이 쓴다 — 다시 돌려도 같다. `poi_detail.sql` 은 순수 SQL 이라 통합 시험이 JDBC 로 돌린다 ([계획](../../../docs/project/plans/poi-source.md) §6-1) |
