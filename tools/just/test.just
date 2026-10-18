@@ -74,6 +74,12 @@ load-fake:
 load-tokens *args:
     {{ BAZEL }} run //tests/load:mint_google_tokens -- {{ args }}
 
+# DEV 클러스터 접속(임시 access entry + 러너 SOCKS 터널)은 먼저 열어 둔다 — tools/scripts/loadtest-mode.sh 머리말, docs/project/plans/load-test.md §3
+# DEV 부하 시험 모드 켜고 끄기(dev 만). 예: `LOADTEST_GOOGLE_CLIENT_ID=<aud> LOADTEST_GOOGLE_JWK=jwk.json just loadtest-mode dev on` / `just loadtest-mode dev off`
+[group('test')]
+loadtest-mode env state:
+    @BAZEL={{ quote(BAZEL) }} ./tools/scripts/loadtest-mode.sh "$1" "$2"
+
 # 모든 레인을 순서대로. 느리다.
 [group('test')]
 test-all: test test-integration test-contract test-e2e

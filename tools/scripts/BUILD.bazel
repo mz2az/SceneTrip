@@ -128,6 +128,19 @@ py_test(
     tags = ["unit"],
 )
 
+# DEV 부하 시험 모드 켜고 끄기(MZ2AZ-502) — 환경·컨텍스트 거절과 helm 인자를 가짜 helm 으로 검증.
+py_test(
+    name = "loadtest_mode_unit_test",
+    srcs = ["test_loadtest_mode.py"],
+    data = [
+        "_lib.sh",
+        "loadtest-mode.sh",
+    ],
+    legacy_create_init = 0,
+    main = "test_loadtest_mode.py",
+    tags = ["unit"],
+)
+
 # CI 캐시 정리가 방금 저장한 캐시만 남기고 나머지만 지우는지 검증.
 py_test(
     name = "ci_cache_prune_unit_test",

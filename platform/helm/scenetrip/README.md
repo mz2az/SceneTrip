@@ -52,3 +52,21 @@ EKS Auto Mode의 `kube-system/amazon-vpc-cni` ConfigMap에서 네트워크 정�
 `files/fake_external.py` 는 DEV 부하 시험(MZ2AZ-502) 때만 쓰는 가짜 바깥 서버(카카오 길찾기·Bedrock·구글 JWKS)다.
 표준 라이브러리만 쓰는 파일 하나라 ConfigMap 으로 trip-guide 이미지에 얹어 `python3 fake_external.py` 로 돈다. 설정은 `FAKE_*`
 환경변수(파일 머리말), 시험은 `//tests/load/fake:unit_test`. 계획: [load-test.md](../../../docs/project/plans/load-test.md).
+
+## DEV 부하 시험 모드 (`loadtest.enabled`, 기본 꺼짐)
+
+부하 시험 동안만 바깥 회사 서버를 클러스터 안 가짜로 바꾼다. **PRD 에서 켜면 렌더가 실패한다**(`templates/loadtest.yaml` 의 `fail`).
+꺼져 있으면 렌더 결과는 이 기능이 없던 때와 바이트 단위로 같다(`tools/aws/tests/test_loadtest_mode.py` 가 지킨다).
+
+| 켜면 | 무엇이 |
+| --- | --- |
+| 가짜 바깥 서버 | ConfigMap `fake-external`(`files/fake_external.py`) · Deployment `fake-external`(1 개, trip-guide 이미지, `/usr/bin/python3 /fake/fake_external.py`, `/healthz`) · Service `fake-external:8080` |
+| 통로 | NetworkPolicy `fake-external`(scene-api·trip-guide 에게서만 8080 을 받고 나가는 곳 없음) · `loadtest-to-fake-external`(scene-api·trip-guide → 가짜 8080) |
+| scene-api 주소 | ConfigMap `scene-api` 에 `SCENETRIP_NAVIGATION_KAKAO_BASEURL=…/kakao` · `SCENETRIP_AUTH_GOOGLE_JWKSURI=…/google/jwks` · `SCENETRIP_AUTH_GOOGLE_CLIENTIDS=<loadtest.googleClientId>` — 그동안 진짜 구글 로그인은 안 된다 |
+| trip-guide 모델 | `TRIP_GUIDE_MODEL_BASE_URL=http://fake-external:8080/bedrock` · `TRIP_GUIDE_MODEL_AUTH=none` |
+| gateway IP 상한 | `loadtest.gatewayRate`·`gatewayBurst`·`gatewayConnections`(기본 2000r/s · 4000 · 4000)가 평소의 30r/s · burst 60 · 동시 60 을 대신한다 |
+
+필수 값은 `loadtest.googleClientId`(시험 토큰의 aud)와 `loadtest.googleJwkJson`(`just load-tokens --jwk-out` 의 공개 JWK)이다.
+켜고 끄면 설정 checksum·파드 환경변수가 바뀌어 scene-api·trip-guide·gateway 가 다시 뜬다. 켜고 끄기는 `just loadtest-mode dev on|off`
+(깔린 릴리스 값은 그대로 두고 이 값만 바꾼다), 보통 배포(`just aws-apply dev`)는 꺼진 상태로 되돌린다. 절차는
+[계획 §3 「시험 모드 켜고 끄기」](../../../docs/project/plans/load-test.md).

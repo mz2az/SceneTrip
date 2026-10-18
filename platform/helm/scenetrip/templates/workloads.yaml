@@ -87,6 +87,13 @@ spec:
             - name: OTEL_SERVICE_NAME
               value: "scenetrip-trip-guide"
             {{- end }}
+            {{- if $.Values.loadtest.enabled }}
+            # 부하 시험 모드(MZ2AZ-502, DEV 전용) — Bedrock 대신 클러스터 안 가짜 모델 서버. none 은 인증 헤더도 자격 증명 확인도 없다.
+            - name: TRIP_GUIDE_MODEL_BASE_URL
+              value: "http://fake-external:8080/bedrock"
+            - name: TRIP_GUIDE_MODEL_AUTH
+              value: "none"
+            {{- end }}
           envFrom:
             - secretRef: { name: trip-guide-secrets }
           {{- end }}

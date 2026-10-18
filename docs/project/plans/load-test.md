@@ -2,7 +2,7 @@
 
 - **작성일**: 2026-10-18
 - **티켓**: MZ2AZ-502
-- **상태**: 준비(0단계) 중 — k6 추가(v2.3.0, `just load-run`), 연기 확인 통과, PRD 바깥 호출 지연 실측
+- **상태**: 준비(0단계) 중 — k6 추가(v2.3.0, `just load-run`), 연기 확인 통과, PRD 바깥 호출 지연 실측, 가짜 바깥 서버·시험 모드 차트와 `just loadtest-mode`(DEV 실제 적용 전)
 - **기록**: 실험마다 [docs/qa/loadtest/](../../qa/loadtest/README.md) 에 남긴다(포트폴리오용 — 경위·정의·원인·해결·검증과 이전·이후 수치)
 
 ## 1. 왜
@@ -65,9 +65,49 @@ flowchart LR
 | --- | --- | --- |
 | 카카오 길찾기 | 설정으로 바꿀 수 있다(`scenetrip.navigation.kakao.base-url`) | DEV 시험 중에만 가짜로 |
 | 구글 공개키 | 설정(`scenetrip.auth.google.jwks-uri`·`client-ids`) | 같음 |
-| Bedrock(LLM) | **바꿀 수 없다** — 주소가 `agents/trip-guide/config/model.json` 에 박혀 있다 | trip-guide 에 「모델 주소를 환경변수로 덮기」 를 먼저 넣는다(코드 수정, 시험 먼저) |
+| Bedrock(LLM) | 환경변수로 덮는다(`TRIP_GUIDE_MODEL_BASE_URL`·`TRIP_GUIDE_MODEL_AUTH=none`, [trip-guide README](../../../agents/trip-guide/README.md)) — 전에는 `config/model.json` 에 박혀 있었다 | 같음 |
 
-시험 시작·끝을 명령 하나로(`just loadtest-mode dev on|off` 같은 것) — 켜면 위 세 주소를 가짜로, 끄면 원래대로.
+### 시험 모드 켜고 끄기
+
+명령 하나로 켜고 끈다 — 켜면 위 세 주소를 가짜로, 끄면 원래대로. 차트의 `loadtest` 값 묶음(기본 꺼짐)이 하는 일은
+[차트 README](../../../platform/helm/scenetrip/README.md)의 「DEV 부하 시험 모드」 에 있다: 가짜 바깥 서버(`fake-external`)와
+통로(NetworkPolicy), 세 주소 덮기, gateway IP 상한을 2000r/s · burst 4000 · 동시 4000 으로. **PRD 에서 켜면 차트 렌더가 실패하고, 명령도 dev 만 받는다.**
+
+```bash
+# 0) 시험 회원 토큰과 공개키(한 번) — 비밀키 파일은 저장소 밖에 둔다
+just load-tokens --key ~/.scenetrip-load/google-key.json --jwk-out ~/.scenetrip-load/jwk.json \
+  --count 500 --aud load-test.apps.googleusercontent.com --out ~/.scenetrip-load/tokens.json
+
+# 1) 켜기 — DEV 클러스터 접속(아래)이 열려 있어야 한다
+LOADTEST_GOOGLE_CLIENT_ID=load-test.apps.googleusercontent.com \
+LOADTEST_GOOGLE_JWK=~/.scenetrip-load/jwk.json \
+  just loadtest-mode dev on
+
+# 2) 끄기 — 시험이 끝나면 반드시
+just loadtest-mode dev off
+```
+
+- **입력**: on 은 `LOADTEST_GOOGLE_CLIENT_ID`(토큰의 `--aud` 와 같은 값)와 `LOADTEST_GOOGLE_JWK`(**공개** JWK 파일 경로)가 필요하다. off 는 필요 없다.
+  `LOADTEST_KUBE_CONTEXT` 로 컨텍스트를 고를 수 있고, 어느 쪽이든 이름이 `cluster/scenetrip-dev` 로 끝나야 한다.
+- **하는 일**: 고정 helm(`//tools/bazel/cloud:helm`)으로 `helm upgrade scenetrip platform/helm/scenetrip -n scenetrip --reset-then-reuse-values
+  --set loadtest.enabled=true|false …(--set-file loadtest.googleJwkJson=<파일>) --atomic --wait`. 깔린 값(이미지·DB·도메인)은 그대로다.
+  `--reuse-values` 가 아니라 `--reset-then-reuse-values` 인 까닭: `--reuse-values` 는 옛 차트의 기본값을 써서, `loadtest` 를 모르는 차트로 깔린
+  릴리스에서는 새 기본값(상한 2000r/s 등)이 빠진다. 대신 **이 체크아웃의 차트가 DEV 에 깔린 차트와 같은 커밋이어야 한다** — 다르면 그 차이도 함께 올라간다.
+- **파드 재시작**: scene-api·gateway 는 설정 checksum 이, trip-guide 는 파드 환경변수가 바뀌어 다시 뜬다(trip-guide 는 메모리 세션이라 대화가 초기화된다).
+  scene-api 가 다시 뜨므로 구글 공개키 캐시도 비워진다.
+- **보통 배포가 끈다**: `just aws-apply dev`(GitHub Actions aws-deploy)는 Helm 값을 처음부터 다시 넣으므로 시험 모드는 꺼진 상태로 돌아간다.
+  시험 중에 DEV 배포를 돌리지 않는다.
+- **그동안**: DEV 의 진짜 구글 로그인은 안 된다(시험 토큰의 aud 하나만 받는다). 카카오 가짜는 `KakaoAK` 헤더가 없으면 401 이므로 DEV 의
+  `KAKAO_REST_KEY` 가 비어 있으면 길찾기는 가짜 전에 503 이다.
+
+**DEV 클러스터 접속 — 명령이 스스로 열지 않는다.** DEV EKS API 는 러너의 고정 IP 에서만 받는다(노트북에서는 시간 초과). 그래서 시험 전에 사람이 연다.
+
+1. 임시 EKS 접근 항목: 내 IAM 주체에 DEV 클러스터 권한을 준다 — `aws eks create-access-entry --cluster-name scenetrip-dev --principal-arn <내 ARN>`
+   + `aws eks associate-access-policy … --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy --access-scope type=cluster`.
+2. `aws eks update-kubeconfig --name scenetrip-dev --region ap-northeast-2` 로 컨텍스트를 만든다.
+3. 러너를 거치는 SSH SOCKS 터널: `ssh -D 1080 -N <러너>` 를 열어 두고 `export HTTPS_PROXY=socks5://127.0.0.1:1080`. 명령은 이 값을 helm·kubectl 실행에만
+   넘기고 Bazel 이 도구를 준비할 때는 뺀다.
+4. 시험이 끝나면 `just loadtest-mode dev off` → 터널을 닫고 → `aws eks delete-access-entry --cluster-name scenetrip-dev --principal-arn <내 ARN>`.
 
 ## 4. 부하를 막는 장치 — 먼저 알고 간다
 

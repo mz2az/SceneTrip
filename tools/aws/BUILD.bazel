@@ -94,6 +94,7 @@ py_test(
         "tests/test_gateway_limits.py",
         "tests/test_gateway_routes.py",
         "tests/test_lifecycle.py",
+        "tests/test_loadtest_mode.py",
         "tests/test_media.py",
         "tests/test_node_packing.py",
         "tests/test_ops.py",
