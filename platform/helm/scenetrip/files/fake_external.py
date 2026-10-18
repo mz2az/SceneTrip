@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""부하 시험용 가짜 바깥 서버 — 카카오 길찾기 · Bedrock(OpenAI 방식) · 구글 공개키(JWKS).
+"""부하 시험용 가짜 바깥 서버 — 카카오 길찾기 · Bedrock(OpenAI 방식) · 구글 공개키(JWKS) · 네이버 장소 검색.
 
 DEV 부하 시험(MZ2AZ-502, docs/project/plans/load-test.md §3) 동안 우리 서버는 진짜로 두고 **바깥 회사 서버만** 이것으로
 바꾼다. 흉내 내는 것은 바깥에서 보이는 겉모습 셋이다.
 
-1. 응답 모양 — 우리 코드가 읽는 JSON 그대로(카카오 대중교통·도보, OpenAI chat completion, JWKS).
-2. 응답 시간 — PRD 실측(2026-10-18)의 로그정규 근사. LLM 중앙 2.6 초·p95 5.5 초, 카카오 70ms·500ms, JWKS 120ms 고정.
+1. 응답 모양 — 우리 코드가 읽는 JSON 그대로(카카오 대중교통·도보, OpenAI chat completion, JWKS, 네이버 검색 GraphQL).
+2. 응답 시간 — PRD 실측(2026-10-18)의 로그정규 근사. LLM 중앙 2.6 초·p95 5.5 초, 카카오 70ms·500ms, JWKS 120ms 고정,
+   네이버 검색 193ms·290ms(PRD bff-gateway.place.naver.com POST p50 193·p95 286, n=27).
 3. (선택) 가끔의 실패 — 경로마다 비율로 500.
 
 가짜가 먼저 막히면 시험이 우리 서버를 재지 못한다. 그래서 기다리는 동안 다른 요청을 받는 구조(asyncio)로 짜고,
@@ -17,9 +18,10 @@ DEV 부하 시험(MZ2AZ-502, docs/project/plans/load-test.md §3) 동안 우리 
 | --- | --- | --- |
 | FAKE_HOST · FAKE_PORT | 0.0.0.0 · 8080 | 받을 주소 |
 | FAKE_LATENCY_SCALE | 1.0 | 모든 지연에 곱한다(0 이면 지연 없음) |
-| FAKE_{LLM,KAKAO,JWKS}_MEDIAN_MS | 2600 · 70 · 120 | 지연 중앙값 |
-| FAKE_{LLM,KAKAO,JWKS}_P95_MS | 5500 · 500 · 120 | 지연 p95(중앙값과 같으면 고정) |
-| FAKE_{LLM,KAKAO,JWKS}_ERROR_RATE | 0.0 | 500 을 돌려줄 비율(0~1) |
+| FAKE_{LLM,KAKAO,JWKS,NAVER}_MEDIAN_MS | 2600 · 70 · 120 · 193 | 지연 중앙값 |
+| FAKE_{LLM,KAKAO,JWKS,NAVER}_P95_MS | 5500 · 500 · 120 · 290 | 지연 p95(중앙값과 같으면 고정) |
+| FAKE_{LLM,KAKAO,JWKS,NAVER}_ERROR_RATE | 0.0 | 500 을 돌려줄 비율(0~1) |
+| FAKE_NAVER_FOUND_RATE | 0.6 | 네이버 검색이 후보를 돌려줄 비율(0~1). 검색어마다 고정이다 |
 | FAKE_LLM_TOOL | (없음) | 도구 호출 때 고를 도구 이름을 강제 |
 | FAKE_GOOGLE_JWK_JSON | 내장 공개키 | /google/jwks 가 낼 RSA 공개 JWK(JSON) |
 | FAKE_LOG_INTERVAL_S | 60 | 경로별 건수 한 줄을 찍는 간격(0 이면 끔) |
@@ -28,6 +30,7 @@ DEV 부하 시험(MZ2AZ-502, docs/project/plans/load-test.md §3) 동안 우리 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import math
 import os
@@ -95,6 +98,8 @@ class Config:
     llm: Route = Route(2.6, 5.5)
     kakao: Route = Route(0.07, 0.5)
     jwks: Route = Route(0.12, 0.12)
+    naver: Route = Route(0.193, 0.29)
+    naver_found_rate: float = 0.6
     llm_tool: str | None = None
     google_jwk: dict[str, Any] = field(default_factory=lambda: dict(DEFAULT_GOOGLE_JWK))
     log_interval_s: float = 60.0
@@ -121,6 +126,8 @@ class Config:
             llm=route("LLM", 2600, 5500),
             kakao=route("KAKAO", 70, 500),
             jwks=route("JWKS", 120, 120),
+            naver=route("NAVER", 193, 290),
+            naver_found_rate=min(max(num("FAKE_NAVER_FOUND_RATE", 0.6), 0.0), 1.0),
             llm_tool=(env.get("FAKE_LLM_TOOL") or "").strip() or None,
             google_jwk=jwk,
             log_interval_s=num("FAKE_LOG_INTERVAL_S", 60.0),
@@ -342,6 +349,25 @@ class FakeServer:
                 self.counts["jwks_500"] += 1
                 return 500, {"error": "fake injected failure"}
             return 200, {"keys": [self.config.google_jwk]}
+
+        if path == "/naver/graphql":
+            self.counts["naver"] += 1
+            if req.method != "POST":
+                return 405, {"errors": [{"message": "POST only"}]}
+            try:
+                body = json.loads(req.body.decode("utf-8") or "null")
+                query, display = naver_args(body)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                return 400, {"errors": [{"message": "request body is not JSON"}]}
+            except BadRequest as exc:
+                return 400, {"errors": [{"message": str(exc)}]}
+            if await self.wait(self.config.naver):
+                self.counts["naver_500"] += 1
+                return 500, {"errors": [{"message": "fake injected failure"}]}
+            result = naver_search(query, display, self.config.naver_found_rate)
+            found = bool(result["data"]["placeList"]["businesses"]["items"])
+            self.counts["naver_found" if found else "naver_empty"] += 1
+            return 200, result
 
         self.counts["404"] += 1
         return 404, {"message": f"no fake for {path}"}
@@ -610,6 +636,59 @@ def kakao_transit(
     }
 
 
+# ── 네이버 장소 검색(GraphQL) ────────────────────────────────────────────────
+#
+# scene-api NaverPlaceClient.search 가 읽는 것은 data.placeList.businesses.items[] 의 id·name·coordinate 뿐이다.
+# 가짜는 POI 좌표를 모르므로(검색어는 이름뿐) 후보 좌표를 서울 근처에 흩뿌린다 — scene-api 의 NaverMatcher 는 대부분
+# 「멀다」로 떨어뜨리고, 「못 찾음」 행을 poi_naver 에 남긴다. 그래서 FOUND_RATE 는 「후보가 오느냐(빈 목록이냐)」만 고른다.
+
+
+def naver_args(body: Any) -> tuple[str, int]:
+    """(검색어, 후보 수 상한). 본문이 객체가 아니거나 검색어가 없으면 BadRequest."""
+    if not isinstance(body, dict):
+        raise BadRequest("request body must be an object")
+    variables = body.get("variables")
+    inp = variables.get("input") if isinstance(variables, dict) else None
+    query = inp.get("query") if isinstance(inp, dict) else None
+    if not isinstance(query, str) or not query.strip():
+        raise BadRequest("variables.input.query is required")
+    display = inp.get("display")
+    if not isinstance(display, int) or isinstance(display, bool) or display < 1:
+        display = 5
+    return query, min(display, 5)
+
+
+def naver_search(query: str, display: int, found_rate: float) -> dict[str, Any]:
+    """검색 응답 하나. 같은 검색어면 같은 답 — 검색어의 해시로 정한다(진짜도 같은 검색어엔 같은 결과다)."""
+    digest = hashlib.sha256(query.encode("utf-8")).digest()
+    u = int.from_bytes(digest[:4], "big") / 2**32
+    items: list[dict[str, Any]] = []
+    if u < found_rate:
+        count = 1 + digest[4] % display
+        for k in range(count):
+            seed = int.from_bytes(digest[5 + k * 3 : 8 + k * 3], "big")
+            place_id = (
+                1_000_000_000
+                + int.from_bytes(digest[20 + k : 24 + k], "big") % 2_000_000_000
+            )
+            lat = round(SEOUL_LAT + ((seed & 0xFFF) / 0xFFF - 0.5) * 0.2, 7)
+            lng = round(SEOUL_LNG + (((seed >> 12) & 0xFFF) / 0xFFF - 0.5) * 0.2, 7)
+            items.append(
+                {
+                    "id": str(place_id),
+                    "name": query if k == 0 else f"{query} {k + 1}호점",
+                    "address": {
+                        "roadAddress": f"서울특별시 중구 세종대로 {100 + k}",
+                        "address": f"서울특별시 중구 태평로1가 {31 + k}",
+                    },
+                    "coordinate": {"latitude": lat, "longitude": lng},
+                }
+            )
+    return {
+        "data": {"placeList": {"businesses": {"total": len(items), "items": items}}}
+    }
+
+
 # ── Bedrock(OpenAI chat completions) ─────────────────────────────────────────
 
 _HANGUL = re.compile(r"[가-힣]")
@@ -853,7 +932,7 @@ async def _main() -> None:
     server = await start(config, host, port)
     print(
         f"[fake] {host}:{port} 대기 — 배율 {config.scale}, LLM {config.llm}, 카카오 {config.kakao}, "
-        f"JWKS {config.jwks}, 도구 강제 {config.llm_tool}, JWK kid {config.google_jwk.get('kid')}",
+        f"JWKS {config.jwks}, 네이버 {config.naver} 찾음 {config.naver_found_rate}, 도구 강제 {config.llm_tool}, JWK kid {config.google_jwk.get('kid')}",
         flush=True,
     )
     async with server:

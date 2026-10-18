@@ -62,7 +62,7 @@ EKS Auto Mode의 `kube-system/amazon-vpc-cni` ConfigMap에서 네트워크 정�
 | --- | --- |
 | 가짜 바깥 서버 | ConfigMap `fake-external`(`files/fake_external.py`) · Deployment `fake-external`(1 개, trip-guide 이미지, `/usr/bin/python3 /fake/fake_external.py`, `/healthz`) · Service `fake-external:8080` |
 | 통로 | NetworkPolicy `fake-external`(scene-api·trip-guide 에게서만 8080 을 받고 나가는 곳 없음) · `loadtest-to-fake-external`(scene-api·trip-guide → 가짜 8080) |
-| scene-api 주소 | ConfigMap `scene-api` 에 `SCENETRIP_NAVIGATION_KAKAO_BASEURL=…/kakao` · `SCENETRIP_AUTH_GOOGLE_JWKSURI=…/google/jwks` · `SCENETRIP_AUTH_GOOGLE_CLIENTIDS=<loadtest.googleClientId>` — 그동안 진짜 구글 로그인은 안 된다 |
+| scene-api 주소 | ConfigMap `scene-api` 에 `SCENETRIP_NAVIGATION_KAKAO_BASEURL=…/kakao` · `SCENETRIP_AUTH_GOOGLE_JWKSURI=…/google/jwks` · `SCENETRIP_NAVER_SEARCHURL=…/naver/graphql`(편의시설 상세의 네이버 링크 찾기, ADR 0021) · `SCENETRIP_AUTH_GOOGLE_CLIENTIDS=<loadtest.googleClientId>` — 그동안 진짜 구글 로그인은 안 된다 |
 | trip-guide 모델 | `TRIP_GUIDE_MODEL_BASE_URL=http://fake-external:8080/bedrock` · `TRIP_GUIDE_MODEL_AUTH=none` |
 | gateway IP 상한 | `loadtest.gatewayRate`·`gatewayBurst`·`gatewayConnections`(기본 2000r/s · 4000 · 4000)가 평소의 30r/s · burst 60 · 동시 60 을 대신한다 |
 

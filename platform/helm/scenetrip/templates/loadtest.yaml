@@ -131,7 +131,7 @@ spec:
       ports: [{ protocol: TCP, port: 8080 }]
   egress: []
 ---
-# scene-api(카카오·구글 공개키)·trip-guide(모델) → 가짜 8080. 기본 차단(default-deny) 위에 더하는 허용이다.
+# scene-api(카카오·구글 공개키·네이버 검색)·trip-guide(모델) → 가짜 8080. 기본 차단(default-deny) 위에 더하는 허용이다.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

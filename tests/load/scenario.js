@@ -1,6 +1,9 @@
-// 실제 앱 흐름을 본뜬 부하 시나리오 (MZ2AZ-502, docs/project/plans/load-test.md §5).
+// 실제 앱 흐름을 본뜬 부하 시나리오 — v2 (MZ2AZ-502, docs/project/plans/load-test.md §5, 설명서 docs/qa/loadtest/scenario.md).
 //
-// 흐름 넷을 비중대로 섞는다 — 둘러보기 60 · 담기 15 · 여행 15 · 챗봇 10(가정한 비율, PRD 실사용자가 쌓이면 맞춘다).
+// v2(v1 대비): 토큰 만료 시 /auth/refresh 로 갱신 · 앞 단계가 실패하면 그 흐름을 멈춤 · 둘러보기에 편의시설 상세·사진 ·
+// 새 흐름 「후기 읽기」(비회원)·「쓰기」(회원 — 사진 올리기 → 리뷰 또는 여행후기).
+//
+// 흐름 여섯을 비중대로 섞는다 — 둘러보기 50 · 후기 읽기 8 · 담기 14 · 여행 12 · 챗봇 8 · 쓰기 8(가정한 비율, PRD 실사용자가 쌓이면 맞춘다).
 // 사람처럼 단계 사이에 1~3 초 쉬고(생각하는 시간), 작품·촬영지·지도 영역·검색어를 무작위로 골라 캐시 착시를 줄인다.
 // 부하는 「초당 몇 명이 새로 들어오나」(도착률, ramping-arrival-rate)로 건다 — 서버가 느려져도 사용자는 계속 들어온다.
 //
@@ -14,6 +17,9 @@
 import http from "k6/http";
 import { check, group, sleep } from "k6";
 import { SharedArray } from "k6/data";
+import encoding from "k6/encoding";
+
+const VERSION = "v2";
 
 const BASE = __ENV.BASE_URL || "https://api-dev.scenetrip.io/v1";
 const PROFILE = __ENV.PROFILE || "smoke";
@@ -25,7 +31,7 @@ const TOKENS = new SharedArray("tokens", () =>
 );
 
 // 흐름 비중(합 1).
-const WEIGHTS = { browse: 0.6, cart: 0.15, trip: 0.15, chat: 0.1 };
+const WEIGHTS = { browse: 0.5, posts: 0.08, cart: 0.14, trip: 0.12, chat: 0.08, write: 0.08 };
 
 // 프로필 — 전체 도착률(초당 새 흐름 수)의 단계. 흐름마다 비중을 곱해 나눈다.
 const PROFILES = {
@@ -87,8 +93,8 @@ function scenarioFor(flow) {
 }
 
 // FLOWS=browse,cart,trip 처럼 고르면 그 흐름만 돈다(비중은 그대로 — 뺀 만큼 전체 도착률이 준다). 회원 흐름은 토큰이 있어야 한다.
-const wanted = (__ENV.FLOWS || "browse,cart,trip,chat").split(",").map((f) => f.trim());
-const flows = wanted.filter((f) => WEIGHTS[f] !== undefined && (TOKENS.length > 0 || !["trip", "chat"].includes(f)));
+const wanted = (__ENV.FLOWS || "browse,posts,cart,trip,chat,write").split(",").map((f) => f.trim());
+const flows = wanted.filter((f) => WEIGHTS[f] !== undefined && (TOKENS.length > 0 || !["trip", "chat", "write"].includes(f)));
 
 export const options = {
   scenarios: Object.fromEntries(flows.map((f) => [f, scenarioFor(f)])),
@@ -99,6 +105,9 @@ export const options = {
     "http_req_duration{flow:cart}": ["p(95)<500"],
     "http_req_failed{flow:trip}": ["rate<0.01"],
     "http_req_failed{flow:chat}": ["rate<0.02"],
+    "http_req_failed{flow:posts}": ["rate<0.01"],
+    "http_req_duration{flow:posts}": ["p(95)<500"],
+    "http_req_failed{flow:write}": ["rate<0.01"],
   },
   summaryTrendStats: ["avg", "med", "p(90)", "p(95)", "p(99)", "max"],
 };
@@ -116,7 +125,7 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const think = () => sleep(1 + Math.random() * 2);
 const json = (body) => ({ body: JSON.stringify(body), contentType: "application/json" });
 
-function req(method, path, { body, token, install, name } = {}) {
+function send(method, path, { body, token, install, name } = {}) {
   const headers = { "Accept-Language": pick(["ko", "ko", "en"]) };
   if (install) headers["X-Install-Id"] = install;
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -127,6 +136,26 @@ function req(method, path, { body, token, install, name } = {}) {
   }
   return http.request(method, `${BASE}${path}`, null, params);
 }
+
+// 회원 요청은 세션(s)을 받아, 액세스 토큰이 만료(401 ACCESS_TOKEN_EXPIRED)면 앱처럼 /auth/refresh 로 갱신하고 한 번 다시 보낸다(v2).
+function req(method, path, opts = {}) {
+  const s = opts.session;
+  const r = send(method, path, { ...opts, token: s ? s.token : opts.token, install: s ? s.install : opts.install });
+  if (s && r.status === 401 && String(r.body || "").includes("ACCESS_TOKEN_EXPIRED")) {
+    const rr = send("POST", "/auth/refresh", { install: s.install, body: { refreshToken: s.refresh } });
+    if (rr.status !== 200) return r;
+    s.token = rr.json("accessToken");
+    s.refresh = rr.json("refreshToken");
+    return send(method, path, { ...opts, token: s.token, install: s.install });
+  }
+  return r;
+}
+
+const ok = (r) => r.status >= 200 && r.status < 300;
+const PNG = encoding.b64decode(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGMQaPgAAAIkAYFvkeRkAAAAAElFTkSuQmCC",
+  "std",
+);
 
 // 시작 전에 한 번 — 실제 번호를 API 로 모은다(번호를 박아 두지 않는다).
 export function setup() {
@@ -148,29 +177,49 @@ export function setup() {
   const contents = all("/contents").map((c) => c.id);
   const places = all("/places").map((p) => ({ id: p.id, lat: p.latitude, lng: p.longitude }));
   const words = ["도깨비", "경복궁", "부산", "제주", "카페", "해변", "궁", "시장", "공원", "Seoul"];
-  console.log(`준비: 작품 ${contents.length} · 촬영지 ${places.length}`);
+  console.log(`시나리오 ${VERSION} 준비: 작품 ${contents.length} · 촬영지 ${places.length}`);
   return { contents, places, words };
 }
 
-// ── 둘러보기(비회원) — 작품 → 상세 → 촬영지 → 검색 → 지도 → 촬영지 상세
+// ── 둘러보기(비회원) — 작품 → 상세 → 촬영지 → 검색 → 지도 → (v2) 편의시설 상세·사진 → 촬영지 상세. 실패하면 멈춘다.
 export function browse(data) {
   const install = uuid();
   group("browse", () => {
-    req("GET", `/contents?limit=20&offset=${Math.floor(Math.random() * 100)}`, { install });
+    if (!ok(req("GET", `/contents?limit=20&offset=${Math.floor(Math.random() * 100)}`, { install }))) return;
     think();
     const cid = pick(data.contents);
-    check(req("GET", `/contents/${cid}`, { install }), { "작품 상세 200": (r) => r.status === 200 });
-    req("GET", `/contents/${cid}/places`, { install });
+    if (!check(req("GET", `/contents/${cid}`, { install }), { "작품 상세 200": ok })) return;
+    if (!ok(req("GET", `/contents/${cid}/places`, { install }))) return;
     think();
-    req("GET", `/search/suggestions?q=${encodeURIComponent(pick(data.words))}&limit=8`, { install });
+    if (!ok(req("GET", `/search/suggestions?q=${encodeURIComponent(pick(data.words))}&limit=8`, { install }))) return;
     think();
     const lng = 126.85 + Math.random() * 0.3;
     const lat = 37.45 + Math.random() * 0.2;
-    check(req("GET", `/pois?bbox=${lng},${lat},${lng + 0.02},${lat + 0.015}&limit=30`, { install }), {
-      "지도 200": (r) => r.status === 200,
-    });
+    const map = req("GET", `/pois?bbox=${lng},${lat},${lng + 0.02},${lat + 0.015}&limit=30`, { install });
+    if (!check(map, { "지도 200": ok })) return;
+    const pois = map.json("items") || [];
+    if (pois.length > 0 && Math.random() < 0.7) {
+      // 지도에서 핀 하나를 눌러 상세 → 사진(v2)
+      think();
+      const poi = pick(pois);
+      if (!check(req("GET", `/pois/${poi.id}`, { install }), { "편의시설 상세 200": ok })) return;
+      req("GET", `/pois/${poi.id}/photos?limit=20`, { install });
+    }
     think();
     req("GET", `/places/${pick(data.places).id}`, { install });
+  });
+}
+
+// ── 후기 읽기(비회원, v2) — 여행후기 목록 → 상세
+export function posts() {
+  const install = uuid();
+  group("posts", () => {
+    const list = req("GET", `/posts?limit=20`, { install });
+    if (!check(list, { "후기 목록 200": ok })) return;
+    const items = list.json("items") || [];
+    if (items.length === 0) return;
+    think();
+    req("GET", `/posts/${pick(items).id}`, { install });
   });
 }
 
@@ -179,9 +228,8 @@ export function cart(data) {
   const install = uuid();
   group("cart", () => {
     const p = pick(data.places);
-    check(req("POST", "/cart/items", { install, body: { placeId: p.id } }), {
-      "담기 201/409": (r) => r.status === 201 || r.status === 409,
-    });
+    const added = req("POST", "/cart/items", { install, body: { placeId: p.id } });
+    if (!check(added, { "담기 201/409": (r) => r.status === 201 || r.status === 409 })) return;
     think();
     req("GET", "/cart", { install });
     think();
@@ -199,7 +247,7 @@ function member() {
   const install = uuid();
   const r = req("POST", "/auth/google", { install, body: { idToken: t.idToken, nonce: t.nonce } });
   if (!check(r, { "로그인 200": (res) => res.status === 200 })) return null;
-  sessions[idx] = { token: r.json("accessToken"), install };
+  sessions[idx] = { token: r.json("accessToken"), refresh: r.json("refreshToken"), install };
   return sessions[idx];
 }
 
@@ -209,29 +257,30 @@ export function trip(data) {
   if (!s) return;
   group("trip", () => {
     const p = pick(data.places);
-    const c = req("POST", "/courses", { ...s, body: { dayCount: 1, origin: "self", title: "부하 코스" } });
+    const c = req("POST", "/courses", { session: s, body: { dayCount: 1, origin: "self", title: "부하 코스" } });
     if (!check(c, { "코스 201": (r) => r.status === 201 })) return;
     const id = c.json("id");
     think();
     const filled = req("PUT", `/courses/${id}`, {
-      ...s,
+      session: s,
       body: { title: "부하 코스", days: [{ items: [{ placeId: p.id, dwellMinutes: 30 }] }] },
     });
-    const item = filled.status === 200 ? filled.json("days.0.items.0.id") : null;
-    req("PUT", `/courses/${id}/progress`, { ...s, body: { status: "active", currentDayNo: 1 } });
+    if (!ok(filled)) return;
+    const item = filled.json("days.0.items.0.id");
+    if (!ok(req("PUT", `/courses/${id}/progress`, { session: s, body: { status: "active", currentDayNo: 1 } }))) return;
     think();
     if (item) {
       // 멀리서 출발 — 대중교통 경로(가짜 카카오)를 탄다.
       check(
         req("POST", "/navigation/next-leg", {
-          ...s,
+          session: s,
           body: { courseId: id, itemId: item, latitude: p.lat + 0.05, longitude: p.lng + 0.03 },
         }),
         { "길찾기 200": (r) => r.status === 200 },
       );
     }
     think();
-    req("DELETE", `/courses/${id}`, { ...s });
+    req("DELETE", `/courses/${id}`, { session: s });
   });
 }
 
@@ -241,7 +290,7 @@ export function chat() {
   if (!s) return;
   group("chat", () => {
     const r = req("POST", "/guide/chat", {
-      ...s,
+      session: s,
       body: {
         sessionId: uuid(),
         latitude: 37.5796,
@@ -253,3 +302,45 @@ export function chat() {
     check(r, { "챗봇 200": (res) => res.status === 200 });
   });
 }
+
+// 사진 한 장 올리기 — POST /uploads → 받은 서명 주소로 S3 에 PUT. 성공하면 키(v2).
+function upload(s, purpose) {
+  const t = req("POST", "/uploads", { session: s, body: { purpose, contentType: "image/png", bytes: PNG.byteLength } });
+  if (!ok(t)) return null;
+  const put = http.put(t.json("uploadUrl"), PNG, { headers: t.json("requiredHeaders"), tags: { name: "PUT s3 presigned" } });
+  return check(put, { "S3 올리기 성공": (r) => r.status >= 200 && r.status < 300 }) ? t.json("key") : null;
+}
+
+// ── 쓰기(회원, v2) — 반은 촬영지 리뷰(사진 1 장), 반은 여행후기(사진 1 장). 실험을 거듭해도 DB 가 커지지 않게 여행후기는 지운다.
+export function write(data) {
+  const s = member();
+  if (!s) return;
+  group("write", () => {
+    if (Math.random() < 0.5) {
+      const p = pick(data.places);
+      const key = upload(s, "review");
+      if (!key) return;
+      think();
+      const r = req("PUT", `/places/${p.id}/reviews/me`, {
+        session: s,
+        body: { rating: 1 + Math.floor(Math.random() * 5), body: "부하 시험 리뷰", photoKeys: [key] },
+      });
+      if (!check(r, { "리뷰 200": ok })) return;
+      think();
+      req("GET", `/places/${p.id}/reviews?limit=20`, { session: s });
+    } else {
+      const key = upload(s, "post");
+      if (!key) return;
+      think();
+      const c = req("POST", "/posts", { session: s, body: { title: "부하 시험 후기", body: "부하 시험 본문", photoKeys: [key] } });
+      if (!check(c, { "후기 201": (r) => r.status === 201 })) return;
+      const id = c.json("id");
+      think();
+      req("GET", `/posts?limit=20`, { session: s });
+      req("GET", `/posts/${id}`, { session: s });
+      think();
+      req("DELETE", `/posts/${id}`, { session: s });
+    }
+  });
+}
+

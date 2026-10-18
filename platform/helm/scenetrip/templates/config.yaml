@@ -37,6 +37,8 @@ data:
   # 시험 토큰의 aud 하나만 받으므로 그동안 진짜 구글 로그인은 안 된다. 끄면 이 줄들이 빠지고 application.yaml 값으로 돌아간다.
   SCENETRIP_NAVIGATION_KAKAO_BASEURL: "http://fake-external:8080/kakao"
   SCENETRIP_AUTH_GOOGLE_JWKSURI: "http://fake-external:8080/google/jwks"
+  # 편의시설 상세의 네이버 링크 찾기(ADR 0021) — 검색만 덮는다. 상세(detail-url)는 scenetrip.naver.enabled=false 라 부르지 않는다.
+  SCENETRIP_NAVER_SEARCHURL: "http://fake-external:8080/naver/graphql"
   SCENETRIP_AUTH_GOOGLE_CLIENTIDS: {{ .Values.loadtest.googleClientId | quote }}
   {{- end }}
 ---
