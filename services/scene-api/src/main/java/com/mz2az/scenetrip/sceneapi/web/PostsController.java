@@ -126,6 +126,9 @@ class PostsController implements PostsApi {
         throw ApiException.badRequest("POST_COURSE_INVALID", e.getMessage());
       } catch (PostStore.PhotoKeyRejectedException e) {
         throw ApiException.badRequest("POST_PHOTO_INVALID", e.getMessage());
+      } catch (PostStore.AuthorGoneException e) {
+        // 쓰는 사이 탈퇴가 끝났다 — 토큰의 계정이 없으니 「탈퇴한 계정」 과 같은 401(계약 Unauthorized).
+        throw ApiException.unauthorized("ACCESS_TOKEN_INVALID", e.getMessage());
       }
     } catch (RuntimeException e) {
       // 저장하지 못했다 — 내가 옮긴 사진만 되돌리고 차지한 기록을 돌려놓는다(앱이 같은 키로 다시 보낼 수 있게).
@@ -133,7 +136,17 @@ class PostsController implements PostsApi {
       uploads.release(claim);
       throw e;
     }
-    return ResponseEntity.status(HttpStatus.CREATED).body(detail(postId, user, acceptLanguage));
+    TripPostDetail created;
+    try {
+      created = detail(postId, user, acceptLanguage);
+    } catch (ApiException e) {
+      if (e.getStatus() != HttpStatus.NOT_FOUND) {
+        throw e;
+      }
+      // 저장은 끝났는데 다시 읽기 전에 사라졌다 — 그 사이 탈퇴가 끝나 CASCADE(V39)로 함께 지워진 것이다(MZ2AZ-500). 계정이 없으니 401.
+      throw ApiException.unauthorized("ACCESS_TOKEN_INVALID", "계정이 없습니다(탈퇴)");
+    }
+    return ResponseEntity.status(HttpStatus.CREATED).body(created);
   }
 
   /** 저장하지 못했으면 옮긴 사진을 임시 자리로 되돌린다 — 앱이 같은 키로 다시 보낼 수 있게. 되돌리기도 실패하면 그 하나는 남는다. */

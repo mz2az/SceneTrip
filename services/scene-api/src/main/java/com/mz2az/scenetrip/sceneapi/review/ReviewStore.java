@@ -102,6 +102,15 @@ public class ReviewStore {
   }
 
   /** 리뷰를 저장할 때 사진 키가 받아들여지지 않았다. */
+  /** 글쓴이 계정이 없다 — 쓰는 사이 탈퇴했다(MZ2AZ-500). */
+  public static final class AuthorGoneException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    public AuthorGoneException() {
+      super("계정이 없습니다(탈퇴)");
+    }
+  }
+
   public static final class PhotoKeyRejectedException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
@@ -247,6 +256,15 @@ public class ReviewStore {
       Collection<String> uploadedKeys) {
     return transactions.execute(
         status -> {
+          // 글쓴이 계정 줄을 공유 잠금으로 잡는다(MZ2AZ-500) — 탈퇴(app_user 줄 삭제)와 엇갈리지 않게. 탈퇴가 먼저 끝났으면 줄이 없어
+          // 쓰지 않는다(외래키 위반 500 대신 401). 이 글이 먼저 끝나면 탈퇴는 이 잠금을 기다렸다가 V39 의 CASCADE 로 이 글까지 지운다.
+          if (jdbc.sql("SELECT 1 FROM app_user WHERE id = CAST(:user AS UUID) FOR SHARE")
+              .param("user", user.toString())
+              .query(Integer.class)
+              .list()
+              .isEmpty()) {
+            throw new AuthorGoneException();
+          }
           Long reviewId =
               jdbc.sql(
                       """

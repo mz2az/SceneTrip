@@ -261,6 +261,18 @@ public class CourseStore {
   }
 
   private void replaceInTransaction(long courseId, CourseReplace req) {
+    // 코스 줄을 먼저 잠근다(MZ2AZ-500). 같은 코스의 편집이 동시에 오면 둘이 같은 (일차, 순서) 를 써서 커밋 때 순서 제약 위반이나 교착으로
+    // 500 이 났다 — 이제 한 편집씩 차례로 돈다(늦은 쪽이 앞 편집 위에 통째로 덮는다). 「지금 일차보다 짧게 못 줄인다」 도 이 잠금 안에서
+    // 다시 본다 — 컨트롤러의 확인은 트랜잭션 밖이라 그 사이 일차 이동이 끼면 CHECK 위반 500 이었다.
+    List<Integer> current =
+        jdbc.sql("SELECT current_day_no FROM course WHERE id = :courseId FOR UPDATE")
+            .param("courseId", courseId)
+            .query((rs, n) -> (Integer) rs.getObject("current_day_no"))
+            .list();
+    if (!current.isEmpty() && current.get(0) != null && current.get(0) > req.getDays().size()) {
+      throw new ShorterThanProgressException(current.get(0));
+    }
+
     List<Long> keep = new ArrayList<>();
 
     int dayNo = 0;
@@ -647,6 +659,20 @@ public class CourseStore {
   }
 
   /** 새 줄로 넣으려는 촬영지가 목록에서 빠졌다(409 {@code PLACE_DELISTED}, MZ2AZ-451). */
+  /** 여행 중인 코스를 지금 일차보다 짧게 줄이려 했다 — 편집 트랜잭션 안에서 잡았다(MZ2AZ-500). */
+  public static class ShorterThanProgressException extends RuntimeException {
+    private final int currentDayNo;
+
+    public ShorterThanProgressException(int currentDayNo) {
+      super("여행 중에는 지금 일차(" + currentDayNo + ")보다 짧게 줄일 수 없습니다");
+      this.currentDayNo = currentDayNo;
+    }
+
+    public int currentDayNo() {
+      return currentDayNo;
+    }
+  }
+
   public static class DelistedPlaceException extends RuntimeException {
     /** 단위 테스트가 이 상황을 흉내 낼 수 있어야 해서 public 이다. */
     public DelistedPlaceException(long placeId) {

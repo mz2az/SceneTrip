@@ -457,7 +457,7 @@ class ModerationFlowIntegrationTest {
     assertThat(rows.get(0).get("author_id")).isEqualTo(author);
     assertThat((String) rows.get(0).get("excerpt")).contains("지워질 리뷰");
 
-    // 작성자 탈퇴 — 글은 남고 글쓴이만 끊긴다.
+    // 작성자가 끊긴 옛 글(V39 이전 탈퇴분) — 글은 남고 글쓴이만 없다.
     UUID gone = member();
     as(gone);
     long orphanPost = post("탈퇴한 사람의 후기", "본문");
@@ -989,8 +989,17 @@ class ModerationFlowIntegrationTest {
         .single();
   }
 
-  /** 탈퇴 — 계정 줄이 지워지면 글은 남고 글쓴이만 끊긴다(V21·V27 의 ON DELETE SET NULL). */
+  /**
+   * 글쓴이 없는 글을 만든다 — 예전 탈퇴(MZ2AZ-466 이전, V21·V27 의 ON DELETE SET NULL)가 남긴 행의 모습. 지금은 탈퇴하면 글도 지워지지만
+   * (V39 CASCADE, MZ2AZ-500) 그 이전 행은 운영 DB 에 남아 있을 수 있어 신고·차단이 그것을 다루는지 계속 본다. 글쓴이를 먼저 끊고 계정을 지운다.
+   */
   private static void withdraw(UUID user) {
+    jdbc.sql("UPDATE review SET user_id = NULL WHERE user_id = CAST(:id AS UUID)")
+        .param("id", user.toString())
+        .update();
+    jdbc.sql("UPDATE community_post SET user_id = NULL WHERE user_id = CAST(:id AS UUID)")
+        .param("id", user.toString())
+        .update();
     jdbc.sql("DELETE FROM app_user WHERE id = CAST(:id AS UUID)")
         .param("id", user.toString())
         .update();
