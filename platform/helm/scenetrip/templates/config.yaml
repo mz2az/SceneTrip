@@ -39,6 +39,9 @@ data:
   SCENETRIP_AUTH_GOOGLE_JWKSURI: "http://fake-external:8080/google/jwks"
   # 편의시설 상세의 네이버 링크 찾기(ADR 0021) — 검색만 덮는다. 상세(detail-url)는 scenetrip.naver.enabled=false 라 부르지 않는다.
   SCENETRIP_NAVER_SEARCHURL: "http://fake-external:8080/naver/graphql"
+  # 시험에서는 네이버 링크 찾기 자체를 끈다(사용자 결정 2026-10-18, 실험 05) — 비공식 바깥 호출이라 시험 결과에 섞지 않는다. 위 주소는
+  # 다시 켰을 때 진짜 네이버로 새지 않게 남긴다.
+  SCENETRIP_NAVER_LINKLOOKUP_ENABLED: "false"
   SCENETRIP_AUTH_GOOGLE_CLIENTIDS: {{ .Values.loadtest.googleClientId | quote }}
   {{- end }}
 ---
