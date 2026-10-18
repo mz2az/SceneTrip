@@ -303,22 +303,31 @@ public class CourseStore {
         .update();
   }
 
-  /** 코스를 시작하거나 일차를 넘긴다. 편집이 아니라 여행 중 동작이라 즉시 반영된다. */
-  public void updateProgress(long courseId, CourseProgress req) {
+  /**
+   * 코스를 시작하거나 일차를 넘긴다. 편집이 아니라 여행 중 동작이라 즉시 반영된다.
+   *
+   * <p>일차가 코스 일수를 넘으면 바꾸지 않고 false — 막지 않으면 {@code course_current_day_no_check} 가 500 을
+   * 냈다(MZ2AZ-498). 확인을 같은 UPDATE 의 조건에 둔다 — 따로 읽고 쓰면 그 사이 코스를 줄이는 요청과 엇갈린다.
+   *
+   * @return 바꿨으면 true, 일차가 코스 일수를 넘어 바꾸지 않았으면 false
+   */
+  public boolean updateProgress(long courseId, CourseProgress req) {
     boolean active = req.getStatus() == CourseStatus.ACTIVE;
-    jdbc.sql(
-            """
-            UPDATE course
-               SET status = :status,
-                   current_day_no = CAST(:currentDayNo AS INT),
-                   updated_at = now()
-             WHERE id = :courseId
-            """)
-        .param("status", req.getStatus().getValue())
-        // 예정으로 되돌리면 지금 몇 일차인지는 뜻이 없다. V9 의 CHECK 도 그것을 요구한다.
-        .param("currentDayNo", active ? req.getCurrentDayNo() : null)
-        .param("courseId", courseId)
-        .update();
+    return jdbc.sql(
+                """
+                UPDATE course
+                   SET status = :status,
+                       current_day_no = CAST(:currentDayNo AS INT),
+                       updated_at = now()
+                 WHERE id = :courseId
+                   AND (CAST(:currentDayNo AS INT) IS NULL OR CAST(:currentDayNo AS INT) <= day_count)
+                """)
+            .param("status", req.getStatus().getValue())
+            // 예정으로 되돌리면 지금 몇 일차인지는 뜻이 없다. V9 의 CHECK 도 그것을 요구한다.
+            .param("currentDayNo", active ? req.getCurrentDayNo() : null)
+            .param("courseId", courseId)
+            .update()
+        > 0;
   }
 
   /**

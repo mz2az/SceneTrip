@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -99,7 +100,7 @@ class ReviewsControllerTest {
         .thenReturn(new ReviewStore.Page<>(List.of(), 0));
     when(storage.viewUrl(anyString()))
         .thenAnswer(inv -> URI.create("https://signed.example/" + inv.getArgument(0)));
-    when(uploads.unattached(any(), anyCollection())).thenReturn(Set.of());
+    when(uploads.claim(any(), anyCollection())).thenReturn(claimOf(Set.of()));
   }
 
   // ───────────── GET …/reviews ─────────────
@@ -468,8 +469,8 @@ class ReviewsControllerTest {
       "쓰기 — 이 사용자가 받은 새 키(uploads/tmp/)는 reviews/ 로 옮겨 그 키로 저장하고, 이미 붙은 키는 그대로 — 보낸 순서대로."
           + " 저장 뒤 올리기 기록을 지운다")
   void putMovesFreshUploadsAndConsumesThem() throws Exception {
-    when(uploads.unattached(eq(USER), anyCollection()))
-        .thenReturn(Set.of("uploads/tmp/a.jpg", "uploads/tmp/c.png"));
+    when(uploads.claim(eq(USER), anyCollection()))
+        .thenReturn(claimOf(Set.of("uploads/tmp/a.jpg", "uploads/tmp/c.png")));
     when(store.put(any(), anyLong(), any(), anyInt(), any(), anyList(), anyCollection()))
         .thenReturn(
             row(
@@ -493,8 +494,7 @@ class ReviewsControllerTest {
         .andExpect(jsonPath("$.photos[2].key").value("reviews/c.png"));
 
     verify(uploads)
-        .unattached(
-            eq(USER), eq(List.of("uploads/tmp/a.jpg", "reviews/b.jpg", "uploads/tmp/c.png")));
+        .claim(eq(USER), eq(List.of("uploads/tmp/a.jpg", "reviews/b.jpg", "uploads/tmp/c.png")));
     verify(storage).move("uploads/tmp/a.jpg", "reviews/a.jpg");
     verify(storage).move("uploads/tmp/c.png", "reviews/c.png");
     verify(storage, never()).move(eq("reviews/b.jpg"), anyString());
@@ -507,7 +507,7 @@ class ReviewsControllerTest {
             isNull(),
             eq(List.of("reviews/a.jpg", "reviews/b.jpg", "reviews/c.png")),
             eq(Set.of("reviews/a.jpg", "reviews/c.png")));
-    verify(uploads).consume(Set.of("uploads/tmp/a.jpg", "uploads/tmp/c.png"));
+    verify(uploads, never()).release(any());
   }
 
   @Test
@@ -534,13 +534,13 @@ class ReviewsControllerTest {
             isNull(),
             eq(List.of("uploads/tmp/someone-else.jpg")),
             eq(Set.of()));
-    verify(uploads, never()).consume(anyCollection());
+    verifyUploadsReleasedIfClaimed();
   }
 
   @Test
   @DisplayName("쓰기 — 받은 키인데 저장소에 파일이 없으면 400 REVIEW_PHOTO_INVALID, 저장하지 않고 기록도 지우지 않는다")
   void putWithMissingUploadedFileIsPhotoInvalid() throws Exception {
-    when(uploads.unattached(eq(USER), anyCollection())).thenReturn(Set.of("uploads/tmp/a.jpg"));
+    when(uploads.claim(eq(USER), anyCollection())).thenReturn(claimOf(Set.of("uploads/tmp/a.jpg")));
     org.mockito.Mockito.doThrow(new PhotoStorage.MissingPhotoException("uploads/tmp/a.jpg"))
         .when(storage)
         .move("uploads/tmp/a.jpg", "reviews/a.jpg");
@@ -555,14 +555,14 @@ class ReviewsControllerTest {
 
     verifyNeverPut();
     verify(storage, org.mockito.Mockito.times(1)).move(anyString(), anyString());
-    verify(uploads, never()).consume(anyCollection());
+    verifyUploadsReleasedIfClaimed();
   }
 
   @Test
   @DisplayName("쓰기 — Store 가 거절하면 옮긴 사진을 원래 임시 키로 되돌리고, 올리기 기록을 지우지 않는다")
   void putRejectedByStoreMovesBackAndDoesNotConsume() throws Exception {
-    when(uploads.unattached(eq(USER), anyCollection()))
-        .thenReturn(Set.of("uploads/tmp/a.jpg", "uploads/tmp/c.png"));
+    when(uploads.claim(eq(USER), anyCollection()))
+        .thenReturn(claimOf(Set.of("uploads/tmp/a.jpg", "uploads/tmp/c.png")));
     when(store.put(any(), anyLong(), any(), anyInt(), any(), anyList(), anyCollection()))
         .thenThrow(ReviewStore.PhotoKeyRejectedException.class);
 
@@ -582,14 +582,14 @@ class ReviewsControllerTest {
     verify(storage).move("reviews/c.png", "uploads/tmp/c.png");
     verify(storage, never()).move(eq("reviews/x.jpg"), anyString());
     verify(storage, org.mockito.Mockito.times(4)).move(anyString(), anyString());
-    verify(uploads, never()).consume(anyCollection());
+    verifyUploadsReleasedIfClaimed();
   }
 
   @Test
   @DisplayName("쓰기 — 뒤 사진이 저장소에 없으면 앞에서 옮긴 사진을 되돌리고 400, 저장하지 않는다")
   void putWithLaterMissingFileMovesBackEarlierOnes() throws Exception {
-    when(uploads.unattached(eq(USER), anyCollection()))
-        .thenReturn(Set.of("uploads/tmp/a.jpg", "uploads/tmp/b.jpg"));
+    when(uploads.claim(eq(USER), anyCollection()))
+        .thenReturn(claimOf(Set.of("uploads/tmp/a.jpg", "uploads/tmp/b.jpg")));
     org.mockito.Mockito.doThrow(new PhotoStorage.MissingPhotoException("uploads/tmp/b.jpg"))
         .when(storage)
         .move("uploads/tmp/b.jpg", "reviews/b.jpg");
@@ -608,14 +608,14 @@ class ReviewsControllerTest {
     order.verify(storage).move("reviews/a.jpg", "uploads/tmp/a.jpg");
     verify(storage, never()).move("reviews/b.jpg", "uploads/tmp/b.jpg");
     verifyNeverPut();
-    verify(uploads, never()).consume(anyCollection());
+    verifyUploadsReleasedIfClaimed();
   }
 
   @Test
   @DisplayName("쓰기 — 되돌리기가 실패해도 무시하고 400 REVIEW_PHOTO_INVALID, 나머지도 되돌린다")
   void putMoveBackFailureIsIgnored() throws Exception {
-    when(uploads.unattached(eq(USER), anyCollection()))
-        .thenReturn(Set.of("uploads/tmp/a.jpg", "uploads/tmp/b.jpg"));
+    when(uploads.claim(eq(USER), anyCollection()))
+        .thenReturn(claimOf(Set.of("uploads/tmp/a.jpg", "uploads/tmp/b.jpg")));
     when(store.put(any(), anyLong(), any(), anyInt(), any(), anyList(), anyCollection()))
         .thenThrow(ReviewStore.PhotoKeyRejectedException.class);
     org.mockito.Mockito.doThrow(new RuntimeException("storage down"))
@@ -632,13 +632,13 @@ class ReviewsControllerTest {
 
     verify(storage).move("reviews/a.jpg", "uploads/tmp/a.jpg");
     verify(storage).move("reviews/b.jpg", "uploads/tmp/b.jpg");
-    verify(uploads, never()).consume(anyCollection());
+    verifyUploadsReleasedIfClaimed();
   }
 
   @Test
   @DisplayName("쓰기 — 같은 키가 두 번이면 아무것도 옮기기 전에 400 REVIEW_PHOTO_INVALID")
   void putDuplicateKeysRejectedBeforeAnyMove() throws Exception {
-    when(uploads.unattached(eq(USER), anyCollection())).thenReturn(Set.of("uploads/tmp/a.jpg"));
+    when(uploads.claim(eq(USER), anyCollection())).thenReturn(claimOf(Set.of("uploads/tmp/a.jpg")));
 
     for (String keys :
         List.of(
@@ -653,7 +653,7 @@ class ReviewsControllerTest {
 
     verify(storage, never()).move(anyString(), anyString());
     verifyNeverPut();
-    verify(uploads, never()).consume(anyCollection());
+    verifyUploadsReleasedIfClaimed();
   }
 
   @Test
@@ -846,5 +846,22 @@ class ReviewsControllerTest {
     byte[] b = new byte[length];
     Arrays.fill(b, value);
     return b;
+  }
+
+  /** 업로드 기록을 차지한 결과(MZ2AZ-498) — {@code keys} 를 모두 차지했다. */
+  private static UploadStore.Claim claimOf(Set<String> keys) {
+    return new UploadStore.Claim(
+        keys.stream()
+            .map(k -> new UploadStore.Row(k, USER, "review", "image/jpeg", 1L, null))
+            .toList());
+  }
+
+  /** 저장하지 못했으면 업로드를 다시 쓸 수 있어야 한다 — 차지했다면 그만큼 돌려놓았다(예전 「consume 하지 않음」 과 같은 뜻). */
+  private void verifyUploadsReleasedIfClaimed() {
+    long claims =
+        org.mockito.Mockito.mockingDetails(uploads).getInvocations().stream()
+            .filter(i -> i.getMethod().getName().equals("claim"))
+            .count();
+    verify(uploads, times((int) claims)).release(any());
   }
 }

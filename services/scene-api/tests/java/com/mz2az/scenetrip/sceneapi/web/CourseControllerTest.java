@@ -235,6 +235,8 @@ class CourseControllerTest {
   @DisplayName("코스를 시작하면 상세가 돌아온다")
   void startsTrip() throws Exception {
     when(store.exists(USER, 7L)).thenReturn(true);
+    // 일차가 코스 일수 안이라 바뀌었다 — 넘으면 false 로 400(MZ2AZ-498, 통합 레인 CourseProgressApiTest)
+    when(store.updateProgress(eq(7L), any())).thenReturn(true);
     when(store.find(eq(USER), eq(7L), any()))
         .thenReturn(Optional.of(course(7L, CourseStatus.ACTIVE)));
 
