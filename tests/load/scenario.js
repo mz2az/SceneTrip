@@ -10,7 +10,7 @@
 // 실행 예:
 //   just load-run scenario.js -e BASE_URL=https://api-dev.scenetrip.io/v1 -e TOKENS=/abs/path/tokens.json -e PROFILE=baseline
 // PROFILE: smoke(1/s, 1분) · baseline(10/s, 10분) · stress(계단식 5→200/s) · spike(10→200/s 급증) · soak(20/s, 30분)
-// RATE_SCALE 로 전체 도착률을 곱한다(기본 1).
+// RATE_SCALE 로 전체 도착률을 곱한다(기본 1). FLOWS 로 흐름을 고른다(기본 전부).
 import http from "k6/http";
 import { check, group, sleep } from "k6";
 import { SharedArray } from "k6/data";
@@ -86,7 +86,9 @@ function scenarioFor(flow) {
   };
 }
 
-const flows = TOKENS.length > 0 ? ["browse", "cart", "trip", "chat"] : ["browse", "cart"];
+// FLOWS=browse,cart,trip 처럼 고르면 그 흐름만 돈다(비중은 그대로 — 뺀 만큼 전체 도착률이 준다). 회원 흐름은 토큰이 있어야 한다.
+const wanted = (__ENV.FLOWS || "browse,cart,trip,chat").split(",").map((f) => f.trim());
+const flows = wanted.filter((f) => WEIGHTS[f] !== undefined && (TOKENS.length > 0 || !["trip", "chat"].includes(f)));
 
 export const options = {
   scenarios: Object.fromEntries(flows.map((f) => [f, scenarioFor(f)])),
