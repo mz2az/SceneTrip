@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [load-test.md](load-test.md) | DEV 부하 테스트 — k6, 우리 서버는 진짜·바깥(Bedrock·카카오)만 가짜, SigNoz 로 병목 찾기 (MZ2AZ-502) |
 | [api-e2e.md](api-e2e.md) | scene-api API e2e — 로컬 kind 의 별도 인스턴스, 바깥 서비스는 가짜 HTTP (MZ2AZ-496) |
 | [ios-scene-gallery.md](ios-scene-gallery.md) | 서버 순서대로 장면 사진 여러 장을 확대 화면에서 넘겨 보기 (MZ2AZ-430) |
 | [ios-guide-identities.md](ios-guide-identities.md) | 챗봇 코스 편의시설·개인 핀 ID 왕복과 저장 항목 보존 (MZ2AZ-425·434) |
