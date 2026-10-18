@@ -59,6 +59,11 @@ test-contract:
 test-load:
     ./tools/scripts/bazel-test.sh //tests/load/... --test_tag_filters=manual --test_output=streamed
 
+# k6 부하 시나리오 실행(고정 버전). 예: `just load-run smoke.js -e BASE_URL=https://api-dev.scenetrip.io/v1` (docs/project/plans/load-test.md)
+[group('test')]
+load-run scenario *args:
+    {{ BAZEL }} run //tests/load:k6 -- run {{ args }} "{{ justfile_directory() }}/tests/load/{{ scenario }}"
+
 # 모든 레인을 순서대로. 느리다.
 [group('test')]
 test-all: test test-integration test-contract test-e2e
