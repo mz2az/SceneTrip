@@ -130,32 +130,39 @@ class ReviewsController implements ReviewsApi {
       // 옮기기 전에 막는다 — 같은 임시 키가 둘이면 첫째만 옮겨지고 둘째에서 실패해 옮긴 것이 버려진다.
       throw ApiException.badRequest("REVIEW_PHOTO_INVALID", "같은 사진이 두 번 있습니다");
     }
-    Set<String> fresh = uploads.unattached(user, keys);
+    // 옮기기 전에 업로드 기록부터 차지한다(MZ2AZ-498) — 같은 요청이 동시에 두 번 와도 하나만 차지하고, 진 쪽은 아무 파일도 옮기지
+    // 않아 이긴 쪽 사진을 건드리지 않는다. 차지하지 못한 키는 이미 이 리뷰에 붙은 키로 보고 저장소에 맡긴다(아래, 아니면 400).
+    UploadStore.Claim claim = uploads.claim(user, keys);
+    Set<String> fresh = claim.keys();
     List<String> finalKeys = new ArrayList<>(keys.size());
     Map<String, String> moved = new LinkedHashMap<>(); // 옮긴 자리 → 원래 임시 키
-    for (String key : keys) {
-      if (!fresh.contains(key)) {
-        finalKeys.add(key); // 이미 이 리뷰에 붙어 있던 키이거나 잘못된 키 — 저장소가 가린다(아래)
-        continue;
-      }
-      String to = "reviews/" + key.substring(key.lastIndexOf('/') + 1);
-      try {
-        storage.move(key, to);
-      } catch (PhotoStorage.MissingPhotoException e) {
-        moveBack(moved);
-        throw ApiException.badRequest("REVIEW_PHOTO_INVALID", "받은 주소로 올린 사진이 없습니다");
-      }
-      finalKeys.add(to);
-      moved.put(to, key);
-    }
     try {
-      ReviewStore.Row saved =
-          store.put(at.target(), at.id(), user, in.getRating(), text, finalKeys, moved.keySet());
-      uploads.consume(fresh);
-      return views.review(saved);
-    } catch (ReviewStore.PhotoKeyRejectedException e) {
+      for (String key : keys) {
+        if (!fresh.contains(key)) {
+          finalKeys.add(key); // 이미 이 리뷰에 붙어 있던 키이거나 잘못된 키 — 저장소가 가린다(아래)
+          continue;
+        }
+        String to = "reviews/" + key.substring(key.lastIndexOf('/') + 1);
+        try {
+          storage.move(key, to);
+        } catch (PhotoStorage.MissingPhotoException e) {
+          throw ApiException.badRequest("REVIEW_PHOTO_INVALID", "받은 주소로 올린 사진이 없습니다");
+        }
+        finalKeys.add(to);
+        moved.put(to, key);
+      }
+      try {
+        ReviewStore.Row saved =
+            store.put(at.target(), at.id(), user, in.getRating(), text, finalKeys, moved.keySet());
+        return views.review(saved);
+      } catch (ReviewStore.PhotoKeyRejectedException e) {
+        throw ApiException.badRequest("REVIEW_PHOTO_INVALID", e.getMessage());
+      }
+    } catch (RuntimeException e) {
+      // 저장하지 못했다 — 내가 옮긴 사진만 되돌리고 차지한 기록을 돌려놓는다(앱이 같은 키로 다시 보낼 수 있게).
       moveBack(moved);
-      throw ApiException.badRequest("REVIEW_PHOTO_INVALID", e.getMessage());
+      uploads.release(claim);
+      throw e;
     }
   }
 

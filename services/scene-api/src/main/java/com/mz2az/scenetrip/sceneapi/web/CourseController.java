@@ -109,7 +109,12 @@ class CourseController implements CoursesApi {
       throw ApiException.badRequest("INVALID_PARAMETER", "여행 중으로 바꾸려면 currentDayNo 가 필요합니다");
     }
 
-    store.updateProgress(courseId, courseProgress);
+    if (!store.updateProgress(courseId, courseProgress)) {
+      // 코스는 있다(위에서 확인) — 바뀌지 않은 이유는 일차가 코스 일수를 넘은 것뿐이다. 앱이 고칠 요청이라 400.
+      throw ApiException.badRequest(
+          "INVALID_PARAMETER",
+          "currentDayNo(" + courseProgress.getCurrentDayNo() + ") 가 코스 일수보다 큽니다");
+    }
     return ResponseEntity.ok(read(user, courseId, acceptLanguage));
   }
 

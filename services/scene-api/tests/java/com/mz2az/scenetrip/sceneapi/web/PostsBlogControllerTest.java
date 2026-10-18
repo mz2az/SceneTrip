@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -73,7 +74,7 @@ class PostsBlogControllerTest {
                 .credit("원본 출처")
                 .aiGenerated(true),
             new TripPostBlock(TripPostBlockKind.TEXT).text("둘째 문단"));
-    when(uploads.unattached(eq(USER), anyCollection())).thenReturn(Set.of("uploads/tmp/a.jpg"));
+    when(uploads.claim(eq(USER), anyCollection())).thenReturn(claimOf(Set.of("uploads/tmp/a.jpg")));
     when(store.create(
             eq(USER), eq("제목"), eq(BODY), anyList(), anyCollection(), isNull(), eq(blocks)))
         .thenReturn(88L);
@@ -108,7 +109,7 @@ class PostsBlogControllerTest {
         .andExpect(jsonPath("$.bodyBlocks[1].credit").value("원본 출처"))
         .andExpect(jsonPath("$.bodyBlocks[1].aiGenerated").value(true))
         .andExpect(jsonPath("$.bodyBlocks[2].text").value("둘째 문단"));
-    verify(uploads).consume(Set.of("uploads/tmp/a.jpg"));
+    verify(uploads, never()).release(any());
   }
 
   @Test
@@ -135,12 +136,29 @@ class PostsBlogControllerTest {
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("POST_BODY_INVALID"));
     verify(storage, never()).move(anyString(), anyString());
-    verify(uploads, never()).consume(anyCollection());
+    verifyUploadsReleasedIfClaimed();
     verify(store, never())
         .create(any(), any(), any(), anyList(), anyCollection(), any(), anyList());
   }
 
   private String bearer() {
     return "Bearer " + tokens.issue(USER).value();
+  }
+
+  /** 업로드 기록을 차지한 결과(MZ2AZ-498) — {@code keys} 를 모두 차지했다. */
+  private static UploadStore.Claim claimOf(Set<String> keys) {
+    return new UploadStore.Claim(
+        keys.stream()
+            .map(k -> new UploadStore.Row(k, USER, "review", "image/jpeg", 1L, null))
+            .toList());
+  }
+
+  /** 저장하지 못했으면 업로드를 다시 쓸 수 있어야 한다 — 차지했다면 그만큼 돌려놓았다(예전 「consume 하지 않음」 과 같은 뜻). */
+  private void verifyUploadsReleasedIfClaimed() {
+    long claims =
+        org.mockito.Mockito.mockingDetails(uploads).getInvocations().stream()
+            .filter(i -> i.getMethod().getName().equals("claim"))
+            .count();
+    verify(uploads, times((int) claims)).release(any());
   }
 }

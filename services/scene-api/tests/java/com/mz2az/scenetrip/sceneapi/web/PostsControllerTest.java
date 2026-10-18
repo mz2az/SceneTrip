@@ -105,7 +105,7 @@ class PostsControllerTest {
     when(users.isRegistered(GUEST)).thenReturn(false);
     when(storage.viewUrl(anyString()))
         .thenAnswer(inv -> URI.create("https://signed.example/" + inv.getArgument(0)));
-    when(uploads.unattached(any(), anyCollection())).thenReturn(Set.of());
+    when(uploads.claim(any(), anyCollection())).thenReturn(claimOf(Set.of()));
     when(store.list(any(), any(), anyInt(), anyInt()))
         .thenReturn(new PostStore.Page<>(List.of(), 0));
     when(store.find(anyLong(), any())).thenReturn(Optional.empty());
@@ -259,7 +259,7 @@ class PostsControllerTest {
   @Test
   @DisplayName("쓰기 — 같은 키가 두 번이면 400 POST_PHOTO_INVALID, 아무것도 옮기지 않는다")
   void duplicateKeys() throws Exception {
-    when(uploads.unattached(eq(USER), anyCollection())).thenReturn(Set.of("uploads/tmp/a.jpg"));
+    when(uploads.claim(eq(USER), anyCollection())).thenReturn(claimOf(Set.of("uploads/tmp/a.jpg")));
 
     mvc.perform(
             postJson(
@@ -271,14 +271,14 @@ class PostsControllerTest {
 
     verifyNeverCreated();
     verify(storage, never()).move(anyString(), anyString());
-    verify(uploads, never()).consume(anyCollection());
+    verifyUploadsReleasedIfClaimed();
   }
 
   @Test
   @DisplayName("쓰기 — 내가 받지 않은 키가 섞이면 400 POST_PHOTO_INVALID, 그 전에 옮긴 것은 되돌린다")
   void unknownKeyMovesBack() throws Exception {
-    when(uploads.unattached(eq(USER), anyCollection()))
-        .thenReturn(Set.of("uploads/tmp/a.jpg", "uploads/tmp/c.png"));
+    when(uploads.claim(eq(USER), anyCollection()))
+        .thenReturn(claimOf(Set.of("uploads/tmp/a.jpg", "uploads/tmp/c.png")));
 
     mvc.perform(
             postJson(
@@ -296,14 +296,14 @@ class PostsControllerTest {
     // 되돌리고 나면 임시 자리에 모두 남아 있어야 한다 — 옮긴 수와 되돌린 수가 같다.
     assertNetMovesUndone();
     verify(storage, never()).move(eq("uploads/tmp/x.jpg"), anyString());
-    verify(uploads, never()).consume(anyCollection());
+    verifyUploadsReleasedIfClaimed();
   }
 
   @Test
   @DisplayName("쓰기 — 받은 주소로 올리지 않아 저장소에 없으면 400 POST_PHOTO_INVALID, 앞서 옮긴 것은 되돌린다")
   void missingInStorageMovesBack() throws Exception {
-    when(uploads.unattached(eq(USER), anyCollection()))
-        .thenReturn(Set.of("uploads/tmp/a.jpg", "uploads/tmp/b.jpg"));
+    when(uploads.claim(eq(USER), anyCollection()))
+        .thenReturn(claimOf(Set.of("uploads/tmp/a.jpg", "uploads/tmp/b.jpg")));
     doThrow(new PhotoStorage.MissingPhotoException("uploads/tmp/b.jpg"))
         .when(storage)
         .move("uploads/tmp/b.jpg", "posts/b.jpg");
@@ -344,7 +344,7 @@ class PostsControllerTest {
   @DisplayName("쓰기 — 201. 키를 순서대로 uploads/tmp/x → posts/x 로 옮기고, 그 순서로 Store 에 넘기고, 업로드 기록을 소비한다")
   void createMovesInOrderAndStores() throws Exception {
     List<String> tmp = List.of("uploads/tmp/c.png", "uploads/tmp/a.jpg", "uploads/tmp/b.webp");
-    when(uploads.unattached(eq(USER), anyCollection())).thenReturn(Set.copyOf(tmp));
+    when(uploads.claim(eq(USER), anyCollection())).thenReturn(claimOf(Set.copyOf(tmp)));
     when(store.create(eq(USER), anyString(), anyString(), anyList(), anyCollection(), any()))
         .thenReturn(42L);
     when(store.find(eq(42L), eq(USER)))
@@ -381,10 +381,7 @@ class PostsControllerTest {
     assertThat(fresh.getValue())
         .containsExactlyInAnyOrder("posts/c.png", "posts/a.jpg", "posts/b.webp");
 
-    @SuppressWarnings("unchecked")
-    ArgumentCaptor<Collection<String>> consumed = ArgumentCaptor.forClass(Collection.class);
-    verify(uploads).consume(consumed.capture());
-    assertThat(consumed.getValue()).containsExactlyInAnyOrderElementsOf(tmp);
+    verify(uploads, never()).release(any());
     verify(storage, times(3)).move(anyString(), anyString());
   }
 
@@ -408,8 +405,8 @@ class PostsControllerTest {
   @Test
   @DisplayName("쓰기 — Store 가 코스를 거절하면 400 POST_COURSE_INVALID, 옮긴 사진은 모두 되돌리고 업로드 기록은 남긴다")
   void courseRejectedMovesBack() throws Exception {
-    when(uploads.unattached(eq(USER), anyCollection()))
-        .thenReturn(Set.of("uploads/tmp/a.jpg", "uploads/tmp/b.jpg"));
+    when(uploads.claim(eq(USER), anyCollection()))
+        .thenReturn(claimOf(Set.of("uploads/tmp/a.jpg", "uploads/tmp/b.jpg")));
     when(store.create(eq(USER), anyString(), anyString(), anyList(), anyCollection(), eq(99L)))
         .thenThrow(new PostStore.CourseRejectedException(99L));
 
@@ -425,13 +422,13 @@ class PostsControllerTest {
     verify(storage).move("uploads/tmp/b.jpg", "posts/b.jpg");
     verify(storage).move("posts/a.jpg", "uploads/tmp/a.jpg");
     verify(storage).move("posts/b.jpg", "uploads/tmp/b.jpg");
-    verify(uploads, never()).consume(anyCollection());
+    verifyUploadsReleasedIfClaimed();
   }
 
   @Test
   @DisplayName("쓰기 — Store 가 사진 키를 거절하면 400 POST_PHOTO_INVALID, 옮긴 사진은 되돌린다")
   void photoRejectedByStoreMovesBack() throws Exception {
-    when(uploads.unattached(eq(USER), anyCollection())).thenReturn(Set.of("uploads/tmp/a.jpg"));
+    when(uploads.claim(eq(USER), anyCollection())).thenReturn(claimOf(Set.of("uploads/tmp/a.jpg")));
     when(store.create(eq(USER), anyString(), anyString(), anyList(), anyCollection(), any()))
         .thenThrow(new PostStore.PhotoKeyRejectedException("거절"));
 
@@ -441,7 +438,7 @@ class PostsControllerTest {
         .andExpect(jsonPath("$.code").value("POST_PHOTO_INVALID"));
 
     verify(storage).move("posts/a.jpg", "uploads/tmp/a.jpg");
-    verify(uploads, never()).consume(anyCollection());
+    verifyUploadsReleasedIfClaimed();
   }
 
   // ───────────── DELETE /posts/{id} ─────────────
@@ -756,5 +753,22 @@ class PostsControllerTest {
     byte[] b = new byte[length];
     Arrays.fill(b, value);
     return b;
+  }
+
+  /** 업로드 기록을 차지한 결과(MZ2AZ-498) — {@code keys} 를 모두 차지했다. */
+  private static UploadStore.Claim claimOf(Set<String> keys) {
+    return new UploadStore.Claim(
+        keys.stream()
+            .map(k -> new UploadStore.Row(k, USER, "review", "image/jpeg", 1L, null))
+            .toList());
+  }
+
+  /** 저장하지 못했으면 업로드를 다시 쓸 수 있어야 한다 — 차지했다면 그만큼 돌려놓았다(예전 「consume 하지 않음」 과 같은 뜻). */
+  private void verifyUploadsReleasedIfClaimed() {
+    long claims =
+        org.mockito.Mockito.mockingDetails(uploads).getInvocations().stream()
+            .filter(i -> i.getMethod().getName().equals("claim"))
+            .count();
+    verify(uploads, times((int) claims)).release(any());
   }
 }

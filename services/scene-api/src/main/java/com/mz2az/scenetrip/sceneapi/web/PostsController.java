@@ -95,41 +95,44 @@ class PostsController implements PostsApi {
       }
     }
 
-    // 옮기기는 DB 트랜잭션 밖이다 — 저장소 호출을 트랜잭션 안에서 기다리지 않는다(리뷰와 같다).
-    Set<String> fresh = uploads.unattached(user, keys);
+    // 옮기기는 DB 트랜잭션 밖이다 — 저장소 호출을 트랜잭션 안에서 기다리지 않는다(리뷰와 같다). 그래서 옮기기 전에 업로드 기록부터
+    // 차지한다(MZ2AZ-498) — 같은 요청이 동시에 두 번 와도 하나만 차지하고, 진 쪽은 아무 파일도 옮기지 않아 이긴 쪽 사진을 건드리지 않는다.
+    UploadStore.Claim claim = uploads.claim(user, keys);
+    Set<String> fresh = claim.keys();
     List<String> finalKeys = new ArrayList<>(keys.size());
     Map<String, String> moved = new LinkedHashMap<>(); // 옮긴 자리 → 원래 임시 키
-    for (String key : keys) {
-      if (!fresh.contains(key)) {
-        moveBack(moved);
-        throw ApiException.badRequest("POST_PHOTO_INVALID", "올리지 않았거나 만료된 사진입니다");
-      }
-      String to = "posts/" + key.substring(key.lastIndexOf('/') + 1);
-      try {
-        storage.move(key, to);
-      } catch (PhotoStorage.MissingPhotoException e) {
-        moveBack(moved);
-        throw ApiException.badRequest("POST_PHOTO_INVALID", "받은 주소로 올린 사진이 없습니다");
-      }
-      finalKeys.add(to);
-      moved.put(to, key);
-    }
-
     long postId;
     try {
-      postId =
-          blocks == null
-              ? store.create(user, title, body, finalKeys, moved.keySet(), in.getCourseId())
-              : store.create(
-                  user, title, body, finalKeys, moved.keySet(), in.getCourseId(), blocks);
-    } catch (PostStore.CourseRejectedException e) {
+      for (String key : keys) {
+        if (!fresh.contains(key)) {
+          throw ApiException.badRequest("POST_PHOTO_INVALID", "올리지 않았거나 만료된 사진입니다");
+        }
+        String to = "posts/" + key.substring(key.lastIndexOf('/') + 1);
+        try {
+          storage.move(key, to);
+        } catch (PhotoStorage.MissingPhotoException e) {
+          throw ApiException.badRequest("POST_PHOTO_INVALID", "받은 주소로 올린 사진이 없습니다");
+        }
+        finalKeys.add(to);
+        moved.put(to, key);
+      }
+      try {
+        postId =
+            blocks == null
+                ? store.create(user, title, body, finalKeys, moved.keySet(), in.getCourseId())
+                : store.create(
+                    user, title, body, finalKeys, moved.keySet(), in.getCourseId(), blocks);
+      } catch (PostStore.CourseRejectedException e) {
+        throw ApiException.badRequest("POST_COURSE_INVALID", e.getMessage());
+      } catch (PostStore.PhotoKeyRejectedException e) {
+        throw ApiException.badRequest("POST_PHOTO_INVALID", e.getMessage());
+      }
+    } catch (RuntimeException e) {
+      // 저장하지 못했다 — 내가 옮긴 사진만 되돌리고 차지한 기록을 돌려놓는다(앱이 같은 키로 다시 보낼 수 있게).
       moveBack(moved);
-      throw ApiException.badRequest("POST_COURSE_INVALID", e.getMessage());
-    } catch (PostStore.PhotoKeyRejectedException e) {
-      moveBack(moved);
-      throw ApiException.badRequest("POST_PHOTO_INVALID", e.getMessage());
+      uploads.release(claim);
+      throw e;
     }
-    uploads.consume(fresh);
     return ResponseEntity.status(HttpStatus.CREATED).body(detail(postId, user, acceptLanguage));
   }
 
