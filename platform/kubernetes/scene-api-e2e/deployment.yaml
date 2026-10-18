@@ -107,14 +107,16 @@ spec:
                 secretKeyRef:
                   name: scene-api-e2e-secrets
                   key: SCENETRIP_AUTH_JWT_SECRET
+          # 메모리는 운영(PRD, helm workloads.yaml 의 scene-api 1Gi)과 같게 — 평소 로컬(512Mi)로는 e2e 를 여러 번 돌린 뒤
+          # OOMKilled 로 재시작해 시험 도중 연결이 끊겼다(2026-10-18). e2e 는 운영에 가까워야 한다.
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi
+              memory: 1Gi
             limits:
               # CPU 한도는 일부러 두지 않는다. JVM 은 기동 때 CPU 를 몰아 쓰는데
               # 한도가 걸리면 쓰로틀링으로 기동이 느려지고 프로브가 먼저 죽인다.
-              memory: 512Mi
+              memory: 1Gi
           # 프로브 셋이 각각 다른 것을 막는다.
           #
           #   startup   기동이 느릴 때 liveness 가 먼저 죽이는 것

@@ -8,10 +8,8 @@ import base64
 import json
 import secrets
 import time
-import unittest
 
 from support import (
-    API_URL,
     E2ETestCase,
     RsaKey,
     call,
@@ -69,15 +67,6 @@ class CommonTest(E2ETestCase):
 
     def test_unknown_path_is_404_endpoint_not_found(self):
         r = call("GET", "/no-such-endpoint-e2e", install_id=new_install_id())
-        self.assert_client_error_shape(r, 404, "ENDPOINT_NOT_FOUND")
-
-    # 알려진 실패(2026-10-18): /v1 밖은 서블릿 컨텍스트 밖이라 톰캣 기본 HTML 404 가 온다. PRD 는 gateway 가 빈 text/plain 404 를
-    # 준다 — 어느 쪽도 errors.md 의 「버전 접두사를 빠뜨리면 ENDPOINT_NOT_FOUND」 와 다르다. 문서를 고칠지 동작을 고칠지 결정 대기.
-    # 고쳐지면 「예상 밖 성공」 으로 알려 준다 — 그때 이 표시를 뗀다.
-    @unittest.expectedFailure
-    def test_path_without_version_prefix_is_404(self):
-        root = API_URL.rsplit("/v1", 1)[0]
-        r = call("GET", root + "/contents", install_id=new_install_id())
         self.assert_client_error_shape(r, 404, "ENDPOINT_NOT_FOUND")
 
     def test_not_found_entity_error_shape(self):

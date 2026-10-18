@@ -2430,7 +2430,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: 여행 중이 아닌 코스
+          description: 여행 중이 아닌 코스 — `COURSE_NOT_ACTIVE`. 카카오를 부르기 전에 막는다(호출 몫을 쓰지 않는다)
           content:
             application/json:
               schema:
@@ -2926,7 +2926,9 @@ components:
 
   responses:
     BadRequest:
-      description: 파라미터가 규칙에 맞지 않음
+      description: |
+        파라미터가 규칙에 맞지 않음. 요청 몸체가 JSON 으로 읽히지 않는 경우(깨진 JSON)도 여기이고 코드는
+        `INVALID_PARAMETER` 다.
       content:
         application/json:
           schema:
@@ -2970,7 +2972,8 @@ components:
         | `ACCESS_TOKEN_INVALID` | 서명이 틀렸거나 깨졌거나, 탈퇴한 계정 | 토큰을 지우고 로그인 화면 |
         | `SESSION_REQUIRED` | 가입한 계정인데 토큰 없이 설치 UUID 만 왔다 | 토큰을 지우고 로그인 화면 |
 
-        토큰을 보내지 않는 비회원은 `SESSION_REQUIRED` 외에는 받을 일이 없다.
+        토큰을 보내지 않는 비회원은 `SESSION_REQUIRED` 외에는 받을 일이 없다. 예외 하나 — 토큰도 설치 UUID 도
+        없이 계정 전용 창구(`GET /me` 등)를 부르면 `ACCESS_TOKEN_INVALID` 다(실측 2026-10-18, e2e).
       content:
         application/json:
           schema:
