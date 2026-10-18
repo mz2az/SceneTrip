@@ -84,6 +84,9 @@ class CourseController implements CoursesApi {
       throw ApiException.conflict("POI_CLOSED", e.getMessage());
     } catch (CourseStore.DelistedPlaceException e) {
       throw ApiException.conflict("PLACE_DELISTED", e.getMessage());
+    } catch (CourseStore.ShorterThanProgressException e) {
+      // 위 확인 뒤에 일차 이동이 끼어들었다 — 같은 409(MZ2AZ-500).
+      throw ApiException.conflict("COURSE_SHORTER_THAN_PROGRESS", e.getMessage());
     }
 
     return ResponseEntity.ok(read(user, courseId, acceptLanguage));

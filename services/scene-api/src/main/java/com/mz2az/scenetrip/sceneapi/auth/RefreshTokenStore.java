@@ -154,8 +154,12 @@ public class RefreshTokenStore {
     Instant now = clock.instant();
     return transactions.execute(
         status -> {
+          // 받은 토큰 줄을 잠근다 — 같은 토큰으로 갱신이 동시에 오면(rotate 도 이 줄을 잠근다) 한쪽이 끝날 때까지 기다린다. 잠그지 않으면
+          // 아래 사슬 폐기가 막 생긴 새 토큰을 못 보고 지나가 「로그아웃 204 인데 새 토큰이 산다」 였다(MZ2AZ-500, 재현 19/20).
           Optional<FamilyOwner> owner =
-              jdbc.sql("SELECT user_id, family_id FROM refresh_token WHERE token_hash = :hash")
+              jdbc.sql(
+                      "SELECT user_id, family_id FROM refresh_token WHERE token_hash = :hash FOR"
+                          + " UPDATE")
                   .param("hash", hash)
                   .query(
                       (rs, n) ->
