@@ -10,8 +10,7 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 ```json
 {
   "code": "PLACE_NOT_FOUND",
-  "message": "장소를 찾을 수 없습니다: 9999",
-  "traceId": "0af7651916cd43dd8448eb211c80319c"
+  "message": "장소를 찾을 수 없습니다: 9999"
 }
 ```
 
@@ -19,7 +18,7 @@ SceneTrip 의 모든 HTTP API 가 같은 오류 형식을 쓴다. 정의는
 | --- | --- | --- |
 | `code` | 예 | **기계가 분기하는 값.** 클라이언트 로직은 이것만 보고 판단한다 |
 | `message` | 예 | 사람이 읽는 설명. **사용자에게 그대로 보여 주지 않는다** |
-| `traceId` | 아니오 | 이 요청의 추적 ID. SigNoz 에서 같은 값으로 조회한다 |
+| `traceId` | 아니오 | 이 요청의 추적 ID. SigNoz 에서 같은 값으로 조회한다. **서버 사정인 `500`·`503` 에만 실린다** — 4xx 에는 없다 |
 
 **`message` 를 화면에 그대로 띄우지 않는다.** 서버 사정을 설명하는 문구라 사용자에게
 쓸모가 없고, 문구가 바뀌면 화면도 흔들린다. 사용자에게 보일 문구는 `code` 를 보고
@@ -64,7 +63,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 
 | `code` | 뜻 |
 | --- | --- |
-| `INVALID_PARAMETER` | 파라미터가 명세의 제약을 어겼다 — 길이·범위·형식·enum 값. 어느 파라미터인지는 `message` 에 있다 |
+| `INVALID_PARAMETER` | 파라미터가 명세의 제약을 어겼다 — 길이·범위·형식·enum 값. 어느 파라미터인지는 `message` 에 있다. 요청 몸체가 깨진 JSON 일 때도 이것이다 |
 | `INVALID_BBOX` | `bbox` 형식이 틀렸다. `minLng,minLat,maxLng,maxLat` 순서의 숫자 4개여야 한다 |
 | `CONFLICTING_AREA_FILTER` | `bbox` 와 `radiusMeters` 를 함께 보냈다. 영역 조건은 하나만 쓴다 |
 | `INVALID_SORT` | `sort=distance` 인데 기준점(`lat`·`lng`)이 없다 |
@@ -117,8 +116,10 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `ENDPOINT_NOT_FOUND` | **경로 자체가 없다.** 명세에 없는 주소를 불렀다 |
 
 앞의 셋과 `ENDPOINT_NOT_FOUND` 는 뜻이 다르다. 앞의 셋은 "경로는 맞는데 그 id 의 대상이
-없다" 이고, 마지막은 "그런 주소가 아예 없다" 다. 후자는 대개 **API 버전 접두사를 빠뜨렸거나
-경로에 오타가 난 경우**다 — 명세의 `servers.url` 을 확인한다.
+없다" 이고, 마지막은 "그런 주소가 아예 없다" 다. 후자는 대개 **경로에 오타가 난 경우**다.
+
+`ENDPOINT_NOT_FOUND` 는 **`/v1` 아래**에서만 온다. API 버전 접두사(`/v1`, 명세의 `servers.url`)를 빠뜨린
+주소는 API 바깥이라 이 형식의 오류가 아니다 — 운영은 앞단 gateway 가 빈 404 를, 로컬은 서버의 기본 404 를 준다(2026-10-18 확인).
 
 ### 충돌 (`409`)
 
@@ -132,7 +133,7 @@ ConfigMap 이 `SCENETRIP_AUTH_REQUIRE_REGISTRATION=false` 로 벽을 치워 두�
 | `NICKNAME_TAKEN` | 다른 사람이 쓰는 닉네임이다(영문 대소문자는 같은 것으로 본다) |
 | `COURSE_SHORTER_THAN_PROGRESS` | 여행 중인 코스를 지금 걷고 있는 일차보다 짧게 줄이려 했다. 3일차를 걷는 중이면 2일 코스로 만들 수 없다 |
 | `COURSE_ALREADY_PUBLISHED` | 그 코스는 이미 마켓에 올라가 있다. 한 코스에서 살아 있는 사본은 하나뿐이라 내린 뒤에 다시 올린다 |
-| `COURSE_NOT_ACTIVE` | 예정 코스에 방문 체크를 하려 했다. 요청은 멀쩡하고 코스 상태가 안 맞는 것이라 400 이 아니다 — **「시작」을 누르면 통한다** |
+| `COURSE_NOT_ACTIVE` | 예정 코스에 방문 체크를 하려 했거나, 여행 중이 아닌 코스로 길찾기(`/navigation/next-leg`)를 불렀다. 요청은 멀쩡하고 코스 상태가 안 맞는 것이라 400 이 아니다 — **「시작」을 누르면 통한다** |
 
 ### 처리 불가 (`422`)
 

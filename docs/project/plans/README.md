@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 | --- | --- |
+| [api-e2e.md](api-e2e.md) | scene-api API e2e — 로컬 kind 의 별도 인스턴스, 바깥 서비스는 가짜 HTTP (MZ2AZ-496) |
 | [ios-scene-gallery.md](ios-scene-gallery.md) | 서버 순서대로 장면 사진 여러 장을 확대 화면에서 넘겨 보기 (MZ2AZ-430) |
 | [ios-guide-identities.md](ios-guide-identities.md) | 챗봇 코스 편의시설·개인 핀 ID 왕복과 저장 항목 보존 (MZ2AZ-425·434) |
 | [ios-release-followups.md](ios-release-followups.md) | 열린 iOS 티켓의 계정 갱신·사진 만료 재시도와 출시용 설정 준비 (MZ2AZ-148) |

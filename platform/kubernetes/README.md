@@ -5,6 +5,7 @@ Kubernetes 매니페스트. 배포 단위 모듈마다 디렉터리 하나에 �
 | 디렉터리 | 내용 |
 | --- | --- |
 | `<모듈>/` | 그 모듈의 deployment·service·configmap — `just deploy <모듈> local` 이 적용 |
+| `scene-api-e2e/` | API e2e 인스턴스 — scene-api 와 같은 이미지·DB, 바깥 주소만 가짜(호스트 18900)로. `just e2e-up` 이 띄운다(MZ2AZ-496) |
 | `minio/` | 로컬 리뷰 사진 저장소(S3 대역). 호스트 9000 → NodePort 30090. DEV·PRD 는 진짜 S3 라 없다 |
 | `signoz/` | SigNoz UI 를 호스트 8080 에 노출하는 우리 소유의 NodePort 서비스 |
 | `tests/` | 클러스터 없이 도는 매니페스트 약속 검사 — MinIO 와 scene-api ConfigMap 의 키·버킷·포트, kind 포트 잇기(`just test //platform/kubernetes:unit_test`) |

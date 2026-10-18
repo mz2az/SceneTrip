@@ -34,5 +34,5 @@ just cluster-up && just seed && just db-refresh-search
 just test-integration
 ```
 
-`e2e` 는 **아직 CI 에서 돌지 않는다.** 전체 스택이 필요해 서비스 컨테이너로 해결되지
-않고, 지금 타깃이 0 개다. 첫 e2e 테스트가 들어올 때 ADR 0005 를 보정하며 정한다.
+`e2e` 는 **CI 에서 돌지 않는다.** 전체 스택(kind)이 필요해 서비스 컨테이너로 해결되지 않는다 — 로컬에서
+`just e2e-up` 뒤 `just test-e2e`. 첫 타깃은 API e2e(`//tests/e2e:api_e2e_test`, MZ2AZ-496, [tests/e2e/README.md](e2e/README.md)).
