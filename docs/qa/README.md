@@ -2,6 +2,7 @@
 
 | 문서 | 목적 |
 | --- | --- |
+| [loadtest/README.md](loadtest/README.md) | DEV 부하 테스트 실험 기록 — 경위·정의·원인·해결·검증과 이전·이후 수치 (MZ2AZ-502) |
 | [ios-release-followup-verification.md](ios-release-followup-verification.md) | 로그인·리뷰 계정 경합, 사진 재발급·페이지 순서, 출시 리소스 716개 시험과 화면 확인의 범위 (MZ2AZ-148·363·366·428·431·416) |
 | [android-home-profile-polish.md](android-home-profile-polish.md) | iOS431의 Android 포스터·홈 선반·닉네임 UI와 99개 회귀·모의 응답/실제 화면 검증 |
 | [android-community-blog.md](android-community-blog.md) | Android428의 블록 배치·작성/미리보기·사진 확대/재시도·공개 AI 사진과 코스 보존 |

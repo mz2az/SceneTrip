@@ -1,0 +1,149 @@
+{{- /*
+DEV 부하 시험 모드(MZ2AZ-502, docs/project/plans/load-test.md §3) — 가짜 바깥 서버와 그리로 가는 통로.
+꺼져 있으면 이 파일은 아무것도 그리지 않는다. 주소 덮기는 config.yaml(scene-api)·workloads.yaml(trip-guide), 상한은 config.yaml(gateway).
+*/}}
+{{- if .Values.loadtest.enabled }}
+{{- if eq .Values.environment "prd" }}{{ fail "loadtest.enabled 는 DEV 전용입니다 — prd 에서는 켤 수 없습니다(가짜 바깥 서버·구글 공개키 바꿔치기)" }}{{ end }}
+{{- $lt := .Values.loadtest }}
+{{- $jwk := required "loadtest.googleJwkJson 이 필요합니다 — `just load-tokens --jwk-out` 의 공개 JWK" $lt.googleJwkJson }}
+{{- $clientId := required "loadtest.googleClientId 가 필요합니다 — 시험 토큰의 aud" $lt.googleClientId }}
+{{- if not (regexMatch "^[1-9][0-9]*r/[sm]$" (toString $lt.gatewayRate)) }}{{ fail "loadtest.gatewayRate 는 2000r/s 같은 nginx rate 여야 합니다" }}{{ end }}
+{{- if or (lt (int $lt.gatewayBurst) 1) (lt (int $lt.gatewayConnections) 1) }}{{ fail "loadtest.gatewayBurst·gatewayConnections 는 1 이상이어야 합니다" }}{{ end }}
+{{- $script := .Files.Get "files/fake_external.py" }}
+{{- if not $script }}{{ fail "files/fake_external.py 가 차트에 없습니다" }}{{ end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fake-external
+  namespace: {{ .Release.Namespace }}
+data:
+  fake_external.py: |
+    {{- $script | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fake-external
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fake-external
+  template:
+    metadata:
+      labels:
+        app: fake-external
+      annotations:
+        # 스크립트가 바뀌면 다시 뜬다(ConfigMap 만 바뀌면 파드는 옛 파일로 돈다).
+        checksum/script: {{ $script | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: fake-external
+          # trip-guide 이미지(Python 3.13)에 파일 하나만 얹는다 — 표준 라이브러리만 쓴다.
+          image: {{ required "tripGuide.image가 필요합니다" .Values.tripGuide.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["/usr/bin/python3", "/fake/fake_external.py"]
+          env:
+            - name: FAKE_PORT
+              value: "8080"
+            - name: FAKE_GOOGLE_JWK_JSON
+              value: {{ $jwk | trim | quote }}
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: script
+              mountPath: /fake
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: script
+          configMap:
+            name: fake-external
+            defaultMode: 0444
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fake-external
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: fake-external
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+# 가짜는 scene-api·trip-guide 에게서만 받고, 아무 데로도 나가지 않는다(DNS 는 dns 정책이 연다).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fake-external
+spec:
+  podSelector:
+    matchLabels: { app: fake-external }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { app: scene-api } }
+        - podSelector: { matchLabels: { app: trip-guide } }
+      ports: [{ protocol: TCP, port: 8080 }]
+  egress: []
+---
+# scene-api(카카오·구글 공개키)·trip-guide(모델) → 가짜 8080. 기본 차단(default-deny) 위에 더하는 허용이다.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: loadtest-to-fake-external
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [scene-api, trip-guide]
+  policyTypes: [Egress]
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: fake-external } } }]
+      ports: [{ protocol: TCP, port: 8080 }]
+{{- end }}

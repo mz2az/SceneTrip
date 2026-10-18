@@ -1,0 +1,28 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("//tools/bazel/cloud:tool.bzl", "cloud_tool")
+
+# 부하 테스트 — k6(MZ2AZ-502, docs/project/plans/load-test.md). 게이트에 들어가지 않는다. `just load-run <시나리오>` 로 의도적으로만 돈다.
+
+package(default_visibility = ["//visibility:public"])
+
+# 플랫폼에 맞는 k6 실행 파일(MODULE.bazel 에 버전·SHA-256 고정)을 runfiles 안에서 실행한다 — 호스트에 깔린 k6 를 쓰지 않는다.
+cloud_tool(
+    name = "k6",
+    binary = select({
+        "//tools/bazel/cloud:linux_amd64": "@k6_linux_amd64//:k6",
+        "//tools/bazel/cloud:darwin_arm64": "@k6_darwin_arm64//:k6",
+    }),
+)
+
+# 시험 회원의 구글 ID 토큰 묶음 — 가짜 바깥 서버의 /google/jwks 와 짝인 키로 서명한다. `just load-tokens …`
+py_library(
+    name = "mint_google_tokens_lib",
+    srcs = ["mint_google_tokens.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "mint_google_tokens",
+    srcs = ["mint_google_tokens.py"],
+    main = "mint_google_tokens.py",
+)

@@ -731,6 +731,25 @@ filegroup(name = "runtime", srcs = glob(["dist/**"]), visibility = ["//visibilit
     urls = ["https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.31.4.zip"],
 )
 
+# --- 부하 테스트 (k6) ------------------------------------------------------------
+# DEV 부하 테스트 도구(MZ2AZ-502, docs/project/plans/load-test.md). 공식 배포 파일의 SHA-256 을 고정한다 — 「이전」 과
+# 「이후」 를 같은 도구로 재야 비교가 된다. 노트북(macOS arm64)과 부하를 보내는 러너 EC2(Linux amd64). `just load-run` 이 쓴다.
+http_archive(
+    name = "k6_linux_amd64",
+    build_file_content = "exports_files([\"k6\"], visibility = [\"//visibility:public\"])\n",
+    sha256 = "39c3117b6af817592dcd0ce4242105c0a7af10948c2a425306f0be8f7a8a8ab1",
+    strip_prefix = "k6-v2.3.0-linux-amd64",
+    urls = ["https://github.com/grafana/k6/releases/download/v2.3.0/k6-v2.3.0-linux-amd64.tar.gz"],
+)
+
+http_archive(
+    name = "k6_darwin_arm64",
+    build_file_content = "exports_files([\"k6\"], visibility = [\"//visibility:public\"])\n",
+    sha256 = "b2417a3038edc5fe81dc178a889237724b595c5c9cfed875822008e46e862c7d",
+    strip_prefix = "k6-v2.3.0-macos-arm64",
+    urls = ["https://github.com/grafana/k6/releases/download/v2.3.0/k6-v2.3.0-macos-arm64.zip"],
+)
+
 # 오프라인 Terraform 검증용 packed filesystem mirror. 실제 provider ZIP도 잠근다.
 http_file(
     name = "aws_provider_linux_amd64",

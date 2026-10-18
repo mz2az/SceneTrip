@@ -5,6 +5,15 @@
 {{- range .Values.gateway.allowedCidrs }}
 {{- if or (eq . "0.0.0.0/0") (eq . "::/0") }}{{ fail "전체 인터넷 공개는 allowedCidrs 가 아니라 gateway.public 으로 한다" }}{{ end }}
 {{- end }}
+{{- /* gateway IP 당 상한 — 평소 값. 부하 시험 모드(loadtest.yaml)에서만 바뀐다. */}}
+{{- $rate := "30r/s" }}
+{{- $burst := 60 }}
+{{- $connections := 60 }}
+{{- if .Values.loadtest.enabled }}
+{{- $rate = .Values.loadtest.gatewayRate }}
+{{- $burst = int .Values.loadtest.gatewayBurst }}
+{{- $connections = int .Values.loadtest.gatewayConnections }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -23,6 +32,13 @@ data:
   OTEL_SDK_DISABLED: {{ ternary "false" "true" (ne .Values.otel.endpoint "") | quote }}
   OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.otel.endpoint | quote }}
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  {{- if .Values.loadtest.enabled }}
+  # 부하 시험 모드(MZ2AZ-502, DEV 전용) — 바깥 회사 서버 대신 클러스터 안 가짜(fake-external)를 부른다.
+  # 시험 토큰의 aud 하나만 받으므로 그동안 진짜 구글 로그인은 안 된다. 끄면 이 줄들이 빠지고 application.yaml 값으로 돌아간다.
+  SCENETRIP_NAVIGATION_KAKAO_BASEURL: "http://fake-external:8080/kakao"
+  SCENETRIP_AUTH_GOOGLE_JWKSURI: "http://fake-external:8080/google/jwks"
+  SCENETRIP_AUTH_GOOGLE_CLIENTIDS: {{ .Values.loadtest.googleClientId | quote }}
+  {{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -68,7 +84,7 @@ data:
       }
       # IP 당 상한은 폭주만 막는 바깥 울타리다 — LTE 는 통신사 CGNAT 로 많은 사용자가 IP 하나를 함께 쓴다. 실제 한도는
       # 계정 기준으로 scene-api 가 센다(MZ2AZ-334, docs/project/plans/rate-limit.md).
-      limit_req_zone $binary_remote_addr zone=api:10m rate=30r/s;
+      limit_req_zone $binary_remote_addr zone=api:10m rate={{ $rate }};
       limit_conn_zone $binary_remote_addr zone=connections:10m;
       server {
         listen 8080 default_server;
@@ -86,9 +102,9 @@ data:
         location ~* ^/v1/(actuator|internal)(/|$) { return 404; }
         location ~ ^/v1/(search|contents|places|pois|cart|courses|favorites|market|navigation|guide|auth|me|posts|events|reports|uploads)(/|$) {
           if ($api_allowed = 0) { return 403; }
-          limit_req zone=api burst=60 nodelay;
+          limit_req zone=api burst={{ $burst }} nodelay;
           limit_req_status 429;
-          limit_conn connections 60;
+          limit_conn connections {{ $connections }};
           proxy_pass http://scene-api:8080;
           proxy_http_version 1.1;
           proxy_set_header Host $host;

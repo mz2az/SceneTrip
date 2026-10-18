@@ -55,6 +55,7 @@ from tools.aws.tests.test_entrypoint import EntryPointTest
 from tools.aws.tests.test_gateway_limits import GatewayLimitsChartTest
 from tools.aws.tests.test_gateway_routes import GatewayContractRoutesTest
 from tools.aws.tests.test_lifecycle import CloudflareTest, LifecycleTest, SignozDnsTest
+from tools.aws.tests.test_loadtest_mode import LoadtestModeChartTest
 from tools.aws.tests.test_media import MediaChartTest, MediaDeployValuesTest
 from tools.aws.tests.test_node_packing import (
     SceneTripSpreadChartTest,
@@ -130,6 +131,7 @@ __all__ = [
     "GatewayLimitsChartTest",
     "LegacyAuthSlotTest",
     "LifecycleTest",
+    "LoadtestModeChartTest",
     "MediaChartTest",
     "MediaDeployValuesTest",
     "OrchestrationTest",

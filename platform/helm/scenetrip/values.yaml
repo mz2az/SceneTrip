@@ -30,3 +30,17 @@ otel:
 network:
   # EKS serviceIpv4Cidr의 열 번째 주소를 배포 실행기가 계산한다.
   dnsCidr: ""
+# DEV 부하 시험 모드(MZ2AZ-502, docs/project/plans/load-test.md §3). 기본은 꺼짐 — 꺼져 있으면 렌더 결과가 이 블록이
+# 없던 때와 같다. 켜면 가짜 바깥 서버(fake-external)를 올리고 scene-api 의 카카오·구글 공개키 주소와 trip-guide 의 모델
+# 주소를 그쪽으로 돌리며 gateway 의 IP 당 상한을 올린다. **PRD 에서 켜면 렌더가 실패한다.** 켜고 끄기는
+# `just loadtest-mode dev on|off` 로만 한다 — 보통 배포(`aws-deploy apply`)는 값을 다시 넣으므로 꺼진 상태로 돌아간다.
+loadtest:
+  enabled: false
+  # 시험용 구글 ID 토큰의 aud — scene-api 가 받아 줄 client ID 를 이것 하나로 바꾼다(그동안 진짜 구글 로그인은 안 된다).
+  googleClientId: ""
+  # 시험용 키의 공개 JWK(JSON 한 덩어리) — `just load-tokens --jwk-out` 이 만든다. 가짜가 /google/jwks 로 낸다.
+  googleJwkJson: ""
+  # 시험 동안 gateway 의 IP 당 상한(평소 30r/s · burst 60 · 동시 60). 부하는 러너 한 대(IP 하나)에서 나간다.
+  gatewayRate: "2000r/s"
+  gatewayBurst: 4000
+  gatewayConnections: 4000

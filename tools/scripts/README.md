@@ -18,6 +18,10 @@ just 레시피가 호출하는 스크립트. 기여자가 직접 실행하지 �
   방금 저장한 것만 남기고 같은 접두사의 옛 main 캐시를 지워 저장소 캐시 한도(10 GB)를
   넘지 않게 한다. 남길 키가 목록에 없으면 아무것도 지우지 않는다. `DRY_RUN=1` 이면 지울
   목록만 보여 준다(MZ2AZ-421).
+- `just loadtest-mode dev on|off`: DEV 부하 시험 모드(가짜 바깥 서버·주소 덮기·gateway 상한 상향)를
+  깔린 Helm 릴리스의 값만 바꿔 켜고 끈다. dev 만, kube 컨텍스트가 `scenetrip-dev` 일 때만. 클러스터 접속은
+  열지 않는다. `just test //tools/scripts:loadtest_mode_unit_test`.
+  [계획 §3](../../docs/project/plans/load-test.md)(MZ2AZ-502).
 
 ## 관례
 

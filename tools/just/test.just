@@ -59,6 +59,27 @@ test-contract:
 test-load:
     ./tools/scripts/bazel-test.sh //tests/load/... --test_tag_filters=manual --test_output=streamed
 
+# k6 부하 시나리오 실행(고정 버전). 예: `just load-run smoke.js -e BASE_URL=https://api-dev.scenetrip.io/v1` (docs/project/plans/load-test.md)
+[group('test')]
+load-run scenario *args:
+    {{ BAZEL }} run //tests/load:k6 -- run {{ args }} "{{ justfile_directory() }}/tests/load/{{ scenario }}"
+
+# 부하 시험용 가짜 바깥 서버(카카오·Bedrock·구글 JWKS)를 이 기계에서 띄운다. 설정은 FAKE_* 환경변수(파일 머리말 참조)
+[group('test')]
+load-fake:
+    python3 "{{ justfile_directory() }}/platform/helm/scenetrip/files/fake_external.py"
+
+# 시험 회원의 구글 ID 토큰 묶음과 가짜에 줄 공개키. 예: `just load-tokens --key ~/.scenetrip-load/google-key.json --jwk-out jwk.json --count 500 --aud <client id> --out tokens.json`
+[group('test')]
+load-tokens *args:
+    {{ BAZEL }} run //tests/load:mint_google_tokens -- {{ args }}
+
+# DEV 클러스터 접속(임시 access entry + 러너 SOCKS 터널)은 먼저 열어 둔다 — tools/scripts/loadtest-mode.sh 머리말, docs/project/plans/load-test.md §3
+# DEV 부하 시험 모드 켜고 끄기(dev 만). 예: `LOADTEST_GOOGLE_CLIENT_ID=<aud> LOADTEST_GOOGLE_JWK=jwk.json just loadtest-mode dev on` / `just loadtest-mode dev off`
+[group('test')]
+loadtest-mode env state:
+    @BAZEL={{ quote(BAZEL) }} ./tools/scripts/loadtest-mode.sh "$1" "$2"
+
 # 모든 레인을 순서대로. 느리다.
 [group('test')]
 test-all: test test-integration test-contract test-e2e
