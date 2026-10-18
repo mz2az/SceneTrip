@@ -170,6 +170,7 @@ scene-api에서 오는 요청만 허용한다. 외부 로드밸런서에서 직�
 | --- | --- |
 | `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` | Bedrock 호출용 IAM 키 — **로컬만**. `.env` 에는 `BEDROCK_AWS_ACCESS_KEY_ID` · `BEDROCK_AWS_SECRET_ACCESS_KEY` 로 두고 `just guide-up` 이 이 이름으로 넘긴다(셸의 다른 `AWS_*` 는 넘기지 않는다). 없으면 시작 실패 |
 | `AWS_CONTAINER_CREDENTIALS_FULL_URI` · `AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE` | **DEV·PRD(EKS)** — EKS Pod Identity 가 넣는다. 있으면 고정 키 대신 역할 `scenetrip-<env>-bedrock` 의 임시 자격 증명을 받아 쓴다(만료 5 분 전 다시). MZ2AZ-317, [계획](../../docs/project/plans/bedrock-iam-role.md) |
+| `TRIP_GUIDE_MODEL_BASE_URL` · `TRIP_GUIDE_MODEL_AUTH` | **부하 테스트 전용 — 운영에 넣지 않는다.** `config/model.json` 을 읽은 뒤 `base_url` · `auth` 만 덮는다(모델 ID·온도 등 나머지는 파일 그대로). `auth` 는 `sigv4` · `bearer` · `none` 중 하나, 그 밖의 값이면 시작 실패. `none` 은 인증 헤더를 하나도 싣지 않고 AWS 키·Pod Identity 를 시작 때도 호출 때도 찾지 않는다 — Bedrock 대신 클러스터 안 가짜 모델 서버를 부를 때 쓴다. 비었거나 없으면 지금과 같다. 켜지면 시작 로그에 경고 한 줄(「모델 설정을 환경변수로 덮어썼다(…) — 이 파드는 Bedrock 이 아닐 수 있다」). MZ2AZ-502, [계획 §3](../../docs/project/plans/load-test.md) |
 | `SCENE_API_BASE_URL` | `http://scene-api:8080/v1`. CLI의 `--base-url`이 최우선 |
 | `SCENETRIP_SERVICE_TOKEN` | 서비스 비밀값(ADR 0023). scene-api 와 같은 값. 없으면 경고만 하고 뜬다 — 읽기가 이 에이전트 한 칸으로 세어진다 |
 | `X-Rate-Subject` (받는 헤더) | scene-api 가 넘긴 한도 열쇠. 그 턴의 scene-api 읽기에 `X-Service-Token` 과 함께 되돌려 단다. 자격 증명이 아니며 로그에 남기지 않는다. 열쇠가 없는 턴(CLI·시연 서버)은 달지 않는다 |

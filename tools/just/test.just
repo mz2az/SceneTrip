@@ -64,6 +64,16 @@ test-load:
 load-run scenario *args:
     {{ BAZEL }} run //tests/load:k6 -- run {{ args }} "{{ justfile_directory() }}/tests/load/{{ scenario }}"
 
+# 부하 시험용 가짜 바깥 서버(카카오·Bedrock·구글 JWKS)를 이 기계에서 띄운다. 설정은 FAKE_* 환경변수(파일 머리말 참조)
+[group('test')]
+load-fake:
+    python3 "{{ justfile_directory() }}/platform/helm/scenetrip/files/fake_external.py"
+
+# 시험 회원의 구글 ID 토큰 묶음과 가짜에 줄 공개키. 예: `just load-tokens --key ~/.scenetrip-load/google-key.json --jwk-out jwk.json --count 500 --aud <client id> --out tokens.json`
+[group('test')]
+load-tokens *args:
+    {{ BAZEL }} run //tests/load:mint_google_tokens -- {{ args }}
+
 # 모든 레인을 순서대로. 느리다.
 [group('test')]
 test-all: test test-integration test-contract test-e2e

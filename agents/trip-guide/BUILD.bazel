@@ -46,6 +46,7 @@ TESTS = [
     "tests/test_effects_contract.py",
     "tests/test_llm_planner.py",
     "tests/test_model_client.py",
+    "tests/test_model_override.py",
     "tests/test_plan_shape.py",
     "tests/test_planner.py",
     "tests/test_production.py",

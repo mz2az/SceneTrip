@@ -26,7 +26,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -138,15 +138,55 @@ class ContainerCredentials:
             raise ModelError("Pod Identity 응답의 모양이 다르다") from None
 
 
-def load_config(path: Path | None = None) -> dict[str, Any]:
+# 부하 테스트 전용 — 모델 주소·인증을 바꿔 Bedrock 대신 클러스터 안 가짜 서버를 부른다(MZ2AZ-502,
+# docs/project/plans/load-test.md §3). 비었거나 없으면 model.json 그대로라 운영에는 영향이 없다.
+BASE_URL_OVERRIDE_ENV = "TRIP_GUIDE_MODEL_BASE_URL"
+AUTH_OVERRIDE_ENV = "TRIP_GUIDE_MODEL_AUTH"
+# none = 인증 헤더를 싣지 않는다. 자격 증명도 요구하지 않는다(가짜 서버용).
+AUTH_MODES = ("sigv4", "bearer", "none")
+
+
+def model_overrides(environ: Mapping[str, str] | None = None) -> dict[str, str]:
+    """켜져 있는 덮어쓰기만 돌려준다. 앞뒤 공백은 지우고, 빈 값은 없는 것으로 본다."""
+    env = os.environ if environ is None else environ
+    found = {
+        key: env.get(name, "").strip()
+        for key, name in (
+            ("base_url", BASE_URL_OVERRIDE_ENV),
+            ("auth", AUTH_OVERRIDE_ENV),
+        )
+    }
+    found = {k: v for k, v in found.items() if v}
+    if "auth" in found and found["auth"] not in AUTH_MODES:
+        raise ModelError(
+            f"{AUTH_OVERRIDE_ENV}={found['auth']!r} 는 모르는 값이다 — {', '.join(AUTH_MODES)} 중 하나"
+        )
+    return found
+
+
+def override_warning(environ: Mapping[str, str] | None = None) -> str | None:
+    """덮어쓰기가 켜졌을 때 시작 로그에 남길 한 줄. 꺼져 있으면 None."""
+    found = model_overrides(environ)
+    if not found:
+        return None
+    shown = ", ".join(f"{k}={v}" for k, v in found.items())
+    return f"모델 설정을 환경변수로 덮어썼다({shown}) — 이 파드는 Bedrock 이 아닐 수 있다. 부하 테스트 전용"
+
+
+def load_config(
+    path: Path | None = None, environ: Mapping[str, str] | None = None
+) -> dict[str, Any]:
+    """model.json 을 읽고, 그 위에 환경변수 덮어쓰기(`model_overrides`)를 얹는다."""
     src = path or _CONFIG
     if not src.is_file():
         raise FileNotFoundError(f"모델 설정 파일이 없다: {src}")
-    return {
+    config = {
         k: v
         for k, v in json.loads(src.read_text(encoding="utf-8")).items()
         if not k.startswith("_")
     }
+    config.update(model_overrides(environ))
+    return config
 
 
 def key_env(config: dict[str, Any] | None = None) -> str:
@@ -232,6 +272,12 @@ class ModelClient:
         self.config = config or load_config()
         env = os.environ if environ is None else environ
         self.container: ContainerCredentials | None = None
+        self.api_key = ""
+        self.access_key_id = ""
+        self.session_token = ""
+        # 가짜 서버(부하 테스트)는 인증을 안 본다 — 키도 Pod Identity 도 찾지 않는다.
+        if self.config.get("auth") == "none":
+            return
         # EKS 에서는 Pod Identity 가 먼저다 — 고정 키를 쓰지 않는다. 받는 것은 첫 요청 때(시작이 에이전트를 기다리지 않게).
         if self.config.get("auth") == "sigv4" and env.get(POD_IDENTITY_URI_ENV):
             token_file = env.get(POD_IDENTITY_TOKEN_FILE_ENV, "")
@@ -259,6 +305,8 @@ class ModelClient:
         self.session_token = env.get("AWS_SESSION_TOKEN", "").strip()
 
     def _auth(self, url: str, payload: bytes) -> dict[str, str]:
+        if self.config.get("auth") == "none":
+            return {}
         if self.config.get("auth") == "sigv4":
             if self.container is not None:
                 creds = self.container.get()

@@ -1,5 +1,15 @@
+load("@rules_python//python:defs.bzl", "py_library")
+
 filegroup(
     name = "sources",
     srcs = glob(["scenetrip/**"]),
     visibility = ["//visibility:public"],
+)
+
+# 부하 시험용 가짜 바깥 서버(MZ2AZ-502). 차트가 ConfigMap 으로 파드에 넣고, 시험은 //tests/load/fake 가 한다.
+py_library(
+    name = "fake_external",
+    srcs = ["scenetrip/files/fake_external.py"],
+    imports = ["scenetrip/files"],
+    visibility = ["//tests/load:__subpackages__"],
 )

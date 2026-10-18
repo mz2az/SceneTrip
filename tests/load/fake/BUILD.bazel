@@ -1,0 +1,19 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+# 가짜 바깥 서버와 토큰 도구의 단위 시험 — 127.0.0.1:0 에만 붙는다(MZ2AZ-502).
+py_test(
+    name = "unit_test",
+    size = "medium",
+    srcs = [
+        "run_all.py",
+        "test_fake_external.py",
+        "test_mint_google_tokens.py",
+    ],
+    imports = ["."],
+    main = "run_all.py",
+    tags = ["unit"],
+    deps = [
+        "//platform/helm:fake_external",
+        "//tests/load:mint_google_tokens_lib",
+    ],
+)

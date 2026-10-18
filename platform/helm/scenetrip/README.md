@@ -48,3 +48,7 @@ EKS Auto Mode의 `kube-system/amazon-vpc-cni` ConfigMap에서 네트워크 정�
 기존 형상의 HTTPS 검증을 완료한다. DNS가 없으면 배포 검증은
 실패로 남지만 이미 적용된 인프라·Helm을 자동 삭제하지 않는다. 자세한 복구는
 [런북](../../../docs/ops/aws-deployment.md)을 따른다.
+
+`files/fake_external.py` 는 DEV 부하 시험(MZ2AZ-502) 때만 쓰는 가짜 바깥 서버(카카오 길찾기·Bedrock·구글 JWKS)다.
+표준 라이브러리만 쓰는 파일 하나라 ConfigMap 으로 trip-guide 이미지에 얹어 `python3 fake_external.py` 로 돈다. 설정은 `FAKE_*`
+환경변수(파일 머리말), 시험은 `//tests/load/fake:unit_test`. 계획: [load-test.md](../../../docs/project/plans/load-test.md).

@@ -10,7 +10,7 @@ from http.server import ThreadingHTTPServer
 
 from web.server import Desk, Handler
 
-from src.model_client import ModelClient, load_config
+from src.model_client import ModelClient, load_config, override_warning
 from src.production import (
     MAX_ACTIVE,
     MAX_SESSIONS,
@@ -262,7 +262,10 @@ class InternalServer(ThreadingHTTPServer):
 
 def main():
     config = load_config()
-    ModelClient()  # 키가 없으면 시작을 실패시킨다. 모델 API는 호출하지 않는다.
+    # 부하 테스트에서 모델 주소·인증을 바꿨다면 로그에 한 줄 남긴다 — Bedrock 이 아닌 파드를 알아보게.
+    if warning := override_warning():
+        LOG.warning("%s", warning)
+    ModelClient()  # 키가 없으면 시작을 실패시킨다(auth=none 이면 요구하지 않는다). 모델 API는 호출하지 않는다.
     book = SceneApiPlaceBook(source_url(None, "http://scene-api:8080/v1"))
     if not service_token():
         LOG.warning(
