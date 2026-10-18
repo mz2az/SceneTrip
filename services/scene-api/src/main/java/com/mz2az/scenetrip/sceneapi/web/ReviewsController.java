@@ -157,6 +157,9 @@ class ReviewsController implements ReviewsApi {
         return views.review(saved);
       } catch (ReviewStore.PhotoKeyRejectedException e) {
         throw ApiException.badRequest("REVIEW_PHOTO_INVALID", e.getMessage());
+      } catch (ReviewStore.AuthorGoneException e) {
+        // 쓰는 사이 탈퇴가 끝났다 — 토큰의 계정이 없으니 「탈퇴한 계정」 과 같은 401(계약 Unauthorized).
+        throw ApiException.unauthorized("ACCESS_TOKEN_INVALID", e.getMessage());
       }
     } catch (RuntimeException e) {
       // 저장하지 못했다 — 내가 옮긴 사진만 되돌리고 차지한 기록을 돌려놓는다(앱이 같은 키로 다시 보낼 수 있게).
