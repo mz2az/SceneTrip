@@ -1,7 +1,9 @@
-// 실제 앱 흐름을 본뜬 부하 시나리오 — v2 (MZ2AZ-502, docs/project/plans/load-test.md §5, 설명서 docs/qa/loadtest/scenario.md).
+// 실제 앱 흐름을 본뜬 부하 시나리오 — v3 (MZ2AZ-502, docs/project/plans/load-test.md §5, 설명서 docs/qa/loadtest/scenario.md).
 //
 // v2(v1 대비): 토큰 만료 시 /auth/refresh 로 갱신 · 앞 단계가 실패하면 그 흐름을 멈춤 · 둘러보기에 편의시설 상세·사진 ·
 // 새 흐름 「후기 읽기」(비회원)·「쓰기」(회원 — 사진 올리기 → 리뷰 또는 여행후기).
+// v3(v2 대비): 지도 영역 조회를 앱과 같은 모양으로 — 영역(bbox)과 함께 화면 중심(lat·lng)과 sort=distance 를 보낸다
+// (iOS RouteGuide.swift·Android RouteEditorView.kt). v2 는 영역만 보내 서버 기본값인 이름순을 받았다. 나머지는 v2 와 같다.
 //
 // 흐름 여섯을 비중대로 섞는다 — 둘러보기 50 · 후기 읽기 8 · 담기 14 · 여행 12 · 챗봇 8 · 쓰기 8(가정한 비율, PRD 실사용자가 쌓이면 맞춘다).
 // 사람처럼 단계 사이에 1~3 초 쉬고(생각하는 시간), 작품·촬영지·지도 영역·검색어를 무작위로 골라 캐시 착시를 줄인다.
@@ -19,7 +21,7 @@ import { check, group, sleep } from "k6";
 import { SharedArray } from "k6/data";
 import encoding from "k6/encoding";
 
-const VERSION = "v2";
+const VERSION = "v3";
 
 const BASE = __ENV.BASE_URL || "https://api-dev.scenetrip.io/v1";
 const PROFILE = __ENV.PROFILE || "smoke";
@@ -195,7 +197,8 @@ export function browse(data) {
     think();
     const lng = 126.85 + Math.random() * 0.3;
     const lat = 37.45 + Math.random() * 0.2;
-    const map = req("GET", `/pois?bbox=${lng},${lat},${lng + 0.02},${lat + 0.015}&limit=30`, { install });
+    // 앱처럼 화면 가운데를 기준점으로 — 가운데에서 가까운 순 30 개(v3)
+    const map = req("GET", `/pois?bbox=${lng},${lat},${lng + 0.02},${lat + 0.015}&lat=${lat + 0.0075}&lng=${lng + 0.01}&sort=distance&limit=30`, { install });
     if (!check(map, { "지도 200": ok })) return;
     const pois = map.json("items") || [];
     if (pois.length > 0 && Math.random() < 0.7) {
