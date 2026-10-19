@@ -3,3 +3,24 @@
 clickhouse:
   persistence:
     size: 60Gi
+
+# 부하 시험 중 관측이 끊기지 않게(MZ2AZ-502, 2026-10-19). 한계 시험에서 SigNoz 부품이 모두 한 c5a.large 에 몰려 노드 CPU 가
+# 95~98% 였고, ClickHouse 가 /ping 에 1 초 안에 답하지 못해 생존 점검 실패로 강제 재시작(종료 137)됐다 — 수집기도 같은 식.
+# 그 몇 분의 trace·지표가 비었다(docs/qa/loadtest/2026-10-19-10-사례A-지도POI조회.md §9.7.1). 쿠버네티스는 실제 사용량이 아니라
+# 「최소 필요량(requests)」 으로 배치하므로 ClickHouse 가 실제로 쓰는 만큼 적어 다른 부품과 한 노드에 몰리지 않게 하고, 점검은
+# 바빠서 몇 초 늦는 것을 죽음으로 보지 않게 늦춘다(약 60 초 무응답부터 재시작). PRD 는 실사용 트래픽이 작아 그대로 둔다.
+  resources:
+    requests: { cpu: 1500m }
+  livenessProbe:
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+  readinessProbe:
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+otelCollector:
+  resources:
+    requests: { cpu: 500m }
+  livenessProbe:
+    failureThreshold: 12
