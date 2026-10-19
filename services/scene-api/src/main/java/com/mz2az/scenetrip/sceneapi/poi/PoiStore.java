@@ -45,8 +45,16 @@ import org.springframework.stereotype.Repository;
  *       「채우면 멈춤」이 사라지고 전부 정렬과 같아진다. 개수 질의는 거리를 재지 않고 인덱스만 세서 7 만 행에 14 ms 다.
  * </ul>
  *
- * <p>구면(geography)으로 정렬하는 이유: 평면(geometry) KNN 이 0.3 ms 로 더 빠르지만 위도 37° 에서 경도 1° 는 위도 1° 의 80% 라 동서
- * 방향이 20% 가깝게 계산된다. 프로토타입이 {@code ×0.8} 로 보정하던 그 오차다. 3.9 ms 는 사용자에게 0.3 ms 와 같은 「즉시」다.
+ * <p><b>화면 네모 + 기준점 + 거리순(앱의 주변 편의시설 핀)은 평면(geometry) KNN 으로 고른다</b>(MZ2AZ-502 사례 A, 2026-10-19).
+ * 처음(2026-09-04)에는 구면(geography) KNN 으로 정렬했다 — 평면이 0.3 ms 로 더 빠르지만 위도 37° 에서 경도 1° 는 위도 1° 의 80% 라
+ * 동서 방향이 20% 가깝게 계산되어서. 그런데 구면 KNN 은 네모와 다른 인덱스({@code poi_geom_idx})라 네모가 「꺼낸 뒤 거르는 조건」 이 된다. 네모
+ * 안이 상한보다 적은 화면(산·공원)에서 플래너가 개수를 많게 잘못 예상하고 구면 KNN 을 고르면 30 개가 영영 안 차 91 만 행을 전부 훑는다(DEV 실측 2.2 초,
+ * 한계 시험에서 지도 조회의 1% 가 DB 일의 23%). 지금은 네모와 같은 평면 인덱스({@code poi_geom_geometry_idx})로 「네모 안에서 가까운 순」
+ * 을 꺼내 네모 밖을 보지 않고, 고른 페이지만 미터로 다시 줄 세워 {@code distanceMeters} 오름차순을 지킨다. 대가: 어느 30 개가 뽑히는지는 평면 거리라
+ * 동서 방향을 조금 멀게 본다(사용자 결정 — 결과는 어차피 네모 안). 실측 66 곳 × 한국어·영어 평균 0.8 ms, 최대 2 ms(기존 평균 36~240 ms, 최대
+ * 2.4 초). 기록: docs/qa/loadtest/2026-10-19-10-사례A-지도POI조회.md §9.
+ *
+ * <p>반경 검색({@code radiusMeters})은 원과 정렬이 같은 구면 인덱스라 그대로 구면 KNN 이다.
  */
 @Repository
 public class PoiStore {
@@ -172,12 +180,12 @@ public class PoiStore {
                      JOIN place lp ON lp.id = l.place_id AND lp.hidden_at IS NULL) lk ON lk.poi_id = p.id
       """;
 
-  private static final String LIST_SQL =
-      ORIGIN_SQL
-          + """
-          SELECT
-              p.id, p.category, p.category_group,
-          """
+  /** 목록 한 행의 열과 번역·연결 조인 — 일반 목록과 화면 네모 목록이 같이 쓴다. WHERE 는 붙이는 쪽이 고른다. */
+  private static final String LIST_SELECT_SQL =
+      """
+      SELECT
+          p.id, p.category, p.category_group,
+      """
           + LOCALIZED_SELECT
           + """
               -- geography 에서 좌표를 꺼내려면 geometry 로 캐스팅한다. ST_X 가 경도, ST_Y 가 위도다.
@@ -188,7 +196,11 @@ public class PoiStore {
           FROM poi p
           CROSS JOIN origin o
           """
-          + LOCALIZED_JOIN
+          + LOCALIZED_JOIN;
+
+  private static final String LIST_SQL =
+      ORIGIN_SQL
+          + LIST_SELECT_SQL
           + WHERE_SQL
           + """
           ORDER BY __ORDER_BY__
@@ -197,6 +209,45 @@ public class PoiStore {
 
   private static final String COUNT_SQL =
       ORIGIN_SQL + "SELECT count(*) FROM poi p CROSS JOIN origin o\n" + WHERE_SQL;
+
+  /**
+   * 화면 네모 전용 조건 — 「값이 비었으면 무시」 없이 네모를 쓴다. 그래야 같은 문장을 재사용하는 일반 계획에서도 네모가 늘 인덱스 조건(Index Cond)이다
+   * ({@link #WHERE_SQL} 꼴은 일반 계획에서 네모를 인덱스로 못 써 전체를 훑는다 — 사례 A §6). 반경은 네모와 함께 올 수 없다(계약, 컨트롤러가
+   * 400).
+   */
+  private static final String WHERE_VIEWPORT_SQL =
+      """
+      WHERE
+        p.geom::geometry && ST_MakeEnvelope(
+            CAST(:minLng AS DOUBLE PRECISION),
+            CAST(:minLat AS DOUBLE PRECISION),
+            CAST(:maxLng AS DOUBLE PRECISION),
+            CAST(:maxLat AS DOUBLE PRECISION),
+            4326)
+        AND (CAST(:categoryGroup AS TEXT) IS NULL OR p.category_group = CAST(:categoryGroup AS TEXT))
+        AND p.closed_at IS NULL
+      """;
+
+  /**
+   * 화면 네모 + 기준점 + 거리순 — 클래스 주석의 「평면 KNN」. 안쪽은 네모와 같은 평면 인덱스로 네모 안에서 가까운 순으로 꺼내 상한에서 멈추고(네모 안이 상한보다
+   * 적으면 네모 안을 다 꺼내고 멈춘다), 바깥은 그 한 페이지만 미터로 다시 줄 세운다.
+   */
+  private static final String VIEWPORT_DISTANCE_LIST_SQL =
+      ORIGIN_SQL
+          + "SELECT * FROM (\n"
+          + LIST_SELECT_SQL
+          + WHERE_VIEWPORT_SQL
+          + """
+              ORDER BY p.geom::geometry <-> ST_SetSRID(
+                           ST_MakePoint(CAST(:lng AS DOUBLE PRECISION), CAST(:lat AS DOUBLE PRECISION)), 4326),
+                       p.id
+              LIMIT :limit OFFSET :offset
+          ) page
+          ORDER BY page.distance_meters, page.id
+          """;
+
+  private static final String COUNT_VIEWPORT_SQL =
+      "SELECT count(*) FROM poi p\n" + WHERE_VIEWPORT_SQL;
 
   /** 구면 KNN. {@code <->} 를 ORDER BY 에 두면 GiST 가 가까운 순으로 꺼내 준다. 기준점이 없으면 컨트롤러가 이 정렬을 거부한다(400). */
   private static final String ORDER_BY_DISTANCE = "p.geom <-> o.point, p.id";
@@ -253,14 +304,8 @@ public class PoiStore {
 
   /** 목록 한 페이지와 전체 개수. 질의 둘 — 이유는 클래스 주석. */
   public Page list(Criteria criteria) {
-    // formatted() 가 아니라 replace() 다. 사용자 입력이 아니라 이 파일 안의 상수 둘 중 하나를 끼운다.
-    String sql =
-        LIST_SQL.replace(
-            "__ORDER_BY__",
-            criteria.sort() == Sort.DISTANCE ? ORDER_BY_DISTANCE : ORDER_BY_ALPHABETICAL);
-
     List<Row> rows =
-        bind(jdbc.sql(sql), criteria)
+        bind(jdbc.sql(listSql(criteria)), criteria)
             .param("limit", criteria.limit())
             .param("offset", criteria.offset())
             .query(PoiStore::mapRow)
@@ -273,7 +318,7 @@ public class PoiStore {
     int total =
         criteria.offset() == 0 && items.size() < criteria.limit()
             ? items.size()
-            : bind(jdbc.sql(COUNT_SQL), criteria).query(Integer.class).single();
+            : bind(jdbc.sql(countSql(criteria)), criteria).query(Integer.class).single();
 
     return new Page(items, total, shown);
   }
@@ -399,11 +444,7 @@ public class PoiStore {
    * 부르지 않는다.
    */
   String explainList(Criteria criteria) {
-    String sql =
-        "EXPLAIN "
-            + LIST_SQL.replace(
-                "__ORDER_BY__",
-                criteria.sort() == Sort.DISTANCE ? ORDER_BY_DISTANCE : ORDER_BY_ALPHABETICAL);
+    String sql = "EXPLAIN " + listSql(criteria);
     return String.join(
         "\n",
         bind(jdbc.sql(sql), criteria)
@@ -411,6 +452,25 @@ public class PoiStore {
             .param("offset", criteria.offset())
             .query(String.class)
             .list());
+  }
+
+  /** 화면 네모 + 기준점 + 거리순이면 네모 전용 평면 KNN 질의, 아니면 일반 목록 질의. */
+  private static String listSql(Criteria c) {
+    if (isViewport(c) && c.hasOrigin() && c.sort() == Sort.DISTANCE) {
+      return VIEWPORT_DISTANCE_LIST_SQL;
+    }
+    // formatted() 가 아니라 replace() 다. 사용자 입력이 아니라 이 파일 안의 상수 둘 중 하나를 끼운다.
+    return LIST_SQL.replace(
+        "__ORDER_BY__", c.sort() == Sort.DISTANCE ? ORDER_BY_DISTANCE : ORDER_BY_ALPHABETICAL);
+  }
+
+  /** 개수도 네모가 있으면 네모 전용 조건으로 — 같은 조건을 세므로 목록과 어긋나지 않는다. */
+  private static String countSql(Criteria c) {
+    return isViewport(c) ? COUNT_VIEWPORT_SQL : COUNT_SQL;
+  }
+
+  private static boolean isViewport(Criteria c) {
+    return c.bbox() != null && c.radiusMeters() == null;
   }
 
   private static JdbcClient.StatementSpec bind(JdbcClient.StatementSpec spec, Criteria c) {
