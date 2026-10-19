@@ -2,7 +2,8 @@
 
 - **작성일**: 2026-10-18
 - **티켓**: MZ2AZ-502
-- **상태**: 준비(0단계) 중 — k6 추가(v2.3.0, `just load-run`), 연기 확인 통과, PRD 바깥 호출 지연 실측, 가짜 바깥 서버·시험 모드 차트와 `just loadtest-mode`(DEV 실제 적용 전)
+- **상태**: 문제 찾기(2단계)까지 끝 — 실험 01~09(2026-10-18, 시나리오 v1·v2). 다음은 해결: 사례 A(쿼리 줄이기)·사례 B(연결 풀 → gateway 연쇄).
+  DEV 는 아직 시험 모드(끄기 전까지 진짜 구글 로그인 안 됨)
 - **기록**: 실험마다 [docs/qa/loadtest/](../../qa/loadtest/README.md) 에 남긴다(포트폴리오용 — 경위·정의·원인·해결·검증과 이전·이후 수치)
 
 ## 1. 왜
@@ -18,10 +19,13 @@ PRD 는 2026-10-13 에 올라갔고 사용자가 아직 적다(하루 요청 약
 | 도구 | **k6** | 시나리오를 JS 로 짧게, p50·p95·p99 를 기본으로. 단일 실행 파일이라 Bazel 로 받기 쉽다 |
 | 부하를 보내는 곳 | **서울 리전 EC2**(러너 `i-05785c5441a8bb817`, t3.large) | 집 회선·노트북이 먼저 한계에 닿으면 서버 문제와 구분이 안 된다 |
 | 무엇이 진짜인가 | gateway · scene-api · PostgreSQL(RDS) · trip-guide **전부 진짜** | 우리 서버의 문제는 그대로 드러나야 한다 |
-| 무엇이 가짜인가 | **바깥 회사 서버만** — Bedrock(LLM)·카카오 길찾기 | 돈이 들고(카카오는 호출 한도도), 우리가 고칠 수 없다 |
+| 무엇이 가짜인가 | **바깥 회사 서버만** — Bedrock(LLM)·카카오 길찾기 (뒤에 더함: 구글 공개키 — 로그인 행, 네이버 장소 검색 — 실험 05 뒤 가짜를 만들었으나 시험에서는 링크 찾기 자체를 껐다) | 돈이 들고(카카오는 호출 한도도), 우리가 고칠 수 없다 |
 | 로그인 | 시험 동안만 DEV 의 구글 공개키 주소를 가짜로 → k6 가 가짜 키로 ID 토큰을 만들어 **진짜 `/auth/google`** 을 탄다 | e2e(MZ2AZ-496)에서 검증한 방법. 운영 코드에 시험용 구멍을 만들지 않는다. 그동안 DEV 의 진짜 구글 로그인은 안 된다 — 끝나면 되돌린다 |
 
 ## 3. 구성
+
+실제로 시험한 DEV 는 gateway·scene-api·trip-guide 가 **각 1 대**다(아래 그림의 ×2 는 처음 계획 때 PRD 를 본뜬 것 — 그대로 둔다). 실험 기록의
+수치는 모두 1 대 기준이다.
 
 ```mermaid
 flowchart LR
@@ -76,7 +80,7 @@ flowchart LR
 ```bash
 # 0) 시험 회원 토큰과 공개키(한 번) — 비밀키 파일은 저장소 밖에 둔다
 just load-tokens --key ~/.scenetrip-load/google-key.json --jwk-out ~/.scenetrip-load/jwk.json \
-  --count 500 --aud load-test.apps.googleusercontent.com --out ~/.scenetrip-load/tokens.json
+  --count 2000 --aud load-test.apps.googleusercontent.com --out ~/.scenetrip-load/tokens.json
 
 # 1) 켜기 — DEV 클러스터 접속(아래)이 열려 있어야 한다
 LOADTEST_GOOGLE_CLIENT_ID=load-test.apps.googleusercontent.com \
@@ -144,12 +148,12 @@ just loadtest-mode dev off
 ## 7. 진행 순서
 
 0. **준비** — 이 문서 확정 · 기록 양식([docs/qa/loadtest/](../../qa/loadtest/README.md)) · 가짜 바깥 서버(DEV 배포) · trip-guide 모델 주소 환경변수 ·
-   시험 모드 켜고 끄는 명령 · k6 를 Bazel 로 받기(`MODULE.bazel`, `just test-load`) · DEV 에 PRD 수준 데이터 적재 · PRD 의 Bedrock·카카오 응답 시간 실측
+   시험 모드 켜고 끄는 명령 · k6 를 Bazel 로 받기(`MODULE.bazel`, `just test-load`) · DEV 에 PRD 수준 데이터 적재(확인해 보니 필요 없었다 — 작품·촬영지·편의시설이 PRD 와 거의 같음, [준비 일지 §6](../../qa/loadtest/00-준비.md)) · PRD 의 Bedrock·카카오 응답 시간 실측
 1. **기준 측정** — 「이전」 수치
 2. **문제 찾기** → 3. **정의** → 4. **원인** → 5. **해결**(시험 먼저) → 6. **검증**(같은 조건으로 「이후」)
 
 ## 8. 정할 것
 
 - ~~gateway IP 한도~~ → **DEV 시험 중에만 올린다**(사용자 2026-10-18)
-- ~~유료 한도~~ → **시험 회원을 수백 명 만들어 나눈다**(실제 사용자처럼 사람마다 따로)
+- ~~유료 한도~~ → **시험 회원을 수백 명 만들어 나눈다**(실제 사용자처럼 사람마다 따로 — 실험에서는 2,000 명)
 - ~~k6 의존성~~ → **추가함**(v2.3.0, SHA-256 고정 — 이전·이후를 같은 도구로 재려고)

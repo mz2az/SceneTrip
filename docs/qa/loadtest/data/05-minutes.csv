@@ -1,0 +1,4 @@
+t_utc,req,s2xx,s4xx,s5xx,p50_ms,p95_ms,p99_ms,db_queries,db_p50_ms,db_p95_ms,conn_checkouts_per_s,conn_use_ms,conn_wait_ms,pending_max,conn_used_max,jvm_cpu_max,heap_mb,heap_after_gc_mb,chat_req,chat_p50_s,alb_requests,alb_target_2xx,alb_target_4xx,alb_target_5xx,alb_elb_5xx,alb_elb_502,alb_elb_503
+2026-10-18 12:03:00,293,293,0,0,5.1,129.3,707.9,1128,0.71,3.63,10,1.56,0.04,0,0,0.061,93,82,,,275,275,,,,,
+2026-10-18 12:04:00,232,232,0,0,4.5,534,706.5,875,0.59,3.53,11,1.02,0.03,0,0,0.019,139,82,,,214,214,,,,,
+2026-10-18 12:05:00,166,166,0,0,4.2,134.4,706.9,642,0.59,2.95,15,1.16,0.02,0,0,0.016,193,82,,,148,148,,,,,

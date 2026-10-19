@@ -1,10 +1,11 @@
 """가짜 바깥 서버(fake_external) 단위 테스트 — 명세만 보고 쓴 테스트다.
 
-카카오 길찾기·Bedrock 채팅·구글 JWKS 를 흉내 내는 서버가 앱이 기대하는 모양으로 답하는지,
+카카오 길찾기·Bedrock 채팅·구글 JWKS·네이버 장소 검색을 흉내 내는 서버가 앱이 기대하는 모양으로 답하는지,
 지연·오류 주입·동시 처리·청크 본문·keep-alive 를 지키는지 확인한다.
 루프백(127.0.0.1)·포트 0 만 쓰고, 지연 확인 테스트 말고는 FAKE_LATENCY_SCALE=0 으로 즉시 답하게 한다.
 """
 
+import asyncio
 import http.client
 import json
 import math
@@ -733,6 +734,335 @@ class ConcurrencyTest(ServerCase):
         self.assertLess(elapsed, 2.0, f"동시에 처리하지 못했다: {elapsed:.2f}s")
         self.assertGreaterEqual(
             elapsed, 0.45, f"지연이 적용되지 않았다: {elapsed:.2f}s"
+        )
+
+
+# ---------------------------------------------------------------- 네이버 장소 검색 (GraphQL)
+
+NAVER_PATH = "/naver/graphql"
+
+# scene-api NaverPlaceClient.search 가 보내는 GraphQL 문 그대로.
+NAVER_SEARCH_QUERY = """query getPlacesList($input: PlaceExternalListInput) {
+  placeList(input: $input) {
+    businesses {
+      total
+      items {
+        id
+        name
+        address { roadAddress address }
+        coordinate { latitude longitude }
+      }
+    }
+  }
+}
+"""
+
+# NaverPlaceClient.search 가 붙이는 헤더(폰 브라우저인 척).
+NAVER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko)"
+        " Chrome/138.0.0.0 Mobile Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Origin": "https://m.place.naver.com",
+    "Referer": "https://m.place.naver.com/place/list",
+    "apollographql-client-name": "place-search-service",
+}
+
+
+def naver_body(query, display=5):
+    """scene-api 가 보내는 검색 본문과 같은 모양."""
+    return {
+        "operationName": "getPlacesList",
+        "variables": {
+            "input": {
+                "query": query,
+                "businessType": "place",
+                "start": 1,
+                "display": display,
+                "deviceType": "MOBILE",
+            }
+        },
+        "query": NAVER_SEARCH_QUERY,
+    }
+
+
+def naver_search(port, query, display=5):
+    status, raw = request(
+        port, "POST", NAVER_PATH, body=naver_body(query, display), headers=NAVER_HEADERS
+    )
+    return status, json.loads(raw) if raw else None
+
+
+def naver_items(test, data):
+    """클라이언트가 읽는 경로(data.placeList.businesses)를 따라가 (total, items) 를 돌려준다."""
+    businesses = data["data"]["placeList"]["businesses"]
+    test.assertIsInstance(businesses["items"], list)
+    test.assertIsInstance(businesses["total"], int)
+    test.assertNotIsInstance(businesses["total"], bool)
+    return businesses["total"], businesses["items"]
+
+
+def is_json_number(value):
+    """Jackson 의 isNumber() 가 참인 값 — 숫자이되 bool·문자열은 아니다."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+class NaverConfigTest(unittest.TestCase):
+    def test_default_route_and_found_rate(self):
+        config = fake_external.Config.from_env({})
+        self.assertEqual(config.naver, fake_external.Route(0.193, 0.29, 0.0))
+        self.assertAlmostEqual(config.naver.median_s, 0.193)
+        self.assertAlmostEqual(config.naver.p95_s, 0.29)
+        self.assertEqual(config.naver.error_rate, 0.0)
+        self.assertAlmostEqual(config.naver_found_rate, 0.6)
+
+    def test_env_overrides_route(self):
+        config = fake_external.Config.from_env(
+            {
+                "FAKE_NAVER_MEDIAN_MS": "100",
+                "FAKE_NAVER_P95_MS": "400",
+                "FAKE_NAVER_ERROR_RATE": "0.25",
+                "FAKE_NAVER_FOUND_RATE": "0.3",
+            }
+        )
+        self.assertAlmostEqual(config.naver.median_s, 0.1)
+        self.assertAlmostEqual(config.naver.p95_s, 0.4)
+        self.assertAlmostEqual(config.naver.error_rate, 0.25)
+        self.assertAlmostEqual(config.naver_found_rate, 0.3)
+
+    def test_found_rate_is_clamped(self):
+        cases = {"1.7": 1.0, "-0.5": 0.0}
+        for raw, expected in cases.items():
+            with self.subTest(raw=raw):
+                config = fake_external.Config.from_env({"FAKE_NAVER_FOUND_RATE": raw})
+                self.assertEqual(config.naver_found_rate, expected)
+
+    def test_naver_distribution_matches_median_and_p95(self):
+        # SampleDelayTest 와 같은 방식 — 네이버 기본값(193ms / 290ms)
+        rng = random.Random(42)
+        samples = sorted(
+            fake_external.sample_delay(0.193, 0.29, rng) for _ in range(20000)
+        )
+        med, p95 = samples[len(samples) // 2], samples[int(len(samples) * 0.95)]
+        self.assertAlmostEqual(med, 0.193, delta=0.193 * 0.15)
+        self.assertAlmostEqual(p95, 0.29, delta=0.29 * 0.15)
+
+
+class NaverFoundTest(ServerCase):
+    # 늘 찾는다
+    ENV: ClassVar[dict[str, str]] = {**INSTANT_ENV, "FAKE_NAVER_FOUND_RATE": "1.0"}
+
+    def test_shape_matches_what_client_parses(self):
+        query = "경복궁 서울 종로구 사직로 161"
+        status, data = naver_search(self.port, query)
+        self.assertEqual(status, 200)
+        total, items = naver_items(self, data)
+        self.assertGreaterEqual(len(items), 1)
+        self.assertLessEqual(len(items), 5)
+        self.assertEqual(total, len(items))
+        for item in items:
+            with self.subTest(item=item):
+                self.assertIsInstance(item["id"], str)
+                self.assertRegex(item["id"], r"^\d{1,20}$")
+                self.assertIsInstance(item["name"], str)
+                self.assertTrue(item["name"])
+                self.assertIsInstance(item["address"]["roadAddress"], str)
+                self.assertIsInstance(item["address"]["address"], str)
+                lat = item["coordinate"]["latitude"]
+                lng = item["coordinate"]["longitude"]
+                self.assertTrue(is_json_number(lat), f"위도가 숫자가 아니다: {lat!r}")
+                self.assertTrue(is_json_number(lng), f"경도가 숫자가 아니다: {lng!r}")
+                self.assertTrue(math.isfinite(lat) and math.isfinite(lng))
+                self.assertGreaterEqual(lat, 33.0)
+                self.assertLessEqual(lat, 39.0)
+                self.assertGreaterEqual(lng, 124.0)
+                self.assertLessEqual(lng, 132.0)
+
+    def test_first_item_name_equals_query(self):
+        for query in ("덕수궁", "주문진 방사제 강원 강릉시", "Cafe 1"):
+            with self.subTest(query=query):
+                status, data = naver_search(self.port, query)
+                self.assertEqual(status, 200)
+                _, items = naver_items(self, data)
+                self.assertGreaterEqual(len(items), 1)
+                self.assertEqual(items[0]["name"], query)
+
+    def test_item_count_respects_display(self):
+        for display in (1, 2, 5):
+            with self.subTest(display=display):
+                status, data = naver_search(self.port, "남산타워", display=display)
+                self.assertEqual(status, 200)
+                total, items = naver_items(self, data)
+                self.assertGreaterEqual(len(items), 1)
+                self.assertLessEqual(len(items), display)
+                self.assertEqual(total, len(items))
+
+    def test_same_query_gives_same_ids(self):
+        s1, first = naver_search(self.port, "북촌 한옥마을")
+        s2, second = naver_search(self.port, "북촌 한옥마을")
+        self.assertEqual((s1, s2), (200, 200))
+        ids1 = [i["id"] for i in naver_items(self, first)[1]]
+        ids2 = [i["id"] for i in naver_items(self, second)[1]]
+        self.assertEqual(ids1, ids2)
+
+    def test_body_without_graphql_query_and_headers_still_works(self):
+        # 클라이언트가 읽는 것은 variables.input.query 뿐 — 나머지는 없어도 된다
+        status, raw = request(
+            self.port,
+            "POST",
+            NAVER_PATH,
+            body={"variables": {"input": {"query": "광장시장"}}},
+        )
+        self.assertEqual(status, 200)
+        _, items = naver_items(self, json.loads(raw))
+        self.assertGreaterEqual(len(items), 1)
+
+
+class NaverNotFoundTest(ServerCase):
+    # 늘 못 찾는다
+    ENV: ClassVar[dict[str, str]] = {**INSTANT_ENV, "FAKE_NAVER_FOUND_RATE": "0.0"}
+
+    def test_rate_zero_gives_empty_list(self):
+        for query in ("경복궁", "없는 가게", "주문진 방사제"):
+            with self.subTest(query=query):
+                status, data = naver_search(self.port, query)
+                self.assertEqual(status, 200)
+                total, items = naver_items(self, data)
+                self.assertEqual(items, [])
+                self.assertEqual(total, 0)
+
+
+class NaverDefaultRateTest(ServerCase):
+    # 기본 찾는 비율(0.6)
+    ENV: ClassVar[dict[str, str]] = INSTANT_ENV
+
+    def test_found_share_is_about_default_rate(self):
+        n = 300
+        found = 0
+        for i in range(n):
+            status, data = naver_search(self.port, f"촬영지 {i} 번 카페")
+            self.assertEqual(status, 200)
+            _, items = naver_items(self, data)
+            if items:
+                found += 1
+        share = found / n
+        self.assertAlmostEqual(share, 0.6, delta=0.1, msg=f"찾은 비율 {share:.2f}")
+
+    def test_found_ness_is_deterministic_per_query(self):
+        for i in range(30):
+            query = f"결정성 확인 {i}"
+            with self.subTest(query=query):
+                s1, first = naver_search(self.port, query)
+                s2, second = naver_search(self.port, query)
+                self.assertEqual((s1, s2), (200, 200))
+                ids1 = [x["id"] for x in naver_items(self, first)[1]]
+                ids2 = [x["id"] for x in naver_items(self, second)[1]]
+                self.assertEqual(ids1, ids2)
+
+
+class NaverBadRequestTest(ServerCase):
+    def test_other_methods_are_405(self):
+        for method in ("GET", "PUT", "DELETE"):
+            with self.subTest(method=method):
+                status, _ = request(self.port, method, NAVER_PATH)
+                self.assertEqual(status, 405)
+
+    def test_body_not_json_is_400(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        try:
+            conn.request(
+                "POST",
+                NAVER_PATH,
+                body=b"{not json",
+                headers={"Content-Type": "application/json"},
+            )
+            resp = conn.getresponse()
+            resp.read()
+            self.assertEqual(resp.status, 400)
+        finally:
+            conn.close()
+
+    def test_body_not_object_is_400(self):
+        for body in ([1, 2], "경복궁", 3):
+            with self.subTest(body=body):
+                status, _ = request(self.port, "POST", NAVER_PATH, body=body)
+                self.assertEqual(status, 400)
+
+    def test_missing_or_empty_query_is_400(self):
+        bodies = [
+            {},
+            {"variables": {}},
+            {"variables": {"input": {}}},
+            {"variables": {"input": {"query": ""}}},
+            {"variables": {"input": {"query": 123}}},
+            {"variables": {"input": {"query": None}}},
+            {"variables": "x"},
+        ]
+        for body in bodies:
+            with self.subTest(body=body):
+                status, _ = request(self.port, "POST", NAVER_PATH, body=body)
+                self.assertEqual(status, 400)
+
+
+class NaverErrorInjectionTest(ServerCase):
+    ENV: ClassVar[dict[str, str]] = {
+        **INSTANT_ENV,
+        "FAKE_NAVER_ERROR_RATE": "1.0",
+        "FAKE_NAVER_FOUND_RATE": "1.0",
+    }
+
+    def test_error_rate_one_returns_500(self):
+        status, _ = request(
+            self.port,
+            "POST",
+            NAVER_PATH,
+            body=naver_body("경복궁"),
+            headers=NAVER_HEADERS,
+        )
+        self.assertEqual(status, 500)
+
+
+class NaverCountTest(unittest.TestCase):
+    def test_each_request_increments_naver_count(self):
+        server = fake_external.FakeServer(fake_external.Config.from_env(INSTANT_ENV))
+        body = json.dumps(naver_body("경복궁")).encode("utf-8")
+
+        def req():
+            return fake_external.Request(
+                "POST",
+                NAVER_PATH,
+                "HTTP/1.1",
+                {"content-type": "application/json", "content-length": str(len(body))},
+                body,
+            )
+
+        async def run():
+            results = []
+            for _ in range(3):
+                results.append(await server.dispatch(req()))
+            return results
+
+        results = asyncio.run(run())
+        self.assertEqual([status for status, _ in results], [200, 200, 200])
+        self.assertEqual(server.counts["naver"], 3)
+
+
+class NaverLatencyTest(ServerCase):
+    # 네이버 지연을 0.3 초로 고정, 배율 1
+    ENV: ClassVar[dict[str, str]] = {
+        "FAKE_LATENCY_SCALE": "1",
+        "FAKE_NAVER_MEDIAN_MS": "300",
+        "FAKE_NAVER_P95_MS": "300",
+    }
+
+    def test_latency_is_applied(self):
+        started = time.monotonic()
+        status, _ = naver_search(self.port, "경복궁")
+        elapsed = time.monotonic() - started
+        self.assertEqual(status, 200)
+        self.assertGreaterEqual(
+            elapsed, 0.28, f"지연이 적용되지 않았다: {elapsed:.2f}s"
         )
 
 

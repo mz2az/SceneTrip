@@ -38,6 +38,10 @@ SCENE_API_OVERRIDES = {
     "SCENETRIP_NAVIGATION_KAKAO_BASEURL": "http://fake-external:8080/kakao",
     "SCENETRIP_AUTH_GOOGLE_JWKSURI": "http://fake-external:8080/google/jwks",
     "SCENETRIP_AUTH_GOOGLE_CLIENTIDS": CLIENT_ID,
+    # 편의시설 상세가 진짜 네이버 대신 가짜 검색을 부르게 한다 — 시간 초과(700ms)를 매번 기다리지 않게.
+    "SCENETRIP_NAVER_SEARCHURL": "http://fake-external:8080/naver/graphql",
+    # 그리고 시험에서는 네이버 링크 찾기 자체를 끈다(사용자 결정 2026-10-18) — 비공식 바깥 호출이라 시험 결과에 섞지 않는다.
+    "SCENETRIP_NAVER_LINKLOOKUP_ENABLED": "false",
 }
 TRIP_GUIDE_OVERRIDES = {
     "TRIP_GUIDE_MODEL_BASE_URL": "http://fake-external:8080/bedrock",

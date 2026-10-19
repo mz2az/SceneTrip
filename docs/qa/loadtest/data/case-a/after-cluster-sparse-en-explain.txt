@@ -1,0 +1,315 @@
+ERROR:  syntax error at or near ""
+LINE 1: cho '@@ 127.0543720929718 37.46696942147759'
+        ^
+                                                                                                                                                        QUERY PLAN                                                                                                                                                        
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=297.73..9552.07 rows=30 width=253) (actual time=2189.706..2189.729 rows=7 loops=1)
+   Buffers: shared hit=819848
+   ->  Result  (cost=297.73..180449.04 rows=584 width=253) (actual time=2189.704..2189.726 rows=7 loops=1)
+         Buffers: shared hit=819848
+         ->  Incremental Sort  (cost=297.73..172988.44 rows=584 width=281) (actual time=2189.679..2189.686 rows=7 loops=1)
+               Sort Key: ((p.geom <-> '0101000020E6100000B28520AC1EC45F406219FC69BBBC4240'::geography)), p.id
+               Presorted Key: ((p.geom <-> '0101000020E6100000B28520AC1EC45F406219FC69BBBC4240'::geography))
+               Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 27kB  Peak Memory: 27kB
+               Buffers: shared hit=819848
+               ->  Nested Loop Left Join  (cost=1.55..172962.16 rows=584 width=281) (actual time=10.686..2189.648 rows=7 loops=1)
+                     Join Filter: (ce.ko = p.category)
+                     Rows Removed by Join Filter: 66
+                     Buffers: shared hit=819842
+                     ->  Nested Loop Left Join  (cost=1.55..172765.98 rows=584 width=305) (actual time=10.667..2189.601 rows=7 loops=1)
+                           Join Filter: (cr.ko = p.category)
+                           Rows Removed by Join Filter: 66
+                           Buffers: shared hit=819841
+                           ->  Nested Loop Left Join  (cost=1.55..172721.63 rows=584 width=273) (actual time=10.626..2189.540 rows=7 loops=1)
+                                 Buffers: shared hit=819840
+                                 ->  Nested Loop Left Join  (cost=1.12..167961.75 rows=584 width=201) (actual time=10.621..2189.519 rows=7 loops=1)
+                                       Buffers: shared hit=819813
+                                       ->  Nested Loop Left Join  (cost=0.70..163201.87 rows=584 width=129) (actual time=10.587..2189.374 rows=7 loops=1)
+                                             Buffers: shared hit=819786
+                                             ->  Index Scan using poi_geom_idx on poi p  (cost=0.29..162128.15 rows=584 width=121) (actual time=10.566..2189.340 rows=7 loops=1)
+                                                   Order By: (geom <-> '0101000020E6100000B28520AC1EC45F406219FC69BBBC4240'::geography)
+                                                   Filter: ((closed_at IS NULL) AND ((geom)::geometry && '0103000020E61000000100000005000000414816D57AC35F4039BD6CA7C5BB4240414816D57AC35F408B758B2CB1BD424022C32A83C2C45F408B758B2CB1BD424022C32A83C2C45F4039BD6CA7C5BB4240414816D57AC35F4039BD6CA7C5BB4240'::geometry))
+                                                   Rows Removed by Filter: 910387
+                                                   Buffers: shared hit=819779
+                                             ->  Nested Loop  (cost=0.42..1.83 rows=1 width=16) (actual time=0.003..0.004 rows=0 loops=7)
+                                                   Buffers: shared hit=7
+                                                   ->  Index Scan using place_poi_link_pkey on place_poi_link l  (cost=0.14..0.19 rows=1 width=16) (actual time=0.003..0.003 rows=0 loops=7)
+                                                         Index Cond: (poi_id = p.id)
+                                                         Buffers: shared hit=7
+                                                   ->  Index Scan using place_pkey on place lp  (cost=0.27..1.64 rows=ERROR:  syntax error at or near ""
+LINE 1: cho '@@ 126.96689989244081 37.50225552816225'
+        ^
+1 width=8) (never executed)
+                                                         Index Cond: (id = l.place_id)
+                                                         Filter: (hidden_at IS NULL)
+                                       ->  Index Scan using poi_i18n_pkey on poi_i18n tr  (cost=0.42..8.15 rows=1 width=80) (actual time=0.020..0.020 rows=1 loops=7)
+                                             Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                             Buffers: shared hit=27
+                                 ->  Index Scan using poi_i18n_pkey on poi_i18n te  (cost=0.42..8.15 rows=1 width=80) (actual time=0.002..0.002 rows=1 loops=7)
+                                       Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                       Buffers: shared hit=27
+                           ->  Materialize  (cost=0.00..18.14 rows=3 width=64) (actual time=0.005..0.007 rows=10 loops=7)
+                                 Buffers: shared hit=1
+                                 ->  Seq Scan on poi_category_i18n cr  (cost=0.00..18.12 rows=3 width=64) (actual time=0.028..0.033 rows=27 loops=1)
+                                       Filter: ((lang)::text = 'en'::text)
+                                       Buffers: shared hit=1
+                     ->  Materialize  (cost=0.00..18.14 rows=3 width=64) (actual time=0.001..0.003 rows=10 loops=7)
+                           Buffers: shared hit=1
+                           ->  Seq Scan on poi_category_i18n ce  (cost=0.00..18.12 rows=3 width=64) (actual time=0.003..0.008 rows=27 loops=1)
+                                 Filter: ((lang)::text = 'en'::text)
+                                 Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=676 dirtied=1
+ Planning Time: 5.033 ms
+ Execution Time: 2190.327 ms
+(56 rows)
+
+                                                                                                                                                        QUERY PLAN                                                                                                                                                        
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=190.92..6250.33 rows=30 width=253) (actual time=2171.470..2171.522 rows=18 loops=1)
+   Buffers: shared hit=820013
+   ->  Result  (cost=190.92..191466.19 rows=947 width=253) (actual time=2171.469..2171.518 rows=18 loops=1)
+         Buffers: shared hit=820013
+         ->  Incremental Sort  (cost=190.92..179368.26 rows=947 width=281) (actual time=2171.452..2171.461 rows=18 loops=1)
+               Sort Key: ((p.geom <-> '0101000020E6100000F35F208785BE5F40BF344DAB3FC14240'::geography)), p.id
+               Presorted Key: ((p.geom <-> '0101000020E6100000F35F208785BE5F40BF344DAB3FC14240'::geography))
+               Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 31kB  Peak Memory: 31kB
+               Buffers: shared hit=820013
+               ->  Nested Loop Left Join  (cost=1.55..179325.65 rows=947 width=281) (actual time=0.892..2171.436 rows=18 loops=1)
+                     Join Filter: (ce.ko = p.category)
+                     Rows Removed by Join Filter: 224
+                     Buffers: shared hit=820013
+                     ->  Nested Loop Left Join  (cost=1.55..179018.79 rows=947 width=305) (actual time=0.875..2171.343 rows=18 loops=1)
+                           Join Filter: (cr.ko = p.category)
+                           Rows Removed by Join Filter: 224
+                           Buffers: shared hit=820012
+                           ->  Nested Loop Left Join  (cost=1.55..178958.16 rows=947 width=273) (actual time=0.848..2171.263 rows=18 loops=1)
+                                 Buffers: shared hit=820011
+                                 ->  Nested Loop Left Join  (cost=1.12..171408.74 rows=947 width=201) (actual time=0.844..2171.221 rows=18 loops=1)
+                                       Buffers: shared hit=819942
+                                       ->  Nested Loop Left Join  (cost=0.70..163859.33 rows=947 width=129) (actual time=0.806..2170.937 rows=18 loops=1)
+                                             Buffers: shared hit=819873
+                                             ->  Index Scan using poi_geom_idx on poi p  (cost=0.29..162128.15 rows=947 width=121) (actual time=0.797..2170.899 rows=18 loops=1)
+                                                   Order By: (geom <-> '0101000020E6100000F35F208785BE5F40BF344DAB3FC14240'::geography)
+                                                   Filter: ((closed_at IS NULL) AND ((geom)::geometry && '0103000020E61000000100000005000000822216B0E1BD5F4096D8BDE849C04240822216B0E1BD5F40E890DC6D35C24240639D2A5E29BF5F40E890DC6D35C24240639D2A5E29BF5F4096D8BDE849C04240822216B0E1BD5F4096D8BDE849C04240'::geometry))
+                                                   Rows Removed by Filter: 910376
+                                                   Buffers: shared hit=819855
+                                             ->  Nested Loop  (cost=0.42..1.82 rows=1 width=16) (actual time=0.001..0.001 rows=0 loops=18)
+                                                   Buffers: shared hit=18
+                                                   ->  Index Scan using place_poi_link_pkey on place_poi_link l  (cost=0.14..0.18 rows=1 width=16) (actual time=0.001..0.001 rows=0 loops=18)
+                                                         Index Cond: (poi_id = p.id)
+                                                         Buffers: shared hit=18
+                                                   ->  Index Scan using place_pkey on place lp  (cost=0.27..1ERROR:  syntax error at or near ""
+LINE 1: cho '@@ 127.04985881360018 37.45461940484172'
+        ^
+.64 rows=1 width=8) (never executed)
+                                                         Index Cond: (id = l.place_id)
+                                                         Filter: (hidden_at IS NULL)
+                                       ->  Index Scan using poi_i18n_pkey on poi_i18n tr  (cost=0.42..7.97 rows=1 width=80) (actual time=0.015..0.015 rows=1 loops=18)
+                                             Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                             Buffers: shared hit=69
+                                 ->  Index Scan using poi_i18n_pkey on poi_i18n te  (cost=0.42..7.97 rows=1 width=80) (actual time=0.002..0.002 rows=1 loops=18)
+                                       Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                       Buffers: shared hit=69
+                           ->  Materialize  (cost=0.00..18.14 rows=3 width=64) (actual time=0.001..0.002 rows=13 loops=18)
+                                 Buffers: shared hit=1
+                                 ->  Seq Scan on poi_category_i18n cr  (cost=0.00..18.12 rows=3 width=64) (actual time=0.015..0.021 rows=33 loops=1)
+                                       Filter: ((lang)::text = 'en'::text)
+                                       Buffers: shared hit=1
+                     ->  Materialize  (cost=0.00..18.14 rows=3 width=64) (actual time=0.000..0.002 rows=13 loops=18)
+                           Buffers: shared hit=1
+                           ->  Seq Scan on poi_category_i18n ce  (cost=0.00..18.12 rows=3 width=64) (actual time=0.003..0.009 rows=33 loops=1)
+                                 Filter: ((lang)::text = 'en'::text)
+                                 Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=44
+ Planning Time: 2.820 ms
+ Execution Time: 2171.623 ms
+(56 rows)
+
+                                                                                                                                                        QUERY PLAN                                                                                                                                                        
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=297.73..9552.07 rows=30 width=253) (actual time=2221.551..2221.596 rows=16 loops=1)
+   Buffers: shared hit=819839
+   ->  Result  (cost=297.73..180449.04 rows=584 width=253) (actual time=2221.549..2221.592 rows=16 loops=1)
+         Buffers: shared hit=819839
+         ->  Incremental Sort  (cost=297.73..172988.44 rows=584 width=281) (actual time=2221.532..2221.539 rows=16 loops=1)
+               Sort Key: ((p.geom <-> '0101000020E610000092B20FBAD4C35F40335289BA26BB4240'::geography)), p.id
+               Presorted Key: ((p.geom <-> '0101000020E610000092B20FBAD4C35F40335289BA26BB4240'::geography))
+               Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 29kB  Peak Memory: 29kB
+               Buffers: shared hit=819839
+               ->  Nested Loop Left Join  (cost=1.55..172962.16 rows=584 width=281) (actual time=0.580..2221.516 rows=16 loops=1)
+                     Join Filter: (ce.ko = p.category)
+                     Rows Removed by Join Filter: 54
+                     Buffers: shared hit=819839
+                     ->  Nested Loop Left Join  (cost=1.55..172765.98 rows=584 width=305) (actual time=0.570..2221.453 rows=16 loops=1)
+                           Join Filter: (cr.ko = p.category)
+                           Rows Removed by Join Filter: 54
+                           Buffers: shared hit=819838
+                           ->  Nested Loop Left Join  (cost=1.55..172721.63 rows=584 width=273) (actual time=0.548..2221.402 rows=16 loops=1)
+                                 Buffers: shared hit=819837
+                                 ->  Nested Loop Left Join  (cost=1.12..167961.75 rows=584 width=201) (actual time=0.544..2221.358 rows=16 loops=1)
+                                       Buffers: shared hit=819774
+                                       ->  Nested Loop Left Join  (cost=0.70..163201.87 rows=584 width=129) (actual time=0.514..2221.110 rows=16 loops=1)
+                                             Buffers: shared hit=819711
+                                             ->  Index Scan using poi_geom_idx on poi p  (cost=0.29..162128.15 rows=584 width=121) (actual time=0.504..2221.072 rows=16 loops=1)
+                                                   Order By: (geom <-> '0101000020E610000092B20FBAD4C35F40335289BA26BB4240'::geography)
+                                                   Filter: ((closed_at IS NULL) AND ((geom)::geometry && '0103000020E61000000100000005000000217505E330C35F400AF6F9F730BA4240217505E330C35F405CAE187D1CBC424002F0199178C45F405CAE187D1CBC424002F0199178C45F400AF6F9F730BA4240217505E330C35F400AF6F9F730BA4240'::geometry))
+                                                   Rows Removed by Filter: 910378
+                                                   Buffers: shared hit=819695
+                                             ->  Nested Loop  (cost=0.42..1.83 rows=1 width=16) (actual time=0.002..0.002 rows=0 loops=16)
+                                                   Buffers: shared hit=16
+                                                   ->  Index Scan using place_poi_link_pkey on place_poi_link l  (cost=0.14..0.19 rows=1 width=16) (actual time=0.001..0.001 rows=0 loops=16)
+                                                         Index Cond: (poi_id = p.id)
+                                                         Buffers: shared hit=16
+                                                   ->  Index Scan using place_pkey on place lp  (cost=0.27..1.6ERROR:  syntax error at or near ""
+LINE 1: cho '@@ 126.97472683559965 37.595135333327775'
+        ^
+4 rows=1 width=8) (never executed)
+                                                         Index Cond: (id = l.place_id)
+                                                         Filter: (hidden_at IS NULL)
+                                       ->  Index Scan using poi_i18n_pkey on poi_i18n tr  (cost=0.42..8.15 rows=1 width=80) (actual time=0.015..0.015 rows=1 loops=16)
+                                             Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                             Buffers: shared hit=63
+                                 ->  Index Scan using poi_i18n_pkey on poi_i18n te  (cost=0.42..8.15 rows=1 width=80) (actual time=0.002..0.002 rows=1 loops=16)
+                                       Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                       Buffers: shared hit=63
+                           ->  Materialize  (cost=0.00..18.14 rows=3 width=64) (actual time=0.001..0.002 rows=4 loops=16)
+                                 Buffers: shared hit=1
+                                 ->  Seq Scan on poi_category_i18n cr  (cost=0.00..18.12 rows=3 width=64) (actual time=0.016..0.021 rows=27 loops=1)
+                                       Filter: ((lang)::text = 'en'::text)
+                                       Buffers: shared hit=1
+                     ->  Materialize  (cost=0.00..18.14 rows=3 width=64) (actual time=0.000..0.001 rows=4 loops=16)
+                           Buffers: shared hit=1
+                           ->  Seq Scan on poi_category_i18n ce  (cost=0.00..18.12 rows=3 width=64) (actual time=0.003..0.007 rows=27 loops=1)
+                                 Filter: ((lang)::text = 'en'::text)
+                                 Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=44
+ Planning Time: 2.861 ms
+ Execution Time: 2221.961 ms
+(56 rows)
+
+                                                                                                                                                        QUERY PLAN                                                                                                                                                        
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=144.28..4807.19 rows=30 width=253) (actual time=2163.597..2163.673 rows=28 loops=1)
+   Buffers: shared hit=819690
+   ->  Result  (cost=144.28..201892.92 rows=1298 width=253) (actual time=2163.596..2163.668 rows=28 loops=1)
+         Buffers: shared hit=819690
+         ->  Incremental Sort  (cost=144.28..185310.97 rows=1298 width=281) (actual time=2163.578..2163.587 rows=28 loops=1)
+               Sort Key: ((p.geom <-> '0101000020E61000003999B4C305BF5F404707942723CD4240'::geography)), p.id
+               Presorted Key: ((p.geom <-> '0101000020E61000003999B4C305BF5F404707942723CD4240'::geography))
+               Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 34kB  Peak Memory: 34kB
+               Buffers: shared hit=819690
+               ->  Nested Loop Left Join  (cost=1.55..185252.56 rows=1298 width=281) (actual time=0.576..2163.556 rows=28 loops=1)
+                     Join Filter: (ce.ko = p.category)
+                     Rows Removed by Join Filter: 463
+                     Buffers: shared hit=819690
+                     ->  Nested Loop Left Join  (cost=1.55..184838.68 rows=1298 width=305) (actual time=0.551..2163.408 rows=28 loops=1)
+                           Join Filter: (cr.ko = p.category)
+                           Rows Removed by Join Filter: 463
+                           Buffers: shared hit=819689
+                           ->  Nested Loop Left Join  (cost=1.55..184762.27 rows=1298 width=273) (actual time=0.516..2163.287 rows=28 loops=1)
+                                 Buffers: shared hit=819688
+                                 ->  Nested Loop Left Join  (cost=1.12..174628.66 rows=1298 width=201) (actual time=0.512..2163.214 rows=28 loops=1)
+                                       Buffers: shared hit=819581
+                                       ->  Nested Loop Left Join  (cost=0.70..164495.05 rows=1298 width=129) (actual time=0.482..2162.880 rows=28 loops=1)
+                                             Buffers: shared hit=819474
+                                             ->  Index Scan using poi_geom_idx on poi p  (cost=0.29..162128.15 rows=1298 width=121) (actual time=0.473..2162.830 rows=28 loops=1)
+                                                   Order By: (geom <-> '0101000020E61000003999B4C305BF5F404707942723CD4240'::geography)
+                                                   Filter: ((closed_at IS NULL) AND ((geom)::geometry && '0103000020E61000000100000005000000C85BAAEC61BE5F401EAB04652DCC4240C85BAAEC61BE5F40706323EA18CE4240A9D6BE9AA9BF5F40706323EA18CE4240A9D6BE9AA9BF5F401EAB04652DCC4240C85BAAEC61BE5F401EAB04652DCC4240'::geometry))
+                                                   Rows Removed by Filter: 910366
+                                                   Buffers: shared hit=819446
+                                             ->  Nested Loop  (cost=0.42..1.81 rows=1 width=16) (actual time=0.001..0.001 rows=0 loops=28)
+                                                   Buffers: shared hit=28
+                                                   ->  Index Scan using place_poi_link_pkey on place_poi_link l  (cost=0.14..0.17 rows=1 width=16) (actual time=0.001..0.001 rows=0 loops=28)
+                                                         Index Cond: (poi_id = p.id)
+                                                         Buffers: shared hit=28
+                                                   ->  Index Scan using place_pkey on place lp  (cost=0.27..1.64 rows=1 width=8) (never executed)
+                                                         Index Cond: (id = l.place_id)
+                                                         Filter: (hidden_at IS NULL)
+                                       ->  Index Scan using poi_i18n_pkey on poi_i18n tr  (cost=0.42..7.81 rows=1 width=80) (actual time=0.011..0.011 rows=1 loops=28)
+                                             Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                             Buffers: shared hit=107
+                                 ->  Index Scan using poi_i18n_pkey on poi_i18n te  (cost=0.42..7.81 rows=1 width=80) (actual time=0.002..0.002 rows=1 loops=28)
+                                       Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                       Buffers: shared hit=107
+                           ->  Materialize  (cost=0.00..18.14 rows=3 width=64) (actual time=0.001..0.002 rows=18 loops=28)
+                                 Buffers: shared hit=1
+                                 ->  Seq Scan on poi_category_i18n cr  (cost=0.00..18.12 rows=3 width=64) (actual time=0.016..0.022 rows=31 loops=1)
+                                       Filter: ((lang)::text = 'en'::text)
+                                       Buffers: shared hit=1
+                     ->  Materialize  (cost=0.00..18.14 rows=3 width=64) (actual time=0.000..0.001 rows=18 loops=28)
+                           Buffers: shared hit=1
+                           ->  Seq Scan on poi_category_i18n ce  (cost=0.00..18.12 rows=3 width=64) (actual time=0.003..0.008 rows=31 loops=1)
+                                 Filter: ((lang)::text = 'en'::text)
+                                 Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=44
+ Planning Time: 3.456 ms
+ Execution Time: 2163.775 ms
+(56 rows)
+
+ERROR:  syntax error at or near ""
+LINE 1: cho '@@ 127.07490613762398 37.45576583637005'
+        ^
+                                                                                                                                                        QUERY PLAN                                                                                                                                                        
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=318.19..10184.22 rows=30 width=253) (actual time=2216.665..2216.687 rows=7 loops=1)
+   Buffers: shared hit=819705
+   ->  Result  (cost=318.19..179222.20 rows=544 width=253) (actual time=2216.663..2216.683 rows=7 loops=1)
+         Buffers: shared hit=819705
+         ->  Incremental Sort  (cost=318.19..172272.60 rows=544 width=281) (actual time=2216.646..2216.653 rows=7 loops=1)
+               Sort Key: ((p.geom <-> '0101000020E6100000C814271A6FC55F401F48804B4CBB4240'::geography)), p.id
+               Presorted Key: ((p.geom <-> '0101000020E6100000C814271A6FC55F401F48804B4CBB4240'::geography))
+               Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 27kB  Peak Memory: 27kB
+               Buffers: shared hit=819705
+               ->  Nested Loop Left Join  (cost=1.55..172248.12 rows=544 width=281) (actual time=0.351..2216.640 rows=7 loops=1)
+                     Join Filter: (ce.ko = p.category)
+                     Rows Removed by Join Filter: 53
+                     Buffers: shared hit=819705
+                     ->  Nested Loop Left Join  (cost=1.55..172064.13 rows=544 width=305) (actual time=0.342..2216.600 rows=7 loops=1)
+                           Join Filter: (cr.ko = p.category)
+                           Rows Removed by Join Filter: 53
+                           Buffers: shared hit=819704
+                           ->  Nested Loop Left Join  (cost=1.55..172021.59 rows=544 width=273) (actual time=0.322..2216.556 rows=7 loops=1)
+                                 Buffers: shared hit=819703
+                                 ->  Nested Loop Left Join  (cost=1.12..167575.51 rows=544 width=201) (actual time=0.318..2216.537 rows=7 loops=1)
+                                       Buffers: shared hit=819675
+                                       ->  Nested Loop Left Join  (cost=0.70..163129.43 rows=544 width=129) (actual time=0.289..2216.446 rows=7 loops=1)
+                                             Buffers: shared hit=819647
+                                             ->  Index Scan using poi_geom_idx on poi p  (cost=0.29..162128.15 rows=544 width=121) (actual time=0.280..2216.425 rows=7 loops=1)
+                                                   Order By: (geom <-> '0101000020E6100000C814271A6FC55F401F48804B4CBB4240'::geography)
+                                                   Filter: ((closed_at IS NULL) AND ((geom)::geometry && '0103000020E6100000010000000500000057D71C43CBC45F40F6EBF08856BA424057D71C43CBC45F4048A40F0E42BC4240385231F112C65F4048A40F0E42BC4240385231F112C65F40F6EBF08856BA424057D71C43CBC45F40F6EBF08856BA4240'::geometry))
+                                                   Rows Removed by Filter: 910387
+                                                   Buffers: shared hit=819640
+                                             ->  Nested Loop  (cost=0.42..1.83 rows=1 width=16) (actual time=0.002..0.002 rows=0 loops=7)
+                                                   Buffers: shared hit=7
+                                                   ->  Index Scan using place_poi_link_pkey on place_poi_link l  (cost=0.14..0.19 rows=1 width=16) (actual time=0.002..0.002 rows=0 loops=7)
+                                                         Index Cond: (poi_id = p.id)
+                                                         Buffers: shared hit=7
+                                                   ->  Index Scan using place_pkey on place lp  (cost=0.27..1.64 rows=1 width=8) (never executed)
+                                                         Index Cond: (id = l.place_id)
+                                                         Filter: (hidden_at IS NULL)
+                                       ->  Index Scan using poi_i18n_pkey on poi_i18n tr  (cost=0.42..8.17 rows=1 width=80) (actual time=0.012..0.012 rows=1 loops=7)
+                                             Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                             Buffers: shared hit=28
+                                 ->  Index Scan using poi_i18n_pkey on poi_i18n te  (cost=0.42..8.17 rows=1 width=80) (actual time=0.002..0.002 rows=1 loops=7)
+                                       Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                       Buffers: shared hit=28
+                           ->  Materialize  (cost=0.00..18.14 rows=3 width=64) (actual time=0.003..0.005 rows=9 loops=7)
+                                 Buffers: shared hit=1
+                                 ->  Seq Scan on poi_category_i18n cr  (cost=0.00..18.12 rows=3 width=64) (actual time=0.015..0.020 rows=27 loops=1)
+                                       Filter: ((lang)::text = 'en'::text)
+                                       Buffers: shared hit=1
+                     ->  Materialize  (cost=0.00..18.14 rows=3 width=64) (actual time=0.001..0.002 rows=9 loops=7)
+                           Buffers: shared hit=1
+                           ->  Seq Scan on poi_category_i18n ce  (cost=0.00..18.12 rows=3 width=64) (actual time=0.003..0.008 rows=27 loops=1)
+                                 Filter: ((lang)::text = 'en'::text)
+                                 Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=44
+ Planning Time: 2.733 ms
+ Execution Time: 2217.081 ms
+(56 rows)
+
