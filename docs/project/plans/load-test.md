@@ -92,6 +92,9 @@ just loadtest-mode dev off
 ```
 
 - **입력**: on 은 `LOADTEST_GOOGLE_CLIENT_ID`(토큰의 `--aud` 와 같은 값)와 `LOADTEST_GOOGLE_JWK`(**공개** JWK 파일 경로)가 필요하다. off 는 필요 없다.
+- **선택 입력**: `LOADTEST_DB_POOL_SIZE`(1~200) — scene-api DB 연결 풀 최대 크기 실험값. 없으면 앱 기본(10)으로 되돌린다.
+- **시험 모드에서 scene-api CPU 최소 필요량은 1.5 개**(평소 0.25 개, `loadtest.sceneApiCpuRequest`) — 다른 파드가 같은 노드에 끼어 노드 CPU 가 처리량을
+  막던 것을 막는다(실험 11).
   `LOADTEST_KUBE_CONTEXT` 로 컨텍스트를 고를 수 있고, 어느 쪽이든 이름이 `cluster/scenetrip-dev` 로 끝나야 한다.
 - **하는 일**: 고정 helm(`//tools/bazel/cloud:helm`)으로 `helm upgrade scenetrip platform/helm/scenetrip -n scenetrip --reset-then-reuse-values
   --set loadtest.enabled=true|false …(--set-file loadtest.googleJwkJson=<파일>) --atomic --wait`. 깔린 값(이미지·DB·도메인)은 그대로다.

@@ -44,3 +44,10 @@ loadtest:
   gatewayRate: "2000r/s"
   gatewayBurst: 4000
   gatewayConnections: 4000
+  # 시험 동안 scene-api 의 CPU 최소 필요량. 평소 250m 로는 클러스터가 다른 파드(관측 수집기 등)를 같은 c5a.large 에 함께 실어
+  # 노드 CPU 가 95% 까지 찼다 — 처리량 측정에 노드 경합이 섞였다(MZ2AZ-502 실험 11). 부하 중 실제 사용(약 1 개)보다 넉넉히 잡아
+  # 다른 파드가 끼어들 자리를 남기지 않는다.
+  sceneApiCpuRequest: "1500m"
+  # DB 연결 풀 최대 크기(HikariCP maximumPoolSize) 실험값. 비우면 앱 기본(10). 1~200 정수만 — `just loadtest-mode dev on` 의
+  # LOADTEST_DB_POOL_SIZE 로 넘긴다.
+  dbPoolSize: ""

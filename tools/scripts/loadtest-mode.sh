@@ -8,6 +8,7 @@
 #   LOADTEST_GOOGLE_CLIENT_ID  시험 토큰의 aud — `just load-tokens --aud` 에 준 값과 같아야 한다
 #   LOADTEST_GOOGLE_JWK        `just load-tokens --jwk-out` 이 만든 공개 JWK 파일 경로(비밀키 파일이 아니다)
 # 선택:
+#   LOADTEST_DB_POOL_SIZE      (on) DB 연결 풀 최대 크기 실험값 1~200. 없으면 앱 기본(10)으로 되돌린다
 #   LOADTEST_KUBE_CONTEXT      쓸 kube 컨텍스트. 없으면 지금 컨텍스트. 어느 쪽이든 이름이 cluster/scenetrip-dev 로 끝나야 한다
 #
 # **클러스터 접속은 이 스크립트가 열지 않는다.** DEV EKS API 는 러너 고정 IP 에서만 받으므로, 먼저 사람이
@@ -53,6 +54,12 @@ if [ "$state" = "on" ]; then
   [ -n "$jwk" ] || die "LOADTEST_GOOGLE_JWK(공개 JWK 파일 경로)가 필요합니다 — just load-tokens --jwk-out"
   [ -f "$jwk" ] && [ -r "$jwk" ] || die "공개 JWK 파일을 읽을 수 없습니다: ${jwk}"
   jwk="$(cd "$(dirname "$jwk")" && pwd)/$(basename "$jwk")"
+  # 연결 풀 크기 실험값(선택). 비워도 명시적으로 빈 값을 넘긴다 — --reset-then-reuse-values 가 지난 실행의 값을 남기지 않게.
+  pool="${LOADTEST_DB_POOL_SIZE:-}"
+  if [ -n "$pool" ]; then
+    [[ "$pool" =~ ^[1-9][0-9]*$ ]] && [ "$pool" -le 200 ] ||
+      die "LOADTEST_DB_POOL_SIZE 는 1~200 정수여야 합니다: '${pool}'"
+  fi
 fi
 
 # 고정 helm·kubectl(//tools/bazel/cloud). Bazel 로 실행 스크립트만 만들고, 터널 환경변수는 실제 실행에만 넘긴다.
@@ -93,6 +100,7 @@ if [ "$state" = "on" ]; then
     --set loadtest.enabled=true
     --set-string "loadtest.googleClientId=${client_id}"
     --set-file "loadtest.googleJwkJson=${jwk}"
+    --set-string "loadtest.dbPoolSize=${pool}"
   )
 else
   args+=(--set loadtest.enabled=false)

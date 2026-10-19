@@ -5,6 +5,7 @@
 - 상태는 on|off. on 은 시험 토큰의 aud(LOADTEST_GOOGLE_CLIENT_ID)와 공개 JWK 파일(LOADTEST_GOOGLE_JWK)이 필요하다.
 - 지금 kube 컨텍스트가 DEV 클러스터(scenetrip-dev)가 아니면 거절한다. 접속은 스스로 열지 않는다.
 - 이미 깔린 릴리스(scenetrip, 네임스페이스 scenetrip)의 값을 그대로 두고 loadtest 값만 바꿔 helm upgrade --wait.
+- on 은 선택 입력 LOADTEST_DB_POOL_SIZE(1~200 정수)를 loadtest.dbPoolSize 로 넘기고, 없으면 빈 값으로 지운다.
 """
 
 import os
@@ -55,6 +56,7 @@ class LoadtestModeScriptTest(unittest.TestCase):
             "LOADTEST_GOOGLE_JWK": str(self.jwk),
         }
         self.env.pop("LOADTEST_KUBE_CONTEXT", None)
+        self.env.pop("LOADTEST_DB_POOL_SIZE", None)
 
     def run_script(self, *args, cwd=None, **env):
         merged = {**self.env, **env}
@@ -162,6 +164,42 @@ class LoadtestModeScriptTest(unittest.TestCase):
         self.assert_flag(args, "--set", "loadtest.enabled=false")
         self.assertNotIn("--set-file", args)
         self.assertIn("--wait", args)
+
+    # --- DB 연결 묶음 크기(LOADTEST_DB_POOL_SIZE → loadtest.dbPoolSize) ----------------
+
+    def test_on_passes_db_pool_size(self):
+        result = self.run_script("dev", "on", LOADTEST_DB_POOL_SIZE="20")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_flag(self.helm_args(), "--set-string", "loadtest.dbPoolSize=20")
+
+    def test_on_without_db_pool_size_clears_previous_value(self):
+        # --reset-then-reuse-values 는 지난 실행의 값을 남긴다 — 안 주면 빈 값으로 분명히 지운다.
+        for env in ({"LOADTEST_DB_POOL_SIZE": None}, {"LOADTEST_DB_POOL_SIZE": ""}):
+            with self.subTest(env=env):
+                if self.calls.exists():
+                    self.calls.unlink()
+                result = self.run_script("dev", "on", **env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assert_flag(
+                    self.helm_args(), "--set-string", "loadtest.dbPoolSize="
+                )
+
+    def test_on_rejects_bad_db_pool_size(self):
+        for value in ("abc", "0", "-1", "20,x", "1.5"):
+            with self.subTest(value=value):
+                result = self.run_script("dev", "on", LOADTEST_DB_POOL_SIZE=value)
+                self.assert_refused(result)
+                self.assertTrue(result.stderr.strip(), "거절 이유가 없습니다")
+
+    def test_off_ignores_db_pool_size(self):
+        result = self.run_script("dev", "off", LOADTEST_DB_POOL_SIZE="abc")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        args = self.helm_args()
+        self.assert_flag(args, "--set", "loadtest.enabled=false")
+        self.assertFalse(
+            any("dbPoolSize" in a for a in args),
+            f"off 에 dbPoolSize 가 있습니다: {args}",
+        )
 
     def test_explicit_context_overrides_current_context(self):
         result = self.run_script(
