@@ -43,6 +43,11 @@ data:
   # 다시 켰을 때 진짜 네이버로 새지 않게 남긴다.
   SCENETRIP_NAVER_LINKLOOKUP_ENABLED: "false"
   SCENETRIP_AUTH_GOOGLE_CLIENTIDS: {{ .Values.loadtest.googleClientId | quote }}
+  {{- with toString .Values.loadtest.dbPoolSize }}
+  {{- if not (regexMatch "^([1-9][0-9]?|1[0-9][0-9]|200)$" .) }}{{ fail (printf "loadtest.dbPoolSize 는 1~200 정수여야 합니다: %q" .) }}{{ end }}
+  # 연결 풀 크기 실험(MZ2AZ-502 사례 B) — 비우면 앱 기본(10).
+  SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: {{ . | quote }}
+  {{- end }}
   {{- end }}
 ---
 apiVersion: v1

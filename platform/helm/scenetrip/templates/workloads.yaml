@@ -116,7 +116,8 @@ spec:
           resources:
             # scene-api(JVM)는 상한(1Gi) 가까이 쓴다 — 최소 필요량을 상한과 같게 적어야 클러스터가 노드에 넘치게 싣지 않는다.
             requests:
-              cpu: {{ ternary "250m" "100m" (eq $name "scene-api") }}
+              {{- /* 부하 시험 모드에서는 scene-api 에 CPU 를 넉넉히 잡아 다른 파드가 같은 노드에 끼지 않게 한다(values 의 loadtest.sceneApiCpuRequest). */}}
+              cpu: {{ if eq $name "scene-api" }}{{ if $.Values.loadtest.enabled }}{{ $.Values.loadtest.sceneApiCpuRequest }}{{ else }}250m{{ end }}{{ else }}100m{{ end }}
               memory: {{ ternary "1Gi" "128Mi" (eq $name "scene-api") }}
             limits:
               memory: {{ ternary "1Gi" "512Mi" (eq $name "scene-api") }}

@@ -6,6 +6,9 @@
 - scene-api·trip-guide → fake-external 8080 통로를 NetworkPolicy 로 열고(기본 차단 네임스페이스)
 - scene-api 의 카카오·구글 공개키 주소와 trip-guide 의 모델 주소를 가짜로 덮고
 - gateway 의 IP 당 상한을 `loadtest.gatewayRate`·`gatewayBurst`(·`gatewayConnections`)로 올린다.
+- scene-api 의 CPU 최소 필요량을 `loadtest.sceneApiCpuRequest`(기본 1500m)로 키운다(평소 250m).
+- `loadtest.dbPoolSize`(1~200 정수, 기본 비어 있음)를 주면 scene-api ConfigMap 에
+  `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE` 로 싣는다. 비어 있으면 키가 없다.
 
 PRD 에서 켜면 렌더가 실패한다. 꺼져 있으면 지금과 같다 — 가짜도, 덮는 환경변수도, 바뀐 상한도 없다.
 
@@ -19,6 +22,7 @@ import unittest
 from pathlib import Path
 
 from tools.aws.tests.test_gateway_limits import api_location, nginx_conf
+from tools.aws.tests.test_node_packing import container_resources
 from tools.aws.tests.test_public_ingress import PublicChartTest, chart_values
 
 FAKE = "fake-external"
@@ -47,6 +51,8 @@ TRIP_GUIDE_OVERRIDES = {
     "TRIP_GUIDE_MODEL_BASE_URL": "http://fake-external:8080/bedrock",
     "TRIP_GUIDE_MODEL_AUTH": "none",
 }
+# 시험 중 DB 연결 묶음(connection pool) 크기 — `loadtest.dbPoolSize` 를 주면 scene-api ConfigMap 에 실린다.
+DB_POOL_KEY = "SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE"
 
 
 def loadtest_values(enabled=True, **changes):
@@ -353,6 +359,87 @@ class LoadtestModeChartTest(unittest.TestCase):
                 )
                 self.assertNotEqual(process.returncode, 0, process.stdout)
 
+    # --- 켜짐 + DEV: scene-api 노드 CPU 확보·DB 연결 묶음 크기 -------------------------
+    # DEV 부하 시험 중 scene-api 노드(2 vCPU)에 다른 파드(SigNoz 수집기 등)가 함께 실려 CPU 95% 에 닿았다.
+    # 시험 모드에서는 scene-api 의 CPU 최소 필요량을 키워 노드 자리를 미리 잡는다.
+
+    def resources(self, values, name):
+        docs = documents(self.render("dev", values))
+        return container_resources(self.one(docs, "Deployment", name), name)
+
+    def test_enabled_dev_reserves_cpu_for_scene_api_by_default(self):
+        self.assertEqual(
+            self.resources(loadtest_values(), "scene-api"),
+            {
+                "requests": {"cpu": "1500m", "memory": "1Gi"},
+                "limits": {"memory": "1Gi"},
+            },
+        )
+
+    def test_enabled_dev_scene_api_cpu_request_is_configurable(self):
+        resources = self.resources(
+            loadtest_values(sceneApiCpuRequest="1200m"), "scene-api"
+        )
+        self.assertEqual(resources["requests"], {"cpu": "1200m", "memory": "1Gi"})
+        self.assertEqual(resources["limits"], {"memory": "1Gi"})
+
+    def test_enabled_dev_keeps_gateway_and_trip_guide_requests(self):
+        for name in ("gateway", "trip-guide"):
+            with self.subTest(name=name):
+                resources = self.resources(loadtest_values(), name)
+                self.assertEqual(resources["requests"]["cpu"], "100m")
+                self.assertEqual(resources["requests"]["memory"], "128Mi")
+
+    def test_disabled_scene_api_cpu_request_stays_250m(self):
+        # 꺼져 있으면 값이 있어도 평소(250m) 그대로 — PRD·보통 배포는 영향이 없다.
+        for environment in ("dev", "prd"):
+            with self.subTest(environment=environment):
+                docs = documents(
+                    self.render(
+                        environment,
+                        loadtest_values(enabled=False, sceneApiCpuRequest="1500m"),
+                    )
+                )
+                resources = container_resources(
+                    self.one(docs, "Deployment", "scene-api"), "scene-api"
+                )
+                self.assertEqual(resources["requests"]["cpu"], "250m")
+
+    def test_enabled_dev_db_pool_size_goes_to_scene_api_config(self):
+        docs = documents(self.render("dev", loadtest_values(dbPoolSize="20")))
+        config = self.one(docs, "ConfigMap", "scene-api")
+        self.assertEqual(configmap_value(config, DB_POOL_KEY), "20")
+
+    def test_enabled_dev_empty_db_pool_size_leaves_key_out(self):
+        for values in (loadtest_values(), loadtest_values(dbPoolSize="")):
+            with self.subTest(given="dbPoolSize" in values["loadtest"]):
+                rendered = self.render("dev", values)
+                self.assertNotIn(DB_POOL_KEY, rendered)
+
+    def test_disabled_db_pool_size_is_ignored(self):
+        for environment in ("dev", "prd"):
+            with self.subTest(environment=environment):
+                rendered = self.render(
+                    environment, loadtest_values(enabled=False, dbPoolSize="20")
+                )
+                self.assertNotIn(DB_POOL_KEY, rendered)
+
+    def test_bad_db_pool_size_fails_to_render(self):
+        # 1~200 사이 양의 정수만 받는다.
+        for size in ("abc", "0", "-5", "201", "20; evil", "1.5"):
+            with self.subTest(size=size):
+                process = self.chart.helm_template(
+                    "dev", loadtest_values(dbPoolSize=size)
+                )
+                self.assertNotEqual(process.returncode, 0, process.stdout)
+
+    def test_db_pool_size_bounds_are_accepted(self):
+        for size in ("1", "200"):
+            with self.subTest(size=size):
+                docs = documents(self.render("dev", loadtest_values(dbPoolSize=size)))
+                config = self.one(docs, "ConfigMap", "scene-api")
+                self.assertEqual(configmap_value(config, DB_POOL_KEY), size)
+
     # --- 켜짐 + PRD -------------------------------------------------------------
 
     def test_enabled_prd_fails_to_render(self):
@@ -396,6 +483,8 @@ class LoadtestModeChartTest(unittest.TestCase):
                         gatewayRate="9999r/s",
                         gatewayBurst=9999,
                         gatewayConnections=9999,
+                        sceneApiCpuRequest="1900m",
+                        dbPoolSize="50",
                     ),
                 )
                 self.assertEqual(baseline, stray)
