@@ -5,6 +5,7 @@
   파드끼리만 센다 — 배포 중 남은 옛 판 파드 때문에 새 두 벌이 한 영역에 몰리지 않게. 한 벌이면 분산 조건이 없다.
 - scene-api 의 최소 필요량(requests)은 상한과 같은 1Gi 다. gateway·trip-guide 는 128Mi/512Mi 그대로다.
 - SigNoz 공식 차트(@signoz_chart)에 values.yaml 을 얹어 그린 결과에 부품별 requests·limits 가 실린다.
+- DEV 만 ClickHouse·수집기의 CPU 최소 필요량을 키우고 점검(probe) 간격·제한 시간·실패 허용 횟수를 늘린다. PRD 는 차트 기본값 그대로다.
 
 구현이 아니라 명세를 기준으로 쓴다. 차트는 Bazel 이 받은 helm 으로 실제로 그린다.
 """
@@ -93,6 +94,32 @@ def container_resources(doc, container):
                         section[key] = scalar(value)
                 return parsed
     raise AssertionError(f"컨테이너 {container} 에 resources 가 없습니다")
+
+
+def container_probe(doc, container, probe):
+    """문서 안 컨테이너 container 의 probe(livenessProbe 등) 아래 값(path·periodSeconds 등)을 평평한 dict 로."""
+    lines = doc.splitlines()
+    starts = [
+        i
+        for i, line in enumerate(lines)
+        if re.fullmatch(rf"\s*- name: \"?{re.escape(container)}\"?\s*", line)
+    ]
+    if not starts:
+        raise AssertionError(f"컨테이너 {container} 가 없습니다")
+    for start in starts:
+        item = indent(lines[start])
+        for i in range(start + 1, len(lines)):
+            line = lines[i]
+            if line.strip() and indent(line) <= item:
+                break
+            if line.strip() == f"{probe}:" and indent(line) == item + 2:
+                parsed = {}
+                for entry in block(lines, i):
+                    key, _, value = entry.strip().removeprefix("- ").partition(":")
+                    if value.strip():
+                        parsed[key] = scalar(value)
+                return parsed
+    raise AssertionError(f"컨테이너 {container} 에 {probe} 가 없습니다")
 
 
 def flow_or_scalar(value):
@@ -267,33 +294,43 @@ class SignozResourcesChartTest(unittest.TestCase):
         return process.stdout
 
     def test_component_resources(self):
+        # ClickHouse·수집기(otel-collector)는 DEV 만 CPU 최소 필요량이 크다 — 부하 테스트 중 노드 CPU 95~98% 에서
+        # 생존 점검(livenessProbe) 실패로 재시작됐다(2026-10). PRD 는 그대로다.
+        clickhouse_cpu = {"dev": "1500m", "prd": "250m"}
+        collector_cpu = {"dev": "500m", "prd": "100m"}
         cases = [
             (
                 "ClickHouseInstallation",
                 "signoz-clickhouse",
                 "clickhouse",
-                {"cpu": "250m", "memory": "1536Mi"},
+                lambda environment: {
+                    "cpu": clickhouse_cpu[environment],
+                    "memory": "1536Mi",
+                },
                 {"memory": "3Gi"},
             ),
             (
                 "StatefulSet",
                 "signoz-zookeeper",
                 "zookeeper",
-                {"cpu": "100m", "memory": "512Mi"},
+                lambda environment: {"cpu": "100m", "memory": "512Mi"},
                 {"memory": "1Gi"},
             ),
             (
                 "StatefulSet",
                 "signoz",
                 "signoz",
-                {"cpu": "100m", "memory": "512Mi"},
+                lambda environment: {"cpu": "100m", "memory": "512Mi"},
                 {"memory": "1Gi"},
             ),
             (
                 "Deployment",
                 "signoz-otel-collector",
                 "collector",
-                {"cpu": "100m", "memory": "512Mi"},
+                lambda environment: {
+                    "cpu": collector_cpu[environment],
+                    "memory": "512Mi",
+                },
                 {"memory": "1Gi"},
             ),
         ]
@@ -303,8 +340,72 @@ class SignozResourcesChartTest(unittest.TestCase):
                 with self.subTest(environment=environment, workload=name):
                     self.assertEqual(
                         container_resources(named(docs, kind, name), container),
-                        {"requests": requests, "limits": limits},
+                        {"requests": requests(environment), "limits": limits},
                     )
+
+    def clickhouse(self, environment):
+        return named(
+            documents(self.render(environment)),
+            "ClickHouseInstallation",
+            "signoz-clickhouse",
+        )
+
+    def collector(self, environment):
+        return named(
+            documents(self.render(environment)), "Deployment", "signoz-otel-collector"
+        )
+
+    def assert_probe(self, actual, expected):
+        """기대한 키만 비교한다(scheme·port 등 나머지는 차트 그대로)."""
+        self.assertEqual({key: actual.get(key) for key in expected}, expected)
+
+    def test_dev_clickhouse_probes_tolerate_busy_node(self):
+        clickhouse = self.clickhouse("dev")
+        with self.subTest(probe="livenessProbe"):
+            self.assert_probe(
+                container_probe(clickhouse, "clickhouse", "livenessProbe"),
+                {
+                    "path": "/ping",
+                    "periodSeconds": "10",
+                    "timeoutSeconds": "5",
+                    "failureThreshold": "6",
+                },
+            )
+        with self.subTest(probe="readinessProbe"):
+            self.assert_probe(
+                container_probe(clickhouse, "clickhouse", "readinessProbe"),
+                {"periodSeconds": "10", "timeoutSeconds": "5", "failureThreshold": "3"},
+            )
+
+    def test_prd_clickhouse_probes_stay_chart_default(self):
+        clickhouse = self.clickhouse("prd")
+        with self.subTest(probe="livenessProbe"):
+            self.assert_probe(
+                container_probe(clickhouse, "clickhouse", "livenessProbe"),
+                {
+                    "path": "/ping",
+                    "periodSeconds": "3",
+                    "timeoutSeconds": "1",
+                    "failureThreshold": "10",
+                },
+            )
+        with self.subTest(probe="readinessProbe"):
+            self.assert_probe(
+                container_probe(clickhouse, "clickhouse", "readinessProbe"),
+                {"periodSeconds": "3", "timeoutSeconds": "1", "failureThreshold": "3"},
+            )
+
+    def test_dev_collector_liveness_tolerates_busy_node(self):
+        self.assert_probe(
+            container_probe(self.collector("dev"), "collector", "livenessProbe"),
+            {"periodSeconds": "10", "timeoutSeconds": "5", "failureThreshold": "12"},
+        )
+
+    def test_prd_collector_liveness_stays_chart_default(self):
+        self.assert_probe(
+            container_probe(self.collector("prd"), "collector", "livenessProbe"),
+            {"periodSeconds": "10", "timeoutSeconds": "5", "failureThreshold": "6"},
+        )
 
     def test_storage_class_stays_signoz_gp3_without_chart_storage_class(self):
         for environment in ("dev", "prd"):
