@@ -80,10 +80,10 @@ flowchart LR
 ```bash
 # 0) 시험 회원 토큰과 공개키(한 번) — 비밀키 파일은 저장소 밖에 둔다
 just load-tokens --key ~/.scenetrip-load/google-key.json --jwk-out ~/.scenetrip-load/jwk.json \
-  --count 2000 --aud load-test.apps.googleusercontent.com --out ~/.scenetrip-load/tokens.json
+  --count 2000 --aud loadtest-dev.apps.googleusercontent.com --out ~/.scenetrip-load/tokens.json
 
 # 1) 켜기 — DEV 클러스터 접속(아래)이 열려 있어야 한다
-LOADTEST_GOOGLE_CLIENT_ID=load-test.apps.googleusercontent.com \
+LOADTEST_GOOGLE_CLIENT_ID=loadtest-dev.apps.googleusercontent.com \
 LOADTEST_GOOGLE_JWK=~/.scenetrip-load/jwk.json \
   just loadtest-mode dev on
 
