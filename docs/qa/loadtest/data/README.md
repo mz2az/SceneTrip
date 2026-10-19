@@ -25,9 +25,27 @@ SigNoz 는 trace 를 **7 일**(2026-10-25 까지), 지표를 30 일만 두고, C
 - `alb_target_5xx` 는 gateway(nginx)가 돌려준 5xx 다 — scene-api 의 5xx(`s5xx`)가 0 이어도 생긴다(nginx 가 scene-api 를 기다리다 낸 것으로 보인다, 원인 미확인).
 - 빈 칸은 그 분에 값이 없다는 뜻(0 이 아님). 지표는 1 분마다 들어와 칸이 하나씩 비거나 겹칠 수 있다.
 
+## k6 결과와 시나리오 코드
+- `k6/NN-<프로필>.json`: k6 가 시험 끝에 낸 요약(`--summary-export`) — 전체 요청 수, 흐름별 실패율, p50·p95·p99·최대 등. 러너 EC2 의 `~/results/` 에서 옮겼다.
+  실험 05(연기 확인)는 노트북에서 돌려 요약 파일이 없다. k6 의 진행 기록(`*.log`)·시작/끝 시각·러너 CPU 기록은 크기 때문에 원본 폴더 `k6/` 에만 있다.
+- `k6/run-v2.sh`: 실험 06~09 를 차례로 돌린 러너 스크립트(사이 2 분 쉼).
+- 시나리오 코드는 `tests/load/scenario.js` 하나다. 판마다 그때의 커밋으로 되돌려 볼 수 있다:
+
+| 실험 | 시나리오 판 | 시나리오 코드 커밋 | 실행 |
+| --- | --- | --- | --- |
+| 01 | v1 | `72bded6` | `-e PROFILE=baseline` |
+| 02 | v1 | `a527c59` | `-e PROFILE=stress -e FLOWS=browse,cart,trip` |
+| 03 | v1 | `a527c59` | `-e PROFILE=spike -e FLOWS=browse,cart,trip` |
+| 04 | v1 | `a527c59` | `-e PROFILE=soak -e FLOWS=browse,cart,trip` |
+| 06~09 | v2 (네이버 링크 찾기 끔) | `52f966c` | `run-v2.sh` — baseline·stress·spike·soak |
+
+  예: `git show a527c59:tests/load/scenario.js` 로 실험 02 때의 파일을 본다. 실행은 `just load-run scenario.js --summary-export=… -e BASE_URL=… -e TOKENS=… -e PROFILE=…`
+  (토큰·시험 모드는 [계획 문서](../../../project/plans/load-test.md) §5).
+
 ## 원본 (저장소 밖 — 노트북)
 `~/SceneTrip-data/loadtest/2026-10-18/` — 크기 약 560MB 라 저장소에 넣지 않는다.
 - `spans-HHMMSS-HHMMSS.parquet`: 09:55~14:25 UTC 의 모든 span(약 777 만 개, scene-api·trip-guide). 칸: 시각, trace·span ID, 서비스, 이름, 종류, 시간,
   응답 코드, DB 정보, 속성(`attributes_string` 안에 `db.statement` 가 SQL).
+- `k6/`: 러너의 `~/results/` 전체(요약 JSON, 진행 기록, 시작·끝 시각, 러너 CPU).
 - `metric-series.parquet`·`metric-samples.parquet`: 같은 시간의 scene-api·trip-guide 지표(이름·라벨 / 값).
 - 읽기 예: DuckDB `SELECT name, count() FROM '~/SceneTrip-data/loadtest/2026-10-18/spans-*.parquet' WHERE kind=2 GROUP BY name`.
