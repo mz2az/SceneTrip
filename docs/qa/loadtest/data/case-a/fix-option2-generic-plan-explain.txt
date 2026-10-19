@@ -1,0 +1,254 @@
+@@ generic sparse-en
+Sort  (cost=59.42..59.43 rows=1 width=253) (actual time=10.599..10.604 rows=7 loops=1)
+  Sort Key: ((p.geom <-> o.point)), p.id
+  Sort Method: quicksort  Memory: 26kB
+  Buffers: shared hit=253
+  CTE origin
+    ->  Result  (cost=0.00..0.14 rows=1 width=32) (actual time=0.014..0.015 rows=1 loops=1)
+  ->  Nested Loop Left Join  (cost=36.79..59.27 rows=1 width=253) (actual time=10.299..10.567 rows=7 loops=1)
+        Buffers: shared hit=250
+        ->  Nested Loop Left Join  (cost=36.37..44.69 rows=1 width=361) (actual time=10.270..10.505 rows=7 loops=1)
+              Buffers: shared hit=243
+              ->  Nested Loop Left Join  (cost=36.22..44.51 rows=1 width=329) (actual time=10.266..10.490 rows=7 loops=1)
+                    Buffers: shared hit=229
+                    ->  Nested Loop Left Join  (cost=36.07..44.33 rows=1 width=297) (actual time=10.237..10.448 rows=7 loops=1)
+                          Buffers: shared hit=215
+                          ->  Nested Loop Left Join  (cost=35.65..43.81 rows=1 width=225) (actual time=10.231..10.427 rows=7 loops=1)
+                                Buffers: shared hit=188
+                                ->  Nested Loop  (cost=35.22..43.28 rows=1 width=153) (actual time=10.199..10.288 rows=7 loops=1)
+                                      Buffers: shared hit=161
+                                      ->  Nested Loop  (cost=34.80..34.84 rows=1 width=40) (actual time=10.167..10.173 rows=7 loops=1)
+                                            Buffers: shared hit=133
+                                            ->  CTE Scan on origin o  (cost=0.00..0.02 rows=1 width=32) (actual time=0.016..0.017 rows=1 loops=1)
+                                            ->  Limit  (cost=34.80..34.80 rows=1 width=16) (actual time=10.147..10.149 rows=7 loops=1)
+                                                  Buffers: shared hit=133
+                                                  ->  Sort  (cost=34.80..34.80 rows=2 width=16) (actual time=10.146..10.148 rows=7 loops=1)
+                                                        Sort Key: ((p_1.geom <-> o_1.point)), p_1.id
+                                                        Sort Method: quicksort  Memory: 25kB
+                                                        Buffers: shared hit=133
+                                                        ->  Nested Loop  (cost=0.54..34.79 rows=2 width=16) (actual time=10.030..10.131 rows=7 loops=1)
+                                                              Buffers: shared hit=133
+                                                              ->  CTE Scan on origin o_1  (cost=0.00..0.02 rows=1 width=32) (actual time=0.000..0.002 rows=1 loops=1)
+                                                              ->  Limit  (cost=0.54..34.23 rows=2 width=48) (actual time=0.209..0.300 rows=7 loops=1)
+                                                                    Buffers: shared hit=36
+                                                                    ->  Index Scan using poi_geom_geometry_idx on poi p_1  (cost=0.54..387.95 rows=23 width=48) (actual time=0.209..0.298 rows=7 loops=1)
+                                                                          Index Cond: ((geom)::geometry && st_makeenvelope($6, $7, $8, $9, 4326))
+                                                                          Order By: ((geom)::geometry <-> st_setsrid(st_makepoint($3, $2), 4326))
+                                                                          Filter: ((closed_at IS NULL) AND (($5 IS NULL) OR (category_group = $5)))
+                                                                          Buffers: shared hit=36
+                                      ->  Index Scan using poi_pkey on poi p  (cost=0.42..8.44 rows=1 width=121) (actual time=0.015..0.015 rows=1 loops=7)
+                                            Index Cond: (id = p_1.id)
+                                            Buffers: shared hit=28
+                                ->  Index Scan using poi_i18n_pkey on poi_i18n tr  (cost=0.42..0.52 rows=1 width=80) (actual time=0.019..0.019 rows=1 loops=7)
+                                      Index Cond: ((poi_id = p.id) AND ((lang)::text = $1))
+                                      Buffers: shared hit=27
+                          ->  Index Scan using poi_i18n_pkey on poi_i18n te  (cost=0.42..0.52 rows=1 width=80) (actual time=0.002..0.002 rows=1 loops=7)
+                                Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                Buffers: shared hit=27
+                    ->  Index Scan using poi_category_i18n_pkey on poi_category_i18n cr  (cost=0.15..0.17 rows=1 width=64) (actual time=0.005..0.005 rows=1 loops=7)
+                          Index Cond: ((ko = p.category) AND ((lang)::text = $1))
+                          Buffers: shared hit=14
+              ->  Index Scan using poi_category_i18n_pkey on poi_category_i18n ce  (cost=0.15..0.17 rows=1 width=64) (actual time=0.001..0.001 rows=1 loops=7)
+                    Index Cond: ((ko = p.category) AND ((lang)::text = 'en'::text))
+                    Buffers: shared hit=14
+        ->  Nested Loop  (cost=0.42..1.80 rows=1 width=16) (actual time=0.002..0.002 rows=0 loops=7)
+              Buffers: shared hit=7
+              ->  Index Scan using place_poi_link_pkey on place_poi_link l  (cost=0.14..0.16 rows=1 width=16) (actual time=0.001..0.001 rows=0 loops=7)
+                    Index Cond: (poi_id = p.id)
+                    Buffers: shared hit=7
+              ->  Index Scan using place_pkey on place lp  (cost=0.27..1.64 rows=1 width=8) (never executed)
+                    Index Cond: (id = l.place_id)
+                    Filter: (hidden_at IS NULL)
+Planning:
+  Buffers: shared hit=685
+Planning Time: 4.267 ms
+Execution Time: 10.937 ms
+@@ generic dense-en
+Sort  (cost=59.42..59.43 rows=1 width=253) (actual time=1.927..1.932 rows=30 loops=1)
+  Sort Key: ((p.geom <-> o.point)), p.id
+  Sort Method: quicksort  Memory: 30kB
+  Buffers: shared hit=616
+  CTE origin
+    ->  Result  (cost=0.00..0.14 rows=1 width=32) (actual time=0.007..0.008 rows=1 loops=1)
+  ->  Nested Loop Left Join  (cost=36.79..59.27 rows=1 width=253) (actual time=0.841..1.904 rows=30 loops=1)
+        Buffers: shared hit=616
+        ->  Nested Loop Left Join  (cost=36.37..44.69 rows=1 width=361) (actual time=0.822..1.743 rows=30 loops=1)
+              Buffers: shared hit=586
+              ->  Nested Loop Left Join  (cost=36.22..44.51 rows=1 width=329) (actual time=0.819..1.695 rows=30 loops=1)
+                    Buffers: shared hit=526
+                    ->  Nested Loop Left Join  (cost=36.07..44.33 rows=1 width=297) (actual time=0.812..1.638 rows=30 loops=1)
+                          Buffers: shared hit=466
+                          ->  Nested Loop Left Join  (cost=35.65..43.81 rows=1 width=225) (actual time=0.809..1.569 rows=30 loops=1)
+                                Buffers: shared hit=346
+                                ->  Nested Loop  (cost=35.22..43.28 rows=1 width=153) (actual time=0.788..1.082 rows=30 loops=1)
+                                      Buffers: shared hit=226
+                                      ->  Nested Loop  (cost=34.80..34.84 rows=1 width=40) (actual time=0.770..0.783 rows=30 loops=1)
+                                            Buffers: shared hit=106
+                                            ->  CTE Scan on origin o  (cost=0.00..0.02 rows=1 width=32) (actual time=0.009..0.009 rows=1 loops=1)
+                                            ->  Limit  (cost=34.80..34.80 rows=1 width=16) (actual time=0.759..0.766 rows=30 loops=1)
+                                                  Buffers: shared hit=106
+                                                  ->  Sort  (cost=34.80..34.80 rows=2 width=16) (actual time=0.759..0.762 rows=30 loops=1)
+                                                        Sort Key: ((p_1.geom <-> o_1.point)), p_1.id
+                                                        Sort Method: top-N heapsort  Memory: 26kB
+                                                        Buffers: shared hit=106
+                                                        ->  Nested Loop  (cost=0.54..34.79 rows=2 width=16) (actual time=0.194..0.731 rows=120 loops=1)
+                                                              Buffers: shared hit=106
+                                                              ->  CTE Scan on origin o_1  (cost=0.00..0.02 rows=1 width=32) (actual time=0.000..0.001 rows=1 loops=1)
+                                                              ->  Limit  (cost=0.54..34.23 rows=2 width=48) (actual time=0.183..0.632 rows=120 loops=1)
+                                                                    Buffers: shared hit=106
+                                                                    ->  Index Scan using poi_geom_geometry_idx on poi p_1  (cost=0.54..387.95 rows=23 width=48) (actual time=0.183..0.621 rows=120 loops=1)
+                                                                          Index Cond: ((geom)::geometry && st_makeenvelope($6, $7, $8, $9, 4326))
+                                                                          Order By: ((geom)::geometry <-> st_setsrid(st_makepoint($3, $2), 4326))
+                                                                          Filter: ((closed_at IS NULL) AND (($5 IS NULL) OR (category_group = $5)))
+                                                                          Buffers: shared hit=106
+                                      ->  Index Scan using poi_pkey on poi p  (cost=0.42..8.44 rows=1 width=121) (actual time=0.009..0.009 rows=1 loops=30)
+                                            Index Cond: (id = p_1.id)
+                                            Buffers: shared hit=120
+                                ->  Index Scan using poi_i18n_pkey on poi_i18n tr  (cost=0.42..0.52 rows=1 width=80) (actual time=0.016..0.016 rows=1 loops=30)
+                                      Index Cond: ((poi_id = p.id) AND ((lang)::text = $1))
+                                      Buffers: shared hit=120
+                          ->  Index Scan using poi_i18n_pkey on poi_i18n te  (cost=0.42..0.52 rows=1 width=80) (actual time=0.002..0.002 rows=1 loops=30)
+                                Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                Buffers: shared hit=120
+                    ->  Index Scan using poi_category_i18n_pkey on poi_category_i18n cr  (cost=0.15..0.17 rows=1 width=64) (actual time=0.001..0.001 rows=1 loops=30)
+                          Index Cond: ((ko = p.category) AND ((lang)::text = $1))
+                          Buffers: shared hit=60
+              ->  Index Scan using poi_category_i18n_pkey on poi_category_i18n ce  (cost=0.15..0.17 rows=1 width=64) (actual time=0.001..0.001 rows=1 loops=30)
+                    Index Cond: ((ko = p.category) AND ((lang)::text = 'en'::text))
+                    Buffers: shared hit=60
+        ->  Nested Loop  (cost=0.42..1.80 rows=1 width=16) (actual time=0.001..0.001 rows=0 loops=30)
+              Buffers: shared hit=30
+              ->  Index Scan using place_poi_link_pkey on place_poi_link l  (cost=0.14..0.16 rows=1 width=16) (actual time=0.001..0.001 rows=0 loops=30)
+                    Index Cond: (poi_id = p.id)
+                    Buffers: shared hit=30
+              ->  Index Scan using place_pkey on place lp  (cost=0.27..1.64 rows=1 width=8) (never executed)
+                    Index Cond: (id = l.place_id)
+                    Filter: (hidden_at IS NULL)
+Planning Time: 0.040 ms
+Execution Time: 2.056 ms
+@@ generic sparse-ko
+Sort  (cost=59.42..59.43 rows=1 width=253) (actual time=0.307..0.310 rows=7 loops=1)
+  Sort Key: ((p.geom <-> o.point)), p.id
+  Sort Method: quicksort  Memory: 26kB
+  Buffers: shared hit=116
+  CTE origin
+    ->  Result  (cost=0.00..0.14 rows=1 width=32) (actual time=0.005..0.006 rows=1 loops=1)
+  ->  Nested Loop Left Join  (cost=36.79..59.27 rows=1 width=253) (actual time=0.174..0.302 rows=7 loops=1)
+        Buffers: shared hit=116
+        ->  Nested Loop Left Join  (cost=36.37..44.69 rows=1 width=361) (actual time=0.160..0.259 rows=7 loops=1)
+              Buffers: shared hit=109
+              ->  Nested Loop Left Join  (cost=36.22..44.51 rows=1 width=329) (actual time=0.156..0.244 rows=7 loops=1)
+                    Buffers: shared hit=95
+                    ->  Nested Loop Left Join  (cost=36.07..44.33 rows=1 width=297) (actual time=0.152..0.231 rows=7 loops=1)
+                          Buffers: shared hit=88
+                          ->  Nested Loop Left Join  (cost=35.65..43.81 rows=1 width=225) (actual time=0.148..0.209 rows=7 loops=1)
+                                Buffers: shared hit=61
+                                ->  Nested Loop  (cost=35.22..43.28 rows=1 width=153) (actual time=0.138..0.172 rows=7 loops=1)
+                                      Buffers: shared hit=40
+                                      ->  Nested Loop  (cost=34.80..34.84 rows=1 width=40) (actual time=0.129..0.133 rows=7 loops=1)
+                                            Buffers: shared hit=12
+                                            ->  CTE Scan on origin o  (cost=0.00..0.02 rows=1 width=32) (actual time=0.007..0.007 rows=1 loops=1)
+                                            ->  Limit  (cost=34.80..34.80 rows=1 width=16) (actual time=0.121..0.123 rows=7 loops=1)
+                                                  Buffers: shared hit=12
+                                                  ->  Sort  (cost=34.80..34.80 rows=2 width=16) (actual time=0.121..0.122 rows=7 loops=1)
+                                                        Sort Key: ((p_1.geom <-> o_1.point)), p_1.id
+                                                        Sort Method: quicksort  Memory: 25kB
+                                                        Buffers: shared hit=12
+                                                        ->  Nested Loop  (cost=0.54..34.79 rows=2 width=16) (actual time=0.070..0.117 rows=7 loops=1)
+                                                              Buffers: shared hit=12
+                                                              ->  CTE Scan on origin o_1  (cost=0.00..0.02 rows=1 width=32) (actual time=0.000..0.001 rows=1 loops=1)
+                                                              ->  Limit  (cost=0.54..34.23 rows=2 width=48) (actual time=0.061..0.103 rows=7 loops=1)
+                                                                    Buffers: shared hit=12
+                                                                    ->  Index Scan using poi_geom_geometry_idx on poi p_1  (cost=0.54..387.95 rows=23 width=48) (actual time=0.061..0.102 rows=7 loops=1)
+                                                                          Index Cond: ((geom)::geometry && st_makeenvelope($6, $7, $8, $9, 4326))
+                                                                          Order By: ((geom)::geometry <-> st_setsrid(st_makepoint($3, $2), 4326))
+                                                                          Filter: ((closed_at IS NULL) AND (($5 IS NULL) OR (category_group = $5)))
+                                                                          Buffers: shared hit=12
+                                      ->  Index Scan using poi_pkey on poi p  (cost=0.42..8.44 rows=1 width=121) (actual time=0.005..0.005 rows=1 loops=7)
+                                            Index Cond: (id = p_1.id)
+                                            Buffers: shared hit=28
+                                ->  Index Scan using poi_i18n_pkey on poi_i18n tr  (cost=0.42..0.52 rows=1 width=80) (actual time=0.005..0.005 rows=0 loops=7)
+                                      Index Cond: ((poi_id = p.id) AND ((lang)::text = $1))
+                                      Buffers: shared hit=21
+                          ->  Index Scan using poi_i18n_pkey on poi_i18n te  (cost=0.42..0.52 rows=1 width=80) (actual time=0.003..0.003 rows=1 loops=7)
+                                Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                Buffers: shared hit=27
+                    ->  Index Scan using poi_category_i18n_pkey on poi_category_i18n cr  (cost=0.15..0.17 rows=1 width=64) (actual time=0.001..0.001 rows=0 loops=7)
+                          Index Cond: ((ko = p.category) AND ((lang)::text = $1))
+                          Buffers: shared hit=7
+              ->  Index Scan using poi_category_i18n_pkey on poi_category_i18n ce  (cost=0.15..0.17 rows=1 width=64) (actual time=0.001..0.001 rows=1 loops=7)
+                    Index Cond: ((ko = p.category) AND ((lang)::text = 'en'::text))
+                    Buffers: shared hit=14
+        ->  Nested Loop  (cost=0.42..1.80 rows=1 width=16) (actual time=0.001..0.001 rows=0 loops=7)
+              Buffers: shared hit=7
+              ->  Index Scan using place_poi_link_pkey on place_poi_link l  (cost=0.14..0.16 rows=1 width=16) (actual time=0.001..0.001 rows=0 loops=7)
+                    Index Cond: (poi_id = p.id)
+                    Buffers: shared hit=7
+              ->  Index Scan using place_pkey on place lp  (cost=0.27..1.64 rows=1 width=8) (never executed)
+                    Index Cond: (id = l.place_id)
+                    Filter: (hidden_at IS NULL)
+Planning Time: 0.037 ms
+Execution Time: 0.409 ms
+@@ generic dense-ko
+Sort  (cost=59.42..59.43 rows=1 width=253) (actual time=1.351..1.356 rows=30 loops=1)
+  Sort Key: ((p.geom <-> o.point)), p.id
+  Sort Method: quicksort  Memory: 29kB
+  Buffers: shared hit=556
+  CTE origin
+    ->  Result  (cost=0.00..0.14 rows=1 width=32) (actual time=0.005..0.005 rows=1 loops=1)
+  ->  Nested Loop Left Join  (cost=36.79..59.27 rows=1 width=253) (actual time=0.748..1.336 rows=30 loops=1)
+        Buffers: shared hit=556
+        ->  Nested Loop Left Join  (cost=36.37..44.69 rows=1 width=361) (actual time=0.733..1.189 rows=30 loops=1)
+              Buffers: shared hit=526
+              ->  Nested Loop Left Join  (cost=36.22..44.51 rows=1 width=329) (actual time=0.730..1.138 rows=30 loops=1)
+                    Buffers: shared hit=466
+                    ->  Nested Loop Left Join  (cost=36.07..44.33 rows=1 width=297) (actual time=0.726..1.095 rows=30 loops=1)
+                          Buffers: shared hit=436
+                          ->  Nested Loop Left Join  (cost=35.65..43.81 rows=1 width=225) (actual time=0.722..1.003 rows=30 loops=1)
+                                Buffers: shared hit=316
+                                ->  Nested Loop  (cost=35.22..43.28 rows=1 width=153) (actual time=0.714..0.861 rows=30 loops=1)
+                                      Buffers: shared hit=226
+                                      ->  Nested Loop  (cost=34.80..34.84 rows=1 width=40) (actual time=0.704..0.715 rows=30 loops=1)
+                                            Buffers: shared hit=106
+                                            ->  CTE Scan on origin o  (cost=0.00..0.02 rows=1 width=32) (actual time=0.006..0.006 rows=1 loops=1)
+                                            ->  Limit  (cost=34.80..34.80 rows=1 width=16) (actual time=0.696..0.702 rows=30 loops=1)
+                                                  Buffers: shared hit=106
+                                                  ->  Sort  (cost=34.80..34.80 rows=2 width=16) (actual time=0.696..0.699 rows=30 loops=1)
+                                                        Sort Key: ((p_1.geom <-> o_1.point)), p_1.id
+                                                        Sort Method: top-N heapsort  Memory: 26kB
+                                                        Buffers: shared hit=106
+                                                        ->  Nested Loop  (cost=0.54..34.79 rows=2 width=16) (actual time=0.150..0.670 rows=120 loops=1)
+                                                              Buffers: shared hit=106
+                                                              ->  CTE Scan on origin o_1  (cost=0.00..0.02 rows=1 width=32) (actual time=0.000..0.001 rows=1 loops=1)
+                                                              ->  Limit  (cost=0.54..34.23 rows=2 width=48) (actual time=0.143..0.576 rows=120 loops=1)
+                                                                    Buffers: shared hit=106
+                                                                    ->  Index Scan using poi_geom_geometry_idx on poi p_1  (cost=0.54..387.95 rows=23 width=48) (actual time=0.142..0.565 rows=120 loops=1)
+                                                                          Index Cond: ((geom)::geometry && st_makeenvelope($6, $7, $8, $9, 4326))
+                                                                          Order By: ((geom)::geometry <-> st_setsrid(st_makepoint($3, $2), 4326))
+                                                                          Filter: ((closed_at IS NULL) AND (($5 IS NULL) OR (category_group = $5)))
+                                                                          Buffers: shared hit=106
+                                      ->  Index Scan using poi_pkey on poi p  (cost=0.42..8.44 rows=1 width=121) (actual time=0.004..0.004 rows=1 loops=30)
+                                            Index Cond: (id = p_1.id)
+                                            Buffers: shared hit=120
+                                ->  Index Scan using poi_i18n_pkey on poi_i18n tr  (cost=0.42..0.52 rows=1 width=80) (actual time=0.004..0.004 rows=0 loops=30)
+                                      Index Cond: ((poi_id = p.id) AND ((lang)::text = $1))
+                                      Buffers: shared hit=90
+                          ->  Index Scan using poi_i18n_pkey on poi_i18n te  (cost=0.42..0.52 rows=1 width=80) (actual time=0.003..0.003 rows=1 loops=30)
+                                Index Cond: ((poi_id = p.id) AND ((lang)::text = 'en'::text))
+                                Buffers: shared hit=120
+                    ->  Index Scan using poi_category_i18n_pkey on poi_category_i18n cr  (cost=0.15..0.17 rows=1 width=64) (actual time=0.001..0.001 rows=0 loops=30)
+                          Index Cond: ((ko = p.category) AND ((lang)::text = $1))
+                          Buffers: shared hit=30
+              ->  Index Scan using poi_category_i18n_pkey on poi_category_i18n ce  (cost=0.15..0.17 rows=1 width=64) (actual time=0.001..0.001 rows=1 loops=30)
+                    Index Cond: ((ko = p.category) AND ((lang)::text = 'en'::text))
+                    Buffers: shared hit=60
+        ->  Nested Loop  (cost=0.42..1.80 rows=1 width=16) (actual time=0.001..0.001 rows=0 loops=30)
+              Buffers: shared hit=30
+              ->  Index Scan using place_poi_link_pkey on place_poi_link l  (cost=0.14..0.16 rows=1 width=16) (actual time=0.001..0.001 rows=0 loops=30)
+                    Index Cond: (poi_id = p.id)
+                    Buffers: shared hit=30
+              ->  Index Scan using place_pkey on place lp  (cost=0.27..1.64 rows=1 width=8) (never executed)
+                    Index Cond: (id = l.place_id)
+                    Filter: (hidden_at IS NULL)
+Planning Time: 0.029 ms
+Execution Time: 1.449 ms
