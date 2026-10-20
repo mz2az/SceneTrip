@@ -1,9 +1,11 @@
-// 실제 앱 흐름을 본뜬 부하 시나리오 — v3 (MZ2AZ-502, docs/project/plans/load-test.md §5, 설명서 docs/qa/loadtest/scenario.md).
+// 실제 앱 흐름을 본뜬 부하 시나리오 — v4 (MZ2AZ-502, docs/project/plans/load-test.md §5, 설명서 docs/qa/loadtest/scenario.md).
 //
 // v2(v1 대비): 토큰 만료 시 /auth/refresh 로 갱신 · 앞 단계가 실패하면 그 흐름을 멈춤 · 둘러보기에 편의시설 상세·사진 ·
 // 새 흐름 「후기 읽기」(비회원)·「쓰기」(회원 — 사진 올리기 → 리뷰 또는 여행후기).
 // v3(v2 대비): 지도 영역 조회를 앱과 같은 모양으로 — 영역(bbox)과 함께 화면 중심(lat·lng)과 sort=distance 를 보낸다
 // (iOS RouteGuide.swift·Android RouteEditorView.kt). v2 는 영역만 보내 서버 기본값인 이름순을 받았다. 나머지는 v2 와 같다.
+// v4(v3 대비): 둘러보기에서 상세 화면(작품·편의시설·촬영지)을 열 때마다 앱처럼 사용 기록 POST /events {type: view} 를 보낸다
+// (iOS UsageEvents.swift·Android UsageEvents.kt, 계약 「보내고 잊는다」 — 응답을 보지 않는다). 나머지는 v3 와 같다.
 //
 // 흐름 여섯을 비중대로 섞는다 — 둘러보기 50 · 후기 읽기 8 · 담기 14 · 여행 12 · 챗봇 8 · 쓰기 8(가정한 비율, PRD 실사용자가 쌓이면 맞춘다).
 // 사람처럼 단계 사이에 1~3 초 쉬고(생각하는 시간), 작품·촬영지·지도 영역·검색어를 무작위로 골라 캐시 착시를 줄인다.
@@ -21,7 +23,7 @@ import { check, group, sleep } from "k6";
 import { SharedArray } from "k6/data";
 import encoding from "k6/encoding";
 
-const VERSION = "v3";
+const VERSION = "v4";
 
 const BASE = __ENV.BASE_URL || "https://api-dev.scenetrip.io/v1";
 const PROFILE = __ENV.PROFILE || "smoke";
@@ -191,6 +193,7 @@ export function browse(data) {
     think();
     const cid = pick(data.contents);
     if (!check(req("GET", `/contents/${cid}`, { install }), { "작품 상세 200": ok })) return;
+    viewed(install, "content", cid);
     if (!ok(req("GET", `/contents/${cid}/places`, { install }))) return;
     think();
     if (!ok(req("GET", `/search/suggestions?q=${encodeURIComponent(pick(data.words))}&limit=8`, { install }))) return;
@@ -206,11 +209,18 @@ export function browse(data) {
       think();
       const poi = pick(pois);
       if (!check(req("GET", `/pois/${poi.id}`, { install }), { "편의시설 상세 200": ok })) return;
+      viewed(install, "poi", poi.id);
       req("GET", `/pois/${poi.id}/photos?limit=20`, { install });
     }
     think();
-    req("GET", `/places/${pick(data.places).id}`, { install });
+    const place = pick(data.places).id;
+    if (ok(req("GET", `/places/${place}`, { install }))) viewed(install, "place", place);
   });
+}
+
+// 상세 화면이 열렸다는 사용 기록(v4) — 앱처럼 보내고 잊는다(응답·실패를 흐름에 반영하지 않는다).
+function viewed(install, entityType, entityId) {
+  send("POST", "/events", { install, body: { type: "view", entityType, entityId } });
 }
 
 // ── 후기 읽기(비회원, v2) — 여행후기 목록 → 상세
