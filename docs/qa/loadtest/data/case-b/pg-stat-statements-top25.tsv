@@ -1,0 +1,27 @@
+exec_s	plan_s	calls	mean_ms	shared_blks_hit	shared_blks_read	rows	q
+112.0	0.0	48628	2.303	65650718	0	972648	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NULL` 처럼 쓰이면 PostgreSQL 이 그 자리의 타
+79.4	0.0	42434	1.872	8382614	0	176822	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS TEXT), $23)) AS norm ), -- 검색
+72.8	0.0	33977	2.144	5562650	0	37983	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title FROM content_
+57.0	0.0	26359	2.163	5159025	0	26359	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.place_id, pi.name, pi.address,
+45.4	0.0	32426	1.400	4106278	0	20863	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.place_id, pi.name, pi.address 
+41.3	0.0	37338	1.105	10878120	0	1051850	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISION) IS NULL THEN $21 ELSE ST_Se
+33.7	0.0	44998	0.750	857131	0	214606	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.person_id, pi.name FROM person_i18n
+33.1	0.0	34008	0.973	13430393	0	680160	SELECT * FROM (SELECT o.url, $6::TEXT AS storage_key, $7::BIGINT AS review_id, o.credit, o
+24.2	0.0	34008	0.712	13429813	0	34008	SELECT count(*) FROM (SELECT o.url, $4::TEXT AS storage_key, $5::BIGINT AS review_id, o.cr
+19.5	0.0	9260	2.104	1476788	0	11302	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title FROM content_
+19.4	0.0	33797	0.574	2003688	0	33797	SELECT count(*) FROM poi p WHERE p.geom::geometry && ST_MakeEnvelope( CAST($1 AS DOUBLE PR
+18.2	0.0	7756	2.344	907452	0	0	DELETE FROM photo_upload WHERE created_at < now() - INTERVAL $1
+13.6	0.0	6252	2.181	1047656	0	24061	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title FROM content_
+13.6	0.0	6383	2.135	1043791	0	17399	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title FROM content_
+12.5	0.0	5754	2.176	982680	0	28401	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title FROM content_
+12.4	0.0	39676	0.312	2643818	0	121907	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.entity_type, st.entity_id) st.en
+10.0	0.0	4516	2.215	783579	0	27720	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title FROM content_
+9.0	0.0	37269	0.243	3531980	0	37269	SELECT round(avg(rating)::NUMERIC, $2)::DOUBLE PRECISION AS average, count(*) AS n, count(
+8.2	0.0	7747	1.057	480314	0	7747	SELECT count(*) FROM community_post p WHERE p.removed_at IS NULL AND NOT EXISTS (SELECT $2
+5.7	0.0	38787	0.148	575635	0	38787	INSERT INTO entity_view (entity_type, entity_id, install_id, user_id, lang, day) SELECT $1
+5.1	0.0	2331	2.188	435341	0	27385	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title FROM content_
+5.0	0.0	44998	0.112	1040586	0	44998	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title, ci.descripti
+4.9	0.0	7747	0.636	2023437	0	154940	SELECT p.id, p.title, left(regexp_replace(p.body, $5, $6, $7), $8) AS excerpt, u.nickname,
+4.5	0.0	1999	2.260	358492	0	16832	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title FROM content_
+4.5	0.0	2025	2.218	380618	0	25909	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title FROM content_
+(25 rows)
