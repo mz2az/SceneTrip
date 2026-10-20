@@ -31,22 +31,38 @@ public class UserStore {
    * 조회와 방문 기록을 한 문장으로 합쳤다.
    *
    * <p>{@code last_seen_at} 은 방치된 비회원 계정을 정리할 때 쓸 값인데 소급 수집이 안 되므로 처음부터 받아 둔다. 조회 따로 갱신 따로 하면 왕복이
-   * 둘이 되므로 CTE 로 묶었다 — 기기 쪽을 갱신하면서 그 계정을 함께 갱신하고 id 를 돌려준다.
+   * 둘이 되므로 CTE 로 묶었다 — 기기와 그 계정을 읽고(언제나), 갱신은 조건부로 같은 문장에서 한다.
+   *
+   * <p><b>갱신은 한 시간에 한 번이다</b>(MZ2AZ-502 사례 B). 정리 기준이 마지막 이용 후 1 년이라 시각 단위 정밀도가 필요 없는데, 요청마다 고쳐 쓰면
+   * 행 새 버전·변경 기록·뒷정리가 매번 생겨 부하 시험에서 이 두 갱신이 DB 일의 약 11% 였다. 판정(어느 계정인가·가입했나)은 언제나 읽은 값으로 하므로 갱신을
+   * 건너뛰어도 결과는 같다.
    *
    * <p>가입 여부도 같이 돌려준다. 가입 계정은 설치 UUID 만으로 열리지 않으므로(SESSION_REQUIRED) 요청마다 그것을 물어야 하는데, 따로 물으면 왕복이
    * 하나 더 생긴다.
    */
   private static final String TOUCH_SQL =
       """
-      WITH touched_device AS (
-          UPDATE user_device SET last_seen_at = now()
+      WITH device AS (
+          SELECT install_uuid, user_id, last_seen_at
+          FROM user_device
           WHERE install_uuid = CAST(:installUuid AS UUID)
-          RETURNING user_id
+      ),
+      -- 참조하지 않아도 데이터를 바꾸는 CTE 는 실행된다(PostgreSQL). 비었거나 한 시간 넘었을 때만 고쳐 쓴다.
+      touched_device AS (
+          UPDATE user_device d SET last_seen_at = now()
+          FROM device
+          WHERE d.install_uuid = device.install_uuid
+            AND (device.last_seen_at IS NULL OR device.last_seen_at < now() - INTERVAL '1 hour')
+      ),
+      touched_user AS (
+          UPDATE app_user u SET last_seen_at = now()
+          FROM device
+          WHERE u.id = device.user_id
+            AND (u.last_seen_at IS NULL OR u.last_seen_at < now() - INTERVAL '1 hour')
       )
-      UPDATE app_user SET last_seen_at = now()
-      FROM touched_device
-      WHERE app_user.id = touched_device.user_id
-      RETURNING app_user.id, app_user.registered_at IS NOT NULL AS registered
+      SELECT u.id, u.registered_at IS NOT NULL AS registered
+      FROM device
+      JOIN app_user u ON u.id = device.user_id
       """;
 
   /**
@@ -54,14 +70,25 @@ public class UserStore {
    *
    * <p>토큰은 서명만 맞으면 만료까지 유효하다. 그 사이 탈퇴했거나(행이 없다) 다른 계정으로 합쳐졌으면({@code merged_into}) 행이 갱신되지 않아 빈 결과가
    * 된다 — 호출하는 쪽이 그것을 「믿을 수 없는 토큰」 으로 다룬다. 토큰은 가입 계정에만 발급하므로 가입 표시가 없는 행도 같은 취급이다.
+   *
+   * <p>판정은 언제나 읽은 값으로, 방문 기록 갱신은 {@link #TOUCH_SQL} 처럼 한 시간에 한 번만 한다.
    */
   private static final String TOUCH_SIGNED_IN_SQL =
       """
-      UPDATE app_user SET last_seen_at = now()
-      WHERE id = CAST(:userId AS UUID)
-        AND merged_into IS NULL
-        AND registered_at IS NOT NULL
-      RETURNING id
+      WITH account AS (
+          SELECT id, last_seen_at
+          FROM app_user
+          WHERE id = CAST(:userId AS UUID)
+            AND merged_into IS NULL
+            AND registered_at IS NOT NULL
+      ),
+      touched AS (
+          UPDATE app_user u SET last_seen_at = now()
+          FROM account
+          WHERE u.id = account.id
+            AND (account.last_seen_at IS NULL OR account.last_seen_at < now() - INTERVAL '1 hour')
+      )
+      SELECT id FROM account
       """;
 
   /**
