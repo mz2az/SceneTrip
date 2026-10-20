@@ -1,0 +1,722 @@
+2026-10-20 03:11:29.068657+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:11:51.779047+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:12:00.180175+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:12:20.831316+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:12:27.023611+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:12:39.430901+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:13:00.599795+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:13:00.599795+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:13:04.728061+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:13:06.794067+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:13:08.862758+00	IO	WalWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:13:10.928923+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:13:12.993808+00	CPU	-	SELECT count(*) FROM community_post p WHERE p.removed_at IS 
+2026-10-20 03:13:15.06804+00	IO	WalSync	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:13:31.709111+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:13:37.919422+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:13:39.989931+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:13:39.989931+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:13:42.065686+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:13:44.138196+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:13:46.206342+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:13:48.27396+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:13:58.615869+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:14:06.92349+00	CPU	-	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:14:13.123362+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:14:17.265081+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:14:17.265081+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:14:27.607879+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:14:29.674104+00	Client	ClientRead	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:14:37.951892+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:14:37.951892+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:14:42.189233+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:14:44.26455+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:14:48.397461+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:14:48.397461+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:14:48.397461+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:14:50.464631+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:14:56.666738+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:14:58.731929+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:15:02.894835+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:15:02.894835+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:15:02.894835+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:15:09.091823+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.perso
+2026-10-20 03:15:23.642289+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:15:31.921931+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:15:38.136417+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:15:38.136417+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:15:50.561466+00	IO	WalWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:15:54.761218+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:15:58.9112+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:15:58.9112+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:16:00.980876+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:16:03.050205+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:16:09.26339+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:16:11.334325+00	IO	WalSync	DELETE FROM photo_upload WHERE storage_key IN ( SELECT stora
+2026-10-20 03:16:27.870072+00	Client	ClientRead	SELECT storage_key FROM community_post_photo WHERE post_id =
+2026-10-20 03:16:29.932368+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:16:42.452334+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:16:52.78862+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:16:56.924329+00	IO	WalSync	UPDATE course SET status = $1, current_day_no = CAST($2 AS I
+2026-10-20 03:17:01.062231+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:17:05.22604+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:17:05.22604+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:17:07.291814+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:17:15.643979+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:17:25.994022+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:17:25.994022+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:17:30.171319+00	IO	WalSync	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:17:36.381857+00	CPU	-	SELECT count(*) FROM poi p WHERE p.geom::geometry && ST_Make
+2026-10-20 03:17:40.526383+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:17:42.593276+00	IO	WalSync	INSERT INTO guide_turn (lang, outcome, tools, place_count, e
+2026-10-20 03:17:46.73194+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:17:53.066987+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:17:55.136126+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:17:57.209557+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:17:57.209557+00	IO	WalSync	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UU
+2026-10-20 03:18:11.721693+00	CPU	-	SELECT count(*) FROM poi p WHERE p.geom::geometry && ST_Make
+2026-10-20 03:18:17.925405+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:18:24.145097+00	Client	ClientRead	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:18:28.285333+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:18:30.357093+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:18:34.494551+00	IO	WalSync	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:18:34.494551+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:18:40.827863+00	Client	ClientRead	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:18:40.827863+00	Client	ClientRead	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:18:44.975713+00	Client	ClientRead	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:18:47.045582+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:18:49.112214+00	Client	ClientRead	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:18:49.112214+00	CPU	-	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:18:51.192394+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:18:53.262787+00	CPU	-	INSERT INTO review_image (review_id, storage_key, sort_order
+2026-10-20 03:18:55.34242+00	LWLock	WALWrite	COMMIT
+2026-10-20 03:18:55.34242+00	IO	WalSync	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:19:01.566079+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:19:03.636403+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:19:05.707106+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:19:09.849512+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:19:11.934845+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:19:11.934845+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:19:16.091754+00	IO	WalSync	DELETE FROM photo_upload WHERE storage_key IN ( SELECT stora
+2026-10-20 03:19:16.091754+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:19:20.232019+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:19:26.462853+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:19:30.713516+00	Client	ClientRead	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:19:32.812276+00	Client	ClientRead	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:19:36.961719+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:19:43.18144+00	LWLock	WALWrite	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:19:43.18144+00	IO	WalSync	COMMIT
+2026-10-20 03:19:45.328195+00	LWLock	WALWrite	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:19:45.328195+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:19:45.328195+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:19:45.328195+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:19:49.4715+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.perso
+2026-10-20 03:19:51.540952+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:19:51.540952+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:19:53.612748+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:19:53.612748+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:19:59.848592+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:20:01.933458+00	IO	WalSync	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:20:01.933458+00	LWLock	WALWrite	COMMIT
+2026-10-20 03:20:04.006354+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:20:08.155991+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:20:08.155991+00	IO	WalSync	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:20:14.531532+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:20:20.753895+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:20:31.133849+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:20:31.133849+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:20:31.133849+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:20:43.585923+00	CPU	-	SELECT count(*) FROM poi p WHERE p.geom::geometry && ST_Make
+2026-10-20 03:20:45.657064+00	IO	WalSync	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:20:45.657064+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:20:45.657064+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:20:47.725219+00	IO	WalSync	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:20:47.725219+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:20:51.894478+00	IO	WalSync	WITH new_user AS ( INSERT INTO app_user (id, last_seen_at) V
+2026-10-20 03:20:51.894478+00	LWLock	WALWrite	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:20:51.894478+00	Client	ClientRead	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:20:51.894478+00	LWLock	WALWrite	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:20:53.961821+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:20:53.961821+00	LWLock	WALWrite	INSERT INTO saved_content (user_id, content_id) VALUES (CAST
+2026-10-20 03:20:56.042721+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:21:00.392328+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:21:00.392328+00	CPU	-	SELECT p.id, p.title, left(regexp_replace(p.body, '\s+', ' '
+2026-10-20 03:21:00.392328+00	CPU	-	DELETE FROM photo_upload WHERE created_at < now() - INTERVAL
+2026-10-20 03:21:04.594535+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:21:06.66375+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:21:06.66375+00	IO	WalSync	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UU
+2026-10-20 03:21:12.894638+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:21:14.966231+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:21:17.040919+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:21:23.26568+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:21:25.334563+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:21:29.502315+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:21:31.575759+00	IO	WalSync	DELETE FROM photo_upload WHERE storage_key IN ( SELECT stora
+2026-10-20 03:21:31.575759+00	CPU	-	SELECT url, credit FROM poi_image_visible WHERE poi_id = $1 
+2026-10-20 03:21:33.642146+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:21:35.714619+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:21:37.78574+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:21:39.8613+00	IO	WalWrite	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:21:41.969577+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:21:41.969577+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:21:46.214714+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:21:48.314233+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:21:52.486445+00	LWLock	WALWrite	WITH new_user AS ( INSERT INTO app_user (id, last_seen_at) V
+2026-10-20 03:21:52.486445+00	IO	WalSync	INSERT INTO photo_upload (storage_key, user_id, purpose, con
+2026-10-20 03:21:52.486445+00	LWLock	WALWrite	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:21:54.568484+00	LWLock	WALWrite	INSERT INTO photo_upload (storage_key, user_id, purpose, con
+2026-10-20 03:21:54.568484+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:21:54.568484+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:21:54.568484+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:21:58.724536+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:22:00.831335+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:22:11.2382+00	LWLock	WALWrite	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:22:11.2382+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:22:11.2382+00	Client	ClientRead	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:22:11.2382+00	Client	ClientRead	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:22:11.2382+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:22:13.328873+00	Client	ClientRead	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.perso
+2026-10-20 03:22:13.328873+00	Client	ClientRead	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:22:17.487658+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:22:25.82714+00	LWLock	WALWrite	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:22:25.82714+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:22:25.82714+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:22:25.82714+00	Client	ClientRead	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:22:25.82714+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:22:29.99627+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:22:36.319839+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:22:38.397803+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:22:38.397803+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:22:40.466717+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:22:40.466717+00	LWLock	WALWrite	WITH new_user AS ( INSERT INTO app_user (id, last_seen_at) V
+2026-10-20 03:22:42.55605+00	Client	ClientRead	WITH display AS ( SELECT DISTINCT ON (pi.place_id) pi.place_
+2026-10-20 03:22:42.55605+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:22:46.777271+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:22:46.777271+00	LWLock	WALWrite	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:22:46.777271+00	LWLock	WALWrite	INSERT INTO photo_upload (storage_key, user_id, purpose, con
+2026-10-20 03:22:46.777271+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:22:46.777271+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:22:48.921253+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:22:48.921253+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:22:48.921253+00	IO	WalSync	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:22:51.035252+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:22:53.148126+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:22:55.279205+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:22:59.449537+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:23:01.535895+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (pi.place_id) pi.place_
+2026-10-20 03:23:03.611822+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:23:07.768642+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:23:09.860842+00	Client	ClientRead	SELECT lang::text AS lang, overview, use_time, rest_date, pa
+2026-10-20 03:23:09.860842+00	IO	WalWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:23:09.860842+00	Client	ClientRead	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:23:11.954401+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:23:14.095788+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:23:14.095788+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:23:14.095788+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:23:16.188884+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:23:18.272728+00	CPU	-	SELECT p.id, p.title, left(regexp_replace(p.body, '\s+', ' '
+2026-10-20 03:23:18.272728+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:23:18.272728+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:23:18.272728+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:23:20.359743+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:23:22.439355+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:23:22.439355+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:23:22.439355+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:23:26.613133+00	CPU	-	SELECT p.id, p.title, left(regexp_replace(p.body, '\s+', ' '
+2026-10-20 03:23:32.864616+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:23:39.144339+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:23:39.144339+00	Client	ClientRead	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:23:39.144339+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:23:41.248281+00	IO	WalSync	COMMIT
+2026-10-20 03:23:43.341488+00	CPU	-	DELETE FROM photo_upload WHERE created_at < now() - INTERVAL
+2026-10-20 03:23:45.45448+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:23:45.45448+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:23:49.611235+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:23:49.611235+00	IO	WalSync	INSERT INTO saved_content (user_id, content_id) VALUES (CAST
+2026-10-20 03:23:51.708255+00	LWLock	WALWrite	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UU
+2026-10-20 03:23:51.708255+00	CPU	-	SELECT round(avg(rating)::NUMERIC, 1)::DOUBLE PRECISION AS a
+2026-10-20 03:23:51.708255+00	LWLock	WALWrite	WITH new_user AS ( INSERT INTO app_user (id, last_seen_at) V
+2026-10-20 03:23:51.708255+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:23:53.800681+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:23:53.800681+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:23:53.800681+00	LWLock	WALWrite	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:23:55.890897+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:23:55.890897+00	CPU	-	SELECT p.id, p.title, left(regexp_replace(p.body, '\s+', ' '
+2026-10-20 03:23:55.890897+00	LWLock	WALWrite	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:23:57.980908+00	CPU	-	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:23:57.980908+00	IO	WalSync	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:24:00.169152+00	CPU	-	SELECT count(*) FROM community_post p WHERE p.removed_at IS 
+2026-10-20 03:24:00.169152+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.perso
+2026-10-20 03:24:00.169152+00	CPU	-	SELECT p.id, p.title, left(regexp_replace(p.body, '\s+', ' '
+2026-10-20 03:24:00.169152+00	IO	WalSync	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:24:00.169152+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:24:00.169152+00	LWLock	WALWrite	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:24:00.169152+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:24:02.257484+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:24:02.257484+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:24:02.257484+00	LWLock	WALWrite	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UU
+2026-10-20 03:24:04.341055+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:24:04.341055+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:24:06.506685+00	LWLock	WALWrite	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:24:06.506685+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:24:06.506685+00	IO	WalSync	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:24:08.768177+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:24:08.768177+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:24:13.091319+00	Client	ClientRead	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:24:15.179148+00	IO	WalSync	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:24:15.179148+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.perso
+2026-10-20 03:24:17.289571+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:24:17.289571+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.perso
+2026-10-20 03:24:17.289571+00	CPU	-	SELECT p.id, p.title, left(regexp_replace(p.body, '\s+', ' '
+2026-10-20 03:24:17.289571+00	LWLock	WALWrite	COMMIT
+2026-10-20 03:24:17.289571+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:24:17.289571+00	CPU	-	INSERT INTO course_item (course_id, day_no, place_id, poi_id
+2026-10-20 03:24:19.384049+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:24:19.384049+00	IO	WalSync	COMMIT
+2026-10-20 03:24:19.384049+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:24:21.464631+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:24:23.550344+00	IO	WalSync	WITH new_user AS ( INSERT INTO app_user (id, last_seen_at) V
+2026-10-20 03:24:25.63395+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:24:25.63395+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:24:27.71633+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:24:29.808518+00	CPU	-	SELECT count(*) FROM poi p WHERE p.geom::geometry && ST_Make
+2026-10-20 03:24:29.808518+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:24:29.808518+00	IO	WalSync	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:24:29.808518+00	LWLock	WALWrite	INSERT INTO saved_content (user_id, content_id) VALUES (CAST
+2026-10-20 03:24:33.967661+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:24:33.967661+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:24:33.967661+00	LWLock	WALWrite	WITH new_user AS ( INSERT INTO app_user (id, last_seen_at) V
+2026-10-20 03:24:33.967661+00	IO	WalSync	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:24:33.967661+00	LWLock	WALWrite	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:24:38.149215+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.perso
+2026-10-20 03:24:40.241629+00	IO	WalSync	UPDATE course SET status = $1, current_day_no = CAST($2 AS I
+2026-10-20 03:24:40.241629+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:24:42.384711+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:24:42.384711+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:24:42.384711+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:24:44.476398+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:24:46.564916+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:24:46.564916+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:24:48.65741+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:24:50.751194+00	CPU	-	SELECT count(*) FROM poi p WHERE p.geom::geometry && ST_Make
+2026-10-20 03:24:50.751194+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:24:52.843747+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:24:54.932727+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:24:54.932727+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:24:57.030552+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:24:57.030552+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:25:01.204215+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:25:01.204215+00	IO	WalSync	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:25:01.204215+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:25:01.204215+00	LWLock	WALWrite	INSERT INTO saved_content (user_id, content_id) VALUES (CAST
+2026-10-20 03:25:01.204215+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:25:03.289853+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:25:05.364341+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:25:07.457857+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:25:07.457857+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:25:09.541969+00	IO	WalSync	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UU
+2026-10-20 03:25:09.541969+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:25:11.62957+00	Client	ClientRead	SELECT EXISTS (SELECT 1 FROM poi WHERE id = $1 AND closed_at
+2026-10-20 03:25:11.62957+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:25:11.62957+00	IO	WalSync	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:25:11.62957+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:25:15.800495+00	IO	WalSync	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:25:15.800495+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:25:15.800495+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.perso
+2026-10-20 03:25:17.877884+00	IO	WalSync	COMMIT
+2026-10-20 03:25:19.961267+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:25:19.961267+00	LWLock	WALWrite	UPDATE course SET status = $1, current_day_no = CAST($2 AS I
+2026-10-20 03:25:22.040888+00	LWLock	WALWrite	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:25:22.040888+00	IO	WalSync	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:25:24.13979+00	CPU	-	DELETE FROM photo_upload WHERE created_at < now() - INTERVAL
+2026-10-20 03:25:24.13979+00	LWLock	WALWrite	DELETE FROM photo_upload WHERE storage_key IN ( SELECT stora
+2026-10-20 03:25:24.13979+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:25:24.13979+00	LWLock	WALWrite	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:25:24.13979+00	CPU	-	SELECT count(*) FROM community_post p WHERE p.removed_at IS 
+2026-10-20 03:25:26.223671+00	Client	ClientRead	WITH account AS ( SELECT id, last_seen_at FROM app_user WHER
+2026-10-20 03:25:26.223671+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:25:34.565659+00	CPU	-	DELETE FROM photo_upload WHERE created_at < now() - INTERVAL
+2026-10-20 03:25:36.675718+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:25:36.675718+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:25:38.761573+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:25:40.846582+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:25:51.366844+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:25:51.366844+00	CPU	-	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:25:51.366844+00	CPU	-	DELETE FROM photo_upload WHERE created_at < now() - INTERVAL
+2026-10-20 03:25:51.366844+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:25:53.533823+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:25:53.533823+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:25:53.533823+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:25:53.533823+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:25:53.533823+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:25:55.623597+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:25:57.699149+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:25:59.783484+00	LWLock	WALWrite	INSERT INTO guide_turn (lang, outcome, tools, place_count, e
+2026-10-20 03:25:59.783484+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:26:01.878134+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:26:01.878134+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:26:03.984751+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:26:06.095996+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:26:08.183304+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:26:08.183304+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:26:10.26817+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:26:10.26817+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:26:12.365237+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:26:14.440628+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:26:16.529192+00	LWLock	WALWrite	INSERT INTO photo_upload (storage_key, user_id, purpose, con
+2026-10-20 03:26:16.529192+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:26:18.627564+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:26:18.627564+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:26:20.720476+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:26:22.80972+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:26:22.80972+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:26:24.900677+00	IO	WalSync	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:26:26.984749+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:26:29.112995+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:26:31.236172+00	IO	WalSync	UPDATE course SET status = $1, current_day_no = CAST($2 AS I
+2026-10-20 03:26:37.515433+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:26:37.515433+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:26:37.515433+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:26:37.515433+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:26:41.691319+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:26:43.839999+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:26:43.839999+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:26:43.839999+00	LWLock	WALWrite	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:26:43.839999+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:26:43.839999+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:26:43.839999+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:26:45.944473+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:26:54.262672+00	IO	WalSync	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:26:56.363086+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:26:56.363086+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:26:58.46317+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:26:58.46317+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:26:58.46317+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:27:00.597916+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:27:00.597916+00	LWLock	WALWrite	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:27:02.695809+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:27:09.033267+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:27:09.033267+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:27:09.033267+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:27:09.033267+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:27:11.152213+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:27:11.152213+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:27:11.152213+00	CPU	-	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:27:11.152213+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:27:13.280638+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:27:13.280638+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:27:15.417552+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:27:17.573843+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:27:17.573843+00	LWLock	WALWrite	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:27:17.573843+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:27:19.657676+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:27:19.657676+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:27:21.778465+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:27:21.778465+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:27:23.892985+00	Client	ClientRead	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:27:23.892985+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:27:26.004671+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:27:28.107883+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:27:28.107883+00	CPU	-	SELECT count(*) FROM poi p WHERE p.geom::geometry && ST_Make
+2026-10-20 03:27:30.292866+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:27:30.292866+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:27:30.292866+00	LWLock	WALWrite	INSERT INTO photo_upload (storage_key, user_id, purpose, con
+2026-10-20 03:27:30.292866+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:27:30.292866+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:27:32.380296+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:27:32.380296+00	IO	WalSync	UPDATE course SET status = $1, current_day_no = CAST($2 AS I
+2026-10-20 03:27:32.380296+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:27:34.470605+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:27:36.657533+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:27:36.657533+00	IO	WalSync	COMMIT
+2026-10-20 03:27:36.657533+00	CPU	-	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:27:38.764338+00	LWLock	WALWrite	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:27:38.764338+00	IO	WalSync	INSERT INTO saved_content (user_id, content_id) VALUES (CAST
+2026-10-20 03:27:38.764338+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:27:40.867541+00	CPU	-	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:27:40.867541+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:27:45.149821+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:27:45.149821+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:27:45.149821+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:27:45.149821+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:27:45.149821+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:27:47.262904+00	LWLock	WALWrite	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:27:53.578852+00	CPU	-	DELETE FROM photo_upload WHERE created_at < now() - INTERVAL
+2026-10-20 03:27:55.663752+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:27:55.663752+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:27:55.663752+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:27:55.663752+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:27:57.769441+00	Client	ClientRead	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:27:59.868168+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:27:59.868168+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:28:01.9448+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:28:01.9448+00	CPU	-	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:28:01.9448+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:28:01.9448+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:28:04.050547+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:28:06.139991+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:28:06.139991+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:28:08.241236+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:28:08.241236+00	IO	WalSync	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:28:08.241236+00	Client	ClientRead	SELECT p.id, p.title, left(regexp_replace(p.body, '\s+', ' '
+2026-10-20 03:28:10.356716+00	Client	ClientRead	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:28:10.356716+00	IO	WalSync	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:28:10.356716+00	LWLock	WALWrite	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:28:12.4537+00	Client	ClientRead	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:28:14.551548+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:28:14.551548+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:28:14.551548+00	IO	WalSync	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:28:16.639057+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:28:20.821704+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:28:20.821704+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:28:20.821704+00	LWLock	WALWrite	COMMIT
+2026-10-20 03:28:22.925372+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:28:22.925372+00	Client	ClientRead	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:28:25.033678+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:28:25.033678+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:28:25.033678+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:28:27.12648+00	LWLock	WALWrite	INSERT INTO photo_upload (storage_key, user_id, purpose, con
+2026-10-20 03:28:27.12648+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:28:27.12648+00	LWLock	WALWrite	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:28:27.12648+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:28:29.224416+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:28:29.224416+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:28:33.415903+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:28:33.415903+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:28:33.415903+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:28:33.415903+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:28:35.554573+00	CPU	-	SELECT round(avg(rating)::NUMERIC, 1)::DOUBLE PRECISION AS a
+2026-10-20 03:28:35.554573+00	LWLock	WALWrite	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:28:35.554573+00	LWLock	WALWrite	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:28:35.554573+00	LWLock	WALWrite	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:28:35.554573+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:28:35.554573+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:28:37.661035+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:28:37.661035+00	IO	WalSync	DELETE FROM photo_upload WHERE storage_key IN ( SELECT stora
+2026-10-20 03:28:37.661035+00	LWLock	WALWrite	WITH new_user AS ( INSERT INTO app_user (id, last_seen_at) V
+2026-10-20 03:28:37.661035+00	LWLock	WALWrite	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:28:39.760481+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:28:42.0531+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:28:42.0531+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:28:42.0531+00	CPU	-	SELECT count(*) FROM poi p WHERE p.geom::geometry && ST_Make
+2026-10-20 03:28:42.0531+00	Client	ClientRead	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:28:42.0531+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:28:42.0531+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:28:44.223312+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:28:46.373186+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:28:46.373186+00	LWLock	WALWrite	WITH new_user AS ( INSERT INTO app_user (id, last_seen_at) V
+2026-10-20 03:28:48.594623+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:28:48.594623+00	LWLock	WALWrite	UPDATE course SET status = $1, current_day_no = CAST($2 AS I
+2026-10-20 03:28:48.594623+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:28:48.594623+00	IO	WalSync	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:28:48.594623+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:28:50.721346+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:28:50.721346+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:28:50.721346+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:28:52.877464+00	CPU	-	INSERT INTO saved_content (user_id, content_id) VALUES (CAST
+2026-10-20 03:28:52.877464+00	Client	ClientRead	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:28:52.877464+00	Client	ClientRead	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:28:52.877464+00	Client	ClientRead	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:28:55.028027+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:28:55.028027+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:28:57.113271+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:28:57.113271+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:28:57.113271+00	IO	WalSync	COMMIT
+2026-10-20 03:28:59.204378+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:28:59.204378+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:28:59.204378+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:29:01.331701+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:29:01.331701+00	LWLock	WALWrite	COMMIT
+2026-10-20 03:29:01.331701+00	IO	WalSync	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:29:01.331701+00	LWLock	WALWrite	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UU
+2026-10-20 03:29:03.457978+00	Client	ClientRead	WITH account AS ( SELECT id, last_seen_at FROM app_user WHER
+2026-10-20 03:29:03.457978+00	LWLock	ProcArray	INSERT INTO guide_turn (lang, outcome, tools, place_count, e
+2026-10-20 03:29:05.545749+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:29:05.545749+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:29:07.639428+00	IO	WalSync	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:29:07.639428+00	CPU	-	SELECT count(*) FROM poi p WHERE p.geom::geometry && ST_Make
+2026-10-20 03:29:07.639428+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:29:09.728634+00	LWLock	WALWrite	DELETE FROM photo_upload WHERE storage_key IN ( SELECT stora
+2026-10-20 03:29:09.728634+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:29:11.838298+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:29:11.838298+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:29:13.970778+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:29:16.058766+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:29:16.058766+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:29:16.058766+00	LWLock	WALWrite	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:29:18.16405+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:29:20.276161+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:29:20.276161+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:29:24.469935+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:29:24.469935+00	Client	ClientRead	SELECT lang::text AS lang, overview, use_time, rest_date, pa
+2026-10-20 03:29:26.554803+00	LWLock	WALWrite	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:29:26.554803+00	IO	WalSync	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:29:26.554803+00	LWLock	WALWrite	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:29:26.554803+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:29:26.554803+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:29:28.654554+00	Client	ClientRead	SELECT c.id, c.title, c.start_date, c.day_count, c.status, c
+2026-10-20 03:29:32.82442+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:29:32.82442+00	IO	WalSync	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:29:37.024136+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:29:37.024136+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:29:37.024136+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.perso
+2026-10-20 03:29:39.143873+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:29:41.251892+00	Client	ClientRead	INSERT INTO course_item (course_id, day_no, place_id, poi_id
+2026-10-20 03:29:41.251892+00	CPU	-	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:29:43.369741+00	LWLock	WALWrite	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:29:43.369741+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:29:45.468964+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:29:47.56438+00	Client	ClientRead	WITH account AS ( SELECT id, last_seen_at FROM app_user WHER
+2026-10-20 03:29:47.56438+00	CPU	-	SELECT EXISTS (SELECT 1 FROM content WHERE id = $1)
+2026-10-20 03:29:47.56438+00	CPU	-	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UU
+2026-10-20 03:29:51.759107+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:29:51.759107+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:29:51.759107+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:29:51.759107+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:29:53.849732+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:29:53.849732+00	IO	WalSync	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UU
+2026-10-20 03:29:53.849732+00	LWLock	WALWrite	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:29:53.849732+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:29:53.849732+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:29:53.849732+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:29:55.952244+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:29:55.952244+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:29:58.060208+00	LWLock	WALWrite	INSERT INTO photo_upload (storage_key, user_id, purpose, con
+2026-10-20 03:29:58.060208+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:29:58.060208+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:29:58.060208+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:29:58.060208+00	LWLock	WALWrite	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:30:00.402609+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:30:00.402609+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:30:02.562424+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:30:02.562424+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:04.744426+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:30:04.744426+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:30:04.744426+00	CPU	-	SELECT p.id, p.title, left(regexp_replace(p.body, '\s+', ' '
+2026-10-20 03:30:04.744426+00	LWLock	WALWrite	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:30:06.927137+00	CPU	-	SELECT p.id, p.title, left(regexp_replace(p.body, '\s+', ' '
+2026-10-20 03:30:09.071151+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:30:09.071151+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:30:09.071151+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.perso
+2026-10-20 03:30:09.071151+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:30:11.28944+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:30:11.28944+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:30:15.547612+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:30:15.547612+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:30:15.547612+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:30:17.638883+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:17.638883+00	CPU	-	DELETE FROM photo_upload WHERE created_at < now() - INTERVAL
+2026-10-20 03:30:17.638883+00	IO	WalSync	INSERT INTO saved_content (user_id, content_id) VALUES (CAST
+2026-10-20 03:30:19.721308+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:30:19.721308+00	LWLock	WALWrite	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UU
+2026-10-20 03:30:21.824025+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:30:21.824025+00	LWLock	LockManager	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:30:21.824025+00	LWLock	LockManager	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:21.824025+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:30:23.943064+00	LWLock	WALWrite	UPDATE course SET status = $1, current_day_no = CAST($2 AS I
+2026-10-20 03:30:23.943064+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:30:23.943064+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:23.943064+00	IO	WalSync	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:30:23.943064+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:30:23.943064+00	CPU	-	WITH device AS ( SELECT install_uuid, user_id, last_seen_at 
+2026-10-20 03:30:26.085381+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:30:26.085381+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:30:26.085381+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:30:28.181124+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:30:28.181124+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:30.280341+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:30:32.379798+00	LWLock	WALWrite	WITH new_user AS ( INSERT INTO app_user (id, last_seen_at) V
+2026-10-20 03:30:32.379798+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:30:32.379798+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:30:32.379798+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:30:36.588671+00	LWLock	WALWrite	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:30:36.588671+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:30:36.588671+00	LWLock	WALWrite	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:30:38.687315+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:30:40.784395+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:40.784395+00	CPU	-	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISIO
+2026-10-20 03:30:40.784395+00	IO	WalSync	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:30:42.898936+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:30:42.898936+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:30:45.000131+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:30:47.154275+00	LWLock	WALWrite	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UU
+2026-10-20 03:30:47.154275+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.perso
+2026-10-20 03:30:47.154275+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:47.154275+00	LWLock	WALWrite	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UU
+2026-10-20 03:30:47.154275+00	LWLock	WALWrite	INSERT INTO guide_turn (lang, outcome, tools, place_count, e
+2026-10-20 03:30:49.272096+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:49.272096+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:30:49.272096+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:51.358804+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:51.358804+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:51.358804+00	LWLock	WALWrite	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:30:51.358804+00	LWLock	WALWrite	COMMIT
+2026-10-20 03:30:51.358804+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:55.632291+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:55.632291+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:30:59.830161+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:30:59.830161+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:30:59.830161+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:31:01.92905+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:31:04.030516+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:31:04.030516+00	LWLock	WALWrite	INSERT INTO guide_turn (lang, outcome, tools, place_count, e
+2026-10-20 03:31:04.030516+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:31:04.030516+00	LWLock	WALWrite	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:31:04.030516+00	IO	WalSync	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UU
+2026-10-20 03:31:06.174845+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:31:10.365163+00	LWLock	WALWrite	COMMIT
+2026-10-20 03:31:10.365163+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.perso
+2026-10-20 03:31:10.365163+00	IO	WalSync	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:31:12.474867+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:31:12.474867+00	IO	WalSync	WITH new_user AS ( INSERT INTO app_user (id, last_seen_at) V
+2026-10-20 03:31:14.570726+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:31:14.570726+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:31:16.693257+00	Client	ClientRead	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:31:16.693257+00	IO	WalSync	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:31:18.804144+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:31:20.911262+00	IO	WalWrite	INSERT INTO saved_place (user_id, place_id, source_content_i
+2026-10-20 03:31:23.019857+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:31:23.019857+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:31:25.120194+00	IO	WalSync	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:31:25.120194+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:31:25.120194+00	LWLock	WALWrite	UPDATE usage_counter SET count = count - 1 WHERE subject = $
+2026-10-20 03:31:27.213334+00	LWLock	WALWrite	UPDATE course SET status = $1, current_day_no = CAST($2 AS I
+2026-10-20 03:31:27.213334+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:31:27.213334+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:31:27.213334+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:31:27.213334+00	IO	WalSync	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:31:31.387562+00	IO	WalSync	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:31:33.473286+00	IO	WalSync	COMMIT
+2026-10-20 03:31:35.557931+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:31:37.649089+00	LWLock	WALWrite	INSERT INTO course (user_id, title, day_count, origin, pace)
+2026-10-20 03:31:37.649089+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:31:37.649089+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:31:39.750396+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:31:39.750396+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:31:42.077649+00	Client	ClientRead	INSERT INTO usage_counter (subject, feature, window_start, c
+2026-10-20 03:31:42.077649+00	CPU	-	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND
+2026-10-20 03:31:44.309142+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:31:44.309142+00	IO	WalSync	COMMIT
+2026-10-20 03:31:44.309142+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:31:44.309142+00	CPU	-	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS
+2026-10-20 03:31:46.454659+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:31:48.557411+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:31:48.557411+00	IO	WalSync	INSERT INTO saved_content (user_id, content_id) VALUES (CAST
+2026-10-20 03:31:48.557411+00	CPU	-	SELECT count(*) FROM poi p WHERE p.geom::geometry && ST_Make
+2026-10-20 03:31:50.705755+00	CPU	-	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.
+2026-10-20 03:31:50.705755+00	CPU	-	WITH new_user AS ( INSERT INTO app_user (id, last_seen_at) V
+2026-10-20 03:31:50.705755+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:31:52.838906+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:31:55.044978+00	Client	ClientRead	SELECT EXISTS (SELECT 1 FROM place WHERE id = $1 AND hidden_
+2026-10-20 03:31:57.18376+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:31:59.286018+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
+2026-10-20 03:31:59.286018+00	CPU	-	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.cont
+2026-10-20 03:31:59.286018+00	CPU	-	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NUL
+2026-10-20 03:32:01.39198+00	CPU	-	SELECT * FROM (SELECT o.url, NULL::TEXT AS storage_key, NULL
+2026-10-20 03:32:01.39198+00	LWLock	WALWrite	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:32:01.39198+00	Client	ClientRead	UPDATE course SET status = $1, current_day_no = CAST($2 AS I
+2026-10-20 03:32:03.491248+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:32:03.491248+00	IO	WalSync	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:32:05.569607+00	CPU	-	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.en
+2026-10-20 03:32:09.712648+00	CPU	-	INSERT INTO entity_view (entity_type, entity_id, install_id,
+2026-10-20 03:32:11.784163+00	CPU	-	SELECT count(*) FROM (SELECT o.url, NULL::TEXT AS storage_ke
