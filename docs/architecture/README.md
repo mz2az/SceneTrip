@@ -6,6 +6,8 @@
 | --- | --- |
 | [aws-dev-prd.md](aws-dev-prd.md) | SceneTrip의 DEV·PRD AWS 배포 형상과 보안·데이터 경계 |
 | [aws-services.md](aws-services.md) | AWS 서비스의 정의·필요성·비용 요인·대안 |
+| [scenetrip-system.drawio](scenetrip-system.drawio) | 시스템 구성 한 장 그림(draw.io) — 앱·scene-api 안쪽·챗봇 에이전트·데이터·적재·바깥 서비스, 챗봇 한 턴 흐름 |
+| [scenetrip-aws.drawio](scenetrip-aws.drawio) | DEV·PRD AWS 인프라 한 장 그림(draw.io) — 요청 경로·관측·배포·다른 리전·바깥 API |
 | `system-overview.md` | 시스템 전체를 한 장에, 컨텍스트 다이어그램과 함께 |
 | `service-map.md` | 모든 서비스와 각자의 책임·의존성 |
 | `data-model.md` | 소유 경계 — 어떤 서비스가 어떤 데이터를 소유하는가 |
