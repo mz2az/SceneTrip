@@ -8,6 +8,7 @@ SigNoz 는 trace 를 **7 일**(2026-10-25 까지), 지표를 30 일만 두고, C
 | --- | --- |
 | `NN-minutes.csv` | 실험 NN 구간의 **분 단위** 표 — 한 줄이 1 분(UTC) |
 | `traces/<trace ID>.jsonl` | 대표 trace 의 span 전부(한 줄이 span 하나, 실행한 SQL 포함). 사례 A 설명용 |
+| `case-a/` · `case-b/` | 사례별 DB 쪽 측정 — `pg_stat_statements`(쿼리별 실행 시간·횟수·WAL), `pg_stat_activity` 2 초 표본(활성 세션이 하던 일). `12-*` 는 실험 12 의 두 시험 |
 
 `NN-minutes.csv` 의 칸:
 
