@@ -126,6 +126,17 @@ function uuid() {
   );
 }
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+// 쓰기를 뺀 상한 시험(실험 12) — 기본값은 v4 그대로.
+// NO_EVENTS=1: 사용 기록(POST /events)을 보내지 않는다.
+// INSTALL_POOL=N: 비회원 흐름이 매번 새 설치 ID(→ 새 비회원 계정)를 만들지 않고 N 개 중에서 고른다.
+const NO_EVENTS = __ENV.NO_EVENTS === "1";
+const INSTALL_POOL = Number(__ENV.INSTALL_POOL || "0");
+// VU 마다 init 이 따로 돌므로 무작위로 만들면 VU 수만큼 풀이 생긴다 — 번호로 정해서 모든 VU 가 같은 N 개를 쓴다.
+const guestInstall = () =>
+  INSTALL_POOL > 0
+    ? `00000000-0000-4000-8000-${Math.floor(Math.random() * INSTALL_POOL).toString(16).padStart(12, "0")}`
+    : uuid();
 const think = () => sleep(1 + Math.random() * 2);
 const json = (body) => ({ body: JSON.stringify(body), contentType: "application/json" });
 
@@ -187,7 +198,7 @@ export function setup() {
 
 // ── 둘러보기(비회원) — 작품 → 상세 → 촬영지 → 검색 → 지도 → (v2) 편의시설 상세·사진 → 촬영지 상세. 실패하면 멈춘다.
 export function browse(data) {
-  const install = uuid();
+  const install = guestInstall();
   group("browse", () => {
     if (!ok(req("GET", `/contents?limit=20&offset=${Math.floor(Math.random() * 100)}`, { install }))) return;
     think();
@@ -220,12 +231,13 @@ export function browse(data) {
 
 // 상세 화면이 열렸다는 사용 기록(v4) — 앱처럼 보내고 잊는다(응답·실패를 흐름에 반영하지 않는다).
 function viewed(install, entityType, entityId) {
+  if (NO_EVENTS) return;
   send("POST", "/events", { install, body: { type: "view", entityType, entityId } });
 }
 
 // ── 후기 읽기(비회원, v2) — 여행후기 목록 → 상세
 export function posts() {
-  const install = uuid();
+  const install = guestInstall();
   group("posts", () => {
     const list = req("GET", `/posts?limit=20`, { install });
     if (!check(list, { "후기 목록 200": ok })) return;
@@ -238,7 +250,7 @@ export function posts() {
 
 // ── 담기(비회원) — 장바구니 담기 → 보기 → 빼기, 작품 찜
 export function cart(data) {
-  const install = uuid();
+  const install = guestInstall();
   group("cart", () => {
     const p = pick(data.places);
     const added = req("POST", "/cart/items", { install, body: { placeId: p.id } });
@@ -257,7 +269,7 @@ function member() {
   const idx = (__VU * 7919 + Math.floor(Math.random() * 3)) % TOKENS.length;
   if (sessions[idx]) return sessions[idx];
   const t = TOKENS[idx];
-  const install = uuid();
+  const install = uuid(); // 회원 로그인은 늘 새 설치 — 남의 비회원 계정과 합쳐지지 않게
   const r = req("POST", "/auth/google", { install, body: { idToken: t.idToken, nonce: t.nonce } });
   if (!check(r, { "로그인 200": (res) => res.status === 200 })) return null;
   sessions[idx] = { token: r.json("accessToken"), refresh: r.json("refreshToken"), install };
