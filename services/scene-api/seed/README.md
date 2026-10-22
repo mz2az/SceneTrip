@@ -261,3 +261,6 @@ just seed-poi --update ~/SceneTrip-data/SceneTrip_POI/out-en/poi_*.jsonl   # 영
 적재 결과(2026-06 판): 972,952 행 → 제외 분류 39,671 · 한국 밖 69 · 같은 이름·1 m 11,154 · 관광공사 가리기
 11,664 를 빼고 **910,394 곳**(docs/project/plans/poi-source.md §2-1). 표본은 29 행 → 20 곳.
 
+**`place_image_url` 을 사람을 지운 편집본으로 바꿨다**(2026-10-22). 멘토 확인 — 사람이 없는 정물·풍경 사진은 괜찮다. 편집본은 공용 사진 버킷
+`place/edited-2026-10-22/<원본 주소 SHA-256>.jpg`(JPEG 1280px)에 있고, 830 곳을 바꿨다. 장소 사진이 아닌 화면 캡처 1 장은 뺐다. 짝이 없는 17 곳은
+원본 주소 그대로다. 과정·되돌리기: [place-photo-refresh.md](../../../docs/project/plans/place-photo-refresh.md).
