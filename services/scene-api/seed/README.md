@@ -98,6 +98,19 @@ URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞�
 알고있지만·삼달리·조립식 가족)은 공식 홈의 메인·작품 소개 이미지다. 그림이 조금 다르다. 6장 합계 9,256KB → 2,286KB.
 디어엠(KBS, 557KB)은 작은 판이 없어 그대로 뒀다. 저장하지 않고 주소만 가리킨다는 규칙은 그대로다.
 
+출처 이미지 서버가 크기를 주소로 받는 곳은 **폭 400px 주소**로 적는다(2026-10-22, MZ2AZ-508). 55장 26.3MB → 3.2MB. 새 포스터를 더할 때도
+같은 규칙을 따른다.
+
+| 출처 | 400px 주소 |
+| --- | --- |
+| CJ ENM `poc-cf-image`·`web2-cf-image` | `/resize/400/public/…` (원래 `/resize/1000/`·`/crop/1200x630/` 자리, 없으면 `/public/` 앞) |
+| TVING `image.tving.com` | 끝의 `/dims/resize/400` |
+| Disney+ `bamgrid.com` | `width=400` |
+| Amazon `m.media-amazon.com` | 확장자 앞 `._SX400_`(확장자는 원본 그대로 — 바꾸면 403) |
+
+CJ ENM·TVING·Disney+ 는 원래 주소에 이미 크기 칸(`/resize/1000/`·`/dims/resize/480`·`width=1200`)이 있던 출처라 숫자만 바꿨다. 넷플릭스·SBS·
+MBC·JTBC·KBS 는 주소로 크기를 받지 않는다(크기 지정 7 가지를 시험, 모두 원본). 이 주소가 깨지면 앱은 자리표시자를 보인다 — 원본 주소로 되돌리면 된다.
+
 같은 날 `recent_rank` · `audience_acc` · `award` · `famous_rank` 네 컬럼을 뺐다. 채울 규칙을 두지 않기로
 했기 때문이다. 그래서 53 이 아니라 49 다. 거기에 키 두 칸(`content_key` 는 `title` 앞, `place_key` 는
 `place_name` 앞)을 더해 51 이다(2026-10-07). `famous_rank` 는 인기 점수(`popularity_score`)의 재료였으므로,
