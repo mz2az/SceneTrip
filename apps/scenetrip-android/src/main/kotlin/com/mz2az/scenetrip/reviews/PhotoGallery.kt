@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +49,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import com.mz2az.scenetrip.data.ModerationEvents
 import com.mz2az.scenetrip.data.NetworkFailure
+import com.mz2az.scenetrip.data.PhotoRenewalRules
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.Photo
@@ -71,6 +73,9 @@ class PhotoBook(
     total: Int,
     private val visitorsOnly: Boolean = false,
     private val paged: Boolean = true,
+    // 쪽으로 나뉘지 않은 사진(리뷰 한 건의 사진)은 사진첩을 다시 받을 수 없다 — 그 사진이 든 목록이 대신 새 주소를 받는다
+    // (MZ2AZ-477, iOS 의 `\.photoRenew` 환경값). 없으면 갱신할 길이 없다.
+    private val externalRenew: (suspend (Boolean) -> Unit)? = null,
 ) {
     private var allPhotos by mutableStateOf(initial.distinctBy { it.galleryKey })
         private set
@@ -116,6 +121,10 @@ class PhotoBook(
     }
 
     suspend fun renew(forced: Boolean = false) {
+        if (!paged) {
+            externalRenew?.invoke(forced)
+            return
+        }
         val now = SystemClock.elapsedRealtime()
         if (!paged || renewing || loading || (!forced && renewedAt?.let { now - it < 30_000 } == true)) return
         renewing = true
@@ -161,12 +170,17 @@ fun GalleryStrip(
     visitorsOnly: Boolean = false,
     paged: Boolean = true,
     modifier: Modifier = Modifier,
+    onRenew: (suspend (Boolean) -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     // 차단·풀기가 일어나면(MZ2AZ-461) 책을 새로 만든다 — 나가 있던 「다음 쪽」·주소 갱신 응답이 옛 책에만 쓰이고, 차단한 사람의
     // 방문자 사진이 새 책에 섞이지 않는다. 부른 쪽은 그 사이 `ReviewRules.withoutReviewPhotos` 로 비운 목록을 준다.
     val moderation by ModerationEvents.shared.version.collectAsState()
-    val book = remember(subject, photos, total, visitorsOnly, moderation) { PhotoBook(subject, photos, total, visitorsOnly, paged) }
+    val renewal by rememberUpdatedState(onRenew)
+    val book =
+        remember(subject, photos, total, visitorsOnly, moderation) {
+            PhotoBook(subject, photos, total, visitorsOnly, paged, externalRenew = { forced -> renewal?.invoke(forced) })
+        }
     val pager = rememberPagerState(pageCount = { book.photos.size })
     var viewer by remember { mutableStateOf<Int?>(null) }
     var grid by remember { mutableStateOf(false) }
@@ -277,6 +291,9 @@ private fun GalleryImage(
     fits: Boolean = ReviewRules.preservesPhotoFrame(photo),
     dark: Boolean = false,
 ) {
+    // 서명된 주소(리뷰어가 올린 사진)만 한 시간 뒤 죽는다. 저절로 새 주소를 청하는 것은 **사진마다 한 번**이다(iOS `renewsAfterFailure`).
+    val signed = photo.source == PhotoSource.review
+    var renewedFor by remember(photo.galleryKey) { mutableStateOf(false) }
     RemoteImage(
         photo.url.toString(),
         modifier,
@@ -285,8 +302,14 @@ private fun GalleryImage(
         cacheKey = photo.galleryKey,
         edge = edge,
         retryable = true,
-        onFailure = { if (photo.source == PhotoSource.review) onFailure() },
-        onRetry = onRetry,
+        onFailure = {
+            if (PhotoRenewalRules.renewsAfterFailure(signed, renewedFor)) {
+                renewedFor = true
+                onFailure()
+            }
+        },
+        // 사람이 눌렀다 — 서명된 주소면 새 주소부터 받는다. 죽은 주소로는 몇 번을 해도 같다.
+        onRetry = { if (signed) onRetry() },
     )
 }
 

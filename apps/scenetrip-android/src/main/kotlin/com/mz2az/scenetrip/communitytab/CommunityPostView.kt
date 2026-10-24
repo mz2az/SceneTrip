@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,12 +39,14 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CommunityArticle
+import com.mz2az.scenetrip.data.CommunityPhotoRefresh
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.ModerationController
 import com.mz2az.scenetrip.data.ModerationRules
 import com.mz2az.scenetrip.data.ModerationTarget
 import com.mz2az.scenetrip.data.NetworkFailure
+import com.mz2az.scenetrip.data.PhotoRenewal
 import com.mz2az.scenetrip.data.PostCourse
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.data.apiResult
@@ -52,6 +56,7 @@ import com.mz2az.scenetrip.reviews.ModerationSheets
 import com.mz2az.scenetrip.reviews.rememberModerationController
 import com.mz2az.scenetrip.ui.CheckmarkIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.LocalPhotoRenew
 import com.mz2az.scenetrip.ui.XMarkIcon
 import kotlinx.coroutines.launch
 
@@ -79,13 +84,34 @@ fun CommunityPostView(
     var loading by remember(post.id) { mutableStateOf(false) }
     var loadMessage by remember(post.id) { mutableStateOf<String?>(null) }
     var revision by remember(post.id) { mutableStateOf(0) }
-    val content = loaded ?: post
+    // 사진 주소가 죽으면 글을 다시 읽어 새 주소로 바꾼다(MZ2AZ-477). 새 주소가 오면 사진·본문 블록·출처가 함께 바뀐다.
+    var refreshed by remember(post.id) { mutableStateOf<CommunityPost?>(null) }
+    val photoRefresh =
+        remember(post.id) {
+            CommunityPhotoRefresh(post, { AuthStore.epoch }, { store.detail(it) }, PhotoRenewal(scope)) { refreshed = it }
+        }
+    val renewPhotos =
+        remember(photoRefresh) {
+            { forced: Boolean ->
+                scope.launch { photoRefresh.renew(forced) }
+                Unit
+            }
+        }
+    DisposableEffect(photoRefresh) { onDispose { photoRefresh.cancelPending() } }
+    val content = refreshed ?: loaded ?: post
     LaunchedEffect(post.id, revision, AuthStore.epoch, AppLanguage.current) {
+        photoRefresh.invalidate()
         loaded = null
         if (post.serverId != null) {
             loading = true
             loadMessage = null
-            apiResult { store.detail(post) }.fold(onSuccess = { loaded = it }, onFailure = { loadMessage = NetworkFailure.of(it).message })
+            apiResult { store.detail(post) }.fold(
+                onSuccess = {
+                    loaded = it
+                    photoRefresh.show(it)
+                },
+                onFailure = { loadMessage = NetworkFailure.of(it).message },
+            )
             loading = false
         }
     }
@@ -102,102 +128,104 @@ fun CommunityPostView(
     fun shown(stops: List<PostCourse.Stop>) = if (expanded) stops else stops.take(PREVIEW_STOPS)
 
     Box(Modifier.fillMaxSize().background(IOS.systemBackground)) {
-        LazyColumn(Modifier.fillMaxSize()) {
-            if (post.serverId != null && loaded == null) {
-                item {
-                    if (loading) {
-                        Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(Modifier.size(24.dp), color = IOS.accent)
+        CompositionLocalProvider(LocalPhotoRenew provides renewPhotos) {
+            LazyColumn(Modifier.fillMaxSize()) {
+                if (post.serverId != null && loaded == null) {
+                    item {
+                        if (loading) {
+                            Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(Modifier.size(24.dp), color = IOS.accent)
+                            }
+                        }
+                        loadMessage?.let {
+                            Text(it, color = IOS.secondaryLabel, modifier = Modifier.padding(20.dp))
+                            CommunityListButton("다시 시도", !loading) { revision++ }
                         }
                     }
-                    loadMessage?.let {
-                        Text(it, color = IOS.secondaryLabel, modifier = Modifier.padding(20.dp))
-                        CommunityListButton("다시 시도", !loading) { revision++ }
-                    }
-                }
-            } else {
-                val photos =
-                    if (content.remotePhotos.isNotEmpty()) {
-                        content.remotePhotos.map(
-                            CommunityPhotoSource::Remote,
-                        )
-                    } else {
-                        content.photos.orEmpty().map(CommunityPhotoSource::Local)
-                    }
-                val blocks = content.bodyBlocks ?: CommunityArticle.legacy(content.body, photos.size)
-                photos.firstOrNull()?.let { cover ->
-                    item {
-                        CommunityArticlePhoto(
-                            cover,
-                            blocks.coverBlock(),
-                            representative = true,
-                            modifier = Modifier.padding(horizontal = 20.dp).padding(top = 14.dp),
-                        )
-                    }
-                }
-                item {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
-                    ) {
-                        Text(content.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label)
-
-                        AuthorRow(content, moderation)
-                    }
-                }
-                itemsIndexed(blocks) { _, block ->
-                    CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp).padding(bottom = 22.dp))
-                }
-                item {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 18.dp),
-                    ) {
-                        val course = content.course
-                        if (course != null) {
-                            CourseCard(
-                                course = course,
-                                expanded = expanded,
-                                shown = ::shown,
-                                allowSaving = content.serverId != null,
-                                saving = saving,
-                                savedCourseId = savedCourseId,
-                                onExpand = { expanded = true },
-                                onSave = {
-                                    if (!AuthStore.signedIn) {
-                                        AuthStore.promptSignIn()
-                                        return@CourseCard
-                                    }
-                                    saving = true
-                                    scope.launch {
-                                        val account = AuthStore.epoch
-                                        apiResult { store.saveCourse(content) }.fold(
-                                            onSuccess = { if (account == AuthStore.epoch) savedCourseId = it.id },
-                                            onFailure = { if (account == AuthStore.epoch) saveFailed = true },
-                                        )
-                                        saving = false
-                                    }
-                                },
-                                onOpenSaved = {
-                                    savedCourseId?.let { id ->
-                                        onDismiss()
-                                        TabRouter.openCourse(id)
-                                    }
-                                },
+                } else {
+                    val photos =
+                        if (content.remotePhotos.isNotEmpty()) {
+                            content.remotePhotos.map(
+                                CommunityPhotoSource::Remote,
                             )
-                        } else if (content.courseTitle != null) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(IOS.systemGray6)
-                                        .padding(12.dp),
-                            ) {
-                                PostCourseBadge(size = 30.dp)
-                                Text(content.courseTitle!!, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                        } else {
+                            content.photos.orEmpty().map(CommunityPhotoSource::Local)
+                        }
+                    val blocks = content.bodyBlocks ?: CommunityArticle.legacy(content.body, photos.size)
+                    photos.firstOrNull()?.let { cover ->
+                        item {
+                            CommunityArticlePhoto(
+                                cover,
+                                blocks.coverBlock(),
+                                representative = true,
+                                modifier = Modifier.padding(horizontal = 20.dp).padding(top = 14.dp),
+                            )
+                        }
+                    }
+                    item {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                        ) {
+                            Text(content.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+
+                            AuthorRow(content, moderation)
+                        }
+                    }
+                    itemsIndexed(blocks) { _, block ->
+                        CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp).padding(bottom = 22.dp))
+                    }
+                    item {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 18.dp),
+                        ) {
+                            val course = content.course
+                            if (course != null) {
+                                CourseCard(
+                                    course = course,
+                                    expanded = expanded,
+                                    shown = ::shown,
+                                    allowSaving = content.serverId != null,
+                                    saving = saving,
+                                    savedCourseId = savedCourseId,
+                                    onExpand = { expanded = true },
+                                    onSave = {
+                                        if (!AuthStore.signedIn) {
+                                            AuthStore.promptSignIn()
+                                            return@CourseCard
+                                        }
+                                        saving = true
+                                        scope.launch {
+                                            val account = AuthStore.epoch
+                                            apiResult { store.saveCourse(content) }.fold(
+                                                onSuccess = { if (account == AuthStore.epoch) savedCourseId = it.id },
+                                                onFailure = { if (account == AuthStore.epoch) saveFailed = true },
+                                            )
+                                            saving = false
+                                        }
+                                    },
+                                    onOpenSaved = {
+                                        savedCourseId?.let { id ->
+                                            onDismiss()
+                                            TabRouter.openCourse(id)
+                                        }
+                                    },
+                                )
+                            } else if (content.courseTitle != null) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(IOS.systemGray6)
+                                            .padding(12.dp),
+                                ) {
+                                    PostCourseBadge(size = 30.dp)
+                                    Text(content.courseTitle!!, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                                }
                             }
                         }
                     }

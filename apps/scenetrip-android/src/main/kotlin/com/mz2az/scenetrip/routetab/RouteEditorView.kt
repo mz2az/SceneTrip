@@ -89,6 +89,7 @@ import com.mz2az.scenetrip.searchtab.BottomSheet
 import com.mz2az.scenetrip.searchtab.Detent
 import com.mz2az.scenetrip.searchtab.LocationTracker
 import com.mz2az.scenetrip.searchtab.MapPins
+import com.mz2az.scenetrip.searchtab.MyLocationPulse
 import com.mz2az.scenetrip.searchtab.NaverMapCanvas
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.centerOn
@@ -1026,7 +1027,12 @@ fun RouteEditorView(
                         TripSession.Phase.PLAN -> null
                     },
             )
-            MyLocationPulse(map = map, visible = if (trip.isActive) trip.here != null else showingMe && myLocation != null)
+            // 내 자리의 레이더 파문 — 검색 탭과 같은 세 겹(`searchtab/RadarPulse.kt`, iOS `RadarPulse`). 위치 오버레이 좌표를 읽는다.
+            MyLocationPulse(
+                map = map,
+                requireTracking = false,
+                visible = if (trip.isActive) trip.here != null else showingMe && myLocation != null,
+            )
             FootprintTrail(
                 map = map,
                 points =

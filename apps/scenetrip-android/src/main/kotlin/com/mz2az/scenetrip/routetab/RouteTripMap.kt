@@ -1,8 +1,6 @@
 package com.mz2az.scenetrip.routetab
 
-import android.animation.ValueAnimator
 import android.graphics.PointF
-import android.view.animation.LinearInterpolator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -218,48 +216,5 @@ fun TripPreviewLine(
                 this.map = map
             }
         onDispose { overlay.map = null }
-    }
-}
-
-/**
- * 내 자리의 **레이더 파문** (iOS `RadarPulse`). 가운데 점에서 원이 퍼져 나가며 옅어진다 — 지도에는 점이 많고, 그중 **지금 내가 선
- * 자리**만은 한눈에 찾아야 한다. 움직이는 것은 눈이 먼저 잡는다.
- *
- * 마커 이미지를 갈아 끼우지 않고 SDK 의 위치 오버레이 원(`circleRadius`·`circleColor`)을 애니메이션한다. iOS 는 세 겹이 어긋나게
- * 퍼지는데 SDK 의 위치 오버레이는 원을 하나만 가질 수 있어 한 겹이다.
- */
-@Composable
-fun MyLocationPulse(
-    map: NaverMap?,
-    visible: Boolean,
-) {
-    if (map == null) return
-    val density = LocalContext.current.resources.displayMetrics.density
-    DisposableEffect(map, visible) {
-        val overlay = map.locationOverlay
-        var animator: ValueAnimator? = null
-        if (visible) {
-            // 가장 크게 퍼졌을 때의 지름 88dp, 퍼지는 데 2.2초, 작고 진하게 시작해(0.18) 커지면서 옅어진다.
-            val spread = 44f * density
-            val accent = IOS.accent.toArgb()
-            animator =
-                ValueAnimator.ofFloat(0f, 1f).apply {
-                    duration = 2_200
-                    repeatCount = ValueAnimator.INFINITE
-                    interpolator = LinearInterpolator()
-                    addUpdateListener {
-                        val t = it.animatedFraction
-                        overlay.circleRadius = (spread * (0.18f + 0.82f * t)).toInt()
-                        // 끝에서 빨리 옅어져야 「사라졌다」로 보인다(ease-out).
-                        val alpha = (255 * 0.22f * 0.9f * (1f - t) * (1f - t)).toInt()
-                        overlay.circleColor = (alpha shl 24) or (accent and 0x00FFFFFF)
-                    }
-                    start()
-                }
-        }
-        onDispose {
-            animator?.cancel()
-            overlay.circleRadius = 0
-        }
     }
 }
