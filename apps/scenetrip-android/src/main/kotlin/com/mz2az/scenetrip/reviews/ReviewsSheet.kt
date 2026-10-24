@@ -117,6 +117,8 @@ fun ReviewRow(
     onEdit: (() -> Unit)? = null,
     // 남의 리뷰에 「⋯」(신고·차단)를 둔다 — 리뷰 시트가 준다(MZ2AZ-461). 없으면 메뉴가 없다.
     moderation: ModerationController? = null,
+    // 리뷰 사진을 못 받았을 때 목록을 다시 받아 새 주소를 받는 길(MZ2AZ-477) — 리뷰 시트가 준다.
+    onRenewPhotos: (suspend (Boolean) -> Unit)? = null,
 ) {
     val menu = moderation != null && ModerationRules.showsMenu(isMine = review.isMine)
     val whenText = remember(review.createdAt) { RelativeTime.format(review.createdAt) }
@@ -174,7 +176,7 @@ fun ReviewRow(
             }
         }
         if (review.photos.isNotEmpty()) {
-            ReviewPhotoThumbs(subject, review.id, review.photos)
+            ReviewPhotoThumbs(subject, review.id, review.photos, onRenew = onRenewPhotos)
         }
     }
 }
@@ -192,7 +194,7 @@ fun ReviewsSheet(
         androidx.compose.foundation.lazy
             .rememberLazyListState()
     // 목록 받기는 세대를 세는 한 곳이 맡는다 — 차단 뒤 늦게 온 응답이 지운 리뷰를 되살리지 못한다(MZ2AZ-461).
-    val listing = remember(subject) { ReviewListStore({ sort, offset -> subject.list(sort, offset) }, { AuthStore.epoch }) }
+    val listing = remember(subject) { ReviewListStore({ sort, offset -> subject.list(sort, offset) }, { AuthStore.epoch }, scope) }
     val list by listing.ui.collectAsState()
     val reviews = list.reviews
     val summary = list.summary
@@ -362,7 +364,13 @@ fun ReviewsSheet(
                                             .background(IOS.accent.copy(alpha = if (lit == row.id) 0.1f else 0f))
                                             .padding(horizontal = 16.dp, vertical = 14.dp),
                                     ) {
-                                        ReviewRow(row, subject, onEdit = { composing = true }, moderation = moderation)
+                                        ReviewRow(
+                                            row,
+                                            subject,
+                                            onEdit = { composing = true },
+                                            moderation = moderation,
+                                            onRenewPhotos = { forced -> listing.renewPhotos(forced) },
+                                        )
                                     }
                                     HorizontalDivider(
                                         Modifier.padding(start = 16.dp),
@@ -376,7 +384,7 @@ fun ReviewsSheet(
                                     ReviewMoreFooter(list.moreFailed, onRetry = { listing.retryMore() })
                                     // 열쇠가 바뀌면 앞 작업은 취소되고 새로 돈다 — 플래그로 막지 않는다.
                                     if (!list.moreFailed) {
-                                        LaunchedEffect(reviews.size, sort, revision) { load() }
+                                        LaunchedEffect(reviews.size, sort, revision, list.revision) { load() }
                                     }
                                 }
                             }

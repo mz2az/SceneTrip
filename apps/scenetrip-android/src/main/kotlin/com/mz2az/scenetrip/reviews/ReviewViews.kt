@@ -24,6 +24,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +56,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.ReviewPhoto
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.XMarkIcon
+import kotlinx.coroutines.launch
 
 /*
  * 리뷰 화면들이 같이 쓰는 부품 (MZ2AZ-476). iOS `ReviewSummaryView`·`StarRow`·`StarPicker`·`SheetHeader`·`ReviewPhotoThumbs`·
@@ -335,21 +338,30 @@ fun ReviewPhotoThumbs(
     reviewId: Long,
     photos: List<ReviewPhoto>,
     size: Dp = 84.dp,
+    // 사진을 못 받았을 때 그 사진이 든 목록이 새 주소를 받는 길(MZ2AZ-477) — 이 줄은 사진첩을 따로 다시 받을 수 없다.
+    onRenew: (suspend (Boolean) -> Unit)? = null,
 ) {
+    val scope = rememberCoroutineScope()
+    val renewal by rememberUpdatedState(onRenew)
     val items = remember(photos) { photos.map { Photo(url = it.url, source = PhotoSource.review, reviewId = reviewId) } }
-    val book = remember(subject, items) { PhotoBook(subject, items, items.size, paged = false) }
+    val book =
+        remember(subject, items) {
+            PhotoBook(subject, items, items.size, paged = false, externalRenew = { forced ->
+                renewal?.invoke(forced)
+            })
+        }
     var viewing by remember { mutableStateOf<Int?>(null) }
     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         itemsIndexed(items, key = { _, photo -> photo.galleryKey }) { number, photo ->
-            RemoteImage(
-                photo.url.toString(),
+            GalleryImage(
+                photo,
                 Modifier
                     .size(size)
                     .clip(RoundedCornerShape(8.dp))
                     .semantics { contentDescription = tr("사진 %d").format(number + 1) }
                     .clickable { viewing = number },
-                cacheKey = photo.galleryKey,
-                retryable = true,
+                onFailure = { scope.launch { book.renew() } },
+                onRetry = { scope.launch { book.renew(true) } },
             )
         }
     }
@@ -372,6 +384,7 @@ fun VisitorPhotoStrip(
     // 차단·풀기가 일어나면(MZ2AZ-461) 책을 새로 만든다 — 차단한 사람의 사진이 새 책에 섞이지 않는다.
     val moderation by ModerationEvents.shared.version.collectAsState()
     val book = remember(subject, photos, total, moderation) { PhotoBook(subject, photos, total, visitorsOnly = true) }
+    val scope = rememberCoroutineScope()
     var viewing by remember { mutableStateOf<Int?>(null) }
     var browsing by remember { mutableStateOf(false) }
     LaunchedEffect(book) { book.seekVisitors() }
@@ -400,15 +413,15 @@ fun VisitorPhotoStrip(
         ) {
             itemsIndexed(shown, key = { _, photo -> photo.galleryKey }) { number, photo ->
                 LaunchedEffect(number) { if (number >= shown.size - 5) book.more() }
-                RemoteImage(
-                    photo.url.toString(),
+                GalleryImage(
+                    photo,
                     Modifier
                         .size(84.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .semantics { contentDescription = tr("사진 %d / %d").format(number + 1, maxOf(book.total, number + 1)) }
                         .clickable { viewing = number },
-                    cacheKey = photo.galleryKey,
-                    retryable = true,
+                    onFailure = { scope.launch { book.renew() } },
+                    onRetry = { scope.launch { book.renew(true) } },
                 )
             }
         }

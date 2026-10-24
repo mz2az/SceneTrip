@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.analytics.AppEvent
+import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.sceneapi.client.api.CartApi
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.sceneapi.client.model.CartItemCreate
@@ -43,7 +44,7 @@ class CartStore(
     constructor(context: Context) : this(ServerCartClient(InstallIdentity.of(context)))
 
     private var snapshot by mutableStateOf(CartState())
-    private val session = CartSession(client) { snapshot = it }
+    private val session = CartSession(client, epoch = { AuthStore.epoch }) { snapshot = it }
     val items: List<CartItem> get() = snapshot.items
     val toast: String? get() = snapshot.toast
 
@@ -54,6 +55,11 @@ class CartStore(
 
     suspend fun refresh() {
         session.refresh()
+    }
+
+    /** 계정이 바뀌었다 — 이전 계정의 담긴 것을 먼저 비운다. */
+    fun reset() {
+        session.reset()
     }
 
     /**

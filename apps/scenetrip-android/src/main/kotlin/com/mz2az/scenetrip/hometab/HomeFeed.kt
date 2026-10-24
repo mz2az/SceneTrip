@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.communitytab.CommunityCoverPhoto
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.ModerationController
@@ -40,7 +41,6 @@ import com.mz2az.scenetrip.data.ModerationTarget
 import com.mz2az.scenetrip.data.VisitStamp
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.reviews.ModerationMenu
-import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.IOS
 
 /** 커뮤니티 지금 — 최근 글 둘. 게시판 배지 · 제목 · 하트 자리. */
@@ -109,11 +109,13 @@ private fun CommunityPostRow(
     ) {
         Text(post.title, fontSize = 14.sp, maxLines = 2, color = IOS.label, modifier = Modifier.weight(1f))
         // 말머리가 하나뿐이라 딱지는 없다. 대표 사진이 있으면 그것이 줄의 얼굴이다 (iOS `CommunityCoverPhoto`, 44×44·모서리 9).
+        val store = remember { CommunityStore.getInstance(context) }
         val remote = post.remotePhotos.firstOrNull()
-        val bitmap = post.photos?.firstOrNull()?.let { name -> remember(name) { CommunityStore.getInstance(context).photo(name) } }
+        val bitmap = post.photos?.firstOrNull()?.let { name -> remember(name) { store.photo(name) } }
         val photoModifier = Modifier.size(44.dp).clip(RoundedCornerShape(9.dp))
         if (remote != null) {
-            RemoteImage(remote, photoModifier, retryable = true)
+            // 주소가 죽으면(한 시간) 그 글을 다시 읽어 새 주소로 바꾼다 — 목록 줄과 같다 (MZ2AZ-477, iOS `CommunityCoverPhoto`).
+            CommunityCoverPhoto(post, store, photoModifier)
         } else if (bitmap != null) {
             Image(bitmap.asImageBitmap(), null, photoModifier, contentScale = ContentScale.Crop)
         }

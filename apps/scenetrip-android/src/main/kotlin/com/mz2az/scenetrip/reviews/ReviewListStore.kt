@@ -1,15 +1,24 @@
 package com.mz2az.scenetrip.reviews
 
 import com.mz2az.scenetrip.data.NetworkFailure
+import com.mz2az.scenetrip.data.PhotoPages
+import com.mz2az.scenetrip.data.PhotoRenewal
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.sceneapi.client.model.RatingSummary
 import com.mz2az.scenetrip.sceneapi.client.model.Review
 import com.mz2az.scenetrip.sceneapi.client.model.ReviewList
 import com.mz2az.scenetrip.sceneapi.client.model.ReviewSort
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
 
 /** 목록 화면의 큰 상태 (iOS `ReviewListStore.Phase`) — 첫 쪽을 기다리는 동안은 스피너만, 못 받으면 「다시 시도」, 받으면 목록. */
 enum class ReviewListPhase { LOADING, LOADED, FAILED }
@@ -26,6 +35,8 @@ data class ReviewListUi(
     val phase: ReviewListPhase = ReviewListPhase.LOADING,
     /** 다음 쪽을 못 받았다. 돌아가는 표시 대신 「더 불러오지 못했어요 · 다시 시도」 를 보인다. */
     val moreFailed: Boolean = false,
+    /** 사진 주소를 새로 받아 목록을 갈아 끼울 때마다 오른다 — 멈춰 있던 「다음 쪽」 받기를 다시 깨운다(iOS 가 세대를 올리는 자리). */
+    val revision: Int = 0,
 )
 
 /**
@@ -35,12 +46,18 @@ data class ReviewListUi(
 class ReviewListStore(
     private val fetch: suspend (sort: ReviewSort, offset: Int) -> ReviewList,
     private val accountEpoch: () -> Int,
+    renewScope: CoroutineScope = CoroutineScope(SupervisorJob()),
 ) {
     private val state = MutableStateFlow(ReviewListUi())
     val ui: StateFlow<ReviewListUi> = state.asStateFlow()
 
     /** 통째로 다시 받거나 줄을 뺄 때마다 오른다 — 그 전에 떠난 응답을 버린다. */
     private var generation = 0
+
+    // 사진 주소 갱신(MZ2AZ-477). 마지막으로 받은 정렬로 읽은 만큼을 다시 받는다. 도는 동안은 「다음 쪽」 을 받지 않는다.
+    private val renewal = PhotoRenewal(renewScope)
+    private var lastSort: ReviewSort? = null
+    private var renewing = false
 
     /**
      * [reset] 이면 첫 쪽부터 다시 받는다 — 나가 있는 요청이 있어도 그것을 버리고 새로 받는다.
@@ -50,7 +67,9 @@ class ReviewListStore(
         sort: ReviewSort,
         reset: Boolean = false,
     ) {
-        if (state.value.loading && !reset) return
+        if ((state.value.loading || renewing) && !reset) return
+        if (reset) stopRenewing()
+        lastSort = sort
         val epoch = accountEpoch()
         val request = ++generation
         val from = if (reset) 0 else state.value.offset
@@ -111,6 +130,7 @@ class ReviewListStore(
      */
     fun prepareSortChange() {
         generation++
+        stopRenewing()
         state.update { it.copy(total = it.reviews.size, phase = ReviewListPhase.LOADING, loading = false, moreFailed = false) }
     }
 
@@ -120,6 +140,7 @@ class ReviewListStore(
      */
     fun drop(reviewId: Long) {
         generation++
+        stopRenewing()
         state.update {
             if (it.reviews.none { row -> row.id == reviewId }) {
                 it.copy(loading = false)
@@ -138,6 +159,58 @@ class ReviewListStore(
     /** 다른 화면에서 차단·풀기가 일어났다 — 나가 있는 받기를 버린다. 이어서 [load] 를 `reset` 으로 부른다. */
     fun invalidate() {
         generation++
+        stopRenewing()
         state.update { it.copy(loading = false) }
+    }
+
+    private fun stopRenewing() {
+        renewal.cancel()
+        renewing = false
+    }
+
+    /**
+     * 리뷰 사진을 못 받았다 — **읽은 만큼을 새 주소로 다시 받아** 갈아 끼운다(리뷰 사진의 주소는 한 시간 뒤 죽는다). iOS
+     * `ReviewListStore.renewPhotos`. `forced` 는 사람이 「다시 받기」를 누른 것 — 아니면 30초에 한 번만 나간다.
+     * 도중에 못 받거나 정렬·계정·목록이 바뀌었으면 아무것도 바꾸지 않는다.
+     */
+    suspend fun renewPhotos(forced: Boolean) {
+        val sort = lastSort ?: return
+        if (state.value.reviews.isEmpty()) return
+        renewal.run(forced) {
+            val epoch = accountEpoch()
+            val request = ++generation
+            val count = state.value.reviews.size
+            renewing = true
+            try {
+                var freshSummary: RatingSummary? = null
+                val page =
+                    PhotoPages.refetch(count, { it.id }) { from ->
+                        if (request != generation || epoch != accountEpoch()) throw CancellationException("목록이 바뀌었다")
+                        val fresh = withContext(Dispatchers.IO) { fetch(sort, from) }
+                        if (from == 0) freshSummary = fresh.summary
+                        PhotoPages.Page(fresh.items, fresh.total)
+                    }
+                currentCoroutineContext().ensureActive()
+                if (request != generation || epoch != accountEpoch() || count != state.value.reviews.size) {
+                    throw CancellationException("목록이 바뀌었다")
+                }
+                state.update {
+                    it.copy(
+                        reviews = page.items,
+                        summary = freshSummary,
+                        total = page.total,
+                        offset = page.items.size,
+                        error = null,
+                        moreFailed = false,
+                    )
+                }
+            } finally {
+                if (request == generation) {
+                    renewing = false
+                    // 새 순서에 맞춰 다음 쪽 받기가 다시 실행된다.
+                    state.update { it.copy(revision = it.revision + 1) }
+                }
+            }
+        }
     }
 }

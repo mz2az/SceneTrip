@@ -15,6 +15,8 @@ data class NetworkFailure(
     val status: Int?,
     val code: String?,
     val retryAfter: Int?,
+    /** 오류 본문의 `traceId`. 500 응답에만 실린다. */
+    val traceId: String? = null,
     /** 응답이 없었고 기기가 오프라인이다 — 서버 탓이 아니라 「인터넷 연결」 을 말한다 ([ApiFailure.isOffline]). */
     val offline: Boolean = false,
 ) {
@@ -110,7 +112,13 @@ data class NetworkFailure(
                     ?.value
                     ?.firstOrNull()
                     ?.toIntOrNull()
-            return NetworkFailure(api?.statusCode, AuthRules.apiCode(body), retry, offline = api == null && DeviceNetwork.isOffline())
+            return NetworkFailure(
+                api?.statusCode,
+                AuthRules.apiCode(body),
+                retry,
+                AuthRules.traceId(body),
+                offline = api == null && (ApiFailure.isOffline(error) || DeviceNetwork.isOffline()),
+            )
         }
     }
 }

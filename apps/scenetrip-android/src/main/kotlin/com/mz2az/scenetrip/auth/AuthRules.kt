@@ -43,6 +43,11 @@ object AuthRules {
 
     private val codePattern = Regex("\"code\"\\s*:\\s*\"([A-Z_]+)\"")
 
+    private val traceIdPattern = Regex("\"traceId\"\\s*:\\s*\"([^\"]+)\"")
+
+    /** 오류 본문의 `traceId` — 500 응답에만 실린다. 다른 코드에서는 키 자체가 빠진다. */
+    fun traceId(body: String?): String? = body?.let { traceIdPattern.find(it)?.groupValues?.get(1) }
+
     /** 오류 본문의 `code`. 본문이 없거나 우리 모양이 아니면 `null`. */
     fun apiCode(body: String?): String? = body?.let { codePattern.find(it)?.groupValues?.get(1) }
 

@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.PhotoPages
+import com.mz2az.scenetrip.data.PhotoRenewal
 import com.mz2az.scenetrip.data.RelativeTime
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
@@ -49,7 +51,12 @@ import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.SheetDetent
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** 내 리뷰 목록의 순수 규칙 (iOS `MyReviewRules`). */
 object MyReviewRules {
@@ -102,8 +109,15 @@ fun MyReviewsView(onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     val korean = AppLanguage.current == Lang.ko
 
+    // 리뷰 사진의 주소는 한 시간 뒤 죽는다 — 못 받으면 읽은 만큼을 다시 받아 새 주소로 갈아 끼운다(MZ2AZ-477, iOS `renewPhotos`).
+    val renewal = remember { PhotoRenewal(scope) }
+    var renewing by remember { mutableStateOf(false) }
+    var renewed by remember { mutableStateOf(0) }
+
     suspend fun reload() {
         if (!AuthStore.signedIn) return
+        renewal.cancel()
+        renewing = false
         val asked = ++generation
         val epoch = AuthStore.epoch
         phase = ReviewListPhase.LOADING
@@ -121,7 +135,11 @@ fun MyReviewsView(onClose: () -> Unit) {
     }
 
     suspend fun loadMore() {
-        if (phase != ReviewListPhase.LOADED || loadingMore || !AuthStore.signedIn || !ReviewRules.hasMore(rows.size, total)) return
+        if (phase != ReviewListPhase.LOADED || loadingMore || renewing || !AuthStore.signedIn ||
+            !ReviewRules.hasMore(rows.size, total)
+        ) {
+            return
+        }
         val asked = generation
         val epoch = AuthStore.epoch
         val from = rows.size
@@ -143,10 +161,48 @@ fun MyReviewsView(onClose: () -> Unit) {
         }
     }
 
+    suspend fun renewPhotos(forced: Boolean) {
+        if (phase != ReviewListPhase.LOADED || rows.isEmpty() || !AuthStore.signedIn) return
+        renewal.run(forced) {
+            val epoch = AuthStore.epoch
+            val request = ++generation
+            val count = rows.size
+            renewing = true
+            try {
+                val page =
+                    PhotoPages.refetch(count, { it.id }) { from ->
+                        if (!AuthStore.signedIn || request != generation || epoch != AuthStore.epoch) {
+                            throw CancellationException("목록이 바뀌었다")
+                        }
+                        val fresh =
+                            withContext(
+                                Dispatchers.IO,
+                            ) { ReviewsApi(API_BASE).listMyReviews(acceptLanguage = AppLanguage.current, offset = from) }
+                        PhotoPages.Page(fresh.items, fresh.total)
+                    }
+                currentCoroutineContext().ensureActive()
+                if (!AuthStore.signedIn || request != generation || epoch != AuthStore.epoch || count != rows.size) {
+                    throw CancellationException("목록이 바뀌었다")
+                }
+                rows = page.items
+                total = page.total
+                moreFailed = false
+            } finally {
+                if (request == generation) {
+                    renewing = false
+                    // 새 순서에 맞춰 다음 쪽 받기가 다시 실행된다.
+                    renewed++
+                }
+            }
+        }
+    }
+
     // 계정이 바뀌면 앞 계정의 줄을 치우고 다시 받는다. 세션이 풀리면 닫는다 — 내 리뷰는 로그인한 사람의 것이고, 남겨 두면
     // 「불러오지 못했어요」 만 반복된다.
     LaunchedEffect(AuthStore.epoch) {
         generation++
+        renewal.cancel()
+        renewing = false
         rows = emptyList()
         total = 0
         poiNames.clear()
@@ -245,7 +301,7 @@ fun MyReviewsView(onClose: () -> Unit) {
                         if (ReviewRules.hasMore(rows.size, total)) {
                             item(key = "more") {
                                 ReviewMoreFooter(moreFailed, onRetry = { moreFailed = false })
-                                if (!moreFailed) LaunchedEffect(generation, rows.size) { loadMore() }
+                                if (!moreFailed) LaunchedEffect(generation, rows.size, renewed) { loadMore() }
                             }
                         }
                     }
