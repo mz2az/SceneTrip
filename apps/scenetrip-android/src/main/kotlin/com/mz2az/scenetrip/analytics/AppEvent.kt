@@ -110,6 +110,14 @@ sealed class AppEvent {
         override val parameters = mapOf("poi_id" to poiId)
     }
 
+    /** 닉네임을 정했다·건너뛰었다(MZ2AZ-363). **닉네임 자체는 보내지 않는다.** */
+    data class SetNickname(
+        val skipped: Boolean,
+    ) : AppEvent() {
+        override val name = "set_nickname"
+        override val parameters = mapOf("skipped" to if (skipped) 1 else 0)
+    }
+
     /** 리뷰 시트를 열었다(MZ2AZ-363). `targetType` 은 `place`·`poi`. */
     data class ViewReviews(
         val targetType: String,

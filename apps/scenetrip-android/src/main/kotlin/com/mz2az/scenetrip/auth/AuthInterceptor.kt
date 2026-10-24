@@ -127,12 +127,16 @@ object PendingWrites {
         count.updateAndGet { maxOf(0, it - 1) }
     }
 
-    /** 쓰기가 다 끝날 때까지, 길어야 3초 기다린다. */
+    /** 3초를 기다려도 쓰기가 남아 있다 — 로그인을 시작하지 않는다(iOS `PendingWrites.Failure.stillRunning`). */
+    class StillRunning : Exception("pending writes are still running")
+
+    /** 쓰기가 다 끝날 때까지, 길어야 3초 기다린다. 그래도 남아 있으면 [StillRunning] — 겹치면 합치기 전 계정에 떨어진다(계약). */
     suspend fun settle() {
         repeat(SETTLE_TRIES) {
             if (count.get() == 0) return
             kotlinx.coroutines.delay(SETTLE_STEP_MS)
         }
+        if (count.get() != 0) throw StillRunning()
     }
 
     private const val SETTLE_TRIES = 30

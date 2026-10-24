@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.CommunityRules
 import com.mz2az.scenetrip.data.InstallIdentity
-import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.PostCourse
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
@@ -75,7 +75,7 @@ internal fun CoursePickSheet(
             withContext(
                 Dispatchers.IO,
             ) { CoursesApi(API_BASE).listCourses(InstallIdentity.of(context), acceptLanguage = AppLanguage.current) }
-        }.fold(onSuccess = { courses = it.items }, onFailure = { message = NetworkFailure.of(it).message })
+        }.fold(onSuccess = { courses = it.items }, onFailure = { message = CommunityRules.failureText(it) })
         loading = false
     }
     IOSSheet(listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onDismiss) {
@@ -106,7 +106,7 @@ internal fun CoursePickSheet(
                             if (epoch == AuthStore.epoch) {
                                 result.fold(
                                     onSuccess = { onPick(PostCourse.from(RouteBridge.course(it))) },
-                                    onFailure = { message = NetworkFailure.of(it).message },
+                                    onFailure = { message = CommunityRules.failureText(it) },
                                 )
                             }
                             fetching = null

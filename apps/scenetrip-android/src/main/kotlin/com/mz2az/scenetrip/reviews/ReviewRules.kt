@@ -209,6 +209,20 @@ object ReviewRules {
         }
     }
 
+    /** 닉네임 저장이 실패했을 때 보일 한 줄 — 서버 문장이 아니라 code 로 가른다(MZ2AZ-345). iOS `NicknameView.save` 의 `NicknameOutcome`. */
+    fun nicknameFailureText(code: String?): String =
+        when {
+            code == "NICKNAME_INVALID" -> tr("쓸 수 없는 닉네임이에요. 2~16자, 한글·영문·숫자·밑줄(_)만 쓸 수 있어요")
+
+            code == "NICKNAME_TAKEN" -> tr("이미 쓰는 닉네임입니다")
+
+            com.mz2az.scenetrip.data.ModerationRules.isTextNotAllowed(
+                code,
+            ) -> com.mz2az.scenetrip.data.ModerationRules.textNotAllowedMessage
+
+            else -> tr("저장하지 못했어요. 잠시 뒤 다시 해 주세요")
+        }
+
     fun nickname(raw: String): String = Normalizer.normalize(raw.trim(), Normalizer.Form.NFC)
 
     fun nicknameProblem(raw: String): String? {

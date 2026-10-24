@@ -23,13 +23,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,11 +43,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.API_BASE
+import com.mz2az.scenetrip.data.AccountDataReset
 import com.mz2az.scenetrip.data.AccountDeletionCopy
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CartStore
@@ -59,6 +67,7 @@ import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.data.trCount
 import com.mz2az.scenetrip.onboarding.OnboardingView
 import com.mz2az.scenetrip.onboarding.PinoMascot
+import com.mz2az.scenetrip.reviews.StarBubbleIcon
 import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
 import com.mz2az.scenetrip.ui.BagFillIcon
@@ -74,6 +83,7 @@ import com.mz2az.scenetrip.ui.IOSConfirmPopover
 import com.mz2az.scenetrip.ui.IOSRole
 import com.mz2az.scenetrip.ui.IOSToggle
 import com.mz2az.scenetrip.ui.NoSignIcon
+import com.mz2az.scenetrip.ui.PencilIcon
 import com.mz2az.scenetrip.ui.QuestionCircleIcon
 import com.mz2az.scenetrip.ui.RouteCurveIcon
 import com.mz2az.scenetrip.ui.ShoeprintsIcon
@@ -99,6 +109,7 @@ private val SYSTEM_BLUE = IOS.accent
  * [onClose]는 홈이 덮개로 띄울 때 넘긴다 — 있으면 왼쪽 위에 닫기 단추가 생긴다.
  */
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun ProfileTabView(onClose: (() -> Unit)? = null) {
     val context = LocalContext.current
     val likes = remember { LikeStore.getInstance(context) }
@@ -136,6 +147,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 
     suspend fun load() =
         coroutineScope {
+            val generation = AccountDataReset.generation
             // 넷을 나란히 받는다 — 코스 상세(스탬프용)가 느려도 찜 목록은 바로 뜬다.
             likesLoading = true
             val likesDeferred = async { likes.refresh() }
@@ -145,18 +157,47 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                     runCatching { CoursesApi(API_BASE).listCourses(deviceId) }.getOrNull()
                 }
 
-            likesFailure = if (likesDeferred.await()) null else tr("찜한 작품을 불러오지 못했어요. 잠시 뒤 다시 해 주세요")
+            // 못 받았어도 앞서 받아 둔 목록이 있으면 그것을 보인다 — 찜은 있는데 목록이 빌 때만 「못 받음」 이다.
+            // 오류 원문을 그대로 보이지 않는다 — 서버 문장은 한국어이고 내부 정보가 섞인다 (MZ2AZ-345).
+            val reached = likesDeferred.await()
+            if (generation != AccountDataReset.generation) return@coroutineScope
+            likesFailure =
+                if (reached || likes.works.isNotEmpty() || likes.contentIds.isEmpty()) {
+                    null
+                } else {
+                    tr("찜한 작품을 불러오지 못했어요. 잠시 뒤 다시 해 주세요")
+                }
             likesLoading = false
 
             cartDeferred.await()
-            coursesDeferred.await()?.let {
+            val list = coursesDeferred.await()
+            if (generation != AccountDataReset.generation) return@coroutineScope
+            list?.let {
                 courses = it.items ?: emptyList()
                 courseCount = courses.size
             }
 
             // 방문 스탬프 — 코스마다 상세를 받아 visitedAt이 찍힌 것만 모은다.
-            stamps = runCatching { collectVisitStamps(courses, deviceId) }.getOrDefault(emptyList())
+            val collected = runCatching { collectVisitStamps(courses, deviceId) }.getOrDefault(emptyList())
+            if (generation == AccountDataReset.generation) stamps = collected
         }
+
+    // 로그아웃·탈퇴 — 앞 계정의 코스·스탬프·찜 실패 문구를 먼저 비운다(다시 읽기가 실패해도 남지 않게, iOS `clearAccountData`).
+    DisposableEffect(Unit) {
+        val stop =
+            AccountDataReset.watch {
+                courses = emptyList()
+                courseCount = 0
+                stamps = emptyList()
+                likesFailure = null
+                likesLoading = false
+            }
+        onDispose { stop() }
+    }
+    // 세션이 풀리면 닉네임 바꾸기 시트를 내린다 — 그 밑에서는 로그인 화면이 못 뜬다(차단 목록은 시트가 스스로 닫는다).
+    LaunchedEffect(AuthStore.signedIn) { if (!AuthStore.signedIn) showingNickname = false }
+    var refreshing by remember { mutableStateOf(false) }
+    val refreshScope = rememberCoroutineScope()
 
     // 계정이 바뀌면(로그인·로그아웃·탈퇴) 다시 읽는다 — iOS `.onAccountChange`.
     LaunchedEffect(AuthStore.epoch) {
@@ -174,325 +215,343 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
             }
 
             // iOS insetGrouped List 는 첫 섹션 위에 약 38 을 비운다(2차 대조: 제목→해태 75.5 대 38).
-            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 38.dp)) {
-                item { ProfileHeader(onNickname = { showingNickname = true }) }
-                if (AuthStore.signedIn) {
+            // 당겨서 새로고침 — 내 정보(닉네임)와 찜·코스·스탬프를 다시 읽는다 (iOS `.refreshable`).
+            PullToRefreshBox(
+                isRefreshing = refreshing,
+                onRefresh = {
+                    refreshScope.launch {
+                        refreshing = true
+                        AuthStore.loadMe()
+                        load()
+                        refreshing = false
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 38.dp)) {
+                    item { ProfileHeader(onNickname = { showingNickname = true }) }
                     item {
-                        ProfileSection(tr("내 리뷰")) {
+                        ProfileSection(tr("내 여행")) {
                             ProfileRow(
-                                title = tr("내 리뷰"),
-                                value = "",
-                                onClick = { showingReviews = true },
+                                title = tr("내 코스"),
+                                value = courseCount?.let { tr("%d개").format(it) } ?: "…",
+                                onClick = { showingCourses = true },
                                 chevron = true,
-                                icon = { SquarePencilIcon(IOS.accent, it) },
+                                icon = { RouteCurveIcon(IOS.pinDeep, it) },
+                            )
+                            ProfileDivider()
+                            ProfileRow(
+                                title = tr("찜한 작품"),
+                                value = tr("%d개").format(likes.contentIds.size),
+                                onClick = { showingLikes = true },
+                                chevron = true,
+                                icon = { Icon(Icons.Filled.Favorite, contentDescription = null, tint = IOS.systemRed, modifier = it) },
+                            )
+                            ProfileDivider()
+                            ProfileRow(
+                                title = tr("장바구니"),
+                                value = trCount("%d곳", cart.items.size),
+                                onClick = { showingCart = true },
+                                chevron = true,
+                                icon = { BagFillIcon(SYSTEM_ORANGE, it) },
                             )
                         }
                     }
-                }
 
-                item {
-                    ProfileSection(tr("내 여행")) {
-                        ProfileRow(
-                            title = tr("내 코스"),
-                            value = courseCount?.let { tr("%d개").format(it) } ?: "…",
-                            onClick = { showingCourses = true },
-                            chevron = true,
-                            icon = { RouteCurveIcon(IOS.pinDeep, it) },
-                        )
-                        ProfileDivider()
-                        ProfileRow(
-                            title = tr("찜한 작품"),
-                            value = tr("%d개").format(likes.contentIds.size),
-                            onClick = { showingLikes = true },
-                            chevron = true,
-                            icon = { Icon(Icons.Filled.Favorite, contentDescription = null, tint = IOS.systemRed, modifier = it) },
-                        )
-                        ProfileDivider()
-                        ProfileRow(
-                            title = tr("장바구니"),
-                            value = trCount("%d곳", cart.items.size),
-                            onClick = { showingCart = true },
-                            chevron = true,
-                            icon = { BagFillIcon(SYSTEM_ORANGE, it) },
-                        )
-                    }
-                }
-
-                item {
-                    ProfileSection(tr("방문 스탬프")) {
-                        if (stamps.isEmpty()) {
-                            // iOS: 회색 점선 원 44 + caption 안내문.
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                            ) {
-                                androidx.compose.foundation.Canvas(Modifier.size(44.dp)) {
-                                    val stroke = 2.dp.toPx()
-                                    drawCircle(
-                                        IOS.systemGray4,
-                                        radius = size.minDimension / 2 - stroke / 2,
-                                        style =
-                                            androidx.compose.ui.graphics.drawscope.Stroke(
-                                                width = stroke,
-                                                pathEffect =
-                                                    androidx.compose.ui.graphics.PathEffect
-                                                        .dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx())),
-                                            ),
+                    item {
+                        ProfileSection(tr("방문 스탬프")) {
+                            if (stamps.isEmpty()) {
+                                // iOS: 회색 점선 원 44 + caption 안내문.
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                                ) {
+                                    androidx.compose.foundation.Canvas(Modifier.size(44.dp)) {
+                                        val stroke = 2.dp.toPx()
+                                        drawCircle(
+                                            IOS.systemGray4,
+                                            radius = size.minDimension / 2 - stroke / 2,
+                                            style =
+                                                androidx.compose.ui.graphics.drawscope.Stroke(
+                                                    width = stroke,
+                                                    pathEffect =
+                                                        androidx.compose.ui.graphics.PathEffect
+                                                            .dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx())),
+                                                ),
+                                        )
+                                    }
+                                    Text(
+                                        tr("여행 중 성지 100 m 안에 들어가면 도장이 찍혀요"),
+                                        fontSize = 12.sp,
+                                        color = IOS.secondaryLabel,
                                     )
                                 }
-                                Text(
-                                    tr("여행 중 성지 100 m 안에 들어가면 도장이 찍혀요"),
-                                    fontSize = 12.sp,
-                                    color = IOS.secondaryLabel,
-                                )
-                            }
-                        } else {
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                contentPadding = PaddingValues(horizontal = 16.dp),
-                                modifier = Modifier.fillMaxWidth().clickable { showingStamps = true }.padding(vertical = 12.dp),
-                            ) {
-                                items(stamps.take(12), key = { it.id }) { stamp -> StampBadge(stamp, size = 62.dp) }
-                                if (stamps.size > 12) {
-                                    item {
-                                        Text(
-                                            "+${stamps.size - 12}", // 숫자뿐이라 언어가 바뀌어도 같다.
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = IOS.secondaryLabel,
-                                        )
+                            } else {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    modifier = Modifier.fillMaxWidth().clickable { showingStamps = true }.padding(vertical = 12.dp),
+                                ) {
+                                    items(stamps.take(12), key = { it.id }) { stamp -> StampBadge(stamp, size = 62.dp) }
+                                    if (stamps.size > 12) {
+                                        item {
+                                            Text(
+                                                "+${stamps.size - 12}", // 숫자뿐이라 언어가 바뀌어도 같다.
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = IOS.secondaryLabel,
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                item {
-                    ProfileSection(tr("커뮤니티")) {
-                        ProfileRow(
-                            title = tr("내가 쓴 글"),
-                            value = tr("%d개").format(posts.mineTotal),
-                            onClick = { showingPosts = true },
-                            chevron = true,
-                            icon = { SquarePencilIcon(SYSTEM_INDIGO, it) },
-                        )
-                        // 차단한 사용자 — 가입한 사람에게만 보인다(차단은 로그인해야 한다, MZ2AZ-461).
-                        if (AuthStore.signedIn) {
-                            ProfileDivider()
+                    item {
+                        ProfileSection(tr("커뮤니티")) {
                             ProfileRow(
-                                title = tr("차단한 사용자"),
-                                value = "",
-                                onClick = { showingBlocked = true },
+                                title = tr("내가 쓴 글"),
+                                value = tr("%d개").format(posts.mineTotal),
+                                onClick = { showingPosts = true },
                                 chevron = true,
-                                icon = { NoSignIcon(Color(0xFF8E8E93), it) },
+                                icon = { SquarePencilIcon(SYSTEM_INDIGO, it) },
                             )
+                            // 내 리뷰 — 가입한 사람에게만 보인다(리뷰는 가입해야 쓴다, MZ2AZ-363). iOS 는 이 절 안에 둔다.
+                            if (AuthStore.signedIn) {
+                                ProfileDivider()
+                                ProfileRow(
+                                    title = tr("내 리뷰", "목록"),
+                                    value = "",
+                                    onClick = { showingReviews = true },
+                                    chevron = true,
+                                    icon = { StarBubbleIcon(SYSTEM_ORANGE, it) },
+                                )
+                            }
+                            // 차단한 사용자 — 가입한 사람에게만 보인다(차단은 로그인해야 한다, MZ2AZ-461).
+                            if (AuthStore.signedIn) {
+                                ProfileDivider()
+                                ProfileRow(
+                                    title = tr("차단한 사용자"),
+                                    value = "",
+                                    onClick = { showingBlocked = true },
+                                    chevron = true,
+                                    icon = { NoSignIcon(Color(0xFF8E8E93), it) },
+                                )
+                            }
                         }
                     }
-                }
 
-                item {
-                    ProfileSection(tr("AI 여행 릴스")) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier =
-                                Modifier.fillMaxWidth().clickable { showingReels = true }.padding(
-                                    horizontal = 16.dp,
-                                    vertical = 11.dp,
-                                ),
-                        ) {
+                    item {
+                        ProfileSection(tr("AI 여행 릴스")) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier =
+                                    Modifier.fillMaxWidth().clickable { showingReels = true }.padding(
+                                        horizontal = 16.dp,
+                                        vertical = 11.dp,
+                                    ),
+                            ) {
+                                Box(
+                                    modifier =
+                                        Modifier
+                                            .size(26.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep))),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    SparklesIcon(Color.White, Modifier.size(14.dp))
+                                }
+                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                    Text(tr("내 여행으로 릴스 만들기"), fontSize = 15.sp, color = IOS.label)
+                                    Text(
+                                        tr("다녀온 코스와 사진을 AI 가 15초 영상으로"),
+                                        fontSize = 11.sp,
+                                        color = IOS.secondaryLabel,
+                                    )
+                                }
+                                Text(tr("곧"), fontSize = 12.sp, color = IOS.tertiaryLabel)
+                            }
+                        }
+                    }
+
+                    item {
+                        ProfileSection(tr("발자취")) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
+                            ) {
+                                Text(tr("발자취 기록하기"), fontSize = 15.sp, color = IOS.label, modifier = Modifier.weight(1f))
+                                IOSToggle(checked = footprints.recording, onCheckedChange = {
+                                    if (it) consentingToFootprints = true else footprints.updateRecording(false)
+                                })
+                            }
+                            if (consentingToFootprints) {
+                                IOSAlert(
+                                    tr("발자취를 기록할까요?"),
+                                    tr("여행 모드에서 지나간 길을 이 기기에만 저장해요. 서버로 보내지 않고, 로그아웃하거나 탈퇴하면 지워집니다."),
+                                    listOf(
+                                        IOSAction(tr("취소"), IOSRole.CANCEL) {},
+                                        IOSAction(tr("기록하기")) { footprints.updateRecording(true) },
+                                    ),
+                                    onDismiss = { consentingToFootprints = false },
+                                )
+                            }
+                            ProfileDivider(afterIcon = false)
+                            ProfileRow(
+                                title = tr("기록한 거리"),
+                                value = tr("%.1f km · %d점").format(footprints.kilometers, footprints.points.size),
+                                onClick = null,
+                                icon = { ShoeprintsIcon(IOS.pinDeep, it) },
+                            )
+                            ProfileDivider()
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
+                            ) {
+                                Text(tr("지도에 발자취 보기"), fontSize = 15.sp, color = IOS.label, modifier = Modifier.weight(1f))
+                                IOSToggle(checked = footprints.enabled, onCheckedChange = { footprints.updateEnabled(it) })
+                            }
+                            ProfileDivider(afterIcon = false)
                             Box(
+                                contentAlignment = Alignment.CenterStart,
                                 modifier =
                                     Modifier
-                                        .size(26.dp)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep))),
-                                contentAlignment = Alignment.Center,
+                                        .fillMaxWidth()
+                                        .height(52.dp)
+                                        .clickable(enabled = footprints.points.isNotEmpty()) { clearingFootprints = true }
+                                        .padding(horizontal = 16.dp),
                             ) {
-                                SparklesIcon(Color.White, Modifier.size(14.dp))
-                            }
-                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                Text(tr("내 여행으로 릴스 만들기"), fontSize = 15.sp, color = IOS.label)
-                                Text(
-                                    tr("다녀온 코스와 사진을 AI 가 15초 영상으로"),
-                                    fontSize = 11.sp,
-                                    color = IOS.secondaryLabel,
-                                )
-                            }
-                            Text(tr("곧"), fontSize = 12.sp, color = IOS.tertiaryLabel)
-                        }
-                    }
-                }
-
-                item {
-                    ProfileSection(tr("발자취")) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
-                        ) {
-                            Text(tr("발자취 기록하기"), fontSize = 15.sp, color = IOS.label, modifier = Modifier.weight(1f))
-                            IOSToggle(checked = footprints.recording, onCheckedChange = {
-                                if (it) consentingToFootprints = true else footprints.updateRecording(false)
-                            })
-                        }
-                        if (consentingToFootprints) {
-                            IOSAlert(
-                                tr("발자취를 기록할까요?"),
-                                tr("여행 모드에서 지나간 길을 이 기기에만 저장해요. 서버로 보내지 않고, 로그아웃하거나 탈퇴하면 지워집니다."),
-                                listOf(
-                                    IOSAction(tr("취소"), IOSRole.CANCEL) {},
-                                    IOSAction(tr("기록하기")) { footprints.updateRecording(true) },
-                                ),
-                                onDismiss = { consentingToFootprints = false },
-                            )
-                        }
-                        ProfileDivider(afterIcon = false)
-                        ProfileRow(
-                            title = tr("기록한 거리"),
-                            value = tr("%.1f km · %d점").format(footprints.kilometers, footprints.points.size),
-                            onClick = null,
-                            icon = { ShoeprintsIcon(IOS.pinDeep, it) },
-                        )
-                        ProfileDivider()
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
-                        ) {
-                            Text(tr("지도에 발자취 보기"), fontSize = 15.sp, color = IOS.label, modifier = Modifier.weight(1f))
-                            IOSToggle(checked = footprints.enabled, onCheckedChange = { footprints.updateEnabled(it) })
-                        }
-                        ProfileDivider(afterIcon = false)
-                        Box(
-                            contentAlignment = Alignment.CenterStart,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(52.dp)
-                                    .clickable(enabled = footprints.points.isNotEmpty()) { clearingFootprints = true }
-                                    .padding(horizontal = 16.dp),
-                        ) {
-                            // iOS 26 은 확인을 이 글자 **옆에 붙는 팝오버**로 띄운다(아래 시트·어두운 막 없음).
-                            var labelWidth by remember { mutableStateOf(0.dp) }
-                            val density = LocalDensity.current
-                            Box {
-                                Text(
-                                    tr("발자취 지우기"),
-                                    fontSize = 15.sp,
-                                    color = if (footprints.points.isEmpty()) IOS.tertiaryLabel else IOS.systemRed,
-                                    modifier = Modifier.onSizeChanged { labelWidth = with(density) { it.width.toDp() } },
-                                )
-                                if (clearingFootprints) {
-                                    IOSConfirmPopover(
-                                        title = tr("발자취를 모두 지울까요? 복구할 수 없어요."),
-                                        actions = listOf(IOSAction(tr("지우기"), IOSRole.DESTRUCTIVE) { footprints.clear() }),
-                                        anchorX = labelWidth,
-                                        onDismiss = { clearingFootprints = false },
+                                // iOS 26 은 확인을 이 글자 **옆에 붙는 팝오버**로 띄운다(아래 시트·어두운 막 없음).
+                                var labelWidth by remember { mutableStateOf(0.dp) }
+                                val density = LocalDensity.current
+                                Box {
+                                    Text(
+                                        tr("발자취 지우기"),
+                                        fontSize = 15.sp,
+                                        color = if (footprints.points.isEmpty()) IOS.tertiaryLabel else IOS.systemRed,
+                                        modifier = Modifier.onSizeChanged { labelWidth = with(density) { it.width.toDp() } },
                                     )
+                                    if (clearingFootprints) {
+                                        IOSConfirmPopover(
+                                            title = tr("발자취를 모두 지울까요? 복구할 수 없어요."),
+                                            actions = listOf(IOSAction(tr("지우기"), IOSRole.DESTRUCTIVE) { footprints.clear() }),
+                                            anchorX = labelWidth,
+                                            onDismiss = { clearingFootprints = false },
+                                        )
+                                    }
                                 }
                             }
                         }
+                        // 꼬리말 — 이동 경로는 개인정보라 어디에 저장되는지 한 줄로 알린다(iOS `footprintSection` 의 footer).
+                        Text(
+                            tr("이 기기에만 저장돼요. 서버로 보내지 않아요."),
+                            fontSize = 13.sp,
+                            color = IOS.secondaryLabel,
+                            modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 8.dp),
+                        )
                     }
-                }
 
-                item {
-                    ProfileSection(tr("도움")) {
-                        Box {
-                            ProfileRow(
-                                title = tr("언어"),
-                                value = AppLanguage.name(of = language.lang),
-                                onClick = { choosingLanguage = true },
-                                chevron = true,
-                                icon = { GlobeIcon(SYSTEM_BLUE, it) },
-                            )
-                            if (choosingLanguage) {
-                                IOSConfirmPopover(
+                    item {
+                        ProfileSection(tr("도움")) {
+                            Box {
+                                ProfileRow(
                                     title = tr("언어"),
-                                    // 언어 이름은 그 언어로 적는다 — 번역하지 않는다.
-                                    actions =
-                                        language.choices.map { lang ->
-                                            IOSAction(AppLanguage.name(of = lang)) { language.choose(lang) }
-                                        },
-                                    anchorX = 0.dp,
-                                    onDismiss = { choosingLanguage = false },
-                                    below = true,
+                                    value = AppLanguage.name(of = language.lang),
+                                    onClick = { choosingLanguage = true },
+                                    chevron = true,
+                                    icon = { GlobeIcon(SYSTEM_BLUE, it) },
                                 )
+                                if (choosingLanguage) {
+                                    IOSConfirmPopover(
+                                        title = tr("언어"),
+                                        // 언어 이름은 그 언어로 적는다 — 번역하지 않는다.
+                                        actions =
+                                            language.choices.map { lang ->
+                                                IOSAction(AppLanguage.name(of = lang)) { language.choose(lang) }
+                                            },
+                                        anchorX = 0.dp,
+                                        onDismiss = { choosingLanguage = false },
+                                        below = true,
+                                    )
+                                }
                             }
+                            ProfileDivider()
+                            // iOS 는 이 줄에 chevron 이 없다(`row(..., chevron: false)`).
+                            ProfileRow(
+                                title = tr("사용법 다시 보기"),
+                                value = "",
+                                onClick = { replaying = true },
+                                icon = { QuestionCircleIcon(SYSTEM_BLUE, it) },
+                            )
+                            ProfileDivider()
+                            // 연락처 공개(App Store 1.2, MZ2AZ-461) — 비회원에게도 보인다.
+                            SupportContactRow(SYSTEM_BLUE)
                         }
-                        ProfileDivider()
-                        // iOS 는 이 줄에 chevron 이 없다(`row(..., chevron: false)`).
-                        ProfileRow(
-                            title = tr("사용법 다시 보기"),
-                            value = "",
-                            onClick = { replaying = true },
-                            icon = { QuestionCircleIcon(SYSTEM_BLUE, it) },
-                        )
-                        ProfileDivider()
-                        // 연락처 공개(App Store 1.2, MZ2AZ-461) — 비회원에게도 보인다.
-                        SupportContactRow(SYSTEM_BLUE)
                     }
-                }
 
-                // 이용 통계 수집 토글 (MZ2AZ-475) — iOS `statisticsSection`. 「도움」 바로 아래, AI 동의 위다.
-                item { ProfileStatisticsSettings() }
+                    // 이용 통계 수집 토글 (MZ2AZ-475) — iOS `statisticsSection`. 「도움」 바로 아래, AI 동의 위다.
+                    item { ProfileStatisticsSettings() }
 
-                // AI 기능 동의 토글 (MZ2AZ-468). iOS 는 이용 통계 설정 바로 아래, 약관 위에 둔다.
-                item { ProfileAISettings() }
+                    // AI 기능 동의 토글 (MZ2AZ-468). iOS 는 이용 통계 설정 바로 아래, 약관 위에 둔다.
+                    item { ProfileAISettings() }
 
-                // 처리방침·약관 (MZ2AZ-455, App Store 5.1.1 — 앱 안에서 찾을 수 있어야 한다). 비회원에게도 보인다.
-                // iOS 와 같이 계정 바로 위에 두고, 앱의 다른 외부 페이지처럼 브라우저로 연다.
-                item {
-                    ProfileSection(tr(LegalLinks.SECTION_TITLE_KO)) {
-                        ProfileRow(
-                            title = tr(LegalLinks.PRIVACY_TITLE_KO),
-                            value = "",
-                            onClick = { openExternalUrl(context, LegalLinks.PRIVACY) },
-                            chevron = true,
-                            icon = { HandRaisedIcon(SYSTEM_BLUE, it) },
-                        )
-                        ProfileDivider()
-                        ProfileRow(
-                            title = tr(LegalLinks.TERMS_TITLE_KO),
-                            value = "",
-                            onClick = { openExternalUrl(context, LegalLinks.TERMS) },
-                            chevron = true,
-                            icon = { DocTextIcon(SYSTEM_BLUE, it) },
+                    // 처리방침·약관 (MZ2AZ-455, App Store 5.1.1 — 앱 안에서 찾을 수 있어야 한다). 비회원에게도 보인다.
+                    // iOS 와 같이 계정 바로 위에 두고, 앱의 다른 외부 페이지처럼 브라우저로 연다.
+                    item {
+                        ProfileSection(tr(LegalLinks.SECTION_TITLE_KO)) {
+                            ProfileRow(
+                                title = tr(LegalLinks.PRIVACY_TITLE_KO),
+                                value = "",
+                                onClick = { openExternalUrl(context, LegalLinks.PRIVACY) },
+                                chevron = true,
+                                icon = { HandRaisedIcon(SYSTEM_BLUE, it) },
+                            )
+                            ProfileDivider()
+                            ProfileRow(
+                                title = tr(LegalLinks.TERMS_TITLE_KO),
+                                value = "",
+                                onClick = { openExternalUrl(context, LegalLinks.TERMS) },
+                                chevron = true,
+                                icon = { DocTextIcon(SYSTEM_BLUE, it) },
+                            )
+                        }
+                    }
+
+                    if (AuthStore.signedIn) {
+                        item { AccountSection(onDeleted = { onClose?.invoke() }) }
+                    }
+
+                    item {
+                        ProfileSection(tr("준비 중")) {
+                            ProfileRow(
+                                tr("알림"),
+                                tr("준비 중"),
+                                null,
+                                dimmed = true,
+                                icon = {
+                                    Icon(
+                                        Icons.Outlined.Notifications,
+                                        contentDescription = null,
+                                        tint = IOS.tertiaryLabel,
+                                        modifier = it,
+                                    )
+                                },
+                            )
+                        }
+                    }
+
+                    item {
+                        Text(
+                            tr("설치 식별자 %s…").format(deviceId.toString().take(8)),
+                            fontSize = 11.sp,
+                            color = IOS.tertiaryLabel,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
                     }
-                }
-
-                if (AuthStore.signedIn) {
-                    item { AccountSection(onDeleted = { onClose?.invoke() }) }
-                }
-
-                item {
-                    ProfileSection(tr("준비 중")) {
-                        ProfileRow(
-                            tr("알림"),
-                            tr("준비 중"),
-                            null,
-                            dimmed = true,
-                            icon = {
-                                Icon(
-                                    Icons.Outlined.Notifications,
-                                    contentDescription = null,
-                                    tint = IOS.tertiaryLabel,
-                                    modifier = it,
-                                )
-                            },
-                        )
-                    }
-                }
-
-                item {
-                    Text(
-                        tr("설치 식별자 %s…").format(deviceId.toString().take(8)),
-                        fontSize = 10.sp,
-                        color = IOS.tertiaryLabel,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    )
                 }
             }
         }
@@ -532,13 +591,27 @@ private fun ProfileHeader(onNickname: () -> Unit) {
         PinoMascot(width = 96.dp)
         // iOS `header` — 비회원이면 로그인 단추, 로그인했으면 이름과 메일 (MZ2AZ-336).
         if (AuthStore.signedIn) {
-            Text(
-                AuthStore.me?.nickname ?: tr("여행자"),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = IOS.label,
-                modifier = Modifier.clickable(onClick = onNickname),
-            )
+            val nickname = AuthStore.me?.nickname
+            if (nickname != null) {
+                // 닉네임이 남에게 보이는 이름이다(MZ2AZ-363). 눌러서 바꾼다 — 연필이 그 표시다.
+                val changeLabel = tr("닉네임 바꾸기")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    modifier =
+                        Modifier
+                            .semantics(mergeDescendants = true) {
+                                contentDescription = changeLabel
+                                stateDescription = nickname
+                            }.clickable(onClick = onNickname),
+                ) {
+                    Text(nickname, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                    PencilIcon(IOS.secondaryLabel, Modifier.size(12.dp))
+                }
+            } else {
+                // 옛 서버는 닉네임이 없어 전처럼 계정 이름을 보인다 — 바꿀 수 없다.
+                Text(AuthStore.me?.displayName ?: tr("여행자"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            }
             AuthStore.me?.email?.let { Text(it, fontSize = 12.sp, color = IOS.secondaryLabel) }
         } else {
             Text(tr("비회원으로 여행 중"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
@@ -553,7 +626,7 @@ private fun ProfileHeader(onNickname: () -> Unit) {
                         .padding(top = 4.dp)
                         .clip(CircleShape)
                         .background(IOS.accent)
-                        .clickable { AuthStore.promptSignIn() }
+                        .clickable(enabled = !AuthStore.busy) { AuthStore.promptSignIn() }
                         .padding(horizontal = 22.dp, vertical = 8.dp),
             )
         }

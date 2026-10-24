@@ -15,6 +15,7 @@ import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.reviews.ReviewRules
 import com.mz2az.scenetrip.sceneapi.client.api.AuthApi
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ApiClient
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientException
@@ -143,17 +144,21 @@ object AuthStore {
                 // 사람이 창을 닫았다. 알릴 것이 없다.
             } catch (e: GoogleIdSignIn.Unavailable) {
                 message = "이 기기에 로그인된 구글 계정이 없어요. 기기 설정에서 계정을 추가해 주세요"
+            } catch (e: PendingWrites.StillRunning) {
+                message = "저장 중인 내용이 있어요. 잠시 뒤 다시 로그인해 주세요"
             } catch (e: ClientException) {
-                message = "로그인하지 못했어요. 다시 해 주세요"
+                message = signInFailure(e)
             } catch (e: ServerException) {
-                message = "구글에 잠시 닿지 않아요. 잠시 뒤 다시 해 주세요"
+                message = signInFailure(e)
             } catch (e: Exception) {
-                message = "연결이 원활하지 않아요. 잠시 뒤 다시 해 주세요"
+                message = AuthRules.signInFailureText(null, null)
             } finally {
                 busy = false
             }
         }
     }
+
+    private fun signInFailure(error: Throwable): String = NetworkFailure.of(error).let { AuthRules.signInFailureText(it.status, it.code) }
 
     /** 로그아웃. 서버 응답과 상관없이 토큰을 지운다 — 이 설치본은 서버에서 **새 비회원**이 된다. */
     fun signOut() {
@@ -196,6 +201,9 @@ object AuthStore {
         com.mz2az.scenetrip.data.FootprintStore
             .getInstance(appContext)
             .forgetOwner()
+        // 화면이 든 앞 계정의 사본(찜·코스·스탬프)을 먼저 비운다 — 다시 읽기가 실패해도 남아 보이지 않게 (MZ2AZ-480).
+        com.mz2az.scenetrip.data.AccountDataReset
+            .clear()
         AuthTokens.clear()
         me = null
         signedIn = false
@@ -223,6 +231,8 @@ object AuthStore {
     }
 
     fun finishNicknamePrompt() {
+        // 아직 확정하지 않은 계정에서 건너뛴 것만 「건너뜀」 으로 센다 — 이미 정했거나 저장하고 닫은 것은 아니다(iOS `skipNickname`).
+        if (me?.nicknameConfirmed == false) AppAnalytics.log(AppEvent.SetNickname(skipped = true))
         me?.id?.let {
             appContext
                 .getSharedPreferences(
@@ -238,14 +248,29 @@ object AuthStore {
     suspend fun setNickname(name: String): String? {
         val before = epoch
         val expectedUser = me?.id?.toString()
-        if (!signedIn || expectedUser == null) return tr("로그인이 필요해요")
+        // 서버 문장이 아니라 code 로 가른다 — 못 보내는 경우(로그인 풀림·늦은 응답)도 같은 한 줄이다(iOS `NicknameOutcome.failed`).
+        val failed = ReviewRules.nicknameFailureText(null)
+        if (!signedIn || expectedUser == null) return failed
         val result = apiResult { api.setMyNickname(NicknameInput(name)) }
-        if (before != epoch) return "로그인이 필요해요"
+        if (before != epoch) return failed
         return result.fold(onSuccess = {
-            if (!AccountReply.nickname(before, epoch, expectedUser, me?.id?.toString(), it.id.toString())) return@fold tr("요청을 처리하지 못했습니다.")
+            if (!AccountReply.nickname(before, epoch, expectedUser, me?.id?.toString(), it.id.toString())) return@fold failed
             me = it
+            AppAnalytics.log(AppEvent.SetNickname(skipped = false))
             null
-        }, onFailure = { NetworkFailure.of(it).message })
+        }, onFailure = { ReviewRules.nicknameFailureText(NetworkFailure.of(it).code) })
+    }
+
+    /** 세션 복원·새로고침도 미확정 닉네임을 확인한다. 늦은 응답은 떠난 계정을 되살리지 않는다 (iOS `loadMe`). */
+    suspend fun loadMe() {
+        val before = epoch
+        if (!signedIn) return
+        val fresh = io { api.getMe() }.getOrNull() ?: return
+        if (!AccountReply.restoration(before, epoch, signedIn)) return
+        if (me != null && me?.id != fresh.id) return
+        me = fresh
+        if (fresh.nicknameConfirmed == true) showingNickname = false
+        offerNickname(fresh)
     }
 
     private suspend fun <T> io(block: () -> T): Result<T> = withContext(Dispatchers.IO) { runCatching(block) }

@@ -68,6 +68,21 @@ class RouteStore(
     var loading by mutableStateOf(false)
         private set
 
+    /** 코스 목록을 **받아 봤는가** — 홈의 코스 카드가 이것으로 「받는 중」 과 「코스 없음」 을 가른다 (iOS `CourseListState`, MZ2AZ-372). */
+    enum class CourseListState {
+        /** 아직 한 번도 답을 못 받았다. 코스가 있는지 모른다. */
+        UNKNOWN,
+
+        /** 받았다 — [courses] 가 비었으면 정말 없는 것이다. */
+        LOADED,
+
+        /** 물었는데 못 받았다(그리고 전에 받아 둔 것도 없다). 여전히 있는지 모른다. */
+        FAILED,
+    }
+
+    var courseList by mutableStateOf(CourseListState.UNKNOWN)
+        private set
+
     /** 질문 흐름이 쓰는 작품 목록 — [loadWorks]가 채운다. */
     var works by mutableStateOf<List<ContentSummary>>(emptyList())
         private set
@@ -157,8 +172,11 @@ class RouteStore(
             withContext(Dispatchers.IO) { coursesApi.listCourses(deviceId) }
         }.onSuccess {
             courses = it.items ?: emptyList()
+            courseList = CourseListState.LOADED
             session.clearLoadFailure()
         }.onFailure {
+            // 전에 받아 둔 목록이 있으면 그것이 화면에 남는다 — 「모른다」 로 되돌리지 않는다.
+            if (courseList != CourseListState.LOADED) courseList = CourseListState.FAILED
             session.recordFailure(it)
         }
         loading = false

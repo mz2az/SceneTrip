@@ -5,7 +5,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.mz2az.scenetrip.data.API_BASE
+import com.mz2az.scenetrip.data.AccountDataReset
 import com.mz2az.scenetrip.data.InstallIdentity
+import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.VisitStamp
 import com.mz2az.scenetrip.data.collectVisitStamps
 import com.mz2az.scenetrip.sceneapi.client.api.ContentsApi
@@ -20,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.util.UUID
@@ -71,6 +74,7 @@ class HomeTabModel(
     var stamps by mutableStateOf<List<VisitStamp>>(emptyList())
         private set
 
+    /** 코스 카드에 넣을 코스의 상세를 받는 중인가. */
     var loading by mutableStateOf(false)
         private set
 
@@ -83,43 +87,71 @@ class HomeTabModel(
     private val coursesApi = CoursesApi(API_BASE)
     private val deviceId: UUID = InstallIdentity.of(context)
 
+    init {
+        // 로그아웃·탈퇴 — 앞 계정의 코스 카드와 스탬프를 먼저 비운다(다시 읽기가 실패해도 남지 않게, MZ2AZ-480).
+        AccountDataReset.watch {
+            trips = emptyList()
+            stamps = emptyList()
+            loading = false
+        }
+    }
+
+    /** 코스 목록과 코스 카드를 한꺼번에 — 시험·옛 호출용. 화면은 [loadTrips] 와 [loadRest] 를 따로 부른다. */
     suspend fun load(courses: List<CourseSummary>) =
         coroutineScope {
-            loading = true
-            try {
-                val worksDeferred =
-                    async(Dispatchers.IO) { runCatching { contentsApi.listContents(limit = 20) }.getOrNull() }
-                val placesDeferred =
-                    async(Dispatchers.IO) { runCatching { placesApi.listPlaces(limit = 60) }.getOrNull() }
-                val stampsDeferred = async { runCatching { collectVisitStamps(deviceId) }.getOrDefault(emptyList()) }
-                val tripsDeferred = async { trips(courses) }
-
-                val worksResult = worksDeferred.await()
-                if (worksResult != null) {
-                    works = HomeShelf.from(worksResult.items.orEmpty())
-                    failed = false
-                } else {
-                    failed = works.isEmpty()
-                }
-
-                val placeItems = placesDeferred.await()?.items.orEmpty()
-                if (placeItems.isNotEmpty()) {
-                    // 사진 있는 곳에서 고른다 — 카드 윗단이 96dp 그림 자리인데 사진이
-                    // 없으면 그라데이션만 남아 빈 띠로 보인다.
-                    val withPhoto = placeItems.filter { hasPhoto(it) }
-                    val pool = withPhoto.ifEmpty { placeItems }
-                    // 연중 몇 번째 날인가로 고른다 — 무작위면 화면을 다시 그릴 때마다
-                    // 성지가 바뀌어 "오늘의"라는 말이 거짓이 된다.
-                    val dayOfYear = LocalDate.now().dayOfYear
-                    today = pool[dayOfYear % pool.size]
-                }
-
-                stamps = stampsDeferred.await()
-                trips = tripsDeferred.await()
-            } finally {
-                loading = false
-            }
+            launch { loadTrips(courses) }
+            launch { loadRest() }
         }
+
+    /** 코스 카드 — 코스 목록이 오는 대로 부른다. 나머지([loadRest])를 기다리지 않는다. */
+    suspend fun loadTrips(courses: List<CourseSummary>) {
+        val generation = AccountDataReset.generation
+        loading = true
+        try {
+            val fetched = trips(courses)
+            if (generation != AccountDataReset.generation) return
+            trips = fetched
+        } finally {
+            if (generation == AccountDataReset.generation) loading = false
+        }
+    }
+
+    /**
+     * **코스와 무관한 셋을 나란히 받고, 온 것부터 그린다** (MZ2AZ-372). 하나가 느려도 다른 것을 기다리지 않는다 — 오늘의 성지·스탬프가
+     * 작품 선반 뒤로 밀리지 않는다.
+     */
+    suspend fun loadRest() =
+        coroutineScope {
+            launch { loadToday() }
+            launch { loadStamps() }
+            launch { loadShelf() }
+        }
+
+    private suspend fun loadShelf() {
+        val fresh = withContext(Dispatchers.IO) { runCatching { contentsApi.listContents(limit = SHELF_COUNT) }.getOrNull() }
+        if (fresh != null) {
+            works = HomeShelf.from(fresh.items.orEmpty())
+            failed = false
+        } else {
+            failed = works.isEmpty()
+        }
+    }
+
+    private suspend fun loadToday() {
+        val placeItems =
+            withContext(Dispatchers.IO) { runCatching { placesApi.listPlaces(limit = 60) }.getOrNull() }?.items.orEmpty()
+        if (placeItems.isEmpty()) return
+        // 사진 있는 곳에서 고른다 — 카드 윗단이 96dp 그림 자리인데 사진이 없으면 그라데이션만 남아 빈 띠로 보인다.
+        val pool = placeItems.filter { hasPhoto(it) }.ifEmpty { placeItems }
+        // 연중 몇 번째 날인가로 고른다 — 무작위면 화면을 다시 그릴 때마다 성지가 바뀌어 「오늘의」 라는 말이 거짓이 된다.
+        today = pool[LocalDate.now().dayOfYear % pool.size]
+    }
+
+    private suspend fun loadStamps() {
+        val generation = AccountDataReset.generation
+        val fetched = runCatching { collectVisitStamps(deviceId) }.getOrDefault(emptyList())
+        if (generation == AccountDataReset.generation) stamps = fetched
+    }
 
     private suspend fun trips(courses: List<CourseSummary>): List<HomeTrip> =
         coroutineScope {
@@ -163,7 +195,48 @@ class HomeTabModel(
         )
     }
 
+    /** 코스 카드의 모습. 값만 보는 규칙이라 시험이 선다. */
+    enum class TripCard {
+        /** 코스가 있다 — 제목·진행·단추 둘. */
+        FILLED,
+
+        /** 아직 모른다 — 「내 여행을 불러오는 중…」. */
+        LOADING,
+
+        /** 물었는데 못 받았다 — 「내 여행을 불러오지 못했어요」. */
+        UNAVAILABLE,
+
+        /** 코스가 **정말 없다** — 「코스 만들기」. */
+        CREATE,
+    }
+
     companion object {
+        /** 선반에 올리는 수 — 서버 인기순 첫 20편 (MZ2AZ-411·422). */
+        const val SHELF_COUNT = 20
+
+        /**
+         * **코스가 있는지 모르는 동안에는 「코스 만들기」 를 권하지 않는다** (MZ2AZ-372). 전에는 코스 목록이 오기 전에도 「여행을 시작해
+         * 볼까요? · 코스 만들기」 가 떴다 — 코스가 있는 사람에게. 그 단추는 일정짜기(유료)의 입구다. 「없다」 는 목록을 받아 본 뒤에만 말한다.
+         */
+        fun tripCard(
+            hasTrip: Boolean,
+            courseList: RouteStore.CourseListState,
+            hasCourses: Boolean,
+            tripsLoading: Boolean,
+        ): TripCard =
+            when {
+                hasTrip -> TripCard.FILLED
+
+                courseList == RouteStore.CourseListState.UNKNOWN -> TripCard.LOADING
+
+                courseList == RouteStore.CourseListState.FAILED -> TripCard.UNAVAILABLE
+
+                // 목록은 왔고 코스가 있는데 카드가 아직 없으면 그 코스의 상세를 받는 중이다.
+                hasCourses && tripsLoading -> TripCard.LOADING
+
+                else -> TripCard.CREATE
+            }
+
         /**
          * 화면에 실제로 뜨는 사진이 있는가. 주소가 있다고 그림이 나오는 것은 아니다 —
          * 시드에 호스트 없는 상대 경로가 섞여 있어 이미지 로더가 조용히 빈 자리를
