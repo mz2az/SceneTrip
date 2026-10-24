@@ -148,7 +148,10 @@ class LocationTracker(
     var shown: LocationReading? = null
         private set
 
-    /** 마지막으로 받은 원본 — 통과 여부와 무관하다. 두 번째 「내 위치」 누름이 이 값으로 바로 반응한다. */
+    /**
+     * 이 받기 동안 **받을 때 쓸 만했던** 마지막 원본 — 규칙 통과 여부와 무관하다. 두 번째 「내 위치」 누름이 이 값으로 바로 반응한다.
+     * 기동 직후 `getLastKnownLocation` 으로 얻은 낡은 값은 여기 들어오지 않는다(어제 있던 도시로 날아가는 것은 고장이다).
+     */
     var latest: Location? = null
         private set
 
@@ -216,16 +219,26 @@ class LocationTracker(
         startedAt = SystemClock.elapsedRealtime()
     }
 
-    /** 가진 최신 값이 아직 쓸 만하면 다시 내보낸다. 받는 중에는 같은 자리를 또 보내 주지 않아서다. */
+    /**
+     * 가진 최신 값을 다시 내보낸다. 받는 중에는 같은 자리를 또 보내 주지 않아서다.
+     *
+     * **나이를 따지지 않는다.** iOS 는 두 번째 누름에서 `locationManager.location` 이 10초 안일 때만 쓰는데, iOS 는 받는 동안 값이 계속 와서
+     * 그 값이 늘 새것이다. 안드로이드는 5 m 필터라 가만히 있으면 새 값이 안 와 10초가 지난 값은 버려졌고, 지도를 밀어 둔 뒤 다시 눌러도 아무
+     * 일이 없었다. 이 받기가 **받을 때 쓸 만했던** 값이고(위 [latest]) 계속 받는 중이라 기기가 크게 움직였다면 새 값이 이미 와 있다.
+     */
     fun replayLatest() {
-        latest?.let { deliver(it) }
+        latest?.let { deliver(it, ignoreAge = true) }
     }
 
     /** 규칙을 통과한 값만 [onFix] 로 보낸다. */
-    internal fun deliver(location: Location) {
-        latest = location
+    internal fun deliver(
+        location: Location,
+        ignoreAge: Boolean = false,
+    ) {
         val reading = location.toReading()
-        if (!LocationFix.isUsable(reading) || !LocationFix.shouldReplace(shown, reading)) return
+        val usable = if (ignoreAge) reading.accuracyMeters >= 0 else LocationFix.isUsable(reading)
+        if (!ignoreAge && usable) latest = location
+        if (!usable || !LocationFix.shouldReplace(shown, reading)) return
         val previous = shown
         shown = reading
         onFix?.invoke(location, previous)

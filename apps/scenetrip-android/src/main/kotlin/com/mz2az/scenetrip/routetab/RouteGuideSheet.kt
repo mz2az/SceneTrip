@@ -43,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -58,6 +60,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -99,6 +102,8 @@ fun RouteGuideFloatingChip(
     // 화면 바닥에 뜬 정보 카드·성지 카드의 **윗변 높이**(바닥에서). 카드가 없으면 null. 카드는 이 동그라미의 기본 자리 바로 위에 뜬다 —
     // 말풍선이 「경로에 추가」 단추와 장면 설명 끝을 덮었다(MZ2AZ-367). 카드가 떠 있는 동안은 말풍선을 접고 카드 위로 비킨다.
     cardTop: Dp? = null,
+    // 카드를 비켜 선 자리에서 **덮으면 안 되는 단추**의 틀(창 좌표) — 일차 머리줄의 「머무는 시간 ›」 (iOS `keepClear`, MZ2AZ-368 검증).
+    keepClear: Rect? = null,
 ) {
     if (hidden) return
     // **길게 눌러 끌어 옮긴다**(iOS `RouteGuideFloatingChip.moveGesture`) — 옮긴 자리는 기억한다
@@ -113,24 +118,42 @@ fun RouteGuideFloatingChip(
     val minX = with(density) { -(screen.screenWidthDp.dp - 12.dp - 180.dp).toPx() }
     val minY = with(density) { -(screen.screenHeightDp.dp - 76.dp - 60.dp).toPx() }
     // 카드를 비켜 올라서는 자리(기본 자리에서 잰 이동). **사용자가 스스로 카드보다 위에 둔 자리는 건드리지 않는다.** 카드가 닫히면 제자리로 돌아온다.
+    // 끌기 제스처는 한 번만 만들어지므로 바뀌는 값은 `rememberUpdatedState` 로 읽는다.
+    val view = LocalView.current
     val navigationBottom = WindowInsets.navigationBars.getBottom(density)
-    val liftedByCard =
-        cardTop?.let { top -> -with(density) { (top + CARD_GAP).toPx() - 76.dp.toPx() - navigationBottom } }
+    val bottomPx = with(density) { 76.dp.toPx() } + navigationBottom
+    val edgePx = with(density) { 12.dp.toPx() }
+    val sidePx = with(density) { 46.dp.toPx() }
+    val gapPx = with(density) { CARD_GAP.toPx() }
+    val cardTopPx = cardTop?.let { with(density) { it.toPx() } }
+    val clearance =
+        keepClear?.let { r ->
+            val width = view.rootView.width.toFloat()
+            val height = view.rootView.height.toFloat()
+            GuideChipPlacement.Clearance(left = width - r.left, low = height - r.bottom, high = height - r.top)
+        }
+    val spot by rememberUpdatedState(
+        Triple(cardTopPx, clearance, bottomPx),
+    )
 
-    fun shownY(): Float = if (liftedByCard == null) dy else minOf(dy, liftedByCard)
+    fun shownY(): Float = GuideChipPlacement.offsetY(dy, spot.first, spot.third, gapPx)
+
+    fun shownX(): Float = GuideChipPlacement.offsetX(dx, dy, spot.first, spot.second, spot.third, edgePx, sidePx, gapPx)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier =
             modifier
-                .offset { IntOffset(dx.roundToInt(), shownY().roundToInt()) }
+                .offset { IntOffset(shownX().roundToInt(), shownY().roundToInt()) }
                 .scale(if (lifted) 1.08f else 1f)
                 .pointerInput(Unit) {
                     detectDragGesturesAfterLongPress(
                         onDragStart = {
                             lifted = true
                             // 카드를 비켜 서 있던 채로 끌었으면 거기서부터 센다 — 보이던 그 자리를 남긴다.
+                            val keptX = shownX()
                             dy = shownY()
+                            dx = keptX
                         },
                         onDragEnd = {
                             lifted = false

@@ -192,6 +192,9 @@ fun RouteEditorView(
 
     // 바닥 카드(편의시설·성지)의 높이 — 해태 칩이 카드 위로 비켜 서는 데 쓴다(MZ2AZ-367, iOS `guideCardTop`).
     var cardHeight by remember { mutableStateOf(0.dp) }
+
+    // 「머무는 시간 ›」 단추의 틀(창 좌표) — 칩이 카드를 비켜 선 자리에서 이 단추를 덮지 않게 한다(iOS `stayFrame`).
+    var stayFrame by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var pinning by remember { mutableStateOf(false) }
     var pendingPin by remember { mutableStateOf<RoutePin?>(null) }
     var searching by remember { mutableStateOf(false) }
@@ -1191,7 +1194,7 @@ fun RouteEditorView(
                             },
                         )
                     }
-                    RouteDaySummary(course.days.getOrNull(dayIndex)) { showDayStay = true }
+                    RouteDaySummary(course.days.getOrNull(dayIndex), onStayFrame = { stayFrame = it }) { showDayStay = true }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier =
@@ -1422,6 +1425,7 @@ fun RouteEditorView(
                 bubble = guideSession.picked == null && pickedStop == null && focusedStopId == null,
                 cardTop =
                     if ((guideSession.picked != null || pickedStop != null) && !showGuide) CARD_BOTTOM_PADDING + cardHeight else null,
+                keepClear = stayFrame,
                 onTap = { showGuide = true },
                 // iOS `guideFloatingChip`: 편집 화면 전체 위, 오른쪽 12 · 아래(안전 영역 위) 76 — 목록 패널 위에 뜬다.
                 // 지도 쪽(패널 바로 위)에 두었더니 iOS 와 자리가 달랐다(2026-09-29 대조).
@@ -1920,6 +1924,12 @@ private fun PlaceSearchOverlayBody(
     var revision by remember { mutableStateOf(0) }
     val search = remember { RoutePlaceSearch(scope).also { it.onChange = { revision += 1 } } }
     check(revision >= 0)
+    // **목록 값은 여기서, 구성 단계에서 읽는다.** `LazyColumn` 의 내용 람다 안에서만 읽으면 `revision` 으로 부모가 다시 그려져도 람다가
+    // 같은 것으로 보여 건너뛰어진다 — 「Hanok」 을 쳐도 목록이 인기순 그대로였다. 값을 람다가 붙잡게 해 바뀔 때마다 새 람다가 되게 한다.
+    val results = search.results
+    val moreFailed = search.moreFailed
+    val hasMore = search.paging.hasMore
+    val pagingOffset = search.paging.offset
     var query by remember { mutableStateOf("") }
     var picked by remember { mutableStateOf<List<Long>>(emptyList()) }
     // 글자마다 부르지 않는다 — 입력이 멎으면 한 번(`RoutePlaceSearch.DEBOUNCE_MS`). 처음 열 때는 인기순.
@@ -1956,13 +1966,13 @@ private fun PlaceSearchOverlayBody(
                 }
             }
 
-            search.phase == RoutePlaceSearch.Phase.LOADING && search.results.isEmpty() -> {
+            search.phase == RoutePlaceSearch.Phase.LOADING && results.isEmpty() -> {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.5.dp)
                 }
             }
 
-            search.phase == RoutePlaceSearch.Phase.LOADED && search.results.isEmpty() -> {
+            search.phase == RoutePlaceSearch.Phase.LOADED && results.isEmpty() -> {
                 Column(
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 60.dp, start = 32.dp, end = 32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -1989,7 +1999,7 @@ private fun PlaceSearchOverlayBody(
 
             else -> {
                 LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = sheetListBottom()) {
-                    itemsIndexed(search.results, key = { _, place -> place.id }) { _, place ->
+                    itemsIndexed(results, key = { _, place -> place.id }) { _, place ->
                         val isTaken = taken.contains(place.id)
                         val pickedOrder = picked.indexOf(place.id).takeIf { it >= 0 }
                         Row(
@@ -2049,7 +2059,7 @@ private fun PlaceSearchOverlayBody(
                         IOSListDivider(start = 72.dp)
                     }
                     // 목록 끝 — 더 있으면 이어 받고, 못 받았으면 다시 누르게 한다.
-                    if (search.moreFailed) {
+                    if (moreFailed) {
                         item {
                             Text(
                                 tr("다시 시도"),
@@ -2064,9 +2074,9 @@ private fun PlaceSearchOverlayBody(
                                         .padding(12.dp),
                             )
                         }
-                    } else if (search.paging.hasMore) {
+                    } else if (hasMore) {
                         item(key = "more") {
-                            LaunchedEffect(search.paging.offset) { search.loadMore() }
+                            LaunchedEffect(pagingOffset) { search.loadMore() }
                             Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                             }

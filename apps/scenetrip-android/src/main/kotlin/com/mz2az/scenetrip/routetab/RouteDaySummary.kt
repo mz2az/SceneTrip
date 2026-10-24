@@ -13,8 +13,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -27,6 +31,8 @@ import com.mz2az.scenetrip.ui.IOS
 @Composable
 fun RouteDaySummary(
     day: RouteDay?,
+    // 「머무는 시간 ›」 단추의 틀(창 좌표) — 해태 칩이 카드를 비켜 선 자리에서 이 단추를 덮지 않게 알린다(iOS `stayFrame`). 단추가 없으면 null.
+    onStayFrame: (Rect?) -> Unit = {},
     onStay: () -> Unit,
 ) {
     val stops = day?.stops.orEmpty()
@@ -42,14 +48,14 @@ fun RouteDaySummary(
         if (stacked) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(distance, style = IOS.footnote, color = IOS.secondaryLabel)
-                DayDuration(duration, stops.isNotEmpty(), onStay)
+                DayDuration(duration, stops.isNotEmpty(), onStay, onStayFrame)
             }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(distance, style = IOS.footnote, color = IOS.secondaryLabel)
                 Spacer(Modifier.weight(1f))
                 Spacer(Modifier.width(6.dp))
-                DayDuration(duration, stops.isNotEmpty(), onStay)
+                DayDuration(duration, stops.isNotEmpty(), onStay, onStayFrame)
             }
         }
     }
@@ -60,12 +66,17 @@ private fun DayDuration(
     label: String,
     editable: Boolean,
     onStay: () -> Unit,
+    onStayFrame: (Rect?) -> Unit,
 ) {
+    DisposableEffect(Unit) { onDispose { onStayFrame(null) } }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         // 접근성: 눌렀을 때 무엇이 되는지(iOS `accessibilityHint`).
-        modifier = Modifier.clickable(enabled = editable, onClickLabel = tr("장소별 머무는 시간을 고칩니다"), onClick = onStay),
+        modifier =
+            Modifier
+                .onGloballyPositioned { if (editable) onStayFrame(it.boundsInWindow()) else onStayFrame(null) }
+                .clickable(enabled = editable, onClickLabel = tr("장소별 머무는 시간을 고칩니다"), onClick = onStay),
     ) {
         Text(label, style = IOS.footnote, color = if (editable) IOS.accent else IOS.tertiaryLabel)
         if (editable) ChevronRightIcon(IOS.accent, Modifier.size(9.dp))

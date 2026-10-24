@@ -1,6 +1,7 @@
 package com.mz2az.scenetrip
 
 import com.mz2az.scenetrip.data.UsageBlock
+import com.mz2az.scenetrip.routetab.GuideChipPlacement
 import com.mz2az.scenetrip.routetab.NavLimit
 import com.mz2az.scenetrip.routetab.RouteGuideFailure
 import com.mz2az.scenetrip.routetab.RouteLegMode
@@ -269,5 +270,48 @@ class TripScreenTests {
         assertEquals("가이드에게 잠시 많이 물어봤어요. 3분 뒤에 다시 물어볼 수 있어요", limited.message)
         assertEquals("오늘은 가이드에게 물어볼 수 있는 횟수를 다 썼어요. 내일 다시 물어봐 주세요", RouteGuideFailure.limitMessage(7_200))
         assertEquals("지금은 가이드에게 물어볼 수 없어요. 잠시 뒤 다시 시도해 주세요", RouteGuideFailure.limitMessage(null))
+    }
+
+    @Test
+    fun everyChangeNotifiesTheScreenWithTheNewValuesAlreadyInPlace() =
+        runBlocking {
+            val seen = mutableListOf<Pair<RoutePlaceSearch.Phase, List<Long>>>()
+            lateinit var search: RoutePlaceSearch
+            search =
+                RoutePlaceSearch(CoroutineScope(Dispatchers.Default), debounceMs = 0) { query, _, _ ->
+                    PlaceList(listOf(place(if (query == "hanok") 7 else 1)), total = 1, limit = 40, offset = 0)
+                }
+            search.onChange = { synchronized(seen) { seen += search.phase to search.results.map { it.id } } }
+            search.search("")
+            until { synchronized(seen) { seen.any { it.first == RoutePlaceSearch.Phase.LOADED } } }
+            search.search("hanok")
+            until { synchronized(seen) { seen.lastOrNull() == (RoutePlaceSearch.Phase.LOADED to listOf(7L)) } }
+            // 화면이 알림마다 값을 다시 읽으므로, 알림 시점에 새 결과가 이미 들어 있어야 한다.
+            assertTrue(synchronized(seen) { seen.any { it.first == RoutePlaceSearch.Phase.LOADED && it.second == listOf(1L) } })
+        }
+
+    // --- 해태 칩이 카드와 단추를 비켜 서는 자리 (iOS `RouteGuideFloatingChip` 규칙) ---
+
+    @Test
+    fun chipRisesAboveTheCardAndLeavesUserPlacedSpotsAlone() {
+        // 카드 없음 — 저장된 자리 그대로. 카드 윗변 300 + 틈 8 - 바닥 76 = 232 만큼 올라선다.
+        assertEquals(-40f, GuideChipPlacement.offsetY(-40f, null, 76f, 8f))
+        assertEquals(-232f, GuideChipPlacement.offsetY(0f, 300f, 76f, 8f))
+        // 사용자가 이미 더 위에 둔 자리는 건드리지 않는다.
+        assertEquals(-500f, GuideChipPlacement.offsetY(-500f, 300f, 76f, 8f))
+    }
+
+    @Test
+    fun chipStepsLeftOfTheStayButtonOnlyWhenItWouldCoverIt() {
+        val button = GuideChipPlacement.Clearance(left = 300f, low = 300f, high = 340f)
+        // 카드 윗변 300 → 칩 아랫변 308, 세로로 단추(300~340)와 겹치고 가로로도(오른쪽 12 < 300) 겹친다 → 단추 왼쪽으로 비킨다.
+        assertEquals(-(300f + 8f - 12f), GuideChipPlacement.offsetX(0f, 0f, 300f, button, 76f, 12f, 46f, 8f))
+        // 카드가 없으면 비키지 않는다.
+        assertEquals(0f, GuideChipPlacement.offsetX(0f, 0f, null, button, 76f, 12f, 46f, 8f))
+        // 칩이 단추보다 높이 올라서면 겹치지 않는다.
+        val low = GuideChipPlacement.Clearance(left = 300f, low = 100f, high = 140f)
+        assertEquals(0f, GuideChipPlacement.offsetX(0f, 0f, 300f, low, 76f, 12f, 46f, 8f))
+        // 사용자가 스스로 카드보다 위에 둔 자리는 단추 위여도 그 사람이 둔 자리다.
+        assertEquals(0f, GuideChipPlacement.offsetX(0f, -500f, 300f, button, 76f, 12f, 46f, 8f))
     }
 }
