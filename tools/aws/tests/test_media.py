@@ -165,6 +165,8 @@ class MediaDeployValuesTest(unittest.TestCase):
             ),
             patch("tools.aws.deploy.migrate_database"),
             patch("tools.aws.deploy.verify_network_deny"),
+            # Metabase(ADR 0027)는 test_metabase 가 시험한다 — 여기서는 끈다.
+            patch("tools.aws.deploy.METABASE_ENVIRONMENTS", (), create=True),
         ):
             deploy(run, Path("."), settings, outputs, Path(SIGNOZ_CHART))
         helm = next(

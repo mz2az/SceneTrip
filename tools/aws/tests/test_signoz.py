@@ -85,14 +85,16 @@ class SignozConfigTest(unittest.TestCase):
         )
 
     def test_repositories_are_apps_plus_mirrors(self):
-        from tools.aws.config import REPOSITORIES, SIGNOZ_MIRROR
+        from tools.aws.config import METABASE_MIRROR, REPOSITORIES, SIGNOZ_MIRROR
 
+        # Metabase 복사본(ADR 0027, metabase-prd.md §3-5)도 같은 목록에 든다.
         expected = {
             "scene_api": "scene-api",
             "trip_guide": "trip-guide",
             "migration": "migration",
             "data_load": "data-load",
             **{key: f"mirror/{path}" for key, (path, _) in SIGNOZ_MIRROR.items()},
+            **{key: f"mirror/{path}" for key, (path, _) in METABASE_MIRROR.items()},
         }
         self.assertEqual(REPOSITORIES, expected)
         self.assertEqual(REPOSITORIES["mirror_alpine"], "mirror/alpine")
@@ -305,12 +307,19 @@ class SignozPublishTest(unittest.TestCase):
         outputs = self.outputs(settings)
         run, docker = self.publish(outputs, settings)
         commands = [call.args[0] for call in run.call_args_list]
-        lists = [i for i, command in enumerate(commands) if "list-images" in command]
+        signoz_names = {f"scenetrip-dev/{REPOSITORIES[key]}" for key in SIGNOZ_MIRROR}
+        # Metabase 복사(ADR 0027)도 dev 에서 돈다 — 그 몫은 test_metabase 가 본다. 여기서는 SigNoz 저장소만 센다.
+        lists = [
+            i
+            for i, command in enumerate(commands)
+            if "list-images" in command
+            and command[command.index("--repository-name") + 1] in signoz_names
+        ]
         app = [
             i
             for i, command in enumerate(commands)
             if command[:2] == ["just", "run"]
-            and not command[2].startswith("//platform/helm/signoz:")
+            and not command[2].startswith("//platform/helm/")
         ]
         self.assertEqual(len(app), 3)
         self.assertEqual(len(lists), len(SIGNOZ_MIRROR))
@@ -560,6 +569,8 @@ class SignozDeployTest(unittest.TestCase):
             ),
             patch("tools.aws.deploy.migrate_database"),
             patch("tools.aws.deploy.verify_network_deny"),
+            # Metabase(ADR 0027)는 test_metabase 가 시험한다 — 여기서는 끈다.
+            patch("tools.aws.deploy.METABASE_ENVIRONMENTS", (), create=True),
         ):
             deploy(run, Path("/repo"), settings, outputs, chart)
         return run, events

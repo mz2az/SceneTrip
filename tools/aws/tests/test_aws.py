@@ -57,6 +57,20 @@ from tools.aws.tests.test_gateway_routes import GatewayContractRoutesTest
 from tools.aws.tests.test_lifecycle import CloudflareTest, LifecycleTest, SignozDnsTest
 from tools.aws.tests.test_loadtest_mode import LoadtestModeChartTest
 from tools.aws.tests.test_media import MediaChartTest, MediaDeployValuesTest
+from tools.aws.tests.test_metabase import (
+    ExposeMetabaseTest,
+    MetabaseAlbTest,
+    MetabaseChartTest,
+    MetabaseConfigTest,
+    MetabaseDeployTest,
+    MetabaseDnsTest,
+    MetabaseExposeWiringTest,
+    MetabaseIdentityTest,
+    MetabaseIngressTest,
+    MetabasePublishTest,
+    MetabaseTeardownTest,
+    RemoveMetabaseTest,
+)
 from tools.aws.tests.test_node_packing import (
     SceneTripSpreadChartTest,
     SignozResourcesChartTest,
@@ -125,6 +139,7 @@ __all__ = [
     "DestroyServiceTest",
     "DriftTest",
     "EntryPointTest",
+    "ExposeMetabaseTest",
     "ExposeSignozTest",
     "FirstDeployEmptyStateTest",
     "GatewayContractRoutesTest",
@@ -134,6 +149,16 @@ __all__ = [
     "LoadtestModeChartTest",
     "MediaChartTest",
     "MediaDeployValuesTest",
+    "MetabaseAlbTest",
+    "MetabaseChartTest",
+    "MetabaseConfigTest",
+    "MetabaseDeployTest",
+    "MetabaseDnsTest",
+    "MetabaseExposeWiringTest",
+    "MetabaseIdentityTest",
+    "MetabaseIngressTest",
+    "MetabasePublishTest",
+    "MetabaseTeardownTest",
     "OrchestrationTest",
     "PrdTeardownProtectionTest",
     "PrdWorkflowProtectionTest",
@@ -142,6 +167,7 @@ __all__ = [
     "PublicGatewayValuesTest",
     "ReleaseDetachedNatAddressesTest",
     "RemoteLoadScriptTest",
+    "RemoveMetabaseTest",
     "RemoveSignozTest",
     "RetainedAuthSecretTest",
     "RunnerSelectionTest",

@@ -11,9 +11,13 @@ from tools.aws.alb import (
     alb_values,
     verify_nodeclass,
     wait_for_alb,
+    wait_for_metabase_alb,
     wait_for_signoz_alb,
 )
 from tools.aws.config import (
+    METABASE_DOMAINS,
+    METABASE_ENVIRONMENTS,
+    METABASE_MIRROR,
     SIGNOZ_DOMAINS,
     SIGNOZ_ENVIRONMENTS,
     matched,
@@ -38,6 +42,12 @@ SIGNOZ_PASSWORD_SECRET = "signoz-clickhouse"
 # SigNoz 관리자 — 로그인 아이디일 뿐 메일을 보내지 않는다(개인 메일을 저장소에 적지 않는다). 팀원은 SigNoz 안에서 초대한다.
 SIGNOZ_ROOT_EMAIL = "admin@scenetrip.io"
 SIGNOZ_ROOT_SECRET = "signoz-root"
+
+# Metabase(ADR 0027, docs/project/plans/metabase-prd.md §3-5). 차트는 저장소가 소유한다(platform/helm/metabase).
+METABASE_NAMESPACE = "metabase"
+METABASE_RELEASE = "metabase"
+METABASE_SECRET = "metabase-secrets"
+METABASE_PORT = 3000
 
 
 def sync_secret(run, name, values):
@@ -462,7 +472,9 @@ def load_data(run, outputs, database, image, commit):
         delete_data_load(run)
 
 
-def migrate_database(run, outputs, database, migration_image):
+def migrate_database(run, outputs, database, migration_image, metabase=None):
+    """DB 준비(bootstrap)·마이그레이션·마무리 Job. metabase(배포가 만든 Metabase 칸)를 받으면 bootstrap 이 Metabase 계정
+    두 개를 만들도록 그 암호를 임시 Secret 에 더한다 — 암호화 키는 넘기지 않는다(db-bootstrap.sh 는 받으면 만든다)."""
     delete_transient(run)
     raw = run(
         [
@@ -495,6 +507,14 @@ def migrate_database(run, outputs, database, migration_image):
                 "PGPASSWORD": master["password"],
                 "RUNTIME_PASSWORD": database["password"],
                 "MIGRATION_PASSWORD": database["migration_password"],
+                **(
+                    {
+                        "METABASE_RO_PASSWORD": metabase["METABASE_RO_PASSWORD"],
+                        "METABASE_APP_PASSWORD": metabase["METABASE_APP_PASSWORD"],
+                    }
+                    if metabase
+                    else {}
+                ),
             },
         )
         apply_job(run, bootstrap_job(outputs["database_host"]))
@@ -651,7 +671,19 @@ def deploy(run, root, settings, outputs, signoz_chart=None):
     def image(key):
         return outputs["ecr_repository_urls"][key] + ":" + settings.tag
 
-    migrate_database(run, outputs, credentials, image("migration"))
+    # Metabase(ADR 0027) — 칸은 bootstrap 이 계정을 만들 때 쓰므로 마이그레이션 전에 읽고, 설치는 마이그레이션 뒤에 한다
+    # (bootstrap 이 만든 DB `metabase`·계정 metabase_app 이 있어야 뜬다).
+    metabase = (
+        metabase_secret(run, outputs["app_secret_arns"]["metabase"])
+        if settings.environment in METABASE_ENVIRONMENTS
+        else None
+    )
+    migrate_database(run, outputs, credentials, image("migration"), metabase)
+    if metabase:
+        install_metabase(
+            run, root, settings, outputs, metabase, values["network"]["dnsCidr"]
+        )
+        expose_metabase(run, settings, outputs)
     values = {
         **values,
         "environment": settings.environment,
@@ -974,6 +1006,202 @@ def expose_signoz(run, settings, outputs):
         run(["kubectl", "apply", "-f", "-"], stdin=json.dumps(manifest), quiet=True)
     hostname = wait_for_signoz_alb(run, settings, outputs)
     print(f"SigNoz 화면 ALB: {hostname}")
+    return hostname
+
+
+def metabase_secret(run, arn):
+    """Metabase 칸 — 환경당 한 번 만들어 Secrets Manager 에 두고 다시 쓴다. 사람은 보지 않는다(첫 화면에서 DB 를 연결할
+    때 METABASE_RO_PASSWORD 만 꺼낸다). 암호화 키를 바꾸면 Metabase 가 저장해 둔 연결 암호를 못 읽으므로 한 번만 만든다."""
+    return generated_once(
+        run,
+        arn,
+        "metabase",
+        lambda: {
+            "METABASE_APP_PASSWORD": secrets.token_urlsafe(36),
+            "METABASE_RO_PASSWORD": secrets.token_urlsafe(36),
+            "MB_ENCRYPTION_SECRET_KEY": secrets.token_urlsafe(48),
+        },
+    )
+
+
+def install_metabase(run, root, settings, outputs, metabase, dns_cidr):
+    """Metabase 를 `metabase` 네임스페이스에 올린다(ADR 0027). DB 마이그레이션 뒤에 부른다 — bootstrap 이 DB `metabase` 와
+    계정을 만든다. 이미지는 환경 ECR 의 복사본(aws.mirror_metabase), 비밀값은 Secret 으로만(값은 stdin)."""
+    repository = outputs["ecr_repository_urls"]["mirror_metabase"]
+    _, tag = METABASE_MIRROR["mirror_metabase"]
+    expected = (
+        f"{settings.account}.dkr.ecr.{settings.region}.amazonaws.com"
+        f"/scenetrip-{settings.environment}/mirror/metabase/metabase"
+    )
+    if repository != expected:
+        raise ValueError("Terraform ECR 출력이 선택한 계정·환경과 다릅니다")
+    host = matched(r"[a-zA-Z0-9.-]+", outputs["database_host"], "DB 호스트")
+    alb_cidrs = alb_values(outputs)["trustedProxyCidrs"]
+    namespace = {
+        "apiVersion": "v1",
+        "kind": "Namespace",
+        "metadata": {
+            "name": METABASE_NAMESPACE,
+            "labels": {"pod-security.kubernetes.io/enforce": "restricted"},
+        },
+    }
+    run(["kubectl", "apply", "-f", "-"], stdin=json.dumps(namespace), quiet=True)
+    secret = {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": {"name": METABASE_SECRET, "namespace": METABASE_NAMESPACE},
+        "type": "Opaque",
+        # 읽기 전용 계정 암호(METABASE_RO_PASSWORD)는 파드에 주지 않는다 — 사람이 첫 화면에서 연결할 때 넣는다.
+        "stringData": {
+            "MB_DB_PASS": metabase["METABASE_APP_PASSWORD"],
+            "MB_ENCRYPTION_SECRET_KEY": metabase["MB_ENCRYPTION_SECRET_KEY"],
+        },
+    }
+    run(["kubectl", "apply", "-f", "-"], stdin=json.dumps(secret), quiet=True)
+    values = {
+        "image": {"repository": repository, "tag": tag},
+        "database": {"host": host},
+        "siteUrl": "https://" + METABASE_DOMAINS[settings.environment],
+        "network": {"dnsCidr": dns_cidr, "albCidrs": list(alb_cidrs)},
+    }
+    run(
+        [
+            "helm",
+            "upgrade",
+            "--install",
+            METABASE_RELEASE,
+            str(root / "platform/helm/metabase"),
+            "--namespace",
+            METABASE_NAMESPACE,
+            "--values",
+            "-",
+            "--atomic",
+            "--wait",
+            "--timeout",
+            "10m",
+            "--history-max",
+            "5",
+        ],
+        stdin=json.dumps(values),
+        quiet=True,
+    )
+    print(f"{settings.environment} Metabase 배포 완료")
+
+
+def metabase_ingress(settings, outputs):
+    """Metabase 화면 전용 ALB(ADR 0027) — SigNoz 화면과 같은 형식, 보안 그룹·인증서·주소만 다르다."""
+    name = f"scenetrip-{settings.environment}-metabase-alb"
+    certificate = outputs["metabase_certificate_arn"]
+    group = matched(
+        r"sg-(?:[a-f0-9]{8}|[a-f0-9]{17})",
+        outputs["metabase_alb_security_group_id"],
+        "Metabase ALB 보안 그룹",
+    )
+    return [
+        {
+            "apiVersion": "eks.amazonaws.com/v1",
+            "kind": "IngressClassParams",
+            "metadata": {"name": name},
+            "spec": {
+                "scheme": "internet-facing",
+                "ipAddressType": "ipv4",
+                "namespaceSelector": {
+                    "matchLabels": {"kubernetes.io/metadata.name": METABASE_NAMESPACE}
+                },
+                "subnets": {"ids": list(alb_values(outputs)["albSubnetIds"])},
+                "certificateARNs": [certificate],
+            },
+        },
+        {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "IngressClass",
+            "metadata": {"name": name},
+            "spec": {
+                "controller": "eks.amazonaws.com/alb",
+                "parameters": {
+                    "apiGroup": "eks.amazonaws.com",
+                    "kind": "IngressClassParams",
+                    "name": name,
+                },
+            },
+        },
+        {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "Ingress",
+            "metadata": {
+                "name": "metabase-ui",
+                "namespace": METABASE_NAMESPACE,
+                "annotations": {
+                    "alb.ingress.kubernetes.io/listen-ports": '[{"HTTPS":443}]',
+                    "alb.ingress.kubernetes.io/certificate-arn": certificate,
+                    "alb.ingress.kubernetes.io/ssl-policy": "ELBSecurityPolicy-TLS13-1-2-2021-06",
+                    "alb.ingress.kubernetes.io/target-type": "ip",
+                    "alb.ingress.kubernetes.io/backend-protocol": "HTTP",
+                    "alb.ingress.kubernetes.io/security-groups": group,
+                    # 443 의 Cloudflare 대역 규칙과 3000 backend 규칙은 Terraform(metabase.tf)이 관리한다.
+                    "alb.ingress.kubernetes.io/manage-backend-security-group-rules": "false",
+                    "alb.ingress.kubernetes.io/healthcheck-path": "/api/health",
+                    "alb.ingress.kubernetes.io/success-codes": "200",
+                    "alb.ingress.kubernetes.io/load-balancer-attributes": "idle_timeout.timeout_seconds=120",
+                    "alb.ingress.kubernetes.io/target-group-attributes": "deregistration_delay.timeout_seconds=30",
+                },
+            },
+            "spec": {
+                "ingressClassName": name,
+                "rules": [
+                    {
+                        "host": METABASE_DOMAINS[settings.environment],
+                        "http": {
+                            "paths": [
+                                {
+                                    "path": "/",
+                                    "pathType": "Prefix",
+                                    "backend": {
+                                        "service": {
+                                            "name": METABASE_RELEASE,
+                                            "port": {"number": METABASE_PORT},
+                                        }
+                                    },
+                                }
+                            ]
+                        },
+                    }
+                ],
+            },
+        },
+    ]
+
+
+def expose_metabase(run, settings, outputs):
+    """Metabase 화면을 Cloudflare 뒤로 연다 — 인증서가 주소를 덮는지 먼저 본다. 인증서가 없으면(Terraform 변수 비움) 열지 않는다."""
+    certificate = outputs["metabase_certificate_arn"]
+    if not certificate:
+        print(
+            f"{settings.environment} Metabase 화면 인증서가 없어 화면을 열지 않습니다"
+        )
+        return None
+    details = json.loads(
+        run(
+            [
+                "aws",
+                "acm",
+                "describe-certificate",
+                "--certificate-arn",
+                certificate,
+                "--output",
+                "json",
+            ],
+            quiet=True,
+        )
+    )["Certificate"]
+    if details["Status"] != "ISSUED":
+        raise ValueError("Metabase ACM 인증서가 ISSUED 상태가 아닙니다")
+    if METABASE_DOMAINS[settings.environment] not in details["SubjectAlternativeNames"]:
+        raise ValueError("Metabase ACM 인증서가 화면 주소를 포함하지 않습니다")
+    for manifest in metabase_ingress(settings, outputs):
+        run(["kubectl", "apply", "-f", "-"], stdin=json.dumps(manifest), quiet=True)
+    hostname = wait_for_metabase_alb(run, settings, outputs)
+    print(f"Metabase 화면 ALB: {hostname}")
     return hostname
 
 

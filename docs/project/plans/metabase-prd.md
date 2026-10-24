@@ -1,6 +1,6 @@
 # PRD 데이터 보기 — Metabase 를 EKS 안에, 읽기 전용 계정으로, Cloudflare Access 뒤에
 
-- **상태**: 진행(2026-10-24) — 1 단계(DB 뷰·계정) 구현 중. 처음 볼 것은 §3-2 네 묶음 전부, 주소·허용 메일은 SigNoz 와 같게(결정 2026-10-24)
+- **상태**: 진행(2026-10-24) — 1 단계(DB 뷰·계정) 머지(#356), 2 단계(띄우기) 구현 중. 처음 볼 것은 §3-2 네 묶음 전부, 주소·허용 메일은 SigNoz 와 같게(결정 2026-10-24)
 - **관련**: [ADR 0027](../../architecture/adr/0027-metabase-in-eks-read-only.md)(제안) · [ADR 0025](../../architecture/adr/0025-aws-observability-signoz-in-eks.md)(SigNoz — 같은 모양) ·
   [observability-aws.md](observability-aws.md) · [aws-dev-prd.md](../../architecture/aws-dev-prd.md) · `tools/aws/db-bootstrap.sh`
 
@@ -94,6 +94,25 @@ flowchart LR
 | `metabase_ro` | LOGIN. `scenetrip` 접속, 스키마 `analytics` USAGE + 그 안 모든 표·뷰 SELECT(앞으로 `app_migrate` 가 만드는 것도 — default privileges). `public` 스키마 표 권한 없음. `CONNECTION LIMIT 5`, `statement_timeout = 30s`, `default_transaction_read_only = on` |
 
 스키마 `analytics` 는 bootstrap 이 `app_migrate` 주인으로 만들고(권한을 걸려면 먼저 있어야 한다), 마이그레이션은 `CREATE SCHEMA IF NOT EXISTS` 로 같은 스키마를 쓴다.
+
+### 3-5. 2 단계 명세 — 띄우기 (SigNoz 와 같은 모양, 테스트는 이 절만 보고 쓴다)
+
+먼저 **DEV 만**(`METABASE_ENVIRONMENTS = ("dev",)`). PRD 는 앱 심사가 끝난 뒤 따로 확인을 받고 더한다.
+
+| 곳 | 정한 것 |
+| --- | --- |
+| 이미지 | `metabase/metabase:v0.64.3.4`, digest `sha256:7804ce4edfa217dd08a896821f57b12a9a392d944bd3797a55520d51c76232e3`, linux/amd64. `MODULE.bazel` `oci.pull(name = "mirror_metabase")` → `platform/helm/metabase/BUILD.bazel` 의 `mirror_metabase_push` → 환경 ECR `scenetrip-<env>/mirror/metabase/metabase`. 배포기는 없는 태그만 올린다 |
+| 설정(`tools/aws/config.py`) | `METABASE_MIRROR = {"mirror_metabase": ("metabase/metabase", "v0.64.3.4")}`, `REPOSITORIES` 에 포함. `METABASE_DOMAINS = {"dev": "metabase-dev.scenetrip.io", "prd": "metabase.scenetrip.io"}`, `METABASE_ENVIRONMENTS = ("dev",)` |
+| 비밀값 | Secrets Manager `/scenetrip/<env>/metabase`, 키 `METABASE_APP_PASSWORD`·`METABASE_RO_PASSWORD`·`MB_ENCRYPTION_SECRET_KEY`. `APP_SECRETS` 에 `metabase`. **배포기가 환경당 한 번 만든다**(사람은 안 본다, 있으면 다시 쓴다). Terraform 은 빈 비밀값 컨테이너만 |
+| DB 준비 Job | Metabase 를 올리는 환경이면 bootstrap 이 받는 임시 Secret 에 `METABASE_RO_PASSWORD`·`METABASE_APP_PASSWORD` 를 더한다(1 단계 `db-bootstrap.sh` 가 계정을 만든다) |
+| 설치 | DB 마이그레이션 **뒤에**. 네임스페이스 `metabase`(pod security `restricted`), Secret `metabase/metabase-secrets`(`MB_DB_PASS`·`MB_ENCRYPTION_SECRET_KEY`, stdin 으로만), `helm upgrade --install metabase platform/helm/metabase --namespace metabase --values -`(이미지 주소·태그, DB 호스트, 화면 주소, DNS CIDR, ALB 서브넷 CIDR) `--atomic --wait` |
+| 차트(`platform/helm/metabase`, 저장소 소유) | Deployment 1 개(Recreate), uid 2000·비루트·권한 상승 없음·능력 전부 뺌·seccomp RuntimeDefault·읽기 전용 루트 + `/tmp` emptyDir(`MB_PLUGINS_DIR=/tmp/plugins`). env `MB_DB_TYPE=postgres`·`MB_DB_CONNECTION_URI`(호스트·5432·DB `metabase`·`sslmode=require`)·`MB_DB_USER=metabase_app`·`MB_DB_PASS`/`MB_ENCRYPTION_SECRET_KEY`(Secret)·`MB_JETTY_PORT=3000`·`MB_SITE_URL=https://<화면 주소>`. requests CPU 250m·메모리 1Gi, limits 메모리 2Gi. 시작·준비·생존 점검 `/api/health`. Service ClusterIP 3000. NetworkPolicy: 기본 거부, DNS(53) 나감, 5432 나감, 3000 들어옴은 ALB 공개 서브넷 CIDR 에서만 |
+| 화면 | 인증서 변수 `metabase_certificate_arn`(비면 화면 노출을 건너뜀). IngressClassParams·IngressClass `scenetrip-<env>-metabase-alb`, Ingress `metabase/metabase-ui`(HTTPS 443·TLS1.3·대상 ip·보안 그룹 `metabase_alb`·백엔드 규칙 관리 안 함·상태 점검 `/api/health`·호스트 화면 주소 → `metabase:3000`). ALB 가 대상 정상이 될 때까지 기다린다 |
+| Terraform | `local.repositories` 에 `mirror_metabase = "mirror/metabase/metabase"`, 비밀값 `metabase`, `metabase.tf`: 보안 그룹 `metabase_alb`(443 은 SigNoz 와 같은 Cloudflare 대역 목록만, 나감은 클러스터 보안 그룹 3000, 클러스터 보안 그룹은 `metabase_alb` 에서 3000 받음), 변수 `metabase_certificate_arn`(빈 값 또는 같은 계정·리전 ARN), 출력 `metabase_alb_security_group_id`·`metabase_certificate_arn` |
+| DNS | DEV 올리기(lifecycle up)가 SigNoz 다음에 `metabase-dev.scenetrip.io` 를 Metabase ALB 로 가리킨다(프록시 켬). 이미 떠 있는 DEV 와 PRD 는 사람이 한 번 넣는다 |
+| 내리기 | 게이트웨이 정리가 보안 그룹 `metabase_alb` 를 알아보고, ALB 는 VPC 당 최대 3 개, Ingress `metabase/metabase-ui` 를 지우고 ALB 가 사라질 때까지 기다린다. `helm uninstall metabase`(PVC 없음). 신원 정리 정규식에 `metabase_alb` 주소들 |
+
+사람이 하는 일(저장소 밖): ACM 확인 CNAME(2026-10-24 등록함), `metabase-dev` CNAME → ALB(프록시 켬), Cloudflare Access 앱(SigNoz 와 같은 허용 메일), Metabase 첫 화면에서 관리자 만들기·DB(`scenetrip`, 계정 `metabase_ro`) 연결 — 비밀번호는 Secrets Manager 에서 `| pbcopy`.
 
 ## 4. 순서
 

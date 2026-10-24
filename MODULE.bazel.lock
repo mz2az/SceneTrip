@@ -443,7 +443,7 @@
     "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "Rb/Z+MRjcLD6FLL81DRNkc43GQlET+b8QIDqqoGXnkw=",
-        "usagesDigest": "Tqz2N/0UL47NMbnHuVsI7TJiLEIHReTEobC+F6HHVdM=",
+        "usagesDigest": "/YS2ymHSF/1EgTxlNgqJWXpHlFrpNOACaUswbAKPt+Q=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -738,6 +738,35 @@
               "reproducible": true
             }
           },
+          "mirror_metabase_linux_amd64": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
+            "attributes": {
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "metabase/metabase",
+              "identifier": "sha256:7804ce4edfa217dd08a896821f57b12a9a392d944bd3797a55520d51c76232e3",
+              "platform": "linux/amd64",
+              "target_name": "mirror_metabase_linux_amd64",
+              "bazel_tags": []
+            }
+          },
+          "mirror_metabase": {
+            "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_alias",
+            "attributes": {
+              "target_name": "mirror_metabase",
+              "www_authenticate_challenges": {},
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "metabase/metabase",
+              "identifier": "sha256:7804ce4edfa217dd08a896821f57b12a9a392d944bd3797a55520d51c76232e3",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@mirror_metabase_linux_amd64"
+              },
+              "bzlmod_repository": "mirror_metabase",
+              "reproducible": true
+            }
+          },
           "integration_postgis_linux_amd64": {
             "repoRuleId": "@@rules_oci+//oci/private:pull.bzl%oci_pull",
             "attributes": {
@@ -932,6 +961,8 @@
             "mirror_metrics_exporter_linux_amd64",
             "mirror_zookeeper",
             "mirror_zookeeper_linux_amd64",
+            "mirror_metabase",
+            "mirror_metabase_linux_amd64",
             "integration_postgis",
             "integration_postgis_linux_amd64",
             "integration_nginx",

@@ -96,6 +96,7 @@ py_test(
         "tests/test_lifecycle.py",
         "tests/test_loadtest_mode.py",
         "tests/test_media.py",
+        "tests/test_metabase.py",
         "tests/test_node_packing.py",
         "tests/test_ops.py",
         "tests/test_prd_protection.py",
@@ -109,6 +110,9 @@ py_test(
         "//.github/workflows:aws_workflows",
         "//contracts/openapi:scene-api-v1.yaml",
         "//platform/helm:sources",
+        # Metabase 차트(ADR 0027) — 배포가 넘기는 values 그대로 그려 본다(test_metabase.py).
+        "//platform/helm/metabase:BUILD.bazel",
+        "//platform/helm/metabase:chart",
         "//platform/helm/signoz:BUILD.bazel",
         "//platform/helm/signoz:values",
         "//platform/terraform:sources",

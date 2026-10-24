@@ -30,8 +30,10 @@ DATABASE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scene
 SIGNOZ_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/signoz-FxSignoz"
 # 이미 저장된 SigNoz 관리자 비밀번호(시험용 고정 값).
 SIGNOZ_ROOT_PASSWORD = "fixture-signoz-root-passwordAa1!"
-# trip-guide 비밀값은 없다(MZ2AZ-317) — 가짜 저장소는 이 넷 밖의 대상을 거절해, 배포기가 다른 비밀값을 읽으면 드러난다.
-ALL_ARNS = (AUTH_ARN, SCENE_ARN, DATABASE_ARN, SIGNOZ_ARN)
+# Metabase 칸(ADR 0027) — 배포가 Metabase 환경(METABASE_ENVIRONMENTS)에서 처음 한 번 만든다.
+METABASE_ARN = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:/scenetrip/dev/metabase-FxMetabase"
+# trip-guide 비밀값은 없다(MZ2AZ-317) — 가짜 저장소는 이 다섯 밖의 대상을 거절해, 배포기가 다른 비밀값을 읽으면 드러난다.
+ALL_ARNS = (AUTH_ARN, SCENE_ARN, DATABASE_ARN, SIGNOZ_ARN, METABASE_ARN)
 OWNED_TAGS = [
     {"Key": "Project", "Value": "scenetrip"},
     {"Key": "Environment", "Value": "dev"},
@@ -317,6 +319,7 @@ def deploy_outputs(settings, arns=None):
             "scene_api": SCENE_ARN,
             "auth": AUTH_ARN,
             "signoz": SIGNOZ_ARN,
+            "metabase": METABASE_ARN,
         },
         "ecr_repository_urls": {
             "scene_api": "scene-image",
@@ -330,6 +333,8 @@ def deploy_outputs(settings, arns=None):
         + "a" * 36,
         # SigNoz 화면 인증서(ADR 0025) — 비우면 배포가 화면을 열지 않는다. 여는 경로는 test_signoz 가 시험한다.
         "signoz_certificate_arn": "",
+        # Metabase 화면 인증서(ADR 0027) — 비우면 배포가 화면을 열지 않는다. 여는 경로는 test_metabase 가 시험한다.
+        "metabase_certificate_arn": "",
     }
 
 
@@ -394,6 +399,8 @@ class DeploySecretWiringTest(unittest.TestCase):
             ),
             patch("tools.aws.deploy.migrate_database"),
             patch("tools.aws.deploy.verify_network_deny"),
+            # Metabase(ADR 0027)는 test_metabase 가 시험한다 — 여기서는 끈다.
+            patch("tools.aws.deploy.METABASE_ENVIRONMENTS", (), create=True),
         ):
             deploy(
                 run,
@@ -616,17 +623,18 @@ class RetainedAuthSecretTest(unittest.TestCase):
 
         self.assertIn("auth", APP_SECRETS)
 
-    def test_app_secrets_are_exactly_the_four_terraform_secrets(self):
+    def test_app_secrets_are_exactly_the_five_terraform_secrets(self):
         # MZ2AZ-317 — trip_guide 는 없다. ADR 0025 — signoz(관리자 비밀번호)가 더해졌다.
+        # ADR 0027 — metabase(Metabase 계정 암호·암호화 키)가 더해졌다(metabase-prd.md §3-5).
         # 배포(aws)와 되살리기(lifecycle)가 같은 목록을 쓴다.
         from tools.aws import aws, config
 
         self.assertEqual(
-            config.APP_SECRETS, ("scene_api", "database", "auth", "signoz")
+            config.APP_SECRETS, ("scene_api", "database", "auth", "signoz", "metabase")
         )
         self.assertEqual(tuple(aws.APP_SECRETS), config.APP_SECRETS)
 
-    def test_adopt_describes_only_the_four_managed_secrets(self):
+    def test_adopt_describes_only_the_five_managed_secrets(self):
         from tools.aws.aws import adopt_retained_secrets
 
         owned = {"Tags": OWNED_TAGS, "DeletedDate": "2026-09-29"}
@@ -637,6 +645,7 @@ class RetainedAuthSecretTest(unittest.TestCase):
                 "database": owned,
                 "auth": owned,
                 "signoz": owned,
+                "metabase": owned,
                 "trip-guide": owned,
             },
         )
@@ -652,12 +661,13 @@ class RetainedAuthSecretTest(unittest.TestCase):
             [
                 "/scenetrip/dev/auth",
                 "/scenetrip/dev/database",
+                "/scenetrip/dev/metabase",
                 "/scenetrip/dev/scene-api",
                 "/scenetrip/dev/signoz",
             ],
         )
         restores = [command for command in commands if "restore-secret" in command]
-        self.assertEqual(len(restores), 4)
+        self.assertEqual(len(restores), 5)
         for command in restores:
             self.assertNotIn("trip-guide", " ".join(command))
         imports = sorted(
@@ -670,6 +680,7 @@ class RetainedAuthSecretTest(unittest.TestCase):
             [
                 'aws_secretsmanager_secret.app["auth"]',
                 'aws_secretsmanager_secret.app["database"]',
+                'aws_secretsmanager_secret.app["metabase"]',
                 'aws_secretsmanager_secret.app["scene_api"]',
                 'aws_secretsmanager_secret.app["signoz"]',
             ],
@@ -680,7 +691,7 @@ class RetainedAuthSecretTest(unittest.TestCase):
 
         state = "\n".join(
             f'aws_secretsmanager_secret.app["{key}"]'
-            for key in ("scene_api", "database", "signoz")
+            for key in ("scene_api", "database", "signoz", "metabase")
         )
         run = self.fake(
             state, {"auth": {"Tags": OWNED_TAGS, "DeletedDate": "2026-09-29"}}
@@ -711,7 +722,7 @@ class RetainedAuthSecretTest(unittest.TestCase):
 
         state = "\n".join(
             f'aws_secretsmanager_secret.app["{key}"]'
-            for key in ("scene_api", "database", "auth")
+            for key in ("scene_api", "database", "auth", "metabase")
         )
         run = self.fake(
             state, {"signoz": {"Tags": OWNED_TAGS, "DeletedDate": "2026-10-13"}}
@@ -789,7 +800,7 @@ class DestroyIdentityAuthTest(unittest.TestCase):
         )
 
     def test_trip_guide_secret_is_not_an_owned_address(self):
-        # MZ2AZ-317 — 넷(scene_api·database·auth·signoz)은 받고 trip_guide 는 모르는 리소스처럼 거절한다.
+        # MZ2AZ-317 — 다섯(scene_api·database·auth·signoz·metabase)은 받고 trip_guide 는 모르는 리소스처럼 거절한다.
         from tools.aws.destroy_identity import validate_owned_state
 
         for key, name in (
@@ -797,6 +808,7 @@ class DestroyIdentityAuthTest(unittest.TestCase):
             ("database", "database"),
             ("auth", "auth"),
             ("signoz", "signoz"),
+            ("metabase", "metabase"),
         ):
             with self.subTest(key=key):
                 validate_owned_state(

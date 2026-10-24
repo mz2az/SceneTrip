@@ -17,6 +17,8 @@ from tools.aws.alb import alb_values, verify_nodeclass, wait_for_alb
 from tools.aws.bootstrap_delete import delete_bootstrap
 from tools.aws.config import (
     APP_SECRETS,
+    METABASE_ENVIRONMENTS,
+    METABASE_MIRROR,
     REPOSITORIES,
     SIGNOZ_ENVIRONMENTS,
     SIGNOZ_MIRROR,
@@ -364,12 +366,35 @@ def publish(run, outputs, settings, temp, images=None):
         )
     if images is None and settings.environment in SIGNOZ_ENVIRONMENTS:
         mirror_signoz(run, outputs, settings, registry, docker)
+    if images is None and settings.environment in METABASE_ENVIRONMENTS:
+        mirror_metabase(run, outputs, settings, registry, docker)
 
 
 def mirror_signoz(run, outputs, settings, registry, docker):
     """SigNoz 이미지(ADR 0025)를 환경 ECR 로 복사한다 — **없는 태그만**. 저장소가 태그 불변이라 한 번 올린 태그는 다시
     올리지 못하고(같은 내용이어도 거절), 내용도 바뀌지 않는다. 그래서 매 배포 Docker Hub 를 부르지 않는다."""
-    for key, (_, tag) in SIGNOZ_MIRROR.items():
+    mirror_images(
+        run, outputs, settings, registry, docker, SIGNOZ_MIRROR, "signoz", "SigNoz"
+    )
+
+
+def mirror_metabase(run, outputs, settings, registry, docker):
+    """Metabase 이미지(ADR 0027)를 환경 ECR 로 복사한다 — SigNoz 와 같은 규칙(없는 태그만)."""
+    mirror_images(
+        run,
+        outputs,
+        settings,
+        registry,
+        docker,
+        METABASE_MIRROR,
+        "metabase",
+        "Metabase",
+    )
+
+
+def mirror_images(run, outputs, settings, registry, docker, mirror, package, label):
+    """mirror(키 → (원래 경로, 태그))의 이미지를 `//platform/helm/<package>:<키>_push` 로 환경 ECR 에 올린다 — 없는 태그만."""
+    for key, (_, tag) in mirror.items():
         repository = outputs["ecr_repository_urls"][key]
         name = f"scenetrip-{settings.environment}/{REPOSITORIES[key]}"
         if repository != f"{registry}/{name}":
@@ -396,7 +421,7 @@ def mirror_signoz(run, outputs, settings, registry, docker):
             [
                 "just",
                 "run",
-                f"//platform/helm/signoz:{key}_push",
+                f"//platform/helm/{package}:{key}_push",
                 "--",
                 "--repository",
                 repository,
@@ -405,7 +430,7 @@ def mirror_signoz(run, outputs, settings, registry, docker):
             ],
             env={"DOCKER_CONFIG": str(docker)},
         )
-        print(f"SigNoz 이미지를 ECR 로 복사: {REPOSITORIES[key]}:{tag}")
+        print(f"{label} 이미지를 ECR 로 복사: {REPOSITORIES[key]}:{tag}")
 
 
 def data_load(run, root, settings, temp):

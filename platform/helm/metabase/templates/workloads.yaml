@@ -1,0 +1,92 @@
+{{- $host := required "DB 호스트(database.host)가 필요합니다" .Values.database.host }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metabase
+  labels: { app: metabase }
+spec:
+  replicas: 1
+  # 앱 DB 마이그레이션을 두 파드가 동시에 하지 않게 — 옛 파드가 내려간 뒤 새 파드를 띄운다.
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: metabase }
+  template:
+    metadata:
+      labels: { app: metabase }
+    spec:
+      automountServiceAccountToken: false
+      # 복사한 이미지가 linux/amd64 하나뿐이다.
+      nodeSelector: { kubernetes.io/arch: amd64 }
+      # 공식 이미지는 사용자를 정하지 않아 root 로 돈다 — 여기서 uid/gid 2000 으로 내린다(pod security restricted).
+      securityContext:
+        runAsUser: 2000
+        runAsGroup: 2000
+        fsGroup: 2000
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: metabase
+          image: "{{ required "이미지 저장소(image.repository)가 필요합니다" .Values.image.repository }}:{{ required "이미지 태그(image.tag)가 필요합니다" .Values.image.tag }}"
+          # entrypoint 는 이미지의 /app/run_metabase.sh 그대로.
+          ports:
+            - { name: http, containerPort: 3000, protocol: TCP }
+          env:
+            - { name: MB_DB_TYPE, value: postgres }
+            - name: MB_DB_CONNECTION_URI
+              value: "jdbc:postgresql://{{ $host }}:5432/metabase?sslmode=require"
+            - { name: MB_DB_USER, value: metabase_app }
+            - name: MB_DB_PASS
+              valueFrom: { secretKeyRef: { name: metabase-secrets, key: MB_DB_PASS } }
+            - name: MB_ENCRYPTION_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: metabase-secrets, key: MB_ENCRYPTION_SECRET_KEY } }
+            - { name: MB_JETTY_PORT, value: "3000" }
+            - name: MB_SITE_URL
+              value: {{ required "화면 주소(siteUrl)가 필요합니다" .Values.siteUrl | quote }}
+            # 루트 파일 시스템이 읽기 전용이라 플러그인(드라이버)을 /tmp 에 푼다.
+            - { name: MB_PLUGINS_DIR, value: /tmp/plugins }
+            # 바깥(443)으로 나가는 길이 없다 — 업데이트 확인·익명 사용 통계를 끈다.
+            - { name: MB_CHECK_FOR_UPDATES, value: "false" }
+            - { name: MB_ANON_TRACKING_ENABLED, value: "false" }
+            # 힙을 메모리 상한(2Gi)에 맞춘다 — JVM 기본(25%)이면 512Mi 뿐이다.
+            - { name: JAVA_TOOL_OPTIONS, value: "-XX:MaxRAMPercentage=70" }
+          resources:
+            requests: { cpu: 250m, memory: 1Gi }
+            limits: { memory: 2Gi }
+          securityContext:
+            runAsUser: 2000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          # 첫 기동은 앱 DB 마이그레이션까지 1~2 분 걸린다 — 시작 점검은 10 분까지 기다린다.
+          startupProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 1Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metabase
+  labels: { app: metabase }
+spec:
+  type: ClusterIP
+  selector: { app: metabase }
+  ports:
+    - { name: http, port: 3000, targetPort: http, protocol: TCP }

@@ -211,6 +211,7 @@ class LifecycleTests(unittest.TestCase):
                     "mirror_clickhouse_operator",
                     "mirror_metrics_exporter",
                     "mirror_zookeeper",
+                    "mirror_metabase",
                 )
             },
         )
@@ -218,7 +219,7 @@ class LifecycleTests(unittest.TestCase):
             repositories,
             {address for address in expected if address.startswith("aws_ecr_")},
         )
-        # 앱 비밀값은 넷뿐이다 — trip-guide 비밀값은 없앴고(MZ2AZ-317) signoz 를 더했다(ADR 0025). 실제 형상의 비밀값이
+        # 앱 비밀값은 다섯뿐이다 — trip-guide 비밀값은 없앴고(MZ2AZ-317) signoz(ADR 0025)·metabase(ADR 0027)를 더했다. 실제 형상의 비밀값이
         # 모두 삭제 안전 목록(TAGGED_ADDRESSES)에 들어야 내리기가 멈추지 않는다.
         secrets = {
             address
@@ -229,7 +230,7 @@ class LifecycleTests(unittest.TestCase):
             secrets,
             {
                 f'aws_secretsmanager_secret.app["{key}"]'
-                for key in ("scene_api", "database", "auth", "signoz")
+                for key in ("scene_api", "database", "auth", "signoz", "metabase")
             },
         )
         for address in secrets:
@@ -260,6 +261,33 @@ class LifecycleTests(unittest.TestCase):
             <= signoz
         )
         for address in signoz:
+            self.assertTrue(
+                any(re.fullmatch(pattern, address) for pattern in TAGGED_ADDRESSES),
+                address,
+            )
+        # Metabase 화면 전용 ALB 의 보안 그룹·규칙(ADR 0027, metabase-prd.md §3-5) — SigNoz 와 같은 Cloudflare 대역 15 개.
+        metabase = {
+            address
+            for address in actual
+            if address.startswith(
+                (
+                    "aws_security_group.metabase_alb",
+                    "aws_vpc_security_group_ingress_rule.metabase_",
+                    "aws_vpc_security_group_egress_rule.metabase_",
+                )
+            )
+        }
+        self.assertEqual(len(metabase), 18)
+        self.assertTrue(
+            {
+                "aws_security_group.metabase_alb",
+                "aws_vpc_security_group_egress_rule.metabase_alb_to_ui",
+                "aws_vpc_security_group_ingress_rule.metabase_from_alb",
+                'aws_vpc_security_group_ingress_rule.metabase_alb_https["173.245.48.0/20"]',
+            }
+            <= metabase
+        )
+        for address in metabase:
             self.assertTrue(
                 any(re.fullmatch(pattern, address) for pattern in TAGGED_ADDRESSES),
                 address,

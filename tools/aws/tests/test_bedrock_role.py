@@ -86,11 +86,13 @@ class TripGuideChartTest(unittest.TestCase):
 class TripGuideSecretValidationTest(unittest.TestCase):
     """MZ2AZ-317 후속 — trip-guide 의 Secrets Manager 비밀값을 없앴다. 검사 종류에도 남지 않는다."""
 
-    def test_app_secrets_are_scene_api_database_auth_signoz(self):
-        # trip_guide 는 없다. signoz(SigNoz 관리자 비밀번호)는 ADR 0025 에서 더해졌다.
+    def test_app_secrets_are_scene_api_database_auth_signoz_metabase(self):
+        # trip_guide 는 없다. signoz(SigNoz 관리자 비밀번호)는 ADR 0025, metabase 는 ADR 0027 에서 더해졌다.
         from tools.aws.config import APP_SECRETS
 
-        self.assertEqual(APP_SECRETS, ("scene_api", "database", "auth", "signoz"))
+        self.assertEqual(
+            APP_SECRETS, ("scene_api", "database", "auth", "signoz", "metabase")
+        )
 
     def test_trip_guide_is_not_a_secret_kind(self):
         from tools.aws import config

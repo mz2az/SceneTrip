@@ -589,6 +589,8 @@ class BoundaryTest(unittest.TestCase):
                 side_effect=lambda *unused: events.append("migration"),
             ),
             patch("tools.aws.deploy.verify_network_deny"),
+            # Metabase(ADR 0027)는 test_metabase 가 시험한다 — 여기서는 끈다.
+            patch("tools.aws.deploy.METABASE_ENVIRONMENTS", (), create=True),
         ):
             hostname = deploy(run, Path("."), settings, outputs, Path(SIGNOZ_CHART))
         self.assertTrue(hostname.endswith(".elb.amazonaws.com"))

@@ -834,6 +834,18 @@ oci.pull(
 )
 use_repo(oci, "mirror_alpine", "mirror_alpine_linux_amd64", "mirror_clickhouse", "mirror_clickhouse_linux_amd64", "mirror_clickhouse_operator", "mirror_clickhouse_operator_linux_amd64", "mirror_metrics_exporter", "mirror_metrics_exporter_linux_amd64", "mirror_otel_collector", "mirror_otel_collector_linux_amd64", "mirror_signoz", "mirror_signoz_linux_amd64", "mirror_zookeeper", "mirror_zookeeper_linux_amd64")
 
+# --- Metabase on EKS (ADR 0027, docs/project/plans/metabase-prd.md §3-5) ----------------------------------------
+# 공식 오픈소스 이미지를 digest 로 고정해 받아 환경 ECR 로 복사한다(platform/helm/metabase:mirror_metabase_push, 배포기
+# tools/aws/aws.py mirror_metabase). 태그는 tools/aws/config.py METABASE_MIRROR 와 같다. 이미지는 배포기만 쓴다(push 대상이 manual).
+# metabase/metabase:v0.64.3.4
+oci.pull(
+    name = "mirror_metabase",
+    digest = "sha256:7804ce4edfa217dd08a896821f57b12a9a392d944bd3797a55520d51c76232e3",
+    image = "index.docker.io/metabase/metabase",
+    platforms = ["linux/amd64"],
+)
+use_repo(oci, "mirror_metabase", "mirror_metabase_linux_amd64")
+
 # 클라우드 없이 bootstrap SQL과 실제 nginx를 검증하는 폐기형 통합 픽스처.
 oci.pull(
     name = "integration_postgis",
