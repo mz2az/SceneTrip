@@ -40,6 +40,9 @@ spec:
             - name: MB_ENCRYPTION_SECRET_KEY
               valueFrom: { secretKeyRef: { name: metabase-secrets, key: MB_ENCRYPTION_SECRET_KEY } }
             - { name: MB_JETTY_PORT, value: "3000" }
+            # 보는 DB(scenetrip)로 여는 연결 상한 — metabase_ro 의 CONNECTION LIMIT 5 보다 작게(남은 1 개는 동기화·직접 조회 몫).
+            # 넘으면 대시보드 카드가 「too many connections for role metabase_ro」 로 실패했다(2026-10-24 DEV).
+            - { name: MB_JDBC_DATA_WAREHOUSE_MAX_CONNECTION_POOL_SIZE, value: "4" }
             - name: MB_SITE_URL
               value: {{ required "화면 주소(siteUrl)가 필요합니다" .Values.siteUrl | quote }}
             # 루트 파일 시스템이 읽기 전용이라 플러그인(드라이버)을 /tmp 에 푼다.

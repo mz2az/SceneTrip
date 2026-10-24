@@ -1101,6 +1101,19 @@ class MetabaseChartTest(unittest.TestCase):
         self.assertNotIn("@", uri)
         self.assertNotIn("password", uri.lower())
 
+    def test_data_warehouse_pool_stays_below_metabase_ro_connection_limit(self):
+        # 카드 11장 대시보드가 metabase_ro 연결 한도(5)를 넘겨 "too many connections" 로 실패했다.
+        # 풀은 한도에서 하나(동기화·직접 질의 몫)를 뺀 4 로 고정한다.
+        literal = {name: item.get("value") for name, item in self.env().items()}
+        pool = literal.get("MB_JDBC_DATA_WAREHOUSE_MAX_CONNECTION_POOL_SIZE")
+        self.assertEqual(pool, "4")
+        bootstrap = (workspace() / "tools/aws/db-bootstrap.sh").read_text()
+        found = re.search(r"ALTER ROLE metabase_ro CONNECTION LIMIT (\d+);", bootstrap)
+        self.assertIsNotNone(
+            found, "db-bootstrap.sh 에 metabase_ro 연결 한도가 없습니다"
+        )
+        self.assertLess(int(pool), int(found.group(1)))
+
     def test_secret_values_come_from_metabase_secrets(self):
         env = self.env()
         sources = self.container().get("envFrom", [])
