@@ -22,6 +22,8 @@ import com.mz2az.scenetrip.data.LimitLedger
 import com.mz2az.scenetrip.data.LocationConsentRequired
 import com.mz2az.scenetrip.data.LocationConsentStore
 import com.mz2az.scenetrip.data.LocationDirectionsConsent
+import com.mz2az.scenetrip.data.LocationFix
+import com.mz2az.scenetrip.data.LocationReading
 import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.haversineKm
@@ -30,6 +32,7 @@ import com.mz2az.scenetrip.sceneapi.client.api.NavigationApi
 import com.mz2az.scenetrip.sceneapi.client.model.NextLeg
 import com.mz2az.scenetrip.sceneapi.client.model.NextLegRequest
 import com.mz2az.scenetrip.searchtab.hasLocationPermission
+import com.mz2az.scenetrip.searchtab.toReading
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -89,6 +92,9 @@ class TripSession(
     private var dwell: Job? = null
     private var revision = 0
     private var locationAt = 0L
+
+    /** 지금 내놓은 값의 원본(정확도·시각). 너무 흐린 값을 거르는 기준이다. */
+    private var tripFix: LocationReading? = null
 
     fun start(
         courseId: Long,
@@ -269,9 +275,16 @@ class TripSession(
         val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return
         if (!context.hasLocationPermission) return
         stopLocationUpdates()
+        // 받기를 새로 시작하면 받은 값을 비운다(iOS `RouteLocator.track()` 의 `shown = nil`).
+        tripFix = null
         val relay =
             object : LocationListener {
                 override fun onLocationChanged(location: Location) {
+                    // 여행 중엔 새 값이 곧 지금 자리다(MZ2AZ-509, iOS `RouteLocator` PR #327). 무효·10 초 넘은 값은 버리고,
+                    // 이미 자리를 알면 100 m 넘게 흐린 값도 버린다 — 튀는 점만 만든다.
+                    val reading = location.toReading()
+                    if (!LocationFix.isUsable(reading) || !LocationFix.acceptsTripFix(reading, hasFix = tripFix != null)) return
+                    tripFix = reading
                     here = location.latitude to location.longitude
                     locationAt = SystemClock.elapsedRealtime()
                     // 기록은 보기 토글과 무관하게 늘 남는다 — 안내 중이면 언제나
@@ -298,7 +311,7 @@ class TripSession(
         listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
             .filter { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
             .forEach { provider ->
-                runCatching { manager.requestLocationUpdates(provider, 2_000L, 5f, relay, Looper.getMainLooper()) }
+                runCatching { manager.requestLocationUpdates(provider, 2_000L, TRIP_DISTANCE_FILTER_M, relay, Looper.getMainLooper()) }
             }
         dwell =
             scope.launch {
@@ -327,3 +340,6 @@ class TripSession(
         if (arrival.update(meters, SystemClock.elapsedRealtime())) markArrived()
     }
 }
+
+/** 여행 중 위치를 받는 최소 이동(m). iOS `RouteLocator.track()` 의 `distanceFilter = 10`. */
+private const val TRIP_DISTANCE_FILTER_M = 10f

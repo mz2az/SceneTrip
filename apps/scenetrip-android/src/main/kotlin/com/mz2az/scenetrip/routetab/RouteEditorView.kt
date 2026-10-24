@@ -86,11 +86,14 @@ import com.mz2az.scenetrip.sceneapi.client.model.PoiCategoryGroup
 import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
 import com.mz2az.scenetrip.searchtab.BottomSheet
 import com.mz2az.scenetrip.searchtab.Detent
+import com.mz2az.scenetrip.searchtab.LocationTracker
 import com.mz2az.scenetrip.searchtab.MapPins
 import com.mz2az.scenetrip.searchtab.NaverMapCanvas
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.centerOn
 import com.mz2az.scenetrip.searchtab.fit
+import com.mz2az.scenetrip.searchtab.focusOnStop
+import com.mz2az.scenetrip.searchtab.hasLocationPermission
 import com.mz2az.scenetrip.searchtab.regionSource
 import com.mz2az.scenetrip.searchtab.rememberLocate
 import com.mz2az.scenetrip.ui.BagIcon
@@ -282,15 +285,34 @@ fun RouteEditorView(
             trip.foreground(false, scope)
         }
     }
+    // 권한을 받고 첫 자리를 얻었는가 — 이 뒤로 「내 위치」 토글이 켜져 있는 동안 계속 받는다(아래).
+    var locationReady by remember { mutableStateOf(false) }
     val requestLocation =
         rememberLocate(
             onLocated = { found ->
+                locationReady = true
                 myLocation = PlaceSummary(id = 0, name = "여기", latitude = found.latitude, longitude = found.longitude)
             },
             onFailure = {},
         )
     // 못 받아도 코스는 만들어진다 — 실패는 조용히 넘긴다(동선 최적화가 못 쓸 뿐).
     LaunchedEffect(Unit) { requestLocation() }
+
+    // **토글이 켜져 있는 동안 계속 받는다**(MZ2AZ-509, iOS `RouteMapLocate.startLocating`). 첫 값은 대략값일 수 있어
+    // 더 나은 값으로 점을 옮긴다. 끄거나 여행 안내가 자리를 주기 시작하면 멈춘다 — 두 출처가 점을 서로 끌어당기면 튄다.
+    androidx.compose.runtime.DisposableEffect(showingMe, trip.isActive, locationReady) {
+        val follower = LocationTracker(context)
+        if (showingMe && !trip.isActive && locationReady && context.hasLocationPermission) {
+            follower.start(
+                minTimeMs = 1_000L,
+                minDistanceM = 5f,
+                onFix = { found, _ ->
+                    myLocation = PlaceSummary(id = 0, name = "여기", latitude = found.latitude, longitude = found.longitude)
+                },
+            )
+        }
+        onDispose { follower.stop() }
+    }
 
     fun updateDay(
         index: Int,
@@ -398,6 +420,14 @@ fun RouteEditorView(
 
     val day = course.days.getOrNull(dayIndex)
     val stops = day?.stops ?: emptyList()
+
+    // 정지점을 고른다 — 카드를 올리고 그곳으로 확대한다. 내 자리가 3 km 넘게 멀면 그곳만 보여 준다(`focusOnStop`).
+    fun focusStop(stop: RouteStop) {
+        focusedStopId = stop.id
+        stop.cardPlace()?.let { guideSession.pick(it) }
+        val here = if (trip.isActive) trip.here else myLocation?.let { it.latitude to it.longitude }
+        map?.focusOnStop(stop.place, here, showingMe, density, screenHeight, panelHeight)
+    }
     androidx.compose.runtime.SideEffect {
         guideSession.contextOf = {
             val picked = stops.firstOrNull { it.id == focusedStopId }
@@ -513,7 +543,9 @@ fun RouteEditorView(
         poiGroupsOn = if (trip.isActive) emptySet() else PoiCategoryGroup.entries.toSet()
     }
 
-    LaunchedEffect(map, dayIndex, fitToken, showingMe, myLocation, screenHeight, panelHeight) {
+    // 열쇠에 `myLocation` 자체를 두지 않는다 — 계속 받는 값이 올 때마다 화면을 다시 맞추면 손으로 옮긴 지도가 되돌아간다.
+    // 자리를 처음 알게 된 때(`myLocation != null`)만 다시 맞춘다.
+    LaunchedEffect(map, dayIndex, fitToken, showingMe, myLocation != null, screenHeight, panelHeight) {
         val target = map ?: return@LaunchedEffect
         if (screenHeight <= 0.dp || panelHeight <= 0.dp) return@LaunchedEffect
         delay(MAP_FIT_DEBOUNCE_MILLIS) // 시트 드래그 중 반복 맞추기를 취소하고 마지막 보이는 영역에 맞춘다.
@@ -524,6 +556,19 @@ fun RouteEditorView(
         withFrameNanos {}
         // 「내 위치」 켜져 있으면 나와 촬영지가 같이 보이게 — 그래야 동선 최적화가
         // 왜 그 순서인지("여기서 가까운 곳이 1번") 알 수 있다(RouteEditorControls.swift).
+        // 정지점을 골라 둔 채면 일차 전체가 아니라 그곳을 다시 맞춘다(iOS `RouteMapView.render` 의 `move(to: focused)`).
+        val focused = stops.firstOrNull { it.id == focusedStopId }
+        if (focused != null) {
+            target.focusOnStop(
+                focused.place,
+                myLocation?.let { it.latitude to it.longitude },
+                showingMe,
+                density,
+                screenHeight,
+                panelHeight,
+            )
+            return@LaunchedEffect
+        }
         val here = myLocation.takeIf { showingMe }
         val toFit = stops.map { it.place } + listOfNotNull(here)
         if (toFit.isNotEmpty()) {
@@ -847,9 +892,9 @@ fun RouteEditorView(
                 places = stops.map { it.place },
                 numbered = true,
                 onTap = { place ->
-                    val stop = stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(place) }
-                    focusedStopId = stop?.id
-                    stop?.cardPlace()?.let { guideSession.pick(it) }
+                    // 누른 곳으로 확대해 들어간다 — 일차 전체를 맞춘 화면 그대로면 무엇을 눌렀는지 지도에서 알 수 없다
+                    // (MZ2AZ-509, iOS #326). 목록에서 누른 것과 같은 확대다.
+                    stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(place) }?.let { focusStop(it) }
                 },
             )
             PendingPinMarker(map = map, pin = pendingPin)
@@ -1091,9 +1136,7 @@ fun RouteEditorView(
                                         focusedStopId = null
                                         fitToken += 1
                                     } else {
-                                        focusedStopId = stop.id
-                                        stop.cardPlace()?.let { guideSession.pick(it) }
-                                        map?.centerOn(stop.place)
+                                        focusStop(stop)
                                     }
                                 },
                                 onRemove = { updateDay(dayIndex) { d -> d.copy(stops = d.stops.filterNot { it.id == stop.id }) } },
@@ -1363,7 +1406,15 @@ fun RouteEditorView(
                         d.copy(stops = d.stops.filterNot { pickedPlace.matches(it) })
                     }
                 },
-                onClose = { guideSession.dismiss() },
+                onClose = {
+                    // 핀을 눌러 확대해 들어왔다면 카드를 닫을 때 포커스를 풀고 일차 전체로 다시 맞춘다(iOS #326).
+                    val focused = stops.firstOrNull { it.id == focusedStopId }
+                    guideSession.dismiss()
+                    if (focused != null && pickedPlace.matches(focused)) {
+                        focusedStopId = null
+                        fitToken += 1
+                    }
+                },
                 modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 12.dp).padding(bottom = 90.dp),
                 // 코스의 이 행이 목록에서 빠졌거나 폐업했다면 안내를 붙이고 새로 넣는 단추를 숨긴다.
                 unavailable = stops.firstOrNull { pickedPlace.matches(it) }?.unavailable,
