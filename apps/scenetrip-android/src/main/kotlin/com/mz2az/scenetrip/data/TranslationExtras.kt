@@ -23,11 +23,6 @@ internal val TRANSLATIONS_EN_EXTRA =
         "네이버 지도 길찾기" to "Directions in Naver Map",
         "앱에서 다시 시도" to "Try again in the app",
         "지도를 열 수 없어요. 잠시 뒤 다시 시도해 주세요" to "Couldn't open the map. Please try again later.",
-        "사진은 최대 10장 · 촬영 위치 정보는 제거됩니다" to "Up to 10 photos · Location metadata is removed",
-        "리뷰 내용 (선택)" to "Review (optional)",
-        "사진 전체 보기" to "All photos",
-        "아직 리뷰가 없어요 · 첫 리뷰 쓰기" to "No reviews yet · Write the first review",
-        "아직 쓴 리뷰가 없어요" to "You haven't written any reviews yet",
         // 이용 통계 꼬리말 (MZ2AZ-475) — iOS 문구에서 ATT(광고 추적 허용) 문장만 뺐다.
         "꺼도 앱 기능은 그대로예요." to "Everything still works when this is off.",
         // iOS 번역표에서는 빠졌지만 Android 주변 지도(PoiClusterPins)가 아직 쓰는 문구다.

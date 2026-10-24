@@ -1,23 +1,25 @@
 package com.mz2az.scenetrip.reviews
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,52 +33,69 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Fill
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.ModerationController
 import com.mz2az.scenetrip.data.ModerationEvents
 import com.mz2az.scenetrip.data.ModerationRules
 import com.mz2az.scenetrip.data.ModerationTarget
+import com.mz2az.scenetrip.data.RelativeTime
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.Photo
-import com.mz2az.scenetrip.sceneapi.client.model.PhotoSource
 import com.mz2az.scenetrip.sceneapi.client.model.RatingSummary
 import com.mz2az.scenetrip.sceneapi.client.model.ReportTargetType
 import com.mz2az.scenetrip.sceneapi.client.model.Review
 import com.mz2az.scenetrip.sceneapi.client.model.ReviewSort
+import com.mz2az.scenetrip.searchtab.SegmentedControl
 import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSSheet
-import com.mz2az.scenetrip.ui.IOSSheetToolbar
 import com.mz2az.scenetrip.ui.SheetDetent
+import com.mz2az.scenetrip.ui.SquarePencilIcon
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.time.Duration
 
+/** 별점 한 줄 — 「★4.6 · 리뷰 128」. 누르면 리뷰 시트가 열린다. 서버가 별점을 안 실어 주면 아무것도 그리지 않는다. */
 @Composable
 fun RatingLine(
     rating: RatingSummary?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (rating == null) return
+    val line = ReviewRules.line(rating)
+    if (line == ReviewRules.Line.Hidden || rating == null) return
+    val spoken = ReviewRules.spoken(rating)
+    val hint = tr("리뷰 보기")
     Row(
-        modifier.clickable(onClick = onClick),
+        modifier.semantics { contentDescription = "$spoken. $hint" }.clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        RatingStar(rating.count > 0, Modifier.size(14.dp))
-        if (rating.count == 0) {
-            Text(tr("아직 리뷰가 없어요"), style = IOS.caption, color = IOS.secondaryLabel)
-        } else {
-            Text(rating.average?.let { "%.1f".format(it) } ?: "-", style = IOS.caption, color = IOS.label)
-            Text("·", style = IOS.caption, color = IOS.tertiaryLabel)
-            Text(tr("리뷰 %d").format(rating.count), style = IOS.caption, color = IOS.secondaryLabel)
+        when (line) {
+            ReviewRules.Line.Empty -> {
+                RatingStar(false, Modifier.size(14.dp))
+                Text(tr("아직 리뷰가 없어요"), style = IOS.caption, color = IOS.secondaryLabel)
+            }
+
+            is ReviewRules.Line.Rated -> {
+                RatingStar(true, Modifier.size(14.dp))
+                Text(line.average, style = IOS.caption.copy(fontWeight = FontWeight.SemiBold), color = IOS.label)
+                Text("·", style = IOS.caption, color = IOS.tertiaryLabel)
+                Text(ReviewRules.countText(line.count), style = IOS.caption, color = IOS.secondaryLabel)
+            }
+
+            ReviewRules.Line.Hidden -> {
+                Unit
+            }
         }
         ChevronRightIcon(IOS.tertiaryLabel, Modifier.size(9.dp))
     }
@@ -87,25 +106,10 @@ private fun RatingStar(
     filled: Boolean,
     modifier: Modifier,
 ) {
-    Canvas(modifier) {
-        val edge = size.minDimension
-        val path = Path()
-        repeat(10) { index ->
-            val angle = index * Math.PI / 5 - Math.PI / 2
-            val radius = edge * if (index % 2 == 0) 0.46f else 0.2f
-            val x = edge / 2 + (kotlin.math.cos(angle) * radius).toFloat()
-            val y = edge / 2 + (kotlin.math.sin(angle) * radius).toFloat()
-            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        path.close()
-        drawPath(
-            path,
-            if (filled) Color(0xFFFFB800) else IOS.secondaryLabel,
-            style = if (filled) Fill else Stroke(width = 1.2.dp.toPx()),
-        )
-    }
+    StarGlyph(if (filled) ReviewRules.Star.FULL else ReviewRules.Star.EMPTY, 14.dp, modifier)
 }
 
+/** 리뷰 한 줄 — 닉네임·별점·날짜, 글, 사진. 작성자가 탈퇴했으면 「탈퇴한 사용자」. 글은 번역하지 않는다. */
 @Composable
 fun ReviewRow(
     review: Review,
@@ -115,16 +119,49 @@ fun ReviewRow(
     moderation: ModerationController? = null,
 ) {
     val menu = moderation != null && ModerationRules.showsMenu(isMine = review.isMine)
-    Column(
-        Modifier.fillMaxWidth().padding(top = if (menu) 4.dp else 12.dp, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(review.author?.nickname ?: tr("탈퇴한 사용자"), style = IOS.headline, color = IOS.label, modifier = Modifier.weight(1f))
-            if (review.isMine &&
-                onEdit != null
-            ) {
-                Text(tr("고치기"), color = IOS.accent, modifier = Modifier.clickable(onClick = onEdit).padding(4.dp))
+    val whenText = remember(review.createdAt) { RelativeTime.format(review.createdAt) }
+    val dateText = if (ReviewRules.edited(review.createdAt, review.updatedAt)) "$whenText · ${tr("수정됨")}" else whenText
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            // 닉네임·별·날짜·글이 따로 읽히지 않게 한 덩이로 묶는다. 사진은 묶지 않는다 — 한 장씩 눌러 크게 본다.
+            Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        ReviewRules.authorName(review.author),
+                        style = IOS.subheadlineSemibold,
+                        color = if (review.author == null) IOS.secondaryLabel else IOS.label,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (review.isMine) {
+                        Text(
+                            tr("내 리뷰"),
+                            style = IOS.caption2.copy(fontWeight = FontWeight.SemiBold),
+                            color = IOS.accent,
+                            modifier =
+                                Modifier
+                                    .clip(
+                                        CircleShape,
+                                    ).background(IOS.accent.copy(alpha = 0.12f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text(dateText, style = IOS.caption2, color = IOS.tertiaryLabel)
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    StarRow(review.rating, 11.dp)
+                    Spacer(Modifier.weight(1f))
+                    if (review.isMine && onEdit != null) {
+                        Text(
+                            tr("고치기"),
+                            style = IOS.caption.copy(fontWeight = FontWeight.SemiBold),
+                            color = IOS.accent,
+                            modifier = Modifier.clickable(onClick = onEdit).padding(vertical = 4.dp),
+                        )
+                    }
+                }
+                review.body?.takeIf { it.isNotEmpty() }?.let { Text(it, style = IOS.subheadline, color = IOS.label) }
             }
             // 묶은 줄 밖에 둔다 — 안에 두면 읽기 묶음에 삼켜져 접근성으로 누를 수 없다.
             if (menu && moderation != null) {
@@ -132,32 +169,12 @@ fun ReviewRow(
                     target = ModerationTarget.review(review.id),
                     canBlock = ModerationRules.canBlock(isMine = review.isMine, hasAuthor = review.author != null),
                     controller = moderation,
-                    modifier = Modifier.size(width = 44.dp, height = 36.dp),
+                    modifier = Modifier.size(width = 44.dp, height = 36.dp).offset(y = (-6).dp),
                 )
             }
         }
-        Text("★".repeat(review.rating.coerceIn(0, 5)) + "☆".repeat((5 - review.rating).coerceIn(0, 5)), color = IOS.systemOrange)
-        review.body?.let { Text(it, style = IOS.subheadline, color = IOS.label) }
-        Text(
-            review.createdAt.toLocalDate().toString() +
-                if (Duration.between(review.createdAt, review.updatedAt).seconds >= 1) {
-                    " · ${tr("수정됨")}"
-                } else {
-                    ""
-                },
-            style = IOS.caption,
-            color = IOS.secondaryLabel,
-        )
         if (review.photos.isNotEmpty()) {
-            GalleryStrip(
-                subject,
-                review.photos.map {
-                    Photo(url = it.url, source = PhotoSource.review, reviewId = review.id)
-                },
-                review.photos.size,
-                height = 100,
-                paged = false,
-            )
+            ReviewPhotoThumbs(subject, review.id, review.photos)
         }
     }
 }
@@ -182,14 +199,18 @@ fun ReviewsSheet(
     val total = list.total
     val offset = list.offset
     val loading = list.loading
-    val error = list.error
     var sort by remember(subject) { mutableStateOf(ReviewSort.recent) }
     var composing by remember { mutableStateOf(false) }
-    var waitingSignIn by remember { mutableStateOf(false) }
+    // 비회원이 쓰기를 눌러 로그인 화면으로 갔다 — 로그인하면 쓰기로 잇는다. 처음 가입한 사람에게는 닉네임 화면이 먼저 뜨므로
+    // 그것이 닫힌 뒤에 잇는다.
+    var composeAfterSignIn by remember { mutableStateOf(false) }
+    var composeAfterNickname by remember { mutableStateOf(false) }
     var revision by remember { mutableStateOf(0) }
     var visitorPhotos by remember(subject) { mutableStateOf<List<Photo>>(emptyList()) }
     var photoTotal by remember(subject) { mutableStateOf(0) }
+    // 이 리뷰부터 보인다(사진첩의 「리뷰 보기」) — 찾아가는 동안 값이 남는다. 찾은 줄은 잠깐 바탕을 칠한다.
     var focusedReview by remember(subject, focusReviewId) { mutableStateOf(focusReviewId) }
+    var lit by remember(subject) { mutableStateOf<Long?>(null) }
     // 남의 리뷰의 신고·차단(MZ2AZ-461).
     val moderation = rememberModerationController()
     val moderationVersion by ModerationEvents.shared.version.collectAsState()
@@ -202,13 +223,15 @@ fun ReviewsSheet(
         if (AuthStore.signedIn) {
             composing = true
         } else {
-            waitingSignIn = true
+            composeAfterSignIn = true
             AuthStore.promptSignIn()
         }
     }
 
     suspend fun load(reset: Boolean = false) = listing.load(sort, reset)
 
+    // 열 때 한 번 — 어느 대상의 리뷰를 봤는지(글은 보내지 않는다).
+    LaunchedEffect(subject) { AppAnalytics.log(AppEvent.ViewReviews(subject.kind)) }
     // 다른 화면에서도 차단·풀기가 일어난다(`ModerationEvents`) — 키에 넣어 리뷰와 방문자 사진을 다시 받는다.
     LaunchedEffect(subject, sort, revision, AuthStore.epoch, moderationVersion) {
         val asked = moderationVersion
@@ -218,116 +241,151 @@ fun ReviewsSheet(
             photoTotal = page.total
             photosAt = asked
         }
-        if (waitingSignIn && AuthStore.signedIn) {
-            waitingSignIn = false
-            composing = true
+    }
+    // 로그인하면 「내 리뷰」 표시가 달라진다 — 목록은 위 키(계정)가 다시 받는다. 쓰던 화면은 닫는다.
+    LaunchedEffect(AuthStore.epoch) {
+        if (composeAfterSignIn.not()) composing = false
+        lit = null
+    }
+    // 로그인 화면이 내려간 뒤에 쓰기 화면을 올린다 — 처음 가입한 사람에게는 닉네임 화면이 먼저 뜬다(로그인 600ms 뒤).
+    LaunchedEffect(AuthStore.signedIn) {
+        if (AuthStore.signedIn && composeAfterSignIn) {
+            composeAfterSignIn = false
+            delay(1000)
+            if (AuthStore.signedIn) {
+                if (AuthStore.showingNickname) composeAfterNickname = true else composing = true
+            }
         }
     }
-    LaunchedEffect(reviews, focusedReview, loading) {
-        val index = reviews.indexOfFirst { it.id == focusedReview }
+    LaunchedEffect(AuthStore.showingNickname) {
+        // 닉네임을 정했거나 건너뛰었다 — 리뷰를 쓰러 가입한 사람이 다시 누르지 않게 쓰기로 잇는다.
+        if (!AuthStore.showingNickname && composeAfterNickname) {
+            composeAfterNickname = false
+            delay(600)
+            if (AuthStore.signedIn) composing = true
+        }
+    }
+    LaunchedEffect(AuthStore.showingSignIn) {
+        // 로그인하지 않고 닫았으면 잇지 않는다.
+        if (!AuthStore.showingSignIn && !AuthStore.signedIn) composeAfterSignIn = false
+    }
+    // 위쪽에 요약·방문자 사진·정렬이 붙는 만큼 리뷰 줄의 번호가 밀린다.
+    val leading =
+        (if (summary != null && summary.count > 0) 1 else 0) + (if (shownPhotoTotal > 0) 1 else 0) + (if (reviews.isNotEmpty()) 1 else 0)
+    LaunchedEffect(reviews, focusedReview, list.phase) {
+        val target = focusedReview ?: return@LaunchedEffect
+        val index = reviews.indexOfFirst { it.id == target }
         if (index >= 0) {
-            listState.animateScrollToItem(index + 3)
+            // 사진첩을 닫는 동안은 스크롤이 먹지 않는다 — 잠깐 기다렸다가 내려가 칠한다.
+            delay(450)
+            listState.animateScrollToItem(leading + index)
             focusedReview = null
-        } else if (focusedReview != null && !loading && error == null && offset < total && offset < 100) {
+            lit = target
+            delay(2000)
+            lit = null
+        } else if (list.phase == ReviewListPhase.LOADED && !loading && !list.moreFailed && offset < total && offset < 100) {
+            // 아직 안 받은 뒤쪽에 있으면 몇 쪽 더 받아 찾는다 — 그래도 없으면 목록은 그대로 둔다.
             load()
         }
     }
     IOSSheet(detents = listOf(SheetDetent.LARGE), onDismiss = onClose) {
         Column(Modifier.fillMaxSize().background(IOS.systemBackground)) {
-            IOSSheetToolbar(title = subject.name, leading = tr("닫기"), onLeading = onClose)
-            LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = PaddingValues(16.dp)) {
-                item {
-                    RatingLine(summary, { startWriting() })
-                    summary?.let { rating ->
-                        (5 downTo 1).forEach { score ->
-                            Row(
-                                Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text("$score ★", color = IOS.secondaryLabel)
-                                val count = (rating.distribution.getOrNull(score - 1) ?: 0).coerceAtLeast(0)
-                                val fraction = ReviewRules.ratingFraction(rating.distribution, score)
-                                Box(
-                                    Modifier
-                                        .weight(1f)
-                                        .height(6.dp)
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(IOS.systemGray5),
-                                ) {
-                                    if (fraction > 0f) Box(Modifier.fillMaxWidth(fraction).height(6.dp).background(IOS.accent))
-                                }
-                                Text(count.toString(), color = IOS.secondaryLabel)
-                            }
-                        }
-                    }
+            ReviewSheetHeader(title = tr("리뷰"), subtitle = subject.name, onClose = onClose)
+            HorizontalDivider(thickness = 0.5.dp, color = IOS.separator.copy(alpha = 0.25f))
+            when (list.phase) {
+                ReviewListPhase.LOADING -> {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 }
-                item {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ReviewSort.entries.forEach { value ->
-                            val label =
-                                when (value) {
-                                    ReviewSort.recent -> "최신순"
-                                    ReviewSort.rating_high -> "별점 높은 순"
-                                    ReviewSort.rating_low -> "별점 낮은 순"
-                                }
-                            Text(
-                                tr(label),
-                                color =
-                                    if (sort ==
-                                        value
-                                    ) {
-                                        IOS.accent
-                                    } else {
-                                        IOS.secondaryLabel
-                                    },
-                                modifier = Modifier.clickable(enabled = !loading) { sort = value }.padding(vertical = 12.dp),
-                            )
-                        }
-                    }
-                }
-                item {
-                    if (shownPhotoTotal >
-                        0
-                    ) {
-                        GalleryStrip(subject, shownPhotos, shownPhotoTotal, height = 100, visitorsOnly = true, onReview = { id ->
-                            focusedReview = id
+
+                ReviewListPhase.FAILED -> {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        ReviewLoadFailure(onRetry = {
+                            listing.prepareRetry()
+                            scope.launch { load(reset = true) }
                         })
                     }
                 }
-                items(reviews, key = { it.id }) { row ->
-                    ReviewRow(row, subject, onEdit = { composing = true }, moderation = moderation)
-                }
-                item {
-                    if (loading) CircularProgressIndicator(Modifier.padding(12.dp))
-                    error?.let {
-                        Text(
-                            it,
-                            color = IOS.systemOrange,
-                            modifier = Modifier.clickable { scope.launch { load(reset = reviews.isEmpty()) } }.padding(12.dp),
-                        )
+
+                ReviewListPhase.LOADED -> {
+                    LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
+                        // 리뷰가 없으면 요약(큰 「-」 와 빈 막대 다섯)을 그리지 않는다 — 아래 빈 상태가 같은 말을 한다.
+                        if (summary != null && summary.count > 0) {
+                            item(key = "summary") {
+                                Column {
+                                    Box(Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) { ReviewSummaryView(summary) }
+                                    HorizontalDivider(thickness = 0.5.dp, color = IOS.separator.copy(alpha = 0.25f))
+                                }
+                            }
+                        }
+                        // 방문자 사진 모아 보기 — 한 장도 없으면 이 절은 없다.
+                        if (shownPhotoTotal > 0) {
+                            item(key = "visitors") {
+                                Column {
+                                    VisitorPhotoStrip(subject, shownPhotos, shownPhotoTotal, onReview = { id -> focusedReview = id })
+                                    HorizontalDivider(thickness = 0.5.dp, color = IOS.separator.copy(alpha = 0.25f))
+                                }
+                            }
+                        }
+                        if (reviews.isEmpty()) {
+                            item(key = "empty") {
+                                ReviewEmptyState(tr("아직 리뷰가 없어요"), tr("다녀온 분의 이야기가 여기에 모여요"))
+                            }
+                        } else {
+                            item(key = "sort") {
+                                Box(Modifier.padding(top = 14.dp, bottom = 4.dp)) {
+                                    SegmentedControl(
+                                        options = ReviewSort.entries,
+                                        selected = sort,
+                                        label = { value ->
+                                            when (value) {
+                                                ReviewSort.recent -> tr("최신순")
+                                                ReviewSort.rating_high -> tr("별점 높은 순")
+                                                ReviewSort.rating_low -> tr("별점 낮은 순")
+                                            }
+                                        },
+                                        onSelect = { value ->
+                                            if (value != sort) {
+                                                // 새 첫 쪽이 올 때까지 다음 쪽을 받지 않는다 — 옛 목록 끝에 새 정렬의 둘째 쪽이 붙지 않게.
+                                                listing.prepareSortChange()
+                                                sort = value
+                                            }
+                                        },
+                                        modifier = Modifier.semantics { contentDescription = tr("정렬") },
+                                    )
+                                }
+                            }
+                            items(reviews, key = { it.id }) { row ->
+                                Column {
+                                    Box(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .background(IOS.accent.copy(alpha = if (lit == row.id) 0.1f else 0f))
+                                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    ) {
+                                        ReviewRow(row, subject, onEdit = { composing = true }, moderation = moderation)
+                                    }
+                                    HorizontalDivider(
+                                        Modifier.padding(start = 16.dp),
+                                        thickness = 0.5.dp,
+                                        color = IOS.separator.copy(alpha = 0.25f),
+                                    )
+                                }
+                            }
+                            if (ReviewRules.hasMore(reviews.size, total)) {
+                                item(key = "more") {
+                                    ReviewMoreFooter(list.moreFailed, onRetry = { listing.retryMore() })
+                                    // 열쇠가 바뀌면 앞 작업은 취소되고 새로 돈다 — 플래그로 막지 않는다.
+                                    if (!list.moreFailed) {
+                                        LaunchedEffect(reviews.size, sort, revision) { load() }
+                                    }
+                                }
+                            }
+                        }
                     }
-                    if (!loading && error == null && offset < total) {
-                        LaunchedEffect(offset) { load() }
-                    }
-                    if (!loading && total == 0 &&
-                        error == null
-                    ) {
-                        Text(tr("아직 리뷰가 없어요"), color = IOS.secondaryLabel, modifier = Modifier.padding(16.dp))
-                    }
+                    HorizontalDivider(thickness = 0.5.dp, color = IOS.separator.copy(alpha = 0.25f))
+                    ReviewWriteBar(hasMine = reviews.any { it.isMine }, onClick = { startWriting() })
                 }
             }
-            Text(
-                tr(if (reviews.any { it.isMine }) "내 리뷰 고치기" else "리뷰 쓰기"),
-                color = IOS.accent,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            startWriting()
-                        }.navigationBarsPadding()
-                        .padding(16.dp),
-            )
         }
     }
     ModerationSheets(moderation) { target ->
@@ -342,5 +400,34 @@ fun ReviewsSheet(
             revision += 1
             onChanged()
         })
+    }
+}
+
+/** 아래에 붙은 쓰기 단추. 내 리뷰가 목록에 보이면 「내 리뷰 고치기」 (iOS `writeBar`). */
+@Composable
+private fun ReviewWriteBar(
+    hasMine: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(CircleShape)
+                .background(IOS.accent)
+                .clickable(onClick = onClick),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            SquarePencilIcon(Color.White, Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                tr(if (hasMine) "내 리뷰 고치기" else "리뷰 쓰기"),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+            )
+        }
     }
 }

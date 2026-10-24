@@ -4,9 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -22,6 +24,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,12 +51,28 @@ fun IOSSheetToolbar(
     onTrailing: () -> Unit = {},
     // 보내는 중이면 글자 대신 돌아가는 표시를 보인다(iOS 툴바의 `ProgressView`).
     trailingBusy: Boolean = false,
+    // 제목 아래 작은 글씨 — 리뷰 쓰기 머리줄의 대상 이름(iOS `header`). 읽는 법이 따로 있으면 그 아래 한 줄 더.
+    subtitle: String? = null,
+    reading: String? = null,
 ) {
-    Box(modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp)) {
         if (leading != null) {
             GlassCapsule(leading, bold = false, enabled = true, onClick = onLeading, modifier = Modifier.align(Alignment.CenterStart))
         }
-        Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.align(Alignment.Center))
+        if (subtitle == null) {
+            Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.align(Alignment.Center))
+        } else {
+            // 단추는 머리줄이 길어져도 첫 56 의 가운데 — 늘 같은 자리다.
+            Column(
+                modifier = Modifier.align(Alignment.Center).padding(horizontal = 76.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(1.dp),
+            ) {
+                Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                Text(subtitle, style = IOS.caption, color = IOS.secondaryLabel, maxLines = 2, textAlign = TextAlign.Center)
+                if (reading != null) Text(reading, style = IOS.caption2, color = IOS.secondaryLabel, maxLines = 1)
+            }
+        }
         if (trailing != null) {
             GlassCapsule(
                 trailing,

@@ -10,6 +10,17 @@ data class PoiLabel(
     val heading: String get() = listOfNotNull(title, reading).joinToString(" · ")
 
     companion object {
+        private const val SEPARATOR = " · "
+
+        /**
+         * 한 줄로 이은 것을 **다시 두 줄로** — 리뷰 쓰기 머리줄처럼 좁은 자리는 카드와 같이 제목 / 작은 아랫줄로 적는다. 그냥 줄을
+         * 바꾸게 두면 한국어 이름 가운데서 끊긴다 (iOS `PoiLabel.lines(of:)`).
+         */
+        fun lines(heading: String): Pair<String, String?> {
+            val cut = heading.indexOf(SEPARATOR)
+            return if (cut < 0) heading to null else heading.substring(0, cut) to heading.substring(cut + SEPARATOR.length)
+        }
+
         fun make(
             name: String,
             displayName: String?,

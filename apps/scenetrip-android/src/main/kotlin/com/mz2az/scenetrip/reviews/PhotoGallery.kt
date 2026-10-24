@@ -291,11 +291,13 @@ private fun GalleryImage(
 }
 
 @Composable
-private fun GalleryViewer(
+internal fun GalleryViewer(
     book: PhotoBook,
     initial: Int,
     onClose: (Int) -> Unit,
     onReview: ((Long?) -> Unit)?,
+    /** 리뷰 행의 사진을 크게 볼 때는 방문자 표식이 없다 — 어차피 전부 리뷰 사진이다(iOS `marksVisitors = false`). */
+    marksVisitors: Boolean = true,
 ) {
     val scope = rememberCoroutineScope()
     val pager =
@@ -366,7 +368,7 @@ private fun GalleryViewer(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    if (photo.source == PhotoSource.review) Text(tr("방문자 사진"), color = Color.White, style = IOS.caption)
+                    if (marksVisitors && photo.source == PhotoSource.review) Text(tr("방문자 사진"), color = Color.White, style = IOS.caption)
                     photo.credit?.let {
                         Text(
                             it,
@@ -377,7 +379,7 @@ private fun GalleryViewer(
                     }
                     if (photo.source == PhotoSource.review && onReview != null) {
                         Text(
-                            tr("리뷰 보기"),
+                            tr("리뷰 보기", "사진"),
                             color = Color.White,
                             style = IOS.subheadlineSemibold,
                             modifier =
@@ -394,10 +396,12 @@ private fun GalleryViewer(
 }
 
 @Composable
-private fun PhotoGrid(
+internal fun PhotoGrid(
     book: PhotoBook,
     onClose: () -> Unit,
     onReview: ((Long?) -> Unit)?,
+    /** 머리줄 — 전체 격자는 「사진 19」, 방문자 사진만 모은 격자는 「방문자 사진 10」(iOS `allTitle`·`visitorTitle`). */
+    title: String = ReviewRules.allTitle(book.total),
 ) {
     val scope = rememberCoroutineScope()
     var viewing by remember { mutableStateOf<Int?>(null) }
@@ -405,7 +409,7 @@ private fun PhotoGrid(
         Column(Modifier.fillMaxSize().background(IOS.systemBackground)) {
             Box(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp)) {
                 Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(tr("사진 %d").format(book.total), style = IOS.headline, color = IOS.label)
+                    Text(title, style = IOS.headline, color = IOS.label)
                     Text(book.subject.name, style = IOS.subheadline, color = IOS.secondaryLabel)
                 }
                 IOSCloseButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterEnd))
