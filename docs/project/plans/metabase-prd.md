@@ -115,6 +115,21 @@ flowchart LR
 
 사람이 하는 일(저장소 밖): ACM 확인 CNAME(2026-10-24 등록함), `metabase-dev` CNAME → ALB(프록시 켬), Cloudflare Access 앱(SigNoz 와 같은 허용 메일), Metabase 첫 화면에서 관리자 만들기·DB(`scenetrip`, 계정 `metabase_ro`) 연결 — 비밀번호는 Secrets Manager 에서 `| pbcopy`.
 
+### 3-6. 1-2 단계 명세 — 봇 거른 설치·퍼널·재방문·검색어 (테스트는 이 절만 보고 쓴다)
+
+V41 이 `analytics` 에 뷰 다섯 개를 더한다. 전부 **숫자만**(개인을 가리키는 칸 없음 — §3-4 와 같은 원칙). 날짜(`day`)는 한국 시간 날짜.
+설치의 「사람」 은 `user_device.user_id`(로그인하면 가입 계정으로 바뀐다)이고, 설치 자신의 조회는 `entity_view.install_id` 로 잇는다.
+
+| 뷰 | 칸 | 뜻 |
+| --- | --- | --- |
+| `analytics.daily_install_quality` | `day`, `installs`, `active_installs`, `returning_installs` | 그날(`user_device.created_at`) 생긴 설치 수 / 그중 **활동한** 설치(이 설치로 상세를 1 번 이상 봤거나, 이 설치의 사람이 찜·장바구니·코스·후기·여행후기·로그인 중 하나라도 함) / 그중 **재방문** 설치(이 설치로 서로 다른 2 일 이상 상세를 봄) |
+| `analytics.funnel_by_install_day` | `day`, `installs`, `viewed`, `signed_in`, `saved`, `course_created`, `posted` | 그날 생긴 설치 중 각 단계에 **한 번이라도** 닿은 설치 수. viewed = 이 설치로 상세를 봄, signed_in = 사람이 가입 계정(`registered_at` 있음), saved = 사람이 찜(`saved_content`) 또는 장바구니(`saved_place`), course_created = 사람이 코스를 만듦, posted = 사람이 후기(`review`) 또는 여행후기(`community_post`)를 씀 |
+| `analytics.retention_by_install_day` | `day`, `installs`, `returned_d1`, `returned_d7`, `returned_d30` | 그날 생긴 설치 중 설치일 + N 일 **이후**(그날 포함) 이 설치로 상세를 다시 본 설치 수(롤링 재방문). 조회 기록은 90 일 보관이라 그보다 먼 재방문은 보이지 않는다 |
+| `analytics.daily_search` | `day`, `searches`, `zero_result_searches` | `search_log` 일별 검색 수와 결과 0 건 수 |
+| `analytics.search_terms` | `day`, `query`, `searches`, `zero_result_searches` | 일별·검색어별 수(검색어는 원래 기기·회원과 잇지 않고 저장된다) |
+
+한계: IP·기기 정보가 없어 「사람처럼 행동하는 스크립트」 는 활동한 설치로 잡힌다. 재방문(2 일 이상)이 가장 강한 거르기다.
+
 ## 4. 순서
 
 1. 이 계획·ADR 확인
