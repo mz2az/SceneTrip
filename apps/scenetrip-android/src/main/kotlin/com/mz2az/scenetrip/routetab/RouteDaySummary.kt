@@ -64,7 +64,8 @@ private fun DayDuration(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
-        modifier = Modifier.clickable(enabled = editable, onClick = onStay),
+        // 접근성: 눌렀을 때 무엇이 되는지(iOS `accessibilityHint`).
+        modifier = Modifier.clickable(enabled = editable, onClickLabel = tr("장소별 머무는 시간을 고칩니다"), onClick = onStay),
     ) {
         Text(label, style = IOS.footnote, color = if (editable) IOS.accent else IOS.tertiaryLabel)
         if (editable) ChevronRightIcon(IOS.accent, Modifier.size(9.dp))

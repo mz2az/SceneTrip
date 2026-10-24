@@ -29,8 +29,4 @@ internal val TRANSLATIONS_EN_EXTRA =
         "아직 쓴 리뷰가 없어요" to "You haven't written any reviews yet",
         // 이용 통계 꼬리말 (MZ2AZ-475) — iOS 문구에서 ATT(광고 추적 허용) 문장만 뺐다.
         "꺼도 앱 기능은 그대로예요." to "Everything still works when this is off.",
-        // iOS 번역표에서는 빠졌지만 Android 주변 지도(PoiClusterPins)가 아직 쓰는 문구다.
-        "편의시설 %d곳" to "%d nearby places",
-        "현재 지도에서 받은 결과 중 %d곳" to "%d of the places loaded on this map",
-        "지역 전체 개수가 아니에요. 장소를 골라 정보를 확인하세요." to "This is not the area's total. Choose a place to see its details.",
     )

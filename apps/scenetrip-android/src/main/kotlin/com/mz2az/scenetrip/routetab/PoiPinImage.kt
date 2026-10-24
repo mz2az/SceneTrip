@@ -44,21 +44,6 @@ class PoiPinImage(
         }
     }
 
-    fun cluster(count: Int): OverlayImage =
-        cached("cluster:$count") {
-            image(42f, 42f) { canvas ->
-                circle(canvas, 21f, 18f, IOS.accent.toArgb(), 2f)
-                val text =
-                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = Color.WHITE
-                        textSize = 15f
-                        typeface = Typeface.DEFAULT_BOLD
-                        textAlign = Paint.Align.CENTER
-                    }
-                canvas.drawText(count.toString(), 21f, 21f - (text.ascent() + text.descent()) / 2, text)
-            }
-        }
-
     /** 가이드가 찾아 준 곳(작은 해태, 0.85)과 그중 고른 하나(빨간 글로우, 1.1). iOS `PinoPin.marker(.ai/.picked)`. */
     fun mascot(picked: Boolean): OverlayImage = mascotImage(if (picked) 1.1f else 0.85f, picked)
 

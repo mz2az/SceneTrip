@@ -2,8 +2,10 @@ package com.mz2az.scenetrip
 
 import com.mz2az.scenetrip.data.UsageBlock
 import com.mz2az.scenetrip.routetab.NavLimit
+import com.mz2az.scenetrip.routetab.RouteGuideFailure
 import com.mz2az.scenetrip.routetab.RouteLegMode
 import com.mz2az.scenetrip.routetab.RouteNavFailure
+import com.mz2az.scenetrip.routetab.RoutePlaceSearch
 import com.mz2az.scenetrip.routetab.RouteTrail
 import com.mz2az.scenetrip.routetab.TripArrival
 import com.mz2az.scenetrip.routetab.guidanceNote
@@ -12,13 +14,23 @@ import com.mz2az.scenetrip.routetab.tripTitle
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientError
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientException
 import com.mz2az.scenetrip.sceneapi.client.model.Lang
+import com.mz2az.scenetrip.sceneapi.client.model.PlaceList
+import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.RouteLeg
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 /**
  * 여행 중 화면 동기화 (MZ2AZ-478) — 길찾기 오류 갈래·한도, 머무름 힌트, 지나온 경로 자르기, 번호 문구, 영문 노선 판정.
@@ -164,5 +176,98 @@ class TripScreenTests {
         assertEquals("안내는 한국어로 와요", guidanceNote(Lang.en, "ko"))
         // 일본어 사용자도 서버는 영어 안내를 준다(계약 `guidanceLang` 설명).
         assertEquals("안내는 English 로 와요 — 지명이 로마자라 표지판과 같아요", guidanceNote(Lang.ja, "en"))
+    }
+
+    // --- 코스 편집의 장소 검색 (MZ2AZ-482 E10, iOS `RoutePlaceSearchTests`) ---
+
+    private fun place(id: Long) = PlaceSummary(id = id, name = "장소 $id", latitude = 37.5, longitude = 127.0)
+
+    private suspend fun until(condition: () -> Boolean) = withTimeout(5_000) { while (!condition()) delay(5) }
+
+    @Test
+    fun searchKeywordIsTrimmedCappedAndEmptyMeansEverything() {
+        assertNull(RoutePlaceSearch.keyword("   "))
+        assertEquals("경복궁", RoutePlaceSearch.keyword("  경복궁 "))
+        assertEquals(RoutePlaceSearch.MAX_LENGTH, RoutePlaceSearch.keyword("가".repeat(300))!!.length)
+        // 빈 검색어는 바로 보인다 — 기다릴 타자가 없다.
+        assertEquals(0L, RoutePlaceSearch.delayMillis(null))
+        assertEquals(RoutePlaceSearch.DEBOUNCE_MS, RoutePlaceSearch.delayMillis("경복궁"))
+    }
+
+    @Test
+    fun aLateAnswerNeverOverwritesTheNewerSearch() =
+        runBlocking {
+            val slow = CompletableDeferred<PlaceList>()
+            val asked = mutableListOf<String?>()
+            val search =
+                RoutePlaceSearch(CoroutineScope(Dispatchers.Default), debounceMs = 0) { query, _, _ ->
+                    synchronized(asked) { asked += query }
+                    if (query == "a") slow.await() else PlaceList(listOf(place(2)), total = 1, limit = 40, offset = 0)
+                }
+            search.search("a")
+            until { synchronized(asked) { asked.contains("a") } }
+            search.search("b")
+            until { search.phase == RoutePlaceSearch.Phase.LOADED }
+            slow.complete(PlaceList(listOf(place(1)), total = 1, limit = 40, offset = 0))
+            delay(50)
+            assertEquals(listOf(2L), search.results.map { it.id })
+            assertEquals(place(2), search.place(2))
+        }
+
+    @Test
+    fun failureIsReportedAndLoadMoreMergesWithoutDuplicates() =
+        runBlocking {
+            var failing = true
+            val search =
+                RoutePlaceSearch(CoroutineScope(Dispatchers.Default), debounceMs = 0) { _, _, offset ->
+                    if (failing) throw IOException("offline")
+                    val items = if (offset == 0) listOf(place(1), place(2)) else listOf(place(2), place(3))
+                    PlaceList(items, total = 4, limit = 2, offset = offset)
+                }
+            search.search("")
+            until { search.phase == RoutePlaceSearch.Phase.FAILED }
+            assertTrue(search.failure!!.isRetryable)
+            failing = false
+            search.search("")
+            until { search.phase == RoutePlaceSearch.Phase.LOADED }
+            assertTrue(search.paging.hasMore)
+            search.loadMore()
+            until { search.results.size == 3 }
+            assertEquals(listOf(1L, 2L, 3L), search.results.map { it.id })
+        }
+
+    // --- 일정 생성 실패 문구 (MZ2AZ-482 E11, iOS `RouteGuideFailure`) ---
+
+    private fun guideFailure(
+        status: Int,
+        body: String? = null,
+        headers: Map<String, List<String>> = emptyMap(),
+    ) = RouteGuideFailure.of(ClientException("시험", status, ClientError<Unit>(body = body, statusCode = status, headers = headers)))
+
+    @Test
+    fun planFailureSaysWhyInsteadOfOneGenericLine() {
+        assertEquals(RouteGuideFailure.BadRequest, guideFailure(400))
+        assertEquals(RouteGuideFailure.SignInRequired, guideFailure(401, """{"code":"SIGN_IN_REQUIRED"}"""))
+        assertEquals(RouteGuideFailure.SessionExpired, guideFailure(401, """{"code":"ACCESS_TOKEN_EXPIRED"}"""))
+        assertEquals(RouteGuideFailure.TimedOut, guideFailure(409, """{"code":"IDEMPOTENCY_IN_PROGRESS"}"""))
+        assertEquals(RouteGuideFailure.KeyReused, guideFailure(422, """{"code":"IDEMPOTENCY_KEY_REUSED"}"""))
+        assertEquals(RouteGuideFailure.RateLimited, guideFailure(429))
+        assertEquals(RouteGuideFailure.Unavailable, guideFailure(503))
+        assertEquals(RouteGuideFailure.Unavailable, guideFailure(504))
+        assertEquals(RouteGuideFailure.Other(500), guideFailure(500))
+        assertEquals(RouteGuideFailure.Offline, RouteGuideFailure.of(UnknownHostException("x")))
+        assertEquals(RouteGuideFailure.TimedOut, RouteGuideFailure.of(SocketTimeoutException("x")))
+        assertEquals(RouteGuideFailure.Unreachable, RouteGuideFailure.of(IOException("x")))
+        assertEquals("가이드가 잠시 응답하지 않아요. 잠시 뒤 다시 물어봐 주세요", RouteGuideFailure.Unavailable.message)
+        assertEquals("가이드 요청을 처리하지 못했어요 (500)", RouteGuideFailure.Other(500).message)
+    }
+
+    @Test
+    fun guideLimitMessageFollowsTheWindow() {
+        val limited = guideFailure(429, """{"code":"GUIDE_LIMIT_REACHED"}""", mapOf("Retry-After" to listOf("125")))
+        assertEquals(RouteGuideFailure.LimitReached(125), limited)
+        assertEquals("가이드에게 잠시 많이 물어봤어요. 3분 뒤에 다시 물어볼 수 있어요", limited.message)
+        assertEquals("오늘은 가이드에게 물어볼 수 있는 횟수를 다 썼어요. 내일 다시 물어봐 주세요", RouteGuideFailure.limitMessage(7_200))
+        assertEquals("지금은 가이드에게 물어볼 수 없어요. 잠시 뒤 다시 시도해 주세요", RouteGuideFailure.limitMessage(null))
     }
 }

@@ -15,9 +15,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -60,6 +62,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -93,6 +96,9 @@ fun RouteGuideFloatingChip(
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
     bubble: Boolean = true,
+    // 화면 바닥에 뜬 정보 카드·성지 카드의 **윗변 높이**(바닥에서). 카드가 없으면 null. 카드는 이 동그라미의 기본 자리 바로 위에 뜬다 —
+    // 말풍선이 「경로에 추가」 단추와 장면 설명 끝을 덮었다(MZ2AZ-367). 카드가 떠 있는 동안은 말풍선을 접고 카드 위로 비킨다.
+    cardTop: Dp? = null,
 ) {
     if (hidden) return
     // **길게 눌러 끌어 옮긴다**(iOS `RouteGuideFloatingChip.moveGesture`) — 옮긴 자리는 기억한다
@@ -106,16 +112,26 @@ fun RouteGuideFloatingChip(
     val density = LocalDensity.current
     val minX = with(density) { -(screen.screenWidthDp.dp - 12.dp - 180.dp).toPx() }
     val minY = with(density) { -(screen.screenHeightDp.dp - 76.dp - 60.dp).toPx() }
+    // 카드를 비켜 올라서는 자리(기본 자리에서 잰 이동). **사용자가 스스로 카드보다 위에 둔 자리는 건드리지 않는다.** 카드가 닫히면 제자리로 돌아온다.
+    val navigationBottom = WindowInsets.navigationBars.getBottom(density)
+    val liftedByCard =
+        cardTop?.let { top -> -with(density) { (top + CARD_GAP).toPx() - 76.dp.toPx() - navigationBottom } }
+
+    fun shownY(): Float = if (liftedByCard == null) dy else minOf(dy, liftedByCard)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier =
             modifier
-                .offset { IntOffset(dx.roundToInt(), dy.roundToInt()) }
+                .offset { IntOffset(dx.roundToInt(), shownY().roundToInt()) }
                 .scale(if (lifted) 1.08f else 1f)
                 .pointerInput(Unit) {
                     detectDragGesturesAfterLongPress(
-                        onDragStart = { lifted = true },
+                        onDragStart = {
+                            lifted = true
+                            // 카드를 비켜 서 있던 채로 끌었으면 거기서부터 센다 — 보이던 그 자리를 남긴다.
+                            dy = shownY()
+                        },
                         onDragEnd = {
                             lifted = false
                             prefs
@@ -132,9 +148,12 @@ fun RouteGuideFloatingChip(
                     }
                 }.clickable(onClick = onTap),
     ) {
-        RouteGuideChipBody(bubble = bubble && screen.fontScale < 1.3f)
+        RouteGuideChipBody(bubble = bubble && cardTop == null && screen.fontScale < 1.3f)
     }
 }
+
+/** 카드 윗변과 이 동그라미 아랫변 사이의 틈. iOS `RouteGuideFloatingChip.offsetY` 의 `gap`. */
+private val CARD_GAP = 8.dp
 
 /** 떠 있는 입구와 안내 배너가 같은 얼굴을 쓰며 배너에는 말풍선을 붙이지 않는다. */
 @Composable
