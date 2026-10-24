@@ -5,7 +5,7 @@ import com.mz2az.scenetrip.data.CartSession
 import com.mz2az.scenetrip.data.PlaceType
 import com.mz2az.scenetrip.data.PlaceWorks
 import com.mz2az.scenetrip.onboarding.OnboardingProgress
-import com.mz2az.scenetrip.routetab.PoiClusters
+import com.mz2az.scenetrip.routetab.PoiMarkerRules
 import com.mz2az.scenetrip.routetab.PoiText
 import com.mz2az.scenetrip.routetab.RouteDayEstimate
 import com.mz2az.scenetrip.routetab.RouteDedupe
@@ -194,45 +194,36 @@ class VisualParityRulesTests {
         assertNull(RouteDayEstimate(listOf(a, b), 20).total(listOf(a, b)))
     }
 
+    // 편의시설은 묶지 않고 각각 실제 좌표에 그린다(MZ2AZ-482 C9, iOS 403 `PoiMarkerRulesTests`).
     @Test
-    fun clustersPreserveEveryValidPoiAndNeverAbsorbSelection() {
-        val places = listOf(poi(1), poi(2), poi(3, longitude = 127.4))
-        val clusters = PoiClusters.make(places, zoom = 12.0)
-        assertEquals(listOf(1L, 2L, 3L), clusters.flatMap { it.places }.map { it.id }.sorted())
-        assertEquals(listOf(2, 1), clusters.map { it.places.size })
-        val selected = PoiClusters.make(places, zoom = 12.0, pickedId = 2)
-        assertEquals(1, selected.single { c -> c.places.any { it.id == 2L } }.places.size)
-        assertTrue(clusters.first().opensList(12.0, 21.0))
+    fun coincidentPoisRemainSeparateAtTheirOriginalCoordinates() {
+        val places = (1L..12L).map { poi(it) }
+        val result = PoiMarkerRules.validPlaces(places)
+        assertEquals(places, result)
+        assertEquals(12, result.map { it.id }.toSet().size)
     }
 
     @Test
-    fun clustersRejectBadCoordinatesAndDuplicateIds() {
-        val places = listOf(poi(1), poi(1), poi(2, latitude = Double.NaN), poi(3, latitude = 90.0))
-        assertEquals(listOf(1L), PoiClusters.make(places, 12.0).flatMap { it.places }.map { it.id })
-        assertTrue(PoiClusters.make(places, Double.NaN).isEmpty())
+    fun nearbyPoisKeepTheirOriginalCoordinatesAndOrder() {
+        val places = listOf(poi(2), poi(1, longitude = 127.000001))
+        assertEquals(places, PoiMarkerRules.validPlaces(places))
     }
 
     @Test
-    fun clusterMembershipIsStableAtCellEdgesAndChangesWithZoom() {
-        val close = listOf(poi(1), poi(2, longitude = 127.0001))
-        assertEquals(listOf(2), PoiClusters.make(close, 13.0).map { it.places.size })
-        assertEquals(PoiClusters.make(close, 13.0), PoiClusters.make(close.reversed(), 13.0))
-        assertEquals(listOf(1, 1), PoiClusters.make(close, 21.0).map { it.places.size })
-        val group = PoiClusters.make(close, 13.0).single()
-        assertFalse(group.opensList(13.0, 21.0))
-        assertTrue(group.opensList(21.0, 21.0))
-        assertEquals(127.00005, group.longitude, 0.00000001)
-        assertTrue(PoiClusters.make(emptyList(), 13.0).isEmpty())
-    }
-
-    @Test
-    fun denseClustersKeepEveryMemberAtEveryZoom() {
-        val places = (1L..300L).map { poi(it, latitude = 37.5 + (it % 15) * 0.00002, longitude = 127.0 + (it % 20) * 0.00002) }
-        for (zoom in listOf(0.0, 12.0, 17.0, 21.0)) {
-            val members = PoiClusters.make(places, zoom).flatMap { it.places }
-            assertEquals(places.size, members.size)
-            assertEquals(places.map { it.id }.toSet(), members.map { it.id }.toSet())
-        }
+    fun invalidCoordinatesAndDuplicateIdsAreExcluded() {
+        val valid = poi(1)
+        val result =
+            PoiMarkerRules.validPlaces(
+                listOf(
+                    valid,
+                    valid,
+                    poi(2, latitude = Double.NaN),
+                    poi(3, longitude = Double.POSITIVE_INFINITY),
+                    poi(4, latitude = 95.0),
+                ),
+            )
+        assertEquals(listOf(valid), result)
+        assertTrue(PoiMarkerRules.validPlaces(emptyList()).isEmpty())
     }
 
     private fun poi(

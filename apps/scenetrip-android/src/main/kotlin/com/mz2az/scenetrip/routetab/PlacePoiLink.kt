@@ -72,3 +72,17 @@ fun RouteStop.cardPlace(): GuidePlace? {
             },
     )
 }
+
+/**
+ * 저장하고 서버가 돌려준 줄 중에서 [this] 와 같은 곳 (MZ2AZ-478 B7, iOS `PlacePoiLink.row(of:in:)`).
+ *
+ * 편의시설 이름·좌표로 담긴 줄(`entry`)은 서버가 촬영지의 이름·좌표로 돌려주므로 이름 + 좌표로는 못 찾는다. **촬영지 줄은 촬영지
+ * id 로, 편의시설 줄은 편의시설 id 로** 찾는다. 그 밖(개인 핀 — id 가 저장마다 바뀐다)과 편의시설 id 로 못 찾은 줄(서버가 촬영지로
+ * 바꿔 저장했다)은 이름 + 좌표로 찾는다.
+ */
+fun RouteStop.rowIn(saved: List<RouteStop>): RouteStop? {
+    savablePlaceId?.let { placeId -> return saved.firstOrNull { it.savablePlaceId == placeId } }
+    poiId?.let { poi -> saved.firstOrNull { it.poiId == poi }?.let { return it } }
+    val key = RouteDedupe.key(place)
+    return saved.firstOrNull { RouteDedupe.key(it.place) == key }
+}

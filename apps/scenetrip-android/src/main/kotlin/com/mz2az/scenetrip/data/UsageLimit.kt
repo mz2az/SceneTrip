@@ -11,6 +11,9 @@ data class UsageBlock(
 
     fun lifted(now: Long): Boolean = until?.let { now >= it } ?: false
 
+    /** 풀릴 때까지 남은 초(올림). 모르거나 이미 풀렸으면 null. */
+    fun secondsLeft(now: Long): Int? = until?.takeIf { it > now }?.let { ((it - now + 999) / 1000).toInt() }
+
     fun minutes(now: Long): Int = (((until ?: now) - now + 59_999) / 60_000).toInt().coerceAtLeast(1)
 }
 

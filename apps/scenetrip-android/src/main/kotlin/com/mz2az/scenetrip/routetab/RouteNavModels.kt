@@ -1,6 +1,8 @@
 package com.mz2az.scenetrip.routetab
 
+import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import com.mz2az.scenetrip.sceneapi.client.model.NextLeg
 import com.mz2az.scenetrip.sceneapi.client.model.RouteLeg
 
@@ -31,6 +33,8 @@ enum class RouteLegMode {
          * `vehicleName: "1호선"` 으로 보낸다(2026-09-28 실측, 서울역 → DDP) — 버스 종류가
          * 아니면 노선 이름의 「호선」·「…선」·「철도」로 한 번 더 본다.
          */
+        private val ENGLISH_LINE = Regex("""^line\s+[0-9]+$""", RegexOption.IGNORE_CASE)
+
         fun from(
             mode: RouteLeg.Mode,
             vehicleType: String?,
@@ -42,6 +46,9 @@ enum class RouteLegMode {
             if (listOf("버스", "마을", "간선", "지선", "광역", "직행", "순환", "BUS").any { kind.contains(it) }) return BUS
             val name = vehicleName.orEmpty()
             if (name.contains("호선") || name.endsWith("선") || name.contains("철도")) return SUBWAY
+            // 영문 응답도 차종은 「일반」일 수 있다. 버스 종류를 먼저 판정한 뒤, 숫자 호선 이름 전체가 일치할 때만
+            // 지하철로 분류한다 — 「Line 2」 (MZ2AZ-250, iOS `RouteLegMode.from`).
+            if (ENGLISH_LINE.matches(name.trim())) return SUBWAY
             return TRANSIT
         }
     }
@@ -175,3 +182,21 @@ fun NextLeg.summaryLine(): String {
     fareWon?.takeIf { it > 0 }?.let { parts += tr("%s원").format("%,d".format(it)) }
     return parts.joinToString(" · ")
 }
+
+/**
+ * 앱 언어와 안내 언어가 다를 때 안내문 옆에 붙는 한 줄. 같으면 null (MZ2AZ-305, iOS `RouteNavResult.guidanceNote`).
+ * 서버는 번역하지 않으므로 앱 언어와 다를 수 있다.
+ */
+fun guidanceNote(
+    appLang: Lang,
+    guidanceLang: String,
+): String? {
+    if (guidanceLang == appLang.value) return null
+    return if (guidanceLang == "en") {
+        tr("안내는 English 로 와요 — 지명이 로마자라 표지판과 같아요")
+    } else {
+        tr("안내는 한국어로 와요")
+    }
+}
+
+fun NextLeg.languageNote(): String? = guidanceNote(AppLanguage.current, guidanceLang.value)
