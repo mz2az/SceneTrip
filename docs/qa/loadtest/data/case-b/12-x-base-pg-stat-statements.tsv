@@ -1,0 +1,93 @@
+exec_s	calls	wal_bytes	query_120chars
+142.97	67933	0	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title FROM content_i18n ci WHERE ci.lang IN ($1, 
+100.73	44947	0	-- 파라미터에 ::TEXT 같은 캐스팅이 붙은 이유: -- -- 값이 NULL 인 채로 `:q IS NULL` 처럼 쓰이면 PostgreSQL 이 그 자리의 타입을 -- 추론할 근거가 없어 "could not de
+69.97	38461	0	WITH params AS ( SELECT search_normalize(COALESCE(CAST($1 AS TEXT), $23)) AS norm ), -- 검색어에 걸린 것과 이어진 장소를 전부 모은다. -- --
+51.19	24314	88348	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.place_id, pi.name, pi.address, pi.lang AS shown_lang FROM pl
+41.51	29926	1458	WITH place_display AS ( SELECT DISTINCT ON (pi.place_id) pi.place_id, pi.name, pi.address FROM place_i18n pi WHERE pi.la
+35.88	33043	58	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISION) IS NULL THEN $21 ELSE ST_SetSRID( ST_MakePoint(CAST($2 AS
+31.24	71305	11130	SELECT * FROM (SELECT o.url, $6::TEXT AS storage_key, $7::BIGINT AS review_id, o.credit, o.thumbnail_url, o.license, $8 
+30.29	41182	0	WITH display AS ( SELECT DISTINCT ON (pi.person_id) pi.person_id, pi.name FROM person_i18n pi WHERE pi.lang IN ($1, $5, 
+23.30	71305	342	SELECT count(*) FROM (SELECT o.url, $4::TEXT AS storage_key, $5::BIGINT AS review_id, o.credit, o.thumbnail_url, o.licen
+17.49	7000	105198	DELETE FROM photo_upload WHERE created_at < now() - INTERVAL $1
+17.01	29903	0	SELECT count(*) FROM poi p WHERE p.geom::geometry && ST_MakeEnvelope( CAST($1 AS DOUBLE PRECISION), CAST($2 AS DOUBLE PR
+12.58	87293	59010345	INSERT INTO entity_view (entity_type, entity_id, install_id, user_id, lang, day) SELECT $1, $2, $3, $4, $5, (now() AT TI
+11.28	35457	0	WITH prefix_hits AS MATERIALIZED ( SELECT DISTINCT ON (st.entity_type, st.entity_id) st.entity_type, st.entity_id, st.te
+11.11	10065	2278	SELECT count(*) FROM community_post p WHERE p.removed_at IS NULL AND NOT EXISTS (SELECT $2 FROM user_block ub WHERE ub.b
+8.68	53857	1648	SELECT round(avg(rating)::NUMERIC, $2)::DOUBLE PRECISION AS average, count(*) AS n, count(*) FILTER (WHERE rating = $3) 
+6.04	10065	36866	SELECT p.id, p.title, left(regexp_replace(p.body, $5, $6, $7), $8) AS excerpt, u.nickname, p.created_at, (SELECT ph.stor
+4.51	41182	0	WITH display AS ( SELECT DISTINCT ON (ci.content_id) ci.content_id, ci.title, ci.description, ci.lang FROM content_i18n 
+3.55	13245	67192546	WITH new_user AS ( INSERT INTO app_user (id, last_seen_at) VALUES (CAST($1 AS UUID), now()) RETURNING id ) INSERT INTO u
+2.72	31296	11022689	INSERT INTO usage_counter (subject, feature, window_start, count) VALUES ($1, $2, $3, $4) ON CONFLICT (subject, feature,
+2.69	79180	321251	WITH account AS ( SELECT id, last_seen_at FROM app_user WHERE id = CAST($1 AS UUID) AND merged_into IS NULL AND register
+2.44	10764	7824199	INSERT INTO course (user_id, title, day_count, origin, pace) VALUES (CAST($1 AS UUID), $2, $3, $4, $5) RETURNING id
+2.43	11533	22709331	INSERT INTO saved_content (user_id, content_id) VALUES (CAST($1 AS UUID), $2) ON CONFLICT DO NOTHING
+2.39	47860	11574	WITH device AS ( SELECT install_uuid, user_id, last_seen_at FROM user_device WHERE install_uuid = CAST($1 AS UUID) ), --
+2.37	29472	0	WITH display AS ( SELECT DISTINCT ON (pi.place_id) pi.place_id, pi.name, pi.address, pi.description, pi.lang AS shown_la
+2.37	21388	0	WITH origin AS ( SELECT CASE WHEN CAST($1 AS DOUBLE PRECISION) IS NULL THEN $12 ELSE ST_SetSRID( ST_MakePoint(CAST($2 AS
+2.31	41182	0	SELECT DISTINCT term FROM ( SELECT ci.title AS term FROM content_i18n ci WHERE ci.content_id = $1 AND ci.lang <> CAST($2
+2.24	29926	440534	SELECT c.id, c.title, c.start_date, c.day_count, c.status, c.current_day_no, c.origin, c.pace, c.source_market_course_id
+2.13	9911	4023231	INSERT INTO course_item (course_id, day_no, place_id, poi_id, custom_pin_id, sort_order, dwell_min, source_content_id) V
+1.99	12688	8221719	INSERT INTO saved_place (user_id, place_id, source_content_id) VALUES (CAST($1 AS UUID), $2, CAST($3 AS BIGINT))
+1.37	9251	3307215	UPDATE course SET status = $1, current_day_no = CAST($2 AS INT), updated_at = now() WHERE id = $3 AND (CAST($4 AS INT) I
+1.36	8481	1072657	DELETE FROM course WHERE id = $1 AND user_id = CAST($2 AS UUID)
+1.18	9911	991715	UPDATE course SET title = $1, start_date = $2, day_count = $3, updated_at = now() WHERE id = $4
+1.11	12663	17046	SELECT p.id, p.title, left(regexp_replace(p.body, $4, $5, $6), $7) AS excerpt, u.nickname, p.created_at, (SELECT ph.stor
+1.07	3227	7692117	INSERT INTO review (place_id, user_id, rating, body) VALUES ($1, CAST($2 AS UUID), $3, $4) ON CONFLICT (user_id, place_i
+0.98	7000	5103881	INSERT INTO photo_upload (storage_key, user_id, purpose, content_type, bytes) VALUES ($1, CAST($2 AS UUID), $3, $4, $5)
+0.96	2997	2036	SELECT r.id, r.rating, r.body, u.nickname, r.created_at, r.updated_at, (r.user_id IS NOT NULL AND r.user_id = CAST($1 AS
+0.92	14236	1830017	UPDATE usage_counter SET count = count - $4 WHERE subject = $1 AND feature = $2 AND window_start = $3 AND count > $5
+0.92	29472	0	SELECT url FROM place_image WHERE place_id = $1 ORDER BY sort_order, id
+0.83	49994	0	SELECT EXISTS (SELECT $2 FROM content WHERE id = $1)
+0.76	2997	56	SELECT count(*) FROM review r WHERE r.place_id = $1 AND r.removed_at IS NULL AND NOT EXISTS (SELECT $3 FROM user_block u
+0.68	27692	127392	SELECT EXISTS (SELECT $3 FROM course WHERE id = $1 AND user_id = CAST($2 AS UUID))
+0.67	21388	0	SELECT url, credit FROM poi_image_visible WHERE poi_id = $1 ORDER BY sort_order, id
+0.66	3227	5860513	INSERT INTO review_image (review_id, storage_key, sort_order) VALUES ($1, $2, $3)
+0.64	3174	1444141	INSERT INTO community_post (user_id, title, body, body_blocks, course_title, course_day_count) VALUES (CAST($1 AS UUID),
+0.62	20444	0	SELECT l.place_id FROM place_poi_link l JOIN place p ON p.id = l.place_id AND p.hidden_at IS NULL WHERE l.poi_id = $1
+0.60	3174	1483066	INSERT INTO community_post_photo (post_id, storage_key, sort_order) VALUES ($1, $2, $3)
+0.59	7118	1879580	INSERT INTO guide_turn (lang, outcome, tools, place_count, effects, took_ms) VALUES ($1, $2, $3, $4, $5, $6)
+0.57	21388	0	SELECT lang::text AS lang, overview, use_time, rest_date, parking, first_menu, use_fee, homepage FROM poi_detail_visible
+0.53	20444	0	SELECT EXISTS (SELECT $2 FROM poi WHERE id = $1 AND closed_at IS NULL)
+0.43	6400	739676	DELETE FROM photo_upload WHERE storage_key IN ( SELECT storage_key FROM photo_upload WHERE user_id = CAST($1 AS UUID) AN
+0.43	2997	224	SELECT review_id, storage_key FROM review_image WHERE review_id IN ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $
+0.43	2905	349356	DELETE FROM community_post WHERE id = $1 AND user_id = CAST($2 AS UUID)
+0.39	11456	717551	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID) AND place_id = $2
+0.38	8530	31490	SELECT ST_Y(g::geometry) AS latitude, ST_X(g::geometry) AS longitude FROM ( SELECT COALESCE(p.geom, q.geom, cp.geom) AS 
+0.38	15648	182	SELECT registered_at IS NOT NULL FROM app_user WHERE id = CAST($1 AS UUID)
+0.36	2905	3026736	INSERT INTO storage_deletion (storage_key) SELECT ph.storage_key FROM community_post_photo ph JOIN community_post p ON p
+0.35	18911	0	SELECT EXISTS (SELECT $2 FROM place WHERE id = $1)
+0.26	6401	527906	SELECT $2 FROM app_user WHERE id = CAST($1 AS UUID) FOR SHARE
+0.26	9911	548279	SELECT current_day_no FROM course WHERE id = $1 FOR UPDATE
+0.25	12688	0	SELECT EXISTS (SELECT $4 FROM place WHERE id = $1 AND hidden_at IS NOT NULL) AND NOT EXISTS (SELECT $5 FROM saved_place 
+0.23	9911	3960	SELECT current_day_no FROM course WHERE id = $1 AND user_id = CAST($2 AS UUID)
+0.22	10985	112	SELECT storage_key FROM community_post_photo WHERE post_id = $1 ORDER BY sort_order
+0.21	8530	1484	SELECT status = $3 FROM course WHERE id = $1 AND user_id = CAST($2 AS UUID)
+0.20	9911	59594	DELETE FROM course_item WHERE course_id = $1 AND id NOT IN ($2)
+0.19	11533	0	SELECT EXISTS (SELECT $4 FROM content WHERE id = $1 AND hidden_at IS NOT NULL) AND NOT EXISTS (SELECT $5 FROM saved_cont
+0.19	9911	0	DELETE FROM custom_pin cp WHERE cp.course_id = $1 AND NOT EXISTS (SELECT $2 FROM course_item i WHERE i.custom_pin_id = c
+0.18	9911	0	SELECT EXISTS (SELECT $2 FROM place WHERE id = $1 AND hidden_at IS NOT NULL)
+0.18	3227	0	SELECT r.id, r.rating, r.body, u.nickname, r.created_at, r.updated_at, $3 AS mine FROM review r JOIN app_user u ON u.id 
+0.16	557	4041699	INSERT INTO refresh_token (id, token_hash, user_id, family_id, install_uuid, expires_at, created_at) VALUES (CAST($1 AS 
+0.14	557	2073299	UPDATE user_device SET user_id = CAST($1 AS UUID), last_seen_at = now() WHERE user_id = CAST($2 AS UUID)
+0.09	557	481804	UPDATE app_user SET merged_into = CAST($1 AS UUID) WHERE id = CAST($2 AS UUID)
+0.06	3227	398	SELECT review_id, storage_key FROM review_image WHERE review_id IN ($1) ORDER BY review_id, sort_order
+0.05	557	235611	UPDATE user_identity SET email = COALESCE($1, email), display_name = COALESCE($2, display_name), apple_refresh_token_enc
+0.05	3227	327915	DELETE FROM review_image WHERE review_id = $1
+0.05	3227	0	SELECT storage_key FROM review_image WHERE review_id = $1
+0.05	19790	0	BEGIN
+0.03	320	187426	DELETE FROM storage_deletion WHERE storage_key = $1
+0.03	557	67907	UPDATE course SET status = $3, current_day_no = $4, updated_at = now() WHERE user_id = CAST($1 AS UUID) AND status = $5 
+0.03	557	60752	SELECT a.id, a.registered_at IS NOT NULL AS registered FROM user_device d JOIN app_user a ON a.id = d.user_id WHERE d.in
+0.02	557	16376	SELECT provider, email, display_name FROM user_identity WHERE user_id = CAST($1 AS UUID) ORDER BY created_at, provider
+0.02	557	0	SELECT registered_at, nickname, nickname_confirmed FROM app_user WHERE id = CAST($1 AS UUID) AND merged_into IS NULL AND
+0.01	16	136043	SELECT storage_key FROM storage_deletion ORDER BY created_at, storage_key LIMIT $1
+0.01	557	0	INSERT INTO saved_content (user_id, content_id, created_at) SELECT CAST($1 AS UUID), content_id, created_at FROM saved_c
+0.01	557	0	INSERT INTO saved_place (user_id, place_id, source_content_id, created_at) SELECT CAST($1 AS UUID), place_id, source_con
+0.01	557	6024	SELECT user_id FROM user_identity WHERE provider = $1 AND subject = $2
+0.01	130	203662	INSERT INTO storage_deletion (storage_key) VALUES ($1) ON CONFLICT (storage_key) DO NOTHING
+0.01	557	0	DELETE FROM saved_content WHERE user_id = CAST($1 AS UUID)
+0.01	557	0	DELETE FROM saved_place WHERE user_id = CAST($1 AS UUID)
+0.00	557	0	UPDATE course SET user_id = CAST($1 AS UUID) WHERE user_id = CAST($2 AS UUID)
+0.00	16	0	SELECT pg_try_advisory_xact_lock(hashtext($1))
+0.00	5	0	SET application_name = 'PostgreSQL JDBC Driver'
+0.00	7	0	COMMIT
