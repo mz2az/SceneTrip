@@ -285,7 +285,9 @@ private fun HomeTripCardFilled(
                     .padding(horizontal = 9.dp, vertical = 3.dp),
         )
         Text(
-            "${courseSpanLabel(trip.course.dayCount)} · ${tr("%d곳").format(trip.course.placeCount)}",
+            // 영어는 하나일 때 낱말이 달라진다(「1 place」) — 번역 표의 `원문|하나` (iOS `tr("%@ · %lld곳", at: "하나")`).
+            (if (trip.course.placeCount == 1) tr("%s · %d곳", "하나") else tr("%s · %d곳"))
+                .format(courseSpanLabel(trip.course.dayCount), trip.course.placeCount),
             fontSize = 12.sp,
             color = Color.White.copy(alpha = 0.85f),
         )

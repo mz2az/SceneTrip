@@ -208,7 +208,10 @@ fun RouteEditorView(
     var cartHintState by remember { mutableStateOf(RouteCartHintState()) }
     val cartHint = remember { RouteCartHint(PreferencesCartHintStorage(context)) { cartHintState = it } }
     val rootView = androidx.compose.ui.platform.LocalView.current
-    val guideSession = remember { RouteGuideSession(context, scope) }
+    // 가이드 대화는 앱에 하나뿐이고 코스의 것이다 — 같은 코스를 다시 열면 이어지고 다른 코스면 새로 시작한다(iOS `guide.bind`).
+    val guideSession = remember { RouteGuideSession.shared(context) }
+    LaunchedEffect(Unit) { guideSession.bind(RouteGuidePlan.conversationKey(course)) }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { guideSession.contextOf = { null } } }
     val trip = remember { TripSession(context) }
     var visitStates by remember { mutableStateOf<Map<VisitKey, VisitStatus>>(emptyMap()) }
     val visitSync = remember { VisitSync(store::markVisited, { AuthStore.epoch }) { visitStates = it } }
@@ -338,6 +341,8 @@ fun RouteEditorView(
         scope.launch {
             val saved = store.save(course)
             saving = false
+            // 방금 저장한 이 코스를 다시 열면 가이드 대화가 이어진다.
+            saved?.let { guideSession.rekey(RouteGuidePlan.conversationKey(it)) }
             if (saved != null) onClose(saved) else saveFailure = store.saveFailure
         }
     }

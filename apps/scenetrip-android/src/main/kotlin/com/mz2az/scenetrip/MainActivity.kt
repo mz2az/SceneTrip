@@ -74,6 +74,9 @@ class MainActivity : ComponentActivity() {
         // 로그인 — 401(만료·폐기) 처리를 끼우고 저장된 세션을 되살린다 (MZ2AZ-336).
         // 마찬가지로 **생성 클라이언트를 처음 쓰기 전이어야 한다**(화면이 그려지기 전).
         AuthStore.start(this)
+        // 응답이 없을 때 기기 탓인지 서버 탓인지 가른다 — 「인터넷 연결을 확인해 주세요」 (MZ2AZ-366).
+        com.mz2az.scenetrip.data.DeviceNetwork
+            .install(this)
 
         // 확인용 뒷문 — iOS `simctl launch … -initialTab profile`과 짝이다.
         // `adb shell am start -n com.mz2az.scenetrip/.MainActivity -e initialTab route

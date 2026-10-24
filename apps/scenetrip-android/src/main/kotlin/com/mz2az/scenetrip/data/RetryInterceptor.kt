@@ -93,6 +93,16 @@ class RetryInterceptor(
                 throw failed ?: IOException("No response")
             }
             response?.close()
+            request.header("Idempotency-Key")?.let { key ->
+                ResendEvents.notify(
+                    key,
+                    when {
+                        step.poll -> ResendEvents.Reason.IN_PROGRESS
+                        step.forLimit -> ResendEvents.Reason.RATE_LIMITED
+                        else -> ResendEvents.Reason.FAILED
+                    },
+                )
+            }
             history = RetryRules.record(history, step, status, unreached)
             val jitter = if (step.forLimit) (Math.random() * 1000).toLong() else (step.waitMillis * (Math.random() * 0.4 - 0.2)).toLong()
             val delay = step.waitMillis + jitter

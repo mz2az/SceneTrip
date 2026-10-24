@@ -56,6 +56,7 @@ import com.mz2az.scenetrip.data.OnboardingFlag
 import com.mz2az.scenetrip.data.VisitStamp
 import com.mz2az.scenetrip.data.collectVisitStamps
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.data.trCount
 import com.mz2az.scenetrip.onboarding.OnboardingView
 import com.mz2az.scenetrip.onboarding.PinoMascot
 import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
@@ -209,7 +210,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                         ProfileDivider()
                         ProfileRow(
                             title = tr("장바구니"),
-                            value = tr("%d곳").format(cart.items.size),
+                            value = trCount("%d곳", cart.items.size),
                             onClick = { showingCart = true },
                             chevron = true,
                             icon = { BagFillIcon(SYSTEM_ORANGE, it) },

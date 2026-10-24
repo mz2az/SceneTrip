@@ -107,3 +107,12 @@ fun tr(
     val key = "$korean|$at"
     return TRANSLATIONS_EN[key] ?: tr(korean)
 }
+
+/**
+ * 수가 들어가는 문구. 영어는 하나일 때 낱말이 달라진다(「1 place」·「2 places」) — 번역 표의 `원문|하나` 를 찾고, 그 줄이 없으면
+ * 여럿의 번역으로 물러선다. 한국어는 수에 따라 달라지지 않아 원문 그대로다 (iOS `trCount`).
+ */
+fun trCount(
+    korean: String,
+    count: Int,
+): String = (if (count == 1) tr(korean, "하나") else tr(korean)).format(count)

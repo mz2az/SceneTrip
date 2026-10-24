@@ -207,6 +207,10 @@ object AuthStore {
     private fun accountChanged() {
         com.mz2az.scenetrip.data.LimitLedger
             .reset()
+        // 챗봇 한도와 남은 양은 계정마다 따로다 — 앞 계정의 잠금을 다음 계정에 남기지 않는다(MZ2AZ-366).
+        com.mz2az.scenetrip.routetab.RouteGuideSession
+            .sharedOrNull()
+            ?.accountChanged()
         epoch += 1
         com.mz2az.scenetrip.data.CommunityStore
             .accountChanged()

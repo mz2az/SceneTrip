@@ -35,6 +35,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.mz2az.scenetrip.data.UnavailableItem
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.data.trCount
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.DisableDialogDim
@@ -114,7 +115,7 @@ private fun CartContent(
             modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
         ) {
             Text(
-                text = if (items.isEmpty()) tr("장바구니") else tr("장바구니 %d곳").format(items.size),
+                text = if (items.isEmpty()) tr("장바구니") else trCount("장바구니 %d곳", items.size),
                 style = IOS.headline,
                 color = IOS.label,
             )

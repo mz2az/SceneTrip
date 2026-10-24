@@ -18,6 +18,9 @@ import java.time.LocalDate
  * 있고 DB id 가 없다.
  */
 object RouteGuidePlan {
+    /** 가이드 대화를 묶는 열쇠. 저장 전이면 이 화면이 연 사본의 id 다(iOS `guideKey`). */
+    fun conversationKey(course: RouteCourse): String = course.serverId?.let { "course-$it" } ?: "draft-${course.id}"
+
     /** 손으로 고친 일정을 같은 계약으로 되돌려 보내야 챗봇이 낡은 초안을 고치지 않는다. */
     fun plan(course: RouteCourse): GuidePlan =
         GuidePlan(

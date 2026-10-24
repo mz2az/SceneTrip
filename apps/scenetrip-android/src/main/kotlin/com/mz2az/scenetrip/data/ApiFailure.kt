@@ -22,15 +22,17 @@ data class ApiFailure(
     val statusCode: Int?,
     /** 오류 본문의 `code`. 금칙어·숨김·폐업처럼 구체적인 안내가 필요한 경우에 쓴다(MZ2AZ-461·458). */
     val apiCode: String? = null,
+    /** 기기가 오프라인이라 실패했다 — 서버 탓이 아니라 「인터넷 연결」 을 말해야 한다 (MZ2AZ-366). */
+    val isOffline: Boolean = false,
 ) {
     /**
-     * 재시도가 의미 있는 경우.
+     * 「다시 시도」 가 의미 있는 경우 — **다시 누르면 달라질 수 있는 것.** 서버에 닿지 못했거나(statusCode 없음), 서버 사정
+     * (500·502·503·504)이거나, 분당 한도(429)다. 400·404 처럼 요청이 틀린 것은 눌러도 같다.
      *
-     * 계약이 "재시도해도 된다 — 클라이언트가 고칠 것은 없다" 고 적은 것은 `500`
-     * 뿐이다. 서버에 닿지도 못한 경우도 같이 본다 — 그쪽은 앱이 고칠 것이 없다는
-     * 점에서 성격이 같다.
+     * 여기까지 올라온 실패는 공통 계층([RetryInterceptor])이 이미 몇 번 다시 보내 본 것이다 — 그래도 안 된 것이라 사람에게 단추를
+     * 준다. 전에는 500 과 연결 실패에만 줘서 503·429 에는 「요청을 처리하지 못했습니다」 만 뜨고 다시 해 볼 길이 없었다(iOS 와 같다).
      */
-    val isRetryable: Boolean get() = statusCode == null || statusCode == 500
+    val isRetryable: Boolean get() = statusCode == null || statusCode in RETRYABLE_STATUS
 
     /** 화면에 띄우는 문구. iOS `ErrorView` 와 **같은 세 갈래**다. */
     val message: String get() {
@@ -46,9 +48,13 @@ data class ApiFailure(
             // 위치기반서비스 동의 전에는 기기 좌표가 나가지 않는다(MZ2AZ-472).
             apiCode == LocationConsentRequired.CODE -> tr(LocationConsentRequired.MESSAGE_KO)
 
+            statusCode == null && isOffline -> tr("인터넷 연결을 확인해 주세요.")
+
             statusCode == null -> tr("서버에 연결하지 못했습니다.")
 
-            statusCode == 500 -> tr("잠시 문제가 생겼습니다.")
+            statusCode in SERVER_TROUBLE_STATUS -> tr("잠시 문제가 생겼습니다.")
+
+            statusCode == 429 -> tr("요청이 많아요. 잠시 뒤 다시 시도해 주세요.")
 
             else -> tr("요청을 처리하지 못했습니다.")
         }
@@ -66,6 +72,9 @@ data class ApiFailure(
     }
 
     companion object {
+        private val SERVER_TROUBLE_STATUS = setOf(500, 502, 503, 504)
+        private val RETRYABLE_STATUS = SERVER_TROUBLE_STATUS + 429
+
         /** 상세를 받지 못한 서버 코스를 저장하려 했다 — 요청을 보내지 않고 막는다. iOS `ApiFailure.courseDetailNotLoaded`. */
         val courseDetailNotLoaded = ApiFailure(statusCode = null, apiCode = "COURSE_DETAIL_NOT_LOADED")
 
@@ -84,8 +93,8 @@ data class ApiFailure(
 
                 is ServerException -> ApiFailure(error.statusCode.takeIf { it > 0 }, NetworkFailure.of(error).code)
 
-                // 연결 실패·타임아웃은 OkHttp 의 IOException 으로 온다.
-                else -> ApiFailure(statusCode = null)
+                // 연결 실패·타임아웃은 OkHttp 의 IOException 으로 온다. 기기가 오프라인이면 그렇게 말한다.
+                else -> ApiFailure(statusCode = null, isOffline = DeviceNetwork.isOffline())
             }
     }
 }

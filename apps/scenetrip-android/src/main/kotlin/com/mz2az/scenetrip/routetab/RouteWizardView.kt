@@ -472,7 +472,7 @@ private fun RouteWizardViewBody(
     if (planFailed) {
         IOSAlert(
             title = tr("일정을 짜지 못했습니다"),
-            message = store.failure?.message ?: tr("잠시 후 다시 시도해 주세요."),
+            message = store.planFailure?.message ?: tr("잠시 후 다시 시도해 주세요."),
             actions = listOf(IOSAction(tr("확인")) {}),
             onDismiss = { planFailed = false },
         )

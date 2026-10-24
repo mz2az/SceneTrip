@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.data.UnavailableItem
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.data.trCount
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.ui.IOS
@@ -83,7 +84,7 @@ fun WorkRow(
             if (notice != null) UnavailableItemNotice(notice)
             // "촬영지 N" 은 회색 캡슐 안에 들어간다 — iOS 와 같은 모양이다.
             Text(
-                text = tr("촬영지 %d").format(content.placeCount),
+                text = trCount("촬영지 %d", content.placeCount),
                 style = IOS.caption2,
                 color = IOS.secondaryLabel,
                 modifier =

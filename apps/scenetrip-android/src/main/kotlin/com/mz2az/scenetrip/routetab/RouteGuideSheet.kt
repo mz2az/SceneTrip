@@ -296,7 +296,7 @@ fun RouteGuidePanel(
                     consent = consent,
                     locationConsent = locationConsent,
                     onExample = {
-                        if (!session.asking && !session.blocked) {
+                        if (!session.asking && !session.isLimited) {
                             draft = it
                             send(it)
                         }
@@ -345,8 +345,18 @@ private fun GuideConversation(
             .rememberLazyListState()
     // 시작 화면 항목이 맨 위에 하나 더 있으면(iOS: 대화 중에도 장바구니·주변 입구를 유지한다) 마지막 말 다음 항목의 번호가 하나 밀린다.
     val hasStart = session.isEmpty || start.onOpenCart != null || start.onOpenNearby != null
-    LaunchedEffect(session.turns.size) {
-        if (session.turns.isNotEmpty()) listState.animateScrollToItem(session.turns.size + if (hasStart) 1 else 0)
+    // 한도는 시간이 가면 풀린다 — 시계가 한 칸 넘어갈 때마다 풀렸는지 본다(iOS 는 타이머로 깨어난다).
+    val now =
+        com.mz2az.scenetrip.data
+            .usageNow()
+    LaunchedEffect(now) { session.refreshLimit() }
+    val failure = session.failure?.takeIf { !it.isLimit }
+    // 맨 아래 닻 항목까지 센 마지막 번호 — 새 말·실패 줄·한도 안내가 붙으면 그리로 내려간다(iOS `proxy.scrollTo("bottom")`).
+    val lastIndex = (if (hasStart) 1 else 0) + session.turns.size + (if (session.asking) 1 else 0) + (if (failure != null) 1 else 0) + 1
+    LaunchedEffect(session.turns.size, session.failure, session.limit) {
+        if (session.turns.isNotEmpty() || session.failure != null || session.limit != GuideChat.Limit.Clear) {
+            listState.animateScrollToItem(lastIndex)
+        }
     }
     LazyColumn(
         state = listState,
@@ -367,7 +377,7 @@ private fun GuideConversation(
                     onOpenNearby = start.onOpenNearby,
                     onOpenPlanner = start.onOpenPlanner,
                     showQuestions = session.isEmpty,
-                    canAsk = here != null && !session.blocked && !session.asking,
+                    canAsk = here != null && !session.isLimited && !session.asking,
                     onAsk = onExample,
                 )
             }
@@ -421,38 +431,50 @@ private fun GuideConversation(
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                    // 몇 초 걸리는지 미리 말한다. 안 그러면 멈춘 줄 안다(실측 9~57초).
-                    Text(tr("찾는 중입니다… 10초쯤 걸립니다"), fontSize = 12.sp, color = IOS.secondaryLabel)
-                }
-            }
-        }
-        session.failure?.let { message ->
-            item {
-                Text(message, fontSize = 13.sp, color = IOS.systemOrange)
-                val now =
-                    com.mz2az.scenetrip.data
-                        .usageNow()
-                if (session.canRetry &&
-                    com.mz2az.scenetrip.data.LimitLedger.guideBlock
-                        ?.blocked(now) != true
-                ) {
                     Text(
-                        tr("다시 시도"),
-                        color = IOS.accent,
-                        modifier =
-                            Modifier
-                                .clickable {
-                                    consent.request {
-                                        locationConsent.requestLocation(session.pendingSource) { scope.launch { session.retry() } }
-                                    }
-                                }.padding(vertical = 8.dp),
+                        when (session.pending?.stage) {
+                            // 첫 요청이 실패해 같은 키로 다시 보내는 중 — 멈춘 것이 아니라는 것을 말한다.
+                            PendingTurn.Stage.Reconnecting -> tr("다시 연결하는 중이에요")
+
+                            // 분당 한도가 풀리기를 기다린다(길면 1 분) — 연결 탓이 아니다.
+                            PendingTurn.Stage.WaitingForLimit -> tr("요청이 많아 잠시 기다리는 중이에요")
+
+                            // 몇 초 걸리는지 미리 말한다. 안 그러면 멈춘 줄 안다(실측 9~57초). 서버가 「처리 중」이라 다시 묻는 동안에도
+                            // 이 말이다 — 답은 만들어지고 있다.
+                            else -> tr("찾는 중입니다… 10초쯤 걸립니다")
+                        },
+                        fontSize = 12.sp,
+                        color = IOS.secondaryLabel,
                     )
                 }
             }
         }
+        failure?.let { reason ->
+            item {
+                GuideFailureLine(reason, canRetry = session.canRetry, onRetry = {
+                    consent.request {
+                        locationConsent.requestLocation(session.pendingSource) { scope.launch { session.retry() } }
+                    }
+                })
+            }
+        }
+        // 한도 안내는 실패 줄과 따로 둔다 — 대화를 지우거나 코스를 바꿔도 잠겨 있는 이유가 보여야 한다.
         item {
-            com.mz2az.scenetrip.data
-                .GuideUsageNotice(onOpenPlanner = start.onOpenPlanner)
+            GuideLimitNotice(
+                limit = session.limit,
+                canRetry = session.canRetry,
+                now = now,
+                onRetry = {
+                    consent.request {
+                        locationConsent.requestLocation(session.pendingSource) { scope.launch { session.retry() } }
+                    }
+                },
+                onOpenPlanner = start.onOpenPlanner,
+            )
+        }
+        item {
+            androidx.compose.foundation.layout
+                .Spacer(Modifier.size(1.dp))
         }
     }
 }
@@ -521,14 +543,9 @@ private fun GuideComposer(
     onDraft: (String) -> Unit,
     submit: (String) -> Unit,
 ) {
-    val now =
-        com.mz2az.scenetrip.data
-            .usageNow()
-    val locked =
-        com.mz2az.scenetrip.data.LimitLedger.guideBlock
-            ?.blocked(now) == true
-    // 위치를 아직 모르면 글은 칠 수 있지만 보내지는 못한다(iOS `canSend`).
-    val canSend = here != null && draft.isNotBlank() && draft.trim().length <= 4000 && !session.asking && !locked
+    // 글은 칠 수 있다 — 한도가 풀리기를 기다리는 동안에도. 보내기만 잠근다(iOS `canSend`).
+    // 위치를 아직 모르면 글은 칠 수 있지만 보내지는 못한다.
+    val canSend = here != null && draft.isNotBlank() && draft.trim().length <= 4000 && !session.asking && !session.isLimited
 
     fun send() {
         if (!canSend) return
@@ -544,6 +561,7 @@ private fun GuideComposer(
             color = IOS.secondaryLabel,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp),
         )
+        GuideRemainingLine(session)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -562,7 +580,6 @@ private fun GuideComposer(
                 BasicTextField(
                     value = draft,
                     onValueChange = { if (it.length <= 4000) onDraft(it) },
-                    enabled = !session.asking && !locked,
                     maxLines = 3,
                     textStyle = IOS.body.copy(color = IOS.label),
                     cursorBrush = SolidColor(IOS.accent),
