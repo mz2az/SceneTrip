@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -48,6 +49,8 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,6 +83,7 @@ import com.mz2az.scenetrip.ui.IOSSheetMaterial
 import com.mz2az.scenetrip.ui.IOSSheetToolbar
 import com.mz2az.scenetrip.ui.LocationArrowIcon
 import com.mz2az.scenetrip.ui.SheetDetent
+import com.mz2az.scenetrip.ui.ShoeprintsIcon
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
 import com.mz2az.scenetrip.ui.sheetListBottom
 import com.mz2az.scenetrip.ui.unavailableAlpha
@@ -114,6 +118,8 @@ fun RouteStopRow(
     onMoveDown: (() -> Unit)?,
     onTogglePin: () -> Unit,
     isTarget: Boolean = false,
+    // 여행 중인가. 다음 장소까지의 거리 색이 이것을 따른다(iOS `running`).
+    running: Boolean = false,
     onNavigate: (() -> Unit)? = null,
     // 이 장소가 나온 작품. iOS `RouteStopRow.works` — 계약의 `CourseItem`엔 작품이
     // 없어(`placeId`·`name`·`address`만 온다) 바깥(`RouteStore.places`)에서
@@ -239,6 +245,27 @@ fun RouteStopRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.padding(start = 34.dp, top = 8.dp),
             ) {
+                if (stop.visited) {
+                    // **다녀온 곳은 크게 찍힌다.** 작은 「방문」 칩은 눈에 안 띄어 여행을 이어 갈 때 어디까지 왔는지 못 알아봤다
+                    // (2026-09-02 사용자 지적). 길찾기 화면의 스탬프·핀과 같은 발바닥이고, 크기는 한 줄 높이(30)에 맞춘다.
+                    val visitedLabel = tr("다녀온 곳")
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier =
+                            Modifier
+                                .size(30.dp)
+                                .shadow(
+                                    2.dp,
+                                    CircleShape,
+                                    ambientColor = IOS.pinDeep.copy(alpha = 0.3f),
+                                    spotColor = IOS.pinDeep.copy(alpha = 0.3f),
+                                ).clip(CircleShape)
+                                .background(TripPawBrush)
+                                .semantics { contentDescription = visitedLabel },
+                    ) {
+                        androidx.compose.foundation.Canvas(Modifier.size(17.dp).rotate(-12f)) { drawPaw(color = Color.White) }
+                    }
+                }
                 if (isTarget) {
                     StopCapsule(background = IOS.pinDeep) {
                         LocationArrowIcon(Color.White, filled = true, modifier = Modifier.size(11.dp))
@@ -266,8 +293,13 @@ fun RouteStopRow(
                 }
                 nextKilometers?.let {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ArrowDownIcon(IOS.tertiaryLabel, Modifier.size(14.dp))
-                        Text(RouteFormat.kilometers(it), fontSize = 12.sp, color = IOS.tertiaryLabel, maxLines = 1)
+                        ArrowDownIcon(if (running) IOS.secondaryLabel else IOS.tertiaryLabel, Modifier.size(14.dp))
+                        Text(
+                            RouteFormat.kilometers(it),
+                            fontSize = 12.sp,
+                            color = if (running) IOS.secondaryLabel else IOS.tertiaryLabel,
+                            maxLines = 1,
+                        )
                     }
                 }
             }
@@ -450,18 +482,49 @@ private fun PoiChip(
     }
 }
 
-/** 지도 축척·선택에 따라 주변 편의시설을 묶는다. */
+/**
+ * 주변 편의시설을 **각각 실제 위치에** 그린다 (MZ2AZ-482 C9, iOS 403 `PoiMarkerRenderer`). 묶음 핀은 없다 — 같은 위치의 서로 다른
+ * 장소도 합치거나 옮기지 않는다. 고른 하나는 빨간 해태와 항상 보이는 이름표, 나머지는 분류 점이고 이름은 크게 확대했을 때만 단다.
+ */
 @Composable
 fun AmbientPoiPins(
     map: NaverMap?,
     pois: List<PoiSummary>,
-    zoom: Double,
     pickedId: Long?,
     onTap: (GuidePlace) -> Unit,
 ) {
-    val places = remember(pois) { pois.map { it.asGuidePlace() } }
-    PoiClusterPins(map, places, zoom, pickedId, onTap)
+    if (map == null) return
+    val context = LocalContext.current
+    val select by rememberUpdatedState(onTap)
+    val places = remember(pois) { PoiMarkerRules.validPlaces(pois.map { it.asGuidePlace() }) }
+    DisposableEffect(map, places, pickedId, com.mz2az.scenetrip.data.AppLanguage.current) {
+        val images = PoiPinImage(context)
+        val markers =
+            places.map { place ->
+                val picked = place.id == pickedId
+                Marker().apply {
+                    position =
+                        com.naver.maps.geometry
+                            .LatLng(place.latitude, place.longitude)
+                    icon = if (picked) images.mascot(picked = true) else images.dot(place)
+                    anchor = android.graphics.PointF(0.5f, if (picked) 1f else 0.5f)
+                    captionText = place.label().title
+                    captionMinZoom = if (picked) 0.0 else AMBIENT_CAPTION_MIN_ZOOM
+                    isHideCollidedCaptions = !picked
+                    zIndex = if (picked) 30 else 3
+                    setOnClickListener {
+                        select(place)
+                        true
+                    }
+                    this.map = map
+                }
+            }
+        onDispose { markers.forEach { it.map = null } }
+    }
 }
+
+/** 배경 점의 이름표는 이만큼 확대했을 때부터 단다 — 앞서 14·16 에서 열다섯 이름을 한꺼번에 띄웠더니 글자밭이 됐다(iOS `PinoPin.caption`). */
+private const val AMBIENT_CAPTION_MIN_ZOOM = 18.0
 
 /** 챗봇이 찾은 곳은 작은 해태, 고른 한 곳은 빨간 테와 항상 보이는 이름표다. */
 @Composable
@@ -511,6 +574,8 @@ fun RouteFootprintButton(
     modifier: Modifier = Modifier,
 ) {
     val gold = Color(0xFFD9A621)
+    // 접근성 이름은 지금 누르면 무엇이 되는지 — 켜져 있으면 「발자취 숨기기」(iOS `footprintButton`).
+    val label = if (on) tr("발자취 숨기기") else tr("발자취 보기")
     Box(
         modifier =
             modifier
@@ -519,10 +584,11 @@ fun RouteFootprintButton(
                 .clip(CircleShape)
                 .background(if (on) gold else IOS.systemBackground)
                 .border(1.dp, if (on) Color.Transparent else IOS.systemGray4, CircleShape)
+                .semantics { contentDescription = label }
                 .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text("👣", fontSize = 16.sp)
+        ShoeprintsIcon(if (on) Color.White else Color(0xFFB88A14), Modifier.size(18.dp))
     }
 }
 

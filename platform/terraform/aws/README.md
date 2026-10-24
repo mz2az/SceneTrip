@@ -10,7 +10,9 @@ Multi-AZ·백업·삭제 보호가 정해져 PRD에서 우연히 DEV 설정을 �
 | [ingress.tf](ingress.tf) | ALB frontend SG와 승인 CIDR 443, ALB→gateway 8080 SG 규칙 |
 | [eks.tf](eks.tf) | API 인증·명시적 배포 접근, private 노드, Auto Mode, 제어면 로그 |
 | [database.tf](database.tf) | 비공개 PostgreSQL17, EKS SG만 5432 허용, SSL·암호화 |
-| [registry-secrets.tf](registry-secrets.tf) | 불변 이미지 저장소 3개, 값 없는 Secret 3개 |
+| [registry-secrets.tf](registry-secrets.tf) | 불변 이미지 저장소(앱·적재 4개, SigNoz 복사본 7개, Metabase 복사본 1개), 값 없는 Secret 5개 |
+| [signoz.tf](signoz.tf) | SigNoz 화면 ALB SG — Cloudflare IPv4 대역만 443, ALB→8080(ADR 0025) |
+| [metabase.tf](metabase.tf) | Metabase 화면 ALB SG — SigNoz 와 같은 Cloudflare 대역만 443, ALB→3000(ADR 0027) |
 | [outputs.tf](outputs.tf) | 배포 도구가 읽는 비밀값 없는 출력 계약 |
 | [versions.tf](versions.tf) | Terraform·provider 버전과 S3 잠금 |
 | [tests/](tests/README.md) | DEV·PRD 계획과 잘못된 입력을 검증하는 mock 테스트 |

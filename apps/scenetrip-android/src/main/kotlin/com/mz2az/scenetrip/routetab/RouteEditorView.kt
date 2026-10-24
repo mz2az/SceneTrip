@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
@@ -86,11 +88,15 @@ import com.mz2az.scenetrip.sceneapi.client.model.PoiCategoryGroup
 import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
 import com.mz2az.scenetrip.searchtab.BottomSheet
 import com.mz2az.scenetrip.searchtab.Detent
+import com.mz2az.scenetrip.searchtab.LocationTracker
 import com.mz2az.scenetrip.searchtab.MapPins
+import com.mz2az.scenetrip.searchtab.MyLocationPulse
 import com.mz2az.scenetrip.searchtab.NaverMapCanvas
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.centerOn
 import com.mz2az.scenetrip.searchtab.fit
+import com.mz2az.scenetrip.searchtab.focusOnStop
+import com.mz2az.scenetrip.searchtab.hasLocationPermission
 import com.mz2az.scenetrip.searchtab.regionSource
 import com.mz2az.scenetrip.searchtab.rememberLocate
 import com.mz2az.scenetrip.ui.BagIcon
@@ -154,6 +160,11 @@ private data class MapViewport(
     val source: CoordinateSource,
 )
 
+/**
+ * 코스 편집 화면. **겹쳐 뜨는 것(정지점 카드·도착 스탬프·검색 시트)은 화면 전체를 덮는 형제로 올라오므로 부모가 `Box` 여야 한다.**
+ * 마법사 시트처럼 부모가 `Column` 인 곳에서 열리면(저장 전 새 코스) 본문이 높이를 다 가져가 형제 `fillMaxSize` 상자가 0 높이가 되어 카드가
+ * 보이지 않았다 — 어디서 열려도 같게 여기서 `Box` 로 감싼다.
+ */
 @Composable
 fun RouteEditorView(
     store: RouteStore,
@@ -166,15 +177,46 @@ fun RouteEditorView(
     operationScope: kotlinx.coroutines.CoroutineScope? = null,
     editorDismiss: java.util.concurrent.atomic.AtomicReference<(() -> Unit)?>? = null,
 ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        RouteEditorContent(store, initial, isNew, onClose, inSheet, draftState, operationScope, editorDismiss)
+    }
+}
+
+@Composable
+private fun RouteEditorContent(
+    store: RouteStore,
+    initial: RouteCourse,
+    isNew: Boolean,
+    onClose: (RouteCourse?) -> Unit,
+    inSheet: Boolean,
+    draftState: RouteEditorDraft?,
+    operationScope: kotlinx.coroutines.CoroutineScope?,
+    editorDismiss: java.util.concurrent.atomic.AtomicReference<(() -> Unit)?>?,
+) {
     val editorDraft = draftState ?: remember { RouteEditorDraft(initial) }
     var course by editorDraft.course
-    val opened = remember(initial) { RouteBridge.outgoing(initial) }
+    var opened by remember(initial) { mutableStateOf(RouteBridge.outgoing(initial)) }
     var discarding by editorDraft.discarding
     var dayIndex by editorDraft.dayIndex
     var map by remember { mutableStateOf<NaverMap?>(null) }
     var detent by remember { mutableStateOf(Detent.MEDIUM) }
     var panelHeight by remember { mutableStateOf(0.dp) }
     var focusedStopId by remember { mutableStateOf<java.util.UUID?>(null) }
+
+    // 번호 핀·목록 행을 눌러 카드를 띄운 정지점. 카드는 한 장만 — 편의시설·AI 점의 카드(`guideSession.picked`)와 같이 뜨지 않는다(iOS `pickedStop`).
+    var pickedStop by remember { mutableStateOf<RouteStop?>(null) }
+
+    // 검색·장바구니에서 체크한, 담을까 보는 곳 — 지도에 빨간 해태로 뜬다(iOS `previewPlaces`). 시트를 닫으면 비운다.
+    var previewPlaces by remember { mutableStateOf<List<PlaceSummary>>(emptyList()) }
+
+    // 도착 알림 카드의 높이 — 지도 오른쪽 위 단추가 카드 밑으로 내려가게(iOS `tripBannerHeight`).
+    var arrivalHeight by remember { mutableStateOf(0.dp) }
+
+    // 바닥 카드(편의시설·성지)의 높이 — 해태 칩이 카드 위로 비켜 서는 데 쓴다(MZ2AZ-367, iOS `guideCardTop`).
+    var cardHeight by remember { mutableStateOf(0.dp) }
+
+    // 「머무는 시간 ›」 단추의 틀(창 좌표) — 칩이 카드를 비켜 선 자리에서 이 단추를 덮지 않게 한다(iOS `stayFrame`).
+    var stayFrame by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var pinning by remember { mutableStateOf(false) }
     var pendingPin by remember { mutableStateOf<RoutePin?>(null) }
     var searching by remember { mutableStateOf(false) }
@@ -232,7 +274,7 @@ fun RouteEditorView(
         RouteGuideEntry.placement(
             guiding = trip.phase == TripSession.Phase.GUIDING,
             hasTarget = trip.target != null,
-            hasCard = guideSession.picked != null || focusedStopId != null,
+            hasCard = guideSession.picked != null || pickedStop != null || focusedStopId != null,
             panelOpen = showGuide,
             pinning = pinning,
         )
@@ -285,15 +327,34 @@ fun RouteEditorView(
             trip.foreground(false, scope)
         }
     }
+    // 권한을 받고 첫 자리를 얻었는가 — 이 뒤로 「내 위치」 토글이 켜져 있는 동안 계속 받는다(아래).
+    var locationReady by remember { mutableStateOf(false) }
     val requestLocation =
         rememberLocate(
             onLocated = { found ->
+                locationReady = true
                 myLocation = PlaceSummary(id = 0, name = "여기", latitude = found.latitude, longitude = found.longitude)
             },
             onFailure = {},
         )
     // 못 받아도 코스는 만들어진다 — 실패는 조용히 넘긴다(동선 최적화가 못 쓸 뿐).
     LaunchedEffect(Unit) { requestLocation() }
+
+    // **토글이 켜져 있는 동안 계속 받는다**(MZ2AZ-509, iOS `RouteMapLocate.startLocating`). 첫 값은 대략값일 수 있어
+    // 더 나은 값으로 점을 옮긴다. 끄거나 여행 안내가 자리를 주기 시작하면 멈춘다 — 두 출처가 점을 서로 끌어당기면 튄다.
+    androidx.compose.runtime.DisposableEffect(showingMe, trip.isActive, locationReady) {
+        val follower = LocationTracker(context)
+        if (showingMe && !trip.isActive && locationReady && context.hasLocationPermission) {
+            follower.start(
+                minTimeMs = 1_000L,
+                minDistanceM = 5f,
+                onFix = { found, _ ->
+                    myLocation = PlaceSummary(id = 0, name = "여기", latitude = found.latitude, longitude = found.longitude)
+                },
+            )
+        }
+        onDispose { follower.stop() }
+    }
 
     fun updateDay(
         index: Int,
@@ -403,6 +464,83 @@ fun RouteEditorView(
 
     val day = course.days.getOrNull(dayIndex)
     val stops = day?.stops ?: emptyList()
+
+    // 카드가 가리키던 정지점이 일차에서 빠지면(지움·일차 바꿈) 카드도 내린다.
+    LaunchedEffect(stops, pickedStop) {
+        val shown = pickedStop
+        if (shown != null && stops.none { it.id == shown.id }) pickedStop = null
+    }
+
+    // 정지점을 고른다 — 카드를 올리고 그곳으로 확대한다. 내 자리가 3 km 넘게 멀면 그곳만 보여 준다(`focusOnStop`).
+    fun focusStop(
+        stop: RouteStop,
+        withCard: Boolean = true,
+    ) {
+        focusedStopId = stop.id
+        // 번호 핀을 누르면 카드가 뜬다. 목록 행을 누르면 지도만 간다(iOS `onFocus`).
+        pickedStop = if (withCard) stop else null
+        guideSession.dismiss() // 카드는 한 장만
+        val here = if (trip.isActive) trip.here else myLocation?.let { it.latitude to it.longitude }
+        map?.focusOnStop(stop.place, here, showingMe, density, screenHeight, panelHeight)
+    }
+
+    // 이 정지점으로 안내를 켠다. 번호는 **그 일차 안의 순서**다(지도·목록의 번호와 같다).
+    fun beginTrip(
+        stop: RouteStop,
+        serverCourseId: Long?,
+    ) {
+        if (!stop.canNavigate) {
+            pickedStop = stop
+            return
+        }
+        // 계약이 목적지를 코스 항목으로 받으므로 코스의 서버 id 도 함께 준다(저장 전이면 길을 못 묻는다).
+        val courseId = serverCourseId ?: return
+        if (visitBlocked()) return
+        focusedStopId = null
+        pickedStop = null
+        guideSession.dismiss()
+        if (trip.isActive) trip.advance(stop, scope) else trip.start(courseId, stop, scope)
+    }
+
+    /**
+     * 이 정지점으로 안내를 켠다 (iOS `startTrip(to:)`, MZ2AZ-478 B7).
+     *
+     * **방금 담은 곳은 먼저 저장한다.** 길찾기 계약은 목적지를 저장된 코스 항목으로만 받는다 — 챗봇이 찾아 준 가게를 담고 곧바로
+     * 「다음 · 2번으로 길찾기」를 누르면 「저장된 코스의 장소에서만…」으로 막혔다. 저장이 실패하면 시작하지 않는다(알림은 저장 쪽이 띄운다).
+     */
+    fun startTrip(stop: RouteStop) {
+        if (!stop.canNavigate) {
+            pickedStop = stop
+            return
+        }
+        if (stop.serverItemId != null || course.serverId == null || stop.placeMissing) {
+            beginTrip(stop, course.serverId)
+            return
+        }
+        if (saving || !course.canSave) return
+        saving = true
+        scope.launch {
+            val saved = store.save(course)
+            saving = false
+            if (saved == null) {
+                saveFailure = store.saveFailure
+                return@launch
+            }
+            course = saved // 항목 id 가 붙어 온다. 다녀옴·여행 상태도 서버 것 그대로다.
+            // 여기까지는 서버에 있다 — 「취소」가 이미 저장된 것을 버릴지 묻지 않게 기준을 옮긴다.
+            opened = RouteBridge.outgoing(saved)
+            // 촬영지 줄은 촬영지 id 로 찾는다 — 편의시설 이름으로 담긴 줄은 서버가 촬영지 이름·좌표로 돌려준다.
+            beginTrip(
+                stop.rowIn(
+                    saved.days
+                        .getOrNull(dayIndex)
+                        ?.stops
+                        .orEmpty(),
+                ) ?: stop,
+                saved.serverId,
+            )
+        }
+    }
     androidx.compose.runtime.SideEffect {
         guideSession.contextOf = {
             val picked = stops.firstOrNull { it.id == focusedStopId }
@@ -518,7 +656,9 @@ fun RouteEditorView(
         poiGroupsOn = if (trip.isActive) emptySet() else PoiCategoryGroup.entries.toSet()
     }
 
-    LaunchedEffect(map, dayIndex, fitToken, showingMe, myLocation, screenHeight, panelHeight) {
+    // 열쇠에 `myLocation` 자체를 두지 않는다 — 계속 받는 값이 올 때마다 화면을 다시 맞추면 손으로 옮긴 지도가 되돌아간다.
+    // 자리를 처음 알게 된 때(`myLocation != null`)만 다시 맞춘다.
+    LaunchedEffect(map, dayIndex, fitToken, showingMe, myLocation != null, screenHeight, panelHeight) {
         val target = map ?: return@LaunchedEffect
         if (screenHeight <= 0.dp || panelHeight <= 0.dp) return@LaunchedEffect
         delay(MAP_FIT_DEBOUNCE_MILLIS) // 시트 드래그 중 반복 맞추기를 취소하고 마지막 보이는 영역에 맞춘다.
@@ -529,6 +669,19 @@ fun RouteEditorView(
         withFrameNanos {}
         // 「내 위치」 켜져 있으면 나와 촬영지가 같이 보이게 — 그래야 동선 최적화가
         // 왜 그 순서인지("여기서 가까운 곳이 1번") 알 수 있다(RouteEditorControls.swift).
+        // 정지점을 골라 둔 채면 일차 전체가 아니라 그곳을 다시 맞춘다(iOS `RouteMapView.render` 의 `move(to: focused)`).
+        val focused = stops.firstOrNull { it.id == focusedStopId }
+        if (focused != null) {
+            target.focusOnStop(
+                focused.place,
+                myLocation?.let { it.latitude to it.longitude },
+                showingMe,
+                density,
+                screenHeight,
+                panelHeight,
+            )
+            return@LaunchedEffect
+        }
         val here = myLocation.takeIf { showingMe }
         val toFit = stops.map { it.place } + listOfNotNull(here)
         if (toFit.isNotEmpty()) {
@@ -672,24 +825,31 @@ fun RouteEditorView(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).then(if (inSheet) Modifier else Modifier.statusBarsPadding())) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .background(IOS.systemBackground)
-                    .padding(horizontal = 16.dp),
-        ) {
-            // iOS `RouteEditorView.topBar`: 「취소」 | 가운데 제목(눌러서 고침) + 연필 | 「만들기/저장」.
-            // 제목칸은 테두리 없이 글자 폭을 따르고 200 에서 멈춘다 — iOS 와 같은 이유(320bc94).
-            Text(
-                tr("취소"),
-                fontSize = 17.sp,
-                color = IOS.accent,
-                modifier = Modifier.clickable { cancel() },
-            )
-            Spacer(Modifier.weight(1f))
+        // iOS `RouteEditorView.topBar`: 「취소」 | 가운데 제목(눌러서 고침) + 연필 | 「만들기/저장」. 큰 글자에서는 동작과 제목을 두 줄에 둔다
+        // (MZ2AZ-388, `stackedTopBar`) — 한 줄에 셋을 두면 제목이 단추를 밀어낸다.
+        val stackTopBar = isAccessibilityFontScale()
+        val cancelAction: @Composable () -> Unit = {
+            Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.heightIn(min = 44.dp).clickable { cancel() }) {
+                Text(tr("취소"), fontSize = 17.sp, color = IOS.accent)
+            }
+        }
+        val saveAction: @Composable () -> Unit = {
+            Box(contentAlignment = Alignment.CenterEnd, modifier = Modifier.heightIn(min = 44.dp)) {
+                if (saving) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(
+                        if (course.serverId == null) tr("만들기") else tr("저장"),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (course.canSave) IOS.accent else IOS.accent.copy(alpha = 0.4f),
+                        modifier = Modifier.clickable(enabled = course.canSave) { saveAndClose() },
+                    )
+                }
+            }
+        }
+        // 제목칸은 테두리 없이 글자 폭을 따르고 200 에서 멈춘다 — iOS 와 같은 이유(320bc94).
+        val titleField: @Composable () -> Unit = {
             // 폭은 **글자를 재서 준다**(40~200dp). `IntrinsicSize` 로 맞추게 두었더니 입력칸이 제
             // 내용 폭을 못 대서 「내 코스」가 「내」까지만 보였다(2026-09-28 실기). 입력 중이
             // 아니면 넘치는 제목은 iOS 처럼 「…」로 줄인다.
@@ -741,17 +901,34 @@ fun RouteEditorView(
                 )
                 Icon(Icons.Filled.Edit, contentDescription = null, tint = IOS.secondaryLabel, modifier = Modifier.size(12.dp))
             }
-            Spacer(Modifier.weight(1f))
-            if (saving) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-            } else {
-                Text(
-                    if (course.serverId == null) tr("만들기") else tr("저장"),
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (course.canSave) IOS.accent else IOS.accent.copy(alpha = 0.4f),
-                    modifier = Modifier.clickable(enabled = course.canSave) { saveAndClose() },
-                )
+        }
+        if (stackTopBar) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    cancelAction()
+                    Spacer(Modifier.weight(1f))
+                    saveAction()
+                }
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) { titleField() }
+            }
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .background(IOS.systemBackground)
+                        .padding(horizontal = 16.dp),
+            ) {
+                cancelAction()
+                Spacer(Modifier.weight(1f))
+                titleField()
+                Spacer(Modifier.weight(1f))
+                saveAction()
             }
         }
 
@@ -835,7 +1012,6 @@ fun RouteEditorView(
             AmbientPoiPins(
                 map = map,
                 pois = visibleAmbientPois,
-                zoom = viewport?.zoom ?: map?.cameraPosition?.zoom ?: 14.0,
                 pickedId = guideSession.picked?.takeIf { it.source == com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource.poi }?.id,
                 // iOS `RouteMapAmbient`: 점을 눌러도 바로 담기지 않는다 — 카드가 먼저 뜨고
                 // "경로에 추가"는 사람이 카드에서 직접 누른다.
@@ -847,18 +1023,46 @@ fun RouteEditorView(
                 picked = guideSession.picked,
                 onTap = { place -> guideSession.pick(place) },
             )
-            MapPins(
+            // 담을까 보는 곳 — 빨간 해태. 코스 핀보다 위에 올린다(iOS `previews`).
+            PreviewPins(
                 map = map,
-                places = stops.map { it.place },
-                numbered = true,
-                onTap = { place ->
-                    val stop = stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(place) }
-                    focusedStopId = stop?.id
-                    stop?.cardPlace()?.let { guideSession.pick(it) }
+                places = previewPlaces,
+                onTap = { summary ->
+                    // 검색·장바구니에서 온 미리보기가 이미 코스에 있으면 그 정지점의 카드를 띄운다(iOS `onTapPreview`).
+                    stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(summary) }?.let { focusStop(it) }
                 },
+            )
+            // 정지점 핀: 다녀온 곳=발바닥, 고른 곳·안내 중인 목적지=해태, 그 밖=번호. 누른 곳으로 확대해 들어간다 —
+            // 일차 전체를 맞춘 화면 그대로면 무엇을 눌렀는지 지도에서 알 수 없다(MZ2AZ-509, iOS #326).
+            CourseStopPins(
+                map = map,
+                stops = stops,
+                focusedId = focusedStopId,
+                targetId = trip.target?.id,
+                onTap = { stop -> focusStop(stop) },
             )
             PendingPinMarker(map = map, pin = pendingPin)
             TripOverlay(map = map, active = trip.isActive, here = trip.here, leg = trip.leg, target = trip.target, density = density)
+            // 안내 경로 — 구간마다 따로 그려 도보(점선)와 대중교통(실선)이 갈리고, 걸어온 구간은 지운다(iOS `renderLegs`).
+            TripLegLines(map = map, legs = trip.leg?.legs.orEmpty(), target = trip.target, here = trip.here)
+            // 「내 자리 → 다음 곳」 직선 미리보기 — 실제 경로가 오면 사라진다. 가는 중인데 경로가 아직 안 왔으면 목적지,
+            // 도착해 다음을 고르기 전이면 다음 곳(iOS `previewTarget`).
+            TripPreviewLine(
+                map = map,
+                here = trip.here,
+                target =
+                    when (trip.phase) {
+                        TripSession.Phase.GUIDING -> if (trip.leg == null) trip.target else null
+                        TripSession.Phase.ARRIVED -> RouteAvailability.nextUnvisited(stops)?.second
+                        TripSession.Phase.PLAN -> null
+                    },
+            )
+            // 내 자리의 레이더 파문 — 검색 탭과 같은 세 겹(`searchtab/RadarPulse.kt`, iOS `RadarPulse`). 위치 오버레이 좌표를 읽는다.
+            MyLocationPulse(
+                map = map,
+                requireTracking = false,
+                visible = if (trip.isActive) trip.here != null else showingMe && myLocation != null,
+            )
             FootprintTrail(
                 map = map,
                 points =
@@ -871,7 +1075,12 @@ fun RouteEditorView(
             if (!pinning) {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.align(Alignment.TopEnd).padding(10.dp),
+                    // 도착 알림 카드가 떠 있으면 그 밑으로 내려온다.
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = if (trip.phase == TripSession.Phase.ARRIVED) arrivalHeight else 0.dp)
+                            .padding(10.dp),
                 ) {
                     RouteLocateButton(
                         on = showingMe,
@@ -914,6 +1123,20 @@ fun RouteEditorView(
                             .padding(horizontal = 12.dp, vertical = 7.dp),
                 )
             }
+            // 도착 알림 카드 — 지도 맨 위에 떠서 성지 목록 자리를 먹지 않는다(2026-09-03 사용자 요청).
+            if (trip.phase == TripSession.Phase.ARRIVED) {
+                TripArrivalCard(
+                    trip = trip,
+                    targetNumber = trip.target?.let { target -> stops.indexOfFirst { it.id == target.id }.takeIf { it >= 0 }?.plus(1) },
+                    next = RouteAvailability.nextUnvisited(stops),
+                    visitStatus = visitStatus(trip.target),
+                    onRetryVisit = { trip.target?.let { markVisited(it) } },
+                    onGuide = if (guideEntry == RouteGuideEntry.TRIP_HEADER) ({ showGuide = true }) else null,
+                    onEnd = trip::end,
+                    onHeight = { arrivalHeight = it },
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            }
             BottomSheet(
                 detent = detent,
                 onDetentChange = { detent = it },
@@ -925,32 +1148,16 @@ fun RouteEditorView(
                 mediumFraction = 0.60f,
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    if (trip.isActive) {
-                        TripBanner(
+                    if (trip.phase == TripSession.Phase.GUIDING) {
+                        TripGuidingBanner(
                             trip = trip,
-                            visitStatus = visitStatus(trip.target),
-                            onRetryVisit = { trip.target?.let { markVisited(it) } },
+                            targetNumber =
+                                trip.target?.let { target ->
+                                    stops.indexOfFirst { it.id == target.id }.takeIf { it >= 0 }?.plus(1)
+                                },
                             onGuide = if (guideEntry == RouteGuideEntry.TRIP_HEADER) ({ showGuide = true }) else null,
-                            // 「안내 끝」은 **안내만** 멈춘다 — 여행 중 상태는 「여행 종료」의 몫이다
-                            // (iOS `tripControls`: `trip.end()` 뿐). 앞서 여기서 코스까지 끝내서,
-                            // 안내를 잠깐 멈춘 사람의 코스가 「예정」으로 돌아갔다(2026-09-28 실기).
                             onEnd = trip::end,
-                            onArrivedNow = trip::markArrived,
-                            onNext = { next ->
-                                if (!visitBlocked()) {
-                                    if (!visitBlocked()) {
-                                        trip.advance(next, scope)
-                                    }
-                                }
-                            },
                             onRetry = { trip.retry(scope) },
-                            unvisitedAfter = { current ->
-                                val flat = course.days.flatMap { it.stops }
-                                val index = flat.indexOfFirst { it.id == current.id }
-                                // 숨김·폐업 행은 다음 목적지가 될 수 없다(MZ2AZ-458).
-                                if (index < 0) null else flat.drop(index + 1).firstOrNull { !it.visited && it.canNavigate }
-                            },
-                            onlyUnavailableRemaining = RouteAvailability.hasOnlyUnavailableRemaining(course.days.flatMap { it.stops }),
                         )
                     }
                     DayTabs(
@@ -959,6 +1166,7 @@ fun RouteEditorView(
                         onSelect = {
                             dayIndex = it
                             focusedStopId = null
+                            pickedStop = null
                             fitToken += 1
                         },
                         onAddDay = {
@@ -1013,7 +1221,7 @@ fun RouteEditorView(
                             },
                         )
                     }
-                    RouteDaySummary(course.days.getOrNull(dayIndex)) { showDayStay = true }
+                    RouteDaySummary(course.days.getOrNull(dayIndex), onStayFrame = { stayFrame = it }) { showDayStay = true }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier =
@@ -1040,6 +1248,7 @@ fun RouteEditorView(
                             }
                             updateDay(dayIndex) { d -> d.copy(stops = RouteGeometry.optimized(ordered, pinStart = head, pinEnd = pinEnd)) }
                             focusedStopId = null
+                            pickedStop = null
                             fitToken += 1
                             optimizeNudge = false
                         }
@@ -1094,11 +1303,10 @@ fun RouteEditorView(
                                     // `RouteEditorView.stopRows` onFocus).
                                     if (focusedStopId == stop.id) {
                                         focusedStopId = null
+                                        pickedStop = null
                                         fitToken += 1
                                     } else {
-                                        focusedStopId = stop.id
-                                        stop.cardPlace()?.let { guideSession.pick(it) }
-                                        map?.centerOn(stop.place)
+                                        focusStop(stop, withCard = false)
                                     }
                                 },
                                 onRemove = { updateDay(dayIndex) { d -> d.copy(stops = d.stops.filterNot { it.id == stop.id }) } },
@@ -1133,19 +1341,11 @@ fun RouteEditorView(
                                 onTogglePin = {
                                     if (index == 0) pinStart = !pinStart else pinEnd = !pinEnd
                                 },
-                                isTarget = trip.target?.id == stop.id,
-                                onNavigate =
-                                    if (course.isRunning && stop.canNavigate && !visitBlocked()) {
-                                        {
-                                            if (trip.isActive) {
-                                                if (!visitBlocked()) trip.advance(stop, scope)
-                                            } else {
-                                                course.serverId?.takeIf { !visitBlocked() }?.let { trip.start(it, stop, scope) }
-                                            }
-                                        }
-                                    } else {
-                                        null
-                                    },
+                                // 도착하면 「안내 중」은 내린다 — 그 자리는 「다녀옴」의 것이다(2026-09-03 사용자 지적).
+                                isTarget = trip.phase == TripSession.Phase.GUIDING && trip.target?.id == stop.id,
+                                running = course.isRunning,
+                                // 여행 중이면 어느 곳이든 「길찾기」 — 다녀온 곳도 다시 갈 수 있다. 이 지도에 경로가 그려진다.
+                                onNavigate = if (course.isRunning && stop.canNavigate && !visitBlocked()) ({ startTrip(stop) }) else null,
                             )
                             // 목록에서 빠진 촬영지·폐업한 편의시설: 지우지 않고 이유를 알리며, 뺄지는 사용자가 정한다(MZ2AZ-458).
                             stop.unavailable?.let { notice ->
@@ -1158,21 +1358,10 @@ fun RouteEditorView(
                                     modifier = Modifier.padding(start = 50.dp, end = 12.dp),
                                 )
                             }
-                            when (visitStatus(stop)) {
-                                VisitStatus.PENDING -> {
-                                    Text(tr("방문 기록을 저장하는 중"), color = IOS.secondaryLabel, modifier = Modifier.padding(start = 50.dp))
-                                }
-
-                                VisitStatus.FAILED -> {
-                                    Text(
-                                        tr("방문 기록을 저장하지 못했어요 · 다시 저장"),
-                                        color = IOS.systemOrange,
-                                        modifier = Modifier.padding(start = 50.dp).clickable { markVisited(stop) },
-                                    )
-                                }
-
-                                else -> {
-                                    Unit
+                            val rowVisit = visitStatus(stop)
+                            if (rowVisit == VisitStatus.PENDING || rowVisit == VisitStatus.FAILED) {
+                                Box(Modifier.padding(start = 50.dp, end = 16.dp, bottom = 8.dp)) {
+                                    VisitSaveNotice(rowVisit) { markVisited(stop) }
                                 }
                             }
                             // iOS `List` 줄 구분선 — 번호 뒤 글자 시작(16 + 22 + 12)부터.
@@ -1194,37 +1383,15 @@ fun RouteEditorView(
                         // 「코스 삭제」는 여기 없다 — iOS 는 코스 목록에서 밀어서만 지운다(2026-09-28 대조).
                         item { Spacer(Modifier.height(24.dp)) }
                     }
-                    // **스크롤과 무관하게 늘 보여야 한다.** iOS `RouteEditorTrip.bottomBar`
-                    // (`planControls`)와 짝 — 정지점이 많은 일차에서는 스크롤해야만
-                    // 나오던 "코스 시작"·저장 버튼이었다(실기 비교로 발견,
-                    // 2026-09-28). 목록 맨 아래 항목이 아니라 목록 옆의 고정 줄로
-                    // 옮긴다.
-                    // iOS `RouteEditorTrip.planControls`: **캡슐 `.bordered`(회색 채움·accent 글자)** 와
-                    // `.borderedProminent`(accent 채움·흰 글자), 글자 15 보통 굵기. 「여행 종료/코스 시작」은
-                    // 글자 폭만, 저장이 나머지를 채운다. 여행 중이면 「N번으로 길찾기」가 맨 앞에 온다.
-                    // 「코스 시작」은 **지금 보는 일차**로 시작한다(`dayNo = dayIndex + 1`, 그 일차의 첫
-                    // 미방문 곳) — 앞서 Android 는 늘 1일차·전체 첫 미방문이었다(2026-09-28 대조).
+                    // **스크롤과 무관하게 늘 보여야 한다.** iOS `RouteEditorTrip.bottomBar` 와 짝 — 정지점이 많은 일차에서는 스크롤해야만
+                    // 나오던 "코스 시작"·저장 버튼이었다(실기 비교로 발견, 2026-09-28). 목록 맨 아래 항목이 아니라 목록 옆의 고정 줄이다.
+                    // 안내 중에는 이 줄이 **안내의 것**이다 — 도착함 / 다음으로 / 안내 끝. 아니면 계획의 것이다 — 코스 만들기 / 코스 시작 /
+                    // N번으로 길찾기. **저장된 코스에는 저장 단추가 없다**(MZ2AZ-368) — 저장은 머리줄 하나다.
+                    // 「코스 시작」은 **지금 보는 일차**로 시작한다(`dayNo = dayIndex + 1`, 그 일차의 첫 미방문 곳).
                     // 남은 곳이 숨김·폐업뿐이면 「코스를 모두 돌았다」가 아니다 — 완료와 구별해 알리고 시작하지 않는다(MZ2AZ-458).
                     val nextStop = RouteAvailability.nextUnvisited(stops)
                     val onlyUnavailable = RouteAvailability.hasOnlyUnavailableRemaining(stops)
-                    val showNoOneToVisit =
-                        course.serverId != null && onlyUnavailable && !trip.isActive && (!course.isRunning || nextStop == null)
-                    if (showNoOneToVisit) {
-                        Text(
-                            tr("갈 수 있는 곳이 없어요. 목록에서 빠지거나 폐업한 곳만 남았어요."),
-                            fontSize = 13.sp,
-                            color = IOS.secondaryLabel,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .background(
-                                        IOS.systemBackground,
-                                    ).padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
-                    }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    Box(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
@@ -1233,58 +1400,59 @@ fun RouteEditorView(
                                 .navigationBarsPadding()
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                     ) {
-                        val serverId = course.serverId
-                        if (serverId != null) {
-                            val running = course.isRunning
-                            if (running && nextStop != null && !trip.isActive) {
-                                EditorCapsuleButton(
-                                    tr("%d번으로 길찾기").format(nextStop.first),
-                                    prominent = true,
-                                    enabled = !visitBlocked(),
-                                    onClick = { if (!visitBlocked()) trip.start(serverId, nextStop.second, scope) },
-                                )
-                            }
-                            // 시작할 곳이 없으면 시작 단추 자리에 위의 안내가 있다. 이미 여행 중이면 「여행 종료」는 늘 있다.
-                            if (running || !onlyUnavailable) {
-                                EditorCapsuleButton(
-                                    if (running) tr("여행 종료") else tr("코스 시작"),
-                                    prominent = false,
-                                    enabled = running || !visitBlocked(),
-                                    onClick = {
-                                        val turningOn = !running
-                                        val dayNo = dayIndex + 1
-                                        // 시작할 목적지를 먼저 확인한다 — 없으면 화면·서버의 활성 상태를 바꾸지 않는다.
-                                        val first = if (turningOn) RouteAvailability.start(course, dayIndex)?.second else null
-                                        if (turningOn && first == null) return@EditorCapsuleButton
+                        if (trip.isActive) {
+                            TripControls(
+                                arrived = trip.phase == TripSession.Phase.ARRIVED,
+                                stamped = trip.stamped,
+                                next = nextStop,
+                                onlyUnavailable = onlyUnavailable,
+                                nextBlocked =
+                                    visitStatus(
+                                        trip.target,
+                                    ).let { it == VisitStatus.PENDING || it == VisitStatus.FAILED } || visitBlocked(),
+                                onEnd = trip::end,
+                                onNext = { next -> startTrip(next) },
+                                onArriveNow = trip::markArrived,
+                            )
+                        } else {
+                            TripPlanControls(
+                                isNew = course.serverId == null,
+                                running = course.isRunning,
+                                saving = saving,
+                                canSave = course.canSave,
+                                stopsEmpty = stops.isEmpty(),
+                                onlyUnavailable = onlyUnavailable,
+                                next = nextStop,
+                                startBlocked = visitBlocked(),
+                                onCreate = { saveAndClose() },
+                                onToggleRunning = {
+                                    val turningOn = !course.isRunning
+                                    val dayNo = dayIndex + 1
+                                    // 시작할 목적지를 먼저 확인한다 — 없으면 화면·서버의 활성 상태를 바꾸지 않는다.
+                                    val first = if (turningOn) RouteAvailability.start(course, dayIndex)?.second else null
+                                    if (!turningOn || first != null) {
                                         if (!turningOn) trip.end()
+                                        // **서버가 「여행 중」을 안 뒤에 길을 묻는다**(iOS 2026-09-17). 상태 요청을 던져 놓기만 하고 곧바로
+                                        // 길찾기를 부르면, 길찾기가 먼저 닿을 때 서버가 아직 시작 전 코스로 보고 거절한다.
                                         scope.launch {
                                             store.setRunning(course, turningOn, dayNo = dayNo)
                                             course = course.copy(isRunning = turningOn)
-                                            if (first != null && !visitBlocked()) trip.start(serverId, first, scope)
+                                            if (first != null) startTrip(first)
                                         }
-                                    },
-                                )
-                            }
+                                    }
+                                },
+                                onStartTrip = { target -> startTrip(target) },
+                            )
                         }
-                        EditorCapsuleButton(
-                            if (saving) {
-                                "…"
-                            } else if (serverId == null) {
-                                tr("코스 만들기")
-                            } else {
-                                tr("저장하고 닫기")
-                            },
-                            prominent = true,
-                            enabled = !saving && course.canSave,
-                            onClick = { saveAndClose() },
-                            modifier = Modifier.weight(1f),
-                        )
                     }
                 }
             }
             RouteGuideFloatingChip(
                 hidden = guideEntry != RouteGuideEntry.FLOATING,
-                bubble = guideSession.picked == null && focusedStopId == null,
+                bubble = guideSession.picked == null && pickedStop == null && focusedStopId == null,
+                cardTop =
+                    if ((guideSession.picked != null || pickedStop != null) && !showGuide) CARD_BOTTOM_PADDING + cardHeight else null,
+                keepClear = stayFrame,
                 onTap = { showGuide = true },
                 // iOS `guideFloatingChip`: 편집 화면 전체 위, 오른쪽 12 · 아래(안전 영역 위) 76 — 목록 패널 위에 뜬다.
                 // 지도 쪽(패널 바로 위)에 두었더니 iOS 와 자리가 달랐다(2026-09-29 대조).
@@ -1369,18 +1537,62 @@ fun RouteEditorView(
                     }
                 },
                 onClose = { guideSession.dismiss() },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 12.dp).padding(bottom = 90.dp),
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = CARD_BOTTOM_PADDING)
+                        .onSizeChanged { cardHeight = with(density) { it.height.toDp() } },
                 // 코스의 이 행이 목록에서 빠졌거나 폐업했다면 안내를 붙이고 새로 넣는 단추를 숨긴다.
                 unavailable = stops.firstOrNull { pickedPlace.matches(it) }?.unavailable,
             )
         }
     }
 
+    // 번호 핀을 눌렀을 때 — 장면 설명 + (여행 중이면) 여기로 길찾기. 편의시설·AI 점의 카드가 떠 있으면 그것이 먼저다(카드는 한 장만).
+    val stopCard = pickedStop
+    if (stopCard != null && !showGuide && guideSession.picked == null) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            RouteCourseStopCard(
+                stop = stopCard,
+                onReroute =
+                    if (course.isRunning && stopCard.canNavigate && trip.target?.id != stopCard.id) ({ startTrip(stopCard) }) else null,
+                onClose = {
+                    pickedStop = null
+                    // 핀을 눌러 확대해 들어왔다면 카드를 닫을 때 포커스를 풀고 일차 전체로 다시 맞춘다(iOS #326).
+                    if (focusedStopId == stopCard.id) {
+                        focusedStopId = null
+                        fitToken += 1
+                    }
+                },
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = CARD_BOTTOM_PADDING)
+                        .onSizeChanged { cardHeight = with(density) { it.height.toDp() } },
+            )
+        }
+    }
+
+    // 도착 스탬프 — 화면 가운데 발바닥이 쾅. 연출이 끝나도 **다음으로 넘어가지 않는다.**
+    val stampTarget = trip.target
+    if (trip.stamped && stampTarget != null) {
+        PawStampOverlay(
+            title = stampTitle(stops.indexOfFirst { it.id == stampTarget.id }.takeIf { it >= 0 }?.plus(1)),
+            subtitle = stampTarget.label().title,
+            onDone = trip::stampDone,
+        )
+    }
+
     if (searching) {
         PlaceSearchOverlay(
-            store = store,
             taken = takenIds,
-            onDismiss = { searching = false },
+            onDismiss = {
+                searching = false
+                previewPlaces = emptyList()
+            },
+            onPreview = { previewPlaces = it },
             onAdd = { places -> addStops(places.map { RouteStop(place = it) }) },
         )
     }
@@ -1400,9 +1612,12 @@ fun RouteEditorView(
             cart = cart,
             store = store,
             taken = takenIds,
-            onPreview = {},
+            onPreview = { previewPlaces = it },
             onPick = { places -> addStops(places.map { RouteStop(place = it) }) },
-            onDismiss = { showCart = false },
+            onDismiss = {
+                showCart = false
+                previewPlaces = emptyList()
+            },
         )
     }
 
@@ -1551,6 +1766,7 @@ private fun PlanOverlay(
     // 숨김·폐업 행은 핀과 번호는 남기되 계획선에서는 건너뛴다(MZ2AZ-458, iOS `drawLine`).
     val stops = allStops.filter { it.canNavigate }
     if (map == null || stops.size < 2) return
+    val density = LocalDensity.current.density
     androidx.compose.runtime.DisposableEffect(map, stops, keepFromId) {
         val segments = mutableListOf<List<LatLng>>()
         var current = mutableListOf<LatLng>()
@@ -1568,8 +1784,8 @@ private fun PlanOverlay(
                     coords = points
                     color = android.graphics.Color.parseColor("#7A68ED")
                     outlineColor = android.graphics.Color.WHITE
-                    width = 4
-                    outlineWidth = 1
+                    width = (4 * density).toInt()
+                    outlineWidth = (1 * density).toInt()
                     this.map = map
                 }
             }
@@ -1613,21 +1829,6 @@ private fun TripOverlay(
             map.fitTrip(target, leg?.legs.orEmpty(), here, density)
         }
     }
-    androidx.compose.runtime.DisposableEffect(map, leg) {
-        val points = leg?.legs.orEmpty().flatMap { routeLeg -> routeLeg.path.coordinates.map { LatLng(it[1], it[0]) } }
-        val overlay =
-            if (points.size >= 2) {
-                com.naver.maps.map.overlay.PathOverlay().apply {
-                    coords = points
-                    color = android.graphics.Color.parseColor("#7A68ED")
-                    width = 12
-                    this.map = map
-                }
-            } else {
-                null
-            }
-        onDispose { overlay?.map = null }
-    }
 }
 
 /**
@@ -1668,219 +1869,6 @@ private fun NaverMap.fitTrip(
     }
     val padding = with(density) { 56.dp.roundToPx() }
     moveCamera(CameraUpdate.fitBounds(bounds, padding).animate(CameraAnimation.Easing, 400L))
-}
-
-/** iOS 의 캡슐 버튼(`.bordered` / `.borderedProminent`, `.controlSize(.regular)`, 글자 15). */
-@Composable
-private fun EditorCapsuleButton(
-    label: String,
-    prominent: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-) {
-    Text(
-        label,
-        fontSize = 15.sp,
-        color = if (prominent) Color.White else IOS.accent,
-        textAlign = TextAlign.Center,
-        maxLines = 1,
-        modifier =
-            modifier
-                .clip(CircleShape)
-                .background(if (prominent) IOS.accent else IOS.tertiaryFill)
-                .clickable(enabled = enabled, onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-    )
-}
-
-/** 구간 칩 하나 — 도보는 회색, 지하철은 파랑, 버스·그 밖의 탈것은 초록(iOS와 같은 세 갈래). */
-@Composable
-private fun LegChip(chip: RouteLegChip) {
-    val background =
-        when (chip.mode) {
-            RouteLegMode.WALK -> IOS.systemGray5
-            RouteLegMode.SUBWAY -> IOS.accent.copy(alpha = 0.16f)
-            else -> IOS.systemGreen.copy(alpha = 0.18f)
-        }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.clip(CircleShape).background(background).padding(horizontal = 8.dp, vertical = 4.dp),
-    ) {
-        val icon = Modifier.size(11.dp)
-        when (chip.mode) {
-            RouteLegMode.WALK -> WalkIcon(IOS.label, icon)
-            RouteLegMode.BUS -> BusIcon(IOS.label, icon)
-            RouteLegMode.SUBWAY -> SubwayIcon(IOS.label, icon)
-            RouteLegMode.TRANSIT -> TransitIcon(IOS.label, icon)
-        }
-        Text(chip.text, fontSize = 11.sp, color = IOS.label, maxLines = 1)
-        if (chip.hasStairs) StairsIcon(IOS.systemRed, Modifier.size(10.dp))
-    }
-}
-
-/**
- * 안내 배너 — iOS는 지도 위 카드(도착)와 시트 안 줄(진행)로 나누는데, 여기서는 시트
- * 맨 위 한 자리로 합쳤다. "여기 도착함"은 GPS 판정을 기다리지 않는 수동 확인이다.
- */
-@Composable
-private fun TripBanner(
-    trip: TripSession,
-    visitStatus: VisitStatus?,
-    onRetryVisit: () -> Unit,
-    onGuide: (() -> Unit)?,
-    onEnd: () -> Unit,
-    onArrivedNow: () -> Unit,
-    onNext: (RouteStop) -> Unit,
-    onRetry: () -> Unit,
-    unvisitedAfter: (RouteStop) -> RouteStop?,
-    // 남은 곳이 숨김·폐업뿐이면 「코스 완료」가 아니다.
-    onlyUnavailableRemaining: Boolean = false,
-) {
-    val target = trip.target ?: return
-    Column(modifier = Modifier.fillMaxWidth().background(IOS.pinDeep.copy(alpha = 0.08f)).padding(12.dp)) {
-        if (trip.phase == TripSession.Phase.ARRIVED) {
-            // TODO: iOS 문구는 "%d번 성지 도착!"(정지점 번호 포함) — Android 는 번호 없이
-            // 뭉뚱그렸다. 언어 작업과 별개의 패리티 차, 번역표에도 이 짧은 형태는 없다.
-            Text(tr("성지 도착!"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
-            Text(target.label().title, fontSize = 12.sp, color = IOS.secondaryLabel)
-            if (visitStatus == VisitStatus.PENDING) Text(tr("방문 기록을 저장하는 중"), color = IOS.secondaryLabel, style = IOS.caption)
-            if (visitStatus == VisitStatus.FAILED) {
-                Text(
-                    tr("방문 기록을 저장하지 못했어요 · 다시 저장"),
-                    color = IOS.systemOrange,
-                    modifier = Modifier.clickable(onClick = onRetryVisit),
-                )
-            }
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    tr("%s로 가는 중").format(target.label().title),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = IOS.label,
-                    modifier = Modifier.weight(1f),
-                )
-                if (onGuide != null) Box(Modifier.clickable(onClick = onGuide)) { RouteGuideChipBody(bubble = false) }
-            }
-            // iOS `RouteEditorTrip.tripDetail` 순서 그대로: 받은 경로 → 실패(재시도) →
-            // 구하는 중 → 자리를 못 찾음.
-            when {
-                trip.failureCode == "NAVIGATION_LIMIT_REACHED" ||
-                    com.mz2az.scenetrip.data.LimitLedger.navigationBlock
-                        ?.blocked(
-                            com.mz2az.scenetrip.data
-                                .usageNow(),
-                        ) == true -> {
-                    com.mz2az.scenetrip.data.NavigationUsageNotice(
-                        // 외부 지도 앱이 출발지를 얻는다. 기기 좌표를 주소에 싣지 않는다(MZ2AZ-472).
-                        null,
-                        ExternalDirections.Spot(target.label().title, target.place.latitude, target.place.longitude),
-                        onRetry,
-                    )
-                }
-
-                trip.leg != null -> {
-                    val result = trip.leg!!
-                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(RouteFormat.minutes(result.totalMinutes), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = IOS.label)
-                        Text(
-                            result.summaryLine(),
-                            fontSize = 12.sp,
-                            color = IOS.secondaryLabel,
-                            maxLines = 1,
-                            modifier = Modifier.padding(bottom = 3.dp),
-                        )
-                    }
-                    // 구간 — 도보·대중교통 조각을 한 줄로. 밀면 다 보인다(iOS `tripDetail`).
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()),
-                    ) {
-                        result.chips().forEach { LegChip(it) }
-                    }
-                }
-
-                trip.failure != null -> {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(trip.failure!!, fontSize = 11.sp, color = IOS.systemOrange)
-                        Text(
-                            tr("다시 시도"),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = IOS.accent,
-                            modifier = Modifier.clickable(onClick = onRetry),
-                        )
-                    }
-                }
-
-                trip.asking -> {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        CircularProgressIndicator(modifier = Modifier.size(11.dp), strokeWidth = 1.5.dp)
-                        Text(tr("길을 찾는 중입니다"), fontSize = 11.sp, color = IOS.secondaryLabel)
-                    }
-                }
-
-                trip.here == null -> {
-                    Text(tr("현재 위치를 찾는 중입니다"), fontSize = 11.sp, color = IOS.secondaryLabel)
-                }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-            Text(
-                tr("안내 끝"),
-                fontSize = 12.sp,
-                color = IOS.secondaryLabel,
-                modifier =
-                    Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(IOS.systemGray6)
-                        .clickable(onClick = onEnd)
-                        .padding(vertical = 6.dp, horizontal = 10.dp),
-            )
-            if (trip.phase == TripSession.Phase.GUIDING) {
-                Text(
-                    tr("여기 도착함"),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = IOS.onAccent,
-                    textAlign = TextAlign.Center,
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(IOS.accent)
-                            .clickable(onClick = onArrivedNow)
-                            .padding(vertical = 6.dp),
-                )
-            } else {
-                val next = unvisitedAfter(target)
-                Text(
-                    // TODO: iOS 는 "다음 · N번 장소명로 길찾기"로 정지점 번호가 있다 —
-                    // 위 ARRIVED 경우와 같은 패리티 차(언어 작업과 별개).
-                    when {
-                        next != null -> tr("다음 · %s로 길찾기").format(next.place.name)
-                        onlyUnavailableRemaining -> tr("갈 수 있는 곳이 없어요. 목록에서 빠지거나 폐업한 곳만 남았어요.")
-                        else -> tr("코스 완료")
-                    },
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = IOS.onAccent,
-                    textAlign = TextAlign.Center,
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(IOS.accent)
-                            .clickable(
-                                enabled = next != null && visitStatus !in setOf(VisitStatus.PENDING, VisitStatus.FAILED),
-                            ) { next?.let(onNext) }
-                            .padding(vertical = 6.dp),
-                )
-            }
-        }
-    }
 }
 
 // iOS `RouteEditorControls.dayTabs`: 밑줄 탭(글자 15, 켜지면 semibold·accent, 밑줄은 **글자 폭**) +
@@ -1947,33 +1935,39 @@ private fun DayTabs(
 }
 
 /**
- * 장소 검색. iOS `RouteSearchSheet`를 옮긴 것이다 — 이름·주소·**작품 이름**으로
- * [RouteStore.places](서버가 이미 다 들고 있는 155건)를 메모리에서 거른다. 글자를
- * 칠 때마다 서버를 부르지 않는다. 여럿 고르고 한 번에 담는다(번호 배지로 순서를
- * 보여 준다), 이미 담긴 곳은 흐리게 + 체크.
+ * 장소 검색. iOS `RouteSearchSheet`를 옮긴 것이다 — 장소 이름·**작품 이름**으로 찾는다. 서버가 찾는다(MZ2AZ-372, MZ2AZ-482):
+ * [RoutePlaceSearch] 가 입력이 멎은 뒤 한 번 묻고(앞 요청은 취소), 목록 끝에서 이어 받는다. 서버 검색은 이름·별칭·설명·작품·출연진을 본다.
+ * 여럿 고르고 한 번에 담는다(번호 배지로 순서를 보여 준다), 이미 담긴 곳은 흐리게 + 체크. 고르는 대로 지도에 빨간 해태로 미리 뜬다.
  */
 @Composable
 private fun PlaceSearchOverlayBody(
-    store: RouteStore,
     taken: Set<Long>,
     onDismiss: () -> Unit,
+    onPreview: (List<PlaceSummary>) -> Unit,
     onAdd: (List<PlaceSummary>) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
+    // 검색 상태가 바뀔 때마다 다시 그린다 — `RoutePlaceSearch` 는 Compose 상태를 들지 않는다.
+    var revision by remember { mutableStateOf(0) }
+    val search = remember { RoutePlaceSearch(scope).also { it.onChange = { revision += 1 } } }
+    check(revision >= 0)
+    // **목록 값은 여기서, 구성 단계에서 읽는다.** `LazyColumn` 의 내용 람다 안에서만 읽으면 `revision` 으로 부모가 다시 그려져도 람다가
+    // 같은 것으로 보여 건너뛰어진다 — 「Hanok」 을 쳐도 목록이 인기순 그대로였다. 값을 람다가 붙잡게 해 바뀔 때마다 새 람다가 되게 한다.
+    val results = search.results
+    val moreFailed = search.moreFailed
+    val hasMore = search.paging.hasMore
+    val pagingOffset = search.paging.offset
+    val freshResults = search.freshResults
+    val listState = rememberLazyListState()
+    // 검색어가 바뀌어 새 결과가 오면 맨 위로 — 앞 목록의 스크롤 자리가 남아 첫 항목들이 잘려 보였다. 이어 받기는 건드리지 않는다.
+    LaunchedEffect(freshResults) { listState.scrollToItem(0) }
     var query by remember { mutableStateOf("") }
     var picked by remember { mutableStateOf<List<Long>>(emptyList()) }
-    LaunchedEffect(Unit) { store.loadPlaces() }
+    // 글자마다 부르지 않는다 — 입력이 멎으면 한 번(`RoutePlaceSearch.DEBOUNCE_MS`). 처음 열 때는 인기순.
+    LaunchedEffect(query) { search.search(query) }
 
-    val trimmed = query.trim()
-    val results =
-        if (trimmed.isEmpty()) {
-            store.places.take(40)
-        } else {
-            store.places.filter { place ->
-                place.name.contains(trimmed, ignoreCase = true) ||
-                    place.address.orEmpty().contains(trimmed, ignoreCase = true) ||
-                    place.contents.orEmpty().any { it.title.contains(trimmed, ignoreCase = true) }
-            }
-        }
+    // id 를 장소로 되짚는다. 고른 순서를 지킨다. 검색어를 바꿔 목록에서 사라진 곳도 고른 채로 남는다.
+    fun resolve(ids: List<Long>): List<PlaceSummary> = ids.mapNotNull { search.place(it) }
 
     // iOS `RouteSearchSheet`: 툴바(닫기 · 장소 검색 · 추가 N), `.searchable` 알약 검색창, 구분선 있는 목록,
     // 바탕은 `.regularMaterial`. 결과가 없으면 `ContentUnavailableView.search`.
@@ -1987,93 +1981,139 @@ private fun PlaceSearchOverlayBody(
                 trailing = tr("추가 %d").format(picked.size),
                 trailingEnabled = picked.isNotEmpty(),
                 onTrailing = {
-                    val byId = store.places.associateBy { it.id }
-                    onAdd(picked.mapNotNull { byId[it] })
+                    // **고른 순서대로** 넣는다. 결과 순서로 넣으면 3·1·2 로 골라도 목록 순서대로 들어가 의도가 사라진다.
+                    onAdd(resolve(picked))
                     onDismiss()
                 },
             )
-            IOSSearchField(query, { query = it }, tr("장소나 작품 이름"), Modifier.padding(horizontal = 16.dp))
+            IOSSearchField(query, { query = it.take(RoutePlaceSearch.MAX_LENGTH) }, tr("장소나 작품 이름"), Modifier.padding(horizontal = 16.dp))
             Spacer(Modifier.height(10.dp))
         }
-        if (results.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(top = 60.dp, start = 32.dp, end = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                MagnifierIcon(IOS.secondaryLabel, Modifier.padding(bottom = 10.dp).size(51.dp))
-                Text(
-                    // iOS 는 이 자리가 시스템 `ContentUnavailableView.search`라 OS 가
-                    // 알아서 번역한다 — Android 는 직접 그려서 번역표에 대응이 없다.
-                    tr("‘%s’에 대한 결과 없음").format(trimmed),
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IOS.label,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    tr("철자를 확인하거나 새로운 검색을 시도하십시오."),
-                    fontSize = 15.sp,
-                    color = IOS.secondaryLabel,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
+        when {
+            search.phase == RoutePlaceSearch.Phase.FAILED -> {
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    com.mz2az.scenetrip.searchtab
+                        .ErrorView(failure = search.failure, onRetry = { search.search(query) })
+                }
             }
-        }
-        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
-            itemsIndexed(results, key = { _, place -> place.id }) { _, place ->
-                val isTaken = taken.contains(place.id)
-                val pickedOrder = picked.indexOf(place.id).takeIf { it >= 0 }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !isTaken) {
-                                picked = if (pickedOrder != null) picked - place.id else picked + place.id
-                            }.padding(horizontal = 16.dp, vertical = 10.dp)
-                            .alpha(if (isTaken) 0.5f else 1f),
-                ) {
-                    RemoteImage(url = place.imageUrl?.toString(), modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)))
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(place.name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IOS.label)
-                        place.contents.orEmpty().firstOrNull()?.title?.let {
-                            Text(it, fontSize = 12.sp, color = IOS.accent)
-                        }
-                        place.address?.let { Text(it, fontSize = 11.sp, color = IOS.tertiaryLabel, maxLines = 1) }
-                    }
-                    when {
-                        isTaken -> {
-                            Icon(
-                                Icons.Filled.CheckCircle,
-                                contentDescription = tr("이미 담김"),
-                                tint = IOS.accent.copy(alpha = 0.45f),
-                                modifier = Modifier.size(22.dp),
-                            )
-                        }
 
-                        pickedOrder != null -> {
+            search.phase == RoutePlaceSearch.Phase.LOADING && results.isEmpty() -> {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.5.dp)
+                }
+            }
+
+            search.phase == RoutePlaceSearch.Phase.LOADED && results.isEmpty() -> {
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 60.dp, start = 32.dp, end = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    MagnifierIcon(IOS.secondaryLabel, Modifier.padding(bottom = 10.dp).size(51.dp))
+                    Text(
+                        // iOS 는 이 자리가 시스템 `ContentUnavailableView.search`라 OS 가
+                        // 알아서 번역한다 — Android 는 직접 그려서 번역표에 대응이 없다.
+                        tr("‘%s’에 대한 결과 없음").format(query.trim()),
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IOS.label,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        tr("철자를 확인하거나 새로운 검색을 시도하십시오."),
+                        fontSize = 15.sp,
+                        color = IOS.secondaryLabel,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+
+            else -> {
+                LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = sheetListBottom()) {
+                    itemsIndexed(results, key = { _, place -> place.id }) { _, place ->
+                        val isTaken = taken.contains(place.id)
+                        val pickedOrder = picked.indexOf(place.id).takeIf { it >= 0 }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable(enabled = !isTaken) {
+                                        picked = if (pickedOrder != null) picked - place.id else picked + place.id
+                                        onPreview(resolve(picked))
+                                    }.padding(horizontal = 16.dp, vertical = 10.dp)
+                                    .alpha(if (isTaken) 0.5f else 1f),
+                        ) {
+                            RemoteImage(url = place.imageUrl?.toString(), modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)))
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(place.name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IOS.label)
+                                // 어느 작품에 나왔는지가 이름보다 중요한 단서일 때가 많다.
+                                place.contents.orEmpty().firstOrNull()?.title?.let {
+                                    Text(it, fontSize = 12.sp, color = IOS.accent)
+                                }
+                                place.address?.let { Text(it, fontSize = 11.sp, color = IOS.tertiaryLabel, maxLines = 1) }
+                            }
+                            when {
+                                // 이미 코스에 있다. 「담긴 것」과 「지금 고른 것」을 갈라 보여야 왜 못 고르는지 안다.
+                                isTaken -> {
+                                    Icon(
+                                        Icons.Filled.CheckCircle,
+                                        contentDescription = tr("이미 담김"),
+                                        tint = IOS.accent.copy(alpha = 0.45f),
+                                        modifier = Modifier.size(22.dp),
+                                    )
+                                }
+
+                                // 고른 순서를 번호로 보여 준다. 여러 곳을 고를 때 어느 순서로 들어가는지 미리 알아야 한다.
+                                pickedOrder != null -> {
+                                    Text(
+                                        "${pickedOrder + 1}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        textAlign = TextAlign.Center,
+                                        modifier =
+                                            Modifier
+                                                .size(22.dp)
+                                                .clip(CircleShape)
+                                                .background(IOS.accent)
+                                                .wrapContentHeight(),
+                                    )
+                                }
+
+                                else -> {
+                                    CircleSignIcon(plus = true, tint = IOS.tertiaryLabel, modifier = Modifier.size(19.dp))
+                                }
+                            }
+                        }
+                        IOSListDivider(start = 72.dp)
+                    }
+                    // 목록 끝 — 더 있으면 이어 받고, 못 받았으면 다시 누르게 한다.
+                    if (moreFailed) {
+                        item {
                             Text(
-                                "${pickedOrder + 1}",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                                tr("다시 시도"),
+                                fontSize = 15.sp,
+                                color = IOS.accent,
                                 textAlign = TextAlign.Center,
                                 modifier =
                                     Modifier
-                                        .size(22.dp)
-                                        .clip(CircleShape)
-                                        .background(IOS.accent)
-                                        .wrapContentHeight(),
+                                        .fillMaxWidth()
+                                        .heightIn(min = 44.dp)
+                                        .clickable { search.loadMore() }
+                                        .padding(12.dp),
                             )
                         }
-
-                        else -> {
-                            CircleSignIcon(plus = true, tint = IOS.tertiaryLabel, modifier = Modifier.size(19.dp))
+                    } else if (hasMore) {
+                        item(key = "more") {
+                            LaunchedEffect(pagingOffset) { search.loadMore() }
+                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                            }
                         }
                     }
                 }
-                IOSListDivider(start = 72.dp)
             }
         }
     }
@@ -2082,12 +2122,15 @@ private fun PlaceSearchOverlayBody(
 /** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
 @Composable
 private fun PlaceSearchOverlay(
-    store: RouteStore,
     taken: Set<Long>,
     onDismiss: () -> Unit,
+    onPreview: (List<PlaceSummary>) -> Unit,
     onAdd: (List<PlaceSummary>) -> Unit,
 ) {
     IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onDismiss) {
-        PlaceSearchOverlayBody(store = store, taken = taken, onDismiss = onDismiss, onAdd = onAdd)
+        PlaceSearchOverlayBody(taken = taken, onDismiss = onDismiss, onPreview = onPreview, onAdd = onAdd)
     }
 }
+
+/** 바닥 카드가 화면 바닥에서 떠 있는 거리. iOS `.padding(.bottom, 90)`. */
+private val CARD_BOTTOM_PADDING = 90.dp

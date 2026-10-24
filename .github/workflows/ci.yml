@@ -29,8 +29,14 @@ concurrency:
 # 저장소 첫 파이썬 모듈(agents/trip-guide)이 들어오면서 필요해졌다 — 그전에는 검사할
 # 파이썬 소스가 없어 format.sh 가 그냥 건너뛰었다. shellcheck 과 같은 이유로 버전을
 # 여기서 못 박는다: 판정을 내리는 물건이라 버전이 갈리면 게이트가 사람마다 다른 말을 한다.
+# swiftformat 도 같은 이유로 못 박는다. 2026-10-24 macos-latest 이미지가
+# 20261013 → 20261021 로 바뀌며 더 새 swiftformat 이 깔렸고, 새 규칙(repeatedGuard·
+# elseOnSameLine 등)이 손대지 않은 iOS 파일 6개를 잡아 모든 PR 의 verify-macos 가 죽었다
+# (#361·#362). brew install 은 이미 깔린 것을 올리지 않으므로 고정 바이너리를 받는다.
+# 올릴 때는 iOS 소스를 새 규칙에 맞춘 커밋과 함께 올린다.
 env:
   SHELLCHECK_VERSION: "0.11.0"
+  SWIFTFORMAT_VERSION: "0.62.1"
   RUFF_VERSION: "0.16.5"
 
 jobs:
@@ -147,11 +153,16 @@ jobs:
       #
       # shellcheck 은 brew 가 아니라 고정 버전을 내려받는다 — 위 env 절 주석 참조.
       # verify 잡과 같은 바이너리를 써야 두 잡의 판정이 일치한다.
-      # swiftformat · swiftlint 는 이 잡에서만 도니 brew 로 둔다.
+      # swiftlint 는 이 잡에서만 도니 brew 로 둔다. swiftformat 은 위 env 절대로 고정 버전.
       # ktlint 는 Bazel 이 주므로 여기서 받지 않는다 — 그쪽은 저절로 두 잡이 같다.
       - name: 검사 도구 설치
         run: |
-          brew install --quiet swiftformat swiftlint
+          brew install --quiet swiftlint
+          brew uninstall --quiet --ignore-dependencies swiftformat 2>/dev/null || true
+          curl -fsSL -o /tmp/swiftformat.zip "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat.zip"
+          unzip -o -q /tmp/swiftformat.zip -d /tmp/swiftformat
+          sudo install /tmp/swiftformat/swiftformat /usr/local/bin/swiftformat
+          test "$(swiftformat --version)" = "${SWIFTFORMAT_VERSION}"
           pipx install "ruff==${RUFF_VERSION}"
           curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.darwin.aarch64.tar.xz" \
             | tar -xJ -C /tmp

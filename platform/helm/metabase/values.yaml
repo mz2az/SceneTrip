@@ -1,0 +1,15 @@
+# 배포기(tools/aws/deploy.py install_metabase)가 stdin 으로 모두 채운다 — 빈 값이면 렌더가 멈춘다(required).
+image:
+  # 환경 ECR 복사본 <ECR>/scenetrip-<env>/mirror/metabase/metabase 와 태그(tools/aws/config.py METABASE_MIRROR).
+  repository: ""
+  tag: ""
+database:
+  # RDS 주소. Metabase 는 그 안의 DB `metabase` 를 계정 metabase_app 으로 쓴다(db-bootstrap.sh 가 만든다).
+  host: ""
+# 화면 주소(https://metabase-dev.scenetrip.io). Metabase 가 링크·메일에 쓴다.
+siteUrl: ""
+network:
+  # 클러스터 DNS(kube-dns) 주소 /32 — scenetrip 차트와 같다.
+  dnsCidr: ""
+  # ALB 공개 서브넷 CIDR — 3000 은 여기서만 받는다(ALB 가 대상 ip 로 보낸다).
+  albCidrs: []

@@ -413,6 +413,7 @@ ALB 이름이 그대로다. PRD 디스크는 지우지 않는다.
   Access 애플리케이션·정책은 주소에 묶여 내렸다 올려도 그대로다(Cloudflare Zero Trust 에서 관리, 허용 메일은 저장소에 없다).
   Cloudflare 가 바꾼 IP 대역은 `platform/terraform/aws/signoz.tf` 에서 고친다.
 - **내리기**는 SigNoz 화면 Ingress 도 함께 지우고 두 ALB 가 모두 사라질 때까지 기다린다.
+- 데이터 보기 화면(Metabase)도 같은 모양이다 — §18.
 
 ## 16. 바깥 감시 알람
 
@@ -438,6 +439,39 @@ EKS Auto Mode 는 파드가 적은 **최소 필요량(requests)** 을 보고 노
 - scene-api(JVM)는 최소 필요량을 상한과 같은 1Gi 로. SigNoz 부품도 공식 권장치에 가깝게(`platform/helm/signoz/values.yaml`).
 - 두 벌인 scene-api·gateway 는 가용 영역을 **반드시** 나눈다(`DoNotSchedule`) — 한 노드가 멈춰도 다른 영역의 것이 받는다.
 - 클러스터에 metrics-server 가 없어 실제 사용량은 아직 재지 못했다. 재시작 횟수(`kubectl get pods`)와 바깥 감시 알람으로 본다.
+
+## 18. 데이터 보기 — Metabase (DEV)
+
+[ADR 0027](../architecture/adr/0027-metabase-in-eks-read-only.md) · [계획 §3-5](../project/plans/metabase-prd.md). 지금은 DEV 만
+(`tools/aws/config.py` `METABASE_ENVIRONMENTS`). PRD 는 앱 심사가 끝난 뒤 노드 용량(§17)을 확인하고 따로 더한다.
+화면은 DEV `metabase-dev.scenetrip.io` · PRD `metabase.scenetrip.io` — SigNoz 화면(§15)과 같은 Cloudflare Access 뒤.
+
+- **배포(apply)** 가 DB 마이그레이션 **뒤에** `metabase` 네임스페이스(pod security `restricted`)에 저장소 차트
+  `platform/helm/metabase` 를 올린다. 부품은 Deployment 하나(uid 2000·읽기 전용 루트·`/tmp` 만 쓰기)와 Service `metabase:3000`.
+  첫 기동은 Metabase 가 자기 DB 를 만드느라 1~2 분 걸린다.
+- **이미지**는 환경 ECR 의 복사본 `scenetrip-dev/mirror/metabase/metabase:v0.64.3.4` — 배포가 **없는 태그만** 복사한다.
+- **DB**: 같은 RDS 안의 별도 DB `metabase`(계정 `metabase_app`)에 설정·대시보드를 저장한다. 데이터는 `scenetrip` DB 의
+  `analytics` 스키마만 계정 `metabase_ro`(읽기 전용, 연결 5 개, 질의 30 초)로 읽는다. 두 계정은 DB 준비 Job(`db-bootstrap.sh`)이 만든다.
+- **비밀값**은 Secrets Manager `/scenetrip/<env>/metabase` — `METABASE_APP_PASSWORD`·`METABASE_RO_PASSWORD`·
+  `MB_ENCRYPTION_SECRET_KEY`. 배포가 환경당 한 번 만들고 다시 쓴다. **암호화 키를 바꾸면 Metabase 가 저장한 연결 암호를 못 읽는다.**
+  파드에는 `metabase_app` 암호와 암호화 키만 간다(Secret `metabase/metabase-secrets`).
+- **네트워크**: 파드는 ALB 공개 서브넷에서 온 3000 만 받고, 나가는 것은 DNS·5432 뿐이다(업데이트 확인·사용 통계는 끔).
+- **화면 ALB**: Terraform `metabase_alb` 보안 그룹(SigNoz 와 같은 Cloudflare IPv4 대역만 443, `platform/terraform/aws/metabase.tf`).
+  인증서는 Terraform 변수 `metabase_certificate_arn`(GitHub `dev` 의 `TF_VAR_FILE_JSON`) — 비우면 화면을 열지 않는다.
+- **DNS**: DEV 올리기(lifecycle up)가 SigNoz 다음에 `metabase-dev.scenetrip.io` 를 Metabase ALB 로 가리킨다(프록시 켬).
+- **내리기**는 Metabase 화면 Ingress 를 지우고 ALB 가 사라질 때까지 기다린 뒤 `helm uninstall metabase`. 디스크는 없다 —
+  설정·대시보드는 RDS 의 `metabase` DB 에 남는다(DEV 는 RDS 와 함께 지워진다).
+
+사람이 한 번 하는 일(저장소 밖):
+
+1. ACM 에서 화면 주소 인증서를 요청하고 Cloudflare 에 확인 CNAME 을 넣는다(DEV 는 2026-10-24 등록함). ARN 을
+   `TF_VAR_FILE_JSON` 의 `metabase_certificate_arn` 에 넣는다.
+2. 이미 떠 있는 DEV(올리기를 다시 돌리지 않는 경우)·PRD 는 `metabase-dev`(PRD `metabase`) CNAME 을 Metabase ALB 로 넣는다(프록시 켬).
+   ALB 주소: `kubectl -n metabase get ingress metabase-ui`.
+3. Cloudflare Zero Trust 에 Access 애플리케이션을 만든다 — SigNoz 와 같은 허용 메일(저장소에 적지 않는다).
+4. Metabase 첫 화면에서 관리자를 만들고, DB 를 연결한다 — PostgreSQL, 호스트는 RDS 주소, DB `scenetrip`, 계정 `metabase_ro`.
+   비밀번호는 `aws secretsmanager get-secret-value --secret-id /scenetrip/dev/metabase --query SecretString --output text
+   | jq -r .METABASE_RO_PASSWORD | pbcopy` 로 화면에 붙인다(터미널에 찍지 않는다).
 
 ## 배포 기록
 

@@ -96,6 +96,11 @@ class DestroyGatewayTest(unittest.TestCase):
                 "tools.aws.destroy_gateway.get_ingress", side_effect=[ingress(), None]
             ),
             patch("tools.aws.destroy_gateway.get_signoz_ingress", return_value=None),
+            patch(
+                "tools.aws.destroy_gateway.get_metabase_ingress",
+                return_value=None,
+                create=True,
+            ),
             patch("tools.aws.destroy_gateway.matching_albs", return_value=[]),
             patch("tools.aws.destroy_gateway.time.sleep") as sleep,
         ):
@@ -216,11 +221,17 @@ class DestroyGatewayTest(unittest.TestCase):
             ),
             # SigNoz 화면 Ingress(ADR 0025)는 이미 없다 — 정리 대기는 SigNozGatewayTeardownTest 가 시험한다.
             patch("tools.aws.destroy_gateway.get_signoz_ingress", return_value=None),
+            patch(
+                "tools.aws.destroy_gateway.get_metabase_ingress",
+                return_value=None,
+                create=True,
+            ),
             # SigNoz 정리(ADR 0025)는 따로 시험한다(RemoveSignozTest) — 여기서는 불린 시점만 본다.
             patch(
                 "tools.aws.destroy_gateway.remove_signoz",
                 side_effect=lambda *unused, **kwargs: run("remove_signoz"),
             ) as remove_signoz,
+            patch("tools.aws.destroy_gateway.remove_metabase", create=True),
         ):
             run.return_value = json.dumps(
                 [{"name": "scenetrip", "namespace": "scenetrip"}]
@@ -246,7 +257,13 @@ class DestroyGatewayTest(unittest.TestCase):
             patch("tools.aws.destroy_gateway.matching_albs", return_value=[]),
             patch("tools.aws.destroy_gateway.get_ingress", return_value=None),
             patch("tools.aws.destroy_gateway.get_signoz_ingress", return_value=None),
+            patch(
+                "tools.aws.destroy_gateway.get_metabase_ingress",
+                return_value=None,
+                create=True,
+            ),
             patch("tools.aws.destroy_gateway.remove_signoz") as remove_signoz,
+            patch("tools.aws.destroy_gateway.remove_metabase", create=True),
         ):
             remove_gateway(run, valid_settings(), gateway_state())
         # SigNoz 정리는 scenetrip 릴리스가 없어도 불린다(남은 디스크 정리) — 동작은 RemoveSignozTest.
@@ -265,11 +282,14 @@ class DestroyGatewayTest(unittest.TestCase):
         ]
         commands = [call.args[0] for call in run.call_args_list]
         self.assertEqual(commands.count(signoz_delete), 1)
+        # Metabase 화면 Ingress 삭제(ADR 0027)도 같은 식으로 늘 보낸다 — 모양은 MetabaseTeardownTest 가 본다.
         self.assertFalse(
             any(
                 "delete" in command or "uninstall" in command
                 for command in commands
                 if command != signoz_delete
+                and command[:6]
+                != ["kubectl", "-n", "metabase", "delete", "ingress", "metabase-ui"]
             )
         )
 
@@ -298,6 +318,11 @@ class DestroyGatewayTest(unittest.TestCase):
         with (
             patch("tools.aws.destroy_gateway.get_ingress", return_value=ingress()),
             patch("tools.aws.destroy_gateway.get_signoz_ingress", return_value=None),
+            patch(
+                "tools.aws.destroy_gateway.get_metabase_ingress",
+                return_value=None,
+                create=True,
+            ),
             patch("tools.aws.destroy_gateway.matching_albs", return_value=[]),
             patch("tools.aws.destroy_gateway.time.monotonic", side_effect=[0, 2]),
             self.assertRaises(TimeoutError),
@@ -422,7 +447,8 @@ class SignozGatewayTeardownTest(unittest.TestCase):
 
         settings = valid_settings()
         third = {**signoz_load_balancer(), "DNSName": "third.elb.amazonaws.com"}
-        with self.assertRaisesRegex(ValueError, "많은"):
+        # ALB 는 VPC 당 셋까지 받는다(Metabase 화면 ALB, ADR 0027) — 셋째가 SigNoz 보안 그룹을 겹쳐 달면 거절한다.
+        with self.assertRaises(ValueError):
             matching_albs(
                 listing(load_balancer(), signoz_load_balancer(), third),
                 settings,
@@ -505,6 +531,7 @@ class SignozGatewayTeardownTest(unittest.TestCase):
                 side_effect=lambda *unused, **kw: run(["wait_gateway_absent"]),
             ),
             patch("tools.aws.destroy_gateway.remove_signoz"),
+            patch("tools.aws.destroy_gateway.remove_metabase", create=True),
         ):
             remove_gateway(run, valid_settings(), signoz_state())
         commands = [entry.args[0] for entry in run.call_args_list]
@@ -536,6 +563,7 @@ class SignozGatewayTeardownTest(unittest.TestCase):
             patch("tools.aws.destroy_gateway.get_ingress", return_value=None),
             patch("tools.aws.destroy_gateway.wait_gateway_absent") as wait,
             patch("tools.aws.destroy_gateway.remove_signoz"),
+            patch("tools.aws.destroy_gateway.remove_metabase", create=True),
         ):
             remove_gateway(run, valid_settings(), signoz_state())
         commands = [entry.args[0] for entry in run.call_args_list]
@@ -553,6 +581,11 @@ class SignozGatewayTeardownTest(unittest.TestCase):
             patch(
                 "tools.aws.destroy_gateway.get_signoz_ingress",
                 side_effect=[signoz_ingress(), None, None],
+            ),
+            patch(
+                "tools.aws.destroy_gateway.get_metabase_ingress",
+                return_value=None,
+                create=True,
             ),
             patch(
                 "tools.aws.destroy_gateway.matching_albs",
@@ -574,6 +607,11 @@ class SignozGatewayTeardownTest(unittest.TestCase):
             patch(
                 "tools.aws.destroy_gateway.get_signoz_ingress",
                 return_value=signoz_ingress(),
+            ),
+            patch(
+                "tools.aws.destroy_gateway.get_metabase_ingress",
+                return_value=None,
+                create=True,
             ),
             patch("tools.aws.destroy_gateway.matching_albs", return_value=[]),
             patch("tools.aws.destroy_gateway.time.monotonic", side_effect=[0, 2]),

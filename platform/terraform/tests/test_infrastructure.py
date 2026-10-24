@@ -824,10 +824,12 @@ class InfrastructureBoundaryTest(unittest.TestCase):
         self.assertNotIn('resource "random_password"', source)
         self.assertIn("manage_master_user_password", source)
 
-    def test_app_secrets_are_scene_api_database_auth_signoz_without_trip_guide(self):
+    def test_app_secrets_are_scene_api_database_auth_signoz_metabase_without_trip_guide(
+        self,
+    ):
         # MZ2AZ-317 후속 — trip-guide 는 Bedrock 을 Pod Identity 역할로 부르므로 비밀값이 없다.
-        # ADR 0025 — signoz(SigNoz 관리자 비밀번호)가 더해졌다.
-        # 비밀값 이름은 /scenetrip/<env>/<키, _ 는 -> 이다. 이미지 저장소는 앱 넷과 SigNoz 미러 일곱이다.
+        # ADR 0025 — signoz(SigNoz 관리자 비밀번호)가 더해졌다. ADR 0027 — metabase 가 더해졌다.
+        # 비밀값 이름은 /scenetrip/<env>/<키, _ 는 -> 이다. 이미지 저장소는 앱 넷과 SigNoz 미러 일곱, Metabase 미러 하나다.
         source = (ROOT / "platform/terraform/aws/registry-secrets.tf").read_text()
 
         def local_map(name):
@@ -837,7 +839,7 @@ class InfrastructureBoundaryTest(unittest.TestCase):
 
         self.assertEqual(
             sorted(local_map("app_secret_descriptions")),
-            sorted(["scene_api", "database", "auth", "signoz"]),
+            sorted(["scene_api", "database", "auth", "signoz", "metabase"]),
         )
         repositories = re.search(r"repositories\s*=\s*\{([^}]*)\}", source)
         self.assertIsNotNone(repositories)
@@ -856,6 +858,7 @@ class InfrastructureBoundaryTest(unittest.TestCase):
                     "mirror_clickhouse_operator",
                     "mirror_metrics_exporter",
                     "mirror_zookeeper",
+                    "mirror_metabase",
                 ]
             ),
         )

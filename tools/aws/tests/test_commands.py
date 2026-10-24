@@ -25,7 +25,7 @@ class CliTest(unittest.TestCase):
         }
         managed = "\n".join(
             f'aws_secretsmanager_secret.app["{key}"]'
-            for key in ("scene_api", "database", "auth", "signoz")
+            for key in ("scene_api", "database", "auth", "signoz", "metabase")
         )
 
         def execute(command, **unused):
@@ -243,7 +243,8 @@ class CliTest(unittest.TestCase):
             call.args[0]
             for call in run.call_args_list
             if call.args[0][:2] == ["just", "run"]
-            and not call.args[0][2].startswith("//platform/helm/signoz:")
+            # 복사본(SigNoz·Metabase, //platform/helm/*)은 태그가 고정이라 실행 태그를 쓰지 않는다.
+            and not call.args[0][2].startswith("//platform/helm/")
         ]
         self.assertEqual(len(app_pushes), 3)
         for command in app_pushes:

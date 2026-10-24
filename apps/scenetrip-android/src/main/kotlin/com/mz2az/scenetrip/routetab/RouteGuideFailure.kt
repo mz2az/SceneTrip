@@ -3,6 +3,7 @@ package com.mz2az.scenetrip.routetab
 import com.mz2az.scenetrip.auth.AuthAction
 import com.mz2az.scenetrip.auth.AuthRules
 import com.mz2az.scenetrip.data.AIConsentRequired
+import com.mz2az.scenetrip.data.ApiFailure
 import com.mz2az.scenetrip.data.DeviceNetwork
 import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.tr
@@ -136,6 +137,9 @@ sealed class RouteGuideFailure {
         const val IN_PROGRESS_CODE = "IDEMPOTENCY_IN_PROGRESS"
         const val LIMIT_CODE = "GUIDE_LIMIT_REACHED"
 
+        /** 한도 안내 한 줄 — 받은 순간의 말이다(풀리는 때까지 남은 시간을 다시 세는 쪽은 [GuideLimit.Block.message]). */
+        fun limitMessage(retryAfter: Int?): String = GuideLimit.Block(retryAfter, 0L).message(0L)
+
         /** 오류를 계약 응답으로 분류한다. [offline] 은 기기가 오프라인인지 — 응답이 없을 때만 본다. */
         fun of(
             error: Throwable,
@@ -199,7 +203,7 @@ sealed class RouteGuideFailure {
             when {
                 error is SocketTimeoutException -> TimedOut
                 error is InterruptedIOException -> Interrupted
-                offline() -> Offline
+                ApiFailure.isOffline(error) || offline() -> Offline
                 else -> Unreachable
             }
     }

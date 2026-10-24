@@ -367,7 +367,7 @@ private fun RouteWizardViewBody(
                         }
                     }
                     Text(
-                        tr("빡빡하게는 하루 7곳까지, 널널하게는 3곳까지 담습니다"),
+                        tr("방문 수는 고른 작품과 이동 거리에 따라 달라집니다"),
                         fontSize = 11.sp,
                         color = IOS.tertiaryLabel,
                     )

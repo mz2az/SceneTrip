@@ -53,6 +53,7 @@ import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.CoordinateSource
 import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.LocationConsentStore
+import com.mz2az.scenetrip.data.LocationFix
 import com.mz2az.scenetrip.data.PlaceWorks
 import com.mz2az.scenetrip.data.SceneData
 import com.mz2az.scenetrip.data.TabRouter
@@ -67,6 +68,9 @@ import com.mz2az.scenetrip.sceneapi.client.model.Suggestion
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.LikeFailureNotice
 import com.mz2az.scenetrip.ui.LocationConsentSheetHost
+import com.naver.maps.geometry.LatLng
+import com.naver.maps.map.CameraAnimation
+import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.LocationTrackingMode
 import com.naver.maps.map.NaverMap
 import kotlinx.coroutines.launch
@@ -125,7 +129,8 @@ fun SearchTabScreen() {
                 // 파란 점은 iOS 의 `positionMode = .normal` 과 같은 자리다 —
                 // **오버레이만 따라다니고 카메라는 우리가 한 번만 옮긴다.**
                 // Follow 로 두면 카메라가 계속 붙잡혀 지도를 밀 수 없다.
-                target.locationSource = PlatformLocationSource(context)
+                // 두 번째 누름에서는 이미 달려 있다 — 다시 달면 받던 것을 끊었다 새로 건다.
+                if (target.locationSource !is PlatformLocationSource) target.locationSource = PlatformLocationSource(context)
                 target.locationTrackingMode = LocationTrackingMode.NoFollow
                 target.zoomToMyLocation(
                     found.latitude,
@@ -137,6 +142,22 @@ fun SearchTabScreen() {
                 )
             },
             onFailure = { locateFailure = it },
+            // 최고 정확도로 계속 받는다(MZ2AZ-509, iOS `NaverMapView.locationManager(_:didUpdateLocations:)`).
+            // 파란 점은 `PlatformLocationSource` 가 늘 따라가고, 카메라는 누른 직후 잠깐
+            // 사람이 지도를 안 만졌을 때만 더 나은 값으로 다시 맞춘다 — 민 지도를 끌어당기면 안 된다.
+            onRefined = { found, previous, sinceStart ->
+                val target = map ?: return@rememberLocate
+                if (sinceStart <= LocationFix.SETTLE_WINDOW_MS &&
+                    target.regionSource.source == CoordinateSource.DEVICE &&
+                    LocationFix.worthRecentering(previous, found.toReading())
+                ) {
+                    target.moveCamera(
+                        CameraUpdate
+                            .scrollTo(LatLng(found.latitude, found.longitude))
+                            .animate(CameraAnimation.Easing, 400L),
+                    )
+                }
+            },
         )
 
     // 검색을 확정했고 결과 도착을 기다리는 중 — 도착하면 그때 카메라를 맞춘다.

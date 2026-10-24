@@ -60,6 +60,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.Photo
 import com.mz2az.scenetrip.sceneapi.client.model.RatingSummary
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.NorthArrowIcon
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -159,8 +160,8 @@ suspend fun fetchPlaceCard(
  * 핀을 눌렀을 때 뜨는 정보 카드 — iOS `RoutePlaceCard`. 분류·주소·전화를 보여 주고,
  * 더 보려면 네이버 지도로 넘긴다.
  *
- * "여기로 길찾기"(iOS `onReroute`)는 없다 — 그건 여행 중 화면의 것인데, 이 카드는
- * 편집기(계획 화면)에서만 뜬다.
+ * "여기로 길찾기"(iOS `onReroute`)는 [onReroute] 를 줄 때만 선다 — 여행 중인 코스의 번호 핀 카드에서만 준다(MZ2AZ-478).
+ * 이미 코스에 있는 곳의 카드는 [onAdd] 없이 열어 「경로에 추가」 단추 자리에 「여기로 길찾기」를 둔다.
  */
 @Composable
 fun RoutePlaceCard(
@@ -170,6 +171,8 @@ fun RoutePlaceCard(
     onRemove: (() -> Unit)?,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    // 「여기로 길찾기」. 여행 중 화면에서만 준다 — 계획 화면에서는 갈아탈 경로 자체가 없다.
+    onReroute: (() -> Unit)? = null,
     // 이 곳이 코스에서 목록에서 빠졌거나 폐업한 행이면 그 종류. 안내를 붙이고 새로 넣는 단추는 숨긴다(MZ2AZ-458).
     unavailable: UnavailableItem? = null,
 ) {
@@ -254,7 +257,14 @@ fun RoutePlaceCard(
                         it.copy(photos = kept, photoCount = kept.size)
                     }
                 // 목록에서 빠진 곳은 새로 넣을 수 없다. 이미 코스에 있으면 빼는 단추는 남는다.
-                PlaceCardFound(shown, added, if (notice != null && !added) null else onAdd, onRemove, onReviews = { reviews = true })
+                PlaceCardFound(
+                    shown,
+                    added,
+                    if (notice != null && !added) null else onAdd,
+                    onRemove,
+                    onReviews = { reviews = true },
+                    onReroute = if (notice == null) onReroute else null,
+                )
             }
         }
     }
@@ -415,6 +425,7 @@ private fun PlaceCardFound(
     onAdd: (() -> Unit)?,
     onRemove: (() -> Unit)?,
     onReviews: () -> Unit,
+    onReroute: (() -> Unit)? = null,
 ) {
     card.reading?.let { Text(it, style = IOS.caption, color = IOS.secondaryLabel, modifier = Modifier.padding(horizontal = 14.dp)) }
     com.mz2az.scenetrip.reviews
@@ -464,6 +475,30 @@ private fun PlaceCardFound(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = if (added) IOS.secondaryLabel else Color.White,
+            )
+        }
+    }
+    if (onReroute != null) {
+        // 즉석에서 목적지를 이 가게로 바꾼다 — 걷다가 배가 고프면 목적지가 바뀌는 것이 내비게이션이다.
+        val primary = onAdd == null
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 14.dp, end = 14.dp, top = if (primary) 12.dp else 0.dp)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (primary) IOS.accent else IOS.accent.copy(alpha = 0.14f))
+                    .clickable(onClick = onReroute),
+        ) {
+            NorthArrowIcon(if (primary) Color.White else IOS.accent, Modifier.size(12.dp))
+            Text(
+                tr("여기로 길찾기"),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (primary) Color.White else IOS.accent,
             )
         }
     }

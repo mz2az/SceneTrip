@@ -19,6 +19,8 @@ def alb_outputs():
         "workload_security_group_id": "sg-bbbbbbbbbbbbbbbbb",
         # SigNoz 화면 전용 ALB 의 보안 그룹(ADR 0025) — API ALB 와 다른 그룹이다.
         "signoz_alb_security_group_id": "sg-ddddddddddddddddd",
+        # Metabase 화면 전용 ALB 의 보안 그룹(ADR 0027) — API·SigNoz ALB 와 다른 그룹이다.
+        "metabase_alb_security_group_id": "sg-fffffffffffffffff",
     }
 
 
