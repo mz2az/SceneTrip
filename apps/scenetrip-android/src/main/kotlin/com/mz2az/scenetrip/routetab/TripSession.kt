@@ -19,15 +19,12 @@ import com.mz2az.scenetrip.data.FootprintStore
 import com.mz2az.scenetrip.data.InstallIdentity
 import com.mz2az.scenetrip.data.LatestRequestQueue
 import com.mz2az.scenetrip.data.LimitLedger
-import com.mz2az.scenetrip.data.LocationConsentRequired
 import com.mz2az.scenetrip.data.LocationConsentStore
 import com.mz2az.scenetrip.data.LocationDirectionsConsent
 import com.mz2az.scenetrip.data.LocationFix
 import com.mz2az.scenetrip.data.LocationReading
-import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.haversineKm
-import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.api.NavigationApi
 import com.mz2az.scenetrip.sceneapi.client.model.NextLeg
 import com.mz2az.scenetrip.sceneapi.client.model.NextLegRequest
@@ -62,11 +59,17 @@ class TripSession(
         private set
     var here by mutableStateOf<Pair<Double, Double>?>(null)
         private set
-    var failure by mutableStateOf<String?>(null)
+    var failure by mutableStateOf<RouteNavFailure?>(null)
         private set
     var asking by mutableStateOf(false)
         private set
-    var failureCode by mutableStateOf<String?>(null)
+
+    /** 도착 스탬프 연출이 떠 있는가 (MZ2AZ-478, iOS `TripSession.stamped`). 「여기 도착함」 은 연출 중 비활성이다. */
+    var stamped by mutableStateOf(false)
+        private set
+
+    /** 5초 박자 — 머무름 재판정과 안내 띠의 「N분」 갱신용. 값 자체는 뜻이 없다(iOS `dwellTick`). */
+    var dwellTick by mutableStateOf(0)
         private set
 
     val isActive: Boolean get() = target != null
@@ -139,7 +142,7 @@ class TripSession(
         phase = Phase.GUIDING
         leg = null
         failure = null
-        failureCode = null
+        stamped = false
         asking = false
         arrival.reset()
     }
@@ -153,8 +156,22 @@ class TripSession(
         request?.cancel()
         legRequests.clearQueued() // 도착한 뒤에는 대기 중이던 요청도 보내지 않는다.
         asking = false
+        failure = null
+        stamped = true
         onArrived?.invoke(t)
         AppAnalytics.log(AppEvent.VisitStamp(t.place.id))
+    }
+
+    /** 스탬프 연출이 끝났다. 도착 상태 그대로 선다 — 다음은 사람이 고른다. */
+    fun stampDone() {
+        stamped = false
+    }
+
+    /** 안내 띠의 힌트 — 반경 안이면 「머무르면 도착 · N분」, 아니면 규칙 한 줄. 5초마다 다시 계산되게 [dwellTick] 에 묶는다. */
+    fun dwellHint(): String {
+        @Suppress("UNUSED_EXPRESSION")
+        dwellTick
+        return TripArrival.hint(arrival.dwelt(SystemClock.elapsedRealtime()))
     }
 
     fun end() {
@@ -166,7 +183,7 @@ class TripSession(
         target = null
         leg = null
         failure = null
-        failureCode = null
+        stamped = false
         asking = false
         phase = Phase.PLAN
         stopLocationUpdates()
@@ -174,22 +191,40 @@ class TripSession(
 
     /** 실패했을 때 "다시 시도" — iOS `RouteEditorTrip.tripDetail`의 재시도 단추. */
     fun retry(scope: CoroutineScope) {
-        if (asking || LimitLedger.navigationBlock?.blocked(SystemClock.elapsedRealtime()) == true) return
+        if (asking || limitedNow()) return
         this.scope = scope
         directionsConsent.beginRequest()
+        leg = null
+        failure = null
         request = scope.launch { fetchLeg() }
     }
 
     /** 동의 시트를 허용 없이 닫았다 — 안내 띠에 동의 안내를 남기고 「다시 시도」 를 누르면 다시 묻는다. iOS `cancelLocationRequest`. */
     fun cancelLocationRequest() {
         if (directionsConsent.isAllowed || phase != Phase.GUIDING) return
-        failure = tr(LocationConsentRequired.MESSAGE_KO)
-        failureCode = LocationConsentRequired.CODE
+        failure = RouteNavFailure.LocationConsentNeeded
+    }
+
+    /**
+     * 길찾기 한도에 걸려 있는 동안은 서버에 묻지 않는다 (MZ2AZ-366 D, iOS `NavLimitStore.stopsAsking`) — 뻔히 429 인 유료 창구를 두드리지 않고
+     * 바로 지도 앱으로 넘기는 단추를 보인다. 한도 상태는 응답 헤더로 [LimitLedger] 가 든다.
+     */
+    private fun limitedNow(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        val block = LimitLedger.navigationBlock ?: return false
+        if (!block.blocked(now)) return false
+        failure = RouteNavFailure.LimitReached(block.secondsLeft(now))
+        return true
     }
 
     suspend fun fetchLeg() {
-        if (asking || phase != Phase.GUIDING || LimitLedger.navigationBlock?.blocked(SystemClock.elapsedRealtime()) == true) return
-        if (target?.serverItemId == null || here == null) return
+        if (asking || phase != Phase.GUIDING || here == null) return
+        // 계약은 목적지를 **저장된 코스의 항목**으로만 받는다 — 저장 전 코스에는 서버 항목 id 가 없다(iOS `unsavedCourse`).
+        if (target?.serverItemId == null) {
+            failure = RouteNavFailure.UnsavedCourse
+            return
+        }
+        if (limitedNow()) return
         // 위치기반서비스 동의가 없으면 묻는다 — 한 사용자 요청에서 시트는 한 번만 열린다(위치 갱신마다 다시 묻지 않는다).
         // 허용되면 [resume] 이 최신 상태로 다시 부른다. 취소하면 [cancelLocationRequest] 가 동의 안내를 남긴다.
         val resume: () -> Unit = {
@@ -198,7 +233,6 @@ class TripSession(
         if (!directionsConsent.proceedOrAsk(resume)) return
         asking = true
         failure = null
-        failureCode = null
         dispatchLeg()
     }
 
@@ -251,9 +285,8 @@ class TripSession(
                 failure = null
             }.onFailure {
                 if (token != revision || epoch != AuthStore.epoch) return@onFailure
-                val problem = NetworkFailure.of(it)
-                failure = problem.message
-                failureCode = problem.code
+                // 자동으로 다시 부르지 않는다. 풀리는 때는 [LimitLedger] 가 적어 두고, 그때까지 위의 문이 요청을 막는다.
+                failure = RouteNavFailure.of(it)
             }
         } finally {
             if (token == revision) asking = false
@@ -317,6 +350,7 @@ class TripSession(
             scope.launch {
                 while (isActive) {
                     delay(5_000)
+                    dwellTick += 1
                     if (SystemClock.elapsedRealtime() - locationAt > 30_000) arrival.reset() else checkArrival()
                 }
             }
