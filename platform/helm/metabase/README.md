@@ -8,7 +8,7 @@
 
 | 파일 | 내용 |
 | --- | --- |
-| `templates/workloads.yaml` | Deployment 하나(Recreate) — uid/gid 2000·비루트·권한 상승 없음·능력 전부 뺌·seccomp RuntimeDefault·읽기 전용 루트, `/tmp` emptyDir(플러그인 `MB_PLUGINS_DIR=/tmp/plugins`). requests CPU 250m·메모리 1Gi, limits 메모리 2Gi. 시작·준비·생존 점검 `/api/health`(시작은 10 분까지). Service `metabase` ClusterIP 3000 |
+| `templates/workloads.yaml` | Deployment 하나(Recreate) — uid/gid 2000·비루트·권한 상승 없음·능력 전부 뺌·seccomp RuntimeDefault·읽기 전용 루트, `/tmp` emptyDir(플러그인 `MB_PLUGINS_DIR=/tmp/plugins`). requests CPU 250m·메모리 1Gi, limits 메모리 2Gi. 시작·준비·생존 점검 `/api/health`(시작은 10 분까지). 보는 DB 연결 상한 `MB_JDBC_DATA_WAREHOUSE_MAX_CONNECTION_POOL_SIZE=4`(`metabase_ro` 의 연결 한도 5 보다 작게). Service `metabase` ClusterIP 3000 |
 | `templates/network-policy.yaml` | 기본 거부, DNS(53) 나감, 5432 나감, 3000 들어옴은 ALB 공개 서브넷 CIDR 에서만 |
 | `values.yaml` | 빈 자리만 — 배포기가 stdin 으로 모두 채운다 |
 | `BUILD.bazel` | `mirror_metabase_push` — `@mirror_metabase_linux_amd64`(digest 고정)를 환경 ECR `scenetrip-<env>/mirror/metabase/metabase` 로. `chart` — 배포기 시험이 렌더한다 |

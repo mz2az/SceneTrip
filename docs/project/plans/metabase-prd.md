@@ -45,6 +45,7 @@ flowchart LR
 - `ALTER ROLE metabase_ro CONNECTION LIMIT 5`
 - `ALTER ROLE metabase_ro SET statement_timeout = '30s'` — 무거운 질의가 앱을 막지 않게
 - `ALTER ROLE metabase_ro SET default_transaction_read_only = on`
+- Metabase 쪽 연결 상한 `MB_JDBC_DATA_WAREHOUSE_MAX_CONNECTION_POOL_SIZE=4` — 역할 한도(5)보다 작게. 없으면 카드 11 개 대시보드가 동시에 열며 「too many connections for role metabase_ro」 로 카드가 번갈아 실패했다(2026-10-24 DEV, Metabase 로그로 확인)
 
 ### 3-2. 무엇을 보여 주나 — `analytics` 스키마의 뷰
 
