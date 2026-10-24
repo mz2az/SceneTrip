@@ -1,6 +1,6 @@
 # PRD 데이터 보기 — Metabase 를 EKS 안에, 읽기 전용 계정으로, Cloudflare Access 뒤에
 
-- **상태**: 계획(2026-10-21) — 확인 전에는 코드를 쓰지 않는다
+- **상태**: 진행(2026-10-24) — 1 단계(DB 뷰·계정) 구현 중. 처음 볼 것은 §3-2 네 묶음 전부, 주소·허용 메일은 SigNoz 와 같게(결정 2026-10-24)
 - **관련**: [ADR 0027](../../architecture/adr/0027-metabase-in-eks-read-only.md)(제안) · [ADR 0025](../../architecture/adr/0025-aws-observability-signoz-in-eks.md)(SigNoz — 같은 모양) ·
   [observability-aws.md](observability-aws.md) · [aws-dev-prd.md](../../architecture/aws-dev-prd.md) · `tools/aws/db-bootstrap.sh`
 
@@ -68,6 +68,32 @@ flowchart LR
 - 네트워크: 파드는 ALB 대역에서만 받고, 나가는 것은 RDS 5432 만
 - 화면: SigNoz 화면 ALB 를 같이 쓸 수 있으면(IngressGroup) 같이 쓰고, 안 되면 같은 방식의 ALB 를 하나 더 — **Auto Mode 에서 묶기 되는지 DEV 에서 먼저 확인**
 - 도메인: `metabase.scenetrip.io`(Cloudflare, 프록시 켬) + Cloudflare Access 앱(허용 메일 — 저장소에 적지 않는다). Metabase 자체 로그인도 그대로 둔다(두 겹)
+
+### 3-4. 1 단계 명세 — 뷰와 계정 (테스트는 이 절만 보고 쓴다)
+
+**날짜(`day`)는 한국 시간 날짜**다: `(created_at AT TIME ZONE 'Asia/Seoul')::date`. 뷰는 Flyway `V40__analytics_views.sql` 이 만든다.
+
+| 뷰 | 칸 | 출처·뜻 |
+| --- | --- | --- |
+| `analytics.contents` | `content_id`, `title_ko`, `title_en`, `category`, `popularity_score`, `hidden` | 작품 목록. `hidden` = `hidden_at IS NOT NULL` |
+| `analytics.places` | `place_id`, `name_ko`, `name_en`, `popularity_score`, `hidden` | 촬영지 목록 |
+| `analytics.daily_new_installs` | `day`, `installs` | `user_device.created_at` 날짜별 새 설치 수 |
+| `analytics.daily_new_members` | `day`, `provider`, `members` | `user_identity.created_at` 날짜·소셜(google·apple)별 새 로그인 계정 수 |
+| `analytics.daily_active_viewers` | `day`, `viewers` | `entity_view` 의 `day` 별 상세를 하나라도 본 서로 다른 설치 수 |
+| `analytics.daily_entity_views` | `day`, `entity_type`, `entity_id`, `name_ko`, `name_en`, `viewers` | `entity_daily_stats` 를 언어 합산. 이름은 작품·촬영지·편의시설의 ko·en(없으면 NULL) |
+| `analytics.daily_actions` | `day`, `action`, `actions` | `action` ∈ `save_content`(찜, saved_content)·`save_place`(장바구니에 촬영지 담기, saved_place — 옛 cart_item 은 V8 에서 지워졌다)·`course_create`(course)·`review_create`(review)·`post_create`(community_post). **지금 남아 있는 행** 기준(지운 행은 빠진다) |
+| `analytics.daily_chat` | `day`, `lang`, `outcome`, `turns`, `avg_took_ms` | `guide_turn`(90 일 보관) |
+
+어느 뷰에도 **개인을 가리키는 칸이 없다**: 사용자 ID·설치 ID·이메일·이름·소셜 ID·토큰·본문·제목(글)·IP. 뷰는 숫자와 공개 카탈로그(작품·촬영지 이름)만 낸다.
+
+계정(`tools/aws/db-bootstrap.sh`, 몇 번 돌려도 같다). 환경변수 `METABASE_RO_PASSWORD`·`METABASE_APP_PASSWORD` 가 **둘 다 있을 때만** 만든다(없으면 이 부분을 건너뛰어 지금 배포가 그대로 돈다).
+
+| 계정 | 만들어지는 것 |
+| --- | --- |
+| `metabase_app` | LOGIN. DB `metabase`(UTF8)의 주인. `scenetrip` DB 접속 권한 없음 |
+| `metabase_ro` | LOGIN. `scenetrip` 접속, 스키마 `analytics` USAGE + 그 안 모든 표·뷰 SELECT(앞으로 `app_migrate` 가 만드는 것도 — default privileges). `public` 스키마 표 권한 없음. `CONNECTION LIMIT 5`, `statement_timeout = 30s`, `default_transaction_read_only = on` |
+
+스키마 `analytics` 는 bootstrap 이 `app_migrate` 주인으로 만들고(권한을 걸려면 먼저 있어야 한다), 마이그레이션은 `CREATE SCHEMA IF NOT EXISTS` 로 같은 스키마를 쓴다.
 
 ## 4. 순서
 

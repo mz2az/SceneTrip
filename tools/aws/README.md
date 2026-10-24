@@ -23,7 +23,7 @@ plan·apply·verify·cleanup과 서비스 삭제는 배포 역할 세션만 허�
   AWS application ALB의 VPC·subnet·보안 그룹·healthy IP target 확인.
 - `lifecycle.py`: 올리기·내리기. runner EC2 전원, 삭제 예약 Secret 복원, 배포·삭제 workflow
   호출과 대기, 새 ALB로 Cloudflare CNAME 갱신(DNS only). `dev-lifecycle.yml`이 실행한다.
-- `db-bootstrap.sh`: PostgreSQL 역할과 `C`/`C.UTF-8` DB·확장·권한 준비.
+- `db-bootstrap.sh`: PostgreSQL 역할과 `C`/`C.UTF-8` DB·확장·권한 준비. `METABASE_RO_PASSWORD`·`METABASE_APP_PASSWORD` 가 둘 다 있으면 Metabase 계정도 만든다 — `metabase_ro`(스키마 `analytics` 만 읽기, 연결 5·질의 30 초·읽기 전용), `metabase_app`(별도 DB `metabase` 주인). ADR 0027
 - `tests/`: 잘못된 입력·계정 혼선·소스 격리·비밀값 전달·실패 정리·CLI 순서 회귀 검사.
 - `integration/`: 폐기 가능한 로컬 PostgreSQL·nginx 컨테이너로 DB 권한과 gateway 동작 검사.
 
