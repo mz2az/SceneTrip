@@ -84,3 +84,9 @@ object NearbyLabel {
             tr("이 지도에서 %d곳 · 해제").format(total)
         }
 }
+
+/** 검색 탭이 핀들을 한 화면에 맞출 때의 값. iOS `NaverMapView.fit(_ pins:)`. */
+object SearchFit {
+    /** 여백(dp). iOS 는 pt 다. 남한 전체 맞춤은 24 로 따로다. */
+    const val PADDING_DP = 32f
+}

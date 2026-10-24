@@ -111,6 +111,23 @@ class SearchParityTests {
             assertEquals(3, session.state.placePaging.offset)
         }
 
+    @Test fun failedViewportSearchKeepsTheRowsAndTheirTotalLikeIos() =
+        runBlocking {
+            val client = FakeSearchClient()
+            val session = SearchSession(this, client)
+            session.search("")
+            client.waitFor("")
+            client.reply("", 9, 486)
+            waitFor { session.state.phase == SearchPhase.LOADED }
+            client.pageFailure = true
+            session.searchInViewport("126,35,127,36")
+            waitFor { session.state.phase == SearchPhase.FAILED }
+            // iOS 는 실패해도 받아 둔 장소와 총수를 그대로 둔다 — 지도 핀과 단추의 「N곳 중 M곳」이 같은 값에서 나온다.
+            assertEquals(listOf(1L), session.state.places.map { it.id })
+            assertEquals(486, session.state.placePaging.total)
+            assertEquals(486, session.state.placePaging.shownTotal(session.state.places.size))
+        }
+
     @Test fun viewportCancelsSearchAndDoesNotSendUsage() =
         runBlocking {
             val client = FakeSearchClient()

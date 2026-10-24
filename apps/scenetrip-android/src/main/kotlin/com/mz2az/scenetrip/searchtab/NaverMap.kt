@@ -210,6 +210,9 @@ val KOREA: LatLngBounds = LatLngBounds(LatLng(33.0, 125.8), LatLng(38.7, 129.8))
 val KOREA_FIT_PADDING = 24.dp
 private val ROUTE_FIT_PADDING = 40.dp
 
+/** 핀들을 한 화면에 맞출 때의 여백. iOS `fit(_ pins:)` 는 32pt 다 — 남한 전체(24)와 다르다. [SearchFit.PADDING_DP]. */
+private val SEARCH_PINS_FIT_PADDING = SearchFit.PADDING_DP.dp
+
 // 번호 핀은 좌표 위로 45.5dp(꼬리 45 - 원 위 3 + 그림자 3.5) 뻗는다.
 // fitBounds의 40dp에 모자라는 5.5dp를 올림하여 상단 그림자까지 보인다.
 private val ROUTE_PIN_TOP_CLEARANCE = 6.dp
@@ -262,7 +265,7 @@ fun NaverMap.fit(
             .Builder()
             .apply { places.forEach { include(it.position) } }
             .build()
-    val padding = with(density) { (if (mode == MapInsetMode.ROUTE) ROUTE_FIT_PADDING else KOREA_FIT_PADDING).roundToPx() }
+    val padding = with(density) { (if (mode == MapInsetMode.ROUTE) ROUTE_FIT_PADDING else SEARCH_PINS_FIT_PADDING).roundToPx() }
     moveCamera(
         CameraUpdate
             .fitBounds(bounds, padding)

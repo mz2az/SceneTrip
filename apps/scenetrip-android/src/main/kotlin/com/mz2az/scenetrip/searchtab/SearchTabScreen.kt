@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
@@ -92,6 +93,7 @@ fun SearchTabScreen() {
     val density = LocalDensity.current
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
     // 검색바는 상태바 **아래**에 놓이므로, 시트가 멈출 자리도 그만큼 내려간다.
     // iOS 는 안전영역 안에서 계산해 172pt 에서 멈추는데, 이것을 빼먹어 안드로이드
@@ -151,6 +153,14 @@ fun SearchTabScreen() {
     var focusToken by remember { mutableIntStateOf(0) }
     var showCart by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
+
+    // 검색을 마친다 — 패널을 닫고 **입력 포커스도 푼다.** iOS 는 `searchFocused = false` 한 줄이 둘 다 한다. 포커스를 남기면
+    // 키보드가 없는데 검색창에 커서만 깜빡인다.
+    fun endSearching() {
+        searching = false
+        focusManager.clearFocus()
+        keyboard?.hide()
+    }
     var suggestions by remember { mutableStateOf<List<Suggestion>>(emptyList()) }
 
     // 자동완성 맨 위에 포스터와 함께 띄우는 **가장 연관된 작품**. 랭킹은 서버가
@@ -209,7 +219,7 @@ fun SearchTabScreen() {
             tab = ListTab.WORK
             chip = CategoryChip.ALL
             nearby = false
-            searching = false
+            endSearching()
             detent = Detent.MEDIUM
             keyboard?.hide()
             data.search("")
@@ -393,6 +403,7 @@ fun SearchTabScreen() {
         source: CoordinateSource,
     ) {
         nearby = true
+        endSearching()
         draft = ""
         committed = ""
         selectedPlace = null
@@ -446,7 +457,7 @@ fun SearchTabScreen() {
         // **열려 있던 상세도 닫는다.** 이걸 빠뜨려서 촬영지 상세를 연 채 검색하면
         // 지도와 검색어만 바뀌고 시트는 그 상세에 남아 있었다(6 차 검사).
         selectedPlace = null
-        searching = false
+        endSearching()
         keyboard?.hide()
         detent = Detent.MEDIUM
         data.commitSearch(
@@ -587,7 +598,7 @@ fun SearchTabScreen() {
 
         // 검색 중에는 지도·시트를 스크림으로 덮는다 — 패널 밖을 누르면 닫힌다.
         if (searching) {
-            SearchScrim(onDismiss = { searching = false })
+            SearchScrim(onDismiss = { endSearching() })
         }
 
         Column(modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding()) {
@@ -607,7 +618,7 @@ fun SearchTabScreen() {
                 // 고쳤으므로(SearchOverlays) 이제 iOS 와 같이 닫아도 된다.
                 onClear = {
                     commit("")
-                    searching = false
+                    endSearching()
                 },
                 onOpenCart = { showCart = true },
                 onFocus = { searching = true },
@@ -623,14 +634,14 @@ fun SearchTabScreen() {
                         // 검색어를 작품명으로 바꾸지 않고 **바로 상세로** 들어간다.
                         // 치환하면 뒤로 갔을 때 검색어에 작품명이 남아 원래 결과로
                         // 돌아갈 수 없다 (iOS 가 겪고 폐기한 구현이다).
-                        searching = false
+                        endSearching()
                         keyboard?.hide()
                         openContent(work.toSummary())
                     },
                     // 검색을 확정하되 **장소 탭으로 넘어가고**, 결과가 도착하면 그 장소를 바로 선택·확대한다
                     // — 작품 탭에 남아 있으면 고른 것과 무관한 작품이 보인다.
                     onSelectPlace = { item ->
-                        searching = false
+                        endSearching()
                         keyboard?.hide()
                         commit(item.name, EntityType.place)
                         tab = ListTab.PLACE
@@ -651,6 +662,7 @@ fun SearchTabScreen() {
                         onToggle = {
                             if (nearby) {
                                 nearby = false
+                                endSearching()
                                 draft = ""
                                 committed = ""
                                 chip = CategoryChip.ALL

@@ -13,6 +13,7 @@ import com.mz2az.scenetrip.searchtab.NearbyLabel
 import com.mz2az.scenetrip.searchtab.PinCaption
 import com.mz2az.scenetrip.searchtab.PinSpread
 import com.mz2az.scenetrip.searchtab.RadarPulseShape
+import com.mz2az.scenetrip.searchtab.SearchFit
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -82,6 +83,12 @@ class SearchTabBehaviorTests {
     fun nearbyLabelShowsHowManyOfTheTotalWereLoaded() {
         assertEquals("이 지도에서 12곳 · 해제", NearbyLabel.text(12, 12))
         assertEquals("이 지도에서 486곳 중 200곳 · 해제", NearbyLabel.text(200, 486))
+    }
+
+    @Test
+    fun pinFitUsesTheSamePaddingAsIos() {
+        // iOS fit(_ pins:) 의 padding 은 32pt — 남한 전체 맞춤(24)과 다르다.
+        assertEquals(32f, SearchFit.PADDING_DP, 0f)
     }
 
     // MARK: 레이더 파문 (iOS RadarPulse)
