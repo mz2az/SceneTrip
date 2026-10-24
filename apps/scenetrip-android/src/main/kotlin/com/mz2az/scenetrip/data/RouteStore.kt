@@ -9,6 +9,7 @@ import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.routetab.RouteBridge
 import com.mz2az.scenetrip.routetab.RouteCourse
 import com.mz2az.scenetrip.routetab.RouteDay
+import com.mz2az.scenetrip.routetab.RouteGuideFailure
 import com.mz2az.scenetrip.routetab.RouteGuidePlan
 import com.mz2az.scenetrip.routetab.RoutePace
 import com.mz2az.scenetrip.routetab.RouteSpan
@@ -56,6 +57,10 @@ class RouteStore(
 
     /** 마지막 호출이 실패했나. 화면이 "불러오지 못했습니다"를 띄우는 데 쓴다. */
     val failure: ApiFailure? get() = failures.failure
+
+    /** 마지막 AI 일정 짜기가 실패한 이유 — 마법사의 「일정을 짜지 못했습니다」 알림이 쓴다(MZ2AZ-482, iOS `RouteGuideFailure`). */
+    var guideFailure: RouteGuideFailure? = null
+        private set
 
     /** 편집 화면의 저장 실패. 목록·재료 조회 실패로는 채워지지 않는다(iOS `RouteStore.saveFailure`). */
     val saveFailure: ApiFailure? get() = failures.saveFailure
@@ -257,6 +262,7 @@ class RouteStore(
         longitude: Double? = null,
     ): RouteCourse? =
         withContext(Dispatchers.IO) {
+            guideFailure = null
             runCatching {
                 val chosenTitles = works.filter { workIds.contains(it.id) }.map { it.title }
                 val requestTitles = chosenTitles.ifEmpty { sortedWorks.take(3).map { it.title } }
@@ -281,6 +287,7 @@ class RouteStore(
             },
             onFailure = {
                 session.recordFailure(it)
+                guideFailure = RouteGuideFailure.of(it)
                 null
             },
         )

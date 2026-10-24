@@ -63,15 +63,23 @@ object RadarPulseShape {
  * 자리는 SDK 의 위치 오버레이가 쥔 좌표를 읽는다 — 「내 위치」 가 오버레이를 켜기 전에는 아무것도 그리지 않는다.
  */
 @Composable
-fun MyLocationPulse(map: NaverMap?) {
+fun MyLocationPulse(
+    map: NaverMap?,
+    // 코스 지도(MZ2AZ-478)는 위치 추적 모드 없이 오버레이 좌표만 직접 찍는다 — 그때는 `false` 로 추적 모드를 따지지 않는다.
+    // 검색 탭은 기본값(`true`)이라 동작이 그대로다.
+    requireTracking: Boolean = true,
+    // 코스 지도가 「내 위치」 토글을 끄면 파문도 접는다.
+    visible: Boolean = true,
+) {
     if (map == null) return
     var spot by remember(map) { mutableStateOf<Offset?>(null) }
     var elapsedMs by remember(map) { mutableLongStateOf(0L) }
-    LaunchedEffect(map) {
+    LaunchedEffect(map, requireTracking, visible) {
         while (true) {
             val overlay = map.locationOverlay
             val position = overlay.position
-            if (map.locationTrackingMode != LocationTrackingMode.None && overlay.isVisible && position.isValid) {
+            val tracking = !requireTracking || map.locationTrackingMode != LocationTrackingMode.None
+            if (visible && tracking && overlay.isVisible && position.isValid) {
                 val point = map.projection.toScreenLocation(position)
                 spot = Offset(point.x, point.y)
                 withFrameNanos { elapsedMs = it / 1_000_000L }

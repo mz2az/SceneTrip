@@ -22,6 +22,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.mz2az.scenetrip.data.CoordinateSource
+import com.mz2az.scenetrip.routetab.RouteStopFocus
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.geometry.LatLngBounds
@@ -30,6 +31,7 @@ import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
+import kotlin.math.abs
 
 /**
  * 네이버 지도를 Compose 안에 넣는다.
@@ -292,6 +294,48 @@ fun NaverMap.zoomTo(
             .scrollAndZoomTo(place.position, if (mode == MapInsetMode.ROUTE) 15.0 else 16.0)
             .animate(CameraAnimation.Easing, 500L),
     )
+}
+
+/** 코스 지도에서 정지점과 나를 같이 담을 때의 여백. iOS `NMFCameraUpdate(fit:padding: 56)`. */
+private val ROUTE_STOP_WITH_ME_PADDING = 56.dp
+
+/**
+ * 코스 지도에서 고른 정지점으로 카메라를 옮긴다 (MZ2AZ-509, iOS `RouteMapView.Coordinator.move(to:)` PR #326).
+ *
+ * **「내 위치」 토글이 켜져 있고 내 자리를 알며 그곳이 3 km 안일 때만** 둘이 같이 보이는 크기로 맞춘다.
+ * 멀리 있으면(서울시청↔인천) 둘을 담은 화면이 일차 전체와 거의 같아 눌러도 지도가 그대로인 것처럼 보였다 —
+ * 그때는 그곳만 줌 [RouteStopFocus.ZOOM] 으로 확대한다.
+ */
+fun NaverMap.focusOnStop(
+    place: PlaceSummary,
+    here: Pair<Double, Double>?,
+    showingMe: Boolean,
+    density: Density,
+    screenHeight: Dp,
+    panelHeight: Dp,
+) {
+    applyInset(this, density, screenHeight, panelHeight, 0.dp, mode = MapInsetMode.ROUTE)
+    val there = place.latitude to place.longitude
+    // 한 건물에 몰린 둘이면 범위 맞추기를 하지 않는다 — 범위가 0 에 가까우면 SDK 가 끝까지 확대한다(약 60 m 아래).
+    val tooClose = here != null && maxOf(abs(here.first - there.first), abs(here.second - there.second)) < 0.0006
+    if (here == null || tooClose || !RouteStopFocus.showsWithMe(showingMe, here, there)) {
+        regionSource.source = CoordinateSource.USER_SELECTED
+        moveCamera(
+            CameraUpdate
+                .scrollAndZoomTo(place.position, RouteStopFocus.ZOOM)
+                .animate(CameraAnimation.Easing, 500L),
+        )
+        return
+    }
+    val bounds =
+        LatLngBounds
+            .Builder()
+            .include(LatLng(here.first, here.second))
+            .include(place.position)
+            .build()
+    val padding = with(density) { ROUTE_STOP_WITH_ME_PADDING.roundToPx() }
+    regionSource.source = CoordinateSource.DEVICE
+    moveCamera(CameraUpdate.fitBounds(bounds, padding).animate(CameraAnimation.Easing, 400L))
 }
 
 /**

@@ -91,8 +91,9 @@ class LegalAndAiNoticeTests {
 
     @Test
     fun androidOnlyEnglishSurvivedTheIosTranslationRegeneration() {
-        assertEquals("%d nearby places", englishOf("편의시설 %d곳"))
-        assertEquals("%d of the places loaded on this map", englishOf("현재 지도에서 받은 결과 중 %d곳"))
-        assertNotNull(englishOf("지역 전체 개수가 아니에요. 장소를 골라 정보를 확인하세요."))
+        // 주변 지도의 묶음 핀 문구는 iOS 403 을 따라 걷어냈다(MZ2AZ-482) — 남은 Android 전용 문구가 살아 있는지 본다.
+        assertEquals("Everything still works when this is off.", englishOf("꺼도 앱 기능은 그대로예요."))
+        assertEquals("Could not save visit · Try again", englishOf("방문 기록을 저장하지 못했어요 · 다시 저장"))
+        assertNotNull(englishOf("기기에 보관된 옛 글 찾기"))
     }
 }
