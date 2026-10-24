@@ -8,6 +8,7 @@ import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.englishOf
 import com.mz2az.scenetrip.hometab.HomeTabModel
 import com.mz2az.scenetrip.reviews.ReviewRules
+import com.mz2az.scenetrip.routetab.CourseListPhase
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientError
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientException
 import kotlinx.coroutines.runBlocking
@@ -120,5 +121,19 @@ class ProfileHomeParityTests {
         for (text in listOf("이 기기에만 저장돼요. 서버로 보내지 않아요.", "닉네임 바꾸기", "마이페이지", "찜한 작품을 불러오지 못했어요. 잠시 뒤 다시 해 주세요")) {
             assertNotNull(englishOf(text), text)
         }
+    }
+
+    @Test
+    fun courseTabDrawsEmptyOnlyWhenTheServerSaidEmpty() {
+        val unknown = RouteStore.CourseListState.UNKNOWN
+        val loaded = RouteStore.CourseListState.LOADED
+        val failed = RouteStore.CourseListState.FAILED
+        assertEquals(CourseListPhase.LOADING, CourseListPhase.of(false, unknown, false))
+        assertEquals(CourseListPhase.LOADING, CourseListPhase.of(false, unknown, true))
+        assertEquals(CourseListPhase.FAILED, CourseListPhase.of(false, failed, false))
+        assertEquals(CourseListPhase.LOADING, CourseListPhase.of(false, failed, true))
+        assertEquals(CourseListPhase.EMPTY, CourseListPhase.of(false, loaded, false))
+        assertEquals(CourseListPhase.LIST, CourseListPhase.of(true, unknown, true))
+        assertEquals(CourseListPhase.LIST, CourseListPhase.of(true, loaded, false))
     }
 }
