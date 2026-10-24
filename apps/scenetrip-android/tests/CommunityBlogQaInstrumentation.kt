@@ -28,8 +28,7 @@ class CommunityBlogQaInstrumentation : Instrumentation() {
                     Intent(targetContext, CommunityBlogQaActivity::class.java)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                         .putExtra("qaCase", "portrait")
-                        .putExtra("language", "ko")
-                        .putExtra("theme", "light"),
+                        .putExtra("language", "ko"),
                 )
             await("QA 사진", descriptionOnly = true)
             val title = await("QA 블로그 제목")

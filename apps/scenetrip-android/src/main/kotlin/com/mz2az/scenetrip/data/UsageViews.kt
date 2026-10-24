@@ -1,23 +1,12 @@
 package com.mz2az.scenetrip.data
 
 import android.os.SystemClock
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import com.mz2az.scenetrip.ui.IOS
 import kotlinx.coroutines.delay
 
 @Composable
@@ -30,44 +19,4 @@ fun usageNow(): Long {
         }
     }
     return now
-}
-
-/**
- * 가이드 대화창의 한도 안내와 남은 양. [onOpenPlanner]가 있고 한도에 걸려 있으면 「AI 로 짜기」 안내를 붙인다
- * (iOS `RouteGuideSheetLimit.plannerHint` — 문구는 마법사가 무료라고 약속하지 않는다).
- */
-@Composable
-fun GuideUsageNotice(onOpenPlanner: (() -> Unit)? = null) {
-    val now = usageNow()
-    val block = LimitLedger.guideBlock
-    val message =
-        when {
-            block?.blocked(now) == true && (block.retryAfter ?: 0) > 3600 -> tr("오늘은 가이드와 충분히 이야기했어요. 내일 다시 만나요")
-            block?.blocked(now) == true -> tr("가이드가 잠시 쉬고 있어요. 약 %d분 뒤에 다시 물어보세요").format(block.minutes(now))
-            block?.lifted(now) == true -> tr("이제 다시 물어볼 수 있어요")
-            block != null -> tr("가이드가 잠시 쉬고 있어요. 조금 뒤에 다시 물어보세요")
-            else -> null
-        }
-    message?.let { Text(it, style = IOS.caption, color = IOS.secondaryLabel) }
-    if (block?.blocked(now) == true) {
-        Text(tr("새 일정은 「AI 로 짜기」에서도 만들 수 있어요"), style = IOS.caption, color = IOS.secondaryLabel)
-        if (onOpenPlanner != null) {
-            Text(
-                tr("AI 로 짜기 열기"),
-                style = IOS.caption.copy(fontWeight = FontWeight.SemiBold),
-                color = IOS.accent,
-                modifier =
-                    Modifier
-                        .heightIn(min = 44.dp)
-                        .clip(CircleShape)
-                        .background(IOS.accent.copy(alpha = 0.14f))
-                        .clickable(onClick = onOpenPlanner)
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
-            )
-        }
-    }
-    LimitLedger.guideQuota
-        ?.takeIf {
-            it.visible(now)
-        }?.let { Text(tr("오늘 남은 대화 %d회").format(it.remaining), style = IOS.caption, color = IOS.secondaryLabel) }
 }

@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.hometab
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,11 +14,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -26,12 +25,16 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mz2az.scenetrip.data.CommunityBoard
+import com.mz2az.scenetrip.communitytab.CommunityCoverPhoto
 import com.mz2az.scenetrip.data.CommunityPost
+import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.ModerationController
 import com.mz2az.scenetrip.data.ModerationRules
 import com.mz2az.scenetrip.data.ModerationTarget
@@ -94,6 +97,7 @@ private fun CommunityPostRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -103,30 +107,20 @@ private fun CommunityPostRow(
                 .clickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 13.dp),
     ) {
-        val tone = communityBadgeTone(post.board)
-        Text(
-            tr(post.board.label),
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = tone,
-            modifier =
-                Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(tone.copy(alpha = 0.12f))
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
-        )
         Text(post.title, fontSize = 14.sp, maxLines = 2, color = IOS.label, modifier = Modifier.weight(1f))
-        Icon(Icons.Filled.FavoriteBorder, contentDescription = null, tint = IOS.tertiaryLabel, modifier = Modifier.size(12.dp))
+        // 말머리가 하나뿐이라 딱지는 없다. 대표 사진이 있으면 그것이 줄의 얼굴이다 (iOS `CommunityCoverPhoto`, 44×44·모서리 9).
+        val store = remember { CommunityStore.getInstance(context) }
+        val remote = post.remotePhotos.firstOrNull()
+        val bitmap = post.photos?.firstOrNull()?.let { name -> remember(name) { store.photo(name) } }
+        val photoModifier = Modifier.size(44.dp).clip(RoundedCornerShape(9.dp))
+        if (remote != null) {
+            // 주소가 죽으면(한 시간) 그 글을 다시 읽어 새 주소로 바꾼다 — 목록 줄과 같다 (MZ2AZ-477, iOS `CommunityCoverPhoto`).
+            CommunityCoverPhoto(post, store, photoModifier)
+        } else if (bitmap != null) {
+            Image(bitmap.asImageBitmap(), null, photoModifier, contentScale = ContentScale.Crop)
+        }
     }
 }
-
-private fun communityBadgeTone(board: CommunityBoard): Color =
-    when (board) {
-        CommunityBoard.PHOTO -> HOME_PURPLE
-        CommunityBoard.REVIEW -> Color(0xFF2E7D45)
-        CommunityBoard.COURSE -> IOS.accent
-        CommunityBoard.CHAT -> IOS.secondaryLabel
-    }
 
 /** 내 기록 — 방문 스탬프 셋과 "+N", 찜한 작품 수. 둘 다 마이페이지로 이어진다. */
 @Composable
@@ -214,7 +208,7 @@ private fun LikesCard(
     ) {
         Text(tr("찜한 작품"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.label)
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("$likeCount", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.systemRed)
+            Text("$likeCount", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = IOS.systemRed)
             Text(tr("편"), fontSize = 12.sp, color = IOS.secondaryLabel)
         }
     }

@@ -61,7 +61,12 @@ import com.mz2az.scenetrip.ui.openExternalUrl
 fun SignInSheetHost() {
     if (!AuthStore.showingSignIn) return
     val activity = LocalContext.current as? Activity
-    IOSSheet(detents = listOf(SheetDetent.MEDIUM), onDismiss = { AuthStore.showingSignIn = false }) {
+    IOSSheet(
+        detents = listOf(SheetDetent.MEDIUM),
+        onDismiss = { AuthStore.showingSignIn = false },
+        // 로그인하는 동안은 쓸어내려 닫히지 않는다 (iOS `interactiveDismissDisabled(auth.busy)`).
+        interactiveDismissEnabled = !AuthStore.busy,
+    ) {
         // iOS 는 `ScrollView` 다 — 가입 동의 안내(MZ2AZ-455)가 붙어 반쯤 높이에 다 안 들어가거나 글자가 커져도
         // 끝까지 닿는다. 들어가면 아래 단추들이 시트 바닥에 붙는 지금 모양 그대로다(최소 높이 + 가중치).
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -105,6 +110,17 @@ fun SignInSheetHost() {
                         )
                     }
 
+                    // 로그인 중이면 단추 위에 돌아가는 표시가 따로 선다 (iOS `ProgressView`).
+                    if (AuthStore.busy) {
+                        CircularProgressIndicator(
+                            strokeWidth = 2.dp,
+                            color = IOS.secondaryLabel,
+                            modifier = Modifier.padding(bottom = 10.dp).size(20.dp),
+                        )
+                    }
+
+                    // 구글 브랜드 지침의 밝은 단추 — 흰 바탕(다크 모드에서도), #747775 테두리, #1F1F1F 글자, 공식 「G」 로고.
+                    // 로고는 색·비율을 바꾸지 않는다. 문구도 구글이 허용한 것(「Google 계정으로 계속하기」) 중 하나다 (iOS 와 같다).
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
@@ -113,24 +129,14 @@ fun SignInSheetHost() {
                                 .fillMaxWidth()
                                 .height(50.dp)
                                 .clip(CircleShape)
-                                .background(IOS.systemBackground)
-                                .border(1.dp, IOS.systemGray3, CircleShape)
+                                .background(Color.White)
+                                .border(1.dp, GOOGLE_BORDER, CircleShape)
                                 .clickable(enabled = !AuthStore.busy && activity != null) {
                                     activity?.let(AuthStore::signInWithGoogle)
                                 },
                     ) {
-                        if (AuthStore.busy) {
-                            CircularProgressIndicator(strokeWidth = 2.dp, color = IOS.secondaryLabel, modifier = Modifier.size(18.dp))
-                        } else {
-                            Text(
-                                "G",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.SansSerif,
-                                color = GOOGLE_BLUE,
-                            )
-                        }
-                        Text(tr("Google 로 계속하기"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                        Image(painter = painterResource(R.drawable.google_g), contentDescription = null, modifier = Modifier.size(20.dp))
+                        Text(tr("Google 계정으로 계속하기"), fontSize = 16.sp, fontWeight = FontWeight.Medium, color = GOOGLE_TEXT)
                     }
 
                     SignInLegalNotice(modifier = Modifier.padding(top = 12.dp))
@@ -143,7 +149,7 @@ fun SignInSheetHost() {
                             Modifier
                                 .padding(top = 6.dp, bottom = 10.dp)
                                 .clip(CircleShape)
-                                .clickable { AuthStore.showingSignIn = false }
+                                .clickable(enabled = !AuthStore.busy) { AuthStore.showingSignIn = false }
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                     )
                 }
@@ -219,4 +225,6 @@ private fun LegalLink(
     }
 }
 
-private val GOOGLE_BLUE = Color(0xFF4285F4)
+/** 구글 브랜드 지침의 밝은 단추: 테두리 #747775, 글자 #1F1F1F (iOS `SignInView`). */
+private val GOOGLE_BORDER = Color(0xFF747775)
+private val GOOGLE_TEXT = Color(0xFF1F1F1F)

@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.CommunityPost
+import com.mz2az.scenetrip.data.DateText
 import com.mz2az.scenetrip.data.InstallIdentity
 import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.TabRouter
@@ -61,6 +62,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.CourseDetail
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
 import com.mz2az.scenetrip.searchtab.CartItemRow
+import com.mz2az.scenetrip.searchtab.FilmIcon
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.IOS
@@ -78,7 +80,6 @@ import com.mz2az.scenetrip.ui.unavailableAlpha
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
@@ -144,7 +145,7 @@ private fun MyCoursesSheetBody(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(course.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = IOS.label)
-                                val startDate = course.startDate?.let { " · ${formatSimpleDate(it.toString())}" } ?: ""
+                                val startDate = course.startDate?.let { " · ${DateText.date(it)}" } ?: ""
                                 Text(tr("%d일").format(course.dayCount) + startDate, fontSize = 12.sp, color = IOS.secondaryLabel)
                             }
                             if (course.status == CourseStatus.active) {
@@ -210,7 +211,7 @@ private fun MyCoursesSheetBody(
                                                     Text(
                                                         item.name,
                                                         fontSize = 11.sp,
-                                                        color = IOS.secondaryLabel,
+                                                        color = IOS.label,
                                                         modifier = Modifier.alpha(unavailableAlpha(notice)),
                                                     )
                                                     if (notice != null) UnavailableItemNotice(notice)
@@ -315,6 +316,8 @@ private fun LikedWorksSheetBody(
                                     RemoteImage(
                                         url = work.posterUrl?.toString(),
                                         contentScale = ContentScale.Fit,
+                                        // 받는 중이거나 못 받았을 때 회색 바탕에 필름 아이콘이 보인다 (iOS `RemoteImage(symbol: "film")`).
+                                        placeholder = { FilmIcon(IOS.tertiaryLabel, Modifier.size(18.dp)) },
                                         modifier =
                                             Modifier
                                                 .size(width = 34.dp, height = 46.dp)
@@ -361,7 +364,7 @@ private fun LikedWorksSheetBody(
                                     Icon(
                                         Icons.Filled.Delete,
                                         contentDescription = tr("찜 빼기"),
-                                        tint = IOS.secondaryLabel,
+                                        tint = IOS.label,
                                         modifier = Modifier.size(20.dp),
                                     )
                                 }
@@ -438,10 +441,6 @@ private fun ProfileCartSheetBody(
         }
     }
 }
-
-private fun formatSimpleDate(isoDate: String): String = isoDate.take(10)
-
-private fun formatDateTimeShort(millis: Long): String = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.KOREA).format(Date(millis))
 
 /** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
 @Composable

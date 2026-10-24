@@ -4,70 +4,55 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.mz2az.scenetrip.analytics.AppAnalytics
-import com.mz2az.scenetrip.analytics.AppEvent
-import com.mz2az.scenetrip.auth.AuthStore
-import com.mz2az.scenetrip.data.API_BASE
-import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CoordinateSource
-import com.mz2az.scenetrip.data.CoordinateSources
 import com.mz2az.scenetrip.data.InstallIdentity
-import com.mz2az.scenetrip.data.LimitLedger
-import com.mz2az.scenetrip.data.NetworkFailure
-import com.mz2az.scenetrip.data.apiResult
-import com.mz2az.scenetrip.data.tr
-import com.mz2az.scenetrip.sceneapi.client.api.GuideApi
-import com.mz2az.scenetrip.sceneapi.client.model.GuideChatRequest
+import com.mz2az.scenetrip.data.ResendEvents
+import com.mz2az.scenetrip.data.UsageQuota
 import com.mz2az.scenetrip.sceneapi.client.model.GuideContext
 import com.mz2az.scenetrip.sceneapi.client.model.GuideEffect
-import com.mz2az.scenetrip.sceneapi.client.model.GuideMessage
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.sceneapi.client.model.GuideUiDirective
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import java.util.UUID
 
-/** 한 번 주고받은 말. iOS `RouteGuide.Turn`. */
-data class GuideTurn(
-    val id: UUID = UUID.randomUUID(),
-    val role: Role,
-    val text: String,
-    val tools: List<String> = emptyList(),
-) {
-    enum class Role { USER, ASSISTANT }
-}
-
 /**
- * 여행 가이드 대화 — 여기서만 서버(`POST /guide/chat`)를 부른다. iOS
- * `RouteTab/RouteGuide.swift`(`ask`)·`RouteGuideSession.swift`를 옮긴 것이다.
+ * 가이드 대화를 화면이 읽는 얼굴 — iOS `RouteGuideSession.shared` (`RouteTab/RouteGuideSession.swift`).
  *
- * **화면(챗봇 창)보다 오래 산다** — iOS는 앱 공용 싱글턴(`RouteGuideSession.shared`)이라
- * 창을 닫아도 대화가 남는다. 여기서는 [RouteEditorView] 화면 하나가 붙잡고 있다가
- * 화면을 나가면 함께 버린다 — 코스 편집 화면 안에서만 쓰는 기능이라 화면보다 오래
- * 살려 둘 이유가 아직 없다.
- *
- * **`effects`·`ui`는 여기서 만들지 않는다** — 서버가 보낸 것을 [lastUi]·[lastEffects]로
- * 그대로 들고 있을 뿐이고, 실제로 지도를 맞추고 일차를 넘기고 장바구니를 새로고침하는
- * 일은 [RouteEditorView]가 한다(화면 상태를 아는 쪽이 화면을 바꿔야 한다). `route.draw`는
- * 아직 처리하지 않는다 — 추천 경로선을 그릴 오버레이가 없다. `place.card`(→ [picked])와
- * 핀 탭은 이제 [RoutePlaceCard]로 이어진다.
+ * 규칙은 [GuideChat] 에 있고(시험이 가짜 전송으로 돌린다), 여기서는 그 상태를 Compose 상태로 옮겨 든다. **앱에 하나뿐이다**
+ * ([shared]) — 창을 닫아도, 편집 화면을 나갔다 같은 코스를 다시 열어도 대화가 남는다. 대화는 코스의 것이라 다른 코스를 열면
+ * ([bind]) 앞 코스의 대화·AI 장소가 비워진다.
  */
 class RouteGuideSession(
-    context: Context,
-    private val scope: CoroutineScope,
+    deviceId: UUID,
+    scope: CoroutineScope,
+    environment: GuideChat.Environment = GuideChat.Environment(),
 ) {
+    constructor(context: Context, scope: CoroutineScope) : this(InstallIdentity.of(context), scope)
+
+    private val chat: GuideChat = GuideChat(deviceId, scope, environment) { sync() }
+
     var turns by mutableStateOf<List<GuideTurn>>(emptyList())
         private set
     var places by mutableStateOf<List<GuidePlace>>(emptyList())
         private set
-    var asking by mutableStateOf(false)
-        private set
-    var failure by mutableStateOf<String?>(null)
+
+    /** 보내는 중이거나 다시 보낼 수 있는 턴. */
+    var pending by mutableStateOf<PendingTurn?>(null)
         private set
 
-    /** 마지막 답의 화면·상태 명령 — 매 턴 새 리스트로 갈아 끼운다(빈 배열이어도).
-     * 화면은 이 값이 바뀔 때만 `LaunchedEffect`로 한 번 적용한다. */
+    /** 마지막 실패. 한도(429)면 [limit] 이 안내를 맡는다. */
+    var failure by mutableStateOf<RouteGuideFailure?>(null)
+        private set
+
+    /** 챗봇 한도의 상태 — 대화가 아니라 계정의 것이다. */
+    var limit by mutableStateOf<GuideChat.Limit>(GuideChat.Limit.Clear)
+        private set
+
+    /** 서버가 마지막으로 알려 준 남은 양. */
+    var quota by mutableStateOf<UsageQuota?>(null)
+        private set
     var lastUi by mutableStateOf<List<GuideUiDirective>>(emptyList())
         private set
     var lastEffects by mutableStateOf<List<GuideEffect>>(emptyList())
@@ -79,129 +64,88 @@ class RouteGuideSession(
     var picked by mutableStateOf<GuidePlace?>(null)
         private set
 
-    fun pick(place: GuidePlace) {
-        picked = place
+    init {
+        sync()
     }
 
-    fun dismiss() {
-        picked = null
+    private fun sync() {
+        turns = chat.turns
+        places = chat.places
+        pending = chat.pending
+        failure = chat.failure
+        limit = chat.limit
+        quota = chat.quota
+        lastUi = chat.lastUi
+        lastEffects = chat.lastEffects
+        replyRevision = chat.replyRevision
+        picked = chat.picked
     }
 
     val isEmpty: Boolean get() = turns.isEmpty()
 
-    private var sessionId: UUID = UUID.randomUUID()
-    private var sending: Job? = null
-    private val guideApi = GuideApi(API_BASE)
-    private val deviceId: UUID = InstallIdentity.of(context)
+    /** 답을 기다리는 중인가. 그동안은 전송이 잠긴다. */
+    val asking: Boolean get() = pending?.stage?.isBusy == true
 
-    private data class Pending(
-        val request: GuideChatRequest,
-        val key: String,
-        val epoch: Int,
-        // 좌표가 기기 위치인지 사용자가 고른 지도·목적지인지. 「다시 시도」 도 최초 출처를 그대로 쓴다(MZ2AZ-472).
-        val source: CoordinateSource,
-    )
+    /** 한도가 풀리기를 기다리는 중인가 — 시계를 한 칸 넘길 때([refreshLimit]) 다시 읽는다. */
+    val isLimited: Boolean get() = limit.let { chat.isLimited }
 
-    private var pending: Pending? = null
+    val canRetry: Boolean get() = pending?.stage is PendingTurn.Stage.Failed && !isLimited
 
-    /** 「다시 시도」 로 다시 보낼 질문의 좌표 출처. 없으면 기기 위치로 취급한다. */
-    val pendingSource: CoordinateSource get() = pending?.source ?: CoordinateSource.DEVICE
-    var contextOf: () -> GuideContext? = { null }
-    val canRetry: Boolean get() = pending != null && !asking
-    val blocked: Boolean get() = LimitLedger.guideBlock?.blocked(android.os.SystemClock.elapsedRealtime()) == true
+    /** 「다시 시도」 로 다시 보낼 질문의 좌표 출처. */
+    val pendingSource: CoordinateSource get() = chat.pendingSource
 
-    fun accountChanged() {
-        sending?.cancel()
-        sending = null
-        sessionId = UUID.randomUUID()
-        asking = false
-        turns = emptyList()
-        places = emptyList()
-        picked = null
-        pending = null
-        failure = null
-        lastUi = emptyList()
-        lastEffects = emptyList()
-        replyRevision += 1
-    }
+    var contextOf: () -> GuideContext?
+        get() = chat.contextOf
+        set(value) {
+            chat.contextOf = value
+        }
 
-    /** 계약 상한 40 — 넘치면 오래된 것부터 잊는다. iOS `RouteGuide.ask`. */
+    val courseKey: String? get() = chat.courseKey
+
+    fun pick(place: GuidePlace) = chat.pick(place)
+
+    fun dismiss() = chat.dismiss()
+
     suspend fun ask(
         text: String,
         latitude: Double,
         longitude: Double,
         source: CoordinateSource = CoordinateSource.DEVICE,
-    ) {
-        val trimmed = text.trim()
-        if (asking || blocked || trimmed.isEmpty() || trimmed.length > 4000) return
-        if (!AuthStore.signedIn) {
-            AuthStore.promptSignIn()
-            return
-        }
-        turns = turns + GuideTurn(role = GuideTurn.Role.USER, text = trimmed)
-        val request =
-            GuideChatRequest(
-                sessionId = sessionId,
-                latitude = latitude,
-                longitude = longitude,
-                messages =
-                    turns.takeLast(40).map {
-                        GuideMessage(
-                            role =
-                                if (it.role ==
-                                    GuideTurn.Role.USER
-                                ) {
-                                    GuideMessage.Role.user
-                                } else {
-                                    GuideMessage.Role.assistant
-                                },
-                            content = it.text.take(4000),
-                        )
-                    },
-                context = contextOf(),
-            )
-        pending = Pending(request, UUID.randomUUID().toString(), AuthStore.epoch, source)
-        submit(pending!!)
-    }
+    ) = chat.ask(text, latitude, longitude, source)
 
-    suspend fun retry() {
-        if (asking || blocked) return
-        pending?.let { submit(it) }
-    }
+    suspend fun retry() = chat.retry()
 
-    private fun submit(turn: Pending) {
-        asking = true
-        sending = scope.launch { send(turn) }
-    }
+    fun noteResend(
+        key: String,
+        reason: ResendEvents.Reason,
+    ) = chat.noteResend(key, reason)
 
-    private suspend fun send(turn: Pending) {
-        asking = true
-        failure = null
-        AppAnalytics.log(AppEvent.AskGuide)
-        try {
-            apiResult {
-                CoordinateSources.with(turn.source) {
-                    guideApi.chatWithGuide(
-                        deviceId,
-                        turn.request,
-                        acceptLanguage = AppLanguage.current,
-                        idempotencyKey = turn.key,
-                    )
-                }
-            }.onSuccess { reply ->
-                if (turn.epoch != AuthStore.epoch) return@onSuccess
-                turns = turns + GuideTurn(role = GuideTurn.Role.ASSISTANT, text = reply.reply, tools = reply.toolsUsed.map { it.tool })
-                if (reply.places.isNotEmpty()) places = reply.places
-                lastUi = reply.ui
-                lastEffects = reply.effects
-                replyRevision += 1
-                failure = null
-                pending = null
-            }.onFailure {
-                if (turn.epoch == AuthStore.epoch) failure = NetworkFailure.of(it).message
+    fun refreshLimit() = chat.refreshLimit()
+
+    fun forgetLimit() = chat.forgetLimit()
+
+    fun accountChanged() = chat.accountChanged()
+
+    fun bind(key: String) = chat.bind(key)
+
+    fun rekey(key: String) = chat.rekey(key)
+
+    fun clear() = chat.clear()
+
+    companion object {
+        @Volatile
+        private var instance: RouteGuideSession? = null
+
+        /** 앱에 하나뿐인 대화 창구. 편집 화면이 오가도 대화가 이어진다. */
+        fun shared(context: Context): RouteGuideSession =
+            instance ?: synchronized(this) {
+                instance ?: RouteGuideSession(
+                    context.applicationContext,
+                    CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+                ).also { instance = it }
             }
-        } finally {
-            if (turn.epoch == AuthStore.epoch) asking = false
-        }
+
+        /** 아직 만든 적 없으면 null — 계정이 바뀌어도 만들지는 않는다. */
+        fun sharedOrNull(): RouteGuideSession? = instance
     }
 }

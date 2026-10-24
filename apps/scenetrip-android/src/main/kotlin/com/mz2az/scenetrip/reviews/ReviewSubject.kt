@@ -15,6 +15,9 @@ data class ReviewSubject(
 ) {
     private val api get() = ReviewsApi(API_BASE)
 
+    /** 분석 이벤트의 `target_type`. */
+    val kind: String get() = if (isPoi) "poi" else "place"
+
     fun list(
         sort: ReviewSort,
         offset: Int,

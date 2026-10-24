@@ -34,7 +34,7 @@ import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.SquarePencilIcon
 
-/** iOS와 같은 서버 후기 목록. 기기의 옛 글은 내 글 목록에서만 읽는다(MZ2AZ-396). */
+/** iOS와 같은 서버 후기 목록. 기기의 옛 글은 목록 맨 위 「이 기기에만 저장된 옛 글」 구역에서 읽는다(MZ2AZ-396·423). */
 @Composable
 fun CommunityTabScreen() {
     val store = rememberCommunityStore()

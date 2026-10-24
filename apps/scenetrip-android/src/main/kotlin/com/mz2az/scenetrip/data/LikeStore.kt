@@ -69,6 +69,14 @@ class LikeStore private constructor(
                 .orEmpty()
                 .mapNotNull { it.toLongOrNull() }
                 .toSet()
+        // 로그아웃·탈퇴·세션 소실 — 앞 계정의 찜은 하트도 목록도 지운다. 기기 옛 찜을 새 계정에 올리지 않도록 「옮김 끝」 도 켠다.
+        AccountDataReset.watch {
+            contentIds = emptySet()
+            works = emptyList()
+            failure = null
+            prefs.edit().putBoolean(MIGRATED_KEY, true).apply()
+            save()
+        }
         scope.launch { refresh() }
     }
 
@@ -80,12 +88,16 @@ class LikeStore private constructor(
      * 서버에 못 닿으면 기기 사본을 그대로 둔다 — 빈 목록으로 덮으면 찜이 사라져 보인다.
      */
     suspend fun refresh(): Boolean {
+        val generation = AccountDataReset.generation
         val fetched = runCatching { withContext(Dispatchers.IO) { fetchAll() } }.getOrNull() ?: return false
+        if (generation != AccountDataReset.generation) return false
         val server = fetched.map { it.id }.toMutableSet()
         val migrated = prefs.getBoolean(MIGRATED_KEY, false)
         var allUploaded = true
         for (id in pendingUploads(contentIds, server, migrated)) {
+            if (generation != AccountDataReset.generation) return false
             val result = runCatching { withContext(Dispatchers.IO) { api.addFavoriteContent(installId, FavoriteContentCreate(id)) } }
+            if (generation != AccountDataReset.generation) return false
             val rejected = result.exceptionOrNull()?.let { ApiFailure.of(it) }
             when {
                 result.isSuccess -> {
@@ -112,6 +124,7 @@ class LikeStore private constructor(
                 }
             }
         }
+        if (generation != AccountDataReset.generation) return false
         if (allUploaded) prefs.edit().putBoolean(MIGRATED_KEY, true).apply()
         contentIds = server
         works = fetched
@@ -121,6 +134,7 @@ class LikeStore private constructor(
 
     /** 하트는 **누르는 즉시** 바뀐다. 서버가 거절하면 되돌리고 이유를 [failure] 에 남긴다. */
     fun toggle(contentId: Long) {
+        val generation = AccountDataReset.generation
         val liked = contentId !in contentIds
         val previous = works.firstOrNull { it.id == contentId }
         val previousIndex = works.indexOfFirst { it.id == contentId }
@@ -137,6 +151,7 @@ class LikeStore private constructor(
                         }
                     }
                 }
+            if (generation != AccountDataReset.generation) return@launch
             if (result.isFailure) {
                 apply(contentId, !liked)
                 // 찜 빼기가 거절됐다면 목록에서 치웠던 줄을 제자리에 되돌린다.
@@ -144,6 +159,9 @@ class LikeStore private constructor(
                     works = works.toMutableList().also { it.add(minOf(previousIndex.coerceAtLeast(0), it.size), previous) }
                 }
                 failure = result.exceptionOrNull()?.let { ApiFailure.of(it) }
+                // 실패가 「서버는 처리했는데 응답만 잃은 것」 일 수 있다 — 되돌린 화면이 서버와 어긋나지 않게 서버 값을 한 번 받아
+                // 맞춘다(MZ2AZ-366). 그 조회도 실패하면 되돌린 채로 둔다([refresh] 는 못 받으면 아무것도 바꾸지 않는다).
+                refresh()
             } else if (liked) {
                 // 새로 찜한 작품의 요약은 서버에만 있다 — 찜 목록에 바로 보이게 다시 읽는다. **요약만** 채운다(하트는 덮지 않는다).
                 reloadSummaries()
@@ -157,7 +175,9 @@ class LikeStore private constructor(
 
     /** 찜한 작품의 요약만 다시 읽는다 — 하트([contentIds])는 건드리지 않는다. 못 받으면 가진 것을 둔다. */
     private suspend fun reloadSummaries() {
+        val generation = AccountDataReset.generation
         val fetched = runCatching { withContext(Dispatchers.IO) { fetchAll() } }.getOrNull() ?: return
+        if (generation != AccountDataReset.generation) return
         works = fetched
     }
 

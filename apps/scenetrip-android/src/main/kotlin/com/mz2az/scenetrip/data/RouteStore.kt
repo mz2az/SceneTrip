@@ -58,14 +58,29 @@ class RouteStore(
     /** 마지막 호출이 실패했나. 화면이 "불러오지 못했습니다"를 띄우는 데 쓴다. */
     val failure: ApiFailure? get() = failures.failure
 
-    /** 마지막 AI 일정 짜기가 실패한 이유 — 마법사의 「일정을 짜지 못했습니다」 알림이 쓴다(MZ2AZ-482, iOS `RouteGuideFailure`). */
-    var guideFailure: RouteGuideFailure? = null
+    /** 마지막 AI 일정짜기가 실패한 이유 — 목록·재료 조회 실패([failure])와 섞이지 않는다(iOS `guideDraft` 의 `RouteGuideFailure`). */
+    var planFailure by mutableStateOf<RouteGuideFailure?>(null)
         private set
 
     /** 편집 화면의 저장 실패. 목록·재료 조회 실패로는 채워지지 않는다(iOS `RouteStore.saveFailure`). */
     val saveFailure: ApiFailure? get() = failures.saveFailure
 
     var loading by mutableStateOf(false)
+        private set
+
+    /** 코스 목록을 **받아 봤는가** — 홈의 코스 카드가 이것으로 「받는 중」 과 「코스 없음」 을 가른다 (iOS `CourseListState`, MZ2AZ-372). */
+    enum class CourseListState {
+        /** 아직 한 번도 답을 못 받았다. 코스가 있는지 모른다. */
+        UNKNOWN,
+
+        /** 받았다 — [courses] 가 비었으면 정말 없는 것이다. */
+        LOADED,
+
+        /** 물었는데 못 받았다(그리고 전에 받아 둔 것도 없다). 여전히 있는지 모른다. */
+        FAILED,
+    }
+
+    var courseList by mutableStateOf(CourseListState.UNKNOWN)
         private set
 
     /** 질문 흐름이 쓰는 작품 목록 — [loadWorks]가 채운다. */
@@ -157,8 +172,11 @@ class RouteStore(
             withContext(Dispatchers.IO) { coursesApi.listCourses(deviceId) }
         }.onSuccess {
             courses = it.items ?: emptyList()
+            courseList = CourseListState.LOADED
             session.clearLoadFailure()
         }.onFailure {
+            // 전에 받아 둔 목록이 있으면 그것이 화면에 남는다 — 「모른다」 로 되돌리지 않는다.
+            if (courseList != CourseListState.LOADED) courseList = CourseListState.FAILED
             session.recordFailure(it)
         }
         loading = false
@@ -262,11 +280,12 @@ class RouteStore(
         longitude: Double? = null,
     ): RouteCourse? =
         withContext(Dispatchers.IO) {
-            guideFailure = null
+            planFailure = null
             runCatching {
                 val chosenTitles = works.filter { workIds.contains(it.id) }.map { it.title }
                 val requestTitles = chosenTitles.ifEmpty { sortedWorks.take(3).map { it.title } }
-                require(requestTitles.isNotEmpty()) { "인기 작품을 불러오지 못했습니다" }
+                // 인기 작품조차 못 불러왔으면 보낼 제목이 없다 — 계약이 titles 를 최소 하나 요구한다(iOS `.badRequest`).
+                if (requestTitles.isEmpty()) return@runCatching null
                 val request =
                     GuidePlanRequest(
                         titles = requestTitles.take(5),
@@ -282,12 +301,12 @@ class RouteStore(
             }
         }.fold(
             onSuccess = { course ->
-                session.clearLoadFailure()
+                // 조용히 빈 코스를 내놓지 않는다 — 규칙 기반으로 떨어지지도 않는다. 이유를 계약 응답별로 말한다(MZ2AZ-321 §확인).
+                if (course == null) planFailure = RouteGuideFailure.BadRequest
                 course
             },
             onFailure = {
-                session.recordFailure(it)
-                guideFailure = RouteGuideFailure.of(it)
+                planFailure = RouteGuideFailure.of(it)
                 null
             },
         )

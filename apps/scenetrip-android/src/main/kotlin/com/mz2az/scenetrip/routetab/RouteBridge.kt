@@ -98,6 +98,7 @@ object RouteBridge {
             stayMinutes = item.dwellMinutes,
             isPinned = item.source == CourseItemSource.customPin || (item.source == CourseItemSource.poi && item.poiId == null),
             poiId = item.poiId.takeIf { item.source == CourseItemSource.poi },
+            customPinId = item.customPinId.takeIf { item.source == CourseItemSource.customPin },
             poiText =
                 if (item.source ==
                     CourseItemSource.poi

@@ -41,11 +41,11 @@ import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CommunityArticle
 import com.mz2az.scenetrip.data.CommunityPhotoRefresh
 import com.mz2az.scenetrip.data.CommunityPost
+import com.mz2az.scenetrip.data.CommunityRules
 import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.ModerationController
 import com.mz2az.scenetrip.data.ModerationRules
 import com.mz2az.scenetrip.data.ModerationTarget
-import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.PhotoRenewal
 import com.mz2az.scenetrip.data.PostCourse
 import com.mz2az.scenetrip.data.TabRouter
@@ -54,6 +54,7 @@ import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.reviews.ModerationMenu
 import com.mz2az.scenetrip.reviews.ModerationSheets
 import com.mz2az.scenetrip.reviews.rememberModerationController
+import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import com.mz2az.scenetrip.ui.CheckmarkIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.LocalPhotoRenew
@@ -110,7 +111,7 @@ fun CommunityPostView(
                     loaded = it
                     photoRefresh.show(it)
                 },
-                onFailure = { loadMessage = NetworkFailure.of(it).message },
+                onFailure = { loadMessage = CommunityRules.failureText(it) },
             )
             loading = false
         }
@@ -350,6 +351,12 @@ private fun CourseCard(
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(stop.shownName, fontSize = 15.sp, color = IOS.label)
+                            // 영어 화면에서는 간판의 원래 이름(또는 로마자)을 작게 붙인다 — 한국어로 간판을 찾을 수 있게 (iOS 와 같다).
+                            if (AppLanguage.current != Lang.ko && stop.shownName != stop.name) {
+                                Text(stop.name, fontSize = 11.sp, color = IOS.secondaryLabel)
+                            } else if (AppLanguage.current != Lang.ko && stop.nameRoman != null) {
+                                Text(stop.nameRoman, fontSize = 11.sp, color = IOS.secondaryLabel)
+                            }
                             if (!stop.shownAddress.isNullOrEmpty()) {
                                 Text(stop.shownAddress!!, fontSize = 11.sp, color = IOS.secondaryLabel, maxLines = 1)
                             }
@@ -371,7 +378,7 @@ private fun CourseCard(
                 tr("장소 모두 보기"),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = IOS.label,
+                color = IOS.accent,
                 modifier = Modifier.clickable(onClick = onExpand),
             )
         }
