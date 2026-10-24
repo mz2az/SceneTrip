@@ -355,21 +355,33 @@ fun MapPins(
     places: List<PlaceSummary>,
     numbered: Boolean,
     onTap: (PlaceSummary) -> Unit = {},
+    // 좌표가 완전히 같은 핀을 약 8m 씩 벌린다(iOS 검색 탭의 `spread`). 검색 탭에서만 켠다.
+    spreadOverlapping: Boolean = false,
 ) {
     if (map == null) return
     val metrics = LocalContext.current.resources.displayMetrics
-    DisposableEffect(map, places, numbered, onTap) {
+    DisposableEffect(map, places, numbered, onTap, spreadOverlapping) {
+        val spots =
+            if (spreadOverlapping) {
+                PinSpread
+                    .spread(places.map { MapCoordinate(it.latitude, it.longitude) })
+                    .map { LatLng(it.latitude, it.longitude) }
+            } else {
+                places.map { it.position }
+            }
         val markers =
             places.mapIndexed { index, place ->
                 Marker().apply {
-                    position = place.position
+                    position = spots[index]
                     // **직접 그린 핀을 쓴다.** 네이버 기본 마커(초록 물방울)를 그대로
                     // 두면 iOS 의 하늘→보라 그러데이션 핀과 한눈에 달라 보인다.
                     icon = PinImage.numbered(if (numbered) index + 1 else null, metrics)
                     // 꼬리 끝이 좌표를 가리켜야 한다. 기본 앵커는 그림 가운데라 핀이
                     // 실제 위치보다 위에 뜬다. iOS 는 꼬리를 45/50 지점에 둔다.
                     anchor = PointF(0.5f, 45f / 50f)
-                    captionText = place.name
+                    // 긴 영어 이름이 옆 핀을 덮지 않게 앞머리만, 정해진 폭 안에서(iOS `PinCaption`, MZ2AZ-372).
+                    captionText = PinCaption.text(place.name)
+                    captionRequestedWidth = (PinCaption.WIDTH_DP * metrics.density).toInt()
                     // **줌 13 이상에서만 이름표를 띄운다.** iOS 와 같은 값이다.
                     // 전국 뷰에서 이름을 다 그리면 "인천스마트밸리지식산업센터" 같은
                     // 긴 이름들이 서로 겹쳐 검은 뭉텅이가 된다(실측).

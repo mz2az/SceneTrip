@@ -99,6 +99,7 @@ kt_jvm_library(
         "tests/NetworkTests.kt",
         "tests/NicknameEditorTests.kt",
         "tests/SearchParityTests.kt",
+        "tests/SearchTabBehaviorTests.kt",
         "tests/SuggestionDetailTests.kt",
         "tests/UnavailableItemTests.kt",
         "tests/UsageStatisticsTests.kt",
