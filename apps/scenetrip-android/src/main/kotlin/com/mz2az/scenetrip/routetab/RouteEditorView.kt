@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
@@ -159,6 +160,11 @@ private data class MapViewport(
     val source: CoordinateSource,
 )
 
+/**
+ * 코스 편집 화면. **겹쳐 뜨는 것(정지점 카드·도착 스탬프·검색 시트)은 화면 전체를 덮는 형제로 올라오므로 부모가 `Box` 여야 한다.**
+ * 마법사 시트처럼 부모가 `Column` 인 곳에서 열리면(저장 전 새 코스) 본문이 높이를 다 가져가 형제 `fillMaxSize` 상자가 0 높이가 되어 카드가
+ * 보이지 않았다 — 어디서 열려도 같게 여기서 `Box` 로 감싼다.
+ */
 @Composable
 fun RouteEditorView(
     store: RouteStore,
@@ -170,6 +176,22 @@ fun RouteEditorView(
     draftState: RouteEditorDraft? = null,
     operationScope: kotlinx.coroutines.CoroutineScope? = null,
     editorDismiss: java.util.concurrent.atomic.AtomicReference<(() -> Unit)?>? = null,
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        RouteEditorContent(store, initial, isNew, onClose, inSheet, draftState, operationScope, editorDismiss)
+    }
+}
+
+@Composable
+private fun RouteEditorContent(
+    store: RouteStore,
+    initial: RouteCourse,
+    isNew: Boolean,
+    onClose: (RouteCourse?) -> Unit,
+    inSheet: Boolean,
+    draftState: RouteEditorDraft?,
+    operationScope: kotlinx.coroutines.CoroutineScope?,
+    editorDismiss: java.util.concurrent.atomic.AtomicReference<(() -> Unit)?>?,
 ) {
     val editorDraft = draftState ?: remember { RouteEditorDraft(initial) }
     var course by editorDraft.course
@@ -1930,6 +1952,10 @@ private fun PlaceSearchOverlayBody(
     val moreFailed = search.moreFailed
     val hasMore = search.paging.hasMore
     val pagingOffset = search.paging.offset
+    val freshResults = search.freshResults
+    val listState = rememberLazyListState()
+    // 검색어가 바뀌어 새 결과가 오면 맨 위로 — 앞 목록의 스크롤 자리가 남아 첫 항목들이 잘려 보였다. 이어 받기는 건드리지 않는다.
+    LaunchedEffect(freshResults) { listState.scrollToItem(0) }
     var query by remember { mutableStateOf("") }
     var picked by remember { mutableStateOf<List<Long>>(emptyList()) }
     // 글자마다 부르지 않는다 — 입력이 멎으면 한 번(`RoutePlaceSearch.DEBOUNCE_MS`). 처음 열 때는 인기순.
@@ -1998,7 +2024,7 @@ private fun PlaceSearchOverlayBody(
             }
 
             else -> {
-                LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = sheetListBottom()) {
+                LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = sheetListBottom()) {
                     itemsIndexed(results, key = { _, place -> place.id }) { _, place ->
                         val isTaken = taken.contains(place.id)
                         val pickedOrder = picked.indexOf(place.id).takeIf { it >= 0 }

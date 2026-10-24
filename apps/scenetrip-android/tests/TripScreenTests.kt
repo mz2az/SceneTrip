@@ -288,6 +288,8 @@ class TripScreenTests {
             until { synchronized(seen) { seen.lastOrNull() == (RoutePlaceSearch.Phase.LOADED to listOf(7L)) } }
             // 화면이 알림마다 값을 다시 읽으므로, 알림 시점에 새 결과가 이미 들어 있어야 한다.
             assertTrue(synchronized(seen) { seen.any { it.first == RoutePlaceSearch.Phase.LOADED && it.second == listOf(1L) } })
+            // 새 검색의 첫 쪽이 올 때마다 목록을 맨 위로 되돌리는 신호가 오른다.
+            assertEquals(2, search.freshResults)
         }
 
     // --- 해태 칩이 카드와 단추를 비켜 서는 자리 (iOS `RouteGuideFloatingChip` 규칙) ---

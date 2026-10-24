@@ -53,6 +53,10 @@ class RoutePlaceSearch(
     @Volatile var moreFailed: Boolean = false
         private set
 
+    /** 첫 쪽 결과가 새로 들어올 때마다 오른다 — 화면이 목록을 맨 위로 되돌리는 신호다(이어 받기는 올리지 않는다). */
+    @Volatile var freshResults: Int = 0
+        private set
+
     /** 상태가 바뀔 때마다 불린다 — 화면이 다시 그리도록 한다(Compose 상태를 들지 않아 JVM 시험이 그대로 돌린다). */
     var onChange: (() -> Unit)? = null
 
@@ -78,6 +82,7 @@ class RoutePlaceSearch(
                     .onSuccess { page ->
                         keyword = wanted
                         results = page.items
+                        freshResults += 1
                         paging = Paging().advanced(received = page.items.size, total = page.total)
                         remember(page.items)
                         failure = null
