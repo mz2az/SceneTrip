@@ -30,12 +30,19 @@ SECRET_KEYS = {
     # SigNoz 관리자(admin@scenetrip.io) 비밀번호(ADR 0025). 배포가 환경당 한 번 만든다(deploy.signoz_root_password).
     # SigNoz 는 조직이 있어야 수집기에 설정을 내려준다 — 관리자가 없으면 수집기가 받는 포트를 열지 않아 trace 가 버려진다.
     "signoz": {"SIGNOZ_ROOT_PASSWORD"},
+    # Metabase(ADR 0027) — DB 계정 두 개의 암호와 Metabase 가 저장하는 연결 암호를 암호화하는 키. 배포가 환경당 한 번
+    # 만든다(deploy.metabase_secret). 사람은 첫 화면에서 DB 를 연결할 때 METABASE_RO_PASSWORD 만 꺼내 쓴다.
+    "metabase": {
+        "METABASE_APP_PASSWORD",
+        "METABASE_RO_PASSWORD",
+        "MB_ENCRYPTION_SECRET_KEY",
+    },
 }
 
 # 있어도 되고 없어도 되는 키. 없으면 배포는 성공하고 그 기능만 꺼진 채 뜬다.
 # 환경마다 Terraform 이 만드는 Secrets Manager 비밀값(/scenetrip/<env>/<이름, _ 는 ->). trip-guide 비밀값은 없앴다 —
 # Bedrock 을 Pod Identity 역할로 부른다(MZ2AZ-317). 배포의 되살리기(lifecycle)·가져오기(adopt)가 이 목록만 다룬다.
-APP_SECRETS = ("scene_api", "database", "auth", "signoz")
+APP_SECRETS = ("scene_api", "database", "auth", "signoz", "metabase")
 
 OPTIONAL_SECRET_KEYS = {
     # 애플 로그인 개인 키(.p8 PEM 의 base64). 사람이 애플에서 받아 와 넣는다(MZ2AZ-337).
@@ -71,6 +78,16 @@ SIGNOZ_DOMAINS = {"dev": "signoz-dev.scenetrip.io", "prd": "signoz.scenetrip.io"
 # SigNoz 를 올리는 환경(observability-aws.md §6). PRD 는 DEV 에서 설치·trace·화면·내리기를 확인한 뒤 더했다(2026-10-13).
 SIGNOZ_ENVIRONMENTS = ("dev", "prd")
 
+# Metabase(ADR 0027, docs/project/plans/metabase-prd.md §3-5) 공식 오픈소스 이미지를 환경 ECR 로 복사한 것 — 키: (원래 경로,
+# 태그). MODULE.bazel 의 `oci.pull(name = "mirror_metabase")`(digest 고정)가 같은 이미지를 받는다. 배포기는 없는 태그만 올린다.
+METABASE_MIRROR = {"mirror_metabase": ("metabase/metabase", "v0.64.3.4")}
+
+# Metabase 화면 주소. SigNoz 처럼 Cloudflare 프록시 + Access(허용 메일) 뒤에만 연다.
+METABASE_DOMAINS = {"dev": "metabase-dev.scenetrip.io", "prd": "metabase.scenetrip.io"}
+
+# Metabase 를 올리는 환경. 먼저 DEV 만 — PRD 는 앱 심사가 끝난 뒤 따로 확인을 받고 더한다.
+METABASE_ENVIRONMENTS = ("dev",)
+
 # 환경 ECR 저장소(`scenetrip-<env>/<이름>`). Terraform `local.repositories` 와 같아야 한다(시험이 대조). 배포·삭제 검사가
 # 모두 이 목록을 쓴다 — 저장소를 더할 때 여기 한 곳만 고친다.
 REPOSITORIES = {
@@ -79,6 +96,7 @@ REPOSITORIES = {
     "migration": "migration",
     "data_load": "data-load",
     **{key: f"mirror/{path}" for key, (path, _) in SIGNOZ_MIRROR.items()},
+    **{key: f"mirror/{path}" for key, (path, _) in METABASE_MIRROR.items()},
 }
 
 # 외부 토큰 암호화 키 길이(AES-256). scene-api 의 TokenCipher 와 같다.
@@ -87,6 +105,9 @@ TOKEN_ENCRYPTION_KEY_BYTES = 32
 # scene-api 의 AccessTokens 가 받는 최소 길이(HS256). 짧으면 서버가 기동을 멈추므로
 # 배포 단계에서 먼저 막는다.
 MIN_JWT_SECRET_BYTES = 32
+
+# Metabase 의 MB_ENCRYPTION_SECRET_KEY 최소 길이(Metabase 가 요구한다).
+MIN_METABASE_ENCRYPTION_KEY_CHARS = 16
 
 
 def matched(pattern, value, label):
@@ -192,6 +213,14 @@ def validate_secret(kind, value, environment=None):
             raise ValueError(
                 f"auth 암호화 키는 {TOKEN_ENCRYPTION_KEY_BYTES} 바이트여야 합니다"
             )
+    if (
+        kind == "metabase"
+        and len(value["MB_ENCRYPTION_SECRET_KEY"]) < MIN_METABASE_ENCRYPTION_KEY_CHARS
+    ):
+        # Metabase 는 이보다 짧은 연결 암호화 키를 받지 않는다.
+        raise ValueError(
+            f"Metabase 암호화 키는 {MIN_METABASE_ENCRYPTION_KEY_CHARS} 자 이상이어야 합니다"
+        )
     if kind == "scene_api" and "SCENETRIP_AUTH_APPLE_PRIVATE_KEY" in value:
         try:
             pem = base64.b64decode(

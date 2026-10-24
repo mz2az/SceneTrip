@@ -19,10 +19,14 @@ plan·apply·verify·cleanup과 서비스 삭제는 배포 역할 세션만 허�
   (`auth`)는 비어 있으면 한 번 만들어 저장하고 이후 다시 쓴다(`generated_once`) — 배포마다
   만들면 DB 접속이 끊기거나 로그인한 사람이 전부 로그아웃된다. 서명 키는 카카오 키와 함께
   `scene-api-secrets` 로 들어간다.
+  Metabase(ADR 0027, DEV 만 — `config.py` `METABASE_ENVIRONMENTS`)는 SigNoz 화면과 같은 모양이다 — 칸
+  `/scenetrip/<env>/metabase`(계정 암호 둘·암호화 키)를 한 번 만들어 DB 준비 Job 의 임시 Secret 에 계정 암호를 더하고,
+  마이그레이션 뒤 `platform/helm/metabase` 를 올리고(`install_metabase`), 인증서가 있으면 화면 ALB 를 연다(`expose_metabase`).
+  이미지 복사는 `aws.py` `mirror_metabase`, 내리기는 `destroy_gateway.py` `remove_metabase`.
 - `alb.py`: subnet·신뢰 CIDR 검증, NodeClass의 실제 보안 그룹 검사, Ingress 주소와
   AWS application ALB의 VPC·subnet·보안 그룹·healthy IP target 확인.
 - `lifecycle.py`: 올리기·내리기. runner EC2 전원, 삭제 예약 Secret 복원, 배포·삭제 workflow
-  호출과 대기, 새 ALB로 Cloudflare CNAME 갱신(DNS only). `dev-lifecycle.yml`이 실행한다.
+  호출과 대기, 새 ALB로 Cloudflare CNAME 갱신(API 는 DNS only, SigNoz·Metabase 화면은 프록시 켬). `dev-lifecycle.yml`이 실행한다.
 - `db-bootstrap.sh`: PostgreSQL 역할과 `C`/`C.UTF-8` DB·확장·권한 준비. `METABASE_RO_PASSWORD`·`METABASE_APP_PASSWORD` 가 둘 다 있으면 Metabase 계정도 만든다 — `metabase_ro`(스키마 `analytics` 만 읽기, 연결 5·질의 30 초·읽기 전용), `metabase_app`(별도 DB `metabase` 주인). ADR 0027
 - `tests/`: 잘못된 입력·계정 혼선·소스 격리·비밀값 전달·실패 정리·CLI 순서 회귀 검사.
 - `integration/`: 폐기 가능한 로컬 PostgreSQL·nginx 컨테이너로 DB 권한과 gateway 동작 검사.

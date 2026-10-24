@@ -330,9 +330,19 @@ class DataLoadPublishTest(unittest.TestCase):
                 ]
             }
         )
-        # SigNoz 복사본(ADR 0025)은 이미 ECR 에 있다 — 이 시험은 앱 이미지 push 만 본다.
+        # SigNoz(ADR 0025)·Metabase(ADR 0027) 복사본은 이미 ECR 에 있다 — 이 시험은 앱 이미지 push 만 본다.
+        from tools.aws.config import METABASE_MIRROR
+
         mirrored = json.dumps(
-            {"imageIds": [{"imageTag": tag} for unused, tag in SIGNOZ_MIRROR.values()]}
+            {
+                "imageIds": [
+                    {"imageTag": tag}
+                    for unused, tag in (
+                        *SIGNOZ_MIRROR.values(),
+                        *METABASE_MIRROR.values(),
+                    )
+                ]
+            }
         )
 
         def execute(command, **unused):

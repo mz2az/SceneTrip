@@ -17,6 +17,8 @@ from dataclasses import dataclass
 
 from tools.aws.config import (
     APP_SECRETS,
+    METABASE_DOMAINS,
+    METABASE_ENVIRONMENTS,
     SIGNOZ_DOMAINS,
     SIGNOZ_ENVIRONMENTS,
     Runner,
@@ -201,7 +203,7 @@ def restore_secrets(run, environment):
 
 def environment_alb(run, environment, group_name=None):
     """환경 ALB 의 DNS 이름 — Terraform 이 만든 전용 보안 그룹 이름으로 찾는다. 기본은 API ALB, SigNoz 화면은
-    `scenetrip-<env>-signoz-alb`(ADR 0025)."""
+    `scenetrip-<env>-signoz-alb`(ADR 0025), Metabase 화면은 `scenetrip-<env>-metabase-alb`(ADR 0027)."""
     groups = aws_json(
         run,
         "ec2",
@@ -262,7 +264,8 @@ class Cloudflare:
         if any(record["type"] != "CNAME" for record in records):
             raise ValueError(f"{domain}에 CNAME이 아닌 레코드가 있어 바꾸지 않습니다")
         # API 는 프록시를 끈다 — 켜면 ALB가 보는 접속자가 Cloudflare가 되어 허용 CIDR·XFF 신뢰가 깨진다.
-        # SigNoz 화면만 켠다 — Cloudflare Access 가 앞에서 허용 메일을 확인하고, ALB 는 Cloudflare 대역만 받는다(ADR 0025).
+        # SigNoz·Metabase 화면만 켠다 — Cloudflare Access 가 앞에서 허용 메일을 확인하고, ALB 는 Cloudflare 대역만 받는다
+        # (ADR 0025·0027).
         body = {
             "type": "CNAME",
             "name": domain,
@@ -376,6 +379,21 @@ def point_signoz(run, cloudflare, target):
     )
 
 
+def point_metabase(run, cloudflare, target):
+    """Metabase 화면 주소를 Metabase 전용 ALB 로(프록시 켬, ADR 0027). 화면 인증서가 없어 ALB 가 없으면 건너뛴다."""
+    if target.environment not in METABASE_ENVIRONMENTS:
+        return
+    balancer = environment_alb(
+        run, target.environment, f"scenetrip-{target.environment}-metabase-alb"
+    )
+    if not balancer:
+        print("Metabase 화면 ALB 가 없어 화면 주소를 바꾸지 않습니다")
+        return
+    cloudflare.point(
+        METABASE_DOMAINS[target.environment], balancer, target.region, proxied=True
+    )
+
+
 def up(run, github, cloudflare, target):
     start_runner(run, target.environment)
     restore_secrets(run, target.environment)
@@ -406,6 +424,7 @@ def up(run, github, cloudflare, target):
     if not pointed["value"]:
         raise RuntimeError("배포는 끝났지만 환경 ALB를 찾지 못했습니다")
     point_signoz(run, cloudflare, target)
+    point_metabase(run, cloudflare, target)
     # DEV 는 올릴 때마다 빈 DB 다 — 같은 커밋의 데이터를 넣는다(MZ2AZ-414). 같은 workflow 의 data-load 동작이라
     # 같은 concurrency 그룹·같은 OIDC 역할을 쓴다.
     loading = github.dispatch(

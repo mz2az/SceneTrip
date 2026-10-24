@@ -63,10 +63,14 @@ def live_cluster(run, settings, resources):
 
 
 def validate_alb(item, settings, resources):
-    # API ALB 와 SigNoz 화면 ALB(ADR 0025) — 각자 Terraform 의 전용 보안 그룹 하나만 단다.
+    # API ALB, SigNoz 화면 ALB(ADR 0025), Metabase 화면 ALB(ADR 0027) — 각자 Terraform 의 전용 보안 그룹 하나만 단다.
     groups = {
         resources.get(address, {}).get("id")
-        for address in ("aws_security_group.alb", "aws_security_group.signoz_alb")
+        for address in (
+            "aws_security_group.alb",
+            "aws_security_group.signoz_alb",
+            "aws_security_group.metabase_alb",
+        )
     } - {None}
     subnets = {
         value["id"]
@@ -98,8 +102,8 @@ def matching_albs(run, settings, resources):
     if not isinstance(candidates, list):
         raise TypeError("ALB 목록 형식이 올바르지 않습니다")
     matching = [item for item in candidates if item.get("VpcId") == vpc]
-    # API ALB 하나와 SigNoz 화면 ALB 하나까지 — 보안 그룹이 서로 달라야 한다.
-    if len(matching) > 2:
+    # API ALB 하나와 SigNoz·Metabase 화면 ALB 하나씩까지 — 보안 그룹이 서로 달라야 한다.
+    if len(matching) > 3:
         raise ValueError("선택한 VPC에 예상보다 많은 로드 밸런서가 있습니다")
     for item in matching:
         validate_alb(item, settings, resources)
@@ -163,6 +167,42 @@ def delete_signoz_ingress(run):
     )
 
 
+def get_metabase_ingress(run):
+    raw = run(
+        [
+            "kubectl",
+            "-n",
+            "metabase",
+            "get",
+            "ingress",
+            "metabase-ui",
+            "--ignore-not-found",
+            "-o",
+            "json",
+            "--request-timeout=15s",
+        ],
+        quiet=True,
+    )
+    return json.loads(raw) if raw.strip() else None
+
+
+def delete_metabase_ingress(run):
+    run(
+        [
+            "kubectl",
+            "-n",
+            "metabase",
+            "delete",
+            "ingress",
+            "metabase-ui",
+            "--ignore-not-found",
+            "--wait=false",
+            "--request-timeout=15s",
+        ],
+        quiet=True,
+    )
+
+
 def validate_ingress(ingress, settings, albs):
     if ingress is None:
         return
@@ -216,8 +256,9 @@ def wait_gateway_absent(run, settings, resources, timeout=GATEWAY_TIMEOUT):
     while True:
         ingress = get_ingress(run)
         signoz = get_signoz_ingress(run)
+        metabase = get_metabase_ingress(run)
         albs = matching_albs(run, settings, resources)
-        if ingress is None and signoz is None and not albs:
+        if ingress is None and signoz is None and metabase is None and not albs:
             return
         if time.monotonic() >= deadline:
             raise TimeoutError(
@@ -273,6 +314,8 @@ def remove_gateway(run, settings, resources):
         delete_ingress(run)
     # SigNoz 화면 ALB 도 클러스터가 살아 있을 때 컨트롤러가 지워야 한다 — 남으면 VPC 를 지우지 못한다.
     delete_signoz_ingress(run)
+    # Metabase 화면 ALB(ADR 0027)도 같은 까닭으로 여기서 지운다.
+    delete_metabase_ingress(run)
     wait_gateway_absent(run, settings, resources)
     if release:
         run(
@@ -290,6 +333,7 @@ def remove_gateway(run, settings, resources):
             quiet=True,
         )
     remove_signoz(run)
+    remove_metabase(run)
     print("Ingress·ALB 정리와 Helm 해제 확인 완료")
 
 
@@ -373,6 +417,45 @@ def remove_signoz(run, timeout=VOLUME_TIMEOUT):
             raise RuntimeError("SigNoz 디스크(PV)가 제한 시간 안에 지워지지 않았습니다")
         time.sleep(POLL_SECONDS)
     print("SigNoz 와 디스크 정리 확인 완료")
+
+
+def remove_metabase(run):
+    """Metabase(ADR 0027)를 Helm 으로 해제한다. 디스크(PVC)가 없어 정리할 디스크는 없다 — 설정·대시보드는 RDS 의 DB
+    `metabase` 에 있다. Metabase 를 올리지 않은 환경에서는 할 일이 없다."""
+    releases = json.loads(
+        run(
+            [
+                "helm",
+                "list",
+                "--namespace",
+                "metabase",
+                "--all",
+                "--filter",
+                "^metabase$",
+                "--output",
+                "json",
+            ],
+            quiet=True,
+        )
+    )
+    if not isinstance(releases, list) or len(releases) > 1:
+        raise ValueError("Metabase Helm release 목록을 하나로 식별하지 못했습니다")
+    if not releases:
+        return
+    run(
+        [
+            "helm",
+            "uninstall",
+            "metabase",
+            "--namespace",
+            "metabase",
+            "--wait",
+            "--timeout",
+            "5m",
+        ],
+        quiet=True,
+    )
+    print("Metabase 해제 확인 완료")
 
 
 def delete_ingress(run):

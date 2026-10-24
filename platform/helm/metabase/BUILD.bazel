@@ -1,0 +1,23 @@
+# Metabase on EKS(ADR 0027, docs/project/plans/metabase-prd.md §3-5). 차트는 저장소가 소유한다 — 부품이 하나라 외부 차트를
+# 쓰지 않는다. 배포기(tools/aws/deploy.py install_metabase)가 이 디렉터리를 `helm upgrade --install` 하고, 이미지 복사는
+# (tools/aws/aws.py mirror_metabase) `just run //platform/helm/metabase:mirror_metabase_push -- --repository … --tag …` 로 부른다.
+load("@rules_oci//oci:defs.bzl", "oci_push")
+
+package(default_visibility = ["//visibility:public"])
+
+# 배포기 시험(//tools/aws:unit_test)이 배포가 넘기는 values 그대로 차트를 그려 본다.
+filegroup(
+    name = "chart",
+    srcs = [
+        "Chart.yaml",
+        "values.yaml",
+    ] + glob(["templates/**"]),
+)
+
+oci_push(
+    name = "mirror_metabase_push",
+    # 배포 노드는 linux/amd64 — 호스트 플랫폼과 무관하게 그 이미지를 그대로 복사한다. 태그는 config.py METABASE_MIRROR.
+    image = "@mirror_metabase_linux_amd64",
+    repository = "localhost/scenetrip/mirror_metabase",
+    tags = ["manual"],
+)

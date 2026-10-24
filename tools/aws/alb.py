@@ -108,7 +108,7 @@ def aws_read(run, operation, *arguments):
     )
 
 
-def healthy_targets(run, arn):
+def healthy_targets(run, arn, port=8080):
     groups = aws_read(run, "describe-target-groups", "--load-balancer-arn", arn)[
         "TargetGroups"
     ]
@@ -116,14 +116,14 @@ def healthy_targets(run, arn):
         return False
     for group in groups:
         # IP target 그룹은 컨트롤러가 그룹 Port 를 자리표시자 1 로 두고 실제 포트는 타깃마다
-        # 등록한다. 그룹 Port 가 아니라 등록된 각 타깃의 Port 로 gateway 8080 을 확인한다.
+        # 등록한다. 그룹 Port 가 아니라 등록된 각 타깃의 Port 로 백엔드 포트(gateway 8080, Metabase 3000)를 확인한다.
         if (group["TargetType"], group["Protocol"]) != ("ip", "HTTP"):
-            raise ValueError("ALB backend는 gateway IP target HTTP:8080이어야 합니다")
+            raise ValueError(f"ALB backend는 IP target HTTP:{port}이어야 합니다")
         targets = aws_read(
             run, "describe-target-health", "--target-group-arn", group["TargetGroupArn"]
         )["TargetHealthDescriptions"]
-        if any(target.get("Target", {}).get("Port") != 8080 for target in targets):
-            raise ValueError("ALB backend는 gateway IP target HTTP:8080이어야 합니다")
+        if any(target.get("Target", {}).get("Port") != port for target in targets):
+            raise ValueError(f"ALB backend는 IP target HTTP:{port}이어야 합니다")
         if not targets or any(
             target["TargetHealth"]["State"] != "healthy" for target in targets
         ):
@@ -131,7 +131,9 @@ def healthy_targets(run, arn):
     return True
 
 
-def application_ready(run, settings, outputs, hostname, group="alb_security_group_id"):
+def application_ready(
+    run, settings, outputs, hostname, group="alb_security_group_id", port=8080
+):
     matched(
         rf"[a-zA-Z0-9.-]+\.{settings.region}\.elb\.amazonaws\.com",
         hostname,
@@ -161,7 +163,9 @@ def application_ready(run, settings, outputs, hostname, group="alb_security_grou
     )
     if load_balancer["State"]["Code"] == "failed":
         raise RuntimeError("AWS ALB 생성이 failed 상태입니다")
-    return load_balancer["State"]["Code"] == "active" and healthy_targets(run, arn)
+    return load_balancer["State"]["Code"] == "active" and healthy_targets(
+        run, arn, port
+    )
 
 
 def wait_for_alb(run, settings, outputs, timeout=600):
@@ -222,4 +226,42 @@ def wait_for_signoz_alb(run, settings, outputs, timeout=600):
         time.sleep(POLL_SECONDS)
     raise TimeoutError(
         "SigNoz 화면 ALB 주소·active·대상 healthy 대기 시간을 초과했습니다"
+    )
+
+
+def wait_for_metabase_alb(run, settings, outputs, timeout=600):
+    """Metabase 화면 ALB(ADR 0027)가 active 이고 metabase:3000 대상이 healthy 일 때까지 — SigNoz 화면과 같은 검사,
+    보안 그룹과 대상 포트(3000)만 다르다."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        raw = run(
+            [
+                "kubectl",
+                "-n",
+                "metabase",
+                "get",
+                "ingress",
+                "metabase-ui",
+                "-o",
+                "json",
+                "--request-timeout=15s",
+            ],
+            quiet=True,
+        )
+        endpoints = (
+            json.loads(raw).get("status", {}).get("loadBalancer", {}).get("ingress", [])
+        )
+        hostname = endpoints[0].get("hostname", "") if endpoints else ""
+        if hostname and application_ready(
+            run,
+            settings,
+            outputs,
+            hostname,
+            group="metabase_alb_security_group_id",
+            port=3000,
+        ):
+            return hostname
+        time.sleep(POLL_SECONDS)
+    raise TimeoutError(
+        "Metabase 화면 ALB 주소·active·대상 healthy 대기 시간을 초과했습니다"
     )
