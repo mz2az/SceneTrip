@@ -205,7 +205,9 @@ fun MapControl(
 @Composable
 fun NearbyButton(
     on: Boolean,
-    count: Int,
+    // 지금 받아 둔 장소 수와 서버가 아는 전체 수. 상한에 걸려 일부만 받았으면 「486곳 중 200곳」 이다.
+    loaded: Int,
+    total: Int,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -227,7 +229,7 @@ fun NearbyButton(
             ArrowClockwiseIcon(IOS.label, Modifier.size(14.dp))
         }
         Text(
-            text = if (on) tr("이 지도에서 %d곳 · 해제").format(count) else tr("현 지도 내 성지 검색"),
+            text = if (on) NearbyLabel.text(loaded, total) else tr("현 지도 내 성지 검색"),
             style = IOS.subheadline.copy(fontWeight = FontWeight.Medium),
             color = if (on) IOS.systemBackground else IOS.label,
         )

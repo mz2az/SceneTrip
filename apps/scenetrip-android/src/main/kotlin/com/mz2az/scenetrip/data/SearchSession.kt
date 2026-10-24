@@ -65,7 +65,7 @@ class SearchSession(
         usage: SearchUsageIntent? = null,
     ) {
         lastCall = { search(query) }
-        reset(false)
+        reset()
         this.query = query.trim().ifEmpty { null }
         contentQuery = this.query
         bbox = null
@@ -101,7 +101,7 @@ class SearchSession(
         source: CoordinateSource = CoordinateSource.DEVICE,
     ) {
         lastCall = { searchInViewport(bbox, source) }
-        reset(true)
+        reset()
         this.bbox = bbox
         bboxSource = source
         query = null
@@ -195,7 +195,7 @@ class SearchSession(
         return false
     }
 
-    private fun reset(viewportOnly: Boolean) {
+    private fun reset() {
         generation++
         request?.cancel()
         moreWorks?.cancel()
@@ -204,8 +204,8 @@ class SearchSession(
             state.copy(
                 phase = SearchPhase.LOADING,
                 failure = null,
-                contentPaging = if (viewportOnly) state.contentPaging else Paging(),
-                placePaging = Paging(),
+                // 받아 둔 개수는 새 결과가 올 때까지 그대로 둔다 — 실패해도 남은 목록과 총수가 어긋나지 않는다(iOS `resetPlacePaging` 은
+                // 진행 중인 이어 받기만 끊는다). 로딩 중에는 이어 받기가 없다(`phase`).
                 loadingMoreContents = false,
                 loadingMorePlaces = false,
                 moreContentsFailed = false,

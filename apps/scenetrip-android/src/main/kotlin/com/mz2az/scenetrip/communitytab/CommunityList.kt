@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,11 +43,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.CommunityPhotoRefresh
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.ModerationController
 import com.mz2az.scenetrip.data.ModerationRules
 import com.mz2az.scenetrip.data.ModerationTarget
+import com.mz2az.scenetrip.data.PhotoRenewal
+import com.mz2az.scenetrip.data.PhotoRenewalRules
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.reviews.ModerationMenu
 import com.mz2az.scenetrip.reviews.ModerationSheets
@@ -275,7 +279,7 @@ private fun CommunityPostRow(
                 val bitmap = post.photos?.firstOrNull()?.let { remember(it) { store.photo(it) } }
                 val photoModifier = Modifier.size(76.dp).clip(RoundedCornerShape(12.dp))
                 if (remote != null) {
-                    RemoteImage(remote, photoModifier, retryable = true)
+                    CommunityCoverPhoto(post, store, photoModifier)
                 } else if (bitmap != null) {
                     Image(bitmap.asImageBitmap(), null, photoModifier, contentScale = ContentScale.Crop)
                 }
@@ -291,6 +295,43 @@ private fun CommunityPostRow(
             )
         }
     }
+}
+
+/**
+ * 목록 줄의 대표 사진. 주소가 죽으면(한 시간) 그 글의 상세를 다시 읽어 새 주소로 바꾼다(MZ2AZ-477, iOS `CommunityCoverPhoto`).
+ * 줄마다 따로 갱신하므로 한 줄의 실패가 다른 줄을 건드리지 않는다. 사진마다 저절로 한 번만 청하고, 「다시 시도」 는 언제든 된다.
+ */
+@Composable
+private fun CommunityCoverPhoto(
+    post: CommunityPost,
+    store: CommunityStore,
+    modifier: Modifier,
+) {
+    val scope = rememberCoroutineScope()
+    var refreshed by remember(post.id) { mutableStateOf<CommunityPost?>(null) }
+    val refresh =
+        remember(post.id) {
+            CommunityPhotoRefresh(post, { AuthStore.epoch }, { store.detail(it) }, PhotoRenewal(scope)) { refreshed = it }
+        }
+    // 목록을 다시 받아 주소가 바뀌었으면 그 글을 기준으로 다시 시작한다.
+    LaunchedEffect(post.remotePhotos) { refresh.show(post) }
+    DisposableEffect(refresh) { onDispose { refresh.cancelPending() } }
+    val url = (refreshed ?: post).remotePhotos.firstOrNull() ?: return
+    val objectKey = PhotoRenewalRules.unsigned(url)
+    var renewedFor by remember(objectKey) { mutableStateOf(false) }
+    RemoteImage(
+        url,
+        modifier,
+        cacheKey = objectKey,
+        retryable = true,
+        onFailure = {
+            if (PhotoRenewalRules.renewsAfterFailure(true, renewedFor)) {
+                renewedFor = true
+                scope.launch { refresh.renew(false) }
+            }
+        },
+        onRetry = { scope.launch { refresh.renew(true) } },
+    )
 }
 
 private fun relativeTime(millis: Long): String {

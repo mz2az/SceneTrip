@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Warning
@@ -28,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -38,7 +40,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.auth.AuthStore
@@ -49,6 +53,7 @@ import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.CoordinateSource
 import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.LocationConsentStore
+import com.mz2az.scenetrip.data.PlaceWorks
 import com.mz2az.scenetrip.data.SceneData
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.data.requestLocation
@@ -88,6 +93,7 @@ fun SearchTabScreen() {
     val density = LocalDensity.current
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
     // 검색바는 상태바 **아래**에 놓이므로, 시트가 멈출 자리도 그만큼 내려간다.
     // iOS 는 안전영역 안에서 계산해 172pt 에서 멈추는데, 이것을 빼먹어 안드로이드
@@ -139,8 +145,22 @@ fun SearchTabScreen() {
     //
     // ✕ 로 지울 때도 켠다 — 4 차에 안드로이드만 직전 검색지에 머물러 있었다.
     var pendingFit by remember { mutableStateOf(false) }
+
+    // 자동완성에서 **장소**를 골랐다 — 결과가 오면 이 장소를 선택하고 확대한다(iOS `pendingFocusPlaceId`).
+    var pendingFocusPlaceId by remember { mutableStateOf<Long?>(null) }
+
+    // 값이 오르면 선택한 장소로 다시 확대한다. 같은 핀을 또 눌러도 움직인다(iOS `focusToken`).
+    var focusToken by remember { mutableIntStateOf(0) }
     var showCart by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
+
+    // 검색을 마친다 — 패널을 닫고 **입력 포커스도 푼다.** iOS 는 `searchFocused = false` 한 줄이 둘 다 한다. 포커스를 남기면
+    // 키보드가 없는데 검색창에 커서만 깜빡인다.
+    fun endSearching() {
+        searching = false
+        focusManager.clearFocus()
+        keyboard?.hide()
+    }
     var suggestions by remember { mutableStateOf<List<Suggestion>>(emptyList()) }
 
     // 자동완성 맨 위에 포스터와 함께 띄우는 **가장 연관된 작품**. 랭킹은 서버가
@@ -165,7 +185,11 @@ fun SearchTabScreen() {
 
     LaunchedEffect(Unit) { data.search("") }
     // 계정이 바뀌면 장바구니가 다른 사람 것이다 — iOS `.onAccountChange`.
-    LaunchedEffect(AuthStore.epoch) { cart.refresh() }
+    // 이전 계정의 담긴 것은 먼저 비운다 — 새 계정의 조회가 늦거나 실패해도 되살아나지 않는다(iOS `AccountDataReset`).
+    LaunchedEffect(AuthStore.epoch) {
+        cart.reset()
+        cart.refresh()
+    }
 
     // 홈의 "지금 뜨는 작품"/"오늘의 성지" 카드가 남긴 쪽지 — 받으면 곧장 지우는
     // 한 번짜리다. 남겨 두면 이 탭에 다시 올 때마다 같은 상세가 또 열린다.
@@ -195,7 +219,7 @@ fun SearchTabScreen() {
             tab = ListTab.WORK
             chip = CategoryChip.ALL
             nearby = false
-            searching = false
+            endSearching()
             detent = Detent.MEDIUM
             keyboard?.hide()
             data.search("")
@@ -231,6 +255,7 @@ fun SearchTabScreen() {
             selectedContent = null
             selectedScene = null
             selectedPlace = it
+            focusToken++
             TabRouter.pendingPlace = null
         }
     }
@@ -302,22 +327,25 @@ fun SearchTabScreen() {
     // 드릴다운하면 그 작품의 촬영지가 **한 화면에 다 들어오게** 맞춘다. iOS 가
     // `fitToken` 을 올리는 자리다 — 도깨비 촬영지 57곳이 전국에 흩어져 있어
     // 서울 그대로면 목록의 대부분이 화면 밖이다.
-    // 장소를 열면 그 장소로 **확대**하고, 닫으면 원래 보던 범위로 돌아간다.
-    // iOS 의 focusToken / fitToken 이 하는 일이다.
-    LaunchedEffect(selectedPlace) {
+    // 장소를 열면 그 장소로 **확대**하고(focusToken), 닫으면 원래 보던 범위로 돌아간다(fitToken).
+    // 상세를 닫는 순간에만 올린다 — 「현 지도 내 성지 검색」 이 열려 있던 상세를 치우는 것은 카메라를 옮기지 않는다.
+    LaunchedEffect(focusToken) {
         val target = map ?: return@LaunchedEffect
-        val place = selectedPlace
-        if (place != null) {
-            target.zoomTo(place, density, screenHeight, sheetHeight, SEARCH_BAR_INSET + statusBar)
-        } else {
-            target.fit(
-                if (selectedContent != null) contentPlaces else visiblePlaces,
-                density,
-                screenHeight,
-                sheetHeight,
-                searchBarInset = SEARCH_BAR_INSET + statusBar,
-            )
-        }
+        val place = selectedPlace ?: return@LaunchedEffect
+        target.zoomTo(place, density, screenHeight, sheetHeight, SEARCH_BAR_INSET + statusBar)
+    }
+
+    var fitToken by remember { mutableIntStateOf(0) }
+    LaunchedEffect(fitToken) {
+        if (fitToken == 0) return@LaunchedEffect
+        val target = map ?: return@LaunchedEffect
+        target.fit(
+            if (selectedContent != null) contentPlaces else visiblePlaces,
+            density,
+            screenHeight,
+            sheetHeight,
+            searchBarInset = SEARCH_BAR_INSET + statusBar,
+        )
     }
 
     LaunchedEffect(contentPlaces) {
@@ -327,9 +355,41 @@ fun SearchTabScreen() {
 
     // 검색을 확정하면 결과 범위로 맞춘다. **결과가 도착한 뒤**여야 한다 — 확정
     // 즉시 맞추면 직전 검색의 핀 범위로 맞춰지고, 새 핀이 와도 카메라는 그대로다.
-    LaunchedEffect(data.places) {
-        if (!pendingFit || data.places.isEmpty()) return@LaunchedEffect
+    //
+    // 결과가 비어도 기다림은 끝난다 — 남겨 두면 다음 「현 지도 내 성지 검색」 결과가 와서 카메라를 옮긴다.
+    LaunchedEffect(data.listSerial) {
+        if (!pendingFit || data.phase != SceneData.Phase.LOADED) return@LaunchedEffect
         pendingFit = false
+        // 자동완성에서 장소를 골라 들어왔으면 결과 전체가 아니라 **그 장소**로 바로 확대하고 상세를 연다.
+        val wanted = pendingFocusPlaceId
+        if (wanted != null) {
+            pendingFocusPlaceId = null
+            val found = data.places.firstOrNull { it.id == wanted }
+            if (found != null) {
+                selectedPlace = found
+                focusToken++
+                return@LaunchedEffect
+            }
+            // 받아 둔 첫 쪽에 없을 수 있다(흔한 이름이면 결과가 한 쪽을 넘는다) — 그 곳을 직접 받는다(MZ2AZ-372).
+            // 못 받으면 결과 전체에 맞춘 화면 그대로 둔다.
+            data.placeDetail(wanted).onSuccess { detail ->
+                if (selectedPlace == null && selectedContent == null) {
+                    selectedPlace =
+                        PlaceSummary(
+                            id = detail.id,
+                            name = detail.name,
+                            type = detail.type,
+                            address = detail.address,
+                            latitude = detail.latitude,
+                            longitude = detail.longitude,
+                            imageUrl = detail.imageUrl,
+                            // 상세의 작품은 `scenes` 에 있다 — `contents` 는 서버가 비워 준다(`PlaceWorks`).
+                            contents = PlaceWorks.refs(detail.scenes, detail.contents),
+                        )
+                    focusToken++
+                }
+            }
+        }
         map?.fit(visiblePlaces, density, screenHeight, sheetHeight, SEARCH_BAR_INSET + statusBar)
     }
 
@@ -343,9 +403,12 @@ fun SearchTabScreen() {
         source: CoordinateSource,
     ) {
         nearby = true
+        endSearching()
         draft = ""
         committed = ""
+        selectedPlace = null
         selectedContent = null
+        contentPlaces = emptyList()
         tab = ListTab.PLACE
         chip = CategoryChip.ALL
         detent = Detent.MEDIUM
@@ -358,6 +421,20 @@ fun SearchTabScreen() {
         val bbox = "${box.westLongitude},${box.southLatitude},${box.eastLongitude},${box.northLatitude}"
         val source = target.regionSource.source
         locationGate.requestLocation(source) { applyViewportSearch(bbox, source) }
+    }
+
+    // 담기 — 목록 행의 `+` 는 토글이다. 이미 담긴 장소면 뺀다. 지도를 옮기는 것은 담을 때만이다
+    // (뺄 때 옮기면 사라진 것을 보여 주는 꼴). 줌은 그대로 두고 그 핀이 가운데 오게 **이동만** 한다(iOS `panToken`).
+    fun save(
+        place: PlaceSummary,
+        sourceContentId: Long? = null,
+    ) {
+        if (cart.contains(place.id)) {
+            scope.launch { cart.remove(place.id) }
+            return
+        }
+        scope.launch { cart.add(place.id, sourceContentId) }
+        map?.centerOn(place)
     }
 
     fun commit(
@@ -380,7 +457,7 @@ fun SearchTabScreen() {
         // **열려 있던 상세도 닫는다.** 이걸 빠뜨려서 촬영지 상세를 연 채 검색하면
         // 지도와 검색어만 바뀌고 시트는 그 상세에 남아 있었다(6 차 검사).
         selectedPlace = null
-        searching = false
+        endSearching()
         keyboard?.hide()
         detent = Detent.MEDIUM
         data.commitSearch(
@@ -413,8 +490,12 @@ fun SearchTabScreen() {
                 selectedPlace = place
                 if (selectedContent == null) tab = ListTab.PLACE
                 detent = Detent.MEDIUM
+                focusToken++
             },
+            spreadOverlapping = true,
         )
+        // 「내 위치」 의 레이더 파문 — 지도 위, 시트 아래.
+        MyLocationPulse(map)
 
         BottomSheet(
             detent = detent,
@@ -439,7 +520,10 @@ fun SearchTabScreen() {
                         summary = selectedPlace!!,
                         saved = cart.contains(selectedPlace!!.id),
                         detailOf = { data.placeDetail(it) },
-                        onBack = { selectedPlace = null },
+                        onBack = {
+                            selectedPlace = null
+                            fitToken++
+                        },
                         onOpenScene = { selectedScene = it },
                         onToggleSave = {
                             val place = selectedPlace!!
@@ -467,23 +551,17 @@ fun SearchTabScreen() {
                         onBack = {
                             selectedContent = null
                             contentPlaces = emptyList()
+                            fitToken++
                         },
-                        onSelectPlace = { selectedPlace = it },
+                        onSelectPlace = {
+                            selectedPlace = it
+                            focusToken++
+                        },
                         liked = likes.contains(selectedContent!!.id),
                         onToggleLike = { likes.toggle(selectedContent!!.id) },
-                        onSave = { place ->
-                            val source = selectedContent?.id
-                            scope.launch {
-                                // **어느 작품 때문에 담았는지 함께 보낸다** — 같은
-                                // 장소가 여러 작품에 나오므로 이것이 없으면 나중에
-                                // 되짚을 수 없다 (MZ2AZ-208).
-                                if (cart.contains(place.id)) {
-                                    cart.remove(place.id)
-                                } else {
-                                    cart.add(place.id, source)
-                                }
-                            }
-                        },
+                        // **어느 작품 때문에 담았는지 함께 보낸다** — 같은 장소가 여러 작품에 나오므로
+                        // 이것이 없으면 나중에 되짚을 수 없다 (MZ2AZ-208).
+                        onSave = { place -> save(place, selectedContent?.id) },
                     )
                 }
 
@@ -504,16 +582,15 @@ fun SearchTabScreen() {
                         saved = { cart.contains(it) },
                         liked = { likes.contains(it) },
                         onToggleLike = { likes.toggle(it) },
-                        onSelectPlace = { selectedPlace = it },
+                        onSelectPlace = {
+                            selectedPlace = it
+                            focusToken++
+                        },
                         onOpenContent = { content ->
                             openContent(content)
                             detent = Detent.MEDIUM
                         },
-                        onAdd = { place ->
-                            scope.launch {
-                                if (cart.contains(place.id)) cart.remove(place.id) else cart.add(place.id)
-                            }
-                        },
+                        onAdd = { place -> save(place) },
                     )
                 }
             }
@@ -521,7 +598,7 @@ fun SearchTabScreen() {
 
         // 검색 중에는 지도·시트를 스크림으로 덮는다 — 패널 밖을 누르면 닫힌다.
         if (searching) {
-            SearchScrim(onDismiss = { searching = false })
+            SearchScrim(onDismiss = { endSearching() })
         }
 
         Column(modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding()) {
@@ -541,7 +618,7 @@ fun SearchTabScreen() {
                 // 고쳤으므로(SearchOverlays) 이제 iOS 와 같이 닫아도 된다.
                 onClear = {
                     commit("")
-                    searching = false
+                    endSearching()
                 },
                 onOpenCart = { showCart = true },
                 onFocus = { searching = true },
@@ -557,14 +634,18 @@ fun SearchTabScreen() {
                         // 검색어를 작품명으로 바꾸지 않고 **바로 상세로** 들어간다.
                         // 치환하면 뒤로 갔을 때 검색어에 작품명이 남아 원래 결과로
                         // 돌아갈 수 없다 (iOS 가 겪고 폐기한 구현이다).
-                        searching = false
+                        endSearching()
                         keyboard?.hide()
                         openContent(work.toSummary())
                     },
+                    // 검색을 확정하되 **장소 탭으로 넘어가고**, 결과가 도착하면 그 장소를 바로 선택·확대한다
+                    // — 작품 탭에 남아 있으면 고른 것과 무관한 작품이 보인다.
                     onSelectPlace = { item ->
-                        searching = false
+                        endSearching()
                         keyboard?.hide()
                         commit(item.name, EntityType.place)
+                        tab = ListTab.PLACE
+                        pendingFocusPlaceId = item.id
                     },
                 )
             } else if (!searching) {
@@ -576,10 +657,12 @@ fun SearchTabScreen() {
                 ) {
                     NearbyButton(
                         on = nearby,
-                        count = data.placePaging.shownTotal(data.places.size),
+                        loaded = data.places.size,
+                        total = data.placePaging.shownTotal(data.places.size),
                         onToggle = {
                             if (nearby) {
                                 nearby = false
+                                endSearching()
                                 draft = ""
                                 committed = ""
                                 chip = CategoryChip.ALL
@@ -711,6 +794,16 @@ internal fun ErrorView(
                         .clickable(onClick = onRetry)
                         .padding(horizontal = 18.dp, vertical = 8.dp),
             )
+        }
+        // 500 응답에만 실린다. 사용자가 이 문자열 하나를 알려 주면 서버 쪽에서 그 요청을 찾는다.
+        failure?.traceId?.let { traceId ->
+            SelectionContainer {
+                Text(
+                    text = traceId,
+                    style = IOS.caption2.copy(fontFamily = FontFamily.Monospace),
+                    color = IOS.tertiaryLabel,
+                )
+            }
         }
     }
 }

@@ -15,6 +15,8 @@ data class NetworkFailure(
     val status: Int?,
     val code: String?,
     val retryAfter: Int?,
+    /** 오류 본문의 `traceId`. 500 응답에만 실린다. */
+    val traceId: String? = null,
 ) {
     val message: String get() =
         tr(
@@ -75,7 +77,7 @@ data class NetworkFailure(
                     ?.value
                     ?.firstOrNull()
                     ?.toIntOrNull()
-            return NetworkFailure(api?.statusCode, AuthRules.apiCode(body), retry)
+            return NetworkFailure(api?.statusCode, AuthRules.apiCode(body), retry, AuthRules.traceId(body))
         }
     }
 }
