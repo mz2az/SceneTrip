@@ -30,13 +30,18 @@ def ecr_registry(settings):
 
 
 def mirror_urls(settings):
-    """Terraform `ecr_repository_urls` 의 SigNoz 복사 저장소 주소(선택한 계정·환경)."""
+    """Terraform `ecr_repository_urls` 의 복사 저장소 주소(SigNoz·Metabase, 선택한 계정·환경)."""
     from tools.aws.config import SIGNOZ_MIRROR
 
-    return {
+    urls = {
         key: f"{ecr_registry(settings)}/scenetrip-{settings.environment}/mirror/{path}"
         for key, (path, _) in SIGNOZ_MIRROR.items()
     }
+    # Metabase 복사 저장소(ADR 0027, metabase-prd.md §3-5) — Terraform 출력에 늘 있다(환경과 무관하게 만든다).
+    urls["mirror_metabase"] = (
+        f"{ecr_registry(settings)}/scenetrip-{settings.environment}/mirror/metabase/metabase"
+    )
+    return urls
 
 
 def is_scenetrip_helm(command):
@@ -45,3 +50,7 @@ def is_scenetrip_helm(command):
 
 def is_signoz_helm(command):
     return command[:4] == ["helm", "upgrade", "--install", "signoz"]
+
+
+def is_metabase_helm(command):
+    return command[:4] == ["helm", "upgrade", "--install", "metabase"]

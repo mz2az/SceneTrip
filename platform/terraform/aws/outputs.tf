@@ -85,3 +85,9 @@ output "signoz_alb_security_group_id" {
 output "signoz_certificate_arn" {
   value = var.signoz_certificate_arn
 }
+output "metabase_alb_security_group_id" {
+  value = aws_security_group.metabase_alb.id
+}
+output "metabase_certificate_arn" {
+  value = var.metabase_certificate_arn
+}

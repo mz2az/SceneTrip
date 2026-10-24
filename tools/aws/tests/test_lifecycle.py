@@ -27,13 +27,20 @@ TARGET = Target(
 )
 ALB = "k8s-scenetri-gateway-abc-123.ap-northeast-2.elb.amazonaws.com"
 SIGNOZ_ALB = "k8s-signoz-signozui-def-456.ap-northeast-2.elb.amazonaws.com"
+METABASE_ALB = "k8s-metabase-metabase-ghi-789.ap-northeast-2.elb.amazonaws.com"
 
 
 class FakeAws:
     """명령 앞부분으로 응답을 고르고 호출 순서를 기록한다."""
 
     def __init__(
-        self, state="stopped", instances=1, secrets=(), alb_after=0, signoz=False
+        self,
+        state="stopped",
+        instances=1,
+        secrets=(),
+        alb_after=0,
+        signoz=False,
+        metabase=False,
     ):
         self.state = state
         self.instances = instances
@@ -41,6 +48,8 @@ class FakeAws:
         self.alb_after = alb_after
         # SigNoz 화면 ALB(ADR 0025) — 기본은 없다(화면 인증서를 비운 환경).
         self.signoz = signoz
+        # Metabase 화면 ALB(ADR 0027) — 기본은 없다.
+        self.metabase = metabase
         self.alb_queries = 0
         self.calls = []
 
@@ -66,6 +75,9 @@ class FakeAws:
             if any(part.endswith("-signoz-alb") for part in command):
                 groups = [{"GroupId": "sg-0signoz"}] if self.signoz else []
                 return json.dumps({"SecurityGroups": groups})
+            if any(part.endswith("-metabase-alb") for part in command):
+                groups = [{"GroupId": "sg-0metabase"}] if self.metabase else []
+                return json.dumps({"SecurityGroups": groups})
             return json.dumps({"SecurityGroups": [{"GroupId": "sg-0alb"}]})
         if key == ("elbv2", "describe-load-balancers"):
             self.alb_queries += 1
@@ -81,6 +93,11 @@ class FakeAws:
                     "DNSName": SIGNOZ_ALB,
                     "Type": "application",
                     "SecurityGroups": ["sg-0signoz"],
+                },
+                {
+                    "DNSName": METABASE_ALB,
+                    "Type": "application",
+                    "SecurityGroups": ["sg-0metabase"],
                 },
             ]
             return json.dumps({"LoadBalancers": balancers if ready else balancers[1:]})
