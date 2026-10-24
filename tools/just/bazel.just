@@ -192,21 +192,21 @@ android-route-font-qa-test:
     "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" install -r bazel-bin/apps/scenetrip-android/scene_photo_qa.apk
     bash ./tools/scripts/android-route-font-qa-test.sh
 
-# 제품 계정·API 없이 닉네임 UI의 모의 응답 확인 (edit/welcome/busy/stale/failure, ko/en, light/dark)
+# 제품 계정·API 없이 닉네임 UI의 모의 응답 확인 (edit/welcome/busy/stale/failure, ko/en)
 [group('build')]
-android-nickname-qa kind="edit" language="ko" theme="light":
+android-nickname-qa kind="edit" language="ko":
     {{BAZEL}} build //apps/scenetrip-android:scene_photo_qa
     "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" install -r bazel-bin/apps/scenetrip-android/scene_photo_qa.apk
     "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am force-stop com.mz2az.scenetrip.qa
-    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am start -n com.mz2az.scenetrip.qa/.NicknameQaActivity --es qaCase {{quote(kind)}} --es language {{quote(language)}} --es theme {{quote(theme)}}
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am start -n com.mz2az.scenetrip.qa/.NicknameQaActivity --es qaCase {{quote(kind)}} --es language {{quote(language)}}
 
 # 별도 QA 앱에서 합성 블로그 작성/읽기/옛 글/재시도/대기/실패를 확인 (사진 시험 서버 필요)
 [group('build')]
-android-community-blog-qa kind="compose" language="ko" theme="light":
+android-community-blog-qa kind="compose" language="ko":
     {{BAZEL}} build //apps/scenetrip-android:scene_photo_qa
     "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" install -r bazel-bin/apps/scenetrip-android/scene_photo_qa.apk
     "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am force-stop com.mz2az.scenetrip.qa
-    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am start -n com.mz2az.scenetrip.qa/.CommunityBlogQaActivity --es qaCase {{quote(kind)}} --es language {{quote(language)}} --es theme {{quote(theme)}}
+    "${ANDROID_HOME:?Android SDK 경로가 필요합니다}/platform-tools/adb" shell am start -n com.mz2az.scenetrip.qa/.CommunityBlogQaActivity --es qaCase {{quote(kind)}} --es language {{quote(language)}}
 
 # 별도 QA 설치본의 세로 대표 사진 실제 픽셀 회귀 검사 (사진 시험 서버 필요, 글자 배율 복원)
 [group('build')]

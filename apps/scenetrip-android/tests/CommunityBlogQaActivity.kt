@@ -11,8 +11,6 @@ import com.mz2az.scenetrip.communitytab.CommunityComposeView
 import com.mz2az.scenetrip.communitytab.CommunityPhotoSource
 import com.mz2az.scenetrip.communitytab.CommunityPostView
 import com.mz2az.scenetrip.data.AppLanguage
-import com.mz2az.scenetrip.data.AppThemeMode
-import com.mz2az.scenetrip.data.AppThemeStore
 import com.mz2az.scenetrip.data.CommunityArticle
 import com.mz2az.scenetrip.data.CommunityPhotoPlacement
 import com.mz2az.scenetrip.data.CommunityPost
@@ -31,7 +29,6 @@ class CommunityBlogQaActivity : ComponentActivity() {
         val language = if (intent.getStringExtra("language") == "en") "en" else "ko"
         getSharedPreferences("scenetrip", MODE_PRIVATE).edit().putString("scenetrip.language", language).apply()
         AppLanguage.getInstance(this)
-        AppThemeStore.getInstance(this).choose(if (intent.getStringExtra("theme") == "dark") AppThemeMode.DARK else AppThemeMode.LIGHT)
         val url =
             when (kind) {
                 "retry" -> "http://10.0.2.2:8898/flaky.png?case=${System.nanoTime()}"

@@ -65,6 +65,7 @@ class FootprintStore private constructor(
 
     /** 마이페이지의 「지도에 발자취 보기」 설정 — 꺼 두면 지도에 단추도 발자국도 없다. */
     var enabled by mutableStateOf(false)
+        private set
 
     /**
      * 여행 지도의 발자취 단추가 켜져 있는가. 단추는 [enabled]일 때만 있다. 기본은 켜짐 —
@@ -79,24 +80,26 @@ class FootprintStore private constructor(
     private val prefs = context.getSharedPreferences("scenetrip", Context.MODE_PRIVATE)
 
     private val session =
-        FootprintRecording(load(), prefs.getBoolean(RECORDING_KEY, false)) {
+        FootprintRecording(load(), prefs.getBoolean(RECORDING_KEY, false), prefs.getBoolean(ENABLED_KEY, false)) {
             points = it.points
             recording = it.recording
+            enabled = it.enabled
             persist()
-            prefs.edit().putBoolean(RECORDING_KEY, recording).apply()
+            prefs
+                .edit()
+                .putBoolean(RECORDING_KEY, recording)
+                .putBoolean(ENABLED_KEY, enabled)
+                .apply()
         }
 
     init {
         recording = session.state.recording
-        enabled = prefs.getBoolean(ENABLED_KEY, false)
+        enabled = session.state.enabled
         trailVisible = prefs.getBoolean(TRAIL_KEY, true)
         points = session.state.points
     }
 
-    fun updateEnabled(value: Boolean) {
-        enabled = value
-        prefs.edit().putBoolean(ENABLED_KEY, value).apply()
-    }
+    fun updateEnabled(value: Boolean) = session.setEnabled(value)
 
     fun updateTrailVisible(value: Boolean) {
         trailVisible = value

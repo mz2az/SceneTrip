@@ -4,6 +4,7 @@ import com.mz2az.scenetrip.hometab.HomeShelf
 import com.mz2az.scenetrip.sceneapi.client.model.ContentCategory
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 
 class LatestIosSyncTests {
@@ -129,13 +130,16 @@ class LatestIosSyncTests {
     }
 
     @Test
-    fun persistedThemeDefaultsToSystemAndOverridesItOnlyWhenSelected() {
-        val modes = com.mz2az.scenetrip.data.AppThemeMode
-        assertEquals(com.mz2az.scenetrip.data.AppThemeMode.SYSTEM, modes.from(null))
-        assertEquals(com.mz2az.scenetrip.data.AppThemeMode.SYSTEM, modes.from("unsupported"))
-        assertEquals(true, modes.from("system").isDark(true))
-        assertEquals(false, modes.from("light").isDark(true))
-        assertEquals(true, modes.from("dark").isDark(false))
+    fun appIsLightOnlyNoThemeSwitchExists() {
+        // MZ2AZ-419: 시스템/라이트/다크 선택을 없애고 밝은 화면으로 고정한다. 팔레트에 다크 상태가 남아 있지 않다.
+        // (클래스를 초기화하지 않고 모양만 본다 — 팔레트 초기화는 Android 프레임워크가 필요하다.)
+        val palette = Class.forName("com.mz2az.scenetrip.ui.IOS", false, javaClass.classLoader)
+        val names = palette.declaredMethods.map { it.name } + palette.declaredFields.map { it.name }
+        assertFalse(names.any { it == "updateTheme" || it.contains("isDark", ignoreCase = true) }, names.toString())
+        assertFalse(
+            runCatching { Class.forName("com.mz2az.scenetrip.data.AppThemeStore", false, javaClass.classLoader) }.isSuccess,
+            "저장된 화면 모드 선택은 더 읽지 않는다",
+        )
     }
 
     private fun work(

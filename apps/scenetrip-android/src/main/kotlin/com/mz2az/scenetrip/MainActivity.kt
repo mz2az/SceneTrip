@@ -65,13 +65,6 @@ class MainActivity : ComponentActivity() {
         // 지도를 상태바 아래까지 채우는 것과 같다.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        val theme =
-            com.mz2az.scenetrip.data.AppThemeStore
-                .getInstance(this)
-        val systemDark =
-            resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
-                android.content.res.Configuration.UI_MODE_NIGHT_YES
-        IOS.updateTheme(theme.mode.isDark(systemDark))
 
         // 앱이 쓰는 API 클라이언트가 **처음 만들어지기 전에** 언어를 읽고
         // Accept-Language 인터셉터를 달아야 한다(MZ2AZ-343) — 늦으면 끼울 자리가

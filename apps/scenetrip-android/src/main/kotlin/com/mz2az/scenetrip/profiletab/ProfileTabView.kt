@@ -123,10 +123,6 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
     var showingPosts by remember { mutableStateOf(false) }
     var clearingFootprints by remember { mutableStateOf(false) }
     var consentingToFootprints by remember { mutableStateOf(false) }
-    var choosingTheme by remember { mutableStateOf(false) }
-    val theme =
-        com.mz2az.scenetrip.data.AppThemeStore
-            .getInstance(context)
     var choosingLanguage by remember { mutableStateOf(false) }
     var showingReviews by remember { mutableStateOf(false) }
     // 차단한 사용자 시트 (MZ2AZ-461).
@@ -403,20 +399,6 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                     ProfileSection(tr("도움")) {
                         Box {
                             ProfileRow(
-                                title = tr("화면 모드"),
-                                value =
-                                    com.mz2az.scenetrip.data.AppThemeStore
-                                        .label(theme.mode),
-                                onClick = { choosingTheme = true },
-                                chevron = true,
-                                icon = { AppearanceIcon(SYSTEM_INDIGO, it) },
-                            )
-                            if (choosingTheme) ThemeChoiceView(theme, onClose = { choosingTheme = false })
-                        }
-                        ProfileDivider()
-
-                        Box {
-                            ProfileRow(
                                 title = tr("언어"),
                                 value = AppLanguage.name(of = language.lang),
                                 onClick = { choosingLanguage = true },
@@ -678,7 +660,7 @@ internal fun ProfileSection(
 private fun ProfileDivider(afterIcon: Boolean = true) {
     androidx.compose.material3.HorizontalDivider(
         thickness = 1.dp,
-        color = if (IOS.isDark) IOS.separator else Color(0xFFE8E8E8),
+        color = Color(0xFFE8E8E8),
         modifier = Modifier.padding(start = if (afterIcon) 54.dp else 16.dp, end = 16.dp),
     )
 }

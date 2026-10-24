@@ -76,8 +76,9 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 ## 인터페이스
 
 2026-10-13 동기화는 [계획](../../docs/project/plans/android-ios-sync-2026-10.md)과
-[검증 기록](../../docs/qa/android-ios-sync-2026-10.md)을 따른다. 화면 모드는 시스템·라이트·다크를
-선택해 즉시 반영하며 앱 재시작 뒤에도 유지한다. 상세 포스터는 제작사 공식 주소로,
+[검증 기록](../../docs/qa/android-ios-sync-2026-10.md)을 따른다. 화면은 **라이트로 고정**한다(iOS
+`.preferredColorScheme(.light)` — MZ2AZ-419의 다크 모드 철회, 2026-10-14). 시스템이 다크여도, 예전에 다크를 골라 둔 기기여도
+밝은 화면이며 마이페이지에 화면 모드 선택은 없다. 사진 확대의 검정 감상 배경은 라이트 디자인의 일부라 그대로다. 상세 포스터는 제작사 공식 주소로,
 실제 씬 사진은 별도 확대 화면으로 연결한다. 홈 작품은 서버 인기순 첫20개이며,
 방문은 서버 저장이 성공한 뒤에만 완료한다. 기기 옛 후기 찾기와 발자취 기록 동의를 제공한다.
 
@@ -89,7 +90,7 @@ iOS431의 main 반영 뒤 작품 포스터는 홈·목록·자동완성·상세�
 큰 글자·키보드는 큰 시트로 열고, 저장 중 입력·닫기를 잠그며 계정 전환 뒤 응답은 UI에도 적용하지 않는다.
 [Android431 계획](../../docs/project/plans/android-home-profile-polish.md)의 별도 모의 응답 UI는
 `just android-nickname-qa edit ko light`로 확인한다. `welcome`, `busy`, `stale`, `failure`와
-`en`, `dark`를 조합할 수 있다. 제품 계정과 API 쓰기를 실행하지 않는다.
+`en`을 조합할 수 있다. 제품 계정과 API 쓰기를 실행하지 않는다.
 
 커뮤니티 여행후기는 첫 사진 하나를 대표로, 본문은 계약1.13의 bodyBlocks 순서로 표시한다.
 작성 시 사진별 문단 위치·설명·출처·AI 표시를 정하고 상단 미리보기로 확인한다.
@@ -97,7 +98,7 @@ iOS431의 main 반영 뒤 작품 포스터는 홈·목록·자동완성·상세�
 원래 비율의 사진을 눌러100~400% 확대·이동하며 실패한 사진은 다시 받을 수 있다.
 블록 배치까지 같은지 확인해야 불확실한 게시를 성공으로 처리한다.
 `just android-community-blog-qa compose ko light`는 별도 QA 설치본의 합성 초안만 사용한다.
-read/legacy/retry/pending/failed/portrait 및 en/dark 조합과 검증 범위는
+read/legacy/retry/pending/failed/portrait 및 en 조합과 검증 범위는
 [Android 블로그 검증](../../docs/qa/android-community-blog.md)을 따른다.
 사진 시험 서버를 유지한 뒤 `just android-community-blog-qa-test`로 세로 대표 사진이 제목을
 덮지 않는 실제 픽셀 회귀를 검사한다. 이 시험은 기기 글자 배율을 원래 값으로 복원한다.

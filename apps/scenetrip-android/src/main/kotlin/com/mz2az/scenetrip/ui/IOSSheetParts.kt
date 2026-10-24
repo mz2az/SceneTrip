@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.sp
  */
 
 /** 시트 바탕 — iOS `.presentationBackground(.regularMaterial)` 를 흰 화면 위에서 본 옅은 회색. */
-val IOSSheetMaterial get() = if (IOS.isDark) Color(0xFF222225) else Color(0xFFF2F2F5)
+val IOSSheetMaterial = Color(0xFFF2F2F5)
 
 /**
  * 시트 머리줄 — 왼쪽 취소 성격 단추, 가운데 제목(17 semibold), 오른쪽 확인 성격 단추(굵게).
