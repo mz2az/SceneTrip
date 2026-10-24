@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.CommunityStore
+import com.mz2az.scenetrip.data.PhotoRenewalRules
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.reviews.DraftPhoto
 import com.mz2az.scenetrip.reviews.PhotoUploader
@@ -49,6 +50,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.TripPostBlock
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostBlockKind
 import com.mz2az.scenetrip.searchtab.ImageCache
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.LocalPhotoRenew
 import com.mz2az.scenetrip.ui.PhotoZoomViewer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -79,6 +81,12 @@ sealed interface CommunityPhotoSource {
     data object Failed : CommunityPhotoSource
 
     val retryable get() = this is Remote || this is Local
+
+    /**
+     * 같은 사진인지 가르는 열쇠. 원격 사진은 서명(쿼리)을 뗀 주소다 — 주소를 새로 받아도(MZ2AZ-477) 이미 그린 사진을 지우지 않는다.
+     * iOS `CommunityPhotoSource.objectKey`.
+     */
+    val objectKey: Any get() = if (this is Remote) "remote:${PhotoRenewalRules.unsigned(url)}" else this
 
     companion object {
         fun from(photo: DraftPhoto): CommunityPhotoSource =
@@ -124,11 +132,19 @@ internal fun CommunityArticlePhoto(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    var image by remember(source) { mutableStateOf<ImageBitmap?>(null) }
-    var failed by remember(source) { mutableStateOf(false) }
-    var attempt by remember(source) { mutableStateOf(0) }
-    var expanded by remember(source) { mutableStateOf(false) }
+    // 주소를 새로 받으면 source 는 바뀌지만 같은 사진이다(objectKey) — 이미 그린 사진은 그대로 둔다.
+    val photoKey = source.objectKey
+    // 이 안의 사진은 못 받으면 글을 다시 읽어 새 주소로 해 본다(MZ2AZ-477). 없으면 갱신할 길이 없는 사진이다.
+    val renew = LocalPhotoRenew.current
+    var image by remember(photoKey) { mutableStateOf<ImageBitmap?>(null) }
+    var failed by remember(photoKey) { mutableStateOf(false) }
+    var attempt by remember(photoKey) { mutableStateOf(0) }
+    var loadedAttempt by remember(photoKey) { mutableStateOf(-1) }
+    var renewedFor by remember(photoKey) { mutableStateOf(false) }
+    var expanded by remember(photoKey) { mutableStateOf(false) }
     LaunchedEffect(source, attempt) {
+        if (image != null && loadedAttempt == attempt) return@LaunchedEffect
+        loadedAttempt = attempt
         image = null
         failed = false
         try {
@@ -139,9 +155,26 @@ internal fun CommunityArticlePhoto(
         } catch (_: Exception) {
             failed = true
         }
+        // 주소가 죽었을 수 있다 — 글을 다시 읽으면 새 주소가 오고, 주소가 바뀌면 이 칸이 다시 받는다. 사진마다 한 번만 청한다.
+        if (failed && source is CommunityPhotoSource.Remote && PhotoRenewalRules.renewsAfterFailure(true, renewedFor)) {
+            renewedFor = true
+            renew?.invoke(false)
+        }
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        ArticlePhotoCanvas(image, block, failed, source.retryable, representative, { attempt++ }, { expanded = true })
+        ArticlePhotoCanvas(
+            image,
+            block,
+            failed,
+            source.retryable,
+            representative,
+            {
+                attempt++
+                // 서명된 주소는 새 주소부터 받는다 — 죽은 주소로는 몇 번을 해도 같다.
+                if (source is CommunityPhotoSource.Remote) renew?.invoke(true)
+            },
+            { expanded = true },
+        )
         CommunityPhotoMetadata(block)
     }
     if (expanded) {
@@ -159,7 +192,7 @@ private suspend fun loadCommunityPhoto(
 ): ImageBitmap? =
     when (source) {
         is CommunityPhotoSource.Remote -> {
-            ImageCache.load(source.url, edge = 1600)
+            ImageCache.load(source.url, key = PhotoRenewalRules.unsigned(source.url), edge = 1600)
         }
 
         is CommunityPhotoSource.Local -> {

@@ -23,6 +23,8 @@ import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.NetworkFailure
+import com.mz2az.scenetrip.data.PhotoPages
+import com.mz2az.scenetrip.data.PhotoRenewal
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.api.ReviewsApi
@@ -32,7 +34,12 @@ import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.IOSSheetToolbar
 import com.mz2az.scenetrip.ui.SheetDetent
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun MyReviewsView(onClose: () -> Unit) {
@@ -46,8 +53,17 @@ fun MyReviewsView(onClose: () -> Unit) {
     var generation by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
+    // 리뷰 사진의 주소는 한 시간 뒤 죽는다 — 못 받으면 읽은 만큼을 다시 받아 새 주소로 갈아 끼운다(MZ2AZ-477, iOS `renewPhotos`).
+    val renewal = remember { PhotoRenewal(scope) }
+    var renewing by remember { mutableStateOf(false) }
+    var renewed by remember { mutableStateOf(0) }
+
     suspend fun load(reset: Boolean = false) {
-        if (loading || !AuthStore.signedIn) return
+        if (loading || (renewing && !reset) || !AuthStore.signedIn) return
+        if (reset) {
+            renewal.cancel()
+            renewing = false
+        }
         loading = true
         val epoch = AuthStore.epoch
         val request = ++generation
@@ -68,8 +84,49 @@ fun MyReviewsView(onClose: () -> Unit) {
             if (epoch == AuthStore.epoch && request == generation) loading = false
         }
     }
+
+    suspend fun renewPhotos(forced: Boolean) {
+        if (loading || rows.isEmpty() || !AuthStore.signedIn) return
+        renewal.run(forced) {
+            val epoch = AuthStore.epoch
+            val request = ++generation
+            val count = rows.size
+            renewing = true
+            try {
+                val page =
+                    PhotoPages.refetch(count, { it.id }) { from ->
+                        if (!AuthStore.signedIn || request != generation ||
+                            epoch != AuthStore.epoch
+                        ) {
+                            throw CancellationException("목록이 바뀌었다")
+                        }
+                        val fresh =
+                            withContext(
+                                Dispatchers.IO,
+                            ) { ReviewsApi(API_BASE).listMyReviews(acceptLanguage = AppLanguage.current, offset = from) }
+                        PhotoPages.Page(fresh.items, fresh.total)
+                    }
+                currentCoroutineContext().ensureActive()
+                if (!AuthStore.signedIn || request != generation || epoch != AuthStore.epoch || count != rows.size) {
+                    throw CancellationException("목록이 바뀌었다")
+                }
+                rows = page.items
+                offset = page.items.size
+                total = page.total
+                failure = null
+            } finally {
+                if (request == generation) {
+                    renewing = false
+                    // 새 순서에 맞춰 다음 쪽 받기가 다시 실행된다.
+                    renewed++
+                }
+            }
+        }
+    }
     LaunchedEffect(AuthStore.epoch) {
         generation++
+        renewal.cancel()
+        renewing = false
         rows = emptyList()
         offset = 0
         total = 0
@@ -105,6 +162,7 @@ fun MyReviewsView(onClose: () -> Unit) {
                                 row.photos.size,
                                 height = 100,
                                 paged = false,
+                                onRenew = { forced -> renewPhotos(forced) },
                             )
                         }
                     }
@@ -112,7 +170,7 @@ fun MyReviewsView(onClose: () -> Unit) {
                 item {
                     if (loading) CircularProgressIndicator(Modifier.padding(16.dp))
                     if (!loading && rows.isEmpty() && failure == null) Text(tr("아직 쓴 리뷰가 없어요"), color = IOS.secondaryLabel)
-                    if (!loading && offset < total && failure == null) LaunchedEffect(offset) { load() }
+                    if (!loading && offset < total && failure == null) LaunchedEffect(offset, renewed) { load() }
                     failure?.let {
                         Text(
                             it,

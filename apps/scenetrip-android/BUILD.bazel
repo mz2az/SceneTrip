@@ -98,6 +98,7 @@ kt_jvm_library(
         "tests/MyReviewDetailsTests.kt",
         "tests/NetworkTests.kt",
         "tests/NicknameEditorTests.kt",
+        "tests/PhotoRenewalTests.kt",
         "tests/SearchParityTests.kt",
         "tests/SearchTabBehaviorTests.kt",
         "tests/SuggestionDetailTests.kt",
