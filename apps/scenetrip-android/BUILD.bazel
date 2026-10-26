@@ -89,6 +89,7 @@ kt_jvm_library(
         "tests/CourseDetailSafetyTests.kt",
         "tests/FirstCourseGuideTests.kt",
         "tests/FootprintPrivacyTests.kt",
+        "tests/GuideCloseTests.kt",
         "tests/GuideConversationTests.kt",
         "tests/GuidePlanIdentityTests.kt",
         "tests/LanguageAndCartTests.kt",

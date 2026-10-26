@@ -51,6 +51,9 @@ data class PendingTurn(
 
         /** 답을 기다리는 중인가 — 그동안은 전송도 「다시 시도」 도 잠긴다. */
         val isBusy: Boolean get() = this !is Failed
+
+        /** 첫 요청이 아니라 **다시 보내기·되묻기를 기다리는 중**인가. 가이드 창을 닫으면 이것은 끊는다(iOS `isResending`). */
+        val isResending: Boolean get() = this is Reconnecting || this is AwaitingServer || this is WaitingForLimit
     }
 
     /** 공통 계층이 다시 보내려고 쉬기 시작했다. */
