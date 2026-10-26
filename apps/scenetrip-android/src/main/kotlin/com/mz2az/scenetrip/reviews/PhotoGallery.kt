@@ -47,6 +47,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import com.mz2az.scenetrip.analytics.AppAnalytics
+import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.data.ModerationEvents
 import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.data.PhotoRenewalRules
@@ -171,6 +173,8 @@ fun GalleryStrip(
     paged: Boolean = true,
     modifier: Modifier = Modifier,
     onRenew: (suspend (Boolean) -> Unit)? = null,
+    /** 분석 이벤트의 `entry` — `detail`(촬영지 상세 대표 사진 자리)·`card`(지도 카드). */
+    entry: String = "detail",
 ) {
     val scope = rememberCoroutineScope()
     // 차단·풀기가 일어나면(MZ2AZ-461) 책을 새로 만든다 — 나가 있던 「다음 쪽」·주소 갱신 응답이 옛 책에만 쓰이고, 차단한 사람의
@@ -274,10 +278,11 @@ fun GalleryStrip(
                         callback(id)
                     }
                 },
+            entry = entry,
         )
     }
     if (grid) {
-        PhotoGrid(book, onClose = { grid = false }, onReview = onReview)
+        PhotoGrid(book, onClose = { grid = false }, onReview = onReview, entry = entry)
     }
 }
 
@@ -321,8 +326,12 @@ internal fun GalleryViewer(
     onReview: ((Long?) -> Unit)?,
     /** 리뷰 행의 사진을 크게 볼 때는 방문자 표식이 없다 — 어차피 전부 리뷰 사진이다(iOS `marksVisitors = false`). */
     marksVisitors: Boolean = true,
+    /** 분석 이벤트 `view_photos` 의 `entry`. 없으면(리뷰 행의 사진) 기록하지 않는다 — iOS 는 거기서 `GalleryViewer` 가 아니라 `PhotoViewer` 를 쓴다. */
+    entry: String? = null,
 ) {
     val scope = rememberCoroutineScope()
+    // 크게 열 때마다 한 번 (iOS `GalleryViewer.onAppear`) — 넘기거나 쪽을 더 받는 것은 다시 기록하지 않는다.
+    LaunchedEffect(Unit) { entry?.let { AppAnalytics.log(AppEvent.ViewPhotos(book.subject.kind, it)) } }
     val pager =
         rememberPagerState(
             initialPage = initial.coerceIn(0, (book.photos.size - 1).coerceAtLeast(0)),
@@ -425,6 +434,8 @@ internal fun PhotoGrid(
     onReview: ((Long?) -> Unit)?,
     /** 머리줄 — 전체 격자는 「사진 19」, 방문자 사진만 모은 격자는 「방문자 사진 10」(iOS `allTitle`·`visitorTitle`). */
     title: String = ReviewRules.allTitle(book.total),
+    /** 격자에서 크게 열 때의 분석 `entry` (iOS `PhotoGridView.entry`). */
+    entry: String,
 ) {
     val scope = rememberCoroutineScope()
     var viewing by remember { mutableStateOf<Int?>(null) }
@@ -501,6 +512,7 @@ internal fun PhotoGrid(
                         callback(id)
                     }
                 },
+            entry = entry,
         )
     }
 }

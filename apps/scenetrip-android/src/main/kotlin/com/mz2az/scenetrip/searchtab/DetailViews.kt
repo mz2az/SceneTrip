@@ -514,16 +514,19 @@ private fun SceneCard(
                 .background(IOS.systemBackground)
                 .border(1.dp, IOS.systemGray5, RoundedCornerShape(12.dp)),
     ) {
-        RemoteImage(
-            url = scene.sceneImageUrl?.toString(),
-            modifier =
-                Modifier
-                    .size(width = 190.dp, height = 110.dp)
-                    .clickable(enabled = ScenePhotoRules.photo(scene) != null, onClick = onPhoto)
-                    .semantics { contentDescription = tr("%s 장면 사진 크게 보기").format(scene.contentTitle) },
-            contentScale = ContentScale.Fit,
-            backgroundColor = IOS.systemBackground,
-        )
+        Box(Modifier.size(width = 190.dp, height = 110.dp)) {
+            RemoteImage(
+                url = ScenePhotoRules.photo(scene),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clickable(enabled = ScenePhotoRules.photo(scene) != null, onClick = onPhoto)
+                        .semantics { contentDescription = tr("%s 장면 사진 크게 보기").format(scene.contentTitle) },
+                contentScale = ContentScale.Fit,
+                backgroundColor = IOS.systemBackground,
+            )
+            ScenePhotoCount(scene, Modifier.align(Alignment.BottomStart))
+        }
         Column(
             verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier.height(96.dp).clickable(onClick = onClick).padding(10.dp),
@@ -542,6 +545,28 @@ private fun SceneCard(
             )
         }
     }
+}
+
+/**
+ * 사진 수 알약 「사진 1 / N」 (MZ2AZ-430, iOS `ScenePhotoCount`). 카드와 설명 시트는 첫 장을 보여 주므로 늘 1번이다.
+ * 한 장이면 그리지 않고, 누름은 아래 사진이 받는다.
+ */
+@Composable
+private fun ScenePhotoCount(
+    scene: Scene,
+    modifier: Modifier = Modifier,
+) {
+    val text = ScenePhotoRules.countBadge(scene) ?: return
+    Text(
+        text = text,
+        style = IOS.caption2.copy(fontWeight = FontWeight.Bold),
+        color = Color.White,
+        modifier =
+            modifier
+                .padding(6.dp)
+                .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                .padding(6.dp),
+    )
 }
 
 /**
@@ -604,7 +629,7 @@ fun ScenePopup(
             ) {
                 Box {
                     RemoteImage(
-                        url = scene.sceneImageUrl?.toString(),
+                        url = ScenePhotoRules.photo(scene),
                         modifier =
                             Modifier
                                 .fillMaxWidth()
@@ -614,6 +639,7 @@ fun ScenePopup(
                         contentScale = ContentScale.Fit,
                         backgroundColor = IOS.systemBackground,
                     )
+                    ScenePhotoCount(scene, Modifier.align(Alignment.BottomStart))
                     // 보이는 원은 28 인데 누를 수 있는 자리는 44 다 — 애플이 권하는
                     // 최소 터치 크기이고, 그보다 작으면 손가락이 자꾸 빗나간다.
                     Box(

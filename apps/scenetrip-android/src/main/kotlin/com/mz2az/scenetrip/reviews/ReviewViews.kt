@@ -436,6 +436,7 @@ fun VisitorPhotoStrip(
                 id?.let(onReview)
             },
             marksVisitors = false,
+            entry = "reviews",
         )
     }
     if (browsing) {
@@ -447,6 +448,7 @@ fun VisitorPhotoStrip(
                 id?.let(onReview)
             },
             title = ReviewRules.visitorTitle(book.total),
+            entry = "reviews",
         )
     }
 }

@@ -152,6 +152,18 @@ sealed class AppEvent {
         override val parameters = mapOf("target_type" to targetType)
     }
 
+    /**
+     * 사진첩을 크게 열었다(MZ2AZ-363). `entry` 는 어디서 열었나 — `detail`(대표 사진 자리)·`reviews`(리뷰 시트)·
+     * `card`(지도 카드). **사진 주소는 보내지 않는다.**
+     */
+    data class ViewPhotos(
+        val targetType: String,
+        val entry: String,
+    ) : AppEvent() {
+        override val name = "view_photos"
+        override val parameters = mapOf("target_type" to targetType, "entry" to entry)
+    }
+
     // 담기·찜 (의미 있는 첫 행동)
 
     data class LikeTitle(
