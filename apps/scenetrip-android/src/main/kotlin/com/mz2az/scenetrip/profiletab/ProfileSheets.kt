@@ -119,6 +119,8 @@ fun ProfileSheetHeader(
 @Composable
 private fun MyCoursesSheetBody(
     courses: List<CourseSummary>,
+    loading: Boolean,
+    failed: Boolean,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -127,7 +129,21 @@ private fun MyCoursesSheetBody(
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         ProfileSheetHeader(tr("내 코스"), onClose)
-        if (courses.isEmpty()) {
+        if (courses.isEmpty() && failed) {
+            IOSEmptyState(
+                tr("코스 목록을 받지 못했습니다"),
+                tr("서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요"),
+            ) { Icon(Icons.Outlined.Warning, contentDescription = null, tint = IOS.secondaryLabel, modifier = it) }
+        } else if (courses.isEmpty() && loading) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                CircularProgressIndicator()
+                Text(tr("코스 목록을 받아오는 중입니다"), fontSize = 12.sp, color = IOS.secondaryLabel)
+            }
+        } else if (courses.isEmpty()) {
             IOSEmptyState(tr("아직 코스가 없습니다"), tr("경로여정 탭에서 첫 코스를 만들어 보세요")) { RouteCurveIcon(IOS.secondaryLabel, it) }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
@@ -446,10 +462,12 @@ private fun ProfileCartSheetBody(
 @Composable
 fun MyCoursesSheet(
     courses: List<CourseSummary>,
+    loading: Boolean,
+    failed: Boolean,
     onClose: () -> Unit,
 ) {
     IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
-        MyCoursesSheetBody(courses = courses, onClose = onClose)
+        MyCoursesSheetBody(courses = courses, loading = loading, failed = failed, onClose = onClose)
     }
 }
 

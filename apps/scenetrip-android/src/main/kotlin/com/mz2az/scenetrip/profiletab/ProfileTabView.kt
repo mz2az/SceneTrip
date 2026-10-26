@@ -120,6 +120,9 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 
     var courses by remember { mutableStateOf<List<CourseSummary>>(emptyList()) }
     var courseCount by remember { mutableStateOf<Int?>(null) }
+    // 코스 목록을 아직 못 받았거나 못 받았을 때 「아직 코스가 없습니다」 로 속이지 않는다 — 코스 탭의 [CourseListPhase] 와 같은 기준.
+    var coursesLoading by remember { mutableStateOf(true) }
+    var coursesFailed by remember { mutableStateOf(false) }
     var likesLoading by remember { mutableStateOf(true) }
     var likesFailure by remember { mutableStateOf<String?>(null) }
     // 검색 장바구니와 같은 저장소·행을 쓴다 — 마이페이지에서도 숨긴 장소를 안내하고 뺄 수 있다(MZ2AZ-458, iOS 와 같다).
@@ -150,6 +153,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
             val generation = AccountDataReset.generation
             // 넷을 나란히 받는다 — 코스 상세(스탬프용)가 느려도 찜 목록은 바로 뜬다.
             likesLoading = true
+            coursesLoading = true
             val likesDeferred = async { likes.refresh() }
             val cartDeferred = async { cart.refresh() }
             val coursesDeferred =
@@ -176,6 +180,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 courses = it.items ?: emptyList()
                 courseCount = courses.size
             }
+            coursesFailed = list == null && courses.isEmpty()
+            coursesLoading = false
 
             // 방문 스탬프 — 코스마다 상세를 받아 visitedAt이 찍힌 것만 모은다.
             val collected = runCatching { collectVisitStamps(courses, deviceId) }.getOrDefault(emptyList())
@@ -188,6 +194,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
             AccountDataReset.watch {
                 courses = emptyList()
                 courseCount = 0
+                coursesLoading = false
+                coursesFailed = false
                 stamps = emptyList()
                 likesFailure = null
                 likesLoading = false
@@ -556,7 +564,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
             }
         }
 
-        if (showingCourses) MyCoursesSheet(courses, onClose = { showingCourses = false })
+        if (showingCourses) MyCoursesSheet(courses, loading = coursesLoading, failed = coursesFailed, onClose = { showingCourses = false })
         if (showingLikes) LikedWorksSheet(likedWorks, likes, likesLoading, likesFailure, onClose = { showingLikes = false })
         if (showingCart) ProfileCartSheet(cart, onClose = { showingCart = false })
         if (showingStamps) StampsSheet(stamps, onClose = { showingStamps = false })
