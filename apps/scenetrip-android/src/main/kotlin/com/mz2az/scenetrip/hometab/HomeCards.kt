@@ -36,6 +36,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -45,6 +47,7 @@ import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
+import com.mz2az.scenetrip.searchtab.FilmIcon
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.CircleSignIcon
 import com.mz2az.scenetrip.ui.IOS
@@ -84,7 +87,7 @@ internal fun HomeSectionHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+        Text(title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = IOS.label)
         if (subtitle != null) {
             Text(subtitle, fontSize = 12.sp, color = IOS.secondaryLabel)
         }
@@ -104,6 +107,7 @@ internal fun HomeSectionHeader(
 /** 인사 — 해태 얼굴, 두 줄, 오른쪽 프로필 단추(마이페이지의 입구). */
 @Composable
 fun HomeHeader(onProfile: () -> Unit) {
+    val profileLabel = tr("마이페이지")
     Row(
         modifier =
             Modifier
@@ -121,7 +125,7 @@ fun HomeHeader(onProfile: () -> Unit) {
         )
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(tr("해태가 기다렸어요"), fontSize = 13.sp, color = IOS.secondaryLabel)
-            Text(tr("오늘은 어느 장면으로 갈까요?"), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+            Text(tr("오늘은 어느 장면으로 갈까요?"), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = IOS.label)
         }
         Spacer(Modifier.weight(1f))
         Box(
@@ -135,6 +139,7 @@ fun HomeHeader(onProfile: () -> Unit) {
                         spotColor = Color.Black.copy(alpha = 0.08f),
                     ).clip(CircleShape)
                     .background(IOS.systemBackground)
+                    .semantics { contentDescription = profileLabel }
                     .clickable(onClick = onProfile),
             contentAlignment = Alignment.Center,
         ) {
@@ -155,7 +160,7 @@ fun HomeHeader(onProfile: () -> Unit) {
 fun HomeTripPager(
     trips: List<HomeTrip>,
     hasCourses: Boolean,
-    loading: Boolean,
+    card: HomeTabModel.TripCard,
     onNavigate: (HomeTrip) -> Unit,
     onOpenCourse: (HomeTrip) -> Unit,
     onCreate: () -> Unit,
@@ -168,7 +173,7 @@ fun HomeTripPager(
                     trip = trips[page],
                     rank = page + 1,
                     hasCourses = hasCourses,
-                    loading = false,
+                    card = HomeTabModel.TripCard.FILLED,
                     onNavigate = onNavigate,
                     onOpenCourse = onOpenCourse,
                     onCreate = onCreate,
@@ -196,7 +201,7 @@ fun HomeTripPager(
             trip = trips.firstOrNull(),
             rank = null,
             hasCourses = hasCourses,
-            loading = loading,
+            card = card,
             onNavigate = onNavigate,
             onOpenCourse = onOpenCourse,
             onCreate = onCreate,
@@ -215,7 +220,7 @@ fun HomeTripCard(
     trip: HomeTrip?,
     rank: Int?,
     hasCourses: Boolean,
-    loading: Boolean,
+    card: HomeTabModel.TripCard,
     onNavigate: (HomeTrip) -> Unit,
     onOpenCourse: (HomeTrip) -> Unit,
     onCreate: () -> Unit,
@@ -240,9 +245,19 @@ fun HomeTripCard(
                 HomeTripCardFilled(trip, rank, onNavigate, onOpenCourse)
             }
 
-            loading -> {
+            // 코스가 있는지 모르는 동안에는 「코스 만들기」 를 권하지 않는다 — 코스가 있는 사람에게 일정짜기(유료)의 입구를 내밀게 된다.
+            card == HomeTabModel.TripCard.LOADING || card == HomeTabModel.TripCard.FILLED -> {
                 Text(
                     tr("내 여행을 불러오는 중…"),
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.fillMaxWidth().height(72.dp),
+                )
+            }
+
+            card == HomeTabModel.TripCard.UNAVAILABLE -> {
+                Text(
+                    tr("내 여행을 불러오지 못했어요"),
                     fontSize = 14.sp,
                     color = Color.White.copy(alpha = 0.9f),
                     modifier = Modifier.fillMaxWidth().height(72.dp),
@@ -270,7 +285,7 @@ private fun HomeTripCardFilled(
                 modifier = Modifier.size(22.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.28f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("$rank", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("$rank", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
             }
         }
         Text(
@@ -285,7 +300,9 @@ private fun HomeTripCardFilled(
                     .padding(horizontal = 9.dp, vertical = 3.dp),
         )
         Text(
-            "${courseSpanLabel(trip.course.dayCount)} · ${tr("%d곳").format(trip.course.placeCount)}",
+            // 영어는 하나일 때 낱말이 달라진다(「1 place」) — 번역 표의 `원문|하나` (iOS `tr("%@ · %lld곳", at: "하나")`).
+            (if (trip.course.placeCount == 1) tr("%s · %d곳", "하나") else tr("%s · %d곳"))
+                .format(courseSpanLabel(trip.course.dayCount), trip.course.placeCount),
             fontSize = 12.sp,
             color = Color.White.copy(alpha = 0.85f),
         )
@@ -293,7 +310,7 @@ private fun HomeTripCardFilled(
     Text(
         trip.course.title,
         fontSize = 18.sp,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.ExtraBold,
         color = Color.White,
         maxLines = 1,
     )
@@ -370,7 +387,7 @@ private fun HomeTripCardEmpty(
                 .background(Color.White.copy(alpha = 0.22f))
                 .padding(horizontal = 9.dp, vertical = 3.dp),
     )
-    Text(tr("여행을 시작해 볼까요?"), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+    Text(tr("여행을 시작해 볼까요?"), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
     Text(
         tr("보고 싶은 작품과 기간만 고르면 촬영지를 이어서 일정으로 짜 드립니다"),
         fontSize = 13.sp,
@@ -438,7 +455,12 @@ private fun WorkPoster(
                     .clip(RoundedCornerShape(14.dp))
                     .background(Brush.linearGradient(listOf(IOS.pinDeep.copy(alpha = 0.7f), IOS.pinDeep))),
         ) {
-            RemoteImage(url = work.posterUrl?.toString(), modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            RemoteImage(
+                url = work.posterUrl?.toString(),
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                placeholder = { FilmIcon(IOS.tertiaryLabel, Modifier.size(28.dp)) },
+            )
             Box(
                 modifier =
                     Modifier
@@ -488,7 +510,8 @@ fun HomeTodayCard(
                                 ),
                             ),
                 )
-                RemoteImage(url = place.imageUrl?.toString(), modifier = Modifier.fillMaxSize())
+                // 사진이 없거나 받는 중에도 아래 그라데이션이 보이게 바탕을 비운다 (iOS `AsyncImage` 의 placeholder `Color.clear`).
+                RemoteImage(url = place.imageUrl?.toString(), modifier = Modifier.fillMaxSize(), backgroundColor = Color.Transparent)
                 val workTitle = place.contents?.firstOrNull()?.title
                 if (workTitle != null) {
                     Text(

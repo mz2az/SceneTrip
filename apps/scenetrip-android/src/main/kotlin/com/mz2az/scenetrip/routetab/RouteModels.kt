@@ -100,6 +100,8 @@ data class RouteStop(
     val isPinned: Boolean = false,
     /** 편의시설은 개인 핀과 별개다. 저장·불러오기에서 원래 POI id를 보존한다. */
     val poiId: Long? = null,
+    /** 개인 핀의 실제 DB 번호. 코스 항목 번호와 다르며 챗봇 왕복에 쓴다(MZ2AZ-425·434, iOS `RouteStop.customPinId`). */
+    val customPinId: Long? = null,
     /** 편의시설 이름·분류·주소의 표시용 문자열. 원본과 별개로 보존한다. */
     val poiText: PoiText? = null,
     /** 서버에 방문(`visitedAt`)이 찍혔나. */

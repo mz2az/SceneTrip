@@ -24,6 +24,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.data.trCount
 import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
 
@@ -37,7 +38,7 @@ fun RouteDaySummary(
 ) {
     val stops = day?.stops.orEmpty()
     val distance =
-        tr("%d곳").format(stops.size) + " · " +
+        trCount("%d곳", stops.size) + " · " +
             tr("직선 %s").format(RouteFormat.kilometers(RouteGeometry.totalKilometers(stops)))
     val duration = if (stops.isEmpty()) tr("이동 시간은 여행 중에") else RouteDayEstimate.label(day?.estimate?.total(stops), stops)
     val density = LocalDensity.current

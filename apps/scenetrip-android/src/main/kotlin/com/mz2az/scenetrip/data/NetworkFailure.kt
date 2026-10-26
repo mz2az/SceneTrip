@@ -17,38 +17,73 @@ data class NetworkFailure(
     val retryAfter: Int?,
     /** 오류 본문의 `traceId`. 500 응답에만 실린다. */
     val traceId: String? = null,
+    /** 응답이 없었고 기기가 오프라인이다 — 서버 탓이 아니라 「인터넷 연결」 을 말한다 ([ApiFailure.isOffline]). */
+    val offline: Boolean = false,
 ) {
     val message: String get() =
         tr(
             when (code) {
-                "NICKNAME_TAKEN" -> "이미 쓰는 닉네임입니다"
+                "NICKNAME_TAKEN" -> {
+                    "이미 쓰는 닉네임입니다"
+                }
 
-                "NICKNAME_INVALID" -> "닉네임 규칙을 확인해 주세요"
+                "NICKNAME_INVALID" -> {
+                    "닉네임 규칙을 확인해 주세요"
+                }
 
-                "REVIEW_PHOTO_INVALID" -> "사진을 다시 올려 주세요"
+                "REVIEW_PHOTO_INVALID" -> {
+                    "사진을 다시 올려 주세요"
+                }
 
-                "UPLOAD_TOO_LARGE" -> "사진이 너무 커요"
+                "UPLOAD_TOO_LARGE" -> {
+                    "사진이 너무 커요"
+                }
 
-                "UPLOAD_TYPE_UNSUPPORTED" -> "이 사진 형식은 올릴 수 없어요"
+                "UPLOAD_TYPE_UNSUPPORTED" -> {
+                    "이 사진 형식은 올릴 수 없어요"
+                }
 
-                "UPLOAD_UNAVAILABLE" -> "사진을 올릴 수 없어요. 사진을 빼면 저장할 수 있어요"
+                "UPLOAD_UNAVAILABLE" -> {
+                    "사진을 올릴 수 없어요. 사진을 빼면 저장할 수 있어요"
+                }
 
                 // 로컬 차단(MZ2AZ-468) — 서버 코드가 아니라 [AIConsentRequired] 가 만든 열쇠다.
-                AIConsentRequired.CODE -> AIConsentRequired.MESSAGE_KO
+                AIConsentRequired.CODE -> {
+                    AIConsentRequired.MESSAGE_KO
+                }
 
                 // 위치기반서비스 동의 전에는 기기 좌표를 싣는 요청이 나가지 않는다(MZ2AZ-472).
-                LocationConsentRequired.CODE -> LocationConsentRequired.MESSAGE_KO
+                LocationConsentRequired.CODE -> {
+                    LocationConsentRequired.MESSAGE_KO
+                }
 
-                "SIGN_IN_REQUIRED", "ACCESS_TOKEN_EXPIRED", "SESSION_REQUIRED" -> "로그인이 필요해요"
+                "SIGN_IN_REQUIRED", "ACCESS_TOKEN_EXPIRED", "SESSION_REQUIRED" -> {
+                    "로그인이 필요해요"
+                }
 
-                "RATE_LIMITED" -> "요청이 많아요. 잠시 뒤 다시 시도해 주세요"
+                "RATE_LIMITED" -> {
+                    "요청이 많아요. 잠시 뒤 다시 시도해 주세요"
+                }
 
-                "REVIEW_NOT_FOUND" -> "리뷰를 찾지 못했어요"
+                "REVIEW_NOT_FOUND" -> {
+                    "리뷰를 찾지 못했어요"
+                }
 
                 // 금칙어(MZ2AZ-461) — 리뷰·닉네임 저장. 어떤 말인지는 서버가 알려 주지 않는다.
-                "TEXT_NOT_ALLOWED" -> ModerationRules.TEXT_NOT_ALLOWED_MESSAGE
+                "TEXT_NOT_ALLOWED" -> {
+                    ModerationRules.TEXT_NOT_ALLOWED_MESSAGE
+                }
 
-                else -> if (status == null) "서버에 연결하지 못했습니다." else "요청을 처리하지 못했습니다."
+                // 공용 문구 — [ApiFailure.message] 와 같다. 두 앱이 같은 상황에서 다른 말을 하면 같은 앱으로 보이지 않는다.
+                else -> {
+                    when {
+                        status == null && offline -> "인터넷 연결을 확인해 주세요."
+                        status == null -> "서버에 연결하지 못했습니다."
+                        status in listOf(500, 502, 503, 504) -> "잠시 문제가 생겼습니다."
+                        status == 429 && code == null -> "요청이 많아요. 잠시 뒤 다시 시도해 주세요"
+                        else -> "요청을 처리하지 못했습니다."
+                    }
+                }
             },
         )
 
@@ -77,7 +112,13 @@ data class NetworkFailure(
                     ?.value
                     ?.firstOrNull()
                     ?.toIntOrNull()
-            return NetworkFailure(api?.statusCode, AuthRules.apiCode(body), retry, AuthRules.traceId(body))
+            return NetworkFailure(
+                api?.statusCode,
+                AuthRules.apiCode(body),
+                retry,
+                AuthRules.traceId(body),
+                offline = api == null && (ApiFailure.isOffline(error) || DeviceNetwork.isOffline()),
+            )
         }
     }
 }

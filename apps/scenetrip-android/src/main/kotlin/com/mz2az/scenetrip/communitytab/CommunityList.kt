@@ -46,11 +46,13 @@ import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CommunityPhotoRefresh
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.CommunityStore
+import com.mz2az.scenetrip.data.DateText
 import com.mz2az.scenetrip.data.ModerationController
 import com.mz2az.scenetrip.data.ModerationRules
 import com.mz2az.scenetrip.data.ModerationTarget
 import com.mz2az.scenetrip.data.PhotoRenewal
 import com.mz2az.scenetrip.data.PhotoRenewalRules
+import com.mz2az.scenetrip.data.RelativeTime
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.reviews.ModerationMenu
 import com.mz2az.scenetrip.reviews.ModerationSheets
@@ -85,7 +87,6 @@ internal fun CommunityPostList(
     val moderation = rememberModerationController()
     var reading by remember { mutableStateOf<CommunityPost?>(null) }
     var deleting by remember { mutableStateOf<CommunityPost?>(null) }
-    var showingLegacy by remember { mutableStateOf(false) }
     val state = store.state
     val posts = if (mine) state.mine else state.posts
     val loading = if (mine) state.mineLoading else state.loading
@@ -96,13 +97,11 @@ internal fun CommunityPostList(
     }
     PullToRefreshBox(isRefreshing = loading, onRefresh = { scope.launch { store.refresh(mine) } }) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
-            if (!mine && store.legacyPosts.isNotEmpty()) {
-                item { CommunityListButton("기기에 보관된 옛 글 찾기") { showingLegacy = true } }
-            }
             state.message?.let { message ->
                 item {
                     Text(message, color = IOS.systemRed, style = IOS.footnote, modifier = Modifier.padding(16.dp))
-                    CommunityListButton("다시 시도", !loading) { scope.launch { store.refresh(mine) } }
+                    // 내 글 시트는 오류 한 줄뿐이다 — 당겨서 새로고침이 다시 시도다 (iOS `MyPostsSheet`).
+                    if (!mine) CommunityListButton("다시 시도", !loading) { scope.launch { store.refresh(mine) } }
                 }
             }
             if (mine && !AuthStore.signedIn) item { CommunityListButton("로그인") { AuthStore.promptSignIn() } }
@@ -114,14 +113,28 @@ internal fun CommunityPostList(
                     }
                 }
             }
-            if (posts.isEmpty() && !loading && state.message == null) {
-                item {
-                    if (mine) {
-                        Text(tr("아직 쓴 글이 없습니다"), color = IOS.secondaryLabel, modifier = Modifier.padding(16.dp))
-                    } else {
-                        CommunityEmptyState()
-                    }
+            // 기기에만 있던 옛 글은 목록 맨 위에 구역으로 보인다 — 눌러서 읽는다 (iOS `CommunityTabView`, MZ2AZ-396·423).
+            if (!mine && store.legacyPosts.isNotEmpty()) {
+                item(key = "legacy-title") { SectionTitle("이 기기에만 저장된 옛 글") }
+                items(store.legacyPosts, key = { "legacy:" + it.id }) { post ->
+                    CommunityPostRow(store, post, false, moderation) { reading = post }
+                    IOSListDivider(start = 16.dp)
                 }
+                item(key = "legacy-footer") {
+                    Text(
+                        tr("기존 사진과 코스를 보관하고 있어요. 이 기기에서만 보입니다"),
+                        style = IOS.footnote,
+                        color = IOS.secondaryLabel,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    )
+                }
+            }
+            if (mine && posts.isEmpty()) {
+                // 내 글이 없으면 로딩·오류 중에도 이 줄이 「서버에 게시한 글」 아래에 선다 (iOS `MyPostsSheet`).
+                item { Text(tr("아직 쓴 글이 없습니다"), color = IOS.secondaryLabel, modifier = Modifier.padding(16.dp)) }
+            }
+            if (!mine && posts.isEmpty() && store.legacyPosts.isEmpty() && !loading && state.message == null) {
+                item { CommunityEmptyState() }
             }
             items(posts, key = { it.id }) { post ->
                 val swipe =
@@ -159,7 +172,6 @@ internal fun CommunityPostList(
             }
         }
     }
-    if (showingLegacy) MyPostsSheet(onClose = { showingLegacy = false })
     ModerationSheets(moderation) { target -> store.blockedInBackground(target.targetId) }
     reading?.let { post ->
         IOSSheet(listOf(SheetDetent.LARGE), onDismiss = { reading = null }) {
@@ -302,7 +314,7 @@ private fun CommunityPostRow(
  * 줄마다 따로 갱신하므로 한 줄의 실패가 다른 줄을 건드리지 않는다. 사진마다 저절로 한 번만 청하고, 「다시 시도」 는 언제든 된다.
  */
 @Composable
-private fun CommunityCoverPhoto(
+internal fun CommunityCoverPhoto(
     post: CommunityPost,
     store: CommunityStore,
     modifier: Modifier,
@@ -334,17 +346,11 @@ private fun CommunityCoverPhoto(
     )
 }
 
-private fun relativeTime(millis: Long): String {
-    val minutes = TimeUnit.MILLISECONDS.toMinutes((System.currentTimeMillis() - millis).coerceAtLeast(0))
-    return when {
-        minutes < 1 -> tr("방금")
-        minutes < 60 -> tr("%d분 전").format(minutes)
-        minutes < 24 * 60 -> tr("%d시간 전").format(minutes / 60)
-        else -> tr("%d일 전").format(minutes / (24 * 60))
-    }
-}
+/** 「3일 전」·「어제」 — 앱 언어의 이름 붙은 상대 시각 (iOS `.relative(presentation: .named)`). */
+private fun relativeTime(millis: Long): String =
+    RelativeTime.format(java.time.OffsetDateTime.ofInstant(java.time.Instant.ofEpochMilli(millis), java.time.ZoneId.systemDefault()))
 
-internal fun formatDateTime(millis: Long): String = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.KOREA).format(Date(millis))
+internal fun formatDateTime(millis: Long): String = DateText.dateTime(millis)
 
 @Composable
 fun MyPostsSheet(onClose: () -> Unit) {
@@ -352,7 +358,9 @@ fun MyPostsSheet(onClose: () -> Unit) {
     LaunchedEffect(AuthStore.epoch, AppLanguage.current) { store.refresh(mine = true) }
     IOSSheet(listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
         Column(Modifier.fillMaxSize().background(IOS.systemBackground)) {
-            IOSSheetToolbar(title = tr("내가 쓴 글"), trailing = tr("닫기"), onTrailing = onClose)
+            // 마이페이지의 다른 시트와 같은 머리줄 — 제목 가운데, 오른쪽 작은 X (iOS `ProfileSheetHeader`).
+            com.mz2az.scenetrip.profiletab
+                .ProfileSheetHeader(tr("내가 쓴 글"), onClose)
             CommunityPostList(store, mine = true)
         }
     }

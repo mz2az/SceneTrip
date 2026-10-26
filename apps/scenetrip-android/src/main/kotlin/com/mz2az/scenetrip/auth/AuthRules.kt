@@ -27,6 +27,20 @@ object AuthRules {
         }
     }
 
+    /**
+     * 로그인 응답이 실패했을 때 화면에 띄울 한 줄 — 서버 문장이 아니라 code 로 가른다(iOS `signInWithGoogle` 의 catch).
+     * 응답이 없으면([status] null·0 이하) 연결 문제다.
+     */
+    fun signInFailureText(
+        status: Int?,
+        code: String?,
+    ): String =
+        when {
+            status == null || status <= 0 -> "연결이 원활하지 않아요. 잠시 뒤 다시 해 주세요"
+            code == "AUTH_PROVIDER_UNAVAILABLE" -> "구글에 잠시 닿지 않아요. 잠시 뒤 다시 해 주세요"
+            else -> "로그인하지 못했어요. 다시 해 주세요"
+        }
+
     private val codePattern = Regex("\"code\"\\s*:\\s*\"([A-Z_]+)\"")
 
     private val traceIdPattern = Regex("\"traceId\"\\s*:\\s*\"([^\"]+)\"")

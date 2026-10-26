@@ -110,6 +110,48 @@ sealed class AppEvent {
         override val parameters = mapOf("poi_id" to poiId)
     }
 
+    /** 닉네임을 정했다·건너뛰었다(MZ2AZ-363). **닉네임 자체는 보내지 않는다.** */
+    data class SetNickname(
+        val skipped: Boolean,
+    ) : AppEvent() {
+        override val name = "set_nickname"
+        override val parameters = mapOf("skipped" to if (skipped) 1 else 0)
+    }
+
+    /** 리뷰 시트를 열었다(MZ2AZ-363). `targetType` 은 `place`·`poi`. */
+    data class ViewReviews(
+        val targetType: String,
+    ) : AppEvent() {
+        override val name = "view_reviews"
+        override val parameters = mapOf("target_type" to targetType)
+    }
+
+    /** 리뷰를 썼다·고쳤다(MZ2AZ-363). **글과 닉네임은 보내지 않는다.** */
+    data class WriteReview(
+        val targetType: String,
+        val rating: Int,
+        val photoCount: Int,
+        val hasBody: Boolean,
+        val edited: Boolean,
+    ) : AppEvent() {
+        override val name = "write_review"
+        override val parameters =
+            mapOf(
+                "target_type" to targetType,
+                "rating" to rating,
+                "photo_count" to photoCount,
+                "has_body" to if (hasBody) 1 else 0,
+                "edited" to if (edited) 1 else 0,
+            )
+    }
+
+    data class DeleteReview(
+        val targetType: String,
+    ) : AppEvent() {
+        override val name = "delete_review"
+        override val parameters = mapOf("target_type" to targetType)
+    }
+
     // 담기·찜 (의미 있는 첫 행동)
 
     data class LikeTitle(

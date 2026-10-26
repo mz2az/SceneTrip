@@ -10,8 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.mz2az.scenetrip.data.AppLanguage
-import com.mz2az.scenetrip.data.AppThemeMode
-import com.mz2az.scenetrip.data.AppThemeStore
 import com.mz2az.scenetrip.reviews.NicknameEditor
 import com.mz2az.scenetrip.reviews.NicknameView
 import com.mz2az.scenetrip.ui.SceneTripTheme
@@ -25,7 +23,6 @@ class NicknameQaActivity : ComponentActivity() {
         val language = if (intent.getStringExtra("language") == "en") "en" else "ko"
         getSharedPreferences("scenetrip", MODE_PRIVATE).edit().putString("scenetrip.language", language).apply()
         AppLanguage.getInstance(this)
-        AppThemeStore.getInstance(this).choose(if (intent.getStringExtra("theme") == "dark") AppThemeMode.DARK else AppThemeMode.LIGHT)
         var epoch = 1
         val welcome = kind == "welcome"
         val editor =

@@ -57,6 +57,7 @@ import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.analytics.AppEvent
 import com.mz2az.scenetrip.data.UnavailableItem
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.data.trCount
 import com.mz2az.scenetrip.sceneapi.client.model.ContentDetail
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceDetail
@@ -183,7 +184,7 @@ fun ContentDetailView(
                     modifier = Modifier.padding(horizontal = IOS.gutter, vertical = 14.dp),
                 ) {
                     Text(tr("촬영지"), style = IOS.headline, color = IOS.label)
-                    Text(tr("%d곳").format(summary.placeCount), style = IOS.caption, color = IOS.secondaryLabel)
+                    Text(trCount("%d곳", summary.placeCount), style = IOS.caption, color = IOS.secondaryLabel)
                 }
             }
 

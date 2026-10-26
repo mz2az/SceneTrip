@@ -2,20 +2,25 @@ package com.mz2az.scenetrip.routetab
 
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlan
+import com.mz2az.scenetrip.sceneapi.client.model.GuidePlanStop
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.TravelBasis
 import java.time.LocalDate
 
 /**
- * 계약의 일정 초안(`GuidePlan`) → 화면의 코스(`RouteCourse`). iOS
- * `RouteTab/RouteGuidePlan.swift`의 **읽는 방향만** 옮긴 것이다 — 챗봇으로 초안을 고쳐
- * 쓰는 반대 방향(`plan(from: RouteCourse)`)은 RouteGuide(챗봇) 자체가 아직 없어 이식하지
- * 않았다.
+ * 계약의 일정 초안(`GuidePlan`) ↔ 화면의 코스(`RouteCourse`). iOS
+ * `RouteTab/RouteGuidePlan.swift`·`RouteGuideIdentity.swift`를 옮긴 것이다. 두 방향이 다 필요하다 —
+ * 마법사와 챗봇의 `plan.*` 이 준 초안을 화면에 그리고([course]), 챗봇으로 고치려면 편집 중인 사본을
+ * 같은 모양으로 되돌려 보낸다([plan]). 이때 촬영지(`placeId`)·편의시설(`poiId`)·개인 핀(`customPinId`)을
+ * 종류에 맞춰 주고받아 기존 줄이 「저장 안 됨」으로 바뀌지 않게 한다(MZ2AZ-425·434).
  *
  * 저장된 코스와 다른 모양이고 일부러 합치지 않는다 — 초안에는 도착 시각과 "넣지 못한 곳"이
  * 있고 DB id 가 없다.
  */
 object RouteGuidePlan {
+    /** 가이드 대화를 묶는 열쇠. 저장 전이면 이 화면이 연 사본의 id 다(iOS `guideKey`). */
+    fun conversationKey(course: RouteCourse): String = course.serverId?.let { "course-$it" } ?: "draft-${course.id}"
+
     /** 손으로 고친 일정을 같은 계약으로 되돌려 보내야 챗봇이 낡은 초안을 고치지 않는다. */
     fun plan(course: RouteCourse): GuidePlan =
         GuidePlan(
@@ -30,6 +35,9 @@ object RouteGuidePlan {
                                     order = index + 1,
                                     name = stop.place.name,
                                     placeId = stop.savablePlaceId,
+                                    // 종류에 맞는 번호만 싣는다 — 한 줄은 촬영지·편의시설·개인 핀 셋 중 하나다(MZ2AZ-425·434).
+                                    poiId = if (stop.placeMissing) null else stop.poiId,
+                                    customPinId = if (stop.isPinned && !stop.placeMissing) stop.customPinId else null,
                                     latitude = stop.place.latitude,
                                     longitude = stop.place.longitude,
                                     address = stop.place.address,
@@ -59,19 +67,30 @@ object RouteGuidePlan {
                                 skipped.add(tr("%s — 좌표 없음").format(stop.name))
                                 return@mapNotNull null
                             }
+                            // 종류와 ID가 불명확한 줄은 **이름으로 대체하지 않는다** — placeMissing 으로 남고 저장에서 빠진다.
+                            val identity = identity(stop)
                             RouteStop(
                                 place =
                                     PlaceSummary(
-                                        id = stop.placeId ?: missingId(stop.name, stop.order),
+                                        id =
+                                            when (identity) {
+                                                is Identity.Place -> identity.id
+                                                is Identity.Poi -> 0L
+                                                is Identity.Pin -> -identity.id
+                                                null -> missingId(stop.name, stop.order)
+                                            },
                                         name = stop.name,
                                         type = null,
                                         address = stop.address,
                                         latitude = latitude,
                                         longitude = longitude,
                                     ),
+                                isPinned = identity is Identity.Pin,
+                                poiId = (identity as? Identity.Poi)?.id,
+                                customPinId = (identity as? Identity.Pin)?.id,
                                 stayMinutes = stop.dwellMinutes ?: RouteStop.DEFAULT_STAY_MINUTES,
                                 arriveMinute = stop.arriveMinute,
-                                placeMissing = stop.placeId == null,
+                                placeMissing = identity == null,
                             )
                         },
                 )
@@ -87,34 +106,44 @@ object RouteGuidePlan {
     }
 
     /**
-     * AI 가 순서·일차를 고친 일정([GuidePlan])을 지금 코스에 적용한다. 코스의 서버 번호·진행 상태는 이어받고,
-     * 항목 번호·방문 표시는 대응하는 행을 앞에서부터 하나씩 이어받는다. iOS `RouteGuidePlan.revising`.
+     * AI 가 순서·일차를 고친 일정([GuidePlan])을 지금 코스에 적용한다. 코스의 서버 번호·진행 상태는 이어받는다.
+     * iOS `RouteGuidePlan.revising`(`RouteGuideIdentity`).
      *
-     * 숨김·폐업 표시([RouteStop.unavailable])는 **같은 대상의 모든 행**에 이어받는다 — 같은 장소가 여러 일차에 있거나
-     * 이어받을 행이 모자라도 길찾기·다음 목적지 제외 규칙이 풀리지 않는다(MZ2AZ-458).
+     * 서로 다른 표의 같은 숫자는 다른 대상이다 — 촬영지·편의시설·개인 핀의 번호를 따로 견주고, 이름·좌표로 번호를
+     * 복원하지 않는다. 숨김·폐업 표시([RouteStop.unavailable])는 **같은 대상의 모든 행**에 이어받는다. 항목 번호·방문
+     * 표시·분류·표시말은 옛 코스와 새 일정에 그 대상이 **한 줄씩만** 있을 때만 이어받는다 — 같은 대상을 두 번 담은
+     * 코스는 일정에 항목 번호가 없어 임의로 짝짓지 않는다(MZ2AZ-458·434).
      */
     fun revising(
         original: RouteCourse,
         plan: GuidePlan,
     ): RouteCourse {
         val fresh = course(plan, original.title, original.startDate, original.pace)
-        val oldStops = original.stops.toMutableList()
+        val oldByIdentity = original.stops.mapNotNull { stop -> identity(stop)?.let { it to stop } }.groupBy({ it.first }, { it.second })
+        val newCounts =
+            fresh.stops
+                .mapNotNull { identity(it) }
+                .groupingBy { it }
+                .eachCount()
+        val unavailable = oldByIdentity.mapValues { (_, rows) -> rows.firstNotNullOfOrNull { it.unavailable } }
         val days =
             fresh.days.map { day ->
                 day.copy(
                     stops =
                         day.stops.map { stop ->
-                            val unavailable = original.stops.firstOrNull { it.unavailable != null && it.sameTarget(stop) }?.unavailable
-                            val index = oldStops.indexOfFirst { it.sameTarget(stop) }
-                            val carried =
-                                if (index < 0) {
-                                    stop
-                                } else {
-                                    oldStops.removeAt(index).let { old ->
-                                        stop.copy(id = old.id, serverItemId = old.serverItemId, visited = old.visited)
-                                    }
-                                }
-                            carried.copy(unavailable = unavailable)
+                            val key = identity(stop) ?: return@map stop
+                            val carried = stop.copy(unavailable = unavailable[key])
+                            val previous = oldByIdentity[key]?.singleOrNull()
+                            if (previous == null || newCounts[key] != 1) {
+                                carried
+                            } else {
+                                carried.copy(
+                                    serverItemId = previous.serverItemId,
+                                    visited = previous.visited,
+                                    poiText = previous.poiText,
+                                    place = carried.place.copy(type = previous.place.type),
+                                )
+                            }
                         },
                 )
             }
@@ -124,6 +153,41 @@ object RouteGuidePlan {
             detailLoaded = original.detailLoaded,
             days = days,
         )
+    }
+
+    /** 서로 다른 표의 같은 숫자는 다른 대상이다. 이름·좌표로 번호를 복원하지 않는다. */
+    sealed interface Identity {
+        data class Place(
+            val id: Long,
+        ) : Identity
+
+        data class Poi(
+            val id: Long,
+        ) : Identity
+
+        data class Pin(
+            val id: Long,
+        ) : Identity
+    }
+
+    /** 일정 줄이 가리키는 대상 — 번호가 **정확히 하나**이고 양수일 때만. 아니면 null(저장하지 못하는 줄). */
+    fun identity(stop: GuidePlanStop): Identity? {
+        val ids = listOfNotNull(stop.placeId, stop.poiId, stop.customPinId)
+        if (ids.size != 1 || ids[0] <= 0) return null
+        return when {
+            stop.placeId != null -> Identity.Place(ids[0])
+            stop.poiId != null -> Identity.Poi(ids[0])
+            else -> Identity.Pin(ids[0])
+        }
+    }
+
+    private fun identity(stop: RouteStop): Identity? {
+        if (stop.placeMissing) return null
+        return when {
+            stop.isPinned -> stop.customPinId?.takeIf { it > 0 }?.let(Identity::Pin)
+            stop.poiId != null -> Identity.Poi(stop.poiId)
+            else -> stop.savablePlaceId?.let(Identity::Place)
+        }
     }
 
     /** 사용자에게 알릴 것 — 뺀 곳과 이유, 에이전트의 주의, 거리의 근거. */

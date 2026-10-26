@@ -29,12 +29,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.data.DateText
 import com.mz2az.scenetrip.data.VisitStamp
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.SheetDetent
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
@@ -141,7 +141,7 @@ fun StampBadge(
     }
 }
 
-private fun formatDate(millis: Long): String = SimpleDateFormat("M월 d일", Locale.KOREA).format(Date(millis))
+private fun formatDate(millis: Long): String = DateText.date(millis)
 
 /** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
 @Composable

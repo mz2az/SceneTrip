@@ -20,6 +20,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 
+/** 목록 화면의 큰 상태 (iOS `ReviewListStore.Phase`) — 첫 쪽을 기다리는 동안은 스피너만, 못 받으면 「다시 시도」, 받으면 목록. */
+enum class ReviewListPhase { LOADING, LOADED, FAILED }
+
 /** 리뷰 시트가 보여 주는 목록 한 벌. */
 data class ReviewListUi(
     val reviews: List<Review> = emptyList(),
@@ -29,6 +32,9 @@ data class ReviewListUi(
     val offset: Int = 0,
     val loading: Boolean = false,
     val error: String? = null,
+    val phase: ReviewListPhase = ReviewListPhase.LOADING,
+    /** 다음 쪽을 못 받았다. 돌아가는 표시 대신 「더 불러오지 못했어요 · 다시 시도」 를 보인다. */
+    val moreFailed: Boolean = false,
     /** 사진 주소를 새로 받아 목록을 갈아 끼울 때마다 오른다 — 멈춰 있던 「다음 쪽」 받기를 다시 깨운다(iOS 가 세대를 올리는 자리). */
     val revision: Int = 0,
 )
@@ -67,7 +73,7 @@ class ReviewListStore(
         val epoch = accountEpoch()
         val request = ++generation
         val from = if (reset) 0 else state.value.offset
-        state.update { it.copy(loading = true) }
+        state.update { if (reset) it.copy(loading = true, phase = ReviewListPhase.LOADING) else it.copy(loading = true) }
         try {
             apiResult { fetch(sort, from) }.fold(
                 onSuccess = { page ->
@@ -81,6 +87,8 @@ class ReviewListStore(
                                 offset = received,
                                 total = if (page.items.isEmpty()) received else page.total,
                                 error = null,
+                                phase = ReviewListPhase.LOADED,
+                                moreFailed = if (reset) false else it.moreFailed,
                             )
                         }
                     }
@@ -89,13 +97,41 @@ class ReviewListStore(
                     if (epoch == accountEpoch() &&
                         request == generation
                     ) {
-                        state.update { s -> s.copy(error = NetworkFailure.of(it).message) }
+                        // 다음 쪽을 못 받은 것은 목록을 그대로 두고 푸터만 바꾼다 — 첫 쪽을 못 받은 것과 다르다(iOS `moreFailed`).
+                        state.update { s ->
+                            val message = NetworkFailure.of(it).message
+                            if (reset) {
+                                s.copy(error = message, phase = ReviewListPhase.FAILED)
+                            } else {
+                                s.copy(error = message, moreFailed = true)
+                            }
+                        }
                     }
                 },
             )
         } finally {
             if (request == generation) state.update { it.copy(loading = false) }
         }
+    }
+
+    /** 다음 쪽 푸터의 「다시 시도」 — 실패 표시를 풀면 푸터가 다시 받는다. */
+    fun retryMore() {
+        state.update { it.copy(moreFailed = false) }
+    }
+
+    /** 첫 쪽 실패 화면의 「다시 시도」 — 스피너부터 다시 보인다. */
+    fun prepareRetry() {
+        state.update { it.copy(phase = ReviewListPhase.LOADING) }
+    }
+
+    /**
+     * 정렬을 바꾼다 — 새 첫 쪽이 올 때까지 다음 쪽을 받지 않는다. 옛 목록 끝에 새 정렬의 둘째 쪽이 붙지 않게 나가 있던 받기를 버리고
+     * 스피너만 보인다 (iOS `prepareSortChange`).
+     */
+    fun prepareSortChange() {
+        generation++
+        stopRenewing()
+        state.update { it.copy(total = it.reviews.size, phase = ReviewListPhase.LOADING, loading = false, moreFailed = false) }
     }
 
     /**
@@ -165,6 +201,7 @@ class ReviewListStore(
                         total = page.total,
                         offset = page.items.size,
                         error = null,
+                        moreFailed = false,
                     )
                 }
             } finally {

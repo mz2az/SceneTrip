@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -154,7 +155,14 @@ fun RouteTabView(
 
         // 「둘러보기」(코스마켓) 세그먼트가 있었다 — 쓰지 않는 기능이라 걷어냈다
         // (2026-10-03 팀 회의, MZ2AZ-350). 이 화면은 내 코스 하나다.
-        if (store.courses.isEmpty()) {
+        val phase = CourseListPhase.of(store.courses.isNotEmpty(), store.courseList, store.loading)
+        if (phase == CourseListPhase.LOADING) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(Modifier.size(24.dp), color = IOS.secondaryLabel, strokeWidth = 2.dp)
+            }
+        } else if (phase == CourseListPhase.FAILED) {
+            DetailLoadError(onRetry = { scope.launch { store.refresh() } })
+        } else if (phase == CourseListPhase.EMPTY) {
             EmptyState(onAI = { aiWizardOpen = true }, onManual = { wizardOpen = true })
         } else {
             CourseList(

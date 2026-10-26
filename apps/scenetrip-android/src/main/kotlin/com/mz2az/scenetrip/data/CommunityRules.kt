@@ -29,6 +29,8 @@ object CommunityRules {
 
                 failure.code == "POST_COURSE_INVALID" -> "붙인 코스를 다시 골라 주세요"
 
+                failure.code == "POST_BODY_INVALID" -> "본문의 문단과 사진 배치를 확인해 주세요"
+
                 failure.code == "RATE_LIMITED" -> "요청이 많아요. 잠시 뒤 다시 시도해 주세요"
 
                 failure.code == "POST_NOT_FOUND" -> "이 후기는 더 이상 볼 수 없어요"

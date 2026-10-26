@@ -95,8 +95,8 @@ data class ApiFailure(
 
                 is ServerException -> reached(error)
 
-                // 연결 실패·타임아웃은 OkHttp 의 IOException 으로 온다.
-                else -> ApiFailure(statusCode = null, isOffline = isOffline(error))
+                // 연결 실패·타임아웃은 OkHttp 의 IOException 으로 온다. 주소를 풀지 못했거나 시스템이 네트워크가 없다고 하면 오프라인이다.
+                else -> ApiFailure(statusCode = null, isOffline = isOffline(error) || DeviceNetwork.isOffline())
             }
 
         private fun reached(error: Throwable): ApiFailure {

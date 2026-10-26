@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.CommunityPost
+import com.mz2az.scenetrip.data.DateText
 import com.mz2az.scenetrip.data.InstallIdentity
 import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.TabRouter
@@ -61,6 +62,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.CourseDetail
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
 import com.mz2az.scenetrip.searchtab.CartItemRow
+import com.mz2az.scenetrip.searchtab.FilmIcon
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.IOS
@@ -78,7 +80,6 @@ import com.mz2az.scenetrip.ui.unavailableAlpha
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
@@ -118,6 +119,8 @@ fun ProfileSheetHeader(
 @Composable
 private fun MyCoursesSheetBody(
     courses: List<CourseSummary>,
+    loading: Boolean,
+    failed: Boolean,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -126,7 +129,21 @@ private fun MyCoursesSheetBody(
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         ProfileSheetHeader(tr("내 코스"), onClose)
-        if (courses.isEmpty()) {
+        if (courses.isEmpty() && failed) {
+            IOSEmptyState(
+                tr("코스 목록을 받지 못했습니다"),
+                tr("서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요"),
+            ) { Icon(Icons.Outlined.Warning, contentDescription = null, tint = IOS.secondaryLabel, modifier = it) }
+        } else if (courses.isEmpty() && loading) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                CircularProgressIndicator()
+                Text(tr("코스 목록을 받아오는 중입니다"), fontSize = 12.sp, color = IOS.secondaryLabel)
+            }
+        } else if (courses.isEmpty()) {
             IOSEmptyState(tr("아직 코스가 없습니다"), tr("경로여정 탭에서 첫 코스를 만들어 보세요")) { RouteCurveIcon(IOS.secondaryLabel, it) }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
@@ -144,7 +161,7 @@ private fun MyCoursesSheetBody(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(course.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = IOS.label)
-                                val startDate = course.startDate?.let { " · ${formatSimpleDate(it.toString())}" } ?: ""
+                                val startDate = course.startDate?.let { " · ${DateText.date(it)}" } ?: ""
                                 Text(tr("%d일").format(course.dayCount) + startDate, fontSize = 12.sp, color = IOS.secondaryLabel)
                             }
                             if (course.status == CourseStatus.active) {
@@ -210,7 +227,7 @@ private fun MyCoursesSheetBody(
                                                     Text(
                                                         item.name,
                                                         fontSize = 11.sp,
-                                                        color = IOS.secondaryLabel,
+                                                        color = IOS.label,
                                                         modifier = Modifier.alpha(unavailableAlpha(notice)),
                                                     )
                                                     if (notice != null) UnavailableItemNotice(notice)
@@ -315,6 +332,8 @@ private fun LikedWorksSheetBody(
                                     RemoteImage(
                                         url = work.posterUrl?.toString(),
                                         contentScale = ContentScale.Fit,
+                                        // 받는 중이거나 못 받았을 때 회색 바탕에 필름 아이콘이 보인다 (iOS `RemoteImage(symbol: "film")`).
+                                        placeholder = { FilmIcon(IOS.tertiaryLabel, Modifier.size(18.dp)) },
                                         modifier =
                                             Modifier
                                                 .size(width = 34.dp, height = 46.dp)
@@ -361,7 +380,7 @@ private fun LikedWorksSheetBody(
                                     Icon(
                                         Icons.Filled.Delete,
                                         contentDescription = tr("찜 빼기"),
-                                        tint = IOS.secondaryLabel,
+                                        tint = IOS.label,
                                         modifier = Modifier.size(20.dp),
                                     )
                                 }
@@ -439,18 +458,16 @@ private fun ProfileCartSheetBody(
     }
 }
 
-private fun formatSimpleDate(isoDate: String): String = isoDate.take(10)
-
-private fun formatDateTimeShort(millis: Long): String = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.KOREA).format(Date(millis))
-
 /** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
 @Composable
 fun MyCoursesSheet(
     courses: List<CourseSummary>,
+    loading: Boolean,
+    failed: Boolean,
     onClose: () -> Unit,
 ) {
     IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
-        MyCoursesSheetBody(courses = courses, onClose = onClose)
+        MyCoursesSheetBody(courses = courses, loading = loading, failed = failed, onClose = onClose)
     }
 }
 

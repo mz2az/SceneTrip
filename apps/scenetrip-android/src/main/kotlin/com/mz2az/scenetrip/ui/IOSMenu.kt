@@ -75,7 +75,7 @@ fun IOSMenuPopover(
                         ambientColor = Color.Black.copy(alpha = 0.2f),
                         spotColor = Color.Black.copy(alpha = 0.2f),
                     ).clip(RoundedCornerShape(22.dp))
-                    .background(if (IOS.isDark) Color(0xFF2C2C2E) else Color(0xFFF5F5F6))
+                    .background(Color(0xFFF5F5F6))
                     .width(232.dp),
         ) {
             items.forEachIndexed { index, item ->

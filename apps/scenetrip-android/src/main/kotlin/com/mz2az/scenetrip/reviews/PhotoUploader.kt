@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
 import com.mz2az.scenetrip.data.API_BASE
+import com.mz2az.scenetrip.data.NetworkFailure
 import com.mz2az.scenetrip.sceneapi.client.api.UploadsApi
 import com.mz2az.scenetrip.sceneapi.client.model.UploadCreate
 import com.mz2az.scenetrip.sceneapi.client.model.UploadPurpose
@@ -30,26 +31,53 @@ object PhotoUploader {
             .callTimeout(60, TimeUnit.SECONDS)
             .build()
 
+    /**
+     * 줄여 둔 JPEG 를 올리고 `key` 를 돌려준다. 실패는 [PhotoUploadException] 으로 이유를 달고 올라간다 — 칸이 그 이유로 문구와
+     * 다시 시도 가능 여부를 가른다 (iOS `PhotoUploader.upload` 의 `PhotoUploadFailure`).
+     */
     fun upload(
-        context: Context,
-        uri: Uri,
+        bytes: ByteArray,
         purpose: UploadPurpose = UploadPurpose.review,
     ): String {
-        val bytes = shrink(context, uri)
         val ticket =
-            UploadsApi(
-                API_BASE,
-            ).createUpload(UploadCreate(purpose = purpose, contentType = "image/jpeg", bytes = bytes.size.toLong()))
+            try {
+                UploadsApi(API_BASE).createUpload(UploadCreate(purpose = purpose, contentType = "image/jpeg", bytes = bytes.size.toLong()))
+            } catch (error: java.io.IOException) {
+                throw PhotoUploadException(PhotoUploadFailure.NETWORK, error)
+            } catch (error: RuntimeException) {
+                val failure = NetworkFailure.of(error)
+                throw PhotoUploadException(PhotoUploadRules.failure(failure.status, failure.code), error)
+            }
         val request = Request.Builder().url(ticket.uploadUrl.toString()).put(bytes.toRequestBody("image/jpeg".toMediaType()))
         ticket.requiredHeaders.forEach { (name, value) ->
-            require(!name.equals("Authorization", true))
+            // 저장소는 우리 서버가 아니다 — 인증 토큰을 보내지 않는다.
+            if (name.equals("Authorization", true)) throw PhotoUploadException(PhotoUploadFailure.STORAGE)
             request.header(name, value)
         }
-        storage.newCall(request.build()).execute().use { response -> check(response.isSuccessful) { "사진 저장소에 연결하지 못했어요" } }
+        try {
+            storage.newCall(request.build()).execute().use { response ->
+                if (!response.isSuccessful) throw PhotoUploadException(PhotoUploadFailure.STORAGE)
+            }
+        } catch (error: java.io.IOException) {
+            throw PhotoUploadException(PhotoUploadFailure.NETWORK, error)
+        }
         return ticket.key
     }
 
+    /** 올릴 JPEG 를 고른 파일에서 만든다. 그림이 아니면 UNREADABLE, 품질을 낮춰도 10 MB 를 넘으면 TOO_LARGE. */
     fun shrink(
+        context: Context,
+        uri: Uri,
+    ): ByteArray =
+        try {
+            shrinkUnchecked(context, uri)
+        } catch (error: PhotoUploadException) {
+            throw error
+        } catch (error: Exception) {
+            throw PhotoUploadException(PhotoUploadFailure.UNREADABLE, error)
+        }
+
+    private fun shrinkUnchecked(
         context: Context,
         uri: Uri,
     ): ByteArray {
@@ -59,7 +87,7 @@ object PhotoUploader {
             requireNotNull(it)
             BitmapFactory.decodeStream(it, null, bounds)
         }
-        require(bounds.outWidth > 0 && bounds.outHeight > 0) { "사진을 읽을 수 없어요" }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw PhotoUploadException(PhotoUploadFailure.UNREADABLE)
         var sample = 1
         while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= EDGE) sample *= 2
         val decoded =
@@ -67,7 +95,7 @@ object PhotoUploader {
                 .openInputStream(
                     uri,
                 ).use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }
-                ?: error("사진을 읽을 수 없어요")
+                ?: throw PhotoUploadException(PhotoUploadFailure.UNREADABLE)
         val orientation =
             resolver.openInputStream(uri).use { input ->
                 input?.let { runCatching { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, 1) }.getOrDefault(1) } ?: 1
@@ -97,7 +125,7 @@ object PhotoUploader {
                 val bytes = out.toByteArray()
                 if (bytes.size <= MAX_BYTES) return bytes
             }
-            error("사진이 너무 커요")
+            throw PhotoUploadException(PhotoUploadFailure.TOO_LARGE)
         } finally {
             clean.recycle()
         }

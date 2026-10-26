@@ -25,9 +25,11 @@ import com.mz2az.scenetrip.data.LikeStore
 import com.mz2az.scenetrip.data.RootTab
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
+import com.mz2az.scenetrip.data.rememberAccountResetGeneration
 import com.mz2az.scenetrip.reviews.ModerationSheets
 import com.mz2az.scenetrip.reviews.rememberModerationController
 import com.mz2az.scenetrip.ui.IOS
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 /**
@@ -58,15 +60,21 @@ fun HomeTabScreen() {
 
     var refreshing by remember { mutableStateOf(false) }
 
-    suspend fun reload() {
-        routes.refresh()
-        cart.refresh()
-        posts.refresh()
-        model.load(routes.courses)
-    }
+    // **서로 기다리지 않는다** (MZ2AZ-372). 코스 카드는 코스 목록만 있으면 된다 — 목록이 오는 대로 그린다. 오늘의 성지·스탬프·선반도
+    // 각자 받는 대로 제자리에 넣는다. 하나가 느리다고 홈 전체가 그만큼 비어 있지 않다.
+    suspend fun reload() =
+        coroutineScope {
+            launch {
+                routes.refresh()
+                model.loadTrips(routes.courses)
+            }
+            launch { model.loadRest() }
+            launch { cart.refresh() }
+            launch { posts.refresh() }
+        }
 
-    // 계정이 바뀌면 다시 읽는다 — iOS `.onAccountChange`.
-    LaunchedEffect(AuthStore.epoch) { reload() }
+    // 계정이 바뀌면 다시 읽는다 — iOS `.onAccountChange`. 로그아웃·탈퇴는 앞 계정의 사본을 먼저 비운 세대가 오른다.
+    LaunchedEffect(AuthStore.epoch, rememberAccountResetGeneration()) { reload() }
 
     // 덮개(경로여정·마이페이지)를 닫고 돌아오면 코스·스탬프가 달라졌을 수 있다.
     var previousCover by remember { mutableStateOf(TabRouter.cover) }
@@ -101,7 +109,14 @@ fun HomeTabScreen() {
                 HomeTripPager(
                     trips = model.trips,
                     hasCourses = routes.courses.isNotEmpty(),
-                    loading = model.loading && model.trips.isEmpty(),
+                    // 코스가 있는지 모르는 동안은 「코스 만들기」 가 아니라 받는 중이다.
+                    card =
+                        HomeTabModel.tripCard(
+                            hasTrip = model.trips.isNotEmpty(),
+                            courseList = routes.courseList,
+                            hasCourses = routes.courses.isNotEmpty(),
+                            tripsLoading = model.loading,
+                        ),
                     // 코스 여행의 길찾기는 그 코스의 편집 화면 안에서 돈다 — 별도
                     // 창을 띄우지 않고 코스를 열며 안내를 켠다.
                     onNavigate = { trip ->

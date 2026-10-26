@@ -689,6 +689,8 @@ internal val TRANSLATIONS_EN: Map<String, String> =
         "코스 떼기" to "Detach course",
         "코스 만들기" to "Create course",
         "코스 밖 장소로의 길찾기는 아직 지원하지 않아요" to "Directions to places outside the course aren't supported yet",
+        "코스 목록을 받아오는 중입니다" to "Loading courses…",
+        "코스 목록을 받지 못했습니다" to "Couldn't load courses",
         "코스 보기" to "View course",
         "코스 시작" to "Start course",
         "코스 이름" to "Course name",

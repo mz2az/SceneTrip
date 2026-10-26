@@ -27,6 +27,30 @@ class FootprintPrivacyTests {
         assertFalse(store.state.recording)
     }
 
+    @Test fun forgettingTheAccountAlsoTurnsOffShowingTheTrailOnTheMap() {
+        val store = FootprintRecording(recording = true, enabled = true)
+        store.record(37.5663, 126.9779, 1)
+        store.forgetOwner()
+        assertFalse(store.state.enabled)
+        assertFalse(store.state.recording)
+        assertTrue(store.state.points.isEmpty())
+        // 같은 계정으로 다시 들어와도 기록은 0, 보기는 꺼진 채 시작한다.
+        store.record(37.5700, 126.9830, 2)
+        assertTrue(store.state.points.isEmpty())
+        assertFalse(store.state.enabled)
+    }
+
+    @Test fun showingTheTrailIsOffByDefaultAndKeptSeparateFromRecordingConsent() {
+        val store = FootprintRecording()
+        assertFalse(store.state.enabled)
+        store.setEnabled(true)
+        assertTrue(store.state.enabled)
+        assertFalse(store.state.recording)
+        store.consent(true)
+        store.clear()
+        assertTrue(store.state.enabled)
+    }
+
     @Test fun recordsOnlyFiniteKoreanLocationsAtLeast25MetersApart() {
         val store = FootprintRecording(recording = true)
         store.record(37.5663, 126.9779, 1)

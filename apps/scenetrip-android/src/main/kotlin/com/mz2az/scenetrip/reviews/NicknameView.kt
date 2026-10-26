@@ -52,9 +52,9 @@ private const val LARGE_NICKNAME_FONT_SCALE = 1.3f
 private const val PREVIEW_MAX_SP = 20f
 private const val PREVIEW_MIN_SP = 13f
 
-// iOS grouped: 라이트의 회색 바탕/흰 카드, 다크의 검은 바탕/회색 카드.
-internal val nicknameCardBackground get() = if (IOS.isDark) IOS.systemGray6 else IOS.systemBackground
-private val nicknameGroupedBackground get() = if (IOS.isDark) IOS.systemBackground else IOS.systemGray6
+// iOS grouped: 회색 바탕/흰 카드. 앱은 라이트로 고정이다 (MZ2AZ-419).
+internal val nicknameCardBackground get() = IOS.systemBackground
+private val nicknameGroupedBackground get() = IOS.systemGray6
 
 @Composable
 fun NicknameView(
