@@ -215,6 +215,20 @@ object RouteGeometry {
         return if (nearest <= limit) here else null
     }
 
+    /**
+     * 코스 지도를 일차에 맞출 때 **같이 담을 내 자리** (MZ2AZ-511). 「내 위치」가 켜져 있고 그 자리가 코스와 같은 지역
+     * ([usableAnchor] — 한국 안, 가장 가까운 정지점이 100 km 안)일 때만이다.
+     *
+     * 아무 자리나 담으면 안 된다 — 에뮬레이터 기본 위치(캘리포니아)처럼 멀리 있는 자리가 들어가는 순간 범위가
+     * 서울~캘리포니아가 되어 지도가 세계 줌(유럽·그린란드)에 멈추고 코스 핀이 한 점으로 사라졌다.
+     * 도쿄에서 서울 코스를 짜는 사람도 같다(iOS `RouteMapView.fit` 의 「같은 지역일 때만」 주석).
+     */
+    fun fitHere(
+        here: PlaceSummary?,
+        showingMe: Boolean,
+        stops: List<RouteStop>,
+    ): PlaceSummary? = if (showingMe) usableAnchor(here, stops) else null
+
     /** 여행 중에 담는 곳이 들어갈 자리 — 바로 다음 차례. */
     fun nextSlot(
         stops: List<RouteStop>,

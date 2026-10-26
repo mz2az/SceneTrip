@@ -68,7 +68,8 @@ internal fun ListContent(
         }
     }
     val listState = rememberLazyListState()
-    LaunchedEffect(data.listSerial, tab) { listState.scrollToItem(0) }
+    // 칩을 바꿔 줄 수가 줄어도 스크롤 자리를 들고 있으면 1번 행이 칩 줄 뒤로 잘린다 — 칩이 바뀌어도 맨 위로.
+    LaunchedEffect(data.listSerial, tab, chip) { listState.scrollToItem(0) }
     Column(modifier = Modifier.fillMaxWidth()) {
         // 검색을 하고 들어온 목록이면 나가는 길을 준다 — 상세와 같은 헤더를 같은
         // 자리에 쓴다. 브라우저 뒤로가기처럼 한 번에 한 단계씩만 나온다.

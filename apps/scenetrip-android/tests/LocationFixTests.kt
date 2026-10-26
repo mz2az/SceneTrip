@@ -2,8 +2,13 @@ package com.mz2az.scenetrip
 
 import com.mz2az.scenetrip.data.LocationFix
 import com.mz2az.scenetrip.data.LocationReading
+import com.mz2az.scenetrip.routetab.RouteGeometry
+import com.mz2az.scenetrip.routetab.RouteStop
 import com.mz2az.scenetrip.routetab.RouteStopFocus
+import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -107,5 +112,42 @@ class LocationFixTests {
     @Test fun focusZoomIsFourteen() {
         assertTrue(RouteStopFocus.ZOOM == 14.0)
         assertTrue(RouteStopFocus.WITH_ME_RADIUS_METERS == 3_000.0)
+    }
+
+    // --- 코스 지도를 일차에 맞출 때 같이 담을 내 자리 (MZ2AZ-511) ---
+
+    private fun stopAt(
+        id: Long,
+        lat: Double,
+        lng: Double,
+    ) = RouteStop(place = PlaceSummary(id = id, name = "s$id", latitude = lat, longitude = lng))
+
+    private fun spot(
+        lat: Double,
+        lng: Double,
+    ) = PlaceSummary(id = 0, name = "여기", latitude = lat, longitude = lng)
+
+    private val seoulCourse =
+        listOf(
+            stopAt(1, 37.5796, 126.9770),
+            stopAt(2, 37.5665, 126.9780),
+            stopAt(3, 37.5512, 126.9882),
+            stopAt(4, 37.5826, 127.0020),
+        )
+
+    /** 에뮬레이터 기본 위치(캘리포니아)를 담으면 범위가 서울~캘리포니아가 되어 지도가 세계 줌에 멈췄다. */
+    @Test fun farAwayPositionIsNotFittedWithTheCourse() {
+        val mountainView = spot(37.4220, -122.0841)
+        assertNull(RouteGeometry.fitHere(mountainView, true, seoulCourse))
+        // 도쿄·같은 나라의 먼 도시도 같은 지역이 아니다.
+        assertNull(RouteGeometry.fitHere(spot(35.6762, 139.6503), true, seoulCourse))
+        assertNull(RouteGeometry.fitHere(spot(35.1796, 129.0756), true, seoulCourse))
+    }
+
+    @Test fun nearbyPositionIsFittedOnlyWhileTheToggleIsOn() {
+        val seoulStation = spot(37.5547, 126.9707)
+        assertNotNull(RouteGeometry.fitHere(seoulStation, true, seoulCourse))
+        assertNull(RouteGeometry.fitHere(seoulStation, false, seoulCourse))
+        assertNull(RouteGeometry.fitHere(null, true, seoulCourse))
     }
 }

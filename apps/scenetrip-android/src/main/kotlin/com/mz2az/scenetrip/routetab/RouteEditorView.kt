@@ -657,8 +657,10 @@ private fun RouteEditorContent(
     }
 
     // 열쇠에 `myLocation` 자체를 두지 않는다 — 계속 받는 값이 올 때마다 화면을 다시 맞추면 손으로 옮긴 지도가 되돌아간다.
-    // 자리를 처음 알게 된 때(`myLocation != null`)만 다시 맞춘다.
-    LaunchedEffect(map, dayIndex, fitToken, showingMe, myLocation != null, screenHeight, panelHeight) {
+    // 맞춤에 **나를 담을 수 있는 자리를 처음 알게 된 때**(`fitsMe`)만 다시 맞춘다. 멀리 있는 자리(MZ2AZ-511)는 담지 않으므로
+    // 열쇠도 바꾸지 않는다 — 코스 핀에 맞춘 화면이 늦게 온 위치 때문에 다시 움직일 까닭이 없다.
+    val fitsMe = RouteGeometry.fitHere(myLocation, showingMe, stops) != null
+    LaunchedEffect(map, dayIndex, fitToken, showingMe, fitsMe, screenHeight, panelHeight) {
         val target = map ?: return@LaunchedEffect
         if (screenHeight <= 0.dp || panelHeight <= 0.dp) return@LaunchedEffect
         delay(MAP_FIT_DEBOUNCE_MILLIS) // 시트 드래그 중 반복 맞추기를 취소하고 마지막 보이는 영역에 맞춘다.
@@ -682,7 +684,8 @@ private fun RouteEditorContent(
             )
             return@LaunchedEffect
         }
-        val here = myLocation.takeIf { showingMe }
+        // 같은 지역의 자리만 담는다 — 멀리 있는 자리를 넣으면 범위가 대륙만 해져 세계 줌에 멈춘다(MZ2AZ-511, `fitHere`).
+        val here = RouteGeometry.fitHere(myLocation, showingMe, stops)
         val toFit = stops.map { it.place } + listOfNotNull(here)
         if (toFit.isNotEmpty()) {
             target.fit(
