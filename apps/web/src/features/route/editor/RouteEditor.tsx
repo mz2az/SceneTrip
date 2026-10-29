@@ -112,7 +112,7 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
     } finally {
       setSaving(false)
     }
-  }, [course, isNew, onClose, saving])
+  }, [course, onClose, saving])
 
   /** 길찾기는 목적지를 저장된 코스 항목으로만 받는다 — 방금 담은 곳은 먼저 저장한다. 저장 뒤에도 화면은 닫지 않는다. */
   const saveNow = useCallback(async (): Promise<RouteCourse | null> => {

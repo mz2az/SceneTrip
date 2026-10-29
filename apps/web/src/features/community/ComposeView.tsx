@@ -18,7 +18,7 @@ import { type PhotoPlacement, blocks as buildBlocks, canCompose, metadataValid, 
 import { CoursePicker } from './CoursePicker'
 import './community.css'
 import './icons'
-import { MyPostsSheet } from './MyPostsSheet'
+import { MyPostsSheet } from '@/features/profile/sheets/MyPostsSheet'
 import type { PostCourse } from './model'
 import { PhotoStrip } from './PhotoStrip'
 import { PlacementEditor } from './PlacementEditor'
@@ -208,9 +208,7 @@ export function ComposeView({ onClose, registerClose }: { onClose: () => void; r
       <Sheet open={pickingCourse} onClose={() => setPickingCourse(false)} detent="medium" topGap={62} radius={38} label={tr('내 코스')}>
         <CoursePicker onPick={setCourse} onClose={() => setPickingCourse(false)} />
       </Sheet>
-      <Sheet open={checkingPosts} onClose={() => setCheckingPosts(false)} detent="large" topGap={72} radius={38} label={tr('내가 쓴 글')}>
-        <MyPostsSheet onClose={() => setCheckingPosts(false)} />
-      </Sheet>
+      <MyPostsSheet open={checkingPosts} onClose={() => setCheckingPosts(false)} />
       <Sheet open={previewing} onClose={() => setPreviewing(false)} detent="large" topGap={72} radius={38} label={tr('미리보기')}>
         <ArticlePreview title={title} blocks={articleBlocks} slots={photos.slots} course={course} onClose={() => setPreviewing(false)} />
       </Sheet>

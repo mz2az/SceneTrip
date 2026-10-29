@@ -1,7 +1,7 @@
 /*
  * 리뷰 사진 줄의 순수 규칙 (MZ2AZ-363). 출처: apps/scenetrip-ios/src/Reviews/ReviewPhotoRules.swift
  */
-import { type PhotoUploadFailure, stopsQueue } from './photoUpload'
+import { type PhotoUploadFailure, stopsQueue } from '@/shared/photoUpload'
 
 /** 리뷰 사진 한 칸의 상태. */
 export type ReviewPhotoState =

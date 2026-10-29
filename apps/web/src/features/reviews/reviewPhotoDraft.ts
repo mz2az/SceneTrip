@@ -8,7 +8,7 @@
  * 올렸지만 리뷰에 붙이지 않은 사진은 서버가 하루 뒤 지운다 — 앱이 따로 지우지 않는다.
  */
 import { createStore } from '@/state/storage'
-import { type Outcome, prepareJpeg, retryable, stopsQueue, uploadPhoto } from './photoUpload'
+import { type Outcome, prepareJpeg, retryable, stopsQueue, uploadPhoto } from '@/shared/photoUpload'
 import {
   PHOTO_LIMIT, type ReviewPhotoState, busy, canSavePhotos, keysOf, photosChanged, progressOf, remaining, shouldResume,
 } from './reviewPhotoRules'

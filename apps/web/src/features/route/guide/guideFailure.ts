@@ -116,8 +116,7 @@ export function failureRetry(f: GuideFailure): RetryKind {
     case 'unreachable':
     case 'rateLimited':
     case 'interrupted':
-    // 한도에 걸린 턴은 서버가 처리하지 않았다(키도 지웠다) — 풀린 뒤 같은 키로 다시 보낸다. 단추는 풀린 뒤에만 뜬다.
-    case 'limitReached':
+    case 'limitReached': // 서버가 처리하지 않았다(키도 지웠다) — 풀린 뒤 같은 키로 다시 보낸다. 단추는 풀린 뒤에만 뜬다.
     case 'consentRequired':
     case 'locationConsentRequired':
       return 'sameKey'

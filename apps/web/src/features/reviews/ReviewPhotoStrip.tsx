@@ -11,7 +11,7 @@ import { tr } from '@/i18n'
 import { useStore } from '@/state/storage'
 import { FONT, RemoteImage } from '@/features/search/ui/common'
 import '@/features/search/icons'
-import { failureText, retryable } from './photoUpload'
+import { failureText, retryable } from '@/shared/photoUpload'
 import type { ReviewPhotoDraft, PhotoSlot } from './reviewPhotoDraft'
 import { busy } from './reviewPhotoRules'
 
