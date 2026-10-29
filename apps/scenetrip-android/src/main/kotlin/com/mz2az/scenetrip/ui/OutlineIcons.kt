@@ -773,3 +773,81 @@ fun SignOutIcon(
         drawPath(head, tint, style = s)
     }
 }
+
+/**
+ * `sparkles.rectangle.stack` — 앞의 둥근 사각 틀 안에 네 갈래 별 둘(큰 것·작은 것), 틀 뒤로 겹친 두 장의 윗변.
+ * 좌표는 마이페이지 「AI 여행 릴스」 줄의 26×26 글리프를 재감사 스크린샷(2026-10-30)에서 쟀다(칸 크기 대비 비율).
+ */
+@Composable
+fun SparklesRectangleStackIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val sw = w * 0.045f
+        val s = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        // 뒤에 겹친 두 장 — 윗변만 보인다.
+        drawLine(tint, Offset(w * 0.32f, w * 0.185f), Offset(w * 0.67f, w * 0.185f), strokeWidth = sw, cap = StrokeCap.Round)
+        drawLine(tint, Offset(w * 0.26f, w * 0.26f), Offset(w * 0.73f, w * 0.26f), strokeWidth = sw, cap = StrokeCap.Round)
+        drawRoundRect(tint, Offset(w * 0.2f, w * 0.34f), Size(w * 0.55f, w * 0.45f), CornerRadius(w * 0.07f), style = s)
+
+        fun star(
+            cx: Float,
+            cy: Float,
+            r: Float,
+        ) {
+            val k = r * 0.12f
+            val p =
+                Path().apply {
+                    moveTo(cx, cy - r)
+                    quadraticTo(cx + k, cy - k, cx + r, cy)
+                    quadraticTo(cx + k, cy + k, cx, cy + r)
+                    quadraticTo(cx - k, cy + k, cx - r, cy)
+                    quadraticTo(cx - k, cy - k, cx, cy - r)
+                    close()
+                }
+            drawPath(p, tint)
+        }
+        star(w * 0.52f, w * 0.55f, w * 0.115f)
+        star(w * 0.385f, w * 0.65f, w * 0.055f)
+    }
+}
+
+/**
+ * `trash.fill` — 밀어서 지우기 단추의 휴지통. 채운 통 몸에 세로 틈 셋, 위에 뚜껑과 손잡이. 틈은 [cut] 색(단추 바탕)으로 긋는다.
+ * 좌표는 iOS 코스 목록 단추의 글리프(가로 16.6×세로 19pt)를 감사 스크린샷(2026-10-30)에서 쟀다.
+ */
+@Composable
+fun TrashFillIcon(
+    tint: Color,
+    cut: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val handle =
+            Path().apply {
+                moveTo(w * 0.38f, w * 0.2f)
+                lineTo(w * 0.38f, w * 0.1f)
+                lineTo(w * 0.62f, w * 0.1f)
+                lineTo(w * 0.62f, w * 0.2f)
+            }
+        drawPath(handle, tint, style = Stroke(width = w * 0.09f, join = StrokeJoin.Round, cap = StrokeCap.Round))
+        drawLine(tint, Offset(w * 0.1f, w * 0.24f), Offset(w * 0.9f, w * 0.24f), strokeWidth = w * 0.11f, cap = StrokeCap.Round)
+        val bin =
+            Path().apply {
+                moveTo(w * 0.2f, w * 0.34f)
+                lineTo(w * 0.8f, w * 0.34f)
+                lineTo(w * 0.75f, w * 0.88f)
+                quadraticTo(w * 0.74f, w * 0.95f, w * 0.67f, w * 0.95f)
+                lineTo(w * 0.33f, w * 0.95f)
+                quadraticTo(w * 0.26f, w * 0.95f, w * 0.25f, w * 0.88f)
+                close()
+            }
+        drawPath(bin, tint)
+        for (x in listOf(0.38f, 0.5f, 0.62f)) {
+            drawLine(cut, Offset(w * x, w * 0.46f), Offset(w * x, w * 0.83f), strokeWidth = w * 0.06f, cap = StrokeCap.Round)
+        }
+    }
+}
