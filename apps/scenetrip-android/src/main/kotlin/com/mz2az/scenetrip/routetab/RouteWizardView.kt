@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -68,6 +69,7 @@ import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.UTurnLeftIcon
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
+import com.mz2az.scenetrip.ui.iosLineBox
 import com.mz2az.scenetrip.ui.unavailableAlpha
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -172,12 +174,17 @@ private fun RouteWizardViewBody(
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6)) {
         Column(
-            modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(horizontal = 20.dp, vertical = 14.dp),
+            // iOS `header`: 위 14, 아래 10(62-wizard1 실측). 글줄은 iOS 칸(취소 22·쪽수 18·배너 17)으로 고정한다.
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(IOS.systemBackground)
+                    .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(tr("취소"), fontSize = 17.sp, color = IOS.accent, modifier = Modifier.clickable { onClose(null) })
+                Text(tr("취소"), fontSize = 17.sp, color = IOS.accent, modifier = Modifier.clickable { onClose(null) }.iosLineBox(22.dp))
                 Spacer(Modifier.weight(1f))
-                Text("${stepIndex + 1} / $steps", fontSize = 13.sp, color = IOS.secondaryLabel)
+                Text("${stepIndex + 1} / $steps", fontSize = 13.sp, color = IOS.secondaryLabel, modifier = Modifier.iosLineBox(18.dp))
             }
             Spacer(Modifier.height(10.dp))
             // iOS `ProgressView(value:total:)` — 회색 캡슐 트랙 위 accent 캡슐. Material3 막대는
@@ -209,7 +216,9 @@ private fun RouteWizardViewBody(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
                             .background(IOS.accent.copy(alpha = 0.10f))
-                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                            // iOS 배너 35pt(62-wizard1 실측) — 글꼴 제 높이로는 36.9 였다.
+                            .height(35.dp)
+                            .padding(horizontal = 12.dp),
                 ) {
                     SparklesIcon(IOS.accent, Modifier.size(13.dp))
                     Text(tr("AI 가 일정을 짜 드립니다"), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = IOS.accent)
@@ -225,7 +234,8 @@ private fun RouteWizardViewBody(
         // 확인됨). 그래서 여기 바깥은 그대로 두고, 작품 목록(2단계)만 제 스크롤을
         // 갖는다 — "고르지 않으면…" 안내를 그 스크롤 맨 아래 항목으로 넣어 목록과
         // 무관하게 화면 바닥에 못 박히던 문제를 고친다.
-        Column(modifier = Modifier.weight(1f).padding(20.dp)) {
+        // iOS 질문 칸: 가로 20, 위아래 16(62-wizard1 실측 — 제목 위 16, 제목 줄 25, 아래 16).
+        Column(modifier = Modifier.weight(1f).padding(horizontal = 20.dp, vertical = 16.dp)) {
             Text(
                 when (stepIndex) {
                     0 -> tr("얼마나 다녀오나요?")
@@ -237,8 +247,10 @@ private fun RouteWizardViewBody(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = IOS.label,
+                // 글자 잉크가 iOS 보다 3dp 아래에 앉는다(실측 22.1 대 18.7) — 칸은 그대로 두고 글만 올린다.
+                modifier = Modifier.iosLineBox(25.dp).offset(y = (-3).dp),
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(15.dp))
             if (stepIndex == 0) {
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 100.dp),
@@ -250,6 +262,7 @@ private fun RouteWizardViewBody(
                         Text(
                             each.label,
                             fontSize = 14.sp,
+                            // iOS 칩 46pt(62-wizard1 실측) — 글꼴 제 높이로는 48 이었다.
                             fontWeight = if (isOn) FontWeight.SemiBold else FontWeight.Normal,
                             color = if (isOn) IOS.systemBackground else IOS.label,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -259,7 +272,7 @@ private fun RouteWizardViewBody(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(if (isOn) IOS.accent else IOS.systemBackground)
                                     .clickable { span = each }
-                                    .padding(vertical = 14.dp),
+                                    .iosLineBox(46.dp),
                         )
                     }
                 }
@@ -446,7 +459,7 @@ private fun RouteWizardViewBody(
                                     createAiPlan()
                                 }
                             }
-                        }.padding(vertical = 14.dp),
+                        }.height(50.dp),
             ) {
                 if (planning) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = IOS.onAccent)
@@ -460,6 +473,7 @@ private fun RouteWizardViewBody(
                         tr("다음")
                     },
                     fontSize = 17.sp,
+                    // iOS 「다음」 높이 50pt(실측 50.3) — 글꼴 제 높이로는 52.6 이었다(위 Row 의 `.height(50.dp)`).
                     color = IOS.onAccent,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
