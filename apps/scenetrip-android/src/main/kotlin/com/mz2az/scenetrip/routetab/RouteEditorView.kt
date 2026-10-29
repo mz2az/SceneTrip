@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,8 +19,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -851,7 +854,11 @@ private fun RouteEditorContent(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).then(if (inSheet) Modifier else Modifier.statusBarsPadding())) {
+    Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6)) {
+        // 저장된 코스를 덮개로 열면 상태줄 영역도 머리줄과 같은 흰색이다(iOS, 5차 감사 open2: 회색 242,242,247 이었다).
+        if (!inSheet) {
+            Spacer(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(IOS.systemBackground))
+        }
         // iOS `RouteEditorView.topBar`: 「취소」 | 가운데 제목(눌러서 고침) + 연필 | 「만들기/저장」. 큰 글자에서는 동작과 제목을 두 줄에 둔다
         // (MZ2AZ-388, `stackedTopBar`) — 한 줄에 셋을 두면 제목이 단추를 밀어낸다.
         val stackTopBar = isAccessibilityFontScale()
@@ -947,7 +954,8 @@ private fun RouteEditorContent(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(52.dp)
+                        // iOS `topBar`: 단추 최소 44 + 위아래 12 = 68 (5차 감사: 52.7 로 15 낮았다).
+                        .height(68.dp)
                         .background(IOS.systemBackground)
                         .padding(horizontal = 16.dp),
             ) {
@@ -1396,7 +1404,8 @@ private fun RouteEditorContent(
                                 }
                             }
                             // iOS `List` 줄 구분선 — 번호 뒤 글자 시작(16 + 22 + 12)부터.
-                            if (index < stops.lastIndex) IOSListDivider(start = 50.dp)
+                            // 마지막 줄 아래에도 선이 있다 — iOS 는 24 에서 시작한다(5차 감사 ed3-ios 실측: 24→385.7, 1pt).
+                            IOSListDivider(start = if (index < stops.lastIndex) 50.dp else 24.dp)
                         }
                         if (stops.isEmpty()) {
                             item {
@@ -2018,7 +2027,9 @@ private fun PlaceSearchOverlayBody(
                 },
             )
             IOSSearchField(query, { query = it.take(RoutePlaceSearch.MAX_LENGTH) }, tr("장소나 작품 이름"), Modifier.padding(horizontal = 16.dp))
-            Spacer(Modifier.height(10.dp))
+            // 5차 감사(edsearch): 시트 윗변→목록 첫 줄이 iOS 149 · Android 138.7 이었다. 줄 간격도 iOS 82.2 · Android 80.8 이라
+            // 줄 위아래 10 → 10.7 로 늘리고 남는 만큼(+7.6)을 여기에 둔다.
+            Spacer(Modifier.height(17.6.dp))
         }
         when {
             search.phase == RoutePlaceSearch.Phase.FAILED -> {
@@ -2073,7 +2084,7 @@ private fun PlaceSearchOverlayBody(
                                     .clickable(enabled = !isTaken) {
                                         picked = if (pickedOrder != null) picked - place.id else picked + place.id
                                         onPreview(resolve(picked))
-                                    }.padding(horizontal = 16.dp, vertical = 10.dp)
+                                    }.padding(horizontal = 16.dp, vertical = 10.7.dp)
                                     .alpha(if (isTaken) 0.5f else 1f),
                         ) {
                             // iOS `RemoteImage(url:, symbol: "mappin.and.ellipse")` — 사진이 없으면 회색 칸 가운데 핀.
