@@ -109,38 +109,55 @@ export interface AlertButton {
   onPress?: () => void
 }
 
-/** `.alert(title, isPresented:) { buttons } message: { … }` — 270px 폭의 가운데 알림창. */
-export function Alert({ open, title, message, buttons, onClose }: { open: boolean; title: string; message?: string; buttons: AlertButton[]; onClose: () => void }) {
+/**
+ * `.alert(title, isPresented:) { buttons } message: { … }` — iOS 26 의 유리 경고창: 폭 318 의 둥근 카드, 제목 가운데, 단추는 캡슐(둘이면 나란히 — 취소가 왼쪽,
+ * 파괴적인 것이 오른쪽; SwiftUI 에 적은 순서와 반대로 보인다). 옛 iOS 14 모양(270 폭·가로 구분선)은 쓰지 않는다.
+ */
+export function Alert({ open, title, message, buttons, onClose }: { open: boolean; title: string; message?: ReactNode; buttons: AlertButton[]; onClose: () => void }) {
   const root = useRoot()
   const { mounted, closing } = usePresence(open, 180)
   if (!mounted || !root) return null
-  const stacked = buttons.length > 2
+  const side = buttons.length === 2
+  const ordered = [...buttons].sort((a, b) => Number(b.role === 'cancel') - Number(a.role === 'cancel'))
+  const row = (b: AlertButton, i: number) => (
+    <Pressable
+      key={i}
+      plain
+      onClick={() => {
+        onClose()
+        b.onPress?.()
+      }}
+      style={{
+        flex: side ? 1 : undefined, width: side ? undefined : '100%', height: 47, borderRadius: 999, background: 'rgba(120,120,128,0.2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <Txt size={17} style={{ color: b.role === 'destructive' ? 'var(--system-red)' : 'var(--label)' }} lines={1}>{b.label}</Txt>
+    </Pressable>
+  )
   return createPortal(
-    <div style={{ position: 'absolute', inset: 0, zIndex: 80, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.4)', animation: `${closing ? 'st-fade-out' : 'st-fade-in'} 0.18s ease both` }} role="alertdialog" aria-modal>
-      <div style={{ width: 270, background: 'rgba(248,248,248,0.96)', backdropFilter: 'blur(30px)', ...rr(14), overflow: 'hidden', textAlign: 'center' }}>
-        <VStack spacing={4} pad="20px 16px 18px">
-          <Txt size={17} weight="semibold" align="center">{title}</Txt>
-          {message && <Txt size={13} align="center">{message}</Txt>}
+    <div
+      style={{ position: 'absolute', inset: 0, zIndex: 95, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.18)', animation: `${closing ? 'st-fade-out' : 'st-fade-in'} 0.18s ease both` }}
+      role="alertdialog"
+      aria-modal
+      aria-label={title}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 318, maxWidth: 'calc(100% - 32px)', borderRadius: 40, padding: '24px 20px 20px',
+          background: 'rgba(244,244,246,0.86)', backdropFilter: 'blur(40px) saturate(1.5)', WebkitBackdropFilter: 'blur(40px) saturate(1.5)',
+          boxShadow: '0 4px 40px rgba(0,0,0,0.18)', border: '0.5px solid rgba(255,255,255,0.6)',
+        }}
+      >
+        <VStack spacing={18} align="center">
+          <VStack spacing={4} align="center" style={{ padding: '0 8px' }}>
+            <Txt size={17} weight="medium" align="center">{title}</Txt>
+            {message && <Txt size={15} color="secondary" align="center">{message}</Txt>}
+          </VStack>
+          {side ? <div style={{ display: 'flex', gap: 10, width: '100%' }}>{ordered.map(row)}</div> : <VStack spacing={8} style={{ width: '100%' }}>{ordered.map(row)}</VStack>}
         </VStack>
-        <div style={{ borderTop: '0.5px solid rgba(60,60,67,0.36)', display: 'flex', flexDirection: stacked ? 'column' : 'row' }}>
-          {buttons.map((b, i) => (
-            <Pressable
-              key={i}
-              plain
-              onClick={() => {
-                onClose()
-                b.onPress?.()
-              }}
-              style={{
-                flex: 1, padding: '11px 8px', textAlign: 'center',
-                borderLeft: !stacked && i > 0 ? '0.5px solid rgba(60,60,67,0.36)' : undefined,
-                borderTop: stacked && i > 0 ? '0.5px solid rgba(60,60,67,0.36)' : undefined,
-              }}
-            >
-              <Txt size={17} weight={b.role === 'cancel' ? 'semibold' : 'regular'} color={b.role === 'destructive' ? 'red' : 'accent'}>{b.label}</Txt>
-            </Pressable>
-          ))}
-        </div>
       </div>
     </div>,
     root,
