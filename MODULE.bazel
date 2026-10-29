@@ -209,22 +209,22 @@ http_file(
 http_file(
     name = "poi_detail_manifest",
     downloaded_file_path = "manifest.json",
-    sha256 = "37b8c34f3a123ce5c666f10746411ad2d34e03e037b534912f80c62cfd61de64",
-    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-detail-2026-10-16/manifest.json"],
+    sha256 = "fe06a50c4b5d83b8374efd919f8dba5218134ee68005681da8858b49d59bd9d2",
+    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-detail-2026-10-29/manifest.json"],
 )
 
 http_file(
     name = "poi_detail_ko",
     downloaded_file_path = "tour_detail_ko.jsonl.gz",
-    sha256 = "d345b99e1b6d37a3b1667f128b6fa91c94d05f0181c6e8067105cc5340aad45e",
-    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-detail-2026-10-16/tour_detail_ko.jsonl.gz"],
+    sha256 = "1a739ba7d1cd1f98e0605e778f1b1a5953d19d6a8d6c91370b74fe7ed739efd4",
+    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-detail-2026-10-29/tour_detail_ko.jsonl.gz"],
 )
 
 http_file(
     name = "poi_detail_en",
     downloaded_file_path = "tour_detail_en.jsonl.gz",
     sha256 = "f44c4035346486ad1d5d2fd79f55935833416ae8b8294e511f7eaeaec7d3fb59",
-    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-detail-2026-10-16/tour_detail_en.jsonl.gz"],
+    urls = ["https://github.com/mz2az/SceneTrip/releases/download/poi-detail-2026-10-29/tour_detail_en.jsonl.gz"],
 )
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
