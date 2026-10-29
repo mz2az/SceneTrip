@@ -559,6 +559,43 @@ fun ArrowClockwiseIcon(
     }
 }
 
+/**
+ * `arrow.up.left.and.arrow.down.right` — 씬 카드 사진의 확대 표시. 왼쪽 위·오른쪽 아래 모서리를 향한
+ * 화살표 둘이 가운데에서 갈라져 있고, 촉은 각 모서리를 낀 ㄱ자 두 획이다.
+ */
+@Composable
+fun ArrowsExpandIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val st = Stroke(width = w * 0.1f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val a = w * 0.08f
+        val b = w * 0.92f
+        val head = w * 0.34f
+        val shaft = w * 0.42f
+        val topLeft =
+            Path().apply {
+                moveTo(a, a + head)
+                lineTo(a, a)
+                lineTo(a + head, a)
+                moveTo(a, a)
+                lineTo(shaft, shaft)
+            }
+        val bottomRight =
+            Path().apply {
+                moveTo(b, b - head)
+                lineTo(b, b)
+                lineTo(b - head, b)
+                moveTo(b, b)
+                lineTo(w - shaft, w - shaft)
+            }
+        drawPath(topLeft, tint, style = st)
+        drawPath(bottomRight, tint, style = st)
+    }
+}
+
 /** `cart` — 왼쪽 위 손잡이에서 내려오는 바구니(아래가 좁은 사다리꼴)와 바퀴 둘. */
 @Composable
 fun CartIcon(

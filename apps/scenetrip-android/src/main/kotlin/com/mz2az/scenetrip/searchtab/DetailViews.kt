@@ -63,6 +63,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceDetail
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.Scene
+import com.mz2az.scenetrip.ui.ArrowsExpandIcon
 import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
@@ -514,16 +515,38 @@ private fun SceneCard(
                 .background(IOS.systemBackground)
                 .border(1.dp, IOS.systemGray5, RoundedCornerShape(12.dp)),
     ) {
-        RemoteImage(
-            url = scene.sceneImageUrl?.toString(),
+        val hasPhoto = ScenePhotoRules.photo(scene) != null
+        Box(
             modifier =
                 Modifier
                     .size(width = 190.dp, height = 110.dp)
-                    .clickable(enabled = ScenePhotoRules.photo(scene) != null, onClick = onPhoto)
+                    .clickable(enabled = hasPhoto, onClick = onPhoto)
                     .semantics { contentDescription = tr("%s 장면 사진 크게 보기").format(scene.contentTitle) },
-            contentScale = ContentScale.Fit,
-            backgroundColor = IOS.systemBackground,
-        )
+        ) {
+            RemoteImage(
+                url = scene.sceneImageUrl?.toString(),
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+                backgroundColor = IOS.systemBackground,
+            )
+            if (hasPhoto) {
+                // iOS `SceneCard.photo` — `arrow.up.left.and.arrow.down.right`(.caption 12pt, 흰색)을
+                // `.padding(6)` 안에 두고 `black.opacity(0.5)` 원을 깐 뒤 바깥 `.padding(6)` 로 모서리에서 띄운다
+                // (SceneCard.swift:46-49). 지름 12+6+6=24, 모서리 간격 6.
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(6.dp)
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.5f)),
+                ) {
+                    ArrowsExpandIcon(Color.White, Modifier.size(12.dp))
+                }
+            }
+        }
         Column(
             verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier.height(96.dp).clickable(onClick = onClick).padding(10.dp),
