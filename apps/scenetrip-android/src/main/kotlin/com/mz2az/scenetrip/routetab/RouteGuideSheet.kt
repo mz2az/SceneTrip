@@ -88,6 +88,7 @@ import com.mz2az.scenetrip.ui.IOSSheetMaterial
 import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.mz2az.scenetrip.ui.SendArrowCircleIcon
 import com.mz2az.scenetrip.ui.iosLineBox
+import com.mz2az.scenetrip.ui.iosShadow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -211,7 +212,7 @@ fun RouteGuideChipBody(bubble: Boolean) {
             modifier =
                 Modifier
                     .size(46.dp)
-                    .shadow(4.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.2f), spotColor = Color.Black.copy(alpha = 0.2f))
+                    .iosShadow(Color.Black.copy(alpha = 0.2f), radius = 4.dp, y = 2.dp, cornerRadius = 23.dp)
                     .clip(CircleShape)
                     .background(IOS.systemBackground)
                     .border(2.dp, Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep)), CircleShape)
