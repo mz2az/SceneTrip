@@ -3,7 +3,7 @@ package com.mz2az.scenetrip
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -252,7 +252,18 @@ private fun SideTab(
         horizontalAlignment = Alignment.CenterHorizontally,
         // iOS `VStack(spacing: 3)` 을 칸 가운데에 — 위아래 반씩 나눠 아이콘을 아래로 붙이면 묶음이 4.8 위로 떴다.
         verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
-        modifier = modifier.fillMaxSize().clickable(onClick = onClick),
+        // iOS 탭바는 눌러도 아무 효과가 없다 — Android 기본 눌림 잔상(회색 사각형)을 끈다(MZ2AZ-513). 선택 상태·역할은
+        // 접근성에 그대로 남긴다.
+        modifier =
+            modifier
+                .fillMaxSize()
+                .selectable(
+                    selected = active,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    role = Role.Tab,
+                    onClick = onClick,
+                ),
     ) {
         TabIcon(tab, tint, 22.dp)
         Text(tab.stubLabel, fontSize = 11.sp, color = tint, textAlign = TextAlign.Center)
@@ -279,7 +290,16 @@ private fun HomeTab(
     // 그대로를 56dp 칸 가운데에 앉힌다 — iOS 가 `.offset` 을 먼저 먹이고 그 결과를
     // 무한 프레임이 가운데로 앉히는 것과 같은 효과다.
     Box(
-        modifier = modifier.fillMaxSize().clickable(onClick = onClick),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .selectable(
+                    selected = active,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    role = Role.Tab,
+                    onClick = onClick,
+                ),
         contentAlignment = Alignment.Center,
     ) {
         Column(
