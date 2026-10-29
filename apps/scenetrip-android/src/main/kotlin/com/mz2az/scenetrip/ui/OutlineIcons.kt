@@ -409,6 +409,22 @@ fun GripLinesIcon(
     }
 }
 
+/** `text.alignleft` — 왼쪽 맞춤 네 줄(길게·짧게·길게·짧게). 장면 카드 설명 영역의 「더 보기」 표시. */
+@Composable
+fun TextAlignLeftIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val sw = h * 0.12f
+        listOf(0.1f to 1f, 0.37f to 0.62f, 0.63f to 1f, 0.9f to 0.62f).forEach { (y, length) ->
+            drawLine(tint, Offset(sw / 2, h * y), Offset(w * length - sw / 2, h * y), strokeWidth = sw, cap = StrokeCap.Round)
+        }
+    }
+}
+
 /**
  * `arrow.down.right.and.arrow.up.left` — 창 줄이기: **왼쪽 위에서 아래오른쪽으로, 오른쪽 아래에서 위왼쪽으로**
  * 두 화살이 가운데로 모인다(↘ ↖). 반대 대각선으로 그렸더니 iOS 와 달랐다(18차 대조).

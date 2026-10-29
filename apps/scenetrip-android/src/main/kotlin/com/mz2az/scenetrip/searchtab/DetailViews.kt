@@ -67,6 +67,7 @@ import com.mz2az.scenetrip.ui.ArrowUpRightSquareIcon
 import com.mz2az.scenetrip.ui.ArrowsExpandIcon
 import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.TextAlignLeftIcon
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
 
 /**
@@ -578,6 +579,15 @@ private fun SceneCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            // iOS `SceneCard` 의 `HStack { Spacer(); Image("text.alignleft").font(.caption2).foregroundStyle(.tertiary) }`
+            // (SceneCard.swift:21-24). 설명 바로 아래 오른쪽 끝에 놓이는 장식이고, 누름은 위쪽 설명 영역 전체가 받는다.
+            Row(
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().height(13.dp),
+            ) {
+                TextAlignLeftIcon(IOS.tertiaryLabel, Modifier.size(width = 11.dp, height = 9.dp))
+            }
         }
     }
 }
