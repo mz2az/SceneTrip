@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -240,7 +243,9 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 },
                 modifier = Modifier.fillMaxSize(),
             ) {
-                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 38.dp)) {
+                // 맨 아래는 제스처 막대만큼 더 비운다 — 설치 식별자가 막대에 맞닿아 가려졌다(MZ2AZ-513).
+                val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 38.dp, bottom = navBottom + 8.dp)) {
                     item { ProfileHeader(onNickname = { showingNickname = true }) }
                     item {
                         ProfileSection(tr("내 여행")) {
@@ -560,7 +565,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 
                     item {
                         Text(
-                            tr("설치 식별자 %s…").format(deviceId.toString().take(8)),
+                            // iOS `UUID.uuidString` 은 대문자다 — Java 의 `UUID.toString()` 은 소문자라 같은 기기인데 다르게 보였다.
+                            tr("설치 식별자 %s…").format(deviceId.toString().take(8).uppercase(java.util.Locale.ROOT)),
                             fontSize = 11.sp,
                             color = IOS.tertiaryLabel,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
