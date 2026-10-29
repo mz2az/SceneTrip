@@ -94,6 +94,7 @@ import com.mz2az.scenetrip.ui.ShoeprintsIcon
 import com.mz2az.scenetrip.ui.SignOutIcon
 import com.mz2az.scenetrip.ui.SparklesRectangleStackIcon
 import com.mz2az.scenetrip.ui.SquarePencilIcon
+import com.mz2az.scenetrip.ui.iosLineBox
 import com.mz2az.scenetrip.ui.openExternalUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -289,7 +290,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                                    // iOS 카드 81pt = 44 + 위아래 18.5(41-profile 실측).
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.5.dp),
                                 ) {
                                     androidx.compose.foundation.Canvas(Modifier.size(44.dp)) {
                                         val stroke = 2.dp.toPx()
@@ -649,8 +651,7 @@ private fun ProfileHeader(onNickname: () -> Unit) {
             Text(
                 tr("로그인"),
                 fontSize = 15.sp,
-                // iOS 15pt 글줄 17.5 + 위아래 8 = 33.5(감사 실측). 앱 기본 1.3em 글줄은 이 단추를 37 로 키웠다.
-                lineHeight = 17.5.sp,
+                // iOS 15pt 글줄 17.5 + 위아래 8 = 33.5(감사 실측). 글줄 `lineHeight` 는 한 줄 글에 안 먹어 37 이었다 — 높이 칸으로 고정.
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
                 modifier =
@@ -659,7 +660,8 @@ private fun ProfileHeader(onNickname: () -> Unit) {
                         .clip(CircleShape)
                         .background(IOS.accent)
                         .clickable(enabled = !AuthStore.busy) { AuthStore.promptSignIn() }
-                        .padding(horizontal = 22.dp, vertical = 8.dp),
+                        .padding(horizontal = 22.dp)
+                        .iosLineBox(33.5.dp),
             )
         }
     }

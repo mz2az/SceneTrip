@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -301,12 +302,16 @@ private fun PopoverCard(
         ) {
             // 제목은 17 검정, 본문은 15 회색(2026-10-29 감사 실측). 본문이 있으면 둘 다 왼쪽 정렬이다 — 「」 괄호는 Noto 가
             // 글자 칸 한쪽에 붙여 그려 제목 머리가 본문보다 들어가 보이는데 글꼴 차이라 맞출 수 없다.
+            // 본문이 있는 제목은 iOS 글자 폭이 17sp Noto 보다 11% 좁다(112-sbs 실측 220px/245px) — 본문(15sp)이 같은 글꼴 차 3.5% 만
+            // 넓은 것과 견주면 15.3sp 가 맞다(실기 158.6dp → 151.7dp, iOS 146.7pt × 1.035). 본문 없는 가운데 제목(「언어」)은 그대로 17sp.
+            // 「 는 Noto 가 글자 칸 오른쪽에 그려 머리가 본문보다 7dp 들어가 보인다 — iOS 는 본문과 같은 선(165 대 167)이라 그만큼 당긴다.
             Text(
                 title,
-                fontSize = 17.sp,
+                fontSize = if (centered) 17.sp else 15.3.sp,
                 fontWeight = if (centered) FontWeight.Normal else FontWeight.SemiBold,
                 color = IOS.label,
                 textAlign = if (centered) TextAlign.Center else TextAlign.Start,
+                modifier = if (!centered && title.startsWith("「")) Modifier.offset(x = (-7).dp) else Modifier,
             )
             if (!message.isNullOrEmpty()) Text(message, fontSize = 15.sp, color = IOS.secondaryLabel, textAlign = TextAlign.Start)
         }

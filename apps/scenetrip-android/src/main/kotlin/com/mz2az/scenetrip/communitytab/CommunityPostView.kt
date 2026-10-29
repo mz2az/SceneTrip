@@ -61,6 +61,7 @@ import com.mz2az.scenetrip.ui.CheckmarkIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.LocalPhotoRenew
 import com.mz2az.scenetrip.ui.XMarkIcon
+import com.mz2az.scenetrip.ui.iosLineBox
 import kotlinx.coroutines.launch
 
 private const val PREVIEW_STOPS = 4
@@ -168,9 +169,16 @@ fun CommunityPostView(
                     item {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                            // 아래 여백은 iOS 간격 16 에서 4 를 더 뺀다 — 본문 글줄(한글 제 높이 24.4)이 iOS(22)보다 높아 글자가 4dp 아래에 앉는다(31-post 실측).
+                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 12.dp),
                         ) {
-                            Text(content.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+                            Text(
+                                content.title,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = IOS.label,
+                                modifier = Modifier.iosLineBox(28.dp),
+                            )
 
                             AuthorRow(content, moderation)
                         }
@@ -292,8 +300,8 @@ private fun AuthorRow(
             Text(name.take(1), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
         }
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IOS.label)
-            Text(formatDateTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel)
+            Text(name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IOS.label, modifier = Modifier.iosLineBox(20.dp))
+            Text(formatDateTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel, modifier = Modifier.iosLineBox(13.dp))
         }
         if (postId != null && ModerationRules.showsMenu(isMine = post.isMine)) {
             Spacer(Modifier.weight(1f))
@@ -301,6 +309,8 @@ private fun AuthorRow(
                 target = ModerationTarget.post(postId),
                 canBlock = ModerationRules.canBlock(isMine = post.isMine, hasAuthor = post.author != null),
                 controller = moderation,
+                // 메뉴 기본 칸 44×44 가 작성자 줄을 34 에서 44 로 키워 본문이 10dp 밀렸다 — iOS 줄은 글 칸(34)이 정한다(31-post 실측).
+                modifier = Modifier.size(width = 44.dp, height = 34.dp),
             )
         }
     }

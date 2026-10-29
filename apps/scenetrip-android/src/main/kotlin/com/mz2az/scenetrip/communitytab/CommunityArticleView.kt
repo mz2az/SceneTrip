@@ -176,7 +176,11 @@ internal fun CommunityArticlePhoto(
             },
             { expanded = true },
         )
-        CommunityPhotoMetadata(block)
+        // 덧말이 없으면 칸을 아예 두지 않는다 — 빈 Column 도 배치 대상이라 spacedBy(7) 이 사진 아래에 7dp 를 더 얹었다
+        // (iOS 는 조건부 자식이라 간격이 안 생긴다, 31-post 실측: 제목·작성자·본문이 모두 아래로 밀렸다).
+        if (!block.caption.isNullOrEmpty() || block.aiGenerated == true || !block.credit.isNullOrEmpty()) {
+            CommunityPhotoMetadata(block)
+        }
     }
     if (expanded) {
         image?.let { bitmap ->

@@ -135,7 +135,8 @@ fun PlaceRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onTap)
-                .padding(horizontal = IOS.gutter, vertical = 7.dp),
+                // 줄 간격 iOS 74.7pt(22-work-up 실측) — 7dp 는 73 이었다. 글 칸이 iOS 보다 조금 낮아(59 대 54.7) 위아래 7.85 를 준다.
+                .padding(horizontal = IOS.gutter, vertical = 7.85.dp),
     ) {
         // 지도 핀에 박힌 번호와 같은 값 — 행과 핀을 눈으로 잇는 다리다. 그래서
         // 배지의 그러데이션도 핀과 **같은 두 색**이어야 한다.

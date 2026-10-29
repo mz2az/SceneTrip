@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
@@ -55,14 +55,14 @@ fun RouteGuideStart(
         Text(tr("무엇을 도와드릴까요?"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
         Text(tr("장소를 코스에 담기 전에도 주변을 찾아볼 수 있어요."), fontSize = 12.sp, color = IOS.secondaryLabel)
         if (onOpenNearby != null) {
-            BorderedPill(tr("지도 주변 촬영지 보기"), 15.sp, FontWeight.SemiBold, onOpenNearby)
+            BorderedPill(tr("지도 주변 촬영지 보기"), 15.sp, FontWeight.SemiBold, 32.dp, onOpenNearby)
         }
         if (hasLocation && onChangeAnchor != null) {
-            BorderedPill(anchorActionTitle, 12.sp, FontWeight.Normal, onChangeAnchor)
+            BorderedPill(anchorActionTitle, 12.sp, FontWeight.Normal, 28.dp, onChangeAnchor)
         }
         HorizontalDivider(color = IOS.separator, thickness = 0.5.dp)
         if (onOpenPlanner != null) {
-            BorderedPill(tr("코스 추천받기 (AI)"), 15.sp, FontWeight.SemiBold, onOpenPlanner)
+            BorderedPill(tr("코스 추천받기 (AI)"), 15.sp, FontWeight.SemiBold, 32.dp, onOpenPlanner)
             Text(tr("AI 일정은 편집할 초안으로 열려요. 확인한 뒤 직접 저장해 주세요."), fontSize = 11.sp, color = IOS.secondaryLabel)
         }
         if (showQuestions) {
@@ -93,29 +93,37 @@ fun RouteGuideStart(
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
-            BorderedPill(tr("장바구니 장소 보기"), 12.sp, FontWeight.Normal, onOpenCart)
+            BorderedPill(tr("장바구니 장소 보기"), 12.sp, FontWeight.Normal, 28.dp, onOpenCart)
         }
     }
 }
 
-/** iOS `.buttonStyle(.bordered)` — 회색 바탕 알약에 강조색 글자. 누르는 자리는 높이 44dp 이상이다. */
+/**
+ * iOS `.buttonStyle(.bordered)` — 유리 패널 위에서는 거의 흰(#FAFAFB, 패널 #F4F4F5 위 실측) 알약에 강조색 글자.
+ * 높이는 iOS 실측(15pt 글자 32pt, 12pt 글자 28pt, 좌우 12pt)이다 — 44dp 로 키우면 가이드 첫 화면이 iOS 보다 늘어진다.
+ */
 @Composable
 private fun BorderedPill(
     label: String,
     size: androidx.compose.ui.unit.TextUnit,
     weight: FontWeight,
+    height: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit,
 ) {
     Box(
         contentAlignment = Alignment.Center,
         modifier =
             Modifier
-                .heightIn(min = 44.dp)
+                .height(height)
                 .clip(CircleShape)
-                .background(IOS.tertiaryFill)
+                .background(BORDERED_FILL)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 7.dp),
+                .padding(horizontal = 12.dp),
     ) {
         Text(label, fontSize = size, fontWeight = weight, color = IOS.accent)
     }
 }
+
+private val BORDERED_FILL =
+    androidx.compose.ui.graphics
+        .Color(0xFFFAFAFB)

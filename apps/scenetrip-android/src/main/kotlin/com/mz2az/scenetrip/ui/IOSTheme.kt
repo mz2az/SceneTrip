@@ -1,13 +1,18 @@
 package com.mz2az.scenetrip.ui
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -185,6 +190,16 @@ val textBase =
         lineBreak = LineBreak.Paragraph.copy(wordBreak = LineBreak.WordBreak.Phrase),
         localeList = LocaleList("ko"),
     )
+
+/**
+ * iOS 한 줄 높이(예: title2 28pt, subheadline 20pt)로 **줄 칸을 고정한다.** 글꼴 제 높이(한글 약 1.43배)를 그대로 두면 한 줄짜리
+ * 제목·단추·알약이 iOS 보다 3~4dp 커진다.
+ *
+ * `TextStyle.lineHeight` 로는 안 된다 — [textBase] 의 `Trim.Both` 는 한 줄 글의 위아래 여분을 깎아 글꼴 제 높이로 되돌리고,
+ * `Trim.None` 으로 바꿔도 한글(대체 글꼴)이 든 줄은 줄지 않았다(2026-10-30 실측: 60sp 를 줘도 15.2dp, 한글 25sp 는 29dp).
+ * 그래서 글 둘레에 높이 칸을 두고 글을 가운데에 앉힌다. 글이 칸보다 커도 잘리지 않는다.
+ */
+fun Modifier.iosLineBox(height: Dp): Modifier = this.height(height).wrapContentHeight(Alignment.CenterVertically, unbounded = true)
 
 /**
  * 앱 전체 글자 기본값 — **줄 높이는 글꼴 자체값, 자간 0.** SwiftUI 의 기본이 이렇다.
