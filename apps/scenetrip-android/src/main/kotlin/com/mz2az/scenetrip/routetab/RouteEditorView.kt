@@ -99,6 +99,7 @@ import com.mz2az.scenetrip.searchtab.focusOnStop
 import com.mz2az.scenetrip.searchtab.hasLocationPermission
 import com.mz2az.scenetrip.searchtab.regionSource
 import com.mz2az.scenetrip.searchtab.rememberLocate
+import com.mz2az.scenetrip.searchtab.widenToInclude
 import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.BusIcon
 import com.mz2az.scenetrip.ui.CircleSignIcon
@@ -137,6 +138,9 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 
 private const val MAP_FIT_DEBOUNCE_MILLIS = 150L
+
+/** 코스에 핀이 없을 때 내 자리를 담으러 범위를 넓히는 한계. 이보다 멀면 세계 줌이 된다(MZ2AZ-511). */
+private const val MAX_WIDEN_KM = 300.0
 
 /**
  * 코스 편집. iOS `RouteTab/RouteEditorView.swift`(+Controls/+Parts, 지도 중심 화면)를
@@ -699,6 +703,22 @@ private fun RouteEditorContent(
                 source = if (here != null) CoordinateSource.DEVICE else CoordinateSource.USER_SELECTED,
             )
         }
+    }
+
+    // 코스에 핀이 없는 첫 화면에서 자리가 오면 — 지금 보이는 범위(지도 기본 카메라)에 내가 없을 때만 범위를 넓혀 나를 담는다
+    // (iOS `RouteMapLocate.didUpdateLocations`). 핀이 있으면 위의 맞춤이 같은 지역의 자리를 이미 담고, 멀리 있는 자리는 일부러
+    // 담지 않으므로(MZ2AZ-511) 여기서 다시 끌어오지 않는다. 대륙을 가로지르는 자리도 세계 줌이 되므로 담지 않는다.
+    LaunchedEffect(map, myLocation, showingMe, trip.isActive, stops.isEmpty()) {
+        val target = map ?: return@LaunchedEffect
+        val here = myLocation ?: return@LaunchedEffect
+        if (!showingMe || trip.isActive || stops.isNotEmpty()) return@LaunchedEffect
+        if (screenHeight <= 0.dp || panelHeight <= 0.dp) return@LaunchedEffect
+        withFrameNanos {}
+        val center = target.cameraPosition.target
+        if (com.mz2az.scenetrip.data.haversineKm(center.latitude, center.longitude, here.latitude, here.longitude) > MAX_WIDEN_KM) {
+            return@LaunchedEffect
+        }
+        target.widenToInclude(here.latitude, here.longitude, density)
     }
 
     // **파란 점 자체는 카메라 맞추기와 별개다.** 위에서는 화면 범위만 맞췄지,

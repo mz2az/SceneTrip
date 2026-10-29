@@ -131,7 +131,10 @@ fun NaverMapCanvas(
         // 122 단위 어긋난다 — iOS 는 `contentInset` 을 걸 때 화면이 함께 밀리기
         // 때문이다. 그래서 맞춘 뒤 **화면을 미는 쪽으로** 여백을 준다.
         target.setContentPadding(0, 0, 0, 0, true)
-        target.showWholeKorea(density)
+        // 코스 편집 지도는 첫 카메라를 맞추지 않는다 — iOS `RouteMapView.makeUIView` 는 카메라를 정하지 않아 지도 SDK 의
+        // 기본 카메라(확대된 시가지, 줌 13 이상)로 열리고, 코스에 핀이 있을 때만 그 핀에 맞춘다(`fit`). 전국 화면으로 열면
+        // 줌이 13 보다 작아 주변 편의시설 칩(「음식 30」)이 아예 안 뜬다(MZ2AZ-513).
+        if (insetMode != MapInsetMode.ROUTE) target.showWholeKorea(density)
         applyInset(target, density, screenHeight, sheetHeight, searchBarInset, keepCamera = false, mode = insetMode)
         fitted = true
     }
@@ -378,6 +381,40 @@ fun NaverMap.centerOn(
             .animate(CameraAnimation.Easing, 400L),
     )
 }
+
+/**
+ * 내 자리가 지금 보이는 범위 밖이면 **범위를 넓혀 담는다.** iOS `RouteMapLocate.didUpdateLocations` —
+ * 「내 위치」 를 켰는데 아무 일도 없으면 안 되는 것으로 보인다(2026-08-27 사용자 지적).
+ * 이미 보이면 아무것도 하지 않아 손으로 옮긴 지도를 되돌리지 않는다. 담은 범위는 기기 위치에서 온 것이다.
+ *
+ * @return 카메라를 옮겼는가
+ */
+fun NaverMap.widenToInclude(
+    latitude: Double,
+    longitude: Double,
+    density: Density,
+): Boolean {
+    val here = LatLng(latitude, longitude)
+    val bounds = contentBounds
+    if (bounds.contains(here)) return false
+    val widened =
+        LatLngBounds
+            .Builder()
+            .include(bounds.southWest)
+            .include(bounds.northEast)
+            .include(here)
+            .build()
+    regionSource.source = CoordinateSource.DEVICE
+    moveCamera(
+        CameraUpdate
+            .fitBounds(widened, with(density) { ROUTE_WIDEN_PADDING.roundToPx() })
+            .animate(CameraAnimation.Easing, 400L),
+    )
+    return true
+}
+
+/** iOS `NMFCameraUpdate(fit:padding: 48)`. */
+private val ROUTE_WIDEN_PADDING = 48.dp
 
 /** 첫 진입에서 [KOREA] 가 다 보이게 맞춘다. */
 fun NaverMap.showWholeKorea(density: Density) {
