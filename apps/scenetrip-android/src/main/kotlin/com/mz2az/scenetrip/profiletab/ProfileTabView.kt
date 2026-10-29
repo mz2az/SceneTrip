@@ -642,6 +642,8 @@ private fun ProfileHeader(onNickname: () -> Unit) {
             Text(
                 tr("로그인"),
                 fontSize = 15.sp,
+                // iOS 15pt 글줄 17.5 + 위아래 8 = 33.5(감사 실측). 앱 기본 1.3em 글줄은 이 단추를 37 로 키웠다.
+                lineHeight = 17.5.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
                 modifier =

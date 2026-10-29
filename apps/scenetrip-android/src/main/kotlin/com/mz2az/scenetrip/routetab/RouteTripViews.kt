@@ -709,17 +709,24 @@ fun EditorCapsuleButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    Text(
-        label,
-        fontSize = 15.sp,
-        color = if (prominent) Color.White else IOS.accent,
-        textAlign = TextAlign.Center,
+    // 높이는 iOS 의 32 다(`.buttonStyle(.borderedProminent)` 를 감사 스크린샷에서 쟀다 — 이전 글줄 19.5 + 위아래 8 은 37.3 이었다).
+    // 글자가 크게 늘어난 접근성 글꼴에서는 32 가 최소이고 더 자란다.
+    Box(
+        contentAlignment = Alignment.Center,
         modifier =
             modifier
                 .alpha(if (enabled) 1f else 0.4f)
                 .clip(CircleShape)
                 .background(if (prominent) IOS.accent else IOS.tertiaryFill)
                 .clickable(enabled = enabled, onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-    )
+                .heightIn(min = 32.dp)
+                .padding(horizontal = 14.dp),
+    ) {
+        Text(
+            label,
+            fontSize = 15.sp,
+            color = if (prominent) Color.White else IOS.accent,
+            textAlign = TextAlign.Center,
+        )
+    }
 }

@@ -41,6 +41,7 @@ import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSEmptyState
+import com.mz2az.scenetrip.ui.IOSSheetToolbar
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
 import com.mz2az.scenetrip.ui.unavailableAlpha
 
@@ -108,30 +109,13 @@ private fun CartContent(
                 .background(IOS.systemBackground)
                 .statusBarsPadding(),
     ) {
-        // iOS 는 `navigationBarTitleDisplayMode(.inline)` — 제목이 가운데,
-        // 「닫기」가 오른쪽이다. 아이콘 ✕ 가 아니라 **글자**다.
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-        ) {
-            Text(
-                text = if (items.isEmpty()) tr("장바구니") else trCount("장바구니 %d곳", items.size),
-                style = IOS.headline,
-                color = IOS.label,
-            )
-            Text(
-                text = tr("닫기"),
-                style = IOS.body,
-                // iOS 는 이 글자를 검정으로 그린다(실측). 강조색이 아니다.
-                color = IOS.label,
-                modifier =
-                    Modifier
-                        .align(Alignment.CenterEnd)
-                        .clip(CircleShape)
-                        .clickable(onClick = onClose)
-                        .padding(horizontal = IOS.gutter, vertical = 4.dp),
-            )
-        }
+        // iOS 는 `navigationBarTitleDisplayMode(.inline)` — 제목이 가운데, 「닫기」는 오른쪽 **유리 알약**
+        // (툴바 `confirmationAction`, 실측 60×44·검정 글자). 아이콘 ✕ 가 아니라 글자 알약이다.
+        IOSSheetToolbar(
+            title = if (items.isEmpty()) tr("장바구니") else trCount("장바구니 %d곳", items.size),
+            trailing = tr("닫기"),
+            onTrailing = onClose,
+        )
         // iOS inline 머리줄은 아래 선이 없다(2차 대조) — 빈 상태도 ContentUnavailableView(가방).
         if (items.isEmpty()) {
             IOSEmptyState(tr("담은 장소가 없습니다"), tr("장소를 저장하면 여기에 모입니다")) { BagIcon(IOS.secondaryLabel, it) }

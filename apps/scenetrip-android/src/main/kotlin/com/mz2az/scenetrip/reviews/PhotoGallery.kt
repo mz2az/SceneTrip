@@ -42,6 +42,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -63,6 +64,7 @@ import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSCloseButton
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.SheetDetent
+import com.mz2az.scenetrip.ui.SquareGrid2x2Icon
 import com.mz2az.scenetrip.ui.XMarkIcon
 import kotlinx.coroutines.launch
 
@@ -208,16 +210,26 @@ fun GalleryStrip(
     // 아래 줄로 옮긴다 (MZ2AZ-470, iOS `protectedPhotos`).
     val protectedPhotos = book.photos.any(ReviewRules::isProtected)
     val pageCounter: @Composable (Modifier) -> Unit = { counterModifier ->
-        Text(
-            "▦ ${pager.currentPage + 1} / ${book.total}",
-            color = if (protectedPhotos) IOS.secondaryLabel else Color.White,
-            fontSize = 15.sp,
+        val tint = if (protectedPhotos) IOS.secondaryLabel else Color.White
+        // iOS: `square.grid.2x2`(10pt semibold) + 「3 / 19」(caption semibold, 고정폭 숫자), 사이 4, 안쪽 9·5.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             modifier =
                 counterModifier
                     .clickable { grid = true }
                     .background(if (protectedPhotos) IOS.systemGray5 else Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-        )
+                    .padding(horizontal = 9.dp, vertical = 5.dp),
+        ) {
+            SquareGrid2x2Icon(tint, Modifier.size(10.dp))
+            Text(
+                "${pager.currentPage + 1} / ${book.total}",
+                color = tint,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                style = IOS.caption.copy(fontFeatureSettings = "tnum"),
+            )
+        }
     }
     val visitorBadge: @Composable (Modifier) -> Unit = { badgeModifier ->
         Text(

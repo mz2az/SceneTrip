@@ -39,6 +39,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,6 +55,7 @@ import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.MapPinEllipseIcon
 import com.mz2az.scenetrip.ui.PersonOutlineIcon
 import com.mz2az.scenetrip.ui.iosShadow
+import com.mz2az.scenetrip.ui.keepLastWordsTogether
 
 /** 목업의 홈 글자색. `RootTabs.kt`의 것과 같은 값이다. */
 internal val HOME_PURPLE = Color(0xFF5B49D6)
@@ -289,6 +291,7 @@ private fun HomeTripCardFilled(
         Text(
             if (running) tr("여행 중") else tr("예정"),
             fontSize = 12.sp,
+            lineHeight = 14.4.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
             modifier =
@@ -302,12 +305,14 @@ private fun HomeTripCardFilled(
             (if (trip.course.placeCount == 1) tr("%s · %d곳", "하나") else tr("%s · %d곳"))
                 .format(courseSpanLabel(trip.course.dayCount), trip.course.placeCount),
             fontSize = 12.sp,
+            lineHeight = 14.4.sp,
             color = Color.White.copy(alpha = 0.85f),
         )
     }
     Text(
         trip.course.title,
         fontSize = 18.sp,
+        lineHeight = 21.6.sp,
         fontWeight = FontWeight.ExtraBold,
         color = Color.White,
         maxLines = 1,
@@ -334,6 +339,7 @@ private fun HomeTripCardFilled(
         Text(
             tr("스탬프 %d/%d").format(trip.visited, trip.total),
             fontSize = 12.sp,
+            lineHeight = 14.4.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color.White,
         )
@@ -343,6 +349,7 @@ private fun HomeTripCardFilled(
         Text(
             tr("이어서 길찾기"),
             fontSize = 14.sp,
+            lineHeight = 16.8.sp,
             fontWeight = FontWeight.Bold,
             color = HOME_PURPLE.copy(alpha = if (canNavigate) 1f else 0.6f),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -357,6 +364,7 @@ private fun HomeTripCardFilled(
         Text(
             tr("코스 보기"),
             fontSize = 14.sp,
+            lineHeight = 16.8.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color.White,
             modifier =
@@ -374,9 +382,11 @@ private fun HomeTripCardEmpty(
     hasCourses: Boolean,
     onCreate: () -> Unit,
 ) {
+    // 줄 높이는 iOS 글자 높이(12→14.4·18→21.6·13→16·14→16.8)에 맞춘다. 앱 기본 1.3em 은 이 카드를 6.2 키웠다(2026-10-29 감사 #13).
     Text(
         if (hasCourses) tr("코스") else tr("첫 여행"),
         fontSize = 12.sp,
+        lineHeight = 14.4.sp,
         fontWeight = FontWeight.Bold,
         color = Color.White,
         modifier =
@@ -385,15 +395,23 @@ private fun HomeTripCardEmpty(
                 .background(Color.White.copy(alpha = 0.22f))
                 .padding(horizontal = 9.dp, vertical = 3.dp),
     )
-    Text(tr("여행을 시작해 볼까요?"), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
     Text(
-        tr("보고 싶은 작품과 기간만 고르면 촬영지를 이어서 일정으로 짜 드립니다"),
+        tr("여행을 시작해 볼까요?"),
+        fontSize = 18.sp,
+        lineHeight = 21.6.sp,
+        fontWeight = FontWeight.ExtraBold,
+        color = Color.White,
+    )
+    Text(
+        tr("보고 싶은 작품과 기간만 고르면 촬영지를 이어서 일정으로 짜 드립니다").keepLastWordsTogether(),
         fontSize = 13.sp,
+        lineHeight = 16.sp,
         color = Color.White.copy(alpha = 0.9f),
     )
     Text(
         tr("코스 만들기"),
         fontSize = 14.sp,
+        lineHeight = 16.8.sp,
         fontWeight = FontWeight.Bold,
         color = HOME_PURPLE,
         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -471,6 +489,8 @@ private fun WorkPoster(
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 maxLines = 2,
+                // SwiftUI `lineLimit` 는 잘리면 꼬리를 「…」 로 줄인다 — Compose 기본은 그냥 자른다(2026-10-29 감사 #20).
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.align(Alignment.BottomStart).padding(10.dp),
             )
         }
@@ -538,6 +558,7 @@ fun HomeTodayCard(
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                     color = IOS.label,
                     modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
                 )
@@ -548,6 +569,7 @@ fun HomeTodayCard(
                         fontSize = 12.sp,
                         color = IOS.secondaryLabel,
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
                     Row(

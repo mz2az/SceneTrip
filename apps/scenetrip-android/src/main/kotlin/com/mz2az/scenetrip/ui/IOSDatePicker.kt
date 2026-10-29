@@ -79,6 +79,8 @@ fun IOSGraphicalDatePicker(
         Spacer(Modifier.height(25.dp))
         Row {
             // 일요일부터 — DayOfWeek 는 월=1..일=7 이라 일요일을 맨 뒤로 돌린다.
+            // iOS 26 그래픽 달력 요일 머리는 앱 언어로 「SUN MON TUE」 처럼 세 글자 대문자다(영어, 2026-10-29 감사 #30 —
+            // 에뮬레이터 로캘 탓이 아니라 Android 가 한 글자 `NARROW` 를 쓴 탓). 한국어는 「일 월 화」 로 같은 한 글자다.
             val weekdays =
                 listOf(
                     DayOfWeek.SUNDAY,
@@ -88,7 +90,7 @@ fun IOSGraphicalDatePicker(
                     DayOfWeek.THURSDAY,
                     DayOfWeek.FRIDAY,
                     DayOfWeek.SATURDAY,
-                ).map { it.getDisplayName(TextStyle.NARROW, locale) }
+                ).map { it.getDisplayName(TextStyle.SHORT, locale).uppercase(locale) }
             weekdays.forEach {
                 Text(
                     it,
