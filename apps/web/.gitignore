@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+# 생성물 — 저장소 관례대로 커밋하지 않는다 (`npm run gen` 이 만든다)
+src/api/generated/
+src/i18n/en.generated.json
+public/generated/

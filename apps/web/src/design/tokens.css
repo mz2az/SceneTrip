@@ -1,0 +1,59 @@
+/*
+ * 디자인 토큰 — iOS 앱에서 읽은 값을 그대로 옮긴다. 앱은 `.preferredColorScheme(.light)` 로 라이트 고정이다
+ * (apps/scenetrip-ios/src/Onboarding/AppRoot.swift:78) 이므로 다크 모드 토큰은 두지 않는다.
+ *
+ * 시스템 색(UIColor)은 라이트 모드의 sRGB 값이다.
+ * 단위: iOS 의 pt 는 CSS px 로 1:1 (390px 폭 기준).
+ */
+:root {
+  color-scheme: light;
+
+  /* --- UIKit 시맨틱 색 (라이트) --- */
+  --system-background: #ffffff; /* Color(.systemBackground) */
+  --secondary-system-background: #f2f2f7; /* Color(.secondarySystemBackground) */
+  --grouped-background: #f2f2f7; /* Color(.systemGroupedBackground) */
+  --secondary-grouped-background: #ffffff; /* Color(.secondarySystemGroupedBackground) */
+  --label: #000000; /* .primary */
+  --label-secondary: rgba(60, 60, 67, 0.6); /* .secondary */
+  --label-tertiary: rgba(60, 60, 67, 0.3); /* Color(.tertiaryLabel) */
+  --separator: rgba(60, 60, 67, 0.29); /* Divider / Color(.separator) */
+  --system-gray: #8e8e93;
+  --system-gray2: #aeaeb2;
+  --system-gray3: #c7c7cc;
+  --system-gray4: #d1d1d6;
+  --system-gray5: #e5e5ea;
+  --system-gray6: #f2f2f7;
+  --system-red: #ff3b30;
+  --system-green: #34c759;
+  --system-blue: #007aff;
+  --system-orange: #ff9500;
+  --system-yellow: #ffcc00;
+
+  /* Color.accentColor — 앱에 AccentColor 에셋이 없어 시스템 파랑이다. */
+  --accent: var(--system-blue);
+
+  /* --- 브랜드 (핀 그라데이션) --- */
+  /* PinImage.light = UIColor(0.56, 0.80, 0.97) — apps/scenetrip-ios/src/SearchTab/NaverMapView.swift:575 */
+  --pin-light: #8fccf7;
+  /* PinImage.deep = UIColor(0.48, 0.41, 0.93) — NaverMapView.swift:574 */
+  --pin-deep: #7a69ed;
+  /* TabBar.homePurple = Color(0.36, 0.29, 0.84) — RootTabs.swift 의 TabBar */
+  --home-purple: #5c4ad6;
+  /* 스플래시 그라데이션 끝 #5B4BC4 — Onboarding/SplashView.swift:34 */
+  --splash-end: #5b4bc4;
+  --pin-gradient: linear-gradient(to bottom right, var(--pin-light), var(--pin-deep));
+
+  /* --- 글꼴 --- */
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Apple SD Gothic Neo', 'Pretendard',
+    'Noto Sans KR', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* --- 모서리·그림자 --- */
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.07); /* homeCard: shadow(radius 4 → CSS blur 8, y 2, .07) */
+
+  /* --- 안전 영역 (PWA/노치 기기) --- */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* --- 탭바 (RootTabs.swift:TabBar) --- */
+  --tabbar-height: 56px;
+}

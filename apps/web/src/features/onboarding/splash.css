@@ -1,0 +1,75 @@
+/* SplashView 의 바탕과 모션. 값은 SplashView.swift 에서 옮겼다. */
+.splash {
+  /* LinearGradient(pin light → pin deep → #5B4BC4, topLeading → bottomTrailing) */
+  background: linear-gradient(to bottom right, var(--pin-light), var(--pin-deep), var(--splash-end));
+}
+
+/* PinDrop: 위(-340)에서 떨어져 spring(response .52, damping .52) 로 튕기고, 430ms 에 눌렸다(가로 1.12·세로 .88) 편다. */
+@keyframes splash-fall {
+  0% {
+    transform: translateY(-340px) scale(1, 1);
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6);
+  }
+  8% {
+    opacity: 1;
+  }
+  40% {
+    transform: translateY(0) scale(1, 1);
+    animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1);
+  }
+  47% {
+    transform: translateY(0) scale(1.12, 0.88);
+    animation-timing-function: cubic-bezier(0.3, 0, 0.3, 1);
+  }
+  55% {
+    transform: translateY(-34px) scale(1, 1);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.6);
+  }
+  66% {
+    transform: translateY(0) scale(1.05, 0.95);
+  }
+  76% {
+    transform: translateY(-9px) scale(1, 1);
+  }
+  86%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+    opacity: 1;
+  }
+}
+.splash-pin {
+  position: relative;
+  transform-origin: 50% 100%;
+  animation: splash-fall 1.08s linear both;
+}
+
+@keyframes splash-shadow-in {
+  from {
+    transform: scaleX(0.2);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 0.16;
+  }
+}
+.splash-shadow {
+  background: #2a2161; /* Color(0.16, 0.13, 0.38) */
+  border-radius: 50%;
+  animation: splash-shadow-in 0.42s ease-out 0.52s both;
+}
+
+@keyframes splash-text-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.splash-text {
+  animation: splash-text-in 0.5s ease-out 0.72s both;
+}

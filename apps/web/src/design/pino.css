@@ -1,0 +1,28 @@
+/* 숨쉬기(scale 1→1.02, 2.4s) + 살랑(±1.4°, 1.3s) — PinoMascot.swift 의 repeatForever(autoreverses) 애니메이션 */
+@keyframes pino-breathe {
+  from {
+    scale: 1;
+  }
+  to {
+    scale: 1.02;
+  }
+}
+@keyframes pino-sway {
+  from {
+    rotate: -1.4deg;
+  }
+  to {
+    rotate: 1.4deg;
+  }
+}
+.pino-alive {
+  transform-origin: 50% 100%;
+  animation:
+    pino-breathe 2.4s ease-in-out infinite alternate,
+    pino-sway 1.3s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pino-alive {
+    animation: none;
+  }
+}
