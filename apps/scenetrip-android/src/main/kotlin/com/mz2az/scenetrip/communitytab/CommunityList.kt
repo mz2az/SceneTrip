@@ -301,7 +301,10 @@ private fun CommunityPostRow(
             Modifier
                 .weight(1f)
                 .clickable(onClick = onClick)
-                .padding(start = 16.dp, end = if (menu) 0.dp else 16.dp, top = 10.dp, bottom = 10.dp),
+                // 커뮤니티 목록 한 줄은 iOS 118(사진 76 + 위아래 21, 2026-10-29 실측) — `List` 줄 안쪽 여백 15 에 줄 안 6 이 더해진다.
+                // 「내가 쓴 글」 시트는 따로 그린 줄이라 그대로 둔다.
+                .padding(start = 16.dp, end = if (menu) 0.dp else 16.dp)
+                .padding(vertical = if (compact) 10.dp else 21.dp),
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -346,7 +349,8 @@ private fun CommunityPostRow(
                 target = ModerationTarget.post(postId),
                 canBlock = ModerationRules.canBlock(isMine = post.isMine, hasAuthor = post.author != null),
                 controller = moderation,
-                modifier = Modifier.padding(top = 4.dp, end = 4.dp),
+                // 「⋯」 가운데가 제목 첫 줄 가운데(줄 위에서 29.5)에 놓인다 — 메뉴 칸 44 의 가운데가 줄 위 8.5+22.
+                modifier = Modifier.padding(top = if (compact) 4.dp else 8.dp, end = 4.dp),
             )
         }
     }

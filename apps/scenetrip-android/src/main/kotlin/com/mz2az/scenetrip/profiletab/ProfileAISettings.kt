@@ -31,7 +31,8 @@ import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.rememberConsentTick
 
-private val SYSTEM_PURPLE = Color(0xFFAF52DE)
+// iOS 26 `.purple` — 감사 스크린샷에서 (203,48,224) 로 쟀다(이전 값 AF52DE 는 iOS 18 까지의 보라).
+private val SYSTEM_PURPLE = Color(0xFFCB30E0)
 
 /**
  * 마이페이지의 AI 기능·위치기반서비스 이용 토글 (MZ2AZ-468·472). iOS `ProfileTab/ProfileAISettings.swift` 를 옮긴 것이다.
@@ -83,7 +84,7 @@ fun ProfileAISettings() {
             modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
         ) {
             Box(modifier = Modifier.width(26.dp), contentAlignment = Alignment.Center) {
-                LocationArrowIcon(IOS.label, filled = false, modifier = Modifier.size(16.dp))
+                LocationArrowIcon(IOS.accent, filled = false, modifier = Modifier.size(18.dp))
             }
             Text(tr(LocationConsentCopy.TOGGLE_KO), fontSize = 15.sp, color = IOS.label, modifier = Modifier.weight(1f), maxLines = 2)
             IOSToggle(checked = locationAllowed, onCheckedChange = { locationGate.setEnabled(it) })

@@ -17,7 +17,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -183,6 +186,9 @@ fun IOSConfirmPopover(
     val shadowRoom = 24.dp
     val roomPx = with(density) { shadowRoom.roundToPx() }
     val gapPx = with(density) { (anchorX + 2.dp).roundToPx() }
+    // 아래·위 어느 쪽에 뜨는가 — iOS 는 자리가 더 넉넉한 쪽에 띄운다(위쪽 줄은 아래로, 아래쪽 줄은 위로. 2026-10-29 감사 #17).
+    // 꼬리 방향이 이 값을 따라 바뀐다. 자리는 팝업이 놓일 때 알 수 있어 그때 적는다.
+    var above by remember { mutableStateOf(false) }
     val provider =
         remember(gapPx, roomPx, below) {
             object : PopupPositionProvider {
@@ -195,9 +201,11 @@ fun IOSConfirmPopover(
                     val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
                     val maxY = (windowSize.height - popupContentSize.height).coerceAtLeast(0)
                     return if (below) {
+                        val flip = anchorBounds.top > windowSize.height - anchorBounds.bottom
+                        if (above != flip) above = flip
                         IntOffset(
                             (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX),
-                            (anchorBounds.bottom - roomPx).coerceIn(0, maxY),
+                            (if (flip) anchorBounds.top - popupContentSize.height + roomPx else anchorBounds.bottom - roomPx).coerceIn(0, maxY),
                         )
                     } else {
                         IntOffset(
@@ -211,17 +219,31 @@ fun IOSConfirmPopover(
     Popup(popupPositionProvider = provider, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
         if (below) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(shadowRoom)) {
-                Canvas(Modifier.size(width = 18.dp, height = 8.dp)) {
-                    val tail =
-                        Path().apply {
-                            moveTo(0f, size.height)
-                            lineTo(size.width / 2, 0f)
-                            lineTo(size.width, size.height)
-                            close()
-                        }
-                    drawPath(tail, POPOVER_SURFACE)
+                if (!above) {
+                    Canvas(Modifier.size(width = 18.dp, height = 8.dp)) {
+                        val tail =
+                            Path().apply {
+                                moveTo(0f, size.height)
+                                lineTo(size.width / 2, 0f)
+                                lineTo(size.width, size.height)
+                                close()
+                            }
+                        drawPath(tail, POPOVER_SURFACE)
+                    }
                 }
                 PopoverCard(title, message, actions, onDismiss)
+                if (above) {
+                    Canvas(Modifier.size(width = 18.dp, height = 8.dp)) {
+                        val tail =
+                            Path().apply {
+                                moveTo(0f, 0f)
+                                lineTo(size.width / 2, size.height)
+                                lineTo(size.width, 0f)
+                                close()
+                            }
+                        drawPath(tail, POPOVER_SURFACE)
+                    }
+                }
             }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(shadowRoom)) {
@@ -265,10 +287,22 @@ private fun PopoverCard(
                 // 단추는 카드 안쪽 16/16 을 쓰고 **제목만** 30 들여쓴다(iOS 실측: 단추 폭 208).
                 .padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 16.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(start = 14.dp, end = 9.dp)) {
-            // 제목은 17 semibold 검정, 본문은 15 회색 — 둘 다 왼쪽 정렬이다(2026-10-29 감사 실측). 「」 괄호는 Noto 가
+        // 본문이 없으면 제목은 가운데·보통 굵기(언어 고르기 「언어」), 본문이 있으면 왼쪽·굵게(코스 지우기)다(2026-10-29 감사 실측).
+        val centered = message.isNullOrEmpty()
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
+            modifier = Modifier.fillMaxWidth().padding(start = if (centered) 0.dp else 14.dp, end = if (centered) 0.dp else 9.dp),
+        ) {
+            // 제목은 17 검정, 본문은 15 회색(2026-10-29 감사 실측). 본문이 있으면 둘 다 왼쪽 정렬이다 — 「」 괄호는 Noto 가
             // 글자 칸 한쪽에 붙여 그려 제목 머리가 본문보다 들어가 보이는데 글꼴 차이라 맞출 수 없다.
-            Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, textAlign = TextAlign.Start)
+            Text(
+                title,
+                fontSize = 17.sp,
+                fontWeight = if (centered) FontWeight.Normal else FontWeight.SemiBold,
+                color = IOS.label,
+                textAlign = if (centered) TextAlign.Center else TextAlign.Start,
+            )
             if (!message.isNullOrEmpty()) Text(message, fontSize = 15.sp, color = IOS.secondaryLabel, textAlign = TextAlign.Start)
         }
         actions.forEach { action ->
@@ -288,7 +322,8 @@ private fun PopoverCard(
                 Text(
                     action.label,
                     fontSize = 17.sp,
-                    color = if (action.role == IOSRole.DESTRUCTIVE) IOS.systemRed else IOS.accent,
+                    // iOS 는 일반 단추 글자를 검정으로 그린다(언어 고르기 실측) — 파괴 단추만 빨강.
+                    color = if (action.role == IOSRole.DESTRUCTIVE) IOS.systemRed else IOS.label,
                 )
             }
         }

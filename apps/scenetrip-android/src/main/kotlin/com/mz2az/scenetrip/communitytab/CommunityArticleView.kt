@@ -49,6 +49,7 @@ import com.mz2az.scenetrip.reviews.PhotoUploader
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostBlock
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostBlockKind
 import com.mz2az.scenetrip.searchtab.ImageCache
+import com.mz2az.scenetrip.ui.ArrowsExpandIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.LocalPhotoRenew
 import com.mz2az.scenetrip.ui.PhotoZoomViewer
@@ -267,7 +268,8 @@ private fun ArticleExpandButton(
             .clickable(onClick = onExpand),
         contentAlignment = Alignment.Center,
     ) {
-        Text("⤢", color = Color.White, fontSize = 20.sp)
+        // iOS `arrow.up.left.and.arrow.down.right`(본문 17pt) — 글자 ⤢ 는 Noto 에서 작은 안쪽 화살표로 그려졌다(2026-10-29 감사 #18).
+        ArrowsExpandIcon(Color.White, Modifier.size(17.dp))
     }
 }
 

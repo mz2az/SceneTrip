@@ -224,7 +224,10 @@ fun SwapArrowsIcon(
     }
 }
 
-/** `sparkles` — 큰 네 갈래 별 하나와 작은 별 둘. */
+/**
+ * `sparkles` — 가는 네 갈래 별 셋(큰 것 하나는 오른쪽 아래, 작은 둘은 왼쪽 위). 좌표는 iOS 15pt 글리프를 감사 스크린샷
+ * (2026-10-29)에서 쟀다. 별의 옆구리를 가늘게 오므린 모양(꼭짓점이 뾰족하다)이라 이전의 통통한 마름모와 달랐다.
+ */
 @Composable
 fun SparklesIcon(
     tint: Color,
@@ -238,7 +241,7 @@ fun SparklesIcon(
             cy: Float,
             r: Float,
         ) {
-            val k = r * 0.28f
+            val k = r * 0.16f
             val p =
                 Path().apply {
                     moveTo(cx, cy - r)
@@ -250,10 +253,9 @@ fun SparklesIcon(
                 }
             drawPath(p, tint)
         }
-        // 13dp 칩에서 작은 별이 1.5dp 로 사라져 「별 둘」로 보였다(2차 대조) — 작은 별 둘을 키운다.
-        star(w * 0.38f, w * 0.58f, w * 0.36f)
-        star(w * 0.78f, w * 0.2f, w * 0.2f)
-        star(w * 0.82f, w * 0.8f, w * 0.16f)
+        star(w * 0.583f, w * 0.628f, w * 0.355f)
+        star(w * 0.267f, w * 0.294f, w * 0.17f)
+        star(w * 0.5f, w * 0.056f, w * 0.117f)
     }
 }
 
@@ -392,7 +394,10 @@ fun UTurnLeftIcon(
     }
 }
 
-/** `location` / `location.fill` — 오른쪽 위를 가리키는 내비 화살표. */
+/**
+ * `location` / `location.fill` — 오른쪽 위를 가리키는 내비 화살표. 좌표는 iOS 15pt 글리프(폭 17 × 높이 16.3)를 감사
+ * 스크린샷(2026-10-29)에서 쟀다 — 가는 선, 끝이 둥글다.
+ */
 @Composable
 fun LocationArrowIcon(
     tint: Color,
@@ -403,13 +408,39 @@ fun LocationArrowIcon(
         val w = size.minDimension
         val p =
             Path().apply {
-                moveTo(w * 0.9f, w * 0.1f)
-                lineTo(w * 0.1f, w * 0.46f)
-                lineTo(w * 0.5f, w * 0.52f)
-                lineTo(w * 0.56f, w * 0.9f)
+                moveTo(w * 0.95f, w * 0.06f)
+                lineTo(w * 0.06f, w * 0.46f)
+                lineTo(w * 0.5f, w * 0.55f)
+                lineTo(w * 0.53f, w * 0.94f)
                 close()
             }
-        if (filled) drawPath(p, tint) else drawPath(p, tint, style = stroke(w))
+        if (filled) {
+            drawPath(p, tint)
+        } else {
+            drawPath(p, tint, style = Stroke(width = w * 0.08f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+    }
+}
+
+/**
+ * `square.grid.2x2` — 속이 빈 둥근 칸 넷(사진 수 알약의 「전체 보기」 표시). 9칸 글자 ▦ 가 아니다(2026-10-29 감사 #19).
+ */
+@Composable
+fun SquareGrid2x2Icon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val st = Stroke(width = w * 0.1f, join = StrokeJoin.Round)
+        val cell = w * 0.38f
+        val near = w * 0.06f
+        val far = w - near - cell
+        listOf(near, far).forEach { y ->
+            listOf(near, far).forEach { x ->
+                drawRoundRect(tint, topLeft = Offset(x, y), size = Size(cell, cell), cornerRadius = CornerRadius(w * 0.1f), style = st)
+            }
+        }
     }
 }
 
