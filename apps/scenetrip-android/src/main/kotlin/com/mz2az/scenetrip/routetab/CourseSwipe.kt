@@ -21,9 +21,10 @@ object CourseSwipe {
         revealed: Float,
         reveal: Float,
         full: Float,
+        allowsFullSwipe: Boolean = true,
     ): SwipeSettle =
         when {
-            full > 0f && revealed > full * 0.5f -> SwipeSettle.FULL
+            allowsFullSwipe && full > 0f && revealed > full * 0.5f -> SwipeSettle.FULL
             revealed > reveal * 0.5f -> SwipeSettle.OPEN
             else -> SwipeSettle.CLOSE
         }

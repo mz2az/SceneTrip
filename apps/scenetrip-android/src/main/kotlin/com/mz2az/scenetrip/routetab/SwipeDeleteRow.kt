@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.TrashFillIcon
 import kotlinx.coroutines.launch
 
 /**
@@ -51,6 +49,7 @@ import kotlinx.coroutines.launch
  *
  * @param revealedColor 단추가 드러난 동안의 줄 바탕. null 이면 [containerColor] 그대로다
  *   (iOS 편집기 줄은 밀리면 연한 회색으로 눌린 색이 된다).
+ * @param allowsFullSwipe false 면 끝까지 밀어도 단추만 드러난 채 멈춘다(iOS 편집기 `.onDelete` 줄 — 실기 확인).
  * @param onTap 닫힌 줄을 눌렀을 때. 열린 줄을 누르면 늘 줄만 닫는다(iOS). null 이면 닫힌 줄의 탭은 안쪽에 맡긴다.
  */
 @Composable
@@ -66,6 +65,7 @@ fun SwipeDeleteRow(
     containerColor: Color = IOS.systemBackground,
     revealedColor: Color? = null,
     onTap: (() -> Unit)? = null,
+    allowsFullSwipe: Boolean = true,
     content: @Composable (revealed: Boolean) -> Unit,
 ) {
     val density = LocalDensity.current
@@ -99,12 +99,7 @@ fun SwipeDeleteRow(
                             onDelete()
                         },
             ) {
-                Icon(
-                    Icons.Filled.Delete,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
-                )
+                TrashFillIcon(Color.White, IOS.systemRed, Modifier.size(22.dp))
             }
             Text(deleteLabel, fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.padding(top = 2.dp))
         }
@@ -125,7 +120,7 @@ fun SwipeDeleteRow(
                             // 밀기 시작 — 앞서 열려 있던 줄은 이때 닫힌다.
                             onDragStart = { onClaim() },
                             onDragEnd = {
-                                val settle = CourseSwipe.settle(revealed.value, revealPx, fullWidthPx)
+                                val settle = CourseSwipe.settle(revealed.value, revealPx, fullWidthPx, allowsFullSwipe)
                                 // 끝까지 밀었다 — iOS 는 첫 동작을 바로 부른다.
                                 if (settle != SwipeSettle.OPEN) onRelease()
                                 if (settle == SwipeSettle.FULL) onDelete()

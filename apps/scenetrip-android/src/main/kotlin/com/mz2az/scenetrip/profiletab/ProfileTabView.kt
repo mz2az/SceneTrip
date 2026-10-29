@@ -92,7 +92,7 @@ import com.mz2az.scenetrip.ui.QuestionCircleIcon
 import com.mz2az.scenetrip.ui.RouteCurveIcon
 import com.mz2az.scenetrip.ui.ShoeprintsIcon
 import com.mz2az.scenetrip.ui.SignOutIcon
-import com.mz2az.scenetrip.ui.SparklesIcon
+import com.mz2az.scenetrip.ui.SparklesRectangleStackIcon
 import com.mz2az.scenetrip.ui.SquarePencilIcon
 import com.mz2az.scenetrip.ui.openExternalUrl
 import kotlinx.coroutines.Dispatchers
@@ -225,7 +225,14 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
             Box(modifier = Modifier.fillMaxWidth().statusBarsPadding().height(56.dp)) {
                 Text(tr("마이페이지"), style = IOS.headline, color = IOS.label, modifier = Modifier.align(Alignment.Center))
                 if (onClose != null) {
-                    IOSCloseButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp))
+                    IOSCloseButton(
+                        onClick = onClose,
+                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp),
+                        // iOS: 시트(내 코스·찜·장바구니·내가 쓴 글 …)가 떠 있는 동안은 유리 원이 없다.
+                        plain =
+                            showingCart || showingStamps || showingReels || showingCourses || showingLikes || showingPosts ||
+                                showingReviews || showingBlocked || showingNickname,
+                    )
                 }
             }
 
@@ -379,7 +386,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                                             .background(Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep))),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    SparklesIcon(Color.White, Modifier.size(14.dp))
+                                    SparklesRectangleStackIcon(Color.White, Modifier.size(26.dp))
                                 }
                                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                                     Text(tr("내 여행으로 릴스 만들기"), fontSize = 15.sp, color = IOS.label)

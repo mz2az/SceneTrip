@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.auth.AuthStore
@@ -120,6 +121,17 @@ fun SceneTripApp() {
     }
 }
 
+/**
+ * 전체 화면 덮개 — 터치가 아래 탭바·화면으로 새지 않게 모두 삼킨다(iOS 의 전체 화면 덮개는 뒤를 누를 수 없다).
+ * 안쪽 버튼은 자식이라 먼저 받는다.
+ */
+private fun Modifier.blockTouches(): Modifier =
+    pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) awaitPointerEvent().changes.forEach { it.consume() }
+        }
+    }
+
 /** 앱을 열었을 때의 순서. iOS `Onboarding/AppRoot.swift`를 옮긴 것이다. */
 private enum class AppStage { SPLASH, LANGUAGE, LESSONS, APP }
 
@@ -155,12 +167,14 @@ private fun AppRoot() {
             enter = EnterTransition.None,
             exit = fadeOut(tween(320)),
         ) {
-            SplashView(
-                onDone = {
-                    // 언어를 고른 적이 없으면 사용법보다 먼저 묻는다 (MZ2AZ-343).
-                    stage = if (language.hasChosen) afterLanguage else AppStage.LANGUAGE
-                },
-            )
+            Box(Modifier.fillMaxSize().blockTouches()) {
+                SplashView(
+                    onDone = {
+                        // 언어를 고른 적이 없으면 사용법보다 먼저 묻는다 (MZ2AZ-343).
+                        stage = if (language.hasChosen) afterLanguage else AppStage.LANGUAGE
+                    },
+                )
+            }
         }
 
         AnimatedVisibility(
@@ -168,7 +182,7 @@ private fun AppRoot() {
             enter = EnterTransition.None,
             exit = fadeOut(tween(320)),
         ) {
-            LanguagePickView(onDone = { stage = afterLanguage })
+            Box(Modifier.fillMaxSize().blockTouches()) { LanguagePickView(onDone = { stage = afterLanguage }) }
         }
 
         AnimatedVisibility(
@@ -176,10 +190,12 @@ private fun AppRoot() {
             enter = EnterTransition.None,
             exit = fadeOut(tween(320)),
         ) {
-            OnboardingView(
-                onboardingFlag = onboardingFlag,
-                onDone = { stage = AppStage.APP },
-            )
+            Box(Modifier.fillMaxSize().blockTouches()) {
+                OnboardingView(
+                    onboardingFlag = onboardingFlag,
+                    onDone = { stage = AppStage.APP },
+                )
+            }
         }
     }
 }

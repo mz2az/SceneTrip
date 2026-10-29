@@ -1,0 +1,110 @@
+package com.mz2az.scenetrip.ui
+
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshState
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+
+/**
+ * iOS `.refreshable` 의 모습 — 내용이 아래로 밀려 내려가며 그 빈자리 가운데에 회색 12갈래 활동 표시(`UIActivityIndicatorView`)가
+ * 돈다. Material 의 둥근 판 + 화살표 아이콘은 내용 위에 떠서 글자를 가렸다(2026-10-30 재감사 R15).
+ *
+ * 당기는 동안에는 당긴 만큼 갈래가 하나씩 나타나고, 놓으면 [HOLD] 만큼 내려온 채 도는 동안 머문다.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun IOSPullToRefreshBox(
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val state = rememberPullToRefreshState()
+    val holdPx = with(LocalDensity.current) { HOLD.toPx() }
+    val held by animateFloatAsState(if (isRefreshing) 1f else 0f, tween(220), label = "refreshHold")
+
+    // 내용이 내려간 정도(0..1.3, 1 = 머무는 자리).
+    fun shift(): Float = maxOf(state.distanceFraction.coerceIn(0f, 1.3f), held)
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        state = state,
+        modifier = modifier,
+        indicator = { IOSRefreshSpinner(state, isRefreshing, holdPx, shift = { shift() }) },
+    ) {
+        Box(modifier = Modifier.graphicsLayer { translationY = shift() * holdPx }, content = content)
+    }
+}
+
+private val HOLD = 56.dp
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BoxScope.IOSRefreshSpinner(
+    state: PullToRefreshState,
+    refreshing: Boolean,
+    holdPx: Float,
+    shift: () -> Float,
+) {
+    val turn =
+        rememberInfiniteTransition(label = "spin")
+            .animateFloat(
+                initialValue = 0f,
+                targetValue = 12f,
+                animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart),
+                label = "spinStep",
+            )
+    Canvas(
+        Modifier
+            .align(Alignment.TopCenter)
+            .size(20.dp)
+            .graphicsLayer {
+                translationY = shift() * holdPx / 2f - size.height / 2f
+                alpha = if (refreshing) 1f else state.distanceFraction.coerceIn(0f, 1f)
+            },
+    ) {
+        val c = Offset(size.width / 2, size.height / 2)
+        val inner = size.minDimension * 0.28f
+        val outer = size.minDimension * 0.5f
+        val lit = if (refreshing) 12 else (state.distanceFraction.coerceIn(0f, 1f) * 12).toInt()
+        // 돌 때는 12 단계로 끊겨 돈다(iOS 와 같다) — 가장 진한 갈래가 한 칸씩 시계 방향으로 간다.
+        val head = turn.value.toInt() % 12
+        for (i in 0 until 12) {
+            if (i >= lit) continue
+            val a = (i * 30 - 90) * PI / 180.0
+            val age = if (refreshing) (head - i + 12) % 12 else i
+            val alpha = if (refreshing) (1f - age / 12f).coerceAtLeast(0.2f) else 0.7f
+            drawLine(
+                Color(0xFF8E8E93).copy(alpha = alpha),
+                Offset(c.x + (inner * cos(a)).toFloat(), c.y + (inner * sin(a)).toFloat()),
+                Offset(c.x + (outer * cos(a)).toFloat(), c.y + (outer * sin(a)).toFloat()),
+                strokeWidth = size.minDimension * 0.09f,
+                cap = StrokeCap.Round,
+            )
+        }
+    }
+}

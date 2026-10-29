@@ -180,6 +180,9 @@ fun IOSConfirmPopover(
     message: String? = null,
     // true 면 자리 **아래 가운데**에 뜨고 꼬리가 위를 가리킨다(목록 줄처럼 옆에 자리가 없을 때).
     below: Boolean = false,
+    // true 면 꼬리 없이 **화면 한가운데**에 뜬다 — 단추가 아니라 화면 전체에 붙인 `.confirmationDialog`(코스 목록 삭제)의 자리다
+    // (iOS 실측: 카드 가운데가 화면 높이의 51.5%, 2026-10-30 재감사 R10).
+    centered: Boolean = false,
 ) {
     val density = LocalDensity.current
     // 그림자가 팝업 창 경계에서 네모로 잘리지 않게 카드 둘레에 여백을 두고, 그만큼 자리를 되돌린다.
@@ -190,7 +193,7 @@ fun IOSConfirmPopover(
     // 꼬리 방향이 이 값을 따라 바뀐다. 자리는 팝업이 놓일 때 알 수 있어 그때 적는다.
     var above by remember { mutableStateOf(false) }
     val provider =
-        remember(gapPx, roomPx, below) {
+        remember(gapPx, roomPx, below, centered) {
             object : PopupPositionProvider {
                 override fun calculatePosition(
                     anchorBounds: IntRect,
@@ -200,7 +203,9 @@ fun IOSConfirmPopover(
                 ): IntOffset {
                     val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
                     val maxY = (windowSize.height - popupContentSize.height).coerceAtLeast(0)
-                    return if (below) {
+                    return if (centered) {
+                        IntOffset(maxX / 2, (windowSize.height * 0.515f - popupContentSize.height / 2f).toInt().coerceIn(0, maxY))
+                    } else if (below) {
                         val flip = anchorBounds.top > windowSize.height - anchorBounds.bottom
                         if (above != flip) above = flip
                         val y = if (flip) anchorBounds.top - popupContentSize.height + roomPx else anchorBounds.bottom - roomPx
@@ -215,7 +220,9 @@ fun IOSConfirmPopover(
             }
         }
     Popup(popupPositionProvider = provider, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
-        if (below) {
+        if (centered) {
+            Box(modifier = Modifier.padding(shadowRoom)) { PopoverCard(title, message, actions, onDismiss) }
+        } else if (below) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(shadowRoom)) {
                 if (!above) {
                     Canvas(Modifier.size(width = 18.dp, height = 8.dp)) {

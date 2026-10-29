@@ -157,6 +157,7 @@ fun RouteStopRow(
         buttonSize = DpSize(50.dp, 50.dp),
         containerColor = if (isFocused) IOS.accent.copy(alpha = 0.07f).compositeOver(IOS.systemBackground) else IOS.systemBackground,
         revealedColor = IOS.systemGray5,
+        allowsFullSwipe = false,
     ) {
         Column(
             modifier =

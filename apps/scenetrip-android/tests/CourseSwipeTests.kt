@@ -55,4 +55,10 @@ class CourseSwipeTests {
         assertEquals(false, CourseSwipe.showsDivider(openId = 1, id = 1, isLast = false))
         assertEquals(false, CourseSwipe.showsDivider(openId = null, id = 1, isLast = true))
     }
+
+    @Test
+    fun withoutFullSwipeADragToTheEdgeOnlyLeavesTheButtonOpen() {
+        assertEquals(SwipeSettle.OPEN, CourseSwipe.settle(370f, reveal, full, allowsFullSwipe = false))
+        assertEquals(SwipeSettle.CLOSE, CourseSwipe.settle(10f, reveal, full, allowsFullSwipe = false))
+    }
 }

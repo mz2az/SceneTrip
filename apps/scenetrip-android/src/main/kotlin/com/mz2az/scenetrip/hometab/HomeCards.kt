@@ -28,6 +28,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -382,47 +385,68 @@ private fun HomeTripCardEmpty(
     hasCourses: Boolean,
     onCreate: () -> Unit,
 ) {
-    // 줄 높이는 iOS 글자 높이(12→14.4·18→21.6·13→16·14→16.8)에 맞춘다. 앱 기본 1.3em 은 이 카드를 6.2 키웠다(2026-10-29 감사 #13).
-    Text(
-        if (hasCourses) tr("코스") else tr("첫 여행"),
-        fontSize = 12.sp,
-        lineHeight = 14.4.sp,
-        fontWeight = FontWeight.Bold,
-        color = Color.White,
+    // iOS `HomeTripCard.empty` — VStack(spacing 10): 알약(12 bold, 세로 3) · 제목(18 heavy) · 설명(13) · 단추(14 bold, 세로 10).
+    // 앱 기본 줄 높이(1.3em)와 한글 글꼴(Noto CJK 제 높이 1.44em)이 `Text` 높이를 키워 카드가 186 이 됐다(iOS 172.7, 2026-10-30 재감사 R6).
+    // 줄 높이 지정만으로는 줄지 않아, 각 줄 칸을 iOS 글자 높이(12→14.4·18→21.6·14→16.8)로 **고정**한다.
+    Box(
+        contentAlignment = Alignment.Center,
         modifier =
             Modifier
+                .height(20.4.dp)
                 .clip(RoundedCornerShape(50))
                 .background(Color.White.copy(alpha = 0.22f))
-                .padding(horizontal = 9.dp, vertical = 3.dp),
-    )
-    Text(
-        tr("여행을 시작해 볼까요?"),
-        fontSize = 18.sp,
-        lineHeight = 21.6.sp,
-        fontWeight = FontWeight.ExtraBold,
-        color = Color.White,
-    )
+                .padding(horizontal = 9.dp),
+    ) {
+        Text(
+            if (hasCourses) tr("코스") else tr("첫 여행"),
+            fontSize = 12.sp,
+            lineHeight = 14.4.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            maxLines = 1,
+            softWrap = false,
+        )
+    }
+    Box(modifier = Modifier.fillMaxWidth().height(21.6.dp), contentAlignment = Alignment.CenterStart) {
+        Text(
+            tr("여행을 시작해 볼까요?"),
+            fontSize = 18.sp,
+            lineHeight = 21.6.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.White,
+            maxLines = 1,
+            softWrap = false,
+        )
+    }
+    // 설명은 줄 수가 언어마다 달라 줄 수 × 16 으로 고정한다(13 → 줄 칸 16).
+    var bodyLines by remember { mutableIntStateOf(2) }
     Text(
         tr("보고 싶은 작품과 기간만 고르면 촬영지를 이어서 일정으로 짜 드립니다").keepLastWordsTogether(),
         fontSize = 13.sp,
         lineHeight = 16.sp,
         color = Color.White.copy(alpha = 0.9f),
+        onTextLayout = { bodyLines = it.lineCount },
+        modifier = Modifier.fillMaxWidth().height((bodyLines * 16).dp),
     )
-    Text(
-        tr("코스 만들기"),
-        fontSize = 14.sp,
-        lineHeight = 16.8.sp,
-        fontWeight = FontWeight.Bold,
-        color = HOME_PURPLE,
-        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+    Box(
+        contentAlignment = Alignment.Center,
         modifier =
             Modifier
                 .fillMaxWidth()
+                .height(36.8.dp)
                 .clip(RoundedCornerShape(14.dp))
                 .background(Color.White)
-                .clickable(onClick = onCreate)
-                .padding(vertical = 10.dp),
-    )
+                .clickable(onClick = onCreate),
+    ) {
+        Text(
+            tr("코스 만들기"),
+            fontSize = 14.sp,
+            lineHeight = 16.8.sp,
+            fontWeight = FontWeight.Bold,
+            color = HOME_PURPLE,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+    }
 }
 
 /** 지금 뜨는 작품 — 서버 인기순 첫20편을 그대로 보여 주는 포스터 가로 스크롤. */
@@ -553,16 +577,24 @@ fun HomeTodayCard(
             ) {
                 val scene = place.sceneDescription?.trim()
                 val title = if (!scene.isNullOrEmpty()) "${place.name} — $scene" else place.name
+                // 줄 칸을 iOS 값으로 고정한다 — iOS 카드 162, Android 는 글꼴 높이 탓에 168 이었다(2026-10-30 재감사 R11). 15→18, 한 줄 행 16.
+                var titleLines by remember { mutableIntStateOf(1) }
                 Text(
                     title,
                     fontSize = 15.sp,
+                    lineHeight = 18.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     color = IOS.label,
-                    modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
+                    onTextLayout = { titleLines = it.lineCount },
+                    modifier = Modifier.fillMaxWidth().height((titleLines * 18).dp).clickable(onClick = onOpen),
                 )
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.height(16.dp),
+                ) {
                     MapPinEllipseIcon(IOS.pinDeep, Modifier.size(13.dp))
                     Text(
                         place.address ?: tr("주소 없음"),

@@ -357,6 +357,8 @@ fun XMarkIcon(
 fun IOSCloseButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    // 시트가 위에 떠 있으면 iOS 는 뒤 화면 툴바 단추의 유리 원을 거둔다 — 굵은 X 만 남는다(2026-10-30 재감사 R9).
+    plain: Boolean = false,
 ) {
     Box(
         contentAlignment = Alignment.Center,
@@ -369,9 +371,19 @@ fun IOSCloseButton(
                 }.size(44.dp)
                 // iOS 26 툴바 단추의 그림자는 넓고 옅다 — 회색 바탕(242)에서 가장자리 근처가 233 쯤(2026-10-29 감사 #25). 고도 그림자는
                 // 투명도에 플랫폼 상수가 또 곱해져 거의 안 보였다.
-                .iosShadow(Color.Black.copy(alpha = 0.08f), radius = 16.dp, y = 4.dp, cornerRadius = 22.dp)
-                .clip(CircleShape)
-                .background(IOS.systemBackground)
+                .then(
+                    if (plain) {
+                        Modifier
+                    } else {
+                        Modifier.iosShadow(
+                            Color.Black.copy(alpha = 0.08f),
+                            radius = 16.dp,
+                            y = 4.dp,
+                            cornerRadius = 22.dp,
+                        )
+                    },
+                ).clip(CircleShape)
+                .then(if (plain) Modifier else Modifier.background(IOS.systemBackground))
                 .clickable(onClick = onClick),
     ) {
         XMarkIcon(IOS.label, Modifier.size(19.dp))
