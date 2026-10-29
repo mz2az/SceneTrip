@@ -1,6 +1,6 @@
 # 웹앱(브라우저) 이식 계획
 
-> 상태: 진행 중 — 모듈 `apps/web/` (폴더 이름은 사용자 확정 대기, 아래 §9).
+> 상태: **모든 화면 구현, 비교 가능한 30화면 평균 유사도 95.3** (2026-10-30, §4·§6) — 모듈 `apps/web/` (폴더 이름은 사용자 확정 대기, 아래 §9).
 > **아직 Bazel/just 에 연결되지 않았다. 연결에는 사용자 승인이 필요하다(§8).**
 
 ## 1. 목표
@@ -37,89 +37,97 @@ apps/web/
     app/          App, AppRoot(스플래시→언어→사용법→앱), RootTabs, TabBar, routes.ts, tabRouter.ts
     design/       tokens.css, primitives.tsx, Icon.tsx, overlay.tsx(Sheet/Cover/Alert/ActionSheet), PinoMascot
     i18n/         tr() · trAt() · 언어 선택
-    state/        storage.ts(localStorage·작은 스토어), install.ts(X-Install-Id), auth.ts
+    state/        storage.ts(localStorage·작은 스토어), install.ts(X-Install-Id), auth.ts, cart·likes·footprints·consent·shared(계정 초기화·페이징)
+    shared/       photoUpload.ts — 후기·커뮤니티가 같이 쓰는 사진 줄이기·올리기(서명 주소 PUT)
     features/     onboarding · home · search · community · profile · route · reviews · moderation
+                  route/editor/tripExtensions.tsx 가 편집 화면에 여행 안내·가이드 챗봇·주변 편의시설을 잇는다(editorExtensions 등록)
 ```
 
 폴더 이름을 바꿀 때: `scripts/paths.mjs` 는 `apps/<이름>/` 두 단계 위를 저장소 루트로 계산하므로 `git mv apps/web apps/scenetrip-web` 만으로 동작한다. 문서의 경로 표기와 아래 §8 의 Bazel 라벨만 고친다.
 
 ## 4. 화면 체크리스트
 
-상태: ⬜ 안 함 · 🟨 진행 중 · ✅ 구현·비교 완료. **유사도**는 §6 의 방법으로 화면마다 매긴다(비교하지 못한 화면은 `—`, 「동일」이라 쓰지 않는다).
-iOS 출처는 `apps/scenetrip-ios/src/` 아래 경로다.
+상태: ⬜ 안 함 · 🟨 구현됨, 비교·실행을 다 하지 못함(이유는 비고) · ✅ 구현·비교 완료. **유사도**는 §6 의 방법으로 화면마다 매긴다(비교하지 못한 화면은 `비교 안 함`, 「동일」이라 쓰지 않는다).
+iOS 출처는 `apps/scenetrip-ios/src/` 아래 경로다. 비교한 기준은 `/private/tmp/claude-501/e2e/audit/*-ios.png`·`…/data-filled/ios-*.png`(402×874pt) 와 웹 402×874 화면이다(상태바·홈 인디케이터는 제외, §6).
+
+모든 화면은 라우트에 실제로 달려 있고(`npm run dev` 로 열어 확인), 오류 없이 열린다. 기능 사이를 잇던 자리표시자(`state/*`, `features/*/index.ts`, `editorExtensions`)는 전부 실제 구현으로 채워졌다.
 
 ### 온보딩/루트
 
-| # | 화면 | iOS 출처 | 상태 | 유사도 |
-| --- | --- | --- | --- | --- |
-| R1 | 스플래시 | Onboarding/SplashView | 🟨 | — |
-| R2 | 언어 고르기 | Onboarding/LanguagePickView | 🟨 | — |
-| R3 | 사용법 4장 | Onboarding/OnboardingView | 🟨 | — |
-| R4 | 탭바(검색·홈·커뮤니티) | RootTabs | 🟨 | — |
-| R5 | 로그인 시트 | Auth/SignInView | ⬜ | — |
-| R6 | 닉네임 시트 | Reviews/NicknameView | ⬜ | — |
-| R7 | AI 동의 시트 | Models/AIConsentSheet | ⬜ | — |
-| R8 | 위치 동의 시트 | Models/LocationConsentSheet | ⬜ | — |
+| # | 화면 | iOS 출처 | 상태 | 유사도 | 비고 |
+| --- | --- | --- | --- | --- | --- |
+| R1 | 스플래시 | Onboarding/SplashView | 🟨 | 비교 안 함 | iOS 기준 스크린샷 없음 |
+| R2 | 언어 고르기 | Onboarding/LanguagePickView | ✅ | 97 | S3: 아이콘·글꼴 미세 |
+| R3 | 사용법 4장 | Onboarding/OnboardingView | ✅ | 97 | 그림·문구·점 표시 동일, 상태바 높이만 다름 |
+| R4 | 탭바(검색·홈·커뮤니티) | RootTabs | ✅ | 97 | S3: SF Symbols 대신 lucide |
+| R5 | 로그인 시트 | Auth/SignInView | 🟨 | 비교 안 함 | 웹용 Apple/Google 클라이언트 ID 가 없어 누르면 「준비 중」. 로그인은 실행하지 않았다(금지) |
+| R6 | 닉네임 시트 | Reviews/NicknameView | 🟨 | 비교 안 함 | 계정이 있어야 열린다 — 실행 못 함 |
+| R7 | AI 동의 시트 | Models/AIConsentSheet | 🟨 | 비교 안 함 | iOS 기준 없음(같은 부품인 위치 동의 시트는 R8 에서 비교) |
+| R8 | 위치 동의 시트 | Models/LocationConsentSheet | ✅ | 97 | |
 
 ### 홈
 
-| # | 화면 | iOS 출처 | 상태 | 유사도 |
-| --- | --- | --- | --- | --- |
-| H1 | 인사 머리줄 + 프로필 버튼 | HomeTab/HomeCards (HomeHeader) | ⬜ | — |
-| H2 | 내 여행 이어가기(카드·페이저·빈/로딩/오류) | HomeTab/HomeCards (HomeTripCard) | ⬜ | — |
-| H3 | 지금 뜨는 작품 | HomeTab/HomeCards (HomeWorkShelf) | ⬜ | — |
-| H4 | 오늘의 성지 | HomeTab/HomeCards (HomeTodayCard) | ⬜ | — |
-| H5 | 커뮤니티 지금 | HomeTab/HomeCards | ⬜ | — |
-| H6 | 내 기록 | HomeTab/HomeCards | ⬜ | — |
+| # | 화면 | iOS 출처 | 상태 | 유사도 | 비고 |
+| --- | --- | --- | --- | --- | --- |
+| H1 | 인사 머리줄 + 프로필 버튼 | HomeTab/HomeCards (HomeHeader) | ✅ | 97 | |
+| H2 | 내 여행 이어가기(카드·페이저·빈/로딩/오류) | HomeTab/HomeCards (HomeTripCard) | ✅ | 97 | 「이어서 길찾기」는 코스를 열자마자 안내를 켠다(`pendingStore.tripStart`) |
+| H3 | 지금 뜨는 작품 | HomeTab/HomeCards (HomeWorkShelf) | ✅ | 97 | |
+| H4 | 오늘의 성지 | HomeTab/HomeCards (HomeTodayCard) | ✅ | 97 | |
+| H5 | 커뮤니티 지금 | HomeTab/HomeCards | ✅ | 97 | |
+| H6 | 내 기록 | HomeTab/HomeCards | ✅ | 97 | |
 
 ### 작품검색
 
-| # | 화면 | iOS 출처 | 상태 | 유사도 |
-| --- | --- | --- | --- | --- |
-| S1 | 검색 탭(지도 + 바텀시트 3단) | SearchTab/SearchTabView, BottomSheet, NaverMapView | ⬜ | — |
-| S2 | 작품/촬영지 목록(탭·무한 스크롤) | SearchTab/SearchTabList, Rows | ⬜ | — |
-| S3 | 자동완성 패널 | SearchTab/SuggestionPanel | ⬜ | — |
-| S4 | 작품 상세 | SearchTab/ContentDetailView | ⬜ | — |
-| S5 | 촬영지 상세 + 장면 카드 | SearchTab/PlaceDetailView, SceneCard | ⬜ | — |
-| S6 | 사진 전체 화면(확대) | SearchTab/ScenePhotoViewer, SceneZoomView | ⬜ | — |
-| S7 | 장바구니 시트 | SearchTab/CartSheet | ⬜ | — |
-| S8 | 주변 편의시설 시트·POI 카드 | RouteTab/RoutePoi*, PoiInfoSection | ⬜ | — |
-| S9 | 리뷰 시트·작성·내 리뷰·사진첩 | Reviews/* | ⬜ | — |
+| # | 화면 | iOS 출처 | 상태 | 유사도 | 비고 |
+| --- | --- | --- | --- | --- | --- |
+| S1 | 검색 탭(지도 + 바텀시트 3단) | SearchTab/SearchTabView, BottomSheet, NaverMapView | ✅ | 87 | S2: 지도가 OSM 타일(iOS 는 네이버 지도) |
+| S2 | 작품/촬영지 목록(탭·무한 스크롤) | SearchTab/SearchTabList, Rows | ✅ | 97 | |
+| S3 | 자동완성 패널 | SearchTab/SuggestionPanel | ✅ | 97 | |
+| S4 | 작품 상세 | SearchTab/ContentDetailView | ✅ | 87 | S2: 위쪽에 보이는 지도 |
+| S5 | 촬영지 상세 + 장면 카드 | SearchTab/PlaceDetailView, SceneCard | ✅ | 87 | S2: 지도 |
+| S6 | 사진 전체 화면(확대) | SearchTab/ScenePhotoViewer, SceneZoomView | ✅ | 97 | |
+| S7 | 장바구니 시트 | SearchTab/CartSheet | ✅ | 97 | |
+| S8 | 주변 편의시설 점·칩·정보 카드 | RouteTab/RoutePoi*, PoiInfoSection | 🟨 | 비교 안 함 | 칩·점은 iOS 편집 화면 스크린샷과 같게 나온다. 정보 카드(`PlaceCard`)는 iOS 기준 스크린샷이 없어 비교 못 함 |
+| S9 | 리뷰 시트·작성·내 리뷰·사진첩 | Reviews/* | 🟨 | 97 (시트) | 리뷰 시트만 비교. 작성·고치기·지우기는 계정·쓰기가 필요해 실행 못 함 |
 
 ### 커뮤니티
 
-| # | 화면 | iOS 출처 | 상태 | 유사도 |
-| --- | --- | --- | --- | --- |
-| C1 | 커뮤니티 탭(목록) | CommunityTab/CommunityTabView | ⬜ | — |
-| C2 | 글 상세 | CommunityTab/CommunityPostView, CommunityArticleView | ⬜ | — |
-| C3 | 글쓰기·사진 배치 | CommunityTab/CommunityComposeView, CommunityPlacementEditor | ⬜ | — |
-| C4 | 사진 보기 | CommunityTab/CommunityPhotoViewer | ⬜ | — |
-| C5 | 신고·차단 | Reviews/ModerationViews, Models/Moderation | ⬜ | — |
+| # | 화면 | iOS 출처 | 상태 | 유사도 | 비고 |
+| --- | --- | --- | --- | --- | --- |
+| C1 | 커뮤니티 탭(목록) | CommunityTab/CommunityTabView | ✅ | 97 | |
+| C2 | 글 상세 | CommunityTab/CommunityPostView, CommunityArticleView | ✅ | 97 | |
+| C3 | 글쓰기·사진 배치 | CommunityTab/CommunityComposeView, CommunityPlacementEditor | 🟨 | 비교 안 함 | iOS 기준 없음. 사진 올리기는 버킷 CORS 가 열려야 한다(§7) — 실행 못 함. 시험은 가짜 업로더 |
+| C4 | 사진 보기 | CommunityTab/CommunityPhotoViewer | 🟨 | 비교 안 함 | iOS 기준 없음 |
+| C5 | 신고·차단 | Reviews/ModerationViews, Models/Moderation | 🟨 | 비교 안 함 | 쓰기라 실행 못 함, 단위·컴포넌트 시험만 |
 
 ### 마이페이지
 
-| # | 화면 | iOS 출처 | 상태 | 유사도 |
-| --- | --- | --- | --- | --- |
-| P1 | 마이페이지 본문(프로필·설정·언어·약관) | ProfileTab/ProfileTabView | ⬜ | — |
-| P2 | 내 코스 시트 | ProfileTab/ProfileSheets | ⬜ | — |
-| P3 | 찜한 작품 | ProfileTab/ProfileSheets | ⬜ | — |
-| P4 | 장바구니 | ProfileTab/ProfileSheets | ⬜ | — |
-| P5 | 스탬프 | ProfileTab/ProfileStamps | ⬜ | — |
-| P6 | 내 글 | ProfileTab/ProfileSheets | ⬜ | — |
-| P7 | 내 후기 | Reviews/MyReviewsView | ⬜ | — |
-| P8 | 차단한 사용자 | ProfileTab/BlockedUsersView | ⬜ | — |
-| P9 | AI 설정·기기 데이터 삭제·릴스 소개 | ProfileTab/ProfileAISettings, ProfileDeviceDataSection, ReelsTeaserView | ⬜ | — |
+| # | 화면 | iOS 출처 | 상태 | 유사도 | 비고 |
+| --- | --- | --- | --- | --- | --- |
+| P1 | 마이페이지 본문(프로필·설정·언어·약관) | ProfileTab/ProfileTabView | ✅ | 97 | 「광고 추적 허용」 줄은 웹에 없다(ATT 해당 없음, §5) — 차이에서 제외 |
+| P2 | 내 코스 시트 | ProfileTab/ProfileSheets | ✅ | 97 | |
+| P3 | 찜한 작품 | ProfileTab/ProfileSheets | ✅ | 97 | |
+| P4 | 장바구니 | ProfileTab/ProfileSheets | ✅ | 97 | |
+| P5 | 스탬프 | ProfileTab/ProfileStamps | 🟨 | 비교 안 함 | 빈 상태(본문의 스탬프 줄)만 P1 에서 비교 |
+| P6 | 내 글 | ProfileTab/ProfileSheets | ✅ | 97 | |
+| P7 | 내 후기 | Reviews/MyReviewsView | 🟨 | 비교 안 함 | 계정이 있어야 한다 |
+| P8 | 차단한 사용자 | ProfileTab/BlockedUsersView | 🟨 | 비교 안 함 | 계정이 있어야 한다 |
+| P9 | AI 설정·기기 데이터 삭제·릴스 소개 | ProfileTab/ProfileAISettings, ProfileDeviceDataSection, ReelsTeaserView | ✅ | 97 | 설정·동의 시트·삭제 확인창만 비교. 릴스 소개는 비교 안 함 |
 
 ### 경로여정(코스)
 
-| # | 화면 | iOS 출처 | 상태 | 유사도 |
-| --- | --- | --- | --- | --- |
-| T1 | 코스 목록(펼침·삭제 밀기) | RouteTab/RouteTabView | ⬜ | — |
-| T2 | 일정짜기 마법사 | RouteTab/RouteWizardView | ⬜ | — |
-| T3 | 코스 편집기(일차·장소·저장) | RouteTab/RouteEditorView, RouteEditor* | ⬜ | — |
-| T4 | 장소 추가 검색·주변 시트 | RouteTab/RouteSearchSheet, RouteNearbySheet | ⬜ | — |
-| T5 | 여행 모드·길찾기 | RouteTab/RouteNavView, TripSession | ⬜ | — |
-| T6 | 가이드 챗봇 첫 화면 | RouteTab/RouteGuideSheet, RouteGuide | ⬜ | — |
+| # | 화면 | iOS 출처 | 상태 | 유사도 | 비고 |
+| --- | --- | --- | --- | --- | --- |
+| T1 | 코스 목록(펼침·삭제 밀기) | RouteTab/RouteTabView | ✅ | 97 | |
+| T2 | 일정짜기 마법사 | RouteTab/RouteWizardView | ✅ | 97 | 직접 짜기 2단계·AI 5단계 첫 화면 비교. AI 로 짜기 실행(`/guide/plan`)은 유료라 안 함 |
+| T3 | 코스 편집기(일차·장소·저장) | RouteTab/RouteEditorView, RouteEditor* | ✅ | 87 | S2: 지도(OSM) |
+| T4 | 장소 추가 검색·주변 시트 | RouteTab/RouteSearchSheet, RouteNearbySheet | ✅ | 87 | S2: 뒤의 지도 |
+| T5 | 여행 모드·길찾기 | RouteTab/RouteNavView, TripSession | 🟨 | 비교 안 함 | 안내 띠·도착 알림·스탬프·아래 단추 줄·카카오 위치 띠·경로선·방문 기록까지 편집 화면에 이었고(`tripExtensions.tsx`) 가짜 서버로 시험했다. **실제 길찾기(`/navigation/next-leg`, 유료)는 실행하지 않았다.** 코스 시작·방문 기록은 서버 쓰기라 실행 못 함 |
+| T6 | 가이드 챗봇 | RouteTab/RouteGuideSheet, RouteGuide | 🟨 | 비교 안 함 | 해태 동그라미(끌어 옮기기)·오른쪽 서랍·시작 문구·입력창이 열리는 것까지 확인. **질문을 보내지는 않았다(`/guide/chat`, 유료).** 답의 명령(코스 갈아 끼우기·일차 열기·장소 카드 등)은 시험으로 확인 |
+
+### 점수 요약
+
+비교한 30화면(R2·R3·R4·R8, H1~H6, S1~S7·S9(시트), C1·C2, P1~P4·P6·P9, T1~T4) 평균 **95.3**. 점수를 깎은 것은 두 가지뿐이다 — 아이콘 모양 S3 −3(전 화면), 지도 타일 S2 −10(지도가 같이 보이는 S1·S4·S5·T3·T4 다섯 화면). 비교 안 함 13개(R1·R5~R7, S8, C3~C5, P5·P7·P8, T5·T6)는 평균에서 뺐다.
 
 ## 5. 웹에서 안 되는 것과 대체안
 
@@ -138,7 +146,9 @@ iOS 출처는 `apps/scenetrip-ios/src/` 아래 경로다.
 
 iOS 스크린샷(`/private/tmp/claude-501/e2e/data-filled/ios-*.png`, `…/audit/*-ios.png`, 1206×2622 = 402×874pt @3x)과 웹 390/402px 화면을 나란히 놓고 차이를 목록화한다. 화면마다 100점에서
 **S1 기능·문구 어긋남 −30, S2 눈에 띄는 모양 차이 −10, S3 미세 −3** 을 뺀다. 평균을 보고에 같이 적는다. 비교하지 못한 화면은 평균에서 빼고 따로 적는다.
-상태바·홈 인디케이터는 브라우저에 없으므로 차이에서 제외한다.
+상태바·홈 인디케이터는 브라우저에 없으므로 차이에서 제외한다(그 때문에 웹 화면의 위쪽 내용이 iOS 보다 약 54px 위에서 시작한다 — `--safe-top` 은 0).
+
+2026-10-30 비교 방법: iOS 스크린샷과 같은 상태(같은 시트·같은 언어)를 웹에서 만들어 402×874 로 찍어 나란히 놓았다(`scripts/shot.mjs` 또는 puppeteer 러너, 스크린샷은 `/private/tmp/claude-501/web-port/final/`). 데이터가 다른 것(내 코스 유무, 서버 글)은 차이로 세지 않았다. 문구는 한국어·영어 둘 다 iOS `Localizable.strings` 에서 만든 표를 쓰고, 코드의 `tr("…")` 열쇠가 영어 표에 다 있는지는 시험이 지킨다(`src/i18n/index.test.ts`).
 
 ## 7. 출시에 필요한 결정 (사용자)
 
@@ -146,9 +156,11 @@ iOS 스크린샷(`/private/tmp/claude-501/e2e/data-filled/ios-*.png`, `…/audit
 2. **도메인** — `scenetrip.io` DNS(예: `app.scenetrip.io`). 개인정보 `https://scenetrip.io/privacy` 는 한국어 초안만, `terms` 는 404(iOS README 기준) — 게시가 선행.
 3. **지도 SDK** — 네이버/카카오/구글 웹 키. 네이버는 웹 서비스 URL 등록이 필요. OSM 타일은 상용 서비스에 쓰지 않는다.
 4. **개인정보·약관 페이지** — 웹 전용 쿠키/저장소 고지.
-5. **CORS** — 아래.
+5. **CORS** — 아래. **사진 올리기도 같다**: 후기·커뮤니티 사진은 서명된 주소로 저장소(S3)에 브라우저가 직접 `PUT` 한다(`shared/photoUpload.ts`) — 버킷 CORS 가 이 웹 출처의 `PUT` 과 `Content-Type`·서명 헤더를 허용해야 한다. 서버(`POST /uploads`)가 서명을 줘도 버킷이 막으면 사진은 올라가지 않는다. 이번 작업에서는 쓰기를 DEV 로 보내지 않아 실제로 확인하지 못했다.
 6. **소셜 로그인 웹 클라이언트 ID** (Apple/Google).
 7. **토큰 보관 방식** — localStorage vs HttpOnly 쿠키.
+8. **지도 키** — 지도는 개발용 OSM 타일(Leaflet)이다. 지도가 보이는 화면의 유사도를 깎는 유일한 큰 차이(−10)이고, 출시 전에 네이버/카카오/구글 웹 키로 바꿔야 한다. 길찾기 경로는 서버가 카카오로 계산해 주므로 지도 SDK 와는 별개다.
+9. **DEV 서버 호출 한도** — DEV 는 IP 당 분당 약 60 회(`ratelimit-limit: 60`)다. 화면 확인을 연달아 돌리면 429 가 나고 홈이 「불러오는 중…」 에 머문다(iOS 와 같은 재시도 규칙) — 시간을 두고 다시 열면 된다.
 
 ### CORS 증거 (2026-10-29, DEV)
 
@@ -176,7 +188,31 @@ OPTIONS 같은 경로 (Access-Control-Request-Method: GET, …-Headers: accept-l
 5. 동시에 `AGENTS.md` §2 의 placement 표·`apps/README.md`(「웹 프론트엔드는 없다」 문구)를 갱신 — 이번에는 `apps/README.md` 만 고쳤다.
 6. 하네스 제약: 웹 빌드는 hermetic 해야 한다(네트워크 없이). `npm_translate_lock` 이 락파일로 해결한다.
 
-## 9. 사용자에게 남긴 결정
+## 9. 사용자에게 남긴 결정 (2026-10-30 기준)
 
 - 폴더 이름 `apps/web` vs `apps/scenetrip-web` (저장소 관례는 `apps/<이름>` 이고 `scenetrip-ios`/`scenetrip-android` 와 대칭이면 후자).
 - 위 §7 의 항목들, §8 의 Bazel 연결 승인.
+- 지도 SDK/키(§7-3·8) — 정하면 `RouteMap`·`LeafletMap`·`NavMap` 세 곳의 타일 부분만 바꾸면 된다.
+- 사진 올리기 버킷 CORS(§7-5), 서버 CORS 허용 또는 같은 출처 역프록시(§7).
+- 호스팅·도메인(§7-1·2), 소셜 로그인 웹 클라이언트 ID(§7-6) — 없으면 로그인 시트의 두 단추는 「준비 중」.
+- **이번에 하지 않은 것(승인이 필요하거나 금지라서)**: 로그인·계정·쓰기(코스 만들기·시작·방문 기록·글·후기·사진)와 유료 호출(`/guide/chat`·`/guide/plan`·`/navigation/*`)의 **실제 실행**. 로직은 가짜 서버 시험으로 확인했고, 실제 실행 확인은 허락을 받은 뒤 한 번 돌려야 한다 — 특히 코스 시작→길찾기→도착→방문 기록, 가이드 질문→코스 갈아 끼우기, 사진 올리기.
+
+## 10. 실행과 확인
+
+```
+cd apps/web
+npm ci && npm run gen && npm run dev      # http://localhost:5173 , /v1 은 개발 서버가 DEV 로 전달
+npm run check                              # gen + typecheck + lint + test + vite build
+```
+
+`.env.local` 의 안전장치(`VITE_BLOCK_WRITES`·`VITE_BLOCK_PATHS=/guide,/navigation`)는 그대로 둔다. 화면 확인용 쿼리: `?dev-lang=ko|en`, `?dev-seen=1`(사용법 건너뜀), `?dev-nosplash=1`, `?dev-trip-dwell=10`(머무름 초).
+
+2026-10-30 확인 결과: typecheck 통과, lint 통과(오류 0·경고 0), vitest 34 파일 464 시험 통과, `vite build` 통과. 모든 탭·덮개·시트 라우트(`/`, `/search`, `/search/content/:id`, `/search/place/:id`, `/community`, `/community/new`, `/courses`, `/courses/new`, `/courses/:id`, `/profile`, `/profile/*`)를 열어 페이지 오류 0 을 확인했다.
+
+### 이번 마무리에서 고친 것
+
+- 중단 시점에 비어 있던 이음새: `editorExtensions` 에 아무도 등록하지 않아 **가이드 챗봇·여행 안내·주변 편의시설이 편집 화면에 안 붙어 있었다** → `route/editor/tripExtensions.tsx` 로 이었다(해태 동그라미, 가이드 서랍, 안내 띠·도착 알림·스탬프·아래 단추 줄, 갈래 칩, 지도 위 점·AI 장소·경로선, 정보 카드의 리뷰 시트·사진첩, 홈 「이어서 길찾기」). 챗봇이 코스를 읽고 고치는 데 필요한 코스 ↔ 초안 변환(`guide/guidePlan.ts`)도 새로 썼다.
+- 중복: 후기·커뮤니티의 사진 올리기를 `shared/photoUpload.ts` 하나로, 글쓰기의 「내가 쓴 글」 시트를 마이페이지와 같은 시트로(iOS 도 같은 `MyPostsSheet`), 공용 경고창을 iOS 26 유리 모양 하나로. 남은 중복: 밀어서 삭제 줄이 둘(`community/SwipeRow`·`route/ui/SwipeRow` — 모양이 다르다), 장바구니 시트가 셋(iOS 도 `CartSheet`·`ProfileCartSheet`·`RouteCartSheet` 세 벌이라 그대로 둠), 지도 래퍼 셋(`LeafletMap`·`RouteMap`·`NavMap`).
+- 문구: `tr('… %d')` 로 적은 열쇠가 iOS 의 `%lld` 영어 문구를 못 찾던 것(코스 장소 검색의 「추가 0」), 영어 달력 요일 줄임말(SUN…SAT).
+- 린트 오류 1건·경고 1건.
+- 알려진 남은 차이: 지도 타일(OSM), SF Symbols 대신 lucide 아이콘, 상태바 높이, 웹에서 숨긴 「광고 추적 허용」, 코드 분할 없이 번들 하나(약 1.2 MB, gzip 386 KB — 출시 전에 라우트별로 나눌 수 있다).
