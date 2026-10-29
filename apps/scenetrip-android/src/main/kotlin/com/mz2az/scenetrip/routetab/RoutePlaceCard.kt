@@ -436,7 +436,15 @@ private fun PlaceCardFound(
         .RatingLine(card.rating, onReviews, Modifier.padding(horizontal = 14.dp))
     if (card.photos.isNotEmpty()) {
         com.mz2az.scenetrip.reviews
-            .GalleryStrip(card.subject, card.photos, card.photoCount, height = 100, thumbnail = true, onReview = { onReviews() })
+            .GalleryStrip(
+                card.subject,
+                card.photos,
+                card.photoCount,
+                height = 100,
+                thumbnail = true,
+                onReview = { onReviews() },
+                entry = "card",
+            )
     } else if (card.images.isNotEmpty()) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),

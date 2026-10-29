@@ -387,5 +387,10 @@ class ReviewParityTests {
         assertEquals(mapOf("target_type" to "place", "rating" to 4, "photo_count" to 2, "has_body" to 1, "edited" to 0), written.parameters)
         assertEquals("delete_review", AppEvent.DeleteReview("place").name)
         assertNull(AppEvent.DeleteReview("place").parameters["body"], "글은 보내지 않는다")
+        val photos = AppEvent.ViewPhotos("place", "detail")
+        assertEquals("view_photos", photos.name)
+        assertEquals(mapOf("target_type" to "place", "entry" to "detail"), photos.parameters)
+        assertEquals("reviews", AppEvent.ViewPhotos("poi", "reviews").parameters["entry"])
+        assertEquals("card", AppEvent.ViewPhotos("poi", "card").parameters["entry"])
     }
 }

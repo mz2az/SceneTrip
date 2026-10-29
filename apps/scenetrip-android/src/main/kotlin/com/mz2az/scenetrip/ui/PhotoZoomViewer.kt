@@ -55,9 +55,13 @@ fun PhotoZoomViewer(
     onClose: () -> Unit,
     failed: Boolean = false,
     onRetry: () -> Unit = {},
+    // 여러 장을 넘기는 쪽이 준다 — 같은 비트맵(반복 주소)으로 넘어가도 확대가 100%로 돌아가게 한다 (MZ2AZ-430).
+    pageKey: Any? = null,
+    // 확대 줄 아래(iOS `ScenePhotoViewer.controls`) — 장소 이름과 이전·다음 버튼.
+    bottom: @Composable () -> Unit = {},
     footer: @Composable () -> Unit = {},
 ) {
-    var zoom by remember(image) { mutableStateOf(SceneZoom()) }
+    var zoom by remember(image, pageKey) { mutableStateOf(SceneZoom()) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
 
     fun changeScale(
@@ -117,7 +121,7 @@ fun PhotoZoomViewer(
                                 .semantics {
                                     contentDescription = description
                                     stateDescription = "${(zoom.scale * 100).toInt()}%"
-                                }.pointerInput(image, viewport) {
+                                }.pointerInput(image, viewport, pageKey) {
                                     detectTransformGestures { centroid, pan, scale, _ ->
                                         changeScale(
                                             zoom.scale * scale,
@@ -127,7 +131,7 @@ fun PhotoZoomViewer(
                                             centroid.y - viewport.height / 2f,
                                         )
                                     }
-                                }.pointerInput(image) { detectTapGestures(onDoubleTap = { changeScale(zoom.doubleTapScale()) }) },
+                                }.pointerInput(image, pageKey) { detectTapGestures(onDoubleTap = { changeScale(zoom.doubleTapScale()) }) },
                     ) {
                         val (width, height) =
                             ScenePhotoRules.fittedSize(
@@ -176,13 +180,14 @@ fun PhotoZoomViewer(
                     ZoomControl("+", tr("확대", "사진"), image != null && zoom.scale < 4f) { changeScale(zoom.scale * 2) }
                     ZoomControl("↺", tr("초기화"), image != null) { zoom = SceneZoom() }
                 }
+                bottom()
             }
         }
     }
 }
 
 @Composable
-private fun ZoomControl(
+internal fun ZoomControl(
     text: String,
     label: String,
     enabled: Boolean,

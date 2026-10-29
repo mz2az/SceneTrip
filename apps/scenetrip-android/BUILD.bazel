@@ -107,6 +107,7 @@ kt_jvm_library(
         "tests/PoiInfoTests.kt",
         "tests/ProfileHomeParityTests.kt",
         "tests/ReviewParityTests.kt",
+        "tests/ScenePhotoGalleryTests.kt",
         "tests/SearchParityTests.kt",
         "tests/SearchTabBehaviorTests.kt",
         "tests/SuggestionDetailTests.kt",
