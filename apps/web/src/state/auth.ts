@@ -37,3 +37,10 @@ export function clearSession(): void {
 export function useIsSignedIn(): boolean {
   return useStore(authStore, (s) => s.session !== null)
 }
+
+// ---------------------------------------------------------------- 로그인 시트 요청
+// iOS `AuthStore.shared.promptSignIn()` — 가입 전용 기능을 비회원이 부르면 어디서든 로그인 시트를 올려 달라고 부탁한다.
+// 시트 자체는 features/profile/RootSheets.tsx 가 그린다(프로필 담당).
+export const signInPromptStore = createStore<{ requested: boolean }>({ requested: false })
+export const promptSignIn = (): void => signInPromptStore.set({ requested: true })
+export const dismissSignInPrompt = (): void => signInPromptStore.set({ requested: false })
