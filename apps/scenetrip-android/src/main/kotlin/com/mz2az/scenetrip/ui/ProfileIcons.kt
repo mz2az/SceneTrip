@@ -152,7 +152,7 @@ fun ShoeprintsIcon(
 
 /**
  * `chart.bar` — 속이 빈 둥근 막대 셋(이용 통계 수집 줄). 좌표는 iOS 15pt 글리프를 감사 스크린샷(2026-10-29)에서 쟀다.
- * 선 1.3·막대 모서리 1.2, 글리프 폭 18.3 × 높이 13.4 가 18 칸의 가운데에 놓인다.
+ * 선 1.2·막대 모서리 1.2, 글리프 폭 18.3 × 높이 13.4 가 18 칸의 가운데에 놓인다.
  */
 @Composable
 fun ChartBarIcon(
@@ -161,7 +161,7 @@ fun ChartBarIcon(
 ) {
     Canvas(modifier) {
         val k = size.minDimension / 18f
-        val stroke = Stroke(width = 1.3f * k, join = StrokeJoin.Round)
+        val stroke = Stroke(width = 1.2f * k, join = StrokeJoin.Round)
         // (왼쪽, 위, 오른쪽, 바닥) — 막대 가운데선 좌표.
         val bars =
             listOf(
@@ -239,7 +239,7 @@ fun GlobeIcon(
 
 /**
  * `hand.raised` — 속이 빈 손(개인정보 처리방침 줄). 손가락 넷은 둥근 아치, 엄지는 오른쪽으로 나온다.
- * 좌표는 iOS 15pt 글리프(폭 11.8 × 높이 15.5)를 감사 스크린샷(2026-10-29)에서 쟀다 — 가는 선 1.3.
+ * 좌표는 iOS 15pt 글리프(폭 11.8 × 높이 15.5)를 감사 스크린샷(2026-10-29)에서 쟀다 — 가는 선 1.2.
  */
 @Composable
 fun HandRaisedIcon(
@@ -248,7 +248,7 @@ fun HandRaisedIcon(
 ) {
     Canvas(modifier) {
         val k = size.minDimension / 18f
-        val s = Stroke(width = 1.3f * k, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val s = Stroke(width = 1.2f * k, cap = StrokeCap.Round, join = StrokeJoin.Round)
 
         // 글리프 가운데가 18 칸 가운데에 오도록 윈도 좌표(10.3..21.8 × 7.5..23)를 옮긴다.
         fun o(
@@ -290,7 +290,7 @@ fun HandRaisedIcon(
 
 /**
  * `doc.text` — 오른쪽 위가 접힌 문서와 글줄 둘(이용약관 줄). 좌표는 iOS 15pt 글리프(폭 12 × 높이 15.5)를 감사 스크린샷
- * (2026-10-29)에서 쟀다 — 가는 선 1.3.
+ * (2026-10-29)에서 쟀다 — 가는 선 1.2.
  */
 @Composable
 fun DocTextIcon(
@@ -299,7 +299,7 @@ fun DocTextIcon(
 ) {
     Canvas(modifier) {
         val k = size.minDimension / 18f
-        val s = Stroke(width = 1.3f * k, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val s = Stroke(width = 1.2f * k, cap = StrokeCap.Round, join = StrokeJoin.Round)
 
         fun o(
             x: Float,

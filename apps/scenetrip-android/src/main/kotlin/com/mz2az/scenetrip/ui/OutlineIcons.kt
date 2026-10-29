@@ -241,7 +241,7 @@ fun SparklesIcon(
             cy: Float,
             r: Float,
         ) {
-            val k = r * 0.16f
+            val k = r * 0.08f
             val p =
                 Path().apply {
                     moveTo(cx, cy - r)
