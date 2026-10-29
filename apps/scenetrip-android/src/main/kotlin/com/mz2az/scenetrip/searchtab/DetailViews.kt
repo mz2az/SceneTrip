@@ -153,7 +153,8 @@ fun ContentDetailView(
                                             .size(24.dp)
                                             .background(IOS.systemBackground.copy(alpha = 0.85f), CircleShape),
                                 ) {
-                                    ArrowUpRightSquareIcon(IOS.label, Modifier.size(12.dp))
+                                    // `Link` 안이라 iOS 는 강조색으로 그린다.
+                                    ArrowUpRightSquareIcon(IOS.accent, Modifier.size(12.dp))
                                 }
                             }
                         }
