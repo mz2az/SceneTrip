@@ -1,0 +1,25 @@
+# 작품검색 탭 → 작품 카드 → 작품 상세 → 촬영지 상세. 읽기만 한다(찜·담기 누르지 않음).
+appId: com.mz2az.scenetrip
+name: 작품과 촬영지 보기
+---
+- runFlow: ../subflows/first-run.yaml
+- tapOn: "작품검색"
+- extendedWaitUntil:
+    visible: "사랑의 불시착"
+    timeout: 15000
+- takeScreenshot: 01-search-list
+- tapOn: "사랑의 불시착"
+- extendedWaitUntil:
+    visible: "찜하기"
+    timeout: 15000
+- takeScreenshot: 02-work-detail
+# 시트 손잡이를 끌어 올려 촬영지 목록을 펼친다.
+- swipe:
+    start: 50%, 51%
+    end: 50%, 12%
+    duration: 600
+- waitForAnimationToEnd
+- takeScreenshot: 03-work-detail-expanded
+- tapOn: "비내섬"
+- waitForAnimationToEnd
+- takeScreenshot: 04-place-detail

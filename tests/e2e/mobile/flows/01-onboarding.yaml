@@ -1,0 +1,27 @@
+# 첫 실행: 스플래시 → 언어 고르기 → 사용법 넉 장 → 홈.
+# iOS·Android 가 같은 파일로 돈다. 글자는 두 앱이 같은 한국어 문구를 쓰는 것만 건다.
+appId: com.mz2az.scenetrip
+name: 첫 실행 온보딩
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "언어를 선택하세요"
+    timeout: 15000
+- takeScreenshot: 01-language
+- tapOn: "한국어"
+- extendedWaitUntil:
+    visible: "건너뛰기"
+    timeout: 10000
+- takeScreenshot: 02-lesson-1
+- tapOn: "다음"
+- takeScreenshot: 03-lesson-2
+- tapOn: "다음"
+- takeScreenshot: 04-lesson-3
+- tapOn: "다음"
+- takeScreenshot: 05-lesson-4
+- tapOn: "시작하기"
+- extendedWaitUntil:
+    visible: "오늘은 어느 장면으로 갈까요?"
+    timeout: 15000
+- takeScreenshot: 06-home

@@ -1,0 +1,18 @@
+# 마이페이지를 끝까지 내리며 항목 순서·문구를 비교한다. 같은 비율로 끌어 두 기기의 컷이 짝이 맞는다.
+appId: com.mz2az.scenetrip
+name: 마이페이지 전체
+---
+- runFlow: ../subflows/first-run.yaml
+- tapOn: "마이페이지"
+- waitForAnimationToEnd
+- takeScreenshot: "part-01"
+- swipe: {start: "50%, 80%", end: "50%, 30%", duration: 700}
+- takeScreenshot: "part-02"
+- swipe: {start: "50%, 80%", end: "50%, 30%", duration: 700}
+- takeScreenshot: "part-03"
+- swipe: {start: "50%, 80%", end: "50%, 30%", duration: 700}
+- takeScreenshot: "part-04"
+- swipe: {start: "50%, 80%", end: "50%, 30%", duration: 700}
+- takeScreenshot: "part-05"
+- swipe: {start: "50%, 80%", end: "50%, 30%", duration: 700}
+- takeScreenshot: "part-06"

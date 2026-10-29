@@ -25,3 +25,5 @@ just e2e-down          # 내린다
 | `support.py` | 가짜 바깥 서버(`FAKE`) · RS256 서명 · `call()` · `sign_in_google()` · `E2ETestCase` |
 | `run_all.py` | `test_*.py` 를 한 프로세스에서 돈다(가짜 서버 포트가 하나라서). 파일 잠금으로 실행이 겹치지 않는다 |
 | `test_*.py` | 기능 묶음별 시험 |
+
+앱 화면 e2e(Maestro, iOS·Android 같은 흐름)는 [mobile/README.md](mobile/README.md) — Bazel 레인이 아니라 `just e2e-mobile`.
