@@ -37,7 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -64,6 +63,7 @@ import com.mz2az.scenetrip.data.RoutePoiGroup
 import com.mz2az.scenetrip.data.RoutePoiTone
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.iosLineBox
 import com.mz2az.scenetrip.ui.iosShadow
 import kotlinx.coroutines.launch
 
@@ -376,17 +376,28 @@ private fun DayCards() {
                 modifier =
                     Modifier
                         .width(132.dp)
-                        .alpha(day.fade)
                         // iOS `.shadow(.black.opacity(0.10), radius: 5, y: 2)` — 고도 그림자는 투명도에 플랫폼 상수가 또 곱해져
                         // 흰 화면 위에서 카드 가장자리가 안 보였다(2026-10-29 감사 #12). `iosShadow` 가 iOS 값 그대로 그린다.
-                        .iosShadow(Color.Black.copy(alpha = 0.10f), radius = 5.dp, y = 2.dp, cornerRadius = 12.dp)
+                        .iosShadow(Color.Black.copy(alpha = 0.10f * day.fade), radius = 5.dp, y = 2.dp, cornerRadius = 12.dp)
                         .clip(RoundedCornerShape(12.dp))
+                        // 흐림은 `alpha` 층이 아니라 그림자·글자 색에 곱한다 — 층은 카드 크기로 잘려 아래 그림자가 평평하게 끊겼다(5차 감사).
+                        // 바탕은 흰색 그대로 둔다(흰 화면 위라 같은 색이고, 반투명이면 밑의 그림자가 비쳐 회색이 된다).
                         .background(IOS.systemBackground)
                         .padding(horizontal = 11.dp, vertical = 9.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                Text(tr(day.title), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = IOS.pinDeep)
-                day.places.forEach { place -> Text(tr(place), fontSize = 12.sp, color = IOS.label) }
+                // 줄 칸을 iOS 글자 높이(11→13.2 · 12→14.4)로 고정한다 — 한글 글꼴 제 높이(1.44em)로 카드가 65 → 74 로 커져
+                // 셋째 카드가 그림 칸 아래에서 잘렸다(5차 감사 lesson-2).
+                Text(
+                    tr(day.title),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = IOS.pinDeep.copy(alpha = day.fade),
+                    modifier = Modifier.iosLineBox(13.2.dp),
+                )
+                day.places.forEach { place ->
+                    Text(tr(place), fontSize = 12.sp, color = IOS.label.copy(alpha = day.fade), modifier = Modifier.iosLineBox(14.4.dp))
+                }
             }
         }
     }
