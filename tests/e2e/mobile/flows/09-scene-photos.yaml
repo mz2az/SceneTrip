@@ -1,0 +1,45 @@
+# 촬영지 한 곳의 장면 사진 여러 장 (MZ2AZ-430). DEV 의 「헤어질 결심」 송광사 — 장면 사진 2장.
+# 검색은 읽기 전용이다. 사진 뷰어는 열어서 넘겨 보기만 한다.
+appId: com.mz2az.scenetrip
+name: 장면 사진 여러 장
+---
+- runFlow: ../subflows/first-run.yaml
+- tapOn: "작품검색"
+- tapOn:
+    point: 40%, 10%
+- inputText: "헤어질 결심"
+- tapOn: "Decision to Leave"
+- extendedWaitUntil:
+    visible: "찜하기"
+    timeout: 15000
+- takeScreenshot: 01-work-detail
+- swipe:
+    start: 50%, 51%
+    end: 50%, 12%
+    duration: 600
+- waitForAnimationToEnd
+- takeScreenshot: 02-place-list
+- tapOn: "송광사"
+- extendedWaitUntil:
+    visible: "이 장소의 장면"
+    timeout: 15000
+- takeScreenshot: 03-place-detail
+- scrollUntilVisible:
+    element: "이 장소의 장면"
+    timeout: 15000
+- swipe:
+    start: 50%, 80%
+    end: 50%, 45%
+    duration: 800
+- takeScreenshot: 04-scene-card
+- tapOn: "사진 1 / 2"
+- waitForAnimationToEnd
+- takeScreenshot: 05-viewer-first
+# 뷰어 아래쪽 오른쪽 화살표(다음). 두 앱 모두 같은 자리에 있어 좌표로 누른다.
+- tapOn:
+    point: 68%, 93%
+- waitForAnimationToEnd
+- assertVisible: "사진 2 / 2"
+- takeScreenshot: 06-viewer-second
+- tapOn: "닫기"
+- assertVisible: "이 장소의 장면"

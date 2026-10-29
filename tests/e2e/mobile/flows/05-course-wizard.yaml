@@ -6,9 +6,7 @@ name: 코스 만들기 진입
 - tapOn: "코스 만들기"
 - waitForAnimationToEnd
 - takeScreenshot: 01-wizard-first
-# Android 의 이 X 단추에는 접근성 이름(「닫기」)이 없어 좌표로 누른다(두 앱 모두 왼쪽 위).
-- tapOn:
-    point: 7%, 9%
+- tapOn: "닫기"
 - assertVisible: "오늘은 어느 장면으로 갈까요?"
 - tapOn: "마이페이지"
 - tapOn: "내 코스"
