@@ -302,7 +302,8 @@ private fun RouteEditorContent(
         showGuide = false
         cancel(planner = true)
     }
-    androidx.activity.compose.BackHandler { cancel() }
+    // 가이드 창이 열려 있으면 뒤로가는 아무것도 안 한다 — iOS 는 접기(X) 단추로만 닫히고 편집 화면은 그 뒤에 그대로 있다(MZ2AZ-513).
+    androidx.activity.compose.BackHandler { if (!showGuide) cancel() }
     androidx.compose.runtime.SideEffect { editorDismiss?.set { cancel() } }
     androidx.compose.runtime.DisposableEffect(editorDismiss) { onDispose { editorDismiss?.set(null) } }
 
