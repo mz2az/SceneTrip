@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.searchtab
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -491,6 +492,33 @@ fun SearchTabScreen() {
             },
         )
         pendingFit = true
+    }
+
+    // 하드웨어 뒤로 (MZ2AZ-513) — iOS 의 `<` 와 같다: 검색 패널 → 촬영지 상세 → 작품 상세 → 목록 순으로 한 단계씩 돌아간다.
+    // 이 탭은 다른 탭·덮개 밑에서도 살아 있으므로 **지금 보일 때만** 가로챈다 — 홈에서 뒤로를 눌렀는데 보이지 않는 상세가 닫히면 안 된다.
+    // 목록(맨 위)에서는 가로채지 않아 앱이 닫힌다.
+    BackHandler(
+        enabled =
+            TabRouter.selected == com.mz2az.scenetrip.data.RootTab.SEARCH &&
+                TabRouter.cover == null &&
+                (searching || selectedPlace != null || selectedContent != null),
+    ) {
+        when {
+            searching -> {
+                endSearching()
+            }
+
+            selectedPlace != null -> {
+                selectedPlace = null
+                fitToken++
+            }
+
+            else -> {
+                selectedContent = null
+                contentPlaces = emptyList()
+                fitToken++
+            }
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {

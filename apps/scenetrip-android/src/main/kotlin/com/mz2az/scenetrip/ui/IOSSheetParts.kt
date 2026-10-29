@@ -38,6 +38,13 @@ import androidx.compose.ui.unit.sp
 val IOSSheetMaterial = Color(0xFFF2F2F5)
 
 /**
+ * 마이페이지에서 열리는 `.medium` 시트(내 코스·찜한 작품·장바구니·내가 쓴 글)의 바탕 — `.regularMaterial` 유리가 뒤 화면을
+ * 비쳐 균일한 옅은 회색(236)으로 보인다(2026-10-29 실측). 뒤를 흐리는 것은 Compose 가 시트 뒤 화면을 읽을 수 없어 못 하고,
+ * 그 색만 옮긴다.
+ */
+val IOSGlassSheetColor = Color(0xFFECECEC)
+
+/**
  * 시트 머리줄 — 왼쪽 취소 성격 단추, 가운데 제목(17 semibold), 오른쪽 확인 성격 단추(굵게).
  * 단추는 iOS 26 툴바처럼 흰 캡슐에 옅은 그림자. [trailing] 이 null 이면 오른쪽은 비운다.
  */

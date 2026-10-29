@@ -64,6 +64,7 @@ import com.mz2az.scenetrip.data.RoutePoiGroup
 import com.mz2az.scenetrip.data.RoutePoiTone
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.iosShadow
 import kotlinx.coroutines.launch
 
 /**
@@ -376,17 +377,15 @@ private fun DayCards() {
                     Modifier
                         .width(132.dp)
                         .alpha(day.fade)
-                        .shadow(
-                            4.dp,
-                            RoundedCornerShape(12.dp),
-                            ambientColor = Color.Black.copy(alpha = 0.10f),
-                            spotColor = Color.Black.copy(alpha = 0.10f),
-                        ).clip(RoundedCornerShape(12.dp))
+                        // iOS `.shadow(.black.opacity(0.10), radius: 5, y: 2)` — 고도 그림자는 투명도에 플랫폼 상수가 또 곱해져
+                        // 흰 화면 위에서 카드 가장자리가 안 보였다(2026-10-29 감사 #12). `iosShadow` 가 iOS 값 그대로 그린다.
+                        .iosShadow(Color.Black.copy(alpha = 0.10f), radius = 5.dp, y = 2.dp, cornerRadius = 12.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(IOS.systemBackground)
                         .padding(horizontal = 11.dp, vertical = 9.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                Text(tr(day.title), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
+                Text(tr(day.title), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = IOS.pinDeep)
                 day.places.forEach { place -> Text(tr(place), fontSize = 12.sp, color = IOS.label) }
             }
         }

@@ -21,6 +21,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PoiCategoryGroup
 import com.mz2az.scenetrip.sceneapi.client.model.Scene
+import com.mz2az.scenetrip.ui.keepLastWordsTogether
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -31,6 +32,17 @@ import java.io.IOException
 import java.time.OffsetDateTime
 
 class VisualParityRulesTests {
+    @Test
+    fun lastTwoWordsStayTogetherSoALineNeverEndsWithOneOrphanWord() {
+        // iOS 는 「일정으로 / 짜 드립니다」 로 꺾고 Compose 는 「일정으로 짜 / 드립니다」 로 꺾었다 — 마지막 두 낱말을 붙인다.
+        assertEquals("a b c\u00A0d", "a b c d".keepLastWordsTogether())
+        assertEquals("일정으로 짜\u00A0드립니다", "일정으로 짜 드립니다".keepLastWordsTogether())
+        // 낱말이 둘 이하면 건드리지 않는다(붙이면 줄 전체가 안 꺾인다).
+        assertEquals("a b", "a b".keepLastWordsTogether())
+        assertEquals("abc", "abc".keepLastWordsTogether())
+        assertEquals("", "".keepLastWordsTogether())
+    }
+
     @Test
     fun courseCandidatesDedupeAcrossDaysAndKeepPlaceAndPoiIdNamespacesSeparate() {
         val place = RouteStop(place = PlaceSummary(id = 7, name = "First", latitude = 37.5, longitude = 127.0))

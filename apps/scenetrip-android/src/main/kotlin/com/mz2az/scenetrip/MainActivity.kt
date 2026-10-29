@@ -59,6 +59,9 @@ import com.mz2az.scenetrip.ui.iosTypography
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 매니페스트의 시작 화면용 테마(보라 그라데이션 바탕)를 앱 테마로 갈아 끼운다 — 맨 처음,
+        // super.onCreate 보다 먼저여야 한다. 안 그러면 그라데이션이 앱 뒤에 남는다 (MZ2AZ-513).
+        setTheme(R.style.Theme_SceneTrip)
         // **iOS 에는 타이틀바가 없다.** 안드로이드 기본 테마는 검은 ActionBar 를
         // 얹는데, 그것 하나로 두 앱이 다른 제품처럼 보인다. 테마는 매니페스트에서
         // NoActionBar 로 지정하고, 여기서는 상태바 뒤까지 그리게 한다 — iOS 가

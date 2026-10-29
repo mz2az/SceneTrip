@@ -69,6 +69,7 @@ import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSEmptyState
+import com.mz2az.scenetrip.ui.IOSGlassSheetColor
 import com.mz2az.scenetrip.ui.IOSListDivider
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.LikeFailureNotice
@@ -115,9 +116,6 @@ fun ProfileSheetHeader(
     }
 }
 
-/** iOS 「내 코스」 시트 바탕 — `.regularMaterial` 유리가 뒤 화면을 비쳐 균일한 옅은 회색(236)으로 보인다(2026-10-29 실측). */
-private val MY_COURSES_SHEET_COLOR = Color(0xFFECECEC)
-
 /**
  * 내 코스 팝업. iOS `ProfileTab/ProfileSheets.swift`의 `MyCoursesSheet`를 옮긴 것이다.
  * 행을 누르면 바로 아래 상세(일차별 장소)가 펼쳐진다 — 아코디언.
@@ -135,7 +133,7 @@ private fun MyCoursesSheetBody(
 
     // iOS 시트는 `.regularMaterial` 유리 — 뒤 화면을 비쳐 균일한 옅은 회색(236)으로 보인다. 뒤를 흐리는 것은 Compose 가
     // 시트 뒤 화면을 읽을 수 없어 못 하고, 그 색만 옮긴다.
-    Column(modifier = Modifier.fillMaxSize().background(MY_COURSES_SHEET_COLOR)) {
+    Column(modifier = Modifier.fillMaxSize().background(IOSGlassSheetColor)) {
         ProfileSheetHeader(tr("내 코스"), onClose)
         if (courses.isEmpty() && failed) {
             IOSEmptyState(
@@ -300,7 +298,7 @@ private fun LikedWorksSheetBody(
     onClose: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf<Long?>(null) }
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
+    Column(modifier = Modifier.fillMaxSize().background(IOSGlassSheetColor)) {
         ProfileSheetHeader(tr("찜한 작품"), onClose)
         when {
             failure != null -> {
@@ -451,7 +449,7 @@ private fun ProfileCartSheetBody(
         cart.clearToast()
         cart.refresh()
     }
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
+    Column(modifier = Modifier.fillMaxSize().background(IOSGlassSheetColor)) {
         ProfileSheetHeader(tr("장바구니"), onClose)
         if (cart.items.isEmpty()) {
             IOSEmptyState(tr("장바구니가 비었습니다"), tr("작품검색 탭에서 촬영지를 담아 보세요")) { BagIcon(IOS.secondaryLabel, it) }
@@ -482,7 +480,7 @@ fun MyCoursesSheet(
     failed: Boolean,
     onClose: () -> Unit,
 ) {
-    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose, containerColor = MY_COURSES_SHEET_COLOR) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose, containerColor = IOSGlassSheetColor) {
         MyCoursesSheetBody(courses = courses, loading = loading, failed = failed, onClose = onClose)
     }
 }
@@ -496,7 +494,7 @@ fun LikedWorksSheet(
     failure: String?,
     onClose: () -> Unit,
 ) {
-    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose, containerColor = IOSGlassSheetColor) {
         LikedWorksSheetBody(works = works, likes = likes, loading = loading, failure = failure, onClose = onClose)
     }
 }
@@ -507,7 +505,7 @@ fun ProfileCartSheet(
     cart: CartStore,
     onClose: () -> Unit,
 ) {
-    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose, containerColor = IOSGlassSheetColor) {
         ProfileCartSheetBody(cart = cart, onClose = onClose)
     }
 }
