@@ -37,6 +37,8 @@ export interface PanelProps {
   rowExtras?: (stop: RouteStop) => { isTarget?: boolean; onNavigate?: (() => void) | null }
   /** 일정 목록 맨 위에 끼우는 안내 띠 등. */
   top?: ReactNode
+  /** 일차 탭 아래 — 편의시설 갈래 칩. */
+  chips?: ReactNode
   onDayIndex: (i: number) => void
   onAddDay: () => void
   onRemoveDay: () => void
@@ -59,6 +61,7 @@ export function EditorPanel(p: PanelProps) {
     <div ref={scroller} className="scroll-y" style={{ flex: 1, minHeight: 0, background: 'var(--system-background)' }} onClick={() => openUid && setOpenUid(null)}>
       {p.top}
       <DayTabs {...p} />
+      {p.chips}
       <Summary {...p} />
       <Actions {...p} />
       <CartHintNotice hint={p.cartHint} />

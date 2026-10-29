@@ -12,7 +12,7 @@ import { parseDate, toIso } from '../models'
 const CELL = 50
 const ROW = 56
 const KO_WEEK = ['일', '월', '화', '수', '목', '금', '토']
-const EN_WEEK = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+const EN_WEEK = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
 export function Calendar({ value, min, onPick }: { value: string; min: string; onPick: (iso: string) => void }) {
   const selected = parseDate(value)

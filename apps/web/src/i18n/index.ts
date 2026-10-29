@@ -84,7 +84,9 @@ export function format(template: string, args: ReadonlyArray<string | number>): 
 }
 
 function lookup(key: string): string | undefined {
-  return current === 'ko' ? undefined : en[key]
+  if (current === 'ko') return undefined
+  // SwiftUI 의 `\(count)` 는 열쇠에 `%lld` 로 남는다 — 코드에 `%d` 로 적어도 같은 문구를 찾는다.
+  return en[key] ?? (key.includes('%d') ? en[key.replace(/%d/g, '%lld')] : undefined)
 }
 
 /** 한국어 원문을 지금 언어로. 숫자·이름은 뒤에 인자로 넘긴다. */

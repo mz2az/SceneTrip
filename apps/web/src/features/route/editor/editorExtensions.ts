@@ -8,6 +8,7 @@
 import type L from 'leaflet'
 import type { ComponentType, ReactNode } from 'react'
 import { createStore } from '@/state/storage'
+import type { LatLng } from '../map/RouteMap'
 import type { RouteCourse, RouteStop } from '../models'
 
 /** 확장이 편집 화면에서 읽고 쓰는 것. */
@@ -31,6 +32,19 @@ export interface EditorHost {
   requestPlanner(): void
   /** 일정 시트가 덮고 있는 높이(px). */
   panelHeight: number
+  /** 브라우저가 준 내 자리. 못 받았으면 null. */
+  here: LatLng | null
+  /** 핀 찍기 모드. */
+  pinning: boolean
+  /** 화면 바닥에 정보 카드(번호 핀 카드)가 떠 있는가. */
+  cardOpen: boolean
+  /** 목록에서 고른 줄. */
+  focusedUid: string | null
+  setFocusedUid(uid: string | null): void
+  /** 카메라를 일차 전체에 맞춘다(지도가 다시 맞춰진다). */
+  fit(): void
+  /** 장바구니 시트를 연다. */
+  openCart(): void
 }
 
 export interface EditorExtensions {
@@ -38,6 +52,8 @@ export interface EditorExtensions {
   Overlay?: ComponentType<{ host: EditorHost }>
   /** 일정 목록 맨 위(안내 띠). */
   PanelTop?: ComponentType<{ host: EditorHost }>
+  /** 일차 탭 바로 아래 — 편의시설 갈래 칩. */
+  PanelChips?: ComponentType<{ host: EditorHost }>
   /** 줄마다의 길찾기 표시. */
   rowExtras?: (stop: RouteStop, host: EditorHost) => { isTarget?: boolean; onNavigate?: (() => void) | null }
   /** 아래 단추 줄을 통째로 대신한다 — 안내 중에는 이 줄이 안내의 것이다. null 을 돌려주면 기본 줄. */

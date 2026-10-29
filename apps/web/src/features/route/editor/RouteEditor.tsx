@@ -178,6 +178,7 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
     course, setCourse, dayIndex, setDayIndex, stops, isNew, map, refit, saveNow, panelHeight,
     requestClose: cancel,
     requestPlanner: () => pendingStore.set((s) => ({ ...s, planner: true })),
+    here, pinning, cardOpen: pickedStop !== null, focusedUid, setFocusedUid, fit: refit, openCart: () => setShowCart(true),
   }
   const startTrip = (stop: RouteStop) => ext.startTrip?.(host, stop)
   const toggleRunning = async () => {
@@ -276,6 +277,7 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
             worksOf={worksOf}
             rowExtras={ext.rowExtras ? (s) => ext.rowExtras!(s, host) : undefined}
             top={ext.PanelTop ? <ext.PanelTop host={host} /> : undefined}
+            chips={ext.PanelChips ? <ext.PanelChips host={host} /> : undefined}
             onDayIndex={(i) => {
               setDayIndex(i)
               // 일차가 바뀌면 고른 장소를 놓는다 — 지도는 그 일차 전체로 맞춘다.
