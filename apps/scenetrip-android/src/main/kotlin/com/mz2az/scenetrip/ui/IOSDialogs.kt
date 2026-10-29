@@ -187,7 +187,8 @@ fun IOSConfirmPopover(
 ) {
     val density = LocalDensity.current
     // 그림자가 팝업 창 경계에서 네모로 잘리지 않게 카드 둘레에 여백을 두고, 그만큼 자리를 되돌린다.
-    val shadowRoom = 24.dp
+    // 화면 한가운데 확인창(코스 삭제)은 iOS 그림자가 카드 둘레 100pt 넘게 번져 여백을 넓게 둔다(402 폭 화면에서 카드 240 + 양옆 80 까지).
+    val shadowRoom = if (centered) 80.dp else 24.dp
     val roomPx = with(density) { shadowRoom.roundToPx() }
     val gapPx = with(density) { (anchorX + 2.dp).roundToPx() }
     // 아래·위 어느 쪽에 뜨는가 — iOS 는 자리가 더 넉넉한 쪽에 띄운다(위쪽 줄은 아래로, 아래쪽 줄은 위로. 2026-10-29 감사 #17).
@@ -222,7 +223,7 @@ fun IOSConfirmPopover(
         }
     Popup(popupPositionProvider = provider, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
         if (centered) {
-            Box(modifier = Modifier.padding(shadowRoom)) { PopoverCard(title, message, actions, onDismiss) }
+            Box(modifier = Modifier.padding(shadowRoom)) { PopoverCard(title, message, actions, onDismiss, wideShadow = true) }
         } else if (below) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(shadowRoom)) {
                 if (!above) {
@@ -276,6 +277,7 @@ private fun PopoverCard(
     message: String?,
     actions: List<IOSAction>,
     onDismiss: () -> Unit,
+    wideShadow: Boolean = false,
 ) {
     Column(
         // 글과 단추 사이 — 글 가운데에서 단추 윗변까지 iOS 29, 실측(2026-10-29 감사).
@@ -283,11 +285,18 @@ private fun PopoverCard(
         modifier =
             Modifier
                 .width(240.dp)
-                .shadow(
-                    20.dp,
-                    RoundedCornerShape(32.dp),
-                    ambientColor = Color.Black.copy(alpha = 0.22f),
-                    spotColor = Color.Black.copy(alpha = 0.22f),
+                .then(
+                    // iOS 는 카드 가장자리 어둡기 ≈ 9%, 둘레 100pt 넘게 퍼지는 큰 번짐(del-confirm-ios 실측). 고도 그림자로는 못 낸다.
+                    if (wideShadow) {
+                        Modifier.iosShadow(Color.Black.copy(alpha = 0.22f), radius = 100.dp, y = 0.dp, cornerRadius = 32.dp)
+                    } else {
+                        Modifier.shadow(
+                            20.dp,
+                            RoundedCornerShape(32.dp),
+                            ambientColor = Color.Black.copy(alpha = 0.22f),
+                            spotColor = Color.Black.copy(alpha = 0.22f),
+                        )
+                    },
                 ).clip(RoundedCornerShape(32.dp))
                 .background(POPOVER_SURFACE)
                 // 단추는 카드 안쪽 16/16 을 쓰고 **제목만** 30 들여쓴다(iOS 실측: 단추 폭 208).
@@ -307,7 +316,7 @@ private fun PopoverCard(
             // 「 는 Noto 가 글자 칸 오른쪽에 그려 머리가 본문보다 7dp 들어가 보인다 — iOS 는 본문과 같은 선(165 대 167)이라 그만큼 당긴다.
             Text(
                 title,
-                fontSize = if (centered) 17.sp else 15.3.sp,
+                fontSize = if (centered) 17.sp else 15.05.sp,
                 fontWeight = if (centered) FontWeight.Normal else FontWeight.SemiBold,
                 color = IOS.label,
                 textAlign = if (centered) TextAlign.Center else TextAlign.Start,

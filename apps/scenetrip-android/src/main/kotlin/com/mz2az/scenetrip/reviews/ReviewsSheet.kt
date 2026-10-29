@@ -362,8 +362,8 @@ fun ReviewsSheet(
                                         Modifier
                                             .fillMaxWidth()
                                             .background(IOS.accent.copy(alpha = if (lit == row.id) 0.1f else 0f))
-                                            // 줄 이름 글에서 다음 줄 이름 글까지 iOS 185.3 / Android 190.4(감사 실측) — 차이 5 는 위아래 여백에서 났다.
-                                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                                            // 줄 이름 글에서 다음 줄 이름 글까지 iOS 185.3 / Android 190.4(감사 실측) — 차이 5 는 위아래 여백에서 났다. 4차 에뮬레이터 실측 186.7 → 185.3: 12 → 11.3.
+                                            .padding(horizontal = 16.dp, vertical = 11.3.dp),
                                     ) {
                                         ReviewRow(
                                             row,

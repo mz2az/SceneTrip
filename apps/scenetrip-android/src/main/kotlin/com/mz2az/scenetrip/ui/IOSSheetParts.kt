@@ -61,10 +61,19 @@ fun IOSSheetToolbar(
     // 제목 아래 작은 글씨 — 리뷰 쓰기 머리줄의 대상 이름(iOS `header`). 읽는 법이 따로 있으면 그 아래 한 줄 더.
     subtitle: String? = null,
     reading: String? = null,
+    // 유리 시트 위에서는 단추도 유리 — 흰색이 아니라 시트보다 한 톤 짙은 회색(iOS 실측 233).
+    capsuleColor: Color = IOS.systemBackground,
 ) {
     Box(modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp)) {
         if (leading != null) {
-            GlassCapsule(leading, bold = false, enabled = true, onClick = onLeading, modifier = Modifier.align(Alignment.CenterStart))
+            GlassCapsule(
+                leading,
+                bold = false,
+                enabled = true,
+                onClick = onLeading,
+                color = capsuleColor,
+                modifier = Modifier.align(Alignment.CenterStart),
+            )
         }
         if (subtitle == null) {
             Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.align(Alignment.Center))
@@ -88,6 +97,7 @@ fun IOSSheetToolbar(
                 onClick = onTrailing,
                 modifier = Modifier.align(Alignment.CenterEnd),
                 busy = trailingBusy,
+                color = capsuleColor,
             )
         }
     }
@@ -101,6 +111,7 @@ private fun GlassCapsule(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     busy: Boolean = false,
+    color: Color = IOS.systemBackground,
 ) {
     Box(
         contentAlignment = Alignment.Center,
@@ -109,7 +120,7 @@ private fun GlassCapsule(
                 .height(40.dp)
                 .shadow(5.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.10f), spotColor = Color.Black.copy(alpha = 0.10f))
                 .clip(CircleShape)
-                .background(IOS.systemBackground)
+                .background(color)
                 .clickable(enabled = enabled, onClick = onClick)
                 .padding(horizontal = 16.dp),
     ) {

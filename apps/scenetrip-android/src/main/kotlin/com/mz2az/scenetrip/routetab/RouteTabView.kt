@@ -507,7 +507,8 @@ private fun ForkSheet(
     // 바탕은 iOS 유리 시트가 어두운 뒤 화면을 비춰 옅은 회색(233·233·235, 61-wizard-ios 실측)이고 그 위에 흰 카드가 얹힌다.
     IOSSheet(
         detents = listOf(SheetDetent.MEDIUM),
-        fixedHeight = 420.dp,
+        // 윗변~화면 아래 444pt(iOS 실측 wizsheet-ios 1332px/3) — 420 은 429 로 나와 15 짧았다.
+        fixedHeight = 435.dp,
         onDismiss = onDismiss,
         containerColor =
             androidx.compose.ui.graphics
