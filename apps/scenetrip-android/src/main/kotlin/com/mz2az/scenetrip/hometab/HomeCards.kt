@@ -53,6 +53,7 @@ import com.mz2az.scenetrip.ui.CircleSignIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.MapPinEllipseIcon
 import com.mz2az.scenetrip.ui.PersonOutlineIcon
+import com.mz2az.scenetrip.ui.iosShadow
 
 /** 목업의 홈 글자색. `RootTabs.kt`의 것과 같은 값이다. */
 internal val HOME_PURPLE = Color(0xFF5B49D6)
@@ -231,12 +232,9 @@ fun HomeTripCard(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .shadow(
-                    8.dp,
-                    RoundedCornerShape(22.dp),
-                    ambientColor = IOS.pinDeep.copy(alpha = 0.28f),
-                    spotColor = IOS.pinDeep.copy(alpha = 0.28f),
-                ).clip(RoundedCornerShape(22.dp))
+                // iOS `HomeTripCard`: `.shadow(color: pinDeep.opacity(0.28), radius: 8, y: 6)`.
+                .iosShadow(IOS.pinDeep.copy(alpha = 0.28f), radius = 8.dp, y = 6.dp, cornerRadius = 22.dp)
+                .clip(RoundedCornerShape(22.dp))
                 .background(Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep)))
                 .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
