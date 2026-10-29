@@ -65,6 +65,7 @@ import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.XMarkIcon
+import com.mz2az.scenetrip.ui.iosLineBox
 import kotlinx.coroutines.launch
 
 /**
@@ -154,9 +155,11 @@ fun RouteTabView(
                             .clip(RoundedCornerShape(15.dp))
                             .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)), alpha = glow)
                             .clickable { fork = true }
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                            .padding(horizontal = 10.dp)
+                            .iosLineBox(26.dp),
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                    // iOS 알약 높이 26pt(112-sbs 실측). 글꼴 제 높이로는 28.7dp 였다.
                     Text(tr("코스 추가"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 }
             }
@@ -501,7 +504,15 @@ private fun ForkSheet(
     onManual: () -> Unit,
 ) {
     // iOS `forkSheet`: `.presentationDetents([.height(420)])` 시트 — 손잡이(40×5)는 내용이 직접 그린다.
-    IOSSheet(detents = listOf(SheetDetent.MEDIUM), fixedHeight = 420.dp, onDismiss = onDismiss) {
+    // 바탕은 iOS 유리 시트가 어두운 뒤 화면을 비춰 옅은 회색(233·233·235, 61-wizard-ios 실측)이고 그 위에 흰 카드가 얹힌다.
+    IOSSheet(
+        detents = listOf(SheetDetent.MEDIUM),
+        fixedHeight = 420.dp,
+        onDismiss = onDismiss,
+        containerColor =
+            androidx.compose.ui.graphics
+                .Color(0xFFE9E9EB),
+    ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Box(
                 modifier =
@@ -547,7 +558,9 @@ private fun ForkCard(
                 ).clip(RoundedCornerShape(14.dp))
                 .background(IOS.systemBackground)
                 .clickable(onClick = onClick)
-                .padding(16.dp),
+                // iOS 카드 높이 72pt(줄 간격 84pt = 72 + 12, 61-wizard-ios 실측). 글꼴 줄 높이가 달라 패딩이 아니라 높이로 고정한다.
+                .height(72.dp)
+                .padding(horizontal = 16.dp),
     ) {
         Box(
             modifier = Modifier.size(44.dp).clip(CircleShape).background(IOS.accent.copy(alpha = 0.12f)),
