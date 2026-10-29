@@ -94,8 +94,8 @@ object IOS {
     val secondaryLabel = Color(0xFF3C3C43).copy(alpha = 0.60f)
     val tertiaryLabel = Color(0xFF3C3C43).copy(alpha = 0.30f)
 
-    /** `Divider()` 의 색. */
-    val separator = Color(0xFF3C3C43).copy(alpha = 0.60f)
+    /** `Divider()` 의 색 — 흰 바탕에서 #C6C6C8 (UIColor.separator, 3C3C43 불투명도 0.29). 0.60 이면 #8A8A8E 로 진해진다(2026-10-30 5차 감사). */
+    val separator = Color(0xFF3C3C43).copy(alpha = 0.29f)
 
     /**
      * 번호 배지와 지도 핀의 그러데이션. `NaverMapView.swift` 의 `PinImage` 와
