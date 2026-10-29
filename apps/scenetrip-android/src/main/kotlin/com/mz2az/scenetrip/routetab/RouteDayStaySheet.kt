@@ -51,7 +51,7 @@ fun RouteDayStaySheet(
     // iOS 시트는 `.regularMaterial` 유리 + insetGrouped `List` — 시트 바탕 ≈242, 둥근 회색 카드 ≈227(2026-10-30 실측).
     IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onDismiss, containerColor = StaySheetColor) {
         Column {
-            IOSSheetToolbar(title = tr("머무는 시간"), trailing = tr("닫기"), onTrailing = onDismiss)
+            IOSSheetToolbar(title = tr("머무는 시간"), trailing = tr("닫기"), onTrailing = onDismiss, capsuleColor = Color(0xFFE9E9E9))
             LazyColumn(contentPadding = sheetListBottom()) {
                 item {
                     Text(
