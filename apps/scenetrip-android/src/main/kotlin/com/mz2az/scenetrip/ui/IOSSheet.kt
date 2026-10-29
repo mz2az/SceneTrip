@@ -93,9 +93,11 @@ fun IOSSheet(
             val restH =
                 when {
                     fixedHeight != null -> fixedHeight
+
                     // iOS `.medium` 은 화면 높이의 51.8%(윗변이 화면 48.2% 지점 — 874pt 기기 mycourses-ios 실측 1263/2622). 앞서 50% 로 두어
                     // 윗변이 0.9% 아래였고 뒤 카드 윗변이 띠로 드러났다. 떠 있는 카드는 아래 8 을 따로 띄우므로 그만큼 뺀 값이다.
                     detents.first() == SheetDetent.MEDIUM -> screen * 0.5095f
+
                     else -> largeH
                 }
             val maxH = if (SheetDetent.LARGE in detents) largeH else restH

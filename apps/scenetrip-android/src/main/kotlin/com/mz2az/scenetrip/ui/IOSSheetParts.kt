@@ -66,7 +66,14 @@ fun IOSSheetToolbar(
 ) {
     Box(modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp)) {
         if (leading != null) {
-            GlassCapsule(leading, bold = false, enabled = true, onClick = onLeading, color = capsuleColor, modifier = Modifier.align(Alignment.CenterStart))
+            GlassCapsule(
+                leading,
+                bold = false,
+                enabled = true,
+                onClick = onLeading,
+                color = capsuleColor,
+                modifier = Modifier.align(Alignment.CenterStart),
+            )
         }
         if (subtitle == null) {
             Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.align(Alignment.Center))
