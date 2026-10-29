@@ -183,10 +183,11 @@ fun RouteTabView(
                 },
                 onDelete = { course -> doomed = RouteBridge.course(course) },
                 confirmingId = doomed?.serverId,
-                onConfirmDelete = {
-                    val course = doomed
+                // 팝오버 단추는 onDismiss(= onCancelDelete 가 doomed 를 비운다)를 먼저 부르고 그 다음 동작을 부른다.
+                // 그래서 여기서 doomed 를 읽으면 늘 null 이라 삭제 요청이 나가지 않았다 — 줄이 들고 있던 코스를 받는다.
+                onConfirmDelete = { course ->
                     doomed = null
-                    if (course != null) scope.launch { store.delete(course) }
+                    scope.launch { store.delete(RouteBridge.course(course)) }
                 },
                 onCancelDelete = { doomed = null },
             )
@@ -350,7 +351,7 @@ private fun CourseList(
     onOpen: (com.mz2az.scenetrip.sceneapi.client.model.CourseSummary) -> Unit,
     onDelete: (com.mz2az.scenetrip.sceneapi.client.model.CourseSummary) -> Unit,
     confirmingId: Long?,
-    onConfirmDelete: () -> Unit,
+    onConfirmDelete: (com.mz2az.scenetrip.sceneapi.client.model.CourseSummary) -> Unit,
     onCancelDelete: () -> Unit,
 ) {
     // 확인 팝오버는 **밀었던 그 줄 아래에** 붙는다(iOS 26 `.confirmationDialog` 는 팝오버다).
@@ -360,7 +361,7 @@ private fun CourseList(
             IOSConfirmPopover(
                 title = tr("「%s」을 지울까요?").format(course.title),
                 message = tr("되돌릴 수 없습니다."),
-                actions = listOf(IOSAction(tr("삭제"), IOSRole.DESTRUCTIVE, onConfirmDelete)),
+                actions = listOf(IOSAction(tr("삭제"), IOSRole.DESTRUCTIVE) { onConfirmDelete(course) }),
                 anchorX = 0.dp,
                 onDismiss = onCancelDelete,
                 below = true,
