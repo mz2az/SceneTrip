@@ -9,7 +9,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,7 +26,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -45,8 +43,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -467,92 +463,21 @@ private fun CourseRow(
     onRelease: () -> Unit,
 ) {
     val route = RouteBridge.course(course)
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val revealPx = with(density) { SWIPE_REVEAL.toPx() }
-    // 드러난 폭(px). 0 = 닫힘.
-    val revealed =
-        remember {
-            androidx.compose.animation.core
-                .Animatable(0f)
-        }
-    val scope = rememberCoroutineScope()
-    val deleteLabel = tr("삭제")
-    var fullWidthPx by remember { mutableStateOf(0f) }
-    // 다른 줄이 열리면(`isOpen` 이 꺼지면) 이 줄은 제자리로 돌아온다.
-    LaunchedEffect(isOpen) {
-        if (!isOpen && revealed.value > 0f) revealed.animateTo(0f)
-    }
-
-    Box(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 10.dp),
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier =
-                    Modifier
-                        .size(width = 60.dp, height = 41.dp)
-                        .clip(CircleShape)
-                        .background(IOS.systemRed)
-                        .semantics { contentDescription = deleteLabel }
-                        .clickable {
-                            scope.launch { revealed.animateTo(0f) }
-                            onRelease()
-                            onDelete(course)
-                        },
-            ) {
-                Icon(
-                    Icons.Filled.Delete,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-            Text(deleteLabel, fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.padding(top = 2.dp))
-        }
+    // 밀기 모양(알약으로 줄어듦 · 휴지통 · 끝까지 밀면 바로 동작)은 코스 편집기의 장소 줄과 함께 쓴다 — [SwipeDeleteRow].
+    SwipeDeleteRow(
+        onDelete = { onDelete(course) },
+        isOpen = isOpen,
+        onClaim = onClaim,
+        onRelease = onRelease,
+        corner = GROUP_RADIUS,
+        reveal = SWIPE_REVEAL,
+        // iOS 는 밀려 단추가 드러난 줄을 눌린 회색(systemGray5, 229·229·234)으로 둔다(48b-list-swipe-settled).
+        revealedColor = IOS.systemGray5,
+        onTap = { onOpen(course) },
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier =
-                Modifier
-                    .clip(if (revealed.value > 0f) RoundedCornerShape(GROUP_RADIUS) else RoundedCornerShape(0.dp))
-                    // 줄은 제 폭을 지킨 채 왼쪽으로 밀리고, 보이는 폭만 줄어든다(iOS 도 글자가 왼쪽에서 잘린다).
-                    .layout { measurable, constraints ->
-                        val placeable = measurable.measure(constraints)
-                        fullWidthPx = placeable.width.toFloat()
-                        val shown = revealed.value.toInt().coerceIn(0, placeable.width)
-                        layout(placeable.width - shown, placeable.height) { placeable.place(-shown, 0) }
-                    }.fillMaxWidth()
-                    .background(IOS.systemBackground)
-                    .pointerInput(Unit) {
-                        detectHorizontalDragGestures(
-                            // 밀기 시작 — 앞서 열려 있던 줄은 이때 닫힌다.
-                            onDragStart = { onClaim() },
-                            onDragEnd = {
-                                val settle = CourseSwipe.settle(revealed.value, revealPx, fullWidthPx)
-                                // 끝까지 밀었다 — iOS 는 첫 동작을 바로 부른다.
-                                if (settle != SwipeSettle.OPEN) onRelease()
-                                if (settle == SwipeSettle.FULL) onDelete(course)
-                                scope.launch { revealed.animateTo(if (settle == SwipeSettle.OPEN) revealPx else 0f) }
-                            },
-                            onDragCancel = {
-                                onRelease()
-                                scope.launch { revealed.animateTo(0f) }
-                            },
-                            onHorizontalDrag = { change, dx ->
-                                change.consume()
-                                scope.launch { revealed.snapTo((revealed.value - dx).coerceIn(0f, fullWidthPx)) }
-                            },
-                        )
-                    }.clickable {
-                        // 열려 있으면 탭은 줄을 닫을 뿐이다(iOS).
-                        if (revealed.value > 0f) {
-                            onRelease()
-                            scope.launch { revealed.animateTo(0f) }
-                        } else {
-                            onOpen(course)
-                        }
-                    }.padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
         ) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

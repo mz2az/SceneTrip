@@ -100,10 +100,9 @@ import kotlin.math.roundToInt
  * - 번호 22(그러데이션) · 이름 15 semibold · 부가 줄 11 · 작품 줄 · 머무는 시간 캡슐 · 오른쪽 `line.3.horizontal` 손잡이.
  * - 아랫줄(왼쪽 34 들여) — 30 높이 캡슐들: 안내 중(`location.fill`, 보라 채움) 또는 길찾기(`location`, 옅은 보라),
  *   출발/도착 고정, 그리고 `arrow.down` 다음 곳까지 거리.
- * - **빼기는 밀어서**(왼쪽으로 밀면 빨간 삭제, 끝까지 밀면 빠진다 — iOS `.onDelete`), **순서는 손잡이를 끌어서**
+ * - **빼기는 밀어서**(왼쪽으로 밀면 줄이 알약으로 줄어들며 빨간 휴지통이 드러나고, 그것을 눌러야 빠진다. 끝까지 밀면 바로 빠진다 — iOS `.onDelete`), **순서는 손잡이를 끌어서**
  *   (iOS `.onMove`). 앞서 Android 는 ▲▼ 글자와 빨간 「빼기」 글자가 늘 보였다.
  */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun RouteStopRow(
     number: Int,
@@ -116,6 +115,10 @@ fun RouteStopRow(
     isArrivalPin: Boolean = false,
     onFocus: () -> Unit,
     onRemove: () -> Unit,
+    // 밀어서 연 줄은 하나뿐이다 — 바깥이 어느 줄이 열렸는지 든다(코스 목록과 같은 규칙, [SwipeDeleteRow]).
+    isOpen: Boolean,
+    onClaim: () -> Unit,
+    onRelease: () -> Unit,
     onMoveUp: (() -> Unit)?,
     onMoveDown: (() -> Unit)?,
     onTogglePin: () -> Unit,
@@ -134,16 +137,13 @@ fun RouteStopRow(
     // `onDragEnd` 가 불리지 않아 남은 dragY 로 행이 떠 있었다(15차: 37dp 겹침). 키는 고정하고 최신 콜백만 읽는다.
     val moveUp by rememberUpdatedState(onMoveUp)
     val moveDown by rememberUpdatedState(onMoveDown)
-    val swipe =
-        androidx.compose.material3.rememberSwipeToDismissBoxState(
-            confirmValueChange = { value ->
-                if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) onRemove()
-                false
-            },
-        )
-    androidx.compose.material3.SwipeToDismissBox(
-        state = swipe,
-        enableDismissFromStartToEnd = false,
+    // **빼기는 밀어서** — 줄이 알약으로 줄어들며 휴지통이 드러나고, 그것을 눌러야 빠진다(iOS 26 `.onDelete`). 코스 목록 줄과 같은 부품이다.
+    // 휴지통은 iOS 실측으로 지름 50 이고 줄 오른쪽 끝은 화면 오른쪽에서 70 안쪽으로 물러난다. 밀리면 줄은 눌린 회색이 된다.
+    SwipeDeleteRow(
+        onDelete = onRemove,
+        isOpen = isOpen,
+        onClaim = onClaim,
+        onRelease = onRelease,
         modifier =
             Modifier
                 .zIndex(if (dragY != 0f) 1f else 0f)
@@ -151,20 +151,16 @@ fun RouteStopRow(
                     androidx.compose.ui.unit
                         .IntOffset(0, dragY.roundToInt())
                 }.onSizeChanged { rowHeight = it.height },
-        backgroundContent = {
-            Box(
-                contentAlignment = Alignment.CenterEnd,
-                modifier = Modifier.fillMaxSize().background(IOS.systemRed).padding(horizontal = 20.dp),
-            ) {
-                Text(tr("삭제"), fontSize = 17.sp, color = Color.White)
-            }
-        },
+        corner = 26.dp,
+        reveal = 70.dp,
+        buttonSize = androidx.compose.ui.unit.DpSize(50.dp, 50.dp),
+        containerColor = if (isFocused) IOS.accent.copy(alpha = 0.07f).compositeOver(IOS.systemBackground) else IOS.systemBackground,
+        revealedColor = IOS.systemGray5,
     ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .background(if (isFocused) IOS.accent.copy(alpha = 0.07f).compositeOver(IOS.systemBackground) else IOS.systemBackground)
                     // iOS `List` 행 여백(약 11) + `.padding(.vertical, 4)` — 8 이면 행이 15 낮았다.
                     .padding(horizontal = 16.dp, vertical = 15.dp),
         ) {

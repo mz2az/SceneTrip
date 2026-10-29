@@ -235,6 +235,8 @@ private fun RouteEditorContent(
     // 켜짐이 기본이다(2026-08-28 iOS 결정) — 코스를 보는 사람은 대개 자기 위치와
     // 견주고 싶어서 본다. 끄는 것은 선택으로 남는다.
     var showingMe by remember { mutableStateOf(true) }
+    // 밀어서 휴지통을 드러낸 장소 줄 — 열린 줄은 하나뿐이다(iOS `List` 의 swipeActions).
+    var openStopId by remember { mutableStateOf<java.util.UUID?>(null) }
     var fitToken by remember { mutableStateOf(0) }
     var optimizeNudge by remember { mutableStateOf(false) }
     var showGuide by remember { mutableStateOf(false) }
@@ -1334,6 +1336,9 @@ private fun RouteEditorContent(
                                     }
                                 },
                                 onRemove = { updateDay(dayIndex) { d -> d.copy(stops = d.stops.filterNot { it.id == stop.id }) } },
+                                isOpen = openStopId == stop.id,
+                                onClaim = { openStopId = stop.id },
+                                onRelease = { if (openStopId == stop.id) openStopId = null },
                                 onMoveUp =
                                     if (index > 0) {
                                         {
