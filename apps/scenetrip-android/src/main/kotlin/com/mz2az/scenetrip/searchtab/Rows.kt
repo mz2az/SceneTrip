@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -62,6 +63,9 @@ fun WorkRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onTap)
+                // iOS 줄 높이는 82.7(포스터 62 + 세로 10×2 + 칸 여백, 실측 2026-10-30 R12). Android 는 글꼴 탓에 글 칸이 커서
+                // 세로 여백 7 로 80 이 됐다 — 최소 높이를 iOS 값으로 둔다(글 칸이 더 크면 그만큼 커진다).
+                .heightIn(min = 82.7.dp)
                 .padding(horizontal = IOS.gutter, vertical = 7.dp),
     ) {
         RemoteImage(

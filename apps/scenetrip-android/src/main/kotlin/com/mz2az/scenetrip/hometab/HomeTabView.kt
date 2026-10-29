@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,6 +28,7 @@ import com.mz2az.scenetrip.data.rememberAccountResetGeneration
 import com.mz2az.scenetrip.reviews.ModerationSheets
 import com.mz2az.scenetrip.reviews.rememberModerationController
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSPullToRefreshBox
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -85,7 +85,7 @@ fun HomeTabScreen() {
         previousCover = TabRouter.cover
     }
 
-    PullToRefreshBox(
+    IOSPullToRefreshBox(
         isRefreshing = refreshing,
         onRefresh = {
             scope.launch {
