@@ -12,9 +12,14 @@
  *
  * 유료 호출(`/navigation/next-leg`·`/guide/chat`)은 사람이 누를 때만 나간다 — 화면이 저절로 부르지 않는다.
  */
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, installHeader, ok } from '@/api/client'
+import { consumePending, pendingStore } from '@/app/tabRouter'
 import { tr } from '@/i18n'
+import { PhotoGallery } from '@/features/reviews/photoGallery'
+import { bookOf } from '@/features/reviews/photoGalleryRules'
+import { GalleryViewer } from '@/features/reviews/PhotoViewers'
+import { ReviewsSheet } from '@/features/reviews/ReviewsSheet'
 import { cartActions, useCart } from '@/state/cart'
 import { footprintStore, kilometersOf } from '@/state/footprints'
 import { createStore, useStore } from '@/state/storage'
@@ -36,8 +41,9 @@ import { ArrivalNotice, TripBanner } from '../nav/TripBanner'
 import { TripControls } from '../nav/TripControls'
 import { type TripState, type TripTarget, TripSession, useTripState } from '../nav/tripSession'
 import { PlaceCard } from '../poi/PlaceCard'
+import type { CardPhoto } from '../poi/poiCard'
 import { PoiChips } from '../poi/PoiChips'
-import { courseEntry, drawnPlaceIds, isSameSpot, rowOf, withoutDotsUnderPins } from '../poi/placePoiLink'
+import { type PlaceTarget, courseEntry, drawnPlaceIds, isSameSpot, rowOf, targetOf, withoutDotsUnderPins } from '../poi/placePoiLink'
 import { POI_GROUPS, type PoiGroup } from '../poi/poiGroup'
 import { type RoutePlace, dedupeKey, placeGroup, placeKey, serverIdOf } from '../poi/poiPlace'
 import { useAmbientPois } from '../poi/useAmbientPois'
@@ -259,6 +265,19 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
   const hostRef = useRef(host)
   hostRef.current = host
   const anchor = useGuideAnchor(host)
+  // 정보 카드의 별점 줄·사진 줄 — 리뷰 시트와 사진첩이 이 위에 올라온다.
+  const [reviewing, setReviewing] = useState<{ target: PlaceTarget; title: string } | null>(null)
+  const [viewing, setViewing] = useState<{ gallery: PhotoGallery; title: string; index: number } | null>(null)
+  const openReviews = useCallback((target: PlaceTarget, title: string) => setReviewing({ target, title }), [])
+  const openPhotos = useCallback((photos: CardPhoto[], index: number, title: string) => {
+    const picked = sharedGuide.state.picked
+    const target = picked ? targetOf(picked) : null
+    if (!target) return
+    // 카드가 이미 받은 사진으로 사진첩을 먼저 채운다 — 넘기다 끝이 가까우면 사진첩이 다음 쪽을 받는다.
+    const gallery = new PhotoGallery(target)
+    gallery.show(bookOf(photos, photos.length, []), target, gallery.generation)
+    setViewing({ gallery, title, index })
+  }, [])
 
   // 대화는 코스의 것이다 — 다른 코스를 열면 지운다. 저장으로 서버 id 를 얻은 같은 코스는 열쇠만 바꾼다.
   const courseKey = host.course.serverId !== null ? `course:${host.course.serverId}` : `draft:${host.course.uid}`
@@ -269,6 +288,15 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
     else sharedGuide.bind(courseKey)
     lastUid.current = { uid: host.course.uid, key: courseKey }
   }, [courseKey, host.course.uid])
+
+  // 홈 「이어서 길찾기」 — 코스가 열리면 첫 미방문 성지로 안내를 켠다. 표시는 한 번 읽고 끈다(iOS runPendingTripStart).
+  const tripStartWanted = useStore(pendingStore, (p) => p.tripStart)
+  useEffect(() => {
+    if (!tripStartWanted || host.stops.length === 0) return
+    consumePending('tripStart')
+    const first = nextUnvisited(host.stops)?.stop ?? host.stops.find(canNavigate)
+    if (first) void startTripTo(hostRef.current, first)
+  }, [tripStartWanted, host.stops])
 
   // 스탬프가 찍히면 코스 상태와 서버에 「다녀옴」.
   useEffect(() => {
@@ -419,6 +447,8 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
             onReroute={reroute && pickedStop && trip.target?.uid !== pickedStop.uid ? () => reroute(picked) : undefined}
             onClose={() => sharedGuide.setPicked(null)}
             reloadToken={state.reloadToken}
+            onOpenReviews={openReviews}
+            onOpenPhotos={openPhotos}
           />
         </div>
       )}
@@ -448,9 +478,30 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
             host.requestClose()
           }}
           onClose={() => patchUi({ guideOpen: false })}
-          cardProps={{ reloadToken: state.reloadToken }}
+          cardProps={{ reloadToken: state.reloadToken, onOpenReviews: openReviews, onOpenPhotos: openPhotos }}
         />
       </GuidePanel>
+
+      <ReviewsSheet
+        open={reviewing !== null}
+        onClose={() => setReviewing(null)}
+        subject={reviewing?.target ?? { kind: 'place', id: 0 }}
+        title={reviewing?.title ?? ''}
+        onChanged={() => patchUi({ reloadToken: ui.get().reloadToken + 1 })}
+      />
+      {viewing && (
+        <GalleryViewer
+          gallery={viewing.gallery}
+          open
+          onClose={() => {
+            setViewing(null)
+            patchUi({ reloadToken: ui.get().reloadToken + 1 })
+          }}
+          index={viewing.index}
+          onIndex={(index) => setViewing((v) => (v ? { ...v, index } : v))}
+          reviews={{ kind: 'sheet', title: viewing.title, onChanged: () => patchUi({ reloadToken: ui.get().reloadToken + 1 }) }}
+        />
+      )}
 
       {trip.stamped && trip.target && (
         <StampOverlay
