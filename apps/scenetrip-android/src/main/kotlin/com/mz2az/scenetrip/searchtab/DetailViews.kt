@@ -115,7 +115,8 @@ fun ContentDetailView(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         DetailHeader(title = summary.title, onBack = onBack)
-        LazyColumn {
+        // iOS 는 스크롤 내용 전체에 `.padding(.vertical, 4)` 를 준다(ContentDetailView.swift:67) — 맨 아래 4.
+        LazyColumn(contentPadding = PaddingValues(bottom = 4.dp)) {
             item {
                 // iOS `ContentDetailView.body` — 바깥 `VStack(spacing: 16)` + `.padding(.vertical, 4)`(ContentDetailView.swift:56-67),
                 // 안쪽 `header` 는 `VStack(spacing: 10)` 에 포스터·찜·메타/출연·줄거리를 모두 담는다(:82-117).
@@ -310,7 +311,10 @@ fun PlaceDetailView(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         DetailHeader(title = summary.name, subtitle = summary.address.orEmpty(), onBack = onBack)
-        LazyColumn {
+        // iOS 는 스크롤 내용 전체에 `.padding(14)` 를 준다(PlaceDetailView.swift:62) — 맨 아래 14. 이것이 없으면
+        // 「이 장소의 장면」 카드 바닥이 탭바 선에 붙어 가운데 홈 단추(바 위로 26 솟음)에 설명 영역 아래쪽이 가려진다.
+        // 시트(`BottomSheet`)가 주는 여백이 아니다 — iOS 시트에는 그런 여유가 없고 화면마다 제 여백을 든다.
+        LazyColumn(contentPadding = PaddingValues(bottom = 14.dp)) {
             item {
                 // iOS: `VStack(spacing: 18)` + `.padding(14)` — 헤더→사진 14(+헤더 아래), 사진→갈래→버튼 18 씩.
                 // 여백 없이 붙어 있어 전체가 빽빽했다(2차 대조: 28 대 9, 19.5 대 15, 20 대 13.5).
