@@ -3,6 +3,7 @@ package com.mz2az.scenetrip.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -593,6 +594,38 @@ fun ArrowsExpandIcon(
             }
         drawPath(topLeft, tint, style = st)
         drawPath(bottomRight, tint, style = st)
+    }
+}
+
+/**
+ * `arrow.up.right.square` — 둥근 네모 안에서 오른쪽 위로 향하는 화살표. 작품 포스터의 제작사 페이지 링크.
+ * 네모는 닫혀 있고(`square.and.arrow.up` 처럼 열리지 않는다) 화살표는 네모 안쪽에 머문다.
+ */
+@Composable
+fun ArrowUpRightSquareIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val st = Stroke(width = w * 0.11f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val inset = w * 0.06f
+        drawRoundRect(
+            tint,
+            topLeft = Offset(inset, inset),
+            size = Size(w - inset * 2, w - inset * 2),
+            cornerRadius = CornerRadius(w * 0.2f),
+            style = st,
+        )
+        val arrow =
+            Path().apply {
+                moveTo(w * 0.32f, w * 0.68f)
+                lineTo(w * 0.68f, w * 0.32f)
+                moveTo(w * 0.4f, w * 0.32f)
+                lineTo(w * 0.68f, w * 0.32f)
+                lineTo(w * 0.68f, w * 0.6f)
+            }
+        drawPath(arrow, tint, style = st)
     }
 }
 

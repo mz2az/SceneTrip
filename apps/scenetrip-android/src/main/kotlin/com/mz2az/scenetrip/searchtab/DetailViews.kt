@@ -63,6 +63,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceDetail
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.Scene
+import com.mz2az.scenetrip.ui.ArrowUpRightSquareIcon
 import com.mz2az.scenetrip.ui.ArrowsExpandIcon
 import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
@@ -139,18 +140,20 @@ fun ContentDetailView(
                                 modifier = Modifier.fillMaxSize(),
                             )
                             if (producer != null) {
-                                Text(
-                                    "↗",
-                                    style = IOS.caption.copy(fontWeight = FontWeight.SemiBold),
-                                    color = IOS.label,
+                                // iOS `ContentDetailView.poster` — `arrow.up.right.square`(.caption.semibold 12pt)를
+                                // `.padding(6)` 안에 두고 `.regularMaterial` 원을 깐 뒤 바깥 `.padding(6)` 로 모서리에서
+                                // 띄운다(ContentDetailView.swift:111-114). 지름 12+6+6=24, 모서리 간격 6.
+                                Box(
+                                    contentAlignment = Alignment.Center,
                                     modifier =
                                         Modifier
-                                            .align(
-                                                Alignment.BottomEnd,
-                                            ).padding(6.dp)
-                                            .background(IOS.systemBackground.copy(alpha = 0.85f), CircleShape)
-                                            .padding(6.dp),
-                                )
+                                            .align(Alignment.BottomEnd)
+                                            .padding(6.dp)
+                                            .size(24.dp)
+                                            .background(IOS.systemBackground.copy(alpha = 0.85f), CircleShape),
+                                ) {
+                                    ArrowUpRightSquareIcon(IOS.label, Modifier.size(12.dp))
+                                }
                             }
                         }
                         // 상세를 다시 받으면 누락도 false 다 — 옛 요약의 true 를 계속 붙들지 않는다.
