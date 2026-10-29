@@ -95,7 +95,22 @@ internal fun CommunityPostList(
         reading = null
         deleting = null
     }
-    PullToRefreshBox(isRefreshing = loading, onRefresh = { scope.launch { store.refresh(mine) } }) {
+    // 당겨서 새로고침의 동그라미는 **당겨서 시작한 새로고침 동안만** 돈다. 처음 불러오는 중에도 켰더니 목록 가운데 스피너와
+    // 맨 위 새로고침 동그라미가 한꺼번에 돌아 두 겹으로 보였다(오프라인에서 특히 길게). iOS `.refreshable` 도 당겼을 때만 돈다 (MZ2AZ-513).
+    var pulled by remember { mutableStateOf(false) }
+    PullToRefreshBox(
+        isRefreshing = pulled,
+        onRefresh = {
+            scope.launch {
+                pulled = true
+                try {
+                    store.refresh(mine)
+                } finally {
+                    pulled = false
+                }
+            }
+        },
+    ) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
             state.message?.let { message ->
                 item {
