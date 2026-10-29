@@ -57,7 +57,9 @@ fun RouteDayStaySheet(
                     Text(
                         RouteDayEstimate.label(estimatedTotalMinutes, stops),
                         color = IOS.secondaryLabel,
-                        fontSize = 13.sp,
+                        // iOS 구역 머리글은 15pt 반굵은(90-stay 실측: 글자 높이 약 12, Android 13sp 는 한 단계 작았다).
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 31.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
                     )
                 }
