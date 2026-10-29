@@ -15,7 +15,6 @@ import { IDENTITY, MAX_SCALE, MIN_SCALE, type Size, type View, clampOffset, doub
 
 const CREDIT_MAX_HEIGHT = 96 // CommunityPhotoViewer.swift:41
 const WHEEL_ZOOM_RATE = 0.0025
-const PX_PER_PINCH_UNIT = 1
 
 export function PhotoViewer({ url, block, onClose }: { url: string; block: Pick<PostBlock, 'caption' | 'credit' | 'aiGenerated'>; onClose: () => void }) {
   const root = useContext(OverlayRootContext)
@@ -98,7 +97,7 @@ export function PhotoViewer({ url, block, onClose }: { url: string; block: Pick<
       const [a, b] = [...pointers.current.values()]
       const distance = Math.hypot(a!.x - b!.x, a!.y - b!.y)
       const mid = local((a!.x + b!.x) / 2, (a!.y + b!.y) / 2)
-      setView(zoomAt(viewRef.current, gesture.current.startScale * (distance / Math.max(1, gesture.current.startDistance)) * PX_PER_PINCH_UNIT, mid.x, mid.y, fitted, viewport))
+      setView(zoomAt(viewRef.current, gesture.current.startScale * (distance / Math.max(1, gesture.current.startDistance)), mid.x, mid.y, fitted, viewport))
     } else if (pointers.current.size === 1 && viewRef.current.scale > MIN_SCALE) {
       const v = viewRef.current
       setView(clampOffset({ ...v, x: v.x + (e.clientX - prev.x), y: v.y + (e.clientY - prev.y) }, fitted, viewport))

@@ -5,7 +5,8 @@
  */
 import type { PointerEventHandler, Ref } from 'react'
 import { Icon } from '@/design/Icon'
-import { HStack, Pressable, Spacer, Txt, VStack } from '@/design/primitives'
+import { HStack, Spacer, Txt, VStack } from '@/design/primitives'
+import { Pressable } from '../ui/Press'
 import { tr, trAt } from '@/i18n'
 import { unavailableMessage } from '../availability'
 import { type RouteStop, clock, formatKm, isPinned, stopLabel } from '../models'

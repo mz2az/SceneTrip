@@ -1,5 +1,6 @@
 import { Icon } from '@/design/Icon'
-import { Pressable, Txt } from '@/design/primitives'
+import { Txt } from '@/design/primitives'
+import { Pressable } from './Press'
 import { tr } from '@/i18n'
 
 /**

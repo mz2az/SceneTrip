@@ -11,7 +11,8 @@ import { useEffect, useRef, useState } from 'react'
 import { matchPath, useLocation, useNavigate } from 'react-router'
 import { Icon } from '@/design/Icon'
 import { Cover, Sheet } from '@/design/overlay'
-import { HStack, Pressable, Spacer, Spinner, Txt, VStack } from '@/design/primitives'
+import { HStack, Spacer, Spinner, Txt, VStack } from '@/design/primitives'
+import { Pressable } from './ui/Press'
 import { patterns, paths } from '@/app/routes'
 import { consumePending, pendingStore } from '@/app/tabRouter'
 import { tr, useLang } from '@/i18n'
@@ -145,7 +146,7 @@ function Header({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) 
         </Pressable>
         <Spacer />
         <PinoNudge on radius={15}>
-          <Pressable plain onClick={onAdd} style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Pressable plain onClick={onAdd} style={{ padding: '6px 10px', flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             <Icon name="plus" size={12} weight="semibold" />
             <Txt size={12} weight="semibold">{tr('코스 추가')}</Txt>
           </Pressable>

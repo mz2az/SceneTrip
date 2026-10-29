@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { Pressable } from '@/design/primitives'
+import { Pressable } from './Press'
 
 /**
  * `.buttonStyle(.borderedProminent)` / `.bordered` + `.controlSize(.large)` — iOS 26 의 캡슐 단추.

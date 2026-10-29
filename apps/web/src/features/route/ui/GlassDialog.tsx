@@ -8,7 +8,8 @@
 import { type ReactNode, useContext, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { OverlayRootContext } from '@/design/overlay'
-import { Pressable, Txt, VStack } from '@/design/primitives'
+import { Txt, VStack } from '@/design/primitives'
+import { Pressable } from './Press'
 
 export interface GlassButton {
   label: string

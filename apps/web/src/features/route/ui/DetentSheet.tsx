@@ -7,7 +7,8 @@
 import { type ReactNode, useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { OverlayRootContext } from '@/design/overlay'
-import { Pressable, Txt } from '@/design/primitives'
+import { Txt } from '@/design/primitives'
+import { Pressable } from './Press'
 
 export type SheetDetent = 'medium' | 'large'
 const FLOAT_MARGIN = 8

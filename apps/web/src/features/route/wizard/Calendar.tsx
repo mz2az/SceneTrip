@@ -4,7 +4,8 @@
  */
 import { useState } from 'react'
 import { Icon } from '@/design/Icon'
-import { HStack, Pressable, Txt } from '@/design/primitives'
+import { HStack, Txt } from '@/design/primitives'
+import { Pressable } from '../ui/Press'
 import { currentLang } from '@/i18n'
 import { parseDate, toIso } from '../models'
 

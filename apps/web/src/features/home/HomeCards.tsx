@@ -3,7 +3,8 @@
  * 숫자·문구는 전부 서버·기기 값이다. 목업이 「카드 속 숫자·글은 배치용 예시」라고 못 박았다.
  */
 import { Icon } from '@/design/Icon'
-import { HStack, Pressable, Spacer, Txt, VStack, homeCard, rr, shadow } from '@/design/primitives'
+import { HStack, Spacer, Txt, VStack, homeCard, rr, shadow } from '@/design/primitives'
+import { Pressable } from '../route/ui/Press'
 import { tr } from '@/i18n'
 import { CoverPhoto } from '../community/CoverPhoto'
 import { type PostSummary, postFromSummary } from '../community/store'

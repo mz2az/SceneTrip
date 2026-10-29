@@ -4,7 +4,8 @@
  * 코스가 둘 이상이면 옆으로 넘기는 페이저, 아래에 1·2·3 점. 여행 중인 코스가 첫 장이다. (TabView(.page) 대신 스크롤 정지 방식 — 세로 스크롤 안에서 아래 줄의 탭을 가로채지 않는다.)
  */
 import { useEffect, useRef, useState } from 'react'
-import { HStack, Pressable, Txt, VStack, shadow } from '@/design/primitives'
+import { HStack, Txt, VStack, shadow } from '@/design/primitives'
+import { Pressable } from '../route/ui/Press'
 import { tr } from '@/i18n'
 import { coursePlaceCount, courseSpanLabel } from '../route/models'
 import { trAt } from '@/i18n'

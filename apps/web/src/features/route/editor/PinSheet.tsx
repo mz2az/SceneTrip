@@ -5,7 +5,8 @@
  */
 import { useState } from 'react'
 import { Icon } from '@/design/Icon'
-import { HStack, Pressable, Txt, VStack } from '@/design/primitives'
+import { HStack, Txt, VStack } from '@/design/primitives'
+import { Pressable } from '../ui/Press'
 import { tr } from '@/i18n'
 import type { PlaceSummary } from '../models'
 import { PIN_KINDS, type PinKind } from '../placeType'

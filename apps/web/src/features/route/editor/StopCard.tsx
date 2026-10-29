@@ -8,7 +8,8 @@ import { useEffect, useState } from 'react'
 import { api, ok } from '@/api/client'
 import type { components } from '@/api/generated/schema'
 import { Icon } from '@/design/Icon'
-import { HStack, Pressable, Spinner, Txt, VStack } from '@/design/primitives'
+import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
+import { Pressable } from '../ui/Press'
 import { tr } from '@/i18n'
 import { unavailableMessage } from '../availability'
 import { type RouteStop, placeIdOf, stopLabel } from '../models'
@@ -94,7 +95,7 @@ export function StopCard({ stop, onReroute, onClose }: { stop: RouteStop; onRero
 
       {onReroute && notice === null && (
         <div style={{ padding: '0 14px 14px' }}>
-          <Pressable plain onClick={onReroute} style={{ width: '100%', height: 44, borderRadius: 10, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <Pressable plain onClick={onReroute} style={{ width: '100%', height: 44, borderRadius: 10, background: 'var(--accent)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <Icon name="location.north.fill" size={12} color="#fff" />
             <Txt size={15} weight="semibold" color="white">{tr('여기로 길찾기')}</Txt>
           </Pressable>

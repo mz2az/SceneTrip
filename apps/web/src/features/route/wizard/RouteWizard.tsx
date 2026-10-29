@@ -10,7 +10,8 @@
  * 위치 동의를 취소해도 코스는 만들어진다(좌표 없이).
  */
 import { useEffect, useRef, useState } from 'react'
-import { HStack, Pressable, Spinner, Txt, VStack } from '@/design/primitives'
+import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
+import { Pressable } from '../ui/Press'
 import { AIConsentSheet, LocationConsentSheet, useAIConsent, useLocationConsent } from '@/features/profile/consent'
 import { tr, useLang } from '@/i18n'
 import { likeActions, useLikes } from '@/state/likes'
@@ -131,7 +132,7 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
           <Pressable plain onClick={onClose}><Txt size={17} color="accent">{tr('취소')}</Txt></Pressable>
           <Txt size={13} color="secondary">{`${index + 1} / ${steps.length}`}</Txt>
         </HStack>
-        <div style={{ height: 4, borderRadius: 2, background: 'var(--system-gray5)', overflow: 'hidden' }} role="progressbar" aria-valuenow={index + 1} aria-valuemax={steps.length}>
+        <div style={{ height: 3, borderRadius: 2, background: 'var(--system-gray5)', overflow: 'hidden' }} role="progressbar" aria-valuenow={index + 1} aria-valuemax={steps.length}>
           <div style={{ height: '100%', width: `${((index + 1) / steps.length) * 100}%`, background: 'var(--accent)', borderRadius: 2, transition: 'width 0.25s' }} />
         </div>
         {kind === 'aiPlan' && <AIBanner text={tr('AI 가 일정을 짜 드립니다')} />}

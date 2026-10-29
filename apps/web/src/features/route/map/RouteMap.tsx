@@ -97,7 +97,13 @@ export function RouteMap(props: RouteMapProps) {
 
   const fitPoints = (pts: L.LatLngExpression[], pad = FIT_PADDING, maxZoom = 17) => {
     const map = mapRef.current
-    if (!map || pts.length === 0) return
+    if (!map) return
+    if (pts.length === 0) {
+      // 담은 곳이 없으면 남한 전체 — 시트가 덮은 만큼 위쪽에 맞춘다.
+      map.stop()
+      map.fitBounds(KOREA, { paddingTopLeft: [8, 8], paddingBottomRight: [8, 8 + latest.current.bottomInset], animate: false })
+      return
+    }
     const lats = pts.map((p) => L.latLng(p).lat)
     const lngs = pts.map((p) => L.latLng(p).lng)
     const span = Math.max(Math.max(...lats) - Math.min(...lats), Math.max(...lngs) - Math.min(...lngs))

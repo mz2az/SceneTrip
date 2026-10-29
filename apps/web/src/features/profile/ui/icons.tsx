@@ -3,7 +3,7 @@
  * 이름은 iOS 코드의 `Image(systemName:)` 그대로. 모양이 다른 곳은 S3(미세 차이).
  * 공용 이름(`location` 등)과 겹치는 것은 덮지 않고 `st.` 접두를 붙였다.
  */
-import { ArrowUpRight, CircleAlert, FileText, Images, MessageSquareText, Route, Sparkles, ShoppingBag, SquarePen, Store, Clapperboard, UserRoundCheck, WifiOff, Navigation, Hand } from 'lucide-react'
+import { ArrowUpRight, CircleAlert, FileText, Images, MessageSquareText, Route, ShoppingBag, SquarePen, Store, Clapperboard, UserRoundCheck, WifiOff, Navigation, Hand } from 'lucide-react'
 import type { ComponentType, CSSProperties } from 'react'
 import { registerIcon } from '@/design/Icon'
 
@@ -72,7 +72,16 @@ export function registerProfileIcons(): void {
   registerIcon('wifi.exclamationmark', lucide(WifiOff))
   // SF 의 `location`(종이비행기 모양 화살표) — 공용 `location` 은 조준점이라 따로 이름을 둔다.
   registerIcon('st.location.arrow', scaled(lucide(Navigation), 1.3))
-  registerIcon('st.sparkles', scaled(lucide(Sparkles), 1.3))
+  registerIcon(
+    'st.sparkles',
+    scaled(svg((c) => (
+      <g fill={c}>
+        <path d="M10.5 3.5c.7 4.6 2.6 6.6 7.3 7.5-4.7.9-6.6 2.9-7.3 7.5-.7-4.6-2.6-6.6-7.3-7.5 4.7-.9 6.6-2.9 7.3-7.5z" />
+        <path d="M19 2c.3 1.7 1 2.4 2.7 2.7-1.7.3-2.4 1-2.7 2.7-.3-1.7-1-2.4-2.7-2.7C18 4.4 18.7 3.7 19 2z" />
+        <path d="M18.6 15.4c.3 1.5.9 2.1 2.4 2.4-1.5.3-2.1.9-2.4 2.4-.3-1.5-.9-2.1-2.4-2.4 1.5-.3 2.1-.9 2.4-2.4z" />
+      </g>
+    )), 1.25),
+  )
   registerIcon('st.hand.raised', lucide(Hand))
   registerIcon(
     'chart.bar',

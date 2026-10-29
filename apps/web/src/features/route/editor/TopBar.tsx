@@ -3,7 +3,8 @@
  * 편집 가능한 제목은 최대 200pt — 긴 이름은 칸 안에서 넘겨 본다. 새 코스는 「만들기」, 저장된 코스는 「저장」.
  */
 import { Icon } from '@/design/Icon'
-import { HStack, Pressable, Txt } from '@/design/primitives'
+import { HStack, Txt } from '@/design/primitives'
+import { Pressable } from '../ui/Press'
 import { tr } from '@/i18n'
 
 const TITLE_MAX = 200

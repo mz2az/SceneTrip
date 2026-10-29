@@ -4,7 +4,8 @@
  */
 import { type ReactNode, useRef, useState } from 'react'
 import { Icon } from '@/design/Icon'
-import { HStack, Pressable, Spacer, Txt, VStack } from '@/design/primitives'
+import { HStack, Spacer, Txt, VStack } from '@/design/primitives'
+import { Pressable } from '../ui/Press'
 import { tr } from '@/i18n'
 import { nextKilometers } from '../availability'
 import { totalKilometers } from '../geometry'

@@ -6,7 +6,8 @@ import { type ReactNode, useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from '@/design/Icon'
 import { OverlayRootContext } from '@/design/overlay'
-import { Pressable, Txt } from '@/design/primitives'
+import { Txt } from '@/design/primitives'
+import { Pressable } from './Press'
 
 export function ChoiceMenu<T extends string | number>({ choices, current, onPick, label, children }: {
   choices: ReadonlyArray<{ value: T; label: string }>
@@ -57,7 +58,7 @@ export function ChoiceMenu<T extends string | number>({ choices, current, onPick
                   setAt(null)
                   onPick(c.value)
                 }}
-                style={{ width: '100%', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}
+                style={{ width: '100%', padding: '12px 16px', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}
               >
                 <Txt size={17}>{c.label}</Txt>
                 {c.value === current && <Icon name="checkmark" size={15} weight="semibold" />}

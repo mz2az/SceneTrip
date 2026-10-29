@@ -5,7 +5,8 @@
  */
 import { Icon } from '@/design/Icon'
 import { Sheet } from '@/design/overlay'
-import { HStack, Pressable, Spacer, Txt, VStack, rr, shadow } from '@/design/primitives'
+import { HStack, Spacer, Txt, VStack, rr, shadow } from '@/design/primitives'
+import { Pressable } from './ui/Press'
 import { tr } from '@/i18n'
 import './ui/icons'
 

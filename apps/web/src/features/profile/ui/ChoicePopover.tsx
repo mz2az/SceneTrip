@@ -43,7 +43,7 @@ export function ChoicePopover({ open, anchor, title, actions, onClose }: { open:
           boxShadow: '0 6px 30px rgba(0,0,0,0.14)', animation: 'st-fade-in 0.18s ease both',
         }}
       >
-        <Txt as="div" size={17} align="center" style={{ padding: '22px 0 14px', lineHeight: '22px' }}>{title}</Txt>
+        <Txt as="div" size={17} align="center" style={{ padding: '22px 0 18px', lineHeight: '22px' }}>{title}</Txt>
         <VStack spacing={9}>
           {actions.map((a) => (
             <Pressable
@@ -55,7 +55,7 @@ export function ChoicePopover({ open, anchor, title, actions, onClose }: { open:
               }}
               style={{ height: 47, borderRadius: 24, background: 'rgba(120,120,128,0.2)', textAlign: 'center' }}
             >
-              <Txt size={20} color={a.role === 'destructive' ? 'red' : 'primary'}>{a.label}</Txt>
+              <Txt size={18} color={a.role === 'destructive' ? 'red' : 'primary'}>{a.label}</Txt>
             </Pressable>
           ))}
         </VStack>

@@ -3,7 +3,8 @@
  * 묻는 것: 기간(당일치기~5박 6일) · 떠나는 날(선택) · 어떤 작품 · 빡빡/널널. 묻지 않는 것: 시작 시각(삭제 확정)·돌아오는 날·테마·지역.
  */
 import { Icon } from '@/design/Icon'
-import { HStack, Pressable, Spacer, Txt, VStack, rr } from '@/design/primitives'
+import { HStack, Spacer, Txt, VStack, rr } from '@/design/primitives'
+import { Pressable } from '../ui/Press'
 import { tr } from '@/i18n'
 import { type ContentSummary, PACE_CAPTION, PACE_SYMBOL, PACE_TITLE, type RoutePace, SPAN_NIGHTS, addDays, formatDay, spanLabel } from '../models'
 import { unavailableMessage, canToggle } from '../availability'

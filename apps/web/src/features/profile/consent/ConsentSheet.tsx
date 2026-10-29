@@ -29,10 +29,10 @@ export interface ConsentSheetProps {
 export function ConsentSheet(p: ConsentSheetProps) {
   return (
     <GlassSheet open={p.open} onClose={p.swipeDismiss} onClosed={p.onClosed} detent="fit" label={p.title} zIndex={70}>
-      <VStack spacing={24} style={{ padding: 24, overflowY: 'auto' }}>
+      <VStack spacing={22.4} style={{ padding: `24px 23px calc(24px + max(30px, var(--safe-bottom)))`, overflowY: 'auto' }}>
         <Txt as="h2" size={22} weight="bold" kerning={TITLE_KERNING} style={{ lineHeight: '27px' }}>{p.title}</Txt>
-        <Txt as="p" size={17} style={{ lineHeight: '21px' }}>{p.disclosure}</Txt>
-        <a href={p.link} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontSize: 17, lineHeight: '21px' }}>{p.linkTitle}</a>
+        <Txt as="p" size={17} style={{ lineHeight: '20.8px' }}>{p.disclosure}</Txt>
+        <a href={p.link} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontSize: 17, lineHeight: '20.8px' }}>{p.linkTitle}</a>
         <VStack spacing={6}>
           <Pressable
             plain

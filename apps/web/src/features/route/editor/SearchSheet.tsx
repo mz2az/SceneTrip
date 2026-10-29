@@ -7,7 +7,8 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/design/Icon'
-import { HStack, Pressable, Spinner, Txt, VStack } from '@/design/primitives'
+import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
+import { Pressable } from '../ui/Press'
 import { tr, useLang } from '@/i18n'
 import { hasMore } from '@/state/shared'
 import type { PlaceSummary } from '../models'

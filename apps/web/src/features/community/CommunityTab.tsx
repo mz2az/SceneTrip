@@ -184,7 +184,9 @@ function Header({ onCompose }: { onCompose: () => void }) {
 
 function ListRow({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ padding: `11px ${ROW_INSET_X}px`, minHeight: 44, display: 'flex', alignItems: 'center', borderBottom: HAIRLINE }}>{children}</div>
+    <div style={{ padding: `0 ${ROW_INSET_X}px` }}>
+      <div style={{ padding: '11px 0', minHeight: 44, display: 'flex', alignItems: 'center', borderBottom: HAIRLINE }}>{children}</div>
+    </div>
   )
 }
 
