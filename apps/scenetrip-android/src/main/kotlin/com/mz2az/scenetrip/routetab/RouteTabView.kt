@@ -44,6 +44,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -122,7 +124,15 @@ fun RouteTabView(
                 if (onClose != null) {
                     // iOS `xmark`(.body.semibold) 글리프 약 13.7pt — Material Close 16dp 는 9dp 로 작았고, 둥근 선 끝까지
                     // 치면 캔버스 15 가 맞다(18 은 16.4 로 컸다). 중심도 iOS 처럼 조금 안쪽.
-                    XMarkIcon(IOS.label, Modifier.padding(start = 8.dp).size(15.dp).clickable(onClick = onClose))
+                    val closeLabel = tr("닫기")
+                    XMarkIcon(
+                        IOS.label,
+                        Modifier
+                            .padding(start = 8.dp)
+                            .size(15.dp)
+                            .semantics { contentDescription = closeLabel }
+                            .clickable(onClick = onClose),
+                    )
                 }
                 Spacer(Modifier.weight(1f))
                 // iOS `PinoNudge` — 핀 그러데이션(파랑→보라) 위 흰 글자, 그러데이션이 0.55↔0.95 로

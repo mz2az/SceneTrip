@@ -19,6 +19,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,7 +53,14 @@ private fun ReelsTeaserViewBody(onClose: () -> Unit) {
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
             Spacer(Modifier.weight(1f))
-            Box(modifier = Modifier.size(32.dp).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(32.dp)
+                        .semantics { contentDescription = tr("닫기") }
+                        .clickable(onClick = onClose),
+                contentAlignment = Alignment.Center,
+            ) {
                 XMarkIcon(IOS.secondaryLabel, Modifier.size(11.dp))
             }
         }
