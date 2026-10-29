@@ -377,6 +377,7 @@ private fun CourseList(
                     anchorX = 0.dp,
                     onDismiss = onCancelDelete,
                     below = true,
+                    centered = true,
                 )
             }
         }

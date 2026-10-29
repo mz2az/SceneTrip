@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.TrashFillIcon
 import kotlinx.coroutines.launch
 
 /**
@@ -99,12 +97,7 @@ fun SwipeDeleteRow(
                             onDelete()
                         },
             ) {
-                Icon(
-                    Icons.Filled.Delete,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
-                )
+                TrashFillIcon(Color.White, IOS.systemRed, Modifier.size(22.dp))
             }
             Text(deleteLabel, fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.padding(top = 2.dp))
         }
