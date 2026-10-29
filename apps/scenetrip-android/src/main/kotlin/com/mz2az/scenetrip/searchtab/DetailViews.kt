@@ -729,7 +729,7 @@ private fun LikeButton(
 
 /** iOS 의 `arrow.up.right.square` — 네모 테두리 안의 대각선 화살표. */
 @Composable
-private fun ExternalLinkIcon(
+internal fun ExternalLinkIcon(
     tint: Color,
     modifier: Modifier = Modifier,
 ) {

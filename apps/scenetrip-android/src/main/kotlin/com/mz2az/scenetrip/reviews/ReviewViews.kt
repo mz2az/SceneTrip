@@ -360,6 +360,7 @@ fun ReviewPhotoThumbs(
                     .clip(RoundedCornerShape(8.dp))
                     .semantics { contentDescription = tr("사진 %d").format(number + 1) }
                     .clickable { viewing = number },
+                thumbnail = true,
                 onFailure = { scope.launch { book.renew() } },
                 onRetry = { scope.launch { book.renew(true) } },
             )
@@ -420,6 +421,7 @@ fun VisitorPhotoStrip(
                         .clip(RoundedCornerShape(8.dp))
                         .semantics { contentDescription = tr("사진 %d / %d").format(number + 1, maxOf(book.total, number + 1)) }
                         .clickable { viewing = number },
+                    thumbnail = true,
                     onFailure = { scope.launch { book.renew() } },
                     onRetry = { scope.launch { book.renew(true) } },
                 )
