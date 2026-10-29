@@ -63,9 +63,11 @@ import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceDetail
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.Scene
+import com.mz2az.scenetrip.ui.ArrowUpRightSquareIcon
 import com.mz2az.scenetrip.ui.ArrowsExpandIcon
 import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.TextAlignLeftIcon
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
 
 /**
@@ -113,7 +115,8 @@ fun ContentDetailView(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         DetailHeader(title = summary.title, onBack = onBack)
-        LazyColumn {
+        // iOS 는 스크롤 내용 전체에 `.padding(.vertical, 4)` 를 준다(ContentDetailView.swift:67) — 맨 아래 4.
+        LazyColumn(contentPadding = PaddingValues(bottom = 4.dp)) {
             item {
                 // iOS `ContentDetailView.body` — 바깥 `VStack(spacing: 16)` + `.padding(.vertical, 4)`(ContentDetailView.swift:56-67),
                 // 안쪽 `header` 는 `VStack(spacing: 10)` 에 포스터·찜·메타/출연·줄거리를 모두 담는다(:82-117).
@@ -139,18 +142,21 @@ fun ContentDetailView(
                                 modifier = Modifier.fillMaxSize(),
                             )
                             if (producer != null) {
-                                Text(
-                                    "↗",
-                                    style = IOS.caption.copy(fontWeight = FontWeight.SemiBold),
-                                    color = IOS.label,
+                                // iOS `ContentDetailView.poster` — `arrow.up.right.square`(.caption.semibold 12pt)를
+                                // `.padding(6)` 안에 두고 `.regularMaterial` 원을 깐 뒤 바깥 `.padding(6)` 로 모서리에서
+                                // 띄운다(ContentDetailView.swift:111-114). 지름 12+6+6=24, 모서리 간격 6.
+                                Box(
+                                    contentAlignment = Alignment.Center,
                                     modifier =
                                         Modifier
-                                            .align(
-                                                Alignment.BottomEnd,
-                                            ).padding(6.dp)
-                                            .background(IOS.systemBackground.copy(alpha = 0.85f), CircleShape)
-                                            .padding(6.dp),
-                                )
+                                            .align(Alignment.BottomEnd)
+                                            .padding(6.dp)
+                                            .size(24.dp)
+                                            .background(IOS.systemBackground.copy(alpha = 0.85f), CircleShape),
+                                ) {
+                                    // `Link` 안이라 iOS 는 강조색으로 그린다.
+                                    ArrowUpRightSquareIcon(IOS.accent, Modifier.size(12.dp))
+                                }
                             }
                         }
                         // 상세를 다시 받으면 누락도 false 다 — 옛 요약의 true 를 계속 붙들지 않는다.
@@ -305,7 +311,10 @@ fun PlaceDetailView(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         DetailHeader(title = summary.name, subtitle = summary.address.orEmpty(), onBack = onBack)
-        LazyColumn {
+        // iOS 는 스크롤 내용 전체에 `.padding(14)` 를 준다(PlaceDetailView.swift:62) — 맨 아래 14. 이것이 없으면
+        // 「이 장소의 장면」 카드 바닥이 탭바 선에 붙어 가운데 홈 단추(바 위로 26 솟음)에 설명 영역 아래쪽이 가려진다.
+        // 시트(`BottomSheet`)가 주는 여백이 아니다 — iOS 시트에는 그런 여유가 없고 화면마다 제 여백을 든다.
+        LazyColumn(contentPadding = PaddingValues(bottom = 14.dp)) {
             item {
                 // iOS: `VStack(spacing: 18)` + `.padding(14)` — 헤더→사진 14(+헤더 아래), 사진→갈래→버튼 18 씩.
                 // 여백 없이 붙어 있어 전체가 빽빽했다(2차 대조: 28 대 9, 19.5 대 15, 20 대 13.5).
@@ -575,6 +584,15 @@ private fun SceneCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            // iOS `SceneCard` 의 `HStack { Spacer(); Image("text.alignleft").font(.caption2).foregroundStyle(.tertiary) }`
+            // (SceneCard.swift:21-24). 설명 바로 아래 오른쪽 끝에 놓이는 장식이고, 누름은 위쪽 설명 영역 전체가 받는다.
+            Row(
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().height(13.dp),
+            ) {
+                TextAlignLeftIcon(IOS.tertiaryLabel, Modifier.size(width = 11.dp, height = 9.dp))
+            }
         }
     }
 }

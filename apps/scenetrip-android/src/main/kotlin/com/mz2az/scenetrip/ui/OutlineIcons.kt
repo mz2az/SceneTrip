@@ -3,6 +3,7 @@ package com.mz2az.scenetrip.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -98,6 +99,42 @@ fun MagnifierIcon(
         val s = stroke(w)
         drawCircle(tint, radius = w * 0.3f, center = Offset(w * 0.42f, w * 0.42f), style = s)
         drawLine(tint, Offset(w * 0.64f, w * 0.64f), Offset(w * 0.9f, w * 0.9f), strokeWidth = s.width, cap = StrokeCap.Round)
+    }
+}
+
+/** `plus.magnifyingglass`(더하기) · `minus.magnifyingglass`(빼기) — 돋보기 렌즈 안에 가로(+세로)선. */
+@Composable
+fun MagnifierZoomIcon(
+    tint: Color,
+    plus: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = Stroke(width = w * 0.085f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val c = Offset(w * 0.42f, w * 0.42f)
+        drawCircle(tint, radius = w * 0.34f, center = c, style = s)
+        drawLine(tint, Offset(w * 0.67f, w * 0.67f), Offset(w * 0.93f, w * 0.93f), strokeWidth = s.width, cap = StrokeCap.Round)
+        drawLine(tint, Offset(c.x - w * 0.15f, c.y), Offset(c.x + w * 0.15f, c.y), strokeWidth = s.width, cap = StrokeCap.Round)
+        if (plus) {
+            drawLine(tint, Offset(c.x, c.y - w * 0.15f), Offset(c.x, c.y + w * 0.15f), strokeWidth = s.width, cap = StrokeCap.Round)
+        }
+    }
+}
+
+/** `xmark` — 굵은 엑스. 닫기. */
+@Composable
+fun XmarkIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val sw = w * 0.16f
+        val a = w * 0.08f
+        val b = w * 0.92f
+        drawLine(tint, Offset(a, a), Offset(b, b), strokeWidth = sw, cap = StrokeCap.Round)
+        drawLine(tint, Offset(b, a), Offset(a, b), strokeWidth = sw, cap = StrokeCap.Round)
     }
 }
 
@@ -220,11 +257,15 @@ fun SparklesIcon(
     }
 }
 
-/** `chevron.right` — 가는 꺾쇠. */
+/**
+ * `chevron.right` — 가는 꺾쇠. [weight] 는 선 굵기(크기 대비). 작게 쓸 때는 기본값, 17pt 본문 크기의 큰 단추에서는
+ * 같은 굵기로는 두꺼워 보이므로 줄여 쓴다. 왼쪽(`chevron.left`)은 180도 돌려 쓴다.
+ */
 @Composable
 fun ChevronRightIcon(
     tint: Color,
     modifier: Modifier = Modifier,
+    weight: Float = 0.14f,
 ) {
     Canvas(modifier) {
         val w = size.minDimension
@@ -234,7 +275,7 @@ fun ChevronRightIcon(
                 lineTo(w * 0.7f, w * 0.5f)
                 lineTo(w * 0.34f, w * 0.86f)
             }
-        drawPath(p, tint, style = Stroke(width = w * 0.14f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(p, tint, style = Stroke(width = w * weight, cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
 
@@ -404,6 +445,22 @@ fun GripLinesIcon(
         // iOS 글리프는 11.7×5.7 — 선 사이가 좁다.
         listOf(0.26f, 0.5f, 0.74f).map { 0.5f + (it - 0.5f) * 0.9f }.forEach { y ->
             drawLine(tint, Offset(w * 0.1f, w * y), Offset(w * 0.9f, w * y), strokeWidth = sw, cap = StrokeCap.Round)
+        }
+    }
+}
+
+/** `text.alignleft` — 왼쪽 맞춤 네 줄(길게·짧게·길게·짧게). 장면 카드 설명 영역의 「더 보기」 표시. */
+@Composable
+fun TextAlignLeftIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val sw = h * 0.12f
+        listOf(0.1f to 1f, 0.37f to 0.62f, 0.63f to 1f, 0.9f to 0.62f).forEach { (y, length) ->
+            drawLine(tint, Offset(sw / 2, h * y), Offset(w * length - sw / 2, h * y), strokeWidth = sw, cap = StrokeCap.Round)
         }
     }
 }
@@ -593,6 +650,38 @@ fun ArrowsExpandIcon(
             }
         drawPath(topLeft, tint, style = st)
         drawPath(bottomRight, tint, style = st)
+    }
+}
+
+/**
+ * `arrow.up.right.square` — 둥근 네모 안에서 오른쪽 위로 향하는 화살표. 작품 포스터의 제작사 페이지 링크.
+ * 네모는 닫혀 있고(`square.and.arrow.up` 처럼 열리지 않는다) 화살표는 네모 안쪽에 머문다.
+ */
+@Composable
+fun ArrowUpRightSquareIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val st = Stroke(width = w * 0.11f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val inset = w * 0.06f
+        drawRoundRect(
+            tint,
+            topLeft = Offset(inset, inset),
+            size = Size(w - inset * 2, w - inset * 2),
+            cornerRadius = CornerRadius(w * 0.2f),
+            style = st,
+        )
+        val arrow =
+            Path().apply {
+                moveTo(w * 0.32f, w * 0.68f)
+                lineTo(w * 0.68f, w * 0.32f)
+                moveTo(w * 0.4f, w * 0.32f)
+                lineTo(w * 0.68f, w * 0.32f)
+                lineTo(w * 0.68f, w * 0.6f)
+            }
+        drawPath(arrow, tint, style = st)
     }
 }
 

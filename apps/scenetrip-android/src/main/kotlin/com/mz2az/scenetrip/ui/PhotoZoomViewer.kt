@@ -15,10 +15,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +34,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -98,10 +97,18 @@ fun PhotoZoomViewer(
                 .statusBarsPadding()
                 .navigationBarsPadding(),
         ) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            // iOS `ScenePhotoViewer.header` — `HStack(spacing: 12)` 에 제목 `.headline`(2줄)과 44×44 칸의 `xmark`(.headline).
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 Text(title, color = Color.White, style = IOS.headline, maxLines = 2, modifier = Modifier.weight(1f))
-                Box(Modifier.size(44.dp).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Close, contentDescription = tr("닫기"), tint = Color.White, modifier = Modifier.size(18.dp))
+                Box(
+                    Modifier.size(44.dp).semantics { contentDescription = tr("닫기") }.clickable(onClick = onClose),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    XmarkIcon(Color.White, Modifier.size(14.dp))
                 }
             }
             Box(
@@ -169,16 +176,28 @@ fun PhotoZoomViewer(
                     CircularProgressIndicator(color = Color.White)
                 }
             }
+            // iOS `ScenePhotoPage.zoomControls` — `HStack(spacing: 20)` 에 44×44 단추 · 최소 52 너비 퍼센트(.subheadline,
+            // 고정폭 숫자) · 44×44 단추, `.padding(.horizontal, 16).padding(.bottom, 8)`. 다시 맞추는 단추는 없다 —
+            // 두 번 누르기가 100%/200% 를 오간다.
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 footer()
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    ZoomControl("−", tr("축소", "사진"), image != null && zoom.scale > 1f) { changeScale(zoom.scale / 2) }
-                    Text("${(zoom.scale * 100).toInt()}%", color = Color.White)
-                    ZoomControl("+", tr("확대", "사진"), image != null && zoom.scale < 4f) { changeScale(zoom.scale * 2) }
-                    ZoomControl("↺", tr("초기화"), image != null) { zoom = SceneZoom() }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                    ZoomControl(tr("축소", "사진"), image != null && zoom.scale > 1f, { changeScale(zoom.scale / 2) }) { tint ->
+                        MagnifierZoomIcon(tint, plus = false, modifier = Modifier.size(ZOOM_ICON))
+                    }
+                    Text(
+                        "${(zoom.scale * 100).toInt()}%",
+                        color = Color.White,
+                        style = IOS.subheadline.copy(fontFeatureSettings = "tnum"),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.widthIn(min = 52.dp),
+                    )
+                    ZoomControl(tr("확대", "사진"), image != null && zoom.scale < 4f, { changeScale(zoom.scale * 2) }) { tint ->
+                        MagnifierZoomIcon(tint, plus = true, modifier = Modifier.size(ZOOM_ICON))
+                    }
                 }
                 bottom()
             }
@@ -186,15 +205,19 @@ fun PhotoZoomViewer(
     }
 }
 
+/** iOS 는 단추 기호를 본문 크기(17pt)로 그린다 — 돋보기 한 변이 약 20pt. */
+private val ZOOM_ICON = 20.dp
+
+/** 44×44 칸의 단추. 꺼지면 기호가 30% 로 흐려진다(iOS `.disabled`). */
 @Composable
 internal fun ZoomControl(
-    text: String,
     label: String,
     enabled: Boolean,
     onClick: () -> Unit,
+    icon: @Composable (Color) -> Unit,
 ) {
     Box(
         Modifier.size(44.dp).semantics { contentDescription = label }.clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Text(text, color = Color.White.copy(alpha = if (enabled) 1f else 0.3f)) }
+    ) { icon(Color.White.copy(alpha = if (enabled) 1f else 0.3f)) }
 }

@@ -3,6 +3,8 @@ package com.mz2az.scenetrip.searchtab
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -13,11 +15,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.Scene
+import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.PhotoZoomViewer
 import com.mz2az.scenetrip.ui.ZoomControl
@@ -64,19 +69,35 @@ fun ScenePhotoViewer(
         onRetry = { attempt++ },
         pageKey = page,
         bottom = {
+            // iOS `ScenePhotoViewer.controls` — `VStack(spacing: 8)` 에 장소 이름(.caption, 2줄)과
+            // `HStack(spacing: 20)` 의 44×44 쉐브론 단추 · 「사진 i / N」(.subheadline, 고정폭 숫자) · 44×44 쉐브론 단추.
+            // 위의 확대 줄과도 8 떨어진다.
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 8.dp),
             ) {
                 Text(placeName, color = Color.White, style = IOS.caption, maxLines = 2)
                 if (photos.size > 1) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        ZoomControl("‹", tr("이전 사진"), index > 0) { index = ScenePhotoRules.step(index, -1, photos.size) }
-                        Text(tr("사진 %d / %d").format(index + 1, photos.size), color = Color.White, style = IOS.subheadline)
-                        ZoomControl("›", tr("다음 사진"), index < photos.size - 1) { index = ScenePhotoRules.step(index, 1, photos.size) }
+                        ZoomControl(tr("이전 사진"), index > 0, { index = ScenePhotoRules.step(index, -1, photos.size) }) { tint ->
+                            ChevronRightIcon(tint, Modifier.size(CHEVRON_ICON).rotate(180f), weight = CHEVRON_WEIGHT)
+                        }
+                        Text(
+                            tr("사진 %d / %d").format(index + 1, photos.size),
+                            color = Color.White,
+                            style = IOS.subheadline.copy(fontFeatureSettings = "tnum"),
+                        )
+                        ZoomControl(tr("다음 사진"), index < photos.size - 1, { index = ScenePhotoRules.step(index, 1, photos.size) }) { tint ->
+                            ChevronRightIcon(tint, Modifier.size(CHEVRON_ICON), weight = CHEVRON_WEIGHT)
+                        }
                     }
                 }
             }
         },
     )
 }
+
+/** iOS 쉐브론은 본문 크기(17pt) — 높이 약 15pt, 너비 약 8pt. 이 아이콘은 높이가 한 변의 0.72 다. */
+private val CHEVRON_ICON = 20.dp
+private const val CHEVRON_WEIGHT = 0.09f

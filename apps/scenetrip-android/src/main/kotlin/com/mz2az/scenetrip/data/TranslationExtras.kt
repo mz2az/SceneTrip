@@ -7,7 +7,6 @@ internal val TRANSLATIONS_EN_EXTRA =
         "연결된 촬영지가 없습니다" to "No filming locations are linked yet",
         "기기에 보관된 옛 글 찾기" to "Find old posts on this device",
         "시스템 설정" to "System",
-        "초기화" to "Reset",
         "제작사 공식 페이지" to "Official producer page",
         "외부 브라우저를 열지 못했어요" to "Could not open the browser",
         "방문 기록을 저장하는 중" to "Saving visit",
