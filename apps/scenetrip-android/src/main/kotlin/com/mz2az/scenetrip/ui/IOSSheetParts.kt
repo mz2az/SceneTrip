@@ -164,7 +164,10 @@ fun IOSSearchField(
 
 /** 목록 줄 사이 선(iOS `List(.plain)`). [start] 는 글자 시작에 맞춘다. */
 @Composable
-fun IOSListDivider(start: Dp) {
+fun IOSListDivider(
+    start: Dp,
+    color: Color = Color(0xFFE5E5EA),
+) {
     // iOS 목록 선은 오른쪽 끝에서도 약 15 들어와 끝난다.
-    HorizontalDivider(thickness = 1.dp, color = Color(0xFFE5E5EA), modifier = Modifier.padding(start = start, end = 15.dp))
+    HorizontalDivider(thickness = 1.dp, color = color, modifier = Modifier.padding(start = start, end = 15.dp))
 }
