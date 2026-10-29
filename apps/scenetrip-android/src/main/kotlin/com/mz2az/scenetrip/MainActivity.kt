@@ -121,7 +121,6 @@ fun SceneTripApp() {
     }
 }
 
-/** 앱을 열었을 때의 순서. iOS `Onboarding/AppRoot.swift`를 옮긴 것이다. */
 /**
  * 전체 화면 덮개 — 터치가 아래 탭바·화면으로 새지 않게 모두 삼킨다(iOS 의 전체 화면 덮개는 뒤를 누를 수 없다).
  * 안쪽 버튼은 자식이라 먼저 받는다.
@@ -133,6 +132,7 @@ private fun Modifier.blockTouches(): Modifier =
         }
     }
 
+/** 앱을 열었을 때의 순서. iOS `Onboarding/AppRoot.swift`를 옮긴 것이다. */
 private enum class AppStage { SPLASH, LANGUAGE, LESSONS, APP }
 
 /**
