@@ -168,9 +168,11 @@ fun CommunityPostView(
                     }
                     item {
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            // 아래 여백은 iOS 간격 16 에서 4 를 더 뺀다 — 본문 글줄(한글 제 높이 24.4)이 iOS(22)보다 높아 글자가 4dp 아래에 앉는다(31-post 실측).
-                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 12.dp),
+                            // 4차 에뮬레이터 실측(iOS 대비 글자 윗선): 제목 +1.9 → 위 18→16.1, 작성자 +3.6 → 간격 16→14.3,
+                            // 본문 +2.6 → 아래 12→13, 둘째 사진 +4.0 → 글 블록 아래 22→20.6.
+                            verticalArrangement = Arrangement.spacedBy(14.3.dp),
+                            // 아래 여백은 iOS 간격 16 에서 3 을 더 뺀다 — 본문 글줄(한글 제 높이 24.4)이 iOS(22)보다 높아 글자가 아래에 앉는다(31-post 실측).
+                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.1.dp, bottom = 13.dp),
                         ) {
                             Text(
                                 content.title,
@@ -184,7 +186,7 @@ fun CommunityPostView(
                         }
                     }
                     itemsIndexed(blocks) { _, block ->
-                        CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp).padding(bottom = 22.dp))
+                        CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp).padding(bottom = 20.6.dp))
                     }
                     item {
                         Column(
