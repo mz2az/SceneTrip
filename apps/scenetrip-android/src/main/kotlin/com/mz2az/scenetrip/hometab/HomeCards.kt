@@ -57,6 +57,7 @@ import com.mz2az.scenetrip.ui.CircleSignIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.MapPinEllipseIcon
 import com.mz2az.scenetrip.ui.PersonOutlineIcon
+import com.mz2az.scenetrip.ui.iosLineBox
 import com.mz2az.scenetrip.ui.iosShadow
 import com.mz2az.scenetrip.ui.keepLastWordsTogether
 
@@ -291,18 +292,26 @@ private fun HomeTripCardFilled(
                 Text("$rank", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
             }
         }
-        Text(
-            if (running) tr("여행 중") else tr("예정"),
-            fontSize = 12.sp,
-            lineHeight = 14.4.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
+        // 줄 칸을 iOS 글자 높이로 고정한다 — 한글 글꼴 제 높이(1.44em)가 칸을 키워 카드가 159 → 172 가 됐다(2026-10-30 5차 감사).
+        Box(
+            contentAlignment = Alignment.Center,
             modifier =
                 Modifier
+                    .height(20.4.dp)
                     .clip(RoundedCornerShape(50))
                     .background(Color.White.copy(alpha = 0.22f))
-                    .padding(horizontal = 9.dp, vertical = 3.dp),
-        )
+                    .padding(horizontal = 9.dp),
+        ) {
+            Text(
+                if (running) tr("여행 중") else tr("예정"),
+                fontSize = 12.sp,
+                lineHeight = 14.4.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 1,
+                softWrap = false,
+            )
+        }
         Text(
             // 영어는 하나일 때 낱말이 달라진다(「1 place」) — 번역 표의 `원문|하나` (iOS `tr("%@ · %lld곳", at: "하나")`).
             (if (trip.course.placeCount == 1) tr("%s · %d곳", "하나") else tr("%s · %d곳"))
@@ -310,6 +319,7 @@ private fun HomeTripCardFilled(
             fontSize = 12.sp,
             lineHeight = 14.4.sp,
             color = Color.White.copy(alpha = 0.85f),
+            modifier = Modifier.iosLineBox(14.4.dp),
         )
     }
     Text(
@@ -319,8 +329,13 @@ private fun HomeTripCardFilled(
         fontWeight = FontWeight.ExtraBold,
         color = Color.White,
         maxLines = 1,
+        modifier = Modifier.fillMaxWidth().iosLineBox(21.6.dp),
     )
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(
+        modifier = Modifier.height(14.4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         val progress = if (trip.total > 0) trip.visited.toFloat() / trip.total else 0f
         Box(
             modifier =
@@ -345,38 +360,48 @@ private fun HomeTripCardFilled(
             lineHeight = 14.4.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color.White,
+            modifier = Modifier.iosLineBox(14.4.dp),
         )
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val canNavigate = trip.nextStop != null
-        Text(
-            tr("이어서 길찾기"),
-            fontSize = 14.sp,
-            lineHeight = 16.8.sp,
-            fontWeight = FontWeight.Bold,
-            color = HOME_PURPLE.copy(alpha = if (canNavigate) 1f else 0.6f),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        Box(
+            contentAlignment = Alignment.Center,
             modifier =
                 Modifier
                     .weight(1f)
+                    .height(36.8.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(Color.White.copy(alpha = if (canNavigate) 1f else 0.6f))
-                    .clickable(enabled = canNavigate) { onNavigate(trip) }
-                    .padding(vertical = 10.dp),
-        )
-        Text(
-            tr("코스 보기"),
-            fontSize = 14.sp,
-            lineHeight = 16.8.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Color.White,
+                    .clickable(enabled = canNavigate) { onNavigate(trip) },
+        ) {
+            Text(
+                tr("이어서 길찾기"),
+                fontSize = 14.sp,
+                lineHeight = 16.8.sp,
+                fontWeight = FontWeight.Bold,
+                color = HOME_PURPLE.copy(alpha = if (canNavigate) 1f else 0.6f),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+        }
+        Box(
+            contentAlignment = Alignment.Center,
             modifier =
                 Modifier
+                    .height(36.8.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(Color.White.copy(alpha = 0.2f))
                     .clickable { onOpenCourse(trip) }
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-        )
+                    .padding(horizontal = 14.dp),
+        ) {
+            Text(
+                tr("코스 보기"),
+                fontSize = 14.sp,
+                lineHeight = 16.8.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+            )
+        }
     }
 }
 
