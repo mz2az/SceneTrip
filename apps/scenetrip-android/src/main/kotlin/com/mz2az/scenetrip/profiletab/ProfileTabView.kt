@@ -532,6 +532,9 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                         item { AccountSection(onDeleted = { onClose?.invoke() }) }
                     }
 
+                    // 비회원의 「이 기기의 기록 지우기」 (MZ2AZ-471) — iOS 는 계정 절 바로 아래에 둔다. 가입자에게는 보이지 않는다.
+                    item { ProfileDeviceDataSection() }
+
                     item {
                         ProfileSection(tr("준비 중")) {
                             ProfileRow(

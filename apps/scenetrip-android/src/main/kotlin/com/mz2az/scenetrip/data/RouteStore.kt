@@ -165,16 +165,35 @@ class RouteStore(
 
     fun clearFailure() = session.clearFailure()
 
+    init {
+        // 로그아웃·탈퇴·비회원 기록 삭제 — 앞 계정의 코스는 목록도 실패 표시도 지운다(iOS `RouteStore.resetWatch`, MZ2AZ-471).
+        // 화면마다 이 객체를 따로 들므로 약한 참조로 걸어, 버려진 객체는 첫 신호에 구독을 푼다.
+        val self = java.lang.ref.WeakReference(this)
+        var stop: (() -> Unit)? = null
+        stop = AccountDataReset.watch { self.get()?.resetForAccount() ?: stop?.invoke() }
+    }
+
+    private fun resetForAccount() {
+        courses = emptyList()
+        courseList = CourseListState.LOADED
+        session.clearFailure()
+        loading = false
+    }
+
     /** 코스 목록을 받아온다. 홈이 뜰 때 부른다. */
     suspend fun refresh() {
+        val generation = AccountDataReset.generation
         loading = courses.isEmpty()
         runCatching {
             withContext(Dispatchers.IO) { coursesApi.listCourses(deviceId) }
         }.onSuccess {
+            // 받는 동안 계정이 떠났다 — 지운 코스를 되살리지 않는다.
+            if (generation != AccountDataReset.generation) return
             courses = it.items ?: emptyList()
             courseList = CourseListState.LOADED
             session.clearLoadFailure()
         }.onFailure {
+            if (generation != AccountDataReset.generation) return
             // 전에 받아 둔 목록이 있으면 그것이 화면에 남는다 — 「모른다」 로 되돌리지 않는다.
             if (courseList != CourseListState.LOADED) courseList = CourseListState.FAILED
             session.recordFailure(it)

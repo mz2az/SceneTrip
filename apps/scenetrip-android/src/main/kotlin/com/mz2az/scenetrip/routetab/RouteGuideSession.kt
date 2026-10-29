@@ -120,6 +120,12 @@ class RouteGuideSession(
         reason: ResendEvents.Reason,
     ) = chat.noteResend(key, reason)
 
+    /** 가이드 창이 열렸다·닫혔다 — 닫히면 기다리던 다시 보내기를 끊는다(iOS `setAttended`). 창마다 [panel] 을 따로 든다. */
+    fun setAttended(
+        open: Boolean,
+        panel: Any,
+    ) = chat.setAttended(open, panel)
+
     fun refreshLimit() = chat.refreshLimit()
 
     fun forgetLimit() = chat.forgetLimit()

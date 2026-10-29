@@ -48,6 +48,14 @@ class CartStore(
     val items: List<CartItem> get() = snapshot.items
     val toast: String? get() = snapshot.toast
 
+    init {
+        // 로그아웃·탈퇴·비회원 기록 삭제 — 화면 사본(담긴 행·저장 아이콘·안내)을 먼저 비운다(iOS `CartStore.watchReset`, MZ2AZ-471).
+        // 화면마다 이 객체를 따로 들므로 약한 참조로 걸어, 버려진 객체는 첫 신호에 구독을 푼다.
+        val self = java.lang.ref.WeakReference(this)
+        var stop: (() -> Unit)? = null
+        stop = AccountDataReset.watch { self.get()?.reset() ?: stop?.invoke() }
+    }
+
     /** 장바구니를 받아 봤는가. 첫 안내가 문구를 정할 때 쓴다(iOS `CartStore.loadState`). */
     val loadState: CartLoadState get() = snapshot.loadState
 
