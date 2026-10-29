@@ -1,0 +1,16 @@
+# 코스 만들기 첫 화면과 내 코스 시트. 계획 생성(유료 호출)은 누르지 않는다 — 첫 화면만 찍고 닫는다.
+appId: com.mz2az.scenetrip
+name: 코스 만들기 진입
+---
+- runFlow: ../subflows/first-run.yaml
+- tapOn: "코스 만들기"
+- waitForAnimationToEnd
+- takeScreenshot: 01-wizard-first
+# Android 의 이 X 단추에는 접근성 이름(「닫기」)이 없어 좌표로 누른다(두 앱 모두 왼쪽 위).
+- tapOn:
+    point: 7%, 9%
+- assertVisible: "오늘은 어느 장면으로 갈까요?"
+- tapOn: "마이페이지"
+- tapOn: "내 코스"
+- waitForAnimationToEnd
+- takeScreenshot: 02-my-courses-empty

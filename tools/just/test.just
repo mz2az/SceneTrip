@@ -34,6 +34,16 @@ test-integration *targets=ALL:
 test-e2e *args:
     ./tools/scripts/bazel-test.sh //tests/e2e/... --test_tag_filters=e2e --test_output=streamed {{args}}
 
+# 앱 화면 e2e — Maestro 흐름(tests/e2e/mobile/flows)을 켜 둔 시뮬레이터·에뮬레이터에 돌린다. 예: `just e2e-mobile BC63759D-…` · `just e2e-mobile emulator-5554 out/android flows/02-home.yaml`
+[group('test')]
+e2e-mobile device out="" *flows:
+    ./tools/scripts/e2e-mobile.sh {{device}} {{quote(out)}} {{flows}}
+
+# 두 앱의 e2e 스크린샷을 단계별로 나란히 붙인다 (왼쪽 iOS, 오른쪽 Android)
+[group('test')]
+e2e-mobile-compare ios_out android_out out:
+    python3 tests/e2e/mobile/compare.py {{ios_out}} {{android_out}} {{out}}
+
 # API e2e 인스턴스(scene-api-e2e)를 로컬 kind 에 띄운다 — 바깥 서비스는 시험이 띄우는 가짜로 간다
 [group('test')]
 e2e-up:

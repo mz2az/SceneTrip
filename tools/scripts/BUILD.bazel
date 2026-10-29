@@ -182,6 +182,7 @@ exports_files(
         "android-route-font-qa-test.sh",
         "android-home-qa-test.sh",
         "android-community-blog-qa-test.sh",
+        "e2e-mobile.sh",
     ],
     visibility = ["//visibility:public"],
 )

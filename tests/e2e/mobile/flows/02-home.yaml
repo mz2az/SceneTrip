@@ -1,0 +1,15 @@
+# 홈: 인사말·내 여행 카드·지금 뜨는 작품·매일 한 장면.
+appId: com.mz2az.scenetrip
+name: 홈 화면
+---
+- runFlow: ../subflows/first-run.yaml
+- assertVisible: "오늘은 어느 장면으로 갈까요?"
+- assertVisible: "코스 만들기"
+- assertVisible: "지금 뜨는 작품"
+- takeScreenshot: 01-home-top
+- scrollUntilVisible:
+    element: "매일 한 장면"
+    timeout: 20000
+- takeScreenshot: 02-home-daily
+- scroll
+- takeScreenshot: 03-home-bottom

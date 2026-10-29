@@ -1,0 +1,12 @@
+# 마이페이지와 커뮤니티 탭. 지우기 대화상자는 열었다가 취소한다(아무것도 지우지 않음).
+appId: com.mz2az.scenetrip
+name: 마이페이지와 커뮤니티
+---
+- runFlow: ../subflows/first-run.yaml
+- tapOn: "마이페이지"
+- takeScreenshot: 01-profile
+- scroll
+- takeScreenshot: 02-profile-scrolled
+- tapOn: "닫기"
+- tapOn: "커뮤니티"
+- takeScreenshot: 03-community
