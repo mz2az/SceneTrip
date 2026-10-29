@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -153,7 +154,7 @@ fun RouteStopRow(
                 }.onSizeChanged { rowHeight = it.height },
         corner = 26.dp,
         reveal = 70.dp,
-        buttonSize = androidx.compose.ui.unit.DpSize(50.dp, 50.dp),
+        buttonSize = DpSize(50.dp, 50.dp),
         containerColor = if (isFocused) IOS.accent.copy(alpha = 0.07f).compositeOver(IOS.systemBackground) else IOS.systemBackground,
         revealedColor = IOS.systemGray5,
     ) {

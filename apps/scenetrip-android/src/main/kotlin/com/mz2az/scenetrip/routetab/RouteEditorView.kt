@@ -77,6 +77,7 @@ import com.mz2az.scenetrip.data.LocationConsentStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.data.apiResult
+import com.mz2az.scenetrip.data.haversineKm
 import com.mz2az.scenetrip.data.requestLocation
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.api.PoisApi
@@ -717,7 +718,7 @@ private fun RouteEditorContent(
         if (screenHeight <= 0.dp || panelHeight <= 0.dp) return@LaunchedEffect
         withFrameNanos {}
         val center = target.cameraPosition.target
-        if (com.mz2az.scenetrip.data.haversineKm(center.latitude, center.longitude, here.latitude, here.longitude) > MAX_WIDEN_KM) {
+        if (haversineKm(center.latitude, center.longitude, here.latitude, here.longitude) > MAX_WIDEN_KM) {
             return@LaunchedEffect
         }
         target.widenToInclude(here.latitude, here.longitude, density)
