@@ -50,7 +50,13 @@
       Android 9 부터 기본으로 막히는데, 막힌 주소는 호출이 조용히 실패해 화면이 빈
       목록으로만 보인다 — 로컬 주소를 바꾸면 그 파일도 함께 바꾼다.
     -->
+    <!--
+      앱 아이콘 (MZ2AZ-513) — iOS 의 AppIcon 과 같은 해태. 어댑티브 아이콘이라 런처가 모양을
+      오려도 안전 영역 안에 들어온다(res/mipmap-anydpi-v26/ic_launcher.xml).
+    -->
     <application
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="SceneTrip"
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true">
@@ -96,11 +102,15 @@
           `com.google.android.material` 없이도 되는 이유: `androidx.appcompat` 는
           이미 네이버 지도 AAR 이 전이 의존성으로 끌어와 있다(MODULE.bazel 참고) —
           새 의존성이 아니라 이미 있는 것을 테마에서도 쓰는 것뿐이다.
+
+          `Theme.SceneTrip.Starting` 은 앱이 첫 화면을 그리기 전 시스템이 보여 주는 시작 화면용
+          테마다(res/values/styles.xml). MainActivity.onCreate 가 `Theme.SceneTrip`
+          (= 예전과 같은 AppCompat Light NoActionBar)으로 바로 갈아 끼운다.
         -->
         <activity
             android:name=".MainActivity"
             android:configChanges="fontScale"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            android:theme="@style/Theme.SceneTrip.Starting"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
