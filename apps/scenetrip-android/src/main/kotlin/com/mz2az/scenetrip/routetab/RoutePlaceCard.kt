@@ -57,6 +57,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource
 import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import com.mz2az.scenetrip.sceneapi.client.model.Photo
+import com.mz2az.scenetrip.sceneapi.client.model.PoiInfo
 import com.mz2az.scenetrip.sceneapi.client.model.RatingSummary
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.IOS
@@ -90,6 +91,8 @@ data class RoutePlaceCardData(
     val subject: ReviewSubject,
     /** 상세가 「목록에서 빠진 촬영지」라고 알렸다(MZ2AZ-458). */
     val delisted: Boolean = false,
+    /** 관광공사 안내(MZ2AZ-470). 상가정보 가게 대부분과 상세 조회 실패에는 없다. */
+    val info: PoiInfo? = null,
 )
 
 /**
@@ -151,6 +154,7 @@ suspend fun fetchPlaceCard(
                     photos = detail?.photos.orEmpty(),
                     photoCount = detail?.photoCount ?: 0,
                     subject = ReviewSubject(detail?.placeId ?: place.id, label.heading, isPoi = detail?.placeId == null),
+                    info = detail?.info,
                 )
             }
         }
@@ -432,7 +436,15 @@ private fun PlaceCardFound(
         .RatingLine(card.rating, onReviews, Modifier.padding(horizontal = 14.dp))
     if (card.photos.isNotEmpty()) {
         com.mz2az.scenetrip.reviews
-            .GalleryStrip(card.subject, card.photos, card.photoCount, height = 100, onReview = { onReviews() }, entry = "card")
+            .GalleryStrip(
+                card.subject,
+                card.photos,
+                card.photoCount,
+                height = 100,
+                thumbnail = true,
+                onReview = { onReviews() },
+                entry = "card",
+            )
     } else if (card.images.isNotEmpty()) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -449,6 +461,7 @@ private fun PlaceCardFound(
         cardRow(tr("분류"), card.category)
         cardRow(tr("주소"), card.address)
         cardRow(tr("전화"), card.phone)
+        PoiInfoSection(card.info)
     }
 
     if (onAdd != null && onRemove != null) {

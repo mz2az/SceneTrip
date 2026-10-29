@@ -44,6 +44,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -103,6 +105,7 @@ fun ProfileSheetHeader(
                 Modifier
                     .align(Alignment.CenterEnd)
                     .size(32.dp)
+                    .semantics { contentDescription = tr("닫기") }
                     .clickable(onClick = onClose),
             contentAlignment = Alignment.Center,
         ) {

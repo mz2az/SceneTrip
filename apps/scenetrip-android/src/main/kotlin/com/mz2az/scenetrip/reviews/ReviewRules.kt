@@ -1,7 +1,11 @@
 package com.mz2az.scenetrip.reviews
 
+import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.WebAddress
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import com.mz2az.scenetrip.sceneapi.client.model.Photo
+import com.mz2az.scenetrip.sceneapi.client.model.PhotoLicense
 import com.mz2az.scenetrip.sceneapi.client.model.PhotoSource
 import com.mz2az.scenetrip.sceneapi.client.model.RatingSummary
 import com.mz2az.scenetrip.sceneapi.client.model.Review
@@ -21,8 +25,38 @@ object ReviewRules {
         val tour =
             url.scheme.equals("https", true) && url.host.equals("tong.visitkorea.or.kr", true) &&
                 url.port == -1 && url.userInfo == null && url.rawQuery == null && url.rawFragment == null
-        return tour || photo.credit?.contains("공공누리 제3유형") == true
+        return photo.license == PhotoLicense.kogl_type3 || tour || photo.credit?.contains("공공누리 제3유형") == true
     }
+
+    /** 변경 금지(공공누리 제3유형) 사진인가 — 자르기·필터·글자 얹기를 하지 않는다 (MZ2AZ-470). */
+    fun isProtected(photo: Photo): Boolean = photo.license == PhotoLicense.kogl_type3
+
+    /** 작은 줄·격자·카드는 서버 썸네일, 상세·확대는 원본. 썸네일이 없거나 웹 주소가 아니면 원본이다 (iOS `imageUrl`). */
+    fun imageUrl(
+        photo: Photo,
+        thumbnail: Boolean,
+    ): String = if (thumbnail) WebAddress.url(photo.thumbnailUrl?.toString()) ?: photo.url.toString() else photo.url.toString()
+
+    /**
+     * 라이선스가 있으면 앱 언어의 관광공사 출처를 적는다. 추가 저작자·라이선스 원문도 보존한다. 라이선스가 없으면 `credit` 그대로
+     * (iOS `PhotoGalleryRules.credit`).
+     */
+    fun credit(
+        photo: Photo,
+        app: Lang = AppLanguage.current,
+    ): String? {
+        if (photo.license == null) return photo.credit
+        val source = tr("출처: 한국관광공사", app)
+        val raw = photo.credit
+        if (raw == null || raw.isBlank() || raw in listOf("한국관광공사", "Korea Tourism Organization")) return source
+        return "$source\n$raw"
+    }
+
+    /** 사진 줄 아래에 적을 출처 목록 — 빈 것·같은 것은 한 번만. */
+    fun credits(
+        photos: List<Photo>,
+        app: Lang = AppLanguage.current,
+    ): List<String> = photos.mapNotNull { credit(it, app) }.filter { it.isNotBlank() }.distinct()
 
     /**
      * 방문자 사진을 뺀 목록 — 차단·풀기가 일어난 직후(MZ2AZ-461) 다시 받기 전까지 보이는 목록이다. 다시 받기가 실패해도 차단한

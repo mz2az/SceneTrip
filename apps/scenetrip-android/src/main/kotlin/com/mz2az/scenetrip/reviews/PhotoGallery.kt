@@ -171,6 +171,8 @@ fun GalleryStrip(
     onReview: ((Long?) -> Unit)? = null,
     visitorsOnly: Boolean = false,
     paged: Boolean = true,
+    // 지도 카드의 사진은 서버 썸네일, 상세의 대표 사진은 원본이다 (MZ2AZ-470, iOS `.tile`/`.page`).
+    thumbnail: Boolean = false,
     modifier: Modifier = Modifier,
     onRenew: (suspend (Boolean) -> Unit)? = null,
     /** 분석 이벤트의 `entry` — `detail`(촬영지 상세 대표 사진 자리)·`card`(지도 카드). */
@@ -202,8 +204,34 @@ fun GalleryStrip(
     LaunchedEffect(pager.currentPage, book.photos.size) {
         if (pager.currentPage >= book.photos.size - 5) book.more()
     }
+    // 변경 금지(공공누리 제3유형) 사진이 하나라도 있으면 모서리를 깎지 않고, 방문자 표식·쪽 번호도 사진 위에 겹치지 않고
+    // 아래 줄로 옮긴다 (MZ2AZ-470, iOS `protectedPhotos`).
+    val protectedPhotos = book.photos.any(ReviewRules::isProtected)
+    val pageCounter: @Composable (Modifier) -> Unit = { counterModifier ->
+        Text(
+            "▦ ${pager.currentPage + 1} / ${book.total}",
+            color = if (protectedPhotos) IOS.secondaryLabel else Color.White,
+            fontSize = 15.sp,
+            modifier =
+                counterModifier
+                    .clickable { grid = true }
+                    .background(if (protectedPhotos) IOS.systemGray5 else Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+        )
+    }
+    val visitorBadge: @Composable (Modifier) -> Unit = { badgeModifier ->
+        Text(
+            tr("방문자 사진"),
+            color = Color.White,
+            style = IOS.caption2,
+            modifier =
+                badgeModifier
+                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
+                    .padding(horizontal = 8.dp, vertical = 5.dp),
+        )
+    }
     Column(modifier) {
-        Box(Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(10.dp))) {
+        Box(Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(if (protectedPhotos) 0.dp else 10.dp))) {
             HorizontalPager(state = pager, modifier = Modifier.fillMaxWidth().height(height.dp)) { index ->
                 val photo = book.photos.getOrNull(index) ?: return@HorizontalPager
                 GalleryImage(
@@ -211,40 +239,28 @@ fun GalleryStrip(
                     Modifier.fillMaxSize().clickable {
                         viewer = index
                     },
+                    thumbnail = thumbnail,
                     onFailure = { scope.launch { book.renew() } },
                     onRetry = { scope.launch { book.renew(true) } },
                 )
             }
-            if (book.photos.getOrNull(pager.currentPage)?.source == PhotoSource.review) {
-                Text(
-                    tr("방문자 사진"),
-                    color = Color.White,
-                    style = IOS.caption2,
-                    modifier =
-                        Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(8.dp)
-                            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
-                            .padding(horizontal = 8.dp, vertical = 5.dp),
-                )
-            }
-            if (book.total > 1) {
-                Text(
-                    "▦ ${pager.currentPage + 1} / ${book.total}",
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    modifier =
-                        Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(8.dp)
-                            .clickable { grid = true }
-                            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                )
+            if (!protectedPhotos) {
+                if (book.photos.getOrNull(pager.currentPage)?.source == PhotoSource.review) {
+                    visitorBadge(Modifier.align(Alignment.BottomStart).padding(8.dp))
+                }
+                if (book.total > 1) pageCounter(Modifier.align(Alignment.BottomEnd).padding(8.dp))
             }
         }
-        book.photos.getOrNull(pager.currentPage)?.credit?.takeIf { it.isNotBlank() }?.let {
-            Text(it, style = IOS.caption2, color = IOS.secondaryLabel, modifier = Modifier.padding(top = 4.dp))
+        val current = book.photos.getOrNull(pager.currentPage)
+        val shownCredit = current?.let { ReviewRules.credit(it) }?.takeIf { it.isNotBlank() }
+        if (protectedPhotos) {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(shownCredit.orEmpty(), style = IOS.caption2, color = IOS.secondaryLabel, modifier = Modifier.weight(1f))
+                if (current?.source == PhotoSource.review) visitorBadge(Modifier.padding(start = 6.dp))
+                if (book.total > 1) pageCounter(Modifier.padding(start = 6.dp))
+            }
+        } else if (shownCredit != null) {
+            Text(shownCredit, style = IOS.caption2, color = IOS.secondaryLabel, modifier = Modifier.padding(top = 4.dp))
         }
         book.failure?.let {
             Text(
@@ -295,16 +311,20 @@ internal fun GalleryImage(
     onRetry: () -> Unit = {},
     fits: Boolean = ReviewRules.preservesPhotoFrame(photo),
     dark: Boolean = false,
+    // 작은 칸이면 서버 썸네일을 받는다. 썸네일이 없으면 원본이다(MZ2AZ-470).
+    thumbnail: Boolean = false,
 ) {
     // 서명된 주소(리뷰어가 올린 사진)만 한 시간 뒤 죽는다. 저절로 새 주소를 청하는 것은 **사진마다 한 번**이다(iOS `renewsAfterFailure`).
     val signed = photo.source == PhotoSource.review
     var renewedFor by remember(photo.galleryKey) { mutableStateOf(false) }
+    val shown = ReviewRules.imageUrl(photo, thumbnail)
     RemoteImage(
-        photo.url.toString(),
+        shown,
         modifier,
         contentScale = if (fits) ContentScale.Fit else ContentScale.Crop,
         backgroundColor = if (dark) Color.Black else IOS.systemGray6,
-        cacheKey = photo.galleryKey,
+        // 썸네일과 원본이 같은 열쇠로 섞이지 않게 한다.
+        cacheKey = if (shown == photo.url.toString()) photo.galleryKey else "${photo.galleryKey}#thumb",
         edge = edge,
         retryable = true,
         onFailure = {
@@ -355,22 +375,12 @@ internal fun GalleryViewer(
                 isAppearanceLightNavigationBars = false
             }
         }
-        Box(Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(pager, Modifier.fillMaxSize()) { index ->
-                book.photos.getOrNull(index)?.let { photo ->
-                    GalleryImage(
-                        photo,
-                        Modifier.fillMaxSize(),
-                        edge = 1600,
-                        fits = true,
-                        dark = true,
-                        onFailure = { scope.launch { book.renew() } },
-                        onRetry = { scope.launch { book.renew(true) } },
-                    )
-                }
-            }
+        // 변경 금지(공공누리 제3유형) 사진이 든 사진첩은 옆 쪽으로 넘기는 중에도 닫기·쪽 번호·출처가 사진에 겹치지 않게
+        // 위 줄 / 사진 / 아래 줄로 쌓는다 (MZ2AZ-470, iOS `PhotoViewer`).
+        val protectedPhotos = book.photos.any(ReviewRules::isProtected)
+        val topBar: @Composable (Modifier) -> Unit = { barModifier ->
             Row(
-                Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 4.dp),
+                barModifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -390,38 +400,72 @@ internal fun GalleryViewer(
                     XMarkIcon(Color.White, Modifier.size(15.dp))
                 }
             }
+        }
+        val pages: @Composable (Modifier) -> Unit = { pagesModifier ->
+            HorizontalPager(pager, pagesModifier) { index ->
+                book.photos.getOrNull(index)?.let { photo ->
+                    GalleryImage(
+                        photo,
+                        Modifier.fillMaxSize(),
+                        edge = 1600,
+                        fits = true,
+                        dark = true,
+                        onFailure = { scope.launch { book.renew() } },
+                        onRetry = { scope.launch { book.renew(true) } },
+                    )
+                }
+            }
+        }
+        val caption: @Composable (Modifier) -> Unit = { captionModifier ->
             book.photos.getOrNull(pager.currentPage)?.let { photo ->
-                Row(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    if (marksVisitors && photo.source == PhotoSource.review) Text(tr("방문자 사진"), color = Color.White, style = IOS.caption)
-                    photo.credit?.let {
-                        Text(
-                            it,
-                            color = Color.White.copy(alpha = 0.75f),
-                            style = IOS.caption2,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    if (photo.source == PhotoSource.review && onReview != null) {
-                        Text(
-                            tr("리뷰 보기", "사진"),
-                            color = Color.White,
-                            style = IOS.subheadlineSemibold,
-                            modifier =
-                                Modifier
-                                    .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(50))
-                                    .clickable { onReview(photo.reviewId) }
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                        )
+                val visitor = marksVisitors && photo.source == PhotoSource.review
+                val credit = ReviewRules.credit(photo)
+                val reviewLink = photo.source == PhotoSource.review && onReview != null
+                if (visitor || credit != null || reviewLink) {
+                    Row(
+                        captionModifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        if (visitor) Text(tr("방문자 사진"), color = Color.White, style = IOS.caption)
+                        credit?.let {
+                            Text(
+                                it,
+                                color = Color.White.copy(alpha = 0.75f),
+                                style = IOS.caption2,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        if (reviewLink) {
+                            Text(
+                                tr("리뷰 보기", "사진"),
+                                color = Color.White,
+                                style = IOS.subheadlineSemibold,
+                                modifier =
+                                    Modifier
+                                        .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(50))
+                                        .clickable { onReview?.invoke(photo.reviewId) }
+                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                            )
+                        }
                     }
                 }
+            }
+        }
+        if (protectedPhotos) {
+            Column(Modifier.fillMaxSize().background(Color.Black)) {
+                topBar(Modifier)
+                pages(Modifier.weight(1f).fillMaxWidth())
+                caption(Modifier)
+            }
+        } else {
+            Box(Modifier.fillMaxSize().background(Color.Black)) {
+                pages(Modifier.fillMaxSize())
+                topBar(Modifier)
+                caption(Modifier.align(Alignment.BottomCenter))
             }
         }
     }
@@ -460,6 +504,7 @@ internal fun PhotoGrid(
                         GalleryImage(
                             photo,
                             Modifier.fillMaxSize(),
+                            thumbnail = true,
                             onFailure = { scope.launch { book.renew() } },
                             onRetry = { scope.launch { book.renew(true) } },
                         )
@@ -478,7 +523,7 @@ internal fun PhotoGrid(
                         }
                     }
                 }
-                val credits = book.photos.mapNotNull { it.credit?.takeIf(String::isNotBlank) }.distinct()
+                val credits = ReviewRules.credits(book.photos)
                 if (credits.isNotEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(

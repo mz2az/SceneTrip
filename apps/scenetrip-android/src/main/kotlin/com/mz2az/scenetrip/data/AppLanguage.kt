@@ -98,6 +98,12 @@ fun tr(korean: String): String {
     return TRANSLATIONS_EN[korean] ?: korean
 }
 
+/** 앱 언어가 아닌 [lang] 으로 — 순수 규칙이 언어를 인자로 받을 때(시험 포함) 쓴다. 번역이 없으면 원문이다. */
+fun tr(
+    korean: String,
+    lang: Lang,
+): String = if (lang == Lang.ko) korean else TRANSLATIONS_EN[korean] ?: korean
+
 /** 같은 한국어가 자리에 따라 다른 영어가 되어야 할 때 — 「코스」가 화면 제목이면 Courses, 딱지면 Course. */
 fun tr(
     korean: String,
