@@ -1,0 +1,90 @@
+/* 검색 탭 지도 (Leaflet). 로고(출처)와 축척은 시트 바로 위에 붙는다 — NaverMapView.applyInset 의 logoMargin. */
+.st-map {
+  position: absolute;
+  inset: 0;
+  /* Leaflet 의 판(pane)은 z-index 400~1000 이라, 가두지 않으면 시트·검색바 위로 올라온다. */
+  isolation: isolate;
+  z-index: 0;
+  background: #aad3df; /* OSM 바다색 — 타일이 오기 전 */
+  font-family: var(--font);
+}
+.st-map .leaflet-bottom {
+  bottom: calc(var(--st-sheet-visible, 0px) + 6px);
+  transition: none;
+}
+.st-map .leaflet-control-attribution {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.7);
+}
+/* 축척 — 네이버 지도처럼 글자 아래 가로선과 양끝 눈금 */
+.st-map .leaflet-control-scale-line {
+  background: transparent;
+  border: 2px solid #333;
+  border-top: none;
+  color: #222;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0 4px 1px;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+  box-shadow: none;
+}
+
+.st-pin {
+  background: none;
+  border: 0;
+}
+.st-pin svg {
+  display: block;
+  cursor: pointer;
+}
+/* 이름표 — 핀 아래, 확대했을 때만(CAPTION_MIN_ZOOM). */
+.st-pin-cap {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 47px;
+  transform: translateX(-50%);
+  text-align: center;
+  font: 600 11px/1.15 var(--font);
+  color: #111;
+  text-shadow: -1px 0 #fff, 1px 0 #fff, 0 -1px #fff, 0 1px #fff, 0 0 3px #fff;
+  pointer-events: none;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.st-captions .st-pin-cap {
+  display: block;
+}
+
+/* 내 위치 — 레이더 파문 */
+.st-pulse {
+  background: none;
+  border: 0;
+}
+.st-pulse-dot {
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+.st-pulse-ring {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  animation: st-radar 1.8s ease-out infinite;
+}
+@keyframes st-radar {
+  0% {
+    transform: scale(0.35);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}

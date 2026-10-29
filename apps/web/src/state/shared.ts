@@ -1,6 +1,7 @@
 /*
  * 여러 화면이 같이 쓰는 작은 규칙들.
  *  - AccountDataReset : 로그아웃·탈퇴·비회원 기록 삭제 때 화면 사본을 먼저 비운다 (iOS Auth/AccountDataReset.swift)
+ *                       로그인은 비우지 않고 `notifyAccountChanged` 로 다시 읽게만 한다
  *  - Paging           : 목록을 이어 받는 규칙 (iOS Models/Paging.swift)
  */
 import { useEffect } from 'react'
@@ -9,6 +10,7 @@ import { useEffect } from 'react'
 
 let generation = 0
 const resetListeners = new Set<() => void>()
+const changeListeners = new Set<() => void>()
 
 export const accountGeneration = (): number => generation
 
@@ -16,16 +18,30 @@ export const accountGeneration = (): number => generation
 export function clearAccountData(): void {
   generation += 1
   resetListeners.forEach((l) => l())
+  changeListeners.forEach((l) => l())
 }
 
+/** 로그인처럼 계정이 **바뀌었지만 사본을 비울 일은 아닐 때** — 진행 중이던 요청은 버리고 화면이 다시 읽게 한다(iOS `AuthStore.epoch`). */
+export function notifyAccountChanged(): void {
+  generation += 1
+  changeListeners.forEach((l) => l())
+}
+
+/** 계정이 떠날 때 사본을 지우는 스토어용 — 로그인에서는 부르지 않는다. */
 export function onAccountReset(listener: () => void): () => void {
   resetListeners.add(listener)
   return () => resetListeners.delete(listener)
 }
 
+/** 로그인·로그아웃·탈퇴·세션 소실·기록 삭제 어느 쪽이든 부른다. */
+export function onAccountChange(listener: () => void): () => void {
+  changeListeners.add(listener)
+  return () => changeListeners.delete(listener)
+}
+
 /** iOS `.onAccountChange { … }` — 계정이 바뀌면 다시 읽는다. */
 export function useOnAccountChange(action: () => void): void {
-  useEffect(() => onAccountReset(action), [action])
+  useEffect(() => onAccountChange(action), [action])
 }
 
 // ---------------------------------------------------------------- Paging

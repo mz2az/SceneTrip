@@ -14,7 +14,8 @@
  */
 import createClient from 'openapi-fetch'
 import { currentLang } from '@/i18n'
-import { accessToken } from '@/state/auth'
+import { type TokenSnapshot, authHooks, isSameSession, pendingWrites, promptSignIn, tokenSnapshot } from '@/state/auth'
+import { alreadyRefreshed, apiCodeFrom, authAction, intercepts } from '@/state/authRules'
 import { ApiFailure } from './failure'
 import type { paths } from './generated/schema'
 import { RETRY_TUNING, decide, laneFor } from './retry'
@@ -62,16 +63,11 @@ async function send(request: Request, timeoutSeconds: number): Promise<Response>
   }
 }
 
-async function guardedFetch(input: Request): Promise<Response> {
-  const method = input.method.toUpperCase()
-  devGuard(method, pathOf(input))
+/** 이 헤더를 달면 자동으로 다시 보내지 않는다(보낼 때 뗀다) — 응답을 잃어도 반복하면 안 되는 요청용. iOS `GuestDeleteRequest`. */
+export const NO_RETRY_HEADER = 'X-SceneTrip-No-Retry'
 
-  const headers = new Headers(input.headers)
-  headers.set('Accept-Language', currentLang())
-  const token = accessToken()
-  if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
-  const base = new Request(input, { headers })
-
+/** 끊김·502~504·429 를 규칙(retry.ts)대로 다시 보낸다. */
+async function sendWithRetry(base: Request, method: string, noRetry: boolean): Promise<Response> {
   const lane = laneFor(method)
   const timeout = lane === 'read' ? RETRY_TUNING.readTimeout : RETRY_TUNING.writeTimeout
   let attempt = 0
@@ -87,7 +83,7 @@ async function guardedFetch(input: Request): Promise<Response> {
       ? ({ kind: 'network', reachedServer: false } as const)
       : ({ kind: 'status', status: response!.status, retryAfter: Number(response!.headers.get('Retry-After')) || null } as const)
     if (response && response.ok) return response
-    const decision = decide(lane, outcome, attempt)
+    const decision = noRetry ? ({ retry: false } as const) : decide(lane, outcome, attempt)
     if (!decision.retry) {
       if (response) return response
       throw new ApiFailure({ statusCode: null, isOffline: navigator.onLine === false })
@@ -95,6 +91,79 @@ async function guardedFetch(input: Request): Promise<Response> {
     attempt += 1
     await sleep(decision.waitSeconds * 1000)
   }
+}
+
+function withToken(base: Request, token: string): Request {
+  const headers = new Headers(base.headers)
+  headers.set('Authorization', `Bearer ${token}`)
+  return new Request(base.clone(), { headers })
+}
+
+/**
+ * 401 을 받았을 때 (iOS `AuthIntercept.finish`, MZ2AZ-336) — 만료면 갱신하고 **한 번만** 다시 보내고,
+ * 세션이 깨졌으면 로그인 화면, 비회원이 가입 전용 기능을 불렀으면 로그인 시트.
+ */
+async function handleUnauthorized(first: Response, base: Request, method: string, sent: string | null, identity: TokenSnapshot): Promise<Response> {
+  let body: unknown = null
+  try {
+    body = await first.clone().json()
+  } catch {
+    /* 본문이 없거나 JSON 이 아니다 */
+  }
+  if (!isSameSession(identity)) return first
+  switch (authAction(401, apiCodeFrom(body))) {
+    case 'refreshAndRetry': {
+      const current = tokenSnapshot()
+      // 이미 누가 갱신했다 — 이 요청은 낡은 토큰으로 나갔을 뿐이다. 또 갱신하지 않고 새 토큰으로 다시 보낸다.
+      if (current.generation === identity.generation && current.accessToken && alreadyRefreshed(sent, current.accessToken)) {
+        const second = await sendWithRetry(withToken(base, current.accessToken), method, false)
+        return second.status === 401 ? handleUnauthorized(second, base, method, null, current) : second
+      }
+      if (!authHooks.refresh || !(await authHooks.refresh(identity))) return first
+      const renewed = tokenSnapshot()
+      if (renewed.generation !== identity.generation || !renewed.accessToken) return first
+      const second = await sendWithRetry(withToken(base, renewed.accessToken), method, false)
+      // 재시도는 한 번. 갱신 뒤에도 401 이면 로그인 화면이다.
+      if (second.status === 401) authHooks.loseSession?.(renewed)
+      return second
+    }
+    case 'signOut':
+      authHooks.loseSession?.(identity)
+      return first
+    case 'promptSignIn':
+      promptSignIn()
+      return first
+    case 'none':
+      return first
+  }
+}
+
+async function guardedFetch(input: Request): Promise<Response> {
+  const method = input.method.toUpperCase()
+  const path = pathOf(input)
+  devGuard(method, path)
+
+  const headers = new Headers(input.headers)
+  const noRetry = headers.has(NO_RETRY_HEADER)
+  headers.delete(NO_RETRY_HEADER)
+  headers.set('Accept-Language', currentLang())
+  const identity = tokenSnapshot()
+  const sent = identity.accessToken
+  // 로그인·갱신·로그아웃 창구는 토큰을 받지 않는다(계약 `security: []`) — 낡은 토큰을 실어 보내지 않는다.
+  if (sent && !headers.has('Authorization') && intercepts(path)) headers.set('Authorization', `Bearer ${sent}`)
+  const base = new Request(input, { headers })
+
+  // 나가 있는 쓰기를 센다 — 로그인은 이것이 0 이 되기를 기다렸다 부른다(합치기 전 계정에 떨어지지 않게).
+  const counted = method !== 'GET' && method !== 'HEAD' && intercepts(path)
+  if (counted) pendingWrites.begin()
+  let response: Response
+  try {
+    response = await sendWithRetry(base, method, noRetry)
+  } finally {
+    if (counted) pendingWrites.end()
+  }
+  if (response.status !== 401 || !intercepts(path)) return response
+  return handleUnauthorized(response, base, method, sent, identity)
 }
 
 export const api = createClient<paths>({ baseUrl: BASE, fetch: guardedFetch })

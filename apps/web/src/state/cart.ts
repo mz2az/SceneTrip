@@ -8,6 +8,7 @@
  */
 import type { components } from '@/api/generated/schema'
 import { api, asFailure, installHeader, ok } from '@/api/client'
+import { unavailableRejection } from '@/api/failure'
 import { tr } from '@/i18n'
 import { accountGeneration, onAccountReset } from './shared'
 import { createStore, useStore } from './storage'
@@ -59,7 +60,8 @@ export const cartActions = {
       if (failure.statusCode === 409 && failure.apiCode === 'DUPLICATE_CART_ITEM') {
         patch({ placeIds: new Set([...cartStore.get().placeIds, placeId]), toast: tr('이미 저장된 장소입니다') })
       } else {
-        patch({ toast: tr('담지 못했습니다. 잠시 후 다시 시도해 주세요') })
+        // 목록에서 빠진 촬영지는 서버가 409 PLACE_DELISTED 로 거절한다 — 그 안내가 먼저다(iOS CartStore.add).
+        patch({ toast: unavailableRejection(failure.statusCode, failure.apiCode) ?? tr('담지 못했습니다. 잠시 후 다시 시도해 주세요') })
       }
     }
     await cartActions.refresh()

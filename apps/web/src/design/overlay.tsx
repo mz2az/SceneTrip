@@ -37,8 +37,11 @@ export interface SheetProps {
   open: boolean
   onClose: () => void
   children: ReactNode
-  /** `.presentationDetents` — medium 은 화면 절반, large 는 상단 여백을 남긴 높이. */
-  detent?: 'medium' | 'large'
+  /** `.presentationDetents` — medium 은 화면 절반, large 는 상단 여백을 남긴 높이, 숫자는 `.height(n)` (px). */
+  detent?: 'medium' | 'large' | number
+  /** large 일 때 위쪽 여백(px)·모서리(px) 덮어쓰기 — iOS 26 의 큰 시트는 위에서 약 72pt, 모서리 약 38 (기본값은 옛 모양). */
+  topGap?: number
+  radius?: number
   /** 위쪽 손잡이를 그린다 (.presentationDragIndicator(.visible)) */
   grabber?: boolean
   /** 바탕을 눌러 닫기 */
@@ -48,7 +51,7 @@ export interface SheetProps {
 }
 
 /** 시스템 시트 — 아래에서 올라오고, 윗부분은 둥글다(iOS 17+: 모서리 약 38). */
-export function Sheet({ open, onClose, children, detent = 'large', grabber = false, dismissOnScrim = true, background = 'var(--system-background)', label }: SheetProps) {
+export function Sheet({ open, onClose, children, detent = 'large', topGap, radius, grabber = false, dismissOnScrim = true, background = 'var(--system-background)', label }: SheetProps) {
   const root = useRoot()
   const { mounted, closing } = usePresence(open, 280)
   useEscape(open, onClose)
@@ -62,10 +65,11 @@ export function Sheet({ open, onClose, children, detent = 'large', grabber = fal
       <div
         style={{
           position: 'absolute', left: 0, right: 0, bottom: 0,
-          height: detent === 'medium' ? '50%' : 'calc(100% - 10px - var(--safe-top))',
+          height: typeof detent === 'number' ? detent : detent === 'medium' ? '50%' : `calc(100% - ${topGap ?? 10}px - var(--safe-top))`,
           background, display: 'flex', flexDirection: 'column', overflow: 'hidden',
           borderRadius: '10px 10px 0 0',
-          ...(detent === 'large' ? { borderRadius: '12px 12px 0 0' } : {}),
+          ...(detent === 'large' ? { borderRadius: `${radius ?? 12}px ${radius ?? 12}px 0 0` } : {}),
+          ...(radius !== undefined && detent !== 'large' ? { borderRadius: `${radius}px ${radius}px 0 0` } : {}),
           animation: `${closing ? 'st-slide-down' : 'st-slide-up'} 0.28s cubic-bezier(.32,.72,0,1) both`,
         }}
       >

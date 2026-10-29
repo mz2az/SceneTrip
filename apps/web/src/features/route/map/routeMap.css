@@ -1,0 +1,67 @@
+/* 코스 편집 지도 (Leaflet). 로고(출처)와 축척은 시트 바로 위에 붙는다 — RouteMapView 의 bottomInset. */
+.rt-map {
+  position: absolute;
+  inset: 0;
+  background: #aad3df; /* OSM 바다색 — 타일이 오기 전 */
+  font-family: var(--font);
+  z-index: 0; /* Leaflet 의 pane(z-index 400~700)이 이 안에 갇히게 — 시트·버튼이 지도 위에 온다 */
+}
+.rt-map .leaflet-bottom {
+  bottom: var(--rt-inset, 0px);
+}
+.rt-map .leaflet-control-attribution {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.7);
+}
+.rt-pinning {
+  cursor: crosshair;
+}
+.rt-map .route-pin svg {
+  display: block;
+  cursor: pointer;
+}
+/* 이름표 — 핀 아래, 확대했을 때만. */
+.rt-pin-cap {
+  display: none;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 132px;
+  text-align: center;
+  font: 600 11px/1.15 var(--font);
+  color: #111;
+  text-shadow: -1px 0 #fff, 1px 0 #fff, 0 -1px #fff, 0 1px #fff, 0 0 3px #fff;
+  pointer-events: none;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.rt-captions .rt-pin-cap {
+  display: block;
+}
+/* 내 위치 — 레이더 파문 */
+.rt-me-dot {
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+.rt-me-ring {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  animation: rt-radar 1.8s ease-out infinite;
+}
+@keyframes rt-radar {
+  0% {
+    transform: scale(0.35);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}

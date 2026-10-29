@@ -4,6 +4,24 @@
  */
 import { tr } from '@/i18n'
 
+/**
+ * 서버의 숨김·폐업 거절(409)을 사용자 문구로 — iOS `UnavailableItem.rejection` (Models/UnavailableItem.swift).
+ * 해당하지 않으면 null. `ApiFailure.userMessage` 가 가장 먼저 본다(iOS `ApiFailure.message` 와 같은 순서).
+ */
+export function unavailableRejection(status: number | null | undefined, code: string | null | undefined): string | null {
+  if (status !== 409) return null
+  switch (code) {
+    case 'PLACE_DELISTED':
+      return tr('목록에서 빠진 장소라 담을 수 없어요.')
+    case 'CONTENT_DELISTED':
+      return tr('목록에서 빠진 작품이라 찜할 수 없어요.')
+    case 'POI_CLOSED':
+      return tr('폐업한 곳이라 코스에 넣을 수 없어요.')
+    default:
+      return null
+  }
+}
+
 export class ApiFailure extends Error {
   readonly statusCode: number | null
   readonly traceId: string | null
@@ -31,6 +49,8 @@ export class ApiFailure extends Error {
 
   /** 사용자에게 보일 한 줄. Android 의 `ApiFailure.message` 와 같은 문구여야 한다. */
   get userMessage(): string {
+    const rejection = unavailableRejection(this.statusCode, this.apiCode)
+    if (rejection) return rejection
     switch (this.statusCode) {
       case null:
         return this.isOffline ? tr('인터넷 연결을 확인해 주세요.') : tr('서버에 연결하지 못했습니다.')

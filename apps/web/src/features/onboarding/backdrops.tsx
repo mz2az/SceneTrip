@@ -97,20 +97,16 @@ function RadiusChips() {
   ]
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
-      <div
-        style={{
-          position: 'absolute', left: 19, top: 19, width: 262, height: 262, borderRadius: '50%',
-          background: 'color-mix(in srgb, var(--accent) 6%, transparent)',
-          border: '1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent)',
-        }}
-      />
+      <svg width={262} height={262} viewBox="0 0 262 262" style={{ position: 'absolute', left: 19, top: 19 }} aria-hidden>
+        <circle cx={131} cy={131} r={130.25} fill="color-mix(in srgb, var(--accent) 6%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)" strokeWidth={1.5} strokeDasharray="6 6" />
+      </svg>
       {chips.map((c) => (
         <HStack
           key={c.label}
           spacing={6}
           style={{
             position: 'absolute', left: BOX / 2 + c.dx, top: BOX / 2 + c.dy, transform: 'translate(-50%, -50%)',
-            padding: '6px 12px 6px 8px', background: 'var(--system-background)', borderRadius: 999, boxShadow: shadow('rgba(0,0,0,0.10)', 5, 2),
+            width: 'max-content', padding: '6px 12px 6px 8px', background: 'var(--system-background)', borderRadius: 999, boxShadow: shadow('rgba(0,0,0,0.10)', 5, 2),
           }}
         >
           <span style={{ width: 9, height: 9, borderRadius: '50%', background: c.color }} />

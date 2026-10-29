@@ -1,0 +1,70 @@
+/* 길찾기·편의시설용 작은 지도 (NavMap.tsx) */
+.tm-map {
+  position: absolute;
+  inset: 0;
+  background: #aad3df; /* OSM 바다색 — 타일이 오기 전 */
+  font-family: var(--font);
+}
+.tm-map .leaflet-control-attribution {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.7);
+}
+.tm-map .route-pin svg {
+  display: block;
+}
+/* 코스 지도 위 가이드·편의시설·여행 안내 층 (mapOverlay.ts) */
+.route-pin.tm-dot,
+.route-pin.tm-pin {
+  cursor: pointer;
+}
+/* 이름표 — 핀 아래, 확대했을 때만(고른 것은 늘). */
+.tm-cap {
+  display: none;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 132px;
+  text-align: center;
+  font: 600 11px/1.15 var(--font);
+  color: #111;
+  text-shadow: -1px 0 #fff, 1px 0 #fff, 0 -1px #fff, 0 1px #fff, 0 0 3px #fff;
+  pointer-events: none;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.tm-cap-always {
+  display: block;
+}
+.tm-zoom-ai .tm-cap-ai {
+  display: block;
+}
+.tm-zoom-ambient .tm-cap-ambient {
+  display: block;
+}
+/* 내 자리 — 레이더 파문 (RadarPulse) */
+.tm-me-dot {
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+.tm-me-ring {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  animation: tm-radar 1.8s ease-out infinite;
+}
+@keyframes tm-radar {
+  0% {
+    transform: scale(0.35);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}

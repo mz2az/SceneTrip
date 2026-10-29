@@ -2,16 +2,18 @@
  * 앱을 열면 처음 보이는 화면. (iOS: Onboarding/SplashView.swift)
  * 핀(해태)이 위에서 떨어져 한 번 눌렸다 펴고, 글자는 늦게 올라온다. 1.9초 뒤 onDone.
  */
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { PinoMascot, pinoTipInset } from '@/design/PinoMascot'
 import { Txt, VStack } from '@/design/primitives'
 import './splash.css'
 
 export function SplashView({ onDone }: { onDone: () => void }) {
+  const done = useRef(onDone)
+  done.current = onDone
   useEffect(() => {
-    const t = setTimeout(onDone, 1900)
+    const t = setTimeout(() => done.current(), 1900)
     return () => clearTimeout(t)
-  }, [onDone])
+  }, [])
 
   const w = 216
   return (

@@ -1,0 +1,115 @@
+/* 마이페이지·시트 공용 — iOS 26 의 둥근 인셋 그룹 목록, 스위치, 유리 시트. 값은 iOS 스크린샷(402pt 기준)에서 쟀다. */
+
+/* ---- 인셋 그룹 목록 (SwiftUI List, insetGrouped) ---- */
+.ls-card {
+  position: relative;
+  background: var(--secondary-grouped-background);
+  border-radius: 26px;
+  overflow: hidden;
+}
+.ls-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 14.5px 16px;
+  text-align: left;
+}
+/* 줄 사이 가는 선. 왼쪽 들여쓰기는 줄마다 --sep-inset 으로 준다(아이콘 줄은 글자 앞, 글자만 있는 줄은 16). */
+.ls-row + .ls-row::before,
+.ls-sep::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--sep-inset, 16px);
+  right: 16px;
+  height: 0.5px;
+  background: rgba(60, 60, 67, 0.2);
+}
+.ls-card > button.ls-row:active,
+.ls-card > a.ls-row:active {
+  background: rgba(60, 60, 67, 0.12);
+}
+
+/* 절 사이 간격 — 머리글이 있으면(hh) 머리글 위 26, 없으면 카드 위 36. 앞 절에 꼬리글(hf)이 있으면 그 아래 24 / 머리글 위 17. */
+.ls-section {
+  margin-top: 36px;
+}
+.ls-section.hh {
+  margin-top: 27px;
+}
+.ls-section.hf + .ls-section {
+  margin-top: 24px;
+}
+.ls-section.hf + .ls-section.hh {
+  margin-top: 17px;
+}
+
+/* ---- 스위치 (iOS 26: 63 x 28) ---- */
+.st-switch {
+  margin-right: -2px;
+  position: relative;
+  flex: none;
+  width: 63px;
+  height: 28px;
+  border-radius: 14px;
+  background: #c5c5c7;
+  transition: background 0.2s;
+}
+.st-switch[aria-checked='true'] {
+  background: #34c759;
+}
+.st-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 39px;
+  height: 24px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform 0.2s;
+}
+.st-switch[aria-checked='true']::after {
+  transform: translateX(20px);
+}
+.st-switch:disabled {
+  opacity: 0.5;
+}
+
+/* ---- 유리 시트 (iOS 26: 가장자리에서 9 띄운 둥근 시트) ---- */
+.gs-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.2);
+}
+.gs-sheet {
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: 9px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 40px 40px 52px 52px;
+  background: rgba(244, 244, 246, 0.86);
+  -webkit-backdrop-filter: blur(30px) saturate(1.6);
+  backdrop-filter: blur(30px) saturate(1.6);
+  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset, 0 8px 40px rgba(0, 0, 0, 0.14);
+}
+
+/* ---- 입력 ---- */
+.st-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 17px;
+  color: var(--label);
+}
+.st-input::placeholder {
+  color: var(--label-tertiary);
+}
