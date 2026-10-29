@@ -46,8 +46,11 @@ class ScenePhotoQaInstrumentation : Instrumentation() {
             SystemClock.sleep(50)
             tap(width / 2, height / 2)
             await("200%")
-            phase = "reset"
-            click("초기화")
+            // 다시 맞추는 단추는 없다(iOS 와 같다) — 확대된 상태에서 두 번 누르면 100% 로 돌아온다.
+            phase = "double tap reset"
+            tap(width / 2, height / 2)
+            SystemClock.sleep(50)
+            tap(width / 2, height / 2)
             await("100%")
             phase = "close"
             click("닫기")
@@ -72,7 +75,7 @@ class ScenePhotoQaInstrumentation : Instrumentation() {
             runOnMainSync { missing.finish() }
             result.putString(
                 "result",
-                "PASS: full frame, pinch 400%, double tap 100/200%, reset, close/reopen, 404 retry, no poster fallback",
+                "PASS: full frame, pinch 400%, double tap 100/200%/100%, close/reopen, 404 retry, no poster fallback",
             )
             finish(Activity.RESULT_OK, result)
         } catch (error: Throwable) {
