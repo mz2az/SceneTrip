@@ -5,12 +5,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -76,21 +76,23 @@ fun IOSMenuPopover(
                         spotColor = Color.Black.copy(alpha = 0.2f),
                     ).clip(RoundedCornerShape(22.dp))
                     .background(Color(0xFFF5F5F6))
-                    .width(232.dp),
+                    // iOS 실측(5차 감사 report): 폭 249 · 구분선 없음 · 줄 간격 42 · 위 9 아래 10 (전: 폭 231 · 구분선 · 줄 48).
+                    .width(249.dp)
+                    .padding(top = 9.dp, bottom = 10.dp),
         ) {
             items.forEachIndexed { index, item ->
-                if (index > 0) HorizontalDivider(thickness = 0.5.dp, color = IOS.separator.copy(alpha = 0.25f))
                 val tint = if (item.destructive) IOS.systemRed else IOS.label
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                     modifier =
                         Modifier
+                            .fillMaxWidth()
                             .clickable {
                                 onDismiss()
                                 item.onClick()
-                            }.height(48.dp)
-                            .padding(horizontal = 18.dp),
+                            }.height(42.dp)
+                            .padding(horizontal = 30.dp),
                 ) {
                     item.icon(tint, Modifier.size(20.dp))
                     Text(item.label, fontSize = 17.sp, color = tint)

@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -44,6 +46,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.EntityType
 import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import com.mz2az.scenetrip.sceneapi.client.model.Suggestion
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.iosLineBox
 
 /**
  * 검색 중 지도·시트를 덮는 막. 바깥을 누르면 검색이 닫힌다.
@@ -343,24 +346,41 @@ fun DetailHeader(
     subtitle: String = "",
     onBack: () -> Unit,
 ) {
+    // iOS `DetailHeader`: HStack(spacing 10) — 뒤로 화살표 · VStack(spacing 2){headline 한 줄, caption 한 줄}, 아래 10.
+    // 줄 칸을 iOS 글자 높이(22·16)로 고정하고 글자 위치를 실측에 맞춘다(5차 감사: 시트 윗변→제목 글자 윗변 iOS 21.4 · Android 28~30,
+    // 부제 43.0 · 51.1, 사진 윗변 작품 53.3 · 장소 79.3). 글꼴 제 높이(1.44em)가 줄 칸을 키우던 것이다.
+    val rowHeight = if (subtitle.isEmpty()) 22.dp else 40.dp
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = 6.dp,
+                    end = 6.dp,
+                    bottom = if (subtitle.isEmpty()) 8.1.dp else 6.3.dp,
+                ).height(rowHeight),
     ) {
-        Icon(
-            Icons.Filled.KeyboardArrowLeft,
-            contentDescription = tr("뒤로"),
-            // iOS 는 이 화살표를 검정으로 그린다(실측). 강조색이 아니다.
-            tint = IOS.label,
-            modifier = Modifier.clip(CircleShape).clickable(onClick = onBack).size(28.dp),
-        )
-        Column(modifier = Modifier.weight(1f)) {
+        Box(
+            Modifier.size(width = 28.dp, height = rowHeight).clip(CircleShape).clickable(onClick = onBack),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Filled.KeyboardArrowLeft,
+                contentDescription = tr("뒤로"),
+                // iOS 는 이 화살표를 검정으로 그린다(실측). 강조색이 아니다.
+                tint = IOS.label,
+                modifier = Modifier.size(28.dp).wrapContentSize(unbounded = true),
+            )
+        }
+        Column(modifier = Modifier.weight(1f).offset(y = (-1.7).dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = title,
                 style = IOS.headline,
                 color = IOS.label,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.iosLineBox(22.dp),
             )
             if (subtitle.isNotEmpty()) {
                 Text(
@@ -369,6 +389,7 @@ fun DetailHeader(
                     color = IOS.secondaryLabel,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.offset(y = (-1.9).dp).iosLineBox(16.dp),
                 )
             }
         }

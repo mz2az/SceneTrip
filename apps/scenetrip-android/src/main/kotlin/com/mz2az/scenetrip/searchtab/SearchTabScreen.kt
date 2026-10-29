@@ -553,6 +553,7 @@ fun SearchTabScreen() {
             // 7 차에 시트가 그 위로 올라와 버튼이 시트 헤더에 겹쳐 그려졌다.
             topInset = SEARCH_BAR_INSET + statusBar + CONTROL_ROW,
             onHeightChange = { sheetHeight = it },
+            ratioInset = statusBar,
         ) {
             when {
                 data.phase == SceneData.Phase.FAILED -> {

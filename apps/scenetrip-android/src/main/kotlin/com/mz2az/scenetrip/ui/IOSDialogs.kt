@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -190,12 +191,14 @@ fun IOSConfirmPopover(
     // 화면 한가운데 확인창(코스 삭제)은 iOS 그림자가 카드 둘레 100pt 넘게 번져 여백을 넓게 둔다(402 폭 화면에서 카드 240 + 양옆 80 까지).
     val shadowRoom = if (centered) 80.dp else 24.dp
     val roomPx = with(density) { shadowRoom.roundToPx() }
+    // `windowSize` 는 상태줄·내비게이션줄을 뺀 높이라(2201/2400) 그 51.5% 에 놓으면 47.2% 가 된다 — 화면 전체 높이로 잰다(5차 감사 del-confirm).
+    val screenHeightPx = LocalContext.current.resources.displayMetrics.heightPixels
     val gapPx = with(density) { (anchorX + 2.dp).roundToPx() }
     // 아래·위 어느 쪽에 뜨는가 — iOS 는 자리가 더 넉넉한 쪽에 띄운다(위쪽 줄은 아래로, 아래쪽 줄은 위로. 2026-10-29 감사 #17).
     // 꼬리 방향이 이 값을 따라 바뀐다. 자리는 팝업이 놓일 때 알 수 있어 그때 적는다.
     var above by remember { mutableStateOf(false) }
     val provider =
-        remember(gapPx, roomPx, below, centered) {
+        remember(gapPx, roomPx, below, centered, screenHeightPx) {
             object : PopupPositionProvider {
                 override fun calculatePosition(
                     anchorBounds: IntRect,
@@ -206,7 +209,7 @@ fun IOSConfirmPopover(
                     val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
                     val maxY = (windowSize.height - popupContentSize.height).coerceAtLeast(0)
                     return if (centered) {
-                        IntOffset(maxX / 2, (windowSize.height * 0.515f - popupContentSize.height / 2f).toInt().coerceIn(0, maxY))
+                        IntOffset(maxX / 2, (screenHeightPx * 0.515f - popupContentSize.height / 2f).toInt().coerceIn(0, maxY))
                     } else if (below) {
                         val flip = anchorBounds.top > windowSize.height - anchorBounds.bottom
                         if (above != flip) above = flip

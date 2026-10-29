@@ -56,6 +56,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.ReviewPhoto
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.XMarkIcon
+import com.mz2az.scenetrip.ui.iosLineBox
 import kotlinx.coroutines.launch
 
 /*
@@ -392,18 +393,19 @@ fun VisitorPhotoStrip(
     val shown = book.photos
     if (shown.isEmpty()) return
     Column(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        // iOS 머리줄은 한 줄 높이(글자 18.4)다 — 줄 칸을 고정해 구분선→사진 윗변이 42.3 이 되게 한다(5차 감사: 위 57.5, 제목~사진 26.4 였다).
+        Row(Modifier.fillMaxWidth().height(18.4.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 ReviewRules.visitorTitle(book.total),
                 style = IOS.subheadlineSemibold,
                 color = IOS.label,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).iosLineBox(18.4.dp),
             )
             Text(
                 tr("모두 보기"),
                 style = IOS.caption.copy(fontWeight = FontWeight.SemiBold),
                 color = IOS.accent,
-                modifier = Modifier.clickable { browsing = true }.padding(vertical = 8.dp),
+                modifier = Modifier.clickable { browsing = true }.iosLineBox(18.4.dp),
             )
         }
         LazyRow(

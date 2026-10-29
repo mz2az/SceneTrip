@@ -70,6 +70,9 @@ fun BottomSheet(
     topInset: Dp,
     onHeightChange: (Dp) -> Unit = {},
     mediumFraction: Float = IOS.DETENT_MEDIUM,
+    // 비율의 바탕에서 뺄 위쪽 높이. iOS 는 `GeometryReader` 가 위 안전영역(상태줄)을 뺀 높이를 주어 그 비율로 잡는다 —
+    // 검색 탭은 상태줄 높이를 넘겨 맞춘다(5차 감사 search: 윗변 비율 iOS 50.0% · Android 47.4%).
+    ratioInset: Dp = 0.dp,
     content: @Composable () -> Unit,
 ) {
     // **`fillMaxSize` 여야 한다.** 너비만 채우면 `maxHeight` 가 내용 높이로 잡혀
@@ -86,8 +89,8 @@ fun BottomSheet(
         fun heightFor(target: Detent): Dp =
             when (target) {
                 Detent.EXPANDED -> maxSheet
-                Detent.MEDIUM -> total * mediumFraction
-                else -> total * target.ratio
+                Detent.MEDIUM -> (total - ratioInset) * mediumFraction
+                else -> (total - ratioInset) * target.ratio
             }
 
         // 끄는 동안의 손가락 이동량(px). 손을 떼면 0 으로 돌아가고 detent 가 바뀐다.
