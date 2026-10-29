@@ -367,7 +367,9 @@ fun IOSCloseButton(
                         com.mz2az.scenetrip.data
                             .tr("닫기")
                 }.size(44.dp)
-                .shadow(6.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.12f), spotColor = Color.Black.copy(alpha = 0.12f))
+                // iOS 26 툴바 단추의 그림자는 넓고 옅다 — 회색 바탕(242)에서 가장자리 근처가 233 쯤(2026-10-29 감사 #25). 고도 그림자는
+                // 투명도에 플랫폼 상수가 또 곱해져 거의 안 보였다.
+                .iosShadow(Color.Black.copy(alpha = 0.08f), radius = 16.dp, y = 4.dp, cornerRadius = 22.dp)
                 .clip(CircleShape)
                 .background(IOS.systemBackground)
                 .clickable(onClick = onClick),

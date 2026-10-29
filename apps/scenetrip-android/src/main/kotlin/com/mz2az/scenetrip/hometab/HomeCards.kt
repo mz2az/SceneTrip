@@ -39,6 +39,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -488,6 +489,8 @@ private fun WorkPoster(
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 maxLines = 2,
+                // SwiftUI `lineLimit` 는 잘리면 꼬리를 「…」 로 줄인다 — Compose 기본은 그냥 자른다(2026-10-29 감사 #20).
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.align(Alignment.BottomStart).padding(10.dp),
             )
         }
@@ -555,6 +558,7 @@ fun HomeTodayCard(
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                     color = IOS.label,
                     modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
                 )
@@ -565,6 +569,7 @@ fun HomeTodayCard(
                         fontSize = 12.sp,
                         color = IOS.secondaryLabel,
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
                     Row(
