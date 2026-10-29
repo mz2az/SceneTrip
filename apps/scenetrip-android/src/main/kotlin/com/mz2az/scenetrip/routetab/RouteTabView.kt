@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -356,10 +355,19 @@ private fun CourseList(
     onConfirmDelete: (com.mz2az.scenetrip.sceneapi.client.model.CourseSummary) -> Unit,
     onCancelDelete: () -> Unit,
 ) {
+    // 열려 있는(밀려 휴지통이 드러난) 줄의 id — **한 줄만** 열린다. 다른 줄을 밀면 앞 줄은 닫힌다.
+    var openId by remember { mutableStateOf<Long?>(null) }
     // 확인 팝오버는 **밀었던 그 줄 아래에** 붙는다(iOS 26 `.confirmationDialog` 는 팝오버다).
     val row: @Composable (com.mz2az.scenetrip.sceneapi.client.model.CourseSummary) -> Unit = { course ->
         Box {
-            CourseRow(course, onOpen, onDelete)
+            CourseRow(
+                course = course,
+                onOpen = onOpen,
+                onDelete = onDelete,
+                isOpen = openId == course.id,
+                onClaim = { openId = CourseSwipe.claim(openId, course.id) },
+                onRelease = { openId = CourseSwipe.release(openId, course.id) },
+            )
             if (confirmingId == course.id) {
                 IOSConfirmPopover(
                     title = tr("「%s」을 지울까요?").format(course.title),
@@ -378,7 +386,7 @@ private fun CourseList(
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         if (running.isNotEmpty()) {
             item { SectionHeader(tr("여행 중 %d").format(running.size)) }
-            item { CourseGroup(running, row) }
+            item { CourseGroup(running, openId, row) }
         }
         item { SectionHeader(tr("예정 %d").format(planned.size)) }
         if (planned.isEmpty()) {
@@ -391,7 +399,7 @@ private fun CourseList(
                 )
             }
         } else {
-            item { CourseGroup(planned, row) }
+            item { CourseGroup(planned, openId, row) }
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
@@ -401,13 +409,14 @@ private fun CourseList(
 @Composable
 private fun CourseGroup(
     courses: List<com.mz2az.scenetrip.sceneapi.client.model.CourseSummary>,
+    openId: Long?,
     row: @Composable (com.mz2az.scenetrip.sceneapi.client.model.CourseSummary) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(GROUP_RADIUS))) {
         courses.forEachIndexed { index, course ->
             key(course.id) {
                 row(course)
-                if (index < courses.lastIndex) {
+                if (CourseSwipe.showsDivider(openId, course.id, isLast = index == courses.lastIndex)) {
                     androidx.compose.material3.HorizontalDivider(
                         modifier = Modifier.padding(start = 16.dp),
                         thickness = 0.5.dp,
@@ -440,7 +449,7 @@ private val GROUP_RADIUS = 26.dp
 private val SWIPE_REVEAL = 80.dp
 
 // iOS `RouteTabView.rowButton` + `.swipeActions`: 제목 15 semibold(AI 코스면 앞에 `sparkles`), 오른쪽 `chevron.right`,
-// 날짜 12, 줄 안쪽 여백 가로 16 · 세로 15.5(Android 글줄 높이로 줄 높이 69).
+// 날짜 12, 줄 안쪽 여백 가로 16 · 세로 14(한글 제목 줄 높이 41 + 28 = 69).
 // **삭제는 밀어서** — iOS 26 은 줄을 밀면 줄이 둥근 알약으로 줄어들며 오른쪽에 **빨간 휴지통 알약(60×41)과 그 아래 「삭제」**
 // 가 나온다. 그 휴지통을 눌러야 확인 팝오버(`doomed`)가 뜬다. 끝까지(절반 이상) 밀면 바로 팝오버가 뜬다(`allowsFullSwipe`).
 @Composable
@@ -448,6 +457,9 @@ private fun CourseRow(
     course: com.mz2az.scenetrip.sceneapi.client.model.CourseSummary,
     onOpen: (com.mz2az.scenetrip.sceneapi.client.model.CourseSummary) -> Unit,
     onDelete: (com.mz2az.scenetrip.sceneapi.client.model.CourseSummary) -> Unit,
+    isOpen: Boolean,
+    onClaim: () -> Unit,
+    onRelease: () -> Unit,
 ) {
     val route = RouteBridge.course(course)
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -461,6 +473,10 @@ private fun CourseRow(
     val scope = rememberCoroutineScope()
     val deleteLabel = tr("삭제")
     var fullWidthPx by remember { mutableStateOf(0f) }
+    // 다른 줄이 열리면(`isOpen` 이 꺼지면) 이 줄은 제자리로 돌아온다.
+    LaunchedEffect(isOpen) {
+        if (!isOpen && revealed.value > 0f) revealed.animateTo(0f)
+    }
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -477,6 +493,7 @@ private fun CourseRow(
                         .semantics { contentDescription = deleteLabel }
                         .clickable {
                             scope.launch { revealed.animateTo(0f) }
+                            onRelease()
                             onDelete(course)
                         },
             ) {
@@ -504,13 +521,19 @@ private fun CourseRow(
                     .background(IOS.systemBackground)
                     .pointerInput(Unit) {
                         detectHorizontalDragGestures(
+                            // 밀기 시작 — 앞서 열려 있던 줄은 이때 닫힌다.
+                            onDragStart = { onClaim() },
                             onDragEnd = {
                                 val settle = CourseSwipe.settle(revealed.value, revealPx, fullWidthPx)
                                 // 끝까지 밀었다 — iOS 는 첫 동작을 바로 부른다.
+                                if (settle != SwipeSettle.OPEN) onRelease()
                                 if (settle == SwipeSettle.FULL) onDelete(course)
                                 scope.launch { revealed.animateTo(if (settle == SwipeSettle.OPEN) revealPx else 0f) }
                             },
-                            onDragCancel = { scope.launch { revealed.animateTo(0f) } },
+                            onDragCancel = {
+                                onRelease()
+                                scope.launch { revealed.animateTo(0f) }
+                            },
                             onHorizontalDrag = { change, dx ->
                                 change.consume()
                                 scope.launch { revealed.snapTo((revealed.value - dx).coerceIn(0f, fullWidthPx)) }
@@ -518,8 +541,13 @@ private fun CourseRow(
                         )
                     }.clickable {
                         // 열려 있으면 탭은 줄을 닫을 뿐이다(iOS).
-                        if (revealed.value > 0f) scope.launch { revealed.animateTo(0f) } else onOpen(course)
-                    }.padding(horizontal = 16.dp, vertical = 15.5.dp),
+                        if (revealed.value > 0f) {
+                            onRelease()
+                            scope.launch { revealed.animateTo(0f) }
+                        } else {
+                            onOpen(course)
+                        }
+                    }.padding(horizontal = 16.dp, vertical = 14.dp),
         ) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

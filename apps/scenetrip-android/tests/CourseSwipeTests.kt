@@ -31,4 +31,28 @@ class CourseSwipeTests {
     fun unmeasuredRowNeverTriggersFullSwipe() {
         assertEquals(SwipeSettle.OPEN, CourseSwipe.settle(100f, reveal, 0f))
     }
+
+    @Test
+    fun onlyOneRowIsOpenAtATimeSoSwipingAnotherRowClosesTheFirst() {
+        var open: Long? = null
+        open = CourseSwipe.claim(open, 1)
+        assertEquals(1L, open)
+        open = CourseSwipe.claim(open, 2)
+        assertEquals(2L, open)
+    }
+
+    @Test
+    fun releasingARowThatIsNoLongerTheOpenOneLeavesTheOpenRowAlone() {
+        assertEquals(null, CourseSwipe.release(1, 1))
+        assertEquals(2L, CourseSwipe.release(2, 1))
+        assertEquals(null, CourseSwipe.release(null, 1))
+    }
+
+    @Test
+    fun dividerIsHiddenUnderTheOpenRowAndAfterTheLastRow() {
+        assertEquals(true, CourseSwipe.showsDivider(openId = null, id = 1, isLast = false))
+        assertEquals(true, CourseSwipe.showsDivider(openId = 2, id = 1, isLast = false))
+        assertEquals(false, CourseSwipe.showsDivider(openId = 1, id = 1, isLast = false))
+        assertEquals(false, CourseSwipe.showsDivider(openId = null, id = 1, isLast = true))
+    }
 }

@@ -27,4 +27,27 @@ object CourseSwipe {
             revealed > reveal * 0.5f -> SwipeSettle.OPEN
             else -> SwipeSettle.CLOSE
         }
+
+    /** 이 줄을 밀기 시작했거나 열렸다 — 열린 줄은 하나뿐이라 앞 줄은 닫힌다(iOS 는 한 줄만 열려 있다). */
+    fun claim(
+        openId: Long?,
+        id: Long,
+    ): Long = id
+
+    /** 이 줄이 닫혔다(제자리·단추·탭·확인 창으로 넘어감). 다른 줄이 이미 열려 있으면 그것을 건드리지 않는다. */
+    fun release(
+        openId: Long?,
+        id: Long,
+    ): Long? = if (openId == id) null else openId
+
+    /**
+     * 줄 아래 구분선을 그리는가. 마지막 줄 아래에는 없고, **열린 줄 아래에는 숨긴다** — 열린 줄은 알약으로 줄어들어
+     * 선이 전체 폭으로 남으면 휴지통 알약 아래까지 이어진다. (iOS 에서 줄이 둘 이상일 때의 모양은 참조 스크린샷에 없어
+     * 가장 작은 변경으로 이렇게 했다 — iOS 근거 없음.)
+     */
+    fun showsDivider(
+        openId: Long?,
+        id: Long,
+        isLast: Boolean,
+    ): Boolean = !isLast && openId != id
 }
