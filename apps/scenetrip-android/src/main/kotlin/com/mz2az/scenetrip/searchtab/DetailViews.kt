@@ -115,77 +115,88 @@ fun ContentDetailView(
         DetailHeader(title = summary.title, onBack = onBack)
         LazyColumn {
             item {
+                // iOS `ContentDetailView.body` — 바깥 `VStack(spacing: 16)` + `.padding(.vertical, 4)`(ContentDetailView.swift:56-67),
+                // 안쪽 `header` 는 `VStack(spacing: 10)` 에 포스터·찜·메타/출연·줄거리를 모두 담는다(:82-117).
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.padding(horizontal = IOS.gutter, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.padding(vertical = 4.dp),
                 ) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(176.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(enabled = producer != null) { producer?.let { producerFailed = !openUrl(context, it) } }
-                            .semantics { contentDescription = tr("제작사 공식 페이지") },
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(horizontal = IOS.gutter),
                     ) {
-                        RemoteImage(
-                            url = detail?.posterUrl?.toString() ?: summary.posterUrl?.toString(),
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(176.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(enabled = producer != null) { producer?.let { producerFailed = !openUrl(context, it) } }
+                                .semantics { contentDescription = tr("제작사 공식 페이지") },
+                        ) {
+                            RemoteImage(
+                                url = detail?.posterUrl?.toString() ?: summary.posterUrl?.toString(),
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                            if (producer != null) {
+                                Text(
+                                    "↗",
+                                    style = IOS.caption.copy(fontWeight = FontWeight.SemiBold),
+                                    color = IOS.label,
+                                    modifier =
+                                        Modifier
+                                            .align(
+                                                Alignment.BottomEnd,
+                                            ).padding(6.dp)
+                                            .background(IOS.systemBackground.copy(alpha = 0.85f), CircleShape)
+                                            .padding(6.dp),
+                                )
+                            }
+                        }
+                        // 상세를 다시 받으면 누락도 false 다 — 옛 요약의 true 를 계속 붙들지 않는다.
+                        val delisted = UnavailableItem.contentDelisted(summary, detail)
+                        if (delisted) UnavailableItemNotice(UnavailableItem.CONTENT)
+                        LikeButton(
+                            liked = liked,
+                            enabled = UnavailableItem.canToggle(delisted = delisted, saved = liked),
+                            onClick = onToggleLike,
                         )
-                        if (producer != null) {
+                        // iOS 는 메타·출연이 비면 그 줄을 아예 두지 않는다(`if !meta.isEmpty`, `if !castLine.isEmpty` —
+                        // ContentDetailView.swift:93-98). 빈 `Text` 도 한 줄 높이를 먹어 찜 단추와 「출연」 사이가 벌어졌다.
+                        if (summary.meta.isNotEmpty() || castLine.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (summary.meta.isNotEmpty()) {
+                                    Text(summary.meta, style = IOS.subheadline, color = IOS.secondaryLabel)
+                                }
+                                if (castLine.isNotEmpty()) {
+                                    Text(castLine, style = IOS.caption, color = IOS.secondaryLabel)
+                                }
+                            }
+                        }
+                        if (producerFailed) {
                             Text(
-                                "↗",
-                                style = IOS.caption.copy(fontWeight = FontWeight.SemiBold),
-                                color = IOS.label,
-                                modifier =
-                                    Modifier
-                                        .align(
-                                            Alignment.BottomEnd,
-                                        ).padding(6.dp)
-                                        .background(IOS.systemBackground.copy(alpha = 0.85f), CircleShape)
-                                        .padding(6.dp),
+                                tr("외부 브라우저를 열지 못했어요"),
+                                color = IOS.systemRed,
+                            )
+                        }
+                        detail?.description?.takeIf { it.isNotEmpty() }?.let {
+                            Text(
+                                text = it,
+                                style = IOS.caption,
+                                color = IOS.secondaryLabel,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
-                    // 상세를 다시 받으면 누락도 false 다 — 옛 요약의 true 를 계속 붙들지 않는다.
-                    val delisted = UnavailableItem.contentDelisted(summary, detail)
-                    if (delisted) UnavailableItemNotice(UnavailableItem.CONTENT)
-                    LikeButton(
-                        liked = liked,
-                        enabled = UnavailableItem.canToggle(delisted = delisted, saved = liked),
-                        onClick = onToggleLike,
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(summary.meta, style = IOS.subheadline, color = IOS.secondaryLabel)
-                        if (castLine.isNotEmpty()) {
-                            Text(castLine, style = IOS.caption, color = IOS.secondaryLabel)
-                        }
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(horizontal = IOS.gutter),
+                    ) {
+                        Text(tr("촬영지"), style = IOS.headline, color = IOS.label)
+                        Text(trCount("%d곳", summary.placeCount), style = IOS.caption, color = IOS.secondaryLabel)
                     }
-                }
-                if (producerFailed) {
-                    Text(
-                        tr("외부 브라우저를 열지 못했어요"),
-                        color = IOS.systemRed,
-                        modifier = Modifier.padding(horizontal = IOS.gutter),
-                    )
-                }
-                detail?.description?.takeIf { it.isNotEmpty() }?.let {
-                    Text(
-                        text = it,
-                        style = IOS.caption,
-                        color = IOS.secondaryLabel,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = IOS.gutter),
-                    )
-                }
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(horizontal = IOS.gutter, vertical = 14.dp),
-                ) {
-                    Text(tr("촬영지"), style = IOS.headline, color = IOS.label)
-                    Text(trCount("%d곳", summary.placeCount), style = IOS.caption, color = IOS.secondaryLabel)
                 }
             }
 
