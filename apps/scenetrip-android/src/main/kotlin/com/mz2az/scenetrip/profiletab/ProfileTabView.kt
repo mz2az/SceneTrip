@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.profiletab
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -143,6 +144,9 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
     // 차단한 사용자 시트 (MZ2AZ-461).
     var showingBlocked by remember { mutableStateOf(false) }
     var showingNickname by remember { mutableStateOf(false) }
+
+    // 하드웨어 뒤로 (MZ2AZ-513) — iOS 의 X 와 같이 마이페이지를 닫는다. 시트(내 코스·찜·장바구니 등)는 자기 창이 먼저 받아 닫는다.
+    if (onClose != null) BackHandler(onBack = onClose)
 
     // 찜 목록은 서버가 준 찜한 작품의 요약으로 그린다 — 작품 목록(`GET /contents`)에는 목록에서 빠진 작품이 없어
     // 숨긴 작품을 찜해 둔 사람의 목록에서 그 줄이 사라진다(MZ2AZ-458, iOS `LikeStore.likedWorks`).
@@ -585,6 +589,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 .NicknameView(onClose = { showingNickname = false })
         }
         if (replaying) {
+            // 사용법 다시 보기는 덮개라 창이 없다 — 뒤로는 「건너뛰기」처럼 닫는다. 위 처리보다 나중에 등록돼 먼저 받는다.
+            BackHandler { replaying = false }
             val flag = remember { OnboardingFlag(context) }
             OnboardingView(onboardingFlag = flag, onDone = { replaying = false })
         }

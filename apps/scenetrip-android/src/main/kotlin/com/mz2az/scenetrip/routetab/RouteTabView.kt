@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.routetab
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -103,6 +104,10 @@ fun RouteTabView(
     LaunchedEffect(AuthStore.epoch) {
         store.refresh()
     }
+
+    // 하드웨어 뒤로 (MZ2AZ-513) — 목록에서는 iOS 의 X 와 같이 덮개를 닫는다. 편집기·마법사·시트는 자기 처리가 있고
+    // **나중에 열리므로** 이 처리보다 먼저 받는다(나중에 등록한 것이 이긴다).
+    if (onClose != null) BackHandler(onBack = onClose)
 
     // 홈에서 넘어온 코스. 목록이 아직 없으면 목록이 오는 대로 다시 시도한다(iOS `openPending`은 새로고침 뒤에 부른다).
     LaunchedEffect(TabRouter.pendingCourseId, store.courses) {
