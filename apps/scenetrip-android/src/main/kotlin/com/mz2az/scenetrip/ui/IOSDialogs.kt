@@ -203,10 +203,8 @@ fun IOSConfirmPopover(
                     return if (below) {
                         val flip = anchorBounds.top > windowSize.height - anchorBounds.bottom
                         if (above != flip) above = flip
-                        IntOffset(
-                            (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX),
-                            (if (flip) anchorBounds.top - popupContentSize.height + roomPx else anchorBounds.bottom - roomPx).coerceIn(0, maxY),
-                        )
+                        val y = if (flip) anchorBounds.top - popupContentSize.height + roomPx else anchorBounds.bottom - roomPx
+                        IntOffset((anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX), y.coerceIn(0, maxY))
                     } else {
                         IntOffset(
                             (anchorBounds.left + gapPx - roomPx).coerceAtMost(maxX),
