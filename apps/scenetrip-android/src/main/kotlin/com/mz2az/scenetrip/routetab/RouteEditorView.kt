@@ -1288,6 +1288,7 @@ private fun RouteEditorContent(
                                 // 고정할 것이 없다 — 그 하나가 출발이자 도착이라 뜻이 없다
                                 // (iOS 실기 비교로 발견 — Android는 이 가드가 없어서 정지점이
                                 // 하나뿐인 날에도 "출발 고정"이 붙어 있었다).
+                                isArrivalPin = stops.size > 1 && index == stops.lastIndex,
                                 pinLabel =
                                     if (stops.size <= 1) {
                                         null
@@ -2048,7 +2049,12 @@ private fun PlaceSearchOverlayBody(
                                     }.padding(horizontal = 16.dp, vertical = 10.dp)
                                     .alpha(if (isTaken) 0.5f else 1f),
                         ) {
-                            RemoteImage(url = place.imageUrl?.toString(), modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)))
+                            // iOS `RemoteImage(url:, symbol: "mappin.and.ellipse")` — 사진이 없으면 회색 칸 가운데 핀.
+                            RemoteImage(
+                                url = place.imageUrl?.toString(),
+                                placeholder = { MapPinEllipseIcon(IOS.secondaryLabel, Modifier.size(20.dp)) },
+                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
+                            )
                             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text(place.name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IOS.label)
                                 // 어느 작품에 나왔는지가 이름보다 중요한 단서일 때가 많다.

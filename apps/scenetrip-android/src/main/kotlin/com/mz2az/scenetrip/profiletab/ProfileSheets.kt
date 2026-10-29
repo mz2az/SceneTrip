@@ -115,6 +115,9 @@ fun ProfileSheetHeader(
     }
 }
 
+/** iOS 「내 코스」 시트 바탕 — `.regularMaterial` 유리가 뒤 화면을 비쳐 균일한 옅은 회색(236)으로 보인다(2026-10-29 실측). */
+private val MY_COURSES_SHEET_COLOR = Color(0xFFECECEC)
+
 /**
  * 내 코스 팝업. iOS `ProfileTab/ProfileSheets.swift`의 `MyCoursesSheet`를 옮긴 것이다.
  * 행을 누르면 바로 아래 상세(일차별 장소)가 펼쳐진다 — 아코디언.
@@ -130,7 +133,9 @@ private fun MyCoursesSheetBody(
     var expanded by remember { mutableStateOf<Long?>(null) }
     val details = remember { mutableStateOf(mapOf<Long, CourseDetail>()) }
 
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
+    // iOS 시트는 `.regularMaterial` 유리 — 뒤 화면을 비쳐 균일한 옅은 회색(236)으로 보인다. 뒤를 흐리는 것은 Compose 가
+    // 시트 뒤 화면을 읽을 수 없어 못 하고, 그 색만 옮긴다.
+    Column(modifier = Modifier.fillMaxSize().background(MY_COURSES_SHEET_COLOR)) {
         ProfileSheetHeader(tr("내 코스"), onClose)
         if (courses.isEmpty() && failed) {
             IOSEmptyState(
@@ -151,125 +156,133 @@ private fun MyCoursesSheetBody(
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
                 items(courses, key = { it.id }) { course ->
-                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        expanded = if (expanded == course.id) null else course.id
-                                    },
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(course.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = IOS.label)
-                                val startDate = course.startDate?.let { " · ${DateText.date(it)}" } ?: ""
-                                Text(tr("%d일").format(course.dayCount) + startDate, fontSize = 12.sp, color = IOS.secondaryLabel)
-                            }
-                            if (course.status == CourseStatus.active) {
-                                Text(
-                                    tr("여행 중"),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF34C759),
-                                    modifier =
-                                        Modifier
-                                            .clip(RoundedCornerShape(50))
-                                            .background(Color(0xFF34C759).copy(alpha = 0.15f))
-                                            .padding(horizontal = 7.dp, vertical = 3.dp),
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 15.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            expanded = if (expanded == course.id) null else course.id
+                                        },
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(course.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = IOS.label)
+                                    val startDate = course.startDate?.let { " · ${DateText.date(it)}" } ?: ""
+                                    Text(tr("%d일").format(course.dayCount) + startDate, fontSize = 12.sp, color = IOS.secondaryLabel)
+                                }
+                                if (course.status == CourseStatus.active) {
+                                    Text(
+                                        tr("여행 중"),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF34C759),
+                                        modifier =
+                                            Modifier
+                                                .clip(RoundedCornerShape(50))
+                                                .background(Color(0xFF34C759).copy(alpha = 0.15f))
+                                                .padding(horizontal = 7.dp, vertical = 3.dp),
+                                    )
+                                }
+                                Icon(
+                                    if (expanded == course.id) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = IOS.tertiaryLabel,
+                                    modifier = Modifier.size(16.dp),
                                 )
                             }
-                            Icon(
-                                if (expanded == course.id) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                                contentDescription = null,
-                                tint = IOS.tertiaryLabel,
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
 
-                        if (expanded == course.id) {
-                            val detail = details.value[course.id]
-                            LaunchedEffect(course.id) {
-                                if (details.value[course.id] == null) {
-                                    val deviceId = InstallIdentity.of(context)
-                                    val api = CoursesApi(API_BASE)
-                                    val loaded =
-                                        withContext(Dispatchers.IO) {
-                                            runCatching { api.getCourse(deviceId, course.id) }.getOrNull()
+                            if (expanded == course.id) {
+                                val detail = details.value[course.id]
+                                LaunchedEffect(course.id) {
+                                    if (details.value[course.id] == null) {
+                                        val deviceId = InstallIdentity.of(context)
+                                        val api = CoursesApi(API_BASE)
+                                        val loaded =
+                                            withContext(Dispatchers.IO) {
+                                                runCatching { api.getCourse(deviceId, course.id) }.getOrNull()
+                                            }
+                                        if (loaded != null) {
+                                            details.value = details.value + (course.id to loaded)
                                         }
-                                    if (loaded != null) {
-                                        details.value = details.value + (course.id to loaded)
                                     }
                                 }
-                            }
-                            if (detail != null) {
-                                Column(
-                                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = 6.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(IOS.systemGray6)
-                                            .padding(10.dp),
-                                ) {
-                                    detail.days.forEach { day ->
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text(
-                                                tr("%d일차").format(day.dayNumber),
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = IOS.pinDeep,
-                                                modifier = Modifier.width(38.dp),
-                                            )
-                                            // 목록에서 빠진 촬영지·폐업한 편의시설은 지우지 않고 이유를 붙인다(MZ2AZ-458).
-                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                day.items.forEach { item ->
-                                                    val notice = UnavailableItem.notice(item)
-                                                    Text(
-                                                        item.name,
-                                                        fontSize = 11.sp,
-                                                        color = IOS.label,
-                                                        modifier = Modifier.alpha(unavailableAlpha(notice)),
-                                                    )
-                                                    if (notice != null) UnavailableItemNotice(notice)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                if (detail != null) {
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(6.dp),
                                         modifier =
                                             Modifier
                                                 .fillMaxWidth()
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(IOS.accent.copy(alpha = 0.12f))
-                                                .clickable {
-                                                    TabRouter.openCourse(course.id)
-                                                    onClose()
-                                                }.padding(vertical = 8.dp),
+                                                .padding(top = 6.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(IOS.systemGray6)
+                                                .padding(10.dp),
                                     ) {
-                                        Text(
-                                            tr("경로여정에서 열기") + " ↗",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = IOS.accent,
-                                        )
+                                        detail.days.forEach { day ->
+                                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                Text(
+                                                    tr("%d일차").format(day.dayNumber),
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = IOS.pinDeep,
+                                                    modifier = Modifier.width(38.dp),
+                                                )
+                                                // 목록에서 빠진 촬영지·폐업한 편의시설은 지우지 않고 이유를 붙인다(MZ2AZ-458).
+                                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    day.items.forEach { item ->
+                                                        val notice = UnavailableItem.notice(item)
+                                                        Text(
+                                                            item.name,
+                                                            fontSize = 11.sp,
+                                                            color = IOS.label,
+                                                            modifier = Modifier.alpha(unavailableAlpha(notice)),
+                                                        )
+                                                        if (notice != null) UnavailableItemNotice(notice)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            modifier =
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(IOS.accent.copy(alpha = 0.12f))
+                                                    .clickable {
+                                                        TabRouter.openCourse(course.id)
+                                                        onClose()
+                                                    }.padding(vertical = 8.dp),
+                                        ) {
+                                            Text(
+                                                tr("경로여정에서 열기") + " ↗",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = IOS.accent,
+                                            )
+                                        }
                                     }
-                                }
-                            } else {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.padding(top = 6.dp),
-                                ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                                    Text(tr("일정을 받아오는 중입니다"), fontSize = 11.sp, color = IOS.secondaryLabel)
+                                } else {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.padding(top = 6.dp),
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                                        Text(tr("일정을 받아오는 중입니다"), fontSize = 11.sp, color = IOS.secondaryLabel)
+                                    }
                                 }
                             }
                         }
+                        // iOS `List(.plain)` 행 구분선 — 글자 시작(16)부터 오른쪽 끝에서 15 들어와 끝난다. 유리 위 선 색은 실측 (214,214,215).
+                        androidx.compose.material3.HorizontalDivider(
+                            modifier = Modifier.padding(start = 16.dp, end = 15.dp),
+                            thickness = 1.dp,
+                            color = Color(0xFFD6D6D7),
+                        )
                     }
                 }
             }
@@ -469,7 +482,7 @@ fun MyCoursesSheet(
     failed: Boolean,
     onClose: () -> Unit,
 ) {
-    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose, containerColor = MY_COURSES_SHEET_COLOR) {
         MyCoursesSheetBody(courses = courses, loading = loading, failed = failed, onClose = onClose)
     }
 }

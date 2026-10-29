@@ -112,6 +112,8 @@ fun RouteStopRow(
     isFocused: Boolean,
     pinLabel: String?,
     isPinned: Boolean,
+    // 도착 고정 줄이면 체크무늬 깃발(`flag.checkered`), 출발이면 깃발(`flag`).
+    isArrivalPin: Boolean = false,
     onFocus: () -> Unit,
     onRemove: () -> Unit,
     onMoveUp: (() -> Unit)?,
@@ -287,7 +289,14 @@ fun RouteStopRow(
                 if (pinLabel != null) {
                     val pinTint = if (isPinned) Color.White else IOS.secondaryLabel
                     StopCapsule(background = if (isPinned) IOS.accent else IOS.systemGray6, onClick = onTogglePin) {
-                        FlagIcon(tint = pinTint, filled = isPinned, modifier = Modifier.size(10.dp))
+                        // iOS `PinKind.symbol`: 출발 `flag`, 도착 `flag.checkered`(고정하면 `.fill`).
+                        FlagIcon(
+                            tint = pinTint,
+                            filled = isPinned,
+                            checkered = isArrivalPin,
+                            knockout = IOS.accent,
+                            modifier = Modifier.size(10.dp),
+                        )
                         Text(tr("%s 고정").format(pinLabel), fontSize = 11.sp, fontWeight = FontWeight.Medium, color = pinTint, maxLines = 1)
                     }
                 }

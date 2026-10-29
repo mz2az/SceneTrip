@@ -74,6 +74,8 @@ fun IOSSheet(
     onDismiss: () -> Unit,
     fixedHeight: Dp? = null,
     interactiveDismissEnabled: Boolean = true,
+    // 카드 바탕. 기본은 흰색 — iOS 유리(`.regularMaterial`) 시트는 뒤 화면이 비쳐 회색조라 그 시트만 바꿔 넘긴다.
+    containerColor: Color = IOS.systemBackground,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(
@@ -216,7 +218,7 @@ fun IOSSheet(
                                     bottomStart = bottomCorner,
                                     bottomEnd = bottomCorner,
                                 ),
-                            ).background(IOS.systemBackground)
+                            ).background(containerColor)
                             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                             .nestedScroll(nested)
                             // 끌기는 **카드 윗부분(손잡이·머리줄 44)에서 시작한 것만** 받는다. 카드 전체에 걸었더니

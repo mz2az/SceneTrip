@@ -60,9 +60,4 @@ class RouteCourseOpening(
     fun close() {
         publish(state.copy(editing = null))
     }
-
-    /** 상세 조회가 필요 없는 코스(마법사가 방금 만든 초안·저장 결과)를 바로 편집 화면에 올린다. */
-    fun show(course: RouteCourse) {
-        publish(RouteOpeningState(editing = course))
-    }
 }
