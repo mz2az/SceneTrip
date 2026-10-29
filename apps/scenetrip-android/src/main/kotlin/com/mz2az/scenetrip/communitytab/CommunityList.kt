@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -62,6 +63,7 @@ import com.mz2az.scenetrip.ui.BubblesIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSAlert
+import com.mz2az.scenetrip.ui.IOSGlassSheetColor
 import com.mz2az.scenetrip.ui.IOSListDivider
 import com.mz2az.scenetrip.ui.IOSRole
 import com.mz2az.scenetrip.ui.IOSSheet
@@ -104,8 +106,8 @@ internal fun CommunityPostList(
                     if (!mine) CommunityListButton("다시 시도", !loading) { scope.launch { store.refresh(mine) } }
                 }
             }
-            if (mine && !AuthStore.signedIn) item { CommunityListButton("로그인") { AuthStore.promptSignIn() } }
-            if (mine) item { SectionTitle("서버에 게시한 글") }
+            if (mine && !AuthStore.signedIn) item { CommunityListButton("로그인", plainRow = true) { AuthStore.promptSignIn() } }
+            if (mine) item { SectionTitle("서버에 게시한 글", plainHeader = true) }
             if (loading && posts.isEmpty()) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -131,7 +133,16 @@ internal fun CommunityPostList(
             }
             if (mine && posts.isEmpty()) {
                 // 내 글이 없으면 로딩·오류 중에도 이 줄이 「서버에 게시한 글」 아래에 선다 (iOS `MyPostsSheet`).
-                item { Text(tr("아직 쓴 글이 없습니다"), color = IOS.secondaryLabel, modifier = Modifier.padding(16.dp)) }
+                // iOS 목록 행은 44 높이에 글 17 이고 아래에 구분선이 선다(2026-10-29 실측, 선 사이 44).
+                item {
+                    Text(
+                        tr("아직 쓴 글이 없습니다"),
+                        style = IOS.body,
+                        color = IOS.secondaryLabel,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 16.dp, vertical = 11.dp),
+                    )
+                    IOSListDivider(start = 16.dp)
+                }
             }
             if (!mine && posts.isEmpty() && store.legacyPosts.isEmpty() && !loading && state.message == null) {
                 item { CommunityEmptyState() }
@@ -156,7 +167,7 @@ internal fun CommunityPostList(
             }
             if (posts.size < total) {
                 item {
-                    CommunityListButton("더 보기", !loading) { scope.launch { store.refresh(mine, more = true) } }
+                    CommunityListButton("더 보기", !loading, plainRow = mine) { scope.launch { store.refresh(mine, more = true) } }
                 }
             }
             if (mine && store.legacyPosts.isNotEmpty()) {
@@ -192,7 +203,21 @@ internal fun CommunityPostList(
 }
 
 @Composable
-private fun SectionTitle(title: String) {
+private fun SectionTitle(
+    title: String,
+    plainHeader: Boolean = false,
+) {
+    if (plainHeader) {
+        // iOS `List(.plain)` 의 `Section("…")` 머리글 — 글 17 semibold 회색, 위 30·아래 11 (구분선에서 글 가운데까지 41, 실측).
+        Text(
+            tr(title),
+            style = IOS.body,
+            fontWeight = FontWeight.SemiBold,
+            color = IOS.secondaryLabel,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 30.dp, bottom = 11.dp),
+        )
+        return
+    }
     Text(
         tr(title),
         style = IOS.footnote,
@@ -205,8 +230,25 @@ private fun SectionTitle(title: String) {
 internal fun CommunityListButton(
     title: String,
     enabled: Boolean = true,
+    // 「내가 쓴 글」 의 `List(.plain)` 안 단추 — 글자는 검정, 높이 44, 아래 구분선(iOS 실측). 폼 안 단추는 강조색.
+    plainRow: Boolean = false,
     onClick: () -> Unit,
 ) {
+    if (plainRow) {
+        Text(
+            tr(title),
+            style = IOS.body,
+            color = if (enabled) IOS.label else IOS.secondaryLabel,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 44.dp)
+                    .clickable(enabled = enabled, onClick = onClick)
+                    .padding(horizontal = 16.dp, vertical = 11.dp),
+        )
+        IOSListDivider(start = 16.dp)
+        return
+    }
     Text(
         tr(title),
         color = if (enabled) IOS.accent else IOS.secondaryLabel,
@@ -250,7 +292,8 @@ private fun CommunityPostRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .background(IOS.systemBackground),
+            // 「내가 쓴 글」 시트(compact)는 유리 바탕이라 줄도 같은 색이다.
+            .background(if (compact) IOSGlassSheetColor else IOS.systemBackground),
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -356,8 +399,8 @@ internal fun formatDateTime(millis: Long): String = DateText.dateTime(millis)
 fun MyPostsSheet(onClose: () -> Unit) {
     val store = rememberCommunityStore()
     LaunchedEffect(AuthStore.epoch, AppLanguage.current) { store.refresh(mine = true) }
-    IOSSheet(listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose) {
-        Column(Modifier.fillMaxSize().background(IOS.systemBackground)) {
+    IOSSheet(listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onClose, containerColor = IOSGlassSheetColor) {
+        Column(Modifier.fillMaxSize().background(IOSGlassSheetColor)) {
             // 마이페이지의 다른 시트와 같은 머리줄 — 제목 가운데, 오른쪽 작은 X (iOS `ProfileSheetHeader`).
             com.mz2az.scenetrip.profiletab
                 .ProfileSheetHeader(tr("내가 쓴 글"), onClose)
