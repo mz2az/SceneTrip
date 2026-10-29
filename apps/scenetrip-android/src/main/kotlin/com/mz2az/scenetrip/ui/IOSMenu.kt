@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -38,7 +39,7 @@ data class IOSMenuItem(
 )
 
 /**
- * iOS 26 `Menu` — 누른 단추 **아래에 붙어** 뜨는 유리 카드. 단추의 오른쪽 끝에 맞춰 열린다(오른쪽 위에 놓인 「⋯」 의 모양).
+ * iOS 26 `Menu` — 누른 「⋯」 단추 위로 펼쳐져 단추를 덮는 유리 카드(카드 윗변이 점 중심 13.5dp 위, 오른쪽 끝이 14dp 오른쪽). 화면 가장자리에선 안쪽으로 밀린다.
  * 이 컴포저블을 **단추 자리 안에** 둔다 — 그 자리를 기준으로 뜬다. 바깥을 누르면 닫힌다.
  */
 @Composable
@@ -46,8 +47,9 @@ fun IOSMenuPopover(
     items: List<IOSMenuItem>,
     onDismiss: () -> Unit,
 ) {
+    val density = LocalDensity.current
     val provider =
-        remember {
+        remember(density) {
             object : PopupPositionProvider {
                 override fun calculatePosition(
                     anchorBounds: IntRect,
@@ -57,9 +59,13 @@ fun IOSMenuPopover(
                 ): IntOffset {
                     val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
                     val maxY = (windowSize.height - popupContentSize.height).coerceAtLeast(0)
+                    // iOS 26 메뉴는 「⋯」 에서 펼쳐져 단추를 덮는다(6차 실측 report-ios: 카드 윗변이 점 중심보다 13.5pt 위,
+                    // 오른쪽 끝이 점 중심보다 14pt 오른쪽). 카드는 팝업 안쪽 12dp 여백 안에 있고 앵커는 44dp 상자(중심 22dp).
+                    val dx = with(density) { 6.dp.roundToPx() }
+                    val dy = with(density) { 5.dp.roundToPx() }
                     return IntOffset(
-                        (anchorBounds.right - popupContentSize.width).coerceIn(0, maxX),
-                        anchorBounds.bottom.coerceIn(0, maxY),
+                        (anchorBounds.right + dx - popupContentSize.width).coerceIn(0, maxX),
+                        (anchorBounds.top - dy).coerceIn(0, maxY),
                     )
                 }
             }
