@@ -288,7 +288,7 @@ private fun PopoverCard(
                 .then(
                     // iOS 는 카드 가장자리 어둡기 ≈ 9%, 둘레 100pt 넘게 퍼지는 큰 번짐(del-confirm-ios 실측). 고도 그림자로는 못 낸다.
                     if (wideShadow) {
-                        Modifier.iosShadow(Color.Black.copy(alpha = 0.22f), radius = 70.dp, y = 0.dp, cornerRadius = 32.dp)
+                        Modifier.iosShadow(Color.Black.copy(alpha = 0.22f), radius = 100.dp, y = 0.dp, cornerRadius = 32.dp)
                     } else {
                         Modifier.shadow(
                             20.dp,
@@ -316,7 +316,7 @@ private fun PopoverCard(
             // 「 는 Noto 가 글자 칸 오른쪽에 그려 머리가 본문보다 7dp 들어가 보인다 — iOS 는 본문과 같은 선(165 대 167)이라 그만큼 당긴다.
             Text(
                 title,
-                fontSize = if (centered) 17.sp else 14.9.sp,
+                fontSize = if (centered) 17.sp else 15.05.sp,
                 fontWeight = if (centered) FontWeight.Normal else FontWeight.SemiBold,
                 color = IOS.label,
                 textAlign = if (centered) TextAlign.Center else TextAlign.Start,

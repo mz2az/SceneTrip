@@ -212,7 +212,7 @@ fun RouteGuideChipBody(bubble: Boolean) {
             modifier =
                 Modifier
                     .size(46.dp)
-                    .iosShadow(Color.Black.copy(alpha = 0.2f), radius = 4.dp, y = 2.dp, cornerRadius = 23.dp)
+                    .iosShadow(Color.Black.copy(alpha = 0.25f), radius = 7.5.dp, y = 2.dp, cornerRadius = 23.dp)
                     .clip(CircleShape)
                     .background(IOS.systemBackground)
                     .border(2.dp, Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep)), CircleShape)
