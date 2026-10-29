@@ -514,16 +514,26 @@ private fun ForkSheet(
             androidx.compose.ui.graphics
                 .Color(0xFFE9E9EB),
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // 5차 감사(wizsheet2 실측, 시트 윗변 기준): iOS 손잡이 윗변 7·제목 글자 가운데 36.8·첫 카드 윗변 62. 줄 칸을 22 로 고정하고 간격을 직접 둔다
+        // (전: 손잡이 8·제목 +4.6·카드 +7.3).
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
                 modifier =
                     Modifier
-                        .padding(top = 8.dp)
+                        .padding(top = 6.7.dp)
                         .size(width = 40.dp, height = 5.dp)
                         .clip(RoundedCornerShape(50))
                         .background(IOS.systemGray3),
             )
-            Text(tr("코스를 어떻게 만들까요?"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Spacer(Modifier.height(13.4.dp))
+            Text(
+                tr("코스를 어떻게 만들까요?"),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IOS.label,
+                modifier = Modifier.iosLineBox(22.dp),
+            )
+            Spacer(Modifier.height(14.9.dp))
             Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ForkCard(title = tr("AI 로 짜기"), caption = tr("기간·작품만 고르면 동선까지 짜 드립니다"), onClick = onAI) { SparklesIcon(IOS.accent, it) }
                 ForkCard(title = tr("직접 짜기"), caption = tr("장바구니에서 하나씩 담습니다"), onClick = onManual) { HandDrawIcon(IOS.accent, it) }
