@@ -88,6 +88,11 @@ class GuideChat(
         val quota: () -> UsageQuota? = { LimitLedger.guideQuota },
         val signedIn: () -> Boolean = { AuthStore.signedIn },
         val promptSignIn: () -> Unit = { AuthStore.promptSignIn() },
+        /**
+         * 나가 있는 이 턴의 호출을 끊는다 — 가이드 창이 닫힌 채 다시 보내기·되묻기를 기다리고 있을 때 부른다. 끊긴 호출은 중단 오류로
+         * 끝나고([RouteGuideFailure.Interrupted]) 턴은 「다시 시도」 로 남는다. 시험은 가짜로 바꿔 끼운다.
+         */
+        val cancelSend: (PendingTurn) -> Unit = { turn -> ResendEvents.cancelCalls(turn.key) },
     )
 
     /** 챗봇 한도(429 `GUIDE_LIMIT_REACHED`)에 걸렸나. */
@@ -205,6 +210,17 @@ class GuideChat(
     private var accountGeneration = 0
     private var sending: Job? = null
 
+    /**
+     * 지금 떠 있는 가이드 창들. 비어 있으면 다시 보내기·되묻기를 기다리지 않는다([setAttended]).
+     *
+     * 참·거짓 하나가 아니라 **누가 떠 있는지**를 든다 — 한쪽 창이 사라지며 「닫혔다」 고 알리면 다른 쪽 창이 떠 있어도 닫힌 것으로
+     * 남는다(iOS `attendants`). 공통 계층의 알림이 다른 스레드에서 오므로 동시 접근에 안전한 집합이다.
+     */
+    private val attendants: MutableSet<Any> =
+        java.util.concurrent.ConcurrentHashMap
+            .newKeySet()
+    private val attended: Boolean get() = attendants.isNotEmpty()
+
     private val resendListener: (String, ResendEvents.Reason) -> Unit = { key, reason -> noteResend(key, reason) }
 
     init {
@@ -266,7 +282,28 @@ class GuideChat(
         fly()
     }
 
-    /** 공통 계층이 이 턴을 다시 보내려고(또는 다시 물으려고) 쉬기 시작했다 — 화면 말을 바꾼다. */
+    /**
+     * 가이드 창이 열렸다·닫혔다 (iOS `setAttended`). **닫히면 기다리던 다시 보내기·되묻기를 끊는다** — 보는 사람이 없는데 뒤에서
+     * 몇십 초씩 되묻지 않는다. 처음 보낸 요청은 끊지 않는다(묻고 지도를 보려고 창을 내린다). 끊긴 턴은 남아 있어, 같은 코스의
+     * 창을 다시 열어 「다시 시도」 를 누르면 같은 키로 이어진다. 대화([turns])는 그대로다.
+     *
+     * @param panel 알리는 창. 창마다 제 값을 든다 — 마지막 창이 사라져야 닫힌 것이다.
+     */
+    fun setAttended(
+        open: Boolean,
+        panel: Any,
+    ) {
+        if (open) {
+            attendants.add(panel)
+            refreshLimit() // 앱이 뒤에 있던 사이에 풀렸을 수 있다
+        } else {
+            attendants.remove(panel)
+        }
+        val turn = pending ?: return
+        if (!attended && turn.stage.isResending) environment.cancelSend(turn)
+    }
+
+    /** 공통 계층이 이 턴을 다시 보내려고(또는 다시 물으려고) 쉬기 시작했다 — 화면 말을 바꾼다. 창이 닫혀 있으면 더 보내지 않고 끊는다. */
     fun noteResend(
         key: String,
         reason: ResendEvents.Reason,
@@ -274,6 +311,7 @@ class GuideChat(
         val turn = pending ?: return
         if (turn.key != key || !turn.stage.isBusy) return
         pending = turn.resending(reason)
+        if (!attended) environment.cancelSend(turn)
     }
 
     private fun fly() {

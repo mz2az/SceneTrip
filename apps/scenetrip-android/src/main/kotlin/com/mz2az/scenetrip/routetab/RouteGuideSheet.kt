@@ -38,6 +38,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -249,6 +250,14 @@ fun RouteGuidePanel(
     onOpenPlanner: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    // 창이 떠 있는 동안만 다시 보내기·되묻기를 기다린다 — 접거나 화면을 떠나면 끊는다(MZ2AZ-481, iOS `onAppear`/`onDisappear` 의
+    // `setAttended`). 창은 접혀도 구성에 남아 있어(애니메이션) [isOpen] 으로 가른다. 대화와 남은 턴은 그대로라 같은 코스의 창을 다시
+    // 열면 「다시 시도」 가 같은 키로 이어진다.
+    val panelId = remember { Any() }
+    DisposableEffect(session, isOpen) {
+        if (isOpen) session.setAttended(true, panelId)
+        onDispose { session.setAttended(false, panelId) }
+    }
     // AI 기능 동의 (MZ2AZ-468) — 첫 질문·다시 시도 전에 안내 시트. 패널이 접혀도 시트는 남도록 패널 밖에 둔다.
     val consent = remember { AIConsentGate(AIConsentStore.getInstance(context)) }
     AIConsentSheetHost(consent)

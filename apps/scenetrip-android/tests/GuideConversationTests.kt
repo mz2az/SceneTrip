@@ -493,6 +493,8 @@ class GuideConversationTests {
                         now = { 0L },
                     ),
                 )
+            // 창이 떠 있다 — 닫혀 있으면 다시 보내기 알림이 호출을 끊는다(MZ2AZ-481, `GuideCloseTests`).
+            guide.setAttended(true, Any())
             // 전송이 끝나기 전에 알림을 흘려 단계가 바뀌는지 본다.
             gate.onInside = {
                 guide.noteResend("other-key", com.mz2az.scenetrip.data.ResendEvents.Reason.FAILED)

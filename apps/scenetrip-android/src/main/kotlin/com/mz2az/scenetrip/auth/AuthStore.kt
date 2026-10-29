@@ -187,6 +187,29 @@ object AuthStore {
         }
     }
 
+    /**
+     * 비회원 기록만 지운다(MZ2AZ-471). 성공해도 토큰·설치 UUID·로그인 상태를 바꾸지 않는다.
+     * 화면이 떠나도 요청은 끝까지 가도록 앱 범위에서 돌린다 — 부르는 쪽은 [onDone] 으로 결과를 받는다.
+     */
+    fun deleteDeviceData(onDone: (GuestDataDeletion.Outcome) -> Unit) {
+        scope.launch {
+            val outcome =
+                GuestDataDeletion.run(
+                    signedIn = { signedIn },
+                    busy = { busy },
+                    setBusy = { busy = it },
+                    epoch = { epoch },
+                    settle = { PendingWrites.settle() },
+                    delete = { GuestDataDeletion.delete(installId) },
+                    onDeleted = {
+                        clearLocalAccountData()
+                        accountChanged()
+                    },
+                )
+            onDone(outcome)
+        }
+    }
+
     /** 세션이 깨졌다(토큰 위조·폐기·리프레시 만료). 토큰을 지우고 로그인 화면을 띄운다. 다른 스레드에서도 부른다. */
     fun sessionLost() {
         scope.launch {
@@ -198,18 +221,25 @@ object AuthStore {
     }
 
     private fun forget() {
-        com.mz2az.scenetrip.data.FootprintStore
-            .getInstance(appContext)
-            .forgetOwner()
-        // 화면이 든 앞 계정의 사본(찜·코스·스탬프)을 먼저 비운다 — 다시 읽기가 실패해도 남아 보이지 않게 (MZ2AZ-480).
-        com.mz2az.scenetrip.data.AccountDataReset
-            .clear()
+        clearLocalAccountData()
         AuthTokens.clear()
         me = null
         signedIn = false
         showingNickname = false
         AppAnalytics.setMember(false)
         accountChanged()
+    }
+
+    /**
+     * 발자취는 기기에만 있지만 그 사람의 것이다 — 계정이 떠나면 함께 지운다(MZ2AZ-348). 화면이 든 앞 계정의 사본(찜·코스·스탬프)도
+     * 먼저 비운다 — 다시 읽기가 실패해도 남아 보이지 않게 (MZ2AZ-480). 로그아웃·탈퇴·비회원 기록 삭제가 함께 쓴다.
+     */
+    private fun clearLocalAccountData() {
+        com.mz2az.scenetrip.data.FootprintStore
+            .getInstance(appContext)
+            .forgetOwner()
+        com.mz2az.scenetrip.data.AccountDataReset
+            .clear()
     }
 
     private fun accountChanged() {

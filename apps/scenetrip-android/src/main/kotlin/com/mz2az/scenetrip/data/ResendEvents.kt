@@ -1,5 +1,7 @@
 package com.mz2az.scenetrip.data
 
+import com.mz2az.scenetrip.sceneapi.client.infrastructure.ApiClient
+import okhttp3.Dispatcher
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -35,5 +37,19 @@ object ResendEvents {
         reason: Reason,
     ) {
         listeners.forEach { it(key, reason) }
+    }
+
+    /**
+     * 이 멱등 키를 실은 **나가 있는 호출을 끊는다**(iOS 는 `Task.cancel()`). 코루틴만 끊으면 막힌 소켓 호출과 공통 계층의
+     * 다시 보내기 대기가 그대로 돌아 뒤에서 요청을 더 보낸다 — 호출 자체를 끊어야 [RetryInterceptor] 의 대기 반복이 멈춘다.
+     * 끊긴 호출은 `InterruptedIOException("cancelled")` 로 끝난다.
+     */
+    fun cancelCalls(
+        key: String,
+        dispatcher: Dispatcher = ApiClient.defaultClient.dispatcher,
+    ) {
+        (dispatcher.runningCalls() + dispatcher.queuedCalls())
+            .filter { it.request().header("Idempotency-Key") == key }
+            .forEach { it.cancel() }
     }
 }
