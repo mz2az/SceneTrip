@@ -1,6 +1,5 @@
 /*
- * 검색 탭이 쓰는 지도 — 공급자를 갈아 끼우는 자리. 지금은 Leaflet + OSM(개발용).
- * 출시 때 네이버/카카오 웹 지도로 바꿀 때는 `MapViewProps`(types.ts)를 받는 컴포넌트를 만들어 여기서 내보낸다.
+ * 검색 탭이 쓰는 지도. 공급자(네이버 지도 웹 SDK / Leaflet 폴백)는 `src/map/` 어댑터가 고른다 — 화면은 `MapViewProps`(types.ts)만 안다.
  */
-export { LeafletMap as MapView } from './LeafletMap'
+export { SearchMap as MapView } from './SearchMap'
 export type { LocateOutcome, MapCameraHandle, MapViewProps } from './types'

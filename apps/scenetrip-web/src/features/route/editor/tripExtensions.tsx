@@ -322,8 +322,7 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
       patchUi({ mapCenter: { latitude: c.lat, longitude: c.lng } })
     }
     update()
-    map.on('moveend', update)
-    return () => void map.off('moveend', update)
+    return map.on('moveend', update)
   }, [host.map])
 
   // 주변 편의시설 — 안내 중에는 점을 다 끈다(경로선이 주인공). 기기 위치에서 비롯한 지도는 위치 동의가 있어야 부른다.
@@ -385,11 +384,14 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
   useEffect(() => {
     const map = host.map
     if (!map || trip.recenterTick === 0 || !trip.target) return
-    const pts: Array<[number, number]> = [[trip.target.place.latitude, trip.target.place.longitude]]
-    if (trip.here) pts.push([trip.here.latitude, trip.here.longitude])
-    const bounds = pts.length === 1 ? null : pts
-    if (bounds) map.fitBounds(bounds, { paddingTopLeft: [40, 40], paddingBottomRight: [40, host.panelHeight + 40], maxZoom: 17 })
-    else map.setView(pts[0], Math.max(map.getZoom(), 15))
+    const pts = [{ lat: trip.target.place.latitude, lng: trip.target.place.longitude }]
+    if (trip.here) pts.push({ lat: trip.here.latitude, lng: trip.here.longitude })
+    if (pts.length > 1) {
+      const lats = pts.map((c) => c.lat)
+      const lngs = pts.map((c) => c.lng)
+      const bounds = { southWest: { lat: Math.min(...lats), lng: Math.min(...lngs) }, northEast: { lat: Math.max(...lats), lng: Math.max(...lngs) } }
+      map.fitBounds(bounds, { paddingTopLeft: [40, 40], paddingBottomRight: [40, host.panelHeight + 40], maxZoom: 17 })
+    } else map.setView(pts[0], Math.max(map.getZoom(), 15))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip.recenterTick, host.map])
 

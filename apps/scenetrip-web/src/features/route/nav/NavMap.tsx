@@ -1,13 +1,13 @@
 /*
- * 길찾기·편의시설용 작은 지도 — iOS RouteNavMapView.swift 와 같은 모양의 Leaflet 래퍼(개발 중 OpenStreetMap 타일, 키 불필요).
- * 상용 출시 전에 교체: OSM 공개 타일 서버는 상용 서비스에 쓰지 않는다 — docs/project/web-app.md §7.
+ * 길찾기·편의시설용 작은 지도 — iOS RouteNavMapView.swift 와 같은 모양. 지도 자체(네이버 지도 웹 SDK, 없으면 Leaflet + OSM 폴백)는
+ * `src/map/` 어댑터가 맡는다 — docs/project/web-app.md §7.
  *
  * 코스 번호 핀(방문 순서)과 직선 계획선을 그리고, 그 위에 가이드·편의시설·여행 안내 층(`useMapOverlay`)을 얹는다. 경로여정 담당의 편집 지도(`../map/RouteMap`)를
  * 쓰는 화면은 이 컴포넌트 없이 `useMapOverlay(map, …)` 만 부르면 된다.
  */
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
+import { createMap, createMapNow, ignoreCancelled } from '@/map'
+import type { LatLng as GeoPoint, MapBounds, MapHandle, MapLayer, MarkerSpec } from '@/map'
 import { NUMBERED_SIZE, PIN_DEEP, haetaePinSvg, numberedPinSvg, pawPinSvg, HAETAE_SIZE } from '../map/pinSvg'
 import { type Leg } from './navModels'
 import { type OverlayState, fitTrip } from './mapOverlay'
@@ -15,9 +15,7 @@ import { useMapOverlay } from './useMapOverlay'
 import type { RoutePlace } from '../poi/poiPlace'
 import './tripMap.css'
 
-const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-const MAX_ZOOM = 19
-const KOREA: L.LatLngBoundsLiteral = [[33.0, 124.6], [38.7, 131.0]]
+const KOREA: MapBounds = { southWest: { lat: 33.0, lng: 124.6 }, northEast: { lat: 38.7, lng: 131.0 } }
 const FIT_PADDING = 40
 
 /** 지도에 그릴 코스의 한 곳. 번호는 그 일차 안의 순서(지도·목록이 같다). */
@@ -48,79 +46,101 @@ export interface NavMapProps {
   bottomInset?: number
   onSelectPlace?: (place: RoutePlace) => void
   onTapStop?: (stop: NavStop) => void
-  onMapMove?: (map: L.Map) => void
-  onReady?: (map: L.Map) => void
+  onMapMove?: (map: MapHandle) => void
+  onReady?: (map: MapHandle) => void
 }
 
-const icon = (svg: string, w: number, h: number, ax: number, ay: number): L.DivIcon => L.divIcon({ className: 'route-pin', iconSize: [w, h], iconAnchor: [ax, ay], html: svg })
+const pin = (svg: string, w: number, h: number, ax: number, ay: number): Pick<MarkerSpec, 'html' | 'className' | 'size' | 'anchor'> => ({ className: 'route-pin', size: [w, h], anchor: [ax, ay], html: svg })
+
+const boundsOfPoints = (pts: readonly GeoPoint[]): MapBounds => {
+  const lats = pts.map((p) => p.lat)
+  const lngs = pts.map((p) => p.lng)
+  return { southWest: { lat: Math.min(...lats), lng: Math.min(...lngs) }, northEast: { lat: Math.max(...lats), lng: Math.max(...lngs) } }
+}
 
 export function NavMap(props: NavMapProps) {
   const host = useRef<HTMLDivElement>(null)
-  const [map, setMap] = useState<L.Map | null>(null)
-  const stopLayer = useRef<L.LayerGroup | null>(null)
+  const [map, setMap] = useState<MapHandle | null>(null)
+  const stopLayer = useRef<MapLayer | null>(null)
   const latest = useRef(props)
   latest.current = props
   const seen = useRef({ tick: -1, fitted: '' })
   const { stops = [], target = null, here = null, legs = [], ambient = [], guidePlaces = [], picked = null, preview = false, recenterTick = 0, bottomInset = 0 } = props
 
-  // ---- 지도 만들기 (한 번)
+  // ---- 지도 만들기 (한 번) — 공급자(네이버/Leaflet)는 어댑터가 고른다.
   useEffect(() => {
     const el = host.current
     if (!el) return
-    const m = L.map(el, { zoomControl: false, attributionControl: true, zoomSnap: 0.25, maxZoom: MAX_ZOOM })
-    m.attributionControl.setPrefix(false)
-    L.tileLayer(TILE_URL, { attribution: '© OpenStreetMap', maxZoom: MAX_ZOOM }).addTo(m)
-    L.control.scale({ imperial: false, position: 'bottomright', maxWidth: 110 }).addTo(m)
-    stopLayer.current = L.layerGroup().addTo(m)
-    m.fitBounds(KOREA, { animate: false })
-    const ro = new ResizeObserver(() => m.invalidateSize())
-    ro.observe(el)
-    m.on('moveend', () => latest.current.onMapMove?.(m))
-    setMap(m)
-    latest.current.onReady?.(m)
+    let cancelled = false
+    let teardown: (() => void) | null = null
+    const setup = (m: MapHandle) => {
+      stopLayer.current = m.createLayer()
+      m.setBottomInset(latest.current.bottomInset ?? 0)
+      m.fitBounds(KOREA, { animate: false })
+      const ro = new ResizeObserver(() => m.resize())
+      ro.observe(el)
+      const offMove = m.on('moveend', () => latest.current.onMapMove?.(m))
+      setMap(m)
+      latest.current.onReady?.(m)
+      teardown = () => {
+        ro.disconnect()
+        offMove()
+        m.destroy()
+        setMap(null)
+        stopLayer.current = null
+      }
+    }
+    // 클라이언트 ID 가 없으면 지도를 지금 바로 세운다(예전과 같은 커밋). 있으면 네이버 스크립트를 기다린다.
+    const now = createMapNow(el)
+    if (now) setup(now)
+    else {
+      void createMap(el, { isCancelled: () => cancelled }).then((made) => {
+        if (cancelled) {
+          made.destroy()
+          return
+        }
+        setup(made)
+      }).catch(ignoreCancelled)
+    }
     return () => {
-      ro.disconnect()
-      m.remove()
-      setMap(null)
-      stopLayer.current = null
+      cancelled = true
+      teardown?.()
     }
   }, [])
+
+  // ---- 시트·카드가 덮은 높이 — 네이버는 로고·저작권·축척을 그 위로 올린다.
+  useEffect(() => {
+    map?.setBottomInset(bottomInset)
+  }, [map, bottomInset])
 
   // ---- 번호 핀과 직선 계획선
   useEffect(() => {
     const g = stopLayer.current
     if (!g) return
-    g.clearLayers()
-    const run: L.LatLngTuple[] = []
+    g.clear()
+    const run: GeoPoint[] = []
     const flush = () => {
       if (run.length > 1) {
-        L.polyline([...run], { color: '#fff', weight: 5, interactive: false }).addTo(g)
-        L.polyline([...run], { color: PIN_DEEP, weight: 4, interactive: false }).addTo(g)
+        g.addPolyline({ path: [...run], color: '#fff', weight: 5 })
+        g.addPolyline({ path: [...run], color: PIN_DEEP, weight: 4 })
       }
       run.length = 0
     }
     for (const s of stops) {
-      run.push([s.latitude, s.longitude])
+      run.push({ lat: s.latitude, lng: s.longitude })
       // 다녀온 곳까지는 잇되 거기서 나가는 선은 끊는다 — 단 지금 가는 중인 곳에서 나가는 선은 남긴다.
       if (s.visited && s.id !== target?.id) flush()
     }
     flush()
     for (const s of stops) {
-      const pos: L.LatLngTuple = [s.latitude, s.longitude]
+      const position = { lat: s.latitude, lng: s.longitude }
+      const onClick = () => latest.current.onTapStop?.(s)
       // 지금 안내 중인 목적지는 해태, 다녀온 곳은 발바닥 — 그 밖은 번호 핀.
-      const m =
-        s.visited
-          ? L.marker(pos, { icon: icon(pawPinSvg(), 30, 30, 15, 15), zIndexOffset: 800 })
-          : s.id === target?.id
-            ? L.marker(pos, { icon: icon(haetaePinSvg(false), HAETAE_SIZE.w, HAETAE_SIZE.h, HAETAE_SIZE.w / 2, HAETAE_SIZE.h - 4), zIndexOffset: 1000 })
-            : L.marker(pos, { icon: icon(numberedPinSvg(s.number), NUMBERED_SIZE.w, NUMBERED_SIZE.h, NUMBERED_SIZE.tipX, NUMBERED_SIZE.tipY) })
-      m.on('click', (e) => {
-        L.DomEvent.stopPropagation(e)
-        latest.current.onTapStop?.(s)
-      })
-      m.addTo(g)
+      if (s.visited) g.addMarker({ position, ...pin(pawPinSvg(), 30, 30, 15, 15), zIndex: 800, onClick })
+      else if (s.id === target?.id) g.addMarker({ position, ...pin(haetaePinSvg(false), HAETAE_SIZE.w, HAETAE_SIZE.h, HAETAE_SIZE.w / 2, HAETAE_SIZE.h - 4), zIndex: 1000, onClick })
+      else g.addMarker({ position, ...pin(numberedPinSvg(s.number), NUMBERED_SIZE.w, NUMBERED_SIZE.h, NUMBERED_SIZE.tipX, NUMBERED_SIZE.tipY), onClick })
     }
-  }, [stops, target])
+  }, [map, stops, target])
 
   // ---- 가이드·편의시설·여행 안내 층
   const overlay: OverlayState = { ambient, guidePlaces, picked, legs, here, target: target ? { latitude: target.latitude, longitude: target.longitude } : null, preview }
@@ -135,10 +155,10 @@ export function NavMap(props: NavMapProps) {
     seen.current = { tick: recenterTick, fitted: key }
     const t = window.setTimeout(() => {
       if (target) return fitTrip(map, { target, here, legs, bottomInset })
-      const pts = stops.map((s) => [s.latitude, s.longitude] as L.LatLngTuple)
+      const pts = stops.map((s) => ({ lat: s.latitude, lng: s.longitude }))
       if (pts.length === 0) return
       if (pts.length === 1) return void map.setView(pts[0], 15, { animate: true })
-      map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [FIT_PADDING, FIT_PADDING], paddingBottomRight: [FIT_PADDING, FIT_PADDING + bottomInset], animate: true, duration: 0.4, maxZoom: 17 })
+      map.fitBounds(boundsOfPoints(pts), { paddingTopLeft: [FIT_PADDING, FIT_PADDING], paddingBottomRight: [FIT_PADDING, FIT_PADDING + bottomInset], animate: true, seconds: 0.4, maxZoom: 17 })
     }, 0)
     return () => window.clearTimeout(t)
     // here·legs 는 카메라 신호가 아니다 — 신호(recenterTick)가 바뀔 때만 읽는다.

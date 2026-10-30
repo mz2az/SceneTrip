@@ -1,4 +1,4 @@
-import type L from 'leaflet'
+import type { MapHandle } from '@/map'
 import { describe, expect, it } from 'vitest'
 import { viewportOf } from './useAmbientPois'
 
@@ -6,7 +6,7 @@ import { viewportOf } from './useAmbientPois'
 const map = {
   getSize: () => ({ x: 402, y: 818 }),
   containerPointToLatLng: ([x, y]: [number, number]) => ({ lat: 37.6 - y * 0.001, lng: 127 + x * 0.001 }),
-} as unknown as L.Map
+} as unknown as MapHandle
 
 describe('viewportOf — 시트가 덮은 만큼은 보이는 영역이 아니다 (iOS contentInset.bottom)', () => {
   it('덮인 데가 없으면 지도 전체다', () => {

@@ -5,7 +5,7 @@
  * 편의시설 카드는 「가이드·길찾기·POI」 담당 몫이다. 그쪽 모듈이 읽힐 때 `registerEditorExtensions` 를 불러 필요한 것만 채우면 된다 —
  * 이 폴더가 그 폴더를 import 하지 않으므로 서로의 파일을 고치지 않고 이어진다. 등록이 없으면 아무 일도 하지 않는다.
  */
-import type L from 'leaflet'
+import type { MapHandle } from '@/map'
 import type { ComponentType, ReactNode } from 'react'
 import { createStore } from '@/state/storage'
 import type { LatLng } from '../map/RouteMap'
@@ -20,8 +20,8 @@ export interface EditorHost {
   setDayIndex(i: number): void
   stops: readonly RouteStop[]
   isNew: boolean
-  /** Leaflet 지도(만들어진 뒤). 선·핀을 더 얹는다. */
-  map: L.Map | null
+  /** 지도 핸들(만들어진 뒤). 선·핀을 더 얹는다. */
+  map: MapHandle | null
   /** 목록에서 고른 장소·지도 카메라를 일차 전체로 되돌린다. */
   refit(): void
   /** 서버에 저장한다(길찾기는 저장된 코스 항목만 목적지로 받는다). 성공하면 저장된 코스. */
@@ -67,7 +67,7 @@ export interface EditorExtensions {
   /** 화면을 닫을 때 정리(안내 끝). */
   onDispose?: () => void
   /** 지도가 만들어졌다. */
-  onMapReady?: (host: EditorHost, map: L.Map) => void
+  onMapReady?: (host: EditorHost, map: MapHandle) => void
 }
 
 export const editorExtensions = createStore<EditorExtensions>({})

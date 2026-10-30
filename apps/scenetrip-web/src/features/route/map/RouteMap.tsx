@@ -1,22 +1,20 @@
 /*
- * 코스용 지도 — iOS RouteTab/RouteMapView.swift (+ RouteMapPins, RouteMapTrip.drawLine). Leaflet + OpenStreetMap 타일(개발용, 키 불필요).
- * 상용 출시 전에 교체: OSM 공개 타일 서버는 상용 서비스에 쓰지 않는다 — docs/project/web-app.md §7. 검색 탭 지도와 같은 모양이지만
- * 폴더를 따로 둔다(겹침은 나중에 합친다). 가이드·길찾기 담당이 이 위에 그릴 수 있게 `onReady` 로 Leaflet 지도를 넘긴다.
+ * 코스용 지도 — iOS RouteTab/RouteMapView.swift (+ RouteMapPins, RouteMapTrip.drawLine). 지도 자체(네이버 지도 웹 SDK, 없으면 Leaflet + OSM 폴백)는
+ * `src/map/` 어댑터가 맡는다 — docs/project/web-app.md §7. 검색 탭 지도와 같은 모양이지만 폴더를 따로 둔다(겹침은 나중에 합친다).
+ * 가이드·길찾기 담당이 이 위에 그릴 수 있게 `onReady` 로 지도 핸들(`MapHandle`)을 넘긴다.
  *
  * 코스 지도는 방문 순서대로 핀을 찍고 직선으로만 잇는다. 카메라가 움직일 계기는 보여 줄 것이 바뀔 때뿐이다 — 이미 옮긴 조합은 두 번 옮기지 않는다
  * (다시 그릴 때마다 지도가 튀면 손으로 옮긴 화면이 계속 되돌아간다).
  */
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createMap, createMapNow, ignoreCancelled } from '@/map'
+import type { LatLng as GeoPoint, MapBounds, MapHandle, MapLayer, MarkerHandle, MarkerSpec } from '@/map'
 import { canNavigate, type PlaceSummary, type RouteStop } from '../models'
 import { usableAnchor } from '../geometry'
 import { HAETAE_SIZE, NUMBERED_SIZE, PIN_DEEP, haetaePinSvg, numberedPinSvg, pawPinSvg } from './pinSvg'
 import { PinCaption } from './wording'
 import './routeMap.css'
 
-const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-const MAX_ZOOM = 19
 /** 코스 전체에 맞출 때의 여백(pt) — RouteMapView.fit(padding: 40). */
 const FIT_PADDING = 40
 /** 한 점이거나 약 60 m 아래로 몰려 있으면 범위 맞추기를 하지 않고 확대한다(0.0006°). */
@@ -29,7 +27,7 @@ const WITH_ME_PADDING = 56
 const CAPTION_MIN_ZOOM = 12
 /** 시트가 덮는 높이가 이만큼 이상 바뀔 때만 다시 맞춘다(시트를 끄는 동안 카메라가 따라다니면 멀미가 난다). */
 const INSET_EPSILON = 40
-const KOREA: L.LatLngBoundsLiteral = [[33.0, 124.6], [38.7, 131.0]]
+const KOREA: MapBounds = { southWest: { lat: 33.0, lng: 124.6 }, northEast: { lat: 38.7, lng: 131.0 } }
 
 export interface LatLng {
   latitude: number
@@ -60,8 +58,8 @@ export interface RouteMapProps {
   onTapPreview: (place: PlaceSummary) => void
   /** 내 자리가 바뀌었다(브라우저 위치). */
   onHere?: (spot: LatLng | null) => void
-  /** Leaflet 지도가 만들어졌다 — 가이드·길찾기 담당이 선·핀을 더 얹는다. */
-  onReady?: (map: L.Map) => void
+  /** 지도가 만들어졌다 — 가이드·길찾기 담당이 선·핀을 더 얹는다. */
+  onReady?: (map: MapHandle) => void
   /** 동선 최적화의 기준점 규칙(`usableAnchor`)에 쓰는 내 자리. 부모가 알고 있으면 넘긴다. */
   here?: LatLng | null
 }
@@ -72,12 +70,18 @@ function stopKey(s: RouteStop): string {
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string)
 
-function icon(svg: string, w: number, h: number, ax: number, ay: number, caption?: string): L.DivIcon {
+function pin(svg: string, w: number, h: number, ax: number, ay: number, caption?: string): Pick<MarkerSpec, 'html' | 'className' | 'size' | 'anchor'> {
   const cap = caption ? `<span class="rt-pin-cap" style="top:${h - 3}px">${escapeHtml(PinCaption.text(caption))}</span>` : ''
-  return L.divIcon({ className: 'route-pin', iconSize: [w, h], iconAnchor: [ax, ay], html: svg + cap })
+  return { className: 'route-pin', size: [w, h], anchor: [ax, ay], html: svg + cap }
 }
 
-const meIcon = L.divIcon({ className: 'route-pin', iconSize: [18, 18], iconAnchor: [9, 9], html: '<span class="rt-me-ring"></span><span class="rt-me-dot"></span>' })
+const ME_HTML = '<span class="rt-me-ring"></span><span class="rt-me-dot"></span>'
+
+const boundsOfPoints = (pts: readonly GeoPoint[]): MapBounds => {
+  const lats = pts.map((p) => p.lat)
+  const lngs = pts.map((p) => p.lng)
+  return { southWest: { lat: Math.min(...lats), lng: Math.min(...lngs) }, northEast: { lat: Math.max(...lats), lng: Math.max(...lngs) } }
+}
 
 const haversineMeters = (a: LatLng, b: LatLng): number => {
   const r = Math.PI / 180
@@ -87,15 +91,17 @@ const haversineMeters = (a: LatLng, b: LatLng): number => {
 
 export function RouteMap(props: RouteMapProps) {
   const host = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<L.Map | null>(null)
-  const layer = useRef<L.LayerGroup | null>(null)
-  const meMarker = useRef<L.Marker | null>(null)
+  const mapRef = useRef<MapHandle | null>(null)
+  const [ready, setReady] = useState(false)
+  const layer = useRef<MapLayer | null>(null)
+  const meLayer = useRef<MapLayer | null>(null)
+  const meMarker = useRef<MarkerHandle | null>(null)
   const latest = useRef(props)
   latest.current = props
   const hereRef = useRef<LatLng | null>(null)
   const seen = useRef({ cameraKey: '', fit: -1, courseFit: 0, inset: 0, drawKey: '' })
 
-  const fitPoints = (pts: L.LatLngExpression[], pad = FIT_PADDING, maxZoom = 17) => {
+  const fitPoints = (pts: GeoPoint[], pad = FIT_PADDING, maxZoom = 17) => {
     const map = mapRef.current
     if (!map) return
     if (pts.length === 0) {
@@ -104,47 +110,67 @@ export function RouteMap(props: RouteMapProps) {
       map.fitBounds(KOREA, { paddingTopLeft: [8, 8], paddingBottomRight: [8, 8 + latest.current.bottomInset], animate: false })
       return
     }
-    const lats = pts.map((p) => L.latLng(p).lat)
-    const lngs = pts.map((p) => L.latLng(p).lng)
-    const span = Math.max(Math.max(...lats) - Math.min(...lats), Math.max(...lngs) - Math.min(...lngs))
+    const b = boundsOfPoints(pts)
+    const span = Math.max(b.northEast.lat - b.southWest.lat, b.northEast.lng - b.southWest.lng)
     const { bottomInset } = latest.current
-    // 줌 애니메이션이 도는 중에 다시 맞추면 Leaflet 이 새 요청을 무시한다 — 먼저 멈춘다.
+    // 줌 애니메이션이 도는 중에 다시 맞추면 새 요청을 무시하는 지도가 있다 — 먼저 멈춘다.
     map.stop()
     if (pts.length === 1 || span < SINGLE_SPAN) {
-      const center = L.latLng((Math.max(...lats) + Math.min(...lats)) / 2, (Math.max(...lngs) + Math.min(...lngs)) / 2)
-      const z = SINGLE_ZOOM
-      const offset = bottomInset / 2
-      map.setView(map.unproject(map.project(center, z).add([0, offset]), z), z, { animate: true, duration: 0.4 })
+      const center = { lat: (b.northEast.lat + b.southWest.lat) / 2, lng: (b.northEast.lng + b.southWest.lng) / 2 }
+      map.setView(center, SINGLE_ZOOM, { animate: true, seconds: 0.4, shiftY: bottomInset / 2 })
       return
     }
-    map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [pad, pad], paddingBottomRight: [pad, pad + bottomInset], animate: true, duration: 0.4, maxZoom })
+    map.fitBounds(b, { paddingTopLeft: [pad, pad], paddingBottomRight: [pad, pad + bottomInset], animate: true, seconds: 0.4, maxZoom })
   }
 
-  // ---- 지도 만들기 (한 번)
+  // ---- 지도 만들기 (한 번) — 공급자(네이버/Leaflet)는 어댑터가 고른다.
   useEffect(() => {
     const el = host.current
     if (!el) return
-    const map = L.map(el, { zoomControl: false, attributionControl: true, zoomSnap: 0.25, maxZoom: MAX_ZOOM })
-    mapRef.current = map
-    map.attributionControl.setPrefix(false)
-    L.tileLayer(TILE_URL, { attribution: '© OpenStreetMap', maxZoom: MAX_ZOOM }).addTo(map)
-    L.control.scale({ imperial: false, position: 'bottomright', maxWidth: 110 }).addTo(map)
-    layer.current = L.layerGroup().addTo(map)
-    map.fitBounds(KOREA, { animate: false })
-    map.on('zoomend', () => el.classList.toggle('rt-captions', map.getZoom() >= CAPTION_MIN_ZOOM))
-    map.on('click', (e: L.LeafletMouseEvent) => {
-      if (latest.current.pinning) latest.current.onTapMap({ latitude: e.latlng.lat, longitude: e.latlng.lng })
-    })
-    const ro = new ResizeObserver(() => map.invalidateSize())
-    ro.observe(el)
-    latest.current.onReady?.(map)
+    let cancelled = false
+    let teardown: (() => void) | null = null
+    const setup = (map: MapHandle, deferred: boolean) => {
+      mapRef.current = map
+      layer.current = map.createLayer()
+      meLayer.current = map.createLayer()
+      map.setBottomInset(latest.current.bottomInset)
+      map.fitBounds(KOREA, { animate: false })
+      const offZoom = map.on('zoomend', () => el.classList.toggle('rt-captions', map.getZoom() >= CAPTION_MIN_ZOOM))
+      const offClick = map.on('click', (at) => {
+        if (at && latest.current.pinning) latest.current.onTapMap({ latitude: at.lat, longitude: at.lng })
+      })
+      const ro = new ResizeObserver(() => map.resize())
+      ro.observe(el)
+      latest.current.onReady?.(map)
+      teardown = () => {
+        ro.disconnect()
+        offZoom()
+        offClick()
+        map.destroy()
+        mapRef.current = null
+        layer.current = null
+        meLayer.current = null
+        meMarker.current = null
+        seen.current = { cameraKey: '', fit: -1, courseFit: 0, inset: 0, drawKey: '' }
+      }
+      if (deferred) setReady(true)
+    }
+    // 클라이언트 ID 가 없으면 지도를 지금 바로 세운다(예전과 같은 커밋). 있으면 네이버 스크립트를 기다린다.
+    const now = createMapNow(el)
+    if (now) setup(now, false)
+    else {
+      void createMap(el, { isCancelled: () => cancelled }).then((made) => {
+        if (cancelled) {
+          made.destroy()
+          return
+        }
+        setup(made, true)
+      }).catch(ignoreCancelled)
+    }
     return () => {
-      ro.disconnect()
-      map.remove()
-      mapRef.current = null
-      layer.current = null
-      meMarker.current = null
-      seen.current = { cameraKey: '', fit: -1, courseFit: 0, inset: 0, drawKey: '' }
+      cancelled = true
+      setReady(false)
+      teardown?.()
     }
   }, [])
 
@@ -158,53 +184,45 @@ export function RouteMap(props: RouteMapProps) {
     ].join('|')
     if (key === seen.current.drawKey) return
     seen.current.drawKey = key
-    g.clearLayers()
+    g.clear()
     // 계획선(직선) — 다녀온 곳까지는 잇되 거기서 나가는 선은 끊는다. 갈 수 없는 곳은 뺀다.
-    const run: L.LatLngExpression[] = []
+    const run: GeoPoint[] = []
     const flush = () => {
       if (run.length > 1) {
-        L.polyline([...run], { color: '#fff', weight: 5, opacity: 1, interactive: false }).addTo(g)
-        L.polyline([...run], { color: PIN_DEEP, weight: 4, opacity: 1, interactive: false }).addTo(g)
+        g.addPolyline({ path: [...run], color: '#fff', weight: 5, opacity: 1 })
+        g.addPolyline({ path: [...run], color: PIN_DEEP, weight: 4, opacity: 1 })
       }
       run.length = 0
     }
     stops.filter(canNavigate).forEach((s) => {
-      run.push([s.place.latitude, s.place.longitude])
+      run.push({ lat: s.place.latitude, lng: s.place.longitude })
       if (s.visited) flush()
     })
     flush()
     stops.forEach((s, i) => {
-      const pos: L.LatLngExpression = [s.place.latitude, s.place.longitude]
-      let m: L.Marker
+      const position = { lat: s.place.latitude, lng: s.place.longitude }
+      const onClick = () => latest.current.onTapStop(s)
       if (s.visited) {
-        m = L.marker(pos, { icon: icon(pawPinSvg(), 30, 30, 15, 15, s.place.name), zIndexOffset: 800 })
+        g.addMarker({ position, ...pin(pawPinSvg(), 30, 30, 15, 15, s.place.name), zIndex: 800, onClick })
       } else if (s.uid === focused?.uid) {
-        m = L.marker(pos, { icon: icon(haetaePinSvg(false), HAETAE_SIZE.w, HAETAE_SIZE.h, HAETAE_SIZE.w / 2, HAETAE_SIZE.h - 4, s.place.name), zIndexOffset: 1000 })
+        g.addMarker({ position, ...pin(haetaePinSvg(false), HAETAE_SIZE.w, HAETAE_SIZE.h, HAETAE_SIZE.w / 2, HAETAE_SIZE.h - 4, s.place.name), zIndex: 1000, onClick })
       } else {
-        m = L.marker(pos, { icon: icon(numberedPinSvg(i + 1), NUMBERED_SIZE.w, NUMBERED_SIZE.h, NUMBERED_SIZE.tipX, NUMBERED_SIZE.tipY, s.place.name) })
+        g.addMarker({ position, ...pin(numberedPinSvg(i + 1), NUMBERED_SIZE.w, NUMBERED_SIZE.h, NUMBERED_SIZE.tipX, NUMBERED_SIZE.tipY, s.place.name), onClick })
       }
-      m.on('click', (e) => {
-        L.DomEvent.stopPropagation(e)
-        latest.current.onTapStop(s)
-      })
-      m.addTo(g)
     })
     // 담을까 보는 곳 — 빨간 해태. 코스 핀보다 위에 올려 가리지 않게 한다.
     previews.forEach((p) => {
       const w = HAETAE_SIZE.w * 1.1
       const h = HAETAE_SIZE.h * 1.1
-      const m = L.marker([p.latitude, p.longitude], { icon: icon(haetaePinSvg(true), w, h, w / 2, h - 4, p.name), zIndexOffset: 2000 })
-      m.on('click', (e) => {
-        L.DomEvent.stopPropagation(e)
-        latest.current.onTapPreview(p)
+      g.addMarker({
+        position: { lat: p.latitude, lng: p.longitude }, ...pin(haetaePinSvg(true), w, h, w / 2, h - 4, p.name), zIndex: 2000, onClick: () => latest.current.onTapPreview(p),
       })
-      m.addTo(g)
     })
     if (pending) {
       const w = HAETAE_SIZE.w
-      L.marker([pending.latitude, pending.longitude], { icon: icon(haetaePinSvg(false), w, HAETAE_SIZE.h, w / 2, HAETAE_SIZE.h - 4) }).addTo(g)
+      g.addMarker({ position: { lat: pending.latitude, lng: pending.longitude }, ...pin(haetaePinSvg(false), w, HAETAE_SIZE.h, w / 2, HAETAE_SIZE.h - 4) })
     }
-  }, [stops, focused, previews, pending])
+  }, [ready, stops, focused, previews, pending])
 
   // ---- 핀 찍기 모드에서는 십자 커서, 로고·축척은 시트 바로 위에 붙는다.
   useEffect(() => {
@@ -212,7 +230,8 @@ export function RouteMap(props: RouteMapProps) {
   }, [pinning])
   useEffect(() => {
     host.current?.style.setProperty('--rt-inset', `${props.bottomInset}px`)
-  }, [props.bottomInset])
+    mapRef.current?.setBottomInset(props.bottomInset)
+  }, [ready, props.bottomInset])
 
   // ---- 내 위치 (브라우저 Geolocation — 켜져 있는 동안 계속 받는다)
   const { showingMe, onHere } = props
@@ -229,8 +248,10 @@ export function RouteMap(props: RouteMapProps) {
       (pos) => {
         const spot = { latitude: pos.coords.latitude, longitude: pos.coords.longitude }
         hereRef.current = spot
-        if (!meMarker.current) meMarker.current = L.marker([spot.latitude, spot.longitude], { icon: meIcon, interactive: false, zIndexOffset: 500 }).addTo(map)
-        else meMarker.current.setLatLng([spot.latitude, spot.longitude])
+        const at = { lat: spot.latitude, lng: spot.longitude }
+        if (!meMarker.current) {
+          meMarker.current = meLayer.current?.addMarker({ position: at, html: ME_HTML, className: 'route-pin', size: [18, 18], anchor: [9, 9], interactive: false, zIndex: 500 }) ?? null
+        } else meMarker.current.setPosition(at)
         onHere?.(spot)
       },
       () => undefined,
@@ -242,7 +263,7 @@ export function RouteMap(props: RouteMapProps) {
       meMarker.current = null
       hereRef.current = null
     }
-  }, [showingMe, onHere])
+  }, [ready, showingMe, onHere])
 
   // ---- 카메라
   const { fitToken, courseFitToken, bottomInset } = props
@@ -262,9 +283,9 @@ export function RouteMap(props: RouteMapProps) {
       s.courseFit = courseFitToken
       s.cameraKey = cameraKey
       s.fit = fitToken
-      const pts: L.LatLngExpression[] = stops.map((p) => [p.place.latitude, p.place.longitude])
+      const pts: GeoPoint[] = stops.map((p) => ({ lat: p.place.latitude, lng: p.place.longitude }))
       const anchor = here ? usableAnchor({ id: 0, name: '여기', latitude: here.latitude, longitude: here.longitude }, stops) : null
-      if (here && (showingMe || anchor)) pts.push([here.latitude, here.longitude])
+      if (here && (showingMe || anchor)) pts.push({ lat: here.latitude, lng: here.longitude })
       window.setTimeout(() => fitPoints(pts), 0)
       return
     }
@@ -277,21 +298,20 @@ export function RouteMap(props: RouteMapProps) {
         const there: LatLng = { latitude: focused.place.latitude, longitude: focused.place.longitude }
         const nearby = here ? haversineMeters(here, there) <= WITH_ME_RADIUS_M : false
         // 토글이 켜져 있고 내가 가까우면 둘이 같이 보이는 크기로, 아니면 그곳만 확대한다.
-        if (showingMe && nearby && here) fitPoints([[here.latitude, here.longitude], [there.latitude, there.longitude]], WITH_ME_PADDING)
+        if (showingMe && nearby && here) fitPoints([{ lat: here.latitude, lng: here.longitude }, { lat: there.latitude, lng: there.longitude }], WITH_ME_PADDING)
         else {
-          const z = FOCUS_ZOOM
           const m = mapRef.current
           m?.stop()
-          if (m) m.setView(m.unproject(m.project(L.latLng(there.latitude, there.longitude), z).add([0, latest.current.bottomInset / 2]), z), z, { animate: true, duration: 0.4 })
+          m?.setView({ lat: there.latitude, lng: there.longitude }, FOCUS_ZOOM, { animate: true, seconds: 0.4, shiftY: latest.current.bottomInset / 2 })
         }
         return
       }
-      const pts: L.LatLngExpression[] = [...stops.map((p) => p.place), ...previews].map((p) => [p.latitude, p.longitude])
-      if (showingMe && here) pts.push([here.latitude, here.longitude])
+      const pts: GeoPoint[] = [...stops.map((p) => p.place), ...previews].map((p) => ({ lat: p.latitude, lng: p.longitude }))
+      if (showingMe && here) pts.push({ lat: here.latitude, lng: here.longitude })
       fitPoints(pts)
     }, 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stops, focused, previews, showingMe, fitToken, courseFitToken, bottomInset])
+  }, [ready, stops, focused, previews, showingMe, fitToken, courseFitToken, bottomInset])
 
   return <div ref={host} className="rt-map" />
 }
