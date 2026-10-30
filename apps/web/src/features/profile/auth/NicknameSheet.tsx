@@ -5,7 +5,7 @@
  * 닉네임은 리뷰·후기에 작성자로 보이는 이름이다. 소셜 로그인 이름은 실명일 수 있어 남에게 보이지 않는다 — 그래서 서버가
  * `여행자12345` 꼴을 미리 붙여 두고, 여기서 바꾸게 한다. 건너뛰면 그 이름 그대로 쓴다.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Icon } from '@/design/Icon'
 import { PinoMascot } from '@/design/PinoMascot'
 import { HStack, Pressable, Spinner, Txt, VStack, rr } from '@/design/primitives'
@@ -30,6 +30,25 @@ export function serverMessageFor(outcome: 'saved' | 'invalid' | 'taken' | 'textN
     case 'textNotAllowed': return textNotAllowedMessage()
     case 'failed': return tr('저장하지 못했어요. 잠시 뒤 다시 해 주세요')
   }
+}
+
+/** `.lineLimit(1).minimumScaleFactor(0.65)` — 칸 폭에 맞춰 글자를 minScale 배까지 줄이고, 그래도 넘치면 말줄임. */
+function FitText({ size, minScale, children, testId }: { size: number; minScale: number; children: string; testId?: string }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+  useLayoutEffect(() => {
+    const el = box.current
+    const text = el?.firstElementChild as HTMLElement | null
+    if (!el || !text) return
+    const natural = text.scrollWidth / scale
+    if (el.clientWidth <= 0 || natural <= 0) return
+    setScale(Math.max(minScale, Math.min(1, el.clientWidth / natural)))
+  }, [children, minScale, scale])
+  return (
+    <div ref={box} style={{ minWidth: 0, width: '100%' }}>
+      <Txt size={size * scale} weight="semibold" lines={1} data-testid={testId}>{children}</Txt>
+    </div>
+  )
 }
 
 export function NicknameForm({ mode, onDone }: { mode: NicknameMode; onDone: () => void }) {
@@ -107,7 +126,7 @@ export function NicknameForm({ mode, onDone }: { mode: NicknameMode; onDone: () 
             <PinoMascot width={66} alive={false} />
             <VStack spacing={6} style={{ flex: 1, minWidth: 0 }}>
               <Txt size={12} color="secondary">{tr('작성자 이름 미리보기')}</Txt>
-              <Txt size={20} weight="semibold" lines={1} data-testid="nickname-preview">{preview}</Txt>
+              <FitText size={20} minScale={0.65} testId="nickname-preview">{preview}</FitText>
             </VStack>
           </HStack>
 

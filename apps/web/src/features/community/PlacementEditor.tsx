@@ -5,6 +5,7 @@
 import { Icon } from '@/design/Icon'
 import { HStack, Txt, VStack, rr } from '@/design/primitives'
 import { tr } from '@/i18n'
+import { Switch } from '@/features/profile/ui/ListUI'
 import './community.css'
 import './icons'
 import { CAPTION_LIMIT, CREDIT_LIMIT, PARAGRAPH_LIMIT, type PhotoPlacement, captionLength, creditLength, newPlacement, paragraphs } from './article'
@@ -92,21 +93,5 @@ function Controls({ number, parts, placement, onChange }: { number: number; part
         <Switch checked={placement.aiGenerated} onChange={(v) => set({ aiGenerated: v })} label={tr('AI 변환 사진')} />
       </HStack>
     </VStack>
-  )
-}
-
-/** SwiftUI `Toggle` — 51×31 초록 스위치. */
-export function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      style={{ width: 51, height: 31, borderRadius: 16, background: checked ? 'var(--system-green)' : 'rgba(120,120,128,0.32)', position: 'relative', transition: 'background 0.2s', flex: 'none' }}
-    >
-      <span style={{ position: 'absolute', top: 2, left: checked ? 22 : 2, width: 27, height: 27, borderRadius: '50%', background: '#fff', boxShadow: '0 3px 8px rgba(0,0,0,0.15), 0 1px 1px rgba(0,0,0,0.16)', transition: 'left 0.2s' }} />
-    </button>
   )
 }

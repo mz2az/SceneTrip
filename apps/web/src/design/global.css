@@ -21,11 +21,20 @@ body {
   text-wrap: pretty;
   color: var(--label);
   background: var(--grouped-background);
+  -webkit-user-select: none; /* SwiftUI 글자는 선택되지 않는다 - 입력 칸만 예외 */
+  user-select: none;
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
+}
+
+input,
+textarea,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 button {

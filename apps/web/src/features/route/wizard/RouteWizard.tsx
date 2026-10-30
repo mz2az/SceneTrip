@@ -135,7 +135,7 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
         <div style={{ height: 3, borderRadius: 2, background: 'var(--system-gray5)', overflow: 'hidden' }} role="progressbar" aria-valuenow={index + 1} aria-valuemax={steps.length}>
           <div style={{ height: '100%', width: `${((index + 1) / steps.length) * 100}%`, background: 'var(--accent)', borderRadius: 2, transition: 'width 0.25s' }} />
         </div>
-        {kind === 'aiPlan' && <AIBanner text={tr('AI 가 일정을 짜 드립니다')} />}
+        {kind === 'aiPlan' && <AIBanner text={tr('AI 가 일정을 짜 드립니다')} padY={10} />}
       </VStack>
 
       <div className="scroll-y" style={{ flex: 1, minHeight: 0 }}>

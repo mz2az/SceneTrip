@@ -241,7 +241,7 @@ function CourseCard({ course, locked, onPick, onClear }: { course: PostCourse | 
           <Txt size={15} weight="semibold" lines={1}>{course.title}</Txt>
           <Txt size={12} color="secondary">{tr('%d일 · %d곳', course.days.length, count)}</Txt>
         </VStack>
-        <Pressable plain disabled={locked} aria-label={tr('코스 떼기')} onClick={onClear} style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', margin: '-14px -14px -14px 0' }}>
+        <Pressable plain disabled={locked} aria-label={tr('코스 떼기')} onClick={onClear} style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}>
           <Icon name="xmark" size={12} weight="semibold" color="secondary" />
         </Pressable>
       </HStack>

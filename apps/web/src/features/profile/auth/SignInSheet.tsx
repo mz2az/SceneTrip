@@ -41,10 +41,10 @@ function LegalLink({ href, children }: { href: string; children: string }) {
 function LegalNotice() {
   return (
     <VStack align="center" style={{ textAlign: 'center' }}>
-      <Txt as="div" size={12} color="secondary" align="center">
+      <Txt as="div" size={11.5} color="secondary" align="center">
         {tr('계속하면 이용약관과 개인정보 처리방침에 동의하는 것으로 봅니다.')}
       </Txt>
-      <HStack spacing={6} justify="center" wrap style={{ fontSize: 12, marginTop: -1 }}>
+      <HStack spacing={6} justify="center" wrap style={{ fontSize: 11.5, marginTop: -1 }}>
         <LegalLink href={LEGAL_LINKS.terms}>{tr('이용약관')}</LegalLink>
         <span aria-hidden style={{ color: 'var(--label-secondary)' }}>·</span>
         <LegalLink href={LEGAL_LINKS.privacy}>{tr('개인정보 처리방침')}</LegalLink>
@@ -86,9 +86,9 @@ export function SignInSheet() {
               onClick={() => void accountActions.signInWithApple()}
               aria-label={tr('Apple 계정으로 계속하기')}
               data-testid="apple-sign-in"
-              style={{ width: '100%', height: 48, borderRadius: 24, background: '#000', marginBottom: 9, opacity: busy ? 0.5 : 1 }}
+              style={{ width: '100%', height: 48, marginBottom: 9, opacity: busy ? 0.5 : 1 }}
             >
-              <HStack spacing={8} justify="center" style={{ height: '100%' }}>
+              <HStack spacing={8} justify="center" style={{ height: 45.33, marginTop: 0, borderRadius: 22.67, background: '#000' /* 시스템 단추 검은 판은 칸보다 안쪽 (iOS 실측 45.3) */ }}>
                 <AppleLogo size={14} />
                 <Txt size={18} weight="medium" color="white">{appleButtonTitle()}</Txt>
               </HStack>
@@ -101,7 +101,7 @@ export function SignInSheet() {
             disabled={busy}
             onClick={() => void accountActions.signInWithGoogle()}
             data-testid="google-sign-in"
-            style={{ width: '100%', height: 48, borderRadius: 24, background: '#fff', border: '1px solid #747775', opacity: busy ? 0.5 : 1 }}
+            style={{ width: '100%', height: 48, borderRadius: 24, background: '#fff', border: '1px solid rgb(176,178,177)', opacity: busy ? 0.5 : 1 }}
           >
             <HStack spacing={10} justify="center" style={{ height: '100%' }}>
               <img src="/generated/google-g.svg" alt="" width={20} height={20} draggable={false} />

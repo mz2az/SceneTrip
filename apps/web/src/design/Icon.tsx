@@ -153,7 +153,7 @@ const base: Record<string, IconComponent> = {
   'plus.circle.fill': filled(({ color }) => (
     <>
       <circle cx="12" cy="12" r="11" fill={color} />
-      <path d="M12 7v10M7 12h10" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+      <path d="M12 7v10M7 12h10" stroke="var(--icon-cut, #fff)" strokeWidth="2.2" strokeLinecap="round" fill="none" />
     </>
   )),
 }

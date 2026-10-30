@@ -106,7 +106,15 @@ export function GuideSheet({
     const el = scroller.current
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }
-  useEffect(toBottom, [state.turns.length, state.failure, state.limit])
+  // iOS 는 처음 그릴 때는 맨 위에서 시작한다 — 시작 화면 머리말이 보여야 한다. 첫 실행은 건너뛴다.
+  const firstScroll = useRef(true)
+  useEffect(() => {
+    if (firstScroll.current) {
+      firstScroll.current = false
+      return
+    }
+    toBottom()
+  }, [state.turns.length, state.failure, state.limit])
   useLayoutEffect(() => {
     // 창을 접었다 다시 열면 스크롤이 맨 위에서 시작한다 — 한도에 걸려 있으면 안내가 있는 맨 아래로 내린다.
     if (state.limit.kind !== 'clear' && scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight

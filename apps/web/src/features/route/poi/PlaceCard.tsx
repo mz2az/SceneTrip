@@ -238,7 +238,7 @@ function Found({ card, onAdd, added, onRemove, onReroute, onOpenPhotos }: { card
             background: added ? 'var(--system-gray5)' : 'var(--accent)', ...rr(10),
           }}
         >
-          <Icon name={added ? 'checkmark.circle.fill' : 'plus.circle.fill'} size={12} color={added ? 'secondary' : 'white'} />
+          <Icon name={added ? 'checkmark.circle.fill' : 'plus.circle.fill'} size={12} color={added ? 'secondary' : 'white'} style={{ ['--icon-cut' as string]: 'var(--accent)' }} />
           <Txt size={15} weight="semibold" color={added ? 'secondary' : 'white'}>{added ? tr('경로에 있음 · 누르면 빼기') : tr('경로에 추가')}</Txt>
         </Pressable>
       )}
@@ -269,7 +269,7 @@ function Row({ label, value }: { label: string; value: string | null }) {
   if (!value) return null
   return (
     <>
-      <HStack align="start" pad="7px 14px">
+      <HStack align="start" spacing={8} pad="7px 14px">
         <Txt size={12} color="secondary" style={{ width: 76, flex: 'none' }}>{label}</Txt>
         <Txt size={12} style={{ flex: 1, minWidth: 0 }}>{value}</Txt>
       </HStack>
