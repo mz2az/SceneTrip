@@ -5,6 +5,7 @@
  */
 import type { components } from '@/api/generated/schema'
 import { api, ok } from '@/api/client'
+import type { RoutePlace } from '@/features/route/poi/poiPlace'
 import { type PoiLabel, poiLabel } from '@/features/route/poiLabel'
 import { tr } from '@/i18n'
 
@@ -40,6 +41,21 @@ export function headingOf(title: string, reading: string | null): string {
 
 export async function listMyReviews(offset: number): Promise<{ items: MyReview[]; total: number }> {
   return ok(api.GET('/me/reviews', { params: { query: { limit: MY_REVIEWS_PAGE_SIZE, offset } } }))
+}
+
+/** 편의시설 정보 카드용 장소 — iOS `MyReviewDetailStore.loadPoi`. 실패하면 null. */
+export async function fetchPoiPlace(poiId: number): Promise<RoutePlace | null> {
+  try {
+    const d = await ok(api.GET('/pois/{poiId}', { params: { path: { poiId } } }))
+    return {
+      id: `poi-${d.id}`, name: d.name, category: d.category, address: d.address ?? null, distanceMeters: null,
+      latitude: d.latitude, longitude: d.longitude, group: null, source: 'poi',
+      displayName: d.displayName ?? null, nameRoman: d.nameRoman ?? null, categoryLabel: d.categoryLabel ?? null,
+      displayAddress: d.displayAddress ?? null, distanceBasis: null, linkedPlaceId: d.placeId ?? null,
+    }
+  } catch {
+    return null
+  }
 }
 
 /** 편의시설의 앱 언어 이름 — 서버(`target.name`)는 편의시설을 한국어 원본으로만 준다. 상세를 한 번 물어 카드와 같은 이름으로 바꾼다. */

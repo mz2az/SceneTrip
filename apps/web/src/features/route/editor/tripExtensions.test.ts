@@ -87,6 +87,15 @@ describe('startTripTo', () => {
     await startTripTo({ course: c, dayIndex: 0, stops: [closed], saveNow: async () => c, setFocusedUid: () => {} }, closed, session)
     expect(calls).toEqual([])
   })
+  it('안내를 못 켜는 줄은 그 줄의 정보 카드를 연다 (iOS pickedStop = stop)', async () => {
+    const c = course()
+    const closed = { ...c.days[0].stops[0], unavailable: 'closedPoi' as const }
+    const { session, calls } = fakeSession()
+    const opened: string[] = []
+    await startTripTo({ course: c, dayIndex: 0, stops: [closed], saveNow: async () => c, setFocusedUid: () => {}, openInfo: (s) => opened.push(s.uid) }, closed, session)
+    expect(calls).toEqual([])
+    expect(opened).toEqual([closed.uid])
+  })
 })
 
 describe('applyGuideAnswer', () => {

@@ -45,6 +45,8 @@ export interface EditorHost {
   fit(): void
   /** 장바구니 시트를 연다. */
   openCart(): void
+  /** 그 줄의 정보 카드를 연다(iOS `pickedStop = stop`). 안내를 못 켜는 곳을 누르면 이것이 불린다. */
+  openInfo?(stop: RouteStop): void
 }
 
 export interface EditorExtensions {

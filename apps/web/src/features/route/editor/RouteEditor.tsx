@@ -179,6 +179,10 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
     requestClose: cancel,
     requestPlanner: () => pendingStore.set((s) => ({ ...s, planner: true })),
     here, pinning, cardOpen: pickedStop !== null, focusedUid, setFocusedUid, fit: refit, openCart: () => setShowCart(true),
+    openInfo: (stop) => {
+      setPickedStop(stop)
+      setFocusedUid(stop.uid)
+    },
   }
   const startTrip = (stop: RouteStop) => ext.startTrip?.(host, stop)
   const toggleRunning = async () => {

@@ -116,8 +116,12 @@ const without = (set: ReadonlySet<number>, id: number): Set<number> => new Set([
  * 이 성지로 안내를 켠다. 번호는 그 일차 안의 순서다. **방금 담은 곳은 먼저 저장한다** — 길찾기 계약은 목적지를 저장된 코스 항목으로만 받는다
  * (챗봇이 찾아 준 가게를 담고 곧바로 「다음 · 2번으로 길찾기」를 누르면 막혔다, 2026-09-17). 저장이 실패하면 시작하지 않는다.
  */
-export async function startTripTo(host: Pick<EditorHost, 'course' | 'dayIndex' | 'stops' | 'saveNow' | 'setFocusedUid'>, stop: RouteStop, session: TripSession = tripSession): Promise<void> {
-  if (!canNavigate(stop)) return
+export async function startTripTo(host: Pick<EditorHost, 'course' | 'dayIndex' | 'stops' | 'saveNow' | 'setFocusedUid' | 'openInfo'>, stop: RouteStop, session: TripSession = tripSession): Promise<void> {
+  // iOS `guard stop.canNavigate else { pickedStop = stop; return }` — 갈 수 없는 곳이면 그 곳의 정보 카드를 연다.
+  if (!canNavigate(stop)) {
+    host.openInfo?.(stop)
+    return
+  }
   let target = stop
   let stops = host.stops
   let courseId = host.course.serverId

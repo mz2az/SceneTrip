@@ -16,7 +16,9 @@ import type { PoiLabel } from '@/features/route/poiLabel'
 import { currentLang, tr, trAt } from '@/i18n'
 import { accountGeneration, useOnAccountChange } from '@/state/shared'
 import { useAccount, refreshIfStale } from '../auth/account'
-import { type MyReview, headingOf, kindName, listMyReviews, lookUpPoiLabel, nameOf, needsLookup, subjectOf, symbolOf } from '../myReviews'
+import { PlaceCard } from '@/features/route/poi/PlaceCard'
+import type { RoutePlace } from '@/features/route/poi/poiPlace'
+import { type MyReview, fetchPoiPlace, headingOf, kindName, listMyReviews, lookUpPoiLabel, nameOf, needsLookup, subjectOf, symbolOf } from '../myReviews'
 import { GlassSheet } from '../ui/GlassSheet'
 
 type Phase = 'loading' | 'loaded' | 'failed'
@@ -55,6 +57,7 @@ export function MyReviewsSheet({ open, onClose }: { open: boolean; onClose: () =
   const [moreFailed, setMoreFailed] = useState(false)
   const [poiNames, setPoiNames] = useState<Record<number, PoiLabel>>({})
   const [editing, setEditing] = useState<MyReview | null>(null)
+  const [poiCard, setPoiCard] = useState<RoutePlace | null>(null)
   const korean = currentLang() === 'ko'
   const asked = useRef(0)
   const footer = useRef<HTMLDivElement>(null)
@@ -134,6 +137,9 @@ export function MyReviewsSheet({ open, onClose }: { open: boolean; onClose: () =
     if (r.target.type === 'place') {
       onClose()
       navigate(paths.searchPlace(r.target.id))
+    } else {
+      // 편의시설은 목록 위에 정보 카드를 덮는다 (iOS MyReviewDetailView 의 `.poi` — RoutePlaceCard).
+      void fetchPoiPlace(r.target.id).then((place) => place && setPoiCard(place))
     }
   }
 
@@ -196,6 +202,12 @@ export function MyReviewsSheet({ open, onClose }: { open: boolean; onClose: () =
                 <Spinner />
               </div>
             ))}
+        </div>
+      )}
+
+      {poiCard && (
+        <div className="scroll-y" style={{ position: 'absolute', inset: 0, zIndex: 5, background: 'var(--system-background)', padding: 16 }}>
+          <PlaceCard place={poiCard} onClose={() => setPoiCard(null)} />
         </div>
       )}
 
