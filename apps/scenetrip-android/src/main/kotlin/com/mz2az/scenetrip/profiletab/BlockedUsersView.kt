@@ -214,7 +214,7 @@ fun SupportContactRow(tint: androidx.compose.ui.graphics.Color) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp).padding(horizontal = 16.dp, vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.33.dp).padding(horizontal = 16.dp, vertical = 6.dp),
     ) {
         Box(Modifier.width(26.dp), contentAlignment = Alignment.Center) { EnvelopeIcon(tint, Modifier.size(18.dp)) }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
