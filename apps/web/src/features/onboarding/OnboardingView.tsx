@@ -127,7 +127,7 @@ export function OnboardingView({ onDone }: { onDone: () => void }) {
   return (
     <VStack style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'var(--system-background)' }}>
       {/* 마지막 장에는 두지 않는다 — 거기 버튼이 이미 「시작하기」다. */}
-      <HStack justify="end" pad="0 16px" style={{ minHeight: 44, paddingTop: 'var(--safe-top)' }}>
+      <HStack justify="end" pad="0 16px" style={{ minHeight: 44, paddingTop: 'calc(var(--safe-top) + 4.6px)' }}>
         <Pressable plain onClick={complete} disabled={last} style={{ opacity: last ? 0 : 1 }}>
           <Txt size={17} color="secondary">{tr('건너뛰기')}</Txt>
         </Pressable>
@@ -151,7 +151,7 @@ export function OnboardingView({ onDone }: { onDone: () => void }) {
             setProgress(previous(progress))
             go(progress.page - 1)
           }}
-          style={{ minHeight: 44, padding: '0 4px' }}
+          style={{ minHeight: 44, minWidth: 30, padding: 0 }}
         >
           <Txt size={17} weight="semibold" color={progress.page === 0 ? 'tertiary' : 'accent'}>{tr('이전')}</Txt>
         </Pressable>
