@@ -50,11 +50,11 @@ fun ProfileAISettings() {
     val subscribe = remember(store) { store::addListener }
     rememberConsentTick(subscribe)
     val allowed = store.isAllowed
-    ProfileSection(null) {
+    ProfileSection(null, afterFooter = true) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().height(PROFILE_ROW_HEIGHT).padding(horizontal = 16.dp),
         ) {
             Box(modifier = Modifier.width(26.dp), contentAlignment = Alignment.Center) {
                 SparklesIcon(SYSTEM_PURPLE, Modifier.size(18.dp))
@@ -63,12 +63,7 @@ fun ProfileAISettings() {
             IOSToggle(checked = allowed, onCheckedChange = { gate.setEnabled(it) })
         }
     }
-    Text(
-        tr(AIConsentCopy.FOOTNOTE_KO),
-        fontSize = 13.sp,
-        color = IOS.secondaryLabel,
-        modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 8.dp),
-    )
+    ProfileFooter(tr(AIConsentCopy.FOOTNOTE_KO))
     AIConsentSheetHost(gate)
 
     // 위치기반서비스 이용 (MZ2AZ-472) — 지도 범위 검색·주변 편의시설·가이드·길 안내가 쓰는 기기 위치. 시스템 위치 권한과 별개다.
@@ -77,11 +72,11 @@ fun ProfileAISettings() {
     val locationSubscribe = remember(locationStore) { locationStore::addListener }
     rememberConsentTick(locationSubscribe)
     val locationAllowed = locationStore.isAllowed
-    ProfileSection(null) {
+    ProfileSection(null, afterFooter = true) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().height(PROFILE_ROW_HEIGHT).padding(horizontal = 16.dp),
         ) {
             Box(modifier = Modifier.width(26.dp), contentAlignment = Alignment.Center) {
                 LocationArrowIcon(IOS.accent, filled = false, modifier = Modifier.size(18.dp))
@@ -90,11 +85,6 @@ fun ProfileAISettings() {
             IOSToggle(checked = locationAllowed, onCheckedChange = { locationGate.setEnabled(it) })
         }
     }
-    Text(
-        tr(LocationConsentCopy.FOOTNOTE_KO),
-        fontSize = 13.sp,
-        color = IOS.secondaryLabel,
-        modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 8.dp),
-    )
+    ProfileFooter(tr(LocationConsentCopy.FOOTNOTE_KO))
     LocationConsentSheetHost(locationGate)
 }

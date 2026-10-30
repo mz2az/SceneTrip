@@ -283,8 +283,8 @@ private fun PopoverCard(
     wideShadow: Boolean = false,
 ) {
     Column(
-        // 글과 단추 사이 — 글 가운데에서 단추 윗변까지 iOS 29, 실측(2026-10-29 감사).
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        // 단추 사이 8, 글과 첫 단추 사이 18(글 아래 여백 10 + 8) — iOS 실측(7차 감사 L1: 단추 간격 8.0, 팝오버 178.7).
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier =
             Modifier
                 .width(240.dp)
@@ -303,14 +303,19 @@ private fun PopoverCard(
                 ).clip(RoundedCornerShape(32.dp))
                 .background(POPOVER_SURFACE)
                 // 단추는 카드 안쪽 16/16 을 쓰고 **제목만** 30 들여쓴다(iOS 실측: 단추 폭 208).
-                .padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 16.dp),
+                .padding(start = 16.dp, end = 16.dp, top = if (message.isNullOrEmpty()) 20.4.dp else 22.dp, bottom = 16.dp),
     ) {
         // 본문이 없으면 제목은 가운데·보통 굵기(언어 고르기 「언어」), 본문이 있으면 왼쪽·굵게(코스 지우기)다(2026-10-29 감사 실측).
         val centered = message.isNullOrEmpty()
         Column(
             verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
-            modifier = Modifier.fillMaxWidth().padding(start = if (centered) 0.dp else 14.dp, end = if (centered) 0.dp else 9.dp),
+            modifier =
+                Modifier.fillMaxWidth().padding(
+                    start = if (centered) 0.dp else 14.dp,
+                    end = if (centered) 0.dp else 9.dp,
+                    bottom = 10.dp,
+                ),
         ) {
             // 제목은 17 검정, 본문은 15 회색(2026-10-29 감사 실측). 본문이 있으면 둘 다 왼쪽 정렬이다 — 「」 괄호는 Noto 가
             // 글자 칸 한쪽에 붙여 그려 제목 머리가 본문보다 들어가 보이는데 글꼴 차이라 맞출 수 없다.
@@ -323,7 +328,14 @@ private fun PopoverCard(
                 fontWeight = if (centered) FontWeight.Normal else FontWeight.SemiBold,
                 color = IOS.label,
                 textAlign = if (centered) TextAlign.Center else TextAlign.Start,
-                modifier = if (!centered && title.startsWith("「")) Modifier.offset(x = (-7).dp) else Modifier,
+                modifier =
+                    if (centered) {
+                        Modifier.sfLine(17f)
+                    } else if (title.startsWith("「")) {
+                        Modifier.offset(x = (-7).dp)
+                    } else {
+                        Modifier
+                    },
             )
             if (!message.isNullOrEmpty()) Text(message, fontSize = 15.sp, color = IOS.secondaryLabel, textAlign = TextAlign.Start)
         }

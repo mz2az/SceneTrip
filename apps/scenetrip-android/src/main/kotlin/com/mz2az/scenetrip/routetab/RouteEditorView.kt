@@ -128,6 +128,7 @@ import com.mz2az.scenetrip.ui.SwapArrowsIcon
 import com.mz2az.scenetrip.ui.TransitIcon
 import com.mz2az.scenetrip.ui.UnavailableNoticeRow
 import com.mz2az.scenetrip.ui.WalkIcon
+import com.mz2az.scenetrip.ui.sfLine
 import com.mz2az.scenetrip.ui.sheetListBottom
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.geometry.LatLngBounds
@@ -1259,6 +1260,7 @@ private fun RouteEditorContent(
                     RouteDaySummary(course.days.getOrNull(dayIndex), onStayFrame = { stayFrame = it }) { showDayStay = true }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier =
                             Modifier
                                 .fillMaxWidth()
@@ -1305,6 +1307,7 @@ private fun RouteEditorContent(
                         EditorAction(
                             label = if (pinning) tr("취소") else tr("핀 찍기"),
                             icon = { MapPinEllipseIcon(IOS.label, it) },
+                            iconHeight = 19.7.dp,
                             modifier = Modifier.weight(1f),
                         ) { pinning = !pinning }
                     }
@@ -1405,7 +1408,7 @@ private fun RouteEditorContent(
                             }
                             // iOS `List` 줄 구분선 — 번호 뒤 글자 시작(16 + 22 + 12)부터.
                             // 마지막 줄 아래에도 선이 있다 — iOS 는 24 에서 시작한다(5차 감사 ed3-ios 실측: 24→385.7, 1pt).
-                            IOSListDivider(start = if (index < stops.lastIndex) 50.dp else 24.dp)
+                            IOSListDivider(start = if (index < stops.lastIndex) 175.7.dp else 24.dp, overlay = true)
                         }
                         if (stops.isEmpty()) {
                             item {
@@ -1749,6 +1752,8 @@ private fun EditorAction(
     // 해서 나란히 두면 "동선 최적화" 하나가 폭 절반을 먹는다).
     // SF Symbols 외곽선 아이콘(`ui/OutlineIcons.kt`) — 크기 Modifier 를 받아 그린다.
     icon: (@Composable (Modifier) -> Unit)? = null,
+    // 「핀 찍기」 는 그림(`mappin.and.ellipse`)이 더 커서 단추가 51.7 이다(iOS 실측, 다른 셋은 49.0).
+    iconHeight: androidx.compose.ui.unit.Dp = 17.dp,
     onClick: () -> Unit,
 ) {
     val glow =
@@ -1778,15 +1783,19 @@ private fun EditorAction(
                 .then(
                     if (highlight) Modifier.background(Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep)), alpha = glow) else Modifier,
                 ).clickable(onClick = onClick)
-                .padding(vertical = 7.dp),
+                .padding(vertical = 8.dp),
     ) {
-        icon?.invoke(Modifier.size(17.dp))
+        if (icon != null) {
+            Box(modifier = Modifier.height(iconHeight), contentAlignment = Alignment.Center) { icon(Modifier.size(17.dp)) }
+        }
         Text(
             label,
             fontSize = 11.sp,
             color = if (highlight) Color.White else IOS.label,
             textAlign = TextAlign.Center,
             maxLines = 1,
+            // iOS caption2 11pt → 13.1 (7차 감사 ED5: 단추 49.0).
+            modifier = Modifier.sfLine(11f),
         )
     }
 }
@@ -1950,6 +1959,8 @@ private fun DayTabs(
                         fontSize = 15.sp,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (active) IOS.accent else IOS.secondaryLabel,
+                        // iOS 탭 25.9 = 글 17.9 + 6 + 밑줄 2 (7차 감사 ED1·ED3: 글꼴 제 높이라 줄이 3.4 컸다).
+                        modifier = Modifier.sfLine(15f),
                     )
                     Box(
                         modifier =
@@ -1964,12 +1975,12 @@ private fun DayTabs(
         CircleSignIcon(
             plus = false,
             tint = if (canRemove) IOS.label else IOS.tertiaryLabel,
-            modifier = Modifier.size(18.dp).clickable(enabled = canRemove, onClick = onRemoveDay),
+            modifier = Modifier.size(17.dp).clickable(enabled = canRemove, onClick = onRemoveDay),
         )
         CircleSignIcon(
             plus = true,
             tint = if (canAdd) IOS.label else IOS.tertiaryLabel,
-            modifier = Modifier.size(18.dp).clickable(enabled = canAdd, onClick = onAddDay),
+            modifier = Modifier.size(17.dp).clickable(enabled = canAdd, onClick = onAddDay),
         )
     }
 }

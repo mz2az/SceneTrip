@@ -86,6 +86,7 @@ import com.mz2az.scenetrip.ui.LocationArrowIcon
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.ShoeprintsIcon
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
+import com.mz2az.scenetrip.ui.sfLine
 import com.mz2az.scenetrip.ui.sheetListBottom
 import com.mz2az.scenetrip.ui.unavailableAlpha
 import com.naver.maps.map.NaverMap
@@ -163,8 +164,8 @@ fun RouteStopRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    // iOS `List` 행 여백(약 11) + `.padding(.vertical, 4)` — 8 이면 행이 15 낮았다.
-                    .padding(horizontal = 16.dp, vertical = 15.dp),
+                    // iOS 행 124.7 = 위아래 19.35 + 글줄(17.9·13.1·13.1 + 간격 2·2) + 8 + 단추 30 — 줄 칸을 iOS 높이로 고정한 뒤의 값(7차 감사 EP2).
+                    .padding(horizontal = 16.dp, vertical = 19.35.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -189,7 +190,8 @@ fun RouteStopRow(
                             fontWeight = FontWeight.SemiBold,
                             color = IOS.label,
                             // 숨김·폐업 행은 내용만 약하게 — 안내와 「빼기」는 읽기 쉽게 따로 둔다(MZ2AZ-458).
-                            modifier = Modifier.weight(1f, fill = false).alpha(unavailableAlpha(stop.unavailable)),
+                            // 줄 칸은 iOS 줄 높이(15pt 17.9 · 11pt 13.1) — 7차 감사 EP2: 글꼴 제 높이라 주소 +3.6, 작품 +5.0, 출발 고정 +6.4 아래였다.
+                            modifier = Modifier.weight(1f, fill = false).alpha(unavailableAlpha(stop.unavailable)).sfLine(15f),
                         )
                         if (stop.isPinned) {
                             Badge(text = tr("내가 찍은 곳"), background = IOS.systemGray5, foreground = IOS.secondaryLabel)
@@ -199,18 +201,30 @@ fun RouteStopRow(
                         }
                     }
                     stop.arriveMinute?.let {
-                        Text(tr("%s 도착 예정").format(RouteGuidePlan.clock(it)), fontSize = 11.sp, color = IOS.secondaryLabel)
+                        Text(
+                            tr("%s 도착 예정").format(RouteGuidePlan.clock(it)),
+                            fontSize = 11.sp,
+                            color = IOS.secondaryLabel,
+                            modifier = Modifier.sfLine(11f),
+                        )
                     }
-                    stop.label().reading?.let { Text(it, fontSize = 11.sp, color = IOS.secondaryLabel) }
+                    stop.label().reading?.let { Text(it, fontSize = 11.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(11f)) }
                     val subtitle = listOfNotNull(stop.label().category, stop.label().address).joinToString(" · ")
                     if (subtitle.isNotEmpty()) {
-                        Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel, maxLines = 1)
+                        Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel, maxLines = 1, modifier = Modifier.sfLine(11f))
                     }
                     // **어느 작품에 나온 곳인가.** 이 앱에 오는 이유가 그것이라 유형·주소보다 중요한 줄이다.
                     if (works.isNotEmpty()) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             FilmIcon(tint = IOS.pinDeep, modifier = Modifier.size(9.dp))
-                            Text(works, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = IOS.pinDeep, maxLines = 1)
+                            Text(
+                                works,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = IOS.pinDeep,
+                                maxLines = 1,
+                                modifier = Modifier.sfLine(11f),
+                            )
                         }
                     }
                 }
@@ -306,6 +320,7 @@ fun RouteStopRow(
                             fontSize = 12.sp,
                             color = if (running) IOS.secondaryLabel else IOS.tertiaryLabel,
                             maxLines = 1,
+                            modifier = Modifier.sfLine(12f),
                         )
                     }
                 }
@@ -485,6 +500,8 @@ private fun PoiChip(
             fontSize = 12.sp,
             fontWeight = if (isOn) FontWeight.SemiBold else FontWeight.Normal,
             color = if (isOn) IOS.label else IOS.secondaryLabel,
+            // iOS 칩 26.3 = 글 14.3 + 위아래 6 (7차 감사 ED2: 28.6 이었다).
+            modifier = Modifier.sfLine(12f),
         )
     }
 }

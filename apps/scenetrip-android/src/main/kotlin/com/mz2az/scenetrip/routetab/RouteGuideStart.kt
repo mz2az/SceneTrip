@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSLinedText
+import com.mz2az.scenetrip.ui.sfLine
 
 /** 가이드 시작 화면이 권하는 질문 넷 (MZ2AZ-444). 되는 질문만 둔다 — 안 되는 예시는 첫인상을 깎는다. */
 object RouteGuideStartCopy {
@@ -52,21 +54,28 @@ fun RouteGuideStart(
     onAsk: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        Text(tr("무엇을 도와드릴까요?"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-        Text(tr("장소를 코스에 담기 전에도 주변을 찾아볼 수 있어요."), fontSize = 12.sp, color = IOS.secondaryLabel)
+        // 줄 칸은 iOS 줄 높이(15pt 17.9 · 12pt 14.3 · 11pt 13.1) — 7차 감사 GD3: 글꼴 제 높이라 부제 +5.0, 칩 +6.7 아래였다.
+        Text(tr("무엇을 도와드릴까요?"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.sfLine(15f))
+        Text(tr("장소를 코스에 담기 전에도 주변을 찾아볼 수 있어요."), fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(12f))
         if (onOpenNearby != null) {
             BorderedPill(tr("지도 주변 촬영지 보기"), 15.sp, FontWeight.SemiBold, 32.dp, onOpenNearby)
         }
         if (hasLocation && onChangeAnchor != null) {
-            BorderedPill(anchorActionTitle, 12.sp, FontWeight.Normal, 28.dp, onChangeAnchor)
+            BorderedPill(anchorActionTitle, 12.sp, FontWeight.Normal, 28.3.dp, onChangeAnchor)
         }
         HorizontalDivider(color = IOS.separator, thickness = 0.5.dp)
         if (onOpenPlanner != null) {
             BorderedPill(tr("코스 추천받기 (AI)"), 15.sp, FontWeight.SemiBold, 32.dp, onOpenPlanner)
-            Text(tr("AI 일정은 편집할 초안으로 열려요. 확인한 뒤 직접 저장해 주세요."), fontSize = 11.sp, color = IOS.secondaryLabel)
+            IOSLinedText(tr("AI 일정은 편집할 초안으로 열려요. 확인한 뒤 직접 저장해 주세요."), lineDp = 13.3f, fontSize = 11.sp, color = IOS.secondaryLabel)
         }
         if (showQuestions) {
-            Text(tr("AI에게 주변 장소 물어보기"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Text(
+                tr("AI에게 주변 장소 물어보기"),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IOS.label,
+                modifier = Modifier.sfLine(12f),
+            )
             RouteGuideStartCopy.PROMPTS_KO.forEach { prompt ->
                 val text = tr(prompt)
                 Text(
@@ -79,10 +88,11 @@ fun RouteGuideStart(
                             .clip(CircleShape)
                             .background(IOS.systemGray6)
                             .clickable(enabled = canAsk) { onAsk(text) }
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .sfLine(12f),
                 )
             }
-            Text(tr("추천 장소는 골라 담으세요. 일정 변경 요청은 초안에 반영돼요."), fontSize = 11.sp, color = IOS.secondaryLabel)
+            IOSLinedText(tr("추천 장소는 골라 담으세요. 일정 변경 요청은 초안에 반영돼요."), lineDp = 13.3f, fontSize = 11.sp, color = IOS.secondaryLabel)
         }
         if (onOpenCart != null) {
             HorizontalDivider(color = IOS.separator, thickness = 0.5.dp)
@@ -93,7 +103,7 @@ fun RouteGuideStart(
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
-            BorderedPill(tr("장바구니 장소 보기"), 12.sp, FontWeight.Normal, 28.dp, onOpenCart)
+            BorderedPill(tr("장바구니 장소 보기"), 12.sp, FontWeight.Normal, 28.3.dp, onOpenCart)
         }
     }
 }

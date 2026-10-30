@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -43,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -182,9 +184,9 @@ private fun RouteWizardViewBody(
                     .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(tr("취소"), fontSize = 17.sp, color = IOS.accent, modifier = Modifier.clickable { onClose(null) }.iosLineBox(22.dp))
+                Text(tr("취소"), fontSize = 17.sp, color = IOS.accent, modifier = Modifier.clickable { onClose(null) }.iosLineBox(20.3.dp))
                 Spacer(Modifier.weight(1f))
-                Text("${stepIndex + 1} / $steps", fontSize = 13.sp, color = IOS.secondaryLabel, modifier = Modifier.iosLineBox(18.dp))
+                Text("${stepIndex + 1} / $steps", fontSize = 13.sp, color = IOS.secondaryLabel, modifier = Modifier.iosLineBox(15.5.dp))
             }
             Spacer(Modifier.height(10.dp))
             // iOS `ProgressView(value:total:)` — 회색 캡슐 트랙 위 accent 캡슐. Material3 막대는
@@ -248,9 +250,9 @@ private fun RouteWizardViewBody(
                 fontWeight = FontWeight.SemiBold,
                 color = IOS.label,
                 // 글자 잉크가 iOS 보다 3dp 아래에 앉는다(실측 22.1 대 18.7) — 칸은 그대로 두고 글만 올린다.
-                modifier = Modifier.iosLineBox(25.dp).offset(y = (-3).dp),
+                modifier = Modifier.iosLineBox(24.dp).offset(y = (-1.4).dp),
             )
-            Spacer(Modifier.height(15.dp))
+            Spacer(Modifier.height(16.dp))
             if (stepIndex == 0) {
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 100.dp),
@@ -330,7 +332,7 @@ private fun RouteWizardViewBody(
                             },
                         )
                         // iOS `workStep`의 `Divider()` — 줄마다 아래에 가는 금이 있다.
-                        Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(IOS.systemGray5))
+                        Box(modifier = Modifier.fillMaxWidth().height(0.33.dp).background(WIZARD_DIVIDER))
                     }
                     Text(
                         tr("고르지 않으면 인기 작품의 촬영지에서 뽑습니다"),
@@ -359,22 +361,40 @@ private fun RouteWizardViewBody(
                             // 비교로 발견). 커뮤니티 탭 말풍선과 같은 방식으로 직접
                             // 그린다([BoltIcon]·[LeafIcon]).
                             val paceTint = if (isOn) IOS.systemBackground else IOS.accent
-                            if (each == RoutePace.TIGHT) {
-                                BoltIcon(tint = paceTint, modifier = Modifier.size(20.dp))
-                            } else {
-                                LeafIcon(tint = paceTint, modifier = Modifier.size(20.dp))
+                            // 글 시작 x 는 그림 폭을 따른다(iOS: 번개 62.7 · 잎 66.7, 7차 감사 WZ9).
+                            Box(
+                                modifier =
+                                    Modifier.width(
+                                        if (each ==
+                                            RoutePace.TIGHT
+                                        ) {
+                                            16.7.dp
+                                        } else {
+                                            20.7.dp
+                                        },
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (each == RoutePace.TIGHT) {
+                                    BoltIcon(tint = paceTint, modifier = Modifier.size(16.7.dp))
+                                } else {
+                                    LeafIcon(tint = paceTint, modifier = Modifier.size(16.7.dp))
+                                }
                             }
-                            Column {
+                            // iOS 카드 62.3 = 위아래 14 + 제목 18 + 2 + 설명 14.3 (7차 감사 WZ8: 65.1 이었다).
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(
                                     each.label,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (isOn) IOS.systemBackground else IOS.label,
+                                    modifier = Modifier.iosLineBox(18.dp),
                                 )
                                 Text(
                                     each.caption,
                                     fontSize = 12.sp,
                                     color = if (isOn) IOS.systemBackground.copy(alpha = 0.9f) else IOS.secondaryLabel,
+                                    modifier = Modifier.iosLineBox(14.3.dp),
                                 )
                             }
                         }
@@ -501,8 +521,9 @@ private fun ReviewRow(
     showDivider: Boolean = true,
 ) {
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-            Text(label, fontSize = 14.sp, color = IOS.secondaryLabel)
+        // iOS 줄 42.0 = 위아래 12 + 글 18 (7차 감사 WZ12: 44.2 였다).
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 11.9.dp)) {
+            Text(label, fontSize = 14.sp, color = IOS.secondaryLabel, modifier = Modifier.iosLineBox(18.dp))
             Spacer(Modifier.weight(1f))
             Text(
                 value,
@@ -510,13 +531,17 @@ private fun ReviewRow(
                 fontWeight = FontWeight.Medium,
                 color = IOS.label,
                 textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                modifier = Modifier.iosLineBox(18.dp),
             )
         }
         if (showDivider) {
-            Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(IOS.systemGray5))
+            Box(modifier = Modifier.fillMaxWidth().height(0.33.dp).background(WIZARD_DIVIDER))
         }
     }
 }
+
+/** iOS `Divider()` — 0.33pt 줄, 실측 #bdbdc3(7차 감사 WZ6). */
+private val WIZARD_DIVIDER = Color(0xFFBDBDC3)
 
 /** 작품 한 줄 — 하트는 찜, 체크는 이번 코스에 쓸지. iOS `RouteWizardView.workRow`. */
 @Composable
@@ -532,26 +557,34 @@ private fun WorkRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth().clickable(onClick = onToggleSelected).padding(vertical = 10.dp),
     ) {
+        // iOS 줄 54.1 = 위아래 10 + (제목 18 + 2 + 부제 14.1), 선 0.33 — 피치 54.33 (7차 감사 WZ4: 53.0 이었다).
         // 목록에서 빠진 작품은 새로 찜할 수 없다. 이미 찜한 것을 빼는 것은 항상 된다(MZ2AZ-458).
         val canToggle = UnavailableItem.canToggle(delisted = work.delisted, saved = isFavorite)
-        Icon(
-            if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            contentDescription = if (isFavorite) tr("찜 빼기") else tr("찜하기"),
-            tint = if (isFavorite) IOS.systemPink else IOS.secondaryLabel,
-            modifier = Modifier.alpha(if (canToggle) 1f else 0.4f).size(18.dp).clickable(enabled = canToggle, onClick = onToggleFavorite),
-        )
-        Column(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.width(20.7.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                contentDescription = if (isFavorite) tr("찜 빼기") else tr("찜하기"),
+                tint = if (isFavorite) IOS.systemPink else IOS.secondaryLabel,
+                modifier =
+                    Modifier
+                        .alpha(
+                            if (canToggle) 1f else 0.4f,
+                        ).size(18.dp)
+                        .clickable(enabled = canToggle, onClick = onToggleFavorite),
+            )
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             val notice = UnavailableItem.notice(work)
             Text(
                 work.title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = IOS.label,
-                modifier = Modifier.alpha(unavailableAlpha(notice)),
+                modifier = Modifier.alpha(unavailableAlpha(notice)).iosLineBox(18.dp),
             )
             val subtitle = listOfNotNull(work.broadcaster, work.releaseYear?.toString()).joinToString(" · ")
             // iOS 는 부제가 비어도 caption2 줄을 그려 행 높이가 늘 같다(2차 대조: 54.3 대 40.4).
-            Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel)
+            Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel, modifier = Modifier.iosLineBox(14.4.dp))
             if (notice != null) UnavailableItemNotice(notice)
         }
         if (isSelected) {
@@ -559,15 +592,17 @@ private fun WorkRow(
                 Icons.Filled.CheckCircle,
                 contentDescription = tr("선택됨"),
                 tint = IOS.accent,
-                modifier = Modifier.size(20.dp),
+                // iOS `checkmark.circle.fill`·`circle` 은 17pt (지름 16.7), 오른쪽 안쪽 1.3 (7차 감사 WZ5: 19.8 이었다).
+                modifier = Modifier.padding(end = 1.3.dp).size(17.dp),
             )
         } else {
             Box(
                 modifier =
                     Modifier
-                        .size(20.dp)
+                        .padding(end = 1.3.dp)
+                        .size(17.dp)
                         .clip(CircleShape)
-                        .border(width = 1.5.dp, color = IOS.systemGray3, shape = CircleShape),
+                        .border(width = 1.dp, color = IOS.systemGray3, shape = CircleShape),
             )
         }
     }

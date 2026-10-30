@@ -61,7 +61,7 @@ fun ProfileDeviceDataSection() {
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(PROFILE_ROW_HEIGHT)
                     .clickable(enabled = !AuthStore.busy) { confirming = true }
                     .padding(horizontal = 16.dp),
         ) {
@@ -71,12 +71,7 @@ fun ProfileDeviceDataSection() {
             }
         }
     }
-    Text(
-        tr(DeviceDataDeletionCopy.FOOTER_KO),
-        fontSize = 13.sp,
-        color = IOS.secondaryLabel,
-        modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 8.dp),
-    )
+    ProfileFooter(tr(DeviceDataDeletionCopy.FOOTER_KO))
     if (confirming) {
         IOSAlert(
             title = tr(DeviceDataDeletionCopy.CONFIRM_TITLE_KO),

@@ -37,7 +37,7 @@ fun ProfileStatisticsSettings() {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().height(PROFILE_ROW_HEIGHT).padding(horizontal = 16.dp),
         ) {
             Box(modifier = Modifier.width(26.dp), contentAlignment = Alignment.Center) {
                 ChartBarIcon(IOS.accent, Modifier.size(18.dp))
@@ -49,10 +49,5 @@ fun ProfileStatisticsSettings() {
             })
         }
     }
-    Text(
-        tr(UsageStatistics.FOOTNOTE_KO),
-        fontSize = 13.sp,
-        color = IOS.secondaryLabel,
-        modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 8.dp),
-    )
+    ProfileFooter(tr(UsageStatistics.FOOTNOTE_KO))
 }

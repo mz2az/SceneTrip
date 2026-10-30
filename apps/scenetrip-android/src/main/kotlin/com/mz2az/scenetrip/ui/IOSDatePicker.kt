@@ -54,8 +54,10 @@ fun IOSGraphicalDatePicker(
     // SwiftUI 의 `DatePicker` 는 머리·요일을 기기 로케일로 알아서 그려 준다 — 손수
     // 그리는 Android 는 **앱 언어**로 맞춰 줘야 한다(기기 로케일이 아니다).
     val locale = if (AppLanguage.current == Lang.ko) Locale.KOREAN else Locale.ENGLISH
-    Column(modifier = modifier.padding(horizontal = 16.dp).padding(top = 23.dp, bottom = 10.8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    // 7차 감사 WZ3: iOS 카드 362 는 칸 50.0 × 7 + 안쪽 6 — 칸을 왼쪽 6 에 붙여 50.0 으로 고정한다(Android 화면이 더 넓어 오른쪽이 남는다).
+    // 머리 글은 카드 왼쪽 19, › 는 카드 오른쪽 15.7 에 글리프가 닿는다.
+    Column(modifier = modifier.padding(top = 23.dp, bottom = 10.8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 18.2.dp, end = 10.dp)) {
             val header =
                 if (locale == Locale.KOREAN) {
                     "${month.year}년 ${month.monthValue}월"
@@ -73,11 +75,11 @@ fun IOSGraphicalDatePicker(
                     .graphicsLayer(scaleX = -1f)
                     .clickable(enabled = canGoBack) { month = month.minusMonths(1) },
             )
-            Spacer(Modifier.width(28.dp))
+            Spacer(Modifier.width(25.6.dp))
             ChevronRightIcon(IOS.accent, Modifier.size(20.dp).clickable { month = month.plusMonths(1) })
         }
         Spacer(Modifier.height(20.3.dp))
-        Row {
+        Row(modifier = Modifier.padding(start = 6.dp).width(350.dp)) {
             // 일요일부터 — DayOfWeek 는 월=1..일=7 이라 일요일을 맨 뒤로 돌린다.
             // iOS 26 그래픽 달력 요일 머리는 앱 언어로 「SUN MON TUE」 처럼 세 글자 대문자다(영어, 2026-10-29 감사 #30 —
             // 에뮬레이터 로캘 탓이 아니라 Android 가 한 글자 `NARROW` 를 쓴 탓). 한국어는 「일 월 화」 로 같은 한 글자다.
@@ -109,7 +111,7 @@ fun IOSGraphicalDatePicker(
         val cells = lead + month.lengthOfMonth()
         val rows = (cells + 6) / 7
         for (r in 0 until rows) {
-            Row(modifier = Modifier.fillMaxWidth().height(55.75.dp)) {
+            Row(modifier = Modifier.padding(start = 6.dp).width(350.dp).height(55.75.dp)) {
                 for (c in 0 until 7) {
                     val dayNumber = r * 7 + c - lead + 1
                     Box(modifier = Modifier.weight(1f).height(55.75.dp), contentAlignment = Alignment.Center) {

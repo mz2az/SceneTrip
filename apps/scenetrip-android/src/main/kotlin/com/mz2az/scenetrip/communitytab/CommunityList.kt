@@ -64,12 +64,14 @@ import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSAlert
 import com.mz2az.scenetrip.ui.IOSGlassSheetColor
+import com.mz2az.scenetrip.ui.IOSLinedText
 import com.mz2az.scenetrip.ui.IOSListDivider
 import com.mz2az.scenetrip.ui.IOSRole
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.IOSSheetToolbar
 import com.mz2az.scenetrip.ui.RouteCurveIcon
 import com.mz2az.scenetrip.ui.SheetDetent
+import com.mz2az.scenetrip.ui.sfLine
 import com.mz2az.scenetrip.ui.sheetListBottom
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -178,7 +180,7 @@ internal fun CommunityPostList(
                         }
                     },
                 ) { CommunityPostRow(store, post, mine, moderation) { reading = post } }
-                IOSListDivider(start = 16.dp)
+                IOSListDivider(start = 16.dp, overlay = !mine)
             }
             if (posts.size < total) {
                 item {
@@ -324,20 +326,39 @@ private fun CommunityPostRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 5.dp)) {
-                Text(
-                    post.title,
-                    fontSize = 15.sp,
-                    fontWeight = if (compact) FontWeight.Medium else FontWeight.SemiBold,
-                    maxLines = if (compact) 1 else 2,
-                    color = IOS.label,
-                )
+                // 줄 칸은 iOS 줄 높이(15pt 17.9 · 12pt 14.3 · 11pt 13.1)로 고정한다 — 7차 감사 C1: 글꼴 제 높이라 본문 +5.1, 글쓴이 +7.6 아래였다.
+                if (compact) {
+                    Text(post.title, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, color = IOS.label)
+                } else {
+                    IOSLinedText(
+                        post.title,
+                        lineDp = 17.9f,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = IOS.label,
+                        maxLines = 2,
+                    )
+                }
                 if (compact) {
                     Text(formatDateTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel)
                 } else {
-                    if (post.body.isNotEmpty()) Text(post.body, fontSize = 12.sp, color = IOS.secondaryLabel, maxLines = 2)
+                    if (post.body.isNotEmpty()) {
+                        IOSLinedText(
+                            post.body,
+                            lineDp = 14.3f,
+                            fontSize = 12.sp,
+                            color = IOS.secondaryLabel,
+                            maxLines = 2,
+                        )
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(post.authorName(AuthStore.me?.nickname), fontSize = 11.sp, color = IOS.tertiaryLabel)
-                        Text(relativeTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel)
+                        Text(
+                            post.authorName(AuthStore.me?.nickname),
+                            fontSize = 11.sp,
+                            color = IOS.tertiaryLabel,
+                            modifier = Modifier.sfLine(11f),
+                        )
+                        Text(relativeTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel, modifier = Modifier.sfLine(11f))
                     }
                     (post.course?.title ?: post.courseTitle)?.let { title ->
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -365,7 +386,8 @@ private fun CommunityPostRow(
                 canBlock = ModerationRules.canBlock(isMine = post.isMine, hasAuthor = post.author != null),
                 controller = moderation,
                 // 「⋯」 가운데가 제목 첫 줄 가운데(줄 위에서 29.5)에 놓인다 — 메뉴 칸 44 의 가운데가 줄 위 8.5+22.
-                modifier = Modifier.padding(top = if (compact) 4.dp else 8.dp, end = 4.dp),
+                // iOS 메뉴 칸은 32×28, 줄 윗에서 15 아래 · 오른쪽 16 (7차 감사 C3: 「…」 가 6.7dp 오른쪽이었다).
+                modifier = Modifier.padding(top = if (compact) 12.dp else 15.dp, end = if (compact) 10.dp else 16.dp).size(32.dp, 28.dp),
             )
         }
     }

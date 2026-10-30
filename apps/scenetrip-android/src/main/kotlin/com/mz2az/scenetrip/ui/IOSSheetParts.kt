@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -64,7 +66,15 @@ fun IOSSheetToolbar(
     // 유리 시트 위에서는 단추도 유리 — 흰색이 아니라 시트보다 한 톤 짙은 회색(iOS 실측 233).
     capsuleColor: Color = IOS.systemBackground,
 ) {
-    Box(modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp)) {
+    // iOS 내비게이션 줄의 제목·단추 중심은 시트 윗에서 36.4(7차 감사 ST1·ES1: 38.7 이라 2.3 아래였다). 아래 칸은 그대로라 그림만 올린다.
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .padding(horizontal = 16.dp)
+                .offset(y = (-2.3).dp),
+    ) {
         if (leading != null) {
             GlassCapsule(
                 leading,
@@ -178,7 +188,23 @@ fun IOSSearchField(
 fun IOSListDivider(
     start: Dp,
     color: Color = Color(0xFFE5E5EA),
+    // true 면 선이 칸을 차지하지 않고 앞 줄 맨 아래 1dp 에 겹친다 — iOS 목록은 줄 높이 안에 선이 들어 있다(7차 감사 C2: 피치 118.0).
+    overlay: Boolean = false,
 ) {
     // iOS 목록 선은 오른쪽 끝에서도 약 15 들어와 끝난다.
-    HorizontalDivider(thickness = 1.dp, color = color, modifier = Modifier.padding(start = start, end = 15.dp))
+    HorizontalDivider(
+        thickness = 1.dp,
+        color = color,
+        modifier =
+            (
+                if (overlay) {
+                    Modifier.layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        layout(placeable.width, 0) { placeable.place(0, -placeable.height) }
+                    }
+                } else {
+                    Modifier
+                }
+            ).padding(start = start, end = 15.dp),
+    )
 }
