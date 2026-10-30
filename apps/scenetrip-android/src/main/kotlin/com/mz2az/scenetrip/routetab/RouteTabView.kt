@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -289,7 +290,8 @@ private fun EmptyState(
     onManual: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+        // 9차 CE5: 묶음이 iOS 보다 +11.3 낮았다(화면이 40 길고 내비바가 10 짧아 가운데 기준이 아래로 쏠림) — 아래 22.6 을 비워 가운데를 11.3 올린다.
+        modifier = Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, bottom = 22.6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -399,7 +401,8 @@ private fun CourseList(
     val running = store.courses.filter { it.status == CourseStatus.active }
     val planned = store.courses.filter { it.status != CourseStatus.active }
     // iOS `.listStyle(.insetGrouped)` — 좌우 16 들여 쓴 둥근 묶음(모서리 26) 하나에 한 절의 줄이 다 들어가고, 줄 사이는 가는 선이다.
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    // 9차 CL3': iOS 머리줄 아래 「예정」 머리까지 +2.5 더 — 머리줄을 내린 8차 뒤에도 목록 윗 여백이 그대로여서 −2.4~−2.6 짧았다.
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(top = 2.5.dp)) {
         if (running.isNotEmpty()) {
             item { SectionHeader(tr("여행 중 %d").format(running.size)) }
             item { CourseGroup(running, openId, row) }

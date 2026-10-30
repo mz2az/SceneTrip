@@ -116,8 +116,10 @@ fun StarRow(
     modifier: Modifier = Modifier,
 ) {
     val spoken = tr("별점 %s점").format(ReviewRules.starValue(value))
-    Row(modifier.clearAndSetSemantics { contentDescription = spoken }, horizontalArrangement = Arrangement.spacedBy(1.5.dp)) {
+    val starGap = (if (size.value <= 11.5f) 3.4f else 2.7f).dp
+    Row(modifier.clearAndSetSemantics { contentDescription = spoken }, horizontalArrangement = Arrangement.spacedBy(starGap)) {
         // 8차 RV2: iOS SF 별은 글꼴 크기보다 넓다 — 별 다섯 폭 iOS 74.7 · Android 60.2. 칸을 1.16 배로 키운다.
+        // 9차 RV2: 별 하나 폭은 맞았고 피치만 짧았다 — 행(11) iOS 15.9 · 요약(12) 16.6 → 별 사이 간격 3.4 / 2.7 (실측: 행 피치 15.6→15.9, 요약 16.7).
         ReviewRules.stars(value).forEach { StarGlyph(it, size * 1.16f) }
     }
 }

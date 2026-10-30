@@ -430,9 +430,8 @@ private fun RouteWizardViewBody(
                     .fillMaxWidth()
                     .background(IOS.systemBackground)
                     .navigationBarsPadding()
-                    .padding(16.dp)
-                    // Android 제스처 여백(24)은 iOS 안전 영역(34)보다 10 작다.
-                    .padding(bottom = 10.dp),
+                    // 9차 WZ2: iOS 단추는 안전 영역 위 16.7 (Android 26.7 — 제스처 여백 차이 보정 10 을 뺀다. 편집기 푸터는 이미 안전 영역 기준으로 맞다).
+                    .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
