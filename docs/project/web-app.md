@@ -1,6 +1,6 @@
 # 웹앱(브라우저) 이식 계획
 
-> 상태: **모든 화면 구현, 비교 가능한 30화면 평균 유사도 95.3** (2026-10-30, §4·§6) — 모듈 `apps/web/` (폴더 이름은 사용자 확정 대기, 아래 §9).
+> 상태: **모든 화면 구현, 비교 가능한 30화면 평균 유사도 95.3** (2026-10-30, §4·§6; 같은 날 웹 쪽 준비 단계는 §11) — 모듈 `apps/web/` (폴더 이름은 사용자 확정 대기, 아래 §9).
 > **아직 Bazel/just 에 연결되지 않았다. 연결에는 사용자 승인이 필요하다(§8).**
 
 ## 1. 목표
@@ -216,3 +216,33 @@ npm run check                              # gen + typecheck + lint + test + vit
 - 문구: `tr('… %d')` 로 적은 열쇠가 iOS 의 `%lld` 영어 문구를 못 찾던 것(코스 장소 검색의 「추가 0」), 영어 달력 요일 줄임말(SUN…SAT).
 - 린트 오류 1건·경고 1건.
 - 알려진 남은 차이: 지도 타일(OSM), SF Symbols 대신 lucide 아이콘, 상태바 높이, 웹에서 숨긴 「광고 추적 허용」, 코드 분할 없이 번들 하나(약 1.2 MB, gzip 386 KB — 출시 전에 라우트별로 나눌 수 있다).
+
+
+## 11. 2026-10-30 웹 쪽 준비 단계 (기기 없이)
+
+점수는 **다시 매기지 않았다** — 비교 못 한 13화면의 iOS 스크린샷이 아직 없어 평균은 그대로 95.3(30화면)이다. 이번에 한 일은 사실로만 적는다.
+
+### 고친 것
+
+| 화면 | 변경 | iOS 근거 |
+| --- | --- | --- |
+| 공용 경고창·GlassDialog(신고 차단 확인, 삭제 확인 등) | 바깥 상자 fade-in 을 `both` → `backwards`. `both` 가 opacity 애니메이션을 남겨 backdrop root 를 만들어 유리 흐림(`backdrop-filter`)이 안 먹고 뒤 글자가 비쳤다 | iOS 26 유리 경고창(`49-delete-confirm-ios.png`) |
+| 가이드 서랍 장소 줄 등 한 줄 글 전반(`Txt lines=1`) | `maxWidth: 100%` — `VStack align=start` 안에서 안 줄바꿈 글이 칸 밖으로 넘쳐 「8 m」·펼침·⊕ 와 겹쳤다 | `RouteGuideSheet.swift:257~270` `.lineLimit(1)` |
+| 코스 편집기 주변 편의시설 점 | 조회 범위·중심을 지도 전체가 아니라 시트가 덮지 않은 영역으로(`viewportOf(map, bottomInset)`). 전에는 가까운 30개가 시트 밑에 깔려 점이 안 보이는 경우가 있었다 | `RouteMapView.swift:259` `contentInset.bottom = panelHeight`, `RouteEditorAmbient.swift:84` |
+| 내 리뷰 시트 | 「내 리뷰 고치기·지우기」 글자를 강조색으로 | `MyReviewsView.swift:128` 기본 `Button` |
+
+### 개발 도구
+
+- `?dev-account=1`·`?dev-stamps=1|active`(`src/devMock.ts`): 계정·방문 기록이 필요한 화면을 읽기 전용 가짜 응답으로 연다. 켜면 GET 이 아닌 요청은 서버로 나가지 않는다(204). 가짜 로그인은 저장소에 쓰지 않는다.
+- `?dev-fake-guide=…` 는 전에 만들어져 있었으나 어디에도 연결되지 않았다 → `installDevFakeGuide()` 로 `sharedGuide` 에 연결.
+- 개발 서버가 DEV GET 200 을 10분 메모리에 둔다(분당 60회 한도 완화).
+- `scripts/e2e-smoke.mjs`: 13개 흐름(홈·탭·검색·작품/촬영지 상세·코스 목록·마법사·편집기·여행 중·가이드 서랍·커뮤니티·신고·글쓰기·마이페이지 시트·로그인/동의 시트·영어)을 훑는다. 마지막 실행(개발 서버 5273): 13/13 통과.
+- `scripts/shot.mjs --until domcontentloaded`(스플래시 캡처용).
+
+### 웹 캡처 준비(`/private/tmp/claude-501/web-port/p99/<ID>-web.png`, @2x 와 `-web-1x.png`)
+
+R1(스플래시), R5(로그인 시트), R6(닉네임 바꾸기), R7(AI 동의), S8(+`S8-chips`), C3, C4, C5(`-menu`·`-report`·`-block`), P5, P7, P8, T5, T6(`-open`·`-answer`). 13화면 모두 준비됨. 여는 방법은 `p99` 폴더와 같은 URL 플래그 + 클릭이며 `scripts/e2e-smoke.mjs` 흐름에 같은 단계가 있다.
+
+### 아직 비교하지 못한 것
+
+위 13화면은 iOS 쪽 스크린샷이 없어 유사도를 매기지 못했다(§4 의 「비교 안 함」 유지).

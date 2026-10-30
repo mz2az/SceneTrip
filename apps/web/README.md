@@ -28,9 +28,12 @@ npm run dev          # http://localhost:5173  (predev 가 npm run gen 을 먼저
 | `npm run typecheck` / `npm run lint` / `npm test` | 타입·린트·단위 시험(vitest) |
 | `npm run build` | 타입 검사 + 프로덕션 번들(`dist/`) |
 | `npm run check` | 위를 모두 (사실상 이 모듈의 `just check`) |
-| `node scripts/shot.mjs <URL> <out.png>` | 설치된 Chrome 을 puppeteer-core 로 돌려 402×874@3x 스크린샷 (iOS 스크린샷과 같은 크기) |
+| `node scripts/shot.mjs <URL> <out.png>` | 설치된 Chrome 을 puppeteer-core 로 돌려 402×874@3x 스크린샷 (iOS 스크린샷과 같은 크기). `--scale 2`, `--click 글자`, `--eval 코드`, `--until domcontentloaded`(스플래시처럼 금방 사라지는 화면) |
+| `node scripts/e2e-smoke.mjs [--base URL] [--only 이름,…] [--shots 폴더]` | 핵심 흐름(홈→탭→검색→작품·촬영지 상세→코스 목록·마법사·편집기→커뮤니티→마이페이지·시트)을 헤드리스 Chrome 으로 훑어 콘솔 오류·실패한 요청·4xx/5xx·깨진 이미지·쓰기/유료 호출을 센다. 하나라도 있으면 종료 코드 1. 개발 서버가 떠 있어야 한다 |
 
 개발 서버에서만 URL 로 상태를 정할 수 있다(`src/devFlags.ts`): `?dev-lang=ko|en`, `?dev-seen=1`(사용법 본 것으로), `?dev-nosplash=1`.
+계정·기록이 있어야 열리는 화면은 서버 쓰기 없이 **읽기 전용 가짜 응답**(`src/devMock.ts`)으로 연다: `?dev-account=1`(가짜 로그인 — 저장소에는 쓰지 않는다 — 과 `/me`·`/me/reviews`·`/me/blocks`·`/me/posts`), `?dev-stamps=1`(방문 기록이 찍힌 코스 `9001`), `?dev-stamps=active`(여행 중인 코스 `9001`). 둘 중 하나라도 켜면 GET 이 아닌 요청은 서버로 나가지 않고 204 로 돌아온다. 가이드 챗봇은 `?dev-fake-guide=answer|answer-text|slow|…`(`features/route/guide/devFake.ts`, 유료 `/guide/chat` 을 부르지 않는다).
+개발 서버는 DEV API 의 GET 200 응답을 10분 메모리에 둔다(`vite.config.ts`, DEV 분당 60회 한도 때문. `SCENETRIP_NO_API_CACHE=1` 로 끈다).
 
 ## 환경 변수
 
