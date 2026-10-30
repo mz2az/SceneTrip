@@ -65,7 +65,7 @@ function PinBody({ pin, onClose, onDone }: { pin: LatLng; onClose: () => void; o
                   {category === kind && <Icon name="checkmark" size={16} weight="semibold" color="accent" />}
                 </HStack>
               </Pressable>
-              {i < PIN_KINDS.length - 1 && <div style={{ height: 1, marginLeft: 16, background: 'var(--separator)', transform: 'scaleY(0.5)' }} />}
+              {i < PIN_KINDS.length - 1 && <div style={{ height: 1, marginLeft: 16, background: 'var(--separator)', transform: 'scaleY(0.3333)' }} />}
             </div>
           ))}
         </Section>

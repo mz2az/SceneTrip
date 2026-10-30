@@ -169,7 +169,7 @@ export function ComposeView({ onClose, registerClose }: { onClose: () => void; r
               onChange={(e) => setTitle(e.target.value.replace(/\n/g, ' '))}
               style={{ ...paper, fontSize: 22, fontWeight: 700, lineHeight: '27px', maxHeight: TITLE_MAX_LINES * 27 }}
             />
-            <div style={{ height: 1, width: '100%', background: 'var(--separator)', transform: 'scaleY(0.5)' }} />
+            <div style={{ height: 1, width: '100%', background: 'var(--separator)', transform: 'scaleY(0.3333)' }} />
             <textarea
               className="st-field"
               aria-label={tr('어디를 다녀왔나요? 장면 속 그 자리에 선 이야기를 들려주세요')}

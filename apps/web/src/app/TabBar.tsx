@@ -44,9 +44,10 @@ export function TabBar({ selected, onSelect }: { selected: TabId; onSelect: (tab
   )
   return (
     <nav
+      className="hair-t"
       style={{
         position: 'relative', display: 'flex', height: 'calc(var(--tabbar-height) + var(--safe-bottom))', paddingBottom: 'var(--safe-bottom)',
-        background: 'var(--system-background)', borderTop: '0.5px solid var(--separator)', flex: 'none', zIndex: 20,
+        background: 'var(--system-background)', flex: 'none', zIndex: 20,
       }}
     >
       {side('search', tr('작품검색'))}

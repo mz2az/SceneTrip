@@ -273,7 +273,7 @@ function Row({ label, value }: { label: string; value: string | null }) {
         <Txt size={12} color="secondary" style={{ width: 76, flex: 'none' }}>{label}</Txt>
         <Txt size={12} style={{ flex: 1, minWidth: 0 }}>{value}</Txt>
       </HStack>
-      <div style={{ height: 1, marginLeft: 14, background: 'var(--separator)', transform: 'scaleY(0.5)', transformOrigin: 'top' }} />
+      <div style={{ height: 1, marginLeft: 14, background: 'var(--separator)', transform: 'scaleY(0.3333)', transformOrigin: 'top' }} />
     </>
   )
 }

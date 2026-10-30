@@ -23,10 +23,10 @@
   --system-gray4: #d1d1d6;
   --system-gray5: #e5e5ea;
   --system-gray6: #f2f2f7;
-  --system-red: #ff3b30;
+  --system-red: #ff383c; /* iOS 26 실측 (255,56,60) */
   --system-green: #34c759;
-  --system-blue: #007aff;
-  --system-orange: #ff9500;
+  --system-blue: #0088ff; /* iOS 26 실측 (0,136,255) */
+  --system-orange: #ff8d28; /* iOS 26 실측 (255,141,40) */
   --system-yellow: #ffcc00;
 
   /* Color.accentColor — 앱에 AccentColor 에셋이 없어 시스템 파랑이다. */

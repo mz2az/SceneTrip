@@ -24,7 +24,9 @@
   top: 0;
   left: var(--sep-inset, 16px);
   right: 16px;
-  height: 0.5px;
+  height: 1px;
+  transform: scaleY(0.3333);
+  transform-origin: top;
   background: rgba(60, 60, 67, 0.2);
 }
 .ls-card > button.ls-row:active,

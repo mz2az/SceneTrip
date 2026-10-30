@@ -56,7 +56,7 @@ export function SignInSheet() {
         <VStack align="center" style={{ padding: '0 24px' }}>
           <img src="/generated/haetae-joy.png" alt="" draggable={false} style={{ height: 72, width: 'auto', marginTop: 18 }} />
           <Txt as="h2" size={20} weight="bold" style={{ marginTop: 14, lineHeight: '25px' }}>{tr('SceneTrip 로그인')}</Txt>
-          <Txt as="p" size={15} color="secondary" align="center" style={{ marginTop: 6, lineHeight: '20px' }}>
+          <Txt as="p" size={15} color="secondary" align="center" style={{ marginTop: 6, lineHeight: '17.9px' }}>
             {tr('담아 둔 장바구니·코스·찜이 계정에 저장돼요.\n다른 기기에서도 그대로 이어집니다.')}
           </Txt>
 

@@ -26,7 +26,7 @@ export const STAR_YELLOW = 'rgb(255, 184, 0)'
 
 /** 목록 구분선 — `Divider().padding(.leading, 14)` */
 export function ListDivider({ leading = 14 }: { leading?: number }) {
-  return <div style={{ height: 0.5, background: 'var(--separator)', marginLeft: leading, flex: 'none' }} />
+  return <div className="hair" style={{ marginLeft: leading, flex: 'none' }} />
 }
 
 /** `.buttonStyle(.borderedProminent)` — 채운 캡슐. */

@@ -157,7 +157,7 @@ export function CommunityNow({ posts, moderation, onOpen }: { posts: readonly Po
             const mine = post.isMine
             return (
               <div key={post.id}>
-                {i > 0 && <div style={{ height: 1, marginLeft: 16, background: 'var(--separator)', transform: 'scaleY(0.5)' }} />}
+                {i > 0 && <div style={{ height: 1, marginLeft: 16, background: 'var(--separator)', transform: 'scaleY(0.3333)' }} />}
                 <HStack spacing={0}>
                   <Pressable plain onClick={onOpen} style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                     <HStack spacing={10} style={{ padding: '13px 16px' }}>

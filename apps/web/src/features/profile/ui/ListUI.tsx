@@ -76,11 +76,11 @@ export function Row(p: RowProps) {
         </span>
       )}
       <VStack spacing={2} style={{ flex: 1, minWidth: 0 }}>
-        <Txt size={15} color={p.titleColor ?? (p.dim ? 'tertiary' : 'primary')} style={{ lineHeight: '20px' }}>{p.title}</Txt>
+        <Txt size={15} color={p.titleColor ?? (p.dim ? 'tertiary' : 'primary')} style={{ lineHeight: '17.9px' }}>{p.title}</Txt>
         {p.subtitle && <Txt size={12} color="secondary" style={{ lineHeight: '15px' }}>{p.subtitle}</Txt>}
       </VStack>
       {p.value !== undefined && p.value !== '' && (
-        <Txt size={15} color={p.dim ? 'tertiary' : 'secondary'} style={{ lineHeight: '20px', flex: 'none' }}>{p.value}</Txt>
+        <Txt size={15} color={p.dim ? 'tertiary' : 'secondary'} style={{ lineHeight: '17.9px', flex: 'none' }}>{p.value}</Txt>
       )}
       {p.trailing}
       {p.chevron && <Disclosure />}
@@ -124,7 +124,7 @@ export function ToggleRow({ label, checked, onChange, icon, tint, testId, disabl
             <Icon name={icon} size={15} color={tint ?? 'accent'} />
           </span>
         )}
-        <Txt size={15} style={{ flex: 1, lineHeight: '20px' }}>{label}</Txt>
+        <Txt size={15} style={{ flex: 1, lineHeight: '17.9px' }}>{label}</Txt>
         <Switch checked={checked} onChange={onChange} label={label} disabled={disabled} />
       </HStack>
     </div>

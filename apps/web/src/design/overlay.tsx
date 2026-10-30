@@ -60,15 +60,15 @@ export function Sheet({ open, onClose, children, detent = 'large', topGap, radiu
     <div style={{ position: 'absolute', inset: 0, zIndex: 50 }} role="dialog" aria-modal aria-label={label}>
       <div
         onClick={dismissOnScrim ? onClose : undefined}
-        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', animation: `${closing ? 'st-fade-out' : 'st-fade-in'} 0.28s ease both` }}
+        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.22)', animation: `${closing ? 'st-fade-out' : 'st-fade-in'} 0.28s ease both` }}
       />
       <div
         style={{
           position: 'absolute', left: 0, right: 0, bottom: 0,
-          height: typeof detent === 'number' ? detent : detent === 'medium' ? '50%' : `calc(100% - ${topGap ?? 10}px - var(--safe-top))`,
+          height: typeof detent === 'number' ? detent : detent === 'medium' ? '50%' : `calc(100% - ${topGap ?? 62}px - var(--safe-top))`,
           background, display: 'flex', flexDirection: 'column', overflow: 'hidden',
           borderRadius: '10px 10px 0 0',
-          ...(detent === 'large' ? { borderRadius: `${radius ?? 12}px ${radius ?? 12}px 0 0` } : {}),
+          ...(detent === 'large' ? { borderRadius: `${radius ?? 38}px ${radius ?? 38}px 0 0` } : {}),
           ...(radius !== undefined && detent !== 'large' ? { borderRadius: `${radius}px ${radius}px 0 0` } : {}),
           animation: `${closing ? 'st-slide-down' : 'st-slide-up'} 0.28s cubic-bezier(.32,.72,0,1) both`,
         }}
@@ -171,7 +171,7 @@ export function ActionSheet({ open, title, message, actions, cancelLabel, onClos
   if (!mounted || !root) return null
   return createPortal(
     <div style={{ position: 'absolute', inset: 0, zIndex: 80 }} role="dialog" aria-modal>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', animation: `${closing ? 'st-fade-out' : 'st-fade-in'} 0.26s ease both` }} />
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.22)', animation: `${closing ? 'st-fade-out' : 'st-fade-in'} 0.26s ease both` }} />
       <VStack spacing={8} style={{ position: 'absolute', left: 8, right: 8, bottom: 'calc(8px + var(--safe-bottom))', animation: `${closing ? 'st-slide-down' : 'st-slide-up'} 0.26s cubic-bezier(.32,.72,0,1) both` }}>
         <VStack style={{ background: 'rgba(248,248,248,0.96)', backdropFilter: 'blur(30px)', ...rr(14), overflow: 'hidden' }}>
           {(title || message) && (
@@ -184,11 +184,12 @@ export function ActionSheet({ open, title, message, actions, cancelLabel, onClos
             <Pressable
               key={i}
               plain
+              className="hair-t"
               onClick={() => {
                 onClose()
                 a.onPress?.()
               }}
-              style={{ padding: '17px 16px', textAlign: 'center', borderTop: '0.5px solid rgba(60,60,67,0.36)' }}
+              style={{ padding: '17px 16px', textAlign: 'center', ['--hair-color' as string]: 'rgba(60,60,67,0.36)' }}
             >
               <Txt size={20} color={a.role === 'destructive' ? 'red' : 'accent'}>{a.label}</Txt>
             </Pressable>

@@ -15,7 +15,7 @@ import { contentMeta } from './Rows'
 
 export function AliasBadge({ text }: { text: string }) {
   return (
-    <Txt size={FONT.caption2} color="accent" style={{ padding: '2px 6px', borderRadius: 999, background: 'rgba(0,122,255,0.12)', whiteSpace: 'nowrap' }}>
+    <Txt size={FONT.caption2} color="accent" style={{ padding: '2px 6px', borderRadius: 999, background: 'rgba(0,136,255,0.12)', whiteSpace: 'nowrap' }}>
       {text}
     </Txt>
   )

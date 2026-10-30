@@ -96,7 +96,7 @@ export function EditorPanel(p: PanelProps) {
                 {...extras}
               />
             </SwipeRow>
-            {index < p.stops.length - 1 && <div style={{ height: 1, marginLeft: SEPARATOR_INSET, marginRight: 16, background: 'var(--separator)', transform: 'scaleY(0.5)' }} />}
+            {index < p.stops.length - 1 && <div style={{ height: 1, marginLeft: SEPARATOR_INSET, marginRight: 16, background: 'var(--separator)', transform: 'scaleY(0.3333)' }} />}
           </div>
         )
       })}

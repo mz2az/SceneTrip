@@ -78,7 +78,7 @@ export function CourseList({ courses, busy, onOpen, onDelete }: {
           </SwipeRow>
           {/* 줄 사이 구분선 — 열린 줄 아래에서는 숨긴다. */}
           {!last && (
-            <div style={{ height: 1, marginLeft: 16, background: isOpen ? 'transparent' : 'var(--separator)', transform: 'scaleY(0.5)' }} />
+            <div style={{ height: 1, marginLeft: 16, background: isOpen ? 'transparent' : 'var(--separator)', transform: 'scaleY(0.3333)' }} />
           )}
         </div>
       )

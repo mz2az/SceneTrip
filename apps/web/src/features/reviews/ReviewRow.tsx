@@ -25,7 +25,7 @@ export function ReviewRow({ review, onEdit, moderation }: {
           <HStack spacing={6} align="baseline" style={{ width: '100%' }}>
             <Txt size={FONT.subheadline} weight="semibold" color={review.author == null ? 'secondary' : 'primary'} lines={1}>{authorName(review.author)}</Txt>
             {review.isMine && (
-              <Txt size={FONT.caption2} weight="semibold" color="accent" style={{ padding: '2px 6px', borderRadius: 999, background: 'rgba(0,122,255,0.12)', whiteSpace: 'nowrap' }}>
+              <Txt size={FONT.caption2} weight="semibold" color="accent" style={{ padding: '2px 6px', borderRadius: 999, background: 'rgba(0,136,255,0.12)', whiteSpace: 'nowrap' }}>
                 {tr('내 리뷰')}
               </Txt>
             )}

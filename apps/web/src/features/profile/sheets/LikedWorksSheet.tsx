@@ -44,7 +44,7 @@ function WorkRow({ work, expanded, onToggle, last }: { work: ContentSummary; exp
           <HStack spacing={10}>
             <RemoteImage url={work.posterUrl} symbol="film" fits style={{ ...POSTER, borderRadius: 5, opacity: delisted ? DIM : 1 }} />
             <VStack spacing={2} style={{ flex: 1, minWidth: 0 }}>
-              <Txt size={15} weight="medium" style={{ opacity: delisted ? DIM : 1, lineHeight: '20px' }}>{work.title}</Txt>
+              <Txt size={15} weight="medium" style={{ opacity: delisted ? DIM : 1, lineHeight: '17.9px' }}>{work.title}</Txt>
               <Txt size={12} color="secondary">{workSubtitle(work)}</Txt>
             </VStack>
             <Icon name="heart.fill" size={12} color="red" />

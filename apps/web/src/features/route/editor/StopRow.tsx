@@ -148,7 +148,7 @@ function Chip({ tint, children }: { tint: 'gray' | 'orange'; children: string })
     <span
       style={{
         padding: '1px 5px', borderRadius: 999, fontSize: 11, whiteSpace: 'nowrap',
-        background: tint === 'gray' ? 'var(--system-gray5)' : 'rgba(255,149,0,0.15)', color: tint === 'gray' ? 'var(--label-secondary)' : 'var(--system-orange)',
+        background: tint === 'gray' ? 'var(--system-gray5)' : 'rgba(255,141,40,0.15)', color: tint === 'gray' ? 'var(--label-secondary)' : 'var(--system-orange)',
       }}
     >
       {children}

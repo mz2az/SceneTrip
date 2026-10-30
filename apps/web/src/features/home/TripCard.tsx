@@ -68,7 +68,7 @@ function WhiteButton({ children, onClick, disabled }: { children: string; onClic
       plain
       onClick={onClick}
       disabled={disabled}
-      style={{ flex: 1, padding: '10px 0', borderRadius: 14, background: '#fff', opacity: disabled ? 0.6 : 1, textAlign: 'center', cornerShape: 'squircle' } as React.CSSProperties}
+      style={{ flex: 1, padding: '10px 0', borderRadius: 14, background: '#fff', opacity: disabled ? 0.6 : 1, textAlign: 'center' }}
     >
       <Txt size={14} weight="bold" align="center" style={{ color: 'var(--home-purple)' }}>{children}</Txt>
     </Pressable>
@@ -81,7 +81,7 @@ function TripCard({ trip, rank, card, hasCourses, onNavigate, onOpenCourse, onCr
   return (
     <div
       style={{
-        margin: '0 20px', padding: '16px 18px', borderRadius: 22, background: GRADIENT, color: '#fff', cornerShape: 'squircle',
+        margin: '0 20px', padding: '16px 18px', borderRadius: 22, background: GRADIENT, color: '#fff',
         boxShadow: shadow('rgba(122,105,237,0.28)', 8, 6),
       } as React.CSSProperties}
     >
@@ -106,7 +106,7 @@ function TripCard({ trip, rank, card, hasCourses, onNavigate, onOpenCourse, onCr
             </HStack>
             <HStack spacing={8}>
               <WhiteButton onClick={() => onNavigate(trip)} disabled={trip.nextStop === null}>{tr('이어서 길찾기')}</WhiteButton>
-              <Pressable plain onClick={() => onOpenCourse(trip)} style={{ padding: '10px 14px', borderRadius: 14, background: 'rgba(255,255,255,0.2)', cornerShape: 'squircle' } as React.CSSProperties}>
+              <Pressable plain onClick={() => onOpenCourse(trip)} style={{ padding: '10px 14px', borderRadius: 14, background: 'rgba(255,255,255,0.2)' }}>
                 <Txt size={14} weight="semibold" color="white">{tr('코스 보기')}</Txt>
               </Pressable>
             </HStack>
@@ -119,7 +119,7 @@ function TripCard({ trip, rank, card, hasCourses, onNavigate, onOpenCourse, onCr
           <VStack spacing={10} align="start">
             <Capsule>{hasCourses ? tr('코스') : tr('첫 여행')}</Capsule>
             <Txt size={18} weight="heavy" color="white">{tr('여행을 시작해 볼까요?')}</Txt>
-            <span style={{ fontSize: 13, opacity: 0.9 }}>{tr('보고 싶은 작품과 기간만 고르면 촬영지를 이어서 일정으로 짜 드립니다')}</span>
+            <Txt size={13} color="white" style={{ opacity: 0.9 }}>{tr('보고 싶은 작품과 기간만 고르면 촬영지를 이어서 일정으로 짜 드립니다')}</Txt>
             <div style={{ width: '100%', display: 'flex' }}>
               <WhiteButton onClick={onCreate}>{tr('코스 만들기')}</WhiteButton>
             </div>

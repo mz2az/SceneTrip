@@ -196,7 +196,7 @@ function ReviewsBody({ onClose, subject, title, focusReviewId, onChanged }: { on
                 </div>
                 {list.reviews.map((review) => (
                   <div key={review.id} data-review-id={review.id}>
-                    <div style={{ padding: '14px 16px', background: lit === review.id ? 'rgba(0,122,255,0.1)' : 'transparent', transition: 'background 0.3s' }}>
+                    <div style={{ padding: '14px 16px', background: lit === review.id ? 'rgba(0,136,255,0.1)' : 'transparent', transition: 'background 0.3s' }}>
                       <ReviewRow review={review} onEdit={review.isMine ? () => setComposing(true) : undefined} moderation={moderation} />
                     </div>
                     <ListDivider leading={16} />

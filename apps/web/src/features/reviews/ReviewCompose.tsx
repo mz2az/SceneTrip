@@ -140,7 +140,7 @@ function ComposeSheet({ open, onClose, subject, title, onChanged }: { open: bool
   return (
     <Sheet open={open} onClose={requestClose} dismissOnScrim={!dirty && !working} label={existing === null ? tr('리뷰 쓰기') : tr('리뷰 고치기')}>
       <Header existing={existing !== null} title={title} working={working} savable={savable} onCancel={requestClose} onSave={() => void save()} />
-      <div style={{ height: 0.5, background: 'var(--separator)', flex: 'none' }} />
+      <div className="hair" style={{ flex: 'none' }} />
       {/* 오류는 머리줄 바로 아래에 고정한다 — 글이 길면 본문 아래 줄은 화면 밖으로 밀린다. */}
       {message && (
         <div role="alert" style={{ background: 'var(--system-red)', padding: '9px 16px', flex: 'none' }}>

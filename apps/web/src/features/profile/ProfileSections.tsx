@@ -85,7 +85,7 @@ function ReelsSection({ open }: SectionsProps) {
             <Icon name="sparkles.rectangle.stack" size={15} color="white" />
           </span>
           <VStack spacing={1} style={{ flex: 1, minWidth: 0 }}>
-            <Txt size={15} style={{ lineHeight: '20px' }}>{tr('내 여행으로 릴스 만들기')}</Txt>
+            <Txt size={15} style={{ lineHeight: '17.9px' }}>{tr('내 여행으로 릴스 만들기')}</Txt>
             <Txt size={11} color="secondary" style={{ lineHeight: '13px' }}>{tr('다녀온 코스와 사진을 AI 가 15초 영상으로')}</Txt>
           </VStack>
           <Txt size={12} color="tertiary">{tr('곧')}</Txt>

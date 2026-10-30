@@ -29,7 +29,7 @@ function CartItemRow({ index, item, last }: { index: number; item: CartItem; las
       </span>
       <RemoteImage url={item.imageUrl} symbol="mappin.and.ellipse" style={{ width: 44, height: 44, borderRadius: 6, opacity: item.delisted === true ? 0.65 : 1 }} />
       <VStack spacing={2} style={{ flex: 1, minWidth: 0 }}>
-        <Txt size={15} weight="semibold" style={{ opacity: notice ? 0.65 : 1, lineHeight: '20px' }}>{item.name}</Txt>
+        <Txt size={15} weight="semibold" style={{ opacity: notice ? 0.65 : 1, lineHeight: '17.9px' }}>{item.name}</Txt>
         {subtitle && <Txt size={12} color="secondary" lines={subtitle.oneLine ? 1 : undefined}>{subtitle.text}</Txt>}
         {notice && <UnavailableNotice message={unavailableMessage(notice)} />}
       </VStack>

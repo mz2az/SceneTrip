@@ -145,7 +145,7 @@ export function MyReviewsSheet({ open, onClose }: { open: boolean; onClose: () =
           <Icon name="xmark" size={22} weight="semibold" color="secondary" />
         </Pressable>
       </HStack>
-      <div style={{ height: 0.5, background: 'var(--separator)', flex: 'none' }} />
+      <div className="hair" style={{ flex: 'none' }} />
 
       {phase === 'loading' ? (
         <VStack align="center" justify="center" style={{ flex: 1 }}>
@@ -182,7 +182,7 @@ export function MyReviewsSheet({ open, onClose }: { open: boolean; onClose: () =
                     <ReviewPhotoThumbs photos={review.photos} size={64} />
                   </div>
                 )}
-                <div style={{ height: 0.5, background: 'var(--separator)', marginLeft: 16 }} />
+                <div className="hair" style={{ marginLeft: 16 }} />
               </div>
             )
           })}

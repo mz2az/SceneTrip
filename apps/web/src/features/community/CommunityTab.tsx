@@ -13,7 +13,6 @@ import { Icon } from '@/design/Icon'
 import { HStack, Pressable, Spinner, Txt, VStack, rr, shadow } from '@/design/primitives'
 import { ModerationMenu, ModerationSheets, canBlock, postTarget, showsMenu, useModerationController } from '@/features/moderation'
 import { tr } from '@/i18n'
-import { HAIRLINE } from './hairline'
 import { promptSignIn, useIsSignedIn } from '@/state/auth'
 import { useOnAccountChange } from '@/state/shared'
 import { ComposeSheet } from './ComposeView'
@@ -63,7 +62,7 @@ export function CommunityTab() {
   return (
     <VStack style={{ height: '100%', background: 'var(--system-background)' }}>
       <Header onCompose={onCompose} />
-      <div style={{ height: 1, background: 'var(--separator)', transform: 'scaleY(0.5)', transformOrigin: 'top' }} />
+      <div style={{ height: 1, background: 'var(--separator)', transform: 'scaleY(0.3333)', transformOrigin: 'top' }} />
       <div className="scroll-y" style={{ flex: 1, minHeight: 0 }} data-testid="community-list">
         {store.message && (
           <ListRow>
@@ -185,7 +184,7 @@ function Header({ onCompose }: { onCompose: () => void }) {
 function ListRow({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ padding: `0 ${ROW_INSET_X}px` }}>
-      <div style={{ padding: '11px 0', minHeight: 44, display: 'flex', alignItems: 'center', borderBottom: HAIRLINE }}>{children}</div>
+      <div className="hair-b" style={{ padding: '11px 0', minHeight: 44, display: 'flex', alignItems: 'center' }}>{children}</div>
     </div>
   )
 }
@@ -222,7 +221,7 @@ function PostRow({ post, myNickname, moderation, onOpen, onDelete }: {
     // 지우기는 **내 글만** — 남의 글을 밀어서 지울 수 있으면 안 된다.
     <SwipeRow label={tr('지우기')} enabled={isMine(post) && post.serverId !== undefined} onAction={() => onDelete(post)}>
       <div style={{ padding: `0 ${ROW_INSET_X}px` }}>
-      <HStack align="start" spacing={4} style={{ padding: `${ROW_INSET_Y}px 0`, borderBottom: HAIRLINE }}>
+      <HStack className="hair-b" align="start" spacing={4} style={{ padding: `${ROW_INSET_Y}px 0` }}>
         <Pressable plain onClick={onOpen} style={{ flex: 1, minWidth: 0, textAlign: 'left' }} aria-label={post.title}>
           <HStack align="start" spacing={12} pad="6px 0">
             <VStack spacing={5} align="start" style={{ flex: 1, minWidth: 0 }}>

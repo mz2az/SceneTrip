@@ -8,7 +8,6 @@ import { api, installHeader, ok } from '@/api/client'
 import { Icon } from '@/design/Icon'
 import { HStack, Pressable, Spinner, Txt, VStack } from '@/design/primitives'
 import { tr } from '@/i18n'
-import { HAIRLINE } from './hairline'
 import './icons'
 import { type PostCourse, courseFromMine } from './model'
 import { PostCourseBadge } from './PostCourseBadge'
@@ -74,7 +73,7 @@ export function CoursePicker({ onPick, onClose }: { onPick: (course: PostCourse)
         ) : (
           courses.map((item) => (
             <Pressable key={item.id} plain disabled={fetching !== null} onClick={() => void pick(item)} style={{ width: '100%', padding: '0 16px' }}>
-              <HStack spacing={12} style={{ padding: '15px 0', borderBottom: HAIRLINE }}>
+              <HStack className="hair-b" spacing={12} style={{ padding: '15px 0' }}>
                 <PostCourseBadge size={30} />
                 <VStack spacing={2} align="start" style={{ flex: 1, minWidth: 0 }}>
                   <Txt size={15} weight="medium" lines={1}>{item.title}</Txt>

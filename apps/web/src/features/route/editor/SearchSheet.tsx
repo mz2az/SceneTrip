@@ -154,7 +154,7 @@ function PlaceRow({ place, taken, order, last, onPress }: { place: PlaceSummary;
           )}
         </HStack>
       </Pressable>
-      {!last && <div style={{ height: 1, marginLeft: 72, marginRight: 16, background: 'var(--separator)', transform: 'scaleY(0.5)' }} />}
+      {!last && <div style={{ height: 1, marginLeft: 72, marginRight: 16, background: 'var(--separator)', transform: 'scaleY(0.3333)' }} />}
     </div>
   )
 }

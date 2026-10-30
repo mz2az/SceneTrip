@@ -51,7 +51,7 @@ export function StaySheet({ open, onClose, stops, estimate, onPick }: {
                       </HStack>
                     </ChoiceMenu>
                   </HStack>
-                  {i < stops.length - 1 && <div style={{ height: 1, marginLeft: 44, background: 'var(--separator)', transform: 'scaleY(0.5)' }} />}
+                  {i < stops.length - 1 && <div style={{ height: 1, marginLeft: 44, background: 'var(--separator)', transform: 'scaleY(0.3333)' }} />}
                 </div>
               )
             })}

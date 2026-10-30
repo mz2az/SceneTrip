@@ -57,7 +57,7 @@ function DetailBlock({ course, detail, onOpen }: { course: CourseSummary; detail
         plain
         onClick={onOpen}
         aria-label={`${tr('경로여정에서 열기')} — ${course.title}`}
-        style={{ width: '100%', padding: '8px 0', borderRadius: 8, background: 'rgba(0,122,255,0.12)', textAlign: 'center' }}
+        style={{ width: '100%', padding: '8px 0', borderRadius: 8, background: 'rgba(0,136,255,0.12)', textAlign: 'center' }}
       >
         <HStack spacing={4} justify="center">
           <Icon name="arrow.up.right" size={12} weight="semibold" color="accent" />

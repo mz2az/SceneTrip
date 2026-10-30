@@ -100,7 +100,7 @@ export function WorkStep({ works, liked, selected, onToggleSelect, onToggleLike 
               <Spacer />
               <Icon name={on ? 'checkmark.circle.fill' : 'circle'} size={20} color={on ? 'accent' : 'var(--system-gray3)'} />
             </HStack>
-            <div style={{ height: 1, background: 'var(--separator)', transform: 'scaleY(0.5)' }} />
+            <div style={{ height: 1, background: 'var(--separator)', transform: 'scaleY(0.3333)' }} />
           </div>
         )
       })}
@@ -144,7 +144,7 @@ export function ReviewStep({ rows }: { rows: ReadonlyArray<[string, string]> }) 
             <Txt size={15} color="secondary">{label}</Txt>
             <Txt size={15} weight="medium" align="right" style={{ maxWidth: '70%' }}>{value}</Txt>
           </HStack>
-          {i < rows.length - 1 && <div style={{ height: 1, background: 'var(--separator)', transform: 'scaleY(0.5)' }} />}
+          {i < rows.length - 1 && <div style={{ height: 1, background: 'var(--separator)', transform: 'scaleY(0.3333)' }} />}
         </div>
       ))}
     </div>

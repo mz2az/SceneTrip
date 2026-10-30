@@ -15,7 +15,7 @@ export function ContentUnavailable({ title, symbol, description, children }: { t
       <Icon name={symbol} size={48} weight="regular" color="secondary" style={{ marginBottom: 18 }} />
       <Txt as="div" size={22} weight="bold" align="center" kerning={TITLE_KERNING} style={{ lineHeight: '27px' }}>{title}</Txt>
       {description && (
-        <Txt as="div" size={15} color="secondary" align="center" kerning={DESCRIPTION_KERNING} style={{ lineHeight: '20px', marginTop: -1 }}>{description}</Txt>
+        <Txt as="div" size={15} color="secondary" align="center" kerning={DESCRIPTION_KERNING} style={{ lineHeight: '17.9px', marginTop: -1 }}>{description}</Txt>
       )}
       {children}
     </VStack>

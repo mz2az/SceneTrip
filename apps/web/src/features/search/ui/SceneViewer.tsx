@@ -233,7 +233,7 @@ export function ScenePopup({ open, onClose, scene, placeName, onPhoto }: { open:
               )}
             </Pressable>
           )}
-          <Txt size={FONT.caption} weight="bold" color="accent" style={{ padding: '4px 8px', borderRadius: 999, background: 'rgba(0,122,255,0.15)' }}>{scene.contentTitle}</Txt>
+          <Txt size={FONT.caption} weight="bold" color="accent" style={{ padding: '4px 8px', borderRadius: 999, background: 'rgba(0,136,255,0.15)' }}>{scene.contentTitle}</Txt>
           <Txt size={FONT.headline} weight="semibold">{placeName}</Txt>
           {scene.sceneDescription && <Txt size={FONT.subheadline}>{scene.sceneDescription}</Txt>}
         </VStack>

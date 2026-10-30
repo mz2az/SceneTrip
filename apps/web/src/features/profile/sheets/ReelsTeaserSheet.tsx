@@ -15,7 +15,7 @@ function TeaserRow({ symbol, text }: { symbol: string; text: string }) {
         <Icon name={symbol} size={14} color="deep" />
       </span>
       {/* 영어는 길어 두 줄이 된다 — 한 줄로 잘리지 않게 세로로 늘어나게 둔다. */}
-      <Txt size={15} style={{ flex: 1, lineHeight: '20px' }}>{text}</Txt>
+      <Txt size={15} style={{ flex: 1, lineHeight: '17.9px' }}>{text}</Txt>
     </HStack>
   )
 }

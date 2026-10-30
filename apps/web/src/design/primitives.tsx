@@ -129,9 +129,9 @@ export function Spacer({ min = 0 }: { min?: number }) {
   return <div style={{ flex: 1, minWidth: min, minHeight: min }} />
 }
 
-/** SwiftUI `Divider()` — 세로 스택 안의 가는 선(0.5px 이 아니라 1 device px 로 보이도록 hairline). */
+/** SwiftUI `Divider()` — 세로 스택 안의 가는 선(iOS 0.33pt = 기기 화소 1개. scaleY(1/3)). */
 export function Divider({ style }: { style?: CSSProperties }) {
-  return <div style={{ height: 1, background: 'var(--separator)', transform: 'scaleY(0.5)', transformOrigin: 'top', ...style }} />
+  return <div style={{ height: 1, background: 'var(--separator)', transform: 'scaleY(0.3333)', transformOrigin: 'top', ...style }} />
 }
 
 // ---------------------------------------------------------------- Text
@@ -214,9 +214,9 @@ export function Txt({ size = 17, weight = 'regular', color = 'primary', lines, a
 
 // ---------------------------------------------------------------- Shapes
 
-/** `RoundedRectangle(cornerRadius:, style: .continuous)` — 지원하는 브라우저는 squircle. */
+/** `RoundedRectangle(cornerRadius:, style: .continuous)` — iOS 실측상 같은 반지름의 원호와 거의 같다(1pt 안쪽 깊이 비교). squircle 은 모서리가 절반 크기로 나와 쓰지 않는다. */
 export function rr(radius: number): CSSProperties {
-  return { borderRadius: radius, cornerShape: 'squircle' } as CSSProperties
+  return { borderRadius: radius }
 }
 
 /** SwiftUI `.shadow(color:radius:x:y:)` — CSS blur 는 SwiftUI radius 의 두 배. */
