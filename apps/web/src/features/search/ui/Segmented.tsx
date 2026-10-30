@@ -24,7 +24,7 @@ export function Segmented<T extends string>({
       <div
         style={{
           position: 'absolute', top: 2, bottom: 2, left: `calc(2px + (100% - 4px) * ${index} / ${items.length})`, width: `calc((100% - 4px) * ${width / 100})`,
-          borderRadius: 999, background: '#fff', boxShadow: '0 0 0 0.5px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.1)', transition: 'left 0.2s ease',
+          borderRadius: 999, background: '#fff', boxShadow: 'none', transition: 'left 0.2s ease',
         }}
       />
       {items.map((item) => (

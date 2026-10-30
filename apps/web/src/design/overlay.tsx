@@ -52,6 +52,9 @@ export interface SheetProps {
   dim?: number
 }
 
+/** 시스템 시트 아래 모서리 — iOS 는 기기 모서리를 따라 말려 있다(실측 반지름 약 65). */
+const SHEET_BOTTOM_RADIUS = 65
+
 /** 시스템 시트 — 아래에서 올라오고, 윗부분은 둥글다(iOS 17+: 모서리 약 38). */
 export function Sheet({ open, onClose, children, detent = 'large', topGap, radius, grabber = false, dismissOnScrim = true, background = 'var(--system-background)', label, dim = 0.22 }: SheetProps) {
   const root = useRoot()
@@ -69,9 +72,9 @@ export function Sheet({ open, onClose, children, detent = 'large', topGap, radiu
           position: 'absolute', left: 0, right: 0, bottom: 0,
           height: typeof detent === 'number' ? detent : detent === 'medium' ? '50%' : `calc(100% - ${topGap ?? 62}px - var(--safe-top))`,
           background, display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          borderRadius: '10px 10px 0 0',
-          ...(detent === 'large' ? { borderRadius: `${radius ?? 38}px ${radius ?? 38}px 0 0` } : {}),
-          ...(radius !== undefined && detent !== 'large' ? { borderRadius: `${radius}px ${radius}px 0 0` } : {}),
+          borderRadius: `10px 10px ${SHEET_BOTTOM_RADIUS}px ${SHEET_BOTTOM_RADIUS}px`,
+          ...(detent === 'large' ? { borderRadius: `${radius ?? 38}px ${radius ?? 38}px ${SHEET_BOTTOM_RADIUS}px ${SHEET_BOTTOM_RADIUS}px` } : {}),
+          ...(radius !== undefined && detent !== 'large' ? { borderRadius: `${radius}px ${radius}px ${SHEET_BOTTOM_RADIUS}px ${SHEET_BOTTOM_RADIUS}px` } : {}),
           animation: `${closing ? 'st-slide-down' : 'st-slide-up'} 0.28s cubic-bezier(.32,.72,0,1) both`,
         }}
       >
