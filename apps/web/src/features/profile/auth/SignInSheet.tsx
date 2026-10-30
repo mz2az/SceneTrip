@@ -101,7 +101,7 @@ export function SignInSheet() {
             disabled={busy}
             onClick={() => void accountActions.signInWithGoogle()}
             data-testid="google-sign-in"
-            style={{ width: '100%', height: 48, borderRadius: 24, background: '#fff', border: '1px solid rgb(176,178,177)', opacity: busy ? 0.5 : 1 }}
+            style={{ width: '100%', height: 48, borderRadius: 24, background: '#fff', border: '1px solid #747775', opacity: busy ? 0.5 : 1 }}
           >
             <HStack spacing={10} justify="center" style={{ height: '100%' }}>
               <img src="/generated/google-g.svg" alt="" width={20} height={20} draggable={false} />

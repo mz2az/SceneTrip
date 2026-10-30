@@ -37,7 +37,7 @@ export function TabBar({ selected, onSelect }: { selected: TabId; onSelect: (tab
       aria-current={selected === tab}
     >
       <VStack spacing={3} align="center">
-        {tab === 'search' ? <MapSearchIcon color={sideColor(tab)} /> : <Icon name="bubble.left.and.bubble.right" size={20} color={sideColor(tab)} />}
+        {tab === 'search' ? <MapSearchIcon color={sideColor(tab)} /> : <span style={{ display: 'grid', placeItems: 'center', height: 24 }}><Icon name="bubble.left.and.bubble.right" size={22} color={sideColor(tab)} /></span>}
         <Txt size={11} style={{ color: sideColor(tab) }}>{label}</Txt>
       </VStack>
     </Pressable>
@@ -62,7 +62,7 @@ export function TabBar({ selected, onSelect }: { selected: TabId; onSelect: (tab
           <div
             style={{
               width: 58, height: 58, margin: 2, borderRadius: '50%', background: 'var(--pin-gradient)', display: 'grid', placeItems: 'center',
-              boxShadow: `0 0 0 4px var(--grouped-background), ${shadow('rgba(122,105,237,0.42)', 7, 6)}`,
+              boxShadow: `0 0 0 4px var(--grouped-background), ${shadow('rgba(122,105,237,0.8)', 9, 6)}`,
             }}
           >
             <img src="/generated/haetae-face.png" alt="" width={40} height={34} style={{ objectFit: 'contain' }} />
