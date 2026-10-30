@@ -10,8 +10,9 @@ import { Pressable } from './ui/Press'
 import { tr } from '@/i18n'
 import './ui/icons'
 
-/** `.presentationDetents([.height(420)])` */
-const FORK_HEIGHT = 420
+/** iOS 실측: 떠 있는 판이 y 433 에서 866(화면 아래 8pt 위)까지 — 높이 433, 위 모서리 약 30. */
+const FORK_HEIGHT = 433
+const FORK_RADIUS = 30
 
 function ForkCard({ title, caption, symbol, onPress }: { title: string; caption: string; symbol: string; onPress: () => void }) {
   return (
@@ -49,7 +50,7 @@ export function ForkCards({ onAI, onManual }: { onAI: () => void; onManual: () =
 
 export function ForkSheet({ open, onClose, onAI, onManual }: { open: boolean; onClose: () => void; onAI: () => void; onManual: () => void }) {
   return (
-    <Sheet open={open} onClose={onClose} detent={FORK_HEIGHT} radius={38} label={tr('코스를 어떻게 만들까요?')}>
+    <Sheet open={open} onClose={onClose} dim={0.2} floating detent={FORK_HEIGHT} radius={FORK_RADIUS} label={tr('코스를 어떻게 만들까요?')}>
       <VStack spacing={16} align="center" style={{ paddingTop: 8 }}>
         <div style={{ width: 40, height: 5, borderRadius: 3, background: 'var(--system-gray3)' }} />
         <Txt size={17} weight="semibold">{tr('코스를 어떻게 만들까요?')}</Txt>

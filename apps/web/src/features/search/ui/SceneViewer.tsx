@@ -215,12 +215,15 @@ export function ScenePhotoViewer({ open, onClose, scene, placeName }: { open: bo
   )
 }
 
+/** iOS 실측: 떠 있는 판이 y 415 에서 866(화면 아래 8pt 위)까지 — 높이 451, 위 모서리 약 38. */
+const SCENE_POPUP_HEIGHT = 451
+
 /** 두 줄로 잘린 장면 설명의 전문. 실제 사진이 있으면 여기서도 확대할 수 있다. */
 export function ScenePopup({ open, onClose, scene, placeName, onPhoto }: { open: boolean; onClose: () => void; scene: SceneItem; placeName: string; onPhoto: () => void }) {
   const photos = scenePhotos(scene)
   const first = photos[0]
   return (
-    <Sheet open={open} onClose={onClose} detent="medium" label={scene.contentTitle}>
+    <Sheet open={open} onClose={onClose} floating detent={SCENE_POPUP_HEIGHT} radius={38} label={scene.contentTitle}>
       <div className="scroll-y" style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <VStack spacing={14} align="start" pad={18}>
           {first && (

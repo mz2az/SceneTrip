@@ -50,17 +50,34 @@ export interface SheetProps {
   label?: string
   /** 뒤 딤 농도. 글 상세처럼 큰 시트는 0.20 (iOS 실측). */
   dim?: number
+  /**
+   * 아래 모서리 반지름(px). 기본 65 — iOS 첫 단 시트는 기기 모서리를 따라 말린다(실측 약 65).
+   * 다른 시트·전체 화면 덮개 위에 올린 시트(중첩)는 직각이라 0 을 준다(코스 마법사·신고·방문자 사진).
+   */
+  bottomRadius?: number
+  /**
+   * 가운데 단 시트 — 가장자리에서 8pt 안쪽으로 떠 있는 유리 판(iOS 26 `.presentationDetents([.height(n)])`, 코스 추가 시트·장면 팝업).
+   * 숫자 `detent` 와 함께 쓴다. `radius` 는 위 모서리, 아래는 `bottomRadius`(기본 54). `background` 는 쓰지 않는다.
+   */
+  floating?: boolean
 }
 
 /** 시스템 시트 아래 모서리 — iOS 는 기기 모서리를 따라 말려 있다(실측 반지름 약 65). */
 const SHEET_BOTTOM_RADIUS = 65
+/** 떠 있는 유리 판의 가장자리 여백·아래 모서리·재질 — iOS 실측(좌·우·아래 8pt, 아래 반지름 약 54). */
+const FLOAT_MARGIN = 8
+const FLOAT_BOTTOM_RADIUS = 54
+const FLOAT_BACKGROUND = 'rgba(242,242,244,0.86)'
+const FLOAT_BLUR = 'blur(40px) saturate(1.6)'
+const FLOAT_SHADOW = '0 0 28px rgba(0,0,0,0.09), inset 0 0 0 0.75px rgba(255,255,255,0.7)'
 
 /** 시스템 시트 — 아래에서 올라오고, 윗부분은 둥글다(iOS 17+: 모서리 약 38). */
-export function Sheet({ open, onClose, children, detent = 'large', topGap, radius, grabber = false, dismissOnScrim = true, background = 'var(--system-background)', label, dim = 0.22 }: SheetProps) {
+export function Sheet({ open, onClose, children, detent = 'large', topGap, radius, grabber = false, dismissOnScrim = true, background = 'var(--system-background)', label, dim = 0.22, bottomRadius, floating = false }: SheetProps) {
   const root = useRoot()
   const { mounted, closing } = usePresence(open, 280)
   useEscape(open, onClose)
   if (!mounted || !root) return null
+  const bottom = bottomRadius ?? (floating ? FLOAT_BOTTOM_RADIUS : SHEET_BOTTOM_RADIUS)
   return createPortal(
     <div style={{ position: 'absolute', inset: 0, zIndex: 50 }} role="dialog" aria-modal aria-label={label}>
       <div
@@ -72,9 +89,13 @@ export function Sheet({ open, onClose, children, detent = 'large', topGap, radiu
           position: 'absolute', left: 0, right: 0, bottom: 0,
           height: typeof detent === 'number' ? detent : detent === 'medium' ? '50%' : `calc(100% - ${topGap ?? 62}px - var(--safe-top))`,
           background, display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          borderRadius: `10px 10px ${SHEET_BOTTOM_RADIUS}px ${SHEET_BOTTOM_RADIUS}px`,
-          ...(detent === 'large' ? { borderRadius: `${radius ?? 38}px ${radius ?? 38}px ${SHEET_BOTTOM_RADIUS}px ${SHEET_BOTTOM_RADIUS}px` } : {}),
-          ...(radius !== undefined && detent !== 'large' ? { borderRadius: `${radius}px ${radius}px ${SHEET_BOTTOM_RADIUS}px ${SHEET_BOTTOM_RADIUS}px` } : {}),
+          borderRadius: `10px 10px ${bottom}px ${bottom}px`,
+          ...(detent === 'large' ? { borderRadius: `${radius ?? 38}px ${radius ?? 38}px ${bottom}px ${bottom}px` } : {}),
+          ...(radius !== undefined && detent !== 'large' ? { borderRadius: `${radius}px ${radius}px ${bottom}px ${bottom}px` } : {}),
+          ...(floating ? {
+            left: FLOAT_MARGIN, right: FLOAT_MARGIN, bottom: FLOAT_MARGIN,
+            background: FLOAT_BACKGROUND, backdropFilter: FLOAT_BLUR, WebkitBackdropFilter: FLOAT_BLUR, boxShadow: FLOAT_SHADOW,
+          } : {}),
           animation: `${closing ? 'st-slide-down' : 'st-slide-up'} 0.28s cubic-bezier(.32,.72,0,1) both`,
         }}
       >
@@ -142,7 +163,7 @@ export function Alert({ open, title, message, buttons, onClose }: { open: boolea
   )
   return createPortal(
     <div
-      style={{ position: 'absolute', inset: 0, zIndex: 95, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.18)', animation: closing ? 'st-fade-out 0.18s ease both' : 'st-fade-in 0.18s ease backwards' }}
+      style={{ position: 'absolute', inset: 0, zIndex: 95, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.2)', animation: closing ? 'st-fade-out 0.18s ease both' : 'st-fade-in 0.18s ease backwards' }}
       role="alertdialog"
       aria-modal
       aria-label={title}
