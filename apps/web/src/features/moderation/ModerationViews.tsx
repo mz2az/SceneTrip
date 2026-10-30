@@ -83,7 +83,7 @@ export function ModerationSheets({ controller, onBlocked }: { controller: Modera
   const shownNotice = useLast(notice)
   return (
     <>
-      <Sheet open={reporting !== null} bottomRadius={0} onClose={controller.dismissReport} topGap={SHEET_TOP_GAP} radius={SHEET_RADIUS} grabber label={tr('신고')} background="var(--grouped-background)">
+      <Sheet open={reporting !== null} bottomRadius={0} nested onClose={controller.dismissReport} topGap={SHEET_TOP_GAP} radius={SHEET_RADIUS} grabber label={tr('신고')} background="var(--grouped-background)">
         {shownReport && <ReportSheet target={shownReport} controller={controller} />}
       </Sheet>
       <Alert
@@ -118,20 +118,32 @@ export function ModerationSheets({ controller, onBlocked }: { controller: Modera
 
 // ---------------------------------------------------------------- 신고 시트
 
-const FORM_MARGIN = 20 // inset grouped Form 의 좌우 여백
-const FORM_RADIUS = 24
-const ROW_MIN = 44
-const SEPARATOR_INSET = 16 // 폼 줄 사이 구분선은 왼쪽이 들어가 있다
-// 큰 시트의 위쪽 여백·모서리 — iOS 스크린샷(audit/15-community-post-ios.png)에서 잰 값
-const SHEET_TOP_GAP = 62
+// iOS 26 inset grouped Form 실측(신고 시트, 402pt 폭): 카드 좌우 16·모서리 26, 줄 52.33(안쪽 구분선 1pt, 좌우 16 들여씀),
+// 머리말 칸 40·꼬리말 칸 30, 머리말은 17pt semibold.
+const FORM_MARGIN = 16
+const FORM_RADIUS = 26
+const ROW_HEIGHT = 52.33
+const SEPARATOR_INSET = 16
+const SEPARATOR_COLOR = 'rgba(60,60,67,0.12)'
+// 다른 시트 위에 올린 큰 시트(중첩)의 위쪽 여백·모서리 — iOS 실측(첫 단 시트는 62, 그 위에 올리면 72)
+const SHEET_TOP_GAP = 72
 const SHEET_RADIUS = 38
+// 머리줄의 유리 캡슐 단추(취소·보내기) — 44pt 높이, 연한 흰 바탕과 부드러운 그림자
+const CAPSULE_STYLE: React.CSSProperties = {
+  height: 44, padding: '0 16px', borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  background: 'rgb(252,252,255)', boxShadow: '0 6px 24px rgba(0,0,0,0.08), inset 0 0 0 0.75px rgba(255,255,255,0.9)',
+}
 
 function FormSection({ header, footer, children }: { header: string; footer?: string; children: React.ReactNode }) {
   return (
-    <VStack spacing={0} style={{ marginBottom: 22 }}>
-      <Txt size={13} color="secondary" style={{ padding: `0 ${FORM_MARGIN + 16}px 7px` }}>{header}</Txt>
+    <VStack spacing={0}>
+      <div style={{ height: 40, display: 'flex', alignItems: 'center', padding: `0 ${FORM_MARGIN + 16}px` }}>
+        <Txt size={17} weight="semibold" color="secondary">{header}</Txt>
+      </div>
       <div style={{ margin: `0 ${FORM_MARGIN}px`, background: 'var(--secondary-grouped-background)', overflow: 'hidden', ...rr(FORM_RADIUS) }}>{children}</div>
-      {footer && <Txt size={13} color="secondary" style={{ padding: `7px ${FORM_MARGIN + 16}px 0` }}>{footer}</Txt>}
+      <div style={{ height: 30, padding: `4.7px ${FORM_MARGIN + 16}px 0` }}>
+        {footer && <Txt size={13} color="secondary">{footer}</Txt>}
+      </div>
     </VStack>
   )
 }
@@ -163,38 +175,40 @@ export function ReportSheet({ target, controller }: { target: ModerationTarget; 
 
   return (
     <VStack style={{ flex: 1, minHeight: 0 }}>
-      <HStack justify="between" pad="6px 16px 0" style={{ minHeight: 50 }}>
-        <Pressable onClick={dismiss} disabled={sending} style={{ minWidth: 70, textAlign: 'left' }}>
-          <Txt size={17} color="accent">{tr('취소')}</Txt>
+      <HStack justify="between" pad="6px 16px 0" style={{ height: 50, flex: 'none', position: 'relative' }}>
+        <Pressable plain onClick={dismiss} disabled={sending} style={CAPSULE_STYLE}>
+          <Txt size={17}>{tr('취소')}</Txt>
         </Pressable>
-        <Txt size={17} weight="semibold">{tr('신고')}</Txt>
-        <div style={{ minWidth: 70, display: 'flex', justifyContent: 'flex-end' }}>
-          {sending ? (
+        <Txt size={17} weight="semibold" style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' }}>{tr('신고')}</Txt>
+        {sending ? (
+          <div style={{ ...CAPSULE_STYLE, minWidth: 61 }}>
             <Spinner />
-          ) : (
-            <Pressable onClick={() => void submit()} disabled={reason === null}>
-              <Txt size={17} weight="semibold" color={reason === null ? 'tertiary' : 'accent'}>{tr('보내기')}</Txt>
-            </Pressable>
-          )}
-        </div>
+          </div>
+        ) : (
+          <Pressable plain onClick={() => void submit()} disabled={reason === null} style={CAPSULE_STYLE}>
+            <Txt size={17} style={{ color: reason === null ? 'rgba(60,60,67,0.4)' : 'var(--accent)' }}>{tr('보내기')}</Txt>
+          </Pressable>
+        )}
       </HStack>
-      <div className="scroll-y" style={{ flex: 1, minHeight: 0, paddingTop: 16, paddingBottom: 24 }}>
+      <div className="scroll-y" style={{ flex: 1, minHeight: 0, paddingTop: 10, paddingBottom: 24 }}>
         <FormSection header={tr('신고 이유')} footer={tr('운영자가 확인하고 규칙을 어긴 글은 내려요.')}>
           {REPORT_REASONS.map((item, i) => (
-            <div key={item}>
-              {i > 0 && <div style={{ marginLeft: SEPARATOR_INSET, borderTop: '0.33px solid var(--separator)' }} />}
+            <div key={item} style={{ position: 'relative' }}>
               <Pressable
                 plain
                 role="radio"
                 aria-checked={reason === item}
                 onClick={() => setReason(item)}
-                style={{ width: '100%', minHeight: ROW_MIN, padding: '0 16px' }}
+                style={{ width: '100%', height: ROW_HEIGHT, padding: '0 16px' }}
               >
                 <HStack justify="between">
                   <Txt size={17}>{reasonLabel(item)}</Txt>
                   {reason === item && <Icon name="checkmark" size={17} weight="semibold" color="accent" />}
                 </HStack>
               </Pressable>
+              {i < REPORT_REASONS.length - 1 && (
+                <div style={{ position: 'absolute', left: SEPARATOR_INSET, right: SEPARATOR_INSET, bottom: 0, height: 1, background: SEPARATOR_COLOR, pointerEvents: 'none' }} />
+              )}
             </div>
           ))}
         </FormSection>
@@ -208,7 +222,7 @@ export function ReportSheet({ target, controller }: { target: ModerationTarget; 
             onChange={(e) => setDetail([...e.target.value].slice(0, DETAIL_LIMIT).join(''))}
             style={{
               display: 'block', width: '100%', resize: 'none', border: 0, outline: 0, background: 'transparent',
-              padding: '12px 16px', fontSize: 17, lineHeight: 1.3, minHeight: 3 * 22 + 24, maxHeight: 6 * 22 + 24,
+              boxSizing: 'border-box', padding: '14.67px 16px 15.67px', fontSize: 17, lineHeight: '21.33px', minHeight: 3 * 21.33 + 30.33, maxHeight: 6 * 21.33 + 30.33,
               // 줄 수에 맞춰 늘어난다 (`.lineLimit(3 ... 6)`)
               fieldSizing: 'content',
             } as React.CSSProperties}

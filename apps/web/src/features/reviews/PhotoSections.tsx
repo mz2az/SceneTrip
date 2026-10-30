@@ -120,7 +120,7 @@ export function PhotoGridView({
   const inner: PhotoReviewLink = reviews.kind === 'jump' ? { kind: 'jump', jump: (id) => (setViewing(false), reviews.jump(id)) } : reviews
 
   return (
-    <Sheet open={open} onClose={onClose} bottomRadius={0} label={heading}>
+    <Sheet open={open} onClose={onClose} bottomRadius={0} topGap={72} nested label={heading}>
       <PhotoRenewContext.Provider value={(forced) => gallery.renew(forced)}>
         <SheetHeaderBar title={heading} subtitle={title} onClose={onClose} />
         <div style={{ height: 0.5, background: 'var(--separator)', flex: 'none' }} />

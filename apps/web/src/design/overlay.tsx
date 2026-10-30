@@ -60,6 +60,12 @@ export interface SheetProps {
    * 숫자 `detent` 와 함께 쓴다. `radius` 는 위 모서리, 아래는 `bottomRadius`(기본 54). `background` 는 쓰지 않는다.
    */
   floating?: boolean
+  /**
+   * 다른 시트 위에 올린 시트(중첩) — iOS 는 뒤 딤을 더하지 않는다(아래 시트의 딤 그대로). 대신 아래 시트가 한 단 물러나며 어두워져
+   * 윗부분이 62~72pt 띠로 비쳐 보인다(실측 흰 시트 255 → 224). 그래서 아래 시트의 위 가장자리(62pt)부터만 옅게 덮고 `dim` 은 쓰지 않는다.
+   * 코스 마법사처럼 시트가 아닌 화면 위에 올리는 것은 이 값을 쓰지 않는다.
+   */
+  nested?: boolean
 }
 
 /** 시스템 시트 아래 모서리 — iOS 는 기기 모서리를 따라 말려 있다(실측 반지름 약 65). */
@@ -69,10 +75,14 @@ const FLOAT_MARGIN = 8
 const FLOAT_BOTTOM_RADIUS = 54
 const FLOAT_BACKGROUND = 'rgba(242,242,244,0.86)'
 const FLOAT_BLUR = 'blur(40px) saturate(1.6)'
+/** 첫 단 시트의 위 가장자리(기본 `topGap`) — 중첩 시트가 덮는 아래 시트의 위치. */
+const FIRST_SHEET_TOP = 62
+/** 중첩 시트 밑에서 아래 시트가 물러나며 어두워지는 정도 — iOS 실측 255 → 224. */
+const NESTED_RECEDE = 0.12
 const FLOAT_SHADOW = '0 0 28px rgba(0,0,0,0.09), inset 0 0 0 0.75px rgba(255,255,255,0.7)'
 
 /** 시스템 시트 — 아래에서 올라오고, 윗부분은 둥글다(iOS 17+: 모서리 약 38). */
-export function Sheet({ open, onClose, children, detent = 'large', topGap, radius, grabber = false, dismissOnScrim = true, background = 'var(--system-background)', label, dim = 0.22, bottomRadius, floating = false }: SheetProps) {
+export function Sheet({ open, onClose, children, detent = 'large', topGap, radius, grabber = false, dismissOnScrim = true, background = 'var(--system-background)', label, dim = 0.22, bottomRadius, floating = false, nested = false }: SheetProps) {
   const root = useRoot()
   const { mounted, closing } = usePresence(open, 280)
   useEscape(open, onClose)
@@ -82,7 +92,12 @@ export function Sheet({ open, onClose, children, detent = 'large', topGap, radiu
     <div style={{ position: 'absolute', inset: 0, zIndex: 50 }} role="dialog" aria-modal aria-label={label}>
       <div
         onClick={dismissOnScrim ? onClose : undefined}
-        style={{ position: 'absolute', inset: 0, background: `rgba(0,0,0,${dim})`, animation: `${closing ? 'st-fade-out' : 'st-fade-in'} 0.28s ease both` }}
+        style={{
+          position: 'absolute', inset: 0,
+          background: nested
+            ? `linear-gradient(to bottom, transparent calc(${FIRST_SHEET_TOP}px + var(--safe-top)), rgba(0,0,0,${NESTED_RECEDE}) calc(${FIRST_SHEET_TOP}px + var(--safe-top)))`
+            : `rgba(0,0,0,${dim})`,
+          animation: `${closing ? 'st-fade-out' : 'st-fade-in'} 0.28s ease both` }}
       />
       <div
         style={{
