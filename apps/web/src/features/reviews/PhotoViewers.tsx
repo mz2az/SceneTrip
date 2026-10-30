@@ -4,6 +4,8 @@
  * 그 쪽에 가 있어, 닫으면 본 사진에 머문다.
  */
 import { useEffect } from 'react'
+import { appEvent, track } from '@/analytics'
+import type { PhotoEntry } from '@/analytics/events'
 import { Icon } from '@/design/Icon'
 import { FullScreenCover as Cover } from './FullScreenCover'
 import { HStack, Pressable, Spacer, Txt, VStack } from '@/design/primitives'
@@ -118,7 +120,7 @@ export function PhotoViewer({
  * 사진첩 크게 보기 — `PhotoViewer` 에 사진첩을 물린다. 넘기다 끝이 가까우면 다음 쪽을 받고, 방문자 사진의 「리뷰 보기」 를 그 리뷰로 잇는다.
  */
 export function GalleryViewer({
-  gallery, scope = 'all', open, onClose, index, onIndex, reviews,
+  gallery, scope = 'all', open, onClose, index, onIndex, reviews, entry,
 }: {
   gallery: PhotoGallery
   scope?: GalleryScope
@@ -127,11 +129,19 @@ export function GalleryViewer({
   index: number
   onIndex: (i: number) => void
   reviews: PhotoReviewLink
+  /** 사진첩을 연 자리 — 분석용(`detail` 대표 사진 · `reviews` 리뷰 시트 · `card` 지도 카드). */
+  entry: PhotoEntry
 }) {
   useGalleryBook(gallery)
   const photos = gallery.photos(scope)
   const [opening, setOpening] = useState<{ subject: ReviewSubject; reviewId: number } | null>(null)
 
+  // 크게 열렸을 때 한 번 (iOS GalleryViewer.onAppear). 사진 주소는 보내지 않는다.
+  const subject = gallery.subject
+  useEffect(() => {
+    if (open && subject) track(appEvent.viewPhotos(subject.kind, entry))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 열릴 때마다 한 번.
+  }, [open])
   useEffect(() => {
     if (open) gallery.near(index, scope)
   }, [open, index, scope, gallery, photos.length])

@@ -5,6 +5,7 @@
  * 별점 줄(RatingLine → 후기 시트)은 후기 담당 화면이 생기면 잇는다.
  */
 import { useEffect, useState } from 'react'
+import { appEvent, track } from '@/analytics'
 import { api, ok } from '@/api/client'
 import type { components } from '@/api/generated/schema'
 import { Icon } from '@/design/Icon'
@@ -27,6 +28,7 @@ export function StopCard({ stop, onReroute, onClose }: { stop: RouteStop; onRero
     let live = true
     setLoading(true)
     setDetail(null)
+    if (placeId !== null) track(appEvent.viewPlace(placeId))
     // 직접 찍은 핀은 우리 표에 없다 — 물어볼 곳이 없다.
     if (placeId === null) {
       setLoading(false)

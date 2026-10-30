@@ -504,6 +504,7 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
           index={viewing.index}
           onIndex={(index) => setViewing((v) => (v ? { ...v, index } : v))}
           reviews={{ kind: 'sheet', title: viewing.title, onChanged: () => patchUi({ reloadToken: ui.get().reloadToken + 1 }) }}
+          entry="card"
         />
       )}
 

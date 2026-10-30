@@ -4,7 +4,9 @@
  * 검색 탭은 지도와 서버 호출을 들고 있어 비용이 크므로 상태를 유지한다 — 항상 마운트하고 숨기기만 한다.
  * 홈도 같은 이유로 살려 둔다. 커뮤니티는 값이 싸서 선택됐을 때만 만든다.
  */
+import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router'
+import { appEvent, track } from '@/analytics'
 import { Cover } from '@/design/overlay'
 import { CommunityTab } from '@/features/community/CommunityTab'
 import { HomeTab } from '@/features/home/HomeTab'
@@ -21,6 +23,10 @@ export function RootTabs() {
   const tab = tabOf(pathname)
   const cover = coverOf(pathname)
   const closeCover = () => navigate(tabPath('home'))
+
+  // 어느 화면을 보는가 — 탭과 덮개 단위, 덮개가 떠 있으면 덮개가 이긴다 (iOS RootTabs.screenName, MZ2AZ-353).
+  const screenName = cover === 'route' ? 'courses' : cover === 'profile' ? 'profile' : tab
+  useEffect(() => track(appEvent.screenView(screenName)), [screenName])
 
   return (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', background: 'var(--grouped-background)' }}>

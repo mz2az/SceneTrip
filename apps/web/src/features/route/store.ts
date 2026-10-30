@@ -8,6 +8,7 @@
  * (`courses` 는 계약의 CourseSummary). 경로여정 화면용 사본은 `routeCourses`(RouteCourse) 에 있다.
  */
 import { ApiFailure, api, asFailure, installHeader, ok } from '@/api/client'
+import { appEvent, track } from '@/analytics'
 import { tr } from '@/i18n'
 import { useLikes } from '@/state/likes'
 import { accountGeneration, onAccountReset } from '@/state/shared'
@@ -16,7 +17,7 @@ import { rejection } from './availability'
 import { type CourseSummary, courseFromDetail, courseFromSummary, replaceBody } from './bridge'
 import { courseFromPlan } from './draft'
 import {
-  type ContentSummary, type PlaceSummary, type RouteCourse, type RoutePace, type RouteStop, courseCanSave, makeCourse, makeDay,
+  type ContentSummary, type PlaceSummary, type RouteCourse, type RoutePace, type RouteStop, courseCanSave, coursePlaceCount, makeCourse, makeDay,
   placeIdOf, spanDays, spanLabel,
 } from './models'
 import { type PlanFailure, classifyPlanFailure } from './planFailure'
@@ -149,6 +150,8 @@ export const routeActions = {
         }
       }
       patch({ failure: null })
+      // 핵심 지표 — 코스가 **새로** 만들어졌다. 고쳐 저장한 것은 세지 않는다 (MZ2AZ-353).
+      if (course.serverId === null) track(appEvent.createCourse(course.madeByAI ? 'ai' : 'self', course.days.length, coursePlaceCount(course)))
       const result = courseFromDetail(saved)
       await routeActions.refresh()
       return result
@@ -292,6 +295,7 @@ export async function guideDraft(r: DraftRequest): Promise<DraftResult> {
         },
       }),
     )
+    track(appEvent.generatePlan(spanDays(r.nights), Math.min(titles.length, 5)))
     return { ok: true, course: courseFromPlan(reply.plan, { title: draftTitle(chosen, r.nights), startDate: r.startDate, pace: r.pace }) }
   } catch (error) {
     return { ok: false, failure: classifyPlanFailure(error) }

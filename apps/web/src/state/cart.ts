@@ -6,6 +6,7 @@
  *   const { placeIds, toast } = useCart()      // 구독
  *   await cartActions.add(placeId, contentId)  // 동작
  */
+import { appEvent, track } from '@/analytics'
 import type { components } from '@/api/generated/schema'
 import { api, asFailure, installHeader, ok } from '@/api/client'
 import { unavailableRejection } from '@/api/failure'
@@ -54,6 +55,7 @@ export const cartActions = {
       await ok(api.POST('/cart/items', { params: { header: installHeader() }, body: { placeId, sourceContentId: sourceContentId ?? null } }))
       if (generation !== accountGeneration()) return
       patch({ placeIds: new Set([...cartStore.get().placeIds, placeId]), toast: tr('장바구니에 담았습니다') })
+      track(appEvent.savePlace(placeId))
     } catch (error) {
       if (generation !== accountGeneration()) return
       const failure = asFailure(error)

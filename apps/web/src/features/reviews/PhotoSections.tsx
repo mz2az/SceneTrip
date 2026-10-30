@@ -96,7 +96,7 @@ export function PhotoHero({ gallery, title, onChanged }: { gallery: PhotoGallery
           {/* 변경 금지 사진에는 쪽 표시도 겹치지 않는다. */}
           {protectedPhotos && pages(total) && counter}
         </HStack>
-        <GalleryViewer gallery={gallery} open={viewing} onClose={() => setViewing(false)} index={index} onIndex={setIndex} reviews={link} />
+        <GalleryViewer gallery={gallery} open={viewing} onClose={() => setViewing(false)} index={index} onIndex={setIndex} reviews={link} entry="detail" />
         <PhotoGridView gallery={gallery} open={browsing} onClose={() => setBrowsing(false)} title={title} reviews={link} />
       </VStack>
     </PhotoRenewContext.Provider>
@@ -146,7 +146,7 @@ export function PhotoGridView({
             </div>
           </VStack>
         </div>
-        <GalleryViewer gallery={gallery} scope={scope} open={viewing} onClose={() => setViewing(false)} index={index} onIndex={setIndex} reviews={inner} />
+        <GalleryViewer gallery={gallery} scope={scope} open={viewing} onClose={() => setViewing(false)} index={index} onIndex={setIndex} reviews={inner} entry={scope === 'all' ? 'detail' : 'reviews'} />
       </PhotoRenewContext.Provider>
     </Sheet>
   )
@@ -203,7 +203,7 @@ export function VisitorPhotoStrip({ gallery, title, onReview }: { gallery: Photo
           </HStack>
         </div>
       </VStack>
-      <GalleryViewer gallery={gallery} scope="reviews" open={viewing} onClose={() => setViewing(false)} index={index} onIndex={setIndex} reviews={link} />
+      <GalleryViewer gallery={gallery} scope="reviews" open={viewing} onClose={() => setViewing(false)} index={index} onIndex={setIndex} reviews={link} entry="reviews" />
       <PhotoGridView gallery={gallery} scope="reviews" open={browsing} onClose={() => setBrowsing(false)} title={title} reviews={link} />
     </PhotoRenewContext.Provider>
   )
@@ -271,7 +271,7 @@ export function CardPhotoStrip({ gallery, title, onChanged }: { gallery: PhotoGa
         </div>
         <div style={{ padding: '0 14px', width: '100%' }}><PhotoCredit credits={credits(photos)} /></div>
       </VStack>
-      <GalleryViewer gallery={gallery} open={viewing} onClose={() => setViewing(false)} index={index} onIndex={setIndex} reviews={{ kind: 'sheet', title, onChanged: onChanged ?? (() => {}) }} />
+      <GalleryViewer gallery={gallery} open={viewing} onClose={() => setViewing(false)} index={index} onIndex={setIndex} reviews={{ kind: 'sheet', title, onChanged: onChanged ?? (() => {}) }} entry="card" />
     </PhotoRenewContext.Provider>
   )
 }

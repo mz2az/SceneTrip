@@ -2,6 +2,7 @@
  * 첫 실행의 언어 고르기. 사용법보다 먼저 나온다. 이 화면만은 두 언어를 같이 적는다 (verbatim).
  * 출처: apps/scenetrip-ios/src/Onboarding/LanguagePickView.swift
  */
+import { appEvent, track } from '@/analytics'
 import { PinoMascot } from '@/design/PinoMascot'
 import { Pressable, Txt, VStack } from '@/design/primitives'
 import { LANG_CHOICES, chooseLanguage, langName, useLang } from '@/i18n'
@@ -22,6 +23,7 @@ export function LanguagePickView({ onDone }: { onDone: () => void }) {
             plain
             onClick={() => {
               chooseLanguage(lang)
+              track(appEvent.selectLanguage(lang))
               onDone()
             }}
             style={{

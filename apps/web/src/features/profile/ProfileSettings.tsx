@@ -4,6 +4,7 @@
  * 광고 추적 허용(ATT) 줄은 웹에 없어 숨긴다 — docs/project/web-app.md §5.
  */
 import { useRef, useState } from 'react'
+import { appEvent, track } from '@/analytics'
 import { Alert } from '@/design/overlay'
 import { Spinner, Txt } from '@/design/primitives'
 import { chooseLanguage, langName, tr, useLang, LANG_CHOICES } from '@/i18n'
@@ -92,6 +93,7 @@ function LanguageChoice({ open, anchor, onClose, onChosen }: { open: boolean; an
         label: langName(l),
         onPress: () => {
           chooseLanguage(l)
+          track(appEvent.selectLanguage(l))
           onChosen()
         },
       }))}

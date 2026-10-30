@@ -6,6 +6,7 @@
  * 쓰기·사진 올리기는 DEV 안전장치(VITE_BLOCK_WRITES)가 막는다 — 흐름은 단위 시험(모의 응답)으로 확인한다.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { appEvent, track } from '@/analytics'
 import { Alert, Sheet } from '@/design/overlay'
 import { Icon } from '@/design/Icon'
 import { HStack, Pressable, Txt, VStack, rr } from '@/design/primitives'
@@ -92,6 +93,7 @@ export function ComposeView({ onClose, registerClose }: { onClose: () => void; r
   const finish = useCallback(
     (saved: Parameters<typeof communityStore.api.accept>[0]) => {
       communityStore.api.accept(saved)
+      track(appEvent.postReview(saved.photoUrls.length, saved.course != null))
       onClose()
     },
     [onClose],

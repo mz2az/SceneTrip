@@ -7,6 +7,7 @@
  * 쓰기(PUT/DELETE)는 호출 경로만 두고 검증은 모의 시험으로 한다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { appEvent, track } from '@/analytics'
 import { ApiFailure } from '@/api/client'
 import { Icon } from '@/design/Icon'
 import { Alert, Sheet } from '@/design/overlay'
@@ -91,6 +92,11 @@ function ComposeSheet({ open, onClose, subject, title, onChanged }: { open: bool
     onChanged()
     onClose()
   }
+  /** 저장이 끝났다 — 새로 썼는지 고쳤는지는 열 때 읽은 내 리뷰가 있었는지로 가른다. 글과 닉네임은 보내지 않는다. */
+  const finishSaved = (body: string | null, photoCount: number) => {
+    track(appEvent.writeReview({ targetType: subject.kind, rating, photoCount, hasBody: body !== null, edited: existing !== null }))
+    finish()
+  }
 
   const save = async () => {
     if (!savable) return
@@ -101,7 +107,7 @@ function ComposeSheet({ open, onClose, subject, title, onChanged }: { open: bool
     const keys = draftStore.keys
     try {
       await saveMyReview(subject, rating, body, keys)
-      if (isCurrent()) finish()
+      if (isCurrent()) finishSaved(body, keys.length)
     } catch (error) {
       if (!isCurrent()) return
       if (!(error instanceof ApiFailure) || error.apiCode !== 'REVIEW_PHOTO_INVALID') {
@@ -111,7 +117,7 @@ function ComposeSheet({ open, onClose, subject, title, onChanged }: { open: bool
       // 서버가 사진 키를 거절했다. 먼저 이미 저장된 것이 아닌지 본다 — 앞선 요청이 응답만 잃고 저장됐으면 다시 보낸 이 요청은 거절된다.
       const mine = await fetchMyReview(subject).catch(() => null)
       if (mine && landed(mine, rating, body, keys)) {
-        finish()
+        finishSaved(body, keys.length)
         return
       }
       // 정말 거절이다 — 이번에 올린 사진을 「다시 시도」 로 돌려놓는다.
@@ -127,7 +133,10 @@ function ComposeSheet({ open, onClose, subject, title, onChanged }: { open: bool
     setMessage(null)
     try {
       await deleteMyReview(subject)
-      if (isCurrent()) finish()
+      if (isCurrent()) {
+        track(appEvent.deleteReview(subject.kind))
+        finish()
+      }
     } catch (error) {
       if (isCurrent()) setMessage(reviewFailureText(error))
     } finally {

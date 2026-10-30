@@ -11,6 +11,7 @@
  *
  * 밖과 닿는 자리(`GuideEnv`)는 모두 주입한다 — 시험이 가짜로 바꿔 끼운다.
  */
+import { appEvent, track } from '@/analytics'
 import { currentLang, tr, type Lang } from '@/i18n'
 import { createStore, useStore, type Store } from '@/state/storage'
 import { type GuideFailure, classifyNoResponse, isLimit } from './guideFailure'
@@ -76,7 +77,7 @@ export const defaultGuideEnv: GuideEnv = {
   serverKeepsKeys: serverKnowsLimits,
   lang: currentLang,
   newKey: newUuid,
-  asked: () => {},
+  asked: () => track(appEvent.askGuide()),
   now: uptimeSeconds,
   wall: () => Date.now(),
   quota: () => ledgerEntry('guide'),

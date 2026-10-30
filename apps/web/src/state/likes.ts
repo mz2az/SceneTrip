@@ -6,6 +6,7 @@
  *   const { contentIds, likedWorks } = useLikes()
  *   likeActions.toggle(contentId)
  */
+import { appEvent, track } from '@/analytics'
 import type { components } from '@/api/generated/schema'
 import { ApiFailure, api, asFailure, installHeader, ok } from '@/api/client'
 import { accountGeneration, advanced, hasMore, merged, newPaging, onAccountReset } from './shared'
@@ -118,6 +119,7 @@ export const likeActions = {
     const previous = works.find((w) => w.id === contentId)
     const previousIndex = works.findIndex((w) => w.id === contentId)
     apply(contentId, liked)
+    track(appEvent.likeTitle(contentId, liked))
     try {
       if (liked) {
         await ok(api.POST('/favorites/contents', { params: { header: installHeader() }, body: { contentId } }))

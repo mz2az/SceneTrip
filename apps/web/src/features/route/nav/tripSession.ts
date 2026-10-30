@@ -11,6 +11,7 @@
  * 성지에 왔으면 둘러보고 즐기는 시간이 있고 얼마나 머물지는 앱이 모른다. 그래서 도착 뒤에는 `arrived` 로 서서 기다리고, **사람이 「다음으로」를 눌러야** `start()` 가
  * 다시 불린다. 밖과 닿는 자리(`TripEnv`)는 모두 주입한다 — 시험·화면 확인이 가짜로 바꿔 끼운다(유료 호출은 어떤 경로로도 실행하지 않는다).
  */
+import { appEvent, track } from '@/analytics'
 import { NO_RETRY_HEADER, api } from '@/api/client'
 import { tr } from '@/i18n'
 import { installHeader } from '@/state/install'
@@ -30,8 +31,11 @@ export interface TripTarget {
   serverItemId: number | null
   /** 숨김·폐업 표시. 있으면 안내하지 않는다. */
   unavailable: unknown
-  place: { name: string; latitude: number; longitude: number }
+  /** `id` 는 촬영지 id — 분석(`start_trip`·`visit_stamp`)이 쓴다. 없거나 0 이하(편의시설·개인 핀)면 이벤트를 보내지 않는다. */
+  place: { id?: number; name: string; latitude: number; longitude: number }
 }
+
+const isPlaceId = (id: number | undefined): id is number => id !== undefined && id > 0
 
 export type TripPhase = 'idle' | 'guiding' | 'arrived'
 
@@ -174,6 +178,7 @@ export class TripSession {
    */
   start(target: TripTarget, number: number, courseId: number | null): void {
     if (target.unavailable !== null) return
+    if (isPlaceId(target.place.id)) track(appEvent.startTrip(target.place.id))
     this.beginRequest()
     this.targetNumber = number
     this.courseId = courseId
@@ -206,6 +211,7 @@ export class TripSession {
     // 안내가 끝났다 — 안내 띠는 도착으로 바뀐다. 다음은 사람이 고른다.
     this.patch({ phase: 'arrived', result: null, failure: null, stamped: true })
     this.onArrived?.(target)
+    if (isPlaceId(target.place.id)) track(appEvent.visitStamp(target.place.id))
   }
 
   /** 스탬프 연출이 끝났다. `arrived` 그대로 선다. */
@@ -308,6 +314,7 @@ export class TripSession {
       return
     }
     this.patch({ asking: true })
+    track(appEvent.getDirections())
     const epoch = this.env.limits.epoch
     try {
       const leg = await this.env.requestLeg({ courseId: this.courseId, itemId, latitude: spot.latitude, longitude: spot.longitude })

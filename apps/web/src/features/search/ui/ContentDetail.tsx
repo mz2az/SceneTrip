@@ -5,6 +5,7 @@
  * 초기 구현은 폐기했다). 목록에서 넘어온 `ContentSummary` 로 먼저 그리고, 상세(`GET /contents/{id}`)가 오면 채운다 — 줄거리·별칭·출연진.
  */
 import { useEffect, useState } from 'react'
+import { appEvent, track } from '@/analytics'
 import { api, ok } from '@/api/client'
 import { Icon } from '@/design/Icon'
 import { HStack, Spinner, Txt, VStack, rr } from '@/design/primitives'
@@ -39,6 +40,7 @@ export function ContentDetail({
     let cancelled = false
     setDetail(null)
     recordView('content', summary.id)
+    track(appEvent.viewTitle(summary.id))
     ok(api.GET('/contents/{contentId}', { params: { path: { contentId: summary.id } } }))
       .then((fresh) => !cancelled && fresh.id === summary.id && setDetail(fresh))
       .catch(() => {})

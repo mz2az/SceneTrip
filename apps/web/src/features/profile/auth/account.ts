@@ -10,6 +10,7 @@
  *   accountActions.signOut()
  * 다른 화면에서 로그인이 필요하면 `promptSignIn()` (state/auth.ts) — RootSheets 가 시트를 올린다.
  */
+import { appEvent, track } from '@/analytics'
 import { ApiFailure, asFailure } from '@/api/failure'
 import { tr } from '@/i18n'
 import {
@@ -123,9 +124,10 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
   }
 
   /** 서버가 인증·병합을 끝낸 성공 응답만 계정으로 채택한다. 구글·Apple 이 같은 경로를 쓴다. */
-  function completeSignIn(session: AuthSessionResponse) {
+  function completeSignIn(session: AuthSessionResponse, method: 'google' | 'apple') {
     setSession({ accessToken: session.accessToken, refreshToken: session.refreshToken, accessTokenExpiresIn: session.accessTokenExpiresIn })
     patch({ me: session.user, signedIn: true, showingSignIn: false })
+    track(session.isNewUser ? appEvent.signUp(method) : appEvent.login(method))
     askNicknameIfNeeded(session.user)
     // `merged` 가 아니어도 다시 읽어 화면이 가진 비회원 데이터를 새 계정과 맞춘다.
     accountChanged(false)
@@ -161,11 +163,11 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
         const g = await deps.google()
         // 나가 있는 쓰기가 끝난 뒤에 부른다 — 겹치면 합치기 전 계정에 떨어진다(계약).
         if (!(await deps.settle())) throw new StillRunning()
-        completeSignIn(await deps.client.signInWithGoogle(g.idToken, g.nonce))
+        completeSignIn(await deps.client.signInWithGoogle(g.idToken, g.nonce), 'google')
       } else {
         const body = await deps.apple()
         if (!(await deps.settle())) throw new StillRunning()
-        completeSignIn(await deps.client.signInWithApple(body))
+        completeSignIn(await deps.client.signInWithApple(body), 'apple')
       }
     } catch (error) {
       signInFailure(error, provider)
@@ -229,6 +231,7 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
     async signOut(): Promise<void> {
       if (store.get().busy) return
       patch({ busy: true })
+      track(appEvent.logout())
       try {
         const token = refreshToken()
         if (token) {
@@ -250,6 +253,7 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
       patch({ busy: true })
       try {
         await deps.client.deleteMe()
+        track(appEvent.deleteAccount())
         forget()
         return true
       } catch {
@@ -312,6 +316,7 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
         profileGeneration += 1
         patch({ me: updated })
         nicknameAsked.mark(updated.id)
+        track(appEvent.setNickname(false))
         return 'saved'
       } catch (error) {
         const now = store.get()
@@ -325,6 +330,7 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
       const me = store.get().me
       if (!me || me.nicknameConfirmed !== false) return
       nicknameAsked.mark(me.id)
+      track(appEvent.setNickname(true))
     },
     closeNickname(): void {
       patch({ askingNickname: false })

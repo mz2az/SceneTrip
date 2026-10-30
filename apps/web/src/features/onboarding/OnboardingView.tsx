@@ -3,6 +3,7 @@
  * 고른 언어로 한 벌만 나온다. 원문은 한국어이고 그릴 때 tr() 로 번역한다.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { appEvent, track } from '@/analytics'
 import { PinoMascot, type PinoPose } from '@/design/PinoMascot'
 import { HStack, Pressable, Txt, VStack } from '@/design/primitives'
 import { readStorage, writeStorage } from '@/state/storage'
@@ -86,6 +87,7 @@ export function OnboardingView({ onDone }: { onDone: () => void }) {
   useLang()
   const [progress, setProgress] = useState<Progress>(() => startProgress(LESSONS.length))
   const scroller = useRef<HTMLDivElement>(null)
+  useEffect(() => track(appEvent.tutorialBegin()), [])
   const last = isLast(progress)
 
   const go = useCallback((page: number) => {
@@ -120,6 +122,7 @@ export function OnboardingView({ onDone }: { onDone: () => void }) {
     const { progress: p, fired } = finish(progress)
     setProgress(p)
     if (!fired) return
+    track(appEvent.tutorialComplete())
     markOnboardingSeen()
     onDone()
   }

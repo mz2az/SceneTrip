@@ -4,6 +4,7 @@
  * 목록에서 넘어온 `PlaceSummary` 로 먼저 그리고, 상세(`GET /places/{id}`)가 오면 채운다. 상세에만 있는 것이 작품별 장면(`scenes`)이라 그 절은 도착 후에 뜬다.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { appEvent, track } from '@/analytics'
 import { Icon } from '@/design/Icon'
 import { HStack, Txt, VStack } from '@/design/primitives'
 import { tr } from '@/i18n'
@@ -54,6 +55,7 @@ export function PlaceDetail({ summary, sourceContentId, load, onBack }: {
   useEffect(() => {
     setDetail(null)
     recordView('place', summary.id)
+    track(appEvent.viewPlace(summary.id))
     // 상세가 오기 전에는 목록이 준 대표 사진 한 장으로 그린다.
     gallery.show(bookOf(null, null, summary.imageUrl ? [summary.imageUrl] : []), { kind: 'place', id: summary.id }, gallery.generation)
     void refresh()

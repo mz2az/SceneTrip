@@ -4,6 +4,7 @@
  * 읽기는 비회원도 한다. 쓰기·고치기·지우기는 가입한 사람만 — 아래 단추가 `ReviewCompose` 를 연다. 리뷰 글은 번역하지 않는다(서버 결정).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { appEvent, track } from '@/analytics'
 import { Icon } from '@/design/Icon'
 import { Sheet } from '@/design/overlay'
 import { Pressable, Spinner, Txt, VStack } from '@/design/primitives'
@@ -64,6 +65,7 @@ function ReviewsBody({ onClose, subject, title, focusReviewId, onChanged }: { on
   const [lit, setLit] = useState<number | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
 
+  useEffect(() => track(appEvent.viewReviews(subject.kind)), [subject.kind])
   const reload = useCallback(() => listing.reload(sort), [listing, sort])
   const reloadPhotos = useCallback(async () => {
     await gallery.reload()

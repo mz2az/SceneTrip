@@ -7,6 +7,7 @@
  * 연결: 코스에 담기(`onAdd`/`onRemove`)·길찾기(`onReroute`)·리뷰 시트(`onOpenReviews`)·사진첩(`onOpenPhotos`)은 모두 콜백이다 — 이 카드는 코스 데이터를 모른다.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { appEvent, track } from '@/analytics'
 import { HStack, Pressable, Spinner, Txt, VStack, rr, shadow } from '@/design/primitives'
 import { Icon } from '@/design/Icon'
 import { tr } from '@/i18n'
@@ -77,6 +78,13 @@ export function PlaceCard({ place, onAdd, added = false, onRemove, onReroute, on
       alive = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [place.id])
+
+  // 정보 카드가 열린 자리만 센다 — 촬영지(연결된 편의시설 포함)는 view_place, 그 밖의 편의시설은 view_poi (iOS UsageEvents.opened).
+  useEffect(() => {
+    const opened = targetOf(place)
+    if (opened) track(opened.kind === 'place' ? appEvent.viewPlace(opened.id) : appEvent.viewPoi(opened.id))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 핀을 갈아탈 때마다 한 번.
   }, [place.id])
 
   useEffect(() => {

@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { matchPath, useLocation, useNavigate } from 'react-router'
+import { appEvent, track } from '@/analytics'
 import { api, ok } from '@/api/client'
 import { consumePending, pendingStore } from '@/app/tabRouter'
 import { patterns, paths } from '@/app/routes'
@@ -108,6 +109,7 @@ export function useSearchTab() {
       setContentPlaces([])
       blurSearch()
       setDetent('medium')
+      if (term.trim() !== '') track(appEvent.search(Array.from(term.trim()).length, kind ?? 'typed'))
       data.commitSearch(term, searchUsageIntent(term, nextTab === 'work' ? 'content' : 'place'))
       pendingFit.current = true
     },
