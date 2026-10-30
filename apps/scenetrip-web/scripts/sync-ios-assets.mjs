@@ -3,7 +3,7 @@
 //  - Images.xcassets 의 해태 그림 → public/generated/*.png
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { IOS_ROOT, WEB_ROOT } from './paths.mjs'
+import { GEN_OUT, IOS_ROOT } from './paths.mjs'
 
 function unescapeString(s) {
   return s.replace(/\\(["\\nt])/g, (_, c) => (c === 'n' ? '\n' : c === 't' ? '\t' : c))
@@ -20,10 +20,10 @@ export function parseStrings(text) {
 
 const stringsPath = resolve(IOS_ROOT, 'resources/en.lproj/Localizable.strings')
 const strings = parseStrings(readFileSync(stringsPath, 'utf8'))
-mkdirSync(resolve(WEB_ROOT, 'src/i18n'), { recursive: true })
-writeFileSync(resolve(WEB_ROOT, 'src/i18n/en.generated.json'), JSON.stringify(strings, null, 1))
+mkdirSync(resolve(GEN_OUT, 'src/i18n'), { recursive: true })
+writeFileSync(resolve(GEN_OUT, 'src/i18n/en.generated.json'), JSON.stringify(strings, null, 1))
 
-const publicDir = resolve(WEB_ROOT, 'public/generated')
+const publicDir = resolve(GEN_OUT, 'public/generated')
 mkdirSync(publicDir, { recursive: true })
 const images = resolve(IOS_ROOT, 'resources/Images.xcassets')
 for (const set of readdirSync(images).filter((n) => n.endsWith('.imageset'))) {

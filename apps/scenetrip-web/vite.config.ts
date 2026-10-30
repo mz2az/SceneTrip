@@ -1,6 +1,8 @@
+import { realpathSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
-import { type Plugin, defineConfig, loadEnv } from 'vite'
+import { type Plugin, defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite'
 
 /**
  * 개발 서버 전용 — DEV API 의 GET 200 응답을 메모리에 잠깐 둔다(기본 10분).
@@ -56,6 +58,9 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), ...(env.SCENETRIP_NO_API_CACHE === '1' ? [] : [devApiCache(10 * 60_000)])],
     resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
     server: {
+      // Bazel 의 runfiles 에서는 입력 파일이 심볼릭 링크라 실제 경로가 현재 폴더 밖이다(vitest 가 test-setup.ts 를 못 연다).
+      // package.json 의 실제 위치(= 소스를 복사해 둔 bin 폴더)를 허용한다. npm 으로 돌릴 때는 현재 폴더와 같아 아무것도 달라지지 않는다.
+      fs: { allow: [searchForWorkspaceRoot(process.cwd()), dirname(realpathSync('package.json'))] },
       port: 5173,
       proxy: { '/v1': { target, changeOrigin: true, secure: true } },
     },
