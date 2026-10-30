@@ -120,7 +120,12 @@ export class GuideSession {
   private accountEpoch = 0
   private nextTurnId = 1
 
-  constructor(private readonly env: GuideEnv = defaultGuideEnv) {}
+  constructor(private env: GuideEnv = defaultGuideEnv) {}
+
+  /** 개발 전용 — `devFake.ts` 가 전송을 가짜로 바꿔 끼운다(유료 `/guide/chat` 을 부르지 않고 상태만 재현). */
+  setEnv(env: GuideEnv): void {
+    this.env = env
+  }
 
   get state(): GuideState {
     return this.store.get()

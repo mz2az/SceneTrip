@@ -6,6 +6,7 @@
 //     --click "텍스트"                글자가 같은 요소를 눌러 본다 (여러 번 줄 수 있다, 눌린 뒤 300ms 쉰다)
 //     --scroll "선택자:픽셀"           선택자 요소를 세로로 스크롤한다
 //     --eval "js"                    페이지 안에서 실행할 코드 (여러 번 가능)
+//     --until domcontentloaded       기다릴 로드 단계(기본 networkidle2) — 스플래시처럼 금방 사라지는 화면용
 //     --full                          요소가 아니라 전체 페이지
 //
 // 사용 예:  node scripts/shot.mjs "http://localhost:5273/search?dev-lang=ko&dev-seen=1&dev-nosplash=1" /private/tmp/x.png --wait 2500
@@ -26,6 +27,7 @@ while (args.length) {
   const k = args.shift().replace(/^--/, '')
   if (k === 'full') opt.full = true
   else if (['click', 'scroll', 'eval'].includes(k)) opt[k].push(args.shift())
+  else if (k === 'until') opt.until = args.shift()
   else opt[k] = Number(args.shift())
 }
 
@@ -34,7 +36,7 @@ const browser = await puppeteer.launch({ executablePath: chrome, headless: true,
 try {
   const page = await browser.newPage()
   await page.setViewport({ width: opt.w, height: opt.h, deviceScaleFactor: opt.scale, isMobile: false, hasTouch: false })
-  await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 }).catch(() => {})
+  await page.goto(url, { waitUntil: opt.until || 'networkidle2', timeout: 45000 }).catch(() => {})
   await new Promise((r) => setTimeout(r, opt.wait))
   for (const text of opt.click) {
     const ok = await page.evaluate((t) => {

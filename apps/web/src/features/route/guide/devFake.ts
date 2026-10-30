@@ -10,7 +10,7 @@
  *   ?dev-fake-guide=error-503|error-401|error-offline|error-timeout|error-400
  *   ?dev-fake-guide=quota-low     3번 남았다는 헤더가 온 것으로(입력창 위 한 줄)
  */
-import { type GuideEnv, GuideSession, defaultGuideEnv } from './guideSession'
+import { type GuideEnv, defaultGuideEnv, sharedGuide } from './guideSession'
 import { type GuideFailure } from './guideFailure'
 import { type GuideAnswer, GuideSendError } from './guideSender'
 import { fetchPois } from '../poi/poiApi'
@@ -70,12 +70,11 @@ export function fakeGuideEnv(mode: FakeGuideMode): GuideEnv {
   }
 }
 
-/** 가짜 대화 하나를 만든다. `quota-low` 면 장부에 「3번 남았다」 를 적어 둔다. 제품 빌드에서는 null. */
-export function createFakeGuide(mode: FakeGuideMode | null = devFakeMode()): GuideSession | null {
-  if (!import.meta.env.DEV || !mode) return null
+/** `?dev-fake-guide=…` 가 있으면 앱에 하나뿐인 대화 창구(`sharedGuide`)의 전송을 가짜로 바꾼다. 제품 빌드에서는 아무 일도 하지 않는다. */
+export function installDevFakeGuide(mode: FakeGuideMode | null = devFakeMode()): void {
+  if (!import.meta.env.DEV || !mode) return
   if (mode === 'quota-low') {
     ledgerStore.set({ entries: { guide: { limit: 15, remaining: 3, resetsAtMs: Date.now() + 20 * 60_000 } }, seen: true })
   }
-  const env = fakeGuideEnv(mode)
-  return new GuideSession({ ...env, now: uptimeSeconds, quota: () => (mode === 'quota-low' ? { limit: 15, remaining: 3, resetsAtMs: Date.now() + 20 * 60_000 } : null) })
+  sharedGuide.setEnv({ ...fakeGuideEnv(mode), now: uptimeSeconds, quota: () => (mode === 'quota-low' ? { limit: 15, remaining: 3, resetsAtMs: Date.now() + 20 * 60_000 } : null) })
 }

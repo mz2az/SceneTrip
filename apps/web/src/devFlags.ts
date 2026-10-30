@@ -5,8 +5,11 @@
  *   ?dev-lang=ko|en   앱 언어를 정해 둔다 (고른 것으로 친다)
  *   ?dev-seen=1       사용법을 본 것으로 친다
  *   ?dev-nosplash=1   스플래시를 건너뛴다
+ *   ?dev-account=1 · ?dev-stamps=1   계정·방문 기록이 있는 읽기 전용 상태 (devMock.ts)
  */
 import { chooseLanguage } from './i18n'
+import { installDevFakeGuide } from './features/route/guide/devFake'
+import { installDevMock } from './devMock'
 import { writeStorage } from './state/storage'
 
 export let skipSplash = false
@@ -18,4 +21,6 @@ export function applyDevFlags(): void {
   if (lang === 'ko' || lang === 'en') chooseLanguage(lang)
   if (q.get('dev-seen') === '1') writeStorage('scenetrip.onboarding.seenVersion', '1')
   skipSplash = q.get('dev-nosplash') === '1'
+  installDevMock(q)
+  installDevFakeGuide()
 }
