@@ -150,7 +150,7 @@ private fun MyCoursesSheetBody(
                 Text(tr("코스 목록을 받아오는 중입니다"), fontSize = 12.sp, color = IOS.secondaryLabel)
             }
         } else if (courses.isEmpty()) {
-            IOSEmptyState(tr("아직 코스가 없습니다"), tr("경로여정 탭에서 첫 코스를 만들어 보세요")) { RouteCurveIcon(IOS.secondaryLabel, it) }
+            IOSEmptyState(tr("아직 코스가 없습니다"), tr("경로여정 탭에서 첫 코스를 만들어 보세요"), yOffset = (-24).dp) { RouteCurveIcon(IOS.secondaryLabel, it) }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
                 items(courses, key = { it.id }) { course ->
@@ -320,7 +320,7 @@ private fun LikedWorksSheetBody(
             }
 
             works.isEmpty() -> {
-                IOSEmptyState(tr("찜한 작품이 없습니다"), tr("작품검색 탭에서 하트를 눌러 보세요")) {
+                IOSEmptyState(tr("찜한 작품이 없습니다"), tr("작품검색 탭에서 하트를 눌러 보세요"), yOffset = (-24).dp) {
                     Icon(Icons.Filled.FavoriteBorder, contentDescription = null, tint = IOS.secondaryLabel, modifier = it)
                 }
             }
@@ -452,7 +452,7 @@ private fun ProfileCartSheetBody(
     Column(modifier = Modifier.fillMaxSize().background(IOSGlassSheetColor)) {
         ProfileSheetHeader(tr("장바구니"), onClose)
         if (cart.items.isEmpty()) {
-            IOSEmptyState(tr("장바구니가 비었습니다"), tr("작품검색 탭에서 촬영지를 담아 보세요")) { BagIcon(IOS.secondaryLabel, it) }
+            IOSEmptyState(tr("장바구니가 비었습니다"), tr("작품검색 탭에서 촬영지를 담아 보세요"), yOffset = (-24).dp) { BagIcon(IOS.secondaryLabel, it) }
         } else {
             LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = sheetListBottom()) {
                 itemsIndexed(cart.items, key = { _, item -> item.placeId }) { index, item ->

@@ -118,7 +118,8 @@ fun RouteTabView(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).statusBarsPadding()) {
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+        // 8차 CE1/CL3: 머리줄 중심 iOS 26.5 · Android 22.9, 머리→첫 카드 2.0 짧음 — 위 13.6 · 아래 8.4 (합 +2.0).
+        Box(modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 13.6.dp, bottom = 8.4.dp)) {
             Text(
                 tr("코스", "화면 제목"),
                 fontSize = 17.sp,
@@ -489,20 +490,27 @@ private fun CourseRow(
         revealedColor = IOS.systemGray5,
         onTap = { onOpen(course) },
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+        // 8차 CL1·CL2: 부제가 iOS 보다 2.7 낮았다(간격 3 → 0.3, 카드 높이는 위아래 +1.35 로 지킨다). iOS 의 chevron 은 카드 가운데가 아니라
+        // **제목 줄 안**에 있다(카드 가운데보다 8.5 위).
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 15.35.dp),
+            verticalArrangement = Arrangement.spacedBy(0.3.dp),
         ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (route.madeByAI) {
-                        SparklesIcon(IOS.accent, Modifier.size(12.dp))
-                    }
-                    Text(course.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, maxLines = 1)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (route.madeByAI) {
+                    SparklesIcon(IOS.accent, Modifier.size(12.dp))
                 }
-                Text(route.dateLabel ?: route.spanLabel, fontSize = 12.sp, color = IOS.secondaryLabel)
+                Text(
+                    course.title,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IOS.label,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                ChevronRightIcon(IOS.tertiaryLabel, Modifier.size(12.dp))
             }
-            ChevronRightIcon(IOS.tertiaryLabel, Modifier.size(12.dp))
+            Text(route.dateLabel ?: route.spanLabel, fontSize = 12.sp, color = IOS.secondaryLabel)
         }
     }
 }
@@ -589,9 +597,10 @@ private fun ForkCard(
         ) {
             icon(Modifier.size(22.dp))
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-            Text(caption, fontSize = 12.sp, color = IOS.secondaryLabel)
+        // 8차 HM2: 제목→설명 iOS 20.0 · Android 24.7 — 글꼴 제 높이 대신 iOS 줄 칸(20.3 · 14.3)으로 고정하고 간격 3.
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.sfLine(17f))
+            Text(caption, fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(12f))
         }
         ChevronRightIcon(IOS.tertiaryLabel, Modifier.size(12.dp))
     }

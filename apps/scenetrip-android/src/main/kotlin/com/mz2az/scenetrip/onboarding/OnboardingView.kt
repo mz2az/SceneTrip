@@ -55,7 +55,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.analytics.AppEvent
@@ -200,7 +199,14 @@ private fun OnboardingNavigation(
 ) {
     val large = LocalDensity.current.fontScale >= 1.6f
     val previousButton: @Composable () -> Unit = {
-        TextButton(onClick = previous, enabled = page > 0, modifier = Modifier.heightIn(min = 44.dp)) {
+        // iOS `Button("이전")` 은 글자만 있고 안쪽 여백이 없다 — Material TextButton 은 최소 폭 58 에 글자를 가운데 놓아
+        // 글자가 +13.9 밀리고 「다음」 폭이 −19.1 줄었다(8차 N1). 글자 폭 그대로인 눌리는 칸으로 대신한다.
+        Box(
+            Modifier
+                .heightIn(min = 44.dp)
+                .clickable(enabled = page > 0, role = androidx.compose.ui.semantics.Role.Button, onClick = previous),
+            contentAlignment = Alignment.Center,
+        ) {
             Text(
                 tr("이전"),
                 fontSize = 17.sp,
@@ -269,7 +275,7 @@ private fun LessonPage(
                     .heightIn(min = maxHeight)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
+            verticalArrangement = Arrangement.Center,
         ) {
             Box(modifier = Modifier.size(drawingSize), contentAlignment = Alignment.Center) {
                 Box(
@@ -289,22 +295,25 @@ private fun LessonPage(
                 }
             }
 
+            // 8차 O1: 그림→제목 iOS 55.7 · Android 60.5, 제목→본문 27.0 · 30.1 — 간격을 각각 15.2 · 16.9 로(전: 20 · 20).
+            Spacer(Modifier.height(15.2.dp))
             Text(
                 text = tr(lesson.title),
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = (-0.5).sp,
-                // 큰 글자는 iOS 줄 간격이 약 1.16em 이다 — 앱 기본 1.3em 을 그대로 두면 두 줄 제목이 벌어졌다.
-                lineHeight = 1.16.em,
+                // iOS `.title.bold` 줄 피치 34.0 (8차 O1: 32.8 이었다).
+                lineHeight = 34.sp,
                 textAlign = TextAlign.Center,
                 color = IOS.label,
                 modifier = Modifier.semantics { heading() },
             )
+            Spacer(Modifier.height(16.9.dp))
             Text(
                 text = tr(lesson.body),
                 fontSize = 17.sp,
                 textAlign = TextAlign.Center,
-                lineHeight = 23.sp,
+                lineHeight = 22.8.sp,
                 color = IOS.secondaryLabel,
             )
         }

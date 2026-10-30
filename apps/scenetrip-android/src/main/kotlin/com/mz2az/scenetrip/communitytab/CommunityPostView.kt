@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -312,7 +313,8 @@ private fun AuthorRow(
                 canBlock = ModerationRules.canBlock(isMine = post.isMine, hasAuthor = post.author != null),
                 controller = moderation,
                 // 메뉴 기본 칸 44×44 가 작성자 줄을 34 에서 44 로 키워 본문이 10dp 밀렸다 — iOS 줄은 글 칸(34)이 정한다(31-post 실측).
-                modifier = Modifier.size(width = 44.dp, height = 34.dp),
+                // 8차 C4: 「⋯」 오른쪽 여백 iOS 38 · Android 42.4 — 4.4 오른쪽으로.
+                modifier = Modifier.offset(x = 4.4.dp).size(width = 44.dp, height = 34.dp),
             )
         }
     }

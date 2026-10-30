@@ -672,7 +672,9 @@ private fun RouteEditorContent(
     // 맞춤에 **나를 담을 수 있는 자리를 처음 알게 된 때**(`fitsMe`)만 다시 맞춘다. 멀리 있는 자리(MZ2AZ-511)는 담지 않으므로
     // 열쇠도 바꾸지 않는다 — 코스 핀에 맞춘 화면이 늦게 온 위치 때문에 다시 움직일 까닭이 없다.
     val fitsMe = RouteGeometry.fitHere(myLocation, showingMe, stops) != null
-    LaunchedEffect(map, dayIndex, fitToken, showingMe, fitsMe, screenHeight, panelHeight) {
+    // 8차 EP4: 미리보기(검색 시트에서 고른 곳)도 맞춤에 든다 — iOS `RouteMapView.fit(stops, previews:)` 는 시트가 열린 채 바로 맞춘다.
+    val previewKey = previewPlaces.map { it.id }
+    LaunchedEffect(map, dayIndex, fitToken, showingMe, fitsMe, screenHeight, panelHeight, previewKey) {
         val target = map ?: return@LaunchedEffect
         if (screenHeight <= 0.dp || panelHeight <= 0.dp) return@LaunchedEffect
         delay(MAP_FIT_DEBOUNCE_MILLIS) // 시트 드래그 중 반복 맞추기를 취소하고 마지막 보이는 영역에 맞춘다.
@@ -698,7 +700,7 @@ private fun RouteEditorContent(
         }
         // 같은 지역의 자리만 담는다 — 멀리 있는 자리를 넣으면 범위가 대륙만 해져 세계 줌에 멈춘다(MZ2AZ-511, `fitHere`).
         val here = RouteGeometry.fitHere(myLocation, showingMe, stops)
-        val toFit = stops.map { it.place } + listOfNotNull(here)
+        val toFit = stops.map { it.place } + previewPlaces + listOfNotNull(here)
         if (toFit.isNotEmpty()) {
             target.fit(
                 toFit,
@@ -1412,15 +1414,23 @@ private fun RouteEditorContent(
                         }
                         if (stops.isEmpty()) {
                             item {
-                                // iOS `RouteEditorView.stopRows` — "직접 짜기"로 빈 코스를
-                                // 열었을 때 아무 안내도 없었다(실기 비교로 발견).
-                                Text(
-                                    tr("아직 담은 장소가 없습니다\n장바구니에서 담거나 지도에 핀을 찍어 보세요"),
-                                    fontSize = 12.sp,
-                                    color = IOS.secondaryLabel,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                                )
+                                // iOS `RouteEditorList` — `.footnote`(13pt, 줄 18) · 가운데 놓인 덩어리 안에서 줄은 **왼쪽 맞춤** · `.padding(.vertical, 24)`
+                                // 아래 목록 구분선(x 85부터). 8차 N6/ED4: 첫 줄 중심 227.3, 구분선 y≈297.
+                                Column(Modifier.fillMaxWidth()) {
+                                    Box(
+                                        Modifier.fillMaxWidth().padding(top = 36.dp, bottom = 42.7.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            tr("아직 담은 장소가 없습니다\n장바구니에서 담거나 지도에 핀을 찍어 보세요"),
+                                            fontSize = 13.sp,
+                                            lineHeight = 18.sp,
+                                            color = IOS.secondaryLabel,
+                                            textAlign = TextAlign.Start,
+                                        )
+                                    }
+                                    IOSListDivider(start = 85.dp)
+                                }
                             }
                         }
                         // 「코스 삭제」는 여기 없다 — iOS 는 코스 목록에서 밀어서만 지운다(2026-09-28 대조).
@@ -2185,7 +2195,8 @@ private fun PlaceSearchOverlay(
     onPreview: (List<PlaceSummary>) -> Unit,
     onAdd: (List<PlaceSummary>) -> Unit,
 ) {
-    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onDismiss) {
+    // 8차 ES1: iOS 는 이 시트를 편집기 시트 윗변에서 19.6 아래에 쌓는다(Android 는 같은 높이에 덮었다 — 440.4 대 463.0).
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onDismiss, restInset = 22.6.dp) {
         PlaceSearchOverlayBody(taken = taken, onDismiss = onDismiss, onPreview = onPreview, onAdd = onAdd)
     }
 }

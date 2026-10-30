@@ -62,7 +62,7 @@ fun IOSMenuPopover(
                     // iOS 26 메뉴는 「⋯」 에서 펼쳐져 단추를 덮는다(6차 실측 report-ios: 카드 윗변이 점 중심보다 13.5pt 위,
                     // 오른쪽 끝이 점 중심보다 14pt 오른쪽). 카드는 팝업 안쪽 12dp 여백 안에 있고 앵커는 44dp 상자(중심 22dp).
                     val dx = with(density) { 6.dp.roundToPx() }
-                    val dy = with(density) { 5.dp.roundToPx() }
+                    val dy = with(density) { 8.6.dp.roundToPx() } // 8차 RM1: 팝오버가 iOS 보다 3.6 낮았다(5 → 8.6)
                     return IntOffset(
                         (anchorBounds.right + dx - popupContentSize.width).coerceIn(0, maxX),
                         (anchorBounds.top - dy).coerceIn(0, maxY),

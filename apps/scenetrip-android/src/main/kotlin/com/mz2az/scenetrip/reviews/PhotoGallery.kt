@@ -476,7 +476,8 @@ internal fun GalleryViewer(
             }
         } else {
             Box(Modifier.fillMaxSize().background(Color.Black)) {
-                pages(Modifier.fillMaxSize())
+                // 8차 N3: iOS 는 사진을 안전 영역 안에서 가운데에 둔다(배경만 화면 끝까지) — 상태줄·내비바를 뺀 칸의 가운데.
+                pages(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding())
                 topBar(Modifier)
                 caption(Modifier.align(Alignment.BottomCenter))
             }

@@ -158,7 +158,7 @@ internal fun CommunityPostList(
                         color = IOS.secondaryLabel,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 16.dp, vertical = 11.dp),
                     )
-                    IOSListDivider(start = 16.dp)
+                    IOSListDivider(start = 16.dp, color = MyPostsDivider)
                 }
             }
             if (!mine && posts.isEmpty() && store.legacyPosts.isEmpty() && !loading && state.message == null) {
@@ -219,6 +219,9 @@ internal fun CommunityPostList(
     }
 }
 
+// 「내가 쓴 글」 시트 구분선 — iOS 는 유리 위라 #d3d3d6 으로 보인다(8차 S-4: 기본 #e5e5ea 는 옅었다).
+private val MyPostsDivider = Color(0xFFD3D3D6)
+
 @Composable
 private fun SectionTitle(
     title: String,
@@ -231,7 +234,8 @@ private fun SectionTitle(
             style = IOS.body,
             fontWeight = FontWeight.SemiBold,
             color = IOS.secondaryLabel,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 30.dp, bottom = 11.dp),
+            // 8차 S-4: 두 구분선 사이 iOS 110.0 · Android 113.1 — 위 27.
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 27.dp, bottom = 11.dp),
         )
         return
     }
@@ -259,11 +263,12 @@ internal fun CommunityListButton(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 44.dp)
+                    // 8차 S-4: 첫 구분선이 iOS 보다 2.0 위(96.4 대 98.4) — 줄 46.
+                    .heightIn(min = 46.dp)
                     .clickable(enabled = enabled, onClick = onClick)
-                    .padding(horizontal = 16.dp, vertical = 11.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
         )
-        IOSListDivider(start = 16.dp)
+        IOSListDivider(start = 16.dp, color = MyPostsDivider)
         return
     }
     Text(

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -266,7 +267,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                                 value = courseCount?.let { tr("%d개").format(it) } ?: "…",
                                 onClick = { showingCourses = true },
                                 chevron = true,
-                                icon = { RouteCurveIcon(IOS.pinDeep, it) },
+                                // 8차 P4: iOS `point.topleft.down.curvedto.point.bottomright.up` 은 높이 16.0 (Android 17.9) — 칸을 줄인다.
+                                icon = { RouteCurveIcon(IOS.pinDeep, it.requiredSize(16.dp)) },
                             )
                             ProfileDivider()
                             ProfileRow(
@@ -621,10 +623,12 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 private fun ProfileHeader(onNickname: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+        // 8차 P2/N8: 해태 윗 +6.6, 해태→제목 −2.7, 제목→부제 −3.2, 부제→단추 −1.3 (iOS 100.3 / 218.0 / 245.7 / 270.3). 간격은 자식마다 따로 둔다.
+        verticalArrangement = Arrangement.spacedBy(0.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 18.6.dp, bottom = 12.dp),
     ) {
         PinoMascot(width = 96.dp)
+        Spacer(Modifier.height(5.3.dp))
         // iOS `header` — 비회원이면 로그인 단추, 로그인했으면 이름과 메일 (MZ2AZ-336).
         if (AuthStore.signedIn) {
             val nickname = AuthStore.me?.nickname
@@ -648,10 +652,15 @@ private fun ProfileHeader(onNickname: () -> Unit) {
                 // 옛 서버는 닉네임이 없어 전처럼 계정 이름을 보인다 — 바꿀 수 없다.
                 Text(AuthStore.me?.displayName ?: tr("여행자"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
             }
-            AuthStore.me?.email?.let { Text(it, fontSize = 12.sp, color = IOS.secondaryLabel) }
+            AuthStore.me?.email?.let {
+                Spacer(Modifier.height(4.8.dp))
+                Text(it, fontSize = 12.sp, color = IOS.secondaryLabel)
+            }
         } else {
             Text(tr("비회원으로 여행 중"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Spacer(Modifier.height(4.8.dp))
             Text(tr("로그인하면 코스와 찜이 계정에 저장돼요"), fontSize = 12.sp, color = IOS.secondaryLabel)
+            Spacer(Modifier.height(10.7.dp))
             Text(
                 tr("로그인"),
                 fontSize = 15.sp,
@@ -660,7 +669,6 @@ private fun ProfileHeader(onNickname: () -> Unit) {
                 color = Color.White,
                 modifier =
                     Modifier
-                        .padding(top = 4.dp)
                         .clip(CircleShape)
                         .background(IOS.accent)
                         .clickable(enabled = !AuthStore.busy) { AuthStore.promptSignIn() }
