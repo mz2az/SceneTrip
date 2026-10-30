@@ -8,6 +8,7 @@
 | `bazel.just` | `build` | 빌드, 실행, 질의, 정리 |
 | `dev.just` | `dev` | 세팅, 진단, 포맷, 린트, 생성, Git 조회·커밋·브랜치 게시 |
 | `test.just` | `test` | 테스트 레인, 커버리지, 불안정 테스트 추적 |
+| `web.just` | `web` | 웹앱 번들·시험·린트·개발 서버 |
 | `docs.just` | `docs` | 문서 린트, ADR 생성, 문서 사이트 |
 | `infra.just` | `infra` | AWS 수동 bootstrap·plan·apply·검증, 이미지·매니페스트 렌더링 |
 | `k8s.just` | `k8s` · `observability` | kind 클러스터, 모듈 배포, SigNoz |

@@ -21,6 +21,7 @@ REPO_ROOT   := justfile_directory()
 import 'tools/just/bazel.just'
 import 'tools/just/dev.just'
 import 'tools/just/test.just'
+import 'tools/just/web.just'
 import 'tools/just/docs.just'
 import 'tools/just/infra.just'
 import 'tools/just/k8s.just'
