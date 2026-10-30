@@ -64,7 +64,7 @@ export function HomeTab() {
 
   return (
     <div className="scroll-y" style={{ height: '100%', background: 'var(--grouped-background)' }}>
-      <VStack spacing={18} align="stretch" style={{ padding: '8px 0 28px' }}>
+      <VStack spacing={18} align="stretch" style={{ padding: '8.7px 0 28px' }}>
         <HomeHeader onProfile={() => router.openProfile()} />
         <TripPager
           trips={home.trips}
@@ -80,7 +80,9 @@ export function HomeTab() {
           onOpenCourse={() => router.openRoute()}
           onCreate={() => router.openRoute()}
         />
-        <WorkShelf works={home.works} failed={home.failed} onOpen={(w) => router.openContent(w)} onAll={() => router.selectTab('search')} />
+        <div style={{ margin: "0.6px 0 0.7px" }}>
+          <WorkShelf works={home.works} failed={home.failed} onOpen={(w) => router.openContent(w)} onAll={() => router.selectTab('search')} />
+        </div>
         {today && (
           // 목적지는 코스 항목으로만 받아 코스 없는 길찾기가 없다(MZ2AZ-313) — 대신 장바구니에 담아 코스로 이어지게 한다.
           <TodayCard

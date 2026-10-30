@@ -13,7 +13,7 @@ const PINO_WIDTH = 96
 export function ProfileHeader({ onEditNickname }: { onEditNickname: () => void }) {
   const { signedIn, me, busy } = useAccount()
   return (
-    <VStack align="center" spacing={8} style={{ padding: '12px 0' }}>
+    <VStack align="center" spacing={8} style={{ padding: '13px 0 12px' }}>
       <PinoMascot width={PINO_WIDTH} />
       {signedIn ? (
         <>
@@ -32,12 +32,12 @@ export function ProfileHeader({ onEditNickname }: { onEditNickname: () => void }
       ) : (
         <>
           <Txt size={17} weight="semibold" style={{ lineHeight: '22px' }}>{tr('비회원으로 여행 중')}</Txt>
-          <Txt size={12} color="secondary">{tr('로그인하면 코스와 찜이 계정에 저장돼요')}</Txt>
+          <Txt size={12} color="secondary" style={{ marginTop: -1.2 }}>{tr('로그인하면 코스와 찜이 계정에 저장돼요')}</Txt>
           <Pressable
             plain
             disabled={busy}
             onClick={accountActions.openSignIn}
-            style={{ marginTop: 4, padding: '6.5px 22px', borderRadius: 20, background: 'var(--accent)', opacity: busy ? 0.5 : 1 }}
+            style={{ marginTop: 3.5, padding: '7px 22px', borderRadius: 20, background: 'var(--accent)', opacity: busy ? 0.5 : 1 }}
           >
             <Txt size={15} weight="semibold" color="white" style={{ lineHeight: '19px' }}>{tr('로그인')}</Txt>
           </Pressable>

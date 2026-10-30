@@ -31,7 +31,7 @@ function TripSection({ courseCount, likeCount, cartCount, open }: SectionsProps)
   return (
     <ListSection header={tr('내 여행')}>
       {/* 누르면 목록이 바로 뜬다 — 숫자만 보여 주고 끝나면 「그래서 뭐가 있는데」를 경로여정 탭까지 가서 확인해야 한다. */}
-      <Row icon="point.topleft.down.to.point.bottomright.curvepath" tint="deep" title={tr('내 코스')} value={courseCount === null ? '…' : tr('%d개', courseCount)} chevron onClick={() => open('courses')} />
+      <Row icon="point.topleft.down.to.point.bottomright.curvepath" tint="deep" title={tr('내 코스')} value={courseCount === null ? '…' : tr('%d개', courseCount)} style={{ minHeight: 53.3, paddingBottom: 15.15 }} chevron onClick={() => open('courses')} />
       <Row icon="heart.fill" tint="red" title={tr('찜한 작품')} value={tr('%d개', likeCount)} chevron onClick={() => open('likes')} />
       <Row icon="bag.fill" tint="var(--system-orange)" title={tr('장바구니')} value={trCount('%d곳', cartCount)} chevron onClick={() => open('cart')} />
     </ListSection>
