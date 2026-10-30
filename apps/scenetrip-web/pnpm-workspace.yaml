@@ -1,0 +1,4 @@
+# Bazel(rules_js) 가 package-lock.json 에서 pnpm-lock.yaml 을 파생할 때 읽는 설정이다 — npm 워크플로와 무관하다.
+# 설치 스크립트(lifecycle hook)를 돌릴 패키지 목록. 비어 있다: 이 모듈의 의존성 중 빌드 스크립트가 필요한 것이 없다.
+# (puppeteer-core 는 브라우저를 내려받지 않는 배포본이다.)
+allowBuilds: {}

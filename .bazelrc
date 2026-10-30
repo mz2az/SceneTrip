@@ -112,3 +112,14 @@ test:ci --build_tests_only
 # 이 파일이 필요해서는 안 된다.
 
 try-import %workspace%/.bazelrc.user
+
+# --- 웹앱 (ADR 0028) ------------------------------------------------------------
+# Vite 번들만 샌드박스 밖에서 돌린다. 샌드박스는 입력을 심볼릭 링크로 깔고, Vite(rolldown, 네이티브)가 index.html 의 실제
+# 경로를 샌드박스 밖 실행 루트로 풀어 번들 루트 밖으로 계산해 버려 빌드가 실패한다("fileName … must be … neither absolute
+# nor relative paths"). resolve.preserveSymlinks 로 고치면 pnpm 형 node_modules 해석이 깨진다(실측).
+# 입력은 여전히 Bazel 이 선언한 것뿐이고 네트워크를 쓰지 않으며 산출물은 결정적이다 — 잃는 것은 선언하지 않은 파일을
+# 읽지 못하게 막는 격리뿐이다.
+build --strategy=Vite=local
+
+# aspect_rules_js 가 쓰는 Aspect 사용 통계 수집을 끈다 (규칙 버전·Bazel 버전을 보내는 기능).
+common --repo_env=DO_NOT_TRACK=1

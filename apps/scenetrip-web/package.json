@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "SceneTrip 웹앱 — iOS 앱을 브라우저로 옮긴 독립 모듈 (아직 Bazel/just 에 연결되지 않음)",
+  "description": "SceneTrip 웹앱 — iOS 앱을 브라우저로 옮긴 모듈 (Bazel 로 짓고 just web-* 로 돌린다 — ADR 0028)",
   "scripts": {
     "gen": "node scripts/gen-api.mjs && node scripts/sync-ios-assets.mjs",
     "predev": "npm run gen",

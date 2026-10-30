@@ -1,0 +1,6 @@
+"""저장소 전체 설정 (Bazel 8+). 웹앱 개발자가 `npm ci` 로 만든 node_modules 를 Bazel 이 패키지 트리로 읽지 않게 한다.
+
+Bazel 은 npm 패키지를 @npm_web 저장소로 따로 받는다 (MODULE.bazel 의 JavaScript 절).
+"""
+
+ignore_directories(["**/node_modules"])
