@@ -182,7 +182,7 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
       <HStack spacing={10} style={{ padding: 16, background: 'var(--system-background)', flex: 'none' }}>
         {index > 0 && <LargeButton variant="bordered" size="regular" weight="regular" fontSize={15} onClick={() => setIndex(index - 1)}>{tr('이전')}</LargeButton>}
         {/* 라벨에 너비를 준다 — 바깥에만 너비를 걸면 누르는 자리만 넓어지고 파란 알약은 글자 크기 그대로 남는다(실측). */}
-        <LargeButton variant="prominent" disabled={planning} onClick={advance} style={{ flex: 1 }}>
+        <LargeButton variant="prominent" height={50.33} disabled={planning} onClick={advance} style={{ flex: 1 }}>
           {planning && <Spinner size={18} />}
           {planning ? tr('일정을 짜는 중입니다') : last ? finishLabel : tr('다음')}
         </LargeButton>

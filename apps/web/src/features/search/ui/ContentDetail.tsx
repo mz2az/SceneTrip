@@ -76,7 +76,7 @@ export function ContentDetail({
               poster
             )}
             {delisted && <UnavailableNotice kind="content" />}
-            <BorderedButton onClick={() => void likeActions.toggle(summary.id)} disabled={!canToggle(delisted, liked)}>
+            <BorderedButton style={{ padding: '0 15px' }} onClick={() => void likeActions.toggle(summary.id)} disabled={!canToggle(delisted, liked)}>
               <Icon name={liked ? 'heart.fill' : 'heart'} size={FONT.body} color="accent" />
               <Txt size={FONT.body} color="accent">{liked ? tr('찜 빼기') : tr('찜하기')}</Txt>
             </BorderedButton>

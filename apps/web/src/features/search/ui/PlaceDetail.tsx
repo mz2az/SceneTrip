@@ -101,7 +101,7 @@ export function PlaceDetail({ summary, sourceContentId, load, onBack }: {
             </ProminentButton>
             {naver && (
               <a href={naver} target="_blank" rel="noopener noreferrer" style={{ flex: 'none' }}>
-                <BorderedButton style={{ minHeight: 36, pointerEvents: 'none' }}>
+                <BorderedButton style={{ minHeight: 34, width: 129, padding: 0, pointerEvents: 'none' }}>
                   <Icon name="arrow.up.right.square" size={FONT.body} color="accent" />
                   <Txt size={FONT.body} color="accent">{tr('네이버 지도')}</Txt>
                 </BorderedButton>

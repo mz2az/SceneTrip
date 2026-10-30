@@ -29,7 +29,7 @@ export function Calendar({ value, min, onPick }: { value: string; min: string; o
 
   return (
     <div style={{ padding: '0 0 8px', width: '100%' }}>
-      <HStack justify="between" style={{ padding: '14px 18px 0 18px', height: 50 }}>
+      <HStack justify="between" style={{ padding: '17px 18px 0 18px', height: 53 }}>
         <HStack spacing={4}>
           <Txt size={17} weight="semibold">{title}</Txt>
           <Icon name="chevron.right" size={13} weight="semibold" color="accent" />
@@ -43,9 +43,9 @@ export function Calendar({ value, min, onPick }: { value: string; min: string; o
           </Pressable>
         </HStack>
       </HStack>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, ${CELL}px)`, justifyContent: 'center', marginTop: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, ${CELL}px)`, justifyContent: 'center', marginTop: 14 }}>
         {(lang === 'ko' ? KO_WEEK : EN_WEEK).map((w, i) => (
-          <div key={i} style={{ height: 24, textAlign: 'center' }}>
+          <div key={i} style={{ height: 20.7, textAlign: 'center' }}>
             <Txt size={13} weight="semibold" color="secondary" align="center">{w}</Txt>
           </div>
         ))}

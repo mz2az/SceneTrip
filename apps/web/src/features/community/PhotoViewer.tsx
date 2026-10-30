@@ -121,7 +121,7 @@ export function PhotoViewer({ url, block, onClose }: { url: string; block: Pick<
       <HStack justify="between" pad="var(--safe-top) 16px 0" style={{ background: '#000', minHeight: 44 }}>
         <Txt size={17} weight="semibold" color="white" lines={2}>{title}</Txt>
         <Pressable aria-label={tr('닫기')} onClick={onClose} style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', flex: 'none' }}>
-          <Icon name="xmark" size={17} weight="medium" color="white" />
+          <Icon name="xmark" size={22} weight="medium" color="white" />
         </Pressable>
       </HStack>
 

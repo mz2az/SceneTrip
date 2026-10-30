@@ -51,19 +51,19 @@ export function CartSheet({ open, onClose }: { open: boolean; onClose: () => voi
   return (
     <Sheet open={open} onClose={onClose} label={title}>
       {/* 인라인 제목과 오른쪽 「닫기」(확인 위치) */}
-      <div style={{ position: 'relative', flex: 'none', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'relative', flex: 'none', height: 76, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Txt size={FONT.headline} weight="semibold">{title}</Txt>
         <Pressable
           plain
           onClick={onClose}
-          style={{ position: 'absolute', right: 16, top: 10, padding: '11px 18px', borderRadius: 999, background: 'var(--system-background)', boxShadow: shadow('rgba(0,0,0,0.12)', 8, 2) }}
+          style={{ position: 'absolute', right: 16, top: 17, padding: '11px 18px', borderRadius: 999, background: 'var(--system-background)', boxShadow: shadow('rgba(0,0,0,0.12)', 8, 2) }}
         >
           <Txt size={FONT.body} weight="medium">{tr('닫기')}</Txt>
         </Pressable>
       </div>
       {empty ? (
-        <VStack spacing={6} align="center" justify="center" style={{ flex: 1 }}>
-          <Icon name="bag" size={48} weight="regular" color="secondary" style={{ marginBottom: 8 }} />
+        <VStack spacing={6} align="center" justify="center" style={{ flex: 1, paddingBottom: 59 }}>
+          <Icon name="bag" size={54} weight="regular" color="secondary" style={{ marginBottom: 8 }} />
           <Txt size={FONT.title2} weight="bold">{tr('담은 장소가 없습니다')}</Txt>
           <Txt size={FONT.subheadline} color="secondary">{tr('장소를 저장하면 여기에 모입니다')}</Txt>
         </VStack>

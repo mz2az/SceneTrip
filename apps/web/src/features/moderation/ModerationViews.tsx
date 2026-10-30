@@ -63,7 +63,7 @@ export function ModerationMenu({ target, canBlock, controller }: { target: Moder
       >
         <span style={{ position: 'absolute', inset: -MENU_HIT_INSET }} />
         {/* 메뉴 라벨은 Menu 가 강조색으로 물들인다 — 스크린샷의 「⋯」 는 옅은 파랑이다. */}
-        <Icon name="ellipsis" size={15} weight="semibold" color="rgba(0,136,255,0.5)" />
+        <Icon name="ellipsis" size={16.5} weight="semibold" color="rgba(0,136,255,0.5)" />
       </Pressable>
       {anchor && <PopupMenu items={items} anchor={anchor} onClose={() => setAnchor(null)} />}
     </>
