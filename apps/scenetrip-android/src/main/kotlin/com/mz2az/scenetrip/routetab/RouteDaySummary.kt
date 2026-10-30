@@ -27,6 +27,7 @@ import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.data.trCount
 import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.sfLine
 
 /** 큰 글자나 좁은 화면에서는 거리와 시간을 두 줄로 보여 준다. */
 @Composable
@@ -48,12 +49,12 @@ fun RouteDaySummary(
         val stacked = density.fontScale >= 1.3f || textWidth + with(density) { 20.dp.toPx() } > constraints.maxWidth
         if (stacked) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(distance, style = IOS.footnote, color = IOS.secondaryLabel)
+                Text(distance, style = IOS.footnote, color = IOS.secondaryLabel, modifier = Modifier.sfLine(13f))
                 DayDuration(duration, stops.isNotEmpty(), onStay, onStayFrame)
             }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(distance, style = IOS.footnote, color = IOS.secondaryLabel)
+                Text(distance, style = IOS.footnote, color = IOS.secondaryLabel, modifier = Modifier.sfLine(13f))
                 Spacer(Modifier.weight(1f))
                 Spacer(Modifier.width(6.dp))
                 DayDuration(duration, stops.isNotEmpty(), onStay, onStayFrame)
@@ -79,7 +80,7 @@ private fun DayDuration(
                 .onGloballyPositioned { if (editable) onStayFrame(it.boundsInWindow()) else onStayFrame(null) }
                 .clickable(enabled = editable, onClickLabel = tr("장소별 머무는 시간을 고칩니다"), onClick = onStay),
     ) {
-        Text(label, style = IOS.footnote, color = if (editable) IOS.accent else IOS.tertiaryLabel)
+        Text(label, style = IOS.footnote, color = if (editable) IOS.accent else IOS.tertiaryLabel, modifier = Modifier.sfLine(13f))
         if (editable) ChevronRightIcon(IOS.accent, Modifier.size(9.dp))
     }
 }

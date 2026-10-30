@@ -60,7 +60,7 @@ fun RouteDayStaySheet(
                         // iOS 구역 머리글은 15pt 반굵은(90-stay 실측: 글자 높이 약 12, Android 13sp 는 한 단계 작았다).
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(start = 31.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+                        modifier = Modifier.padding(start = 31.dp, end = 16.dp, top = 8.9.dp, bottom = 9.9.dp),
                     )
                 }
                 item {
@@ -75,7 +75,7 @@ fun RouteDayStaySheet(
                         stops.forEachIndexed { index, stop ->
                             key(stop.id) {
                                 DayStayRow(stop, index + 1) { minutes -> onPick(stop, minutes) }
-                                if (index < stops.lastIndex) IOSListDivider(start = 20.dp, color = Color(0xFFCBCBCC))
+                                if (index < stops.lastIndex) IOSListDivider(start = 20.dp, color = Color(0xFFCBCBCC), overlay = true)
                             }
                         }
                     }
@@ -91,7 +91,7 @@ fun RouteDayStaySheet(
                         tr(message),
                         color = IOS.secondaryLabel,
                         fontSize = 13.sp,
-                        modifier = Modifier.padding(start = 31.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+                        modifier = Modifier.padding(start = 31.dp, end = 16.dp, top = 5.2.dp, bottom = 16.dp),
                     )
                 }
             }
