@@ -43,8 +43,8 @@ export function SplashView({ onDone }: { onDone: () => void }) {
         </div>
         <div style={{ height: 30 }} />
         <VStack spacing={12} align="center" className="splash-text">
-          <Txt size={44} weight="heavy" kerning={-1.2} color="white">SceneTrip</Txt>
-          <Txt size={15} weight="medium" style={{ color: 'rgba(255,255,255,0.82)' }}>Stand where the scene happened</Txt>
+          <Txt size={44} weight="heavy" kerning={-1.2} color="white" style={{ transform: 'translateY(-0.7px)' }}>SceneTrip</Txt>
+          <Txt size={15} weight="medium" style={{ color: 'rgba(255,255,255,0.82)', marginTop: 0.7 }}>Stand where the scene happened</Txt>
         </VStack>
       </VStack>
     </div>
