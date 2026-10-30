@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -461,25 +462,34 @@ private fun LegTrace() {
 
         MiniPin(tint = IOS.pinDeep, modifier = Modifier.offset(x = 231.dp, y = 27.dp))
 
-        Caption("현재 위치", x = 30.dp, y = 261.dp)
-        Caption("도보 4분", x = 100.dp, y = 213.dp)
-        Caption("2호선 · 6개 역", x = 156.dp, y = 147.dp)
-        Caption("도보 6분", x = 216.dp, y = 71.dp)
+        // iOS `.position(point)` 은 글자 **가운데**를 그 점에 놓는다 — 전에는 왼쪽 위 모서리를 놓아 라벨이 점선과 겹쳤다(7차 감사 O3).
+        Caption("현재 위치", cx = 60.dp, cy = 268.dp)
+        Caption("도보 4분", cx = 130.dp, cy = 220.dp)
+        Caption("2호선 · 6개 역", cx = 196.dp, cy = 154.dp)
+        Caption("도보 6분", cx = 246.dp, cy = 78.dp)
     }
 }
 
 @Composable
 private fun Caption(
     text: String,
-    x: Dp,
-    y: Dp,
+    cx: Dp,
+    cy: Dp,
 ) {
     Text(
         text = tr(text),
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
         color = IOS.secondaryLabel,
-        modifier = Modifier.offset(x = x, y = y),
+        modifier =
+            Modifier.layout { measurable, _ ->
+                val placeable =
+                    measurable.measure(
+                        androidx.compose.ui.unit
+                            .Constraints(),
+                    )
+                layout(0, 0) { placeable.place(cx.roundToPx() - placeable.width / 2, cy.roundToPx() - placeable.height / 2) }
+            },
     )
 }
 

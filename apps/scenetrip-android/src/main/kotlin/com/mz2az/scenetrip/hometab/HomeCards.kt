@@ -60,6 +60,7 @@ import com.mz2az.scenetrip.ui.PersonOutlineIcon
 import com.mz2az.scenetrip.ui.iosLineBox
 import com.mz2az.scenetrip.ui.iosShadow
 import com.mz2az.scenetrip.ui.keepLastWordsTogether
+import com.mz2az.scenetrip.ui.sfLine
 
 /** 목업의 홈 글자색. `RootTabs.kt`의 것과 같은 값이다. */
 internal val HOME_PURPLE = Color(0xFF5B49D6)
@@ -91,12 +92,13 @@ internal fun HomeSectionHeader(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = IOS.label)
+        Text(title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = IOS.label, modifier = Modifier.sfLine(17f))
+        // iOS `HStack(alignment: .firstTextBaseline)` — 작은 글은 큰 글의 첫 기준선에 맞춰 (ascent 차이만큼) 내려앉는다: 부제 +4.8, 링크 +3.9.
         if (subtitle != null) {
-            Text(subtitle, fontSize = 12.sp, color = IOS.secondaryLabel)
+            Text(subtitle, fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.padding(top = 4.8.dp).sfLine(12f))
         }
         Spacer(Modifier.weight(1f))
         if (action != null && onAction != null) {
@@ -105,7 +107,7 @@ internal fun HomeSectionHeader(
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = IOS.accent,
-                modifier = Modifier.clickable(onClick = onAction),
+                modifier = Modifier.padding(top = 3.9.dp).clickable(onClick = onAction).sfLine(13f),
             )
         }
     }
@@ -131,8 +133,14 @@ fun HomeHeader(onProfile: () -> Unit) {
             modifier = Modifier.size(width = 44.dp, height = 38.dp),
         )
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(tr("해태가 기다렸어요"), fontSize = 13.sp, color = IOS.secondaryLabel)
-            Text(tr("오늘은 어느 장면으로 갈까요?"), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = IOS.label)
+            Text(tr("해태가 기다렸어요"), fontSize = 13.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(13f))
+            Text(
+                tr("오늘은 어느 장면으로 갈까요?"),
+                fontSize = 19.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = IOS.label,
+                modifier = Modifier.sfLine(19f),
+            )
         }
         Spacer(Modifier.weight(1f))
         Box(
@@ -543,7 +551,7 @@ private fun WorkPoster(
                 modifier = Modifier.align(Alignment.BottomStart).padding(10.dp),
             )
         }
-        Text(tr("촬영지 %d곳").format(work.placeCount), fontSize = 11.sp, color = IOS.secondaryLabel)
+        Text(tr("촬영지 %d곳").format(work.placeCount), fontSize = 11.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(11f))
     }
 }
 

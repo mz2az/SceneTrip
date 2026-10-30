@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -200,6 +202,41 @@ val textBase =
  * 그래서 글 둘레에 높이 칸을 두고 글을 가운데에 앉힌다. 글이 칸보다 커도 잘리지 않는다.
  */
 fun Modifier.iosLineBox(height: Dp): Modifier = this.height(height).wrapContentHeight(Alignment.CenterVertically, unbounded = true)
+
+/**
+ * SF 시스템 글꼴의 한 줄 높이 = 크기 × 1.193 (13pt → 15.5, 17pt → 20.3, 19pt → 22.7). SwiftUI `.font(.system(size:))` 한 줄이 이만큼 차지한다
+ * (7차 감사 H1·H2·H3 실측). 크기(sp)만 알면 [iosLineBox] 로 같은 높이 칸을 만든다.
+ */
+fun Modifier.sfLine(sizeSp: Float): Modifier = iosLineBox((sizeSp * 1.193f).dp)
+
+/**
+ * 여러 줄 글의 줄 칸을 iOS 줄 높이([lineDp])로 고정한다 — 줄 수는 그리고 난 뒤 알 수 있어 그때 칸을 맞춘다. 한 줄이면 [iosLineBox] 와 같다.
+ * (7차 감사 CE3: 두 줄 설명이 iOS 38.0 인데 글꼴 제 높이로 41.1 이었다.)
+ */
+@Composable
+fun IOSLinedText(
+    text: String,
+    lineDp: Float,
+    modifier: Modifier = Modifier,
+    fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
+    fontWeight: androidx.compose.ui.text.font.FontWeight? = null,
+    color: Color = Color.Unspecified,
+    textAlign: androidx.compose.ui.text.style.TextAlign? = null,
+    maxLines: Int = Int.MAX_VALUE,
+) {
+    var lines by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(1) }
+    androidx.compose.material3.Text(
+        text,
+        fontSize = fontSize,
+        fontWeight = fontWeight,
+        color = color,
+        textAlign = textAlign,
+        maxLines = maxLines,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        onTextLayout = { lines = it.lineCount },
+        modifier = modifier.iosLineBox((lineDp * lines).dp),
+    )
+}
 
 /**
  * 앱 전체 글자 기본값 — **줄 높이는 글꼴 자체값, 자간 0.** SwiftUI 의 기본이 이렇다.

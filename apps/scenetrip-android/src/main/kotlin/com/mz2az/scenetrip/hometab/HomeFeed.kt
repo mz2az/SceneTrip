@@ -42,6 +42,8 @@ import com.mz2az.scenetrip.data.VisitStamp
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.reviews.ModerationMenu
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.iosLineBox
+import com.mz2az.scenetrip.ui.sfLine
 
 /** 커뮤니티 지금 — 최근 글 둘. 게시판 배지 · 제목 · 하트 자리. */
 @Composable
@@ -133,6 +135,7 @@ fun HomeMyRecord(
         HomeSectionHeader(tr("내 기록"), subtitle = tr("프로필에서 전부 보기"))
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
         ) {
             StampsCard(stamps, onClick = onOpen, modifier = Modifier.weight(1f))
@@ -151,9 +154,9 @@ private fun StampsCard(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier.homeCard().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Text(tr("방문 스탬프"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+        Text(tr("방문 스탬프"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.label, modifier = Modifier.sfLine(13f))
         if (stamps.isEmpty()) {
-            Text(tr("여행 중 성지에 닿으면 도장이 찍힙니다"), fontSize = 12.sp, color = IOS.secondaryLabel)
+            Text(tr("여행 중 성지에 닿으면 도장이 찍힙니다"), fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(12f))
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 stamps.take(3).forEachIndexed { index, _ ->
@@ -184,7 +187,7 @@ private fun StampsCard(
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("+${stamps.size - 3}", fontSize = 12.sp, color = IOS.secondaryLabel)
+                        Text("+${stamps.size - 3}", fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(12f))
                     }
                 }
             }
@@ -206,10 +209,14 @@ private fun LikesCard(
                 .clickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Text(tr("찜한 작품"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.label)
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("$likeCount", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = IOS.systemRed)
-            Text(tr("편"), fontSize = 12.sp, color = IOS.secondaryLabel)
+        Text(tr("찜한 작품"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.label, modifier = Modifier.sfLine(13f))
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.iosLineBox(23.9.dp),
+        ) {
+            Text("$likeCount", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = IOS.systemRed, modifier = Modifier.sfLine(22f))
+            Text(tr("편"), fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(12f))
         }
     }
 }
