@@ -618,6 +618,11 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
     }
 }
 
+// 9차 N8': 줄 높이를 글꼴에 맡기면 한국어(Noto CJK, 24.4/17.1)와 영어(Roboto, 19.8/14.1)에서 아래 글줄이 −3.5~−8.8 달랐다.
+// 한국어에서 iOS 와 맞춘 칸 높이로 고정해 두 언어가 같은 자리에 선다.
+private val HEADER_TITLE_BOX = 24.4.dp
+private val HEADER_SUB_BOX = 17.1.dp
+
 /** 피노와 비회원 안내. 로그인이 서면 이 자리가 계정 카드가 된다. */
 @Composable
 private fun ProfileHeader(onNickname: () -> Unit) {
@@ -645,21 +650,39 @@ private fun ProfileHeader(onNickname: () -> Unit) {
                                 stateDescription = nickname
                             }.clickable(onClick = onNickname),
                 ) {
-                    Text(nickname, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                    Text(
+                        nickname,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = IOS.label,
+                        modifier = Modifier.iosLineBox(HEADER_TITLE_BOX),
+                    )
                     PencilIcon(IOS.secondaryLabel, Modifier.size(12.dp))
                 }
             } else {
                 // 옛 서버는 닉네임이 없어 전처럼 계정 이름을 보인다 — 바꿀 수 없다.
-                Text(AuthStore.me?.displayName ?: tr("여행자"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                Text(
+                    AuthStore.me?.displayName ?: tr("여행자"),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IOS.label,
+                    modifier = Modifier.iosLineBox(HEADER_TITLE_BOX),
+                )
             }
             AuthStore.me?.email?.let {
                 Spacer(Modifier.height(4.8.dp))
-                Text(it, fontSize = 12.sp, color = IOS.secondaryLabel)
+                Text(it, fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.iosLineBox(HEADER_SUB_BOX))
             }
         } else {
-            Text(tr("비회원으로 여행 중"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Text(
+                tr("비회원으로 여행 중"),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IOS.label,
+                modifier = Modifier.iosLineBox(HEADER_TITLE_BOX),
+            )
             Spacer(Modifier.height(4.8.dp))
-            Text(tr("로그인하면 코스와 찜이 계정에 저장돼요"), fontSize = 12.sp, color = IOS.secondaryLabel)
+            Text(tr("로그인하면 코스와 찜이 계정에 저장돼요"), fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.iosLineBox(HEADER_SUB_BOX))
             Spacer(Modifier.height(10.7.dp))
             Text(
                 tr("로그인"),

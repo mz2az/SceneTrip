@@ -1415,10 +1415,10 @@ private fun RouteEditorContent(
                         if (stops.isEmpty()) {
                             item {
                                 // iOS `RouteEditorList` — `.footnote`(13pt, 줄 18) · 가운데 놓인 덩어리 안에서 줄은 **왼쪽 맞춤** · `.padding(.vertical, 24)`
-                                // 아래 목록 구분선(x 85부터). 8차 N6/ED4: 첫 줄 중심 227.3, 구분선 y≈297.
+                                // 아래 목록 구분선(x 85부터). 8차 N6: 첫 줄 중심 227.3. 9차 ED4': iOS 구분선은 핸들 기준 +287.4(글 끝줄 아래 40.3) — 8차의 y≈297 은 실측이 아니었다.
                                 Column(Modifier.fillMaxWidth()) {
                                     Box(
-                                        Modifier.fillMaxWidth().padding(top = 36.dp, bottom = 42.7.dp),
+                                        Modifier.fillMaxWidth().padding(top = 36.dp, bottom = 37.2.dp),
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         Text(
