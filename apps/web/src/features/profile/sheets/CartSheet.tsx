@@ -51,7 +51,7 @@ export function CartSheet({ open, onClose }: { open: boolean; onClose: () => voi
     <GlassSheet open={open} onClose={onClose} detent="medium" label={tr('장바구니')}>
       <SheetHeader title={tr('장바구니')} onClose={onClose} />
       {items.length === 0 ? (
-        <ContentUnavailable title={tr('장바구니가 비었습니다')} symbol="bag" description={tr('작품검색 탭에서 촬영지를 담아 보세요')} />
+        <ContentUnavailable title={tr('장바구니가 비었습니다')} symbol="bag" lift={2} description={tr('작품검색 탭에서 촬영지를 담아 보세요')} />
       ) : (
         <SheetBody>
           {items.map((item, i) => (

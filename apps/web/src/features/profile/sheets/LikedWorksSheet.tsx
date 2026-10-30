@@ -96,7 +96,7 @@ export function LikedWorksSheet({ open, onClose, loading, failure }: { open: boo
           <Txt size={12} color="secondary">{tr('작품 목록을 받아오는 중입니다')}</Txt>
         </VStack>
       ) : likedWorks.length === 0 ? (
-        <ContentUnavailable title={tr('찜한 작품이 없습니다')} symbol="heart" description={tr('작품검색 탭에서 하트를 눌러 보세요')} />
+        <ContentUnavailable title={tr('찜한 작품이 없습니다')} symbol="heart" lift={2} description={tr('작품검색 탭에서 하트를 눌러 보세요')} />
       ) : (
         <SheetBody>
           {likedWorks.map((work, i) => (
