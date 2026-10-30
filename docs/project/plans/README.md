@@ -51,6 +51,7 @@
 | [bedrock-iam-role.md](./bedrock-iam-role.md) | trip-guide 의 Bedrock 을 고정 키 대신 Pod Identity 역할로, 네트워크 정책에 Pod Identity 에이전트 길 (MZ2AZ-317) |
 | [observability-aws.md](./observability-aws.md) | AWS 관측 — DEV·PRD 에 SigNoz(EKS 안), 바깥 감시 알람 두 개(ALB 정상 대상 0·비용), UI 는 Cloudflare Access |
 | [analytics-events.md](./analytics-events.md) | 앱 분석 이벤트 — Firebase·GA4, 퍼널(설치→가입→조회→담기·찜→첫 코스 생성→여행 시작), 보내지 않는 것 (MZ2AZ-353) |
+| [analytics-events-next.md](./analytics-events-next.md) | 분석 이벤트 다음 버전 후보 — `begin_course`·`search.result_count`·실패·위치 동의·UTM, 이탈 지점 측정 설계(코드 없음) |
 | [poi-i18n-image.md](./poi-i18n-image.md) | 편의시설 다국어·사진 — 번역은 옆 표, 분류 사전, 영문 주소는 행안부 영문도로명주소DB, 분기 갱신과 번호 변경 |
 | [place-key-seed.md](./place-key-seed.md) | 촬영지 적재를 고유 키로 — 지우지 않고 갱신·추가, CSV 에서 빠지면 숨김 (MZ2AZ-361) |
 | [delisted-items.md](./delisted-items.md) | 사용자가 담은 것이 목록에서 빠졌을 때 알린다 — 장바구니·코스·찜에 `delisted`(숨긴 촬영지·작품)·`closed`(폐업 편의시설), DB 변경 없음 (MZ2AZ-451) |
