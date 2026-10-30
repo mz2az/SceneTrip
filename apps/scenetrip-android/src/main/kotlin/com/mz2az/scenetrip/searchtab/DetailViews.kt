@@ -482,7 +482,8 @@ fun PlaceDetailView(
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(horizontal = IOS.gutter).padding(top = 18.dp, bottom = 12.dp),
+                        // 10차 PD6: iOS 단추 줄 밑 → 머리글 20.3 (Android 22.9) — 위 간격 −2.6.
+                        modifier = Modifier.padding(horizontal = IOS.gutter).padding(top = 15.4.dp, bottom = 12.dp),
                     ) {
                         Text(tr("이 장소의 장면"), style = IOS.headline, color = IOS.label)
                         Text(
