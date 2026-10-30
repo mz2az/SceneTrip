@@ -220,7 +220,7 @@ export function SoonSection() {
 
 export function InstallIdFooter() {
   return (
-    <Txt as="div" size={11} color="tertiary" align="center" style={{ marginTop: 36, lineHeight: '13px' }}>
+    <Txt as="div" size={11} color="tertiary" align="center" style={{ marginTop: 54.7, lineHeight: '13px' }}>
       {tr('설치 식별자 %@…', installId().slice(0, 8).toUpperCase())}
     </Txt>
   )

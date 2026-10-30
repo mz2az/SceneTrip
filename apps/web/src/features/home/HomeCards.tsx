@@ -191,7 +191,7 @@ export function MyRecord({ stamps, likeCount, onOpen }: { stamps: readonly Visit
   return (
     <VStack spacing={10} align="stretch">
       <SectionHeader title={tr('내 기록')} subtitle={tr('프로필에서 전부 보기')} />
-      <HStack spacing={10} align="stretch" style={{ padding: '0 20px' }}>
+      <HStack spacing={10} align="center" style={{ padding: '0 20px' }}>
         <Pressable plain onClick={onOpen} style={{ flex: 1, minWidth: 0, textAlign: 'left', padding: '14px 16px', ...homeCard() }}>
           <VStack spacing={8} align="start">
             <Txt size={13} weight="bold">{tr('방문 스탬프')}</Txt>

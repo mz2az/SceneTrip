@@ -23,7 +23,7 @@ export function AliasBadge({ text }: { text: string }) {
 
 function SectionLabel({ title }: { title: string }) {
   return (
-    <HStack pad="10px 14px 4px">
+    <HStack pad="8.7px 14px 4px">
       <Txt size={FONT.caption} color="secondary">{title}</Txt>
     </HStack>
   )
@@ -32,7 +32,7 @@ function SectionLabel({ title }: { title: string }) {
 function Row({ icon, text, detail, alias, onClick }: { icon: string; text: string; detail: string; alias?: string | null; onClick: () => void }) {
   return (
     <Pressable plain onClick={onClick} style={{ width: '100%' }}>
-      <HStack spacing={10} pad="11px 14px">
+      <HStack spacing={10} pad="10.7px 14px">
         <span style={{ width: 18, display: 'grid', placeItems: 'center', flex: 'none' }}>
           <Icon name={icon} size={FONT.body} color="secondary" />
         </span>

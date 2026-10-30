@@ -117,7 +117,7 @@ export function Switch({ checked, onChange, label, disabled }: { checked: boolea
 /** 글자(또는 아이콘 줄)와 스위치가 한 줄 — `Toggle { row(...) }` */
 export function ToggleRow({ label, checked, onChange, icon, tint, testId, disabled }: { label: string; checked: boolean; onChange: (on: boolean) => void; icon?: string; tint?: string; testId?: string; disabled?: boolean }) {
   return (
-    <div className="ls-row" data-testid={testId} style={{ '--sep-inset': `${icon ? ICON_ROW_INSET : PLAIN_ROW_INSET}px` } as CSSProperties}>
+    <div className="ls-row" data-testid={testId} style={{ '--sep-inset': `${icon ? ICON_ROW_INSET : PLAIN_ROW_INSET}px`, paddingTop: 12, paddingBottom: 12 } as CSSProperties}>
       <HStack spacing={12} style={{ width: '100%' }}>
         {icon && (
           <span style={{ width: 26, display: 'grid', placeItems: 'center', flex: 'none' }}>

@@ -130,8 +130,9 @@ export function ListEmptyNote({ title, detail }: { title: string; detail: string
 export function DetailHeader({ title, subtitle, onBack }: { title: string; subtitle: string; onBack: () => void }) {
   return (
     <HStack spacing={10} pad="0 14px 10px" style={{ flex: 'none' }}>
-      <Pressable plain onClick={onBack} aria-label={tr('뒤로')} style={{ width: 24, height: 28, display: 'grid', placeItems: 'center', flex: 'none' }}>
-        <Icon name="chevron.left" size={FONT.body} weight="medium" />
+      <Pressable plain onClick={onBack} aria-label={tr('뒤로')} style={{ width: 13, height: 18, display: 'grid', placeItems: 'center', flex: 'none', overflow: 'visible' }}>
+        {/* iOS: 단추 13×18, 꺾쇠 잉크 8.7×14.7 (lucide 는 칸의 약 1/3×0.6 만 칠하므로 25 로 키우고 왼쪽 1) */}
+        <Icon name="chevron.left" size={25} weight="medium" style={{ marginLeft: -1.2, flex: 'none' }} />
       </Pressable>
       <VStack spacing={2} style={{ minWidth: 0, flex: 1 }}>
         <Txt size={FONT.headline} weight="semibold" lines={1}>{title}</Txt>

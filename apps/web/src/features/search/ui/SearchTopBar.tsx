@@ -35,7 +35,8 @@ export function SearchBar({
       style={{ margin: '8px 14px 0' }}
     >
       <HStack spacing={8} pad="11px 14px" style={{ background: 'var(--system-background)', borderRadius: 999, boxShadow: SOFT }}>
-        <Icon name="magnifyingglass" size={FONT.body} color="secondary" />
+        {/* iOS: 돋보기 잉크 16.3 (lucide 는 칸의 0.8 만 칠한다) → 20, 입력 시작 x=56 */}
+        <Icon name="magnifyingglass" size={20} color="secondary" />
         <input
           ref={inputRef}
           value={draft}
@@ -56,8 +57,8 @@ export function SearchBar({
           </Pressable>
         )}
         <div style={{ width: 0.5, height: 22, background: 'var(--separator)', flex: 'none' }} />
-        <Pressable plain onClick={onCart} aria-label={tr('장바구니')} style={{ position: 'relative', flex: 'none', width: 20, height: 20, display: 'grid', placeItems: 'center' }}>
-          <Icon name="cart" size={FONT.body} weight="medium" color="accent" />
+        <Pressable plain onClick={onCart} aria-label={tr('장바구니')} style={{ position: 'relative', flex: 'none', width: 20, height: 20, display: 'grid', placeItems: 'center', marginRight: 2 }}>
+          <Icon name="cart" size={20.5} weight="medium" color="accent" />
           {cartCount > 0 && (
             <Txt
               size={FONT.caption2}

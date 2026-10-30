@@ -30,7 +30,8 @@ export function WorkRow({ content, onLike, liked = false }: { content: ContentSu
       <RemoteImage url={content.posterUrl} symbol="film" style={{ width: 46, height: 62, ...rr(6), flex: 'none' }} />
       <VStack spacing={4} align="start" style={{ minWidth: 0, flex: 1 }}>
         <Txt size={FONT.headline} weight="semibold" style={{ opacity: content.delisted === true ? 0.65 : 1 }}>{content.title}</Txt>
-        <Txt size={FONT.caption} color="secondary">{contentMeta(content)}</Txt>
+        {/* 방송사·연도·장르가 비어도 SwiftUI 의 빈 Text 는 한 줄 높이를 차지한다(독립 감사 N-08) */}
+        <Txt size={FONT.caption} color="secondary" style={{ minHeight: FONT.caption * 1.193 }}>{contentMeta(content)}</Txt>
         {notice && <UnavailableNotice kind={notice} />}
         <Txt size={FONT.caption2} color="secondary" style={{ padding: '2px 6px', borderRadius: 999, background: 'var(--system-gray6)' }}>
           {trCount('촬영지 %lld', content.placeCount)}
@@ -47,10 +48,10 @@ export function WorkRow({ content, onLike, liked = false }: { content: ContentSu
           aria-label={liked ? tr('찜 빼기') : tr('찜하기')}
           style={{ flex: 'none', opacity: canToggle(content.delisted, liked) ? 1 : 0.4 }}
         >
-          <Icon name={liked ? 'heart.fill' : 'heart'} size={FONT.title3} color={liked ? 'red' : 'secondary'} />
+          <Icon name={liked ? 'heart.fill' : 'heart'} size={22} color={liked ? 'red' : 'secondary'} style={{ margin: -1 }} />
         </Pressable>
       )}
-      <Icon name="chevron.right" size={FONT.caption} color="tertiary" />
+      <Icon name="chevron.right" size={19} color="tertiary" style={{ margin: '0 -3.5px' }} />
     </HStack>
   )
 }
@@ -94,12 +95,12 @@ export function PlaceRow({ place, number, onAdd, saved = false }: { place: Place
             onAdd()
           }}
           aria-label={saved ? tr('장바구니에서 빼기') : tr('장바구니에 담기')}
-          style={{ flex: 'none' }}
+          style={{ flex: 'none', display: 'grid', placeItems: 'center' }}
         >
           <Icon name={saved ? 'checkmark.circle.fill' : 'plus.circle'} size={FONT.title3} color={saved ? 'accent' : 'secondary'} />
         </Pressable>
       )}
-      <Icon name="chevron.right" size={FONT.caption} color="tertiary" />
+      <Icon name="chevron.right" size={19} color="tertiary" style={{ margin: '0 -3.5px' }} />
     </HStack>
   )
 }

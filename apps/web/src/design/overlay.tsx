@@ -128,11 +128,11 @@ export function Alert({ open, title, message, buttons, onClose }: { open: boolea
         b.onPress?.()
       }}
       style={{
-        flex: side ? 1 : undefined, width: side ? undefined : '100%', height: 47, borderRadius: 999, background: 'rgba(120,120,128,0.2)',
+        flex: side ? 1 : undefined, width: side ? undefined : '100%', height: 48, borderRadius: 999, background: 'rgba(120,120,128,0.2)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
     >
-      <Txt size={17} style={{ color: b.role === 'destructive' ? 'var(--system-red)' : 'var(--label)' }} lines={1}>{b.label}</Txt>
+      <Txt size={17} weight="medium" style={{ color: b.role === 'destructive' ? 'var(--system-red)' : 'var(--label)' }} lines={1}>{b.label}</Txt>
     </Pressable>
   )
   return createPortal(
@@ -146,17 +146,18 @@ export function Alert({ open, title, message, buttons, onClose }: { open: boolea
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 318, maxWidth: 'calc(100% - 32px)', borderRadius: 40, padding: '24px 20px 20px',
+          width: 318, maxWidth: 'calc(100% - 32px)', borderRadius: 40, padding: '21px 14px 14px', /* + 테두리 1 */
           background: 'rgba(244,244,246,0.86)', backdropFilter: 'blur(40px) saturate(1.5)', WebkitBackdropFilter: 'blur(40px) saturate(1.5)',
           boxShadow: '0 4px 40px rgba(0,0,0,0.18)', border: '0.5px solid rgba(255,255,255,0.6)',
         }}
       >
-        <VStack spacing={18} align="center">
-          <VStack spacing={4} align="center" style={{ padding: '0 8px' }}>
-            <Txt size={17} weight="medium" align="center">{title}</Txt>
-            {message && <Txt size={15} color="secondary" align="center">{message}</Txt>}
+        <VStack spacing={20} align="center">
+          {/* iOS 26 경고창: 제목·본문은 왼쪽 정렬(상자 왼쪽에서 29), 제목 semibold */}
+          <VStack spacing={8} align="start" style={{ padding: '0 14px', width: '100%' }}>
+            <Txt size={17} weight="semibold" align="left">{title}</Txt>
+            {message && <Txt size={15} color="secondary" align="left" style={{ lineHeight: '19px' }}>{message}</Txt>}
           </VStack>
-          {side ? <div style={{ display: 'flex', gap: 10, width: '100%' }}>{ordered.map(row)}</div> : <VStack spacing={8} style={{ width: '100%' }}>{ordered.map(row)}</VStack>}
+          {side ? <div style={{ display: 'flex', gap: 8, width: '100%' }}>{ordered.map(row)}</div> : <VStack spacing={8} style={{ width: '100%' }}>{ordered.map(row)}</VStack>}
         </VStack>
       </div>
     </div>,

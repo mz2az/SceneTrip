@@ -11,6 +11,9 @@ export const DETENTS: readonly Detent[] = ['collapsed', 'medium', 'expanded']
 
 export const DETENT_FRACTION = { collapsed: 0.14, medium: 0.48 } as const
 
+/** 접힌 단은 비율에 이만큼을 더한다 — iOS 실측: 접힌 단 윗면 y=683.3(높이 190.7), 비율만으로는 127.45 라 63.25 모자랐다(독립 감사 N-12). */
+export const COLLAPSED_EXTRA = 63.25
+
 /** 시트 높이의 아래 한계(px) — 첫 레이아웃에서 높이가 0 이어도 범위가 뒤집히지 않게(iOS 에서 실제로 터진 적이 있다, 2026-08-27). */
 export const MIN_HEIGHT = 80
 
@@ -32,7 +35,7 @@ export function heightFor(detent: Detent, total: number, maxH: number, mediumFra
     case 'medium':
       return total * mediumFraction
     case 'collapsed':
-      return total * DETENT_FRACTION.collapsed
+      return total * DETENT_FRACTION.collapsed + COLLAPSED_EXTRA
   }
 }
 

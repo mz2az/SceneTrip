@@ -16,7 +16,7 @@ import { Segmented } from './Segmented'
 /** 카테고리 칩 줄. 목록과 지도를 둘 다 좁히고 카메라는 건드리지 않는다(§3-5). */
 function ChipRow({ selected, onSelect }: { selected: string; onSelect: (name: string) => void }) {
   return (
-    <div className="scroll-x" style={{ paddingBottom: 8, touchAction: 'pan-x', flex: 'none' }} data-sheet-nodrag>
+    <div className="scroll-x" style={{ paddingBottom: 4, touchAction: 'pan-x', flex: 'none' }} data-sheet-nodrag>
       <HStack spacing={8} pad="0 14px" style={{ width: 'max-content' }}>
         {CHIP_NAMES.map((name) => {
           const on = selected === name
