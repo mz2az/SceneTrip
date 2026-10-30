@@ -83,7 +83,7 @@ export function ModerationSheets({ controller, onBlocked }: { controller: Modera
   const shownNotice = useLast(notice)
   return (
     <>
-      <Sheet open={reporting !== null} onClose={controller.dismissReport} topGap={SHEET_TOP_GAP} radius={SHEET_RADIUS} grabber label={tr('신고')} background="var(--grouped-background)">
+      <Sheet open={reporting !== null} bottomRadius={0} onClose={controller.dismissReport} topGap={SHEET_TOP_GAP} radius={SHEET_RADIUS} grabber label={tr('신고')} background="var(--grouped-background)">
         {shownReport && <ReportSheet target={shownReport} controller={controller} />}
       </Sheet>
       <Alert

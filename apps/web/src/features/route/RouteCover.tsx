@@ -124,7 +124,7 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
         onClose={() => setDoomed(null)}
       />
       <ForkSheet open={fork} onClose={closeFork} onAI={() => setWizard('aiPlan')} onManual={() => setWizard('manual')} />
-      <Sheet open={wizard !== null} onClose={() => undefined} dismissOnScrim={false} topGap={72} radius={38}>
+      <Sheet open={wizard !== null} onClose={() => undefined} dismissOnScrim={false} topGap={72} radius={38} bottomRadius={0}>
         {wizard && <RouteWizard kind={wizard} onClose={() => setWizard(null)} />}
       </Sheet>
       <Cover open={opening.editing !== null}>
