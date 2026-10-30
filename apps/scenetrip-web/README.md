@@ -1,6 +1,6 @@
 # web
 
-> 모듈 종류: `app` · 언어: `typescript` (Vite + React) · 경로: `apps/web`
+> 모듈 종류: `app` · 언어: `typescript` (Vite + React) · 경로: `apps/scenetrip-web`
 
 SceneTrip 의 **웹앱**. iOS 앱(`apps/scenetrip-ios`)의 화면과 기능을 브라우저에서 iOS 와 거의 똑같이 보이고 동작하게 옮긴다.
 계획·화면 체크리스트·출시 결정: [`docs/project/web-app.md`](../../docs/project/web-app.md).
@@ -17,7 +17,7 @@ SceneTrip 의 **웹앱**. iOS 앱(`apps/scenetrip-ios`)의 화면과 기능을 �
 ## 실행
 
 ```bash
-cd apps/web
+cd apps/scenetrip-web
 npm ci
 npm run dev          # http://localhost:5173  (predev 가 npm run gen 을 먼저 돌린다)
 ```
@@ -51,4 +51,4 @@ npm run dev          # http://localhost:5173  (predev 가 npm run gen 을 먼저
 
 ## 폴더 이름
 
-`apps/web` 은 임시 이름일 수 있다. 바꿀 때는 `git mv` 후 문서 경로만 고치면 된다(`scripts/paths.mjs` 가 깊이만 쓴다).
+폴더 이름은 2026-10-31 `apps/web` 에서 `apps/scenetrip-web` 으로 바꿨다(`scripts/paths.mjs` 는 깊이만 쓴다).

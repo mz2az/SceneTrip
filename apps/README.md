@@ -1,7 +1,7 @@
 # apps/ — 네이티브 프론트엔드 애플리케이션
 
 독립적으로 배포되는 iOS(Swift) · Android(Kotlin) 네이티브 앱 하나당 디렉터리 하나.
-사용자 대면 UI 는 네이티브 모바일 앱이고, 웹앱(`web/`)은 iOS 앱을 브라우저로 옮기는 중인 **독립 모듈**이다
+사용자 대면 UI 는 네이티브 모바일 앱이고, 웹앱(`scenetrip-web/`)은 iOS 앱을 브라우저로 옮기는 중인 **독립 모듈**이다
 (아직 Bazel/just 에 연결되지 않음 — [계획](../docs/project/web-app.md)).
 크로스 플랫폼 프레임워크를 쓰지 않으므로 두 앱은 코드를 공유하지 않는 별개의 모듈이다.
 
@@ -9,7 +9,7 @@
 | --- | --- | --- |
 | [`scenetrip-ios/`](./scenetrip-ios/) | Swift | `libs/swift/` |
 | Android (예정 — `scenetrip-android/`) | Kotlin | `libs/kotlin/` |
-| [`web/`](./web/) | TypeScript (Vite + React) | 없음 — 계약(`contracts/openapi`)에서 타입 생성, **Bazel 미연결** |
+| [`scenetrip-web/`](./scenetrip-web/) | TypeScript (Vite + React) | 없음 — 계약(`contracts/openapi`)에서 타입 생성, **Bazel 미연결** |
 
 ```
 apps/<이름>/

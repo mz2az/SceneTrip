@@ -1,6 +1,6 @@
 # 웹앱(브라우저) 이식 계획
 
-> 상태: **모든 화면 구현, 비교 가능한 30화면 평균 유사도 95.3** (2026-10-30, §4·§6; 같은 날 웹 쪽 준비 단계는 §11) — 모듈 `apps/web/` (폴더 이름은 사용자 확정 대기, 아래 §9).
+> 상태: **모든 화면 구현, 비교 가능한 30화면 평균 유사도 95.3** (2026-10-30, §4·§6; 같은 날 웹 쪽 준비 단계는 §11) — 모듈 `apps/scenetrip-web/` (폴더 이름 `apps/web` → `apps/scenetrip-web` 로 확정·변경, 2026-10-31).
 > **아직 Bazel/just 에 연결되지 않았다. 연결에는 사용자 승인이 필요하다(§8).**
 
 ## 1. 목표
@@ -29,7 +29,7 @@ Android 를 iOS 에 맞추는 작업(`docs/project/plans/android-ios-parity.md`)
 ## 3. 디렉터리 구조
 
 ```
-apps/web/
+apps/scenetrip-web/
   package.json, package-lock.json, vite.config.ts, eslint.config.js, tsconfig.json
   scripts/        gen-api.mjs(계약→타입), sync-ios-assets.mjs(문구·그림), shot.mjs(스크린샷), paths.mjs(저장소 안 위치 한 곳)
   src/
@@ -43,7 +43,7 @@ apps/web/
                   route/editor/tripExtensions.tsx 가 편집 화면에 여행 안내·가이드 챗봇·주변 편의시설을 잇는다(editorExtensions 등록)
 ```
 
-폴더 이름을 바꿀 때: `scripts/paths.mjs` 는 `apps/<이름>/` 두 단계 위를 저장소 루트로 계산하므로 `git mv apps/web apps/scenetrip-web` 만으로 동작한다. 문서의 경로 표기와 아래 §8 의 Bazel 라벨만 고친다.
+폴더 이름은 2026-10-31 `apps/web` 에서 `apps/scenetrip-web` 으로 바꿨다(사용자 확정). `scripts/paths.mjs` 는 `apps/<이름>/` 두 단계 위를 저장소 루트로 계산하므로 이름과 무관하게 동작한다.
 
 ## 4. 화면 체크리스트
 
@@ -191,18 +191,18 @@ OPTIONS 같은 경로 (Access-Control-Request-Method: GET, …-Headers: accept-l
 
 ## 8. Bazel/just 연결 제안 (승인 필요 — 이번 작업에서는 하지 않았다)
 
-규칙(`AGENTS.md` §1)은 Bazel 이 유일한 빌드이고 `just` 가 유일한 입구다. 웹 툴체인은 **새 언어·툴체인 도입**(`CLAUDE.md` §9)이라 `MODULE.bazel`, 루트 `BUILD.bazel`, `justfile`, `tools/`, `.github/` 를 수정하지 않았고, `apps/web/` 는 자체 완결형(`npm ci && npm run dev`)이다. 승인되면 해야 할 일:
+규칙(`AGENTS.md` §1)은 Bazel 이 유일한 빌드이고 `just` 가 유일한 입구다. 웹 툴체인은 **새 언어·툴체인 도입**(`CLAUDE.md` §9)이라 `MODULE.bazel`, 루트 `BUILD.bazel`, `justfile`, `tools/`, `.github/` 를 수정하지 않았고, `apps/scenetrip-web/` 는 자체 완결형(`npm ci && npm run dev`)이다. 승인되면 해야 할 일:
 
 1. `MODULE.bazel` 에 `aspect_rules_js`(+`rules_nodejs`) 와 `aspect_rules_ts`, `aspect_rules_esbuild`(또는 Vite 를 `js_run_binary` 로) 추가, Node 버전을 `tools/bazel/toolchains/` 에 고정. `pnpm`/`npm` 락 → `npm_translate_lock` 으로 `package-lock.json` 을 입력으로 사용(AGENTS §4.4: 매니페스트는 Bazel 입력).
-2. `apps/web/BUILD.bazel`: `:web`(번들), `:unit_test`(vitest, tag `unit`), `:lint`(eslint), `:gen`(openapi-typescript — `contracts/openapi` 를 입력으로).
-3. `tools/just/dev.just` 에 `web-dev`·`web-build` 레시피, `just check` 에 `//apps/web:lint`·`:unit_test` 포함. `just gen` 에 `contracts/openapi → apps/web` 타입 생성 연결.
+2. `apps/scenetrip-web/BUILD.bazel`: `:web`(번들), `:unit_test`(vitest, tag `unit`), `:lint`(eslint), `:gen`(openapi-typescript — `contracts/openapi` 를 입력으로).
+3. `tools/just/dev.just` 에 `web-dev`·`web-build` 레시피, `just check` 에 `//apps/scenetrip-web:lint`·`:unit_test` 포함. `just gen` 에 `contracts/openapi → apps/scenetrip-web` 타입 생성 연결.
 4. `.github/workflows` 는 `just ci` 를 부르므로 위가 되면 자동 포함.
 5. 동시에 `AGENTS.md` §2 의 placement 표·`apps/README.md`(「웹 프론트엔드는 없다」 문구)를 갱신 — 이번에는 `apps/README.md` 만 고쳤다.
 6. 하네스 제약: 웹 빌드는 hermetic 해야 한다(네트워크 없이). `npm_translate_lock` 이 락파일로 해결한다.
 
 ## 9. 사용자에게 남긴 결정 (2026-10-30 기준)
 
-- 폴더 이름 `apps/web` vs `apps/scenetrip-web` (저장소 관례는 `apps/<이름>` 이고 `scenetrip-ios`/`scenetrip-android` 와 대칭이면 후자).
+- 폴더 이름: **결정됨** — `apps/scenetrip-web` (2026-10-31).
 - 위 §7 의 항목들, §8 의 Bazel 연결 승인.
 - 지도 SDK/키(§7-3·8) — 정하면 `RouteMap`·`LeafletMap`·`NavMap` 세 곳의 타일 부분만 바꾸면 된다.
 - 사진 올리기 버킷 CORS(§7-5), 서버 CORS 허용 또는 같은 출처 역프록시(§7).
@@ -212,7 +212,7 @@ OPTIONS 같은 경로 (Access-Control-Request-Method: GET, …-Headers: accept-l
 ## 10. 실행과 확인
 
 ```
-cd apps/web
+cd apps/scenetrip-web
 npm ci && npm run gen && npm run dev      # http://localhost:5173 , /v1 은 개발 서버가 DEV 로 전달
 npm run check                              # gen + typecheck + lint + test + vite build
 ```
@@ -261,7 +261,7 @@ R1(스플래시), R5(로그인 시트), R6(닉네임 바꾸기), R7(AI 동의), 
 
 ## 12. GA4 이벤트 (웹)
 
-iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 GA4 로 보낸다. 정본은 `docs/project/plans/analytics-events.md` 이고, 웹 코드는 `apps/web/src/analytics/` 에 있다.
+iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 GA4 로 보낸다. 정본은 `docs/project/plans/analytics-events.md` 이고, 웹 코드는 `apps/scenetrip-web/src/analytics/` 에 있다.
 
 - `events.ts` — 이벤트 빌더 26개(`appEvent.*`). 이름·매개변수 키는 `AppEvent.swift`·`AppEvent.kt` 와 글자까지 같고 단위 시험(`analytics.test.ts`)이 표로 지킨다.
 - `ga4.ts` — 전송 계층. 공식 `gtag.js` 를 `https://www.googletagmanager.com/gtag/js?id=<ID>` 로 동적으로 넣는다(npm 의존성 없음, `index.html` 은 그대로).
@@ -283,7 +283,7 @@ iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 GA
 
 ### 이벤트별 웹 호출 위치
 
-파일은 `apps/web/src/` 기준. iOS 와 **같은 사용자 동작**에서 나가도록 iOS 호출 자리를 따랐다.
+파일은 `apps/scenetrip-web/src/` 기준. iOS 와 **같은 사용자 동작**에서 나가도록 iOS 호출 자리를 따랐다.
 
 | 이벤트 | 웹 호출 위치 | 시점 |
 | --- | --- | --- |

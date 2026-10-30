@@ -5,7 +5,7 @@
 | 문서 | 목적 |
 | --- | --- |
 | [`plans/`](./plans/README.md) | 코드보다 먼저 쓰는 구현 계획 |
-| [웹앱 이식 계획](./web-app.md) | iOS 앱을 브라우저로 옮기는 `apps/web` — 기술 선택, 화면 체크리스트, 출시 결정, Bazel 연결 제안 |
+| [웹앱 이식 계획](./web-app.md) | iOS 앱을 브라우저로 옮기는 `apps/scenetrip-web` — 기술 선택, 화면 체크리스트, 출시 결정, Bazel 연결 제안 |
 | [SceneTrip 논문·특허 아이디어](./scenetrip-research-and-patent-ideas.md) | 학부생 논문 주제 5개, 특허 후보 5개, 실험 설계와 선행문헌 |
 | `status.md` | 현재 상태: 진행 중, 막힌 것, 다음 |
 | `decision-log.md` | ADR 까지는 아닌 가벼운 결정 |

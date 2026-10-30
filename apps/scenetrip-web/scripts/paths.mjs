@@ -1,5 +1,5 @@
 // 이 모듈이 저장소 안에서 어디에 있는지를 한 곳에 모은다.
-// 폴더 이름을 바꾸면(apps/web → apps/scenetrip-web) 깊이는 그대로라 이 파일은 그대로 동작한다.
+// 폴더 이름이 바뀌어도(apps/web → apps/scenetrip-web, 2026-10-31) 깊이는 그대로라 이 파일은 그대로 동작한다.
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 

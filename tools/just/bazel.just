@@ -242,7 +242,7 @@ ios-xcode:
     {{BAZEL}} run //apps/scenetrip-ios:xcodeproj
     open apps/scenetrip-ios/SceneTrip.xcodeproj
 
-# 빌드 그래프 질의. 예: `just query 'deps(//apps/web:web)'`
+# 빌드 그래프 질의. 예: `just query 'deps(//apps/scenetrip-web:web)'`
 [group('build')]
 query expr:
     {{BAZEL}} query "{{expr}}" --output=label
