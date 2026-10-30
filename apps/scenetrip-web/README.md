@@ -5,9 +5,9 @@
 SceneTrip 의 **웹앱**. iOS 앱(`apps/scenetrip-ios`)의 화면과 기능을 브라우저에서 iOS 와 거의 똑같이 보이고 동작하게 옮긴다.
 계획·화면 체크리스트·출시 결정: [`docs/project/web-app.md`](../../docs/project/web-app.md).
 
-> **아직 Bazel/just 에 연결되지 않았다 — 연결에는 사용자 승인이 필요하다.**
-> 새 언어·툴체인 도입이라 `MODULE.bazel`·루트 `BUILD.bazel`·`justfile`·`tools/`·`.github/` 를 건드리지 않았다. 그래서 이 모듈은
-> 저장소 규칙의 예외로 **자체 완결형 npm 프로젝트**다. 연결 제안은 계획 문서 §8.
+> **Bazel 로 짓고 `just` 로 돌린다**(2026-10-31, [ADR 0028](../../docs/architecture/adr/0028-web-app-built-by-bazel-with-rules-js.md)).
+> 규칙은 `aspect_rules_js`, Node 는 `MODULE.bazel` 이 고정한다. npm 스크립트와 `package-lock.json` 은 그대로라
+> Cloudflare Pages 의 `npm ci && npm run build` 도 계속 된다.
 
 ## 사용하는 백엔드
 
@@ -16,18 +16,34 @@ SceneTrip 의 **웹앱**. iOS 앱(`apps/scenetrip-ios`)의 화면과 기능을 �
 
 ## 실행
 
+| 명령 | 하는 일 |
+| --- | --- |
+| `just web-dev` | 개발 서버 http://localhost:5173 (`node_modules` 가 없으면 `npm ci`). **Bazel 밖의 npm 개발 서버** — HMR 이 소스 트리를 직접 감시해야 해서. 호스트 Node 22.12+ 필요 |
+| `just web-build` | 프로덕션 번들 → `bazel-bin/apps/scenetrip-web/dist` (`index.html`·`assets/`·`_headers`·`_redirects`·`manifest.webmanifest`) |
+| `just web-test` | vitest 단위 시험 (`//apps/scenetrip-web:unit_test`, tag `unit`) |
+| `just web-lint` | eslint(`:lint`) + tsc 타입 검사(`:typecheck`) |
+| `just web-gen` | 생성물(`:gen`)만 만든다 — 번들·시험이 알아서 먼저 만든다 |
+| `just check` | 저장소 전체 게이트. 위 타깃이 `//...` 로 들어 있다 |
+
+타깃 이름은 `:gen`(API 타입·영어 문구표·해태 그림) · `:web` · `:unit_test` · `:lint` · `:typecheck`. 소스 파일은 `BUILD.bazel` 의 glob 이 줍지만
+**iOS 그림 목록(`IOS_IMAGES`)은 다른 패키지라 손으로 적는다** — 웹이 새 iOS 그림을 쓰면 거기에 한 줄을 더한다.
+`package.json`/`package-lock.json` 을 바꾸면 다음 Bazel 호출이 파생 파일 `pnpm-lock.yaml`(직접 고치지 않는다)과 `.aspect/` 의 해시 파일을
+갱신한다 — 그 diff 를 같은 커밋에 넣는다.
+
+npm 으로 직접도 된다(Cloudflare 와 같은 길, Bazel 이 필요 없다):
+
 ```bash
 cd apps/scenetrip-web
 npm ci
-npm run dev          # http://localhost:5173  (predev 가 npm run gen 을 먼저 돌린다)
+npm run dev          # predev 가 npm run gen 을 먼저 돌린다
 ```
 
-| 명령 | 하는 일 |
+| npm 명령 | 하는 일 |
 | --- | --- |
 | `npm run gen` | 계약 → `src/api/generated/schema.d.ts`, iOS 문구표 → `src/i18n/en.generated.json`, 해태 그림 → `public/generated/` (전부 커밋하지 않는다) |
 | `npm run typecheck` / `npm run lint` / `npm test` | 타입·린트·단위 시험(vitest) |
-| `npm run build` | 타입 검사 + 프로덕션 번들(`dist/`) |
-| `npm run check` | 위를 모두 (사실상 이 모듈의 `just check`) |
+| `npm run build` | 타입 검사 + 프로덕션 번들(`dist/`) — `just web-build` 와 같은 결과 |
+| `npm run check` | 위를 모두 |
 | `node scripts/shot.mjs <URL> <out.png>` | 설치된 Chrome 을 puppeteer-core 로 돌려 402×874@3x 스크린샷 (iOS 스크린샷과 같은 크기). `--scale 2`, `--click 글자`, `--eval 코드`, `--until domcontentloaded`(스플래시처럼 금방 사라지는 화면) |
 | `node scripts/e2e-smoke.mjs [--base URL] [--only 이름,…] [--shots 폴더]` | 핵심 흐름(홈→탭→검색→작품·촬영지 상세→코스 목록·마법사·편집기→커뮤니티→마이페이지·시트)을 헤드리스 Chrome 으로 훑어 콘솔 오류·실패한 요청·4xx/5xx·깨진 이미지·쓰기/유료 호출을 센다. 하나라도 있으면 종료 코드 1. 개발 서버가 떠 있어야 한다 |
 
@@ -43,6 +59,8 @@ npm run dev          # http://localhost:5173  (predev 가 npm run gen 을 먼저
 - `VITE_API_BASE` — 브라우저가 부르는 기준 주소(기본: 같은 출처)
 - `VITE_BLOCK_WRITES=1`, `VITE_WRITE_ALLOW=<정규식>`, `VITE_BLOCK_PATHS=/guide,/navigation` — **검증 중 DEV 보호용 안전장치**. 켜면 GET 이 아닌 요청과 유료 경로를 클라이언트에서 막는다(`src/api/client.ts`).
 - `VITE_NAVER_MAP_CLIENT_ID` — 지도 SDK 를 정한 뒤에 쓴다(미정).
+
+Bazel 빌드(`just web-build`)는 호스트 환경 변수를 받지 않아 `VITE_*` 가 비어 있는 번들이 나온다(키가 들어간 배포 번들은 Cloudflare 가 `npm run build` 로 만든다).
 
 ## 구조
 

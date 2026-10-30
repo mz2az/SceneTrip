@@ -1,7 +1,7 @@
 # 웹앱(브라우저) 이식 계획
 
 > 상태: **모든 화면 구현, 비교 가능한 30화면 평균 유사도 95.3** (2026-10-30, §4·§6; 같은 날 웹 쪽 준비 단계는 §11) — 모듈 `apps/scenetrip-web/` (폴더 이름 `apps/web` → `apps/scenetrip-web` 로 확정·변경, 2026-10-31).
-> **아직 Bazel/just 에 연결되지 않았다. 연결에는 사용자 승인이 필요하다(§8).**
+> **Bazel/just 에 연결됐다(2026-10-31 사용자 승인, [ADR 0028](../architecture/adr/0028-web-app-built-by-bazel-with-rules-js.md), §8).**
 
 ## 1. 목표
 
@@ -189,21 +189,28 @@ OPTIONS 같은 경로 (Access-Control-Request-Method: GET, …-Headers: accept-l
 
 서버는 고치지 않았다(권호 영역). 개발 서버는 `vite.config.ts` 의 프록시로 `/v1` 을 대신 전달한다. 배포에서도 같은 출처의 `/v1` 역프록시(CloudFront 비헤이비어/ALB 규칙)나 서버의 CORS 허용 중 하나가 필요하다.
 
-## 8. Bazel/just 연결 제안 (승인 필요 — 이번 작업에서는 하지 않았다)
+## 8. Bazel/just 연결 (2026-10-31 완료 — 사용자 승인, ADR 0028)
 
-규칙(`AGENTS.md` §1)은 Bazel 이 유일한 빌드이고 `just` 가 유일한 입구다. 웹 툴체인은 **새 언어·툴체인 도입**(`CLAUDE.md` §9)이라 `MODULE.bazel`, 루트 `BUILD.bazel`, `justfile`, `tools/`, `.github/` 를 수정하지 않았고, `apps/scenetrip-web/` 는 자체 완결형(`npm ci && npm run dev`)이다. 승인되면 해야 할 일:
+규칙(`AGENTS.md` §1)은 Bazel 이 유일한 빌드이고 `just` 가 유일한 입구다. 웹 툴체인은 새 언어·툴체인 도입(`CLAUDE.md` §9)이라 사용자 승인을 받아
+`MODULE.bazel`·`MODULE.bazel.lock`·`justfile`·`tools/` 를 고쳤다(`.github/` 는 건드리지 않았다). 결정과 대안: [ADR 0028](../architecture/adr/0028-web-app-built-by-bazel-with-rules-js.md).
 
-1. `MODULE.bazel` 에 `aspect_rules_js`(+`rules_nodejs`) 와 `aspect_rules_ts`, `aspect_rules_esbuild`(또는 Vite 를 `js_run_binary` 로) 추가, Node 버전을 `tools/bazel/toolchains/` 에 고정. `pnpm`/`npm` 락 → `npm_translate_lock` 으로 `package-lock.json` 을 입력으로 사용(AGENTS §4.4: 매니페스트는 Bazel 입력).
-2. `apps/scenetrip-web/BUILD.bazel`: `:web`(번들), `:unit_test`(vitest, tag `unit`), `:lint`(eslint), `:gen`(openapi-typescript — `contracts/openapi` 를 입력으로).
-3. `tools/just/dev.just` 에 `web-dev`·`web-build` 레시피, `just check` 에 `//apps/scenetrip-web:lint`·`:unit_test` 포함. `just gen` 에 `contracts/openapi → apps/scenetrip-web` 타입 생성 연결.
-4. `.github/workflows` 는 `just ci` 를 부르므로 위가 되면 자동 포함.
-5. 동시에 `AGENTS.md` §2 의 placement 표·`apps/README.md`(「웹 프론트엔드는 없다」 문구)를 갱신 — 이번에는 `apps/README.md` 만 고쳤다.
-6. 하네스 제약: 웹 빌드는 hermetic 해야 한다(네트워크 없이). `npm_translate_lock` 이 락파일로 해결한다.
+| 항목 | 내용 |
+| --- | --- |
+| 규칙 | `aspect_rules_js` 3.5.2 + `rules_nodejs` 6.7.7 (Node 24.22.1 고정) |
+| npm 의존성 | `npm_translate_lock` 이 `package-lock.json` 을 읽는다(저장소 `@npm_web`). 파생 파일 `pnpm-lock.yaml` 을 함께 커밋한다 — 직접 고치지 않고, `package*.json` 을 바꾸면 다음 Bazel 호출이 갱신한다 |
+| 타깃 | `:gen`(API 타입·영어 문구표·해태 그림) · `:web`(Vite 빌드 → `dist/`) · `:unit_test`(vitest, tag `unit`) · `:lint`(eslint) · `:typecheck`(tsc) |
+| 명령 | `just web-build` · `just web-test` · `just web-lint` · `just web-gen` · `just web-dev` |
+| 게이트 | `just check` 의 `build`·`test` 가 `//...` 라서 위 타깃이 자동으로 들어간다. `just gen` 은 `:gen` 도 만든다 |
+| 개발 서버 | `just web-dev` 만 Bazel 밖의 `npm run dev` (HMR 이 소스 트리를 직접 감시해야 해서). 산출물의 정본이 아니다 |
+| CI | `.github/workflows/ci.yml` 이 `just ci-full` 을 부르므로 웹이 자동 포함된다. 수정하지 않았다 |
+| 알려진 예외 | Vite 번들(`.bazelrc` 의 `--strategy=Vite=local`)과 vitest 는 심볼릭 링크 입력 때문에 샌드박스 밖/fs 패치 해제로 돈다(ADR 0028 “감수하는 비용”) |
+
+`dist/` 는 `npm run build` 결과와 파일 해시까지 같다(`diff -r` 로 확인, `_headers`·`_redirects` 포함). Cloudflare Pages 는 계속 `npm ci && npm run build` 로 짓는다.
 
 ## 9. 사용자에게 남긴 결정 (2026-10-30 기준)
 
 - 폴더 이름: **결정됨** — `apps/scenetrip-web` (2026-10-31).
-- 위 §7 의 항목들, §8 의 Bazel 연결 승인.
+- 위 §7 의 항목들. (§8 의 Bazel 연결은 승인·완료.)
 - 지도 SDK/키(§7-3·8) — **SDK 는 네이버로 결정됨(2026-10-31)**, 키 발급이 남음. 정하면 `RouteMap`·`LeafletMap`·`NavMap` 세 곳의 타일 부분만 바꾸면 된다.
 - 사진 올리기 버킷 CORS(§7-5), 서버 CORS 허용 또는 같은 출처 역프록시(§7).
 - 호스팅 **결정됨**(Cloudflare Pages), 도메인(§7-2) 남음 — 출시 체크리스트는 [`plans/web-release.md`](plans/web-release.md). 소셜 로그인 웹 클라이언트 ID(§7-6) — 없으면 로그인 시트의 두 단추는 「준비 중」.
@@ -212,9 +219,13 @@ OPTIONS 같은 경로 (Access-Control-Request-Method: GET, …-Headers: accept-l
 ## 10. 실행과 확인
 
 ```
-cd apps/scenetrip-web
-npm ci && npm run gen && npm run dev      # http://localhost:5173 , /v1 은 개발 서버가 DEV 로 전달
-npm run check                              # gen + typecheck + lint + test + vite build
+just web-dev                               # http://localhost:5173 , /v1 은 개발 서버가 DEV 로 전달 (Bazel 밖 npm 개발 서버)
+just web-build                             # 프로덕션 번들 → bazel-bin/apps/scenetrip-web/dist
+just web-lint && just web-test             # eslint + tsc, vitest
+just check                                 # 저장소 전체 게이트 (웹 포함)
+
+# npm 으로 직접 (Cloudflare Pages 빌드와 같은 길)
+cd apps/scenetrip-web && npm ci && npm run check
 ```
 
 `.env.local` 의 안전장치(`VITE_BLOCK_WRITES`·`VITE_BLOCK_PATHS=/guide,/navigation`)는 그대로 둔다. 화면 확인용 쿼리: `?dev-lang=ko|en`, `?dev-seen=1`(사용법 건너뜀), `?dev-nosplash=1`, `?dev-trip-dwell=10`(머무름 초).
