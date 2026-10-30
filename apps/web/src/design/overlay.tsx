@@ -137,7 +137,7 @@ export function Alert({ open, title, message, buttons, onClose }: { open: boolea
   )
   return createPortal(
     <div
-      style={{ position: 'absolute', inset: 0, zIndex: 95, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.18)', animation: `${closing ? 'st-fade-out' : 'st-fade-in'} 0.18s ease both` }}
+      style={{ position: 'absolute', inset: 0, zIndex: 95, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.18)', animation: closing ? 'st-fade-out 0.18s ease both' : 'st-fade-in 0.18s ease backwards' }}
       role="alertdialog"
       aria-modal
       aria-label={title}

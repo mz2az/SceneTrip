@@ -323,7 +323,7 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
   }, [host.map])
 
   // 주변 편의시설 — 안내 중에는 점을 다 끈다(경로선이 주인공). 기기 위치에서 비롯한 지도는 위치 동의가 있어야 부른다.
-  const ambient = useAmbientPois({ map: host.map, enabled: !trip.target, source: 'userSelected', locationAllowed: () => true })
+  const ambient = useAmbientPois({ map: host.map, enabled: !trip.target, source: 'userSelected', locationAllowed: () => true, bottomInset: host.panelHeight })
   useEffect(() => {
     patchUi({ ambient: ambient.places })
   }, [ambient.places])

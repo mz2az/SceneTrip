@@ -202,7 +202,12 @@ export function Txt({ size = 17, weight = 'regular', color = 'primary', lines, a
       whiteSpace: lines === 1 ? 'nowrap' : 'pre-line',
       textOverflow: lines === 1 ? 'ellipsis' : undefined,
     })
-    if (lines === 1) css.display = 'block'
+    if (lines === 1) {
+      css.display = 'block'
+      // `VStack align="start"`(= SwiftUI `alignment: .leading`)의 자식은 fit-content 폭이라, 안 줄바꿈 글은 최대 폭까지 펴져 칸 밖으로 넘쳤다.
+      // SwiftUI `.lineLimit(1)` 은 칸 폭에서 끊고 「…」 를 붙인다.
+      css.maxWidth = '100%'
+    }
   }
   return <Tag {...rest} style={{ ...css, ...style }} />
 }

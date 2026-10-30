@@ -24,6 +24,8 @@ export interface AmbientPoiOptions {
   /** 위치기반서비스 동의 — 기본은 동의 없이 부르지 않는다. */
   locationAllowed?: () => boolean
   fetchPois?: (v: PoiViewport, limit?: number) => Promise<PoiFetchResult>
+  /** 시트가 지도 아래를 덮은 높이(px). 보이는 영역은 이만큼 줄어든다. */
+  bottomInset?: number
 }
 
 export interface AmbientPoiState {
@@ -34,16 +36,24 @@ export interface AmbientPoiState {
   tooWide: boolean
 }
 
-export function viewportOf(map: L.Map): PoiViewport {
-  const b = map.getBounds()
-  const c = map.getCenter()
-  return { south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast(), centerLat: c.lat, centerLng: c.lng }
+/**
+ * 지도의 「보이는 영역」 — 시트가 아래를 덮은 만큼(`bottomInset`, px)은 뺀다. iOS 는 `mapView.contentInset.bottom = panelHeight`(RouteMapView.swift:259)라
+ * 카메라 중심과 `coveringBounds` 가 덮이지 않은 영역의 것이다. 웹 지도는 시트 뒤까지 꽉 차 있어, 그냥 `getCenter()` 를 쓰면
+ * 가운데에서 가까운 30 개가 시트 밑에 깔려 점이 안 보인다.
+ */
+export function viewportOf(map: L.Map, bottomInset = 0): PoiViewport {
+  const size = map.getSize()
+  const visibleHeight = Math.max(1, size.y - Math.max(0, bottomInset))
+  const nw = map.containerPointToLatLng([0, 0])
+  const se = map.containerPointToLatLng([size.x, visibleHeight])
+  const c = map.containerPointToLatLng([size.x / 2, visibleHeight / 2])
+  return { south: se.lat, west: nw.lng, north: nw.lat, east: se.lng, centerLat: c.lat, centerLng: c.lng }
 }
 
-export function useAmbientPois({ map, enabled = true, source = 'userSelected', locationAllowed = () => false, fetchPois = defaultFetch }: AmbientPoiOptions): AmbientPoiState {
+export function useAmbientPois({ map, enabled = true, source = 'userSelected', locationAllowed = () => false, fetchPois = defaultFetch, bottomInset = 0 }: AmbientPoiOptions): AmbientPoiState {
   const [state, setState] = useState<AmbientPoiState>({ places: [], truncated: false, tooWide: false })
-  const latest = useRef({ source, locationAllowed, fetchPois })
-  latest.current = { source, locationAllowed, fetchPois }
+  const latest = useRef({ source, locationAllowed, fetchPois, bottomInset })
+  latest.current = { source, locationAllowed, fetchPois, bottomInset }
 
   useEffect(() => {
     if (!map || !enabled) {
@@ -65,7 +75,7 @@ export function useAmbientPois({ map, enabled = true, source = 'userSelected', l
         return
       }
       timer = setTimeout(() => {
-        void latest.current.fetchPois(viewportOf(map), POI_LIMIT).then((found) => {
+        void latest.current.fetchPois(viewportOf(map, latest.current.bottomInset), POI_LIMIT).then((found) => {
           if (mine === ticket) setState({ places: found.places, truncated: found.total > found.places.length, tooWide: false })
         })
       }, POI_QUIET_MS)

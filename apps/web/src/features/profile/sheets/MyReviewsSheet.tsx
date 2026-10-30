@@ -173,7 +173,8 @@ export function MyReviewsSheet({ open, onClose }: { open: boolean; onClose: () =
               <div key={review.id}>
                 <ReviewRowView review={review} name={name} onOpen={() => open_(review)} />
                 <Pressable plain onClick={() => setEditing(review)} style={{ minHeight: 44, padding: '0 16px' }}>
-                  <Txt size={12}>{tr('내 리뷰 고치기·지우기')}</Txt>
+                  {/* iOS 의 기본 `Button` 은 강조색 글자다(MyReviewsView.swift:128 — foregroundStyle 을 주지 않았다). */}
+                  <Txt size={12} color="accent">{tr('내 리뷰 고치기·지우기')}</Txt>
                 </Pressable>
                 {/* 사진은 줄의 단추 밖에 둔다 — 줄은 대상 상세로, 사진은 크게 보기로 간다. */}
                 {review.photos.length > 0 && (
