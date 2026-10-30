@@ -85,7 +85,7 @@ export function ContentDetail({
               {castLine !== '' && <Txt size={FONT.caption} color="secondary">{castLine}</Txt>}
               {/* 별칭은 빼 둔다 — 한 줄에 담기지 않아 늘 뒤가 잘렸고, 잘린 별칭은 아무 값도 하지 않는다. 검색에는 그대로 쓰인다. */}
             </VStack>
-            {detail?.description && <Txt size={FONT.caption} color="secondary" lines={3}>{detail.description}</Txt>}
+            {detail?.description && <Txt size={FONT.caption} color="secondary" lines={3} style={{ lineHeight: '15.33px' }}>{detail.description}</Txt>}
           </VStack>
 
           <HStack spacing={8} align="baseline" pad="0 14px">

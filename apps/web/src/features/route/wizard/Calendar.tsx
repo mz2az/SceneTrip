@@ -10,7 +10,7 @@ import { currentLang } from '@/i18n'
 import { parseDate, toIso } from '../models'
 
 const CELL = 50
-const ROW = 56
+const ROW = 55.67
 const KO_WEEK = ['일', '월', '화', '수', '목', '금', '토']
 const EN_WEEK = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
@@ -35,8 +35,8 @@ export function Calendar({ value, min, onPick }: { value: string; min: string; o
           <Icon name="chevron.right" size={21} weight="bold" color="accent" />
         </HStack>
         <HStack spacing={16.6} style={{ marginRight: -12.7 }}>
-          <Pressable plain disabled={atMin} onClick={() => shift(-1)} aria-label="previous month" style={{ opacity: atMin ? 0.35 : 1 }}>
-            <Icon name="chevron.left" size={29} weight="semibold" color={atMin ? 'secondary' : 'accent'} />
+          <Pressable plain disabled={atMin} onClick={() => shift(-1)} aria-label="previous month" style={{ opacity: 1 }}>
+            <Icon name="chevron.left" size={29} weight="semibold" color={atMin ? 'rgb(197,197,199)' : 'accent'} />
           </Pressable>
           <Pressable plain onClick={() => shift(1)} aria-label="next month">
             <Icon name="chevron.right" size={29} weight="semibold" color="accent" />

@@ -157,7 +157,7 @@ export function Alert({ open, title, message, buttons, onClose }: { open: boolea
           {/* iOS 26 경고창: 제목·본문은 왼쪽 정렬(상자 왼쪽에서 29), 제목 semibold */}
           <VStack spacing={8} align="start" style={{ padding: '0 14px', width: '100%' }}>
             <Txt size={17} weight="semibold" align="left">{title}</Txt>
-            {message && <Txt size={15} align="left" style={{ lineHeight: '19px', color: 'rgba(60,60,67,0.74)' }}>{message}</Txt>}
+            {message && <Txt size={15} align="left" style={{ lineHeight: '20px', marginTop: -2.5, color: 'rgba(60,60,67,0.74)' }}>{message}</Txt>}
           </VStack>
           {side ? <div style={{ display: 'flex', gap: 8, width: '100%' }}>{ordered.map(row)}</div> : <VStack spacing={8} style={{ width: '100%' }}>{ordered.map(row)}</VStack>}
         </VStack>

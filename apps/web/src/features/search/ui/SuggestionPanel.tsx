@@ -21,18 +21,18 @@ export function AliasBadge({ text }: { text: string }) {
   )
 }
 
-function SectionLabel({ title }: { title: string }) {
+function SectionLabel({ title, padBottom = 4 }: { title: string; padBottom?: number }) {
   return (
-    <HStack pad="8.7px 14px 4px">
+    <HStack pad={`8.7px 14px ${padBottom}px`}>
       <Txt size={FONT.caption} color="secondary">{title}</Txt>
     </HStack>
   )
 }
 
-function Row({ icon, text, detail, alias, onClick }: { icon: string; text: string; detail: string; alias?: string | null; onClick: () => void }) {
+function Row({ icon, text, detail, alias, onClick, padY = 10.7 }: { icon: string; text: string; detail: string; alias?: string | null; onClick: () => void; padY?: number }) {
   return (
     <Pressable plain onClick={onClick} style={{ width: '100%' }}>
-      <HStack spacing={10} pad="10.7px 14px">
+      <HStack spacing={10} pad={`${padY}px 14px`}>
         <span style={{ width: 18, display: 'grid', placeItems: 'center', flex: 'none' }}>
           <Icon name={icon} size={FONT.body} color="secondary" />
         </span>
@@ -67,13 +67,13 @@ export function SuggestionPanel({
     >
       {draft === '' ? (
         <>
-          <SectionLabel title={tr('추천 검색어')} />
+          <SectionLabel title={tr('추천 검색어')} padBottom={5.3} />
           {RECOMMENDED.map((item) => (
             // 보이는 글자로 검색한다 — 영어일 때 「Guardian」을 눌렀는데 검색창에 한국어가 들어가면 안 된다.
-            <Row key={item.term} icon={symbolOf(item.type)} text={tr(item.term)} detail="" onClick={() => onCommit(tr(item.term), item.type)} />
+            <Row key={item.term} icon={symbolOf(item.type)} text={tr(item.term)} detail="" padY={11.05} onClick={() => onCommit(tr(item.term), item.type)} />
           ))}
           {/* iOS 패널 높이 156.67 (실측) — 마지막 항목 아래 여백 */}
-          <div style={{ height: 4.7 }} />
+          <div style={{ height: 1.3 }} />
         </>
       ) : (
         <>
