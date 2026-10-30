@@ -61,7 +61,7 @@ export function TabBar({ selected, onSelect }: { selected: TabId; onSelect: (tab
         <VStack spacing={3} align="center" style={{ transform: 'translateY(-18px)' }}>
           <div
             style={{
-              width: 62, height: 62, borderRadius: '50%', background: 'var(--pin-gradient)', display: 'grid', placeItems: 'center',
+              width: 58, height: 58, margin: 2, borderRadius: '50%', background: 'var(--pin-gradient)', display: 'grid', placeItems: 'center',
               boxShadow: `0 0 0 4px var(--grouped-background), ${shadow('rgba(122,105,237,0.42)', 7, 6)}`,
             }}
           >

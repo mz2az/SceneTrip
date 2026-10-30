@@ -1,7 +1,7 @@
 /* SplashView 의 바탕과 모션. 값은 SplashView.swift 에서 옮겼다. */
 .splash {
   /* LinearGradient(pin light → pin deep → #5B4BC4, topLeading → bottomTrailing) */
-  background: linear-gradient(to bottom right, var(--pin-light), var(--pin-deep), var(--splash-end));
+  background: linear-gradient(var(--splash-angle, 155.3deg), var(--pin-light), var(--pin-deep), var(--splash-end));
 }
 
 /* PinDrop: 위(-340)에서 떨어져 spring(response .52, damping .52) 로 튕기고, 430ms 에 눌렸다(가로 1.12·세로 .88) 편다. */

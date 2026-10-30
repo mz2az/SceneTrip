@@ -9,13 +9,14 @@ import { Pressable } from '../route/ui/Press'
 import { tr } from '@/i18n'
 import { coursePlaceCount, courseSpanLabel } from '../route/models'
 import { trAt } from '@/i18n'
+import { useDiagonalAngle } from '@/design/useDiagonalAngle'
 import type { HomeTrip } from './homeModel'
 import type { TripCard as TripCardKind } from './homeRules'
 import '../route/ui/route.css'
 
 /** 페이저 카드 영역 높이(pt) — iOS `.frame(height: 196)`. */
 const PAGER_HEIGHT = 196
-const GRADIENT = 'linear-gradient(to bottom right, var(--pin-light), var(--pin-deep))'
+const gradient = (deg: number) => `linear-gradient(${deg}deg, var(--pin-light), var(--pin-deep))`
 
 interface CardProps {
   hasCourses: boolean
@@ -78,10 +79,12 @@ function WhiteButton({ children, onClick, disabled }: { children: string; onClic
 function TripCard({ trip, rank, card, hasCourses, onNavigate, onOpenCourse, onCreate }: CardProps & { trip: HomeTrip | null; rank: number | null; card: TripCardKind }) {
   const progress = trip && trip.total > 0 ? trip.visited / trip.total : 0
   const count = trip ? coursePlaceCount(trip.course) : 0
+  const [gradRef, angle] = useDiagonalAngle(115.4)
   return (
     <div
+      ref={gradRef}
       style={{
-        margin: '0 20px', padding: '16px 18px', borderRadius: 22, background: GRADIENT, color: '#fff',
+        margin: '0 20px', padding: '16px 18px', borderRadius: 22, background: gradient(angle), color: '#fff',
         boxShadow: shadow('rgba(122,105,237,0.28)', 8, 6),
       } as React.CSSProperties}
     >

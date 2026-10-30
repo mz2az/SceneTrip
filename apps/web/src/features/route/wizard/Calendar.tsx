@@ -29,17 +29,17 @@ export function Calendar({ value, min, onPick }: { value: string; min: string; o
 
   return (
     <div style={{ padding: '0 0 8px', width: '100%' }}>
-      <HStack justify="between" style={{ padding: '17px 18px 0 18px', height: 53 }}>
-        <HStack spacing={4}>
+      <HStack justify="between" style={{ padding: '17px 12px 0 12px', height: 53 }}>
+        <HStack spacing={0}>
           <Txt size={17} weight="semibold">{title}</Txt>
-          <Icon name="chevron.right" size={13} weight="semibold" color="accent" />
+          <Icon name="chevron.right" size={21} weight="bold" color="accent" />
         </HStack>
-        <HStack spacing={26}>
+        <HStack spacing={16.6} style={{ marginRight: -12.7 }}>
           <Pressable plain disabled={atMin} onClick={() => shift(-1)} aria-label="previous month" style={{ opacity: atMin ? 0.35 : 1 }}>
-            <Icon name="chevron.left" size={20} weight="semibold" color={atMin ? 'secondary' : 'accent'} />
+            <Icon name="chevron.left" size={29} weight="semibold" color={atMin ? 'secondary' : 'accent'} />
           </Pressable>
           <Pressable plain onClick={() => shift(1)} aria-label="next month">
-            <Icon name="chevron.right" size={20} weight="semibold" color="accent" />
+            <Icon name="chevron.right" size={29} weight="semibold" color="accent" />
           </Pressable>
         </HStack>
       </HStack>
@@ -62,7 +62,7 @@ export function Calendar({ value, min, onPick }: { value: string; min: string; o
                   width: 44, height: 44, borderRadius: '50%', display: 'grid', placeItems: 'center', background: on ? 'var(--accent)' : 'transparent',
                 }}
               >
-                <Txt size={22} weight={on ? 'semibold' : 'regular'} style={{ color: on ? '#fff' : 'var(--label)', opacity: disabled ? 0.2 : 1 }}>{n}</Txt>
+                <Txt size={20} weight={on ? 'semibold' : 'regular'} style={{ color: on ? '#fff' : 'var(--label)', opacity: disabled ? 0.13 : 1 }}>{n}</Txt>
               </span>
             </Pressable>
           )

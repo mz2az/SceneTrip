@@ -153,7 +153,7 @@ function PostSheet({ openedId, legacy, rows, onClose }: { openedId: number | nul
   if (current) last.current = current
   const shown = current ?? last.current
   return (
-    <Sheet open={current !== null} onClose={onClose} detent="large" topGap={SHEET_TOP_GAP} radius={SHEET_RADIUS} label={shown?.title}>
+    <Sheet open={current !== null} onClose={onClose} detent="large" topGap={SHEET_TOP_GAP} radius={SHEET_RADIUS} dim={0.2} label={shown?.title}>
       {shown && <PostView key={shown.key} initialPost={shown} onClose={onClose} />}
     </Sheet>
   )
@@ -184,7 +184,7 @@ function Header({ onCompose }: { onCompose: () => void }) {
 function ListRow({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ padding: `0 ${ROW_INSET_X}px` }}>
-      <div className="hair-b" style={{ padding: '11px 0', minHeight: 44, display: 'flex', alignItems: 'center' }}>{children}</div>
+      <div className="hair-b hair-1pt" style={{ padding: '11px 0', minHeight: 44, display: 'flex', alignItems: 'center' }}>{children}</div>
     </div>
   )
 }
@@ -221,7 +221,7 @@ function PostRow({ post, myNickname, moderation, onOpen, onDelete }: {
     // 지우기는 **내 글만** — 남의 글을 밀어서 지울 수 있으면 안 된다.
     <SwipeRow label={tr('지우기')} enabled={isMine(post) && post.serverId !== undefined} onAction={() => onDelete(post)}>
       <div style={{ padding: `0 ${ROW_INSET_X}px` }}>
-      <HStack className="hair-b" align="start" spacing={4} style={{ padding: `${ROW_INSET_Y}px 0` }}>
+      <HStack className="hair-b hair-1pt" align="start" spacing={4} style={{ padding: `${ROW_INSET_Y}px 0` }}>
         <Pressable plain onClick={onOpen} style={{ flex: 1, minWidth: 0, textAlign: 'left' }} aria-label={post.title}>
           <HStack align="start" spacing={12} pad="6px 0">
             <VStack spacing={5} align="start" style={{ flex: 1, minWidth: 0 }}>

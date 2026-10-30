@@ -5,9 +5,11 @@
 import { useEffect, useRef } from 'react'
 import { PinoMascot, pinoTipInset } from '@/design/PinoMascot'
 import { Txt, VStack } from '@/design/primitives'
+import { useDiagonalAngle } from '@/design/useDiagonalAngle'
 import './splash.css'
 
 export function SplashView({ onDone }: { onDone: () => void }) {
+  const [gradRef, angle] = useDiagonalAngle(155.3)
   const done = useRef(onDone)
   done.current = onDone
   useEffect(() => {
@@ -17,7 +19,7 @@ export function SplashView({ onDone }: { onDone: () => void }) {
 
   const w = 216
   return (
-    <div className="splash" style={{ position: 'absolute', inset: 0, zIndex: 100, overflow: 'hidden' }}>
+    <div ref={gradRef} className="splash" style={{ ['--splash-angle' as string]: `${angle}deg`, position: 'absolute', inset: 0, zIndex: 100, overflow: 'hidden' }}>
       <svg width="100%" height="100%" viewBox="0 0 390 844" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0 }} aria-hidden>
         {/* RoadTracery — 바탕에 아주 흐리게 깔리는 길과 교차점 (SplashView.swift:RoadTracery, 폭 390·높이 844 기준 비율) */}
         <g fill="none" stroke="rgba(255,255,255,0.13)" strokeWidth="1">

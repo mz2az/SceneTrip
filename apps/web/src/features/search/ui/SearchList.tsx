@@ -25,7 +25,7 @@ function ChipRow({ selected, onSelect }: { selected: string; onSelect: (name: st
               key={name}
               plain
               onClick={() => onSelect(on ? CHIP_ALL : name)}
-              style={{ padding: '7px 13px', borderRadius: 999, background: on ? 'var(--accent)' : 'var(--system-gray6)', color: on ? '#fff' : 'var(--label)' }}
+              style={{ padding: '6px 13px', borderRadius: 999, background: on ? 'var(--accent)' : 'var(--system-gray6)', color: on ? '#fff' : 'var(--label)' }}
             >
               <Txt size={FONT.subheadline} style={{ color: 'inherit' }}>{tr(name)}</Txt>
             </Pressable>

@@ -78,6 +78,11 @@ img {
   background: var(--hair-color, var(--separator));
   pointer-events: none;
 }
+/* SwiftUI List 구분선: 1.0pt, rgb(232,232,232) (커뮤니티 목록 실측) */
+.hair-b.hair-1pt::after {
+  transform: none;
+  background: var(--hair-color, rgb(232, 232, 232));
+}
 .hair-b::after {
   bottom: 0;
   transform-origin: bottom;

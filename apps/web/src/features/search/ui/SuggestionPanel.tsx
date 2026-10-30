@@ -63,7 +63,7 @@ export function SuggestionPanel({
   const topAlias = topWork ? pickAliasBadge(topWork.title, topWork.aliases ?? [], matched?.matchedTerm) : null
   return (
     <VStack
-      style={{ margin: '2px 14px 0', background: 'var(--system-background)', ...rr(14), boxShadow: shadow('rgba(0,0,0,0.12)', 10, 3), overflow: 'hidden' }}
+      style={{ margin: '0 14px', background: 'var(--system-background)', ...rr(14), boxShadow: shadow('rgba(0,0,0,0.12)', 10, 3), overflow: 'hidden' }}
     >
       {draft === '' ? (
         <>
@@ -72,6 +72,8 @@ export function SuggestionPanel({
             // 보이는 글자로 검색한다 — 영어일 때 「Guardian」을 눌렀는데 검색창에 한국어가 들어가면 안 된다.
             <Row key={item.term} icon={symbolOf(item.type)} text={tr(item.term)} detail="" onClick={() => onCommit(tr(item.term), item.type)} />
           ))}
+          {/* iOS 패널 높이 156.67 (실측) — 마지막 항목 아래 여백 */}
+          <div style={{ height: 4.7 }} />
         </>
       ) : (
         <>
