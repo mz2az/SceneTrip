@@ -60,12 +60,14 @@ import com.mz2az.scenetrip.ui.HandDrawIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSConfirmPopover
+import com.mz2az.scenetrip.ui.IOSLinedText
 import com.mz2az.scenetrip.ui.IOSRole
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.XMarkIcon
 import com.mz2az.scenetrip.ui.iosLineBox
+import com.mz2az.scenetrip.ui.sfLine
 import kotlinx.coroutines.launch
 
 /**
@@ -300,11 +302,19 @@ private fun EmptyState(
         ) {
             SparklesIcon(androidx.compose.ui.graphics.Color.White, Modifier.size(28.dp))
         }
-        Spacer(Modifier.height(14.dp))
-        Text(tr("아직 만든 코스가 없습니다"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-        Spacer(Modifier.height(4.dp))
+        // iOS: 원 아래 12 · 제목 20.3 · 6 · 설명 줄 19 (7차 감사 CE2·CE3: 원→제목 +5.1, 설명 +3.1 이었다).
+        Spacer(Modifier.height(12.dp))
         Text(
+            tr("아직 만든 코스가 없습니다"),
+            fontSize = 17.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = IOS.label,
+            modifier = Modifier.sfLine(17f),
+        )
+        Spacer(Modifier.height(6.dp))
+        IOSLinedText(
             tr("보고 싶은 작품과 기간만 고르면,\n촬영지를 이어서 일차별 일정으로 짜 드립니다"),
+            lineDp = 19f,
             fontSize = 15.sp,
             color = IOS.secondaryLabel,
             textAlign = TextAlign.Center,
@@ -320,7 +330,7 @@ private fun EmptyState(
                     .clip(CircleShape)
                     .background(IOS.accent)
                     .clickable(onClick = onAI)
-                    .padding(vertical = 14.dp),
+                    .height(52.dp),
         ) {
             SparklesIcon(androidx.compose.ui.graphics.Color.White, Modifier.size(16.dp))
             Text(
@@ -345,7 +355,7 @@ private fun EmptyState(
                     .clip(CircleShape)
                     .background(IOS.tertiaryFill)
                     .clickable(onClick = onManual)
-                    .padding(vertical = 14.dp),
+                    .iosLineBox(50.3.dp),
         )
     }
 }
