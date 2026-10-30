@@ -6,7 +6,7 @@
  * 웹용 OAuth 클라이언트 ID 가 없으면 버튼을 눌렀을 때 「준비 중」 안내가 뜬다(oauth.ts).
  */
 import { HStack, Pressable, Spinner, Txt, VStack } from '@/design/primitives'
-import { tr } from '@/i18n'
+import { currentLang, tr } from '@/i18n'
 import { LEGAL_LINKS } from '../legalLinks'
 import { GlassSheet } from '../ui/GlassSheet'
 import { accountActions, useAccount } from './account'
@@ -23,10 +23,15 @@ function AppleLogo({ size = 18 }: { size?: number }) {
   )
 }
 
-/** 큰 글자에서도 누르는 자리는 44 이상 — 캡션 높이만으로는 손가락이 빗나간다. */
+/** iOS 의 Apple 단추는 시스템 단추라 문구가 시스템 언어를 따른다(ko 「Apple로 계속하기」, en 「Continue with Apple」). 접근성 라벨만 「Apple 계정으로 계속하기」. */
+function appleButtonTitle(): string {
+  return currentLang() === 'en' ? 'Continue with Apple' : 'Apple로 계속하기'
+}
+
+/** 큰 글자에서도 누르는 자리는 42(iOS 링크 단추 높이) — 캡션 높이만으로는 손가락이 빗나간다. */
 function LegalLink({ href, children }: { href: string; children: string }) {
   return (
-    <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>
+    <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline', minHeight: 42, display: 'inline-flex', alignItems: 'center' }}>
       {children}
     </a>
   )
@@ -36,10 +41,10 @@ function LegalLink({ href, children }: { href: string; children: string }) {
 function LegalNotice() {
   return (
     <VStack align="center" style={{ textAlign: 'center' }}>
-      <Txt as="div" size={12} color="secondary" align="center" style={{ lineHeight: '15px' }}>
+      <Txt as="div" size={12} color="secondary" align="center">
         {tr('계속하면 이용약관과 개인정보 처리방침에 동의하는 것으로 봅니다.')}
       </Txt>
-      <HStack spacing={6} justify="center" wrap style={{ fontSize: 12 }}>
+      <HStack spacing={6} justify="center" wrap style={{ fontSize: 12, marginTop: -1 }}>
         <LegalLink href={LEGAL_LINKS.terms}>{tr('이용약관')}</LegalLink>
         <span aria-hidden style={{ color: 'var(--label-secondary)' }}>·</span>
         <LegalLink href={LEGAL_LINKS.privacy}>{tr('개인정보 처리방침')}</LegalLink>
@@ -48,15 +53,18 @@ function LegalNotice() {
   )
 }
 
+/** iOS 스크린샷: 시트 윗면 y=415 → 874 − 415 − 9(아래 여백) = 450. */
+const SHEET_HEIGHT = 450
+
 export function SignInSheet() {
   const { showingSignIn, busy, message, appleSignInEnabled } = useAccount()
   return (
-    <GlassSheet open={showingSignIn} onClose={accountActions.closeSignIn} detent="medium" dismissDisabled={busy} zIndex={60} label={tr('SceneTrip 로그인')}>
+    <GlassSheet open={showingSignIn} onClose={accountActions.closeSignIn} detent={SHEET_HEIGHT} grabber={false} dismissDisabled={busy} zIndex={60} label={tr('SceneTrip 로그인')}>
       <div className="scroll-y" style={{ flex: 1, minHeight: 0 }}>
-        <VStack align="center" style={{ padding: '0 24px' }}>
-          <img src="/generated/haetae-joy.png" alt="" draggable={false} style={{ height: 72, width: 'auto', marginTop: 18 }} />
-          <Txt as="h2" size={20} weight="bold" style={{ marginTop: 14, lineHeight: '25px' }}>{tr('SceneTrip 로그인')}</Txt>
-          <Txt as="p" size={15} color="secondary" align="center" style={{ marginTop: 6, lineHeight: '17.9px' }}>
+        <VStack align="center" style={{ padding: '0 22px' }}>
+          <img src="/generated/haetae-joy.png" alt="" draggable={false} style={{ height: 69, width: 63, marginTop: 17 }} />
+          <Txt as="h2" size={20} weight="bold" kerning={-0.45} style={{ marginTop: 14, lineHeight: '23px' }}>{tr('SceneTrip 로그인')}</Txt>
+          <Txt as="p" size={15} color="secondary" align="center" kerning={-0.3} style={{ marginTop: 6, lineHeight: '17.9px' }}>
             {tr('담아 둔 장바구니·코스·찜이 계정에 저장돼요.\n다른 기기에서도 그대로 이어집니다.')}
           </Txt>
 
@@ -78,11 +86,11 @@ export function SignInSheet() {
               onClick={() => void accountActions.signInWithApple()}
               aria-label={tr('Apple 계정으로 계속하기')}
               data-testid="apple-sign-in"
-              style={{ width: '100%', height: 50, borderRadius: 25, background: '#000', marginBottom: 10, opacity: busy ? 0.5 : 1 }}
+              style={{ width: '100%', height: 48, borderRadius: 24, background: '#000', marginBottom: 9, opacity: busy ? 0.5 : 1 }}
             >
               <HStack spacing={8} justify="center" style={{ height: '100%' }}>
-                <AppleLogo />
-                <Txt size={16} weight="medium" color="white">{tr('Apple 계정으로 계속하기')}</Txt>
+                <AppleLogo size={14} />
+                <Txt size={18} weight="medium" color="white">{appleButtonTitle()}</Txt>
               </HStack>
             </Pressable>
           )}
@@ -93,11 +101,11 @@ export function SignInSheet() {
             disabled={busy}
             onClick={() => void accountActions.signInWithGoogle()}
             data-testid="google-sign-in"
-            style={{ width: '100%', height: 50, borderRadius: 25, background: '#fff', border: '1px solid #747775', opacity: busy ? 0.5 : 1 }}
+            style={{ width: '100%', height: 48, borderRadius: 24, background: '#fff', border: '1px solid #747775', opacity: busy ? 0.5 : 1 }}
           >
             <HStack spacing={10} justify="center" style={{ height: '100%' }}>
               <img src="/generated/google-g.svg" alt="" width={20} height={20} draggable={false} />
-              <Txt size={16} weight="medium" color="#1f1f1f">{tr('Google 계정으로 계속하기')}</Txt>
+              <Txt size={15.3} weight="medium" color="#1f1f1f">{tr('Google 계정으로 계속하기')}</Txt>
             </HStack>
           </Pressable>
 
