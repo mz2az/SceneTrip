@@ -28,7 +28,7 @@ export function Calendar({ value, min, onPick }: { value: string; min: string; o
   const shift = (d: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + d, 1, 12))
 
   return (
-    <div style={{ padding: '0 0 8px', width: '100%' }}>
+    <div style={{ padding: '0 0 10px', width: '100%' }}>
       <HStack justify="between" style={{ padding: '17px 12px 0 12px', height: 53 }}>
         <HStack spacing={0}>
           <Txt size={17} weight="semibold">{title}</Txt>
