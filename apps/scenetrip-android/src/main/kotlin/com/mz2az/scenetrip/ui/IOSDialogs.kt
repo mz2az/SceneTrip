@@ -97,12 +97,13 @@ fun IOSAlert(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(ALERT_CORNER))
                         .background(ALERT_SURFACE)
-                        .padding(start = 16.dp, end = 16.dp, top = 21.dp, bottom = 16.dp),
+                        // 9차 DC1: 제목만 있는 알림은 iOS 가 윗 21.8 · 제목 칸 20.3 · 제목→단추 20.0 (카드 높이 126.2 — Android 는 한글 글꼴 칸 24.4 라 +2.2 컸다).
+                        .padding(start = 16.dp, end = 16.dp, top = if (message.isNullOrEmpty()) 21.8.dp else 21.dp, bottom = 16.dp),
             ) {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = if (message.isNullOrEmpty()) 1.dp else 0.dp),
                 ) {
                     // 본문 없이 제목만 있으면 보통 굵기(실측), 본문이 있으면 제목을 굵게 한다.
                     Text(
@@ -111,6 +112,7 @@ fun IOSAlert(
                         fontWeight = if (message.isNullOrEmpty()) FontWeight.Normal else FontWeight.SemiBold,
                         color = IOS.label,
                         textAlign = TextAlign.Center,
+                        modifier = if (message.isNullOrEmpty()) Modifier.sfLine(17f) else Modifier,
                     )
                     if (!message.isNullOrEmpty()) {
                         Text(message, style = IOS.footnote, color = IOS.label, textAlign = TextAlign.Center)

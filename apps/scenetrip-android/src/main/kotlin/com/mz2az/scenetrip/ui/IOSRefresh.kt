@@ -95,7 +95,7 @@ private fun BoxScope.IOSRefreshSpinner(
     Canvas(
         Modifier
             .align(Alignment.TopCenter)
-            .size(20.dp)
+            .size(27.9.dp) // 9차 PR1': iOS 활동 표시 지름 29.7 (Android 21.7 → 실측 29.0 → 27.9 로 보정)
             .graphicsLayer {
                 translationY = shift() * holdPx / 2f - size.height / 2f + extraTop()
                 alpha = if (refreshing) 1f else state.distanceFraction.coerceIn(0f, 1f)
