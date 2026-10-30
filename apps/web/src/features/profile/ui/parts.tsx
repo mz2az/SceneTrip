@@ -87,7 +87,7 @@ export function PlainSection({ header, children }: { header?: string; children: 
   return (
     <section>
       {header && (
-        <Txt as="div" size={16.3} weight="semibold" color="secondary" style={{ padding: `29px ${PLAIN_LIST_PAD}px 8px`, lineHeight: '22px' }}>
+        <Txt as="div" size={16.3} weight="semibold" color="secondary" style={{ padding: `29.3px ${PLAIN_LIST_PAD}px 8px`, lineHeight: '22px' }}>
           {header}
         </Txt>
       )}
@@ -102,7 +102,7 @@ export const PLAIN_TEXT_KERNING = -0.4
 
 export function PlainRow({ children, last: _last, style, onClick, ariaLabel }: { children: ReactNode; last?: boolean; style?: CSSProperties; onClick?: () => void; ariaLabel?: string }) {
   const body = (
-    <div style={{ padding: `10px 0`, minHeight: 52, display: 'flex', alignItems: 'center', ...style }}>{children}</div>
+    <div style={{ padding: `10px 0 7.7px`, minHeight: 49.7, display: 'flex', alignItems: 'center', ...style }}>{children}</div>
   )
   return (
     <div style={{ margin: `0 ${PLAIN_LIST_PAD}px`, borderBottom: '0.5px solid rgba(60,60,67,0.2)' }}>

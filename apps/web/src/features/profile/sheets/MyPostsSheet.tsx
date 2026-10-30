@@ -34,7 +34,8 @@ export function MyPostsSheet({ open, onClose }: { open: boolean; onClose: () => 
   return (
     <GlassSheet open={open} onClose={onClose} detent="medium" label={tr('내가 쓴 글')}>
       <SheetHeader title={tr('내가 쓴 글')} onClose={onClose} />
-      <SheetBody>
+      <SheetBody style={{ paddingTop: 0 }}>
+        <div style={{ marginTop: -2 }} />
         {store.message && <Txt as="div" size={13} color="red" style={{ padding: `10px ${PLAIN_LIST_PAD}px` }}>{store.message}</Txt>}
         {!signedIn && (
           <PlainRow onClick={() => promptSignIn()}>
