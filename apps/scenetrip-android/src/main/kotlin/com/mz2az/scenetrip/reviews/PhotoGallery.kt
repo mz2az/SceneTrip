@@ -23,6 +23,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,8 +62,8 @@ import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.FullScreenDialogWindow
 import com.mz2az.scenetrip.ui.IOS
-import com.mz2az.scenetrip.ui.IOSCloseButton
 import com.mz2az.scenetrip.ui.IOSSheet
+import com.mz2az.scenetrip.ui.PersonCropSquareIcon
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SquareGrid2x2Icon
 import com.mz2az.scenetrip.ui.XMarkIcon
@@ -75,7 +76,7 @@ class PhotoBook(
     val subject: ReviewSubject,
     initial: List<Photo>,
     total: Int,
-    private val visitorsOnly: Boolean = false,
+    val visitorsOnly: Boolean = false,
     private val paged: Boolean = true,
     // 쪽으로 나뉘지 않은 사진(리뷰 한 건의 사진)은 사진첩을 다시 받을 수 없다 — 그 사진이 든 목록이 대신 새 주소를 받는다
     // (MZ2AZ-477, iOS 의 `\.photoRenew` 환경값). 없으면 갱신할 길이 없다.
@@ -497,13 +498,9 @@ internal fun PhotoGrid(
     var viewing by remember { mutableStateOf<Int?>(null) }
     IOSSheet(detents = listOf(SheetDetent.LARGE), onDismiss = onClose) {
         Column(Modifier.fillMaxSize().background(IOS.systemBackground)) {
-            Box(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp)) {
-                Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(title, style = IOS.headline, color = IOS.label)
-                    Text(book.subject.name, style = IOS.subheadline, color = IOS.secondaryLabel)
-                }
-                IOSCloseButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterEnd))
-            }
+            // iOS `SheetHeader` — 리뷰 시트와 같은 머리줄(7차 감사 G2·G3: 흰 원 닫기 · 70.1 이었다 → 회색 X 44×44 · 54.0).
+            ReviewSheetHeader(title = title, subtitle = book.subject.name, onClose = onClose)
+            HorizontalDivider(thickness = 0.5.dp, color = IOS.separator.copy(alpha = 0.25f))
             LazyVerticalGrid(
                 GridCells.Fixed(3),
                 Modifier.weight(1f),
@@ -520,18 +517,19 @@ internal fun PhotoGrid(
                             onFailure = { scope.launch { book.renew() } },
                             onRetry = { scope.launch { book.renew(true) } },
                         )
-                        if (photo.source == PhotoSource.review) {
-                            Text(
-                                tr("방문자 사진"),
-                                style = IOS.caption2,
-                                color = Color.White,
+                        // iOS `VisitorBadge(compact: true)` — 전체 격자에서만, 왼쪽 아래 23×23 어두운 원 + 사람 그림 (7차 감사 G1).
+                        if (photo.source == PhotoSource.review && !book.visitorsOnly) {
+                            Box(
+                                contentAlignment = Alignment.Center,
                                 modifier =
                                     Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .padding(3.dp)
-                                        .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
-                                        .padding(horizontal = 6.dp, vertical = 3.dp),
-                            )
+                                        .align(Alignment.BottomStart)
+                                        .padding(4.dp)
+                                        .size(23.dp)
+                                        .background(Color.Black.copy(alpha = 0.55f), CircleShape),
+                            ) {
+                                PersonCropSquareIcon(Color.White, Modifier.size(13.dp))
+                            }
                         }
                     }
                 }

@@ -301,6 +301,27 @@ fun PersonOutlineIcon(
     }
 }
 
+/** `person.crop.square` — 둥근 네모 안에 머리와 어깨. 격자 방문자 사진 표시(iOS `VisitorBadge(compact:)`). */
+@Composable
+fun PersonCropSquareIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = Stroke(width = w * 0.09f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawRoundRect(tint, Offset(w * 0.05f, w * 0.05f), Size(w * 0.9f, w * 0.9f), CornerRadius(w * 0.2f), style = s)
+        drawCircle(tint, radius = w * 0.13f, center = Offset(w * 0.5f, w * 0.38f))
+        val body =
+            Path().apply {
+                moveTo(w * 0.24f, w * 0.88f)
+                cubicTo(w * 0.24f, w * 0.58f, w * 0.76f, w * 0.58f, w * 0.76f, w * 0.88f)
+                close()
+            }
+        drawPath(body, tint)
+    }
+}
+
 /** `hand.draw` — 검지를 편 손과 그 끝에서 이어지는 구불구불한 선(직접 그린다). */
 @Composable
 fun HandDrawIcon(

@@ -549,9 +549,8 @@ fun SearchTabScreen() {
         BottomSheet(
             detent = detent,
             onDetentChange = { detent = it },
-            // 조작 줄(「현 지도 내 성지 검색」·현위치)까지 덮지 않아야 한다 —
-            // 7 차에 시트가 그 위로 올라와 버튼이 시트 헤더에 겹쳐 그려졌다.
-            topInset = SEARCH_BAR_INSET + statusBar + CONTROL_ROW,
+            // 조작 줄(「현 지도 내 성지 검색」·현위치)까지 덮지 않아야 한다 — 검색바 44 · 조작 줄이 108 안에 들어가므로(7차 감사 SU1) 더하지 않는다.
+            topInset = SEARCH_BAR_INSET + statusBar,
             onHeightChange = { sheetHeight = it },
             ratioInset = statusBar,
         ) {
@@ -703,7 +702,8 @@ fun SearchTabScreen() {
                 // 검색창의 장바구니와 같은 세로선에 놓아 지도를 덜 가린다.
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    // iOS `VStack(spacing: 2)` — 검색바와 조작 줄 사이 2 (7차 감사 SL2: 8 이라 알약이 4.3 아래였다).
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
                 ) {
                     NearbyButton(
                         on = nearby,
@@ -790,9 +790,6 @@ fun SearchTabScreen() {
  * 넣어야 한다. 픽셀로 재면 같은 크기도 12.5% 달라 보인다.
  */
 private val SEARCH_BAR_INSET: Dp = 108.dp
-
-/** 검색바 아래 조작 줄이 차지하는 높이 (여백 8 + 버튼 44). */
-private val CONTROL_ROW: Dp = 52.dp
 
 @Composable
 private fun Centered(message: String?) {

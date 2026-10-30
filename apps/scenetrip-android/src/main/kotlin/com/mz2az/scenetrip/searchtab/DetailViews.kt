@@ -69,6 +69,7 @@ import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.TextAlignLeftIcon
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
+import com.mz2az.scenetrip.ui.sfLine
 
 /**
  * 드릴다운 2단 — 작품 상세.
@@ -198,10 +199,17 @@ fun ContentDetailView(
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(horizontal = IOS.gutter),
+                        // iOS 는 이 줄과 장소 목록이 같은 `VStack(spacing: 16)` 안이다 — 줄 아래 16 (7차 감사 W2: 머리→첫 행이 9.9 짧았다).
+                        modifier = Modifier.padding(start = IOS.gutter, end = IOS.gutter, bottom = 16.dp),
                     ) {
-                        Text(tr("촬영지"), style = IOS.headline, color = IOS.label)
-                        Text(trCount("%d곳", summary.placeCount), style = IOS.caption, color = IOS.secondaryLabel)
+                        Text(tr("촬영지"), style = IOS.headline, color = IOS.label, modifier = Modifier.sfLine(17f))
+                        // `.lastTextBaseline` — 작은 글은 큰 글 아래보다 1.2 위에 앉는다.
+                        Text(
+                            trCount("%d곳", summary.placeCount),
+                            style = IOS.caption,
+                            color = IOS.secondaryLabel,
+                            modifier = Modifier.padding(bottom = 1.2.dp).sfLine(12f),
+                        )
                     }
                 }
             }

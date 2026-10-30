@@ -57,6 +57,7 @@ import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.XMarkIcon
 import com.mz2az.scenetrip.ui.iosLineBox
+import com.mz2az.scenetrip.ui.sfLine
 import kotlinx.coroutines.launch
 
 /*
@@ -227,8 +228,11 @@ fun ReviewSheetHeader(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
-            Text(title, style = IOS.headline, color = IOS.label, maxLines = 1)
-            if (!subtitle.isNullOrEmpty()) Text(subtitle, style = IOS.caption, color = IOS.secondaryLabel, maxLines = 1)
+            // iOS 줄 높이: headline 17pt → 20.3, caption 12pt → 14.3 (7차 감사 G3: 글꼴 제 높이로 24.4·17.1 이라 시트 머리가 어긋났다).
+            Text(title, style = IOS.headline, color = IOS.label, maxLines = 1, modifier = Modifier.sfLine(17f))
+            if (!subtitle.isNullOrEmpty()) {
+                Text(subtitle, style = IOS.caption, color = IOS.secondaryLabel, maxLines = 1, modifier = Modifier.sfLine(12f))
+            }
         }
         Box(
             Modifier
