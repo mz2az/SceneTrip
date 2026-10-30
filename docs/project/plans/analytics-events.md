@@ -144,3 +144,7 @@ DebugView 수신과 기기 로그(「Logging event」, 업로드 204)로 확인�
 - iOS 가 실기로 찾은 두 규칙(자동 화면 기록 끄기·`course_origin`)을 뒤따라 넣었다 —
   자동 화면 기록은 `AndroidManifest.xml`의 `google_analytics_automatic_screen_reporting_enabled`
   메타데이터로, 이름 변경은 `AppEvent.CreateCourse`와 `RouteStore.save`에
+
+## 9. 웹 구현 메모
+
+웹앱(`apps/web`)도 §3 의 이벤트 26개를 같은 이름·같은 매개변수로 보낸다. 구현은 `apps/web/src/analytics/`, 호출 위치와 켜는 조건은 [웹앱 계획 §12](../web-app.md) 에 있다. 측정 ID 가 비어 있으면 아무것도 보내지 않으며(`VITE_GA_MEASUREMENT_ID`), 웹의 이용 통계 설정이 꺼져 있어도 보내지 않는다. 웹 데이터 스트림은 아직 만들지 않았다.

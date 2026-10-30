@@ -258,3 +258,71 @@ R1(스플래시), R5(로그인 시트), R6(닉네임 바꾸기), R7(AI 동의), 
 ### 아직 비교하지 못한 것
 
 위 13화면은 iOS 쪽 스크린샷이 없어 유사도를 매기지 못했다(§4 의 「비교 안 함」 유지).
+
+## 12. GA4 이벤트 (웹)
+
+iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 GA4 로 보낸다. 정본은 `docs/project/plans/analytics-events.md` 이고, 웹 코드는 `apps/web/src/analytics/` 에 있다.
+
+- `events.ts` — 이벤트 빌더 26개(`appEvent.*`). 이름·매개변수 키는 `AppEvent.swift`·`AppEvent.kt` 와 글자까지 같고 단위 시험(`analytics.test.ts`)이 표로 지킨다.
+- `ga4.ts` — 전송 계층. 공식 `gtag.js` 를 `https://www.googletagmanager.com/gtag/js?id=<ID>` 로 동적으로 넣는다(npm 의존성 없음, `index.html` 은 그대로).
+- `index.ts` — 화면 코드가 쓰는 입구 `track(appEvent.xxx(...))`. 던지지 않는다.
+
+### 켜는 조건과 끄는 조건
+
+| 조건 | 동작 |
+| --- | --- |
+| `VITE_GA_MEASUREMENT_ID` 가 비었다(기본) | **완전한 no-op** — 스크립트 주입도 요청도 없다 |
+| 이용 통계가 꺼져 있다(`scenetrip.analytics.collectionEnabled`, 마이페이지 설정) | 보내지 않는다. 모듈 로드 때 한 번이 아니라 **`track` 때마다** 확인하므로 껐다 켜도 따른다. 켜지기 전에는 스크립트도 넣지 않는다 |
+| 이미 불러온 뒤 껐다 | `window['ga-disable-<ID>']` 도 걸어 gtag 쪽에서도 멈춘다 |
+| 개발 모드(`DEV`)이고 ID 가 있다 | `console.debug('[ga4]', 이름, 매개변수)` 로 보인다. 프로덕션 번들에는 로그가 없다 |
+
+- 자동 `page_view` 는 끈다(`send_page_view: false`). 화면은 `screen_view` 를 직접 보낸다.
+- 보내지 않는 것: 이름·이메일·좌표·글 본문·검색어 원문·사진 주소·닉네임. `search` 는 `term_length`·`kind` 뿐이다.
+- 인기도 집계(`features/search/usage.ts`, `POST /events`)와 별개다. 두 기록은 합치지 않았고 `usage.ts` 도 건드리지 않았다.
+- 사용자 속성(`app_language`·`account`)은 웹에서 아직 보내지 않는다(26개 이벤트 밖).
+
+### 이벤트별 웹 호출 위치
+
+파일은 `apps/web/src/` 기준. iOS 와 **같은 사용자 동작**에서 나가도록 iOS 호출 자리를 따랐다.
+
+| 이벤트 | 웹 호출 위치 | 시점 |
+| --- | --- | --- |
+| `select_language` | `features/onboarding/LanguagePickView.tsx`, `features/profile/ProfileSettings.tsx` | 언어를 골랐다(첫 실행·마이페이지) |
+| `tutorial_begin` | `features/onboarding/OnboardingView.tsx` | 사용법이 떴다 |
+| `tutorial_complete` | `features/onboarding/OnboardingView.tsx` | 끝냈다(건너뛰기 포함, 한 번만) |
+| `sign_up` · `login` | `features/profile/auth/account.ts` `completeSignIn` | 서버가 인증을 끝냈다. `isNewUser` 로 가르고 `method` 는 `google`·`apple` |
+| `logout` | `features/profile/auth/account.ts` `signOut` | 누른 즉시(iOS 와 같다) |
+| `delete_account` | `features/profile/auth/account.ts` `deleteAccount` | 서버가 지운 뒤 |
+| `set_nickname` | `features/profile/auth/account.ts` `setNickname`·`skipNickname` | 서버가 받았다 / 건너뛰었다 |
+| `screen_view` | `app/RootTabs.tsx` | 탭·덮개가 바뀔 때. 이름은 `search`·`home`·`community`·`courses`·`profile`, 덮개가 이긴다 |
+| `search` | `features/search/useSearchTab.ts` `commit` | 검색을 확정했다(빈 검색어 제외). `kind` 는 고른 갈래, 모르면 `typed` |
+| `view_title` | `features/search/ui/ContentDetail.tsx` | 작품 상세를 열었다 |
+| `view_place` | `features/search/ui/PlaceDetail.tsx`, `features/route/poi/PlaceCard.tsx`(촬영지·연결된 편의시설), `features/route/editor/StopCard.tsx` | 장소 상세·정보 카드를 열었다 |
+| `view_poi` | `features/route/poi/PlaceCard.tsx` | 촬영지와 연결되지 않은 편의시설 카드를 열었다 |
+| `view_reviews` | `features/reviews/ReviewsSheet.tsx` | 리뷰 시트가 열렸다 |
+| `write_review` | `features/reviews/ReviewCompose.tsx` `finishSaved` | 서버가 저장했다(응답을 잃고 저장된 경우 포함). `edited` 는 열 때 내 리뷰가 있었는가 |
+| `delete_review` | `features/reviews/ReviewCompose.tsx` `remove` | 서버가 지웠다 |
+| `view_photos` | `features/reviews/PhotoViewers.tsx` `GalleryViewer` | 사진첩이 크게 열렸다. `entry` 는 `detail`·`reviews`·`card`(`PhotoSections.tsx`, `route/editor/tripExtensions.tsx` 가 정한다). 리뷰 행 사진(`PhotoViewer` 직접)은 제외 |
+| `like_title` | `state/likes.ts` `toggle` | 하트를 눌렀다(iOS 처럼 서버 응답 전) |
+| `save_place` | `state/cart.ts` `add` | 서버가 담았다(이미 담긴 409 는 제외) |
+| `generate_plan` | `features/route/store.ts` `guideDraft` | `/guide/plan` 이 초안을 돌려줬다 |
+| `create_course` | `features/route/store.ts` `save` | 코스를 **새로** 만들어 저장했다(고쳐 저장 제외). `course_origin` 은 `ai`·`self` |
+| `start_trip` | `features/route/nav/tripSession.ts` `start` | 한 장소로 안내를 시작했다(촬영지 id 가 있을 때) |
+| `get_directions` | `features/route/nav/tripSession.ts` `load` | 길찾기 요청을 실제로 보내기 직전(한도·동의 문을 지난 뒤) |
+| `visit_stamp` | `features/route/nav/tripSession.ts` `arriveNow` | 도착해 도장이 찍혔다(촬영지 id 가 있을 때) |
+| `ask_guide` | `features/route/guide/guideSession.ts` 기본 env `asked` | 사람이 질문을 보냈다(다시 시도는 제외) |
+| `post_review` | `features/community/ComposeView.tsx` `finish` | 서버가 후기를 받았다 |
+
+### 웹 대응 없음 · 어긋나는 점
+
+- 26개 모두 웹에 대응 기능이 있다. 다만 `start_trip`·`get_directions`·`visit_stamp` 는 개발 환경에서 `VITE_BLOCK_PATHS=/navigation` 으로 막으므로 실제 전송은 배포 환경에서만 나온다.
+- `course_origin=review`(후기에서 담음)는 iOS·Android 도 호출하는 곳이 없어 웹도 보내지 않는다. 커뮤니티 「내 코스로 담기」(`PostView.tsx`)는 `create_course` 를 보내지 않는다.
+- `start_trip`·`visit_stamp` 의 `place_id` 는 촬영지 id 만 보낸다. 편의시설·개인 핀 목적지는 id 가 없어 보내지 않는다(iOS 는 `place.id` 를 그대로 보낸다).
+- `like_title` 은 iOS 처럼 서버 응답 전에 나간다. 서버가 거절해 되돌려도 취소 이벤트는 없다.
+
+### 남은 일
+
+1. Firebase 콘솔(프로젝트 `scenetrip-5bf07`)에서 **웹 데이터 스트림**을 만들고 측정 ID(`G-…`)를 받는다.
+2. 그 값을 **배포 환경의 `VITE_GA_MEASUREMENT_ID`** 에 넣는다(코드·`.env.local` 에는 넣지 않는다).
+3. 개인정보 처리방침에 웹 분석 수집을 적는다(iOS·Android 와 같은 항목).
+4. 배포 후 GA4 DebugView 로 26개 중 실제로 눌러 볼 수 있는 것을 확인한다.
