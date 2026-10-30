@@ -113,7 +113,7 @@ export function SignInSheet() {
             <LegalNotice />
           </div>
 
-          <Pressable plain disabled={busy} onClick={accountActions.closeSignIn} style={{ margin: '14px 0 18px' }}>
+          <Pressable plain disabled={busy} onClick={accountActions.closeSignIn} style={{ margin: '12px 0 20px' }}>
             <Txt size={15} color="secondary">{tr('나중에 할게요')}</Txt>
           </Pressable>
         </VStack>

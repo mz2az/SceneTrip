@@ -172,11 +172,11 @@ function EmptyState({ onAI, onManual }: { onAI: () => void; onManual: () => void
         <Txt size={15} color="secondary" align="center">{tr('보고 싶은 작품과 기간만 고르면,\n촬영지를 이어서 일차별 일정으로 짜 드립니다')}</Txt>
       </VStack>
       <VStack spacing={10} style={{ padding: '22px 20px 0', width: '100%' }}>
-        <LargeButton variant="prominent" onClick={onAI}>
+        <LargeButton variant="prominent" textDy={2} onClick={onAI}>
           <Icon name="sparkles" size={17} color="#fff" />
           {tr('AI 로 여정 짜기')}
         </LargeButton>
-        <LargeButton variant="bordered" onClick={onManual}>{tr('직접 짜기')}</LargeButton>
+        <LargeButton variant="bordered" textDy={1.67} onClick={onManual}>{tr('직접 짜기')}</LargeButton>
       </VStack>
     </VStack>
   )

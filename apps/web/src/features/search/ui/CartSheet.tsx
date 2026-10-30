@@ -65,7 +65,7 @@ export function CartSheet({ open, onClose }: { open: boolean; onClose: () => voi
         <VStack spacing={6} align="center" justify="center" style={{ flex: 1, paddingBottom: 59 }}>
           <Icon name="bag" size={54} weight="regular" color="secondary" style={{ marginBottom: 8 }} />
           <Txt size={FONT.title2} weight="bold">{tr('담은 장소가 없습니다')}</Txt>
-          <Txt size={FONT.subheadline} color="secondary">{tr('장소를 저장하면 여기에 모입니다')}</Txt>
+          <Txt size={FONT.subheadline} color="secondary" style={{ marginTop: -3.33 }}>{tr('장소를 저장하면 여기에 모입니다')}</Txt>
         </VStack>
       ) : (
         <div className="scroll-y" style={{ flex: 1, minHeight: 0 }}>

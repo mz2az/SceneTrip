@@ -5,7 +5,7 @@ import { Pressable } from './Press'
  * `.buttonStyle(.borderedProminent)` / `.bordered` + `.controlSize(.large)` — iOS 26 의 캡슐 단추.
  * 크게는 높이 50, 보통은 높이 34. 채운 단추는 강조색 바탕에 흰 글자, 테두리 단추는 옅은 회색 바탕에 강조색 글자.
  */
-export function LargeButton({ variant, onClick, disabled, children, size = 'large', weight, style, label, fontSize = 17, height }: {
+export function LargeButton({ variant, onClick, disabled, children, size = 'large', weight, style, label, fontSize = 17, height, textDy }: {
   variant: 'prominent' | 'bordered'
   onClick?: () => void
   disabled?: boolean
@@ -17,6 +17,8 @@ export function LargeButton({ variant, onClick, disabled, children, size = 'larg
   fontSize?: number
   /** 높이 덮어쓰기(px). */
   height?: number
+  /** 글자만 세로로 옮긴다(px, 아래가 +). 단추 상자는 그대로. */
+  textDy?: number
 }) {
   const prominent = variant === 'prominent'
   return (
@@ -36,6 +38,7 @@ export function LargeButton({ variant, onClick, disabled, children, size = 'larg
           display: 'inline-flex', alignItems: 'center', gap: 6, fontSize, whiteSpace: 'nowrap',
           fontWeight: { regular: 400, medium: 500, semibold: 600 }[weight ?? (prominent ? 'semibold' : 'medium')],
           color: prominent ? '#fff' : 'var(--accent)',
+          ...(textDy ? { transform: `translateY(${textDy}px)` } : null),
         }}
       >
         {children}

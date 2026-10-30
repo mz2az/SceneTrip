@@ -96,7 +96,7 @@
   flex-direction: column;
   overflow: hidden;
   border-radius: 40px 40px 52px 52px;
-  background: rgba(244, 244, 246, 0.86);
+  background: rgba(242, 242, 242, 0.86);
   -webkit-backdrop-filter: blur(30px) saturate(1.6);
   backdrop-filter: blur(30px) saturate(1.6);
   box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset, 0 8px 40px rgba(0, 0, 0, 0.14);

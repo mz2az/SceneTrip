@@ -33,7 +33,7 @@ export function WorkRow({ content, onLike, liked = false }: { content: ContentSu
         {/* 방송사·연도·장르가 비어도 SwiftUI 의 빈 Text 는 한 줄 높이를 차지한다(독립 감사 N-08) */}
         <Txt size={FONT.caption} color="secondary" style={{ minHeight: FONT.caption * 1.193 }}>{contentMeta(content)}</Txt>
         {notice && <UnavailableNotice kind={notice} />}
-        <Txt size={FONT.caption2} color="secondary" style={{ padding: '2px 6px', borderRadius: 999, background: 'var(--system-gray6)' }}>
+        <Txt size={FONT.caption2} color="secondary" style={{ padding: '0.5px 6px 3.5px', borderRadius: 999, background: 'var(--system-gray6)' }}>
           {trCount('촬영지 %lld', content.placeCount)}
         </Txt>
       </VStack>
