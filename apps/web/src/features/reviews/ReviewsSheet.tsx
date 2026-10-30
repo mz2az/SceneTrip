@@ -47,7 +47,7 @@ export function ReviewsSheet(props: {
 }) {
   const mounted = useMountedWhile(props.open)
   return (
-    <Sheet open={props.open} onClose={props.onClose} label={tr('리뷰')}>
+    <Sheet open={props.open} onClose={props.onClose} dim={0.2} label={tr('리뷰')}>
       {mounted && <ReviewsBody {...props} />}
     </Sheet>
   )

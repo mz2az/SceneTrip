@@ -49,7 +49,7 @@ export function CartSheet({ open, onClose }: { open: boolean; onClose: () => voi
   const empty = cart.items.length === 0
   const title = empty ? tr('장바구니') : trCount('장바구니 %d곳', cart.items.length)
   return (
-    <Sheet open={open} onClose={onClose} label={title}>
+    <Sheet open={open} onClose={onClose} dim={0.2} label={title}>
       {/* 인라인 제목과 오른쪽 「닫기」(확인 위치) */}
       <div style={{ position: 'relative', flex: 'none', height: 76, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Txt size={FONT.headline} weight="semibold">{title}</Txt>
