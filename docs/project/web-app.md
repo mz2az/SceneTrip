@@ -164,9 +164,9 @@ iOS 스크린샷(`/private/tmp/claude-501/e2e/data-filled/ios-*.png`, `…/audit
 
 ## 7. 출시에 필요한 결정 (사용자)
 
-1. **호스팅** — 정적 호스팅(S3+CloudFront 등)과 `/v1` 역프록시(같은 출처, CORS 회피)를 한 곳에서.
+1. **호스팅** — **결정됨(2026-10-31): Cloudflare Pages(정적 SPA).** 정적 Pages 는 외부 `/v1` 역프록시를 못 하므로 서버 CORS 또는 Pages Function 이 필요하다. 실행 순서·요청서: [`plans/web-release.md`](plans/web-release.md).
 2. **도메인** — `scenetrip.io` DNS(예: `app.scenetrip.io`). 개인정보 `https://scenetrip.io/privacy` 는 한국어 초안만, `terms` 는 404(iOS README 기준) — 게시가 선행.
-3. **지도 SDK** — 네이버/카카오/구글 웹 키. 네이버는 웹 서비스 URL 등록이 필요. OSM 타일은 상용 서비스에 쓰지 않는다.
+3. **지도 SDK** — **결정됨(2026-10-31): 네이버 웹 SDK.**(원문: 네이버/카카오/구글 웹 키.) 네이버는 웹 서비스 URL 등록이 필요. OSM 타일은 상용 서비스에 쓰지 않는다.
 4. **개인정보·약관 페이지** — 웹 전용 쿠키/저장소 고지.
 5. **CORS** — 아래. **사진 올리기도 같다**: 후기·커뮤니티 사진은 서명된 주소로 저장소(S3)에 브라우저가 직접 `PUT` 한다(`shared/photoUpload.ts`) — 버킷 CORS 가 이 웹 출처의 `PUT` 과 `Content-Type`·서명 헤더를 허용해야 한다. 서버(`POST /uploads`)가 서명을 줘도 버킷이 막으면 사진은 올라가지 않는다. 이번 작업에서는 쓰기를 DEV 로 보내지 않아 실제로 확인하지 못했다.
 6. **소셜 로그인 웹 클라이언트 ID** (Apple/Google).
@@ -204,9 +204,9 @@ OPTIONS 같은 경로 (Access-Control-Request-Method: GET, …-Headers: accept-l
 
 - 폴더 이름: **결정됨** — `apps/scenetrip-web` (2026-10-31).
 - 위 §7 의 항목들, §8 의 Bazel 연결 승인.
-- 지도 SDK/키(§7-3·8) — 정하면 `RouteMap`·`LeafletMap`·`NavMap` 세 곳의 타일 부분만 바꾸면 된다.
+- 지도 SDK/키(§7-3·8) — **SDK 는 네이버로 결정됨(2026-10-31)**, 키 발급이 남음. 정하면 `RouteMap`·`LeafletMap`·`NavMap` 세 곳의 타일 부분만 바꾸면 된다.
 - 사진 올리기 버킷 CORS(§7-5), 서버 CORS 허용 또는 같은 출처 역프록시(§7).
-- 호스팅·도메인(§7-1·2), 소셜 로그인 웹 클라이언트 ID(§7-6) — 없으면 로그인 시트의 두 단추는 「준비 중」.
+- 호스팅 **결정됨**(Cloudflare Pages), 도메인(§7-2) 남음 — 출시 체크리스트는 [`plans/web-release.md`](plans/web-release.md). 소셜 로그인 웹 클라이언트 ID(§7-6) — 없으면 로그인 시트의 두 단추는 「준비 중」.
 - **이번에 하지 않은 것(승인이 필요하거나 금지라서)**: 로그인·계정·쓰기(코스 만들기·시작·방문 기록·글·후기·사진)와 유료 호출(`/guide/chat`·`/guide/plan`·`/navigation/*`)의 **실제 실행**. 로직은 가짜 서버 시험으로 확인했고, 실제 실행 확인은 허락을 받은 뒤 한 번 돌려야 한다 — 특히 코스 시작→길찾기→도착→방문 기록, 가이드 질문→코스 갈아 끼우기, 사진 올리기.
 
 ## 10. 실행과 확인
