@@ -217,17 +217,24 @@ export function ScenePhotoViewer({ open, onClose, scene, placeName }: { open: bo
 
 /** iOS 실측: 떠 있는 판이 y 415 에서 866(화면 아래 8pt 위)까지 — 높이 451, 위 모서리 약 38. */
 const SCENE_POPUP_HEIGHT = 451
+const PHOTO_HEIGHT = 200
+/**
+ * iOS `ScenePopup` 은 사진이 없어도 빈 사진 영역을 남긴다(`SceneImage(...).frame(height: 200)`). 소스는 200 이지만 실측(8차 감사 SP1)에서는
+ * 본문이 판 위 가장자리 아래 약 221pt 에서 시작한다 — 18 + 200 + 14 = 232 가 아니라 그보다 9.3pt 위. 그래서 빈 칸은 그만큼 줄여 본문 위치를 맞춘다.
+ */
+const EMPTY_PHOTO_HEIGHT = 190.7
 
 /** 두 줄로 잘린 장면 설명의 전문. 실제 사진이 있으면 여기서도 확대할 수 있다. */
 export function ScenePopup({ open, onClose, scene, placeName, onPhoto }: { open: boolean; onClose: () => void; scene: SceneItem; placeName: string; onPhoto: () => void }) {
   const photos = scenePhotos(scene)
   const first = photos[0]
   return (
-    <Sheet open={open} onClose={onClose} floating detent={SCENE_POPUP_HEIGHT} radius={38} label={scene.contentTitle}>
+    <Sheet open={open} onClose={onClose} floating dim={0.2} detent={SCENE_POPUP_HEIGHT} radius={38} label={scene.contentTitle}>
       <div className="scroll-y" style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <VStack spacing={14} align="start" pad={18}>
+          {!first && <div aria-hidden style={{ width: '100%', height: EMPTY_PHOTO_HEIGHT, flex: 'none' }} />}
           {first && (
-            <Pressable plain onClick={onPhoto} aria-label={tr('%@ 장면 사진 크게 보기', scene.contentTitle)} style={{ position: 'relative', width: '100%', height: 200, background: 'var(--system-background)', ...rr(12), overflow: 'hidden' }}>
+            <Pressable plain onClick={onPhoto} aria-label={tr('%@ 장면 사진 크게 보기', scene.contentTitle)} style={{ position: 'relative', width: '100%', height: PHOTO_HEIGHT, background: 'var(--system-background)', ...rr(12), overflow: 'hidden' }}>
               <img src={first.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               {photos.length > 1 && (
                 <Txt size={FONT.caption2} weight="bold" color="white" style={{ position: 'absolute', left: 6, bottom: 6, padding: 6, borderRadius: 999, background: 'rgba(0,0,0,0.65)' }}>
@@ -241,7 +248,7 @@ export function ScenePopup({ open, onClose, scene, placeName, onPhoto }: { open:
           {scene.sceneDescription && <Txt size={FONT.subheadline}>{scene.sceneDescription}</Txt>}
         </VStack>
       </div>
-      <Pressable plain onClick={onClose} aria-label={tr('닫기')} style={{ position: 'absolute', top: 18, right: 18, width: 44, height: 44, display: 'grid', placeItems: 'center', margin: -8 }}>
+      <Pressable plain onClick={onClose} aria-label={tr('닫기')} style={{ position: 'absolute', top: 16.3, right: 16.5, width: 44, height: 44, display: 'grid', placeItems: 'center' }}>
         <span style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'grid', placeItems: 'center' }}>
           <Icon name="xmark" size={12} weight="bold" color="white" />
         </span>
