@@ -449,9 +449,10 @@ private fun RouteWizardViewBody(
                     modifier =
                         Modifier
                             .clip(CircleShape)
-                            .background(IOS.tertiaryFill)
+                            // 8차 N2: iOS `.bordered` 는 53.3×34.0, 색 #e9e9eb (알파 0.16 — tertiaryFill 0.12 는 #eeeef0 라 옅었다).
+                            .background(Color(0x29767680))
                             .clickable(enabled = !planning) { stepIndex -= 1 }
-                            .padding(horizontal = 14.dp, vertical = 7.dp),
+                            .padding(horizontal = 11.5.dp, vertical = 5.dp),
                 )
             }
             Row(

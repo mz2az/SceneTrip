@@ -213,7 +213,7 @@ private fun LikesCard(
         Row(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.iosLineBox(23.9.dp),
+            modifier = Modifier.iosLineBox(26.1.dp), // 8차 N10: 찜 카드 iOS 78.0 (75.8 이었다)
         ) {
             Text("$likeCount", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = IOS.systemRed, modifier = Modifier.sfLine(22f))
             Text(tr("편"), fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(12f))

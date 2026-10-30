@@ -51,6 +51,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.mz2az.scenetrip.analytics.AppAnalytics
@@ -69,6 +70,7 @@ import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.TextAlignLeftIcon
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
+import com.mz2az.scenetrip.ui.iosLineBox
 import com.mz2az.scenetrip.ui.sfLine
 
 /**
@@ -176,7 +178,8 @@ fun ContentDetailView(
                                     Text(summary.meta, style = IOS.subheadline, color = IOS.secondaryLabel)
                                 }
                                 if (castLine.isNotEmpty()) {
-                                    Text(castLine, style = IOS.caption, color = IOS.secondaryLabel)
+                                    // 8차 W1: iOS 줄 칸 14.3 (글꼴 제 높이 17.1 이라 출연→설명이 +2.8 벌었다).
+                                    Text(castLine, style = IOS.caption, color = IOS.secondaryLabel, modifier = Modifier.sfLine(12f))
                                 }
                             }
                         }
@@ -189,7 +192,8 @@ fun ContentDetailView(
                         detail?.description?.takeIf { it.isNotEmpty() }?.let {
                             Text(
                                 text = it,
-                                style = IOS.caption,
+                                // 8차 W1: iOS 설명 3줄 46.3 (줄 15.4) — Android 48.4.
+                                style = IOS.caption.copy(lineHeight = 15.4.sp),
                                 color = IOS.secondaryLabel,
                                 maxLines = 3,
                                 overflow = TextOverflow.Ellipsis,
@@ -199,8 +203,9 @@ fun ContentDetailView(
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        // iOS 는 이 줄과 장소 목록이 같은 `VStack(spacing: 16)` 안이다 — 줄 아래 16 (7차 감사 W2: 머리→첫 행이 9.9 짧았다).
-                        modifier = Modifier.padding(start = IOS.gutter, end = IOS.gutter, bottom = 16.dp),
+                        // iOS 는 이 줄과 장소 목록이 같은 `VStack(spacing: 16)` 안이다 (7차 감사 W2: 머리→첫 행이 9.9 짧았다 → 16 으로 늘렸더니
+                        // 8차에 +3.2 넘쳤다 — 줄 칸이 iOS 보다 3.2 커서 줄 아래는 12.8).
+                        modifier = Modifier.padding(start = IOS.gutter, end = IOS.gutter, bottom = 12.8.dp),
                     ) {
                         Text(tr("촬영지"), style = IOS.headline, color = IOS.label, modifier = Modifier.sfLine(17f))
                         // `.lastTextBaseline` — 작은 글은 큰 글 아래보다 1.2 위에 앉는다.
@@ -362,7 +367,9 @@ fun PlaceDetailView(
                                         .padding(horizontal = IOS.gutter)
                                         .clip(CircleShape)
                                         .background(IOS.systemGray6)
-                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        // 8차 N7: iOS 칩 높이 22.3 = 글 칸 14.3 + 8 (글꼴 제 높이는 17.6 이라 25.6 이었다).
+                                        .iosLineBox(14.3.dp),
                             )
                         }
                     com.mz2az.scenetrip.reviews.RatingLine(detail?.rating, onClick = {
@@ -442,7 +449,8 @@ fun PlaceDetailView(
                                         .clip(RoundedCornerShape(IOS.capsuleButton))
                                         .background(IOS.systemGray6)
                                         .clickable { openUrl(context, naver) }
-                                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                                        // 8차 PD3: iOS 네이버 단추 129.3 (Android 121.3) — 안쪽 가로 여백 +4.
+                                        .padding(horizontal = 18.dp, vertical = 7.dp),
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,

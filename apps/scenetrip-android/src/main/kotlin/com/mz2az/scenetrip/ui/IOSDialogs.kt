@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -78,7 +80,14 @@ fun IOSAlert(
         FullScreenDialogWindow()
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = IOS.DIM)).padding(horizontal = 16.dp),
+            // 8차 DC1: iOS 알림은 안전 영역의 가운데에 선다(화면 정중앙보다 14.3 아래) — 딤은 화면 전체, 카드 자리는 상태줄·내비바를 뺀 칸.
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = IOS.DIM))
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp),
         ) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(19.dp),
@@ -314,7 +323,8 @@ private fun PopoverCard(
                 Modifier.fillMaxWidth().padding(
                     start = if (centered) 0.dp else 14.dp,
                     end = if (centered) 0.dp else 9.dp,
-                    bottom = 10.dp,
+                    // 8차 L1: 본문 없는 가운데 제목(언어)은 제목→첫 단추가 2.0, 전체 높이가 3.3 짧았다 (iOS 180 / 53.3).
+                    bottom = if (centered) 11.2.dp else 10.dp,
                 ),
         ) {
             // 제목은 17 검정, 본문은 15 회색(2026-10-29 감사 실측). 본문이 있으면 둘 다 왼쪽 정렬이다 — 「」 괄호는 Noto 가

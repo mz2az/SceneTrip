@@ -10,19 +10,26 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
@@ -49,12 +56,18 @@ fun IOSPullToRefreshBox(
 
     // 내용이 내려간 정도(0..1.3, 1 = 머무는 자리).
     fun shift(): Float = maxOf(state.distanceFraction.coerceIn(0f, 1.3f), held)
+    // 8차 PR1: 홈처럼 상태줄 밑까지 깔린 화면에서는 활동 표시가 상태줄 안(y 36dp)에 떴다 — iOS 는 안전 영역 윗변에서 30 아래.
+    // 상자 윗변이 상태줄보다 위면 그만큼 내려 그린다.
+    val statusTopPx = WindowInsets.statusBars.getTop(LocalDensity.current).toFloat()
+    var boxTopPx by remember { mutableFloatStateOf(statusTopPx) }
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
         state = state,
-        modifier = modifier,
-        indicator = { IOSRefreshSpinner(state, isRefreshing, holdPx, shift = { shift() }) },
+        modifier = modifier.onGloballyPositioned { boxTopPx = it.positionInWindow().y },
+        indicator = {
+            IOSRefreshSpinner(state, isRefreshing, holdPx, shift = { shift() }, extraTop = { (statusTopPx - boxTopPx).coerceAtLeast(0f) })
+        },
     ) {
         Box(modifier = Modifier.graphicsLayer { translationY = shift() * holdPx }, content = content)
     }
@@ -69,6 +82,7 @@ private fun BoxScope.IOSRefreshSpinner(
     refreshing: Boolean,
     holdPx: Float,
     shift: () -> Float,
+    extraTop: () -> Float,
 ) {
     val turn =
         rememberInfiniteTransition(label = "spin")
@@ -83,7 +97,7 @@ private fun BoxScope.IOSRefreshSpinner(
             .align(Alignment.TopCenter)
             .size(20.dp)
             .graphicsLayer {
-                translationY = shift() * holdPx / 2f - size.height / 2f
+                translationY = shift() * holdPx / 2f - size.height / 2f + extraTop()
                 alpha = if (refreshing) 1f else state.distanceFraction.coerceIn(0f, 1f)
             },
     ) {

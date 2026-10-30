@@ -117,7 +117,8 @@ fun StarRow(
 ) {
     val spoken = tr("별점 %s점").format(ReviewRules.starValue(value))
     Row(modifier.clearAndSetSemantics { contentDescription = spoken }, horizontalArrangement = Arrangement.spacedBy(1.5.dp)) {
-        ReviewRules.stars(value).forEach { StarGlyph(it, size) }
+        // 8차 RV2: iOS SF 별은 글꼴 크기보다 넓다 — 별 다섯 폭 iOS 74.7 · Android 60.2. 칸을 1.16 배로 키운다.
+        ReviewRules.stars(value).forEach { StarGlyph(it, size * 1.16f) }
     }
 }
 

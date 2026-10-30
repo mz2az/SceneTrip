@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -24,10 +25,12 @@ import androidx.compose.ui.unit.sp
 fun IOSEmptyState(
     title: String,
     description: String,
+    /** 묶음의 세로 위치. 기본 −42 는 검색 장바구니 기준, 마이페이지 시트는 시트 가운데 +6.5 라 더 아래다(8차 N4). */
+    yOffset: Dp = (-42).dp,
     icon: @Composable (Modifier) -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().offset(y = (-42).dp).padding(horizontal = 32.dp),
+        modifier = Modifier.fillMaxSize().offset(y = yOffset).padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
