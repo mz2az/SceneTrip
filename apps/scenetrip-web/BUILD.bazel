@@ -132,6 +132,15 @@ js_library(
             "public/generated/**",
         ],
     ),
+    # 손으로 쓴 .d.ts(예: src/map/naver.d.ts)는 js_library 가 srcs 의 "types" 로만 분류해, 시험·검사의 data 로는
+    # 따라오지 않는다. data 로도 한 번 더 실어야 tsc 가 찾는다.
+    data = glob(
+        ["src/**/*.d.ts"],
+        exclude = [
+            API_SCHEMA,
+            "src/api/generated/**",
+        ],
+    ),
     deps = [":config"],
 )
 
