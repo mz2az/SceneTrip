@@ -1,15 +1,15 @@
 /*
- * 코스 지도(`L.Map`)에 가이드·편의시설·여행 안내 층을 붙이는 훅.
+ * 코스 지도(`MapHandle`)에 가이드·편의시설·여행 안내 층을 붙이는 훅.
  *
- *   const [map, setMap] = useState<L.Map | null>(null)
+ *   const [map, setMap] = useState<MapHandle | null>(null)
  *   <RouteMap … onReady={setMap} />                       // 경로여정 담당의 편집 지도 — 같은 층이 그 위에 얹힌다
  *   useMapOverlay(map, { ambient, guidePlaces, picked, legs, here, target, preview }, { onSelectPlace })
  */
-import type L from 'leaflet'
+import type { MapHandle } from '@/map'
 import { useEffect, useRef } from 'react'
 import { type MapOverlay, type OverlayHandlers, type OverlayState, createMapOverlay } from './mapOverlay'
 
-export function useMapOverlay(map: L.Map | null, state: OverlayState, handlers: OverlayHandlers = {}): void {
+export function useMapOverlay(map: MapHandle | null, state: OverlayState, handlers: OverlayHandlers = {}): void {
   const overlay = useRef<MapOverlay | null>(null)
   const latestHandlers = useRef(handlers)
   latestHandlers.current = handlers

@@ -22,7 +22,7 @@ Android 를 iOS 에 맞추는 작업(`docs/project/plans/android-ios-parity.md`)
 | API 클라이언트 | `openapi-typescript` 로 계약에서 타입 생성 + `openapi-fetch` 로 호출. 생성물은 커밋하지 않는다(`npm run gen`) | 「손으로 쓴 API 클라이언트 금지」 규칙. 계약 파일은 읽기만 한다. |
 | 아이콘 | SF Symbols 이름을 `lucide-react` 와 손 그린 SVG 로 매핑(`design/Icon.tsx`) | SF Symbols 는 Apple 플랫폼 밖에서 쓸 수 없다(라이선스). 모양 차이는 S3. |
 | i18n | iOS `Localizable.strings`(en) 를 `npm run gen` 이 JSON 으로 변환, 열쇠는 한국어 원문 | iOS 와 같은 `tr("한국어 원문", …인자)` 규칙. 영어 문구를 두 벌로 관리하지 않는다. |
-| 지도 | 개발 중 Leaflet + OpenStreetMap 타일(키 불필요), 출시는 **미정**(§7) | iOS 는 네이버 지도 SDK. 웹 키가 없다. |
+| 지도 | **네이버 지도 웹 SDK**(JavaScript API v3). `VITE_NAVER_MAP_CLIENT_ID` 가 비어 있거나 SDK 가 안 뜨면 Leaflet + OpenStreetMap 으로 폴백(개발용, 상용 부적합) — §13 | iOS·Android 와 같은 네이버 지도라 타일·마커 모양이 같다. 클라이언트 ID 발급 전에는 폴백만 뜬다. |
 | PWA | `manifest.webmanifest` 만. 서비스 워커는 이번 범위 밖 | 오프라인 캐시는 가이드/코스 데이터 정책이 정해진 뒤. |
 | 테스트 | `vitest` — 순수 로직(재시도 규칙, 문구 형식, 온보딩 진행, 각 화면의 규칙) | iOS 의 규칙 파일(`*Rules.swift`)과 같은 이름의 테스트로 짝을 맞춘다. |
 
@@ -38,6 +38,7 @@ apps/scenetrip-web/
     design/       tokens.css, primitives.tsx, Icon.tsx, overlay.tsx(Sheet/Cover/Alert/ActionSheet), PinoMascot
     i18n/         tr() · trAt() · 언어 선택
     state/        storage.ts(localStorage·작은 스토어), install.ts(X-Install-Id), auth.ts, cart·likes·footprints·consent·shared(계정 초기화·페이징)
+    map/          지도 어댑터(§13) — types.ts(공통 인터페이스)·NaverMapProvider·LeafletMapProvider·naverScript(스크립트 한 번 주입)·index.ts(공급자 선택)
     shared/       photoUpload.ts — 후기·커뮤니티가 같이 쓰는 사진 줄이기·올리기(서명 주소 PUT)
     features/     onboarding · home · search · community · profile · route · reviews · moderation
                   route/editor/tripExtensions.tsx 가 편집 화면에 여행 안내·가이드 챗봇·주변 편의시설을 잇는다(editorExtensions 등록)
@@ -147,7 +148,7 @@ iOS 출처는 `apps/scenetrip-ios/src/` 아래 경로다. 비교한 기준은 `/
 | --- | --- | --- |
 | 푸시 알림 | Web Push 는 PWA 설치 뒤에만, 서버 발송 경로 없음 | 이번 범위 밖(iOS 도 푸시 없음 확인 필요) |
 | 위치 동의 시트(CoreLocation) | 브라우저 Geolocation 권한 창이 대신 | 앱 쪽 안내 시트는 그대로 두고, 승인 뒤 `navigator.geolocation` 호출 |
-| 네이버 지도 네이티브 SDK | 웹 SDK 는 별도 키·도메인 등록 | §7 |
+| 네이버 지도 네이티브 SDK | 웹 SDK(JavaScript API v3)는 별도 클라이언트 ID·서비스 URL 등록 | §13 |
 | Apple/Google 로그인 | 웹용 OAuth 클라이언트 ID·리다이렉트 등록이 필요 | 화면과 흐름은 구현, 키가 없으면 「준비 중」 |
 | 앱 내 결제·스토어 정책(ATT 등) | 해당 없음 | ATT/광고 추적 항목은 웹에서 숨김 |
 | 토큰 보관(Keychain) | localStorage — XSS 위험이 더 크다 | HttpOnly 쿠키 세션 지원 여부는 서버 결정 사항 |
@@ -166,12 +167,12 @@ iOS 스크린샷(`/private/tmp/claude-501/e2e/data-filled/ios-*.png`, `…/audit
 
 1. **호스팅** — **결정됨(2026-10-31): Cloudflare Pages(정적 SPA).** 정적 Pages 는 외부 `/v1` 역프록시를 못 하므로 서버 CORS 또는 Pages Function 이 필요하다. 실행 순서·요청서: [`plans/web-release.md`](plans/web-release.md).
 2. **도메인** — `scenetrip.io` DNS(예: `app.scenetrip.io`). 개인정보 `https://scenetrip.io/privacy` 는 한국어 초안만, `terms` 는 404(iOS README 기준) — 게시가 선행.
-3. **지도 SDK** — **결정됨(2026-10-31): 네이버 웹 SDK.**(원문: 네이버/카카오/구글 웹 키.) 네이버는 웹 서비스 URL 등록이 필요. OSM 타일은 상용 서비스에 쓰지 않는다.
+3. **지도 SDK** — **네이버 지도 웹 SDK 로 확정**(2026-10-31). 클라이언트 ID 발급과 서비스 URL 등록은 사용자가 한다 — §13. OSM 타일은 상용 서비스에 쓰지 않는다.
 4. **개인정보·약관 페이지** — 웹 전용 쿠키/저장소 고지.
 5. **CORS** — 아래. **사진 올리기도 같다**: 후기·커뮤니티 사진은 서명된 주소로 저장소(S3)에 브라우저가 직접 `PUT` 한다(`shared/photoUpload.ts`) — 버킷 CORS 가 이 웹 출처의 `PUT` 과 `Content-Type`·서명 헤더를 허용해야 한다. 서버(`POST /uploads`)가 서명을 줘도 버킷이 막으면 사진은 올라가지 않는다. 이번 작업에서는 쓰기를 DEV 로 보내지 않아 실제로 확인하지 못했다.
 6. **소셜 로그인 웹 클라이언트 ID** (Apple/Google).
 7. **토큰 보관 방식** — localStorage vs HttpOnly 쿠키.
-8. **지도 키** — 지도는 개발용 OSM 타일(Leaflet)이다. 지도가 보이는 화면의 유사도를 깎는 유일한 큰 차이(−10)이고, 출시 전에 네이버/카카오/구글 웹 키로 바꿔야 한다. 길찾기 경로는 서버가 카카오로 계산해 주므로 지도 SDK 와는 별개다.
+8. **지도 키** — 네이버 지도 웹 SDK 어댑터는 구현돼 있으나 **클라이언트 ID 가 없어 지금은 개발용 OSM 타일(Leaflet 폴백)만 뜬다**. 지도가 보이는 화면의 유사도를 깎는 유일한 큰 차이(−10)는 ID 를 넣어야 풀린다 — 해야 할 일은 §13. 길찾기 경로는 서버가 카카오로 계산해 주므로 지도 SDK 와는 별개다.
 9. **DEV 서버 호출 한도** — DEV 는 IP 당 분당 약 60 회(`ratelimit-limit: 60`)다. 화면 확인을 연달아 돌리면 429 가 나고 홈이 「불러오는 중…」 에 머문다(iOS 와 같은 재시도 규칙) — 시간을 두고 다시 열면 된다.
 
 ### CORS 증거 (2026-10-29, DEV)
@@ -211,7 +212,7 @@ OPTIONS 같은 경로 (Access-Control-Request-Method: GET, …-Headers: accept-l
 
 - 폴더 이름: **결정됨** — `apps/scenetrip-web` (2026-10-31).
 - 위 §7 의 항목들. (§8 의 Bazel 연결은 승인·완료.)
-- 지도 SDK/키(§7-3·8) — **SDK 는 네이버로 결정됨(2026-10-31)**, 키 발급이 남음. 정하면 `RouteMap`·`LeafletMap`·`NavMap` 세 곳의 타일 부분만 바꾸면 된다.
+- 지도 클라이언트 ID(§7-3·8, §13) — 네이버 클라우드에서 발급해 `VITE_NAVER_MAP_CLIENT_ID` 에 넣고 서비스 URL 을 등록한다. 넣은 뒤 실제 네이버 타일 렌더링을 확인해야 한다(아직 못 했다).
 - 사진 올리기 버킷 CORS(§7-5), 서버 CORS 허용 또는 같은 출처 역프록시(§7).
 - 호스팅 **결정됨**(Cloudflare Pages), 도메인(§7-2) 남음 — 출시 체크리스트는 [`plans/web-release.md`](plans/web-release.md). 소셜 로그인 웹 클라이언트 ID(§7-6) — 없으면 로그인 시트의 두 단추는 「준비 중」.
 - **이번에 하지 않은 것(승인이 필요하거나 금지라서)**: 로그인·계정·쓰기(코스 만들기·시작·방문 기록·글·후기·사진)와 유료 호출(`/guide/chat`·`/guide/plan`·`/navigation/*`)의 **실제 실행**. 로직은 가짜 서버 시험으로 확인했고, 실제 실행 확인은 허락을 받은 뒤 한 번 돌려야 한다 — 특히 코스 시작→길찾기→도착→방문 기록, 가이드 질문→코스 갈아 끼우기, 사진 올리기.
@@ -337,3 +338,30 @@ iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 GA
 2. 그 값을 **배포 환경의 `VITE_GA_MEASUREMENT_ID`** 에 넣는다(코드·`.env.local` 에는 넣지 않는다).
 3. 개인정보 처리방침에 웹 분석 수집을 적는다(iOS·Android 와 같은 항목).
 4. 배포 후 GA4 DebugView 로 26개 중 실제로 눌러 볼 수 있는 것을 확인한다.
+
+## 13. 지도 — 네이버 지도 웹 SDK 어댑터 (2026-10-31)
+
+웹 지도는 **네이버 지도 웹 SDK(JavaScript API v3)** 로 간다(iOS·Android 도 네이버 지도). 화면 세 곳(검색 탭 `SearchMap`, 코스 편집 `RouteMap`, 길찾기 `NavMap`)은 `src/map/` 어댑터만 부른다 — 화면의 props 는 그대로다(`onReady`/`onMapMove` 가 넘기는 지도 값만 `L.Map` 에서 어댑터의 `MapHandle` 로 바뀌었다).
+
+**구조** — `types.ts`(`MapHandle`·`MapLayer`·`MarkerSpec`·`PolylineSpec`: 중심·줌 이동, `fitBounds`, 마커·선 추가/제거, 마커 클릭, 이동·줌 이벤트, 화면 좌표→위경도), `NaverMapProvider.ts`, `LeafletMapProvider.ts`, `naverScript.ts`(스크립트 주입), `mercator.ts`(시트가 덮은 만큼 카메라를 미는 계산), `naver.d.ts`(직접 쓴 최소 타입 — npm 패키지는 쓰지 않는다), `index.ts`(`createMap`·`createMapNow`).
+
+**공급자 선택 규칙**
+1. `VITE_NAVER_MAP_CLIENT_ID` 가 비어 있다(공백 포함) → Leaflet + OSM. 스크립트를 부르지 않는다. 지도는 마운트 커밋에서 바로 선다(`createMapNow`).
+2. ID 가 있다 → `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=<ID>` 를 **한 번만** 동적으로 넣는다. 로드되면 네이버.
+3. 로드 오류·10초 초과·인증 실패(`navermap_authFailure`, 서비스 URL 미등록 등) → 자동으로 Leaflet 폴백.
+
+**확인한 사실** — 인증 파라미터 이름은 `ncpKeyId` 다(옛 `ncpClientId`·`govClientId`·`finClientId` 는 일반 콘솔로 통합되며 `ncpKeyId` 로 바뀌었고 ID 를 새로 발급해야 한다). 근거: <https://navermaps.github.io/maps.js.ncp/docs/tutorial-2-Getting-Started.html>. `fitBounds(bounds, {top,right,bottom,left,maxZoom})`·`panTo`·`morph`·`updateBy`·지도 옵션 `padding`·로고/축척/데이터 컨트롤은 <https://navermaps.github.io/maps.js.ncp/docs/naver.maps.Map.html>·`naver.maps.html`, 폴리라인 `strokeStyle` 값은 `naver.maps.Polyline.html`.
+
+**마커 모양** — 핀 SVG(`pinImage.ts`·`pinSvg.ts`: iOS `NaverMapView.swift` 의 파스텔 하늘→보라 그라데이션·흰 테두리·번호 배지)와 이름표·내 위치 파문의 HTML 은 Leaflet 때와 같은 마크업을 네이버 커스텀 아이콘(`icon.content`)으로 그대로 쓴다.
+
+**저작권·로고** — 네이버 로고·데이터 저작권 컨트롤은 끄지 않고(`logoControl`·`mapDataControl` true) 왼쪽 아래, 축척은 오른쪽 아래에 둔다. 시트가 지도 아래를 덮으므로 어댑터의 `setBottomInset(px)` 가 지도 옵션 `padding.bottom` 을 시트 높이로 올려 로고·저작권이 시트 위에 놓이게 한다(검색 탭은 `cameraInsets` 의 아래 값, 코스 편집·길찾기는 `bottomInset`). 지도 위에 얹는 검색바·버튼이 로고 자리를 덮지 않는지는 **실제 네이버 타일로 확인해야 한다**(아직 못 했다).
+
+**검증 상태** — 단위 시험은 `window.naver.maps` 가짜로 마커 생성·제거, `fitBounds` 인자, 폴리라인, 공급자 선택, 스크립트 한 번 주입을 지킨다. ID 가 없는 폴백 상태에서 e2e 스모크 13/13 이 통과하고 코스 편집기 화면이 이전과 픽셀 단위로 같다. **실제 네이버 타일 렌더링은 ID 가 없어 확인하지 못했다.** 확인하지 못한 가정: `padding` 이 `fitBounds`·화면 좌표 변환과 섞이는 방식(어댑터는 안쪽 여백 기준이라고 가정), 소수 줌 지원 여부(네이버 비-GL 지도는 정수 줌일 수 있다), 지도 `click` 이 마커 클릭 때 오지 않는다는 문서 설명대로 동작하는지, 인증 실패가 스크립트 로드 직후가 아니라 한참 뒤에 올 때(이미 만든 지도는 폴백하지 않는다).
+
+**사용자가 해야 할 일**
+1. 네이버 클라우드 플랫폼 콘솔 → AI·NAVER API → **Maps** 에서 Application 을 등록한다.
+2. 사용할 API 로 **Web Dynamic Map** 을 선택한다.
+3. **서비스 URL** 에 `http://localhost:5173`(개발)과 배포 도메인(예: `https://app.scenetrip.io`)을 등록한다. 등록하지 않으면 스크립트는 떠도 인증이 실패해 Leaflet 폴백이 뜬다.
+4. 발급된 클라이언트 ID(`ncpKeyId` 로 쓰는 값)를 **배포 환경 변수 `VITE_NAVER_MAP_CLIENT_ID`** 에 넣는다. 코드·`.env.local` 커밋 금지(로컬 확인용은 개인 `.env.local` 에만).
+5. 이용 요금·무료 한도는 콘솔의 Maps 요금 안내에서 확인한다(이 문서는 금액을 단정하지 않는다).
+6. ID 를 넣은 뒤 지도 화면(검색 탭·코스 편집·길찾기)을 열어 타일·핀·로고가 제대로 뜨는지 확인한다.

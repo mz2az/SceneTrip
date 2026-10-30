@@ -25,7 +25,7 @@ export function PoiDot({ group, symbol, picked = false, size = 16, glyph = 8 }: 
   )
 }
 
-/** Leaflet `divIcon` 의 HTML — 흰 테두리와 그림자가 지도에서 경계를 세운다. */
+/** 지도 마커 아이콘의 HTML — 흰 테두리와 그림자가 지도에서 경계를 세운다. */
 export function poiDotHtml(group: PoiGroup, symbol: string): string {
   const glyph = renderToStaticMarkup(<Icon name={symbol} size={GLYPH_BOX} weight="bold" color="#fff" />)
   const d = DOT_IMAGE - DOT_INSET * 2 + DOT_STROKE

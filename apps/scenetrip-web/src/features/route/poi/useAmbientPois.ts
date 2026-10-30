@@ -4,7 +4,7 @@
  * 카메라가 멈췄다 — 0.35초 조용하면 그 범위의 주변을 받는다. **너무 넓은 화면(줌 13 미만, 수십 km)에서는 안 부른다** — 점이 먼지처럼 흩어질 뿐이고
  * 서버도 헛돈다. 상한은 30 개(화면 가운데부터 채운다). 기기 위치에서 비롯한 지도(`source: 'device'`)는 위치 동의가 없으면 부르지 않는다.
  */
-import type L from 'leaflet'
+import type { MapHandle } from '@/map'
 import { useEffect, useRef, useState } from 'react'
 import { type PoiViewport, POI_LIMIT, fetchPois as defaultFetch, type PoiFetchResult } from './poiApi'
 import type { RoutePlace } from './poiPlace'
@@ -16,7 +16,7 @@ export const POI_QUIET_MS = 350
 
 export interface AmbientPoiOptions {
   /** 지도. 없으면 아무것도 하지 않는다. */
-  map: L.Map | null
+  map: MapHandle | null
   /** 안내 중에는 점을 다 끈다(2026-09-04 사용자 요청) — 경로선이 주인공인데 음식점·명소 점이 그 위를 덮었다. */
   enabled?: boolean
   /** 지금 지도의 중심이 기기 위치에서 왔는가. 그러면 위치 동의가 있어야 부른다. */
@@ -41,7 +41,7 @@ export interface AmbientPoiState {
  * 카메라 중심과 `coveringBounds` 가 덮이지 않은 영역의 것이다. 웹 지도는 시트 뒤까지 꽉 차 있어, 그냥 `getCenter()` 를 쓰면
  * 가운데에서 가까운 30 개가 시트 밑에 깔려 점이 안 보인다.
  */
-export function viewportOf(map: L.Map, bottomInset = 0): PoiViewport {
+export function viewportOf(map: MapHandle, bottomInset = 0): PoiViewport {
   const size = map.getSize()
   const visibleHeight = Math.max(1, size.y - Math.max(0, bottomInset))
   const nw = map.containerPointToLatLng([0, 0])
@@ -80,12 +80,12 @@ export function useAmbientPois({ map, enabled = true, source = 'userSelected', l
         })
       }, POI_QUIET_MS)
     }
-    map.on('moveend', run)
+    const off = map.on('moveend', run)
     run()
     return () => {
       ticket += 1
       if (timer) clearTimeout(timer)
-      map.off('moveend', run)
+      off()
     }
   }, [map, enabled])
 

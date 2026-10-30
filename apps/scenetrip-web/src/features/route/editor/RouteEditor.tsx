@@ -6,7 +6,7 @@
  * 지도가 주인공이다 — 지도를 화면에 다 깔고 일정은 끌어 올렸다 내렸다 하는 시트로 얹는다(2026-08-27 사용자 지적, 검색 탭과 같은 부품).
  * 여행 중 안내(길찾기·도착 스탬프)·가이드 챗봇·편의시설 카드는 editorExtensions 로 다른 담당 모듈이 잇는다.
  */
-import type L from 'leaflet'
+import type { MapHandle } from '@/map'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Icon } from '@/design/Icon'
 import { HStack, Txt, VStack } from '@/design/primitives'
@@ -71,7 +71,7 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
   const [blockedDay, setBlockedDay] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
-  const [map, setMap] = useState<L.Map | null>(null)
+  const [map, setMap] = useState<MapHandle | null>(null)
   const state = useRouteState()
   const ext = useStore(editorExtensions, (s) => s)
   const cartHint = useCartHint(course)
