@@ -7,18 +7,11 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import java.security.SecureRandom
 
 /**
@@ -57,44 +50,45 @@ object GoogleIdSignIn {
     class WindowFailed : Exception("the account chooser never appeared")
 
     /**
-     * 창을 요청하는 방식. **선언 순서가 시도 순서다.** 모든 계정을 먼저 보여 준다 — 이 앱 계정만 먼저 띄우면 계정이 하나만 보여 다른 계정을
-     * 고를 수 없다. 창이 안 뜨는 기기에서만 뒤의 방식으로 내려간다.
+     * 창을 요청하는 방식과 기다리는 시간. **선언 순서가 시도 순서다.**
+     *
+     * 시스템 창이 죽어도 우리 화면은 「가려짐」 상태로 남는다(죽은 창 기록이 맨 위에 남는다 — 2026-10-31 실측). 그래서 창이 떴는지는 알 수
+     * 없고, 방식마다 시간을 정해 넘어간다. 사람이 고르는 동안 시간이 다 되면 창이 닫히고 다음 방식이 뜨므로 넉넉히 둔다.
      */
-    private enum class Variant {
-        /** 기기의 모든 구글 계정 — 로그인이 가입을 겸한다. 계정이 많은 기기에서는 창이 안 뜰 수 있다. */
-        ALL,
+    private enum class Variant(
+        val waitMs: Long,
+    ) {
+        /** 이 앱에 로그인한 적 있는 계정만 — 시스템 창에 보내는 데이터가 가장 작아 계정이 많은 기기에서도 뜬다. 없으면 바로 넘어간다. */
+        AUTHORIZED(60_000),
 
-        /** 이 앱에 로그인한 적 있는 계정만 — 시스템 창에 보내는 데이터가 가장 작다. */
-        AUTHORIZED,
+        /** 기기의 모든 구글 계정 — 처음 로그인하는 사람의 길(로그인이 가입을 겸한다). 계정이 많은 기기에서는 창이 안 뜰 수 있다. */
+        ALL(30_000),
 
         /** 구글 로그인 버튼 방식 (`GetSignInWithGoogleOption`). */
-        BUTTON,
+        BUTTON(60_000),
     }
-
-    /** 요청한 뒤 이 시간 안에 우리 화면이 가려지지 않으면(=시스템 창이 안 뜸) 다음 방식으로 넘어간다. */
-    private const val WINDOW_MS = 10_000L
 
     /**
      * 계정 고르는 창을 띄우고 ID 토큰을 받아 온다. 사람이 닫으면 [GetCredentialCancellationException].
      *
-     * 모든 계정 → 이 앱 계정만 → 버튼 방식 순서로 시도한다. 앞의 방식이 계정이 없다고 하거나 시스템 창이 안 뜨면 다음으로 간다.
-     * 시스템 창이 뜨지 않는 기기(계정 선택 창 앱이 죽음)에서 앱이 영원히 기다리던 것을 막는다.
+     * 이 앱 계정만 → 모든 계정 → 버튼 방식 순서로 시도한다. 앞의 방식이 계정이 없다고 하거나 창이 안 뜨면 다음으로 간다. 시스템 창이 뜨지
+     * 않는 기기에서 앱이 영원히 기다리던 것을 막는다.
      */
     suspend fun signIn(activity: Activity): Result {
-        var windowFailed = false
+        var timedOut = false
         var last: GetCredentialException? = null
         for (variant in Variant.values()) {
             try {
-                return withWindow(activity) { request(activity, variant) }
+                return withTimeout(variant.waitMs) { request(activity, variant) }
             } catch (e: GetCredentialCancellationException) {
                 throw e
-            } catch (_: WindowFailed) {
-                windowFailed = true
+            } catch (_: TimeoutCancellationException) {
+                timedOut = true
             } catch (e: GetCredentialException) {
                 last = e
             }
         }
-        if (windowFailed) throw WindowFailed()
+        if (timedOut) throw WindowFailed()
         throw Unavailable(last ?: IllegalStateException("no credential"))
     }
 
@@ -136,40 +130,5 @@ object GoogleIdSignIn {
             throw Unavailable(IllegalStateException("unexpected credential type ${credential.type}"))
         }
         return Result(GoogleIdTokenCredential.createFrom(credential.data).idToken, nonce)
-    }
-
-    /**
-     * [block] 을 돌리되, [WINDOW_MS] 안에 우리 화면이 멈추지(ON_PAUSE) 않으면 — 시스템 창이 위에 안 떴다 — 중단하고 [WindowFailed].
-     * 창이 떴으면 그 뒤로는 사람이 고르는 만큼 기다린다. 계정이 없어 창 없이 바로 끝나는 경우는 그대로 돌려준다.
-     */
-    private suspend fun <T> withWindow(
-        activity: Activity,
-        block: suspend () -> T,
-    ): T {
-        val owner = activity as? LifecycleOwner ?: return block()
-        return coroutineScope {
-            val shown = CompletableDeferred<Unit>()
-            val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_PAUSE) shown.complete(Unit) }
-            owner.lifecycle.addObserver(observer)
-            var gaveUp = false
-            val call = async { block() }
-            val watchdog =
-                launch {
-                    delay(WINDOW_MS)
-                    if (!shown.isCompleted && call.isActive) {
-                        gaveUp = true
-                        call.cancel()
-                    }
-                }
-            try {
-                call.await()
-            } catch (e: CancellationException) {
-                if (gaveUp) throw WindowFailed()
-                throw e
-            } finally {
-                watchdog.cancel()
-                owner.lifecycle.removeObserver(observer)
-            }
-        }
     }
 }
