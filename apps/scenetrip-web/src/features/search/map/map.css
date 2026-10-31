@@ -1,6 +1,7 @@
 /* 검색 탭 지도 (Leaflet). 로고(출처)와 축척은 시트 바로 위에 붙는다 — NaverMapView.applyInset 의 logoMargin. */
 .st-map {
-  position: absolute;
+  /* 네이버 지도 SDK 가 컨테이너에 style="position: relative" 를 직접 붙인다. 인라인이 이 규칙을 덮으면 inset 이 풀려 높이가 0 이 되고 지도가 안 보인다(2026-10-31 운영에서 확인). !important 로 지킨다. */
+  position: absolute !important;
   inset: 0;
   /* Leaflet 의 판(pane)은 z-index 400~1000 이라, 가두지 않으면 시트·검색바 위로 올라온다. */
   isolation: isolate;

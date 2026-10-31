@@ -1,6 +1,7 @@
 /* 길찾기·편의시설용 작은 지도 (NavMap.tsx) */
 .tm-map {
-  position: absolute;
+  /* 네이버 지도 SDK 가 컨테이너에 style="position: relative" 를 직접 붙인다. 인라인이 이 규칙을 덮으면 inset 이 풀려 높이가 0 이 되고 지도가 안 보인다(2026-10-31 운영에서 확인). !important 로 지킨다. */
+  position: absolute !important;
   inset: 0;
   background: #aad3df; /* OSM 바다색 — 타일이 오기 전 */
   font-family: var(--font);
