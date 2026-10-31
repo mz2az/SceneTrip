@@ -43,7 +43,9 @@ android-bundle endpoint:
     test -n {{quote(endpoint)}} || { echo 'HTTPS /v1 API 주소가 필요합니다' >&2; exit 1; }
     alias="${ANDROID_UPLOAD_KEY_ALIAS:-upload}"
     out="${ANDROID_BUNDLE_OUT:-scenetrip-android-release.aab}"
-    {{BAZEL}} build //apps/scenetrip-android:bundle --define=scenetrip_api_base_url={{quote(endpoint)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+    # **`-c opt` 가 빠지면 번들이 디버그 가능(android:debuggable=true)으로 지어져 Play 가 올리기를 거절한다.** rules_android 는 컴파일 모드가
+    # opt 가 아니면 디버그 가능으로 만든다(2026-10-31 Play Console 「디버그 가능 Android App Bundle」 오류).
+    {{BAZEL}} build -c opt //apps/scenetrip-android:bundle --define=scenetrip_api_base_url={{quote(endpoint)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
     # Bazel 산출물은 읽기 전용이다 — 복사본에 서명한다.
     rm -f "$out"
     cp bazel-bin/apps/scenetrip-android/bundle_unsigned.aab "$out"
