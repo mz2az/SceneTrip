@@ -30,6 +30,13 @@ mobile-build-cloud platform endpoint:
 android-bundle endpoint:
     #!/usr/bin/env bash
     set -euo pipefail
+    # keytool·jarsigner 는 JDK 에 있다. macOS 기본 /usr/bin/keytool 은 JDK 가 없으면 동작하지 않는 껍데기라 직접 찾는다.
+    jdk_bin=""
+    for dir in "${JAVA_HOME:+$JAVA_HOME/bin}" /opt/homebrew/opt/openjdk@17/bin /opt/homebrew/opt/openjdk/bin /usr/local/opt/openjdk@17/bin; do
+        if [ -n "$dir" ] && [ -x "$dir/keytool" ]; then jdk_bin="$dir"; break; fi
+    done
+    test -n "$jdk_bin" || { echo 'JDK(keytool·jarsigner)를 찾지 못했습니다 — brew install openjdk@17 또는 JAVA_HOME 을 지정하세요' >&2; exit 1; }
+    export PATH="$jdk_bin:$PATH"
     : "${ANDROID_UPLOAD_KEYSTORE:?업로드 키스토어 경로(ANDROID_UPLOAD_KEYSTORE)가 필요합니다 — just android-upload-keystore 로 만든 파일}"
     : "${ANDROID_UPLOAD_STORE_PASSWORD:?키스토어 비밀번호(ANDROID_UPLOAD_STORE_PASSWORD)가 필요합니다}"
     test -f "$ANDROID_UPLOAD_KEYSTORE" || { echo "키스토어 파일이 없습니다: $ANDROID_UPLOAD_KEYSTORE" >&2; exit 1; }
@@ -54,6 +61,13 @@ android-bundle endpoint:
 android-upload-keystore path="":
     #!/usr/bin/env bash
     set -euo pipefail
+    # keytool·jarsigner 는 JDK 에 있다. macOS 기본 /usr/bin/keytool 은 JDK 가 없으면 동작하지 않는 껍데기라 직접 찾는다.
+    jdk_bin=""
+    for dir in "${JAVA_HOME:+$JAVA_HOME/bin}" /opt/homebrew/opt/openjdk@17/bin /opt/homebrew/opt/openjdk/bin /usr/local/opt/openjdk@17/bin; do
+        if [ -n "$dir" ] && [ -x "$dir/keytool" ]; then jdk_bin="$dir"; break; fi
+    done
+    test -n "$jdk_bin" || { echo 'JDK(keytool·jarsigner)를 찾지 못했습니다 — brew install openjdk@17 또는 JAVA_HOME 을 지정하세요' >&2; exit 1; }
+    export PATH="$jdk_bin:$PATH"
     path={{quote(path)}}
     path="${path:-$HOME/.scenetrip/scenetrip-upload.jks}"
     test ! -e "$path" || { echo "이미 있습니다: $path (덮어쓰지 않습니다)" >&2; exit 1; }
