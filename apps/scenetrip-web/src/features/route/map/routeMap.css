@@ -7,6 +7,11 @@
   font-family: var(--font);
   z-index: 0; /* Leaflet 의 pane(z-index 400~700)이 이 안에 갇히게 — 시트·버튼이 지도 위에 온다 */
 }
+/* 네이버 지도의 로고·저작권·축척은 .rt-map 바로 아래의 컨테이너(인라인 position:absolute; bottom:0)에 들어 있다. 지도 padding 옵션으로는 안 올라가서
+   (2026-10-31 운영 실측 — 시트·탭바 밑에 가려졌다) CSS 로 시트 위로 올린다. 로고는 가리면 안 된다(네이버 이용 조건). */
+.rt-map > div[style*='z-index: 100'][style*='bottom: 0px'] {
+  bottom: var(--rt-inset, 0px) !important;
+}
 .rt-map .leaflet-bottom {
   bottom: var(--rt-inset, 0px);
 }
