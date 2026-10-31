@@ -158,12 +158,15 @@ img {
   -webkit-overflow-scrolling: touch;
 }
 
-/* 눌렀을 때 — SwiftUI `.buttonStyle(.plain)` 은 눌림 표시가 거의 없다. */
+/* 눌렀을 때 — SwiftUI `.buttonStyle(.plain)` 도 누르는 동안 내용을 흐리게 한다(탭바는 iOS 시뮬레이터 실측 ≈ 0.7). */
 .pressable {
   transition: opacity 0.12s;
 }
 .pressable:active {
   opacity: 0.6;
+}
+.pressable.tab-press:active {
+  opacity: 0.7;
 }
 
 /* ProgressView — iOS 스피너 */

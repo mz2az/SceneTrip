@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { chooseLanguage, tr } from '@/i18n'
 import {
-  type PhotoPlacement, blocks, canCompose, captionLength, legacyBlocks, metadataValid, newPlacement, paragraphs, plainBody,
+  type PhotoPlacement, blocks, canCompose, captionLength, legacyBlocks, metadataValid, newPlacement, paragraphs, plainBody, referenceHeading, splitReferences,
 } from './article'
 import { type CommunityPost, type PostDetail, authorInitial, authorName, isMine, parseLegacyPosts, postFromDetail, postFromSummary } from './model'
 import { matches } from './rules'
@@ -10,6 +10,26 @@ import { matches } from './rules'
 beforeEach(() => chooseLanguage('ko')) // jsdom 의 기본 언어는 영어다
 
 const placement = (p: Partial<PhotoPlacement> & { afterParagraph: number }): PhotoPlacement => ({ ...newPlacement(p.afterParagraph), ...p })
+
+describe('splitReferences', () => {
+  const text = (value: string) => ({ kind: 'text' as const, text: value })
+  const photo = { kind: 'photo' as const, photoIndex: 0 }
+
+  it('끝의 참고 자료·사진 출처 블록만 본문에서 떼고, 본문 중간의 같은 말은 둔다', () => {
+    const all = [text('첫 문단'), text('References\n본문 중간에 우연히 같은 말'), photo, text('마지막 문단'), text('References\nhttps://example.com'), text('Photo credits\n1. 사진 · 출처')]
+    const { body, references } = splitReferences(all)
+    expect(body).toHaveLength(4)
+    expect(references).toHaveLength(2)
+    expect(references.map(referenceHeading)).toEqual(['References', 'Photo credits'])
+  })
+
+  it('끝이 사진이거나 덧붙임이 없으면 그대로 두고, 한국어 제목도 알아본다', () => {
+    expect(splitReferences([text('본문'), photo]).references).toHaveLength(0)
+    expect(splitReferences([]).references).toHaveLength(0)
+    expect(splitReferences([text('참고 자료\n링크')]).references).toHaveLength(1)
+    expect(referenceHeading(text('PHOTO CREDITS\n내용'))).toBe('PHOTO CREDITS')
+  })
+})
 
 describe('CommunityArticle', () => {
   it('사진 설명·출처 길이는 앞뒤 공백을 뗀 UTF-16 길이로 서버 한도와 맞춘다', () => {

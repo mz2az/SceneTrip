@@ -1,6 +1,7 @@
 /*
  * 탭바 — 양옆은 얇은 아이콘, 가운데는 위로 솟은 동그란 홈(해태 얼굴).
  * 출처: apps/scenetrip-ios/src/RootTabs.swift (TabBar, MapSearchIcon)
+ * 눌렀을 때: iOS `.buttonStyle(.plain)` 은 누르는 동안 내용(홈은 원·그림자·글자 전부)이 흐려진다(iOS 시뮬레이터 실측 불투명도 ≈ 0.7, 세 탭 모두).
  *   바 56, 홈 원 62 + 바탕색 4 테, 그림자 pinDeep .42 radius 7 y 6, 글자 11, 선택은 homePurple.
  */
 import { Icon } from '@/design/Icon'
@@ -30,7 +31,7 @@ export function TabBar({ selected, onSelect }: { selected: TabId; onSelect: (tab
   const sideColor = (tab: TabId) => (selected === tab ? 'var(--home-purple)' : 'var(--label-secondary)')
   const side = (tab: 'search' | 'community', label: string) => (
     <Pressable
-      plain
+      className="tab-press"
       onClick={() => onSelect(tab)}
       style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       aria-label={label}
@@ -52,7 +53,7 @@ export function TabBar({ selected, onSelect }: { selected: TabId; onSelect: (tab
     >
       {side('search', tr('작품검색'))}
       <Pressable
-        plain
+        className="tab-press"
         onClick={() => onSelect('home')}
         aria-label={tr('홈')}
         aria-current={selected === 'home'}

@@ -33,6 +33,26 @@ export function paragraphs(body: string): string[] {
     .filter((p) => p !== '')
 }
 
+/** 글 끝에 덧붙이는 구간의 제목(첫 줄) — 가이드 글은 끝에 「References」·「Photo credits」 를 글 블록으로 단다. (Android `CommunityArticle.referenceHeading`) */
+const REFERENCE_HEADINGS = new Set(['references', 'reference', 'photo credits', 'photo credit', 'image credits', '참고 자료', '참고자료', '사진 출처', '이미지 출처', '출처'])
+
+/** 덧붙임 구간의 첫 블록이면 그 제목, 아니면 null. */
+export function referenceHeading(block: PostBlock): string | null {
+  if (block.kind !== 'text' || !block.text) return null
+  const first = normalized(block.text).split('\n')[0]?.trim() ?? ''
+  return REFERENCE_HEADINGS.has(first.toLowerCase()) ? first : null
+}
+
+/**
+ * 본문과 끝의 덧붙임(참고 자료·사진 출처) 구간으로 나눈다. 끝에서부터 첫 줄이 덧붙임 제목인 글 블록만 모으므로 본문 중간의 같은 말은
+ * 건드리지 않는다. 읽는 화면은 덧붙임을 접어 둔다.
+ */
+export function splitReferences(all: readonly PostBlock[]): { body: PostBlock[]; references: PostBlock[] } {
+  let start = all.length
+  while (start > 0 && referenceHeading(all[start - 1]) !== null) start -= 1
+  return { body: all.slice(0, start), references: all.slice(start) }
+}
+
 export const plainBody = (body: string): string => paragraphs(body).join('\n\n')
 
 export function canCompose(body: string): boolean {

@@ -23,8 +23,39 @@ describe('ArticleView', () => {
     expect(text.indexOf('첫 문단')).toBeLessThan(text.indexOf('바다'))
     expect(text.indexOf('바다')).toBeLessThan(text.indexOf('끝 문단'))
     expect(screen.getByText('AI 변환 이미지')).toBeTruthy()
+    // 길게 늘어지는 출처 문장은 「더 보기」 뒤로 접혀 있다(Android 와 같다).
+    expect(screen.queryByText('공공누리 제1유형')).toBeNull()
+    fireEvent.click(screen.getByTestId('community-photo-credit-toggle'))
     expect(screen.getByText('공공누리 제1유형')).toBeTruthy()
+    fireEvent.click(screen.getByTestId('community-photo-credit-toggle'))
+    expect(screen.queryByText('공공누리 제1유형')).toBeNull()
     expect(container.querySelectorAll('img')).toHaveLength(1)
+  })
+
+  it('AI 변환 표시만 있고 출처가 없으면 「더 보기」 단추가 없다', () => {
+    render(<ArticleView blocks={[{ kind: 'photo', photoIndex: 0, aiGenerated: true }]} photos={[remote(1)]} />)
+    expect(screen.getByText('AI 변환 이미지')).toBeTruthy()
+    expect(screen.queryByTestId('community-photo-credit-toggle')).toBeNull()
+  })
+
+  it('foldReferences 이면 끝의 참고 자료·사진 출처를 한 줄 뒤로 접고, 누르면 펼친다', () => {
+    const blocks: PostBlock[] = [
+      { kind: 'text', text: '본문' },
+      { kind: 'text', text: 'References\nhttps://example.com' },
+      { kind: 'text', text: 'Photo credits\n1. 출처 문장' },
+    ]
+    render(<ArticleView blocks={blocks} photos={[]} foldReferences />)
+    expect(screen.getByText('References · Photo credits')).toBeTruthy()
+    expect(screen.queryByText(/https:\/\/example.com/)).toBeNull()
+    fireEvent.click(screen.getByTestId('community-references-toggle'))
+    expect(screen.getByText(/https:\/\/example.com/)).toBeTruthy()
+    expect(screen.getByText(/1\. 출처 문장/)).toBeTruthy()
+  })
+
+  it('foldReferences 가 꺼져 있으면(작성 미리보기) 끝의 덧붙임도 본문처럼 그대로 보인다', () => {
+    render(<ArticleView blocks={[{ kind: 'text', text: 'References\nhttps://example.com' }]} photos={[]} />)
+    expect(screen.getByText(/https:\/\/example.com/)).toBeTruthy()
+    expect(screen.queryByTestId('community-references-toggle')).toBeNull()
   })
 
   it('가리키는 사진이 없는 블록은 그리지 않는다', () => {

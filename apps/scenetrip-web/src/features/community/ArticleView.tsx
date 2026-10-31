@@ -9,6 +9,7 @@ import { Pressable, Spinner, Txt, VStack, rr } from '@/design/primitives'
 import { tr } from '@/i18n'
 import './icons'
 import type { PostBlock } from './model'
+import { referenceHeading, splitReferences } from './article'
 import { PhotoViewer } from './PhotoViewer'
 import { unsigned, usePhotoRenew } from './renewal'
 
@@ -37,7 +38,12 @@ const BODY_LINE = 22 + LINE_SPACING
 const PHOTO_RADIUS = 12
 const EXPAND_BUTTON = 44
 
-export function ArticleView({ blocks, photos }: { blocks: readonly PostBlock[]; photos: readonly PhotoSource[] }) {
+/**
+ * `foldReferences` — 글 끝의 「References」·「Photo credits」 는 한 줄 뒤로 접는다(읽는 화면만). 길고 주소가 섞여 본문 끝이 지저분했다.
+ * **Android 만 하던 동작을 맞춘다**(iOS 에는 없다).
+ */
+export function ArticleView({ blocks: all, photos, foldReferences = false }: { blocks: readonly PostBlock[]; photos: readonly PhotoSource[]; foldReferences?: boolean }) {
+  const { body: blocks, references } = foldReferences ? splitReferences(all) : { body: all, references: [] as PostBlock[] }
   return (
     <VStack spacing={22} align="start" style={{ width: '100%' }}>
       {blocks.map((block, offset) => {
@@ -52,6 +58,33 @@ export function ArticleView({ blocks, photos }: { blocks: readonly PostBlock[]; 
         if (source) return <ArticlePhoto key={offset} source={source} block={block} testId={`community-body-photo-${block.photoIndex}`} />
         return null
       })}
+      {references.length > 0 && <ReferencesFold blocks={references} />}
+    </VStack>
+  )
+}
+
+/** 접힌 덧붙임 구간 — 줄 이름은 글의 제목 줄을 그대로 쓴다(글 언어를 따른다). */
+function ReferencesFold({ blocks }: { blocks: readonly PostBlock[] }) {
+  const [open, setOpen] = useState(false)
+  const label = blocks.map(referenceHeading).filter(Boolean).join(' · ')
+  return (
+    <VStack spacing={8} align="start" style={{ width: '100%' }} data-testid="community-references">
+      <Pressable
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        data-testid="community-references-toggle"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 0' }}
+      >
+        <Txt size={12} color="secondary">{label}</Txt>
+        <Icon name={open ? 'chevron.up' : 'chevron.down'} size={14} color="var(--label-secondary)" />
+      </Pressable>
+      {open && (
+        <VStack spacing={10} align="start" style={{ width: '100%', userSelect: 'text' }}>
+          {blocks.map((block, i) =>
+            block.text ? <Txt as="p" key={i} size={12} color="secondary" style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{block.text}</Txt> : null,
+          )}
+        </VStack>
+      )}
     </VStack>
   )
 }
@@ -132,14 +165,43 @@ export function ArticlePhoto({ source, block, representative = false, testId }: 
     <VStack spacing={7} align="start" style={{ width: '100%' }} data-testid={testId}>
       <div style={{ width: '100%' }}>{canvas}</div>
       {block.caption && <Txt size={12} color="secondary" style={{ userSelect: 'text' }}>{block.caption}</Txt>}
-      {block.aiGenerated === true && (
-        <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-          <Icon name="sparkles" size={11} color="var(--label-secondary)" />
-          <Txt size={11} color="secondary">{tr('AI 변환 이미지')}</Txt>
-        </span>
-      )}
-      {block.credit && <Txt size={11} color="secondary" style={{ userSelect: 'text' }}>{block.credit}</Txt>}
+      <PhotoCredit block={block} />
       {expanded && url && <PhotoViewer url={url} block={block} onClose={() => setExpanded(false)} />}
+    </VStack>
+  )
+}
+
+/**
+ * 사진 아래 AI 변환 표시와 출처. **AI 변환 표시는 고지라 늘 보이고, 길게 늘어지는 출처 문장은 「더 보기」 뒤로 접는다.**
+ * Android 만 하던 동작을 맞춘다(iOS 에는 없다). 확대 화면(PhotoViewer)의 출처는 그대로 보인다.
+ */
+function PhotoCredit({ block }: { block: PostBlock }) {
+  const [open, setOpen] = useState(false)
+  const ai = block.aiGenerated === true
+  const credit = block.credit || undefined
+  if (!ai && !credit) return null
+  return (
+    <VStack spacing={7} align="start" style={{ width: '100%' }}>
+      <div style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: ai ? 'space-between' : 'flex-start' }}>
+        {ai && (
+          <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+            <Icon name="sparkles" size={11} color="var(--label-secondary)" />
+            <Txt size={11} color="secondary">{tr('AI 변환 이미지')}</Txt>
+          </span>
+        )}
+        {credit && (
+          <Pressable
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            data-testid="community-photo-credit-toggle"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '6px 0' }}
+          >
+            <Txt size={11} color="secondary">{tr('더 보기')}</Txt>
+            <Icon name={open ? 'chevron.up' : 'chevron.down'} size={12} color="var(--label-secondary)" />
+          </Pressable>
+        )}
+      </div>
+      {open && credit && <Txt size={11} color="secondary" style={{ userSelect: 'text', wordBreak: 'break-word' }}>{credit}</Txt>}
     </VStack>
   )
 }

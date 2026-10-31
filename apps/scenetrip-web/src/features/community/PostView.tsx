@@ -147,7 +147,7 @@ export function PostView({ initialPost, onClose }: { initialPost: CommunityPost;
                     <ModerationMenu target={postTarget(post.serverId)} canBlock={canBlock(isMine(post), post.author != null)} controller={moderation} />
                   )}
                 </AuthorRow>
-                <ArticleView blocks={blocks} photos={photos} />
+                <ArticleView blocks={blocks} photos={photos} foldReferences />
                 {post.course ? (
                   <CourseCard
                     course={post.course}
