@@ -379,16 +379,16 @@ private fun FloatingHome(
                     role = Role.Tab,
                     onClick = onClick,
                 ).semantics { contentDescription = label }
-                // 아래 그리기(글로우·원·테두리)가 모두 이 층 안에 든다.
-                .graphicsLayer { alpha = if (homePressed.value) PRESSED_ALPHA else 1f }
                 // iOS `.shadow(pinDeep 42%, r7, y6)` — 아래로 퍼지는 보라 글로우. Android elevation 그림자는
-                // 옅은 회색에 가까워 직접 그린다(2차 대조).
+                // 옅은 회색에 가까워 직접 그린다(2차 대조). 글로우는 원 둘레 밖으로 번져서 아래 흐림 층(62dp 네모) 안에 두면 네모로 잘린다
+                // — 층 밖에서 그리고 흐림은 값에 직접 곱한다.
                 .drawBehind {
                     val glow = size.minDimension / 2 + 9.dp.toPx()
                     val c = center + Offset(0f, 6.dp.toPx())
+                    val fade = if (homePressed.value) PRESSED_ALPHA else 1f
                     drawCircle(
                         Brush.radialGradient(
-                            0.6f to IOS.pinDeep.copy(alpha = 0.42f),
+                            0.6f to IOS.pinDeep.copy(alpha = 0.42f * fade),
                             1f to Color.Transparent,
                             center = c,
                             radius = glow,
@@ -396,7 +396,10 @@ private fun FloatingHome(
                         radius = glow,
                         center = c,
                     )
-                }.clip(CircleShape)
+                }
+                // 원·테두리·그림은 한 층으로 흐리게 한다(겹친 부분이 따로 진해지지 않게).
+                .graphicsLayer { alpha = if (homePressed.value) PRESSED_ALPHA else 1f }
+                .clip(CircleShape)
                 .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)))
                 .border(4.dp, IOS.systemGray6, CircleShape),
         contentAlignment = Alignment.Center,
