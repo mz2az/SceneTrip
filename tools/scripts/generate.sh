@@ -20,4 +20,10 @@ if compgen -G "contracts/openapi/*.yaml" >/dev/null 2>&1; then
   "${BAZEL:-bazel}" build //contracts/openapi/...
 fi
 
+# 웹앱: API 타입(contracts/openapi → src/api/generated/schema.d.ts), 영어 문구표, 해태 그림. 커밋하지 않는 Bazel 산출물이다.
+if [ -f apps/scenetrip-web/BUILD.bazel ]; then
+  log "웹앱 생성물을 빌드합니다 (//apps/scenetrip-web:gen)"
+  "${BAZEL:-bazel}" build //apps/scenetrip-web:gen
+fi
+
 log "생성 완료"

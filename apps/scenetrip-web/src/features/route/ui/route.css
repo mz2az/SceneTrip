@@ -1,0 +1,86 @@
+/* 경로여정(코스)·홈 화면 전용 스타일 — SwiftUI 에 없는 상호작용(밀기·반짝임)만 여기 둔다. */
+
+/* PinoNudge — 피노 그라데이션이 0.55 ↔ 0.95 로 숨 쉰다 (RouteTab/PinoNudge.swift: easeInOut 0.7s repeatForever autoreverses) */
+@keyframes route-nudge-glow {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 0.95;
+  }
+}
+.nudge-glow {
+  animation: route-nudge-glow 0.7s ease-in-out infinite alternate;
+}
+
+/* RouteCartHintRing — 한 번 커지며 옅어지는 테두리 (2.5s easeOut, scale 1.12, opacity 0.3) */
+@keyframes route-hint-ring {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.12);
+    opacity: 0.3;
+  }
+}
+.hint-ring {
+  animation: route-hint-ring 2.5s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hint-ring {
+    animation: none;
+  }
+}
+
+/* 일정 목록 줄을 끌어 순서를 바꿀 때 */
+.stop-row-dragging {
+  opacity: 0.9;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  z-index: 5;
+  position: relative;
+  background: var(--system-background);
+}
+
+/* 가로 페이저 (홈 「내 여행 이어가기」) — 스크롤 정지 방식, 스크롤바 숨김 */
+.pager-x {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.pager-x::-webkit-scrollbar {
+  display: none;
+}
+.pager-x > * {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+/* 입력칸 — 기본 윤곽 제거 (SwiftUI TextField) */
+.bare-input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+/* Leaflet 지도 위의 번호 핀 (RouteMap) */
+.route-pin {
+  background: transparent;
+  border: 0;
+}
+
+/* PinoNudge 의 흰 글자 사본 — 안의 글자·아이콘이 제 색을 고집해도 흰색으로 */
+.nudge-white,
+.nudge-white * {
+  color: #fff !important;
+}
+.nudge-white svg,
+.nudge-white svg * {
+  stroke: #fff !important;
+}

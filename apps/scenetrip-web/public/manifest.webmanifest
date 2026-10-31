@@ -1,0 +1,13 @@
+{
+  "name": "SceneTrip",
+  "short_name": "SceneTrip",
+  "description": "Stand where the scene happened",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F2F7",
+  "theme_color": "#7B69ED",
+  "icons": [
+    { "src": "/generated/haetae-face.png", "sizes": "any", "type": "image/png", "purpose": "any" }
+  ]
+}

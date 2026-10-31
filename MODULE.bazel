@@ -620,6 +620,38 @@ swift_deps.from_package(
 )
 use_repo(swift_deps, "swift_package", "swiftpkg_facebook_ios_sdk", "swiftpkg_firebase_ios_sdk", "swiftpkg_googlesignin_ios", "swiftpkg_spm_nmapsmap")
 
+# --- JavaScript / 웹앱 (ADR 0028) ------------------------------------------------
+#
+# apps/scenetrip-web (Vite + React + TypeScript). 규칙은 aspect_rules_js, Node 는 rules_nodejs 가
+# 고정해 받는다 — 호스트에 깔린 Node·npm 을 쓰지 않는다 (AGENTS.md §4.3).
+#
+# npm 의존성은 **package-lock.json 을 그대로** 읽는다(사용자의 npm 워크플로와 Cloudflare Pages 의
+# `npm ci && npm run build` 를 바꾸지 않는다). rules_js 는 내부적으로 pnpm 형식이 필요해서
+# `update_pnpm_lock` 이 package-lock.json 으로부터 apps/scenetrip-web/pnpm-lock.yaml 을 **파생**한다.
+# 그 파일은 직접 고치지 않는다 — package.json·package-lock.json 을 바꾼 뒤 `just deps-update` 가 갱신하고
+# 같은 커밋에 넣는다.
+bazel_dep(name = "aspect_rules_js", version = "3.5.2")
+bazel_dep(name = "rules_nodejs", version = "6.7.7")
+bazel_dep(name = "bazel_lib", version = "3.7.0")
+
+node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node")
+node.toolchain(node_version = "24.22.1")
+use_repo(node, "nodejs_toolchains")
+
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm")
+npm.npm_translate_lock(
+    name = "npm_web",
+    data = [
+        "//apps/scenetrip-web:package.json",
+        "//apps/scenetrip-web:package-lock.json",
+        "//apps/scenetrip-web:pnpm-workspace.yaml",
+    ],
+    npm_package_lock = "//apps/scenetrip-web:package-lock.json",
+    pnpm_lock = "//apps/scenetrip-web:pnpm-lock.yaml",
+    update_pnpm_lock = True,
+)
+use_repo(npm, "npm_web")
+
 # --- BUILD 파일 생성 ------------------------------------------------------------
 # 지금은 생성기를 두지 않는다. BUILD.bazel 은 손으로 쓴다 — AGENTS.md §4.1 의 이름
 # 규칙을 지키면 라벨은 여전히 예측 가능하다.

@@ -1,0 +1,5 @@
+/* 신고 시트의 입력칸 — SwiftUI `TextField` 의 안내 글씨는 tertiaryLabel 색이다. */
+.mod-field::placeholder {
+  color: var(--label-tertiary);
+  opacity: 1;
+}

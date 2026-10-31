@@ -1,0 +1,25 @@
+# Cloudflare Pages 응답 헤더. Vite 의 public/ 이므로 dist/ 로 그대로 복사된다.
+# 설명·근거·미확인 출처: docs/project/plans/web-release.md
+#
+# CSP 는 Report-Only 다 — 차단하지 않고 보고만 한다. 배포 후 브라우저 콘솔의 위반 기록으로 허용 목록을 확정한 다음 이름에서 -Report-Only 를 뗀다.
+# - frame-ancestors 는 Report-Only 에서 무시되므로 X-Frame-Options 로 막는다.
+# - style-src 'unsafe-inline': 화면 코드가 style 속성을 많이 쓴다.
+# - img-src https: : 작품·장소·커뮤니티 사진 주소가 API 응답에서 오는 여러 호스트다(호스트 목록 미확인). 지금 지도(Leaflet)의 tile.openstreetmap.org 도 여기에 든다.
+# - 네이버 지도는 스크립트 호스트(oapi.map.naver.com)만 공식 문서로 확인했다. 타일·이미지 호스트는 보고 기록으로 확정한다.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: geolocation=(self), microphone=(), payment=()
+  Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://www.googletagmanager.com https://appleid.cdn-apple.com https://oapi.map.naver.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.scenetrip.io https://api-dev.scenetrip.io https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com; manifest-src 'self'
+
+# 해시가 붙은 번들 — 내용이 바뀌면 이름이 바뀐다
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# 진입 문서 — 항상 다시 확인해 새 번들 이름을 바로 받는다
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache

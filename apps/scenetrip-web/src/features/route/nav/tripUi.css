@@ -1,0 +1,85 @@
+/* 여행 안내 UI — 도착 스탬프 · 안내 띠 · 알림 */
+
+/* 도착 스탬프 (PawStampOverlay): 크고 흐리게 시작해 빠르게 줄어들며 진해진다 — spring(response .32, damping .55) */
+.tp-stamp-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  animation: tp-fade-in 0.2s ease both;
+}
+.tp-stamp-disc {
+  display: grid;
+  place-items: center;
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 8px 32px rgba(122, 105, 237, 0.35);
+  animation: tp-stamp-land 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.tp-stamp-label {
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--system-background);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
+  animation: tp-fade-in 0.3s ease both;
+  max-width: 340px;
+}
+@keyframes tp-stamp-land {
+  from {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes tp-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 지도 위 도착 알림 카드 — 위에서 내려온다 (.move(edge: .top) + opacity) */
+.tp-arrival {
+  animation: tp-slide-down 0.3s ease both;
+}
+@keyframes tp-slide-down {
+  from {
+    transform: translateY(-24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 「방문 스탬프를 찍었어요!」·「카카오에 위치를 보냈어요」 알림 띠 */
+.tp-toast {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  z-index: 70;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  animation: tp-fade-in 0.25s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-stamp-scrim,
+  .tp-stamp-disc,
+  .tp-stamp-label,
+  .tp-arrival,
+  .tp-toast {
+    animation: none;
+  }
+}

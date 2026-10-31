@@ -1,0 +1,241 @@
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 17px; /* SwiftUI .body */
+  line-height: 1.193; /* SF 의 줄 높이 ≈ 글자 크기 × 1.19 (iOS 실측: 13→15.5, 17→20.3, 22→26.2) */
+  word-break: keep-all; /* iOS 는 한국어를 어절 단위로 줄바꿈한다 */
+  text-wrap: pretty;
+  color: var(--label);
+  background: var(--grouped-background);
+  -webkit-user-select: none; /* SwiftUI 글자는 선택되지 않는다 - 입력 칸만 예외 */
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+}
+
+input,
+textarea,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: inherit;
+}
+button:disabled {
+  cursor: default;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  display: block;
+}
+
+/* iOS 의 구분선은 0.33pt(기기 화소 1개). 크롬은 0.5px 높이를 1.0pt 로 올려 그리므로 자리는 0.5px, 선은 안쪽에서 scaleY(1/3) 로 그린다. */
+.hair {
+  position: relative;
+  height: 0.5px;
+}
+.hair-b,
+.hair-t {
+  position: relative;
+}
+.hair-b::after,
+.hair-t::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  transform: scaleY(0.3333);
+  background: var(--hair-color, var(--separator));
+  pointer-events: none;
+}
+/* SwiftUI List 구분선: 1.0pt, rgb(232,232,232) (커뮤니티 목록 실측) */
+.hair-b.hair-1pt::after {
+  transform: none;
+  background: var(--hair-color, rgb(232, 232, 232));
+}
+.hair-b::after {
+  bottom: 0;
+  transform-origin: bottom;
+}
+.hair-t::after {
+  top: 0;
+  transform-origin: top;
+}
+.hair::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  transform: scaleY(0.3333);
+  transform-origin: top;
+  background: var(--separator);
+}
+
+/* 앱 프레임: 모바일은 화면 가득, 데스크톱은 가운데 폰 폭(390) 컨테이너. */
+.app-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  background: var(--system-background);
+  overflow: hidden;
+}
+/* 폰 브라우저는 주소창이 접히고 펴지면서 `100%` 가 어긋난다 — 보이는 높이(dvh)를 따르게 한다. 지원하지 않는 브라우저는 위의 100% 를 쓴다. */
+@supports (height: 100dvh) {
+  .app-frame {
+    height: 100dvh;
+  }
+}
+@media (min-width: 500px) {
+  body {
+    background: #e4e4ea;
+  }
+  .app-frame {
+    width: 402px; /* iPhone 17 Pro 의 폭 — 비교용 iOS 스크린샷이 402x874pt */
+    height: min(100dvh, 874px);
+    margin-top: max(0px, calc((100dvh - 874px) / 2));
+    border-radius: 0;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+  }
+  @media (min-height: 890px) {
+    .app-frame {
+      border-radius: 28px;
+    }
+  }
+}
+
+/* SwiftUI ScrollView — 스크롤바를 숨긴다. */
+.scroll-y {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+.scroll-y::-webkit-scrollbar,
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}
+.scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 눌렀을 때 — SwiftUI `.buttonStyle(.plain)` 도 누르는 동안 내용을 흐리게 한다(탭바는 iOS 시뮬레이터 실측 ≈ 0.7). */
+.pressable {
+  transition: opacity 0.12s;
+}
+.pressable:active {
+  opacity: 0.6;
+}
+.pressable.tab-press:active {
+  opacity: 0.7;
+}
+
+/* ProgressView — iOS 스피너 */
+@keyframes st-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spinner {
+  display: inline-block;
+  border: 2px solid var(--system-gray4);
+  border-top-color: var(--system-gray);
+  border-radius: 50%;
+  animation: st-spin 0.8s linear infinite;
+}
+
+/* 시트·덮개 전환 */
+@keyframes st-slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes st-slide-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes st-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes st-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes st-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

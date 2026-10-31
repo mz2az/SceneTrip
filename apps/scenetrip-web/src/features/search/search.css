@@ -1,0 +1,74 @@
+/* 검색 탭의 자리 잡기 — 지도(바닥) < 시트(10) < 스크림(15) < 검색바·자동완성(20) < 알림(30) */
+.st-root {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: var(--system-background);
+}
+
+/* 검색 중 지도·시트를 덮는 스크림 — Color.black.opacity(0.25) */
+.st-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  background: rgba(0, 0, 0, 0.25);
+  animation: st-fade-in 0.15s ease-in-out both;
+}
+
+.st-top {
+  position: absolute;
+  top: var(--safe-top);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+.st-top > * {
+  pointer-events: auto;
+}
+
+/* 「현 지도 내 성지 검색」은 가운데, 조작 버튼은 오른쪽 */
+.st-controls {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding-top: 8px;
+  pointer-events: none;
+}
+.st-controls > * {
+  pointer-events: auto;
+}
+
+.st-search-input::placeholder {
+  color: var(--label-tertiary);
+}
+
+/* 담기 알림 — Capsule().fill(.ultraThinMaterial), bottom 40 */
+.st-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+  z-index: 30;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(246, 246, 246, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  white-space: nowrap;
+  animation: st-fade-in 0.2s ease-in-out both;
+}
+
+/* 찜 실패 안내 — safeAreaInset(.bottom) 의 regularMaterial 12 */
+.st-notice {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 30;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(246, 246, 246, 0.86);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+}

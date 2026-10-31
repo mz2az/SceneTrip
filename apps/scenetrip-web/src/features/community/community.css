@@ -1,0 +1,8 @@
+/* 커뮤니티·신고 화면의 입력칸 — SwiftUI `TextField` 의 안내 글씨는 tertiaryLabel 색이다. */
+.st-field::placeholder {
+  color: var(--label-tertiary);
+  opacity: 1;
+}
+.st-field:disabled {
+  opacity: 1;
+}
