@@ -142,6 +142,8 @@ object AuthStore {
                 offerNickname(session.user)
             } catch (_: GetCredentialCancellationException) {
                 // 사람이 창을 닫았다. 알릴 것이 없다.
+            } catch (e: GoogleIdSignIn.WindowFailed) {
+                message = "로그인하지 못했어요. 다시 해 주세요"
             } catch (e: GoogleIdSignIn.Unavailable) {
                 message = "이 기기에 로그인된 구글 계정이 없어요. 기기 설정에서 계정을 추가해 주세요"
             } catch (e: PendingWrites.StillRunning) {
