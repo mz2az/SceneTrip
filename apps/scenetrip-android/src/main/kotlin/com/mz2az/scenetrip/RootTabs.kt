@@ -329,8 +329,15 @@ private fun FloatingHome(
         modifier =
             modifier
                 .size(62.dp)
-                .selectable(selected = active, role = Role.Tab, onClick = onClick)
-                .semantics { contentDescription = label }
+                // iOS 탭바는 눌러도 아무 효과가 없다 — 기본 눌림 물결은 원이 아니라 62dp 네모에 그려져 원 아래에 회색 사각형이 떴다
+                // (2026-10-31 SM-S928N 캡처). 옆 탭들과 같이 끈다.
+                .selectable(
+                    selected = active,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    role = Role.Tab,
+                    onClick = onClick,
+                ).semantics { contentDescription = label }
                 // iOS `.shadow(pinDeep 42%, r7, y6)` — 아래로 퍼지는 보라 글로우. Android elevation 그림자는
                 // 옅은 회색에 가까워 직접 그린다(2차 대조).
                 .drawBehind {
