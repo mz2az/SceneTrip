@@ -11,6 +11,7 @@ import { createMap, createMapNow, ignoreCancelled } from '@/map'
 import type { LatLng as GeoPoint, MapBounds, MapHandle, MapLayer, MarkerHandle, MarkerSpec } from '@/map'
 import { canNavigate, type PlaceSummary, type RouteStop } from '../models'
 import { usableAnchor } from '../geometry'
+import { scheduleCachedFallback } from '../nav/cachedFix'
 import { HAETAE_SIZE, NUMBERED_SIZE, PIN_DEEP, haetaePinSvg, numberedPinSvg, pawPinSvg } from './pinSvg'
 import { PinCaption } from './wording'
 import './routeMap.css'
@@ -244,20 +245,22 @@ export function RouteMap(props: RouteMapProps) {
       onHere?.(null)
       return
     }
-    const id = navigator.geolocation.watchPosition(
-      (pos) => {
-        const spot = { latitude: pos.coords.latitude, longitude: pos.coords.longitude }
-        hereRef.current = spot
-        const at = { lat: spot.latitude, lng: spot.longitude }
-        if (!meMarker.current) {
-          meMarker.current = meLayer.current?.addMarker({ position: at, html: ME_HTML, className: 'route-pin', size: [18, 18], anchor: [9, 9], interactive: false, zIndex: 500 }) ?? null
-        } else meMarker.current.setPosition(at)
-        onHere?.(spot)
-      },
-      () => undefined,
-      { enableHighAccuracy: true, maximumAge: 5000 },
-    )
+    let got = false
+    const show = (pos: GeolocationPosition) => {
+      got = true
+      const spot = { latitude: pos.coords.latitude, longitude: pos.coords.longitude }
+      hereRef.current = spot
+      const at = { lat: spot.latitude, lng: spot.longitude }
+      if (!meMarker.current) {
+        meMarker.current = meLayer.current?.addMarker({ position: at, html: ME_HTML, className: 'route-pin', size: [18, 18], anchor: [9, 9], interactive: false, zIndex: 500 }) ?? null
+      } else meMarker.current.setPosition(at)
+      onHere?.(spot)
+    }
+    const id = navigator.geolocation.watchPosition(show, () => undefined, { enableHighAccuracy: true, maximumAge: 5000 })
+    // 새 위치가 안 오면(데스크톱 캐시 값만 주는 경우) 최근 캐시 위치로 먼저 보여 준다.
+    const cancelFallback = scheduleCachedFallback(() => !got, show)
     return () => {
+      cancelFallback()
       navigator.geolocation.clearWatch(id)
       meMarker.current?.remove()
       meMarker.current = null
