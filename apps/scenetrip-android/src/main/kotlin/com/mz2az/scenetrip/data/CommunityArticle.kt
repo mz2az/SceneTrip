@@ -38,6 +38,32 @@ object CommunityArticle {
 
     fun plainBody(body: String): String = paragraphs(body).joinToString("\n\n")
 
+    /** 글 끝에 덧붙이는 구간의 제목(첫 줄) — 가이드 글은 끝에 「References」·「Photo credits」 를 글 블록으로 단다. */
+    private val referenceHeadings =
+        setOf("references", "reference", "photo credits", "photo credit", "image credits", "참고 자료", "참고자료", "사진 출처", "이미지 출처", "출처")
+
+    /** 덧붙임 구간의 첫 블록이면 그 제목, 아니면 null. */
+    fun referenceHeading(block: TripPostBlock): String? {
+        if (block.kind != TripPostBlockKind.text) return null
+        val first =
+            block.text
+                ?.let(::normalized)
+                ?.lineSequence()
+                ?.firstOrNull()
+                ?.trim() ?: return null
+        return first.takeIf { it.lowercase() in referenceHeadings }
+    }
+
+    /**
+     * 본문과 끝의 덧붙임(참고 자료·사진 출처) 구간으로 나눈다. 끝에서부터 첫 줄이 덧붙임 제목인 글 블록만 모으므로, 본문 중간의
+     * 같은 말은 건드리지 않는다. 읽는 화면은 덧붙임을 접어 둔다.
+     */
+    fun splitReferences(blocks: List<TripPostBlock>): Pair<List<TripPostBlock>, List<TripPostBlock>> {
+        var start = blocks.size
+        while (start > 0 && referenceHeading(blocks[start - 1]) != null) start--
+        return blocks.subList(0, start) to blocks.subList(start, blocks.size)
+    }
+
     fun canCompose(body: String): Boolean =
         paragraphs(body).size in 1..PARAGRAPH_LIMIT && plainBody(body).length <= CommunityRules.BODY_LIMIT
 

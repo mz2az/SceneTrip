@@ -25,6 +25,58 @@ mobile-build-cloud platform endpoint:
     test -n {{quote(endpoint)}} || { echo 'HTTPS /v1 API 주소가 필요합니다' >&2; exit 1; }
     {{BAZEL}} build {{quote('//apps/scenetrip-' + platform + ':bin')}} --define=scenetrip_api_base_url={{quote(endpoint)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
 
+# Play Console 에 올릴 앱 번들(AAB)을 짓고 업로드 키로 서명한다 (스토어 업로드는 하지 않는다 — apps/scenetrip-android/deploy/README.md)
+[group('build')]
+android-bundle endpoint:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # keytool·jarsigner 는 JDK 에 있다. macOS 기본 /usr/bin/keytool 은 JDK 가 없으면 동작하지 않는 껍데기라 직접 찾는다.
+    jdk_bin=""
+    for dir in "${JAVA_HOME:+$JAVA_HOME/bin}" /opt/homebrew/opt/openjdk@17/bin /opt/homebrew/opt/openjdk/bin /usr/local/opt/openjdk@17/bin; do
+        if [ -n "$dir" ] && [ -x "$dir/keytool" ]; then jdk_bin="$dir"; break; fi
+    done
+    test -n "$jdk_bin" || { echo 'JDK(keytool·jarsigner)를 찾지 못했습니다 — brew install openjdk@17 또는 JAVA_HOME 을 지정하세요' >&2; exit 1; }
+    export PATH="$jdk_bin:$PATH"
+    : "${ANDROID_UPLOAD_KEYSTORE:?업로드 키스토어 경로(ANDROID_UPLOAD_KEYSTORE)가 필요합니다 — just android-upload-keystore 로 만든 파일}"
+    : "${ANDROID_UPLOAD_STORE_PASSWORD:?키스토어 비밀번호(ANDROID_UPLOAD_STORE_PASSWORD)가 필요합니다}"
+    test -f "$ANDROID_UPLOAD_KEYSTORE" || { echo "키스토어 파일이 없습니다: $ANDROID_UPLOAD_KEYSTORE" >&2; exit 1; }
+    test -n {{quote(endpoint)}} || { echo 'HTTPS /v1 API 주소가 필요합니다' >&2; exit 1; }
+    alias="${ANDROID_UPLOAD_KEY_ALIAS:-upload}"
+    out="${ANDROID_BUNDLE_OUT:-scenetrip-android-release.aab}"
+    # **`-c opt` 가 빠지면 번들이 디버그 가능(android:debuggable=true)으로 지어져 Play 가 올리기를 거절한다.** rules_android 는 컴파일 모드가
+    # opt 가 아니면 디버그 가능으로 만든다(2026-10-31 Play Console 「디버그 가능 Android App Bundle」 오류).
+    {{BAZEL}} build -c opt //apps/scenetrip-android:bundle --define=scenetrip_api_base_url={{quote(endpoint)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+    # Bazel 산출물은 읽기 전용이다 — 복사본에 서명한다.
+    rm -f "$out"
+    cp bazel-bin/apps/scenetrip-android/bundle_unsigned.aab "$out"
+    chmod u+w "$out"
+    sign=(jarsigner -keystore "$ANDROID_UPLOAD_KEYSTORE" -storepass:env ANDROID_UPLOAD_STORE_PASSWORD -sigalg SHA256withRSA -digestalg SHA-256)
+    if [ -n "${ANDROID_UPLOAD_KEY_PASSWORD:-}" ]; then sign+=(-keypass:env ANDROID_UPLOAD_KEY_PASSWORD); fi
+    "${sign[@]}" "$out" "$alias"
+    jarsigner -verify "$out" | tail -1
+    echo "서명한 번들: $out"
+    echo "업로드 키 지문 (Play Console 「앱 무결성」 의 업로드 키 인증서와 같아야 한다):"
+    keytool -list -v -keystore "$ANDROID_UPLOAD_KEYSTORE" -alias "$alias" -storepass:env ANDROID_UPLOAD_STORE_PASSWORD | grep -E "SHA1:|SHA256:"
+
+# Play 업로드 키스토어를 만든다 (처음 한 번). 비밀번호·이름은 직접 입력한다 — 잃어버리면 구글에 키 재설정을 요청해야 한다
+[group('build')]
+android-upload-keystore path="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # keytool·jarsigner 는 JDK 에 있다. macOS 기본 /usr/bin/keytool 은 JDK 가 없으면 동작하지 않는 껍데기라 직접 찾는다.
+    jdk_bin=""
+    for dir in "${JAVA_HOME:+$JAVA_HOME/bin}" /opt/homebrew/opt/openjdk@17/bin /opt/homebrew/opt/openjdk/bin /usr/local/opt/openjdk@17/bin; do
+        if [ -n "$dir" ] && [ -x "$dir/keytool" ]; then jdk_bin="$dir"; break; fi
+    done
+    test -n "$jdk_bin" || { echo 'JDK(keytool·jarsigner)를 찾지 못했습니다 — brew install openjdk@17 또는 JAVA_HOME 을 지정하세요' >&2; exit 1; }
+    export PATH="$jdk_bin:$PATH"
+    path={{quote(path)}}
+    path="${path:-$HOME/.scenetrip/scenetrip-upload.jks}"
+    test ! -e "$path" || { echo "이미 있습니다: $path (덮어쓰지 않습니다)" >&2; exit 1; }
+    mkdir -p "$(dirname "$path")"
+    keytool -genkeypair -v -keystore "$path" -alias "${ANDROID_UPLOAD_KEY_ALIAS:-upload}" -keyalg RSA -keysize 2048 -validity 10000
+    echo "만든 파일: $path — 저장소 밖에 두고, 잃어버리지 않게 따로 백업한다"
+
 # 기존 Android SDK에 MODULE.bazel이 요구하는 플랫폼·빌드 도구를 설치한다
 [group('build')]
 android-sdk-install sdk_root:

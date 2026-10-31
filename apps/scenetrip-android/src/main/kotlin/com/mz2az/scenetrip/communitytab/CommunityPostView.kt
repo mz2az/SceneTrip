@@ -60,6 +60,7 @@ import com.mz2az.scenetrip.reviews.rememberModerationController
 import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import com.mz2az.scenetrip.ui.CheckmarkIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSLinedText
 import com.mz2az.scenetrip.ui.LocalPhotoRenew
 import com.mz2az.scenetrip.ui.XMarkIcon
 import com.mz2az.scenetrip.ui.iosLineBox
@@ -175,19 +176,26 @@ fun CommunityPostView(
                             // 아래 여백은 iOS 간격 16 에서 3 을 더 뺀다 — 본문 글줄(한글 제 높이 24.4)이 iOS(22)보다 높아 글자가 아래에 앉는다(31-post 실측).
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.1.dp, bottom = 13.dp),
                         ) {
-                            Text(
+                            // 제목은 여러 줄이 될 수 있다 — 한 줄 칸(iosLineBox)에 가두면 둘째 줄부터 위 사진 출처와 아래 작성자 위로 넘쳤다.
+                            IOSLinedText(
                                 content.title,
+                                lineDp = 28f,
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = IOS.label,
-                                modifier = Modifier.iosLineBox(28.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
 
                             AuthorRow(content, moderation)
                         }
                     }
-                    itemsIndexed(blocks) { _, block ->
+                    // 끝의 「References」·「Photo credits」 는 접어 둔다(Android 만 — 길고 주소가 섞여 본문 끝이 지저분했다).
+                    val (bodyBlocks, references) = CommunityArticle.splitReferences(blocks)
+                    itemsIndexed(bodyBlocks) { _, block ->
                         CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp).padding(bottom = 20.6.dp))
+                    }
+                    if (references.isNotEmpty()) {
+                        item { CommunityReferences(references, Modifier.padding(horizontal = 20.dp).padding(bottom = 14.dp)) }
                     }
                     item {
                         Column(

@@ -277,6 +277,7 @@ HTTP 원격 주소·인증정보·query·fragment·잘못된 포트·`/v1` 이�
 
 ## 운영
 
-스토어 배포는 이 계획의 범위 밖이다 (MZ2AZ-148 완료 조건은 "로컬 실행"까지).
-`deploy/` 는 서명·fastlane 설정이 생길 때 채운다 — k8s 매니페스트가 아니다
-(AGENTS.md §3).
+스토어 배포는 이 계획의 범위 밖이었다 (MZ2AZ-148 완료 조건은 "로컬 실행"까지).
+Play Console 에 올리는 **앱 번들(AAB)** 은 `just android-bundle <API 주소>` 로 짓고 업로드 키로 서명한다
+(`:bundle` 타깃). 업로드 키 만들기·`.env` 설정·버전 올리기·첫 업로드 뒤 구글 로그인 지문 등록은
+[`deploy/README.md`](deploy/README.md) 에 있다. `deploy/` 는 k8s 매니페스트가 아니다 (AGENTS.md §3).

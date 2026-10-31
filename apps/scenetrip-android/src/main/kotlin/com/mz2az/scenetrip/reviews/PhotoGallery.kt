@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -68,6 +70,7 @@ import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SquareGrid2x2Icon
 import com.mz2az.scenetrip.ui.XMarkIcon
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.lazy.itemsIndexed as rowItemsIndexed
 
 val Photo.galleryKey: String get() = ReviewRules.photoKey(url.toString(), reviewId.takeIf { source == PhotoSource.review })
 
@@ -315,6 +318,96 @@ fun GalleryStrip(
     }
 }
 
+/**
+ * iOS `CardPhotoStrip` — 코스 편집기 장소 카드의 사진 줄. 92×70 작은 사진이 옆으로 이어지고(사이 6, 양끝 14), 누르면 사진첩을 크게 넘겨 본다.
+ * 카드가 좁아 한 장씩 크게 넘기는 [GalleryStrip] 대신 작은 줄로 둔다. 사진이 없으면 그리지 않는다. 출처는 줄 아래에 모아 적는다.
+ */
+@Composable
+fun CardPhotoStrip(
+    subject: ReviewSubject,
+    photos: List<Photo>,
+    total: Int,
+    onReview: ((Long?) -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    onRenew: (suspend (Boolean) -> Unit)? = null,
+    entry: String = "card",
+) {
+    val scope = rememberCoroutineScope()
+    val moderation by ModerationEvents.shared.version.collectAsState()
+    val renewal by rememberUpdatedState(onRenew)
+    val book =
+        remember(subject, photos, total, moderation) {
+            PhotoBook(subject, photos, total, externalRenew = { forced -> renewal?.invoke(forced) })
+        }
+    var viewer by remember { mutableStateOf<Int?>(null) }
+    if (book.photos.isEmpty()) return
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LazyRow(
+            Modifier.fillMaxWidth().height(70.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = PaddingValues(horizontal = 14.dp),
+        ) {
+            rowItemsIndexed(book.photos, key = { _, photo -> photo.galleryKey }) { index, photo ->
+                LaunchedEffect(index) { if (index >= book.photos.size - 5) book.more() }
+                Box(
+                    Modifier
+                        .size(width = 92.dp, height = 70.dp)
+                        .clip(RoundedCornerShape(if (ReviewRules.isProtected(photo)) 0.dp else 8.dp))
+                        .background(IOS.systemGray6)
+                        .semantics { contentDescription = tr("크게 보기") }
+                        .clickable { viewer = index },
+                ) {
+                    GalleryImage(
+                        photo,
+                        Modifier.fillMaxSize(),
+                        thumbnail = true,
+                        onFailure = { scope.launch { book.renew() } },
+                        onRetry = { scope.launch { book.renew(true) } },
+                    )
+                    if (photo.source == PhotoSource.review) {
+                        CompactVisitorBadge(Modifier.align(Alignment.BottomStart).padding(3.dp))
+                    }
+                }
+            }
+        }
+        val credits = ReviewRules.credits(book.photos)
+        if (credits.isNotEmpty()) {
+            Text(
+                credits.joinToString("\n"),
+                style = IOS.caption2,
+                color = IOS.secondaryLabel,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+            )
+        }
+    }
+    viewer?.let { index ->
+        GalleryViewer(
+            book,
+            index,
+            onClose = { viewer = null },
+            onReview =
+                onReview?.let { callback ->
+                    { id ->
+                        viewer = null
+                        callback(id)
+                    }
+                },
+            entry = entry,
+        )
+    }
+}
+
+/** iOS `VisitorBadge(compact: true)` — 왼쪽 아래 23×23 어두운 원 + 사람 그림. 전체 격자와 카드 사진 줄이 같이 쓴다. */
+@Composable
+private fun CompactVisitorBadge(modifier: Modifier) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier.size(23.dp).background(Color.Black.copy(alpha = 0.55f), CircleShape),
+    ) {
+        PersonCropSquareIcon(Color.White, Modifier.size(13.dp))
+    }
+}
+
 @Composable
 internal fun GalleryImage(
     photo: Photo,
@@ -520,17 +613,7 @@ internal fun PhotoGrid(
                         )
                         // iOS `VisitorBadge(compact: true)` — 전체 격자에서만, 왼쪽 아래 23×23 어두운 원 + 사람 그림 (7차 감사 G1).
                         if (photo.source == PhotoSource.review && !book.visitorsOnly) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier =
-                                    Modifier
-                                        .align(Alignment.BottomStart)
-                                        .padding(4.dp)
-                                        .size(23.dp)
-                                        .background(Color.Black.copy(alpha = 0.55f), CircleShape),
-                            ) {
-                                PersonCropSquareIcon(Color.White, Modifier.size(13.dp))
-                            }
+                            CompactVisitorBadge(Modifier.align(Alignment.BottomStart).padding(4.dp))
                         }
                     }
                 }

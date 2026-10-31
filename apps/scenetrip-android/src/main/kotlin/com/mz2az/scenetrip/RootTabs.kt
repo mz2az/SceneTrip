@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +40,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -86,6 +89,8 @@ fun RootTabs() {
     val selected = TabRouter.selected
     val cover = TabRouter.cover
     var homeBounds by remember { mutableStateOf<Rect?>(null) }
+    // 홈 원(바 위에 떠 있는 별도 요소)과 「홈」 글자(탭 줄 안)가 같이 흐려지도록 눌림을 나눈다.
+    val homePressed = remember { mutableStateOf(false) }
 
     // 어느 화면을 보는가 — 탭과 덮개 단위로 적는다 (MZ2AZ-353). 덮개가 이긴다 —
     // iOS `RootTabs.screenName`과 같은 우선순위다.
@@ -150,7 +155,12 @@ fun RootTabs() {
                     CommunityTabScreen()
                 }
             }
-            TabBar(selected = selected, onSelect = { TabRouter.selected = it }, onHomeBounds = { homeBounds = it })
+            TabBar(
+                selected = selected,
+                onSelect = { TabRouter.selected = it },
+                onHomeBounds = { homeBounds = it },
+                homePressed = homePressed,
+            )
         }
 
         // 바 위로 솟은 원은 56dp 탭 행 밖에서도 눌려야 한다. 자리만 행에서 재고
@@ -160,6 +170,7 @@ fun RootTabs() {
                 FloatingHome(
                     active = selected == RootTab.HOME,
                     modifier = Modifier.offset { IntOffset(bounds.left.roundToInt(), bounds.top.roundToInt()) },
+                    homePressed = homePressed,
                     onClick = { TabRouter.selected = RootTab.HOME },
                 )
             }
@@ -220,6 +231,7 @@ private fun TabBar(
     selected: RootTab,
     onSelect: (RootTab) -> Unit,
     onHomeBounds: (Rect) -> Unit,
+    homePressed: MutableState<Boolean>,
 ) {
     Column {
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(IOS.separator))
@@ -231,7 +243,7 @@ private fun TabBar(
                     .background(IOS.systemBackground),
         ) {
             SideTab(RootTab.SEARCH, selected == RootTab.SEARCH, Modifier.weight(1f)) { onSelect(RootTab.SEARCH) }
-            HomeTab(selected == RootTab.HOME, Modifier.weight(1f), onHomeBounds) { onSelect(RootTab.HOME) }
+            HomeTab(selected == RootTab.HOME, Modifier.weight(1f), onHomeBounds, homePressed) { onSelect(RootTab.HOME) }
             SideTab(RootTab.COMMUNITY, selected == RootTab.COMMUNITY, Modifier.weight(1f)) {
                 onSelect(RootTab.COMMUNITY)
             }
@@ -239,6 +251,9 @@ private fun TabBar(
         Box(Modifier.navigationBarsPadding().background(IOS.systemBackground).fillMaxWidth())
     }
 }
+
+/** iOS `.buttonStyle(.plain)` — 누르는 동안 내용이 흐려진다(iOS 시뮬레이터 실측 불투명도 ≈ 0.7, 세 탭 모두). */
+private const val PRESSED_ALPHA = 0.7f
 
 @Composable
 private fun SideTab(
@@ -248,22 +263,24 @@ private fun SideTab(
     onClick: () -> Unit,
 ) {
     val tint = if (active) HOME_PURPLE else IOS.secondaryLabel
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         // iOS `VStack(spacing: 3)` 을 칸 가운데에 — 위아래 반씩 나눠 아이콘을 아래로 붙이면 묶음이 4.8 위로 떴다.
         verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
-        // iOS 탭바는 눌러도 아무 효과가 없다 — Android 기본 눌림 잔상(회색 사각형)을 끈다(MZ2AZ-513). 선택 상태·역할은
+        // Android 기본 눌림 잔상(회색 사각형)은 끄고(MZ2AZ-513) iOS `.plain` 처럼 누르는 동안 내용을 흐리게 한다. 선택 상태·역할은
         // 접근성에 그대로 남긴다.
         modifier =
             modifier
                 .fillMaxSize()
                 .selectable(
                     selected = active,
-                    interactionSource = remember { MutableInteractionSource() },
+                    interactionSource = source,
                     indication = null,
                     role = Role.Tab,
                     onClick = onClick,
-                ),
+                ).graphicsLayer { alpha = if (pressed) PRESSED_ALPHA else 1f },
     ) {
         TabIcon(tab, tint, 22.dp)
         Text(tab.stubLabel, fontSize = 11.sp, color = tint, textAlign = TextAlign.Center)
@@ -278,8 +295,18 @@ private fun HomeTab(
     active: Boolean,
     modifier: Modifier,
     onBounds: (Rect) -> Unit,
+    pressedState: MutableState<Boolean>,
     onClick: () -> Unit,
 ) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    LaunchedEffect(pressed) {
+        if (pressed) {
+            pressedState.value = true
+        } else if (pressedState.value) {
+            pressedState.value = false
+        }
+    }
     // **`wrapContentSize(unbounded = true)` 가 핵심이다.** 원 62dp + 간격 3dp + 글자가
     // 바 높이 56dp보다 크다. Compose 의 `Column` 은 자식마다 남은 높이를 예산처럼
     // 나눠 주므로(iOS `VStack` 은 그렇지 않다) — 원이 예산 56dp를 다 써버리면 다음
@@ -295,7 +322,7 @@ private fun HomeTab(
                 .fillMaxSize()
                 .selectable(
                     selected = active,
-                    interactionSource = remember { MutableInteractionSource() },
+                    interactionSource = source,
                     indication = null,
                     role = Role.Tab,
                     onClick = onClick,
@@ -305,7 +332,11 @@ private fun HomeTab(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(3.dp),
-            modifier = Modifier.wrapContentSize(unbounded = true).offset(y = (-18).dp),
+            modifier =
+                Modifier
+                    .wrapContentSize(unbounded = true)
+                    .offset(y = (-18).dp)
+                    .graphicsLayer { alpha = if (pressedState.value) PRESSED_ALPHA else 1f },
         ) {
             Box(Modifier.size(62.dp).onGloballyPositioned { onBounds(it.boundsInRoot()) })
             Text(
@@ -322,23 +353,42 @@ private fun HomeTab(
 private fun FloatingHome(
     active: Boolean,
     modifier: Modifier,
+    homePressed: MutableState<Boolean>,
     onClick: () -> Unit,
 ) {
     val label = tr("홈")
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    LaunchedEffect(pressed) {
+        if (pressed) {
+            homePressed.value = true
+        } else if (homePressed.value) {
+            homePressed.value = false
+        }
+    }
     Box(
         modifier =
             modifier
                 .size(62.dp)
-                .selectable(selected = active, role = Role.Tab, onClick = onClick)
-                .semantics { contentDescription = label }
+                // 기본 눌림 물결은 원이 아니라 62dp 네모에 그려져 원 아래에 회색 사각형이 떴다(2026-10-31 SM-S928N 캡처) — 끄고,
+                // iOS `.plain` 처럼 누르는 동안 원·그림자·글자를 함께 흐리게 한다(글자는 탭 줄의 [HomeTab] 이 같은 눌림을 읽는다).
+                .selectable(
+                    selected = active,
+                    interactionSource = source,
+                    indication = null,
+                    role = Role.Tab,
+                    onClick = onClick,
+                ).semantics { contentDescription = label }
                 // iOS `.shadow(pinDeep 42%, r7, y6)` — 아래로 퍼지는 보라 글로우. Android elevation 그림자는
-                // 옅은 회색에 가까워 직접 그린다(2차 대조).
+                // 옅은 회색에 가까워 직접 그린다(2차 대조). 글로우는 원 둘레 밖으로 번져서 아래 흐림 층(62dp 네모) 안에 두면 네모로 잘린다
+                // — 층 밖에서 그리고 흐림은 값에 직접 곱한다.
                 .drawBehind {
                     val glow = size.minDimension / 2 + 9.dp.toPx()
                     val c = center + Offset(0f, 6.dp.toPx())
+                    val fade = if (homePressed.value) PRESSED_ALPHA else 1f
                     drawCircle(
                         Brush.radialGradient(
-                            0.6f to IOS.pinDeep.copy(alpha = 0.42f),
+                            0.6f to IOS.pinDeep.copy(alpha = 0.42f * fade),
                             1f to Color.Transparent,
                             center = c,
                             radius = glow,
@@ -346,7 +396,10 @@ private fun FloatingHome(
                         radius = glow,
                         center = c,
                     )
-                }.clip(CircleShape)
+                }
+                // 원·테두리·그림은 한 층으로 흐리게 한다(겹친 부분이 따로 진해지지 않게).
+                .graphicsLayer { alpha = if (homePressed.value) PRESSED_ALPHA else 1f }
+                .clip(CircleShape)
                 .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)))
                 .border(4.dp, IOS.systemGray6, CircleShape),
         contentAlignment = Alignment.Center,

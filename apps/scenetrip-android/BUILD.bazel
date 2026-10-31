@@ -5,6 +5,7 @@
 #
 #   :scenetrip-android  이 모듈의 주 라이브러리 (kt_android_library)
 #   :bin                기기/에뮬레이터에 설치하는 APK (android_binary)
+#   :bundle             Play Console 에 올리는 앱 번들 AAB (android_application) — `just android-bundle`
 #
 # :unit_test 는 Android 프레임워크 없이 리뷰·재시도·도착·외부 지도 규칙을 검증한다.
 # :image / :push 는 모바일 모듈에 해당 없음 — 스토어로 나가지 클러스터로 가지 않는다.
@@ -17,7 +18,7 @@
 # 버전은 MODULE.bazel 이 고정한다(api_level 36 · build-tools 36.1.0). 빠졌는지는
 # `just doctor` 가 본다.
 
-load("@rules_android//rules:rules.bzl", "android_binary")
+load("@rules_android//rules:rules.bzl", "android_application", "android_binary")
 load("@rules_java//java:defs.bzl", "java_test")
 load("@rules_kotlin//kotlin:android.bzl", "kt_android_library")
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
@@ -361,29 +362,45 @@ kt_android_library(
     ],
 )
 
+# 스토어에 올리는 버전. **Play 는 올릴 때마다 versionCode 가 커져야 한다** — 같은 번호나 더 작은 번호는 거절한다. 새 번들을 올리기 전에
+# 이 값을 올린다. versionName 은 사람이 보는 이름이고 iOS 와 맞춘다(iOS 1.0.0).
+ANDROID_VERSION_CODE = "1"
+
+ANDROID_VERSION_NAME = "1.0.0"
+
+ANDROID_MANIFEST_VALUES = {
+    "applicationId": "com.mz2az.scenetrip",
+    "minSdkVersion": "26",
+    "targetSdkVersion": "36",
+    # **비워 두면 앱이 죽는다.** 적지 않으면 PackageInfo.versionName 이 null 이
+    # 되는데, 지도 SDK 는 그것을 그대로 받아 User-Agent 를 만들며
+    # `versionName.replace("-", ".")` 를 부른다 — 지도를 띄우는 순간 NPE 다
+    # (SDK 3.23.3 의 com.naver.maps.map.b.b$a 를 디스어셈블해 확인).
+    "versionCode": ANDROID_VERSION_CODE,
+    "versionName": ANDROID_VERSION_NAME,
+    # 매니페스트의 ${naverNcpKeyId} 를 채운다. 값은 `.env` → `just android-run`
+    # → --define 경로로 온다. iOS 는 같은 값을 genrule 로 Swift 파일에 넣지만
+    # (:secrets_swift), Android SDK 는 **매니페스트에서 읽는 쪽이 정상 경로다** —
+    # 코드로 NaverMapSdk.client 를 넣었더니 SDK 내부에서 NPE 로 죽었다(실측).
+    #
+    # 소스에 박히지 않는 것은 양쪽 같다. 값이 비면 지도만 인증에 실패한다.
+    "naverNcpKeyId": "$(naver_client_id)",
+}
+
 android_binary(
     name = "bin",
     manifest = "AndroidManifest.xml",
     # iOS 와 같은 값이다. 스토어가 다르므로 충돌하지 않고, 같은 제품임이 드러난다.
-    manifest_values = {
-        "applicationId": "com.mz2az.scenetrip",
-        "minSdkVersion": "26",
-        "targetSdkVersion": "36",
-        # **비워 두면 앱이 죽는다.** 적지 않으면 PackageInfo.versionName 이 null 이
-        # 되는데, 지도 SDK 는 그것을 그대로 받아 User-Agent 를 만들며
-        # `versionName.replace("-", ".")` 를 부른다 — 지도를 띄우는 순간 NPE 다
-        # (SDK 3.23.3 의 com.naver.maps.map.b.b$a 를 디스어셈블해 확인).
-        #
-        # 스토어에 낼 때 올릴 값이므로 지금은 최소값으로 둔다.
-        "versionCode": "1",
-        "versionName": "0.1.0",
-        # 매니페스트의 ${naverNcpKeyId} 를 채운다. 값은 `.env` → `just android-run`
-        # → --define 경로로 온다. iOS 는 같은 값을 genrule 로 Swift 파일에 넣지만
-        # (:secrets_swift), Android SDK 는 **매니페스트에서 읽는 쪽이 정상 경로다** —
-        # 코드로 NaverMapSdk.client 를 넣었더니 SDK 내부에서 NPE 로 죽었다(실측).
-        #
-        # 소스에 박히지 않는 것은 양쪽 같다. 값이 비면 지도만 인증에 실패한다.
-        "naverNcpKeyId": "$(naver_client_id)",
-    },
+    manifest_values = ANDROID_MANIFEST_VALUES,
+    deps = [":scenetrip-android"],
+)
+
+# Play Console 에 올리는 앱 번들(AAB). APK 와 같은 코드·매니페스트·버전이고 `deploy/bundle_config.pb.json` 으로 나누는 방식을 정한다.
+# 이 타깃은 **서명하지 않은** `bundle_unsigned.aab` 를 만든다 — 업로드 키는 저장소에 없다. 서명과 복사는 `just android-bundle` 이 한다.
+android_application(
+    name = "bundle",
+    bundle_config_file = "deploy/bundle_config.pb.json",
+    manifest = "AndroidManifest.xml",
+    manifest_values = ANDROID_MANIFEST_VALUES,
     deps = [":scenetrip-android"],
 )

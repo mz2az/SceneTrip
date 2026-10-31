@@ -122,13 +122,16 @@ fun SceneTripApp() {
 }
 
 /**
- * 전체 화면 덮개 — 터치가 아래 탭바·화면으로 새지 않게 모두 삼킨다(iOS 의 전체 화면 덮개는 뒤를 누를 수 없다).
- * 안쪽 버튼은 자식이라 먼저 받는다.
+ * 전체 화면 덮개 — 터치가 아래 탭바·화면으로 새지 않게 막는다(iOS 의 전체 화면 덮개는 뒤를 누를 수 없다).
+ *
+ * **터치를 소비(`consume`)하지 않는다.** 소비하면 안쪽 버튼이 누르는 도중 손가락이 조금만 움직여도(ACTION_MOVE) 최종 단계에서 「소비됐다」고 보고
+ * 클릭을 취소한다 — 클릭 물결만 나오고 안 넘어갔다(2026-10-31 SM-S931N 실측: 움직임 없는 탭은 되고 1~2px 움직인 탭은 전부 무시, 연타하면 됨).
+ * 터치 입력 모디파이어가 있기만 해도 그 자리는 겹친 아래 형제에게 터치를 주지 않으므로, 받기만 하고 소비하지 않는다.
  */
 private fun Modifier.blockTouches(): Modifier =
     pointerInput(Unit) {
         awaitPointerEventScope {
-            while (true) awaitPointerEvent().changes.forEach { it.consume() }
+            while (true) awaitPointerEvent()
         }
     }
 

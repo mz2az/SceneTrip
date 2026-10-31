@@ -1,0 +1,12 @@
+{
+  "optimizations": {
+    "splits_config": {
+      "split_dimension": [
+        {
+          "value": "LANGUAGE",
+          "negate": true
+        }
+      ]
+    }
+  }
+}
