@@ -122,6 +122,7 @@ js_library(
     srcs = glob(
         [
             "src/**",
+            "functions/**",
             "public/**",
             "scripts/**",
         ],
@@ -184,6 +185,7 @@ eslint_bin.eslint_test(
     name = "lint",
     args = [
         "src",
+        "functions",
         "scripts",
     ],
     chdir = package_name(),

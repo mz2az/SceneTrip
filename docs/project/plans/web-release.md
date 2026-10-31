@@ -13,7 +13,7 @@
 | `_redirects`·`_headers` | 에이전트 | 끝 | `public/` 에 있고 `npm run build` 후 `dist/` 에 들어간다(확인함). **할 일: 없음** |
 | Cloudflare Pages 프로젝트 | 사용자 | 대기 | §2. **Cloudflare 에서 Pages 프로젝트를 만들고 GitHub 저장소를 연결한다** |
 | 도메인·DNS | 사용자 | 대기 | §3. **웹 주소를 정하고 Pages 의 「사용자 지정 도메인」 에 붙인다** |
-| API 주소(같은 출처 `/v1` 불가) | 사용자·권호 | 결정 필요 | §4. **「서버 CORS 허용」 으로 갈지 「Pages Function 프록시」 로 갈지 정한다** |
+| API 주소(같은 출처 `/v1`) | 사용자 | **결정함(2026-10-31): 먼저 Pages Function 프록시** | §4. `functions/v1/[[path]].ts`·`src/proxy/forward.ts`. 사용자가 크게 늘면 서버 CORS(§5)로 바꾼다 |
 | 서버 CORS | 권호 | 요청서 있음 | §5. **§5.5 메시지를 권호 님께 전달한다** |
 | 사진 올리기 버킷 CORS | 권호 | 요청서 있음 | §5.5 의 두 번째 요청. **같이 전달한다** |
 | 소셜 로그인 — Google | 사용자(+권호) | 대기 | §6. **Google 콘솔에서 웹 클라이언트에 JavaScript 원본·리디렉션 URI 를 등록하고 ID 를 Pages 변수에 넣는다** |
@@ -71,7 +71,15 @@ Pages 대시보드 → 프로젝트 만들기 → Git 연결.
 | **A. 서버 CORS 허용** + `VITE_API_BASE=https://api.scenetrip.io` | 코드 변경 없음. 정적 호스팅 그대로 | 권호 님 작업이 선행. 요청 때마다 preflight(`Authorization`·JSON) — 캐시로 줄인다 |
 | B. Pages Functions 로 `/v1/*` 프록시 | 같은 출처라 CORS·preflight 없음. 서버 변경 없음 | `functions/` 코드 추가(프록시 코드·요청 한도·IP 전달 `X-Forwarded-For` 처리 필요 — scene-api 가 IP 로 한도를 센다), Functions 요금/한도 |
 
-**권장: A.** 서버가 이미 모바일 앱과 같은 API 를 쓰고, 한도 계산(IP)이 프록시를 거치면 어긋난다. 사진 PUT 은 어느 쪽이든 버킷 CORS 가 필요하다. **결정은 사용자 몫이다.**
+**결정(2026-10-31, 사용자): 먼저 B(프록시)로 간다.** 권호 님 작업 없이 바로 배포할 수 있고, 시연·소규모에 충분하다. 장기적으로는 A 가 낫다.
+
+프록시 한계를 서버 코드로 확인했다(2026-10-31).
+- **앱별 한도는 어긋나지 않는다.** `RequestRateLimitFilter.subject()` 가 비회원을 `X-Install-Id` 로 먼저 세고(그다음에야 IP), 회원은 `Authorization` 으로 센다. 프록시는 두 헤더를 그대로 넘긴다.
+- **그러나 서버 앞 nginx 는 접속 IP 당 초당 30건·burst 60·동시 60연결 울타리를 친다**(`platform/helm/scenetrip/templates/config.yaml`, 평소값). nginx 는 `real_ip_recursive off` 로 `X-Forwarded-For` 의 **마지막 항목(ALB 가 본 접속 IP)** 을 쓰므로, 프록시가 넣는 사용자 IP 는 무시되고 웹 사용자 전원이 Cloudflare 출구 IP 몇 개를 함께 쓴다. 시연은 충분하고 사용자가 크게 늘면 429 가 날 수 있다.
+- **그때의 해결**: 권호 님이 서버 CORS 를 열고(§5) 웹앱의 `VITE_API_BASE=https://api.scenetrip.io` 로 직접 부르게 바꾼다(웹 코드 변경 없음, 프록시는 쓰지 않게 된다). 또는 nginx 가 Cloudflare 의 `CF-Connecting-IP` 를 믿게 한다.
+- 사진 올리기(S3 presigned PUT)는 프록시를 거치지 않으므로 **버킷 CORS(§5 두 번째 요청)는 어느 쪽이든 필요하다.**
+
+배포 설정: `functions/v1/[[path]].ts` 가 `/v1/*` 를 `https://api.scenetrip.io` 로 전달하고, `public/_routes.json` 이 그 길에만 Function 을 부르게 한다. `VITE_API_BASE` 는 비워 둔다(같은 출처 `/v1`). 시험: `src/proxy/forward.test.ts`.
 
 ## 5. CORS 요청서 (권호 님)
 
