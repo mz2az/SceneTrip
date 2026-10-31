@@ -12,7 +12,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: geolocation=(self), microphone=(), payment=()
-  Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://www.googletagmanager.com https://appleid.cdn-apple.com https://oapi.map.naver.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.scenetrip.io https://api-dev.scenetrip.io https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com; manifest-src 'self'
+  Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://www.googletagmanager.com https://appleid.cdn-apple.com https://oapi.map.naver.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.scenetrip.io https://api-dev.scenetrip.io https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io https://us.i.posthog.com https://eu.i.posthog.com https://us-assets.i.posthog.com https://eu-assets.i.posthog.com; manifest-src 'self'
 
 # 해시가 붙은 번들 — 내용이 바뀌면 이름이 바뀐다
 /assets/*
