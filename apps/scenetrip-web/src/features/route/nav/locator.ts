@@ -9,6 +9,7 @@
  * 그대로 멈춰 있었다(서면역이 전포로 떴다, 2026-10-16 실기). 그래서 최고 정확도로 계속 받고, 더 나은 값이 오면 갈아탄다.
  */
 import { createStore, useStore, type Store } from '@/state/storage'
+import { scheduleCachedFallback } from './cachedFix'
 
 export const LOCATION_FIX = {
   /** 이보다 오래된 값은 버린다(초) — 켜자마자 오는 캐시 값이 지난 자리일 수 있다. */
@@ -73,6 +74,7 @@ export class BrowserLocator implements LocatorLike {
   private tracking = false
   private ticket = 0
   private oneShotTimer: ReturnType<typeof setTimeout> | null = null
+  private cancelCachedFallback: (() => void) | null = null
 
   get state(): LocatorState {
     return this.store.get()
@@ -83,6 +85,8 @@ export class BrowserLocator implements LocatorLike {
     this.watchId = null
     if (this.oneShotTimer) clearTimeout(this.oneShotTimer)
     this.oneShotTimer = null
+    this.cancelCachedFallback?.()
+    this.cancelCachedFallback = null
   }
 
   /** 화면이 뜰 때 부른다. 권한이 없으면 브라우저가 물어본다. 잠깐 받아 가장 나은 값을 고르고 끊는다. */
@@ -113,11 +117,23 @@ export class BrowserLocator implements LocatorLike {
       (err) => this.onError(err),
       { enableHighAccuracy: true, maximumAge: tracking ? 0 : LOCATION_FIX.maxAge * 1000, timeout: 20_000 },
     )
+    // 새 위치가 안 오면(데스크톱 캐시 값만 주는 경우) 최근 캐시 위치로 먼저 보여 준다. 새 값이 오면 onFix 가 바꾼다.
+    this.cancelCachedFallback = scheduleCachedFallback(
+      () => ticket === this.ticket && this.shown === null,
+      (pos) => this.useCachedFix(toFix(pos), ticket),
+    )
     if (!tracking) {
       this.oneShotTimer = setTimeout(() => {
         if (ticket === this.ticket && !this.tracking && this.shown) this.clearWatch()
       }, LOCATION_FIX.oneShotWait * 1000)
     }
+  }
+
+  /** 캐시 위치 — 오래돼도 쓴다(`fixIsUsable` 를 건너뛴다). 이미 값이 있으면 쓰지 않는다. */
+  private useCachedFix(fix: Fix, ticket: number): void {
+    if (ticket !== this.ticket || this.shown !== null) return
+    this.shown = fix
+    this.store.set({ kind: 'found', latitude: fix.latitude, longitude: fix.longitude })
   }
 
   private onFix(fix: Fix, ticket: number): void {
