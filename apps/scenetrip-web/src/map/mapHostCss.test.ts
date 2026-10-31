@@ -19,3 +19,16 @@ describe('지도 컨테이너 CSS', () => {
     expect(block).toMatch(/inset:\s*0/)
   })
 })
+
+describe('네이버 로고·저작권 자리', () => {
+  // 로고가 시트·탭바 밑에 가려지면 안 된다 — 네이버가 만든 컨테이너를 시트 높이 변수만큼 올린다.
+  it.each([
+    ['.st-map', 'src/features/search/map/map.css', '--st-sheet-visible'],
+    ['.rt-map', 'src/features/route/map/routeMap.css', '--rt-inset'],
+  ])('%s 는 아래 컨테이너를 %s 만큼 올린다', (selector, file, variable) => {
+    const css = readFileSync(file, 'utf8')
+    const rule = css.slice(css.indexOf(`${selector} > div[style*='z-index: 100']`))
+    const block = rule.slice(0, rule.indexOf('}'))
+    expect(block).toContain(`bottom: var(${variable}, 0px) !important`)
+  })
+})
