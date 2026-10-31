@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -36,6 +38,13 @@ import androidx.compose.ui.unit.sp
 
 /** 시트 바탕 — iOS `.presentationBackground(.regularMaterial)` 를 흰 화면 위에서 본 옅은 회색. */
 val IOSSheetMaterial = Color(0xFFF2F2F5)
+
+/**
+ * 마이페이지에서 열리는 `.medium` 시트(내 코스·찜한 작품·장바구니·내가 쓴 글)의 바탕 — `.regularMaterial` 유리가 뒤 화면을
+ * 비쳐 균일한 옅은 회색(236)으로 보인다(2026-10-29 실측). 뒤를 흐리는 것은 Compose 가 시트 뒤 화면을 읽을 수 없어 못 하고,
+ * 그 색만 옮긴다.
+ */
+val IOSGlassSheetColor = Color(0xFFECECEC)
 
 /**
  * 시트 머리줄 — 왼쪽 취소 성격 단추, 가운데 제목(17 semibold), 오른쪽 확인 성격 단추(굵게).
@@ -54,10 +63,27 @@ fun IOSSheetToolbar(
     // 제목 아래 작은 글씨 — 리뷰 쓰기 머리줄의 대상 이름(iOS `header`). 읽는 법이 따로 있으면 그 아래 한 줄 더.
     subtitle: String? = null,
     reading: String? = null,
+    // 유리 시트 위에서는 단추도 유리 — 흰색이 아니라 시트보다 한 톤 짙은 회색(iOS 실측 233).
+    capsuleColor: Color = IOS.systemBackground,
 ) {
-    Box(modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp)) {
+    // iOS 내비게이션 줄의 제목·단추 중심은 시트 윗에서 36.4(7차 감사 ST1·ES1: 38.7 이라 2.3 아래였다). 아래 칸은 그대로라 그림만 올린다.
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .padding(horizontal = 16.dp)
+                .offset(y = (-2.3).dp),
+    ) {
         if (leading != null) {
-            GlassCapsule(leading, bold = false, enabled = true, onClick = onLeading, modifier = Modifier.align(Alignment.CenterStart))
+            GlassCapsule(
+                leading,
+                bold = false,
+                enabled = true,
+                onClick = onLeading,
+                color = capsuleColor,
+                modifier = Modifier.align(Alignment.CenterStart),
+            )
         }
         if (subtitle == null) {
             Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.align(Alignment.Center))
@@ -81,6 +107,7 @@ fun IOSSheetToolbar(
                 onClick = onTrailing,
                 modifier = Modifier.align(Alignment.CenterEnd),
                 busy = trailingBusy,
+                color = capsuleColor,
             )
         }
     }
@@ -94,6 +121,7 @@ private fun GlassCapsule(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     busy: Boolean = false,
+    color: Color = IOS.systemBackground,
 ) {
     Box(
         contentAlignment = Alignment.Center,
@@ -102,7 +130,7 @@ private fun GlassCapsule(
                 .height(40.dp)
                 .shadow(5.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.10f), spotColor = Color.Black.copy(alpha = 0.10f))
                 .clip(CircleShape)
-                .background(IOS.systemBackground)
+                .background(color)
                 .clickable(enabled = enabled, onClick = onClick)
                 .padding(horizontal = 16.dp),
     ) {
@@ -157,7 +185,26 @@ fun IOSSearchField(
 
 /** 목록 줄 사이 선(iOS `List(.plain)`). [start] 는 글자 시작에 맞춘다. */
 @Composable
-fun IOSListDivider(start: Dp) {
+fun IOSListDivider(
+    start: Dp,
+    color: Color = Color(0xFFE5E5EA),
+    // true 면 선이 칸을 차지하지 않고 앞 줄 맨 아래 1dp 에 겹친다 — iOS 목록은 줄 높이 안에 선이 들어 있다(7차 감사 C2: 피치 118.0).
+    overlay: Boolean = false,
+) {
     // iOS 목록 선은 오른쪽 끝에서도 약 15 들어와 끝난다.
-    HorizontalDivider(thickness = 1.dp, color = Color(0xFFE5E5EA), modifier = Modifier.padding(start = start, end = 15.dp))
+    HorizontalDivider(
+        thickness = 1.dp,
+        color = color,
+        modifier =
+            (
+                if (overlay) {
+                    Modifier.layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        layout(placeable.width, 0) { placeable.place(0, -placeable.height) }
+                    }
+                } else {
+                    Modifier
+                }
+            ).padding(start = start, end = 15.dp),
+    )
 }

@@ -3,8 +3,15 @@ package com.mz2az.scenetrip.qa
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.communitytab.CommunityArticlePreview
 import com.mz2az.scenetrip.communitytab.CommunityComposeState
 import com.mz2az.scenetrip.communitytab.CommunityComposeView
@@ -15,6 +22,11 @@ import com.mz2az.scenetrip.data.CommunityArticle
 import com.mz2az.scenetrip.data.CommunityPhotoPlacement
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.CommunityStore
+import com.mz2az.scenetrip.reviews.CardPhotoStrip
+import com.mz2az.scenetrip.reviews.ReviewSubject
+import com.mz2az.scenetrip.sceneapi.client.model.Photo
+import com.mz2az.scenetrip.sceneapi.client.model.PhotoLicense
+import com.mz2az.scenetrip.sceneapi.client.model.PhotoSource
 import com.mz2az.scenetrip.sceneapi.client.model.ReviewPhoto
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostBlock
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostBlockKind
@@ -36,10 +48,20 @@ class CommunityBlogQaActivity : ComponentActivity() {
                 else -> "http://10.0.2.2:8898/photo.png"
             }
         val story = "첫 문단 · QA 원문\n\n둘째 문단 · 사진 뒤의 원문"
+        // `long` — 세 줄로 접히는 제목과 한 줄을 넘는 공공누리 출처(2026-10-31 사용자 캡처: 제목이 작성자·출처 위로 겹쳤다).
+        val postTitle = if (kind == "long") "Jung-gu, Daegu: A Drama Walk Through Gyesan Cathedral and Cheongna Hill" else "QA 블로그 제목"
+        val photoCredit =
+            if (kind ==
+                "long"
+            ) {
+                "AI-converted image · Original: Korea Tourism Organization · KOGL Type 1"
+            } else {
+                "QA 원본 출처 · 합성 사진"
+            }
         val blocks =
             listOf(
                 TripPostBlock(TripPostBlockKind.text, text = "첫 문단 · QA 원문"),
-                TripPostBlock(TripPostBlockKind.photo, photoIndex = 0, caption = "QA 사진", credit = "QA 원본 출처 · 합성 사진", aiGenerated = true),
+                TripPostBlock(TripPostBlockKind.photo, photoIndex = 0, caption = "QA 사진", credit = photoCredit, aiGenerated = true),
                 TripPostBlock(TripPostBlockKind.text, text = "둘째 문단 · 사진 뒤의 원문"),
             )
         setContent {
@@ -78,6 +100,34 @@ class CommunityBlogQaActivity : ComponentActivity() {
                         )
                     }
 
+                    // 코스 편집기 장소 카드의 사진 줄(iOS `CardPhotoStrip`) — 공공누리 3유형(네모 모서리·전체 보임)·일반·방문자 사진을 한 줄에.
+                    "strip" -> {
+                        val photo = URI("http://10.0.2.2:8898/photo.png")
+                        val portrait = URI("http://10.0.2.2:8898/portrait.png")
+                        val photos =
+                            listOf(
+                                Photo(
+                                    photo,
+                                    PhotoSource.official,
+                                    credit = "AI-converted image · Original: Korea Tourism Organization · KOGL Type 3",
+                                    license = PhotoLicense.kogl_type3,
+                                ),
+                                Photo(
+                                    portrait,
+                                    PhotoSource.official,
+                                    credit = "AI-converted image · Original: Korea Tourism Organization · KOGL Type 3",
+                                    license = PhotoLicense.kogl_type3,
+                                ),
+                                Photo(photo, PhotoSource.review, reviewId = 7),
+                                Photo(portrait, PhotoSource.official),
+                                Photo(photo, PhotoSource.official),
+                                Photo(portrait, PhotoSource.official),
+                            )
+                        Column(Modifier.fillMaxSize().background(Color.White).padding(top = 200.dp)) {
+                            CardPhotoStrip(ReviewSubject(1, "QA 장소", isPoi = true), photos, photos.size)
+                        }
+                    }
+
                     "pending", "failed" -> {
                         CommunityArticlePreview(
                             "QA 블로그 제목",
@@ -99,7 +149,7 @@ class CommunityBlogQaActivity : ComponentActivity() {
                     else -> {
                         CommunityPostView(
                             CommunityPost(
-                                title = "QA 블로그 제목",
+                                title = postTitle,
                                 body = story,
                                 author = "QA 작성자",
                                 remotePhotos = listOf(url),

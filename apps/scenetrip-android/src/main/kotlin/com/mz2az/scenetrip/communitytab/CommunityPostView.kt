@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -59,8 +60,10 @@ import com.mz2az.scenetrip.reviews.rememberModerationController
 import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import com.mz2az.scenetrip.ui.CheckmarkIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSLinedText
 import com.mz2az.scenetrip.ui.LocalPhotoRenew
 import com.mz2az.scenetrip.ui.XMarkIcon
+import com.mz2az.scenetrip.ui.iosLineBox
 import kotlinx.coroutines.launch
 
 private const val PREVIEW_STOPS = 4
@@ -167,16 +170,32 @@ fun CommunityPostView(
                     }
                     item {
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                            // 4차 에뮬레이터 실측(iOS 대비 글자 윗선): 제목 +1.9 → 위 18→16.1, 작성자 +3.6 → 간격 16→14.3,
+                            // 본문 +2.6 → 아래 12→13, 둘째 사진 +4.0 → 글 블록 아래 22→20.6.
+                            verticalArrangement = Arrangement.spacedBy(14.3.dp),
+                            // 아래 여백은 iOS 간격 16 에서 3 을 더 뺀다 — 본문 글줄(한글 제 높이 24.4)이 iOS(22)보다 높아 글자가 아래에 앉는다(31-post 실측).
+                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.1.dp, bottom = 13.dp),
                         ) {
-                            Text(content.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+                            // 제목은 여러 줄이 될 수 있다 — 한 줄 칸(iosLineBox)에 가두면 둘째 줄부터 위 사진 출처와 아래 작성자 위로 넘쳤다.
+                            IOSLinedText(
+                                content.title,
+                                lineDp = 28f,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = IOS.label,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
 
                             AuthorRow(content, moderation)
                         }
                     }
-                    itemsIndexed(blocks) { _, block ->
-                        CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp).padding(bottom = 22.dp))
+                    // 끝의 「References」·「Photo credits」 는 접어 둔다(Android 만 — 길고 주소가 섞여 본문 끝이 지저분했다).
+                    val (bodyBlocks, references) = CommunityArticle.splitReferences(blocks)
+                    itemsIndexed(bodyBlocks) { _, block ->
+                        CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp).padding(bottom = 20.6.dp))
+                    }
+                    if (references.isNotEmpty()) {
+                        item { CommunityReferences(references, Modifier.padding(horizontal = 20.dp).padding(bottom = 14.dp)) }
                     }
                     item {
                         Column(
@@ -292,8 +311,8 @@ private fun AuthorRow(
             Text(name.take(1), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
         }
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IOS.label)
-            Text(formatDateTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel)
+            Text(name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IOS.label, modifier = Modifier.iosLineBox(20.dp))
+            Text(formatDateTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel, modifier = Modifier.iosLineBox(13.dp))
         }
         if (postId != null && ModerationRules.showsMenu(isMine = post.isMine)) {
             Spacer(Modifier.weight(1f))
@@ -301,6 +320,9 @@ private fun AuthorRow(
                 target = ModerationTarget.post(postId),
                 canBlock = ModerationRules.canBlock(isMine = post.isMine, hasAuthor = post.author != null),
                 controller = moderation,
+                // 메뉴 기본 칸 44×44 가 작성자 줄을 34 에서 44 로 키워 본문이 10dp 밀렸다 — iOS 줄은 글 칸(34)이 정한다(31-post 실측).
+                // 8차 C4: 「⋯」 오른쪽 여백 iOS 38 · Android 42.4 — 4.4 오른쪽으로.
+                modifier = Modifier.offset(x = 4.4.dp).size(width = 44.dp, height = 34.dp),
             )
         }
     }

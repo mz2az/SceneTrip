@@ -127,28 +127,38 @@ fun ReviewRow(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             // 닉네임·별·날짜·글이 따로 읽히지 않게 한 덩이로 묶는다. 사진은 묶지 않는다 — 한 장씩 눌러 크게 본다.
             Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        ReviewRules.authorName(review.author),
-                        style = IOS.subheadlineSemibold,
-                        color = if (review.author == null) IOS.secondaryLabel else IOS.label,
-                        maxLines = 1,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    if (review.isMine) {
+                // 이름·「내 리뷰」 묶음이 남는 폭을 다 갖고, 날짜는 그 바로 오른쪽 끝에 붙는다 — 전에는 이름과 빈칸이 남는 폭을 반씩 나눠
+                // 날짜가 메뉴에서 66dp 떨어졌다(7차 감사 RV1, iOS `Spacer(minLength: 8)`).
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(
+                        Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         Text(
-                            tr("내 리뷰"),
-                            style = IOS.caption2.copy(fontWeight = FontWeight.SemiBold),
-                            color = IOS.accent,
-                            modifier =
-                                Modifier
-                                    .clip(
-                                        CircleShape,
-                                    ).background(IOS.accent.copy(alpha = 0.12f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            ReviewRules.authorName(review.author),
+                            style = IOS.subheadlineSemibold,
+                            color = if (review.author == null) IOS.secondaryLabel else IOS.label,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
+                        if (review.isMine) {
+                            Text(
+                                tr("내 리뷰"),
+                                style = IOS.caption2.copy(fontWeight = FontWeight.SemiBold),
+                                color = IOS.accent,
+                                modifier =
+                                    Modifier
+                                        .clip(CircleShape)
+                                        .background(IOS.accent.copy(alpha = 0.12f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
                     }
-                    Spacer(Modifier.weight(1f))
                     Text(dateText, style = IOS.caption2, color = IOS.tertiaryLabel)
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -171,7 +181,7 @@ fun ReviewRow(
                     target = ModerationTarget.review(review.id),
                     canBlock = ModerationRules.canBlock(isMine = review.isMine, hasAuthor = review.author != null),
                     controller = moderation,
-                    modifier = Modifier.size(width = 44.dp, height = 36.dp).offset(y = (-6).dp),
+                    modifier = Modifier.size(width = 32.dp, height = 28.dp).offset(y = (-6).dp),
                 )
             }
         }
@@ -362,7 +372,8 @@ fun ReviewsSheet(
                                         Modifier
                                             .fillMaxWidth()
                                             .background(IOS.accent.copy(alpha = if (lit == row.id) 0.1f else 0f))
-                                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                                            // 줄 이름 글에서 다음 줄 이름 글까지 iOS 185.3 / Android 190.4(감사 실측) — 차이 5 는 위아래 여백에서 났다. 4차 에뮬레이터 실측 186.7 → 185.3: 12 → 11.3.
+                                            .padding(horizontal = 16.dp, vertical = 11.3.dp),
                                     ) {
                                         ReviewRow(
                                             row,

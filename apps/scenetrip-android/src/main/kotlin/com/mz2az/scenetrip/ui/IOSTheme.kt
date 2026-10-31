@@ -1,13 +1,20 @@
 package com.mz2az.scenetrip.ui
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -89,8 +96,8 @@ object IOS {
     val secondaryLabel = Color(0xFF3C3C43).copy(alpha = 0.60f)
     val tertiaryLabel = Color(0xFF3C3C43).copy(alpha = 0.30f)
 
-    /** `Divider()` 의 색. */
-    val separator = Color(0xFF3C3C43).copy(alpha = 0.60f)
+    /** `Divider()` 의 색 — 흰 바탕에서 #C6C6C8 (UIColor.separator, 3C3C43 불투명도 0.29). 0.60 이면 #8A8A8E 로 진해진다(2026-10-30 5차 감사). */
+    val separator = Color(0xFF3C3C43).copy(alpha = 0.29f)
 
     /**
      * 번호 배지와 지도 핀의 그러데이션. `NaverMapView.swift` 의 `PinImage` 와
@@ -185,6 +192,51 @@ val textBase =
         lineBreak = LineBreak.Paragraph.copy(wordBreak = LineBreak.WordBreak.Phrase),
         localeList = LocaleList("ko"),
     )
+
+/**
+ * iOS 한 줄 높이(예: title2 28pt, subheadline 20pt)로 **줄 칸을 고정한다.** 글꼴 제 높이(한글 약 1.43배)를 그대로 두면 한 줄짜리
+ * 제목·단추·알약이 iOS 보다 3~4dp 커진다.
+ *
+ * `TextStyle.lineHeight` 로는 안 된다 — [textBase] 의 `Trim.Both` 는 한 줄 글의 위아래 여분을 깎아 글꼴 제 높이로 되돌리고,
+ * `Trim.None` 으로 바꿔도 한글(대체 글꼴)이 든 줄은 줄지 않았다(2026-10-30 실측: 60sp 를 줘도 15.2dp, 한글 25sp 는 29dp).
+ * 그래서 글 둘레에 높이 칸을 두고 글을 가운데에 앉힌다. 글이 칸보다 커도 잘리지 않는다.
+ */
+fun Modifier.iosLineBox(height: Dp): Modifier = this.height(height).wrapContentHeight(Alignment.CenterVertically, unbounded = true)
+
+/**
+ * SF 시스템 글꼴의 한 줄 높이 = 크기 × 1.193 (13pt → 15.5, 17pt → 20.3, 19pt → 22.7). SwiftUI `.font(.system(size:))` 한 줄이 이만큼 차지한다
+ * (7차 감사 H1·H2·H3 실측). 크기(sp)만 알면 [iosLineBox] 로 같은 높이 칸을 만든다.
+ */
+fun Modifier.sfLine(sizeSp: Float): Modifier = iosLineBox((sizeSp * 1.193f).dp)
+
+/**
+ * 여러 줄 글의 줄 칸을 iOS 줄 높이([lineDp])로 고정한다 — 줄 수는 그리고 난 뒤 알 수 있어 그때 칸을 맞춘다. 한 줄이면 [iosLineBox] 와 같다.
+ * (7차 감사 CE3: 두 줄 설명이 iOS 38.0 인데 글꼴 제 높이로 41.1 이었다.)
+ */
+@Composable
+fun IOSLinedText(
+    text: String,
+    lineDp: Float,
+    modifier: Modifier = Modifier,
+    fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
+    fontWeight: androidx.compose.ui.text.font.FontWeight? = null,
+    color: Color = Color.Unspecified,
+    textAlign: androidx.compose.ui.text.style.TextAlign? = null,
+    maxLines: Int = Int.MAX_VALUE,
+) {
+    var lines by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(1) }
+    androidx.compose.material3.Text(
+        text,
+        fontSize = fontSize,
+        fontWeight = fontWeight,
+        color = color,
+        textAlign = textAlign,
+        maxLines = maxLines,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        onTextLayout = { lines = it.lineCount },
+        modifier = modifier.iosLineBox((lineDp * lines).dp),
+    )
+}
 
 /**
  * 앱 전체 글자 기본값 — **줄 높이는 글꼴 자체값, 자간 0.** SwiftUI 의 기본이 이렇다.

@@ -7,23 +7,30 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -50,10 +57,12 @@ data class IOSAction(
 )
 
 /**
- * iOS `.alert` — 270pt 폭, 가운데 정렬 제목·본문, 버튼은 둘이면 가로로 반씩, 셋 이상이면 세로.
- * 모양은 `searchtab/Locate.kt` 의 위치 경고창에서 실측해 둔 값을 공용으로 뺀 것이다. Material
- * `AlertDialog`(왼쪽 정렬·오른쪽 아래 글자 버튼)는 한눈에 다른 앱이라 쓰지 않는다
- * (2026-09-28 화면 대조 #10).
+ * iOS 26 `.alert` — **유리 카드에 알약 단추.** 폭 319, 모서리 34, 단추는 높이 48 의 진한 회색 알약이고 둘이면 가로로
+ * 반씩(사이 8), 하나면 가득, 셋 이상이면 세로로 쌓는다. 카드 안쪽 여백 16(2026-10-29 「바꾼 내용을 버릴까요?」 실측).
+ * 취소 성격 단추 글자는 검정, 파괴 성격은 빨강, 그 밖은 강조색이다. 반투명 유리는 Compose 가 뒤 화면을 못 읽어
+ * 불투명한 옅은 회색(235)으로 옮긴다. 이전 모양(270 폭, 모서리 14, 구분선 단추)은 iOS 26 이전 것이다.
+ *
+ * Material `AlertDialog`(왼쪽 정렬·오른쪽 아래 글자 버튼)는 한눈에 다른 앱이라 쓰지 않는다.
  */
 @Composable
 fun IOSAlert(
@@ -71,44 +80,69 @@ fun IOSAlert(
         FullScreenDialogWindow()
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = IOS.DIM)),
+            // 8차 DC1: iOS 알림은 안전 영역의 가운데에 선다(화면 정중앙보다 14.3 아래) — 딤은 화면 전체, 카드 자리는 상태줄·내비바를 뺀 칸.
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = IOS.DIM))
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp),
         ) {
             Column(
+                verticalArrangement = Arrangement.spacedBy(19.dp),
                 modifier =
                     Modifier
-                        .width(IOS.alertWidth)
-                        .clip(RoundedCornerShape(IOS.alertCorner))
-                        .background(IOS.popupSurface),
+                        .widthIn(max = ALERT_WIDTH)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(ALERT_CORNER))
+                        .background(ALERT_SURFACE)
+                        // 9차 DC1: 제목만 있는 알림은 iOS 가 윗 21.8 · 제목 칸 20.3 · 제목→단추 20.0 (카드 높이 126.2 — Android 는 한글 글꼴 칸 24.4 라 +2.2 컸다).
+                        .padding(start = 16.dp, end = 16.dp, top = if (message.isNullOrEmpty()) 21.8.dp else 21.dp, bottom = 16.dp),
             ) {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 20.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = if (message.isNullOrEmpty()) 1.dp else 0.dp),
                 ) {
-                    Text(title, style = IOS.headline, color = IOS.label, textAlign = TextAlign.Center)
+                    // 본문 없이 제목만 있으면 보통 굵기(실측), 본문이 있으면 제목을 굵게 한다.
+                    Text(
+                        title,
+                        style = IOS.body,
+                        fontWeight = if (message.isNullOrEmpty()) FontWeight.Normal else FontWeight.SemiBold,
+                        color = IOS.label,
+                        textAlign = TextAlign.Center,
+                        modifier = if (message.isNullOrEmpty()) Modifier.sfLine(17f) else Modifier,
+                    )
                     if (!message.isNullOrEmpty()) {
                         Text(message, style = IOS.footnote, color = IOS.label, textAlign = TextAlign.Center)
                     }
                 }
-                Box(Modifier.fillMaxWidth().height(IOS.hairline).background(IOS.separator))
-                if (actions.size == 2) {
+                if (actions.size <= 2) {
                     // iOS 는 취소를 왼쪽에 둔다.
                     val ordered = actions.sortedBy { if (it.role == IOSRole.CANCEL) 0 else 1 }
-                    Row(Modifier.height(IOS.alertButton)) {
-                        AlertCell(ordered[0], Modifier.weight(1f), onDismiss)
-                        Box(Modifier.width(IOS.hairline).fillMaxHeight().background(IOS.separator))
-                        AlertCell(ordered[1], Modifier.weight(1f), onDismiss)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ordered.forEach { AlertCell(it, Modifier.weight(1f), onDismiss) }
                     }
                 } else {
-                    actions.forEachIndexed { index, action ->
-                        if (index > 0) Box(Modifier.fillMaxWidth().height(IOS.hairline).background(IOS.separator))
-                        AlertCell(action, Modifier.fillMaxWidth().height(IOS.alertButton), onDismiss)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        actions.forEach { AlertCell(it, Modifier.fillMaxWidth(), onDismiss) }
                     }
                 }
             }
         }
     }
 }
+
+/** iOS 26 알림 카드 폭 — 402 폭 화면에서 319 로 쟀다. */
+private val ALERT_WIDTH = 319.dp
+private val ALERT_CORNER = 34.dp
+
+/** 알림 카드 바탕 — 유리를 어두운 지도 위에서 잰 값(236·237·238). */
+private val ALERT_SURFACE = Color(0xFFECEDEE)
+
+/** 알림 단추 — 카드보다 진한 회색(207·207·209). */
+private val ALERT_BUTTON = Color(0xFFCFCFD1)
 
 @Composable
 private fun AlertCell(
@@ -119,15 +153,24 @@ private fun AlertCell(
     Box(
         contentAlignment = Alignment.Center,
         modifier =
-            modifier.fillMaxHeight().clickable {
-                onDismiss()
-                action.onClick()
-            },
+            modifier
+                .height(48.dp)
+                .clip(RoundedCornerShape(50))
+                .background(ALERT_BUTTON)
+                .clickable {
+                    onDismiss()
+                    action.onClick()
+                },
     ) {
         Text(
             action.label,
-            style = IOS.body.copy(fontWeight = if (action.role == IOSRole.CANCEL) FontWeight.SemiBold else FontWeight.Normal),
-            color = if (action.role == IOSRole.DESTRUCTIVE) IOS.systemRed else IOS.accent,
+            style = IOS.body,
+            color =
+                when (action.role) {
+                    IOSRole.DESTRUCTIVE -> IOS.systemRed
+                    IOSRole.CANCEL -> IOS.label
+                    IOSRole.DEFAULT -> IOS.accent
+                },
         )
     }
 }
@@ -150,14 +193,23 @@ fun IOSConfirmPopover(
     message: String? = null,
     // true 면 자리 **아래 가운데**에 뜨고 꼬리가 위를 가리킨다(목록 줄처럼 옆에 자리가 없을 때).
     below: Boolean = false,
+    // true 면 꼬리 없이 **화면 한가운데**에 뜬다 — 단추가 아니라 화면 전체에 붙인 `.confirmationDialog`(코스 목록 삭제)의 자리다
+    // (iOS 실측: 카드 가운데가 화면 높이의 51.5%, 2026-10-30 재감사 R10).
+    centered: Boolean = false,
 ) {
     val density = LocalDensity.current
     // 그림자가 팝업 창 경계에서 네모로 잘리지 않게 카드 둘레에 여백을 두고, 그만큼 자리를 되돌린다.
-    val shadowRoom = 24.dp
+    // 화면 한가운데 확인창(코스 삭제)은 iOS 그림자가 카드 둘레 100pt 넘게 번져 여백을 넓게 둔다(402 폭 화면에서 카드 240 + 양옆 80 까지).
+    val shadowRoom = if (centered) 80.dp else 24.dp
     val roomPx = with(density) { shadowRoom.roundToPx() }
+    // `windowSize` 는 상태줄·내비게이션줄을 뺀 높이라(2201/2400) 그 51.5% 에 놓으면 47.2% 가 된다 — 화면 전체 높이로 잰다(5차 감사 del-confirm).
+    val screenHeightPx = LocalContext.current.resources.displayMetrics.heightPixels
     val gapPx = with(density) { (anchorX + 2.dp).roundToPx() }
+    // 아래·위 어느 쪽에 뜨는가 — iOS 는 자리가 더 넉넉한 쪽에 띄운다(위쪽 줄은 아래로, 아래쪽 줄은 위로. 2026-10-29 감사 #17).
+    // 꼬리 방향이 이 값을 따라 바뀐다. 자리는 팝업이 놓일 때 알 수 있어 그때 적는다.
+    var above by remember { mutableStateOf(false) }
     val provider =
-        remember(gapPx, roomPx, below) {
+        remember(gapPx, roomPx, below, centered, screenHeightPx) {
             object : PopupPositionProvider {
                 override fun calculatePosition(
                     anchorBounds: IntRect,
@@ -167,11 +219,13 @@ fun IOSConfirmPopover(
                 ): IntOffset {
                     val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
                     val maxY = (windowSize.height - popupContentSize.height).coerceAtLeast(0)
-                    return if (below) {
-                        IntOffset(
-                            (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX),
-                            (anchorBounds.bottom - roomPx).coerceIn(0, maxY),
-                        )
+                    return if (centered) {
+                        IntOffset(maxX / 2, (screenHeightPx * 0.515f - popupContentSize.height / 2f).toInt().coerceIn(0, maxY))
+                    } else if (below) {
+                        val flip = anchorBounds.top > windowSize.height - anchorBounds.bottom
+                        if (above != flip) above = flip
+                        val y = if (flip) anchorBounds.top - popupContentSize.height + roomPx else anchorBounds.bottom - roomPx
+                        IntOffset((anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX), y.coerceIn(0, maxY))
                     } else {
                         IntOffset(
                             (anchorBounds.left + gapPx - roomPx).coerceAtMost(maxX),
@@ -182,19 +236,35 @@ fun IOSConfirmPopover(
             }
         }
     Popup(popupPositionProvider = provider, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
-        if (below) {
+        if (centered) {
+            Box(modifier = Modifier.padding(shadowRoom)) { PopoverCard(title, message, actions, onDismiss, wideShadow = true) }
+        } else if (below) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(shadowRoom)) {
-                Canvas(Modifier.size(width = 18.dp, height = 8.dp)) {
-                    val tail =
-                        Path().apply {
-                            moveTo(0f, size.height)
-                            lineTo(size.width / 2, 0f)
-                            lineTo(size.width, size.height)
-                            close()
-                        }
-                    drawPath(tail, POPOVER_SURFACE)
+                if (!above) {
+                    Canvas(Modifier.size(width = 18.dp, height = 8.dp)) {
+                        val tail =
+                            Path().apply {
+                                moveTo(0f, size.height)
+                                lineTo(size.width / 2, 0f)
+                                lineTo(size.width, size.height)
+                                close()
+                            }
+                        drawPath(tail, POPOVER_SURFACE)
+                    }
                 }
                 PopoverCard(title, message, actions, onDismiss)
+                if (above) {
+                    Canvas(Modifier.size(width = 18.dp, height = 8.dp)) {
+                        val tail =
+                            Path().apply {
+                                moveTo(0f, 0f)
+                                lineTo(size.width / 2, size.height)
+                                lineTo(size.width, 0f)
+                                close()
+                            }
+                        drawPath(tail, POPOVER_SURFACE)
+                    }
+                }
             }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(shadowRoom)) {
@@ -221,25 +291,65 @@ private fun PopoverCard(
     message: String?,
     actions: List<IOSAction>,
     onDismiss: () -> Unit,
+    wideShadow: Boolean = false,
 ) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        // 단추 사이 8, 글과 첫 단추 사이 18(글 아래 여백 10 + 8) — iOS 실측(7차 감사 L1: 단추 간격 8.0, 팝오버 178.7).
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier =
             Modifier
                 .width(240.dp)
-                .shadow(
-                    20.dp,
-                    RoundedCornerShape(32.dp),
-                    ambientColor = Color.Black.copy(alpha = 0.22f),
-                    spotColor = Color.Black.copy(alpha = 0.22f),
+                .then(
+                    // iOS 는 카드 가장자리 어둡기 ≈ 9%, 둘레 100pt 넘게 퍼지는 큰 번짐(del-confirm-ios 실측). 고도 그림자로는 못 낸다.
+                    if (wideShadow) {
+                        Modifier.iosShadow(Color.Black.copy(alpha = 0.22f), radius = 100.dp, y = 0.dp, cornerRadius = 32.dp)
+                    } else {
+                        Modifier.shadow(
+                            20.dp,
+                            RoundedCornerShape(32.dp),
+                            ambientColor = Color.Black.copy(alpha = 0.22f),
+                            spotColor = Color.Black.copy(alpha = 0.22f),
+                        )
+                    },
                 ).clip(RoundedCornerShape(32.dp))
                 .background(POPOVER_SURFACE)
                 // 단추는 카드 안쪽 16/16 을 쓰고 **제목만** 30 들여쓴다(iOS 실측: 단추 폭 208).
-                .padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 16.dp),
+                .padding(start = 16.dp, end = 16.dp, top = if (message.isNullOrEmpty()) 20.4.dp else 22.dp, bottom = 16.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(start = 14.dp, end = 9.dp)) {
-            Text(title, fontSize = 17.sp, color = IOS.label)
-            if (!message.isNullOrEmpty()) Text(message, fontSize = 13.sp, color = IOS.secondaryLabel)
+        // 본문이 없으면 제목은 가운데·보통 굵기(언어 고르기 「언어」), 본문이 있으면 왼쪽·굵게(코스 지우기)다(2026-10-29 감사 실측).
+        val centered = message.isNullOrEmpty()
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
+            modifier =
+                Modifier.fillMaxWidth().padding(
+                    start = if (centered) 0.dp else 14.dp,
+                    end = if (centered) 0.dp else 9.dp,
+                    // 8차 L1: 본문 없는 가운데 제목(언어)은 제목→첫 단추가 2.0, 전체 높이가 3.3 짧았다 (iOS 180 / 53.3).
+                    bottom = if (centered) 11.2.dp else 10.dp,
+                ),
+        ) {
+            // 제목은 17 검정, 본문은 15 회색(2026-10-29 감사 실측). 본문이 있으면 둘 다 왼쪽 정렬이다 — 「」 괄호는 Noto 가
+            // 글자 칸 한쪽에 붙여 그려 제목 머리가 본문보다 들어가 보이는데 글꼴 차이라 맞출 수 없다.
+            // 본문이 있는 제목은 iOS 글자 폭이 17sp Noto 보다 11% 좁다(112-sbs 실측 220px/245px) — 본문(15sp)이 같은 글꼴 차 3.5% 만
+            // 넓은 것과 견주면 15.3sp 가 맞다(실기 158.6dp → 151.7dp, iOS 146.7pt × 1.035). 본문 없는 가운데 제목(「언어」)은 그대로 17sp.
+            // 「 는 Noto 가 글자 칸 오른쪽에 그려 머리가 본문보다 7dp 들어가 보인다 — iOS 는 본문과 같은 선(165 대 167)이라 그만큼 당긴다.
+            Text(
+                title,
+                fontSize = if (centered) 17.sp else 15.05.sp,
+                fontWeight = if (centered) FontWeight.Normal else FontWeight.SemiBold,
+                color = IOS.label,
+                textAlign = if (centered) TextAlign.Center else TextAlign.Start,
+                modifier =
+                    if (centered) {
+                        Modifier.sfLine(17f)
+                    } else if (title.startsWith("「")) {
+                        Modifier.offset(x = (-7).dp)
+                    } else {
+                        Modifier
+                    },
+            )
+            if (!message.isNullOrEmpty()) Text(message, fontSize = 15.sp, color = IOS.secondaryLabel, textAlign = TextAlign.Start)
         }
         actions.forEach { action ->
             Box(
@@ -258,7 +368,8 @@ private fun PopoverCard(
                 Text(
                     action.label,
                     fontSize = 17.sp,
-                    color = if (action.role == IOSRole.DESTRUCTIVE) IOS.systemRed else IOS.accent,
+                    // iOS 는 일반 단추 글자를 검정으로 그린다(언어 고르기 실측) — 파괴 단추만 빨강.
+                    color = if (action.role == IOSRole.DESTRUCTIVE) IOS.systemRed else IOS.label,
                 )
             }
         }

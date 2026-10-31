@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -24,22 +25,32 @@ import androidx.compose.ui.unit.sp
 fun IOSEmptyState(
     title: String,
     description: String,
+    /** 묶음의 세로 위치. 기본 −42 는 검색 장바구니 기준, 마이페이지 시트는 시트 가운데 +6.5 라 더 아래다(8차 N4). */
+    yOffset: Dp = (-42).dp,
     icon: @Composable (Modifier) -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().offset(y = (-42).dp).padding(horizontal = 32.dp),
+        modifier = Modifier.fillMaxSize().offset(y = yOffset).padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         // 여백을 **먼저** 두고 정사각 50 — 62×50 틀이면 캔버스 아이콘이 왼쪽 정사각에만 그려져 6 치우쳤다.
         icon(Modifier.padding(bottom = 12.dp).size(50.dp))
-        Text(title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label, textAlign = TextAlign.Center)
+        // 줄 칸은 iOS title2 28pt·subheadline 20pt 로 고정한다 — 글꼴 제 높이(1.43배)는 제목~설명 간격을 9px 늘렸다(44-mycourses 실측).
+        Text(
+            title,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = IOS.label,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.iosLineBox(28.dp),
+        )
         Text(
             description,
             fontSize = 15.sp,
             color = IOS.secondaryLabel,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp),
+            modifier = Modifier.padding(top = 2.dp).iosLineBox(20.dp),
         )
     }
 }

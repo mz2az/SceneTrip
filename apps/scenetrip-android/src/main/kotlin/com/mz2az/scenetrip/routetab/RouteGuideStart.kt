@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.IOSLinedText
+import com.mz2az.scenetrip.ui.sfLine
 
 /** 가이드 시작 화면이 권하는 질문 넷 (MZ2AZ-444). 되는 질문만 둔다 — 안 되는 예시는 첫인상을 깎는다. */
 object RouteGuideStartCopy {
@@ -52,21 +54,28 @@ fun RouteGuideStart(
     onAsk: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        Text(tr("무엇을 도와드릴까요?"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-        Text(tr("장소를 코스에 담기 전에도 주변을 찾아볼 수 있어요."), fontSize = 12.sp, color = IOS.secondaryLabel)
+        // 줄 칸은 iOS 줄 높이(15pt 17.9 · 12pt 14.3 · 11pt 13.1) — 7차 감사 GD3: 글꼴 제 높이라 부제 +5.0, 칩 +6.7 아래였다.
+        Text(tr("무엇을 도와드릴까요?"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.sfLine(15f))
+        Text(tr("장소를 코스에 담기 전에도 주변을 찾아볼 수 있어요."), fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(12f))
         if (onOpenNearby != null) {
-            BorderedPill(tr("지도 주변 촬영지 보기"), 15.sp, FontWeight.SemiBold, onOpenNearby)
+            BorderedPill(tr("지도 주변 촬영지 보기"), 15.sp, FontWeight.SemiBold, 32.dp, onOpenNearby)
         }
         if (hasLocation && onChangeAnchor != null) {
-            BorderedPill(anchorActionTitle, 12.sp, FontWeight.Normal, onChangeAnchor)
+            BorderedPill(anchorActionTitle, 12.sp, FontWeight.Normal, 28.3.dp, onChangeAnchor)
         }
         HorizontalDivider(color = IOS.separator, thickness = 0.5.dp)
         if (onOpenPlanner != null) {
-            BorderedPill(tr("코스 추천받기 (AI)"), 15.sp, FontWeight.SemiBold, onOpenPlanner)
-            Text(tr("AI 일정은 편집할 초안으로 열려요. 확인한 뒤 직접 저장해 주세요."), fontSize = 11.sp, color = IOS.secondaryLabel)
+            BorderedPill(tr("코스 추천받기 (AI)"), 15.sp, FontWeight.SemiBold, 32.dp, onOpenPlanner)
+            IOSLinedText(tr("AI 일정은 편집할 초안으로 열려요. 확인한 뒤 직접 저장해 주세요."), lineDp = 13.3f, fontSize = 11.sp, color = IOS.secondaryLabel)
         }
         if (showQuestions) {
-            Text(tr("AI에게 주변 장소 물어보기"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Text(
+                tr("AI에게 주변 장소 물어보기"),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IOS.label,
+                modifier = Modifier.sfLine(12f),
+            )
             RouteGuideStartCopy.PROMPTS_KO.forEach { prompt ->
                 val text = tr(prompt)
                 Text(
@@ -79,10 +88,11 @@ fun RouteGuideStart(
                             .clip(CircleShape)
                             .background(IOS.systemGray6)
                             .clickable(enabled = canAsk) { onAsk(text) }
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .sfLine(12f),
                 )
             }
-            Text(tr("추천 장소는 골라 담으세요. 일정 변경 요청은 초안에 반영돼요."), fontSize = 11.sp, color = IOS.secondaryLabel)
+            IOSLinedText(tr("추천 장소는 골라 담으세요. 일정 변경 요청은 초안에 반영돼요."), lineDp = 13.3f, fontSize = 11.sp, color = IOS.secondaryLabel)
         }
         if (onOpenCart != null) {
             HorizontalDivider(color = IOS.separator, thickness = 0.5.dp)
@@ -93,29 +103,37 @@ fun RouteGuideStart(
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
-            BorderedPill(tr("장바구니 장소 보기"), 12.sp, FontWeight.Normal, onOpenCart)
+            BorderedPill(tr("장바구니 장소 보기"), 12.sp, FontWeight.Normal, 28.3.dp, onOpenCart)
         }
     }
 }
 
-/** iOS `.buttonStyle(.bordered)` — 회색 바탕 알약에 강조색 글자. 누르는 자리는 높이 44dp 이상이다. */
+/**
+ * iOS `.buttonStyle(.bordered)` — 유리 패널 위에서는 거의 흰(#FAFAFB, 패널 #F4F4F5 위 실측) 알약에 강조색 글자.
+ * 높이는 iOS 실측(15pt 글자 32pt, 12pt 글자 28pt, 좌우 12pt)이다 — 44dp 로 키우면 가이드 첫 화면이 iOS 보다 늘어진다.
+ */
 @Composable
 private fun BorderedPill(
     label: String,
     size: androidx.compose.ui.unit.TextUnit,
     weight: FontWeight,
+    height: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit,
 ) {
     Box(
         contentAlignment = Alignment.Center,
         modifier =
             Modifier
-                .heightIn(min = 44.dp)
+                .height(height)
                 .clip(CircleShape)
-                .background(IOS.tertiaryFill)
+                .background(BORDERED_FILL)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 7.dp),
+                .padding(horizontal = 12.dp),
     ) {
         Text(label, fontSize = size, fontWeight = weight, color = IOS.accent)
     }
 }
+
+private val BORDERED_FILL =
+    androidx.compose.ui.graphics
+        .Color(0xFFFAFAFB)

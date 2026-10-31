@@ -56,6 +56,8 @@ import com.mz2az.scenetrip.sceneapi.client.model.ReviewPhoto
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.XMarkIcon
+import com.mz2az.scenetrip.ui.iosLineBox
+import com.mz2az.scenetrip.ui.sfLine
 import kotlinx.coroutines.launch
 
 /*
@@ -114,8 +116,11 @@ fun StarRow(
     modifier: Modifier = Modifier,
 ) {
     val spoken = tr("별점 %s점").format(ReviewRules.starValue(value))
-    Row(modifier.clearAndSetSemantics { contentDescription = spoken }, horizontalArrangement = Arrangement.spacedBy(1.5.dp)) {
-        ReviewRules.stars(value).forEach { StarGlyph(it, size) }
+    val starGap = (if (size.value <= 11.5f) 3.4f else 2.7f).dp
+    Row(modifier.clearAndSetSemantics { contentDescription = spoken }, horizontalArrangement = Arrangement.spacedBy(starGap)) {
+        // 8차 RV2: iOS SF 별은 글꼴 크기보다 넓다 — 별 다섯 폭 iOS 74.7 · Android 60.2. 칸을 1.16 배로 키운다.
+        // 9차 RV2: 별 하나 폭은 맞았고 피치만 짧았다 — 행(11) iOS 15.9 · 요약(12) 16.6 → 별 사이 간격 3.4 / 2.7 (실측: 행 피치 15.6→15.9, 요약 16.7).
+        ReviewRules.stars(value).forEach { StarGlyph(it, size * 1.16f) }
     }
 }
 
@@ -226,8 +231,11 @@ fun ReviewSheetHeader(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
-            Text(title, style = IOS.headline, color = IOS.label, maxLines = 1)
-            if (!subtitle.isNullOrEmpty()) Text(subtitle, style = IOS.caption, color = IOS.secondaryLabel, maxLines = 1)
+            // iOS 줄 높이: headline 17pt → 20.3, caption 12pt → 14.3 (7차 감사 G3: 글꼴 제 높이로 24.4·17.1 이라 시트 머리가 어긋났다).
+            Text(title, style = IOS.headline, color = IOS.label, maxLines = 1, modifier = Modifier.sfLine(17f))
+            if (!subtitle.isNullOrEmpty()) {
+                Text(subtitle, style = IOS.caption, color = IOS.secondaryLabel, maxLines = 1, modifier = Modifier.sfLine(12f))
+            }
         }
         Box(
             Modifier
@@ -392,18 +400,19 @@ fun VisitorPhotoStrip(
     val shown = book.photos
     if (shown.isEmpty()) return
     Column(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        // iOS 머리줄은 한 줄 높이(글자 18.4)다 — 줄 칸을 고정해 구분선→사진 윗변이 42.3 이 되게 한다(5차 감사: 위 57.5, 제목~사진 26.4 였다).
+        Row(Modifier.fillMaxWidth().height(18.4.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 ReviewRules.visitorTitle(book.total),
                 style = IOS.subheadlineSemibold,
                 color = IOS.label,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).iosLineBox(18.4.dp),
             )
             Text(
                 tr("모두 보기"),
                 style = IOS.caption.copy(fontWeight = FontWeight.SemiBold),
                 color = IOS.accent,
-                modifier = Modifier.clickable { browsing = true }.padding(vertical = 8.dp),
+                modifier = Modifier.clickable { browsing = true }.iosLineBox(18.4.dp),
             )
         }
         LazyRow(

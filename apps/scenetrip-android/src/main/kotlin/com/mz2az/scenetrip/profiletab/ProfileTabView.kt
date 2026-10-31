@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.profiletab
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -8,10 +9,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -31,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -88,9 +95,11 @@ import com.mz2az.scenetrip.ui.QuestionCircleIcon
 import com.mz2az.scenetrip.ui.RouteCurveIcon
 import com.mz2az.scenetrip.ui.ShoeprintsIcon
 import com.mz2az.scenetrip.ui.SignOutIcon
-import com.mz2az.scenetrip.ui.SparklesIcon
+import com.mz2az.scenetrip.ui.SparklesRectangleStackIcon
 import com.mz2az.scenetrip.ui.SquarePencilIcon
+import com.mz2az.scenetrip.ui.iosLineBox
 import com.mz2az.scenetrip.ui.openExternalUrl
+import com.mz2az.scenetrip.ui.sfLine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -143,6 +152,9 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
     // 차단한 사용자 시트 (MZ2AZ-461).
     var showingBlocked by remember { mutableStateOf(false) }
     var showingNickname by remember { mutableStateOf(false) }
+
+    // 하드웨어 뒤로 (MZ2AZ-513) — iOS 의 X 와 같이 마이페이지를 닫는다. 시트(내 코스·찜·장바구니 등)는 자기 창이 먼저 받아 닫는다.
+    if (onClose != null) BackHandler(onBack = onClose)
 
     // 찜 목록은 서버가 준 찜한 작품의 요약으로 그린다 — 작품 목록(`GET /contents`)에는 목록에서 빠진 작품이 없어
     // 숨긴 작품을 찜해 둔 사람의 목록에서 그 줄이 사라진다(MZ2AZ-458, iOS `LikeStore.likedWorks`).
@@ -215,10 +227,18 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6)) {
-            Box(modifier = Modifier.fillMaxWidth().statusBarsPadding().height(56.dp)) {
+            // iOS `.navigationBarTitleDisplayMode(.inline)` 는 44pt (7차 감사 P1: 56dp 라 X·제목이 6dp 아래로 앉았다).
+            Box(modifier = Modifier.fillMaxWidth().statusBarsPadding().height(44.dp)) {
                 Text(tr("마이페이지"), style = IOS.headline, color = IOS.label, modifier = Modifier.align(Alignment.Center))
                 if (onClose != null) {
-                    IOSCloseButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp))
+                    IOSCloseButton(
+                        onClick = onClose,
+                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp),
+                        // iOS: 시트(내 코스·찜·장바구니·내가 쓴 글 …)가 떠 있는 동안은 유리 원이 없다.
+                        plain =
+                            showingCart || showingStamps || showingReels || showingCourses || showingLikes || showingPosts ||
+                                showingReviews || showingBlocked || showingNickname,
+                    )
                 }
             }
 
@@ -236,7 +256,9 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 },
                 modifier = Modifier.fillMaxSize(),
             ) {
-                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 38.dp)) {
+                // 맨 아래는 제스처 막대만큼 더 비운다 — 설치 식별자가 막대에 맞닿아 가려졌다(MZ2AZ-513).
+                val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 38.dp, bottom = navBottom + 20.2.dp)) {
                     item { ProfileHeader(onNickname = { showingNickname = true }) }
                     item {
                         ProfileSection(tr("내 여행")) {
@@ -245,7 +267,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                                 value = courseCount?.let { tr("%d개").format(it) } ?: "…",
                                 onClick = { showingCourses = true },
                                 chevron = true,
-                                icon = { RouteCurveIcon(IOS.pinDeep, it) },
+                                // 8차 P4: iOS `point.topleft.down.curvedto.point.bottomright.up` 은 높이 16.0 (Android 17.9) — 칸을 줄인다.
+                                icon = { RouteCurveIcon(IOS.pinDeep, it.requiredSize(16.dp)) },
                             )
                             ProfileDivider()
                             ProfileRow(
@@ -273,7 +296,8 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                                    // iOS 카드 81pt = 44 + 위아래 18.5(41-profile 실측).
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 19.dp),
                                 ) {
                                     androidx.compose.foundation.Canvas(Modifier.size(44.dp)) {
                                         val stroke = 2.dp.toPx()
@@ -370,7 +394,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                                             .background(Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep))),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    SparklesIcon(Color.White, Modifier.size(14.dp))
+                                    SparklesRectangleStackIcon(Color.White, Modifier.size(26.dp))
                                 }
                                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                                     Text(tr("내 여행으로 릴스 만들기"), fontSize = 15.sp, color = IOS.label)
@@ -389,7 +413,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                         ProfileSection(tr("발자취")) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
+                                modifier = Modifier.fillMaxWidth().height(PROFILE_ROW_HEIGHT).padding(horizontal = 16.dp),
                             ) {
                                 Text(tr("발자취 기록하기"), fontSize = 15.sp, color = IOS.label, modifier = Modifier.weight(1f))
                                 IOSToggle(checked = footprints.recording, onCheckedChange = {
@@ -417,7 +441,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                             ProfileDivider()
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
+                                modifier = Modifier.fillMaxWidth().height(PROFILE_ROW_HEIGHT).padding(horizontal = 16.dp),
                             ) {
                                 Text(tr("지도에 발자취 보기"), fontSize = 15.sp, color = IOS.label, modifier = Modifier.weight(1f))
                                 IOSToggle(checked = footprints.enabled, onCheckedChange = { footprints.updateEnabled(it) })
@@ -428,7 +452,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                        .height(52.dp)
+                                        .height(PROFILE_ROW_HEIGHT)
                                         .clickable(enabled = footprints.points.isNotEmpty()) { clearingFootprints = true }
                                         .padding(horizontal = 16.dp),
                             ) {
@@ -454,16 +478,11 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                             }
                         }
                         // 꼬리말 — 이동 경로는 개인정보라 어디에 저장되는지 한 줄로 알린다(iOS `footprintSection` 의 footer).
-                        Text(
-                            tr("이 기기에만 저장돼요. 서버로 보내지 않아요."),
-                            fontSize = 13.sp,
-                            color = IOS.secondaryLabel,
-                            modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 8.dp),
-                        )
+                        ProfileFooter(tr("이 기기에만 저장돼요. 서버로 보내지 않아요."))
                     }
 
                     item {
-                        ProfileSection(tr("도움")) {
+                        ProfileSection(tr("도움"), afterFooter = true) {
                             Box {
                                 ProfileRow(
                                     title = tr("언어"),
@@ -509,7 +528,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                     // 처리방침·약관 (MZ2AZ-455, App Store 5.1.1 — 앱 안에서 찾을 수 있어야 한다). 비회원에게도 보인다.
                     // iOS 와 같이 계정 바로 위에 두고, 앱의 다른 외부 페이지처럼 브라우저로 연다.
                     item {
-                        ProfileSection(tr(LegalLinks.SECTION_TITLE_KO)) {
+                        ProfileSection(tr(LegalLinks.SECTION_TITLE_KO), afterFooter = true) {
                             ProfileRow(
                                 title = tr(LegalLinks.PRIVACY_TITLE_KO),
                                 value = "",
@@ -536,7 +555,7 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                     item { ProfileDeviceDataSection() }
 
                     item {
-                        ProfileSection(tr("준비 중")) {
+                        ProfileSection(tr("준비 중"), afterFooter = true) {
                             ProfileRow(
                                 tr("알림"),
                                 tr("준비 중"),
@@ -555,13 +574,19 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                     }
 
                     item {
-                        Text(
-                            tr("설치 식별자 %s…").format(deviceId.toString().take(8)),
-                            fontSize = 11.sp,
-                            color = IOS.tertiaryLabel,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        )
+                        // iOS 는 마지막 카드 아래 35.1 + 52.3 칸의 가운데 (7차 감사 P6: 카드→글 중심 60.6).
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(top = 35.1.dp).height(52.3.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                // iOS `UUID.uuidString` 은 대문자다 — Java 의 `UUID.toString()` 은 소문자라 같은 기기인데 다르게 보였다.
+                                tr("설치 식별자 %s…").format(deviceId.toString().take(8).uppercase(java.util.Locale.ROOT)),
+                                fontSize = 11.sp,
+                                color = IOS.tertiaryLabel,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                        }
                     }
                 }
             }
@@ -585,21 +610,30 @@ fun ProfileTabView(onClose: (() -> Unit)? = null) {
                 .NicknameView(onClose = { showingNickname = false })
         }
         if (replaying) {
+            // 사용법 다시 보기는 덮개라 창이 없다 — 뒤로는 「건너뛰기」처럼 닫는다. 위 처리보다 나중에 등록돼 먼저 받는다.
+            BackHandler { replaying = false }
             val flag = remember { OnboardingFlag(context) }
             OnboardingView(onboardingFlag = flag, onDone = { replaying = false })
         }
     }
 }
 
+// 9차 N8': 줄 높이를 글꼴에 맡기면 한국어(Noto CJK, 24.4/17.1)와 영어(Roboto, 19.8/14.1)에서 아래 글줄이 −3.5~−8.8 달랐다.
+// 한국어에서 iOS 와 맞춘 칸 높이로 고정해 두 언어가 같은 자리에 선다.
+private val HEADER_TITLE_BOX = 24.4.dp
+private val HEADER_SUB_BOX = 17.1.dp
+
 /** 피노와 비회원 안내. 로그인이 서면 이 자리가 계정 카드가 된다. */
 @Composable
 private fun ProfileHeader(onNickname: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+        // 8차 P2/N8: 해태 윗 +6.6, 해태→제목 −2.7, 제목→부제 −3.2, 부제→단추 −1.3 (iOS 100.3 / 218.0 / 245.7 / 270.3). 간격은 자식마다 따로 둔다.
+        verticalArrangement = Arrangement.spacedBy(0.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 18.6.dp, bottom = 12.dp),
     ) {
         PinoMascot(width = 96.dp)
+        Spacer(Modifier.height(5.3.dp))
         // iOS `header` — 비회원이면 로그인 단추, 로그인했으면 이름과 메일 (MZ2AZ-336).
         if (AuthStore.signedIn) {
             val nickname = AuthStore.me?.nickname
@@ -616,29 +650,53 @@ private fun ProfileHeader(onNickname: () -> Unit) {
                                 stateDescription = nickname
                             }.clickable(onClick = onNickname),
                 ) {
-                    Text(nickname, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                    Text(
+                        nickname,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = IOS.label,
+                        modifier = Modifier.iosLineBox(HEADER_TITLE_BOX),
+                    )
                     PencilIcon(IOS.secondaryLabel, Modifier.size(12.dp))
                 }
             } else {
                 // 옛 서버는 닉네임이 없어 전처럼 계정 이름을 보인다 — 바꿀 수 없다.
-                Text(AuthStore.me?.displayName ?: tr("여행자"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                Text(
+                    AuthStore.me?.displayName ?: tr("여행자"),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IOS.label,
+                    modifier = Modifier.iosLineBox(HEADER_TITLE_BOX),
+                )
             }
-            AuthStore.me?.email?.let { Text(it, fontSize = 12.sp, color = IOS.secondaryLabel) }
+            AuthStore.me?.email?.let {
+                Spacer(Modifier.height(4.8.dp))
+                Text(it, fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.iosLineBox(HEADER_SUB_BOX))
+            }
         } else {
-            Text(tr("비회원으로 여행 중"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-            Text(tr("로그인하면 코스와 찜이 계정에 저장돼요"), fontSize = 12.sp, color = IOS.secondaryLabel)
+            Text(
+                tr("비회원으로 여행 중"),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IOS.label,
+                modifier = Modifier.iosLineBox(HEADER_TITLE_BOX),
+            )
+            Spacer(Modifier.height(4.8.dp))
+            Text(tr("로그인하면 코스와 찜이 계정에 저장돼요"), fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.iosLineBox(HEADER_SUB_BOX))
+            Spacer(Modifier.height(10.7.dp))
             Text(
                 tr("로그인"),
                 fontSize = 15.sp,
+                // iOS 15pt 글줄 17.5 + 위아래 8 = 33.5(감사 실측). 글줄 `lineHeight` 는 한 줄 글에 안 먹어 37 이었다 — 높이 칸으로 고정.
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
                 modifier =
                     Modifier
-                        .padding(top = 4.dp)
                         .clip(CircleShape)
                         .background(IOS.accent)
                         .clickable(enabled = !AuthStore.busy) { AuthStore.promptSignIn() }
-                        .padding(horizontal = 22.dp, vertical = 8.dp),
+                        .padding(horizontal = 21.dp)
+                        .iosLineBox(33.5.dp),
             )
         }
     }
@@ -674,7 +732,7 @@ private fun AccountSection(onDeleted: () -> Unit) {
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(PROFILE_ROW_HEIGHT)
                     .clickable(enabled = !AuthStore.busy) { confirmingDelete = true }
                     .padding(horizontal = 16.dp),
         ) {
@@ -709,21 +767,33 @@ private fun AccountSection(onDeleted: () -> Unit) {
 
 // iOS `List(.insetGrouped)`(iOS 26): 섹션 머리 15 semibold 회색(카드 안쪽 16 에 맞춤), 카드 모서리 26,
 // 좌우 여백 16. 줄은 카드에 바로 붙고 줄 사이에 구분선이 있다(2026-09-28 대조 #4).
+
+/** iOS List 한 줄 — 52.33pt. 줄 사이 선은 이 높이 안에 들어간다(7차 감사 P3: 피치 52.33, 세 줄 카드 157.0). */
+internal val PROFILE_ROW_HEIGHT = 52.33.dp
+
 @Composable
 internal fun ProfileSection(
     title: String?,
+    afterFooter: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 26.dp)) {
-        // 머리 없는 섹션(iOS `Section { } footer: { }`)은 제목 줄이 없다.
+    // 간격은 iOS 목록 실측(7차 감사 P5): 카드 아래→다음 카드 윗 = 머리 없음 35.4 · 꼬리말 뒤 머리 없음 17.6(꼬리말 29.7 포함 47.3) ·
+    // 머리 있음 17.4 + 머리 칸 40.3 = 57.7 · 꼬리말 뒤 머리 있음 꼬리말 29.7 바로 아래 머리 칸 40.3 = 70.0. 머리 글 중심은 카드 윗에서 20.3 위.
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         if (title != null) {
-            Text(
-                title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = IOS.secondaryLabel,
-                modifier = Modifier.padding(start = 16.dp, bottom = 10.dp),
-            )
+            Spacer(Modifier.height(if (afterFooter) 0.dp else 17.4.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(40.3.dp), contentAlignment = Alignment.BottomStart) {
+                Text(
+                    title,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IOS.secondaryLabel,
+                    modifier = Modifier.padding(start = 16.dp, bottom = 11.35.dp).sfLine(15f),
+                )
+            }
+        } else {
+            // 머리 없는 섹션(iOS `Section { } footer: { }`)은 제목 줄이 없다.
+            Spacer(Modifier.height(if (afterFooter) 17.6.dp else 35.4.dp))
         }
         Column(
             modifier =
@@ -737,16 +807,40 @@ internal fun ProfileSection(
     }
 }
 
+/** 카드 아래 꼬리말 — iOS 한 줄 29.7pt (13pt 글 15.5 + 위 7.9 + 아래 6.3), 두 줄 45.7. */
+@Composable
+internal fun ProfileFooter(text: String) {
+    var lines by remember { mutableIntStateOf(1) }
+    Text(
+        text,
+        fontSize = 13.sp,
+        color = IOS.secondaryLabel,
+        onTextLayout = { lines = it.lineCount },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 32.dp)
+                .padding(top = 7.9.dp, bottom = 6.3.dp)
+                .iosLineBox((15.5f + (lines - 1) * 16f).dp),
+    )
+}
+
 /**
  * 줄 사이 선. 아이콘 줄 아래는 아이콘 칸 뒤(16 + 26 + 12 = 54)부터, 아이콘 없는 줄(토글·지우기) 아래는
  * 16 부터 오른쪽 16 앞까지. iOS 26 목록 선은 머리카락이 아니라 **1pt 의 연한 회색(232)** 이다(실측).
  */
 @Composable
 private fun ProfileDivider(afterIcon: Boolean = true) {
+    // 칸을 차지하지 않고 앞 줄 맨 아래 1dp 에 겹쳐 그린다 — iOS 줄 52.33 안에 선이 들어 있다.
     androidx.compose.material3.HorizontalDivider(
         thickness = 1.dp,
         color = Color(0xFFE8E8E8),
-        modifier = Modifier.padding(start = if (afterIcon) 54.dp else 16.dp, end = 16.dp),
+        modifier =
+            Modifier
+                .layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    layout(placeable.width, 0) { placeable.place(0, -placeable.height) }
+                }.padding(start = if (afterIcon) 54.dp else 16.dp, end = 16.dp),
     )
 }
 
@@ -766,7 +860,7 @@ private fun ProfileRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .height(PROFILE_ROW_HEIGHT)
                 .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
                 .padding(horizontal = 16.dp),
     ) {

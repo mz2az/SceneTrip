@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.sfLine
 
 /**
  * 첫 실행의 언어 고르기 (MZ2AZ-343). 사용법보다 먼저 나온다 — 사용법부터 그 언어로 읽어야 한다.
@@ -37,7 +39,12 @@ fun LanguagePickView(onDone: () -> Unit) {
     val language = remember(context) { AppLanguage.getInstance(context) }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(IOS.systemBackground).padding(horizontal = 24.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(IOS.systemBackground)
+                .systemBarsPadding()
+                .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.weight(1f))
@@ -47,13 +54,13 @@ fun LanguagePickView(onDone: () -> Unit) {
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = IOS.label,
-            modifier = Modifier.padding(top = 28.dp),
+            modifier = Modifier.padding(top = 28.dp).sfLine(22f),
         )
         Text(
             "Choose your language",
             fontSize = 20.sp,
             color = IOS.secondaryLabel,
-            modifier = Modifier.padding(top = 4.dp),
+            modifier = Modifier.padding(top = 4.dp).sfLine(20f),
         )
         Spacer(Modifier.weight(1f))
         Column(

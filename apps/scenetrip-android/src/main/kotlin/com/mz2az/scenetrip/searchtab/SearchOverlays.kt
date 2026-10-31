@@ -80,7 +80,9 @@ fun SearchBar(
                     // iOS 검색바 높이는 44pt 다. **12.7 로 키웠다가 되돌렸다** — 6 차의
                     // "40.7 로 짧다" 는 픽셀을 그대로 비교한 값이었고, 키웠더니 7 차에
                     // 오히려 49.5 로 커졌다.
-                }.padding(horizontal = IOS.gutter, vertical = 11.dp),
+                }.padding(horizontal = IOS.gutter)
+                // iOS 검색창 44.0 (7차 감사 SL1: 글꼴 제 높이 때문에 46.5 였다).
+                .height(44.dp),
     ) {
         // SF `magnifyingglass`(body) 글리프 약 18pt — Material Search 20dp 는 글리프가 14dp 뿐이었다.
         com.mz2az.scenetrip.ui
@@ -220,7 +222,9 @@ fun NearbyButton(
                 .clip(CircleShape)
                 .background(if (on) IOS.label else IOS.systemBackground)
                 .clickable(onClick = onToggle)
-                .padding(horizontal = IOS.gutter, vertical = 9.dp),
+                .padding(horizontal = IOS.gutter)
+                // iOS 알약 36.0 (7차 감사 SL2: 39.6 이었다).
+                .height(36.dp),
     ) {
         // iOS `xmark` / `arrow.clockwise`(footnote semibold, 잉크 약 11×14) — Material Refresh 는 작고 모양도 달랐다.
         if (on) {

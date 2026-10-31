@@ -224,7 +224,10 @@ fun SwapArrowsIcon(
     }
 }
 
-/** `sparkles` — 큰 네 갈래 별 하나와 작은 별 둘. */
+/**
+ * `sparkles` — 가는 네 갈래 별 셋(큰 것 하나는 오른쪽 아래, 작은 둘은 왼쪽 위). 좌표는 iOS 15pt 글리프를 감사 스크린샷
+ * (2026-10-29)에서 쟀다. 별의 옆구리를 가늘게 오므린 모양(꼭짓점이 뾰족하다)이라 이전의 통통한 마름모와 달랐다.
+ */
 @Composable
 fun SparklesIcon(
     tint: Color,
@@ -238,7 +241,7 @@ fun SparklesIcon(
             cy: Float,
             r: Float,
         ) {
-            val k = r * 0.28f
+            val k = r * 0.08f
             val p =
                 Path().apply {
                     moveTo(cx, cy - r)
@@ -250,10 +253,9 @@ fun SparklesIcon(
                 }
             drawPath(p, tint)
         }
-        // 13dp 칩에서 작은 별이 1.5dp 로 사라져 「별 둘」로 보였다(2차 대조) — 작은 별 둘을 키운다.
-        star(w * 0.38f, w * 0.58f, w * 0.36f)
-        star(w * 0.78f, w * 0.2f, w * 0.2f)
-        star(w * 0.82f, w * 0.8f, w * 0.16f)
+        star(w * 0.583f, w * 0.628f, w * 0.355f)
+        star(w * 0.267f, w * 0.294f, w * 0.17f)
+        star(w * 0.5f, w * 0.056f, w * 0.117f)
     }
 }
 
@@ -296,6 +298,27 @@ fun PersonOutlineIcon(
                 close()
             }
         drawPath(body, tint, style = s)
+    }
+}
+
+/** `person.crop.square` — 둥근 네모 안에 머리와 어깨. 격자 방문자 사진 표시(iOS `VisitorBadge(compact:)`). */
+@Composable
+fun PersonCropSquareIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val s = Stroke(width = w * 0.09f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawRoundRect(tint, Offset(w * 0.05f, w * 0.05f), Size(w * 0.9f, w * 0.9f), CornerRadius(w * 0.2f), style = s)
+        drawCircle(tint, radius = w * 0.13f, center = Offset(w * 0.5f, w * 0.38f))
+        val body =
+            Path().apply {
+                moveTo(w * 0.24f, w * 0.88f)
+                cubicTo(w * 0.24f, w * 0.58f, w * 0.76f, w * 0.58f, w * 0.76f, w * 0.88f)
+                close()
+            }
+        drawPath(body, tint)
     }
 }
 
@@ -392,7 +415,10 @@ fun UTurnLeftIcon(
     }
 }
 
-/** `location` / `location.fill` — 오른쪽 위를 가리키는 내비 화살표. */
+/**
+ * `location` / `location.fill` — 오른쪽 위를 가리키는 내비 화살표. 좌표는 iOS 15pt 글리프(폭 17 × 높이 16.3)를 감사
+ * 스크린샷(2026-10-29)에서 쟀다 — 가는 선, 끝이 둥글다.
+ */
 @Composable
 fun LocationArrowIcon(
     tint: Color,
@@ -403,13 +429,39 @@ fun LocationArrowIcon(
         val w = size.minDimension
         val p =
             Path().apply {
-                moveTo(w * 0.9f, w * 0.1f)
-                lineTo(w * 0.1f, w * 0.46f)
-                lineTo(w * 0.5f, w * 0.52f)
-                lineTo(w * 0.56f, w * 0.9f)
+                moveTo(w * 0.95f, w * 0.06f)
+                lineTo(w * 0.06f, w * 0.46f)
+                lineTo(w * 0.5f, w * 0.55f)
+                lineTo(w * 0.53f, w * 0.94f)
                 close()
             }
-        if (filled) drawPath(p, tint) else drawPath(p, tint, style = stroke(w))
+        if (filled) {
+            drawPath(p, tint)
+        } else {
+            drawPath(p, tint, style = Stroke(width = w * 0.08f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+    }
+}
+
+/**
+ * `square.grid.2x2` — 속이 빈 둥근 칸 넷(사진 수 알약의 「전체 보기」 표시). 9칸 글자 ▦ 가 아니다(2026-10-29 감사 #19).
+ */
+@Composable
+fun SquareGrid2x2Icon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val st = Stroke(width = w * 0.1f, join = StrokeJoin.Round)
+        val cell = w * 0.38f
+        val near = w * 0.06f
+        val far = w - near - cell
+        listOf(near, far).forEach { y ->
+            listOf(near, far).forEach { x ->
+                drawRoundRect(tint, topLeft = Offset(x, y), size = Size(cell, cell), cornerRadius = CornerRadius(w * 0.1f), style = st)
+            }
+        }
     }
 }
 
@@ -740,5 +792,83 @@ fun SignOutIcon(
                 lineTo(w * 0.74f, w * 0.66f)
             }
         drawPath(head, tint, style = s)
+    }
+}
+
+/**
+ * `sparkles.rectangle.stack` — 앞의 둥근 사각 틀 안에 네 갈래 별 둘(큰 것·작은 것), 틀 뒤로 겹친 두 장의 윗변.
+ * 좌표는 마이페이지 「AI 여행 릴스」 줄의 26×26 글리프를 재감사 스크린샷(2026-10-30)에서 쟀다(칸 크기 대비 비율).
+ */
+@Composable
+fun SparklesRectangleStackIcon(
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val sw = w * 0.045f
+        val s = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        // 뒤에 겹친 두 장 — 윗변만 보인다.
+        drawLine(tint, Offset(w * 0.32f, w * 0.185f), Offset(w * 0.67f, w * 0.185f), strokeWidth = sw, cap = StrokeCap.Round)
+        drawLine(tint, Offset(w * 0.26f, w * 0.26f), Offset(w * 0.73f, w * 0.26f), strokeWidth = sw, cap = StrokeCap.Round)
+        drawRoundRect(tint, Offset(w * 0.2f, w * 0.34f), Size(w * 0.55f, w * 0.45f), CornerRadius(w * 0.07f), style = s)
+
+        fun star(
+            cx: Float,
+            cy: Float,
+            r: Float,
+        ) {
+            val k = r * 0.12f
+            val p =
+                Path().apply {
+                    moveTo(cx, cy - r)
+                    quadraticTo(cx + k, cy - k, cx + r, cy)
+                    quadraticTo(cx + k, cy + k, cx, cy + r)
+                    quadraticTo(cx - k, cy + k, cx - r, cy)
+                    quadraticTo(cx - k, cy - k, cx, cy - r)
+                    close()
+                }
+            drawPath(p, tint)
+        }
+        star(w * 0.52f, w * 0.55f, w * 0.115f)
+        star(w * 0.385f, w * 0.65f, w * 0.055f)
+    }
+}
+
+/**
+ * `trash.fill` — 밀어서 지우기 단추의 휴지통. 채운 통 몸에 세로 틈 셋, 위에 뚜껑과 손잡이. 틈은 [cut] 색(단추 바탕)으로 긋는다.
+ * 좌표는 iOS 코스 목록 단추의 글리프(가로 16.6×세로 19pt)를 감사 스크린샷(2026-10-30)에서 쟀다.
+ */
+@Composable
+fun TrashFillIcon(
+    tint: Color,
+    cut: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        val w = size.minDimension
+        val handle =
+            Path().apply {
+                moveTo(w * 0.38f, w * 0.2f)
+                lineTo(w * 0.38f, w * 0.1f)
+                lineTo(w * 0.62f, w * 0.1f)
+                lineTo(w * 0.62f, w * 0.2f)
+            }
+        drawPath(handle, tint, style = Stroke(width = w * 0.09f, join = StrokeJoin.Round, cap = StrokeCap.Round))
+        drawLine(tint, Offset(w * 0.1f, w * 0.24f), Offset(w * 0.9f, w * 0.24f), strokeWidth = w * 0.11f, cap = StrokeCap.Round)
+        val bin =
+            Path().apply {
+                moveTo(w * 0.2f, w * 0.34f)
+                lineTo(w * 0.8f, w * 0.34f)
+                lineTo(w * 0.75f, w * 0.88f)
+                quadraticTo(w * 0.74f, w * 0.95f, w * 0.67f, w * 0.95f)
+                lineTo(w * 0.33f, w * 0.95f)
+                quadraticTo(w * 0.26f, w * 0.95f, w * 0.25f, w * 0.88f)
+                close()
+            }
+        drawPath(bin, tint)
+        for (x in listOf(0.38f, 0.5f, 0.62f)) {
+            drawLine(cut, Offset(w * x, w * 0.46f), Offset(w * x, w * 0.83f), strokeWidth = w * 0.06f, cap = StrokeCap.Round)
+        }
     }
 }

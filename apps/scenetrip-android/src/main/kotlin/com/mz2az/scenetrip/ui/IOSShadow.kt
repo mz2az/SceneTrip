@@ -34,6 +34,8 @@ fun Modifier.iosShadow(
                 setShadowLayer(blur, 0f, y.toPx(), color.toArgb())
             }
         drawIntoCanvas {
-            it.nativeCanvas.drawRoundRect(0f, 0f, size.width, size.height, cornerRadius.toPx(), cornerRadius.toPx(), paint)
+            // 도형을 가장자리에서 1px 안으로 그린다 — 카드 가장자리 안티앨리어싱에 도형의 검은 바탕이 비쳐 가는 회색 테두리가 생겼다(8차 O2).
+            val r = (cornerRadius.toPx() - 1f).coerceAtLeast(0f)
+            it.nativeCanvas.drawRoundRect(1f, 1f, size.width - 1f, size.height - 1f, r, r, paint)
         }
     }

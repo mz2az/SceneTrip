@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -39,6 +40,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
+import com.mz2az.scenetrip.ui.sfLine
 import com.mz2az.scenetrip.ui.unavailableAlpha
 
 /**
@@ -62,6 +64,9 @@ fun WorkRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onTap)
+                // iOS 줄 높이는 82.0 + 선 0.33 = 피치 82.4(포스터 62 + 세로 10×2, 7차 감사 SL3: 82.7 이라 피치 83.05 였다). Android 는 글꼴 탓에 글 칸이 커서
+                // 세로 여백 7 로 80 이 됐다 — 최소 높이를 iOS 값으로 둔다(글 칸이 더 크면 그만큼 커진다).
+                .heightIn(min = 82.dp)
                 .padding(horizontal = IOS.gutter, vertical = 7.dp),
     ) {
         RemoteImage(
@@ -78,8 +83,8 @@ fun WorkRow(
             modifier = Modifier.weight(1f),
         ) {
             val notice = UnavailableItem.notice(content)
-            Text(content.title, style = IOS.headline, color = IOS.label, modifier = Modifier.alpha(unavailableAlpha(notice)))
-            Text(content.meta, style = IOS.caption, color = IOS.secondaryLabel)
+            Text(content.title, style = IOS.headline, color = IOS.label, modifier = Modifier.alpha(unavailableAlpha(notice)).sfLine(17f))
+            Text(content.meta, style = IOS.caption, color = IOS.secondaryLabel, modifier = Modifier.sfLine(12f))
             // 목록에서 빠진 작품은 이유를 알린다 — 찜 목록 말고는 거의 나오지 않지만 같은 행을 쓴다(MZ2AZ-458).
             if (notice != null) UnavailableItemNotice(notice)
             // "촬영지 N" 은 회색 캡슐 안에 들어간다 — iOS 와 같은 모양이다.
@@ -91,7 +96,8 @@ fun WorkRow(
                     Modifier
                         .clip(CircleShape)
                         .background(IOS.systemGray6)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .sfLine(11f),
             )
         }
 
@@ -131,7 +137,8 @@ fun PlaceRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onTap)
-                .padding(horizontal = IOS.gutter, vertical = 7.dp),
+                // 줄 간격 iOS 74.25pt(audit4 work-up-ios 실측) — 7.85dp 는 줄 간격 76.19dp(200px) 였다(4차 에뮬레이터 실측). 위 6.86·아래 7.24 로 줄인다(px 반올림 때문에 두 값을 나눈다: 6.9 두 개는 194px, 7.05 두 개는 196px, 목표 194.9px).
+                .padding(start = IOS.gutter, end = IOS.gutter, top = 6.86.dp, bottom = 7.24.dp),
     ) {
         // 지도 핀에 박힌 번호와 같은 값 — 행과 핀을 눈으로 잇는 다리다. 그래서
         // 배지의 그러데이션도 핀과 **같은 두 색**이어야 한다.

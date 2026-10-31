@@ -214,7 +214,8 @@ fun SupportContactRow(tint: androidx.compose.ui.graphics.Color) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp).padding(horizontal = 16.dp, vertical = 6.dp),
+        // 8차 N5: iOS 문의 행 63.0 (이전 56.4) — 단추 44 + 안쪽 여백이 행을 정한다.
+        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.33.dp).padding(horizontal = 16.dp, vertical = 9.3.dp),
     ) {
         Box(Modifier.width(26.dp), contentAlignment = Alignment.Center) { EnvelopeIcon(tint, Modifier.size(18.dp)) }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

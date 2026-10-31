@@ -45,12 +45,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.mz2az.scenetrip.analytics.AppAnalytics
@@ -69,6 +71,8 @@ import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.TextAlignLeftIcon
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
+import com.mz2az.scenetrip.ui.iosLineBox
+import com.mz2az.scenetrip.ui.sfLine
 
 /**
  * 드릴다운 2단 — 작품 상세.
@@ -175,7 +179,8 @@ fun ContentDetailView(
                                     Text(summary.meta, style = IOS.subheadline, color = IOS.secondaryLabel)
                                 }
                                 if (castLine.isNotEmpty()) {
-                                    Text(castLine, style = IOS.caption, color = IOS.secondaryLabel)
+                                    // 8차 W1: iOS 줄 칸 14.3 (글꼴 제 높이 17.1 이라 출연→설명이 +2.8 벌었다).
+                                    Text(castLine, style = IOS.caption, color = IOS.secondaryLabel, modifier = Modifier.sfLine(12f))
                                 }
                             }
                         }
@@ -188,7 +193,8 @@ fun ContentDetailView(
                         detail?.description?.takeIf { it.isNotEmpty() }?.let {
                             Text(
                                 text = it,
-                                style = IOS.caption,
+                                // 8차 W1: iOS 설명 3줄 46.3 (줄 15.4) — Android 48.4.
+                                style = IOS.caption.copy(lineHeight = 15.4.sp),
                                 color = IOS.secondaryLabel,
                                 maxLines = 3,
                                 overflow = TextOverflow.Ellipsis,
@@ -198,10 +204,18 @@ fun ContentDetailView(
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(horizontal = IOS.gutter),
+                        // iOS 는 이 줄과 장소 목록이 같은 `VStack(spacing: 16)` 안이다 (7차 감사 W2: 머리→첫 행이 9.9 짧았다 → 16 으로 늘렸더니
+                        // 8차에 +3.2 넘쳤다 — 줄 칸이 iOS 보다 3.2 커서 줄 아래는 12.8).
+                        modifier = Modifier.padding(start = IOS.gutter, end = IOS.gutter, bottom = 12.8.dp),
                     ) {
-                        Text(tr("촬영지"), style = IOS.headline, color = IOS.label)
-                        Text(trCount("%d곳", summary.placeCount), style = IOS.caption, color = IOS.secondaryLabel)
+                        Text(tr("촬영지"), style = IOS.headline, color = IOS.label, modifier = Modifier.sfLine(17f))
+                        // `.lastTextBaseline` — 작은 글은 큰 글 아래보다 1.2 위에 앉는다.
+                        Text(
+                            trCount("%d곳", summary.placeCount),
+                            style = IOS.caption,
+                            color = IOS.secondaryLabel,
+                            modifier = Modifier.padding(bottom = 1.2.dp).sfLine(12f),
+                        )
                     }
                 }
             }
@@ -351,16 +365,21 @@ fun PlaceDetailView(
                                 color = IOS.secondaryLabel,
                                 modifier =
                                     Modifier
+                                        // 9차 PD5: iOS 사진 아래→칩 윗 22.0 (Android 17.9) → 윗 +4.1, 칩→별점 줄은 −2.0 (45.7 대 47.7).
+                                        .trimBottom(2.0.dp)
+                                        .padding(top = 4.1.dp)
                                         .padding(horizontal = IOS.gutter)
                                         .clip(CircleShape)
                                         .background(IOS.systemGray6)
-                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        // 8차 N7: iOS 칩 높이 22.3 = 글 칸 14.3 + 8 (글꼴 제 높이는 17.6 이라 25.6 이었다).
+                                        .iosLineBox(14.3.dp),
                             )
                         }
                     com.mz2az.scenetrip.reviews.RatingLine(detail?.rating, onClick = {
                         reviewId = null
                         reviews = true
-                    }, modifier = Modifier.padding(horizontal = IOS.gutter))
+                    }, modifier = Modifier.trimBottom(1.4.dp).padding(horizontal = IOS.gutter)) // 9차 PD5: 별점→단추 28.3 대 29.7
                     if (detail?.delisted == true) {
                         UnavailableItemNotice(UnavailableItem.PLACE, Modifier.padding(horizontal = IOS.gutter))
                     }
@@ -434,7 +453,8 @@ fun PlaceDetailView(
                                         .clip(RoundedCornerShape(IOS.capsuleButton))
                                         .background(IOS.systemGray6)
                                         .clickable { openUrl(context, naver) }
-                                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                                        // 8차 PD3: iOS 네이버 단추 129.3 (Android 121.3) — 안쪽 가로 여백 +4.
+                                        .padding(horizontal = 18.dp, vertical = 7.dp),
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -462,7 +482,8 @@ fun PlaceDetailView(
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(horizontal = IOS.gutter).padding(top = 18.dp, bottom = 12.dp),
+                        // 10차 PD6: iOS 단추 줄 밑 → 머리글 20.3 (Android 22.9) — 위 간격 −2.6.
+                        modifier = Modifier.padding(horizontal = IOS.gutter).padding(top = 15.4.dp, bottom = 12.dp),
                     ) {
                         Text(tr("이 장소의 장면"), style = IOS.headline, color = IOS.label)
                         Text(
@@ -744,26 +765,28 @@ private fun LikeButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
+    // 9차 W3: iOS `.bordered` 실측 97.0×34.3, 채움 #e9e9eb, 좌우 여백 14.0/13.7, 하트 16.3 폭, 하트→글 10.6(글리프 안쪽 여백 빼고 8.8), 글 regular.
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.8.dp),
         modifier =
             Modifier
                 .alpha(if (enabled) 1f else 0.4f)
-                .clip(RoundedCornerShape(IOS.capsuleButton))
-                .background(IOS.systemGray6)
+                .clip(CircleShape)
+                .background(Color(0x29767680))
                 .clickable(enabled = enabled, onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 7.dp),
+                .height(34.3.dp)
+                .padding(start = 12.2.dp, end = 11.9.dp),
     ) {
         Icon(
             if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
             contentDescription = null,
             tint = IOS.accent,
-            modifier = Modifier.size(15.dp),
+            modifier = Modifier.size(19.5.dp),
         )
         Text(
             text = if (liked) tr("찜 빼기") else tr("찜하기"),
-            style = IOS.subheadlineSemibold,
+            fontSize = 16.sp,
             color = IOS.accent,
         )
     }
@@ -838,3 +861,11 @@ private fun BagPlusIcon(
         drawLine(tint, Offset(cx, cy - arm), Offset(cx, cy + arm), strokeWidth = s)
     }
 }
+
+/** 아래 여백만 [by] 줄인다 — `spacedBy` 로 이어진 칸 사이 간격을 칸 하나만 미세 조정할 때(음수 padding 은 못 쓴다). */
+private fun Modifier.trimBottom(by: androidx.compose.ui.unit.Dp): Modifier =
+    layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        val trim = by.roundToPx()
+        layout(placeable.width, (placeable.height - trim).coerceAtLeast(0)) { placeable.place(0, 0) }
+    }

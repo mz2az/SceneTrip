@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.routetab
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -8,10 +9,10 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,7 +27,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -44,8 +44,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -63,11 +61,14 @@ import com.mz2az.scenetrip.ui.HandDrawIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSConfirmPopover
+import com.mz2az.scenetrip.ui.IOSLinedText
 import com.mz2az.scenetrip.ui.IOSRole
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.XMarkIcon
+import com.mz2az.scenetrip.ui.iosLineBox
+import com.mz2az.scenetrip.ui.sfLine
 import kotlinx.coroutines.launch
 
 /**
@@ -104,6 +105,10 @@ fun RouteTabView(
         store.refresh()
     }
 
+    // 하드웨어 뒤로 (MZ2AZ-513) — 목록에서는 iOS 의 X 와 같이 덮개를 닫는다. 편집기·마법사·시트는 자기 처리가 있고
+    // **나중에 열리므로** 이 처리보다 먼저 받는다(나중에 등록한 것이 이긴다).
+    if (onClose != null) BackHandler(onBack = onClose)
+
     // 홈에서 넘어온 코스. 목록이 아직 없으면 목록이 오는 대로 다시 시도한다(iOS `openPending`은 새로고침 뒤에 부른다).
     LaunchedEffect(TabRouter.pendingCourseId, store.courses) {
         val wanted = TabRouter.pendingCourseId ?: return@LaunchedEffect
@@ -114,7 +119,8 @@ fun RouteTabView(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).statusBarsPadding()) {
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+        // 8차 CE1/CL3: 머리줄 중심 iOS 26.5 · Android 22.9, 머리→첫 카드 2.0 짧음 — 위 13.6 · 아래 8.4 (합 +2.0).
+        Box(modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 13.6.dp, bottom = 8.4.dp)) {
             Text(
                 tr("코스", "화면 제목"),
                 fontSize = 17.sp,
@@ -153,9 +159,11 @@ fun RouteTabView(
                             .clip(RoundedCornerShape(15.dp))
                             .background(Brush.linearGradient(colors = listOf(IOS.pinLight, IOS.pinDeep)), alpha = glow)
                             .clickable { fork = true }
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                            .padding(horizontal = 10.dp)
+                            .iosLineBox(26.dp),
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                    // iOS 알약 높이 26pt(112-sbs 실측). 글꼴 제 높이로는 28.7dp 였다.
                     Text(tr("코스 추가"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 }
             }
@@ -282,7 +290,8 @@ private fun EmptyState(
     onManual: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+        // 9차 CE5: 묶음이 iOS 보다 +11.3 낮았다(화면이 40 길고 내비바가 10 짧아 가운데 기준이 아래로 쏠림) — 아래 22.6 을 비워 가운데를 11.3 올린다.
+        modifier = Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, bottom = 22.6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -296,11 +305,19 @@ private fun EmptyState(
         ) {
             SparklesIcon(androidx.compose.ui.graphics.Color.White, Modifier.size(28.dp))
         }
-        Spacer(Modifier.height(14.dp))
-        Text(tr("아직 만든 코스가 없습니다"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-        Spacer(Modifier.height(4.dp))
+        // iOS: 원 아래 12 · 제목 20.3 · 6 · 설명 줄 19 (7차 감사 CE2·CE3: 원→제목 +5.1, 설명 +3.1 이었다).
+        Spacer(Modifier.height(12.dp))
         Text(
+            tr("아직 만든 코스가 없습니다"),
+            fontSize = 17.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = IOS.label,
+            modifier = Modifier.sfLine(17f),
+        )
+        Spacer(Modifier.height(6.dp))
+        IOSLinedText(
             tr("보고 싶은 작품과 기간만 고르면,\n촬영지를 이어서 일차별 일정으로 짜 드립니다"),
+            lineDp = 19f,
             fontSize = 15.sp,
             color = IOS.secondaryLabel,
             textAlign = TextAlign.Center,
@@ -316,7 +333,7 @@ private fun EmptyState(
                     .clip(CircleShape)
                     .background(IOS.accent)
                     .clickable(onClick = onAI)
-                    .padding(vertical = 14.dp),
+                    .height(52.dp),
         ) {
             SparklesIcon(androidx.compose.ui.graphics.Color.White, Modifier.size(16.dp))
             Text(
@@ -341,7 +358,7 @@ private fun EmptyState(
                     .clip(CircleShape)
                     .background(IOS.tertiaryFill)
                     .clickable(onClick = onManual)
-                    .padding(vertical = 14.dp),
+                    .iosLineBox(50.3.dp),
         )
     }
 }
@@ -376,6 +393,7 @@ private fun CourseList(
                     anchorX = 0.dp,
                     onDismiss = onCancelDelete,
                     below = true,
+                    centered = true,
                 )
             }
         }
@@ -383,7 +401,8 @@ private fun CourseList(
     val running = store.courses.filter { it.status == CourseStatus.active }
     val planned = store.courses.filter { it.status != CourseStatus.active }
     // iOS `.listStyle(.insetGrouped)` — 좌우 16 들여 쓴 둥근 묶음(모서리 26) 하나에 한 절의 줄이 다 들어가고, 줄 사이는 가는 선이다.
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    // 9차 CL3': iOS 머리줄 아래 「예정」 머리까지 +2.5 더 — 머리줄을 내린 8차 뒤에도 목록 윗 여백이 그대로여서 −2.4~−2.6 짧았다.
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(top = 2.5.dp)) {
         if (running.isNotEmpty()) {
             item { SectionHeader(tr("여행 중 %d").format(running.size)) }
             item { CourseGroup(running, openId, row) }
@@ -462,103 +481,39 @@ private fun CourseRow(
     onRelease: () -> Unit,
 ) {
     val route = RouteBridge.course(course)
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val revealPx = with(density) { SWIPE_REVEAL.toPx() }
-    // 드러난 폭(px). 0 = 닫힘.
-    val revealed =
-        remember {
-            androidx.compose.animation.core
-                .Animatable(0f)
-        }
-    val scope = rememberCoroutineScope()
-    val deleteLabel = tr("삭제")
-    var fullWidthPx by remember { mutableStateOf(0f) }
-    // 다른 줄이 열리면(`isOpen` 이 꺼지면) 이 줄은 제자리로 돌아온다.
-    LaunchedEffect(isOpen) {
-        if (!isOpen && revealed.value > 0f) revealed.animateTo(0f)
-    }
-
-    Box(modifier = Modifier.fillMaxWidth()) {
+    // 밀기 모양(알약으로 줄어듦 · 휴지통 · 끝까지 밀면 바로 동작)은 코스 편집기의 장소 줄과 함께 쓴다 — [SwipeDeleteRow].
+    SwipeDeleteRow(
+        onDelete = { onDelete(course) },
+        isOpen = isOpen,
+        onClaim = onClaim,
+        onRelease = onRelease,
+        corner = GROUP_RADIUS,
+        reveal = SWIPE_REVEAL,
+        // iOS 는 밀려 단추가 드러난 줄을 눌린 회색(systemGray5, 229·229·234)으로 둔다(48b-list-swipe-settled).
+        revealedColor = IOS.systemGray5,
+        onTap = { onOpen(course) },
+    ) {
+        // 8차 CL1·CL2: 부제가 iOS 보다 2.7 낮았다(간격 3 → 0.3, 카드 높이는 위아래 +1.35 로 지킨다). iOS 의 chevron 은 카드 가운데가 아니라
+        // **제목 줄 안**에 있다(카드 가운데보다 8.5 위).
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 15.35.dp),
+            verticalArrangement = Arrangement.spacedBy(0.3.dp),
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier =
-                    Modifier
-                        .size(width = 60.dp, height = 41.dp)
-                        .clip(CircleShape)
-                        .background(IOS.systemRed)
-                        .semantics { contentDescription = deleteLabel }
-                        .clickable {
-                            scope.launch { revealed.animateTo(0f) }
-                            onRelease()
-                            onDelete(course)
-                        },
-            ) {
-                Icon(
-                    Icons.Filled.Delete,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-            Text(deleteLabel, fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.padding(top = 2.dp))
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier =
-                Modifier
-                    .clip(if (revealed.value > 0f) RoundedCornerShape(GROUP_RADIUS) else RoundedCornerShape(0.dp))
-                    // 줄은 제 폭을 지킨 채 왼쪽으로 밀리고, 보이는 폭만 줄어든다(iOS 도 글자가 왼쪽에서 잘린다).
-                    .layout { measurable, constraints ->
-                        val placeable = measurable.measure(constraints)
-                        fullWidthPx = placeable.width.toFloat()
-                        val shown = revealed.value.toInt().coerceIn(0, placeable.width)
-                        layout(placeable.width - shown, placeable.height) { placeable.place(-shown, 0) }
-                    }.fillMaxWidth()
-                    .background(IOS.systemBackground)
-                    .pointerInput(Unit) {
-                        detectHorizontalDragGestures(
-                            // 밀기 시작 — 앞서 열려 있던 줄은 이때 닫힌다.
-                            onDragStart = { onClaim() },
-                            onDragEnd = {
-                                val settle = CourseSwipe.settle(revealed.value, revealPx, fullWidthPx)
-                                // 끝까지 밀었다 — iOS 는 첫 동작을 바로 부른다.
-                                if (settle != SwipeSettle.OPEN) onRelease()
-                                if (settle == SwipeSettle.FULL) onDelete(course)
-                                scope.launch { revealed.animateTo(if (settle == SwipeSettle.OPEN) revealPx else 0f) }
-                            },
-                            onDragCancel = {
-                                onRelease()
-                                scope.launch { revealed.animateTo(0f) }
-                            },
-                            onHorizontalDrag = { change, dx ->
-                                change.consume()
-                                scope.launch { revealed.snapTo((revealed.value - dx).coerceIn(0f, fullWidthPx)) }
-                            },
-                        )
-                    }.clickable {
-                        // 열려 있으면 탭은 줄을 닫을 뿐이다(iOS).
-                        if (revealed.value > 0f) {
-                            onRelease()
-                            scope.launch { revealed.animateTo(0f) }
-                        } else {
-                            onOpen(course)
-                        }
-                    }.padding(horizontal = 16.dp, vertical = 14.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (route.madeByAI) {
-                        SparklesIcon(IOS.accent, Modifier.size(12.dp))
-                    }
-                    Text(course.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, maxLines = 1)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (route.madeByAI) {
+                    SparklesIcon(IOS.accent, Modifier.size(12.dp))
                 }
-                Text(route.dateLabel ?: route.spanLabel, fontSize = 12.sp, color = IOS.secondaryLabel)
+                Text(
+                    course.title,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IOS.label,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                ChevronRightIcon(IOS.tertiaryLabel, Modifier.size(12.dp))
             }
-            ChevronRightIcon(IOS.tertiaryLabel, Modifier.size(12.dp))
+            Text(route.dateLabel ?: route.spanLabel, fontSize = 12.sp, color = IOS.secondaryLabel)
         }
     }
 }
@@ -570,17 +525,36 @@ private fun ForkSheet(
     onManual: () -> Unit,
 ) {
     // iOS `forkSheet`: `.presentationDetents([.height(420)])` 시트 — 손잡이(40×5)는 내용이 직접 그린다.
-    IOSSheet(detents = listOf(SheetDetent.MEDIUM), fixedHeight = 420.dp, onDismiss = onDismiss) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    // 바탕은 iOS 유리 시트가 어두운 뒤 화면을 비춰 옅은 회색(233·233·235, 61-wizard-ios 실측)이고 그 위에 흰 카드가 얹힌다.
+    IOSSheet(
+        detents = listOf(SheetDetent.MEDIUM),
+        // 윗변~화면 아래 444pt(iOS 실측 wizsheet-ios 1332px/3) — 420 은 429 로 나와 15 짧았다.
+        fixedHeight = 435.dp,
+        onDismiss = onDismiss,
+        containerColor =
+            androidx.compose.ui.graphics
+                .Color(0xFFE9E9EB),
+    ) {
+        // 5차 감사(wizsheet2 실측, 시트 윗변 기준): iOS 손잡이 윗변 7·제목 글자 가운데 36.8·첫 카드 윗변 62. 줄 칸을 22 로 고정하고 간격을 직접 둔다
+        // (전: 손잡이 8·제목 +4.6·카드 +7.3).
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
                 modifier =
                     Modifier
-                        .padding(top = 8.dp)
+                        .padding(top = 6.7.dp)
                         .size(width = 40.dp, height = 5.dp)
                         .clip(RoundedCornerShape(50))
                         .background(IOS.systemGray3),
             )
-            Text(tr("코스를 어떻게 만들까요?"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+            Spacer(Modifier.height(13.4.dp))
+            Text(
+                tr("코스를 어떻게 만들까요?"),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IOS.label,
+                modifier = Modifier.iosLineBox(22.dp),
+            )
+            Spacer(Modifier.height(14.9.dp))
             Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ForkCard(title = tr("AI 로 짜기"), caption = tr("기간·작품만 고르면 동선까지 짜 드립니다"), onClick = onAI) { SparklesIcon(IOS.accent, it) }
                 ForkCard(title = tr("직접 짜기"), caption = tr("장바구니에서 하나씩 담습니다"), onClick = onManual) { HandDrawIcon(IOS.accent, it) }
@@ -616,7 +590,9 @@ private fun ForkCard(
                 ).clip(RoundedCornerShape(14.dp))
                 .background(IOS.systemBackground)
                 .clickable(onClick = onClick)
-                .padding(16.dp),
+                // iOS 카드 높이 72pt(줄 간격 84pt = 72 + 12, 61-wizard-ios 실측). 글꼴 줄 높이가 달라 패딩이 아니라 높이로 고정한다.
+                .height(72.dp)
+                .padding(horizontal = 16.dp),
     ) {
         Box(
             modifier = Modifier.size(44.dp).clip(CircleShape).background(IOS.accent.copy(alpha = 0.12f)),
@@ -624,9 +600,10 @@ private fun ForkCard(
         ) {
             icon(Modifier.size(22.dp))
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
-            Text(caption, fontSize = 12.sp, color = IOS.secondaryLabel)
+        // 8차 HM2: 제목→설명 iOS 20.0 · Android 24.7 — 글꼴 제 높이 대신 iOS 줄 칸(20.3 · 14.3)으로 고정하고 간격 3.
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.sfLine(17f))
+            Text(caption, fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(12f))
         }
         ChevronRightIcon(IOS.tertiaryLabel, Modifier.size(12.dp))
     }

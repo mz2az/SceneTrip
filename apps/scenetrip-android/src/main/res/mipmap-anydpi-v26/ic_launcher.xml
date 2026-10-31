@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  어댑티브 아이콘 (MZ2AZ-513). iOS 의 AppIcon(Assets.xcassets/AppIcon.appiconset/appicon.png)과
+  같은 그림이다 — 연한 라벤더 바탕(#F7F6FC)에 해태.
+
+  전경은 108dp 캔버스에 해태를 가운데 두고 높이를 66dp 로 맞췄다(4차 수정: 60→66, iOS 아이콘처럼 캐릭터가 꽉 차 보이게). 런처가 어떤 모양(원·
+  둥근 사각형 등)으로 오려도 중앙 66dp 원 안에 들어오게 하는 안전 영역 규칙이다.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>

@@ -76,6 +76,8 @@ fun IOSSheet(
     interactiveDismissEnabled: Boolean = true,
     // 카드 바탕. 기본은 흰색 — iOS 유리(`.regularMaterial`) 시트는 뒤 화면이 비쳐 회색조라 그 시트만 바꿔 넘긴다.
     containerColor: Color = IOS.systemBackground,
+    // 반쯤 높이를 이만큼 낮춘다. 시트 위에 시트가 쌓일 때 iOS 는 앞 시트를 뒤 시트 윗변에서 19.6 아래에 둔다(8차 ES1).
+    restInset: Dp = 0.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(
@@ -93,7 +95,11 @@ fun IOSSheet(
             val restH =
                 when {
                     fixedHeight != null -> fixedHeight
-                    detents.first() == SheetDetent.MEDIUM -> screen * 0.5f
+
+                    // iOS `.medium` 은 화면 높이의 51.8%(윗변이 화면 48.2% 지점 — 874pt 기기 mycourses-ios 실측 1263/2622). 앞서 50% 로 두어
+                    // 윗변이 0.9% 아래였고 뒤 카드 윗변이 띠로 드러났다. 떠 있는 카드는 아래 8 을 따로 띄우므로 그만큼 뺀 값이다.
+                    detents.first() == SheetDetent.MEDIUM -> screen * 0.5095f - restInset
+
                     else -> largeH
                 }
             val maxH = if (SheetDetent.LARGE in detents) largeH else restH

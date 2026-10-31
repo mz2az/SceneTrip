@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,8 +19,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -77,6 +80,7 @@ import com.mz2az.scenetrip.data.LocationConsentStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.data.apiResult
+import com.mz2az.scenetrip.data.haversineKm
 import com.mz2az.scenetrip.data.requestLocation
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.api.PoisApi
@@ -99,6 +103,7 @@ import com.mz2az.scenetrip.searchtab.focusOnStop
 import com.mz2az.scenetrip.searchtab.hasLocationPermission
 import com.mz2az.scenetrip.searchtab.regionSource
 import com.mz2az.scenetrip.searchtab.rememberLocate
+import com.mz2az.scenetrip.searchtab.widenToInclude
 import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.BusIcon
 import com.mz2az.scenetrip.ui.CircleSignIcon
@@ -123,6 +128,7 @@ import com.mz2az.scenetrip.ui.SwapArrowsIcon
 import com.mz2az.scenetrip.ui.TransitIcon
 import com.mz2az.scenetrip.ui.UnavailableNoticeRow
 import com.mz2az.scenetrip.ui.WalkIcon
+import com.mz2az.scenetrip.ui.sfLine
 import com.mz2az.scenetrip.ui.sheetListBottom
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.geometry.LatLngBounds
@@ -137,6 +143,9 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 
 private const val MAP_FIT_DEBOUNCE_MILLIS = 150L
+
+/** 코스에 핀이 없을 때 내 자리를 담으러 범위를 넓히는 한계. 이보다 멀면 세계 줌이 된다(MZ2AZ-511). */
+private const val MAX_WIDEN_KM = 300.0
 
 /**
  * 코스 편집. iOS `RouteTab/RouteEditorView.swift`(+Controls/+Parts, 지도 중심 화면)를
@@ -231,6 +240,8 @@ private fun RouteEditorContent(
     // 켜짐이 기본이다(2026-08-28 iOS 결정) — 코스를 보는 사람은 대개 자기 위치와
     // 견주고 싶어서 본다. 끄는 것은 선택으로 남는다.
     var showingMe by remember { mutableStateOf(true) }
+    // 밀어서 휴지통을 드러낸 장소 줄 — 열린 줄은 하나뿐이다(iOS `List` 의 swipeActions).
+    var openStopId by remember { mutableStateOf<java.util.UUID?>(null) }
     var fitToken by remember { mutableStateOf(0) }
     var optimizeNudge by remember { mutableStateOf(false) }
     var showGuide by remember { mutableStateOf(false) }
@@ -295,7 +306,8 @@ private fun RouteEditorContent(
         showGuide = false
         cancel(planner = true)
     }
-    androidx.activity.compose.BackHandler { cancel() }
+    // 가이드 창이 열려 있으면 뒤로가는 아무것도 안 한다 — iOS 는 접기(X) 단추로만 닫히고 편집 화면은 그 뒤에 그대로 있다(MZ2AZ-513).
+    androidx.activity.compose.BackHandler { if (!showGuide) cancel() }
     androidx.compose.runtime.SideEffect { editorDismiss?.set { cancel() } }
     androidx.compose.runtime.DisposableEffect(editorDismiss) { onDispose { editorDismiss?.set(null) } }
 
@@ -660,7 +672,9 @@ private fun RouteEditorContent(
     // 맞춤에 **나를 담을 수 있는 자리를 처음 알게 된 때**(`fitsMe`)만 다시 맞춘다. 멀리 있는 자리(MZ2AZ-511)는 담지 않으므로
     // 열쇠도 바꾸지 않는다 — 코스 핀에 맞춘 화면이 늦게 온 위치 때문에 다시 움직일 까닭이 없다.
     val fitsMe = RouteGeometry.fitHere(myLocation, showingMe, stops) != null
-    LaunchedEffect(map, dayIndex, fitToken, showingMe, fitsMe, screenHeight, panelHeight) {
+    // 8차 EP4: 미리보기(검색 시트에서 고른 곳)도 맞춤에 든다 — iOS `RouteMapView.fit(stops, previews:)` 는 시트가 열린 채 바로 맞춘다.
+    val previewKey = previewPlaces.map { it.id }
+    LaunchedEffect(map, dayIndex, fitToken, showingMe, fitsMe, screenHeight, panelHeight, previewKey) {
         val target = map ?: return@LaunchedEffect
         if (screenHeight <= 0.dp || panelHeight <= 0.dp) return@LaunchedEffect
         delay(MAP_FIT_DEBOUNCE_MILLIS) // 시트 드래그 중 반복 맞추기를 취소하고 마지막 보이는 영역에 맞춘다.
@@ -686,7 +700,7 @@ private fun RouteEditorContent(
         }
         // 같은 지역의 자리만 담는다 — 멀리 있는 자리를 넣으면 범위가 대륙만 해져 세계 줌에 멈춘다(MZ2AZ-511, `fitHere`).
         val here = RouteGeometry.fitHere(myLocation, showingMe, stops)
-        val toFit = stops.map { it.place } + listOfNotNull(here)
+        val toFit = stops.map { it.place } + previewPlaces + listOfNotNull(here)
         if (toFit.isNotEmpty()) {
             target.fit(
                 toFit,
@@ -699,6 +713,22 @@ private fun RouteEditorContent(
                 source = if (here != null) CoordinateSource.DEVICE else CoordinateSource.USER_SELECTED,
             )
         }
+    }
+
+    // 코스에 핀이 없는 첫 화면에서 자리가 오면 — 지금 보이는 범위(지도 기본 카메라)에 내가 없을 때만 범위를 넓혀 나를 담는다
+    // (iOS `RouteMapLocate.didUpdateLocations`). 핀이 있으면 위의 맞춤이 같은 지역의 자리를 이미 담고, 멀리 있는 자리는 일부러
+    // 담지 않으므로(MZ2AZ-511) 여기서 다시 끌어오지 않는다. 대륙을 가로지르는 자리도 세계 줌이 되므로 담지 않는다.
+    LaunchedEffect(map, myLocation, showingMe, trip.isActive, stops.isEmpty()) {
+        val target = map ?: return@LaunchedEffect
+        val here = myLocation ?: return@LaunchedEffect
+        if (!showingMe || trip.isActive || stops.isNotEmpty()) return@LaunchedEffect
+        if (screenHeight <= 0.dp || panelHeight <= 0.dp) return@LaunchedEffect
+        withFrameNanos {}
+        val center = target.cameraPosition.target
+        if (haversineKm(center.latitude, center.longitude, here.latitude, here.longitude) > MAX_WIDEN_KM) {
+            return@LaunchedEffect
+        }
+        target.widenToInclude(here.latitude, here.longitude, density)
     }
 
     // **파란 점 자체는 카메라 맞추기와 별개다.** 위에서는 화면 범위만 맞췄지,
@@ -827,7 +857,11 @@ private fun RouteEditorContent(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6).then(if (inSheet) Modifier else Modifier.statusBarsPadding())) {
+    Column(modifier = Modifier.fillMaxSize().background(IOS.systemGray6)) {
+        // 저장된 코스를 덮개로 열면 상태줄 영역도 머리줄과 같은 흰색이다(iOS, 5차 감사 open2: 회색 242,242,247 이었다).
+        if (!inSheet) {
+            Spacer(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(IOS.systemBackground))
+        }
         // iOS `RouteEditorView.topBar`: 「취소」 | 가운데 제목(눌러서 고침) + 연필 | 「만들기/저장」. 큰 글자에서는 동작과 제목을 두 줄에 둔다
         // (MZ2AZ-388, `stackedTopBar`) — 한 줄에 셋을 두면 제목이 단추를 밀어낸다.
         val stackTopBar = isAccessibilityFontScale()
@@ -923,7 +957,8 @@ private fun RouteEditorContent(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(52.dp)
+                        // iOS `topBar`: 단추 최소 44 + 위아래 12 = 68 (5차 감사: 52.7 로 15 낮았다).
+                        .height(68.dp)
                         .background(IOS.systemBackground)
                         .padding(horizontal = 16.dp),
             ) {
@@ -1227,6 +1262,7 @@ private fun RouteEditorContent(
                     RouteDaySummary(course.days.getOrNull(dayIndex), onStayFrame = { stayFrame = it }) { showDayStay = true }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier =
                             Modifier
                                 .fillMaxWidth()
@@ -1273,6 +1309,7 @@ private fun RouteEditorContent(
                         EditorAction(
                             label = if (pinning) tr("취소") else tr("핀 찍기"),
                             icon = { MapPinEllipseIcon(IOS.label, it) },
+                            iconHeight = 19.7.dp,
                             modifier = Modifier.weight(1f),
                         ) { pinning = !pinning }
                     }
@@ -1314,6 +1351,9 @@ private fun RouteEditorContent(
                                     }
                                 },
                                 onRemove = { updateDay(dayIndex) { d -> d.copy(stops = d.stops.filterNot { it.id == stop.id }) } },
+                                isOpen = openStopId == stop.id,
+                                onClaim = { openStopId = stop.id },
+                                onRelease = { if (openStopId == stop.id) openStopId = null },
                                 onMoveUp =
                                     if (index > 0) {
                                         {
@@ -1369,19 +1409,28 @@ private fun RouteEditorContent(
                                 }
                             }
                             // iOS `List` 줄 구분선 — 번호 뒤 글자 시작(16 + 22 + 12)부터.
-                            if (index < stops.lastIndex) IOSListDivider(start = 50.dp)
+                            // 마지막 줄 아래에도 선이 있다 — iOS 는 24 에서 시작한다(5차 감사 ed3-ios 실측: 24→385.7, 1pt).
+                            IOSListDivider(start = if (index < stops.lastIndex) 175.7.dp else 24.dp, overlay = true)
                         }
                         if (stops.isEmpty()) {
                             item {
-                                // iOS `RouteEditorView.stopRows` — "직접 짜기"로 빈 코스를
-                                // 열었을 때 아무 안내도 없었다(실기 비교로 발견).
-                                Text(
-                                    tr("아직 담은 장소가 없습니다\n장바구니에서 담거나 지도에 핀을 찍어 보세요"),
-                                    fontSize = 12.sp,
-                                    color = IOS.secondaryLabel,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                                )
+                                // iOS `RouteEditorList` — `.footnote`(13pt, 줄 18) · 가운데 놓인 덩어리 안에서 줄은 **왼쪽 맞춤** · `.padding(.vertical, 24)`
+                                // 아래 목록 구분선(x 85부터). 8차 N6: 첫 줄 중심 227.3. 9차 ED4': iOS 구분선은 핸들 기준 +287.4(글 끝줄 아래 40.3) — 8차의 y≈297 은 실측이 아니었다.
+                                Column(Modifier.fillMaxWidth()) {
+                                    Box(
+                                        Modifier.fillMaxWidth().padding(top = 36.dp, bottom = 37.2.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            tr("아직 담은 장소가 없습니다\n장바구니에서 담거나 지도에 핀을 찍어 보세요"),
+                                            fontSize = 13.sp,
+                                            lineHeight = 18.sp,
+                                            color = IOS.secondaryLabel,
+                                            textAlign = TextAlign.Start,
+                                        )
+                                    }
+                                    IOSListDivider(start = 85.dp)
+                                }
                             }
                         }
                         // 「코스 삭제」는 여기 없다 — iOS 는 코스 목록에서 밀어서만 지운다(2026-09-28 대조).
@@ -1713,6 +1762,8 @@ private fun EditorAction(
     // 해서 나란히 두면 "동선 최적화" 하나가 폭 절반을 먹는다).
     // SF Symbols 외곽선 아이콘(`ui/OutlineIcons.kt`) — 크기 Modifier 를 받아 그린다.
     icon: (@Composable (Modifier) -> Unit)? = null,
+    // 「핀 찍기」 는 그림(`mappin.and.ellipse`)이 더 커서 단추가 51.7 이다(iOS 실측, 다른 셋은 49.0).
+    iconHeight: androidx.compose.ui.unit.Dp = 17.dp,
     onClick: () -> Unit,
 ) {
     val glow =
@@ -1742,15 +1793,19 @@ private fun EditorAction(
                 .then(
                     if (highlight) Modifier.background(Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep)), alpha = glow) else Modifier,
                 ).clickable(onClick = onClick)
-                .padding(vertical = 7.dp),
+                .padding(vertical = 8.dp),
     ) {
-        icon?.invoke(Modifier.size(17.dp))
+        if (icon != null) {
+            Box(modifier = Modifier.height(iconHeight), contentAlignment = Alignment.Center) { icon(Modifier.size(17.dp)) }
+        }
         Text(
             label,
             fontSize = 11.sp,
             color = if (highlight) Color.White else IOS.label,
             textAlign = TextAlign.Center,
             maxLines = 1,
+            // iOS caption2 11pt → 13.1 (7차 감사 ED5: 단추 49.0).
+            modifier = Modifier.sfLine(11f),
         )
     }
 }
@@ -1914,6 +1969,8 @@ private fun DayTabs(
                         fontSize = 15.sp,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (active) IOS.accent else IOS.secondaryLabel,
+                        // iOS 탭 25.9 = 글 17.9 + 6 + 밑줄 2 (7차 감사 ED1·ED3: 글꼴 제 높이라 줄이 3.4 컸다).
+                        modifier = Modifier.sfLine(15f),
                     )
                     Box(
                         modifier =
@@ -1928,12 +1985,12 @@ private fun DayTabs(
         CircleSignIcon(
             plus = false,
             tint = if (canRemove) IOS.label else IOS.tertiaryLabel,
-            modifier = Modifier.size(18.dp).clickable(enabled = canRemove, onClick = onRemoveDay),
+            modifier = Modifier.size(17.dp).clickable(enabled = canRemove, onClick = onRemoveDay),
         )
         CircleSignIcon(
             plus = true,
             tint = if (canAdd) IOS.label else IOS.tertiaryLabel,
-            modifier = Modifier.size(18.dp).clickable(enabled = canAdd, onClick = onAddDay),
+            modifier = Modifier.size(17.dp).clickable(enabled = canAdd, onClick = onAddDay),
         )
     }
 }
@@ -1991,7 +2048,9 @@ private fun PlaceSearchOverlayBody(
                 },
             )
             IOSSearchField(query, { query = it.take(RoutePlaceSearch.MAX_LENGTH) }, tr("장소나 작품 이름"), Modifier.padding(horizontal = 16.dp))
-            Spacer(Modifier.height(10.dp))
+            // 5차 감사(edsearch): 시트 윗변→목록 첫 줄이 iOS 149 · Android 138.7 이었다. 줄 간격도 iOS 82.2 · Android 80.8 이라
+            // 줄 위아래 10 → 10.7 로 늘리고 남는 만큼(+7.6)을 여기에 둔다.
+            Spacer(Modifier.height(17.6.dp))
         }
         when {
             search.phase == RoutePlaceSearch.Phase.FAILED -> {
@@ -2046,7 +2105,7 @@ private fun PlaceSearchOverlayBody(
                                     .clickable(enabled = !isTaken) {
                                         picked = if (pickedOrder != null) picked - place.id else picked + place.id
                                         onPreview(resolve(picked))
-                                    }.padding(horizontal = 16.dp, vertical = 10.dp)
+                                    }.padding(horizontal = 16.dp, vertical = 10.7.dp)
                                     .alpha(if (isTaken) 0.5f else 1f),
                         ) {
                             // iOS `RemoteImage(url:, symbol: "mappin.and.ellipse")` — 사진이 없으면 회색 칸 가운데 핀.
@@ -2136,7 +2195,8 @@ private fun PlaceSearchOverlay(
     onPreview: (List<PlaceSummary>) -> Unit,
     onAdd: (List<PlaceSummary>) -> Unit,
 ) {
-    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onDismiss) {
+    // 8차 ES1: iOS 는 이 시트를 편집기 시트 윗변에서 19.6 아래에 쌓는다(Android 는 같은 높이에 덮었다 — 440.4 대 463.0).
+    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onDismiss, restInset = 22.6.dp) {
         PlaceSearchOverlayBody(taken = taken, onDismiss = onDismiss, onPreview = onPreview, onAdd = onAdd)
     }
 }

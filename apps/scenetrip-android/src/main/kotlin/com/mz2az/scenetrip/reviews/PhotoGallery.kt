@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -23,6 +25,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,6 +45,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -60,11 +64,13 @@ import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.DisableDialogDim
 import com.mz2az.scenetrip.ui.FullScreenDialogWindow
 import com.mz2az.scenetrip.ui.IOS
-import com.mz2az.scenetrip.ui.IOSCloseButton
 import com.mz2az.scenetrip.ui.IOSSheet
+import com.mz2az.scenetrip.ui.PersonCropSquareIcon
 import com.mz2az.scenetrip.ui.SheetDetent
+import com.mz2az.scenetrip.ui.SquareGrid2x2Icon
 import com.mz2az.scenetrip.ui.XMarkIcon
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.lazy.itemsIndexed as rowItemsIndexed
 
 val Photo.galleryKey: String get() = ReviewRules.photoKey(url.toString(), reviewId.takeIf { source == PhotoSource.review })
 
@@ -73,7 +79,7 @@ class PhotoBook(
     val subject: ReviewSubject,
     initial: List<Photo>,
     total: Int,
-    private val visitorsOnly: Boolean = false,
+    val visitorsOnly: Boolean = false,
     private val paged: Boolean = true,
     // 쪽으로 나뉘지 않은 사진(리뷰 한 건의 사진)은 사진첩을 다시 받을 수 없다 — 그 사진이 든 목록이 대신 새 주소를 받는다
     // (MZ2AZ-477, iOS 의 `\.photoRenew` 환경값). 없으면 갱신할 길이 없다.
@@ -208,16 +214,26 @@ fun GalleryStrip(
     // 아래 줄로 옮긴다 (MZ2AZ-470, iOS `protectedPhotos`).
     val protectedPhotos = book.photos.any(ReviewRules::isProtected)
     val pageCounter: @Composable (Modifier) -> Unit = { counterModifier ->
-        Text(
-            "▦ ${pager.currentPage + 1} / ${book.total}",
-            color = if (protectedPhotos) IOS.secondaryLabel else Color.White,
-            fontSize = 15.sp,
+        val tint = if (protectedPhotos) IOS.secondaryLabel else Color.White
+        // iOS: `square.grid.2x2`(10pt semibold) + 「3 / 19」(caption semibold, 고정폭 숫자), 사이 4, 안쪽 9·5.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             modifier =
                 counterModifier
                     .clickable { grid = true }
                     .background(if (protectedPhotos) IOS.systemGray5 else Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-        )
+                    .padding(horizontal = 9.dp, vertical = 5.dp),
+        ) {
+            SquareGrid2x2Icon(tint, Modifier.size(10.dp))
+            Text(
+                "${pager.currentPage + 1} / ${book.total}",
+                color = tint,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                style = IOS.caption.copy(fontFeatureSettings = "tnum"),
+            )
+        }
     }
     val visitorBadge: @Composable (Modifier) -> Unit = { badgeModifier ->
         Text(
@@ -299,6 +315,96 @@ fun GalleryStrip(
     }
     if (grid) {
         PhotoGrid(book, onClose = { grid = false }, onReview = onReview, entry = entry)
+    }
+}
+
+/**
+ * iOS `CardPhotoStrip` — 코스 편집기 장소 카드의 사진 줄. 92×70 작은 사진이 옆으로 이어지고(사이 6, 양끝 14), 누르면 사진첩을 크게 넘겨 본다.
+ * 카드가 좁아 한 장씩 크게 넘기는 [GalleryStrip] 대신 작은 줄로 둔다. 사진이 없으면 그리지 않는다. 출처는 줄 아래에 모아 적는다.
+ */
+@Composable
+fun CardPhotoStrip(
+    subject: ReviewSubject,
+    photos: List<Photo>,
+    total: Int,
+    onReview: ((Long?) -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    onRenew: (suspend (Boolean) -> Unit)? = null,
+    entry: String = "card",
+) {
+    val scope = rememberCoroutineScope()
+    val moderation by ModerationEvents.shared.version.collectAsState()
+    val renewal by rememberUpdatedState(onRenew)
+    val book =
+        remember(subject, photos, total, moderation) {
+            PhotoBook(subject, photos, total, externalRenew = { forced -> renewal?.invoke(forced) })
+        }
+    var viewer by remember { mutableStateOf<Int?>(null) }
+    if (book.photos.isEmpty()) return
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LazyRow(
+            Modifier.fillMaxWidth().height(70.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = PaddingValues(horizontal = 14.dp),
+        ) {
+            rowItemsIndexed(book.photos, key = { _, photo -> photo.galleryKey }) { index, photo ->
+                LaunchedEffect(index) { if (index >= book.photos.size - 5) book.more() }
+                Box(
+                    Modifier
+                        .size(width = 92.dp, height = 70.dp)
+                        .clip(RoundedCornerShape(if (ReviewRules.isProtected(photo)) 0.dp else 8.dp))
+                        .background(IOS.systemGray6)
+                        .semantics { contentDescription = tr("크게 보기") }
+                        .clickable { viewer = index },
+                ) {
+                    GalleryImage(
+                        photo,
+                        Modifier.fillMaxSize(),
+                        thumbnail = true,
+                        onFailure = { scope.launch { book.renew() } },
+                        onRetry = { scope.launch { book.renew(true) } },
+                    )
+                    if (photo.source == PhotoSource.review) {
+                        CompactVisitorBadge(Modifier.align(Alignment.BottomStart).padding(3.dp))
+                    }
+                }
+            }
+        }
+        val credits = ReviewRules.credits(book.photos)
+        if (credits.isNotEmpty()) {
+            Text(
+                credits.joinToString("\n"),
+                style = IOS.caption2,
+                color = IOS.secondaryLabel,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+            )
+        }
+    }
+    viewer?.let { index ->
+        GalleryViewer(
+            book,
+            index,
+            onClose = { viewer = null },
+            onReview =
+                onReview?.let { callback ->
+                    { id ->
+                        viewer = null
+                        callback(id)
+                    }
+                },
+            entry = entry,
+        )
+    }
+}
+
+/** iOS `VisitorBadge(compact: true)` — 왼쪽 아래 23×23 어두운 원 + 사람 그림. 전체 격자와 카드 사진 줄이 같이 쓴다. */
+@Composable
+private fun CompactVisitorBadge(modifier: Modifier) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier.size(23.dp).background(Color.Black.copy(alpha = 0.55f), CircleShape),
+    ) {
+        PersonCropSquareIcon(Color.White, Modifier.size(13.dp))
     }
 }
 
@@ -463,7 +569,8 @@ internal fun GalleryViewer(
             }
         } else {
             Box(Modifier.fillMaxSize().background(Color.Black)) {
-                pages(Modifier.fillMaxSize())
+                // 8차 N3: iOS 는 사진을 안전 영역 안에서 가운데에 둔다(배경만 화면 끝까지) — 상태줄·내비바를 뺀 칸의 가운데.
+                pages(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding())
                 topBar(Modifier)
                 caption(Modifier.align(Alignment.BottomCenter))
             }
@@ -485,13 +592,9 @@ internal fun PhotoGrid(
     var viewing by remember { mutableStateOf<Int?>(null) }
     IOSSheet(detents = listOf(SheetDetent.LARGE), onDismiss = onClose) {
         Column(Modifier.fillMaxSize().background(IOS.systemBackground)) {
-            Box(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp)) {
-                Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(title, style = IOS.headline, color = IOS.label)
-                    Text(book.subject.name, style = IOS.subheadline, color = IOS.secondaryLabel)
-                }
-                IOSCloseButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterEnd))
-            }
+            // iOS `SheetHeader` — 리뷰 시트와 같은 머리줄(7차 감사 G2·G3: 흰 원 닫기 · 70.1 이었다 → 회색 X 44×44 · 54.0).
+            ReviewSheetHeader(title = title, subtitle = book.subject.name, onClose = onClose)
+            HorizontalDivider(thickness = 0.5.dp, color = IOS.separator.copy(alpha = 0.25f))
             LazyVerticalGrid(
                 GridCells.Fixed(3),
                 Modifier.weight(1f),
@@ -508,18 +611,9 @@ internal fun PhotoGrid(
                             onFailure = { scope.launch { book.renew() } },
                             onRetry = { scope.launch { book.renew(true) } },
                         )
-                        if (photo.source == PhotoSource.review) {
-                            Text(
-                                tr("방문자 사진"),
-                                style = IOS.caption2,
-                                color = Color.White,
-                                modifier =
-                                    Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .padding(3.dp)
-                                        .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
-                                        .padding(horizontal = 6.dp, vertical = 3.dp),
-                            )
+                        // iOS `VisitorBadge(compact: true)` — 전체 격자에서만, 왼쪽 아래 23×23 어두운 원 + 사람 그림 (7차 감사 G1).
+                        if (photo.source == PhotoSource.review && !book.visitorsOnly) {
+                            CompactVisitorBadge(Modifier.align(Alignment.BottomStart).padding(4.dp))
                         }
                     }
                 }

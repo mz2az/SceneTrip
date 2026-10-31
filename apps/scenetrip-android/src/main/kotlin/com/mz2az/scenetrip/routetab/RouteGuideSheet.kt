@@ -87,6 +87,8 @@ import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSSheetMaterial
 import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.mz2az.scenetrip.ui.SendArrowCircleIcon
+import com.mz2az.scenetrip.ui.iosLineBox
+import com.mz2az.scenetrip.ui.iosShadow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -189,6 +191,7 @@ fun RouteGuideChipBody(bubble: Boolean) {
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = IOS.pinDeep,
+                // iOS 알약 25pt(72-editor-new 실측). 글꼴 제 높이로는 31dp 였다.
                 // iOS `RouteGuideChipBody`: 흰 캡슐 + pinLight 60% 1pt 테두리 + 옅은 그림자(검정 12%, r3, y1).
                 modifier =
                     Modifier
@@ -200,7 +203,8 @@ fun RouteGuideChipBody(bubble: Boolean) {
                         ).clip(RoundedCornerShape(50))
                         .background(IOS.systemBackground)
                         .border(1.dp, IOS.pinLight.copy(alpha = 0.6f), RoundedCornerShape(50))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .padding(horizontal = 10.dp)
+                        .iosLineBox(25.dp),
             )
         }
         // 흰 원 + 핀 그러데이션 2pt 테두리 + 그림자(검정 20%, r4, y2), 안쪽 여백 5.
@@ -208,7 +212,7 @@ fun RouteGuideChipBody(bubble: Boolean) {
             modifier =
                 Modifier
                     .size(46.dp)
-                    .shadow(4.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.2f), spotColor = Color.Black.copy(alpha = 0.2f))
+                    .iosShadow(Color.Black.copy(alpha = 0.25f), radius = 7.5.dp, y = 2.dp, cornerRadius = 23.dp)
                     .clip(CircleShape)
                     .background(IOS.systemBackground)
                     .border(2.dp, Brush.linearGradient(listOf(IOS.pinLight, IOS.pinDeep)), CircleShape)

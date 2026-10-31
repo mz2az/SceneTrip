@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -85,6 +86,7 @@ import com.mz2az.scenetrip.ui.LocationArrowIcon
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.ShoeprintsIcon
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
+import com.mz2az.scenetrip.ui.sfLine
 import com.mz2az.scenetrip.ui.sheetListBottom
 import com.mz2az.scenetrip.ui.unavailableAlpha
 import com.naver.maps.map.NaverMap
@@ -100,10 +102,9 @@ import kotlin.math.roundToInt
  * - 번호 22(그러데이션) · 이름 15 semibold · 부가 줄 11 · 작품 줄 · 머무는 시간 캡슐 · 오른쪽 `line.3.horizontal` 손잡이.
  * - 아랫줄(왼쪽 34 들여) — 30 높이 캡슐들: 안내 중(`location.fill`, 보라 채움) 또는 길찾기(`location`, 옅은 보라),
  *   출발/도착 고정, 그리고 `arrow.down` 다음 곳까지 거리.
- * - **빼기는 밀어서**(왼쪽으로 밀면 빨간 삭제, 끝까지 밀면 빠진다 — iOS `.onDelete`), **순서는 손잡이를 끌어서**
+ * - **빼기는 밀어서**(왼쪽으로 밀면 줄이 알약으로 줄어들며 빨간 휴지통이 드러나고, 그것을 눌러야 빠진다. 끝까지 밀면 바로 빠진다 — iOS `.onDelete`), **순서는 손잡이를 끌어서**
  *   (iOS `.onMove`). 앞서 Android 는 ▲▼ 글자와 빨간 「빼기」 글자가 늘 보였다.
  */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun RouteStopRow(
     number: Int,
@@ -116,6 +117,10 @@ fun RouteStopRow(
     isArrivalPin: Boolean = false,
     onFocus: () -> Unit,
     onRemove: () -> Unit,
+    // 밀어서 연 줄은 하나뿐이다 — 바깥이 어느 줄이 열렸는지 든다(코스 목록과 같은 규칙, [SwipeDeleteRow]).
+    isOpen: Boolean,
+    onClaim: () -> Unit,
+    onRelease: () -> Unit,
     onMoveUp: (() -> Unit)?,
     onMoveDown: (() -> Unit)?,
     onTogglePin: () -> Unit,
@@ -134,16 +139,13 @@ fun RouteStopRow(
     // `onDragEnd` 가 불리지 않아 남은 dragY 로 행이 떠 있었다(15차: 37dp 겹침). 키는 고정하고 최신 콜백만 읽는다.
     val moveUp by rememberUpdatedState(onMoveUp)
     val moveDown by rememberUpdatedState(onMoveDown)
-    val swipe =
-        androidx.compose.material3.rememberSwipeToDismissBoxState(
-            confirmValueChange = { value ->
-                if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) onRemove()
-                false
-            },
-        )
-    androidx.compose.material3.SwipeToDismissBox(
-        state = swipe,
-        enableDismissFromStartToEnd = false,
+    // **빼기는 밀어서** — 줄이 알약으로 줄어들며 휴지통이 드러나고, 그것을 눌러야 빠진다(iOS 26 `.onDelete`). 코스 목록 줄과 같은 부품이다.
+    // 휴지통은 iOS 실측으로 지름 50 이고 줄 오른쪽 끝은 화면 오른쪽에서 70 안쪽으로 물러난다. 밀리면 줄은 눌린 회색이 된다.
+    SwipeDeleteRow(
+        onDelete = onRemove,
+        isOpen = isOpen,
+        onClaim = onClaim,
+        onRelease = onRelease,
         modifier =
             Modifier
                 .zIndex(if (dragY != 0f) 1f else 0f)
@@ -151,22 +153,19 @@ fun RouteStopRow(
                     androidx.compose.ui.unit
                         .IntOffset(0, dragY.roundToInt())
                 }.onSizeChanged { rowHeight = it.height },
-        backgroundContent = {
-            Box(
-                contentAlignment = Alignment.CenterEnd,
-                modifier = Modifier.fillMaxSize().background(IOS.systemRed).padding(horizontal = 20.dp),
-            ) {
-                Text(tr("삭제"), fontSize = 17.sp, color = Color.White)
-            }
-        },
+        corner = 26.dp,
+        reveal = 70.dp,
+        buttonSize = DpSize(50.dp, 50.dp),
+        containerColor = if (isFocused) IOS.accent.copy(alpha = 0.07f).compositeOver(IOS.systemBackground) else IOS.systemBackground,
+        revealedColor = IOS.systemGray5,
+        allowsFullSwipe = false,
     ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .background(if (isFocused) IOS.accent.copy(alpha = 0.07f).compositeOver(IOS.systemBackground) else IOS.systemBackground)
-                    // iOS `List` 행 여백(약 11) + `.padding(.vertical, 4)` — 8 이면 행이 15 낮았다.
-                    .padding(horizontal = 16.dp, vertical = 15.dp),
+                    // iOS 행 124.7 = 위아래 19.35 + 글줄(17.9·13.1·13.1 + 간격 2·2) + 8 + 단추 30 — 줄 칸을 iOS 높이로 고정한 뒤의 값(7차 감사 EP2).
+                    .padding(horizontal = 16.dp, vertical = 19.35.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -191,7 +190,8 @@ fun RouteStopRow(
                             fontWeight = FontWeight.SemiBold,
                             color = IOS.label,
                             // 숨김·폐업 행은 내용만 약하게 — 안내와 「빼기」는 읽기 쉽게 따로 둔다(MZ2AZ-458).
-                            modifier = Modifier.weight(1f, fill = false).alpha(unavailableAlpha(stop.unavailable)),
+                            // 줄 칸은 iOS 줄 높이(15pt 17.9 · 11pt 13.1) — 7차 감사 EP2: 글꼴 제 높이라 주소 +3.6, 작품 +5.0, 출발 고정 +6.4 아래였다.
+                            modifier = Modifier.weight(1f, fill = false).alpha(unavailableAlpha(stop.unavailable)).sfLine(15f),
                         )
                         if (stop.isPinned) {
                             Badge(text = tr("내가 찍은 곳"), background = IOS.systemGray5, foreground = IOS.secondaryLabel)
@@ -201,18 +201,30 @@ fun RouteStopRow(
                         }
                     }
                     stop.arriveMinute?.let {
-                        Text(tr("%s 도착 예정").format(RouteGuidePlan.clock(it)), fontSize = 11.sp, color = IOS.secondaryLabel)
+                        Text(
+                            tr("%s 도착 예정").format(RouteGuidePlan.clock(it)),
+                            fontSize = 11.sp,
+                            color = IOS.secondaryLabel,
+                            modifier = Modifier.sfLine(11f),
+                        )
                     }
-                    stop.label().reading?.let { Text(it, fontSize = 11.sp, color = IOS.secondaryLabel) }
+                    stop.label().reading?.let { Text(it, fontSize = 11.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(11f)) }
                     val subtitle = listOfNotNull(stop.label().category, stop.label().address).joinToString(" · ")
                     if (subtitle.isNotEmpty()) {
-                        Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel, maxLines = 1)
+                        Text(subtitle, fontSize = 11.sp, color = IOS.secondaryLabel, maxLines = 1, modifier = Modifier.sfLine(11f))
                     }
                     // **어느 작품에 나온 곳인가.** 이 앱에 오는 이유가 그것이라 유형·주소보다 중요한 줄이다.
                     if (works.isNotEmpty()) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             FilmIcon(tint = IOS.pinDeep, modifier = Modifier.size(9.dp))
-                            Text(works, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = IOS.pinDeep, maxLines = 1)
+                            Text(
+                                works,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = IOS.pinDeep,
+                                maxLines = 1,
+                                modifier = Modifier.sfLine(11f),
+                            )
                         }
                     }
                 }
@@ -308,6 +320,7 @@ fun RouteStopRow(
                             fontSize = 12.sp,
                             color = if (running) IOS.secondaryLabel else IOS.tertiaryLabel,
                             maxLines = 1,
+                            modifier = Modifier.sfLine(12f),
                         )
                     }
                 }
@@ -487,6 +500,8 @@ private fun PoiChip(
             fontSize = 12.sp,
             fontWeight = if (isOn) FontWeight.SemiBold else FontWeight.Normal,
             color = if (isOn) IOS.label else IOS.secondaryLabel,
+            // iOS 칩 26.3 = 글 14.3 + 위아래 6 (7차 감사 ED2: 28.6 이었다).
+            modifier = Modifier.sfLine(12f),
         )
     }
 }

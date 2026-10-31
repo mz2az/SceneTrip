@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.searchtab
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -493,6 +494,33 @@ fun SearchTabScreen() {
         pendingFit = true
     }
 
+    // 하드웨어 뒤로 (MZ2AZ-513) — iOS 의 `<` 와 같다: 검색 패널 → 촬영지 상세 → 작품 상세 → 목록 순으로 한 단계씩 돌아간다.
+    // 이 탭은 다른 탭·덮개 밑에서도 살아 있으므로 **지금 보일 때만** 가로챈다 — 홈에서 뒤로를 눌렀는데 보이지 않는 상세가 닫히면 안 된다.
+    // 목록(맨 위)에서는 가로채지 않아 앱이 닫힌다.
+    BackHandler(
+        enabled =
+            TabRouter.selected == com.mz2az.scenetrip.data.RootTab.SEARCH &&
+                TabRouter.cover == null &&
+                (searching || selectedPlace != null || selectedContent != null),
+    ) {
+        when {
+            searching -> {
+                endSearching()
+            }
+
+            selectedPlace != null -> {
+                selectedPlace = null
+                fitToken++
+            }
+
+            else -> {
+                selectedContent = null
+                contentPlaces = emptyList()
+                fitToken++
+            }
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         NaverMapCanvas(
             modifier = Modifier.fillMaxSize(),
@@ -521,10 +549,10 @@ fun SearchTabScreen() {
         BottomSheet(
             detent = detent,
             onDetentChange = { detent = it },
-            // 조작 줄(「현 지도 내 성지 검색」·현위치)까지 덮지 않아야 한다 —
-            // 7 차에 시트가 그 위로 올라와 버튼이 시트 헤더에 겹쳐 그려졌다.
-            topInset = SEARCH_BAR_INSET + statusBar + CONTROL_ROW,
+            // 조작 줄(「현 지도 내 성지 검색」·현위치)까지 덮지 않아야 한다 — 검색바 44 · 조작 줄이 108 안에 들어가므로(7차 감사 SU1) 더하지 않는다.
+            topInset = SEARCH_BAR_INSET + statusBar,
             onHeightChange = { sheetHeight = it },
+            ratioInset = statusBar,
         ) {
             when {
                 data.phase == SceneData.Phase.FAILED -> {
@@ -674,7 +702,8 @@ fun SearchTabScreen() {
                 // 검색창의 장바구니와 같은 세로선에 놓아 지도를 덜 가린다.
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    // iOS `VStack(spacing: 2)` — 검색바와 조작 줄 사이 2 (7차 감사 SL2: 8 이라 알약이 4.3 아래였다).
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
                 ) {
                     NearbyButton(
                         on = nearby,
@@ -761,9 +790,6 @@ fun SearchTabScreen() {
  * 넣어야 한다. 픽셀로 재면 같은 크기도 12.5% 달라 보인다.
  */
 private val SEARCH_BAR_INSET: Dp = 108.dp
-
-/** 검색바 아래 조작 줄이 차지하는 높이 (여백 8 + 버튼 44). */
-private val CONTROL_ROW: Dp = 52.dp
 
 @Composable
 private fun Centered(message: String?) {

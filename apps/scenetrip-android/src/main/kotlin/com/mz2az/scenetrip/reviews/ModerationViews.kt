@@ -96,7 +96,8 @@ fun ModerationMenu(
                 }.clickable { open = true },
         contentAlignment = Alignment.Center,
     ) {
-        EllipsisIcon(IOS.secondaryLabel, Modifier.size(20.dp, 18.dp))
+        // iOS 는 `Menu` 라벨의 `.secondary` 가 강조색 위에서 옅은 파랑(128,195,255)으로 보인다(2026-10-29 실측) — 회색이 아니다.
+        EllipsisIcon(IOS.accent.copy(alpha = 0.5f), Modifier.size(20.dp, 18.dp))
         if (open) {
             IOSMenuPopover(
                 items =

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  테마 (MZ2AZ-513).
+
+  두 테마를 둔다.
+    Theme.SceneTrip.Starting  매니페스트의 기본 테마. 앱이 첫 화면을 그리기 전(콜드 스타트)에
+                               시스템이 보여 주는 바탕이다. 인앱 SplashView 와 같은 하늘→보라
+                               그라데이션이라 시스템 창에서 인앱 시작 화면으로 끊김 없이
+                               이어진다. MainActivity.onCreate 가 맨 처음 Theme.SceneTrip 으로
+                               갈아 끼운다 — 그라데이션이 앱 뒤에 남지 않게.
+    Theme.SceneTrip           앱이 도는 동안의 테마. 이전과 같은 AppCompat Light(타이틀바 없음).
+
+  AppCompat 테마인 이유는 매니페스트의 주석(네이버 지도 로고 팝업)을 본다.
+-->
+<resources>
+    <!-- iOS AppIcon 의 바탕색. -->
+    <color name="ic_launcher_background">#F7F6FC</color>
+    <!-- 인앱 SplashView 그라데이션의 가운데 색(IOS.pinDeep, #7A68ED). Android 12 시스템 시작 화면은 단색만 된다. -->
+    <color name="splash_background">#7A68ED</color>
+
+    <style name="Theme.SceneTrip" parent="Theme.AppCompat.Light.NoActionBar" />
+
+    <style name="Theme.SceneTrip.Starting">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+</resources>

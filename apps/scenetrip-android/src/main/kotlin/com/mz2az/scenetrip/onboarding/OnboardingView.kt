@@ -37,7 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -47,6 +46,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -55,7 +55,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.analytics.AppEvent
@@ -64,6 +63,8 @@ import com.mz2az.scenetrip.data.RoutePoiGroup
 import com.mz2az.scenetrip.data.RoutePoiTone
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.iosLineBox
+import com.mz2az.scenetrip.ui.iosShadow
 import kotlinx.coroutines.launch
 
 /**
@@ -198,7 +199,14 @@ private fun OnboardingNavigation(
 ) {
     val large = LocalDensity.current.fontScale >= 1.6f
     val previousButton: @Composable () -> Unit = {
-        TextButton(onClick = previous, enabled = page > 0, modifier = Modifier.heightIn(min = 44.dp)) {
+        // iOS `Button("이전")` 은 글자만 있고 안쪽 여백이 없다 — Material TextButton 은 최소 폭 58 에 글자를 가운데 놓아
+        // 글자가 +13.9 밀리고 「다음」 폭이 −19.1 줄었다(8차 N1). 글자 폭 그대로인 눌리는 칸으로 대신한다.
+        Box(
+            Modifier
+                .heightIn(min = 44.dp)
+                .clickable(enabled = page > 0, role = androidx.compose.ui.semantics.Role.Button, onClick = previous),
+            contentAlignment = Alignment.Center,
+        ) {
             Text(
                 tr("이전"),
                 fontSize = 17.sp,
@@ -267,7 +275,7 @@ private fun LessonPage(
                     .heightIn(min = maxHeight)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
+            verticalArrangement = Arrangement.Center,
         ) {
             Box(modifier = Modifier.size(drawingSize), contentAlignment = Alignment.Center) {
                 Box(
@@ -287,22 +295,25 @@ private fun LessonPage(
                 }
             }
 
+            // 8차 O1: 그림→제목 iOS 55.7 · Android 60.5, 제목→본문 27.0 · 30.1 — 간격을 각각 15.2 · 16.9 로(전: 20 · 20).
+            Spacer(Modifier.height(15.2.dp))
             Text(
                 text = tr(lesson.title),
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = (-0.5).sp,
-                // 큰 글자는 iOS 줄 간격이 약 1.16em 이다 — 앱 기본 1.3em 을 그대로 두면 두 줄 제목이 벌어졌다.
-                lineHeight = 1.16.em,
+                // iOS `.title.bold` 줄 피치 34.0 (8차 O1: 32.8 이었다).
+                lineHeight = 34.sp,
                 textAlign = TextAlign.Center,
                 color = IOS.label,
                 modifier = Modifier.semantics { heading() },
             )
+            Spacer(Modifier.height(16.9.dp))
             Text(
                 text = tr(lesson.body),
                 fontSize = 17.sp,
                 textAlign = TextAlign.Center,
-                lineHeight = 23.sp,
+                lineHeight = 22.8.sp,
                 color = IOS.secondaryLabel,
             )
         }
@@ -375,19 +386,28 @@ private fun DayCards() {
                 modifier =
                     Modifier
                         .width(132.dp)
-                        .alpha(day.fade)
-                        .shadow(
-                            4.dp,
-                            RoundedCornerShape(12.dp),
-                            ambientColor = Color.Black.copy(alpha = 0.10f),
-                            spotColor = Color.Black.copy(alpha = 0.10f),
-                        ).clip(RoundedCornerShape(12.dp))
+                        // iOS `.shadow(.black.opacity(0.10), radius: 5, y: 2)` — 고도 그림자는 투명도에 플랫폼 상수가 또 곱해져
+                        // 흰 화면 위에서 카드 가장자리가 안 보였다(2026-10-29 감사 #12). `iosShadow` 가 iOS 값 그대로 그린다.
+                        .iosShadow(Color.Black.copy(alpha = 0.10f * day.fade), radius = 5.dp, y = 2.dp, cornerRadius = 12.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        // 흐림은 `alpha` 층이 아니라 그림자·글자 색에 곱한다 — 층은 카드 크기로 잘려 아래 그림자가 평평하게 끊겼다(5차 감사).
+                        // 바탕은 흰색 그대로 둔다(흰 화면 위라 같은 색이고, 반투명이면 밑의 그림자가 비쳐 회색이 된다).
                         .background(IOS.systemBackground)
                         .padding(horizontal = 11.dp, vertical = 9.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                Text(tr(day.title), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
-                day.places.forEach { place -> Text(tr(place), fontSize = 12.sp, color = IOS.label) }
+                // 줄 칸을 iOS 글자 높이(11→13.2 · 12→14.4)로 고정한다 — 한글 글꼴 제 높이(1.44em)로 카드가 65 → 74 로 커져
+                // 셋째 카드가 그림 칸 아래에서 잘렸다(5차 감사 lesson-2).
+                Text(
+                    tr(day.title),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = IOS.pinDeep.copy(alpha = day.fade),
+                    modifier = Modifier.iosLineBox(13.2.dp),
+                )
+                day.places.forEach { place ->
+                    Text(tr(place), fontSize = 12.sp, color = IOS.label.copy(alpha = day.fade), modifier = Modifier.iosLineBox(14.4.dp))
+                }
             }
         }
     }
@@ -451,25 +471,34 @@ private fun LegTrace() {
 
         MiniPin(tint = IOS.pinDeep, modifier = Modifier.offset(x = 231.dp, y = 27.dp))
 
-        Caption("현재 위치", x = 30.dp, y = 261.dp)
-        Caption("도보 4분", x = 100.dp, y = 213.dp)
-        Caption("2호선 · 6개 역", x = 156.dp, y = 147.dp)
-        Caption("도보 6분", x = 216.dp, y = 71.dp)
+        // iOS `.position(point)` 은 글자 **가운데**를 그 점에 놓는다 — 전에는 왼쪽 위 모서리를 놓아 라벨이 점선과 겹쳤다(7차 감사 O3).
+        Caption("현재 위치", cx = 60.dp, cy = 268.dp)
+        Caption("도보 4분", cx = 130.dp, cy = 220.dp)
+        Caption("2호선 · 6개 역", cx = 196.dp, cy = 154.dp)
+        Caption("도보 6분", cx = 246.dp, cy = 78.dp)
     }
 }
 
 @Composable
 private fun Caption(
     text: String,
-    x: Dp,
-    y: Dp,
+    cx: Dp,
+    cy: Dp,
 ) {
     Text(
         text = tr(text),
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
         color = IOS.secondaryLabel,
-        modifier = Modifier.offset(x = x, y = y),
+        modifier =
+            Modifier.layout { measurable, _ ->
+                val placeable =
+                    measurable.measure(
+                        androidx.compose.ui.unit
+                            .Constraints(),
+                    )
+                layout(0, 0) { placeable.place(cx.roundToPx() - placeable.width / 2, cy.roundToPx() - placeable.height / 2) }
+            },
     )
 }
 

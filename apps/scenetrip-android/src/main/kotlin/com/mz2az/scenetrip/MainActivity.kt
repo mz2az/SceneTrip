@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.auth.AuthStore
@@ -59,6 +60,9 @@ import com.mz2az.scenetrip.ui.iosTypography
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 매니페스트의 시작 화면용 테마(보라 그라데이션 바탕)를 앱 테마로 갈아 끼운다 — 맨 처음,
+        // super.onCreate 보다 먼저여야 한다. 안 그러면 그라데이션이 앱 뒤에 남는다 (MZ2AZ-513).
+        setTheme(R.style.Theme_SceneTrip)
         // **iOS 에는 타이틀바가 없다.** 안드로이드 기본 테마는 검은 ActionBar 를
         // 얹는데, 그것 하나로 두 앱이 다른 제품처럼 보인다. 테마는 매니페스트에서
         // NoActionBar 로 지정하고, 여기서는 상태바 뒤까지 그리게 한다 — iOS 가
@@ -117,6 +121,20 @@ fun SceneTripApp() {
     }
 }
 
+/**
+ * 전체 화면 덮개 — 터치가 아래 탭바·화면으로 새지 않게 막는다(iOS 의 전체 화면 덮개는 뒤를 누를 수 없다).
+ *
+ * **터치를 소비(`consume`)하지 않는다.** 소비하면 안쪽 버튼이 누르는 도중 손가락이 조금만 움직여도(ACTION_MOVE) 최종 단계에서 「소비됐다」고 보고
+ * 클릭을 취소한다 — 클릭 물결만 나오고 안 넘어갔다(2026-10-31 SM-S931N 실측: 움직임 없는 탭은 되고 1~2px 움직인 탭은 전부 무시, 연타하면 됨).
+ * 터치 입력 모디파이어가 있기만 해도 그 자리는 겹친 아래 형제에게 터치를 주지 않으므로, 받기만 하고 소비하지 않는다.
+ */
+private fun Modifier.blockTouches(): Modifier =
+    pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) awaitPointerEvent()
+        }
+    }
+
 /** 앱을 열었을 때의 순서. iOS `Onboarding/AppRoot.swift`를 옮긴 것이다. */
 private enum class AppStage { SPLASH, LANGUAGE, LESSONS, APP }
 
@@ -152,12 +170,14 @@ private fun AppRoot() {
             enter = EnterTransition.None,
             exit = fadeOut(tween(320)),
         ) {
-            SplashView(
-                onDone = {
-                    // 언어를 고른 적이 없으면 사용법보다 먼저 묻는다 (MZ2AZ-343).
-                    stage = if (language.hasChosen) afterLanguage else AppStage.LANGUAGE
-                },
-            )
+            Box(Modifier.fillMaxSize().blockTouches()) {
+                SplashView(
+                    onDone = {
+                        // 언어를 고른 적이 없으면 사용법보다 먼저 묻는다 (MZ2AZ-343).
+                        stage = if (language.hasChosen) afterLanguage else AppStage.LANGUAGE
+                    },
+                )
+            }
         }
 
         AnimatedVisibility(
@@ -165,7 +185,7 @@ private fun AppRoot() {
             enter = EnterTransition.None,
             exit = fadeOut(tween(320)),
         ) {
-            LanguagePickView(onDone = { stage = afterLanguage })
+            Box(Modifier.fillMaxSize().blockTouches()) { LanguagePickView(onDone = { stage = afterLanguage }) }
         }
 
         AnimatedVisibility(
@@ -173,10 +193,12 @@ private fun AppRoot() {
             enter = EnterTransition.None,
             exit = fadeOut(tween(320)),
         ) {
-            OnboardingView(
-                onboardingFlag = onboardingFlag,
-                onDone = { stage = AppStage.APP },
-            )
+            Box(Modifier.fillMaxSize().blockTouches()) {
+                OnboardingView(
+                    onboardingFlag = onboardingFlag,
+                    onDone = { stage = AppStage.APP },
+                )
+            }
         }
     }
 }
