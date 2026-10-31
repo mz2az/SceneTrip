@@ -121,6 +121,12 @@ img {
   background: var(--system-background);
   overflow: hidden;
 }
+/* 폰 브라우저는 주소창이 접히고 펴지면서 `100%` 가 어긋난다 — 보이는 높이(dvh)를 따르게 한다. 지원하지 않는 브라우저는 위의 100% 를 쓴다. */
+@supports (height: 100dvh) {
+  .app-frame {
+    height: 100dvh;
+  }
+}
 @media (min-width: 500px) {
   body {
     background: #e4e4ea;
