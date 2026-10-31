@@ -189,8 +189,13 @@ fun CommunityPostView(
                             AuthorRow(content, moderation)
                         }
                     }
-                    itemsIndexed(blocks) { _, block ->
+                    // 끝의 「References」·「Photo credits」 는 접어 둔다(Android 만 — 길고 주소가 섞여 본문 끝이 지저분했다).
+                    val (bodyBlocks, references) = CommunityArticle.splitReferences(blocks)
+                    itemsIndexed(bodyBlocks) { _, block ->
                         CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp).padding(bottom = 20.6.dp))
+                    }
+                    if (references.isNotEmpty()) {
+                        item { CommunityReferences(references, Modifier.padding(horizontal = 20.dp).padding(bottom = 14.dp)) }
                     }
                     item {
                         Column(

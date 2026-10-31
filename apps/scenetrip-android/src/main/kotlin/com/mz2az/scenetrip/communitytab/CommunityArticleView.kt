@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.data.CommunityArticle
 import com.mz2az.scenetrip.data.CommunityStore
 import com.mz2az.scenetrip.data.PhotoRenewalRules
 import com.mz2az.scenetrip.data.tr
@@ -123,6 +124,36 @@ internal fun CommunityArticleBlock(
                     .getOrNull(
                         index,
                     )?.let { CommunityArticlePhoto(it, block, modifier = modifier.testTag("community-body-photo-$index")) }
+            }
+        }
+    }
+}
+
+/**
+ * 글 끝의 「References」·「Photo credits」 같은 덧붙임 구간 — 한 줄로 접어 두고 누르면 펼친다. 길고 주소가 섞여 본문 끝이 지저분해 보였다.
+ * 줄 이름은 글의 제목 줄을 그대로 쓴다(글 언어를 따른다).
+ */
+@Composable
+internal fun CommunityReferences(
+    blocks: List<TripPostBlock>,
+    modifier: Modifier = Modifier,
+) {
+    var open by remember(blocks) { mutableStateOf(false) }
+    val label = blocks.mapNotNull(CommunityArticle::referenceHeading).joinToString(" · ")
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.clickable { open = !open }.padding(vertical = 6.dp).testTag("community-references-toggle"),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(label, style = IOS.caption, color = IOS.secondaryLabel)
+            ChevronRightIcon(IOS.secondaryLabel, Modifier.size(14.dp).rotate(if (open) -90f else 90f))
+        }
+        if (open) {
+            SelectionContainer {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    blocks.forEach { block -> block.text?.let { Text(it, style = IOS.caption, color = IOS.secondaryLabel) } }
+                }
             }
         }
     }

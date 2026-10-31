@@ -22,6 +22,28 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 class CommunityBlogTests {
+    @Test fun trailingReferenceBlocksSplitFromTheBodyButMiddleOnesStay() {
+        fun text(value: String) = TripPostBlock(TripPostBlockKind.text, text = value)
+        val photo = TripPostBlock(TripPostBlockKind.photo, photoIndex = 0)
+        val blocks =
+            listOf(
+                text("첫 문단"),
+                text("References\nlooks like a heading but is in the middle"),
+                photo,
+                text("마지막 문단"),
+                text("References\nhttps://example.com"),
+                text("Photo credits\n1. 사진 · 출처"),
+            )
+        val (body, references) = CommunityArticle.splitReferences(blocks)
+        assertEquals(4, body.size)
+        assertEquals(2, references.size)
+        assertEquals(listOf("References", "Photo credits"), references.map { CommunityArticle.referenceHeading(it) })
+        // 끝이 사진이거나 덧붙임이 없으면 그대로.
+        assertEquals(0, CommunityArticle.splitReferences(listOf(text("본문"), photo)).second.size)
+        assertEquals(1, CommunityArticle.splitReferences(listOf(text("참고 자료\n링크"))).second.size)
+        assertEquals(0, CommunityArticle.splitReferences(emptyList()).second.size)
+    }
+
     @Test fun invalidBlocksNeverReachTheClientAndValidBlocksArePreserved() =
         runBlocking {
             var reads = 0
