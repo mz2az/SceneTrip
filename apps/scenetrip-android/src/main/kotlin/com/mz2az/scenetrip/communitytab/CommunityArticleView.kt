@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -50,6 +53,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.TripPostBlock
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostBlockKind
 import com.mz2az.scenetrip.searchtab.ImageCache
 import com.mz2az.scenetrip.ui.ArrowsExpandIcon
+import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.LocalPhotoRenew
 import com.mz2az.scenetrip.ui.PhotoZoomViewer
@@ -299,12 +303,41 @@ internal fun CommunityPhotoMetadata(
     expanded: Boolean = false,
 ) {
     val color = if (expanded) Color.White else IOS.secondaryLabel
-    Column(
-        Modifier.fillMaxWidth().then(if (expanded) Modifier.heightIn(max = 120.dp).verticalScroll(rememberScrollState()) else Modifier),
-        verticalArrangement = Arrangement.spacedBy(7.dp),
-    ) {
-        if (!expanded) block.caption?.takeIf(String::isNotEmpty)?.let { Text(it, style = IOS.caption, color = color) }
-        if (block.aiGenerated == true) Text("✦ " + tr("AI 변환 이미지"), style = IOS.caption2, color = color)
-        block.credit?.takeIf(String::isNotEmpty)?.let { credit -> SelectionContainer { Text(credit, style = IOS.caption2, color = color) } }
+    if (expanded) {
+        Column(
+            Modifier.fillMaxWidth().heightIn(max = 120.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            if (block.aiGenerated == true) Text("✦ " + tr("AI 변환 이미지"), style = IOS.caption2, color = color)
+            block.credit?.takeIf(String::isNotEmpty)?.let { credit ->
+                SelectionContainer { Text(credit, style = IOS.caption2, color = color) }
+            }
+        }
+        return
+    }
+    // 읽는 글에서는 출처 문장(공공누리 표기 등)이 길어 사진 아래를 차지한다 — 「더 보기」 뒤로 접는다. AI 변환 표시는 고지라 늘 보인다.
+    var open by remember(block) { mutableStateOf(false) }
+    val credit = block.credit?.takeIf(String::isNotEmpty)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        block.caption?.takeIf(String::isNotEmpty)?.let { Text(it, style = IOS.caption, color = color) }
+        if (block.aiGenerated == true || credit != null) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (block.aiGenerated == true) {
+                    Text("✦ " + tr("AI 변환 이미지"), style = IOS.caption2, color = color)
+                    Spacer(Modifier.weight(1f))
+                }
+                if (credit != null) {
+                    Row(
+                        Modifier.clickable { open = !open }.padding(vertical = 6.dp).testTag("community-photo-credit-toggle"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(tr("더 보기"), style = IOS.caption2, color = color)
+                        ChevronRightIcon(color, Modifier.size(12.dp).rotate(if (open) -90f else 90f))
+                    }
+                }
+            }
+            if (open && credit != null) SelectionContainer { Text(credit, style = IOS.caption2, color = color) }
+        }
     }
 }
