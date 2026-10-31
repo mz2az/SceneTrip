@@ -339,6 +339,22 @@ iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 GA
 3. 개인정보 처리방침에 웹 분석 수집을 적는다(iOS·Android 와 같은 항목).
 4. 배포 후 GA4 DebugView 로 26개 중 실제로 눌러 볼 수 있는 것을 확인한다.
 
+### 12.1 오류 추적(Sentry)과 사용 분석(PostHog) — 코드는 있고 키가 없어 꺼져 있다
+
+2026-11-01 에 얹었다. GA4 와 **같은 이용 통계 스위치**를 따르고, 키가 없으면 SDK 를 내려받지도 않는다(동적으로 불러와 기본 번들에는 들어가지 않는다 — 기본 번들 +6KB, SDK 는 별도 파일).
+
+| 도구 | 보내는 것 | 켜는 변수 | 파일 |
+| --- | --- | --- | --- |
+| Sentry (`@sentry/react` 11.8.0) | 처리하지 못한 오류·거절된 약속만 | `VITE_SENTRY_DSN` | `sentry.ts` |
+| PostHog (`posthog-js` 1.438.12) | GA4 와 같은 이벤트 26개(같은 이름·매개변수) | `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST`(비면 미국 클라우드) | `posthog.ts` |
+
+- **Sentry 는 개인정보를 붙이지 않는다.** 사용자·IP·쿠키를 붙이지 않고(`sendDefaultPii: false`), 화면 녹화·성능 추적은 켜지 않는다. **브레드크럼(클릭·요청·콘솔 기록)을 끈다** — 요청 주소에 검색어·좌표가 들어 있어서다. 보내기 전에 보고의 주소에서 `?`·`#` 뒤, 쿠키, 헤더, 사용자를 지운다(`scrubEvent`).
+- **PostHog 는 자동 수집·화면 녹화·사용자 식별을 끈다**(`autocapture`·`capture_pageview`·`disable_session_recording`·`person_profiles: identified_only`). IP 는 저장하지 않게 하고(`ip: false`), 브라우저의 추적 거부(DNT)를 따른다. `track()` 으로 직접 보낸 이벤트만 간다. SDK 가 뜨기 전 이벤트는 최대 50개를 줄 세웠다가 보낸다.
+- **이용 통계를 끄면** Sentry 는 닫히고(`close`) PostHog 는 수집을 끈다(`opt_out_capturing`). 다시 켜면 이어서 쓴다. 설정이 바뀔 때마다 따르므로 새로고침이 필요 없다(`onStatisticsChange`).
+- **CSP**(`public/_headers`, 아직 Report-Only)의 `connect-src` 에 Sentry 수집 주소(`*.ingest.sentry.io` 등)와 PostHog(`us|eu.i.posthog.com`, `us|eu-assets.i.posthog.com`)를 더했다. 실제 주소는 가입 지역에 따라 하나뿐이다.
+- 시험: `monitoring.test.ts`(키 없음·통계 꺼짐이면 SDK 를 부르지 않음, 끄고 켜기, 불러오는 중 꺼짐, 줄 50개, 불러오기 실패, 주소·사용자 지우기).
+- **켜는 순서는 `plans/web-release.md` §8.1 에 있다 — 처리방침 개정이 먼저다.**
+
 ## 13. 지도 — 네이버 지도 웹 SDK 어댑터 (2026-10-31)
 
 웹 지도는 **네이버 지도 웹 SDK(JavaScript API v3)** 로 간다(iOS·Android 도 네이버 지도). 화면 세 곳(검색 탭 `SearchMap`, 코스 편집 `RouteMap`, 길찾기 `NavMap`)은 `src/map/` 어댑터만 부른다 — 화면의 props 는 그대로다(`onReady`/`onMapMove` 가 넘기는 지도 값만 `L.Map` 에서 어댑터의 `MapHandle` 로 바뀌었다).

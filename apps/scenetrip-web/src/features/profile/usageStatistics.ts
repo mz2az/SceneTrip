@@ -21,6 +21,12 @@ export function setStatisticsEnabled(enabled: boolean, write: (key: string, valu
   listeners.forEach((l) => l())
 }
 
+/** 이용 통계 설정이 바뀔 때 부른다(React 밖에서 쓰는 분석 도구용). 돌려주는 함수로 해제한다. */
+export function onStatisticsChange(cb: () => void): () => void {
+  listeners.add(cb)
+  return () => listeners.delete(cb)
+}
+
 export function useStatisticsEnabled(): boolean {
   return useSyncExternalStore(
     (cb) => {
