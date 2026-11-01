@@ -5,18 +5,41 @@
  *
  * 인증 파라미터 이름은 `ncpKeyId` — 옛 `ncpClientId`·`govClientId`·`finClientId` 는 일반 콘솔로 통합되며 `ncpKeyId` 가 되었고 ID 도 다시 발급해야 한다.
  * 근거: https://navermaps.github.io/maps.js.ncp/docs/tutorial-2-Getting-Started.html
+ * 지도 글자(지명·도로명)의 언어는 `language=ko|en` 으로 **스크립트를 불러올 때 한 번** 정해진다. 불러온 뒤에는 바꿀 수 없다 —
+ * 앱 언어가 바뀌면 그 언어로 다시 불러와야 하므로 쪽을 새로 연다(`reloadOnLanguageChange`).
+ * 근거: https://navermaps.github.io/maps.js.ncp/docs/tutorial-Language.html (ko · en · zh · ja)
  * 서비스 URL(localhost·배포 도메인)이 콘솔에 등록돼 있지 않으면 스크립트는 로드돼도 인증이 실패한다 — `navermap_authFailure` 로 받아 실패로 친다.
  */
+import { type Lang, currentLang, markLanguageReload, onLanguageChange } from '@/i18n'
 import type { NaverMaps } from './naver'
 
 export const NAVER_SCRIPT_BASE = 'https://oapi.map.naver.com/openapi/v3/maps.js'
 const LOAD_TIMEOUT_MS = 10_000
 
 let pending: { clientId: string; promise: Promise<NaverMaps> } | null = null
+/** 스크립트를 불러온 언어. 아직 안 불러왔으면 null. */
+let loadedLang: Lang | null = null
 
-export function naverScriptUrl(clientId: string): string {
-  return `${NAVER_SCRIPT_BASE}?ncpKeyId=${encodeURIComponent(clientId)}`
+export function naverScriptUrl(clientId: string, lang: Lang = currentLang()): string {
+  return `${NAVER_SCRIPT_BASE}?ncpKeyId=${encodeURIComponent(clientId)}&language=${lang}`
 }
+
+/** 지도 글자가 이미 다른 언어로 떠 있어서 쪽을 새로 열어야 하는가. */
+export function mapNeedsReload(loaded: Lang | null, now: Lang): boolean {
+  return loaded !== null && loaded !== now
+}
+
+/** 앱 언어가 바뀌면, 지도 글자가 다른 언어로 떠 있을 때만 쪽을 새로 연다. 지도를 아직 안 불러왔으면 아무 일도 없다. */
+export function reloadOnLanguageChange(reload?: () => void): () => void {
+  return onLanguageChange((lang) => {
+    if (!mapNeedsReload(loadedLang, lang)) return
+    markLanguageReload()
+    ;(reload ?? reloadPage)()
+  })
+}
+let watching = false
+/** 쪽을 새로 여는 함수. 시험에서는 아무 일도 하지 않게 바꾼다(jsdom 은 이동을 지원하지 않는다). */
+let reloadPage: () => void = () => window.location.reload()
 
 /** 스크립트를 넣고 `window.naver.maps` 를 돌려준다. 같은 ID 로는 몇 번을 불러도 `<script>` 는 한 번만 들어간다. 실패하면 거절. */
 export function loadNaverMaps(clientId: string): Promise<NaverMaps> {
@@ -40,12 +63,18 @@ export function loadNaverMaps(clientId: string): Promise<NaverMaps> {
     }
     const fail = (why: string) =>
       done(() => {
+        loadedLang = null
         script.remove()
         reject(new Error(why))
       })
     const timer = window.setTimeout(() => fail('timeout'), LOAD_TIMEOUT_MS)
     window.navermap_authFailure = () => fail('auth')
     script.src = naverScriptUrl(clientId)
+    loadedLang = currentLang()
+    if (!watching) {
+      watching = true
+      reloadOnLanguageChange()
+    }
     script.async = true
     script.onload = () => {
       const maps = window.naver?.maps
@@ -66,4 +95,6 @@ export function loadNaverMaps(clientId: string): Promise<NaverMaps> {
 /** 시험용 — 모듈 상태를 되돌린다. */
 export function resetNaverScriptForTests(): void {
   pending = null
+  loadedLang = null
+  reloadPage = () => {}
 }

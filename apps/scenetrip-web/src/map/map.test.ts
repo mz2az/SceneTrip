@@ -3,7 +3,8 @@ import { MapCancelled, createMap, resolveProvider } from './index'
 import { createNaverMap, splitColor, strokeStyleFor } from './NaverMapProvider'
 import { shiftedCenter } from './mercator'
 import type { NaverMaps } from './naver'
-import { loadNaverMaps, naverScriptUrl, resetNaverScriptForTests } from './naverScript'
+import { loadNaverMaps, mapNeedsReload, naverScriptUrl, reloadOnLanguageChange, resetNaverScriptForTests } from './naverScript'
+import { chooseLanguage, consumeLanguageReload } from '@/i18n'
 
 /** `window.naver.maps` 가짜 — 부른 것을 기록한다. */
 function fakeMaps() {
@@ -172,8 +173,32 @@ describe('공급자 선택', () => {
 })
 
 describe('네이버 스크립트 주입', () => {
-  it('주소는 oapi.map.naver.com 의 maps.js 에 ncpKeyId 로 ID 를 싣는다', () => {
-    expect(naverScriptUrl('my id')).toBe('https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=my%20id')
+  it('주소는 oapi.map.naver.com 의 maps.js 에 ncpKeyId 로 ID 를, language 로 지도 글자의 언어를 싣는다', () => {
+    expect(naverScriptUrl('my id', 'ko')).toBe('https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=my%20id&language=ko')
+    expect(naverScriptUrl('my id', 'en')).toBe('https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=my%20id&language=en')
+  })
+
+  it('지도 글자는 불러올 때의 언어로 굳으므로, 다른 언어로 떠 있을 때만 쪽을 새로 연다', () => {
+    expect(mapNeedsReload(null, 'en')).toBe(false) // 아직 안 불러옴 — 불러올 때 맞는 언어로 간다
+    expect(mapNeedsReload('ko', 'ko')).toBe(false)
+    expect(mapNeedsReload('ko', 'en')).toBe(true)
+    expect(mapNeedsReload('en', 'ko')).toBe(true)
+  })
+
+  it('불러온 언어와 다른 언어를 고르면 쪽을 새로 열고, 새 쪽이 스플래시를 다시 보이지 않게 적어 둔다', () => {
+    resetNaverScriptForTests()
+    chooseLanguage('ko')
+    void loadNaverMaps('lang-id') // 한국어로 불러옴
+    const reload = vi.fn()
+    const stop = reloadOnLanguageChange(reload)
+    chooseLanguage('ko')
+    expect(reload).not.toHaveBeenCalled() // 같은 언어
+    chooseLanguage('en')
+    expect(reload).toHaveBeenCalledTimes(1)
+    expect(consumeLanguageReload()).toBe(true)
+    expect(consumeLanguageReload()).toBe(false) // 한 번 읽으면 지운다
+    stop()
+    chooseLanguage('ko')
   })
 
   it('여러 번 불러도 <script> 는 한 번만 들어가고 같은 약속을 받는다', async () => {

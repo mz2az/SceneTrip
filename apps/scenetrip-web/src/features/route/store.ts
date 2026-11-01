@@ -9,7 +9,7 @@
  */
 import { ApiFailure, api, asFailure, installHeader, ok } from '@/api/client'
 import { appEvent, track } from '@/analytics'
-import { tr } from '@/i18n'
+import { onLanguageChange, tr } from '@/i18n'
 import { useLikes } from '@/state/likes'
 import { accountGeneration, onAccountReset } from '@/state/shared'
 import { createStore, useStore } from '@/state/storage'
@@ -55,6 +55,12 @@ onAccountReset(() => patch({ summaries: [], routeCourses: [], courseList: 'loade
 const MATERIAL_PLACES = 200
 const MATERIAL_WORKS = 30
 const placeWorksAsking = new Set<number>()
+
+// 재료(촬영지·작품·촬영지의 작품)는 받을 때의 언어로 굳는다. 언어가 바뀌면 비워서 다음 `refreshMaterials` 가 새 언어로 받게 한다.
+onLanguageChange(() => {
+  placeWorksAsking.clear()
+  patch({ places: [], works: [], placeWorks: {} })
+})
 
 /** 저장 실패 문구 — 숨김·폐업 거절이면 이유와 함께 「편집 내용은 그대로예요」 를 붙인다. */
 export function courseSaveMessage(f: ApiFailure): string {

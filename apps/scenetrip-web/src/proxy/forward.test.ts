@@ -1,7 +1,7 @@
 // @vitest-environment node
 // `/v1/*` 역프록시 — 목적지 고정, 헤더 정리, 본문 전달, 실패 처리 (src/proxy/forward.ts)
 import { describe, expect, it } from 'vitest'
-import { forward, forwardedHeaders, upstreamUrl } from './forward'
+import { type EdgeCache, cacheKey, cacheableRequest, forward, forwardedHeaders, upstreamUrl } from './forward'
 
 type Call = { url: string; init: RequestInit & { duplex?: string } }
 
@@ -112,5 +112,86 @@ describe('forward', () => {
     const res = await forward(new Request('https://app.scenetrip.io/v1/x'), server.fetcher)
     expect(res.status).toBe(302)
     expect(server.calls[0].init.redirect).toBe('manual')
+  })
+})
+
+/** 가까운 곳의 캐시를 흉내 낸다 — 주소로 찾는다. */
+function fakeEdge() {
+  const store = new Map<string, Response>()
+  const pending: Promise<unknown>[] = []
+  const edge: EdgeCache = {
+    cache: {
+      match: async (req) => store.get((req as Request).url)?.clone(),
+      put: async (req, res) => {
+        store.set((req as Request).url, res)
+      },
+    },
+    waitUntil: (p) => void pending.push(p),
+  }
+  return { edge, store, settle: () => Promise.all(pending) }
+}
+
+const get = (path: string, headers: Record<string, string> = {}) => new Request(`https://app.scenetrip.io${path}`, { headers })
+
+describe('cacheableRequest', () => {
+  it('작품·촬영지의 공개 목록과 상세만 담는다', () => {
+    for (const path of ['/v1/contents', '/v1/contents?limit=30', '/v1/contents/25', '/v1/contents/25/places', '/v1/places', '/v1/places/340', '/v1/places?bbox=1,2,3,4']) {
+      expect(cacheableRequest(get(path)), path).toBe(true)
+    }
+  })
+
+  it('사람별·쓰기·검색어가 있는 요청은 담지 않는다', () => {
+    expect(cacheableRequest(get('/v1/contents', { authorization: 'Bearer x' }))).toBe(false)
+    expect(cacheableRequest(get('/v1/contents', { 'x-install-id': 'abc' }))).toBe(false)
+    expect(cacheableRequest(get('/v1/contents?q=parasite'))).toBe(false)
+    expect(cacheableRequest(new Request('https://app.scenetrip.io/v1/contents', { method: 'POST' }))).toBe(false)
+    for (const path of ['/v1/cart', '/v1/courses', '/v1/favorites/contents', '/v1/me', '/v1/contents/25/reviews', '/v1/places/340/reviews', '/v1/posts']) {
+      expect(cacheableRequest(get(path)), path).toBe(false)
+    }
+  })
+})
+
+describe('forward — 공개 목록 캐시', () => {
+  it('두 번째는 서버를 부르지 않고 담아 둔 것을 준다', async () => {
+    const server = fakeServer(ok)
+    const { edge, settle } = fakeEdge()
+    const first = await forward(get('/v1/contents/25/places', { 'accept-language': 'en' }), server.fetcher, undefined, edge)
+    await settle()
+    expect(first.status).toBe(200)
+    expect(first.headers.get('cache-control')).toBe('public, max-age=30, s-maxage=120')
+    expect(first.headers.get('vary')).toBe('Accept-Language')
+    const second = await forward(get('/v1/contents/25/places', { 'accept-language': 'en' }), server.fetcher, undefined, edge)
+    expect(server.calls).toHaveLength(1)
+    expect(await second.text()).toBe('{"items":[]}')
+  })
+
+  it('언어가 다르면 다른 답이다 — 영어로 받은 것을 한국어 요청에 주지 않는다', async () => {
+    const server = fakeServer(ok)
+    const { edge, settle } = fakeEdge()
+    await forward(get('/v1/contents', { 'accept-language': 'en' }), server.fetcher, undefined, edge)
+    await settle()
+    await forward(get('/v1/contents', { 'accept-language': 'ko' }), server.fetcher, undefined, edge)
+    expect(server.calls).toHaveLength(2)
+    expect(cacheKey(get('/v1/contents', { 'accept-language': 'en' })).url).not.toBe(cacheKey(get('/v1/contents', { 'accept-language': 'ko' })).url)
+  })
+
+  it('실패 응답과 담으면 안 되는 요청은 담지 않는다', async () => {
+    const bad = fakeServer(() => new Response('{"code":"X"}', { status: 500 }))
+    const { edge, store, settle } = fakeEdge()
+    await forward(get('/v1/contents'), bad.fetcher, undefined, edge)
+    await forward(get('/v1/cart', { 'x-install-id': 'abc' }), fakeServer(ok).fetcher, undefined, edge)
+    await settle()
+    expect(store.size).toBe(0)
+  })
+
+  it('캐시가 고장 나도 서버 답을 그대로 준다', async () => {
+    const server = fakeServer(ok)
+    const broken: EdgeCache = {
+      cache: { match: async () => { throw new Error('cache down') }, put: async () => { throw new Error('cache down') } },
+      waitUntil: () => {},
+    }
+    const res = await forward(get('/v1/places'), server.fetcher, undefined, broken)
+    expect(res.status).toBe(200)
+    expect(server.calls).toHaveLength(1)
   })
 })
