@@ -1,7 +1,7 @@
 // 오류 추적(Sentry)·사용 분석(PostHog) — 키가 없으면 아무 일도 없고, 이용 통계 스위치를 따르고, 개인정보를 덜어 내는지
 import { describe, expect, it, vi } from 'vitest'
 import { appEvent } from './events'
-import { DEFAULT_HOST, createPostHog, type PostHogLike } from './posthog'
+import { DEFAULT_HOST, createPostHog, scrubCapture, stripQueryAndHash, type PostHogLike } from './posthog'
 import { createSentry, scrubEvent, stripQuery, type SentryLike } from './sentry'
 
 const flush = () => new Promise<void>((r) => setTimeout(r, 0))
@@ -176,5 +176,30 @@ describe('PostHog', () => {
     expect(ph.init).toHaveBeenCalledTimes(1)
     expect(ph.init.mock.calls[0][1]).toMatchObject({ api_host: 'https://eu.i.posthog.com' })
     expect(ph.capture).toHaveBeenCalledWith('logout', {})
+  })
+})
+
+describe('PostHog — 쿠키 없음, 주소의 ? 와 # 제거', () => {
+  it('쿠키 없이 브라우저 저장소만 쓰고, 보내기 직전 손질 함수를 건다', async () => {
+    const ph = { init: vi.fn(), capture: vi.fn(), opt_in_capturing: vi.fn(), opt_out_capturing: vi.fn() }
+    const p = createPostHog({ key: () => 'k', host: () => '', statisticsEnabled: () => true, load: async () => ph })
+    p.track({ name: 'x', params: {} } as never)
+    await vi.waitFor(() => expect(ph.init).toHaveBeenCalled())
+    expect(ph.init.mock.calls[0][1]).toMatchObject({ persistence: 'localStorage', before_send: scrubCapture })
+  })
+
+  it('주소에서 ? 와 # 뒤를 뗀다 — 로그인 되돌림 해시의 토큰이 남지 않게', () => {
+    expect(stripQueryAndHash('https://app.scenetrip.io/auth/callback/apple?code=abc#id_token=eyJ')).toBe('https://app.scenetrip.io/auth/callback/apple')
+    expect(stripQueryAndHash('https://app.scenetrip.io/search')).toBe('https://app.scenetrip.io/search')
+    expect(stripQueryAndHash('direct')).toBe('direct')
+  })
+
+  it('이벤트의 주소 속성만 손질하고 다른 속성은 그대로 둔다', () => {
+    const out = scrubCapture({
+      properties: { $current_url: 'https://a.io/p?x=1#t', $referrer: 'https://google.com/search?q=secret', screen: 'home', count: 3 },
+      $set_once: { $initial_referrer: 'https://b.io/?utm=1', name: 'a?b' },
+    })
+    expect(out.properties).toEqual({ $current_url: 'https://a.io/p', $referrer: 'https://google.com/search', screen: 'home', count: 3 })
+    expect(out.$set_once).toEqual({ $initial_referrer: 'https://b.io/', name: 'a?b' })
   })
 })
