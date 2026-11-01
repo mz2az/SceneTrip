@@ -38,6 +38,14 @@ function readSaved(): Lang | null {
 let current: Lang = readSaved() ?? deviceDefault()
 let chosen = readSaved() !== null
 const listeners = new Set<() => void>()
+/** 언어가 **실제로 바뀔 때** 한 번 부른다. 화면을 다시 그리는 리스너(`listeners`)보다 먼저 돌아서, 다시 읽는 쪽이 비워진 사본을 본다. */
+const changeListeners = new Set<(lang: Lang) => void>()
+
+/** 서버에서 받아 들고 있는 사본(작품·장소 이름 등)은 받을 때의 언어로 굳는다 — 언어가 바뀌면 비우거나 다시 받는 곳에서 부른다. */
+export function onLanguageChange(listener: (lang: Lang) => void): () => void {
+  changeListeners.add(listener)
+  return () => changeListeners.delete(listener)
+}
 
 export function currentLang(): Lang {
   return current
@@ -51,9 +59,11 @@ export function chooseLanguage(lang: Lang) {
   } catch {
     /* 저장 못 해도 이번 실행은 그 언어로 */
   }
+  const changed = current !== lang
   current = lang
   chosen = true
   if (typeof document !== 'undefined') document.documentElement.lang = lang
+  if (changed) changeListeners.forEach((l) => l(lang))
   listeners.forEach((l) => l())
 }
 if (typeof document !== 'undefined') document.documentElement.lang = current
@@ -99,6 +109,28 @@ export function tr(korean: string, ...args: Array<string | number>): string {
 export function trAt(korean: string, place: string, ...args: Array<string | number>): string {
   const found = lookup(`${korean}|${place}`) ?? lookup(korean) ?? korean
   return args.length ? format(found, args) : found
+}
+
+const RELOAD_KEY = 'scenetrip.languageReload'
+
+/** 언어를 바꾸느라 쪽을 새로 여는 중임을 적어 둔다 — 새로 열린 쪽이 스플래시를 다시 보이지 않게. 탭을 닫으면 사라지는 저장소를 쓴다. */
+export function markLanguageReload(): void {
+  try {
+    sessionStorage.setItem(RELOAD_KEY, '1')
+  } catch {
+    /* 못 적으면 스플래시가 한 번 더 보일 뿐 */
+  }
+}
+
+/** 방금 언어 때문에 쪽이 새로 열렸는가. 한 번 읽으면 지운다. */
+export function consumeLanguageReload(): boolean {
+  try {
+    const was = sessionStorage.getItem(RELOAD_KEY) === '1'
+    sessionStorage.removeItem(RELOAD_KEY)
+    return was
+  } catch {
+    return false
+  }
 }
 
 /** 테스트용 — 영어 표에 열쇠가 있는가. */

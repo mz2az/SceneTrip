@@ -5,4 +5,8 @@
  */
 import { forward } from '../../src/proxy/forward'
 
-export const onRequest = (context: { request: Request }): Promise<Response> => forward(context.request)
+export const onRequest = async (context: { request: Request; waitUntil: (promise: Promise<unknown>) => void }): Promise<Response> => {
+  // 공개 목록은 이 지역의 Cloudflare 캐시에 잠깐 담아 둔다(`caches.default`) — 로직은 forward.ts.
+  const cache = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default
+  return forward(context.request, fetch, undefined, cache ? { cache, waitUntil: (p) => context.waitUntil(p) } : undefined)
+}

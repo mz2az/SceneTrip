@@ -12,12 +12,15 @@ import { LanguagePickView } from '@/features/onboarding/LanguagePickView'
 import { OnboardingView, hasSeenOnboarding } from '@/features/onboarding/OnboardingView'
 import { SplashView } from '@/features/onboarding/SplashView'
 import { skipSplash } from '@/devFlags'
-import { hasChosenLanguage, useLang } from '@/i18n'
+import { consumeLanguageReload, hasChosenLanguage, useLang } from '@/i18n'
 import { RootTabs } from './RootTabs'
 
 type Stage = 'splash' | 'language' | 'lessons' | 'app'
 
 const FADE_MS = 320
+
+/** 언어를 바꾸느라 쪽이 새로 열렸다(지도 글자 언어는 새로 불러와야 바뀐다) — 스플래시는 이미 봤다. 모듈이 읽힐 때 한 번만 읽는다. */
+const reopenedForLanguage = consumeLanguageReload()
 
 /** `show` 가 꺼져도 FADE_MS 동안 남아 서서히 사라진다. */
 function FadeOut({ show, children }: { show: boolean; children: ReactNode }) {
@@ -42,7 +45,7 @@ export function AppRoot() {
   const lang = useLang()
   const afterLanguage = (): Stage => (hasSeenOnboarding() ? 'app' : 'lessons')
   const afterSplash = (): Stage => (hasChosenLanguage() ? afterLanguage() : 'language')
-  const [stage, setStage] = useState<Stage>(() => (skipSplash ? afterSplash() : 'splash'))
+  const [stage, setStage] = useState<Stage>(() => (skipSplash || reopenedForLanguage ? afterSplash() : 'splash'))
 
   return (
     <>

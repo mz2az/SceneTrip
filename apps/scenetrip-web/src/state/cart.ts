@@ -10,7 +10,7 @@ import { appEvent, track } from '@/analytics'
 import type { components } from '@/api/generated/schema'
 import { api, asFailure, installHeader, ok } from '@/api/client'
 import { unavailableRejection } from '@/api/failure'
-import { tr } from '@/i18n'
+import { onLanguageChange, tr } from '@/i18n'
 import { accountGeneration, onAccountReset } from './shared'
 import { createStore, useStore } from './storage'
 
@@ -26,6 +26,10 @@ export interface CartState {
 const initial: CartState = { loadState: 'notLoaded', placeIds: new Set(), items: [], toast: null }
 export const cartStore = createStore<CartState>(initial)
 onAccountReset(() => cartStore.set(initial))
+// 담은 장소의 이름은 받을 때의 언어다. 이미 받은 적이 있으면 새 언어로 다시 받는다.
+onLanguageChange(() => {
+  if (cartStore.get().loadState !== 'notLoaded') void cartActions.refresh()
+})
 
 export const useCart = (): CartState => useStore(cartStore, (s) => s)
 

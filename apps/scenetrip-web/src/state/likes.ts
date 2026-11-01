@@ -7,6 +7,7 @@
  *   likeActions.toggle(contentId)
  */
 import { appEvent, track } from '@/analytics'
+import { onLanguageChange } from '@/i18n'
 import type { components } from '@/api/generated/schema'
 import { ApiFailure, api, asFailure, installHeader, ok } from '@/api/client'
 import { accountGeneration, advanced, hasMore, merged, newPaging, onAccountReset } from './shared'
@@ -43,6 +44,9 @@ onAccountReset(() => {
   likeStore.set({ contentIds: new Set(), works: [], failure: null })
   save()
 })
+
+// 찜 목록의 작품 이름은 받을 때의 언어다 — 언어가 바뀌면 새 언어로 다시 받는다(받기 전까지는 전의 것이 남는다).
+onLanguageChange(() => void likeActions.refresh())
 
 // ---------------------------------------------------------------- 순수 규칙 (LikeSync)
 
