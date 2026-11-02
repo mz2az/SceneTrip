@@ -6,25 +6,28 @@ import { useEffect, useRef, useState } from 'react'
 import { tr } from '@/i18n'
 import { createMap, createMapNow, ignoreCancelled } from '@/map'
 import type { LatLng, MapHandle, MapLayer, MarkerHandle } from '@/map'
-import type { PlaceSummary } from '../sceneData'
 import type { CoordinateSource } from '../sceneData'
 import { SETTLE_WINDOW_SECONDS, fixOf, isUsable, shouldReplace, worthRecentering, type Fix } from '../location/locationFix'
 import './map.css'
 import {
   CAPTION_MIN_ZOOM, FIT_PADDING, FIT_SECONDS, KOREA, KOREA_PADDING, LOCATE_ZOOM, PAN_SECONDS, PLACE_ZOOM, ZOOM_SECONDS,
-  bboxString, boundsOf, cameraInsets, isOutsideKorea, pinsKey, spreadPins, type Bounds,
+  bboxString, boundsOf, cameraInsets, isOutsideKorea, pinMarks, pinsKey, spreadPins, type Bounds,
 } from './mapRules'
 import { PIN_SIZE, PIN_TIP, pinSvg } from './pinImage'
 import type { MapCameraHandle, MapViewProps } from './types'
 import { PinCaption } from '../rules/wording'
 
+/** 장소로 확대한 뒤 시트 높이 변화를 따라 다시 가운데로 맞추는 기간(ms)과, 높이가 멈췄다고 보는 조용한 시간(ms). */
+const SETTLE_RECENTER_MS = 2500
+const SETTLE_QUIET_MS = 250
+
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string)
 }
 
-function pinHtml(number: number | null, name: string): string {
+function pinHtml(number: number | null, name: string, selected: boolean): string {
   const caption = escapeHtml(PinCaption.text(name))
-  return `${pinSvg(number)}<span class="st-pin-cap" style="width:${PinCaption.width}px">${caption}</span>`
+  return `${pinSvg(number, selected)}<span class="st-pin-cap" style="width:${PinCaption.width}px">${caption}</span>`
 }
 
 const PULSE_HTML = '<span class="st-pulse-ring"></span><span class="st-pulse-dot"></span>'
@@ -42,6 +45,8 @@ export function SearchMap(props: MapViewProps) {
   const source = useRef<CoordinateSource>('userSelected')
   const watch = useRef<{ id: number | null; shown: Fix | null; startedAt: number }>({ id: null, shown: null, startedAt: 0 })
   const pulse = useRef<MarkerHandle | null>(null)
+  /** 장소로 확대한 직후의 「시트가 자리 잡으면 다시 가운데로」 약속. 시트 높이가 아직 움직이는 중에 계산한 가운데는 어긋난다(주소로 바로 들어온 경우). */
+  const settle = useRef<{ latlng: LatLng; until: number; timer: ReturnType<typeof setTimeout> | null } | null>(null)
 
   const insets = () => {
     const map = mapRef.current!
@@ -84,6 +89,7 @@ export function SearchMap(props: MapViewProps) {
 
       const byUser = () => {
         source.current = 'userSelected'
+        cancelSettle()
       }
       el.addEventListener('pointerdown', byUser)
       el.addEventListener('wheel', byUser, { passive: true })
@@ -115,6 +121,7 @@ export function SearchMap(props: MapViewProps) {
         offZoom()
         el.removeEventListener('pointerdown', byUser)
         el.removeEventListener('wheel', byUser)
+        cancelSettle()
         if (w.id !== null) navigator.geolocation?.clearWatch(w.id)
         map.destroy()
         mapRef.current = null
@@ -144,6 +151,11 @@ export function SearchMap(props: MapViewProps) {
     }
   }, [])
 
+  function cancelSettle() {
+    if (settle.current?.timer) clearTimeout(settle.current.timer)
+    settle.current = null
+  }
+
   // ---- 시트가 덮은 높이 — 네이버는 로고·저작권·축척을 그 위로 올린다.
   useEffect(() => {
     const map = mapRef.current
@@ -151,28 +163,45 @@ export function SearchMap(props: MapViewProps) {
     map.setBottomInset(cameraInsets(props.sheetHeight, map.getSize().y).bottom)
   }, [ready, props.sheetHeight])
 
-  // ---- 핀 — 핀이 바뀔 때만 다시 그린다.
+  // ---- 장소로 확대한 직후 시트 높이가 바뀌면, 높이가 멈춘 뒤 한 번 더 그 장소로 맞춘다.
+  useEffect(() => {
+    const pending = settle.current
+    if (!pending || Date.now() > pending.until) return
+    if (pending.timer) clearTimeout(pending.timer)
+    pending.timer = setTimeout(() => {
+      if (settle.current !== pending) return
+      settle.current = null
+      // 확대가 아직 날아가는 중일 수 있으므로 줌을 그대로 두지 않고 장소 줌으로 못 박는다(사람이 지도를 만졌으면 이미 취소됐다).
+      moveTo(pending.latlng, PLACE_ZOOM, ZOOM_SECONDS)
+    }, SETTLE_QUIET_MS)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 시트 높이가 바뀔 때만.
+  }, [props.sheetHeight])
+
+  // ---- 핀 — 핀이 바뀔 때만 다시 그린다. 열어 둔 장소(`focus`)는 강조하고, 핀 목록에 없으면 하나 더 꽂는다.
   useEffect(() => {
     const layer = pinLayer.current
     if (!layer) return
-    const key = pinsKey(props.pins.map((p) => p.id), props.numbered)
+    const selected = props.focus
+    const key = pinsKey(props.pins.map((p) => p.id), props.numbered, selected?.id ?? null)
     if (key === lastPinKey.current) return
     lastPinKey.current = key
     layer.clear()
-    // 번호는 배열 순서다 — 목록도 같은 배열을 같은 순서로 그리므로 「목록의 3번 = 지도의 3번」 이 성립한다.
-    const spread = spreadPins(props.pins.map((p) => ({ lat: p.latitude, lng: p.longitude })))
-    props.pins.forEach((place: PlaceSummary, i) => {
+    // 번호는 배열 순서다 — 목록도 같은 배열을 같은 순서로 그리므로 「목록의 3번 = 지도의 3번」 이 성립한다. 덧붙인 핀은 번호가 없다.
+    const marks = pinMarks(props.pins, selected, props.numbered)
+    const spread = spreadPins(marks.map((m) => ({ lat: m.place.latitude, lng: m.place.longitude })))
+    marks.forEach(({ place, number, selected: chosen }, i) => {
       layer.addMarker({
         position: spread[i],
-        html: pinHtml(props.numbered ? i + 1 : null, place.name),
-        className: 'st-pin',
+        html: pinHtml(number, place.name, chosen),
+        className: chosen ? 'st-pin st-pin-selected' : 'st-pin',
         size: [PIN_SIZE.width, PIN_SIZE.height],
         anchor: [PIN_TIP.x, PIN_TIP.y],
+        zIndex: chosen ? 500 : undefined,
         title: place.name,
         onClick: () => latest.current.onTapPin(place),
       })
     })
-  }, [ready, props.pins, props.numbered])
+  }, [ready, props.pins, props.numbered, props.focus])
 
   // ---- 카메라 — 토큰이 바뀐 순간에만.
   useEffect(() => {
@@ -196,7 +225,10 @@ export function SearchMap(props: MapViewProps) {
       last.current.focus = p.focusToken
       if (p.focus) {
         source.current = 'userSelected'
-        moveTo({ lat: p.focus.latitude, lng: p.focus.longitude }, PLACE_ZOOM, ZOOM_SECONDS)
+        const at = { lat: p.focus.latitude, lng: p.focus.longitude }
+        moveTo(at, PLACE_ZOOM, ZOOM_SECONDS)
+        cancelSettle()
+        settle.current = { latlng: at, until: Date.now() + SETTLE_RECENTER_MS, timer: null }
       }
     }
     if (p.panToken !== last.current.pan) {

@@ -62,6 +62,16 @@
 .st-captions .st-pin-cap {
   display: block;
 }
+/* 열어 둔 장소 — 같은 보라색이되 꼬리 끝을 기준으로 키우고, 줌과 상관없이 이름표를 보인다. */
+.st-pin-selected svg {
+  transform: scale(1.3);
+  transform-origin: 19px 45px;
+}
+.st-pin-selected .st-pin-cap {
+  top: 52px;
+  display: block;
+  font-weight: 700;
+}
 
 /* 내 위치 — 레이더 파문 */
 .st-pulse {
