@@ -359,7 +359,12 @@ def data_load_job(host, image):
             **job["spec"],
             "activeDeadlineSeconds": DATA_LOAD_DEADLINE,
             "template": {
-                "metadata": {"labels": {"app": DATA_LOAD_JOB}},
+                "metadata": {
+                    "labels": {"app": DATA_LOAD_JOB},
+                    # 노드 합치기(Auto Mode)가 도는 적재를 내쫓지 않게 한다. backoffLimit 0 이라 한 번 내쫓기면 적재 전체가
+                    # 실패한다(DEV 2026-11-03, 「Evicted pod: Underutilized」).
+                    "annotations": {"karpenter.sh/do-not-disrupt": "true"},
+                },
                 "spec": {
                     **job["spec"]["template"]["spec"],
                     "containers": [container],
