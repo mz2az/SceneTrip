@@ -19,21 +19,24 @@ export function pinNumberFontSize(n: number): number {
   return n < 100 ? 11.5 : 9
 }
 
-/** 핀 SVG 한 장. `uid` 는 같은 문서 안에서 그라데이션 id 가 겹치지 않게 하는 값(번호별로 하나면 충분하다). */
-export function pinSvg(number: number | null): string {
+/** 핀 SVG 한 장. 그라데이션 id 는 같은 문서 안에서 겹치지 않게 번호·선택 여부로 가른다. `selected` 면 같은 색에 가운데 점을 찍는다(키우기는 map.css 의 `.st-pin-selected`). */
+export function pinSvg(number: number | null, selected = false): string {
   const { x, y, radius, badgeRadius } = PIN_HEAD
   // 머리 원의 아래쪽 좌우(135°→45°, 시계방향으로 위를 지나)에서 꼬리 끝점으로 이어 물방울 모양을 만든다.
   const dx = radius * Math.SQRT1_2
   const path = `M${(x - dx).toFixed(2)} ${(y + dx).toFixed(2)} A${radius} ${radius} 0 1 1 ${(x + dx).toFixed(2)} ${(y + dx).toFixed(2)} L${PIN_TIP.x} ${PIN_TIP.y} Z`
-  const id = `pg${number ?? 'n'}`
+  const id = `pg${number ?? 'n'}${selected ? 's' : ''}`
+  const [light, deep] = [PIN_LIGHT, PIN_DEEP]
   const badge =
     number === null
-      ? ''
+      ? selected
+        ? `<circle cx="${x}" cy="${y}" r="${badgeRadius}" fill="#fff"/><circle cx="${x}" cy="${y}" r="4.5" fill="${deep}"/>`
+        : ''
       : `<circle cx="${x}" cy="${y}" r="${badgeRadius}" fill="#fff"/>` +
-        `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" fill="${PIN_DEEP}" font-weight="800" font-size="${pinNumberFontSize(number)}" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','Apple SD Gothic Neo',sans-serif">${number}</text>`
+        `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" fill="${deep}" font-weight="800" font-size="${pinNumberFontSize(number)}" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','Apple SD Gothic Neo',sans-serif">${number}</text>`
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${PIN_SIZE.width}" height="${PIN_SIZE.height}" viewBox="0 0 ${PIN_SIZE.width} ${PIN_SIZE.height}" style="overflow:visible;filter:drop-shadow(0 2px 1.75px rgba(0,0,0,0.28))">` +
-    `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x}" y1="0" x2="${x}" y2="${PIN_TIP.y}"><stop offset="0" stop-color="${PIN_LIGHT}"/><stop offset="1" stop-color="${PIN_DEEP}"/></linearGradient></defs>` +
+    `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x}" y1="0" x2="${x}" y2="${PIN_TIP.y}"><stop offset="0" stop-color="${light}"/><stop offset="1" stop-color="${deep}"/></linearGradient></defs>` +
     `<path d="${path}" fill="url(#${id})" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>` +
     badge +
     `</svg>`

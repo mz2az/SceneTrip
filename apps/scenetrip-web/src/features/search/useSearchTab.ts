@@ -266,7 +266,8 @@ export function useSearchTab() {
     if (prevTab.current === tab) return
     prevTab.current = tab
     if (!initial) return
-    if (tab === 'place' && visiblePlaces.length > 0) setFitToken((n) => n + 1)
+    // 핀을 눌러 장소를 연 채 탭이 바뀐 것이면 인기 핀 맞춤이 그 장소로의 확대를 덮지 않게 한다.
+    if (tab === 'place' && visiblePlaces.length > 0 && selectedPlace === null) setFitToken((n) => n + 1)
     else if (tab === 'work') setKoreaToken((n) => n + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 탭이 바뀔 때만.
   }, [tab])
@@ -314,7 +315,7 @@ export function useSearchTab() {
     setSelectedPlace(wanted)
     blurSearch()
     setDetent('medium')
-    setFitToken((n) => n + 1)
+    setFocusToken((n) => n + 1)
   }, [pendingPlace])
 
   // URL(`/search/content/:id`, `/search/place/:id`)로 직접 열었을 때도 같은 상세가 열려야 한다.
@@ -336,7 +337,7 @@ export function useSearchTab() {
         setContentPlaces([])
         setSelectedPlace(placeSummaryOf(found))
         setDetent('medium')
-        setFitToken((n) => n + 1)
+        setFocusToken((n) => n + 1)
       }).catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 주소가 바뀔 때만.

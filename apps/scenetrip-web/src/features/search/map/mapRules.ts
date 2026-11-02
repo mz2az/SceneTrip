@@ -99,7 +99,24 @@ export function boundsOf(points: ReadonlyArray<LatLng>): Bounds | null {
   return { southWest: { lat: Math.min(...lats), lng: Math.min(...lngs) }, northEast: { lat: Math.max(...lats), lng: Math.max(...lngs) } }
 }
 
-/** 핀 배열이 바뀌었는지 보는 열쇠 — 번호 표시 여부가 바뀌면 아이콘을 다시 그려야 하므로 함께 넣는다. */
-export function pinsKey(ids: ReadonlyArray<number>, numbered: boolean): string {
-  return ids.join(',') + (numbered ? '#n' : '#p')
+/** 핀 배열이 바뀌었는지 보는 열쇠 — 번호 표시 여부와 선택된 장소가 바뀌면 아이콘을 다시 그려야 하므로 함께 넣는다. */
+export function pinsKey(ids: ReadonlyArray<number>, numbered: boolean, selectedId: number | null = null): string {
+  return ids.join(',') + (numbered ? '#n' : '#p') + (selectedId === null ? '' : `@${selectedId}`)
+}
+
+/** 지도에 꽂을 핀 한 개. `number` 는 목록 번호(없으면 null), `selected` 는 지금 열어 둔 장소. */
+export interface PinMark<P> {
+  place: P
+  number: number | null
+  selected: boolean
+}
+
+/**
+ * 열어 둔 장소(`selected`)를 핀 목록에 맞춘다. 이미 핀이면 그 핀을 강조하고, 아니면(홈 카드·주소로 들어온 경우 — 검색 결과에 없다)
+ * 번호 없는 강조 핀을 맨 뒤에 하나 더 둔다. 번호는 목록의 행 번호라서 덧붙인 핀이 기존 번호를 밀지 않는다.
+ */
+export function pinMarks<P extends { id: number }>(pins: ReadonlyArray<P>, selected: P | null, numbered: boolean): PinMark<P>[] {
+  const marks = pins.map((place, i) => ({ place, number: numbered ? i + 1 : null, selected: selected !== null && place.id === selected.id }))
+  if (selected !== null && !marks.some((m) => m.selected)) marks.push({ place: selected, number: null, selected: true })
+  return marks
 }
