@@ -100,6 +100,15 @@ class DataLoadJobTest(unittest.TestCase):
         self.assertEqual(container["image"], IMAGE)
         self.assertEqual(container["resources"]["limits"]["memory"], "512Mi")
 
+    def test_pod_is_not_disrupted_by_node_consolidation(self):
+        # DEV Auto Mode(Karpenter) 가 빈 노드를 합치며 도는 적재 파드를 내쫓았다
+        # ("Evicted pod: Underutilized"). backoffLimit 0 이라 적재 전체가 실패하므로
+        # 파드에 do-not-disrupt 주석을 붙여 도는 동안은 내쫓지 못하게 한다. 값은 문자열이다.
+        metadata = self.job()["spec"]["template"]["metadata"]
+        self.assertEqual(metadata["annotations"]["karpenter.sh/do-not-disrupt"], "true")
+        # 네트워크 정책이 이 이름표로 파드를 고르므로 그대로 남아야 한다.
+        self.assertEqual(metadata["labels"]["app"], "data-load")
+
     def test_job_has_restricted_security_posture_of_bootstrap_job(self):
         pod = self.job()["spec"]["template"]["spec"]
         self.assertEqual(pod["restartPolicy"], "Never")
