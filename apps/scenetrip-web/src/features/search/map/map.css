@@ -68,7 +68,9 @@
   transform-origin: 19px 45px;
 }
 .st-pin-selected .st-pin-cap {
-  top: 52px;
+  /* 이름표는 핀 위에 둔다 — 아래는 지도 자체의 지명(장소 좌표 바로 밑에 붙는다)과 겹친다. 키운 핀 머리 끝(-13.5px) 위에 바닥을 맞춘다. */
+  top: auto;
+  bottom: 64px;
   display: block;
   font-weight: 700;
 }
