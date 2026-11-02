@@ -412,7 +412,8 @@ public class ReviewStore {
   /**
    * 사진첩 — 우리 사진 먼저(정렬 순서), 그 뒤 리뷰 사진(최신 리뷰부터, 리뷰 안에서는 올린 순서). 운영자가 내린 리뷰의 사진은 빠진다.
    *
-   * <p>우리 사진은 촬영지면 {@code place_image}(저작자 표기 칸이 없다), 편의시설이면 {@code poi_image}.
+   * <p>우리 사진은 촬영지면 {@code place_image}, 편의시설이면 {@code poi_image}. 둘 다 출처·공공누리 유형·작은 사진 칸을
+   * 갖는다(V37·V42).
    */
   public Page<Photo> photos(Target target, long id, int limit, int offset) {
     return photos(target, id, limit, offset, null);
@@ -424,8 +425,8 @@ public class ReviewStore {
   public Page<Photo> photos(Target target, long id, int limit, int offset, UUID viewer) {
     String official =
         target == Target.PLACE
-            ? "SELECT url, NULL::TEXT AS credit, NULL::TEXT AS thumbnail_url, NULL::TEXT AS"
-                + " license, sort_order, id FROM place_image WHERE place_id = :id"
+            ? "SELECT url, credit, thumbnail_url, license, sort_order, id FROM place_image"
+                + " WHERE place_id = :id"
             : "SELECT url, credit, thumbnail_url, license, sort_order, id FROM poi_image_visible"
                 + " WHERE poi_id = :id";
     String union =

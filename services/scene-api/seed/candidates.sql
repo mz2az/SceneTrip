@@ -525,6 +525,26 @@ FROM t_place p
 CROSS JOIN unnest(string_to_array(p.place_image_url, ';')) WITH ORDINALITY AS u(url, ord)
 WHERE NULLIF(btrim(u.url), '') IS NOT NULL;
 
+-- 사진 출처(V42, docs/project/plans/place-photo-credit.md). 출처 표시가 이용 조건인 사진만
+-- seed/place_image_credits.tsv 에 주소를 열쇠로 적는다 — CSV 의 칸은 늘리지 않는다(다른 수집분 CSV 도 같은 칸 수여야 한다).
+-- 스크립트가 psql 이 도는 기계의 /tmp/place-image-credits.tsv 로 놓는다. 파일에 없는 사진은 세 칸이 비어 있다.
+CREATE TEMP TABLE t_image_credit (
+    url           TEXT,
+    credit        TEXT,
+    license       TEXT,
+    thumbnail_url TEXT
+) ON COMMIT DROP;
+
+\copy t_image_credit FROM '/tmp/place-image-credits.tsv' WITH (FORMAT csv, DELIMITER E'\t', HEADER true, QUOTE E'\x01')
+
+UPDATE place_image i
+SET credit        = NULLIF(btrim(c.credit), ''),
+    license       = NULLIF(btrim(c.license), ''),
+    thumbnail_url = NULLIF(btrim(c.thumbnail_url), '')
+FROM t_image_credit c
+WHERE i.url = btrim(c.url)
+  AND i.place_id IN (SELECT place_id FROM t_place);
+
 -- 장소 별칭. v6 에는 이 컬럼이 없어 place_alias 가 비어 있었다 — 이 형식은 30행에
 -- 있다(관덕정·김녕해수욕장…). ';' 로 나뉜다. 라틴 표기는 lang 을 비운다.
 INSERT INTO place_alias (place_id, alias, lang)
@@ -617,6 +637,7 @@ UNION ALL SELECT 'place',              count(*) FROM place
 UNION ALL SELECT 'place_i18n',         count(*) FROM place_i18n
 UNION ALL SELECT 'place_alias',        count(*) FROM place_alias
 UNION ALL SELECT 'place_image',        count(*) FROM place_image
+UNION ALL SELECT 'place_image(출처)',   count(*) FROM place_image WHERE credit IS NOT NULL
 UNION ALL SELECT 'place_content_image', count(*) FROM place_content_image
 UNION ALL SELECT 'place_content',      count(*) FROM place_content
 UNION ALL SELECT 'place_content_i18n', count(*) FROM place_content_i18n

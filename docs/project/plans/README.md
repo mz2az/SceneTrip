@@ -6,6 +6,7 @@
 | --- | --- |
 | [web-release.md](web-release.md) | 웹앱(`apps/scenetrip-web`) 출시 — Cloudflare Pages, CORS 요청서, 소셜 로그인 웹 설정, GA4, 처리방침 초안 |
 | [metabase-prd.md](metabase-prd.md) | PRD 데이터 보기 — EKS 안 Metabase, `analytics` 뷰만 읽는 계정, Cloudflare Access(계획, ADR 0027 제안) |
+| [place-photo-credit.md](place-photo-credit.md) | 촬영지 사진에 출처·이용 조건 — `place_image` 세 칸, 주소 열쇠 TSV, 앱 수정 없음(MZ2AZ-514, 계획) |
 | [place-photo-refresh.md](place-photo-refresh.md) | 촬영지 사진의 사람 제거 편집본 — 데이터 파일 주소 교체(JPEG 1280px), 로컬·DEV 먼저, PRD 는 심사 뒤 |
 | [load-test.md](load-test.md) | DEV 부하 테스트 — k6, 우리 서버는 진짜·바깥(Bedrock·카카오)만 가짜, SigNoz 로 병목 찾기 (MZ2AZ-502) |
 | [api-e2e.md](api-e2e.md) | scene-api API e2e — 로컬 kind 의 별도 인스턴스, 바깥 서비스는 가짜 HTTP (MZ2AZ-496) |
