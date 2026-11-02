@@ -101,6 +101,7 @@ pkg_tar(
     srcs = [
         "seed/candidates.csv",
         "seed/candidates.sql",
+        "seed/place_image_credits.tsv",
         "seed/place_poi_link.sql",
         "seed/place_poi_links.tsv",
         "seed/poi.sql",

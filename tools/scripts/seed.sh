@@ -24,6 +24,9 @@ CSV="${1:-$SAMPLE}"
 POD="postgres-0"
 # candidates.sql 의 \copy 가 읽는 경로. psql 이 도는 기계 기준이다.
 STAGED_CSV="/tmp/seed-input.csv"
+# 사진 출처 — candidates.sql 이 같은 기계의 이 경로에서 읽는다(place-photo-credit.md). 어느 CSV 를 넣든 저장소의 것을 쓴다.
+CREDITS="services/scene-api/seed/place_image_credits.tsv"
+STAGED_CREDITS="/tmp/place-image-credits.tsv"
 
 [ -f "$CSV" ] || die "CSV 를 찾을 수 없습니다: $CSV
        인자 없이 실행하면 저장소의 성지후보($SAMPLE)를 넣습니다."
@@ -69,7 +72,8 @@ if [ -n "$DIRECT" ]; then
   db_connect
 
   cp "$CSV" "$STAGED_CSV" || die "CSV 를 $STAGED_CSV 로 놓지 못했습니다"
-  cleanup() { rm -f "$STAGED_CSV"; }
+  cp "$CREDITS" "$STAGED_CREDITS" || die "사진 출처를 $STAGED_CREDITS 로 놓지 못했습니다"
+  cleanup() { rm -f "$STAGED_CSV" "$STAGED_CREDITS"; }
   trap cleanup EXIT
 
   log "변환 실행 — $DB_HOST:$DB_PORT/$DB_NAME"
@@ -79,8 +83,9 @@ if [ -n "$DIRECT" ]; then
 else
   log "CSV 를 $POD 로 복사"
   kubectl cp "$CSV" "$NAMESPACE/$POD:$STAGED_CSV" || die "CSV 복사 실패"
+  kubectl cp "$CREDITS" "$NAMESPACE/$POD:$STAGED_CREDITS" || die "사진 출처 복사 실패"
 
-  cleanup() { kubectl exec "$POD" -n "$NAMESPACE" -- rm -f "$STAGED_CSV" >/dev/null 2>&1 || true; }
+  cleanup() { kubectl exec "$POD" -n "$NAMESPACE" -- rm -f "$STAGED_CSV" "$STAGED_CREDITS" >/dev/null 2>&1 || true; }
   trap cleanup EXIT
 
   log "변환 실행"

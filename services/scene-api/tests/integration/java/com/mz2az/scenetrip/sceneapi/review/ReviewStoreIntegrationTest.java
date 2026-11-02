@@ -642,6 +642,89 @@ class ReviewStoreIntegrationTest {
     assertThat(page.total()).isZero();
   }
 
+  // ───────────── 촬영지 사진 출처 (place-photo-credit.md §2.1·§2.3) ─────────────
+
+  @Test
+  @DisplayName("photos — 촬영지 관광공사 사진은 출처·공공누리 유형·썸네일을 함께 내준다")
+  void photosForPlaceWithCreditLicenseThumbnail() {
+    long place = place("시험 촬영지");
+    placeImageCredited(
+        place,
+        "https://tong.visitkorea.or.kr/cms/resource/46/1902246_image2_1.jpg",
+        0,
+        "한국관광공사",
+        "kogl_type3",
+        "https://tong.visitkorea.or.kr/cms/resource/46/1902246_image3_1.jpg");
+
+    Page<Photo> page = reviews.photos(Target.PLACE, place, 20, 0);
+
+    assertThat(page.total()).isEqualTo(1);
+    Photo photo = page.items().get(0);
+    assertThat(photo.url())
+        .isEqualTo("https://tong.visitkorea.or.kr/cms/resource/46/1902246_image2_1.jpg");
+    assertThat(photo.credit()).isEqualTo("한국관광공사");
+    assertThat(photo.license()).isEqualTo("kogl_type3");
+    assertThat(photo.thumbnailUrl())
+        .isEqualTo("https://tong.visitkorea.or.kr/cms/resource/46/1902246_image3_1.jpg");
+  }
+
+  @Test
+  @DisplayName("photos — 촬영지 위키미디어 사진은 출처 문구만, 공공누리 유형·썸네일은 비어 있다")
+  void photosForPlaceWithCreditOnly() {
+    long place = place("시험 촬영지");
+    String credit = "Christophe95 · CC BY-SA 4.0 · 위키미디어 공용 · 사람을 지움";
+    placeImageCredited(place, "https://img.example/wiki.jpg", 0, credit, null, null);
+
+    Page<Photo> page = reviews.photos(Target.PLACE, place, 20, 0);
+
+    assertThat(page.total()).isEqualTo(1);
+    Photo photo = page.items().get(0);
+    assertThat(photo.credit()).isEqualTo(credit);
+    assertThat(photo.license()).isNull();
+    assertThat(photo.thumbnailUrl()).isNull();
+  }
+
+  @Test
+  @DisplayName("photos — 출처 칸이 빈 촬영지 사진은 셋 다 null, 출처 있는 사진과 섞여도 우리 사진 먼저·리뷰 사진 뒤")
+  void photosForPlaceWithoutCreditStaysNull() {
+    long place = place("시험 촬영지");
+    placeImageCredited(place, "https://img.example/plain.jpg", 0, null, null, null);
+    placeImageCredited(
+        place,
+        "https://img.example/kto.jpg",
+        1,
+        "한국관광공사",
+        "kogl_type1",
+        "https://img.example/kto-thumb.jpg");
+    String k = "reviews/" + UUID.randomUUID();
+    reviews.put(Target.PLACE, place, member(), 5, null, List.of(k), Set.of(k));
+
+    Page<Photo> page = reviews.photos(Target.PLACE, place, 20, 0);
+
+    assertThat(page.total()).isEqualTo(3);
+    assertThat(page.items())
+        .extracting(Photo::url)
+        .containsExactly("https://img.example/plain.jpg", "https://img.example/kto.jpg", null);
+    assertThat(page.items()).extracting(Photo::credit).containsExactly(null, "한국관광공사", null);
+    assertThat(page.items()).extracting(Photo::license).containsExactly(null, "kogl_type1", null);
+    assertThat(page.items())
+        .extracting(Photo::thumbnailUrl)
+        .containsExactly(null, "https://img.example/kto-thumb.jpg", null);
+    assertThat(page.items().get(2).storageKey()).isEqualTo(k);
+  }
+
+  @Test
+  @DisplayName("place_image — license 는 kogl_type1·kogl_type3 만, 그 밖의 값(cc_by)은 DB 가 거부한다")
+  void placeImageLicenseCheck() {
+    long place = place("시험 촬영지");
+
+    assertThatThrownBy(
+            () ->
+                placeImageCredited(
+                    place, "https://img.example/cc.jpg", 0, "누군가 · CC BY 4.0", "cc_by", null))
+        .isInstanceOf(DataIntegrityViolationException.class);
+  }
+
   // ───────────── V21 제약 ─────────────
 
   @Test
@@ -760,6 +843,23 @@ class ReviewStoreIntegrationTest {
         .param("p", placeId)
         .param("u", url)
         .param("o", order)
+        .update();
+  }
+
+  /** 출처 세 칸(credit·license·thumbnail_url)까지 넣는 촬영지 사진. 비울 칸은 null. */
+  private static void placeImageCredited(
+      long placeId, String url, int order, String credit, String license, String thumbnailUrl) {
+    jdbc.sql(
+            """
+            INSERT INTO place_image (place_id, url, sort_order, credit, license, thumbnail_url)
+            VALUES (:p, :u, :o, CAST(:c AS TEXT), CAST(:l AS TEXT), CAST(:t AS TEXT))
+            """)
+        .param("p", placeId)
+        .param("u", url)
+        .param("o", order)
+        .param("c", credit)
+        .param("l", license)
+        .param("t", thumbnailUrl)
         .update();
   }
 
