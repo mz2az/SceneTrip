@@ -12,6 +12,8 @@ import type { LatLng as GeoPoint, MapBounds, MapHandle, MapLayer, MarkerHandle, 
 import { canNavigate, type PlaceSummary, type RouteStop } from '../models'
 import { usableAnchor } from '../geometry'
 import { scheduleCachedFallback } from '../nav/cachedFix'
+import { LOCATE_WAIT_MS, locateStatus, type LocateStatus } from './locateStatus'
+import { containsPoint, pointsWithMe, visibleBounds } from './meCamera'
 import { HAETAE_SIZE, NUMBERED_SIZE, PIN_DEEP, haetaePinSvg, numberedPinSvg, pawPinSvg } from './pinSvg'
 import { PinCaption } from './wording'
 import './routeMap.css'
@@ -28,6 +30,7 @@ const WITH_ME_PADDING = 56
 const CAPTION_MIN_ZOOM = 12
 /** 시트가 덮는 높이가 이만큼 이상 바뀔 때만 다시 맞춘다(시트를 끄는 동안 카메라가 따라다니면 멀미가 난다). */
 const INSET_EPSILON = 40
+const INSET_SETTLE_MS = 350
 const KOREA: MapBounds = { southWest: { lat: 33.0, lng: 124.6 }, northEast: { lat: 38.7, lng: 131.0 } }
 
 export interface LatLng {
@@ -59,6 +62,8 @@ export interface RouteMapProps {
   onTapPreview: (place: PlaceSummary) => void
   /** 내 자리가 바뀌었다(브라우저 위치). */
   onHere?: (spot: LatLng | null) => void
+  /** 첫 위치를 못 받는 동안 지도 위 안내에 쓸 상태. */
+  onLocateStatus?: (status: LocateStatus) => void
   /** 지도가 만들어졌다 — 가이드·길찾기 담당이 선·핀을 더 얹는다. */
   onReady?: (map: MapHandle) => void
   /** 동선 최적화의 기준점 규칙(`usableAnchor`)에 쓰는 내 자리. 부모가 알고 있으면 넘긴다. */
@@ -100,6 +105,7 @@ export function RouteMap(props: RouteMapProps) {
   const latest = useRef(props)
   latest.current = props
   const hereRef = useRef<LatLng | null>(null)
+  const firstFix = useRef(false)
   const seen = useRef({ cameraKey: '', fit: -1, courseFit: 0, inset: 0, drawKey: '' })
 
   const fitPoints = (pts: GeoPoint[], pad = FIT_PADDING, maxZoom = 17) => {
@@ -121,7 +127,8 @@ export function RouteMap(props: RouteMapProps) {
       map.setView(center, SINGLE_ZOOM, { animate: true, seconds: 0.4, shiftY: bottomInset / 2 })
       return
     }
-    map.fitBounds(b, { paddingTopLeft: [pad, pad], paddingBottomRight: [pad, pad + bottomInset], animate: true, seconds: 0.4, maxZoom })
+    // 좌표 위로 솟는 핀 몸통까지 담는다(2026-11-03 사용자 지적 — 맨 위 번호가 잘렸다).
+    map.fitBounds(b, { paddingTopLeft: [pad, pad + NUMBERED_SIZE.tipY], paddingBottomRight: [pad, pad + bottomInset], animate: true, seconds: 0.4, maxZoom })
   }
 
   // ---- 지도 만들기 (한 번) — 공급자(네이버/Leaflet)는 어댑터가 고른다.
@@ -235,73 +242,109 @@ export function RouteMap(props: RouteMapProps) {
   }, [ready, props.bottomInset])
 
   // ---- 내 위치 (브라우저 Geolocation — 켜져 있는 동안 계속 받는다)
-  const { showingMe, onHere } = props
+  const { showingMe } = props
   useEffect(() => {
     const map = mapRef.current
-    if (!showingMe || !map || !('geolocation' in navigator)) {
+    if (!showingMe || !map) {
       meMarker.current?.remove()
       meMarker.current = null
       hereRef.current = null
-      onHere?.(null)
+      latest.current.onHere?.(null)
+      latest.current.onLocateStatus?.('idle')
       return
     }
+    firstFix.current = true
+    let active = true
     let got = false
+    let denied = false
+    let fitTimer: number | undefined
+    const startedAt = Date.now()
+    const report = () => latest.current.onLocateStatus?.(locateStatus({ showingMe: true, hasFix: got, denied, elapsedMs: Date.now() - startedAt }))
+    report()
+    const waitTimer = window.setTimeout(report, LOCATE_WAIT_MS)
     const show = (pos: GeolocationPosition) => {
+      if (!active) return
       got = true
+      denied = false
+      window.clearTimeout(waitTimer)
+      report()
       const spot = { latitude: pos.coords.latitude, longitude: pos.coords.longitude }
       hereRef.current = spot
       const at = { lat: spot.latitude, lng: spot.longitude }
       if (!meMarker.current) {
         meMarker.current = meLayer.current?.addMarker({ position: at, html: ME_HTML, className: 'route-pin', size: [18, 18], anchor: [9, 9], interactive: false, zIndex: 500 }) ?? null
       } else meMarker.current.setPosition(at)
-      onHere?.(spot)
+      latest.current.onHere?.(spot)
+      if (firstFix.current) {
+        firstFix.current = false
+        // RouteMapLocate.swift 의 화면 밖 위치 담기 — 같은 차례의 코스 맞추기 뒤에 한다(2026-11-03 사용자 지적).
+        fitTimer = window.setTimeout(() => {
+          if (!active || containsPoint(visibleBounds(map, latest.current.bottomInset), at)) return
+          const { stops, previews, focused } = latest.current
+          const { points, padding } = pointsWithMe({ stops: stops.map((s) => s.place), previews, focused: focused?.place ?? null, here: spot })
+          fitPoints(points, padding === 'withMe' ? WITH_ME_PADDING : FIT_PADDING)
+        }, 0)
+      }
+      // 웹 watchPosition 은 iOS distanceFilter 없이 자주 온다 — 이후 갱신은 사용자가 옮긴 화면을 끌어오지 않는다.
     }
-    const id = navigator.geolocation.watchPosition(show, () => undefined, { enableHighAccuracy: true, maximumAge: 5000 })
+    const id = navigator.geolocation?.watchPosition(show, (error) => {
+      if (!active || error.code !== 1) return
+      denied = true
+      window.clearTimeout(waitTimer)
+      // 권한이 사라지면 낡은 점과 그 자리로 예약된 이동도 함께 지운다.
+      window.clearTimeout(fitTimer)
+      meMarker.current?.remove()
+      meMarker.current = null
+      hereRef.current = null
+      latest.current.onHere?.(null)
+      report()
+    }, { enableHighAccuracy: true, maximumAge: 5000 })
     // 새 위치가 안 오면(데스크톱 캐시 값만 주는 경우) 최근 캐시 위치로 먼저 보여 준다.
-    const cancelFallback = scheduleCachedFallback(() => !got, show)
+    const cancelFallback = scheduleCachedFallback(() => active && !got && !denied, show)
     return () => {
+      active = false
+      window.clearTimeout(waitTimer)
+      window.clearTimeout(fitTimer)
       cancelFallback()
-      navigator.geolocation.clearWatch(id)
+      if (id !== undefined) navigator.geolocation.clearWatch(id)
       meMarker.current?.remove()
       meMarker.current = null
       hereRef.current = null
     }
-  }, [ready, showingMe, onHere])
+  }, [ready, showingMe])
 
   // ---- 카메라
   const { fitToken, courseFitToken, bottomInset } = props
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    const here = props.here ?? hereRef.current
     const s = seen.current
-    if (Math.abs(bottomInset - s.inset) > INSET_EPSILON) {
-      s.inset = bottomInset
-      s.cameraKey = '' // 다음에 새 영역으로 다시 맞춘다.
-    }
     const content = `${stops.map((p) => p.uid).join(',')}|${previews.map((p) => p.id).join(',')}`
     const cameraKey = `${focused?.uid ?? '-'}|${showingMe}|${content}`
-    // 코스 전체를 보라는 신호 — 아래 규칙들보다 먼저다. 이번 한 번은 일반 규칙을 건너뛴다.
-    if (courseFitToken !== s.courseFit) {
-      s.courseFit = courseFitToken
+    const courseFit = courseFitToken !== s.courseFit
+    const changed = cameraKey !== s.cameraKey || fitToken !== s.fit || courseFit
+    if (!changed && Math.abs(bottomInset - s.inset) <= INSET_EPSILON) return
+    // 인셋만 바뀔 때는 시트 스프링의 마지막 높이로 한 번 맞춘다(2026-11-03 사용자 지적).
+    // 다른 계기도 첫 화면의 지도 크기를 받은 다음 차례에 맞춘다.
+    const timer = window.setTimeout(() => {
+      const here = latest.current.here ?? hereRef.current
+      s.inset = latest.current.bottomInset
       s.cameraKey = cameraKey
       s.fit = fitToken
-      const pts: GeoPoint[] = stops.map((p) => ({ lat: p.place.latitude, lng: p.place.longitude }))
-      const anchor = here ? usableAnchor({ id: 0, name: '여기', latitude: here.latitude, longitude: here.longitude }, stops) : null
-      if (here && (showingMe || anchor)) pts.push({ lat: here.latitude, lng: here.longitude })
-      window.setTimeout(() => fitPoints(pts), 0)
-      return
-    }
-    if (cameraKey === s.cameraKey && fitToken === s.fit) return
-    s.cameraKey = cameraKey
-    s.fit = fitToken
-    // 다음 차례로 미룬다 — 지금 맞추면 첫 화면에서 지도가 아직 제 크기를 못 받은 상태라 엉뚱한 범위로 맞는다.
-    window.setTimeout(() => {
+      // 코스 전체를 보라는 신호 — 아래 규칙들보다 먼저다. 이번 한 번은 일반 규칙을 건너뛴다.
+      if (courseFit) {
+        s.courseFit = courseFitToken
+        const pts: GeoPoint[] = stops.map((p) => ({ lat: p.place.latitude, lng: p.place.longitude }))
+        const anchor = here ? usableAnchor({ id: 0, name: '여기', latitude: here.latitude, longitude: here.longitude }, stops) : null
+        if (here && (showingMe || anchor)) pts.push({ lat: here.latitude, lng: here.longitude })
+        fitPoints(pts)
+        return
+      }
       if (focused) {
         const there: LatLng = { latitude: focused.place.latitude, longitude: focused.place.longitude }
         const nearby = here ? haversineMeters(here, there) <= WITH_ME_RADIUS_M : false
-        // 토글이 켜져 있고 내가 가까우면 둘이 같이 보이는 크기로, 아니면 그곳만 확대한다.
-        if (showingMe && nearby && here) fitPoints([{ lat: here.latitude, lng: here.longitude }, { lat: there.latitude, lng: there.longitude }], WITH_ME_PADDING)
+        // 인셋 조정은 첫 위치로 넓힌 화면을 유지한다 — 거리 제한은 새로 맞출 계기가 있을 때만 쓴다.
+        if (showingMe && here && (nearby || !changed)) fitPoints([{ lat: here.latitude, lng: here.longitude }, { lat: there.latitude, lng: there.longitude }], WITH_ME_PADDING)
         else {
           const m = mapRef.current
           m?.stop()
@@ -312,8 +355,8 @@ export function RouteMap(props: RouteMapProps) {
       const pts: GeoPoint[] = [...stops.map((p) => p.place), ...previews].map((p) => ({ lat: p.latitude, lng: p.longitude }))
       if (showingMe && here) pts.push({ lat: here.latitude, lng: here.longitude })
       fitPoints(pts)
-    }, 0)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, changed ? 0 : INSET_SETTLE_MS)
+    return () => window.clearTimeout(timer)
   }, [ready, stops, focused, previews, showingMe, fitToken, courseFitToken, bottomInset])
 
   return <div ref={host} className="rt-map" />
