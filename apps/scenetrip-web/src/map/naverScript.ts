@@ -10,7 +10,7 @@
  * 근거: https://navermaps.github.io/maps.js.ncp/docs/tutorial-Language.html (ko · en · zh · ja)
  * 서비스 URL(localhost·배포 도메인)이 콘솔에 등록돼 있지 않으면 스크립트는 로드돼도 인증이 실패한다 — `navermap_authFailure` 로 받아 실패로 친다.
  */
-import { type Lang, currentLang, markLanguageReload, onLanguageChange } from '@/i18n'
+import { type Lang, currentLang, onLanguageChange } from '@/i18n'
 import type { NaverMaps } from './naver'
 
 export const NAVER_SCRIPT_BASE = 'https://oapi.map.naver.com/openapi/v3/maps.js'
@@ -33,7 +33,6 @@ export function mapNeedsReload(loaded: Lang | null, now: Lang): boolean {
 export function reloadOnLanguageChange(reload?: () => void): () => void {
   return onLanguageChange((lang) => {
     if (!mapNeedsReload(loadedLang, lang)) return
-    markLanguageReload()
     ;(reload ?? reloadPage)()
   })
 }

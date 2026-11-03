@@ -1,5 +1,6 @@
 /*
  * 문구 번역 — iOS 의 `tr()` 와 같은 규칙 (apps/scenetrip-ios/src/Models/AppLanguage.swift).
+ * 웹은 2026-11-03 저장된 언어가 없으면 기기 언어와 무관하게 영어로 시작한다(MZ2AZ-523).
  *
  *  - 열쇠는 **한국어 원문**이다. 코드에 한국어를 그대로 적고 영어일 때만 표에서 찾는다. 표에 없으면 원문이 나온다.
  *  - 숫자·이름이 들어가는 문구는 iOS 와 같이 `%d` `%lld` `%@` `%.1f` `%1$@` 자리표시자를 쓴다.
@@ -21,11 +22,6 @@ export function langName(lang: Lang): string {
   return lang === 'ko' ? '한국어' : 'English'
 }
 
-function deviceDefault(): Lang {
-  const first = (typeof navigator !== 'undefined' ? navigator.languages?.[0] : undefined)?.toLowerCase() ?? 'ko'
-  return first.startsWith('ko') ? 'ko' : 'en'
-}
-
 function readSaved(): Lang | null {
   try {
     const v = localStorage.getItem(KEY)
@@ -35,8 +31,7 @@ function readSaved(): Lang | null {
   }
 }
 
-let current: Lang = readSaved() ?? deviceDefault()
-let chosen = readSaved() !== null
+let current: Lang = readSaved() ?? 'en'
 const listeners = new Set<() => void>()
 /** 언어가 **실제로 바뀔 때** 한 번 부른다. 화면을 다시 그리는 리스너(`listeners`)보다 먼저 돌아서, 다시 읽는 쪽이 비워진 사본을 본다. */
 const changeListeners = new Set<(lang: Lang) => void>()
@@ -50,9 +45,6 @@ export function onLanguageChange(listener: (lang: Lang) => void): () => void {
 export function currentLang(): Lang {
   return current
 }
-export function hasChosenLanguage(): boolean {
-  return chosen
-}
 export function chooseLanguage(lang: Lang) {
   try {
     localStorage.setItem(KEY, lang)
@@ -61,7 +53,6 @@ export function chooseLanguage(lang: Lang) {
   }
   const changed = current !== lang
   current = lang
-  chosen = true
   if (typeof document !== 'undefined') document.documentElement.lang = lang
   if (changed) changeListeners.forEach((l) => l(lang))
   listeners.forEach((l) => l())
@@ -109,28 +100,6 @@ export function tr(korean: string, ...args: Array<string | number>): string {
 export function trAt(korean: string, place: string, ...args: Array<string | number>): string {
   const found = lookup(`${korean}|${place}`) ?? lookup(korean) ?? korean
   return args.length ? format(found, args) : found
-}
-
-const RELOAD_KEY = 'scenetrip.languageReload'
-
-/** 언어를 바꾸느라 쪽을 새로 여는 중임을 적어 둔다 — 새로 열린 쪽이 스플래시를 다시 보이지 않게. 탭을 닫으면 사라지는 저장소를 쓴다. */
-export function markLanguageReload(): void {
-  try {
-    sessionStorage.setItem(RELOAD_KEY, '1')
-  } catch {
-    /* 못 적으면 스플래시가 한 번 더 보일 뿐 */
-  }
-}
-
-/** 방금 언어 때문에 쪽이 새로 열렸는가. 한 번 읽으면 지운다. */
-export function consumeLanguageReload(): boolean {
-  try {
-    const was = sessionStorage.getItem(RELOAD_KEY) === '1'
-    sessionStorage.removeItem(RELOAD_KEY)
-    return was
-  } catch {
-    return false
-  }
 }
 
 /** 테스트용 — 영어 표에 열쇠가 있는가. */

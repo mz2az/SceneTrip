@@ -4,7 +4,7 @@ import { createNaverMap, splitColor, strokeStyleFor } from './NaverMapProvider'
 import { shiftedCenter } from './mercator'
 import type { NaverMaps } from './naver'
 import { loadNaverMaps, mapNeedsReload, naverScriptUrl, reloadOnLanguageChange, resetNaverScriptForTests } from './naverScript'
-import { chooseLanguage, consumeLanguageReload } from '@/i18n'
+import { chooseLanguage } from '@/i18n'
 
 /** `window.naver.maps` 가짜 — 부른 것을 기록한다. */
 function fakeMaps() {
@@ -185,7 +185,7 @@ describe('네이버 스크립트 주입', () => {
     expect(mapNeedsReload('en', 'ko')).toBe(true)
   })
 
-  it('불러온 언어와 다른 언어를 고르면 쪽을 새로 열고, 새 쪽이 스플래시를 다시 보이지 않게 적어 둔다', () => {
+  it('불러온 언어와 다른 언어를 고르면 쪽을 새로 연다', () => {
     resetNaverScriptForTests()
     chooseLanguage('ko')
     void loadNaverMaps('lang-id') // 한국어로 불러옴
@@ -195,8 +195,6 @@ describe('네이버 스크립트 주입', () => {
     expect(reload).not.toHaveBeenCalled() // 같은 언어
     chooseLanguage('en')
     expect(reload).toHaveBeenCalledTimes(1)
-    expect(consumeLanguageReload()).toBe(true)
-    expect(consumeLanguageReload()).toBe(false) // 한 번 읽으면 지운다
     stop()
     chooseLanguage('ko')
   })
