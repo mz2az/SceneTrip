@@ -16,6 +16,7 @@ import createClient from 'openapi-fetch'
 import { currentLang } from '@/i18n'
 import { type TokenSnapshot, authHooks, isSameSession, pendingWrites, promptSignIn, tokenSnapshot } from '@/state/auth'
 import { alreadyRefreshed, apiCodeFrom, authAction, intercepts } from '@/state/authRules'
+import { renewInstallId } from '@/state/install'
 import { ApiFailure } from './failure'
 import type { paths } from './generated/schema'
 import { RETRY_TUNING, decide, laneFor } from './retry'
@@ -111,7 +112,9 @@ async function handleUnauthorized(first: Response, base: Request, method: string
     /* 본문이 없거나 JSON 이 아니다 */
   }
   if (!isSameSession(identity)) return first
-  switch (authAction(401, apiCodeFrom(body))) {
+  const code = apiCodeFrom(body)
+  if (code === 'SESSION_REQUIRED' && sent === null) return renewInstall(first, base, method)
+  switch (authAction(401, code)) {
     case 'refreshAndRetry': {
       const current = tokenSnapshot()
       // 이미 누가 갱신했다 — 이 요청은 낡은 토큰으로 나갔을 뿐이다. 또 갱신하지 않고 새 토큰으로 다시 보낸다.
@@ -136,6 +139,21 @@ async function handleUnauthorized(first: Response, base: Request, method: string
     case 'none':
       return first
   }
+}
+
+/**
+ * 토큰 없이 보낸 요청에 서버가 「가입한 계정의 설치본」(`401 SESSION_REQUIRED`)이라고 답했다 — 로그인이 정식 로그아웃 없이 풀린 브라우저다(MZ2AZ-520).
+ * 설치 번호를 새로 만들어 새 비회원이 되고, 조회는 새 번호로 **한 번만** 다시 보낸다. 쓰기는 다시 보내지 않는다(한 번 거절된 쓰기를 다른 계정에 떨구지 않는다).
+ * 그 사이 로그인했으면 아무것도 바꾸지 않는다 — 방금 계정에 묶인 번호를 버리면 안 된다.
+ */
+async function renewInstall(first: Response, base: Request, method: string): Promise<Response> {
+  const previous = base.headers.get('X-Install-Id')
+  if (!previous || tokenSnapshot().accessToken) return first
+  const next = renewInstallId(previous)
+  if (method !== 'GET' && method !== 'HEAD') return first
+  const headers = new Headers(base.headers)
+  headers.set('X-Install-Id', next)
+  return sendWithRetry(new Request(base.clone(), { headers }), method, false)
 }
 
 async function guardedFetch(input: Request): Promise<Response> {

@@ -3,7 +3,7 @@
  *
  * 목록에서 넘어온 `PlaceSummary` 로 먼저 그리고, 상세(`GET /places/{id}`)가 오면 채운다. 상세에만 있는 것이 작품별 장면(`scenes`)이라 그 절은 도착 후에 뜬다.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appEvent, track } from '@/analytics'
 import { Icon } from '@/design/Icon'
 import { HStack, Txt, VStack } from '@/design/primitives'
@@ -43,14 +43,19 @@ export function PlaceDetail({ summary, sourceContentId, load, onBack }: {
   const gallery = useMemo(() => new PhotoGallery({ kind: 'place', id: summary.id }), [summary.id])
   const scenes = detail?.scenes ?? []
 
+  // 부모는 `load` 를 그릴 때마다 새 함수로 넘긴다. 그것에 묶으면 부모가 다시 그려질 때마다 아래 effect 가 돌아 조회 기록·상세 받기가 쏟아졌다
+  // (분당 1,477건까지 — 요청 한도를 넘겨 다른 조회까지 막혔다, MZ2AZ-520). 늘 마지막 함수를 쓰되 effect 는 장소가 바뀔 때만 돈다.
+  const loadRef = useRef(load)
+  loadRef.current = load
+
   /** 상세를 (다시) 읽고 사진첩을 그것으로 갈아 끼운다. 못 읽으면 가진 것을 그대로 둔다. */
   const refresh = useCallback(async () => {
     const asked = summary.id
-    await gallery.loadDetail({ kind: 'place', id: asked }, () => load(asked), (fresh) => {
+    await gallery.loadDetail({ kind: 'place', id: asked }, () => loadRef.current(asked), (fresh) => {
       setDetail(fresh)
       return bookOfPlace(fresh)
     })
-  }, [gallery, load, summary.id])
+  }, [gallery, summary.id])
 
   useEffect(() => {
     setDetail(null)

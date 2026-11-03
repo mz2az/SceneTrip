@@ -32,6 +32,21 @@ export function installId(): string {
   return cached
 }
 
+/**
+ * 이 설치 번호를 버리고 새 비회원이 된다(MZ2AZ-520). 지금 번호가 `previous` 일 때만 새로 만든다 — 같은 낡은 번호로 거절받은 요청 여럿이 불러도
+ * 한 번만 바뀐다. 돌려주는 값은 그 뒤의 지금 번호다.
+ *
+ * 왜: 로그인하면 서버가 이 번호를 가입 계정에 묶는다. 정식 로그아웃은 서버가 묶음을 풀지만, 로그인이 저절로 풀리면(갱신 거절 등) 토큰만 지워져
+ * 토큰 없는 요청이 모두 `401 SESSION_REQUIRED` 를 받는다. 번호를 바꾸면 정식 로그아웃과 같은 「새 비회원」 이 된다.
+ */
+export function renewInstallId(previous: string): string {
+  const current = installId()
+  if (current !== previous) return current
+  cached = uuid()
+  writeStorage(KEY, cached)
+  return cached
+}
+
 /** `params.header` 에 그대로 펼쳐 쓴다 — 계약이 요구하는 창구마다 X-Install-Id 를 필수 헤더로 선언한다. */
 export function installHeader(): { 'X-Install-Id': string } {
   return { 'X-Install-Id': installId() }
