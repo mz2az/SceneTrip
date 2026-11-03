@@ -19,6 +19,7 @@ import { changedSince, isBlank, outgoingKey, savedTitle } from '../bridge'
 import { notesSummary } from '../draft'
 import { optimized, startingNearest, usableAnchor } from '../geometry'
 import { type LatLng, RouteMap } from '../map/RouteMap'
+import type { LocateStatus } from '../map/locateStatus'
 import { type PlaceSummary, type RouteCourse, type RouteStop, canNavigate, courseCanSave, placeIdOf } from '../models'
 import type { PinKind } from '../placeType'
 import { courseSaveMessage, routeActions, routeStore, useRouteState, workTitlesOfPlace } from '../store'
@@ -52,6 +53,7 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
   // 켜짐이 기본이다(2026-08-28) — 코스를 보는 사람은 대개 자기 위치와 견주고 싶어서 본다.
   const [showingMe, setShowingMe] = useState(true)
   const [here, setHere] = useState<LatLng | null>(null)
+  const [locateStatus, setLocateStatus] = useState<LocateStatus>('idle')
   const [focusedUid, setFocusedUid] = useState<string | null>(null)
   const [pickedStop, setPickedStop] = useState<RouteStop | null>(null)
   const [previews, setPreviews] = useState<PlaceSummary[]>([])
@@ -235,6 +237,7 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
           bottomInset={panelHeight}
           here={here}
           onHere={setHere}
+          onLocateStatus={setLocateStatus}
           onTapMap={(pin) => {
             // 한 번 찍으면 모드를 끈다. 켜 두면 시트를 닫는 손짓이 다음 핀이 된다.
             setPinning(false)
@@ -257,10 +260,10 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
             ext.onMapReady?.(host, m)
           }}
         />
-        {pinning && (
+        {(pinning || (showingMe && locateStatus !== 'idle')) && (
           <div style={{ position: 'absolute', top: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 5 }}>
             <span style={{ padding: '7px 12px', borderRadius: 999, background: 'rgba(250,250,250,0.78)', backdropFilter: 'blur(20px)', fontSize: 13, fontWeight: 500 }}>
-              {tr('지도를 눌러 장소를 찍으세요')}
+              {pinning ? tr('지도를 눌러 장소를 찍으세요') : locateStatus === 'denied' ? tr('위치 권한이 없어 현재 위치를 표시할 수 없습니다') : tr('현재 위치를 찾는 중입니다')}
             </span>
           </div>
         )}
