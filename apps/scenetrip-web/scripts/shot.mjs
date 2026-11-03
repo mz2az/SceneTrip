@@ -6,10 +6,10 @@
 //     --click "텍스트"                글자가 같은 요소를 눌러 본다 (여러 번 줄 수 있다, 눌린 뒤 300ms 쉰다)
 //     --scroll "선택자:픽셀"           선택자 요소를 세로로 스크롤한다
 //     --eval "js"                    페이지 안에서 실행할 코드 (여러 번 가능)
-//     --until domcontentloaded       기다릴 로드 단계(기본 networkidle2) — 스플래시처럼 금방 사라지는 화면용
+//     --until domcontentloaded       기다릴 로드 단계(기본 networkidle2) — DOMContentLoaded 뒤 --wait(기본 1.5초)만큼 기다렸다가 캡처
 //     --full                          요소가 아니라 전체 페이지
 //
-// 사용 예:  node scripts/shot.mjs "http://localhost:5273/search?dev-lang=ko&dev-seen=1&dev-nosplash=1" /private/tmp/x.png --wait 2500
+// 사용 예:  node scripts/shot.mjs "http://localhost:5273/search?dev-lang=ko" /private/tmp/x.png --wait 2500
 // 헤드리스 Chrome 한 개를 띄웠다 끝나면 닫는다. 사용자가 CPU 에 민감하므로 한 번에 하나씩만 돌린다.
 import puppeteer from 'puppeteer-core'
 import { mkdirSync } from 'node:fs'

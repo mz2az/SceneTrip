@@ -20,7 +20,7 @@ while (argv.length) {
 if (opt.only) opt.only = new Set(String(opt.only).split(','))
 if (opt.shots) mkdirSync(opt.shots, { recursive: true })
 
-const FLAGS = 'dev-lang=ko&dev-seen=1&dev-nosplash=1'
+const FLAGS = 'dev-lang=ko'
 const url = (path) => `${opt.base}${path}${path.includes('?') ? '&' : '?'}${FLAGS}`
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -213,9 +213,9 @@ const flows = (ids) => [
   {
     name: '영어 화면: 홈 · 마이페이지',
     run: async (page) => {
-      await page.goto(`${opt.base}/?dev-lang=en&dev-seen=1&dev-nosplash=1`, { waitUntil: 'networkidle2' })
+      await page.goto(`${opt.base}/?dev-lang=en`, { waitUntil: 'networkidle2' })
       await expectText(page, 'Trending')
-      await page.goto(`${opt.base}/profile?dev-lang=en&dev-seen=1&dev-nosplash=1`, { waitUntil: 'networkidle2' })
+      await page.goto(`${opt.base}/profile?dev-lang=en`, { waitUntil: 'networkidle2' })
       await sleep(800)
     },
   },

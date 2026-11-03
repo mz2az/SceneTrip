@@ -1,22 +1,14 @@
 /*
- * 첫 실행에 한 번 보여 주는 사용법 넉 장. (iOS: Onboarding/OnboardingView.swift)
+ * 마이페이지의 「사용법 다시 보기」에서 여는 넉 장. (iOS: Onboarding/OnboardingView.swift)
  * 고른 언어로 한 벌만 나온다. 원문은 한국어이고 그릴 때 tr() 로 번역한다.
+ * 웹은 첫 실행 사용법을 없앴으므로 다시 보기에서도 tutorial_* 이벤트를 보내지 않는다(MZ2AZ-523).
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { appEvent, track } from '@/analytics'
 import { PinoMascot, type PinoPose } from '@/design/PinoMascot'
 import { HStack, Pressable, Txt, VStack } from '@/design/primitives'
-import { readStorage, writeStorage } from '@/state/storage'
 import { tr, useLang } from '@/i18n'
 import { Backdrop } from './backdrops'
 import { finish, isLast, next, previous, select, startProgress, type Progress } from './progress'
-
-/** 사용법을 본 적이 있는지 — 판(version)으로 둔다. 장이 늘거나 기능이 바뀔 때만 올려 이미 쓰던 사람에게 한 번 더 보인다. */
-const ONBOARDING_KEY = 'scenetrip.onboarding.seenVersion'
-const ONBOARDING_VERSION = 1
-
-export const hasSeenOnboarding = (): boolean => Number(readStorage(ONBOARDING_KEY) ?? 0) >= ONBOARDING_VERSION
-export const markOnboardingSeen = (): void => writeStorage(ONBOARDING_KEY, String(ONBOARDING_VERSION))
 
 interface Lesson {
   pose: PinoPose
@@ -87,7 +79,6 @@ export function OnboardingView({ onDone }: { onDone: () => void }) {
   useLang()
   const [progress, setProgress] = useState<Progress>(() => startProgress(LESSONS.length))
   const scroller = useRef<HTMLDivElement>(null)
-  useEffect(() => track(appEvent.tutorialBegin()), [])
   const last = isLast(progress)
 
   const go = useCallback((page: number) => {
@@ -122,8 +113,6 @@ export function OnboardingView({ onDone }: { onDone: () => void }) {
     const { progress: p, fired } = finish(progress)
     setProgress(p)
     if (!fired) return
-    track(appEvent.tutorialComplete())
-    markOnboardingSeen()
     onDone()
   }
 

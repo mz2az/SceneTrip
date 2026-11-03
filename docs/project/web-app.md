@@ -5,6 +5,8 @@
 
 ## 1. 목표
 
+2026-11-03 웹 첫 실행 단순화 계획(MZ2AZ-523): 저장 언어가 없으면 영어로 시작하고 `AppRoot` 는 바로 앱을 그린다. 첫 실행 전용 화면·플래그·언어 새로고침 표시는 사용처를 확인해 지우고, 마이페이지에서 쓰는 사용법 다시 보기와 공용 마스코트는 남긴다. 웹의 `tutorial_*` 호출은 없애되 이벤트 정의·시험은 유지한다. 기존 명세 시험을 수정하지 않고 단위 시험·타입·린트를 로컬에서 확인한다. iOS 는 그대로 둔다.
+
 iOS 앱(`apps/scenetrip-ios`)의 **모든 화면과 기능을 브라우저에서 iOS 와 거의 똑같이** 동작하게 한다. 색·간격·글꼴·모서리·그림자·문구·아이콘·전환·빈/로딩/오류 상태까지, 한국어·영어 둘 다.
 Android 를 iOS 에 맞추는 작업(`docs/project/plans/android-ios-parity.md`)과 같은 기준이다 — 기준 화면은 iOS 소스와 iOS 스크린샷이다.
 
@@ -34,7 +36,7 @@ apps/scenetrip-web/
   scripts/        gen-api.mjs(계약→타입), sync-ios-assets.mjs(문구·그림), shot.mjs(스크린샷), paths.mjs(저장소 안 위치 한 곳)
   src/
     api/          client.ts(+재시도·안전장치), failure.ts, retry.ts, generated/(커밋 안 함)
-    app/          App, AppRoot(스플래시→언어→사용법→앱), RootTabs, TabBar, routes.ts, tabRouter.ts
+    app/          App, AppRoot(바로 앱, 언어가 바뀌면 RootTabs 재생성), RootTabs, TabBar, routes.ts, tabRouter.ts
     design/       tokens.css, primitives.tsx, Icon.tsx, overlay.tsx(Sheet/Cover/Alert/ActionSheet), PinoMascot
     i18n/         tr() · trAt() · 언어 선택
     state/        storage.ts(localStorage·작은 스토어), install.ts(X-Install-Id), auth.ts, cart·likes·footprints·consent·shared(계정 초기화·페이징)
@@ -51,15 +53,15 @@ apps/scenetrip-web/
 상태: ⬜ 안 함 · 🟨 구현됨, 비교·실행을 다 하지 못함(이유는 비고) · ✅ 구현·비교 완료. **유사도**는 §6 의 방법으로 화면마다 매긴다(비교하지 못한 화면은 `비교 안 함`, 「동일」이라 쓰지 않는다).
 iOS 출처는 `apps/scenetrip-ios/src/` 아래 경로다. 비교한 기준은 `/private/tmp/claude-501/e2e/audit/*-ios.png`·`…/data-filled/ios-*.png`(402×874pt) 와 웹 402×874 화면이다(상태바·홈 인디케이터는 제외, §6).
 
-모든 화면은 라우트에 실제로 달려 있고(`npm run dev` 로 열어 확인), 오류 없이 열린다. 기능 사이를 잇던 자리표시자(`state/*`, `features/*/index.ts`, `editorExtensions`)는 전부 실제 구현으로 채워졌다.
+아래 구현 화면은 라우트에 실제로 달려 있고(`npm run dev` 로 열어 확인), 오류 없이 열린다. 웹 첫 실행의 R1~R3 은 2026-11-03 제거해 비교 점수에서 제외한다(iOS 는 그대로, 사용법 다시 보기는 마이페이지에 남음). 기능 사이를 잇던 자리표시자(`state/*`, `features/*/index.ts`, `editorExtensions`)는 전부 실제 구현으로 채워졌다.
 
 ### 온보딩/루트
 
 | # | 화면 | iOS 출처 | 상태 | 유사도 | 비고 |
 | --- | --- | --- | --- | --- | --- |
-| R1 | 스플래시 | Onboarding/SplashView | 🟨 | 비교 안 함 | iOS 기준 스크린샷 없음 |
-| R2 | 언어 고르기 | Onboarding/LanguagePickView | ✅ | 97 | S3: 아이콘·글꼴 미세 |
-| R3 | 사용법 4장 | Onboarding/OnboardingView | ✅ | 97 | 그림·문구·점 표시 동일, 상태바 높이만 다름 |
+| R1 | 스플래시 | Onboarding/SplashView | 웹 제거 | 제외 | 웹은 2026-11-03 첫 실행에서 뺐다. iOS 는 그대로 |
+| R2 | 언어 고르기 | Onboarding/LanguagePickView | 웹 제거 | 제외 | 웹은 2026-11-03 첫 실행에서 뺐다. 저장값이 없으면 영어, 마이페이지에서 변경. iOS 는 그대로 |
+| R3 | 사용법 4장 | Onboarding/OnboardingView | 웹 첫 실행 제거 | 제외 | 웹은 2026-11-03 첫 실행에서 뺐다. 마이페이지의 다시 보기는 유지. iOS 는 그대로 |
 | R4 | 탭바(검색·홈·커뮤니티) | RootTabs | ✅ | 97 | S3: SF Symbols 대신 lucide |
 | R5 | 로그인 시트 | Auth/SignInView | 🟨 | 비교 안 함 | 웹용 Apple/Google 클라이언트 ID 가 없어 누르면 「준비 중」. 로그인은 실행하지 않았다(금지) |
 | R6 | 닉네임 시트 | Reviews/NicknameView | 🟨 | 비교 안 함 | 계정이 있어야 열린다 — 실행 못 함 |
@@ -146,6 +148,7 @@ iOS 출처는 `apps/scenetrip-ios/src/` 아래 경로다. 비교한 기준은 `/
 
 | iOS 기능 | 웹 | 대체 |
 | --- | --- | --- |
+| 홈 머리줄 마이페이지 단추(사람 모양) | 톱니바퀴(`gearshape`) | 언어 설정을 찾기 쉽도록 변경(2026-11-03, MZ2AZ-523) |
 | 푸시 알림 | Web Push 는 PWA 설치 뒤에만, 서버 발송 경로 없음 | 이번 범위 밖(iOS 도 푸시 없음 확인 필요) |
 | 위치 동의 시트(CoreLocation) | 브라우저 Geolocation 권한 창이 대신 | 앱 쪽 안내 시트는 그대로 두고, 승인 뒤 `navigator.geolocation` 호출 |
 | 네이버 지도 네이티브 SDK | 웹 SDK(JavaScript API v3)는 별도 클라이언트 ID·서비스 URL 등록 | §13 |
@@ -159,7 +162,7 @@ iOS 출처는 `apps/scenetrip-ios/src/` 아래 경로다. 비교한 기준은 `/
 
 iOS 스크린샷(`/private/tmp/claude-501/e2e/data-filled/ios-*.png`, `…/audit/*-ios.png`, 1206×2622 = 402×874pt @3x)과 웹 390/402px 화면을 나란히 놓고 차이를 목록화한다. 화면마다 100점에서
 **S1 기능·문구 어긋남 −30, S2 눈에 띄는 모양 차이 −10, S3 미세 −3** 을 뺀다. 평균을 보고에 같이 적는다. 비교하지 못한 화면은 평균에서 빼고 따로 적는다.
-상태바·홈 인디케이터는 브라우저에 없으므로 차이에서 제외한다(그 때문에 웹 화면의 위쪽 내용이 iOS 보다 약 54px 위에서 시작한다 — `--safe-top` 은 0).
+상태바·홈 인디케이터는 브라우저에 없으므로 차이에서 제외한다(그 때문에 웹 화면의 위쪽 내용이 iOS 보다 약 54px 위에서 시작한다 — `--safe-top` 은 0). 2026-11-03 부터 웹 첫 실행에서 없앤 스플래시·언어 고르기·사용법(R1~R3)도 비교 점수에서 제외한다. 위 10월 감사 점수·스플래시·사용법 실측은 당시 기록이며 다시 계산한 현행 점수가 아니다.
 
 2026-10-30 비교 방법: iOS 스크린샷과 같은 상태(같은 시트·같은 언어)를 웹에서 만들어 402×874 로 찍어 나란히 놓았다(`scripts/shot.mjs` 또는 puppeteer 러너, 스크린샷은 `/private/tmp/claude-501/web-port/final/`). 데이터가 다른 것(내 코스 유무, 서버 글)은 차이로 세지 않았다. 문구는 한국어·영어 둘 다 iOS `Localizable.strings` 에서 만든 표를 쓰고, 코드의 `tr("…")` 열쇠가 영어 표에 다 있는지는 시험이 지킨다(`src/i18n/index.test.ts`).
 
@@ -229,7 +232,7 @@ just check                                 # 저장소 전체 게이트 (웹 포
 cd apps/scenetrip-web && npm ci && npm run check
 ```
 
-`.env.local` 의 안전장치(`VITE_BLOCK_WRITES`·`VITE_BLOCK_PATHS=/guide,/navigation`)는 그대로 둔다. 화면 확인용 쿼리: `?dev-lang=ko|en`, `?dev-seen=1`(사용법 건너뜀), `?dev-nosplash=1`, `?dev-trip-dwell=10`(머무름 초).
+`.env.local` 의 안전장치(`VITE_BLOCK_WRITES`·`VITE_BLOCK_PATHS=/guide,/navigation`)는 그대로 둔다. 화면 확인용 쿼리: `?dev-lang=ko|en`, `?dev-trip-dwell=10`(머무름 초). 첫 실행 덮개가 없어져 `dev-seen`·`dev-nosplash` 는 2026-11-03 제거했다.
 
 2026-10-30 확인 결과: typecheck 통과, lint 통과(오류 0·경고 0), vitest 34 파일 464 시험 통과, `vite build` 통과. 모든 탭·덮개·시트 라우트(`/`, `/search`, `/search/content/:id`, `/search/place/:id`, `/community`, `/community/new`, `/courses`, `/courses/new`, `/courses/:id`, `/profile`, `/profile/*`)를 열어 페이지 오류 0 을 확인했다.
 
@@ -261,11 +264,11 @@ cd apps/scenetrip-web && npm ci && npm run check
 - `?dev-fake-guide=…` 는 전에 만들어져 있었으나 어디에도 연결되지 않았다 → `installDevFakeGuide()` 로 `sharedGuide` 에 연결.
 - 개발 서버가 DEV GET 200 을 10분 메모리에 둔다(분당 60회 한도 완화).
 - `scripts/e2e-smoke.mjs`: 13개 흐름(홈·탭·검색·작품/촬영지 상세·코스 목록·마법사·편집기·여행 중·가이드 서랍·커뮤니티·신고·글쓰기·마이페이지 시트·로그인/동의 시트·영어)을 훑는다. 마지막 실행(개발 서버 5273): 13/13 통과.
-- `scripts/shot.mjs --until domcontentloaded`(스플래시 캡처용).
+- `scripts/shot.mjs --until domcontentloaded`(DOMContentLoaded 뒤 `--wait`(기본 1.5초)만큼 기다렸다가 캡처; 당시 스플래시 캡처에도 썼으나 웹 스플래시는 2026-11-03 제거).
 
 ### 웹 캡처 준비(`/private/tmp/claude-501/web-port/p99/<ID>-web.png`, @2x 와 `-web-1x.png`)
 
-R1(스플래시), R5(로그인 시트), R6(닉네임 바꾸기), R7(AI 동의), S8(+`S8-chips`), C3, C4, C5(`-menu`·`-report`·`-block`), P5, P7, P8, T5, T6(`-open`·`-answer`). 13화면 모두 준비됨. 여는 방법은 `p99` 폴더와 같은 URL 플래그 + 클릭이며 `scripts/e2e-smoke.mjs` 흐름에 같은 단계가 있다.
+당시 캡처는 R1(스플래시), R5(로그인 시트), R6(닉네임 바꾸기), R7(AI 동의), S8(+`S8-chips`), C3, C4, C5(`-menu`·`-report`·`-block`), P5, P7, P8, T5, T6(`-open`·`-answer`) 13화면을 준비했다. R1 은 2026-11-03 웹에서 제거해 더 이상 열리지 않는다. 나머지를 여는 방법은 `p99` 폴더와 같은 URL 플래그 + 클릭이며 `scripts/e2e-smoke.mjs` 흐름에 같은 단계가 있다.
 
 ### 아직 비교하지 못한 것
 
@@ -273,7 +276,7 @@ R1(스플래시), R5(로그인 시트), R6(닉네임 바꾸기), R7(AI 동의), 
 
 ## 12. GA4 이벤트 (웹)
 
-iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 GA4 로 보낸다. 정본은 `docs/project/plans/analytics-events.md` 이고, 웹 코드는 `apps/scenetrip-web/src/analytics/` 에 있다.
+iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 정의한다. 웹은 2026-11-03 부터 `tutorial_begin`·`tutorial_complete` 를 보내지 않아 호출되는 이벤트는 24개다. 정본은 `docs/project/plans/analytics-events.md` 이고, 웹 코드는 `apps/scenetrip-web/src/analytics/` 에 있다.
 
 - `events.ts` — 이벤트 빌더 26개(`appEvent.*`). 이름·매개변수 키는 `AppEvent.swift`·`AppEvent.kt` 와 글자까지 같고 단위 시험(`analytics.test.ts`)이 표로 지킨다.
 - `ga4.ts` — 전송 계층. 공식 `gtag.js` 를 `https://www.googletagmanager.com/gtag/js?id=<ID>` 로 동적으로 넣는다(npm 의존성 없음, `index.html` 은 그대로).
@@ -295,13 +298,13 @@ iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 GA
 
 ### 이벤트별 웹 호출 위치
 
-파일은 `apps/scenetrip-web/src/` 기준. iOS 와 **같은 사용자 동작**에서 나가도록 iOS 호출 자리를 따랐다.
+파일은 `apps/scenetrip-web/src/` 기준. iOS 와 같은 사용자 동작의 호출 자리를 따르되, 웹 첫 실행 덮개를 없앤 뒤 `select_language` 는 마이페이지에서만 나가고 `tutorial_*` 는 호출하지 않는다.
 
 | 이벤트 | 웹 호출 위치 | 시점 |
 | --- | --- | --- |
-| `select_language` | `features/onboarding/LanguagePickView.tsx`, `features/profile/ProfileSettings.tsx` | 언어를 골랐다(첫 실행·마이페이지) |
-| `tutorial_begin` | `features/onboarding/OnboardingView.tsx` | 사용법이 떴다 |
-| `tutorial_complete` | `features/onboarding/OnboardingView.tsx` | 끝냈다(건너뛰기 포함, 한 번만) |
+| `select_language` | `features/profile/ProfileSettings.tsx` | 마이페이지에서 언어를 골랐다 |
+| `tutorial_begin` | 웹 호출 없음 | iOS 와 같은 이벤트 정의·시험만 유지(2026-11-03, 다시 보기에서도 보내지 않음) |
+| `tutorial_complete` | 웹 호출 없음 | iOS 와 같은 이벤트 정의·시험만 유지(2026-11-03, 다시 보기에서도 보내지 않음) |
 | `sign_up` · `login` | `features/profile/auth/account.ts` `completeSignIn` | 서버가 인증을 끝냈다. `isNewUser` 로 가르고 `method` 는 `google`·`apple` |
 | `logout` | `features/profile/auth/account.ts` `signOut` | 누른 즉시(iOS 와 같다) |
 | `delete_account` | `features/profile/auth/account.ts` `deleteAccount` | 서버가 지운 뒤 |
@@ -327,7 +330,7 @@ iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 GA
 
 ### 웹 대응 없음 · 어긋나는 점
 
-- 26개 모두 웹에 대응 기능이 있다. 다만 `start_trip`·`get_directions`·`visit_stamp` 는 개발 환경에서 `VITE_BLOCK_PATHS=/navigation` 으로 막으므로 실제 전송은 배포 환경에서만 나온다.
+- 26개 중 `tutorial_begin`·`tutorial_complete` 는 정의·시험만 남기고 웹에서는 보내지 않는다. 나머지 24개에 호출 지점이 있다. 다만 `start_trip`·`get_directions`·`visit_stamp` 는 개발 환경에서 `VITE_BLOCK_PATHS=/navigation` 으로 막으므로 실제 전송은 배포 환경에서만 나온다.
 - `course_origin=review`(후기에서 담음)는 iOS·Android 도 호출하는 곳이 없어 웹도 보내지 않는다. 커뮤니티 「내 코스로 담기」(`PostView.tsx`)는 `create_course` 를 보내지 않는다.
 - `start_trip`·`visit_stamp` 의 `place_id` 는 촬영지 id 만 보낸다. 편의시설·개인 핀 목적지는 id 가 없어 보내지 않는다(iOS 는 `place.id` 를 그대로 보낸다).
 - `like_title` 은 iOS 처럼 서버 응답 전에 나간다. 서버가 거절해 되돌려도 취소 이벤트는 없다.
@@ -337,7 +340,7 @@ iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 GA
 1. Firebase 콘솔(프로젝트 `scenetrip-5bf07`)에서 **웹 데이터 스트림**을 만들고 측정 ID(`G-…`)를 받는다.
 2. 그 값을 **배포 환경의 `VITE_GA_MEASUREMENT_ID`** 에 넣는다(코드·`.env.local` 에는 넣지 않는다).
 3. 개인정보 처리방침에 웹 분석 수집을 적는다(iOS·Android 와 같은 항목).
-4. 배포 후 GA4 DebugView 로 26개 중 실제로 눌러 볼 수 있는 것을 확인한다.
+4. 배포 후 GA4 DebugView 로 웹 호출이 남은 24개 중 실제로 눌러 볼 수 있는 것을 확인한다.
 
 ### 12.1 오류 추적(Sentry)과 사용 분석(PostHog) — 코드는 있고 키가 없어 꺼져 있다
 
@@ -346,7 +349,7 @@ iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 GA
 | 도구 | 보내는 것 | 켜는 변수 | 파일 |
 | --- | --- | --- | --- |
 | Sentry (`@sentry/react` 11.8.0) | 처리하지 못한 오류·거절된 약속만 | `VITE_SENTRY_DSN` | `sentry.ts` |
-| PostHog (`posthog-js` 1.438.12) | GA4 와 같은 이벤트 26개(같은 이름·매개변수) | `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST`(비면 미국 클라우드) | `posthog.ts` |
+| PostHog (`posthog-js` 1.438.12) | GA4 와 같은 이벤트 정의 26개 중 웹 호출 24개(같은 이름·매개변수, `tutorial_*` 제외) | `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST`(비면 미국 클라우드) | `posthog.ts` |
 
 - **Sentry 는 개인정보를 붙이지 않는다.** 사용자·IP·쿠키를 붙이지 않고(`sendDefaultPii: false`), 화면 녹화·성능 추적은 켜지 않는다. **브레드크럼(클릭·요청·콘솔 기록)을 끈다** — 요청 주소에 검색어·좌표가 들어 있어서다. 보내기 전에 보고의 주소에서 `?`·`#` 뒤, 쿠키, 헤더, 사용자를 지운다(`scrubEvent`).
 - **PostHog 는 자동 수집·화면 녹화·사용자 식별을 끈다**(`autocapture`·`capture_pageview`·`disable_session_recording`·`person_profiles: identified_only`). IP 는 저장하지 않게 하고(`ip: false`), 브라우저의 추적 거부(DNT)를 따른다. **쿠키를 쓰지 않고**(`persistence: 'localStorage'` — 기본값은 쿠키+저장소라 처리방침에 쿠키를 적어야 한다), SDK 가 자동으로 붙이는 주소 속성(`$current_url`·`$referrer` 등)의 `?`·`#` 뒤를 보내기 직전에 뗀다(`before_send`, 로그인 되돌림 해시의 토큰 방지). `track()` 으로 직접 보낸 이벤트만 간다. SDK 가 뜨기 전 이벤트는 최대 50개를 줄 세웠다가 보낸다.
@@ -384,8 +387,8 @@ iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 GA
 
 ## 14. 언어와 목록 속도 (2026-11-01, 멘토 피드백)
 
-- **지도 글자 언어** — 네이버 스크립트 주소에 `&language=ko|en` 을 싣는다(문서: <https://navermaps.github.io/maps.js.ncp/docs/tutorial-Language.html>, ko·en·zh·ja). 언어는 **스크립트를 불러올 때 한 번** 정해지고 바꿀 수 없다. 그래서 앱 언어를 바꿀 때 지도를 이미 다른 언어로 불러왔으면 쪽을 새로 열고(`naverScript.ts` `reloadOnLanguageChange`), 새 쪽은 스플래시를 건너뛴다(`sessionStorage` 표시). 지도를 아직 안 불러왔으면 새로 열지 않는다. **실제 네이버 영어 지도는 아직 못 봤다** — `localhost` 가 네이버 콘솔에 등록돼 있지 않아 로컬 인증이 500 으로 거절된다. 배포 뒤 `app.scenetrip.io` 에서 확인한다.
+- **지도 글자 언어** — 네이버 스크립트 주소에 `&language=ko|en` 을 싣는다(문서: <https://navermaps.github.io/maps.js.ncp/docs/tutorial-Language.html>, ko·en·zh·ja). 언어는 **스크립트를 불러올 때 한 번** 정해지고 바꿀 수 없다. 그래서 앱 언어를 바꿀 때 지도를 이미 다른 언어로 불러왔으면 쪽을 새로 연다(`naverScript.ts` `reloadOnLanguageChange`). 지도를 아직 안 불러왔으면 새로 열지 않는다. 웹 스플래시를 2026-11-03 없앴으므로 건너뛰기용 `sessionStorage` 표시도 제거했다. **실제 네이버 영어 지도는 아직 못 봤다** — `localhost` 가 네이버 콘솔에 등록돼 있지 않아 로컬 인증이 500 으로 거절된다. 배포 뒤 `app.scenetrip.io` 에서 확인한다.
 - **언어를 바꾸면 서버에서 받아 둔 사본을 비운다** — 서버는 영어 요청에 영어 작품 제목 128 개를 다 준다(실측). 그런데 웹이 처음 받은 언어로 들고 있던 작품·촬영지(AI 일정 마법사의 「좋아하는 작품」)·찜·담기 사본이 언어를 바꿔도 그대로여서 한글이 남았다. `onLanguageChange` 로 마법사 재료는 비우고 찜·담기는 새 언어로 다시 받는다.
-- **언어 고르기 첫 화면** — 기기 언어(고르기 전 기본값: 한국어가 아니면 영어)가 위에 오고 제목도 그 언어가 먼저다.
+- **첫 실행 언어** — 2026-11-03 언어 고르기 첫 화면을 없앴다(MZ2AZ-523). 저장값이 없거나 지원하지 않는 값이면 기기 언어와 무관하게 영어로 시작하고, 저장된 ko/en 은 유지한다. 언어는 마이페이지 설정에서 바꾼다. iOS 는 그대로다.
 - **작품 목록 속도** — 서버 응답은 0.06 초인데 Cloudflare Pages 중계(`/v1`)를 거치면 0.3~0.5 초가 더 걸린다(2026-11-01 실측, 같은 주소 3회). 작품을 한 번 누르면 상세와 촬영지 두 호출이 나간다. 중계가 **공개 목록**(`/v1/contents`·`/v1/places` 와 그 상세, 작품의 촬영지)을 가까운 곳 캐시에 2분(브라우저 30초) 담아 둔다. 로그인·설치 식별 헤더가 붙은 요청, 검색어(`q`)가 있는 요청, 쓰기는 담지 않는다. 응답 언어(`Accept-Language`)가 열쇠에 들어간다. 포스터는 외부 CDN 의 큰 원본(150~640 KB, 느린 곳은 2 초 이상)이라 웹에서 줄일 방법이 없다 — 크기를 줄인 썸네일은 서버(파이프라인)가 줘야 한다.
 

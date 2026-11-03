@@ -44,10 +44,10 @@ npm run dev          # predev 가 npm run gen 을 먼저 돌린다
 | `npm run typecheck` / `npm run lint` / `npm test` | 타입·린트·단위 시험(vitest) |
 | `npm run build` | 타입 검사 + 프로덕션 번들(`dist/`) — `just web-build` 와 같은 결과 |
 | `npm run check` | 위를 모두 |
-| `node scripts/shot.mjs <URL> <out.png>` | 설치된 Chrome 을 puppeteer-core 로 돌려 402×874@3x 스크린샷 (iOS 스크린샷과 같은 크기). `--scale 2`, `--click 글자`, `--eval 코드`, `--until domcontentloaded`(스플래시처럼 금방 사라지는 화면) |
+| `node scripts/shot.mjs <URL> <out.png>` | 설치된 Chrome 을 puppeteer-core 로 돌려 402×874@3x 스크린샷 (iOS 스크린샷과 같은 크기). `--scale 2`, `--click 글자`, `--eval 코드`, `--until domcontentloaded`(DOMContentLoaded 뒤 `--wait`(기본 1.5초)만큼 기다렸다가 캡처) |
 | `node scripts/e2e-smoke.mjs [--base URL] [--only 이름,…] [--shots 폴더]` | 핵심 흐름(홈→탭→검색→작품·촬영지 상세→코스 목록·마법사·편집기→커뮤니티→마이페이지·시트)을 헤드리스 Chrome 으로 훑어 콘솔 오류·실패한 요청·4xx/5xx·깨진 이미지·쓰기/유료 호출을 센다. 하나라도 있으면 종료 코드 1. 개발 서버가 떠 있어야 한다 |
 
-개발 서버에서만 URL 로 상태를 정할 수 있다(`src/devFlags.ts`): `?dev-lang=ko|en`, `?dev-seen=1`(사용법 본 것으로), `?dev-nosplash=1`.
+개발 서버에서만 URL 로 상태를 정할 수 있다(`src/devFlags.ts`): `?dev-lang=ko|en`.
 계정·기록이 있어야 열리는 화면은 서버 쓰기 없이 **읽기 전용 가짜 응답**(`src/devMock.ts`)으로 연다: `?dev-account=1`(가짜 로그인 — 저장소에는 쓰지 않는다 — 과 `/me`·`/me/reviews`·`/me/blocks`·`/me/posts`), `?dev-stamps=1`(방문 기록이 찍힌 코스 `9001`), `?dev-stamps=active`(여행 중인 코스 `9001`). 둘 중 하나라도 켜면 GET 이 아닌 요청은 서버로 나가지 않고 204 로 돌아온다. 가이드 챗봇은 `?dev-fake-guide=answer|answer-text|slow|…`(`features/route/guide/devFake.ts`, 유료 `/guide/chat` 을 부르지 않는다).
 개발 서버는 DEV API 의 GET 200 응답을 10분 메모리에 둔다(`vite.config.ts`, DEV 분당 60회 한도 때문. `SCENETRIP_NO_API_CACHE=1` 로 끈다).
 
@@ -63,6 +63,8 @@ npm run dev          # predev 가 npm run gen 을 먼저 돌린다
 Bazel 빌드(`just web-build`)는 호스트 환경 변수를 받지 않아 `VITE_*` 가 비어 있는 번들이 나온다(키가 들어간 배포 번들은 Cloudflare 가 `npm run build` 로 만든다).
 
 ## 구조
+
+웹은 2026-11-03 첫 실행의 스플래시·언어 고르기·사용법을 없애고 바로 앱을 보여 준다(MZ2AZ-523). 저장된 언어가 없으면 영어로 시작하고 마이페이지 설정에서 바꾼다. 「사용법 다시 보기」는 마이페이지에 남기되 웹에서 `tutorial_begin`·`tutorial_complete` 는 보내지 않는다. iOS 는 그대로다.
 
 계획 문서 §3. iOS 와 같은 구조: 탭 셋(작품검색·홈·커뮤니티) + 덮개 둘(경로여정 `/courses`·마이페이지 `/profile`). 경로는 `src/app/routes.ts` 에서만 만든다.
 디자인 토큰은 `src/design/tokens.css` 에 iOS 소스의 파일:줄 출처와 함께 있다. 문구는 iOS 와 같은 `tr("한국어 원문")` 규칙이다(`src/i18n`).

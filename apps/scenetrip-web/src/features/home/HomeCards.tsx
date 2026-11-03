@@ -48,7 +48,8 @@ export function HomeHeader({ onProfile }: { onProfile: () => void }) {
         aria-label={tr('마이페이지')}
         style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--system-background)', display: 'grid', placeItems: 'center', boxShadow: shadow('rgba(0,0,0,0.08)', 1.5, 1), flex: 'none' }}
       >
-        <Icon name="person" size={17} weight="medium" />
+        {/* 첫 실행 언어 고르기를 빼 설정 입구를 드러낸다(2026-11-03). iOS 는 사람 모양 그대로다. */}
+        <Icon name="gearshape" size={17} weight="medium" />
       </Pressable>
     </HStack>
   )
