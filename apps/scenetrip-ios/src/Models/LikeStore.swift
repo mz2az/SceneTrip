@@ -71,6 +71,7 @@ final class LikeStore: ObservableObject {
     }
 
     private var resetWatch: AnyCancellable?
+    private var languageWatch: AnyCancellable?
     private let defaults: UserDefaults
 
     private let key = "scenetrip.likedContents"
@@ -78,8 +79,17 @@ final class LikeStore: ObservableObject {
     private let migratedKey = "scenetrip.likesOnServer"
     private let installId = InstallIdentity.current
 
-    init(defaults: UserDefaults = .standard, refreshOnInit: Bool = true) {
+    /// 찜 목록(요약)을 서버에서 끝까지 받는다. 시험이 가짜로 바꿔 끼운다.
+    private let fetchSummaries: (() async throws -> [ContentSummary])?
+
+    init(
+        defaults: UserDefaults = .standard,
+        refreshOnInit: Bool = true,
+        fetchSummaries: (() async throws -> [ContentSummary])? = nil,
+        languageChanges: AnyPublisher<Lang, Never> = AppLanguage.changes.eraseToAnyPublisher()
+    ) {
         self.defaults = defaults
+        self.fetchSummaries = fetchSummaries
         // 숫자로 저장하지만 **읽을 때는 문자열도 받아 준다** — 도구(`defaults`)로
         // 심은 값이 문자열로 들어오는 일이 실제로 있었다(2026-08-28).
         let saved = defaults.array(forKey: key) ?? []
@@ -93,6 +103,11 @@ final class LikeStore: ObservableObject {
             failure = nil
             defaults.set(true, forKey: migratedKey)
             save()
+        }
+        // 요약(작품 이름)은 받을 때의 언어다 — 언어가 바뀌면 새 언어로 다시 받는다(MZ2AZ-529, 웹과 같다).
+        // 이 저장소는 앱에 하나라 화면을 다시 만들어도 남는다. 받기 전까지는 전의 것을 그대로 보인다.
+        languageWatch = languageChanges.sink { [weak self] _ in
+            Task { await self?.reloadSummaries() }
         }
         if refreshOnInit {
             Task { await refresh() }
@@ -213,6 +228,9 @@ final class LikeStore: ObservableObject {
 
     /// 계약의 한 번 최대가 100 이라 끝까지 넘긴다. 찜은 사람이 누른 만큼이라 전부 받아도 작다.
     private func fetchAll() async throws -> [ContentSummary] {
+        if let fetchSummaries {
+            return try await fetchSummaries()
+        }
         var all: [ContentSummary] = []
         var paging = Paging()
         while paging.hasMore {

@@ -61,7 +61,9 @@ struct ProfileTabView: View {
     @State private var askingFootprintConsent = false
     @State private var showingPosts = false
 
-    /// 앱 언어 (MZ2AZ-343). 바꾸면 루트가 화면을 통째로 다시 만들어 이 덮개도 닫힌다.
+    /// 앱 언어 (MZ2AZ-343). 바꾸면 루트(`RootTabs`)는 통째로 다시 만들어지지만 **이 덮개는 떠 있는 채다** —
+    /// `TabRouter.cover` 가 남아 있고 스크롤 위치·받아 둔 목록도 그대로였다(MZ2AZ-529 시뮬레이터). 그래서 제목과
+    /// 받아 둔 목록(담은 곳·찜·코스)은 여기서 새 언어로 맞춘다.
     @ObservedObject private var language = AppLanguage.shared
     @State private var choosingLanguage = false
     @AppStorage(UsageStatistics.key) private var statisticsEnabled = true
@@ -247,7 +249,9 @@ struct ProfileTabView: View {
                         .listRowBackground(Color.clear)
                 }
             }
-            .navigationTitle("마이페이지")
+            // 문자열로 넘긴다 — 글자 열쇠(`LocalizedStringKey`)로 두면 언어를 바꿔도 내비게이션 막대가
+            // 처음 언어의 제목을 그대로 들고 있었다(MZ2AZ-529 시뮬레이터: 영어로 바꿨는데 「마이페이지」).
+            .navigationTitle(tr("마이페이지"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if let onClose {
@@ -273,6 +277,8 @@ struct ProfileTabView: View {
                 await load()
             }
             .onAccountChange { await load() }
+            // 담은 곳·코스 이름은 받을 때의 언어다. 덮개가 떠 있는 채 언어를 바꾸면 새 언어로 다시 받는다(MZ2AZ-529).
+            .onChange(of: language.lang) { Task { await load() } }
             .onReceive(AccountDataReset.changes) { clearAccountData() }
             .onAppear { refreshTrackingPermission() }
             .onChange(of: scenePhase) { _, phase in

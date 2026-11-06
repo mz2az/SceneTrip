@@ -101,6 +101,7 @@ struct NaverMapView: UIViewRepresentable {
         view.showZoomControls = false
         view.showLocationButton = false
         view.mapView.logoAlign = .leftBottom
+        NaverMapLocale.apply(to: view.mapView)
         // 첫 진입은 **남한 전체** 다. 촬영지가 서울에만 있는 것이 아니라
         // 강릉·포항·제주까지 흩어져 있어, 서울만 비추면 나머지가 없는 것처럼 보인다.
         view.mapView.moveCamera(NMFCameraUpdate(fit: Self.Coordinator.korea, padding: 24))
@@ -110,6 +111,7 @@ struct NaverMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ view: NMFNaverMapView, context: Context) {
+        NaverMapLocale.apply(to: view.mapView)
         context.coordinator.onTapPin = onTapPin
         context.coordinator.onLocateFailure = onLocateFailure
         context.coordinator.render(
