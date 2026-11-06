@@ -9,6 +9,7 @@ import SceneApiClient
 /// 1. 토큰을 받는 창구(계약의 `security`)에 `Authorization: Bearer` 를 싣는다.
 /// 2. `ACCESS_TOKEN_EXPIRED` → 갱신(동시에 하나) → 원래 요청을 **한 번** 다시 보낸다.
 /// 3. 세션이 깨졌으면 토큰을 지우고 로그인 화면, 비회원이 가입 전용 기능을 불렀으면 로그인 화면.
+/// 4. 토큰 없이 보낸 요청이 `SESSION_REQUIRED` 면 설치 식별자를 새로 만든다(`InstallRenewal`, MZ2AZ-521).
 ///
 /// 끊김·5xx·분당 한도의 재시도는 여기가 아니라 **이 빌더가 내주는 세션**이 한다(`RetryingSession`, MZ2AZ-366).
 /// 그쪽이 안쪽이다 — 거기서 끝내 실패한 것만 여기로 올라오고, 401 은 그쪽 규칙에 없어 곧장 올라온다.
@@ -45,7 +46,7 @@ private enum AuthIntercept {
 
     static func finish<T>(
         _ result: Swift.Result<Response<T>, ErrorResponse>,
-        builder: RequestBuilder<T>,
+        builder: URLSessionRequestBuilder<T>,
         sent: String?,
         identity: AuthTokens.Snapshot,
         resend: @escaping (@escaping Completion<T>) -> Void,
@@ -59,6 +60,11 @@ private enum AuthIntercept {
         }
         guard AuthTokens.isSameSession(as: identity) else {
             completion(result)
+            return
+        }
+        // 토큰 없이 보낸 요청의 `SESSION_REQUIRED` — 설치 식별자가 가입 계정에 묶인 채 남았다(MZ2AZ-521).
+        // 토큰을 지우는 `signOut` 이 아니라 새 비회원이 되는 길이다. 토큰을 실어 받은 거절은 아래 표를 탄다.
+        if InstallRenewal.handle(result, builder: builder, resend: resend, completion: completion) {
             return
         }
         switch AuthRules.action(status: status, code: AuthRules.apiCode(from: data)) {
@@ -126,6 +132,15 @@ private enum UncachedSession {
     }()
 }
 
+/// 시험이 이 빌더들의 세션 자리를 바꿔 끼우는 곳 (MZ2AZ-521). **앱에서는 언제나 nil** 이고 아래 두 세션을 쓴다.
+///
+/// 생성 클라이언트의 기본 세션은 모듈 안에 숨은 `URLSession(configuration: .default)` 라 전역 `URLProtocol` 등록도
+/// 닿지 않는다(실측 — 대역을 등록해도 진짜 DNS 조회가 나갔다). 401 처리(`AuthIntercept`)까지 이어지는 경로를
+/// 시험하려면 이 자리가 필요하다.
+enum AuthTransportOverride {
+    static var session: URLSessionProtocol?
+}
+
 /// 진짜 세션을 재시도 세션으로 감싼 것 둘 (MZ2AZ-366). **캐시 없는 세션도 같은 규칙을 탄다.**
 ///
 /// 생성 코드의 기본 세션은 모듈 안에 숨어 있어 `super.createURLSession()` 으로만 얻는다 — 처음 받은 것을
@@ -149,7 +164,10 @@ private enum RetrySessions {
 
 private final class AuthPlainBuilder<T>: URLSessionRequestBuilder<T> {
     override func createURLSession() -> URLSessionProtocol {
-        AuthRules.carriesSignedUrls(url: URLString)
+        if let session = AuthTransportOverride.session {
+            return session
+        }
+        return AuthRules.carriesSignedUrls(url: URLString)
             ? RetrySessions.uncached : RetrySessions.standard(super.createURLSession())
     }
 
@@ -174,7 +192,10 @@ private final class AuthPlainBuilder<T>: URLSessionRequestBuilder<T> {
 
 private final class AuthDecodableBuilder<T: Decodable>: URLSessionDecodableRequestBuilder<T> {
     override func createURLSession() -> URLSessionProtocol {
-        AuthRules.carriesSignedUrls(url: URLString)
+        if let session = AuthTransportOverride.session {
+            return session
+        }
+        return AuthRules.carriesSignedUrls(url: URLString)
             ? RetrySessions.uncached : RetrySessions.standard(super.createURLSession())
     }
 

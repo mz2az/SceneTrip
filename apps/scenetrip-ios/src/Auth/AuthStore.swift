@@ -28,7 +28,11 @@ final class AuthStore: ObservableObject {
     /// 확정하지 않았을 때 한 번 켠다. 맨 위 화면이 `nicknameSheet` 로 올린다.
     @Published var askingNickname = false
 
-    private let installId = InstallIdentity.current
+    /// 매번 읽는다 — 설치 식별자는 바뀔 수 있다(MZ2AZ-521).
+    private var installId: UUID {
+        InstallIdentity.current
+    }
+
     private let hasStoredSession: () -> Bool
     private let fetchProfile: () async throws -> Me
     private let refreshLikes: () async -> Void
@@ -216,6 +220,20 @@ final class AuthStore: ObservableObject {
                 showingSignIn = true
             }
         }
+    }
+
+    /// 설치 식별자를 새로 만들었다(MZ2AZ-521, `InstallRenewal`) — 로그인이 정식 로그아웃 없이 풀려 가입 계정에
+    /// 묶인 채 남았던 번호를 버리고 새 비회원이 됐다. 서버 입장에서는 계정이 바뀐 것이므로 정식 로그아웃(`forget`)과
+    /// 같이 `accountChanged` 로 화면이 새 번호로 다시 읽게 한다.
+    ///
+    /// 토큰·발자취는 건드리지 않는다 — 토큰은 이미 없고(그래야 여기 온다), 앞 계정의 기기 기록은 세션이 풀릴 때
+    /// `sessionLost` 가 이미 지웠다. 화면 사본도 비우지 않는다(`AccountDataReset`): 옛 번호로는 아무것도 받지
+    /// 못했으므로 비울 것이 없고, 비우면 새 번호로 다시 보내 받은 조회 응답까지 버려진다.
+    ///
+    /// 그 사이 로그인했으면 아무것도 하지 않는다.
+    func installRenewed() {
+        guard !signedIn else { return }
+        accountChanged()
     }
 
     // MARK: 닉네임 (MZ2AZ-363)
