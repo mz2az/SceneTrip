@@ -143,7 +143,7 @@ struct SearchTabView: View {
                     tab = .place
                 }
                 detent = .medium
-                focusToken += 1
+                move(SearchCameraRules.opening(.pin))
             }
             .ignoresSafeArea()
 
@@ -233,13 +233,12 @@ struct SearchTabView: View {
             }
         }
         .onChange(of: tab) { _, current in
-            guard isInitial else { return }
-            if current == .place, !visiblePlaces.isEmpty {
-                fitToken += 1
-            } else if current == .work {
-                // 작품 탭은 특정 촬영지를 가리키지 않는다 — 남한 전체로 돌아간다.
-                koreaToken += 1
-            }
+            // 작품 탭은 특정 촬영지를 가리키지 않는다 — 남한 전체로 돌아간다. 작품 탭 첫 화면에서 핀을 눌러
+            // 장소 탭으로 넘어온 것이면 인기 핀 맞춤이 그 장소로의 확대를 덮지 않는다(MZ2AZ-519).
+            move(SearchCameraRules.afterTabChange(
+                to: current, isInitial: isInitial,
+                hasPins: !visiblePlaces.isEmpty, placeOpen: selectedPlace != nil
+            ))
         }
         .onChange(of: data.phase) { _, phase in
             guard phase == .loaded, pendingFit else { return }
@@ -487,6 +486,9 @@ private extension SearchTabView {
     }
 
     /// 홈이 남긴 「이 촬영지 열어 줘」 쪽지를 연다 — 작품 상세를 거치지 않고 바로 장소 상세.
+    ///
+    /// 그 장소로 **확대**한다(MZ2AZ-519). 전에는 핀 전체 맞춤(`fitToken`)을 올려 한반도 전체에 인기 핀만
+    /// 보였다. 그 장소가 핀 목록에 없으면 지도가 번호 없는 강조 핀을 하나 더 꽂는다(`PinMarks`).
     func openPendingPlace(_ wanted: PlaceSummary?) {
         guard let wanted else { return }
         selectedContent = nil
@@ -494,7 +496,17 @@ private extension SearchTabView {
         selectedPlace = wanted
         searchFocused = false
         detent = .medium
-        fitToken += 1
+        move(SearchCameraRules.opening(.homeNote))
         router.pendingPlace = nil
+    }
+
+    /// 카메라 규칙(`SearchCameraRules`)이 정한 일을 맞는 토큰으로 옮긴다.
+    func move(_ step: SearchCameraMove) {
+        switch step {
+        case .none: break
+        case .fitPins: fitToken += 1
+        case .focusPlace: focusToken += 1
+        case .korea: koreaToken += 1
+        }
     }
 }

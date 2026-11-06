@@ -71,7 +71,8 @@ struct NaverMapView: UIViewRepresentable {
     /// 값이 바뀐 순간에만 카메라를 결과 전체 범위로 맞춘다. 칩 조작에서는 그대로 둔다.
     let fitToken: Int
 
-    /// 값이 바뀐 순간에만 `focus` 로 카메라를 확대한다.
+    /// 값이 바뀐 순간에만 `focus` 로 카메라를 확대한다. `focus` 는 지금 열어 둔 장소이기도 해서
+    /// 그 핀을 강조하고, 핀 목록에 없으면 하나 더 꽂는다(`PinMarks`, MZ2AZ-519).
     let focusToken: Int
     let focus: PlaceSummary?
 
@@ -256,21 +257,27 @@ struct NaverMapView: UIViewRepresentable {
             // 끌어 올려도 로고·축척이 제자리에 있다가 탭을 눌러야 뒤늦게 따라왔다.
             applyInset(on: mapView)
 
-            // 번호 표시 여부가 바뀌면 아이콘을 다시 그려야 하므로 키에 함께 넣는다.
-            let key = pins.map { String($0.id) }.joined(separator: ",") + (numbered ? "#n" : "#p")
+            // 번호 표시 여부·열어 둔 장소가 바뀌면 아이콘을 다시 그려야 하므로 키에 함께 넣는다.
+            let key = PinMarks.key(pins, numbered: numbered, selected: focus)
             if key != lastPinKey {
                 lastPinKey = key
                 markers.forEach { $0.mapView = nil }
                 // 번호는 배열 순서다 — 목록도 같은 배열을 같은 순서로 그리므로
-                // "목록의 3번 = 지도의 3번" 이 성립한다.
-                let spread = Self.spread(pins)
-                markers = pins.enumerated().map { index, place in
+                // "목록의 3번 = 지도의 3번" 이 성립한다. 열어 둔 장소가 목록에 없으면(홈 「오늘의 성지」)
+                // 번호 없는 강조 핀이 맨 뒤에 붙는다(MZ2AZ-519).
+                let marks = PinMarks.marks(pins, selected: focus, numbered: numbered)
+                let spread = Self.spread(marks.map(\.place))
+                markers = marks.enumerated().map { index, mark in
+                    let place = mark.place
                     let marker = NMFMarker(position: spread[index])
-                    marker.iconImage = PinImage.numbered(numbered ? index + 1 : nil)
+                    marker.iconImage = PinImage.image(number: mark.number, selected: mark.selected)
                     // 긴 영어 이름이 옆 핀을 덮지 않게 앞머리만, 정해진 폭 안에서(MZ2AZ-372).
                     marker.captionText = PinCaption.text(place.name)
                     marker.captionRequestedWidth = PinCaption.width
                     marker.captionMinZoom = 13
+                    if mark.selected {
+                        Self.emphasize(marker)
+                    }
                     marker.touchHandler = { [weak self] _ in
                         self?.onTapPin(place)
                         return true
@@ -344,6 +351,20 @@ struct NaverMapView: UIViewRepresentable {
             if mapView.logoMargin != margin {
                 mapView.logoMargin = margin
             }
+        }
+
+        /// 열어 둔 장소의 핀(MZ2AZ-519, 웹 `.st-pin-selected` 와 같은 뜻) — 1.3배 아이콘은 `PinImage` 가 굽고,
+        /// 여기서는 이름표를 **줌과 상관없이 핀 위에** 띄우고 다른 핀보다 위에 놓는다.
+        ///
+        /// 이름표를 핀 아래(기본)에 두면 장소 좌표 바로 밑에 붙는 지도 자체의 지명(예: 탄도항)과 겹친다
+        /// (웹 577bb385). 그래도 겹치는 지도 글자는 이 핀에 한해 숨긴다(`isHideCollidedSymbols`).
+        private static func emphasize(_ marker: NMFMarker) {
+            marker.captionAligns = [NMFAlignType.top]
+            marker.captionMinZoom = 0
+            marker.captionTextSize = 13
+            marker.zIndex = 500
+            marker.isForceShowIcon = true
+            marker.isHideCollidedSymbols = true
         }
 
         /// 선택한 장소 하나로 확대한다.
@@ -566,8 +587,11 @@ struct NaverMapView: UIViewRepresentable {
 /// 넣는다. 같은 번호는 캐시로 재사용한다: 계획서 §3-5 가 "타이핑마다 수십 개를
 /// 다시 굽으면 버벅인다" 고 적은 그 비용을 피하는 장치다.
 enum PinImage {
-    /// 번호 없는 핀은 -1 로 담는다 — 번호가 유일한 차이라 캐시를 나눌 이유가 없다.
-    private static var cache: [Int: NMFOverlayImage] = [:]
+    /// 번호 없는 핀은 -1 로 담고, 열어 둔 장소의 핀은 따로 담는다.
+    private static var cache: [String: NMFOverlayImage] = [:]
+
+    /// 열어 둔 장소의 핀은 이만큼 키운다(웹 `.st-pin-selected` 의 scale(1.3)).
+    static let selectedScale: CGFloat = 1.3
 
     /// 그라데이션 양끝 색. 목록의 번호 배지도 같은 색을 써서 핀과 짝이 맞는다.
     /// deep 은 흰 배지 위 번호에도 쓰이므로 파스텔이어도 이쪽은 살짝 진하게 둔다.
@@ -580,15 +604,25 @@ enum PinImage {
     /// 그렇게 이어 볼 목록이 아니라 순위표라, 지도에까지 번호를 찍으면 무엇과
     /// 짝지으라는 것인지 알 수 없다.
     static func numbered(_ number: Int?) -> NMFOverlayImage {
-        let key = number ?? -1
+        image(number: number, selected: false)
+    }
+
+    /// `selected` 는 **지금 열어 둔 장소**의 핀이다(MZ2AZ-519). 색은 그대로 두고(웹 af6eee6b 가 고른 것 —
+    /// 다른 색이면 번호 배지·목록과 짝이 깨진다) 1.3배로 키우며, 번호가 없으면 흰 원 가운데에 보라 점을 찍어
+    /// 민 핀과 구분한다. 번호가 있으면 번호를 그대로 둔다.
+    static func image(number: Int?, selected: Bool) -> NMFOverlayImage {
+        let key = "\(number ?? -1)" + (selected ? "s" : "")
         if let cached = cache[key] {
             return cached
         }
-        let size = CGSize(width: 38, height: 50)
+        let scale = selected ? selectedScale : 1
+        let size = CGSize(width: 38 * scale, height: 50 * scale)
         let head = CGPoint(x: 19, y: 17)
         let tip = CGPoint(x: 19, y: 45)
         let image = UIGraphicsImageRenderer(size: size).image { ctx in
             let cgContext = ctx.cgContext
+            // 그림은 38×50 좌표로 그리고 통째로 키운다 — 꼬리 끝이 아래 가운데에 머문다.
+            cgContext.scaleBy(x: scale, y: scale)
 
             // 머리 원의 아래쪽 좌우(135°→45°, 시계방향으로 위를 지나)에서
             // 꼬리 끝점으로 이어 물방울 모양을 만든다.
@@ -634,13 +668,23 @@ enum PinImage {
             path.stroke()
 
             // 흰 원 배지에 컬러 번호 — 흰 바탕이라 작은 크기에서도 또렷하다.
-            guard let number else { return }
+            guard number != nil || selected else { return }
 
             UIColor.white.setFill()
             UIBezierPath(
                 arcCenter: head, radius: 10,
                 startAngle: 0, endAngle: .pi * 2, clockwise: true
             ).fill()
+
+            // 번호 없는 열어 둔 장소 — 흰 원 가운데 보라 점(웹 pinSvg 의 r=4.5).
+            guard let number else {
+                deep.setFill()
+                UIBezierPath(
+                    arcCenter: head, radius: 4.5,
+                    startAngle: 0, endAngle: .pi * 2, clockwise: true
+                ).fill()
+                return
+            }
 
             let text = "\(number)"
             let attributes: [NSAttributedString.Key: Any] = [
