@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// 첫 실행에 한 번 보여 주는 사용법 넉 장.
+/// 마이페이지 「사용법 다시 보기」가 여는 사용법 넉 장.
 ///
-/// ## 고른 언어로 한 벌만 나온다
+/// 2026-11-07 첫 실행에서는 뺐다(MZ2AZ-526, 웹 MZ2AZ-523 과 같다). 그래서 다시 보기에서도
+/// `tutorial_begin`·`tutorial_complete` 를 보내지 않는다 — 웹과 같다.
 ///
-/// 이 앱은 **외국인이 쓰는 앱**이다(계획서 §1). 사용법보다 먼저 언어를 묻고
-/// (`LanguagePickView`), 여기서는 그 언어로만 적는다 (MZ2AZ-343). 원문은 한국어이고
-/// 그릴 때 `tr()` 로 번역한다 — 영어 문장은 번역 표(`Localizable.strings`)에 있다.
+/// ## 앱 언어로 한 벌만 나온다
+///
+/// 원문은 한국어이고 그릴 때 `tr()` 로 번역한다 — 영어 문장은 번역 표(`Localizable.strings`)에 있다.
 ///
 /// ## 넉 장인 이유
 ///
@@ -85,13 +86,10 @@ struct OnboardingView: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { navigation }
         .background(Color(.systemBackground))
-        .onAppear { AppAnalytics.log(.tutorialBegin) }
     }
 
     private func finish() {
         guard progress.finish() else { return }
-        AppAnalytics.log(.tutorialComplete)
-        OnboardingFlag.markSeen()
         onDone()
     }
 

@@ -40,18 +40,12 @@ enum Pino {
     /// 벡터 판의 흔적 — 이미지 판에서는 그림이 제 색을 갖고 있어 몸 색을 바꾸지
     /// 않는다. `picked`(지도에서 고른 곳)만 `PinoPin` 이 빨간 테로 표현한다.
     enum Tone {
-        case onDeep
         case onLight
         case picked
     }
 
     /// 그림의 세로/가로 비율 (해태 앉기 컷아웃 525×582 — 진도와 달리 세로가 길다).
     static let aspect: CGFloat = 582.0 / 525.0
-
-    /// 프레임 바닥과 발끝 사이 — 그림 아래 여백만큼이다. 스플래시의 그림자가 쓴다.
-    static func tipInset(width: CGFloat) -> CGFloat {
-        width * 0.05
-    }
 }
 
 struct PinoMascot: View {
@@ -65,10 +59,6 @@ struct PinoMascot: View {
 
     @State private var breathing = false
     @State private var swaying = false
-
-    static func tipInset(width: CGFloat) -> CGFloat {
-        Pino.tipInset(width: width)
-    }
 
     private var imageName: String {
         switch pose {
@@ -142,7 +132,7 @@ struct PinoMascot: View {
 #Preview("해태 · 포즈") {
     VStack(spacing: 24) {
         HStack(spacing: 20) {
-            PinoMascot(pose: .plain, tone: .onDeep, width: 120)
+            PinoMascot(pose: .plain, width: 120)
             PinoMascot(pose: .magnifier, width: 120)
         }
         HStack(spacing: 20) {

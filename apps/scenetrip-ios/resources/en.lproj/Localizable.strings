@@ -191,6 +191,8 @@
 "답을 기다리다 멈췄어요. 다시 시도해 주세요" = "Stopped waiting for the answer. Tap Try again";
 "다시 연결하는 중이에요" = "Reconnecting…";
 "요청이 많아 잠시 기다리는 중이에요" = "Lots of requests right now. Waiting a moment…";
+/* 홈 머리줄 톱니바퀴 단추의 낭독 이름 — 누르면 마이페이지 (MZ2AZ-526). */
+"설정" = "Settings";
 "설정 열기" = "Open Settings";
 "설정에서 위치 접근을 허용하면 현재 위치를 보여 드립니다." = "Allow location access in Settings to see where you are.";
 "설치 식별자 %@…" = "Install ID %@…";

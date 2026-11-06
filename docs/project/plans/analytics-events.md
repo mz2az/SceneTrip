@@ -33,9 +33,9 @@ flowchart LR
 | 이벤트 | 언제 | 매개변수 | 구현(iOS) | 구현(Android) |
 | --- | --- | --- | --- | --- |
 | `first_open` ★ | 설치 뒤 첫 실행 | (SDK 가 자동으로) | — | — |
-| `select_language` | 언어를 골랐다(첫 실행·마이페이지) | `language` | `AppLanguage.choose` | `AppLanguage.choose` |
-| `tutorial_begin` ★ | 사용법 첫 장이 보였다 | — | `OnboardingView` | `OnboardingView` |
-| `tutorial_complete` ★ | 사용법을 끝냈다(건너뛰기 포함) | — | `OnboardingView.finish` | `OnboardingView.finish` |
+| `select_language` | 언어를 골랐다(마이페이지 — 첫 실행 언어 고르기는 웹 MZ2AZ-523·iOS MZ2AZ-526 에서 없앴다) | `language` | `AppLanguage.choose` | `AppLanguage.choose` |
+| `tutorial_begin` ★ | 사용법 첫 장이 보였다 | — | 보내지 않음(MZ2AZ-526 — 첫 실행 사용법 제거, 다시 보기에서도 안 보냄. 정의만 남김) | `OnboardingView` |
+| `tutorial_complete` ★ | 사용법을 끝냈다(건너뛰기 포함) | — | 보내지 않음(MZ2AZ-526, 위와 같음) | `OnboardingView.finish` |
 | `sign_up` ★ | 이 구글 계정으로 처음 로그인(가입) | `method` = `google` | `AuthStore.signInWithGoogle` | 미연결 — `AuthStore`가 main 에 없다(MZ2AZ-336 병합 대기) |
 | `login` ★ | 다시 로그인 | `method` | 〃 | 〃 |
 | `logout` | 로그아웃 | — | `AuthStore.signOut` | 〃 |
