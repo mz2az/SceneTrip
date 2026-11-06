@@ -22,6 +22,33 @@ struct CommunityPhotoPlacement: Equatable {
     }
 }
 
+/// 본문 사진 아래의 AI 변환 표시와 출처(MZ2AZ-528, Android·웹과 같은 규칙).
+/// **AI 변환 표시는 고지라 늘 보이고**, 길게 늘어지는 출처 문장(공공누리 표기 등)은 「더 보기」 뒤로 접는다.
+/// 확대 화면(`CommunityPhotoViewer`)의 출처는 접지 않는다.
+struct CommunityPhotoNotice: Equatable {
+    let aiGenerated: Bool
+    /// 앞뒤 공백을 뗀 출처. 비어 있으면 nil — 접기 단추도 없다.
+    let credit: String?
+
+    init(block: TripPostBlock) {
+        aiGenerated = block.aiGenerated == true
+        let credit = CommunityRules.normalized(block.credit ?? "")
+        self.credit = credit.isEmpty ? nil : credit
+    }
+
+    var isEmpty: Bool {
+        !aiGenerated && credit == nil
+    }
+
+    var foldsCredit: Bool {
+        credit != nil
+    }
+
+    func shownCredit(open: Bool) -> String? {
+        open ? credit : nil
+    }
+}
+
 enum CommunityArticle {
     static let paragraphLimit = 64
 
@@ -34,6 +61,44 @@ enum CommunityArticle {
 
     static func plainBody(_ body: String) -> String {
         paragraphs(body).joined(separator: "\n\n")
+    }
+
+    /// 글 끝에 덧붙이는 구간의 제목(첫 줄) — 가이드 글은 끝에 「References」·「Photo credits」 를 글 블록으로 단다.
+    /// Android `CommunityArticle.referenceHeadings`·웹 `REFERENCE_HEADINGS` 와 같은 목록이다(소문자로 비교).
+    private static let referenceHeadings: Set<String> = [
+        "references", "reference", "photo credits", "photo credit", "image credits",
+        "참고 자료", "참고자료", "사진 출처", "이미지 출처", "출처",
+    ]
+
+    /// 덧붙임 구간의 첫 블록이면 그 제목(쓴 그대로의 첫 줄), 아니면 nil. 대소문자는 가리지 않는다.
+    static func referenceHeading(_ block: TripPostBlock) -> String? {
+        guard block.kind == .text, let text = block.text else { return nil }
+        let normalized = CommunityRules.normalized(
+            text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+        ).precomposedStringWithCanonicalMapping
+        let first = (normalized.split(separator: "\n", omittingEmptySubsequences: false).first.map(String.init) ?? "")
+            .trimmingCharacters(in: .whitespaces)
+        return referenceHeadings.contains(first.lowercased()) ? first : nil
+    }
+
+    /// 본문과 끝의 덧붙임(참고 자료·사진 출처) 구간으로 나눈다. 끝에서부터 첫 줄이 덧붙임 제목인 글 블록만 모으므로
+    /// 본문 중간의 같은 말은 건드리지 않는다. 읽는 화면만 덧붙임을 한 줄로 접는다(작성 미리보기는 그대로).
+    static func splitReferences(_ blocks: [TripPostBlock]) -> (body: [TripPostBlock], references: [TripPostBlock]) {
+        var start = blocks.count
+        while start > 0, referenceHeading(blocks[start - 1]) != nil {
+            start -= 1
+        }
+        return (Array(blocks[..<start]), Array(blocks[start...]))
+    }
+
+    /// 접힌 줄의 이름 — 덧붙임 제목을 글에 쓴 그대로 잇는다(글 언어를 따른다).
+    static func referencesLabel(_ references: [TripPostBlock]) -> String {
+        references.compactMap(referenceHeading).joined(separator: " · ")
+    }
+
+    /// 접기 단추(References 줄·사진 출처 「더 보기」)가 VoiceOver 에 알릴 상태 — 번역 열쇠(한국어 원문).
+    static func foldStateKey(open: Bool) -> String {
+        open ? "펼침" : "접힘"
     }
 
     static func canCompose(_ body: String) -> Bool {
