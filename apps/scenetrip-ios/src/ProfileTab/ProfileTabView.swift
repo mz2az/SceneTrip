@@ -52,7 +52,10 @@ struct ProfileTabView: View {
     @State private var showingCourses = false
     @State private var showingLikes = false
 
-    private let installId = InstallIdentity.current
+    /// 매번 읽는다 — 설치 식별자는 바뀔 수 있다(MZ2AZ-521).
+    private var installId: UUID {
+        InstallIdentity.current
+    }
 
     /// 커뮤니티에 쓴 글 — 기기 저장소를 마이페이지가 같이 본다.
     @ObservedObject private var posts = CommunityStore.shared

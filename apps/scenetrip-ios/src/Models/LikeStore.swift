@@ -76,7 +76,10 @@ final class LikeStore: ObservableObject {
     private let key = "scenetrip.likedContents"
     /// 옛 기기 찜을 서버로 다 올렸는가.
     private let migratedKey = "scenetrip.likesOnServer"
-    private let installId = InstallIdentity.current
+    /// 매번 읽는다 — 설치 식별자는 바뀔 수 있다(MZ2AZ-521).
+    private var installId: UUID {
+        InstallIdentity.current
+    }
 
     init(defaults: UserDefaults = .standard, refreshOnInit: Bool = true) {
         self.defaults = defaults

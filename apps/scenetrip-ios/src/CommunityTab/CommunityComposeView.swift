@@ -237,7 +237,10 @@ private struct CoursePickSheet: View {
     @State private var fetching: Int64?
     @State private var message: String?
 
-    private let installId = InstallIdentity.current
+    /// 매번 읽는다 — 설치 식별자는 바뀔 수 있다(MZ2AZ-521).
+    private var installId: UUID {
+        InstallIdentity.current
+    }
 
     var body: some View {
         NavigationStack {

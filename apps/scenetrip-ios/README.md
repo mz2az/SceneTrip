@@ -254,6 +254,40 @@ GPS 관찰은 이미 받은 경로를 다시 요청하지 않는다. 자동 재�
 [후속 검증 기록](../../docs/qa/ios-release-followup-verification.md)은 자동 시험과
 실제 화면 확인, 실제 계정·실기기에 남은 동선을 구분한다.
 
+### 로그인이 저절로 풀린 설치본 — 설치 UUID 새로 만들기 (MZ2AZ-521)
+
+로그인하면 서버가 이 설치본의 `X-Install-Id`를 가입 계정에 묶는다. 정식 로그아웃은 서버가
+묶음을 풀어 새 비회원에 짝지어 준다(계약 `/auth/sign-out`). 로그인이 저절로 풀리면(리프레시
+거절 등) 앱은 토큰만 지우므로, 그 뒤 토큰 없는 요청은 모두 `401 SESSION_REQUIRED`를 받는다.
+이 문제를 고치기 전에는 앱을 지웠다 깔 때까지 홈 「내 여행」·장바구니·찜을 불러오지 못했다.
+
+`Auth/InstallRenewal.swift`가 생성 클라이언트의 401 처리(`AuthRequestBuilder.swift`) 안에서
+웹(MZ2AZ-520 `renewInstall`)과 같은 규칙을 적용한다.
+
+- 토큰 없이 보낸 요청이 `SESSION_REQUIRED`를 받았고 응답이 도착했을 때도 세션이 없으면 설치 UUID를 새로 만든다.
+  토큰을 실어 받은 거절은 기존처럼 토큰을 지우고 로그인 화면을 띄운다. 세션이 있으면(그 사이 로그인, 또는
+  리프레시 토큰만 남은 상태) 번호를 바꾸지 않고 같은 기존 처리에 넘긴다. 그 사이 로그인했다면 기존 처리의
+  `clear(ifCurrent:)`가 실패해 새 로그인을 지우지 않는다.
+- 한 실행(프로세스)에서 번호는 한 번만 바꾼다. 새 번호마저 거절되면 바꾸지도 다시 보내지도 않고 기존 처리에 넘긴다.
+  바꾸기 → 화면 다시 읽기 → 거절 → 바꾸기 고리를 막기 위해서다.
+- 그 요청이 보낸 번호가 지금 번호일 때만 바꾼다(`InstallIdHolder.renew(from:)`, 잠금 안에서).
+  같은 낡은 번호로 거절받은 요청 여럿이 와도 한 번만 바뀐다. 이미 바뀐 뒤 도착한 옛 번호의 거절은 다시 바꾸지 않는다.
+- 조회(GET·HEAD)는 지금 번호로 한 번만 다시 보내고, 그 응답을 그대로 돌려준다. 쓰기는 다시 보내지 않는다.
+- 새 번호는 처음 만들 때와 같은 키체인 자리(`installId`)에 저장하므로 다음 실행에도 유지된다. 키체인에 쓰지 못하면
+  키체인에 남은 낡은 값을 지우고 옛 `UserDefaults` 자리에 쓴다. 다음 실행의 `resolve`가 키체인을 먼저 읽기 때문이다. 그래서 `InstallIdentity.current`는 고정값이 아니다. 화면 객체(`CartStore`·
+  `LikeStore`·`RouteStore`·`HomeTabModel`·마이페이지·커뮤니티 작성)는 요청할 때마다 이 값을 다시 읽는다.
+- 실제로 바꿨으면 `AuthStore.installRenewed()`가 `epoch`를 올린다. 그러면 `onAccountChange`를 단
+  화면(홈·장바구니·코스·마이페이지·커뮤니티)과 찜이 새 번호로 다시 읽는다. 토큰·발자취·화면 사본은 건드리지 않는다.
+  세션이 풀릴 때 `sessionLost`가 이미 지웠다.
+
+옛 번호는 서버에서 가입 계정에 묶인 채 남는다. 그 계정의 데이터(장바구니·코스·찜)는 계정에 그대로 있고,
+다시 로그인하면 새 번호로 계정에 들어간다. 웹과 같은 동작이다. 「이 기기의 기록 지우기」(`GuestDeleteRequest`)와
+이용 통계(`UsageEventRequestBuilder`)는 이 401 처리를 거치지 않으므로 번호를 바꾸지 않는다.
+시험: `tests/InstallIdHolderTests.swift`(저장 자리), `tests/InstallRenewalTests.swift`(가로채기 규칙),
+`tests/InstallRenewalWiringTests.swift`(생성 클라이언트 `CartAPI.getCart` → `AuthRequestBuilderFactory` → 401 처리 →
+새 번호로 다시 보내기). 마지막 시험은 URLProtocol 대역을 단 세션을 `AuthTransportOverride.session`에 끼운다.
+생성 클라이언트의 기본 세션에는 전역 `URLProtocol` 등록이 닿지 않기 때문이다. 앱에서 이 자리는 언제나 비어 있다.
+
 ### 영문 길안내 노선 표시 (MZ2AZ-250)
 
 길안내 목적지명·언어 안내는 긴 문구를 줄바꿈하며, 소요 시간과 경로 요약은
@@ -532,6 +566,7 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
   끊는다(처음 보낸 요청은 끊지 않는다). 뒷문 `-netFault "guide/chat:cut:2"` 는 보낸 뒤 2초에 끊는다.
 - 설치 식별자는 **키체인**에 둔다(`Keychain.swift`, MZ2AZ-335) — 옛 자리(`UserDefaults` `scenetrip.deviceId`)의 값은
   첫 실행에 옮긴다. 키체인은 앱을 지워도 남으므로 설치 뒤 첫 실행에는 남은 값을 버린다(지웠다 깔면 새 설치본).
+  로그인이 저절로 풀려 가입 계정에 묶인 채 남은 값은 새로 만든다(MZ2AZ-521, 위 「로그인이 저절로 풀린 설치본」 절).
 - `InstallIdentity.swift` 를 `CartStore` 밖으로 뗐다 — 코스 API 도 같은 설치 식별자가
   필요해서다 (MZ2AZ-261).
 

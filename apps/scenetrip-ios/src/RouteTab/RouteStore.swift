@@ -29,7 +29,10 @@ final class RouteStore: ObservableObject {
     /// 목록을 처음 받아오는 중인가.
     @Published private(set) var loading = false
 
-    private let installId = InstallIdentity.current
+    /// 매번 읽는다 — 설치 식별자는 바뀔 수 있다(MZ2AZ-521).
+    private var installId: UUID {
+        InstallIdentity.current
+    }
 
     /// 질문 흐름과 AI 초안이 쓰는 **서버의 진짜 장소·작품.**
     ///

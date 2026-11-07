@@ -14,7 +14,10 @@ struct MyCoursesSheet: View {
     @State private var expanded: Int64?
     @State private var details: [Int64: CourseDetail] = [:]
 
-    private let installId = InstallIdentity.current
+    /// 매번 읽는다 — 설치 식별자는 바뀔 수 있다(MZ2AZ-521).
+    private var installId: UUID {
+        InstallIdentity.current
+    }
 
     var body: some View {
         VStack(spacing: 0) {

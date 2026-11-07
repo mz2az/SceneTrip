@@ -45,17 +45,21 @@ final class CartStore: ObservableObject {
     @Published private(set) var items: [CartItem] = []
     @Published private(set) var toast: String?
 
-    private let installId: UUID
+    /// 부를 때마다 지금 설치 식별자를 준다. 만들 때 한 번 쥐면 바뀐 뒤에도 옛 값을 보낸다(MZ2AZ-521).
+    private let installId: () -> UUID
     private let client: any CartClient
     private var resetWatch: AnyCancellable?
 
-    init() {
-        installId = InstallIdentity.current
-        client = ServerCartClient()
-        watchReset()
+    convenience init() {
+        self.init(installId: { InstallIdentity.current }, client: ServerCartClient())
     }
 
-    init(installId: UUID, client: any CartClient) {
+    convenience init(installId: UUID, client: any CartClient) {
+        self.init(installId: { installId }, client: client)
+    }
+
+    /// 설치 식별자를 부를 때마다 읽는다 — 바뀔 수 있다(MZ2AZ-521).
+    init(installId: @escaping () -> UUID, client: any CartClient) {
         self.installId = installId
         self.client = client
         watchReset()
@@ -78,7 +82,7 @@ final class CartStore: ObservableObject {
         let generation = AccountDataReset.generation
         loadState = .loading
         do {
-            let cart = try await client.fetch(installId: installId)
+            let cart = try await client.fetch(installId: installId())
             guard generation == AccountDataReset.generation else { return }
             items = cart.items
             placeIds = Set(cart.items.map(\.placeId))
@@ -93,7 +97,7 @@ final class CartStore: ObservableObject {
     func add(placeId: Int64, sourceContentId: Int64? = nil) async {
         let generation = AccountDataReset.generation
         do {
-            try await client.add(installId: installId, placeId: placeId, sourceContentId: sourceContentId)
+            try await client.add(installId: installId(), placeId: placeId, sourceContentId: sourceContentId)
             guard generation == AccountDataReset.generation else { return }
             placeIds.insert(placeId)
             toast = tr("장바구니에 담았습니다")
@@ -115,7 +119,7 @@ final class CartStore: ObservableObject {
     func remove(placeId: Int64) async {
         let generation = AccountDataReset.generation
         do {
-            try await client.remove(installId: installId, placeId: placeId)
+            try await client.remove(installId: installId(), placeId: placeId)
         } catch {
             guard generation == AccountDataReset.generation else { return }
             toast = tr("빼지 못했습니다. 잠시 후 다시 시도해 주세요")
