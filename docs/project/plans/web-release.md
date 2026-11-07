@@ -83,6 +83,8 @@ Pages 대시보드 → 프로젝트 만들기 → Git 연결.
 
 배포 설정: `functions/v1/[[path]].ts` 가 `/v1/*` 를 `https://api.scenetrip.io` 로 전달하고, `public/_routes.json` 이 그 길에만 Function 을 부르게 한다. `VITE_API_BASE` 는 비워 둔다(같은 출처 `/v1`). 시험: `src/proxy/forward.test.ts`.
 
+시험용 웹 `dev.scenetrip.io`(MZ2AZ-536): 목적지는 Pages 변수 `API_UPSTREAM` 이 정한다. **Production 에는 넣지 않는다**(비면 운영 `https://api.scenetrip.io`). **Preview** 에 `https://api-dev.scenetrip.io` 를 넣고, `dev.scenetrip.io` 는 Pages 사용자 지정 도메인으로 붙인 뒤 DNS CNAME 을 `dev` 브랜치 배포(`dev.scenetrip-app.pages.dev`)로 바꿨다 — `dev` 브랜치에 main 을 올리면 DEV 서버를 쓰는 웹이 된다. 두 서버 밖의 값이면 Function 이 500 `UPSTREAM_MISCONFIGURED` 로 막는다(열린 중계 방지). 로그인 허용: Google 웹 클라이언트의 원본·리디렉션 URI 에 `https://dev.scenetrip.io`(…`/auth/callback/google`), 네이버 지도 Web 서비스 URL 에 같은 주소. Apple 은 웹 로그인 서버 준비 전이라 dev 에서 시험하지 않는다. GA4 측정 ID 는 Preview 에 넣지 않는다(운영 지표와 섞이지 않게).
+
 ## 5. CORS 요청서 (권호 님)
 
 ### 5.1 서버의 현재 설정 (읽기만 함)
