@@ -48,10 +48,14 @@ enum CommunityPhotoSource {
 struct CommunityArticleView: View {
     let blocks: [TripPostBlock]
     let photos: [CommunityPhotoSource]
+    /// 글 끝의 「References」·「Photo credits」 를 한 줄 뒤로 접는다 — 읽는 화면만 켠다(작성 미리보기는 다 보인다).
+    /// 길고 주소가 섞여 본문 끝이 어지러웠다(MZ2AZ-528, Android·웹 `splitReferences` 와 같은 규칙).
+    var foldReferences = false
 
     var body: some View {
+        let parts = foldReferences ? CommunityArticle.splitReferences(blocks) : (body: blocks, references: [])
         LazyVStack(alignment: .leading, spacing: 22) {
-            ForEach(Array(blocks.enumerated()), id: \.offset) { offset, block in
+            ForEach(Array(parts.body.enumerated()), id: \.offset) { offset, block in
                 if block.kind == .text, let text = block.text {
                     Text(verbatim: text).font(.body).lineSpacing(6)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -60,6 +64,92 @@ struct CommunityArticleView: View {
                 } else if block.kind == .photo, let index = block.photoIndex, photos.indices.contains(index) {
                     CommunityArticlePhoto(source: photos[index], block: block)
                         .accessibilityIdentifier("community-body-photo-\(index)")
+                }
+            }
+            if !parts.references.isEmpty {
+                CommunityReferencesFold(blocks: parts.references)
+            }
+        }
+    }
+}
+
+/// 접힌 덧붙임 구간 — 줄 이름은 글의 제목 줄을 그대로 쓴다(글 언어를 따른다). 누르면 펼치고 다시 누르면 접는다.
+/// 모양은 코스 편집기의 접힌 알림줄(`RouteEditorView.draftNotes`)과 같은 결 — 보조 글자색 + 위·아래 꺾쇠.
+struct CommunityReferencesFold: View {
+    let blocks: [TripPostBlock]
+    @State private var open = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { open.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(verbatim: CommunityArticle.referencesLabel(blocks)).font(.caption)
+                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption2.weight(.semibold))
+                }
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 6)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(tr(CommunityArticle.foldStateKey(open: open)))
+            .accessibilityIdentifier("community-references-toggle")
+            if open {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(blocks.enumerated()), id: \.offset) { offset, block in
+                        if let text = block.text {
+                            Text(verbatim: text).font(.caption).foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                                .accessibilityIdentifier("community-reference-\(offset)")
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// 사진 아래 AI 변환 표시와 출처. **AI 변환 표시는 고지라 늘 보이고**, 출처 문장은 「더 보기」 뒤로 접는다(MZ2AZ-528).
+/// 확대 화면(`CommunityPhotoViewer`)의 출처는 그대로 다 보인다.
+struct CommunityPhotoNoticeView: View {
+    let notice: CommunityPhotoNotice
+    @State private var open = false
+
+    var body: some View {
+        if !notice.isEmpty {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 0) {
+                    if notice.aiGenerated {
+                        Label(tr("AI 변환 이미지"), systemImage: "sparkles")
+                            .font(.caption2).foregroundStyle(.secondary)
+                        Spacer(minLength: 8)
+                    }
+                    if notice.foldsCredit {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) { open.toggle() }
+                        } label: {
+                            HStack(spacing: 2) {
+                                Text(tr("더 보기")).font(.caption2)
+                                Image(systemName: open ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 9, weight: .semibold))
+                            }
+                            .foregroundStyle(.secondary)
+                            .padding(.vertical, 6)
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityValue(tr(CommunityArticle.foldStateKey(open: open)))
+                        .accessibilityIdentifier("community-photo-credit-toggle")
+                    }
+                }
+                if let credit = notice.shownCredit(open: open) {
+                    Text(verbatim: credit).font(.caption2).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("community-photo-credit")
                 }
             }
         }
@@ -96,14 +186,7 @@ struct CommunityArticlePhoto: View {
             if let caption = block.caption, !caption.isEmpty {
                 Text(verbatim: caption).font(.caption).foregroundStyle(.secondary)
             }
-            if block.aiGenerated == true {
-                Label(tr("AI 변환 이미지"), systemImage: "sparkles")
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
-            if let credit = block.credit, !credit.isEmpty {
-                Text(verbatim: credit).font(.caption2).foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-            }
+            CommunityPhotoNoticeView(notice: CommunityPhotoNotice(block: block))
         }
         .task(id: "\(source.objectKey)-\(failed ? source.identity : "")-\(attempt)") { await load() }
         .fullScreenCover(isPresented: $expanded) {

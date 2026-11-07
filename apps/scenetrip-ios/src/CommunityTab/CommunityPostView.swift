@@ -65,7 +65,7 @@ struct CommunityPostView: View {
 
                         authorRow
 
-                        CommunityArticleView(blocks: articleBlocks, photos: articlePhotos)
+                        CommunityArticleView(blocks: articleBlocks, photos: articlePhotos, foldReferences: true)
 
                         if let course = post.course {
                             courseCard(course)
