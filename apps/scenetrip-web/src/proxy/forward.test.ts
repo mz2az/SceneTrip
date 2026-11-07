@@ -1,7 +1,7 @@
 // @vitest-environment node
 // `/v1/*` 역프록시 — 목적지 고정, 헤더 정리, 본문 전달, 실패 처리 (src/proxy/forward.ts)
 import { describe, expect, it } from 'vitest'
-import { type EdgeCache, cacheKey, cacheableRequest, forward, forwardedHeaders, upstreamUrl } from './forward'
+import { type EdgeCache, cacheKey, cacheableRequest, forward, forwardedHeaders, upstreamFrom, upstreamUrl } from './forward'
 
 type Call = { url: string; init: RequestInit & { duplex?: string } }
 
@@ -37,6 +37,39 @@ describe('upstreamUrl', () => {
   })
 })
 
+describe('upstreamFrom', () => {
+  // 운영 Pages 환경은 API_UPSTREAM 을 두지 않는다 — 비어 있으면 지금처럼 운영 서버로 간다.
+  it('값이 없거나 비어 있으면 운영 서버', () => {
+    for (const value of [undefined, '', '   ', '\t\n']) {
+      expect(upstreamFrom(value), JSON.stringify(value)).toBe('https://api.scenetrip.io')
+    }
+  })
+
+  it('DEV 서버 주소는 DEV 서버로 — 끝 빗금 하나와 앞뒤 공백은 봐준다', () => {
+    expect(upstreamFrom('https://api-dev.scenetrip.io')).toBe('https://api-dev.scenetrip.io')
+    expect(upstreamFrom('https://api-dev.scenetrip.io/')).toBe('https://api-dev.scenetrip.io')
+    expect(upstreamFrom(' https://api-dev.scenetrip.io/ ')).toBe('https://api-dev.scenetrip.io')
+  })
+
+  it('운영 서버를 직접 적어도 운영 서버', () => {
+    expect(upstreamFrom('https://api.scenetrip.io')).toBe('https://api.scenetrip.io')
+  })
+
+  // 오타나 나쁜 값 하나로 아무 호스트에나 대신 가 주는 열린 프록시가 되면 안 된다.
+  it('정해 둔 두 서버가 아니면 null', () => {
+    for (const value of [
+      'http://api-dev.scenetrip.io',
+      'https://evil.example.com',
+      'https://api-dev.scenetrip.io.evil.com',
+      'https://api-dev.scenetrip.io/v1',
+      'https://user@api-dev.scenetrip.io',
+      'api-dev.scenetrip.io',
+    ]) {
+      expect(upstreamFrom(value), value).toBeNull()
+    }
+  })
+})
+
 describe('forwardedHeaders', () => {
   it('인증·설치 번호·언어는 남기고 출처·호스트·Cloudflare·전달자 헤더는 뗀다', () => {
     const out = forwardedHeaders(
@@ -67,6 +100,14 @@ describe('forward', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('x-trace')).toBe('abc')
     expect(await res.text()).toBe('{"items":[]}')
+  })
+
+  it('DEV 서버를 목적지로 주면 dev 사이트의 요청이 DEV 서버로 간다', async () => {
+    const server = fakeServer(ok)
+    const res = await forward(new Request('https://dev.scenetrip.io/v1/contents?limit=1'), server.fetcher, 'https://api-dev.scenetrip.io')
+    expect(server.calls).toHaveLength(1)
+    expect(server.calls[0].url).toBe('https://api-dev.scenetrip.io/v1/contents?limit=1')
+    expect(res.status).toBe(200)
   })
 
   it('POST 의 본문을 서버로 넘긴다', async () => {

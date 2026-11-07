@@ -19,6 +19,20 @@
 
 export const UPSTREAM = 'https://api.scenetrip.io'
 
+/** 이 중계가 보낼 수 있는 서버 — 운영과 DEV 두 곳뿐이다. */
+const KNOWN_UPSTREAMS = new Set([UPSTREAM, 'https://api-dev.scenetrip.io'])
+
+/**
+ * Pages 변수 `API_UPSTREAM` 에서 목적지를 고른다(MZ2AZ-536). 운영 환경은 변수를 두지 않아 지금처럼 운영 서버로, 시험용 `dev.scenetrip.io`(Preview 환경의
+ * `dev` 브랜치 배포)는 `https://api-dev.scenetrip.io` 를 넣어 DEV 서버로 간다. 두 서버 밖의 값이면 null — 오타 하나로 아무 곳에나 전달하는 열린 중계가 되지 않게.
+ */
+export function upstreamFrom(value: string | undefined): string | null {
+  const trimmed = (value ?? '').trim()
+  if (trimmed === '') return UPSTREAM
+  const base = trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed
+  return KNOWN_UPSTREAMS.has(base) ? base : null
+}
+
 const ALLOWED_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
 
 /** 이 호출에서 서버로 넘기지 않는 요청 헤더(소문자). */
