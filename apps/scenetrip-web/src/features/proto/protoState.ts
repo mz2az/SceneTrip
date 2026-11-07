@@ -6,7 +6,7 @@
  */
 import { api } from '@/api/client'
 import { reloadHome } from '@/features/home/homeModel'
-import { routeActions } from '@/features/route/store'
+import { routeActions, routeStore } from '@/features/route/store'
 import { currentLang } from '@/i18n'
 import { cartActions } from '@/state/cart'
 import { installHeader } from '@/state/install'
@@ -84,11 +84,11 @@ export const protoActions = {
   },
   /** 시안의 저장값을 지우고 처음 들어온 사람처럼. */
   async reset() {
-    // 시안으로 만든 코스(DEV 서버)와 시안 여행 기억을 지운다. 지운 뒤 코스 목록·홈·장바구니를 다시 받아 화면에서도 사라지게 한다.
-    const ids = readJSON<number[]>(COURSES_KEY, [])
-    const current = protoStore.get().trip?.courseId
-    if (current != null && !ids.includes(current)) ids.push(current)
-    await Promise.all(ids.map((id) => api.DELETE('/courses/{courseId}', { params: { header: installHeader(), path: { courseId: id } } }).catch(() => undefined)))
+    // 이 브라우저(설치)의 코스를 **전부** DEV 서버에서 지우고 시안 여행 기억도 지운다(사용자 요청 2026-11-07 — 시안은 로컬 DEV 전용).
+    // 지운 뒤 코스 목록·홈·장바구니를 다시 받아 화면에서도 사라지게 한다.
+    await routeActions.refreshCourses()
+    const ids = new Set([...routeStore.get().summaries.map((c) => c.id), ...readJSON<number[]>(COURSES_KEY, [])])
+    await Promise.all([...ids].map((id) => api.DELETE('/courses/{courseId}', { params: { header: installHeader(), path: { courseId: id } } }).catch(() => undefined)))
     writeJSON(COURSES_KEY, [])
     writeJSON(TRIP_KEY, null)
     await Promise.all([routeActions.refresh(), reloadHome(), cartActions.refresh()])

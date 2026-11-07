@@ -367,7 +367,7 @@ export function ProtoSwitcher() {
   const [open, setOpen] = useState(false)
   const options: ReadonlyArray<[Proto | null, string]> = [['a', 'A 질문 카드만'], ['b', 'B 질문 먼저'], [null, '끔(지금 화면)']]
   return (
-    <div style={{ position: 'absolute', left: 14, bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 72px)', zIndex: 60 }}>
+    <div style={{ position: 'absolute', left: 14, bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 104px)', zIndex: 60 }}>
       {open && (
         <VStack spacing={4} align="stretch" style={{ position: 'absolute', bottom: 34, left: 0, width: 200, padding: 8, borderRadius: 14, background: 'var(--system-background)', boxShadow: '0 6px 24px rgba(0,0,0,0.18)' }}>
           {options.map(([p, label]) => (
@@ -376,7 +376,7 @@ export function ProtoSwitcher() {
             </Pressable>
           ))}
           <Pressable plain onClick={() => { void protoActions.reset(); setOpen(false) }} style={{ padding: '8px 10px', textAlign: 'left' }}>
-            <Txt size={14} color="red">처음부터 (시안으로 만든 여행 지우기)</Txt>
+            <Txt size={14} color="red">처음부터 (내 코스 모두 지우기)</Txt>
           </Pressable>
         </VStack>
       )}
@@ -387,15 +387,18 @@ export function ProtoSwitcher() {
   )
 }
 
-/** 펼친 목록에 넣는 코스 수(사용자 결정 2026-11-07). */
+/** 펼친 줄에 넣는 코스 수(사용자 결정 2026-11-07). */
 const FLOAT_TRIPS = 5
+/** 펼치고 접는 움직임 — 살짝 튀는 감속. */
+const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
 
 /**
  * 홈 오른쪽 아래에 떠 있는 「여행 코스」 단추(사용자 요청 2026-11-07, 홈의 코스 카드를 대신한다). 앱의 보라·하늘 그라데이션, 높이 40.
- *  - 여행 중인 코스가 있으면 단추가 곧 그 코스다(이름을 감싼 알약, 앞에 길안내 화살표) — 누르면 바로 그 코스로.
- *  - 없으면 「여행 코스 짜기」. 누르면 위로 내 코스(최대 5개)가 이름을 감싼 알약으로 펼쳐지고 옆으로 끌어 넘긴다. 맨 앞은 「+ 새 코스」.
+ *  - 여행 중인 코스가 있으면 단추가 곧 그 코스다 — 누르면 바로 그 코스로. 옆의 작은 단추로 줄을 펼친다.
+ *  - 없으면 「여행 코스 짜기」. 누르면 **같은 줄에서** 단추가 사라지고 그 자리부터 내 코스(최대 5개)가 이름을 감싼 알약으로
+ *    오른쪽에서 미끄러져 들어온다. 옆으로 끌어 넘기고, 맨 오른쪽 「✕」 로 접는다. 「+ 새 코스」 는 ✕ 바로 옆.
  *    코스가 하나도 없으면 펼치지 않고 바로 코스 짜기 질문으로.
- *  - 여행 중일 때도 옆의 작은 단추로 같은 목록을 펼친다.
+ *  움직임 줄이기 설정이면 움직임 없이 바로 바뀐다.
  */
 export function TripFloatBar() {
   const router = useTabRouter()
@@ -405,8 +408,6 @@ export function TripFloatBar() {
     .filter((c) => c.serverId !== null)
     .slice(0, FLOAT_TRIPS)
   const running = courses.find((c) => c.isRunning) ?? null
-  // 펼친 줄: 단추 쪽(오른쪽 끝)부터 「+ 새 코스」, 그다음 최근 코스 순 — 왼쪽으로 끌어 더 본다. 여행 중인 코스는 단추 자체라 빼고.
-  const listed = courses.filter((c) => c !== running)
   const row = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (open) row.current?.scrollTo?.({ left: row.current.scrollWidth })
@@ -414,7 +415,8 @@ export function TripFloatBar() {
 
   const bottom = 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 40px)'
   const glow = '0 6px 18px rgba(92, 74, 214, 0.35)'
-  const gradientPill: CSSProperties = { height: 40, padding: '0 14px 0 12px', borderRadius: 999, background: 'var(--pin-gradient)', boxShadow: glow, maxWidth: 240 }
+  const soft = '0 4px 14px rgba(0,0,0,0.14)'
+  const gradientPill: CSSProperties = { height: 40, padding: '0 14px 0 12px', borderRadius: 999, background: 'var(--pin-gradient)', boxShadow: glow, maxWidth: 240, color: '#fff' }
   const label = (text: string) => (
     <span style={{ minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 14, fontWeight: 700, color: 'inherit' }}>{text}</span>
   )
@@ -426,43 +428,56 @@ export function TripFloatBar() {
     setOpen(false)
     protoActions.plan()
   }
+  // 펼친 줄의 알약 하나하나 — 오른쪽(단추 자리)에 가까운 것부터 차례로 들어온다.
+  const enter = (i: number): CSSProperties => ({
+    opacity: open ? 1 : 0,
+    transform: open ? 'translateX(0) scale(1)' : 'translateX(28px) scale(0.92)',
+    transition: `opacity 0.28s ${EASE} ${open ? i * 45 : 0}ms, transform 0.42s ${EASE} ${open ? i * 45 : 0}ms`,
+  })
+  const items = [
+    { key: 'close', node: (
+      <Pressable plain onClick={() => setOpen(false)} aria-label={say('접기', 'Close')} style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--system-background)', boxShadow: soft, display: 'grid', placeItems: 'center', flex: 'none' }}>
+        <Icon name="xmark" size={15} weight="bold" color="accent" />
+      </Pressable>
+    ) },
+    { key: 'new', node: (
+      <Pressable plain onClick={newPlan} style={{ height: 40, padding: '0 14px', borderRadius: 999, background: 'var(--system-background)', boxShadow: soft, flex: 'none' }}>
+        <HStack spacing={5}>
+          <Icon name="plus" size={14} weight="bold" color="accent" />
+          <Txt size={14} weight="bold" color="accent" style={{ whiteSpace: 'nowrap' }}>{say('새 코스', 'New')}</Txt>
+        </HStack>
+      </Pressable>
+    ) },
+    ...courses.map((c) => ({ key: c.uid, node: (
+      <Pressable
+        plain
+        onClick={() => openCourse(c.serverId!)}
+        style={{ height: 40, padding: '0 14px', borderRadius: 999, flex: 'none', maxWidth: 220, color: c.isRunning ? '#fff' : 'var(--home-purple)', background: c.isRunning ? 'var(--pin-gradient)' : 'var(--system-background)', boxShadow: c.isRunning ? glow : soft }}
+      >
+        <HStack spacing={6}>
+          <Icon name={c.isRunning ? 'location.north.fill' : 'paperplane'} size={13} color={c.isRunning ? 'white' : 'accent'} />
+          {label(c.title)}
+        </HStack>
+      </Pressable>
+    ) })),
+  ]
 
   return (
-    <>
-      {open && <div onClick={() => setOpen(false)} style={{ position: 'absolute', inset: 0, zIndex: 29 }} aria-hidden />}
-      {open && (
-        // 펼친 내 코스 — 이름을 감싼 알약을 오른쪽 끝에 붙여 늘어놓고 옆으로 끌어 넘긴다.
-        <div ref={row} className="scroll-x" style={{ position: 'absolute', right: 0, left: 0, zIndex: 31, bottom: `calc(${bottom} + 50px)`, display: 'flex' }} data-sheet-nodrag>
-          <HStack spacing={8} style={{ padding: '6px 14px', width: 'max-content', marginLeft: 'auto', flexDirection: 'row-reverse' }}>
-            <Pressable plain onClick={newPlan} style={{ height: 38, padding: '0 14px', borderRadius: 999, background: 'var(--system-background)', boxShadow: '0 4px 14px rgba(0,0,0,0.14)', flex: 'none' }}>
-              <HStack spacing={5}>
-                <Icon name="plus" size={14} weight="bold" color="accent" />
-                <Txt size={14} weight="bold" color="accent" style={{ whiteSpace: 'nowrap' }}>{say('새 코스', 'New')}</Txt>
-              </HStack>
-            </Pressable>
-            {listed.map((c) => (
-              <Pressable
-                key={c.uid}
-                plain
-                onClick={() => openCourse(c.serverId!)}
-                style={{ height: 38, padding: '0 14px', borderRadius: 999, flex: 'none', maxWidth: 220, color: c.isRunning ? '#fff' : 'var(--home-purple)', background: c.isRunning ? 'var(--pin-gradient)' : 'var(--system-background)', boxShadow: c.isRunning ? glow : '0 4px 14px rgba(0,0,0,0.14)' }}
-              >
-                <HStack spacing={6}>
-                  <Icon name={c.isRunning ? 'location.north.fill' : 'paperplane'} size={13} color={c.isRunning ? 'white' : 'accent'} />
-                  {label(c.title)}
-                </HStack>
-              </Pressable>
-            ))}
-          </HStack>
-        </div>
-      )}
-      <div style={{ position: 'absolute', right: 14, bottom, zIndex: 30, display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div style={{ position: 'absolute', left: 0, right: 0, bottom, height: 52, zIndex: 30, pointerEvents: 'none' }}>
+      {/* 접힌 단추 — 펼치면 오그라들며 사라진다. */}
+      <div
+        style={{
+          position: 'absolute', right: 14, top: 6, display: 'flex', alignItems: 'center', gap: 8,
+          opacity: open ? 0 : 1, transform: open ? 'scale(0.8)' : 'scale(1)', transformOrigin: 'right center',
+          transition: `opacity 0.2s ${EASE}, transform 0.3s ${EASE}`, pointerEvents: open ? 'none' : 'auto',
+        }}
+      >
         {running ? (
           <>
-            <Pressable plain onClick={() => setOpen(!open)} aria-label={say('내 코스 펼치기', 'Show my trips')} aria-expanded={open} style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--system-background)', boxShadow: '0 4px 14px rgba(0,0,0,0.14)', display: 'grid', placeItems: 'center' }}>
-              <Icon name={open ? 'xmark' : 'list.bullet'} size={16} weight="bold" color="accent" />
+            <Pressable plain onClick={() => setOpen(true)} aria-label={say('내 코스 펼치기', 'Show my trips')} style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--system-background)', boxShadow: soft, display: 'grid', placeItems: 'center' }}>
+              <Icon name="list.bullet" size={16} weight="bold" color="accent" />
             </Pressable>
-            <Pressable plain onClick={() => openCourse(running.serverId!)} aria-label={say(`여행 중: ${running.title} 열기`, `On trip: open ${running.title}`)} style={{ ...gradientPill, color: '#fff' }}>
+            <Pressable plain onClick={() => openCourse(running.serverId!)} aria-label={say(`여행 중: ${running.title} 열기`, `On trip: open ${running.title}`)} style={gradientPill}>
               <HStack spacing={7}>
                 <Icon name="location.north.fill" size={14} color="white" />
                 {label(running.title)}
@@ -470,15 +485,30 @@ export function TripFloatBar() {
             </Pressable>
           </>
         ) : (
-          <Pressable plain onClick={() => (courses.length === 0 ? newPlan() : setOpen(!open))} aria-expanded={courses.length === 0 ? undefined : open} style={{ ...gradientPill, color: '#fff' }}>
+          <Pressable plain onClick={() => (courses.length === 0 ? newPlan() : setOpen(true))} style={gradientPill}>
             <HStack spacing={7}>
-              <Icon name={open ? 'xmark' : 'paperplane.fill'} size={14} color="white" />
+              <Icon name="paperplane.fill" size={14} color="white" />
               {label(say('여행 코스 짜기', 'Plan a trip'))}
             </HStack>
           </Pressable>
         )}
       </div>
-    </>
+      {/* 펼친 줄 — 같은 높이, 오른쪽 끝(단추 자리)부터 늘어서고 옆으로 끌어 넘긴다. */}
+      <div
+        ref={row}
+        className="scroll-x proto-trip-row"
+        aria-hidden={!open}
+        style={{ position: 'absolute', inset: 0, display: 'flex', pointerEvents: open ? 'auto' : 'none', visibility: open ? 'visible' : 'hidden', transition: `visibility 0s linear ${open ? 0 : 420}ms` }}
+        data-sheet-nodrag
+      >
+        <div style={{ display: 'flex', flexDirection: 'row-reverse', alignItems: 'center', gap: 8, padding: '6px 14px', width: 'max-content', marginLeft: 'auto' }}>
+          {items.map((it, i) => (
+            <div key={it.key} style={{ flex: 'none', ...enter(i) }}>{it.node}</div>
+          ))}
+        </div>
+      </div>
+      <style>{'@media (prefers-reduced-motion: reduce) { .proto-trip-row > div > div { transition: none !important } }'}</style>
+    </div>
   )
 }
 
