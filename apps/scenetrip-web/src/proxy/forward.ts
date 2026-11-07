@@ -5,9 +5,12 @@
  *     브라우저 입장에서는 같은 출처만 부르는 것이라 CORS 가 필요 없다(개발 서버의 `vite.config.ts` 프록시와 같은 일).
  *
  * 하는 일 — 요청을 **바이트 그대로** 전달한다. 본문·`Authorization`·`X-Install-Id` 등은 건드리지 않는다.
- *   - 길은 `/v1` 아래만 연다(열린 프록시가 되지 않게 목적지는 고정).
+ *   - 길은 `/v1` 아래만 연다(열린 프록시가 되지 않게 목적지는 아래 두 서버 중 하나로 고정).
+ *   - 목적지는 Pages 환경 변수 `SCENETRIP_API_ORIGIN` 으로 고른다(`resolveUpstream`). 허용은 `https://api.scenetrip.io`·`https://api-dev.scenetrip.io` 둘뿐이고
+ *     없거나 비거나 그 밖의 값이면 프로덕션이다. 미리보기·`dev` 브랜치는 DEV, 프로덕션은 변수를 넣지 않는다(MZ2AZ-535).
  *   - `Origin`·`Referer`·`Host`·`CF-*` 는 뗀다 — 이 호출은 서버 쪽에서 서버로 가는 것이라 교차 출처가 아니다.
  *   - 리디렉션은 따라가지 않고 그대로 돌려준다.
+ *   - 서버를 거친 응답(캐시에서 나온 것 포함)에 `x-scenetrip-upstream: api|api-dev` 를 붙인다 — 미리보기가 어느 서버에 붙었는지 브라우저에서 확인한다.
  *   - 서버에 닿지 못하면 502 와 JSON 본문.
  *   - **작품·촬영지 목록은 잠깐(2분) 가까운 곳에 담아 둔다.** 이 중계가 서버 호출마다 0.3~0.5초를 더하는데(서버 자체는 0.06초, 2026-11-01 실측),
  *     작품을 누를 때마다 같은 목록을 매번 먼 서버까지 물을 이유가 없다. 로그인·설치 식별 헤더가 붙은 요청과 검색어(`q`)가 있는 요청은 담지 않는다.
@@ -18,6 +21,17 @@
  */
 
 export const UPSTREAM = 'https://api.scenetrip.io'
+export const DEV_UPSTREAM = 'https://api-dev.scenetrip.io'
+
+/** 환경 변수로 고를 수 있는 목적지 — 이 밖의 값은 어떤 경우에도 목적지가 되지 않는다(열린 프록시 방지). */
+const ALLOWED_UPSTREAMS: ReadonlySet<string> = new Set([UPSTREAM, DEV_UPSTREAM])
+
+/** `SCENETRIP_API_ORIGIN` 값 → 목적지. 끝의 `/` 하나만 떼고 정확히 같아야 한다. 없거나 비거나 모르는 값이면 프로덕션. */
+export function resolveUpstream(value: unknown): string {
+  if (typeof value !== 'string') return UPSTREAM
+  const trimmed = value.trim().replace(/\/$/, '')
+  return ALLOWED_UPSTREAMS.has(trimmed) ? trimmed : UPSTREAM
+}
 
 const ALLOWED_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
 
@@ -63,11 +77,15 @@ export function cacheableRequest(request: Request): boolean {
   return !request.headers.has('authorization') && !request.headers.has('x-install-id')
 }
 
-/** 담아 두는 열쇠 — 주소 + 응답 언어. 서버는 `Accept-Language` 로 이름을 바꿔 주므로 언어가 다르면 다른 답이다. */
-export function cacheKey(request: Request): Request {
+/**
+ * 담아 두는 열쇠 — 주소 + 응답 언어 + 목적지 서버. 서버는 `Accept-Language` 로 이름을 바꿔 주므로 언어가 다르면 다른 답이다.
+ * 목적지도 넣는다: 미리보기·`dev`·프로덕션이 같은 존의 캐시를 함께 쓸 수 있어, DEV 의 답이 PRD 요청에 나가면(또는 그 반대) 안 된다.
+ */
+export function cacheKey(request: Request, base: string = UPSTREAM): Request {
   const url = new URL(request.url)
   const lang = (request.headers.get('accept-language') ?? '').trim().toLowerCase().slice(0, 16) || 'none'
   url.searchParams.set('__lang', lang)
+  url.searchParams.set('__upstream', new URL(base).host)
   return new Request(url.toString(), { method: 'GET' })
 }
 
@@ -84,6 +102,17 @@ function cachedCopy(upstream: Response): Response {
   return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers })
 }
 
+/** 응답에 붙이는 목적지 이름 — 호스트의 첫 칸(`api`·`api-dev`). */
+export const UPSTREAM_HEADER = 'x-scenetrip-upstream'
+const upstreamLabel = (base: string): string => new URL(base).host.split('.')[0]
+
+/** 헤더를 바꿀 수 있는 새 응답으로 감싸 목적지 이름을 붙인다(캐시·fetch 의 응답 헤더는 바꿀 수 없을 수 있다). */
+function labelled(res: Response, base: string): Response {
+  const headers = new Headers(res.headers)
+  headers.set(UPSTREAM_HEADER, upstreamLabel(base))
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
+}
+
 const json = (status: number, code: string, message: string, extra: Record<string, string> = {}): Response =>
   new Response(JSON.stringify({ code, message }), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...extra } })
 
@@ -92,10 +121,10 @@ export async function forward(request: Request, fetcher: typeof fetch = fetch, b
   if (target === null) return json(404, 'NOT_FOUND', 'Not found')
   if (!ALLOWED_METHODS.has(request.method)) return json(405, 'METHOD_NOT_ALLOWED', 'Method not allowed', { allow: [...ALLOWED_METHODS].join(', ') })
 
-  const key = edge && cacheableRequest(request) ? cacheKey(request) : null
+  const key = edge && cacheableRequest(request) ? cacheKey(request, base) : null
   if (edge && key) {
     const hit = await edge.cache.match(key).catch(() => undefined)
-    if (hit) return hit
+    if (hit) return labelled(hit, base)
   }
 
   const init: RequestInit & { duplex?: 'half' } = { method: request.method, headers: forwardedHeaders(request.headers), redirect: 'manual' }
@@ -108,9 +137,9 @@ export async function forward(request: Request, fetcher: typeof fetch = fetch, b
     if (edge && key && upstream.status === 200) {
       const stored = cachedCopy(upstream)
       edge.waitUntil(edge.cache.put(key, stored.clone()).catch(() => undefined))
-      return stored
+      return labelled(stored, base)
     }
-    return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: upstream.headers })
+    return labelled(upstream, base)
   } catch {
     return json(502, 'BAD_GATEWAY', 'The API server could not be reached')
   }

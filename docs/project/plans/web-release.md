@@ -54,6 +54,7 @@ Pages 대시보드 → 프로젝트 만들기 → Git 연결.
 | `VITE_APPLE_REDIRECT_URI` | 선택. 비우면 `<출처>/auth/callback/apple` | 〃 | 〃 | 미리보기 주소는 매번 다르다 — §6.3 |
 | `VITE_GA_MEASUREMENT_ID` | `G-…` (프로덕션 스트림) | 비움 또는 별도 스트림 | `src/analytics/index.ts` | 비면 완전한 no-op |
 | `VITE_NAVER_MAP_CLIENT_ID` | NCP 클라이언트 ID | 같음 | `.env.example` 에만 있다(지도 코드는 다른 에이전트가 구현 중 — 구현이 끝나면 코드의 이름과 다시 대조한다) | |
+| `SCENETRIP_API_ORIGIN` | **넣지 않는다**(= `https://api.scenetrip.io`) | `https://api-dev.scenetrip.io` | `functions/v1/[[path]].ts` | Pages Function(`/v1` 중계)의 목적지. 빌드가 아니라 요청 때 읽는다. 허용 값 둘 밖은 프로덕션으로 |
 | `SCENETRIP_API_TARGET` | **넣지 않는다** | 〃 | `vite.config.ts` | 개발 서버·`vite preview` 프록시 전용. 배포 번들에 영향 없다 |
 | `VITE_BLOCK_WRITES` · `VITE_WRITE_ALLOW` · `VITE_BLOCK_PATHS` | **넣지 않는다** | 쓰기·유료를 막고 싶을 때만 | `src/api/client.ts` | 개발 안전장치. 프로덕션에 들어가면 쓰기가 막힌다 |
 
@@ -81,7 +82,7 @@ Pages 대시보드 → 프로젝트 만들기 → Git 연결.
 - **그때의 해결**: 권호 님이 서버 CORS 를 열고(§5) 웹앱의 `VITE_API_BASE=https://api.scenetrip.io` 로 직접 부르게 바꾼다(웹 코드 변경 없음, 프록시는 쓰지 않게 된다). 또는 nginx 가 Cloudflare 의 `CF-Connecting-IP` 를 믿게 한다.
 - 사진 올리기(S3 presigned PUT)는 프록시를 거치지 않으므로 **버킷 CORS(§5 두 번째 요청)는 어느 쪽이든 필요하다.**
 
-배포 설정: `functions/v1/[[path]].ts` 가 `/v1/*` 를 `https://api.scenetrip.io` 로 전달하고, `public/_routes.json` 이 그 길에만 Function 을 부르게 한다. `VITE_API_BASE` 는 비워 둔다(같은 출처 `/v1`). 시험: `src/proxy/forward.test.ts`.
+배포 설정: `functions/v1/[[path]].ts` 가 `/v1/*` 를 API 서버로 전달한다 — 목적지는 Pages 환경 변수 `SCENETRIP_API_ORIGIN`(허용: `https://api.scenetrip.io`·`https://api-dev.scenetrip.io`, 없거나 모르는 값이면 `https://api.scenetrip.io`)이고, 프로덕션은 넣지 않으며 미리보기(PR, 그리고 **예정(MZ2AZ-536)** 인 `dev` 브랜치 = `dev.scenetrip.io` — 아직 없음)에 `https://api-dev.scenetrip.io` 를 넣는다(MZ2AZ-535, 환경 표는 웹 README). 응답의 `x-scenetrip-upstream`(`api`·`api-dev`)으로 어느 서버에 붙었는지 확인한다. 그리고 `public/_routes.json` 이 그 길에만 Function 을 부르게 한다. `VITE_API_BASE` 는 비워 둔다(같은 출처 `/v1`). 시험: `src/proxy/forward.test.ts`.
 
 ## 5. CORS 요청서 (권호 님)
 

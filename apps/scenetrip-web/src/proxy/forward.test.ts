@@ -1,7 +1,7 @@
 // @vitest-environment node
 // `/v1/*` 역프록시 — 목적지 고정, 헤더 정리, 본문 전달, 실패 처리 (src/proxy/forward.ts)
 import { describe, expect, it } from 'vitest'
-import { type EdgeCache, cacheKey, cacheableRequest, forward, forwardedHeaders, upstreamUrl } from './forward'
+import { type EdgeCache, DEV_UPSTREAM, UPSTREAM, cacheKey, cacheableRequest, forward, forwardedHeaders, resolveUpstream, upstreamUrl } from './forward'
 
 type Call = { url: string; init: RequestInit & { duplex?: string } }
 
@@ -193,5 +193,79 @@ describe('forward — 공개 목록 캐시', () => {
     const res = await forward(get('/v1/places'), server.fetcher, undefined, broken)
     expect(res.status).toBe(200)
     expect(server.calls).toHaveLength(1)
+  })
+})
+
+describe('resolveUpstream — 환경 변수 SCENETRIP_API_ORIGIN 으로 목적지 고르기', () => {
+  it('변수가 없거나 비면 프로덕션(api.scenetrip.io)', () => {
+    expect(UPSTREAM).toBe('https://api.scenetrip.io')
+    expect(resolveUpstream(undefined)).toBe('https://api.scenetrip.io')
+    expect(resolveUpstream('')).toBe('https://api.scenetrip.io')
+    expect(resolveUpstream('   ')).toBe('https://api.scenetrip.io')
+  })
+
+  it('api-dev 를 주면 DEV 로', () => {
+    expect(DEV_UPSTREAM).toBe('https://api-dev.scenetrip.io')
+    expect(resolveUpstream('https://api-dev.scenetrip.io')).toBe('https://api-dev.scenetrip.io')
+    expect(resolveUpstream('https://api.scenetrip.io')).toBe('https://api.scenetrip.io')
+  })
+
+  it('끝의 / 하나는 받아 준다', () => {
+    expect(resolveUpstream('https://api-dev.scenetrip.io/')).toBe('https://api-dev.scenetrip.io')
+    expect(resolveUpstream('https://api.scenetrip.io/')).toBe('https://api.scenetrip.io')
+  })
+
+  it('허용 목록 밖의 값은 절대 목적지가 되지 않는다 — 프로덕션으로', () => {
+    for (const bad of ['https://evil.test', 'http://api-dev.scenetrip.io', 'https://api-dev.scenetrip.io.evil.test', 'https://api-dev.scenetrip.io/v1', 'api-dev.scenetrip.io', 'https://API-DEV.scenetrip.io:8443', 42, null]) {
+      expect(resolveUpstream(bad as unknown), String(bad)).toBe('https://api.scenetrip.io')
+    }
+  })
+})
+
+describe('forward — DEV 목적지', () => {
+  it('base 로 DEV 를 주면 DEV 로 보낸다', async () => {
+    const server = fakeServer(ok)
+    await forward(get('/v1/posts?limit=1'), server.fetcher, resolveUpstream('https://api-dev.scenetrip.io/'))
+    expect(server.calls[0].url).toBe('https://api-dev.scenetrip.io/v1/posts?limit=1')
+  })
+
+  it('캐시 열쇠는 목적지마다 다르다 — DEV 의 답을 PRD 요청에 주지 않는다', async () => {
+    const req = () => get('/v1/contents', { 'accept-language': 'en' })
+    expect(cacheKey(req(), DEV_UPSTREAM).url).not.toBe(cacheKey(req(), UPSTREAM).url)
+    expect(cacheKey(req()).url).toBe(cacheKey(req(), UPSTREAM).url)
+
+    const dev = fakeServer(() => new Response('{"from":"dev"}', { status: 200 }))
+    const prd = fakeServer(() => new Response('{"from":"prd"}', { status: 200 }))
+    const { edge, settle } = fakeEdge()
+    await forward(req(), dev.fetcher, DEV_UPSTREAM, edge)
+    await settle()
+    const res = await forward(req(), prd.fetcher, UPSTREAM, edge)
+    expect(prd.calls).toHaveLength(1)
+    expect(await res.text()).toBe('{"from":"prd"}')
+  })
+})
+
+describe('forward — 어디에 붙었는지 알리는 x-scenetrip-upstream 헤더', () => {
+  it('프로덕션이면 api, DEV 면 api-dev', async () => {
+    const prd = await forward(get('/v1/posts'), fakeServer(ok).fetcher)
+    expect(prd.headers.get('x-scenetrip-upstream')).toBe('api')
+    const dev = await forward(get('/v1/posts'), fakeServer(ok).fetcher, DEV_UPSTREAM)
+    expect(dev.headers.get('x-scenetrip-upstream')).toBe('api-dev')
+  })
+
+  it('서버 오류 응답에도 붙는다', async () => {
+    const res = await forward(get('/v1/me'), fakeServer(() => new Response('{"code":"X"}', { status: 500 })).fetcher, DEV_UPSTREAM)
+    expect(res.headers.get('x-scenetrip-upstream')).toBe('api-dev')
+  })
+
+  it('캐시에서 나온 응답에도 붙는다', async () => {
+    const server = fakeServer(ok)
+    const { edge, settle } = fakeEdge()
+    const first = await forward(get('/v1/contents'), server.fetcher, DEV_UPSTREAM, edge)
+    await settle()
+    expect(first.headers.get('x-scenetrip-upstream')).toBe('api-dev')
+    const second = await forward(get('/v1/contents'), server.fetcher, DEV_UPSTREAM, edge)
+    expect(server.calls).toHaveLength(1)
+    expect(second.headers.get('x-scenetrip-upstream')).toBe('api-dev')
   })
 })

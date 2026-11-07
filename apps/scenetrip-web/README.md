@@ -14,6 +14,20 @@ SceneTrip 의 **웹앱**. iOS 앱(`apps/scenetrip-ios`)의 화면과 기능을 �
 `contracts/openapi/scene-api-v1.yaml` 의 scene-api (AWS DEV: `https://api-dev.scenetrip.io/v1`). 브라우저는 서버가 CORS 를 허용하지 않아 직접 부를 수 없으므로
 개발 서버가 `/v1` 을 대신 전달한다(`vite.config.ts`). 서버·계약·iOS·Android 소스는 이 모듈이 **읽기만** 한다.
 
+배포된 웹(Cloudflare Pages)에서는 Pages Function `functions/v1/[[path]].ts` 가 같은 출처의 `/v1/*` 를 API 서버로 대신 전달한다(로직·시험: `src/proxy/forward.ts`).
+목적지는 Pages 환경 변수 **`SCENETRIP_API_ORIGIN`** 으로 고른다(MZ2AZ-535).
+
+| 환경 | 주소 | 브랜치 | `SCENETRIP_API_ORIGIN` | `/v1` 의 목적지 |
+| --- | --- | --- | --- | --- |
+| 프로덕션 | `app.scenetrip.io` | `main` | 넣지 않는다 | `https://api.scenetrip.io` |
+| PR 미리보기 | `<해시>.<프로젝트>.pages.dev` | PR 브랜치 | `https://api-dev.scenetrip.io` (미리보기에 넣은 뒤부터) | `https://api-dev.scenetrip.io` |
+| DEV — **예정(MZ2AZ-536)**, 아직 없음 | `dev.scenetrip.io` | `dev` | `https://api-dev.scenetrip.io` (미리보기 환경 — `dev` 도 Pages 에선 미리보기 배포다) | `https://api-dev.scenetrip.io` |
+
+- 넣는 곳: Cloudflare 대시보드 → Pages 프로젝트 → Settings → Variables and Secrets → **Preview** 환경. 평문 변수(비밀 아님). 값을 바꾸면 다음 배포부터 적용된다.
+- 허용 값은 위 둘뿐이다(끝의 `/` 하나는 받아 준다). 없거나 비거나 그 밖의 값이면 **프로덕션**으로 간다 — 아무 주소나 받는 열린 프록시가 되지 않게.
+- 공개 목록 캐시(`caches.default`)의 열쇠는 요청 주소라 **요청 호스트**(`app.scenetrip.io`·`*.pages.dev`·`dev.scenetrip.io`)가 이미 환경을 가른다. 열쇠에 더 넣는 목적지 호스트(`__upstream`)는 **같은 호스트에서 변수를 바꾼 직후** 바꾸기 전 서버의 답(최대 2분)이 나가는 것을 막는다.
+- 중계를 거친 응답(캐시에서 나온 것 포함)에는 `x-scenetrip-upstream: api` 또는 `api-dev` 가 붙는다 — 브라우저 개발자 도구의 네트워크 탭에서 미리보기가 어느 서버에 붙었는지 본다.
+
 ## 실행
 
 | 명령 | 하는 일 |
