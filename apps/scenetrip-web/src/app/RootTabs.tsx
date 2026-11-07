@@ -16,7 +16,9 @@ import { RootSheets } from '@/features/profile/RootSheets'
 import { RouteCover } from '@/features/route/RouteCover'
 import { SearchTab } from '@/features/search/SearchTab'
 import { ProtoHomeBar, ProtoLayer, ProtoSwitcher } from '@/features/proto/ProtoScreens'
-import { protoAvailable } from '@/features/proto/protoState'
+import { protoAvailable, protoStore } from '@/features/proto/protoState'
+import { ProtoTabBar } from '@/features/proto/ProtoTabBar'
+import { useStore } from '@/state/storage'
 import { TabBar } from './TabBar'
 import { coverOf, tabOf, tabPath } from './routes'
 
@@ -26,6 +28,8 @@ export function RootTabs() {
   const tab = tabOf(pathname)
   const cover = coverOf(pathname)
   const closeCover = () => navigate(tabPath('home'))
+  // 「어디로 가세요?」 시안이 켜져 있으면(로컬 개발 서버 전용) 떠 있는 알약 탭바.
+  const protoOn = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
 
   // 어느 화면을 보는가 — 탭과 덮개 단위, 덮개가 떠 있으면 덮개가 이긴다 (iOS RootTabs.screenName, MZ2AZ-353).
   // 지금 뜨는 작품 전체(/trending)는 홈의 일부로 센다 — 새 화면 이름을 늘리지 않는다(MZ2AZ-534).
@@ -47,7 +51,7 @@ export function RootTabs() {
           </Layer>
         )}
       </div>
-      <TabBar selected={tab} onSelect={(t) => navigate(tabPath(t))} />
+      {protoOn ? <ProtoTabBar selected={tab} onSelect={(t) => navigate(tabPath(t))} /> : <TabBar selected={tab} onSelect={(t) => navigate(tabPath(t))} />}
 
       <RootSheets active={cover === null} />
       <Cover open={cover === 'route'}>

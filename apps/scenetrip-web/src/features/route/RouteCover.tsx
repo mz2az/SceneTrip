@@ -132,9 +132,14 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
         onClose={() => setDoomed(null)}
       />
       <ForkSheet open={fork} onClose={closeFork} onAI={() => setWizard('aiPlan')} onManual={() => setWizard('manual')} />
-      <Sheet open={wizard !== null} onClose={() => undefined} dismissOnScrim={false} topGap={72} radius={38} bottomRadius={0}>
-        {wizard && <RouteWizard kind={wizard} onClose={() => setWizard(null)} />}
-      </Sheet>
+      {/* 시안이 켜져 있으면 서랍 대신 전체 화면으로(사용자 요청 2026-11-07). */}
+      {proto !== null ? (
+        <Cover open={wizard !== null}>{wizard && <RouteWizard kind={wizard} onClose={() => setWizard(null)} />}</Cover>
+      ) : (
+        <Sheet open={wizard !== null} onClose={() => undefined} dismissOnScrim={false} topGap={72} radius={38} bottomRadius={0}>
+          {wizard && <RouteWizard kind={wizard} onClose={() => setWizard(null)} />}
+        </Sheet>
+      )}
       <Cover open={opening.editing !== null}>
         {shown && <RouteEditor key={shown.uid} course={shown} isNew={false} onClose={closeEditor} />}
       </Cover>

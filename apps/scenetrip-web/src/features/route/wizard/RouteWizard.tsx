@@ -23,6 +23,10 @@ import { AIBanner } from '../ui/AIBanner'
 import { GlassDialog } from '../ui/GlassDialog'
 import { LargeButton } from '../ui/LargeButton'
 import { DateStep, PaceStep, ReviewStep, SpanStep, WorkStep } from './WizardSteps'
+import { Icon } from '@/design/Icon'
+import { protoAvailable, protoStore } from '@/features/proto/protoState'
+import { ProtoSpanStep, ProtoWorkStep } from '@/features/proto/ProtoWizardSteps'
+import { useStore } from '@/state/storage'
 
 export type WizardKind = 'aiPlan' | 'manual'
 type Step = 'span' | 'dates' | 'works' | 'pace' | 'review'
@@ -80,6 +84,8 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
   const works = useSortedWorks()
   const likes = useLikes()
   const planned = useRef(false)
+  // 「어디로 가세요?」 시안이 켜져 있으면(로컬 개발 서버 전용) 전체 화면 모양 — 위 그라데이션 띠·고른 것 요약. 단계와 동작은 그대로.
+  const proto = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
 
   // 질문 재료(작품 30)는 목록과 따로 받는다 — 비어 있으면 받는다.
   useEffect(() => {
@@ -126,7 +132,39 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
 
   return (
     <VStack style={{ height: '100%', background: 'var(--grouped-background)' }}>
-      {/* 머리 — 취소 · 몇 번째 / 전체 · 진행 막대 · (AI 면) 띠. AI 가 일한다는 사실을 질문 화면 내내 띄워 둔다(회의에서 가장 강하게 요구된 항목). */}
+      {proto ? (
+        // 시안 머리 — 그라데이션 띠에 닫기·단계 점, 그 아래 큰 질문. 띠가 「AI 가 짠다」 를 말하므로 따로 띠를 두지 않는다.
+        <VStack spacing={14} style={{ padding: 'calc(var(--safe-top) + 12px) 20px 20px', background: 'var(--pin-gradient)', flex: 'none' }}>
+          <HStack justify="between">
+            <Pressable plain onClick={onClose} aria-label={tr('취소')} style={{ width: 36, height: 36, borderRadius: 999, background: 'rgba(255,255,255,0.22)', display: 'grid', placeItems: 'center' }}>
+              <Icon name="xmark" size={15} weight="bold" color="white" />
+            </Pressable>
+            <HStack spacing={5} role="progressbar" aria-valuenow={index + 1} aria-valuemax={steps.length}>
+              {steps.map((st, i) => (
+                <span key={st} style={{ width: i === index ? 18 : 7, height: 7, borderRadius: 999, background: i <= index ? '#fff' : 'rgba(255,255,255,0.4)', transition: 'width 0.25s' }} />
+              ))}
+            </HStack>
+            <div style={{ width: 36 }} />
+          </HStack>
+          <VStack spacing={4} align="start">
+            {kind === 'aiPlan' && (
+              <HStack spacing={5}>
+                <Icon name="sparkles" size={13} color="white" />
+                <Txt size={12} weight="bold" color="white" style={{ opacity: 0.9, letterSpacing: 0.3 }}>{tr('AI 가 일정을 짜 드립니다')}</Txt>
+              </HStack>
+            )}
+            <Txt size={26} weight="heavy" color="white">{titleOf(step)}</Txt>
+          </VStack>
+          {/* 지금까지 고른 것 — 빈 화면 대신 내 여행이 쌓여 가는 것이 보인다 */}
+          <HStack spacing={6} wrap>
+            {[spanLabel(nights), hasDate ? formatDay(picked) : null, workIds.size > 0 ? tr('작품 %d', workIds.size) : null, index >= steps.indexOf('pace') && steps.includes('pace') ? tr(PACE_TITLE[pace]) : null]
+              .filter((t): t is string => !!t)
+              .map((t) => (
+                <span key={t} style={{ padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.35)' }}>{t}</span>
+              ))}
+          </HStack>
+        </VStack>
+      ) : (
       <VStack spacing={10} style={{ padding: '14px 20px 10px', background: 'var(--system-background)', flex: 'none' }}>
         <HStack justify="between">
           <Pressable plain onClick={onClose}><Txt size={17} color="accent">{tr('취소')}</Txt></Pressable>
@@ -137,11 +175,12 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
         </div>
         {kind === 'aiPlan' && <AIBanner text={tr('AI 가 일정을 짜 드립니다')} padY={10} />}
       </VStack>
+      )}
 
       <div className="scroll-y" style={{ flex: 1, minHeight: 0 }}>
-        <VStack spacing={16} style={{ padding: '16px 20px' }}>
-          <Txt size={20} weight="semibold">{titleOf(step)}</Txt>
-          {step === 'span' && <SpanStep nights={nights} onPick={setNights} />}
+        <VStack spacing={16} style={{ padding: proto ? '18px 20px' : '16px 20px' }}>
+          {!proto && <Txt size={20} weight="semibold">{titleOf(step)}</Txt>}
+          {step === 'span' && (proto ? <ProtoSpanStep nights={nights} onPick={setNights} /> : <SpanStep nights={nights} onPick={setNights} />)}
           {step === 'dates' && (
             <DateStep
               picked={picked}
@@ -155,7 +194,16 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
               onClear={() => setHasDate(false)}
             />
           )}
-          {step === 'works' && (
+          {step === 'works' && proto && (
+            <ProtoWorkStep
+              works={works}
+              liked={likes.contentIds}
+              selected={workIds}
+              onToggleSelect={(id) => setWorkIds((s) => { const n = new Set(s); if (!n.delete(id)) n.add(id); return n })}
+              onToggleLike={(id) => void likeActions.toggle(id)}
+            />
+          )}
+          {step === 'works' && !proto && (
             <WorkStep
               works={works}
               liked={likes.contentIds}
@@ -182,7 +230,7 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
       <HStack spacing={10} style={{ padding: 16, background: 'var(--system-background)', flex: 'none' }}>
         {index > 0 && <LargeButton variant="bordered" size="regular" weight="regular" fontSize={15} onClick={() => setIndex(index - 1)}>{tr('이전')}</LargeButton>}
         {/* 라벨에 너비를 준다 — 바깥에만 너비를 걸면 누르는 자리만 넓어지고 파란 알약은 글자 크기 그대로 남는다(실측). */}
-        <LargeButton variant="prominent" height={50.33} disabled={planning} onClick={advance} style={{ flex: 1 }}>
+        <LargeButton variant="prominent" height={50.33} disabled={planning} onClick={advance} style={{ flex: 1, ...(proto ? { background: 'linear-gradient(135deg, #5f86ef, #6a55e0)', boxShadow: '0 6px 16px rgba(92, 74, 214, 0.32)' } : {}) }}>
           {planning && <Spinner size={18} />}
           {planning ? tr('일정을 짜는 중입니다') : last ? finishLabel : tr('다음')}
         </LargeButton>

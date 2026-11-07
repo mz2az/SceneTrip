@@ -425,7 +425,7 @@ export function TripFloatBar() {
     if (open) row.current?.scrollTo?.({ left: row.current.scrollWidth })
   }, [open])
 
-  const bottom = 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 40px)'
+  const bottom = 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 10px)'
   const glow = '0 6px 18px rgba(92, 74, 214, 0.35)'
   const soft = '0 4px 14px rgba(0,0,0,0.14)'
   const gradientPill: CSSProperties = { height: 40, padding: '0 14px 0 12px', borderRadius: 999, background: 'var(--pin-gradient)', boxShadow: glow, maxWidth: 240, color: '#fff' }
