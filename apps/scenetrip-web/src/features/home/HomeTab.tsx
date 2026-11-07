@@ -72,12 +72,14 @@ export function HomeTab() {
       <VStack spacing={18} align="stretch" style={{ padding: '8.7px 0 28px' }}>
         <HomeHeader onProfile={() => router.openProfile()} />
         {/* 「어디로 가세요?」 시안(로컬 전용, docs/project/plans/web-trip-first-prototypes.md). */}
+        {/* 여행을 정했으면 내 여행 카드, 아니면(「아직 몰라요」·기존 사용자) 질문 카드 — 결정 1·2. */}
         {proto === 'a' && <AskCard />}
-        {(proto === 'b' || proto === 'c') && hasProtoTrip && <TripHomeCard />}
+        {proto === 'b' && (hasProtoTrip ? <TripHomeCard /> : <AskCard />)}
         {/* 광고로 들어와 첫 화면만 보는 사람에게 도시별 촬영지를 바로 보여 준다(웹 DEV 실험, MZ2AZ-531). 카드는 「오늘의 성지」와 같은 길로 상세를 연다. */}
         {/* 시안이 켜져 있으면 도시 고르기는 시안이 맡는다 — 같은 줄을 두 번 보이지 않는다. */}
         {proto === null && <HomeCitySpots onOpenPlace={(place) => router.openPlace(place)} onOpenMap={(bbox) => router.openRegion(bbox)} />}
-        {!((proto === 'b' || proto === 'c') && hasProtoTrip) && <TripPager
+        {/* 시안 B 에서는 여행 카드·질문 카드가 「여행 시작」 을 맡는다 — 코스가 있을 때만 기존 여행 카드를 둔다. */}
+        {!(proto === 'b' && (hasProtoTrip || !hasCourses)) && <TripPager
           trips={home.trips}
           hasCourses={hasCourses}
           card={card}

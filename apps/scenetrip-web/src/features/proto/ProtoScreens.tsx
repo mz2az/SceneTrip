@@ -9,14 +9,16 @@ import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Spinner, Txt, VStack, homeCard } from '@/design/primitives'
 import type { HomeCity } from '@/features/home/homeCityModel'
 import { Pressable } from '@/features/route/ui/Press'
+import { PinoMascot } from '@/design/PinoMascot'
+import { useRouteState } from '@/features/route/store'
 import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { mockPlanCityTrip, nearestUnused } from './mockPlan'
 import {
-  ASK_CITIES, ChoiceRow, CityGrid, CityPicker, DAY_OPTIONS, MockBadge, PACE_OPTIONS, PrimaryButton, ProtoScreen, SpotRow, cityByKey, daysLabel,
-  paceLabel, saveCourse, useCities,
+  ASK_CITIES, ChoiceRow, CityGrid, CityPicker, DAY_OPTIONS, MockBadge, PrimaryButton, ProtoScreen, SecondaryButton, SpotRow, cityByKey, daysLabel,
+  saveCourse, useCities,
 } from './protoParts'
-import { type Pace, type Proto, protoActions, protoStore, say } from './protoState'
+import { type Pace, type Proto, protoActions, protoStore, say, tripLength } from './protoState'
 
 type PlaceSummary = components['schemas']['PlaceSummary']
 
@@ -29,7 +31,7 @@ export function AskCard() {
       <HStack spacing={8}>
         <Txt size={20} weight="heavy">{say('어디로 여행 가세요?', 'Where are you traveling?')}</Txt>
         <Spacer />
-        <MockBadge label="A" />
+        <MockBadge />
       </HStack>
       <Txt size={14} color="secondary">{say('도시를 고르면 그곳의 드라마·영화 촬영지를 골라 담고, 동선대로 코스를 만들어 드려요', "Pick a city, add the K-drama spots you like, and we'll build the route")}</Txt>
       <div className="scroll-x" style={{ margin: '0 -18px' }}>
@@ -79,10 +81,10 @@ export function TripHomeCard() {
         </>
       )}
       <HStack spacing={16}>
-        <Pressable plain onClick={() => protoActions.pick(trip.city)}>
+        <Pressable plain onClick={() => protoActions.pick(trip.city)} style={{ minHeight: 44, display: 'flex', alignItems: 'center' }}>
           <Txt size={14} weight="semibold" color="accent">{say(`${city?.name ?? ''} 촬영지 더 보기`, 'More spots here')}</Txt>
         </Pressable>
-        <Pressable plain onClick={() => protoActions.ask(true)}>
+        <Pressable plain onClick={() => protoActions.ask(true, true)} style={{ minHeight: 44, display: 'flex', alignItems: 'center' }}>
           <Txt size={14} weight="semibold" color="accent">{say('+ 다른 여행', '+ New trip')}</Txt>
         </Pressable>
       </HStack>
@@ -90,50 +92,79 @@ export function TripHomeCard() {
   )
 }
 
-// ---------------------------------------------------------------- B·C — 질문 화면
+// ---------------------------------------------------------------- B — 질문 화면(도시 → 며칠 → 어떻게)
 
-type Step = 'city' | 'days' | 'pace' | 'plan'
+type Step = 'city' | 'days' | 'how' | 'plan'
 
-function QuestionFlow({ proto }: { proto: Proto }) {
-  const { cities, loading } = useCities()
+function QuestionFlow() {
+  const { cities, loading, failed, retry } = useCities()
   const trip = useStore(protoStore, (s) => s.trip)
   const [step, setStep] = useState<Step>('city')
   const [city, setCity] = useState<string | null>(null)
   const [days, setDays] = useState<number | null>(null)
-  const [pace, setPace] = useState<Pace | null>(null)
   const close = trip ? () => protoActions.ask(false) : undefined
 
   if (step === 'city') {
     return (
       <ProtoScreen
+        step={[1, 3]}
         onBack={close}
         title={
-          <VStack spacing={6} align="start">
+          <VStack spacing={10} align="start">
+            <HStack spacing={10}>
+              <PinoMascot width={44} />
+              <Txt size={14} weight="semibold" color="accent">{say('드라마·영화 촬영지로 짜는 한국 여행', 'Korea trips through K-drama & film spots')}</Txt>
+            </HStack>
             <Txt size={28} weight="heavy">{say('한국 어디로 여행 가세요?', 'Where in Korea are you going?')}</Txt>
-            <Txt size={15} color="secondary">{say('그 도시의 드라마·영화 촬영지로 여행 코스를 짜 드려요', "We'll plan a route through K-drama & film spots there")}</Txt>
           </VStack>
         }
       >
-        {loading ? <Spinner /> : <CityGrid cities={cities} selected={city} onPick={(k) => { setCity(k); setStep('days') }} />}
-        <Pressable plain onClick={() => protoActions.ask(false)} style={{ alignSelf: 'center', padding: 8 }}>
-          <Txt size={14} color="secondary">{say('아직 몰라요 — 그냥 둘러볼게요', 'Not sure yet — just browsing')}</Txt>
+        {failed ? (
+          <VStack spacing={10} align="start">
+            <Txt size={15} color="secondary">{say('도시 목록을 못 불러왔어요', "Couldn't load the cities")}</Txt>
+            <SecondaryButton onClick={retry}>{say('다시 시도', 'Try again')}</SecondaryButton>
+          </VStack>
+        ) : (
+          <CityGrid cities={cities} loading={loading} selected={city} onPick={(k) => { setCity(k); setStep('days') }} />
+        )}
+        <Pressable plain onClick={() => protoActions.ask(false)} style={{ alignSelf: 'center', padding: '12px 16px', minHeight: 44 }}>
+          <Txt size={15} color="secondary">{say('아직 몰라요 — 그냥 둘러볼게요', 'Not sure yet — just browsing')}</Txt>
         </Pressable>
       </ProtoScreen>
     )
   }
 
-  const cityName = cityByKey(cities, city)?.name ?? city ?? ''
+  const found = cityByKey(cities, city)
+  const cityName = found?.name ?? city ?? ''
   if (step === 'days') {
     return (
-      <ProtoScreen onBack={() => setStep('city')} title={say(`${cityName}에서 며칠 머무세요?`, `How long in ${cityName}?`)}>
-        <ChoiceRow
-          options={DAY_OPTIONS}
-          value={days}
-          label={daysLabel}
-          onPick={(n) => {
-            setDays(n)
-            if (proto === 'c') return setStep('pace')
-            protoActions.setTrip({ city: city!, days: n, pace: 'normal', courseId: null })
+      <ProtoScreen step={[2, 3]} onBack={() => setStep('city')} title={say(`${cityName}에서 며칠 머무세요?`, `How long in ${cityName}?`)}>
+        <ChoiceRow options={DAY_OPTIONS} value={days} label={daysLabel} onPick={(n) => { setDays(n); setStep('how') }} />
+      </ProtoScreen>
+    )
+  }
+
+  if (step === 'how') {
+    return (
+      <ProtoScreen
+        step={[3, 3]}
+        onBack={() => setStep('days')}
+        title={say('코스를 어떻게 짤까요?', 'How should we plan it?')}
+      >
+        {/* 두 갈래를 같은 크기의 카드로 — 무엇을 하게 되는지 한 줄씩. 처음 온 사람에게 부담이 적은 「알아서」 를 위에 채운 색으로(결정 3). */}
+        <HowCard
+          primary
+          icon="sparkles"
+          title={say('알아서 짜 주세요', 'Plan it for me')}
+          detail={say(`${cityName} 인기 촬영지를 동선대로 이어 ${daysLabel(days!)} 코스를 바로 만들어요. 빼고 바꾸는 건 그다음에.`, `We'll link ${cityName}'s top filming spots into a ${tripLength(days!)} route right away. Tweak it after.`)}
+          onClick={() => setStep('plan')}
+        />
+        <HowCard
+          icon="checkmark.circle.fill"
+          title={say('직접 고를게요', "I'll pick the spots")}
+          detail={say(`${cityName} 촬영지 ${found?.places.length ?? ''}곳을 보고 가고 싶은 곳만 담아요.`, `Browse ${found?.places.length ?? ''} spots in ${cityName} and add the ones you like.`)}
+          onClick={() => {
+            protoActions.setTrip({ city: city!, days: days!, pace: 'normal', courseId: null })
             protoActions.ask(false)
             protoActions.pick(city)
           }}
@@ -142,23 +173,29 @@ function QuestionFlow({ proto }: { proto: Proto }) {
     )
   }
 
-  if (step === 'pace') {
-    return (
-      <ProtoScreen onBack={() => setStep('days')} title={say('얼마나 빡빡하게 다닐까요?', 'How packed should each day be?')}>
-        <ChoiceRow
-          options={PACE_OPTIONS}
-          value={pace}
-          label={(p) => `${paceLabel(p)} · ${say(`하루 ${p === 'relaxed' ? 3 : p === 'normal' ? 5 : 7}곳`, `${p === 'relaxed' ? 3 : p === 'normal' ? 5 : 7} spots a day`)}`}
-          onPick={(p) => { setPace(p); setStep('plan') }}
-        />
-      </ProtoScreen>
-    )
-  }
-
-  return <PlanPreview city={cityByKey(cities, city)} days={days!} pace={pace!} onBack={() => setStep('pace')} />
+  return <PlanPreview city={found} days={days!} pace="normal" onBack={() => setStep('how')} />
 }
 
-// ---------------------------------------------------------------- C — 코스 초안 미리보기(껍데기 API)
+function HowCard({ primary, icon, title, detail, onClick }: { primary?: boolean; icon: string; title: string; detail: string; onClick: () => void }) {
+  return (
+    <Pressable
+      plain
+      onClick={onClick}
+      style={{ width: '100%', padding: 18, borderRadius: 18, textAlign: 'left', background: primary ? 'var(--accent)' : 'var(--system-background)', boxShadow: 'var(--card-shadow)', border: primary ? 'none' : '1.5px solid var(--accent)' }}
+    >
+      <HStack spacing={14} align="start">
+        <Icon name={icon} size={24} weight="semibold" color={primary ? 'white' : 'accent'} />
+        <VStack spacing={6} align="start" style={{ flex: 1, minWidth: 0 }}>
+          <Txt size={19} weight="heavy" style={{ color: primary ? '#fff' : 'var(--label)' }}>{title}</Txt>
+          <Txt size={15} style={{ color: primary ? 'rgba(255,255,255,0.9)' : 'var(--label-secondary)' }}>{detail}</Txt>
+        </VStack>
+        <Icon name="chevron.right" size={16} weight="semibold" color={primary ? 'white' : 'accent'} />
+      </HStack>
+    </Pressable>
+  )
+}
+
+// ---------------------------------------------------------------- 「알아서 짜 주세요」 — 코스 초안 미리보기(껍데기 API)
 
 function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days: number; pace: Pace; onBack: () => void }) {
   const router = useTabRouter()
@@ -197,11 +234,12 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
   const save = async () => {
     setBusy(true)
     setFailed(false)
-    const id = await saveCourse(say(`${city.name} ${daysLabel(days)}`, `${city.name} ${daysLabel(days)}`), plan, pace, true)
+    const id = await saveCourse(say(`${city.name} ${daysLabel(days)}`, `${city.name} · ${tripLength(days)} trip`), plan, pace, true)
     setBusy(false)
     if (id === null) return setFailed(true)
     protoActions.setTrip({ city: city.key, days, pace, courseId: id })
     protoActions.ask(false)
+    protoActions.created({ city: city.name, days })
     router.openCourse(id)
   }
 
@@ -211,7 +249,7 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
       title={
         <VStack spacing={6} align="start">
           <HStack spacing={8}><Txt size={26} weight="heavy">{say(`${city.name} ${daysLabel(days)} 추천 코스`, `${city.name} · ${daysLabel(days)}`)}</Txt></HStack>
-          <HStack spacing={6}><MockBadge label={say('껍데기 AI', 'Mock AI')} /><Txt size={13} color="secondary">{say('빼고 바꾸고 순서를 고친 뒤 저장하세요', 'Remove, swap or reorder, then save')}</Txt></HStack>
+          <HStack spacing={6}><MockBadge label={say('껍데기 AI', 'Mock AI')} /><Txt size={14} color="secondary">{say('빼고 바꾸고 순서를 고친 뒤 저장하세요', 'Remove, swap or reorder, then save')}</Txt></HStack>
         </VStack>
       }
       footer={
@@ -221,6 +259,7 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
         </VStack>
       }
     >
+      {plan.flat().length === 0 && <Txt size={15} color="secondary">{say('이 도시는 촬영지가 적어서 코스를 못 짰어요. 뒤로 가서 「직접 고를게요」 를 눌러 주세요', 'Not enough spots here to plan a route — go back and pick them yourself')}</Txt>}
       {plan.map((stops, day) => (
         <VStack key={day} spacing={10} align="stretch">
           <Txt size={17} weight="heavy">{say(`${day + 1}일차`, `Day ${day + 1}`)} <Txt size={13} color="secondary">{say(`${stops.length}곳`, `${stops.length} spots`)}</Txt></Txt>
@@ -229,8 +268,8 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
               key={`${p.id}-${idx}`}
               place={p}
               trailing={
-                <VStack spacing={6}>
-                  <HStack spacing={6}>
+                <VStack spacing={4}>
+                  <HStack spacing={4}>
                     <IconButton name="arrow.up.arrow.down" label={say('아래로', 'Move down')} onClick={() => move(day, idx, idx === stops.length - 1 ? -1 : 1)} />
                     <IconButton name="arrow.clockwise" label={say('다른 곳으로', 'Swap')} onClick={() => swap(day, idx)} />
                     <IconButton name="xmark" label={say('빼기', 'Remove')} onClick={() => edit(day, (s) => s.filter((_, i) => i !== idx))} />
@@ -247,8 +286,8 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
 
 function IconButton({ name, label, onClick }: { name: string; label: string; onClick: () => void }) {
   return (
-    <Pressable plain onClick={onClick} aria-label={label} title={label} style={{ width: 30, height: 30, borderRadius: 999, background: 'var(--system-gray6)', display: 'grid', placeItems: 'center' }}>
-      <Icon name={name} size={14} weight="semibold" color="accent" />
+    <Pressable plain onClick={onClick} aria-label={label} title={label} style={{ width: 44, height: 44, borderRadius: 999, background: 'var(--system-gray6)', display: 'grid', placeItems: 'center' }}>
+      <Icon name={name} size={16} weight="semibold" color="accent" />
     </Pressable>
   )
 }
@@ -258,8 +297,36 @@ function IconButton({ name, label, onClick }: { name: string; label: string; onC
 export function ProtoLayer() {
   const router = useTabRouter()
   const state = useStore(protoStore, (s) => s)
+  const cart = useCart()
+  const route = useRouteState()
   const { cities } = useCities()
+
+  // 처음 온 사람만 전체 화면 질문(결정 2) — 장바구니·코스를 받아 본 뒤 하나라도 있으면 질문을 거둔다.
+  const loaded = cart.loadState === 'loaded' && route.courseList === 'loaded'
+  const firstTimer = loaded && cart.placeIds.size === 0 && route.routeCourses.length === 0
+  useEffect(() => {
+    if (state.asking && !state.forced && loaded && !firstTimer) protoActions.ask(false)
+  }, [state.asking, state.forced, loaded, firstTimer])
+
+  // 방금 만든 코스의 한 줄 안내는 6초 뒤 사라진다(결정 4).
+  useEffect(() => {
+    if (!state.justCreated) return
+    const t = setTimeout(() => protoActions.created(null), 6000)
+    return () => clearTimeout(t)
+  }, [state.justCreated])
+
   if (!state.proto) return null
+
+  if (state.justCreated) {
+    const { city, days } = state.justCreated
+    return (
+      <div role="status" style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 64px)', left: 16, right: 16, zIndex: 70, padding: '12px 14px', borderRadius: 14, background: 'var(--accent)', boxShadow: '0 6px 20px rgba(0,0,0,0.18)' }}>
+        <Txt size={15} weight="semibold" color="white">
+          {say(`${city} ${daysLabel(days)} 코스가 준비됐어요 — 장소를 눌러 바꾸거나 끌어서 순서를 바꾸세요`, `Your ${tripLength(days)} ${city} course is ready — tap a place to change it, drag to reorder`)}
+        </Txt>
+      </div>
+    )
+  }
 
   if (state.picking) {
     const city = cityByKey(cities, state.picking)
@@ -273,12 +340,13 @@ export function ProtoLayer() {
         onCreated={(id, n) => {
           protoActions.setTrip({ city: city.key, days: n, pace: state.trip?.pace ?? 'normal', courseId: id })
           protoActions.pick(null)
+          protoActions.created({ city: city.name, days: n })
           router.openCourse(id)
         }}
       />
     )
   }
-  if (state.asking && (state.proto === 'b' || state.proto === 'c')) return <QuestionFlow proto={state.proto} />
+  if (state.proto === 'b' && state.asking && (state.forced || firstTimer)) return <QuestionFlow />
   return null
 }
 
@@ -286,7 +354,7 @@ export function ProtoLayer() {
 export function ProtoSwitcher() {
   const proto = useStore(protoStore, (s) => s.proto)
   const [open, setOpen] = useState(false)
-  const options: ReadonlyArray<[Proto | null, string]> = [['a', 'A 질문 카드'], ['b', 'B 질문 먼저'], ['c', 'C 바로 추천 코스'], [null, '끔(지금 화면)']]
+  const options: ReadonlyArray<[Proto | null, string]> = [['a', 'A 질문 카드만'], ['b', 'B 질문 먼저'], [null, '끔(지금 화면)']]
   return (
     <div style={{ position: 'absolute', right: 12, bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 12px)', zIndex: 60 }}>
       {open && (

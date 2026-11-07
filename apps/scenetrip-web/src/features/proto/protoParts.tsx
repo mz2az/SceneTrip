@@ -21,13 +21,14 @@ type PlaceSummary = components['schemas']['PlaceSummary']
 /** 질문에 내보일 도시 수 — 촬영지가 적은 도시까지 다 늘어놓으면 고르기 어렵다. */
 export const ASK_CITIES = 8
 
-export function useCities(): { cities: readonly HomeCity[]; loading: boolean } {
+export function useCities(): { cities: readonly HomeCity[]; loading: boolean; failed: boolean; retry: () => void } {
   const lang = useLang()
   const state = useStore(homeCityStore, (s) => s)
   useEffect(() => {
     void loadHomeCities()
   }, [lang])
-  return { cities: state.cities, loading: state.status !== 'loaded' }
+  const failed = state.status === 'failed' || (state.status === 'loaded' && state.cities.length === 0)
+  return { cities: state.cities, loading: state.status === 'idle' || state.status === 'loading', failed, retry: () => void loadHomeCities() }
 }
 
 export const cityByKey = (cities: readonly HomeCity[], key: string | null | undefined) => cities.find((c) => c.key === key) ?? null
@@ -41,9 +42,10 @@ export function MockBadge({ label = say('시안', 'Prototype') }: { label?: stri
   )
 }
 
-export function CityGrid({ cities, selected, onPick }: { cities: readonly HomeCity[]; selected?: string | null; onPick: (key: string) => void }) {
+export function CityGrid({ cities, loading, selected, onPick }: { cities: readonly HomeCity[]; loading?: boolean; selected?: string | null; onPick: (key: string) => void }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+      {loading && Array.from({ length: ASK_CITIES }, (_, i) => <div key={i} aria-hidden style={{ height: 92, borderRadius: 16, background: 'var(--system-gray5)', opacity: 0.6 }} />)}
       {cities.slice(0, ASK_CITIES).map((c) => {
         const cover = c.places.find(hasPhoto)
         const on = c.key === selected
@@ -90,7 +92,7 @@ export const PACE_OPTIONS: readonly Pace[] = ['relaxed', 'normal', 'packed']
 export { daysLabel, paceLabel }
 
 /** 화면 전체를 덮는 시안 화면의 틀 — 위 제목줄, 가운데 내용(스크롤), 아래 단추. */
-export function ProtoScreen({ title, onBack, children, footer }: { title: ReactNode; onBack?: () => void; children: ReactNode; footer?: ReactNode }) {
+export function ProtoScreen({ title, onBack, children, footer, step }: { title: ReactNode; onBack?: () => void; children: ReactNode; footer?: ReactNode; step?: [number, number] }) {
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: 'var(--grouped-background)' }}>
       <HStack spacing={8} style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 12px) 16px 8px', minHeight: 44 }}>
@@ -102,6 +104,8 @@ export function ProtoScreen({ title, onBack, children, footer }: { title: ReactN
           <div style={{ width: 32 }} />
         )}
         <Spacer />
+        {step && <StepDots at={step[0]} of={step[1]} />}
+        <Spacer />
         <MockBadge />
       </HStack>
       <div className="scroll-y" style={{ flex: 1, minHeight: 0 }}>
@@ -112,6 +116,25 @@ export function ProtoScreen({ title, onBack, children, footer }: { title: ReactN
       </div>
       {footer && <div style={{ padding: '10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)', background: 'var(--grouped-background)', borderTop: '0.5px solid var(--separator)' }}>{footer}</div>}
     </div>
+  )
+}
+
+/** 질문 단계 점 — 지금 단계만 길고 진하게. 화면 읽기에는 「1/3단계」. */
+function StepDots({ at, of }: { at: number; of: number }) {
+  return (
+    <HStack spacing={6} role="img" aria-label={say(`${of}단계 중 ${at}단계`, `Step ${at} of ${of}`)}>
+      {Array.from({ length: of }, (_, i) => (
+        <div key={i} style={{ width: i + 1 === at ? 20 : 7, height: 7, borderRadius: 999, background: i + 1 <= at ? 'var(--accent)' : 'var(--system-gray4)', transition: 'width 0.2s' }} />
+      ))}
+    </HStack>
+  )
+}
+
+export function SecondaryButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  return (
+    <Pressable plain onClick={onClick} style={{ width: '100%', padding: '15px 0', borderRadius: 14, border: '1.5px solid var(--accent)', background: 'var(--system-background)', textAlign: 'center' }}>
+      <Txt size={17} weight="bold" color="accent">{children}</Txt>
+    </Pressable>
   )
 }
 
@@ -231,6 +254,7 @@ export function CityPicker({ city, days, onBack, onCreated }: {
       }
     >
       <VStack spacing={10} align="stretch">
+        {city.places.length === 0 && <Txt size={15} color="secondary">{say('아직 이 도시의 촬영지가 없어요. 뒤로 가서 다른 도시를 골라 주세요', 'No filming spots here yet — go back and pick another city')}</Txt>}
         {city.places.slice(0, 30).map((p) => (
           <SpotRow key={p.id} place={p} saved={cart.placeIds.has(p.id)} onToggle={() => void (cart.placeIds.has(p.id) ? cartActions.remove(p.id) : cartActions.add(p.id))} />
         ))}

@@ -7,7 +7,7 @@
 import { currentLang } from '@/i18n'
 import { createStore, readJSON, writeJSON } from '@/state/storage'
 
-export type Proto = 'a' | 'b' | 'c'
+export type Proto = 'a' | 'b'
 export type Pace = 'relaxed' | 'normal' | 'packed'
 
 export interface ProtoTrip {
@@ -21,8 +21,12 @@ export interface ProtoTrip {
 export interface ProtoState {
   proto: Proto | null
   trip: ProtoTrip | null
-  /** 질문 화면(B·C)을 띄울까 — 여행이 없으면 처음 들어올 때, 「다른 여행」 을 누를 때. */
+  /** 질문 화면(B)을 띄울까 — 처음 온 사람(여행·코스·담은 곳 없음)이면 들어올 때, 「다른 여행」 을 누르면 언제나. */
   asking: boolean
+  /** 「다른 여행」 처럼 사람이 직접 연 질문 — 처음 온 사람인지 보지 않고 띄운다. */
+  forced: boolean
+  /** 방금 만든 코스 — 편집 화면 위에 한 줄 안내를 잠깐 띄운다(결정 4). */
+  justCreated: { city: string; days: number } | null
   /** 추천 촬영지 목록을 띄운 도시(A·B). */
   picking: string | null
 }
@@ -39,9 +43,11 @@ function initialProto(): Proto | null {
     return null
   }
   const value = asked ?? sessionStorage.getItem(PROTO_KEY)
-  if (value === 'a' || value === 'b' || value === 'c') {
-    sessionStorage.setItem(PROTO_KEY, value)
-    return value
+  // 옛 시안 C 는 B 의 「알아서 짜 주세요」 로 합쳤다.
+  const merged = value === 'c' ? 'b' : value
+  if (merged === 'a' || merged === 'b') {
+    sessionStorage.setItem(PROTO_KEY, merged)
+    return merged
   }
   return null
 }
@@ -52,7 +58,7 @@ export const protoAvailable = import.meta.env.DEV
 const proto = initialProto()
 const trip = readJSON<ProtoTrip | null>(TRIP_KEY, null)
 
-export const protoStore = createStore<ProtoState>({ proto, trip, asking: (proto === 'b' || proto === 'c') && trip === null, picking: null })
+export const protoStore = createStore<ProtoState>({ proto, trip, asking: proto === 'b' && trip === null, forced: false, picking: null, justCreated: null })
 const patch = (p: Partial<ProtoState>) => protoStore.set((s) => ({ ...s, ...p }))
 
 export const protoActions = {
@@ -60,19 +66,20 @@ export const protoActions = {
     if (next) sessionStorage.setItem(PROTO_KEY, next)
     else sessionStorage.removeItem(PROTO_KEY)
     const t = protoStore.get().trip
-    patch({ proto: next, asking: (next === 'b' || next === 'c') && t === null, picking: null })
+    patch({ proto: next, asking: next === 'b' && t === null, forced: false, picking: null })
   },
   /** 시안의 저장값을 지우고 처음 들어온 사람처럼. */
   reset() {
     writeJSON(TRIP_KEY, null)
     const p = protoStore.get().proto
-    patch({ trip: null, asking: p === 'b' || p === 'c', picking: null })
+    patch({ trip: null, asking: p === 'b', forced: false, picking: null, justCreated: null })
   },
   setTrip(next: ProtoTrip | null) {
     writeJSON(TRIP_KEY, next)
     patch({ trip: next })
   },
-  ask: (asking: boolean) => patch({ asking }),
+  ask: (asking: boolean, forced = false) => patch({ asking, forced: asking && forced }),
+  created: (justCreated: ProtoState['justCreated']) => patch({ justCreated }),
   pick: (city: string | null) => patch({ picking: city }),
 }
 
@@ -88,4 +95,10 @@ export function paceLabel(p: Pace): string {
 export function daysLabel(days: number): string {
   if (days === 1) return say('당일치기', 'Day trip')
   return say(`${days - 1}박 ${days}일`, `${days} days`)
+}
+
+/** 영어 형용사 꼴 — 「a 2-day route」. 한국어는 daysLabel 과 같다. */
+export function tripLength(days: number): string {
+  if (days === 1) return say('당일치기', 'day-trip')
+  return say(`${days - 1}박 ${days}일`, `${days}-day`)
 }
