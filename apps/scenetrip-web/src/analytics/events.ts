@@ -10,6 +10,8 @@ export type EventName =
   | 'select_language' | 'tutorial_begin' | 'tutorial_complete' | 'sign_up' | 'login' | 'logout' | 'delete_account' | 'set_nickname'
   | 'screen_view' | 'search' | 'view_title' | 'view_place' | 'view_poi' | 'view_reviews' | 'write_review' | 'delete_review' | 'view_photos'
   | 'like_title' | 'save_place' | 'generate_plan' | 'create_course' | 'start_trip' | 'get_directions' | 'visit_stamp' | 'ask_guide' | 'post_review'
+  /** 웹 전용 실험(MZ2AZ-531) — `webEvent` 에 있다. iOS·Android 에는 없다. */
+  | 'select_home_city'
 
 export type EventParams = Readonly<Record<string, string | number>>
 
@@ -71,4 +73,16 @@ export const appEvent = {
   askGuide: () => make('ask_guide'),
 
   postReview: (photoCount: number, hasCourse: boolean) => make('post_review', { photo_count: photoCount, has_course: flag(hasCourse) }),
+} as const
+
+/** 홈 「도시의 성지」에서 도시가 정해진 계기 — 처음 고른 것·칩을 누름·「내 위치」. */
+export type HomeCitySource = 'default' | 'chip' | 'near_me'
+
+/**
+ * 웹에만 있는 실험 이벤트. 위 `appEvent`(세 플랫폼 공통 26개)와 섞지 않는다 — 공통 표의 개수·이름 시험이 그대로 지켜진다.
+ * 정본: docs/project/plans/analytics-events.md §9.
+ */
+export const webEvent = {
+  /** `city` 는 한국어 도시 열쇠(언어와 무관), 좌표는 보내지 않는다. */
+  selectHomeCity: (city: string, source: HomeCitySource) => make('select_home_city', { city, source }),
 } as const

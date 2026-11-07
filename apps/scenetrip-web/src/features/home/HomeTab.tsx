@@ -1,7 +1,7 @@
 /*
  * 홈 — 첫 화면. iOS HomeTab/HomeTabView.swift (2026-09-01, 목업 `docs/product/canvas/home/Main.dc.html`·`HomeFull.dc.html`).
  *
- * 위에서부터: 인사 · 내 여행 이어가기(경로여정의 입구) · 지금 뜨는 작품 · 오늘의 성지 · 커뮤니티 지금 · 내 기록(마이페이지의 입구).
+ * 위에서부터: 인사 · 도시의 성지(웹 실험 MZ2AZ-531) · 내 여행 이어가기(경로여정의 입구) · 지금 뜨는 작품 · 오늘의 성지 · 커뮤니티 지금 · 내 기록(마이페이지의 입구).
  * 목업의 맨 윗줄 검색칸은 뺐다 — 검색은 작품검색 탭이 맡는다(사용자 지시). iOS 의 홈에는 「여행자들의 코스」(코스 마켓) 절이 없다 — 마켓 세그먼트도
  * 쓰지 않는 기능이라 걷어냈다(2026-10-03 팀 회의, MZ2AZ-350). 숫자·문구는 전부 서버·기기 값이다.
  */
@@ -19,6 +19,7 @@ import { useOnAccountChange } from '@/state/shared'
 import { useStore } from '@/state/storage'
 import { useRouteState } from '../route/store'
 import { CommunityNow, HomeHeader, MyRecord, TodayCard, WorkShelf } from './HomeCards'
+import { HomeCitySpots } from './HomeCitySpots'
 import { homeStore, reloadHome } from './homeModel'
 import { tripCard } from './homeRules'
 import { TripPager } from './TripCard'
@@ -66,6 +67,8 @@ export function HomeTab() {
     <div className="scroll-y" style={{ height: '100%', background: 'var(--grouped-background)' }}>
       <VStack spacing={18} align="stretch" style={{ padding: '8.7px 0 28px' }}>
         <HomeHeader onProfile={() => router.openProfile()} />
+        {/* 광고로 들어와 첫 화면만 보는 사람에게 도시별 촬영지를 바로 보여 준다(웹 DEV 실험, MZ2AZ-531). 카드는 「오늘의 성지」와 같은 길로 상세를 연다. */}
+        <HomeCitySpots onOpenPlace={(place) => router.openPlace(place)} onOpenMap={(bbox) => router.openRegion(bbox)} />
         <TripPager
           trips={home.trips}
           hasCourses={hasCourses}

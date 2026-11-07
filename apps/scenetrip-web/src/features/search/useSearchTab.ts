@@ -318,6 +318,18 @@ export function useSearchTab() {
     setFocusToken((n) => n + 1)
   }, [pendingPlace])
 
+  // 홈 「도시의 성지」의 「지도에서 보기」(MZ2AZ-531) — 그 도시 촬영지를 감싼 범위로 「현 지도 내 성지 검색」을 걸고, 결과가 오면 핀에 카메라를 맞춘다.
+  const pendingRegion = useStore(pendingStore, (s) => s.region)
+  useEffect(() => {
+    if (!pendingRegion) return
+    const bbox = consumePending('region')
+    if (!bbox) return
+    blurSearch()
+    applyViewportSearch(bbox, 'userSelected')
+    pendingFit.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 쪽지가 올 때만.
+  }, [pendingRegion])
+
   // URL(`/search/content/:id`, `/search/place/:id`)로 직접 열었을 때도 같은 상세가 열려야 한다.
   useEffect(() => {
     const c = matchPath(patterns.searchContent, pathname)

@@ -148,3 +148,14 @@ DebugView 수신과 기기 로그(「Logging event」, 업로드 204)로 확인�
 ## 9. 웹 구현 메모
 
 웹앱(`apps/scenetrip-web`)도 §3 의 이벤트 26개를 같은 이름·같은 매개변수로 보낸다. 구현은 `apps/scenetrip-web/src/analytics/`, 호출 위치와 켜는 조건은 [웹앱 계획 §12](../web-app.md) 에 있다. 측정 ID 가 비어 있으면 아무것도 보내지 않으며(`VITE_GA_MEASUREMENT_ID`), 웹의 이용 통계 설정이 꺼져 있어도 보내지 않는다. 웹 데이터 스트림은 아직 만들지 않았다.
+
+### 웹 전용 실험 이벤트 (MZ2AZ-531)
+
+위 26개와 따로 웹에만 있는 이벤트다(`apps/scenetrip-web/src/analytics/events.ts` 의 `webEvent`). iOS·Android 에는 없고, 공통 표의 개수 시험(26개)에 넣지 않는다.
+
+| 이벤트 | 언제 | 매개변수 | 웹 호출 위치 |
+| --- | --- | --- | --- |
+| `select_home_city` | 홈 「도시의 성지」의 도시가 정해졌다 — 처음 고른 것(세션에 한 번)·칩을 눌렀다·「내 위치」로 골랐다 | `city`(한국어 도시 열쇠, 예 `서울`·`경주`·`경기 광주`), `source`(`default`·`chip`·`near_me`) — **좌표는 보내지 않는다** | `features/home/HomeCitySpots.tsx` |
+
+그 절의 카드에서 촬영지를 열면 따로 보내지 않는다 — 작품검색 탭의 촬영지 상세가 열리며 기존 `view_place` 가 나간다. 계획: [web-home-city-spots.md](web-home-city-spots.md).
+
