@@ -92,24 +92,36 @@ export const PACE_OPTIONS: readonly Pace[] = ['relaxed', 'normal', 'packed']
 export { daysLabel, paceLabel }
 
 /** 화면 전체를 덮는 시안 화면의 틀 — 위 제목줄, 가운데 내용(스크롤), 아래 단추. */
-export function ProtoScreen({ title, onBack, children, footer, step }: { title: ReactNode; onBack?: () => void; children: ReactNode; footer?: ReactNode; step?: [number, number] }) {
+export function ProtoScreen({ title, onBack, children, footer, step, hero }: {
+  title: ReactNode
+  onBack?: () => void
+  children: ReactNode
+  footer?: ReactNode
+  step?: [number, number]
+  /** 화면 맨 위를 가장자리까지 채우는 사진 머리. 있으면 위 줄(뒤로·단계 점)이 사진 위에 흰색으로 얹힌다. */
+  hero?: ReactNode
+}) {
+  const bar = (
+    <HStack spacing={8} style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 12px) 16px 8px', minHeight: 44, ...(hero ? { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2 } : {}) }}>
+      {onBack ? (
+        <Pressable plain onClick={onBack} aria-label={say('뒤로', 'Back')} style={{ padding: 6 }}>
+          <Icon name="chevron.left" size={20} weight="semibold" color={hero ? 'white' : 'accent'} />
+        </Pressable>
+      ) : (
+        <div style={{ width: 32 }} />
+      )}
+      <Spacer />
+      {step && <StepDots at={step[0]} of={step[1]} onPhoto={!!hero} />}
+      <Spacer />
+      <MockBadge />
+    </HStack>
+  )
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: 'var(--grouped-background)' }}>
-      <HStack spacing={8} style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 12px) 16px 8px', minHeight: 44 }}>
-        {onBack ? (
-          <Pressable plain onClick={onBack} aria-label={say('뒤로', 'Back')} style={{ padding: 6 }}>
-            <Icon name="chevron.left" size={20} weight="semibold" color="accent" />
-          </Pressable>
-        ) : (
-          <div style={{ width: 32 }} />
-        )}
-        <Spacer />
-        {step && <StepDots at={step[0]} of={step[1]} />}
-        <Spacer />
-        <MockBadge />
-      </HStack>
+      {bar}
       <div className="scroll-y" style={{ flex: 1, minHeight: 0 }}>
-        <VStack spacing={18} align="stretch" style={{ padding: '4px 20px 24px' }}>
+        {hero}
+        <VStack spacing={18} align="stretch" style={{ padding: hero ? '16px 20px 24px' : '4px 20px 24px' }}>
           {typeof title === 'string' ? <Txt size={26} weight="heavy" style={{ textWrap: 'balance' } as CSSProperties}>{title}</Txt> : title}
           {children}
         </VStack>
@@ -120,11 +132,11 @@ export function ProtoScreen({ title, onBack, children, footer, step }: { title: 
 }
 
 /** 질문 단계 점 — 지금 단계만 길고 진하게. 화면 읽기에는 「1/3단계」. */
-function StepDots({ at, of }: { at: number; of: number }) {
+function StepDots({ at, of, onPhoto }: { at: number; of: number; onPhoto?: boolean }) {
   return (
     <HStack spacing={6} role="img" aria-label={say(`${of}단계 중 ${at}단계`, `Step ${at} of ${of}`)}>
       {Array.from({ length: of }, (_, i) => (
-        <div key={i} style={{ width: i + 1 === at ? 20 : 7, height: 7, borderRadius: 999, background: i + 1 <= at ? 'var(--accent)' : 'var(--system-gray4)', transition: 'width 0.2s' }} />
+        <div key={i} style={{ width: i + 1 === at ? 20 : 7, height: 7, borderRadius: 999, background: onPhoto ? (i + 1 <= at ? '#fff' : 'rgba(255,255,255,0.45)') : i + 1 <= at ? 'var(--accent)' : 'var(--system-gray4)', transition: 'width 0.2s' }} />
       ))}
     </HStack>
   )
@@ -260,5 +272,50 @@ export function CityPicker({ city, days, onBack, onCreated }: {
         ))}
       </VStack>
     </ProtoScreen>
+  )
+}
+
+/**
+ * 첫 질문 화면의 사진 머리 — 큰 도시들의 대표 촬영지 사진이 4초마다 천천히 겹쳐 바뀐다. 아래쪽은 화면 바탕색으로 녹아들어
+ * 도시 칸과 이어진다. 사진마다 어디인지(도시 · 촬영지 · 작품) 작게 적는다 — 「예쁜 그림」 이 아니라 실제로 갈 수 있는 곳이라는 것.
+ * 움직임 줄이기 설정이면 첫 사진에 멈춘다.
+ */
+export function CityHero({ cities, children }: { cities: readonly HomeCity[]; children: ReactNode }) {
+  const slides = cities
+    .slice(0, 6)
+    .map((c) => ({ city: c.name, place: c.places.find(hasPhoto) }))
+    .filter((s): s is { city: string; place: PlaceSummary } => !!s.place)
+  const [at, setAt] = useState(0)
+  useEffect(() => {
+    if (slides.length < 2 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const t = setInterval(() => setAt((i) => (i + 1) % slides.length), 4000)
+    return () => clearInterval(t)
+  }, [slides.length])
+  const now = slides[at % Math.max(1, slides.length)]
+  return (
+    <div style={{ position: 'relative', height: 'min(46vh, 390px)', minHeight: 300, overflow: 'hidden', background: 'var(--pin-gradient)' }}>
+      {slides.map((s, i) => (
+        <img
+          key={s.place.id}
+          src={s.place.imageUrl!}
+          alt=""
+          referrerPolicy="no-referrer"
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+            opacity: i === at ? 1 : 0, transform: i === at ? 'scale(1.06)' : 'scale(1)', transition: 'opacity 1.2s ease, transform 5s ease-out',
+          }}
+        />
+      ))}
+      {/* 위는 상태줄·단추가 읽히게 살짝, 아래는 글자가 읽히고 바탕색으로 이어지게 진하게. */}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0.15) 52%, rgba(0,0,0,0.7) 82%, var(--grouped-background) 100%)' }} />
+      <div style={{ position: 'absolute', left: 20, right: 20, bottom: 34 }}>{children}</div>
+      {now && (
+        <div style={{ position: 'absolute', right: 14, top: 'calc(env(safe-area-inset-top, 0px) + 52px)', maxWidth: '60%', textAlign: 'right' }}>
+          <Txt size={11} weight="semibold" color="white" lines={1} style={{ opacity: 0.85, textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
+            {now.city} · {now.place.name}{now.place.contents?.[0]?.title ? ` · ${now.place.contents[0].title}` : ''}
+          </Txt>
+        </div>
+      )}
+    </div>
   )
 }

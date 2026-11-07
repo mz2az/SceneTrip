@@ -15,7 +15,7 @@ import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { mockPlanCityTrip, nearestUnused } from './mockPlan'
 import {
-  ASK_CITIES, ChoiceRow, CityGrid, CityPicker, DAY_OPTIONS, MockBadge, PrimaryButton, ProtoScreen, SecondaryButton, SpotRow, cityByKey, daysLabel,
+  ASK_CITIES, ChoiceRow, CityGrid, CityHero, CityPicker, DAY_OPTIONS, MockBadge, PrimaryButton, ProtoScreen, SecondaryButton, SpotRow, cityByKey, daysLabel,
   saveCourse, useCities,
 } from './protoParts'
 import { type Pace, type Proto, protoActions, protoStore, say, tripLength } from './protoState'
@@ -109,14 +109,17 @@ function QuestionFlow() {
       <ProtoScreen
         step={[1, 3]}
         onBack={close}
-        title={
-          <VStack spacing={10} align="start">
-            <HStack spacing={10}>
-              <PinoMascot width={44} />
-              <Txt size={14} weight="semibold" color="accent">{say('드라마·영화 촬영지로 짜는 한국 여행', 'Korea trips through K-drama & film spots')}</Txt>
-            </HStack>
-            <Txt size={28} weight="heavy">{say('한국 어디로 여행 가세요?', 'Where in Korea are you going?')}</Txt>
-          </VStack>
+        title={null}
+        hero={
+          <CityHero cities={cities}>
+            <VStack spacing={10} align="start">
+              <HStack spacing={8}>
+                <PinoMascot width={40} />
+                <Txt size={14} weight="semibold" color="white" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('드라마·영화 촬영지로 짜는 한국 여행', 'Korea trips through K-drama & film spots')}</Txt>
+              </HStack>
+              <Txt size={32} weight="heavy" color="white" style={{ lineHeight: 1.12, textShadow: '0 2px 10px rgba(0,0,0,0.35)' }}>{say('한국 어디로 여행 가세요?', 'Where in Korea are you going?')}</Txt>
+            </VStack>
+          </CityHero>
         }
       >
         {failed ? (
