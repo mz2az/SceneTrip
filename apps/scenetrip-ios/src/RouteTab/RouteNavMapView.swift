@@ -75,6 +75,7 @@ struct RouteNavMapView: UIViewRepresentable {
         view.showZoomControls = false
         view.showLocationButton = false
         view.mapView.logoAlign = .leftBottom
+        NaverMapLocale.apply(to: view.mapView)
         // 파문·주변 갱신이 카메라를 들어야 한다 — 파문이 처음 뜰 때가 아니라
         // **지도를 만들 때** 등록한다. 안 그러면 위치를 받기 전까지 카메라
         // 멈춤(idle)을 못 들어 주변 목록이 영영 안 온다.
@@ -88,6 +89,7 @@ struct RouteNavMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ view: NMFNaverMapView, context: Context) {
+        NaverMapLocale.apply(to: view.mapView)
         context.coordinator.onTapPlace = onTapPlace
         context.coordinator.onTapStop = onTapStop
         context.coordinator.onViewport = onViewport

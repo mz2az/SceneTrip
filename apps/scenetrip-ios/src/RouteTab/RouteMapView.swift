@@ -147,6 +147,7 @@ struct RouteMapView: UIViewRepresentable {
         view.showZoomControls = false
         view.showLocationButton = false
         view.mapView.logoAlign = .leftBottom
+        NaverMapLocale.apply(to: view.mapView)
         view.mapView.touchDelegate = context.coordinator
         // 파문(내 위치)이 카메라를 따라다니려면 움직임을 들어야 한다.
         view.mapView.addCameraDelegate(delegate: context.coordinator)
@@ -155,6 +156,7 @@ struct RouteMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ view: NMFNaverMapView, context: Context) {
+        NaverMapLocale.apply(to: view.mapView)
         context.coordinator.onTapMap = onTapMap
         context.coordinator.onTapGuide = onTapGuide
         context.coordinator.onTapPreview = onTapPreview
