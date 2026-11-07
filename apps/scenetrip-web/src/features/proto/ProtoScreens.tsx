@@ -4,6 +4,7 @@
  */
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import type { components } from '@/api/generated/schema'
+import { paths } from '@/app/routes'
 import { useTabRouter } from '@/app/tabRouter'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Spinner, Txt, VStack, homeCard } from '@/design/primitives'
@@ -434,9 +435,10 @@ export function TripFloatBar() {
     setOpen(false)
     router.openCourse(id)
   }
+  // 「Plan a trip」·「+ 새 코스」 는 원래 앱의 코스 만들기로 — 코스 화면을 열고 「AI 로 짜기 / 직접 짜기」 를 고르게 한다(사용자 요청 2026-11-07).
   const newPlan = () => {
     setOpen(false)
-    protoActions.plan()
+    router.navigate(paths.courseNew)
   }
   // 펼친 줄의 알약 하나하나 — 오른쪽(단추 자리)에 가까운 것부터 차례로 들어온다.
   const enter = (i: number): CSSProperties => ({
