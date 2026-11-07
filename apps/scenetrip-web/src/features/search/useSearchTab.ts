@@ -31,7 +31,8 @@ const summaryOf = (w: ContentDetail): ContentSummary => ({
   id: w.id, category: w.category, title: w.title, posterUrl: w.posterUrl, broadcaster: w.broadcaster, releaseYear: w.releaseYear, genres: w.genres, placeCount: w.placeCount,
 })
 
-export function useSearchTab() {
+/** `active` — 탭이 지금 보이는가. 홈에서 건 지역 필터는 탭을 떠날 때 지운다(일회성, MZ2AZ-531). */
+export function useSearchTab(active = true) {
   const dataRef = useRef<SceneData | null>(null)
   if (!dataRef.current) dataRef.current = new SceneData()
   const data = dataRef.current
@@ -75,6 +76,8 @@ export function useSearchTab() {
   const pendingFocusPlaceId = useRef<number | null>(null)
   const selectedContentId = useRef<number | null>(null)
   const topWorkRef = useRef<TopWork>(null)
+  /** 지금의 지도 범위 검색이 홈 「지도에서 보기」 쪽지로 걸린 것인가 — 탭을 떠나면 지운다. 사용자가 직접 건 범위 검색·검색어는 해당 없다. */
+  const regionFromHome = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const initial = isInitialScreen(committed, nearby, selectedContent !== null)
@@ -100,6 +103,7 @@ export function useSearchTab() {
       setTab(nextTab)
       setDraft(term)
       setCommitted(term.trim())
+      regionFromHome.current = false
       // 단어로 검색하는 순간 반경 모드는 끝난다 — 두 조건이 함께 걸려 있으면 결과가 왜 그렇게 나왔는지 화면만 보고는 설명할 수 없다.
       setNearby(false)
       setChip(CHIP_ALL)
@@ -227,6 +231,7 @@ export function useSearchTab() {
   const searchViewport = useCallback(() => {
     const box = camera.current?.boundingBox()
     if (!box) return
+    regionFromHome.current = false
     const source = camera.current!.source()
     // 기기 위치에서 나온 범위면 위치 동의를 먼저 거친다.
     if (source === 'device') location.request(() => applyViewportSearch(box, source))
@@ -235,6 +240,7 @@ export function useSearchTab() {
 
   const toggleNearby = () => {
     if (nearby) {
+      regionFromHome.current = false
       // 해제도 카메라를 건드리지 않는다 — 켤 때 안 움직인 화면이 끌 때 움직이면 무엇 때문에 움직였는지 알 수 없다.
       setNearby(false)
       setDraft('')
@@ -317,6 +323,31 @@ export function useSearchTab() {
     setDetent('medium')
     setFocusToken((n) => n + 1)
   }, [pendingPlace])
+
+  // 홈 「도시의 성지」의 「지도에서 보기」(MZ2AZ-531) — 그 도시 촬영지를 감싼 범위로 「현 지도 내 성지 검색」을 걸고, 결과가 오면 핀에 카메라를 맞춘다.
+  const pendingRegion = useStore(pendingStore, (s) => s.region)
+  useEffect(() => {
+    if (!pendingRegion) return
+    const bbox = consumePending('region')
+    if (!bbox) return
+    blurSearch()
+    applyViewportSearch(bbox, 'userSelected')
+    regionFromHome.current = true
+    pendingFit.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 쪽지가 올 때만.
+  }, [pendingRegion])
+
+  // 홈에서 건 지역 필터는 일회성이다 — 탭을 떠나면 지워, 탭바·「전체 보기」·오늘의 성지 등 다른 길로 다시 오면 필터 없이 연다(사용자 피드백).
+  useEffect(() => {
+    if (active || !regionFromHome.current) return
+    regionFromHome.current = false
+    setNearby(false)
+    setDraft('')
+    setCommitted('')
+    setChip(CHIP_ALL)
+    data.search('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 숨겨질 때만.
+  }, [active])
 
   // URL(`/search/content/:id`, `/search/place/:id`)로 직접 열었을 때도 같은 상세가 열려야 한다.
   useEffect(() => {

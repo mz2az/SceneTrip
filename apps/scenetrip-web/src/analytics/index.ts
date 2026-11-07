@@ -9,7 +9,7 @@ import { type GtagWindow, createGa4 } from './ga4'
 import { createPostHog } from './posthog'
 import { createSentry } from './sentry'
 
-export { appEvent } from './events'
+export { appEvent, webEvent } from './events'
 export type { AppEvent, EventName } from './events'
 
 const ga4 = createGa4({
