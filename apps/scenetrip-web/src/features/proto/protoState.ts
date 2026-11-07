@@ -4,7 +4,12 @@
  * - 시안: 주소의 `?proto=a|b|c|off` → 탭을 닫을 때까지 sessionStorage 에 남는다. 값이 없으면 시안을 끈다(지금 화면 그대로).
  * - 여행(도시·며칠·속도·만든 코스): 이 브라우저의 localStorage. 고른 안을 다듬을 때 서버(계정) 저장을 설계한다.
  */
+import { api } from '@/api/client'
+import { reloadHome } from '@/features/home/homeModel'
+import { routeActions } from '@/features/route/store'
 import { currentLang } from '@/i18n'
+import { cartActions } from '@/state/cart'
+import { installHeader } from '@/state/install'
 import { createStore, readJSON, writeJSON } from '@/state/storage'
 
 export type Proto = 'a' | 'b'
@@ -35,6 +40,13 @@ export interface ProtoState {
 
 const PROTO_KEY = 'scenetrip.proto'
 const TRIP_KEY = 'scenetrip.proto.trip'
+/** 시안으로 만든 코스의 서버 id — 「처음부터」 가 이것만 지운다(사용자가 손으로 만든 코스는 두고). */
+const COURSES_KEY = 'scenetrip.proto.courses'
+
+export function rememberProtoCourse(id: number): void {
+  const ids = readJSON<number[]>(COURSES_KEY, [])
+  if (!ids.includes(id)) writeJSON(COURSES_KEY, [...ids, id])
+}
 
 function initialProto(): Proto | null {
   // 로컬 개발 서버(`just web-dev`)에서만 — 배포 번들에서는 주소에 값을 붙여도 켜지지 않는다.
@@ -71,8 +83,15 @@ export const protoActions = {
     patch({ proto: next, asking: false, forced: false, startCity: null, picking: null })
   },
   /** 시안의 저장값을 지우고 처음 들어온 사람처럼. */
-  reset() {
+  async reset() {
+    // 시안으로 만든 코스(DEV 서버)와 시안 여행 기억을 지운다. 지운 뒤 코스 목록·홈·장바구니를 다시 받아 화면에서도 사라지게 한다.
+    const ids = readJSON<number[]>(COURSES_KEY, [])
+    const current = protoStore.get().trip?.courseId
+    if (current != null && !ids.includes(current)) ids.push(current)
+    await Promise.all(ids.map((id) => api.DELETE('/courses/{courseId}', { params: { header: installHeader(), path: { courseId: id } } }).catch(() => undefined)))
+    writeJSON(COURSES_KEY, [])
     writeJSON(TRIP_KEY, null)
+    await Promise.all([routeActions.refresh(), reloadHome(), cartActions.refresh()])
     patch({ trip: null, asking: false, forced: false, startCity: null, picking: null, justCreated: null })
   },
   setTrip(next: ProtoTrip | null) {

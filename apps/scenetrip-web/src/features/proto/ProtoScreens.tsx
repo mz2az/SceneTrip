@@ -11,6 +11,7 @@ import type { HomeCity } from '@/features/home/homeCityModel'
 import { Pressable } from '@/features/route/ui/Press'
 import { PinoMascot } from '@/design/PinoMascot'
 import { homeStore } from '@/features/home/homeModel'
+import { useRouteState } from '@/features/route/store'
 import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { mockPlanCityTrip, nearestUnused } from './mockPlan'
@@ -375,8 +376,8 @@ export function ProtoSwitcher() {
               <Txt size={14} weight={p === proto ? 'bold' : 'regular'}>{label}</Txt>
             </Pressable>
           ))}
-          <Pressable plain onClick={() => { protoActions.reset(); setOpen(false) }} style={{ padding: '8px 10px', textAlign: 'left' }}>
-            <Txt size={14} color="red">처음부터 (여행 지우기)</Txt>
+          <Pressable plain onClick={() => { void protoActions.reset(); setOpen(false) }} style={{ padding: '8px 10px', textAlign: 'left' }}>
+            <Txt size={14} color="red">처음부터 (시안으로 만든 여행 지우기)</Txt>
           </Pressable>
         </VStack>
       )}
@@ -387,57 +388,93 @@ export function ProtoSwitcher() {
   )
 }
 
+/** 떠 있는 알약에 넣는 코스 수 — 넘겨 보는 한계(사용자 결정 2026-11-07). */
+const FLOAT_TRIPS = 5
+
 /**
- * 홈에 떠 있는 작은 「여행 계획」 알약 — 탭 막대 위 가운데(사용자 요청 2026-11-07, 홈의 코스 카드를 대신한다). 높이 46 의 한 줄.
- * 다가오는·진행 중 코스가 있으면 [✈ 부산 · 2일 ›] | [+] — 앞쪽은 그 코스로 바로, 「+」 는 새 계획. 없으면 [✈ 여행 계획 만들기] 하나.
+ * 홈 오른쪽 아래에 떠 있는 작은 「여행 계획」 알약(사용자 요청 2026-11-07, 홈의 코스 카드를 대신한다). 높이 40, 앱의 보라·하늘 그라데이션.
+ * 코스가 있으면 옆으로 넘겨 최대 5개를 본다 — 여행 중인 코스가 맨 앞이고 「여행 중」 표시와 깜박이는 초록 점이 붙는다. 누르면 그 코스로 바로.
+ * 왼쪽 작은 「+」 는 새 계획. 코스가 없으면 「여행 계획 만들기」 알약 하나.
  */
 export function TripFloatBar() {
   const router = useTabRouter()
+  const route = useRouteState()
   const home = useStore(homeStore, (s) => s)
-  const trip = home.trips[0] ?? null
-  const pill: CSSProperties = {
-    position: 'absolute', left: '50%', transform: 'translateX(-50%)', zIndex: 30, maxWidth: 'calc(100% - 40px)',
-    bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 12px)',
-    display: 'flex', alignItems: 'center', height: 46, borderRadius: 999,
-    background: 'rgba(28, 28, 36, 0.94)', boxShadow: '0 6px 20px rgba(0,0,0,0.22)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-  }
-  const plane = (
-    <div style={{ width: 28, height: 28, flex: 'none', borderRadius: 999, background: 'var(--pin-gradient)', display: 'grid', placeItems: 'center' }}>
-      <Icon name="paperplane.fill" size={14} color="white" />
-    </div>
-  )
+  const [at, setAt] = useState(0)
+  const courses = [...route.routeCourses.filter((c) => c.isRunning), ...route.routeCourses.filter((c) => !c.isRunning)]
+    .filter((c) => c.serverId !== null)
+    .slice(0, FLOAT_TRIPS)
+  const stampsOf = (id: number | null) => home.trips.find((t) => t.course.serverId === id)
 
-  if (trip && trip.course.serverId !== null) {
-    const c = trip.course
-    // 이름에 이미 기간이 들어 있다 — 여행 중일 때만 몇 일차·스탬프를 덧붙인다.
-    const sub = c.isRunning ? say(`${trip.dayNo}일차 · ${trip.visited}/${trip.total}`, `Day ${trip.dayNo} · ${trip.visited}/${trip.total}`) : null
+  const wrap: CSSProperties = {
+    position: 'absolute', right: 14, zIndex: 30,
+    bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 40px)',
+    display: 'flex', alignItems: 'flex-start', gap: 8,
+  }
+  const shadow = '0 6px 18px rgba(92, 74, 214, 0.35)'
+
+  if (courses.length === 0) {
     return (
-      <div style={pill}>
-        <Pressable plain onClick={() => router.openCourse(c.serverId!)} aria-label={say(`${c.title} 열기`, `Open ${c.title}`)} style={{ height: 46, padding: '0 12px 0 9px', minWidth: 0 }}>
-          <HStack spacing={8}>
-            {plane}
-            {c.isRunning && <span aria-hidden style={{ width: 7, height: 7, flex: 'none', borderRadius: 999, background: 'var(--system-green)' }} />}
-            <Txt size={15} weight="bold" color="white" lines={1} style={{ minWidth: 0 }}>{c.title}</Txt>
-            {sub && <Txt size={13} lines={1} style={{ flex: 'none', color: 'rgba(255,255,255,0.6)' }}>{sub}</Txt>}
-            <Icon name="chevron.right" size={13} weight="semibold" color="white" />
+      <div style={wrap}>
+        <Pressable plain onClick={() => protoActions.plan()} style={{ height: 40, padding: '0 14px 0 12px', borderRadius: 999, background: 'var(--pin-gradient)', boxShadow: shadow }}>
+          <HStack spacing={6}>
+            <Icon name="paperplane.fill" size={14} color="white" />
+            <Txt size={14} weight="bold" color="white" style={{ whiteSpace: 'nowrap' }}>{say('여행 계획 만들기', 'Plan a trip')}</Txt>
           </HStack>
-        </Pressable>
-        <div aria-hidden style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.2)' }} />
-        <Pressable plain onClick={() => protoActions.plan()} aria-label={say('새 여행 계획', 'New trip plan')} style={{ width: 46, height: 46, flex: 'none', display: 'grid', placeItems: 'center' }}>
-          <Icon name="plus" size={18} weight="bold" color="white" />
         </Pressable>
       </div>
     )
   }
 
   return (
-    <div style={pill}>
-      <Pressable plain onClick={() => protoActions.plan()} style={{ height: 46, padding: '0 18px 0 9px' }}>
-        <HStack spacing={8}>
-          {plane}
-          <Txt size={15} weight="bold" color="white" style={{ whiteSpace: 'nowrap' }}>{say('여행 계획 만들기', 'Plan a trip')}</Txt>
-        </HStack>
+    <div style={wrap}>
+      <VStack spacing={4} align="center">
+        <div
+          className="scroll-x"
+          onScroll={(e) => setAt(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth))}
+          style={{ width: 180, height: 40, borderRadius: 999, background: 'var(--pin-gradient)', boxShadow: shadow, display: 'flex', scrollSnapType: 'x mandatory', overscrollBehaviorX: 'contain' }}
+          data-sheet-nodrag
+        >
+          {courses.map((c) => {
+            const live = c.isRunning
+            const t = stampsOf(c.serverId)
+            return (
+              <Pressable
+                key={c.uid}
+                plain
+                onClick={() => router.openCourse(c.serverId!)}
+                aria-label={say(`${c.title} 열기${live ? ' (여행 중)' : ''}`, `Open ${c.title}${live ? ' (on trip)' : ''}`)}
+                style={{ flex: '0 0 100%', height: 40, padding: '0 12px', scrollSnapAlign: 'center', textAlign: 'left' }}
+              >
+                <HStack spacing={6} style={{ width: '100%' }}>
+                  {live ? (
+                    <span style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 999, background: 'rgba(255,255,255,0.95)' }}>
+                      <span className="proto-live-dot" style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--system-green)' }} />
+                      <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--home-purple)' }}>{say('여행 중', 'LIVE')}</span>
+                    </span>
+                  ) : (
+                    <Icon name="paperplane.fill" size={13} color="white" />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 14, fontWeight: 700, color: '#fff' }}>{c.title}</div>
+                  {live && t && <Txt size={11} weight="semibold" style={{ flex: 'none', color: 'rgba(255,255,255,0.85)' }}>{`${t.visited}/${t.total}`}</Txt>}
+                  <Icon name="chevron.right" size={12} weight="bold" color="white" />
+                </HStack>
+              </Pressable>
+            )
+          })}
+        </div>
+        {courses.length > 1 && (
+          <HStack spacing={4} aria-hidden>
+            {courses.map((c, i) => (
+              <span key={c.uid} style={{ width: i === at ? 12 : 5, height: 5, borderRadius: 999, background: i === at ? 'var(--accent)' : 'var(--system-gray3)', transition: 'width 0.2s' }} />
+            ))}
+          </HStack>
+        )}
+      </VStack>
+      <Pressable plain onClick={() => protoActions.plan()} aria-label={say('새 여행 계획', 'New trip plan')} style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--system-background)', boxShadow: '0 4px 14px rgba(0,0,0,0.14)', display: 'grid', placeItems: 'center' }}>
+        <Icon name="plus" size={17} weight="bold" color="accent" />
       </Pressable>
+      <style>{'@keyframes proto-live { 0%,100% { opacity: 1 } 50% { opacity: 0.25 } } .proto-live-dot { animation: proto-live 1.4s ease-in-out infinite } @media (prefers-reduced-motion: reduce) { .proto-live-dot { animation: none } }'}</style>
     </div>
   )
 }

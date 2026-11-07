@@ -14,7 +14,7 @@ import { routeActions } from '@/features/route/store'
 import { useLang } from '@/i18n'
 import { cartActions, useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
-import { type Pace, daysLabel, paceLabel, say } from './protoState'
+import { type Pace, daysLabel, paceLabel, rememberProtoCourse, say } from './protoState'
 
 type PlaceSummary = components['schemas']['PlaceSummary']
 
@@ -203,7 +203,9 @@ export async function saveCourse(title: string, days: readonly (readonly PlaceSu
     days: days.map((stops) => makeDay(stops.map((p) => makeStop(p)))),
   })
   const saved = await routeActions.save(course)
-  return saved?.serverId ?? null
+  const id = saved?.serverId ?? null
+  if (id !== null) rememberProtoCourse(id)
+  return id
 }
 
 /** 담은 곳을 며칠로 고르게 나눈다 — 순서는 담은 순(목록 순) 그대로. */
