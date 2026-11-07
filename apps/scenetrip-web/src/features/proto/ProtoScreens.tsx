@@ -365,6 +365,15 @@ export function ProtoLayer() {
 export function ProtoSwitcher() {
   const proto = useStore(protoStore, (s) => s.proto)
   const [open, setOpen] = useState(false)
+  // 「처음부터」 결과 — 몇 개 지웠고 몇 개 남았는지 단추 옆에 잠깐 보인다.
+  const [note, setNote] = useState<string | null>(null)
+  const reset = async () => {
+    setOpen(false)
+    setNote('지우는 중…')
+    const r = await protoActions.reset(setNote)
+    setNote(r.failed > 0 || r.left > 0 ? `지움 ${r.deleted} · 실패 ${r.failed} · 남음 ${r.left}` : `코스 ${r.deleted}개 지움`)
+    setTimeout(() => setNote(null), 5000)
+  }
   const options: ReadonlyArray<[Proto | null, string]> = [['a', 'A 질문 카드만'], ['b', 'B 질문 먼저'], [null, '끔(지금 화면)']]
   return (
     <div style={{ position: 'absolute', left: 14, bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 104px)', zIndex: 60 }}>
@@ -375,7 +384,7 @@ export function ProtoSwitcher() {
               <Txt size={14} weight={p === proto ? 'bold' : 'regular'}>{label}</Txt>
             </Pressable>
           ))}
-          <Pressable plain onClick={() => { void protoActions.reset(); setOpen(false) }} style={{ padding: '8px 10px', textAlign: 'left' }}>
+          <Pressable plain onClick={() => void reset()} style={{ padding: '8px 10px', textAlign: 'left' }}>
             <Txt size={14} color="red">처음부터 (내 코스 모두 지우기)</Txt>
           </Pressable>
         </VStack>
@@ -383,6 +392,7 @@ export function ProtoSwitcher() {
       <Pressable plain onClick={() => setOpen(!open)} style={{ padding: '4px 10px', borderRadius: 999, background: 'rgb(255,149,0)', boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}>
         <Txt size={13} weight="bold" color="white">{proto ? `시안 ${proto.toUpperCase()}` : '시안 끔'}</Txt>
       </Pressable>
+      {note && <span role="status" style={{ marginLeft: 8, padding: '4px 8px', borderRadius: 8, background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: 12, fontWeight: 600 }}>{note}</span>}
     </div>
   )
 }

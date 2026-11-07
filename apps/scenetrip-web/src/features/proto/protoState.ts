@@ -83,16 +83,37 @@ export const protoActions = {
     patch({ proto: next, asking: false, forced: false, startCity: null, picking: null })
   },
   /** 시안의 저장값을 지우고 처음 들어온 사람처럼. */
-  async reset() {
+  async reset(onProgress?: (note: string) => void) {
     // 이 브라우저(설치)의 코스를 **전부** DEV 서버에서 지우고 시안 여행 기억도 지운다(사용자 요청 2026-11-07 — 시안은 로컬 DEV 전용).
     // 지운 뒤 코스 목록·홈·장바구니를 다시 받아 화면에서도 사라지게 한다.
     await routeActions.refreshCourses()
     const ids = new Set([...routeStore.get().summaries.map((c) => c.id), ...readJSON<number[]>(COURSES_KEY, [])])
-    await Promise.all([...ids].map((id) => api.DELETE('/courses/{courseId}', { params: { header: installHeader(), path: { courseId: id } } }).catch(() => undefined)))
+    // 비회원 요청 한도(분당 60건, RequestRateLimitFilter)에 걸리기 쉽다 — 홈이 이미 많이 부른 뒤라서. 하나씩 지우고, 429 면 서버가 알려 준
+    // 시간(Retry-After, 최대 30초)만큼 기다렸다 다시 보낸다. 한 코스에 세 번까지.
+    const results: number[] = []
+    for (const id of ids) {
+      let status = 0
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const r = await api
+          .DELETE('/courses/{courseId}', { params: { header: installHeader(), path: { courseId: id } } })
+          .then((x) => x.response, () => null)
+        status = r?.status ?? 0
+        if (status !== 429) break
+        const wait = Math.min(30, Number(r?.headers.get('Retry-After')) || 10)
+        onProgress?.(`요청이 많아 ${wait}초 기다리는 중…`)
+        await new Promise((resolve) => setTimeout(resolve, wait * 1000))
+      }
+      results.push(status)
+      onProgress?.(`지우는 중… ${results.length}/${ids.size}`)
+    }
+    // 404 는 이미 없는 코스라 지운 것으로 센다.
+    const failed = results.filter((st) => st !== 204 && st !== 404)
+    if (failed.length > 0) console.warn('[proto] 코스 삭제 실패', failed)
     writeJSON(COURSES_KEY, [])
     writeJSON(TRIP_KEY, null)
     await Promise.all([routeActions.refresh(), reloadHome(), cartActions.refresh()])
     patch({ trip: null, asking: false, forced: false, startCity: null, picking: null, justCreated: null })
+    return { deleted: results.length - failed.length, failed: failed.length, left: routeStore.get().summaries.length }
   },
   setTrip(next: ProtoTrip | null) {
     writeJSON(TRIP_KEY, next)
