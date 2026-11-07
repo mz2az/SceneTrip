@@ -12,7 +12,7 @@ import SceneApiClient
 /// 그것을 말한다. 앱 언어와 다르면 **그대로 보여 주고 언어 표시만 둔다**(번역은 별도 티켓).
 /// 영어판은 고유명사가 로마자라 표지판과 맞는다.
 enum AppLocale {
-    /// 지금 앱의 언어 — 사람이 고른 것, 없으면 기기 언어(`AppLanguage`, MZ2AZ-343).
+    /// 지금 앱의 언어 — 사람이 고른 것, 없으면 영어(`AppLanguage`, MZ2AZ-343·526).
     static var lang: Lang {
         AppLanguage.current
     }
@@ -28,20 +28,5 @@ enum AppLocale {
         return guidanceLang == "en"
             ? tr("안내는 English 로 와요 — 지명이 로마자라 표지판과 같아요")
             : tr("안내는 한국어로 와요")
-    }
-}
-
-extension Lang {
-    /// 선호 언어 목록(`ko-KR`·`ja-JP`·`en-US`…)의 첫 줄을 계약의 셋으로. 모르는 언어는 `en` —
-    /// 일본어·중국어 사용자에게 한국어보다 영어가 낫다(계약 `guidanceLang` 설명).
-    static func from(preferred: [String]) -> Lang {
-        guard let first = preferred.first?.lowercased() else { return .ko }
-        if first.hasPrefix("ko") {
-            return .ko
-        }
-        if first.hasPrefix("ja") {
-            return .ja
-        }
-        return .en
     }
 }

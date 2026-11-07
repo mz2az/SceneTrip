@@ -23,13 +23,25 @@ final class AppLanguageTests: XCTestCase {
         }
     }
 
-    /// 고르기 전에는 기기 언어를 따른다 — 한국어면 한국어, **그 밖은 전부 영어**(번역 표가 둘뿐이다).
-    func testDeviceLanguageFoldsToKoreanOrEnglish() {
-        XCTAssertEqual(AppLanguage.deviceDefault(preferred: ["ko-KR", "en-US"]), .ko)
-        XCTAssertEqual(AppLanguage.deviceDefault(preferred: ["en-GB"]), .en)
-        XCTAssertEqual(AppLanguage.deviceDefault(preferred: ["ja-JP"]), .en)
-        XCTAssertEqual(AppLanguage.deviceDefault(preferred: ["zh-Hant-TW"]), .en)
-        XCTAssertEqual(AppLanguage.deviceDefault(preferred: []), .ko)
+    /// 저장된 언어가 없으면 **기기 언어와 무관하게** 영어로 시작한다 (MZ2AZ-526). 첫 실행에 언어를
+    /// 묻지 않으므로 고르는 곳은 마이페이지다.
+    func testNoSavedLanguageStartsInEnglishWhateverTheDevice() {
+        for device in [["ko-KR", "en-US"], ["ko"], ["en-GB"], ["ja-JP"], ["zh-Hant-TW"], []] {
+            XCTAssertEqual(AppLanguage.startingLanguage(saved: nil, device: device), .en, "\(device)")
+        }
+    }
+
+    /// 이미 고른 사람은 기기 언어가 무엇이든 고른 그대로다.
+    func testSavedLanguageIsKept() {
+        XCTAssertEqual(AppLanguage.startingLanguage(saved: "ko", device: ["en-US"]), .ko)
+        XCTAssertEqual(AppLanguage.startingLanguage(saved: "ko", device: ["ko-KR"]), .ko)
+        XCTAssertEqual(AppLanguage.startingLanguage(saved: "en", device: ["ko-KR"]), .en)
+    }
+
+    /// 읽을 수 없는 저장값은 저장값이 없는 것과 같다 — 영어.
+    func testUnreadableSavedLanguageStartsInEnglish() {
+        XCTAssertEqual(AppLanguage.startingLanguage(saved: "fr", device: ["ko-KR"]), .en)
+        XCTAssertEqual(AppLanguage.startingLanguage(saved: "", device: ["ko-KR"]), .en)
     }
 
     /// 내놓는 언어는 번역 표가 있는 것뿐이다. 이름은 그 언어로 적는다.

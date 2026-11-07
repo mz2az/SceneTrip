@@ -2,12 +2,13 @@ import AppTrackingTransparency
 @testable import SceneTrip
 import XCTest
 
+/// ATT 요청 시점 (MZ2AZ-402 → MZ2AZ-526). 첫 실행 사용법이 없어졌으므로 사용법을 봤는지와 무관하게
+/// **앱이 활성으로 처음 보인 뒤 0.6초에** 한 번 묻는다. 중복·미결정·백그라운드 규칙은 그대로다.
 final class TrackingAuthorizationTests: XCTestCase {
     @MainActor
-    func testWaitsForOnboardingAndActiveAppThenRequestsOnlyOnce() {
+    func testWaitsForActiveAppThenRequestsOnlyOnce() {
         let fixture = TrackingFixture()
-        fixture.tracking.requestIfNeeded(onboardingComplete: false, isActive: true)
-        fixture.tracking.requestIfNeeded(onboardingComplete: true, isActive: false)
+        fixture.tracking.requestIfNeeded(isActive: false)
         XCTAssertEqual(fixture.requests, 0)
         fixture.request()
         fixture.request()
@@ -18,10 +19,33 @@ final class TrackingAuthorizationTests: XCTestCase {
         XCTAssertEqual(fixture.client.activations, 1)
     }
 
+    /// 사용법을 한 번도 안 본 첫 실행이어도 활성 화면이면 묻는다 — 예전에는 영영 묻지 않았다.
     @MainActor
-    func testExistingOnboardingCompletionRequestsOnFirstActiveOpportunity() {
+    func testFirstLaunchWithoutTutorialRequestsOnFirstActiveOpportunity() {
         let fixture = TrackingFixture()
         fixture.request()
+        XCTAssertEqual(fixture.requests, 1)
+    }
+
+    /// 첫 화면이 자리 잡을 0.6초를 기다린 뒤, 그때도 활성이면 묻는다.
+    @MainActor
+    func testSettledRequestWaitsSixTenthsOfASecondThenAsks() async {
+        let fixture = TrackingFixture()
+        var waited: [Duration] = []
+        await fixture.tracking.requestWhenSettled(isActive: { true }, sleep: { waited.append($0) })
+        XCTAssertEqual(waited, [.milliseconds(600)])
+        XCTAssertEqual(fixture.requests, 1)
+    }
+
+    /// 기다리는 사이 백그라운드로 가면(작업 취소) 묻지 않는다. 다음에 활성이 되면 그때 다시 기다린다.
+    @MainActor
+    func testBackgroundDuringWaitCancelsThenNextActiveAsks() async {
+        let fixture = TrackingFixture()
+        await fixture.tracking.requestWhenSettled(isActive: { true }, sleep: { _ in throw CancellationError() })
+        XCTAssertEqual(fixture.requests, 0)
+        await fixture.tracking.requestWhenSettled(isActive: { false }, sleep: { _ in })
+        XCTAssertEqual(fixture.requests, 0)
+        await fixture.tracking.requestWhenSettled(isActive: { true }, sleep: { _ in })
         XCTAssertEqual(fixture.requests, 1)
     }
 
@@ -83,7 +107,7 @@ private final class TrackingFixture {
     )
 
     func request() {
-        tracking.requestIfNeeded(onboardingComplete: true, isActive: true)
+        tracking.requestIfNeeded(isActive: true)
     }
 
     func answer(_ status: ATTrackingManager.AuthorizationStatus) {

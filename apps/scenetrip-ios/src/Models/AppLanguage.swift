@@ -5,8 +5,8 @@ import SwiftUI
 /// 앱의 언어 — 사람이 앱 안에서 고른다 (MZ2AZ-343).
 ///
 /// 기기 언어와 따로 간다. 한국에 여행 온 사람의 폰은 일본어·스페인어일 수 있는데, 그렇다고
-/// 앱이 정할 일이 아니다 — 첫 실행에 묻고, 마이페이지에서 언제든 바꾼다. 고르기 전에는
-/// 기기 언어를 따른다(한국어가 아니면 영어).
+/// 앱이 정할 일이 아니다 — 마이페이지에서 언제든 바꾼다. **고른 적이 없으면 기기 언어와 무관하게
+/// 영어로 시작한다** — 첫 실행에 언어를 묻지 않는다(MZ2AZ-526, 웹 MZ2AZ-523 과 같다).
 ///
 /// 고른 언어는 두 군데에 쓰인다.
 /// 1. **화면 문구** — `Localizable.strings` 를 이 언어로 찾는다. SwiftUI 의 글자(`Text("…")` 등)는
@@ -25,13 +25,10 @@ final class AppLanguage: ObservableObject {
 
     @Published private(set) var lang: Lang
 
-    /// 사람이 직접 고른 적이 있는가. 없으면 첫 실행에 묻는다.
-    @Published private(set) var hasChosen: Bool
-
     private init() {
-        let saved = UserDefaults.standard.string(forKey: Self.key).flatMap(Lang.init(rawValue:))
-        hasChosen = saved != nil
-        lang = saved ?? Self.deviceDefault()
+        let stored = UserDefaults.standard.string(forKey: Self.key)
+        let saved = stored.flatMap(Lang.init(rawValue:))
+        lang = Self.startingLanguage(saved: stored)
         Self.current = lang
         // 실행할 때마다 다시 적는다 — 이 기능 전에 고른 사람도 그다음 실행부터 맞는다.
         // 고른 적이 없으면 적지 않는다(기기 언어 그대로).
@@ -59,7 +56,6 @@ final class AppLanguage: ObservableObject {
     func choose(_ new: Lang) {
         UserDefaults.standard.set(new.rawValue, forKey: Self.key)
         Self.syncSystemLanguage(new)
-        hasChosen = true
         Self.current = new
         lang = new
         AppLocale.install()
@@ -81,9 +77,13 @@ final class AppLanguage: ObservableObject {
         }
     }
 
-    /// 기기 언어를 내놓는 언어로 접는다 — 한국어면 한국어, 그 밖은 영어.
-    nonisolated static func deviceDefault(preferred: [String] = Locale.preferredLanguages) -> Lang {
-        Lang.from(preferred: preferred) == .ko ? .ko : .en
+    /// 앱을 열 때의 언어 — 저장값이 있으면 그대로, 없거나 읽을 수 없으면 영어 (MZ2AZ-526).
+    ///
+    /// 기기 언어(`device`)는 **일부러 보지 않는다.** 광고로 들어온 외국인이 첫 화면부터 읽을 수 있어야 하고,
+    /// 한국어 기기라도 한국어는 마이페이지에서 고른다. 매개변수는 그 사실을 시험이 여러 기기 언어로
+    /// 고정하려고 받는다.
+    nonisolated static func startingLanguage(saved: String?, device _: [String] = Locale.preferredLanguages) -> Lang {
+        saved.flatMap(Lang.init(rawValue:)) ?? .en
     }
 
     // MARK: 코드가 만드는 문자열

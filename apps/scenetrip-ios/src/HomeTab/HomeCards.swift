@@ -1,7 +1,9 @@
 import SceneApiClient
 import SwiftUI
 
-/// 인사 — 해태 얼굴, 두 줄, 오른쪽 프로필 단추(마이페이지의 입구).
+/// 인사 — 해태 얼굴, 두 줄, 오른쪽 톱니바퀴 단추(마이페이지의 입구 — 언어 바꾸기가 거기 있다).
+///
+/// 첫 실행 언어 고르기를 빼며(MZ2AZ-526) 사람 모양을 톱니바퀴로 바꿨다 — 설정 입구로 보이게. 웹과 같다.
 struct HomeHeader: View {
     let onProfile: () -> Void
 
@@ -17,7 +19,7 @@ struct HomeHeader: View {
             }
             Spacer(minLength: 0)
             Button(action: onProfile) {
-                Image(systemName: "person")
+                Image(systemName: "gearshape")
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(.primary)
                     .frame(width: 36, height: 36)
@@ -25,7 +27,7 @@ struct HomeHeader: View {
                     .shadow(color: .black.opacity(0.08), radius: 1.5, y: 1)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("마이페이지")
+            .accessibilityLabel("설정")
         }
         .padding(.horizontal, 20)
         .padding(.top, 10)
