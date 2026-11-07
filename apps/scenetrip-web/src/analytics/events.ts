@@ -1,5 +1,5 @@
 /*
- * 앱 분석 이벤트 — GA4 로 보내는 26개. 이름과 매개변수의 정본은 `docs/project/plans/analytics-events.md` 이고
+ * 앱 분석 이벤트 — GA4 로 보내는 26개 + 웹 전용 1개(`start_directions`). 이름과 매개변수의 정본은 `docs/project/plans/analytics-events.md` 이고
  * iOS `Analytics/AppEvent.swift` · Android `analytics/AppEvent.kt` 와 글자 하나까지 같다. 고치면 문서와 두 앱을 같이 고친다.
  *
  * 보내지 않는 것: 이름·이메일·좌표·글 본문·검색어 원문. 작품·장소·편의시설은 우리 DB 의 id 로만 적는다.
@@ -10,6 +10,8 @@ export type EventName =
   | 'select_language' | 'tutorial_begin' | 'tutorial_complete' | 'sign_up' | 'login' | 'logout' | 'delete_account' | 'set_nickname'
   | 'screen_view' | 'search' | 'view_title' | 'view_place' | 'view_poi' | 'view_reviews' | 'write_review' | 'delete_review' | 'view_photos'
   | 'like_title' | 'save_place' | 'generate_plan' | 'create_course' | 'start_trip' | 'get_directions' | 'visit_stamp' | 'ask_guide' | 'post_review'
+  // 웹 전용(MZ2AZ-532 DEV 실험) — iOS·Android 에는 아직 없다.
+  | 'start_directions'
 
 export type EventParams = Readonly<Record<string, string | number>>
 
@@ -26,6 +28,8 @@ export type SearchKind = 'content' | 'person' | 'place' | 'typed'
 export type PhotoEntry = 'detail' | 'reviews' | 'card'
 /** 코스의 출처. */
 export type CourseOrigin = 'ai' | 'self' | 'review'
+/** 「길찾기」를 누른 자리(MZ2AZ-532). */
+export type DirectionsSource = 'place_detail'
 /** 화면 이름 — 탭과 덮개 단위. */
 export type ScreenName = 'search' | 'home' | 'community' | 'courses' | 'profile'
 
@@ -69,6 +73,9 @@ export const appEvent = {
   getDirections: () => make('get_directions'),
   visitStamp: (placeId: number) => make('visit_stamp', { place_id: placeId }),
   askGuide: () => make('ask_guide'),
+
+  /** 웹 전용 — 촬영지 상세의 「길찾기」를 눌렀다(로그인 여부와 무관하게 누른 그때). 실제 안내 시작은 `start_trip` 이 따로 센다. */
+  startDirections: (source: DirectionsSource, signedIn: boolean) => make('start_directions', { source, signed_in: flag(signedIn) }),
 
   postReview: (photoCount: number, hasCourse: boolean) => make('post_review', { photo_count: photoCount, has_course: flag(hasCourse) }),
 } as const
