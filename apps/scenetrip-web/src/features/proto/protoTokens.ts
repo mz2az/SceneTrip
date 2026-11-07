@@ -11,10 +11,10 @@ export const color = {
   /** 주 색 단색 — 테두리·글자·윤곽선(그라데이션을 못 쓰는 곳) */
   primary: 'var(--home-purple)',
   /**
-   * 주 단추·고른 칩 바탕 — 앱의 파랑→보라 그라데이션을 어둡게 당긴 것. 양 끝 모두 흰 글씨 대비 4.5:1 이상
-   * (#4c63dd 5.1:1 → #5c4ad6 6.2:1). 원래 --pin-gradient 의 하늘색 끝(#8fccf7)은 1.7:1 이라 글자 뒤에 쓰지 않는다.
+   * 주 단추·고른 칩 바탕 — 또렷한 파랑에서 보라로 — 색 차이는 크게, 밝기는 낮게. 양 끝 모두 흰 글씨 대비 4.5:1 이상
+   * (#2563eb 5.2:1 → #7c3aed 5.7:1). 원래 --pin-gradient 의 하늘색 끝(#8fccf7)은 1.7:1 이라 글자 뒤에 쓰지 않는다.
    */
-  primaryFill: 'linear-gradient(135deg, #4c63dd 0%, #5c4ad6 100%)',
+  primaryFill: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
   /** 주 색 위 글자 */
   onPrimary: '#fff',
   /** 사진 위 글자 */
