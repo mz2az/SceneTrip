@@ -367,6 +367,10 @@ export function ProtoSwitcher() {
           <Pressable plain onClick={() => { protoActions.reset(); setOpen(false) }} style={{ padding: '8px 10px', textAlign: 'left' }}>
             <Txt size={14} color="red">처음부터 (여행 지우기)</Txt>
           </Pressable>
+          {/* 코스·담은 곳이 이미 있어도 처음 온 사람의 질문 화면을 띄운다 — 코스와 장바구니는 지우지 않는다. */}
+          <Pressable plain onClick={() => { protoActions.choose('b'); protoActions.reset(); protoActions.ask(true, true); setOpen(false) }} style={{ padding: '8px 10px', textAlign: 'left' }}>
+            <Txt size={14} color="accent">처음 온 사람 화면 보기</Txt>
+          </Pressable>
         </VStack>
       )}
       <Pressable plain onClick={() => setOpen(!open)} style={{ float: 'right', padding: '8px 12px', borderRadius: 999, background: 'rgb(255,149,0)', boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}>
