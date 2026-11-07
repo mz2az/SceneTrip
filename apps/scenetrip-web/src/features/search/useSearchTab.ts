@@ -9,12 +9,13 @@ import { matchPath, useLocation, useNavigate } from 'react-router'
 import { appEvent, track } from '@/analytics'
 import { api, ok } from '@/api/client'
 import { consumePending, pendingStore } from '@/app/tabRouter'
-import { patterns, paths } from '@/app/routes'
+import { patterns } from '@/app/routes'
 import { useLocationConsent } from '@/features/profile/consent'
 import { cartActions, useCart } from '@/state/cart'
 import { likeActions, useLikes } from '@/state/likes'
 import { useOnAccountChange } from '@/state/shared'
 import { useStore } from '@/state/storage'
+import { type BackStep, contentBack, placeBack } from './detailBack'
 import { type ListTab, isInitialScreen, numbersOnPins, visiblePlacesOf } from './listRules'
 import type { LocateOutcome, MapCameraHandle } from './map/MapView'
 import { CHIP_ALL } from './rules/placeType'
@@ -31,6 +32,12 @@ const summaryOf = (w: ContentDetail): ContentSummary => ({
   id: w.id, category: w.category, title: w.title, posterUrl: w.posterUrl, broadcaster: w.broadcaster, releaseYear: w.releaseYear, genres: w.genres, placeCount: w.placeCount,
 })
 
+/** 이 앱 안에서 한 칸 뒤로 갈 수 있는가 — react-router 가 history.state 에 남기는 위치 번호(idx)가 0 보다 크면. 새로 고침·직접 연 주소면 0 이다. */
+function canGoBack(): boolean {
+  const idx = (window.history.state as { idx?: unknown } | null)?.idx
+  return typeof idx === 'number' && idx > 0
+}
+
 export function useSearchTab() {
   const dataRef = useRef<SceneData | null>(null)
   if (!dataRef.current) dataRef.current = new SceneData()
@@ -40,7 +47,7 @@ export function useSearchTab() {
   const likes = useLikes()
   const location = useLocationConsent()
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const { pathname, state: navState } = useLocation()
 
   const [draft, setDraft] = useState('')
   /** 확정된 검색어. `draft` 는 타이핑하는 동안에도 바뀌므로 「지금 이 목록이 무엇을 검색한 결과인가」 를 그것으로 판단하면 헤더가 글자마다 깜빡인다. */
@@ -172,21 +179,23 @@ export function useSearchTab() {
     [commit],
   )
 
+  // 상세에서 나올 때 주소 — 직접 연 상세면 탭 주소로, 격자(지금 뜨는 작품)가 연 작품이면 격자로(MZ2AZ-534). 정하는 규칙은 detailBack.ts.
+  const applyBack = (step: BackStep) => {
+    if (step.kind === 'pop') navigate(-1)
+    else if (step.kind === 'replace') navigate(step.to, { replace: true, state: step.state })
+  }
   const closePlace = () => {
     setSelectedPlace(null)
     setFitToken((n) => n + 1)
-    leaveDetailUrl()
+    applyBack(placeBack({ pathname, state: navState, contentId: selectedContentId.current }))
   }
   const closeContent = () => {
+    const closing = selectedContentId.current
     selectedContentId.current = null
     setSelectedContent(null)
     setContentPlaces([])
     setFitToken((n) => n + 1)
-    leaveDetailUrl()
-  }
-  /** URL 로 직접 연 상세에서 나오면 주소를 탭 주소로 되돌린다. */
-  function leaveDetailUrl() {
-    if (pathname.startsWith(paths.search + '/')) navigate(paths.search, { replace: true })
+    applyBack(contentBack({ pathname, state: navState, contentId: closing, canGoBack: canGoBack() }))
   }
 
   const clearSearch = () => {

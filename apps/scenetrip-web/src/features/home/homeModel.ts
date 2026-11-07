@@ -12,6 +12,7 @@ import { type RouteCourse, type RouteStop, coursePlaceCount } from '../route/mod
 import { routeActions, routeStore } from '../route/store'
 import { accountGeneration, onAccountReset } from '@/state/shared'
 import { createStore } from '@/state/storage'
+import { withPinned } from './pinnedWorks'
 import { SHELF_COUNT, TRIP_PICKS, pickToday, shelf } from './homeRules'
 
 type ContentSummary = components['schemas']['ContentSummary']
@@ -115,7 +116,8 @@ export async function collectStamps(summaries: ReadonlyArray<{ id: number; title
 async function loadShelf(): Promise<void> {
   try {
     const page = await ok(api.GET('/contents', { params: { query: { limit: SHELF_COUNT } } }))
-    patch({ works: shelf(page.items), failed: false })
+    // 고정 작품(케이팝 데몬 헌터스)을 맨 앞에 — pinnedWorks.ts (MZ2AZ-534).
+    patch({ works: shelf(await withPinned(page.items)), failed: false })
   } catch {
     patch({ failed: homeStore.get().works.length === 0 })
   }

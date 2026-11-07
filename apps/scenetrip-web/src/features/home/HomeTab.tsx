@@ -81,7 +81,7 @@ export function HomeTab() {
           onCreate={() => router.openRoute()}
         />
         <div style={{ margin: "0.6px 0 0.7px" }}>
-          <WorkShelf works={home.works} failed={home.failed} onOpen={(w) => router.openContent(w)} onAll={() => router.selectTab('search')} />
+          <WorkShelf works={home.works} failed={home.failed} onOpen={(w) => router.openContent(w)} onAll={() => router.openTrending()} />
         </div>
         {today && (
           // 목적지는 코스 항목으로만 받아 코스 없는 길찾기가 없다(MZ2AZ-313) — 대신 장바구니에 담아 코스로 이어지게 한다.
