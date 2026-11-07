@@ -71,6 +71,7 @@ Bazel 빌드(`just web-build`)는 호스트 환경 변수를 받지 않아 `VITE
 홈 「지금 뜨는 작품」의 「전체 보기」는 작품검색 탭이 아니라 `/trending` 덮개를 연다(MZ2AZ-534, 웹 DEV 실험). 선반과 같은 `GET /contents`(인기순)를
 `limit=100` 으로 `total` 까지 `offset` 으로 이어 받아 포스터 격자로 그린다 — 앱 틀 폭 400px 이하 2열, 넘으면 3열. 포스터를 누르면 작품검색 탭의 작품 상세로 가고,
 상세의 「뒤로」는 이동 state 의 `returnTo`(실어 연 작품 id 와 맞을 때만)를 보고 격자로 한 칸 물린다. 작품 상세 위 촬영지를 닫아도 표시는 남는다(`src/features/search/detailBack.ts`). 분석은 상세가 보내는 `view_title` 뿐이고 화면 이름은 `home` 으로 센다.
+선반과 격자 모두 고정 작품(`src/features/home/pinnedWorks.ts` 의 `PINNED_CONTENT_IDS`, 지금 [32] 케이팝 데몬 헌터스)을 맨 앞에 두고 나머지는 인기순에서 중복을 뺀다. 목록에 없으면 `GET /contents/{id}` 로 받아 넣고, 실패하면 기존 순서다.
 디자인 토큰은 `src/design/tokens.css` 에 iOS 소스의 파일:줄 출처와 함께 있다. 문구는 iOS 와 같은 `tr("한국어 원문")` 규칙이다(`src/i18n`).
 
 코스 지도의 「내 위치」는 켤 때 받은 첫 자리가 시트 위 화면 밖이면 코스·미리보기(장소 선택 중이면 그곳)와 함께 담는다. 이후 위치 갱신은 점만 옮기며,

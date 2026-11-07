@@ -9,6 +9,7 @@
 import { api, ok } from '@/api/client'
 import type { components } from '@/api/generated/schema'
 import { onLanguageChange } from '@/i18n'
+import { withPinned } from './pinnedWorks'
 
 type ContentSummary = components['schemas']['ContentSummary']
 
@@ -41,6 +42,8 @@ export async function loadTrending(): Promise<ContentSummary[]> {
     }
     if (page.items.length < TRENDING_LIMIT || works.length >= page.total) break
   }
-  cache = works
-  return works
+  // 고정 작품(케이팝 데몬 헌터스)을 맨 앞에 — 선반과 같은 규칙(pinnedWorks.ts).
+  const ordered = await withPinned(works)
+  cache = ordered
+  return ordered
 }
