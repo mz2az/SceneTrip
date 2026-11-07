@@ -109,10 +109,10 @@ export function HomeCitySpots({ onOpenPlace, onOpenMap }: { onOpenPlace: (place:
     if (row && chip) {
       const left = chip.offsetLeft - 20
       const right = chip.offsetLeft + chip.offsetWidth + 20 - row.clientWidth
-      if (row.scrollLeft > left) row.scrollTo({ left, behavior: 'smooth' })
-      else if (row.scrollLeft < right) row.scrollTo({ left: right, behavior: 'smooth' })
+      if (row.scrollLeft > left) row.scrollTo?.({ left, behavior: 'smooth' })
+      else if (row.scrollLeft < right) row.scrollTo?.({ left: right, behavior: 'smooth' })
     }
-    cardRow.current?.scrollTo({ left: 0 })
+    cardRow.current?.scrollTo?.({ left: 0 })
   }, [state.selected, cities])
 
   // 안내는 4초 뒤 사라진다.
