@@ -8,6 +8,7 @@ import { type ContentSummary, SPAN_NIGHTS, spanLabel } from '@/features/route/mo
 import { Pressable } from '@/features/route/ui/Press'
 import { say } from './protoState'
 import { color, radius, shadow } from './protoTokens'
+import './proto.css'
 
 /** 기간 — 두 줄 격자의 큰 카드. 고르면 단색 보라. 카드마다 「촬영지 N곳쯤」 으로 무엇을 고르는지 감을 준다. */
 export function ProtoSpanStep({ nights, onPick }: { nights: number; onPick: (n: number) => void }) {
@@ -56,7 +57,7 @@ export function ProtoWorkStep({ works, liked, selected, onToggleSelect, onToggle
           const heart = liked.has(w.id)
           return (
             <li key={w.id} style={{ position: 'relative', minWidth: 0 }}>
-              <Pressable plain onClick={() => onToggleSelect(w.id)} aria-pressed={on} style={{ display: 'block', width: '100%', textAlign: 'left' }}>
+              <Pressable plain className="proto-press" onClick={() => onToggleSelect(w.id)} aria-pressed={on} style={{ display: 'block', width: '100%', textAlign: 'left' }}>
                 <VStack spacing={6} align="stretch">
                   <div
                     style={{
@@ -75,6 +76,7 @@ export function ProtoWorkStep({ works, liked, selected, onToggleSelect, onToggle
               </Pressable>
               <Pressable
                 plain
+            className="proto-press"
                 onClick={() => onToggleLike(w.id)}
                 aria-pressed={heart}
                 aria-label={say(`${w.title} 찜`, `Like ${w.title}`)}

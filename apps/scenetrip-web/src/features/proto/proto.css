@@ -1,0 +1,11 @@
+/*
+ * 시안 화면의 누름 느낌 — 누르는 동안 살짝 작아진다(ui-ux-pro-max 「Active States: pressed visual change」, 2026-11-07).
+ * 움직임 줄이기 설정이면 design/global.css 의 전역 규칙이 움직임을 멈춘다.
+ */
+.proto-press {
+  transition: transform 120ms ease-out;
+}
+
+.proto-press:active {
+  transform: scale(0.97);
+}

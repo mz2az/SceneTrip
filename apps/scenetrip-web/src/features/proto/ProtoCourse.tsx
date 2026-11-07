@@ -13,6 +13,7 @@ import { useStore } from '@/state/storage'
 import { MockBadge } from './protoParts'
 import { daysLabel, say } from './protoState'
 import { color, contained, heading, radius, shadow } from './protoTokens'
+import './proto.css'
 
 // ---------------------------------------------------------------- 공통
 
@@ -66,7 +67,7 @@ export function ProtoCourseList({ onClose, onNew, onOpen }: { onClose: () => voi
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <HStack spacing={8} style={{ padding: '12px 16px 6px', minHeight: 44 }}>
-        <Pressable plain onClick={onClose} aria-label={say('닫기', 'Close')} style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}>
+        <Pressable plain className="proto-press" onClick={onClose} aria-label={say('닫기', 'Close')} style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}>
           <Icon name="xmark" size={18} weight="semibold" color="primary" />
         </Pressable>
         <Spacer />
@@ -78,7 +79,7 @@ export function ProtoCourseList({ onClose, onNew, onOpen }: { onClose: () => voi
             <Txt as="h1" size={30} weight="heavy" style={heading}>{say('내 여행', 'My trips')}</Txt>
             <Txt size={15} color="secondary">{courses.length}</Txt>
             <Spacer />
-            <Pressable plain onClick={onNew} style={{ height: 44, padding: '0 16px', borderRadius: radius.pill, background: color.primaryFill }}>
+            <Pressable plain className="proto-press" onClick={onNew} style={{ height: 44, padding: '0 16px', borderRadius: radius.pill, background: color.primaryFill }}>
               <HStack spacing={5}>
                 <Icon name="plus" size={14} weight="bold" color="white" />
                 <Txt size={14} weight="bold" style={{ color: color.onPrimary }}>{say('새 코스', 'New')}</Txt>
@@ -110,7 +111,7 @@ function CourseCard({ course, onOpen }: { course: RouteCourse; onOpen: () => voi
   const works = [...new Set(stops.map(workOf).filter((t): t is string => !!t))].slice(0, 2)
 
   return (
-    <Pressable plain onClick={onOpen} style={{ display: 'block', width: '100%', textAlign: 'left', padding: 10, borderRadius: radius.m, background: 'var(--system-background)', boxShadow: shadow.card }}>
+    <Pressable plain className="proto-press" onClick={onOpen} style={{ display: 'block', width: '100%', textAlign: 'left', padding: 10, borderRadius: radius.m, background: 'var(--system-background)', boxShadow: shadow.card }}>
       <HStack spacing={12}>
         <div aria-hidden style={{ width: 76, height: 76, flex: 'none', borderRadius: radius.s, overflow: 'hidden', background: color.brandFill }}>
           {photos[0] && <img src={photos[0]} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}

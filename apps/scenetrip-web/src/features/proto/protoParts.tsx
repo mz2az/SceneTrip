@@ -16,6 +16,7 @@ import { cartActions, useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { type Pace, daysLabel, paceLabel, rememberProtoCourse, say } from './protoState'
 import { color, contained, heading, radius, shadow, z } from './protoTokens'
+import './proto.css'
 
 type PlaceSummary = components['schemas']['PlaceSummary']
 
@@ -121,7 +122,7 @@ export function ProtoScreen({ title, onBack, children, footer, step, hero, label
   const bar = (
     <HStack spacing={8} style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 12px) 16px 8px', minHeight: 44, ...(hero ? { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2 } : {}) }}>
       {onBack ? (
-        <Pressable plain onClick={onBack} aria-label={say('뒤로', 'Back')} style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}>
+        <Pressable plain className="proto-press" onClick={onBack} aria-label={say('뒤로', 'Back')} style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}>
           <Icon name="chevron.left" size={20} weight="semibold" color={hero ? 'white' : 'accent'} />
         </Pressable>
       ) : (
@@ -173,7 +174,7 @@ function StepDots({ at, of, onPhoto }: { at: number; of: number; onPhoto?: boole
 
 export function SecondaryButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return (
-    <Pressable plain onClick={onClick} style={{ width: '100%', padding: '15px 0', borderRadius: radius.m, border: `1.5px solid ${color.primary}`, background: 'var(--system-background)', textAlign: 'center' }}>
+    <Pressable plain className="proto-press" onClick={onClick} style={{ width: '100%', padding: '15px 0', borderRadius: radius.m, border: `1.5px solid ${color.primary}`, background: 'var(--system-background)', textAlign: 'center' }}>
       <Txt size={17} weight="bold" style={{ color: color.primaryText }}>{children}</Txt>
     </Pressable>
   )
@@ -183,6 +184,7 @@ export function PrimaryButton({ children, onClick, disabled }: { children: React
   return (
     <Pressable
       plain
+            className="proto-press"
       onClick={onClick}
       disabled={disabled}
       style={{ width: '100%', padding: '15px 0', borderRadius: radius.m, background: color.primaryFill, opacity: disabled ? 0.45 : 1, textAlign: 'center' }}
@@ -209,6 +211,7 @@ export function SpotRow({ place, saved, onToggle, trailing }: { place: PlaceSumm
       {onToggle && (
         <Pressable
           plain
+            className="proto-press"
           onClick={onToggle}
           aria-pressed={saved}
           style={{ flex: 'none', minHeight: 44, padding: '0 14px', borderRadius: radius.pill, background: saved ? color.primaryFill : 'var(--system-gray6)' }}

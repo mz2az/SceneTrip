@@ -20,6 +20,7 @@ import {
 } from './protoParts'
 import { type Pace, type Proto, protoActions, protoStore, say, tripLength } from './protoState'
 import { color, heading, radius, shadow, z } from './protoTokens'
+import './proto.css'
 
 type PlaceSummary = components['schemas']['PlaceSummary']
 
@@ -107,7 +108,7 @@ function QuestionFlow() {
         ) : (
           <CityGrid cities={cities} loading={loading} selected={city} onPick={(k) => { setCity(k); setStep('days') }} />
         )}
-        <Pressable plain onClick={() => protoActions.ask(false)} style={{ alignSelf: 'center', padding: '12px 16px', minHeight: 44 }}>
+        <Pressable plain className="proto-press" onClick={() => protoActions.ask(false)} style={{ alignSelf: 'center', padding: '12px 16px', minHeight: 44 }}>
           <Txt size={15} color="secondary">{say('아직 몰라요. 그냥 둘러볼게요', 'Not sure yet, just browsing')}</Txt>
         </Pressable>
       </ProtoScreen>
@@ -160,6 +161,7 @@ function HowCard({ primary, icon, title, detail, onClick }: { primary?: boolean;
   return (
     <Pressable
       plain
+            className="proto-press"
       onClick={onClick}
       style={{ width: '100%', padding: 18, borderRadius: radius.l, textAlign: 'left', background: primary ? color.primaryFill : 'var(--system-background)', boxShadow: shadow.card, border: primary ? 'none' : `1.5px solid ${color.primary}` }}
     >
@@ -267,7 +269,7 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
 
 function IconButton({ name, label, onClick }: { name: string; label: string; onClick: () => void }) {
   return (
-    <Pressable plain onClick={onClick} aria-label={label} title={label} style={{ width: 44, height: 44, borderRadius: radius.pill, background: 'var(--system-gray6)', display: 'grid', placeItems: 'center' }}>
+    <Pressable plain className="proto-press" onClick={onClick} aria-label={label} title={label} style={{ width: 44, height: 44, borderRadius: radius.pill, background: 'var(--system-gray6)', display: 'grid', placeItems: 'center' }}>
       <Icon name={name} size={16} weight="semibold" color={color.primaryText} />
     </Pressable>
   )
@@ -346,12 +348,12 @@ export function ProtoSwitcher() {
               <Txt size={14} weight={p === proto ? 'bold' : 'regular'}>{label}</Txt>
             </Pressable>
           ))}
-          <Pressable plain onClick={() => void reset()} style={{ minHeight: 44, padding: '0 10px', textAlign: 'left' }}>
+          <Pressable plain className="proto-press" onClick={() => void reset()} style={{ minHeight: 44, padding: '0 10px', textAlign: 'left' }}>
             <Txt size={14} color="red">처음부터 (내 코스 모두 지우기)</Txt>
           </Pressable>
         </VStack>
       )}
-      <Pressable plain onClick={() => setOpen(!open)} aria-expanded={open} style={{ minHeight: 44, padding: '0 8px 0 12px', borderRadius: `${radius.pill}px 0 0 ${radius.pill}px`, background: 'rgb(255,204,128)', boxShadow: shadow.float }}>
+      <Pressable plain className="proto-press" onClick={() => setOpen(!open)} aria-expanded={open} style={{ minHeight: 44, padding: '0 8px 0 12px', borderRadius: `${radius.pill}px 0 0 ${radius.pill}px`, background: 'rgb(255,204,128)', boxShadow: shadow.float }}>
         <Txt size={13} weight="bold" style={{ color: 'rgb(120,62,0)' }}>{proto ? `시안 ${proto.toUpperCase()}` : '시안 끔'}</Txt>
       </Pressable>
       {note && <span role="status" style={{ position: 'absolute', right: '100%', top: 2, marginRight: 8, whiteSpace: 'nowrap', padding: '4px 8px', borderRadius: radius.s, background: 'rgba(0,0,0,0.78)', color: color.onPhoto, fontSize: 12, fontWeight: 600 }}>{note}</span>}
@@ -414,17 +416,17 @@ export function TripFloatBar() {
   })
   const items = [
     { key: 'close', node: (
-      <Pressable plain onClick={() => setOpen(false)} aria-label={say('접기', 'Close')} style={round}>
+      <Pressable plain className="proto-press" onClick={() => setOpen(false)} aria-label={say('접기', 'Close')} style={round}>
         <Icon name="xmark" size={15} weight="bold" color={color.primaryText} />
       </Pressable>
     ) },
     { key: 'all', node: (
-      <Pressable plain onClick={allCourses} aria-label={say('전체 코스 보기', 'All trips')} title={say('전체 코스', 'All trips')} style={round}>
+      <Pressable plain className="proto-press" onClick={allCourses} aria-label={say('전체 코스 보기', 'All trips')} title={say('전체 코스', 'All trips')} style={round}>
         <Icon name="list.bullet" size={16} weight="bold" color={color.primaryText} />
       </Pressable>
     ) },
     { key: 'new', node: (
-      <Pressable plain onClick={newPlan} style={{ height: 44, padding: '0 16px', borderRadius: radius.pill, background: 'var(--system-background)', boxShadow: soft, flex: 'none' }}>
+      <Pressable plain className="proto-press" onClick={newPlan} style={{ height: 44, padding: '0 16px', borderRadius: radius.pill, background: 'var(--system-background)', boxShadow: soft, flex: 'none' }}>
         <HStack spacing={5}>
           <Icon name="plus" size={14} weight="bold" color={color.primaryText} />
           <Txt size={14} weight="bold" style={{ color: color.primaryText, whiteSpace: 'nowrap' }}>{say('새 코스', 'New')}</Txt>
@@ -434,6 +436,7 @@ export function TripFloatBar() {
     ...courses.map((c) => ({ key: c.uid, node: (
       <Pressable
         plain
+            className="proto-press"
         onClick={() => openCourse(c.serverId!)}
         style={{ height: 44, padding: '0 16px', borderRadius: radius.pill, flex: 'none', maxWidth: 220, color: c.isRunning ? color.onPrimary : color.primaryText, background: c.isRunning ? color.primaryFill : 'var(--system-background)', boxShadow: soft }}
       >
@@ -461,10 +464,10 @@ export function TripFloatBar() {
       >
         {running ? (
           <>
-            <Pressable plain onClick={() => setOpen(true)} aria-label={say('내 코스 펼치기', 'Show my trips')} aria-expanded={open} style={round}>
+            <Pressable plain className="proto-press" onClick={() => setOpen(true)} aria-label={say('내 코스 펼치기', 'Show my trips')} aria-expanded={open} style={round}>
               <Icon name="list.bullet" size={16} weight="bold" color={color.primaryText} />
             </Pressable>
-            <Pressable plain onClick={() => openCourse(running.serverId!)} aria-label={say(`여행 중: ${running.title} 열기`, `On trip: open ${running.title}`)} style={mainPill}>
+            <Pressable plain className="proto-press" onClick={() => openCourse(running.serverId!)} aria-label={say(`여행 중: ${running.title} 열기`, `On trip: open ${running.title}`)} style={mainPill}>
               <HStack spacing={7}>
                 <Icon name="location.north.fill" size={14} color="white" />
                 {label(running.title)}
@@ -472,7 +475,7 @@ export function TripFloatBar() {
             </Pressable>
           </>
         ) : (
-          <Pressable plain onClick={() => (courses.length === 0 ? newPlan() : setOpen(true))} aria-expanded={courses.length === 0 ? undefined : open} style={mainPill}>
+          <Pressable plain className="proto-press" onClick={() => (courses.length === 0 ? newPlan() : setOpen(true))} aria-expanded={courses.length === 0 ? undefined : open} style={mainPill}>
             <HStack spacing={7}>
               <Icon name="paperplane.fill" size={14} color="white" />
               {label(say('여행 코스 짜기', 'Plan a trip'))}

@@ -18,6 +18,7 @@ import { useStore } from '@/state/storage'
 import { MockBadge, coverOf, useCities } from './protoParts'
 import { color, heading, radius, shadow } from './protoTokens'
 import { protoActions, say } from './protoState'
+import './proto.css'
 
 /** 시트 높이 — 내용(머리 + 큰 카드 + 타일 줄)에 맞춘다. 남는 바닥을 두지 않는다. */
 const SHEET_HEIGHT = 424
@@ -37,7 +38,7 @@ function Strip({ urls, tall }: { urls: readonly (string | null)[]; tall?: boolea
 
 function Tile({ art, title, caption, tag, onPress }: { art: ReactNode; title: string; caption: string; tag?: string; onPress: () => void }) {
   return (
-    <Pressable plain onClick={onPress} style={{ flex: 1, minWidth: 0, padding: 12, borderRadius: radius.l, background: 'var(--system-background)', boxShadow: shadow.card, textAlign: 'left' }}>
+    <Pressable plain className="proto-press" onClick={onPress} style={{ flex: 1, minWidth: 0, padding: 12, borderRadius: radius.l, background: 'var(--system-background)', boxShadow: shadow.card, textAlign: 'left' }}>
       <VStack spacing={10} align="stretch">
         {art}
         <VStack spacing={3} align="start">
@@ -83,6 +84,7 @@ export function ProtoForkSheet({ open, onClose, onAI, onManual }: { open: boolea
 
         <Pressable
           plain
+            className="proto-press"
           onClick={go(() => {
             router.closeCover()
             protoActions.plan()
