@@ -20,7 +20,7 @@ import { useStore } from '@/state/storage'
 import { useRouteState } from '../route/store'
 import { CommunityNow, HomeHeader, MyRecord, TodayCard, WorkShelf } from './HomeCards'
 import { HomeCitySpots } from './HomeCitySpots'
-import { AskCard, TripHomeCard } from '../proto/ProtoScreens'
+import { AskCard } from '../proto/ProtoScreens'
 import { protoStore } from '../proto/protoState'
 import { homeStore, reloadHome } from './homeModel'
 import { tripCard } from './homeRules'
@@ -41,7 +41,6 @@ export function HomeTab() {
   // 「커뮤니티 지금」의 신고·차단(MZ2AZ-461). 비회원의 차단은 루트의 로그인 화면이 받는다.
   const moderation = useModerationController()
   const proto = useStore(protoStore, (s) => s.proto)
-  const hasProtoTrip = useStore(protoStore, (s) => s.trip !== null)
   const { pathname } = useLocation()
 
   const reload = useCallback(async () => {
@@ -69,17 +68,15 @@ export function HomeTab() {
 
   return (
     <div className="scroll-y" style={{ height: '100%', background: 'var(--grouped-background)' }}>
-      <VStack spacing={18} align="stretch" style={{ padding: '8.7px 0 28px' }}>
+      <VStack spacing={18} align="stretch" style={{ padding: proto !== null ? '8.7px 0 104px' : '8.7px 0 28px' }}>
         <HomeHeader onProfile={() => router.openProfile()} />
         {/* 「어디로 가세요?」 시안(로컬 전용, docs/project/plans/web-trip-first-prototypes.md). */}
-        {/* 여행을 정했으면 내 여행 카드, 아니면(「아직 몰라요」·기존 사용자) 질문 카드 — 결정 1·2. */}
-        {proto === 'a' && <AskCard />}
-        {proto === 'b' && (hasProtoTrip ? <TripHomeCard /> : <AskCard />)}
+        {/* 시안: 맨 위는 사진 질문 카드, 코스는 아래에 떠 있는 「여행 계획」 줄이 맡는다(사용자 결정 2026-11-07). */}
+        {proto !== null && <AskCard />}
         {/* 광고로 들어와 첫 화면만 보는 사람에게 도시별 촬영지를 바로 보여 준다(웹 DEV 실험, MZ2AZ-531). 카드는 「오늘의 성지」와 같은 길로 상세를 연다. */}
         {/* 시안이 켜져 있으면 도시 고르기는 시안이 맡는다 — 같은 줄을 두 번 보이지 않는다. */}
         {proto === null && <HomeCitySpots onOpenPlace={(place) => router.openPlace(place)} onOpenMap={(bbox) => router.openRegion(bbox)} />}
-        {/* 시안 B 에서는 여행 카드·질문 카드가 「여행 시작」 을 맡는다 — 코스가 있을 때만 기존 여행 카드를 둔다. */}
-        {!(proto === 'b' && (hasProtoTrip || !hasCourses)) && <TripPager
+        {proto === null && <TripPager
           trips={home.trips}
           hasCourses={hasCourses}
           card={card}

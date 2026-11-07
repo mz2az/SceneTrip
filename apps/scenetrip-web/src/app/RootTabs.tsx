@@ -15,7 +15,7 @@ import { ProfileCover } from '@/features/profile/ProfileCover'
 import { RootSheets } from '@/features/profile/RootSheets'
 import { RouteCover } from '@/features/route/RouteCover'
 import { SearchTab } from '@/features/search/SearchTab'
-import { ProtoLayer, ProtoSwitcher } from '@/features/proto/ProtoScreens'
+import { ProtoHomeBar, ProtoLayer, ProtoSwitcher } from '@/features/proto/ProtoScreens'
 import { protoAvailable } from '@/features/proto/protoState'
 import { TabBar } from './TabBar'
 import { coverOf, tabOf, tabPath } from './routes'
@@ -60,6 +60,7 @@ export function RootTabs() {
         <TrendingCover onClose={closeCover} />
       </Cover>
       {/* 「어디로 가세요?」 시안 — 로컬 개발 서버에서만(docs/project/plans/web-trip-first-prototypes.md). */}
+      {protoAvailable && <ProtoHomeBar onHome={tab === 'home' && cover === null} />}
       {protoAvailable && <ProtoLayer />}
       {protoAvailable && <ProtoSwitcher />}
     </div>

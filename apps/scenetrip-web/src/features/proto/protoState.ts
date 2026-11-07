@@ -25,6 +25,8 @@ export interface ProtoState {
   asking: boolean
   /** 「다른 여행」 처럼 사람이 직접 연 질문 — 처음 온 사람인지 보지 않고 띄운다. */
   forced: boolean
+  /** 질문을 이 도시로 시작한다(홈 카드의 도시 단추) — 도시 질문을 건너뛰고 「며칠?」 부터. */
+  startCity: string | null
   /** 방금 만든 코스 — 편집 화면 위에 한 줄 안내를 잠깐 띄운다(결정 4). */
   justCreated: { city: string; days: number } | null
   /** 추천 촬영지 목록을 띄운 도시(A·B). */
@@ -58,27 +60,28 @@ export const protoAvailable = import.meta.env.DEV
 const proto = initialProto()
 const trip = readJSON<ProtoTrip | null>(TRIP_KEY, null)
 
-export const protoStore = createStore<ProtoState>({ proto, trip, asking: proto === 'b' && trip === null, forced: false, picking: null, justCreated: null })
+// 처음 온 사람도 질문 화면 대신 홈(사진 카드 + 떠 있는 여행 계획 줄)을 먼저 본다(사용자 결정 2026-11-07). 질문은 사람이 열 때만.
+export const protoStore = createStore<ProtoState>({ proto, trip, asking: false, forced: false, startCity: null, picking: null, justCreated: null })
 const patch = (p: Partial<ProtoState>) => protoStore.set((s) => ({ ...s, ...p }))
 
 export const protoActions = {
   choose(next: Proto | null) {
     if (next) sessionStorage.setItem(PROTO_KEY, next)
     else sessionStorage.removeItem(PROTO_KEY)
-    const t = protoStore.get().trip
-    patch({ proto: next, asking: next === 'b' && t === null, forced: false, picking: null })
+    patch({ proto: next, asking: false, forced: false, startCity: null, picking: null })
   },
   /** 시안의 저장값을 지우고 처음 들어온 사람처럼. */
   reset() {
     writeJSON(TRIP_KEY, null)
-    const p = protoStore.get().proto
-    patch({ trip: null, asking: p === 'b', forced: false, picking: null, justCreated: null })
+    patch({ trip: null, asking: false, forced: false, startCity: null, picking: null, justCreated: null })
   },
   setTrip(next: ProtoTrip | null) {
     writeJSON(TRIP_KEY, next)
     patch({ trip: next })
   },
-  ask: (asking: boolean, forced = false) => patch({ asking, forced: asking && forced }),
+  ask: (asking: boolean, forced = false) => patch({ asking, forced: asking && forced, startCity: null }),
+  /** 여행 계획 질문을 연다 — 도시를 주면 「며칠?」 부터. */
+  plan: (city: string | null = null) => patch({ asking: true, forced: true, startCity: city, picking: null }),
   created: (justCreated: ProtoState['justCreated']) => patch({ justCreated }),
   pick: (city: string | null) => patch({ picking: city }),
 }

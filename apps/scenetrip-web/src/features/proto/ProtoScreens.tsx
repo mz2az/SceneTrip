@@ -2,7 +2,7 @@
  * 시안 화면 — A 질문 카드(홈 맨 위), B·C 질문 화면(전체 화면), C 코스 초안 미리보기, B·C 여행 카드(두 번째부터의 홈 맨 위), 시안 바꾸기 단추.
  * 계획: docs/project/plans/web-trip-first-prototypes.md
  */
-import { useEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useState } from 'react'
 import type { components } from '@/api/generated/schema'
 import { useTabRouter } from '@/app/tabRouter'
 import { Icon } from '@/design/Icon'
@@ -10,7 +10,7 @@ import { HStack, Spacer, Spinner, Txt, VStack, homeCard } from '@/design/primiti
 import type { HomeCity } from '@/features/home/homeCityModel'
 import { Pressable } from '@/features/route/ui/Press'
 import { PinoMascot } from '@/design/PinoMascot'
-import { useRouteState } from '@/features/route/store'
+import { homeStore } from '@/features/home/homeModel'
 import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { mockPlanCityTrip, nearestUnused } from './mockPlan'
@@ -51,7 +51,7 @@ export function AskCard() {
               <Pressable
                 key={c.key}
                 plain
-                onClick={() => protoActions.pick(c.key)}
+                onClick={() => protoActions.plan(c.key)}
                 style={{ flex: 'none', minHeight: 40, padding: '8px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
               >
                 <HStack spacing={5}>
@@ -115,11 +115,11 @@ type Step = 'city' | 'days' | 'how' | 'plan'
 
 function QuestionFlow() {
   const { cities, loading, failed, retry } = useCities()
-  const trip = useStore(protoStore, (s) => s.trip)
-  const [step, setStep] = useState<Step>('city')
-  const [city, setCity] = useState<string | null>(null)
+  const startCity = useStore(protoStore, (s) => s.startCity)
+  const [step, setStep] = useState<Step>(startCity ? 'days' : 'city')
+  const [city, setCity] = useState<string | null>(startCity)
   const [days, setDays] = useState<number | null>(null)
-  const close = trip ? () => protoActions.ask(false) : undefined
+  const close = () => protoActions.ask(false)
 
   if (step === 'city') {
     return (
@@ -158,7 +158,7 @@ function QuestionFlow() {
   const cityName = found?.name ?? city ?? ''
   if (step === 'days') {
     return (
-      <ProtoScreen step={[2, 3]} onBack={() => setStep('city')} title={say(`${cityName}에서 며칠 머무세요?`, `How long in ${cityName}?`)}>
+      <ProtoScreen step={[2, 3]} onBack={startCity ? close : () => setStep('city')} title={say(`${cityName}에서 며칠 머무세요?`, `How long in ${cityName}?`)}>
         <ChoiceRow options={DAY_OPTIONS} value={days} label={daysLabel} onPick={(n) => { setDays(n); setStep('how') }} />
       </ProtoScreen>
     )
@@ -317,16 +317,7 @@ function IconButton({ name, label, onClick }: { name: string; label: string; onC
 export function ProtoLayer() {
   const router = useTabRouter()
   const state = useStore(protoStore, (s) => s)
-  const cart = useCart()
-  const route = useRouteState()
   const { cities } = useCities()
-
-  // 처음 온 사람만 전체 화면 질문(결정 2) — 장바구니·코스를 받아 본 뒤 하나라도 있으면 질문을 거둔다.
-  const loaded = cart.loadState === 'loaded' && route.courseList === 'loaded'
-  const firstTimer = loaded && cart.placeIds.size === 0 && route.routeCourses.length === 0
-  useEffect(() => {
-    if (state.asking && !state.forced && loaded && !firstTimer) protoActions.ask(false)
-  }, [state.asking, state.forced, loaded, firstTimer])
 
   // 방금 만든 코스의 한 줄 안내는 6초 뒤 사라진다(결정 4).
   useEffect(() => {
@@ -366,7 +357,7 @@ export function ProtoLayer() {
       />
     )
   }
-  if (state.proto === 'b' && state.asking && (state.forced || firstTimer)) return <QuestionFlow />
+  if (state.asking) return <QuestionFlow key={state.startCity ?? '-'} />
   return null
 }
 
@@ -376,9 +367,9 @@ export function ProtoSwitcher() {
   const [open, setOpen] = useState(false)
   const options: ReadonlyArray<[Proto | null, string]> = [['a', 'A 질문 카드만'], ['b', 'B 질문 먼저'], [null, '끔(지금 화면)']]
   return (
-    <div style={{ position: 'absolute', right: 12, bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 12px)', zIndex: 60 }}>
+    <div style={{ position: 'absolute', left: 14, bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 86px)', zIndex: 60 }}>
       {open && (
-        <VStack spacing={4} align="stretch" style={{ marginBottom: 8, padding: 8, borderRadius: 14, background: 'var(--system-background)', boxShadow: '0 6px 24px rgba(0,0,0,0.18)' }}>
+        <VStack spacing={4} align="stretch" style={{ position: 'absolute', bottom: 34, left: 0, width: 200, padding: 8, borderRadius: 14, background: 'var(--system-background)', boxShadow: '0 6px 24px rgba(0,0,0,0.18)' }}>
           {options.map(([p, label]) => (
             <Pressable key={label} plain onClick={() => { protoActions.choose(p); setOpen(false) }} style={{ padding: '8px 10px', borderRadius: 8, textAlign: 'left', background: p === proto ? 'var(--system-gray6)' : 'transparent' }}>
               <Txt size={14} weight={p === proto ? 'bold' : 'regular'}>{label}</Txt>
@@ -387,15 +378,81 @@ export function ProtoSwitcher() {
           <Pressable plain onClick={() => { protoActions.reset(); setOpen(false) }} style={{ padding: '8px 10px', textAlign: 'left' }}>
             <Txt size={14} color="red">처음부터 (여행 지우기)</Txt>
           </Pressable>
-          {/* 코스·담은 곳이 이미 있어도 처음 온 사람의 질문 화면을 띄운다 — 코스와 장바구니는 지우지 않는다. */}
-          <Pressable plain onClick={() => { protoActions.choose('b'); protoActions.reset(); protoActions.ask(true, true); setOpen(false) }} style={{ padding: '8px 10px', textAlign: 'left' }}>
-            <Txt size={14} color="accent">처음 온 사람 화면 보기</Txt>
-          </Pressable>
         </VStack>
       )}
-      <Pressable plain onClick={() => setOpen(!open)} style={{ float: 'right', padding: '8px 12px', borderRadius: 999, background: 'rgb(255,149,0)', boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}>
+      <Pressable plain onClick={() => setOpen(!open)} style={{ padding: '4px 10px', borderRadius: 999, background: 'rgb(255,149,0)', boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}>
         <Txt size={13} weight="bold" color="white">{proto ? `시안 ${proto.toUpperCase()}` : '시안 끔'}</Txt>
       </Pressable>
     </div>
   )
+}
+
+/**
+ * 홈에 떠 있는 「여행 계획」 줄 — 탭 막대 바로 위, 가로로 긴 알약 모양(사용자 요청 2026-11-07, 홈의 코스 카드를 대신한다).
+ * 진행 중·다가오는 코스가 있으면 그 코스를 보여 주고 누르면 바로 그 코스로, 오른쪽 「+」 는 새 계획. 없으면 「계획 만들기」 단추.
+ */
+export function TripFloatBar() {
+  const router = useTabRouter()
+  const home = useStore(homeStore, (s) => s)
+  const trip = home.trips[0] ?? null
+  const bar: CSSProperties = {
+    position: 'absolute', left: 14, right: 14, zIndex: 30,
+    bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 10px)',
+    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px 10px 14px', minHeight: 64,
+    borderRadius: 20, background: 'var(--system-background)', boxShadow: '0 8px 28px rgba(40, 30, 120, 0.18), 0 1px 3px rgba(0,0,0,0.08)',
+  }
+  const badge = (
+    <div style={{ width: 42, height: 42, flex: 'none', borderRadius: 14, background: 'var(--pin-gradient)', display: 'grid', placeItems: 'center' }}>
+      <Icon name="paperplane.fill" size={19} color="white" />
+    </div>
+  )
+
+  if (trip && trip.course.serverId !== null) {
+    const c = trip.course
+    const status = c.isRunning
+      ? say(`여행 중 · ${trip.dayNo}일차 · 스탬프 ${trip.visited}/${trip.total}`, `On trip · Day ${trip.dayNo} · ${trip.visited}/${trip.total} stamps`)
+      : say(`다가오는 여행 · ${daysLabel(c.days.length)} · ${trip.total}곳`, `Upcoming · ${tripLength(c.days.length)} · ${trip.total} places`)
+    return (
+      <div style={bar}>
+        <Pressable plain onClick={() => router.openCourse(c.serverId!)} aria-label={say(`${c.title} 열기`, `Open ${c.title}`)} style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+          <HStack spacing={12}>
+            {badge}
+            <VStack spacing={2} align="start" style={{ minWidth: 0, flex: 1 }}>
+              <Txt size={11} weight="bold" color="accent" style={{ letterSpacing: 0.4 }}>{say('내 여행 계획', 'MY TRIP PLAN')}</Txt>
+              <Txt size={16} weight="heavy" lines={1}>{c.title}</Txt>
+              <Txt size={12} color="secondary" lines={1}>{status}</Txt>
+            </VStack>
+            <Icon name="chevron.right" size={15} weight="semibold" color="tertiary" />
+          </HStack>
+        </Pressable>
+        <Pressable plain onClick={() => protoActions.plan()} aria-label={say('새 여행 계획', 'New trip plan')} style={{ width: 44, height: 44, flex: 'none', borderRadius: 14, background: 'var(--system-gray6)', display: 'grid', placeItems: 'center' }}>
+          <Icon name="plus" size={18} weight="bold" color="accent" />
+        </Pressable>
+      </div>
+    )
+  }
+
+  return (
+    <div style={bar}>
+      {badge}
+      <VStack spacing={2} align="start" style={{ minWidth: 0, flex: 1 }}>
+        <Txt size={11} weight="bold" color="accent" style={{ letterSpacing: 0.4 }}>{say('여행 계획', 'TRIP PLAN')}</Txt>
+        <Txt size={15} weight="heavy" lines={1}>{say('한국 여행 코스 짜기', 'Plan a Korea trip')}</Txt>
+        <Txt size={12} color="secondary" lines={1}>{say('도시·며칠만 고르면 끝', 'City + days, done')}</Txt>
+      </VStack>
+      <Pressable plain onClick={() => protoActions.plan()} style={{ flex: 'none', minHeight: 44, padding: '0 16px', borderRadius: 14, background: 'var(--accent)' }}>
+        <HStack spacing={6}>
+          <Icon name="plus" size={15} weight="bold" color="white" />
+          <Txt size={15} weight="bold" color="white" style={{ whiteSpace: 'nowrap' }}>{say('계획 만들기', 'Create plan')}</Txt>
+        </HStack>
+      </Pressable>
+    </div>
+  )
+}
+
+/** 떠 있는 여행 계획 줄을 언제 띄우나 — 시안이 켜져 있고, 홈 탭이고, 덮개·질문·촬영지 목록이 없을 때. */
+export function ProtoHomeBar({ onHome }: { onHome: boolean }) {
+  const state = useStore(protoStore, (s) => s)
+  if (!state.proto || !onHome || state.asking || state.picking) return null
+  return <TripFloatBar />
 }
