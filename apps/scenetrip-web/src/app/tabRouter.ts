@@ -38,6 +38,24 @@ export function consumePending<K extends keyof Pending>(key: K): Pending[K] {
   return value
 }
 
+/** 상세를 연 쪽이 「뒤로」로 돌아오길 바라는 곳 — `openContent(…, { returnTo })` 가 이동의 state 에 싣는다. */
+interface ReturnState {
+  returnTo: string
+  /** 표시를 실어 연 작품 — 이 작품의 상세를 닫을 때만 유효하다. */
+  contentId: number
+}
+
+/**
+ * 이동의 state 에서 돌아갈 곳을 꺼낸다. 앱 안의 경로(`/` 로 시작)만 받는다 — 그 밖의 값은 없는 것으로 친다.
+ * `contentId` 를 주면 표시를 실어 연 그 작품일 때만 준다 — 상세 안에서 다른 작품으로 옮겨 갔으면 무효다.
+ */
+export function returnToOf(state: unknown, contentId?: number): string | null {
+  if (typeof state !== 'object' || state === null) return null
+  const { returnTo, contentId: openedId } = state as Partial<ReturnState>
+  if (contentId !== undefined && openedId !== contentId) return null
+  return typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null
+}
+
 /** iOS `TabRouter.shared` 의 이동 함수들. */
 export function useTabRouter() {
   const navigate = useNavigate()
@@ -48,15 +66,20 @@ export function useTabRouter() {
     closeCover: () => navigate(paths.home),
     openRoute: () => navigate(paths.courses),
     openProfile: () => navigate(paths.profile),
+    /** 홈 「지금 뜨는 작품」 전체 — 포스터 격자 덮개(MZ2AZ-534). */
+    openTrending: () => navigate(paths.trending),
     /** 경로여정을 열고 그 코스의 편집으로 들어간다. */
     openCourse: (serverId: number) => {
       pendingStore.set((s) => ({ ...s, courseId: serverId }))
       navigate(paths.course(serverId))
     },
-    /** 작품검색 탭으로 가서 그 작품의 상세를 연다. */
-    openContent: (content: ContentSummary) => {
+    /**
+     * 작품검색 탭으로 가서 그 작품의 상세를 연다. `returnTo` 를 주면 상세의 「뒤로」가 검색 탭이 아니라 그 화면으로 돌아간다
+     * (지금 뜨는 작품 격자 → 작품 상세 → 뒤로 = 격자, MZ2AZ-534). 표시는 이동의 state 에 싣는다 — 쪽지(pending)는 한 번 읽고 버리므로.
+     */
+    openContent: (content: ContentSummary, options?: { returnTo?: string }) => {
       pendingStore.set((s) => ({ ...s, content }))
-      navigate(paths.searchContent(content.id))
+      navigate(paths.searchContent(content.id), options?.returnTo ? { state: { returnTo: options.returnTo, contentId: content.id } satisfies ReturnState } : undefined)
     },
     /** 작품검색 탭으로 가서 그 촬영지의 상세를 연다. */
     openPlace: (place: PlaceSummary) => {

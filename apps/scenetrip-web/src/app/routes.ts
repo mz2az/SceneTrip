@@ -6,10 +6,10 @@
  *
  * 구조는 iOS 와 같다 (RootTabs.swift / TabRouter.swift):
  *   탭 셋  — 작품검색(/search) · 홈(/) · 커뮤니티(/community)
- *   덮개 둘 — 경로여정(/courses) · 마이페이지(/profile): 홈 위에 전체 화면으로 덮인다.
+ *   덮개 셋 — 경로여정(/courses) · 마이페이지(/profile) · 지금 뜨는 작품 전체(/trending): 홈 위에 전체 화면으로 덮인다.
  */
 export type TabId = 'search' | 'home' | 'community'
-export type CoverId = 'route' | 'profile'
+export type CoverId = 'route' | 'profile' | 'trending'
 
 export const paths = {
   home: '/',
@@ -26,6 +26,8 @@ export const paths = {
   /** 마이페이지. 하위 화면은 `/profile/<이름>` */
   profile: '/profile',
   profileSection: (name: string) => `/profile/${name}` as const,
+  /** 홈 「지금 뜨는 작품」의 「전체 보기」 — 포스터 격자(MZ2AZ-534). */
+  trending: '/trending',
 } as const
 
 /** react-router `matchPath` 용 패턴 */
@@ -48,6 +50,7 @@ export function tabOf(pathname: string): TabId {
 export function coverOf(pathname: string): CoverId | null {
   if (pathname === '/courses' || pathname.startsWith('/courses/')) return 'route'
   if (pathname === '/profile' || pathname.startsWith('/profile/')) return 'profile'
+  if (pathname === '/trending') return 'trending'
   return null
 }
 

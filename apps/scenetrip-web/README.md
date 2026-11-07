@@ -68,7 +68,12 @@ Bazel 빌드(`just web-build`)는 호스트 환경 변수를 받지 않아 `VITE
 
 홈 인사 아래 「도시의 성지」(MZ2AZ-531, 웹 DEV 실험)는 웹에만 있다 — 도시 칩(고정 서울·부산·경주·인천·제주, 그다음 촬영지 수 순)과 그 도시 촬영지 카드, 「지도에서 N곳 보기」(작품검색 탭의 「현 지도 내 성지 검색」). 도시 열쇠는 한국어 주소에서 얻으므로 `GET /places` 를 한국어로 끝까지 받고, 영어면 영어로도 받는다(API 창구는 호출부가 준 `Accept-Language` 를 덮어쓰지 않는다). 위치는 권한이 이미 허용됐을 때만 쓴다. 계획: [`docs/project/plans/web-home-city-spots.md`](../../docs/project/plans/web-home-city-spots.md).
 
-계획 문서 §3. iOS 와 같은 구조: 탭 셋(작품검색·홈·커뮤니티) + 덮개 둘(경로여정 `/courses`·마이페이지 `/profile`). 경로는 `src/app/routes.ts` 에서만 만든다.
+계획 문서 §3. iOS 와 같은 구조: 탭 셋(작품검색·홈·커뮤니티) + 덮개 셋(경로여정 `/courses`·마이페이지 `/profile`·지금 뜨는 작품 전체 `/trending`). 경로는 `src/app/routes.ts` 에서만 만든다.
+
+홈 「지금 뜨는 작품」의 「전체 보기」는 작품검색 탭이 아니라 `/trending` 덮개를 연다(MZ2AZ-534, 웹 DEV 실험). 선반과 같은 `GET /contents`(인기순)를
+`limit=100` 으로 `total` 까지 `offset` 으로 이어 받아 포스터 격자로 그린다 — 앱 틀 폭 400px 이하 2열, 넘으면 3열. 포스터를 누르면 작품검색 탭의 작품 상세로 가고,
+상세의 「뒤로」는 이동 state 의 `returnTo`(실어 연 작품 id 와 맞을 때만)를 보고 격자로 한 칸 물린다. 작품 상세 위 촬영지를 닫아도 표시는 남는다(`src/features/search/detailBack.ts`). 분석은 상세가 보내는 `view_title` 뿐이고 화면 이름은 `home` 으로 센다.
+선반과 격자 모두 고정 작품(`src/features/home/pinnedWorks.ts` 의 `PINNED_CONTENT_IDS`, 지금 [32] 케이팝 데몬 헌터스)을 맨 앞에 두고 나머지는 인기순에서 중복을 뺀다. 목록에 없으면 `GET /contents/{id}` 로 받아 넣고, 실패하면 기존 순서다.
 디자인 토큰은 `src/design/tokens.css` 에 iOS 소스의 파일:줄 출처와 함께 있다. 문구는 iOS 와 같은 `tr("한국어 원문")` 규칙이다(`src/i18n`).
 
 촬영지 상세의 주 버튼은 「길찾기」다(MZ2AZ-532, DEV 실험 — [계획](../../docs/project/plans/web-place-directions.md)). 누르면 그 장소 하나로 된 코스(「{장소} 가는 길」)를 만들고
