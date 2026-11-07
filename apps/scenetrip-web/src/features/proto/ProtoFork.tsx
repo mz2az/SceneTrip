@@ -66,7 +66,7 @@ export function ProtoForkSheet({ open, onClose, onAI, onManual }: { open: boolea
     onClose()
     fn()
   }
-  const cityCard: CSSProperties = { width: '100%', textAlign: 'left', padding: 16, borderRadius: radius.l, background: color.primary, boxShadow: shadow.card, color: color.onPrimary }
+  const cityCard: CSSProperties = { width: '100%', textAlign: 'left', padding: 16, borderRadius: radius.l, background: color.primaryFill, boxShadow: shadow.card, color: color.onPrimary }
 
   return (
     <Sheet open={open} onClose={onClose} dim={0.25} floating detent={SHEET_HEIGHT} radius={30} label={say('새 코스 만들기', 'New trip')}>

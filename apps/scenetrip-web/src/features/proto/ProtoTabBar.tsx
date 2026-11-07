@@ -38,7 +38,7 @@ export function ProtoTabBar({ selected, onSelect }: { selected: TabId; onSelect:
         <div
           aria-hidden
           style={{
-            position: 'absolute', top: 5, bottom: 5, left: 5, width: 'calc((100% - 10px) / 3)', borderRadius: radius.pill, background: color.primary,
+            position: 'absolute', top: 5, bottom: 5, left: 5, width: 'calc((100% - 10px) / 3)', borderRadius: radius.pill, background: color.primaryFill,
             transform: `translateX(${at * 100}%)`, transition: 'transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)',
           }}
         />

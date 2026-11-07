@@ -86,7 +86,7 @@ export function ChoiceRow<T extends string | number>({ options, value, label, on
           plain
           onClick={() => onPick(o)}
           aria-pressed={o === value}
-          style={{ padding: '16px 18px', borderRadius: radius.m, textAlign: 'left', background: o === value ? color.primary : 'var(--system-background)', boxShadow: shadow.card }}
+          style={{ padding: '16px 18px', borderRadius: radius.m, textAlign: 'left', background: o === value ? color.primaryFill : 'var(--system-background)', boxShadow: shadow.card }}
         >
           <Txt size={17} weight="semibold" style={{ color: o === value ? color.onPrimary : 'var(--label)' }}>{label(o)}</Txt>
         </Pressable>
@@ -185,7 +185,7 @@ export function PrimaryButton({ children, onClick, disabled }: { children: React
       plain
       onClick={onClick}
       disabled={disabled}
-      style={{ width: '100%', padding: '15px 0', borderRadius: radius.m, background: color.primary, opacity: disabled ? 0.45 : 1, textAlign: 'center' }}
+      style={{ width: '100%', padding: '15px 0', borderRadius: radius.m, background: color.primaryFill, opacity: disabled ? 0.45 : 1, textAlign: 'center' }}
     >
       <Txt size={17} weight="bold" style={{ color: color.onPrimary }}>{children}</Txt>
     </Pressable>
@@ -211,7 +211,7 @@ export function SpotRow({ place, saved, onToggle, trailing }: { place: PlaceSumm
           plain
           onClick={onToggle}
           aria-pressed={saved}
-          style={{ flex: 'none', minHeight: 44, padding: '0 14px', borderRadius: radius.pill, background: saved ? color.primary : 'var(--system-gray6)' }}
+          style={{ flex: 'none', minHeight: 44, padding: '0 14px', borderRadius: radius.pill, background: saved ? color.primaryFill : 'var(--system-gray6)' }}
         >
           <HStack spacing={4}>
             <Icon name={saved ? 'checkmark' : 'plus'} size={13} weight="bold" color={saved ? 'white' : color.primaryText} />

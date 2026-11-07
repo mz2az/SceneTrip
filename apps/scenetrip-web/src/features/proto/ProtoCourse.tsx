@@ -78,7 +78,7 @@ export function ProtoCourseList({ onClose, onNew, onOpen }: { onClose: () => voi
             <Txt as="h1" size={30} weight="heavy" style={heading}>{say('내 여행', 'My trips')}</Txt>
             <Txt size={15} color="secondary">{courses.length}</Txt>
             <Spacer />
-            <Pressable plain onClick={onNew} style={{ height: 44, padding: '0 16px', borderRadius: radius.pill, background: color.primary }}>
+            <Pressable plain onClick={onNew} style={{ height: 44, padding: '0 16px', borderRadius: radius.pill, background: color.primaryFill }}>
               <HStack spacing={5}>
                 <Icon name="plus" size={14} weight="bold" color="white" />
                 <Txt size={14} weight="bold" style={{ color: color.onPrimary }}>{say('새 코스', 'New')}</Txt>

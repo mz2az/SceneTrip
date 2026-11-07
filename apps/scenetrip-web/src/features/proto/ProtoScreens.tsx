@@ -161,7 +161,7 @@ function HowCard({ primary, icon, title, detail, onClick }: { primary?: boolean;
     <Pressable
       plain
       onClick={onClick}
-      style={{ width: '100%', padding: 18, borderRadius: radius.l, textAlign: 'left', background: primary ? color.primary : 'var(--system-background)', boxShadow: shadow.card, border: primary ? 'none' : `1.5px solid ${color.primary}` }}
+      style={{ width: '100%', padding: 18, borderRadius: radius.l, textAlign: 'left', background: primary ? color.primaryFill : 'var(--system-background)', boxShadow: shadow.card, border: primary ? 'none' : `1.5px solid ${color.primary}` }}
     >
       <HStack spacing={14} align="start">
         <Icon name={icon} size={24} weight="semibold" color={primary ? 'white' : color.primaryText} />
@@ -315,7 +315,7 @@ export function ProtoLayer() {
 
 function CreatedBanner({ city, days }: { city: string; days: number }) {
   return (
-    <div role="status" style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 64px)', left: 16, right: 16, zIndex: z.toast, padding: '12px 14px', borderRadius: radius.m, background: color.primary, boxShadow: shadow.float }}>
+    <div role="status" style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 64px)', left: 16, right: 16, zIndex: z.toast, padding: '12px 14px', borderRadius: radius.m, background: color.primaryFill, boxShadow: shadow.float }}>
       <Txt size={15} weight="semibold" style={{ color: color.onPrimary }}>
         {say(`${city} ${daysLabel(days)} 코스가 준비됐어요. 장소를 눌러 바꾸거나 끌어서 순서를 바꾸세요`, `Your ${tripLength(days)} ${city} course is ready. Tap a place to change it, or drag to reorder.`)}
       </Txt>
@@ -387,7 +387,7 @@ export function TripFloatBar() {
 
   const bottom = 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 10px)'
   const soft = shadow.float
-  const mainPill: CSSProperties = { height: 44, padding: '0 16px 0 14px', borderRadius: radius.pill, background: color.primary, boxShadow: shadow.float, maxWidth: 240, color: color.onPrimary }
+  const mainPill: CSSProperties = { height: 44, padding: '0 16px 0 14px', borderRadius: radius.pill, background: color.primaryFill, boxShadow: shadow.float, maxWidth: 240, color: color.onPrimary }
   const round: CSSProperties = { width: 44, height: 44, borderRadius: radius.pill, background: 'var(--system-background)', boxShadow: soft, display: 'grid', placeItems: 'center', flex: 'none' }
   const label = (text: string) => (
     <span style={{ minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 14, fontWeight: 700, color: 'inherit' }}>{text}</span>
@@ -435,7 +435,7 @@ export function TripFloatBar() {
       <Pressable
         plain
         onClick={() => openCourse(c.serverId!)}
-        style={{ height: 44, padding: '0 16px', borderRadius: radius.pill, flex: 'none', maxWidth: 220, color: c.isRunning ? color.onPrimary : color.primaryText, background: c.isRunning ? color.primary : 'var(--system-background)', boxShadow: soft }}
+        style={{ height: 44, padding: '0 16px', borderRadius: radius.pill, flex: 'none', maxWidth: 220, color: c.isRunning ? color.onPrimary : color.primaryText, background: c.isRunning ? color.primaryFill : 'var(--system-background)', boxShadow: soft }}
       >
         <HStack spacing={6}>
           <Icon name={c.isRunning ? 'location.north.fill' : 'paperplane'} size={13} color={c.isRunning ? 'white' : color.primaryText} />

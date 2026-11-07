@@ -133,8 +133,8 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
   return (
     <VStack style={{ height: '100%', background: 'var(--grouped-background)' }}>
       {proto ? (
-        // 시안 머리 — 단색 보라 띠(흰 글씨 대비 6:1)에 닫기·단계 점, 그 아래 큰 질문(h1). 띠가 「AI 가 짠다」 를 말하므로 따로 띠를 두지 않는다.
-        <VStack spacing={14} style={{ padding: 'calc(var(--safe-top) + 12px) 20px 20px', background: 'var(--home-purple)', flex: 'none' }}>
+        // 시안 머리 — 어둡게 당긴 파랑→보라 띠(흰 글씨 대비 5:1 이상, protoTokens.primaryFill 과 같은 값)에 닫기·단계 점, 그 아래 큰 질문(h1). 띠가 「AI 가 짠다」 를 말하므로 따로 띠를 두지 않는다.
+        <VStack spacing={14} style={{ padding: 'calc(var(--safe-top) + 12px) 20px 20px', background: 'linear-gradient(135deg, #4c63dd 0%, #5c4ad6 100%)', flex: 'none' }}>
           <HStack justify="between">
             <Pressable plain onClick={onClose} aria-label={tr('취소')} style={{ width: 44, height: 44, borderRadius: 999, background: 'rgba(255,255,255,0.18)', display: 'grid', placeItems: 'center' }}>
               <Icon name="xmark" size={15} weight="bold" color="white" />
@@ -230,7 +230,7 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
       <HStack spacing={10} style={{ padding: 16, background: 'var(--system-background)', flex: 'none' }}>
         {index > 0 && <LargeButton variant="bordered" size="regular" weight="regular" fontSize={15} onClick={() => setIndex(index - 1)}>{tr('이전')}</LargeButton>}
         {/* 라벨에 너비를 준다 — 바깥에만 너비를 걸면 누르는 자리만 넓어지고 파란 알약은 글자 크기 그대로 남는다(실측). */}
-        <LargeButton variant="prominent" height={50.33} disabled={planning} onClick={advance} style={{ flex: 1, ...(proto ? { background: 'var(--home-purple)' } : {}) }}>
+        <LargeButton variant="prominent" height={50.33} disabled={planning} onClick={advance} style={{ flex: 1, ...(proto ? { background: 'linear-gradient(135deg, #4c63dd 0%, #5c4ad6 100%)' } : {}) }}>
           {planning && <Spinner size={18} />}
           {planning ? tr('일정을 짜는 중입니다') : last ? finishLabel : tr('다음')}
         </LargeButton>

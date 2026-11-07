@@ -23,7 +23,7 @@ export function ProtoSpanStep({ nights, onPick }: { nights: number; onPick: (n: 
             role="radio"
             aria-checked={on}
             onClick={() => onPick(n)}
-            style={{ padding: '16px 14px', borderRadius: radius.m, textAlign: 'left', background: on ? color.primary : 'var(--system-background)', boxShadow: shadow.card }}
+            style={{ padding: '16px 14px', borderRadius: radius.m, textAlign: 'left', background: on ? color.primaryFill : 'var(--system-background)', boxShadow: shadow.card }}
           >
             <VStack spacing={4} align="start">
               <Txt size={20} weight="heavy" style={{ color: on ? color.onPrimary : 'var(--label)' }}>{spanLabel(n)}</Txt>
@@ -66,7 +66,7 @@ export function ProtoWorkStep({ works, liked, selected, onToggleSelect, onToggle
                   >
                     {w.posterUrl && <img src={w.posterUrl} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                     {on && <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'rgba(60, 40, 160, 0.28)' }} />}
-                    <span aria-hidden style={{ position: 'absolute', right: 6, top: 6, width: 24, height: 24, borderRadius: radius.pill, display: 'grid', placeItems: 'center', background: on ? color.primary : 'rgba(0,0,0,0.35)', border: '2px solid #fff' }}>
+                    <span aria-hidden style={{ position: 'absolute', right: 6, top: 6, width: 24, height: 24, borderRadius: radius.pill, display: 'grid', placeItems: 'center', background: on ? color.primaryFill : 'rgba(0,0,0,0.35)', border: '2px solid #fff' }}>
                       {on && <Icon name="checkmark" size={12} weight="bold" color="white" />}
                     </span>
                   </div>
