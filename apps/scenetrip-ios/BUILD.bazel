@@ -51,6 +51,9 @@ APPLE_ONLY = select({
 #
 # 값을 넘기지 않으면 빈 문자열이 들어가고 지도는 인증 실패 화면을 띄운다 —
 # 빌드가 깨지지 않으므로 ID 없는 사람도 나머지 화면은 그대로 볼 수 있다.
+#
+# Sentry DSN·PostHog 프로젝트 키도 같은 길이다 (MZ2AZ-527) — `.env` 의 SENTRY_DSN_IOS·POSTHOG_KEY 를
+# just 레시피가 --define 으로 넘긴다. 비면 그 SDK 는 한 번도 불리지 않는다.
 genrule(
     name = "secrets_swift",
     outs = ["Secrets.swift"],
@@ -58,6 +61,8 @@ genrule(
 // 생성 파일 — 고치지 않는다. //apps/scenetrip-ios:secrets_swift 가 만든다.
 enum Secrets {
     static let naverClientId = "$(naver_client_id)"
+    static let sentryDsnIos = "$(sentry_dsn_ios)"
+    static let posthogKey = "$(posthog_key)"
 }
 EOF""",
     tags = ["ios"],
@@ -76,6 +81,8 @@ swift_library(
     srcs = glob(
         ["src/**/*.swift"],
         exclude = [
+            "src/Analytics/ErrorReporting.swift",
+            "src/Analytics/ProductAnalytics.swift",
             "src/Analytics/SearchUsageIntent.swift",
             "src/Analytics/UsageEvents.swift",
             "src/Auth/AccountDataReset.swift",
@@ -130,6 +137,8 @@ swift_library(
             "src/SearchTab/SceneZoomView.swift",
         ],
     ) + [
+        "src/Analytics/ErrorReporting.swift",
+        "src/Analytics/ProductAnalytics.swift",
         "src/Analytics/SearchUsageIntent.swift",
         "src/Analytics/UsageEvents.swift",
         "src/Auth/AccountDataReset.swift",
@@ -226,6 +235,10 @@ swift_library(
         "@swiftpkg_firebase_ios_sdk//:FirebaseAnalyticsCore",
         "@swiftpkg_firebase_ios_sdk//:FirebaseCore",
         "@swiftpkg_googlesignin_ios//:GoogleSignIn",
+        # 사용 분석 (MZ2AZ-527) — Firebase 와 같은 이벤트를 웹과 같은 PostHog 프로젝트로. 선언은 //:Package.swift.
+        "@swiftpkg_posthog_ios//:PostHog",
+        # 오류 추적 (MZ2AZ-527) — 충돌·오류만. binaryTarget(xcframework) 래퍼.
+        "@swiftpkg_sentry_cocoa//:Sentry",
         "@swiftpkg_spm_nmapsmap//:NMapsMap",
     ],
 )
@@ -297,6 +310,7 @@ swift_library(
             "tests/SceneZoomViewTests.swift",
             "tests/SearchUsageTests.swift",
             "tests/SuggestionDetailTests.swift",
+            "tests/ThirdPartyAnalyticsTests.swift",
             "tests/TripSessionRequestTests.swift",
             "tests/UnavailableItemTests.swift",
             "tests/UsageEventsTests.swift",
@@ -332,6 +346,7 @@ swift_library(
         "tests/SceneZoomViewTests.swift",
         "tests/SearchUsageTests.swift",
         "tests/SuggestionDetailTests.swift",
+        "tests/ThirdPartyAnalyticsTests.swift",
         "tests/TripSessionRequestTests.swift",
         "tests/UnavailableItemTests.swift",
         "tests/UsageEventsTests.swift",
@@ -346,6 +361,9 @@ swift_library(
     deps = [
         ":scenetrip-ios",
         "//contracts/openapi:scene_api_swift_lib",
+        # SDK 설정(옵션·구성 객체)만 읽는다. 시험은 SDK 를 시작하지 않는다 (MZ2AZ-527).
+        "@swiftpkg_posthog_ios//:PostHog",
+        "@swiftpkg_sentry_cocoa//:Sentry",
         "@swiftpkg_spm_nmapsmap//:NMapsMap",
     ],
 )

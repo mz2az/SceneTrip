@@ -618,7 +618,7 @@ swift_deps.from_package(
     resolved = "//:Package.resolved",
     swift = "//:Package.swift",
 )
-use_repo(swift_deps, "swift_package", "swiftpkg_facebook_ios_sdk", "swiftpkg_firebase_ios_sdk", "swiftpkg_googlesignin_ios", "swiftpkg_spm_nmapsmap")
+use_repo(swift_deps, "swift_package", "swiftpkg_facebook_ios_sdk", "swiftpkg_firebase_ios_sdk", "swiftpkg_googlesignin_ios", "swiftpkg_posthog_ios", "swiftpkg_sentry_cocoa", "swiftpkg_spm_nmapsmap")
 
 # --- JavaScript / 웹앱 (ADR 0028) ------------------------------------------------
 #

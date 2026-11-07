@@ -1106,7 +1106,7 @@
         "bzlTransitiveDigest": "ylnAw755th8T+6Buou/hnD61W4Q1RtalydQd5hC2dG0=",
         "usagesDigest": "nOCKDjleYGLhib4I/XKOXMWBI1Lwq8DCu0OlSHcyUCY=",
         "recordedFileInputs": {
-          "@@//Package.resolved": "b061379c838f134ca5df5aced355f49b1ad40fb3104dadfd450a404338ed810f"
+          "@@//Package.resolved": "9af12e89a7ce952972bb214db75dd91e33982ce06db1e4e36acb7269020a7097"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1203,6 +1203,58 @@
               "commit": "80d0ee82f6370d1bace1431a80cb80575f98ee90",
               "remote": "https://github.com/facebook/facebook-ios-sdk.git",
               "version": "18.1.1",
+              "env": {},
+              "env_inherit": [],
+              "cached_json_directory": "",
+              "init_submodules": false,
+              "recursive_init_submodules": true,
+              "patch_args": [
+                "-p0"
+              ],
+              "patch_cmds": [],
+              "patch_cmds_win": [],
+              "patch_tool": "",
+              "patches": [],
+              "publicly_expose_all_targets": false,
+              "replace_scm_with_registry": false,
+              "target_deps": {},
+              "module_aliases": {},
+              "dep_module_aliases": ""
+            }
+          },
+          "swiftpkg_sentry_cocoa": {
+            "repoRuleId": "@@rules_swift_package_manager+//swiftpkg/internal:swift_package.bzl%swift_package",
+            "attributes": {
+              "bazel_package_name": "swiftpkg_sentry_cocoa",
+              "commit": "4f135c52afeeb1d6937eb93824c7ec1cddcaa372",
+              "remote": "https://github.com/getsentry/sentry-cocoa.git",
+              "version": "9.30.1",
+              "env": {},
+              "env_inherit": [],
+              "cached_json_directory": "",
+              "init_submodules": false,
+              "recursive_init_submodules": true,
+              "patch_args": [
+                "-p0"
+              ],
+              "patch_cmds": [],
+              "patch_cmds_win": [],
+              "patch_tool": "",
+              "patches": [],
+              "publicly_expose_all_targets": false,
+              "replace_scm_with_registry": false,
+              "target_deps": {},
+              "module_aliases": {},
+              "dep_module_aliases": ""
+            }
+          },
+          "swiftpkg_posthog_ios": {
+            "repoRuleId": "@@rules_swift_package_manager+//swiftpkg/internal:swift_package.bzl%swift_package",
+            "attributes": {
+              "bazel_package_name": "swiftpkg_posthog_ios",
+              "commit": "2f6db7d9ccfac0307722c9a2a4029bf534985e2f",
+              "remote": "https://github.com/PostHog/posthog-ios.git",
+              "version": "3.90.2",
               "env": {},
               "env_inherit": [],
               "cached_json_directory": "",
@@ -1619,6 +1671,8 @@
             "swiftpkg_googlesignin_ios",
             "swiftpkg_firebase_ios_sdk",
             "swiftpkg_facebook_ios_sdk",
+            "swiftpkg_sentry_cocoa",
+            "swiftpkg_posthog_ios",
             "swift_package"
           ],
           "explicitRootModuleDirectDevDeps": [],

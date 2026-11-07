@@ -155,7 +155,11 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
    ```
    NAVER_MAP_CLIENT_ID=<네이버 지도 키>
    KAKAO_REST_KEY=<카카오 REST 키>
+   SENTRY_DSN_IOS=<Sentry iOS 프로젝트 DSN — 비워도 된다>
+   POSTHOG_KEY=<PostHog 프로젝트 키 — 비워도 된다>
    ```
+   Sentry·PostHog 값은 네이버 키와 같은 길(`--define` → 생성 파일 `Secrets.swift`)로 들어간다. 비우면 그 SDK 만
+   한 번도 불리지 않고 나머지는 그대로 돈다 (MZ2AZ-527).
 3. **백엔드** — 앱은 `http://localhost:8081/v1` 을 부른다. 로컬 클러스터를
    띄워 둔다(`just cluster-up`, MZ2AZ-157 구성 그대로).
 4. **실행** — `just ios-run`.
@@ -187,8 +191,10 @@ Flutter 프로토타입(`~/workspace/mobile`, 저장소 밖)이 화면 동작의
 | 내 리뷰 | 마이페이지 「내 리뷰」 — 내가 쓴 리뷰 전부(촬영지·편의시설 섞어 최신순), 줄을 누르면 해당 대상 상세. 「내 리뷰 고치기·지우기」는 리뷰 시트를 바로 연다. 탈퇴 확인 창은 장바구니·코스·찜과 이 기기의 발자취, 작성한 리뷰·여행후기와 사진이 모두 삭제되며 되돌릴 수 없다고 알린다 (MZ2AZ-363, MZ2AZ-452, MZ2AZ-466) |
 | 닉네임 | 로그인·세션 복원에서 `nicknameConfirmed == false`일 때 계정별 한 번 묻고 마이페이지에서도 바꾼다. 서버 MZ2AZ-362는 main에 있으며 로컬 저장·중복 오류 검증은 `review-app.md`에 기록돼 있다. 복원/건너뛰기/늦은 응답은 단위 시험으로 검증한다. 화면 미리보기는 `-previewNickname` (MZ2AZ-363) |
 | 테마 | 시스템 설정과 기존 저장값에 관계없이 라이트로 고정한다. 마이페이지 화면 모드 선택은 제거했다. 사진 확대 화면의 검정 감상 배경은 기존 디자인대로 유지한다(MZ2AZ-419, 2026-10-14 정책 변경) |
-| 분석 | IDFA 없는 Firebase Analytics(GA4)로 퍼널 이벤트를 기록한다. `resources/GoogleService-Info.plist`와 이용 통계 ON일 때만 켜진다. 마이페이지 「이용 통계 수집」은 기본 ON이며 OFF는 Firebase·Meta를 함께 끈다. ATT 거부는 Firebase에 영향을 주지 않는다 — 표는 `docs/project/plans/analytics-events.md` (MZ2AZ-353·402) |
+| 분석 | IDFA 없는 Firebase Analytics(GA4)로 퍼널 이벤트를 기록한다. `resources/GoogleService-Info.plist`와 이용 통계 ON일 때만 켜진다. 마이페이지 「이용 통계 수집」은 기본 ON이며 OFF는 Firebase·PostHog·Sentry·Meta를 함께 끈다. ATT 거부는 Firebase에 영향을 주지 않는다 — 표는 `docs/project/plans/analytics-events.md` (MZ2AZ-353·402) |
 | 인기도 사용 기록 | 생성 `POST /events`로 실제 작품·촬영지·편의시설 상세 열기와 검색 확정을 기록한다. 검색은 같은 검색의 첫 성공 응답 총수를 선택한 탭 기준으로 보내며, 실패·재시도·자동완성·이어 받기는 세지 않는다. 401·429·5xx·연결 실패에 재전송·로그인 갱신·알림이 없으며 원문은 Firebase·메타에 보내지 않는다. 홈 선반은 서버 인기순 첫 20편을 사용한다 (MZ2AZ-408·411, 계획 `ios-usage-events.md`) |
+| 사용 분석 PostHog | `AppAnalytics.log` 의 이벤트를 Firebase 와 **같은 이름·매개변수**로 PostHog(posthog-ios 3.90.2, 웹과 같은 프로젝트)에도 보낸다. SDK 가 스스로 만드는 이벤트는 없다 — 앱 생명주기·화면·누름·화난 연타(`$rageclick`)·요소 글자·푸시 자동 기록과 swizzling·화면 녹화·설문을 끄고 IDFA 를 쓰지 않는다(SDK 기본 속성인 기기·OS·앱 버전·세션 id 는 우리 이벤트에 붙는다). `POSTHOG_KEY` 가 비면 SDK 를 부르지 않는다. 이용 통계 OFF 로 시작하면 초기화하지 않고, ON 이 되면 그때 켜며, 켜진 뒤 OFF 면 opt-out(다시 ON 이면 opt-in). ATT 와 무관 (MZ2AZ-527) |
+| 오류 추적 Sentry | sentry-cocoa 9.30.1. 충돌·오류만 — `sendDefaultPii = false`, 성능 추적·프로파일링·세션 녹화·세션 집계·실패한 요청 보고·브레드크럼 끔, 보내기 전 `user` 삭제. 환경은 API 주소가 `https://api.scenetrip.io/v1` 이면 `production`, 그 밖은 `dev`. `SENTRY_DSN_IOS` 가 비면 SDK 를 부르지 않는다. 이용 통계 OFF 로 시작하면 시작하지 않고, ON 이 되면 시작, 켜진 뒤 OFF 면 `SentrySDK.close`. ATT 와 무관 (MZ2AZ-527) |
 | 메타 광고 측정 | Core SDK 18.1.1. 별도 설정·실제 ATT 허용·이용 통계 ON이 모두 있어야 설치·활성화 및 `save_place`·`create_course`를 측정한다. ATT는 앱이 활성으로 처음 보인 뒤 0.6초에 한 번 요청하며 거부해도 기능을 제한하지 않는다 (MZ2AZ-391·402·526) |
 | 언어 | 한국어·English 를 앱 안에서 고른다(마이페이지 → 도움 → 언어). 고른 적이 없으면 기기 언어와 무관하게 English 로 시작한다 — 첫 실행에 묻지 않는다(MZ2AZ-526). 화면 문구와 `Accept-Language` 가 함께 바뀐다 (MZ2AZ-343). 앱 안에서 그리는 시스템 글자(시트 바깥 「팝업 닫기」/「dismiss popup」 낭독, 사진 고르기)는 앱 언어를 이 앱의 `AppleLanguages`(앱 설정 영역, 기기 전체 언어는 그대로)에 적어 **다음 실행부터** 따른다 — 번역 표로는 못 바꾼다(MZ2AZ-367). 고른 적이 없어도 시작 언어(English)를 적는다(MZ2AZ-529). 위치 권한 창·ATT 창은 시스템이 앱 밖에서 그려 **기기 언어 그대로다**(2026-11-07 시뮬레이터, 적은 뒤의 실행에서도). 네이버 지도 지명은 앱 언어를 지도에 직접 넣는다(`NMFMapView.locale`, `NaverMapLocale`) — 기기 언어와 무관하게 영어면 영어+한국어 병기, 한국어면 한국어이고, 언어를 바꾸면 같은 실행에서 바로 바뀐다(MZ2AZ-529) |
 | 발자취 | **개인정보로 다룬다** — 기기에만 저장, 기본 꺼짐·동의 후 기록, 로그아웃·탈퇴 때 삭제 (MZ2AZ-348) |
@@ -346,7 +352,8 @@ AppID는 메타 개발자 콘솔의 앱 ID이며 App Store Connect의 숫자 App
 마이페이지 도움·정책 사이의 「이용 통계 수집」은 기본 ON이며 UserDefaults에
 저장한다. OFF로 시작하면 Firebase 초기화를 미루고, 실행 중 OFF로 바꾸면
 자동 수집까지 끈다. ON으로 되돌리면 Firebase를 켜고 Meta는 위 조건을 다시
-검사한다. 「광고 추적 허용」 행은 시스템 허용 상태를 표시하고 앱 설정을 연다.
+검사한다. PostHog·Sentry 도 같은 스위치를 따른다 — OFF 로 시작하면 초기화하지 않고, ON 이 되면 늦게 켜고,
+켜진 뒤 OFF 면 PostHog opt-out·Sentry close (`AppAnalytics.setCollectionEnabled`, MZ2AZ-527). 「광고 추적 허용」 행은 시스템 허용 상태를 표시하고 앱 설정을 연다.
 허용 여부나 통계 선택으로 앱 기능을 제한하지 않는다. 권한 문구는 기존 위치
 권한과 같은 한국어·영어 `InfoPlist.strings`를 사용한다.
 [ATT·통계 설정 계획과 실기기 확인 항목](../../docs/project/plans/ios-att-statistics.md).
@@ -674,6 +681,8 @@ just ios-xcode                          # Xcode 로 연다 (코드 탐색·디�
 > ```
 > build --define=naver_client_id=<발급받은 키>
 > ```
+>
+> Sentry·PostHog 도 같다 — `build --define=sentry_dsn_ios=<DSN>`·`build --define=posthog_key=<키>` (비우면 그 SDK 만 꺼진다).
 
 ## 실기기에 올리기
 
@@ -763,6 +772,8 @@ just ios-xcode
 | --- | --- | --- |
 | `scenetrip_api_base_url` | 빈 값 → `http://localhost:8081/v1` | SceneTrip API 주소 |
 | `naver_client_id` | 빈 값 | 네이버 지도 클라이언트 ID (`just ios-run`은 환경변수 `NAVER_MAP_CLIENT_ID` 사용) |
+| `sentry_dsn_ios` | 빈 값 → Sentry 꺼짐 | Sentry DSN (just 레시피가 `.env` 의 `SENTRY_DSN_IOS` 사용, MZ2AZ-527) |
+| `posthog_key` | 빈 값 → PostHog 꺼짐 | PostHog 프로젝트 키 (just 레시피가 `.env` 의 `POSTHOG_KEY` 사용, MZ2AZ-527) |
 
 DEV·PRD는 운영자가 준비한 HTTPS 주소를 명시해서 빌드한다. 다음 주소는 예시이며
 실제 DNS·인증서·접근 제한이 설정된 해당 환경의 주소로 바꾼다.

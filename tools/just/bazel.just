@@ -23,7 +23,7 @@ mobile-build-cloud platform endpoint:
     set -euo pipefail
     case {{quote(platform)}} in ios|android) ;; *) echo '플랫폼은 ios 또는 android입니다' >&2; exit 1 ;; esac
     test -n {{quote(endpoint)}} || { echo 'HTTPS /v1 API 주소가 필요합니다' >&2; exit 1; }
-    {{BAZEL}} build {{quote('//apps/scenetrip-' + platform + ':bin')}} --define=scenetrip_api_base_url={{quote(endpoint)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+    {{BAZEL}} build {{quote('//apps/scenetrip-' + platform + ':bin')}} --define=scenetrip_api_base_url={{quote(endpoint)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}" --define=sentry_dsn_ios="${SENTRY_DSN_IOS:-}" --define=posthog_key="${POSTHOG_KEY:-}"
 
 # Play Console 에 올릴 앱 번들(AAB)을 짓고 업로드 키로 서명한다 (스토어 업로드는 하지 않는다 — apps/scenetrip-android/deploy/README.md)
 [group('build')]
@@ -103,7 +103,7 @@ run target *args:
 [group('build')]
 ios-run *args:
     {{BAZEL}} build //apps/scenetrip-ios:bin \
-        --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+        --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}" --define=sentry_dsn_ios="${SENTRY_DSN_IOS:-}" --define=posthog_key="${POSTHOG_KEY:-}"
     bash ./tools/scripts/ios-run.sh "$@"
 
 # 덮어 설치라 저장한 것은 남는다 — 다만 토큰은 서버마다 달라 다른 서버로 바꾸면 다시 로그인해야 한다.
@@ -114,7 +114,7 @@ ios-run-cloud endpoint *args:
     #!/usr/bin/env bash
     set -euo pipefail
     case {{quote(endpoint)}} in https://*/v1) ;; *) echo 'HTTPS /v1 API 주소가 필요합니다 (예: https://api.scenetrip.io/v1)' >&2; exit 1 ;; esac
-    {{BAZEL}} build //apps/scenetrip-ios:bin --define=scenetrip_api_base_url={{quote(endpoint)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+    {{BAZEL}} build //apps/scenetrip-ios:bin --define=scenetrip_api_base_url={{quote(endpoint)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}" --define=sentry_dsn_ios="${SENTRY_DSN_IOS:-}" --define=posthog_key="${POSTHOG_KEY:-}"
     bash ./tools/scripts/ios-run.sh {{args}}
 
 # 첫 실행에도 스플래시·언어 고르기·사용법 없이 바로 앱(홈 탭)이 뜬다 (MZ2AZ-526).
@@ -168,7 +168,7 @@ ios-reinstall:
     #!/usr/bin/env bash
     set -euo pipefail
     {{BAZEL}} build //apps/scenetrip-ios:bin \
-        --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+        --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}" --define=sentry_dsn_ios="${SENTRY_DSN_IOS:-}" --define=posthog_key="${POSTHOG_KEY:-}"
     work="$(mktemp -d)"
     trap 'rm -rf "$work"' EXIT
     unzip -q bazel-bin/apps/scenetrip-ios/bin.ipa -d "$work"
@@ -275,6 +275,11 @@ android-home-qa-test:
 # `.bazelrc.user` 에 아래 한 줄을 넣어 두어야 지도가 뜬다(그 파일은 gitignore 대상이다).
 #
 #     build --define=naver_client_id=<발급받은 키>
+#
+# Sentry·PostHog 도 같다 (MZ2AZ-527). 비워 두면 그 SDK 만 꺼진 채로 지어진다.
+#
+#     build --define=sentry_dsn_ios=<Sentry DSN>
+#     build --define=posthog_key=<PostHog 프로젝트 키>
 
 # Bazel 프로젝트를 Xcode 로 연다 (실기기 설치용)
 [group('build')]
