@@ -20,6 +20,8 @@ import { useStore } from '@/state/storage'
 import { useRouteState } from '../route/store'
 import { CommunityNow, HomeHeader, MyRecord, TodayCard, WorkShelf } from './HomeCards'
 import { HomeCitySpots } from './HomeCitySpots'
+import { AskCard, TripHomeCard } from '../proto/ProtoScreens'
+import { protoStore } from '../proto/protoState'
 import { homeStore, reloadHome } from './homeModel'
 import { tripCard } from './homeRules'
 import { TripPager } from './TripCard'
@@ -38,6 +40,8 @@ export function HomeTab() {
   const cart = useCart()
   // 「커뮤니티 지금」의 신고·차단(MZ2AZ-461). 비회원의 차단은 루트의 로그인 화면이 받는다.
   const moderation = useModerationController()
+  const proto = useStore(protoStore, (s) => s.proto)
+  const hasProtoTrip = useStore(protoStore, (s) => s.trip !== null)
   const { pathname } = useLocation()
 
   const reload = useCallback(async () => {
@@ -67,9 +71,13 @@ export function HomeTab() {
     <div className="scroll-y" style={{ height: '100%', background: 'var(--grouped-background)' }}>
       <VStack spacing={18} align="stretch" style={{ padding: '8.7px 0 28px' }}>
         <HomeHeader onProfile={() => router.openProfile()} />
+        {/* 「어디로 가세요?」 시안(로컬 전용, docs/project/plans/web-trip-first-prototypes.md). */}
+        {proto === 'a' && <AskCard />}
+        {(proto === 'b' || proto === 'c') && hasProtoTrip && <TripHomeCard />}
         {/* 광고로 들어와 첫 화면만 보는 사람에게 도시별 촬영지를 바로 보여 준다(웹 DEV 실험, MZ2AZ-531). 카드는 「오늘의 성지」와 같은 길로 상세를 연다. */}
-        <HomeCitySpots onOpenPlace={(place) => router.openPlace(place)} onOpenMap={(bbox) => router.openRegion(bbox)} />
-        <TripPager
+        {/* 시안이 켜져 있으면 도시 고르기는 시안이 맡는다 — 같은 줄을 두 번 보이지 않는다. */}
+        {proto === null && <HomeCitySpots onOpenPlace={(place) => router.openPlace(place)} onOpenMap={(bbox) => router.openRegion(bbox)} />}
+        {!((proto === 'b' || proto === 'c') && hasProtoTrip) && <TripPager
           trips={home.trips}
           hasCourses={hasCourses}
           card={card}
@@ -82,7 +90,7 @@ export function HomeTab() {
           // 「코스 보기」는 코스 전체 목록으로 간다(2026-09-02 사용자 결정) — 홈에서 누르는 사람은 「내 코스들이 뭐가 있나」를 보려는 것이다.
           onOpenCourse={() => router.openRoute()}
           onCreate={() => router.openRoute()}
-        />
+        />}
         <div style={{ margin: "0.6px 0 0.7px" }}>
           <WorkShelf works={home.works} failed={home.failed} onOpen={(w) => router.openContent(w)} onAll={() => router.openTrending()} />
         </div>
