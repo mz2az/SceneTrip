@@ -378,9 +378,9 @@ export function ProtoSwitcher() {
   }
   const options: ReadonlyArray<[Proto | null, string]> = [['a', 'A 질문 카드만'], ['b', 'B 질문 먼저'], [null, '끔(지금 화면)']]
   return (
-    <div style={{ position: 'absolute', left: 14, bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 104px)', zIndex: 60 }}>
+    <div style={{ position: 'absolute', right: 0, top: '42%', zIndex: 60 }}>
       {open && (
-        <VStack spacing={4} align="stretch" style={{ position: 'absolute', bottom: 34, left: 0, width: 200, padding: 8, borderRadius: 14, background: 'var(--system-background)', boxShadow: '0 6px 24px rgba(0,0,0,0.18)' }}>
+        <VStack spacing={4} align="stretch" style={{ position: 'absolute', top: 34, right: 8, width: 200, padding: 8, borderRadius: 14, background: 'var(--system-background)', boxShadow: '0 6px 24px rgba(0,0,0,0.18)' }}>
           {options.map(([p, label]) => (
             <Pressable key={label} plain onClick={() => { protoActions.choose(p); setOpen(false) }} style={{ padding: '8px 10px', borderRadius: 8, textAlign: 'left', background: p === proto ? 'var(--system-gray6)' : 'transparent' }}>
               <Txt size={14} weight={p === proto ? 'bold' : 'regular'}>{label}</Txt>
@@ -391,10 +391,10 @@ export function ProtoSwitcher() {
           </Pressable>
         </VStack>
       )}
-      <Pressable plain onClick={() => setOpen(!open)} style={{ padding: '4px 10px', borderRadius: 999, background: 'rgb(255,149,0)', boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}>
+      <Pressable plain onClick={() => setOpen(!open)} style={{ padding: '6px 8px 6px 10px', borderRadius: '999px 0 0 999px', background: 'rgb(255,149,0)', boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}>
         <Txt size={13} weight="bold" color="white">{proto ? `시안 ${proto.toUpperCase()}` : '시안 끔'}</Txt>
       </Pressable>
-      {note && <span role="status" style={{ marginLeft: 8, padding: '4px 8px', borderRadius: 8, background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: 12, fontWeight: 600 }}>{note}</span>}
+      {note && <span role="status" style={{ position: 'absolute', right: '100%', top: 2, marginRight: 8, whiteSpace: 'nowrap', padding: '4px 8px', borderRadius: 8, background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: 12, fontWeight: 600 }}>{note}</span>}
     </div>
   )
 }
@@ -458,19 +458,16 @@ export function TripFloatBar() {
         <Icon name="xmark" size={15} weight="bold" color="accent" />
       </Pressable>
     ) },
+    { key: 'all', node: (
+      <Pressable plain onClick={allCourses} aria-label={say('전체 코스 보기', 'All trips')} title={say('전체 코스', 'All trips')} style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--system-background)', boxShadow: soft, display: 'grid', placeItems: 'center', flex: 'none' }}>
+        <Icon name="list.bullet" size={16} weight="bold" color="accent" />
+      </Pressable>
+    ) },
     { key: 'new', node: (
       <Pressable plain onClick={newPlan} style={{ height: 40, padding: '0 14px', borderRadius: 999, background: 'var(--system-background)', boxShadow: soft, flex: 'none' }}>
         <HStack spacing={5}>
           <Icon name="plus" size={14} weight="bold" color="accent" />
           <Txt size={14} weight="bold" color="accent" style={{ whiteSpace: 'nowrap' }}>{say('새 코스', 'New')}</Txt>
-        </HStack>
-      </Pressable>
-    ) },
-    { key: 'all', node: (
-      <Pressable plain onClick={allCourses} style={{ height: 40, padding: '0 14px', borderRadius: 999, background: 'var(--system-background)', boxShadow: soft, flex: 'none' }}>
-        <HStack spacing={5}>
-          <Icon name="list.bullet" size={14} weight="bold" color="accent" />
-          <Txt size={14} weight="bold" color="accent" style={{ whiteSpace: 'nowrap' }}>{say('전체 코스', 'All trips')}</Txt>
         </HStack>
       </Pressable>
     ) },

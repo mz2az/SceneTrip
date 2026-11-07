@@ -28,6 +28,12 @@ export function useCities(): { cities: readonly HomeCity[]; loading: boolean; fa
     void loadHomeCities()
   }, [lang])
   const failed = state.status === 'failed' || (state.status === 'loaded' && state.cities.length === 0)
+  // 도시 목록은 촬영지 목록을 여러 쪽 받아 만든다 — 요청 한도(429)에 걸려 실패하기 쉽다. 실패하면 15초 뒤 한 번 더.
+  useEffect(() => {
+    if (state.status !== 'failed') return
+    const t = setTimeout(() => void loadHomeCities(), 15_000)
+    return () => clearTimeout(t)
+  }, [state.status])
   return { cities: state.cities, loading: state.status === 'idle' || state.status === 'loading', failed, retry: () => void loadHomeCities() }
 }
 
@@ -47,7 +53,7 @@ export function CityGrid({ cities, loading, selected, onPick }: { cities: readon
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
       {loading && Array.from({ length: ASK_CITIES }, (_, i) => <div key={i} aria-hidden style={{ height: 92, borderRadius: 16, background: 'var(--system-gray5)', opacity: 0.6 }} />)}
       {cities.slice(0, ASK_CITIES).map((c) => {
-        const cover = c.places.find(hasPhoto)
+        const cover = coverOf(c)
         const on = c.key === selected
         return (
           <Pressable
@@ -278,10 +284,22 @@ export function CityPicker({ city, days, onBack, onCreated }: {
 }
 
 /** 큰 도시들의 대표 촬영지 사진을 4초마다 넘긴다. 움직임 줄이기 설정이면 첫 장에 멈춘다. */
+/**
+ * 도시 대표 사진으로 쓸 촬영지(DEV id) — 인기 1위가 그 도시답지 않은 곳일 때만 고른다.
+ * 인천의 1위는 옹진군 무인도 선갑도라 「인천」 으로 보이지 않는다 → 월미도.
+ */
+const CITY_COVER: Readonly<Record<string, number>> = { 인천: 199 }
+
+/** 도시를 대표하는 사진 있는 촬영지 — 정해 둔 곳이 있으면 그것, 아니면 인기 1위. */
+export function coverOf(city: HomeCity): PlaceSummary | undefined {
+  const fixed = CITY_COVER[city.key]
+  return (fixed !== undefined ? city.places.find((p) => p.id === fixed && hasPhoto(p)) : undefined) ?? city.places.find(hasPhoto)
+}
+
 export function useCitySlides(cities: readonly HomeCity[]) {
   const slides = cities
     .slice(0, 6)
-    .map((c) => ({ city: c.name, place: c.places.find(hasPhoto) }))
+    .map((c) => ({ city: c.name, place: coverOf(c) }))
     .filter((s): s is { city: string; place: PlaceSummary } => !!s.place)
   const [at, setAt] = useState(0)
   useEffect(() => {
