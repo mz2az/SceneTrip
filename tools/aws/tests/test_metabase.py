@@ -265,8 +265,8 @@ class MetabaseConfigTest(unittest.TestCase):
             METABASE_DOMAINS,
             {"dev": "metabase-dev.scenetrip.io", "prd": "metabase.scenetrip.io"},
         )
-        # 먼저 DEV 만. PRD 는 앱 심사가 끝난 뒤 따로 확인을 받고 더한다.
-        self.assertEqual(METABASE_ENVIRONMENTS, ("dev",))
+        # DEV 와 PRD 둘 다 올린다(metabase-prd.md §3-5, §4 6 단계).
+        self.assertEqual(METABASE_ENVIRONMENTS, ("dev", "prd"))
 
     def test_metabase_secret_kind_has_three_keys(self):
         from tools.aws.config import SECRET_KEYS, validate_secret
@@ -411,7 +411,7 @@ class MetabasePublishTest(unittest.TestCase):
         )
         self.assertEqual(pushes[0].kwargs["env"], {"DOCKER_CONFIG": docker})
 
-    def test_existing_tag_is_not_pushed_again_and_prd_never_mirrors(self):
+    def test_existing_tag_is_not_pushed_again_and_prd_mirrors_like_dev(self):
         settings = valid_settings()
         name = f"scenetrip-dev/{METABASE_REPOSITORY}"
         # 다른 태그만 있으면 아직 복사하지 않은 것이다 — 이 경우는 위 시험이 본다. 같은 태그가 있으면 올리지 않는다.
@@ -429,13 +429,48 @@ class MetabasePublishTest(unittest.TestCase):
         self.assertFalse(
             any(METABASE_PUSH in call.args[0] for call in run.call_args_list)
         )
-        # PRD 는 METABASE_ENVIRONMENTS 밖 — 목록도 복사도 하지 않는다.
+        # PRD 도 METABASE_ENVIRONMENTS 안 — DEV 처럼 PRD 저장소의 목록을 보고, 없는 태그를 PRD 저장소로 한 번 복사한다.
         prd = prd_settings()
-        run, _unused = self.publish(self.outputs(prd), prd)
-        for call in run.call_args_list:
-            joined = " ".join(call.args[0])
-            self.assertNotIn("mirror/metabase", joined)
-            self.assertNotIn("//platform/helm/metabase:", joined)
+        prd_outputs = self.outputs(prd)
+        run, _unused = self.publish(prd_outputs, prd)
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertIn(
+            [
+                "aws",
+                "ecr",
+                "list-images",
+                "--repository-name",
+                f"scenetrip-prd/{METABASE_REPOSITORY}",
+                "--filter",
+                "tagStatus=TAGGED",
+                "--output",
+                "json",
+            ],
+            commands,
+        )
+        pushes = [
+            command
+            for command in commands
+            if command[:3] == ["just", "run", METABASE_PUSH]
+        ]
+        self.assertEqual(
+            pushes,
+            [
+                [
+                    "just",
+                    "run",
+                    METABASE_PUSH,
+                    "--",
+                    "--repository",
+                    prd_outputs["ecr_repository_urls"]["mirror_metabase"],
+                    "--tag",
+                    METABASE_TAG,
+                ]
+            ],
+        )
+        # PRD 복사는 PRD 저장소로만 — DEV 저장소 이름이 섞이지 않는다.
+        for command in commands:
+            self.assertNotIn(f"scenetrip-dev/{METABASE_REPOSITORY}", " ".join(command))
 
 
 # --- C. 배포 ------------------------------------------------------------------------------------------------
@@ -499,13 +534,40 @@ class MetabaseDeployTest(unittest.TestCase):
             STORED_METABASE["MB_ENCRYPTION_SECRET_KEY"], json.dumps(transient)
         )
 
+        # PRD 도 Metabase 환경이다 — DEV 와 같이 두 계정 암호를 넣고, 암호화 키는 넣지 않는다.
+        prd = prd_settings()
+        prd_run = run_deploy(prd, deploy_outputs(prd), Cloud(STORED_METABASE))
+        prd_transient = transient_admin_secret(prd_run)
+        self.assertIn("METABASE_RO_PASSWORD", prd_transient)
+        self.assertIn("METABASE_APP_PASSWORD", prd_transient)
+        self.assertEqual(
+            prd_transient["METABASE_RO_PASSWORD"],
+            STORED_METABASE["METABASE_RO_PASSWORD"],
+        )
+        self.assertEqual(
+            prd_transient["METABASE_APP_PASSWORD"],
+            STORED_METABASE["METABASE_APP_PASSWORD"],
+        )
+        self.assertEqual(prd_transient["PGPASSWORD"], MASTER_PASSWORD)
+        self.assertNotIn("MB_ENCRYPTION_SECRET_KEY", prd_transient)
+        self.assertNotIn(
+            STORED_METABASE["MB_ENCRYPTION_SECRET_KEY"], json.dumps(prd_transient)
+        )
+        self.assertTrue(
+            any(is_metabase_helm(call.args[0]) for call in prd_run.call_args_list)
+        )
+
         # Metabase 를 올리지 않는 환경은 bootstrap 이 계정 만들기를 건너뛰게 키를 넣지 않는다.
         for label, env_settings, extra in (
-            ("prd", prd_settings(), ()),
             (
                 "dev-off",
                 settings,
                 (patch("tools.aws.deploy.METABASE_ENVIRONMENTS", ()),),
+            ),
+            (
+                "prd-off",
+                prd_settings(),
+                (patch("tools.aws.deploy.METABASE_ENVIRONMENTS", ("dev",)),),
             ),
         ):
             with self.subTest(case=label):
@@ -695,13 +757,28 @@ class MetabaseExposeWiringTest(unittest.TestCase):
         install.assert_called_once()
         expose.assert_called_once_with(run, settings, deploy_outputs(settings))
 
+    def test_prd_installs_after_migration_then_exposes_like_dev(self):
+        settings = prd_settings()
+        run, order, install, expose = self.deploy(settings)
+        self.assertIn("migrate", order)
+        self.assertIn("install", order)
+        self.assertIn("expose", order)
+        self.assertLess(order.index("migrate"), order.index("install"))
+        self.assertLess(order.index("install"), order.index("expose"))
+        install.assert_called_once()
+        expose.assert_called_once_with(run, settings, deploy_outputs(settings))
+
     def test_environment_outside_metabase_environments_never_installs(self):
         for label, settings, extra in (
-            ("prd", prd_settings(), ()),
             (
                 "dev-off",
                 valid_settings(),
                 (patch("tools.aws.deploy.METABASE_ENVIRONMENTS", ()),),
+            ),
+            (
+                "prd-off",
+                prd_settings(),
+                (patch("tools.aws.deploy.METABASE_ENVIRONMENTS", ("dev",)),),
             ),
         ):
             with self.subTest(case=label):
@@ -1322,16 +1399,30 @@ class MetabaseDnsTest(unittest.TestCase):
             )
         )
 
-        # PRD 는 METABASE_ENVIRONMENTS 밖 — 이미 떠 있는 PRD 는 사람이 넣는다.
+        # PRD 도 METABASE_ENVIRONMENTS 안 — DEV 처럼 SigNoz 다음에 PRD 화면 주소를 PRD Metabase ALB 로(프록시 켬).
         github = FakeGitHub(conclusions=["success", "success"])
         cloudflare = OrderedCloudflare(github)
         prd = FakeAws(signoz=True, metabase=True)
         with patch("builtins.print"):
             up(prd, github_for(github), cloudflare, PRD_TARGET)
-        self.assertNotIn(
-            "metabase.scenetrip.io", [domain for domain, *_ in cloudflare.pointed]
+        domains = [domain for domain, *_ in cloudflare.pointed]
+        self.assertEqual(domains[-2:], ["signoz.scenetrip.io", "metabase.scenetrip.io"])
+        self.assertEqual(
+            cloudflare.pointed[-1],
+            ("metabase.scenetrip.io", METABASE_ALB, "ap-northeast-2"),
         )
-        self.assertFalse(any("-metabase-alb" in " ".join(call) for call in prd.calls))
+        self.assertEqual(cloudflare.proxied[-1], True)
+        self.assertNotIn("metabase-dev.scenetrip.io", domains)
+        self.assertEqual(cloudflare.dispatched_before, [1] * len(cloudflare.pointed))
+        self.assertTrue(
+            any(
+                "Name=group-name,Values=scenetrip-prd-metabase-alb" in call
+                for call in prd.calls
+            )
+        )
+        self.assertFalse(
+            any("scenetrip-dev-metabase-alb" in " ".join(call) for call in prd.calls)
+        )
 
     def test_up_without_metabase_alb_changes_nothing_and_still_loads_data(self):
         from tools.aws.lifecycle import up

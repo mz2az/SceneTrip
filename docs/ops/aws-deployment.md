@@ -442,8 +442,8 @@ EKS Auto Mode 는 파드가 적은 **최소 필요량(requests)** 을 보고 노
 
 ## 18. 데이터 보기 — Metabase (DEV)
 
-[ADR 0027](../architecture/adr/0027-metabase-in-eks-read-only.md) · [계획 §3-5](../project/plans/metabase-prd.md). 지금은 DEV 만
-(`tools/aws/config.py` `METABASE_ENVIRONMENTS`). PRD 는 앱 심사가 끝난 뒤 노드 용량(§17)을 확인하고 따로 더한다.
+[ADR 0027](../architecture/adr/0027-metabase-in-eks-read-only.md) · [계획 §3-5](../project/plans/metabase-prd.md). DEV·PRD 둘 다
+(`tools/aws/config.py` `METABASE_ENVIRONMENTS`). PRD 는 앱 심사가 끝난 뒤 노드 용량(§17)을 확인하고 2026-11-07 더했다.
 화면은 DEV `metabase-dev.scenetrip.io` · PRD `metabase.scenetrip.io` — SigNoz 화면(§15)과 같은 Cloudflare Access 뒤.
 
 - **배포(apply)** 가 DB 마이그레이션 **뒤에** `metabase` 네임스페이스(pod security `restricted`)에 저장소 차트

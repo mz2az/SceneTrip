@@ -1,6 +1,6 @@
 # PRD 데이터 보기 — Metabase 를 EKS 안에, 읽기 전용 계정으로, Cloudflare Access 뒤에
 
-- **상태**: 진행(2026-10-24) — 1 단계(DB 뷰·계정) 머지(#356), 2 단계(띄우기) 구현 중. 처음 볼 것은 §3-2 네 묶음 전부, 주소·허용 메일은 SigNoz 와 같게(결정 2026-10-24)
+- **상태**: PRD 적용(2026-11-07) — 1 단계(DB 뷰·계정) 머지(#356), 2 단계(띄우기) DEV 확인 뒤 앱 심사가 끝나 PRD 에도 올림(§4-6). 처음 볼 것은 §3-2 네 묶음 전부, 주소·허용 메일은 SigNoz 와 같게(결정 2026-10-24)
 - **관련**: [ADR 0027](../../architecture/adr/0027-metabase-in-eks-read-only.md)(제안) · [ADR 0025](../../architecture/adr/0025-aws-observability-signoz-in-eks.md)(SigNoz — 같은 모양) ·
   [observability-aws.md](observability-aws.md) · [aws-dev-prd.md](../../architecture/aws-dev-prd.md) · `tools/aws/db-bootstrap.sh`
 
@@ -98,7 +98,7 @@ flowchart LR
 
 ### 3-5. 2 단계 명세 — 띄우기 (SigNoz 와 같은 모양, 테스트는 이 절만 보고 쓴다)
 
-먼저 **DEV 만**(`METABASE_ENVIRONMENTS = ("dev",)`). PRD 는 앱 심사가 끝난 뒤 따로 확인을 받고 더한다.
+먼저 **DEV 만**(`METABASE_ENVIRONMENTS = ("dev",)`)이었고, 앱 심사가 끝나 2026-11-07 PRD 를 더했다(`("dev", "prd")`).
 
 | 곳 | 정한 것 |
 | --- | --- |
@@ -137,7 +137,7 @@ V41 이 `analytics` 에 뷰 다섯 개를 더한다. 전부 **숫자만**(개인
 3. `db-bootstrap.sh`: 두 계정·별도 DB·권한(테스트 먼저)
 4. Helm·이미지 복사·Terraform(필요하면 ALB 보안 그룹)·배포기
 5. **DEV 에 올려 확인** — 화면 접속, 질문 하나를 대시보드로, `metabase_ro` 로 `public.app_user` 읽기 실패 확인
-6. **PRD 적용은 따로 확인을 받고** — 노드 용량 확인 → 적용 → 바깥 감시 알람·앱 응답 확인
+6. **PRD 적용은 따로 확인을 받고** — 노드 용량 확인 → 적용 → 바깥 감시 알람·앱 응답 확인. 2026-11-07: 노드 3 대(c5a.large) 메모리 requests 86%·41%·49% — 1Gi 가 41%·49% 노드에 들어가 노드를 더하지 않는다. 인증서 `metabase.scenetrip.io` 새로 받음
 
 ## 5. 하지 않는 것
 
