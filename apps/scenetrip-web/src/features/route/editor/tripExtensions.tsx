@@ -24,7 +24,7 @@ import { cartActions, useCart } from '@/state/cart'
 import { footprintStore, kilometersOf } from '@/state/footprints'
 import { createStore, useStore } from '@/state/storage'
 import { nextUnvisited } from '../availability'
-import { type GuidePlan } from '../draft'
+import { type GuidePlan, type PlaceLookup, placeLookup } from '../draft'
 import { GuidePanel } from '../guide/GuidePanel'
 import { GuideFloatingChip } from '../guide/GuideChip'
 import { GuideSheet } from '../guide/GuideSheet'
@@ -48,6 +48,7 @@ import { POI_GROUPS, type PoiGroup } from '../poi/poiGroup'
 import { type RoutePlace, dedupeKey, placeGroup, placeKey, serverIdOf } from '../poi/poiPlace'
 import { useAmbientPois } from '../poi/useAmbientPois'
 import { type RouteCourse, type RouteStop, canNavigate, makePoiStop, makeStop, placeIdOf, poiIdOf } from '../models'
+import { routeStore } from '../store'
 import { addStops, replaceDay } from './courseEdit'
 import { type EditorHost, registerEditorExtensions } from './editorExtensions'
 
@@ -172,6 +173,8 @@ export function guideContextOf(p: { course: RouteCourse; stops: readonly RouteSt
 
 export interface AnswerHost {
   course: RouteCourse
+  /** 받아 둔 장소 목록(앱 언어) — 초안의 한국어 촬영지 이름을 바꾼다(MZ2AZ-530). */
+  places?: PlaceLookup
   setCourse(next: RouteCourse): void
   setDayIndex(i: number): void
   setFocusedUid(uid: string | null): void
@@ -191,7 +194,7 @@ export function applyGuideAnswer(answer: GuideAnswer, host: AnswerHost): void {
   for (const effect of answer.effects) {
     if (effect.op === 'plan.draft' || effect.op === 'plan.revise' || effect.op === 'plan.move') {
       if (!effect.plan) continue
-      working = revising(working, effect.plan as GuidePlan)
+      working = revising(working, effect.plan as GuidePlan, host.places)
       host.setCourse(working)
       host.setDayIndex(0)
       host.setFocusedUid(null)
@@ -341,6 +344,7 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
     const h = hostRef.current
     applyGuideAnswer(answer, {
       course: h.course,
+      places: placeLookup(routeStore.get().places),
       setCourse: (c) => h.setCourse(c),
       setDayIndex: h.setDayIndex,
       setFocusedUid: h.setFocusedUid,

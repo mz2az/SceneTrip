@@ -18,7 +18,7 @@ import { likeActions, useLikes } from '@/state/likes'
 import { RouteEditor } from '../editor/RouteEditor'
 import { type RouteCourse, PACE_TITLE, type RoutePace, formatDay, spanLabel, toIso } from '../models'
 import { type PlanFailure, planFailureMessage } from '../planFailure'
-import { guideDraft, routeActions, useSortedWorks } from '../store'
+import { guideDraft, routeActions, routeStore, useSortedWorks } from '../store'
 import { AIBanner } from '../ui/AIBanner'
 import { GlassDialog } from '../ui/GlassDialog'
 import { LargeButton } from '../ui/LargeButton'
@@ -95,7 +95,7 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
     planned.current = true
     setPlanning(true)
     void guideDraft({
-      nights, startDate, workIds, pace, near: here, locationAllowed: location.allowed, sortedWorks: works,
+      nights, startDate, workIds, pace, near: here, locationAllowed: location.allowed, sortedWorks: works, places: routeStore.get().places,
     }).then((res) => {
       planned.current = false
       setPlanning(false)

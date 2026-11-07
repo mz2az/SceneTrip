@@ -40,8 +40,14 @@ extension RouteGuidePlan {
     /// 숨김·폐업 상태는 같은 대상의 모든 행에 이어받는다.
     /// 순서·일차가 바뀌어도 유일하게 대응하는 항목만 서버 번호·방문 상태를 이어받는다.
     /// 같은 대상을 두 번 담은 코스는 GuidePlan에 항목 번호가 없어 임의 매칭하지 않는다.
-    static func revising(_ original: RouteCourse, with plan: GuidePlan) -> RouteCourse {
-        var next = course(from: plan, title: original.title, startDate: original.startDate, pace: original.pace)
+    /// 촬영지 줄의 이름·주소는 받아 둔 목록(앱 언어) → 대응한 앞 줄 → 초안 순이다(MZ2AZ-530) — 에이전트가 돌려준
+    /// 이름은 한국어고, 앞 줄도 목록이 비어 있던 때의 한국어 초안일 수 있다.
+    static func revising(
+        _ original: RouteCourse, with plan: GuidePlan, places: [Int64: PlaceSummary] = [:]
+    ) -> RouteCourse {
+        var next = course(
+            from: plan, title: original.title, startDate: original.startDate, pace: original.pace, places: places
+        )
         next.serverId = original.serverId
         next.detailLoaded = original.detailLoaded
         next.isRunning = original.isRunning
@@ -60,6 +66,11 @@ extension RouteGuidePlan {
                     stop.visited = previous.visited
                     stop.place.type = previous.place.type
                     stop.poiText = previous.poiText
+                    // 목록(앱 언어)이 먼저다 — 앞 줄 이름이 한국어 초안이었을 수 있다. 목록에 없을 때만 앞 줄.
+                    if case let .place(id) = key, places[id] == nil {
+                        stop.place.name = previous.place.name
+                        stop.place.address = previous.place.address
+                    }
                 }
                 next.days[day].stops[index] = stop
             }

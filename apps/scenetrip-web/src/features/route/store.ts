@@ -15,7 +15,7 @@ import { accountGeneration, onAccountReset } from '@/state/shared'
 import { createStore, useStore } from '@/state/storage'
 import { rejection } from './availability'
 import { type CourseSummary, courseFromDetail, courseFromSummary, replaceBody } from './bridge'
-import { courseFromPlan } from './draft'
+import { courseFromPlan, placeLookup } from './draft'
 import {
   type ContentSummary, type PlaceSummary, type RouteCourse, type RoutePace, type RouteStop, courseCanSave, coursePlaceCount, makeCourse, makeDay,
   placeIdOf, spanDays, spanLabel,
@@ -278,6 +278,8 @@ export interface DraftRequest {
   /** 위치기반서비스에 동의했나 — 아니면 좌표를 싣지 않는다. */
   locationAllowed: boolean
   sortedWorks: readonly ContentSummary[]
+  /** 받아 둔 촬영지(앱 언어) — 초안의 한국어 촬영지 이름·주소를 바꾼다(MZ2AZ-530). */
+  places: readonly PlaceSummary[]
 }
 
 /**
@@ -302,7 +304,7 @@ export async function guideDraft(r: DraftRequest): Promise<DraftResult> {
       }),
     )
     track(appEvent.generatePlan(spanDays(r.nights), Math.min(titles.length, 5)))
-    return { ok: true, course: courseFromPlan(reply.plan, { title: draftTitle(chosen, r.nights), startDate: r.startDate, pace: r.pace }) }
+    return { ok: true, course: courseFromPlan(reply.plan, { title: draftTitle(chosen, r.nights), startDate: r.startDate, pace: r.pace, places: placeLookup(r.places) }) }
   } catch (error) {
     return { ok: false, failure: classifyPlanFailure(error) }
   }

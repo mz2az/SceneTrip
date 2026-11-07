@@ -15,8 +15,14 @@ enum RouteGuidePlan {
     /// 초안을 코스로. 종류와 ID가 불명확한 정지점은 **이름으로 대체하지 않는다** — 그 줄은
     /// `placeMissing` 으로 남고 저장에서 빠진다(`RouteBridge.replace`). 좌표가 없는 정지점은
     /// 그릴 수 없으므로 뺀 곳으로 적어 두고 넣지 않는다.
+    ///
+    /// **촬영지의 이름·주소는 앱 언어로 바꾼다**(MZ2AZ-530). 에이전트는 `Accept-Language` 와 무관하게
+    /// 한국어로 주는데, 저장 뒤 다시 열면 서버가 앱 언어로 준다 — 만든 직후만 한국어였다. `places` 는
+    /// 앱이 이미 받아 둔 장소 목록(앱 언어, `placeLookup`)이고, 거기 없으면 초안 그대로 둔다.
+    /// 편의시설·핀 줄은 건드리지 않는다.
     static func course(
-        from plan: GuidePlan, title: String, startDate: Date?, pace: RoutePace
+        from plan: GuidePlan, title: String, startDate: Date?, pace: RoutePace,
+        places: [Int64: PlaceSummary] = [:]
     ) -> RouteCourse {
         var skipped: [String] = []
         let days = plan.days.sorted { $0.day < $1.day }.map { day in
@@ -26,12 +32,16 @@ enum RouteGuidePlan {
                     return nil
                 }
                 let identity = identity(of: stop)
+                var known: PlaceSummary?
+                if case let .place(id) = identity {
+                    known = places[id]
+                }
                 return RouteStop(
                     place: PlaceSummary(
                         id: identity == nil ? Self.missingId(for: stop) : stop.placeId ?? RouteStop.noPlaceId,
-                        name: stop.name,
+                        name: known?.name ?? stop.name,
                         type: nil,
-                        address: stop.address,
+                        address: known?.address ?? stop.address,
                         latitude: latitude,
                         longitude: longitude
                     ),
@@ -92,6 +102,11 @@ enum RouteGuidePlan {
     static func clock(_ minute: Int) -> String {
         let bounded = ((minute % 1440) + 1440) % 1440
         return String(format: "%02d:%02d", bounded / 60, bounded % 60)
+    }
+
+    /// 받아 둔 장소 목록을 `placeId` 로 찾게. 같은 id 가 두 번 오면 앞의 것을 쓴다.
+    static func placeLookup(_ places: [PlaceSummary]) -> [Int64: PlaceSummary] {
+        Dictionary(places.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
     // MARK: 화면 → 계약

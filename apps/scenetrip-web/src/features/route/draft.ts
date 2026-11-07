@@ -9,7 +9,7 @@
 import type { components } from '@/api/generated/schema'
 import { tr } from '@/i18n'
 import {
-  DEFAULT_STAY_MINUTES, NO_PLACE_ID, type RoutePace, type RouteCourse, type StopKind, makeCourse, makeDay, makeStop,
+  DEFAULT_STAY_MINUTES, NO_PLACE_ID, type PlaceSummary, type RoutePace, type RouteCourse, type StopKind, makeCourse, makeDay, makeStop,
 } from './models'
 
 export type GuidePlan = components['schemas']['GuidePlan']
@@ -60,7 +60,20 @@ export function notesSummary(notes: readonly string[]): string {
   return parts.join(' · ')
 }
 
-export function courseFromPlan(plan: GuidePlan, p: { title: string; startDate: string | null; pace: RoutePace }): RouteCourse {
+/** 앱이 받아 둔 장소 목록(state.places, 앱 언어)을 placeId 로 찾게. 같은 id 가 두 번 오면 앞의 것을 쓴다. */
+export type PlaceLookup = ReadonlyMap<number, PlaceSummary>
+
+export function placeLookup(places: readonly PlaceSummary[]): PlaceLookup {
+  const out = new Map<number, PlaceSummary>()
+  for (const p of places) if (!out.has(p.id)) out.set(p.id, p)
+  return out
+}
+
+/**
+ * 초안을 코스로. **촬영지의 이름·주소는 앱 언어로 바꾼다**(MZ2AZ-530) — 에이전트는 Accept-Language 와 무관하게 한국어로 주는데,
+ * 저장 뒤 다시 열면 서버가 앱 언어로 준다. `places` 에 없으면 초안 그대로 둔다. 편의시설·핀 줄은 건드리지 않는다.
+ */
+export function courseFromPlan(plan: GuidePlan, p: { title: string; startDate: string | null; pace: RoutePace; places?: PlaceLookup }): RouteCourse {
   const skipped: string[] = []
   const days = [...plan.days]
     .sort((a, b) => a.day - b.day)
@@ -74,11 +87,12 @@ export function courseFromPlan(plan: GuidePlan, p: { title: string; startDate: s
               return []
             }
             const identity = identityOf(stop)
+            const known = identity?.kind.type === 'place' ? p.places?.get(identity.id) : undefined
             return [
               makeStop(
                 {
                   id: identity === null ? missingId(stop) : (stop.placeId ?? NO_PLACE_ID),
-                  name: stop.name, type: null, address: stop.address ?? null, latitude: stop.latitude, longitude: stop.longitude,
+                  name: known?.name ?? stop.name, type: null, address: known?.address ?? stop.address ?? null, latitude: stop.latitude, longitude: stop.longitude,
                 },
                 identity?.kind ?? { type: 'place' },
                 {

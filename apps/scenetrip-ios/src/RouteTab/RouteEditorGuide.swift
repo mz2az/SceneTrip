@@ -166,7 +166,7 @@ extension RouteEditorView {
     }
 
     private func replaceDraft(with plan: GuidePlan) {
-        course = RouteGuidePlan.revising(course, with: plan)
+        course = RouteGuidePlan.revising(course, with: plan, places: RouteGuidePlan.placeLookup(store.places))
         dayIndex = min(dayIndex, max(course.days.count - 1, 0))
         focusedStop = nil
         fitToken += 1
