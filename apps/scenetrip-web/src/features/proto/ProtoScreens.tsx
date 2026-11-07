@@ -367,7 +367,7 @@ export function ProtoSwitcher() {
   const [open, setOpen] = useState(false)
   const options: ReadonlyArray<[Proto | null, string]> = [['a', 'A 질문 카드만'], ['b', 'B 질문 먼저'], [null, '끔(지금 화면)']]
   return (
-    <div style={{ position: 'absolute', left: 14, bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 86px)', zIndex: 60 }}>
+    <div style={{ position: 'absolute', left: 14, bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 72px)', zIndex: 60 }}>
       {open && (
         <VStack spacing={4} align="stretch" style={{ position: 'absolute', bottom: 34, left: 0, width: 200, padding: 8, borderRadius: 14, background: 'var(--system-background)', boxShadow: '0 6px 24px rgba(0,0,0,0.18)' }}>
           {options.map(([p, label]) => (
@@ -388,62 +388,54 @@ export function ProtoSwitcher() {
 }
 
 /**
- * 홈에 떠 있는 「여행 계획」 줄 — 탭 막대 바로 위, 가로로 긴 알약 모양(사용자 요청 2026-11-07, 홈의 코스 카드를 대신한다).
- * 진행 중·다가오는 코스가 있으면 그 코스를 보여 주고 누르면 바로 그 코스로, 오른쪽 「+」 는 새 계획. 없으면 「계획 만들기」 단추.
+ * 홈에 떠 있는 작은 「여행 계획」 알약 — 탭 막대 위 가운데(사용자 요청 2026-11-07, 홈의 코스 카드를 대신한다). 높이 46 의 한 줄.
+ * 다가오는·진행 중 코스가 있으면 [✈ 부산 · 2일 ›] | [+] — 앞쪽은 그 코스로 바로, 「+」 는 새 계획. 없으면 [✈ 여행 계획 만들기] 하나.
  */
 export function TripFloatBar() {
   const router = useTabRouter()
   const home = useStore(homeStore, (s) => s)
   const trip = home.trips[0] ?? null
-  const bar: CSSProperties = {
-    position: 'absolute', left: 14, right: 14, zIndex: 30,
-    bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 10px)',
-    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px 10px 14px', minHeight: 64,
-    borderRadius: 20, background: 'var(--system-background)', boxShadow: '0 8px 28px rgba(40, 30, 120, 0.18), 0 1px 3px rgba(0,0,0,0.08)',
+  const pill: CSSProperties = {
+    position: 'absolute', left: '50%', transform: 'translateX(-50%)', zIndex: 30, maxWidth: 'calc(100% - 40px)',
+    bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 12px)',
+    display: 'flex', alignItems: 'center', height: 46, borderRadius: 999,
+    background: 'rgba(28, 28, 36, 0.94)', boxShadow: '0 6px 20px rgba(0,0,0,0.22)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
   }
-  const badge = (
-    <div style={{ width: 42, height: 42, flex: 'none', borderRadius: 14, background: 'var(--pin-gradient)', display: 'grid', placeItems: 'center' }}>
-      <Icon name="paperplane.fill" size={19} color="white" />
+  const plane = (
+    <div style={{ width: 28, height: 28, flex: 'none', borderRadius: 999, background: 'var(--pin-gradient)', display: 'grid', placeItems: 'center' }}>
+      <Icon name="paperplane.fill" size={14} color="white" />
     </div>
   )
 
   if (trip && trip.course.serverId !== null) {
     const c = trip.course
-    const status = c.isRunning
-      ? say(`여행 중 · ${trip.dayNo}일차 · 스탬프 ${trip.visited}/${trip.total}`, `On trip · Day ${trip.dayNo} · ${trip.visited}/${trip.total} stamps`)
-      : say(`다가오는 여행 · ${daysLabel(c.days.length)} · ${trip.total}곳`, `Upcoming · ${tripLength(c.days.length)} · ${trip.total} places`)
+    // 이름에 이미 기간이 들어 있다 — 여행 중일 때만 몇 일차·스탬프를 덧붙인다.
+    const sub = c.isRunning ? say(`${trip.dayNo}일차 · ${trip.visited}/${trip.total}`, `Day ${trip.dayNo} · ${trip.visited}/${trip.total}`) : null
     return (
-      <div style={bar}>
-        <Pressable plain onClick={() => router.openCourse(c.serverId!)} aria-label={say(`${c.title} 열기`, `Open ${c.title}`)} style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-          <HStack spacing={12}>
-            {badge}
-            <VStack spacing={2} align="start" style={{ minWidth: 0, flex: 1 }}>
-              <Txt size={11} weight="bold" color="accent" style={{ letterSpacing: 0.4 }}>{say('내 여행 계획', 'MY TRIP PLAN')}</Txt>
-              <Txt size={16} weight="heavy" lines={1}>{c.title}</Txt>
-              <Txt size={12} color="secondary" lines={1}>{status}</Txt>
-            </VStack>
-            <Icon name="chevron.right" size={15} weight="semibold" color="tertiary" />
+      <div style={pill}>
+        <Pressable plain onClick={() => router.openCourse(c.serverId!)} aria-label={say(`${c.title} 열기`, `Open ${c.title}`)} style={{ height: 46, padding: '0 12px 0 9px', minWidth: 0 }}>
+          <HStack spacing={8}>
+            {plane}
+            {c.isRunning && <span aria-hidden style={{ width: 7, height: 7, flex: 'none', borderRadius: 999, background: 'var(--system-green)' }} />}
+            <Txt size={15} weight="bold" color="white" lines={1} style={{ minWidth: 0 }}>{c.title}</Txt>
+            {sub && <Txt size={13} lines={1} style={{ flex: 'none', color: 'rgba(255,255,255,0.6)' }}>{sub}</Txt>}
+            <Icon name="chevron.right" size={13} weight="semibold" color="white" />
           </HStack>
         </Pressable>
-        <Pressable plain onClick={() => protoActions.plan()} aria-label={say('새 여행 계획', 'New trip plan')} style={{ width: 44, height: 44, flex: 'none', borderRadius: 14, background: 'var(--system-gray6)', display: 'grid', placeItems: 'center' }}>
-          <Icon name="plus" size={18} weight="bold" color="accent" />
+        <div aria-hidden style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.2)' }} />
+        <Pressable plain onClick={() => protoActions.plan()} aria-label={say('새 여행 계획', 'New trip plan')} style={{ width: 46, height: 46, flex: 'none', display: 'grid', placeItems: 'center' }}>
+          <Icon name="plus" size={18} weight="bold" color="white" />
         </Pressable>
       </div>
     )
   }
 
   return (
-    <div style={bar}>
-      {badge}
-      <VStack spacing={2} align="start" style={{ minWidth: 0, flex: 1 }}>
-        <Txt size={11} weight="bold" color="accent" style={{ letterSpacing: 0.4 }}>{say('여행 계획', 'TRIP PLAN')}</Txt>
-        <Txt size={15} weight="heavy" lines={1}>{say('한국 여행 코스 짜기', 'Plan a Korea trip')}</Txt>
-        <Txt size={12} color="secondary" lines={1}>{say('도시·며칠만 고르면 끝', 'City + days, done')}</Txt>
-      </VStack>
-      <Pressable plain onClick={() => protoActions.plan()} style={{ flex: 'none', minHeight: 44, padding: '0 16px', borderRadius: 14, background: 'var(--accent)' }}>
-        <HStack spacing={6}>
-          <Icon name="plus" size={15} weight="bold" color="white" />
-          <Txt size={15} weight="bold" color="white" style={{ whiteSpace: 'nowrap' }}>{say('계획 만들기', 'Create plan')}</Txt>
+    <div style={pill}>
+      <Pressable plain onClick={() => protoActions.plan()} style={{ height: 46, padding: '0 18px 0 9px' }}>
+        <HStack spacing={8}>
+          {plane}
+          <Txt size={15} weight="bold" color="white" style={{ whiteSpace: 'nowrap' }}>{say('여행 계획 만들기', 'Plan a trip')}</Txt>
         </HStack>
       </Pressable>
     </div>
