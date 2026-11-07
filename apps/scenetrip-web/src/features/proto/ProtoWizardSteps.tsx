@@ -7,11 +7,12 @@ import { Txt, VStack } from '@/design/primitives'
 import { type ContentSummary, SPAN_NIGHTS, spanLabel } from '@/features/route/models'
 import { Pressable } from '@/features/route/ui/Press'
 import { say } from './protoState'
+import { color, radius, shadow } from './protoTokens'
 
-/** 기간 — 두 줄 격자의 큰 카드. 고르면 그라데이션. 카드마다 「하루 5곳쯤 · 모두 N곳」 으로 무엇을 고르는지 감을 준다. */
+/** 기간 — 두 줄 격자의 큰 카드. 고르면 단색 보라. 카드마다 「촬영지 N곳쯤」 으로 무엇을 고르는지 감을 준다. */
 export function ProtoSpanStep({ nights, onPick }: { nights: number; onPick: (n: number) => void }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+    <div role="radiogroup" aria-label={say('여행 기간', 'Trip length')} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
       {SPAN_NIGHTS.map((n) => {
         const on = n === nights
         const days = n + 1
@@ -19,19 +20,14 @@ export function ProtoSpanStep({ nights, onPick }: { nights: number; onPick: (n: 
           <Pressable
             key={n}
             plain
+            role="radio"
+            aria-checked={on}
             onClick={() => onPick(n)}
-            aria-pressed={on}
-            style={{
-              padding: '16px 14px', borderRadius: 18, textAlign: 'left',
-              background: on ? 'var(--pin-gradient)' : 'var(--system-background)',
-              boxShadow: on ? '0 6px 16px rgba(92, 74, 214, 0.32)' : '0 1px 6px rgba(30, 20, 90, 0.06)',
-            }}
+            style={{ padding: '16px 14px', borderRadius: radius.m, textAlign: 'left', background: on ? color.primary : 'var(--system-background)', boxShadow: shadow.card }}
           >
             <VStack spacing={4} align="start">
-              <Txt size={20} weight="heavy" style={{ color: on ? '#fff' : 'var(--label)' }}>{spanLabel(n)}</Txt>
-              <Txt size={12} style={{ color: on ? 'rgba(255,255,255,0.88)' : 'var(--label-secondary)' }}>
-                {say(`촬영지 ${days * 5}곳쯤`, `About ${days * 5} spots`)}
-              </Txt>
+              <Txt size={20} weight="heavy" style={{ color: on ? color.onPrimary : 'var(--label)' }}>{spanLabel(n)}</Txt>
+              <Txt size={13} style={{ color: on ? 'rgba(255,255,255,0.92)' : 'var(--label-secondary)' }}>{say(`촬영지 ${days * 5}곳쯤`, `About ${days * 5} spots`)}</Txt>
             </VStack>
           </Pressable>
         )
@@ -40,7 +36,10 @@ export function ProtoSpanStep({ nights, onPick }: { nights: number; onPick: (n: 
   )
 }
 
-/** 작품 — 포스터 3열 격자. 누르면 고름(체크), 왼쪽 위 하트는 찜. 이름은 포스터 아래 두 줄. */
+/**
+ * 작품 — 포스터 3열 격자. 포스터를 누르면 고름(체크), 왼쪽 위 하트는 찜.
+ * 하트는 포스터 단추 **밖의 형제 단추**다 — 단추 안에 단추를 두지 않는다(A3). 둘 다 키보드로 닿는다.
+ */
 export function ProtoWorkStep({ works, liked, selected, onToggleSelect, onToggleLike }: {
   works: readonly ContentSummary[]
   liked: ReadonlySet<number>
@@ -50,43 +49,45 @@ export function ProtoWorkStep({ works, liked, selected, onToggleSelect, onToggle
 }) {
   return (
     <VStack spacing={12} align="stretch">
-      <Txt size={13} color="secondary">{say('여러 개 골라도 돼요. 안 고르면 인기 작품으로 짜요', 'Pick as many as you like — or none for popular picks')}</Txt>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+      <Txt size={14} color="secondary">{say('여러 개 골라도 돼요. 안 고르면 인기 작품으로 짜요', 'Pick as many as you like, or none for popular picks.')}</Txt>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
         {works.map((w) => {
           const on = selected.has(w.id)
           const heart = liked.has(w.id)
           return (
-            <Pressable key={w.id} plain onClick={() => onToggleSelect(w.id)} aria-pressed={on} style={{ textAlign: 'left', minWidth: 0 }}>
-              <VStack spacing={6} align="stretch">
-                <div
-                  style={{
-                    position: 'relative', aspectRatio: '2 / 3', borderRadius: 12, overflow: 'hidden', background: 'var(--pin-gradient)',
-                    outline: on ? '3px solid var(--accent)' : 'none', outlineOffset: -3, transform: on ? 'scale(0.97)' : 'none', transition: 'transform 0.15s',
-                  }}
-                >
-                  {w.posterUrl && <img src={w.posterUrl} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                  {on && <div style={{ position: 'absolute', inset: 0, background: 'rgba(92, 74, 214, 0.28)' }} />}
-                  <span style={{ position: 'absolute', right: 6, top: 6, width: 24, height: 24, borderRadius: 999, display: 'grid', placeItems: 'center', background: on ? 'var(--accent)' : 'rgba(0,0,0,0.35)', border: '2px solid #fff' }}>
-                    {on && <Icon name="checkmark" size={12} weight="bold" color="white" />}
-                  </span>
-                  <span
-                    role="button"
-                    aria-label={say('찜', 'Like')}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onToggleLike(w.id)
+            <li key={w.id} style={{ position: 'relative', minWidth: 0 }}>
+              <Pressable plain onClick={() => onToggleSelect(w.id)} aria-pressed={on} style={{ display: 'block', width: '100%', textAlign: 'left' }}>
+                <VStack spacing={6} align="stretch">
+                  <div
+                    style={{
+                      position: 'relative', aspectRatio: '2 / 3', borderRadius: radius.s, overflow: 'hidden', background: color.brandFill,
+                      outline: on ? `3px solid ${color.primary}` : undefined, outlineOffset: -3,
                     }}
-                    style={{ position: 'absolute', left: 6, top: 6, width: 26, height: 26, borderRadius: 999, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.3)' }}
                   >
-                    <Icon name={heart ? 'heart.fill' : 'heart'} size={13} color={heart ? '#ff4d6d' : 'white'} />
-                  </span>
-                </div>
-                <Txt size={12} weight={on ? 'bold' : 'semibold'} lines={2} style={{ color: on ? 'var(--accent)' : 'var(--label)' }}>{w.title}</Txt>
-              </VStack>
-            </Pressable>
+                    {w.posterUrl && <img src={w.posterUrl} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                    {on && <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'rgba(60, 40, 160, 0.28)' }} />}
+                    <span aria-hidden style={{ position: 'absolute', right: 6, top: 6, width: 24, height: 24, borderRadius: radius.pill, display: 'grid', placeItems: 'center', background: on ? color.primary : 'rgba(0,0,0,0.35)', border: '2px solid #fff' }}>
+                      {on && <Icon name="checkmark" size={12} weight="bold" color="white" />}
+                    </span>
+                  </div>
+                  <Txt size={13} weight={on ? 'bold' : 'semibold'} lines={2} style={{ color: on ? color.primaryText : 'var(--label)' }}>{w.title}</Txt>
+                </VStack>
+              </Pressable>
+              <Pressable
+                plain
+                onClick={() => onToggleLike(w.id)}
+                aria-pressed={heart}
+                aria-label={say(`${w.title} 찜`, `Like ${w.title}`)}
+                style={{ position: 'absolute', left: 2, top: 2, width: 44, height: 44, display: 'grid', placeItems: 'center' }}
+              >
+                <span aria-hidden style={{ width: 28, height: 28, borderRadius: radius.pill, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.35)' }}>
+                  <Icon name={heart ? 'heart.fill' : 'heart'} size={14} color={heart ? 'var(--system-red)' : 'white'} />
+                </span>
+              </Pressable>
+            </li>
           )
         })}
-      </div>
+      </ul>
     </VStack>
   )
 }

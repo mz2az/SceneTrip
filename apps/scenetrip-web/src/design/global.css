@@ -239,3 +239,13 @@ img {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* 움직임 줄이기(기기 설정) — 앱 전체에 한 번에 건다. 화면마다 따로 확인하지 않아도 되게(frontend-craft 점검 A7, 2026-11-07). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

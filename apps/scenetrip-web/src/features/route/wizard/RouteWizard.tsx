@@ -133,10 +133,10 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
   return (
     <VStack style={{ height: '100%', background: 'var(--grouped-background)' }}>
       {proto ? (
-        // 시안 머리 — 그라데이션 띠에 닫기·단계 점, 그 아래 큰 질문. 띠가 「AI 가 짠다」 를 말하므로 따로 띠를 두지 않는다.
-        <VStack spacing={14} style={{ padding: 'calc(var(--safe-top) + 12px) 20px 20px', background: 'var(--pin-gradient)', flex: 'none' }}>
+        // 시안 머리 — 단색 보라 띠(흰 글씨 대비 6:1)에 닫기·단계 점, 그 아래 큰 질문(h1). 띠가 「AI 가 짠다」 를 말하므로 따로 띠를 두지 않는다.
+        <VStack spacing={14} style={{ padding: 'calc(var(--safe-top) + 12px) 20px 20px', background: 'var(--home-purple)', flex: 'none' }}>
           <HStack justify="between">
-            <Pressable plain onClick={onClose} aria-label={tr('취소')} style={{ width: 36, height: 36, borderRadius: 999, background: 'rgba(255,255,255,0.22)', display: 'grid', placeItems: 'center' }}>
+            <Pressable plain onClick={onClose} aria-label={tr('취소')} style={{ width: 44, height: 44, borderRadius: 999, background: 'rgba(255,255,255,0.18)', display: 'grid', placeItems: 'center' }}>
               <Icon name="xmark" size={15} weight="bold" color="white" />
             </Pressable>
             <HStack spacing={5} role="progressbar" aria-valuenow={index + 1} aria-valuemax={steps.length}>
@@ -144,7 +144,7 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
                 <span key={st} style={{ width: i === index ? 18 : 7, height: 7, borderRadius: 999, background: i <= index ? '#fff' : 'rgba(255,255,255,0.4)', transition: 'width 0.25s' }} />
               ))}
             </HStack>
-            <div style={{ width: 36 }} />
+            <div style={{ width: 44 }} />
           </HStack>
           <VStack spacing={4} align="start">
             {kind === 'aiPlan' && (
@@ -153,7 +153,7 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
                 <Txt size={12} weight="bold" color="white" style={{ opacity: 0.9, letterSpacing: 0.3 }}>{tr('AI 가 일정을 짜 드립니다')}</Txt>
               </HStack>
             )}
-            <Txt size={26} weight="heavy" color="white">{titleOf(step)}</Txt>
+            <Txt as="h1" size={26} weight="heavy" color="white" style={{ margin: 0 }}>{titleOf(step)}</Txt>
           </VStack>
           {/* 지금까지 고른 것 — 빈 화면 대신 내 여행이 쌓여 가는 것이 보인다 */}
           <HStack spacing={6} wrap>
@@ -230,7 +230,7 @@ export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () =
       <HStack spacing={10} style={{ padding: 16, background: 'var(--system-background)', flex: 'none' }}>
         {index > 0 && <LargeButton variant="bordered" size="regular" weight="regular" fontSize={15} onClick={() => setIndex(index - 1)}>{tr('이전')}</LargeButton>}
         {/* 라벨에 너비를 준다 — 바깥에만 너비를 걸면 누르는 자리만 넓어지고 파란 알약은 글자 크기 그대로 남는다(실측). */}
-        <LargeButton variant="prominent" height={50.33} disabled={planning} onClick={advance} style={{ flex: 1, ...(proto ? { background: 'linear-gradient(135deg, #5f86ef, #6a55e0)', boxShadow: '0 6px 16px rgba(92, 74, 214, 0.32)' } : {}) }}>
+        <LargeButton variant="prominent" height={50.33} disabled={planning} onClick={advance} style={{ flex: 1, ...(proto ? { background: 'var(--home-purple)' } : {}) }}>
           {planning && <Spinner size={18} />}
           {planning ? tr('일정을 짜는 중입니다') : last ? finishLabel : tr('다음')}
         </LargeButton>

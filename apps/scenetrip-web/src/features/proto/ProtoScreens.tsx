@@ -7,12 +7,11 @@ import type { components } from '@/api/generated/schema'
 import { paths } from '@/app/routes'
 import { useTabRouter } from '@/app/tabRouter'
 import { Icon } from '@/design/Icon'
-import { HStack, Spacer, Spinner, Txt, VStack, homeCard } from '@/design/primitives'
+import { HStack, Spacer, Spinner, Txt, VStack } from '@/design/primitives'
 import type { HomeCity } from '@/features/home/homeCityModel'
 import { Pressable } from '@/features/route/ui/Press'
 import { PinoMascot } from '@/design/PinoMascot'
 import { useRouteState } from '@/features/route/store'
-import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { mockPlanCityTrip, nearestUnused } from './mockPlan'
 import {
@@ -20,6 +19,7 @@ import {
   saveCourse, useCities,
 } from './protoParts'
 import { type Pace, type Proto, protoActions, protoStore, say, tripLength } from './protoState'
+import { color, heading, radius, shadow, z } from './protoTokens'
 
 type PlaceSummary = components['schemas']['PlaceSummary']
 
@@ -30,13 +30,13 @@ export function AskCard() {
   const { slides, at, now } = useCitySlides(cities)
   return (
     // 사진 카드 — 도시 대표 촬영지 사진이 천천히 바뀌고, 그 위에 흰 글씨와 반투명 도시 단추. 사진을 못 받으면 앱의 보라·하늘 그라데이션.
-    <div style={{ position: 'relative', margin: '0 20px', borderRadius: 22, overflow: 'hidden', minHeight: 200, background: 'var(--pin-gradient)', boxShadow: 'var(--card-shadow)' }}>
+    <section aria-labelledby="proto-ask-title" style={{ position: 'relative', margin: '0 20px', borderRadius: radius.l, overflow: 'hidden', minHeight: 200, background: color.brandFill, boxShadow: shadow.card }}>
       <SlideImages slides={slides} at={at} />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.25) 40%, rgba(0,0,0,0.72) 100%)' }} />
       <VStack spacing={10} align="stretch" style={{ position: 'relative', padding: '16px 18px 18px', minHeight: 200, justifyContent: 'flex-end' }}>
         <HStack spacing={8}>
           {now && (
-            <Txt size={11} weight="semibold" color="white" lines={1} style={{ opacity: 0.85, minWidth: 0, textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
+            <Txt size={12} weight="semibold" lines={1} style={{ color: color.onPhoto, opacity: 0.9, minWidth: 0, textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
               {now.city} · {now.place.name}
             </Txt>
           )}
@@ -44,8 +44,8 @@ export function AskCard() {
           <MockBadge onPhoto />
         </HStack>
         <div style={{ flex: 1, minHeight: 36 }} />
-        <Txt size={24} weight="heavy" color="white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>{say('어디로 여행 가세요?', 'Where are you traveling?')}</Txt>
-        <Txt size={14} color="white" style={{ opacity: 0.9, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('도시를 고르면 그곳 드라마·영화 촬영지로 코스를 만들어 드려요', "Pick a city — we'll build a route through its K\u2011drama spots")}</Txt>
+        <Txt as="h2" id="proto-ask-title" size={24} weight="heavy" style={{ ...heading, color: color.onPhoto, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>{say('어디로 여행 가세요?', 'Where are you traveling?')}</Txt>
+        <Txt size={14} style={{ color: color.onPhoto, opacity: 0.92, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('도시를 고르면 그곳 드라마·영화 촬영지로 코스를 만들어 드려요', "Pick a city. We'll build a route through its K\u2011drama spots.")}</Txt>
         <div className="scroll-x" style={{ margin: '2px -18px 0' }}>
           <HStack spacing={8} style={{ padding: '2px 18px', width: 'max-content' }}>
             {cities.slice(0, ASK_CITIES).map((c) => (
@@ -53,60 +53,18 @@ export function AskCard() {
                 key={c.key}
                 plain
                 onClick={() => protoActions.plan(c.key)}
-                style={{ flex: 'none', minHeight: 40, padding: '8px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+                style={{ flex: 'none', minHeight: 44, padding: '0 16px', borderRadius: radius.pill, background: 'var(--system-background)' }}
               >
                 <HStack spacing={5}>
-                  <Txt size={15} weight="semibold" color="white">{c.name}</Txt>
-                  <Txt size={12} color="white" style={{ opacity: 0.8 }}>{c.places.length}</Txt>
+                  <Txt size={15} weight="semibold" style={{ color: color.primaryText }}>{c.name}</Txt>
+                  <Txt size={12} color="secondary">{c.places.length}</Txt>
                 </HStack>
               </Pressable>
             ))}
           </HStack>
         </div>
       </VStack>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------- B·C — 두 번째부터 홈 맨 위의 여행 카드
-
-export function TripHomeCard() {
-  const router = useTabRouter()
-  const { cities } = useCities()
-  const trip = useStore(protoStore, (s) => s.trip)
-  const cart = useCart()
-  if (!trip) return null
-  const city = cityByKey(cities, trip.city)
-  const saved = city ? city.places.filter((p) => cart.placeIds.has(p.id)).length : 0
-  return (
-    <VStack spacing={12} align="stretch" style={{ margin: '0 20px', padding: 18, ...homeCard(20), background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--system-background)), var(--system-background))' }}>
-      <HStack spacing={8}>
-        <Icon name="paperplane.fill" size={16} color="accent" />
-        <Txt size={13} weight="semibold" color="accent">{say('내 여행', 'My trip')}</Txt>
-        <Spacer />
-        <MockBadge />
-      </HStack>
-      <Txt size={22} weight="heavy">{say(`${city?.name ?? trip.city} 여행 · ${daysLabel(trip.days)}`, `${city?.name ?? trip.city} · ${daysLabel(trip.days)}`)}</Txt>
-      {trip.courseId !== null ? (
-        <>
-          <Txt size={14} color="secondary">{say('코스가 준비됐어요. 언제든 고칠 수 있어요', 'Your course is ready — edit it anytime')}</Txt>
-          <PrimaryButton onClick={() => router.openCourse(trip.courseId!)}>{say('코스 보기 · 고치기', 'View & edit course')}</PrimaryButton>
-        </>
-      ) : (
-        <>
-          <Txt size={14} color="secondary">{saved > 0 ? say(`${saved}곳 담았어요`, `${saved} places added`) : say('아직 담은 곳이 없어요', 'No places added yet')}</Txt>
-          <PrimaryButton onClick={() => protoActions.pick(trip.city)}>{say('촬영지 고르고 코스 만들기', 'Pick spots & make a course')}</PrimaryButton>
-        </>
-      )}
-      <HStack spacing={16}>
-        <Pressable plain onClick={() => protoActions.pick(trip.city)} style={{ minHeight: 44, display: 'flex', alignItems: 'center' }}>
-          <Txt size={14} weight="semibold" color="accent">{say(`${city?.name ?? ''} 촬영지 더 보기`, 'More spots here')}</Txt>
-        </Pressable>
-        <Pressable plain onClick={() => protoActions.ask(true, true)} style={{ minHeight: 44, display: 'flex', alignItems: 'center' }}>
-          <Txt size={14} weight="semibold" color="accent">{say('+ 다른 여행', '+ New trip')}</Txt>
-        </Pressable>
-      </HStack>
-    </VStack>
+    </section>
   )
 }
 
@@ -128,14 +86,15 @@ function QuestionFlow() {
         step={[1, 3]}
         onBack={close}
         title={null}
+        label={say('한국 어디로 여행 가세요?', 'Where in Korea are you going?')}
         hero={
           <CityHero cities={cities}>
             <VStack spacing={10} align="start">
               <HStack spacing={8}>
                 <PinoMascot width={40} />
-                <Txt size={14} weight="semibold" color="white" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('드라마·영화 촬영지로 짜는 한국 여행', 'Korea trips through K-drama & film spots')}</Txt>
+                <Txt size={14} weight="semibold" style={{ color: color.onPhoto, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('드라마·영화 촬영지로 짜는 한국 여행', 'Korea trips through K-drama & film spots')}</Txt>
               </HStack>
-              <Txt size={32} weight="heavy" color="white" style={{ lineHeight: 1.12, textShadow: '0 2px 10px rgba(0,0,0,0.35)' }}>{say('한국 어디로 여행 가세요?', 'Where in Korea are you going?')}</Txt>
+              <Txt as="h1" size={32} weight="heavy" style={{ ...heading, color: color.onPhoto, lineHeight: 1.12, textShadow: '0 2px 10px rgba(0,0,0,0.35)' }}>{say('한국 어디로 여행 가세요?', 'Where in Korea are you going?')}</Txt>
             </VStack>
           </CityHero>
         }
@@ -149,7 +108,7 @@ function QuestionFlow() {
           <CityGrid cities={cities} loading={loading} selected={city} onPick={(k) => { setCity(k); setStep('days') }} />
         )}
         <Pressable plain onClick={() => protoActions.ask(false)} style={{ alignSelf: 'center', padding: '12px 16px', minHeight: 44 }}>
-          <Txt size={15} color="secondary">{say('아직 몰라요 — 그냥 둘러볼게요', 'Not sure yet — just browsing')}</Txt>
+          <Txt size={15} color="secondary">{say('아직 몰라요. 그냥 둘러볼게요', 'Not sure yet, just browsing')}</Txt>
         </Pressable>
       </ProtoScreen>
     )
@@ -202,15 +161,15 @@ function HowCard({ primary, icon, title, detail, onClick }: { primary?: boolean;
     <Pressable
       plain
       onClick={onClick}
-      style={{ width: '100%', padding: 18, borderRadius: 18, textAlign: 'left', background: primary ? 'var(--accent)' : 'var(--system-background)', boxShadow: 'var(--card-shadow)', border: primary ? 'none' : '1.5px solid var(--accent)' }}
+      style={{ width: '100%', padding: 18, borderRadius: radius.l, textAlign: 'left', background: primary ? color.primary : 'var(--system-background)', boxShadow: shadow.card, border: primary ? 'none' : `1.5px solid ${color.primary}` }}
     >
       <HStack spacing={14} align="start">
-        <Icon name={icon} size={24} weight="semibold" color={primary ? 'white' : 'accent'} />
+        <Icon name={icon} size={24} weight="semibold" color={primary ? 'white' : color.primaryText} />
         <VStack spacing={6} align="start" style={{ flex: 1, minWidth: 0 }}>
-          <Txt size={19} weight="heavy" style={{ color: primary ? '#fff' : 'var(--label)' }}>{title}</Txt>
-          <Txt size={15} style={{ color: primary ? 'rgba(255,255,255,0.9)' : 'var(--label-secondary)' }}>{detail}</Txt>
+          <Txt size={19} weight="heavy" style={{ color: primary ? color.onPrimary : 'var(--label)' }}>{title}</Txt>
+          <Txt size={15} style={{ color: primary ? 'rgba(255,255,255,0.92)' : 'var(--label-secondary)' }}>{detail}</Txt>
         </VStack>
-        <Icon name="chevron.right" size={16} weight="semibold" color={primary ? 'white' : 'accent'} />
+        <Icon name="chevron.right" size={16} weight="semibold" color={primary ? 'white' : color.primaryText} />
       </HStack>
     </Pressable>
   )
@@ -267,9 +226,10 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
   return (
     <ProtoScreen
       onBack={onBack}
+      label={say(`${city.name} ${daysLabel(days)} 추천 코스`, `${city.name} · ${daysLabel(days)}`)}
       title={
         <VStack spacing={6} align="start">
-          <HStack spacing={8}><Txt size={26} weight="heavy">{say(`${city.name} ${daysLabel(days)} 추천 코스`, `${city.name} · ${daysLabel(days)}`)}</Txt></HStack>
+          <Txt as="h1" size={26} weight="heavy" style={heading}>{say(`${city.name} ${daysLabel(days)} 추천 코스`, `${city.name} · ${daysLabel(days)}`)}</Txt>
           <HStack spacing={6}><MockBadge label={say('껍데기 AI', 'Mock AI')} /><Txt size={14} color="secondary">{say('빼고 바꾸고 순서를 고친 뒤 저장하세요', 'Remove, swap or reorder, then save')}</Txt></HStack>
         </VStack>
       }
@@ -280,10 +240,10 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
         </VStack>
       }
     >
-      {plan.flat().length === 0 && <Txt size={15} color="secondary">{say('이 도시는 촬영지가 적어서 코스를 못 짰어요. 뒤로 가서 「직접 고를게요」 를 눌러 주세요', 'Not enough spots here to plan a route — go back and pick them yourself')}</Txt>}
+      {plan.flat().length === 0 && <Txt size={15} color="secondary">{say('이 도시는 촬영지가 적어서 코스를 못 짰어요. 뒤로 가서 「직접 고를게요」 를 눌러 주세요', 'Not enough spots here to plan a route. Go back and pick them yourself.')}</Txt>}
       {plan.map((stops, day) => (
         <VStack key={day} spacing={10} align="stretch">
-          <Txt size={17} weight="heavy">{say(`${day + 1}일차`, `Day ${day + 1}`)} <Txt size={13} color="secondary">{say(`${stops.length}곳`, `${stops.length} spots`)}</Txt></Txt>
+          <Txt as="h2" size={17} weight="heavy" style={heading}>{say(`${day + 1}일차`, `Day ${day + 1}`)} <Txt size={13} color="secondary">{say(`${stops.length}곳`, `${stops.length} spots`)}</Txt></Txt>
           {stops.map((p, idx) => (
             <SpotRow
               key={`${p.id}-${idx}`}
@@ -307,8 +267,8 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
 
 function IconButton({ name, label, onClick }: { name: string; label: string; onClick: () => void }) {
   return (
-    <Pressable plain onClick={onClick} aria-label={label} title={label} style={{ width: 44, height: 44, borderRadius: 999, background: 'var(--system-gray6)', display: 'grid', placeItems: 'center' }}>
-      <Icon name={name} size={16} weight="semibold" color="accent" />
+    <Pressable plain onClick={onClick} aria-label={label} title={label} style={{ width: 44, height: 44, borderRadius: radius.pill, background: 'var(--system-gray6)', display: 'grid', placeItems: 'center' }}>
+      <Icon name={name} size={16} weight="semibold" color={color.primaryText} />
     </Pressable>
   )
 }
@@ -355,9 +315,9 @@ export function ProtoLayer() {
 
 function CreatedBanner({ city, days }: { city: string; days: number }) {
   return (
-    <div role="status" style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 64px)', left: 16, right: 16, zIndex: 70, padding: '12px 14px', borderRadius: 14, background: 'var(--accent)', boxShadow: '0 6px 20px rgba(0,0,0,0.18)' }}>
-      <Txt size={15} weight="semibold" color="white">
-        {say(`${city} ${daysLabel(days)} 코스가 준비됐어요 — 장소를 눌러 바꾸거나 끌어서 순서를 바꾸세요`, `Your ${tripLength(days)} ${city} course is ready — tap a place to change it, drag to reorder`)}
+    <div role="status" style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 64px)', left: 16, right: 16, zIndex: z.toast, padding: '12px 14px', borderRadius: radius.m, background: color.primary, boxShadow: shadow.float }}>
+      <Txt size={15} weight="semibold" style={{ color: color.onPrimary }}>
+        {say(`${city} ${daysLabel(days)} 코스가 준비됐어요. 장소를 눌러 바꾸거나 끌어서 순서를 바꾸세요`, `Your ${tripLength(days)} ${city} course is ready. Tap a place to change it, or drag to reorder.`)}
       </Txt>
     </div>
   )
@@ -378,23 +338,23 @@ export function ProtoSwitcher() {
   }
   const options: ReadonlyArray<[Proto | null, string]> = [['a', 'A 질문 카드만'], ['b', 'B 질문 먼저'], [null, '끔(지금 화면)']]
   return (
-    <div style={{ position: 'absolute', right: 0, top: '42%', zIndex: 60 }}>
+    <div style={{ position: 'absolute', right: 0, top: '42%', zIndex: z.switcher }}>
       {open && (
-        <VStack spacing={4} align="stretch" style={{ position: 'absolute', top: 34, right: 8, width: 200, padding: 8, borderRadius: 14, background: 'var(--system-background)', boxShadow: '0 6px 24px rgba(0,0,0,0.18)' }}>
+        <VStack spacing={4} align="stretch" style={{ position: 'absolute', top: 34, right: 8, width: 200, padding: 8, borderRadius: radius.m, background: 'var(--system-background)', boxShadow: shadow.float }}>
           {options.map(([p, label]) => (
-            <Pressable key={label} plain onClick={() => { protoActions.choose(p); setOpen(false) }} style={{ padding: '8px 10px', borderRadius: 8, textAlign: 'left', background: p === proto ? 'var(--system-gray6)' : 'transparent' }}>
+            <Pressable key={label} plain onClick={() => { protoActions.choose(p); setOpen(false) }} style={{ minHeight: 44, padding: '0 10px', borderRadius: radius.s, textAlign: 'left', background: p === proto ? 'var(--system-gray6)' : 'transparent' }}>
               <Txt size={14} weight={p === proto ? 'bold' : 'regular'}>{label}</Txt>
             </Pressable>
           ))}
-          <Pressable plain onClick={() => void reset()} style={{ padding: '8px 10px', textAlign: 'left' }}>
+          <Pressable plain onClick={() => void reset()} style={{ minHeight: 44, padding: '0 10px', textAlign: 'left' }}>
             <Txt size={14} color="red">처음부터 (내 코스 모두 지우기)</Txt>
           </Pressable>
         </VStack>
       )}
-      <Pressable plain onClick={() => setOpen(!open)} style={{ padding: '6px 8px 6px 10px', borderRadius: '999px 0 0 999px', background: 'rgb(255,149,0)', boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}>
-        <Txt size={13} weight="bold" color="white">{proto ? `시안 ${proto.toUpperCase()}` : '시안 끔'}</Txt>
+      <Pressable plain onClick={() => setOpen(!open)} aria-expanded={open} style={{ minHeight: 44, padding: '0 8px 0 12px', borderRadius: `${radius.pill}px 0 0 ${radius.pill}px`, background: 'rgb(255,204,128)', boxShadow: shadow.float }}>
+        <Txt size={13} weight="bold" style={{ color: 'rgb(120,62,0)' }}>{proto ? `시안 ${proto.toUpperCase()}` : '시안 끔'}</Txt>
       </Pressable>
-      {note && <span role="status" style={{ position: 'absolute', right: '100%', top: 2, marginRight: 8, whiteSpace: 'nowrap', padding: '4px 8px', borderRadius: 8, background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: 12, fontWeight: 600 }}>{note}</span>}
+      {note && <span role="status" style={{ position: 'absolute', right: '100%', top: 2, marginRight: 8, whiteSpace: 'nowrap', padding: '4px 8px', borderRadius: radius.s, background: 'rgba(0,0,0,0.78)', color: color.onPhoto, fontSize: 12, fontWeight: 600 }}>{note}</span>}
     </div>
   )
 }
@@ -405,7 +365,7 @@ const FLOAT_TRIPS = 5
 const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
 
 /**
- * 홈 오른쪽 아래에 떠 있는 「여행 코스」 단추(사용자 요청 2026-11-07, 홈의 코스 카드를 대신한다). 앱의 보라·하늘 그라데이션, 높이 40.
+ * 홈 오른쪽 아래에 떠 있는 「여행 코스」 단추(사용자 요청 2026-11-07, 홈의 코스 카드를 대신한다). 단색 보라(흰 글씨 대비 6:1), 높이 44.
  *  - 여행 중인 코스가 있으면 단추가 곧 그 코스다 — 누르면 바로 그 코스로. 옆의 작은 단추로 줄을 펼친다.
  *  - 없으면 「여행 코스 짜기」. 누르면 **같은 줄에서** 단추가 사라지고 그 자리부터 내 코스(최대 5개)가 이름을 감싼 알약으로
  *    오른쪽에서 미끄러져 들어온다. 옆으로 끌어 넘기고, 맨 오른쪽 「✕」 로 접는다. 「+ 새 코스」 는 ✕ 바로 옆.
@@ -426,9 +386,9 @@ export function TripFloatBar() {
   }, [open])
 
   const bottom = 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 10px)'
-  const glow = '0 6px 18px rgba(92, 74, 214, 0.35)'
-  const soft = '0 4px 14px rgba(0,0,0,0.14)'
-  const gradientPill: CSSProperties = { height: 40, padding: '0 14px 0 12px', borderRadius: 999, background: 'var(--pin-gradient)', boxShadow: glow, maxWidth: 240, color: '#fff' }
+  const soft = shadow.float
+  const mainPill: CSSProperties = { height: 44, padding: '0 16px 0 14px', borderRadius: radius.pill, background: color.primary, boxShadow: shadow.float, maxWidth: 240, color: color.onPrimary }
+  const round: CSSProperties = { width: 44, height: 44, borderRadius: radius.pill, background: 'var(--system-background)', boxShadow: soft, display: 'grid', placeItems: 'center', flex: 'none' }
   const label = (text: string) => (
     <span style={{ minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 14, fontWeight: 700, color: 'inherit' }}>{text}</span>
   )
@@ -454,20 +414,20 @@ export function TripFloatBar() {
   })
   const items = [
     { key: 'close', node: (
-      <Pressable plain onClick={() => setOpen(false)} aria-label={say('접기', 'Close')} style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--system-background)', boxShadow: soft, display: 'grid', placeItems: 'center', flex: 'none' }}>
-        <Icon name="xmark" size={15} weight="bold" color="accent" />
+      <Pressable plain onClick={() => setOpen(false)} aria-label={say('접기', 'Close')} style={round}>
+        <Icon name="xmark" size={15} weight="bold" color={color.primaryText} />
       </Pressable>
     ) },
     { key: 'all', node: (
-      <Pressable plain onClick={allCourses} aria-label={say('전체 코스 보기', 'All trips')} title={say('전체 코스', 'All trips')} style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--system-background)', boxShadow: soft, display: 'grid', placeItems: 'center', flex: 'none' }}>
-        <Icon name="list.bullet" size={16} weight="bold" color="accent" />
+      <Pressable plain onClick={allCourses} aria-label={say('전체 코스 보기', 'All trips')} title={say('전체 코스', 'All trips')} style={round}>
+        <Icon name="list.bullet" size={16} weight="bold" color={color.primaryText} />
       </Pressable>
     ) },
     { key: 'new', node: (
-      <Pressable plain onClick={newPlan} style={{ height: 40, padding: '0 14px', borderRadius: 999, background: 'var(--system-background)', boxShadow: soft, flex: 'none' }}>
+      <Pressable plain onClick={newPlan} style={{ height: 44, padding: '0 16px', borderRadius: radius.pill, background: 'var(--system-background)', boxShadow: soft, flex: 'none' }}>
         <HStack spacing={5}>
-          <Icon name="plus" size={14} weight="bold" color="accent" />
-          <Txt size={14} weight="bold" color="accent" style={{ whiteSpace: 'nowrap' }}>{say('새 코스', 'New')}</Txt>
+          <Icon name="plus" size={14} weight="bold" color={color.primaryText} />
+          <Txt size={14} weight="bold" style={{ color: color.primaryText, whiteSpace: 'nowrap' }}>{say('새 코스', 'New')}</Txt>
         </HStack>
       </Pressable>
     ) },
@@ -475,10 +435,10 @@ export function TripFloatBar() {
       <Pressable
         plain
         onClick={() => openCourse(c.serverId!)}
-        style={{ height: 40, padding: '0 14px', borderRadius: 999, flex: 'none', maxWidth: 220, color: c.isRunning ? '#fff' : 'var(--home-purple)', background: c.isRunning ? 'var(--pin-gradient)' : 'var(--system-background)', boxShadow: c.isRunning ? glow : soft }}
+        style={{ height: 44, padding: '0 16px', borderRadius: radius.pill, flex: 'none', maxWidth: 220, color: c.isRunning ? color.onPrimary : color.primaryText, background: c.isRunning ? color.primary : 'var(--system-background)', boxShadow: soft }}
       >
         <HStack spacing={6}>
-          <Icon name={c.isRunning ? 'location.north.fill' : 'paperplane'} size={13} color={c.isRunning ? 'white' : 'accent'} />
+          <Icon name={c.isRunning ? 'location.north.fill' : 'paperplane'} size={13} color={c.isRunning ? 'white' : color.primaryText} />
           {label(c.title)}
         </HStack>
       </Pressable>
@@ -486,9 +446,13 @@ export function TripFloatBar() {
   ]
 
   return (
-    <div style={{ position: 'absolute', left: 0, right: 0, bottom, height: 52, zIndex: 30, pointerEvents: 'none' }}>
+    <div
+      onKeyDown={(e) => { if (e.key === 'Escape' && open) setOpen(false) }}
+      style={{ position: 'absolute', left: 0, right: 0, bottom, height: 56, zIndex: z.float, pointerEvents: 'none' }}
+    >
       {/* 접힌 단추 — 펼치면 오그라들며 사라진다. */}
       <div
+        inert={open}
         style={{
           position: 'absolute', right: 14, top: 6, display: 'flex', alignItems: 'center', gap: 8,
           opacity: open ? 0 : 1, transform: open ? 'scale(0.8)' : 'scale(1)', transformOrigin: 'right center',
@@ -497,10 +461,10 @@ export function TripFloatBar() {
       >
         {running ? (
           <>
-            <Pressable plain onClick={() => setOpen(true)} aria-label={say('내 코스 펼치기', 'Show my trips')} style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--system-background)', boxShadow: soft, display: 'grid', placeItems: 'center' }}>
-              <Icon name="list.bullet" size={16} weight="bold" color="accent" />
+            <Pressable plain onClick={() => setOpen(true)} aria-label={say('내 코스 펼치기', 'Show my trips')} aria-expanded={open} style={round}>
+              <Icon name="list.bullet" size={16} weight="bold" color={color.primaryText} />
             </Pressable>
-            <Pressable plain onClick={() => openCourse(running.serverId!)} aria-label={say(`여행 중: ${running.title} 열기`, `On trip: open ${running.title}`)} style={gradientPill}>
+            <Pressable plain onClick={() => openCourse(running.serverId!)} aria-label={say(`여행 중: ${running.title} 열기`, `On trip: open ${running.title}`)} style={mainPill}>
               <HStack spacing={7}>
                 <Icon name="location.north.fill" size={14} color="white" />
                 {label(running.title)}
@@ -508,7 +472,7 @@ export function TripFloatBar() {
             </Pressable>
           </>
         ) : (
-          <Pressable plain onClick={() => (courses.length === 0 ? newPlan() : setOpen(true))} style={gradientPill}>
+          <Pressable plain onClick={() => (courses.length === 0 ? newPlan() : setOpen(true))} aria-expanded={courses.length === 0 ? undefined : open} style={mainPill}>
             <HStack spacing={7}>
               <Icon name="paperplane.fill" size={14} color="white" />
               {label(say('여행 코스 짜기', 'Plan a trip'))}
@@ -520,7 +484,7 @@ export function TripFloatBar() {
       <div
         ref={row}
         className="scroll-x proto-trip-row"
-        aria-hidden={!open}
+        inert={!open}
         style={{ position: 'absolute', inset: 0, display: 'flex', pointerEvents: open ? 'auto' : 'none', visibility: open ? 'visible' : 'hidden', transition: `visibility 0s linear ${open ? 0 : 420}ms` }}
         data-sheet-nodrag
       >
@@ -530,7 +494,6 @@ export function TripFloatBar() {
           ))}
         </div>
       </div>
-      <style>{'@media (prefers-reduced-motion: reduce) { .proto-trip-row > div > div { transition: none !important } }'}</style>
     </div>
   )
 }

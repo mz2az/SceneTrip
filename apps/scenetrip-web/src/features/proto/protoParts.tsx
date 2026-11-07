@@ -2,7 +2,7 @@
  * 시안 A·B·C 가 같이 쓰는 조각 — 도시 고르기, 며칠·속도 고르기, 추천 촬영지 목록(담기), 코스로 저장.
  * 껍데기라 시험·번역·분석 이벤트가 없다(docs/project/plans/web-trip-first-prototypes.md §4).
  */
-import { type CSSProperties, type ReactNode, useEffect, useState } from 'react'
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react'
 import type { components } from '@/api/generated/schema'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Spinner, Txt, VStack, homeCard } from '@/design/primitives'
@@ -15,6 +15,7 @@ import { useLang } from '@/i18n'
 import { cartActions, useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { type Pace, daysLabel, paceLabel, rememberProtoCourse, say } from './protoState'
+import { color, contained, heading, radius, shadow, z } from './protoTokens'
 
 type PlaceSummary = components['schemas']['PlaceSummary']
 
@@ -42,7 +43,7 @@ export const cityByKey = (cities: readonly HomeCity[], key: string | null | unde
 /** 시안 표시 — 껍데기 화면이라는 것을 헷갈리지 않게. */
 export function MockBadge({ label = say('시안', 'Prototype'), onPhoto }: { label?: string; onPhoto?: boolean }) {
   return (
-    <span style={{ flex: 'none', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: onPhoto ? 'rgb(255,149,0)' : 'rgba(255,149,0,0.15)', color: onPhoto ? '#fff' : 'rgb(200,110,0)', letterSpacing: 0.3 }}>
+    <span style={{ flex: 'none', fontSize: 12, fontWeight: 700, padding: '2px 7px', borderRadius: radius.s, background: onPhoto ? 'rgb(255,204,128)' : 'rgba(255,149,0,0.15)', color: 'rgb(120,62,0)' }}>
       {label}
     </span>
   )
@@ -51,7 +52,7 @@ export function MockBadge({ label = say('시안', 'Prototype'), onPhoto }: { lab
 export function CityGrid({ cities, loading, selected, onPick }: { cities: readonly HomeCity[]; loading?: boolean; selected?: string | null; onPick: (key: string) => void }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-      {loading && Array.from({ length: ASK_CITIES }, (_, i) => <div key={i} aria-hidden style={{ height: 92, borderRadius: 16, background: 'var(--system-gray5)', opacity: 0.6 }} />)}
+      {loading && Array.from({ length: ASK_CITIES }, (_, i) => <div key={i} aria-hidden style={{ height: 92, borderRadius: radius.m, background: 'var(--system-gray5)', opacity: 0.6 }} />)}
       {cities.slice(0, ASK_CITIES).map((c) => {
         const cover = coverOf(c)
         const on = c.key === selected
@@ -61,13 +62,13 @@ export function CityGrid({ cities, loading, selected, onPick }: { cities: readon
             plain
             onClick={() => onPick(c.key)}
             aria-pressed={on}
-            style={{ position: 'relative', height: 92, borderRadius: 16, overflow: 'hidden', textAlign: 'left', outline: on ? '3px solid var(--accent)' : 'none', background: 'var(--pin-light)' }}
+            style={{ position: 'relative', height: 92, borderRadius: radius.m, overflow: 'hidden', textAlign: 'left', outline: on ? `3px solid ${color.primary}` : undefined, background: color.brandFill }}
           >
             {cover && <img src={cover.imageUrl!} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.05))' }} />
             <VStack spacing={1} align="start" style={{ position: 'absolute', left: 12, bottom: 10 }}>
-              <Txt size={17} weight="heavy" color="white">{c.name}</Txt>
-              <Txt size={12} color="white" style={{ opacity: 0.85 }}>{say(`촬영지 ${c.places.length}곳`, `${c.places.length} spots`)}</Txt>
+              <Txt size={17} weight="heavy" style={{ color: color.onPhoto }}>{c.name}</Txt>
+              <Txt size={12} style={{ color: color.onPhoto, opacity: 0.9 }}>{say(`촬영지 ${c.places.length}곳`, `${c.places.length} spots`)}</Txt>
             </VStack>
           </Pressable>
         )
@@ -84,9 +85,10 @@ export function ChoiceRow<T extends string | number>({ options, value, label, on
           key={String(o)}
           plain
           onClick={() => onPick(o)}
-          style={{ padding: '16px 18px', borderRadius: 14, textAlign: 'left', background: o === value ? 'var(--accent)' : 'var(--system-background)', boxShadow: 'var(--card-shadow)' }}
+          aria-pressed={o === value}
+          style={{ padding: '16px 18px', borderRadius: radius.m, textAlign: 'left', background: o === value ? color.primary : 'var(--system-background)', boxShadow: shadow.card }}
         >
-          <Txt size={17} weight="semibold" style={{ color: o === value ? '#fff' : 'var(--label)' }}>{label(o)}</Txt>
+          <Txt size={17} weight="semibold" style={{ color: o === value ? color.onPrimary : 'var(--label)' }}>{label(o)}</Txt>
         </Pressable>
       ))}
     </VStack>
@@ -97,8 +99,11 @@ export const DAY_OPTIONS = [1, 2, 3, 4] as const
 export const PACE_OPTIONS: readonly Pace[] = ['relaxed', 'normal', 'packed']
 export { daysLabel, paceLabel }
 
-/** 화면 전체를 덮는 시안 화면의 틀 — 위 제목줄, 가운데 내용(스크롤), 아래 단추. */
-export function ProtoScreen({ title, onBack, children, footer, step, hero }: {
+/**
+ * 화면 전체를 덮는 시안 화면의 틀 — 위 제목줄, 가운데 내용(스크롤), 아래 단추.
+ * 덮는 창으로 알린다(role="dialog" + aria-modal): 열리면 첫 단추로 포커스가 가고 Esc 는 「뒤로」(A2). 제목은 h1(A4).
+ */
+export function ProtoScreen({ title, onBack, children, footer, step, hero, label }: {
   title: ReactNode
   onBack?: () => void
   children: ReactNode
@@ -106,15 +111,21 @@ export function ProtoScreen({ title, onBack, children, footer, step, hero }: {
   step?: [number, number]
   /** 화면 맨 위를 가장자리까지 채우는 사진 머리. 있으면 위 줄(뒤로·단계 점)이 사진 위에 흰색으로 얹힌다. */
   hero?: ReactNode
+  /** 화면 읽기에 알릴 이름 — 제목이 글자가 아닐 때(사진 머리 등) 준다. */
+  label?: string
 }) {
+  const root = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    root.current?.querySelector<HTMLElement>('button:not([disabled]), [href], [tabindex="0"]')?.focus({ preventScroll: true })
+  }, [])
   const bar = (
     <HStack spacing={8} style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 12px) 16px 8px', minHeight: 44, ...(hero ? { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2 } : {}) }}>
       {onBack ? (
-        <Pressable plain onClick={onBack} aria-label={say('뒤로', 'Back')} style={{ padding: 6 }}>
+        <Pressable plain onClick={onBack} aria-label={say('뒤로', 'Back')} style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}>
           <Icon name="chevron.left" size={20} weight="semibold" color={hero ? 'white' : 'accent'} />
         </Pressable>
       ) : (
-        <div style={{ width: 32 }} />
+        <div style={{ width: 44 }} />
       )}
       <Spacer />
       {step && <StepDots at={step[0]} of={step[1]} onPhoto={!!hero} />}
@@ -123,12 +134,24 @@ export function ProtoScreen({ title, onBack, children, footer, step, hero }: {
     </HStack>
   )
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: 'var(--grouped-background)' }}>
+    <div
+      ref={root}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label ?? (typeof title === 'string' ? title : undefined)}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && onBack) {
+          e.stopPropagation()
+          onBack()
+        }
+      }}
+      style={{ position: 'absolute', inset: 0, zIndex: z.screen, display: 'flex', flexDirection: 'column', background: 'var(--grouped-background)' }}
+    >
       {bar}
-      <div className="scroll-y" style={{ flex: 1, minHeight: 0 }}>
+      <div className="scroll-y" style={{ flex: 1, minHeight: 0, ...contained }}>
         {hero}
         <VStack spacing={18} align="stretch" style={{ padding: hero ? '16px 20px 24px' : '4px 20px 24px' }}>
-          {typeof title === 'string' ? <Txt size={26} weight="heavy" style={{ textWrap: 'balance' } as CSSProperties}>{title}</Txt> : title}
+          {typeof title === 'string' ? <Txt as="h1" size={26} weight="heavy" style={{ ...heading, textWrap: 'balance' } as CSSProperties}>{title}</Txt> : title}
           {children}
         </VStack>
       </div>
@@ -142,7 +165,7 @@ function StepDots({ at, of, onPhoto }: { at: number; of: number; onPhoto?: boole
   return (
     <HStack spacing={6} role="img" aria-label={say(`${of}단계 중 ${at}단계`, `Step ${at} of ${of}`)}>
       {Array.from({ length: of }, (_, i) => (
-        <div key={i} style={{ width: i + 1 === at ? 20 : 7, height: 7, borderRadius: 999, background: onPhoto ? (i + 1 <= at ? '#fff' : 'rgba(255,255,255,0.45)') : i + 1 <= at ? 'var(--accent)' : 'var(--system-gray4)', transition: 'width 0.2s' }} />
+        <div key={i} style={{ width: i + 1 === at ? 20 : 7, height: 7, borderRadius: radius.pill, background: onPhoto ? (i + 1 <= at ? color.onPhoto : 'rgba(255,255,255,0.45)') : i + 1 <= at ? color.primary : 'var(--system-gray4)', transition: 'width 0.2s' }} />
       ))}
     </HStack>
   )
@@ -150,8 +173,8 @@ function StepDots({ at, of, onPhoto }: { at: number; of: number; onPhoto?: boole
 
 export function SecondaryButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return (
-    <Pressable plain onClick={onClick} style={{ width: '100%', padding: '15px 0', borderRadius: 14, border: '1.5px solid var(--accent)', background: 'var(--system-background)', textAlign: 'center' }}>
-      <Txt size={17} weight="bold" color="accent">{children}</Txt>
+    <Pressable plain onClick={onClick} style={{ width: '100%', padding: '15px 0', borderRadius: radius.m, border: `1.5px solid ${color.primary}`, background: 'var(--system-background)', textAlign: 'center' }}>
+      <Txt size={17} weight="bold" style={{ color: color.primaryText }}>{children}</Txt>
     </Pressable>
   )
 }
@@ -162,9 +185,9 @@ export function PrimaryButton({ children, onClick, disabled }: { children: React
       plain
       onClick={onClick}
       disabled={disabled}
-      style={{ width: '100%', padding: '15px 0', borderRadius: 14, background: 'var(--accent)', opacity: disabled ? 0.45 : 1, textAlign: 'center' }}
+      style={{ width: '100%', padding: '15px 0', borderRadius: radius.m, background: color.primary, opacity: disabled ? 0.45 : 1, textAlign: 'center' }}
     >
-      <Txt size={17} weight="bold" color="white">{children}</Txt>
+      <Txt size={17} weight="bold" style={{ color: color.onPrimary }}>{children}</Txt>
     </Pressable>
   )
 }
@@ -173,8 +196,8 @@ export function PrimaryButton({ children, onClick, disabled }: { children: React
 export function SpotRow({ place, saved, onToggle, trailing }: { place: PlaceSummary; saved?: boolean; onToggle?: () => void; trailing?: ReactNode }) {
   const work = place.contents?.[0]?.title
   return (
-    <HStack spacing={12} style={{ padding: 10, ...homeCard(16) }}>
-      <div style={{ width: 72, height: 72, flex: 'none', borderRadius: 12, overflow: 'hidden', background: 'var(--pin-light)' }}>
+    <HStack spacing={12} style={{ padding: 10, ...homeCard(radius.m) }}>
+      <div style={{ width: 72, height: 72, flex: 'none', borderRadius: radius.s, overflow: 'hidden', background: color.brandFill }}>
         {hasPhoto(place) && <img src={place.imageUrl!} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
       </div>
       <VStack spacing={3} align="start" style={{ flex: 1, minWidth: 0 }}>
@@ -188,11 +211,11 @@ export function SpotRow({ place, saved, onToggle, trailing }: { place: PlaceSumm
           plain
           onClick={onToggle}
           aria-pressed={saved}
-          style={{ flex: 'none', padding: '8px 12px', borderRadius: 999, background: saved ? 'var(--accent)' : 'var(--system-gray6)' }}
+          style={{ flex: 'none', minHeight: 44, padding: '0 14px', borderRadius: radius.pill, background: saved ? color.primary : 'var(--system-gray6)' }}
         >
           <HStack spacing={4}>
-            <Icon name={saved ? 'checkmark' : 'plus'} size={13} weight="bold" color={saved ? 'white' : 'accent'} />
-            <Txt size={13} weight="semibold" style={{ color: saved ? '#fff' : 'var(--accent)' }}>{saved ? say('담음', 'Added') : say('담기', 'Add')}</Txt>
+            <Icon name={saved ? 'checkmark' : 'plus'} size={13} weight="bold" color={saved ? 'white' : color.primaryText} />
+            <Txt size={13} weight="semibold" style={{ color: saved ? color.onPrimary : color.primaryText }}>{saved ? say('담음', 'Added') : say('담기', 'Add')}</Txt>
           </HStack>
         </Pressable>
       )}
@@ -258,10 +281,11 @@ export function CityPicker({ city, days, onBack, onCreated }: {
   return (
     <ProtoScreen
       onBack={onBack}
+      label={say(`${city.name}의 촬영지`, `Filming spots in ${city.name}`)}
       title={
         <VStack spacing={6} align="start">
-          <Txt size={26} weight="heavy">{say(`${city.name}의 촬영지`, `Filming spots in ${city.name}`)}</Txt>
-          <Txt size={15} color="secondary">{say('가 보고 싶은 곳을 담으면 동선을 이어 코스로 만들어 드려요', "Add the places you like — we'll turn them into a route")}</Txt>
+          <Txt as="h1" size={26} weight="heavy" style={heading}>{say(`${city.name}의 촬영지`, `Filming spots in ${city.name}`)}</Txt>
+          <Txt size={15} color="secondary">{say('가 보고 싶은 곳을 담으면 동선을 이어 코스로 만들어 드려요', "Add the places you like. We'll turn them into a route.")}</Txt>
         </VStack>
       }
       footer={
@@ -274,7 +298,7 @@ export function CityPicker({ city, days, onBack, onCreated }: {
       }
     >
       <VStack spacing={10} align="stretch">
-        {city.places.length === 0 && <Txt size={15} color="secondary">{say('아직 이 도시의 촬영지가 없어요. 뒤로 가서 다른 도시를 골라 주세요', 'No filming spots here yet — go back and pick another city')}</Txt>}
+        {city.places.length === 0 && <Txt size={15} color="secondary">{say('아직 이 도시의 촬영지가 없어요. 뒤로 가서 다른 도시를 골라 주세요', 'No filming spots here yet. Go back and pick another city.')}</Txt>}
         {city.places.slice(0, 30).map((p) => (
           <SpotRow key={p.id} place={p} saved={cart.placeIds.has(p.id)} onToggle={() => void (cart.placeIds.has(p.id) ? cartActions.remove(p.id) : cartActions.add(p.id))} />
         ))}
@@ -338,14 +362,14 @@ export function SlideImages({ slides, at }: { slides: ReadonlyArray<{ place: Pla
 export function CityHero({ cities, children }: { cities: readonly HomeCity[]; children: ReactNode }) {
   const { slides, at, now } = useCitySlides(cities)
   return (
-    <div style={{ position: 'relative', height: 'min(46vh, 390px)', minHeight: 300, overflow: 'hidden', background: 'var(--pin-gradient)' }}>
+    <div style={{ position: 'relative', height: 'min(46dvh, 390px)', minHeight: 300, overflow: 'hidden', background: color.brandFill }}>
       <SlideImages slides={slides} at={at} />
       {/* 위는 상태줄·단추가 읽히게 살짝, 아래는 글자가 읽히고 바탕색으로 이어지게 진하게. */}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0.15) 52%, rgba(0,0,0,0.7) 82%, var(--grouped-background) 100%)' }} />
       <div style={{ position: 'absolute', left: 20, right: 20, bottom: 34 }}>{children}</div>
       {now && (
         <div style={{ position: 'absolute', right: 14, top: 'calc(env(safe-area-inset-top, 0px) + 52px)', maxWidth: '60%', textAlign: 'right' }}>
-          <Txt size={11} weight="semibold" color="white" lines={1} style={{ opacity: 0.85, textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
+          <Txt size={12} weight="semibold" lines={1} style={{ color: color.onPhoto, opacity: 0.9, textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
             {now.city} · {now.place.name}{now.place.contents?.[0]?.title ? ` · ${now.place.contents[0].title}` : ''}
           </Txt>
         </div>
