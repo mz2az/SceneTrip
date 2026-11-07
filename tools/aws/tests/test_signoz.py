@@ -426,7 +426,9 @@ class SignozPublishTest(unittest.TestCase):
 
         settings = prd_settings()
         outputs = self.outputs(settings)
-        run, _unused = self.publish(outputs, settings)
+        # Metabase 이미지 복사(ADR 0027)는 test_metabase 가 시험한다 — 여기서는 끈다.
+        with patch("tools.aws.aws.METABASE_ENVIRONMENTS", ()):
+            run, _unused = self.publish(outputs, settings)
         commands = [call.args[0] for call in run.call_args_list]
         listed = [
             command[command.index("--repository-name") + 1]
@@ -456,7 +458,11 @@ class SignozPublishTest(unittest.TestCase):
 
     def test_environment_outside_signoz_environments_never_lists_or_mirrors(self):
         settings = prd_settings()
-        with patch("tools.aws.aws.SIGNOZ_ENVIRONMENTS", ("dev",)):
+        # Metabase 이미지 복사(ADR 0027)는 test_metabase 가 시험한다 — 여기서는 끈다.
+        with (
+            patch("tools.aws.aws.SIGNOZ_ENVIRONMENTS", ("dev",)),
+            patch("tools.aws.aws.METABASE_ENVIRONMENTS", ()),
+        ):
             run, _unused = self.publish(
                 {"ecr_repository_urls": app_urls(settings)}, settings
             )

@@ -85,8 +85,8 @@ METABASE_MIRROR = {"mirror_metabase": ("metabase/metabase", "v0.64.3.4")}
 # Metabase 화면 주소. SigNoz 처럼 Cloudflare 프록시 + Access(허용 메일) 뒤에만 연다.
 METABASE_DOMAINS = {"dev": "metabase-dev.scenetrip.io", "prd": "metabase.scenetrip.io"}
 
-# Metabase 를 올리는 환경. 먼저 DEV 만 — PRD 는 앱 심사가 끝난 뒤 따로 확인을 받고 더한다.
-METABASE_ENVIRONMENTS = ("dev",)
+# Metabase 를 올리는 환경. DEV 로 먼저 확인하고, 앱 심사가 끝나 PRD 를 더했다(2026-11-07 — 노드 용량 확인 뒤).
+METABASE_ENVIRONMENTS = ("dev", "prd")
 
 # 환경 ECR 저장소(`scenetrip-<env>/<이름>`). Terraform `local.repositories` 와 같아야 한다(시험이 대조). 배포·삭제 검사가
 # 모두 이 목록을 쓴다 — 저장소를 더할 때 여기 한 곳만 고친다.

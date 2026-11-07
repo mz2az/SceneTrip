@@ -4,7 +4,7 @@
 [운영](../../../docs/ops/aws-deployment.md) §18.
 
 부품이 Metabase 하나라 외부 차트를 쓰지 않고 이 저장소가 소유한다. 배포기(`tools/aws/deploy.py` `install_metabase`)가 DB 마이그레이션
-뒤에 `helm upgrade --install metabase platform/helm/metabase --namespace metabase --values -` 로 올린다. 지금은 DEV 만 올린다.
+뒤에 `helm upgrade --install metabase platform/helm/metabase --namespace metabase --values -` 로 올린다. DEV·PRD 둘 다 올린다(PRD 는 2026-11-07 부터).
 
 | 파일 | 내용 |
 | --- | --- |
