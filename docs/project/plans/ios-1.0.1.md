@@ -38,16 +38,31 @@ iOS 수정이 필요 없는 것: 촬영지 사진 출처(MZ2AZ-514, iOS `PhotoPa
 
 ## 3. Sentry·PostHog (MZ2AZ-527)
 
-- 의존성: `//:Package.swift` 에 `getsentry/sentry-cocoa`·`PostHog/posthog-ios`, `Package.resolved` 잠금,
-  `MODULE.bazel` `use_repo` 에 두 저장소. **MODULE.bazel 변경은 사용자 승인 뒤.** sentry-cocoa 는 SPM 에서
-  binaryTarget(xcframework)이다 — rules_swift_package_manager 1.23 이 Firebase 와 같은 방식으로 받는지 먼저 본다.
-- 키: 네이버 키처럼 `.env` → `--define` → Info.plist 치환. 비면 꺼진다. 값은 사람이 `.env` 에 넣는다.
-- 이용 통계 스위치(`UsageStatistics`): OFF 로 시작하면 초기화하지 않고, ON 이면 늦게 켜고, 켜진 뒤 OFF 면
-  PostHog opt-out·Sentry close. ATT 와는 무관하다(둘 다 다른 앱·사이트를 넘나드는 추적이 아님).
-- PostHog: `AppAnalytics.log` 의 같은 이벤트·매개변수를 Firebase 와 PostHog 둘로. 자동 수집·화면 자동 기록 끔.
-  프로젝트는 웹과 같은 701967 — 광고·웹·앱 흐름을 한 곳에서 비교한다.
-- Sentry: 충돌·오류만, `sendDefaultPii = false`, 성능 추적·세션 녹화 끔. 프로젝트는 웹(`javascript-react`)과
-  따로 iOS 프로젝트를 둔다(충돌 기호화·알림이 섞이지 않게).
+- 의존성: `//:Package.swift` 에 `getsentry/sentry-cocoa` **9.30.1**·`PostHog/posthog-ios` **3.90.2**(둘 다 `exact`,
+  2026-10-07 공개), `Package.resolved` 잠금, `MODULE.bazel` `use_repo` 에 `swiftpkg_sentry_cocoa`·`swiftpkg_posthog_ios`
+  (사용자 승인, `just swift-deps-update`). sentry-cocoa 의 `Sentry` 제품은 binaryTarget(xcframework) + 작은 C++
+  도움 타깃이다 — rules_swift_package_manager 1.23 이 네이버 지도 SDK 와 같은 방식으로 받아 `:bin` 이 지어진다(실측).
+- 키: 네이버 키와 **같은 길**이다 — `.env` 의 `SENTRY_DSN_IOS`·`POSTHOG_KEY` → just 레시피의 `--define=sentry_dsn_ios`·
+  `--define=posthog_key` → genrule 이 만드는 `Secrets.swift`(`Secrets.sentryDsnIos`·`Secrets.posthogKey`).
+  계획 초안의 「Info.plist 치환」은 틀렸다 — 네이버 키는 Info.plist 가 아니라 이 genrule 로 들어간다.
+  `.bazelrc` 기본은 빈 값이고, 비면 그 SDK 는 한 번도 불리지 않는다. 값은 사람이 `.env` 에 넣는다.
+  PostHog 주소는 미국 클라우드(`https://us.i.posthog.com`) 고정이다(웹의 `VITE_POSTHOG_HOST` 같은 덮어쓰기는 두지 않았다).
+- 이용 통계 스위치(`UsageStatistics`): `AppAnalytics.setCollectionEnabled` 가 앱 시작과 토글 때 둘을 맞춘다.
+  OFF 로 시작하면 초기화하지 않고, ON 이 되면 그때 켜고, 켜진 뒤 OFF 면 PostHog opt-out·Sentry close.
+  다시 ON 이면 PostHog 는 opt-in(재초기화 없음), Sentry 는 다시 start. ATT 와는 무관하다.
+- PostHog(`PostHogAnalytics`): `AppAnalytics.log` 의 같은 이벤트·매개변수를 Firebase 와 PostHog 둘로. 앱 생명주기·
+  화면 자동 기록·누름 자동 수집·화난 연타(`$rageclick`)·요소 글자·푸시 자동 기록·swizzling·화면 녹화·설문·기능 플래그
+  미리 받기·PostHog 자체 충돌 수집 끔, IDFA 없음. SDK 가 스스로 만드는 이벤트는 없고 우리 `capture` 만 간다 — 다만
+  SDK 기본 속성(기기·OS·앱 버전·세션 id 등)은 그 이벤트에 붙는다. 처음에 화난 연타(기본 ON)를 빠뜨려 독립 검증에서 잡혔다.
+  SDK 가 지난 실행의 opt-out 을 디스크에서 되살리므로 시작 직후 opt-in 을 한 번 부른다(통계 ON 일 때만 시작한다).
+  프로젝트는 웹과 같은 701967.
+- Sentry(`ErrorReporting`): 충돌·오류만, `sendDefaultPii = false`, 성능 추적·프로파일링·세션 녹화·세션 집계·
+  실패한 요청 보고·브레드크럼 끔(요청 주소에 검색어·좌표가 실린다), 보내기 전 `user` 를 지운다.
+  환경은 API 주소로 — `https://api.scenetrip.io/v1` 이면 `production`, 그 밖(DEV·로컬)은 `dev`.
+  프로젝트는 웹(`javascript-react`)과 따로 iOS 프로젝트를 둔다(충돌 기호화·알림이 섞이지 않게).
+- 시험: `tests/ThirdPartyAnalyticsTests.swift`(키 없음·OFF 시작·OFF→ON·ON→OFF→ON·같은 이름·매개변수·SDK 설정).
+- 남은 것: 실제 DSN·키로 시뮬레이터·실기기에서 Sentry 이벤트와 PostHog 이벤트가 들어오는지 확인(사람이 `.env` 를 채운 뒤).
+  충돌 기호화용 dSYM 업로드는 이번 범위가 아니다.
 
 ## 4. 출시
 

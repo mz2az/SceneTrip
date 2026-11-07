@@ -49,6 +49,11 @@ test:linux --test_tag_filters=-ios
 # 그렇다. 빈 값이면 지도만 인증 실패 화면이 되고 빌드와 나머지 화면은 멀쩡하다.
 build --define=naver_client_id=
 
+# iOS 오류 추적(Sentry DSN)·사용 분석(PostHog 프로젝트 키) (MZ2AZ-527). 네이버 키와 같은 이유로 기본은 빈 값 —
+# 비면 그 SDK 는 불리지 않는다. 실제 값은 `.env` 의 SENTRY_DSN_IOS·POSTHOG_KEY 를 just 레시피가 넘긴다.
+build --define=sentry_dsn_ios=
+build --define=posthog_key=
+
 # 빈 값이면 기존 시뮬레이터 주소. DEV·PRD는 just mobile-build-cloud로 HTTPS 주소 주입.
 build --define=scenetrip_api_base_url=
 

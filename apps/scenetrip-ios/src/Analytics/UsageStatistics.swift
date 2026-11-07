@@ -1,6 +1,6 @@
 import Foundation
 
-/// Firebase·Meta 수집을 함께 제어하는 설치별 설정. 회원 여부나 ATT와 별도로 저장한다.
+/// Firebase·PostHog·Sentry·Meta 수집을 함께 제어하는 설치별 설정 (PostHog·Sentry 는 `AppAnalytics.setCollectionEnabled` 가 맞춘다, MZ2AZ-527). 회원 여부나 ATT와 별도로 저장한다.
 struct UsageStatistics {
     static let key = "scenetrip.analytics.collectionEnabled"
     static let shared = UsageStatistics()

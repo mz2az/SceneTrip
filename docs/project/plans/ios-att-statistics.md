@@ -16,6 +16,9 @@ Firebase GA4의 IDFA 없는 제품과 기존 Meta 설정 파일 조건은 유지
    사용자 속성, Meta 초기화·활성화·이벤트를 막는다. OFF로 시작하면 Firebase를
    초기화하지 않고, ON 전환 때 지연 초기화한다. 이미 초기화한 Firebase는
    `Analytics.setAnalyticsCollectionEnabled(false)`로 자동 수집까지 끈다.
+   (2026-11-07 MZ2AZ-527: 같은 스위치가 PostHog·Sentry 도 맞춘다 — OFF 로 시작하면 초기화하지 않고,
+   ON 전환 때 늦게 켜고, 켜진 뒤 OFF 면 PostHog opt-out·Sentry close. 둘 다 ATT 와 무관하다.
+   계획 [iOS 1.0.1 §3](ios-1.0.1.md).)
 4. 마이페이지 도움·정책 근처에 통계 토글·설명과 ATT 상태/설정 이동을 추가한다.
    앱 기능은 제한하지 않는다. 한국어·영어 번역과 InfoPlist 권한 문구를 함께 넣는다.
 5. BUILD의 기존 glob 포함 여부와 README를 갱신하고 변경한 Swift 파일만 포맷한다.

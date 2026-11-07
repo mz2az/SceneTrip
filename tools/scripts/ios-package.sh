@@ -15,6 +15,9 @@ build="${4:?빌드 번호가 필요합니다}"
 : "${SCENETRIP_IOS_SIGNING_IDENTITY:?키체인에 설치된 배포 인증서 이름(Apple Distribution: <이름> (<팀ID>))을 지정하세요. SHA-1은 rules_apple에서 실패합니다}"
 : "${NAVER_MAP_CLIENT_ID:?지도 클라이언트 ID를 지정하세요}"
 [ -f apps/scenetrip-ios/resources/GoogleService-Info.plist ] || die "Firebase 운영 설정 파일이 없습니다"
+# 비어도 빌드는 계속한다 — 그 SDK 만 꺼진 채로 나간다 (MZ2AZ-527).
+[ -n "${SENTRY_DSN_IOS:-}" ] || log "경고: SENTRY_DSN_IOS 가 비었습니다 — 이 IPA 는 Sentry 오류 추적 없이 지어집니다"
+[ -n "${POSTHOG_KEY:-}" ] || log "경고: POSTHOG_KEY 가 비었습니다 — 이 IPA 는 PostHog 사용 분석 없이 지어집니다"
 args=("$profile" "$mode" --team "$SCENETRIP_APPLE_TEAM_ID")
 if [ -n "${SCENETRIP_IOS_DEVICE_UDID:-}" ]; then
   args+=(--device "$SCENETRIP_IOS_DEVICE_UDID")
@@ -41,5 +44,7 @@ log "운영 서버용 iPhone IPA 빌드 — 실제 인증서 서명, 업로드 �
   --define=scenetrip_release_version="$version" \
   --define=scenetrip_release_build="$build" \
   --define=naver_client_id="$NAVER_MAP_CLIENT_ID" \
+  --define=sentry_dsn_ios="${SENTRY_DSN_IOS:-}" \
+  --define=posthog_key="${POSTHOG_KEY:-}" \
   --ios_signing_cert_name="$SCENETRIP_IOS_SIGNING_IDENTITY"
 log "산출물: bazel-bin/apps/scenetrip-ios/ipa.ipa — 설치·TestFlight 확인은 별도입니다"

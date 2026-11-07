@@ -16,11 +16,17 @@ protocol AnalyticsSink {
 /// 것이라 CI 와 다른 팀원의 빌드에는 없을 수 있다 — 없으면 켜지 않고(켜면 죽는다) 이벤트를 버린다.
 /// 그래서 **파일이 없어도 앱은 그대로 빌드되고 돈다.**
 ///
+/// 같은 이벤트가 PostHog(`PostHogAnalytics`, 키가 있을 때)에도 간다. 오류 추적 Sentry(`ErrorReporting`)도
+/// 이 입구의 스위치(`setCollectionEnabled`)를 따른다 (MZ2AZ-527).
+///
 /// Firebase는 광고 식별자(IDFA)를 쓰지 않는다(`FirebaseAnalyticsCore`). 메타 광고 측정은 별도
 /// 설정과 실제 ATT 허용이 있어야 켜진다(MZ2AZ-391). Firebase 사용자 속성은 메타로 보내지 않는다.
 enum AppAnalytics {
     /// 시험에서 가짜로 갈아 끼운다.
     nonisolated(unsafe) static var sink: AnalyticsSink = NoSink()
+    /// 같은 이벤트를 받는 PostHog, 같은 스위치를 따르는 Sentry (MZ2AZ-527). 시험에서 갈아 끼운다.
+    nonisolated(unsafe) static var posthog: PostHogAnalytics = .shared
+    nonisolated(unsafe) static var errorReporting: ErrorReporting = .shared
     private nonisolated(unsafe) static var language: String?
     private nonisolated(unsafe) static var account: String?
 
@@ -32,6 +38,9 @@ enum AppAnalytics {
     }
 
     static func setCollectionEnabled(_ enabled: Bool) {
+        // PostHog·Sentry 는 키가 없으면 아무 일도 하지 않는다. OFF 면 시작하지 않거나 멈춘다 (MZ2AZ-527).
+        posthog.sync()
+        errorReporting.sync()
         // OFF로 시작하면 SDK 초기화 자체를 미룬다. 첫 자동 이벤트보다 저장한 선택이 먼저다.
         if enabled, FirebaseApp.app() == nil,
            Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil
@@ -50,6 +59,8 @@ enum AppAnalytics {
     static func log(_ event: AppEvent) {
         guard UsageStatistics.shared.isEnabled else { return }
         sink.log(event)
+        // 같은 이름·매개변수로 (MZ2AZ-527).
+        posthog.log(event)
         MetaAnalytics.shared.log(event)
     }
 

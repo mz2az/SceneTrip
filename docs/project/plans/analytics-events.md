@@ -77,6 +77,15 @@ flowchart LR
 - 분석 수집 자체는 개인정보 처리방침에 적어야 한다(수집 항목: 앱 사용 기록, 기기·OS 정보, 대략적 지역 — Firebase 가 IP 로 추정). 볼트 `(9주차) 08_앱이 다루는 개인정보` 참고
 - 단위 시험 `AppEventTests.testNoPersonalDataInParameters` 가 매개변수 이름을 지킨다
 
+### PostHog·Sentry (iOS, MZ2AZ-527)
+
+iOS 의 `AppAnalytics.log` 는 위 표의 이벤트를 Firebase 와 **PostHog 둘 다로**, 같은 이름·같은 매개변수로 보낸다
+(웹과 같은 PostHog 프로젝트 701967). PostHog 의 자동 수집(앱 생명주기·화면·누름·화난 연타·요소 글자·푸시)·swizzling·화면 녹화·설문은 끄고 IDFA 를 쓰지 않는다.
+SDK 가 스스로 만드는 이벤트는 없다 — 다만 SDK 기본 속성(기기·OS·앱 버전·세션 id 등)은 우리 이벤트에 붙는다.
+오류 추적 Sentry 는 충돌·오류만 보낸다(개인정보 기본 전송·성능 추적·브레드크럼 끔). 둘 다 키가 없으면 불리지 않고,
+이용 통계 스위치를 따른다 — 구현은 `apps/scenetrip-ios/src/Analytics/ProductAnalytics.swift`·`ErrorReporting.swift`,
+계획은 [iOS 1.0.1 §3](ios-1.0.1.md). Android 는 아직 Firebase 만이다.
+
 ### 우리 서버의 인기도 기록 (iOS, MZ2AZ-408)
 
 Firebase와 별개인 생성 `POST /events`로 실제 상세 열기와 확정한 검색을 보낸다.

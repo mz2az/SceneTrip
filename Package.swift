@@ -25,5 +25,11 @@ let package = Package(
         .package(url: "https://github.com/firebase/firebase-ios-sdk.git", from: "12.0.0"),
         // 메타 광고 측정 (MZ2AZ-391). Core 제품만 사용하고 ATT 허용 전에는 초기화하지 않는다.
         .package(url: "https://github.com/facebook/facebook-ios-sdk.git", exact: "18.1.1"),
+        // 오류 추적 (MZ2AZ-527). 충돌·오류만 — 성능 추적·화면 녹화는 켜지 않는다. `Sentry` 제품은
+        // binaryTarget(xcframework) 래퍼라 네이버 지도와 같은 길로 Bazel 이 받는다.
+        .package(url: "https://github.com/getsentry/sentry-cocoa.git", exact: "9.30.1"),
+        // 사용 분석 (MZ2AZ-527). 웹과 같은 PostHog 프로젝트로 Firebase 와 같은 이벤트를 보낸다.
+        // 자동 수집·화면 녹화·IDFA 없이 쓴다.
+        .package(url: "https://github.com/PostHog/posthog-ios.git", exact: "3.90.2"),
     ]
 )
