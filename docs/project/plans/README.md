@@ -5,6 +5,7 @@
 | 문서 | 대상 |
 | --- | --- |
 | [ios-1.0.1.md](ios-1.0.1.md) | iOS 1.0.1 — 웹에 먼저 들어간 첫 실행·비회원 설치 번호·오늘의 성지·참고자료 접기·Sentry·PostHog 따라잡기와 출시 (MZ2AZ-525) |
+| [web-place-directions.md](web-place-directions.md) | 웹 촬영지 상세 「길찾기」 — 한 곳짜리 코스를 만들어 바로 여행 모드, 비회원은 로그인 뒤 이어서 (MZ2AZ-532, DEV 실험) |
 | [web-release.md](web-release.md) | 웹앱(`apps/scenetrip-web`) 출시 — Cloudflare Pages, CORS 요청서, 소셜 로그인 웹 설정, GA4, 처리방침 초안 |
 | [metabase-prd.md](metabase-prd.md) | PRD 데이터 보기 — EKS 안 Metabase, `analytics` 뷰만 읽는 계정, Cloudflare Access(계획, ADR 0027 제안) |
 | [place-photo-credit.md](place-photo-credit.md) | 촬영지 사진에 출처·이용 조건 — `place_image` 세 칸, 주소 열쇠 TSV, 앱 수정 없음, 60 곳 150 장(MZ2AZ-514, 로컬 적용) |

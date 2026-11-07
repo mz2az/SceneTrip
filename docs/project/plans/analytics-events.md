@@ -148,3 +148,11 @@ DebugView 수신과 기기 로그(「Logging event」, 업로드 204)로 확인�
 ## 9. 웹 구현 메모
 
 웹앱(`apps/scenetrip-web`)도 §3 의 이벤트 26개를 같은 이름·같은 매개변수로 보낸다. 구현은 `apps/scenetrip-web/src/analytics/`, 호출 위치와 켜는 조건은 [웹앱 계획 §12](../web-app.md) 에 있다. 측정 ID 가 비어 있으면 아무것도 보내지 않으며(`VITE_GA_MEASUREMENT_ID`), 웹의 이용 통계 설정이 꺼져 있어도 보내지 않는다. 웹 데이터 스트림은 아직 만들지 않았다.
+
+### 웹 전용 이벤트
+
+iOS·Android 에는 아직 없다. 실험이 끝나 두 앱에 옮기면 §3 표로 올린다.
+
+| 이벤트 | 언제 | 매개변수 | 구현(웹) |
+| --- | --- | --- | --- |
+| `start_directions` | 촬영지 상세의 「길찾기」를 눌렀다(MZ2AZ-532 DEV 실험 — [계획](web-place-directions.md)). 로그인 전이어도 누른 그때 한 번 센다. 진행 중 겹친 누름·로그인 뒤 이어 가기는 세지 않는다. 실제 안내 시작은 `start_trip` 이, 코스 생성은 `create_course`(`course_origin=self`, `place_count=1`)가 따로 센다 | `source` = `place_detail`, `signed_in`(1·0 — 참/거짓은 1·0 규칙) | `features/route/placeDirections.ts` |
