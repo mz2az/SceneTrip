@@ -34,9 +34,9 @@ export function useCities(): { cities: readonly HomeCity[]; loading: boolean; fa
 export const cityByKey = (cities: readonly HomeCity[], key: string | null | undefined) => cities.find((c) => c.key === key) ?? null
 
 /** 시안 표시 — 껍데기 화면이라는 것을 헷갈리지 않게. */
-export function MockBadge({ label = say('시안', 'Prototype') }: { label?: string }) {
+export function MockBadge({ label = say('시안', 'Prototype'), onPhoto }: { label?: string; onPhoto?: boolean }) {
   return (
-    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'rgba(255,149,0,0.15)', color: 'rgb(200,110,0)', letterSpacing: 0.3 }}>
+    <span style={{ flex: 'none', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: onPhoto ? 'rgb(255,149,0)' : 'rgba(255,149,0,0.15)', color: onPhoto ? '#fff' : 'rgb(200,110,0)', letterSpacing: 0.3 }}>
       {label}
     </span>
   )
@@ -113,7 +113,7 @@ export function ProtoScreen({ title, onBack, children, footer, step, hero }: {
       <Spacer />
       {step && <StepDots at={step[0]} of={step[1]} onPhoto={!!hero} />}
       <Spacer />
-      <MockBadge />
+      <MockBadge onPhoto={!!hero} />
     </HStack>
   )
   return (
@@ -275,12 +275,8 @@ export function CityPicker({ city, days, onBack, onCreated }: {
   )
 }
 
-/**
- * 첫 질문 화면의 사진 머리 — 큰 도시들의 대표 촬영지 사진이 4초마다 천천히 겹쳐 바뀐다. 아래쪽은 화면 바탕색으로 녹아들어
- * 도시 칸과 이어진다. 사진마다 어디인지(도시 · 촬영지 · 작품) 작게 적는다 — 「예쁜 그림」 이 아니라 실제로 갈 수 있는 곳이라는 것.
- * 움직임 줄이기 설정이면 첫 사진에 멈춘다.
- */
-export function CityHero({ cities, children }: { cities: readonly HomeCity[]; children: ReactNode }) {
+/** 큰 도시들의 대표 촬영지 사진을 4초마다 넘긴다. 움직임 줄이기 설정이면 첫 장에 멈춘다. */
+export function useCitySlides(cities: readonly HomeCity[]) {
   const slides = cities
     .slice(0, 6)
     .map((c) => ({ city: c.name, place: c.places.find(hasPhoto) }))
@@ -291,9 +287,13 @@ export function CityHero({ cities, children }: { cities: readonly HomeCity[]; ch
     const t = setInterval(() => setAt((i) => (i + 1) % slides.length), 4000)
     return () => clearInterval(t)
   }, [slides.length])
-  const now = slides[at % Math.max(1, slides.length)]
+  return { slides, at, now: slides[at % Math.max(1, slides.length)] }
+}
+
+/** 겹쳐 바뀌는 사진들 — 부모가 position: relative 여야 한다. */
+export function SlideImages({ slides, at }: { slides: ReadonlyArray<{ place: PlaceSummary }>; at: number }) {
   return (
-    <div style={{ position: 'relative', height: 'min(46vh, 390px)', minHeight: 300, overflow: 'hidden', background: 'var(--pin-gradient)' }}>
+    <>
       {slides.map((s, i) => (
         <img
           key={s.place.id}
@@ -306,6 +306,20 @@ export function CityHero({ cities, children }: { cities: readonly HomeCity[]; ch
           }}
         />
       ))}
+    </>
+  )
+}
+
+/**
+ * 첫 질문 화면의 사진 머리 — 큰 도시들의 대표 촬영지 사진이 4초마다 천천히 겹쳐 바뀐다. 아래쪽은 화면 바탕색으로 녹아들어
+ * 도시 칸과 이어진다. 사진마다 어디인지(도시 · 촬영지 · 작품) 작게 적는다 — 「예쁜 그림」 이 아니라 실제로 갈 수 있는 곳이라는 것.
+ * 움직임 줄이기 설정이면 첫 사진에 멈춘다.
+ */
+export function CityHero({ cities, children }: { cities: readonly HomeCity[]; children: ReactNode }) {
+  const { slides, at, now } = useCitySlides(cities)
+  return (
+    <div style={{ position: 'relative', height: 'min(46vh, 390px)', minHeight: 300, overflow: 'hidden', background: 'var(--pin-gradient)' }}>
+      <SlideImages slides={slides} at={at} />
       {/* 위는 상태줄·단추가 읽히게 살짝, 아래는 글자가 읽히고 바탕색으로 이어지게 진하게. */}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0.15) 52%, rgba(0,0,0,0.7) 82%, var(--grouped-background) 100%)' }} />
       <div style={{ position: 'absolute', left: 20, right: 20, bottom: 34 }}>{children}</div>

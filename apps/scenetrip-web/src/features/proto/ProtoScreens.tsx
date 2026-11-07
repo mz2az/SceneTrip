@@ -15,7 +15,7 @@ import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { mockPlanCityTrip, nearestUnused } from './mockPlan'
 import {
-  ASK_CITIES, ChoiceRow, CityGrid, CityHero, CityPicker, DAY_OPTIONS, MockBadge, PrimaryButton, ProtoScreen, SecondaryButton, SpotRow, cityByKey, daysLabel,
+  ASK_CITIES, ChoiceRow, CityGrid, CityHero, SlideImages, useCitySlides, CityPicker, DAY_OPTIONS, MockBadge, PrimaryButton, ProtoScreen, SecondaryButton, SpotRow, cityByKey, daysLabel,
   saveCourse, useCities,
 } from './protoParts'
 import { type Pace, type Proto, protoActions, protoStore, say, tripLength } from './protoState'
@@ -26,27 +26,44 @@ type PlaceSummary = components['schemas']['PlaceSummary']
 
 export function AskCard() {
   const { cities } = useCities()
+  const { slides, at, now } = useCitySlides(cities)
   return (
-    <VStack spacing={12} align="stretch" style={{ margin: '0 20px', padding: 18, ...homeCard(20), background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--system-background)), var(--system-background))' }}>
-      <HStack spacing={8}>
-        <Txt size={20} weight="heavy">{say('어디로 여행 가세요?', 'Where are you traveling?')}</Txt>
-        <Spacer />
-        <MockBadge />
-      </HStack>
-      <Txt size={14} color="secondary">{say('도시를 고르면 그곳의 드라마·영화 촬영지를 골라 담고, 동선대로 코스를 만들어 드려요', "Pick a city, add the K-drama spots you like, and we'll build the route")}</Txt>
-      <div className="scroll-x" style={{ margin: '0 -18px' }}>
-        <HStack spacing={8} style={{ padding: '2px 18px', width: 'max-content' }}>
-          {cities.slice(0, ASK_CITIES).map((c) => (
-            <Pressable key={c.key} plain onClick={() => protoActions.pick(c.key)} style={{ flex: 'none', padding: '9px 14px', borderRadius: 999, background: 'var(--accent)' }}>
-              <HStack spacing={5}>
-                <Txt size={15} weight="semibold" color="white">{c.name}</Txt>
-                <Txt size={12} color="white" style={{ opacity: 0.8 }}>{c.places.length}</Txt>
-              </HStack>
-            </Pressable>
-          ))}
+    // 사진 카드 — 도시 대표 촬영지 사진이 천천히 바뀌고, 그 위에 흰 글씨와 반투명 도시 단추. 사진을 못 받으면 앱의 보라·하늘 그라데이션.
+    <div style={{ position: 'relative', margin: '0 20px', borderRadius: 22, overflow: 'hidden', minHeight: 200, background: 'var(--pin-gradient)', boxShadow: 'var(--card-shadow)' }}>
+      <SlideImages slides={slides} at={at} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.25) 40%, rgba(0,0,0,0.72) 100%)' }} />
+      <VStack spacing={10} align="stretch" style={{ position: 'relative', padding: '16px 18px 18px', minHeight: 200, justifyContent: 'flex-end' }}>
+        <HStack spacing={8}>
+          {now && (
+            <Txt size={11} weight="semibold" color="white" lines={1} style={{ opacity: 0.85, minWidth: 0, textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
+              {now.city} · {now.place.name}
+            </Txt>
+          )}
+          <Spacer />
+          <MockBadge onPhoto />
         </HStack>
-      </div>
-    </VStack>
+        <div style={{ flex: 1, minHeight: 36 }} />
+        <Txt size={24} weight="heavy" color="white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>{say('어디로 여행 가세요?', 'Where are you traveling?')}</Txt>
+        <Txt size={14} color="white" style={{ opacity: 0.9, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('도시를 고르면 그곳 드라마·영화 촬영지로 코스를 만들어 드려요', "Pick a city — we'll build a route through its K\u2011drama spots")}</Txt>
+        <div className="scroll-x" style={{ margin: '2px -18px 0' }}>
+          <HStack spacing={8} style={{ padding: '2px 18px', width: 'max-content' }}>
+            {cities.slice(0, ASK_CITIES).map((c) => (
+              <Pressable
+                key={c.key}
+                plain
+                onClick={() => protoActions.pick(c.key)}
+                style={{ flex: 'none', minHeight: 40, padding: '8px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+              >
+                <HStack spacing={5}>
+                  <Txt size={15} weight="semibold" color="white">{c.name}</Txt>
+                  <Txt size={12} color="white" style={{ opacity: 0.8 }}>{c.places.length}</Txt>
+                </HStack>
+              </Pressable>
+            ))}
+          </HStack>
+        </div>
+      </VStack>
+    </div>
   )
 }
 
