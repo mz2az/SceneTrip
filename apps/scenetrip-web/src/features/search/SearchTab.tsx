@@ -34,7 +34,7 @@ const TAB_BAR = 56
 const SHEET_TOTAL_RATIO = 910.4 / 874
 
 export function SearchTab({ active }: { active: boolean }) {
-  const t = useSearchTab()
+  const t = useSearchTab(active)
   const likes = useLikes()
   const root = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState(0)

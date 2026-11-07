@@ -24,14 +24,17 @@ export interface Pending {
   tripStart: boolean
   /** 경로여정이 띄워 줘야 할 일정짜기 마법사. */
   planner: boolean
+  /** 작품검색 탭이 「현 지도 내 성지 검색」으로 보여 줘야 할 범위(`minLng,minLat,maxLng,maxLat`) — 홈 「도시의 성지」의 「지도에서 보기」(MZ2AZ-531). */
+  region: string | null
 }
 
-export const pendingStore = createStore<Pending>({ content: null, place: null, courseId: null, tripStart: false, planner: false })
+const EMPTY: Pending = { content: null, place: null, courseId: null, tripStart: false, planner: false, region: null }
+
+export const pendingStore = createStore<Pending>({ ...EMPTY })
 
 export function consumePending<K extends keyof Pending>(key: K): Pending[K] {
   const value = pendingStore.get()[key]
-  const empty: Pending = { content: null, place: null, courseId: null, tripStart: false, planner: false }
-  pendingStore.set((s) => ({ ...s, [key]: empty[key] }))
+  pendingStore.set((s) => ({ ...s, [key]: EMPTY[key] }))
   return value
 }
 
@@ -59,6 +62,11 @@ export function useTabRouter() {
     openPlace: (place: PlaceSummary) => {
       pendingStore.set((s) => ({ ...s, place }))
       navigate(paths.searchPlace(place.id))
+    },
+    /** 작품검색 탭으로 가서 그 범위의 촬영지를 지도에 띄운다(bbox 문자열). */
+    openRegion: (bbox: string) => {
+      pendingStore.set((s) => ({ ...s, region: bbox }))
+      navigate(paths.search)
     },
     navigate,
   }
