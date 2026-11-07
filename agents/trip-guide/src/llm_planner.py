@@ -114,14 +114,23 @@ class PlaceScores:
         return cls(json.loads(src.read_text(encoding="utf-8")).get("scores", {}))
 
     def get(self, title: str, place: Place) -> float:
+        known = norm(title) in self._table
         rows = self._table.get(norm(title), {})
         hit = rows.get(norm(place.name))
         if hit is not None:
             return hit[0]
         if not place.has_coords():
             return 0.0
+        # **작품명이 표에 없으면 모든 작품의 행에서 좌표로 찾는다.** 표는 한국어 작품명·장소명이라
+        # 앱 언어로 읽은 「Do Gae-bi」 는 작품부터 못 찾는다(docs/design/request-language.md §3).
+        # 아는 작품이면 지금처럼 그 작품 안에서만 — 다른 작품의 점수를 빌리지 않는다.
+        candidates = (
+            rows.values()
+            if known
+            else (row for table in self._table.values() for row in table.values())
+        )
         best: tuple[float, float] | None = None
-        for score, lat, lng in rows.values():
+        for score, lat, lng in candidates:
             if lat is None or lng is None:
                 continue
             d = haversine_m(place.lat, place.lng, lat, lng)
@@ -178,7 +187,13 @@ def location(address: str) -> str:
     """주소의 앞 두 마디 — 「강원 강릉시」 · 「서울 종로구」.
 
     모델에게 「대략 어디인가」 를 사람이 읽는 말로 준다. 묶거나 나누지 않는다.
+
+    **영어 주소는 순서가 거꾸로다** — 「121 Jahamun-ro, Jongno-gu, Seoul」. 쉼표로 나뉜 주소는
+    뒤 두 마디를 거꾸로 붙인다 → 「Seoul Jongno-gu」 (docs/design/request-language.md §3).
     """
+    if "," in (address or ""):
+        tail = [p.strip() for p in address.split(",") if p.strip()][-2:]
+        return " ".join(reversed(tail))
     parts = (address or "").split()[:2]
     if parts:
         parts[0] = _PROVINCE.get(parts[0], parts[0])

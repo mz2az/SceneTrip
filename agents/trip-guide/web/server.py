@@ -35,6 +35,7 @@ from src.planner import (
     PlanRequest,
     plan_to_api,
 )
+from src.production import request_lang
 from src.sceneapi import SceneApiError
 from src.session import Anchor, Session
 from src.tools import ARG_WORDS
@@ -199,6 +200,12 @@ class Handler(BaseHTTPRequestHandler):
         return self.rfile.read(length)
 
     def do_POST(self) -> None:
+        # 앱 언어로 장소 이름·주소를 받는다 — scene-api 가 `Accept-Language` 로 넘긴 값을 이 턴의
+        # scene-api 읽기에 싣는다(docs/design/request-language.md). 헤더가 없으면 창구의 언어.
+        with request_lang(self.headers.get("Accept-Language")):
+            self._post()
+
+    def _post(self) -> None:
         try:
             body = json.loads(self._read_body().decode("utf-8") or "{}")
         except (json.JSONDecodeError, ValueError):

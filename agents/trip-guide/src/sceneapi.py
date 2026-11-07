@@ -18,7 +18,7 @@ import urllib.request
 from typing import Any
 
 from .places import Place, PlaceSource, Scene, norm
-from .production import remaining_timeout, service_headers
+from .production import current_lang, remaining_timeout, service_headers
 from .tracing import span, traceparent
 
 
@@ -57,7 +57,9 @@ class SceneApiPlaceBook(PlaceSource):
             request = urllib.request.Request(
                 url,
                 headers={
-                    "Accept-Language": self.lang,
+                    # 요청 언어가 있으면 그것이 먼저다 — 앱 언어로 이름·주소를 받는다
+                    # (docs/design/request-language.md). CLI·개발 서버는 창구의 언어.
+                    "Accept-Language": current_lang() or self.lang,
                     **service_headers(),
                     **traceparent(),
                 },
