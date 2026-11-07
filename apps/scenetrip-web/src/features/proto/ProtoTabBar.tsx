@@ -14,62 +14,9 @@ const TABS: ReadonlyArray<{ id: TabId; label: () => string }> = [
   { id: 'community', label: () => tr('커뮤니티') },
 ]
 
-/**
- * 해태 얼굴을 납작한 아이콘으로 — 구름 갈기(연하게) · 뿔 · 귀 · 얼굴(진하게) · 눈과 웃는 입(뚫음). 한 색(currentColor)이라 탭 색을 그대로 따른다.
- * 원본 그림: public/generated/haetae-face.png.
- */
-function HaetaeGlyph({ size = 24, color }: { size?: number; color: string }) {
-  const mane = [0, 45, 90, 135, 180, 225, 270, 315].map((deg) => {
-    const r = (deg * Math.PI) / 180
-    return { cx: 12 + Math.cos(r) * 7.2, cy: 14 + Math.sin(r) * 6.6 }
-  })
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden style={{ color, display: 'block' }}>
-      <defs>
-        <mask id="haetae-face-cut">
-          <rect width="24" height="24" fill="#fff" />
-          <circle cx="9.3" cy="13.6" r="1.25" fill="#000" />
-          <circle cx="14.7" cy="13.6" r="1.25" fill="#000" />
-          <path d="M9.6 16.2 Q12 18.9 14.4 16.2 Z" fill="#000" />
-        </mask>
-      </defs>
-      {/* 구름 갈기 */}
-      <g fill="currentColor" opacity="0.38">
-        <ellipse cx="12" cy="14" rx="8.4" ry="7.6" />
-        {mane.map((m, i) => <circle key={i} cx={m.cx} cy={m.cy} r="3" />)}
-      </g>
-      {/* 뿔·귀 */}
-      <path d="M12 1.6 L13.6 6 L10.4 6 Z" fill="currentColor" />
-      <path d="M5.6 6.4 L9 8.6 L6.2 10.6 Z" fill="currentColor" />
-      <path d="M18.4 6.4 L15 8.6 L17.8 10.6 Z" fill="currentColor" />
-      {/* 얼굴 */}
-      <ellipse cx="12" cy="14.4" rx="6.1" ry="5.6" fill="currentColor" mask="url(#haetae-face-cut)" />
-    </svg>
-  )
-}
-
-/**
- * 고르지 않은 홈 — 옆 탭의 선 아이콘(지도·말풍선)과 같은 굵기의 선 해태: 둥근 갈기 테두리 · 뿔 · 귀 · 눈 · 웃는 입.
- * 고른 홈은 채운 해태(HaetaeGlyph). 선 ↔ 채움으로 「지금 여기」 를 말하는 흔한 탭 규칙을 따른다.
- */
-function HaetaeLine({ size = 24, color }: { size?: number; color: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ color, display: 'block' }}>
-      {/* 구름 갈기 — 물결 테두리 */}
-      <path d="M12 5.4c1.3-1 3.1-.6 3.8.8 1.5-.3 2.9.9 2.8 2.4 1.3.6 1.8 2.2 1.1 3.4.8 1.2.4 2.9-.9 3.5.2 1.5-1 2.8-2.5 2.7-.6 1.3-2.2 1.9-3.5 1.2-.9 1-2.7 1-3.6 0-1.3.7-2.9.1-3.5-1.2-1.5.1-2.7-1.2-2.5-2.7-1.3-.6-1.7-2.3-.9-3.5-.7-1.2-.2-2.8 1.1-3.4-.1-1.5 1.3-2.7 2.8-2.4.7-1.4 2.5-1.8 3.8-.8Z" />
-      {/* 뿔 */}
-      <path d="M12 1.8 12.9 4.6 11.1 4.6Z" fill="currentColor" />
-      {/* 눈·입 */}
-      <circle cx="9.6" cy="12.6" r="0.9" fill="currentColor" stroke="none" />
-      <circle cx="14.4" cy="12.6" r="0.9" fill="currentColor" stroke="none" />
-      <path d="M10 15.3c1.1 1.2 2.9 1.2 4 0" />
-    </svg>
-  )
-}
-
 function TabIcon({ id, on }: { id: TabId; on: boolean }) {
   const color = on ? 'white' : 'var(--label-secondary)'
-  if (id === 'home') return on ? <HaetaeGlyph size={24} color="#fff" /> : <HaetaeLine size={23} color="var(--label-secondary)" />
+  if (id === 'home') return <img src="/generated/haetae-face.png" alt="" width={26} height={22} style={{ objectFit: 'contain', filter: on ? 'none' : 'grayscale(0.6) opacity(0.8)' }} />
   return <Icon name={id === 'search' ? 'map' : 'bubble.left.and.bubble.right'} size={20} color={color} />
 }
 
