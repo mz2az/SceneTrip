@@ -374,7 +374,8 @@ final class RouteStore: ObservableObject {
                 from: reply.plan,
                 title: title(for: workIds, span: span),
                 startDate: startDate,
-                pace: pace
+                pace: pace,
+                places: RouteGuidePlan.placeLookup(places)
             ))
         } catch {
             return .failure(RouteGuideFailure(error))

@@ -5,7 +5,7 @@
  * 답이 `plan.draft|revise|move` 로 새 초안을 주면 `revising` 이 편집 사본을 **갈아 끼운다**: 같은 대상(촬영지·편의시설·핀)이 정확히 하나씩 대응하면
  * 서버 항목 번호·방문 상태를 이어받고, 숨김·폐업 표시는 같은 대상의 모든 줄에 이어받는다. 이름·좌표로 id 를 복원하지 않는다.
  */
-import { type GuidePlan, courseFromPlan } from '../draft'
+import { type GuidePlan, type PlaceLookup, courseFromPlan } from '../draft'
 import { type RouteCourse, type RouteStop, placeIdOf, poiIdOf, savablePlaceId } from '../models'
 
 type GuidePlanStop = GuidePlan['days'][number]['stops'][number]
@@ -58,9 +58,12 @@ function groupByKey(stops: readonly RouteStop[]): Map<string, RouteStop[]> {
   return groups
 }
 
-/** 챗봇이 준 새 초안으로 편집 사본을 갈아 끼운다. 제목·시작일·속도·서버 id·여행 중 상태는 원래 것을 둔다. */
-export function revising(original: RouteCourse, plan: GuidePlan): RouteCourse {
-  const next = courseFromPlan(plan, { title: original.title, startDate: original.startDate, pace: original.pace })
+/**
+ * 챗봇이 준 새 초안으로 편집 사본을 갈아 끼운다. 제목·시작일·속도·서버 id·여행 중 상태는 원래 것을 둔다.
+ * 촬영지 줄의 이름·주소는 `places`(받아 둔 장소 목록, 앱 언어) → 대응한 앞 줄 → 초안 순이다(MZ2AZ-530).
+ */
+export function revising(original: RouteCourse, plan: GuidePlan, places?: PlaceLookup): RouteCourse {
+  const next = courseFromPlan(plan, { title: original.title, startDate: original.startDate, pace: original.pace, places })
   const oldStops = groupByKey(original.days.flatMap((d) => d.stops))
   const newStops = groupByKey(next.days.flatMap((d) => d.stops))
   const unavailable = new Map<string, NonNullable<RouteStop['unavailable']>>()
@@ -87,7 +90,10 @@ export function revising(original: RouteCourse, plan: GuidePlan): RouteCourse {
             ...merged,
             serverItemId: previous.serverItemId,
             visited: previous.visited,
-            place: { ...merged.place, type: previous.place.type },
+            // 촬영지 이름·주소는 목록(앱 언어) → 앞 줄 → 초안 순이다(MZ2AZ-530). 앞 줄도 한국어 초안이었을 수 있어 목록이 먼저다.
+            place: key.startsWith('place:') && !places?.has(placeIdOf(stop) ?? -1)
+              ? { ...merged.place, type: previous.place.type, name: previous.place.name, address: previous.place.address }
+              : { ...merged.place, type: previous.place.type },
             poiText: previous.poiText,
           }
         }
