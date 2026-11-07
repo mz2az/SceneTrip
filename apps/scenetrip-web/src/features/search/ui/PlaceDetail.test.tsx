@@ -12,7 +12,9 @@ vi.hoisted(() => {
   env.VITE_BLOCK_PATHS = ''
 })
 
+import { account } from '@/features/profile/auth/account'
 import { chooseLanguage } from '@/i18n'
+import { clearSession, setSession } from '@/state/auth'
 import type { PlaceDetail as PlaceDetailT, PlaceSummary } from '../sceneData'
 import { PlaceDetail } from './PlaceDetail'
 
@@ -90,5 +92,78 @@ describe('PlaceDetail — 조회 기록', () => {
 
     expect(events).toEqual([viewOf(7), viewOf(8)])
     expect(load.mock.calls.map((c) => c[0])).toEqual([7, 8])
+  })
+})
+
+// ---------------------------------------------------------------- 길찾기 (MZ2AZ-532)
+// 「길찾기」가 큰 주 버튼, 「장바구니에 담기」는 보조. 비회원이 누르면 로그인 시트(이유 문구)를 띄우고 코스를 만들지 않는다.
+
+describe('PlaceDetail — 길찾기', () => {
+  const writes = () =>
+    (vi.mocked(fetch).mock.calls as unknown as Array<[Request]>)
+      .map(([req]) => `${req.method} ${new URL(req.url).pathname}`)
+      .filter((line) => !line.startsWith('GET') && !line.endsWith('/events'))
+
+  afterEach(() => {
+    clearSession()
+    account.actions.closeSignIn()
+  })
+
+  it('「길찾기」가 주 버튼이고 「장바구니에 담기」도 남아 있다', async () => {
+    const load = vi.fn(async (id: number) => detailOf(id))
+    const { getByRole } = render(<PlaceDetail summary={summary(7)} load={load} onBack={() => {}} onOpenTrip={() => {}} />)
+    await settle()
+    const directions = getByRole('button', { name: /길찾기/ })
+    const cart = getByRole('button', { name: /장바구니에 담기/ })
+    expect(directions.getAttribute('data-variant')).toBe('prominent')
+    expect(cart.getAttribute('data-variant')).toBe('bordered')
+    // 문서 순서상 길찾기가 먼저다.
+    expect(directions.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('비회원이 누르면 로그인 시트를 이유 문구와 함께 띄우고 코스를 만들지 않는다', async () => {
+    clearSession()
+    account.actions.start()
+    const opened: number[] = []
+    const load = vi.fn(async (id: number) => detailOf(id))
+    const { getByRole } = render(<PlaceDetail summary={summary(7)} load={load} onBack={() => {}} onOpenTrip={(id) => opened.push(id)} />)
+    await settle()
+    await act(async () => {
+      getByRole('button', { name: /길찾기/ }).click()
+    })
+    await settle()
+    expect(account.store.get().showingSignIn).toBe(true)
+    expect(account.store.get().signInReason).toBe('로그인하면 바로 길안내를 시작해요')
+    expect(writes()).toEqual([])
+    expect(opened).toEqual([])
+  })
+
+  it('로그인한 사람이 누르면 POST /courses → 채우기 → 시작 → 그 코스로 여행을 연다', async () => {
+    setSession({ accessToken: 'a', refreshToken: 'r', accessTokenExpiresIn: 3600 })
+    account.actions.start()
+    const courseDetail = {
+      id: 555, title: '장소 7 가는 길', status: 'active', origin: 'self', pace: 'tight', dayCount: 1, currentDayNo: 1,
+      days: [{ dayNo: 1, totalMinutes: 30, items: [{ id: 1, source: 'place', placeId: 7, name: '장소 7', latitude: 37.5, longitude: 127, dwellMinutes: 30 }] }],
+    }
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const req = input as Request
+      const path = new URL(req.url).pathname
+      if (req.method === 'POST' && path.endsWith('/events')) return new Response(null, { status: 202 })
+      if (req.method === 'POST' && path.endsWith('/courses')) return json(201, { id: 555 })
+      // 채우기(PUT)는 예정(upcoming) 코스를 돌려주고, 시작(progress)이 active 로 바꾼다 — 서버와 같은 순서.
+      if (req.method === 'PUT' && path.endsWith('/courses/555')) return json(200, { ...courseDetail, status: 'upcoming', currentDayNo: null })
+      if (req.method === 'PUT' && path.endsWith('/courses/555/progress')) return json(200, courseDetail)
+      return json(200, { items: [], total: 0, totalCount: 0 })
+    })
+    const opened: number[] = []
+    const load = vi.fn(async (id: number) => detailOf(id))
+    const { getByRole } = render(<PlaceDetail summary={summary(7)} load={load} onBack={() => {}} onOpenTrip={(id) => opened.push(id)} />)
+    await settle()
+    await act(async () => {
+      getByRole('button', { name: /길찾기/ }).click()
+    })
+    await waitFor(() => expect(opened).toEqual([555]))
+    expect(writes()).toEqual(['POST /v1/courses', 'PUT /v1/courses/555', 'PUT /v1/courses/555/progress'])
+    expect(account.store.get().showingSignIn).toBe(false)
   })
 })

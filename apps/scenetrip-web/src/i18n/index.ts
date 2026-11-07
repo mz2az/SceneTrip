@@ -7,15 +7,17 @@
  *      SwiftUI 의 `Text("스탬프 \(a)/\(b)")` 는 열쇠가 "스탬프 %lld/%lld" 이므로 tr("스탬프 %lld/%lld", a, b) 로 쓴다.
  *  - 같은 한국어가 자리에 따라 다른 영어이면 열쇠는 `원문|자리` (trAt).
  *  - 영어 표는 iOS 의 en.lproj/Localizable.strings 에서 `npm run gen` 이 만든다(src/i18n/en.generated.json).
+ *    iOS 에 없는 웹 전용 문구의 영어는 en.web.ts 에 둔다 — 생성표에 같은 열쇠가 있으면 생성표가 이긴다.
  */
 import { useSyncExternalStore } from 'react'
 import enTable from './en.generated.json'
+import { webEnglish } from './en.web'
 
 export type Lang = 'ko' | 'en'
 export const LANG_CHOICES: Lang[] = ['ko', 'en']
 const KEY = 'scenetrip.language'
 
-const en = enTable as Record<string, string>
+const en: Record<string, string> = { ...webEnglish, ...(enTable as Record<string, string>) }
 
 /** 언어 이름은 그 언어로 적는다 (AppLanguage.name(of:)). */
 export function langName(lang: Lang): string {

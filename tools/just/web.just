@@ -29,11 +29,11 @@ web-gen:
 # Bazel 은 소스를 bin 폴더에 복사해 거기서 돌리므로 그 계약과 맞지 않는다. 그래서 이것은 산출물의 정본이 아니라 개발 편의다 —
 # 배포되는 번들·시험·린트의 정본은 web-build·web-test·web-lint 다. 호스트에 Node 22.12 이상이 필요하다(vite 8 의 요구).
 #
-# 웹 개발 서버(http://localhost:5173) — DEV API 를 /v1 로 대신 전달하고 GET 응답을 10분 캐시한다. 호스트 Node·npm 사용(Bazel 밖)
+# 웹 개발 서버(http://localhost:5173) — DEV API 를 /v1 로 대신 전달하고 GET 응답을 10분 캐시한다. 포트를 바꾸려면 `just web-dev 5174`. 호스트 Node·npm 사용(Bazel 밖)
 [group('web')]
-web-dev:
+web-dev port="5173":
     #!/usr/bin/env bash
     set -euo pipefail
     cd apps/scenetrip-web
     [ -d node_modules ] || npm ci
-    exec npm run dev
+    exec npm run dev -- --port {{port}} --strictPort

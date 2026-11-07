@@ -36,6 +36,7 @@ export function ProminentButton({ children, onClick, disabled, style, label }: {
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
+      data-variant="prominent"
       style={{
         minHeight: 34, padding: '0 16px', borderRadius: 999, background: 'var(--accent)', color: '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: disabled ? 0.4 : 1, ...style,
@@ -53,6 +54,7 @@ export function BorderedButton({ children, onClick, disabled, style, label }: { 
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
+      data-variant="bordered"
       style={{
         minHeight: 34, padding: '0 16px', borderRadius: 999, background: 'rgba(120,120,128,0.12)', color: 'var(--accent)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: disabled ? 0.4 : 1, ...style,

@@ -32,6 +32,8 @@ const CANON: Array<[string, AppEvent, string, string[]]> = [
   ['visitStamp', appEvent.visitStamp(4), 'visit_stamp', ['place_id']],
   ['askGuide', appEvent.askGuide(), 'ask_guide', []],
   ['postReview', appEvent.postReview(1, false), 'post_review', ['has_course', 'photo_count']],
+  // 웹 전용(MZ2AZ-532) — 문서 §3 아래 「웹 전용」 표.
+  ['startDirections', appEvent.startDirections('place_detail', true), 'start_directions', ['signed_in', 'source']],
 ]
 
 describe('웹 전용 실험 이벤트 (MZ2AZ-531)', () => {
@@ -44,10 +46,10 @@ describe('웹 전용 실험 이벤트 (MZ2AZ-531)', () => {
 })
 
 describe('이벤트 빌더 — 정본과 같은 이름·매개변수 키', () => {
-  it('26개를 모두 다룬다', () => {
-    expect(CANON).toHaveLength(26)
-    expect(new Set(CANON.map(([, , name]) => name)).size).toBe(26)
-    expect(Object.keys(appEvent)).toHaveLength(26)
+  it('26개 + 웹 전용 1개를 모두 다룬다', () => {
+    expect(CANON).toHaveLength(27)
+    expect(new Set(CANON.map(([, , name]) => name)).size).toBe(27)
+    expect(Object.keys(appEvent)).toHaveLength(27)
   })
   it.each(CANON)('%s', (_label, event, name, keys) => {
     expect(event.name).toBe(name)

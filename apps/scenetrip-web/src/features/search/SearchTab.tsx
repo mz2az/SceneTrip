@@ -5,6 +5,7 @@
  * 시트 안은 목록(SearchList)·작품 상세·촬영지 상세 가운데 하나다.
  */
 import { useEffect, useRef, useState } from 'react'
+import { pendingStore, useTabRouter } from '@/app/tabRouter'
 import { Alert } from '@/design/overlay'
 import { HStack, Pressable, Spinner, Txt, VStack } from '@/design/primitives'
 import { tr } from '@/i18n'
@@ -36,6 +37,12 @@ const SHEET_TOTAL_RATIO = 910.4 / 874
 export function SearchTab({ active }: { active: boolean }) {
   const t = useSearchTab(active)
   const likes = useLikes()
+  const router = useTabRouter()
+  // 촬영지 상세 「길찾기」(MZ2AZ-532) — 홈 「이어서 길찾기」와 같은 길: 코스를 열며 안내를 켠다.
+  const openTrip = (courseId: number) => {
+    pendingStore.set((s) => ({ ...s, tripStart: true }))
+    router.openCourse(courseId)
+  }
   const root = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState(0)
   const [visibleSheet, setVisibleSheet] = useState(0)
@@ -82,6 +89,7 @@ export function SearchTab({ active }: { active: boolean }) {
           sourceContentId={t.selectedContent?.id}
           load={(id) => t.data.detailOfPlace(id)}
           onBack={t.closePlace}
+          onOpenTrip={openTrip}
         />
       )
     }
