@@ -32,8 +32,6 @@ export interface ProtoState {
   forced: boolean
   /** 질문을 이 도시로 시작한다(홈 카드의 도시 단추) — 도시 질문을 건너뛰고 「며칠?」 부터. */
   startCity: string | null
-  /** 시안 코스 화면(하루 일정표)으로 보고 있는 코스의 서버 id. */
-  viewing: number | null
   /** 방금 만든 코스 — 편집 화면 위에 한 줄 안내를 잠깐 띄운다(결정 4). */
   justCreated: { city: string; days: number } | null
   /** 추천 촬영지 목록을 띄운 도시(A·B). */
@@ -75,7 +73,7 @@ const proto = initialProto()
 const trip = readJSON<ProtoTrip | null>(TRIP_KEY, null)
 
 // 처음 온 사람도 질문 화면 대신 홈(사진 카드 + 떠 있는 여행 계획 줄)을 먼저 본다(사용자 결정 2026-11-07). 질문은 사람이 열 때만.
-export const protoStore = createStore<ProtoState>({ proto, trip, asking: false, forced: false, startCity: null, picking: null, justCreated: null, viewing: null })
+export const protoStore = createStore<ProtoState>({ proto, trip, asking: false, forced: false, startCity: null, picking: null, justCreated: null })
 const patch = (p: Partial<ProtoState>) => protoStore.set((s) => ({ ...s, ...p }))
 
 export const protoActions = {
@@ -114,7 +112,7 @@ export const protoActions = {
     writeJSON(COURSES_KEY, [])
     writeJSON(TRIP_KEY, null)
     await Promise.all([routeActions.refresh(), reloadHome(), cartActions.refresh()])
-    patch({ trip: null, asking: false, forced: false, startCity: null, picking: null, justCreated: null, viewing: null })
+    patch({ trip: null, asking: false, forced: false, startCity: null, picking: null, justCreated: null })
     return { deleted: results.length - failed.length, failed: failed.length, left: routeStore.get().summaries.length }
   },
   setTrip(next: ProtoTrip | null) {
@@ -125,8 +123,6 @@ export const protoActions = {
   /** 여행 계획 질문을 연다 — 도시를 주면 「며칠?」 부터. */
   plan: (city: string | null = null) => patch({ asking: true, forced: true, startCity: city, picking: null }),
   created: (justCreated: ProtoState['justCreated']) => patch({ justCreated }),
-  /** 시안 코스 화면으로 연다(null 이면 닫는다). */
-  view: (viewing: number | null) => patch({ viewing, picking: null, asking: false }),
   pick: (city: string | null) => patch({ picking: city }),
 }
 

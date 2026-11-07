@@ -20,6 +20,8 @@ import { trAt } from '@/i18n'
 import { useStore } from '@/state/storage'
 import { CourseList } from './CourseList'
 import { ForkSheet } from './ForkSheet'
+import { ProtoCourseList } from '@/features/proto/ProtoCourse'
+import { protoAvailable, protoStore } from '@/features/proto/protoState'
 import { RouteEditor } from './editor/RouteEditor'
 import './editor/tripExtensions'
 import { type RouteCourse, makeCourse, makeDay } from './models'
@@ -101,8 +103,13 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
   }
 
   const shown = opening.editing ?? lastEditing.current
+  const proto = useStore(protoStore, (p) => (protoAvailable ? p.proto : null))
   return (
     <VStack style={{ height: '100%', background: 'var(--grouped-background)', paddingTop: 'var(--safe-top)' }}>
+      {/* 「어디로 가세요?」 시안이 켜져 있으면(로컬 개발 서버 전용) 머리·목록 자리를 사진 카드 목록으로 — docs/project/plans/web-trip-first-prototypes.md. */}
+      {proto !== null ? (
+        <ProtoCourseList onClose={onClose} onNew={() => setFork(true)} onOpen={(c) => void opening.open(c)} />
+      ) : (<>
       <Header onClose={onClose} onAdd={() => setFork(true)} />
       {opening.failedCourse && <DetailLoadError onRetry={() => void opening.retry()} />}
       {courses.length === 0 ? (
@@ -114,6 +121,7 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
       ) : (
         <CourseList courses={courses} busy={opening.isLoading} onOpen={(c) => void opening.open(c)} onDelete={setDoomed} />
       )}
+      </>)}
 
       <GlassDialog
         open={doomed !== null}

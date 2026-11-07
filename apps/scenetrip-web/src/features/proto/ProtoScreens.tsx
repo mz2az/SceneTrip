@@ -5,7 +5,6 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import type { components } from '@/api/generated/schema'
 import { paths } from '@/app/routes'
-import { useLocation } from 'react-router'
 import { useTabRouter } from '@/app/tabRouter'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Spinner, Txt, VStack, homeCard } from '@/design/primitives'
@@ -16,7 +15,6 @@ import { useRouteState } from '@/features/route/store'
 import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { mockPlanCityTrip, nearestUnused } from './mockPlan'
-import { ProtoCourseList, ProtoCourseView } from './ProtoCourse'
 import {
   ASK_CITIES, ChoiceRow, CityGrid, CityHero, SlideImages, useCitySlides, CityPicker, DAY_OPTIONS, MockBadge, PrimaryButton, ProtoScreen, SecondaryButton, SpotRow, cityByKey, daysLabel,
   saveCourse, useCities,
@@ -221,6 +219,7 @@ function HowCard({ primary, icon, title, detail, onClick }: { primary?: boolean;
 // ---------------------------------------------------------------- 「알아서 짜 주세요」 — 코스 초안 미리보기(껍데기 API)
 
 function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days: number; pace: Pace; onBack: () => void }) {
+  const router = useTabRouter()
   const [plan, setPlan] = useState<PlaceSummary[][] | null>(null)
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -262,7 +261,7 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
     protoActions.setTrip({ city: city.key, days, pace, courseId: id })
     protoActions.ask(false)
     protoActions.created({ city: city.name, days })
-    protoActions.view(id)
+    router.openCourse(id)
   }
 
   return (
@@ -318,7 +317,6 @@ function IconButton({ name, label, onClick }: { name: string; label: string; onC
 
 export function ProtoLayer() {
   const router = useTabRouter()
-  const { pathname } = useLocation()
   const state = useStore(protoStore, (s) => s)
   const { cities } = useCities()
 
@@ -330,17 +328,6 @@ export function ProtoLayer() {
   }, [state.justCreated])
 
   if (!state.proto) return null
-
-  const banner = state.justCreated
-  if (state.viewing !== null) {
-    return (
-      <>
-        <ProtoCourseView courseId={state.viewing} onClose={() => protoActions.view(null)} />
-        {banner && <CreatedBanner city={banner.city} days={banner.days} />}
-      </>
-    )
-  }
-  if (pathname === paths.courses) return <ProtoCourseList onClose={() => router.closeCover()} />
 
   if (state.justCreated) return <CreatedBanner city={state.justCreated.city} days={state.justCreated.days} />
 
@@ -357,7 +344,7 @@ export function ProtoLayer() {
           protoActions.setTrip({ city: city.key, days: n, pace: state.trip?.pace ?? 'normal', courseId: id })
           protoActions.pick(null)
           protoActions.created({ city: city.name, days: n })
-          protoActions.view(id)
+          router.openCourse(id)
         }}
       />
     )
@@ -370,7 +357,7 @@ function CreatedBanner({ city, days }: { city: string; days: number }) {
   return (
     <div role="status" style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 64px)', left: 16, right: 16, zIndex: 70, padding: '12px 14px', borderRadius: 14, background: 'var(--accent)', boxShadow: '0 6px 20px rgba(0,0,0,0.18)' }}>
       <Txt size={15} weight="semibold" color="white">
-        {say(`${city} ${daysLabel(days)} 코스가 준비됐어요 — 「고치기」 로 장소를 바꾸거나 순서를 바꾸세요`, `Your ${tripLength(days)} ${city} course is ready — tap “Edit” to change places or reorder`)}
+        {say(`${city} ${daysLabel(days)} 코스가 준비됐어요 — 장소를 눌러 바꾸거나 끌어서 순서를 바꾸세요`, `Your ${tripLength(days)} ${city} course is ready — tap a place to change it, drag to reorder`)}
       </Txt>
     </div>
   )
@@ -445,10 +432,14 @@ export function TripFloatBar() {
   const label = (text: string) => (
     <span style={{ minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 14, fontWeight: 700, color: 'inherit' }}>{text}</span>
   )
-  // 코스는 시안 코스 화면(하루 일정표)으로 연다 — 고치기는 그 화면에서 원래 편집으로.
+  // 코스는 원래 코스 편집 화면으로 연다(사용자 결정 2026-11-07 — 하루 일정표 시안은 뺐다).
   const openCourse = (id: number) => {
     setOpen(false)
-    protoActions.view(id)
+    router.openCourse(id)
+  }
+  const allCourses = () => {
+    setOpen(false)
+    router.openRoute()
   }
   // 「Plan a trip」·「+ 새 코스」 는 원래 앱의 코스 만들기로 — 코스 화면을 열고 「AI 로 짜기 / 직접 짜기」 를 고르게 한다(사용자 요청 2026-11-07).
   const newPlan = () => {
@@ -472,6 +463,14 @@ export function TripFloatBar() {
         <HStack spacing={5}>
           <Icon name="plus" size={14} weight="bold" color="accent" />
           <Txt size={14} weight="bold" color="accent" style={{ whiteSpace: 'nowrap' }}>{say('새 코스', 'New')}</Txt>
+        </HStack>
+      </Pressable>
+    ) },
+    { key: 'all', node: (
+      <Pressable plain onClick={allCourses} style={{ height: 40, padding: '0 14px', borderRadius: 999, background: 'var(--system-background)', boxShadow: soft, flex: 'none' }}>
+        <HStack spacing={5}>
+          <Icon name="list.bullet" size={14} weight="bold" color="accent" />
+          <Txt size={14} weight="bold" color="accent" style={{ whiteSpace: 'nowrap' }}>{say('전체 코스', 'All trips')}</Txt>
         </HStack>
       </Pressable>
     ) },
@@ -542,6 +541,6 @@ export function TripFloatBar() {
 /** 떠 있는 여행 계획 줄을 언제 띄우나 — 시안이 켜져 있고, 홈 탭이고, 덮개·질문·촬영지 목록이 없을 때. */
 export function ProtoHomeBar({ onHome }: { onHome: boolean }) {
   const state = useStore(protoStore, (s) => s)
-  if (!state.proto || !onHome || state.asking || state.picking || state.viewing !== null) return null
+  if (!state.proto || !onHome || state.asking || state.picking ) return null
   return <TripFloatBar />
 }
