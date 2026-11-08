@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -50,7 +51,63 @@ public class PostStore {
       String courseTitle,
       Integer courseDayCount,
       int placeCount,
-      boolean mine) {}
+      boolean mine,
+      String board,
+      int likeCount,
+      int commentCount,
+      boolean liked) {
+
+    /** 게시판·좋아요·댓글이 없던 때의 줄(1.24.0 이전) — 여행후기, 수 0. */
+    public Summary(
+        long id,
+        String title,
+        String excerpt,
+        String nickname,
+        OffsetDateTime createdAt,
+        String coverKey,
+        int photoCount,
+        String courseTitle,
+        Integer courseDayCount,
+        int placeCount,
+        boolean mine) {
+      this(
+          id,
+          title,
+          excerpt,
+          nickname,
+          createdAt,
+          coverKey,
+          photoCount,
+          courseTitle,
+          courseDayCount,
+          placeCount,
+          mine,
+          REVIEW,
+          0,
+          0,
+          false);
+    }
+  }
+
+  /** 게시판 값 — 계약 {@code TripPostBoard}·표의 {@code board}(V44). */
+  public static final String REVIEW = "review";
+
+  /**
+   * 목록 조건(1.24.0, MZ2AZ-538). {@code board} 가 null 이면 게시판을 가리지 않는다(내 글 목록). {@code q} 는 제목·본문 부분
+   * 일치. {@code after} 가 있으면 그 글보다 오래된 것부터(커서) — 그때 {@code offset} 은 0 이다.
+   */
+  public record Query(
+      UUID viewer, UUID author, String board, String q, Cursor after, int limit, int offset) {}
+
+  /** 목록에서 마지막으로 받은 글의 자리 — 같은 순서({@code created_at DESC, id DESC})의 다음부터 읽는다. */
+  public record Cursor(OffsetDateTime createdAt, long id) {}
+
+  /** 커서 목록의 한 쪽 — {@code hasMore} 는 이 다음에 글이 더 있는가. */
+  public record Slice(List<Summary> items, int total, boolean hasMore) {}
+
+  /** 댓글 하나. {@code nickname} 은 작성자의 지금 닉네임. */
+  public record Comment(
+      long id, String body, String nickname, OffsetDateTime createdAt, boolean mine) {}
 
   /** 상세 — 목록 줄에 본문 전체와 사진 키들. */
   public record Detail(
@@ -115,7 +172,16 @@ public class PostStore {
       (SELECT count(*) FROM community_post_photo ph WHERE ph.post_id = p.id)::INT AS photo_count,
       p.course_title, p.course_day_count,
       (SELECT count(*) FROM community_post_item i WHERE i.post_id = p.id)::INT AS place_count,
-      (p.user_id IS NOT NULL AND p.user_id = CAST(:viewer AS UUID)) AS mine
+      (p.user_id IS NOT NULL AND p.user_id = CAST(:viewer AS UUID)) AS mine,
+      p.board,
+      (SELECT count(*) FROM community_post_like l WHERE l.post_id = p.id)::INT AS like_count,
+      (SELECT count(*) FROM community_comment c
+        WHERE c.post_id = p.id AND c.removed_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM user_block ub
+                          WHERE ub.blocker_id = CAST(:viewer AS UUID) AND ub.blocked_id = c.user_id))::INT
+          AS comment_count,
+      EXISTS (SELECT 1 FROM community_post_like l
+              WHERE l.post_id = p.id AND l.user_id = CAST(:viewer AS UUID)) AS liked
       """
           .formatted(EXCERPT);
 
@@ -283,33 +349,69 @@ public class PostStore {
         });
   }
 
-  /** 목록, 최신순. {@code author} 가 있으면 그 사람의 글만. */
+  /**
+   * 목록, 최신순. {@code author} 가 있으면 그 사람의 글만(게시판 가리지 않음). 모두의 목록은 여행후기만 — 게시판을 모르는 옛 앱에 자유게시판 글이 섞이지
+   * 않게(1.24.0).
+   */
   public Page<Summary> list(UUID viewer, UUID author, int limit, int offset) {
-    // 보는 사람이 차단한 작성자의 글은 뺀다(MZ2AZ-438). 보는 사람이 없으면 아무것도 빼지 않는다.
+    Slice slice =
+        list(new Query(viewer, author, author == null ? REVIEW : null, null, null, limit, offset));
+    return new Page<>(slice.items(), slice.total());
+  }
+
+  /** 목록 — 게시판·검색어·커서(1.24.0). 한 줄 더 읽어 다음이 있는지 안다. */
+  public Slice list(Query query) {
     String where =
         "p.removed_at IS NULL AND "
             + BlockStore.NOT_BLOCKED.formatted("p.user_id")
-            + (author == null ? "" : " AND p.user_id = CAST(:author AS UUID)");
+            + (query.author() == null ? "" : " AND p.user_id = CAST(:author AS UUID)")
+            + (query.board() == null ? "" : " AND p.board = :board")
+            // 검색어는 LIKE 무늬가 아니라 글자 그대로 찾는다(position) — 사용자가 % · _ 를 넣어도 무늬가 되지 않는다.
+            + (query.q() == null
+                ? ""
+                : " AND (position(lower(:q) in lower(p.title)) > 0"
+                    + " OR position(lower(:q) in lower(p.body)) > 0)");
+    String after =
+        query.after() == null
+            ? ""
+            : " AND (p.created_at, p.id) < (CAST(:afterAt AS TIMESTAMPTZ), :afterId)";
     var listQuery =
         jdbc.sql(
                 "SELECT "
                     + SUMMARY_COLUMNS
                     + " FROM community_post p LEFT JOIN app_user u ON u.id = p.user_id WHERE "
                     + where
+                    + after
                     + " ORDER BY p.created_at DESC, p.id DESC LIMIT :limit OFFSET :offset")
-            .param("viewer", viewer == null ? null : viewer.toString())
-            .param("limit", limit)
-            .param("offset", offset);
+            .param("viewer", query.viewer() == null ? null : query.viewer().toString())
+            .param("limit", query.limit() + 1)
+            .param("offset", query.offset());
     var countQuery =
         jdbc.sql("SELECT count(*) FROM community_post p WHERE " + where)
-            .param("viewer", viewer == null ? null : viewer.toString());
-    if (author != null) {
-      listQuery = listQuery.param("author", author.toString());
-      countQuery = countQuery.param("author", author.toString());
+            .param("viewer", query.viewer() == null ? null : query.viewer().toString());
+    if (query.author() != null) {
+      listQuery = listQuery.param("author", query.author().toString());
+      countQuery = countQuery.param("author", query.author().toString());
     }
-    List<Summary> items = listQuery.query(PostStore::mapSummary).list();
+    if (query.board() != null) {
+      listQuery = listQuery.param("board", query.board());
+      countQuery = countQuery.param("board", query.board());
+    }
+    if (query.q() != null) {
+      listQuery = listQuery.param("q", query.q());
+      countQuery = countQuery.param("q", query.q());
+    }
+    if (query.after() != null) {
+      listQuery =
+          listQuery
+              .param("afterAt", query.after().createdAt())
+              .param("afterId", query.after().id());
+    }
+    List<Summary> rows = listQuery.query(PostStore::mapSummary).list();
+    boolean hasMore = rows.size() > query.limit();
+    List<Summary> items = hasMore ? rows.subList(0, query.limit()) : rows;
     int total = countQuery.query(Integer.class).single();
-    return new Page<>(items, total);
+    return new Slice(List.copyOf(items), total, hasMore);
   }
 
   /** 상세. 없거나 내린 글이면 비어 있다. */
@@ -369,6 +471,149 @@ public class PostStore {
                     rs.getString("poi_display_address"),
                     rs.getString("poi_category_label")))
         .list();
+  }
+
+  /**
+   * 글의 게시판을 바꾼다 — 쓰기 직후 자유게시판으로 옮길 때만(1.24.0). 쓰기 자체는 표의 기본값(여행후기)으로 만든다: 쓰기 함수의 인자를 늘리면 그것을 흉내 내는
+   * 시험들이 함께 바뀌어야 해서, 게시판은 한 줄 갱신으로 따로 둔다.
+   */
+  public void setBoard(long postId, String board) {
+    jdbc.sql("UPDATE community_post SET board = :board WHERE id = :id")
+        .param("board", board)
+        .param("id", postId)
+        .update();
+  }
+
+  // ── 좋아요·댓글 (1.24.0, MZ2AZ-538) ──────────────────────────────────────
+
+  /** 이 사람이 볼 수 있는 글인가 — 내려지지 않았고 이 사람이 작성자를 차단하지 않았다. 좋아요·댓글이 「없는 글」(404)을 가르는 기준이다(상세와 같다). */
+  private static final String VISIBLE_POST =
+      "SELECT 1 FROM community_post p WHERE p.id = :postId AND p.removed_at IS NULL AND "
+          + BlockStore.NOT_BLOCKED.formatted("p.user_id");
+
+  private boolean visible(long postId, UUID viewer) {
+    return jdbc.sql(VISIBLE_POST)
+        .param("postId", postId)
+        .param("viewer", viewer == null ? null : viewer.toString())
+        .query(Integer.class)
+        .optional()
+        .isPresent();
+  }
+
+  /** 좋아요. 여러 번 눌러도 하나(멱등). 볼 수 없는 글이면 {@code false}(404). */
+  public boolean like(long postId, UUID user) {
+    return transactions.execute(
+        status -> {
+          if (!visible(postId, user)) {
+            return false;
+          }
+          jdbc.sql(
+                  "INSERT INTO community_post_like (post_id, user_id)"
+                      + " VALUES (:postId, CAST(:user AS UUID)) ON CONFLICT DO NOTHING")
+              .param("postId", postId)
+              .param("user", user.toString())
+              .update();
+          return true;
+        });
+  }
+
+  /** 좋아요 취소. 누르지 않았어도 {@code true}(멱등). 내려지거나 없는 글이면 {@code false}(404). */
+  public boolean unlike(long postId, UUID user) {
+    return transactions.execute(
+        status -> {
+          if (!visible(postId, user)) {
+            return false;
+          }
+          jdbc.sql(
+                  "DELETE FROM community_post_like"
+                      + " WHERE post_id = :postId AND user_id = CAST(:user AS UUID)")
+              .param("postId", postId)
+              .param("user", user.toString())
+              .update();
+          return true;
+        });
+  }
+
+  /** 댓글 — 오래된 순. 보는 사람이 차단한 작성자의 댓글은 뺀다. 볼 수 없는 글이면 비어 있다(404). */
+  public Optional<Page<Comment>> comments(long postId, UUID viewer, int limit, int offset) {
+    if (!visible(postId, viewer)) {
+      return Optional.empty();
+    }
+    String where =
+        "c.post_id = :postId AND c.removed_at IS NULL AND "
+            + BlockStore.NOT_BLOCKED.formatted("c.user_id");
+    String v = viewer == null ? null : viewer.toString();
+    List<Comment> items =
+        jdbc.sql(
+                "SELECT c.id, c.body, u.nickname, c.created_at,"
+                    + " (c.user_id = CAST(:viewer AS UUID)) AS mine"
+                    + " FROM community_comment c LEFT JOIN app_user u ON u.id = c.user_id WHERE "
+                    + where
+                    + " ORDER BY c.created_at, c.id LIMIT :limit OFFSET :offset")
+            .param("postId", postId)
+            .param("viewer", v)
+            .param("limit", limit)
+            .param("offset", offset)
+            .query(PostStore::mapComment)
+            .list();
+    int total =
+        jdbc.sql("SELECT count(*) FROM community_comment c WHERE " + where)
+            .param("postId", postId)
+            .param("viewer", v)
+            .query(Integer.class)
+            .single();
+    return Optional.of(new Page<>(items, total));
+  }
+
+  /** 댓글을 쓴다. 볼 수 없는 글이면 비어 있다(404). 쓰는 사이 탈퇴가 끝났으면 {@link AuthorGoneException}. */
+  public Optional<Comment> addComment(long postId, UUID user, String body) {
+    return transactions.execute(
+        status -> {
+          if (!visible(postId, user)) {
+            return Optional.<Comment>empty();
+          }
+          try {
+            long id =
+                jdbc.sql(
+                        "INSERT INTO community_comment (post_id, user_id, body)"
+                            + " VALUES (:postId, CAST(:user AS UUID), :body) RETURNING id")
+                    .param("postId", postId)
+                    .param("user", user.toString())
+                    .param("body", body)
+                    .query(Long.class)
+                    .single();
+            return jdbc.sql(
+                    "SELECT c.id, c.body, u.nickname, c.created_at, true AS mine"
+                        + " FROM community_comment c LEFT JOIN app_user u ON u.id = c.user_id"
+                        + " WHERE c.id = :id")
+                .param("id", id)
+                .query(PostStore::mapComment)
+                .optional();
+          } catch (DataIntegrityViolationException e) {
+            throw new AuthorGoneException();
+          }
+        });
+  }
+
+  /** 내 댓글을 지운다. 남의 것이거나 없으면 {@code false}(404 — 있다는 것을 알려 주지 않는다). */
+  public boolean deleteComment(long postId, long commentId, UUID user) {
+    return jdbc.sql(
+                "DELETE FROM community_comment"
+                    + " WHERE id = :id AND post_id = :postId AND user_id = CAST(:user AS UUID)")
+            .param("id", commentId)
+            .param("postId", postId)
+            .param("user", user.toString())
+            .update()
+        > 0;
+  }
+
+  private static Comment mapComment(ResultSet rs, int rowNum) throws SQLException {
+    return new Comment(
+        rs.getLong("id"),
+        rs.getString("body"),
+        rs.getString("nickname"),
+        rs.getObject("created_at", OffsetDateTime.class),
+        rs.getBoolean("mine"));
   }
 
   /**
@@ -462,7 +707,11 @@ public class PostStore {
         rs.getString("course_title"),
         day,
         rs.getInt("place_count"),
-        rs.getBoolean("mine"));
+        rs.getBoolean("mine"),
+        rs.getString("board"),
+        rs.getInt("like_count"),
+        rs.getInt("comment_count"),
+        rs.getBoolean("liked"));
   }
 
   private static Long longOrNull(ResultSet rs, String column) throws SQLException {

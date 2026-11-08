@@ -132,7 +132,9 @@ class PlacePoiLinkReviewIntegrationTest {
     link(toHidden, hiddenPlace);
 
     List<PoiSummary> items =
-        pois.listPois(Lang.KO, BBOX, null, null, null, null, null, 200, 0).getBody().getItems();
+        pois.listPois(Lang.KO, BBOX, null, null, null, null, null, null, null, 200, 0)
+            .getBody()
+            .getItems();
 
     assertThat(items).extracting(PoiSummary::getId).contains(linked, unlinked, toHidden);
     assertThat(byId(items, linked).getPlaceId()).isEqualTo(place);

@@ -47,24 +47,42 @@ class PoisController implements PoisApi {
       Double lng,
       Integer radiusMeters,
       PoiCategoryGroup categoryGroup,
+      String q,
       String sort,
+      Integer spreadZoom,
       Integer limit,
       Integer offset) {
 
     PlaceQueryRules.requireCompleteOrigin(lat, lng);
+    String query = searchTerm(q);
     Bbox area = PlaceQueryRules.resolveArea(bbox, radiusMeters);
     boolean hasOrigin = lat != null;
-    if (area == null && !(hasOrigin && radiusMeters != null)) {
+    // 이름 검색이면 영역 없이도 된다(1.23.0) — 「이 지역 밖에서도 찾기」. 걸린 것만 보므로 전국이 대상이어도 줄 세울 수 있다.
+    if (area == null && !(hasOrigin && radiusMeters != null) && query == null) {
       throw ApiException.badRequest(
           "MISSING_AREA_FILTER",
           "bbox 또는 lat·lng+radiusMeters 중 하나는 있어야 합니다 — 전국을 대상으로 돌려줄 정렬 기준이 없습니다");
     }
     PoiStore.Sort order = resolveSort(sort, hasOrigin);
+    if (order == PoiStore.Sort.SPREAD && (area == null || spreadZoom == null)) {
+      throw ApiException.badRequest(
+          "INVALID_PARAMETER", "sort=spread 는 bbox 와 spreadZoom 이 있어야 합니다 — 칸은 화면 기준이다");
+    }
 
     PoiStore.Page page =
         store.list(
             new PoiStore.Criteria(
-                area, lat, lng, radiusMeters, categoryGroup, order, limit, offset, acceptLanguage));
+                area,
+                lat,
+                lng,
+                radiusMeters,
+                categoryGroup,
+                order,
+                limit,
+                offset,
+                acceptLanguage,
+                query,
+                order == PoiStore.Sort.SPREAD ? spreadZoom : null));
 
     // 칸마다 따로 폴백한다(명세 「언어」). Content-Language 는 분류 이름의 언어 — PoiStore 클래스 주석.
     return Responses.ok(
@@ -114,13 +132,29 @@ class PoisController implements PoisApi {
     return ResponseEntity.ok(cards.cards(ids));
   }
 
-  /** 정렬. 기본은 기준점이 있으면 거리순, 없으면 이름순 — 명세 §pois. {@code distance} 를 기준점 없이 달라고 하면 거부한다. 인기도는 없다. */
+  /** 이름 검색어 — 앞뒤 공백을 지우고 2자 이상(1.23.0, MZ2AZ-283). 1자는 47만 행 거의 전부에 걸려 400. 없으면 null. */
+  private static String searchTerm(String q) {
+    if (q == null) {
+      return null;
+    }
+    String trimmed = q.strip();
+    if (trimmed.codePointCount(0, trimmed.length()) < 2) {
+      throw ApiException.badRequest("INVALID_PARAMETER", "q 는 앞뒤 공백을 빼고 2자 이상이어야 합니다");
+    }
+    return trimmed;
+  }
+
+  /**
+   * 정렬. 기본은 기준점이 있으면 거리순, 없으면 이름순 — 명세 §pois. {@code distance} 를 기준점 없이 달라고 하면 거부한다. {@code spread}
+   * 는 지도 고정 칸마다 순위 1등부터(1.23.0, MZ2AZ-540).
+   */
   private static PoiStore.Sort resolveSort(String sort, boolean hasOrigin) {
     if (sort == null) {
       return hasOrigin ? PoiStore.Sort.DISTANCE : PoiStore.Sort.ALPHABETICAL;
     }
     return switch (sort) {
       case "alphabetical" -> PoiStore.Sort.ALPHABETICAL;
+      case "spread" -> PoiStore.Sort.SPREAD;
       case "distance" -> {
         if (!hasOrigin) {
           throw ApiException.badRequest("INVALID_SORT", "sort=distance 는 lat·lng 기준점이 있어야 합니다");
@@ -128,7 +162,8 @@ class PoisController implements PoisApi {
         yield PoiStore.Sort.DISTANCE;
       }
       default ->
-          throw ApiException.badRequest("INVALID_PARAMETER", "sort 는 distance 또는 alphabetical 입니다");
+          throw ApiException.badRequest(
+              "INVALID_PARAMETER", "sort 는 distance · alphabetical · spread 중 하나입니다");
     };
   }
 }

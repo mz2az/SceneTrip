@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -644,5 +645,111 @@ class PoisControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.placeId").doesNotExist())
         .andExpect(jsonPath("$.rating.count").value(1));
+  }
+
+  // ───────────── 골고루 정렬 sort=spread · 이름 검색 q (계약 1.23.0, MZ2AZ-540·MZ2AZ-283) ─────────────
+  // 명세: docs/project/plans/poi-spread-search.md §2·§4. 새 정렬 이름과 q 는 아직 Criteria 의 접근자를 모르므로 문자열로
+  // 본다.
+
+  private static final String SEA_BBOX = "131.10,36.40,131.35,36.60";
+
+  @Test
+  @DisplayName("sort=spread 에 bbox·spreadZoom 이 다 있으면 200 — 스토어에 SPREAD 정렬로 간다")
+  void spreadWithBboxAndZoomReachesStore() throws Exception {
+    givenPois(0);
+
+    mvc.perform(
+            get("/pois").param("bbox", SEA_BBOX).param("sort", "spread").param("spreadZoom", "10"))
+        .andExpect(status().isOk());
+
+    ArgumentCaptor<PoiStore.Criteria> captor = ArgumentCaptor.forClass(PoiStore.Criteria.class);
+    verify(store).list(captor.capture());
+    assertThat(captor.getValue().sort().name()).isEqualTo("SPREAD");
+  }
+
+  @Test
+  @DisplayName("sort=spread 인데 spreadZoom 이 없으면 400 — 칸 크기를 정할 수 없다")
+  void spreadWithoutZoomIsRejected() throws Exception {
+    mvc.perform(get("/pois").param("bbox", SEA_BBOX).param("sort", "spread"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").exists());
+    verify(store, never()).list(any());
+  }
+
+  @Test
+  @DisplayName("sort=spread 인데 bbox 가 없으면 400 — 반경만으로는 칸을 나눌 화면이 없다")
+  void spreadWithoutBboxIsRejected() throws Exception {
+    mvc.perform(
+            get("/pois")
+                .param("lat", "36.5")
+                .param("lng", "131.2")
+                .param("radiusMeters", "300")
+                .param("sort", "spread")
+                .param("spreadZoom", "10"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").exists());
+
+    // 영역이 q 뿐이어도 bbox 가 없으면 spread 는 안 된다.
+    mvc.perform(get("/pois").param("q", "스타벅스").param("sort", "spread").param("spreadZoom", "10"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").exists());
+    verify(store, never()).list(any());
+  }
+
+  @Test
+  @DisplayName("spreadZoom 이 0~22 밖이면 400 INVALID_PARAMETER")
+  void spreadZoomOutOfRangeIsRejected() throws Exception {
+    mvc.perform(
+            get("/pois").param("bbox", SEA_BBOX).param("sort", "spread").param("spreadZoom", "23"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+    mvc.perform(
+            get("/pois").param("bbox", SEA_BBOX).param("sort", "spread").param("spreadZoom", "-1"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+  }
+
+  @Test
+  @DisplayName("q 가 1자면 400 INVALID_PARAMETER — 앞뒤 공백을 지운 뒤로 센다")
+  void oneCharacterQueryIsRejected() throws Exception {
+    mvc.perform(get("/pois").param("bbox", SEA_BBOX).param("q", "a"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+    mvc.perform(get("/pois").param("bbox", SEA_BBOX).param("q", "  스  "))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+    // 영역 없이 1자 — 영역 400 보다 q 의 400 이다(q 가 있으면 영역은 필요 없으므로).
+    mvc.perform(get("/pois").param("q", "a"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+    verify(store, never()).list(any());
+  }
+
+  @Test
+  @DisplayName("q 가 2자 이상이면 bbox·반경 없이도 200 — 「이 지역 밖에서도 찾기」")
+  void queryWithoutAreaIsAccepted() throws Exception {
+    givenPois(1, poi(1, "스타벅스 강남점"));
+
+    mvc.perform(get("/pois").param("q", "스타벅스"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(1))
+        .andExpect(jsonPath("$.items[0].name").value("스타벅스 강남점"))
+        .andExpect(jsonPath("$.items[0].spreadRank").doesNotExist())
+        .andExpect(jsonPath("$.total").value(1));
+
+    ArgumentCaptor<PoiStore.Criteria> captor = ArgumentCaptor.forClass(PoiStore.Criteria.class);
+    verify(store).list(captor.capture());
+    assertThat(captor.getValue().bbox()).isNull();
+    assertThat(captor.getValue().radiusMeters()).isNull();
+    // 기준점이 없으니 기본 정렬은 지금 규칙대로 이름순이다.
+    assertThat(captor.getValue().sort()).isEqualTo(PoiStore.Sort.ALPHABETICAL);
+  }
+
+  @Test
+  @DisplayName("q 가 2자(앞뒤 공백 포함) 면 200 — 공백은 세지 않는다")
+  void twoCharacterQueryWithPaddingIsAccepted() throws Exception {
+    givenPois(0);
+
+    mvc.perform(get("/pois").param("q", " 카페 ")).andExpect(status().isOk());
   }
 }

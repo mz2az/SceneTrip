@@ -5,6 +5,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.MarketSort;
 import com.mz2az.scenetrip.sceneapi.api.model.PoiCategoryGroup;
 import com.mz2az.scenetrip.sceneapi.api.model.ReviewSort;
+import com.mz2az.scenetrip.sceneapi.api.model.TripPostBoard;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -89,6 +90,12 @@ class LanguageConfiguration {
   @Bean
   Converter<String, PoiCategoryGroup> poiCategoryGroupConverter() {
     return PoiCategoryGroup::fromValue;
+  }
+
+  /** 여행후기 게시판({@code GET /posts?board=}, 1.24.0). 같은 이유로 관대하게 받지 않는다 — {@code frees} 로 보내면 400. */
+  @Bean
+  Converter<String, TripPostBoard> tripPostBoardConverter() {
+    return TripPostBoard::fromValue;
   }
 
   /** 리뷰 정렬({@code GET …/reviews?sort=}). 같은 이유로 관대하게 받지 않는다. */

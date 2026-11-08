@@ -87,3 +87,6 @@
 - [iOS 배포 패키지 준비](ios-release-package.md) — MZ2AZ-440·416
 - [웹 「어디로 가세요?」 시안](web-trip-first-prototypes.md) — 로컬 전용 껍데기의 결정·화면
 - [웹 시안을 실제 앱으로](web-proto-apply.md) — 화면별 바꿀 것, 백엔드 작업(B1~B7), 정할 것, 순서
+- [편의시설 「골고루」 정렬과 이름 검색](poi-spread-search.md) — MZ2AZ-540·283, GET /pois 의 sort=spread·q
+- [커뮤니티 보강 — 좋아요·댓글·게시판·글 검색·커서](community-social.md) — MZ2AZ-538, 계약 1.24.0
+- [정한 여행(도시·며칠) 기억 — /me/trip](trip-memory.md) — MZ2AZ-542, 계약 1.25.0

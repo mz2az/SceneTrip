@@ -59,10 +59,14 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class PoiStore {
 
-  /** 정렬 기준. 명세의 {@code sort} 파라미터에 대응한다. 인기도는 없다 — POI 에는 순위를 매길 근거가 없다. */
+  /**
+   * 정렬 기준. 명세의 {@code sort} 파라미터에 대응한다. {@code SPREAD} 는 지도에 고정된 칸마다 순위 1등부터(1.23.0, MZ2AZ-540, 계획
+   * poi-spread-search.md) — 화면 네모와 {@code spreadZoom} 이 있어야 한다.
+   */
   public enum Sort {
     DISTANCE,
-    ALPHABETICAL
+    ALPHABETICAL,
+    SPREAD
   }
 
   /** 조회 조건. 컨트롤러가 명세의 규칙(영역 조건 필수, bbox 와 반경 배타 등)을 검사한 뒤 만들어 넘긴다. */
@@ -75,7 +79,23 @@ public class PoiStore {
       Sort sort,
       int limit,
       int offset,
-      Lang lang) {
+      Lang lang,
+      String q,
+      Integer spreadZoom) {
+
+    /** 이름 검색·골고루 없이(1.23.0 이전의 조건). */
+    public Criteria(
+        Bbox bbox,
+        Double lat,
+        Double lng,
+        Integer radiusMeters,
+        PoiCategoryGroup categoryGroup,
+        Sort sort,
+        int limit,
+        int offset,
+        Lang lang) {
+      this(bbox, lat, lng, radiusMeters, categoryGroup, sort, limit, offset, lang, null, null);
+    }
 
     /** 언어를 말하지 않으면 한국어 — 카드·가이드처럼 이름을 화면에 바로 쓰지 않는 쪽. */
     public Criteria(
@@ -105,6 +125,23 @@ public class PoiStore {
   public record Detail(PoiDetail poi, Lang shownLang) {}
 
   /**
+   * 이름 검색({@code q}, 1.23.0, MZ2AZ-283)에 걸린 편의시설 — 한국어 이름·번역 이름·읽는 법. 정규화는 촬영지 검색과 같은 {@code
+   * search_normalize} 이고 색인({@code poi_name_trgm_idx}·{@code poi_i18n_name_trgm_idx}·V43 의 {@code
+   * poi_name_roman_trgm_idx})도 같은 식이라 47만 행을 훑지 않는다. 컨트롤러가 2자 이상만 넘긴다.
+   */
+  private static final String MATCHED_SQL =
+      """
+      SELECT m.id FROM poi m
+      WHERE search_normalize(m.name) LIKE '%' || search_normalize(CAST(:q AS TEXT)) || '%'
+      UNION
+      SELECT i.poi_id FROM poi_i18n i
+      WHERE search_normalize(i.name) LIKE '%' || search_normalize(CAST(:q AS TEXT)) || '%'
+      UNION
+      SELECT r.id FROM poi r
+      WHERE search_normalize(r.name_roman) LIKE '%' || search_normalize(CAST(:q AS TEXT)) || '%'
+      """;
+
+  /**
    * 조건 부분. 목록과 개수 질의가 <b>같은 WHERE</b> 를 써야 {@code total} 이 목록과 같은 것을 센다. 그래서 문자열 하나로 두고 둘이 나눠 쓴다.
    *
    * <p>{@code CAST(:x AS ...) IS NULL OR ...} 꼴은 "그 조건을 안 준 요청" 을 표현한다 — 바인딩 값이 NULL 이면 그 줄이 통째로 참이
@@ -130,7 +167,10 @@ public class PoiStore {
         AND (CAST(:categoryGroup AS TEXT) IS NULL OR p.category_group = CAST(:categoryGroup AS TEXT))
         -- 폐업 표시된 POI 는 어디에도 내보내지 않는다(V18). 위의 위치·갈래 인덱스가 먼저 좁히고 여기서 거른다.
         AND p.closed_at IS NULL
-      """;
+      """
+          + "  AND (CAST(:q AS TEXT) IS NULL OR p.id IN ("
+          + MATCHED_SQL
+          + "))\n";
 
   /** 기준점. 없으면 NULL 이고, 그러면 거리 계산과 반경 조건이 통째로 빠진다. */
   private static final String ORIGIN_SQL =
@@ -226,7 +266,10 @@ public class PoiStore {
             4326)
         AND (CAST(:categoryGroup AS TEXT) IS NULL OR p.category_group = CAST(:categoryGroup AS TEXT))
         AND p.closed_at IS NULL
-      """;
+      """
+          + "  AND (CAST(:q AS TEXT) IS NULL OR p.id IN ("
+          + MATCHED_SQL
+          + "))\n";
 
   /**
    * 화면 네모 + 기준점 + 거리순 — 클래스 주석의 「평면 KNN」. 안쪽은 네모와 같은 평면 인덱스로 네모 안에서 가까운 순으로 꺼내 상한에서 멈추고(네모 안이 상한보다
@@ -248,6 +291,68 @@ public class PoiStore {
 
   private static final String COUNT_VIEWPORT_SQL =
       "SELECT count(*) FROM poi p\n" + WHERE_VIEWPORT_SQL;
+
+  /**
+   * 골고루(1.23.0, MZ2AZ-540). 화면 네모 안 행마다 지도에 고정된 칸 번호(웹 메르카토르 타일 {@code spreadZoom + 2} 단계 — 바인딩
+   * {@code :cells} 가 그 단계의 한 변 칸 수 2^z)와 칸 안 순위를 매기고, 모든 칸의 1등 → 2등 … 순으로 자른다. 칸 안 순위는 하나의 줄이다 —
+   * 인기도 → 갈래(교통·명소·숙소·식당) → id 를 섞은 값(Knuth 곱셈 해시, 같은 곳은 늘 같은 값) → id. 그래서 넓을 때 칸 1등은 확대해 쪼갠 칸에서도
+   * 1등이다. 네모 안 행을 다 보므로 넓은 화면은 이름순만큼 든다(계획 §5 — DEV 실측 뒤 미리 계산한 칸 번호를 검토).
+   */
+  private static final String SPREAD_KEYS =
+      """
+              p.popularity_score AS spread_pop,
+              CASE p.category_group WHEN 'transit' THEN 0 WHEN 'sight' THEN 1 WHEN 'stay' THEN 2 ELSE 3 END AS spread_group,
+              (p.id * 2654435761) % 4294967296 AS spread_mix,
+              floor((ST_X(p.geom::geometry) + 180.0) / 360.0 * CAST(:cells AS DOUBLE PRECISION)) AS spread_cx,
+              floor((1.0 - ln(tan(radians(ST_Y(p.geom::geometry))) + 1.0 / cos(radians(ST_Y(p.geom::geometry)))) / pi())
+                    / 2.0 * CAST(:cells AS DOUBLE PRECISION)) AS spread_cy,
+      """;
+
+  /**
+   * 순위는 편의시설 표만으로 먼저 매기고 자른 한 페이지에만 번역·연결을 붙인다 — 네모 안 모든 행에 조인을 붙이고 줄 세우면 명동 한 화면(약 1만 곳)에도 1초가
+   * 넘었다(로컬 실측 2026-11-09).
+   */
+  private static final String SPREAD_LIST_SQL =
+      ORIGIN_SQL
+          + """
+          , keyed AS (
+              SELECT p.id,
+          """
+          + SPREAD_KEYS
+          + """
+                  1 AS spread_one
+              FROM poi p
+          """
+          + WHERE_VIEWPORT_SQL
+          + """
+          ), ranked AS (
+              SELECT keyed.*,
+                     ROW_NUMBER() OVER (PARTITION BY spread_cx, spread_cy ORDER BY spread_pop DESC, spread_group, spread_mix, id)
+                         AS spread_rank
+              FROM keyed
+          ), page AS (
+              SELECT * FROM ranked
+              ORDER BY spread_rank, spread_pop DESC, spread_group, spread_mix, id
+              LIMIT :limit OFFSET :offset
+          )
+          SELECT
+              p.id, p.category, p.category_group,
+          """
+          + LOCALIZED_SELECT
+          + """
+              ST_Y(p.geom::geometry) AS latitude,
+              ST_X(p.geom::geometry) AS longitude,
+              CASE WHEN o.point IS NULL THEN NULL
+                   ELSE round(ST_Distance(p.geom, o.point))::INT END AS distance_meters,
+              page.spread_rank
+          FROM page
+          JOIN poi p ON p.id = page.id
+          CROSS JOIN origin o
+          """
+          + LOCALIZED_JOIN
+          + """
+          ORDER BY page.spread_rank, page.spread_pop DESC, page.spread_group, page.spread_mix, page.id
+          """;
 
   /** 구면 KNN. {@code <->} 를 ORDER BY 에 두면 GiST 가 가까운 순으로 꺼내 준다. 기준점이 없으면 컨트롤러가 이 정렬을 거부한다(400). */
   private static final String ORDER_BY_DISTANCE = "p.geom <-> o.point, p.id";
@@ -454,8 +559,11 @@ public class PoiStore {
             .list());
   }
 
-  /** 화면 네모 + 기준점 + 거리순이면 네모 전용 평면 KNN 질의, 아니면 일반 목록 질의. */
+  /** 골고루면 칸 순위 질의, 화면 네모 + 기준점 + 거리순이면 네모 전용 평면 KNN 질의, 아니면 일반 목록 질의. */
   private static String listSql(Criteria c) {
+    if (c.sort() == Sort.SPREAD) {
+      return SPREAD_LIST_SQL;
+    }
     if (isViewport(c) && c.hasOrigin() && c.sort() == Sort.DISTANCE) {
       return VIEWPORT_DISTANCE_LIST_SQL;
     }
@@ -482,7 +590,9 @@ public class PoiStore {
         .param("minLng", c.bbox() == null ? null : c.bbox().minLng())
         .param("minLat", c.bbox() == null ? null : c.bbox().minLat())
         .param("maxLng", c.bbox() == null ? null : c.bbox().maxLng())
-        .param("maxLat", c.bbox() == null ? null : c.bbox().maxLat());
+        .param("maxLat", c.bbox() == null ? null : c.bbox().maxLat())
+        .param("q", c.q())
+        .param("cells", Math.pow(2, (c.spreadZoom() == null ? 0 : c.spreadZoom()) + 2));
   }
 
   private record Row(PoiSummary summary, Lang labelLang) {}
@@ -502,7 +612,8 @@ public class PoiStore {
             .address(rs.getString("address"))
             .displayAddress(rs.getString("display_address"))
             .distanceMeters(integerOrNull(rs, "distance_meters"))
-            .placeId(longOrNull(rs, "linked_place_id"));
+            .placeId(longOrNull(rs, "linked_place_id"))
+            .spreadRank(hasColumn(rs, "spread_rank") ? integerOrNull(rs, "spread_rank") : null);
     return new Row(summary, Lang.fromValue(rs.getString("label_lang")));
   }
 
@@ -528,6 +639,17 @@ public class PoiStore {
             .city(rs.getString("city"))
             .placeId(longOrNull(rs, "linked_place_id"));
     return new Detail(detail, Lang.fromValue(rs.getString("label_lang")));
+  }
+
+  /** 골고루 질의에만 있는 열인가. 다른 질의의 행에는 {@code spread_rank} 가 없다. */
+  private static boolean hasColumn(ResultSet rs, String column) throws SQLException {
+    var meta = rs.getMetaData();
+    for (int i = 1; i <= meta.getColumnCount(); i++) {
+      if (column.equalsIgnoreCase(meta.getColumnLabel(i))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** {@code getLong} 도 NULL 을 0 으로 돌려준다. */
