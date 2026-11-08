@@ -24,7 +24,9 @@ public class ReportStore {
   /** 신고할 수 있는 글. 값은 계약 {@code ReportTargetType} 과 표의 {@code target_type} 이 같다. */
   public enum Target {
     REVIEW("review"),
-    POST("post");
+    POST("post"),
+    /** 여행후기 댓글(1.24.0, MZ2AZ-538). */
+    COMMENT("comment");
 
     public final String value;
 
@@ -113,6 +115,11 @@ public class ReportStore {
           case POST ->
               "SELECT user_id, left(title || ' — ' || body, :len) AS excerpt"
                   + " FROM community_post WHERE id = :id AND removed_at IS NULL";
+          // 댓글은 그 글도 내려지지 않았어야 한다 — 내린 글의 댓글은 어디에도 보이지 않는다.
+          case COMMENT ->
+              "SELECT c.user_id, left(c.body, :len) AS excerpt"
+                  + " FROM community_comment c JOIN community_post p ON p.id = c.post_id"
+                  + " WHERE c.id = :id AND c.removed_at IS NULL AND p.removed_at IS NULL";
         };
     return jdbc.sql(sql)
         .param("id", targetId)

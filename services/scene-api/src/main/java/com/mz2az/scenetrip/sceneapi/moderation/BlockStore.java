@@ -58,7 +58,12 @@ public class BlockStore {
   public Outcome block(UUID blocker, ReportStore.Target target, long targetId) {
     return transactions.execute(
         status -> {
-          String table = target == ReportStore.Target.REVIEW ? "review" : "community_post";
+          String table =
+              switch (target) {
+                case REVIEW -> "review";
+                case POST -> "community_post";
+                case COMMENT -> "community_comment"; // 1.24.0 — 그 댓글의 작성자를 차단한다
+              };
           Optional<Optional<UUID>> author =
               jdbc.sql(
                       "SELECT user_id FROM %s WHERE id = :id AND removed_at IS NULL"
