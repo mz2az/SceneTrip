@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.24.0
+  version: 1.25.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -215,6 +215,8 @@ tags:
     description: 편의시설(POI) — 음식·숙박·명소·교통. 촬영지와 별개의 표
   - name: cart
     description: 장바구니 — 담긴 장소. 코스에 넣는 것은 `courses` 쪽이다
+  - name: trip
+    description: 정한 여행 — 홈 질문에서 고른 도시·며칠·속도(1.25.0)
   - name: courses
     description: 코스 — 만들기·고치기, 일차와 그 안의 장소
   - name: favorites
@@ -1852,6 +1854,76 @@ paths:
                 $ref: "#/components/schemas/PoiCardBatch"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /me/trip:
+    get:
+      tags: [trip]
+      operationId: getTrip
+      summary: 정한 여행
+      description: |
+        홈 질문(도시 → 며칠 → 어떻게)에서 정한 여행(1.25.0, MZ2AZ-542). 코스·장바구니처럼 **비회원도**(`X-Install-Id` 의 설치 계정,
+        토큰이 있으면 그 계정). 정한 여행이 없으면 `404 TRIP_NOT_FOUND`. 계정 하나에 여행 하나.
+      parameters:
+        - $ref: "#/components/parameters/InstallId"
+      responses:
+        "200":
+          description: 정한 여행
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripPlan"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      tags: [trip]
+      operationId: putTrip
+      summary: 정한 여행 바꾸기
+      description: |
+        통째로 바꾼다(없으면 만든다, 1.25.0). `courseId` 는 **내 코스**만 — 남의 것·없는 것은 `400 TRIP_COURSE_INVALID`.
+        그 코스를 지우면 여행은 남고 `courseId` 만 비워진다.
+      parameters:
+        - $ref: "#/components/parameters/InstallId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripPlanInput"
+      responses:
+        "200":
+          description: 바꾼 여행
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripPlan"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [trip]
+      operationId: deleteTrip
+      summary: 정한 여행 지우기
+      description: 없어도 204(멱등, 1.25.0).
+      parameters:
+        - $ref: "#/components/parameters/InstallId"
+      responses:
+        "204":
+          description: 지웠다
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -3741,6 +3813,51 @@ components:
           type: string
           nullable: true
           description: 다음 쪽을 받을 때 `cursor` 로 보낸다(1.24.0). 더 없으면 **칸이 빠진다**(null 과 같다 — 응답은 null 인 선택 칸을 내보내지 않는다)
+
+    TripPace:
+      type: string
+      enum: [relaxed, normal, packed]
+      description: 하루 속도(1.25.0) — `relaxed` 여유, `normal` 보통, `packed` 빽빽
+
+    TripPlanInput:
+      type: object
+      required: [city, days, pace]
+      properties:
+        city:
+          type: string
+          minLength: 1
+          maxLength: 40
+          description: 앱이 보이는 도시 이름. 앞뒤 공백을 뗀 뒤 비면 `400 INVALID_PARAMETER`. 서버는 도시 목록을 갖지 않는다
+        days:
+          type: integer
+          minimum: 1
+          maximum: 15
+        pace:
+          $ref: "#/components/schemas/TripPace"
+        courseId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 이 여행으로 만든 **내 코스**. 없으면 아직 안 만든 것
+
+    TripPlan:
+      type: object
+      required: [city, days, pace, updatedAt]
+      properties:
+        city:
+          type: string
+        days:
+          type: integer
+        pace:
+          $ref: "#/components/schemas/TripPace"
+        courseId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 이 여행으로 만든 내 코스. 그 코스를 지우면 빠진다
+        updatedAt:
+          type: string
+          format: date-time
 
     TripPostBoard:
       type: string
