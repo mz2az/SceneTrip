@@ -83,3 +83,4 @@
 오래 영향을 남기는 결정은 [ADR](../../architecture/adr/README.md) 로 승격한다.
 
 - [iOS 배포 패키지 준비](ios-release-package.md) — MZ2AZ-440·416
+- [편의시설 「골고루」 정렬과 이름 검색](poi-spread-search.md) — MZ2AZ-540·283, GET /pois 의 sort=spread·q
