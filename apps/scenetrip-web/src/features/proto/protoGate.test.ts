@@ -4,7 +4,6 @@ import {
   isDevSite,
   pickProto,
   protoEnabled,
-  showsLocalOnlyFeatures,
   showsPrototypeMarks,
 } from './protoGate'
 
@@ -81,14 +80,5 @@ describe('showsPrototypeMarks', () => {
     [false, false],
   ])('dev=%s → %s (시안 표시·전환기는 로컬 개발 서버에서만)', (dev, expected) => {
     expect(showsPrototypeMarks(dev)).toBe(expected)
-  })
-})
-
-describe('showsLocalOnlyFeatures', () => {
-  it.each([
-    [true, true],
-    [false, false],
-  ])('dev=%s → %s (서버 없는 기능은 로컬 개발 서버에서만)', (dev, expected) => {
-    expect(showsLocalOnlyFeatures(dev)).toBe(expected)
   })
 })

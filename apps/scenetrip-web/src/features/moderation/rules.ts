@@ -12,10 +12,12 @@ export type ReportTargetType = components['schemas']['ReportTargetType']
 export type BlockedUser = components['schemas']['BlockedUser']
 
 /** 신고·차단할 글 (MZ2AZ-461). 계약은 **글을 기준으로** 받는다 — 앱에는 사용자 번호가 없고 닉네임은 바뀐다. 차단도 「이 글의 작성자」 를 차단한다. */
-export type ModerationTarget = { kind: 'review'; id: number } | { kind: 'post'; id: number }
+export type ModerationTarget = { kind: 'review'; id: number } | { kind: 'post'; id: number } | { kind: 'comment'; id: number }
 
 export const reviewTarget = (id: number): ModerationTarget => ({ kind: 'review', id })
 export const postTarget = (id: number): ModerationTarget => ({ kind: 'post', id })
+/** 여행후기 댓글(1.24.0, MZ2AZ-538). */
+export const commentTarget = (id: number): ModerationTarget => ({ kind: 'comment', id })
 
 /** iOS `ModerationTarget.id` — 시트 열림의 동일성 비교용. */
 export const targetKey = (t: ModerationTarget): string => `${t.kind}-${t.id}`

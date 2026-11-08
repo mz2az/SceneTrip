@@ -126,6 +126,11 @@ export interface CommunityPost {
   remotePhotos?: string[] | null
   detailLoaded?: boolean
   bodyBlocks?: PostBlock[] | null
+  /** 서버 글의 게시판·좋아요·댓글(1.24.0, MZ2AZ-538). 옛 서버·기기 옛 글이면 없다. */
+  serverBoard?: 'review' | 'free'
+  likeCount?: number
+  commentCount?: number
+  liked?: boolean
 }
 
 export const isMine = (post: CommunityPost): boolean => post.serverIsMine ?? post.author == null
@@ -145,6 +150,10 @@ export function postFromSummary(s: PostSummary): CommunityPost {
     serverIsMine: s.isMine,
     remotePhotos: s.coverPhotoUrl ? [s.coverPhotoUrl] : null,
     detailLoaded: false,
+    serverBoard: s.board,
+    likeCount: s.likeCount,
+    commentCount: s.commentCount,
+    liked: s.liked,
   }
 }
 
@@ -162,6 +171,10 @@ export function postFromDetail(d: PostDetail): CommunityPost {
     remotePhotos: d.photoUrls,
     detailLoaded: true,
     bodyBlocks: d.bodyBlocks ?? null,
+    serverBoard: d.board,
+    likeCount: d.likeCount,
+    commentCount: d.commentCount,
+    liked: d.liked,
   }
 }
 

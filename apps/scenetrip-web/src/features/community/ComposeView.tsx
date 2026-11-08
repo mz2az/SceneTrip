@@ -105,7 +105,7 @@ export function ComposeView({ onClose, registerClose, board: initialBoard }: { o
 
   const submit = async () => {
     if (!canSubmit) return
-    const input = { title: normalized(title), body: plainBody(story), photoKeys: draft.keys(), courseId: course?.serverId ?? null, bodyBlocks: articleBlocks }
+    const input = { title: normalized(title), body: plainBody(story), photoKeys: draft.keys(), courseId: course?.serverId ?? null, bodyBlocks: articleBlocks, ...(board ? { board } : {}) }
     const saved = await submission.submit(input, course)
     if (saved) finish(saved)
     else if (submission.store.get().photoInvalid) draft.rejectUploaded()

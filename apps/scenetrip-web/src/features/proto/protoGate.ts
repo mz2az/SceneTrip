@@ -4,7 +4,7 @@
  * - 로컬 개발 서버(`just web-dev`): 지금처럼 `?proto=a|b|off` 로 켜고 끈다. 값이 없으면 꺼진다.
  * - 시험용 웹(dev.scenetrip.io = Pages `dev` 브랜치): **기본으로 켠다(시안 A)**. `?proto=off` 로만 끈다.
  * - 운영(그 밖의 주소): 켜지지 않는다.
- * 「시안」 표시·스위치와 서버가 없는 기능(자유게시판·글 검색·좋아요·댓글)은 로컬에서만 보인다.
+ * 「시안」 표시·스위치는 로컬에서만 보인다. 서버가 없어 숨겼던 기능(자유게시판·글 검색·좋아요·댓글)은 서버가 생겨(MZ2AZ-538) 이제 어디서나 보인다.
  */
 import type { Proto } from './protoState'
 
@@ -35,10 +35,5 @@ export function pickProto({ dev, hostname, asked, stored }: { dev: boolean; host
 
 /** 「시안」 표시·시안 스위치 — 로컬 개발 서버에서만. */
 export function showsPrototypeMarks(dev: boolean): boolean {
-  return dev
-}
-
-/** 서버가 아직 없는 기능(자유게시판·글 검색·좋아요·댓글) — 로컬 개발 서버에서만. */
-export function showsLocalOnlyFeatures(dev: boolean): boolean {
   return dev
 }

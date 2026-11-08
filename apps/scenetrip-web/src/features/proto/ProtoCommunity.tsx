@@ -1,10 +1,10 @@
 /*
  * 커뮤니티 탭 시안(2026-11-08 사용자 요청) — 다른 시안 화면과 같은 틀로.
  *  - 머리줄: 「커뮤니티」 왼쪽 정렬, 오른쪽에 검색 동그라미와 「글쓰기」 보라 알약(코스 목록의 「새 코스」 와 같은 모양). 아래 얇은 선.
- *  - 머리줄 밑 게시판 탭: 여행후기 · 자유게시판. 자유게시판은 서버에 아직 없어 빈 화면만 둔다.
- *  - 검색: 머리줄이 검색칸으로 바뀐다. 서버에 글 검색(`GET /posts?q=`)이 없어 **받아 둔 목록 안에서만** 거른다.
+ *  - 머리줄 밑 게시판 탭: 여행후기 · 자유게시판 — 서버가 거른다(`GET /posts?board=`, 1.24.0, MZ2AZ-538).
+ *  - 검색: 머리줄이 검색칸으로 바뀐다. 서버가 제목·본문에서 찾는다(`GET /posts?q=`).
  *  - 글 읽기·글쓰기: 시트 대신 오른쪽에서 밀려 들어오는 새 화면(`ProtoPage`).
- * 원래 화면: features/community/CommunityTab.tsx. 로컬 개발 서버 + 시안일 때만 쓰인다.
+ * 원래 화면: features/community/CommunityTab.tsx. 로컬 개발 서버(`?proto=`)와 시험용 웹(dev.scenetrip.io)에서 쓰인다(protoGate).
  */
 import { useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -25,9 +25,7 @@ const BOARDS: readonly { id: Board; label: () => string }[] = [
 ]
 
 /** 머리줄 + 게시판 탭. 검색 중에는 제목 줄이 검색칸이 된다. */
-export function ProtoCommunityHeader({ board, onBoard, query, onQuery, onCompose, extras = true }: {
-  /** 서버가 없는 검색·게시판 탭을 보일까 — 로컬 개발 서버에서만(protoGate.showsLocalOnlyFeatures). */
-  extras?: boolean
+export function ProtoCommunityHeader({ board, onBoard, query, onQuery, onCompose }: {
   board: Board
   onBoard: (b: Board) => void
   /** null 이면 검색 중이 아니다. */
@@ -55,11 +53,9 @@ export function ProtoCommunityHeader({ board, onBoard, query, onQuery, onCompose
           <Txt as="h1" size={22} weight="heavy" style={heading}>{say('커뮤니티', 'Community')}</Txt>
           <Spacer />
           <MockBadge />
-          {extras && (
-            <Pressable plain className="proto-press" onClick={() => onQuery('')} aria-label={say('글 검색', 'Search posts')} style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}>
-              <Icon name="magnifyingglass" size={19} weight="semibold" color="primary" />
-            </Pressable>
-          )}
+          <Pressable plain className="proto-press" onClick={() => onQuery('')} aria-label={say('글 검색', 'Search posts')} style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}>
+            <Icon name="magnifyingglass" size={19} weight="semibold" color="primary" />
+          </Pressable>
           <Pressable plain className="proto-press" onClick={onCompose} style={{ height: 36, padding: '0 14px', borderRadius: radius.pill, background: color.primaryFill }}>
             <HStack spacing={5}>
               <Icon name="square.and.pencil" size={13} weight="bold" color="white" />
@@ -93,7 +89,7 @@ export function ProtoCommunityHeader({ board, onBoard, query, onQuery, onCompose
         </HStack>
       )}
       {/* 게시판 — 밑줄·칸 없이 글자만. 고른 것은 진한 글자, 아닌 것은 옅은 회색이고 바뀔 때 색이 스르르 옮겨 간다. 누르면 살짝 작아진다. */}
-      {extras && <div role="tablist" aria-label={say('게시판', 'Boards')} style={{ display: 'flex', alignItems: 'baseline', gap: 16, padding: '0 16px 6px' }}>
+      <div role="tablist" aria-label={say('게시판', 'Boards')} style={{ display: 'flex', alignItems: 'baseline', gap: 16, padding: '0 16px 6px' }}>
         {BOARDS.map((b) => {
           const on = b.id === board
           return (
@@ -110,18 +106,18 @@ export function ProtoCommunityHeader({ board, onBoard, query, onQuery, onCompose
             </Pressable>
           )
         })}
-      </div>}
+      </div>
     </div>
   )
 }
 
-/** 자유게시판 — 서버에 게시판이 아직 없다. */
+/** 자유게시판에 글이 없을 때. */
 export function FreeBoardEmpty() {
   return (
     <VStack spacing={8} align="center" style={{ padding: '80px 32px 40px' }}>
       <Icon name="bubble.left.and.bubble.right" size={40} color="secondary" />
-      <Txt as="h2" size={20} weight="bold" align="center" style={heading}>{say('자유게시판은 준비 중이에요', 'Free board is coming soon')}</Txt>
-      <Txt size={15} color="secondary" align="center">{say('여행 이야기·질문을 자유롭게 나누는 곳이 될 거예요', 'A place for travel talk and questions.')}</Txt>
+      <Txt as="h2" size={20} weight="bold" align="center" style={heading}>{say('아직 글이 없어요', 'No posts yet')}</Txt>
+      <Txt size={15} color="secondary" align="center">{say('여행 이야기·질문을 자유롭게 남겨 보세요', 'Share travel stories and questions.')}</Txt>
       <MockBadge />
     </VStack>
   )
@@ -132,7 +128,6 @@ export function NoMatch({ query }: { query: string }) {
   return (
     <VStack spacing={6} align="center" style={{ padding: '60px 32px' }}>
       <Txt size={17} weight="bold" align="center">{say(`「${query}」 에 맞는 글이 없어요`, `No posts match “${query}”`)}</Txt>
-      <Txt size={14} color="secondary" align="center">{say('지금 불러온 글 안에서만 찾아요', 'Only searching loaded posts.')}</Txt>
     </VStack>
   )
 }
@@ -185,7 +180,7 @@ export function ProtoPage({ open, title, onBack, children }: { open: boolean; ti
 
 /**
  * 글쓰기 위 「게시판」 고르기 — 누르면 바로 아래로 목록이 펼쳐진다(고른 것에 ✓). 바깥을 누르거나 Esc 면 닫힌다.
- * 서버에 게시판 구분이 아직 없어, 무엇을 골라도 올리면 여행후기로 들어간다(시안).
+ * 고른 게시판으로 올린다(계약 1.24.0 `TripPostCreate.board`, MZ2AZ-538).
  */
 export function BoardPicker({ board, onBoard }: { board: Board; onBoard: (b: Board) => void }) {
   const [open, setOpen] = useState(false)

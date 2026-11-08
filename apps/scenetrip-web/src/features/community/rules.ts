@@ -82,6 +82,8 @@ export interface PostInput {
   photoKeys: string[]
   courseId?: number | null
   bodyBlocks?: PostBlock[] | null
+  /** 게시판(1.24.0). 없으면 서버가 여행후기로 둔다. */
+  board?: 'review' | 'free'
 }
 
 /** 응답을 잃은 게시가 정말 올라갔는지 — 같은 글·같은 사진 순서·같은 배치·같은 코스일 때만 같은 글로 본다. */

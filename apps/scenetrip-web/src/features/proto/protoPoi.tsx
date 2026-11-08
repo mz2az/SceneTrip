@@ -9,7 +9,7 @@
  *
  * 검색(칩 줄 맨 앞 🔍): 누르면 칩 줄이 검색칸으로 바뀐다. 촬영지와 편의시설을 한 칸에서 찾고 결과만 둘로 나눈다 — 사람은 「경복궁」 이 촬영지인지
  * 편의시설인지 따지지 않는다. 먼저 지금 지도 범위에서 찾고, 없거나 더 보고 싶으면 「이 지역 밖에서도 찾기」. 0.35초 멈추면 묻고 2글자부터(요청 한도 1분 60회).
- * 편의시설 이름 검색은 서버에 검색어 칸(`GET /pois?q=`)이 없어 아직 자리만 둔다 — 계약을 바꾸는 일이 따로 필요하다.
+ * 편의시설 이름 검색은 `GET /pois?q=`(1.23.0, MZ2AZ-283) — 촬영지와 같은 범위(지금 지도 / 이 지역 밖)로 같이 묻는다.
  * 로컬 개발 서버 + 시안일 때만 쓰인다(docs/project/plans/web-trip-first-prototypes.md).
  */
 import { api, ok } from '@/api/client'
@@ -32,43 +32,25 @@ import { radius, shadow } from './protoTokens'
 const PANEL_SHARE = 0.42
 
 
-// ---------------------------------------------------------------- 골고루 퍼뜨리기 (구글 지도 방식 시안, 2026-11-08)
+// ---------------------------------------------------------------- 골고루 퍼뜨리기 (구글 지도 방식, MZ2AZ-540)
 //
 // 구글 지도처럼 「지도에 고정된 칸마다 순위 1등만 큰 점, 나머지는 작은 점」. 칸은 화면이 아니라 지도(웹 메르카토르 좌표)에 고정이라
-// 지도를 옮겨도 같은 곳이 같은 칸에 든다. 확대하면 칸이 작아져 큰 점이 늘어나기만 한다 — 순위가 하나의 줄이라 넓을 때 칸 1등은 쪼개진 작은 칸에서도 1등이다.
-// 순위: 갈래(역 → 명소 → 숙소 → 식당·카페) → id 를 섞은 값(같은 곳은 늘 같은 값 — 다시 찾아도 안 뒤바뀐다). 편의시설 인기도는 아직 거의 0 이라 뺐다.
-//
-// 시안 한계: 서버는 한 번에 200 곳까지라, 넓게 보면 범위 안 수십만 곳 중 가나다순(위치와 무관해 화면에 흩어진다) 200 곳에서 고른다.
-// 그래서 칸의 진짜 1등이 빠질 수 있고 지도를 옮겨 다시 찾으면 바뀔 수 있다. 실제 앱은 서버가 칸마다 골라 줘야 한다(계약에 정렬 「골고루」 추가).
+// 지도를 옮겨도 같은 곳이 같은 칸에 든다. 순위는 서버가 매긴다(GET /pois?sort=spread — 인기도 → 갈래 → 늘 같은 섞은 순서) — 받은 순서가 곧 순위다.
+// 확대하면 다시 받지 않고 여기서 더 작은 칸으로 다시 솎는다(큰 점이 늘어나기만 한다).
 
 /** 한 번에 받는 수 — 계약 상한. */
 const SPREAD_LIMIT = 200
-/** 이만큼 확대하면 가나다순 표본 대신 가까운 순으로 200 곳 — 그 화면 안은 거의 다 받는다(명동도 화면 하나에 300 곳 안팎). */
-export const SPREAD_DEEP_ZOOM = 18
 /** 칸 한 변(px, 그 줌에서). 폰 화면이면 큰 점이 30 개 안팎. */
 const CELL_PX = 72
-const GROUP_RANK: Record<PoiGroup, number> = { transit: 0, sight: 1, stay: 2, food: 3 }
 
-/** FNV-1a — id 를 섞어 늘 같은 「아무 순서」 를 만든다. */
-function mix(id: string): number {
-  let h = 2166136261
-  for (let i = 0; i < id.length; i += 1) {
-    h ^= id.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
-
-/** 갈래를 하나만 켰으면 서버가 거르고, 여럿이면 다 받아 여기서 거른다(요청은 한 번). */
+/** 지금 화면을 서버의 「골고루」 순서로 받는다. 갈래를 하나만 켰으면 서버가 거르고, 여럿이면 다 받아 여기서 거른다(요청은 한 번). */
 export function fetchSpread(groups: readonly PoiGroup[], map: MapHandle | null) {
   const want = new Set(groups)
   return async (v: PoiViewport): Promise<PoiFetchResult> => {
     const bbox = `${v.west},${v.south},${v.east},${v.north}`
     const categoryGroup = groups.length === 1 ? groups[0] : undefined
-    const deep = (map?.getZoom() ?? 0) >= SPREAD_DEEP_ZOOM
-    const query = deep
-      ? { bbox, lat: v.centerLat, lng: v.centerLng, sort: 'distance' as const, limit: SPREAD_LIMIT, categoryGroup }
-      : { bbox, sort: 'alphabetical' as const, limit: SPREAD_LIMIT, categoryGroup }
+    const spreadZoom = Math.max(0, Math.min(22, Math.floor(map?.getZoom() ?? 0)))
+    const query = { bbox, lat: v.centerLat, lng: v.centerLng, sort: 'spread' as const, spreadZoom, limit: SPREAD_LIMIT, categoryGroup }
     try {
       const list = await ok(api.GET('/pois', { params: { query } }))
       const places = list.items.map(fromPoi).filter((p) => want.has(placeGroup(p)))
@@ -81,15 +63,16 @@ export function fetchSpread(groups: readonly PoiGroup[], map: MapHandle | null) 
 
 /** 고정 칸마다 1등은 `major`(큰 점), 나머지는 `minor`(작은 점). 줌이 바뀌면 다시 부르기만 하면 된다 — 다시 받을 필요 없다. */
 export function spreadPois(places: readonly RoutePlace[], zoom: number): { major: RoutePlace[]; minor: RoutePlace[] } {
+  // 받은 순서가 곧 순위다(서버 GET /pois?sort=spread, MZ2AZ-540) — 칸마다 먼저 온 것이 큰 점. 서버의 칸 안 순서와 같은 줄이라 확대해 칸을 쪼개도
+  // 큰 점은 늘기만 한다(넓을 때 한 칸에서 앞섰던 것은 쪼갠 작은 칸에서도 앞선다).
   const world = (256 * 2 ** Math.floor(zoom)) / CELL_PX
-  const ranked = [...places].sort((a, b) => GROUP_RANK[placeGroup(a)] - GROUP_RANK[placeGroup(b)] || mix(a.id) - mix(b.id))
   const seen = new Set<string>()
   const major: RoutePlace[] = []
   const minor: RoutePlace[] = []
-  for (const p of ranked) {
+  for (const p of places) {
     const x = Math.floor(((p.longitude + 180) / 360) * world)
-    const sin = Math.sin((p.latitude * Math.PI) / 180)
-    const y = Math.floor((0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * world)
+    const lat = (p.latitude * Math.PI) / 180
+    const y = Math.floor(((1 - Math.log(Math.tan(lat) + 1 / Math.cos(lat)) / Math.PI) / 2) * world)
     const key = `${x}:${y}`
     if (seen.has(key)) minor.push(p)
     else {
@@ -146,6 +129,7 @@ export function MapPoiBar({ map, bottomInset, groupsOn, counts, loading, stale, 
         currentDay={currentDay}
         taken={taken}
         onAddToDay={onAddToDay}
+        onPickShop={onPick}
         onEdit={() => { setResults(null); setSearching(true) }}
         onExit={() => setResults(null)}
       />
@@ -243,7 +227,14 @@ const MIN_CHARS = 2
 const QUIET_MS = 350
 const LIMIT = 20
 
-type Phase = { kind: 'idle' } | { kind: 'loading' } | { kind: 'done'; items: PlaceSummary[]; wide: boolean } | { kind: 'failed' }
+type Phase = { kind: 'idle' } | { kind: 'loading' } | { kind: 'done'; items: PlaceSummary[]; shops: RoutePlace[]; wide: boolean } | { kind: 'failed' }
+
+/** 편의시설 이름 검색 — 촬영지 검색과 같은 범위. 실패하면 빈 목록(촬영지 결과는 그대로 보인다). */
+function searchShops(q: string, bbox: string | undefined, limit: number): Promise<RoutePlace[]> {
+  return ok(api.GET('/pois', { params: { query: { q, limit, ...(bbox ? { bbox } : {}) } } }))
+    .then((page) => page.items.map(fromPoi))
+    .catch(() => [])
+}
 
 /** 칩 줄 자리를 덮는 검색칸 + 그 아래 결과 칸. 검색 중에는 갈래 칩을 숨긴다(검색어와 칩 필터가 겹치면 「왜 안 나오지?」 가 생긴다). */
 function SearchPanel({ map, bottomInset, closing, onPick, onCommit, onClose }: {
@@ -274,8 +265,8 @@ function SearchPanel({ map, bottomInset, closing, onPick, onCommit, onClose }: {
       // 먼저 지금 지도 범위(bbox), 「이 지역 밖에서도」 를 누르면 범위 없이(서버 기본 순서).
       const v = map && !wide ? viewportOf(map, bottomInset) : null
       const bbox = v ? `${v.west},${v.south},${v.east},${v.north}` : undefined
-      ok(api.GET('/places', { params: { query: { q, limit: LIMIT, ...(bbox ? { bbox } : {}) } } }))
-        .then((page) => mine === ticket.current && setPhase({ kind: 'done', items: page.items, wide }))
+      Promise.all([ok(api.GET('/places', { params: { query: { q, limit: LIMIT, ...(bbox ? { bbox } : {}) } } })), searchShops(q, bbox, LIMIT)])
+        .then(([page, shops]) => mine === ticket.current && setPhase({ kind: 'done', items: page.items, shops, wide }))
         .catch(() => mine === ticket.current && setPhase({ kind: 'failed' }))
     }, QUIET_MS)
     return () => clearTimeout(t)
@@ -340,14 +331,35 @@ function SearchPanel({ map, bottomInset, closing, onPick, onCommit, onClose }: {
                   <Txt size={14} weight="semibold" align="center" style={{ color: 'var(--home-purple)' }}>{say('이 지역 밖에서도 찾기', 'Search everywhere')}</Txt>
                 </Pressable>
               )}
-              {/* 편의시설 — 서버에 이름 검색이 생기면 여기 같은 모양으로 들어온다 */}
-              <Section title={say('주변 가게·편의시설', 'Nearby shops & places')} />
-              <Txt size={13} color="tertiary" style={{ display: 'block', padding: '4px 16px 14px' }}>{say('가게 이름 검색은 준비 중이에요 (서버 작업 후)', 'Shop name search is coming soon')}</Txt>
+              {/* 편의시설 — 이름 검색(GET /pois?q=). 누르면 그곳으로 가서 정보 카드(코스에 담기). */}
+              <Section title={phase.wide ? say('가게·편의시설 · 전체', 'Shops & places · everywhere') : say('가게·편의시설 · 이 지역', 'Shops & places · this area')} />
+              {phase.shops.length === 0 ? (
+                <Txt size={13} color="secondary" style={{ display: 'block', padding: '4px 16px 14px' }}>{say('찾는 가게가 없어요', 'No shops found')}</Txt>
+              ) : (
+                phase.shops.map((p, i) => <ShopRow key={p.id} place={p} first={i === 0} onPick={() => onPick(p)} />)
+              )}
             </VStack>
           )}
         </div>
       )}
     </div>
+  )
+}
+
+/** 가게 한 줄 — 갈래 색 점 · 이름 · 분류·주소. */
+function ShopRow({ place, first, onPick }: { place: RoutePlace; first: boolean; onPick: () => void }) {
+  return (
+    <Pressable plain onClick={onPick} style={{ width: '100%', textAlign: 'left', paddingLeft: 14 }}>
+      <HStack spacing={12}>
+        <span aria-hidden style={{ flex: 'none', width: 40, height: 40, margin: '8px 0', borderRadius: 8, display: 'grid', placeItems: 'center', background: 'var(--system-gray6)' }}>
+          <span style={{ width: 12, height: 12, borderRadius: 999, background: poiTone(placeGroup(place)), border: '2px solid #fff' }} />
+        </span>
+        <VStack spacing={2} align="start" style={{ flex: 1, minWidth: 0, alignSelf: 'stretch', justifyContent: 'center', paddingRight: 14, borderTop: first ? undefined : '0.5px solid var(--separator)' }}>
+          <Txt size={15} weight="semibold" lines={1}>{place.displayName ?? place.name}</Txt>
+          <Txt size={12} color="secondary" lines={1}>{[place.categoryLabel ?? place.category, place.displayAddress ?? place.address].filter(Boolean).join(' · ')}</Txt>
+        </VStack>
+      </HStack>
+    </Pressable>
   )
 }
 
@@ -382,7 +394,7 @@ function pinHtml(p: PlaceSummary, on: boolean): string {
   </div>`
 }
 
-function ResultsView({ map, bottomInset, query, wide, dayCounts, currentDay, taken, onAddToDay, onEdit, onExit }: {
+function ResultsView({ map, bottomInset, query, wide, dayCounts, currentDay, taken, onAddToDay, onPickShop, onEdit, onExit }: {
   map: MapHandle | null
   bottomInset: number
   query: string
@@ -391,10 +403,14 @@ function ResultsView({ map, bottomInset, query, wide, dayCounts, currentDay, tak
   currentDay: number
   taken: ReadonlySet<number>
   onAddToDay: (place: PlaceSummary, day: number) => void
+  /** 가게 결과를 눌렀다 — 그곳으로 가서 정보 카드(코스에 담기). */
+  onPickShop: (place: RoutePlace) => void
   onEdit: () => void
   onExit: () => void
 }) {
   const [items, setItems] = useState<PlaceSummary[] | null>(null)
+  const [shops, setShops] = useState<RoutePlace[]>([])
+  const [tab, setTab] = useState<'spots' | 'shops'>('spots')
   const [failed, setFailed] = useState(false)
   const [ask, setAsk] = useState(0)
   const [area, setArea] = useState(wide)
@@ -412,6 +428,8 @@ function ResultsView({ map, bottomInset, query, wide, dayCounts, currentDay, tak
     setFailed(false)
     const v = map && !area ? viewportOf(map, bottomInset) : null
     const bbox = v ? `${v.west},${v.south},${v.east},${v.north}` : undefined
+    setShops([])
+    void searchShops(query, bbox, 40).then((found) => live && setShops(found))
     ok(api.GET('/places', { params: { query: { q: query, limit: 40, ...(bbox ? { bbox } : {}) } } }))
       .then((page) => {
         if (!live) return
@@ -444,9 +462,24 @@ function ResultsView({ map, bottomInset, query, wide, dayCounts, currentDay, tak
     })
   }, [map])
 
+  // 가게 탭의 핀 — 갈래 색 점. 누르면 정보 카드.
+  useEffect(() => {
+    if (!map || tab !== 'shops' || shops.length === 0) return
+    const layer = map.createLayer()
+    for (const p of shops) {
+      layer.addMarker({
+        position: { lat: p.latitude, lng: p.longitude },
+        html: `<span style="display:block;width:16px;height:16px;border-radius:50%;background:${poiTone(placeGroup(p))};border:2.5px solid #fff;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,0.35)"></span>`,
+        className: 'proto-result-pin', size: [16, 16], anchor: [8, 8], zIndex: 800, title: p.name,
+        onClick: () => onPickShop(p),
+      })
+    }
+    return () => layer.remove()
+  }, [map, tab, shops, onPickShop])
+
   // 결과 핀 — 따로 한 겹에 그린다. 끝내면 겹째 지운다.
   useEffect(() => {
-    if (!map || !items) return
+    if (!map || !items || tab !== 'spots') return
     const layer = map.createLayer()
     for (const p of items) {
       const on = p.id === selected
@@ -460,7 +493,7 @@ function ResultsView({ map, bottomInset, query, wide, dayCounts, currentDay, tak
       })
     }
     return () => layer.remove()
-  }, [map, items, selected])
+  }, [map, items, selected, tab])
 
   const focus = (p: PlaceSummary) => {
     setSelected(p.id)
@@ -502,13 +535,28 @@ function ResultsView({ map, bottomInset, query, wide, dayCounts, currentDay, tak
         <Pressable plain onClick={() => setTall((v) => !v)} aria-label={tall ? say('목록 줄이기', 'Shrink list') : say('목록 키우기', 'Expand list')} style={{ width: '100%', padding: '8px 0 4px', display: 'grid', placeItems: 'center' }}>
           <span style={{ width: 40, height: 5, borderRadius: 3, background: 'var(--system-gray3)' }} />
         </Pressable>
-        {/* 탭 — 촬영지 / 가게(준비 중) */}
-        <HStack spacing={6} style={{ padding: '2px 16px 10px', flex: 'none' }}>
-          <span style={{ padding: '6px 12px', borderRadius: 999, background: 'var(--label)', color: 'var(--system-background)', fontSize: 13, fontWeight: 700 }}>{say(`촬영지 ${items?.length ?? ''}`, `Spots ${items?.length ?? ''}`)}</span>
-          <span style={{ padding: '6px 12px', borderRadius: 999, background: 'var(--system-gray6)', color: 'var(--label-tertiary)', fontSize: 13, fontWeight: 600 }}>{say('가게 · 준비 중', 'Shops · soon')}</span>
+        {/* 탭 — 촬영지 / 가게(편의시설 이름 검색) */}
+        <HStack spacing={6} role="tablist" style={{ padding: '2px 16px 10px', flex: 'none' }}>
+          {(['spots', 'shops'] as const).map((t) => {
+            const on = tab === t
+            const label = t === 'spots' ? say(`촬영지 ${items?.length ?? ''}`, `Spots ${items?.length ?? ''}`) : say(`가게 ${shops.length}`, `Shops ${shops.length}`)
+            return (
+              <Pressable key={t} plain role="tab" aria-selected={on} onClick={() => setTab(t)} style={{ minHeight: 36, display: 'grid', alignItems: 'center' }}>
+                <span style={{ padding: '6px 12px', borderRadius: 999, background: on ? 'var(--label)' : 'var(--system-gray6)', color: on ? 'var(--system-background)' : 'var(--label-secondary)', fontSize: 13, fontWeight: on ? 700 : 600 }}>{label}</span>
+              </Pressable>
+            )
+          })}
         </HStack>
         <div className="scroll-y" style={{ flex: 1, minHeight: 0, padding: '0 16px 20px', overscrollBehavior: 'contain' }}>
-          {failed ? (
+          {tab === 'shops' ? (
+            shops.length === 0 ? (
+              <Txt size={14} color="secondary" align="center" style={{ display: 'block', padding: 24 }}>{area ? say('찾는 가게가 없어요', 'No shops found') : say('이 지역엔 없어요', 'None in this area')}</Txt>
+            ) : (
+              <div style={{ borderRadius: 14, background: 'var(--system-background)', overflow: 'hidden' }}>
+                {shops.map((p, i) => <ShopRow key={p.id} place={p} first={i === 0} onPick={() => onPickShop(p)} />)}
+              </div>
+            )
+          ) : failed ? (
             <Txt size={14} color="secondary" align="center" style={{ display: 'block', padding: 24 }}>{say('찾지 못했어요. 잠시 후 다시 해 주세요', 'Search failed. Try again shortly.')}</Txt>
           ) : items === null ? (
             <VStack align="center" style={{ padding: 24 }}><Spinner size={18} /></VStack>

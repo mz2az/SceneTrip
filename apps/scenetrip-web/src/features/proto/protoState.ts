@@ -67,6 +67,45 @@ const trip = readJSON<ProtoTrip | null>(TRIP_KEY, null)
 // 처음 온 사람도 질문 화면 대신 홈(사진 카드 + 떠 있는 여행 계획 줄)을 먼저 본다(사용자 결정 2026-11-07). 질문은 사람이 열 때만.
 export const protoStore = createStore<ProtoState>({ proto, trip, asking: false, forced: false, startCity: null, picking: null, justCreated: null })
 const patch = (p: Partial<ProtoState>) => protoStore.set((s) => ({ ...s, ...p }))
+// 새 화면이 켜진 곳에서만 서버와 맞춘다(시험 환경·운영 주소에서는 부르지 않는다).
+if (protoAvailable && proto !== null && typeof window !== 'undefined' && import.meta.env.MODE !== 'test') {
+  queueMicrotask(() => void syncTrip())
+}
+
+/** 서버의 정한 여행. 없거나(404) 못 받으면 null — 못 받았을 때는 {@code failed}. */
+async function fetchServerTrip(): Promise<{ trip: ProtoTrip | null; failed: boolean }> {
+  const { data, response } = await api.GET('/me/trip', { params: { header: installHeader() } }).catch(() => ({ data: undefined, response: undefined }))
+  if (data) return { trip: { city: data.city, days: data.days, pace: data.pace, courseId: data.courseId ?? null }, failed: false }
+  return { trip: null, failed: response?.status !== 404 }
+}
+
+async function pushTrip(next: ProtoTrip | null): Promise<void> {
+  const header = installHeader()
+  await (next
+    ? api.PUT('/me/trip', { params: { header }, body: { city: next.city, days: next.days, pace: next.pace, courseId: next.courseId } })
+    : api.DELETE('/me/trip', { params: { header } })
+  ).catch(() => undefined)
+}
+
+/** 들어올 때 한 번 — 서버 것이 있으면 그것으로, 없으면 이 브라우저 것을 올린다(reconcileTrip). 서버에 묻지 못하면 그대로 둔다. */
+async function syncTrip(): Promise<void> {
+  const server = await fetchServerTrip()
+  if (server.failed) return
+  const { use, push } = reconcileTrip(protoStore.get().trip, server.trip)
+  writeJSON(TRIP_KEY, use)
+  patch({ trip: use })
+  if (push) void pushTrip(use)
+}
+
+/**
+ * 이 브라우저에 기억한 여행과 서버(`/me/trip`, MZ2AZ-542)의 여행을 맞춘다. {@code use} 는 화면이 쓸 여행, {@code push} 는 이 브라우저 것을 서버에
+ * 올려야 하는가.
+ */
+export function reconcileTrip(local: ProtoTrip | null, server: ProtoTrip | null): { use: ProtoTrip | null; push: boolean } {
+  // 서버가 정본이다 — 다른 기기에서 고친 것이 이긴다. 서버에 없고 이 브라우저에만 있으면(서버가 생기기 전에 정한 여행) 올린다.
+  if (server) return { use: server, push: false }
+  return { use: local, push: local !== null }
+}
 
 export const protoActions = {
   choose(next: Proto | null) {
@@ -110,6 +149,8 @@ export const protoActions = {
   setTrip(next: ProtoTrip | null) {
     writeJSON(TRIP_KEY, next)
     patch({ trip: next })
+    // 서버(/me/trip, MZ2AZ-542)에도 — 다른 기기·앱에서 이어 본다. 실패해도 이 브라우저 것은 남는다(다음에 들어올 때 다시 올린다).
+    void pushTrip(next)
   },
   ask: (asking: boolean, forced = false) => patch({ asking, forced: asking && forced, startCity: null }),
   /** 여행 계획 질문을 연다 — 도시를 주면 「며칠?」 부터. */

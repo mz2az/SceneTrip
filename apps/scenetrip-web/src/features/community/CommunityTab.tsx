@@ -18,7 +18,6 @@ import { useOnAccountChange } from '@/state/shared'
 import { useStore } from '@/state/storage'
 import { protoAvailable, protoStore, say } from '@/features/proto/protoState'
 import { PostCounts } from '@/features/proto/protoPostSocial'
-import { showsLocalOnlyFeatures } from '@/features/proto/protoGate'
 import { type Board, FreeBoardEmpty, NoMatch, ProtoCommunityHeader, ProtoPage } from '@/features/proto/ProtoCommunity'
 import { ComposeSheet, ComposeView } from './ComposeView'
 import { CoverPhoto } from './CoverPhoto'
@@ -67,19 +66,23 @@ export function CommunityTab() {
   const [query, setQuery] = useState<string | null>(null)
   const onCompose = () => (signedIn || proto ? navigate(paths.communityCompose) : promptSignIn())
   const allRows = useMemo(() => store.posts.map(postFromSummary), [store.posts])
-  const needle = proto && query ? query.trim().toLowerCase() : ''
-  const rows = useMemo(
-    () => (needle === '' ? allRows : allRows.filter((r) => `${r.title}\n${r.body}`.toLowerCase().includes(needle))),
-    [allRows, needle],
-  )
+  const rows = allRows
+  // 게시판·검색어는 서버가 거른다(1.24.0, MZ2AZ-538). 검색어는 2자부터, 입력이 0.35초 멈추면. 탭을 떠나면 조건을 지운다 — 홈 「커뮤니티 지금」 도
+  // 같은 목록을 읽는다.
+  const term = proto && query ? query.trim() : ''
+  const needle = [...term].length >= 2 ? term : ''
+  useEffect(() => {
+    if (!proto) return
+    const t = setTimeout(() => void communityStore.api.setFilter({ board, q: needle === '' ? null : needle }), needle === '' ? 0 : 350)
+    return () => clearTimeout(t)
+  }, [proto, board, needle])
+  useEffect(() => () => void communityStore.api.setFilter({ board: null, q: null }), [])
   const freeBoard = proto && board === 'free'
-  // 서버가 없는 것(자유게시판·글 검색·좋아요·댓글)은 로컬 개발 서버에서만 — 시험용 웹에서는 숨긴다(MZ2AZ-539, 서버는 MZ2AZ-538).
-  const localOnly = showsLocalOnlyFeatures(import.meta.env.DEV)
 
   return (
     <VStack style={{ height: '100%', background: 'var(--system-background)' }}>
       {proto ? (
-        <ProtoCommunityHeader board={board} onBoard={setBoard} query={query} onQuery={setQuery} onCompose={onCompose} extras={localOnly} />
+        <ProtoCommunityHeader board={board} onBoard={setBoard} query={query} onQuery={setQuery} onCompose={onCompose} />
       ) : (
         <>
           <Header onCompose={onCompose} />
@@ -87,8 +90,7 @@ export function CommunityTab() {
         </>
       )}
       <div className="scroll-y" style={{ flex: 1, minHeight: 0, paddingBottom: 'var(--proto-tab-inset, 0px)' }} data-testid="community-list">
-        {freeBoard ? <FreeBoardEmpty /> : <>
-        {needle !== '' && rows.length === 0 && !store.loading && <NoMatch query={query!.trim()} />}
+        {needle !== '' && rows.length === 0 && !store.loading && store.message === null && <NoMatch query={needle} />}
         {store.message && (
           <ListRow>
             <Txt size={13} color="red">{store.message}</Txt>
@@ -115,7 +117,7 @@ export function CommunityTab() {
             <SectionFooter>{tr('기존 사진과 코스를 보관하고 있어요. 이 기기에서만 보입니다')}</SectionFooter>
           </section>
         )}
-        {allRows.length === 0 && store.legacyPosts.length === 0 && !store.loading && store.message === null && <EmptyState />}
+        {needle === '' && allRows.length === 0 && store.legacyPosts.length === 0 && !store.loading && store.message === null && (freeBoard ? <FreeBoardEmpty /> : <EmptyState />)}
         {rows.map((post) => (
           <PostRow
             key={post.key}
@@ -127,8 +129,8 @@ export function CommunityTab() {
             onDelete={setDeleting}
           />
         ))}
-        {/* 시안 — 「더 보기」 대신 바닥에 닿기 전에 다음 쪽을 저절로 받는다. 검색 중에는 받은 글 안에서만 거르므로 멈춘다. */}
-        {proto && !freeBoard && needle === '' && store.posts.length < store.total && store.message === null && (
+        {/* 시안 — 「더 보기」 대신 바닥에 닿기 전에 다음 쪽을 저절로 받는다(서버가 준 커서로, 게시판·검색어 그대로). */}
+        {proto && store.posts.length < store.total && store.message === null && (
           <MoreSentinel loading={store.loading} onReach={() => void refresh({ more: true })} />
         )}
         {!proto && store.posts.length < store.total && (
@@ -138,7 +140,6 @@ export function CommunityTab() {
             </Pressable>
           </ListRow>
         )}
-        </>}
       </div>
 
       <PostSheet
@@ -150,7 +151,7 @@ export function CommunityTab() {
       />
       {proto ? (
         <ProtoPage open={composing} onBack={closeSheets}>
-          <ComposeView onClose={closeSheets} board={localOnly ? board : undefined} />
+          <ComposeView onClose={closeSheets} board={board} />
         </ProtoPage>
       ) : (
         <ComposeSheet open={composing} onClose={closeSheets} topGap={SHEET_TOP_GAP} radius={SHEET_RADIUS} />
@@ -270,7 +271,7 @@ function PostRow({ post, myNickname, moderation, onOpen, onDelete, proto = false
       <Txt size={11} color="tertiary">{authorName(post, myNickname)}</Txt>
       <Txt size={11} color="tertiary">{relativeTime(post.createdAt)}</Txt>
       {/* 시안 — 좋아요·댓글 수(이 브라우저에만 저장, protoPostSocial). 사진이 있으면 사진 밑에 둔다. */}
-      {proto && showsLocalOnlyFeatures(import.meta.env.DEV) && !hasPhoto && <><span style={{ flex: 1 }} /><PostCounts postKey={post.key} /></>}
+      {proto && !hasPhoto && <><span style={{ flex: 1 }} /><PostCounts post={post} /></>}
     </HStack>
   )
   return (
@@ -298,7 +299,7 @@ function PostRow({ post, myNickname, moderation, onOpen, onDelete, proto = false
                 <div style={{ width: COVER_SIZE, height: COVER_SIZE, flex: 'none', overflow: 'hidden', ...rr(12) }}>
                   <CoverPhoto post={post} />
                 </div>
-                {proto && showsLocalOnlyFeatures(import.meta.env.DEV) && <PostCounts postKey={post.key} />}
+                {proto && <PostCounts post={post} />}
               </VStack>
             )}
           </HStack>

@@ -19,7 +19,6 @@ import './icons'
 import { type CommunityPost, type PostBlock, type PostCourse, authorInitial, authorName, isMine, placeCount, shownAddress, shownName } from './model'
 import { useMyNickname } from './nickname'
 import { PostComments, PostLike } from '@/features/proto/protoPostSocial'
-import { showsLocalOnlyFeatures } from '@/features/proto/protoGate'
 import { PostCourseBadge } from './PostCourseBadge'
 import { PhotoRenewContext, createPhotoRenewal } from './renewal'
 import { failureText } from './rules'
@@ -167,9 +166,9 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
                   )
                 )}
                 {/* 시안 — 글 끝에 좋아요, 그 아래 댓글(이 브라우저에만 저장, protoPostSocial). */}
-                {/* 서버가 없어 로컬 개발 서버에서만(MZ2AZ-538). */}
-                {page && showsLocalOnlyFeatures(import.meta.env.DEV) && <PostLike postKey={post.key} />}
-                {page && showsLocalOnlyFeatures(import.meta.env.DEV) && <PostComments postKey={post.key} author={myNickname ?? '나'} />}
+                {/* 좋아요·댓글 — 서버 글에만(1.24.0, MZ2AZ-538). 기기 옛 글은 서버에 없다. */}
+                {page && post.serverId !== undefined && <PostLike post={post} />}
+                {page && post.serverId !== undefined && <PostComments postId={post.serverId} />}
               </VStack>
             </VStack>
           )}
