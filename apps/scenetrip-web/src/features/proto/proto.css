@@ -9,3 +9,114 @@
 .proto-press:active {
   transform: scale(0.97);
 }
+
+/*
+ * 짜는 중 화면의 포스터가 천천히 떠오르기를 되풀이한다 — 화면이 멈춘 것이 아니라는 표시.
+ * `transform`(기울기)과 겹치지 않게 따로 노는 `translate` 만 움직인다.
+ */
+.proto-float {
+  animation: proto-float 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes proto-float {
+  from { translate: 0 0; }
+  to { translate: 0 -8px; }
+}
+
+/*
+ * 지도 위 검색칸 — 🔍 동그라미 자리에서 오른쪽으로 길어지며 열리고, 닫힐 때는 거꾸로 줄어든다.
+ * 폭(width)을 바꾸지 않고 잘라 보이는 범위(clip-path)만 넓혀 레이아웃을 다시 계산하지 않는다. 결과 칸은 살짝 내려오며 나타난다.
+ */
+.proto-search-open {
+  animation: proto-search-grow 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.proto-search-close {
+  animation: proto-search-shrink 0.2s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.proto-search-results {
+  animation: proto-drop-in 0.22s ease-out 0.08s both;
+}
+
+@keyframes proto-search-grow {
+  from { clip-path: inset(0 calc(100% - 46px) 0 0 round 999px); }
+  to { clip-path: inset(0 0 0 0 round 999px); }
+}
+
+@keyframes proto-search-shrink {
+  from { clip-path: inset(0 0 0 0 round 999px); }
+  to { clip-path: inset(0 calc(100% - 46px) 0 0 round 999px); }
+}
+
+/* 커뮤니티 검색칸 — 오른쪽 돋보기 자리에서 왼쪽으로 길어진다(지도 검색칸과 방향만 반대). */
+.proto-search-open-left {
+  animation: proto-search-grow-left 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.proto-search-close-left {
+  animation: proto-search-shrink-left 0.2s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.proto-fade-out {
+  animation: proto-fade-out 0.15s ease-in both;
+}
+
+@keyframes proto-search-grow-left {
+  from { clip-path: inset(0 0 0 calc(100% - 38px) round 999px); }
+  to { clip-path: inset(0 0 0 0 round 999px); }
+}
+
+@keyframes proto-search-shrink-left {
+  from { clip-path: inset(0 0 0 0 round 999px); }
+  to { clip-path: inset(0 0 0 calc(100% - 38px) round 999px); }
+}
+
+@keyframes proto-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes proto-drop-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/*
+ * 커뮤니티 시안 — 글 읽기·글쓰기가 시트 대신 오른쪽에서 밀려 들어오는 새 화면(2026-11-08 사용자 요청).
+ */
+.proto-page-in {
+  animation: proto-page-in 0.32s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.proto-page-out {
+  animation: proto-page-out 0.24s ease-in both;
+}
+
+@keyframes proto-page-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes proto-page-out {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* 여행후기 좋아요 — 누르면 하트가 톡 커졌다 돌아온다. */
+.proto-heart-pop {
+  animation: proto-heart-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes proto-heart-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}

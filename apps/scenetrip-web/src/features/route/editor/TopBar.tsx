@@ -11,7 +11,7 @@ const TITLE_MAX = 200
 /** 코스 이름 최대 길이 — 서버가 정한 값은 없어 화면에서 넉넉히 막는다. */
 const TITLE_LIMIT = 100
 
-export function TopBar({ title, isNew, canSave, saving, onTitle, onCancel, onSave }: {
+export function TopBar({ title, isNew, canSave, saving, onTitle, onCancel, onSave, compact = false }: {
   title: string
   isNew: boolean
   canSave: boolean
@@ -19,9 +19,11 @@ export function TopBar({ title, isNew, canSave, saving, onTitle, onCancel, onSav
   onTitle: (t: string) => void
   onCancel: () => void
   onSave: () => void
+  /** 위아래 여백을 줄인다 — 「보기 / 편집」 시안(로컬 개발 서버 전용)이 쓴다. */
+  compact?: boolean
 }) {
   return (
-    <div style={{ background: 'var(--system-background)', padding: '12px 16px', flex: 'none' }}>
+    <div style={{ background: 'var(--system-background)', padding: compact ? '4px 16px' : '12px 16px', flex: 'none' }}>
       <HStack justify="between" style={{ position: 'relative' }}>
         <Pressable plain onClick={onCancel} style={{ minHeight: 44, minWidth: 44, textAlign: 'left' }}>
           <Txt size={17} color="accent">{tr('취소')}</Txt>

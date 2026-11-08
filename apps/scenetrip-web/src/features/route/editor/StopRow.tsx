@@ -38,6 +38,35 @@ export interface StopRowProps {
   /** 끌기 손잡이에 붙이는 이벤트. */
   handleProps?: { onPointerDown: PointerEventHandler }
   rowRef?: Ref<HTMLDivElement>
+  /**
+   * 「장소 사진」 시안(로컬 개발 서버 전용) — 있으면 오른쪽에 4:3 사진, 글자는 한 단계 크게, 유형과 주소는 따로 한 줄씩.
+   * 사진이 없는 곳(편의시설·직접 찍은 곳)은 회색 칸에 아이콘. 줄을 누르면 지금처럼 지도가 그곳을 가리키고,
+   * 상세는 사진 모서리의 ⓘ 로 연다(`onOpen`, 촬영지만) — 줄 전체가 상세로 넘어가면 지도 포커스가 사라진다(2026-11-07 사용자 지적).
+   */
+  photo?: { url: string | null; symbol: string; onOpen: (() => void) | null }
+}
+
+/** 시안의 장소 사진 크기(px) — 가로 4 : 세로 3. */
+const PHOTO = { w: 92, h: 69 }
+
+/** 시안 — 줄 오른쪽 사진. 촬영지면 사진 전체가 상세로 가는 단추이고, 오른쪽 아래 ⓘ 가 그 표시다. */
+function StopPhoto({ url, symbol, onOpen, name }: { url: string | null; symbol: string; onOpen: (() => void) | null; name: string }) {
+  const art = (
+    <span aria-hidden style={{ position: 'relative', width: PHOTO.w, height: PHOTO.h, flex: 'none', borderRadius: 10, overflow: 'hidden', background: 'var(--system-gray6)', display: 'grid', placeItems: 'center' }}>
+      {url ? <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name={symbol} size={22} color="tertiary" />}
+      {onOpen && (
+        <span style={{ position: 'absolute', right: 5, bottom: 5, width: 22, height: 22, borderRadius: 999, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.55)' }}>
+          <Icon name="info.circle" size={14} color="white" />
+        </span>
+      )}
+    </span>
+  )
+  if (!onOpen) return art
+  return (
+    <Pressable plain onClick={onOpen} aria-label={`${name} ${trAt('자세히 보기', '장소 상세')}`} style={{ flex: 'none', borderRadius: 10 }}>
+      {art}
+    </Pressable>
+  )
 }
 
 const PIN_LABEL: Record<PinKind, string> = { start: '출발', end: '도착' }
@@ -64,26 +93,44 @@ export function StopRow(p: StopRowProps) {
             </span>
             <VStack spacing={2} align="start" style={{ minWidth: 0 }}>
               <HStack spacing={5} wrap>
-                <Txt size={15} weight="semibold" style={{ opacity: usable ? 1 : 0.65 }}>{label.title}</Txt>
+                <Txt size={p.photo ? 16 : 15} weight="semibold" style={{ opacity: usable ? 1 : 0.65 }}>{label.title}</Txt>
                 {isPinned(stop) && <Chip tint="gray">{tr('내가 찍은 곳')}</Chip>}
                 {/* 초안이 id 없이 준 곳 — 저장하면 이 줄만 빠진다. 미리 알려야 「완료」 뒤에 사라진 것을 찾지 않는다(MZ2AZ-321). */}
                 {stop.placeMissing && <Chip tint="orange">{tr('저장 안 됨')}</Chip>}
               </HStack>
               {label.reading && <Txt size={11} color="secondary">{label.reading}</Txt>}
               {stop.arriveMinute !== null && <Txt size={11} color="secondary">{tr('%@ 도착 예정', clock(stop.arriveMinute))}</Txt>}
-              <Txt size={11} color="secondary" lines={1}>{typeAddress}</Txt>
-              {p.works && (
-                <HStack spacing={4} style={{ color: 'var(--pin-deep)' }}>
-                  <Icon name="film" size={9} color="deep" />
-                  <Txt size={11} weight="medium" color="deep" lines={1}>{p.works}</Txt>
-                </HStack>
+              {p.photo ? (
+                <>
+                  {p.works && (
+                    <HStack spacing={4} style={{ color: 'var(--pin-deep)' }}>
+                      <Icon name="film" size={11} color="deep" />
+                      <Txt size={13} weight="medium" color="deep" lines={1}>{p.works}</Txt>
+                    </HStack>
+                  )}
+                  {label.category && <Txt size={12} color="secondary" lines={1}>{label.category}</Txt>}
+                  {label.address && <Txt size={12} color="tertiary" lines={1}>{label.address}</Txt>}
+                </>
+              ) : (
+                <>
+                  <Txt size={11} color="secondary" lines={1}>{typeAddress}</Txt>
+                  {p.works && (
+                    <HStack spacing={4} style={{ color: 'var(--pin-deep)' }}>
+                      <Icon name="film" size={9} color="deep" />
+                      <Txt size={11} weight="medium" color="deep" lines={1}>{p.works}</Txt>
+                    </HStack>
+                  )}
+                </>
               )}
             </VStack>
           </HStack>
-          {/* 끌 수 있다는 것을 알리는 그림이자 끌기 손잡이. */}
-          <span {...p.handleProps} style={{ flex: 'none', padding: 6, margin: -6, touchAction: 'none', cursor: 'grab' }} aria-label={trAt('순서 바꾸기', '끌기')}>
-            <Icon name="line.3.horizontal" size={12} color="tertiary" />
-          </span>
+          {p.photo && <StopPhoto {...p.photo} name={label.title} />}
+          {/* 끌 수 있다는 것을 알리는 그림이자 끌기 손잡이. 끌 수 없는 목록(시안의 보기 상태)이면 그리지 않는다. */}
+          {p.handleProps && (
+            <span {...p.handleProps} style={{ flex: 'none', padding: 6, margin: -6, touchAction: 'none', cursor: 'grab' }} aria-label={trAt('순서 바꾸기', '끌기')}>
+              <Icon name="line.3.horizontal" size={12} color="tertiary" />
+            </span>
+          )}
         </HStack>
 
         {stop.unavailable && (

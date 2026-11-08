@@ -67,7 +67,7 @@ export function HomeTab() {
   const today = home.today
 
   return (
-    <div className="scroll-y" style={{ height: '100%', background: 'var(--grouped-background)' }}>
+    <div className="scroll-y" style={{ height: '100%', background: 'var(--grouped-background)', paddingBottom: 'var(--proto-tab-inset, 0px)' }}>
       <VStack spacing={18} align="stretch" style={{ padding: proto !== null ? '8.7px 0 84px' : '8.7px 0 28px' }}>
         <HomeHeader onProfile={() => router.openProfile()} />
         {/* 「어디로 가세요?」 시안(로컬 전용, docs/project/plans/web-trip-first-prototypes.md). */}

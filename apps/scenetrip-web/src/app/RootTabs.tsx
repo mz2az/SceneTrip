@@ -36,9 +36,16 @@ export function RootTabs() {
   const screenName = cover === 'route' ? 'courses' : cover === 'profile' ? 'profile' : tab
   useEffect(() => track(appEvent.screenView(screenName)), [screenName])
 
+  // 시안(떠 있는 알약 탭바)이면 탭 내용이 화면 바닥까지 내려가고 알약은 그 위에 뜬다 — 알약 뒤로 지도·목록이 비친다.
+  // 목록들은 `--proto-tab-inset` 만큼 바닥을 비워 마지막 줄이 알약에 가리지 않게 한다(시안이 아니면 0).
   return (
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', background: 'var(--grouped-background)' }}>
-      <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+    <div
+      style={{
+        position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', background: 'var(--grouped-background)',
+        ['--proto-tab-inset' as string]: protoOn ? 'calc(74px + var(--safe-bottom))' : '0px',
+      }}
+    >
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, ...(protoOn ? { marginBottom: 'calc(-1 * (var(--tabbar-height) + var(--safe-bottom)))' } : {}) }}>
         <Layer visible={tab === 'search'}>
           <SearchTab active={tab === 'search' && cover === null} />
         </Layer>

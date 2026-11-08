@@ -1,13 +1,14 @@
 /*
- * 탭바 시안 — 세 탭을 같은 크기로(사용자 요청 2026-11-07: 탭이 셋뿐인데 홈만 위로 솟아 있어 어색하다).
- * 고른 탭은 단색 보라 알약(흰 글씨 대비 6:1)이 뒤에 깔리며 미끄러져 옮겨 간다. 홈 아이콘은 해태 얼굴을 작게. 바닥 줄은 자리만 잡고 비운다.
+ * 탭바 시안 — 떠 있는 알약 하나에 세 탭을 같은 크기로(사용자 요청 2026-11-07: 탭이 셋뿐인데 홈만 위로 솟아 있어 어색하다).
+ * 고른 탭은 단색 보라 알약(흰 글씨 대비 6:1)이 뒤에 깔리며 미끄러져 옮겨 간다. 반투명 유리 효과는 앱에서 이 탭바 한 곳에만 쓴다(S4). 홈 아이콘은 해태 얼굴을 작게. 바닥 줄은 자리만 잡고 비운다.
  * 원래 탭바: app/TabBar.tsx. 로컬 개발 서버 + 시안이 켜졌을 때만(docs/project/plans/web-trip-first-prototypes.md).
  */
 import { Icon } from '@/design/Icon'
 import { Pressable } from '@/design/primitives'
 import { tr, useLang } from '@/i18n'
+import { say } from './protoState'
 import type { TabId } from '@/app/routes'
-import { color, radius, z } from './protoTokens'
+import { color, radius, shadow, z } from './protoTokens'
 import './proto.css'
 
 const TABS: ReadonlyArray<{ id: TabId; label: () => string }> = [
@@ -26,19 +27,20 @@ export function ProtoTabBar({ selected, onSelect }: { selected: TabId; onSelect:
   useLang()
   const at = Math.max(0, TABS.findIndex((t) => t.id === selected))
   return (
-    // 화면 아래에 붙은 흰 막대(위 가는 선) — 떠 있는 유리 알약은 아이폰 최신 탭바와 너무 닮아 뺐다(사용자 2026-11-07, ui-ux-pro-max 점검).
-    // 고른 탭은 막대 안의 그라데이션 알약이 미끄러져 옮겨 가며 알린다(nav-state-active). 아이콘과 글자를 함께 둔다(nav-label-icon).
-    <nav
-      className="hair-t"
-      aria-label={tr('탭')}
-      style={{ position: 'relative', height: 'calc(var(--tabbar-height) + var(--safe-bottom))', paddingBottom: 'var(--safe-bottom)', flex: 'none', zIndex: z.tabbar, background: 'var(--system-background)' }}
-    >
-      <div style={{ position: 'relative', display: 'flex', height: '100%', padding: '6px 12px' }}>
+    // 바깥 줄은 원래 탭바와 같은 높이지만 비어 있다 — 탭 내용이 그 밑까지 내려와 비친다(RootTabs). 손가락은 알약만 받고 나머지는 밑으로 통과시킨다.
+    <nav aria-label={say('탭', 'Tabs')} style={{ position: 'relative', height: 'calc(var(--tabbar-height) + var(--safe-bottom))', paddingBottom: 'var(--safe-bottom)', flex: 'none', zIndex: z.tabbar, background: 'transparent', pointerEvents: 'none' }}>
+      <div
+        style={{
+          position: 'absolute', left: 16, right: 16, bottom: 'calc(var(--safe-bottom) + 8px)', height: 58, borderRadius: radius.pill,
+          background: 'color-mix(in srgb, var(--system-background) 88%, transparent)', backdropFilter: 'blur(18px) saturate(1.6)', WebkitBackdropFilter: 'blur(18px) saturate(1.6)',
+          boxShadow: shadow.float, display: 'flex', padding: 5, pointerEvents: 'auto',
+        }}
+      >
         {/* 고른 탭 뒤의 알약 — 탭을 바꾸면 미끄러져 옮겨 간다 */}
         <div
           aria-hidden
           style={{
-            position: 'absolute', top: 6, bottom: 6, left: 12, width: 'calc((100% - 24px) / 3)', borderRadius: radius.pill, background: color.primaryFill,
+            position: 'absolute', top: 5, bottom: 5, left: 5, width: 'calc((100% - 10px) / 3)', borderRadius: radius.pill, background: color.primaryFill,
             transform: `translateX(${at * 100}%)`, transition: 'transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)',
           }}
         />

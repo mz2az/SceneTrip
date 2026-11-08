@@ -14,8 +14,8 @@ import { type Box, CHIP_BOTTOM, CHIP_EDGE, chipMoved, chipOffsetX, chipOffsetY, 
 
 const KEY_X = 'scenetrip.guideChip.dx'
 const KEY_Y = 'scenetrip.guideChip.dy'
-/** 꾹 누름으로 치는 시간(초) — LongPressGesture(minimumDuration: 0.3). */
-const LONG_PRESS_MS = 300
+/** 꾹 누름으로 치는 시간(ms). iOS 는 LongPressGesture(minimumDuration: 0.3) — 웹은 0.3초가 길게 느껴져 0.2초로 줄였다(2026-11-08 사용자 요청). */
+const LONG_PRESS_MS = 200
 const FACE = 46
 const LIFT_SCALE = 1.08
 

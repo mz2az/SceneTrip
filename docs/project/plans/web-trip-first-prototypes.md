@@ -11,6 +11,8 @@
 `SCENETRIP_NO_API_CACHE=1 just web-dev` → `http://localhost:5173/?proto=b` (`a` 질문 카드만, 끄기 `off`). 고른 값은 탭을 닫을 때까지 남는다(sessionStorage).
 화면 오른쪽 아래 「시안」 단추로 바꾸고 「처음부터」 로 시안의 저장값(여행)을 지운다. **값을 주지 않으면 지금 화면 그대로다.** 배포 번들(`import.meta.env.DEV` 가 거짓)에서는 장치 자체가 켜지지 않는다.
 
+> **2026-11-09 덧붙임 (MZ2AZ-539)**: 시험용 웹 `dev.scenetrip.io` 에서는 배포 번들이어도 새 화면(A)이 기본으로 켜진다 — 켜는 곳 `features/proto/protoGate.ts`. 「시안」 표시·스위치와 서버가 없는 기능은 거기서 숨긴다. 운영 주소는 그대로 꺼져 있다. 계획: [web-proto-apply.md](./web-proto-apply.md).
+
 `SCENETRIP_NO_API_CACHE=1` 이 필요한 이유: 개발 서버의 응답 캐시(`vite.config.ts`)가 열쇠에 `X-Install-Id` 를 넣지 않아, 담은 뒤 `GET /cart` 가 10분 동안 옛 답을 돌려준다.
 
 ## 2. 결정(사용자, 2026-11-07)

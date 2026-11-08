@@ -18,6 +18,8 @@ import { fullDate } from './format'
 import './icons'
 import { type CommunityPost, type PostBlock, type PostCourse, authorInitial, authorName, isMine, placeCount, shownAddress, shownName } from './model'
 import { useMyNickname } from './nickname'
+import { PostComments, PostLike } from '@/features/proto/protoPostSocial'
+import { showsLocalOnlyFeatures } from '@/features/proto/protoGate'
 import { PostCourseBadge } from './PostCourseBadge'
 import { PhotoRenewContext, createPhotoRenewal } from './renewal'
 import { failureText } from './rules'
@@ -27,7 +29,8 @@ import { communityStore } from './store'
 const PREVIEW_STOPS = 4
 const SECTION_PADDING_X = 20
 
-export function PostView({ initialPost, onClose }: { initialPost: CommunityPost; onClose: () => void }) {
+/** `page` — 시안의 새 화면 안(위에 「‹」 줄이 따로 있다)이라 오른쪽 위 닫기 동그라미를 뺀다. */
+export function PostView({ initialPost, onClose, page = false }: { initialPost: CommunityPost; onClose: () => void; page?: boolean }) {
   const myNickname = useMyNickname()
   const signedIn = useIsSignedIn()
   const router = useTabRouter()
@@ -163,11 +166,15 @@ export function PostView({ initialPost, onClose }: { initialPost: CommunityPost;
                     </HStack>
                   )
                 )}
+                {/* 시안 — 글 끝에 좋아요, 그 아래 댓글(이 브라우저에만 저장, protoPostSocial). */}
+                {/* 서버가 없어 로컬 개발 서버에서만(MZ2AZ-538). */}
+                {page && showsLocalOnlyFeatures(import.meta.env.DEV) && <PostLike postKey={post.key} />}
+                {page && showsLocalOnlyFeatures(import.meta.env.DEV) && <PostComments postKey={post.key} author={myNickname ?? '나'} />}
               </VStack>
             </VStack>
           )}
         </div>
-        <Pressable
+        {!page && <Pressable
           aria-label={tr('닫기')}
           onClick={onClose}
           style={{
@@ -176,7 +183,7 @@ export function PostView({ initialPost, onClose }: { initialPost: CommunityPost;
           }}
         >
           <Icon name="xmark" size={13} weight="bold" color="white" />
-        </Pressable>
+        </Pressable>}
       </div>
       <ModerationSheets
         controller={moderation}

@@ -172,7 +172,7 @@ export function SearchList(p: SearchListProps) {
       )}
 
       {/* 탭이 바뀌거나 새 검색이 깔리면 스크롤 뷰째 새로 만든다 — 앞 검색에서 내려가 있던 자리가 남지 않게(실측). */}
-      <div key={`${p.tab}-${state.listSerial}`} className="scroll-y" data-sheet-scroll style={{ flex: 1, minHeight: 0, touchAction: 'pan-y' }}>
+      <div key={`${p.tab}-${state.listSerial}`} className="scroll-y" data-sheet-scroll style={{ flex: 1, minHeight: 0, touchAction: 'pan-y', paddingBottom: 'var(--proto-tab-inset, 0px)' }}>
         {p.tab === 'work' ? <WorkRows {...p} /> : <PlaceRows {...p} wantsMore={wantsMore} />}
       </div>
     </VStack>

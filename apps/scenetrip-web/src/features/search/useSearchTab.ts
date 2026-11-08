@@ -15,6 +15,7 @@ import { cartActions, useCart } from '@/state/cart'
 import { likeActions, useLikes } from '@/state/likes'
 import { useOnAccountChange } from '@/state/shared'
 import { useStore } from '@/state/storage'
+import { protoAvailable, protoStore } from '@/features/proto/protoState'
 import { type BackStep, contentBack, placeBack } from './detailBack'
 import { type ListTab, isInitialScreen, numbersOnPins, visiblePlacesOf } from './listRules'
 import type { LocateOutcome, MapCameraHandle } from './map/MapView'
@@ -39,7 +40,11 @@ function canGoBack(): boolean {
 }
 
 /** `active` — 탭이 지금 보이는가. 홈에서 건 지역 필터는 탭을 떠날 때 지운다(일회성, MZ2AZ-531). */
-export function useSearchTab(active = true) {
+/**
+ * `embedded` — 다른 화면 위에 띄운 검색(코스 편집의 「지도에서 추가」 시안)이다. 주소를 읽지도 바꾸지도 않는다 —
+ * 상세를 닫을 때 주소를 검색 탭으로 옮기면 띄운 화면 밑의 코스 편집이 사라진다.
+ */
+export function useSearchTab(active = true, embedded = false) {
   const dataRef = useRef<SceneData | null>(null)
   if (!dataRef.current) dataRef.current = new SceneData()
   const data = dataRef.current
@@ -90,8 +95,17 @@ export function useSearchTab(active = true) {
   const initial = isInitialScreen(committed, nearby, selectedContent !== null)
   const visiblePlaces = useMemo(() => visiblePlacesOf(scene.places, chip, initial), [scene.places, chip, initial])
   /** 지도에 꽂는 핀 — 작품을 골랐으면 그 작품의 촬영지, 아니면 검색 결과. 시트 목록과 같은 배열이라 행 번호가 곧 핀 번호다. */
-  const mapPlaces = selectedContent ? contentPlaces : visiblePlaces
-  const numbered = numbersOnPins(initial, tab)
+  const proto = useStore(protoStore, (s) => protoAvailable && s.proto !== null)
+  /** 시안(로컬 개발 서버 전용): 첫 화면 지도에는 보관함에 담은 곳만 꽂는다 — 번호는 보관함 목록 순서. 좌표 없는 곳·목록에서 빠진 곳은 뺀다. */
+  const savedPins = useMemo<PlaceSummary[]>(
+    () =>
+      cart.items
+        .filter((i) => i.latitude != null && i.longitude != null && !i.delisted)
+        .map((i) => ({ id: i.placeId, name: i.name, address: i.address, latitude: i.latitude!, longitude: i.longitude!, imageUrl: i.imageUrl })),
+    [cart.items],
+  )
+  const mapPlaces = selectedContent ? contentPlaces : proto && initial ? savedPins : visiblePlaces
+  const numbered = (proto && initial && !selectedContent) || numbersOnPins(initial, tab)
 
   const blurSearch = () => {
     setSearchFocused(false)
@@ -185,6 +199,7 @@ export function useSearchTab(active = true) {
 
   // 상세에서 나올 때 주소 — 직접 연 상세면 탭 주소로, 격자(지금 뜨는 작품)가 연 작품이면 격자로(MZ2AZ-534). 정하는 규칙은 detailBack.ts.
   const applyBack = (step: BackStep) => {
+    if (embedded) return
     if (step.kind === 'pop') navigate(-1)
     else if (step.kind === 'replace') navigate(step.to, { replace: true, state: step.state })
   }
@@ -360,6 +375,7 @@ export function useSearchTab(active = true) {
 
   // URL(`/search/content/:id`, `/search/place/:id`)로 직접 열었을 때도 같은 상세가 열려야 한다.
   useEffect(() => {
+    if (embedded) return
     const c = matchPath(patterns.searchContent, pathname)
     const p = matchPath(patterns.searchPlace, pathname)
     if (c) {

@@ -26,6 +26,13 @@ export interface AmbientPoiOptions {
   fetchPois?: (v: PoiViewport, limit?: number) => Promise<PoiFetchResult>
   /** 시트가 지도 아래를 덮은 높이(px). 보이는 영역은 이만큼 줄어든다. */
   bottomInset?: number
+  /**
+   * 「켤 때만 · 다시 찾기를 누를 때만」 시안(로컬 개발 서버 전용). 주면 카메라가 멈출 때마다 받지 않고, 이 값이 바뀔 때만 받는다(0 이면 안 받는다).
+   * 지도를 옮기면 `stale` 이 켜진다 — 화면이 「이 지역에서 다시 찾기」 를 띄우는 근거. 없으면 지금처럼 멈출 때마다 받는다.
+   */
+  manualToken?: number
+  /** 이보다 넓으면 안 받는다. 기본은 `POI_MIN_ZOOM`. 시안(골고루 퍼뜨리기)은 0 — 제한 없음. */
+  minZoom?: number
 }
 
 export interface AmbientPoiState {
@@ -34,6 +41,10 @@ export interface AmbientPoiState {
   truncated: boolean
   /** 지금 줌이 너무 넓어 안 받는 중인가. */
   tooWide: boolean
+  /** (`manualToken` 일 때) 마지막으로 받은 뒤 지도가 움직였는가. */
+  stale?: boolean
+  /** (`manualToken` 일 때) 받는 중인가. */
+  loading?: boolean
 }
 
 /**
@@ -50,7 +61,7 @@ export function viewportOf(map: MapHandle, bottomInset = 0): PoiViewport {
   return { south: se.lat, west: nw.lng, north: nw.lat, east: se.lng, centerLat: c.lat, centerLng: c.lng }
 }
 
-export function useAmbientPois({ map, enabled = true, source = 'userSelected', locationAllowed = () => false, fetchPois = defaultFetch, bottomInset = 0 }: AmbientPoiOptions): AmbientPoiState {
+export function useAmbientPois({ map, enabled = true, source = 'userSelected', locationAllowed = () => false, fetchPois = defaultFetch, bottomInset = 0, manualToken, minZoom = POI_MIN_ZOOM }: AmbientPoiOptions): AmbientPoiState {
   const [state, setState] = useState<AmbientPoiState>({ places: [], truncated: false, tooWide: false })
   const latest = useRef({ source, locationAllowed, fetchPois, bottomInset })
   latest.current = { source, locationAllowed, fetchPois, bottomInset }
@@ -65,7 +76,7 @@ export function useAmbientPois({ map, enabled = true, source = 'userSelected', l
     const run = () => {
       if (timer) clearTimeout(timer)
       const mine = (ticket += 1)
-      if (map.getZoom() < POI_MIN_ZOOM) {
+      if (map.getZoom() < minZoom) {
         setState({ places: [], truncated: false, tooWide: true })
         return
       }
@@ -74,11 +85,23 @@ export function useAmbientPois({ map, enabled = true, source = 'userSelected', l
         setState({ places: [], truncated: false, tooWide: false })
         return
       }
+      if (manualToken !== undefined) setState((s) => ({ ...s, loading: true, stale: false }))
       timer = setTimeout(() => {
         void latest.current.fetchPois(viewportOf(map, latest.current.bottomInset), POI_LIMIT).then((found) => {
           if (mine === ticket) setState({ places: found.places, truncated: found.total > found.places.length, tooWide: false })
         })
-      }, POI_QUIET_MS)
+      }, manualToken !== undefined ? 0 : POI_QUIET_MS)
+    }
+    if (manualToken !== undefined) {
+      // 시안 — 값이 바뀔 때 한 번만 받는다. 지도를 옮기면 「낡았다」 만 알린다(점은 그대로).
+      if (manualToken > 0) run()
+      else setState({ places: [], truncated: false, tooWide: false })
+      const off = map.on('moveend', () => setState((s) => (s.stale ? s : { ...s, stale: true })))
+      return () => {
+        ticket += 1
+        if (timer) clearTimeout(timer)
+        off()
+      }
     }
     const off = map.on('moveend', run)
     run()
@@ -87,7 +110,7 @@ export function useAmbientPois({ map, enabled = true, source = 'userSelected', l
       if (timer) clearTimeout(timer)
       off()
     }
-  }, [map, enabled])
+  }, [map, enabled, manualToken, minZoom])
 
   return state
 }

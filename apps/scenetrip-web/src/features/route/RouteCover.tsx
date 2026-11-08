@@ -108,7 +108,7 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
     <VStack style={{ height: '100%', background: 'var(--grouped-background)', paddingTop: 'var(--safe-top)' }}>
       {/* 「어디로 가세요?」 시안이 켜져 있으면(로컬 개발 서버 전용) 머리·목록 자리를 사진 카드 목록으로 — docs/project/plans/web-trip-first-prototypes.md. */}
       {proto !== null ? (
-        <ProtoCourseList onClose={onClose} onNew={() => setFork(true)} onOpen={(c) => void opening.open(c)} />
+        <ProtoCourseList onClose={onClose} onNew={() => setFork(true)} onOpen={(c) => void opening.open(c)} onDelete={setDoomed} />
       ) : (<>
       <Header onClose={onClose} onAdd={() => setFork(true)} />
       {opening.failedCourse && <DetailLoadError onRetry={() => void opening.retry()} />}

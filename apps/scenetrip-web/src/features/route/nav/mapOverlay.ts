@@ -14,6 +14,7 @@ import { poiCaption } from '../poi/poiLabelLines'
 import { PIN_DEEP, haetaePinSvg } from '../map/pinSvg'
 import { poiDotHtml, DOT_IMAGE } from '../poi/PoiDot'
 import { type RoutePlace, placeGroup, placeLabel, placeSymbol } from '../poi/poiPlace'
+import { poiTone } from '../poi/poiGroup'
 import { validPlaces } from '../poi/poiMarkerRules'
 import { type Leg, trailRemaining } from './navModels'
 import './tripMap.css'
@@ -26,6 +27,9 @@ const AI_SCALE = 0.85
 const PICKED_SCALE = 1.1
 /** 지도 위 z 순서 — iOS marker.zIndex: 점 3 · AI 15 · 고른 30. */
 const Z_DOT = 3
+const Z_MINOR = 2
+/** 작은 점 — 보이는 원 9, 누르는 칸 16. */
+const MINOR = 16
 const Z_AI = 15
 const Z_PICKED = 30
 /** 안내 경로선 — 도보 7(점선)·대중교통 9(실선). iOS NMFPath.width. */
@@ -47,6 +51,8 @@ export interface OverlayHandlers {
 export interface OverlayState {
   /** 주변 편의시설(갈래 칩과 촬영지 핀 밑 규칙을 이미 거친 것). */
   ambient: readonly RoutePlace[]
+  /** 칸마다 1등이 아니라 작게만 찍는 편의시설(시안 — 골고루 퍼뜨리기). 없으면 없다. */
+  minor?: readonly RoutePlace[]
   /** 가이드가 찾아 준 곳. */
   guidePlaces: readonly RoutePlace[]
   /** 지금 고른 곳(가이드 장소이거나 주변 점). */
@@ -99,7 +105,8 @@ export function createMapOverlay(map: MapHandle, handlers: OverlayHandlers = {})
     update(s) {
       // ---- 주변 편의시설 점 (PoiMarkerRenderer) — 개별 핀, 같은 위치도 합치지 않는다.
       const ambient = validPlaces(s.ambient)
-      const ambientKey = `${ambient.map((p) => p.id).join(',')}|${s.picked?.id ?? '-'}`
+      const minor = validPlaces(s.minor ?? [])
+      const ambientKey = `${ambient.map((p) => p.id).join(',')}|${minor.map((p) => p.id).join(',')}|${s.picked?.id ?? '-'}`
       if (ambientKey !== keys.ambient) {
         keys.ambient = ambientKey
         dots.clear()
@@ -113,6 +120,19 @@ export function createMapOverlay(map: MapHandle, handlers: OverlayHandlers = {})
             anchor: [DOT_IMAGE / 2, DOT_IMAGE / 2],
             html: poiDotHtml(group, placeSymbol(p)) + caption(poiCaption(placeLabel(p)), DOT_IMAGE - 3, 'ambient'),
             zIndex: Z_DOT,
+            onClick: select(p),
+          })
+        }
+        for (const p of minor) {
+          if (p.id === s.picked?.id) continue
+          dots.addMarker({
+            position: { lat: p.latitude, lng: p.longitude },
+            className: 'route-pin tm-dot',
+            size: [MINOR, MINOR],
+            anchor: [MINOR / 2, MINOR / 2],
+            html: `<span style="display:block;width:9px;height:9px;margin:3.5px;border-radius:50%;background:${poiTone(placeGroup(p))};border:1.5px solid #fff;box-sizing:border-box;box-shadow:0 1px 2px rgba(0,0,0,0.3)"></span>`,
+            zIndex: Z_MINOR,
+            title: poiCaption(placeLabel(p)),
             onClick: select(p),
           })
         }

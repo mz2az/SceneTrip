@@ -28,6 +28,8 @@ import { usePhotoDraft } from './photoDraft'
 import { BODY_LIMIT, canPost, glyphCount, normalized } from './rules'
 import { communityStore } from './store'
 import { createSubmission } from './submission'
+import { type Board, BoardPicker } from '@/features/proto/ProtoCommunity'
+import { say } from '@/features/proto/protoState'
 
 const STORY_MIN_LINES = 8 // `.lineLimit(8...)`
 const STORY_LINE = 22 + 5 // body 17pt + `.lineSpacing(5)`
@@ -45,7 +47,9 @@ export function ComposeSheet({ open, onClose, topGap, radius }: { open: boolean;
   )
 }
 
-export function ComposeView({ onClose, registerClose }: { onClose: () => void; registerClose?: (fn: () => void) => void }) {
+/** `board` — 시안(로컬 개발 서버 전용)이면 머리줄 아래에 게시판 고르기를 띄우고 제목을 「글쓰기」 로. 처음 값은 보던 게시판. */
+export function ComposeView({ onClose, registerClose, board: initialBoard }: { onClose: () => void; registerClose?: (fn: () => void) => void; board?: Board }) {
+  const [board, setBoard] = useState<Board | undefined>(initialBoard)
   const account = useAccount()
   const { draft, state: photos } = usePhotoDraft()
   const submission = useMemo(() => createSubmission(), [])
@@ -127,7 +131,7 @@ export function ComposeView({ onClose, registerClose }: { onClose: () => void; r
         <Pressable disabled={sub.working} onClick={cancel} style={{ minWidth: 70, textAlign: 'left' }}>
           <Txt size={17} color={sub.working ? 'tertiary' : 'accent'}>{tr('취소')}</Txt>
         </Pressable>
-        <Txt size={17} weight="semibold">{tr('여행후기 쓰기')}</Txt>
+        <Txt size={17} weight="semibold">{board ? say('글쓰기', 'New post') : tr('여행후기 쓰기')}</Txt>
         <HStack spacing={16} justify="end" style={{ minWidth: 70 }}>
           <Pressable disabled={!canCompose(story)} onClick={() => setPreviewing(true)}>
             <Txt size={17} color={canCompose(story) ? 'accent' : 'tertiary'}>{tr('미리보기')}</Txt>
@@ -138,6 +142,7 @@ export function ComposeView({ onClose, registerClose }: { onClose: () => void; r
         </HStack>
       </HStack>
 
+      {board && <BoardPicker board={board} onBoard={setBoard} />}
       <div className="scroll-y" style={{ flex: 1, minHeight: 0 }}>
         <VStack spacing={18} align="start" style={{ padding: '16px 0' }}>
           {/* 상태 */}

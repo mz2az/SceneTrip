@@ -15,6 +15,8 @@ import { scheduleCachedFallback } from '../nav/cachedFix'
 import { LOCATE_WAIT_MS, locateStatus, type LocateStatus } from './locateStatus'
 import { containsPoint, pointsWithMe, visibleBounds } from './meCamera'
 import { HAETAE_SIZE, NUMBERED_SIZE, PIN_DEEP, haetaePinSvg, numberedPinSvg, pawPinSvg } from './pinSvg'
+import { protoAvailable, protoStore } from '@/features/proto/protoState'
+import { PROTO_NUMBERED, protoNumberedPinSvg } from '@/features/proto/protoPoi'
 import { PinCaption } from './wording'
 import './routeMap.css'
 
@@ -215,7 +217,11 @@ export function RouteMap(props: RouteMapProps) {
       } else if (s.uid === focused?.uid) {
         g.addMarker({ position, ...pin(haetaePinSvg(false), HAETAE_SIZE.w, HAETAE_SIZE.h, HAETAE_SIZE.w / 2, HAETAE_SIZE.h - 4, s.place.name), zIndex: 1000, onClick })
       } else {
-        g.addMarker({ position, ...pin(numberedPinSvg(i + 1), NUMBERED_SIZE.w, NUMBERED_SIZE.h, NUMBERED_SIZE.tipX, NUMBERED_SIZE.tipY, s.place.name), onClick })
+        // 시안(로컬 개발 서버 전용)이면 단색 동그라미 번호 핀(protoPoi.protoNumberedPinSvg).
+        const marker = protoAvailable && protoStore.get().proto !== null
+          ? pin(protoNumberedPinSvg(i + 1), PROTO_NUMBERED.w, PROTO_NUMBERED.h, PROTO_NUMBERED.tipX, PROTO_NUMBERED.tipY, s.place.name)
+          : pin(numberedPinSvg(i + 1), NUMBERED_SIZE.w, NUMBERED_SIZE.h, NUMBERED_SIZE.tipX, NUMBERED_SIZE.tipY, s.place.name)
+        g.addMarker({ position, ...marker, onClick })
       }
     })
     // 담을까 보는 곳 — 빨간 해태. 코스 핀보다 위에 올려 가리지 않게 한다.
@@ -319,7 +325,9 @@ export function RouteMap(props: RouteMapProps) {
     const map = mapRef.current
     if (!map) return
     const s = seen.current
-    const content = `${stops.map((p) => p.uid).join(',')}|${previews.map((p) => p.id).join(',')}`
+    // 시안 — 코스 핀이 바뀐 것(순서 끌기·빼기)만으로는 다시 맞추지 않는다. 일차 바꾸기·장소 넣기는 `fitToken` 을 올려 따로 알린다.
+    const proto = protoAvailable && protoStore.get().proto !== null
+    const content = `${proto ? '' : stops.map((p) => p.uid).join(',')}|${previews.map((p) => p.id).join(',')}`
     const cameraKey = `${focused?.uid ?? '-'}|${showingMe}|${content}`
     const courseFit = courseFitToken !== s.courseFit
     const changed = cameraKey !== s.cameraKey || fitToken !== s.fit || courseFit
@@ -328,6 +336,19 @@ export function RouteMap(props: RouteMapProps) {
     // 다른 계기도 첫 화면의 지도 크기를 받은 다음 차례에 맞춘다.
     const timer = window.setTimeout(() => {
       const here = latest.current.here ?? hereRef.current
+      // 시안(로컬 개발 서버 전용) — 서랍 높이만 바뀌었으면 다시 맞추지 않는다. 확대 정도는 그대로 두고, 보이던 가운데가 새로 보이는 영역의
+      // 가운데에 오도록 옮기기만 한다(네이버 지도의 contentInset 과 같은 느낌). 다시 맞추면 사람이 확대해 둔 화면이 풀렸다(2026-11-08 사용자 지적).
+      if (!changed && proto) {
+        const m = mapRef.current
+        const delta = latest.current.bottomInset - s.inset
+        s.inset = latest.current.bottomInset
+        if (m && delta !== 0) {
+          const size = m.getSize()
+          const center = m.containerPointToLatLng([size.x / 2, size.y / 2 + delta / 2])
+          m.setView(center, null, { animate: true, seconds: 0.25 })
+        }
+        return
+      }
       s.inset = latest.current.bottomInset
       s.cameraKey = cameraKey
       s.fit = fitToken

@@ -10,12 +10,17 @@ import { matchPath, useLocation, useNavigate } from 'react-router'
 import { paths, patterns } from '@/app/routes'
 import { Alert, Sheet } from '@/design/overlay'
 import { Icon } from '@/design/Icon'
-import { HStack, Pressable, Spinner, Txt, VStack, rr, shadow } from '@/design/primitives'
+import { HStack, Pressable, Spacer, Spinner, Txt, VStack, rr, shadow } from '@/design/primitives'
 import { ModerationMenu, ModerationSheets, canBlock, postTarget, showsMenu, useModerationController } from '@/features/moderation'
 import { tr } from '@/i18n'
 import { promptSignIn, useIsSignedIn } from '@/state/auth'
 import { useOnAccountChange } from '@/state/shared'
-import { ComposeSheet } from './ComposeView'
+import { useStore } from '@/state/storage'
+import { protoAvailable, protoStore, say } from '@/features/proto/protoState'
+import { PostCounts } from '@/features/proto/protoPostSocial'
+import { showsLocalOnlyFeatures } from '@/features/proto/protoGate'
+import { type Board, FreeBoardEmpty, NoMatch, ProtoCommunityHeader, ProtoPage } from '@/features/proto/ProtoCommunity'
+import { ComposeSheet, ComposeView } from './ComposeView'
 import { CoverPhoto } from './CoverPhoto'
 import { relativeTime } from './format'
 import './icons'
@@ -56,14 +61,34 @@ export function CommunityTab() {
     navigate(paths.community)
   }
 
-  const onCompose = () => (signedIn ? navigate(paths.communityCompose) : promptSignIn())
-  const rows = useMemo(() => store.posts.map(postFromSummary), [store.posts])
+  // 시안(로컬 개발 서버 전용): 머리줄·게시판 탭·검색, 글은 새 화면에서. 글쓰기는 로그인 없이도 화면을 연다(모양 보기용 — 올리기는 여전히 로그인이 필요하다).
+  const proto = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
+  const [board, setBoard] = useState<Board>('review')
+  const [query, setQuery] = useState<string | null>(null)
+  const onCompose = () => (signedIn || proto ? navigate(paths.communityCompose) : promptSignIn())
+  const allRows = useMemo(() => store.posts.map(postFromSummary), [store.posts])
+  const needle = proto && query ? query.trim().toLowerCase() : ''
+  const rows = useMemo(
+    () => (needle === '' ? allRows : allRows.filter((r) => `${r.title}\n${r.body}`.toLowerCase().includes(needle))),
+    [allRows, needle],
+  )
+  const freeBoard = proto && board === 'free'
+  // 서버가 없는 것(자유게시판·글 검색·좋아요·댓글)은 로컬 개발 서버에서만 — 시험용 웹에서는 숨긴다(MZ2AZ-539, 서버는 MZ2AZ-538).
+  const localOnly = showsLocalOnlyFeatures(import.meta.env.DEV)
 
   return (
     <VStack style={{ height: '100%', background: 'var(--system-background)' }}>
-      <Header onCompose={onCompose} />
-      <div style={{ height: 1, background: 'var(--separator)', transform: 'scaleY(0.3333)', transformOrigin: 'top' }} />
-      <div className="scroll-y" style={{ flex: 1, minHeight: 0 }} data-testid="community-list">
+      {proto ? (
+        <ProtoCommunityHeader board={board} onBoard={setBoard} query={query} onQuery={setQuery} onCompose={onCompose} extras={localOnly} />
+      ) : (
+        <>
+          <Header onCompose={onCompose} />
+          <div style={{ height: 1, background: 'var(--separator)', transform: 'scaleY(0.3333)', transformOrigin: 'top' }} />
+        </>
+      )}
+      <div className="scroll-y" style={{ flex: 1, minHeight: 0, paddingBottom: 'var(--proto-tab-inset, 0px)' }} data-testid="community-list">
+        {freeBoard ? <FreeBoardEmpty /> : <>
+        {needle !== '' && rows.length === 0 && !store.loading && <NoMatch query={query!.trim()} />}
         {store.message && (
           <ListRow>
             <Txt size={13} color="red">{store.message}</Txt>
@@ -76,7 +101,7 @@ export function CommunityTab() {
             </Pressable>
           </ListRow>
         )}
-        {store.loading && (
+        {store.loading && !(proto && store.posts.length > 0) && (
           <ListRow>
             <div style={{ width: '100%', display: 'grid', placeItems: 'center' }}><Spinner /></div>
           </ListRow>
@@ -85,38 +110,51 @@ export function CommunityTab() {
           <section>
             <SectionHeader>{tr('이 기기에만 저장된 옛 글')}</SectionHeader>
             {store.legacyPosts.map((post) => (
-              <PostRow key={post.key} post={post} myNickname={myNickname} moderation={moderation} onOpen={() => setLegacyReading(post)} onDelete={setDeleting} />
+              <PostRow key={post.key} post={post} myNickname={myNickname} moderation={moderation} proto={proto} onOpen={() => setLegacyReading(post)} onDelete={setDeleting} />
             ))}
             <SectionFooter>{tr('기존 사진과 코스를 보관하고 있어요. 이 기기에서만 보입니다')}</SectionFooter>
           </section>
         )}
-        {rows.length === 0 && store.legacyPosts.length === 0 && !store.loading && store.message === null && <EmptyState />}
+        {allRows.length === 0 && store.legacyPosts.length === 0 && !store.loading && store.message === null && <EmptyState />}
         {rows.map((post) => (
           <PostRow
             key={post.key}
             post={post}
             myNickname={myNickname}
             moderation={moderation}
+            proto={proto}
             onOpen={() => navigate(paths.communityPost(post.serverId!))}
             onDelete={setDeleting}
           />
         ))}
-        {store.posts.length < store.total && (
+        {/* 시안 — 「더 보기」 대신 바닥에 닿기 전에 다음 쪽을 저절로 받는다. 검색 중에는 받은 글 안에서만 거르므로 멈춘다. */}
+        {proto && !freeBoard && needle === '' && store.posts.length < store.total && store.message === null && (
+          <MoreSentinel loading={store.loading} onReach={() => void refresh({ more: true })} />
+        )}
+        {!proto && store.posts.length < store.total && (
           <ListRow>
             <Pressable disabled={store.loading} onClick={() => void refresh({ more: true })}>
               <Txt size={17} color={store.loading ? 'tertiary' : 'accent'}>{tr('더 보기')}</Txt>
             </Pressable>
           </ListRow>
         )}
+        </>}
       </div>
 
       <PostSheet
         openedId={openedId}
         legacy={legacyReading}
-        rows={rows}
+        rows={allRows}
         onClose={closeSheets}
+        proto={proto}
       />
-      <ComposeSheet open={composing} onClose={closeSheets} topGap={SHEET_TOP_GAP} radius={SHEET_RADIUS} />
+      {proto ? (
+        <ProtoPage open={composing} onBack={closeSheets}>
+          <ComposeView onClose={closeSheets} board={localOnly ? board : undefined} />
+        </ProtoPage>
+      ) : (
+        <ComposeSheet open={composing} onClose={closeSheets} topGap={SHEET_TOP_GAP} radius={SHEET_RADIUS} />
+      )}
 
       <ModerationSheets controller={moderation} onBlocked={(t) => t.kind === 'post' && void communityStore.api.blocked(t.id)} />
       <Alert
@@ -139,7 +177,7 @@ export function CommunityTab() {
 }
 
 /** 읽고 있는 글. 서버 글은 URL 의 id 로, 기기 옛 글은 눌러 둔 글로 연다. 닫히는 동안 내용이 사라지지 않게 마지막 값을 쥔다. */
-function PostSheet({ openedId, legacy, rows, onClose }: { openedId: number | null; legacy: CommunityPost | null; rows: readonly CommunityPost[]; onClose: () => void }) {
+function PostSheet({ openedId, legacy, rows, onClose, proto = false }: { openedId: number | null; legacy: CommunityPost | null; rows: readonly CommunityPost[]; onClose: () => void; proto?: boolean }) {
   const last = useRef<CommunityPost | null>(null)
   const current = useMemo(() => {
     if (legacy) return legacy
@@ -152,6 +190,14 @@ function PostSheet({ openedId, legacy, rows, onClose }: { openedId: number | nul
   }, [openedId, legacy])
   if (current) last.current = current
   const shown = current ?? last.current
+  // 시안 — 시트 대신 오른쪽에서 밀려 들어오는 새 화면.
+  if (proto) {
+    return (
+      <ProtoPage open={current !== null} title={say('여행후기', 'Trip review')} onBack={onClose}>
+        {shown && <PostView key={shown.key} initialPost={shown} onClose={onClose} page />}
+      </ProtoPage>
+    )
+  }
   return (
     <Sheet open={current !== null} onClose={onClose} detent="large" topGap={SHEET_TOP_GAP} radius={SHEET_RADIUS} dim={0.2} label={shown?.title}>
       {shown && <PostView key={shown.key} initialPost={shown} onClose={onClose} />}
@@ -208,7 +254,9 @@ function EmptyState() {
 }
 
 /** 후기 한 줄 — 왼쪽에 제목·본문·글쓴이, 오른쪽에 대표 사진. 「⋯」 는 단추 밖에 둔다(안에 두면 「⋯」 를 눌러도 글이 열린다). */
-function PostRow({ post, myNickname, moderation, onOpen, onDelete }: {
+function PostRow({ post, myNickname, moderation, onOpen, onDelete, proto = false }: {
+  /** 시안 — 작성자·작성일을 줄 맨 아래(사진 아랫변)에 붙인다. */
+  proto?: boolean
   post: CommunityPost
   myNickname: string | null
   moderation: ReturnType<typeof useModerationController>
@@ -217,31 +265,41 @@ function PostRow({ post, myNickname, moderation, onOpen, onDelete }: {
 }) {
   const courseTitle = post.course?.title ?? post.courseTitle
   const hasPhoto = Boolean(post.remotePhotos?.[0])
+  const meta = (
+    <HStack spacing={8} style={{ width: '100%' }}>
+      <Txt size={11} color="tertiary">{authorName(post, myNickname)}</Txt>
+      <Txt size={11} color="tertiary">{relativeTime(post.createdAt)}</Txt>
+      {/* 시안 — 좋아요·댓글 수(이 브라우저에만 저장, protoPostSocial). 사진이 있으면 사진 밑에 둔다. */}
+      {proto && showsLocalOnlyFeatures(import.meta.env.DEV) && !hasPhoto && <><span style={{ flex: 1 }} /><PostCounts postKey={post.key} /></>}
+    </HStack>
+  )
   return (
     // 지우기는 **내 글만** — 남의 글을 밀어서 지울 수 있으면 안 된다.
     <SwipeRow label={tr('지우기')} enabled={isMine(post) && post.serverId !== undefined} onAction={() => onDelete(post)}>
       <div style={{ padding: `0 ${ROW_INSET_X}px` }}>
-      <HStack className="hair-b hair-1pt" align="start" spacing={4} style={{ padding: `${ROW_INSET_Y}px 0` }}>
+      {/* 시안 — 아래 여백을 줄여 작성자·날짜 줄을 구분선 가까이 내린다(위 15 · 아래 8). */}
+      <HStack className="hair-b hair-1pt" align="start" spacing={4} style={{ padding: proto ? `${ROW_INSET_Y}px 0 8px` : `${ROW_INSET_Y}px 0` }}>
         <Pressable plain onClick={onOpen} style={{ flex: 1, minWidth: 0, textAlign: 'left' }} aria-label={post.title}>
-          <HStack align="start" spacing={12} pad="6px 0">
-            <VStack spacing={5} align="start" style={{ flex: 1, minWidth: 0 }}>
+          <HStack align="start" spacing={12} pad={proto ? '6px 0 0' : '6px 0'}>
+            <VStack spacing={5} align="start" style={{ flex: 1, minWidth: 0, ...(proto && hasPhoto ? { alignSelf: 'stretch', minHeight: COVER_SIZE } : {}) }}>
               <Txt size={15} weight="semibold" lines={2}>{post.title}</Txt>
               {post.body !== '' && <Txt size={12} color="secondary" lines={2}>{post.body}</Txt>}
-              <HStack spacing={8}>
-                <Txt size={11} color="tertiary">{authorName(post, myNickname)}</Txt>
-                <Txt size={11} color="tertiary">{relativeTime(post.createdAt)}</Txt>
-              </HStack>
+              {!proto && meta}
               {courseTitle && (
                 <HStack spacing={4} style={{ maxWidth: '100%' }}>
                   <Icon name="point.topleft.down.to.point.bottomright.curvepath" size={11} weight="medium" color="deep" />
                   <Txt size={11} weight="medium" color="deep" lines={1}>{courseTitle}</Txt>
                 </HStack>
               )}
+              {proto && <><Spacer min={6} /><div style={{ width: '100%', paddingTop: 4 }}>{meta}</div></>}
             </VStack>
             {hasPhoto && (
-              <div style={{ width: COVER_SIZE, height: COVER_SIZE, flex: 'none', overflow: 'hidden', ...rr(12) }}>
-                <CoverPhoto post={post} />
-              </div>
+              <VStack spacing={6} align="center" style={{ flex: 'none' }}>
+                <div style={{ width: COVER_SIZE, height: COVER_SIZE, flex: 'none', overflow: 'hidden', ...rr(12) }}>
+                  <CoverPhoto post={post} />
+                </div>
+                {proto && showsLocalOnlyFeatures(import.meta.env.DEV) && <PostCounts postKey={post.key} />}
+              </VStack>
             )}
           </HStack>
         </Pressable>
@@ -251,5 +309,27 @@ function PostRow({ post, myNickname, moderation, onOpen, onDelete }: {
       </HStack>
       </div>
     </SwipeRow>
+  )
+}
+
+/** 무한 스크롤의 끝 표지 — 화면 바닥 300px 앞에서 보이면 다음 쪽을 부른다. 받는 중이면 돌림표만. */
+function MoreSentinel({ loading, onReach }: { loading: boolean; onReach: () => void }) {
+  const el = useRef<HTMLDivElement>(null)
+  const latest = useRef({ loading, onReach })
+  latest.current = { loading, onReach }
+  useEffect(() => {
+    const node = el.current
+    if (!node) return
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting) && !latest.current.loading) latest.current.onReach()
+    }, { rootMargin: '0px 0px 300px 0px' })
+    io.observe(node)
+    return () => io.disconnect()
+    // 받기가 끝날 때마다 다시 지켜본다 — 받은 뒤에도 표지가 여전히 보이면(글이 짧다) 처음 알림으로 한 쪽 더 받는다.
+  }, [loading])
+  return (
+    <div ref={el} style={{ minHeight: 56, display: 'grid', placeItems: 'center' }}>
+      {loading && <Spinner />}
+    </div>
   )
 }

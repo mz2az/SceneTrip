@@ -5,6 +5,8 @@ import { type RefObject } from 'react'
 import { Icon } from '@/design/Icon'
 import { HStack, Pressable, Txt, shadow } from '@/design/primitives'
 import { tr } from '@/i18n'
+import { protoAvailable, protoStore, say } from '@/features/proto/protoState'
+import { useStore } from '@/state/storage'
 import { FONT } from './common'
 
 /** SwiftUI 기본 `.shadow(radius: 3, y: 1)` — 색은 검정 33%. */
@@ -26,6 +28,8 @@ export function SearchBar({
   cartCount: number
   onCart: () => void
 }) {
+  // 시안(로컬 개발 서버 전용): 장바구니 대신 보관함 — 코스 편집의 「보관함에서 추가」와 같은 가방 아이콘.
+  const proto = useStore(protoStore, (s) => protoAvailable && s.proto !== null)
   return (
     <form
       onSubmit={(e) => {
@@ -57,8 +61,8 @@ export function SearchBar({
           </Pressable>
         )}
         <div style={{ width: 0.5, height: 22, background: 'var(--separator)', flex: 'none' }} />
-        <Pressable plain onClick={onCart} aria-label={tr('장바구니')} style={{ position: 'relative', flex: 'none', width: 20, height: 20, display: 'grid', placeItems: 'center', marginRight: 2 }}>
-          <Icon name="cart" size={20.5} weight="medium" color="accent" />
+        <Pressable plain onClick={onCart} aria-label={proto ? say('보관함', 'Saved') : tr('장바구니')} style={{ position: 'relative', flex: 'none', width: 20, height: 20, display: 'grid', placeItems: 'center', marginRight: 2 }}>
+          <Icon name={proto ? 'bag' : 'cart'} size={proto ? 20 : 20.5} weight="medium" color={proto ? 'var(--home-purple)' : 'accent'} />
           {cartCount > 0 && (
             <Txt
               size={FONT.caption2}

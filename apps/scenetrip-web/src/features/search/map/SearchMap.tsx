@@ -14,6 +14,8 @@ import {
   bboxString, boundsOf, cameraInsets, isOutsideKorea, pinMarks, pinsKey, spreadPins, type Bounds,
 } from './mapRules'
 import { PIN_SIZE, PIN_TIP, pinSvg } from './pinImage'
+import { PROTO_NUMBERED, protoNumberedPinSvg } from '@/features/proto/protoPoi'
+import { protoAvailable, protoStore } from '@/features/proto/protoState'
 import type { MapCameraHandle, MapViewProps } from './types'
 import { PinCaption } from '../rules/wording'
 
@@ -190,12 +192,16 @@ export function SearchMap(props: MapViewProps) {
     const marks = pinMarks(props.pins, selected, props.numbered)
     const spread = spreadPins(marks.map((m) => ({ lat: m.place.latitude, lng: m.place.longitude })))
     marks.forEach(({ place, number, selected: chosen }, i) => {
+      // 시안(로컬 개발 서버 전용)이면 코스 편집 화면과 같은 단색 동그라미 번호 핀. 고른 핀은 살짝 키운다.
+      const proto = protoAvailable && protoStore.get().proto !== null
       layer.addMarker({
         position: spread[i],
-        html: pinHtml(number, place.name, chosen),
+        html: proto
+          ? `<div style="transform:scale(${chosen ? 1.25 : 1});transform-origin:${PROTO_NUMBERED.tipX}px ${PROTO_NUMBERED.tipY}px">${protoNumberedPinSvg(number)}</div>`
+          : pinHtml(number, place.name, chosen),
         className: chosen ? 'st-pin st-pin-selected' : 'st-pin',
-        size: [PIN_SIZE.width, PIN_SIZE.height],
-        anchor: [PIN_TIP.x, PIN_TIP.y],
+        size: proto ? [PROTO_NUMBERED.w, PROTO_NUMBERED.h] : [PIN_SIZE.width, PIN_SIZE.height],
+        anchor: proto ? [PROTO_NUMBERED.tipX, PROTO_NUMBERED.tipY] : [PIN_TIP.x, PIN_TIP.y],
         zIndex: chosen ? 500 : undefined,
         title: place.name,
         onClick: () => latest.current.onTapPin(place),

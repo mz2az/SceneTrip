@@ -56,6 +56,8 @@ export interface EditorExtensions {
   PanelTop?: ComponentType<{ host: EditorHost }>
   /** 일차 탭 바로 아래 — 편의시설 갈래 칩. */
   PanelChips?: ComponentType<{ host: EditorHost }>
+  /** 지도 맨 위에 얹는 것 — 「편의시설 켤 때만」 시안의 갈래 칩(로컬 개발 서버 전용). */
+  MapTop?: ComponentType<{ host: EditorHost }>
   /** 줄마다의 길찾기 표시. */
   rowExtras?: (stop: RouteStop, host: EditorHost) => { isTarget?: boolean; onNavigate?: (() => void) | null }
   /** 아래 단추 줄을 통째로 대신한다 — 안내 중에는 이 줄이 안내의 것이다. null 을 돌려주면 기본 줄. */

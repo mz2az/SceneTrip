@@ -85,3 +85,5 @@
 오래 영향을 남기는 결정은 [ADR](../../architecture/adr/README.md) 로 승격한다.
 
 - [iOS 배포 패키지 준비](ios-release-package.md) — MZ2AZ-440·416
+- [웹 「어디로 가세요?」 시안](web-trip-first-prototypes.md) — 로컬 전용 껍데기의 결정·화면
+- [웹 시안을 실제 앱으로](web-proto-apply.md) — 화면별 바꿀 것, 백엔드 작업(B1~B7), 정할 것, 순서

@@ -17,7 +17,8 @@ const LARGE_TOP_GAP = 72
 const MEDIUM_FRACTION = 0.5
 const EXIT_MS = 280
 
-export function DetentSheet({ open, onClose, children, label }: { open: boolean; onClose: () => void; children: ReactNode; label?: string }) {
+/** `initialDetent` — 열 때의 높이. 기본은 중간 단(뒤 지도를 보며 고른다). 지도와 상관없는 목록이면 큰 시트로 연다. */
+export function DetentSheet({ open, onClose, children, label, initialDetent = 'medium' }: { open: boolean; onClose: () => void; children: ReactNode; label?: string; initialDetent?: SheetDetent }) {
   const root = useContext(OverlayRootContext)
   const [mounted, setMounted] = useState(open)
   const [closing, setClosing] = useState(false)
@@ -29,7 +30,7 @@ export function DetentSheet({ open, onClose, children, label }: { open: boolean;
     if (open) {
       setMounted(true)
       setClosing(false)
-      setDetent('medium')
+      setDetent(initialDetent)
       return
     }
     if (!mounted) return
@@ -39,7 +40,7 @@ export function DetentSheet({ open, onClose, children, label }: { open: boolean;
       setClosing(false)
     }, EXIT_MS)
     return () => clearTimeout(t)
-  }, [open, mounted])
+  }, [open, mounted, initialDetent])
 
   if (!mounted || !root) return null
   const large = detent === 'large'

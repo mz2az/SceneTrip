@@ -25,6 +25,7 @@ import type { PlaceDetail as PlaceDetailT, PlaceSummary } from '../sceneData'
 import { recordView } from '../usage'
 import { BorderedButton, DetailHeader, FONT, ProminentButton, UnavailableNotice } from './common'
 import { SceneCard } from './SceneCard'
+import { CourseAddBar } from '@/features/proto/protoCourseAdd'
 import { ScenePhotoViewer, ScenePopup } from './SceneViewer'
 
 export function PlaceDetail({ summary, sourceContentId, load, onBack, onOpenTrip = noop }: {
@@ -103,6 +104,8 @@ export function PlaceDetail({ summary, sourceContentId, load, onBack, onOpenTrip
           {/* 「길찾기」가 주 버튼이다(MZ2AZ-532 — 한 곳만 가려는 사람에게 코스 만들기는 병목). 누르면 그 장소 하나로 된 코스를 만들어 바로 안내를 켠다.
               담기는 보조 버튼, 네이버 지도 링크는 그대로. */}
           <VStack spacing={8} align="stretch" style={{ width: '100%' }}>
+            {/* 「지도에서 추가」 시안 — 코스 편집 위에 띄운 검색이면 맨 위에 「N일차에 추가」(문맥이 없으면 아무것도 그리지 않는다). */}
+            <CourseAddBar place={summary} />
             <ProminentButton
               disabled={directions.busy || detail?.delisted === true}
               onClick={() => void directions.start(summary)}

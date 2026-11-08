@@ -1,7 +1,7 @@
 /*
  * 「어디로 가세요?」 시안 비교의 상태 — 로컬에서만 보는 껍데기(docs/project/plans/web-trip-first-prototypes.md).
  *
- * - 시안: 주소의 `?proto=a|b|c|off` → 탭을 닫을 때까지 sessionStorage 에 남는다. 값이 없으면 시안을 끈다(지금 화면 그대로).
+ * - 시안: 주소의 `?proto=a|b|c|off` → 탭을 닫을 때까지 sessionStorage 에 남는다. 값이 없으면 로컬에서는 끄고, 시험용 웹(dev.scenetrip.io)에서는 A 를 켠다(protoGate, MZ2AZ-539).
  * - 여행(도시·며칠·속도·만든 코스): 이 브라우저의 localStorage. 고른 안을 다듬을 때 서버(계정) 저장을 설계한다.
  */
 import { api } from '@/api/client'
@@ -11,6 +11,7 @@ import { currentLang } from '@/i18n'
 import { cartActions } from '@/state/cart'
 import { installHeader } from '@/state/install'
 import { createStore, readJSON, writeJSON } from '@/state/storage'
+import { pickProto, protoEnabled } from './protoGate'
 
 export type Proto = 'a' | 'b'
 export type Pace = 'relaxed' | 'normal' | 'packed'
@@ -49,25 +50,16 @@ export function rememberProtoCourse(id: number): void {
 }
 
 function initialProto(): Proto | null {
-  // 로컬 개발 서버(`just web-dev`)에서만 — 배포 번들에서는 주소에 값을 붙여도 켜지지 않는다.
-  if (!import.meta.env.DEV) return null
+  // 로컬 개발 서버는 `?proto=` 로, 시험용 웹(dev.scenetrip.io)은 기본으로 켠다. 운영 번들은 주소에 값을 붙여도 켜지지 않는다(protoGate).
   const asked = new URLSearchParams(window.location.search).get('proto')
-  if (asked === 'off') {
-    sessionStorage.removeItem(PROTO_KEY)
-    return null
-  }
-  const value = asked ?? sessionStorage.getItem(PROTO_KEY)
-  // 옛 시안 C 는 B 의 「알아서 짜 주세요」 로 합쳤다.
-  const merged = value === 'c' ? 'b' : value
-  if (merged === 'a' || merged === 'b') {
-    sessionStorage.setItem(PROTO_KEY, merged)
-    return merged
-  }
-  return null
+  const picked = pickProto({ dev: import.meta.env.DEV, hostname: window.location.hostname, asked, stored: sessionStorage.getItem(PROTO_KEY) })
+  if (picked) sessionStorage.setItem(PROTO_KEY, picked)
+  else if (asked === 'off') sessionStorage.removeItem(PROTO_KEY)
+  return picked
 }
 
-/** 시안 장치를 띄울 수 있는가 — 로컬 개발 서버만. */
-export const protoAvailable = import.meta.env.DEV
+/** 새 화면(시안)을 띄울 수 있는가 — 로컬 개발 서버와 시험용 웹(MZ2AZ-539). */
+export const protoAvailable = protoEnabled(import.meta.env.DEV, window.location.hostname)
 
 const proto = initialProto()
 const trip = readJSON<ProtoTrip | null>(TRIP_KEY, null)

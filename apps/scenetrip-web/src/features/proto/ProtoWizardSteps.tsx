@@ -4,9 +4,9 @@
  */
 import { Icon } from '@/design/Icon'
 import { Txt, VStack } from '@/design/primitives'
-import { type ContentSummary, SPAN_NIGHTS, spanLabel } from '@/features/route/models'
+import { type ContentSummary, SPAN_NIGHTS } from '@/features/route/models'
 import { Pressable } from '@/features/route/ui/Press'
-import { say } from './protoState'
+import { daysLabel, say } from './protoState'
 import { color, radius, shadow } from './protoTokens'
 import './proto.css'
 
@@ -27,7 +27,7 @@ export function ProtoSpanStep({ nights, onPick }: { nights: number; onPick: (n: 
             style={{ padding: '16px 14px', borderRadius: radius.m, textAlign: 'left', background: on ? color.primaryFill : 'var(--system-background)', boxShadow: shadow.card }}
           >
             <VStack spacing={4} align="start">
-              <Txt size={20} weight="heavy" style={{ color: on ? color.onPrimary : 'var(--label)' }}>{spanLabel(n)}</Txt>
+              <Txt size={20} weight="heavy" style={{ color: on ? color.onPrimary : 'var(--label)' }}>{daysLabel(n + 1)}</Txt>
               <Txt size={13} style={{ color: on ? 'rgba(255,255,255,0.92)' : 'var(--label-secondary)' }}>{say(`촬영지 ${days * 5}곳쯤`, `About ${days * 5} spots`)}</Txt>
             </VStack>
           </Pressable>

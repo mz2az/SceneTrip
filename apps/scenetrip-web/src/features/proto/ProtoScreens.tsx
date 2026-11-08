@@ -19,6 +19,7 @@ import {
   saveCourse, useCities,
 } from './protoParts'
 import { type Pace, type Proto, protoActions, protoStore, say, tripLength } from './protoState'
+import { showsPrototypeMarks } from './protoGate'
 import { color, heading, radius, shadow, z } from './protoTokens'
 import './proto.css'
 
@@ -48,18 +49,20 @@ export function AskCard() {
         <Txt as="h2" id="proto-ask-title" size={24} weight="heavy" style={{ ...heading, color: color.onPhoto, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>{say('어디로 여행 가세요?', 'Where are you traveling?')}</Txt>
         <Txt size={14} style={{ color: color.onPhoto, opacity: 0.92, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('도시를 고르면 그곳 드라마·영화 촬영지로 코스를 만들어 드려요', "Pick a city. We'll build a route through its K\u2011drama spots.")}</Txt>
         <div className="scroll-x" style={{ margin: '2px -18px 0' }}>
-          <HStack spacing={8} style={{ padding: '2px 18px', width: 'max-content' }}>
+          <HStack spacing={6} style={{ padding: '0 18px', width: 'max-content' }}>
+            {/* 도시 단추 — 사진 위의 작은 반투명 알약(높이 32). 흰 통 알약(44)은 사진을 가리고 투박했다(2026-11-08 사용자 지적).
+                누르는 칸은 위아래로 늘려 44 를 지킨다. */}
             {cities.slice(0, ASK_CITIES).map((c) => (
-              <Pressable
-                key={c.key}
-                plain
-                onClick={() => protoActions.plan(c.key)}
-                style={{ flex: 'none', minHeight: 44, padding: '0 16px', borderRadius: radius.pill, background: 'var(--system-background)' }}
-              >
-                <HStack spacing={5}>
-                  <Txt size={15} weight="semibold" style={{ color: color.primaryText }}>{c.name}</Txt>
-                  <Txt size={12} color="secondary">{c.places.length}</Txt>
-                </HStack>
+              <Pressable key={c.key} plain className="proto-press" onClick={() => protoActions.plan(c.key)} style={{ flex: 'none', minHeight: 44, display: 'grid', alignItems: 'center' }}>
+                <span
+                  style={{
+                    display: 'inline-flex', alignItems: 'baseline', gap: 4, height: 32, padding: '0 12px', borderRadius: radius.pill, lineHeight: '32px',
+                    background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+                  }}
+                >
+                  <Txt size={13} weight="semibold" style={{ color: color.onPhoto }}>{c.name}</Txt>
+                  <Txt size={11} style={{ color: 'rgba(255,255,255,0.75)' }}>{c.places.length}</Txt>
+                </span>
               </Pressable>
             ))}
           </HStack>
@@ -327,6 +330,12 @@ function CreatedBanner({ city, days }: { city: string; days: number }) {
 
 /** 오른쪽 아래 「시안」 단추 — A·B·C·끔 바꾸기와 「처음부터」. */
 export function ProtoSwitcher() {
+  // 스위치는 로컬 개발 서버에서만 — 시험용 웹에서는 새 화면이 기본이고 바꿀 일이 없다(MZ2AZ-539).
+  if (!showsPrototypeMarks(import.meta.env.DEV)) return null
+  return <Switcher />
+}
+
+function Switcher() {
   const proto = useStore(protoStore, (s) => s.proto)
   const [open, setOpen] = useState(false)
   // 「처음부터」 결과 — 몇 개 지웠고 몇 개 남았는지 단추 옆에 잠깐 보인다.

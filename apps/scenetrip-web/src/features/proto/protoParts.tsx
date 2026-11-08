@@ -15,6 +15,7 @@ import { useLang } from '@/i18n'
 import { cartActions, useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { type Pace, daysLabel, paceLabel, rememberProtoCourse, say } from './protoState'
+import { showsPrototypeMarks } from './protoGate'
 import { color, contained, heading, radius, shadow, z } from './protoTokens'
 import './proto.css'
 
@@ -43,6 +44,8 @@ export const cityByKey = (cities: readonly HomeCity[], key: string | null | unde
 
 /** 시안 표시 — 껍데기 화면이라는 것을 헷갈리지 않게. */
 export function MockBadge({ label = say('시안', 'Prototype'), onPhoto }: { label?: string; onPhoto?: boolean }) {
+  // 「시안」 표시는 로컬 개발 서버에서만 — 시험용 웹에서는 실제 화면처럼 보인다(MZ2AZ-539).
+  if (!showsPrototypeMarks(import.meta.env.DEV)) return null
   return (
     <span style={{ flex: 'none', fontSize: 12, fontWeight: 700, padding: '2px 7px', borderRadius: radius.s, background: onPhoto ? 'rgb(255,204,128)' : 'rgba(255,149,0,0.15)', color: 'rgb(120,62,0)' }}>
       {label}
