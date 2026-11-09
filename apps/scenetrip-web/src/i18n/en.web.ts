@@ -11,4 +11,8 @@ export const webEnglish: Readonly<Record<string, string>> = {
   '새로고침하면 최신 버전으로 바뀌어요.': 'Reload to get the latest version.',
   '나중에': 'Later',
   '새로고침': 'Reload',
+  // 방금 만든 코스를 저장 없이 나갈 때(2026-11-09)
+  '저장하지 않고 나갈까요?': 'Leave without saving?',
+  '방금 만든 코스가 지워져요.': 'The course you just made will be deleted.',
+  '나가기': 'Leave',
 }

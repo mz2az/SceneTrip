@@ -39,7 +39,9 @@ import { SearchSheet } from './SearchSheet'
 import { StaySheet } from './StaySheet'
 import { StopCard } from './StopCard'
 import { TopBar } from './TopBar'
-import { protoAvailable, protoStore, say } from '@/features/proto/protoState'
+import { clearFreshCourse, isFreshCourse, protoAvailable, protoStore, say } from '@/features/proto/protoState'
+import { useBackGuard } from '@/features/proto/useBackGuard'
+import { CoachTour } from '@/features/proto/CoachTour'
 import { PlaceDetail } from '@/features/search/ui/PlaceDetail'
 import { AddFab, MapAddScreen, SavedAddSheet } from '@/features/proto/ProtoAddMenu'
 import { api, ok } from '@/api/client'
@@ -86,7 +88,10 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
   const proto = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
   const [mapOpen, setMapOpen] = useState(initial.isRunning)
   // 「보기 / 편집」 시안 — 저장된 코스는 보기로 열리고(‹ 뒤로 · 편집), 「편집」 을 눌러야 고친다(취소 · 저장). 새 코스는 처음부터 편집(취소 · 만들기).
-  const [editing, setEditing] = useState(isNew)
+  // 방금 「도시로 시작」 으로 만든 코스는 편집 상태로 열고, 저장 없이 나가면 묻고 지운다(2026-11-09 사용자 결정 — 세 가지 만들기 모두 「저장」 해야 끝).
+  const [fresh, setFresh] = useState(() => proto && isFreshCourse(initial.serverId))
+  const [confirmingLeave, setConfirmingLeave] = useState(false)
+  const [editing, setEditing] = useState(isNew || fresh)
   const [beforeEdit, setBeforeEdit] = useState(initial)
   const [confirmingRevert, setConfirmingRevert] = useState(false)
   const viewing = proto && !editing
@@ -323,11 +328,28 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
     setEditing(false)
     setPinning(false)
   }
-  const protoCancel = () => (changedSince(outgoingKey(beforeEdit), course) ? setConfirmingRevert(true) : revert())
+  const protoCancel = () => (fresh ? setConfirmingLeave(true) : changedSince(outgoingKey(beforeEdit), course) ? setConfirmingRevert(true) : revert())
   const protoSave = async () => {
     const saved = await saveNow()
-    if (saved) setEditing(false)
+    if (saved) {
+      setEditing(false)
+      setFresh(false)
+      clearFreshCourse()
+    }
   }
+  // 브라우저 「뒤로」 — 저장 안 한 것이 있으면 바로 닫지 않고 「취소」 와 같은 것을 묻는다.
+  const unsaved = isNew ? dirty : fresh || changedSince(outgoingKey(beforeEdit), course)
+  const guard = useBackGuard(proto && editing && unsaved, () => {
+    if (isNew) setConfirmingDiscard(true)
+    else protoCancel()
+  })
+  /** 방금 만든 코스를 저장 없이 나간다 — 서버에 만들어 둔 것을 지운다. */
+  const leaveFresh = () =>
+    guard.release(() => {
+      clearFreshCourse()
+      void routeActions.remove(course)
+      onClose()
+    })
 
   return (
     <VStack style={{ height: '100%', background: 'var(--grouped-background)', position: 'relative' }}>
@@ -540,11 +562,34 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
         variant="alert"
         title={tr('바꾼 내용을 버릴까요?')}
         buttons={[
-          { label: tr('버리기'), role: 'destructive', onPress: onClose },
+          { label: tr('버리기'), role: 'destructive', onPress: () => guard.release(onClose) },
           // 마법사로 가려다 남기로 했다 — 쪽지를 거둔다. 안 그러면 나중에 「취소」로 닫을 때 마법사가 뜬다.
           { label: tr('계속 편집'), role: 'cancel', onPress: () => void consumePending('planner') },
         ]}
         onClose={() => setConfirmingDiscard(false)}
+      />
+      {/* 처음 만든 계획 화면 — 지도·AI·장소 추가(검색)·저장을 한 번 짚어 준다(2026-11-09 사용자 요청). */}
+      <CoachTour
+        id="editor-first"
+        active={proto && editing && (isNew || fresh) && !confirmingLeave && !confirmingDiscard}
+        delay={1200}
+        steps={[
+          { target: '[data-coach="editor-map"]', title: say('지도', 'Map'), text: say('눌러서 코스를 지도로 펼쳐 동선을 확인해요. 다시 누르면 목록만 봐요.', 'Open the route on a map to check the path. Tap again for the list only.') },
+          { target: '.gd-chip:not(.gd-chip-hidden)', title: say('해태 AI', 'Haetae AI'), text: say('「하루 줄여 줘」 「카페 하나 넣어 줘」처럼 말로 부탁하면 코스를 고쳐 줘요.', 'Ask in plain words — "make it one day shorter", "add a café" — and it edits the route.') },
+          { target: '[data-coach="editor-add"]', title: say('장소 검색해서 담기', 'Search and add places'), text: say('지금은 편집 중이라 장소를 검색해서 더 넣을 수 있어요. 보관함에 담아 둔 곳도 여기서 넣어요.', "You're editing, so you can search for places and add them. Saved places are here too.") },
+          { target: '[data-coach="editor-save"]', title: say('다 고쳤으면 저장', 'Save when done'), text: say('저장해야 코스가 남아요. 저장하지 않고 나가면 한 번 더 물어봐요.', "Save to keep the course. If you leave without saving, we'll ask first.") },
+        ]}
+      />
+      <GlassDialog
+        open={confirmingLeave}
+        variant="alert"
+        title={tr('저장하지 않고 나갈까요?')}
+        message={tr('방금 만든 코스가 지워져요.')}
+        buttons={[
+          { label: tr('나가기'), role: 'destructive', onPress: leaveFresh },
+          { label: tr('계속 편집'), role: 'cancel' },
+        ]}
+        onClose={() => setConfirmingLeave(false)}
       />
     </VStack>
   )
@@ -575,6 +620,7 @@ function ViewBar({ title, onBack, onEdit }: { title: string; onBack: () => void;
 function MapPill({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   return (
     <Pressable
+      data-coach="editor-map"
       plain
       onClick={onToggle}
       aria-pressed={open}

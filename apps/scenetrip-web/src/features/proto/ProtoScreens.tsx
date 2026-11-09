@@ -7,7 +7,8 @@ import type { components } from '@/api/generated/schema'
 import { paths } from '@/app/routes'
 import { useTabRouter } from '@/app/tabRouter'
 import { Icon } from '@/design/Icon'
-import { HStack, Spacer, Spinner, Txt, VStack } from '@/design/primitives'
+import { HStack, Spinner, Txt, VStack, homeCard } from '@/design/primitives'
+import { hasPhoto } from '@/features/home/homeRules'
 import { cityCount } from '@/features/home/homeCities'
 import { type HomeCity, ensureCityPlaces } from '@/features/home/homeCityModel'
 import { Pressable } from '@/features/route/ui/Press'
@@ -15,11 +16,13 @@ import { PinoMascot } from '@/design/PinoMascot'
 import { useRouteState } from '@/features/route/store'
 import { useStore } from '@/state/storage'
 import { mockPlanCityTrip, nearestUnused } from './mockPlan'
+import { useHoldReorder } from './useHoldReorder'
+import { CoachTour } from './CoachTour'
 import {
-  ASK_CITIES, ChoiceRow, CityGrid, CityHero, SlideImages, useCitySlides, CityPicker, DAY_OPTIONS, MockBadge, PrimaryButton, ProtoScreen, SecondaryButton, SpotRow, cityByKey, daysLabel,
+  ASK_CITIES, ChoiceRow, CityGrid, CityHero, SlideImages, useCitySlides, CityPicker, DAY_OPTIONS, MockBadge, PrimaryButton, ProtoScreen, SecondaryButton, cityByKey, daysLabel,
   saveCourse, useCities,
 } from './protoParts'
-import { type Pace, type Proto, protoActions, protoStore, say, tripLength } from './protoState'
+import { type Pace, type Proto, markFreshCourse, protoActions, protoStore, say, tripLength } from './protoState'
 import { showsPrototypeMarks } from './protoGate'
 import { color, heading, radius, shadow, z } from './protoTokens'
 import './proto.css'
@@ -33,22 +36,24 @@ export function AskCard() {
   const { slides, at, now } = useCitySlides()
   return (
     // 사진 카드 — 도시 대표 촬영지 사진이 천천히 바뀌고, 그 위에 흰 글씨와 반투명 도시 단추. 사진을 못 받으면 앱의 보라·하늘 그라데이션.
-    <section aria-labelledby="proto-ask-title" style={{ position: 'relative', margin: '0 20px', borderRadius: radius.l, overflow: 'hidden', minHeight: 200, background: color.brandFill, boxShadow: shadow.card }}>
+    <section aria-labelledby="proto-ask-title" style={{ position: 'relative', margin: '0 20px', borderRadius: radius.l, overflow: 'hidden', minHeight: 300, background: color.brandFill, boxShadow: shadow.card }}>
       <SlideImages slides={slides} at={at} />
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.25) 40%, rgba(0,0,0,0.72) 100%)' }} />
-      <VStack spacing={10} align="stretch" style={{ position: 'relative', padding: '16px 18px 18px', minHeight: 200, justifyContent: 'flex-end' }}>
-        <HStack spacing={8}>
-          {now && (
-            <Txt size={12} weight="semibold" lines={1} style={{ color: color.onPhoto, opacity: 0.9, minWidth: 0, textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
-              {now.city} · {now.place.name}
-            </Txt>
-          )}
-          <Spacer />
+      {/* 질문은 위에 붙이고 가운데는 비워 사진이 보이게 — 위·아래만 글자가 읽힐 만큼 어둡게(2026-11-09 사용자 지적). */}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.12) 34%, rgba(0,0,0,0) 52%, rgba(0,0,0,0.1) 66%, rgba(0,0,0,0.6) 100%)' }} />
+      <VStack spacing={8} align="stretch" style={{ position: 'relative', padding: '16px 18px 14px', minHeight: 300 }}>
+        <HStack spacing={8} align="start">
+          <VStack spacing={4} align="start" style={{ flex: 1, minWidth: 0 }}>
+            <Txt as="h2" id="proto-ask-title" size={24} weight="heavy" style={{ ...heading, color: color.onPhoto, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>{say('어디로 여행 가세요?', 'Where are you traveling?')}</Txt>
+            <Txt size={14} style={{ color: color.onPhoto, opacity: 0.92, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('도시를 고르면 그곳 드라마·영화 촬영지로 코스를 만들어 드려요', "Pick a city. We'll build a route through its K\u2011drama spots.")}</Txt>
+          </VStack>
           <MockBadge onPhoto />
         </HStack>
-        <div style={{ flex: 1, minHeight: 36 }} />
-        <Txt as="h2" id="proto-ask-title" size={24} weight="heavy" style={{ ...heading, color: color.onPhoto, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>{say('어디로 여행 가세요?', 'Where are you traveling?')}</Txt>
-        <Txt size={14} style={{ color: color.onPhoto, opacity: 0.92, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('도시를 고르면 그곳 드라마·영화 촬영지로 코스를 만들어 드려요', "Pick a city. We'll build a route through its K\u2011drama spots.")}</Txt>
+        <div style={{ flex: 1, minHeight: 90 }} />
+        {now && (
+          <Txt size={12} weight="semibold" lines={1} style={{ color: color.onPhoto, opacity: 0.9, minWidth: 0, textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
+            {now.city} · {now.place.name}
+          </Txt>
+        )}
         <div className="scroll-x" style={{ margin: '2px -18px 0' }}>
           <HStack spacing={6} style={{ padding: '0 18px', width: 'max-content' }}>
             {/* 도시 단추 — 사진 위의 작은 반투명 알약(높이 32). 흰 통 알약(44)은 사진을 가리고 투박했다(2026-11-08 사용자 지적).
@@ -215,10 +220,9 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
     const next = nearestUnused(plan[day][idx], city.places, used)
     if (next) edit(day, (s) => { s[idx] = next; return s })
   }
-  const move = (day: number, idx: number, by: -1 | 1) => edit(day, (s) => {
-    const j = idx + by
-    if (j < 0 || j >= s.length) return s
-    ;[s[idx], s[j]] = [s[j], s[idx]]
+  const moveTo = (day: number, from: number, to: number) => edit(day, (s) => {
+    const [it] = s.splice(from, 1)
+    s.splice(to, 0, it)
     return s
   })
 
@@ -231,6 +235,7 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
     protoActions.setTrip({ city: city.key, days, pace, courseId: id })
     protoActions.ask(false)
     protoActions.created({ city: city.name, days })
+    markFreshCourse(id)
     router.openCourse(id)
   }
 
@@ -241,43 +246,110 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
       title={
         <VStack spacing={6} align="start">
           <Txt as="h1" size={26} weight="heavy" style={heading}>{say(`${city.name} ${daysLabel(days)} 추천 코스`, `${city.name} · ${daysLabel(days)}`)}</Txt>
-          <HStack spacing={6}><MockBadge label={say('껍데기 AI', 'Mock AI')} /><Txt size={14} color="secondary">{say('빼고 바꾸고 순서를 고친 뒤 저장하세요', 'Remove, swap or reorder, then save')}</Txt></HStack>
+          <HStack spacing={6}><MockBadge label={say('껍데기 AI', 'Mock AI')} /><Txt size={14} color="secondary">{say('꾹 눌러 순서를 바꾸고, 빼거나 다른 곳으로 바꾼 뒤 저장하세요', 'Press and hold to reorder. Swap or remove, then save')}</Txt></HStack>
         </VStack>
       }
       footer={
         <VStack spacing={6} align="stretch">
           {failed && <Txt size={13} color="red">{say('저장하지 못했어요. 다시 눌러 주세요', "Couldn't save. Try again")}</Txt>}
-          <PrimaryButton disabled={busy || plan.flat().length === 0} onClick={() => void save()}>{busy ? say('저장하는 중…', 'Saving…') : say('이 코스로 저장', 'Save this course')}</PrimaryButton>
+          <PrimaryButton disabled={busy || plan.flat().length === 0} onClick={() => void save()}>{busy ? say('저장하는 중…', 'Saving…') : say('이 코스로 만들기', 'Make this course')}</PrimaryButton>
         </VStack>
       }
     >
       {plan.flat().length === 0 && <Txt size={15} color="secondary">{say('이 도시는 촬영지가 적어서 코스를 못 짰어요. 뒤로 가서 「직접 고를게요」 를 눌러 주세요', 'Not enough spots here to plan a route. Go back and pick them yourself.')}</Txt>}
       {plan.map((stops, day) => (
-        <VStack key={day} spacing={10} align="stretch">
-          <Txt as="h2" size={17} weight="heavy" style={heading}>{say(`${day + 1}일차`, `Day ${day + 1}`)} <Txt size={13} color="secondary">{say(`${stops.length}곳`, `${stops.length} spots`)}</Txt></Txt>
-          {stops.map((p, idx) => (
-            <SpotRow
-              key={`${p.id}-${idx}`}
-              place={p}
-              actions={
-                <>
-                  <IconButton name="arrow.up.arrow.down" label={say('아래로', 'Move down')} onClick={() => move(day, idx, idx === stops.length - 1 ? -1 : 1)} />
-                  <IconButton name="arrow.clockwise" label={say('다른 곳으로', 'Swap')} onClick={() => swap(day, idx)} />
-                  <IconButton name="xmark" label={say('빼기', 'Remove')} onClick={() => edit(day, (s) => s.filter((_, i) => i !== idx))} />
-                </>
-              }
-            />
-          ))}
-        </VStack>
+        <PlanDay
+          key={day}
+          day={day}
+          stops={stops}
+          onMove={(from, to) => moveTo(day, from, to)}
+          onSwap={(idx) => swap(day, idx)}
+          onRemove={(idx) => edit(day, (s) => s.filter((_, i) => i !== idx))}
+        />
       ))}
     </ProtoScreen>
   )
 }
 
-function IconButton({ name, label, onClick }: { name: string; label: string; onClick: () => void }) {
+/** 하루치 카드 줄 — 꾹 눌러 끌면 그날 안에서 순서가 바뀐다. */
+function PlanDay({ day, stops, onMove, onSwap, onRemove }: {
+  day: number
+  stops: readonly PlaceSummary[]
+  onMove: (from: number, to: number) => void
+  onSwap: (idx: number) => void
+  onRemove: (idx: number) => void
+}) {
+  const list = useRef<HTMLDivElement>(null)
+  // 같은 촬영지가 두 번 들어갈 일은 없지만, 열쇠는 자리와 무관해야 끄는 동안 카드가 다시 그려지지 않는다.
+  const keys = stops.map((p) => String(p.id))
+  const reorder = useHoldReorder(list, keys, onMove)
   return (
-    <Pressable plain className="proto-press" onClick={onClick} aria-label={label} title={label} style={{ width: 44, height: 44, borderRadius: radius.pill, background: 'var(--system-gray6)', display: 'grid', placeItems: 'center' }}>
-      <Icon name={name} size={16} weight="semibold" color={color.primaryText} />
+    <VStack spacing={10} align="stretch">
+      <Txt as="h2" size={17} weight="heavy" style={heading}>{say(`${day + 1}일차`, `Day ${day + 1}`)} <Txt size={13} color="secondary">{say(`${stops.length}곳`, `${stops.length} spots`)}</Txt></Txt>
+      <div ref={list} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {stops.map((p, idx) => {
+          const dragging = reorder.draggingId === keys[idx]
+          return (
+            <div
+              key={keys[idx]}
+              {...reorder.bind(keys[idx])}
+              style={{
+                position: 'relative', zIndex: dragging ? 2 : undefined, touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
+                transform: dragging ? `translateY(${reorder.offsetY}px) scale(1.02)` : undefined,
+                transition: dragging ? 'box-shadow 120ms ease-out' : 'transform 160ms ease-out',
+                boxShadow: dragging ? shadow.float : undefined, borderRadius: radius.l,
+              }}
+            >
+              <PlanSpotCard place={p} number={idx + 1} onSwap={() => onSwap(idx)} onRemove={() => onRemove(idx)} />
+            </div>
+          )
+        })}
+      </div>
+    </VStack>
+  )
+}
+
+/**
+ * 추천 코스의 촬영지 카드 — 사진을 크게 위에, 그 아래 「어느 작품의」(보라 표) 「어떤 장소」(이름) 「어떤 장면」(설명). 처음 듣는 곳이라 이 셋이 한눈에
+ * 들어와야 고를 수 있다(2026-11-09 사용자 지적). 바꾸기·빼기는 사진 위 작은 단추.
+ */
+function PlanSpotCard({ place, number, onSwap, onRemove }: { place: PlaceSummary; number: number; onSwap: () => void; onRemove: () => void }) {
+  const work = place.contents?.[0]?.title
+  const scene = place.sceneDescription?.trim()
+  return (
+    <article style={{ ...homeCard(radius.l), overflow: 'hidden' }}>
+      <div style={{ position: 'relative', aspectRatio: '16 / 9', background: color.brandFill }}>
+        {hasPhoto(place) && <img src={place.imageUrl!} alt="" loading="lazy" draggable={false} referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
+        <span aria-hidden style={{ position: 'absolute', left: 10, top: 10, minWidth: 26, height: 26, padding: '0 8px', borderRadius: radius.pill, display: 'grid', placeItems: 'center', background: color.primaryFill, color: color.onPrimary, fontSize: 13, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{number}</span>
+        <HStack spacing={6} style={{ position: 'absolute', right: 8, top: 8 }}>
+          <PhotoButton name="arrow.clockwise" label={say('다른 곳으로 바꾸기', 'Swap for another spot')} onClick={onSwap} />
+          <PhotoButton name="xmark" label={say('빼기', 'Remove')} onClick={onRemove} />
+        </HStack>
+      </div>
+      <VStack spacing={6} align="start" style={{ padding: '12px 14px 14px' }}>
+        {work && (
+          <HStack spacing={5} style={{ maxWidth: '100%', padding: '3px 9px', borderRadius: radius.pill, background: 'color-mix(in srgb, var(--home-purple) 12%, transparent)' }}>
+            <Icon name="film" size={12} color={color.primaryText} />
+            <Txt size={12} weight="bold" lines={1} style={{ color: color.primaryText }}>{work}</Txt>
+          </HStack>
+        )}
+        <Txt as="h3" size={17} weight="heavy" lines={2} style={{ margin: 0 }}>{place.name}</Txt>
+        {scene ? (
+          <Txt size={14} color="secondary" lines={3} style={{ lineHeight: 1.45 }}>{scene}</Txt>
+        ) : (
+          place.address && <Txt size={13} color="tertiary" lines={1}>{place.address}</Txt>
+        )}
+      </VStack>
+    </article>
+  )
+}
+
+/** 사진 위의 작은 둥근 단추 — 사진 위에서도 읽히게 흰 바탕. 보이는 크기는 32, 누르는 자리는 44. */
+function PhotoButton({ name, label, onClick }: { name: string; label: string; onClick: () => void }) {
+  return (
+    <Pressable plain className="proto-press" onClick={onClick} aria-label={label} title={label} style={{ position: 'relative', width: 32, height: 32, borderRadius: radius.pill, background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 4px rgba(0,0,0,0.18)', display: 'grid', placeItems: 'center' }}>
+      <span aria-hidden style={{ position: 'absolute', inset: -6 }} />
+      <Icon name={name} size={14} weight="bold" color="rgb(60,60,67)" />
     </Pressable>
   )
 }
@@ -313,6 +385,7 @@ export function ProtoLayer() {
           protoActions.setTrip({ city: city.key, days: n, pace: state.trip?.pace ?? 'normal', courseId: id })
           protoActions.pick(null)
           protoActions.created({ city: city.name, days: n })
+          markFreshCourse(id)
           router.openCourse(id)
         }}
       />
@@ -462,6 +535,17 @@ export function TripFloatBar() {
   ]
 
   return (
+    <>
+    <CoachTour
+      id="home-plan-trip"
+      active={!running && !open}
+      delay={900}
+      steps={[{
+        target: '[data-coach="plan-trip"]',
+        title: say('첫 여행 계획을 짜 보세요', 'Plan your first trip'),
+        text: say('여기를 누르면 도시·작품·담은 곳 중 하나로 여행 코스를 만들 수 있어요.', 'Tap here to build a trip from a city, your favorite shows, or places you saved.'),
+      }]}
+    />
     <div
       onKeyDown={(e) => { if (e.key === 'Escape' && open) setOpen(false) }}
       style={{ position: 'absolute', left: 0, right: 0, bottom, height: 56, zIndex: z.float, pointerEvents: 'none' }}
@@ -488,7 +572,7 @@ export function TripFloatBar() {
             </Pressable>
           </>
         ) : (
-          <Pressable plain className="proto-press" onClick={() => (courses.length === 0 ? newPlan() : setOpen(true))} aria-expanded={courses.length === 0 ? undefined : open} style={mainPill}>
+          <Pressable data-coach="plan-trip" plain className="proto-press" onClick={() => (courses.length === 0 ? newPlan() : setOpen(true))} aria-expanded={courses.length === 0 ? undefined : open} style={mainPill}>
             <HStack spacing={7}>
               <Icon name="paperplane.fill" size={14} color="white" />
               {label(say('여행 코스 짜기', 'Plan a trip'))}
@@ -511,6 +595,7 @@ export function TripFloatBar() {
         </div>
       </div>
     </div>
+    </>
   )
 }
 

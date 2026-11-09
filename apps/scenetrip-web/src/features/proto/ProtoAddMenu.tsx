@@ -46,6 +46,7 @@ export function AddFab({ onMap, onSaved, bottom = 16 }: { onMap: () => void; onS
           </div>
         )}
         <Pressable
+          data-coach="editor-add"
           plain
           className="proto-press"
           onClick={() => setOpen((v) => !v)}

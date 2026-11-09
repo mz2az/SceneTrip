@@ -49,8 +49,8 @@ export function areaBbox(area: CityArea): string {
   return [r(minLng - pad), r(minLat - pad), r(maxLng + pad), r(maxLat + pad)].join(',')
 }
 
-/** 줄의 맨 앞에 이 순서로 고정한다(사용자 결정 2026-11-07). 0곳이면 숨는다. */
-export const FIXED_CITIES: readonly string[] = ['서울', '부산', '경주', '인천', '제주']
+/** 줄의 맨 앞에 이 순서로 고정한다(사용자 결정 2026-11-07, 제주를 인천 앞으로 2026-11-09). 0곳이면 숨는다. */
+export const FIXED_CITIES: readonly string[] = ['서울', '부산', '경주', '제주', '인천']
 /** 위치를 못 쓰면 고르는 도시. */
 export const DEFAULT_CITY = '서울'
 

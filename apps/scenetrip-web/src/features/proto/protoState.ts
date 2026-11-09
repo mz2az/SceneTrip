@@ -107,6 +107,19 @@ export function reconcileTrip(local: ProtoTrip | null, server: ProtoTrip | null)
   return { use: local, push: local !== null }
 }
 
+/**
+ * 방금 만든 코스(도시로 시작) — 계획 화면을 편집 상태로 열고, 「저장」 없이 나가면 묻고 지운다(2026-11-09 사용자 결정: 만든 뒤 저장해야 끝).
+ * 작품으로·담은 곳으로는 처음부터 저장 전 초안(isNew)이라 표시하지 않는다.
+ */
+let freshCourse: number | null = null
+export const markFreshCourse = (id: number) => {
+  freshCourse = id
+}
+export const isFreshCourse = (id: number | null): boolean => id !== null && id === freshCourse
+export const clearFreshCourse = () => {
+  freshCourse = null
+}
+
 export const protoActions = {
   choose(next: Proto | null) {
     if (next) sessionStorage.setItem(PROTO_KEY, next)

@@ -41,7 +41,7 @@ export function TopBar({ title, isNew, canSave, saving, onTitle, onCancel, onSav
           />
           <Icon name="pencil" size={12} weight="semibold" color="secondary" />
         </HStack>
-        <Pressable plain onClick={onSave} disabled={!canSave || saving} style={{ minHeight: 44, minWidth: 44, textAlign: 'right', opacity: !canSave || saving ? 0.4 : 1 }}>
+        <Pressable data-coach="editor-save" plain onClick={onSave} disabled={!canSave || saving} style={{ minHeight: 44, minWidth: 44, textAlign: 'right', opacity: !canSave || saving ? 0.4 : 1 }}>
           <Txt size={17} weight="semibold" color="accent">{isNew ? tr('만들기') : tr('저장')}</Txt>
         </Pressable>
       </HStack>

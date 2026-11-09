@@ -88,8 +88,8 @@ describe('orderCities — 고정 다섯, 그다음 촬영지 수', () => {
       ['부산', [[35.1, 129.0]]],
       ['서울', [[37.5, 127.0]]],
     ]).map((g) => g.key)
-    expect(FIXED_CITIES).toEqual(['서울', '부산', '경주', '인천', '제주'])
-    expect(order).toEqual(['서울', '부산', '경주', '인천', '제주', '수원'])
+    expect(FIXED_CITIES).toEqual(['서울', '부산', '경주', '제주', '인천'])
+    expect(order).toEqual(['서울', '부산', '경주', '제주', '인천', '수원'])
   })
 
   it('0곳인 도시는 없다 — 고정 다섯도 숨는다', () => {

@@ -14,6 +14,7 @@ import { Pressable } from '@/features/route/ui/Press'
 import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { MockBadge, cityPhotoOf, useCities } from './protoParts'
+import { CoachTour } from './CoachTour'
 import { color, heading, radius } from './protoTokens'
 import { protoActions, say } from './protoState'
 import './proto.css'
@@ -23,17 +24,19 @@ const SHEET_HEIGHT = 368
 const ART = 52
 
 /** 묶음 안의 한 줄 — 사진 · 제목/설명 · 화살표. 첫 줄이 아니면 글자 칸 위에 얇은 선. */
-function OptionRow({ photo, icon, title, caption, tag, first, onPress }: {
+function OptionRow({ photo, icon, title, caption, tag, first, coach, onPress }: {
   photo: string | null
   icon: string
   title: string
   caption: string
   tag?: string
   first?: boolean
+  /** 처음 안내가 가리킬 표식. */
+  coach?: string
   onPress: () => void
 }) {
   return (
-    <Pressable plain onClick={onPress} style={{ display: 'block', width: '100%', textAlign: 'left', paddingLeft: 12 }}>
+    <Pressable data-coach={coach} plain onClick={onPress} style={{ display: 'block', width: '100%', textAlign: 'left', paddingLeft: 12 }}>
       <HStack spacing={12} style={{ width: '100%' }}>
         <div aria-hidden style={{ position: 'relative', width: ART, height: ART, margin: '12px 0', flex: 'none', borderRadius: radius.s, overflow: 'hidden', background: color.brandFill, display: 'grid', placeItems: 'center' }}>
           {photo ? <img src={photo} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name={icon} size={20} color="white" />}
@@ -82,6 +85,7 @@ export function ProtoForkSheet({ open, onClose, onAI, onManual }: { open: boolea
         <div style={{ borderRadius: 12, background: 'var(--system-background)', overflow: 'hidden' }}>
           <OptionRow
             first
+            coach="fork-city"
             photo={cityPhoto}
             icon="mappin.and.ellipse"
             title={say('도시로 시작', 'Start with a city')}
@@ -92,6 +96,7 @@ export function ProtoForkSheet({ open, onClose, onAI, onManual }: { open: boolea
             })}
           />
           <OptionRow
+            coach="fork-shows"
             photo={poster}
             icon="sparkles"
             title={say('작품으로', 'From shows')}
@@ -100,6 +105,7 @@ export function ProtoForkSheet({ open, onClose, onAI, onManual }: { open: boolea
             onPress={go(onAI)}
           />
           <OptionRow
+            coach="fork-saved"
             photo={savedPhoto}
             icon="bag"
             title={say('담은 곳으로', 'From saved')}
@@ -108,6 +114,28 @@ export function ProtoForkSheet({ open, onClose, onAI, onManual }: { open: boolea
           />
         </div>
       </VStack>
+      <CoachTour
+        id="fork-options"
+        active={open}
+        delay={550}
+        steps={[
+          {
+            target: '[data-coach="fork-city"]',
+            title: say('도시로 시작', 'Start with a city'),
+            text: say('어디로, 며칠 가는지만 고르면 그 도시 인기 촬영지를 동선대로 이어 코스를 바로 만들어 드려요.', 'Pick where and for how long. We link the most popular filming spots there into a ready-made route.'),
+          },
+          {
+            target: '[data-coach="fork-shows"]',
+            title: say('작품으로', 'From shows'),
+            text: say('좋아하는 드라마·영화를 고르면 AI 가 그 작품들의 촬영지로 코스를 짜 줘요.', 'Choose dramas or movies you love and AI plans a route through their filming spots.'),
+          },
+          {
+            target: '[data-coach="fork-saved"]',
+            title: say('담은 곳으로', 'From saved'),
+            text: say('보관함에 담아 둔 곳을 날마다 나눠 넣어요. 담은 곳이 없으면 빈 코스에서 하나씩 직접 넣어요.', 'Your saved places are split by day. With none saved, you start empty and add spots yourself.'),
+          },
+        ]}
+      />
     </Sheet>
   )
 }
