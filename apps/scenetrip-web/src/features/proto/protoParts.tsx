@@ -200,34 +200,48 @@ export function PrimaryButton({ children, onClick, disabled }: { children: React
 }
 
 /** 추천 촬영지 한 줄 — 사진·이름·작품·담기 단추. */
-export function SpotRow({ place, saved, onToggle, trailing }: { place: PlaceSummary; saved?: boolean; onToggle?: () => void; trailing?: ReactNode }) {
+/**
+ * 촬영지 한 줄 — 사진 · 이름(두 줄까지) · 작품 · 그 작품에서 어떤 장면이었는지(두 줄까지). 장면 설명이 없으면 주소.
+ * 사용자는 처음 듣는 곳이라 「어느 작품의 어떤 장소인지」가 보여야 고를 수 있다(2026-11-09 사용자 지적). 장면 설명은 `GET /places?city=` 가 준다(1.26.0).
+ * `actions`(순서·바꾸기·빼기)는 글자를 가리지 않게 줄 아래에 둔다.
+ */
+export function SpotRow({ place, saved, onToggle, trailing, actions }: { place: PlaceSummary; saved?: boolean; onToggle?: () => void; trailing?: ReactNode; actions?: ReactNode }) {
   const work = place.contents?.[0]?.title
+  const scene = place.sceneDescription?.trim()
   return (
-    <HStack spacing={12} style={{ padding: 10, ...homeCard(radius.m) }}>
-      <div style={{ width: 72, height: 72, flex: 'none', borderRadius: radius.s, overflow: 'hidden', background: color.brandFill }}>
-        {hasPhoto(place) && <img src={place.imageUrl!} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-      </div>
-      <VStack spacing={3} align="start" style={{ flex: 1, minWidth: 0 }}>
-        <Txt size={15} weight="bold" lines={1}>{place.name}</Txt>
-        {work && <Txt size={12} weight="semibold" color="purple" lines={1}>{work}</Txt>}
-        <Txt size={12} color="secondary" lines={1}>{place.address ?? ''}</Txt>
-      </VStack>
-      {trailing}
-      {onToggle && (
-        <Pressable
-          plain
+    <VStack spacing={8} align="stretch" style={{ padding: 10, ...homeCard(radius.m) }}>
+      <HStack spacing={12} align="start">
+        <div style={{ width: 72, height: 72, flex: 'none', borderRadius: radius.s, overflow: 'hidden', background: color.brandFill }}>
+          {hasPhoto(place) && <img src={place.imageUrl!} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+        </div>
+        <VStack spacing={3} align="start" style={{ flex: 1, minWidth: 0 }}>
+          <Txt size={15} weight="bold" lines={2}>{place.name}</Txt>
+          {work && (
+            <HStack spacing={4} style={{ minWidth: 0, maxWidth: '100%' }}>
+              <Icon name="film" size={11} color={color.primaryText} />
+              <Txt size={12} weight="semibold" color="purple" lines={1}>{work}</Txt>
+            </HStack>
+          )}
+          <Txt size={12} color="secondary" lines={2}>{scene || place.address || ''}</Txt>
+        </VStack>
+        {trailing}
+        {onToggle && (
+          <Pressable
+            plain
             className="proto-press"
-          onClick={onToggle}
-          aria-pressed={saved}
-          style={{ flex: 'none', minHeight: 44, padding: '0 14px', borderRadius: radius.pill, background: saved ? color.primaryFill : 'var(--system-gray6)' }}
-        >
-          <HStack spacing={4}>
-            <Icon name={saved ? 'checkmark' : 'plus'} size={13} weight="bold" color={saved ? 'white' : color.primaryText} />
-            <Txt size={13} weight="semibold" style={{ color: saved ? color.onPrimary : color.primaryText }}>{saved ? say('담음', 'Added') : say('담기', 'Add')}</Txt>
-          </HStack>
-        </Pressable>
-      )}
-    </HStack>
+            onClick={onToggle}
+            aria-pressed={saved}
+            style={{ flex: 'none', alignSelf: 'center', minHeight: 44, padding: '0 14px', borderRadius: radius.pill, background: saved ? color.primaryFill : 'var(--system-gray6)' }}
+          >
+            <HStack spacing={4}>
+              <Icon name={saved ? 'checkmark' : 'plus'} size={13} weight="bold" color={saved ? 'white' : color.primaryText} />
+              <Txt size={13} weight="semibold" style={{ color: saved ? color.onPrimary : color.primaryText }}>{saved ? say('담음', 'Added') : say('담기', 'Add')}</Txt>
+            </HStack>
+          </Pressable>
+        )}
+      </HStack>
+      {actions && <HStack spacing={6} style={{ justifyContent: 'flex-end' }}>{actions}</HStack>}
+    </VStack>
   )
 }
 

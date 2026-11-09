@@ -200,6 +200,8 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
       head = true
     }
     setCourse((c) => setDayStops(c, dayIndex, optimized(ordered, head, pinEnd)))
+    // 시안(시험용 웹) — 지도는 보던 그대로 둔다. 번호만 바뀐다(2026-11-09 사용자 지적: 누르면 확대가 다 풀렸다).
+    if (protoAvailable && protoStore.get().proto !== null) return
     // 코스 전체가 보이게 — 고른 줄을 놓지 않으면 지도가 그 한 곳으로 확대해 들어간다(2026-09-17 사용자 지적).
     setFocusedUid(null)
     setCourseFitToken((n) => n + 1)

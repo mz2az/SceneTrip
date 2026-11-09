@@ -8,6 +8,11 @@ vi.mock('@/app/RootTabs', () => ({
   RootTabs: () => <div data-testid="root-tabs" />,
 }))
 
+// 새 버전 알림은 따로 시험한다(UpdatePrompt.test.tsx). 여기서는 붙어 있는지만 본다.
+vi.mock('@/features/update/UpdatePrompt', () => ({
+  UpdatePrompt: () => <div data-testid="update-prompt" />,
+}))
+
 beforeEach(() => {
   localStorage.clear()
   sessionStorage.clear()
@@ -58,5 +63,11 @@ describe('AppRoot — 첫 실행', () => {
     expect(screen.getAllByTestId('root-tabs')).toHaveLength(1)
     expect(screen.getByTestId('root-tabs')).not.toBe(firstTabs)
     expect(firstTabs.isConnected).toBe(false)
+  })
+
+  it('새 버전 알림(UpdatePrompt)을 함께 붙인다', () => {
+    render(<AppRoot />)
+
+    expect(screen.getByTestId('update-prompt')).toBeTruthy()
   })
 })

@@ -2,10 +2,16 @@
  * 웹은 2026-11-03 첫 실행 덮개를 모두 뺐다 — 광고로 들어온 사람이 바로 지도를 본다. iOS 도 2026-11-07 같다(MZ2AZ-526)
  */
 import { useLang } from '@/i18n'
+import { UpdatePrompt } from '@/features/update/UpdatePrompt'
 import { RootTabs } from './RootTabs'
 
 export function AppRoot() {
   const lang = useLang()
   // 언어가 바뀌면 화면을 통째로 다시 만든다 — 서버 내용도 그 언어로 다시 받아야 한다.
-  return <RootTabs key={lang} />
+  return (
+    <>
+      <RootTabs key={lang} />
+      <UpdatePrompt />
+    </>
+  )
 }

@@ -259,14 +259,12 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
             <SpotRow
               key={`${p.id}-${idx}`}
               place={p}
-              trailing={
-                <VStack spacing={4}>
-                  <HStack spacing={4}>
-                    <IconButton name="arrow.up.arrow.down" label={say('아래로', 'Move down')} onClick={() => move(day, idx, idx === stops.length - 1 ? -1 : 1)} />
-                    <IconButton name="arrow.clockwise" label={say('다른 곳으로', 'Swap')} onClick={() => swap(day, idx)} />
-                    <IconButton name="xmark" label={say('빼기', 'Remove')} onClick={() => edit(day, (s) => s.filter((_, i) => i !== idx))} />
-                  </HStack>
-                </VStack>
+              actions={
+                <>
+                  <IconButton name="arrow.up.arrow.down" label={say('아래로', 'Move down')} onClick={() => move(day, idx, idx === stops.length - 1 ? -1 : 1)} />
+                  <IconButton name="arrow.clockwise" label={say('다른 곳으로', 'Swap')} onClick={() => swap(day, idx)} />
+                  <IconButton name="xmark" label={say('빼기', 'Remove')} onClick={() => edit(day, (s) => s.filter((_, i) => i !== idx))} />
+                </>
               }
             />
           ))}

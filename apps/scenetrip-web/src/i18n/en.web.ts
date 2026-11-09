@@ -6,4 +6,9 @@ export const webEnglish: Readonly<Record<string, string>> = {
   // MZ2AZ-532 촬영지 상세 「길찾기」
   '%@ 가는 길': 'Trip to %@',
   '로그인하면 바로 길안내를 시작해요': 'Sign in to start directions right away',
+  // 새 판 배포 알림(2026-11-09)
+  '새 버전이 나왔어요': 'A new version is available',
+  '새로고침하면 최신 버전으로 바뀌어요.': 'Reload to get the latest version.',
+  '나중에': 'Later',
+  '새로고침': 'Reload',
 }
