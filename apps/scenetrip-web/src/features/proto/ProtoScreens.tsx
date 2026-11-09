@@ -8,7 +8,8 @@ import { paths } from '@/app/routes'
 import { useTabRouter } from '@/app/tabRouter'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Spinner, Txt, VStack } from '@/design/primitives'
-import type { HomeCity } from '@/features/home/homeCityModel'
+import { cityCount } from '@/features/home/homeCities'
+import { type HomeCity, ensureCityPlaces } from '@/features/home/homeCityModel'
 import { Pressable } from '@/features/route/ui/Press'
 import { PinoMascot } from '@/design/PinoMascot'
 import { useRouteState } from '@/features/route/store'
@@ -61,7 +62,7 @@ export function AskCard() {
                   }}
                 >
                   <Txt size={13} weight="semibold" style={{ color: color.onPhoto }}>{c.name}</Txt>
-                  <Txt size={11} style={{ color: 'rgba(255,255,255,0.75)' }}>{c.places.length}</Txt>
+                  <Txt size={11} style={{ color: 'rgba(255,255,255,0.75)' }}>{cityCount(c)}</Txt>
                 </span>
               </Pressable>
             ))}
@@ -146,7 +147,7 @@ function QuestionFlow() {
         <HowCard
           icon="checkmark.circle.fill"
           title={say('직접 고를게요', "I'll pick the spots")}
-          detail={say(`${cityName} 촬영지 ${found?.places.length ?? ''}곳을 보고 가고 싶은 곳만 담아요.`, `Browse ${found?.places.length ?? ''} spots in ${cityName} and add the ones you like.`)}
+          detail={say(`${cityName} 촬영지 ${found ? cityCount(found) : ''}곳을 보고 가고 싶은 곳만 담아요.`, `Browse ${found ? cityCount(found) : ''} spots in ${cityName} and add the ones you like.`)}
           onClick={() => {
             protoActions.setTrip({ city: city!, days: days!, pace: 'normal', courseId: null })
             protoActions.ask(false)
@@ -190,6 +191,11 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
 
   useEffect(() => {
     if (!city) return
+    // 도시 요약으로 만든 줄이면 그 도시 촬영지부터 받는다 — 받으면 city 가 바뀌어 다시 돈다.
+    if (!city.placesLoaded) {
+      void ensureCityPlaces(city.key).catch(() => setFailed(true))
+      return
+    }
     let live = true
     void mockPlanCityTrip({ places: city.places, days, pace }).then((p) => { if (live) setPlan(p) })
     return () => { live = false }

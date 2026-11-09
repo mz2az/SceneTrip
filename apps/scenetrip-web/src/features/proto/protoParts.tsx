@@ -6,7 +6,8 @@ import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 
 import type { components } from '@/api/generated/schema'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Spinner, Txt, VStack, homeCard } from '@/design/primitives'
-import { type HomeCity, homeCityStore, loadHomeCities } from '@/features/home/homeCityModel'
+import { type HomeCity, ensureCityPlaces, homeCityStore, loadHomeCities } from '@/features/home/homeCityModel'
+import { cityCount } from '@/features/home/homeCities'
 import { hasPhoto } from '@/features/home/homeRules'
 import { Pressable } from '@/features/route/ui/Press'
 import { makeCourse, makeDay, makeStop } from '@/features/route/models'
@@ -73,7 +74,7 @@ export function CityGrid({ cities, loading, selected, onPick }: { cities: readon
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.05))' }} />
             <VStack spacing={1} align="start" style={{ position: 'absolute', left: 12, bottom: 10 }}>
               <Txt size={17} weight="heavy" style={{ color: color.onPhoto }}>{c.name}</Txt>
-              <Txt size={12} style={{ color: color.onPhoto, opacity: 0.9 }}>{say(`촬영지 ${c.places.length}곳`, `${c.places.length} spots`)}</Txt>
+              <Txt size={12} style={{ color: color.onPhoto, opacity: 0.9 }}>{say(`촬영지 ${cityCount(c)}곳`, `${cityCount(c)} spots`)}</Txt>
             </VStack>
           </Pressable>
         )
@@ -265,6 +266,10 @@ export function CityPicker({ city, days, onBack, onCreated }: {
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
   const chosen = city.places.filter((p) => cart.placeIds.has(p.id))
+  // 도시 요약으로 만든 줄이면 이 도시 촬영지를 이제 받는다(MZ2AZ-545).
+  useEffect(() => {
+    if (!city.placesLoaded) void ensureCityPlaces(city.key).catch(() => setFailed(true))
+  }, [city.key, city.placesLoaded])
 
   const create = async (n: number) => {
     setBusy(true)
@@ -305,7 +310,8 @@ export function CityPicker({ city, days, onBack, onCreated }: {
       }
     >
       <VStack spacing={10} align="stretch">
-        {city.places.length === 0 && <Txt size={15} color="secondary">{say('아직 이 도시의 촬영지가 없어요. 뒤로 가서 다른 도시를 골라 주세요', 'No filming spots here yet. Go back and pick another city.')}</Txt>}
+        {!city.placesLoaded && <div style={{ padding: 24, display: 'grid', placeItems: 'center' }}><Spinner size={18} /></div>}
+        {city.placesLoaded && city.places.length === 0 && <Txt size={15} color="secondary">{say('아직 이 도시의 촬영지가 없어요. 뒤로 가서 다른 도시를 골라 주세요', 'No filming spots here yet. Go back and pick another city.')}</Txt>}
         {city.places.slice(0, 30).map((p) => (
           <SpotRow key={p.id} place={p} saved={cart.placeIds.has(p.id)} onToggle={() => void (cart.placeIds.has(p.id) ? cartActions.remove(p.id) : cartActions.add(p.id))} />
         ))}

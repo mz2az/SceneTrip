@@ -22,8 +22,31 @@ export interface Spot {
 }
 
 export interface CityGroup<P extends Spot = Spot> extends CityRef {
-  /** 이 도시의 촬영지 — 목록이 준 인기도 순서 그대로. */
+  /** 이 도시의 촬영지 — 목록이 준 인기도 순서 그대로. 도시 요약(`GET /places/cities`)으로 만든 줄은 도시를 고를 때까지 비어 있다. */
   places: P[]
+  /** 서버가 센 촬영지 수(1.26.0). 없으면 `places` 의 수. */
+  count?: number
+  /** 서버가 준 가운데·범위(1.26.0). `places` 가 비어 있을 때 가까운 도시·지도 범위에 쓴다. */
+  area?: CityArea
+}
+
+/** 도시의 가운데와 촬영지를 모두 담는 사각형 `[minLng, minLat, maxLng, maxLat]`. */
+export interface CityArea {
+  center: { lat: number; lng: number }
+  bbox: readonly [number, number, number, number]
+}
+
+/** 도시의 촬영지 수 — 서버가 센 수가 먼저, 없으면 받은 촬영지 수. */
+export function cityCount(group: Pick<CityGroup, 'places' | 'count'>): number {
+  return group.count ?? group.places.length
+}
+
+/** 서버가 준 범위로 「지도에서 보기」 범위 — `regionBbox` 와 같은 모양·같은 여백. */
+export function areaBbox(area: CityArea): string {
+  const [minLng, minLat, maxLng, maxLat] = area.bbox
+  const pad = 0.01
+  const r = (n: number) => Math.round(n * 1e5) / 1e5
+  return [r(minLng - pad), r(minLat - pad), r(maxLng + pad), r(maxLat + pad)].join(',')
 }
 
 /** 줄의 맨 앞에 이 순서로 고정한다(사용자 결정 2026-11-07). 0곳이면 숨는다. */
@@ -146,12 +169,22 @@ export function nearestCity(groups: readonly CityGroup[], fix: LatLng): string |
   if (!insideKorea(fix)) return null
   let best: { key: string; km: number } | null = null
   for (const g of groups) {
-    for (const p of g.places) {
-      const km = distanceKm(fix, { lat: p.latitude, lng: p.longitude })
+    // 도시 요약(1.26.0)으로 만든 줄은 촬영지가 비어 있다 — 범위 사각형의 가장 가까운 점까지 잰다(안이면 0).
+    const points = g.places.length > 0 || !g.area ? g.places.map((p) => ({ lat: p.latitude, lng: p.longitude })) : [nearestInBox(g.area.bbox, fix)]
+    for (const point of points) {
+      const km = distanceKm(fix, point)
       if (!best || km < best.km) best = { key: g.key, km }
     }
   }
   return best?.key ?? null
+}
+
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
+
+/** 사각형 `[minLng, minLat, maxLng, maxLat]` 에서 이 점과 가장 가까운 점. */
+function nearestInBox(bbox: CityArea['bbox'], fix: LatLng): LatLng {
+  const [minLng, minLat, maxLng, maxLat] = bbox
+  return { lat: clamp(fix.lat, minLat, maxLat), lng: clamp(fix.lng, minLng, maxLng) }
 }
 
 export interface InitialCityEnv {

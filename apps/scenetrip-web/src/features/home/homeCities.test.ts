@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { DEFAULT_CITY, FIXED_CITIES, chooseInitialCity, nearMeOutcome, cityOfAddress, englishCityName, groupCities, nearestCity, orderCities, regionBbox } from './homeCities'
+import { type CityArea, type CityGroup, DEFAULT_CITY, FIXED_CITIES, areaBbox, chooseInitialCity, cityCount, nearMeOutcome, cityOfAddress, englishCityName, groupCities, nearestCity, orderCities, regionBbox } from './homeCities'
 
 type P = { id: number; latitude: number; longitude: number }
 const spot = (id: number, latitude: number, longitude: number): P => ({ id, latitude, longitude })
@@ -218,5 +218,67 @@ describe('regionBbox — 지도 범위', () => {
   })
   it('촬영지가 없으면 null', () => {
     expect(regionBbox([])).toBeNull()
+  })
+})
+
+/** 도시 요약(`GET /places/cities`)으로 만든 줄 — 촬영지는 비어 있고 가운데·범위만 있다(MZ2AZ-545). */
+function areaGroup(key: string, bbox: [number, number, number, number], count = 1): CityGroup {
+  const area: CityArea = { center: { lat: (bbox[1] + bbox[3]) / 2, lng: (bbox[0] + bbox[2]) / 2 }, bbox }
+  return { key, ko: key, places: [], count, area }
+}
+
+describe('cityCount — 촬영지 수', () => {
+  it('서버가 센 수가 있으면 그 수 — 받은 촬영지 수보다 먼저', () => {
+    expect(cityCount({ places: [spot(1, 37.5, 127.0), spot(2, 37.6, 127.0)], count: 476 })).toBe(476)
+  })
+  it('서버 수가 없으면 받은 촬영지 수', () => {
+    expect(cityCount({ places: [spot(1, 37.5, 127.0), spot(2, 37.6, 127.0)] })).toBe(2)
+  })
+  it('촬영지를 아직 안 받은 요약 줄도 서버 수를 쓴다', () => {
+    expect(cityCount({ places: [], count: 12 })).toBe(12)
+  })
+})
+
+describe('areaBbox — 서버 범위로 지도 범위', () => {
+  it('사방 0.01 여백, 소수 다섯째 자리 — minLng,minLat,maxLng,maxLat', () => {
+    expect(areaBbox({ center: { lat: 37.55, lng: 127.0 }, bbox: [126.9, 37.5, 127.1, 37.6] })).toBe('126.89,37.49,127.11,37.61')
+  })
+  it('같은 모서리의 촬영지로 만든 regionBbox 와 같은 문자열이다', () => {
+    const bbox = [126.123456, 37.456789, 127.987654, 37.654321] as const
+    const fromPlaces = regionBbox([spot(1, bbox[1], bbox[0]), spot(2, bbox[3], bbox[2])])
+    expect(areaBbox({ center: { lat: 37.5, lng: 127.0 }, bbox })).toBe(fromPlaces)
+    expect(areaBbox({ center: { lat: 37.5, lng: 127.0 }, bbox })).toBe('126.11346,37.44679,127.99765,37.66432')
+  })
+})
+
+describe('nearestCity — 촬영지 없이 범위만 있는 도시(도시 요약)', () => {
+  it('범위 안이면 거리 0 — 가운데가 더 가까운 다른 도시보다 먼저', () => {
+    // 강원은 넓어서 가운데(37.75,128.0)가 멀지만 그 범위 안이다. 원주는 가운데가 더 가깝지만 범위 밖이다.
+    const groups = [areaGroup('강원', [127.0, 37.0, 129.0, 38.5]), areaGroup('원주', [127.9, 37.3, 128.0, 37.4])]
+    expect(nearestCity(groups, { lat: 37.45, lng: 127.95 })).toBe('강원')
+  })
+  it('범위 밖이면 범위의 가장 가까운 점까지 잰다 — 가운데까지가 아니다', () => {
+    // 넓은 W 는 가운데(36.1,127.0)가 멀지만 가장자리가 11km. 작은 N 은 가운데가 더 가깝지만 범위까지 50km 넘게.
+    const groups = [areaGroup('W', [126.0, 36.0, 128.0, 36.2]), areaGroup('N', [128.55, 36.45, 128.65, 36.55])]
+    expect(nearestCity(groups, { lat: 36.3, lng: 127.95 })).toBe('W')
+  })
+  it('부산 근처 → 부산, 서울 근처 → 서울', () => {
+    const groups = [areaGroup('서울', [126.8, 37.4, 127.2, 37.7]), areaGroup('부산', [128.9, 35.0, 129.3, 35.3])]
+    expect(nearestCity(groups, { lat: 35.5, lng: 129.0 })).toBe('부산')
+    expect(nearestCity(groups, { lat: 37.9, lng: 127.0 })).toBe('서울')
+    // 한국 밖은 범위만 있는 도시라도 null 그대로.
+    expect(nearestCity(groups, { lat: 35.68, lng: 139.76 })).toBeNull()
+  })
+  it('촬영지가 있는 도시와 범위만 있는 도시가 섞여도 견준다', () => {
+    const withPlaces = groupsOf([['서울', [[37.57, 126.98]]]])
+    const groups = [...withPlaces, areaGroup('부산', [128.9, 35.0, 129.3, 35.3])]
+    expect(nearestCity(groups, { lat: 35.15, lng: 129.05 })).toBe('부산')
+    expect(nearestCity(groups, { lat: 37.5, lng: 127.0 })).toBe('서울')
+  })
+  it('chooseInitialCity·nearMeOutcome 도 범위만 있는 도시로 동작한다', async () => {
+    const groups = [areaGroup('서울', [126.8, 37.4, 127.2, 37.7]), areaGroup('부산', [128.9, 35.0, 129.3, 35.3])]
+    const fix = { lat: 35.15, lng: 129.05 }
+    await expect(chooseInitialCity(groups, { permission: async () => 'granted', consent: true, fix: async () => fix })).resolves.toBe('부산')
+    expect(nearMeOutcome(groups, true, fix)).toEqual({ kind: 'city', key: '부산' })
   })
 })

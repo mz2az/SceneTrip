@@ -15,8 +15,8 @@ import { currentLang, tr, useLang } from '@/i18n'
 import { locationConsentStore } from '@/state/consent'
 import { useStore } from '@/state/storage'
 import { Pressable } from '../route/ui/Press'
-import { type LatLng, chooseInitialCity, nearMeOutcome, regionBbox } from './homeCities'
-import { type HomeCity, homeCityStore, loadHomeCities, selectHomeCity } from './homeCityModel'
+import { type LatLng, areaBbox, chooseInitialCity, cityCount, nearMeOutcome, regionBbox } from './homeCities'
+import { type HomeCity, ensureCityPlaces, homeCityStore, loadHomeCities, selectHomeCity } from './homeCityModel'
 import { hasPhoto } from './homeRules'
 
 type PlaceSummary = components['schemas']['PlaceSummary']
@@ -101,6 +101,10 @@ export function HomeCitySpots({ onOpenPlace, onOpenMap }: { onOpenPlace: (place:
   }, [state.status, cities])
 
   const city = cities.find((c) => c.key === state.selected) ?? null
+  // 도시 요약으로 만든 줄은 고른 도시의 촬영지를 그때 받는다(MZ2AZ-545).
+  useEffect(() => {
+    if (city && !city.placesLoaded) void ensureCityPlaces(city.key).catch(() => {})
+  }, [city?.key, city?.placesLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 고른 칩이 보이게 줄을 민다(가까운 도시가 줄 뒤쪽일 수 있다). 카드 줄은 맨 앞으로. 세로 스크롤은 건드리지 않는다.
   useEffect(() => {
@@ -151,9 +155,9 @@ export function HomeCitySpots({ onOpenPlace, onOpenMap }: { onOpenPlace: (place:
     })
   }
 
-  const loading = city === null
-  const count = city?.places.length ?? 0
-  const bbox = city ? regionBbox(city.places) : null
+  const loading = city === null || !city.placesLoaded
+  const count = city ? cityCount(city) : 0
+  const bbox = city ? (city.places.length > 0 ? regionBbox(city.places) : city.area ? areaBbox(city.area) : null) : null
 
   return (
     <VStack spacing={10} align="stretch" data-testid="home-city-spots">
@@ -173,7 +177,7 @@ export function HomeCitySpots({ onOpenPlace, onOpenMap }: { onOpenPlace: (place:
         <HStack spacing={8} style={{ padding: '2px 20px 4px', width: 'max-content' }}>
           <Chip on={false} onClick={nearMe} disabled={state.status !== 'loaded'} label={copy('내 위치', 'Near me')} icon={locating ? 'location.fill' : 'location'} />
           {cities.map((c) => (
-            <Chip key={c.key} city={c.key} on={c.key === state.selected} onClick={() => choose(c.key)} label={c.name} count={c.places.length} />
+            <Chip key={c.key} city={c.key} on={c.key === state.selected} onClick={() => choose(c.key)} label={c.name} count={cityCount(c)} />
           ))}
         </HStack>
       </div>
@@ -188,7 +192,7 @@ export function HomeCitySpots({ onOpenPlace, onOpenMap }: { onOpenPlace: (place:
         <HStack spacing={10} align="start" style={{ padding: '2px 20px 6px', width: 'max-content' }}>
           {loading
             ? [0, 1, 2].map((i) => <div key={i} style={{ width: CARD.w, height: CARD.photo + 52, ...homeCard(16), opacity: 0.6 }} />)
-            : city.places.slice(0, CARD_LIMIT).map((place) => <SpotCard key={place.id} place={place} onOpen={() => onOpenPlace(place)} />)}
+            : city!.places.slice(0, CARD_LIMIT).map((place) => <SpotCard key={place.id} place={place} onOpen={() => onOpenPlace(place)} />)}
         </HStack>
       </div>
       <LocationConsentSheet gate={location.gate} />
