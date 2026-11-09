@@ -434,8 +434,10 @@ AppID는 메타 개발자 콘솔의 앱 ID이며 App Store Connect의 숫자 App
 | `RouteEditorGuide.swift` | 편집 화면 ↔ 가이드 — 화면 상태를 만들고(`guideContext`) 답의 명령을 적용한다(`applyGuideAnswer`: 초안 갈아 끼우기 · 일차 열기 · 시트 내리기) |
 | `RouteGuidePlan.swift` · `RouteGuideIdentity.swift` | 계약의 일정 초안 ↔ 코스. 촬영지·편의시설·개인 핀 ID를 왕복하고 유일하게 대응하는 기존 항목 번호·방문·분류를 보존한다. 번호 없음·충돌은 저장 안 됨으로 남긴다(MZ2AZ-425·434). 에이전트가 한국어로 준 촬영지 이름·주소는 받아 둔 장소 목록(`RouteStore.places`, 앱 언어)으로 바꾸고, 목록에 없을 때만 대응한 앞 줄의 이름·주소를 둔다(MZ2AZ-530) |
 | `RouteGuideFailure.swift` | 가이드 오류를 계약 응답별로 분류 — 401 가입 · 400 · 502·503·504 잠시 뒤 · 시간 초과 · 오프라인 · 연결 실패 · 분당 한도 · 422 키 재사용. 갈래마다 「다시 시도」 가 같은 키로·새 키로·없음 중 무엇인지(`retry`)를 안다. 마법사도 이 분류를 쓴다(재시도는 없다) |
-| `RouteEditorView.swift` · `RouteEditorControls.swift` · `RouteEditorParts.swift` | 편집 화면 — 일차 ＋/−, 드래그 정렬, 체류 시간(일차 머리줄의 합 → 「머무는 시간」 시트), 동선 최적화(출발·도착 고정 선택), 장소 검색·장바구니·핀 찍기. 「취소」는 저장하면 달라질 것이 있을 때만 버릴지 묻는다(`RouteBridge.changed`, MZ2AZ-369) |
-| `RouteSearchSheet.swift` | 편집 화면 안에서 바로 장소를 찾아 담는 시트 — 장바구니를 거치지 않는다 |
+| `RouteEditorView.swift` · `RouteEditorControls.swift` · `RouteEditorParts.swift` | 계획(편집) 화면 — 일차 ＋/−, 드래그 정렬, 체류 시간(일차 머리줄의 합 → 「머무는 시간」 시트), 동선 최적화(출발·도착 고정 선택)·핀 찍기, 줄 오른쪽 장소 사진(촬영지는 ⓘ → 장소 상세). 「취소」는 저장하면 달라질 것이 있을 때만 버릴지 묻는다(`RouteBridge.changed`, MZ2AZ-369) |
+| `RouteEditorRules.swift` · `RouteEditorModes.swift` | **보기/편집**(MZ2AZ-547 P4) — 저장된 코스는 보기(‹ · 이름 · 「편집」), 새 초안·방금 「도시로」 만든 코스는 편집으로 연다. 편집 「취소」 는 저장된 코스면 편집 전으로 되돌려 보기로, 방금 만든 코스면 「저장하지 않고 나갈까요?」 → `DELETE`. 「저장」 은 닫지 않고 보기로. 지도는 기본 접힘 — 왼쪽 아래 「지도」/「목록만」 알약(`RouteMapToggle`, 처음 펼칠 때만 코스 전체에 맞춤). 카메라는 일차 바꾸기·장소 넣기만 다시 맞추고 끌기·빼기·최적화·서랍 높이는 그대로(`RouteCameraRules`). 시험: `tests/RouteEditorRulesTests.swift` |
+| `CourseAddViews.swift` | 편집 중 떠 있는 ＋(해태 위) — 「지도에서 추가」(검색 탭을 위에 띄우고 장소 상세의 「＋ 코스에 추가」 → 일차 고르기) · 「보관함에서 추가」(고른 순서 번호 → 「N곳 선택 완료」 → 일차 고르기). 규칙은 `CourseAddRules`·`CourseAddPicker` |
+| `RouteNumberPin.swift` | 코스 번호 핀 — 보라 단색 동그라미 + 흰 테두리 + 꼬리, 흰 번호(웹 시안). 검색 탭 P9 의 `CoursePinImage` 와 같은 그림이라 둘 다 main 에 들어가면 합친다 |
 | `RouteGeometry`(`RouteModels.swift` 안) | 동선 최적화 — 최근접 이웃·2-opt·완전탐색(≤8곳) 세 방법 중 가장 짧은 것. 출발·도착 고정은 각각 선택이다 |
 | `RouteMapView.swift` | 코스용 지도 — 번호 핀, 계획 단계는 **직선**만(예상 시간 표시 안 함) |
 | `TripSession.swift` · `TripMode.swift` · `RouteEditorTrip.swift` · `RouteMapTrip.swift` · `PawStamp.swift` · `DemoDrive.swift` · `RouteTabTrip.swift` | **여행 모드**(아래 절) — 편집 화면 안 길찾기·머무름 도착·발바닥 스탬프·「다음으로」. 경로는 `NavigationAPI.getNextLeg`(계약) |
@@ -517,6 +519,10 @@ navi-proto 의 홈 재편(`cd8debd`)과 편의시설 점을 옮겼다. 홈은 �
 
 확인용 뒷문(시뮬레이터에 합성 탭이 닿지 않아서): `-newCourse sheet|city|works|saved` · `-cityFlow 부산 [-cityDays 2 -cityHow plan|pick]` ·
 `-cityAutoSave 1`(추천 코스를 바로 저장 — **서버에 코스가 생긴다**) · `-worksStep works`.
+
+계획 화면(P4) 뒷문: `-initialTab route -openCourseId N` 에 덧붙여 `-editorMode edit`(저장된 코스도 편집으로) ·
+`-editorMap 1`(지도를 펼친 채로) · `-freshCourse 1`(그 코스를 「방금 만든 코스」 로 — 「취소」 가 지울지 묻는다) · `-editorAdd menu|saved|map`(＋ 메뉴·보관함에서 추가·지도에서 추가를 연 채로).
+여는 코스 번호는 기기 기록에 남는다 — `log show --debug --predicate 'subsystem == "com.mz2az.scenetrip" AND category == "route"'`.
 
 ## 여행 모드 — 편집 화면 안에서 길찾기·스탬프 (2026-09-04, MZ2AZ-307)
 

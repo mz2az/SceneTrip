@@ -877,3 +877,36 @@
 "담아 둔 곳이 없어 빈 코스로 시작해요. 다음 화면에서 하나씩 넣으면 돼요" = "Nothing saved, so this starts empty. Add places on the next screen.";
 "가까운 곳끼리 날마다 나눠 넣어요. 빼거나 순서를 바꾸는 건 다음 화면에서 할 수 있어요" = "Split by day, nearest first. Remove or reorder on the next screen.";
 "담음" = "Added";
+
+/* 계획 화면 보기/편집·지도 켜고 끄기·＋ 메뉴 (MZ2AZ-547 P4) */
+"편집" = "Edit";
+"지도" = "Map";
+"목록만" = "List only";
+"저장하지 않고 나갈까요?" = "Leave without saving?";
+"방금 만든 코스가 지워져요." = "The course you just made will be deleted.";
+"나가기" = "Leave";
+"일차 빼기" = "Remove day";
+"일차 더하기" = "Add day";
+"자세히 보기" = "Details";
+"장소 추가" = "Add places";
+"지도에서 추가" = "Add from map";
+"검색 탭처럼 찾아서 넣기" = "Find it like in Search";
+"보관함에서 추가" = "Add from saved";
+"담아 둔 곳 골라 넣기" = "Pick from saved places";
+"코스에 추가" = "Add to trip";
+"이미 코스에 있어요" = "Already in the trip";
+"%lld일차에 넣었어요" = "Added to day %lld";
+"지금 보는 날" = "Viewing";
+"비어 있음" = "Empty";
+"「%@」 을 몇 일차에 넣을까요?" = "Add “%@” to which day?";
+"몇 일차에 넣을까요?" = "Which day?";
+"고른 %lld곳을 넣을 날을 골라 주세요" = "Pick a day for the %lld places";
+"아직 담아 둔 곳이 없어요" = "Nothing saved yet";
+"「지도에서 추가」 로 찾아 넣어 보세요" = "Try “Add from map”.";
+"담아 둔 곳 %lld" = "Saved %lld";
+"모두 고르기" = "Select all";
+"모두 풀기" = "Clear";
+"이미 코스에 있는 곳 %lld" = "Already in the trip %lld";
+"넣을 곳을 골라 주세요" = "Pick places to add";
+"%lld곳 선택 완료" = "Done · %lld picked";
+"코스로" = "Back to trip";

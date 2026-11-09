@@ -18,7 +18,7 @@ iOS 는 SwiftUI 로 다시 만든다(웹 코드를 옮기지 않는다). 문구�
 | P1 탭바 | T1–T3 | 완료 — 떠 있는 알약(`safeAreaInset`, 목록은 74+안전영역 비움), 검색 서랍은 알약 뒤까지·접힘/중간은 알약 위 몫으로(`BottomSheetRules`) |
 | P2 홈 | H1–H6 | 완료 — 사진 카드·고정 8장·도시 칩·떠 있는 단추·고정 작품 32·전체 보기 격자. 도시 칩·「+ 새 코스」 는 갈고리 `TabRouter.startNewCourse(city:)` → 지금은 기존 갈림길(AI/직접), **P3 가 F1·Q2 로 바꾼다**. 전체 보기에서 작품을 열면 탭으로 가고 격자로 돌아오지 않음 |
 | P3 새 코스·도시로 여행 짜기·작품/담은 곳 | F1–F2, Q1–Q5, R1–R6, A1–A4, S1 | 완료 — `NewCourse/*`. 시트는 홈·코스 목록, 흐름은 덮개 `TabRouter.Cover.newCourse`. 추천은 앱 안 계산(`CityPlanRules`), 저장 뒤 `courseCreated` 가 계획 화면 + 6초 띠. 예전 `RouteWizardView`·`RouteForkCards` 삭제(가이드 한도의 「AI 로 짜기 열기」 는 작품으로 흐름). 남은 것은 아래 「P4 로 넘기는 것」 |
-| P4 계획 화면 | E1–E16 | 대기 |
+| P4 계획 화면 | E1–E16 | 완료 — `RouteEditorRules`(보기/편집·취소 판단·카메라·지도 알약·보관함 고르기) + `RouteEditorModes`·`CourseAddViews`. 저장된 코스는 보기로 열고 「저장」 뒤 보기로, 방금 만든 코스(`isFreshCourse`)는 편집으로 열고 「취소」 → 「저장하지 않고 나갈까요?」 → `RouteStore.delete`+`clearFreshCourse`. 검색·장바구니 단추와 `RouteSearchSheet` 는 ＋ 메뉴로 대체(삭제), 장바구니 안내 띠도 뺐다. **E16 쓸어내리기는 해당 없음** — iOS 계획 화면은 늘 전체 화면 덮개(fullScreenCover)라 쓸어내려 닫히지 않는다(UIKit 다리 안 만듦). **E14** 은 규칙(편집 62/보기 10)만 넣었다 — 지도 위 칩 줄은 P5(M1)가 채운다. **E11** 핀 그림 `RouteNumberPin` 은 P9 `CoursePinImage` 와 같다 — 둘 다 main 에 들어가면 합친다. E17 은 P7 |
 | P5 지도 편의시설·지도 검색 | M1–M8 | 대기 |
 | P6 튜토리얼 | C1–C5 | 대기 |
 | P7 코스 목록 | L1–L5 | 대기 |

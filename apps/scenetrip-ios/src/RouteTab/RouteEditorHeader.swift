@@ -14,15 +14,10 @@ extension RouteEditorView {
     }
 
     var cancelButton: some View {
-        Button("취소") {
-            if dirty {
-                confirmingDiscard = true
-            } else {
-                dismiss()
-            }
-        }
-        .lineLimit(1).fixedSize(horizontal: true, vertical: true)
-        .frame(minHeight: 44)
+        // 새 초안은 닫고, 저장된 코스는 편집 전으로 되돌려 보기로, 방금 만든 코스는 지울지 묻는다(MZ2AZ-547 E3·E16).
+        Button("취소") { cancelTapped() }
+            .lineLimit(1).fixedSize(horizontal: true, vertical: true)
+            .frame(minHeight: 44)
     }
 
     var saveButton: some View {

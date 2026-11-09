@@ -51,7 +51,8 @@ extension RouteEditorView {
                     focusedStop = stop
                 }
             },
-            bottomInset: panelHeight,
+            // 지도가 접혀 있으면 서랍이 없다(MZ2AZ-547 E4).
+            bottomInset: mapToggle.isOpen ? panelHeight : 0,
             // 여행 안내(2026-09-03) — 내 자리·목적지·실제 경로를 이 지도에.
             tripHere: mapHere,
             navTarget: trip.target,
@@ -106,7 +107,9 @@ extension RouteEditorView {
                         footprintButton
                     }
                 }
-                .padding(10)
+                .padding(.horizontal, 10).padding(.bottom, 10)
+                // 편집 중엔 지도 맨 위 칩 줄 아래, 보기면 맨 위(MZ2AZ-547 E14).
+                .padding(.top, RouteEditorRules.locateTop(mode))
                 // 도착 알림 카드가 떠 있으면 그 밑으로 내려온다.
                 .padding(.top, trip.phase == .arrived ? tripBannerHeight : 0)
             }
@@ -204,7 +207,8 @@ extension RouteEditorView {
     /// 「전체」는 마스터 스위치다. 다 켜져 있으면 끄고, 하나라도 꺼져 있으면 다 켠다.
     @ViewBuilder
     var poiFilter: some View {
-        if !poisForChips.isEmpty || !aiChip.isEmpty {
+        // 볼 때는 내 코스만 — 편의시설 칩은 고칠 때만(MZ2AZ-547 E2).
+        if RouteEditorRules.showsEditTools(mode), !poisForChips.isEmpty || !aiChip.isEmpty {
             RoutePoiChips(places: poisForChips, groupsOn: $poiGroupsOn, onGroupOff: { group in
                 // 감춘 갈래의 고른 핀은 놓는다 — 지도에 없는 것을 계속 골라
                 // 두면 카드만 남는다. AI 장소는 제 칩(해태)이 따로 놓는다.
@@ -236,19 +240,26 @@ extension RouteEditorView {
                 }
                 .padding(.horizontal, 4)
             }
-            Button {
-                removeDay()
-            } label: {
-                Image(systemName: "minus.circle")
+            // 일차 ＋/− 는 고칠 때만(MZ2AZ-547 E2).
+            if RouteEditorRules.showsEditTools(mode) {
+                Button {
+                    removeDay()
+                } label: {
+                    Image(systemName: "minus.circle")
+                }
+                .disabled(course.days.count <= RouteCourse.dayLimit.lowerBound)
+                .accessibilityLabel(Text("일차 빼기"))
+                Button {
+                    course.days.append(RouteDay())
+                    dayIndex = course.days.count - 1
+                    focusedStop = nil
+                    fitToken += 1
+                } label: {
+                    Image(systemName: "plus.circle")
+                }
+                .disabled(course.days.count >= RouteCourse.dayLimit.upperBound)
+                .accessibilityLabel(Text("일차 더하기"))
             }
-            .disabled(course.days.count <= RouteCourse.dayLimit.lowerBound)
-            Button {
-                course.days.append(RouteDay())
-                dayIndex = course.days.count - 1
-            } label: {
-                Image(systemName: "plus.circle")
-            }
-            .disabled(course.days.count >= RouteCourse.dayLimit.upperBound)
         }
         .padding(.horizontal, 16).padding(.top, 10)
         .background(Color(.systemBackground))
@@ -270,7 +281,9 @@ extension RouteEditorView {
             // 일차가 바뀌면 고른 장소를 놓는다 — 안 놓으면 다른 일차의 장소를
             // 계속 보고 있게 되고, 지도는 그 일차 전체로 맞춰야 한다.
             focusedStop = nil
-            fitToken += 1
+            if RouteCameraRules.refits(.daySwitch) {
+                fitToken += 1
+            }
         }
     }
 
@@ -349,63 +362,53 @@ extension RouteEditorView {
         }
     }
 
-    /// 네 가지가 **한 줄에 다 보인다.** 앞서 가로 스크롤이라 「핀 찍기」가 오른쪽
-    /// 밖으로 밀려 있었는데, 밀려 있으면 없는 것과 같다 — 무엇을 할 수 있는지
-    /// 화면을 밀어 봐야 아는 UI 는 직관적이지 않다(2026-08-25 사용자 지적).
+    /// 동작 줄 — **동선 최적화 · 핀 찍기 둘뿐이다**(MZ2AZ-547 E7, 웹 시안). 검색·장바구니는 떠 있는 ＋ 의
+    /// 「지도에서 추가」·「보관함에서 추가」 로 옮겨 갔다. 고칠 때만 보인다(E2).
     ///
-    /// 넷이 들어가게 **글자를 짧게** 했다 — 「장소 검색」→「검색」. 출발·도착 고정은
-    /// 여기서 뺐다. 그것은 **어느 줄을 고정하는가**의 이야기라 그 줄 옆에 있어야
-    /// 뜻이 통한다(`RouteStopRow`).
-    var actions: some View {
-        HStack(spacing: 8) {
-            // 동선 최적화는 **지금 보고 있는 일차 안에서만** 순서를 바꾼다.
-            // 일차를 넘나들며 옮기면 사용자가 나눠 둔 하루가 무너진다.
-            action(tr("동선 최적화"), symbol: "arrow.triangle.swap", highlight: optimizeNudge) {
-                // 현재 위치를 알고 출발이 아직 안 정해졌으면 **가장 가까운 곳이 출발**이다
-                // (2026-09-04 사용자 결정) — 한국에 와서 다시 누르는 사람은 지금 선 자리에서
-                // 도는 동선을 원한다.
-                //
-                // **출발 고정 토글은 건드리지 않는다**(2026-09-16). 앞서 여기서 `pinStart` 를
-                // 켜 버려서, 한 번 누른 뒤에는 자리를 옮겨 다시 눌러도 옛 1 번이 그대로
-                // 붙박이가 됐다. 고정은 이번 계산에만 준다.
-                var ordered = stops
-                var head = pinStart
-                if !pinStart, let here = RouteGeometry.usableAnchor(optimizeAnchor, for: ordered) {
-                    ordered = RouteGeometry.startingNearest(ordered, to: here)
-                    head = true
+    /// 앞서 넷이 한 줄에 다 보이게 글자를 줄였다 — 밀려 있으면 없는 것과 같다(2026-08-25 사용자 지적).
+    /// 출발·도착 고정은 **어느 줄을 고정하는가**의 이야기라 그 줄 옆에 있다(`RouteStopRow`).
+    @ViewBuilder var actions: some View {
+        if RouteEditorRules.showsEditTools(mode) {
+            HStack(spacing: 8) {
+                // 동선 최적화는 **지금 보고 있는 일차 안에서만** 순서를 바꾼다.
+                // 일차를 넘나들며 옮기면 사용자가 나눠 둔 하루가 무너진다.
+                action(tr("동선 최적화"), symbol: "arrow.triangle.swap", highlight: optimizeNudge) { optimize() }
+                action(pinning ? tr("취소") : tr("핀 찍기"), symbol: "mappin.and.ellipse") {
+                    // 핀은 지도를 눌러 찍는다 — 접혀 있으면 펼친다(E5).
+                    if !pinning {
+                        revealMap()
+                    }
+                    pinning.toggle()
                 }
-                course.days[dayIndex].stops = RouteGeometry.optimized(
-                    ordered, pinStart: head, pinEnd: pinEnd
-                )
-                // **코스 전체가 보이게.** 고른 줄을 놓지 않으면 지도가 그 한 곳으로 확대해
-                // 들어간다 — 순서가 통째로 바뀐 직후에 볼 것은 전체다(2026-09-17 사용자 지적).
-                focusedStop = nil
-                courseFitToken += 1
-                optimizeNudge = false // 권한 일을 했다 — 반짝임은 여기까지
+                // 「AI 가이드」 단추는 없앴다(2026-09-16) — 화면 오른쪽 아래 해태 동그라미와
+                // 하는 일이 같아 둘이 됐다. 입구는 그 동그라미 하나다.
             }
-            // 장바구니를 거치지 않고 **여기서 바로** 찾아 담는다.
-            action(tr("검색"), symbol: "magnifyingglass") { showSearch = true }
-            action(tr("장바구니"), symbol: "bag") {
-                cartHint.dismiss()
-                showCart = true
-            }
-            .overlay {
-                if cartHint.isHighlighted {
-                    RouteCartHintRing()
-                }
-            }
-            action(pinning ? tr("취소") : tr("핀 찍기"), symbol: "mappin.and.ellipse") {
-                pinning.toggle()
-            }
-            // 「AI 가이드」 단추는 없앴다(2026-09-16) — 화면 오른쪽 아래 해태 동그라미와
-            // 하는 일이 같아 둘이 됐다. 입구는 그 동그라미 하나다.
+            .padding(.horizontal, 16).padding(.bottom, 10)
+            .background(Color(.systemBackground))
         }
-        .padding(.horizontal, 16).padding(.bottom, 10)
-        .background(Color(.systemBackground))
     }
 
-    /// 넷이 한 줄에 들어가야 하므로 **아이콘 위, 글자 아래**로 쌓는다. 나란히 두면
-    /// 402pt 폭에 「동선 최적화」 하나가 절반을 먹는다.
+    /// 현재 위치를 알고 출발이 아직 안 정해졌으면 **가장 가까운 곳이 출발**이다(2026-09-04 사용자 결정) — 한국에 와서
+    /// 다시 누르는 사람은 지금 선 자리에서 도는 동선을 원한다. **출발 고정 토글은 건드리지 않는다**(2026-09-16) —
+    /// 고정은 이번 계산에만 준다.
+    ///
+    /// **지도는 그대로 둔다**(MZ2AZ-547 E13 — 2026-09-17 의 「코스 전체에 맞춤」 을 뒤집었다, 웹 2026-11-09 사용자 지적:
+    /// 누르면 확대가 다 풀렸다). 번호만 바뀐다.
+    private func optimize() {
+        var ordered = stops
+        var head = pinStart
+        if !pinStart, let here = RouteGeometry.usableAnchor(optimizeAnchor, for: ordered) {
+            ordered = RouteGeometry.startingNearest(ordered, to: here)
+            head = true
+        }
+        course.days[dayIndex].stops = RouteGeometry.optimized(ordered, pinStart: head, pinEnd: pinEnd)
+        if RouteCameraRules.refits(.optimize) {
+            courseFitToken += 1
+        }
+        optimizeNudge = false // 권한 일을 했다 — 반짝임은 여기까지
+    }
+
+    /// **아이콘 위, 글자 아래**로 쌓는다(넷이던 때의 모양을 그대로 둔다).
     private func action(
         _ label: String,
         symbol: String,

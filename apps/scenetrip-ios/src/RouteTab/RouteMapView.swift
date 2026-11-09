@@ -258,8 +258,13 @@ struct RouteMapView: UIViewRepresentable {
         func apply(bottomInset: CGFloat, to mapView: NMFMapView) {
             guard abs(bottomInset - lastInset) > 40 else { return }
             lastInset = bottomInset
+            // **서랍 높이만 바뀌면 다시 맞추지 않는다**(MZ2AZ-547 E12, `RouteCameraRules.sheetHeight`) — 확대는 그대로 두고
+            // 보이는 영역만 줄인다(네이버 지도가 가운데를 새 영역의 가운데로 옮긴다). 다시 맞추면 사람이 확대해 둔 화면이 풀렸다
+            // (웹 2026-11-08 사용자 지적).
             mapView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: bottomInset, right: 0)
-            lastCameraKey = "" // 다음 render 가 새 영역으로 다시 맞추게 한다.
+            if RouteCameraRules.refits(.sheetHeight) {
+                lastCameraKey = ""
+            }
         }
 
         init(onTapMap: @escaping (RoutePin) -> Void) {
@@ -395,8 +400,10 @@ struct RouteMapView: UIViewRepresentable {
 
             // 카메라 열쇠는 **칩으로 거른 목록을 보지 않는다** — 핀을 다시 그리는 열쇠(`key`)와
             // 갈라 둔 이유다. 칩을 켜고 꺼도 화면은 그 자리에 있어야 한다.
-            let cameraContent = stops.map { "\($0.id)" }.joined(separator: ",")
-                + "|" + previews.map { String($0.id) }.joined(separator: ",")
+            //
+            // **코스 핀(순서·빼기)도 보지 않는다**(MZ2AZ-547 E12, `RouteCameraRules`) — 끌기·빼기·최적화로는 다시 맞추지
+            // 않는다. 일차 바꾸기·장소 넣기는 부르는 쪽이 `fitToken` 을 올려 따로 알린다.
+            let cameraContent = previews.map { String($0.id) }.joined(separator: ",")
                 + "|" + guideCameraKey
             let cameraKey = "\(focused?.id.uuidString ?? "-")|\(showingMe)|\(cameraContent)"
             if courseFitJustRan {

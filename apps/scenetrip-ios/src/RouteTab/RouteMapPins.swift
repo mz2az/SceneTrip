@@ -42,7 +42,9 @@ extension RouteMapView.Coordinator {
                 // 다른 핀에 가리지 않게 위로 올린다.
                 marker.zIndex = 10
             } else {
-                marker.iconImage = PinImage.numbered(index + 1)
+                // 보라 단색 동그라미 + 흰 테두리 + 꼬리, 흰 번호(MZ2AZ-547 E11).
+                marker.iconImage = RouteNumberPin.image(index + 1)
+                marker.anchor = RouteNumberPin.anchor
             }
             marker.captionText = PinCaption.text(stop.label.title)
             marker.captionRequestedWidth = PinCaption.width
