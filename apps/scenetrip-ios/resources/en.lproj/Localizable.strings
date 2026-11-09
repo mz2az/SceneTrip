@@ -793,3 +793,31 @@
 "새 버전이 나왔어요" = "A new version is available";
 "나중에" = "Later";
 "업데이트하면 새 기능을 쓸 수 있어요." = "Update to get the latest features.";
+
+/* 커뮤니티 게시판·검색·좋아요·댓글·블로그형 글쓰기 (MZ2AZ-547 P8) */
+"여행후기" = "Trip reviews";
+"자유게시판" = "Free board";
+"글 검색" = "Search posts";
+"제목·내용으로 찾기" = "Search titles and posts";
+"「%@」 에 맞는 글이 없어요" = "No posts match “%@”";
+"아직 글이 없어요" = "No posts yet";
+"여행 이야기·질문을 자유롭게 남겨 보세요" = "Share travel stories and questions.";
+"좋아요 %d개, 댓글 %d개" = "%d likes, %d comments";
+"좋아요 %d" = "Like %d";
+"댓글 %d" = "Comments %d";
+"댓글을 불러오지 못했어요 — 다시 시도" = "Couldn't load comments — retry";
+"댓글 지우기" = "Delete comment";
+"첫 댓글을 남겨 보세요" = "Be the first to comment";
+"댓글을 남겨 보세요" = "Add a comment";
+"등록" = "Post";
+"사진 넣기" = "Add photo";
+"글을 쓰던 자리에 들어가요. 사진은 꾹 눌러 옮길 수 있어요." = "Goes where you were typing. Press and hold a photo to move it.";
+"이어서 쓰기…" = "Keep writing…";
+"사진 설명 (선택)" = "Caption (optional)";
+"출처·이용 조건 (남의 사진이면)" = "Source / license (if not yours)";
+"출처" = "Source";
+"AI 로 바꾼 사진이에요" = "This photo was changed with AI";
+"출처·AI 표시 더하기" = "Add source / AI label";
+"쓰던 글을 버릴까요?" = "Discard this post?";
+"게시판" = "Board";
+"게시판: %@" = "Board: %@";

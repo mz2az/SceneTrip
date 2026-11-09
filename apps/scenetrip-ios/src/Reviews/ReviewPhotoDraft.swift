@@ -102,6 +102,22 @@ final class ReviewPhotoDraft: ObservableObject {
         }
     }
 
+    /// 칸 순서를 `ids` 순서로 맞춘다(커뮤니티 글쓰기 — 본문에 놓인 순서가 사진 순서다, MZ2AZ-547 K11).
+    /// `ids` 에 없는 칸은 원래 순서대로 뒤에 남는다. 없는 id 는 무시한다.
+    func reorder(_ ids: [UUID]) {
+        var rest = slots
+        var ordered: [Slot] = []
+        for id in ids {
+            if let index = rest.firstIndex(where: { $0.id == id }) {
+                ordered.append(rest.remove(at: index))
+            }
+        }
+        let next = ordered + rest
+        if next.map(\.id) != slots.map(\.id) {
+            slots = next
+        }
+    }
+
     /// 실패한 칸을 다시 올린다. 줄이 멈춰 있었으면 이 칸부터, 기다리던 사진까지 이어서 돈다.
     func retry(_ id: UUID) {
         guard let slot = slots.first(where: { $0.id == id }),
