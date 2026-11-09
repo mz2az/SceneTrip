@@ -4533,7 +4533,8 @@ components:
           description: |
             이 장소가 작품에서 어떻게 등장했는지. `contentId` 로 좁혀 조회했을 때
             (또는 `GET /contents/{contentId}/places`) 그 작품 기준으로 채워진다.
-            작품을 특정하지 않은 조회에서는 `null` 이다.
+            `city` 로 조회했을 때(1.26.0)는 `contents` 의 **첫 작품** 기준으로 채운다 — 도시 여행 짜기에서
+            「어느 작품의 어떤 장면인지」를 함께 보이려고(MZ2AZ-545). 그 밖의 조회에서는 `null` 이다.
 
     PlaceCityList:
       type: object

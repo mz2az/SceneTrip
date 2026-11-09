@@ -602,7 +602,7 @@ public class PlaceStore {
       return new Page(List.of(), 0, Set.of());
     }
 
-    attachContents(rows, criteria.lang(), criteria.contentId());
+    attachContents(rows, criteria.lang(), criteria.contentId(), criteria.city() != null);
 
     return new Page(
         rows.stream().map(Row::summary).toList(),
@@ -616,7 +616,10 @@ public class PlaceStore {
    * <p>{@code sceneDescription} 은 <b>작품을 특정했을 때만</b> 채운다. 한 장소가 여러 작품에 나오면 "어느 작품의 장면인가" 가 정해지지 않기
    * 때문이다 — 명세가 그렇게 규정한다.
    */
-  private void attachContents(List<Row> rows, Lang lang, Long contentId) {
+  /**
+   * @param firstScene 작품을 특정하지 않았을 때 첫 작품(인기순)의 장면 설명을 채울지 — 도시로 조회할 때(1.26.0, MZ2AZ-545)
+   */
+  private void attachContents(List<Row> rows, Lang lang, Long contentId, boolean firstScene) {
     List<Long> placeIds = rows.stream().map(r -> r.summary().getId()).toList();
 
     Map<Long, List<ContentRef>> byPlace = new LinkedHashMap<>();
@@ -629,6 +632,8 @@ public class PlaceStore {
             (rs, rowNum) -> {
               long placeId = rs.getLong("place_id");
               long thisContentId = rs.getLong("content_id");
+              // 질의가 장소마다 작품을 인기순으로 준다 — 처음 보는 장소면 그 줄이 첫 작품이다.
+              boolean first = !byPlace.containsKey(placeId);
               byPlace
                   .computeIfAbsent(placeId, k -> new ArrayList<>())
                   .add(
@@ -637,7 +642,7 @@ public class PlaceStore {
                           .producerUrl(uri(rs.getString("producer_url")))
                           // 장소×작품 산정 점수 — 작품 안에서만 비교한다(MZ2AZ-339). 없으면 null, 0 이 아니다.
                           .popularity(doubleOrNull(rs, "popularity_score")));
-              if (contentId != null && contentId == thisContentId) {
+              if (contentId != null ? contentId == thisContentId : firstScene && first) {
                 String description = rs.getString("relation_description");
                 if (description != null) {
                   sceneByPlace.put(placeId, description);
