@@ -21,7 +21,7 @@ iOS 는 SwiftUI 로 다시 만든다(웹 코드를 옮기지 않는다). 문구�
 | P4 계획 화면 | E1–E16 | 대기 |
 | P5 지도 편의시설·지도 검색 | M1–M8 | 대기 |
 | P6 튜토리얼 | C1–C5 | 대기 |
-| P7 코스 목록 | L1–L5 | 대기 |
+| P7 코스 목록 | L1–L5, E17 | 완료 — `RouteTabView`·`CourseListRow`. 머리 ✕·「내 여행」·「+ 새 코스」, 묶음 줄(사진은 목록의 `thumbnailUrl`, 작품은 줄마다 상세 1회 + 앞 세 곳만 작품 조회), 「⋯」 팝오버 「삭제」 → 확인(밀어서 지우기 제거), 꾹 0.2초 여러 개 고르기 → 하나씩 `DELETE`, 여는 중 덮개·실패 띠. 판단은 `CourseListRules`(시험 `CourseListRulesTests`). 확인용 `-courseList menu\|pick\|confirm` |
 | P8 커뮤니티 | K1–K11 | 대기 |
 | P9 검색 탭 | G1–G3 | 대기 |
 

@@ -428,7 +428,7 @@ AppID는 메타 개발자 콘솔의 앱 ID이며 App Store Connect의 숫자 App
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `RouteTabView.swift` | 첫 화면 — 코스 목록 + 스와이프 삭제. 「코스 추가」(없으면 「새 코스 만들기」)는 「새 여행 코스」 시트(아래 「웹 시안 반영 P3」 절) |
+| `RouteTabView.swift` · `CourseListRow.swift` · `CourseListRules.swift` | 「내 여행」 코스 목록(웹 시안 P7) — ✕ · 「내 여행」 · 「+ 새 코스」(「새 여행 코스」 시트), 「여행 중」·「다가오는 여행」 묶음 줄(사진·「N일차 · N박 N일 · N곳」·작품 최대 2), 「⋯」 → 「삭제」 → 확인, 꾹 0.2초 여러 개 고르기 → 「N개 삭제」(하나씩 `DELETE`), 여는 중 덮개·실패 시 「다시 시도」 띠. 확인용 실행 인자 `-courseList menu\|pick\|confirm`(지우지는 않는다) |
 | `RouteGuide.swift` · `RouteGuideSession.swift` · `RouteGuideSheet.swift` | 여행 가이드 챗봇 — `GuideAPI.chatWithGuide`. 이력·위치·**화면 상태**(`Context`)를 싣고 답·근거·장소·`effects`·`ui` 를 받는다 |
 | `RouteGuideTurn.swift` | 보내는 중이거나 다시 보낼 수 있는 턴(`PendingTurn`, MZ2AZ-366) — 「전송」 마다 새 멱등 키, 처음 만든 요청을 그대로 든다. 자동 재시도와 「다시 시도」 는 같은 키·같은 요청. 전이는 순수 함수(표: `docs/project/plans/app-retry.md` §10) |
 | `RouteEditorGuide.swift` | 편집 화면 ↔ 가이드 — 화면 상태를 만들고(`guideContext`) 답의 명령을 적용한다(`applyGuideAnswer`: 초안 갈아 끼우기 · 일차 열기 · 시트 내리기) |

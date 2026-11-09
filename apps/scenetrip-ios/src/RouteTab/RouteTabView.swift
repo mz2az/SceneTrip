@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// 경로여정(코스) 탭 — 첫 화면.
+/// 경로여정(코스) 화면 — 「내 여행」 코스 목록 (MZ2AZ-547 P7 L1–L5·E17, 웹 `features/proto/ProtoCourse.tsx`).
 ///
-/// 내 코스 목록. 「코스 추가」(코스가 없으면 「새 코스 만들기」)는 **「새 여행 코스」 시트**를 연다 — 도시로 시작 ·
-/// 작품으로(AI) · 담은 곳으로의 세 갈래(MZ2AZ-547 F1·F2, 웹 시안). 8/11 회의의 「AI 로 짜기 / 직접 짜기」 두 갈래를 대신한다.
-/// 고른 흐름은 홈의 덮개(`TabRouter.Cover.newCourse`)로 갈아 끼워 띄운다.
+/// 머리: ✕ · 「내 여행」 · 보라 「+ 새 코스」. 「+ 새 코스」 는 **「새 여행 코스」 시트**를 연다 — 도시로 시작 ·
+/// 작품으로(AI) · 담은 곳으로의 세 갈래(F1·F2). 고른 흐름은 홈의 덮개(`TabRouter.Cover.newCourse`)로 갈아 끼워 띄운다.
 ///
-/// **서버가 없다.** 이 탭은 통째로 목 데이터로 돈다 — `RouteMockData.swift` 머리말 참고.
+/// 목록: 「여행 중」·「다가오는 여행」 묶음, 줄마다 사진·이름·「N일차 · N박 N일 · N곳」·작품(`CourseListRow`).
+/// 지우기는 줄 오른쪽 「⋯」 → 「삭제」 → 확인. 줄을 꾹(0.2초) 누르면 여러 개 고르기 → 아래 빨간 「N개 삭제」.
+/// 코스를 여는 동안(상세 받기)은 목록을 덮개와 스피너로 덮고, 실패하면 목록 위에 「다시 시도」 띠(E17).
 struct RouteTabView: View {
     /// 홈이 덮개로 띄울 때 넘긴다 — 있으면 머리줄 왼쪽에 닫기 단추가 생긴다
     /// (홈 재편: 이 화면은 탭이 아니라 홈의 「내 여행 이어가기」가 연다).
@@ -18,6 +19,7 @@ struct RouteTabView: View {
     /// 새 코스 시트에서 고른 갈래 — 시트가 다 닫힌 뒤 덮개를 그 흐름으로 갈아 끼운다(MZ2AZ-547 F2).
     @State private var chosenStart: NewCourseStart?
     @StateObject private var opening = RouteCourseOpening()
+    @StateObject private var details = CourseListDetails()
 
     /// 지우기 직전에 한 번 묻는다. `nil` 이면 안 묻는 중이다.
     ///
@@ -25,24 +27,49 @@ struct RouteTabView: View {
     /// 일정이 손가락 한 번에 사라지면 안 된다.
     @State private var doomed: RouteCourse?
 
+    /// 여러 개 고르기(L4) — 꺼져 있으면 `picked == nil`.
+    @State private var picking = CourseListPicking()
+    @State private var confirmingBulk = false
+    @State private var removing = false
+    /// 「⋯」 메뉴가 떠 있는 줄의 열쇠.
+    @State private var menuKey: String?
+
     @ObservedObject var router = TabRouter.shared
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                header
-                if opening.failedCourse != nil {
-                    detailLoadError
-                }
-                // 「둘러보기」(코스마켓) 세그먼트가 있었다 — 쓰지 않는 기능이라 걷어냈다
-                // (2026-10-03 팀 회의, MZ2AZ-350). 이 화면은 내 코스 하나다.
-                if store.courses.isEmpty {
-                    emptyState
+                if picking.isOn {
+                    pickingHeader
                 } else {
-                    courseList
+                    header
                 }
+                content
+                    .overlay(alignment: .top) {
+                        // 실패 띠는 목록 위에 뜬다 — 예전엔 목록을 밀어 내렸다(E17).
+                        if opening.failedCourse != nil, !opening.isLoading {
+                            detailLoadError
+                        }
+                    }
             }
             .background(Color(.systemGroupedBackground))
+            // 코스 속을 받는 동안 목록에 멈춘 것처럼 보이지 않게 덮는다(E17) — 머리까지 덮어 두 번 누르지 못하게.
+            .overlay {
+                if opening.isLoading {
+                    ZStack {
+                        Color(.systemGroupedBackground).opacity(0.7)
+                        ProgressView().controlSize(.large)
+                    }
+                    .ignoresSafeArea()
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text("불러오는 중입니다"))
+                }
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if picking.isOn {
+                    deleteBar
+                }
+            }
             // 내비게이션 바를 접고 머리줄을 직접 그린다 — 바에 단추를 넣으면
             // 시스템이 유리 캡슐(흰 판)을 깔아 피노 색을 가린다(2026-08-28 사용자
             // 지적, X 단추 때와 같은 문제).
@@ -51,8 +78,10 @@ struct RouteTabView: View {
                 await store.refresh()
                 await ensureDemoCourse()
                 openPending()
+                applyCheckArgument()
             }
             .onChange(of: router.pendingCourseId) { _, _ in openPending() }
+            .onChange(of: store.courses.map(CourseListRules.key)) { _, keys in picking.keep(only: keys) }
             .signInSheet()
             .nicknameSheet()
             .confirmationDialog(
@@ -73,7 +102,18 @@ struct RouteTabView: View {
             } message: {
                 Text("되돌릴 수 없습니다.")
             }
-            .refreshable { await store.refresh() }
+            .confirmationDialog(
+                CourseListText.bulkConfirmTitle(count: picking.count),
+                isPresented: $confirmingBulk,
+                titleVisibility: .visible
+            ) {
+                Button("삭제", role: .destructive) {
+                    Task { await removePicked() }
+                }
+                Button("취소", role: .cancel) {}
+            } message: {
+                Text("되돌릴 수 없습니다.")
+            }
         }
         // 「새 여행 코스」 시트(MZ2AZ-547 F1·F2) — 예전 「AI 로 짜기 / 직접 짜기」 두 갈래를 대신한다.
         .sheet(isPresented: $fork, onDismiss: {
@@ -88,11 +128,17 @@ struct RouteTabView: View {
             .environmentObject(store)
         }
         // 편집 화면이 **다 닫힌 뒤에** 「작품으로」 흐름을 띄운다 — 닫히는 중에 띄우면 SwiftUI 가 버린다.
-        .fullScreenCover(item: $opening.editing, onDismiss: openPlannerIfAsked) { course in
+        .fullScreenCover(item: $opening.editing, onDismiss: closedEditor) { course in
             RouteEditorView(course: course, isNew: false)
                 // 방금 「도시로」 만든 코스의 안내 띠(R6).
                 .overlay(alignment: .top) { CreatedCourseBanner() }
         }
+    }
+
+    /// 편집 화면이 닫혔다 — 고친 사진·작품이 줄에 다시 보이게 받아 둔 상세를 잊는다.
+    private func closedEditor() {
+        details.reset()
+        openPlannerIfAsked()
     }
 
     /// 가이드 챗봇의 한도 안내에서 「AI 로 짜기 열기」 를 눌렀다(`RouteEditorView.leaveForPlanner`) — 「작품으로」(AI) 흐름.
@@ -102,130 +148,100 @@ struct RouteTabView: View {
         router.chooseNewCourse(.works)
     }
 
-    // MARK: 코스가 없을 때
+    // MARK: 목록
 
-    /// 첫 사용자 화면. **갈림길이 아니라 빈 상태다.**
-    ///
-    /// 전에는 「코스를 어떻게 만들까요?」와 카드 두 장을 첫 화면에 그대로 두었는데,
-    /// 목업에서 그 물음은 **코스가 이미 있을 때 올라오는 액션시트**다(`sheet-newcourse`).
-    /// 둘을 한 화면에 뭉치니 위쪽 500pt 가 통째로 비었다(실측).
-    ///
-    /// 그래서 여기서는 사용자에게 상태를 말하고(*"아직 만든 코스가 없습니다"*), 할 일을
-    /// 버튼 둘로 준다. AI 를 채운 버튼으로 두는 것은 회의 확정 사항이다 —
-    /// *"AI가 짜 준다는 문구를 넣는다"* (정승길, 8/11). 다만 별도 띠로 광고하지 않고
-    /// 설명 문장과 버튼 이름에 녹인다.
-    private var emptyState: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 24)
-            VStack(spacing: 6) {
-                ZStack {
-                    Circle()
-                        .fill(LinearGradient(
-                            colors: [Color(PinImage.light), Color(PinImage.deep)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ))
-                        .frame(width: 56, height: 56)
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 26, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-                .padding(.bottom, 6)
-
-                Text("아직 만든 코스가 없습니다")
-                    .font(.headline)
-                Text("보고 싶은 작품과 기간만 고르면,\n촬영지를 이어서 일차별 일정으로 짜 드립니다")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.horizontal, 20)
-
-            // 세 갈래(도시로·작품으로·담은 곳으로)는 새 코스 시트가 고른다(MZ2AZ-547 F2).
-            NewCoursePrimaryButton(tr("새 코스 만들기")) { fork = true }
-                .padding(.horizontal, 20)
-                .padding(.top, 22)
-
-            Spacer(minLength: 24)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    /// 손수 그린 머리줄. 큰 제목 대신 **코스 추가**가 그 자리를 쓴다 — 맨 아래
-    /// 행이던 시절에는 코스가 쌓일수록 추가하러 끝까지 내려가야 했다. 이 탭의
-    /// 첫 행동이라 피노 색으로 늘 반짝인다.
-    private var header: some View {
-        ZStack {
-            Text(tr("코스", at: "화면 제목")).font(.headline)
-            HStack {
-                if let onClose {
-                    Button(action: onClose) {
-                        Image(systemName: "xmark")
-                            .font(.body.weight(.semibold))
-                            .padding(8)
-                            .contentShape(.rect)
+    @ViewBuilder
+    private var content: some View {
+        if store.courses.isEmpty, store.courseList == .unknown {
+            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    let groups = CourseListRules.sections(store.courses)
+                    if store.courses.isEmpty {
+                        emptyState
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("닫기")
+                    if !groups.running.isEmpty {
+                        CourseListGroup(label: tr("여행 중"), courses: groups.running) { row($0, first: $1) }
+                    }
+                    if !groups.upcoming.isEmpty {
+                        CourseListGroup(label: tr("다가오는 여행"), courses: groups.upcoming) { row($0, first: $1) }
+                    }
                 }
-                Spacer()
-                Button {
-                    fork = true
-                } label: {
-                    Label("코스 추가", systemImage: "plus")
-                        .labelStyle(.titleAndIcon)
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                }
-                .buttonStyle(.plain)
-                .modifier(PinoNudge(on: true, cornerRadius: 15))
+                .padding(.horizontal, 16).padding(.top, 18).padding(.bottom, 32)
             }
+            .refreshable { await store.refresh() }
         }
-        .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 8)
     }
 
-    // MARK: 코스 목록
+    /// 코스가 없을 때(L2) — 「새 코스」 로 첫 여행을 짜라고 말한다. 단추는 머리의 「+ 새 코스」 하나다.
+    private var emptyState: some View {
+        VStack(spacing: 10) {
+            Text("아직 코스가 없어요")
+                .font(.system(size: 17, weight: .bold))
+            Text("「새 코스」 로 첫 여행을 짜 보세요")
+                .font(.system(size: 15))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+    }
+
+    private func row(_ course: RouteCourse, first: Bool) -> some View {
+        let key = CourseListRules.key(course)
+        let detail = details.detail(course)
+        let stops = detail?.stops ?? []
+        let works = CourseListRules.works(stops) { stop in
+            stop.placeId.flatMap { store.workTitles(ofPlace: $0).first }
+        }
+        return CourseListRow(
+            course: course,
+            first: first,
+            photo: CourseListRules.photo(thumbnail: course.thumbnailUrl, stops: stops),
+            works: works,
+            picking: picking.isOn,
+            checked: picking.isPicked(key),
+            menuOpen: Binding(get: { menuKey == key }, set: { menuKey = $0 ? key : nil }),
+            onOpen: {
+                // 목록 카드에는 일차 속이 없다(`CourseSummary`). 열 때 상세를 받아온다.
+                Task { await opening.open(course, using: store) }
+            },
+            onHold: { picking.hold(key) },
+            onToggle: { picking.toggle(key) },
+            onDelete: { doomed = course }
+        )
+        .disabled(opening.isLoading || removing)
+        .task(id: key) { await details.load(course, using: store) }
+    }
 
     private var detailLoadError: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 10) {
             Label("코스를 불러오지 못했어요", systemImage: "exclamationmark.circle")
                 .font(.subheadline)
+            Spacer(minLength: 0)
             Button("다시 시도") {
                 Task { await opening.retry(using: store) }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.borderedProminent)
+            .tint(NewCourseStyle.purple)
+            .controlSize(.small)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16).padding(.vertical, 10)
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(.regularMaterial))
+        .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
+        .padding(.horizontal, 12).padding(.top, 8)
     }
 
-    private var courseList: some View {
-        List {
-            // 진행 중인 코스를 맨 위에 따로 모은다 — 여행 중에는 그것 말고 볼 것이 없다.
-            let running = store.courses.filter(\.isRunning)
-            let planned = store.courses.filter { !$0.isRunning }
-            if !running.isEmpty {
-                Section("여행 중 \(running.count)") {
-                    ForEach(running) { course in
-                        row(course)
-                    }
-                }
-            }
-            // 헤더 숫자는 **이 절에 나열되는 것만** 센다 — 전체를 세니 「내 코스 3」 아래가
-            // 텅 빈 채였다(2026-09-05 사용자 지적: 셋 다 여행 중이었다).
-            Section {
-                if planned.isEmpty {
-                    Text(running.isEmpty ? tr("아직 만든 코스가 없습니다") : tr("모든 코스가 여행 중이에요"))
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
-                ForEach(planned) { course in
-                    row(course)
-                }
-            } header: {
-                Text("예정 \(planned.count)")
-            }
-        }
-        .listStyle(.insetGrouped)
+    // MARK: 동작
+
+    /// 고른 코스를 하나씩 지운다 — 서버에 여러 개 지우기가 없다. 지울 때마다 목록을 다시 받는다(`RouteStore.delete`).
+    private func removePicked() async {
+        let doomed = CourseListRules.doomed(store.courses, picking: picking)
+        removing = true
+        await CourseListRules.removeOneByOne(doomed) { await store.delete($0) }
+        removing = false
+        picking.cancel()
     }
 
     /// 마이페이지에서 「경로여정에서 열기」로 넘어온 코스를 연다. 쪽지는 한 번
@@ -238,54 +254,119 @@ struct RouteTabView: View {
         Task { await opening.open(course, using: store) }
     }
 
-    private func row(_ course: RouteCourse) -> some View {
-        rowButton(course)
-            // **`.onDelete` 만으로는 아무도 못 찾는다.** 밀어야 나오는 것을 알려 주는
-            // 표시가 화면에 없어서다(2026-08-24 사용자 지적). 글자가 붙은 빨간 버튼으로
-            // 바꾸면 한 번 밀어 본 사람에게는 무엇인지 분명해진다. 처음 여는 사람을
-            // 위한 길은 따로 있다 — 코스를 열면 맨 아래에 「코스 삭제」가 있다.
-            //
-            // 「여행 중」 코스도 지울 수 있어야 한다. 앞서 그 섹션에는 삭제가 아예
-            // 없어서, 시작해 둔 코스는 **여행을 끝내기 전까지 지울 방법이 없었다.**
-            .swipeActions(edge: .trailing) {
-                Button(role: .destructive) {
-                    doomed = course
-                } label: {
-                    Label("삭제", systemImage: "trash")
-                }
+    /// 확인용 뒷문(MZ2AZ-547 P7) — 시뮬레이터에 합성 탭이 닿지 않아 화면 확인용.
+    /// `-courseList menu` 는 첫 줄의 「⋯」 메뉴를, `pick` 은 앞의 두 줄을 고른 여러 개 고르기를, `confirm` 은 그 확인 창을 띄운다.
+    /// **지우지는 않는다** — 확인 창의 「삭제」 는 사람이 누른다.
+    private func applyCheckArgument() {
+        let keys = store.courses.map(CourseListRules.key)
+        guard let first = keys.first else { return }
+        switch UserDefaults.standard.string(forKey: "courseList") {
+        case "menu":
+            menuKey = first
+        case "pick", "confirm":
+            picking.hold(first)
+            if keys.count > 1 {
+                picking.toggle(keys[1])
             }
+            confirmingBulk = UserDefaults.standard.string(forKey: "courseList") == "confirm"
+        default:
+            break
+        }
+    }
+}
+
+// MARK: - 머리·아래 단추
+
+extension RouteTabView {
+    /// 손수 그린 머리줄 — ✕ · 「내 여행」 · 보라 「+ 새 코스」(L1). 아래 얇은 선으로 목록과 나눈다.
+    private var header: some View {
+        HStack(spacing: 8) {
+            if let onClose {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("닫기")
+            }
+            Text(CourseListText.headerTitle(picking))
+                .font(.system(size: 17, weight: .bold))
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            Button {
+                fork = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus").font(.system(size: 13, weight: .bold))
+                    Text("새 코스").font(.system(size: 14, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .frame(height: 36)
+                .background(Capsule().fill(NewCourseStyle.purple))
+                .contentShape(.capsule)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .frame(minHeight: 56)
+        .background(Color(.systemBackground))
+        .overlay(alignment: .bottom) { Rectangle().fill(Color(.separator)).frame(height: 0.5) }
     }
 
-    private func rowButton(_ course: RouteCourse) -> some View {
-        Button {
-            // 목록 카드에는 일차 속이 없다(`CourseSummary`). 열 때 상세를 받아온다 —
-            // 목록에서 전부 받아 두면 코스가 많을 때 첫 화면이 그만큼 느려진다.
-            Task { await opening.open(course, using: store) }
+    /// 고르는 중 머리 — [취소] · 「N개 선택」 · [전체 선택 / 선택 해제] (L4).
+    private var pickingHeader: some View {
+        let keys = store.courses.map(CourseListRules.key)
+        let all = picking.allPicked(keys)
+        return HStack(spacing: 8) {
+            Button("취소") { picking.cancel() }
+                .font(.system(size: 16, weight: .semibold))
+                .frame(minHeight: 44)
+                .padding(.horizontal, 6)
+            Spacer()
+            Text(CourseListText.headerTitle(picking))
+                .font(.system(size: 17, weight: .bold))
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            Button(CourseListText.allButton(allPicked: all)) { picking.toggleAll(keys) }
+                .font(.system(size: 16, weight: .semibold))
+                .frame(minHeight: 44)
+                .padding(.horizontal, 6)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
+        .disabled(removing)
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .frame(minHeight: 56)
+        .background(Color(.systemBackground))
+        .overlay(alignment: .bottom) { Rectangle().fill(Color(.separator)).frame(height: 0.5) }
+    }
+
+    /// 아래 고정 빨간 「N개 삭제」 — 하나도 안 골랐거나 지우는 중이면 흐리게.
+    private var deleteBar: some View {
+        let off = picking.count == 0 || removing
+        return Button {
+            confirmingBulk = true
         } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    if course.madeByAI {
-                        Image(systemName: "sparkles")
-                            .font(.caption)
-                            .foregroundStyle(Color.accentColor)
-                    }
-                    Text(course.title).font(.subheadline.weight(.semibold))
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption).foregroundStyle(.tertiary)
-                }
-                // 날짜를 안 정한 코스는 그 자리에 기간만 남는다 (회의 확정: 날짜는 선택).
-                // 곳 수·직선거리는 지웠다(2026-08-28) — 목록 카드에는 일차 속이
-                // 없어(`CourseSummary`) 늘 「0곳 · 0 km」였다. 틀린 숫자는 없느니만
-                // 못하고, 행도 그만큼 얇아진다.
-                Text(course.dateLabel ?? course.spanLabel)
-                    .font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Image(systemName: "trash").font(.system(size: 16))
+                Text(CourseListText.deleteButton(count: picking.count, removing: removing))
+                    .font(.system(size: 16, weight: .bold))
             }
-            .padding(.vertical, 2)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .background(RoundedRectangle(cornerRadius: NewCourseStyle.radiusM).fill(Color.red))
+            .opacity(off ? 0.4 : 1)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .disabled(opening.isLoading)
+        .disabled(off)
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .background(Color(.systemBackground))
+        .overlay(alignment: .top) { Rectangle().fill(Color(.separator)).frame(height: 0.5) }
     }
 }
 

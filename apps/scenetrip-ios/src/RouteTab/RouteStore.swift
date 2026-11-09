@@ -212,6 +212,14 @@ final class RouteStore: ObservableObject {
         }
     }
 
+    /// 코스 목록 줄의 사진·작품을 채우려고 상세를 슬쩍 받는다(MZ2AZ-547 L2).
+    /// `detail` 과 달리 **실패를 남기지 않는다** — 줄 하나를 못 채운 것은 사용자에게 알릴 일이 아니다.
+    func peekDetail(_ course: RouteCourse) async -> RouteCourse? {
+        guard let serverId = course.serverId else { return nil }
+        let detail = try? await CoursesAPI.getCourse(xInstallId: installId, courseId: serverId)
+        return detail.map(RouteBridge.course(from:))
+    }
+
     /// 코스를 넣거나 덮어쓴다. 편집 화면이 **작업 사본**을 들고 있다가 저장할 때 부른다
     /// — 초안을 바로 저장하지 않는다는 회의 확정을 화면이 아니라 이 흐름이 지킨다.
     ///
