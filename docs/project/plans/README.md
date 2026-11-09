@@ -85,3 +85,4 @@
 - [iOS 배포 패키지 준비](ios-release-package.md) — MZ2AZ-440·416
 - [편의시설 「골고루」 정렬과 이름 검색](poi-spread-search.md) — MZ2AZ-540·283, GET /pois 의 sort=spread·q
 - [커뮤니티 보강 — 좋아요·댓글·게시판·글 검색·커서](community-social.md) — MZ2AZ-538, 계약 1.24.0
+- [정한 여행(도시·며칠) 기억 — /me/trip](trip-memory.md) — MZ2AZ-542, 계약 1.25.0

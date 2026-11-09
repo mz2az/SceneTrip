@@ -275,7 +275,7 @@ public class AccountLinkStore {
   }
 
   /**
-   * 코스·장바구니·찜을 옮긴다. 여러 번 불러도 같은 결과다.
+   * 코스·장바구니·찜·정한 여행을 옮긴다. 여러 번 불러도 같은 결과다.
    *
    * @return {@code from} 에서 빠진 행 수 — 옮겨졌든 {@code to} 에 이미 있어 버려졌든. 「빈 행에 무언가 있었다」 를 세는 것이라 복사된 수가
    *     아니라 지운 수로 센다
@@ -290,6 +290,19 @@ public class AccountLinkStore {
             .param("from", f)
             .update();
     jdbc.sql(COPY_CONTENTS_SQL).param("from", f).param("to", t).update();
+    // 정한 여행(V45, MZ2AZ-542) — 가입 계정에 없을 때만 옮긴다(가입 계정 것이 이긴다). 코스는 위에서 이미 옮겨 같은 번호다.
+    jdbc.sql(
+            "INSERT INTO user_trip (user_id, city, days, pace, course_id, updated_at)"
+                + " SELECT CAST(:to AS UUID), city, days, pace, course_id, updated_at"
+                + " FROM user_trip WHERE user_id = CAST(:from AS UUID)"
+                + " ON CONFLICT (user_id) DO NOTHING")
+        .param("from", f)
+        .param("to", t)
+        .update();
+    moved +=
+        jdbc.sql("DELETE FROM user_trip WHERE user_id = CAST(:from AS UUID)")
+            .param("from", f)
+            .update();
     moved +=
         jdbc.sql("DELETE FROM saved_content WHERE user_id = CAST(:from AS UUID)")
             .param("from", f)
