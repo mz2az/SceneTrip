@@ -50,6 +50,19 @@ final class PlaceQueryRules {
                     "bbox 는 minLng,minLat,maxLng,maxLat 순서의 숫자 4개여야 하고 최소가 최대보다 작아야 합니다"));
   }
 
+  /** 도시 조건(1.26.0) — 없으면 null, 앞뒤 공백을 지우고 비면 400. */
+  static String resolveCity(String city) {
+    if (city == null) {
+      return null;
+    }
+    String key = city.strip();
+    if (key.isEmpty()) {
+      throw ApiException.badRequest(
+          "INVALID_PARAMETER", "city 는 GET /places/cities 의 key 입니다 — 비어 있을 수 없습니다");
+    }
+    return key;
+  }
+
   /** {@code sort=distance} 는 기준점이 있을 때만 뜻이 있다. */
   static PlaceStore.Sort resolveSort(String sort, Double lat, Double lng) {
     if (sort == null || "popularity".equals(sort)) {

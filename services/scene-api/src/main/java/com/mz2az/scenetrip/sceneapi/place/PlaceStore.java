@@ -2,6 +2,8 @@ package com.mz2az.scenetrip.sceneapi.place;
 
 import com.mz2az.scenetrip.sceneapi.api.model.ContentRef;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import com.mz2az.scenetrip.sceneapi.api.model.LatLng;
+import com.mz2az.scenetrip.sceneapi.api.model.PlaceCity;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.Scene;
@@ -11,6 +13,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +60,23 @@ public class PlaceStore {
       Sort sort,
       Lang lang,
       int limit,
-      int offset) {
+      int offset,
+      String city) {
+
+    /** 도시 조건 없이(1.26.0 이전과 같다). */
+    public Criteria(
+        String q,
+        Long contentId,
+        Bbox bbox,
+        Double lat,
+        Double lng,
+        Integer radiusMeters,
+        Sort sort,
+        Lang lang,
+        int limit,
+        int offset) {
+      this(q, contentId, bbox, lat, lng, radiusMeters, sort, lang, limit, offset, null);
+    }
 
     boolean hasOrigin() {
       return lat != null && lng != null;
@@ -216,6 +235,8 @@ public class PlaceStore {
       -- 숨긴 촬영지(적재 CSV 에서 빠진 것)는 목록·지도에서 뺀다. 상세는 계속 나온다(V20).
       WHERE p.hidden_at IS NULL
         AND (CAST(:q AS TEXT) IS NULL OR p.id IN (SELECT place_id FROM matched))
+        -- 도시(1.26.0). 열쇠 → 촬영지 번호는 자바의 주소 규칙(CityRules)이 정해 넘긴다.
+        AND (NOT CAST(:hasCity AS BOOLEAN) OR p.id = ANY(:cityIds))
         AND (CAST(:contentId AS BIGINT) IS NULL
              OR EXISTS (SELECT 1 FROM place_content pc
                          WHERE pc.place_id = p.id
@@ -425,6 +446,129 @@ public class PlaceStore {
 
   private record DetailRow(PlaceDetail place, Lang shownLang) {}
 
+  /**
+   * 도시별 촬영지 요약(계약 1.26.0 {@code GET /places/cities}). 순서는 고정 다섯({@link CityRules#FIXED_CITIES}) →
+   * 촬영지 수 내림차순 → 열쇠 가나다순. 숨긴 촬영지와 주소로 도시를 정할 수 없는 촬영지는 세지 않는다.
+   */
+  public List<PlaceCity> cities(Lang lang) {
+    Map<String, CityTally> byKey = new LinkedHashMap<>();
+    for (CityRow row : cityRows()) {
+      CityRules.cityOf(row.koAddress())
+          .ifPresent(c -> byKey.computeIfAbsent(c.key(), k -> new CityTally(c)).add(row));
+    }
+    return byKey.values().stream().sorted(CITY_ORDER).map(t -> t.toCity(lang)).toList();
+  }
+
+  /** 이 도시 열쇠의 촬영지 번호들 — {@code GET /places?city=} 의 조건. 모르는 열쇠면 빈 배열. */
+  private Long[] placeIdsOf(String cityKey) {
+    return cityRows().stream()
+        .filter(
+            r -> CityRules.cityOf(r.koAddress()).map(c -> c.key().equals(cityKey)).orElse(false))
+        .map(CityRow::id)
+        .toArray(Long[]::new);
+  }
+
+  /**
+   * 도시를 정하는 데 쓰는 촬영지 줄 — 숨기지 않은 촬영지 전부, 인기순. 도시 열쇠는 한국어 주소, 영어 이름은 영어 주소에서 얻는다.
+   *
+   * <p>촬영지가 수백~수천 곳이라 통째로 읽어 자바에서 묶는다. 주소 규칙을 SQL 로 옮기면 웹·서버·SQL 세 곳이 갈라진다.
+   */
+  private List<CityRow> cityRows() {
+    return jdbc.sql(CITY_ROWS_SQL)
+        .query(
+            (rs, i) ->
+                new CityRow(
+                    rs.getLong("id"),
+                    rs.getString("ko_address"),
+                    rs.getString("en_address"),
+                    rs.getDouble("latitude"),
+                    rs.getDouble("longitude")))
+        .list();
+  }
+
+  private static final String CITY_ROWS_SQL =
+      """
+      SELECT p.id,
+             ko.address AS ko_address,
+             en.address AS en_address,
+             ST_Y(p.geom::geometry) AS latitude,
+             ST_X(p.geom::geometry) AS longitude
+      FROM place p
+      LEFT JOIN place_i18n ko ON ko.place_id = p.id AND ko.lang = 'ko'
+      LEFT JOIN place_i18n en ON en.place_id = p.id AND en.lang = 'en'
+      WHERE p.hidden_at IS NULL
+      ORDER BY p.popularity_score DESC, p.id DESC
+      """;
+
+  private record CityRow(
+      long id, String koAddress, String enAddress, double latitude, double longitude) {}
+
+  /** 고정 다섯(그 순서) → 촬영지 수 내림차순 → 열쇠 가나다순(한글 음절은 부호 순서가 곧 가나다순). */
+  private static final Comparator<CityTally> CITY_ORDER =
+      Comparator.<CityTally>comparingInt(
+              t -> {
+                int i = CityRules.FIXED_CITIES.indexOf(t.city.key());
+                return i < 0 ? CityRules.FIXED_CITIES.size() : i;
+              })
+          .thenComparing(Comparator.comparingInt((CityTally t) -> t.count).reversed())
+          .thenComparing(t -> t.city.key());
+
+  /** 도시 하나를 세는 동안의 값. */
+  private static final class CityTally {
+    /** 영어 이름은 인기 앞쪽 촬영지 몇 곳의 영어 주소에서 찾는다(웹과 같다). */
+    private static final int NAME_SAMPLES = 5;
+
+    final CityRules.CityRef city;
+    final List<String> enAddresses = new ArrayList<>();
+    int count;
+    double sumLat;
+    double sumLng;
+    double minLat = Double.POSITIVE_INFINITY;
+    double minLng = Double.POSITIVE_INFINITY;
+    double maxLat = Double.NEGATIVE_INFINITY;
+    double maxLng = Double.NEGATIVE_INFINITY;
+
+    CityTally(CityRules.CityRef city) {
+      this.city = city;
+    }
+
+    void add(CityRow row) {
+      count++;
+      sumLat += row.latitude();
+      sumLng += row.longitude();
+      minLat = Math.min(minLat, row.latitude());
+      minLng = Math.min(minLng, row.longitude());
+      maxLat = Math.max(maxLat, row.latitude());
+      maxLng = Math.max(maxLng, row.longitude());
+      if (enAddresses.size() < NAME_SAMPLES) {
+        enAddresses.add(row.enAddress());
+      }
+    }
+
+    PlaceCity toCity(Lang lang) {
+      return new PlaceCity(
+          city.key(),
+          name(lang),
+          count,
+          new LatLng(sumLat / count, sumLng / count),
+          List.of(minLng, minLat, maxLng, maxLat));
+    }
+
+    /** 한국어면 열쇠의 이름, 그 밖의 언어는 영어 이름(시·군 영어 이름이 없으면 한국어). */
+    private String name(Lang lang) {
+      if (lang == Lang.KO) {
+        return city.ko();
+      }
+      for (String address : enAddresses) {
+        String name = CityRules.englishName(city, address);
+        if (!name.equals(city.ko())) {
+          return name;
+        }
+      }
+      return CityRules.englishName(city, null);
+    }
+  }
+
   public Page list(Criteria criteria) {
     // formatted() 를 쓰지 않는다. 이 SQL 에는 LIKE '%' 의 퍼센트 기호가 있어
     // 서식 문자열로 해석되면 깨진다 — ErrorProne 이 빌드에서 잡아 준 지점이다.
@@ -438,6 +582,8 @@ public class PlaceStore {
     List<Row> rows =
         jdbc.sql(sql)
             .param("q", criteria.q())
+            .param("hasCity", criteria.city() != null)
+            .param("cityIds", criteria.city() == null ? new Long[0] : placeIdsOf(criteria.city()))
             .param("contentId", criteria.contentId())
             .param("lang", criteria.lang().getValue())
             .param("lat", criteria.hasOrigin() ? criteria.lat() : null)
