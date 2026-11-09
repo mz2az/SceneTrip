@@ -564,8 +564,8 @@ extension RouteEditorView {
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(Color(.systemBackground))
-        // 새 코스는 시트로 뜬다(`RouteWizardView`) — 바꾼 것이 있으면 쓸어내려 닫히지 않는다.
-        // 「취소」가 묻는다. 저장된 코스는 덮개(fullScreenCover)라 쓸어내릴 수 없다.
+        // 새 코스가 시트로 뜨면 바꾼 것이 있을 때 쓸어내려 닫히지 않는다.
+        // 「취소」가 묻는다. 저장된 코스·새 코스 흐름(`NewCourseFlowView`)은 덮개(fullScreenCover)라 쓸어내릴 수 없다.
         .interactiveDismissDisabled(dirty)
         // 리뷰 쓰기와 같은 모양(`ReviewComposeView`) — 경고창으로 묻는다. iOS 26 의 선택 팝업은
         // 취소 단추를 숨겨 「버리기」 하나만 보였다.

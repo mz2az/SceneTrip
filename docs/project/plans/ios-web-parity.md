@@ -17,7 +17,7 @@ iOS 는 SwiftUI 로 다시 만든다(웹 코드를 옮기지 않는다). 문구�
 | --- | --- | --- |
 | P1 탭바 | T1–T3 | 완료 — 떠 있는 알약(`safeAreaInset`, 목록은 74+안전영역 비움), 검색 서랍은 알약 뒤까지·접힘/중간은 알약 위 몫으로(`BottomSheetRules`) |
 | P2 홈 | H1–H6 | 완료 — 사진 카드·고정 8장·도시 칩·떠 있는 단추·고정 작품 32·전체 보기 격자. 도시 칩·「+ 새 코스」 는 갈고리 `TabRouter.startNewCourse(city:)` → 지금은 기존 갈림길(AI/직접), **P3 가 F1·Q2 로 바꾼다**. 전체 보기에서 작품을 열면 탭으로 가고 격자로 돌아오지 않음 |
-| P3 새 코스·도시로 여행 짜기·작품/담은 곳 | F1–F6, Q1–Q5, R1–R6, A1–A4, S1 | 대기 |
+| P3 새 코스·도시로 여행 짜기·작품/담은 곳 | F1–F2, Q1–Q5, R1–R6, A1–A4, S1 | 완료 — `NewCourse/*`. 시트는 홈·코스 목록, 흐름은 덮개 `TabRouter.Cover.newCourse`. 추천은 앱 안 계산(`CityPlanRules`), 저장 뒤 `courseCreated` 가 계획 화면 + 6초 띠. 예전 `RouteWizardView`·`RouteForkCards` 삭제(가이드 한도의 「AI 로 짜기 열기」 는 작품으로 흐름). 남은 것은 아래 「P4 로 넘기는 것」 |
 | P4 계획 화면 | E1–E16 | 대기 |
 | P5 지도 편의시설·지도 검색 | M1–M8 | 대기 |
 | P6 튜토리얼 | C1–C5 | 대기 |
@@ -87,6 +87,14 @@ iOS 는 SwiftUI 로 다시 만든다(웹 코드를 옮기지 않는다). 문구�
 - **A2** 2/2 「누구의 장면을 따라갈까요?」: 포스터 3열, 고르면 보라 테두리·✓, 왼쪽 위 하트(찜 토글). 찜한 작품 미리 고름(최대 5), 5개 넘으면 경고. [✨ AI로 코스 짜기] → 동의들 → `POST /guide/plan`.
 - **A3** 짜는 중: 고른 포스터 부채꼴, 「코스를 짜고 있어요」+요약 칩, 체크 세 줄(0/3.5/8초), [그만두기]. 실패 경고. 성공 → 저장 전 초안 편집(isNew).
 - **A4** 담은 곳으로 「며칠 다녀오나요?」: 일정 묶음 + 「넣을 곳」(사진 겹침, 「담아 둔 곳 N곳」) + 각주 → [코스 만들기] → 보관함 전부 자동 배치(시·도 묶음→가까운 순, 날마다 고르게) → 초안 편집.
+
+### P4 로 넘기는 것 (P3 가 남긴 갈고리, 2026-11-10)
+
+- **E16 방금 만든 코스**: P3 는 「이 코스로 만들기」·「N곳으로 코스 만들기」 뒤 `TabRouter.courseCreated(id:city:days:)` 로 `freshCourseId` 를 남기고
+  계획 화면(`RouteTabView` 의 `opening.editing` 덮개, `isNew: false`)을 연다. 지금 편집 화면은 보기/편집 구분이 없어 열리면 곧 편집 상태다.
+  P4 가 E1 보기/편집을 넣을 때 `TabRouter.shared.isFreshCourse(course.serverId)` 면 **편집 상태로** 열고, 저장 없이 나가면(취소) 「저장하지 않고 나갈까요? /
+  방금 만든 코스가 지워져요」[나가기/계속 편집] → `RouteStore.delete` 후 `clearFreshCourse()`. 「저장」 하면 `clearFreshCourse()`. 지금은 아무도 지우지 않는다.
+- **F 의 처음 안내(CoachTour)** 는 P6(C1–C5)에서 시트 세 줄에 붙인다.
 
 ## E. 계획(코스 편집) 화면 (웹 `route/editor/RouteEditor.tsx`, `EditorPanel.tsx`, `StopRow.tsx`, `proto/ProtoAddMenu.tsx`, `proto/protoCourseAdd.tsx`)
 

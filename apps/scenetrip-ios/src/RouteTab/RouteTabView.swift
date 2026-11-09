@@ -2,15 +2,9 @@ import SwiftUI
 
 /// 경로여정(코스) 탭 — 첫 화면.
 ///
-/// 8/11 회의에서 확정된 갈림길이 이 화면의 전부다. **코스가 하나도 없으면**
-/// 「AI 로 짜기 / 직접 짜기」 두 갈래가 바로 뜨고, **코스가 있으면** 목록을 보여 준 뒤
-/// 「코스 추가하기」를 눌렀을 때 같은 두 갈래가 시트로 나온다.
-/// > *"코스 추가에 직접 짜는 거하고 AI가 짜는 거하고 나눠져 있는데, 만약에 여기
-/// > 아무것도 없으면 저걸 넣는다"*
-///
-/// 갈림길은 **기능이 있다는 것을 알리는 장치**이기도 하다 — *"우리한테 이런 기능도
-/// 있다, 이런 걸 알려주기 위한 느낌"*. 그래서 두 카드는 크기·구조가 대등하다.
-/// 한쪽에 「추천」 배지를 달면 다른 쪽을 고른 사람이 자기 선택을 이상하게 느낀다.
+/// 내 코스 목록. 「코스 추가」(코스가 없으면 「새 코스 만들기」)는 **「새 여행 코스」 시트**를 연다 — 도시로 시작 ·
+/// 작품으로(AI) · 담은 곳으로의 세 갈래(MZ2AZ-547 F1·F2, 웹 시안). 8/11 회의의 「AI 로 짜기 / 직접 짜기」 두 갈래를 대신한다.
+/// 고른 흐름은 홈의 덮개(`TabRouter.Cover.newCourse`)로 갈아 끼워 띄운다.
 ///
 /// **서버가 없다.** 이 탭은 통째로 목 데이터로 돈다 — `RouteMockData.swift` 머리말 참고.
 struct RouteTabView: View {
@@ -21,7 +15,8 @@ struct RouteTabView: View {
     @EnvironmentObject var store: RouteStore
 
     @State private var fork = false
-    @State private var wizard: RouteWizardKind?
+    /// 새 코스 시트에서 고른 갈래 — 시트가 다 닫힌 뒤 덮개를 그 흐름으로 갈아 끼운다(MZ2AZ-547 F2).
+    @State private var chosenStart: NewCourseStart?
     @StateObject private var opening = RouteCourseOpening()
 
     /// 지우기 직전에 한 번 묻는다. `nil` 이면 안 묻는 중이다.
@@ -56,10 +51,8 @@ struct RouteTabView: View {
                 await store.refresh()
                 await ensureDemoCourse()
                 openPending()
-                openPendingNewCourse()
             }
             .onChange(of: router.pendingCourseId) { _, _ in openPending() }
-            .onChange(of: router.pendingNewCourse) { _, _ in openPendingNewCourse() }
             .signInSheet()
             .nicknameSheet()
             .confirmationDialog(
@@ -82,22 +75,31 @@ struct RouteTabView: View {
             }
             .refreshable { await store.refresh() }
         }
-        .sheet(isPresented: $fork) { forkSheet }
-        // 편집 화면(저장된 코스의 덮개, 새 코스의 시트)이 **다 닫힌 뒤에** 마법사를 띄운다 — 닫히는 중에
-        // 띄우면 SwiftUI 가 버린다.
-        .sheet(item: $wizard, onDismiss: openPlannerIfAsked) { kind in
-            RouteWizardView(kind: kind)
+        // 「새 여행 코스」 시트(MZ2AZ-547 F1·F2) — 예전 「AI 로 짜기 / 직접 짜기」 두 갈래를 대신한다.
+        .sheet(isPresented: $fork, onDismiss: {
+            guard let start = chosenStart else { return }
+            chosenStart = nil
+            router.chooseNewCourse(start)
+        }) {
+            NewCourseSheet { start in
+                chosenStart = start
+                fork = false
+            }
+            .environmentObject(store)
         }
+        // 편집 화면이 **다 닫힌 뒤에** 「작품으로」 흐름을 띄운다 — 닫히는 중에 띄우면 SwiftUI 가 버린다.
         .fullScreenCover(item: $opening.editing, onDismiss: openPlannerIfAsked) { course in
             RouteEditorView(course: course, isNew: false)
+                // 방금 「도시로」 만든 코스의 안내 띠(R6).
+                .overlay(alignment: .top) { CreatedCourseBanner() }
         }
     }
 
-    /// 가이드 챗봇의 한도 안내에서 「AI 로 짜기 열기」 를 눌렀다(`RouteEditorView.leaveForPlanner`).
+    /// 가이드 챗봇의 한도 안내에서 「AI 로 짜기 열기」 를 눌렀다(`RouteEditorView.leaveForPlanner`) — 「작품으로」(AI) 흐름.
     private func openPlannerIfAsked() {
         guard router.pendingPlanner else { return }
         router.pendingPlanner = false
-        wizard = .aiPlan
+        router.chooseNewCourse(.works)
     }
 
     // MARK: 코스가 없을 때
@@ -139,51 +141,14 @@ struct RouteTabView: View {
             }
             .padding(.horizontal, 20)
 
-            VStack(spacing: 10) {
-                Button { wizard = .aiPlan } label: {
-                    Label("AI 로 여정 짜기", systemImage: "sparkles")
-                        .font(.body.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-
-                Button { wizard = .manual } label: {
-                    Text("직접 짜기")
-                        .font(.body.weight(.medium))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 22)
+            // 세 갈래(도시로·작품으로·담은 곳으로)는 새 코스 시트가 고른다(MZ2AZ-547 F2).
+            NewCoursePrimaryButton(tr("새 코스 만들기")) { fork = true }
+                .padding(.horizontal, 20)
+                .padding(.top, 22)
 
             Spacer(minLength: 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    /// 코스가 있을 때 「코스 추가하기」가 여는 시트. 첫 화면과 **같은 두 갈래**다.
-    private var forkSheet: some View {
-        VStack(spacing: 16) {
-            Capsule().fill(Color(.systemGray3)).frame(width: 40, height: 5)
-                .padding(.top, 8)
-            Text("코스를 어떻게 만들까요?").font(.headline)
-            RouteForkCards(
-                onAI: {
-                    fork = false
-                    wizard = .aiPlan
-                },
-                onManual: {
-                    fork = false
-                    wizard = .manual
-                }
-            )
-            .padding(.horizontal, 16)
-            Spacer(minLength: 0)
-        }
-        .presentationDetents([.height(420)])
     }
 
     /// 손수 그린 머리줄. 큰 제목 대신 **코스 추가**가 그 자리를 쓴다 — 맨 아래
@@ -265,16 +230,6 @@ struct RouteTabView: View {
 
     /// 마이페이지에서 「경로여정에서 열기」로 넘어온 코스를 연다. 쪽지는 한 번
     /// 읽고 버린다 — 남겨 두면 탭에 올 때마다 또 열린다.
-    /// 홈의 도시 칩·「+ 새 코스」 가 남긴 쪽지(`TabRouter.startNewCourse`, MZ2AZ-547 H1·H4).
-    ///
-    /// **P3 가 바꿀 자리다** — 지금은 기존 갈림길(AI 로 짜기 / 직접 짜기)을 띄운다. 도시(`city`)는 아직 쓰지 않는다;
-    /// P3 의 새 코스 시트(F1)·도시로 여행 짜기(Q2 며칠부터)가 받는다.
-    private func openPendingNewCourse() {
-        guard router.pendingNewCourse != nil else { return }
-        router.pendingNewCourse = nil
-        fork = true
-    }
-
     private func openPending() {
         guard let wanted = router.pendingCourseId,
               let course = store.courses.first(where: { $0.serverId == wanted })
@@ -334,59 +289,6 @@ struct RouteTabView: View {
     }
 }
 
-/// 「AI 로 짜기 / 직접 짜기」 두 카드. **대등하다** — 크기·구조·설명 길이가 같다.
-struct RouteForkCards: View {
-    let onAI: () -> Void
-    let onManual: () -> Void
-
-    var body: some View {
-        VStack(spacing: 12) {
-            card(
-                title: tr("AI 로 짜기"),
-                caption: tr("기간·작품만 고르면 동선까지 짜 드립니다"),
-                symbol: "sparkles",
-                action: onAI
-            )
-            card(
-                title: tr("직접 짜기"),
-                caption: tr("장바구니에서 하나씩 담습니다"),
-                symbol: "hand.draw",
-                action: onManual
-            )
-        }
-    }
-
-    private func card(
-        title: String,
-        caption: String,
-        symbol: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: symbol)
-                    .font(.title2)
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(Color.accentColor.opacity(0.12)))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title).font(.headline).foregroundStyle(.primary)
-                    Text(caption).font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 14).fill(Color(.systemBackground))
-                    .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
-            )
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 /// AI 가 일한다는 것을 화면에 남기는 띠.
 ///
 /// 8/11 회의에서 가장 강하게 요구된 항목이다 — 목업만 보면 사용자가 하나하나 직접
@@ -408,12 +310,5 @@ struct RouteAIBanner: View {
         .foregroundStyle(tint)
         .padding(.horizontal, 12).padding(.vertical, 9)
         .background(RoundedRectangle(cornerRadius: 10).fill(tint.opacity(0.10)))
-    }
-}
-
-enum RouteWizardKind: String, Identifiable {
-    case aiPlan, manual
-    var id: String {
-        rawValue
     }
 }

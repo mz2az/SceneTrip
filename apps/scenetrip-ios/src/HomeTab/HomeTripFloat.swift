@@ -11,7 +11,7 @@ struct HomeTripFloat: View {
     let courseList: RouteStore.CourseListState
     let onOpenCourse: (Int64) -> Void
     let onAll: () -> Void
-    /// 「+ 새 코스」·코스 0개의 「여행 코스 짜기」. **P3 가 새 코스 시트(F1)로 바꿀 자리**다(`TabRouter.startNewCourse`).
+    /// 「+ 새 코스」·코스 0개의 「여행 코스 짜기」 — 「새 여행 코스」 시트(F1, `TabRouter.startNewCourse`).
     let onNew: () -> Void
 
     /// 확인용 뒷문 — `simctl launch … -homeFloatOpen 1` 이면 펼친 채로 뜬다(시뮬레이터에 합성 탭이 닿지 않아 화면 확인용).

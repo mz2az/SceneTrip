@@ -428,8 +428,7 @@ AppID는 메타 개발자 콘솔의 앱 ID이며 App Store Connect의 숫자 App
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `RouteTabView.swift` | 첫 화면 — 코스가 없으면 「AI 로 짜기 / 직접 짜기」 갈림길, 있으면 목록 + 스와이프 삭제 + 「코스 추가하기」 |
-| `RouteWizardView.swift` | 질문 흐름 — 기간 → 날짜(선택) → 작품 → 빡빡/널널 → 요약. 마지막에 `GuideAPI.planWithGuide` 로 초안을 받는다 |
+| `RouteTabView.swift` | 첫 화면 — 코스 목록 + 스와이프 삭제. 「코스 추가」(없으면 「새 코스 만들기」)는 「새 여행 코스」 시트(아래 「웹 시안 반영 P3」 절) |
 | `RouteGuide.swift` · `RouteGuideSession.swift` · `RouteGuideSheet.swift` | 여행 가이드 챗봇 — `GuideAPI.chatWithGuide`. 이력·위치·**화면 상태**(`Context`)를 싣고 답·근거·장소·`effects`·`ui` 를 받는다 |
 | `RouteGuideTurn.swift` | 보내는 중이거나 다시 보낼 수 있는 턴(`PendingTurn`, MZ2AZ-366) — 「전송」 마다 새 멱등 키, 처음 만든 요청을 그대로 든다. 자동 재시도와 「다시 시도」 는 같은 키·같은 요청. 전이는 순수 함수(표: `docs/project/plans/app-retry.md` §10) |
 | `RouteEditorGuide.swift` | 편집 화면 ↔ 가이드 — 화면 상태를 만들고(`guideContext`) 답의 명령을 적용한다(`applyGuideAnswer`: 초안 갈아 끼우기 · 일차 열기 · 시트 내리기) |
@@ -479,7 +478,7 @@ navi-proto 의 홈 재편(`cd8debd`)과 편의시설 점을 옮겼다. 홈은 �
 | `HomeTab/HomeTabView.swift` | 홈 — 인사 · 「어디로 여행 가세요?」 사진 카드 · 지금 뜨는 작품 · 오늘의 성지 · 커뮤니티 지금 · 내 기록, 오른쪽 아래 떠 있는 「여행 코스 짜기」 단추 (아래 「웹 시안 반영」 절) |
 | `HomeTab/HomeTabModel.swift` | 서버 넷을 나란히 — `listContents`(+고정 작품)·`listPlaces`·코스 상세(스탬프)·`listPlaceCities` |
 | `HomeTab/HomeCards.swift` · `HomeFeed.swift` | 카드들. **오늘의 성지는 「담기」** — 코스 없는 길찾기가 계약에 없어(MZ2AZ-313) 장바구니로 잇는다 |
-| `RootTabs.swift` · `Models/TabRouter.swift` | 떠 있는 알약 탭바 + 덮개(`cover`: 경로여정·마이페이지·지금 뜨는 작품 전체) · 쪽지(`pendingCourseId`·`pendingContent`·`pendingTripStart`·`pendingNewCourse`) |
+| `RootTabs.swift` · `Models/TabRouter.swift` | 떠 있는 알약 탭바 + 덮개(`cover`: 경로여정·마이페이지·지금 뜨는 작품 전체) · 쪽지(`pendingCourseId`·`pendingContent`·`pendingTripStart`) · 새 코스 시트(`newCourseSheet`)·새 코스 덮개(`cover = .newCourse`)·방금 만든 코스(`freshCourseId`·`justCreated`) |
 | `RouteTab/RouteGuide.swift` `pois`·`card` | 편의시설 — `PoisAPI.listPois`(bbox+중심, 거리순 30) · `PoisAPI.getPoi`(분류·주소·전화). 카드 엔드포인트(`getPoiCard`·`listPoiCards`)는 부르지 않는다 |
 | `RouteTab/RoutePoiTone.swift` `RoutePoiGlyph` | 점의 업종 아이콘(카페·식당·지하철·공항…) · 이름표는 크게 확대했을 때만(`PinoPin.caption`) |
 
@@ -498,9 +497,26 @@ navi-proto 의 홈 재편(`cd8debd`)과 편의시설 점을 옮겼다. 홈은 �
 | `HomeTab/HomeTripFloat.swift` · `HomeTripFloatRules.swift` | 떠 있는 「여행 코스 짜기」. 코스 0개(목록 받은 뒤)면 바로 새 코스, 있으면 ✕ · ≡ · 「+ 새 코스」 · 내 코스(최대 5, 여행 중 먼저) 줄이 펼쳐짐. 여행 중이면 단추가 곧 그 코스 |
 | `HomeTab/PinnedWorks.swift` · `TrendingRules.swift` · `TrendingWorksView.swift` | 「지금 뜨는 작품」 맨 앞에 케이팝 데몬 헌터스(32) 고정, 「전체 보기」 는 인기순 포스터 격자 덮개 |
 
-**새 코스의 입구는 갈고리 하나다** — 홈의 도시 칩과 「+ 새 코스」 는 `TabRouter.startNewCourse(city:)` 를 부르고, 지금은
-경로여정 덮개의 기존 갈림길(AI 로 짜기 / 직접 짜기)이 뜬다. P3(새 코스 시트 F1·도시로 여행 짜기 Q*)가 이 쪽지를 받는 곳을 바꾼다.
+**새 코스의 입구는 갈고리 하나다** — 홈의 도시 칩과 「+ 새 코스」 는 `TabRouter.startNewCourse(city:)` 를 부른다. 도시 칩은
+그 도시의 「며칠 머무세요?」 부터, 「+ 새 코스」 는 「새 여행 코스」 시트다(P3, 아래 절).
 전체 보기 격자에서 작품을 열면 덮개를 닫고 작품검색 탭의 상세로 간다(웹처럼 격자로 돌아오지는 않는다).
+
+## 웹 시안 반영 P3 — 새 코스 3갈래·도시로 여행 짜기·추천 코스·작품으로/담은 곳으로 (2026-11-10, MZ2AZ-547)
+
+계획은 [ios-web-parity.md](../../docs/project/plans/ios-web-parity.md) F·Q·R·S·A. 판단은 전부 `NewCourse/NewCourseRules.swift`(시험: `tests/NewCourse*Tests.swift`·`SavedPlanRulesTests.swift`).
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `NewCourse/NewCourseSheet.swift` | 「새 여행 코스」 시트 — ① 도시로 시작 ② 작품으로 [AI] ③ 담은 곳으로. 홈(`RootTabs`)·코스 목록이 띄우고, 고른 갈래는 시트가 닫힌 뒤 덮개 `TabRouter.Cover.newCourse` 로 연다 |
+| `NewCourse/CityQuestionView.swift` | 도시(사진 머리 + 도시 칸 2열) → 며칠(1~4일) → 어떻게(알아서 / 직접). 단계는 `CityQuestionFlow` |
+| `NewCourse/CityPlanPreview.swift` | 추천 코스 — `GET /places?city=` 를 **앱 안에서** 잇는다(`CityPlanRules.plan`, 하루 5곳). 큰 사진 카드, 꾹 0.3초 들어 그날 안 순서 바꾸기, ↻ 가장 가까운 다른 곳 · ✕ 빼기. 「이 코스로 만들기」 → 저장 → `PUT /me/trip` → `TabRouter.courseCreated` 가 계획 화면을 열고 6초 안내 띠 |
+| `NewCourse/CityPickView.swift` | 직접 고르기 — 도시 촬영지 30곳 담기/빼기(진짜 보관함) → 날마다 나눠 「{도시} 여행」 으로 저장 |
+| `NewCourse/WorksPlanView.swift` | 작품으로 — 일정·속도 → 포스터 3열(찜한 작품 최대 5 미리 고름) → 짜는 중 화면 → 저장 전 초안 편집(isNew). 예전 `RouteWizardView` 를 대신한다 |
+| `NewCourse/SavedPlanView.swift` | 담은 곳으로 — 일정만 묻고 보관함 전부를 시·도 묶음 → 가까운 순 → 날마다 고르게 나눈 초안 편집 |
+| `NewCourse/NewCourseData.swift` | 도시 목록·도시 촬영지 저장소(`CityPlacesStore`, 실패 시 15초 뒤 한 번 더) · 정한 여행(`TripMemoryStore`, 켤 때 `GET /me/trip` 서버가 이김, 바꿀 때 `PUT`) |
+
+확인용 뒷문(시뮬레이터에 합성 탭이 닿지 않아서): `-newCourse sheet|city|works|saved` · `-cityFlow 부산 [-cityDays 2 -cityHow plan|pick]` ·
+`-cityAutoSave 1`(추천 코스를 바로 저장 — **서버에 코스가 생긴다**) · `-worksStep works`.
 
 ## 여행 모드 — 편집 화면 안에서 길찾기·스탬프 (2026-09-04, MZ2AZ-307)
 
