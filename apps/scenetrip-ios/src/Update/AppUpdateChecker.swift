@@ -12,10 +12,8 @@ final class AppUpdateChecker: ObservableObject {
     @Published private(set) var decision: AppUpdateRules.Decision = .none
 
     private static let dismissedKey = "appUpdate.dismissedLatest"
-    /// 앱스토어 번호를 받기 전에는 앱스토어 검색으로 보낸다. 서버 설정의 `store-url` 이 있으면 그것이 먼저다.
-    static let fallbackStore = URL(
-        string: "itms-apps://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?media=software&term=SceneTrip"
-    )!
+    /// 서버가 스토어 주소를 주지 않을 때 — App Store 의 이 앱 페이지(번호 6823022207). 서버 설정의 `store-url` 이 있으면 그것이 먼저다.
+    static let fallbackStore = URL(string: "itms-apps://apps.apple.com/app/id6823022207")!
 
     private var checking = false
 

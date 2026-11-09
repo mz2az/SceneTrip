@@ -69,5 +69,5 @@
 - **처음 값**: App Store 에 낸 판이 1.0.0(빌드 4)이라 `minimum = latest = 1.0.0` — 아무 창도 뜨지 않는다.
 - **이미 낸 1.0.0 에는 이 코드가 없다.** 창은 이 코드가 든 다음 판부터 뜬다. 그래서 1.0.0 사용자를 강제로 막을 수는 없다.
 - **개발용 빌드는 확인하지 않는다**: 개발 빌드의 `Info.plist` 는 0.1.0 이고 출시 판만 패키징 때 버전을 넣는다. 0.1.0 이면 건너뛴다.
-- **스토어 주소**: 앱스토어 번호를 받기 전에는 앱이 앱스토어 검색(「SceneTrip」)으로 보낸다. 번호를 받으면 `scenetrip.app-versions.ios.store-url` 에 넣는다.
+- **스토어 주소**: App Store 번호 6823022207(2026-11-09 사용자). 서버 `store-url` 은 `https://apps.apple.com/app/id6823022207`, 앱의 예비 주소는 `itms-apps://apps.apple.com/app/id6823022207`.
 - **게이트웨이**: DEV·PRD nginx 가 `/v1/app` 을 넘기도록 `platform/helm/scenetrip/templates/config.yaml` 에 더했다(빠뜨리면 운영에서만 404 — `tools/aws` 시험이 잡았다).
