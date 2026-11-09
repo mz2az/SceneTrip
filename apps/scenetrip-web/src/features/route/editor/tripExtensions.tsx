@@ -51,7 +51,7 @@ import { protoAvailable, protoStore } from '@/features/proto/protoState'
 import { MapPoiBar, fetchSpread, spreadPois } from '@/features/proto/protoPoi'
 import { type RouteCourse, type RouteStop, canNavigate, makePoiStop, makeStop, placeIdOf, poiIdOf } from '../models'
 import { routeStore } from '../store'
-import { addPlaces, addStops, replaceDay, takenPlaceIds } from './courseEdit'
+import { addStops, replaceDay } from './courseEdit'
 import { type EditorHost, registerEditorExtensions } from './editorExtensions'
 
 // ---------------------------------------------------------------- 공유 상태
@@ -653,6 +653,7 @@ function EditorChips({ host }: { host: EditorHost }) {
 /** 시안 — 지도 맨 위의 편의시설 갈래 칩과 「이 지역에서 다시 찾기」(protoPoi.MapPoiBar). 안내 중에는 숨긴다. */
 function EditorMapTop({ host }: { host: EditorHost }) {
   const trip = useTripState(tripSession)
+  const guideState = useGuideState(sharedGuide)
   const state = useStore(ui, (s) => s)
   const drawn = useMemo(() => drawnPlaceIds({ stops: host.stops.map((s) => s.place) }), [host.stops])
   const counts = useMemo(() => {
@@ -665,18 +666,9 @@ function EditorMapTop({ host }: { host: EditorHost }) {
     <MapPoiBar
       map={host.map}
       bottomInset={host.panelHeight}
-      dayCounts={host.course.days.map((d) => d.stops.length)}
-      currentDay={host.dayIndex}
-      taken={takenPlaceIds(host.course)}
-      onAddToDay={(place, day) => {
-        host.setCourse((c) => addPlaces(c, day, [place]).course)
-        host.setDayIndex(day)
-      }}
-      onPick={(place) => {
-        // 검색 결과 — 그곳으로 가서 정보 카드를 띄운다(카드의 「코스에 담기」 로 넣는다).
-        host.map?.setView({ lat: place.latitude, lng: place.longitude }, Math.max(host.map.getZoom(), 16))
-        sharedGuide.setPicked(place)
-      }}
+      // 검색 결과 — 지도는 MapPoiBar 가 시트 위 가운데로 옮겼다. 여기서는 정보 카드를 띄운다(카드의 「코스에 담기」 로 넣는다).
+      onPick={(place) => sharedGuide.setPicked(place)}
+      pickedId={guideState.picked?.id ?? null}
       groupsOn={state.groupsOn}
       counts={counts}
       loading={state.poiLoading}

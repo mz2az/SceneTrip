@@ -491,8 +491,11 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
               const onReroute = course.isRunning && canNavigate(pickedStop) && ext.startTrip ? () => startTrip(pickedStop) : null
               const close = () => {
                 setPickedStop(null)
+                if (focusedUid !== pickedStop.uid) return
+                // 시안 — 카드를 닫아도 지도는 보던 그대로 둔다(고른 표시만 놓는다). 다시 맞추면 확대해 둔 화면이 풀렸다(2026-11-10 사용자 지적).
+                if (proto) setFocusedUid(null)
                 // 핀을 눌러 확대해 들어왔다면 카드를 닫을 때 일차 전체로 돌아간다.
-                if (focusedUid === pickedStop.uid) refit()
+                else refit()
               }
               return ext.StopCard ? <ext.StopCard host={host} stop={pickedStop} onClose={close} onReroute={onReroute} /> : <StopCard stop={pickedStop} onReroute={onReroute} onClose={close} />
             })()}

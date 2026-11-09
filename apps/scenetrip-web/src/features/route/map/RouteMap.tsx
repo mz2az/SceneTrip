@@ -330,6 +330,12 @@ export function RouteMap(props: RouteMapProps) {
     const content = `${proto ? '' : stops.map((p) => p.uid).join(',')}|${previews.map((p) => p.id).join(',')}`
     const cameraKey = `${focused?.uid ?? '-'}|${showingMe}|${content}`
     const courseFit = courseFitToken !== s.courseFit
+    // 시안 — 고른 곳을 놓기만 했으면(정보 카드 ✕) 카메라는 그대로 둔다. 일차 전체로 다시 맞추면 사람이 확대해 둔 화면이 풀렸다(2026-11-10 사용자 지적).
+    // 다시 맞추는 계기는 일차 바꾸기·장소 넣기(`fitToken`)와 코스 전체 맞추기뿐이다.
+    const rest = (key: string) => key.slice(key.indexOf('|'))
+    if (proto && !focused && s.cameraKey !== '' && !s.cameraKey.startsWith('-|') && rest(s.cameraKey) === rest(cameraKey) && fitToken === s.fit && !courseFit) {
+      s.cameraKey = cameraKey
+    }
     const changed = cameraKey !== s.cameraKey || fitToken !== s.fit || courseFit
     if (!changed && Math.abs(bottomInset - s.inset) <= INSET_EPSILON) return
     // 인셋만 바뀔 때는 시트 스프링의 마지막 높이로 한 번 맞춘다(2026-11-03 사용자 지적).
