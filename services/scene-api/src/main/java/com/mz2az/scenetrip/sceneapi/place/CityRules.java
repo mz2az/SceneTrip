@@ -21,8 +21,8 @@ import java.util.regex.Pattern;
  */
 public final class CityRules {
 
-  /** 줄의 맨 앞에 이 순서로 고정한다(사용자 결정 2026-11-07). 0곳이면 빠진다. */
-  public static final List<String> FIXED_CITIES = List.of("서울", "부산", "경주", "인천", "제주");
+  /** 줄의 맨 앞에 이 순서로 고정한다(사용자 결정 2026-11-07, 제주를 인천 앞으로 2026-11-09). 0곳이면 빠진다. */
+  public static final List<String> FIXED_CITIES = List.of("서울", "부산", "경주", "제주", "인천");
 
   /** 언어와 무관한 열쇠(한국어 이름, 겹치는 곳만 도를 붙인다)와 한국어로 보이는 이름. */
   public record CityRef(String key, String ko) {}

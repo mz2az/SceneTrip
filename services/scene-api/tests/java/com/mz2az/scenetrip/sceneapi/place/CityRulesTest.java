@@ -151,4 +151,10 @@ class CityRulesTest {
       assertThat(CityRules.englishName(city("경기도 수원시"), null)).isEqualTo("수원");
     }
   }
+
+  @Test
+  @DisplayName("고정 순서는 서울·부산·경주·제주·인천 — 제주가 인천 앞(사용자 결정 2026-11-09)")
+  void fixedCitiesOrder() {
+    assertThat(CityRules.FIXED_CITIES).containsExactly("서울", "부산", "경주", "제주", "인천");
+  }
 }
