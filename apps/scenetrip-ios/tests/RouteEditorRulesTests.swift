@@ -145,6 +145,94 @@ final class RouteEditorRulesTests: XCTestCase {
         XCTAssertFalse(RouteCameraRules.refits(.mapReopen))
     }
 
+    /// 정보 카드 ✕ 로 닫기는 화면을 그대로 둔다 — 사람이 확대해 둔 것이 풀리지 않게.
+    func testCameraKeepsViewOnCardClose() {
+        XCTAssertFalse(RouteCameraRules.refits(.cardClose))
+    }
+
+    // MARK: 카메라 열쇠 — 고른 것을 놓기만 하면 옮기지 않는다
+
+    private func key(focused: String? = nil, picked: String? = nil, context: String = "ctx") -> RouteCameraKey {
+        RouteCameraKey(focused: focused, picked: picked, context: context)
+    }
+
+    /// 다시 맞추라는 신호가 오면 늘 옮긴다.
+    func testMovesWhenFitChanged() {
+        XCTAssertTrue(RouteCameraRules.moves(from: key(), to: key(), fitChanged: true))
+        XCTAssertTrue(RouteCameraRules.moves(from: key(focused: "a"), to: key(), fitChanged: true))
+    }
+
+    /// 처음은 옮긴다.
+    func testMovesOnFirstKey() {
+        XCTAssertTrue(RouteCameraRules.moves(from: nil, to: key(), fitChanged: false))
+    }
+
+    /// 열쇠가 같으면 옮기지 않는다.
+    func testStaysWhenKeyUnchanged() {
+        XCTAssertFalse(RouteCameraRules.moves(
+            from: key(focused: "a", picked: "p"), to: key(focused: "a", picked: "p"), fitChanged: false
+        ))
+    }
+
+    /// 코스 줄 고르기를 놓기만 했으면 그대로.
+    func testStaysWhenOnlyFocusedReleased() {
+        XCTAssertFalse(RouteCameraRules.moves(from: key(focused: "a"), to: key(), fitChanged: false))
+        XCTAssertFalse(RouteCameraRules.moves(
+            from: key(focused: "a", picked: "p"), to: key(picked: "p"), fitChanged: false
+        ))
+    }
+
+    /// 편의시설·검색 카드 ✕ 로 놓기만 했으면 그대로.
+    func testStaysWhenOnlyPickedReleased() {
+        XCTAssertFalse(RouteCameraRules.moves(from: key(picked: "p"), to: key(), fitChanged: false))
+        XCTAssertFalse(RouteCameraRules.moves(
+            from: key(focused: "a", picked: "p"), to: key(focused: "a"), fitChanged: false
+        ))
+    }
+
+    /// 둘을 함께 놓아도 그대로.
+    func testStaysWhenBothReleasedTogether() {
+        XCTAssertFalse(RouteCameraRules.moves(from: key(focused: "a", picked: "p"), to: key(), fitChanged: false))
+    }
+
+    /// 새로 고르면 옮긴다.
+    func testMovesWhenNewSelection() {
+        XCTAssertTrue(RouteCameraRules.moves(from: key(), to: key(focused: "a"), fitChanged: false))
+        XCTAssertTrue(RouteCameraRules.moves(from: key(), to: key(picked: "p"), fitChanged: false))
+    }
+
+    /// 하나에서 다른 하나로 바꾸면 옮긴다.
+    func testMovesWhenSwitchingSelection() {
+        XCTAssertTrue(RouteCameraRules.moves(from: key(focused: "a"), to: key(focused: "b"), fitChanged: false))
+        XCTAssertTrue(RouteCameraRules.moves(from: key(picked: "p"), to: key(picked: "q"), fitChanged: false))
+        XCTAssertTrue(RouteCameraRules.moves(from: key(focused: "a"), to: key(picked: "p"), fitChanged: false))
+    }
+
+    /// 놓으면서 하나를 새로 고르면(다른 쪽이 바뀌면) 옮긴다.
+    func testMovesWhenReleaseCombinedWithOtherChange() {
+        XCTAssertTrue(RouteCameraRules.moves(
+            from: key(focused: "a"), to: key(picked: "p"), fitChanged: false
+        ))
+        XCTAssertTrue(RouteCameraRules.moves(
+            from: key(focused: "a", picked: "p"), to: key(picked: "q"), fitChanged: false
+        ))
+    }
+
+    /// 그 밖의 것(내 위치·담을까 보는 곳 등)이 바뀌면 옮긴다.
+    func testMovesWhenContextChanges() {
+        XCTAssertTrue(RouteCameraRules.moves(from: key(context: "x"), to: key(context: "y"), fitChanged: false))
+    }
+
+    /// 놓으면서 그 밖의 것도 바뀌었으면 옮긴다.
+    func testMovesWhenReleaseWithContextChange() {
+        XCTAssertTrue(RouteCameraRules.moves(
+            from: key(focused: "a", context: "x"), to: key(context: "y"), fitChanged: false
+        ))
+        XCTAssertTrue(RouteCameraRules.moves(
+            from: key(picked: "p", context: "x"), to: key(context: "y"), fitChanged: false
+        ))
+    }
+
     // MARK: E4·E5 지도 알약
 
     /// 기본은 지도 접힘(목록 전체), 아직 맞추지 않음.

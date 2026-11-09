@@ -77,9 +77,10 @@ struct RouteEditorView: View {
     @State var poiFetch = MapPoiFetch()
     /// 지도가 마지막으로 멈춘 범위 — 칩·검색이 이 범위로 묻는다.
     @State var mapViewport: MapViewport?
-    /// 🔍 검색칸이 열려 있나(M6) · 다시 열 때 채울 검색어 · 엔터 뒤 결과 지도(M7) · 그 카메라 명령.
+    /// 🔍 검색칸이 열려 있나(M6) · 다시 열 때 채울 검색어 · 그 목록(지도에 점으로도 찍는다) · 엔터 뒤 결과 지도(M7) · 그 카메라 명령.
     @State var mapSearching = false
     @State var mapSearchText = ""
+    @StateObject var mapSearch = MapSearchModel()
     @StateObject var mapResults = MapSearchResultsModel()
     @State var mapCamera: MapCameraCommand?
     /// 지도(와 일정 서랍)가 차지한 높이 — 결과 서랍의 높이를 정한다.

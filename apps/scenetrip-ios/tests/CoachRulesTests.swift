@@ -112,7 +112,7 @@ final class CoachTourCatalogTests: XCTestCase {
             CoachStep(
                 target: "map-search",
                 title: "지도에서 검색",
-                text: "촬영지가 아닌 곳도 찾을 수 있어요 — 맛집·카페·숙소·명소를 이름으로 검색해 「코스에 담기」 로 바로 넣어요."
+                text: "촬영지가 아닌 가게·장소를 찾아요 — 맛집·카페·숙소·명소를 이름으로 검색해 「코스에 담기」 로 바로 넣어요."
             ),
             CoachStep(
                 target: "map-chips",
@@ -120,6 +120,20 @@ final class CoachTourCatalogTests: XCTestCase {
                 text: "전체·음식·관광지·숙소 칩을 누르면 지금 보이는 지도 안의 장소가 핀으로 떠요."
             ),
         ])
+    }
+
+    /// 영어 화면에 한국어 안내가 섞이지 않게 — 지도 검색 첫 안내의 영어 문구.
+    func test_지도검색_안내_영어() throws {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "Localizable", withExtension: "strings", subdirectory: nil, localization: "en"
+        ))
+        let table = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil) as? [String: String]
+        )
+        XCTAssertEqual(
+            table["촬영지가 아닌 가게·장소를 찾아요 — 맛집·카페·숙소·명소를 이름으로 검색해 「코스에 담기」 로 바로 넣어요."],
+            "Find places beyond filming spots — search restaurants, cafés, stays and sights by name, then add them to your course."
+        )
     }
 
     func test_전체목록은_네개() {

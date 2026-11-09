@@ -29,15 +29,14 @@ extension RouteEditorView {
         showsMapPoiBar && mapResults.isOpen
     }
 
-    /// 결과 지도의 핀 — 보고 있는 탭의 것만(촬영지 사진 핀 / 가게 색 점).
+    /// 지도 검색의 점 — 엔터 전 목록이 떠 있는 동안은 목록의 것, 엔터 뒤면 결과(웹 2026-11-10). 정보 카드가 뜬 곳은 고른 핀만.
     var mapSearchPins: MapSearchPins {
-        let state = mapResultsOpen ? mapResults.state : nil
-        return MapSearchPins(
-            spots: state?.tab == .spots ? state?.spots ?? [] : [],
-            selected: state?.selected,
-            shops: state?.tab == .shops ? state?.shops ?? [] : [],
-            camera: mapCamera,
-            onSpot: tapSearchSpot
+        MapSearchPins(
+            shops: MapSearchRules.mapDots(
+                searching: showsMapPoiBar && mapSearching, listed: mapSearch.pinned,
+                results: mapResultsOpen ? mapResults.state?.shops : nil, picked: guide.picked?.id
+            ),
+            camera: mapCamera
         )
     }
 
@@ -48,10 +47,7 @@ extension RouteEditorView {
                 GeometryReader { geo in
                     MapSearchResultsView(
                         model: mapResults, height: geo.size.height, viewport: mapViewport,
-                        dayCounts: dayCounts, currentDay: dayIndex, taken: takenPlaceIds,
-                        onAddToDay: { place, day in addToDay([place], day: day) },
-                        onFocus: focusSearchSpot,
-                        onPickShop: pickSearchPlace,
+                        onPick: pickSearchPlace,
                         onEdit: { query in
                             mapSearchText = query
                             mapResults.close()
@@ -62,6 +58,7 @@ extension RouteEditorView {
                 }
             } else if mapSearching {
                 MapSearchPanel(
+                    model: mapSearch,
                     viewport: mapViewport,
                     onPick: { place in
                         mapSearching = false
@@ -142,6 +139,7 @@ extension RouteEditorView {
         mapChips.reset()
         mapSearching = false
         mapSearchText = ""
+        mapSearch.reset()
         mapResults.close()
     }
 
@@ -156,43 +154,30 @@ extension RouteEditorView {
     }
 
     /// 검색 목록·결과의 가게를 골랐다 — 정보 카드가 뜨고 지도가 그곳으로 간다(카드의 「코스에 담기」 로 넣는다).
+    /// 지도는 시트·결과 서랍·카드가 덮지 않은 곳의 가운데로 옮긴다(`RouteMapView` 의 고른 핀 카메라, `MapSearchRules.extraLift`).
     func pickSearchPlace(_ place: RouteGuide.Place) {
+        mapResults.state?.markSelfMove(at: Date())
         pickedStop = nil
         guide.picked = place
     }
 
-    /// 결과의 촬영지 줄을 눌렀다 — 고른 핀으로 크게, 지도는 그곳으로(확대는 15 이상).
-    func focusSearchSpot(_ place: PlaceSummary) {
-        mapResults.state?.markSelfMove(at: Date())
-        mapCamera = MapCameraCommand(
-            id: (mapCamera?.id ?? 0) + 1,
-            action: .focus(latitude: place.latitude, longitude: place.longitude, minZoom: 15)
-        )
-    }
-
-    /// 촬영지를 받았다 — 결과가 다 보이게 맞춘다(서랍이 덮은 아래는 빼고).
+    /// 찾은 것을 받았다 — 결과가 다 보이게 맞춘다(서랍이 덮은 아래는 빼고).
     func fitSearchResults() {
-        guard let spots = mapResults.state?.spots, !spots.isEmpty else { return }
+        guard let shops = mapResults.state?.shops, !shops.isEmpty else { return }
         mapResults.state?.markSelfMove(at: Date())
-        let lats = spots.map(\.latitude)
-        let lngs = spots.map(\.longitude)
+        let lats = shops.map(\.latitude)
+        let lngs = shops.map(\.longitude)
         mapCamera = MapCameraCommand(
             id: (mapCamera?.id ?? 0) + 1,
             action: .fit(south: lats.min()!, west: lngs.min()!, north: lats.max()!, east: lngs.max()!)
         )
-    }
-
-    /// 결과 핀을 눌렀다 — 서랍의 그 줄을 고른다.
-    func tapSearchSpot(_ place: PlaceSummary) {
-        mapResults.state?.tab = .spots
-        mapResults.state?.select(place.id)
     }
 }
 
 extension RouteEditorView {
     /// 확인용 뒷문(MZ2AZ-547 P5) — `-editorMode edit -editorMap 1` 과 함께 쓴다. 지도가 한 번 멈춘 뒤에.
     /// `-editorPoi all|food|sight|stay|transit` 칩을 켠다 · `-editorSearch 남산` 검색칸을 그 글자로 연다 ·
-    /// `-editorResults 남산` 결과 지도를 연다(이 지역 밖까지, 첫 촬영지를 고른다).
+    /// `-editorResults 남산` 결과 지도를 연다(이 지역 밖까지, 첫 결과를 고른다 — 정보 카드가 뜬다).
     func runMapPoiBackdoor() async {
         let defaults = UserDefaults.standard
         let poi = defaults.string(forKey: "editorPoi")
@@ -216,12 +201,12 @@ extension RouteEditorView {
         }
         if let results {
             mapResults.open(query: results, wide: true, viewport: mapViewport)
-            for _ in 0 ..< 50 where mapResults.state?.spots == nil {
+            for _ in 0 ..< 50 where mapResults.state?.shops == nil {
                 try? await Task.sleep(for: .milliseconds(100))
             }
-            if let first = mapResults.state?.spots?.first {
+            if let first = mapResults.state?.shops?.first {
                 try? await Task.sleep(for: .milliseconds(1500))
-                mapResults.state?.select(first.id)
+                pickSearchPlace(first)
             }
         }
     }

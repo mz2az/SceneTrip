@@ -24,7 +24,9 @@ extension RouteEditorView {
             guidePlaces: visibleGuidePlaces,
             pickedGuide: visiblePickedGuide,
             // 칩으로 거르기 **전** 목록 — 칩을 눌러도 카메라가 안 움직이게.
-            guideCameraKey: guide.places.map(\.id).joined(separator: ",") + "|\(guide.picked?.id ?? "-")",
+            guideCameraKey: guide.places.map(\.id).joined(separator: ","),
+            // 고른 것은 따로 — 놓기만 한 것(카드 ✕)은 카메라를 옮기지 않는다(2026-11-10).
+            pickedCameraId: guide.picked?.id,
             // 골고루 찍기(MZ2AZ-547 M4) — 칸마다 1등은 원래 점, 나머지는 작은 점.
             ambientPlaces: spreadAmbient.major,
             ambientMinor: spreadAmbient.minor,

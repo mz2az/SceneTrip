@@ -87,15 +87,47 @@ enum RouteCameraRules {
         case mapFirstOpen
         /// 접었던 지도를 다시 펼쳤다.
         case mapReopen
+        /// 장소·편의시설 정보 카드를 ✕ 로 닫았다(고른 표시만 놓는다, 2026-11-10 사용자 지적).
+        case cardClose
     }
 
-    /// 일차 바꾸기·장소 넣기·처음 펼치기는 맞춘다. 순서 끌기·빼기·최적화·서랍 높이·다시 펼치기는 확대와 위치를 그대로 둔다.
+    /// 일차 바꾸기·장소 넣기·처음 펼치기는 맞춘다. 순서 끌기·빼기·최적화·서랍 높이·다시 펼치기·카드 닫기는 확대와 위치를 그대로 둔다.
     static func refits(_ change: Change) -> Bool {
         switch change {
         case .daySwitch, .add, .mapFirstOpen: true
-        case .reorder, .remove, .optimize, .sheetHeight, .mapReopen: false
+        case .reorder, .remove, .optimize, .sheetHeight, .mapReopen, .cardClose: false
         }
     }
+
+    /// 지도가 카메라를 옮길까 — 열쇠(`RouteCameraKey`)가 바뀌었거나 `fitToken` 이 올랐을 때.
+    /// 단 **고른 곳을 놓기만 한 것**(코스 줄·편의시설 카드 ✕, 다른 것은 그대로)은 옮기지 않는다 — 일차 전체로 다시 맞추면
+    /// 사람이 확대해 둔 화면이 풀렸다(웹 `RouteMap.tsx` 2026-11-10). 처음(`previous` nil)은 옮긴다.
+    static func moves(from previous: RouteCameraKey?, to next: RouteCameraKey, fitChanged: Bool) -> Bool {
+        if fitChanged {
+            return true
+        }
+        guard let previous else { return true }
+        if previous == next {
+            return false
+        }
+        guard previous.context == next.context else { return true }
+        let focusedKept = previous.focused == next.focused
+        let pickedKept = previous.picked == next.picked
+        let focusedReleased = previous.focused != nil && next.focused == nil
+        let pickedReleased = previous.picked != nil && next.picked == nil
+        let onlyReleased = (focusedReleased || focusedKept) && (pickedReleased || pickedKept)
+        return !onlyReleased
+    }
+}
+
+/// 계획 화면 지도의 **카메라 열쇠** — 무엇을 보고 있나. 같으면 카메라를 다시 옮기지 않는다(`RouteMapView`).
+struct RouteCameraKey: Equatable {
+    /// 목록·번호 핀에서 고른 코스 줄(id).
+    var focused: String?
+    /// 정보 카드가 떠 있는 편의시설·검색 결과(id).
+    var picked: String?
+    /// 그 밖의 것 — 내 위치 토글·담을까 보는 곳·AI 장소 목록. 칩으로 거르기 **전** 것이다.
+    var context: String
 }
 
 /// 계획 화면의 「지도」 알약 (MZ2AZ-547 E4·E5). 기본은 목록 전체(지도 접힘), 여행 중이면 펼친 채로 연다.

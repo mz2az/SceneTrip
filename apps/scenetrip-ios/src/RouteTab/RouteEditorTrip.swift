@@ -470,10 +470,13 @@ extension RouteEditorView {
                     ? { startTrip(to: tapped) } : nil,
                 onClose: {
                     pickedStop = nil
-                    // 핀을 눌러 확대해 들어왔다면 카드를 닫을 때 일차 전체로 돌아간다.
+                    // 고른 표시만 놓고 카메라는 보던 그대로 둔다 — 예전엔 일차 전체로 다시 맞춰 확대해 둔 화면이 풀렸다
+                    // (2026-11-10 사용자 지적, 웹 `RouteEditor.tsx`). 다시 맞추는 계기는 일차 바꾸기·장소 넣기뿐이다.
                     if focusedStop?.id == tapped.id {
                         focusedStop = nil
-                        fitToken += 1
+                        if RouteCameraRules.refits(.cardClose) {
+                            fitToken += 1
+                        }
                     }
                 }
             )

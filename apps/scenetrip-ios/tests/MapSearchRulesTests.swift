@@ -18,10 +18,6 @@ private func poi(
     ))
 }
 
-private func spot(_ id: Int64) -> PlaceSummary {
-    PlaceSummary(id: id, name: "촬영지\(id)", latitude: 37.5 + Double(id) * 0.001, longitude: 127.0)
-}
-
 private func ids(_ places: [RouteGuide.Place]) -> [String] {
     places.map(\.id)
 }
@@ -90,43 +86,131 @@ final class MapSearchRulesTests: XCTestCase {
         XCTAssertEqual(MapSearchRules.rows(.failed), [.failed])
     }
 
-    /// 이 지역 — 촬영지 → 「이 지역 밖에서도 찾기」 → 가게.
-    func testRowsHereWithResults() {
-        let shop = poi(9)
-        let rows = MapSearchRules.rows(.done(spots: [spot(1), spot(2)], shops: [shop], wide: false))
-        XCTAssertEqual(rows, [
-            .title(.spotsHere), .spot(spot(1)), .spot(spot(2)),
-            .searchEverywhere,
-            .title(.shopsHere), .shop(shop),
-        ])
+    /// 고른 곳 카드 높이·옮길 때의 최소 확대.
+    func testFocusConstants() {
+        XCTAssertEqual(MapSearchRules.cardCover, 300)
+        XCTAssertEqual(MapSearchRules.focusMinZoom, 16)
     }
 
-    /// 이 지역에 없으면 「이 지역엔 없어요」·「찾는 가게가 없어요」, 그래도 「이 지역 밖에서도 찾기」.
+    // MARK: 목록 줄 — 가게·장소만(촬영지는 찾지 않는다)
+
+    /// 이 지역 — 가게·장소 제목 → 가게 → 그 아래 「이 지역 밖에서도 찾기」.
+    func testRowsHereWithResults() {
+        let rows = MapSearchRules.rows(.done(shops: [poi(1), poi(2)], wide: false))
+        XCTAssertEqual(rows, [.title(.shopsHere), .shop(poi(1)), .shop(poi(2)), .searchEverywhere])
+    }
+
+    /// 이 지역에 없으면 「이 지역엔 없어요」, 그래도 「이 지역 밖에서도 찾기」.
     func testRowsHereEmpty() {
-        let rows = MapSearchRules.rows(.done(spots: [], shops: [], wide: false))
-        XCTAssertEqual(rows, [
-            .title(.spotsHere), .empty(.noneHere),
-            .searchEverywhere,
-            .title(.shopsHere), .empty(.noShops),
-        ])
+        let rows = MapSearchRules.rows(.done(shops: [], wide: false))
+        XCTAssertEqual(rows, [.title(.shopsHere), .empty(.noneHere), .searchEverywhere])
     }
 
     /// 전체에서 찾았으면 「이 지역 밖에서도 찾기」 가 없다.
     func testRowsWideWithResults() {
         let shop = poi(7, .stay)
-        let rows = MapSearchRules.rows(.done(spots: [spot(3)], shops: [shop], wide: true))
-        XCTAssertEqual(rows, [
-            .title(.spotsEverywhere), .spot(spot(3)),
-            .title(.shopsEverywhere), .shop(shop),
-        ])
+        let rows = MapSearchRules.rows(.done(shops: [shop], wide: true))
+        XCTAssertEqual(rows, [.title(.shopsEverywhere), .shop(shop)])
     }
 
+    /// 전체에서도 없으면 「찾는 곳이 없어요」.
     func testRowsWideEmpty() {
-        let rows = MapSearchRules.rows(.done(spots: [], shops: [], wide: true))
-        XCTAssertEqual(rows, [
-            .title(.spotsEverywhere), .empty(.noSpots),
-            .title(.shopsEverywhere), .empty(.noShops),
-        ])
+        let rows = MapSearchRules.rows(.done(shops: [], wide: true))
+        XCTAssertEqual(rows, [.title(.shopsEverywhere), .empty(.noPlaces)])
+    }
+
+    // MARK: 검색하는 동안 지도에 남길 점
+
+    /// 결과가 오면 그것으로 바꾼다.
+    func testPinnedReplacedByDoneShops() {
+        let pinned = MapSearchRules.pinned(previous: [poi(1)], phase: .done(shops: [poi(2), poi(3)], wide: false))
+        XCTAssertEqual(ids(pinned), ids([poi(2), poi(3)]))
+    }
+
+    /// 받는 동안은 앞의 점을 그대로 둔다 — 글자마다 깜빡이지 않게.
+    func testPinnedKeepsPreviousWhileLoading() {
+        let pinned = MapSearchRules.pinned(previous: [poi(1), poi(2)], phase: .loading)
+        XCTAssertEqual(ids(pinned), ids([poi(1), poi(2)]))
+    }
+
+    /// 2글자 아래로 지웠으면 비운다.
+    func testPinnedClearedWhenIdle() {
+        XCTAssertEqual(MapSearchRules.pinned(previous: [poi(1)], phase: .idle), [])
+    }
+
+    /// 못 찾았으면 비운다.
+    func testPinnedClearedWhenFailed() {
+        XCTAssertEqual(MapSearchRules.pinned(previous: [poi(1)], phase: .failed), [])
+    }
+
+    /// 결과 지도가 떠 있으면 그 결과(검색칸 여부와 상관없이).
+    func testMapDotsPreferResults() {
+        let dots = MapSearchRules.mapDots(searching: true, listed: [poi(1)], results: [poi(2), poi(3)], picked: nil)
+        XCTAssertEqual(ids(dots), ids([poi(2), poi(3)]))
+        let closed = MapSearchRules.mapDots(searching: false, listed: [], results: [poi(4)], picked: nil)
+        XCTAssertEqual(ids(closed), ids([poi(4)]))
+    }
+
+    /// 결과 지도는 없고 검색칸이 열려 있으면 목록의 것.
+    func testMapDotsUseListedWhileSearching() {
+        let dots = MapSearchRules.mapDots(searching: true, listed: [poi(1), poi(2)], results: nil, picked: nil)
+        XCTAssertEqual(ids(dots), ids([poi(1), poi(2)]))
+    }
+
+    /// 둘 다 아니면 점이 없다.
+    func testMapDotsEmptyWhenNotSearching() {
+        XCTAssertEqual(MapSearchRules.mapDots(searching: false, listed: [poi(1)], results: nil, picked: nil), [])
+    }
+
+    /// 정보 카드가 떠 있는 곳은 고른 핀이 그리므로 뺀다 — 순서는 그대로.
+    func testMapDotsDropPicked() {
+        let picked = poi(2).id
+        let fromList = MapSearchRules.mapDots(
+            searching: true, listed: [poi(1), poi(2), poi(3)], results: nil, picked: picked
+        )
+        XCTAssertEqual(ids(fromList), ids([poi(1), poi(3)]))
+        let fromResults = MapSearchRules.mapDots(
+            searching: false, listed: [], results: [poi(3), poi(2), poi(1)], picked: picked
+        )
+        XCTAssertEqual(ids(fromResults), ids([poi(3), poi(1)]))
+    }
+
+    // MARK: 고른 곳을 보이는 지도 가운데로
+
+    /// 덮인 높이의 반만큼 올린다 — 카드는 적어도 300 을 덮는다.
+    func testCenterShift() {
+        XCTAssertEqual(MapSearchRules.centerShift(covered: 0), 150)
+        XCTAssertEqual(MapSearchRules.centerShift(covered: 200), 150)
+        XCTAssertEqual(MapSearchRules.centerShift(covered: 300), 150)
+        XCTAssertEqual(MapSearchRules.centerShift(covered: 500), 250)
+    }
+
+    /// 지도 아래 여백이 이미 반만큼 올려 주니 그 위로 더 — 음수는 없다.
+    func testExtraLift() {
+        XCTAssertEqual(MapSearchRules.extraLift(contentInset: 0), 150)
+        XCTAssertEqual(MapSearchRules.extraLift(contentInset: 200), 50)
+        XCTAssertEqual(MapSearchRules.extraLift(contentInset: 300), 0)
+        XCTAssertEqual(MapSearchRules.extraLift(contentInset: 500), 0)
+    }
+
+    /// 지금과 16 중 큰 것 — 더 확대해 둔 화면을 풀지 않는다.
+    func testFocusZoom() {
+        XCTAssertEqual(MapSearchRules.focusZoom(current: 12), 16)
+        XCTAssertEqual(MapSearchRules.focusZoom(current: 16), 16)
+        XCTAssertEqual(MapSearchRules.focusZoom(current: 17.5), 17.5)
+    }
+
+    /// 화면에서 위로 올리려면 카메라는 그만큼 남쪽을 가리킨다 — 경도는 그대로.
+    func testFocusTargetMovesSouth() {
+        let target = MapSearchRules.focusTarget(latitude: 37.5, longitude: 127.0, lift: 150, metersPerPoint: 2)
+        XCTAssertEqual(target.latitude, 37.5 - 150 * 2 / 111_320, accuracy: 1e-9)
+        XCTAssertEqual(target.longitude, 127.0, accuracy: 1e-9)
+    }
+
+    func testFocusTargetWithoutLiftIsUnchanged() {
+        let target = MapSearchRules.focusTarget(latitude: 37.5, longitude: 127.0, lift: 0, metersPerPoint: 2)
+        XCTAssertEqual(target.latitude, 37.5, accuracy: 1e-9)
+        XCTAssertEqual(target.longitude, 127.0, accuracy: 1e-9)
     }
 }
 
@@ -138,8 +222,6 @@ final class MapSearchResultsTests: XCTestCase {
     func testConstants() {
         XCTAssertEqual(MapSearchResults.shortShare, 0.42)
         XCTAssertEqual(MapSearchResults.tallShare, 0.78)
-        XCTAssertEqual(MapSearchResults.pinSmall, 34)
-        XCTAssertEqual(MapSearchResults.pinBig, 46)
         XCTAssertEqual(MapSearchResults.selfMoveGrace, 0.9, accuracy: 0.0001)
     }
 
@@ -151,32 +233,44 @@ final class MapSearchResultsTests: XCTestCase {
         XCTAssertTrue(results.tall)
         XCTAssertEqual(results.drawerShare, 0.78, accuracy: 0.0001)
         results.toggleDrawer()
+        XCTAssertFalse(results.tall)
         XCTAssertEqual(results.drawerShare, 0.42, accuracy: 0.0001)
     }
 
-    /// 탭 수 — 촬영지는 받기 전 nil, 가게는 늘 수.
-    func testTabCounts() {
+    /// 검색어 알약의 「N곳」 — 받기 전 nil.
+    func testCount() {
         var results = MapSearchResults(query: "남산", wide: false)
-        XCTAssertNil(results.count(of: .spots))
-        XCTAssertEqual(results.count(of: .shops), 0)
-        results.received(spots: [spot(1), spot(2)])
+        XCTAssertNil(results.shops)
+        XCTAssertNil(results.count)
         results.received(shops: [poi(1), poi(2), poi(3)])
-        XCTAssertEqual(results.count(of: .spots), 2)
-        XCTAssertEqual(results.count(of: .shops), 3)
+        XCTAssertEqual(results.count, 3)
+        results.received(shops: [])
+        XCTAssertEqual(results.count, 0)
     }
 
-    /// 새로 받기 시작하면 목록을 비운다.
-    func testBeginClearsLists() {
+    /// 받으면 목록을 두고 실패를 거둔다.
+    func testReceivedStoresShopsAndClearsFailed() {
         var results = MapSearchResults(query: "남산", wide: false)
-        results.received(spots: [spot(1)])
-        results.received(shops: [poi(1)])
-        results.spotsFailed()
-        XCTAssertNotNil(results.spots)
+        results.searchFailed()
         XCTAssertTrue(results.failed)
-        results.begin()
-        XCTAssertNil(results.spots)
-        XCTAssertEqual(results.shops, [])
+        results.received(shops: [poi(1)])
+        XCTAssertEqual(results.shops, [poi(1)])
         XCTAssertFalse(results.failed)
+    }
+
+    /// 새로 받기 시작하면 목록을 비우고 실패·「다시 찾기」 를 거둔다.
+    func testBeginClearsState() {
+        var results = MapSearchResults(query: "남산", wide: false)
+        results.received(shops: [poi(1)])
+        results.cameraIdle(at: start)
+        results.searchFailed()
+        XCTAssertNotNil(results.shops)
+        XCTAssertTrue(results.failed)
+        XCTAssertTrue(results.stale)
+        results.begin()
+        XCTAssertNil(results.shops)
+        XCTAssertFalse(results.failed)
+        XCTAssertFalse(results.stale)
     }
 
     /// 「이 지역에서 다시 찾기」 — 범위를 지금 지도로, 다시 받는다.
@@ -197,14 +291,6 @@ final class MapSearchResultsTests: XCTestCase {
         XCTAssertEqual(results.ask, before + 1)
     }
 
-    func testSelect() {
-        var results = MapSearchResults(query: "남산", wide: false)
-        results.select(5)
-        XCTAssertEqual(results.selected, 5)
-        results.select(nil)
-        XCTAssertNil(results.selected)
-    }
-
     // MARK: 「다시 찾기」
 
     /// 받기 전에는 지도를 옮겨도 없다. 받은 뒤 사람이 지도를 옮기면 「다시 찾기」, 새로 받으면 거둔다.
@@ -213,11 +299,11 @@ final class MapSearchResultsTests: XCTestCase {
         results.cameraIdle(at: start)
         XCTAssertFalse(results.stale)
         XCTAssertFalse(results.showsRefresh)
-        results.received(spots: [spot(1)])
+        results.received(shops: [poi(1)])
         results.cameraIdle(at: start)
         XCTAssertTrue(results.stale)
         XCTAssertTrue(results.showsRefresh)
-        results.received(spots: [spot(2)])
+        results.received(shops: [poi(2)])
         XCTAssertFalse(results.stale)
         XCTAssertFalse(results.showsRefresh)
     }
@@ -225,7 +311,7 @@ final class MapSearchResultsTests: XCTestCase {
     /// 앱이 카메라를 옮긴 직후(0.9초 안)의 멈춤은 사람이 옮긴 것이 아니다.
     func testSelfMoveWithinGraceIsIgnored() {
         var results = MapSearchResults(query: "남산", wide: false)
-        results.received(spots: [spot(1)])
+        results.received(shops: [poi(1)])
         results.markSelfMove(at: start)
         results.cameraIdle(at: start.addingTimeInterval(0.5))
         XCTAssertFalse(results.stale)
@@ -233,10 +319,10 @@ final class MapSearchResultsTests: XCTestCase {
         XCTAssertTrue(results.stale)
     }
 
-    /// 새로 받는 동안(촬영지 nil)에는 「다시 찾기」 를 보이지 않는다.
-    func testNoRefreshWhileSpotsNotReceived() {
+    /// 새로 받는 동안(가게 nil)에는 「다시 찾기」 를 보이지 않는다.
+    func testNoRefreshWhileShopsNotReceived() {
         var results = MapSearchResults(query: "남산", wide: false)
-        results.received(spots: [spot(1)])
+        results.received(shops: [poi(1)])
         results.cameraIdle(at: start)
         XCTAssertTrue(results.showsRefresh)
         results.begin()
@@ -245,47 +331,31 @@ final class MapSearchResultsTests: XCTestCase {
 
     // MARK: 서랍 본문
 
-    func testSpotsBodyLoadingThenSpots() {
+    func testBodyLoadingThenShops() {
         var results = MapSearchResults(query: "남산", wide: false)
         XCTAssertEqual(results.body, .loading)
-        results.received(spots: [spot(1), spot(2)])
-        XCTAssertEqual(results.body, .spots([spot(1), spot(2)]))
+        results.received(shops: [poi(1), poi(2)])
+        XCTAssertEqual(results.body, .shops([poi(1), poi(2)]))
     }
 
-    func testSpotsBodyFailed() {
+    func testBodyFailed() {
         var results = MapSearchResults(query: "남산", wide: false)
-        results.spotsFailed()
+        results.searchFailed()
         XCTAssertTrue(results.failed)
         XCTAssertEqual(results.body, .failed)
     }
 
     /// 이 지역에 없으면 「이 지역엔 없어요」 + 「이 지역 밖에서도 찾기」 단추.
-    func testSpotsBodyEmptyHereOffersEverywhere() {
+    func testBodyEmptyHereOffersEverywhere() {
         var results = MapSearchResults(query: "남산", wide: false)
-        results.received(spots: [])
+        results.received(shops: [])
         XCTAssertEqual(results.body, .empty(.noneHere, offerEverywhere: true))
     }
 
-    /// 전체에서도 없으면 「찾는 촬영지가 없어요」, 단추 없음.
-    func testSpotsBodyEmptyWide() {
+    /// 전체에서도 없으면 「찾는 곳이 없어요」, 단추 없음.
+    func testBodyEmptyWide() {
         var results = MapSearchResults(query: "남산", wide: true)
-        results.received(spots: [])
-        XCTAssertEqual(results.body, .empty(.noSpots, offerEverywhere: false))
-    }
-
-    func testShopsBody() {
-        var results = MapSearchResults(query: "남산", wide: false)
-        results.tab = .shops
-        XCTAssertEqual(results.body, .empty(.noneHere, offerEverywhere: false))
-        results.received(shops: [poi(1), poi(2)])
-        XCTAssertEqual(results.body, .shops([poi(1), poi(2)]))
-    }
-
-    /// 가게 탭은 촬영지 실패와 상관없다. 전체에서 없으면 「찾는 가게가 없어요」.
-    func testShopsBodyWideEmptyIgnoresSpotFailure() {
-        var results = MapSearchResults(query: "남산", wide: true)
-        results.spotsFailed()
-        results.tab = .shops
-        XCTAssertEqual(results.body, .empty(.noShops, offerEverywhere: false))
+        results.received(shops: [])
+        XCTAssertEqual(results.body, .empty(.noPlaces, offerEverywhere: false))
     }
 }

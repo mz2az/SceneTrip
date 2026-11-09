@@ -67,7 +67,7 @@ struct CoachTour: Equatable {
     static let mapSearch = CoachTour(id: "map-search", delay: 0.7, steps: [
         CoachStep(
             target: "map-search", title: "지도에서 검색",
-            text: "촬영지가 아닌 곳도 찾을 수 있어요 — 맛집·카페·숙소·명소를 이름으로 검색해 「코스에 담기」 로 바로 넣어요."
+            text: "촬영지가 아닌 가게·장소를 찾아요 — 맛집·카페·숙소·명소를 이름으로 검색해 「코스에 담기」 로 바로 넣어요."
         ),
         CoachStep(
             target: "map-chips", title: "주변 둘러보기",

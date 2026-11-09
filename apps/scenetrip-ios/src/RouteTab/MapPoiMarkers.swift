@@ -30,22 +30,17 @@ final class MinorDotRenderer {
     }
 }
 
-/// 검색 결과 지도의 핀 (M7) — 촬영지는 사진 동그라미(34, 고르면 46 + 보라 테두리 + 이름표), 가게는 갈래 색 점(16).
+/// 지도 검색의 점 (M6·M7) — 찾은 가게·장소를 갈래 색 점(16, 흰 테두리)으로. 엔터 전 목록이 떠 있는 동안에도, 엔터 뒤 결과 지도에서도 찍는다.
+/// 촬영지 사진 핀은 없앴다 — 지도 검색은 촬영지를 찾지 않는다(2026-11-10 사용자 요청).
 @MainActor
 final class MapSearchPinRenderer {
     private var markers: [NMFMarker] = []
-    private var key = ""
-    /// 받아 둔 사진 — 같은 핀을 다시 그릴 때 또 받지 않는다.
-    private var photos: [String: UIImage] = [:]
-    private var loading: Set<String> = []
-    private var redraw: () -> Void = {}
+    private var ids: [String] = []
 
-    func render(_ search: MapSearchPins, on mapView: NMFMapView, onShop: @escaping (RouteGuide.Place) -> Void) {
-        let (spots, selected, shops, onSpot) = (search.spots, search.selected, search.shops, search.onSpot)
-        let next = "\(spots.map { "\($0.id)" }.joined(separator: ","))|\(selected ?? -1)|"
-            + "\(shops.map(\.id).joined(separator: ","))|\(photos.count)"
-        guard next != key else { return }
-        key = next
+    func render(_ shops: [RouteGuide.Place], on mapView: NMFMapView, onShop: @escaping (RouteGuide.Place) -> Void) {
+        let next = shops.map(\.id)
+        guard next != ids else { return }
+        ids = next
         markers.forEach { $0.mapView = nil }
         markers = shops.map { place in
             let marker = NMFMarker(position: NMGLatLng(lat: place.latitude, lng: place.longitude))
@@ -59,51 +54,6 @@ final class MapSearchPinRenderer {
             marker.mapView = mapView
             return marker
         }
-        for place in spots {
-            let isOn = place.id == selected
-            let photo = place.imageUrl.flatMap { photos[$0] }
-            let marker = NMFMarker(position: NMGLatLng(lat: place.latitude, lng: place.longitude))
-            marker.iconImage = NMFOverlayImage(image: MapPoiImages.photoPin(photo, selected: isOn))
-            marker.anchor = CGPoint(x: 0.5, y: 1)
-            marker.zIndex = isOn ? 60 : 50
-            if isOn {
-                marker.captionText = place.name
-                marker.captionTextSize = 12
-                marker.captionMinZoom = 0
-            }
-            marker.touchHandler = { _ in
-                onSpot(place)
-                return true
-            }
-            marker.mapView = mapView
-            markers.append(marker)
-            if photo == nil, let url = place.imageUrl {
-                load(url)
-            }
-        }
-        redraw = { [weak self, weak mapView] in
-            guard let self, let mapView else { return }
-            render(search, on: mapView, onShop: onShop)
-        }
-    }
-
-    func clear() {
-        markers.forEach { $0.mapView = nil }
-        markers = []
-        key = ""
-        redraw = {}
-    }
-
-    /// 사진을 받아 둔다. 실패하면 보라 바탕 핀 그대로. 받으면 **마지막으로 그린 것**을 다시 그린다(그 사이 결과가 바뀌었을 수 있다).
-    private func load(_ url: String) {
-        guard !loading.contains(url), let parsed = URL(string: url) else { return }
-        loading.insert(url)
-        Task { [weak self] in
-            guard let (data, _) = try? await URLSession.shared.data(from: parsed),
-                  let image = UIImage(data: data) else { return }
-            self?.photos[url] = image
-            self?.redraw()
-        }
     }
 }
 
@@ -112,8 +62,6 @@ final class MapSearchPinRenderer {
 enum MapPoiImages {
     private static var minor: [RoutePoiGroup: NMFOverlayImage] = [:]
     private static var shop: [RoutePoiGroup: NMFOverlayImage] = [:]
-    /// 결과 핀의 보라(웹 `#5c4ad6`).
-    static let purple = UIColor(red: 0.36, green: 0.29, blue: 0.84, alpha: 1)
 
     static func minorDot(_ group: RoutePoiGroup) -> NMFOverlayImage {
         if let found = minor[group] {
@@ -150,76 +98,44 @@ enum MapPoiImages {
         }
         return NMFOverlayImage(image: image)
     }
-
-    /// 사진 동그라미 핀 — 흰 테두리(고르면 보라 3) · 그림자 · 아래 작은 꼬리. 사진이 없으면 보라 바탕에 흰 점.
-    static func photoPin(_ photo: UIImage?, selected: Bool) -> UIImage {
-        let side = selected ? MapSearchResults.pinBig : MapSearchResults.pinSmall
-        let pad: CGFloat = 4
-        let size = CGSize(width: side + pad * 2, height: side + 6 + pad)
-        return UIGraphicsImageRenderer(size: size).image { context in
-            let ctx = context.cgContext
-            let circle = CGRect(x: pad, y: pad, width: side, height: side)
-            let ring = selected ? purple : UIColor.white
-            // 꼬리 — 동그라미 아래 가운데의 작은 마름모.
-            let tip = CGPoint(x: size.width / 2, y: size.height)
-            let tail = UIBezierPath()
-            tail.move(to: tip)
-            tail.addLine(to: CGPoint(x: tip.x - 6, y: circle.maxY - 3))
-            tail.addLine(to: CGPoint(x: tip.x + 6, y: circle.maxY - 3))
-            tail.close()
-            let shade = UIColor.black.withAlphaComponent(0.3).cgColor
-            ctx.setShadow(offset: CGSize(width: 0, height: 2), blur: 4, color: shade)
-            ring.setFill()
-            tail.fill()
-            UIBezierPath(ovalIn: circle).fill()
-            ctx.setShadow(offset: .zero, blur: 0, color: nil)
-            let border: CGFloat = selected ? 3 : 2.5
-            let face = circle.insetBy(dx: border, dy: border)
-            ctx.saveGState()
-            UIBezierPath(ovalIn: face).addClip()
-            if let photo {
-                let scale = max(face.width / photo.size.width, face.height / photo.size.height)
-                let drawn = CGSize(width: photo.size.width * scale, height: photo.size.height * scale)
-                photo.draw(in: CGRect(x: face.midX - drawn.width / 2, y: face.midY - drawn.height / 2,
-                                      width: drawn.width, height: drawn.height))
-            } else {
-                purple.setFill()
-                UIRectFill(face)
-                UIColor.white.setFill()
-                let dot = face.width * 0.3
-                let spot = CGRect(x: face.midX - dot / 2, y: face.midY - dot / 2, width: dot, height: dot)
-                UIBezierPath(ovalIn: spot).fill()
-            }
-            ctx.restoreGState()
-        }
-    }
 }
 
-/// 지도 검색 결과 지도의 카메라 명령 (M7) — 결과 전체에 맞추기, 고른 곳으로 옮기기.
+/// 지도 검색 결과 지도의 카메라 명령 (M7) — 결과 전체에 맞추기. 고른 곳으로 옮기기는 고른 핀(`pickedGuide`)의 카메라가 한다.
 struct MapCameraCommand: Equatable {
     enum Action: Equatable {
         case fit(south: Double, west: Double, north: Double, east: Double)
-        /// 그곳으로 — 확대는 지금과 `minZoom` 중 큰 것.
-        case focus(latitude: Double, longitude: Double, minZoom: Double)
     }
 
     let id: Int
     let action: Action
 }
 
-/// 결과 지도가 지도에 넘기는 것 — 촬영지 사진 핀·가게 색 점·카메라 명령(`id` 가 바뀔 때만 움직인다).
+/// 지도 검색이 지도에 넘기는 것 — 찍을 점(`MapSearchRules.mapDots`)·카메라 명령(`id` 가 바뀔 때만 움직인다).
 struct MapSearchPins {
-    var spots: [PlaceSummary] = []
-    var selected: Int64?
     var shops: [RouteGuide.Place] = []
     var camera: MapCameraCommand?
-    var onSpot: (PlaceSummary) -> Void = { _ in }
 }
 
 extension RouteMapView.Coordinator {
+    /// 고른 편의시설·검색 결과로 — **덮이지 않은 지도의 가운데에** 오게(2026-11-10 사용자 지적: 「핀과 효과 위치가 일치하지 않는다」).
+    /// 아래 시트·결과 서랍은 `contentInset` 이 이미 비켜 주고, 정보 카드(적어도 300pt)가 그보다 높으면 그만큼 더 올린다
+    /// (`MapSearchRules.extraLift`). 확대는 지금과 16 중 큰 것 — 더 확대해 둔 화면을 풀지 않는다.
+    func move(to place: RouteGuide.Place, on mapView: NMFMapView) {
+        region.source = .userSelected
+        let zoom = MapSearchRules.focusZoom(current: mapView.zoomLevel)
+        let target = MapSearchRules.focusTarget(
+            latitude: place.latitude, longitude: place.longitude,
+            lift: MapSearchRules.extraLift(contentInset: mapView.contentInset.bottom),
+            metersPerPoint: mapView.projection.metersPerPixel(atLatitude: place.latitude, zoom: zoom)
+        )
+        let update = NMFCameraUpdate(scrollTo: NMGLatLng(lat: target.latitude, lng: target.longitude), zoomTo: zoom)
+        update.animation = .easeIn
+        mapView.moveCamera(update)
+    }
+
     func renderMapSearch(minor: [RouteGuide.Place], search: MapSearchPins, on mapView: NMFMapView) {
         minorRenderer.render(minor, on: mapView) { [weak self] in self?.onTapGuide($0) }
-        searchRenderer.render(search, on: mapView) { [weak self] in self?.onTapGuide($0) }
+        searchRenderer.render(search.shops, on: mapView) { [weak self] in self?.onTapGuide($0) }
         apply(search.camera, on: mapView)
     }
 
@@ -243,10 +159,6 @@ extension RouteMapView.Coordinator {
                     let padding = UIEdgeInsets(top: 80, left: 40, bottom: 40, right: 40)
                     update = NMFCameraUpdate(fit: bounds, paddingInsets: padding)
                 }
-            case let .focus(latitude, longitude, minZoom):
-                update = NMFCameraUpdate(
-                    scrollTo: NMGLatLng(lat: latitude, lng: longitude), zoomTo: max(mapView.zoomLevel, minZoom)
-                )
             }
             update.animation = .easeIn
             mapView.moveCamera(update)

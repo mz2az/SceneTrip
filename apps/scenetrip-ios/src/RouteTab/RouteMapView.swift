@@ -81,6 +81,10 @@ struct RouteMapView: UIViewRepresentable {
     /// 「어디를 볼까」가 아니다 — 카메라는 이 열쇠만 본다.
     var guideCameraKey = ""
 
+    /// **카메라용** 고른 편의시설 id — 칩으로 가려 핀이 안 보여도 고른 것은 고른 것이다(`pickedGuide` 는 보이는 것만).
+    /// 이것이 nil 로 바뀌기만 한 것(카드 ✕)은 카메라를 옮기지 않는다(`RouteCameraRules.moves`).
+    var pickedCameraId: String?
+
     /// **화면 범위 안의 주변 편의시설.** 챗봇 결과(`guidePlaces`)와 달리 카메라를
     /// 움직이지 않는다 — 배경처럼 깔릴 뿐이다. 네이버 지도가 주변 가게를 늘
     /// 보여 주는 것과 같은 자리다(2026-08-28).
@@ -186,6 +190,7 @@ struct RouteMapView: UIViewRepresentable {
             guidePlaces: guidePlaces,
             pickedGuide: pickedGuide,
             guideCameraKey: guideCameraKey,
+            pickedCameraId: pickedCameraId,
             navTarget: navTarget,
             navGuiding: navGuiding,
             legs: legs,
@@ -239,7 +244,7 @@ struct RouteMapView: UIViewRepresentable {
         var showingMe = false
         /// 이미 카메라를 옮긴 조합. 같은 것을 두 번 옮기지 않는다 — SwiftUI 가 뷰를
         /// 다시 그릴 때마다 지도가 튀면 손으로 옮긴 화면이 계속 되돌아간다.
-        private var lastCameraKey = ""
+        private var lastCameraKey: RouteCameraKey?
         var onTapGuide: (RouteGuide.Place) -> Void = { _ in }
         var onTapPreview: (PlaceSummary) -> Void = { _ in }
         var onViewport: ((Double, Double, Double, Double, Double, Double, Double, LocationCoordinateSource) -> Void)?
@@ -273,7 +278,7 @@ struct RouteMapView: UIViewRepresentable {
             // (웹 2026-11-08 사용자 지적).
             mapView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: bottomInset, right: 0)
             if RouteCameraRules.refits(.sheetHeight) {
-                lastCameraKey = ""
+                lastCameraKey = nil
             }
         }
 
@@ -302,6 +307,7 @@ struct RouteMapView: UIViewRepresentable {
             guidePlaces: [RouteGuide.Place] = [],
             pickedGuide: RouteGuide.Place? = nil,
             guideCameraKey: String = "",
+            pickedCameraId: String? = nil,
             navTarget: RouteStop? = nil,
             navGuiding: Bool = false,
             legs: [RouteLeg] = [],
@@ -413,15 +419,23 @@ struct RouteMapView: UIViewRepresentable {
             //
             // **코스 핀(순서·빼기)도 보지 않는다**(MZ2AZ-547 E12, `RouteCameraRules`) — 끌기·빼기·최적화로는 다시 맞추지
             // 않는다. 일차 바꾸기·장소 넣기는 부르는 쪽이 `fitToken` 을 올려 따로 알린다.
-            let cameraContent = previews.map { String($0.id) }.joined(separator: ",")
-                + "|" + guideCameraKey
-            let cameraKey = "\(focused?.id.uuidString ?? "-")|\(showingMe)|\(cameraContent)"
+            //
+            // **고른 것을 놓기만 하면(카드 ✕) 옮기지 않는다**(2026-11-10 사용자 지적, `RouteCameraRules.moves`) — 일차 전체로
+            // 다시 맞추면 사람이 확대해 둔 화면이 풀렸다. 다시 맞추는 계기는 일차 바꾸기·장소 넣기(`fitToken`)와 코스 전체 맞추기뿐이다.
+            let cameraKey = RouteCameraKey(
+                focused: focused?.id.uuidString, picked: pickedCameraId,
+                context: "\(showingMe)|" + previews.map { String($0.id) }.joined(separator: ",") + "|" + guideCameraKey
+            )
             if courseFitJustRan {
                 // 방금 코스 전체에 맞췄다 — 열쇠만 따라잡고 카메라는 그대로 둔다.
                 courseFitJustRan = false
                 lastCameraKey = cameraKey
                 lastFitToken = fitToken
-            } else if cameraKey != lastCameraKey || fitToken != lastFitToken {
+            } else if !RouteCameraRules.moves(
+                from: lastCameraKey, to: cameraKey, fitChanged: fitToken != lastFitToken
+            ) {
+                lastCameraKey = cameraKey
+            } else {
                 lastCameraKey = cameraKey
                 lastFitToken = fitToken
                 // **다음 차례로 미룬다.** 지금 맞추면 첫 화면에서 지도가 아직 제 크기를
@@ -441,15 +455,6 @@ struct RouteMapView: UIViewRepresentable {
         }
 
         // MARK: 카메라
-
-        private func move(to place: RouteGuide.Place, on mapView: NMFMapView) {
-            region.source = .userSelected
-            let update = NMFCameraUpdate(
-                scrollTo: NMGLatLng(lat: place.latitude, lng: place.longitude), zoomTo: 16
-            )
-            update.animation = .easeIn
-            mapView.moveCamera(update)
-        }
 
         /// 고른 장소로 옮긴다.
         ///

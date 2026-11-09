@@ -1,7 +1,11 @@
+import CoreGraphics
 import Foundation
 import SceneApiClient
 
 // 지도 검색의 규칙 (MZ2AZ-547 P5 M6·M7, 웹 `proto/protoPoi.tsx` `SearchPanel`·`ResultsView`). 칩·골고루는 `MapPoiRules.swift`.
+//
+// 2026-11-10 사용자 지적으로 바뀌었다(웹 72f87416) — 가게·장소(`GET /pois?q`)만 찾는다(촬영지는 찾지 않는다), 고른 곳은
+// 시트·서랍·정보 카드가 덮지 않은 지도 가운데로, 엔터 전 목록이 떠 있는 동안에도 찾은 곳을 지도에 점으로 찍는다.
 
 // MARK: - 지도 검색 (M6)
 
@@ -12,27 +16,21 @@ enum MapSearchPhase: Equatable {
     case loading
     case failed
     /// `wide` — 「이 지역 밖에서도」(범위 없이) 찾은 것.
-    case done(spots: [PlaceSummary], shops: [RouteGuide.Place], wide: Bool)
+    case done(shops: [RouteGuide.Place], wide: Bool)
 }
 
 enum MapSearchTitle: Equatable {
-    /// 「촬영지 · 이 지역」
-    case spotsHere
-    /// 「촬영지 · 전체」
-    case spotsEverywhere
-    /// 「가게·편의시설 · 이 지역」
+    /// 「가게·장소 · 이 지역」
     case shopsHere
-    /// 「가게·편의시설 · 전체」
+    /// 「가게·장소 · 전체」
     case shopsEverywhere
 }
 
 enum MapSearchEmpty: Equatable {
     /// 「이 지역엔 없어요」
     case noneHere
-    /// 「찾는 촬영지가 없어요」
-    case noSpots
-    /// 「찾는 가게가 없어요」
-    case noShops
+    /// 「찾는 곳이 없어요」
+    case noPlaces
 }
 
 /// 검색 목록의 한 줄.
@@ -41,7 +39,6 @@ enum MapSearchRow: Equatable {
     /// 「찾지 못했어요. 잠시 후 다시 해 주세요」
     case failed
     case title(MapSearchTitle)
-    case spot(PlaceSummary)
     case shop(RouteGuide.Place)
     case empty(MapSearchEmpty)
     /// 「이 지역 밖에서도 찾기」
@@ -57,6 +54,11 @@ enum MapSearchRules {
     static let resultsLimit = 40
     /// 계약의 `q` 최대 길이.
     static let maxLength = 100
+    /// 고른 곳의 정보 카드(아래 단추 줄 위)가 지도 아래를 덮는 높이(pt) — 시트를 낮게 내려 두었어도 핀이 카드 밑에 숨지 않게
+    /// 이만큼은 비킨다(웹 `CARD_COVER`).
+    static let cardCover: CGFloat = 300
+    /// 고른 곳으로 옮길 때의 최소 확대(웹 `Math.max(map.getZoom(), 16)`).
+    static let focusMinZoom: Double = 16
 
     /// 입력을 서버에 보낼 검색어로 — 앞뒤 공백을 떼고 2글자가 안 되면 nil, 길면 100자에서 자른다.
     static func query(_ text: String) -> String? {
@@ -75,7 +77,7 @@ enum MapSearchRules {
         wide ? nil : viewport?.bbox
     }
 
-    /// 목록 줄 — 촬영지 제목 → 촬영지(또는 빈 문구) → 「이 지역 밖에서도 찾기」(이 지역일 때만) → 가게 제목 → 가게(또는 빈 문구).
+    /// 목록 줄 — 가게·장소 제목 → 가게(또는 빈 문구) → 「이 지역 밖에서도 찾기」(이 지역일 때만).
     static func rows(_ phase: MapSearchPhase) -> [MapSearchRow] {
         switch phase {
         case .idle:
@@ -84,36 +86,71 @@ enum MapSearchRules {
             return [.loading]
         case .failed:
             return [.failed]
-        case let .done(spots, shops, wide):
-            var rows: [MapSearchRow] = [.title(wide ? .spotsEverywhere : .spotsHere)]
-            rows += spots.isEmpty ? [.empty(wide ? .noSpots : .noneHere)] : spots.map(MapSearchRow.spot)
+        case let .done(shops, wide):
+            var rows: [MapSearchRow] = [.title(wide ? .shopsEverywhere : .shopsHere)]
+            rows += shops.isEmpty ? [.empty(wide ? .noPlaces : .noneHere)] : shops.map(MapSearchRow.shop)
             if !wide {
                 rows.append(.searchEverywhere)
             }
-            rows.append(.title(wide ? .shopsEverywhere : .shopsHere))
-            rows += shops.isEmpty ? [.empty(.noShops)] : shops.map(MapSearchRow.shop)
             return rows
         }
     }
+
+    /// 목록이 떠 있는 동안 지도에 찍어 둘 곳 — 새 결과가 올 때까지는 앞의 것을 둔다(글자마다 점이 깜빡이지 않게).
+    /// 2글자 아래로 지웠거나 못 찾았으면 비운다.
+    static func pinned(previous: [RouteGuide.Place], phase: MapSearchPhase) -> [RouteGuide.Place] {
+        switch phase {
+        case .idle, .failed: []
+        case .loading: previous
+        case let .done(shops, _): shops
+        }
+    }
+
+    /// 지도에 찍을 검색 점 — 결과 지도가 떠 있으면 그 결과, 검색칸이 열려 있으면 목록의 것, 둘 다 아니면 없음.
+    /// 정보 카드가 떠 있는 곳(`picked`)은 고른 핀이 그리므로 뺀다.
+    static func mapDots(
+        searching: Bool, listed: [RouteGuide.Place], results: [RouteGuide.Place]?, picked: String?
+    ) -> [RouteGuide.Place] {
+        let shown = results ?? (searching ? listed : [])
+        return shown.filter { $0.id != picked }
+    }
+
+    /// 지도 칸 전체의 가운데에서 고른 곳을 위로 올릴 거리 — 아래를 덮은 높이(시트·결과 서랍, 카드는 적어도 300)의 반.
+    /// 그러면 덮이지 않은 지도의 가운데에 온다(웹 `focusPlace` 의 `shiftY`).
+    static func centerShift(covered: CGFloat) -> CGFloat {
+        max(covered, cardCover) / 2
+    }
+
+    /// 지도의 `contentInset`(아래)이 이미 그 반만큼 올려 준다 — 그 위로 더 올릴 거리.
+    static func extraLift(contentInset: CGFloat) -> CGFloat {
+        max(centerShift(covered: contentInset) - contentInset / 2, 0)
+    }
+
+    /// 고른 곳으로 옮길 때의 확대 — 지금과 16 중 큰 것(더 확대해 둔 화면을 풀지 않는다).
+    static func focusZoom(current: Double) -> Double {
+        max(current, focusMinZoom)
+    }
+
+    /// 화면에서 `lift`(pt) 위에 고른 곳이 오게 하는 카메라 자리 — 그만큼 남쪽을 가리킨다. `metersPerPoint` 는 그 확대의 축척.
+    static func focusTarget(
+        latitude: Double, longitude: Double, lift: CGFloat, metersPerPoint: Double
+    ) -> (latitude: Double, longitude: Double) {
+        (latitude - Double(lift) * metersPerPoint / metersPerDegreeLatitude, longitude)
+    }
+
+    /// 위도 1도의 길이(m) — 몇 백 m 안의 옮김이라 지구를 공으로 봐도 된다.
+    private static let metersPerDegreeLatitude = 111_320.0
 }
 
 // MARK: - 엔터 뒤 결과 지도 (M7)
 
-/// 결과 지도의 상태 — 서랍 높이·탭·받은 것·「다시 찾기」·고른 핀.
+/// 결과 지도의 상태 — 서랍 높이·받은 것·「다시 찾기」.
 struct MapSearchResults: Equatable {
     /// 서랍이 덮는 지도 비율 — 처음 42%, 손잡이를 누르면 78%.
     static let shortShare: Double = 0.42
     static let tallShare: Double = 0.78
-    /// 결과 핀 지름 — 보통 34, 고르면 46.
-    static let pinSmall: CGFloat = 34
-    static let pinBig: CGFloat = 46
     /// 우리가 카메라를 옮긴 직후 이만큼은 사람이 옮긴 것이 아니다(초).
     static let selfMoveGrace: TimeInterval = 0.9
-
-    enum Tab: Equatable {
-        case spots
-        case shops
-    }
 
     /// 서랍 본문.
     enum Body: Equatable {
@@ -121,21 +158,17 @@ struct MapSearchResults: Equatable {
         case failed
         /// `offerEverywhere` — 「이 지역 밖에서도 찾기」 단추를 보인다.
         case empty(MapSearchEmpty, offerEverywhere: Bool)
-        case spots([PlaceSummary])
         case shops([RouteGuide.Place])
     }
 
     let query: String
     /// 범위 없이 찾나(「이 지역 밖에서도」).
     private(set) var wide: Bool
-    var tab: Tab = .spots
     private(set) var tall = false
-    /// 촬영지 — 받기 전이면 nil.
-    private(set) var spots: [PlaceSummary]?
-    private(set) var shops: [RouteGuide.Place] = []
+    /// 찾은 가게·장소 — 받기 전이면 nil.
+    private(set) var shops: [RouteGuide.Place]?
     private(set) var failed = false
     private(set) var stale = false
-    private(set) var selected: Int64?
     /// 받기 차례 번호 — 처음·「다시 찾기」·「이 지역 밖에서도」 에 오른다.
     private(set) var ask = 0
     private var selfMoveAt: Date?
@@ -155,24 +188,19 @@ struct MapSearchResults: Equatable {
 
     /// 새로 받기 시작 — 목록을 비운다.
     mutating func begin() {
-        spots = nil
-        shops = []
+        shops = nil
         failed = false
         stale = false
     }
 
-    /// 촬영지를 받았다 — 「다시 찾기」 를 거둔다.
-    mutating func received(spots: [PlaceSummary]) {
-        self.spots = spots
-        failed = false
-        stale = false
-    }
-
+    /// 받았다 — 「다시 찾기」 를 거둔다.
     mutating func received(shops: [RouteGuide.Place]) {
         self.shops = shops
+        failed = false
+        stale = false
     }
 
-    mutating func spotsFailed() {
+    mutating func searchFailed() {
         failed = true
     }
 
@@ -195,43 +223,31 @@ struct MapSearchResults: Equatable {
 
     /// 지도가 멈췄다 — 사람이 옮긴 것이고 받은 것이 있으면 「다시 찾기」.
     mutating func cameraIdle(at date: Date) {
-        guard spots != nil else { return }
+        guard shops != nil else { return }
         if let moved = selfMoveAt, date.timeIntervalSince(moved) < Self.selfMoveGrace {
             return
         }
         stale = true
     }
 
-    mutating func select(_ id: Int64?) {
-        selected = id
-    }
-
     /// 「↻ 이 지역에서 다시 찾기」 를 보이나.
     var showsRefresh: Bool {
-        stale && spots != nil
+        stale && shops != nil
     }
 
-    /// 탭 글자의 수 — 촬영지는 받기 전이면 nil(「촬영지」 만), 가게는 늘 수.
-    func count(of tab: Tab) -> Int? {
-        switch tab {
-        case .spots: spots?.count
-        case .shops: shops.count
-        }
+    /// 검색어 알약의 「N곳」 — 받기 전이면 nil.
+    var count: Int? {
+        shops?.count
     }
 
     var body: Body {
-        switch tab {
-        case .shops:
-            return shops.isEmpty ? .empty(wide ? .noShops : .noneHere, offerEverywhere: false) : .shops(shops)
-        case .spots:
-            if failed {
-                return .failed
-            }
-            guard let spots else { return .loading }
-            if spots.isEmpty {
-                return wide ? .empty(.noSpots, offerEverywhere: false) : .empty(.noneHere, offerEverywhere: true)
-            }
-            return .spots(spots)
+        if failed {
+            return .failed
         }
+        guard let shops else { return .loading }
+        if shops.isEmpty {
+            return wide ? .empty(.noPlaces, offerEverywhere: false) : .empty(.noneHere, offerEverywhere: true)
+        }
+        return .shops(shops)
     }
 }

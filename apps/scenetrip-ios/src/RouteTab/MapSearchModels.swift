@@ -16,23 +16,23 @@ enum MapPoiClient {
         return chips.keep(list.items.map(RouteGuide.Place.init(poi:)))
     }
 
-    /// 촬영지 이름 검색(`GET /places?q`). `bbox` 가 없으면 범위 없이.
-    static func spots(_ query: String, bbox: String?, limit: Int) async throws -> [PlaceSummary] {
-        try await PlacesAPI.listPlaces(q: query, bbox: bbox, limit: limit).items
-    }
-
-    /// 가게·편의시설 이름 검색(`GET /pois?q`, 1.23.0). 실패하면 빈 목록 — 촬영지 결과는 그대로 보인다(웹과 같다).
-    static func shops(_ query: String, bbox: String?, limit: Int) async -> [RouteGuide.Place] {
-        let list = try? await PoisAPI.listPois(bbox: bbox, q: query, limit: limit)
-        return list?.items.map(RouteGuide.Place.init(poi:)) ?? []
+    /// 가게·장소 이름 검색(`GET /pois?q`, 1.23.0). `bbox` 가 없으면 범위 없이. 촬영지는 찾지 않는다(2026-11-10 사용자 요청).
+    static func shops(_ query: String, bbox: String?, limit: Int) async throws -> [RouteGuide.Place] {
+        try await PoisAPI.listPois(bbox: bbox, q: query, limit: limit).items.map(RouteGuide.Place.init(poi:))
     }
 }
 
-/// 🔍 를 눌러 펼친 검색칸의 목록 (M6) — 2글자부터, 0.35초 멈추면 촬영지와 가게를 **동시에** 묻는다.
+/// 🔍 를 눌러 펼친 검색칸의 목록 (M6) — 2글자부터, 0.35초 멈추면 가게·장소를 묻는다.
 /// 늦게 온 답이 새 답을 덮지 않는다 — 새로 물으면 앞의 것을 취소한다.
+/// 목록이 떠 있는 동안 지도에 찍을 곳(`pinned`)도 여기서 들고 있다 — 계획 화면 지도가 그린다.
 @MainActor
 final class MapSearchModel: ObservableObject {
-    @Published private(set) var phase: MapSearchPhase = .idle
+    @Published private(set) var phase: MapSearchPhase = .idle {
+        didSet { pinned = MapSearchRules.pinned(previous: pinned, phase: phase) }
+    }
+
+    /// 지도에 찍어 둔 목록 결과 — 새 결과가 올 때까지는 앞의 것을 둔다.
+    @Published private(set) var pinned: [RouteGuide.Place] = []
     private var task: Task<Void, Never>?
 
     func update(text: String, wide: Bool, viewport: MapViewport?) {
@@ -46,12 +46,10 @@ final class MapSearchModel: ObservableObject {
         task = Task { [weak self] in
             try? await Task.sleep(for: MapSearchRules.debounce)
             guard !Task.isCancelled else { return }
-            async let shops = MapPoiClient.shops(query, bbox: bbox, limit: MapSearchRules.listLimit)
             do {
-                let spots = try await MapPoiClient.spots(query, bbox: bbox, limit: MapSearchRules.listLimit)
-                let found = await shops
+                let found = try await MapPoiClient.shops(query, bbox: bbox, limit: MapSearchRules.listLimit)
                 guard !Task.isCancelled else { return }
-                self?.phase = .done(spots: spots, shops: found, wide: wide)
+                self?.phase = .done(shops: found, wide: wide)
             } catch {
                 guard !Task.isCancelled, !PageFetchRules.isCancellation(error) else { return }
                 self?.phase = .failed
@@ -59,9 +57,11 @@ final class MapSearchModel: ObservableObject {
         }
     }
 
+    /// 검색칸을 닫았다 — 목록과 지도의 점을 다 지운다.
     func reset() {
         task?.cancel()
         phase = .idle
+        pinned = []
     }
 }
 
@@ -69,7 +69,7 @@ final class MapSearchModel: ObservableObject {
 @MainActor
 final class MapSearchResultsModel: ObservableObject {
     @Published var state: MapSearchResults?
-    /// 촬영지를 받을 때마다 오른다 — 화면이 결과 전체에 지도를 맞춘다.
+    /// 찾은 것이 있을 때마다 오른다 — 화면이 결과 전체에 지도를 맞춘다.
     @Published private(set) var fitTick = 0
     private var task: Task<Void, Never>?
 
@@ -106,21 +106,17 @@ final class MapSearchResultsModel: ObservableObject {
         let bbox = MapSearchRules.bbox(wide: current.wide, viewport: viewport)
         let limit = MapSearchRules.resultsLimit
         task = Task { [weak self] in
-            async let shops = MapPoiClient.shops(query, bbox: bbox, limit: limit)
             do {
-                let spots = try await MapPoiClient.spots(query, bbox: bbox, limit: limit)
+                let found = try await MapPoiClient.shops(query, bbox: bbox, limit: limit)
                 guard !Task.isCancelled, let self else { return }
-                state?.received(spots: spots)
-                if !spots.isEmpty {
+                state?.received(shops: found)
+                if !found.isEmpty {
                     fitTick += 1
                 }
             } catch {
                 guard !Task.isCancelled, !PageFetchRules.isCancellation(error) else { return }
-                self?.state?.spotsFailed()
+                self?.state?.searchFailed()
             }
-            let found = await shops
-            guard !Task.isCancelled else { return }
-            self?.state?.received(shops: found)
         }
     }
 }
