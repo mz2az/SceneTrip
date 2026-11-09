@@ -89,6 +89,8 @@ class MainActivity : ComponentActivity() {
             tab = intent.getStringExtra("initialTab"),
             openCourseId = intent.getLongExtra("openCourseId", -1L).takeIf { it > 0 },
         )
+        // `--ez homeFloatOpen true` — 홈의 떠 있는 「여행 코스 짜기」 줄을 펼친 채로 띄운다(화면 확인용, iOS `-homeFloatOpen 1`).
+        com.mz2az.scenetrip.hometab.HomeDebug.floatOpen = intent.getBooleanExtra("homeFloatOpen", false)
 
         // 앱 분석 — 설정 파일(res/raw/google_services.json)이 있고 SDK 의존성이 붙어 있을
         // 때만 켜진다 (MZ2AZ-353).

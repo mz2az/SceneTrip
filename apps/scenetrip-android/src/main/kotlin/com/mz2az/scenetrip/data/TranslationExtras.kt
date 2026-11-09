@@ -18,4 +18,14 @@ internal val TRANSLATIONS_EN_EXTRA =
         "빼기" to "Remove",
         // 이용 통계 꼬리말 (MZ2AZ-475) — iOS 문구에서 ATT(광고 추적 허용) 문장만 뺐다.
         "꺼도 앱 기능은 그대로예요." to "Everything still works when this is off.",
+        // 홈 사진 카드·떠 있는 단추 (MZ2AZ-547 P2) — iOS `en.lproj` 의 같은 문구. 다음 `just android-translations` 때 생성 표로 옮겨 간다.
+        "어디로 여행 가세요?" to "Where are you traveling?",
+        "도시를 고르면 그곳 드라마·영화 촬영지로 코스를 만들어 드려요" to "Pick a city. We'll build a route through its K‑drama spots.",
+        "%s, 촬영지 %d곳" to "%s, %d spots",
+        "여행 코스 짜기" to "Plan a trip",
+        "내 코스 펼치기" to "Show my trips",
+        "여행 중: %s 열기" to "On trip: open %s",
+        "접기" to "Close",
+        "전체 코스 보기" to "All trips",
+        "새 코스" to "New",
     )

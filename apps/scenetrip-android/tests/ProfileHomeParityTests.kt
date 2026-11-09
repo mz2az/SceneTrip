@@ -6,7 +6,6 @@ import com.mz2az.scenetrip.data.AccountDataReset
 import com.mz2az.scenetrip.data.CommunityRules
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.englishOf
-import com.mz2az.scenetrip.hometab.HomeTabModel
 import com.mz2az.scenetrip.reviews.ReviewRules
 import com.mz2az.scenetrip.routetab.CourseListPhase
 import com.mz2az.scenetrip.sceneapi.client.infrastructure.ClientError
@@ -46,23 +45,8 @@ class ProfileHomeParityTests {
         assertEquals(1, heard, "구독을 끊으면 더 듣지 않는다")
     }
 
-    // 홈의 코스 카드
-
-    @Test
-    fun tripCardNeverOffersToCreateACourseBeforeItKnowsThereIsNone() {
-        val card = HomeTabModel.Companion::tripCard
-        val unknown = RouteStore.CourseListState.UNKNOWN
-        val loaded = RouteStore.CourseListState.LOADED
-        val failed = RouteStore.CourseListState.FAILED
-        assertEquals(HomeTabModel.TripCard.FILLED, card(true, unknown, false, false))
-        assertEquals(HomeTabModel.TripCard.LOADING, card(false, unknown, false, false), "코스가 있는지 모르는 동안은 받는 중이다")
-        assertEquals(HomeTabModel.TripCard.UNAVAILABLE, card(false, failed, false, false))
-        assertEquals(HomeTabModel.TripCard.LOADING, card(false, loaded, true, true), "목록은 왔고 상세를 받는 중이다")
-        assertEquals(HomeTabModel.TripCard.CREATE, card(false, loaded, false, false), "받아 봤는데 정말 없을 때만 코스 만들기")
-        assertEquals(HomeTabModel.TripCard.CREATE, card(false, loaded, true, false))
-        assertNotNull(englishOf("내 여행을 불러오지 못했어요"))
-        assertNotNull(englishOf("내 여행을 불러오는 중…"))
-    }
+    // 홈의 코스 카드(「내 여행 이어가기」)는 떠 있는 「여행 코스 짜기」 단추로 바뀌었다(MZ2AZ-547 H4·H5) — 「모르면 새 코스를
+    // 권하지 않는다」 규칙은 `HomeTripFloatRules.planTap` 시험(WebParityTabBarHomeTests)이 지킨다.
 
     // 커뮤니티
 

@@ -109,6 +109,15 @@ fun RouteTabView(
     // **나중에 열리므로** 이 처리보다 먼저 받는다(나중에 등록한 것이 이긴다).
     if (onClose != null) BackHandler(onBack = onClose)
 
+    // 홈의 도시 칩·「+ 새 코스」 가 남긴 쪽지([TabRouter.startNewCourse], MZ2AZ-547 H1·H4). 한 번 읽고 버린다.
+    // **다음 Android 묶음(P3)이 바꿀 자리다** — 지금은 기존 갈림길(AI 로 짜기 / 직접 짜기)을 띄운다. 도시(`city`)는 아직 쓰지 않는다;
+    // P3 의 새 코스 시트(F1)·도시로 여행 짜기(Q2 며칠부터)가 받는다.
+    LaunchedEffect(TabRouter.pendingNewCourse) {
+        if (TabRouter.pendingNewCourse == null) return@LaunchedEffect
+        TabRouter.pendingNewCourse = null
+        fork = true
+    }
+
     // 홈에서 넘어온 코스. 목록이 아직 없으면 목록이 오는 대로 다시 시도한다(iOS `openPending`은 새로고침 뒤에 부른다).
     LaunchedEffect(TabRouter.pendingCourseId, store.courses) {
         val wanted = TabRouter.pendingCourseId ?: return@LaunchedEffect

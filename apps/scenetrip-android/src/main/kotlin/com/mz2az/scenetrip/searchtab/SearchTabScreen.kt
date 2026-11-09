@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -68,7 +68,9 @@ import com.mz2az.scenetrip.sceneapi.client.model.Scene
 import com.mz2az.scenetrip.sceneapi.client.model.Suggestion
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.LikeFailureNotice
+import com.mz2az.scenetrip.ui.LocalTabBarClearance
 import com.mz2az.scenetrip.ui.LocationConsentSheetHost
+import com.mz2az.scenetrip.ui.tabBarBottom
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.map.CameraAnimation
 import com.naver.maps.map.CameraUpdate
@@ -104,6 +106,7 @@ fun SearchTabScreen() {
     // iOS 는 안전영역 안에서 계산해 172pt 에서 멈추는데, 이것을 빼먹어 안드로이드
     // 시트가 66dp 더 올라가 지도 조작 버튼을 덮었다(대조 검사).
     val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val navigationBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val data = remember { SceneData(scope) }
     val cart = remember { CartStore(context) }
     val likes = remember { LikeStore.getInstance(context) }
@@ -553,6 +556,8 @@ fun SearchTabScreen() {
             topInset = SEARCH_BAR_INSET + statusBar,
             onHeightChange = { sheetHeight = it },
             ratioInset = statusBar,
+            // 떠 있는 탭바 뒤까지 내려간다(MZ2AZ-547 T3).
+            bottomClearance = LocalTabBarClearance.current,
         ) {
             when {
                 data.phase == SceneData.Phase.FAILED -> {
@@ -760,12 +765,17 @@ fun SearchTabScreen() {
         }
 
         // 담기 결과(이미 담김·숨긴 장소라 담을 수 없음 등)는 이 자리에 잠깐 뜬다.
-        CartToast(cart.toast, onTimeout = { cart.clearToast() }, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp))
+        CartToast(
+            cart.toast,
+            onTimeout = { cart.clearToast() },
+            // 탭바 위로(T2) — 탭바가 화면을 나눠 갖던 때의 40 을 그대로 그 위에 둔다.
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp + LocalTabBarClearance.current),
+        )
         // 찜 변경이 거절되면(숨긴 작품 새 찜 등) 이유를 말한다.
         LikeFailureNotice(
             failure = likes.failure,
             onClose = { likes.clearFailure() },
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = tabBarBottom(navigationBar)),
         )
 
         if (showCart) {

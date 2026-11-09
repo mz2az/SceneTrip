@@ -39,8 +39,8 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 | 핀 번호 — 첫 화면 작품 탭에서만 민 핀 | 됨 |
 | 자동완성 · 작품 드릴다운 · 지도 범위 검색 · 현위치 | 구현됨 |
 | 온보딩 — 스플래시(핀 낙하 애니메이션) + 사용법 4장 | 됨. 버전 플래그라 내용이 바뀌면 이미 본 사람에게도 다시 보인다 |
-| RootTabs — 검색·홈·커뮤니티 + 코스·마이페이지 입구 | 구현됨 |
-| 홈 — 내 여행 이어가기 · 지금 뜨는 작품 · 오늘의 성지 · 커뮤니티 지금 · 내 기록 | 서버·기기 값을 사용 |
+| RootTabs — 검색·홈·커뮤니티 + 코스·마이페이지 입구 | 구현됨. 탭바는 바닥에 떠 있는 알약(아래 「웹 시안 반영 P1·P2」) |
+| 홈 — 「어디로 여행 가세요?」 사진 카드 · 지금 뜨는 작품 · 오늘의 성지 · 커뮤니티 지금 · 내 기록, 떠 있는 「여행 코스 짜기」 | 서버·기기 값을 사용. 「내 여행 이어가기」 카드는 없앴다(MZ2AZ-547) |
 | 코스 — 편집·저장·공유·여행 안내·가이드 | 구현됨. 촬영지·POI·개인 핀을 구분하고 서버 항목 ID를 보존 |
 | 장소·POI 리뷰 (MZ2AZ-476) | iOS와 같은 구성: 머리줄(「리뷰」+대상명)→요약(평균·별·점수 막대)→방문자 사진 줄→정렬 세그먼트→행(닉네임·「내 리뷰」·상대 날짜·별·고치기)→더 보기/「더 불러오지 못했어요 · 다시 시도」→쓰기 캡슐. 첫 쪽은 스피너/실패/목록 3상태, 빈 상태 두 줄, 로그인→닉네임→쓰기 이음. 작성은 별 선택·카드형 글 입력·고정 오류 띠·사진 칸 상태(올리는 중/멈춤/다시 시도/경고)와 iOS 실패 문구 8종, 내 리뷰는 종류 아이콘·「내 리뷰 고치기·지우기」·영어 편의시설 이름 조회 |
 | 사진첩 | 공식·방문자 사진, 공공누리 원본 비율 보존, 검은 전체 화면·격자·출처·추가 페이지·리뷰 연결 |
@@ -83,6 +83,26 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 [최신 iOS 기능 반영 계획](../../docs/project/plans/android-ios-parity.md)과
 [검증 기록](../../docs/qa/android-ios-parity-verification.md)에 범위와 확인 결과를 남긴다.
 가상 GPS는 앱 기능 대신 Android 에뮬레이터의 위치 주입으로 확인한다.
+
+## 웹 시안 반영 P1·P2 — 떠 있는 탭바·홈 사진 카드 (2026-11-10, MZ2AZ-547)
+
+기준은 iOS 와 같은 체크리스트 `docs/project/plans/ios-web-parity.md`(브랜치 `MZ2AZ-547-ios-web-parity`) T1–T3·H1–H6 이고,
+치수·규칙은 iOS 구현(`FloatingTabBarRules` 등)과 같은 이름·값으로 옮겼다. 순수 규칙은 Compose 형을 쓰지 않아 JVM 시험이 선다
+(`tests/WebParityTabBarHomeTests.kt`·`tests/WebParityTrendingTests.kt`).
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `RootTabs.kt` · `FloatingTabBarRules.kt` · `ui/TabBarParts.kt` | 화면 바닥에 떠 있는 알약(좌우 16 · 내비게이션 막대 위 8 · 높이 58). 세 탭 같은 폭, 고른 탭 뒤 보라 알약이 0.38초에 미끄러짐. 탭 내용은 알약 뒤까지 내려가고 `LocalTabBarClearance`(74 + 내비게이션 막대)만큼 바닥을 비운다 — 홈 목록·커뮤니티 목록·검색 서랍·담기 토스트 |
+| `searchtab/BottomSheet.kt` · `BottomSheetRules.kt` | 검색 탭 서랍도 알약 뒤까지 내려간다. 접힘·중간 단은 알약 위에 보이는 몫으로 잰다(`clearance + (전체 − 상태줄 − clearance) × 비율`). 탭 밖(코스 편집)은 0 이라 예전과 같다 |
+| `hometab/HomeCityCard.kt` · `HomeCityRules.kt` | 「어디로 여행 가세요?」 사진 카드(높이 250). 앱에 실린 도시 사진 8장(`res/drawable-nodpi/city_cover_*.jpg`, iOS 와 같은 파일)이 4초마다 겹쳐 바뀜, 애니메이션 제거 설정이면 첫 장 고정. 도시 칩은 `GET /places/cities` 서버 순서 최대 8 |
+| `hometab/HomeTripFloat.kt` · `HomeTripFloatRules.kt` | 떠 있는 「여행 코스 짜기」. 코스 0개(목록 받은 뒤)면 바로 새 코스, 있으면 ✕ · ≡ · 「+ 새 코스」 · 내 코스(최대 5, 여행 중 먼저) 줄이 오른쪽부터 펼쳐짐. 여행 중이면 단추가 곧 그 코스 |
+| `hometab/PinnedWorks.kt` · `TrendingRules.kt` · `TrendingWorksView.kt` | 「지금 뜨는 작품」 맨 앞에 케이팝 데몬 헌터스(32) 고정, 「전체 보기」 는 인기순 포스터 격자 덮개(`Cover.Trending`) |
+
+- **반투명 유리의 흐림(blur)은 없다.** Compose 에서 뒤 내용을 흐리게 하려면 API 31+ 의 `RenderEffect` 로 탭 내용을 따로 그려야 해서,
+  바탕 88% 불투명 + 얇은 테두리로 대신한다. 도시 칩도 흐림 대신 옅은 어둠 + 흰 18% 바탕이다.
+- **새 코스의 입구는 갈고리 하나다** — 홈의 도시 칩과 「+ 새 코스」 는 `TabRouter.startNewCourse(city)` 를 부르고, 지금은 경로여정
+  덮개의 기존 갈림길(AI 로 짜기 / 직접 짜기)이 뜬다. 다음 묶음(P3, 새 코스 시트 F1·도시로 여행 짜기 Q*)이 이 쪽지를 받는 곳을 바꾼다.
+- 화면 확인용 뒷문: `-e initialTab trending`(전체 보기 덮개), `--ez homeFloatOpen true`(떠 있는 줄을 펼친 채로).
 
 ## 인터페이스
 

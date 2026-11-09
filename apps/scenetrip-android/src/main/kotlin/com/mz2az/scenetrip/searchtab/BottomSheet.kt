@@ -73,6 +73,9 @@ fun BottomSheet(
     // 비율의 바탕에서 뺄 위쪽 높이. iOS 는 `GeometryReader` 가 위 안전영역(상태줄)을 뺀 높이를 주어 그 비율로 잡는다 —
     // 검색 탭은 상태줄 높이를 넘겨 맞춘다(5차 감사 search: 윗변 비율 iOS 50.0% · Android 47.4%).
     ratioInset: Dp = 0.dp,
+    // 화면 바닥에서 떠 있는 탭바가 차지하는 높이(MZ2AZ-547 T3, iOS `bottomClearance`). 서랍은 그 뒤까지 내려가고, 접힘·중간 단은 그 위에
+    // 보이는 몫으로 재며([BottomSheetRules.height]), 내용은 바닥을 그만큼 비운다. 탭 밖(경로 편집)은 0.
+    bottomClearance: Dp = 0.dp,
     content: @Composable () -> Unit,
 ) {
     // **`fillMaxSize` 여야 한다.** 너비만 채우면 `maxHeight` 가 내용 높이로 잡혀
@@ -83,15 +86,20 @@ fun BottomSheet(
         contentAlignment = Alignment.BottomCenter,
     ) {
         val total = maxHeight
-        val maxSheet = total - topInset
+        val maxSheet = BottomSheetRules.maxHeight(total.value, topInset.value).dp
         val density = LocalDensity.current
 
         fun heightFor(target: Detent): Dp =
-            when (target) {
-                Detent.EXPANDED -> maxSheet
-                Detent.MEDIUM -> (total - ratioInset) * mediumFraction
-                else -> (total - ratioInset) * target.ratio
-            }
+            BottomSheetRules
+                .height(
+                    fraction = if (target == Detent.MEDIUM) mediumFraction else target.ratio,
+                    isExpanded = target == Detent.EXPANDED,
+                    total = total.value,
+                    topInset = topInset.value,
+                    bottomClearance = bottomClearance.value,
+                    ratioInset = ratioInset.value,
+                ).coerceAtMost(maxSheet.value)
+                .dp
 
         // 끄는 동안의 손가락 이동량(px). 손을 떼면 0 으로 돌아가고 detent 가 바뀐다.
         var drag by remember { mutableFloatStateOf(0f) }
@@ -158,7 +166,8 @@ fun BottomSheet(
                                 .background(IOS.systemGray3),
                     )
                 }
-                content()
+                // 내용은 탭바 뒤에 가리지 않게 바닥을 비운다(탭 밖에서는 0 이라 예전과 같다).
+                Column(modifier = Modifier.weight(1f).padding(bottom = bottomClearance)) { content() }
             }
         }
     }

@@ -25,14 +25,14 @@ class HomeQaInstrumentation : Instrumentation() {
             await("제작사 공식 페이지")
             click("홈", descriptionOnly = true, heightFraction = 0.2f)
             await("지금 뜨는 작품", absent = "제작사 공식 페이지")
+            // 「전체 보기」 는 홈 위의 인기순 격자다(MZ2AZ-547 H6) — 작품검색 탭으로 가지 않는다.
             click("전체 보기")
-            await("인기 작품", absent = "제작사 공식 페이지", prefix = true)
-            await("기생충")
-            click("홈", descriptionOnly = true)
-            await("지금 뜨는 작품", absent = "제작사 공식 페이지")
+            await("인기순", absent = "제작사 공식 페이지")
+            click("이전", descriptionOnly = true)
+            await("지금 뜨는 작품", absent = "인기순")
             result.putString(
                 "result",
-                "PASS: floating Home icon returns from a title; All works clears the previous detail; public reads only",
+                "PASS: Home tab returns from a title; All works opens the trending grid and Back returns home; public reads only",
             )
         } catch (error: Throwable) {
             result.putString("result", "FAIL: ${error.message}")

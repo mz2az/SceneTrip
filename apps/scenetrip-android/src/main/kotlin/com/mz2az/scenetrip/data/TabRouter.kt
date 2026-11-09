@@ -20,7 +20,16 @@ sealed class Cover {
     data object Route : Cover()
 
     data object Profile : Cover()
+
+    /** 「지금 뜨는 작품」 전체 보기 — 인기순 포스터 격자(MZ2AZ-547 H6, 웹 MZ2AZ-534). */
+    data object Trending : Cover()
 }
+
+/** 새 코스 만들기 쪽지(MZ2AZ-547 H1·H4). iOS `TabRouter.NewCourseRequest`. */
+data class NewCourseRequest(
+    /** 홈 카드의 도시 칩으로 들어왔으면 그 도시 열쇠(`PlaceCity.key`). 「+ 새 코스」 면 null. */
+    val city: String?,
+)
 
 /**
  * 탭 사이를 잇는 길 안내. iOS `Models/TabRouter.swift`(`TabRouter.shared`)를 옮긴 것이다.
@@ -61,6 +70,15 @@ object TabRouter {
     /** 작품검색 탭이 열어 줘야 할 촬영지 — 홈의 "오늘의 성지"가 남긴다. */
     var pendingPlace by mutableStateOf<PlaceSummary?>(null)
 
+    /**
+     * 새 코스 만들기 쪽지 — 홈의 도시 칩·떠 있는 줄 「+ 새 코스」 가 남긴다(MZ2AZ-547 H1·H4).
+     *
+     * **다음 Android 묶음(P3)이 바꿀 자리다.** 지금은 경로여정 덮개를 열고 거기 있던 「코스를 어떻게 만들까요?」 갈림길
+     * (AI 로 짜기 / 직접 짜기, `RouteTabView` 의 `ForkSheet`)을 띄운다. P3(새 코스 시트 F1·도시로 여행 짜기 Q*)가
+     * 들어오면 이 쪽지를 받는 곳을 새 시트로 바꾼다 — `city` 가 있으면 Q2(며칠)부터.
+     */
+    var pendingNewCourse by mutableStateOf<NewCourseRequest?>(null)
+
     /** 홈의 전체 보기만 목록을 초기화한다. 일반 검색 탭 선택은 상세 상태를 보존한다. */
     var pendingWorkList by mutableStateOf(false)
 
@@ -82,6 +100,17 @@ object TabRouter {
 
     fun openProfile() {
         cover = Cover.Profile
+    }
+
+    /** 새 코스 만들기의 입구 하나 — 홈의 도시 칩(`city`)과 떠 있는 줄 「+ 새 코스」(null)가 부른다. **P3 가 바꿀 갈고리**다. */
+    fun startNewCourse(city: String?) {
+        pendingNewCourse = NewCourseRequest(city)
+        cover = Cover.Route
+    }
+
+    /** 홈 「지금 뜨는 작품」 의 「전체 보기」. */
+    fun openTrending() {
+        cover = Cover.Trending
     }
 
     /** 홈이 부른다 — 작품검색 탭으로 가서 그 작품의 상세를 연다. */
@@ -126,6 +155,11 @@ object TabRouter {
             "profile" -> {
                 selected = RootTab.HOME
                 cover = Cover.Profile
+            }
+
+            "trending" -> {
+                selected = RootTab.HOME
+                cover = Cover.Trending
             }
 
             else -> {

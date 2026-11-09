@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -73,6 +74,7 @@ import com.mz2az.scenetrip.ui.RouteCurveIcon
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.sfLine
 import com.mz2az.scenetrip.ui.sheetListBottom
+import com.mz2az.scenetrip.ui.tabBarBottom
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -115,7 +117,12 @@ internal fun CommunityPostList(
             }
         },
     ) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = sheetListBottom()) {
+        // 탭 목록은 떠 있는 탭바만큼 바닥을 비운다(MZ2AZ-547 T2). 내 글 시트는 예전처럼 내비게이션 막대만.
+        val bottom = sheetListBottom()
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = if (mine) bottom else PaddingValues(bottom = tabBarBottom(bottom.calculateBottomPadding())),
+        ) {
             state.message?.let { message ->
                 item {
                     Text(message, color = IOS.systemRed, style = IOS.footnote, modifier = Modifier.padding(16.dp))

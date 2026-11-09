@@ -118,6 +118,8 @@ kt_jvm_library(
         "tests/UsageStatisticsTests.kt",
         "tests/VisitSyncTests.kt",
         "tests/VisualParityRulesTests.kt",
+        "tests/WebParityTabBarHomeTests.kt",
+        "tests/WebParityTrendingTests.kt",
     ],
     deps = [
         ":scenetrip-android",
