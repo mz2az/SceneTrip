@@ -145,7 +145,7 @@ extension RouteEditorView {
         // 갈래는 끄고 「AI 장소」만 켠다. 주변 점 서른 개 사이에서는 방금 추천받은 곳을 못 찾는다.
         // 갈래는 칩으로 다시 켤 수 있다.
         if !answer.places.isEmpty {
-            poiGroupsOn = []
+            mapChips.reset()
             aiPlacesOn = true
         }
     }

@@ -72,8 +72,18 @@ struct RouteEditorView: View {
     /// 가이드와의 대화. **앱 공용이다** — 길찾기 화면과 같은 대화를 본다.
     @ObservedObject var guide = RouteGuideSession.shared
 
-    /// 지도에 보여 줄 편의시설 갈래. 기본은 전부 — 끄는 것은 사용자의 선택이다.
-    @State var poiGroupsOn: Set<RoutePoiGroup> = Set(RoutePoiGroup.allCases)
+    /// 지도 위 편의시설 칩(MZ2AZ-547 M1–M3). **처음엔 다 꺼져 있고 켤 때만 받는다** — 예전엔 줌 13 이상이면 저절로 깔렸다.
+    @State var mapChips = MapPoiChips()
+    @State var poiFetch = MapPoiFetch()
+    /// 지도가 마지막으로 멈춘 범위 — 칩·검색이 이 범위로 묻는다.
+    @State var mapViewport: MapViewport?
+    /// 🔍 검색칸이 열려 있나(M6) · 다시 열 때 채울 검색어 · 엔터 뒤 결과 지도(M7) · 그 카메라 명령.
+    @State var mapSearching = false
+    @State var mapSearchText = ""
+    @StateObject var mapResults = MapSearchResultsModel()
+    @State var mapCamera: MapCameraCommand?
+    /// 지도(와 일정 서랍)가 차지한 높이 — 결과 서랍의 높이를 정한다.
+    @State var mapAreaHeight: CGFloat = 0
     /// 「AI 장소」 칩 — 챗봇이 찾아 준 곳(해태 핀)을 보일 것인가. 갈래 칩과 따로 논다.
     @State var aiPlacesOn = true
     /// 올리면 지도가 코스 전체에 맞춘다(`RouteMapView.courseFitToken`) — 동선 최적화가 쓴다.
@@ -211,7 +221,8 @@ struct RouteEditorView: View {
     var visiblePickedGuide: RouteGuide.Place? {
         guide.picked.flatMap { picked in
             let isAi = guide.places.contains { $0.id == picked.id }
-            return (isAi ? aiPlacesOn : poiGroupsOn.contains(picked.poiGroup)) ? picked : nil
+            // 주변 점·검색 결과에서 고른 것은 늘 보인다 — 갈래를 끄면 그때 놓는다(`toggleMapChip`).
+            return isAi && !aiPlacesOn ? nil : picked
         }
     }
 
@@ -260,7 +271,7 @@ struct RouteEditorView: View {
                     // 시트 안(`tripBanner`)에 — 지도를 카드로 다 가리지 않는다.
                     .overlay(alignment: .top) { arrivalNotice }
                     .accessibilityHidden(!mapToggle.isOpen)
-                if mapToggle.isOpen {
+                if mapToggle.isOpen, !mapResultsOpen {
                     BottomSheet(
                         detent: $panelDetent, topInset: 8,
                         // 지도 40 : 일정 60. 반반이었는데 일정 쪽에 단추가 늘며
@@ -273,13 +284,20 @@ struct RouteEditorView: View {
                         // 안내와 장소가 같은 스크롤을 쓴다. 큰 글자/medium에서도 복귀 문구까지 읽는다.
                         AnyView(stopList)
                     }
-                } else {
+                } else if !mapToggle.isOpen {
                     stopList
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color(.systemBackground))
                 }
             }
-            .overlay(alignment: .bottomLeading) { mapPill }
+            // 지도 맨 위 칩 줄·검색칸·결과 지도(MZ2AZ-547 M1·M6·M7). 일정 서랍 위까지 덮을 수 있게 지도가 아니라 이 칸에 얹는다.
+            .overlay(alignment: .top) { mapTop }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { mapAreaHeight = $0 }
+            .overlay(alignment: .bottomLeading) {
+                if !mapResultsOpen {
+                    mapPill
+                }
+            }
             if RouteEditorRules.showsBottomBar(mode, isNew: isNew) {
                 bottomBar
             }
@@ -348,9 +366,21 @@ struct RouteEditorView: View {
         // **안내 중에는 편의시설 점을 다 끈다**(2026-09-04 사용자 요청) — 경로선이 주인공인데
         // 음식점·명소 점이 그 위를 덮었다. 안내가 끝나면 다시 전부 켠다. 안내 중에 칩으로
         // 켜는 것은 그대로 된다.
+        //
+        // 칩 줄(MZ2AZ-547 M1)은 처음엔 다 꺼져 있다 — 안내가 끝나도 켜지 않는다. 보기로 돌아가도 끈다(칩은 고칠 때만).
         .onChange(of: trip.isActive) { _, active in
-            poiGroupsOn = active ? [] : Set(RoutePoiGroup.allCases)
+            if active {
+                resetMapPoi()
+            }
         }
+        .onChange(of: mode) { _, mode in
+            if mode == .viewing {
+                resetMapPoi()
+            }
+        }
+        // 칩을 켜고 끄거나 「다시 찾기」 를 누를 때만 받는다(M2·M3).
+        .onChange(of: mapChips.ask) { _, _ in fetchMapPois() }
+        .onChange(of: mapResults.fitTick) { _, _ in fitSearchResults() }
         // 저장이 실패하면 이유를 말한다. 버튼이 안 먹는 것처럼 보이면 사용자는
         // 같은 버튼을 계속 누르게 된다.
         .alert("저장하지 못했습니다", isPresented: Binding(
@@ -368,7 +398,7 @@ struct RouteEditorView: View {
         // 해태 「내가 도와줄게!」 — 안내 헤더 입구와 교대한다. 지도가 아니라 **화면** 오른쪽
         // 아래에 떠 있고, 꾹 누르면 옮길 수 있다(2026-09-16). 창이 열려 있거나 핀을 찍는
         // 동안은 숨긴다. 카드가 떠 있으면 말풍선을 접고 카드 위로 비킨다(MZ2AZ-367).
-        .guideFloatingChip(hidden: guideEntry != .floating, cardTop: guideCardTop, keepClear: stayFrame) {
+        .guideFloatingChip(hidden: guideEntry != .floating || mapResultsOpen, cardTop: guideCardTop, keepClear: stayFrame) {
             showGuide = true
         }
         // 떠 있는 ＋ — 해태 동그라미 바로 위, 편집 중에만(E8).
@@ -555,6 +585,7 @@ extension RouteEditorView {
             showSavedAdd = add == "saved"
             showMapAdd = add == "map"
         }
+        await runMapPoiBackdoor()
         let wanted = UserDefaults.standard.integer(forKey: "navStop")
         guard wanted > 0, await waitForStops(count: wanted) else { return }
         startTrip(to: stops[wanted - 1])

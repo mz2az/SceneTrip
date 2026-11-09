@@ -231,9 +231,13 @@ struct RouteTabView: View {
     /// 마이페이지에서 「경로여정에서 열기」로 넘어온 코스를 연다. 쪽지는 한 번
     /// 읽고 버린다 — 남겨 두면 탭에 올 때마다 또 열린다.
     private func openPending() {
-        guard let wanted = router.pendingCourseId,
-              let course = store.courses.first(where: { $0.serverId == wanted })
-        else { return }
+        guard let wanted = router.pendingCourseId else { return }
+        guard let course = store.courses.first(where: { $0.serverId == wanted }) else {
+            // 확인용 뒷문(`-openCourseId`)에 줄 번호를 찾을 수 있게 — 목록에 있는 코스 번호를 남긴다.
+            let ids = store.courses.compactMap(\.serverId).map(String.init).joined(separator: ",")
+            RouteEditorView.log.debug("열 코스 없음 wanted=\(wanted, privacy: .public) 목록=\(ids, privacy: .public)")
+            return
+        }
         router.pendingCourseId = nil
         Task { await opening.open(course, using: store) }
     }

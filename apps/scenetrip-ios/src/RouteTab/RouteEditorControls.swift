@@ -25,7 +25,10 @@ extension RouteEditorView {
             pickedGuide: visiblePickedGuide,
             // 칩으로 거르기 **전** 목록 — 칩을 눌러도 카메라가 안 움직이게.
             guideCameraKey: guide.places.map(\.id).joined(separator: ",") + "|\(guide.picked?.id ?? "-")",
-            ambientPlaces: visibleAmbientPois,
+            // 골고루 찍기(MZ2AZ-547 M4) — 칸마다 1등은 원래 점, 나머지는 작은 점.
+            ambientPlaces: spreadAmbient.major,
+            ambientMinor: spreadAmbient.minor,
+            search: mapSearchPins,
             onViewport: viewportChanged,
             onLocation: { spot in
                 guideLocator.inject(latitude: spot.latitude, longitude: spot.longitude)
@@ -51,8 +54,10 @@ extension RouteEditorView {
                     focusedStop = stop
                 }
             },
-            // 지도가 접혀 있으면 서랍이 없다(MZ2AZ-547 E4).
-            bottomInset: mapToggle.isOpen ? panelHeight : 0,
+            // 지도가 접혀 있으면 서랍이 없다(MZ2AZ-547 E4). 검색 결과가 떠 있으면 결과 서랍이 덮는다(M7).
+            bottomInset: mapResultsOpen
+                ? mapAreaHeight * (mapResults.state?.drawerShare ?? 0)
+                : mapToggle.isOpen ? panelHeight : 0,
             // 여행 안내(2026-09-03) — 내 자리·목적지·실제 경로를 이 지도에.
             tripHere: mapHere,
             navTarget: trip.target,
@@ -199,25 +204,15 @@ extension RouteEditorView {
         .accessibilityLabel(footprints.trailVisible ? tr("발자취 숨기기") : tr("발자취 보기"))
     }
 
-    // MARK: 편의시설 필터
+    // MARK: 「AI 장소」 칩
 
-    /// 챗봇이 찍어 준 핀의 **갈래별 켜고 끄기.** 핀이 하나라도 있어야 나온다 —
-    /// 없는데 필터부터 보이면 무엇을 거르는 줄인지 알 수 없다.
-    ///
-    /// 「전체」는 마스터 스위치다. 다 켜져 있으면 끄고, 하나라도 꺼져 있으면 다 켠다.
+    /// 편집 패널의 칩 자리 — **「AI 장소」 칩만** 남는다(MZ2AZ-547 M5). 편의시설 갈래 칩은 지도 맨 위(`MapPoiBar`)로 옮겼다.
+    /// 챗봇이 찾아 준 곳이 있을 때만 나온다.
     @ViewBuilder
     var poiFilter: some View {
-        // 볼 때는 내 코스만 — 편의시설 칩은 고칠 때만(MZ2AZ-547 E2).
-        if RouteEditorRules.showsEditTools(mode), !poisForChips.isEmpty || !aiChip.isEmpty {
-            RoutePoiChips(places: poisForChips, groupsOn: $poiGroupsOn, onGroupOff: { group in
-                // 감춘 갈래의 고른 핀은 놓는다 — 지도에 없는 것을 계속 골라
-                // 두면 카드만 남는다. AI 장소는 제 칩(해태)이 따로 놓는다.
-                if let picked = guide.picked, picked.poiGroup == group,
-                   !guide.places.contains(where: { $0.id == picked.id })
-                {
-                    guide.picked = nil
-                }
-            }, extras: aiChip)
+        // 볼 때는 내 코스만 — 칩은 고칠 때만(MZ2AZ-547 E2).
+        if RouteEditorRules.showsEditTools(mode), !aiChip.isEmpty {
+            RoutePoiChips(places: [], groupsOn: .constant([]), extras: aiChip, showsAll: false)
                 .padding(.top, 8)
                 .background(Color(.systemBackground))
         }

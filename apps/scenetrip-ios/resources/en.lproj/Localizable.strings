@@ -910,3 +910,25 @@
 "넣을 곳을 골라 주세요" = "Pick places to add";
 "%lld곳 선택 완료" = "Done · %lld picked";
 "코스로" = "Back to trip";
+
+/* 지도 편의시설 칩·지도 검색 (MZ2AZ-547 P5) */
+"찾는 중" = "Searching";
+"조금 더 확대하면 보여요" = "Zoom in to see places";
+"이 지역에서 다시 찾기" = "Search this area";
+"촬영지·가게 이름" = "Spot or shop name";
+"검색 닫기" = "Close search";
+"검색어 지우기" = "Clear search";
+"찾지 못했어요. 잠시 후 다시 해 주세요" = "Search failed. Try again shortly.";
+"촬영지 · 이 지역" = "Filming spots · this area";
+"촬영지 · 전체" = "Filming spots · everywhere";
+"가게·편의시설 · 이 지역" = "Shops & places · this area";
+"가게·편의시설 · 전체" = "Shops & places · everywhere";
+"이 지역엔 없어요" = "None in this area";
+"찾는 촬영지가 없어요" = "No spots found";
+"찾는 가게가 없어요" = "No shops found";
+"이 지역 밖에서도 찾기" = "Search everywhere";
+"검색 끝내기" = "End search";
+"목록 줄이기" = "Shrink list";
+"목록 키우기" = "Expand list";
+"가게 %lld" = "Shops %lld";
+"%@ 코스에 추가" = "Add %@ to the trip";

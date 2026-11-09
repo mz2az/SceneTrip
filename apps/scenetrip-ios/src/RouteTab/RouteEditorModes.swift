@@ -138,7 +138,7 @@ extension RouteEditorView {
 
     /// 해태 동그라미(오른쪽 12, 바닥 76, 46)와 세로 한 줄 — 그 바로 위. 편집 중이고 가이드 창·핀 찍기가 아닐 때만.
     @ViewBuilder var addFab: some View {
-        if RouteEditorRules.showsEditTools(mode), !showGuide, !pinning, !trip.isActive {
+        if RouteEditorRules.showsEditTools(mode), !showGuide, !pinning, !trip.isActive, !mapResultsOpen {
             ZStack(alignment: .bottomTrailing) {
                 if addMenuOpen {
                     Color.black.opacity(0.12)
