@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.26.0
+  version: 1.27.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -217,6 +217,8 @@ tags:
     description: 장바구니 — 담긴 장소. 코스에 넣는 것은 `courses` 쪽이다
   - name: trip
     description: 정한 여행 — 홈 질문에서 고른 도시·며칠·속도(1.25.0)
+  - name: app
+    description: 앱 자체 — 최소·최신 버전과 스토어 주소(1.27.0)
   - name: courses
     description: 코스 — 만들기·고치기, 일차와 그 안의 장소
   - name: favorites
@@ -1898,6 +1900,39 @@ paths:
                 $ref: "#/components/schemas/PoiCardBatch"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /app/versions:
+    get:
+      tags: [app]
+      operationId: getAppVersions
+      summary: 앱 최소·최신 버전
+      security: []
+      description: |
+        앱이 켜질 때와 다시 앞으로 올 때 부른다(1.27.0, MZ2AZ-546). 로그인·설치 번호가 필요 없다.
+
+        | 설치된 버전 | 앱이 할 일 |
+        | --- | --- |
+        | `minimum` 보다 낮음 | 닫을 수 없는 「업데이트해야 계속 쓸 수 있어요」 → 스토어 |
+        | `latest` 보다 낮음 | 「새 버전이 나왔어요」 [나중에][업데이트]. 그 `latest` 에 한 번만 |
+        | 그 밖 | 아무것도 띄우지 않는다 |
+
+        **버전 비교**: 점으로 나눈 칸을 앞에서부터 **숫자로** 비교하고, 없는 칸은 0 으로 본다
+        (`1.10.0 > 1.9.9`, `1.2 = 1.2.0`). 이 창구를 부르지 못하면 앱은 아무것도 띄우지 않는다 —
+        업데이트 확인 때문에 앱을 막지 않는다.
+      responses:
+        "200":
+          description: 플랫폼별 버전 규칙
+          headers:
+            Cache-Control:
+              description: "`public, max-age=300` — 숫자는 배포 때만 바뀐다"
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppVersions"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -3883,6 +3918,35 @@ components:
           format: int64
           nullable: true
           description: 이 여행으로 만든 **내 코스**. 없으면 아직 안 만든 것
+
+    AppVersions:
+      type: object
+      description: 플랫폼별 버전 규칙(1.27.0). 아직 내지 않은 플랫폼은 빠진다.
+      required: [ios]
+      properties:
+        ios:
+          $ref: "#/components/schemas/AppVersionRule"
+        android:
+          $ref: "#/components/schemas/AppVersionRule"
+
+    AppVersionRule:
+      type: object
+      required: [minimum, latest]
+      properties:
+        minimum:
+          type: string
+          pattern: '^\d+(\.\d+){0,2}$'
+          description: 이보다 낮은 버전은 업데이트해야 쓸 수 있다(강제). `minimum ≤ latest`.
+          example: 1.0.0
+        latest:
+          type: string
+          pattern: '^\d+(\.\d+){0,2}$'
+          description: 스토어의 최신 버전. 이보다 낮으면 업데이트를 권한다.
+          example: 1.1.0
+        storeUrl:
+          type: string
+          format: uri
+          description: 업데이트 단추가 여는 스토어 주소. 없으면 앱이 아는 자기 스토어 주소를 쓴다(스토어 번호를 아직 모를 때).
 
     TripPlan:
       type: object

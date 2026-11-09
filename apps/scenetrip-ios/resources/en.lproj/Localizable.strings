@@ -785,3 +785,11 @@
 /* 커뮤니티 접기 단추의 VoiceOver 상태 (MZ2AZ-528). */
 "펼침" = "Expanded";
 "접힘" = "Collapsed";
+
+/* 앱 업데이트 안내 (MZ2AZ-546). */
+"업데이트가 필요해요" = "Update required";
+"새 버전으로 업데이트해야 계속 쓸 수 있어요." = "Please update to the latest version to keep using SceneTrip.";
+"업데이트" = "Update";
+"새 버전이 나왔어요" = "A new version is available";
+"나중에" = "Later";
+"업데이트하면 새 기능을 쓸 수 있어요." = "Update to get the latest features.";
