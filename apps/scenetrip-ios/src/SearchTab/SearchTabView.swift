@@ -24,6 +24,8 @@ struct SearchTabView: View {
     @State var tab: Tab = .work
     @State var chip = CategoryChip.all
     @State var detent: BottomSheet<AnyView>.Detent = .medium
+    /// 떠 있는 탭바가 화면 바닥에서 차지하는 높이 — 서랍이 그 뒤까지 내려간다(MZ2AZ-547 T3, `RootTabs`).
+    @Environment(\.tabBarClearance) var tabBarClearance
     @State var selectedPlace: PlaceSummary?
 
     /// 드릴다운 2단 — 고른 작품과 그 작품의 촬영지 (`GET /contents/{id}/places`).
@@ -150,6 +152,7 @@ struct SearchTabView: View {
             BottomSheet(
                 detent: $detent,
                 topInset: 108,
+                bottomClearance: tabBarClearance,
                 onHeightChange: { sheetHeight = $0 }
             ) {
                 AnyView(sheetContent)
