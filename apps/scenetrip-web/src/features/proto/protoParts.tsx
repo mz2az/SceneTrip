@@ -13,7 +13,7 @@ import { makeCourse, makeDay, makeStop } from '@/features/route/models'
 import { routeActions } from '@/features/route/store'
 import { useLang } from '@/i18n'
 import { cartActions, useCart } from '@/state/cart'
-import { useStore } from '@/state/storage'
+import { readJSON, useStore, writeJSON } from '@/state/storage'
 import { type Pace, daysLabel, paceLabel, rememberProtoCourse, say } from './protoState'
 import { showsPrototypeMarks } from './protoGate'
 import { color, contained, heading, radius, shadow, z } from './protoTokens'
@@ -326,11 +326,31 @@ export function coverOf(city: HomeCity): PlaceSummary | undefined {
   return (fixed !== undefined ? city.places.find((p) => p.id === fixed && hasPhoto(p)) : undefined) ?? city.places.find(hasPhoto)
 }
 
+/** 사진 머리 한 장 — 사진·이름·작품만. 지난번 것을 이 브라우저에 기억해 두고 다음에 열 때 먼저 보인다. */
+export interface CitySlide {
+  city: string
+  place: Pick<PlaceSummary, 'id' | 'name' | 'imageUrl' | 'contents'>
+}
+
+const SLIDES_KEY = 'proto.citySlides.v1'
+
+/**
+ * 도시 목록은 촬영지 목록을 여러 쪽 받아 만들어서 늦다(시험용 웹은 한국에서도 미국 LA 의 Cloudflare 를 거쳐 15초쯤, 2026-11-09 실측).
+ * 그동안 지난번에 본 사진들을 먼저 보이고, 새 목록이 오면 바꾼다.
+ */
 export function useCitySlides(cities: readonly HomeCity[]) {
-  const slides = cities
+  const live: CitySlide[] = cities
     .slice(0, 6)
     .map((c) => ({ city: c.name, place: coverOf(c) }))
     .filter((s): s is { city: string; place: PlaceSummary } => !!s.place)
+    .map((s) => ({ city: s.city, place: { id: s.place.id, name: s.place.name, imageUrl: s.place.imageUrl, contents: s.place.contents?.slice(0, 1) } }))
+  const [remembered] = useState(() => readJSON<CitySlide[]>(SLIDES_KEY, []))
+  const liveKey = live.map((s) => `${s.city}:${s.place.id}:${s.place.imageUrl}`).join('|')
+  useEffect(() => {
+    if (live.length > 0) writeJSON(SLIDES_KEY, live)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 내용이 같으면 다시 쓰지 않는다
+  }, [liveKey])
+  const slides = live.length > 0 ? live : remembered
   const [at, setAt] = useState(0)
   useEffect(() => {
     if (slides.length < 2 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
@@ -341,21 +361,30 @@ export function useCitySlides(cities: readonly HomeCity[]) {
 }
 
 /** 겹쳐 바뀌는 사진들 — 부모가 position: relative 여야 한다. */
-export function SlideImages({ slides, at }: { slides: ReadonlyArray<{ place: PlaceSummary }>; at: number }) {
+export function SlideImages({ slides, at }: { slides: readonly CitySlide[]; at: number }) {
+  const n = slides.length
+  const i0 = n === 0 ? 0 : at % n
   return (
     <>
-      {slides.map((s, i) => (
-        <img
-          key={s.place.id}
-          src={s.place.imageUrl!}
-          alt=""
-          referrerPolicy="no-referrer"
-          style={{
-            position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-            opacity: i === at ? 1 : 0, transform: i === at ? 'scale(1.06)' : 'scale(1)', transition: 'opacity 1.2s ease, transform 5s ease-out',
-          }}
-        />
-      ))}
+      {slides.map((s, i) => {
+        // 지금 장·사라지는 앞 장·다음 장만 받는다 — 여섯 장을 한꺼번에 받으면 첫 장이 대역폭을 나눠 늦게 뜬다.
+        const shown = i === i0
+        if (!shown && i !== (i0 + 1) % n && i !== (i0 - 1 + n) % n) return null
+        return (
+          <img
+            key={s.place.id}
+            src={s.place.imageUrl!}
+            alt=""
+            referrerPolicy="no-referrer"
+            decoding="async"
+            fetchPriority={shown ? 'high' : 'low'}
+            style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+              opacity: shown ? 1 : 0, transform: shown ? 'scale(1.06)' : 'scale(1)', transition: 'opacity 1.2s ease, transform 5s ease-out',
+            }}
+          />
+        )
+      })}
     </>
   )
 }
