@@ -156,7 +156,7 @@ export function MapPoiBar({ map, bottomInset, groupsOn, counts, loading, stale, 
         active
         delay={700}
         steps={[
-          { target: '[data-coach="map-search"]', title: say('지도에서 검색', 'Search on the map'), text: say('가게·명소 이름으로 찾아요. 고른 곳은 「코스에 담기」 로 바로 넣을 수 있어요.', 'Find shops and sights by name, then add them to your course.') },
+          { target: '[data-coach="map-search"]', title: say('지도에서 검색', 'Search on the map'), text: say('촬영지가 아닌 곳도 찾을 수 있어요 — 맛집·카페·숙소·명소를 이름으로 검색해 「코스에 담기」 로 바로 넣어요.', 'Not just filming spots — search restaurants, cafés, stays and sights by name, then add them to your course.') },
           { target: '[data-coach="map-chips"]', title: say('주변 둘러보기', 'Browse nearby'), text: say('전체·음식·관광지·숙소 칩을 누르면 지금 보이는 지도 안의 장소가 핀으로 떠요.', 'Tap All, Food, Sights or Stays to pin places in the area you are looking at.') },
         ]}
       />
