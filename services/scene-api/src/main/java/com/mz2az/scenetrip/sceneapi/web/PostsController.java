@@ -5,6 +5,10 @@ import com.mz2az.scenetrip.sceneapi.api.model.CourseDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.api.model.TripPostAuthor;
 import com.mz2az.scenetrip.sceneapi.api.model.TripPostBlock;
+import com.mz2az.scenetrip.sceneapi.api.model.TripPostBoard;
+import com.mz2az.scenetrip.sceneapi.api.model.TripPostComment;
+import com.mz2az.scenetrip.sceneapi.api.model.TripPostCommentCreate;
+import com.mz2az.scenetrip.sceneapi.api.model.TripPostCommentList;
 import com.mz2az.scenetrip.sceneapi.api.model.TripPostCourse;
 import com.mz2az.scenetrip.sceneapi.api.model.TripPostCourseDay;
 import com.mz2az.scenetrip.sceneapi.api.model.TripPostCourseStop;
@@ -21,7 +25,13 @@ import com.mz2az.scenetrip.sceneapi.review.PhotoStorage;
 import com.mz2az.scenetrip.sceneapi.review.UploadStore;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +51,9 @@ import org.springframework.web.bind.annotation.RestController;
 class PostsController implements PostsApi {
 
   private static final int DEFAULT_LIMIT = 20;
+
+  /** 댓글 길이 상한(계약 {@code TripPostCommentCreate.body}) — 앞뒤 공백을 뗀 뒤 센다. */
+  private static final int COMMENT_MAX = 500;
 
   private final PostStore store;
   private final CourseStore courses;
@@ -136,6 +149,10 @@ class PostsController implements PostsApi {
       uploads.release(claim);
       throw e;
     }
+    // 자유게시판이면 쓴 뒤 게시판을 옮긴다(1.24.0) — 쓰기는 표의 기본값(여행후기)으로 만든다(PostStore.setBoard).
+    if (in.getBoard() != null && !PostStore.REVIEW.equals(in.getBoard().getValue())) {
+      store.setBoard(postId, in.getBoard().getValue());
+    }
     TripPostDetail created;
     try {
       created = detail(postId, user, acceptLanguage);
@@ -174,8 +191,104 @@ class PostsController implements PostsApi {
 
   @Override
   public ResponseEntity<TripPostList> listPosts(
-      Lang acceptLanguage, Integer limit, Integer offset) {
-    return ResponseEntity.ok(list(accounts.signedInOrNull(), null, limit, offset));
+      Lang acceptLanguage,
+      Integer limit,
+      Integer offset,
+      TripPostBoard board,
+      String q,
+      String cursor) {
+    UUID viewer = accounts.signedInOrNull();
+    int size = limit == null ? DEFAULT_LIMIT : limit;
+    int skip = offset == null ? 0 : offset;
+    String term = searchTerm(q);
+    PostStore.Cursor after = cursor == null ? null : decodeCursor(cursor);
+    if (after != null && skip > 0) {
+      throw ApiException.badRequest("INVALID_PARAMETER", "cursor 와 offset 은 함께 쓸 수 없습니다");
+    }
+    // 게시판·검색어·커서를 하나도 주지 않은 옛 요청은 옛 길 그대로(여행후기만) — 다음 쪽 커서만 덧붙인다.
+    if (board == null && term == null && after == null) {
+      PostStore.Page<PostStore.Summary> page = store.list(viewer, null, size, skip);
+      boolean more = skip + page.items().size() < page.total();
+      return ResponseEntity.ok(listOf(page.items(), page.total(), more));
+    }
+    PostStore.Slice slice =
+        store.list(
+            new PostStore.Query(
+                viewer,
+                null,
+                board == null ? PostStore.REVIEW : board.getValue(),
+                term,
+                after,
+                size,
+                skip));
+    return ResponseEntity.ok(listOf(slice.items(), slice.total(), slice.hasMore()));
+  }
+
+  // ── 좋아요·댓글 (1.24.0, MZ2AZ-538, 계획 community-social.md) ───────────────
+
+  @Override
+  public ResponseEntity<Void> likePost(Long postId) {
+    // 토큰 없이 누르면 로그인 화면으로 안내한다(계약 SignInRequired) — 「토큰을 지워라」(ACCESS_TOKEN_INVALID)가 아니다.
+    UUID user = accounts.requireMember();
+    if (!store.like(postId, user)) {
+      throw notFound(postId);
+    }
+    return ResponseEntity.noContent().build();
+  }
+
+  @Override
+  public ResponseEntity<Void> unlikePost(Long postId) {
+    // 토큰 없이 누르면 로그인 화면으로 안내한다(계약 SignInRequired) — 「토큰을 지워라」(ACCESS_TOKEN_INVALID)가 아니다.
+    UUID user = accounts.requireMember();
+    if (!store.unlike(postId, user)) {
+      throw notFound(postId);
+    }
+    return ResponseEntity.noContent().build();
+  }
+
+  @Override
+  public ResponseEntity<TripPostCommentList> listPostComments(
+      Long postId, Integer limit, Integer offset) {
+    PostStore.Page<PostStore.Comment> page =
+        store
+            .comments(
+                postId,
+                accounts.signedInOrNull(),
+                limit == null ? DEFAULT_LIMIT : limit,
+                offset == null ? 0 : offset)
+            .orElseThrow(() -> notFound(postId));
+    return ResponseEntity.ok(
+        new TripPostCommentList(
+            page.items().stream().map(PostsController::comment).toList(), page.total()));
+  }
+
+  @Override
+  public ResponseEntity<TripPostComment> createPostComment(Long postId, TripPostCommentCreate in) {
+    UUID user = accounts.requireMember();
+    String body = in.getBody() == null ? "" : in.getBody().strip();
+    if (body.isEmpty()) {
+      throw ApiException.badRequest("INVALID_PARAMETER", "댓글은 비울 수 없습니다");
+    }
+    if (body.codePointCount(0, body.length()) > COMMENT_MAX) {
+      throw ApiException.badRequest("INVALID_PARAMETER", "댓글은 500자까지입니다");
+    }
+    ApiException.requireAllowedText("댓글", body);
+    PostStore.Comment created;
+    try {
+      created = store.addComment(postId, user, body).orElseThrow(() -> notFound(postId));
+    } catch (PostStore.AuthorGoneException e) {
+      throw ApiException.unauthorized("ACCESS_TOKEN_INVALID", e.getMessage());
+    }
+    return ResponseEntity.status(HttpStatus.CREATED).body(comment(created));
+  }
+
+  @Override
+  public ResponseEntity<Void> deletePostComment(Long postId, Long commentId) {
+    UUID user = accounts.requireMember();
+    if (!store.deleteComment(postId, commentId, user)) {
+      throw ApiException.notFound("COMMENT_NOT_FOUND", "댓글 " + commentId + " 이(가) 없습니다");
+    }
+    return ResponseEntity.noContent().build();
   }
 
   @Override
@@ -210,10 +323,66 @@ class PostsController implements PostsApi {
   // ── 안쪽 ──────────────────────────────────────────────────────────────────
 
   private TripPostList list(UUID viewer, UUID author, Integer limit, Integer offset) {
+    int skip = offset == null ? 0 : offset;
     PostStore.Page<PostStore.Summary> page =
-        store.list(
-            viewer, author, limit == null ? DEFAULT_LIMIT : limit, offset == null ? 0 : offset);
-    return new TripPostList(page.items().stream().map(this::summary).toList(), page.total());
+        store.list(viewer, author, limit == null ? DEFAULT_LIMIT : limit, skip);
+    return listOf(page.items(), page.total(), skip + page.items().size() < page.total());
+  }
+
+  /** 목록 응답 — 다음이 있으면 마지막 줄의 자리를 커서로 덧붙인다. */
+  private TripPostList listOf(List<PostStore.Summary> items, int total, boolean more) {
+    TripPostList out = new TripPostList(items.stream().map(this::summary).toList(), total);
+    if (more && !items.isEmpty()) {
+      PostStore.Summary last = items.get(items.size() - 1);
+      out.nextCursor(encodeCursor(new PostStore.Cursor(last.createdAt(), last.id())));
+    }
+    return out;
+  }
+
+  /** 검색어 — 앞뒤 공백을 지우고 2자 이상. 없으면 null. */
+  private static String searchTerm(String q) {
+    if (q == null) {
+      return null;
+    }
+    String trimmed = q.strip();
+    if (trimmed.codePointCount(0, trimmed.length()) < 2) {
+      throw ApiException.badRequest("INVALID_PARAMETER", "q 는 앞뒤 공백을 빼고 2자 이상이어야 합니다");
+    }
+    return trimmed;
+  }
+
+  /**
+   * 커서 = 「v1:작성 시각(에포크 마이크로초):글 번호」 를 URL 안전 base64 로. 앱은 풀어 쓰지 않는다(계약) — 모양을 바꿔도 앞의 판 표시로 가린다. DB
+   * 의 시각이 마이크로초라 그 정밀도로 담아야 같은 시각의 글이 겹치거나 빠지지 않는다.
+   */
+  static String encodeCursor(PostStore.Cursor c) {
+    long micros = ChronoUnit.MICROS.between(Instant.EPOCH, c.createdAt().toInstant());
+    String raw = "v1:" + micros + ":" + c.id();
+    return Base64.getUrlEncoder()
+        .withoutPadding()
+        .encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+  }
+
+  static PostStore.Cursor decodeCursor(String cursor) {
+    try {
+      String raw =
+          new String(Base64.getUrlDecoder().decode(cursor.strip()), StandardCharsets.UTF_8);
+      String[] parts = raw.split(":");
+      if (parts.length != 3 || !"v1".equals(parts[0])) {
+        throw new IllegalArgumentException(raw);
+      }
+      Instant at = Instant.EPOCH.plus(Long.parseLong(parts[1]), ChronoUnit.MICROS);
+      return new PostStore.Cursor(
+          OffsetDateTime.ofInstant(at, ZoneOffset.UTC), Long.parseLong(parts[2]));
+    } catch (IllegalArgumentException e) {
+      throw ApiException.badRequest(
+          "INVALID_PARAMETER", "cursor 가 올바르지 않습니다 — 앞 응답의 nextCursor 를 그대로 보내세요");
+    }
+  }
+
+  private static TripPostComment comment(PostStore.Comment c) {
+    return new TripPostComment(c.id(), c.body(), c.createdAt(), c.mine())
+        .author(c.nickname() == null ? null : new TripPostAuthor(c.nickname()));
   }
 
   private TripPostSummary summary(PostStore.Summary s) {
@@ -224,7 +393,10 @@ class PostsController implements PostsApi {
     if (s.courseTitle() != null) {
       out.course(new TripPostCourseSummary(s.courseTitle(), s.courseDayCount(), s.placeCount()));
     }
-    return out;
+    return out.board(TripPostBoard.fromValue(s.board()))
+        .likeCount(s.likeCount())
+        .commentCount(s.commentCount())
+        .liked(s.liked());
   }
 
   private TripPostDetail detail(long postId, UUID viewer, Lang acceptLanguage) {
@@ -239,7 +411,11 @@ class PostsController implements PostsApi {
                 d.photoKeys().stream().map(storage::viewUrl).toList(),
                 s.mine())
             .bodyBlocks(d.bodyBlocks())
-            .author(s.nickname() == null ? null : new TripPostAuthor(s.nickname()));
+            .author(s.nickname() == null ? null : new TripPostAuthor(s.nickname()))
+            .board(TripPostBoard.fromValue(s.board()))
+            .likeCount(s.likeCount())
+            .commentCount(s.commentCount())
+            .liked(s.liked());
     if (s.courseTitle() != null) {
       out.course(course(postId, s.courseTitle(), s.courseDayCount(), lang(acceptLanguage)));
     }

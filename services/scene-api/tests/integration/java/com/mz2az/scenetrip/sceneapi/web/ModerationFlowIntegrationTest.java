@@ -855,9 +855,9 @@ class ModerationFlowIntegrationTest {
     long blockedPost = post("차단될 사람의 후기", "본문");
     UUID me = member();
     as(me);
-    long before = posts.listPosts(null, 1, 0).getBody().getTotal();
+    long before = posts.listPosts(null, 1, 0, null, null, null).getBody().getTotal();
     moderation.createBlock(new BlockCreate(ReportTargetType.POST, blockedPost));
-    long after = posts.listPosts(null, 1, 0).getBody().getTotal();
+    long after = posts.listPosts(null, 1, 0, null, null, null).getBody().getTotal();
     assertThat(after).isEqualTo(before - 1);
   }
 
@@ -953,7 +953,7 @@ class ModerationFlowIntegrationTest {
   }
 
   private List<Long> postIds() {
-    return posts.listPosts(null, 50, 0).getBody().getItems().stream()
+    return posts.listPosts(null, 50, 0, null, null, null).getBody().getItems().stream()
         .map(TripPostSummary::getId)
         .toList();
   }

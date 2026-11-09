@@ -98,6 +98,7 @@ class ModerationController implements ModerationApi {
     return switch (type) {
       case REVIEW -> ReportStore.Target.REVIEW;
       case POST -> ReportStore.Target.POST;
+      case COMMENT -> ReportStore.Target.COMMENT;
     };
   }
 
