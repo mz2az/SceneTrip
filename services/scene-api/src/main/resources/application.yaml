@@ -268,6 +268,14 @@ scenetrip:
   review:
     archive-retention-days: 90
 
+  # 앱 최소·최신 버전(MZ2AZ-546). 새 앱을 내면 latest 를, 옛 앱을 막아야 하면 minimum 을 올려 배포한다. 형식이 틀리거나 minimum > latest 면 뜨지 않는다.
+  # store-url 은 앱스토어 번호를 받으면 넣는다(비우면 앱이 아는 주소). Android 는 아직 내지 않아 적지 않는다(응답에서 빠진다).
+  app-versions:
+    ios:
+      minimum: 1.0.0
+      latest: 1.0.0
+      store-url:
+
   course:
     walking-speed-kmh: 4.0
     detour-factor: 1.3

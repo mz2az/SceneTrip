@@ -11,6 +11,7 @@ import SwiftUI
 /// - ATT: 앱이 활성으로 처음 보인 뒤 0.6초에 묻는다(`TrackingAuthorization.requestWhenSettled`).
 struct AppRoot: View {
     @ObservedObject private var language = AppLanguage.shared
+    @ObservedObject private var update = AppUpdateChecker.shared
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -18,6 +19,38 @@ struct AppRoot: View {
             // 언어가 바뀌면 화면을 통째로 다시 만든다 — 서버 내용도 그 언어로 다시 받아야 한다.
             RootTabs()
                 .id(language.lang)
+            // 강제 업데이트 — 앱을 통째로 덮는다(MZ2AZ-546).
+            if case let .required(store) = update.decision {
+                RequiredUpdateCover(store: store, onUpdate: update.openStore)
+                    .transition(.opacity)
+            }
+        }
+        // 권장 업데이트 — 그 최신 버전에 한 번(MZ2AZ-546).
+        .alert(
+            "새 버전이 나왔어요",
+            isPresented: Binding(
+                get: {
+                    if case .recommended = update.decision {
+                        true
+                    } else {
+                        false
+                    }
+                },
+                set: {
+                    if !$0 {
+                        update.later()
+                    }
+                }
+            )
+        ) {
+            Button("나중에", role: .cancel) { update.later() }
+            Button("업데이트") {
+                if case let .recommended(_, store) = update.decision {
+                    update.openStore(store)
+                }
+            }
+        } message: {
+            Text("업데이트하면 새 기능을 쓸 수 있어요.")
         }
         // SwiftUI 의 글자는 이 로케일로 번역 표를 찾는다. 시트도 물려받는다.
         .environment(\.locale, language.locale)
@@ -28,6 +61,8 @@ struct AppRoot: View {
         // 같은 실행에서 두 번 묻지 않는 것은 `TrackingAuthorization` 이 지킨다.
         .task(id: scenePhase == .active) {
             guard scenePhase == .active else { return }
+            // 앞으로 올 때마다 최소·최신 버전을 묻는다(MZ2AZ-546). 못 부르면 아무것도 띄우지 않는다.
+            await update.check()
             await TrackingAuthorization.shared.requestWhenSettled {
                 scenePhase == .active && UIApplication.shared.applicationState == .active
             }
