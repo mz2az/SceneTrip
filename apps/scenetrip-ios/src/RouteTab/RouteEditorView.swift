@@ -403,6 +403,9 @@ struct RouteEditorView: View {
         }
         // 떠 있는 ＋ — 해태 동그라미 바로 위, 편집 중에만(E8).
         .overlay { addFab }
+        // 처음 안내(MZ2AZ-547 C4·C5) — 처음 만든 코스의 지도·해태·＋·저장, 지도를 처음 펼칠 때 🔍·칩.
+        .coachTour(.editorFirst, active: coachEditorFirstActive)
+        .coachTour(.mapSearch, active: coachMapSearchActive)
         // 보기/편집·장소 넣기·장소 상세의 창들(`RouteEditorModes.swift`).
         .background { modePresentations }
         // 가이드는 시트가 아니라 **오른쪽 서랍**이다 — 오른쪽에서 미끄러져

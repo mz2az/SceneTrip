@@ -28,6 +28,7 @@ extension RouteEditorView {
         .lineLimit(1).fixedSize(horizontal: true, vertical: true)
         .frame(minHeight: 44)
         .disabled(!course.canSave)
+        .coachTarget("editor-save")
     }
 
     var courseTitleField: some View {

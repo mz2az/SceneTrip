@@ -527,6 +527,27 @@ navi-proto 의 홈 재편(`cd8debd`)과 편의시설 점을 옮겼다. 홈은 �
 `-editorMap 1`(지도를 펼친 채로) · `-freshCourse 1`(그 코스를 「방금 만든 코스」 로 — 「취소」 가 지울지 묻는다) · `-editorAdd menu|saved|map`(＋ 메뉴·보관함에서 추가·지도에서 추가를 연 채로).
 여는 코스 번호는 기기 기록에 남는다 — `log show --debug --predicate 'subsystem == "com.mz2az.scenetrip" AND category == "route"'`.
 
+## 웹 시안 반영 P6 — 처음 안내 말풍선 (2026-11-10, MZ2AZ-547)
+
+계획은 [ios-web-parity.md](../../docs/project/plans/ios-web-parity.md) C1–C5(웹 `proto/CoachTour.tsx`). 처음 보는 사람에게 단추 하나만 밝게 남기고
+나머지를 어둡게 덮은 뒤, 말풍선이 그 단추가 무엇을 하는지 말한다. 끝까지 보거나 「건너뛰기」 하면 이 기기에서는 다시 띄우지 않는다.
+
+| 안내 | 언제 | 가리키는 것 |
+| --- | --- | --- |
+| `home-plan-trip` | 홈, 0.9초 뒤. 여행 중 코스가 없고 떠 있는 줄이 접혀 있고 홈이 가려지지 않았을 때 | 「여행 코스 짜기」 |
+| `fork-options` | 「새 여행 코스」 시트, 0.55초 뒤 | 도시로 시작 · 작품으로 · 담은 곳으로 |
+| `editor-first` | 계획 화면, 1.2초 뒤. 편집 중이고 새 코스·방금 만든 코스이며 묻는 창이 없을 때 | 「지도」 · 해태 · ＋ · 「저장」 |
+| `map-search` | 계획 화면 지도를 펼쳐 칩 줄이 보일 때, 0.7초 뒤 | 🔍 · 「전체」 |
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `Coach/CoachRules.swift` | 안내 넷의 문구·표식·지연, 한 번에 하나(`CoachQueue`), 다음·건너뛰기·덮개 누름·단추 없음(4초)·화면 떠남, 본 것 기억(`CoachSeenStore`, `UserDefaults` 의 `scenetrip.coach.seen`), 구멍·말풍선 자리(폭 280, 위/아래, 화면·안전영역 안). 시험: `tests/CoachRulesTests.swift` |
+| `Coach/CoachCenter.swift` | 안내를 띄우고 넘긴다. 앱 창 위에 **따로 띄운 투명한 창**에 그린다 — 시트(330) 안에는 말풍선 자리가 없고 웹처럼 시트 위까지 덮어야 해서. 단추는 `coachTarget("이름")` 표식(밑에 깔린 UIKit 조각)으로 찾고, 그 위에 다른 창(시트·경고창·덮개)이 떠 있으면 숨기고 기다린다. 화면에 붙이는 것은 `coachTour(_:active:)` 한 줄 |
+| `Coach/CoachOverlay.swift` | 덮개(누르면 다음)·말풍선(제목 16 · 본문 14 · 「1 / N」 · 건너뛰기 · 다음/알겠어요). 떠 있는 동안 매 화면 단추 자리를 다시 재서 따라간다. 움직임 줄이기면 움직이지 않는다 |
+
+확인용 뒷문: `-coachReset 1`(본 기록을 지우고 처음부터) · `-coachStep N`(N 번째 단계부터 — 시뮬레이터에 합성 탭이 닿지 않아 둘째 단계부터는 이것으로 본다).
+예: `-coachReset 1 -newCourse sheet -coachStep 3`, `-coachReset 1 -initialTab route -openCourseId N -editorMode edit -freshCourse 1`, `… -editorMode edit -editorMap 1`.
+
 ## 여행 모드 — 편집 화면 안에서 길찾기·스탬프 (2026-09-04, MZ2AZ-307)
 
 계획은 [trip-mode.md](../../docs/project/plans/trip-mode.md) §8·§9. navi-proto 의 2단계를 옮기되

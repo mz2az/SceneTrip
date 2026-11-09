@@ -11,6 +11,19 @@ extension RouteEditorView {
         MapPoiChips.showsBar(mode: mode, mapOpen: mapToggle.isOpen, tripActive: trip.isActive)
     }
 
+    /// 처음 만든 계획 화면 안내(C4) — 편집 중이고 새 코스·방금 만든 코스이며 묻는 창이 없을 때.
+    var coachEditorFirstActive: Bool {
+        CoachRules.editorFirstActive(
+            editing: mode == .editing, isNew: isNew, fresh: fresh,
+            confirming: confirmingLeave || confirmingDiscard || confirmingRevert
+        )
+    }
+
+    /// 지도 검색 안내(C5, M8) — 칩 줄이 보이고 검색칸·결과 지도가 닫혀 있을 때.
+    var coachMapSearchActive: Bool {
+        CoachRules.mapSearchActive(barShown: showsMapPoiBar, searching: mapSearching, resultsOpen: mapResults.isOpen)
+    }
+
     /// 결과 지도가 떠 있나 — 그동안 일정 서랍·지도 알약·＋·해태는 비킨다.
     var mapResultsOpen: Bool {
         showsMapPoiBar && mapResults.isOpen

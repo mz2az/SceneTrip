@@ -98,6 +98,7 @@ extension RouteEditorView {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(mapToggle.isOpen ? .isSelected : [])
+        .coachTarget("editor-map")
         .padding(16)
     }
 

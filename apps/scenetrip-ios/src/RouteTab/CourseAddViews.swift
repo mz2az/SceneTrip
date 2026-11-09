@@ -168,6 +168,7 @@ struct CourseAddFab: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("장소 추가"))
+            .coachTarget("editor-add")
         }
     }
 

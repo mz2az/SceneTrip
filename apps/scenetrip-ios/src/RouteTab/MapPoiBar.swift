@@ -46,6 +46,7 @@ struct MapPoiBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("장소 검색"))
+        .coachTarget("map-search")
     }
 
     /// 전체 — 갈래를 고르지 않고 찾기. 넷이 다 켜진 것과 같다.
@@ -57,6 +58,7 @@ struct MapPoiBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(chips.allOn ? .isSelected : [])
+        .coachTarget("map-chips")
     }
 
     private func groupChip(_ group: RoutePoiGroup) -> some View {

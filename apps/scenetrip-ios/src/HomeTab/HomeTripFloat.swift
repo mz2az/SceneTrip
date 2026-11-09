@@ -13,6 +13,8 @@ struct HomeTripFloat: View {
     let onAll: () -> Void
     /// 「+ 새 코스」·코스 0개의 「여행 코스 짜기」 — 「새 여행 코스」 시트(F1, `TabRouter.startNewCourse`).
     let onNew: () -> Void
+    /// 홈이 다른 탭·덮개·시트에 가려져 있나 — 가려져 있으면 처음 안내(C2)를 띄우지 않는다.
+    var coachCovered = false
 
     /// 확인용 뒷문 — `simctl launch … -homeFloatOpen 1` 이면 펼친 채로 뜬다(시뮬레이터에 합성 탭이 닿지 않아 화면 확인용).
     @State private var open = UserDefaults.standard.bool(forKey: "homeFloatOpen")
@@ -37,6 +39,18 @@ struct HomeTripFloat: View {
             .frame(width: geo.size.width, height: geo.size.height, alignment: .trailing)
         }
         .frame(height: 56)
+        // 처음 안내(MZ2AZ-547 C2) — 여행 중이 아니고 줄이 접혀 있을 때 「여행 코스 짜기」 를 짚는다.
+        .coachTour(
+            .homePlanTrip,
+            active: CoachRules.homeActive(running: isRunning, floatOpen: open, covered: coachCovered)
+        )
+    }
+
+    private var isRunning: Bool {
+        if case .running = HomeTripFloatRules.collapsed(courses) {
+            return true
+        }
+        return false
     }
 
     // MARK: 접힌 단추
@@ -53,6 +67,7 @@ struct HomeTripFloat: View {
                 mainPill(symbol: "paperplane.fill", title: tr("여행 코스 짜기"))
             }
             .buttonStyle(.plain)
+            .coachTarget("plan-trip")
         case let .running(course):
             HStack(spacing: 8) {
                 Button { open = true } label: { round(symbol: "list.bullet") }
