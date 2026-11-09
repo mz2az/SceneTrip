@@ -291,6 +291,46 @@ class PlaceCitiesIntegrationTest {
     assertThat(page.total()).isEqualTo(first.getPlaceCount().intValue());
   }
 
+  @Test
+  @DisplayName("list — city 로 조회하면 sceneDescription 은 contents 첫 작품의 장면 설명")
+  void listByCitySceneDescriptionIsFirstContents() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          String marker = marker();
+          long seoul = place("서울특별시 종로구", null, 37.58, 127.01, marker);
+          // 인기도가 높은 작품이 contents 앞에 온다 — 일부러 덜 인기 있는 작품을 먼저 넣는다.
+          long minor = content("도시 장면 둘째 " + marker, 10);
+          long major = content("도시 장면 첫째 " + marker, 90);
+          link(seoul, minor, "둘째 작품의 장면");
+          link(seoul, major, "첫 작품의 장면");
+
+          PlaceSummary item = onlyItem(store.list(criteria(marker, null, "서울")), seoul);
+
+          assertThat(item.getContents()).isNotEmpty();
+          assertThat(item.getContents().get(0).getContentId()).isEqualTo(major);
+          assertThat(item.getSceneDescription()).isEqualTo("첫 작품의 장면");
+          return null;
+        });
+  }
+
+  @Test
+  @DisplayName("list — city 도 contentId 도 없으면 sceneDescription 은 null")
+  void listWithoutCityHasNoSceneDescription() {
+    IntegrationDatabase.rolledBack(
+        () -> {
+          String marker = marker();
+          long seoul = place("서울특별시 종로구", null, 37.58, 127.01, marker);
+          long major = content("도시 장면 첫째 " + marker, 90);
+          link(seoul, major, "첫 작품의 장면");
+
+          PlaceSummary item = onlyItem(store.list(criteria(marker, null, null)), seoul);
+
+          assertThat(item.getContents()).isNotEmpty();
+          assertThat(item.getSceneDescription()).isNull();
+          return null;
+        });
+  }
+
   // ───────────── 픽스처 ─────────────
 
   /** 이 트랜잭션 안에서만 적재된 촬영지를 전부 숨긴다 — 되돌리면 원래대로다. */
@@ -367,6 +407,45 @@ class PlaceCitiesIntegrationTest {
   private static PlaceCity only(List<PlaceCity> cities, String key) {
     Optional<PlaceCity> found = cities.stream().filter(c -> key.equals(c.getKey())).findFirst();
     return found.orElseThrow(() -> new AssertionError("도시가 없다: " + key));
+  }
+
+  /** 작품 하나 — ko 제목, 인기도(contents 순서를 정한다). */
+  private static long content(String title, int popularity) {
+    long id =
+        jdbc.sql(
+                "INSERT INTO content (category, popularity_score) VALUES ('drama', :s) RETURNING"
+                    + " id")
+            .param("s", popularity)
+            .query(Long.class)
+            .single();
+    jdbc.sql(
+            "INSERT INTO content_i18n (content_id, lang, title)"
+                + " VALUES (:id, CAST('ko' AS lang_code), :title)")
+        .param("id", id)
+        .param("title", title)
+        .update();
+    return id;
+  }
+
+  /** 촬영지 × 작품 연결과 그 ko 장면 설명. */
+  private static void link(long placeId, long contentId, String sceneDescription) {
+    long pcId =
+        jdbc.sql("INSERT INTO place_content (place_id, content_id) VALUES (:p, :c) RETURNING id")
+            .param("p", placeId)
+            .param("c", contentId)
+            .query(Long.class)
+            .single();
+    jdbc.sql(
+            "INSERT INTO place_content_i18n (place_content_id, lang, relation_description)"
+                + " VALUES (:id, CAST('ko' AS lang_code), :d)")
+        .param("id", pcId)
+        .param("d", sceneDescription)
+        .update();
+  }
+
+  private static PlaceSummary onlyItem(PlaceStore.Page page, long placeId) {
+    assertThat(ids(page)).containsExactly(placeId);
+    return page.items().get(0);
   }
 
   private static List<Long> ids(PlaceStore.Page page) {
