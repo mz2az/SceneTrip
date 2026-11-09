@@ -192,12 +192,12 @@ export function SearchMap(props: MapViewProps) {
     const marks = pinMarks(props.pins, selected, props.numbered)
     const spread = spreadPins(marks.map((m) => ({ lat: m.place.latitude, lng: m.place.longitude })))
     marks.forEach(({ place, number, selected: chosen }, i) => {
-      // 시안(로컬 개발 서버 전용)이면 코스 편집 화면과 같은 단색 동그라미 번호 핀. 고른 핀은 살짝 키운다.
+      // 시안이면 코스 편집 화면과 같은 단색 동그라미 번호 핀. 고른 핀은 한 번만 1.2배 — 예전 핀의 「고른 핀 1.3배」(map.css)가 겹쳐 1.6배가 되던 것을 막는다(2026-11-10 사용자 지적).
       const proto = protoAvailable && protoStore.get().proto !== null
       layer.addMarker({
         position: spread[i],
         html: proto
-          ? `<div style="transform:scale(${chosen ? 1.25 : 1});transform-origin:${PROTO_NUMBERED.tipX}px ${PROTO_NUMBERED.tipY}px">${protoNumberedPinSvg(number)}</div>`
+          ? `<div class="st-pin-proto" style="transform:scale(${chosen ? 1.2 : 1});transform-origin:${PROTO_NUMBERED.tipX}px ${PROTO_NUMBERED.tipY}px">${protoNumberedPinSvg(number)}</div>`
           : pinHtml(number, place.name, chosen),
         className: chosen ? 'st-pin st-pin-selected' : 'st-pin',
         size: proto ? [PROTO_NUMBERED.w, PROTO_NUMBERED.h] : [PIN_SIZE.width, PIN_SIZE.height],
