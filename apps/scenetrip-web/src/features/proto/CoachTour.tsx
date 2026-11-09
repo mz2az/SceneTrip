@@ -4,7 +4,7 @@
  * 안내마다 `id` 가 있고 한 번 끝까지 보거나 「건너뛰기」 하면 이 브라우저에서는 다시 띄우지 않는다(localStorage). 가리킬 버튼은 `data-coach`
  * 같은 선택자로 찾는다 — 화면 코드를 감싸지 않고 표식만 단다. 버튼이 아직 없으면(시트가 올라오는 중) 잠깐 기다리고, 끝내 없으면 그 단계를 건너뛴다.
  */
-import { type CSSProperties, useEffect, useLayoutEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Txt } from '@/design/primitives'
 import { readJSON, writeJSON } from '@/state/storage'
@@ -22,6 +22,8 @@ const SEEN_KEY = 'proto.coach.seen'
 const PAD = 6
 const BUBBLE_W = 280
 const GAP = 12
+/** 앱 틀 가장자리에서 말풍선·구멍이 떨어지는 거리. 노치·홈 막대(안전 영역)는 따로 더한다. */
+const EDGE = 12
 /** 가리킬 요소를 기다리는 시간 — 넘으면 그 단계를 건너뛴다. */
 const WAIT_MS = 4000
 
@@ -29,6 +31,24 @@ export const coachSeen = (id: string): boolean => readJSON<string[]>(SEEN_KEY, [
 const markSeen = (id: string) => writeJSON(SEEN_KEY, [...new Set([...readJSON<string[]>(SEEN_KEY, []), id])])
 
 type Box = { top: number; left: number; width: number; height: number }
+
+/** 안내를 그리는 곳 — 앱 틀(.app-frame) 안. 앱으로 감싸도(웹뷰) 틀 밖으로 나가지 않는다(2026-11-09 사용자 지적). */
+const hostOf = (): HTMLElement => document.querySelector<HTMLElement>('.app-frame') ?? document.body
+
+/** 휴대폰의 노치·홈 막대 높이(안전 영역). CSS env() 값을 한 번 재서 숫자로. */
+let insets: { top: number; bottom: number } | null = null
+function safeInsets(): { top: number; bottom: number } {
+  if (insets) return insets
+  const probe = document.createElement('div')
+  probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)'
+  document.body.appendChild(probe)
+  const cs = getComputedStyle(probe)
+  insets = { top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 }
+  probe.remove()
+  return insets
+}
+
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
 
 function boxOf(selector: string): Box | null {
   const el = document.querySelector(selector)
@@ -42,11 +62,20 @@ function boxOf(selector: string): Box | null {
 export function CoachTour({ id, steps, active, delay = 500 }: { id: string; steps: readonly CoachStep[]; active: boolean; delay?: number }) {
   const [index, setIndex] = useState<number | null>(null)
   const [box, setBox] = useState<Box | null>(null)
-  const [view, setView] = useState({ w: window.innerWidth, h: window.innerHeight })
+  /** 앱 틀의 화면상 자리 — 안내의 좌표는 이 틀 기준이다. */
+  const [frame, setFrame] = useState<Box>({ top: 0, left: 0, width: window.innerWidth, height: window.innerHeight })
+  const bubbleRef = useRef<HTMLDivElement>(null)
+  const [bubbleH, setBubbleH] = useState(150)
 
+  // 한 번에 안내 하나 — 다른 안내가 떠 있으면(예: 계획 화면 안내 중에 지도 검색 안내) 그것이 끝날 때까지 기다린다.
   useEffect(() => {
     if (!active || index !== null || coachSeen(id)) return
-    const t = window.setTimeout(() => setIndex(0), delay)
+    let t = 0
+    const tryStart = () => {
+      if (document.querySelector('.proto-coach-bubble')) t = window.setTimeout(tryStart, 400)
+      else setIndex(0)
+    }
+    t = window.setTimeout(tryStart, delay)
     return () => window.clearTimeout(t)
   }, [active, id, delay, index])
 
@@ -71,7 +100,10 @@ export function CoachTour({ id, steps, active, delay = 500 }: { id: string; step
     const tick = () => {
       const found = boxOf(step.target)
       setBox((prev) => (found && prev && Math.abs(prev.top - found.top) + Math.abs(prev.left - found.left) + Math.abs(prev.width - found.width) < 0.5 ? prev : found))
-      setView((v) => (v.w === window.innerWidth && v.h === window.innerHeight ? v : { w: window.innerWidth, h: window.innerHeight }))
+      const f = hostOf().getBoundingClientRect()
+      setFrame((v) => (v.top === f.top && v.left === f.left && v.width === f.width && v.height === f.height ? v : { top: f.top, left: f.left, width: f.width, height: f.height }))
+      const h = bubbleRef.current?.offsetHeight
+      if (h) setBubbleH((v) => (v === h ? v : h))
       if (!found && Date.now() - started > WAIT_MS) {
         next()
         return
@@ -86,17 +118,29 @@ export function CoachTour({ id, steps, active, delay = 500 }: { id: string; step
   if (index === null || !box) return null
   const step = steps[index]
   const last = index === steps.length - 1
-  const hole = { top: box.top - PAD, left: box.left - PAD, width: box.width + PAD * 2, height: box.height + PAD * 2 }
-  // 말풍선은 아래쪽 자리가 넉넉하면 아래, 아니면 위.
-  const below = hole.top + hole.height + GAP + 150 < view.h
-  const bubbleLeft = Math.min(Math.max(16, box.left + box.width / 2 - BUBBLE_W / 2), view.w - 16 - BUBBLE_W)
-  const arrowLeft = Math.min(Math.max(18, box.left + box.width / 2 - bubbleLeft - 8), BUBBLE_W - 34)
-  const bubble: CSSProperties = below
-    ? { top: hole.top + hole.height + GAP, left: bubbleLeft }
-    : { bottom: view.h - hole.top + GAP, left: bubbleLeft }
+  // 모든 좌표를 앱 틀 기준으로 바꾸고, 틀 가장자리·안전 영역 안으로 가둔다.
+  const safe = safeInsets()
+  const inner = { top: EDGE + safe.top, left: EDGE, right: frame.width - EDGE, bottom: frame.height - EDGE - safe.bottom }
+  const t = { top: box.top - frame.top, left: box.left - frame.left, width: box.width, height: box.height }
+  const hTop = clamp(t.top - PAD, inner.top - EDGE / 2, inner.bottom)
+  const hLeft = clamp(t.left - PAD, 4, inner.right)
+  const hRight = clamp(t.left + t.width + PAD, hLeft, frame.width - 4)
+  const hBottom = clamp(t.top + t.height + PAD, hTop, inner.bottom + EDGE / 2)
+  const hole = { top: hTop, left: hLeft, width: hRight - hLeft, height: hBottom - hTop }
+  const width = Math.min(BUBBLE_W, inner.right - inner.left)
+  // 말풍선은 아래에 자리가 있으면 아래, 아니면 위. 어느 쪽이든 틀 안으로 밀어 넣는다.
+  const below = hole.top + hole.height + GAP + bubbleH <= inner.bottom || hole.top - GAP - bubbleH < inner.top
+  const rawTop = below ? hole.top + hole.height + GAP : hole.top - GAP - bubbleH
+  const bubbleTop = clamp(rawTop, inner.top, Math.max(inner.top, inner.bottom - bubbleH))
+  const bubbleLeft = clamp(t.left + t.width / 2 - width / 2, inner.left, inner.right - width)
+  const arrowLeft = clamp(t.left + t.width / 2 - bubbleLeft - 8, 18, width - 34)
+  // 말풍선을 밀어 넣느라 구멍과 겹치면 화살표는 숨긴다(가리킬 곳이 말풍선 밑이다).
+  const arrow = below ? bubbleTop >= hole.top + hole.height : bubbleTop + bubbleH <= hole.top
+  const bubble: CSSProperties = { top: bubbleTop, left: bubbleLeft }
+  const inFrame = hostOf() !== document.body
 
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label={step.title} style={{ position: 'fixed', inset: 0, zIndex: 10000 }}>
+    <div role="dialog" aria-modal="true" aria-label={step.title} style={{ position: inFrame ? 'absolute' : 'fixed', inset: 0, zIndex: 10000, overflow: 'hidden' }}>
       {/* 덮개 — 누르면 다음으로. 구멍 밖을 어둡게 하는 것은 구멍 상자의 큰 그림자다. */}
       <div onClick={next} style={{ position: 'absolute', inset: 0 }} />
       <div
@@ -104,8 +148,8 @@ export function CoachTour({ id, steps, active, delay = 500 }: { id: string; step
         className="proto-coach-hole"
         style={{ position: 'absolute', ...hole, borderRadius: Math.min(22, hole.height / 2), boxShadow: '0 0 0 9999px rgba(10,8,25,0.62)', pointerEvents: 'none' }}
       />
-      <div className="proto-coach-bubble" style={{ position: 'absolute', width: BUBBLE_W, ...bubble, background: 'var(--system-background)', borderRadius: radius.m, padding: '14px 16px 12px', boxShadow: '0 10px 30px rgba(0,0,0,0.25)' }}>
-        <span aria-hidden style={{ position: 'absolute', left: arrowLeft, [below ? 'top' : 'bottom']: -7, width: 16, height: 16, background: 'var(--system-background)', transform: 'rotate(45deg)', borderRadius: 3 }} />
+      <div ref={bubbleRef} className="proto-coach-bubble" style={{ position: 'absolute', width, ...bubble, background: 'var(--system-background)', borderRadius: radius.m, padding: '14px 16px 12px', boxShadow: '0 10px 30px rgba(0,0,0,0.25)' }}>
+        {arrow && <span aria-hidden style={{ position: 'absolute', left: arrowLeft, [below ? 'top' : 'bottom']: -7, width: 16, height: 16, background: 'var(--system-background)', transform: 'rotate(45deg)', borderRadius: 3 }} />}
         <Txt size={16} weight="heavy" style={{ display: 'block', marginBottom: 4 }}>{step.title}</Txt>
         <Txt size={14} color="secondary" style={{ display: 'block', lineHeight: 1.45 }}>{step.text}</Txt>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
@@ -127,6 +171,6 @@ export function CoachTour({ id, steps, active, delay = 500 }: { id: string; step
         </div>
       </div>
     </div>,
-    document.body,
+    hostOf(),
   )
 }

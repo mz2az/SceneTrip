@@ -26,6 +26,7 @@ import { viewportOf } from '@/features/route/poi/useAmbientPois'
 import { Pressable } from '@/features/route/ui/Press'
 import { DayPopup } from './protoCourseAdd'
 import { say } from './protoState'
+import { CoachTour } from './CoachTour'
 import { radius, shadow } from './protoTokens'
 
 /** 엔터 뒤 결과 서랍이 처음 덮는 높이(지도의 비율). */
@@ -149,17 +150,27 @@ export function MapPoiBar({ map, bottomInset, groupsOn, counts, loading, stale, 
   }
   return (
     <div style={{ position: 'absolute', top: 10, left: 0, right: 0, zIndex: 6, pointerEvents: 'none' }}>
+      {/* 지도를 처음 펼치면 검색·분류를 짚어 준다(2026-11-09 사용자 요청). */}
+      <CoachTour
+        id="map-search"
+        active
+        delay={700}
+        steps={[
+          { target: '[data-coach="map-search"]', title: say('지도에서 검색', 'Search on the map'), text: say('가게·명소 이름으로 찾아요. 고른 곳은 「코스에 담기」 로 바로 넣을 수 있어요.', 'Find shops and sights by name, then add them to your course.') },
+          { target: '[data-coach="map-chips"]', title: say('주변 둘러보기', 'Browse nearby'), text: say('전체·음식·관광지·숙소 칩을 누르면 지금 보이는 지도 안의 장소가 핀으로 떠요.', 'Tap All, Food, Sights or Stays to pin places in the area you are looking at.') },
+        ]}
+      />
       {/* 「내 위치」 단추는 시안에서 칩 줄 아래로 내려가 있다 — 줄이 폭을 다 쓴다. */}
       <div className="scroll-x" style={{ pointerEvents: 'auto' }}>
         <HStack spacing={6} style={{ padding: '0 10px', width: 'max-content' }}>
           {/* 검색 — 칩 줄 맨 앞. 평소엔 동그라미 하나라 지도를 가리지 않는다. */}
-          <Pressable plain onClick={() => setSearching(true)} aria-label={say('장소 검색', 'Search places')} style={{ flex: 'none', minHeight: 44, display: 'grid', alignItems: 'center' }}>
+          <Pressable data-coach="map-search" plain onClick={() => setSearching(true)} aria-label={say('장소 검색', 'Search places')} style={{ flex: 'none', minHeight: 44, display: 'grid', alignItems: 'center' }}>
             <span style={{ display: 'grid', placeItems: 'center', width: 34, height: 34, borderRadius: 999, background: 'var(--system-background)', boxShadow: shadow.card, border: '1px solid var(--system-gray5)' }}>
               <Icon name="magnifyingglass" size={15} />
             </span>
           </Pressable>
           {/* 전체 — 분류를 고르지 않고 찾기. 넷이 다 켜진 것과 같다. */}
-          <Pressable plain aria-pressed={groupsOn.size === POI_GROUPS.length} onClick={onAll} style={{ flex: 'none', minHeight: 44, display: 'grid', alignItems: 'center' }}>
+          <Pressable data-coach="map-chips" plain aria-pressed={groupsOn.size === POI_GROUPS.length} onClick={onAll} style={{ flex: 'none', minHeight: 44, display: 'grid', alignItems: 'center' }}>
             <span
               style={{
                 display: 'inline-flex', alignItems: 'center', height: 34, padding: '0 12px', borderRadius: radius.pill,
