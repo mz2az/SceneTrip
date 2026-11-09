@@ -27,6 +27,13 @@ const EDGE = 12
 /** 가리킬 요소를 기다리는 시간 — 넘으면 그 단계를 건너뛴다. */
 const WAIT_MS = 4000
 
+// 주소에 `?coach=reset` 을 붙이면 본 기록을 지운다 — 안내를 처음부터 다시 볼 때(시험용).
+try {
+  if (new URLSearchParams(window.location.search).get('coach') === 'reset') writeJSON(SEEN_KEY, [])
+} catch {
+  // 주소를 못 읽으면 그대로 둔다.
+}
+
 export const coachSeen = (id: string): boolean => readJSON<string[]>(SEEN_KEY, []).includes(id)
 const markSeen = (id: string) => writeJSON(SEEN_KEY, [...new Set([...readJSON<string[]>(SEEN_KEY, []), id])])
 

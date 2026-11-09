@@ -36,11 +36,11 @@ export function AskCard() {
   const { slides, at, now } = useCitySlides()
   return (
     // 사진 카드 — 도시 대표 촬영지 사진이 천천히 바뀌고, 그 위에 흰 글씨와 반투명 도시 단추. 사진을 못 받으면 앱의 보라·하늘 그라데이션.
-    <section aria-labelledby="proto-ask-title" style={{ position: 'relative', margin: '0 20px', borderRadius: radius.l, overflow: 'hidden', minHeight: 300, background: color.brandFill, boxShadow: shadow.card }}>
+    <section aria-labelledby="proto-ask-title" style={{ position: 'relative', margin: '0 20px', borderRadius: radius.l, overflow: 'hidden', minHeight: 250, background: color.brandFill, boxShadow: shadow.card }}>
       <SlideImages slides={slides} at={at} />
       {/* 질문은 위에 붙이고 가운데는 비워 사진이 보이게 — 위·아래만 글자가 읽힐 만큼 어둡게(2026-11-09 사용자 지적). */}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.12) 34%, rgba(0,0,0,0) 52%, rgba(0,0,0,0.1) 66%, rgba(0,0,0,0.6) 100%)' }} />
-      <VStack spacing={8} align="stretch" style={{ position: 'relative', padding: '16px 18px 14px', minHeight: 300 }}>
+      <VStack spacing={8} align="stretch" style={{ position: 'relative', padding: '16px 18px 14px', minHeight: 250 }}>
         <HStack spacing={8} align="start">
           <VStack spacing={4} align="start" style={{ flex: 1, minWidth: 0 }}>
             <Txt as="h2" id="proto-ask-title" size={24} weight="heavy" style={{ ...heading, color: color.onPhoto, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>{say('어디로 여행 가세요?', 'Where are you traveling?')}</Txt>
@@ -48,7 +48,7 @@ export function AskCard() {
           </VStack>
           <MockBadge onPhoto />
         </HStack>
-        <div style={{ flex: 1, minHeight: 90 }} />
+        <div style={{ flex: 1, minHeight: 44 }} />
         {now && (
           <Txt size={12} weight="semibold" lines={1} style={{ color: color.onPhoto, opacity: 0.9, minWidth: 0, textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
             {now.city} · {now.place.name}
