@@ -15,14 +15,14 @@ import { tr } from '@/i18n'
 import { promptSignIn } from '@/state/auth'
 import { useStore } from '@/state/storage'
 import { ArticlePreview } from './ArticlePreview'
-import { type PhotoPlacement, blocks as buildBlocks, canCompose, metadataValid, plainBody } from './article'
+import { blocks as buildBlocks, canCompose, metadataValid, plainBody } from './article'
+import { ArticleEditor, newTextId } from './ArticleEditor'
+import { type DraftItem, type PhotoMeta, photoOrder, placementsOf, storyOf } from './articleDraft'
 import { CoursePicker } from './CoursePicker'
 import './community.css'
 import './icons'
 import { MyPostsSheet } from '@/features/profile/sheets/MyPostsSheet'
 import type { PostCourse } from './model'
-import { PhotoStrip } from './PhotoStrip'
-import { PlacementEditor } from './PlacementEditor'
 import { PostCourseBadge } from './PostCourseBadge'
 import { usePhotoDraft } from './photoDraft'
 import { BODY_LIMIT, canPost, glyphCount, normalized } from './rules'
@@ -31,8 +31,6 @@ import { createSubmission } from './submission'
 import { type Board, BoardPicker } from '@/features/proto/ProtoCommunity'
 import { say } from '@/features/proto/protoState'
 
-const STORY_MIN_LINES = 8 // `.lineLimit(8...)`
-const STORY_LINE = 22 + 5 // body 17pt + `.lineSpacing(5)`
 const TITLE_MAX_LINES = 3 // `.lineLimit(1...3)`
 
 /** 큰 시트 안의 쓰기 화면. 닫기 요청(취소·ESC)은 쓰던 글이 있으면 버릴지 먼저 묻는다. */
@@ -55,13 +53,16 @@ export function ComposeView({ onClose, registerClose, board: initialBoard }: { o
   const submission = useMemo(() => createSubmission(), [])
   const sub = useStore(submission.store, (s) => s)
   const [title, setTitle] = useState('')
-  const [story, setStory] = useState('')
+  // 글 조각과 사진을 쓴 순서대로 — 본문과 사진 위치는 여기서 계산한다(articleDraft.ts).
+  const [items, setItems] = useState<DraftItem[]>(() => [{ kind: 'text', id: newTextId(), text: '' }])
+  const [meta, setMeta] = useState<Record<string, PhotoMeta>>({})
+  const story = useMemo(() => storyOf(items), [items])
+  const placements = useMemo(() => placementsOf(items, meta), [items, meta])
   const [course, setCourse] = useState<PostCourse | null>(null)
   const [pickingCourse, setPickingCourse] = useState(false)
   const [checkingPosts, setCheckingPosts] = useState(false)
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
   const [previewing, setPreviewing] = useState(false)
-  const [placements, setPlacements] = useState<Record<string, PhotoPlacement>>({})
   const [composingEpoch] = useState(account.epoch)
 
   const signedIn = account.signedIn
@@ -69,14 +70,19 @@ export function ComposeView({ onClose, registerClose, board: initialBoard }: { o
   const locked = sub.working || sub.uncertain
   const hasDraft = title !== '' || story !== '' || photos.slots.length > 0 || course !== null
 
-  // 사진을 빼면 그 사진의 설정도 버린다(남은 사진의 설정은 유지).
+  // 사진을 빼면 그 사진의 설명도 버린다(남은 사진의 것은 유지).
   useEffect(() => {
-    setPlacements((prev) => {
+    setMeta((prev) => {
       const kept = Object.fromEntries(Object.entries(prev).filter(([id]) => slotIds.includes(id)))
       return Object.keys(kept).length === Object.keys(prev).length ? prev : kept
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotIds.join(',')])
+  // 사진 칸 순서를 본문에 놓인 순서와 맞춘다 — 첫 사진이 목록의 대표 사진이고, bodyBlocks 의 photoIndex 가 이 순서를 가리킨다.
+  const order = photoOrder(items).join(',')
+  useEffect(() => {
+    if (order !== '') draft.reorder(order.split(','))
+  }, [order, draft])
 
   // 떠 있는 동안만 올린다 — 사라지면 그만두고, 계정이 바뀌면 그만둔다.
   useEffect(() => {
@@ -159,10 +165,6 @@ export function ComposeView({ onClose, registerClose, board: initialBoard }: { o
             composingEpoch !== account.epoch && <Txt size={13} color="red" style={{ padding: '0 20px' }}>{tr('계정이 바뀌었어요. 이 초안을 닫고 새로 작성해 주세요')}</Txt>
           )}
 
-          <div style={{ padding: '0 20px', width: '100%' }}>
-            <PhotoStrip draft={draft} state={photos} locked={locked} />
-          </div>
-
           {/* 제목과 본문 — 테두리 없는 종이 */}
           <VStack spacing={18} align="start" style={{ padding: '0 20px', width: '100%', opacity: locked ? 0.6 : 1 }}>
             <textarea
@@ -177,28 +179,9 @@ export function ComposeView({ onClose, registerClose, board: initialBoard }: { o
               style={{ ...paper, fontSize: 22, fontWeight: 700, lineHeight: '27px', maxHeight: TITLE_MAX_LINES * 27 }}
             />
             <div style={{ height: 1, width: '100%', background: 'var(--separator)', transform: 'scaleY(0.3333)' }} />
-            <textarea
-              className="st-field"
-              aria-label={tr('어디를 다녀왔나요? 장면 속 그 자리에 선 이야기를 들려주세요')}
-              placeholder={tr('어디를 다녀왔나요? 장면 속 그 자리에 선 이야기를 들려주세요')}
-              disabled={locked}
-              value={story}
-              onChange={(e) => setStory(e.target.value)}
-              style={{ ...paper, fontSize: 17, lineHeight: `${STORY_LINE}px`, minHeight: STORY_MIN_LINES * STORY_LINE }}
-            />
+            <ArticleEditor items={items} onItems={setItems} meta={meta} onMeta={(id, next) => setMeta((m) => ({ ...m, [id]: next }))} draft={draft} slots={photos.slots} locked={locked} />
           </VStack>
 
-          {photos.slots.length > 0 && (
-            <div style={{ padding: '0 20px', width: '100%' }}>
-              <PlacementEditor
-                story={story}
-                slots={photos.slots}
-                placements={placements}
-                onChange={(id, next) => setPlacements((p) => ({ ...p, [id]: next }))}
-                locked={locked}
-              />
-            </div>
-          )}
 
           <div style={{ padding: '6px 16px 0', width: '100%' }}>
             <CourseCard course={course} locked={locked} onPick={() => setPickingCourse(true)} onClear={() => setCourse(null)} />

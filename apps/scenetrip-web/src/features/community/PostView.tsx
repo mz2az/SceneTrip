@@ -12,7 +12,7 @@ import { ModerationMenu, ModerationSheets, canBlock, postTarget, showsMenu, useM
 import { currentLang, tr } from '@/i18n'
 import { promptSignIn, useIsSignedIn } from '@/state/auth'
 import { accountGeneration, useOnAccountChange } from '@/state/shared'
-import { ArticlePhoto, ArticleView, type PhotoSource } from './ArticleView'
+import { ArticleView, type PhotoSource } from './ArticleView'
 import { legacyBlocks } from './article'
 import { fullDate } from './format'
 import './icons'
@@ -99,7 +99,6 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
 
   const photos: PhotoSource[] = (post.remotePhotos ?? []).map((url) => ({ kind: 'remote', url }))
   const blocks: PostBlock[] = post.bodyBlocks ?? legacyBlocks(post.body, photos.length)
-  const coverBlock: PostBlock = blocks.find((b) => b.kind === 'photo' && b.photoIndex === 0) ?? { kind: 'photo', photoIndex: 0 }
 
   const save = async () => {
     if (!signedIn) {
@@ -137,11 +136,8 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
             </VStack>
           ) : (
             <VStack align="start">
-              {photos[0] && (
-                <div style={{ padding: `14px ${SECTION_PADDING_X}px 0`, width: '100%' }}>
-                  <ArticlePhoto source={photos[0]} block={coverBlock} representative testId="community-representative-photo" />
-                </div>
-              )}
+              {/* 맨 위 대표 사진은 그리지 않는다 — 본문 블록에 같은 사진이 이미 제자리에 있다(2026-11-09 사용자 결정, MZ2AZ-428 의 「대표 + 본문」 을 바꿈).
+                  첫 사진은 목록 썸네일로만 쓴다. */}
               <VStack spacing={16} align="start" pad={`18px ${SECTION_PADDING_X}px`} style={{ width: '100%' }}>
                 <Txt as="h1" size={22} weight="bold" style={{ width: '100%' }}>{post.title}</Txt>
                 <AuthorRow post={post} myNickname={myNickname}>

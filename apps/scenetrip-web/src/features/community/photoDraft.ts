@@ -45,6 +45,8 @@ export interface PhotoDraft {
   progress(): { current: number; total: number }
   add(files: readonly File[]): void
   remove(id: string): void
+  /** 사진 칸 순서를 이 id 순서로 — 본문에 놓인 순서와 맞춘다(첫 사진이 대표). 모르는 id 는 무시하고, 빠진 칸은 뒤에 그대로 둔다. */
+  reorder(ids: readonly string[]): void
   retry(id: string): void
   /** 저장 때 서버가 사진 키를 거절했다(`POST_PHOTO_INVALID`) — 이번에 올린 것들을 다시 올리게 한다. */
   rejectUploaded(): void
@@ -153,6 +155,12 @@ export function createPhotoDraft(deps: { uploader?: PhotoUploader; limit?: numbe
       }))
       patch({ slots: [...slots(), ...added] })
       pump()
+    },
+    reorder(ids) {
+      const cur = slots()
+      const rank = new Map(ids.map((id, i) => [id, i]))
+      const next = [...cur].sort((a, b) => (rank.get(a.id) ?? ids.length + cur.indexOf(a)) - (rank.get(b.id) ?? ids.length + cur.indexOf(b)))
+      if (next.some((s, i) => s !== cur[i])) patch({ slots: next })
     },
     remove(id) {
       const gone = slots().find((s) => s.id === id)
