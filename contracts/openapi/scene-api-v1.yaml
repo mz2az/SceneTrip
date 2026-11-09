@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.25.0
+  version: 1.26.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -1231,6 +1231,16 @@ paths:
             maximum: 200
             default: 50
         - $ref: "#/components/parameters/Offset"
+        - name: city
+          in: query
+          description: |
+            이 도시의 촬영지만(1.26.0, MZ2AZ-545). 값은 `GET /places/cities` 의 `key`(예: `서울`, `경기 광주`) 그대로.
+            다른 조건(`q`·`contentId`·`bbox`·반경·정렬)과 함께 쓸 수 있다. 모르는 도시는 빈 목록이다.
+            앞뒤 공백을 지운 뒤 비어 있으면 400 `INVALID_PARAMETER`.
+          schema:
+            type: string
+            maxLength: 40
+          example: 서울
       responses:
         "200":
           description: 조건에 맞는 촬영지 목록
@@ -1243,6 +1253,40 @@ paths:
                 $ref: "#/components/schemas/PlaceList"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /places/cities:
+    get:
+      tags: [places]
+      operationId: listPlaceCities
+      summary: 도시별 촬영지 요약
+      description: |
+        홈 「어디로 가세요?」 의 도시 칸(1.26.0, MZ2AZ-545). 도시마다 이름·촬영지 수·가운데·범위를 한 번에 준다 —
+        촬영지 목록 전체를 받아 세지 않아도 된다. 고른 도시의 촬영지는 `GET /places?city=` 로 받는다.
+
+        도시는 촬영지의 **한국어 주소**로 정한다.
+
+        | 주소 | 도시 |
+        | --- | --- |
+        | 특별시·광역시·특별자치시, 제주특별자치도 | 통째로 한 도시(서울·부산·…·세종·제주) |
+        | 도(경기도·경상북도·강원특별자치도 …) | 그 아래 시·군(수원·경주 …). 이름이 겹치는 광주·고성은 도를 붙인다(`경기 광주`) |
+        | 전남광주통합특별시 | 도처럼 시·군, 구로 시작하면 `광주` |
+
+        주소로 도시를 정할 수 없는 촬영지와 숨긴 촬영지는 세지 않는다. 순서는 서울·부산·경주·제주·인천(있는 것만) 다음
+        촬영지 수가 많은 순, 같으면 `key` 가나다순.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+      responses:
+        "200":
+          description: 도시 목록
+          headers:
+            Content-Language:
+              $ref: "#/components/headers/ContentLanguage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaceCityList"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -4489,7 +4533,59 @@ components:
           description: |
             이 장소가 작품에서 어떻게 등장했는지. `contentId` 로 좁혀 조회했을 때
             (또는 `GET /contents/{contentId}/places`) 그 작품 기준으로 채워진다.
-            작품을 특정하지 않은 조회에서는 `null` 이다.
+            `city` 로 조회했을 때(1.26.0)는 `contents` 의 **첫 작품** 기준으로 채운다 — 도시 여행 짜기에서
+            「어느 작품의 어떤 장면인지」를 함께 보이려고(MZ2AZ-545). 그 밖의 조회에서는 `null` 이다.
+
+    PlaceCityList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlaceCity"
+
+    PlaceCity:
+      type: object
+      description: 도시 하나의 촬영지 요약(1.26.0).
+      required: [key, name, placeCount, center, bbox]
+      properties:
+        key:
+          type: string
+          description: 언어와 무관한 열쇠 — 한국어 이름. `GET /places?city=` 에 그대로 보낸다.
+          example: 서울
+        name:
+          type: string
+          description: |
+            요청 언어의 이름. 영어면 광역 도시는 정해 둔 이름(`Seoul`), 시·군은 그 도시 촬영지 영어 주소의 `…-si`·`…-gun` 을 뗀 것
+            (`Suwon`), 도를 붙인 열쇠는 `Gwangju (Gyeonggi)`. 못 찾으면 한국어 이름.
+          example: Seoul
+        placeCount:
+          type: integer
+          minimum: 1
+          description: 이 도시의 촬영지 수(숨긴 촬영지 제외).
+        center:
+          $ref: "#/components/schemas/LatLng"
+        bbox:
+          type: array
+          description: 이 도시 촬영지를 모두 담는 사각형 — `[minLng, minLat, maxLng, maxLat]`(`bbox` 파라미터와 같은 순서).
+          minItems: 4
+          maxItems: 4
+          items:
+            type: number
+            format: double
+
+    LatLng:
+      type: object
+      description: 위도·경도 한 점. 도시의 가운데는 촬영지 좌표의 평균이다.
+      required: [latitude, longitude]
+      properties:
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
 
     PlaceDetail:
       allOf:

@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -14,8 +15,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.mz2az.scenetrip.sceneapi.api.model.ContentRef;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import com.mz2az.scenetrip.sceneapi.api.model.LatLng;
 import com.mz2az.scenetrip.sceneapi.api.model.Photo;
 import com.mz2az.scenetrip.sceneapi.api.model.PhotoSource;
+import com.mz2az.scenetrip.sceneapi.api.model.PlaceCity;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceSummary;
 import com.mz2az.scenetrip.sceneapi.api.model.RatingSummary;
@@ -323,5 +326,75 @@ class PlacesControllerTest {
         .andExpect(jsonPath("$.scenes[1].sceneImageUrls").isArray())
         .andExpect(jsonPath("$.scenes[1].sceneImageUrls.length()").value(0))
         .andExpect(jsonPath("$.scenes[1].sceneImageUrl").doesNotExist());
+  }
+
+  // ───────────── 도시 (MZ2AZ-545, 계약 1.26.0) ─────────────
+
+  @Test
+  @DisplayName("GET /places/cities — Store 가 준 도시 목록을 순서 그대로 items 로 준다")
+  void listsCities() throws Exception {
+    when(store.cities(any()))
+        .thenReturn(
+            List.of(
+                new PlaceCity(
+                    "서울", "Seoul", 12, new LatLng(37.55, 127.0), List.of(126.9, 37.5, 127.1, 37.6)),
+                new PlaceCity(
+                    "경기 광주",
+                    "Gwangju (Gyeonggi)",
+                    3,
+                    new LatLng(37.4, 127.25),
+                    List.of(127.2, 37.35, 127.3, 37.45))));
+
+    mvc.perform(get("/places/cities").header("Accept-Language", "en"))
+        .andExpect(status().isOk())
+        .andExpect(header().exists("Content-Language"))
+        .andExpect(jsonPath("$.items.length()").value(2))
+        .andExpect(jsonPath("$.items[0].key").value("서울"))
+        .andExpect(jsonPath("$.items[0].name").value("Seoul"))
+        .andExpect(jsonPath("$.items[0].placeCount").value(12))
+        .andExpect(jsonPath("$.items[0].center.latitude").value(37.55))
+        .andExpect(jsonPath("$.items[0].center.longitude").value(127.0))
+        .andExpect(jsonPath("$.items[0].bbox.length()").value(4))
+        .andExpect(jsonPath("$.items[0].bbox[0]").value(126.9))
+        .andExpect(jsonPath("$.items[0].bbox[3]").value(37.6))
+        .andExpect(jsonPath("$.items[1].key").value("경기 광주"))
+        .andExpect(jsonPath("$.items[1].name").value("Gwangju (Gyeonggi)"));
+
+    verify(store).cities(Lang.EN);
+  }
+
+  @Test
+  @DisplayName("GET /places/cities — 도시가 하나도 없으면 빈 items")
+  void listsNoCities() throws Exception {
+    when(store.cities(any())).thenReturn(List.of());
+
+    mvc.perform(get("/places/cities"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items").isArray())
+        .andExpect(jsonPath("$.items.length()").value(0));
+  }
+
+  @Test
+  @DisplayName("city 가 공백뿐이면 400 INVALID_PARAMETER — Store 를 부르지 않는다")
+  void blankCityIsRejected() throws Exception {
+    givenPlaces();
+
+    mvc.perform(get("/places").param("city", " "))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+
+    verify(store, never()).list(any());
+  }
+
+  @Test
+  @DisplayName("city 를 Criteria 에 그대로 넘긴다")
+  void passesCityToStore() throws Exception {
+    givenPlaces();
+
+    mvc.perform(get("/places").param("city", "서울")).andExpect(status().isOk());
+
+    ArgumentCaptor<PlaceStore.Criteria> captor = ArgumentCaptor.forClass(PlaceStore.Criteria.class);
+    verify(store).list(captor.capture());
+    assertThat(captor.getValue().city()).isEqualTo("서울");
   }
 }

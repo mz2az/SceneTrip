@@ -2,6 +2,7 @@ package com.mz2az.scenetrip.sceneapi.web;
 
 import com.mz2az.scenetrip.sceneapi.api.PlacesApi;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
+import com.mz2az.scenetrip.sceneapi.api.model.PlaceCityList;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceDetail;
 import com.mz2az.scenetrip.sceneapi.api.model.PlaceList;
 import com.mz2az.scenetrip.sceneapi.place.Bbox;
@@ -38,11 +39,13 @@ class PlacesController implements PlacesApi {
       Integer radiusMeters,
       String sort,
       Integer limit,
-      Integer offset) {
+      Integer offset,
+      String city) {
 
     PlaceQueryRules.requireCompleteOrigin(lat, lng);
     Bbox area = PlaceQueryRules.resolveArea(bbox, radiusMeters);
     PlaceStore.Sort order = PlaceQueryRules.resolveSort(sort, lat, lng);
+    String cityKey = PlaceQueryRules.resolveCity(city);
 
     PlaceStore.Page page =
         store.list(
@@ -56,10 +59,19 @@ class PlacesController implements PlacesApi {
                 order,
                 acceptLanguage,
                 limit,
-                offset));
+                offset,
+                cityKey));
 
     PlaceList body = new PlaceList(page.items(), page.total(), limit, offset);
     return Responses.ok(body, Responses.used(acceptLanguage, page.shownLangs()));
+  }
+
+  /** 도시별 촬영지 요약(1.26.0, MZ2AZ-545). */
+  @Override
+  public ResponseEntity<PlaceCityList> listPlaceCities(Lang acceptLanguage) {
+    PlaceCityList body = new PlaceCityList(store.cities(acceptLanguage));
+    // 한국어가 아니면 이름은 영어로 만든다(영어 이름을 못 찾은 시·군만 한국어).
+    return Responses.ok(body, acceptLanguage == Lang.KO ? Lang.KO : Lang.EN);
   }
 
   /**
