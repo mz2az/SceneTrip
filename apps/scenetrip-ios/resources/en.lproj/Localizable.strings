@@ -804,3 +804,10 @@
 "접기" = "Close";
 "전체 코스 보기" = "All trips";
 "새 코스" = "New";
+
+/* 검색 탭 — 보관함·촬영지 상세 길찾기 (MZ2AZ-547 G2·G3) */
+"보관함" = "Saved";
+"보관함 %d곳" = "Saved · %d places";
+"보관함 %d곳|하나" = "Saved · %d place";
+"%@ 가는 길" = "Trip to %@";
+"로그인하면 바로 길안내를 시작해요" = "Sign in to start directions right away";

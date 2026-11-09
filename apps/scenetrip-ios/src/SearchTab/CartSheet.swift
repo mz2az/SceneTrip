@@ -36,8 +36,8 @@ struct CartSheet: View {
             }
             .navigationTitle(
                 cart.items.isEmpty
-                    ? tr("장바구니")
-                    : trCount("장바구니 %d곳", cart.items.count)
+                    ? tr("보관함")
+                    : trCount("보관함 %d곳", cart.items.count)
             )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
