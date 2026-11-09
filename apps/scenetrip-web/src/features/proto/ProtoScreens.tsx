@@ -396,7 +396,7 @@ export function TripFloatBar() {
     if (open) row.current?.scrollTo?.({ left: row.current.scrollWidth })
   }, [open])
 
-  const bottom = 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 10px)'
+  const bottom = 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 22px)'
   const soft = shadow.float
   const mainPill: CSSProperties = { height: 44, padding: '0 16px 0 14px', borderRadius: radius.pill, background: color.primaryFill, boxShadow: shadow.float, maxWidth: 240, color: color.onPrimary }
   const round: CSSProperties = { width: 44, height: 44, borderRadius: radius.pill, background: 'var(--system-background)', boxShadow: soft, display: 'grid', placeItems: 'center', flex: 'none' }
