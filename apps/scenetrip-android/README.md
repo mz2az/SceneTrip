@@ -100,9 +100,30 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 
 - **반투명 유리의 흐림(blur)은 없다.** Compose 에서 뒤 내용을 흐리게 하려면 API 31+ 의 `RenderEffect` 로 탭 내용을 따로 그려야 해서,
   바탕 88% 불투명 + 얇은 테두리로 대신한다. 도시 칩도 흐림 대신 옅은 어둠 + 흰 18% 바탕이다.
-- **새 코스의 입구는 갈고리 하나다** — 홈의 도시 칩과 「+ 새 코스」 는 `TabRouter.startNewCourse(city)` 를 부르고, 지금은 경로여정
-  덮개의 기존 갈림길(AI 로 짜기 / 직접 짜기)이 뜬다. 다음 묶음(P3, 새 코스 시트 F1·도시로 여행 짜기 Q*)이 이 쪽지를 받는 곳을 바꾼다.
+- **새 코스의 입구는 갈고리 하나다** — 홈의 도시 칩과 「+ 새 코스」 는 `TabRouter.startNewCourse(city)` 를 부른다. 받는 곳은 P3(아래).
 - 화면 확인용 뒷문: `-e initialTab trending`(전체 보기 덮개), `--ez homeFloatOpen true`(떠 있는 줄을 펼친 채로).
+
+## 웹 시안 반영 P3 — 새 코스 시트·도시로 여행 짜기·작품/담은 곳 (2026-11-10, MZ2AZ-547)
+
+체크리스트 F1–F2·Q1–Q5·R1–R6·S1·A1–A4. iOS `src/NewCourse/*` 를 같은 이름으로 `newcourse/` 에 옮겼다. 순수 규칙은
+`newcourse/NewCourseRules.kt` 하나에 있고 JVM 시험이 선다(`tests/NewCourseRulesTests.kt`·`SavedPlanRulesTests.kt`·`NewCourseEntryTests.kt`).
+예전 「AI 로 짜기 / 직접 짜기」 갈림길과 질문 마법사(`RouteWizardView.kt`)는 없앴다 — 편집 화면이 쓰는 초안 상태만 `routetab/RouteEditorDraft.kt` 로 남겼다.
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `NewCourseSheet.kt` | 「새 여행 코스」 시트(높이 380·회색 바탕): ① 도시로 시작 ② 작품으로 [AI] ③ 담은 곳으로(「담아 둔 N곳을 날마다 나눠 넣어요」/0곳이면 「빈 코스에서 하나씩 넣어요」). 홈 떠 있는 줄 「+ 새 코스」(`TabRouter.newCourseSheet`)와 코스 목록 「코스 추가」·「새 코스 만들기」가 연다 |
+| `CityQuestionView.kt` | 전체 덮개 질문: Q1 도시(사진 머리 min(46%,390)·최소 300, 도시 칸 2열×8, 받는 중 회색 칸, 실패 「다시 시도」 + 15초 뒤 자동 한 번) → Q2 며칠(당일치기~3박 4일) → Q3 「알아서 짜 주세요」/「직접 고를게요」. 홈 도시 칩은 Q2 부터이고 그때 뒤로는 닫기 |
+| `CityPlanPreview.kt` | R1–R6: `GET /places?city=`(200개) 를 **앱 안에서** 잇는다(인기 1위부터 가까운 곳, 하루 5곳). 카드 16:9·번호·↻ 바꾸기·✕ 빼기, **꾹 0.3초 → 들림(1.02·그림자·햅틱), 8dp 넘게 먼저 움직이면 스크롤** — 라이브러리 없이 `pointerInput`+`awaitEachGesture`+`withTimeoutOrNull`, 손가락은 화면 기준으로 잰다. 「이 코스로 만들기」 → `POST`+`PUT /courses`(madeByAI) → `PUT /me/trip` → `TabRouter.courseCreated`(방금 만든 코스 표시 + 6초 안내 띠 + 계획 화면) |
+| `CityPickView.kt` | S1 직접 고르기: 도시 촬영지 30곳, [＋ 담기]/[✓ 담음] 은 진짜 보관함. 「N곳으로 코스 만들기」 는 Q2 의 며칠로 고르게 나눠(`splitDays`) 「{도시} 여행」 으로 저장, R5 와 같은 길 |
+| `WorksPlanView.kt` · `NewCoursePlanParts.kt` | A1 일정(기간 칩 3열·「떠나는 날」 펼치는 달력·「날짜 지우기」)·다니는 속도 → A2 포스터 3열(찜한 작품 미리 고름, 5개 넘으면 경고) → AI 동의·위치 동의 → `POST /guide/plan` → A3 짜는 중(포스터 부채꼴·요약 칩·0/3.5/8초 세 줄·그만두기) → 저장 전 초안 편집(isNew) |
+| `SavedPlanView.kt` | A4: 일정 + 「넣을 곳」(사진 겹침·「담아 둔 곳 N곳」) → 보관함 전부를 시·도 묶음 → 가까운 순으로 잇고 날마다 고르게 나눈 초안 편집 |
+| `NewCourseData.kt` | `CityPlacesStore`(도시 목록·도시 촬영지를 앱에 하나로 들고 있음, 언어가 바뀌면 다시 받음) · `TripMemoryStore`(정한 여행 Q4: 켤 때 `GET /me/trip` — 서버가 이기고, 서버에 없고 기기에만 있으면 `PUT`; 바꿀 때 `PUT`, 비회원도 설치 id) |
+
+- **계획 화면은 아직 보기/편집으로 나뉘지 않는다**(E1 은 다음 묶음 P4). 그래서 방금 만든 코스도 지금은 늘 고칠 수 있는 화면으로 열린다.
+  `TabRouter.freshCourseId`·`isFreshCourse`·`clearFreshCourse` 는 P4 의 「저장하지 않고 나갈까요?」→`DELETE`(E16)가 쓴다.
+- `TabRouter` 는 Compose 상태를 들어 JVM 시험에서 만들 수 없다(`android.os.Looper`) — 입구 판단만 `NewCourseEntryRules` 로 떼어 시험한다.
+- 화면 확인용 뒷문(iOS 와 같은 이름): `-e newCourse sheet|city|works|saved`, `-e cityFlow 부산 --ei cityDays 2 -e cityHow plan|pick`,
+  `-e worksStep works`, `--ez cityAutoSave true`(짜자마자 저장 — 서버에 코스가 생긴다).
 
 ## 인터페이스
 

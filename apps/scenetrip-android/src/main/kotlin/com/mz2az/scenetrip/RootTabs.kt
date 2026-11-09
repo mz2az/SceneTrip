@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +63,9 @@ import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.hometab.HomeTabScreen
 import com.mz2az.scenetrip.hometab.TrendingWorksView
+import com.mz2az.scenetrip.newcourse.NewCourseFlowView
+import com.mz2az.scenetrip.newcourse.NewCourseSheet
+import com.mz2az.scenetrip.newcourse.TripMemoryStore
 import com.mz2az.scenetrip.profiletab.ProfileTabView
 import com.mz2az.scenetrip.routetab.RouteTabView
 import com.mz2az.scenetrip.searchtab.SearchTabScreen
@@ -90,7 +94,8 @@ fun RootTabs() {
     // iOS `RootTabs.screenName`과 같은 우선순위다.
     val screenName =
         when (cover) {
-            Cover.Route -> {
+            // 새 코스 만들기도 코스 화면으로 센다 — 화면 이름을 늘리지 않는다(iOS 와 같다).
+            Cover.Route, is Cover.NewCourse -> {
                 "courses"
             }
 
@@ -114,6 +119,10 @@ fun RootTabs() {
     LaunchedEffect(screenName) { AppAnalytics.log(AppEvent.ScreenView(screenName)) }
 
     val navBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    // 정한 여행(Q4)을 서버와 맞춘다 — 켤 때 한 번(서버 값이 이긴다, `TripMemoryRules.reconcile`).
+    val context = LocalContext.current
+    LaunchedEffect(Unit) { TripMemoryStore.getInstance(context).sync() }
 
     Box(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
         // **탭 내용이 알약 뒤까지 내려간다**(T2). 바닥에 붙는 것은 알약 몫(74) + 내비게이션 막대만큼 비운다.
@@ -177,12 +186,18 @@ fun RootTabs() {
             }
 
             Cover.Route -> {
-                val context = LocalContext.current
                 val routeStore = remember { RouteStore(context) }
                 RouteTabView(
                     store = routeStore,
                     onClose = { TabRouter.cover = null },
                 )
+            }
+
+            // 새 코스 만들기 — 도시로 시작·작품으로·담은 곳으로(MZ2AZ-547 P3). 시작이 바뀌면 새 흐름으로 처음부터.
+            is Cover.NewCourse -> {
+                key(cover) {
+                    NewCourseFlowView(start = cover.start, onClose = { TabRouter.cover = null })
+                }
             }
 
             Cover.Trending -> {
@@ -194,6 +209,14 @@ fun RootTabs() {
                     },
                 )
             }
+        }
+
+        // 「새 여행 코스」 시트(MZ2AZ-547 F1) — 홈 떠 있는 줄의 「+ 새 코스」·코스 0개의 「여행 코스 짜기」.
+        if (TabRouter.newCourseSheet) {
+            NewCourseSheet(
+                onDismiss = { TabRouter.newCourseSheet = false },
+                onChoose = { TabRouter.chooseNewCourse(it) },
+            )
         }
     }
 }

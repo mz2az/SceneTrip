@@ -75,7 +75,7 @@ private const val COLLAPSE_MILLIS = 300
  * 오른쪽 끝부터 ✕ · ≡ · 「+ 새 코스」 · 내 코스(최대 5)가 45ms 간격으로 미끄러져 들어온다. 움직임 줄이기면 바로 바뀐다.
  *
  * @param courses 줄에 올릴 코스 — [HomeTripFloatRules.courses] 를 거친 것.
- * @param onNew 「+ 새 코스」·코스 0개의 「여행 코스 짜기」. **P3 가 새 코스 시트(F1)로 바꿀 자리**다(`TabRouter.startNewCourse`).
+ * @param onNew 「+ 새 코스」·코스 0개의 「여행 코스 짜기」 — 「새 여행 코스」 시트(F1, `TabRouter.startNewCourse`).
  * @param initiallyOpen 확인용 뒷문(`-e homeFloatOpen true`) — 펼친 채로 뜬다.
  */
 @Composable

@@ -54,10 +54,13 @@ import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.data.tr
+import com.mz2az.scenetrip.newcourse.CreatedCourseBanner
+import com.mz2az.scenetrip.newcourse.NewCoursePrimaryButton
+import com.mz2az.scenetrip.newcourse.NewCourseSheet
+import com.mz2az.scenetrip.newcourse.NewCourseStart
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.ExclamationCircleIcon
-import com.mz2az.scenetrip.ui.HandDrawIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSConfirmPopover
@@ -72,10 +75,11 @@ import com.mz2az.scenetrip.ui.sfLine
 import kotlinx.coroutines.launch
 
 /**
- * 경로여정(코스) 탭 — 첫 화면. iOS `RouteTab/RouteTabView.swift`를 옮긴 것이다.
+ * 경로여정(코스) 탭 — 내 코스 목록. iOS `RouteTab/RouteTabView.swift`를 옮긴 것이다.
  *
- * 코스가 없으면 "AI 로 짜기 / 직접 짜기" 갈림길이, 있으면 목록이 뜬다. 둘 다
- * [RouteWizardView]로 이어진다 — AI 쪽은 `isAiPlan = true`로 열어 `/guide/plan`을 부른다.
+ * 「코스 추가」(코스가 없으면 「새 코스 만들기」)는 **「새 여행 코스」 시트**([NewCourseSheet])를 연다 — 도시로 시작 ·
+ * 작품으로(AI) · 담은 곳으로의 세 갈래(MZ2AZ-547 F1·F2, 웹 시안). 예전 「AI 로 짜기 / 직접 짜기」 두 갈래를 대신한다.
+ * 고른 흐름은 홈의 덮개(`Cover.NewCourse`)로 갈아 끼워 띄운다.
  */
 @Composable
 fun RouteTabView(
@@ -83,22 +87,17 @@ fun RouteTabView(
     onClose: (() -> Unit)? = null,
 ) {
     var fork by remember { mutableStateOf(false) }
-    var wizardOpen by remember { mutableStateOf(false) }
-    var aiWizardOpen by remember { mutableStateOf(false) }
     // 목록 요약으로 편집 화면을 열지 않는다 — 상세 조회에 성공한 코스만 `opening.editing`에 오른다.
     var openingState by remember { mutableStateOf(RouteOpeningState()) }
     val opening = remember { RouteCourseOpening { openingState = it } }
     var doomed by remember { mutableStateOf<RouteCourse?>(null) }
     val scope = rememberCoroutineScope()
 
-    // 가이드 창의 「AI 로 짜기」 — 편집 화면(또는 마법사)이 다 닫힌 뒤에 마법사를 띄운다. 새 마법사라 열 때마다 키를 올려 답변을 비운다.
-    var plannerEpoch by remember { mutableStateOf(0) }
-
+    // 가이드 창의 「AI 로 짜기 열기」 — 편집 화면이 다 닫힌 뒤에 「작품으로」(AI) 흐름을 띄운다(MZ2AZ-547, iOS 와 같다).
     fun openPlannerIfAsked() {
         if (!TabRouter.pendingPlanner) return
         TabRouter.pendingPlanner = false
-        plannerEpoch += 1
-        aiWizardOpen = true
+        TabRouter.chooseNewCourse(NewCourseStart.Works)
     }
 
     LaunchedEffect(AuthStore.epoch) {
@@ -108,15 +107,6 @@ fun RouteTabView(
     // 하드웨어 뒤로 (MZ2AZ-513) — 목록에서는 iOS 의 X 와 같이 덮개를 닫는다. 편집기·마법사·시트는 자기 처리가 있고
     // **나중에 열리므로** 이 처리보다 먼저 받는다(나중에 등록한 것이 이긴다).
     if (onClose != null) BackHandler(onBack = onClose)
-
-    // 홈의 도시 칩·「+ 새 코스」 가 남긴 쪽지([TabRouter.startNewCourse], MZ2AZ-547 H1·H4). 한 번 읽고 버린다.
-    // **다음 Android 묶음(P3)이 바꿀 자리다** — 지금은 기존 갈림길(AI 로 짜기 / 직접 짜기)을 띄운다. 도시(`city`)는 아직 쓰지 않는다;
-    // P3 의 새 코스 시트(F1)·도시로 여행 짜기(Q2 며칠부터)가 받는다.
-    LaunchedEffect(TabRouter.pendingNewCourse) {
-        if (TabRouter.pendingNewCourse == null) return@LaunchedEffect
-        TabRouter.pendingNewCourse = null
-        fork = true
-    }
 
     // 홈에서 넘어온 코스. 목록이 아직 없으면 목록이 오는 대로 다시 시도한다(iOS `openPending`은 새로고침 뒤에 부른다).
     LaunchedEffect(TabRouter.pendingCourseId, store.courses) {
@@ -192,7 +182,7 @@ fun RouteTabView(
         } else if (phase == CourseListPhase.FAILED) {
             DetailLoadError(onRetry = { scope.launch { store.refresh() } })
         } else if (phase == CourseListPhase.EMPTY) {
-            EmptyState(onAI = { aiWizardOpen = true }, onManual = { wizardOpen = true })
+            EmptyState(onNew = { fork = true })
         } else {
             CourseList(
                 store = store,
@@ -213,40 +203,13 @@ fun RouteTabView(
         }
     }
 
+    // 「새 여행 코스」 시트(MZ2AZ-547 F1·F2) — 고르면 이 덮개를 그 흐름으로 갈아 끼운다.
     if (fork) {
-        ForkSheet(
+        NewCourseSheet(
             onDismiss = { fork = false },
-            onAI = {
+            onChoose = {
                 fork = false
-                aiWizardOpen = true
-            },
-            onManual = {
-                fork = false
-                wizardOpen = true
-            },
-        )
-    }
-
-    if (aiWizardOpen) {
-        key(plannerEpoch) {
-            RouteWizardView(
-                store = store,
-                isAiPlan = true,
-                // 저장하면 편집기가 닫히고 목록으로 돌아온다 — iOS `saveAndClose` 는 `dismiss()` 만 부른다(마법사는 콜백이 없다).
-                onClose = {
-                    aiWizardOpen = false
-                    openPlannerIfAsked()
-                },
-            )
-        }
-    }
-
-    if (wizardOpen) {
-        RouteWizardView(
-            store = store,
-            onClose = {
-                wizardOpen = false
-                openPlannerIfAsked()
+                TabRouter.chooseNewCourse(it)
             },
         )
     }
@@ -261,6 +224,8 @@ fun RouteTabView(
                 openPlannerIfAsked()
             },
         )
+        // 방금 「도시로」 만든 코스의 안내 띠(R6). 편집 화면은 늘 고칠 수 있는 상태로 열린다 — 보기/편집 나누기(E1)는 다음 묶음.
+        CreatedCourseBanner()
     }
 }
 
@@ -294,10 +259,7 @@ private fun DetailLoadError(onRetry: () -> Unit) {
 }
 
 @Composable
-private fun EmptyState(
-    onAI: () -> Unit,
-    onManual: () -> Unit,
-) {
+private fun EmptyState(onNew: () -> Unit) {
     Column(
         // 9차 CE5: 묶음이 iOS 보다 +11.3 낮았다(화면이 40 길고 내비바가 10 짧아 가운데 기준이 아래로 쏠림) — 아래 22.6 을 비워 가운데를 11.3 올린다.
         modifier = Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, bottom = 22.6.dp),
@@ -332,43 +294,8 @@ private fun EmptyState(
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(22.dp))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    // iOS `.controlSize(.large)`는 완전히 둥근 알약이다.
-                    .clip(CircleShape)
-                    .background(IOS.accent)
-                    .clickable(onClick = onAI)
-                    .height(52.dp),
-        ) {
-            SparklesIcon(androidx.compose.ui.graphics.Color.White, Modifier.size(16.dp))
-            Text(
-                tr("AI 로 여정 짜기"),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = androidx.compose.ui.graphics.Color.White,
-            )
-        }
-        Spacer(Modifier.height(10.dp))
-        // iOS `.buttonStyle(.bordered)`의 기본 칠은 회색 바탕 + 강조색 글자다 —
-        // 옅은 파란 바탕에 검정 글자였던 것을 그 조합으로 맞춘다.
-        Text(
-            tr("직접 짜기"),
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Medium,
-            color = IOS.accent,
-            textAlign = TextAlign.Center,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clip(CircleShape)
-                    .background(IOS.tertiaryFill)
-                    .clickable(onClick = onManual)
-                    .iosLineBox(50.3.dp),
-        )
+        // 세 갈래(도시로·작품으로·담은 곳으로)는 새 코스 시트가 고른다(MZ2AZ-547 F2).
+        NewCoursePrimaryButton(tr("새 코스 만들기"), onClick = onNew)
     }
 }
 
@@ -524,96 +451,5 @@ private fun CourseRow(
             }
             Text(route.dateLabel ?: route.spanLabel, fontSize = 12.sp, color = IOS.secondaryLabel)
         }
-    }
-}
-
-@Composable
-private fun ForkSheet(
-    onDismiss: () -> Unit,
-    onAI: () -> Unit,
-    onManual: () -> Unit,
-) {
-    // iOS `forkSheet`: `.presentationDetents([.height(420)])` 시트 — 손잡이(40×5)는 내용이 직접 그린다.
-    // 바탕은 iOS 유리 시트가 어두운 뒤 화면을 비춰 옅은 회색(233·233·235, 61-wizard-ios 실측)이고 그 위에 흰 카드가 얹힌다.
-    IOSSheet(
-        detents = listOf(SheetDetent.MEDIUM),
-        // 윗변~화면 아래 444pt(iOS 실측 wizsheet-ios 1332px/3) — 420 은 429 로 나와 15 짧았다.
-        fixedHeight = 435.dp,
-        onDismiss = onDismiss,
-        containerColor =
-            androidx.compose.ui.graphics
-                .Color(0xFFE9E9EB),
-    ) {
-        // 5차 감사(wizsheet2 실측, 시트 윗변 기준): iOS 손잡이 윗변 7·제목 글자 가운데 36.8·첫 카드 윗변 62. 줄 칸을 22 로 고정하고 간격을 직접 둔다
-        // (전: 손잡이 8·제목 +4.6·카드 +7.3).
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier =
-                    Modifier
-                        .padding(top = 6.7.dp)
-                        .size(width = 40.dp, height = 5.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(IOS.systemGray3),
-            )
-            Spacer(Modifier.height(13.4.dp))
-            Text(
-                tr("코스를 어떻게 만들까요?"),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = IOS.label,
-                modifier = Modifier.iosLineBox(22.dp),
-            )
-            Spacer(Modifier.height(14.9.dp))
-            Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ForkCard(title = tr("AI 로 짜기"), caption = tr("기간·작품만 고르면 동선까지 짜 드립니다"), onClick = onAI) { SparklesIcon(IOS.accent, it) }
-                ForkCard(title = tr("직접 짜기"), caption = tr("장바구니에서 하나씩 담습니다"), onClick = onManual) { HandDrawIcon(IOS.accent, it) }
-            }
-        }
-    }
-}
-
-// iOS `RouteForkCards.card`: 흰 카드(모서리 14, 옅은 그림자 6%), 44 원 안의 아이콘(title2), 17 semibold 제목 +
-// 12 설명(간격 4), 오른쪽 `chevron.right`. 「직접 짜기」 아이콘은 `hand.draw`(반짝이가 아니다).
-@Composable
-private fun ForkCard(
-    title: String,
-    caption: String,
-    onClick: () -> Unit,
-    icon: @Composable (Modifier) -> Unit,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .shadow(
-                    4.dp,
-                    RoundedCornerShape(14.dp),
-                    ambientColor =
-                        androidx.compose.ui.graphics.Color.Black
-                            .copy(alpha = 0.06f),
-                    spotColor =
-                        androidx.compose.ui.graphics.Color.Black
-                            .copy(alpha = 0.06f),
-                ).clip(RoundedCornerShape(14.dp))
-                .background(IOS.systemBackground)
-                .clickable(onClick = onClick)
-                // iOS 카드 높이 72pt(줄 간격 84pt = 72 + 12, 61-wizard-ios 실측). 글꼴 줄 높이가 달라 패딩이 아니라 높이로 고정한다.
-                .height(72.dp)
-                .padding(horizontal = 16.dp),
-    ) {
-        Box(
-            modifier = Modifier.size(44.dp).clip(CircleShape).background(IOS.accent.copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            icon(Modifier.size(22.dp))
-        }
-        // 8차 HM2: 제목→설명 iOS 20.0 · Android 24.7 — 글꼴 제 높이 대신 iOS 줄 칸(20.3 · 14.3)으로 고정하고 간격 3.
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = IOS.label, modifier = Modifier.sfLine(17f))
-            Text(caption, fontSize = 12.sp, color = IOS.secondaryLabel, modifier = Modifier.sfLine(12f))
-        }
-        ChevronRightIcon(IOS.tertiaryLabel, Modifier.size(12.dp))
     }
 }

@@ -91,6 +91,18 @@ class MainActivity : ComponentActivity() {
         )
         // `--ez homeFloatOpen true` — 홈의 떠 있는 「여행 코스 짜기」 줄을 펼친 채로 띄운다(화면 확인용, iOS `-homeFloatOpen 1`).
         com.mz2az.scenetrip.hometab.HomeDebug.floatOpen = intent.getBooleanExtra("homeFloatOpen", false)
+        // 새 코스 만들기 확인용(MZ2AZ-547 P3, iOS `-newCourse`·`-cityFlow 부산 -cityDays 2 -cityHow plan|pick`·`-worksStep works`·`-cityAutoSave 1`).
+        // `-e newCourse sheet|city|works|saved`, `-e cityFlow 부산 --ei cityDays 2 -e cityHow plan`, `-e worksStep works`, `--ez cityAutoSave true`.
+        com.mz2az.scenetrip.newcourse.NewCourseDebug.apply {
+            cityDays = intent.getIntExtra("cityDays", 0)
+            cityHow = intent.getStringExtra("cityHow")
+            worksStep = intent.getStringExtra("worksStep")
+            cityAutoSave = intent.getBooleanExtra("cityAutoSave", false)
+        }
+        TabRouter.applyNewCourseBackdoor(
+            newCourse = intent.getStringExtra("newCourse"),
+            cityFlow = intent.getStringExtra("cityFlow"),
+        )
 
         // 앱 분석 — 설정 파일(res/raw/google_services.json)이 있고 SDK 의존성이 붙어 있을
         // 때만 켜진다 (MZ2AZ-353).

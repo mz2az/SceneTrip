@@ -3,6 +3,9 @@ package com.mz2az.scenetrip.data
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.mz2az.scenetrip.newcourse.NewCourseEntry
+import com.mz2az.scenetrip.newcourse.NewCourseEntryRules
+import com.mz2az.scenetrip.newcourse.NewCourseStart
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 
@@ -23,12 +26,18 @@ sealed class Cover {
 
     /** 「지금 뜨는 작품」 전체 보기 — 인기순 포스터 격자(MZ2AZ-547 H6, 웹 MZ2AZ-534). */
     data object Trending : Cover()
+
+    /** 새 코스 만들기 — 도시로 시작(질문)·작품으로(AI)·담은 곳으로(MZ2AZ-547 P3). */
+    data class NewCourse(
+        val start: NewCourseStart,
+    ) : Cover()
 }
 
-/** 새 코스 만들기 쪽지(MZ2AZ-547 H1·H4). iOS `TabRouter.NewCourseRequest`. */
-data class NewCourseRequest(
-    /** 홈 카드의 도시 칩으로 들어왔으면 그 도시 열쇠(`PlaceCity.key`). 「+ 새 코스」 면 null. */
-    val city: String?,
+/** 방금 「도시로」 만든 코스의 안내 띠(R6) — 계획 화면 위에 6초 뜬다. iOS `TabRouter.JustCreated`. */
+data class JustCreated(
+    /** 보이는 도시 이름. */
+    val city: String,
+    val days: Int,
 )
 
 /**
@@ -71,13 +80,17 @@ object TabRouter {
     var pendingPlace by mutableStateOf<PlaceSummary?>(null)
 
     /**
-     * 새 코스 만들기 쪽지 — 홈의 도시 칩·떠 있는 줄 「+ 새 코스」 가 남긴다(MZ2AZ-547 H1·H4).
-     *
-     * **다음 Android 묶음(P3)이 바꿀 자리다.** 지금은 경로여정 덮개를 열고 거기 있던 「코스를 어떻게 만들까요?」 갈림길
-     * (AI 로 짜기 / 직접 짜기, `RouteTabView` 의 `ForkSheet`)을 띄운다. P3(새 코스 시트 F1·도시로 여행 짜기 Q*)가
-     * 들어오면 이 쪽지를 받는 곳을 새 시트로 바꾼다 — `city` 가 있으면 Q2(며칠)부터.
+     * 「새 여행 코스」 시트(F1, 세 갈래)를 홈 위에 띄우는가 — 홈 떠 있는 줄의 「+ 새 코스」·코스 0개의 「여행 코스 짜기」.
+     * 코스 목록(경로여정 덮개)의 「코스 추가」 는 그 덮개가 같은 시트를 직접 띄운다.
      */
-    var pendingNewCourse by mutableStateOf<NewCourseRequest?>(null)
+    var newCourseSheet by mutableStateOf(false)
+
+    /** 방금 「도시로」 만든 코스의 안내 띠(R6). 띠가 6초 뒤 스스로 지운다. */
+    var justCreated by mutableStateOf<JustCreated?>(null)
+
+    /** 방금 「도시로」 만든 코스(서버 id) — 계획 화면이 편집 상태로 열고, 저장 없이 나가면 묻고 지운다(E16, 다음 묶음 P4 가 마무리). */
+    var freshCourseId by mutableStateOf<Long?>(null)
+        private set
 
     /** 홈의 전체 보기만 목록을 초기화한다. 일반 검색 탭 선택은 상세 상태를 보존한다. */
     var pendingWorkList by mutableStateOf(false)
@@ -102,10 +115,37 @@ object TabRouter {
         cover = Cover.Profile
     }
 
-    /** 새 코스 만들기의 입구 하나 — 홈의 도시 칩(`city`)과 떠 있는 줄 「+ 새 코스」(null)가 부른다. **P3 가 바꿀 갈고리**다. */
+    /** 새 코스 만들기의 입구 하나 — 홈의 도시 칩(`city`)은 「며칠?」(Q2)부터, 「+ 새 코스」(null)는 새 코스 시트(F1). */
     fun startNewCourse(city: String?) {
-        pendingNewCourse = NewCourseRequest(city)
-        cover = Cover.Route
+        when (val entry = NewCourseEntryRules.entry(city)) {
+            NewCourseEntry.Sheet -> newCourseSheet = true
+            is NewCourseEntry.Flow -> cover = Cover.NewCourse(entry.start)
+        }
+    }
+
+    /** 새 코스 시트에서 한 갈래를 골랐다 — 시트를 닫고 그 흐름을 덮개로 연다. */
+    fun chooseNewCourse(start: NewCourseStart) {
+        newCourseSheet = false
+        cover = Cover.NewCourse(start)
+    }
+
+    /** 「이 코스로 만들기」·「N곳으로 코스 만들기」 로 서버에 만든 직후 — 방금 만든 코스로 표시하고 안내 띠를 켠 뒤 계획 화면으로. */
+    fun courseCreated(
+        id: Long,
+        city: String,
+        days: Int,
+    ) {
+        freshCourseId = id
+        justCreated = JustCreated(city, days)
+        openCourse(id)
+    }
+
+    /** 이 코스가 방금 「도시로」 만든 코스인가. */
+    fun isFreshCourse(id: Long?): Boolean = NewCourseEntryRules.isFresh(freshCourseId, id)
+
+    /** 저장했거나 지웠다 — 더는 방금 만든 코스가 아니다. */
+    fun clearFreshCourse() {
+        freshCourseId = null
     }
 
     /** 홈 「지금 뜨는 작품」 의 「전체 보기」. */
@@ -167,5 +207,25 @@ object TabRouter {
             }
         }
         if (openCourseId != null && openCourseId > 0) pendingCourseId = openCourseId
+    }
+
+    /**
+     * 확인용 뒷문(MZ2AZ-547 P3) — `-e newCourse sheet|city|works|saved` 는 새 코스 시트·흐름을, `-e cityFlow 부산` 은 그 도시의
+     * 「며칠?」 부터 연다(iOS `-newCourse`·`-cityFlow`). 값이 없으면 아무것도 하지 않는다.
+     */
+    fun applyNewCourseBackdoor(
+        newCourse: String?,
+        cityFlow: String?,
+    ) {
+        when (newCourse) {
+            "sheet" -> newCourseSheet = true
+            "city" -> cover = Cover.NewCourse(NewCourseStart.City(null))
+            "works" -> cover = Cover.NewCourse(NewCourseStart.Works)
+            "saved" -> cover = Cover.NewCourse(NewCourseStart.Saved)
+        }
+        if (!cityFlow.isNullOrBlank()) {
+            selected = RootTab.HOME
+            cover = Cover.NewCourse(NewCourseStart.City(cityFlow))
+        }
     }
 }
