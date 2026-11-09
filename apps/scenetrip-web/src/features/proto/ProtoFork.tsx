@@ -13,7 +13,7 @@ import { homeStore } from '@/features/home/homeModel'
 import { Pressable } from '@/features/route/ui/Press'
 import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
-import { MockBadge, coverOf, useCities } from './protoParts'
+import { MockBadge, cityPhotoOf, useCities } from './protoParts'
 import { color, heading, radius } from './protoTokens'
 import { protoActions, say } from './protoState'
 import './proto.css'
@@ -59,7 +59,7 @@ export function ProtoForkSheet({ open, onClose, onAI, onManual }: { open: boolea
   const works = useStore(homeStore, (s) => s.works)
   const { cities } = useCities()
   const saved = cart.items
-  const cityPhoto = cities.map((c) => coverOf(c)?.imageUrl ?? null).find(Boolean) ?? null
+  const cityPhoto = cities.map(cityPhotoOf).find(Boolean) ?? null
   const poster = works.find((w) => w.posterUrl)?.posterUrl ?? null
   const savedPhoto = saved.find((i) => i.imageUrl)?.imageUrl ?? null
   const go = (fn: () => void) => () => {

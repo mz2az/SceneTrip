@@ -13,8 +13,9 @@ import { makeCourse, makeDay, makeStop } from '@/features/route/models'
 import { routeActions } from '@/features/route/store'
 import { useLang } from '@/i18n'
 import { cartActions, useCart } from '@/state/cart'
-import { readJSON, useStore, writeJSON } from '@/state/storage'
+import { useStore } from '@/state/storage'
 import { type Pace, daysLabel, paceLabel, rememberProtoCourse, say } from './protoState'
+import { CITY_COVERS, fixedCoverOf } from './protoCovers'
 import { showsPrototypeMarks } from './protoGate'
 import { color, contained, heading, radius, shadow, z } from './protoTokens'
 import './proto.css'
@@ -58,7 +59,7 @@ export function CityGrid({ cities, loading, selected, onPick }: { cities: readon
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
       {loading && Array.from({ length: ASK_CITIES }, (_, i) => <div key={i} aria-hidden style={{ height: 92, borderRadius: radius.m, background: 'var(--system-gray5)', opacity: 0.6 }} />)}
       {cities.slice(0, ASK_CITIES).map((c) => {
-        const cover = coverOf(c)
+        const photo = cityPhotoOf(c)
         const on = c.key === selected
         return (
           <Pressable
@@ -68,7 +69,7 @@ export function CityGrid({ cities, loading, selected, onPick }: { cities: readon
             aria-pressed={on}
             style={{ position: 'relative', height: 92, borderRadius: radius.m, overflow: 'hidden', textAlign: 'left', outline: on ? `3px solid ${color.primary}` : undefined, background: color.brandFill }}
           >
-            {cover && <img src={cover.imageUrl!} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
+            {photo && <img src={photo} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.05))' }} />
             <VStack spacing={1} align="start" style={{ position: 'absolute', left: 12, bottom: 10 }}>
               <Txt size={17} weight="heavy" style={{ color: color.onPhoto }}>{c.name}</Txt>
@@ -313,44 +314,31 @@ export function CityPicker({ city, days, onBack, onCreated }: {
   )
 }
 
-/** 큰 도시들의 대표 촬영지 사진을 4초마다 넘긴다. 움직임 줄이기 설정이면 첫 장에 멈춘다. */
-/**
- * 도시 대표 사진으로 쓸 촬영지(DEV id) — 인기 1위가 그 도시답지 않은 곳일 때만 고른다.
- * 인천의 1위는 옹진군 무인도 선갑도라 「인천」 으로 보이지 않는다 → 월미도.
- */
-const CITY_COVER: Readonly<Record<string, number>> = { 인천: 199 }
-
-/** 도시를 대표하는 사진 있는 촬영지 — 정해 둔 곳이 있으면 그것, 아니면 인기 1위. */
+/** 도시를 대표하는 사진 있는 촬영지 — 사진을 고정하지 않은 도시는 인기 1위. */
 export function coverOf(city: HomeCity): PlaceSummary | undefined {
-  const fixed = CITY_COVER[city.key]
-  return (fixed !== undefined ? city.places.find((p) => p.id === fixed && hasPhoto(p)) : undefined) ?? city.places.find(hasPhoto)
+  return city.places.find(hasPhoto)
 }
 
-/** 사진 머리 한 장 — 사진·이름·작품만. 지난번 것을 이 브라우저에 기억해 두고 다음에 열 때 먼저 보인다. */
+/** 도시 칸·바로가기에 쓰는 사진 주소 — 고른 대표 사진(웹에 동봉)이 먼저, 없으면 인기 1위 촬영지 사진. */
+export function cityPhotoOf(city: HomeCity): string | null {
+  return fixedCoverOf(city.key)?.src ?? coverOf(city)?.imageUrl ?? null
+}
+
+/** 사진 머리 한 장. */
 export interface CitySlide {
   city: string
-  place: Pick<PlaceSummary, 'id' | 'name' | 'imageUrl' | 'contents'>
+  place: { id: number; name: string; imageUrl: string; contents?: { title: string }[] }
 }
 
-const SLIDES_KEY = 'proto.citySlides.v1'
-
 /**
- * 도시 목록은 촬영지 목록을 여러 쪽 받아 만들어서 늦다(시험용 웹은 한국에서도 미국 LA 의 Cloudflare 를 거쳐 15초쯤, 2026-11-09 실측).
- * 그동안 지난번에 본 사진들을 먼저 보이고, 새 목록이 오면 바꾼다.
+ * 사용자가 도시마다 고른 사진(`protoCovers.ts`)을 4초마다 넘긴다. 움직임 줄이기 설정이면 첫 장에 멈춘다.
+ * 사진이 웹에 함께 실려 있어 촬영지 목록을 기다리지 않는다 — 목록에 기대던 때는 시험용 웹 첫 방문에서 15~23초 걸렸다(2026-11-09 실측, MZ2AZ-545).
  */
-export function useCitySlides(cities: readonly HomeCity[]) {
-  const live: CitySlide[] = cities
-    .slice(0, 6)
-    .map((c) => ({ city: c.name, place: coverOf(c) }))
-    .filter((s): s is { city: string; place: PlaceSummary } => !!s.place)
-    .map((s) => ({ city: s.city, place: { id: s.place.id, name: s.place.name, imageUrl: s.place.imageUrl, contents: s.place.contents?.slice(0, 1) } }))
-  const [remembered] = useState(() => readJSON<CitySlide[]>(SLIDES_KEY, []))
-  const liveKey = live.map((s) => `${s.city}:${s.place.id}:${s.place.imageUrl}`).join('|')
-  useEffect(() => {
-    if (live.length > 0) writeJSON(SLIDES_KEY, live)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 내용이 같으면 다시 쓰지 않는다
-  }, [liveKey])
-  const slides = live.length > 0 ? live : remembered
+export function useCitySlides() {
+  const slides: CitySlide[] = CITY_COVERS.map((c) => ({
+    city: say(c.city.ko, c.city.en),
+    place: { id: c.placeId, name: say(c.place.ko, c.place.en), imageUrl: c.src, contents: [{ title: say(c.work.ko, c.work.en) }] },
+  }))
   const [at, setAt] = useState(0)
   useEffect(() => {
     if (slides.length < 2 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
@@ -373,7 +361,7 @@ export function SlideImages({ slides, at }: { slides: readonly CitySlide[]; at: 
         return (
           <img
             key={s.place.id}
-            src={s.place.imageUrl!}
+            src={s.place.imageUrl}
             alt=""
             referrerPolicy="no-referrer"
             decoding="async"
@@ -394,8 +382,8 @@ export function SlideImages({ slides, at }: { slides: readonly CitySlide[]; at: 
  * 도시 칸과 이어진다. 사진마다 어디인지(도시 · 촬영지 · 작품) 작게 적는다 — 「예쁜 그림」 이 아니라 실제로 갈 수 있는 곳이라는 것.
  * 움직임 줄이기 설정이면 첫 사진에 멈춘다.
  */
-export function CityHero({ cities, children }: { cities: readonly HomeCity[]; children: ReactNode }) {
-  const { slides, at, now } = useCitySlides(cities)
+export function CityHero({ children }: { children: ReactNode }) {
+  const { slides, at, now } = useCitySlides()
   return (
     <div style={{ position: 'relative', height: 'min(46dvh, 390px)', minHeight: 300, overflow: 'hidden', background: color.brandFill }}>
       <SlideImages slides={slides} at={at} />

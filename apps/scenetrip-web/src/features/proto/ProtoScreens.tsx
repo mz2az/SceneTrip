@@ -29,7 +29,7 @@ type PlaceSummary = components['schemas']['PlaceSummary']
 
 export function AskCard() {
   const { cities } = useCities()
-  const { slides, at, now } = useCitySlides(cities)
+  const { slides, at, now } = useCitySlides()
   return (
     // 사진 카드 — 도시 대표 촬영지 사진이 천천히 바뀌고, 그 위에 흰 글씨와 반투명 도시 단추. 사진을 못 받으면 앱의 보라·하늘 그라데이션.
     <section aria-labelledby="proto-ask-title" style={{ position: 'relative', margin: '0 20px', borderRadius: radius.l, overflow: 'hidden', minHeight: 200, background: color.brandFill, boxShadow: shadow.card }}>
@@ -92,7 +92,7 @@ function QuestionFlow() {
         title={null}
         label={say('한국 어디로 여행 가세요?', 'Where in Korea are you going?')}
         hero={
-          <CityHero cities={cities}>
+          <CityHero>
             <VStack spacing={10} align="start">
               <HStack spacing={8}>
                 <PinoMascot width={40} />
