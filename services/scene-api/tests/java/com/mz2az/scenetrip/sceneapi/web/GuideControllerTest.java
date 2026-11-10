@@ -19,6 +19,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.GuideChatRequest;
 import com.mz2az.scenetrip.sceneapi.api.model.GuideEffect;
 import com.mz2az.scenetrip.sceneapi.api.model.GuidePlan;
 import com.mz2az.scenetrip.sceneapi.api.model.GuidePlanReply;
+import com.mz2az.scenetrip.sceneapi.api.model.GuidePlanRequest;
 import com.mz2az.scenetrip.sceneapi.api.model.GuidePlanStop;
 import com.mz2az.scenetrip.sceneapi.api.model.GuideUiDirective;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
@@ -242,6 +243,79 @@ class GuideControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"titles\":[\"도깨비\"],\"days\":8}"))
         .andExpect(status().isBadRequest());
+
+    verify(agent, never()).plan(any(), any(), any());
+  }
+
+  // ───────────── 무엇으로 짜나 — titles 와 city 중 정확히 하나 (1.28.0, MZ2AZ-548) ─────────────
+
+  private static MockHttpServletRequestBuilder plan(String body) {
+    return post("/guide/plan").contentType(MediaType.APPLICATION_JSON).content(body);
+  }
+
+  @Test
+  @DisplayName("마법사 도시 — city 만 오면 200, 그 도시 값이 그대로 에이전트로 간다(titles 는 비어 있다)")
+  void planCityOnlyForwardsCity() throws Exception {
+    mvc.perform(plan("{\"city\":\"경기 광주\",\"days\":2,\"pace\":\"packed\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.tookSeconds").value(0.02));
+
+    ArgumentCaptor<GuidePlanRequest> sent = ArgumentCaptor.forClass(GuidePlanRequest.class);
+    verify(agent).plan(sent.capture(), any(), any());
+    org.assertj.core.api.Assertions.assertThat(sent.getValue().getCity()).isEqualTo("경기 광주");
+    org.assertj.core.api.Assertions.assertThat(sent.getValue().getDays()).isEqualTo(2);
+    // city 요청에 titles 를 지어내지 않는다.
+    org.assertj.core.api.Assertions.assertThat(sent.getValue().getTitles()).isNullOrEmpty();
+  }
+
+  @Test
+  @DisplayName("마법사 작품 — titles 만 오면 200, 그 작품들이 그대로 에이전트로 간다(city 는 없다)")
+  void planTitlesOnlyForwardsTitles() throws Exception {
+    mvc.perform(plan("{\"titles\":[\"도깨비\",\"더 글로리\"],\"days\":1}")).andExpect(status().isOk());
+
+    ArgumentCaptor<GuidePlanRequest> sent = ArgumentCaptor.forClass(GuidePlanRequest.class);
+    verify(agent).plan(sent.capture(), any(), any());
+    org.assertj.core.api.Assertions.assertThat(sent.getValue().getTitles())
+        .containsExactly("도깨비", "더 글로리");
+    org.assertj.core.api.Assertions.assertThat(sent.getValue().getCity()).isNull();
+  }
+
+  @Test
+  @DisplayName("마법사 — titles 와 city 가 둘 다 오면 400 INVALID_PARAMETER, 에이전트를 부르지 않는다")
+  void planBothTitlesAndCityIs400() throws Exception {
+    mvc.perform(plan("{\"titles\":[\"도깨비\"],\"city\":\"서울\",\"days\":1}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+
+    verify(agent, never()).plan(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("마법사 — titles 도 city 도 없으면 400 INVALID_PARAMETER, 에이전트를 부르지 않는다")
+  void planNeitherTitlesNorCityIs400() throws Exception {
+    mvc.perform(plan("{\"days\":1}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+
+    verify(agent, never()).plan(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("마법사 — titles 가 빈 목록이고 city 가 없으면 400 INVALID_PARAMETER, 에이전트를 부르지 않는다")
+  void planEmptyTitlesWithoutCityIs400() throws Exception {
+    mvc.perform(plan("{\"titles\":[],\"days\":1}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+
+    verify(agent, never()).plan(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("마법사 — city 가 공백뿐이고 titles 가 없으면 400 INVALID_PARAMETER, 에이전트를 부르지 않는다")
+  void planBlankCityWithoutTitlesIs400() throws Exception {
+    mvc.perform(plan("{\"city\":\"   \",\"days\":1}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
 
     verify(agent, never()).plan(any(), any(), any());
   }
