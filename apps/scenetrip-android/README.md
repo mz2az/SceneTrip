@@ -58,7 +58,7 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 | 신고·차단·문의 (MZ2AZ-461) | 남의 리뷰·여행후기·홈 「커뮤니티 지금」의 「⋯」 → 신고(이유 여섯 + 설명)·이 사용자 차단, 마이페이지 「차단한 사용자」·「문의하기」, 금칙어 안내. [계획](../../docs/project/plans/android-moderation.md) |
 | 코스 상세 실패 보호·가이드 시작·주변 촬영지·첫 안내 (MZ2AZ-474) | 상세를 못 받은 코스는 편집 화면을 열지 않고 「다시 시도」, 저장은 막음. 지도 중심 기준 가이드 시작 화면, 모델 없는 「지도 주변 촬영지 보기」, 새 직접 짜기의 장바구니 첫 안내. [계획](../../docs/project/plans/android-first-course-guide.md) |
 | 코스 지도 핀 확대·내 위치 정확도 (MZ2AZ-509) | iOS #326·#327 이식. 번호 핀·목록 행을 누르면 그 정지점으로 줌 14 확대(내 위치가 3 km 안일 때만 나와 함께, 멀면 그곳만), 카드를 닫으면 포커스를 풀고 일차 전체로 다시 맞춤(`NaverMap.focusOnStop`, `RouteStopFocus`). 내 위치는 `LocationFix` 규칙(10초 넘은 값·정확도 모름 버림, 더 정확하거나 조금 덜 정확해도 더 새 값으로 갈아탐, 여행 중 100 m 넘는 값 버림)으로 거른 값만 쓰고, 검색 지도는 계속 받아 점을 옮기며 다시 누르면 가진 최신 값으로 바로 반응, 한 번 읽기(마법사·코스 편집 첫 위치)는 3초 동안 가장 나은 값을 기다림. Android 12+ 「대략적 위치」만 허용이면 정확한 위치를 다시 요청. 코스 편집기를 열 때 일차를 맞추는 범위에는 내 자리를 **같은 지역일 때만**(`RouteGeometry.fitHere` — 한국 안·가장 가까운 정지점 100 km 안) 넣는다. 멀리 있는 자리(에뮬레이터 기본 캘리포니아)를 넣으면 지도가 세계 줌에 멈추고 핀이 안 보였다(MZ2AZ-511). 시험: `tests/LocationFixTests.kt` |
-| 여행 중 화면 동기화 (MZ2AZ-478) | iOS 여행 화면 이식. 도착 「발바닥」 스탬프(`PawStampOverlay`, 1.6초)와 「N번 성지 도착!」·「N번 …로 가는 중」, 도착 알림 카드(지도 위)와 가는 중 안내 띠 분리, 머무름 힌트(「머무르면 도착 · N분」), 길찾기 오류 8종 문구와 재시도 단추 조건(`RouteNavFailure`), 한도(429) 안내와 카카오맵·네이버 지도 넘기기(`TripLimitNotice`, 복귀 안내), 경로선 도보 점선·대중교통 실선·지나온 구간 자르기(`RouteTrail`)·미리보기 점선, 정지점 핀(방문=발바닥·고른 곳/목적지=해태·담을까 보는 곳=빨간 해태)과 내 위치 파문, 번호 핀 카드(`RouteStopCard` 장면 설명·별점·「여기로 길찾기」, 편의시설 줄은 `RoutePlaceCard`), 저장 안 된 정지점은 먼저 저장하고 길찾기 시작, 영문 안내 언어 표시·「Line N」 지하철 판정·큰 글자 요약 줄바꿈, 행의 큰 발바닥 배지·발자취 단추 이름. 시험: `tests/TripScreenTests.kt` |
+| 여행 중 화면 동기화 (MZ2AZ-478) | iOS 여행 화면 이식. 도착 「발바닥」 스탬프(`PawStampOverlay`, 1.6초)와 「N번 성지 도착!」·「N번 …로 가는 중」, 도착 알림 카드(지도 위)와 가는 중 안내 띠 분리, 머무름 힌트(「머무르면 도착 · N분」), 길찾기 오류 8종 문구와 재시도 단추 조건(`RouteNavFailure`), 한도(429) 안내와 카카오맵·네이버 지도 넘기기(`TripLimitNotice`, 복귀 안내), 경로선 도보 점선·대중교통 실선·지나온 구간 자르기(`RouteTrail`)·미리보기 점선, 정지점 핀(방문=발바닥·고른 곳/목적지=번호 핀 1.4배·담을까 보는 곳=번호 없는 보라 핀 — 2026-11-10 해태 뺌, MZ2AZ-547 §10)과 내 위치 파문, 번호 핀 카드(`RouteStopCard` 장면 설명·별점·「여기로 길찾기」, 편의시설 줄은 `RoutePlaceCard`), 저장 안 된 정지점은 먼저 저장하고 길찾기 시작, 영문 안내 언어 표시·「Line N」 지하철 판정·큰 글자 요약 줄바꿈, 행의 큰 발바닥 배지·발자취 단추 이름. 시험: `tests/TripScreenTests.kt` |
 | 코스 편집기 정리 (MZ2AZ-482) | 저장된 코스의 아래 줄에서 「저장하고 닫기」를 없애고(저장은 머리줄 하나, 새 코스만 「코스 만들기」, MZ2AZ-368) 계획/안내 줄을 `TripPlanControls`·`TripControls`로 나눔, 장소 검색은 서버 조회(`RoutePlaceSearch` — 입력이 멎은 350ms 뒤 한 번, 앞 요청 취소, 40개씩 이어 받기, 고른 것은 지도에 미리보기 핀, MZ2AZ-372), 편의시설 묶음 핀·`PoiClusters` 제거하고 실제 좌표 핀(`PoiMarkerRules`, MZ2AZ-403), 마법사 문구(방문 수 각주)와 일정 생성 실패 문구(`RouteGuideFailure`), 큰 글자에서 상단바·하단 줄을 세로로 쌓고(MZ2AZ-388) 해태 칩이 바닥 카드 위로 비켜 섬(MZ2AZ-367). 시험: `tests/TripScreenTests.kt`·`tests/VisualParityRulesTests.kt` |
 | AI 기능 동의 (MZ2AZ-468) | 첫 가이드 질문·첫 AI 코스 만들기 전 「AI 기능 사용 안내」 시트, 마이페이지 토글. [계획](../../docs/project/plans/android-ai-consent.md) |
 | 위치기반서비스 이용 동의 (MZ2AZ-472) | 기기 좌표를 서버로 보내기 전 「위치기반서비스 이용 동의」 시트, 마이페이지 토글, 길 안내 성공 때 카카오 제공 알림. [계획](../../docs/project/plans/android-location-consent.md) |
@@ -150,27 +150,43 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 
 ## 웹 시안 반영 P5 — 지도 편의시설 칩·지도 검색 (2026-11-10, MZ2AZ-547)
 
-체크리스트 M1–M7 에 같은 날의 고침(웹 72f87416, iOS `MZ2AZ-547-ios-map-search-fix`)을 얹은 최종 동작이다. 순수 규칙은 `routetab/MapPoiRules.kt`·
+체크리스트 M1–M7 에 같은 날의 고침(웹 72f87416, iOS `MZ2AZ-547-ios-map-search-fix`)을 얹은 동작이다. 그 뒤 같은 날 바뀐 것(점 빼기·가까운 순·
+20개씩 더 받기·해태 핀 빼기·부드러운 옮김)은 아래 「지도 — 구글처럼·가까운 순·해태 빼기」 절이 앞선다. 순수 규칙은 `routetab/MapPoiRules.kt`·
 `routetab/MapSearchRules.kt` 에 있고 JVM 시험이 선다(`tests/MapPoiRulesTests.kt`·`tests/MapSearchRulesTests.kt` 75개 — iOS 시험을 옮기고 몇 개 더했다).
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `MapPoiRules.kt` | 지도 범위(`bbox`)·칩 상태(처음 다 꺼짐, 켤 때만 받기, 하나만 켜면 `categoryGroup`)·서버 요청(`sort=spread`·`spreadZoom=floor(zoom)`·`limit=200`)·상태 알약·골고루 찍기(72dp 칸마다 1등은 원래 점, 나머지는 작은 점 9/16) |
+| `MapPoiRules.kt` | 지도 범위(`bbox`)·칩 상태(처음 다 꺼짐, 켤 때만 받기, 하나만 켜면 `categoryGroup`)·서버 요청(`sort=spread`·`spreadZoom=floor(zoom)`·`limit=200`)·상태 알약·골고루 찍기(72dp 칸마다 1등만 아이콘, 나머지는 그리지 않음 — §7) |
 | `MapSearchRules.kt` | 검색어(2글자, 0.35초, 100자)·목록 줄·지도에 찍을 검색 점·고른 곳을 보이는 지도 가운데로(가린 높이의 반, 카드는 적어도 300dp, 확대 ≥16)·결과 지도 상태(서랍 42%↔78%, 「다시 찾기」) |
 | `MapSearchModels.kt` | 검색 목록·결과 지도의 받기(`GET /pois?q` 만, 늦은 답은 취소) |
 | `MapPoiBar.kt`·`MapSearchPanel.kt`·`MapSearchResults.kt` | 칩 줄(🔍 · 전체 · 음식점 · 명소 · 숙소 · 교통)과 알약 · 검색칸과 목록 · 엔터 뒤 결과 지도(검색어 알약·서랍) |
-| `MapPoiMarkers.kt` | 골고루 점(받은 목록이 바뀔 때만 만들고, 확대하면 그림만 바꾼다)·검색 점·검색에서 고른 해태·고른 곳으로 카메라 옮기기 |
+| `MapPoiMarkers.kt` | 골고루 아이콘(받은 목록이 바뀔 때만 만들고, 확대하면 붙이고 떼고 그림만 바꾼다)·검색 결과 핀·검색에서 고른 큰 아이콘·고른 곳으로 카메라 옮기기 |
 | `RouteEditorMapPoi.kt` | 계획 화면의 칩·검색 상태 묶음(`EditorMapPoi`)·지도 맨 위 자리(`EditorMapTop`)·확인용 뒷문 `MapPoiDebug` |
 
 - 칩 줄은 **편집 중 + 지도 펼침 + 여행 안내 아님** 에서만 지도 맨 위에 뜬다. 보기로 돌아가거나 여행을 시작하면 다 끄고 검색도 닫는다.
 - 받기는 칩을 켤 때와 「↻ 이 지역에서 다시 찾기」 를 누를 때뿐이다. 예전의 「지도가 멈출 때마다 · 줌 13 이상」 조회는 없앴다. 지도를 옮기면 점은 그대로 두고 알약만 뜬다.
   기기 위치로 맞춘 범위면 위치 동의를 먼저 묻는다(칩·🔍 둘 다).
 - 일정 서랍의 칩 자리에는 「AI 장소」 칩만 남았다.
-- 🔍 는 가게·장소만 찾는다(촬영지 탭·사진 핀은 없다). 목록이 떠 있는 동안 찾은 곳을 지도에 점으로 찍고, 새 결과가 올 때까지 앞의 점을 둔다.
+- 🔍 는 가게·장소만 찾는다(촬영지 탭·사진 핀은 없다). 글자 치는 동안 지도에는 찍지 않는다(§7).
   고르면 정보 카드가 뜨고 지도는 시트·서랍·카드가 가리지 않은 곳의 가운데로 간다. 카드를 닫아도 지도는 그대로다.
 - 엔터 → 결과 지도: 일정 서랍·「지도」 알약·＋·해태는 비키고 결과 서랍(42%, 손잡이로 78%)이 그 자리를 쓴다. 결과에 맞춘 뒤 사람이 지도를 옮기면 「다시 찾기」.
 - 확인용 뒷문(iOS 와 같은 이름, `-e editorMode edit --ez editorMap true` 와 함께): `-e editorPoi all|food|sight|stay|transit`,
-  `-e editorSearch 글자`(검색칸을 그 글자로 연다), `-e editorResults 글자`(이 지역 밖까지 찾은 결과 지도를 열고 첫 결과를 고른다).
+  `-e editorSearch 글자`(검색칸을 그 글자로 연다), `-e editorResults 글자`(화면 가운데에서 가까운 순으로 찾은 결과 지도를 열고 첫 결과를 고른다).
+
+## 지도 — 구글처럼·가까운 순·해태 빼기 (2026-11-10, MZ2AZ-547 §7–§10)
+
+[계획](../../docs/project/plans/motion-works-drawer-parity.md) §7–§10 과 iOS(`f79f526f` 까지, 칩 옆 개수 빼기 `6f84954a`)를 옮겼다. 순수 규칙은
+JVM 시험이 먼저 섰다(`tests/MapSearchPagingRulesTests.kt`·`tests/MapCameraMotionRulesTests.kt`·`tests/MapSearchRulesTests.kt`). 핀 그림은 화면으로 확인한다.
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `routetab/MapSearchPagingRules.kt` | 결과 서랍 더 받기 — 한 쪽 20개, 끝에서 한 줄 안이 보이면 다음 쪽, `total` 에 닿거나 빈 쪽이면 멈춤, 같은 id 는 다시 넣지 않음, 지도 맞추기는 처음 쪽만. 가까운 순의 기준점(물을 때의 화면 가운데·그 화면의 좌표 출처), 지도 핀은 앞 100개 |
+| `routetab/MapCameraMotionRules.kt` · `MapCameraMotionNaver.kt` | 고른 곳·코스 장소로 옮길 때 지금 화면 가운데에서 그곳까지가 화면 너비의 3배 이하면 0.6초 부드럽게, 넘으면 한 번에. 지도 SDK 에 iOS 의 `easeOut` 이 없어 `CameraAnimation.Easing` 을 쓴다. `focusOnPicked`(편의시설·검색 결과)·`focusOnStop`(코스 장소, 여행 중 포함) 둘 다 |
+| `routetab/MapSearchRules.kt` · `MapSearchModels.kt` | 검색은 범위(`bbox`) 없이 `GET /pois?q&lat&lng&sort=distance` — 화면을 모르면 기준점 없이(서버 이름순). 목록 제목 「가게·장소 · 가까운 순」, 없으면 「찾는 곳이 없어요」. 「이 지역엔 없어요」·「이 지역 밖에서도 찾기」 는 없앴다. 결과 상태에 전체 개수·빈 쪽·받는 중·더 받기 실패를 더했다. 다음 쪽은 처음 쪽과 같은 기준점으로 묻고, 「↻ 이 지역에서 다시 찾기」 는 새 화면 가운데로 처음 쪽부터 |
+| `routetab/MapSearchPanel.kt` · `MapSearchResults.kt` | 글자 치는 동안 지도에는 아무것도 찍지 않는다. 목록 맨 위 「‘q’ 검색」(누르면 키보드 검색처럼 결과 서랍). 결과 서랍 끝에 받는 중 줄·「더 불러오지 못했어요 · 다시 시도」 줄, 검색어 알약의 「N곳」 은 서버 전체 개수 |
+| `routetab/MapPoiMarkers.kt` · `PoiPinImage.kt` | 기본 지도 편의시설은 칸마다 1등만 갈래 아이콘, 나머지는 그리지 않는다(작은 점 없음). 검색 결과 핀도 갈래 아이콘. 고른 곳은 같은 아이콘을 26→40dp 로 — 빨간 해태는 뺐다. 결과 100개 밖이어도 고른 곳은 그린다 |
+| `routetab/RouteNumberPin.kt` · `RouteTripMap.kt` · `RouteEditorParts.kt` | 지도의 해태 핀을 모두 뺐다 — 고른 코스 장소·안내 중인 목적지는 같은 번호 핀 1.4배, 가이드가 찾은 곳은 갈래 아이콘(고르면 크게), 담을까 보는 곳은 번호 없는 보라 핀, 「핀 찍기」 자리는 번호 없는 보라 핀 1.4배. 안드로이드는 길 안내가 계획 화면 지도 안에서 돌므로(따로 된 길 안내 화면이 없다) 목적지 핀이 곧 큰 번호 핀이고, 파란·빨간 고리는 처음부터 없었다 |
+| `routetab/MapPoiBar.kt` | 켠 칩 옆의 개수를 뺐다 — 늘 받은 수(200)라 지도에 보이는 아이콘 수와 달랐다 |
 
 ## 웹 시안 반영 P6 — 처음 안내 말풍선 (2026-11-10, MZ2AZ-547)
 

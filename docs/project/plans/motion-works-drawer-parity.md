@@ -152,3 +152,5 @@
 - 웹: `MZ2AZ-544-web-works-drawer`(지도 검색 고침 브랜치 위)
 - iOS: `MZ2AZ-547-ios-motion`(지도 검색 고침 브랜치 위). 커뮤니티 움직임은 커뮤니티 묶음 브랜치에
 - 안드로이드: `MZ2AZ-547-android-parity`
+- 안드로이드 §7–§10(칩 옆 개수 빼기 포함): `MZ2AZ-547-android-catchup` 에 반영. 지도 SDK 에 `easeOut` 이 없어 부드러운 옮김은
+  `CameraAnimation.Easing`(0.6초)이다. 안드로이드는 길 안내가 계획 화면 지도 안에서 돌아 §10-1 의 길 안내 화면 핀은 계획 화면 핀과 같다.
