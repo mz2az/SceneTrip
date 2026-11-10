@@ -53,7 +53,9 @@ struct RootTabs: View {
             ZStack {
                 // 검색 탭은 항상 살려 둔다 — 다른 탭에 갔다 와도 지도와 검색 결과가
                 // 그대로여야 한다.
+                // 촬영지 상세 「길찾기」가 코스를 만들고 연다(MZ2AZ-547 G3) — 홈·경로여정과 같은 코스 목록을 쓴다.
                 SearchTabView()
+                    .environmentObject(routes)
                     .opacity(router.selected == .search ? 1 : 0)
                     .allowsHitTesting(router.selected == .search)
 
