@@ -20,6 +20,8 @@ struct CityPlanPreview: View {
     @EnvironmentObject private var routes: RouteStore
     @ObservedObject private var store = CityPlacesStore.shared
     @ObservedObject private var router = TabRouter.shared
+    @ObservedObject private var flips = SceneFlipStore.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var plan: [[PlaceSummary]]?
     /// AI 일정을 못 받았다 — 「다시 시도」.
@@ -112,6 +114,7 @@ struct CityPlanPreview: View {
                 PlanDayList(
                     day: day,
                     stops: stops,
+                    peekId: peekId(plan),
                     onSwap: { index in Task { await swap(day: day, index: index) } },
                     onRemove: { index in
                         withAnimation(.easeOut(duration: 0.2)) {
@@ -131,6 +134,15 @@ struct CityPlanPreview: View {
                 ) { Task { await save(plan) } }
             }
         }
+    }
+
+    /// 처음 한 번 살짝 돌 카드 — 뒤집히는 첫 카드(§6, `SceneFlipRules.peekIndex`).
+    private func peekId(_ plan: [[PlaceSummary]]) -> Int64? {
+        let cards = plan.flatMap { $0 }
+        return SceneFlipRules.peekIndex(
+            flippable: cards.map { flips.flippable($0.id) },
+            hasFlipped: flips.hasFlipped, reduceMotion: reduceMotion
+        ).map { cards[$0].id }
     }
 
     private func save(_ plan: [[PlaceSummary]]) async {
@@ -155,6 +167,8 @@ struct CityPlanPreview: View {
 private struct PlanDayList: View {
     let day: Int
     let stops: [PlaceSummary]
+    /// 처음 한 번 살짝 돌 카드(없으면 nil).
+    let peekId: Int64?
     let onSwap: (Int) -> Void
     let onRemove: (Int) -> Void
 
@@ -169,8 +183,11 @@ private struct PlanDayList: View {
             .accessibilityAddTraits(.isHeader)
             VStack(spacing: 12) {
                 ForEach(Array(stops.enumerated()), id: \.element.id) { index, place in
-                    PlanSpotCard(place: place, number: index + 1, onSwap: { onSwap(index) }, onRemove: { onRemove(index) })
-                        .animation(.easeOut(duration: 0.16), value: stops.map(\.id))
+                    PlanSpotCard(
+                        place: place, number: index + 1, peek: place.id == peekId,
+                        onSwap: { onSwap(index) }, onRemove: { onRemove(index) }
+                    )
+                    .animation(.easeOut(duration: 0.16), value: stops.map(\.id))
                 }
             }
         }
@@ -181,6 +198,8 @@ private struct PlanDayList: View {
 struct PlanSpotCard: View {
     let place: PlaceSummary
     let number: Int
+    /// 처음 한 번 살짝 돌 카드인가(§6).
+    var peek = false
     let onSwap: () -> Void
     let onRemove: () -> Void
 
@@ -188,7 +207,7 @@ struct PlanSpotCard: View {
         VStack(alignment: .leading, spacing: 0) {
             Color.clear
                 .aspectRatio(16 / 9, contentMode: .fit)
-                .overlay { NewCoursePhoto(url: place.imageUrl) }
+                .overlay { SceneFlipPhoto(place: place, peek: peek) }
                 .clipped()
                 .overlay(alignment: .topLeading) {
                     Text(verbatim: "\(number)")
