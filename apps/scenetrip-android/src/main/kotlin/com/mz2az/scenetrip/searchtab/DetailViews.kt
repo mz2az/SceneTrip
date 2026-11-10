@@ -143,6 +143,7 @@ fun ContentDetailView(
                         ) {
                             RemoteImage(
                                 url = detail?.posterUrl?.toString() ?: summary.posterUrl?.toString(),
+                                keepOnDisk = true,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize(),
                             )

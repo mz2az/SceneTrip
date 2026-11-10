@@ -345,6 +345,7 @@ private fun LikedWorksSheetBody(
                                 ) {
                                     RemoteImage(
                                         url = work.posterUrl?.toString(),
+                                        keepOnDisk = true,
                                         contentScale = ContentScale.Fit,
                                         // 받는 중이거나 못 받았을 때 회색 바탕에 필름 아이콘이 보인다 (iOS `RemoteImage(symbol: "film")`).
                                         placeholder = { FilmIcon(IOS.tertiaryLabel, Modifier.size(18.dp)) },

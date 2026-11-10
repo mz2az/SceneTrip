@@ -309,10 +309,12 @@ fun NewCoursePhoto(
     url: String?,
     modifier: Modifier = Modifier,
     edge: Int = 480,
+    // 작품 포스터면 기기에 30일 보관한다(MZ2AZ-507).
+    poster: Boolean = false,
 ) {
     Box(modifier = modifier.background(NewCourseStyle.brandFill)) {
         if (NewCourseText.usablePhoto(url)) {
-            RemoteImage(url = url, modifier = Modifier.fillMaxSize(), edge = edge, backgroundColor = Color.Transparent)
+            RemoteImage(url = url, modifier = Modifier.fillMaxSize(), edge = edge, backgroundColor = Color.Transparent, keepOnDisk = poster)
         }
     }
 }

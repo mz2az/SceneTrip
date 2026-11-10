@@ -21,12 +21,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.ImageRequests
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.nio.ByteBuffer
 
 /**
  * 서버가 준 URL 로 이미지를 그린다. 실패하면 자리표시자로 떨어진다.
@@ -56,10 +59,15 @@ object ImageCache {
             ): Int = value.allocationByteCount
         }
 
+    /**
+     * 받아서 줄여 푼다. [diskDir] 를 주면(작품 포스터만, MZ2AZ-507) 원본을 그 폴더에 30일 보관하고 100MB 를 넘으면 오래 안 쓴 것부터 지운다
+     * (`PosterDiskRules`). 포스터는 방송사·OTT 서버에 있어 우리가 줄일 수 없다 — 우리 서버 사진은 서버 쪽에서 줄인다(사용자 결정).
+     */
     suspend fun load(
         url: String,
         key: String = url,
         edge: Int = 360,
+        diskDir: File? = null,
     ): ImageBitmap? {
         val cacheKey = "$key:$edge"
         memory.get(cacheKey)?.let { return it.asImageBitmap() }
@@ -67,21 +75,8 @@ object ImageCache {
             withContext(Dispatchers.IO) {
                 runCatching {
                     val bytes =
-                        client.newCall(ImageRequests.request(url)).execute().use { response ->
-                            require(response.isSuccessful)
-                            val stream = requireNotNull(response.body).byteStream()
-                            stream.use {
-                                val out = java.io.ByteArrayOutputStream()
-                                val buffer = ByteArray(8192)
-                                var count = stream.read(buffer)
-                                while (count != -1) {
-                                    require(out.size() + count <= MAX_DOWNLOAD_BYTES)
-                                    out.write(buffer, 0, count)
-                                    count = stream.read(buffer)
-                                }
-                                out.toByteArray()
-                            }
-                        }
+                        diskDir?.let { PosterDisk.read(it, url) }
+                            ?: download(url).also { bytes -> diskDir?.let { PosterDisk.write(it, url, bytes) } }
                     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
                     var sample = 1
@@ -91,6 +86,70 @@ object ImageCache {
             }
         if (bitmap != null) memory.put(cacheKey, bitmap)
         return bitmap?.asImageBitmap()
+    }
+
+    private fun download(url: String): ByteArray =
+        client.newCall(ImageRequests.request(url)).execute().use { response ->
+            require(response.isSuccessful)
+            val stream = requireNotNull(response.body).byteStream()
+            stream.use {
+                val out = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(8192)
+                var count = stream.read(buffer)
+                while (count != -1) {
+                    require(out.size() + count <= MAX_DOWNLOAD_BYTES)
+                    out.write(buffer, 0, count)
+                    count = stream.read(buffer)
+                }
+                out.toByteArray()
+            }
+        }
+}
+
+/**
+ * 작품 포스터의 기기 보관(MZ2AZ-507). 파일 앞 8바이트에 저장한 때(밀리초)를 적고 뒤에 원본을 둔다 — 안드로이드 파일에는 만든 때가 없다.
+ * 「마지막으로 쓴 때」 는 파일의 수정 시각으로 둔다(읽을 때 지금으로).
+ */
+object PosterDisk {
+    private const val HEADER = 8
+
+    fun read(
+        dir: File,
+        url: String,
+        now: Long = System.currentTimeMillis(),
+    ): ByteArray? {
+        val file = File(dir, PosterDiskRules.fileName(url))
+        val raw = runCatching { file.readBytes() }.getOrNull() ?: return null
+        if (raw.size <= HEADER) return null
+        val savedAt = ByteBuffer.wrap(raw, 0, HEADER).long
+        if (PosterDiskRules.expired(savedAt, now)) {
+            file.delete()
+            return null
+        }
+        file.setLastModified(now)
+        return raw.copyOfRange(HEADER, raw.size)
+    }
+
+    fun write(
+        dir: File,
+        url: String,
+        bytes: ByteArray,
+        now: Long = System.currentTimeMillis(),
+    ) {
+        runCatching {
+            dir.mkdirs()
+            val file = File(dir, PosterDiskRules.fileName(url))
+            val temp = File(dir, "${file.name}.tmp")
+            temp.writeBytes(ByteBuffer.allocate(HEADER).putLong(now).array() + bytes)
+            temp.renameTo(file)
+            val entries =
+                dir
+                    .listFiles()
+                    .orEmpty()
+                    .filter { it.isFile }
+                    .map { PosterDiskEntry(it.name, it.length(), it.lastModified()) }
+            PosterDiskRules.evictions(entries, PosterDiskRules.MAX_BYTES).forEach { File(dir, it).delete() }
+        }
     }
 }
 
@@ -106,7 +165,10 @@ fun RemoteImage(
     onRetry: () -> Unit = {},
     placeholder: (@Composable () -> Unit)? = null,
     backgroundColor: Color = IOS.systemGray6,
+    // 작품 포스터면 기기에 30일 보관한다(MZ2AZ-507). 다른 사진은 메모리만.
+    keepOnDisk: Boolean = false,
 ) {
+    val diskDir = if (keepOnDisk) File(LocalContext.current.cacheDir, "posters") else null
     var bitmap by remember(cacheKey, edge) { mutableStateOf<ImageBitmap?>(null) }
     var failed by remember(cacheKey) { mutableStateOf(false) }
     var retry by remember(cacheKey) { mutableStateOf(0) }
@@ -114,7 +176,7 @@ fun RemoteImage(
     LaunchedEffect(url, edge, retry) {
         if (url != null) {
             failed = false
-            bitmap = ImageCache.load(url, cacheKey ?: url, edge)
+            bitmap = ImageCache.load(url, cacheKey ?: url, edge, diskDir)
             failed = bitmap == null
             if (failed) onFailure()
         }

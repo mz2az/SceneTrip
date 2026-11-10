@@ -239,6 +239,7 @@ private fun Tile(
         ) {
             RemoteImage(
                 url = work.posterUrl?.toString(),
+                keepOnDisk = true,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
                 placeholder = { FilmIcon(IOS.tertiaryLabel, Modifier.size(28.dp)) },

@@ -568,7 +568,7 @@ private fun PosterCell(
                         .clip(shape)
                         .then(if (on) Modifier.border(3.dp, NewCourseStyle.purple, shape) else Modifier),
             ) {
-                NewCoursePhoto(work.posterUrl?.toString(), Modifier.fillMaxSize())
+                NewCoursePhoto(work.posterUrl?.toString(), Modifier.fillMaxSize(), poster = true)
                 if (on) Box(Modifier.fillMaxSize().background(Color(0x473C28A0)))
                 Box(
                     contentAlignment = Alignment.Center,
@@ -802,6 +802,7 @@ private fun PosterFan(
                     }.size(width = 72.dp, height = 108.dp)
                     .shadow(8.dp, RoundedCornerShape(NewCourseStyle.radiusS))
                     .clip(RoundedCornerShape(NewCourseStyle.radiusS)),
+                poster = true,
             )
         }
     }

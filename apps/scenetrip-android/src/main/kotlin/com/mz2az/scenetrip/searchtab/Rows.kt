@@ -71,6 +71,7 @@ fun WorkRow(
     ) {
         RemoteImage(
             url = content.posterUrl?.toString(),
+            keepOnDisk = true,
             contentScale = ContentScale.Crop,
             modifier =
                 Modifier
