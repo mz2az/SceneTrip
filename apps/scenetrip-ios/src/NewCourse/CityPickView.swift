@@ -149,7 +149,7 @@ struct SpotRow: View {
                 .background(Capsule().fill(saved ? NewCourseStyle.purple : Color(.systemGray6)))
                 .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
             .frame(maxHeight: .infinity)
             .accessibilityAddTraits(saved ? .isSelected : [])
         }

@@ -89,7 +89,7 @@ struct NewCourseScreen<Hero: View, Content: View, Footer: View>: View {
                             .frame(width: 44, height: 44)
                             .contentShape(.rect)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.press)
                     .accessibilityLabel(tr("뒤로"))
                 }
                 Spacer()
@@ -175,7 +175,7 @@ struct NewCoursePrimaryButton<Label: View>: View {
                 .opacity(disabled ? 0.45 : 1)
                 .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .disabled(disabled)
     }
 }
@@ -202,7 +202,7 @@ struct NewCourseSecondaryButton: View {
                 .overlay(RoundedRectangle(cornerRadius: NewCourseStyle.radiusM).strokeBorder(NewCourseStyle.purple, lineWidth: 1.5))
                 .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
     }
 }
 
@@ -277,7 +277,7 @@ struct PhotoRoundButton: View {
                 .frame(width: 44, height: 44)
                 .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .accessibilityLabel(label)
     }
 }

@@ -66,12 +66,12 @@ struct HomeTripFloat: View {
             } label: {
                 mainPill(symbol: "paperplane.fill", title: tr("여행 코스 짜기"))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
             .coachTarget("plan-trip")
         case let .running(course):
             HStack(spacing: 8) {
                 Button { open = true } label: { round(symbol: "list.bullet") }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.press)
                     .accessibilityLabel(tr("내 코스 펼치기"))
                 Button {
                     if let id = course.serverId {
@@ -80,7 +80,7 @@ struct HomeTripFloat: View {
                 } label: {
                     mainPill(symbol: "location.north.fill", title: course.title)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.press)
                 .accessibilityLabel(String(format: tr("여행 중: %@ 열기"), course.title))
             }
         }
@@ -143,14 +143,14 @@ struct HomeTripFloat: View {
         switch item {
         case .close:
             Button { open = false } label: { round(symbol: "xmark") }
-                .buttonStyle(.plain)
+                .buttonStyle(.press)
                 .accessibilityLabel(tr("접기"))
         case .all:
             Button {
                 open = false
                 onAll()
             } label: { round(symbol: "list.bullet") }
-                .buttonStyle(.plain)
+                .buttonStyle(.press)
                 .accessibilityLabel(tr("전체 코스 보기"))
         case .newCourse:
             Button {
@@ -168,7 +168,7 @@ struct HomeTripFloat: View {
                 .floatShadow()
                 .contentShape(Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
         case let .course(course):
             Button {
                 open = false
@@ -191,7 +191,7 @@ struct HomeTripFloat: View {
                 .floatShadow()
                 .contentShape(Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
         }
     }
 }

@@ -41,7 +41,7 @@ struct TripScheduleGroup: View {
                         .padding(.horizontal, 14)
                         .contentShape(.rect)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.press)
             }
         }
     }
@@ -65,7 +65,7 @@ struct TripScheduleGroup: View {
                             .fill(on ? NewCourseStyle.purple : Color(.systemGray6)))
                         .contentShape(.rect)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.press)
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
@@ -89,7 +89,7 @@ struct TripScheduleGroup: View {
             .frame(minHeight: 48)
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
     }
 
     private var dateLabel: String {
@@ -132,7 +132,7 @@ struct PaceRows: View {
                 }
                 .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
             .accessibilityAddTraits(on ? .isSelected : [])
         }
     }

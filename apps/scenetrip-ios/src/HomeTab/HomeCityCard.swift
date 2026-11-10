@@ -80,7 +80,7 @@ struct HomeCityCard: View {
             HStack(spacing: 6) {
                 ForEach(HomeCityRules.chips(cities), id: \.key) { city in
                     Button { onPick(city) } label: { chip(city) }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.press)
                         .accessibilityLabel(String(format: tr("%@, 촬영지 %lld곳"), city.name, city.placeCount))
                 }
             }

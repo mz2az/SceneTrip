@@ -96,7 +96,7 @@ struct CityQuestionView: View {
                     .frame(minHeight: 44)
                     .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
             .frame(maxWidth: .infinity)
         } footer: {
             EmptyView()
@@ -132,7 +132,7 @@ struct CityQuestionView: View {
                 )
                 .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
@@ -218,7 +218,7 @@ private struct HowCard: View {
             }
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
     }
 }
 
@@ -319,7 +319,7 @@ struct CityGrid: View {
             }
             ForEach(cities, id: \.key) { city in
                 Button { onPick(city.key) } label: { cell(city) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.press)
                     .accessibilityLabel(String(format: tr("%@, 촬영지 %lld곳"), city.name, city.placeCount))
             }
         }

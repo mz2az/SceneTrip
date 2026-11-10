@@ -166,7 +166,7 @@ struct CourseAddFab: View {
                     .background(Circle().fill(TabBar.homePurple))
                     .shadow(color: .black.opacity(0.22), radius: 8, y: 4)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
             .accessibilityLabel(Text("장소 추가"))
             .coachTarget("editor-add")
         }
@@ -190,7 +190,7 @@ struct CourseAddFab: View {
             .padding(.horizontal, 14).padding(.vertical, 12)
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
     }
 }
 
