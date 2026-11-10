@@ -118,6 +118,8 @@ kt_jvm_library(
         "tests/PlaceDirectionsTests.kt",
         "tests/PhotoRenewalTests.kt",
         "tests/PoiInfoTests.kt",
+        # 작품 포스터 기기 보관 규칙 (MZ2AZ-507)
+        "tests/PosterDiskRulesTests.kt",
         "tests/ProfileHomeParityTests.kt",
         "tests/ReviewParityTests.kt",
         "tests/RouteEditorRulesTests.kt",
