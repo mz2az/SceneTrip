@@ -96,33 +96,69 @@ extension RouteEditorView {
             .background(Capsule().fill(Color(.label)))
             .shadow(color: .black.opacity(0.22), radius: 10, y: 6)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .accessibilityAddTraits(mapToggle.isOpen ? .isSelected : [])
         .coachTarget("editor-map")
         .padding(16)
     }
 
+    /// 서랍 높이를 코드가 바꿀 때의 움직임 — 0.32초, 웹 `cubic-bezier(.32,.72,0,1)` (MZ2AZ-547 M4–M6).
+    static let sheetMotion = Animation.timingCurve(0.32, 0.72, 0, 1, duration: 0.32)
+
     func toggleMap() {
-        let wasOpen = mapToggle.isOpen
-        let fit = mapToggle.toggle()
-        if !wasOpen {
-            panelDetent = .medium
-        } else {
-            pinning = false
+        if mapToggle.isOpen {
+            closeMap()
+            return
+        }
+        openMap { mapToggle.toggle() }
+    }
+
+    /// 줄을 눌렀다·핀 찍기를 켰다 — 접혀 있으면 펼친다(E5). 닫히는 중이면 닫기를 거두고 중간으로 되돌린다.
+    func revealMap() {
+        if mapClosing {
+            mapClosing = false
+            withAnimation(Self.sheetMotion) { panelDetent = .medium }
+            return
+        }
+        guard !mapToggle.isOpen else { return }
+        openMap { mapToggle.reveal() }
+    }
+
+    /// 지도를 펼친다(M4) — 서랍을 맨 위에 그린 뒤 중간(60%)으로 0.32초 내려 지도가 드러나게.
+    /// `flip` 은 지도 켜기(처음 펼친 것이면 true — 그때만 코스 전체에 맞춘다).
+    private func openMap(_ flip: () -> Bool) {
+        var still = Transaction()
+        still.disablesAnimations = true
+        var fit = false
+        withTransaction(still) {
+            panelDetent = .expanded
+            fit = flip()
+        }
+        Task {
+            // 맨 위의 서랍이 한 번 그려진 다음 내린다.
+            try? await Task.sleep(for: .milliseconds(30))
+            withAnimation(Self.sheetMotion) { panelDetent = .medium }
         }
         if fit {
             fitAfterOpening()
         }
     }
 
-    /// 줄을 눌렀다·핀 찍기를 켰다 — 접혀 있으면 펼친다(E5).
-    func revealMap() {
-        let wasOpen = mapToggle.isOpen
-        if mapToggle.reveal() {
-            fitAfterOpening()
-        }
-        if !wasOpen {
-            panelDetent = .medium
+    /// 「목록만」(M5) — 서랍이 맨 위로 0.32초 올라간 뒤 목록 화면. 그동안 지도 알약·＋ 는 숨긴다.
+    private func closeMap() {
+        pinning = false
+        mapClosing = true
+        withAnimation(Self.sheetMotion) { panelDetent = .expanded }
+        Task {
+            try? await Task.sleep(for: .milliseconds(320))
+            // 그 사이 줄을 눌러 다시 펼쳤으면(`revealMap`) 닫지 않는다.
+            guard mapClosing else { return }
+            var still = Transaction()
+            still.disablesAnimations = true
+            withTransaction(still) {
+                mapToggle.close()
+                mapClosing = false
+            }
         }
     }
 
@@ -139,7 +175,7 @@ extension RouteEditorView {
 
     /// 해태 동그라미(오른쪽 12, 바닥 76, 46)와 세로 한 줄 — 그 바로 위. 편집 중이고 가이드 창·핀 찍기가 아닐 때만.
     @ViewBuilder var addFab: some View {
-        if RouteEditorRules.showsEditTools(mode), !showGuide, !pinning, !trip.isActive, !mapResultsOpen {
+        if RouteEditorRules.showsEditTools(mode), !showGuide, !pinning, !trip.isActive, !mapResultsOpen, !mapClosing {
             ZStack(alignment: .bottomTrailing) {
                 if addMenuOpen {
                     Color.black.opacity(0.12)

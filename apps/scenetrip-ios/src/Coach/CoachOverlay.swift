@@ -70,16 +70,17 @@ struct CoachOverlay: View {
     private func content(run: CoachCenter.Running, layout: CoachLayout) -> some View {
         let tourId = run.tour.id
         return ZStack(alignment: .topLeading) {
-            // 덮개 — 구멍 밖을 어둡게. 누르면 다음으로.
-            Path { path in
-                path.addRect(CGRect(origin: .zero, size: CGSize(width: 10000, height: 10000)))
-                path.addRoundedRect(in: layout.hole, cornerSize: CGSize(width: layout.holeRadius, height: layout.holeRadius))
-            }
-            .fill(Self.dim, style: FillStyle(eoFill: true))
-            .contentShape(Rectangle())
-            .onTapGesture { center.perform(.tapScrim, tourId: tourId) }
-            .accessibilityHidden(true)
+            // 덮개 — 구멍 밖을 어둡게. 누르면 다음으로. 구멍은 다음 단계 자리로 0.2초에 옮겨 간다(M10, 웹 `.proto-coach-hole`) —
+            // `Path` 는 움직임을 모르는 모양이라 순간 이동했다. 구멍 틀을 움직일 수 있는 값으로 가진 모양을 쓴다.
+            CoachScrimShape(hole: layout.hole, radius: layout.holeRadius)
+                .fill(Self.dim, style: FillStyle(eoFill: true))
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: layout.hole)
+                .contentShape(Rectangle())
+                .onTapGesture { center.perform(.tapScrim, tourId: tourId) }
+                .accessibilityHidden(true)
             bubble(run: run, layout: layout)
+                // 단계마다 6pt 아래에서 떠오르며 0.22초에 나타난다(M10, 웹 `.proto-coach-bubble`).
+                .modifier(CoachRise(step: run.index, enabled: !reduceMotion))
                 .offset(x: layout.bubble.minX, y: layout.bubble.minY)
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: layout)
@@ -153,5 +154,62 @@ struct CoachOverlay: View {
         .accessibilityElement(children: .contain)
         .onAppear { UIAccessibility.post(notification: .screenChanged, argument: nil) }
         .onChange(of: run.index) { _, _ in UIAccessibility.post(notification: .screenChanged, argument: nil) }
+    }
+}
+
+/// 덮개 모양 — 큰 사각형에 둥근 구멍 하나(짝홀 채우기). 구멍의 자리·크기·모서리가 움직일 수 있는 값이라 단계 사이를 옮겨 간다.
+struct CoachScrimShape: Shape {
+    var hole: CGRect
+    var radius: CGFloat
+
+    var animatableData: AnimatablePair<AnimatablePair<CGFloat, CGFloat>, AnimatablePair<AnimatablePair<CGFloat, CGFloat>, CGFloat>> {
+        get {
+            AnimatablePair(
+                AnimatablePair(hole.minX, hole.minY),
+                AnimatablePair(AnimatablePair(hole.width, hole.height), radius)
+            )
+        }
+        set {
+            hole = CGRect(
+                x: newValue.first.first, y: newValue.first.second,
+                width: newValue.second.first.first, height: newValue.second.first.second
+            )
+            radius = newValue.second.second
+        }
+    }
+
+    func path(in _: CGRect) -> Path {
+        var path = Path()
+        path.addRect(CGRect(origin: .zero, size: CGSize(width: 10000, height: 10000)))
+        path.addRoundedRect(in: hole, cornerSize: CGSize(width: radius, height: radius))
+        return path
+    }
+}
+
+/// 말풍선이 단계마다 6pt 아래에서 떠오르며 나타난다(0.22초). 움직임 줄이기면 그냥 보인다.
+private struct CoachRise: ViewModifier {
+    let step: Int
+    let enabled: Bool
+
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || !enabled ? 1 : 0)
+            .offset(y: shown || !enabled ? 0 : 6)
+            .onAppear(perform: rise)
+            .onChange(of: step) { _, _ in
+                var hide = Transaction()
+                hide.disablesAnimations = true
+                withTransaction(hide) { shown = false }
+                rise()
+            }
+    }
+
+    private func rise() {
+        // 숨긴 그림이 한 번 그려진 다음 떠오르게 한 박자 뒤에.
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.22)) { shown = true }
+        }
     }
 }
