@@ -3,6 +3,7 @@ package com.mz2az.scenetrip.coach
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -65,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.appearIn
 import com.mz2az.scenetrip.ui.rememberReduceMotion
 import kotlin.math.roundToInt
 
@@ -150,10 +152,12 @@ private fun OverlayContent(
         val layout =
             CoachRules.layout(target, CoachSize(maxWidth.value, maxHeight.value), safeTop, safeBottom, bubbleHeight)
         val spec = tween<Float>(if (reduceMotion) 0 else 220, easing = FastOutSlowInEasing)
-        val holeX by animateFloatAsState(layout.hole.x, spec, label = "coachHoleX")
-        val holeY by animateFloatAsState(layout.hole.y, spec, label = "coachHoleY")
-        val holeW by animateFloatAsState(layout.hole.width, spec, label = "coachHoleW")
-        val holeH by animateFloatAsState(layout.hole.height, spec, label = "coachHoleH")
+        // 밝은 구멍은 0.2초 ease-out 으로 옮겨 간다(웹 `.proto-coach-hole`, MZ2AZ-547 M10).
+        val holeSpec = tween<Float>(if (reduceMotion) 0 else 200, easing = LinearOutSlowInEasing)
+        val holeX by animateFloatAsState(layout.hole.x, holeSpec, label = "coachHoleX")
+        val holeY by animateFloatAsState(layout.hole.y, holeSpec, label = "coachHoleY")
+        val holeW by animateFloatAsState(layout.hole.width, holeSpec, label = "coachHoleW")
+        val holeH by animateFloatAsState(layout.hole.height, holeSpec, label = "coachHoleH")
         val bubbleX by animateFloatAsState(layout.bubble.x, spec, label = "coachBubbleX")
         val bubbleY by animateFloatAsState(layout.bubble.y, spec, label = "coachBubbleY")
 
@@ -186,6 +190,8 @@ private fun OverlayContent(
         Box(
             Modifier
                 .offset { IntOffset(bubbleX.dp.roundToPx(), bubbleY.dp.roundToPx()) }
+                // 말풍선은 단계마다 6dp 아래에서 떠오르며 0.22초에 나타난다(웹 `.proto-coach-bubble`, MZ2AZ-547 M10).
+                .then(if (reduceMotion) Modifier else Modifier.appearIn(distance = 6.dp, millis = 220, delayMillis = 0, key = run.index))
                 .width(layout.bubble.width.dp),
         ) {
             if (layout.showsArrow) {

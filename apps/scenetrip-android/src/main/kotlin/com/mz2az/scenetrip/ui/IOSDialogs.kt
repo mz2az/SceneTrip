@@ -1,5 +1,7 @@
 package com.mz2az.scenetrip.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -78,11 +82,15 @@ fun IOSAlert(
     ) {
         DisableDialogDim()
         FullScreenDialogWindow()
+        // 딤과 카드가 0.18초에 서서히 나타난다(MZ2AZ-547 M12, 웹 확인 창).
+        val appear = remember { Animatable(0f) }
+        LaunchedEffect(Unit) { appear.animateTo(1f, tween(180)) }
         Box(
             contentAlignment = Alignment.Center,
             // 8차 DC1: iOS 알림은 안전 영역의 가운데에 선다(화면 정중앙보다 14.3 아래) — 딤은 화면 전체, 카드 자리는 상태줄·내비바를 뺀 칸.
             modifier =
                 Modifier
+                    .graphicsLayer { alpha = appear.value }
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = IOS.DIM))
                     .statusBarsPadding()

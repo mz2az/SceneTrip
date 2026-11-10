@@ -1,5 +1,6 @@
 package com.mz2az.scenetrip.hometab
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -59,14 +60,19 @@ import com.mz2az.scenetrip.ui.NorthArrowIcon
 import com.mz2az.scenetrip.ui.PaperPlaneIcon
 import com.mz2az.scenetrip.ui.PlusIcon
 import com.mz2az.scenetrip.ui.XmarkIcon
+import com.mz2az.scenetrip.ui.pressScale
 import com.mz2az.scenetrip.ui.rememberReduceMotion
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** 웹 `cubic-bezier(0.22, 1, 0.36, 1)`. */
 private val FLOAT_EASING = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 
 /** 알약이 미끄러져 들어오는 시간(밀리초) — iOS `timingCurve(…, duration: 0.42)`. */
 private const val ITEM_MILLIS = 420
+
+/** 알약이 나타나는 흐림 — 웹 `opacity 0.28s`. */
+private const val FADE_MILLIS = 280
 
 /** 접힌 단추가 오그라드는 시간(밀리초). */
 private const val COLLAPSE_MILLIS = 300
@@ -148,23 +154,28 @@ fun HomeTripFloat(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 itemsIndexed(items) { index, item ->
-                    val progress by animateFloatAsState(
-                        targetValue = if (open) 1f else 0f,
-                        animationSpec =
-                            tween(
-                                durationMillis = if (reduceMotion) 0 else ITEM_MILLIS,
-                                delayMillis = if (reduceMotion) 0 else HomeTripFloatRules.delay(index, open),
-                                easing = FLOAT_EASING,
-                            ),
-                        label = "floatItem",
-                    )
+                    // 줄은 open 이 된 뒤에야 그려진다 — animateFloatAsState 는 처음 값이 곧 목표라 움직이지 않았다(MZ2AZ-547 M2).
+                    // 알약마다 0 에서 시작해 펼칠 때 1 로: 오른쪽 28dp 에서 0.92→1배, 흐림은 0.28초·움직임은 0.42초, 45ms 간격(웹 ProtoScreens `enter`).
+                    val move = remember { Animatable(if (reduceMotion) 1f else 0f) }
+                    val fade = remember { Animatable(if (reduceMotion) 1f else 0f) }
+                    LaunchedEffect(open) {
+                        val target = if (open) 1f else 0f
+                        if (reduceMotion) {
+                            move.snapTo(target)
+                            fade.snapTo(target)
+                            return@LaunchedEffect
+                        }
+                        val wait = HomeTripFloatRules.delay(index, open)
+                        launch { move.animateTo(target, tween(ITEM_MILLIS, delayMillis = wait, easing = FLOAT_EASING)) }
+                        launch { fade.animateTo(target, tween(FADE_MILLIS, delayMillis = wait, easing = FLOAT_EASING)) }
+                    }
                     val shift = with(LocalDensity.current) { 28.dp.toPx() }
                     Box(
                         modifier =
                             Modifier.graphicsLayer {
-                                alpha = progress
-                                translationX = (1f - progress) * shift
-                                val scale = 0.92f + 0.08f * progress
+                                alpha = fade.value
+                                translationX = (1f - move.value) * shift
+                                val scale = 0.92f + 0.08f * move.value
                                 scaleX = scale
                                 scaleY = scale
                             },
@@ -360,7 +371,7 @@ private fun RoundButton(
     }
 }
 
-/** 높이 44 의 떠 있는 단추 — 웹 `shadow.float`(0 6 20 / 14%) 그림자, iOS `.plain` 처럼 누르는 동안 흐리게. */
+/** 높이 44 의 떠 있는 단추 — 웹 `shadow.float`(0 6 20 / 14%) 그림자, 누르는 동안 0.97배(웹 `.proto-press`, MZ2AZ-547 M1). */
 @Composable
 private fun PressablePill(
     shape: Shape,
@@ -373,14 +384,13 @@ private fun PressablePill(
     content: @Composable () -> Unit,
 ) {
     val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
     Box(
         contentAlignment = Alignment.Center,
         modifier =
             modifier
                 .height(44.dp)
                 .then(if (width != null) Modifier.size(width) else Modifier)
-                .graphicsLayer { alpha = if (pressed) 0.7f else 1f }
+                .pressScale(source)
                 .shadow(elevation = 8.dp, shape = shape, ambientColor = Color.Black, spotColor = Color.Black)
                 .clip(shape)
                 .background(fill)

@@ -1,5 +1,7 @@
 package com.mz2az.scenetrip.newcourse
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -194,6 +196,9 @@ private const val PLANNING_MILLIS = 900L
 /** 카드 사이 간격. */
 private val CARD_GAP = 12.dp
 
+/** 놓은 카드가 제자리로 돌아가는 시간(ms) — 웹 시안 0.16초(MZ2AZ-547 M13). */
+private const val DROP_MILLIS = 160
+
 /**
  * 하루치 카드 줄 — 꾹 0.3초 눌러 들고 끌면 그날 안에서 순서가 바뀐다 (R4, 웹 `useHoldReorder`).
  *
@@ -211,6 +216,11 @@ private fun PlanDayList(
 ) {
     var dragging by remember { mutableStateOf<Long?>(null) }
     var offset by remember { mutableFloatStateOf(0f) }
+    // 놓은 카드가 0.16초에 제자리로 돌아간다(MZ2AZ-547 M13) — 놓은 자리(dropFrom)에서 1→0.
+    var dropping by remember { mutableStateOf<Long?>(null) }
+    var dropFrom by remember { mutableFloatStateOf(0f) }
+    val drop = remember { Animatable(0f) }
+    val dropScope = rememberCoroutineScope()
     val heights = remember { mutableStateMapOf<Long, Float>() }
     val latestStops by rememberUpdatedState(stops)
     val latestMove by rememberUpdatedState(onMove)
@@ -285,15 +295,29 @@ private fun PlanDayList(
                                             }
                                             offset = step.offset
                                         }
+                                        dropFrom = offset
+                                        dropping = place.id
                                         dragging = null
                                         offset = 0f
+                                        dropScope.launch {
+                                            drop.snapTo(1f)
+                                            drop.animateTo(0f, tween(DROP_MILLIS))
+                                            if (dropping == place.id) dropping = null
+                                        }
                                     }
                                 }.graphicsLayer {
-                                    translationY = if (lifted) offset else 0f
-                                    val scale = if (lifted) 1.02f else 1f
+                                    // 들린 카드는 손가락을 따르고, 놓은 카드는 놓은 자리에서 제자리로 돌아간다.
+                                    val r =
+                                        when {
+                                            lifted -> 1f
+                                            dropping == place.id -> drop.value
+                                            else -> 0f
+                                        }
+                                    translationY = if (lifted) offset else dropFrom * r
+                                    val scale = 1f + 0.02f * r
                                     scaleX = scale
                                     scaleY = scale
-                                    shadowElevation = if (lifted) lift else 0f
+                                    shadowElevation = lift * r
                                     shape = RoundedCornerShape(NewCourseStyle.radiusL)
                                 }.semantics {
                                     customActions =

@@ -53,6 +53,7 @@ import com.mz2az.scenetrip.newcourse.NewCourseSheet
 import com.mz2az.scenetrip.newcourse.NewCourseStart
 import com.mz2az.scenetrip.newcourse.NewCourseStyle
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
+import com.mz2az.scenetrip.ui.CoverHost
 import com.mz2az.scenetrip.ui.ExclamationCircleIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
@@ -315,8 +316,8 @@ fun RouteTabView(
         }
     }
 
-    val current = openingState.editing
-    if (current != null) {
+    // 편집 화면도 덮는 화면이다 — 아래에서 0.3초에 올라오고 닫으면 내려간다(MZ2AZ-547 M3).
+    CoverHost(openingState.editing) { current ->
         RouteEditorView(
             store = store,
             initial = current,

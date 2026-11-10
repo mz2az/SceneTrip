@@ -1,6 +1,13 @@
 package com.mz2az.scenetrip.newcourse
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.StartOffset
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,6 +28,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -29,12 +38,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,8 +53,12 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -51,6 +66,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -76,18 +92,10 @@ import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSAlert
 import com.mz2az.scenetrip.ui.LikeFailureNotice
 import com.mz2az.scenetrip.ui.LocationConsentSheetHost
-import com.mz2az.scenetrip.ui.SparklesIcon
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.input.ImeAction
 import com.mz2az.scenetrip.ui.MagnifierIcon
+import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.XmarkIcon
+import com.mz2az.scenetrip.ui.pressClickable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -181,8 +189,12 @@ fun WorksPlanView(
     AIConsentSheetHost(consent)
     LocationConsentSheetHost(locationConsent, onCancel = { plan() })
 
-    val liked = routes.works.map { it.id }.filter { routes.isFavoriteWork(it) }.toSet() +
-        search.items.map { it.id }.filter { routes.isFavoriteWork(it) }
+    val liked =
+        routes.works
+            .map { it.id }
+            .filter { routes.isFavoriteWork(it) }
+            .toSet() +
+            search.items.map { it.id }.filter { routes.isFavoriteWork(it) }
     val sorted = routes.sortedWorks
     // 지금 격자에 보일 것 — 검색 중이면 검색 결과, 아니면 받은 작품 전부. 둘 다 찜 먼저.
     val shown = if (search.query == null) sorted else WorksBrowseRules.ordered(search.items, liked)
@@ -516,7 +528,7 @@ private fun PosterCell(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clickable { onToggle(work.id) }
+                    .pressClickable { onToggle(work.id) }
                     .semantics(mergeDescendants = true) {
                         role = Role.Button
                         selected = on
@@ -615,12 +627,12 @@ private fun PlanningScreen(
                 contentAlignment = Alignment.Center,
                 modifier =
                     Modifier
+                        .pressClickable(onClick = onCancel)
                         .fillMaxWidth()
                         .heightIn(min = 50.dp)
                         .clip(shape)
                         .background(IOS.systemBackground)
-                        .border(1.dp, IOS.separator, shape)
-                        .clickable(onClick = onCancel),
+                        .border(1.dp, IOS.separator, shape),
             ) {
                 Text(tr("그만두기"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
             }
@@ -705,6 +717,9 @@ private fun PlanningScreen(
     }
 }
 
+private const val FLOAT_MILLIS = 2_400
+private const val FLOAT_STAGGER_MILLIS = 250
+
 /** 고른 포스터(최대 3장) 부채꼴. 없으면 브랜드 바탕 한 장. */
 @Composable
 private fun PosterFan(
@@ -712,6 +727,22 @@ private fun PosterFan(
     modifier: Modifier,
 ) {
     val shown = posters.take(3)
+    // 포스터가 2.4초 주기로 8dp 떠올랐다 내려온다, 장마다 0.25초 늦게 — 화면이 멈춘 것이 아니라는 표시(MZ2AZ-547 M9, 웹 `.proto-float`).
+    val floating = rememberInfiniteTransition(label = "posterFloat")
+    val lifts =
+        shown.indices.map { index ->
+            floating.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec =
+                    infiniteRepeatable(
+                        tween(FLOAT_MILLIS, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse,
+                        initialStartOffset = StartOffset(index * FLOAT_STAGGER_MILLIS),
+                    ),
+                label = "posterLift$index",
+            )
+        }
     Box(modifier = modifier.size(width = 200.dp, height = 150.dp), contentAlignment = Alignment.Center) {
         if (shown.isEmpty()) {
             Box(
@@ -730,8 +761,10 @@ private fun PosterFan(
                 url,
                 Modifier
                     .offset(x = (shift * 46).dp, y = (abs(shift) * 8).dp)
-                    .graphicsLayer { rotationZ = shift * 9f }
-                    .size(width = 72.dp, height = 108.dp)
+                    .graphicsLayer {
+                        rotationZ = shift * 9f
+                        translationY = -lifts[index].value * 8.dp.toPx()
+                    }.size(width = 72.dp, height = 108.dp)
                     .shadow(8.dp, RoundedCornerShape(NewCourseStyle.radiusS))
                     .clip(RoundedCornerShape(NewCourseStyle.radiusS)),
             )

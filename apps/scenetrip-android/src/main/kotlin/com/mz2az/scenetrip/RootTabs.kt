@@ -70,9 +70,11 @@ import com.mz2az.scenetrip.profiletab.ProfileTabView
 import com.mz2az.scenetrip.routetab.RouteTabView
 import com.mz2az.scenetrip.searchtab.SearchTabScreen
 import com.mz2az.scenetrip.ui.BubblesIcon
+import com.mz2az.scenetrip.ui.CoverHost
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.LocalTabBarClearance
 import com.mz2az.scenetrip.ui.MapIcon
+import com.mz2az.scenetrip.ui.pressScale
 import com.mz2az.scenetrip.ui.rememberReduceMotion
 
 /**
@@ -182,39 +184,9 @@ fun RootTabs() {
                 .CommunityPageHost()
         }
 
-        when (cover) {
-            null -> {
-                Unit
-            }
-
-            Cover.Profile -> {
-                ProfileTabView(onClose = { TabRouter.cover = null })
-            }
-
-            Cover.Route -> {
-                val routeStore = remember { RouteStore(context) }
-                RouteTabView(
-                    store = routeStore,
-                    onClose = { TabRouter.cover = null },
-                )
-            }
-
-            // 새 코스 만들기 — 도시로 시작·작품으로·담은 곳으로(MZ2AZ-547 P3). 시작이 바뀌면 새 흐름으로 처음부터.
-            is Cover.NewCourse -> {
-                key(cover) {
-                    NewCourseFlowView(start = cover.start, onClose = { TabRouter.cover = null })
-                }
-            }
-
-            Cover.Trending -> {
-                TrendingWorksView(
-                    onClose = { TabRouter.cover = null },
-                    onOpen = { work ->
-                        TabRouter.cover = null
-                        TabRouter.openContent(work)
-                    },
-                )
-            }
+        // 덮는 화면은 아래에서 0.3초에 올라오고 닫으면 내려간다(MZ2AZ-547 M3).
+        CoverHost(cover) { shown ->
+            CoverScreen(shown, context)
         }
 
         // 「새 여행 코스」 시트(MZ2AZ-547 F1) — 홈 떠 있는 줄의 「+ 새 코스」·코스 0개의 「여행 코스 짜기」.
@@ -227,6 +199,43 @@ fun RootTabs() {
     }
 }
 
+@Composable
+private fun CoverScreen(
+    cover: Cover,
+    context: android.content.Context,
+) {
+    when (cover) {
+        Cover.Profile -> {
+            ProfileTabView(onClose = { TabRouter.cover = null })
+        }
+
+        Cover.Route -> {
+            val routeStore = remember { RouteStore(context) }
+            RouteTabView(
+                store = routeStore,
+                onClose = { TabRouter.cover = null },
+            )
+        }
+
+        // 새 코스 만들기 — 도시로 시작·작품으로·담은 곳으로(MZ2AZ-547 P3). 시작이 바뀌면 새 흐름으로 처음부터.
+        is Cover.NewCourse -> {
+            key(cover) {
+                NewCourseFlowView(start = cover.start, onClose = { TabRouter.cover = null })
+            }
+        }
+
+        Cover.Trending -> {
+            TrendingWorksView(
+                onClose = { TabRouter.cover = null },
+                onOpen = { work ->
+                    TabRouter.cover = null
+                    TabRouter.openContent(work)
+                },
+            )
+        }
+    }
+}
+
 private val RootTab.label: String
     get() =
         when (this) {
@@ -234,9 +243,6 @@ private val RootTab.label: String
             RootTab.HOME -> tr("홈")
             RootTab.COMMUNITY -> tr("커뮤니티")
         }
-
-/** iOS `.buttonStyle(.plain)` — 누르는 동안 내용이 흐려진다(iOS 시뮬레이터 실측 불투명도 ≈ 0.7). */
-private const val PRESSED_ALPHA = 0.7f
 
 /** 웹 `cubic-bezier(0.22, 1, 0.36, 1)` — 고른 탭 알약이 미끄러지는 곡선(iOS `timingCurve` 와 같은 값). */
 private val SLIDE_EASING = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
@@ -302,13 +308,12 @@ private fun TabButton(
     onClick: () -> Unit,
 ) {
     val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
     val tint by animateColorAsState(if (on) Color.White else IOS.secondaryLabel, tween(200), label = "tabTint")
     val label = tab.label
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
-        // Android 기본 눌림 잔상(회색 사각형)은 끄고(MZ2AZ-513) iOS `.plain` 처럼 누르는 동안 내용을 흐리게 한다.
+        // Android 기본 눌림 잔상(회색 사각형)은 끄고(MZ2AZ-513) 웹 `.proto-press` 처럼 누르는 동안 0.97배(MZ2AZ-547 M1).
         modifier =
             modifier
                 .fillMaxHeight()
@@ -319,7 +324,7 @@ private fun TabButton(
                     role = Role.Tab,
                     onClick = onClick,
                 ).semantics(mergeDescendants = true) { contentDescription = label }
-                .graphicsLayer { alpha = if (pressed) PRESSED_ALPHA else 1f },
+                .pressScale(source),
     ) {
         TabIcon(tab, on, tint)
         Text(

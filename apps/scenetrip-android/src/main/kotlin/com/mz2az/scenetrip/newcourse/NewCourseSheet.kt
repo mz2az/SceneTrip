@@ -45,6 +45,7 @@ import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.MapPinEllipseIcon
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
+import com.mz2az.scenetrip.ui.pressClickable
 import kotlinx.coroutines.launch
 
 /** 시트 높이 — 머리 + 세 줄 묶음에 맞춘다(웹 368 과 거의 같다. 340 이면 셋째 줄이 눌려 설명이 잘렸다 — 에뮬레이터 실측). */
@@ -162,7 +163,7 @@ private fun ForkRow(
             modifier
                 .fillMaxWidth()
                 .height(IntrinsicSize.Min)
-                .clickable(onClick = onClick)
+                .pressClickable(onClick = onClick)
                 .semantics(mergeDescendants = true) { role = Role.Button }
                 .padding(start = 12.dp),
     ) {

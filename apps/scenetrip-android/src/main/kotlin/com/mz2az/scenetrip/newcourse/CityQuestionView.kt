@@ -65,6 +65,7 @@ import com.mz2az.scenetrip.ui.CheckmarkIcon
 import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.SparklesIcon
+import com.mz2az.scenetrip.ui.pressClickable
 import com.mz2az.scenetrip.ui.rememberReduceMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -216,11 +217,11 @@ private fun DayChoice(
         color = if (on) Color.White else IOS.label,
         modifier =
             Modifier
+                .pressClickable(onClick = onClick)
                 .fillMaxWidth()
                 .shadow(2.dp, shape)
                 .clip(shape)
                 .background(if (on) NewCourseStyle.purple else IOS.systemBackground)
-                .clickable(onClick = onClick)
                 .semantics {
                     role = Role.Button
                     selected = on
@@ -243,12 +244,12 @@ private fun HowCard(
         verticalAlignment = Alignment.Top,
         modifier =
             Modifier
+                .pressClickable(onClick = onClick)
                 .fillMaxWidth()
                 .shadow(2.dp, shape)
                 .clip(shape)
                 .background(if (primary) NewCourseStyle.purple else IOS.systemBackground)
                 .then(if (primary) Modifier else Modifier.border(1.5.dp, NewCourseStyle.purple, shape))
-                .clickable(onClick = onClick)
                 .semantics(mergeDescendants = true) { role = Role.Button }
                 .padding(18.dp),
     ) {
@@ -396,10 +397,10 @@ private fun CityCell(
     Box(
         modifier =
             Modifier
+                .pressClickable(onClick = onClick)
                 .fillMaxWidth()
                 .height(92.dp)
                 .clip(RoundedCornerShape(NewCourseStyle.radiusM))
-                .clickable(onClick = onClick)
                 .semantics(mergeDescendants = true) {
                     contentDescription = label
                     role = Role.Button

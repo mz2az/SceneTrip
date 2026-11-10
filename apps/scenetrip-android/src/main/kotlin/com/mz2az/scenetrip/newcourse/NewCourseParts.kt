@@ -63,6 +63,7 @@ import com.mz2az.scenetrip.searchtab.FilmIcon
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.pressClickable
 import kotlinx.coroutines.delay
 
 /** 새 코스 만들기 화면들이 같이 쓰는 값 (MZ2AZ-547 P3, 웹 `proto/protoTokens.ts`, iOS `NewCourseStyle`). */
@@ -161,7 +162,7 @@ private fun NewCourseBar(
                     Modifier
                         .align(Alignment.CenterStart)
                         .size(44.dp)
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onBack)
+                        .pressClickable(onClick = onBack)
                         .semantics {
                             contentDescription = label
                             role = Role.Button
@@ -240,11 +241,11 @@ fun NewCoursePrimaryButton(
         verticalAlignment = Alignment.CenterVertically,
         modifier =
             modifier
+                .pressClickable(enabled = !disabled, onClick = onClick)
                 .fillMaxWidth()
                 .alpha(if (disabled) 0.45f else 1f)
                 .clip(RoundedCornerShape(NewCourseStyle.radiusM))
                 .background(NewCourseStyle.purple)
-                .clickable(enabled = !disabled, onClick = onClick)
                 .semantics { role = Role.Button }
                 .padding(vertical = 15.dp),
     ) {
@@ -264,11 +265,11 @@ fun NewCourseSecondaryButton(
         contentAlignment = Alignment.Center,
         modifier =
             Modifier
+                .pressClickable(onClick = onClick)
                 .fillMaxWidth()
                 .clip(shape)
                 .background(IOS.systemBackground)
                 .border(1.5.dp, NewCourseStyle.purple, shape)
-                .clickable(onClick = onClick)
                 .semantics { role = Role.Button }
                 .padding(vertical = 15.dp),
     ) {
@@ -364,7 +365,7 @@ fun PhotoRoundButton(
         modifier =
             Modifier
                 .size(44.dp)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+                .pressClickable(onClick = onClick)
                 .semantics {
                     contentDescription = label
                     role = Role.Button

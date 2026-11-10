@@ -42,6 +42,7 @@ import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSGraphicalDatePicker
 import com.mz2az.scenetrip.ui.LeafIcon
+import com.mz2az.scenetrip.ui.pressClickable
 import java.time.LocalDate
 
 /**
@@ -72,9 +73,9 @@ fun TripScheduleGroup(
                             modifier =
                                 Modifier
                                     .weight(1f)
+                                    .pressClickable { onSpan(each) }
                                     .clip(RoundedCornerShape(NewCourseStyle.radiusS))
                                     .background(if (on) NewCourseStyle.purple else IOS.systemGray6)
-                                    .clickable { onSpan(each) }
                                     .semantics {
                                         role = Role.Button
                                         selected = on
