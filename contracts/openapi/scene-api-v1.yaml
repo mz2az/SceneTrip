@@ -6404,6 +6404,18 @@ components:
           type: string
           nullable: true
           description: 그 작품의 어떤 장면이었나
+        imageUrl:
+          type: string
+          nullable: true
+          description: |
+            그 장소의 대표 사진 — `PlaceSummary.imageUrl` 과 같은 값(1.28.0, MZ2AZ-548). 앱이 일정 카드를 도시 촬영지 목록 없이 그리게 한다.
+        contents:
+          type: array
+          description: |
+            그 장소가 나온 작품들, 서버 순서(1.28.0, MZ2AZ-548). `titles` 와 달리 요청한 작품으로 거르지 않고 번호(`contentId`)가 있다 —
+            도시로 짠 일정은 요청한 작품이 없다. 촬영지가 아니면 빠진다.
+          items:
+            $ref: "#/components/schemas/ContentRef"
         mealAfter:
           type: boolean
           description: 이 정지점 뒤에 식사 시간이 들어갔는가. 식당은 고르지 않는다 — 맛집 데이터가 없다
