@@ -152,8 +152,8 @@ extension RootTabs {
 /// 탭바 — **떠 있는 알약 하나**에 세 탭이 같은 폭으로 (MZ2AZ-547 T1, 웹 `features/proto/ProtoTabBar.tsx`).
 ///
 /// 전에는 가운데 홈만 위로 솟은 동그라미였다(2026-09-01 목업). 탭이 셋뿐인데 홈만 솟아 어색하다는 사용자 지적(웹 11-07)으로
-/// 셋을 같은 폭으로 두고, 고른 탭 뒤에 보라 단색 알약이 0.38초에 걸쳐 미끄러진다. 반투명 유리(바탕 88% + 흐림)는 앱에서
-/// 이 탭바 한 곳에만 쓴다. 탭 내용은 이 알약 뒤까지 내려가 비친다 — 자리 잡기는 `RootTabs` 가 한다(T2).
+/// 셋을 같은 폭으로 두고, 고른 탭 뒤에 보라 단색 알약이 0.38초에 걸쳐 미끄러진다. 반투명 유리는 앱에서 이 탭바 한 곳에만 쓴다
+/// (`TabBarGlass`). 탭 내용은 이 알약 뒤까지 내려가 비친다 — 자리 잡기는 `RootTabs` 가 한다(T2).
 struct TabBar: View {
     @Binding var selected: RootTabs.Tab
 
@@ -191,13 +191,7 @@ struct TabBar: View {
             }
         }
         .frame(height: FloatingTabBarRules.height)
-        .background {
-            ZStack {
-                Capsule().fill(.ultraThinMaterial)
-                Capsule().fill(Color(.systemBackground).opacity(0.88))
-            }
-            .shadow(color: .black.opacity(0.14), radius: 10, y: 6)
-        }
+        .modifier(TabBarGlass())
     }
 
     private func button(_ tab: RootTabs.Tab) -> some View {
@@ -246,4 +240,24 @@ extension EnvironmentValues {
     /// 화면 바닥에서 떠 있는 탭바가 차지하는 높이(알약 몫 74 + 기기 안전영역). 탭 밖(덮개)에서는 0.
     /// 안전영역을 무시하고 바닥까지 그리는 것만 읽는다 — 스크롤 목록은 `safeAreaInset` 으로 저절로 비운다.
     @Entry var tabBarClearance: CGFloat = 0
+}
+
+/// 탭바의 유리 — iOS 26 이상은 시스템 「리퀴드 글라스」(`glassEffect`), 그 아래는 흐림 + 바탕 88%(웹 시안 값).
+///
+/// 웹 시안대로 흐림(`ultraThinMaterial`) 위에 흰 바탕을 덮었더니 iOS 에서는 뒤가 거의 비치지 않았다 — 흰 카드 위에서는 불투명한 판으로 보였다
+/// (2026-11-10 사용자 지적, 88% → 50% 로 낮춰도 같았다). 리퀴드 글라스는 시스템 탭바와 같은 유리라 뒤가 맑게 비치고 글자 대비는 시스템이 맞춘다.
+private struct TabBarGlass: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular, in: Capsule())
+        } else {
+            content.background {
+                ZStack {
+                    Capsule().fill(.ultraThinMaterial)
+                    Capsule().fill(Color(.systemBackground).opacity(0.88))
+                }
+                .shadow(color: .black.opacity(0.14), radius: 10, y: 6)
+            }
+        }
+    }
 }
