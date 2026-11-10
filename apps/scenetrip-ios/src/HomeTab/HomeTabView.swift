@@ -85,7 +85,8 @@ struct HomeTabView: View {
                 onOpenCourse: { router.openCourse($0) },
                 onAll: { router.openRoute() },
                 // 「새 여행 코스」 시트(F1, `TabRouter.startNewCourse`).
-                onNew: { router.startNewCourse(city: nil) }
+                onNew: { router.startNewCourse(city: nil) },
+                coachCovered: router.cover != nil || router.newCourseSheet || router.selected != .home
             )
             // 단추 아래끝이 탭바 위 약 18 — 웹 `탭바 + 22` 자리.
             .padding(.bottom, 12)

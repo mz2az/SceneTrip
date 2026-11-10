@@ -14,11 +14,13 @@ import SwiftUI
 /// 프레임이 어디서 정해지든 결과가 같다.
 ///
 /// 관광공사 공개 원본만 기존 사진첩 로더로 360px까지 푼다(MZ2AZ-385).
-/// 다른 사진·포스터의 요청과 캐시 정책은 그대로 둔다.
+/// 작품 포스터(`poster`)는 기기에 30일 보관하고 360px로 푼다(`PosterLoader`, MZ2AZ-507). 다른 사진은 그대로.
 struct RemoteImage: View {
     let url: String?
     let symbol: String
     var fits = false
+    /// 작품 포스터인가 — 그러면 `PosterLoader` 로 받는다.
+    var poster = false
 
     var body: some View {
         Color.clear
@@ -27,7 +29,9 @@ struct RemoteImage: View {
     }
 
     @ViewBuilder private var content: some View {
-        if let url, PhotoGalleryRules.tourImage(url), let photo = PhotoGalleryRules.photos(urls: [url]).first {
+        if poster {
+            PosterImage(url: url, fits: fits) { placeholder }
+        } else if let url, PhotoGalleryRules.tourImage(url), let photo = PhotoGalleryRules.photos(urls: [url]).first {
             GalleryImage(photo: photo, size: .tile, fits: true)
                 .background(Color(.systemGray5))
         } else if let url, let parsed = URL(string: url) {

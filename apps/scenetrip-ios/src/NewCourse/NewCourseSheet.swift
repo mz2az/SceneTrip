@@ -34,15 +34,18 @@ struct NewCourseSheet: View {
                     first: true, photo: cityPhoto, symbol: "mappin.and.ellipse",
                     title: tr("도시로 시작"), caption: tr("어디로·며칠만 고르면 코스 완성")
                 ) { onChoose(.city(nil)) }
+                    .coachTarget("fork-city")
                 row(
                     photo: poster.map { .remote($0) }, symbol: "sparkles",
                     title: tr("작품으로"), tag: "AI",
                     caption: tr("좋아하는 작품을 고르면 촬영지를 이어 줘요")
                 ) { onChoose(.works) }
+                    .coachTarget("fork-shows")
                 row(
                     photo: savedPhoto.map { .remote($0) }, symbol: "bag",
                     title: tr("담은 곳으로"), caption: NewCourseText.savedCaption(count: savedCount)
                 ) { onChoose(.saved) }
+                    .coachTarget("fork-saved")
             }
             .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemBackground)))
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -54,6 +57,8 @@ struct NewCourseSheet: View {
         .presentationDetents([.height(Self.height)])
         .presentationCornerRadius(30)
         .presentationDragIndicator(.hidden)
+        // 처음 안내(MZ2AZ-547 C3) — 세 갈래를 하나씩 짚는다. 시트가 다 올라온 뒤에.
+        .coachTour(.forkOptions, active: true)
         .task {
             async let citiesJob: Void = cities.loadCities()
             async let cartJob: Void = cart.refresh()
@@ -134,7 +139,7 @@ struct NewCourseSheet: View {
             .fixedSize(horizontal: false, vertical: true)
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
     }
 
     private func art(_ photo: HomeCityRules.Photo?, symbol: String) -> some View {

@@ -128,6 +128,12 @@ struct CommunityPost: Identifiable, Codable {
     var remotePhotos: [String]?
     var detailLoaded: Bool?
     var bodyBlocks: [TripPostBlock]?
+    /// 서버 게시판(1.24.0). 없으면 여행후기다(`CommunityFeedRules.board`).
+    var serverBoard: TripPostBoard?
+    /// 좋아요·댓글 수와 내가 눌렀는지(1.24.0). 서버가 주지 않은 글(옛 서버·기기 옛 글)은 nil — 목록에 수를 그리지 않는다.
+    var likeCount: Int?
+    var commentCount: Int?
+    var liked: Bool?
 
     var isMine: Bool {
         serverIsMine ?? (author == nil)
@@ -172,6 +178,11 @@ final class CommunityStore: ObservableObject {
     @Published private(set) var message: String?
     @Published private(set) var total = 0
     @Published private(set) var mineTotal = 0
+    /// 모두의 목록 조건(1.24.0) — 게시판·검색어. 탭을 떠나면 기본(여행후기, 검색 없음)으로 돌린다 — 홈도 같은 목록을 읽는다.
+    @Published private(set) var board: TripPostBoard = .review
+    @Published private(set) var query: String?
+    /// 모두의 목록 다음 쪽 커서. 서버가 주지 않았으면 nil — 그때 다음 쪽은 옛 길(받은 줄 수만큼 건너뛰기)이다.
+    private(set) var nextCursor: String?
     private let client: CommunityClient
     private let accountEpoch: @MainActor () -> Int
     private var loadedEpoch: Int?
@@ -215,7 +226,15 @@ final class CommunityStore: ObservableObject {
         }
         let old = mine ? myPosts : posts
         do {
-            let page = try await client.list(mine: mine, limit: CommunityRules.pageSize, offset: more ? old.count : 0)
+            let page: TripPostList
+            if mine {
+                page = try await client.list(mine: true, limit: CommunityRules.pageSize, offset: more ? old.count : 0)
+            } else {
+                // 모두의 목록은 게시판·검색어(1.24.0)를 붙이고, 다음 쪽은 서버가 준 커서로 — 없으면 옛 길(받은 줄 수만큼 건너뛰기).
+                let next = CommunityFeedRules.page(more: more, nextCursor: nextCursor, loaded: old.count)
+                page = try await client.feed(limit: CommunityRules.pageSize, offset: next.offset,
+                                             board: board, query: query, cursor: next.cursor)
+            }
             guard accountEpoch() == epoch, generation == requestGeneration(mine: mine) else { return }
             var merged = more ? old : []
             for post in page.items.map(CommunityPost.init(summary:)) {
@@ -228,12 +247,38 @@ final class CommunityStore: ObservableObject {
             if mine {
                 myPosts = merged; mineTotal = page.total
             } else {
-                posts = merged; total = page.total
+                posts = merged; total = page.total; nextCursor = page.nextCursor
             }
         } catch {
             guard accountEpoch() == epoch, generation == requestGeneration(mine: mine) else { return }
             message = CommunityRules.failureText(error)
         }
+    }
+
+    /// 게시판·검색어를 바꾼다 — 나가 있던 받기를 버리고 목록을 비운 뒤 새 조건의 첫 쪽부터 받는다.
+    func setFilter(board: TripPostBoard, query: String?) async {
+        invalidateFeed()
+        if board != self.board || query != self.query {
+            self.board = board
+            self.query = query
+            posts = []
+            total = 0
+            nextCursor = nil
+        }
+        await refresh()
+    }
+
+    /// 글 화면에서 좋아요·댓글이 바뀌었다 — 목록·내 글의 같은 글 줄에도 맞춘다.
+    func updateSocial(postId: Int64, liked: Bool, likeCount: Int, commentCount: Int) {
+        func apply(_ list: inout [CommunityPost]) {
+            for index in list.indices where list[index].serverId == postId {
+                list[index].liked = liked
+                list[index].likeCount = likeCount
+                list[index].commentCount = commentCount
+            }
+        }
+        apply(&posts)
+        apply(&myPosts)
     }
 
     private func resetForAccount(_ epoch: Int) {
@@ -242,6 +287,7 @@ final class CommunityStore: ObservableObject {
             myPosts = []
             total = 0
             mineTotal = 0
+            nextCursor = nil
             loadedEpoch = epoch
             feedGeneration += 1
             mineGeneration += 1
@@ -258,13 +304,19 @@ final class CommunityStore: ObservableObject {
         let post = CommunityPost(detail: detail)
         let known = posts.contains { $0.id == post.id }
         let knownMine = myPosts.contains { $0.id == post.id }
+        // 보고 있는 게시판의 글이고 검색 중이 아닐 때만 모두의 목록 맨 앞에 넣는다 — 다른 게시판에 올린 글이 섞이지 않게.
+        let fits = CommunityFeedRules.board(post.serverBoard) == board && query == nil
         posts.removeAll { $0.id == post.id }
-        posts.insert(post, at: 0)
+        if fits {
+            posts.insert(post, at: 0)
+        }
         if post.isMine {
             myPosts.removeAll { $0.id == post.id }; myPosts.insert(post, at: 0)
         }
-        if !known {
+        if fits, !known {
             total += 1
+        } else if !fits, known {
+            total = max(posts.count, total - 1)
         }
         if post.isMine, !knownMine {
             mineTotal += 1

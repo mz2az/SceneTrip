@@ -77,6 +77,8 @@ struct RouteGuideFloatingChip: View {
     private func chip(in size: CGSize, clear: Clearance?) -> some View {
         RouteGuideChipBody(bubble: cardTop == nil && !dynamicTypeSize.isAccessibilitySize)
             .contentShape(.rect)
+            // 처음 안내(C4)가 가리킨다 — 옮기기(`offset`) 전에 붙여야 옮긴 자리를 따라간다.
+            .coachTarget("editor-guide")
             .scaleEffect(lifted ? 1.08 : 1)
             .shadow(color: .black.opacity(lifted ? 0.3 : 0), radius: 10, y: 4)
             .offset(clamp(spot(dragging: dragging, clear: clear), in: size))

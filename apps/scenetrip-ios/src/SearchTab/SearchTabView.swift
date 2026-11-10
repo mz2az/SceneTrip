@@ -104,22 +104,21 @@ struct SearchTabView: View {
         committed.isEmpty && !nearby && selectedContent == nil
     }
 
-    /// 핀에 번호를 찍을 것인가.
-    ///
-    /// 번호는 "목록의 N번 = 지도의 N번" 을 잇는 장치다. 첫 화면의 **작품 탭**에서는
-    /// 목록이 작품이고 핀은 장소라 이어 볼 짝이 없다 — 그때만 민 핀으로 둔다.
-    /// 장소 탭으로 옮기면 목록과 핀이 같은 10곳이 되므로 번호를 붙인다(인기 1위부터).
+    /// 핀에 번호를 찍을 것인가 — 첫 화면은 보관함 순서, 그 밖에는 목록 행 번호(`SearchMapPins.numbered`).
     private var numbersOnPins: Bool {
-        !(isInitial && tab == .work)
+        SearchMapPins.numbered(initial: isInitial, tab: tab, contentSelected: selectedContent != nil)
     }
 
-    /// 지도에 꽂는 핀. 작품을 골랐으면 그 작품의 촬영지, 아니면 검색 결과다 —
-    /// 어느 쪽이든 **시트의 목록과 같은 배열**이라 행 번호가 곧 핀 번호다.
-    private var mapPlaces: [PlaceSummary] {
-        if selectedContent != nil {
-            return contentPlaces
-        }
-        return visiblePlaces
+    /// 지도에 꽂는 핀(MZ2AZ-547 G1). 작품을 골랐으면 그 작품의 촬영지, 첫 화면이면 **보관함에 담은 곳만**
+    /// (번호는 보관함 순서), 그 밖에는 검색 결과 — 시트의 목록과 같은 배열이라 행 번호가 곧 핀 번호다.
+    var mapPlaces: [PlaceSummary] {
+        SearchMapPins.places(
+            contentSelected: selectedContent != nil,
+            contentPlaces: contentPlaces,
+            initial: isInitial,
+            saved: SearchMapPins.saved(cart.items),
+            visible: visiblePlaces
+        )
     }
 
     var body: some View {
@@ -240,7 +239,7 @@ struct SearchTabView: View {
             // 장소 탭으로 넘어온 것이면 인기 핀 맞춤이 그 장소로의 확대를 덮지 않는다(MZ2AZ-519).
             move(SearchCameraRules.afterTabChange(
                 to: current, isInitial: isInitial,
-                hasPins: !visiblePlaces.isEmpty, placeOpen: selectedPlace != nil
+                hasPins: !mapPlaces.isEmpty, placeOpen: selectedPlace != nil
             ))
         }
         .onChange(of: data.phase) { _, phase in

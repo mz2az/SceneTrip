@@ -355,18 +355,19 @@ final class RouteStore: ObservableObject {
     /// **저장하지 않는다.** 응답은 초안이고 편집 화면에 그려진다. 저장은 「완료」뿐이다.
     ///
     /// 속도는 앱의 둘(빡빡·널널)을 계약의 셋 중 양끝(`packed`·`relaxed`)으로 보낸다. 작품을 하나도
-    /// 안 골랐으면 인기 작품 셋의 제목을 보낸다 — 계약이 `titles` 를 최소 하나 요구한다.
+    /// 안 골랐으면 인기 작품 셋의 제목을 보낸다 — 계약이 작품(`titles`) 또는 도시(`city`) 중 하나를 요구한다.
+    ///
+    /// 보낼 제목(`titles`)은 화면이 정한다 — 작품 고르기는 서버의 작품 전부를 검색·쪽 넘김으로 보여 주므로, 고른 작품이
+    /// 이 저장소의 인기 30편(`works`) 안에 있다는 보장이 없다(`WorksBrowseRules.requestTitles`, MZ2AZ-547).
+    /// `picked` 는 사람이 고른 작품의 제목(코스 이름에 쓴다). 비었으면 「인기 촬영지」.
     func guideDraft(
         span: RouteSpan,
         startDate: Date?,
-        workIds: Set<Int64>,
+        titles: [String],
+        picked: [String],
         pace: RoutePace,
         near: (lat: Double, lng: Double)? = nil
     ) async -> Result<RouteCourse, RouteGuideFailure> {
-        var titles = sortedWorks.filter { workIds.contains($0.id) }.map(\.title)
-        if titles.isEmpty {
-            titles = sortedWorks.prefix(3).map(\.title)
-        }
         guard !titles.isEmpty else { return .failure(.badRequest) }
         let request = GuidePlanRequest(
             titles: Array(titles.prefix(5)),
@@ -377,10 +378,10 @@ final class RouteStore: ObservableObject {
         )
         do {
             let reply = try await GuideAPI.planWithGuide(guidePlanRequest: request)
-            AppAnalytics.log(.generatePlan(dayCount: span.days, titleCount: request.titles.count))
+            AppAnalytics.log(.generatePlan(dayCount: span.days, titleCount: request.titles?.count ?? 0))
             return .success(RouteGuidePlan.course(
                 from: reply.plan,
-                title: title(for: workIds, span: span),
+                title: title(for: picked, span: span),
                 startDate: startDate,
                 pace: pace,
                 places: RouteGuidePlan.placeLookup(places)
@@ -391,8 +392,7 @@ final class RouteStore: ObservableObject {
     }
 
     /// 코스 이름. 이름을 비워 두면 AI 가 작품 이름으로 지어 준다(목업 설계 메모).
-    private func title(for workIds: Set<Int64>, span: RouteSpan) -> String {
-        let titles = sortedWorks.filter { workIds.contains($0.id) }.map(\.title)
+    private func title(for titles: [String], span: RouteSpan) -> String {
         guard let first = titles.first else { return String(format: tr("인기 촬영지 %@"), span.label) }
         let name = titles.count == 1 ? first : String(format: tr("%@ 외 %d"), first, titles.count - 1)
         return "\(name) \(span.label)"

@@ -142,7 +142,6 @@ final class RadarPulse: UIView {
 final class HaloPulse: UIView {
     enum Style {
         case brand
-        case picked
 
         /// 안쪽 투명 → 하늘 → 보라 → 투명. 가운데 구멍이 핀 자리다.
         var colors: [CGColor] {
@@ -152,12 +151,6 @@ final class HaloPulse: UIView {
                     PinImage.light.withAlphaComponent(0.75).cgColor,
                     PinImage.deep.withAlphaComponent(0.65).cgColor,
                     PinImage.deep.withAlphaComponent(0).cgColor,
-                ]
-            case .picked: [
-                    UIColor(red: 1.0, green: 0.45, blue: 0.42, alpha: 0).cgColor,
-                    UIColor(red: 1.0, green: 0.45, blue: 0.42, alpha: 0.75).cgColor,
-                    UIColor(red: 0.89, green: 0.16, blue: 0.20, alpha: 0.6).cgColor,
-                    UIColor(red: 0.89, green: 0.16, blue: 0.20, alpha: 0).cgColor,
                 ]
             }
         }

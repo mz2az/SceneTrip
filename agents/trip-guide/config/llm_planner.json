@@ -13,5 +13,15 @@
     "packed": "빡빡하게 — 부지런한 여행. 그날 다니는 지역 안에서 갈 수 있는 곳은 최대한 많이 봅니다"
   },
   "_pace_설명": "컨셉은 숫자로 주지 않는다. 「하루 6~7곳」 처럼 주면 모델이 그 수를 채우려고 다른 지역 성지를 끌어왔다(2026-10-02 실측). 앱 마법사는 relaxed·packed 두 값만 보낸다.",
-  "pace_fallback": "normal"
+  "pace_fallback": "normal",
+
+  "city": {
+    "candidates_factor": 3,
+    "candidates_min": 15,
+    "stops_per_day": {"relaxed": 3, "normal": 5, "packed": 7},
+    "fetch_limit": 200,
+    "fallback_factor": 2,
+    "zone_factor": 1
+  },
+  "_city_설명": "도시로 짜기(POST /plan 의 city, MZ2AZ-548). 후보 = 인기순 앞에서 (하루 곳 수 × 일수) × candidates_factor, 적어도 candidates_min, 도시 전체보다 많으면 전체. stops_per_day 는 개수 셈에만 쓰고 모델에게 숫자로 주지 않는다(위 _pace_설명). fetch_limit 는 도시 촬영지를 한 번에 받는 상한(서울 124곳, 2026-11-10). fallback_factor 는 모델이 못 했을 때의 계산(앱의 CityPlanRules.plan 과 같은 규칙) — 인기순 앞에서 필요한 수의 이 배수를 잡아 가까운 곳으로 잇는다. zone_factor 는 구역 하나의 크기(하루 곳 수의 배수) — 2 일 때보다 1 일 때 하루 이동이 짧을 것으로 보고 1 로 둔다(계획 §3)."
 }

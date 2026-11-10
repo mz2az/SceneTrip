@@ -121,6 +121,10 @@ final class TabRouter: ObservableObject {
         }
         let raw = defaults.integer(forKey: "openCourseId")
         pendingCourseId = raw > 0 ? Int64(raw) : nil
+        // 확인용 뒷문(MZ2AZ-547 P4) — `-freshCourse 1` 은 `-openCourseId` 로 여는 코스를 「방금 만든 코스」 로 연다(E16).
+        if defaults.bool(forKey: "freshCourse") {
+            freshCourseId = pendingCourseId
+        }
     }
 
     /// 마이페이지·홈이 부른다 — 경로여정을 열고 그 코스의 편집으로 들어간다.

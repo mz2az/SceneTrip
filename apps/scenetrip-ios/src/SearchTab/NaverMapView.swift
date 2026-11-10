@@ -59,7 +59,7 @@ struct NaverMapView: UIViewRepresentable {
     /// 바깥이 카메라를 읽어 가는 창구. 지도가 만들어질 때 자신을 꽂아 준다.
     let camera: MapCamera
 
-    /// 핀에 번호를 찍을지. 첫 화면의 인기 목록에서는 끈다 — PinImage.numbered 주석 참고.
+    /// 핀에 번호를 찍을지 — `SearchMapPins.numbered`.
     let numbered: Bool
 
     /// 값이 바뀐 순간에만 **남한 전체**가 보이게 맞춘다.
@@ -272,7 +272,9 @@ struct NaverMapView: UIViewRepresentable {
                 markers = marks.enumerated().map { index, mark in
                     let place = mark.place
                     let marker = NMFMarker(position: spread[index])
-                    marker.iconImage = PinImage.image(number: mark.number, selected: mark.selected)
+                    // 코스 편집 화면과 같은 보라 번호 핀(MZ2AZ-547 G1). 고른 핀은 그림이 이미 1.2배다 — 마커에서 다시 키우지 않는다.
+                    marker.iconImage = CoursePinImage.image(number: mark.number, selected: mark.selected)
+                    marker.anchor = CoursePinShape.anchor
                     // 긴 영어 이름이 옆 핀을 덮지 않게 앞머리만, 정해진 폭 안에서(MZ2AZ-372).
                     marker.captionText = PinCaption.text(place.name)
                     marker.captionRequestedWidth = PinCaption.width
@@ -355,7 +357,7 @@ struct NaverMapView: UIViewRepresentable {
             }
         }
 
-        /// 열어 둔 장소의 핀(MZ2AZ-519, 웹 `.st-pin-selected` 와 같은 뜻) — 1.3배 아이콘은 `PinImage` 가 굽고,
+        /// 열어 둔 장소의 핀(MZ2AZ-519, 웹 `.st-pin-selected` 와 같은 뜻) — 1.2배 아이콘은 `CoursePinImage` 가 굽고,
         /// 여기서는 이름표를 **줌과 상관없이 핀 위에** 띄우고 다른 핀보다 위에 놓는다.
         ///
         /// 이름표를 핀 아래(기본)에 두면 장소 좌표 바로 밑에 붙는 지도 자체의 지명(예: 탄도항)과 겹친다

@@ -250,6 +250,32 @@
                         "null"
                       ]
                     },
+                    "imageUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "그 장소의 대표 사진(1.28.0, MZ2AZ-548)"
+                    },
+                    "contents": {
+                      "type": "array",
+                      "description": "그 장소가 나온 작품들, 서버 순서(1.28.0, MZ2AZ-548) — 계약 ContentRef 와 같은 모양",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "contentId",
+                          "title"
+                        ],
+                        "properties": {
+                          "contentId": {
+                            "type": "integer"
+                          },
+                          "title": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
                     "mealAfter": {
                       "type": "boolean"
                     },

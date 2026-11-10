@@ -1,4 +1,5 @@
 import CoreLocation
+import OSLog
 import SceneApiClient
 import SwiftUI
 
@@ -48,7 +49,6 @@ struct RouteEditorView: View {
     @State var pinning = false
     @State var pendingPin: RoutePin?
     @State var showCart = false
-    @State var showSearch = false
     @State var nearbyMapAnchor: RouteGuideAnchor?
     @State var showNearby = false
     @StateObject var cartHint = RouteCartHintStore()
@@ -72,8 +72,19 @@ struct RouteEditorView: View {
     /// 가이드와의 대화. **앱 공용이다** — 길찾기 화면과 같은 대화를 본다.
     @ObservedObject var guide = RouteGuideSession.shared
 
-    /// 지도에 보여 줄 편의시설 갈래. 기본은 전부 — 끄는 것은 사용자의 선택이다.
-    @State var poiGroupsOn: Set<RoutePoiGroup> = Set(RoutePoiGroup.allCases)
+    /// 지도 위 편의시설 칩(MZ2AZ-547 M1–M3). **처음엔 다 꺼져 있고 켤 때만 받는다** — 예전엔 줌 13 이상이면 저절로 깔렸다.
+    @State var mapChips = MapPoiChips()
+    @State var poiFetch = MapPoiFetch()
+    /// 지도가 마지막으로 멈춘 범위 — 칩·검색이 이 범위로 묻는다.
+    @State var mapViewport: MapViewport?
+    /// 🔍 검색칸이 열려 있나(M6) · 다시 열 때 채울 검색어 · 그 목록(지도에 점으로도 찍는다) · 엔터 뒤 결과 지도(M7) · 그 카메라 명령.
+    @State var mapSearching = false
+    @State var mapSearchText = ""
+    @StateObject var mapSearch = MapSearchModel()
+    @StateObject var mapResults = MapSearchResultsModel()
+    @State var mapCamera: MapCameraCommand?
+    /// 지도(와 일정 서랍)가 차지한 높이 — 결과 서랍의 높이를 정한다.
+    @State var mapAreaHeight: CGFloat = 0
     /// 「AI 장소」 칩 — 챗봇이 찾아 준 곳(해태 핀)을 보일 것인가. 갈래 칩과 따로 논다.
     @State var aiPlacesOn = true
     /// 올리면 지도가 코스 전체에 맞춘다(`RouteMapView.courseFitToken`) — 동선 최적화가 쓴다.
@@ -143,11 +154,47 @@ struct RouteEditorView: View {
     /// 바꾼 것을 버릴지 묻는 창.
     @State var confirmingDiscard = false
 
+    /// 보기/편집(MZ2AZ-547 E1). 저장된 코스는 보기로, 새 초안·방금 만든 코스는 편집으로 연다(`RouteEditorRules`).
+    @State var mode: RouteEditorMode
+    /// 방금 「도시로」 만든 코스인가(E16) — 저장 없이 나가면 묻고 서버에서 지운다.
+    @State var fresh: Bool
+    /// 「편집」 을 누른 때의 모습 — 저장된 코스의 「취소」 가 여기로 되돌린다(E3).
+    @State var beforeEdit: RouteCourse
+    /// 「바꾼 내용을 버릴까요?」(되돌려 보기로) · 「저장하지 않고 나갈까요?」(방금 만든 코스).
+    @State var confirmingRevert = false
+    @State var confirmingLeave = false
+    /// 「지도」 알약(E4) — 기본은 목록 전체, 여행 중이면 펼친 채.
+    @State var mapToggle: RouteMapToggle
+    /// 떠 있는 ＋ 의 메뉴 · 「지도에서 추가」 · 「보관함에서 추가」(E8–E10).
+    @State var addMenuOpen = false
+    /// 「목록만」 을 눌러 서랍이 맨 위로 올라가는 0.32초(M5) — 그동안 지도 알약·＋ 를 숨긴다.
+    @State var mapClosing = false
+    @State var showMapAdd = false
+    @State var showSavedAdd = false
+    /// 줄 사진의 ⓘ 로 연 장소 상세(E6).
+    @State var detailOf: PlaceSummary?
+
     init(course: RouteCourse, isNew: Bool) {
         _course = State(initialValue: course)
         _opened = State(initialValue: RouteBridge.outgoing(from: course))
         self.isNew = isNew
+        let isFresh = !isNew && TabRouter.shared.isFreshCourse(course.serverId)
+        _fresh = State(initialValue: isFresh)
+        _beforeEdit = State(initialValue: course)
+        // 확인용 뒷문(MZ2AZ-547 P4) — `-editorMode edit` 은 저장된 코스도 편집으로, `-editorMap 1` 은 지도를 펼친 채로 연다.
+        let defaults = UserDefaults.standard
+        let forceEdit = defaults.string(forKey: "editorMode") == "edit"
+        _mode = State(initialValue: forceEdit ? .editing : RouteEditorRules.initialMode(isNew: isNew, isFresh: isFresh))
+        var toggle = RouteMapToggle(running: course.isRunning)
+        if defaults.bool(forKey: "editorMap") {
+            _ = toggle.open()
+        }
+        _mapToggle = State(initialValue: toggle)
+        // 어느 코스를 열었나 — 시뮬레이터 확인 때 `-openCourseId` 에 줄 번호를 기기 기록에서 찾는다(합성 탭이 안 닿는다).
+        Self.log.debug("계획 화면 열기 courseId=\(course.serverId ?? -1, privacy: .public)")
     }
+
+    static let log = Logger(subsystem: "com.mz2az.scenetrip", category: "route")
 
     var stops: [RouteStop] {
         course.days.indices.contains(dayIndex) ? course.days[dayIndex].stops : []
@@ -177,7 +224,8 @@ struct RouteEditorView: View {
     var visiblePickedGuide: RouteGuide.Place? {
         guide.picked.flatMap { picked in
             let isAi = guide.places.contains { $0.id == picked.id }
-            return (isAi ? aiPlacesOn : poiGroupsOn.contains(picked.poiGroup)) ? picked : nil
+            // 주변 점·검색 결과에서 고른 것은 늘 보인다 — 갈래를 끄면 그때 놓는다(`toggleMapChip`).
+            return isAi && !aiPlacesOn ? nil : picked
         }
     }
 
@@ -193,10 +241,11 @@ struct RouteEditorView: View {
     /// 카드의 체크를 한 번 더 눌렀다 — **모든 일차에서** 뺀다. 담을 때와 같은
     /// 열쇠로 지우므로, 담은 것과 다른 것이 지워질 일은 없다.
     func removeGuidePlace(_ place: RouteGuide.Place) {
+        beginEditIfViewing()
         for index in course.days.indices {
             course.days[index].stops.removeAll { place.isSameSpot(as: $0) }
         }
-        fitToken += 1
+        // 빼기로는 지도를 다시 맞추지 않는다(MZ2AZ-547 E12, `RouteCameraRules`).
     }
 
     var body: some View {
@@ -216,25 +265,45 @@ struct RouteEditorView: View {
             // 다 먹었는데, 코스를 짜는 동안 정작 「어디를 도는가」가 우표만 했다
             // (2026-08-27 사용자 지적). 지도를 화면에 다 깔고 일정은 **끌어 올렸다
             // 내렸다 하는 시트**로 얹는다 — 검색 탭과 같은 부품, 같은 손맛이다.
+            //
+            // **지도는 켜고 끈다**(MZ2AZ-547 E4, 웹 시안). 기본은 일정 목록이 화면 전체이고, 왼쪽 아래 「지도」 를 누르면
+            // 지도 40 : 일정 60. 지도는 접혀 있어도 목록 밑에 제 크기로 살아 있다 — 다시 펼칠 때 사람이 맞춰 둔 확대가 남는다.
             ZStack(alignment: .bottom) {
                 map
                     // **도착 알림만** 지도 맨 위 카드로(2026-09-03 사용자 결정). 경로 정보는
                     // 시트 안(`tripBanner`)에 — 지도를 카드로 다 가리지 않는다.
                     .overlay(alignment: .top) { arrivalNotice }
-                BottomSheet(
-                    detent: $panelDetent, topInset: 8,
-                    // 지도 40 : 일정 60. 반반이었는데 일정 쪽에 단추가 늘며
-                    // 좁아졌다(2026-08-28 사용자 요청).
-                    mediumFraction: 0.60,
-                    onHeightChange: { panelHeight = $0 }
-                ) {
-                    // `AnyView` 는 detent 타입을 맞추기 위한 것이다 — `Detent` 가
-                    // 제네릭 안에 살아서 상태 선언이 내용 타입을 미리 못 안다.
-                    // 안내와 장소가 같은 스크롤을 쓴다. 큰 글자/medium에서도 복귀 문구까지 읽는다.
-                    AnyView(stopList)
+                    .accessibilityHidden(!mapToggle.isOpen)
+                if mapToggle.isOpen, !mapResultsOpen {
+                    BottomSheet(
+                        detent: $panelDetent, topInset: 8,
+                        // 지도 40 : 일정 60. 반반이었는데 일정 쪽에 단추가 늘며
+                        // 좁아졌다(2026-08-28 사용자 요청).
+                        mediumFraction: 0.60,
+                        onHeightChange: { panelHeight = $0 }
+                    ) {
+                        // `AnyView` 는 detent 타입을 맞추기 위한 것이다 — `Detent` 가
+                        // 제네릭 안에 살아서 상태 선언이 내용 타입을 미리 못 안다.
+                        // 안내와 장소가 같은 스크롤을 쓴다. 큰 글자/medium에서도 복귀 문구까지 읽는다.
+                        AnyView(stopList)
+                    }
+                } else if !mapToggle.isOpen {
+                    stopList
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(.systemBackground))
                 }
             }
-            bottomBar
+            // 지도 맨 위 칩 줄·검색칸·결과 지도(MZ2AZ-547 M1·M6·M7). 일정 서랍 위까지 덮을 수 있게 지도가 아니라 이 칸에 얹는다.
+            .overlay(alignment: .top) { mapTop }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { mapAreaHeight = $0 }
+            .overlay(alignment: .bottomLeading) {
+                if !mapResultsOpen, !mapClosing {
+                    mapPill
+                }
+            }
+            if RouteEditorRules.showsBottomBar(mode, isNew: isNew) {
+                bottomBar
+            }
         }
         .background(Color(.systemGroupedBackground))
         // 정보 카드는 **화면 바닥**에 띄운다. 앞서 지도(210pt) 위에 얹었더니 카드가
@@ -267,8 +336,6 @@ struct RouteEditorView: View {
         .locationConsentSheet(trip.directionsConsent.gate, onCancel: trip.cancelLocationRequest)
         .locationConsentSheet(ambientLocationGate)
         .kakaoDirectionsNotice(trip.directionsConsent.notice)
-        // 편집기 진입 시 즉시 강조하고, 문구는 장바구니 조회 완료 후 표시한다.
-        .task { await presentCartHint() }
         // 작품 줄 — 받아 둔 촬영지 목록(인기 200곳)에 없는 곳은 여기서 물어 채운다(MZ2AZ-372).
         .task(id: stops.map(\.place.id)) { await store.loadWorkTitles(for: stops) }
         .task {
@@ -302,9 +369,21 @@ struct RouteEditorView: View {
         // **안내 중에는 편의시설 점을 다 끈다**(2026-09-04 사용자 요청) — 경로선이 주인공인데
         // 음식점·명소 점이 그 위를 덮었다. 안내가 끝나면 다시 전부 켠다. 안내 중에 칩으로
         // 켜는 것은 그대로 된다.
+        //
+        // 칩 줄(MZ2AZ-547 M1)은 처음엔 다 꺼져 있다 — 안내가 끝나도 켜지 않는다. 보기로 돌아가도 끈다(칩은 고칠 때만).
         .onChange(of: trip.isActive) { _, active in
-            poiGroupsOn = active ? [] : Set(RoutePoiGroup.allCases)
+            if active {
+                resetMapPoi()
+            }
         }
+        .onChange(of: mode) { _, mode in
+            if mode == .viewing {
+                resetMapPoi()
+            }
+        }
+        // 칩을 켜고 끄거나 「다시 찾기」 를 누를 때만 받는다(M2·M3).
+        .onChange(of: mapChips.ask) { _, _ in fetchMapPois() }
+        .onChange(of: mapResults.fitTick) { _, _ in fitSearchResults() }
         // 저장이 실패하면 이유를 말한다. 버튼이 안 먹는 것처럼 보이면 사용자는
         // 같은 버튼을 계속 누르게 된다.
         .alert("저장하지 못했습니다", isPresented: Binding(
@@ -322,21 +401,20 @@ struct RouteEditorView: View {
         // 해태 「내가 도와줄게!」 — 안내 헤더 입구와 교대한다. 지도가 아니라 **화면** 오른쪽
         // 아래에 떠 있고, 꾹 누르면 옮길 수 있다(2026-09-16). 창이 열려 있거나 핀을 찍는
         // 동안은 숨긴다. 카드가 떠 있으면 말풍선을 접고 카드 위로 비킨다(MZ2AZ-367).
-        .guideFloatingChip(hidden: guideEntry != .floating, cardTop: guideCardTop, keepClear: stayFrame) {
+        .guideFloatingChip(hidden: guideEntry != .floating || mapResultsOpen, cardTop: guideCardTop, keepClear: stayFrame) {
             showGuide = true
         }
+        // 떠 있는 ＋ — 해태 동그라미 바로 위, 편집 중에만(E8).
+        .overlay { addFab }
+        // 처음 안내(MZ2AZ-547 C4·C5) — 처음 만든 코스의 지도·해태·＋·저장, 지도를 처음 펼칠 때 🔍·칩.
+        .coachTour(.editorFirst, active: coachEditorFirstActive)
+        .coachTour(.mapSearch, active: coachMapSearchActive)
+        // 보기/편집·장소 넣기·장소 상세의 창들(`RouteEditorModes.swift`).
+        .background { modePresentations }
         // 가이드는 시트가 아니라 **오른쪽 서랍**이다 — 오른쪽에서 미끄러져
         // 나오는 고정 크기 창(2026-08-28 사용자 요청). 지도가 계속 보인다.
         .guidePanel(isOpen: showGuide) {
             guidePanelContent
-        }
-        .sheet(isPresented: $showSearch) {
-            RouteSearchSheet(
-                taken: takenPlaceIds,
-                onPreview: { previewPlaces = $0 },
-                onAdd: { add($0) }
-            )
-            .onDisappear { previewPlaces = [] }
         }
         .sheet(isPresented: $showNearby) {
             if let nearbyMapAnchor {
@@ -387,12 +465,23 @@ struct RouteEditorView: View {
 
     /// 저장하고 닫는다. **실패하면 닫지 않는다** — 조용히 닫으면 저장된 줄 알고
     /// 나갔다가 목록에 없는 것을 보게 된다.
+    ///
+    /// 저장된 코스의 「저장」 은 닫지 않고 **보기로** 돌아간다(MZ2AZ-547 E3). 새 초안의 「만들기」 는 닫는다.
     func saveAndClose() async {
         // 제목을 비운 채 저장하면 목록에 이름 없는 코스가 생긴다 — 「직접 짜기」의 기본 이름으로 둔다.
         course.title = RouteBridge.savedTitle(course.title)
-        if let saved = await store.save(course) {
-            guide.rekey(to: guideKey(for: saved)) // 방금 저장한 이 코스를 다시 열면 대화가 이어진다
+        guard let saved = await store.save(course) else { return }
+        guide.rekey(to: guideKey(for: saved)) // 방금 저장한 이 코스를 다시 열면 대화가 이어진다
+        if fresh {
+            // 저장했다 — 더는 「방금 만든 코스」 가 아니다(E16).
+            fresh = false
+            TabRouter.shared.clearFreshCourse()
+        }
+        switch RouteEditorRules.afterSave(isNew: isNew) {
+        case .close:
             dismiss()
+        case .view:
+            finishEdit(saved: saved)
         }
     }
 
@@ -441,6 +530,7 @@ struct RouteEditorView: View {
     func addStops(_ candidates: [RouteStop], asNext: Bool = false) {
         let fresh = RouteDedupe.fresh(candidates, among: course.stops)
         guard !fresh.isEmpty else { return }
+        beginEditIfViewing()
         let slot = asNext && course.isRunning
             ? RouteGeometry.nextSlot(in: stops, target: trip.target, arrived: trip.phase == .arrived)
             : stops.count
@@ -494,6 +584,14 @@ extension RouteEditorView {
         if UserDefaults.standard.bool(forKey: "openGuide") {
             showGuide = true
         }
+        // `-editorAdd menu|saved|map` — ＋ 메뉴·보관함에서 추가·지도에서 추가를 연다(MZ2AZ-547 P4). 덮개가 다 뜬 뒤에.
+        if let add = UserDefaults.standard.string(forKey: "editorAdd") {
+            try? await Task.sleep(for: .milliseconds(800))
+            addMenuOpen = add == "menu"
+            showSavedAdd = add == "saved"
+            showMapAdd = add == "map"
+        }
+        await runMapPoiBackdoor()
         let wanted = UserDefaults.standard.integer(forKey: "navStop")
         guard wanted > 0, await waitForStops(count: wanted) else { return }
         startTrip(to: stops[wanted - 1])
@@ -547,7 +645,9 @@ extension RouteEditorView {
 
     var topBar: some View {
         Group {
-            if dynamicTypeSize.isAccessibilitySize {
+            if mode == .viewing {
+                viewBar
+            } else if dynamicTypeSize.isAccessibilitySize {
                 stackedTopBar
             } else {
                 ViewThatFits(in: .horizontal) {
