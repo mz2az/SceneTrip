@@ -83,6 +83,8 @@ class Place:
     # 편의시설(`poi_id`)·직접 찍은 핀(`custom_pin_id`). 앱이 보낸 값을 **그대로 들고 있다가 돌려준다.**
     poi_id: int | None = None
     custom_pin_id: int | None = None
+    # scene-api 가 준 작품 표(`ContentRef` — contentId·title), 서버 순서(MZ2AZ-548). 일정 줄의 `contents` 로 그대로 나간다.
+    content_refs: list[dict] = field(default_factory=list)
 
     @property
     def titles(self) -> list[str]:
