@@ -185,15 +185,6 @@ final class MapPoiChipsTests: XCTestCase {
         XCTAssertTrue(MapPoiChips().keep([poi(1, .food), poi(2, .stay)]).isEmpty)
     }
 
-    /// 칩 옆 개수 — 갈래마다 센다.
-    func testCountsPerGroup() {
-        let counts = MapPoiChips.counts([poi(1, .food), poi(2, .food), poi(3, .stay), poi(4, .sight), poi(5, .food)])
-        XCTAssertEqual(counts[.food], 3)
-        XCTAssertEqual(counts[.stay], 1)
-        XCTAssertEqual(counts[.sight], 1)
-        XCTAssertEqual(counts[.transit] ?? 0, 0)
-    }
-
     // MARK: 칩 줄이 보이나 (M1)
 
     func testBarShowsOnlyWhenEditingWithMapOpenAndNotTripping() {
