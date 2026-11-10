@@ -26,6 +26,7 @@ from src.city_planner import (
     candidate_count,
     chain_plan,
     plan_city_with_model,
+    trim_days,
 )
 from src.internal_server import (
     BodyError,
@@ -265,6 +266,95 @@ class 이어짜기(unittest.TestCase):
         self.assertEqual(days[0][0].place_id, "1000")
 
 
+# ── 하루 몫 자르기 ────────────────────────────────────────────────────────────
+
+
+def _day(*idx):
+    """`_spot(i, i)` 들로 하루를 만든다 — 순서는 인자 차례 그대로."""
+    return [_spot(i, i) for i in idx]
+
+
+def _pids(days) -> list[list[str]]:
+    return [[p.place_id for p in d] for d in days]
+
+
+class 하루몫자르기(unittest.TestCase):
+    """계획 §3 「하루 몫 자르기」 — 모델이 고른 날·순서는 두고 날마다 앞에서 하루 곳 수까지만."""
+
+    def test_여유는_앞에서_3곳(self):
+        day = _day(4, 0, 3, 1, 2)
+        self.assertEqual(
+            _pids(trim_days([day], "relaxed", CFG)), [["1004", "1000", "1003"]]
+        )
+
+    def test_보통은_앞에서_5곳(self):
+        day = _day(9, 2, 7, 0, 5, 1, 8)
+        self.assertEqual(
+            _pids(trim_days([day], "normal", CFG)),
+            [["1009", "1002", "1007", "1000", "1005"]],
+        )
+
+    def test_빡빡은_앞에서_7곳(self):
+        day = _day(12, 3, 10, 0, 8, 1, 6, 2, 11, 4)
+        self.assertEqual(
+            _pids(trim_days([day], "packed", CFG)),
+            [["1012", "1003", "1010", "1000", "1008", "1001", "1006"]],
+        )
+
+    def test_하루_곳_수는_설정의_stops_per_day(self):
+        many = _day(*range(12))
+        for pace, n in CFG["city"]["stops_per_day"].items():
+            with self.subTest(pace=pace):
+                out = trim_days([list(many)], pace, CFG)
+                self.assertEqual(_pids(out), [[f"{1000 + i}" for i in range(n)]])
+
+    def test_하루_곳_수_이하인_날은_그대로(self):
+        cases = [
+            ("relaxed", _day(2, 0, 1)),
+            ("relaxed", _day(5)),
+            ("normal", _day(3, 1, 4, 0, 2)),
+            ("packed", _day(6, 0, 5, 1, 4, 2, 3)),
+            ("packed", _day(1, 0)),
+        ]
+        for pace, day in cases:
+            with self.subTest(pace=pace, n=len(day)):
+                expected = _pids([day])
+                self.assertEqual(_pids(trim_days([day], pace, CFG)), expected)
+
+    def test_날마다_따로_자른다(self):
+        # 서울 2일 빡빡 실측(13·12곳)처럼 넘친 날과 모자란 날이 섞여 있다.
+        days = [
+            _day(*range(13)),
+            _day(20, 15, 18),
+            _day(*range(30, 42)),
+        ]
+        out = trim_days(days, "packed", CFG)
+        self.assertEqual(
+            _pids(out),
+            [
+                [f"{1000 + i}" for i in range(7)],
+                ["1020", "1015", "1018"],
+                [f"{1000 + i}" for i in range(30, 37)],
+            ],
+        )
+
+    def test_모르는_속도는_설정의_pace_fallback_하루_곳_수(self):
+        fallback = CFG["pace_fallback"]
+        n = CFG["city"]["stops_per_day"][fallback]
+        day = _day(*range(10, 0, -1))
+        out = trim_days([day], "turbo", CFG)
+        self.assertEqual(_pids(out), [[f"{1000 + i}" for i in range(10, 10 - n, -1)]])
+        self.assertEqual(len(out[0]), 5)  # 지금 설정은 보통 5곳
+
+    def test_빈_날은_생기지_않는다(self):
+        days = [_day(3), _day(*range(4, 12))]
+        out = trim_days(days, "relaxed", CFG)
+        self.assertEqual(len(out), 2)
+        for d in out:
+            self.assertTrue(d)
+        self.assertEqual(_pids(out), [["1003"], ["1004", "1005", "1006"]])
+
+
 # ── 진입점 ────────────────────────────────────────────────────────────────────
 
 
@@ -296,6 +386,55 @@ class 도시로짜기(unittest.TestCase):
         ids = [r["id"] for r in _rows(prompt)]
         # 당일 보통 → 15곳. 인기순 앞에서부터.
         self.assertEqual(ids, [f"{1000 + i}" for i in range(15)])
+
+    def test_모델이_하루_곳_수보다_많이_고르면_앞에서_자른다(self):
+        # 당일 보통(5곳)에 8곳 — 모델의 순서대로 앞 5곳. 이어짜기(1000 시작)가 아니다.
+        picked = ["1010", "1003", "1007", "1001", "1012", "1005", "1000", "1009"]
+        client = ScriptedClient([_reply([{"day": 1, "place_ids": picked}])])
+        plan = self.run_plan(client)
+        self.assertEqual(_ids(plan), [picked[:5]])
+        self.assertEqual(len(client.seen), 1)
+
+    def test_당일_여유에_5곳이면_앞_3곳(self):
+        # 부산 당일 여유 실측(5곳)과 같은 꼴.
+        picked = ["1004", "1011", "1002", "1008", "1006"]
+        client = ScriptedClient([_reply([{"day": 1, "place_ids": picked}])])
+        plan = self.run_plan(client, _req(pace="relaxed"))
+        self.assertEqual(_ids(plan), [["1004", "1011", "1002"]])
+
+    def test_2일_빡빡에_날마다_넘치면_날마다_7곳(self):
+        # 서울 2일 빡빡 실측(13·12곳)과 같은 꼴 — 후보는 도시 전체 20곳.
+        day1 = ["1019", "1002", "1015", "1007", "1011", "1000", "1013", "1004", "1017"]
+        day2 = [
+            "1001",
+            "1018",
+            "1006",
+            "1012",
+            "1009",
+            "1014",
+            "1003",
+            "1016",
+            "1005",
+            "1010",
+        ]
+        client = ScriptedClient(
+            [_reply([{"day": 1, "place_ids": day1}, {"day": 2, "place_ids": day2}])]
+        )
+        plan = self.run_plan(client, _req(days=2, pace="packed"))
+        self.assertEqual(_ids(plan), [day1[:7], day2[:7]])
+        chained = [
+            [p.place_id for p in d] for d in chain_plan(self.places, 2, "packed", CFG)
+        ]
+        self.assertNotEqual(_ids(plan), chained)
+
+    def test_한_날만_넘치면_그날만_자른다(self):
+        day1 = ["1006", "1001", "1013", "1008", "1002", "1011", "1004"]
+        day2 = ["1003", "1009"]
+        client = ScriptedClient(
+            [_reply([{"day": 1, "place_ids": day1}, {"day": 2, "place_ids": day2}])]
+        )
+        plan = self.run_plan(client, _req(days=2, pace="normal"))
+        self.assertEqual(_ids(plan), [day1[:5], day2])
 
     def test_JSON_이_아니면_이어짜기(self):
         client = ScriptedClient(
